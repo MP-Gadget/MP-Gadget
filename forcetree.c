@@ -803,8 +803,8 @@ void force_update_node_recursive(int no, int sib, int father)
 #else
 		  if(pa->Type == 0)
 		    {
-		      if(SphP[p].Hsml > maxsoft)
-			maxsoft = SphP[p].Hsml;
+		      if(PPP[p].Hsml > maxsoft)
+			maxsoft = PPP[p].Hsml;
 		    }
 		  else
 		    {
@@ -2145,7 +2145,7 @@ int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecou
       aold = All.ErrTolForceAcc * P[target].OldAcc;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
       if(ptype == 0)
-	soft = SphP[target].Hsml;
+	soft = PPP[target].Hsml;
 #endif
     }
   else
@@ -2361,8 +2361,8 @@ int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecou
 
 	      if(P[no].Type == 0)
 		{
-		  if(h < SphP[no].Hsml)
-		    h = SphP[no].Hsml;
+		  if(h < PPP[no].Hsml)
+		    h = PPP[no].Hsml;
 		}
 	      else
 		{
@@ -2773,7 +2773,7 @@ int force_treeevaluate_shortrange(int target, int mode, int *exportflag, int *ex
       aold = All.ErrTolForceAcc * P[target].OldAcc;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
       if(ptype == 0)
-	soft = SphP[target].Hsml;
+	soft = PPP[target].Hsml;
 #endif
 #ifdef PLACEHIGHRESREGION
       if(pmforce_is_particle_high_res(ptype, P[target].Pos))
@@ -2882,8 +2882,8 @@ int force_treeevaluate_shortrange(int target, int mode, int *exportflag, int *ex
 
 	      if(P[no].Type == 0)
 		{
-		  if(h < SphP[no].Hsml)
-		    h = SphP[no].Hsml;
+		  if(h < PPP[no].Hsml)
+		    h = PPP[no].Hsml;
 		}
 	      else
 		{
@@ -3688,7 +3688,7 @@ int force_treeevaluate_potential(int target, int mode, int *nexport, int *nsend_
       aold = All.ErrTolForceAcc * P[target].OldAcc;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
       if(ptype == 0)
-	soft = SphP[target].Hsml;
+	soft = PPP[target].Hsml;
 #endif
     }
   else
@@ -3823,8 +3823,8 @@ int force_treeevaluate_potential(int target, int mode, int *nexport, int *nsend_
 		h = All.ForceSoftening[ptype];
 	      if(P[no].Type == 0)
 		{
-		  if(h < SphP[no].Hsml)
-		    h = SphP[no].Hsml;
+		  if(h < PPP[no].Hsml)
+		    h = PPP[no].Hsml;
 		}
 	      else
 		{
@@ -4188,7 +4188,7 @@ int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, 
       aold = All.ErrTolForceAcc * P[target].OldAcc;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
       if(ptype == 0)
-	soft = SphP[target].Hsml;
+	soft = PPP[target].Hsml;
 #endif
 #ifdef PLACEHIGHRESREGION
       if(pmforce_is_particle_high_res(ptype, P[target].Pos))
@@ -4340,8 +4340,8 @@ int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, 
 		h = All.ForceSoftening[ptype];
 	      if(P[no].Type == 0)
 		{
-		  if(h < SphP[no].Hsml)
-		    h = SphP[no].Hsml;
+		  if(h < PPP[no].Hsml)
+		    h = PPP[no].Hsml;
 		}
 	      else
 		{
