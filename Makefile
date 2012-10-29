@@ -39,7 +39,7 @@ OPT	+=  -DMYSORT
 OPT	+=  -DDOUBLEPRECISION
 OPT	+=  -DDOUBLEPRECISION_FFTW
 OPT	+=  -DOUTPUT_IN_DOUBLEPRECISION # snapshot files will be written in double precision
-OPT	+=  -DINPUT_IN_DOUBLEPRECISION
+#OPT	+=  -DINPUT_IN_DOUBLEPRECISION
 
 
 #---------------------------------------- Invariance Test
@@ -187,7 +187,7 @@ OPT	+=  -DDONOTUSENODELIST
 
 #--------------------------------------- Time integration options
 #OPT	+=  -DALTERNATIVE_VISCOUS_TIMESTEP
-OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
+#OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
 #OPT	+=  -DNOWINDTIMESTEPPING            # Disable wind reducing timestep (not recommended)
 #OPT	+=  -DNOPMSTEPADJUSTMENT
 #OPT	+=  -DFORCE_EQUAL_TIMESTEPS
