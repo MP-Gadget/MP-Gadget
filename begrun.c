@@ -1874,6 +1874,9 @@ void read_parameter_file(char *fname)
       addr[nt] = &All.BlackHoleFeedbackFactor;
       id[nt++] = REAL;
 #endif
+      strcpy(tag[nt], "BlackHoleFeedbackRadius");
+      addr[nt] = &All.BlackHoleFeedbackRadius;
+      id[nt++] = REAL;
       
 #ifdef LT_BH
       strcpy(tag[nt], "BH_RegionSize");

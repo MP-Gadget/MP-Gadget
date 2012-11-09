@@ -76,9 +76,7 @@ static struct densdata_in
 #if defined(MAGNETICSEED)
   MyFloat MagSeed;
 #endif
-#if defined(LT_STELLAREVOLUTION)
   int Type;
-#endif
 #ifdef BLACK_HOLES
 #ifdef LT_BH_CUT_KERNEL
   float CutHsml;
@@ -126,6 +124,7 @@ static struct densdata_out
 
 #if defined(BLACK_HOLES)
   MyLongDouble SmoothedEntr;
+  MyLongDouble FBRho;
 #endif
 #ifdef CONDUCTION_SATURATION
   MyFloat GradEntr[3];
@@ -485,9 +484,7 @@ void density(void)
 	      DensDataIn[j].DensityOld = SphP[place].DensityOld;
 	      DensDataIn[j].Entropy = SphP[place].Entropy;
 #endif
-#if defined(LT_STELLAREVOLUTION)
 	      DensDataIn[j].Type = P[place].Type;
-#endif
 	      memcpy(DensDataIn[j].NodeList,
 		     DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
 
@@ -737,6 +734,7 @@ void density(void)
 	      if(P[place].Type == 5)
 		{
 		  P[place].b1.dBH_Density += DensDataOut[j].Rho;
+		  P[place].b1_FB.dBH_FB_Density += DensDataOut[j].FBRho;
 		  P[place].b2.dBH_Entropy += DensDataOut[j].SmoothedEntr;
 		  P[place].b3.dBH_SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
 		  P[place].b3.dBH_SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
@@ -787,6 +785,7 @@ void density(void)
 	    if(P[i].Type == 5)
 	      {
 		P[i].b1.BH_Density = FLT(P[i].b1.dBH_Density);
+		P[i].b1_BH.BH_FB_Density = FLT(P[i].b1_BH.dBH_FB_Density);
 		P[i].b2.BH_Entropy = FLT(P[i].b2.dBH_Entropy);
 		for(j = 0; j < 3; j++)
 		  P[i].b3.BH_SurroundingGasVel[j] = FLT(P[i].b3.dBH_SurroundingGasVel[j]);
@@ -1003,6 +1002,9 @@ void density(void)
 		      P[i].b3.BH_SurroundingGasVel[1] /= P[i].b1.BH_Density;
 		      P[i].b3.BH_SurroundingGasVel[2] /= P[i].b1.BH_Density;
 		    }
+#if 0
+                  printf("BH_FB_DENSITY: %g \n", P[i].b1_FB.BH_FB_Density);
+#endif
 #ifdef KD_FRICTION
 		  if(P[i].BH_SurroundingDensity > 0)
 		    {
@@ -1413,6 +1415,56 @@ void density(void)
     }
 
 
+void density_kernel_cache_h(double h, double _[4]) {
+    _[H2] = h * h;
+    _[Hinv] = 1.0 / h;
+#ifndef  TWODIMS
+#ifndef  ONEDIM
+    _[Hinv3] = _[Hinv] * _[Hinv] * _[Hinv];
+#else
+    _[Hinv3] = _[Hinv];
+#endif
+#else
+    _[Hinv3] = [Hinv] * _[Hinv ]/ boxSize_Z;
+#endif
+    _[Hinv4] = _[Hinv3] * _[Hinv];
+}
+void density_kernel(double r, double _[4],double * wk, double * dwk) {
+    double u = r * _[Hinv];
+
+    if(u < 0.5)
+    {
+        *wk = _[Hinv3] * (KERNEL_COEFF_1 + KERNEL_COEFF_2 * (u - 1) * u * u);
+        if(dwk)
+        *dwk = _[Hinv4] * u * (KERNEL_COEFF_3 * u - KERNEL_COEFF_4);
+    }
+    else
+    {
+        *wk = _[Hinv3] * KERNEL_COEFF_5 * (1.0 - u) * (1.0 - u) * (1.0 - u);
+        if(dwk)
+        *dwk = _[Hinv4] * KERNEL_COEFF_6 * (1.0 - u) * (1.0 - u);
+    }
+}
+
+double density_decide_hsearch(int targettype, double h) {
+#ifdef BLACK_HOLES
+      if(targettype == 5) {
+          /* BlackHoleFeedbackRadius is in proper. cm = pr / a */
+          if(All.BlackHoleFeedbackRadius > 0) {
+            if (All.ComovingIntegrationOn) 
+               return All.BlackHoleFeedbackRadius / All.Time;
+            else
+               return All.BlackHoleFeedbackRadius;
+          }
+      }
+      return h;
+
+#else
+      return h;
+#endif
+
+}
+
 /*! This function represents the core of the SPH density computation. The
  *  target particle may either be local, or reside in the communication
  *  buffer.
@@ -1424,13 +1476,17 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
   int startnode, numngb, numngb_inbox, listindex = 0;
 
-  double h, h2, fac, hinv, hinv3, hinv4;
+  double h, hcache[4]; 
+  double hsearch, hsearchcache[4];
 
   MyLongDouble rho;
-
+#ifdef BLACK_HOLES
+  MyLongDouble fb_rho;  /*smoothing density used in feedback */
+  int type;
+#endif
   double wk, dwk;
 
-  double dx, dy, dz, r, r2, u, mass_j;
+  double dx, dy, dz, r, r2, mass_j;
 
   double dvx, dvy, dvz;
 
@@ -1575,10 +1631,14 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
   rho = weighted_numngb = dhsmlrho = 0;
 
+  fb_rho = 0;
+
   if(mode == 0)
     {
       pos = P[target].Pos;
       h = PPP[target].Hsml;
+      type = P[target].Type;
+      hsearch = density_decide_hsearch(P[target].Type, h);
 #ifdef VOLUME_CORRECTION
       densityold = SphP[target].DensityOld;
 #endif
@@ -1636,6 +1696,9 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
       pos = DensDataGet[target].Pos;
       vel = DensDataGet[target].Vel;
       h = DensDataGet[target].Hsml;
+      type = DensDataGet[target].Type;
+      hsearch = density_decide_hsearch(DensDataGet[target].Type, h);
+
 #ifdef LT_BH
 #ifdef LT_BH_CUT_KERNEL
       CutHsml = DensDataGet[target].CutHsml;
@@ -1679,20 +1742,8 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
     }
 
 
-  h2 = h * h;
-  hinv = 1.0 / h;
-#ifndef  TWODIMS
-#ifndef  ONEDIM
-  hinv3 = hinv * hinv * hinv;
-#else
-  hinv3 = hinv;
-#endif
-#else
-  hinv3 = hinv * hinv / boxSize_Z;
-#endif
-  hinv4 = hinv3 * hinv;
-
-
+  density_kernel_cache_h(h, hcache);
+  density_kernel_cache_h(hsearch, hsearchcache);
 
   if(mode == 0)
     {
@@ -1711,13 +1762,13 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
       while(startnode >= 0)
 	{
 #ifdef CS_MODEL
-	  numngb_inbox = cs_ngb_treefind_variable_decoupling_threads(&pos[0], h, target, &startnode,
+	  numngb_inbox = cs_ngb_treefind_variable_decoupling_threads(&pos[0], hsearch, target, &startnode,
 								     densityold, entropy, &vel[0], mode,
 								     exportflag, exportnodecount, exportindex,
 								     ngblist);
 #else
 	  numngb_inbox =
-	    ngb_treefind_variable_threads(pos, h, target, &startnode, mode, exportflag, exportnodecount,
+	    ngb_treefind_variable_threads(pos, hsearch, target, &startnode, mode, exportflag, exportnodecount,
 					  exportindex, ngblist);
 #endif
 
@@ -1753,23 +1804,12 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
 	      r2 = dx * dx + dy * dy + dz * dz;
 
-	      if(r2 < h2)
-		{
-
 		  r = sqrt(r2);
 
-		  u = r * hinv;
+	      if(r2 < hcache[H2])
+		{
 
-		  if(u < 0.5)
-		    {
-		      wk = hinv3 * (KERNEL_COEFF_1 + KERNEL_COEFF_2 * (u - 1) * u * u);
-		      dwk = hinv4 * u * (KERNEL_COEFF_3 * u - KERNEL_COEFF_4);
-		    }
-		  else
-		    {
-		      wk = hinv3 * KERNEL_COEFF_5 * (1.0 - u) * (1.0 - u) * (1.0 - u);
-		      dwk = hinv4 * KERNEL_COEFF_6 * (1.0 - u) * (1.0 - u);
-		    }
+                  density_kernel(r, hcache, &wk, &dwk);
 
 		  mass_j = P[j].Mass;
 #ifdef KD_FRICTION
@@ -1797,13 +1837,13 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #if defined(LT_STELLAREVOLUTION) && defined(LT_NOFIXEDMASSINSTARKERNEL)
 		  if(!TargetType)
 #endif
-		    weighted_numngb += FLT(NORM_COEFF * wk / hinv3);	/* 4.0/3 * PI = 4.188790204786 */
+		    weighted_numngb += FLT(NORM_COEFF * wk / hcache[Hinv3]);	/* 4.0/3 * PI = 4.188790204786 */
 #if defined(LT_STELLAREVOLUTION) && defined(LT_NOFIXEDMASSINSTARKERNEL)
 		  else
 		    weighted_numngb += 1;
 #endif
 
-		  dhsmlrho += FLT(-mass_j * (NUMDIMS * hinv * wk + u * dwk));
+		  dhsmlrho += FLT(-mass_j * (NUMDIMS * hcache[Hinv] * wk + r * hcache[Hinv] * dwk));
 
 
 #ifdef BLACK_HOLES
@@ -1844,7 +1884,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
 		  if(r > 0)
 		    {
-		      fac = mass_j * dwk / r;
+		      double fac = mass_j * dwk / r;
 
 		      dvx = vel[0] - SphP[j].VelPred[0];
 		      dvy = vel[1] - SphP[j].VelPred[1];
@@ -1938,9 +1978,18 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 		    }
 #endif
 		}
+#ifdef BLACK_HOLES
+	      if(type == 5 && r2 < hsearchcache[H2])
+		{
+                  double wksearch;
+                  density_kernel(r, hsearchcache, &wksearch, NULL);
+
+		  mass_j = P[j].Mass;
+		  fb_rho += FLT(mass_j * wksearch);
+                }
 	    }
 	}
-
+#endif
       if(mode == 1)
 	{
 	  listindex++;
@@ -1952,7 +2001,11 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 	    }
 	}
     }
-
+#if 0
+  if (type == 5 && numngb > 0) {
+    printf("fb_rho in DENSITY: %d %g %g, h %g hsearch %g ngb %d\n", target, fb_rho, rho, h, hsearch, numngb);
+  }
+#endif
   if(mode == 0)
     {
       PPP[target].n.dNumNgb = weighted_numngb;
@@ -2040,6 +2093,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 	}
 #ifdef BLACK_HOLES
       P[target].b1.dBH_Density = rho;
+      P[target].b1_FB.dBH_FB_Density = fb_rho;
       P[target].b2.dBH_Entropy = smoothentr;
       P[target].b3.dBH_SurroundingGasVel[0] = gasvel[0];
       P[target].b3.dBH_SurroundingGasVel[1] = gasvel[1];
@@ -2094,6 +2148,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
 #if defined(BLACK_HOLES)
       DensDataResult[target].SmoothedEntr = smoothentr;
+      DensDataResult[target].FBRho = fb_rho;
 #endif
 #ifdef CONDUCTION_SATURATION
       DensDataResult[target].GradEntr[0] = gradentr[0];

@@ -25,6 +25,7 @@ static struct blackholedata_in
 {
   MyDouble Pos[3];
   MyFloat Density;
+  MyFloat FBDensity;
   MyFloat Mdot;
   MyFloat Dt;
   MyFloat Hsml;
@@ -392,6 +393,7 @@ void blackhole_accretion(void)
 	  BlackholeDataIn[j].Mass = P[place].Mass;
 	  BlackholeDataIn[j].BH_Mass = P[place].BH_Mass;
 	  BlackholeDataIn[j].Density = P[place].b1.BH_Density;
+	  BlackholeDataIn[j].FBDensity = P[place].b1_FB.BH_FB_Density;
 	  BlackholeDataIn[j].Mdot = P[place].BH_Mdot;
 	  BlackholeDataIn[j].Csnd =
 	    sqrt(GAMMA * P[place].b2.BH_Entropy *
@@ -956,7 +958,11 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
   int startnode, numngb, j, k, n, index, listindex = 0;
   MyIDType id;
   MyFloat *pos, *velocity, h_i, dt, mdot, rho, mass, bh_mass, csnd;
-  double dx, dy, dz, h_i2, r2, r, u, hinv, hinv3, wk, vrel;
+  double dx, dy, dz, r2, r, vrel;
+  double hsearch;
+  double fb_rho, fb_rho2=0.0, rho2=0.0;
+  double hcache[4];
+  double hsearchcache[4];
 
 #ifdef UNIFIED_FEEDBACK
   double meddington;
@@ -988,6 +994,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
     {
       pos = P[target].Pos;
       rho = P[target].b1.BH_Density;
+      fb_rho = P[target].b1_FB.BH_FB_Density;
       mdot = P[target].BH_Mdot;
       dt = (P[target].TimeBin ? (1 << P[target].TimeBin) : 0) * All.Timebase_interval / hubble_a;
       h_i = PPP[target].Hsml;
@@ -1024,6 +1031,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
     {
       pos = BlackholeDataGet[target].Pos;
       rho = BlackholeDataGet[target].Density;
+      fb_rho = BlackholeDataGet[target].FBDensity;
       mdot = BlackholeDataGet[target].Mdot;
       dt = BlackholeDataGet[target].Dt;
       h_i = BlackholeDataGet[target].Hsml;
@@ -1059,8 +1067,10 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
   contrib = 0;
 #endif
   
+  hsearch = density_decide_hsearch(5, h_i);
+  density_kernel_cache_h(h_i, hcache);
+  density_kernel_cache_h(hsearch, hsearchcache);
   /* initialize variables before SPH loop is started */
-  h_i2 = h_i * h_i;
 
   /* Now start the actual SPH computation for this particle */
   if(mode == 0)
@@ -1077,7 +1087,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
     {
       while(startnode >= 0)
 	{
-	  numngb = ngb_treefind_blackhole(pos, h_i, target, &startnode, mode, nexport, nSend_local);
+	  numngb = ngb_treefind_blackhole(pos, hsearch, target, &startnode, mode, nexport, nSend_local);
 
 	  if(numngb < 0)
 	    return -1;
@@ -1109,10 +1119,10 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 #endif
 		      r2 = dx * dx + dy * dy + dz * dz;
 
-		      if(r2 < h_i2)
-			{
 #ifdef REPOSITION_ON_POTMIN
 			  /* if this option is switched on, we may also encounter dark matter particles or stars */
+		      if(r2 < hcache[H2])
+			{
 			  if(P[j].p.Potential < minpot)
 			    {
 			      if(P[j].Type == 0 || P[j].Type == 1 || P[j].Type == 4 || P[j].Type == 5)
@@ -1132,8 +1142,9 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 				    }
 				}
 			    }
+                        }
 #endif
-			  if(P[j].Type == 5)	/* we have a black hole merger */
+		       if(P[j].Type == 5 && r2 < hcache[H2])	/* we have a black hole merger */
 			    {
 			      if(id != P[j].ID)
 				{
@@ -1157,25 +1168,14 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 				    }
 				}
 			    }
-			  if(P[j].Type == 0)
-			    {
+		      if(P[j].Type == 0 && r2 < hcache[H2])
+		            {
 			      /* here we have a gas particle */
 
 			      r = sqrt(r2);
-			      hinv = 1 / h_i;
-#ifndef  TWODIMS
-			      hinv3 = hinv * hinv * hinv;
-#else
-			      hinv3 = hinv * hinv / boxSize_Z;
-#endif
-
-			      u = r * hinv;
-
-			      if(u < 0.5)
-				wk = hinv3 * (KERNEL_COEFF_1 + KERNEL_COEFF_2 * (u - 1) * u * u);
-			      else
-				wk = hinv3 * KERNEL_COEFF_5 * (1.0 - u) * (1.0 - u) * (1.0 - u);
-
+                              double wk;
+                              density_kernel(r, hcache, &wk, NULL);
+                              rho2 += P[j].Mass * wk;
 #ifdef SWALLOWGAS
 			      /* compute accretion probability */
 			      double p, w;
@@ -1203,7 +1203,12 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 #endif
 #endif
 
-			      if(P[j].Mass > 0)
+                          }
+                      if(P[j].Type == 0 && r2 < hsearchcache[H2]) {
+			    r = sqrt(r2);
+                            double wk;
+                            density_kernel(r, hsearchcache, &wk, NULL);
+			    if(P[j].Mass > 0)
 				{
 #ifndef LT_BH                                  
 #ifdef BH_THERMALFEEDBACK
@@ -1211,12 +1216,13 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 				  energy = All.BlackHoleFeedbackFactor * 0.1 * mdot * dt *
 				    pow(C / All.UnitVelocity_in_cm_per_s, 2);
                                   
-				  if(rho > 0)
+				  if(fb_rho > 0)
                                     {
-                                      SphP[j].i.dInjected_BH_Energy += FLT(energy * P[j].Mass * wk / rho);
+                                      SphP[j].i.dInjected_BH_Energy += FLT(energy * P[j].Mass * wk / fb_rho);
+                                        fb_rho2 += P[j].Mass * wk;
 #ifdef LT_BH_ACCRETE_SLICES                 
                                       if(P[j].SwallowID == id)
-                                        SphP[j].i.dInjected_BH_Energy -= FLT(energy * P[j].Mass / (All.NBHslices - SphP[j].NSlicesSwallowed) * wk / rho);
+                                        SphP[j].i.dInjected_BH_Energy -= FLT(energy * P[j].Mass / (All.NBHslices - SphP[j].NSlicesSwallowed) * wk / fb_rho);
 #endif
                                     }
 
@@ -1232,8 +1238,8 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 											    All.
 											    UnitVelocity_in_cm_per_s,
 											    2);
-				      if(rho > 0)
-					SphP[j].i.dInjected_BH_Energy += FLT(energy * P[j].Mass * wk / rho);
+				      if(fb_rho > 0)
+					SphP[j].i.dInjected_BH_Energy += FLT(energy * P[j].Mass * wk / fb_rho);
 				    }
 #endif
 #endif
@@ -1269,7 +1275,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                     }
                                   else
                                     {
-                                      AltRho = rho;
+                                      AltRho = fb_rho;
                                       swk = wk;
                                     }
 #endif
@@ -1312,7 +1318,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 				}
 
 			    }
-			}
 		    }
 		}
 	    }
@@ -1329,8 +1334,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 	    }
 	}
     }
-
-
 
   /* Now collect the result at the right place */
   if(mode == 0)
@@ -1365,6 +1368,11 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 
     }
 
+#if 0
+    if(fb_rho2 >0 || rho2 > 0)
+      printf("id"IDFMT" Task %d fb_rho: %g fb_rho2 %g rho %g rho2 %g\n", id, ThisTask, fb_rho, fb_rho2, rho, rho2);
+
+#endif
   return 0;
 }
 

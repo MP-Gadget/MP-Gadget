@@ -1145,6 +1145,7 @@ extern struct global_data_all_processes
   double TimeBetBlackHoleSearch;
   double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
   double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
+  double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed*/
   double SeedBlackHoleMass;	/*!< Seed black hole mass */
   double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
   double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
@@ -1569,6 +1570,11 @@ extern struct particle_data
   MyFloat BH_Mass_radio;
 #endif
 #endif
+  union
+  {
+    MyFloat BH_FB_Density;
+    MyLongDouble dBH_FB_Density;
+  } b1_FB;
   union
   {
     MyFloat BH_Density;
