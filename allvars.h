@@ -1572,8 +1572,8 @@ extern struct particle_data
 #endif
   union
   {
-    MyFloat BH_FB_Density;
-    MyLongDouble dBH_FB_Density;
+    MyFloat BH_FBsum;
+    MyLongDouble dBH_FBsum;
   } b1_FB;
   union
   {

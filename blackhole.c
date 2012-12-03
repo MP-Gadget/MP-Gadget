@@ -25,7 +25,7 @@ static struct blackholedata_in
 {
   MyDouble Pos[3];
   MyFloat Density;
-  MyFloat FBDensity;
+  MyFloat FBsum;
   MyFloat Mdot;
   MyFloat Dt;
   MyFloat Hsml;
@@ -393,7 +393,7 @@ void blackhole_accretion(void)
 	  BlackholeDataIn[j].Mass = P[place].Mass;
 	  BlackholeDataIn[j].BH_Mass = P[place].BH_Mass;
 	  BlackholeDataIn[j].Density = P[place].b1.BH_Density;
-	  BlackholeDataIn[j].FBDensity = P[place].b1_FB.BH_FB_Density;
+	  BlackholeDataIn[j].FBsum = P[place].b1_FB.BH_FBsum;
 	  BlackholeDataIn[j].Mdot = P[place].BH_Mdot;
 	  BlackholeDataIn[j].Csnd =
 	    sqrt(GAMMA * P[place].b2.BH_Entropy *
@@ -960,7 +960,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
   MyFloat *pos, *velocity, h_i, dt, mdot, rho, mass, bh_mass, csnd;
   double dx, dy, dz, r2, r, vrel;
   double hsearch;
-  double fb_rho, fb_rho2=0.0, rho2=0.0;
+  double FBsum, fb_rho2=0.0, rho2=0.0;
   double hcache[4];
   double hsearchcache[4];
 
@@ -994,7 +994,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
     {
       pos = P[target].Pos;
       rho = P[target].b1.BH_Density;
-      fb_rho = P[target].b1_FB.BH_FB_Density;
+      FBsum = P[target].b1_FB.BH_FBsum;
       mdot = P[target].BH_Mdot;
       dt = (P[target].TimeBin ? (1 << P[target].TimeBin) : 0) * All.Timebase_interval / hubble_a;
       h_i = PPP[target].Hsml;
@@ -1031,7 +1031,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
     {
       pos = BlackholeDataGet[target].Pos;
       rho = BlackholeDataGet[target].Density;
-      fb_rho = BlackholeDataGet[target].FBDensity;
+      FBsum = BlackholeDataGet[target].FBsum;
       mdot = BlackholeDataGet[target].Mdot;
       dt = BlackholeDataGet[target].Dt;
       h_i = BlackholeDataGet[target].Hsml;
@@ -1216,13 +1216,13 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 				  energy = All.BlackHoleFeedbackFactor * 0.1 * mdot * dt *
 				    pow(C / All.UnitVelocity_in_cm_per_s, 2);
                                   
-				  if(fb_rho > 0)
+				  if(FBsum > 0)
                                     {
-                                      SphP[j].i.dInjected_BH_Energy += FLT(energy * P[j].Mass * wk / fb_rho);
+                                      SphP[j].i.dInjected_BH_Energy += FLT(energy * P[j].Mass * wk / FBsum);
                                         fb_rho2 += P[j].Mass * wk;
 #ifdef LT_BH_ACCRETE_SLICES                 
                                       if(P[j].SwallowID == id)
-                                        SphP[j].i.dInjected_BH_Energy -= FLT(energy * P[j].Mass / (All.NBHslices - SphP[j].NSlicesSwallowed) * wk / fb_rho);
+                                        SphP[j].i.dInjected_BH_Energy -= FLT(energy * P[j].Mass / (All.NBHslices - SphP[j].NSlicesSwallowed) * wk / FBsum);
 #endif
                                     }
 
@@ -1238,8 +1238,8 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 											    All.
 											    UnitVelocity_in_cm_per_s,
 											    2);
-				      if(fb_rho > 0)
-					SphP[j].i.dInjected_BH_Energy += FLT(energy * P[j].Mass * wk / fb_rho);
+				      if(FBsum > 0)
+					SphP[j].i.dInjected_BH_Energy += FLT(energy * P[j].Mass * wk / FBsum);
 				    }
 #endif
 #endif
@@ -1275,7 +1275,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                     }
                                   else
                                     {
-                                      AltRho = fb_rho;
+                                      AltRho = FBsum;
                                       swk = wk;
                                     }
 #endif
@@ -1370,7 +1370,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 
 #if 0
     if(fb_rho2 >0 || rho2 > 0)
-      printf("id"IDFMT" Task %d fb_rho: %g fb_rho2 %g rho %g rho2 %g\n", id, ThisTask, fb_rho, fb_rho2, rho, rho2);
+      printf("id"IDFMT" Task %d FBsum: %g fb_rho2 %g rho %g rho2 %g\n", id, ThisTask, FBsum, fb_rho2, rho, rho2);
 
 #endif
   return 0;

@@ -124,7 +124,7 @@ static struct densdata_out
 
 #if defined(BLACK_HOLES)
   MyLongDouble SmoothedEntr;
-  MyLongDouble FBRho;
+  MyLongDouble FBsum;
 #endif
 #ifdef CONDUCTION_SATURATION
   MyFloat GradEntr[3];
@@ -734,7 +734,7 @@ void density(void)
 	      if(P[place].Type == 5)
 		{
 		  P[place].b1.dBH_Density += DensDataOut[j].Rho;
-		  P[place].b1_FB.dBH_FB_Density += DensDataOut[j].FBRho;
+		  P[place].b1_FB.dBH_FBsum += DensDataOut[j].FBsum;
 		  P[place].b2.dBH_Entropy += DensDataOut[j].SmoothedEntr;
 		  P[place].b3.dBH_SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
 		  P[place].b3.dBH_SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
@@ -785,7 +785,7 @@ void density(void)
 	    if(P[i].Type == 5)
 	      {
 		P[i].b1.BH_Density = FLT(P[i].b1.dBH_Density);
-		P[i].b1_BH.BH_FB_Density = FLT(P[i].b1_BH.dBH_FB_Density);
+		P[i].b1_BH.BH_FBsum = FLT(P[i].b1_BH.dBH_FBsum);
 		P[i].b2.BH_Entropy = FLT(P[i].b2.dBH_Entropy);
 		for(j = 0; j < 3; j++)
 		  P[i].b3.BH_SurroundingGasVel[j] = FLT(P[i].b3.dBH_SurroundingGasVel[j]);
@@ -1003,7 +1003,7 @@ void density(void)
 		      P[i].b3.BH_SurroundingGasVel[2] /= P[i].b1.BH_Density;
 		    }
 #if 0
-                  printf("BH_FB_DENSITY: %g \n", P[i].b1_FB.BH_FB_Density);
+                  printf("BH_FB_DENSITY: %g \n", P[i].b1_FB.BH_FBsum);
 #endif
 #ifdef KD_FRICTION
 		  if(P[i].BH_SurroundingDensity > 0)
@@ -1481,7 +1481,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
   MyLongDouble rho;
 #ifdef BLACK_HOLES
-  MyLongDouble fb_rho;  /*smoothing density used in feedback */
+  MyLongDouble FBsum;  /*smoothing density used in feedback */
   int type;
 #endif
   double wk, dwk;
@@ -1631,7 +1631,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
   rho = weighted_numngb = dhsmlrho = 0;
 
-  fb_rho = 0;
+  FBsum = 0;
 
   if(mode == 0)
     {
@@ -1985,7 +1985,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                   density_kernel(r, hsearchcache, &wksearch, NULL);
 
 		  mass_j = P[j].Mass;
-		  fb_rho += FLT(mass_j * wksearch);
+		  FBsum += FLT(mass_j * wksearch);
                 }
 	    }
 	}
@@ -2003,7 +2003,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
     }
 #if 0
   if (type == 5 && numngb > 0) {
-    printf("fb_rho in DENSITY: %d %g %g, h %g hsearch %g ngb %d\n", target, fb_rho, rho, h, hsearch, numngb);
+    printf("FBsum in DENSITY: %d %g %g, h %g hsearch %g ngb %d\n", target, FBsum, rho, h, hsearch, numngb);
   }
 #endif
   if(mode == 0)
@@ -2093,7 +2093,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 	}
 #ifdef BLACK_HOLES
       P[target].b1.dBH_Density = rho;
-      P[target].b1_FB.dBH_FB_Density = fb_rho;
+      P[target].b1_FB.dBH_FBsum = FBsum;
       P[target].b2.dBH_Entropy = smoothentr;
       P[target].b3.dBH_SurroundingGasVel[0] = gasvel[0];
       P[target].b3.dBH_SurroundingGasVel[1] = gasvel[1];
@@ -2148,7 +2148,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
 #if defined(BLACK_HOLES)
       DensDataResult[target].SmoothedEntr = smoothentr;
-      DensDataResult[target].FBRho = fb_rho;
+      DensDataResult[target].FBsum = FBsum;
 #endif
 #ifdef CONDUCTION_SATURATION
       DensDataResult[target].GradEntr[0] = gradentr[0];
