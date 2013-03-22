@@ -77,7 +77,7 @@
 					 *   where TIMESPAN needs to be a power of 2. Note that (1<<28) corresponds
 					 *   to 2^29
 					 */
-#define MAXHSML 3000.0
+#define MAXHSML 30000.0
 
 #ifdef RADTRANSFER
 #define N_BINS 10
