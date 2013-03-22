@@ -1004,6 +1004,10 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
       csnd =
 	sqrt(GAMMA * P[target].b2.BH_Entropy *
 	     pow(P[target].b1.BH_Density / (ascale * ascale * ascale), GAMMA_MINUS1));
+	if(csnd == 0.0) {
+		fprintf(stderr, "csnd == 0.0, entropy == %g, density = %g, hsml=%g\n", P[target].b2.BH_Entropy, P[target].b1.BH_Density, h_i);
+		//endrun(999965);
+	}
       index = target;
       id = P[target].ID;
 #ifdef BH_KINETICFEEDBACK
@@ -1207,7 +1211,15 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                       if(P[j].Type == 0 && r2 < hsearchcache[H2]) {
 			    r = sqrt(r2);
                             double wk;
+#ifdef BH_THERMALFEEDBACK_BY_KERNEL
                             density_kernel(r, hsearchcache, &wk, NULL);
+#else
+#ifdef BH_THERMALFEEDBACK_BY_MASS
+                            wk = 1.0;
+#else
+    #error define BH_THERMALFEEDBACK_BY_MASS or BY_KERNEL
+#endif
+#endif
 			    if(P[j].Mass > 0)
 				{
 #ifndef LT_BH                                  
