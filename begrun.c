@@ -1863,12 +1863,6 @@ void read_parameter_file(char *fname)
       addr[nt] = &All.BlackHoleMaxAccretionRadius;
       id[nt++] = REAL;
 
-#ifdef FOF
-      strcpy(tag[nt], "massDMpart");
-      addr[nt] = &All.massDMpart;
-      id[nt++] = REAL;
-#endif
-
 #if !defined(LT_DF_BH_MASS_SWITCH) && !defined(LT_DF_BH_BHAR_SWITCH)
       strcpy(tag[nt], "BlackHoleFeedbackFactor");
       addr[nt] = &All.BlackHoleFeedbackFactor;

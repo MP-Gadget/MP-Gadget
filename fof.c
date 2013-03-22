@@ -1971,8 +1971,9 @@ void fof_make_black_holes(void)
 
   if(All.MassTable[1] > 0)
     massDMpart = All.MassTable[1];
-  else
-    massDMpart = All.massDMpart;
+  else {
+    endrun(991234569); /* deprecate massDMpart in paramfile*/
+  }
 
   for(n = 0; n < NTask; n++)
     Send_count[n] = 0;
