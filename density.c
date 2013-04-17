@@ -167,7 +167,6 @@ static struct densdata_out
 }
  *DensDataResult, *DensDataOut;
 
-
 /*! \file density.c
  *  \brief SPH density computation and smoothing length determination
  *
@@ -1412,8 +1411,7 @@ void density(void)
   CPU_Step[CPU_DENSWAIT] += timewait;
   CPU_Step[CPU_DENSCOMM] += timecomm;
   CPU_Step[CPU_DENSMISC] += timeall - (timecomp + timewait + timecomm);
-    }
-
+}
 
 void density_kernel_cache_h(double h, double _[4]) {
     _[H2] = h * h;
@@ -1482,8 +1480,8 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
   MyLongDouble rho;
 #ifdef BLACK_HOLES
   MyLongDouble FBsum;  /*smoothing density used in feedback */
-  int type;
 #endif
+  int type;
   double wk, dwk;
 
   double dx, dy, dz, r, r2, mass_j;
@@ -1628,10 +1626,9 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
 #ifdef BLACK_HOLES
   gasvel[0] = gasvel[1] = gasvel[2] = 0;
+  FBsum = 0;
 #endif
   rho = weighted_numngb = dhsmlrho = 0;
-
-  FBsum = 0;
 
   if(mode == 0)
     {
@@ -1995,9 +1992,9 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
 #endif
                 }
+#endif
 	    }
 	}
-#endif
       if(mode == 1)
 	{
 	  listindex++;
