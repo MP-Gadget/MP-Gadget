@@ -1446,17 +1446,25 @@ void density_kernel(double r, double _[4],double * wk, double * dwk) {
 
 double density_decide_hsearch(int targettype, double h) {
 #ifdef BLACK_HOLES
-      if(targettype == 5) {
-          /* BlackHoleFeedbackRadius is in proper. cm = pr / a */
-          if(All.BlackHoleFeedbackRadius > 0) {
-            if (All.ComovingIntegrationOn) 
-               return All.BlackHoleFeedbackRadius / All.Time;
-            else
-               return All.BlackHoleFeedbackRadius;
+      if(targettype == 5 && All.BlackHoleFeedbackRadius > 0) {
+          /* BlackHoleFeedbackRadius is in comoving.
+           * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys 
+           * just like how it was done for grav smoothing.
+           * */
+          double rds;
+          if (All.ComovingIntegrationOn) {
+              rds = All.BlackHoleFeedbackRadiusMaxPhys / All.Time;
+          } else {
+              rds = All.BlackHoleFeedbackRadiusMaxPhys;
           }
-      }
-      return h;
 
+          if(rds > All.BlackHoleFeedbackRadius) {
+              rds = All.BlackHoleFeedbackRadius;
+          }
+          return rds;
+      } else {
+          return h;
+      }
 #else
       return h;
 #endif

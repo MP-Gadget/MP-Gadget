@@ -1145,7 +1145,8 @@ extern struct global_data_all_processes
   double TimeBetBlackHoleSearch;
   double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
   double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
-  double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed*/
+  double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
+  double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
   double SeedBlackHoleMass;	/*!< Seed black hole mass */
   double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
   double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
