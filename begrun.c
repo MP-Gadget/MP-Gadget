@@ -1877,7 +1877,7 @@ void read_parameter_file(char *fname)
       id[nt++] = REAL;
 
       strcpy(tag[nt], "BlackHoleFeedbackMethod");
-      addr[nt] = &All.BlackHoleFeedbackMethodSTR;
+      addr[nt] = All.BlackHoleFeedbackMethodSTR;
       id[nt++] = STRING;
       
 #ifdef LT_BH
@@ -2837,29 +2837,41 @@ void read_parameter_file(char *fname)
 	errorFlag += read_outputlist(All.OutputListFilename);
       else
 	All.OutputListLength = 0;
+      /* parse blackhole feedback method string */
+#ifdef BLACK_HOLES
+      All.BlackHoleFeedbackMethod = 0;
+      {
+          struct { char * name; int value; } 
+          *p, table[] = {
+              {"mass", BH_FEEDBACK_MASS},
+              {"volume", BH_FEEDBACK_VOLUME},
+              {"tophat", BH_FEEDBACK_TOPHAT},
+              {"spline", BH_FEEDBACK_SPLINE},
+              {NULL, BH_FEEDBACK_SPLINE},
+          };
+          for(p = table; p->name; p++) {
+              if(strstr(All.BlackHoleFeedbackMethodSTR, p->name)) {
+                  All.BlackHoleFeedbackMethod |= p->value;
+              }
+          }
+          if(   ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_TOPHAT) != 0)
+                  ==  ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE) != 0)){
+              printf("error BlackHoleFeedbackMethod contains either tophat or spline, but both\n");
+              errorFlag = 1;
+          }
+          if(   ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) != 0)
+                  ==  ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_VOLUME) != 0)){
+              printf("error BlackHoleFeedbackMethod contains either volume or mass, but both\n");
+              errorFlag = 1;
+          }
+          for(p = table; p->name; p++) {
+              if(All.BlackHoleFeedbackMethod & p->value) {
+                  printf("BH Feedback Method %s\n", p->name);
+              } 
+          }
+      }
+#endif
     }
-
-  /* parse blackhole feedback method string */
-  All.BlackHoleFeedbackMethod = 0;
-  if(strstr(All.BlackHoleFeedbackMethodSTR, "tophat")) {
-        All.BlackHoleFeedbackMethod |= BH_FEEDBACK_TOPHAT;
-  } else
-  if(strstr(All.BlackHoleFeedbackMethodSTR, "spline")) {
-        All.BlackHoleFeedbackMethod |= BH_FEEDBACK_SPLINE;
-  } else {
-        printf("error BlackHoleFeedbackMethod contains either tophat or spline, but both\n");
-        errorFlag = 1;
-  }
-  if(strstr(All.BlackHoleFeedbackMethodSTR, "mass")) {
-        All.BlackHoleFeedbackMethod |= BH_FEEDBACK_MASS;
-  } else
-  if(strstr(All.BlackHoleFeedbackMethodSTR, "volume")) {
-        All.BlackHoleFeedbackMethod |= BH_FEEDBACK_VOLUME;
-  } else {
-        printf("error BlackHoleFeedbackMethod contains either volume or mass, but both\n");
-        errorFlag = 1;
-  }
-
 
   MPI_Bcast(&errorFlag, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
