@@ -1986,19 +1986,19 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #ifdef BLACK_HOLES
 	      if(type == 5 && r2 < hsearchcache[H2])
 		{
-		  mass_j = P[j].Mass;
-#ifdef BH_THERMALFEEDBACK_BY_KERNEL
-                  double wksearch;
-                  density_kernel(r, hsearchcache, &wksearch, NULL);
-
-		  FBsum += FLT(mass_j * wksearch);
-#else
-#ifdef BH_THERMALFEEDBACK_BY_MASS
-		  FBsum += FLT(mass_j);
-#else
-#error define BH_THERMALFEEDBACK_BY_KERNEL or BH_THERMALFEEDBACK_BY_MASS
-#endif
-#endif
+                  double mass_j;
+                  if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) {
+                      mass_j = P[j].Mass;
+                  } else {
+                      mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
+                  }
+                  if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE) {
+                      double wksearch;
+                      density_kernel(r, hsearchcache, &wksearch, NULL);
+                      FBsum += FLT(mass_j * wksearch);
+                  } else {
+                      FBsum += FLT(mass_j);
+                  }
                 }
 #endif
 	    }

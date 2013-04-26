@@ -393,6 +393,12 @@ typedef MyFloat MyLongDouble;
 #define PPP SphP
 #endif
 
+#ifdef BLACK_HOLES
+#define BH_FEEDBACK_TOPHAT   0x2
+#define BH_FEEDBACK_SPLINE   0x4
+#define BH_FEEDBACK_MASS     0x8
+#define BH_FEEDBACK_VOLUME   0x10
+#endif
 
 #define DMAX(a,b) (dmax1=(a),dmax2=(b),(dmax1>dmax2)?dmax1:dmax2)
 #define DMIN(a,b) (dmin1=(a),dmin2=(b),(dmin1<dmin2)?dmin1:dmin2)
@@ -1145,6 +1151,8 @@ extern struct global_data_all_processes
   double TimeBetBlackHoleSearch;
   double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
   double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
+  int BlackHoleFeedbackMethod;	/*!< Radius the thermal feedback is fed comoving*/
+  char * BlackHoleFeedbackMethodSTR;	/*!< Radius the thermal feedback is fed comoving*/
   double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
   double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
   double SeedBlackHoleMass;	/*!< Seed black hole mass */

@@ -1875,6 +1875,10 @@ void read_parameter_file(char *fname)
       strcpy(tag[nt], "BlackHoleFeedbackRadiusMaxPhys");
       addr[nt] = &All.BlackHoleFeedbackRadiusMaxPhys;
       id[nt++] = REAL;
+
+      strcpy(tag[nt], "BlackHoleFeedbackMethod");
+      addr[nt] = &All.BlackHoleFeedbackMethodSTR;
+      id[nt++] = STRING;
       
 #ifdef LT_BH
       strcpy(tag[nt], "BH_RegionSize");
@@ -2835,6 +2839,28 @@ void read_parameter_file(char *fname)
 	All.OutputListLength = 0;
     }
 
+  /* parse blackhole feedback method string */
+  All.BlackHoleFeedbackMethod = 0;
+  if(strstr(All.BlackHoleFeedbackMethodSTR, "tophat")) {
+        All.BlackHoleFeedbackMethod |= BH_FEEDBACK_TOPHAT;
+  } else
+  if(strstr(All.BlackHoleFeedbackMethodSTR, "spline")) {
+        All.BlackHoleFeedbackMethod |= BH_FEEDBACK_SPLINE;
+  } else {
+        printf("error BlackHoleFeedbackMethod contains either tophat or spline, but both\n");
+        errorFlag = 1;
+  }
+  if(strstr(All.BlackHoleFeedbackMethodSTR, "mass")) {
+        All.BlackHoleFeedbackMethod |= BH_FEEDBACK_MASS;
+  } else
+  if(strstr(All.BlackHoleFeedbackMethodSTR, "volume")) {
+        All.BlackHoleFeedbackMethod |= BH_FEEDBACK_VOLUME;
+  } else {
+        printf("error BlackHoleFeedbackMethod contains either volume or mass, but both\n");
+        errorFlag = 1;
+  }
+
+
   MPI_Bcast(&errorFlag, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
   if(errorFlag)
@@ -2842,6 +2868,8 @@ void read_parameter_file(char *fname)
       MPI_Finalize();
       exit(0);
     }
+
+
 
   /* now communicate the relevant parameters to the other processes */
   MPI_Bcast(&All, sizeof(struct global_data_all_processes), MPI_BYTE, 0, MPI_COMM_WORLD);

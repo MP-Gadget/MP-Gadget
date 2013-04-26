@@ -1211,15 +1211,16 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                       if(P[j].Type == 0 && r2 < hsearchcache[H2]) {
 			    r = sqrt(r2);
                             double wk;
-#ifdef BH_THERMALFEEDBACK_BY_KERNEL
-                            density_kernel(r, hsearchcache, &wk, NULL);
-#else
-#ifdef BH_THERMALFEEDBACK_BY_MASS
-                            wk = 1.0;
-#else
-    #error define BH_THERMALFEEDBACK_BY_MASS or BY_KERNEL
-#endif
-#endif
+                            double mass_j;
+                            if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) {
+                                mass_j = P[j].Mass;
+                            } else {
+                                mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
+                            }
+                            if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE)
+                                density_kernel(r, hsearchcache, &wk, NULL);
+                            else
+                                wk = 1.0;
 			    if(P[j].Mass > 0)
 				{
 #ifndef LT_BH                                  
@@ -1230,11 +1231,10 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                   
 				  if(FBsum > 0)
                                     {
-                                      SphP[j].i.dInjected_BH_Energy += FLT(energy * P[j].Mass * wk / FBsum);
-                                        fb_rho2 += P[j].Mass * wk;
+                                      SphP[j].i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FBsum);
 #ifdef LT_BH_ACCRETE_SLICES                 
                                       if(P[j].SwallowID == id)
-                                        SphP[j].i.dInjected_BH_Energy -= FLT(energy * P[j].Mass / (All.NBHslices - SphP[j].NSlicesSwallowed) * wk / FBsum);
+                                        SphP[j].i.dInjected_BH_Energy -= FLT(energy * mass_j / (All.NBHslices - SphP[j].NSlicesSwallowed) * wk / FBsum);
 #endif
                                     }
 
@@ -1251,7 +1251,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 											    UnitVelocity_in_cm_per_s,
 											    2);
 				      if(FBsum > 0)
-					SphP[j].i.dInjected_BH_Energy += FLT(energy * P[j].Mass * wk / FBsum);
+					SphP[j].i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FBsum);
 				    }
 #endif
 #endif
@@ -1296,7 +1296,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                   energy = All.BlackHoleFeedbackFactor * 0.1 * mdot * dt *
                                     pow(C / All.UnitVelocity_in_cm_per_s, 2);
 				  if(AltRho > 0)
-				    adding_energy = FLT(energy * P[j].Mass * swk / AltRho);
+				    adding_energy = FLT(energy * mass_j * swk / AltRho);
                                   else
 				    adding_energy = 0;
 #ifdef LT_BH_ACCRETE_SLICES
@@ -1312,12 +1312,12 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                   if(activetime > All.BlackHoleActiveTime)
                                     {
 				      if(AltRho > 0) 
-					adding_energy = FLT(activeenergy * P[j].Mass * swk / AltRho);
+					adding_energy = FLT(activeenergy * mass_j * swk / AltRho);
 				      else
 					adding_energy = 0;
 #ifdef LT_BH_ACCRETE_SLICES
                                       if(P[j].SwallowID == id && AltRho > 0)
-                                        adding_energy -= activeenergy * P[j].Mass / (All.NBHslices - SphP[j].NSlicesSwallowed) * swk / AltRho;
+                                        adding_energy -= activeenergy * mass_j / (All.NBHslices - SphP[j].NSlicesSwallowed) * swk / AltRho;
 #endif
                                     }
 #endif                                                                   /* ----------------: end of kinetic :-- */
