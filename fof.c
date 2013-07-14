@@ -2084,8 +2084,9 @@ void fof_make_black_holes(void)
              ThisTask,P[import_indices[n]].BH_bmax,P[import_indices[n]].BH_sigma);
 #endif
 
+#ifdef SFR
       Stars_converted++;
-
+#endif
       TimeBinCountSph[P[import_indices[n]].TimeBin]--;
 
     }
