@@ -2069,6 +2069,10 @@ int domain_check_for_local_refine(int i, double countlimit, double costlimit)
 {
   int j, p, sub, flag = 0;
 
+#ifdef DENSITY_INDEPENDENT_SPH_DEBUG
+  costlimit = -1;
+  countlimit = -1;
+#endif
   if(topNodes[i].Parent >= 0)
     {
       if(topNodes[i].Count > 0.8 * topNodes[topNodes[i].Parent].Count ||
@@ -2121,6 +2125,10 @@ int domain_check_for_local_refine(int i, double countlimit, double costlimit)
 		{
 		  sub = topNodes[i].Daughter + j;
 
+#ifdef DENSITY_INDEPENDENT_SPH_DEBUG
+          if(topNodes[sub].Count > All.TotNumPart / 
+                  (TOPNODEFACTOR * NTask * NTask))
+#endif
 		  if(domain_check_for_local_refine(sub, countlimit, costlimit))
 		    return 1;
 		}
@@ -2442,6 +2450,8 @@ int domain_determineTopTree(void)
 
   /* now let's see whether we should still append more nodes, based on the estimated cumulative cost/count in each cell */
 
+
+#ifndef DENSITY_INDEPENDENT_SPH_DEBUG
   if(ThisTask == 0)
     printf("Before=%d\n", NTopnodes);
 
@@ -2482,7 +2492,7 @@ int domain_determineTopTree(void)
 
   if(ThisTask == 0)
     printf("After=%d\n", NTopnodes);
-
+#endif
   /* count toplevel leaves */
   domain_sumCost();
 

@@ -530,7 +530,11 @@ void drift_particle(int i, int time1)
 #ifndef VORONOI_MESHRELAX
 
 #ifndef TRADITIONAL_SPH_FORMULATION
-      SphP[i].Pressure = (SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr) * pow(SphP[i].d.Density, GAMMA);
+#ifdef DENSITY_INDEPENDENT_SPH
+      SphP[i].EgyWtDensity *= exp(-SphP[i].v.DivVel * dt_drift);
+      SphP[i].EntVarPred = pow(SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr, 1/GAMMA);
+#endif
+      SphP[i].Pressure = (SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr) * pow(SphP[i].EOMDensity, GAMMA);
 #else
       SphP[i].Pressure = GAMMA_MINUS1 * (SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr) * SphP[i].d.Density;
 #endif

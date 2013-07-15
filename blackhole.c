@@ -1822,11 +1822,11 @@ void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
 
 		  if(All.ComovingIntegrationOn)
 		    E_bubble +=
-		      SphP[j].Entropy * P[j].Mass * pow(SphP[j].d.Density / pow(All.Time, 3),
+		      SphP[j].Entropy * P[j].Mass * pow(SphP[j].EOMDensity / pow(All.Time, 3),
 							GAMMA_MINUS1) / GAMMA_MINUS1;
 		  else
 		    E_bubble +=
-		      SphP[j].Entropy * P[j].Mass * pow(SphP[j].d.Density, GAMMA_MINUS1) / GAMMA_MINUS1;
+		      SphP[j].Entropy * P[j].Mass * pow(SphP[j].EOMDensity, GAMMA_MINUS1) / GAMMA_MINUS1;
 
 		  Mass_bubble += P[j].Mass;
 		}
@@ -1938,11 +1938,11 @@ void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
 
 		      if(All.ComovingIntegrationOn)
 			E_bubble +=
-			  SphP[j].Entropy * P[j].Mass * pow(SphP[j].d.Density / pow(All.Time, 3),
+			  SphP[j].Entropy * P[j].Mass * pow(SphP[j].EOMDensity / pow(All.Time, 3),
 							    GAMMA_MINUS1) / GAMMA_MINUS1;
 		      else
 			E_bubble +=
-			  SphP[j].Entropy * P[j].Mass * pow(SphP[j].d.Density, GAMMA_MINUS1) / GAMMA_MINUS1;
+			  SphP[j].Entropy * P[j].Mass * pow(SphP[j].EOMDensity, GAMMA_MINUS1) / GAMMA_MINUS1;
 
 		      Mass_bubble += P[j].Mass;
 		    }
@@ -2023,11 +2023,11 @@ void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
 #ifndef CR_BUBBLES
 		      if(All.ComovingIntegrationOn)
 			SphP[j].Entropy +=
-			  GAMMA_MINUS1 * dE / P[j].Mass / pow(SphP[j].d.Density / pow(All.Time, 3),
+			  GAMMA_MINUS1 * dE / P[j].Mass / pow(SphP[j].EOMDensity / pow(All.Time, 3),
 							      GAMMA_MINUS1);
 		      else
 			SphP[j].Entropy +=
-			  GAMMA_MINUS1 * dE / P[j].Mass / pow(SphP[j].d.Density, GAMMA_MINUS1);
+			  GAMMA_MINUS1 * dE / P[j].Mass / pow(SphP[j].EOMDensity, GAMMA_MINUS1);
 #else
 
 		      if(All.ComovingIntegrationOn)
@@ -2042,11 +2042,11 @@ void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
 			{
 			  if(All.ComovingIntegrationOn)
 			    SphP[j].Entropy +=
-			      instant_reheat * GAMMA_MINUS1 / pow(SphP[j].d.Density / pow(All.Time, 3),
+			      instant_reheat * GAMMA_MINUS1 / pow(SphP[j].EOMDensity / pow(All.Time, 3),
 								  GAMMA_MINUS1);
 			  else
 			    SphP[j].Entropy +=
-			      instant_reheat * GAMMA_MINUS1 / pow(SphP[j].d.Density, GAMMA_MINUS1);
+			      instant_reheat * GAMMA_MINUS1 / pow(SphP[j].EOMDensity, GAMMA_MINUS1);
 			}
 
 		      if(All.CR_AGNEff < 1)
@@ -2054,12 +2054,12 @@ void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
 			  if(All.ComovingIntegrationOn)
 			    SphP[j].Entropy +=
 			      (1 -
-			       All.CR_AGNEff) * dE * GAMMA_MINUS1 / P[j].Mass / pow(SphP[j].d.Density /
+			       All.CR_AGNEff) * dE * GAMMA_MINUS1 / P[j].Mass / pow(SphP[j].EOMDensity /
 										    pow(All.Time, 3),
 										    GAMMA_MINUS1);
 			  else
 			    SphP[j].Entropy +=
-			      (1 - All.CR_AGNEff) * dE * GAMMA_MINUS1 / P[j].Mass / pow(SphP[j].d.Density,
+			      (1 - All.CR_AGNEff) * dE * GAMMA_MINUS1 / P[j].Mass / pow(SphP[j].EOMDensity,
 											GAMMA_MINUS1);
 			}
 

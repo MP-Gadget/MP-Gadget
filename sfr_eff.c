@@ -64,8 +64,7 @@ void cooling_only(void)		/* normal cooling routine when star formation is disabl
 	      if(dt > 0)
 		{
 		  SphP[i].e.DtEntropy += unew * GAMMA_MINUS1 /
-		    pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) / dt;
-
+		    pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1) / dt;
 		  if(SphP[i].e.DtEntropy < -0.5 * SphP[i].Entropy / dt)
 		    SphP[i].e.DtEntropy = -0.5 * SphP[i].Entropy / dt;
 		}
@@ -74,7 +73,7 @@ void cooling_only(void)		/* normal cooling routine when star formation is disabl
 	  ne = SphP[i].Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 	  unew = DoCooling(DMAX(All.MinEgySpec,
 				(SphP[i].Entropy + SphP[i].e.DtEntropy * dt) /
-				GAMMA_MINUS1 * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1))
+				GAMMA_MINUS1 * pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1))
 			   , SphP[i].d.Density * a3inv, dtime, &ne);
 	  SphP[i].Ne = ne;
 
@@ -88,7 +87,7 @@ void cooling_only(void)		/* normal cooling routine when star formation is disabl
 		    unew += CR_Particle_ThermalizeAndDissipate(SphP + i, dtime, CRpop);
 #endif
 		  SphP[i].e.DtEntropy = (unew * GAMMA_MINUS1 /
-					 pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) - SphP[i].Entropy) / dt;
+					 pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1) - SphP[i].Entropy) / dt;
 
 
 		  if(SphP[i].e.DtEntropy < -0.5 * SphP[i].Entropy / dt)
@@ -212,7 +211,7 @@ void cooling_and_starformation(void)
 	    flag = 0;
 #else
 	  if((SphP[i].d.Density * a3inv >= All.PhysDensThresh)
-	     && (SphP[i].Entropy * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1 <
+	     && (SphP[i].Entropy * pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1 <
 		 SFRTempThresh))
 	    flag = 0;
 #endif
@@ -245,7 +244,7 @@ void cooling_and_starformation(void)
 
 #ifdef QUICK_LYALPHA
 	  temp = u_to_temp_fac * (SphP[i].Entropy + SphP[i].e.DtEntropy * dt) /
-	    GAMMA_MINUS1 * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1);
+	    GAMMA_MINUS1 * pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1);
 
 	  if(SphP[i].d.Density > All.OverDensThresh && temp < 1.0e5)
 	    flag = 0;
@@ -269,7 +268,7 @@ void cooling_and_starformation(void)
 
 	      unew = DMAX(All.MinEgySpec,
 			  (SphP[i].Entropy + SphP[i].e.DtEntropy * dt) /
-			  GAMMA_MINUS1 * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1));
+			  GAMMA_MINUS1 * pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1));
 
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
 	      if(SphP[i].i.Injected_BH_Energy)
@@ -302,7 +301,7 @@ void cooling_and_starformation(void)
 		  if(dt > 0)
 		    {
 		      SphP[i].e.DtEntropy += unew * GAMMA_MINUS1 /
-			pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) / dt;
+			pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1) / dt;
 
 		      if(SphP[i].e.DtEntropy < -0.5 * SphP[i].Entropy / dt)
 			SphP[i].e.DtEntropy = -0.5 * SphP[i].Entropy / dt;
@@ -325,7 +324,7 @@ void cooling_and_starformation(void)
 #endif
 
 		      SphP[i].e.DtEntropy = (unew * GAMMA_MINUS1 /
-					     pow(SphP[i].d.Density * a3inv,
+					     pow(SphP[i].EOMDensity * a3inv,
 						 GAMMA_MINUS1) - SphP[i].Entropy) / dt;
 
 		      if(SphP[i].e.DtEntropy < -0.5 * SphP[i].Entropy / dt)
@@ -376,7 +375,7 @@ void cooling_and_starformation(void)
 		    {
 		      trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
 		      egycurrent =
-			SphP[i].Entropy * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+			SphP[i].Entropy * pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 
 #ifdef COSMIC_RAYS
 #ifdef CR_SN_INJECTION
@@ -443,7 +442,7 @@ void cooling_and_starformation(void)
 			(egyeff +
 			 (egycurrent -
 			  egyeff) * exp(-dtime / trelax)) * GAMMA_MINUS1 /
-			pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1);
+			pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1);
 
 		      SphP[i].e.DtEntropy = 0;
 #endif
@@ -725,102 +724,6 @@ double get_starformation_rate(int i)
 
 
 #endif /* SFR */
-
-#if defined(SFR) || defined(BLACK_HOLES)
-void rearrange_particle_sequence(void)
-{
-  int i, j, flag = 0, flag_sum;
-  struct particle_data psave;
-
-#ifdef BLACK_HOLES
-  int count_elim, count_gaselim, tot_elim, tot_gaselim;
-#endif
-
-#ifdef SFR
-  if(Stars_converted)
-    {
-      N_gas -= Stars_converted;
-      Stars_converted = 0;
-
-      for(i = 0; i < N_gas; i++)
-	if(P[i].Type != 0)
-	  {
-	    for(j = N_gas; j < NumPart; j++)
-	      if(P[j].Type == 0)
-		break;
-
-	    if(j >= NumPart)
-	      endrun(181170);
-
-	    psave = P[i];
-	    P[i] = P[j];
-	    SphP[i] = SphP[j];
-	    P[j] = psave;
-	  }
-      flag = 1;
-    }
-#endif
-
-#ifdef BLACK_HOLES
-  count_elim = 0;
-  count_gaselim = 0;
-
-  for(i = 0; i < NumPart; i++)
-    if(P[i].Mass == 0)
-      {
-	TimeBinCount[P[i].TimeBin]--;
-
-	if(TimeBinActive[P[i].TimeBin])
-	  NumForceUpdate--;
-
-	if(P[i].Type == 0)
-	  {
-	    TimeBinCountSph[P[i].TimeBin]--;
-
-	    P[i] = P[N_gas - 1];
-	    SphP[i] = SphP[N_gas - 1];
-
-	    P[N_gas - 1] = P[NumPart - 1];
-
-	    N_gas--;
-
-	    count_gaselim++;
-	  }
-	else
-	  {
-	    P[i] = P[NumPart - 1];
-	  }
-
-	NumPart--;
-	i--;
-
-	count_elim++;
-      }
-
-  MPI_Allreduce(&count_elim, &tot_elim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-  MPI_Allreduce(&count_gaselim, &tot_gaselim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-  if(count_elim)
-    flag = 1;
-
-  if(ThisTask == 0)
-    {
-      printf("Blackholes: Eliminated %d gas particles and merged away %d black holes.\n",
-	     tot_gaselim, tot_elim - tot_gaselim);
-      fflush(stdout);
-    }
-
-  All.TotNumPart -= tot_elim;
-  All.TotN_gas -= tot_gaselim;
-  All.TotBHs -= tot_elim - tot_gaselim;
-#endif
-
-  MPI_Allreduce(&flag, &flag_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-  if(flag_sum)
-    reconstruct_timebins();
-}
-#endif /* closing of SFR-conditional */
 
 
 
@@ -1200,3 +1103,100 @@ void set_units_sfr(void)
 #endif /* closes COOLING */
 
 #endif /* closes LT_STELLAREVOLUTION */
+
+#if defined(SFR) || defined(BLACK_HOLES)
+void rearrange_particle_sequence(void)
+{
+  int i, j, flag = 0, flag_sum;
+  struct particle_data psave;
+
+#ifdef BLACK_HOLES
+  int count_elim, count_gaselim, tot_elim, tot_gaselim;
+#endif
+
+#ifdef SFR
+  if(Stars_converted)
+    {
+      N_gas -= Stars_converted;
+      Stars_converted = 0;
+
+      for(i = 0; i < N_gas; i++)
+	if(P[i].Type != 0)
+	  {
+	    for(j = N_gas; j < NumPart; j++)
+	      if(P[j].Type == 0)
+		break;
+
+	    if(j >= NumPart)
+	      endrun(181170);
+
+	    psave = P[i];
+	    P[i] = P[j];
+	    SphP[i] = SphP[j];
+	    P[j] = psave;
+	  }
+      flag = 1;
+    }
+#endif
+
+#ifdef BLACK_HOLES
+  count_elim = 0;
+  count_gaselim = 0;
+
+  for(i = 0; i < NumPart; i++)
+    if(P[i].Mass == 0)
+      {
+	TimeBinCount[P[i].TimeBin]--;
+
+	if(TimeBinActive[P[i].TimeBin])
+	  NumForceUpdate--;
+
+	if(P[i].Type == 0)
+	  {
+	    TimeBinCountSph[P[i].TimeBin]--;
+
+	    P[i] = P[N_gas - 1];
+	    SphP[i] = SphP[N_gas - 1];
+
+	    P[N_gas - 1] = P[NumPart - 1];
+
+	    N_gas--;
+
+	    count_gaselim++;
+	  }
+	else
+	  {
+	    P[i] = P[NumPart - 1];
+	  }
+
+	NumPart--;
+	i--;
+
+	count_elim++;
+      }
+
+  MPI_Allreduce(&count_elim, &tot_elim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+  MPI_Allreduce(&count_gaselim, &tot_gaselim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+  if(count_elim)
+    flag = 1;
+
+  if(ThisTask == 0)
+    {
+      printf("Blackholes: Eliminated %d gas particles and merged away %d black holes.\n",
+	     tot_gaselim, tot_elim - tot_gaselim);
+      fflush(stdout);
+    }
+
+  All.TotNumPart -= tot_elim;
+  All.TotN_gas -= tot_gaselim;
+  All.TotBHs -= tot_elim - tot_gaselim;
+#endif
+
+  MPI_Allreduce(&flag, &flag_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+  if(flag_sum)
+    reconstruct_timebins();
+}
+#endif /* closing of SFR-conditional */
+

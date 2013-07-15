@@ -1002,7 +1002,7 @@ void init(void)
 	{
 #ifndef EOS_DEGENERATE
 
-#if !defined(VORONOI_MESHRELAX) && !defined(TRADITIONAL_SPH_FORMULATION)
+#if !defined(VORONOI_MESHRELAX) && !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
 
 	  if(ThisTask == 0 && i == 0)
 	    printf("Converting u -> entropy !\n");
@@ -1396,10 +1396,42 @@ void setup_smoothinglengths(void)
     }
 #endif
 
+#ifdef DENSITY_INDEPENDENT_SPH
+/* initialization of the entropy variable is a little trickier in this version of SPH, 
+    since we need to make sure it 'talks to' the density appropriately */
+  for(i = 0; i < N_gas; i++)
+  {
+          SphP[i].EntVarPred = pow(SphP[i].Entropy,1/GAMMA);
+  }
+#endif
+
   density();
 #ifdef VECT_POTENTIAL
   smoothed_values();
   density();
+#endif
+
+#ifdef DENSITY_INDEPENDENT_SPH
+  if(header.flag_entropy_instead_u == 0)
+  {
+      int j;
+      double a3;
+      if(All.ComovingIntegrationOn) {
+          a3 = All.Time * All.Time * All.Time;
+      }
+      else {
+          a3 = 1;
+      }
+      for(j=0;j<5;j++)
+      {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
+          for(i = 0; i < N_gas; i++)
+          {
+              SphP[i].Entropy = GAMMA_MINUS1 * SphP[i].Entropy / pow(SphP[i].EgyWtDensity/a3 , GAMMA_MINUS1);
+              SphP[i].EntVarPred = pow(SphP[i].Entropy,1/GAMMA);
+          }
+          density();
+      }
+  }
 #endif
 
 #if defined(MAGNETIC) && defined(BFROMROTA)

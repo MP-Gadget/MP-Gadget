@@ -3,7 +3,7 @@
 #######################################################################
 
 #--------------------------------------- Basic operation mode of code
-OPT	+=  -DBH_THERMALFEEDBACK_BY_KERNEL
+#OPT += DENSITY_INDEPENDENT_SPH
 OPT	+=  -DPERIODIC
 OPT	+=  -DCOOLING
 OPT	+=  -DSFR

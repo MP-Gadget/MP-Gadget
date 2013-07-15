@@ -855,7 +855,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
       if(All.MinEgySpec)
 	{
 #ifndef TRADITIONAL_SPH_FORMULATION
-	  minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1);
+      minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1);
 #else
 	  minentropy = All.MinEgySpec;
 #endif
@@ -1269,9 +1269,23 @@ int get_timestep(int p,		/*!< particle index */
       printf("pm_force=(%g|%g|%g)\n", P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]);
 #endif
       if(P[p].Type == 0)
-	printf("hydro-frc=(%g|%g|%g) dens=%g hsml=%g\n", SphP[p].a.HydroAccel[0], SphP[p].a.HydroAccel[1],
-	       SphP[p].a.HydroAccel[2], SphP[p].d.Density, PPP[p].Hsml);
-
+	printf("hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SphP[p].a.HydroAccel[0], SphP[p].a.HydroAccel[1],
+	       SphP[p].a.HydroAccel[2], SphP[p].d.Density, PPP[p].Hsml, PPP[p].n.NumNgb);
+#ifdef DENSITY_INDEPENDENT_SPH
+      if(P[p].Type == 0)
+	printf("egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SphP[p].EgyWtDensity, SphP[p].EntVarPred,
+	       SphP[p].DhsmlEgyDensityFactor, SphP[p].Entropy, SphP[p].e.DtEntropy, SphP[p].Pressure);
+#endif
+#ifdef SFR
+      if(P[p].Type == 0) {
+          printf("sfr = %g\n" , SphP[p].Sfr);
+      }
+#endif
+#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
+      if(P[p].Type == 0) {
+          printf("injected_energy = %g\n" , SphP[p].i.Injected_BH_Energy);
+      }
+#endif
 #ifdef COSMIC_RAYS
       if(P[p].Type == 0)
 	for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)

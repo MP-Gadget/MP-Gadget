@@ -446,6 +446,8 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
       for(n = 0; n < pc; pindex++)
 	if(P[pindex].Type == type)
 	  {
+	    double dmax1, dmax2;
+
 #ifdef VORONOI_MESHRELAX
 #ifdef VORONOI_MESHRELAX_KEEPRESSURE
 	    SphP[pindex].Entropy = SphP[pindex].Pressure / (GAMMA_MINUS1 * SphP[pindex].d.Density);
@@ -454,11 +456,9 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 #else
 
 #if !defined(EOS_DEGENERATE) && !defined(TRADITIONAL_SPH_FORMULATION)
-	    double dmax1, dmax2;
-
 	    *fp++ =
 	      DMAX(All.MinEgySpec,
-		   SphP[pindex].Entropy / GAMMA_MINUS1 * pow(SphP[pindex].d.Density * a3inv, GAMMA_MINUS1));
+		   SphP[pindex].Entropy / GAMMA_MINUS1 * pow(SphP[pindex].EOMDensity * a3inv, GAMMA_MINUS1));
 #else
 	    *fp++ = SphP[pindex].Entropy;
 #endif

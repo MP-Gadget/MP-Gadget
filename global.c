@@ -99,10 +99,10 @@ void compute_global_quantities_of_system(void)
       if(P[i].Type == 0)
 	{
 #ifndef EOS_DEGENERATE
-#if defined(TRADITIONAL_SPH_FORMULATION)
-	  egyspec = entr;
+#ifndef TRADITIONAL_SPH_FORMULATION
+      egyspec = entr / (GAMMA_MINUS1) * pow(SphP[i].EOMDensity / a3, GAMMA_MINUS1);
 #else
-	  egyspec = entr / (GAMMA_MINUS1) * pow(SphP[i].d.Density / a3, GAMMA_MINUS1);
+	  egyspec = entr;
 #endif
 #else
 	  egyspec = SphP[i].u;

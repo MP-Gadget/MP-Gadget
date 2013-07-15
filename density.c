@@ -91,6 +91,10 @@ static struct densdata_in
 
 static struct densdata_out
 {
+#ifdef DENSITY_INDEPENDENT_SPH
+      MyFloat EgyRho;
+      MyFloat DhsmlEgyDensity;
+#endif
   MyLongDouble Rho;
   MyLongDouble DhsmlDensity;
   MyLongDouble Ngb;
@@ -643,6 +647,10 @@ void density(void)
 		{
 		  SphP[place].d.dDensity += DensDataOut[j].Rho;
 		  SphP[place].h.dDhsmlDensityFactor += DensDataOut[j].DhsmlDensity;
+#ifdef DENSITY_INDEPENDENT_SPH
+          SphP[place].EgyWtDensity += DensDataOut[j].EgyRho;
+          SphP[place].DhsmlEgyDensityFactor += DensDataOut[j].DhsmlEgyDensity;
+#endif
 
 #ifndef NAVIERSTOKES
 		  SphP[place].v.dDivVel += DensDataOut[j].Div;
@@ -816,6 +824,20 @@ void density(void)
 			    SphP[i].h.DhsmlDensityFactor = 1 / (1 + SphP[i].h.DhsmlDensityFactor);
 			  else
 			    SphP[i].h.DhsmlDensityFactor = 1;
+
+#ifdef DENSITY_INDEPENDENT_SPH
+              if((SphP[i].EntVarPred>0)&&(SphP[i].EgyWtDensity>0))
+              {
+                  SphP[i].DhsmlEgyDensityFactor *= PPP[i].Hsml/ (NUMDIMS * SphP[i].EgyWtDensity);
+                  SphP[i].DhsmlEgyDensityFactor *= -SphP[i].h.DhsmlDensityFactor;
+                  SphP[i].EgyWtDensity /= SphP[i].EntVarPred;
+              } else {
+                  SphP[i].DhsmlEgyDensityFactor=0; 
+                  SphP[i].EntVarPred=0; 
+                  SphP[i].EgyWtDensity=0;
+              }
+#endif
+
 #ifndef NAVIERSTOKES
 			  SphP[i].r.CurlVel = sqrt(SphP[i].r.Rot[0] * SphP[i].r.Rot[0] +
 						   SphP[i].r.Rot[1] * SphP[i].r.Rot[1] +
@@ -941,8 +963,13 @@ void density(void)
 #ifndef MHM
 #ifndef SOFTEREQS
 #ifndef TRADITIONAL_SPH_FORMULATION
+#ifdef DENSITY_INDEPENDENT_SPH
+              SphP[i].Pressure = pow(SphP[i].EntVarPred*SphP[i].EgyWtDensity,GAMMA);
+#else
 		      SphP[i].Pressure =
 			(SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr) * pow(SphP[i].d.Density, GAMMA);
+#endif
+
 #else
 		      SphP[i].Pressure =
 			GAMMA_MINUS1 * (SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr) * SphP[i].d.Density;
@@ -1554,6 +1581,11 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
   double hinv_j, dwk_j, wk_j, hinv3_j, hinv4_j;
 #endif
 
+#ifdef DENSITY_INDEPENDENT_SPH
+  double egyrho = 0, dhsmlegyrho = 0;
+#endif
+
+
 #if defined(BLACK_HOLES)
   MyLongDouble smoothentr;
 
@@ -1850,6 +1882,11 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
 		  dhsmlrho += FLT(-mass_j * (NUMDIMS * hcache[Hinv] * wk + r * hcache[Hinv] * dwk));
 
+#ifdef DENSITY_INDEPENDENT_SPH
+          egyrho += mass_j * SphP[j].EntVarPred * wk;
+          dhsmlegyrho += -mass_j * SphP[j].EntVarPred * (NUMDIMS * hcache[Hinv] * wk + r * hcache[Hinv] * dwk);
+#endif
+
 
 #ifdef BLACK_HOLES
 		  smoothentr += FLT(mass_j * wk * SphP[j].Entropy);
@@ -2031,6 +2068,12 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
       if(P[target].Type == 0)
 	{
 	  SphP[target].d.dDensity = rho;
+
+#ifdef DENSITY_INDEPENDENT_SPH
+      SphP[target].EgyWtDensity = egyrho;
+      SphP[target].DhsmlEgyDensityFactor = dhsmlegyrho;
+#endif
+
 #ifdef VOLUME_CORRECTION
 	  SphP[target].DensityStd = densitystd;
 #endif
@@ -2140,6 +2183,12 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
       DensDataResult[target].Ninteractions = ninteractions;
 #endif
       DensDataResult[target].Rho = rho;
+
+#ifdef DENSITY_INDEPENDENT_SPH
+      DensDataResult[target].EgyRho = egyrho;
+      DensDataResult[target].DhsmlEgyDensity = dhsmlegyrho;
+#endif
+
 #ifdef VOLUME_CORRECTION
       DensDataResult[target].DensityStd = densitystd;
 #endif

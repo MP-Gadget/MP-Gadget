@@ -63,6 +63,11 @@ extern int TimerFlag;
 
 struct hydrodata_in
 {
+#ifdef DENSITY_INDEPENDENT_SPH
+      MyFloat EgyRho;
+      MyFloat EntVarPred;
+#endif
+
   MyDouble Pos[3];
   MyFloat Vel[3];
   MyFloat Hsml;
@@ -475,8 +480,15 @@ void hydro_force(void)
 	    }
 	  HydroDataIn[j].Hsml = PPP[place].Hsml;
 	  HydroDataIn[j].Mass = P[place].Mass;
-	  HydroDataIn[j].DhsmlDensityFactor = SphP[place].h.DhsmlDensityFactor;
 	  HydroDataIn[j].Density = SphP[place].d.Density;
+#ifdef DENSITY_INDEPENDENT_SPH
+      HydroDataIn[j].EgyRho = SphP[place].EgyWtDensity;
+      HydroDataIn[j].EntVarPred = SphP[place].EntVarPred;
+      HydroDataIn[j].DhsmlDensityFactor = SphP[place].DhsmlEgyDensityFactor;
+#else
+	  HydroDataIn[j].DhsmlDensityFactor = SphP[place].h.DhsmlDensityFactor;
+#endif
+
 	  HydroDataIn[j].Pressure = SphP[place].Pressure;
 	  HydroDataIn[j].Timestep = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0);
 #ifdef EOS_DEGENERATE
@@ -810,11 +822,11 @@ void hydro_force(void)
 
 #endif /* CR_SHOCK */
 
-#if !defined(EOS_DEGENERATE)
+#ifndef EOS_DEGENERATE
 
 #ifndef TRADITIONAL_SPH_FORMULATION
 	/* Translate energy change rate into entropy change rate */
-	SphP[i].e.DtEntropy *= GAMMA_MINUS1 / (hubble_a2 * pow(SphP[i].d.Density, GAMMA_MINUS1));
+    SphP[i].e.DtEntropy *= GAMMA_MINUS1 / (hubble_a2 * pow(SphP[i].EOMDensity, GAMMA_MINUS1));
 #endif
 
 #else
@@ -1341,6 +1353,10 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   MyFloat mass, h_i, dhsmlDensityFactor, rho, pressure, f1, f2;
   MyLongDouble acc[3], dtEntropy;
 
+#ifdef DENSITY_INDEPENDENT_SPH
+  double egyrho = 0, entvarpred = 0;
+#endif
+
 #ifdef HYDRO_COST_FACTOR
   int ninteractions = 0;
 #endif
@@ -1492,10 +1508,17 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
       vel = SphP[target].VelPred;
       h_i = PPP[target].Hsml;
       mass = P[target].Mass;
-      dhsmlDensityFactor = SphP[target].h.DhsmlDensityFactor;
       rho = SphP[target].d.Density;
       pressure = SphP[target].Pressure;
       timestep = (P[target].TimeBin ? (1 << P[target].TimeBin) : 0);
+
+#ifdef DENSITY_INDEPENDENT_SPH
+      egyrho = SphP[target].EgyWtDensity;
+      entvarpred = SphP[target].EntVarPred;
+      dhsmlDensityFactor = SphP[target].DhsmlEgyDensityFactor;
+#else
+      dhsmlDensityFactor = SphP[target].h.DhsmlDensityFactor;
+#endif
 
 #ifndef EOS_DEGENERATE
       soundspeed_i = sqrt(GAMMA * pressure / rho);
@@ -1614,6 +1637,10 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
       h_i = HydroDataGet[target].Hsml;
       mass = HydroDataGet[target].Mass;
       dhsmlDensityFactor = HydroDataGet[target].DhsmlDensityFactor;
+#ifdef DENSITY_INDEPENDENT_SPH
+      egyrho = HydroDataGet[target].EgyRho;
+      entvarpred = HydroDataGet[target].EntVarPred;
+#endif
       rho = HydroDataGet[target].Density;
       pressure = HydroDataGet[target].Pressure;
       timestep = HydroDataGet[target].Timestep;
@@ -1695,6 +1722,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   /* initialize variables before SPH loop is started */
 
   acc[0] = acc[1] = acc[2] = dtEntropy = 0;
+
 #ifdef DIVBFORCE3
   magacc[0]=magacc[1]=magacc[2]=0.0;
   magcorr[0]=magcorr[1]=magcorr[2]=0.0;
@@ -1748,12 +1776,21 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif /* end of MAGFORCE */
 #endif /* end of MAGNETIC */
 
-  p_over_rho2_i = pressure / (rho * rho);
-#if !defined(TRADITIONAL_SPH_FORMULATION) && !defined(NO_DHSML)
-  p_over_rho2_i *= dhsmlDensityFactor;
-#endif
+
   h_i2 = h_i * h_i;
 
+#ifndef TRADITIONAL_SPH_FORMULATION
+#ifdef DENSITY_INDEPENDENT_SPH
+  p_over_rho2_i = pressure / (egyrho * egyrho);
+#else
+  p_over_rho2_i = pressure / (rho * rho);
+#ifndef NO_DHSML
+  p_over_rho2_i *= dhsmlDensityFactor;
+#endif
+#endif
+#else
+  p_over_rho2_i = pressure / (rho * rho);
+#endif
 
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
   minViscousDt = 1.0e32;
@@ -1830,12 +1867,18 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 		  r = sqrt(r2);
 		  if(r > 0)
 		    {
-		      p_over_rho2_j = SphP[j].Pressure / (SphP[j].d.Density * SphP[j].d.Density);
+              p_over_rho2_j = SphP[j].Pressure / (SphP[j].EOMDensity * SphP[j].EOMDensity);
+
 #ifndef EOS_DEGENERATE
-		      soundspeed_j = sqrt(GAMMA * p_over_rho2_j * SphP[j].d.Density);
+#ifdef DENSITY_INDEPENDENT_SPH
+              soundspeed_j = sqrt(GAMMA * SphP[j].Pressure / SphP[j].d.Density);
 #else
-		      soundspeed_j = sqrt(SphP[j].dpdr);
+              soundspeed_j = sqrt(GAMMA * p_over_rho2_j * SphP[j].d.Density);
 #endif
+#else
+              soundspeed_j = sqrt(SphP[j].dpdr);
+#endif
+
 		      dvx = vel[0] - SphP[j].VelPred[0];
 		      dvy = vel[1] - SphP[j].VelPred[1];
 		      dvz = vel[2] - SphP[j].VelPred[2];
@@ -2247,21 +2290,32 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 			{
 			  visc = 0;
 			}
-#ifdef TRADITIONAL_SPH_FORMULATION
+#ifndef TRADITIONAL_SPH_FORMULATION
 		      hfc_visc = 0.5 * P[j].Mass * visc * (dwk_i + dwk_j) / r;
 
+#ifdef DENSITY_INDEPENDENT_SPH
+              hfc = hfc_visc;
 
+          /* leading-order term */
+              hfc += P[j].Mass *
+                      (dwk_i*p_over_rho2_i*SphP[j].EntVarPred/entvarpred +
+                       dwk_j*p_over_rho2_j*entvarpred/SphP[j].EntVarPred) / r;
+
+          /* grad-h corrections */
+              hfc += P[j].Mass *
+                      (dwk_i*p_over_rho2_i*egyrho/rho*dhsmlDensityFactor +
+                       dwk_j*p_over_rho2_j*SphP[j].EgyWtDensity/SphP[j].d.Density*SphP[j].DhsmlEgyDensityFactor) / r;
+#else
+		      p_over_rho2_j *= SphP[j].h.DhsmlDensityFactor;
+		      /* Formulation derived from the Lagrangian */
+		      hfc = hfc_visc + P[j].Mass * (p_over_rho2_i * dwk_i + p_over_rho2_j * dwk_j) / r;
+#endif
+#else
 		      hfc = hfc_visc +
 			0.5 * P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i + p_over_rho2_j);
 
 		      /* hfc_egy = 0.5 * P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i + p_over_rho2_j); */
 		      hfc_egy = P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i);
-#else
-		      p_over_rho2_j *= SphP[j].h.DhsmlDensityFactor;
-
-		      hfc_visc = 0.5 * P[j].Mass * visc * (dwk_i + dwk_j) / r;
-		      /* Formulation derived from the Lagrangian */
-		      hfc = hfc_visc + P[j].Mass * (p_over_rho2_i * dwk_i + p_over_rho2_j * dwk_j) / r;
 #endif
 
 #ifdef WINDS
