@@ -14,13 +14,6 @@
 
 #ifdef BLACK_HOLES
 
-#if defined (BH_THERMALFEEDBACK)
-#if defined (LT_DF_BH) && defined (LT_DF_BH_MASS_SWITCH)
-/* switch the feedback at given BH mass */
-static double BH_mass_switch;
-#endif
-#endif
-
 static struct blackholedata_in
 {
     MyDouble Pos[3];
@@ -36,15 +29,6 @@ static struct blackholedata_in
     MyIDType ID;
     int Index;
     int NodeList[NODELISTLENGTH];
-#ifdef LT_BH
-    double AltRho;
-#ifdef LT_BH_CUT_KERNEL
-    float  CutHsml;
-#endif
-#endif
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-    MyFloat BH_MdotEddington;  
-#endif
 #ifdef BH_KINETICFEEDBACK
     MyFloat ActiveTime;
     MyFloat ActiveEnergy;
@@ -70,9 +54,6 @@ static struct blackholedata_out
 #ifdef BH_COUNTPROGS
     int BH_CountProgs;
 #endif
-#ifdef LT_BH
-    MyLongDouble PartialContrib;
-#endif
 }
 *BlackholeDataResult, *BlackholeDataOut;
 
@@ -81,9 +62,6 @@ static struct blackholedata_out
 static double hubble_a, ascale, a3inv;
 
 static int N_gas_swallowed, N_BH_swallowed;
-#ifdef LT_BH_ACCRETE_SLICES
-static int N_gas_slices_swallowed;
-#endif
 
 static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
     /* rho is comoving !*/
@@ -125,10 +103,6 @@ void blackhole_accretion(void)
 #endif
     MPI_Status status;
 
-#ifdef LT_BH_ACCRETE_SLICES
-    int Ntot_gas_slices_swallowed;
-#endif
-
     if(ThisTask == 0)
     {
         printf("Beginning black-hole accretion\n");
@@ -145,13 +119,6 @@ void blackhole_accretion(void)
     }
     else
         hubble_a = ascale = a3inv = 1;
-
-#if defined (BH_THERMALFEEDBACK) || defined (BH_KINETICFEEDBACK)
-#if defined (LT_DF_BH) && defined(LT_DF_BH_MASS_SWITCH)
-    /* switch feedback mode at BH mass of 10^9 Msun */
-    All.BH_mass_switch = 0.1/All.HubbleParam;
-#endif 
-#endif
 
     /* Let's first compute the Mdot values */
 
@@ -180,15 +147,9 @@ void blackhole_accretion(void)
 
             soundspeed = blackhole_soundspeed(P[n].b2.BH_EntOrPressure, rho);
 
-#ifndef LT_DF_BH                          
             /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
             meddington = (4 * M_PI * GRAVITY * C * PROTONMASS / (0.1 * C * C * THOMPSON)) * P[n].BH_Mass
                 * All.UnitTime_in_s;
-#else
-            /* Note: we insert as parameter the radiative efficiency */
-            meddington = (4 * M_PI * GRAVITY * C * PROTONMASS / (All.BH_Radiative_Efficiency * C * C * THOMPSON)) * P[n].BH_Mass
-                * All.UnitTime_in_s;
-#endif
 
 #ifdef BONDI
             norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
@@ -289,26 +250,7 @@ void blackhole_accretion(void)
             }
 #endif
 
-#if defined LT_DF_BH && (defined (BH_THERMALFEEDBACK) || defined (BH_KINETICFEEDBACK))
-            P[n].BH_Mass += (1 - All.BH_Radiative_Efficiency) * P[n].BH_Mdot * dt;
-#else
             P[n].BH_Mass += P[n].BH_Mdot * dt;
-#endif
-
-#if defined(LT_DF_BH) && (defined (BH_THERMALFEEDBACK) || defined (BH_KINETICFEEDBACK))
-
-#ifdef LT_DF_BH_MASS_SWITCH		  
-            /* switch btw different modes by changing the feedback factor */
-            if(P[n].BH_Mass >= BH_mass_switch)
-#endif
-#ifdef LT_DF_BH_BHAR_SWITCH
-                if(P[n].BH_Mdot < All.BH_radio_treshold * meddington)
-                    /* switch the feedback factor using an accretion rate based treshold */
-#endif
-                    All.BlackHoleFeedbackFactor = 0.2;
-                else
-                    All.BlackHoleFeedbackFactor = 0.05;
-#endif	  
 
 #ifdef BH_BUBBLES
             P[n].BH_Mass_bubbles += P[n].BH_Mdot * dt;
@@ -332,9 +274,6 @@ void blackhole_accretion(void)
 
 
     N_gas_swallowed = N_BH_swallowed = 0;
-#ifdef LT_BH_ACCRETE_SLICES
-    N_gas_slices_swallowed = 0;
-#endif
 
 
     /* allocate buffers to arrange communication */
@@ -419,12 +358,6 @@ void blackhole_accretion(void)
             BlackholeDataIn[j].Dt =
                 (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / hubble_a;
             BlackholeDataIn[j].ID = P[place].ID;
-#ifdef LT_BH
-            BlackholeDataIn[j].AltRho  = P[place].b9.BH_AltDensity;
-#ifdef LT_BH_CUT_KERNEL          
-            BlackholeDataIn[j].CutHsml = P[place].CutHsml;
-#endif
-#endif
             memcpy(BlackholeDataIn[j].NodeList,
                     DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
         }
@@ -505,9 +438,6 @@ void blackhole_accretion(void)
                 for(k = 0; k < 3; k++)
                     P[place].BH_MinPotPos[k] = BlackholeDataOut[j].BH_MinPotPos[k];
             }
-#endif
-#ifdef LT_BH
-            P[place].Normalization += BlackholeDataOut[j].PartialContrib;
 #endif
 #ifdef KD_SMOOTHED_MOMENTUM_ACCRETION 
             for(k = 0; k < 3; k++)
@@ -682,23 +612,12 @@ void blackhole_accretion(void)
     MPI_Reduce(&N_gas_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-#ifndef LT_BH_ACCRETE_SLICES  
     if(ThisTask == 0)
     {
         printf("Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
                 Ntot_gas_swallowed, Ntot_BH_swallowed);
         fflush(stdout);
     }
-#else
-    MPI_Reduce(&N_gas_slices_swallowed, &Ntot_gas_slices_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-
-    if(ThisTask == 0)
-    {
-        printf("Accretion done: %d gas slices swallowed, %d last-slices swallowed (gas particles disappeared), %d BH particles swallowed\n",
-                Ntot_gas_slices_swallowed, Ntot_gas_swallowed, Ntot_BH_swallowed);
-        fflush(stdout);
-    }
-#endif
 
 
 
@@ -762,28 +681,6 @@ void blackhole_accretion(void)
 #endif
                 P[n].b4.BH_accreted_Mass = 0;
             }
-
-#ifdef LT_BH        
-            if( fabs(P[n].Normalization - 1) > 1e-4)
-            {
-                if(P[i].b9.BH_AltDensity > 0)
-
-                    printf("\t\t +-----------------------------------------------+\n"
-                            "\t\t + BH warn : discrepancy in energy distribution   \n"
-#if defined(LT_BH_LOG)                         
-                            "\t\t + as large as %g (over %d neighbours, with %g Hsml)\n"
-#else
-                            "\t\t + as large as %g \n"
-#endif
-                            "\t\t + for BH %u @ proc %d\n"
-                            "\t\t +-----------------------------------------------+\n",
-                            P[n].Normalization - 1,
-#if defined(LT_BH_LOG)                         
-                            P[n].InnerNgb, P[i].Hsml,
-#endif
-                            P[n].ID, ThisTask); fflush(stdout);
-            }
-#endif
 
             bin = P[n].TimeBin;
             TimeBin_BH_mass[bin] += P[n].BH_Mass;
@@ -997,17 +894,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
     MyFloat minpotpos[3] = { 0, 0, 0 }, minpot = BHPOTVALUEINIT;
 #endif
 
-#ifdef LT_BH
-    double contrib;
-    double swk;
-    double AltRho;
-    double CutHsml;
-    double adding_energy;
-#endif
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-    double mdotedd;		// [nota] inserisco variabile da esportare
-#endif
-
     if(mode == 0)
     {
         pos = P[target].Pos;
@@ -1032,22 +918,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
         activetime = P[target].ActiveTime;
         activeenergy = P[target].ActiveEnergy;
 #endif
-#ifdef LT_BH
-        AltRho  = P[target].b9.BH_AltDensity;
-#ifdef LT_BH_CUT_KERNEL      
-        CutHsml = P[target].CutHsml;
-#else
-        CutHsml = PPP[target].Hsml;
-#endif
-
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-        mdotedd = P[target].BH_MdotEddington;
-#ifdef LT_BH_CUT_KERNEL      
-        if( mdotedd >= All.BH_radio_treshold )
-            CutHsml = PPP[target].Hsml;
-#endif
-#endif
-#endif      
     }
     else
     {
@@ -1067,27 +937,8 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
         activetime = BlackholeDataGet[target].ActiveTime;
         activeenergy = BlackholeDataGet[target].ActiveEnergy;
 #endif
-#ifdef LT_BH
-        AltRho  = BlackholeDataGet[target].AltRho;
-#ifdef LT_BH_CUT_KERNEL      
-        CutHsml = BlackholeDataGet[target].CutHsml;
-#else
-        CutHsml = h_i;
-#endif
-#endif
 
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-        mdotedd = BlackholeDataGet[target].BH_MdotEddington;
-#ifdef LT_BH_CUT_KERNEL      
-        if( mdotedd >= All.BH_radio_treshold )
-            CutHsml = h_i;
-#endif
-#endif      
     }
-
-#ifdef LT_BH
-    contrib = 0;
-#endif
 
     hsearch = density_decide_hsearch(5, h_i);
     density_kernel_cache_h(h_i, hcache);
@@ -1201,13 +1052,8 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                             /* compute accretion probability */
                             double p, w;
 
-#ifndef LT_BH_ACCRETE_SLICES                              
                             if((bh_mass - mass) > 0 && rho > 0)
                                 p = (bh_mass - mass) * wk / rho;
-#else
-                            if((bh_mass - mass) > 0 && rho > 0)
-                                p = (bh_mass - mass) * wk / rho * (All.NBHslices - SphP[j].NSlicesSwallowed);
-#endif
                             else
                                 p = 0;
 
@@ -1240,7 +1086,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                 wk = 1.0;
                             if(P[j].Mass > 0)
                             {
-#ifndef LT_BH                                  
 #ifdef BH_THERMALFEEDBACK
 #ifndef UNIFIED_FEEDBACK
                                 energy = All.BlackHoleFeedbackFactor * 0.1 * mdot * dt *
@@ -1249,10 +1094,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                 if(FeedbackWeightSum > 0)
                                 {
                                     SphP[j].i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FeedbackWeightSum);
-#ifdef LT_BH_ACCRETE_SLICES                 
-                                    if(P[j].SwallowID == id)
-                                        SphP[j].i.dInjected_BH_Energy -= FLT(energy * mass_j / (All.NBHslices - SphP[j].NSlicesSwallowed) * wk / FeedbackWeightSum);
-#endif
                                 }
 
 #else
@@ -1272,78 +1113,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                 }
 #endif
 #endif
-#else                                                                    /* LT_BH */
-
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-                                if(mdotedd < All.BH_radio_treshold)
-                                {
-#endif
-
-                                    if(AltRho == 0)
-                                        continue;
-#ifdef LT_BH_CUT_KERNEL
-                                    if(r >  CutHsml)
-                                        continue;                            /* note: in case LT_DF_BH_ONLY_RADIOMODE_KERNEL is on  */
-                                    /* this condition is never fullfilled when radio mode  */
-                                    /* is off, since in that case CutHsml is equal to Hsml */
-#endif
-
-                                    /* :: LT_BH calculate weight */
-#ifdef LT_BH_DONOT_USEDENSITY_IN_KERNEL
-                                    swk = 1.0;
-#else
-                                    swk = 1.0 / SphP[j].d.Density;
-#endif
-
-#ifndef LT_BH_USETOPHAT_KERNEL
-                                    swk *= wk;
-#endif
-                                    /* :: end of LT_BH weight    */
-
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-                                }
-                                else
-                                {
-                                    AltRho = FeedbackWeightSum;
-                                    swk = wk;
-                                }
-#endif
-
-#ifdef BH_THERMALFEEDBACK                                                /* ==: THERMAL :======================= */
-                                energy = All.BlackHoleFeedbackFactor * 0.1 * mdot * dt *
-                                    pow(C / All.UnitVelocity_in_cm_per_s, 2);
-                                if(AltRho > 0)
-                                    adding_energy = FLT(energy * mass_j * swk / AltRho);
-                                else
-                                    adding_energy = 0;
-#ifdef LT_BH_ACCRETE_SLICES
-                                if(P[j].SwallowID == id && AltRho > 0)
-                                    adding_energy -= energy * P[j].Mass / (All.NBHslices - SphP[j].NSlicesSwallowed) * swk / AltRho;
-#endif
-                                if(AltRho > 0)   
-                                    contrib += P[j].Mass * swk / AltRho;
-
-#endif                                                                   /* ----------------: end of thermal :-- */
-
-#ifdef BH_KINETICFEEDBACK                                                /* ==: KINETIC :======================= */
-                                if(activetime > All.BlackHoleActiveTime)
-                                {
-                                    if(AltRho > 0) 
-                                        adding_energy = FLT(activeenergy * mass_j * swk / AltRho);
-                                    else
-                                        adding_energy = 0;
-#ifdef LT_BH_ACCRETE_SLICES
-                                    if(P[j].SwallowID == id && AltRho > 0)
-                                        adding_energy -= activeenergy * mass_j / (All.NBHslices - SphP[j].NSlicesSwallowed) * swk / AltRho;
-#endif
-                                }
-#endif                                                                   /* ----------------: end of kinetic :-- */
-
-                                /* :: here it should be put the control on the temperature */
-
-                                SphP[j].i.dInjected_BH_Energy += FLT(adding_energy);
-
-#endif                                                                   /* closes LT_BH */
                             }
 
                         }
@@ -1372,9 +1141,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
             P[target].BH_MinPotPos[k] = minpotpos[k];
         P[target].BH_MinPot = minpot;
 #endif
-#ifdef LT_BH      
-        P[target].Normalization = contrib;
-#endif
 #ifdef KD_SMOOTHED_MOMENTUM_ACCRETION 
         for(k = 0; k < 3; k++)
             P[target].b6.dBH_accreted_momentum[k] = accreted_momentum[k];
@@ -1386,9 +1152,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
         for(k = 0; k < 3; k++)
             BlackholeDataResult[target].BH_MinPotPos[k] = minpotpos[k];
         BlackholeDataResult[target].BH_MinPot = minpot;
-#endif
-#ifdef LT_BH      
-        BlackholeDataResult[target].PartialContrib = contrib;
 #endif
 #ifdef KD_SMOOTHED_MOMENTUM_ACCRETION 
         for(k = 0; k < 3; k++)
@@ -1411,13 +1174,6 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
 #ifdef BH_BUBBLES
     MyLongDouble accreted_BH_mass_bubbles = 0;
     MyLongDouble accreted_BH_mass_radio = 0;
-#endif
-
-#ifdef LT_BH_ACCRETE_SLICES
-    MyLongDouble myaccreted_mass;
-#ifdef LT_STELLAREVOLUTION
-    double dec_factor;
-#endif
 #endif
 
     if(mode == 0)
@@ -1516,7 +1272,6 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
                 {
                     if(P[j].SwallowID == id)
                     {
-#ifndef LT_BH_ACCRETE_SLICES
                         accreted_mass += FLT(P[j].Mass);
 
                         for(k = 0; k < 3; k++)
@@ -1526,36 +1281,6 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
                         bin = P[j].TimeBin;
                         TimeBin_GAS_Injection[bin] += SphP[j].i.dInjected_BH_Energy;
                         N_gas_swallowed++;
-#else
-                        if(SphP[j].NSlicesSwallowed == All.NBHslices)
-                        {
-                            myaccreted_mass = P[j].Mass;
-                            P[j].Mass = 0;
-#ifdef LT_STELLAREVOLUTION                          
-                            for(k = 0; k < LT_NMetP; k++)
-                                SphP[j].Metals[k] = 0;
-#endif
-                            N_gas_swallowed++;
-                        }
-                        else
-                        {
-                            myaccreted_mass = FLT(P[j].Mass / (All.NBHslices - SphP[j].NSlicesSwallowed));
-#ifdef LT_STELLAREVOLUTION
-                            dec_factor = myaccreted_mass / P[j].Mass;
-                            for(k = 0; k < LT_NMetP; k++)
-                                SphP[j].Metals[k] *= dec_factor;
-#endif
-                            P[j].Mass -= myaccreted_mass;
-                            SphP[j].NSlicesSwallowed++;                      
-                        }
-
-                        accreted_mass  += myaccreted_mass;
-
-                        for(k = 0; k < 3; k++)
-                            accreted_momentum[k] += FLT(myaccreted_mass * P[j].Vel[k]);		  
-
-                        N_gas_slices_swallowed++;                      
-#endif
                     }
                 }
             }

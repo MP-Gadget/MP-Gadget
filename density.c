@@ -40,12 +40,6 @@ extern int NextJ;
 
 extern int TimerFlag;
 
-#if defined(LT_STELLAREVOLUTION)
-int LastActive;
-
-int SaveFirstActiveParticle;
-#endif
-
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
 static struct densdata_in
@@ -77,14 +71,6 @@ static struct densdata_in
     MyFloat MagSeed;
 #endif
     int Type;
-#ifdef BLACK_HOLES
-#ifdef LT_BH_CUT_KERNEL
-    float CutHsml;
-#endif
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-    double BH_MdotEddington;
-#endif
-#endif  
 }
 *DensDataIn, *DensDataGet;
 
@@ -140,9 +126,6 @@ static struct densdata_out
     MyFloat SurroundingVel[3];
     MyFloat SurroundingDens;
 #endif
-#ifdef LT_BH
-    MyLongDouble dBH_AltDensity;
-#endif  
 #endif
 
 #ifdef HYDRO_COST_FACTOR
@@ -161,13 +144,6 @@ static struct densdata_out
     MyFloat da[6];
 #endif
 
-#if defined(LT_BH)
-    int    InnerNgb;
-#ifdef LT_BH_GUESSHSML
-    MyFloat SmoothedHsml;
-    MyFloat SmoothedRho;
-#endif
-#endif
 }
 *DensDataResult, *DensDataOut;
 
@@ -272,20 +248,6 @@ void density(void)
     Left = (MyFloat *) mymalloc("Left", NumPart * sizeof(MyFloat));
     Right = (MyFloat *) mymalloc("Right", NumPart * sizeof(MyFloat));
 
-#if defined(LT_STELLAREVOLUTION)
-    unsigned int appended=0, tot_appended, alreadyactive=0, tot_alreadyactive, hitMaxChemSpreadL = 0;
-#ifndef LT_LOCAL_IRA
-    if(N_stars > 0)
-#endif
-        appended = append_chemicallyactive_particles(&alreadyactive);
-    MPI_Reduce(&appended, &tot_appended, 1, MPI_UNSIGNED, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&alreadyactive, &tot_alreadyactive, 1, MPI_UNSIGNED, MPI_SUM, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0 && (tot_appended > 0 || tot_alreadyactive > 0))
-        printf("%u chemically active particles queued for density calculation (%u already active)..\n",
-                tot_appended, tot_alreadyactive);
-    fflush(stdout);
-#endif
-
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
         if(density_isactive(i))
@@ -298,24 +260,6 @@ void density(void)
 #if defined(BLACK_HOLES) && defined(FLTROUNDOFFREDUCTION)
             if(P[i].Type == 0)
                 SphP[i].i.dInjected_BH_Energy = SphP[i].i.Injected_BH_Energy;
-#endif
-#if 0 && defined(LT_BH_CUT_KERNEL)
-            if(P[i].Type == 5)
-            {
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-                if( P[i].BH_MdotEddington < All.BH_radio_treshold ) 
-                {
-#endif                    
-                    if( (P[i].CutHsml = PPP[i].Hsml * All.BlackHoleHsmlCut) > All.BlackHoleMaxHsmlCut / All.Time)
-                        P[i].CutHsml = All.BlackHoleMaxHsmlCut / All.Time;
-                    if(P[i].CutHsml < All.BlackHoleMinHsmlCut / All.Time)
-                        P[i].CutHsml = All.BlackHoleMinHsmlCut / All.Time;
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL                    
-                }
-                else
-                    P[i].CutHsml = PPP[i].Hsml;
-#endif
-            }
 #endif
         }
     }
@@ -497,9 +441,6 @@ void density(void)
                     DensDataIn[j].Vel[0] = 0;
                     DensDataIn[j].Vel[1] = 0;
                     DensDataIn[j].Vel[2] = 0;
-#ifdef LT_BH_CUT_KERNEL
-                    DensDataIn[j].CutHsml = P[i].CutHsml;
-#endif                  
                 }
                 else
 #endif
@@ -731,11 +672,6 @@ void density(void)
                 if(P[place].Type == 4)
                     P[place].DensAroundStar += DensDataOut[j].Rho;
 #endif
-#if defined(LT_STELLAREVOLUTION) && defined(LT_DONTUSE_DENSITY_in_WEIGHT)
-                if(P[place].Type == 4)
-                    MetP[P[place].MetID].weight += DensDataOut[j].Rho;
-#endif
-
 
 #ifdef BLACK_HOLES
                 if(P[place].Type == 5)
@@ -746,9 +682,6 @@ void density(void)
                     P[place].b3.dBH_SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
                     P[place].b3.dBH_SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
                     P[place].b3.dBH_SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
-#ifdef LT_BH
-                    P[place].InnerNgb += DensDataOut[j].InnerNgb;
-#endif                  
 #ifdef KD_FRICTION
                     P[place].BH_SurroundingDensity += DensDataOut[j].SurroundingDens;
                     P[place].BH_SurroundingVel[0] += DensDataOut[j].SurroundingVel[0];
@@ -758,10 +691,6 @@ void density(void)
                 }
 #endif
 
-#ifdef LT_BH_GUESSHSML
-                P[place].mean_hsml += DensDataOut[j].SmoothedHsml;
-                P[place].mean_rho += DensDataOut[j].SmoothedRho;
-#endif
             }
             tend = second();
             timecomp1 += timediff(tstart, tend);
@@ -809,10 +738,6 @@ void density(void)
             {
                 if(P[i].Type == 0)
                 {
-#if defined(LT_STELLAREVOLUTION)
-                    if(TimeBinActive[P[i].TimeBin])
-                    {
-#endif
                         if(SphP[i].d.Density > 0)
                         {
 #ifdef VOLUME_CORRECTION
@@ -1012,9 +937,6 @@ void density(void)
                         bp_cr_update(SphP[i]);
 #endif
 
-#if defined(LT_STELLAREVOLUTION)
-                    }
-#endif
                 }
 
 #ifdef BLACK_HOLES
@@ -1038,10 +960,6 @@ void density(void)
                 }
 #endif
 
-#ifdef LT_BH_GUESSHSML
-                if(P[i].mean_rho > 0)
-                    P[i].mean_hsml /= P[i].mean_rho;
-#endif
 
                 /* now check whether we had enough neighbours */
 
@@ -1057,10 +975,6 @@ void density(void)
                     desnumngb = 64;	//NORM_COEFF * KERNEL_COEFF_1;   /* will assign the stellar luminosity to very few (one actually) gas particles */
 #endif
 
-#if 0 && defined(LT_STELLAREVOLUTION)
-                if(P[i].Type == 4)
-                    desnumngb = All.DesNumNgbSN;
-#endif
 
                 if(PPP[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
                         (PPP[i].n.NumNgb > (desnumngb + All.MaxNumNgbDeviation)
@@ -1069,55 +983,10 @@ void density(void)
                     /* need to redo this particle */
                     npleft++;
 
-#if 0 && defined(LT_BH_GUESSHSML)
-                    if(Right[i] == 0 && Left[i] == 0)
-                        if(P[i].Type != 0)
-                            if(P[i].mean_hsml > 0)
-                            {
-                                if(PPP[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation) && P[i].mean_hsml > PPP[i].Hsml)
-                                {
-                                    Left[i] = PPP[i].Hsml;
-                                    PPP[i].Hsml = P[i].mean_hsml;
-                                    continue;
-                                }
-                                if(PPP[i].n.NumNgb > (desnumngb + All.MaxNumNgbDeviation) && P[i].mean_hsml < PPP[i].Hsml)
-                                {
-                                    Right[i] = PPP[i].Hsml;
-                                    PPP[i].Hsml = P[i].mean_hsml;
-                                    continue;
-                                }
-                            }
-#endif
 
                     if(Left[i] > 0 && Right[i] > 0)
                         if((Right[i] - Left[i]) < 1.0e-3 * Left[i])
                         {
-#if 0 && defined(LT_BH_CUT_KERNEL)
-                            if( (P[i].Type == 5) && (P[i].InnerNgb < All.DesNumNgb_BH_inner) )
-                            {
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-                                if( P[i].BH_MdotEddington < All.BH_radio_treshold) 
-                                {
-#endif                                
-                                    P[i].CutHsml *= 1.26;
-                                    if(P[i].CutHsml < PPP[i].Hsml)
-                                    {
-                                        if(iter > MAXITER - 10)
-#ifndef LONGIDS
-                                            printf("\t\t\t >> [%d] added a BH particle (%u) at pos A with %d neighbours : %g %g\n",
-                                                    ThisTask, P[i].ID, P[i].InnerNgb, P[i].CutHsml, P[i].Hsml); fflush(stdout);
-#else				    
-                                        printf("\t\t\t >> [%d] added a BH particle (%llu) at pos A with %d neighbours : %g %g\n",
-                                                ThisTask, P[i].ID, P[i].InnerNgb, P[i].CutHsml, P[i].Hsml); fflush(stdout);
-#endif				      
-                                        continue;
-                                    }
-                                    P[i].CutHsml = PPP[i].Hsml;
-                                }
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-                            }
-#endif
-#endif                        
                             /* this one should be ok */
                             npleft--;
                             P[i].TimeBin = -P[i].TimeBin - 1;	/* Mark as inactive */
@@ -1195,9 +1064,6 @@ void density(void)
                         }
                     }
 
-#if 0 && defined(LT_STELLAREVOLUTION)
-                    if(P[i].Type != 4)
-#endif
                         if(PPP[i].Hsml < All.MinGasHsml)
                             PPP[i].Hsml = All.MinGasHsml;
 
@@ -1210,68 +1076,10 @@ void density(void)
                         }
 #endif
 
-#if 0 && defined(LT_STELLAREVOLUTION)
-                    if(P[i].Type == 4)
-                    {
-                        /*                       if(PPP[i].Hsml < All.MinChemSpreadL) */
-                        /*                         PPP[i].Hsml = Left[i] = Right[i] = All.MinChemSpreadL; */
-                        if(PPP[i].Hsml > All.MaxChemSpreadL)
-                        {
-                            PPP[i].Hsml = Left[i] = Right[i] = All.MaxChemSpreadL;
-                            /*
-#ifndef LT_BH_GUESSHSML
-if(PPP[i].n.NumNgb == 0)
-{
-printf
-("Task %d : particle %d (ID %llu) hits Maximum spreading length = %g with 0 Neighbours!\n",
-ThisTask, i, (unsigned long long) P[i].ID, All.MaxChemSpreadL);
-endrun(778899);
-}
-#endif
-*/
-                            hitMaxChemSpreadL++;
-                            }
-if(PPP[i].Hsml < All.MinChemSpreadL)
-    PPP[i].Hsml = Left[i] = Right[i] = All.MinChemSpreadL;
-    }
-#endif
 }
 else
 P[i].TimeBin = -P[i].TimeBin - 1;	/* Mark as inactive */
 
-#if 0 && defined(LT_BH_CUT_KERNEL)
-if( (P[i].Type == 5) && (P[i].InnerNgb < All.DesNumNgb_BH_inner) )
-{
-#ifdef  LT_DF_BH_ONLY_RADIOMODE_KERNEL
-    if (P[i].BH_MdotEddington < All.BH_radio_treshold)
-    {
-#endif
-        if(fabs(P[i].CutHsml - PPP[i].Hsml) / PPP[i].Hsml > 1e-2)
-        {
-            P[i].CutHsml *= 1.26;
-            if(P[i].CutHsml > PPP[i].Hsml)
-                P[i].CutHsml = PPP[i].Hsml;
-
-            if(P[i].TimeBin < 0)
-            {
-                P[i].TimeBin = -P[i].TimeBin - 1;                          
-                npleft++;
-
-                if(iter > MAXITER - 10)
-#ifndef LONGIDS
-                    printf("\t\t\t >> [%d] added a BH particle (%u) at POS B with %d neighbours : %g %g\n",
-                            ThisTask, P[i].ID, P[i].InnerNgb, P[i].CutHsml, P[i].Hsml); fflush(stdout);
-#else
-                printf("\t\t\t >> [%d] added a BH particle (%llu) at POS B with %d neighbours : %g %g\n",
-                        ThisTask, P[i].ID, P[i].InnerNgb, P[i].CutHsml, P[i].Hsml); fflush(stdout);
-#endif
-            }
-        }
-#ifdef  LT_DF_BH_ONLY_RADIOMODE_KERNEL
-    }
-#endif
-}
-#endif              
 }
 }
 tend = second();
@@ -1300,14 +1108,6 @@ if(ntot > 0)
 }
 while(ntot > 0);
 
-#if 0 && defined(LT_STELLAREVOLUTION)
-unsigned int tot_hitMaxChemSpreadL = 0;
-
-MPI_Reduce(&hitMaxChemSpreadL, &tot_hitMaxChemSpreadL, 1, MPI_UNSIGNED, MPI_SUM, 0, MPI_COMM_WORLD);
-if(ThisTask == 0 && tot_hitMaxChemSpreadL > 0)
-    printf("%u particles have hit on the maximum allowed spreading hsml (%g)\n", tot_hitMaxChemSpreadL,
-            All.MaxChemSpreadL);
-#endif
 
 myfree(DataNodeList);
 myfree(DataIndexTable);
@@ -1315,111 +1115,13 @@ myfree(Right);
 myfree(Left);
 myfree(Ngblist);
 
-#if 0 && defined(MAGNETICSEED)
-MPI_Allreduce(&count_seed, &count_seed_tot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-if(ThisTask == 0 ) printf("MAG  SEED Total %i \n",count_seed_tot);
-#endif
-
-#if 0 && defined(CS_MODEL) && defined(CS_FEEDBACK)
-double xhyd, yhel, ne, mu, energy, temp, a3inv;
-
-for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-{
-    if(P[i].Type == 0 && P[i].EnergySN < 0)	/* only gas particles should enter here */
-    {
-
-        printf("prom 2i=%d type=%d energySN%g\n", i, P[i].Type, P[i].EnergySN);
-        fflush(0);
-
-        P[i].EnergySN = 0;
-
-    }
-
-    if(All.ComovingIntegrationOn)
-        a3inv = 1 / (All.Time * All.Time * All.Time);
-    else
-        a3inv = 1;
-
-    if(P[i].Type == 0 && (SphP[i].TempPromotion > 0 || SphP[i].DensPromotion > 0))
-    {
-        xhyd = P[i].Zm[6] / P[i].Mass;
-        yhel = (1 - xhyd) / (4. * xhyd);
-        ne = SphP[i].Ne;
-        mu = (1 + 4 * yhel) / (1 + yhel + ne);
-        energy = SphP[i].Entropy * P[i].Mass / GAMMA_MINUS1 * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1);	/* Total Energys */
-        temp = GAMMA_MINUS1 / BOLTZMANN * energy / P[i].Mass * PROTONMASS * mu;
-        temp *= All.UnitEnergy_in_cgs / All.UnitMass_in_g;	/* Temperature in Kelvin */
-#ifndef LONGIDS
-        fprintf(FdPromotion, "%g %u %g %g %g %g %g %g\n", All.Time, P[i].ID, SphP[i].DensPromotion,
-                SphP[i].TempPromotion, SphP[i].d.Density, temp, SphP[i].da.DensityAvg,
-                SphP[i].ea.EntropyAvg);
-#else	
-        fprintf(FdPromotion, "%g %llu %g %g %g %g %g %g\n", All.Time, P[i].ID, SphP[i].DensPromotion,
-                SphP[i].TempPromotion, SphP[i].d.Density, temp, SphP[i].da.DensityAvg,
-                SphP[i].ea.EntropyAvg);
-#endif
-        fflush(FdPromotion);
-    }
-}
-#endif
 
 /* mark as active again */
 for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
 {
     if(P[i].TimeBin < 0)
         P[i].TimeBin = -P[i].TimeBin - 1;
-#if 0 && defined(LT_BH_CUT_KERNEL)
-    if(P[i].Type == 5)
-    {
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL
-        if(P[i].BH_MdotEddington < All.BH_radio_treshold) 
-        {
-#endif
-            if(P[i].CutHsml > PPP[i].Hsml)
-            {
-#ifndef LONGIDS
-                fprintf(FdBlackHolesWarn, "%8.6e @@ BH %10u @ %4d has got an inner region larger than the Hsml (%g vs %g)\n",
-                        All.Time, P[i].ID, ThisTask, P[i].CutHsml, PPP[i].Hsml);
-#else
-                fprintf(FdBlackHolesWarn, "%8.6e @@ BH %llu @ %4d has got an inner region larger than the Hsml (%g vs %g)\n",
-                        All.Time, P[i].ID, ThisTask, P[i].CutHsml, PPP[i].Hsml);
-#endif
-                P[i].CutHsml = PPP[i].Hsml;
-            }
-            if((P[i].CutHsml !=  PPP[i].Hsml) &&
-                    (P[i].CutHsml > All.BlackHoleMaxHsmlCut / All.Time) )
-#ifndef LONGIDS
-                fprintf(FdBlackHolesWarn, "%8.6e ++ BH %10u @ %4d has got an inner region larger than the the desired maximum (%g vs %g)\n",
-                        All.Time, P[i].ID, ThisTask, P[i].CutHsml, All.BlackHoleMaxHsmlCut / All.Time);
-#else
-            fprintf(FdBlackHolesWarn, "%8.6e ++ BH %llu @ %4d has got an inner region larger than the the desired maximum (%g vs %g)\n",
-                    All.Time, P[i].ID, ThisTask, P[i].CutHsml, All.BlackHoleMaxHsmlCut / All.Time);
-#endif
-            if( (P[i].CutHsml !=  PPP[i].Hsml) &&
-                    (P[i].CutHsml < All.BlackHoleMinHsmlCut / All.Time) )
-            {
-#ifndef LONGIDS
-                fprintf(FdBlackHolesWarn, "%8.6e -- BH %10u @ %4d has got an inner region smaller than the the desired minimum (%g vs %g)\n",
-                        All.Time, P[i].ID, ThisTask, P[i].CutHsml, All.BlackHoleMinHsmlCut / All.Time);
-#else
-                fprintf(FdBlackHolesWarn, "%8.6e -- BH %llu @ %4d has got an inner region smaller than the the desired minimum (%g vs %g)\n",
-                        All.Time, P[i].ID, ThisTask, P[i].CutHsml, All.BlackHoleMinHsmlCut / All.Time);
-#endif
-                P[i].CutHsml = All.BlackHoleMinHsmlCut / All.Time;
-            }
-#ifdef LT_DF_BH_ONLY_RADIOMODE_KERNEL                  
-        }
-#endif
-    }
-#endif
 }
-
-#if 0 && defined(LT_STELLAREVOLUTION)
-#ifndef LT_LOCAL_IRA
-if(N_stars > 0)
-#endif
-    drop_chemicallyactive_particles();
-#endif
 
     /* collect some timing information */
 
@@ -1588,12 +1290,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
     smoothent_or_pres = 0;
 #endif
 
-#if 0 && defined(LT_BH_GUESSHSML)
-    MyDouble smoothhsml,smoothrho;
-
-    smoothhsml = smoothrho = 0;
-#endif
-
 #ifdef WINDS
     double delaytime;
 #endif
@@ -1641,15 +1337,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
         grad_ngamma[0][k] = grad_ngamma[1][k] = grad_ngamma[2][k] = 0;
 #endif
 
-#if defined(LT_STELLAREVOLUTION)
-    int TargetType;
-#endif
-
-#if defined(LT_BH)
-    int    InnerNgb = 0;
-    double CutHsml;
-#endif
-
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
     rotb[0] = rotb[1] = rotb[2] = 0;
 #endif
@@ -1675,18 +1362,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #ifdef VOLUME_CORRECTION
         densityold = SphP[target].DensityOld;
 #endif
-#if defined(LT_STELLAREVOLUTION) && defined(WINDS)
-        TargetType = (P[target].Type > 0);
-        if(P[target].Type & 4)
-            delaytime = 1;
-#endif
-#if 0 && defined(LT_BH)
-#ifdef LT_BH_CUT_KERNEL
-        CutHsml = P[target].CutHsml;
-#else
-        CutHsml = h;
-#endif
-#endif      
         if(P[target].Type == 0)
         {
             vel = SphP[target].VelPred;
@@ -1732,13 +1407,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
         type = DensDataGet[target].Type;
         hsearch = density_decide_hsearch(DensDataGet[target].Type, h);
 
-#if 0 && defined(LT_BH)
-#ifdef LT_BH_CUT_KERNEL
-        CutHsml = DensDataGet[target].CutHsml;
-#else
-        CutHsml = h;
-#endif
-#endif      
 #ifdef WINDS
         delaytime = DensDataGet[target].DelayTime;
 #endif
@@ -1766,11 +1434,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #ifdef CS_MODEL
         densityold = DensDataGet[target].DensityOld;
         entropy = DensDataGet[target].Entropy;
-#endif
-#if defined(LT_STELLAREVOLUTION) && defined(WINDS)
-        TargetType = (DensDataGet[target].Type > 0);
-        if(DensDataGet[target].Type & 4)
-            delaytime = 1;
 #endif
     }
 
@@ -1867,14 +1530,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #else
                         rho += FLT(mass_j * wk);
 #endif
-#if defined(LT_STELLAREVOLUTION) && defined(LT_NOFIXEDMASSINSTARKERNEL)
-                        if(!TargetType)
-#endif
                             weighted_numngb += FLT(NORM_COEFF * wk / hcache[Hinv3]);	/* 4.0/3 * PI = 4.188790204786 */
-#if defined(LT_STELLAREVOLUTION) && defined(LT_NOFIXEDMASSINSTARKERNEL)
-                        else
-                            weighted_numngb += 1;
-#endif
 
                         dhsmlrho += FLT(-mass_j * (NUMDIMS * hcache[Hinv] * wk + r * hcache[Hinv] * dwk));
 
@@ -1893,14 +1549,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                         gasvel[0] += FLT(mass_j * wk * SphP[j].VelPred[0]);
                         gasvel[1] += FLT(mass_j * wk * SphP[j].VelPred[1]);
                         gasvel[2] += FLT(mass_j * wk * SphP[j].VelPred[2]);
-#if 0 && defined(LT_BH)
-                        if(r <= CutHsml)
-                            InnerNgb++;
-#ifdef LT_BH_GUESSHSML
-                        smoothhsml += mass_j * wk * PPP[j].Hsml;
-                        smoothrho += mass_j * wk;
-#endif
-#endif                  
 #endif
 
 #ifdef CONDUCTION_SATURATION
@@ -2173,21 +1821,10 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
         P[target].BH_SurroundingVel[1] = surroundingvel[1];
         P[target].BH_SurroundingVel[2] = surroundingvel[2];
 #endif
-#ifdef LT_BH
-        P[target].InnerNgb = InnerNgb;
-#ifdef LT_BH_GUESSHSML
-        P[target].mean_hsml = smoothhsml;
-        P[target].mean_rho = smoothrho;
-#endif
-#endif      
 #endif
 #if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
         if(P[target].Type == 4)
             P[target].DensAroundStar = rho;
-#endif
-#if defined(LT_STELLAREVOLUTION) && defined(LT_DONTUSE_DENSITY_in_WEIGHT)
-        if(P[target].Type == 4)
-            MetP[P[target].MetID].weight = rho;
 #endif
     }
     else
@@ -2267,13 +1904,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
         DensDataResult[target].SurroundingVel[1] = surroundingvel[1];
         DensDataResult[target].SurroundingVel[2] = surroundingvel[2];
 #endif
-#ifdef LT_BH
-        DensDataResult[target].InnerNgb = InnerNgb;
-#ifdef LT_BH_GUESSHSML
-        DensDataResult[target].SmoothedHsml = smoothhsml;
-        DensDataResult[target].SmoothedRho = smoothrho;
-#endif
-#endif      
 #endif
 #ifdef VECT_POTENTIAL
         DensDataResult[target].da[0] = dA[0];
@@ -2385,7 +2015,7 @@ int density_isactive(int n)
     if(P[n].TimeBin < 0)
         return 0;
 
-#if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS))|| defined(SNIA_HEATING) || defined(LT_STELLAREVOLUTION)
+#if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS))|| defined(SNIA_HEATING)
     if(P[n].Type == 4)
         return 1;
 #endif
@@ -2409,81 +2039,3 @@ double get_shear_viscosity(int i)
 }
 #endif
 
-
-#if defined(LT_STELLAREVOLUTION)
-int append_chemicallyactive_particles(unsigned int *already_active)
-{
-    int i, n, prev, appended_particles, alreadyactive_particles;
-
-    appended_particles = alreadyactive_particles = 0;
-
-    LastActive = prev = FirstActiveParticle;
-    while(LastActive >= 0)
-    {
-        prev = LastActive;
-        LastActive = NextActiveParticle[LastActive];
-    }
-
-    LastActive = prev;
-
-    for(i = 0; i < NumPart; i++)
-    {
-        n = P[i].TimeBin;
-        if(TimeBinActive[n])
-        {
-            if((P[i].Type & 15) == 4)
-                alreadyactive_particles++;
-            continue;
-        }
-
-#ifdef LT_LOCAL_IRA
-        if(P[i].Type == 0)
-            n = SphP[i].ChemTimeBin;
-        else if(P[i].Type == 4)
-#else
-            if((P[i].Type & 15) == 4)
-#endif
-                n = MetP[P[i].MetID].ChemTimeBin;
-
-        if(TimeBinActive[n])
-        {
-            if(is_chemically_active(i) == 0)
-#ifndef LONGIDS
-                printf("\n\t task %d @%d has found a mismatch A for particle %d, ID = %u \n",
-                        ThisTask, All.NumCurrentTiStep, i, P[i].ID);
-#else
-            printf("\n\t task %d @%d has found a mismatch A for particle %d, ID = %llu \n",
-                    ThisTask, All.NumCurrentTiStep, i, P[i].ID);
-#endif
-            /*             printf("\n\t task %d @%d has found a mismatch A for particle %d, ID = %llu :: %g %g %d %g\n", */
-            /*                    ThisTask, All.NumCurrentTiStep, i, (unsigned long long)P[i].ID, All.Time_Age, MetP[P[i].MetID].NextChemTime, n, get_age(P[i].StellarAge) - All.Time_Age, get_age(P[i].StellarAge)-MetP[P[i].MetID].NextChemTime); fflush(stdout); */
-
-            appended_particles++;
-
-            if(prev == -1)
-                FirstActiveParticle = i;
-
-            if(prev >= 0)
-                NextActiveParticle[prev] = i;
-
-            prev = i;
-        }
-    }
-
-    if(prev >= 0)
-        NextActiveParticle[prev] = -1;
-
-    *already_active = alreadyactive_particles;
-
-    return appended_particles;
-}
-
-
-void drop_chemicallyactive_particles(void)
-{
-    if(LastActive >= 0)
-        NextActiveParticle[LastActive] = -1;
-    else
-        FirstActiveParticle = -1;
-}
-#endif
