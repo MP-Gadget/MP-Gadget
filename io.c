@@ -505,7 +505,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 	    double dmax1, dmax2;
 
 	    AbundanceRatios(DMAX(All.MinEgySpec,
-				 SphP[pindex].Entropy / GAMMA_MINUS1 * pow(SphP[pindex].d.Density *
+				 SphP[pindex].Entropy / GAMMA_MINUS1 * pow(SphP[pindex].EOMDensity *
 									   a3inv,
 									   GAMMA_MINUS1)),
 			    SphP[pindex].d.Density * a3inv, &ne, &nh0, &nHeII);
