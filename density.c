@@ -127,8 +127,8 @@ static struct densdata_out
 #endif
 
 #if defined(BLACK_HOLES)
-  MyLongDouble SmoothedEntr;
-  MyLongDouble FBsum;
+  MyLongDouble SmoothedEntOrPressure;
+  MyLongDouble FeedbackWeightSum;
 #endif
 #ifdef CONDUCTION_SATURATION
   MyFloat GradEntr[3];
@@ -741,8 +741,8 @@ void density(void)
 	      if(P[place].Type == 5)
 		{
 		  P[place].b1.dBH_Density += DensDataOut[j].Rho;
-		  P[place].b1_FB.dBH_FBsum += DensDataOut[j].FBsum;
-		  P[place].b2.dBH_Entropy += DensDataOut[j].SmoothedEntr;
+		  P[place].BH_FeedbackWeightSum += DensDataOut[j].FeedbackWeightSum;
+		  P[place].b2.dBH_EntOrPressure += DensDataOut[j].SmoothedEntOrPressure;
 		  P[place].b3.dBH_SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
 		  P[place].b3.dBH_SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
 		  P[place].b3.dBH_SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
@@ -792,8 +792,7 @@ void density(void)
 	    if(P[i].Type == 5)
 	      {
 		P[i].b1.BH_Density = FLT(P[i].b1.dBH_Density);
-		P[i].b1_BH.BH_FBsum = FLT(P[i].b1_BH.dBH_FBsum);
-		P[i].b2.BH_Entropy = FLT(P[i].b2.dBH_Entropy);
+		P[i].b2.BH_EntOrPressure = FLT(P[i].b2.dBH_EntOrPressure);
 		for(j = 0; j < 3; j++)
 		  P[i].b3.BH_SurroundingGasVel[j] = FLT(P[i].b3.dBH_SurroundingGasVel[j]);
 	      }
@@ -1023,14 +1022,11 @@ void density(void)
 		{
 		  if(P[i].b1.BH_Density > 0)
 		    {
-		      P[i].b2.BH_Entropy /= P[i].b1.BH_Density;
+		      P[i].b2.BH_EntOrPressure /= P[i].b1.BH_Density;
 		      P[i].b3.BH_SurroundingGasVel[0] /= P[i].b1.BH_Density;
 		      P[i].b3.BH_SurroundingGasVel[1] /= P[i].b1.BH_Density;
 		      P[i].b3.BH_SurroundingGasVel[2] /= P[i].b1.BH_Density;
 		    }
-#if 0
-                  printf("BH_FB_DENSITY: %g \n", P[i].b1_FB.BH_FBsum);
-#endif
 #ifdef KD_FRICTION
 		  if(P[i].BH_SurroundingDensity > 0)
 		    {
@@ -1514,7 +1510,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
   MyLongDouble rho;
 #ifdef BLACK_HOLES
-  MyLongDouble FBsum;  /*smoothing density used in feedback */
+  MyLongDouble fb_weight_sum;  /*smoothing density used in feedback */
 #endif
   int type;
   double wk, dwk;
@@ -1587,9 +1583,9 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
 
 #if defined(BLACK_HOLES)
-  MyLongDouble smoothentr;
+  MyLongDouble smoothent_or_pres;
 
-  smoothentr = 0;
+  smoothent_or_pres = 0;
 #endif
 
 #if 0 && defined(LT_BH_GUESSHSML)
@@ -1666,7 +1662,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
 #ifdef BLACK_HOLES
   gasvel[0] = gasvel[1] = gasvel[2] = 0;
-  FBsum = 0;
+  fb_weight_sum = 0;
 #endif
   rho = weighted_numngb = dhsmlrho = 0;
 
@@ -1889,7 +1885,11 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
 
 #ifdef BLACK_HOLES
-		  smoothentr += FLT(mass_j * wk * SphP[j].Entropy);
+#ifdef BH_CSND_FROM_PRESSURE
+		  smoothent_or_pres += FLT(mass_j * wk * SphP[j].Pressure);
+#else
+		  smoothent_or_pres += FLT(mass_j * wk * SphP[j].Entropy);
+#endif
 		  gasvel[0] += FLT(mass_j * wk * SphP[j].VelPred[0]);
 		  gasvel[1] += FLT(mass_j * wk * SphP[j].VelPred[1]);
 		  gasvel[2] += FLT(mass_j * wk * SphP[j].VelPred[2]);
@@ -2024,17 +2024,35 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 	      if(type == 5 && r2 < hsearchcache[H2])
 		{
                   double mass_j;
-                  if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) {
-                      mass_j = P[j].Mass;
+                  if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_OPTTHIN) {
+#ifdef COOLING
+                     double dmax1, dmax2;
+                     double nh0 = 0;
+                     double nHeII = 0;
+                     ne = SphP[j].Ne;
+                     AbundanceRatios(DMAX(All.MinEgySpec,
+                             SphP[j].Entropy / GAMMA_MINUS1 
+                             * pow(SphP[j].EOMDensity * a3inv,
+                                       GAMMA_MINUS1)),
+                             SphP[j].d.Density * a3inv, &ne, &nh0, &nHeII);
+#else
+                     double nh0 = 0;
+#endif
+                     if(r2 > 0)
+                         fb_weight_sum += FLT(P[j].Mass * nh0) / r2;
                   } else {
-                      mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
-                  }
-                  if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE) {
-                      double wksearch;
-                      density_kernel(r, hsearchcache, &wksearch, NULL);
-                      FBsum += FLT(mass_j * wksearch);
-                  } else {
-                      FBsum += FLT(mass_j);
+                      if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) {
+                          mass_j = P[j].Mass;
+                      } else {
+                          mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
+                      }
+                      if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE) {
+                          double wksearch;
+                          density_kernel(r, hsearchcache, &wksearch, NULL);
+                          fb_weight_sum += FLT(mass_j * wksearch);
+                      } else {
+                          fb_weight_sum += FLT(mass_j);
+                      }
                   }
                 }
 #endif
@@ -2051,11 +2069,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 	    }
 	}
     }
-#if 0
-  if (type == 5 && numngb > 0) {
-    printf("FBsum in DENSITY: %d %g %g, h %g hsearch %g ngb %d\n", target, FBsum, rho, h, hsearch, numngb);
-  }
-#endif
   if(mode == 0)
     {
       PPP[target].n.dNumNgb = weighted_numngb;
@@ -2149,8 +2162,8 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 	}
 #ifdef BLACK_HOLES
       P[target].b1.dBH_Density = rho;
-      P[target].b1_FB.dBH_FBsum = FBsum;
-      P[target].b2.dBH_Entropy = smoothentr;
+      P[target].BH_FeedbackWeightSum = fb_weight_sum;
+      P[target].b2.dBH_EntOrPressure = smoothent_or_pres;
       P[target].b3.dBH_SurroundingGasVel[0] = gasvel[0];
       P[target].b3.dBH_SurroundingGasVel[1] = gasvel[1];
       P[target].b3.dBH_SurroundingGasVel[2] = gasvel[2];
@@ -2209,8 +2222,8 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
 
 #if defined(BLACK_HOLES)
-      DensDataResult[target].SmoothedEntr = smoothentr;
-      DensDataResult[target].FBsum = FBsum;
+      DensDataResult[target].SmoothedEntOrPressure = smoothent_or_pres;
+      DensDataResult[target].FeedbackWeightSum = fb_weight_sum;
 #endif
 #ifdef CONDUCTION_SATURATION
       DensDataResult[target].GradEntr[0] = gradentr[0];

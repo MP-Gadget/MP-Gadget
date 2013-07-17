@@ -25,7 +25,7 @@ static struct blackholedata_in
 {
   MyDouble Pos[3];
   MyFloat Density;
-  MyFloat FBsum;
+  MyFloat FeedbackWeightSum;
   MyFloat Mdot;
   MyFloat Dt;
   MyFloat Hsml;
@@ -85,13 +85,28 @@ static int N_gas_swallowed, N_BH_swallowed;
 static int N_gas_slices_swallowed;
 #endif
 
+static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
+    /* rho is comoving !*/
+    double cs;
+#ifdef BH_CSND_FROM_PRESSURE
+	cs = sqrt(GAMMA * entropy_or_pressure / rho);
+
+#else
+	cs = sqrt(GAMMA * entropy_or_pressure * 
+            pow(rho, GAMMA_MINUS1));
+#endif
+    if(All.ComovingIntegrationOn) {
+        cs *= pow(All.Time, -1.5 * GAMMA_MINUS1);
+    }
+    return cs;
+}
 void blackhole_accretion(void)
 {
   int i, j, k, n, bin;
   int ndone_flag, ndone;
   int ngrp, sendTask, recvTask, place, nexport, nimport, dummy;
   int Ntot_gas_swallowed, Ntot_BH_swallowed;
-  double mdot, rho, bhvel, soundspeed, meddington, dt, mdot_in_msun_per_year;
+  double mdot, rho, rho_proper, bhvel, soundspeed, meddington, dt, mdot_in_msun_per_year;
   double mass_real, total_mass_real, medd, total_mdoteddington;
   double mass_holes, total_mass_holes, total_mdot;
   double injection, total_injection;
@@ -146,7 +161,6 @@ void blackhole_accretion(void)
 	mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
 
 	rho = P[n].b1.BH_Density;
-
 #ifdef BH_USE_GASVEL_IN_BONDI
 	bhvel = sqrt(pow(P[n].Vel[0] - P[n].b3.BH_SurroundingGasVel[0], 2) +
 		     pow(P[n].Vel[1] - P[n].b3.BH_SurroundingGasVel[1], 2) +
@@ -158,10 +172,13 @@ void blackhole_accretion(void)
 	if(All.ComovingIntegrationOn)
 	  {
 	    bhvel /= All.Time;
-	    rho /= pow(All.Time, 3);
+        rho_proper = rho / (All.Time * All.Time * All.Time);
 	  }
+    else {
+        rho_proper = rho;
+    }
 
-	soundspeed = sqrt(GAMMA * P[n].b2.BH_Entropy * pow(rho, GAMMA_MINUS1));
+    soundspeed = blackhole_soundspeed(P[n].b2.BH_EntOrPressure, rho);
 
 #ifndef LT_DF_BH                          
 	/* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
@@ -177,7 +194,7 @@ void blackhole_accretion(void)
         norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
 	if(norm > 0)
 	  mdot = 4. * M_PI * All.BlackHoleAccretionFactor * All.G * All.G *
-	    P[n].BH_Mass * P[n].BH_Mass * rho / norm;
+	    P[n].BH_Mass * P[n].BH_Mass * rho_proper / norm;
 	else
 	  mdot = 0;
 #endif
@@ -192,7 +209,7 @@ void blackhole_accretion(void)
 	if(P[n].BH_Mass > 0)
 	  {
 	    fprintf(FdBlackHolesDetails, "BH=" IDFMT " %g %g %g %g %g %g   %2.7f %2.7f %2.7f %g %g %g %g\n",
-		    P[n].ID, All.Time, P[n].BH_Mass, mdot, rho, soundspeed, bhvel, P[n].Pos[0],P[n].Pos[1],P[n].Pos[2],
+		    P[n].ID, All.Time, P[n].BH_Mass, mdot, rho_proper, soundspeed, bhvel, P[n].Pos[0],P[n].Pos[1],P[n].Pos[2],
 		    P[n].b3.BH_SurroundingGasVel[0],
 	            P[n].b3.BH_SurroundingGasVel[1], 
 	            P[n].b3.BH_SurroundingGasVel[2], PPP[n].Hsml);
@@ -393,11 +410,12 @@ void blackhole_accretion(void)
 	  BlackholeDataIn[j].Mass = P[place].Mass;
 	  BlackholeDataIn[j].BH_Mass = P[place].BH_Mass;
 	  BlackholeDataIn[j].Density = P[place].b1.BH_Density;
-	  BlackholeDataIn[j].FBsum = P[place].b1_FB.BH_FBsum;
+	  BlackholeDataIn[j].FeedbackWeightSum = P[place].BH_FeedbackWeightSum;
 	  BlackholeDataIn[j].Mdot = P[place].BH_Mdot;
 	  BlackholeDataIn[j].Csnd =
-	    sqrt(GAMMA * P[place].b2.BH_Entropy *
-		 pow(P[place].b1.BH_Density / (ascale * ascale * ascale), GAMMA_MINUS1));
+          blackhole_soundspeed(
+                  P[place].b2.BH_EntOrPressure,
+                  P[place].b1.BH_Density);
 	  BlackholeDataIn[j].Dt =
 	    (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / hubble_a;
 	  BlackholeDataIn[j].ID = P[place].ID;
@@ -960,7 +978,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
   MyFloat *pos, *velocity, h_i, dt, mdot, rho, mass, bh_mass, csnd;
   double dx, dy, dz, r2, r, vrel;
   double hsearch;
-  double FBsum, fb_rho2=0.0, rho2=0.0;
+  double FeedbackWeightSum;
   double hcache[4];
   double hsearchcache[4];
 
@@ -994,18 +1012,18 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
     {
       pos = P[target].Pos;
       rho = P[target].b1.BH_Density;
-      FBsum = P[target].b1_FB.BH_FBsum;
+      FeedbackWeightSum = P[target].BH_FeedbackWeightSum;
       mdot = P[target].BH_Mdot;
       dt = (P[target].TimeBin ? (1 << P[target].TimeBin) : 0) * All.Timebase_interval / hubble_a;
       h_i = PPP[target].Hsml;
       mass = P[target].Mass;
       bh_mass = P[target].BH_Mass;
       velocity = P[target].Vel;
-      csnd =
-	sqrt(GAMMA * P[target].b2.BH_Entropy *
-	     pow(P[target].b1.BH_Density / (ascale * ascale * ascale), GAMMA_MINUS1));
+      csnd = blackhole_soundspeed(P[target].b2.BH_EntOrPressure,
+              P[target].b1.BH_Density);
+
 	if(csnd == 0.0) {
-		fprintf(stderr, "csnd == 0.0, entropy == %g, density = %g, hsml=%g\n", P[target].b2.BH_Entropy, P[target].b1.BH_Density, h_i);
+		fprintf(stderr, "csnd == 0.0, entropy == %g, density = %g, hsml=%g\n", P[target].b2.BH_EntOrPressure, P[target].b1.BH_Density, h_i);
 		//endrun(999965);
 	}
       index = target;
@@ -1035,7 +1053,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
     {
       pos = BlackholeDataGet[target].Pos;
       rho = BlackholeDataGet[target].Density;
-      FBsum = BlackholeDataGet[target].FBsum;
+      FeedbackWeightSum = BlackholeDataGet[target].FeedbackWeightSum;
       mdot = BlackholeDataGet[target].Mdot;
       dt = BlackholeDataGet[target].Dt;
       h_i = BlackholeDataGet[target].Hsml;
@@ -1179,7 +1197,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 			      r = sqrt(r2);
                               double wk;
                               density_kernel(r, hcache, &wk, NULL);
-                              rho2 += P[j].Mass * wk;
 #ifdef SWALLOWGAS
 			      /* compute accretion probability */
 			      double p, w;
@@ -1229,12 +1246,12 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 				  energy = All.BlackHoleFeedbackFactor * 0.1 * mdot * dt *
 				    pow(C / All.UnitVelocity_in_cm_per_s, 2);
                                   
-				  if(FBsum > 0)
+				  if(FeedbackWeightSum > 0)
                                     {
-                                      SphP[j].i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FBsum);
+                                      SphP[j].i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FeedbackWeightSum);
 #ifdef LT_BH_ACCRETE_SLICES                 
                                       if(P[j].SwallowID == id)
-                                        SphP[j].i.dInjected_BH_Energy -= FLT(energy * mass_j / (All.NBHslices - SphP[j].NSlicesSwallowed) * wk / FBsum);
+                                        SphP[j].i.dInjected_BH_Energy -= FLT(energy * mass_j / (All.NBHslices - SphP[j].NSlicesSwallowed) * wk / FeedbackWeightSum);
 #endif
                                     }
 
@@ -1250,8 +1267,8 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 											    All.
 											    UnitVelocity_in_cm_per_s,
 											    2);
-				      if(FBsum > 0)
-					SphP[j].i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FBsum);
+				      if(FeedbackWeightSum> 0)
+					SphP[j].i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FeedbackWeightSum);
 				    }
 #endif
 #endif
@@ -1287,7 +1304,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                     }
                                   else
                                     {
-                                      AltRho = FBsum;
+                                      AltRho = FeedbackWeightSum;
                                       swk = wk;
                                     }
 #endif
@@ -1380,11 +1397,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 
     }
 
-#if 0
-    if(fb_rho2 >0 || rho2 > 0)
-      printf("id"IDFMT" Task %d FBsum: %g fb_rho2 %g rho %g rho2 %g\n", id, ThisTask, FBsum, fb_rho2, rho, rho2);
-
-#endif
   return 0;
 }
 

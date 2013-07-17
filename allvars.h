@@ -398,6 +398,7 @@ typedef MyFloat MyLongDouble;
 #define BH_FEEDBACK_SPLINE   0x4
 #define BH_FEEDBACK_MASS     0x8
 #define BH_FEEDBACK_VOLUME   0x10
+#define BH_FEEDBACK_OPTTHIN   0x20
 #endif
 
 #define DMAX(a,b) (dmax1=(a),dmax2=(b),(dmax1>dmax2)?dmax1:dmax2)
@@ -1579,11 +1580,7 @@ extern struct particle_data
   MyFloat BH_Mass_radio;
 #endif
 #endif
-  union
-  {
-    MyFloat BH_FBsum;
-    MyLongDouble dBH_FBsum;
-  } b1_FB;
+  MyFloat BH_FeedbackWeightSum;
   union
   {
     MyFloat BH_Density;
@@ -1591,8 +1588,8 @@ extern struct particle_data
   } b1;
   union
   {
-    MyFloat BH_Entropy;
-    MyLongDouble dBH_Entropy;
+    MyFloat BH_EntOrPressure;
+    MyLongDouble dBH_EntOrPressure;
   } b2;
   union
   {
