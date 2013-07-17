@@ -210,8 +210,7 @@ void advance_and_find_timesteps(void)
 
       bin = get_timestep_bin(ti_step);
       if(bin == -1) {
-          printf("time-step of integer size 1 not allowed, id = "IDFMT", debugging info follows.\n", P[i].ID);
-          get_timestep(i, &aphys, -1);
+          printf("time-step of integer size 1 not allowed, id = "IDFMT", debugging info follows. %d\n", P[i].ID, ti_step);
           badstepsizecount++;
       }
       binold = P[i].TimeBin;
@@ -325,10 +324,11 @@ void advance_and_find_timesteps(void)
   MPI_Allreduce(&badstepsizecount, &badstepsizecount_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
   if(badstepsizecount_global) {
+      if (ThisTask == 0)
      printf("bad timestep spotted terminating and saving snapshot as %d\n", All.SnapshotFileCount);
      DumpFlag = 1;
      All.NumCurrentTiStep = 0;
-     savepositions(All.SnapshotFileCount);
+     savepositions(999999);
      MPI_Barrier(MPI_COMM_WORLD);
      endrun(1231134);
   }
@@ -898,6 +898,7 @@ int get_timestep(int p,		/*!< particle index */
   double ax, ay, az, ac;
   double csnd = 0, dt = 0, dt_courant = 0;
   int ti_step;
+  double dt_viscous = 0;
 #ifdef CHEMCOOL
   double hubble_param;
 
@@ -1032,7 +1033,7 @@ int get_timestep(int p,		/*!< particle index */
       dt_viscous = All.CourantFac * SphP[p].MaxViscStep / hubble_a;	/* to convert dloga to physical dt */
 
       if(dt_viscous < dt)
-	dt = dt_viscous;
+        dt = dt_viscous;
 #endif
 
 #ifdef NS_TIMESTEP
@@ -1198,49 +1199,6 @@ int get_timestep(int p,		/*!< particle index */
       dt = All.CR_DiffusionMaxSizeTimestep;
 #endif
 
-  if(flag < 0 || dt < All.MinSizeTimestep)
-    {
-#ifndef NOSTOP_WHEN_BELOW_MINTIMESTEP
-      printf("warning: Timestep wants to be below the limit `MinSizeTimestep'\n");
-
-      if(P[p].Type == 0)
-	{
-	  printf
-	    ("Part-ID="IDFMT"  dt=%g dtc=%g ac=%g xyz=(%g|%g|%g)  hsml=%g  maxcsnd=%g dt0=%g eps=%g\n",
-	     (MyIDType) P[p].ID, dt, dt_courant * hubble_a, ac, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], PPP[p].Hsml,
-	     csnd,
-	     sqrt(2 * All.ErrTolIntAccuracy * atime * All.SofteningTable[P[p].Type] / ac) * hubble_a,
-	     All.SofteningTable[P[p].Type]);
-
-#ifdef NS_TIMESTEP
-    printf
-	    ("Part-ID="IDFMT"  dt_NS=%g  A=%g  rho=%g  dotAvisc=%g  dtold=%g, meanpath=%g \n",
-	     P[p].ID, dt_NS * hubble_a, SphP[p].Entropy, SphP[p].d.Density,
-	     SphP[p].ViscEntropyChange, (P[p].TimeBin ? (1 << P[p].TimeBin) : 0) * All.Timebase_interval,
-	     All.IonMeanFreePath *
-	     pow((SphP[p].Entropy * pow(SphP[p].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1),
-		 2.0) / SphP[p].d.Density);
-
-	  printf("Stressd=(%g|%g|%g) \n", SphP[p].u.s.StressDiag[0], SphP[p].u.s.StressDiag[1],
-		 SphP[p].u.s.StressDiag[2]);
-	  printf("Stressoffd=(%g|%g|%g) \n", SphP[p].u.s.StressOffDiag[0], SphP[p].u.s.StressOffDiag[1],
-		 SphP[p].u.s.StressOffDiag[2]);
-#endif
-
-
-	}
-      else
-	{
-      printf("Part-ID="IDFMT"  dt=%g ac=%g xyz=(%g|%g|%g)\n",(MyIDType)P[p].ID, dt, ac, P[p].Pos[0], P[p].Pos[1],
-		 P[p].Pos[2]);
-	}
-      fflush(stdout);
-      fprintf(stderr, "\n @ fflush \n");
-      endrun(888);
-#endif
-      dt = All.MinSizeTimestep;
-    }
-
   ti_step = (int) (dt / All.Timebase_interval);
 
 #if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
@@ -1252,19 +1210,21 @@ int get_timestep(int p,		/*!< particle index */
 	     ThisTask, P[p].ID, dt, SphP[p].t_elec, SphP[p].t_cool, All.Timebase_interval, ti_step, ac,
 	     P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
       fflush(stdout);
-      endrun(818);
+      //endrun(818);
     }
 #endif
 
-  if(flag < 0 || !(ti_step > 0 && ti_step < TIMEBASE))
+  if(!(ti_step > 1 && ti_step < TIMEBASE))
     {
       printf("\nError: A timestep of size zero was assigned on the integer timeline!\n"
 	     "We better stop.\n"
-	     "Task=%d Part-ID="IDFMT" dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g)\n\n",
-	     ThisTask, (MyIDType)P[p].ID, dt, dt_courant, dt, dt_displacement,
+	     "Task=%d Part-ID="IDFMT" dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
+	     ThisTask, (MyIDType)P[p].ID, dt, dt_courant, dt_viscous, dt_displacement,
 	     All.Timebase_interval, ti_step, ac,
 	     P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].g.GravAccel[0], P[p].g.GravAccel[1],
-	     P[p].g.GravAccel[2]);
+	     P[p].g.GravAccel[2],
+	     sqrt(2 * All.ErrTolIntAccuracy * atime * All.SofteningTable[P[p].Type] / ac) * hubble_a, All.ErrTolIntAccuracy
+         );
 #ifdef PMGRID
       printf("pm_force=(%g|%g|%g)\n", P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]);
 #endif
@@ -1296,7 +1256,7 @@ int get_timestep(int p,		/*!< particle index */
 #endif
 
       fflush(stdout);
-      endrun(818);
+      //endrun(818);
     }
 
   return ti_step;
