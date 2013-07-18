@@ -48,9 +48,6 @@ void begrun(void)
         printf("\nCode was compiled with settings:\n %s\n", COMPILETIMESETTINGS);
         printf("\nSize of particle structure       %d  [bytes]\n",sizeof(struct particle_data));
         printf("\nSize of sph particle structure   %d  [bytes]\n",sizeof(struct sph_particle_data));
-#ifdef LT_STELLAREVOLUTION   
-        printf("\nSize of metal particle structure %d  [bytes]\n\n",sizeof(struct met_particle_data));
-#endif
     }
 
 #if defined(X86FIX) && defined(SOFTDOUBLEDOUBLE)
@@ -77,9 +74,7 @@ void begrun(void)
 
 #ifdef COOLING
     All.Time = All.TimeBegin;
-#ifndef LT_STELLAREVOLUTION
     InitCool();
-#endif
 #endif
 
 #if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
@@ -87,7 +82,7 @@ void begrun(void)
     InitChem();
 #endif
 
-#if defined(SFR) && !defined(LT_STELLAREVOLUTION)
+#if defined(SFR)
     init_clouds();
 #endif
 
@@ -268,14 +263,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         All.DivBcleanQ = all.DivBcleanQ;
 #endif
 
-#ifdef LT_DF_BH
-        All.BH_Radiative_Efficiency = all.BH_Radiative_Efficiency;
-#endif
-
-#ifdef LT_STELLAREVOLUTION
-        All.MaxChemSpreadL = all.MaxChemSpreadL;
-#endif
-
 #ifdef DARKENERGY
         All.DarkEnergyParam = all.DarkEnergyParam;
 #endif
@@ -443,27 +430,8 @@ void set_units(void)
     All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.MinGasTemp;
     All.MinEgySpec *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
-#ifdef LT_STELLAREVOLUTION
-    All.MinChemTimeStep /= 86400 * 365 * 1e9;
-    /* 
-       Add here Spreading Length in the case of fixed distance
-       */
-    All.SnIaEgy /= All.UnitEnergy_in_cgs;
-    All.SnIIEgy /= All.UnitEnergy_in_cgs;
 
-#ifdef LT_HOT_EJECTA
-    /* All.EgySpecEjecta is supposed to be given in paramfile as Km/sec        */
-    /* then we have to transform in erg / g through the 1e10 conversion factor */
-    All.EgySpecEjecta = pow(All.EgySpecEjecta, 2) * 1e10 * All.UnitMass_in_g / All.UnitEnergy_in_cgs;
-#endif
-
-    Hyd = LT_NMet - 1;
-    All.Time = All.TimeBegin;
-    init_SN();
-#endif
-
-
-#if defined(SFR) && !defined(LT_STELLAREVOLUTION)
+#if defined(SFR)
     set_units_sfr();
 #endif
 
@@ -709,15 +677,6 @@ void open_outputfiles(void)
         printf("error in opening file '%s'\n", buf);
         endrun(1);
     }
-#ifdef LT_BH
-    /* Note: This is done by everyone */
-    sprintf(buf, "%sblackhole_warn_%d.txt", All.OutputDir, ThisTask);
-    if(!(FdBlackHolesWarn = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
 #endif
 
 #ifdef CS_FEEDBACK
@@ -737,26 +696,6 @@ void open_outputfiles(void)
         printf("error in opening file '%s'\n", buf);
         endrun(1);
     }
-#endif
-
-#ifdef LT_TRACK_WINDS
-    sprintf(buf, "%s%s%d%s", All.OutputDir, "trckwinds.", ThisTask, ".txt");
-    if(!(FdTrackW = fopen(buf, mode)))
-    {
-        printf("[%d] error in opening file '%s'\n", ThisTask, buf);
-        endrun(1);
-    }
-#endif
-
-#ifdef LT_POPIII_FLAGS
-    sprintf(buf, "%s%s%d%s", All.OutputDir, "trckPIII.", ThisTask, ".dat");
-    if(!(FdTrackPopIII = fopen(buf, mode)))
-    {
-        printf("[%d] error in opening file '%s'\n", ThisTask, buf);
-        endrun(1);
-    }
-    PopIIIevents_buffer = (float *) calloc(POPIIIEVENTS_BUFFER_DIM, sizeof(float));
-    PopIIIevents_idx = 0;
 #endif
 
     if(ThisTask != 0)		/* only the root processors writes to the log files */
@@ -894,14 +833,6 @@ void open_outputfiles(void)
         printf("error in opening file '%s'\n", buf);
         endrun(1);
     }
-#ifdef LT_BH_LOG
-    sprintf(buf, "%sblackholes.profile.txt", All.OutputDir);
-    if(!(FdBlackHolesProfile = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
 #endif
 
 
@@ -1009,78 +940,6 @@ void open_outputfiles(void)
     }
 #endif
 
-#ifdef LT_EXTEGY_INFO
-    sprintf(buf, "%s%s", All.OutputDir, "extegy.txt");
-    if(!(FdExtEgy = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
-#ifdef LT_SEv_INFO_DETAILS_onSPREAD
-    sprintf(buf, "%s%s", All.OutputDir, "spinfo.txt");
-    if(!(FdSPinfo = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
-#ifdef LT_CharT_INFO
-    sprintf(buf, "%s%s", All.OutputDir, "chart.txt");
-    if(!(FdCharT = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
-#ifdef LT_STELLAREVOLUTION
-
-#ifdef LT_SEv_INFO
-
-#ifdef LT_SEvDbg
-    sprintf(buf, "%s%s", All.OutputDir, "met_sumcheck.txt");
-    if(!(FdMetSumCheck = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
-    sprintf(buf, "%s%s", All.OutputDir, "metals.txt");
-    if(!(FdMetals = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-
-    sprintf(buf, "%s%s", All.OutputDir, "sn.txt");
-    if(!(FdSn = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-
-    sprintf(buf, "%s%s", All.OutputDir, "sn_lost.txt");
-    if(!(FdSnLost = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-
-#ifdef WINDS
-    sprintf(buf, "%s%s", All.OutputDir, "winds.txt");
-    if(!(FdWinds = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
-#endif
-#endif
 
 
 }
@@ -1094,22 +953,10 @@ void close_outputfiles(void)
 {
 #ifdef BLACK_HOLES
     fclose(FdBlackHolesDetails);	/* needs to be done by everyone */
-#ifdef LT_BH
-    fclose(FdBlackHolesWarn);	/* needs to be done by everyone */
-#endif
 #endif
 
 #ifdef CAUSTIC_FINDER
     fclose(FdCaustics);		/* needs to be done by everyone */
-#endif
-
-#ifdef LT_TRACK_WINDS
-    fclose(FdTrackW);
-#endif
-
-#ifdef LT_POPIII_FLAGS
-    fwrite(PopIIIevents_buffer, PopIIIevents_idx, sizeof(float), FdTrackPopIII);
-    fclose(FdTrackPopIII);
 #endif
 
     if(ThisTask != 0)		/* only the root processors writes to the log files */
@@ -1136,9 +983,6 @@ void close_outputfiles(void)
 
 #ifdef BLACK_HOLES
     fclose(FdBlackHoles);
-#ifdef LT_BH_LOG
-    fclose(FdBlackHolesProfile);
-#endif
 #endif
 
 #ifdef XXLINFO
@@ -1166,37 +1010,6 @@ void close_outputfiles(void)
 #ifdef CS_FEEDBACK
     fclose(FdPromotion);
 #endif
-
-#ifdef LT_SEv_INFO_DETAILS_onSPREAD
-    fclose(FdSPinfo);
-#endif
-
-#ifdef LT_CharT_INFO
-    fclose(FdCharT);
-#endif
-
-#ifdef LT_EXTEGY_INFO
-    fclose(FdExtEgy);
-#endif
-
-#ifdef LT_CharT_INFO
-    fclose(FdCharT);
-#endif
-#ifdef LT_STELLAREVOLUTION
-
-#ifdef LT_SEv_INFO
-#ifdef LT_SEvDbg
-    fclose(FdMetSumCheck);
-#endif
-    fclose(FdSn);
-    fclose(FdSnLost);
-    fclose(FdMetals);
-#ifdef WINDS
-    fclose(FdWinds);
-#endif
-#endif
-#endif
-
 
 }
 
@@ -1863,11 +1676,10 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.BlackHoleMaxAccretionRadius;
         id[nt++] = REAL;
 
-#if !defined(LT_DF_BH_MASS_SWITCH) && !defined(LT_DF_BH_BHAR_SWITCH)
         strcpy(tag[nt], "BlackHoleFeedbackFactor");
         addr[nt] = &All.BlackHoleFeedbackFactor;
         id[nt++] = REAL;
-#endif
+
         strcpy(tag[nt], "BlackHoleFeedbackRadius");
         addr[nt] = &All.BlackHoleFeedbackRadius;
         id[nt++] = REAL;
@@ -1879,43 +1691,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "BlackHoleFeedbackMethod");
         addr[nt] = All.BlackHoleFeedbackMethodSTR;
         id[nt++] = STRING;
-
-#ifdef LT_BH
-        strcpy(tag[nt], "BH_RegionSize");
-        addr[nt] = &All.BlackHoleHsmlCut;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BH_RegionSizeMax");
-        addr[nt] = &All.BlackHoleMaxHsmlCut;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BH_RegionSizeMin");
-        addr[nt] = &All.BlackHoleMinHsmlCut;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BH_MinNumNgb");
-        addr[nt] = &All.DesNumNgb_BH_inner;
-        id[nt++] = INT;
-
-#ifdef LT_DF_BH_BHAR_SWITCH 
-        strcpy(tag[nt], "BH_radio_treshold");
-        addr[nt] = &All.BH_radio_treshold;
-        id[nt++] = REAL;
-#endif
-
-#ifdef LT_DF_BH
-        strcpy(tag[nt], "BH_Radiative_Efficiency");
-        addr[nt] = &All.BH_Radiative_Efficiency;
-        id[nt++] = REAL;
-#endif
-
-#endif /* LT_BH */
-
-#ifdef LT_BH_ACCRETE_SLICES
-        strcpy(tag[nt], "BH_N_AccretionSlices");
-        addr[nt] = &All.NBHslices;
-        id[nt++] = INT;
-#endif
 
 #endif
 
@@ -1983,14 +1758,12 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.CritPhysDensity;
         id[nt++] = REAL;
 
-#ifndef LT_STELLAREVOLUTION
         strcpy(tag[nt], "FactorSN");
         addr[nt] = &All.FactorSN;
         id[nt++] = REAL;
         strcpy(tag[nt], "FactorEVP");
         addr[nt] = &All.FactorEVP;
         id[nt++] = REAL;
-#endif
 
         strcpy(tag[nt], "TempSupernova");
         addr[nt] = &All.TempSupernova;
@@ -2275,230 +2048,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "Epsilon");
         addr[nt] = &All.Epsilon;
         id[nt++] = REAL;
-#endif
-
-#ifdef LT_STELLAREVOLUTION
-
-#ifdef LT_STOP_COOL_BELOW_Z
-        strcpy(tag[nt], "CoolStop_redshift");
-        addr[nt] = &All.Below_this_redshift_stop_cooling;
-        id[nt++] = REAL;
-#endif
-
-#ifdef LT_TRACK_CONTRIBUTES
-        strcpy(tag[nt], "PackPowerBase");
-        addr[nt] = &PowerBase;
-        id[nt++] = INT;
-#endif
-
-#ifdef LT_STARBURSTS
-        strcpy(tag[nt], "StarBurstCondition");
-        addr[nt] = &All.StarBurstCondition;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "SB_Density_Thresh");
-        addr[nt] = &All.SB_Density_Thresh;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "SB_DEntropy_Thresh");
-        addr[nt] = &All.SB_DEntropy_Thresh;
-        id[nt++] = REAL;
-#endif
-
-#ifdef LT_SMOOTH_Z
-#if defined(LT_SMOOTH_SIZE) && !defined(LT_SMOOTH_NGB)
-        strcpy(tag[nt], "SmoothRegionSize");
-        addr[nt] = &All.SmoothRegionSize;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "SmoothRegionSizeMax");
-        addr[nt] = &All.SmoothRegionSizeMax;
-        id[nt++] = REAL;
-#endif
-#if defined(LT_SMOOTH_NGB) && !defined(LT_SMOOTH_SIZE)
-        strcpy(tag[nt], "DesNumNgnSmooth");
-        addr[nt] = &All.DesNumNgbSmooth;
-        id[nt++] = INT;
-#endif
-#endif
-
-        strcpy(tag[nt], "TestSuite");
-        addr[nt] = &All.TestSuite;
-        id[nt++] = INT;
-
-        /* the minimum number of neighbours used to spread
-         * metals from Stars.
-         */
-        strcpy(tag[nt], "InfNeighNum");
-        addr[nt] = &All.NeighInfNum;
-        id[nt++] = INT;
-
-        /* the desired number of neighbours used to spread
-         * metals from Stars.
-         */
-        strcpy(tag[nt], "DesNumNgbSN");
-        addr[nt] = &All.DesNumNgbSN;
-        id[nt++] = INT;
-
-        /* the allowed deviation on number of neighbours used
-         * to spread metals from Stars.
-         */
-        strcpy(tag[nt], "SpreadNumNgbDev");
-        addr[nt] = &All.SpreadNumNgbDev;
-        id[nt++] = INT;
-
-        /* note: this is used just to calculate All.MaxPartMet in 
-         * read_file(); then, it should give a reasonable "average"
-         * of the generations of each specified IMFs.
-         *
-         * WARNING: this will be overridden by read_imfs() !!!
-         */
-        strcpy(tag[nt], "Generations");
-        addr[nt] = &All.Generations;
-        id[nt++] = INT;
-
-        /* the baryon fraction that you expect to end in stars
-        */
-        strcpy(tag[nt], "SFfactor");
-        addr[nt] = &All.SFfactor;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "IMFsFileName");
-        addr[nt] = All.IMFfilename;
-        id[nt++] = STRING;
-
-
-        strcpy(tag[nt], "SFsFileName");
-        addr[nt] = All.SFfilename;
-        id[nt++] = STRING;
-
-        /* the minimum mass for CC supernovae (usually 8 Msun) */
-        strcpy(tag[nt], "SnII_InfMass");
-        addr[nt] = &All.Mup;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "MinBinSystemMass");
-        addr[nt] = &All.MBm;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "MaxBinSystemMass");
-        addr[nt] = &All.MBM;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BinarySystemFrac");
-        addr[nt] = &All.BinFrac;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "MinStarMass_inBinSystem");
-        addr[nt] = &All.MBms;
-        id[nt++] = REAL;
-
-#ifdef LT_AVOID_ENRICH_SFGAS
-        /* this value is set in Msun/yr ;
-         * Gas Particles having a sfr larger that this
-         * value will not receive metals from stars.
-         */
-        strcpy(tag[nt], "SFTh_for_enrich");
-        addr[nt] = &All.Enrich_SFGas_Th;
-        id[nt++] = REAL;
-#endif
-
-#ifdef LT_MOD_EFFM
-        strcpy(tag[nt], "ModSEffCrit");
-        addr[nt] = &All.Mod_SEff;
-        id[nt++] = INT;
-#endif
-
-#ifdef LT_HOT_EJECTA
-        strcpy(tag[nt], "EgySpecEjecta");
-        addr[nt] = &All.EgySpecEjecta;
-        id[nt++] = REAL;
-#endif
-
-        strcpy(tag[nt], "SnIaDataFileName");
-        addr[nt] = All.SnIaDataFile;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "SnIaDataSetNum");
-        addr[nt] = &All.Ia_Nset_ofYields;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "SnIaEnergy");
-        addr[nt] = &All.SnIaEgy;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "LongLiving_Step_Prec");
-        addr[nt] = &All.LLv_Step_Prec;
-        id[nt++] = REAL;
-
-        /*
-           strcpy(tag[nt], "SnIa_Remnant");
-           addr[nt] = &All.SnIaRemn;
-           id[nt++] = REAL;
-           */
-
-        strcpy(tag[nt], "SnIIdataFileName");
-        addr[nt] = All.SnIIDataFile;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "SnIIDataSetNum");
-        addr[nt] = &All.II_Nset_ofYields;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "SnIIEnergy");
-        addr[nt] = &All.SnIIEgy;
-        id[nt++] = REAL;
-
-        /*
-           strcpy(tag[nt], "ChemTimeStepII");
-           addr[nt] = &All.ChemTimeStepII;
-           id[nt++] = REAL;
-
-           strcpy(tag[nt], "LongCTStepII");
-           addr[nt] = &All.LongChemTimeStepII;
-           id[nt++] = REAL;
-           */
-
-        strcpy(tag[nt], "metIRAThMass");
-        addr[nt] = &All.metIRA_ThMass;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "egyIRAThMass");
-        addr[nt] = &All.egyIRA_ThMass;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "SnII_Step_Prec");
-        addr[nt] = &All.SnII_Step_Prec;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "AGBdataFileName");
-        addr[nt] = All.AGBDataFile;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "AGBDataSetNum");
-        addr[nt] = &All.AGB_Nset_ofYields;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "MinChemTimeStep");
-        addr[nt] = &All.MinChemTimeStep;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "MinSpreadLength");
-        addr[nt] = &All.MinChemSpreadL;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "Z_toset_SF_DensTh");
-        addr[nt] = &All.referenceZ_toset_SF_DensTh;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "Zdependent_SFTh");
-        addr[nt] = &All.SFTh_Zdep;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "MaxSpreadLength");
-        addr[nt] = &All.MaxChemSpreadL;
-        id[nt++] = REAL;
-
 #endif
 
 #ifdef CHEMCOOL
@@ -2819,14 +2368,7 @@ NUMCRPOP = 1;
 
         for(i = 0; i < nt; i++)
         {
-#ifdef LT_STELLAREVOLUTION
-            if(*tag[i] &&
-                    (strcmp(tag[i], "metIRAThMass") != 0 && strcmp(tag[i], "egyIRAThMass") != 0) &&
-                    strcmp(tag[i], "WindEfficiency") != 0 && strcmp(tag[i], "WindEnergyFraction") != 0 &&
-                    strcmp(tag[i], "LocalSpreadFactor") != 0 && strcmp(tag[i], "TestSuite"))
-#else
                 if(*tag[i])
-#endif
                 {
                     printf("Error. I miss a value for tag '%s' in parameter file '%s'.\n", tag[i], fname);
                     errorFlag = 1;
