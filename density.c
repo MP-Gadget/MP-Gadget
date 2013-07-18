@@ -122,10 +122,6 @@ static struct densdata_out
 
 #ifdef BLACK_HOLES
     MyLongDouble GasVel[3];
-#ifdef KD_FRICTION
-    MyFloat SurroundingVel[3];
-    MyFloat SurroundingDens;
-#endif
 #endif
 
 #ifdef HYDRO_COST_FACTOR
@@ -680,12 +676,6 @@ void density(void)
                     P[place].b3.dBH_SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
                     P[place].b3.dBH_SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
                     P[place].b3.dBH_SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
-#ifdef KD_FRICTION
-                    P[place].BH_SurroundingDensity += DensDataOut[j].SurroundingDens;
-                    P[place].BH_SurroundingVel[0] += DensDataOut[j].SurroundingVel[0];
-                    P[place].BH_SurroundingVel[1] += DensDataOut[j].SurroundingVel[1];
-                    P[place].BH_SurroundingVel[2] += DensDataOut[j].SurroundingVel[2];
-#endif                  
                 }
 #endif
 
@@ -947,14 +937,6 @@ void density(void)
                         P[i].b3.BH_SurroundingGasVel[1] /= P[i].b1.BH_Density;
                         P[i].b3.BH_SurroundingGasVel[2] /= P[i].b1.BH_Density;
                     }
-#ifdef KD_FRICTION
-                    if(P[i].BH_SurroundingDensity > 0)
-                    {
-                        P[i].BH_SurroundingVel[0] /= P[i].BH_SurroundingDensity;
-                        P[i].BH_SurroundingVel[1] /= P[i].BH_SurroundingDensity;
-                        P[i].BH_SurroundingVel[2] /= P[i].BH_SurroundingDensity;
-                    }
-#endif
                 }
 #endif
 
@@ -1232,10 +1214,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
 #ifdef BLACK_HOLES
     MyLongDouble gasvel[3];
-#ifdef KD_FRICTION
-    MyFloat surroundingvel[3] = {0,0,0};
-    MyFloat surroundingrho = 0;
-#endif
 #endif
 #ifndef NAVIERSTOKES
     MyLongDouble divv, rotv[3];
@@ -1476,9 +1454,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
                 j = ngblist[n];
 #ifdef WINDS
-#ifdef KD_FRICTION
-                if(P[j].Type == 0)
-#endif
                     if(SphP[j].DelayTime > 0)	/* partner is a wind particle */
                         if(!(delaytime > 0))	/* if I'm not wind, then ignore the wind particle */
                             continue;
@@ -1506,10 +1481,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                     density_kernel(r, hcache, &wk, &dwk);
 
                     mass_j = P[j].Mass;
-#ifdef KD_FRICTION
-                    if(P[j].Type == 0)
-                    {
-#endif
 
                         numngb++;
 #ifdef JD_VTURB
@@ -1652,19 +1623,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                             deulerb[2] -= fac * dz * deb;
 #endif
                         }
-#ifdef KD_FRICTION
-                    }
-                    else
-                    {
-                        if(P[j].Type == 1 || P[j].Type == 4)
-                        {
-                            surroundingrho += mass_j * wk;
-                            surroundingvel[0] += mass_j * wk * P[j].Vel[0];
-                            surroundingvel[1] += mass_j * wk * P[j].Vel[1];
-                            surroundingvel[2] += mass_j * wk * P[j].Vel[2];
-                        }
-                    }
-#endif
                 }
 #ifdef BLACK_HOLES
                 if(type == 5 && r2 < hsearchcache[H2])
@@ -1813,12 +1771,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
         P[target].b3.dBH_SurroundingGasVel[0] = gasvel[0];
         P[target].b3.dBH_SurroundingGasVel[1] = gasvel[1];
         P[target].b3.dBH_SurroundingGasVel[2] = gasvel[2];
-#ifdef KD_FRICTION
-        P[target].BH_SurroundingDensity = surroundingrho;
-        P[target].BH_SurroundingVel[0] = surroundingvel[0];
-        P[target].BH_SurroundingVel[1] = surroundingvel[1];
-        P[target].BH_SurroundingVel[2] = surroundingvel[2];
-#endif
 #endif
 #if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
         if(P[target].Type == 4)
@@ -1896,12 +1848,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
         DensDataResult[target].GasVel[0] = gasvel[0];
         DensDataResult[target].GasVel[1] = gasvel[1];
         DensDataResult[target].GasVel[2] = gasvel[2];
-#ifdef KD_FRICTION
-        DensDataResult[target].SurroundingDens = surroundingrho;
-        DensDataResult[target].SurroundingVel[0] = surroundingvel[0];
-        DensDataResult[target].SurroundingVel[1] = surroundingvel[1];
-        DensDataResult[target].SurroundingVel[2] = surroundingvel[2];
-#endif
 #endif
 #ifdef VECT_POTENTIAL
         DensDataResult[target].da[0] = dA[0];

@@ -199,57 +199,6 @@ void blackhole_accretion(void)
             }
 #endif
 
-#ifdef KD_FRICTION
-            /* add a friction force for the black-holes,
-               accounting for the environment */
-            double fac_friction, relvel=0;
-#ifdef KD_FRICTION_DYNAMIC
-            double x,a_erf,erf,lambda;
-#endif
-
-            if(P[n].BH_Mass > 0)
-            {
-                /* averaged value for colomb logarithm and integral over the distribution function */
-                /* fac_friction = log(lambda) * [erf(x) - 2*x*exp(-x^2)/sqrt(pi)]                  */
-                /*       lambda = b_max * v^2 / G / (M+m)                                          */
-                /*        b_max = Size of system (e.g. Rvir)                                       */
-                /*            v = Relative velocity of BH with respect to the environment          */
-                /*            M = Mass of BH                                                       */
-                /*            m = individual mass elements composing the large system (e.g. m<<M)  */
-                /*            x = v/sqrt(2)/sigma                                                  */
-                /*        sigma = width of the max. distr. of the host system                      */
-                /*                (e.g. sigma = v_disp / 3                                         */  
-
-                if(dt > 0)
-                {
-                    for(k = 0; k < 3; k++)
-                        relvel += pow(P[n].Vel[k] - P[n].BH_SurroundingVel[k],2);
-#ifdef KD_FRICTION_DYNAMIC
-                    a_erf = 8 * (M_PI - 3)/(3 * M_PI * (4. - M_PI));
-                    x = sqrt(relvel) / sqrt(2) / P[n].BH_sigma; 
-                    /* First term is aproximation of the error function */
-                    fac_friction = x / fabs(x) * sqrt(1 - exp(- x * x * (4 / M_PI + a_erf * x * x) / (1 + a_erf * x * x)))
-                        - 2 * x / sqrt(M_PI) * exp(- x * x);
-                    lambda = P[n].BH_bmax * relvel / All.G / P[n].BH_Mass;
-                    printf("Task %d: x=%e, log(lambda)=%e, facerf=%e m=%e, sigma=%e\n",
-                            ThisTask,x,log(lambda),fac_friction,P[n].BH_Mass,P[n].BH_sigma);
-                    fac_friction *= log(lambda);
-#else
-                    fac_friction = 10;
-#endif
-
-                    fac_friction *= 4 * M_PI * All.G * All.G * P[n].BH_SurroundingDensity * P[n].BH_Mass / relvel / sqrt(relvel);
-                    printf("Task %d: fac = %e, vrel=%e, acc=(%e,%e,%e), adcc=(%e,%e,%e)\n",
-                            ThisTask,fac_friction,sqrt(relvel), P[n].g.GravAccel[0],P[n].g.GravAccel[1], P[n].g.GravAccel[2],
-                            fac_friction * (P[n].Vel[0] - P[n].BH_SurroundingVel[0]),
-                            fac_friction * (P[n].Vel[1] - P[n].BH_SurroundingVel[1]),
-                            fac_friction * (P[n].Vel[2] - P[n].BH_SurroundingVel[2]));
-                    for(k = 0; k < 3; k++)
-                        P[n].g.GravAccel[k] -= fac_friction * (P[n].Vel[k] - P[n].BH_SurroundingVel[k]); 
-                }
-            }
-#endif
-
             P[n].BH_Mass += P[n].BH_Mdot * dt;
 
 #ifdef BH_BUBBLES
@@ -439,10 +388,6 @@ void blackhole_accretion(void)
                     P[place].BH_MinPotPos[k] = BlackholeDataOut[j].BH_MinPotPos[k];
             }
 #endif
-#ifdef KD_SMOOTHED_MOMENTUM_ACCRETION 
-            for(k = 0; k < 3; k++)
-                P[place].b6.dBH_accreted_momentum[k] += BlackholeDataOut[j].AccretedMomentum[k];
-#endif
         }
 
         myfree(BlackholeDataOut);
@@ -588,10 +533,8 @@ void blackhole_accretion(void)
             P[place].b8.dBH_accreted_BHMass_radio += BlackholeDataOut[j].BH_Mass_radio;
 #endif
 #endif
-#ifndef KD_SMOOTHED_MOMENTUM_ACCRETION 
             for(k = 0; k < 3; k++)
                 P[place].b6.dBH_accreted_momentum[k] += BlackholeDataOut[j].AccretedMomentum[k];
-#endif
 #ifdef BH_COUNTPROGS
             P[place].BH_CountProgs += BlackholeDataOut[j].BH_CountProgs;
 #endif
@@ -664,12 +607,10 @@ void blackhole_accretion(void)
 #endif
             if(P[n].b4.BH_accreted_Mass > 0)
             {
-#ifndef KD_IGNORE_ACCRETED_MOMENTUM
                 for(k = 0; k < 3; k++)
                     P[n].Vel[k] =
                         (P[n].Vel[k] * P[n].Mass + P[n].b6.BH_accreted_momentum[k]) /
                         (P[n].Mass + P[n].b4.BH_accreted_Mass);
-#endif
 
                 P[n].Mass += P[n].b4.BH_accreted_Mass;
                 P[n].BH_Mass += P[n].b5.BH_accreted_BHMass;
@@ -866,10 +807,6 @@ void blackhole_accretion(void)
 int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 {
 
-#ifdef KD_SMOOTHED_MOMENTUM_ACCRETION 
-    MyFloat accreted_momentum[3] = {0,0,0}, dmin1, dmin2;
-#endif
-
     int startnode, numngb, j, k, n, index, listindex = 0;
     MyIDType id;
     MyFloat *pos, *velocity, h_i, dt, mdot, rho, mass, bh_mass, csnd;
@@ -1064,10 +1001,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                 if(P[j].SwallowID < id)
                                     P[j].SwallowID = id;
                             }
-#ifdef KD_SMOOTHED_MOMENTUM_ACCRETION 
-                            for(k = 0; k < 3; k++)
-                                accreted_momentum[k] += DMIN(p,1.0) * P[j].Mass * P[j].Vel[k];
-#endif
 #endif
 
                         }
@@ -1141,10 +1074,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
             P[target].BH_MinPotPos[k] = minpotpos[k];
         P[target].BH_MinPot = minpot;
 #endif
-#ifdef KD_SMOOTHED_MOMENTUM_ACCRETION 
-        for(k = 0; k < 3; k++)
-            P[target].b6.dBH_accreted_momentum[k] = accreted_momentum[k];
-#endif
     }
     else
     {
@@ -1152,10 +1081,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
         for(k = 0; k < 3; k++)
             BlackholeDataResult[target].BH_MinPotPos[k] = minpotpos[k];
         BlackholeDataResult[target].BH_MinPot = minpot;
-#endif
-#ifdef KD_SMOOTHED_MOMENTUM_ACCRETION 
-        for(k = 0; k < 3; k++)
-            BlackholeDataResult[target].AccretedMomentum[k] = accreted_momentum[k];
 #endif
 
     }
@@ -1302,10 +1227,8 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
     {
         P[target].b4.dBH_accreted_Mass = accreted_mass;
         P[target].b5.dBH_accreted_BHMass = accreted_BH_mass;
-#ifndef KD_SMOOTHED_MOMENTUM_ACCRETION 
         for(k = 0; k < 3; k++)
             P[target].b6.dBH_accreted_momentum[k] = accreted_momentum[k];
-#endif
 #ifdef BH_BUBBLES
         P[target].b7.dBH_accreted_BHMass_bubbles = accreted_BH_mass_bubbles;
 #ifdef UNIFIED_FEEDBACK
@@ -1320,10 +1243,8 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
     {
         BlackholeDataResult[target].Mass = accreted_mass;
         BlackholeDataResult[target].BH_Mass = accreted_BH_mass;
-#ifndef KD_SMOOTHED_MOMENTUM_ACCRETION 
         for(k = 0; k < 3; k++)
             BlackholeDataResult[target].AccretedMomentum[k] = accreted_momentum[k];
-#endif
 #ifdef BH_BUBBLES
         BlackholeDataResult[target].BH_Mass_bubbles = accreted_BH_mass_bubbles;
 #ifdef UNIFIED_FEEDBACK
