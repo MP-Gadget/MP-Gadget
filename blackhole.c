@@ -127,11 +127,11 @@ void blackhole_accretion(void)
         {
             mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
 
-            rho = P[n].b1.BH_Density;
+            rho = P[n].BH_Density;
 #ifdef BH_USE_GASVEL_IN_BONDI
-            bhvel = sqrt(pow(P[n].Vel[0] - P[n].b3.BH_SurroundingGasVel[0], 2) +
-                    pow(P[n].Vel[1] - P[n].b3.BH_SurroundingGasVel[1], 2) +
-                    pow(P[n].Vel[2] - P[n].b3.BH_SurroundingGasVel[2], 2));
+            bhvel = sqrt(pow(P[n].Vel[0] - P[n].BH_SurroundingGasVel[0], 2) +
+                    pow(P[n].Vel[1] - P[n].BH_SurroundingGasVel[1], 2) +
+                    pow(P[n].Vel[2] - P[n].BH_SurroundingGasVel[2], 2));
 #else
             bhvel = 0;
 #endif
@@ -145,7 +145,7 @@ void blackhole_accretion(void)
                 rho_proper = rho;
             }
 
-            soundspeed = blackhole_soundspeed(P[n].b2.BH_EntOrPressure, rho);
+            soundspeed = blackhole_soundspeed(P[n].BH_EntOrPressure, rho);
 
             /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
             meddington = (4 * M_PI * GRAVITY * C * PROTONMASS / (0.1 * C * C * THOMPSON)) * P[n].BH_Mass
@@ -171,9 +171,14 @@ void blackhole_accretion(void)
             {
                 fprintf(FdBlackHolesDetails, "BH=" IDFMT " %g %g %g %g %g %g   %2.7f %2.7f %2.7f %g %g %g %g\n",
                         P[n].ID, All.Time, P[n].BH_Mass, mdot, rho_proper, soundspeed, bhvel, P[n].Pos[0],P[n].Pos[1],P[n].Pos[2],
-                        P[n].b3.BH_SurroundingGasVel[0],
-                        P[n].b3.BH_SurroundingGasVel[1], 
-                        P[n].b3.BH_SurroundingGasVel[2], PPP[n].Hsml);
+#ifdef BH_USE_GASVEL_IN_BONDI
+                        P[n].BH_SurroundingGasVel[0],
+                        P[n].BH_SurroundingGasVel[1], 
+                        P[n].BH_SurroundingGasVel[2], 
+#else
+                        0., 0., 0.,
+#endif 
+                        PPP[n].Hsml);
             }
 
             dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / hubble_a;
@@ -195,7 +200,7 @@ void blackhole_accretion(void)
                 if(dt > 0)
                     for(k = 0; k < 3; k++)
                         P[n].g.GravAccel[k] +=
-                            -ascale * ascale * fac / dt * (P[n].Vel[k] - P[n].b3.BH_SurroundingGasVel[k]) / ascale;
+                            -ascale * ascale * fac / dt * (P[n].Vel[k] - P[n].BH_SurroundingGasVel[k]) / ascale;
             }
 #endif
 
@@ -297,13 +302,13 @@ void blackhole_accretion(void)
             BlackholeDataIn[j].Hsml = PPP[place].Hsml;
             BlackholeDataIn[j].Mass = P[place].Mass;
             BlackholeDataIn[j].BH_Mass = P[place].BH_Mass;
-            BlackholeDataIn[j].Density = P[place].b1.BH_Density;
+            BlackholeDataIn[j].Density = P[place].BH_Density;
             BlackholeDataIn[j].FeedbackWeightSum = P[place].BH_FeedbackWeightSum;
             BlackholeDataIn[j].Mdot = P[place].BH_Mdot;
             BlackholeDataIn[j].Csnd =
                 blackhole_soundspeed(
-                        P[place].b2.BH_EntOrPressure,
-                        P[place].b1.BH_Density);
+                        P[place].BH_EntOrPressure,
+                        P[place].BH_Density);
             BlackholeDataIn[j].Dt =
                 (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / hubble_a;
             BlackholeDataIn[j].ID = P[place].ID;
@@ -525,16 +530,16 @@ void blackhole_accretion(void)
         {
             place = DataIndexTable[j].Index;
 
-            P[place].b4.dBH_accreted_Mass += BlackholeDataOut[j].Mass;
-            P[place].b5.dBH_accreted_BHMass += BlackholeDataOut[j].BH_Mass;
+            P[place].BH_accreted_Mass += BlackholeDataOut[j].Mass;
+            P[place].BH_accreted_BHMass += BlackholeDataOut[j].BH_Mass;
 #ifdef BH_BUBBLES
-            P[place].b7.dBH_accreted_BHMass_bubbles += BlackholeDataOut[j].BH_Mass_bubbles;
+            P[place].BH_accreted_BHMass_bubbles += BlackholeDataOut[j].BH_Mass_bubbles;
 #ifdef UNIFIED_FEEDBACK
-            P[place].b8.dBH_accreted_BHMass_radio += BlackholeDataOut[j].BH_Mass_radio;
+            P[place].BH_accreted_BHMass_radio += BlackholeDataOut[j].BH_Mass_radio;
 #endif
 #endif
             for(k = 0; k < 3; k++)
-                P[place].b6.dBH_accreted_momentum[k] += BlackholeDataOut[j].AccretedMomentum[k];
+                P[place].BH_accreted_momentum[k] += BlackholeDataOut[j].AccretedMomentum[k];
 #ifdef BH_COUNTPROGS
             P[place].BH_CountProgs += BlackholeDataOut[j].BH_CountProgs;
 #endif
@@ -593,34 +598,22 @@ void blackhole_accretion(void)
     for(n = FirstActiveParticle; n >= 0; n = NextActiveParticle[n])
         if(P[n].Type == 5)
         {
-#ifdef FLTROUNDOFFREDUCTION
-            P[n].b4.BH_accreted_Mass = FLT(P[n].b4.dBH_accreted_Mass);
-            P[n].b5.BH_accreted_BHMass = FLT(P[n].b5.dBH_accreted_BHMass);
-#ifdef BH_BUBBLES
-            P[n].b7.BH_accreted_BHMass_bubbles = FLT(P[n].b7.dBH_accreted_BHMass_bubbles);
-#ifdef UNIFIED_FEEDBACK
-            P[n].b8.BH_accreted_BHMass_radio = FLT(P[n].b8.dBH_accreted_BHMass_radio);
-#endif
-#endif
-            for(k = 0; k < 3; k++)
-                P[n].b6.BH_accreted_momentum[k] = FLT(P[n].b6.dBH_accreted_momentum[k]);
-#endif
-            if(P[n].b4.BH_accreted_Mass > 0)
+            if(P[n].BH_accreted_Mass > 0)
             {
                 for(k = 0; k < 3; k++)
                     P[n].Vel[k] =
-                        (P[n].Vel[k] * P[n].Mass + P[n].b6.BH_accreted_momentum[k]) /
-                        (P[n].Mass + P[n].b4.BH_accreted_Mass);
+                        (P[n].Vel[k] * P[n].Mass + P[n].BH_accreted_momentum[k]) /
+                        (P[n].Mass + P[n].BH_accreted_Mass);
 
-                P[n].Mass += P[n].b4.BH_accreted_Mass;
-                P[n].BH_Mass += P[n].b5.BH_accreted_BHMass;
+                P[n].Mass += P[n].BH_accreted_Mass;
+                P[n].BH_Mass += P[n].BH_accreted_BHMass;
 #ifdef BH_BUBBLES
-                P[n].BH_Mass_bubbles += P[n].b7.BH_accreted_BHMass_bubbles;
+                P[n].BH_Mass_bubbles += P[n].BH_accreted_BHMass_bubbles;
 #ifdef UNIFIED_FEEDBACK
-                P[n].BH_Mass_radio += P[n].b8.BH_accreted_BHMass_radio;
+                P[n].BH_Mass_radio += P[n].BH_accreted_BHMass_radio;
 #endif
 #endif
-                P[n].b4.BH_accreted_Mass = 0;
+                P[n].BH_accreted_Mass = 0;
             }
 
             bin = P[n].TimeBin;
@@ -834,7 +827,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
     if(mode == 0)
     {
         pos = P[target].Pos;
-        rho = P[target].b1.BH_Density;
+        rho = P[target].BH_Density;
         FeedbackWeightSum = P[target].BH_FeedbackWeightSum;
         mdot = P[target].BH_Mdot;
         dt = (P[target].TimeBin ? (1 << P[target].TimeBin) : 0) * All.Timebase_interval / hubble_a;
@@ -842,11 +835,11 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
         mass = P[target].Mass;
         bh_mass = P[target].BH_Mass;
         velocity = P[target].Vel;
-        csnd = blackhole_soundspeed(P[target].b2.BH_EntOrPressure,
-                P[target].b1.BH_Density);
+        csnd = blackhole_soundspeed(P[target].BH_EntOrPressure,
+                P[target].BH_Density);
 
         if(csnd == 0.0) {
-            fprintf(stderr, "csnd == 0.0, entropy == %g, density = %g, hsml=%g\n", P[target].b2.BH_EntOrPressure, P[target].b1.BH_Density, h_i);
+            fprintf(stderr, "csnd == 0.0, entropy == %g, density = %g, hsml=%g\n", P[target].BH_EntOrPressure, P[target].BH_Density, h_i);
             //endrun(999965);
         }
         index = target;
@@ -1225,14 +1218,14 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
     /* Now collect the result at the right place */
     if(mode == 0)
     {
-        P[target].b4.dBH_accreted_Mass = accreted_mass;
-        P[target].b5.dBH_accreted_BHMass = accreted_BH_mass;
+        P[target].BH_accreted_Mass = accreted_mass;
+        P[target].BH_accreted_BHMass = accreted_BH_mass;
         for(k = 0; k < 3; k++)
-            P[target].b6.dBH_accreted_momentum[k] = accreted_momentum[k];
+            P[target].BH_accreted_momentum[k] = accreted_momentum[k];
 #ifdef BH_BUBBLES
-        P[target].b7.dBH_accreted_BHMass_bubbles = accreted_BH_mass_bubbles;
+        P[target].BH_accreted_BHMass_bubbles = accreted_BH_mass_bubbles;
 #ifdef UNIFIED_FEEDBACK
-        P[target].b8.dBH_accreted_BHMass_radio = accreted_BH_mass_radio;
+        P[target].BH_accreted_BHMass_radio = accreted_BH_mass_radio;
 #endif
 #endif
 #ifdef BH_COUNTPROGS

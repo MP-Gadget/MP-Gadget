@@ -1436,48 +1436,18 @@ extern struct particle_data
 #endif
 #endif
     MyFloat BH_FeedbackWeightSum;
-    union
-    {
-        MyFloat BH_Density;
-        MyLongDouble dBH_Density;
-    } b1;
-    union
-    {
-        MyFloat BH_EntOrPressure;
-        MyLongDouble dBH_EntOrPressure;
-    } b2;
-    union
-    {
-        MyFloat BH_SurroundingGasVel[3];
-        MyLongDouble dBH_SurroundingGasVel[3];
-    } b3;
-    union
-    {
-        MyFloat BH_accreted_Mass;
-        MyLongDouble dBH_accreted_Mass;
-    } b4;
-    union
-    {
-        MyFloat BH_accreted_BHMass;
-        MyLongDouble dBH_accreted_BHMass;
-    } b5;
-    union
-    {
-        MyFloat BH_accreted_momentum[3];
-        MyLongDouble dBH_accreted_momentum[3];
-    } b6;
+    MyFloat BH_Density;
+    MyFloat BH_EntOrPressure;
+#ifdef BH_USE_GASVEL_IN_BONDI
+    MyFloat BH_SurroundingGasVel[3];
+#endif
+    MyFloat BH_accreted_Mass;
+    MyFloat BH_accreted_BHMass;
+    MyFloat BH_accreted_momentum[3];
 #ifdef BH_BUBBLES
-    union
-    {
-        MyFloat BH_accreted_BHMass_bubbles;
-        MyLongDouble dBH_accreted_BHMass_bubbles;
-    } b7;
+    MyFloat BH_accreted_BHMass_bubbles;
 #ifdef UNIFIED_FEEDBACK
-    union
-    {
-        MyFloat BH_accreted_BHMass_radio;
-        MyLongDouble dBH_accreted_BHMass_radio;
-    } b8;
+    MyFloat BH_accreted_BHMass_radio;
 #endif
 #endif
 #ifdef REPOSITION_ON_POTMIN

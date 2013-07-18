@@ -660,12 +660,14 @@ void density(void)
 #ifdef BLACK_HOLES
                 if(P[place].Type == 5)
                 {
-                    P[place].b1.dBH_Density += DensDataOut[j].Rho;
+                    P[place].BH_Density += DensDataOut[j].Rho;
                     P[place].BH_FeedbackWeightSum += DensDataOut[j].FeedbackWeightSum;
-                    P[place].b2.dBH_EntOrPressure += DensDataOut[j].SmoothedEntOrPressure;
-                    P[place].b3.dBH_SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
-                    P[place].b3.dBH_SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
-                    P[place].b3.dBH_SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
+                    P[place].BH_EntOrPressure += DensDataOut[j].SmoothedEntOrPressure;
+#ifdef BH_USE_GASVEL_IN_BONDI
+                    P[place].BH_SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
+                    P[place].BH_SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
+                    P[place].BH_SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
+#endif
                 }
 #endif
 
@@ -694,16 +696,6 @@ void density(void)
                     for(j = 0; j < 3; j++)
                         SphP[i].r.Rot[j] = FLT(SphP[i].r.dRot[j]);
                 }
-
-#ifdef BLACK_HOLES
-                if(P[i].Type == 5)
-                {
-                    P[i].b1.BH_Density = FLT(P[i].b1.dBH_Density);
-                    P[i].b2.BH_EntOrPressure = FLT(P[i].b2.dBH_EntOrPressure);
-                    for(j = 0; j < 3; j++)
-                        P[i].b3.BH_SurroundingGasVel[j] = FLT(P[i].b3.dBH_SurroundingGasVel[j]);
-                }
-#endif
             }
 #endif
 
@@ -920,12 +912,14 @@ void density(void)
 #ifdef BLACK_HOLES
                 if(P[i].Type == 5)
                 {
-                    if(P[i].b1.BH_Density > 0)
+                    if(P[i].BH_Density > 0)
                     {
-                        P[i].b2.BH_EntOrPressure /= P[i].b1.BH_Density;
-                        P[i].b3.BH_SurroundingGasVel[0] /= P[i].b1.BH_Density;
-                        P[i].b3.BH_SurroundingGasVel[1] /= P[i].b1.BH_Density;
-                        P[i].b3.BH_SurroundingGasVel[2] /= P[i].b1.BH_Density;
+                        P[i].BH_EntOrPressure /= P[i].BH_Density;
+#ifdef BH_USE_GASVEL_IN_BONDI
+                        P[i].BH_SurroundingGasVel[0] /= P[i].BH_Density;
+                        P[i].BH_SurroundingGasVel[1] /= P[i].BH_Density;
+                        P[i].BH_SurroundingGasVel[2] /= P[i].BH_Density;
+#endif
                     }
                 }
 #endif
@@ -1731,12 +1725,14 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
         }
 #ifdef BLACK_HOLES
-        P[target].b1.dBH_Density = rho;
+        P[target].BH_Density = rho;
         P[target].BH_FeedbackWeightSum = fb_weight_sum;
-        P[target].b2.dBH_EntOrPressure = smoothent_or_pres;
-        P[target].b3.dBH_SurroundingGasVel[0] = gasvel[0];
-        P[target].b3.dBH_SurroundingGasVel[1] = gasvel[1];
-        P[target].b3.dBH_SurroundingGasVel[2] = gasvel[2];
+        P[target].BH_EntOrPressure = smoothent_or_pres;
+#ifdef BH_USE_GASVEL_IN_BONDI
+        P[target].BH_SurroundingGasVel[0] = gasvel[0];
+        P[target].BH_SurroundingGasVel[1] = gasvel[1];
+        P[target].BH_SurroundingGasVel[2] = gasvel[2];
+#endif
 #endif
 #if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
         if(P[target].Type == 4)
