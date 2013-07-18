@@ -113,11 +113,6 @@ typedef unsigned long long peanokey;
 #define  PEANOCELLS (((peanokey)1)<<(3*BITS_PER_DIMENSION))
 
 
-#ifdef LT_STELLAREVOLUTION
-#include "lt.h"
-#endif
-
-
 #define  terminate(x) {char buf[1000]; sprintf(buf, "code termination on task=%d, function '%s()', file '%s', line %d: '%s'\n", ThisTask, __FUNCTION__, __FILE__, __LINE__, x); printf(buf); fflush(stdout); MPI_Abort(MPI_COMM_WORLD, 1); exit(0);}
 
 #define  mymalloc(x, y)            mymalloc_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
@@ -130,10 +125,6 @@ typedef unsigned long long peanokey;
 #define  myfree_movable(x)         myfree_movable_fullinfo(x, __FUNCTION__, __FILE__, __LINE__)
 
 #define  report_memory_usage(x, y) report_detailed_memory_usage_of_largest_task(x, y, __FUNCTION__, __FILE__, __LINE__)
-
-#ifdef LT_STELLAREVOLUTION
-#define endrun(x) EndRun(x, __FUNCTION__, __FILE__, __LINE__)
-#endif
 
 #ifndef  GAMMA
 #define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
@@ -387,7 +378,7 @@ typedef MyFloat MyLongDouble;
 
 
 
-#if defined (BLACK_HOLES) || defined(CS_MODEL) || defined(RADTRANSFER) || defined(SNIA_HEATING) || defined(LT_STELLAREVOLUTION)
+#if defined (BLACK_HOLES) || defined(CS_MODEL) || defined(RADTRANSFER) || defined(SNIA_HEATING)
 #define PPP P
 #else
 #define PPP SphP
@@ -555,9 +546,6 @@ extern char DumpFlag;
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
 extern int N_gas;		/*!< number of gas particles on the LOCAL processor  */
-#ifdef LT_STELLAREVOLUTION
-extern int N_stars;             /*!< number of star particles in the LOCAL processor */
-#endif
 
 #ifdef SINKS
 extern int NumSinks;
@@ -657,12 +645,6 @@ extern FILE *FdCaustics;	/*!< file handle for Caustics.txt log-file. */
 #ifdef BLACK_HOLES
 extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
 extern FILE *FdBlackHolesDetails;
-#ifdef LT_BH
-extern FILE *FdBlackHolesWarn;
-#ifdef LT_BH_LOG
-extern FILE *FdBlackHolesProfile;
-#endif
-#endif
 #endif
 
 
@@ -722,10 +704,6 @@ extern struct global_data_all_processes
 {
     long long TotNumPart;		/*!<  total particle numbers (global value) */
     long long TotN_gas;		/*!<  total gas particle number (global value) */
-
-#ifdef LT_STELLAREVOLUTION
-    long long TotN_stars;         /*!<  total star particle number (global value) */
-#endif
 
 #ifdef NEUTRINOS
     long long TotNumNeutrinos;
@@ -1023,9 +1001,6 @@ extern struct global_data_all_processes
     double CritPhysDensity;
     double OverDensThresh;
     double PhysDensThresh;
-#ifdef LT_STELLAREVOLUTION
-    double OrigGasMass;
-#endif
     double EgySpecSN;
     double FactorSN;
     double EgySpecCold;
@@ -1168,17 +1143,6 @@ extern struct global_data_all_processes
     double BlackHoleRefDensity;
     double BlackHoleRefSoundspeed;
 #endif
-#ifdef LT_BH
-    double BlackHoleHsmlCut;
-    double BlackHoleMaxHsmlCut, BlackHoleMinHsmlCut;
-    int    DesNumNgb_BH_inner;
-#endif
-#ifdef LT_BH_ACCRETE_SLICES
-    int    NBHslices;
-#endif
-#ifdef LT_DF_BH_BHAR_SWITCH
-    double BH_radio_treshold;
-#endif
 #endif
 
 #ifdef COSMIC_RAYS
@@ -1309,79 +1273,6 @@ extern struct global_data_all_processes
 #ifdef BP_REAL_CRs
     double ecr_min,ecr_max;
     double ecr_bound[REAL_CRs+1];
-#endif
-
-#ifdef LT_STELLAREVOLUTION
-    int           MaxPartMet;           /*!< This gives the maxmimum number of STAR particles that can be stored on one
-                                          processor. */
-
-    int long long TotN_star;            /*!<  total gas particle number (global value) */
-    double        Time_Age;             /*!< current cosmic time in Gyrs */
-
-    int           TestSuite, StarBits;
-    double        SFfactor;             /*!< the expected maximum factor of proportionality between TotN_gas and TotN_star */
-    int           Generations;
-
-    int           NeighInfNum;          /*!< minimum number of neighbours for metal and egy spreading */
-    int           DesNumNgbSN,          /*!< desired number of neighbours for sn spreading */
-                  SpreadNumNgbDev,      /*!< maximum deviation in number of neighbours for sn spreading */
-                  LeftNumNgbSN,
-                  RightNumNgbSN;        /*!< range of neighbours for sn spreading*/
-    double        SpreadNeighCoeff;     /*!< store DesNumNgbSN / DesNumNgb */
-
-    double        MinChemSpreadL;
-    double        MinChemTimeStep;
-    double        Enrich_SFGas_Th;
-
-    double        LocalSpreadFactor;
-    char          SFfilename[300], IMFfilename[300], SnIaDataFile[300], SnIIDataFile[300], AGBDataFile[300];
-    int           Ia_Nset_ofYields, II_Nset_ofYields, AGB_Nset_ofYields;
-
-    double        Mup,        /*!< SnII threshold (e.g. 8 Msun) */
-                  MBm,        /*!< min bin. system mass */
-                  MBM,        /*!< max bin. system mass */
-                  BinFrac,    /*!< bin. system fraction */
-                  MBms;       /*!< min star mass in SnIa binary systems */
-    double        SnIaRemn;   /*!< SnIa Remn (1.4Msun ?) */
-    /* lifetimes */
-    double        inf_lifetime, mean_lifetime, sup_lifetime;
-    /* energy provided by sn explosions */
-    double        SnIaEgy, SnIIEgy;
-    /* define IRA range */
-    double        metIRA_ThMass, egyIRA_ThMass;
-    double        SnII_Step_Prec, LLv_Step_Prec;
-    double        referenceZ_toset_SF_DensTh;
-    int           SFTh_Zdep, referenceZbin_SFTh;
-
-#ifdef LT_HOT_EJECTA
-    double EgySpecEjecta;
-#endif
-
-#ifdef LT_STARBURSTS
-    int StarBurstCondition;
-    double SB_Density_Thresh;
-    double SB_DEntropy_Thresh;
-#endif
-
-#ifdef LT_DF_BH
-    double BH_Radiative_Efficiency;
-#endif
-
-#ifdef LT_STOP_COOL_BELOW_Z
-    double Below_this_redshift_stop_cooling;
-#endif
-
-#ifdef LT_SMOOTH_Z
-#if defined(LT_SMOOTH_SIZE) && !defined(LT_SMOOTH_NGB)
-    double SmoothRegionSize, SmoothRegionSizeMax;
-#endif
-#if defined(LT_SMOOTH_NGB) && !defined(LT_SMOOTH_SIZE)
-    int DesNumNgbSmooth;
-#endif
-#endif
-
-    double MaxChemSpreadL;
-
 #endif
 
 #ifdef CHEMCOOL
@@ -1552,7 +1443,7 @@ extern struct particle_data
     MyFloat Metallicity;		/*!< metallicity of gas or star particle */
 #endif				/* closes METALS */
 
-#if defined (BLACK_HOLES) || defined(CS_MODEL) || defined(RADTRANSFER) || defined(SNIA_HEATING) || defined(LT_STELLAREVOLUTION)
+#if defined (BLACK_HOLES) || defined(CS_MODEL) || defined(RADTRANSFER) || defined(SNIA_HEATING)
     MyFloat Hsml;
 
     union
@@ -1623,36 +1514,6 @@ extern struct particle_data
         MyFloat BH_accreted_BHMass_radio;
         MyLongDouble dBH_accreted_BHMass_radio;
     } b8;
-#endif
-#endif
-#ifdef KD_FRICTION
-    MyFloat BH_SurroundingVel[3];
-    MyFloat BH_SurroundingDensity;
-#endif
-#ifdef KD_FRICTION_DYNAMIC
-    MyFloat BH_sigma;
-    MyFloat BH_bmax;
-#endif
-#ifdef LT_BH
-    union
-    {
-        MyFloat  BH_AltDensity;
-        MyLongDouble dBH_AltDensity;
-    }b9;
-    double Normalization;
-#ifdef LT_BH_CUT_KERNEL
-    MyFloat CutHsml;
-#endif
-#ifdef LT_BH_LOG
-    MyFloat  MinW, AvgW, MaxW;
-    MyFloat  CumM, CumCM, AvgTemp, AvgZ, AvgRho, MinDist, AvgDist;
-#endif
-#if defined(LT_BH) || defined(LT_BH_LOG)
-    int    InnerNgb;
-#ifdef LT_BH_GUESSHSML
-    MyFloat mean_hsml;
-    MyFloat mean_rho;
-#endif
 #endif
 #endif
 #ifdef REPOSITION_ON_POTMIN
@@ -1732,10 +1593,6 @@ extern struct particle_data
     int dt_step;
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-    unsigned int MetID;
-#endif
-
 #ifdef SCF_HYBRID
     MyDouble GravAccelSum[3];
     MyFloat MassBackup;
@@ -1744,33 +1601,6 @@ extern struct particle_data
 }
 *P,				/*!< holds particle data on local processor */
     *DomainPartBuf;		/*!< buffer for particle data used in domain decomposition */
-
-
-/* [----------- start LT block ------------- ]*/
-#ifdef LT_STELLAREVOLUTION                     /* [LT] define the structure which hosts the stellar data] */
-
-extern struct met_particle_data
-{
-    float        LastChemTime;                   /*!< the last and next next time of evolution for Ia and II */
-    float        iMass;                          /*!< initial mass of this SSP                               */
-    float        Metals[LT_NMetP];               /*!< the metal array (H is not stored here)                 */
-    double       weight;                         /*!< used in spreading                                      */
-    unsigned int PID;
-#ifdef LT_TRACK_CONTRIBUTES
-    Contrib      contrib;
-#endif
-#ifdef LT_ZAGE
-    float        ZAge;
-#endif
-#ifdef LT_ZAGE_LLV
-    float        ZAge_llv;
-#endif
-    int          ChemTimeBin;
-}
-*MetP,                                 /*!< holds metal particle data on local processor */
-    *DomainMetBuf; 			/*!< buffer for metal data in domain decomposition */
-/* [----------- end LT block ------------- ]*/
-#endif
 
 
 /* the following struture holds data that is stored for each SPH particle in addition to the collisionless
@@ -1858,7 +1688,7 @@ extern struct sph_particle_data
     } u;
 #endif
 
-#if !(defined(BLACK_HOLES) || defined(CS_MODEL) || defined(RADTRANSFER) || defined(SNIA_HEATING) || defined(LT_STELLAREVOLUTION))
+#if !(defined(BLACK_HOLES) || defined(CS_MODEL) || defined(RADTRANSFER) || defined(SNIA_HEATING))
     MyFloat Hsml;			/*!< current smoothing length */
     union
     {
@@ -1958,7 +1788,7 @@ extern struct sph_particle_data
 #endif
 
 #endif
-#if (defined(MAGNETIC) && (defined(BSMOOTH) || defined(SMOOTH_ROTB) || defined(DIVBCLEANING_DEDNER) || defined(VECT_POTENTIAL) || defined(MAGNETICSEED))) || ((defined(LT_STELLAREVOLUTION) && !defined(LT_DONTUSE_DENSITY_in_WEIGHT)) || defined(LT_SMOOTH_Z) || defined(LT_SMOOTH_XCLD) || defined(LT_TRACK_WINDS)) || (defined(LT_BH))
+#if (defined(MAGNETIC) && (defined(BSMOOTH) || defined(SMOOTH_ROTB) || defined(DIVBCLEANING_DEDNER) || defined(VECT_POTENTIAL) || defined(MAGNETICSEED)))
     MyFloat DensityNorm;
 #endif
 
@@ -2112,56 +1942,10 @@ extern struct sph_particle_data
     MyFloat CReSlope[BP_REAL_CRs];
 #endif
 
-#if defined(LT_EJECTA_IN_HOTPHASE) || (!defined(LT_LOCAL_IRA) && defined(LT_USEDENSITY_in_WEIGHT)) || defined(LT_SMOOTH_XCLD) || (defined (BLACK_HOLES) && defined(LT_BH_LOG))
-    float x;                       /* stores the last value of the cold clouds mass fraction */
-#endif
-
-#ifdef LT_STELLAREVOLUTION
-    MyFloat  MassRes;
-    MyDouble EgyRes;                      /*!< external (Sn) energy resorvoir */
-    float    Metals[LT_NMetP];            /*!< H is not stored here */
-#ifndef LT_LOCAL_IRA
-    double   mstar;
-#endif
-#ifdef LT_TRACK_CONTRIBUTES
-    Contrib  contrib;
-#endif
-#ifdef LT_ZAGE
-    float    ZAge, ZAgeW;
-#endif
-#ifdef LT_ZAGE_LLV
-    float    ZAge_llv, ZAgeW_llv;
-#endif
-#ifdef LT_TRACK_WINDS
-    float    AvgHsml;
-#endif
-
-#endif
-
-#if defined(LT_SMOOTH_Z)
-    MyFloat Zsmooth;
-    MyFloat Zsmooth_a;
-    MyFloat Zsmooth_b;
-#if defined(LT_SMOOTH_SIZE) || defined(LT_SMOOTH_NGB)
-    float SmoothDens;
-    float SmoothDens_b;
-    int SmoothNgb;
-#endif
-#if defined(LT_SMOOTH_NGB)
-    float SmoothHsml;
-#endif
-#endif
-#ifdef LT_SMOOTH_XCLD           /* smooth the cloud fraction */
-    float XCLDsmooth;
-#endif
-
 #ifdef CHEMCOOL
     double TracAbund[TRAC_NUM];
 #endif
 
-#if defined(BLACK_HOLES) && defined(LT_BH_ACCRETE_SLICES)
-    int NSlicesSwallowed;
-#endif  
 }
 *SphP,				/*!< holds SPH particle data on local processor */
     *DomainSphBuf;			/*!< buffer for SPH particle data in domain decomposition */
