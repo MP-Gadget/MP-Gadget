@@ -232,9 +232,6 @@ void hydro_force(void)
 #ifdef WINDS
   double windspeed, hsml_c;
 
-#if defined(LT_STELLAREVOLUTION) && !defined(LT_WIND_VELOCITY)
-  int IMFi;
-#endif
 #endif
 
 
@@ -1026,19 +1023,8 @@ void hydro_force(void)
 #ifdef NOWINDTIMESTEPPING
 	    SphP[i].MaxSignalVel = 2 * sqrt(GAMMA * SphP[i].Pressure / SphP[i].d.Density);
 #else
-#if !defined(LT_WIND_VELOCITY) && !defined(LT_STELLAREVOLUTION)
 	    windspeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN *
 			     All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency) * All.Time;
-#else
-#ifdef LT_WIND_VELOCITY
-	    windspeed = LT_WIND_VELOCITY * All.Time;
-#else
-	    SFi = get_SF_index(i, &SFi, &IMFi);
-	    windspeed = sqrt(2 * SFs[SFi].WindEnergyFraction * SFs[SFi].totFactorSN *
-			     SFs[SFi].EgySpecSN / (1 - SFs[SFi].totFactorSN) / SFs[SFi].WindEfficiency) *
-	      All.Time;
-#endif
-#endif
 	    windspeed *= fac_mu;
 	    hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
 			 (SphP[i].d.Density * a3inv), (1. / 3.));
