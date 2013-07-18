@@ -111,8 +111,6 @@ double MachNumberCalibration(double M)
 
 /* --- end of function MachNumberCalibration --- */
 
-#ifndef CS_MODEL
-
 /*  function MachNumber: computes the Mach number per SPH particle given 
  *  the SPH smoothing length, the local sound speed, the total entropic function A, 
  *  and the instantaneous rate of entropy injection due to shocks dA/dt.
@@ -220,112 +218,6 @@ void GetMachNumber(struct sph_particle_data *Particle)
 /*********************************************************/
 
 
-
-#else
-
-/*********************************************** CS MODEL ***********************************************/
-
-
-/* This is the end of the "usual Mach finder", now rewite particle 
-   structure to match requirment's of Cecilia's model */
-
-
-/* --- function MachNumber: for the thermal gas without cosmic rays --- */
-void GetMachNumber(struct sph_particle_data *Particle, struct particle_data *Particle_Hsml)
-{
-  double M, dM, r;
-  double f, df, rhs, fac_hsml, csnd, rho1;
-  int i = 0;
-
-#if ( CR_SHOCK != 2 )
-  double DeltaDecayTime;
-#endif
-
-  /* set physical pre-shock density: */
-  rho1 = Particle->d.Density / (atime * atime * atime);
-
-  /* sound velocity (in physical units): */
-  csnd = sqrt(GAMMA * Particle->Pressure / Particle->d.Density) * pow(atime, -3. / 2. * GAMMA_MINUS1);
-
-  fac_hsml = All.Shock_Length;
-  rhs =
-    fac_hsml * Particle_Hsml->Hsml * atime / (csnd * Particle->Entropy) * Particle->e.DtEntropy * hubble_a;
-
-  /* initial guess */
-  if(rhs > 0)
-    M = 2.;
-  else
-    M = 0.5;
-
-  /* Newton-Raphson scheme */
-  r = 1.0;
-  while((i < 100) && (r > 1e-4))
-    {
-      AuxMach(M, &f, &df);
-      dM = (f - rhs) / df;
-      M -= dM;
-      r = fabs(dM / M);
-      i++;
-    }
-  if(i == 100)
-    printf("Error: too many iterations in function MachNumber!\n");
-
-  Mestimate = M;
-
-  /* The following part is only for thermal gas, calibration for the Mach number 
-   * of a CR+th gas is done in function MachNumberCR!
-   */
-
-#if ( CR_SHOCK != 2 )
-
-  /* Semianalytic recalibration of Mach number acording to Shock tube simulations. */
-  M = MachNumberCalibration(M);
-
-  /* Introduce decay time of the shock meanwhile the Particle Mach number will not be 
-   * updated! Mach numbers of all particles are initialized in init.c with M=1!
-   */
-  if(M > Particle->Shock_MachNumber)
-    {
-      Particle->Shock_MachNumber = M;
-      DeltaDecayTime = fac_hsml * Particle_Hsml->Hsml * atime / (Mestimate * csnd);
-
-      /* convert (Delta t_physical) -> (Delta log a): */
-      DeltaDecayTime *= hubble_a;
-      DeltaDecayTime = myfmin(DeltaDecayTime, All.Shock_DeltaDecayTimeMax);
-
-      if(All.ComovingIntegrationOn)
-	{
-	  Particle->Shock_DecayTime = All.Time * (1. + DeltaDecayTime);
-	}
-      else
-	{
-	  Particle->Shock_DecayTime = All.Time + DeltaDecayTime;
-	}
-    }
-  else
-    {
-      if(All.Time > Particle->Shock_DecayTime)
-	{
-	  Particle->Shock_MachNumber = M;
-#ifdef  OUTPUT_PRESHOCK_CSND
-	  Particle->PreShock_PhysicalSoundSpeed = csnd;
-	  Particle->PreShock_PhysicalDensity = rho1;
-#endif
-	}
-    }
-
-#endif
-
-  return;
-}
-
-/* --- end of function MachNumber --- */
-
-
-#endif
-/* end of rewrite for Cecilia's model */
-
-/*********************************************** CS MODEL ***********************************************/
 
 
 

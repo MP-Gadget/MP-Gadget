@@ -14,9 +14,6 @@
 #ifdef MACHNUM
 #include "machfinder.h"
 #endif
-#ifdef CS_MODEL
-#include "cs_metals.h"
-#endif
 
 #ifdef JD_DPP
 #include "cr_electrons.h"
@@ -77,11 +74,6 @@ struct hydrodata_in
   MyFloat F1;
   MyFloat DhsmlDensityFactor;
   int Timestep;
-
-#ifdef CS_MODEL
-  MyFloat DensityNow;
-  MyFloat Entropy;
-#endif
 
 #ifdef PARTICLE_DEBUG
   MyIDType ID;			/*!< particle identifier */
@@ -518,11 +510,6 @@ void hydro_force(void)
 		 DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
 #endif
 
-#ifdef CS_MODEL
-	  HydroDataIn[j].DensityNow = SphP[place].d.Density;
-	  HydroDataIn[j].Entropy = SphP[place].Entropy;
-#endif
-
 #ifdef JD_VTURB
 		HydroDataIn[j].Vbulk[0] = SphP[place].Vbulk[0];
 		HydroDataIn[j].Vbulk[1] = SphP[place].Vbulk[1];
@@ -841,11 +828,7 @@ void hydro_force(void)
 	GetMachNumberCR(SphP + i);
 #else
 
-#ifndef CS_MODEL
 	GetMachNumber(SphP + i);
-#else
-	GetMachNumber(SphP + i, P + i);
-#endif /* CS_MODEL */
 #endif /* COSMIC_RAYS */
 #endif /* MACHNUM */
 #ifdef MACHSTATISTIC
@@ -1214,16 +1197,6 @@ void hydro_force(void)
 #endif
       }
 
-
-
-#if defined(CS_MODEL) && defined(CS_FEEDBACK)
-  for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-    if(P[i].Type == 0 && (SphP[i].TempPromotion > 0 || SphP[i].DensPromotion > 0))
-      {
-	SphP[i].TempPromotion = 0;
-	SphP[i].DensPromotion = 0;
-      }
-#endif
 #if defined(HEALPIX)
   MPI_Allreduce(&count, &total_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
   count = 0;
@@ -1484,10 +1457,6 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   double c_ij, h_ij;
 #endif
 
-#ifdef CS_MODEL
-  double density, entropy;
-#endif
-
   if(mode == 0)
     {
       pos = P[target].Pos;
@@ -1510,11 +1479,6 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
       soundspeed_i = sqrt(GAMMA * pressure / rho);
 #else
       soundspeed_i = sqrt(SphP[target].dpdr);
-#endif
-
-#ifdef CS_MODEL
-      density = SphP[target].d.Density;
-      entropy = SphP[target].Entropy;
 #endif
 
 #ifndef ALTVISCOSITY
@@ -1637,10 +1601,6 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif
       f1 = HydroDataGet[target].F1;
 
-#ifdef CS_MODEL
-      density = HydroDataGet[target].DensityNow;
-      entropy = HydroDataGet[target].Entropy;
-#endif
 #ifdef JD_VTURB
 		vBulk[0] = HydroDataGet[target].Vbulk[0];
 		vBulk[1] = HydroDataGet[target].Vbulk[1];
@@ -1805,15 +1765,9 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
     {
       while(startnode >= 0)
 	{
-#ifdef CS_MODEL
-	  numngb =
-	    cs_ngb_treefind_pairs_threads(pos, h_i, target, &startnode, density, entropy, &vel[0], mode,
-					  exportflag, exportnodecount, exportindex, ngblist);
-#else
 	  numngb =
 	    ngb_treefind_pairs_threads(pos, h_i, target, &startnode, mode, exportflag, exportnodecount,
 				       exportindex, ngblist);
-#endif
 
 	  if(numngb < 0)
 	    return -1;

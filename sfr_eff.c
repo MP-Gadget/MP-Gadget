@@ -7,10 +7,6 @@
 #include "proto.h"
 #include "forcetree.h"
 
-#ifdef CS_MODEL
-#include "cs_metals.h"
-#endif
-
 #ifdef COOLING
 
 /*
@@ -664,7 +660,6 @@ void cooling_and_starformation(void)
     }
 }
 
-#if !defined(CS_MODEL)
 double get_starformation_rate(int i)
 {
     double rateOfSF;
@@ -716,7 +711,6 @@ double get_starformation_rate(int i)
 
     return rateOfSF;
 }
-#endif
 
 #endif /* closes MHM conditional */
 
@@ -1037,35 +1031,6 @@ void set_units_sfr(void)
     All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
     All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
-
-#ifdef CS_MODEL
-#if defined(CS_SNII)
-    All.TlifeSNII /= (All.UnitTime_in_s / SEC_PER_YEAR / All.HubbleParam);
-    All.MinTlifeSNI /= (All.UnitTime_in_s / SEC_PER_YEAR / All.HubbleParam);
-    All.MaxTlifeSNI /= (All.UnitTime_in_s / SEC_PER_YEAR / All.HubbleParam);
-    /* This corresponds to Raiteri estimations of SNII lifetimes for
-       different metallicity ranges - note: this is in yr and then to internal*/
-
-    /* this is in years!! */
-    Raiteri_COEFF_1 = 9.56077e6;	/* = old 0.00682912 in internal (9.8e8yr/h) */
-    Raiteri_COEFF_2 = 1.73978e7;	/* 0.0124270 */
-    Raiteri_COEFF_3 = 2.29347e7;	/* 0.0163819 */
-    Raiteri_COEFF_4 = 2.14039e7;	/* 0.0152885 */
-    Raiteri_COEFF_5 = 1.99753e7;	/* 0.0142681 */
-
-    Raiteri_COEFF_1 /= (All.UnitTime_in_s / SEC_PER_YEAR / All.HubbleParam);
-    Raiteri_COEFF_2 /= (All.UnitTime_in_s / SEC_PER_YEAR / All.HubbleParam);
-    Raiteri_COEFF_3 /= (All.UnitTime_in_s / SEC_PER_YEAR / All.HubbleParam);
-    Raiteri_COEFF_4 /= (All.UnitTime_in_s / SEC_PER_YEAR / All.HubbleParam);
-    Raiteri_COEFF_5 /= (All.UnitTime_in_s / SEC_PER_YEAR / All.HubbleParam);
-#endif
-#ifdef CS_FEEDBACK
-    SN_Energy = All.SN_Energy_cgs / (All.UnitEnergy_in_cgs);	/*conversion to internal 
-                                                                  energy */
-    if(ThisTask == 0)
-        printf("Feedback energy per SN= %g ergs ,   %g internal units\n", All.SN_Energy_cgs, SN_Energy);
-#endif
-#endif
 
 #ifdef COSMIC_RAYS
     if(All.CR_SNEff < 0.0)

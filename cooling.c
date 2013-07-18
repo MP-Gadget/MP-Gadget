@@ -9,10 +9,6 @@
 
 #include "cooling.h"
 
-#ifdef CS_MODEL
-#include "cs_metals.h"
-#endif
-
 #ifdef COOLING
 
 #define NCOOLTAB  2000
@@ -22,10 +18,8 @@
 #define HEATLIM	 20.0
 
 
-#ifndef CS_MODEL
 static double XH = HYDROGEN_MASSFRAC;	/* hydrogen abundance by mass */
 static double yhelium;
-#endif
 
 #define eV_to_K   11606.0
 #define eV_to_erg 1.60184e-12
@@ -505,11 +499,7 @@ double CoolingRateFromU(double u, double rho, double *ne_guess)
 
     temp = convert_u_to_temp(u, rho, ne_guess);
 
-#ifndef CS_MODEL
     return CoolingRate(log10(temp), rho, ne_guess);
-#else
-    return cs_CoolingRate_SD(log10(temp), rho, ne_guess);
-#endif
 }
 
 
@@ -1104,102 +1094,12 @@ void InitCool(void)
     InitCoolMemory();
     MakeCoolingTable();
 
-#ifdef CS_MODEL
-
-    cs_read_coolrate_table();
-
-#ifdef CS_SNII
-    cs_read_yield_table();
-
-    cs_imf();
-#endif
-
-#endif
-
-
-
     ReadIonizeParams("TREECOOL");
 
     All.Time = All.TimeBegin;
     IonizeParams();
 
 }
-
-#ifdef CS_MODEL
-
-double cs_CoolingRate_SD(double logT, double rho, double *nelec)
-{
-    double Lambda, Heat;
-    double LambdaCmptn = 0.0;
-    double redshift;
-    double T;
-
-    if(logT <= Tmin)
-        logT = Tmin + 0.5 * deltaT;	/* floor at Tmin */
-
-    nHcgs = XH * rho / PROTONMASS;	/* hydrogen number dens in cgs units */
-
-    if(logT < Tmax)
-    {
-
-        find_abundances_and_rates(logT, rho, nelec);
-
-        T = pow(10.0, logT);
-
-        /* METALS: the second input parameter is the abundance Fe/H
-        */
-
-        Lambda = cs_get_Lambda_SD(logT, FeHgas);
-
-
-        if(All.ComovingIntegrationOn)
-        {
-            redshift = 1 / All.Time - 1;
-            LambdaCmptn = 5.65e-36 * ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
-
-            Lambda += LambdaCmptn;
-        }
-        else
-            LambdaCmptn = 0;
-
-        Heat = 0;
-        if(J_UV != 0)
-            Heat += (nH0 * epsH0 + nHe0 * epsHe0 + nHep * epsHep) / nHcgs;
-    }
-    else				/* here we're outside of tabulated rates, T>Tmax K */
-    {
-        /* at high T (fully ionized); only free-free and Compton cooling are present.
-           Assumes no heating. */
-
-        Heat = 0;
-
-        /* very hot: H and He both fully ionized */
-        nHp = 1.0;
-        nHep = 0;
-        nHepp = yhelium;
-        ne = nHp + 2.0 * nHepp;
-        *nelec = ne;		/* note: in units of the hydrogen number density */
-
-        T = pow(10.0, logT);
-
-        Lambda = cs_get_Lambda_SD(logT, FeHgas);
-
-        if(All.ComovingIntegrationOn)
-        {
-            redshift = 1 / All.Time - 1;
-            /* add inverse Compton cooling off the microwave background */
-            LambdaCmptn = 5.65e-36 * ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
-        }
-        else
-            LambdaCmptn = 0;
-
-        Lambda += LambdaCmptn;
-    }
-
-    return (Heat - Lambda);
-}
-
-#endif
 
 
 #endif

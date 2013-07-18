@@ -619,27 +619,12 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 
     case IO_Z:			/* gas and star metallicity */
 #ifdef METALS
-#ifndef CS_MODEL
       for(n = 0; n < pc; pindex++)
 	if(P[pindex].Type == type)
 	  {
 	    *fp++ = P[pindex].Metallicity;
 	    n++;
 	  }
-#else
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    if(P[pindex].Zm[0] <= 0 || P[pindex].Zm[6] <= 0)
-	      {
-		printf("NEGATIVE METALLICITY: H=%7.3e, He=%7.3e\n", P[pindex].Zm[6], P[pindex].Zm[0]);
-		endrun(3758698);
-	      }
-	    for(k = 0; k < 12; k++)
-	      *fp++ = P[pindex].Zm[k];
-	    n++;
-	  }
-#endif
 #endif
       break;
 
@@ -1034,25 +1019,9 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
       break;
 
     case IO_EGYPROM:
-#ifdef CS_FEEDBACK
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    *fp++ = P[pindex].EnergySN;
-	    n++;
-	  }
-#endif
       break;
 
     case IO_EGYCOLD:
-#ifdef CS_FEEDBACK
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    *fp++ = P[pindex].EnergySNCold;
-	    n++;
-	  }
-#endif
       break;
 
     case IO_CR_C0:
@@ -1847,19 +1816,11 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
 
 
     case IO_Z:
-#ifndef CS_MODEL
       if(mode)
 	bytes_per_blockelement = sizeof(MyInputFloat);
       else
 	bytes_per_blockelement = sizeof(MyOutputFloat);
       break;
-#else
-      if(mode)
-	bytes_per_blockelement = 12 * sizeof(MyInputFloat);
-      else
-	bytes_per_blockelement = 12 * sizeof(MyOutputFloat);
-      break;
-#endif
 
     case IO_TIDALTENSORPS:
       if(mode)
@@ -2104,11 +2065,7 @@ int get_values_per_blockelement(enum iofields blocknr)
       break;
       
     case IO_Z:
-#ifndef CS_MODEL
       values = 1;
-#else
-      values = 12;
-#endif
       break;
 
     case IO_Zs:
@@ -2473,11 +2430,7 @@ int blockpresent(enum iofields blocknr)
 
     case IO_EGYPROM:
     case IO_EGYCOLD:
-#ifdef CS_FEEDBACK
-      return 1;
-#else
       return 0;
-#endif
       break;
 
     case IO_HII:

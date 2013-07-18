@@ -10,9 +10,6 @@
 #ifdef COSMIC_RAYS
 #include "cosmic_rays.h"
 #endif
-#ifdef CS_MODEL
-#include "cs_metals.h"
-#endif
 
 #ifdef NUM_THREADS
 #include <pthread.h>
@@ -63,9 +60,6 @@ static struct densdata_in
 #endif
 #ifdef EULERPOTENTIALS
     MyFloat EulerA, EulerB;
-#endif
-#ifdef CS_MODEL
-    MyFloat DensityOld, Entropy;
 #endif
 #if defined(MAGNETICSEED)
     MyFloat MagSeed;
@@ -421,10 +415,6 @@ void density(void)
                 DensDataIn[j].Pos[2] = P[place].Pos[2];
                 DensDataIn[j].Hsml = PPP[place].Hsml;
 
-#ifdef CS_MODEL
-                DensDataIn[j].DensityOld = SphP[place].DensityOld;
-                DensDataIn[j].Entropy = SphP[place].Entropy;
-#endif
                 DensDataIn[j].Type = P[place].Type;
                 memcpy(DensDataIn[j].NodeList,
                         DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
@@ -1209,9 +1199,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
     int ninteractions = 0;
 #endif
 
-#ifdef CS_MODEL
-    double densityold, entropy = 0;
-#endif
 #ifdef BLACK_HOLES
     MyLongDouble gasvel[3];
 #endif
@@ -1362,15 +1349,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
         }
         else
             vel = veldummy;
-#if 0 && defined(CS_MODEL)
-        if(P[target].Type == 0)
-        {
-            densityold = SphP[target].DensityOld;
-            entropy = SphP[target].Entropy;
-        }
-        else
-            densityold = 0;
-#endif
 #if defined(MAGNETICSEED)
         spin = SphP[target].MagSeed;
 #endif
@@ -1407,10 +1385,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #if defined(MAGNETICSEED)
         spin =   DensDataGet[target].MagSeed;
 #endif
-#ifdef CS_MODEL
-        densityold = DensDataGet[target].DensityOld;
-        entropy = DensDataGet[target].Entropy;
-#endif
     }
 
 
@@ -1433,16 +1407,9 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
     {
         while(startnode >= 0)
         {
-#ifdef CS_MODEL
-            numngb_inbox = cs_ngb_treefind_variable_decoupling_threads(&pos[0], hsearch, target, &startnode,
-                    densityold, entropy, &vel[0], mode,
-                    exportflag, exportnodecount, exportindex,
-                    ngblist);
-#else
             numngb_inbox =
                 ngb_treefind_variable_threads(pos, hsearch, target, &startnode, mode, exportflag, exportnodecount,
                         exportindex, ngblist);
-#endif
 
             if(numngb_inbox < 0)
                 return -1;

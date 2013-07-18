@@ -9,9 +9,6 @@
 #ifdef COSMIC_RAYS
 #include "cosmic_rays.h"
 #endif
-#ifdef CS_MODEL
-#include "cs_metals.h"
-#endif
 
 #ifdef VORONOI
 #include "voronoi.h"
@@ -147,10 +144,6 @@ void init(void)
     All.Time = All.TimeBegin;
 
 #ifdef COOLING
-#ifdef CS_MODEL
-    if(RestartFlag == 0)
-        XH = HYDROGEN_MASSFRAC;
-#endif
     IonizeParams();
 #endif
 
@@ -521,30 +514,8 @@ void init(void)
 #endif
 
 #ifdef METALS
-#ifndef CS_MODEL
         if(RestartFlag == 0)
             P[i].Metallicity = 0;
-#else
-        if(RestartFlag == 0)
-        {
-            for(j = 0; j < 12; j++)
-            {
-                P[i].Zm[j] = 0;
-                P[i].ZmReservoir[j] = 0;
-            }
-
-            P[i].Zm[6] = HYDROGEN_MASSFRAC * (P[i].Mass);
-            P[i].Zm[0] = (1 - HYDROGEN_MASSFRAC) * (P[i].Mass);
-            /*     Order of chemical elements:   He, Carbon,Mg,O,Fe,Si,H,N,Ne,S,Ca,Zn */
-
-            PPP[i].Hsml = 0;
-#ifdef CS_FEEDBACK
-            PPP[i].EnergySN = 0;
-            PPP[i].EnergySNCold = 0;
-#endif
-        }
-#endif
-
 #endif
 
 #ifdef BLACK_HOLES
@@ -602,17 +573,6 @@ void init(void)
         SphP[i].Gamma = GAMMA;	/* set universal value */
         SphP[i].t_cool = 0;
         SphP[i].t_elec = 0;
-#endif
-
-#ifdef CS_MODEL
-        SphP[i].DensityOld = 0;
-#endif
-#ifdef CS_FEEDBACK
-        SphP[i].da.DensityAvg = 0;
-        SphP[i].ea.EntropyAvg = 0;
-        SphP[i].DensPromotion = 0;
-        SphP[i].TempPromotion = 0;
-        SphP[i].HotHsml = 0;
 #endif
 
         if(RestartFlag == 0)

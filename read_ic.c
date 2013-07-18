@@ -313,37 +313,6 @@ void read_ic(char *fname)
     }
 #endif
 
-#ifdef CS_MODEL
-    /* CECILIA: extra check, to avoid type=1 particles to have different mass */
-    double min_mass = 10;
-    int n_move = 0;
-
-    if(RestartFlag == 0)
-    {
-        for(i = 0; i < NumPart; i++)
-            if(P[i].Type == 1)
-            {
-                if(P[i].Mass < min_mass)
-                    min_mass = P[i].Mass;
-            }
-
-        for(i = 0; i < NumPart; i++)
-            if(P[i].Type == 1)
-                if(P[i].Mass > min_mass)
-                {
-                    P[i].Type = 2;
-                    header.npart[1] -= 1;
-                    header.npart[2] += 1;
-                    n_move++;
-                }
-        if(n_move > 0)
-        {
-            printf("Moved %d DM particles from type=1 to type=2\n ", n_move);
-            endrun(23643);	/* For Aquarius I comment this line */
-        }
-    }
-#endif
-
     u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.InitGasTemp;
     u_init *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;	/* unit conversion */
 
@@ -667,29 +636,15 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 
         case IO_Z:			/* Gas and star metallicity */
 #ifdef METALS
-#ifndef CS_MODEL
             for(n = 0; n < pc; n++)
                 P[offset + n].Metallicity = *fp++;
-#else
-            for(n = 0; n < pc; n++)
-                for(k = 0; k < 12; k++)
-                    P[offset + n].Zm[k] = *fp++;
-#endif
 #endif
             break;
 
         case IO_EGYPROM:		/* SN Energy Reservoir */
-#ifdef CS_FEEDBACK
-            for(n = 0; n < pc; n++)
-                P[offset + n].EnergySN = *fp++;
-#endif
             break;
 
         case IO_EGYCOLD:		/* Cold  SN Energy Reservoir */
-#ifdef CS_FEEDBACK
-            for(n = 0; n < pc; n++)
-                P[offset + n].EnergySNCold = *fp++;
-#endif
             break;
 
         case IO_VTURB:	/* Turbulent Velocity */
@@ -1105,17 +1060,6 @@ void read_file(char *fname, int readTask, int lastTask)
             }
 #endif
             my_fread(&header, sizeof(header), 1, fd);
-#ifdef CS_MODEL
-            /* CECILIA: TO AVOID OTHER PARTICLES OCCUPY TYPE=4 PARTICLES */
-            /* CECILIA: NORMALLY USED FOR AQUARIUS ICS */
-            if(RestartFlag == 0)
-            {
-                header.npart[5] += header.npart[4];
-                header.npart[4] = 0;
-                header.npartTotal[5] += header.npartTotal[4];
-                header.npartTotal[4] = 0;
-            }
-#endif
             SKIP2;
 #ifdef AUTO_SWAP_ENDIAN_READIC
             swap_Nbyte((char *) &blksize1, 1, 4);

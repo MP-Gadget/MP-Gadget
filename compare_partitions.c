@@ -296,20 +296,6 @@ int compare_particles(int ncheck, int count)
 	}
 
 
-#if defined(CS_MODEL) && defined(CS_FEEDBACK)
-      /* compare hothsml */
-      a1 = PP1[n].P.EnergySN;
-      a2 = PP2[n].P.EnergySN;
-      da = fabs(a1 - a2);
-      if(da > ACC * fabs(a1))
-	{
-	  if(count < MAXPRINT)
-	    printf("STEP=%d  id1=%d id2=%d  SN_energy1=%g SN_energy2=%g  da/da1=%g\n",
-		   All.NumCurrentTiStep, PP1[n].P.ID, PP2[n].P.ID, a1, a2, da / a1);
-	  count++;
-	}
-#endif
-
       if(PP1[n].P.Type == 0)	/* do separate checks for gas particles */
 	{
 	  /* compare densities */
@@ -427,43 +413,6 @@ int compare_particles(int ncheck, int count)
 	      count++;
 	    }
 
-#if defined(CS_MODEL) && defined(CS_FEEDBACK)
-	  /* compare averaged entropies */
-	  a1 = PP1[n].SphP.ea.EntropyAvg;
-	  a2 = PP2[n].SphP.ea.EntropyAvg;
-	  da = fabs(a1 - a2);
-	  if(da > ACC * fabs(a1))
-	    {
-	      if(count < MAXPRINT)
-		printf("STEP=%d  id1=%d id2=%d  entravg1=%g entravg2=%g  da/da1=%g\n",
-		       All.NumCurrentTiStep, PP1[n].P.ID, PP2[n].P.ID, a1, a2, da / a1);
-	      count++;
-	    }
-
-	  /* compare averaged densities */
-	  a1 = PP1[n].SphP.da.DensityAvg;
-	  a2 = PP2[n].SphP.da.DensityAvg;
-	  da = fabs(a1 - a2);
-	  if(da > ACC * fabs(a1))
-	    {
-	      if(count < MAXPRINT)
-		printf("STEP=%d  id1=%d id2=%d  densavg1=%g densavg2=%g  da/da1=%g\n",
-		       All.NumCurrentTiStep, PP1[n].P.ID, PP2[n].P.ID, a1, a2, da / a1);
-	      count++;
-	    }
-
-	  /* compare hothsml */
-	  a1 = PP1[n].SphP.HotHsml;
-	  a2 = PP2[n].SphP.HotHsml;
-	  da = fabs(a1 - a2);
-	  if(da > ACC * fabs(a1))
-	    {
-	      if(count < MAXPRINT)
-		printf("STEP=%d  id1=%d id2=%d  hohsml1=%g hothsml2=%g  da/da1=%g\n",
-		       All.NumCurrentTiStep, PP1[n].P.ID, PP2[n].P.ID, a1, a2, da / a1);
-	      count++;
-	    }
-#endif
 	}
 
     }

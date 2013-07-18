@@ -8,10 +8,6 @@
 #include "allvars.h"
 #include "proto.h"
 
-#ifdef CS_MODEL
-#include "cs_metals.h"
-#endif
-
 /*! \file accel.c
  *  \brief driver routines to carry out force computation
  */
@@ -118,18 +114,6 @@ void compute_accelerations(int mode)
             fflush(stdout);
         }
 
-#ifdef CS_MODEL
-        CPU_Step[CPU_MISC] += measure_time();
-
-#if defined(CS_SNI) || defined(CS_SNII)
-        cs_flag_SN_starparticles();	/* mark SNI star particles */
-#endif
-        cs_copy_densities();
-        cs_find_low_density_tail();
-
-        CPU_Step[CPU_CSMISC] += measure_time();
-#endif
-
         density();		/* computes density, and pressure */
 
 #if (defined(DIVBCLEANING_DEDNER) || defined(SMOOTH_ROTB) || defined(BSMOOTH) || defined(VECT_POTENTIAL))
@@ -139,20 +123,6 @@ void compute_accelerations(int mode)
 
 #if defined(SNIA_HEATING)
         snIa_heating();
-#endif
-
-
-#if defined(CS_MODEL) && defined(CS_FEEDBACK)
-
-        CPU_Step[CPU_CSMISC] += measure_time();
-
-        cs_find_hot_neighbours();
-
-        cs_promotion();
-        cs_copy_densities();
-        CPU_Step[CPU_CSMISC] += measure_time();
-        density();		/* recalculate densities again */
-        CPU_Step[CPU_CSMISC] += measure_time();
 #endif
 
         /***** update smoothing lengths in tree *****/
@@ -279,57 +249,18 @@ void compute_accelerations(int mode)
 
 #ifdef COOLING	/**** radiative cooling and star formation *****/
 
-#ifdef CS_MODEL
-        cs_cooling_and_starformation();
-#else
-
 #ifdef SFR
         cooling_and_starformation();
 #else
         cooling_only();
 #endif
 
-#endif
         CPU_Step[CPU_COOLINGSFR] += measure_time();
 #endif /*ends COOLING */
 
 #ifdef CHEMCOOL
         do_chemcool(-1, 0);
 #endif
-
-#if defined(CS_MODEL) && defined(CS_ENRICH)
-#ifndef CS_FEEDBACK
-        Flag_phase = 0;		/* no destinction between phases */
-
-        cs_update_weights();
-        CPU_Step[CPU_WEIGHTS_HOT] += measure_time();
-        cs_enrichment();
-        CPU_Step[CPU_ENRICH_HOT] += measure_time();
-#else
-
-        Flag_phase = 1;		/* COLD phase Flag_phase  = 1 */
-
-        cs_update_weights();
-        CPU_Step[CPU_WEIGHTS_HOT] += measure_time();
-        cs_enrichment();
-        CPU_Step[CPU_ENRICH_HOT] += measure_time();
-
-        Flag_phase = 2;		/* HOT phase Flag_phase = 2 */
-
-        cs_update_weights();
-        CPU_Step[CPU_WEIGHTS_COLD] += measure_time();
-        cs_enrichment();
-        CPU_Step[CPU_ENRICH_COLD] += measure_time();
-
-        Flag_phase = 0;
-#endif
-#endif
-
-#ifdef CS_TESTS
-        cs_energy_test();
-#endif
-
-
 
 #ifndef BH_BUBBLES
 #ifdef BUBBLES

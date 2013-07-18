@@ -14,9 +14,6 @@
 #ifdef COSMIC_RAYS
 #include "cosmic_rays.h"
 #endif
-#ifdef CS_MODEL
-#include "cs_metals.h"
-#endif
 #ifdef CHEMCOOL
 #include "f2c.h"
 #endif
@@ -679,15 +676,6 @@ void open_outputfiles(void)
     }
 #endif
 
-#ifdef CS_FEEDBACK
-    sprintf(buf, "%spromotion_%d.txt", All.OutputDir, ThisTask);
-    if(!(FdPromotion = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
 #ifdef DISTORTIONTENSORPS
     /* create caustic log file */
     sprintf(buf, "%scaustics_%d.txt", All.OutputDir, ThisTask);
@@ -837,43 +825,6 @@ void open_outputfiles(void)
 
 
 
-#ifdef CS_MODEL
-#ifdef CS_TESTS
-    sprintf(buf, "%s%s", All.OutputDir, "energy_test.txt");
-    if(!(FdEgyTest = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-
-    sprintf(buf, "%s%s", All.OutputDir, "promotion_test.txt");
-    if(!(FdPromTest = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-
-    sprintf(buf, "%s%s", All.OutputDir, "SN_test.txt");
-    if(!(FdSNTest = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-
-#endif
-
-
-#if defined(CS_SNI) || defined(CS_SNII)
-    sprintf(buf, "%s%s", All.OutputDir, "SN.txt");
-    if(!(FdSN = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-#endif
-
-
 #ifdef FORCETEST
     if(RestartFlag == 0)
     {
@@ -991,24 +942,6 @@ void close_outputfiles(void)
 
 #ifdef DARKENERGY
     fclose(FdDE);
-#endif
-
-#ifdef CS_FEEDBACK
-    fclose(FdPromotion);
-#endif
-
-#ifdef CS_MODEL
-#ifdef CS_TESTS
-    fclose(FdEgyTest);
-    fclose(FdPromTest);
-    fclose(FdSNTest);
-#endif
-#if defined(CS_SNI) || defined(CS_SNII)
-    fclose(FdSN);
-#endif
-#endif
-#ifdef CS_FEEDBACK
-    fclose(FdPromotion);
 #endif
 
 }
@@ -1797,66 +1730,6 @@ void read_parameter_file(char *fname)
 #if defined(SNIA_HEATING)
         strcpy(tag[nt], "SnIaHeatingRate");
         addr[nt] = &All.SnIaHeatingRate;
-        id[nt++] = REAL;
-#endif
-
-
-#ifdef CS_MODEL
-        strcpy(tag[nt], "FactorSFR");
-        addr[nt] = &All.FactorSFR;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "DecouplingParam");
-        addr[nt] = &All.DecouplingParam;
-        id[nt++] = REAL;
-
-
-        strcpy(tag[nt], "TlifeSNII");
-        addr[nt] = &All.TlifeSNII;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "Raiteri_TlifeSNII");
-        addr[nt] = &All.Raiteri_TlifeSNII;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "MinTlifeSNI");
-        addr[nt] = &All.MinTlifeSNI;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "MaxTlifeSNI");
-        addr[nt] = &All.MaxTlifeSNI;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "RateSNI");
-        addr[nt] = &All.RateSNI;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "SN_Energy_cgs");
-        addr[nt] = &All.SN_Energy_cgs;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "Tcrit_Phase");
-        addr[nt] = &All.Tcrit_Phase;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "DensFrac_Phase");
-        addr[nt] = &All.DensFrac_Phase;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "SN_Energy_frac_cold");
-        addr[nt] = &All.SN_Energy_frac_cold;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "MaxHotHsmlParam");
-        addr[nt] = &All.MaxHotHsmlParam;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitialHotHsmlFactor");
-        addr[nt] = &All.InitialHotHsmlFactor;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "MaxNumHotNgbDeviation");
-        addr[nt] = &All.MaxNumHotNgbDeviation;
         id[nt++] = REAL;
 #endif
 
