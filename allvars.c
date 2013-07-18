@@ -138,9 +138,6 @@ int GlobFlag;
 
 int NumPart;			/*!< number of particles on the LOCAL processor */
 int N_gas;			/*!< number of gas particles on the LOCAL processor  */
-#ifdef LT_STELLAREVOLUTION
-int N_stars;			/*!< number of star particles in the LOCAL processor */
-#endif
 
 #ifdef SINKS
 int NumSinks;
@@ -227,12 +224,6 @@ FILE *FdCaustics;		/*!< file handle for Caustics.txt log-file. */
 #ifdef BLACK_HOLES
 FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
 FILE *FdBlackHolesDetails;
-#ifdef LT_BH
-FILE *FdBlackHolesWarn;
-#ifdef LT_BH_LOG
-FILE *FdBlackHolesProfile;
-#endif
-#endif
 #endif
 
 
@@ -295,9 +286,6 @@ struct particle_data *P,	/*!< holds particle data on local processor */
 struct sph_particle_data *SphP,	/*!< holds SPH particle data on local processor */
  *DomainSphBuf;			/*!< buffer for SPH particle data in domain decomposition */
 
-#ifdef LT_STELLAREVOLUTION
-struct met_particle_data *MetP, *DomainMetBuf;
-#endif
 
 peanokey *DomainKeyBuf;
 
