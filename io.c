@@ -352,8 +352,6 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
       for(n = 0; n < pc; pindex++)
 	if(P[pindex].Type == type)
 	  {
-	    double dmax1, dmax2;
-
 #if !defined(EOS_DEGENERATE) && !defined(TRADITIONAL_SPH_FORMULATION)
 	    *fp++ =
 	      DMAX(All.MinEgySpec,
@@ -398,8 +396,6 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 	    *fp++ = SphP[pindex].HI;
 #else
 	    ne = SphP[pindex].Ne;
-
-	    double dmax1, dmax2;
 
 	    AbundanceRatios(DMAX(All.MinEgySpec,
 				 SphP[pindex].Entropy / GAMMA_MINUS1 * pow(SphP[pindex].EOMDensity *

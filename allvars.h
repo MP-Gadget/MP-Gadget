@@ -392,10 +392,22 @@ typedef MyFloat MyLongDouble;
 #define BH_FEEDBACK_OPTTHIN   0x20
 #endif
 
-#define DMAX(a,b) (dmax1=(a),dmax2=(b),(dmax1>dmax2)?dmax1:dmax2)
-#define DMIN(a,b) (dmin1=(a),dmin2=(b),(dmin1<dmin2)?dmin1:dmin2)
-#define IMAX(a,b) (imax1=(a),imax2=(b),(imax1>imax2)?imax1:imax2)
-#define IMIN(a,b) (imin1=(a),imin2=(b),(imin1<imin2)?imin1:imin2)
+static inline double DMAX(double a, double b) {
+    if(a > b) return a;
+    return b;
+}
+static inline double DMIN(double a, double b) {
+    if(a < b) return a;
+    return b;
+}
+static inline int IMAX(int a, int b) {
+    if(a > b) return a;
+    return b;
+}
+static inline int IMIN(int a, int b) {
+    if(a < b) return a;
+    return b;
+}
 
 #ifdef PERIODIC
 extern MyDouble boxSize, boxHalf, inverse_boxSize;

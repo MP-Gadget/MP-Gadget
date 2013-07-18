@@ -53,7 +53,7 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
 		       int mode, int *nexport, int *nsend_local)
 {
   int no, p, numngb, task, nexport_save;
-  MyDouble dist, dx, dy, dz, dmax1, dmax2;
+  MyDouble dist, dx, dy, dz;
   struct NODE *current;
 
 #ifdef PERIODIC
@@ -196,7 +196,7 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 			       int *ngblist)
 {
   int no, p, numngb, task, nexp;
-  MyDouble dist, dx, dy, dz, dmax1, dmax2;
+  MyDouble dist, dx, dy, dz;
   struct NODE *current;
 
 #ifdef PERIODIC

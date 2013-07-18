@@ -170,7 +170,7 @@ void density(void)
 
     long long ntot;
 
-    double dmax1, dmax2, fac;
+    double fac;
 
     double timeall = 0, timecomp1 = 0, timecomp2 = 0, timecommsumm1 = 0, timecommsumm2 = 0, timewait1 =
         0, timewait2 = 0;
@@ -1597,7 +1597,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                     double mass_j;
                     if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_OPTTHIN) {
 #ifdef COOLING
-                        double dmax1, dmax2;
                         double nh0 = 0;
                         double nHeII = 0;
                         double ne = SphP[j].Ne;

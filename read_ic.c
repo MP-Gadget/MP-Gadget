@@ -37,7 +37,7 @@ static long long *NumPartPerFile;
 void read_ic(char *fname)
 {
     int i, num_files, rest_files, ngroups, gr, filenr, masterTask, lastTask, groupMaster;
-    double u_init, molecular_weight, dmax1, dmax2;
+    double u_init, molecular_weight;
     char buf[500];
 
     CPU_Step[CPU_MISC] += measure_time();

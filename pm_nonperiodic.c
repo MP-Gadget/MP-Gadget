@@ -100,7 +100,7 @@ static int *part_sortindex;
  */
 void pm_init_regionsize(void)
 {
-  double meshinner[2], xmin[2][3], xmax[2][3], dmax1, dmax2;
+  double meshinner[2], xmin[2][3], xmax[2][3];
   int i, j;
 
   /* find enclosing rectangle */

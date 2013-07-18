@@ -306,7 +306,7 @@ void cool_test(void)
 double convert_u_to_temp(double u, double rho, double *ne_guess)
 {
     double temp, temp_old, temp_new, max = 0, ne_old;
-    double mu, dmax1, dmax2;
+    double mu;
     int iter = 0;
 
     double u_input, rho_input, ne_input;

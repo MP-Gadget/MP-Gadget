@@ -12,7 +12,7 @@
 double do_chemcool(int part_index, double dt)
 {
   int i, j, flag, nsp, ipar[NIPAR];
-  double a, a3inv, hubble_param, hubble_param2, hubble_a, dmin1, dmin2, dmax1, dmax2;
+  double a, a3inv, hubble_param, hubble_param2, hubble_a;
   double timestep, yn, energy, energy_old, entropy_new, dl, divv, column_est, t_start, Utherm_new, du;
   double abundances[TRAC_NUM], y[NSPEC], ydot[NSPEC], rpar[NRPAR];
 

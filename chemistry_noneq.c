@@ -486,8 +486,6 @@ int energy_solver(int solve_it_flag, int ithis, double current_a, double dt,
 
   double TM, LT, LDL, T3, HDLR, HDLV, HDL, cool_rate, heat_rate;
 
-  double dmin1, dmin2, dmax1, dmax2;
-
   log_T0 = log(T_start);
   log_T9 = log(T_end);
 

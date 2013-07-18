@@ -47,7 +47,7 @@ void subfind(int num)
 #ifdef DENSITY_SPLIT_BY_TYPE
   struct unbind_data *d;
   int j, n, count[6], countall[6];
-  double a3inv, dmax1, dmax2;
+  double a3inv;
 #endif
 
   if(ThisTask == 0)

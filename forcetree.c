@@ -4614,7 +4614,7 @@ void force_treefree(void)
 #ifdef FORCETEST
 int force_treeevaluate_direct(int target, int mode)
 {
-  double epsilon, dmax1, dmax2;
+  double epsilon;
   double h, h_inv, dx, dy, dz, r, r2, u, r_inv, fac;
   int i, ptype;
   double pos_x, pos_y, pos_z;

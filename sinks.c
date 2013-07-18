@@ -16,7 +16,7 @@ void do_sinks(void)
     num_update_glob;
   int numforceupdate, globnumforceupdate, count_list[NTask], count_list_bytes[NTask], prev_list[NTask],
     prev_list_bytes[NTask];
-  double a, a2, a3inv, hubble_param, hubble_param2, nh, dmax1, dmax2, semimajor_axis, alpha, min_alpha, xtmp,
+  double a, a2, a3inv, hubble_param, hubble_param2, nh, semimajor_axis, alpha, min_alpha, xtmp,
     mass_cm;
   double dx, dy, dz, r, r2, r2_min, h, u, wp, e_grav, e_kin, e_therm, divv, sink_pos[3], pos_cm[3], vel_cm[3];
 #ifdef MAGNETIC

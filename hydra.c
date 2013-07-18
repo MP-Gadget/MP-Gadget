@@ -199,9 +199,6 @@ void hydro_force(void)
 
   long long n_exported = 0;
 
-#if defined(WINDS) || defined(TIME_DEP_ART_VISC) || defined(MAGNETIC)
-  double dmax1, dmax2;
-#endif
 #ifdef NAVIERSTOKES
   double fac;
 #endif
@@ -1333,17 +1330,12 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   double h_j, dwk_j;
   double r, r2, u;
   double hfc_visc;
-  double dmin1, dmin2;
 
 #ifdef TRADITIONAL_SPH_FORMULATION
   double hfc_egy;
 #endif
 
-#if defined(MAGFORCE)
-  double dmax1, dmax2;
-#endif
   double BulkVisc_ij;
-  int imax1, imax2;
 
 #ifdef NAVIERSTOKES
   double faci, facj;

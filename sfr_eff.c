@@ -20,7 +20,7 @@ void cooling_only(void)		/* normal cooling routine when star formation is disabl
 {
     int i;
     double dt, dtime, hubble_a = 0, a3inv, ne = 1;
-    double time_hubble_a, unew, dmax1, dmax2;
+    double time_hubble_a, unew;
 
 #ifdef COSMIC_RAYS
     int CRpop;
@@ -112,7 +112,7 @@ void cooling_and_starformation(void)
     double factorEVP;
     double tsfr, trelax;
     double egyhot, egyeff, egycurrent, tcool, x, y, rate_in_msunperyear;
-    double sfrrate, totsfrrate, dmax1, dmax2;
+    double sfrrate, totsfrrate;
 
 #ifdef WINDS
     int j;

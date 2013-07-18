@@ -642,7 +642,6 @@ double MeanB_part = 0, MeanB_sum;
 
 #ifdef TRACEDIVB
 double MaxDivB_part = 0, MaxDivB_all;
-double dmax1, dmax2;
 #endif
 #endif
 #ifdef TIME_DEP_ART_VISC

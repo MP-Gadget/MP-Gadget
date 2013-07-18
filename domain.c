@@ -1639,7 +1639,7 @@ int domain_check_for_local_refine(int i, double countlimit, double costlimit)
 
 int domain_recursively_combine_topTree(int start, int ncpu)
 {
-    int i, nleft, nright, errflag = 0, imax1, imax2;
+    int i, nleft, nright, errflag = 0;
     int recvTask, ntopnodes_import;
     int master_left, master_right;
     struct local_topnode_data *topNodes_import = 0, *topNodes_temp;
@@ -1799,7 +1799,7 @@ int domain_recursively_combine_topTree(int start, int ncpu)
  */
 int domain_determineTopTree(void)
 {
-    int i, count, j, sub, ngrp, imax1, imax2;
+    int i, count, j, sub, ngrp;
     int recvTask, sendTask, ntopnodes_import, errflag, errsum;
     struct local_topnode_data *topNodes_import, *topNodes_temp;
     double costlimit, countlimit;

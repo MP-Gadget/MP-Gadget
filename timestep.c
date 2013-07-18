@@ -46,9 +46,6 @@ void advance_and_find_timesteps(void)
 #ifdef MAKEGLASS
     double disp, dispmax, globmax, dmean, fac, disp2sum, globdisp2sum;
 #endif
-#if defined(TIME_DEP_ART_VISC) || defined(TIME_DEP_MAGN_DISP)
-    double dmin1, dmin2;
-#endif
 #ifdef WAKEUP
     int n, k, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global, max_time_bin_active;
 #ifndef PMGRID
@@ -672,10 +669,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
     double a_start, a_end;
 #endif
 
-#if defined(TIME_DEP_ART_VISC) || defined(TIME_DEP_MAGN_DISP)
-    double dmin1, dmin2;
-#endif
-
 #ifdef DISTORTIONTENSORPS
     /* for the distortion 'velocity part', so only the lower two 3x3 submatrices will be != 0 */
     MyDouble dv_distortion_tensorps[6][6];
@@ -979,7 +972,6 @@ int get_timestep(int p,		/*!< particle index */
         csnd = sqrt(GAMMA * SphP[p].Pressure / SphP[p].d.Density);
 
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-        double dmax1, dmax2;
 
         if(All.ComovingIntegrationOn)
             dt_courant = All.CourantFac * All.Time * DMAX(PPP[p].Hsml, All.SofteningTable[0]) / (fac3 * csnd);

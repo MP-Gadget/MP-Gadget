@@ -27,7 +27,7 @@ void rot_a(void)
   int maxfill, source;
   int level, ngrp, sendTask, recvTask;
   int place, nexport;
-  double dmax1, dmax2, fac;
+  double fac;
   double sumt, sumcomm;
 
   MPI_Status status;

@@ -39,7 +39,7 @@ void subfind_find_linkngb(void)
   MyFloat *Left, *Right;
   char *Todo;
   int ngrp, sendTask, recvTask, place, nexport, nimport;
-  double dmax1, dmax2, t0, t1;
+  double t0, t1;
 
 
   if(ThisTask == 0)
@@ -557,7 +557,7 @@ int subfind_ngb_treefind_linkpairs(MyDouble searchcenter[3], double hsml, int ta
 {
   int numngb, i, no, p, task, nexport_save, exported = 0;
   struct NODE *current;
-  double dx, dy, dz, dist, r2, dmax1, dmax2;
+  double dx, dy, dz, dist, r2;
 
 #ifdef PERIODIC
   MyDouble xtmp;

@@ -52,7 +52,7 @@ void subfind_density(void)
   MyFloat *Left, *Right;
   char *Todo;
   int ngrp, sendTask, recvTask, place, nexport, nimport;
-  double vel_to_phys, atime, dmax1, dmax2, t0, t1;
+  double vel_to_phys, atime, t0, t1;
 
 #ifdef DENSITY_SPLIT_BY_TYPE
   int j_target;
