@@ -34,23 +34,6 @@ static unsigned long FileNr;
 static long long *NumPartPerFile;
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-double time_age, this_age;
-int Zs_present = 0, ti_step, IMFi, SFi;
-unsigned int N_star_idx;
-
-#ifdef LT_ZAGE
-int ZAge_present = 0;
-#endif
-#ifdef LT_ZAGE_LLV
-int ZAge_llv_present = 0;
-#endif
-#ifdef LT_TRACK_CONTRIBUTES
-Contrib *contrib;
-#endif
-#endif
-
-
 void read_ic(char *fname)
 {
     int i, num_files, rest_files, ngroups, gr, filenr, masterTask, lastTask, groupMaster;
@@ -70,10 +53,6 @@ void read_ic(char *fname)
     NumPart = 0;
     N_gas = 0;
     All.TotNumPart = 0;
-#ifdef LT_STELLAREVOLUTION
-    N_stars = 0;
-    N_star_idx = 0;
-#endif
     num_files = find_files(fname);
 
 #if defined(SAVE_HSML_IN_IC_ORDER) || defined(SUBFIND_RESHUFFLE_CATALOGUE)
@@ -365,73 +344,6 @@ void read_ic(char *fname)
     }
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-
-    N_star_idx = 0;
-    All.Time_Age = get_age(All.Time);
-
-    /* note: initialization of timings for stellar evolution occurs in init.c */
-
-    for(i = 0; i < NumPart; i++)
-    {
-        if(P[i].Type == 0)
-        {
-            if(!Zs_present)
-            {
-                memset(SphP[i].Metals, 0, sizeof(float) * LT_NMet);
-                SphP[i].Metals[Hel] = P[i].Mass * (1 - HYDROGEN_MASSFRAC);
-            }
-        }
-        else if(P[i].Type == 4)
-        {
-            MetP[N_star_idx].PID = i;
-            P[i].MetID = N_star_idx;
-
-            if(!Zs_present)
-            {
-                memset(MetP[N_star_idx].Metals, 0, sizeof(float) * LT_NMet);
-                MetP[N_star_idx].Metals[Hel] = P[i].Mass * (1 - HYDROGEN_MASSFRAC);
-            }
-            N_star_idx++;
-        }
-    }
-
-    if(!Zs_present)
-        /* metal array is not present; we initialize Helium to the cosmic fraction */
-    {
-        if(ThisTask == 0)
-            printf("Helium Fraction initialized to the Cosmic Value %8.5g\n", 1 - HYDROGEN_MASSFRAC);
-    }
-
-
-#ifdef LT_ZAGE
-    if(!ZAge_present)
-        for(i = 0; i < NumPart; i++)
-        {
-            if(P[i].Type == 0)
-                SphP[i].ZAge = 0;
-            if(P[i].Type == 4)
-                MetP[P[i].MetID].ZAge = 0;
-        }
-#endif
-#ifdef LT_ZAGE_LLV
-    if(!ZAge_llv_present)
-        for(i = 0; i < NumPart; i++)
-        {
-            if(P[i].Type == 0)
-                SphP[i].ZAge = 0;
-            if(P[i].Type == 4)
-                MetP[P[i].MetID].ZAge_llv = 0;
-        }
-#endif
-#if defined(LT_EJECTA_IN_HOTPHASE) || defined(LT_HOT_DENSITY) || defined(LT_SMOOTH_XCLD)
-    for(i = 0; i < NumPart; i++)
-        if(P[i].Type == 0)
-            SphP[i].x = 0;
-#endif
-
-#endif
-
     u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.InitGasTemp;
     u_init *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;	/* unit conversion */
 
@@ -517,9 +429,6 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
     fp = (MyInputFloat *) CommBuffer;
     fp_single = (float *) CommBuffer;
     ip = (MyIDType *) CommBuffer;
-#ifdef LT_TRACK_CONTRIBUTES
-    contrib = (Contrib *) CommBuffer;
-#endif
 
 #ifdef AUTO_SWAP_ENDIAN_READIC
     if(blocknr != IO_DMHSML && blocknr != IO_DMDENSITY && blocknr != IO_DMVELDISP && blocknr != IO_DMHSML_V
@@ -943,114 +852,18 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
             break;
 
         case IO_Zs:
-#ifdef LT_STELLAREVOLUTION
-            if(type == 4)
-                /*
-                   {
-                   for(n = 0; n < pc; n++, ((float*)fp) += LT_NMetP, N_star_idx++)
-                   memcpy(MetP[N_star_idx + n].Metals, fp, LT_NMetP * sizeof(float));
-                   N_star_idx += pc;
-                   }
-                   */
-                /*
-                   I correct the previous lines, because their syntax is non-standard and 
-                   refused by some compilers (e.g. IBM compiler on PowerVI ) - Umberto Maio.
-                   */
-            {
-                for(n = 0; n < pc; n++)
-                {
-                    memcpy(MetP[N_star_idx].Metals, fp, LT_NMetP * sizeof(float));
-                    *fp += LT_NMetP;
-                    N_star_idx++;
-                }
-            }
-            else if(type == 0)
-                /*
-                   for(n = 0; n < pc; n++, ((float*)fp) += LT_NMetP)
-                   memcpy(SphP[offset + n].Metals, fp, LT_NMetP * sizeof(float));
-                   */
-                /*
-                   I correct the previous lines, because their syntax is non-standard and 
-                   refused by some compilers (e.g. IBM compiler on PowerVI ) - Umberto Maio.
-                   */
-                for(n = 0; n < pc; n++)
-                {
-                    memcpy(SphP[offset + n].Metals, fp, LT_NMetP * sizeof(float));
-                    *fp += LT_NMetP;
-                }
-#endif
             break;
 
         case IO_ZAGE:
-#ifdef LT_ZAGE
-            if(type == 4)
-            {
-                for(n = 0; n < pc; n++)
-                    MetP[N_star_idx + n].ZAge = *fp++;
-                N_star_idx += pc;
-            }
-            else if(type == 0)
-                for(n = 0; n < pc; n++)
-                {
-                    /* note this is not the weight that was used when the snapshot has been written */
-                    SphP[offset + n].ZAgeW = get_metalmass(SphP[offset + n].Metals);
-#ifndef LT_LOGZAGE
-                    SphP[offset + n].ZAge = *fp++ * SphP[offset + n].ZAgeW;
-#else
-                    if(SphP[offset + n].ZAgeW > 0)
-                        SphP[offset + n].ZAge = log10(*fp++ * SphP[offset + n].ZAgeW);
-                    else
-                        SphP[offset + n].ZAge = 0;
-#endif
-                }
-#endif
             break;
 
         case IO_ZAGE_LLV:
-#ifdef LT_ZAGE_LLV
-            if(type == 4)
-            {
-                for(n = 0; n < pc; n++)
-                    MetP[N_star_idx + n].ZAge_llv = *fp++;
-                N_star_idx += pc;
-            }
-            else if(type == 0)
-                for(n = 0; n < pc; n++)
-                {
-                    /* note this is not the weight that was used when the snapshot has been written */
-                    SphP[offset + n].ZAgeW_llv = SphP[offset + n].Metals[Iron];
-#ifndef LT_LOGZAGE
-                    SphP[offset + n].ZAge_llv = *fp++ * SphP[offset + n].ZAgeW_llv;
-#else
-                    if(SphP[offset + n].ZAgeW_llv > 0)
-                        SphP[offset + n].ZAge_llv = log10(*fp++ * SphP[offset + n].ZAgeW_llv);
-                    else
-                        SphP[offset + n].ZAge_llv = 0;
-#endif
-                }
-#endif
             break;
 
         case IO_iMass:
-#ifdef LT_STELLAREVOLUTION
-            for(n = 0; n < pc; n++)
-                MetP[N_star_idx + n].iMass = *fp++;
-            N_star_idx += pc;
-#endif
             break;
 
         case IO_CONTRIB:
-#if defined(LT_STELLAREVOLUTION) && defined(LT_TRACK_CONTRIBUTES)
-            if(type == 4)
-            {
-                for(n = 0; n < pc; n++)
-                    MetP[N_star_idx + n].contrib = *contrib++;
-                N_star_idx += pc;
-            }
-            else if(type == 0)
-                for(n = 0; n < pc; n++)
-                    SphP[offset + n].contrib = *contrib++;
-#endif
             break;
 
 
@@ -1250,16 +1063,6 @@ void read_file(char *fname, int readTask, int lastTask)
     hsize_t dims[2], count[2], start[2];
 #endif
 
-#if defined(LT_TRACK_CONTRIBUTES)
-    FILE *FdTrck = 0x0, *fd_trck_back;
-    char ftrckname[200];
-    int trckblksize1, trckblksize2;
-    int trckNgas, trckNstar, trckpbase, trckNbits, trckNpbits, trckNimf;
-
-#define SKIP_TRCK   {my_fread(&trckblksize1,sizeof(int),1,FdTrck);}
-#define SKIP_TRCK2  {my_fread(&trckblksize2,sizeof(int),1,FdTrck);}
-#endif
-
 #if defined(COSMIC_RAYS) && (!defined(CR_IC))
     int CRpop;
 #endif
@@ -1276,26 +1079,6 @@ void read_file(char *fname, int readTask, int lastTask)
                 printf("can't open file `%s' for reading initial conditions.\n", fname);
                 endrun(123);
             }
-
-#ifdef LT_TRACK_CONTRIBUTES
-            sprintf(ftrckname, "%s.trck", fname);
-            if((FdTrck = fopen(ftrckname, "r")) != 0x0)
-            {
-                SKIP_TRCK;
-                my_fread(&trckNgas, sizeof(int), 1, FdTrck);
-                my_fread(&trckNstar, sizeof(int), 1, FdTrck);
-                my_fread(&trckpbase, sizeof(int), 1, FdTrck);
-                my_fread(&trckNbits, sizeof(int), 1, FdTrck);
-                my_fread(&trckNpbits, sizeof(int), 1, FdTrck);
-                my_fread(&trckNimf, sizeof(int), 1, FdTrck);
-                SKIP_TRCK2;
-                fd_trck_back = fd;
-            }
-            else
-                printf("can't open auxiliary file `%s'..\n", ftrckname);
-            fflush(stdout);
-#endif
-
 
             if(All.ICFormat == 2)
             {
@@ -1376,9 +1159,6 @@ void read_file(char *fname, int readTask, int lastTask)
 #ifdef AUTO_SWAP_ENDIAN_READIC
             MPI_Ssend(&swap_file, sizeof(int), MPI_INT, task, TAG_SWAP, MPI_COMM_WORLD);
 #endif
-#if defined(LT_TRACK_CONTRIBUTES)
-            MPI_Ssend(&FdTrck, sizeof(FILE *), MPI_BYTE, task, TAG_TRCK, MPI_COMM_WORLD);
-#endif
         }
 
     }
@@ -1387,9 +1167,6 @@ void read_file(char *fname, int readTask, int lastTask)
         MPI_Recv(&header, sizeof(header), MPI_BYTE, readTask, TAG_HEADER, MPI_COMM_WORLD, &status);
 #ifdef AUTO_SWAP_ENDIAN_READIC
         MPI_Recv(&swap_file, sizeof(int), MPI_INT, readTask, TAG_SWAP, MPI_COMM_WORLD, &status);
-#endif
-#if defined(LT_TRACK_CONTRIBUTES)
-        MPI_Recv(&FdTrck, sizeof(FILE *), MPI_BYTE, readTask, TAG_TRCK, MPI_COMM_WORLD, &status);
 #endif
     }
 
@@ -1426,9 +1203,6 @@ void read_file(char *fname, int readTask, int lastTask)
             }
 
         All.TotN_gas = header.npartTotal[0] + (((long long) header.npartTotalHighWord[0]) << 32);
-#ifdef LT_STELLAREVOLUTION
-        All.TotN_star = header.npartTotal[4];
-#endif
 
         for(i = 0, All.TotNumPart = 0; i < 6; i++)
         {
@@ -1479,15 +1253,6 @@ void read_file(char *fname, int readTask, int lastTask)
         All.MaxPartSph = All.MaxPart;
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-        if(All.TotN_star == 0)
-            All.MaxPartMet = All.PartAllocFactor * (All.TotN_gas / NTask) * All.SFfactor * All.Generations;
-        else
-            All.MaxPartMet =
-                All.PartAllocFactor * (All.TotN_star / NTask +
-                        (All.TotN_gas / NTask) * All.SFfactor * All.Generations);
-#endif
-
         allocate_memory();
 
         if(!(CommBuffer = mymalloc("CommBuffer", bytes = All.BufferSize * 1024 * 1024)))
@@ -1518,9 +1283,6 @@ void read_file(char *fname, int readTask, int lastTask)
         }
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-        time_age = get_age(All.Time);
-#endif
     }
 
     if(ThisTask == readTask)
@@ -1659,27 +1421,6 @@ void read_file(char *fname, int readTask, int lastTask)
                 continue;
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-            if(blocknr == IO_Zs)
-                Zs_present = 1;
-#ifdef LT_ZAGE
-            if(blocknr == IO_ZAGE)
-                ZAge_present = 1;
-#endif
-#ifdef LT_ZAGE_LLV
-            if(blocknr == IO_ZAGE_LLV)
-                ZAge_llv_present = 1;
-#endif
-#ifdef LT_TRACK_CONTRIBUTES
-            if(blocknr == IO_CONTRIB && FdTrck == 0x0)
-            {
-                if(ThisTask == 0)
-                    printf("auxiliary file for block %d not present\n", blocknr);
-                continue;
-            }
-#endif
-#endif
-
 #if defined (UM_CHEMISTRY) && defined (UM_CHEMISTRY_INISET)
             if(RestartFlag == 0 && blocknr == IO_NE)
                 continue;
@@ -1728,10 +1469,6 @@ void read_file(char *fname, int readTask, int lastTask)
                         && blocknr != IO_DMHSML_V && blocknr != IO_DMDENSITY_V)
                     if(ThisTask == readTask)
                     {
-#if defined(LT_TRACK_CONTRIBUTES)
-                        if(blocknr == IO_CONTRIB)
-                            fd = FdTrck;
-#endif
                         if(All.ICFormat == 2)
                         {
                             get_Tab_IO_Label(blocknr, label);
@@ -1741,19 +1478,6 @@ void read_file(char *fname, int readTask, int lastTask)
                         if(All.ICFormat == 1 || All.ICFormat == 2)
                             SKIP;
                     }
-#ifdef LT_STELLAREVOLUTION
-                if(blocknr == IO_CLDX || blocknr == IO_HTEMP)
-                {
-                    int myblksize = blksize1;
-#ifdef AUTO_SWAP_ENDIAN_READIC
-                    swap_Nbyte((char *) &myblksize, 1, 4);
-#endif
-                    if(ThisTask == readTask)
-                        fseek(fd, myblksize, SEEK_CUR);
-                }
-                else
-                {
-#endif
                     for(type = 0, offset = 0, nread = 0; type < 6; type++)
                     {
                         n_in_file = header.npart[type];
@@ -1783,20 +1507,6 @@ void read_file(char *fname, int readTask, int lastTask)
                                                 All.MaxPart);
                                         endrun(1313);
                                     }
-
-#ifdef LT_STELLAREVOLUTION
-                                switch (blocknr)
-                                {
-                                    case IO_AGE:
-                                    case IO_iMass:
-                                    case IO_Zs:
-                                    case IO_ZAGE:
-                                    case IO_ZAGE_LLV:
-                                    case IO_CONTRIB:
-                                        N_star_idx = N_stars;
-                                        break;
-                                }
-#endif
 
                                 do
                                 {
@@ -1903,9 +1613,6 @@ void read_file(char *fname, int readTask, int lastTask)
                             }
                         }
                     }
-#ifdef LT_STELLAREVOLUTION
-                }
-#endif
 
                 if(ThisTask == readTask)
                 {
@@ -1915,14 +1622,6 @@ void read_file(char *fname, int readTask, int lastTask)
                         {
                             SKIP2;
 
-#if defined(LT_TRACK_CONTRIBUTES)
-                            if(blocknr == IO_CONTRIB)
-                            {
-                                fd = fd_trck_back;
-                                if(FdTrck != 0x0)
-                                    fclose(FdTrck);
-                            }
-#endif
 #ifdef AUTO_SWAP_ENDIAN_READIC
                             swap_Nbyte((char *) &blksize1, 1, 4);
                             swap_Nbyte((char *) &blksize2, 1, 4);
@@ -1988,10 +1687,6 @@ void read_file(char *fname, int readTask, int lastTask)
 
         if(type == 0)
             N_gas += n_for_this_task;
-#ifdef LT_STELLAREVOLUTION
-        if(type == 4)
-            N_stars += n_for_this_task;
-#endif
     }
 
     if(ThisTask == readTask)
@@ -2357,12 +2052,6 @@ void read_header_attributes_in_hdf5(char *fname)
     hdf5_attribute = H5Aopen_name(hdf5_headergrp, "Time");
     H5Aread(hdf5_attribute, H5T_NATIVE_DOUBLE, &header.time);
     H5Aclose(hdf5_attribute);
-
-#ifdef LT_STELLAREVOLUTION
-    hdf5_attribute = H5Aopen_name(hdf5_headergrp, "BoxSize");
-    H5Aread(hdf5_attribute, H5T_NATIVE_DOUBLE, &header.BoxSize);
-    H5Aclose(hdf5_attribute);
-#endif
 
     hdf5_attribute = H5Aopen_name(hdf5_headergrp, "NumFilesPerSnapshot");
     H5Aread(hdf5_attribute, H5T_NATIVE_INT, &header.num_files);
