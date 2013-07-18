@@ -29,22 +29,6 @@
 static int n_type[6];
 static long long ntot_type_all[6];
 
-#ifdef LT_SEvDbg
-double metals[2 * LT_NMetP + 3], tot_metals[2 * LT_NMetP + 3];
-#endif
-
-#ifdef LT_SEv_INFO_DETAILS
-double DetailsWSum[LT_NMetP], DetailsWoSum[LT_NMetP];
-double my_weight_sum_details, My_weight_sum_details;
-unsigned int *my_weight_sum_details_N;
-#endif
-
-
-#if (defined(LT_SMOOTH_Z) || defined(LT_METAL_COOLING)) && defined(LT_LOG_SMOOTH)
-double metalmass;
-void Spy_Z(int);
-#endif
-
 
 /*! This function writes a snapshot of the particle distribution to one or
  * several files using Gadget's default file format.  If
@@ -148,23 +132,6 @@ void savepositions(int num)
 
       sumup_large_ints(6, n_type, ntot_type_all);
 
-#ifdef LT_SEvDbg
-      int i;
-
-      for(i = 0; i < 2 * LT_NMetP + 3; i++)
-	metals[i] = tot_metals[i] = 0;
-#endif
-
-#ifdef LT_SEv_INFO_DETAILS
-      MPI_Reduce(DetailsW, DetailsWSum, LT_NMetP, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-      MPI_Reduce(DetailsWo, DetailsWoSum, LT_NMetP, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-
-      if(ThisTask == 0)
-	for(i = 0; i < LT_NMetP; i++)
-	  printf("%g DETAILS: %4s :: %12.8g  *  %12.8g\n", All.Time, MetNames[i], DetailsWSum[i],
-		 DetailsWoSum[i]);
-#endif
-
       /* assign processors to output files */
       distribute_file(All.NumFilesPerSnapshot, 0, 0, NTask - 1, &filenr, &masterTask, &lastTask);
 
@@ -182,13 +149,6 @@ void savepositions(int num)
 	sprintf(buf, "%s/snapdir_%03d/%s_%03d.%d", All.OutputDir, num, All.SnapshotFileBase, num, filenr);
       else
 	sprintf(buf, "%s%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
-
-#if (defined(LT_SMOOTH_Z) || defined(LT_METAL_COOLING)) && defined(LT_LOG_SMOOTH)
-      if(ThisTask == 0)
-	printf("logging z-smooth effect..\n");
-      fflush(stdout);
-      Spy_Z(num);
-#endif
 
       ngroups = All.NumFilesPerSnapshot / All.NumFilesWrittenInParallel;
       if((All.NumFilesPerSnapshot % All.NumFilesWrittenInParallel))
@@ -262,19 +222,6 @@ void savepositions(int num)
 
   CPU_Step[CPU_MISC] += measure_time();
 #endif
-#ifdef LT_SEvDbg
-  MPI_Reduce(&metals[0], &tot_metals[0], 2 * LT_NMetP + 3, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-  if(ThisTask == 0)
-    {
-      fprintf(FdMetSumCheck, "@.@ %g ", All.Time);
-      int i;
-
-      for(i = 0; i < LT_NMetP * 2 + 3; i++)
-	fprintf(FdMetSumCheck, " %g ", tot_metals[i] / All.HubbleParam);
-      fprintf(FdMetSumCheck, " \n ");
-    }
-#endif
-
 }
 
 
@@ -313,14 +260,6 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
   int l;
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-  int control[LT_NMetP];
-
-#ifdef LT_TRACK_CONTRIBUTES
-  Contrib *contrib;
-#endif
-#endif
-
   if(All.ComovingIntegrationOn)
     {
       a3inv = 1 / (All.Time * All.Time * All.Time);
@@ -347,9 +286,6 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
   fp = (MyOutputFloat *) CommBuffer;
   fp_single = (float *) CommBuffer;
   ip = (MyIDType *) CommBuffer;
-#ifdef LT_TRACK_CONTRIBUTES
-  contrib = (Contrib *) CommBuffer;
-#endif
 
   pindex = *startindex;
 
@@ -1071,39 +1007,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 	    /* get cooling time */
 	    u = SphP[pindex].Entropy / GAMMA_MINUS1 * pow(SphP[pindex].d.Density * a3inv, GAMMA_MINUS1);
 
-#ifndef LT_METAL_COOLING
 	    tcool = GetCoolingTime(u, SphP[pindex].d.Density * a3inv, &ne);
-#else
-
-#ifndef LT_METALCOOLING_on_SMOOTH_Z
-	    Zcool = get_metallicity_solarunits(get_metallicity(pindex, Iron));
-#else
-	    if((metalmass = get_metalmass(SphP[pindex].Metals)) > 0)
-	      Zcool =
-		get_metallicity_solarunits(SphP[pindex].Zsmooth * SphP[pindex].Metals[Iron] / metalmass);
-	    else
-	      Zcool = NO_METAL;
-#endif  // LT_METALCOOLING_on_SMOOTH_Z
-
-#ifndef UM_CHEMISTRY
-#if defined (UM_MET_IN_LT_COOLING)
-/* :: This consider the possibility to include low T metal cooling without using non-eq calculations (only in Luca's cooling):: */
-	    um_ZsPoint = SphP[pindex].Metals;
-	    um_mass = P[pindex].Mass;
-	    //      printf("::: set um_ZsPoint\n\n");
-	    /*      
-	       printf(" um_ZsPoint[Iron] %g \n", um_ZsPoint[Iron]);
-	       printf(" um_ZsPoint[Oxygen]  %g \n", um_ZsPoint[Oxygen]);
-	       printf(" um_ZsPoint[Silicon] %g \n", um_ZsPoint[Silicon]);
-	       printf(" um_ZsPoint[Carbon]  %g \n", um_ZsPoint[Carbon]);
-	     */
-#endif // UM_MET_IN_LT_COOLING            
-	    tcool = GetCoolingTime(u, SphP[pindex].a2.Density * a3inv, &ne, Zcool);
-#else
-	    tcool = Um_GetCoolingTime(u, SphP[pindex].a2.Density * a3inv, &ne, Zcool, pindex);
-#endif // UM_CHEMISTRY
-	    tcool = GetCoolingTime(u, SphP[pindex].a2.Density * a3inv, &ne);            
-#endif // LT_METAL_COOLING
 
 	    /* convert cooling time with current thermal energy to du/dt */
 	    if(tcool != 0)
@@ -1763,153 +1667,23 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
       break;
 
     case IO_Zs:
-#ifdef LT_STELLAREVOLUTION
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    for(k = 0; k < LT_NMetP; k++)
-	      control[k] = 0;
-	    for(k = 0; k < LT_NMetP; k++)
-	      {
-		if(type == 4)
-		  *fp++ = MetP[P[pindex].MetID].Metals[k];
-		else
-		  *fp++ = SphP[pindex].Metals[k];
-		if(*(fp - 1) > 1)
-		  control[k]++;
-#ifdef LT_SEvDbg
-		metals[k + LT_NMetP * (type == 4)] += *(fp - 1);
-		metals[2 * LT_NMetP + 2] += *(fp - 1);
-		metals[2 * LT_NMetP + (type == 4)] += *(fp - 1);
-#endif
-	      }
-	    if(*(fp - 1) > 1)
-	      {
-		printf(" ------- [%d][%d] ", ThisTask, pindex);
-		for(k = 0; k < LT_NMetP; k++)
-		  printf(" %d ", control[k]);
-		printf("\n");
-	      }
-	    n++;
-	  }
-#endif
       break;
     case IO_iMass:
-#ifdef LT_STELLAREVOLUTION
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    *fp++ = MetP[P[pindex].MetID].iMass;
-	    n++;
-	  }
-#endif
       break;
     case IO_CLDX:
-#ifdef LT_STELLAREVOLUTION
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-#if defined(LT_EJECTA_IN_HOTPHASE) || defined(LT_SMOOTH_XCLD) || defined(LT_HOT_DENSITY)
-	    *fp++ = SphP[pindex].x;
-#else
-	    get_starformation_rate(pindex);
-	    *fp++ = xclouds;
-	    xclouds = 0;
-#endif
-	    n++;
-	  }
-#endif
       break;
     case IO_HTEMP:
-#ifdef LT_STELLAREVOLUTION
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    get_starformation_rate(pindex);
-	    *fp++ = Temperature;
-	    n++;
-	  }
-#endif
       break;
     case IO_ZAGE:
-#ifdef LT_ZAGE
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    if(type == 0)
-	      {
-		if(SphP[pindex].ZAgeW > 0)
-#ifndef LT_LOGZAGE
-		  *fp++ = SphP[pindex].ZAge / SphP[pindex].ZAgeW;
-#else
-		  *fp++ = exp(10, SphP[pindex].ZAge) / SphP[pindex].ZAgeW;
-#endif
-		else
-		  *fp++ = 0;
-	      }
-	    else
-	      *fp++ = MetP[P[pindex].MetID].ZAge;
-	    n++;
-	  }
-#endif
       break;
 
     case IO_ZAGE_LLV:
-#ifdef LT_ZAGE_LLV
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    if(type == 0)
-	      {
-		if(SphP[pindex].ZAgeW > 0)
-#ifndef LT_LOGZAGE
-		  *fp++ = SphP[pindex].ZAge_llv / SphP[pindex].ZAgeW_llv;
-#else
-		  *fp++ = exp(10, SphP[pindex].ZAge_llv) / SphP[pindex].ZAgeW_llv;
-#endif
-		else
-		  *fp++ = 0;
-	      }
-	    else
-	      *fp++ = MetP[P[pindex].MetID].ZAge_llv;
-	    n++;
-	  }
-#endif
       break;
     case IO_CONTRIB:
-#ifdef LT_TRACK_CONTRIBUTES
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    if(type == 0)
-	      *contrib++ = SphP[pindex].contrib;
-	    else if(type == 4)
-	      *contrib++ = MetP[P[pindex].MetID].contrib;
-	    n++;
-	  }
-#endif
       break;
     case IO_ZSMOOTH:
-#ifdef LT_SMOOTH_Z
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    *fp++ = SphP[pindex].Zsmooth;
-	    n++;
-	  }
-#endif
       break;
     case IO_CHEM:
-#ifdef CHEMCOOL
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    for(k = 0; k < TRAC_NUM; k++)
-  	      *fp++ = SphP[pindex].TracAbund[k];
-
-	    n++;
-	  }
-#endif
       break;
 
 
@@ -2144,34 +1918,16 @@ int get_bytes_per_blockelement(enum iofields blocknr, int mode)
 #endif
 
     case IO_Zs:
-#ifdef LT_STELLAREVOLUTION
-      if(mode)
-	bytes_per_blockelement = LT_NMetP * sizeof(MyInputFloat);
-      else
-	bytes_per_blockelement = LT_NMetP * sizeof(MyOutputFloat);
-#else
       bytes_per_blockelement = 0;
-#endif
       break;
 
     case IO_ZAGE:
     case IO_ZAGE_LLV:
-#if defined(LT_ZAGE) || defined(LT_ZAGE_LLV)
-      if(mode)
-	bytes_per_blockelement = sizeof(MyInputFloat);
-      else
-	bytes_per_blockelement = sizeof(MyOutputFloat);
-#else
       bytes_per_blockelement = 0;
-#endif
       break;
 
     case IO_CONTRIB:
-#ifdef LT_TRACK_CONTRIBUTES
-      bytes_per_blockelement = sizeof(Contrib);
-#else
       bytes_per_blockelement = 0;
-#endif
       break;
 
     case IO_CHEM:
@@ -2356,11 +2112,7 @@ int get_values_per_blockelement(enum iofields blocknr)
       break;
 
     case IO_Zs:
-#ifdef LT_STELLAREVOLUTION
-      values = LT_NMetP;
-#else
       values = 0;
-#endif
       break;
 
     case IO_TIDALTENSORPS:
@@ -2630,11 +2382,7 @@ int get_particles_in_block(enum iofields blocknr, int *typelist)
       break;
     case IO_ZSMOOTH:
       for(i = 0; i < 6; i++)
-#ifndef LT_SMOOTHZ_IN_IMF_SWITCH
 	if(i != 0)
-#else
-	if(i != 0 && i != 4)
-#endif
 	  typelist[i] = 0;
       return ngas;
       break;
@@ -3255,58 +3003,30 @@ int blockpresent(enum iofields blocknr)
 
     case IO_Zs:
     case IO_iMass:
-#ifdef LT_STELLAREVOLUTION
-      return 1;
-#else
       return 0;
-#endif
       break;
 
     case IO_CLDX:
-#ifdef LT_STELLAREVOLUTION
-      return 1;
-#else
       return 0;
-#endif
       break;
 
     case IO_HTEMP:
-#ifdef LT_STELLAREVOLUTION
-      return 1;
-#else
       return 0;
-#endif
       break;
 
     case IO_ZAGE:
-#if defined(LT_ZAGE)
-      return 1;
-#else
       return 0;
-#endif
       break;
     case IO_ZAGE_LLV:
-#if defined(LT_ZAGE_LLV)
-      return 1;
-#else
       return 0;
-#endif
       break;
 
     case IO_CONTRIB:
-#ifdef LT_TRACK_CONTRIBUTES
-      return 1;
-#else
       return 0;
-#endif
       break;
 
     case IO_ZSMOOTH:
-#ifdef LT_SMOOTH_Z
-      return 1;
-#else
       return 0;
-#endif
       break;
 
     case IO_CHEM:
@@ -4077,29 +3797,6 @@ void write_file(char *fname, int writeTask, int lastTask)
   int CRpop;
 #endif
 
-#if defined(LT_SEvDbg) || defined(LT_TRACK_CONTRIBUTES) || defined(LT_POPIII_FLAGS) || defined(LT_SMOOTH_Z)
-  char buf[300];
-
-#ifdef LT_SEvDbg
-  FILE *fd_dbg = 0x0;
-#endif
-
-#if defined(LT_TRACK_CONTRIBUTES)
-  FILE *FdTrck;
-
-  FILE *fd_trck_back;
-
-#define SKIP_TRCK  {my_fwrite(&blksize,sizeof(int),1,FdTrck);}
-#endif
-#if defined(LT_SMOOTH_Z)
-  FILE *FdZsmooth;
-
-  FILE *fd_zsmooth_back;
-
-#define SKIP_ZSMOOTH  {my_fwrite(&blksize,sizeof(int),1,FdZsmooth);}
-#endif
-#endif
-
 #define SKIP  {my_fwrite(&blksize,sizeof(int),1,fd);}
 
 #ifdef SUBFIND_RESHUFFLE_AND_POTENTIAL
@@ -4199,9 +3896,6 @@ void write_file(char *fname, int writeTask, int lastTask)
 #ifdef METALS
   header.flag_metals = 1;
 #endif
-#ifdef LT_STELLAREVOLUTION
-  //header.flag_stellarevolution = 2;
-#endif
 #endif
 
   header.num_files = All.NumFilesPerSnapshot;
@@ -4276,55 +3970,6 @@ void write_file(char *fname, int writeTask, int lastTask)
 	  endrun(1234);
 	}
 #endif
-#ifdef LT_SEvDbg
-      sprintf(buf, "%s.dbg", fname);
-      fd_dbg = fopen(buf, "w");
-#endif
-#ifdef LT_TRACK_CONTRIBUTES
-      sprintf(buf, "%s.trck", fname);
-      if((FdTrck = fopen(buf, "w")) == 0x0)
-	{
-	  printf("Task %d : it was impossible to open file %s\n", ThisTask, buf);
-	  endrun(125);
-	}
-      blksize = 6 * sizeof(int);
-      SKIP_TRCK;
-
-      my_fwrite(&header.npart[0], sizeof(int), 1, FdTrck);
-      my_fwrite(&header.npart[4], sizeof(int), 1, FdTrck);
-      my_fwrite(&PowerBase, sizeof(int), 1, FdTrck);
-      blksize = LT_Nbits;
-      my_fwrite(&blksize, sizeof(int), 1, FdTrck);
-      blksize = LT_power10_Nbits;
-      my_fwrite(&blksize, sizeof(int), 1, FdTrck);
-      blksize = SFs_dim;
-      my_fwrite(&blksize, sizeof(int), 1, FdTrck);
-
-      blksize = 6 * sizeof(int);
-      SKIP_TRCK;
-      fd_trck_back = fd;
-#endif
-#ifdef LT_SMOOTH_Z
-      sprintf(buf, "%s.zsmooth", fname);
-      if((FdZsmooth = fopen(buf, "w")) == 0x0)
-	{
-	  printf("Task %d : it was impossible to open file %s\n", ThisTask, buf);
-	  endrun(125);
-	}
-#ifndef LT_SMOOTHZ_IN_IMF_SWITCH
-      blksize = 4;
-      SKIP_ZSMOOTH;
-      my_fwrite(&header.npart[0], sizeof(int), 1, FdZsmooth);
-#else
-      blksize = 8;
-      SKIP_ZSMOOTH;
-      my_fwrite(&header.npart[0], sizeof(int), 1, FdZsmooth);
-      my_fwrite(&header.npart[4], sizeof(int), 1, FdZsmooth);
-      blksize = 8;
-#endif
-      SKIP_ZSMOOTH;
-      fd_zsmooth_back = fd;
-#endif
     }
 
   ntask = lastTask - writeTask + 1;
@@ -4362,14 +4007,6 @@ void write_file(char *fname, int writeTask, int lastTask)
 
 		  if(All.SnapFormat == 1 || All.SnapFormat == 2)
 		    {
-#if defined(LT_TRACK_CONTRIBUTES)
-		      if(blocknr == IO_CONTRIB)
-			fd = FdTrck;
-#endif
-#if defined(LT_SMOOTH_Z)
-		      if(blocknr == IO_ZSMOOTH)
-			fd = FdZsmooth;
-#endif
 
 		      if(All.SnapFormat == 2)
 			{
@@ -4398,9 +4035,6 @@ void write_file(char *fname, int writeTask, int lastTask)
 		  if(typelist[type])
 		    {
 #ifdef HAVE_HDF5
-#if defined(LT_TRACK_CONTRIBUTES) || defined(LT_SMOOTH_Z)
-		      if(blocknr != IO_CONTRIB && blocknr != IO_ZSMOOTH)
-#endif
 			if(ThisTask == writeTask && All.SnapFormat == 3 && header.npart[type] > 0)
 			  {
 			    switch (get_datatype_in_block(blocknr))
@@ -4475,10 +4109,6 @@ void write_file(char *fname, int writeTask, int lastTask)
 				  if(All.SnapFormat == 3)
 				    {
 #ifdef HAVE_HDF5
-#if defined(LT_TRACK_CONTRIBUTES) || defined(LT_SMOOTH_Z)
-				      if(blocknr != IO_CONTRIB && blocknr != IO_ZSMOOTH)
-					{
-#endif
 					  start[0] = pcsum;
 					  start[1] = 0;
 
@@ -4499,9 +4129,6 @@ void write_file(char *fname, int writeTask, int lastTask)
 						     hdf5_dataspace_in_file, H5P_DEFAULT, CommBuffer);
 
 					  H5Sclose(hdf5_dataspace_memory);
-#if defined(LT_TRACK_CONTRIBUTES) || defined(LT_SMOOTH_Z)
-					}
-#endif
 #endif
 				    }
 				  else
@@ -4548,14 +4175,6 @@ void write_file(char *fname, int writeTask, int lastTask)
 		      SKIP;
 #endif
 		    }
-#if defined(LT_TRACK_CONTRIBUTES)
-		  if(blocknr == IO_CONTRIB)
-		    fd = fd_trck_back;
-#endif
-#if defined(LT_SMOOTH_Z)
-		  if(blocknr == IO_ZSMOOTH)
-		    fd = fd_zsmooth_back;
-#endif
 		}
 	    }
 	}
@@ -4571,17 +4190,6 @@ void write_file(char *fname, int writeTask, int lastTask)
 	      H5Gclose(hdf5_grp[type]);
 	  H5Gclose(hdf5_headergrp);
 	  H5Fclose(hdf5_file);
-#endif
-#ifdef LT_SEvDbg
-	  fclose(fd_dbg);
-#endif
-#if defined(LT_TRACK_CONTRIBUTES)
-	  if(FdTrck != 0x0)
-	    fclose(FdTrck);
-#endif
-#if defined(LT_ZSMOOTH)
-	  if(FdZsmooth != 0x0)
-	    fclose(FdZsmooth);
 #endif
 	}
       else
@@ -4828,292 +4436,3 @@ int io_compare_P_GrNr_ID(const void *a, const void *b)
 
 #endif
 
-#ifdef LT_SEv_INFO_DETAILS
-void write_IDZ(void)
-{
-  char buf[500];
-
-  FILE *myFile;
-
-  fpos_t IDZpos;
-
-  float myZ;
-
-  int j, totn_written = 0;
-
-  unsigned long long int i;
-
-  for(j = 0; j < NTask; j++)
-    {
-      if(ThisTask == j && n_type[4] > 0)
-	{
-	  sprintf(buf, "%s%s%03d", All.OutputDir, "IDZ.dat", ThisTask);
-	  if((myFile = fopen(buf, "w")) == 0x0)
-	    {
-	      printf("error in opening file '%s'\n", buf);
-	      endrun(1);
-	    }
-	  if(totn_written == 0)
-	    {
-	      fwrite(&ntot_type_all[4], sizeof(long long), 1, myFile);
-	      totn_written = 1;
-	    }
-
-	  for(i = 0; i < NumPart; i++)
-	    if(P[i].Type == 4)
-	      {
-		myZ = (float) get_metallicity(i, -1);
-#ifndef LONGIDS
-		fwrite(&P[i].ID, sizeof(int), 1, myFile);
-#else
-		fwrite(&P[i].ID, sizeof(long long), 1, myFile);
-#endif
-		fwrite(&MetP[P[i].MetID].iMass, sizeof(float), 1, myFile);
-		fwrite(&myZ, sizeof(float), 1, myFile);
-	      }
-	  fclose(myFile);
-	}
-      MPI_Barrier(MPI_COMM_WORLD);
-    }
-
-  return;
-}
-
-#endif
-#if (defined(LT_SMOOTH_Z) || defined(LT_METAL_COOLING)) && defined(LT_LOG_SMOOTH)
-
-void Spy_Z(int num)
-{
-  int nwrite;
-  int TaskStart, TaskStop;
-  int i, k, j, b, ndata;
-  unsigned int Ndone, *Ndone_all;
-  unsigned long long int NdoneTot;
-  double XH, yhelium;
-  double a3inv;
-  double T, Z, rho, u, mu, Ne;
-  double Ls, Ls_a, Ls_b, Lt, L0, Zs, Zs_a, Zs_b, Zt, metal_mass;
-  float *buffer;
-
-#define BUNCH 500000
-
-  FILE *file;
-  char fname[500];
-  char head[1000];
-
-  ignore_failure_in_convert_u = 1;
-
-  a3inv = 1 / (All.Time * All.Time * All.Time);
-
-  XH = 0.76;
-  yhelium = (1 - XH) / (4 * XH);
-
-  nwrite = (NTask / All.NumFilesWrittenInParallel) + (NTask % All.NumFilesWrittenInParallel);
-
-
-  if((buffer = (float *) malloc(BUNCH * sizeof(float))) != 0x0)
-    {
-
-
-      for(k = 0; k < nwrite; k++)
-	{
-
-	  TaskStart = k * All.NumFilesWrittenInParallel;
-	  TaskStop = (k + 1) * All.NumFilesWrittenInParallel;
-	  if(TaskStop > NTask)
-	    TaskStop = NTask;
-
-	  if(ThisTask >= TaskStart && ThisTask < TaskStop)
-	    {
-
-	      Ndone = 0;
-	      for(i = 0; i < NumPart; i++)
-		if(P[i].Type == 0 && SphP[i].a2.Density > 0)
-		  {
-		    metal_mass = get_metalmass(SphP[i].Metals);
-#ifndef LT_SMOOTH_Z
-		    if(metal_mass > 0)
-#else
-		    if((metal_mass > 0) || (SphP[i].Zsmooth > 0))
-#endif
-		      Ndone++;
-		  }
-
-	      if(Ndone > 0)
-		continue;
-
-	      sprintf(fname, "zsmooth.%d.%d.txt", num, ThisTask);
-	      if((file = fopen(fname, "w")) == 0x0)
-		{
-		  free(buffer);
-		  ignore_failure_in_convert_u = 0;
-		  return;
-		}
-
-	      sprintf(head, "temp dens Z zeroZ_cool ");
-	      ndata = 4;
-#ifdef LT_METAL_COOLING
-	      sprintf(&head[strlen(head)], "Zcool ");
-	      ndata++;
-#endif
-
-#ifdef LT_SMOOTH_Z
-	      sprintf(&head[strlen(head)], "smoothZ ");
-	      ndata++;
-#ifdef LT_SMOOTH_SIZE
-	      sprintf(&head[strlen(head)], "sZ_Nngb ");
-	      ndata++;
-#endif
-#ifdef LT_LOG_SMOOTH_DETAILS
-	      sprintf(&head[strlen(head)], "smoothZa smoothZb ");
-	      ndata += 2;
-#endif
-#ifdef LT_METAL_COOLING
-	      sprintf(&head[strlen(head)], "sZ_cool ");
-	      ndata++;
-#ifdef LT_LOG_SMOOTH_DETAILS
-	      sprintf(&head[strlen(head)], "sZ_cool_a sZ_cool_b ");
-	      ndata += 2;
-#endif
-#endif
-#endif
-	      i = strlen(head);
-	      fwrite(&i, sizeof(int), 1, file);
-	      fprintf(file, "%s", head);
-
-	      b = 0;
-
-	      for(i = 0; i < NumPart; i++)
-		if(P[i].Type == 0 && SphP[i].a2.Density > 0)
-		  {
-		    metal_mass = get_metalmass(SphP[i].Metals);
-#ifndef LT_SMOOTH_Z
-		    if(metal_mass == 0)
-		      continue;
-#else
-		    if((metal_mass == 0) && (SphP[i].Zsmooth == 0))
-		      continue;
-#endif
-
-		    Ne = (double) SphP[i].Ne;
-
-		    mu = (1 + 4 * yhelium) / (1 + yhelium + SphP[i].Ne);
-
-		    u = SphP[i].Entropy / GAMMA_MINUS1 * pow(SphP[i].a2.Density * a3inv, GAMMA_MINUS1) *
-		      All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
-		    rho =
-		      SphP[i].a2.Density * a3inv * All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam;
-
-		    T = convert_u_to_temp(u, rho, &Ne);
-
-		    if((Zt = get_metallicity(i, -1)) / 0.02 < 1e-8)
-		      Zt = 1.77e-3 * 1e-8;
-#ifdef LT_SMOOTH_Z
-		    Zs = SphP[i].Zsmooth;
-#ifdef LT_LOG_SMOOTH_DETAILS
-		    Zs_a = SphP[i].Zsmooth_a;
-		    Zs_b = SphP[i].Zsmooth_b;
-		    if((Zs = SphP[i].Zsmooth) / 0.02 < 1e-8)
-		      Zs = 1.77e-3 * 1e-8;
-		    if((Zs_a = SphP[i].Zsmooth_a) / 0.02 < 1e-8)
-		      Zs_a = 1.77e-3 * 1e-8;
-		    if((Zs_b = SphP[i].Zsmooth_b) / 0.02 < 1e-8)
-		      Zs_b = 1.77e-3 * 1e-8;
-#endif
-#endif
-
-#ifdef LT_METAL_COOLING
-		    Lt = CoolingRateFromU(u, rho, &Ne, get_metallicity_solarunits(get_metallicity(i, Iron)));
-#endif
-#ifdef LT_SMOOTH_Z
-		    if(metal_mass > 0)
-		      {
-			Ls =
-			  CoolingRateFromU(u, rho, &Ne,
-					   get_metallicity_solarunits(Zs * SphP[i].Metals[Iron] /
-								      metal_mass));
-#ifdef LT_LOG_SMOOTH_DETAILS
-			Ls_a =
-			  CoolingRateFromU(u, rho, &Ne,
-					   get_metallicity_solarunits(Zs_a * SphP[i].Metals[Iron] /
-								      metal_mass));
-			Ls_b =
-			  CoolingRateFromU(u, rho, &Ne,
-					   get_metallicity_solarunits(Zs_b * SphP[i].Metals[Iron] /
-								      metal_mass));
-#endif
-		      }
-		    else
-		      Ls = Ls_a = Ls_b = 0;
-#endif
-		    L0 = CoolingRateFromU(u, rho, &Ne, NO_METAL);
-
-		    /*
-		       Ls = CoolingRateGetMetalLambda(T, get_metallicity_solarunits(SphP[i].Zsmooth));
-		       Lt = GetMetalLambda(T, get_metallicity(i, -1));
-		     */
-
-		    buffer[b++] = (float) T;
-		    buffer[b++] = (float) SphP[i].a2.Density * a3inv / SFs[0].PhysDensThresh[0];
-		    buffer[b++] = (float) Zt;
-		    buffer[b++] = (float) L0;
-#ifdef LT_METAL_COOLING
-		    buffer[b++] = (float) Lt;
-#endif
-#ifdef LT_SMOOTH_Z
-		    buffer[b++] = (float) Zs;
-#ifdef LT_SMOOTH_SIZE
-		    buffer[b++] = (float) SphP[i].SmoothNgb;
-#ifdef LT_LOG_SMOOTH_DETAILS
-		    buffer[b++] = (float) Zs_a;
-		    buffer[b++] = (float) Zs_b;
-#endif
-#endif
-#ifdef LT_METAL_COOLING
-		    buffer[b++] = (float) Ls;
-#ifdef LT_LOG_SMOOTH_DETAILS
-		    buffer[b++] = (float) Ls_a;
-		    buffer[b++] = (float) Ls_b;
-#endif
-#endif
-#endif
-
-		    if(b > BUNCH - ndata)
-		      {
-			fwrite(buffer, sizeof(float), b, file);
-			b = 0;
-		      }
-		  }
-	      if(b > 0)
-		{
-		  fwrite(buffer, sizeof(float), b, file);
-		  b = 0;
-		}
-	      fclose(file);
-	    }
-	  MPI_Barrier(MPI_COMM_WORLD);
-	}
-    }
-
-
-  free(buffer);
-  if(ThisTask == 0)
-    Ndone_all = (unsigned int *) calloc(NTask, sizeof(unsigned));
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  MPI_Gather(&Ndone, 1, MPI_INT, Ndone_all, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-  if(ThisTask == 0)
-    {
-      NdoneTot = Ndone;
-      for(i = 1; i < NTask; i++)
-	NdoneTot += Ndone_all[i];
-      free(Ndone_all);
-      printf("done for %llu particles\n", NdoneTot);
-    }
-
-  ignore_failure_in_convert_u = 0;
-  return;
-}
-
-#endif
