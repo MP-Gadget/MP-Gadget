@@ -168,10 +168,6 @@ void reorder_particles(void)
 
 	      P[dest] = Psource;
 	      Id[dest] = idsource;
-#ifdef LT_STELLAREVOLUTION
-	      if(P[dest].Type == 4)
-		MetP[P[dest].MetID].PID = dest;
-#endif
 	      if(dest == i)
 		break;
 
