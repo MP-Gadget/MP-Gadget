@@ -168,6 +168,8 @@ static struct densdata_out
  * that one has to deal with substantially more than normal number of
  * neighbours.)
  */
+double a3inv, afac;
+
 void density(void)
 {
     MyFloat *Left, *Right;
@@ -202,9 +204,6 @@ void density(void)
     double rotx, roty, rotz;
 #endif
 
-#if defined(SOFTEREQS) || defined(MHM)
-    double a3inv, afac;
-
     if(All.ComovingIntegrationOn)
     {
         a3inv = 1 / (All.Time * All.Time * All.Time);
@@ -212,7 +211,6 @@ void density(void)
     }
     else
         a3inv = afac = 1;
-#endif
 
 #if defined(EULERPOTENTIALS) || defined(VECT_PRO_CLEAN) || defined(TRACEDIVB) || defined(VECT_POTENTIAL)
     double efak;
@@ -1677,7 +1675,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                         double dmax1, dmax2;
                         double nh0 = 0;
                         double nHeII = 0;
-                        ne = SphP[j].Ne;
+                        double ne = SphP[j].Ne;
                         AbundanceRatios(DMAX(All.MinEgySpec,
                                     SphP[j].Entropy / GAMMA_MINUS1 
                                     * pow(SphP[j].EOMDensity * a3inv,

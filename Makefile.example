@@ -4,6 +4,8 @@
 
 #--------------------------------------- Basic operation mode of code
 #OPT += DENSITY_INDEPENDENT_SPH
+#OPT += BH_CSND_FROM_PRESSURE # use pressure formula for csound in bh
+                              # BH_Entropy saves pressure
 OPT	+=  -DPERIODIC
 OPT	+=  -DCOOLING
 OPT	+=  -DSFR
