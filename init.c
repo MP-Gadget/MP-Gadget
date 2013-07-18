@@ -77,13 +77,6 @@ void init(void)
     int i1, i2;
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-    double this_age, NextChemTime;
-    unsigned int IMFi, SFi, ti_step, I;
-    int chem_step, ti_min;
-#endif
-
-
     All.Time = All.TimeBegin;
 
     if(RestartFlag == 3 && RestartSnapNum < 0)
@@ -553,46 +546,6 @@ void init(void)
 #endif
 
 #endif
-
-#ifdef LT_STELLAREVOLUTION
-        All.Time_Age = get_age(All.Time);
-
-        if(P[i].Type == 4)
-        {
-            this_age = get_age(P[i].StellarAge) - All.Time_Age;
-            SFi = get_SF_index(i, &SFi, &IMFi);
-
-            NextChemTime = get_NextChemTime(this_age, SFi, 0x0);
-            j = get_chemstep_bin(All.Time, All.Time_Age - NextChemTime, &chem_step, i);
-
-            I = P[i].MetID;
-
-            if(All.Ti_Current >= TIMEBASE)
-                chem_step = j = 0;
-
-            if((TIMEBASE - All.Ti_Current) < chem_step)
-            {
-                chem_step = TIMEBASE - All.Ti_Current;
-                ti_min = TIMEBASE;
-                while(ti_min > chem_step)
-                    ti_min >>= 1;
-                chem_step = ti_min;
-                j = get_timestep_bin(chem_step);
-            }
-
-            if(j != MetP[I].ChemTimeBin)
-            {
-                TimeBinCountStars[MetP[I].ChemTimeBin]--;
-                TimeBinCountStars[j]++;
-                MetP[I].ChemTimeBin = j;
-            }
-            MetP[I].LastChemTime = this_age;
-
-            if(this_age < SFs[SFi].ShortLiv_TimeTh)
-                MetP[I].LastChemTime = SFs[SFi].ShortLiv_TimeTh;
-        }
-#endif
-
 
 #ifdef BLACK_HOLES
         if(P[i].Type == 5)
@@ -1128,13 +1081,6 @@ void init(void)
                 P[N_gas - 1].Vel[1], P[N_gas - 1].Vel[2], SphP[N_gas - 1].d.Density, SphP[N_gas - 1].Entropy);
 
 
-
-#if defined(UM_METAL_COOLING) && defined (LT_METAL_COOLING)
-        printf("::  mass of C=%g, O=%g, Si=%g, Fe=%g, N=%g\n",
-                SphP[N_gas - 1].Metals[Carbon], SphP[N_gas - 1].Metals[Oxygen], SphP[N_gas - 1].Metals[Silicon],
-                SphP[N_gas - 1].Metals[Iron], SphP[N_gas - 1].Metals[Nitrogen]);
-
-#endif
     }
 
     /* need predict the cooling time and elec_dot here */
@@ -1153,10 +1099,6 @@ void init(void)
 
 #ifdef UM_CHEMISTRY
 
-#if defined (UM_METAL_COOLING) && defined (LT_METAL_COOLING)
-        um_ZsPoint = SphP[i].Metals;
-        um_mass = P[i].Mass;
-#endif
         double um_u;
 
         a_start = All.Time;
@@ -1387,7 +1329,7 @@ void setup_smoothinglengths(void)
     }
 #endif
 
-#if defined(RADTRANSFER) || defined(LT_STELLAREVOLUTION)
+#if defined(RADTRANSFER)
     if(RestartFlag == 0 || RestartFlag == 2)
     {
         for(i = 0; i < NumPart; i++)
