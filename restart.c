@@ -37,17 +37,6 @@ void restart(int modus)
     int i, nprocgroup, masterTask, groupTask, old_MaxPart, old_MaxNodes;
     struct global_data_all_processes all_task0;
 
-#ifdef LT_STELLAREVOLUTION
-    int save_NumFilesPerSnapshot, save_NumFilesWrittenInParallel;
-    double save_LLv_Step_Prec, save_SnII_Step_Prec;
-    unsigned int buffer;
-    double save_SofteningGasMaxPhys,
-           save_SofteningHaloMaxPhys,
-           save_SofteningDiskMaxPhys,
-           save_SofteningBulgeMaxPhys, save_SofteningStarsMaxPhys, save_SofteningBndryMaxPhys;
-    double save_MinChemTimeStep, save_MinChemSpreadL, save_MaxChemSpreadL;
-#endif
-
 #if defined(SFR) || defined(BLACK_HOLES)
 #ifdef NO_TREEDATA_IN_RESTART
     if(modus == 0)
@@ -127,64 +116,8 @@ void restart(int modus)
 
             save_PartAllocFactor = All.PartAllocFactor;
 
-#ifdef LT_STELLAREVOLUTION
-            save_NumFilesPerSnapshot = All.NumFilesPerSnapshot;
-            save_NumFilesWrittenInParallel = All.NumFilesWrittenInParallel;
-
-            save_SofteningGasMaxPhys = All.SofteningGasMaxPhys;
-            save_SofteningHaloMaxPhys = All.SofteningHaloMaxPhys;
-            save_SofteningDiskMaxPhys = All.SofteningDiskMaxPhys;
-            save_SofteningBulgeMaxPhys = All.SofteningBulgeMaxPhys;
-            save_SofteningStarsMaxPhys = All.SofteningStarsMaxPhys;
-            save_SofteningBndryMaxPhys = All.SofteningBndryMaxPhys;
-
-            save_SnII_Step_Prec = All.SnII_Step_Prec;
-            save_LLv_Step_Prec = All.LLv_Step_Prec;
-
-            save_MinChemTimeStep = All.MinChemTimeStep;
-            save_MinChemSpreadL = All.MinChemSpreadL;
-            save_MaxChemSpreadL = All.MaxChemSpreadL;
-            if(!modus)
-                *(float *) &buffer = (float) All.Time;
-            in(&buffer, modus);
-            if(!modus)
-                buffer = sizeof(struct global_data_all_processes);
-            in(&buffer, modus);
-            if(modus && buffer != sizeof(struct global_data_all_processes))
-            {
-                printf
-                    ("in file <%s> :: sizes of the current All structure and of the stored All structure are different! (%d vs %d bytes)\n",
-                     buf, (int) buffer, (int) sizeof(struct global_data_all_processes));
-                endrun(23);
-            }
-#endif
-
             /* common data  */
             byten(&All, sizeof(struct global_data_all_processes), modus);
-
-#ifdef LT_STELLAREVOLUTION
-            All.NumFilesPerSnapshot = save_NumFilesPerSnapshot;
-            All.NumFilesWrittenInParallel = save_NumFilesWrittenInParallel;
-
-            All.SnII_Step_Prec = save_SnII_Step_Prec;
-            All.LLv_Step_Prec = save_LLv_Step_Prec;
-            All.MinChemTimeStep = save_MinChemTimeStep;
-
-            All.SofteningGasMaxPhys = save_SofteningGasMaxPhys;
-            All.SofteningHaloMaxPhys = save_SofteningHaloMaxPhys;
-            All.SofteningDiskMaxPhys = save_SofteningDiskMaxPhys;
-            All.SofteningBulgeMaxPhys = save_SofteningBulgeMaxPhys;
-            All.SofteningStarsMaxPhys = save_SofteningStarsMaxPhys;
-            All.SofteningBndryMaxPhys = save_SofteningBndryMaxPhys;
-
-            All.MinChemSpreadL = save_MinChemSpreadL;
-            All.MaxChemSpreadL = save_MaxChemSpreadL;
-#endif
-
-#ifdef VORONOI
-            /* individual data  */
-            byten(&Indi, sizeof(struct individual_data), modus);
-#endif
 
             if(ThisTask == 0 && modus > 0)
                 all_task0 = All;
@@ -207,15 +140,6 @@ void restart(int modus)
 #ifdef INHOMOG_GASDISTR_HINT
                     All.MaxPartSph = All.MaxPart;
 #endif
-#ifdef LT_STELLAREVOLUTION
-                    if(All.TotN_star == 0)
-                        All.MaxPartMet =
-                            All.PartAllocFactor * (All.TotN_gas / NTask) * All.SFfactor * All.Generations;
-                    else
-                        All.MaxPartMet =
-                            All.PartAllocFactor * (All.TotN_star / NTask +
-                                    (All.TotN_gas / NTask) * All.SFfactor * All.Generations);
-#endif
                     save_PartAllocFactor = -1;
                 }
 
@@ -230,18 +154,6 @@ void restart(int modus)
             }
 
             in(&NumPart, modus);
-#ifdef LT_STELLAREVOLUTION
-            if(!modus)
-                buffer = sizeof(struct particle_data);
-            in(&buffer, modus);
-            if(modus && buffer != sizeof(struct particle_data))
-            {
-                printf
-                    ("in file <%s> :: sizes of the current particle data and of the stored particle data are different! (%d vs %d bytes)\n",
-                     buf, buffer, (int) sizeof(struct particle_data));
-                endrun(23);
-            }
-#endif
             if(NumPart > All.MaxPart)
             {
                 printf
@@ -255,18 +167,6 @@ void restart(int modus)
             byten(&P[0], NumPart * sizeof(struct particle_data), modus);
 
             in(&N_gas, modus);
-#ifdef LT_STELLAREVOLUTION
-            if(!modus)
-                buffer = sizeof(struct sph_particle_data);
-            in(&buffer, modus);
-            if(modus && buffer != sizeof(struct sph_particle_data))
-            {
-                printf
-                    ("in file <%s> :: sizes of the current sph particle data and of the stored sph particle data are different! (%d vs %d bytes)\n",
-                     buf, buffer, (int) sizeof(struct sph_particle_data));
-                endrun(23);
-            }
-#endif
             if(N_gas > 0)
             {
                 if(N_gas > All.MaxPartSph)
@@ -289,37 +189,8 @@ void restart(int modus)
             in(&Stars_converted, modus);
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-            in(&N_stars, modus);
-            if(!modus)
-                buffer = sizeof(struct met_particle_data);
-            in(&buffer, modus);
-            if(modus && buffer != sizeof(struct met_particle_data))
-            {
-                printf
-                    ("in file <%s> :: sizes of the current (star) met particle data and of the stored (star) met particle data are different! (%d vs %d bytes)\n",
-                     buf, buffer, (int) sizeof(struct met_particle_data));
-                endrun(23);
-            }
 
-
-            if(N_stars > 0)
-            {
-                if(N_stars > All.MaxPartMet)
-                {
-                    printf
-                        ("MET: it seems you have reduced(!) 'PartAllocFactor' below the value of %g needed to load the restart file.\n",
-                         N_stars / (((double) All.TotN_star) / NTask));
-                    printf("fatal error\n");
-                    endrun(2222);
-                }
-                /* Sph-Particle data  */
-                byten(&MetP[0], N_stars * sizeof(struct met_particle_data), modus);
-            }
-#endif
-
-
-#if !defined(NO_TREEDATA_IN_RESTART) || defined(LT_STELLAREVOLUTION)
+#if !defined(NO_TREEDATA_IN_RESTART)
             /* now store relevant data for tree */
             int nmulti = MULTIPLEDOMAINS;
 
