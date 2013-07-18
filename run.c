@@ -327,9 +327,6 @@ void find_next_sync_point_and_drift(void)
 #endif
 #endif
 
-#ifdef LT_SEvDbg
-        get_metals_sumcheck(9);
-#endif
 
         savepositions(All.SnapshotFileCount++);	/* write snapshot file */
 
@@ -349,9 +346,6 @@ void find_next_sync_point_and_drift(void)
 #endif
 
     All.TimeStep = All.Time - timeold;
-#ifdef LT_STELLAREVOLUTION
-    All.Time_Age = get_age(All.Time);
-#endif
 
 
     /* mark the bins that will be active */
@@ -744,16 +738,8 @@ void every_timestep_stuff(void)
     long long tot_count[TIMEBINS];
     long long tot_count_sph[TIMEBINS];
 
-#ifdef LT_STELLAREVOLUTION
-    long long tot_stars;
-    long long tot_count_stars[TIMEBINS];
-#endif
-
     sumup_large_ints(TIMEBINS, TimeBinCount, tot_count);
     sumup_large_ints(TIMEBINS, TimeBinCountSph, tot_count_sph);
-#ifdef LT_STELLAREVOLUTION
-    sumup_large_ints(TIMEBINS, TimeBinCountStars, tot_count_stars);
-#endif
 
     if(ThisTask == 0)
     {
@@ -779,14 +765,6 @@ void every_timestep_stuff(void)
             printf("Abundances HeHII: %g",SphP[1].HeHII);
 #endif
 
-#if defined (UM_CHEMISTRY) && defined (UM_METAL_COOLING) && defined(LT_METAL_COOLING)
-            printf("::: read mass  Hyd: %g,  Hel: %g  (from Metals)\n", SphP[N_gas - 1].Metals[Hyd],
-                    SphP[N_gas - 1].Metals[Hel]);
-            printf("::: read mass  C: %g, O: %g, Si: %g, Fe: %g, N: %g \n", SphP[N_gas - 1].Metals[Carbon],
-                    SphP[N_gas - 1].Metals[Oxygen], SphP[N_gas - 1].Metals[Silicon],
-                    SphP[N_gas - 1].Metals[Iron], SphP[N_gas - 1].Metals[Nitrogen]);
-#endif
-
             fflush(FdInfo);
         }
         else
@@ -798,7 +776,6 @@ void every_timestep_stuff(void)
             fflush(FdInfo);
         }
 
-#if !defined(LT_STELLAREVOLUTION)
         printf("Occupied timebins: non-sph         sph       dt\n");
         for(i = TIMEBINS - 1, tot = tot_sph = 0; i >= 0; i--)
             if(tot_count_sph[i] > 0 || tot_count[i] > 0)
@@ -816,30 +793,7 @@ void every_timestep_stuff(void)
                     tot_sph += tot_count_sph[i];
                 }
             }
-#else
-        printf("Occupied timebins: non-sph         sph       stars    dt\n");
-        for(i = TIMEBINS - 1, tot = tot_sph = tot_stars = 0; i >= 0; i--)
-            if(tot_count_sph[i] > 0 || tot_count[i] > 0 || tot_count_stars[i] > 0)
-            {
-                printf(" %c  bin=%2d     %2d%09d %2d%09d %2d%09d   %6g\n",
-                        TimeBinActive[i] ? 'X' : ' ',
-                        i,
-                        (int) ((tot_count[i] - tot_count_sph[i]) / 1000000000),
-                        (int) ((tot_count[i] - tot_count_sph[i]) % 1000000000),
-                        (int) (tot_count_sph[i] / 1000000000),
-                        (int) (tot_count_sph[i] % 1000000000),
-                        (int) (tot_count_stars[i] / 1000000000),
-                        (int) (tot_count_stars[i] % 1000000000), i > 0 ? (1 << i) * All.Timebase_interval : 0.0);
-                if(TimeBinActive[i])
-                {
-                    tot += tot_count[i];
-                    tot_sph += tot_count_sph[i];
-                    tot_stars += tot_count_stars[i];
-                }
-            }
-#endif
         printf("               -----------------------------------\n");
-#ifndef LT_STELLAREVOLUTION
 #ifdef PMGRID
         if(All.PM_Ti_endstep == All.Ti_Current)
             printf("PM-Step. Total:%2d%09d %2d%09d    Sum:%2d%09d\n",
@@ -852,22 +806,6 @@ void every_timestep_stuff(void)
                     (int) ((tot - tot_sph) / 1000000000), (int) ((tot - tot_sph) % 1000000000),
                     (int) (tot_sph / 1000000000), (int) (tot_sph % 1000000000),
                     (int) (tot / 1000000000), (int) (tot % 1000000000));
-#else
-#ifdef PMGRID
-        if(All.PM_Ti_endstep == All.Ti_Current)
-            printf("PM-Step. Total:%2d%09d %2d%09d %2d%09d    Sum:%2d%09d\n",
-                    (int) ((tot - tot_sph) / 1000000000), (int) ((tot - tot_sph) % 1000000000),
-                    (int) (tot_sph / 1000000000), (int) (tot_sph % 1000000000),
-                    (int) (tot_stars / 1000000000), (int) (tot_stars % 1000000000),
-                    (int) (tot / 1000000000), (int) (tot % 1000000000));
-        else
-#endif
-            printf("Total active:  %2d%09d %2d%09d %2d%09d    Sum:%2d%09d\n",
-                    (int) ((tot - tot_sph) / 1000000000), (int) ((tot - tot_sph) % 1000000000),
-                    (int) (tot_sph / 1000000000), (int) (tot_sph % 1000000000),
-                    (int) (tot_stars / 1000000000), (int) (tot_stars % 1000000000),
-                    (int) (tot / 1000000000), (int) (tot % 1000000000));
-#endif
 
 #ifdef CHEMISTRY
         printf("Abundances elec: %g, HM: %g, H2I: %g, H2II: %g\n",
