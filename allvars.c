@@ -396,11 +396,6 @@ double kHD1a[N_T], kHD2a[N_T], kHD3a[N_T], kHD4a[N_T], kHD5a[N_T], kHD6a[N_T];
 double kHeHII1a[N_T], kHeHII2a[N_T], kHeHII3a[N_T];
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-#include "lt.c"
-#endif
-
-
 
 #ifdef SCFPOTENTIAL
 long scf_seed;
