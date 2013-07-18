@@ -21,10 +21,6 @@ static double dt_displacement = 0;
 static double dt_gravkickA, dt_gravkickB;
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-double time_convert_factor;
-#endif
-
 /*! This function advances the system in momentum space, i.e. it does apply the 'kick' operation after the
  *  forces have been computed. Additionally, it assigns new timesteps to particles. At start-up, a
  *  half-timestep is carried out, as well as at the end of the simulation. In between, the half-step kick that
@@ -87,12 +83,6 @@ void advance_and_find_timesteps(void)
             get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
     else
         dt_gravkickB = (All.Ti_Current - (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2) * All.Timebase_interval;
-#endif
-
-#ifdef LT_STELLAREVOLUTION
-    time_convert_factor = (1000 * SEC_PER_MEGAYEAR) /	/* chemical time is in Gyr */
-        All.UnitTime_in_s *		/* convert in code units   */
-        All.HubbleParam;
 #endif
 
 #ifdef MAKEGLASS
@@ -1153,21 +1143,6 @@ int get_timestep(int p,		/*!< particle index */
 #endif      
     }
 #endif
-
-#if defined(LT_STELLAREVOLUTION) && defined(LT_CONSTRAIN_DYNAMICAL_TIMESTEP)
-
-    double dt_chem;
-
-    if(P[i].Type == 4)
-    {
-        dt_chem = MetP[P[i].MetID].NextChemTime - All.Time_Age;	/* this is the next chemical time in Gyr */
-        dt_chem *= time_convert_factor;	/* convert in code physical units        */
-
-        if(dt_chem > 0 && dt_chem < dt)
-            dt = dt_chem;
-    }
-#endif
-
 
     /* convert the physical timestep to dloga if needed. Note: If comoving integration has not been selected,
        hubble_a=1.
