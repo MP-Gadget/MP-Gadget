@@ -378,7 +378,7 @@ typedef MyFloat MyLongDouble;
 
 
 
-#if defined (BLACK_HOLES) || defined(CS_MODEL) || defined(RADTRANSFER) || defined(SNIA_HEATING)
+#if defined (BLACK_HOLES) || defined(RADTRANSFER) || defined(SNIA_HEATING)
 #define PPP P
 #else
 #define PPP SphP
@@ -515,10 +515,6 @@ extern int *Exportindex;
 
 extern int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
 
-#ifdef VORONOI
-extern int Mesh_nimport, Mesh_nexport, *Mesh_Send_offset, *Mesh_Send_count, *Mesh_Recv_count, *Mesh_Recv_offset;
-#endif
-
 extern size_t AllocatedBytes;
 extern size_t HighMarkBytes;
 extern size_t FreeBytes;
@@ -535,9 +531,6 @@ extern int Flag_FullStep;	/*!< Flag used to signal that the current step involve
 extern size_t HighMark_run,  HighMark_domain, HighMark_gravtree, HighMark_pmperiodic,
        HighMark_pmnonperiodic,  HighMark_sphdensity, HighMark_sphhydro;
 
-#ifdef VORONOI
-extern size_t HighMark_voronoi;
-#endif
 
 extern int TreeReconstructFlag;
 extern int GlobFlag;
@@ -679,18 +672,6 @@ extern double GravKickTable[DRIFT_TABLE_LENGTH];
 
 /*! table for the cosmological kick factor for hydrodynmical forces */
 extern double HydroKickTable[DRIFT_TABLE_LENGTH];
-
-#ifdef VORONOI
-extern struct individual_data
-{
-    double AllocFacNdp;
-    double AllocFacNdt;
-    double AllocFacNvf;
-    double AllocFacNinlist;
-    double AllocFacN_DP_Buffer;
-}
-Indi;
-#endif
 
 
 extern void *CommBuffer;	/*!< points to communication buffer, which is used at a few places */
@@ -968,11 +949,6 @@ extern struct global_data_all_processes
     double ReferenceGasMass;
 #endif
 
-#ifdef VORONOI_MESHRELAX
-    double MeanMass;
-    double MeanPressure;
-#endif
-
 #ifdef RADTRANSFER
     double IonizingLumPerSolarMass;
     double IonizingLumPerSFR;
@@ -1016,24 +992,6 @@ extern struct global_data_all_processes
     double FactorForSofterEQS;
 #endif
 
-#ifdef CS_MODEL
-    double FactorSFR;
-    double DecouplingParam;
-    double MinTlifeSNI;
-    double MaxTlifeSNI;
-    double TlifeSNII;
-    int    Raiteri_TlifeSNII;
-    double RateSNI;
-    double SN_Energy_cgs;
-    double Tcrit_Phase;
-    double DensFrac_Phase;
-    double SN_Energy_frac_cold;
-    double MaxHotHsmlParam;
-    double InitialHotHsmlFactor;
-    double DensityTailThreshold;
-    double MaxNumHotNgbDeviation;	/*!< Maximum allowed deviation HOT neighbour number */
-#endif
-
 #ifdef DARKENERGY
     double DarkEnergyParam;	/*!< fixed w for equation of state */
 #ifdef TIMEDEPDE
@@ -1051,12 +1009,6 @@ extern struct global_data_all_processes
 #if defined(SNIA_HEATING)
     double SnIaHeatingRate;
 #endif
-
-#ifdef VORONOI_SHAPESCHEME
-    double VoronoiStiffNess;
-    double VoronoiRoundNess;
-#endif
-
 
 #ifdef TIME_DEP_ART_VISC
     double ViscSource0;		/*!< Given sourceterm in viscosity evolution */
@@ -1443,7 +1395,7 @@ extern struct particle_data
     MyFloat Metallicity;		/*!< metallicity of gas or star particle */
 #endif				/* closes METALS */
 
-#if defined (BLACK_HOLES) || defined(CS_MODEL) || defined(RADTRANSFER) || defined(SNIA_HEATING)
+#if defined (BLACK_HOLES) || defined(RADTRANSFER) || defined(SNIA_HEATING)
     MyFloat Hsml;
 
     union
@@ -1575,15 +1527,6 @@ extern struct particle_data
     MyDouble dMdr;
 #endif
 
-#ifdef CS_MODEL
-    MyFloat Zm[12];
-    MyFloat ZmReservoir[12];
-#ifdef CS_FEEDBACK
-    MyFloat EnergySN;
-    MyFloat EnergySNCold;
-#endif
-#endif
-
     float GravCost;		/*!< weight factor used for balancing the work-load */
 
     int Ti_begstep;		/*!< marks start of current timestep of particle on integer timeline */
@@ -1628,15 +1571,6 @@ extern struct sph_particle_data
 #ifdef VOLUME_CORRECTION
     MyFloat DensityOld;
     MyFloat DensityStd;
-#endif
-
-#ifdef VORONOI
-    MyFloat MaxDelaunayRadius;
-    MyFloat Volume;
-    MyFloat Center[3];
-#ifdef VORONOI_SHAPESCHEME
-    MyFloat W;
-#endif
 #endif
 
     union
@@ -1688,7 +1622,7 @@ extern struct sph_particle_data
     } u;
 #endif
 
-#if !(defined(BLACK_HOLES) || defined(CS_MODEL) || defined(RADTRANSFER) || defined(SNIA_HEATING))
+#if !(defined(BLACK_HOLES) || defined(RADTRANSFER) || defined(SNIA_HEATING))
     MyFloat Hsml;			/*!< current smoothing length */
     union
     {
@@ -1900,26 +1834,6 @@ extern struct sph_particle_data
 #endif
 #ifndef CG
     MyFloat n_gamma_old;
-#endif
-#endif
-
-#if defined CS_MODEL
-    MyFloat DensityOld;
-#ifdef CS_FEEDBACK
-    union
-    {
-        MyFloat       DensityAvg;		/*!< current baryonic mass density of particle */
-        MyLongDouble dDensityAvg;
-    } da;
-    union
-    {
-        MyFloat       EntropyAvg;		/*!< current baryonic mass density of particle */
-        MyLongDouble dEntropyAvg;
-    } ea;
-    MyFloat HotHsml;
-    int     HotNgbNum;
-    MyFloat DensPromotion;
-    MyFloat TempPromotion;
 #endif
 #endif
 

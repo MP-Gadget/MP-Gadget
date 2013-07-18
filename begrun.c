@@ -1230,16 +1230,6 @@ void read_parameter_file(char *fname)
         id[nt++] = REAL;
 #endif
 
-#ifdef VORONOI_SHAPESCHEME
-        strcpy(tag[nt], "VoronoiStiffNess");
-        addr[nt] = &All.VoronoiStiffNess;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "VoronoiRoundNess");
-        addr[nt] = &All.VoronoiRoundNess;
-        id[nt++] = REAL;
-#endif
-
         strcpy(tag[nt], "ComovingIntegrationOn");
         addr[nt] = &All.ComovingIntegrationOn;
         id[nt++] = INT;
@@ -2339,15 +2329,6 @@ NUMCRPOP = 1;
         }
         endrun(0);
     }
-#endif
-
-
-#if defined(VORONOI) && !defined(PERIODIC)
-    if(ThisTask == 0)
-    {
-        printf("Voronoi code requires periodic boundaries.\n");
-    }
-    endrun(0);
 #endif
 
 #ifdef EDDINGTON_TENSOR_BH

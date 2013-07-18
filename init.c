@@ -10,10 +10,6 @@
 #include "cosmic_rays.h"
 #endif
 
-#ifdef VORONOI
-#include "voronoi.h"
-#endif
-
 #ifdef MACHNUM
 #ifdef COSMIC_RAYS
 #define h  All.HubbleParam
@@ -201,15 +197,6 @@ void init(void)
 
     All.TopNodeAllocFactor = 0.008;
     All.TreeAllocFactor = 0.7;
-
-
-#ifdef VORONOI
-    Indi.AllocFacNdp = 1.2 * N_gas + MIN_ALLOC_NUMBER;
-    Indi.AllocFacNdt = 8.0 * N_gas + MIN_ALLOC_NUMBER;
-    Indi.AllocFacNvf = 8.0 * N_gas + MIN_ALLOC_NUMBER;
-    Indi.AllocFacNinlist = 1.2 * N_gas + MIN_ALLOC_NUMBER;
-    Indi.AllocFacN_DP_Buffer = 0.2 * N_gas + MIN_ALLOC_NUMBER;;
-#endif
 
 
     All.Cadj_Cost = 1.0e-30;
@@ -729,13 +716,6 @@ void init(void)
         SphP[i].Dtalpha = 0.0;
 #endif
 
-#ifdef VORONOI_TIME_DEP_ART_VISC
-        SphP[i].Dtalpha = 0.0;
-        SphP[i].alpha = All.ArtBulkViscConst / 128.0;
-#ifdef VORONOI_RELAX_VIA_VISC
-        SphP[i].alpha = All.ArtBulkViscConst;
-#endif
-#endif
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
         SphP[i].i.Injected_BH_Energy = 0;
 #endif
@@ -815,49 +795,6 @@ void init(void)
     if(RestartFlag != 3 && RestartFlag != 5)
         setup_smoothinglengths();
 
-#ifdef VORONOI
-    for(i = 0; i < N_gas; i++)
-        SphP[i].MaxDelaunayRadius = SphP[i].Hsml;
-
-    voronoi_mesh();
-    voronoi_setup_exchange();
-
-#ifdef MESHRELAX_DENSITY_IN_INPUT
-    if(RestartFlag == 0)
-        for(i = 0; i < N_gas; i++)
-            P[i].Mass *= SphP[i].Volume;
-#endif
-
-#ifdef VORONOI_MESHRELAX
-    double mass, masstot, egy, egytot;
-
-    for(i = 0, mass = 0, egy = 0; i < N_gas; i++)
-    {
-        mass += P[i].Mass;
-        egy += P[i].Mass * SphP[i].Entropy;
-        SphP[i].Pressure = GAMMA_MINUS1 * SphP[i].Entropy * P[i].Mass / SphP[i].Volume;
-    }
-    MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&egy, &egytot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    All.MeanMass = masstot / All.TotN_gas;
-#ifdef TWODIMS
-    All.MeanPressure = GAMMA_MINUS1 * egytot / (boxSize_X * boxSize_Y);
-#else
-    All.MeanPressure = GAMMA_MINUS1 * egytot / (boxSize_X * boxSize_Y * boxSize_Z);
-#endif
-#endif
-
-    voronoi_density();
-
-    myfree(List_P);
-    myfree(ListExports);
-
-    myfree(DT);
-    myfree(DP - 5);
-    myfree(VF);
-#endif
-
 #ifdef START_WITH_EXTRA_NGBDEV
     All.MaxNumNgbDeviation = MaxNumNgbDeviationMerk;
 #endif
@@ -915,7 +852,7 @@ void init(void)
         {
 #ifndef EOS_DEGENERATE
 
-#if !defined(VORONOI_MESHRELAX) && !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
+#if !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
 
             if(ThisTask == 0 && i == 0)
                 printf("Converting u -> entropy !\n");

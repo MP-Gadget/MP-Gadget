@@ -74,10 +74,6 @@ int *Exportindex;
 
 int *Send_offset, *Send_count, *Recv_count, *Recv_offset, *Sendcount;
 
-#ifdef VORONOI
-int Mesh_nimport, Mesh_nexport, *Mesh_Send_offset, *Mesh_Send_count, *Mesh_Recv_count, *Mesh_Recv_offset;
-#endif
-
 int FirstActiveParticle;
 int *NextActiveParticle;
 unsigned char *ProcessedFlag;
@@ -93,10 +89,6 @@ int *PrevInTimeBin;
 
 size_t HighMark_run, HighMark_domain, HighMark_gravtree,
   HighMark_pmperiodic, HighMark_pmnonperiodic, HighMark_sphdensity, HighMark_sphhydro;
-
-#ifdef VORONOI
-size_t HighMark_voronoi;
-#endif
 
 #ifdef SFR
 double TimeBinSfr[TIMEBINS];
@@ -178,10 +170,6 @@ struct topnode_data *TopNodes;
 
 int NTopnodes, NTopleaves;
 
-
-#ifdef VORONOI
-struct individual_data Indi;
-#endif
 
 double RndTable[RNDTABLE];
 

@@ -794,19 +794,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
         if(SphP[i].alpha < All.AlphaMin)
             SphP[i].alpha = All.AlphaMin;
 #endif
-#ifdef VORONOI_TIME_DEP_ART_VISC
-        SphP[i].alpha += SphP[i].Dtalpha * dt_entr;
-#ifdef VORONOI_RELAX_VIA_VISC
-        if(SphP[i].alpha < All.ArtBulkViscConst / 128.0 / 128.0)
-            SphP[i].alpha = All.ArtBulkViscConst / 128.0 / 128.0;
-#else
-        if(SphP[i].alpha < All.ArtBulkViscConst / 128.0)
-            SphP[i].alpha = All.ArtBulkViscConst / 128.0;
-#endif
-        //       if(SphP[i].alpha > 16.0*All.ArtBulkViscConst)          SphP[i].alpha = 16.0*All.ArtBulkViscConst;
-        //       fprintf(stderr,"\n All.ArtBulkViscConst %f SphP[i].alpha %f SphP[i].Dtalpha * dt_entr %f dt_entr %f   \n", All.ArtBulkViscConst, SphP[i].alpha, SphP[i].Dtalpha * dt_entr, dt_entr);}
-        //       SphP[i].alpha = DMIN(SphP[i].alpha, All.ArtBulkViscConst);
-#endif
 #ifdef TIME_DEP_MAGN_DISP
         SphP[i].Balpha += SphP[i].DtBalpha * dt_entr;
         SphP[i].Balpha = DMIN(SphP[i].Balpha, All.ArtMagDispConst);
@@ -1006,14 +993,6 @@ int get_timestep(int p,		/*!< particle index */
             dt_courant = 2 * All.CourantFac * All.Time * PPP[p].Hsml / (fac3 * SphP[p].MaxSignalVel);
         else
             dt_courant = 2 * All.CourantFac * PPP[p].Hsml / SphP[p].MaxSignalVel;
-#endif
-
-#ifdef VORONOI
-#ifdef TWODIMS
-        dt_courant = All.CourantFac * sqrt(SphP[p].Volume / M_PI) / SphP[p].MaxSignalVel;
-#else
-        dt_courant = All.CourantFac * pow(SphP[p].Volume / (4.0 / 3 * M_PI), 1.0 / 3) / SphP[p].MaxSignalVel;
-#endif
 #endif
 
         if(dt_courant < dt)

@@ -126,9 +126,7 @@ void compute_accelerations(int mode)
 #endif
 
         /***** update smoothing lengths in tree *****/
-#ifndef VORONOI
         force_update_hmax();
-#endif
 
         /***** hydro forces *****/
         if(ThisTask == 0)
@@ -137,11 +135,7 @@ void compute_accelerations(int mode)
             fflush(stdout);
         }
 
-#ifndef VORONOI
         hydro_force();		/* adds hydrodynamical accelerations  and computes du/dt  */
-#else
-        voronoi_hydro_force();
-#endif
 
 #ifdef CONDUCTION
         if(All.Conduction_Ti_endstep == All.Ti_Current)

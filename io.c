@@ -14,10 +14,6 @@
 #include "allvars.h"
 #include "proto.h"
 
-#ifdef VORONOI
-#include "voronoi.h"
-#endif
-
 #ifdef JD_DPP
 #include "cr_electrons.h"
 #endif	
@@ -80,17 +76,6 @@ void savepositions(int num)
       t1 = second();
       if(ThisTask == 0)
 	printf("Reordering of particle-data in ID-sequence took = %g sec\n", timediff(t0, t1));
-#endif
-
-#ifdef VORONOI_MESHOUTPUT
-#ifdef ORDER_SNAPSHOTS_BY_ID
-      endrun(112);
-#endif
-      All.NumForcesSinceLastDomainDecomp = All.TotNumPart * All.TreeDomainUpdateFrequency + 1;
-      domain_Decomposition();
-      force_treebuild(NumPart, NULL);
-      voronoi_mesh();
-      voronoi_setup_exchange();
 #endif
 
       if(!(CommBuffer = mymalloc("CommBuffer", bytes = All.BufferSize * 1024 * 1024)))
@@ -160,26 +145,11 @@ void savepositions(int num)
 	    {
 	      write_file(buf, masterTask, lastTask);
 
-#ifdef VORONOI_MESHOUTPUT
-	      if(All.NumFilesPerSnapshot > 1)
-		sprintf(buf, "%s/snapdir_%03d/voronoi_mesh_%03d.%d", All.OutputDir, num, num, filenr);
-	      else
-		sprintf(buf, "%s/voronoi_mesh_%03d", All.OutputDir, num);
-	      write_voronoi_mesh(buf, masterTask, lastTask);
-#endif
 	    }
 	  MPI_Barrier(MPI_COMM_WORLD);
 	}
 
       myfree(CommBuffer);
-
-#ifdef VORONOI_MESHOUTPUT
-      myfree(List_P);
-      myfree(ListExports);
-      myfree(DT);
-      myfree(DP - 5);
-      myfree(VF);		/* free the list of faces */
-#endif
 
 #ifdef ORDER_SNAPSHOTS_BY_ID
       t0 = second();
@@ -384,21 +354,12 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 	  {
 	    double dmax1, dmax2;
 
-#ifdef VORONOI_MESHRELAX
-#ifdef VORONOI_MESHRELAX_KEEPRESSURE
-	    SphP[pindex].Entropy = SphP[pindex].Pressure / (GAMMA_MINUS1 * SphP[pindex].d.Density);
-#endif
-	    *fp++ = SphP[pindex].Entropy;
-#else
-
 #if !defined(EOS_DEGENERATE) && !defined(TRADITIONAL_SPH_FORMULATION)
 	    *fp++ =
 	      DMAX(All.MinEgySpec,
 		   SphP[pindex].Entropy / GAMMA_MINUS1 * pow(SphP[pindex].EOMDensity * a3inv, GAMMA_MINUS1));
 #else
 	    *fp++ = SphP[pindex].Entropy;
-#endif
-
 #endif
 	    n++;
 	  }
@@ -585,14 +546,6 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 
 
     case IO_VALPHA:		/* artificial viscosity of particle  */
-#ifdef VORONOI_TIME_DEP_ART_VISC
-      for(n = 0; n < pc; pindex++)
-	if(P[pindex].Type == type)
-	  {
-	    *fp++ = SphP[pindex].alpha;
-	    n++;
-	  }
-#endif
       break;
 
     case IO_SFR:		/* star formation rate */
@@ -2421,11 +2374,7 @@ int blockpresent(enum iofields blocknr)
 
 
     case IO_VALPHA:
-#ifdef VORONOI_TIME_DEP_ART_VISC
-      return 1;
-#else
       return 0;
-#endif
       break;
 
     case IO_EGYPROM:

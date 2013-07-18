@@ -520,7 +520,6 @@ void drift_particle(int i, int time1)
 #ifndef EOS_DEGENERATE
 #ifndef MHM
 #ifndef SOFTEREQS
-#ifndef VORONOI_MESHRELAX
 
 #ifndef TRADITIONAL_SPH_FORMULATION
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -532,18 +531,6 @@ void drift_particle(int i, int time1)
         SphP[i].Pressure = GAMMA_MINUS1 * (SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr) * SphP[i].d.Density;
 #endif
 
-#endif
-#else
-        if(SphP[i].d.Density * a3inv >= All.PhysDensThresh)
-            SphP[i].Pressure =
-                All.FactorForSofterEQS * (SphP[i].Entropy +
-                        SphP[i].e.DtEntropy * dt_entr) * pow(SphP[i].d.Density,
-                            GAMMA) + (1 -
-                                All.
-                                FactorForSofterEQS) *
-                                afac * GAMMA_MINUS1 * SphP[i].d.Density * All.InitGasU;
-        else
-            SphP[i].Pressure = (SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr) * pow(SphP[i].d.Density, GAMMA);
 #endif
 #else
         /* Here we use an isothermal equation of state */

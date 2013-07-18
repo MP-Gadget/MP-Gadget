@@ -6,10 +6,6 @@
 
 #include "allvars.h"
 #include "proto.h"
-#ifdef VORONOI
-#include "voronoi.h"
-#endif
-
 
 /* This routine computes various global properties of the particle
  * distribution and stores the result in the struct `SysState'.
@@ -106,19 +102,6 @@ void compute_global_quantities_of_system(void)
 #endif
 #else
 	  egyspec = SphP[i].u;
-#endif
-
-#ifdef VORONOI_SHAPESCHEME
-	  double dx = P[i].Pos[0] - SphP[i].Center[0];
-	  double dy = P[i].Pos[1] - SphP[i].Center[1];
-	  double dz = P[i].Pos[2] - SphP[i].Center[2];
-	  double d2 = dx * dx + dy * dy + dz * dz;
-
-	  double square = 1 + All.VoronoiStiffNess * d2 / pow(SphP[i].Volume, 2.0 / DIMS);
-	  double curly =
-	    1 + All.VoronoiRoundNess * (SphP[i].W / pow(SphP[i].Volume, 2.0 / DIMS) - SHAPE_FAC);
-
-	  egyspec *= square * curly;
 #endif
 
 	  sys.EnergyIntComp[0] += P[i].Mass * egyspec;
