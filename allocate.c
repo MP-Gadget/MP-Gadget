@@ -92,25 +92,4 @@ void allocate_memory(void)
 	printf("Allocated %g MByte for storage of SPH data.\n\n", bytes_tot / (1024.0 * 1024.0));
 
     }
-
-#ifdef LT_STELLAREVOLUTION
-  if(All.MaxPartMet > 0)
-    {
-      bytes_tot = 0;
-
-      if(!
-	 (MetP =
-	  (struct met_particle_data *) mymalloc("MetP", bytes =
-						All.MaxPartMet * sizeof(struct met_particle_data))))
-	{
-	  printf("failed to allocate memory for `MetP' (%g MB).\n", bytes / (1024.0 * 1024.0));
-	  endrun(1);
-	}
-      bytes_tot += bytes;
-
-      if(ThisTask == 0)
-	printf("Allocated %g MByte for storage of MET data.\n\n", bytes_tot / (1024.0 * 1024.0));
-
-    }
-#endif
 }
