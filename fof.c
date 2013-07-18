@@ -1046,12 +1046,7 @@ void fof_compute_group_properties(int gr, int start, int len)
   Group[gr].BH_Mass = 0;
   Group[gr].BH_Mdot = 0;
   Group[gr].index_maxdens = Group[gr].task_maxdens = -1;
-#ifdef KD_BHSEED_ON_POTMIN 
-  Group[gr].MaxDens = 1e30;
-#else
   Group[gr].MaxDens = 0;
-#endif
-
 #endif
 
   for(k = 0; k < 3; k++)
@@ -1092,24 +1087,12 @@ void fof_compute_group_properties(int gr, int start, int len)
 #ifdef WINDS
 	  if(SphP[index].DelayTime == 0)
 #endif
-#ifdef KD_BHSEED_ON_POTMIN
-	    /* 
-	    printf("Trying seeding on pot %e, minpot=-%e\n", P[index].p.Potential,Group[gr].MaxDens);
-	    */
-	    if(P[index].p.Potential < Group[gr].MaxDens)
-	      {
-		Group[gr].MaxDens = P[index].p.Potential;
-		Group[gr].index_maxdens = index;
-		Group[gr].task_maxdens = ThisTask;
-	      }
-#else
 	    if(SphP[index].d.Density > Group[gr].MaxDens)
 	      {
 		Group[gr].MaxDens = SphP[index].d.Density;
 		Group[gr].index_maxdens = index;
 		Group[gr].task_maxdens = ThisTask;
 	      }
-#endif
 	}
 #endif
 
@@ -1207,11 +1190,7 @@ void fof_exchange_group_data(void)
 #ifdef BLACK_HOLES
       Group[start].BH_Mdot += get_Group[i].BH_Mdot;
       Group[start].BH_Mass += get_Group[i].BH_Mass;
-#ifdef KD_BHSEED_ON_POTMIN
-      if(get_Group[i].MaxDens < Group[start].MaxDens)
-#else
       if(get_Group[i].MaxDens > Group[start].MaxDens)
-#endif
 	{
 	  Group[start].MaxDens = get_Group[i].MaxDens;
 	  Group[start].index_maxdens = get_Group[i].index_maxdens;
@@ -1985,9 +1964,6 @@ void fof_make_black_holes(void)
 	if(Group[i].LenType[5] == 0)
 	  {
 	    if(Group[i].index_maxdens >= 0)
-#ifdef KD_SEED_BAR_FRACTION
-	      if(Group[i].LenType[0] + Group[i].LenType[4] > KD_SEED_BAR_FRACTION * Group[i].LenType[1])
-#endif
 	      Send_count[Group[i].task_maxdens]++;
 	  }
     }
@@ -2019,9 +1995,6 @@ void fof_make_black_holes(void)
 	if(Group[i].LenType[5] == 0)
 	  {
 	    if(Group[i].index_maxdens >= 0)
-#ifdef  KD_SEED_BAR_FRACTION
-	      if(Group[i].LenType[0] + Group[i].LenType[4] >  KD_SEED_BAR_FRACTION * Group[i].LenType[1])
-#endif
 	      export_indices[Send_offset[Group[i].task_maxdens] +
 			     Send_count[Group[i].task_maxdens]++] = Group[i].index_maxdens;
 	  }
@@ -2076,12 +2049,6 @@ void fof_make_black_holes(void)
 #ifdef UNIFIED_FEEDBACK
       P[import_indices[n]].BH_Mass_radio = All.SeedBlackHoleMass;
 #endif
-#endif
-#ifdef KD_FRICTION_DYNAMIC
-      P[import_indices[n]].BH_sigma = pow(All.MinFoFMassForNewSeed / 1e4 / 2.06 , 1. / 3.) * 1e3 / sqrt(3);
-      P[import_indices[n]].BH_bmax = pow(All.MinFoFMassForNewSeed * 1e10, 1. / 3.) * 0.023433340 / 2;
-      printf("Task %d: Seeded BH in environment: bmax=%e, sigma=%e\n",
-             ThisTask,P[import_indices[n]].BH_bmax,P[import_indices[n]].BH_sigma);
 #endif
 
 #ifdef SFR

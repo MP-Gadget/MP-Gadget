@@ -794,15 +794,6 @@ void subfind_determine_sub_halo_properties(struct unbind_data *d, int num, doubl
   *vmax = sqrt(All.G * max);
   *vmaxrad = maxrad;
 
-#ifdef KD_FRICTION_DYNAMIC
-  for(i = 0; i < num; i++)
-    {
-      p = d[i].index;
-      P[p].BH_sigma = *vmax / sqrt(3);
-      P[p].BH_bmax = *halfmassrad;         
-    }
-#endif
-
   myfree(rr_list);
 }
 

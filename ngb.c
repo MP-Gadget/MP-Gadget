@@ -529,10 +529,8 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
 	  p = no;
 	  no = Nextnode[no];
 
-#ifndef KD_FRICTION
 	  if(P[p].Type > 0)
 	    continue;
-#endif
 
 	  if(P[p].Ti_current != All.Ti_Current)
 	    {
