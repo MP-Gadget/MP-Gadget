@@ -53,18 +53,10 @@ static double nH0, nHp, nHep, nHe0, nHepp;
 
 static double DoCool_u_old_input, DoCool_rho_input, DoCool_dt_input, DoCool_ne_guess_input;
 
-#ifdef LT_METAL_COOLING
-double GetMetalLambda(double, double);
-#endif
-
 /* returns new internal energy per unit mass. 
  * Arguments are passed in code units, density is proper density.
  */
-#ifdef LT_METAL_COOLING
-double DoCooling(double u_old, double rho, double dt, double *ne_guess, double Z)
-#else
 double DoCooling(double u_old, double rho, double dt, double *ne_guess)
-#endif
 {
     double u, du;
     double u_lower, u_upper;
@@ -89,11 +81,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess)
     u_lower = u;
     u_upper = u;
 
-#ifdef LT_METAL_COOLING
-    LambdaNet = CoolingRateFromU(u, rho, ne_guess, Z);
-#else
     LambdaNet = CoolingRateFromU(u, rho, ne_guess);
-#endif
 
     /* bracketing */
 
@@ -101,11 +89,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess)
     {
         u_upper *= sqrt(1.1);
         u_lower /= sqrt(1.1);
-#ifdef LT_METAL_COOLING
-        while(u_upper - u_old - ratefact * CoolingRateFromU(u_upper, rho, ne_guess, Z) * dt < 0)
-#else
             while(u_upper - u_old - ratefact * CoolingRateFromU(u_upper, rho, ne_guess) * dt < 0)
-#endif
             {
                 u_upper *= 1.1;
                 u_lower *= 1.1;
@@ -117,11 +101,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess)
     {
         u_lower /= sqrt(1.1);
         u_upper *= sqrt(1.1);
-#ifdef LT_METAL_COOLING
-        while(u_lower - u_old - ratefact * CoolingRateFromU(u_lower, rho, ne_guess, Z) * dt > 0)
-#else
             while(u_lower - u_old - ratefact * CoolingRateFromU(u_lower, rho, ne_guess) * dt > 0)
-#endif
             {
                 u_upper /= 1.1;
                 u_lower /= 1.1;
@@ -132,11 +112,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess)
     {
         u = 0.5 * (u_lower + u_upper);
 
-#ifdef LT_METAL_COOLING
-        LambdaNet = CoolingRateFromU(u, rho, ne_guess, Z);
-#else
         LambdaNet = CoolingRateFromU(u, rho, ne_guess);
-#endif
 
         if(u - u_old - ratefact * LambdaNet * dt > 0)
         {
@@ -174,11 +150,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess)
 /* returns cooling time. 
  * NOTE: If we actually have heating, a cooling time of 0 is returned.
  */
-#ifdef LT_METAL_COOLING
-double GetCoolingTime(double u_old, double rho, double *ne_guess, double Z)
-#else
 double GetCoolingTime(double u_old, double rho, double *ne_guess)
-#endif
 {
     double u;
     double ratefact;
@@ -197,11 +169,7 @@ double GetCoolingTime(double u_old, double rho, double *ne_guess)
 
     u = u_old;
 
-#ifdef LT_METAL_COOLING
-    LambdaNet = CoolingRateFromU(u, rho, ne_guess, Z);
-#else
     LambdaNet = CoolingRateFromU(u, rho, ne_guess);
-#endif
 
     /* bracketing */
 
@@ -219,12 +187,7 @@ double GetCoolingTime(double u_old, double rho, double *ne_guess)
 /* returns new internal energy per unit mass. 
  * Arguments are passed in code units, density is proper density.
  */
-#ifdef LT_METAL_COOLING
-double DoInstabilityCooling(double m_old, double u, double rho, double dt, double fac, double *ne_guess,
-        double Z)
-#else
 double DoInstabilityCooling(double m_old, double u, double rho, double dt, double fac, double *ne_guess)
-#endif
 {
     double m, dm;
     double m_lower, m_upper;
@@ -254,11 +217,7 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
     m_lower = m;
     m_upper = m;
 
-#ifdef LT_METAL_COOLING
-    LambdaNet = CoolingRateFromU(u, rho, ne_guess, Z);
-#else
     LambdaNet = CoolingRateFromU(u, rho, ne_guess);
-#endif
 
     /* bracketing */
 
@@ -267,13 +226,8 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
         m_upper *= sqrt(1.1);
         m_lower /= sqrt(1.1);
         while(m_upper - m_old -
-#ifdef LT_METAL_COOLING
-                m_upper * m_upper / m_old * ratefact * CoolingRateFromU(u, rho * m_upper / m_old,
-                    ne_guess, Z) * dt < 0)
-#else
             m_upper * m_upper / m_old * ratefact * CoolingRateFromU(u, rho * m_upper / m_old,
                     ne_guess) * dt < 0)
-#endif
                     {
                         m_upper *= 1.1;
                         m_lower *= 1.1;
@@ -285,13 +239,8 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
         m_lower /= sqrt(1.1);
         m_upper *= sqrt(1.1);
         while(m_lower - m_old -
-#ifdef LT_METAL_COOLING
-                m_lower * m_lower / m_old * ratefact * CoolingRateFromU(u, rho * m_lower / m_old,
-                    ne_guess, Z) * dt > 0)
-#else
             m_lower * m_lower / m_old * ratefact * CoolingRateFromU(u, rho * m_lower / m_old,
                     ne_guess) * dt > 0)
-#endif
                     {
                         m_upper /= 1.1;
                         m_lower /= 1.1;
@@ -302,11 +251,7 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
     {
         m = 0.5 * (m_lower + m_upper);
 
-#ifdef LT_METAL_COOLING
-        LambdaNet = CoolingRateFromU(u, rho * m / m_old, ne_guess, Z);
-#else
         LambdaNet = CoolingRateFromU(u, rho * m / m_old, ne_guess);
-#endif
 
         if(m - m_old - m * m / m_old * ratefact * LambdaNet * dt > 0)
         {
@@ -398,17 +343,11 @@ double convert_u_to_temp(double u, double rho, double *ne_guess)
         iter++;
 
         if(iter > (MAXITER - 10))
-#if defined(LT_SMOOTH_Z) || defined(LT_METAL_COOLING)
-            if(!ignore_failure_in_convert_u)
-#endif
                 printf("-> temp= %g ne=%g\n", temp, *ne_guess);
     }
     while(fabs(temp - temp_old) > 1.0e-3 * temp && iter < MAXITER);
 
     if(iter >= MAXITER)
-#if defined(LT_SMOOTH_Z) || defined(LT_METAL_COOLING)
-        if(!ignore_failure_in_convert_u)
-#endif
         {
             printf("failed to converge in convert_u_to_temp()\n");
             printf("u_input= %g\nrho_input=%g\n ne_input=%g\n", u_input, rho_input, ne_input);
@@ -560,28 +499,16 @@ void find_abundances_and_rates(double logT, double rho, double *ne_guess)
  *  and abundance ratios, and then it calculates 
  *  (heating rate-cooling rate)/n_h^2 in cgs units 
  */
-#ifdef LT_METAL_COOLING
-double CoolingRateFromU(double u, double rho, double *ne_guess, double Z)
-#else
 double CoolingRateFromU(double u, double rho, double *ne_guess)
-#endif
 {
     double temp;
 
     temp = convert_u_to_temp(u, rho, ne_guess);
 
-#ifdef LT_STELLAREVOLUTION
-    Temperature = (float) temp;
-#endif
-
-#ifdef LT_METAL_COOLING
-    return CoolingRate(log10(temp), rho, ne_guess, Z);
-#else
 #ifndef CS_MODEL
     return CoolingRate(log10(temp), rho, ne_guess);
 #else
     return cs_CoolingRate_SD(log10(temp), rho, ne_guess);
-#endif
 #endif
 }
 
@@ -613,22 +540,9 @@ double AbundanceRatios(double u, double rho, double *ne_guess, double *nH0_point
 
 extern FILE *fd;
 
-#ifdef LT_DAMP_METALCOOLING
-void SetDampMetalCooling(double DampTh, double DampExp)
-{
-    DAMP_FACT = pow((exp(DAMP_ZC_TTh - TMin) - 1), DAMP_Exp);
-    printf("Damp factor for metal cooling is %g below T = %g K\n", DAMP_ZC_Fact, All.DAMP_ZC_TTh);
-    return;
-}
-#endif
-
 /*  Calculates (heating rate-cooling rate)/n_h^2 in cgs units 
 */
-#ifdef LT_METAL_COOLING
-double CoolingRate(double logT, double rho, double *nelec, double Z)
-#else
 double CoolingRate(double logT, double rho, double *nelec)
-#endif
 {
     double Lambda, Heat;
     double LambdaExc, LambdaIon, LambdaRec, LambdaFF, LambdaCmptn = 0.0;
@@ -637,9 +551,6 @@ double CoolingRate(double logT, double rho, double *nelec)
     double redshift;
     double T;
 
-#ifdef LT_METAL_COOLING
-    double LambdaMet;
-#endif
 #if defined (UM_METAL_COOLING) && defined (UM_MET_IN_LT_COOLING)
     double LambdaMetalLines;
 #endif
@@ -656,29 +567,6 @@ double CoolingRate(double logT, double rho, double *nelec)
         find_abundances_and_rates(logT, rho, nelec);
 
         /* Compute cooling and heating rate (cf KWH Table 1) in units of nH**2 */
-#ifdef LT_METAL_COOLING
-        /* get cooling rate from sutherland and dopita tables */
-        /* keeping abundances and rates calculations */
-
-#if defined (UM_METAL_COOLING) && defined (UM_MET_IN_LT_COOLING)
-        if((Z >= ZMin) && (logT >= log10(UM_LT_INF_LIMIT)))
-#else
-            if((Z > ZMin) && (logT >= TMin))
-#endif
-            {
-                if((LambdaMet =
-                            (GetMetalLambda(logT, Z) - GetMetalLambda(logT, ZMin)) * ne * (nHp + nHep + nHepp)) < 0)
-                    LambdaMet = 0;
-
-#ifdef LT_DAMP_METALCOOLING
-                if(logT <= All.DAMP_ZC_TTh)
-                    LambdaMet *= pow((exp(logT - TMin) - 1.0), All.DAMP_ZC_Exp) / DAMP_ZC_Fact;
-#endif
-            }
-            else
-                LambdaMet = 0;
-
-#endif
         T = pow(10.0, logT);
 
 #if defined (UM_CHEMISTRY) && defined (UM_METAL_COOLING) && defined (UM_MET_IN_LT_COOLING)
@@ -726,9 +614,6 @@ double CoolingRate(double logT, double rho, double *nelec)
         if(J_UV != 0)
             Heat += (nH0 * epsH0 + nHe0 * epsHe0 + nHep * epsHep) / nHcgs;
 
-#ifdef LT_METAL_COOLING
-        Lambda += LambdaMet;
-#endif
     }
     else				/* here we're outside of tabulated rates, T>Tmax K */
     {
@@ -1214,45 +1099,6 @@ void IonizeParamsFunction(void)
 }
 
 
-#if defined(LT_STELLAREVOLUTION) && defined(LT_METAL_COOLING)
-
-void WriteCoolingTable(void)
-{
-    int i, j;
-
-    printf("COOLING TABLES\n");
-    for(i = 0; i <= NCOOLTAB; i++)
-    {
-        printf("%10.8e %10.8e %10.8e %10.8e %10.8e %10.8e %10.8e %10.8e %10.8e %10.8e\n",
-                BetaH0[i],
-                BetaHep[i],
-                Betaff[i],
-                AlphaHp[i], AlphaHep[i], AlphaHepp[i], Alphad[i], GammaeH0[i], GammaeHe0[i], GammaeHep[i]);
-
-    }
-    if(ZBins > 1)
-    {
-        printf("\n\nMETALCOOL TABLES  :: ");
-        printf("%d %d %g %g %g %g \n", ZBins, TBins, ZMin, ZMax, TMin, TMax);
-        for(i = 0; i < ZBins; i++)
-        {
-            for(j = 0; j < TBins; j++)
-                printf("%10.8e %10.8e %10.8e\n", CoolZvalue[i], CoolTvalue[j], CoolingTables[i][j]);
-        }
-    }
-
-    printf("\n\nUV TABLES\n");
-    for(i = 0; i < nheattab; i++)
-        printf("%10.8e %10.8e %10.8e %10.8e %10.8e %10.8e %10.8e\n",
-                inlogz[i], gH0[i], gHe[i], gHep[i], eH0[i], eHe[i], eHep[i]);
-
-    return;
-
-}
-
-
-#endif
-
 void InitCool(void)
 {
     InitCoolMemory();
@@ -1277,73 +1123,7 @@ void InitCool(void)
     All.Time = All.TimeBegin;
     IonizeParams();
 
-#ifdef LT_STELLAREVOLUTION
-    read_cooling_tables("coolingtable");
-#ifdef LT_DAMP_METALCOOLING
-    SetDampMetalCooling();
-#endif
-#else
-#ifdef LT_STELLAREVOLUTION
-    TBins = 1;
-    ZBins = 1;
-    TMin = 4.0;
-    TMax = 8.5;
-    ZMin = -10;
-    ZMax = -10;
-    ThInst_onset = (double *) malloc(ZBins * sizeof(double));
-    CoolZvalue = (double *) malloc(ZBins * sizeof(double));
-    CoolTvalue = (double *) malloc(TBins * sizeof(double));
-#endif
-#endif
 }
-
-#ifdef LT_METAL_COOLING
-/*  M E T A L   C O O L I N G  */
-
-double GetMetalLambda(double logT, double Zsol)
-{
-    double t, u, log_temp = logT;
-    double x_1y, x_1y_1, xy_1;
-    int Zi, Ti;
-
-    /* note: Zsol is supposed to be the Iron abundance in solar units 
-       (anders and grevesse 1989: 2.62e-3)
-       */
-
-    if(getindex(&CoolZvalue[0], 0, ZBins - 1, &Zsol, &Zi) == -2)
-        return 0;
-    if(Zi == ZBins - 1)
-        t = 0;
-    else
-        t = (Zsol - CoolZvalue[Zi]) / (CoolZvalue[Zi + 1] - CoolZvalue[Zi]);
-
-    if(getindex(&CoolTvalue[0], 0, TBins - 1, &log_temp, &Ti) == -2)
-        return 0;
-    if(Ti == TBins - 1)
-        u = 0;
-    else
-        u = (log_temp - CoolTvalue[Ti]) / (CoolTvalue[Ti + 1] - CoolTvalue[Ti]);
-
-    if(t * u > 0)
-        x_1y_1 = CoolingTables[Zi + 1][Ti + 1];
-    else
-        x_1y_1 = 0;
-
-    if(t == 0)
-        x_1y = 0;
-    else
-        x_1y = CoolingTables[Zi + 1][Ti];
-
-    if(u == 0)
-        xy_1 = 0;
-    else
-        xy_1 = CoolingTables[Zi][Ti + 1];
-
-    return pow(10, (1 - t) * (1 - u) * CoolingTables[Zi][Ti] +
-            t * (1 - u) * x_1y + t * u * x_1y_1 + (1 - t) * u * xy_1);
-
-}
-#endif
 
 #ifdef CS_MODEL
 
