@@ -45,10 +45,6 @@ static double *list_speedfac;
 static double *list_cadj_cpu;
 static double *list_cadj_cost;
 
-#ifdef LT_STELLAREVOLUTION
-static int *toGoStars, *toGetStars, *list_N_stars, *list_loadstars;
-#endif
-
 static struct local_topnode_data
 {
     peanokey Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
@@ -82,17 +78,9 @@ static float *domainWork;	/*!< a table that gives the total "work" due to the pa
 static int *domainCount;	/*!< a table that gives the total number of particles held by each processor */
 static int *domainCountSph;	/*!< a table that gives the total number of SPH particles held by each processor */
 
-#ifdef LT_STELLAREVOLUTION
-static int *domainCountStars;
-#endif
-
 static int domain_allocated_flag = 0;
 
 static int maxLoad, maxLoadsph;
-
-#ifdef LT_STELLAREVOLUTION
-static int maxLoadstars;
-#endif
 
 static double totgravcost, totpartcount, gravcost;
 
@@ -190,19 +178,6 @@ void domain_Decomposition(void)
             domainCountSph = (int *) mymalloc("domainCountSph", bytes = (MaxTopNodes * sizeof(int)));
             all_bytes += bytes;
 
-#ifdef LT_STELLAREVOLUTION
-            toGoStars = (int *) mymalloc("toGoStars", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            toGetStars = (int *) mymalloc("toGetStars", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            list_N_stars = (int *) mymalloc("list_N_stars", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            list_loadstars = (int *) mymalloc("list_loadstars", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            domainCountStars = (int *) mymalloc("domainCountStars", bytes = (MaxTopNodes * sizeof(int)));
-            all_bytes += bytes;
-#endif
-
             topNodes = (struct local_topnode_data *) mymalloc("topNodes", bytes =
                     (MaxTopNodes *
                      sizeof(struct local_topnode_data)));
@@ -218,9 +193,6 @@ void domain_Decomposition(void)
 
             maxLoad = (int) (All.MaxPart * REDUC_FAC);
             maxLoadsph = (int) (All.MaxPartSph * REDUC_FAC);
-#ifdef LT_STELLAREVOLUTION
-            maxLoadstars = (int) (All.MaxPartMet * REDUC_FAC);
-#endif
 
             report_memory_usage(&HighMark_domain, "DOMAIN");
 
@@ -236,13 +208,6 @@ void domain_Decomposition(void)
             }
 
             myfree(topNodes);
-#ifdef LT_STELLAREVOLUTION
-            myfree(domainCountStars);
-            myfree(list_loadstars);
-            myfree(list_N_stars);
-            myfree(toGetStars);
-            myfree(toGoStars);
-#endif
             myfree(domainCountSph);
             myfree(domainCount);
             myfree(domainWork);
@@ -298,24 +263,11 @@ void domain_Decomposition(void)
         CPU_Step[CPU_DOMAIN] += measure_time();
 
         for(i = 0; i < NumPart; i++)
-#ifdef LT_STELLAREVOLUTION
-        {
-#endif
             if(P[i].Type > 5 || P[i].Type < 0)
             {
                 printf("task=%d:  P[i=%d].Type=%d\n", ThisTask, i, P[i].Type);
                 endrun(111111);
             }
-#ifdef LT_STELLAREVOLUTION
-            if((P[i].Type == 4) && (MetP[P[i].MetID].PID != i))
-            {
-                printf("task=%d:  error in cross-indexes for star-particle %d ID %u\n", ThisTask, i, P[i].ID);
-                fflush(stdout);
-                endrun(111112);
-            }
-
-        }
-#endif
 
 #ifdef PEANOHILBERT
 #ifdef SUBFIND
@@ -642,22 +594,12 @@ int domain_check_memory_bound(void)
     int load, sphload, max_load, max_sphload;
     double work;
 
-#ifdef LT_STELLAREVOLUTION
-    int starsload, max_starsload;
-#endif
-
     max_load = max_sphload = 0;
-#ifdef LT_STELLAREVOLUTION
-    max_starsload = 0;
-#endif
 
     for(ta = 0; ta < NTask; ta++)
     {
         load = sphload = 0;
         work = 0;
-#ifdef LT_STELLAREVOLUTION
-        starsload = 0;
-#endif
 
         for(m = 0; m < MULTIPLEDOMAINS; m++)
             for(i = DomainStartList[ta * MULTIPLEDOMAINS + m]; i <= DomainEndList[ta * MULTIPLEDOMAINS + m]; i++)
@@ -665,26 +607,16 @@ int domain_check_memory_bound(void)
                 load += domainCount[i];
                 sphload += domainCountSph[i];
                 work += domainWork[i];
-#ifdef LT_STELLAREVOLUTION
-                starsload += domainCountStars[i];
-#endif
             }
 
         list_load[ta] = load;
         list_loadsph[ta] = sphload;
         list_work[ta] = work;
-#ifdef LT_STELLAREVOLUTION
-        list_loadstars[ta] = starsload;
-#endif
 
         if(load > max_load)
             max_load = load;
         if(sphload > max_sphload)
             max_sphload = sphload;
-#ifdef LT_STELLAREVOLUTION
-        if(starsload > max_starsload)
-            max_starsload = starsload;
-#endif
     }
 
 #ifdef SUBFIND
@@ -692,9 +624,6 @@ int domain_check_memory_bound(void)
     {
         load = max_load;
         sphload = max_sphload;
-#ifdef LT_STELLAREVOLUTION
-        starsload = max_starsload;
-#endif
 
         for(i = 0; i < NumPart; i++)
         {
@@ -703,17 +632,10 @@ int domain_check_memory_bound(void)
                 load++;
                 if(P[i].Type == 0)
                     sphload++;
-#ifdef LT_STELLAREVOLUTION
-                if(P[i].Type == 4)
-                    starsload++;
-#endif
             }
         }
         MPI_Allreduce(&load, &max_load, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
         MPI_Allreduce(&sphload, &max_sphload, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-#ifdef LT_STELLAREVOLUTION
-        MPI_Allreduce(&starsload, &max_starsload, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-#endif
     }
 #endif
 
@@ -739,18 +661,6 @@ int domain_check_memory_bound(void)
         return 1;
     }
 
-#ifdef LT_STELLAREVOLUTION
-    if(max_starsload > maxLoadstars)
-    {
-        if(ThisTask == 0)
-        {
-            printf("desired memory imbalance=%g  (STARS) (limit=%d, needed=%d)\n",
-                    (max_starsload * All.PartAllocFactor) / maxLoadstars, maxLoadstars, max_starsload);
-        }
-
-        return 1;
-    }
-#endif
     return 0;
 }
 
@@ -778,38 +688,13 @@ void domain_exchange(void)
     offset_recv = (int *) mymalloc("offset_recv", NTask * sizeof(int));
     offset_recv_sph = (int *) mymalloc("offset_recv_sph", NTask * sizeof(int));
 
-#ifdef LT_STELLAREVOLUTION
-    int count_togo_stars = 0, count_get_stars = 0;
-
-    int *count_stars, *offset_stars;
-
-    int *count_recv_stars, *offset_recv_stars;
-
-    struct met_particle_data *metBuf;
-
-    count_stars = (int *) mymalloc("count_stars", NTask * sizeof(int));
-    offset_stars = (int *) mymalloc("offset_stars", NTask * sizeof(int));
-    count_recv_stars = (int *) mymalloc("count_recv_stars", NTask * sizeof(int));
-    offset_recv_stars = (int *) mymalloc("offset_recv_stars", NTask * sizeof(int));
-#endif
-
     for(i = 1, offset_sph[0] = 0; i < NTask; i++)
         offset_sph[i] = offset_sph[i - 1] + toGoSph[i - 1];
 
-#ifndef LT_STELLAREVOLUTION
     offset[0] = offset_sph[NTask - 1] + toGoSph[NTask - 1];
 
     for(i = 1; i < NTask; i++)
         offset[i] = offset[i - 1] + (toGo[i - 1] - toGoSph[i - 1]);
-#else
-    offset_stars[0] = offset_sph[NTask - 1] + toGoSph[NTask - 1];
-    for(i = 1; i < NTask; i++)
-        offset_stars[i] = offset_stars[i - 1] + toGoStars[i - 1];
-
-    offset[0] = offset_stars[NTask - 1] + toGoStars[NTask - 1];
-    for(i = 1; i < NTask; i++)
-        offset[i] = offset[i - 1] + (toGo[i - 1] - toGoSph[i - 1] - toGoStars[i - 1]);
-#endif
 
     for(i = 0; i < NTask; i++)
     {
@@ -819,10 +704,6 @@ void domain_exchange(void)
         count_get += toGet[i];
         count_get_sph += toGetSph[i];
 
-#ifdef LT_STELLAREVOLUTION
-        count_togo_stars += toGoStars[i];
-        count_get_stars += toGetStars[i];
-#endif
     }
 
     partBuf = (struct particle_data *) mymalloc("partBuf", count_togo * sizeof(struct particle_data));
@@ -831,13 +712,6 @@ void domain_exchange(void)
 
     for(i = 0; i < NTask; i++)
         count[i] = count_sph[i] = 0;
-
-#ifdef LT_STELLAREVOLUTION
-    metBuf =
-        (struct met_particle_data *) mymalloc("metBuf", count_togo_stars * sizeof(struct met_particle_data));
-    for(i = 0; i < NTask; i++)
-        count_stars[i] = 0;
-#endif
 
     for(n = 0; n < NumPart; n++)
     {
@@ -861,15 +735,6 @@ void domain_exchange(void)
                 sphBuf[offset_sph[target] + count_sph[target]] = SphP[n];
                 count_sph[target]++;
             }
-#ifdef LT_STELLAREVOLUTION
-            else if(P[n].Type == 4)
-            {
-                partBuf[offset_stars[target] + count_stars[target]] = P[n];
-                keyBuf[offset_stars[target] + count_stars[target]] = Key[n];
-                metBuf[offset_stars[target] - offset_stars[0] + count_stars[target]] = MetP[P[n].MetID];
-                count_stars[target]++;
-            }
-#endif
             else
             {
                 partBuf[offset[target] + count[target]] = P[n];
@@ -884,103 +749,41 @@ void domain_exchange(void)
                 P[N_gas - 1] = P[NumPart - 1];
                 Key[n] = Key[N_gas - 1];
                 Key[N_gas - 1] = Key[NumPart - 1];
-#ifdef LT_STELLAREVOLUTION
-                if((P[N_gas - 1].Type & 15) == 4)
-                    MetP[P[N_gas - 1].MetID].PID = N_gas - 1;
-#endif
                 SphP[n] = SphP[N_gas - 1];
 
                 NumPart--;
                 N_gas--;
                 n--;
             }
-#ifdef LT_STELLAREVOLUTION
-            else if(P[n].Type == 4)
-            {
-                MetP[P[n].MetID] = MetP[N_stars - 1];
-                P[MetP[N_stars - 1].PID].MetID = P[n].MetID;
-
-                if(n < NumPart - 1)
-                {
-                    P[n] = P[NumPart - 1];
-                    Key[n] = Key[NumPart - 1];
-                    if((P[n].Type & 15) == 4)
-                        MetP[P[n].MetID].PID = n;
-                }
-
-                NumPart--;
-                N_stars--;
-                n--;
-            }
-#endif
             else
             {
                 P[n] = P[NumPart - 1];
                 Key[n] = Key[NumPart - 1];
-#ifdef LT_STELLAREVOLUTION
-                if((P[n].Type & 15) == 4)
-                    MetP[P[n].MetID].PID = n;
-#endif
                 NumPart--;
                 n--;
             }
         }
     }
 
-#ifndef LT_STELLAREVOLUTION
     if(count_get_sph)
     {
         memmove(P + N_gas + count_get_sph, P + N_gas, (NumPart - N_gas) * sizeof(struct particle_data));
         memmove(Key + N_gas + count_get_sph, Key + N_gas, (NumPart - N_gas) * sizeof(peanokey));
     }
-#else
-    if(count_get_sph + count_get_stars)
-    {
-        memmove(P + N_gas + count_get_sph + count_get_stars, P + N_gas,
-                (NumPart - N_gas) * sizeof(struct particle_data));
-        memmove(Key + N_gas + count_get_sph + count_get_stars, Key + N_gas,
-                (NumPart - N_gas) * sizeof(peanokey));
-        for(n = 0; n < N_stars; n++)
-        {
-            MetP[n].PID += count_get_sph + count_get_stars;
-            if(P[MetP[n].PID].MetID != n)
-            {
-                printf("[Task %d] some serious error in adjusting the memory before particle exchange\n",
-                        ThisTask);
-                fflush(stdout);
-                endrun(991000);
-            }
-        }
-    }
-#endif
 
     for(i = 0; i < NTask; i++)
     {
         count_recv_sph[i] = toGetSph[i];
         count_recv[i] = toGet[i] - toGetSph[i];
-#ifdef LT_STELLAREVOLUTION
-        count_recv_stars[i] = toGetStars[i];
-        count_recv[i] -= toGetStars[i];
-#endif
     }
 
     for(i = 1, offset_recv_sph[0] = N_gas; i < NTask; i++)
         offset_recv_sph[i] = offset_recv_sph[i - 1] + count_recv_sph[i - 1];
 
-#ifndef LT_STELLAREVOLUTION
     offset_recv[0] = NumPart + count_get_sph;
 
     for(i = 1; i < NTask; i++)
         offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
-#else
-    for(i = 1, offset_recv_stars[0] = N_gas + count_get_sph; i < NTask; i++)
-        offset_recv_stars[i] = offset_recv_stars[i - 1] + count_recv_stars[i - 1];
-
-    offset_recv[0] = NumPart + count_get_sph + count_get_stars;
-
-    for(i = 1; i < NTask; i++)
-        offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
-#endif
     n_requests = 0;
 
     for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
@@ -1002,22 +805,6 @@ void domain_exchange(void)
                         TAG_SPHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
             }
 
-#ifdef LT_STELLAREVOLUTION
-            if(count_recv_stars[target] > 0)
-            {
-                MPI_Irecv(P + offset_recv_stars[target],
-                        count_recv_stars[target] * sizeof(struct particle_data), MPI_BYTE, target,
-                        TAG_PDATA_STARS, MPI_COMM_WORLD, &requests[n_requests++]);
-
-                MPI_Irecv(Key + offset_recv_stars[target], count_recv_stars[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY_STARS, MPI_COMM_WORLD, &requests[n_requests++]);
-
-                MPI_Irecv(MetP + N_stars + offset_recv_stars[target] - offset_recv_sph[NTask - 1] -
-                        count_recv_sph[NTask - 1],
-                        count_recv_stars[target] * sizeof(struct met_particle_data), MPI_BYTE, target,
-                        TAG_METDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-            }
-#endif
             if(count_recv[target] > 0)
             {
                 MPI_Irecv(P + offset_recv[target], count_recv[target] * sizeof(struct particle_data),
@@ -1052,21 +839,6 @@ void domain_exchange(void)
                         MPI_BYTE, target, TAG_SPHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
             }
 
-#ifdef LT_STELLAREVOLUTION
-            if(count_stars[target] > 0)
-            {
-                MPI_Isend(partBuf + offset_stars[target], count_stars[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA_STARS, MPI_COMM_WORLD, &requests[n_requests++]);
-
-                MPI_Isend(keyBuf + offset_stars[target], count_stars[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY_STARS, MPI_COMM_WORLD, &requests[n_requests++]);
-
-                MPI_Isend(metBuf + offset_stars[target] - offset_sph[NTask - 1] - count_sph[NTask - 1],
-                        count_stars[target] * sizeof(struct met_particle_data), MPI_BYTE, target, TAG_METDATA,
-                        MPI_COMM_WORLD, &requests[n_requests++]);
-            }
-#endif
-
             if(count[target] > 0)
             {
                 MPI_Isend(partBuf + offset[target], count[target] * sizeof(struct particle_data),
@@ -1082,19 +854,6 @@ void domain_exchange(void)
 
     NumPart += count_get;
     N_gas += count_get_sph;
-#ifdef LT_STELLAREVOLUTION
-    for(i = 0; i < count_get_stars; i++)
-    {
-        if(P[offset_recv_stars[0] + i].Type != 4)
-            printf("haloa oh!!!\n");
-        P[offset_recv_stars[0] + i].MetID = N_stars + i;
-        MetP[N_stars + i].PID = offset_recv_stars[0] + i;
-    }
-    N_stars += count_get_stars;
-    for(i = 0; i < N_stars; i++)
-        if(MetP[i].PID >= NumPart || P[MetP[i].PID].Type != 4)
-            endrun(987654);
-#endif
 
     if(NumPart > All.MaxPart)
     {
@@ -1105,23 +864,9 @@ void domain_exchange(void)
     if(N_gas > All.MaxPartSph)
         endrun(787879);
 
-#ifdef LT_STELLAREVOLUTION
-    if(N_stars > All.MaxPartMet)
-        endrun(787880);
-
-    myfree(metBuf);
-#endif
-
     myfree(keyBuf);
     myfree(sphBuf);
     myfree(partBuf);
-
-#ifdef LT_STELLAREVOLUTION
-    myfree(offset_recv_stars);
-    myfree(count_recv_stars);
-    myfree(offset_stars);
-    myfree(count_stars);
-#endif
 
     myfree(offset_recv_sph);
     myfree(offset_recv);
@@ -1157,35 +902,13 @@ void domain_exchange(void)
     offset_recv = (int *) mymalloc("offset_recv", NTask * sizeof(int));
     offset_recv_sph = (int *) mymalloc("offset_recv_sph", NTask * sizeof(int));
 
-#ifdef LT_STELLAREVOLUTION
-    int count_togo_stars, count_get_stars;
-    int *count_stars, *offset_stars;
-    int *count_recv_stars, *ffset_recv_stars;
-    struct met_particle_data *metBuf;
-
-    count_stars = (int *) mymalloc("count_stars", NTask * sizeof(int));
-    offset_stars = (int *) mymalloc("offset_stars", NTask * sizeof(int));
-    count_recv_stars = (int *) mymalloc("count_recv_stars", NTask * sizeof(int));
-    offset_recv_stars = (int *) mymalloc("offset_recv_stars", NTask * sizeof(int));
-#endif
-
     for(i = 1, offset_sph[0] = 0; i < NTask; i++)
         offset_sph[i] = offset_sph[i - 1] + toGoSph[i - 1];
 
-#ifndef LT_STELLAREVOLUTION
     offset[0] = offset_sph[NTask - 1] + toGoSph[NTask - 1];
 
     for(i = 1; i < NTask; i++)
         offset[i] = offset[i - 1] + (toGo[i - 1] - toGoSph[i - 1]);
-#else
-    offset_stars[0] = offset_sph[NTask - 1] + toGoSph[NTask - 1];
-    for(i = 1, offset_stars[0] = 0; i < NTask; i++)
-        offset_stars[i] = offset_stars[i - 1] + toGoStars[i - 1];
-
-    offset[0] = offset_stars[NTask - 1] + toGoStars[NTask - 1];
-    for(i = 1; i < NTask; i++)
-        offset[i] = offset[i - 1] + (toGo[i - 1] - toGoSph[i - 1] - toGoStars[i - 1]);
-#endif
 
     for(i = 0; i < NTask; i++)
     {
@@ -1194,10 +917,6 @@ void domain_exchange(void)
 
         count_get += toGet[i];
         count_get_sph += toGetSph[i];
-#ifdef LT_STELLAREVOLUTION
-        count_togo_stars += toGoStars[i];
-        count_get_stars += toGetStars[i];
-#endif
     }
 
     partBuf = (struct particle_data *) mymalloc("partBuf", count_togo * sizeof(struct particle_data));
@@ -1206,13 +925,6 @@ void domain_exchange(void)
 
     for(i = 0; i < NTask; i++)
         count[i] = count_sph[i] = 0;
-
-#ifdef LT_STELLAREVOLUTION
-    metBuf =
-        (struct met_particle_data *) mymalloc("metBuf", count_togo_stars * sizeof(struct met_particle_data));
-    for(i = 0; i < NTask; i++)
-        count_stars[i] = 0;
-#endif
 
     for(n = 0; n < NumPart; n++)
     {
@@ -1236,15 +948,6 @@ void domain_exchange(void)
                 sphBuf[offset_sph[target] + count_sph[target]] = SphP[n];
                 count_sph[target]++;
             }
-#ifdef LT_STELLAREVOLUTION
-            else if(P[n].Type == 4)
-            {
-                partBuf[offset_star[target] + count_stars[target]] = P[n];
-                keyBuf[offset_star[target] + count_stars[target]] = Key[n];
-                metBuf[offset_stars[target] - ofsset count_stars[target]] = MetP[P[n].MetID];
-                count_stars[target]++;
-            }
-#endif
             else
             {
                 partBuf[offset[target] + count[target]] = P[n];
@@ -1258,102 +961,41 @@ void domain_exchange(void)
                 P[N_gas - 1] = P[NumPart - 1];
                 Key[n] = Key[N_gas - 1];
                 Key[N_gas - 1] = Key[NumPart - 1];
-#ifdef LT_STELLAREVOLUTION
-                if(P[N_gas - 1].Type == 4)
-                    MetP[P[N_gas - 1].MetID].PID = N_gas - 1;
-#endif
                 SphP[n] = SphP[N_gas - 1];
 
                 NumPart--;
                 N_gas--;
                 n--;
             }
-#ifdef LT_STELLAREVOLUTION
-            else if(P[n].Type == 4)
-            {
-                P[n] = P[NumPart - 1];
-                Key[n] = Key[N_gas - 1];
-                if(P[n].Type == 4)
-                    MetP[P[n].MetID].PID = n;
-                else
-                {
-                    MetP[n] = MetP[N_stars - 1];
-                    P[MetP[n].PID].MetID = n;
-                }
-
-                NumPart--;
-                N_stars--;
-                n--;
-            }
-#endif
             else
             {
                 P[n] = P[NumPart - 1];
                 Key[n] = Key[NumPart - 1];
-#ifdef LT_STELLAREVOLUTION
-                if(P[n].Type == 4)
-                    MetP[P[n].MetID].PID = n;
-#endif
                 NumPart--;
                 n--;
             }
         }
     }
 
-#ifndef LT_STELLAREVOLUTION
     if(count_get_sph)
     {
         memmove(P + N_gas + count_get_sph, P + N_gas, (NumPart - N_gas) * sizeof(struct particle_data));
         memmove(Key + N_gas + count_get_sph, Key + N_gas, (NumPart - N_gas) * sizeof(peanokey));
     }
-#else
-    if(count_get_sph + count_get_stars)
-    {
-        memmove(P + N_gas + count_get_sph + count_get_stars, P + N_gas,
-                (NumPart - N_gas) * sizeof(struct particle_data));
-        memmove(Key + N_gas + count_get_sph + count_get_stars, Key + N_gas,
-                (NumPart - N_gas) * sizeof(peanokey));
-        for(n = 0; n < N_stars; n++)
-        {
-            MetP[n].PID += count_get_sph + count_get_stars;
-            if(P[MetP[n].PID].MetID != n)
-            {
-                printf("[Task %d] some serious error in adjusting the memory before particle exchange\n",
-                        ThisTask);
-                fflush(stdout);
-                endrun(991000);
-            }
-        }
-    }
-#endif
 
     for(i = 0; i < NTask; i++)
     {
         count_recv_sph[i] = toGetSph[i];
         count_recv[i] = toGet[i] - toGetSph[i];
-#ifdef LT_STELLAREVOLUTION
-        count_recv_stars[i] = toGetStars[i];
-        count_recv[i] -= toGetStars[i];
-#endif
     }
 
     for(i = 1, offset_recv_sph[0] = N_gas; i < NTask; i++)
         offset_recv_sph[i] = offset_recv_sph[i - 1] + count_recv_sph[i - 1];
 
-#ifndef LT_STELLAREVOLUTION
     offset_recv[0] = NumPart + count_get_sph;
 
     for(i = 1; i < NTask; i++)
         offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
-#else
-    for(i = 1, offset_recv_stars[0] = N_gas + count_recv_sph; i < NTask; i++)
-        offset_recv_stars[i] = offset_recv_stars[i - 1] + count_recv_stars[i - 1];
-
-    offset_recv[0] = NumPart + count_get_sph + count_get_stars;
-
-    for(i = 1; i < NTask; i++)
-        offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
-#endif
 
     for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
     {
@@ -1380,30 +1022,6 @@ void domain_exchange(void)
                         MPI_BYTE, target, TAG_KEY_SPH, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
 
-#ifdef LT_STELLAREVOLUTION
-            if(count_stars[target] > 0 || count_recv_stars[target] > 0)
-            {
-                MPI_Sendrecv(partBuf + offset_stars[target], count_stars[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA_STARS,
-                        P + offset_recv_stars[target],
-                        count_recv_stars[target] * sizeof(struct particle_data), MPI_BYTE, target,
-                        TAG_PDATA_STARS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-                MPI_Sendrecv(metBuf + offset_stars[target] - offset_sph[NTask - 1],
-                        count_stars[target] * sizeof(struct met_particle_data), MPI_BYTE, target,
-                        TAG_METDATA,
-                        MetP + offset_recv_stars[target] - offset_recv_sph[NTask - 1] -
-                        count_recv_sph[NTask - 1],
-                        count_recv_stars[target] * sizeof(struct met_particle_data), MPI_BYTE, target,
-                        TAG_SPHDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-                MPI_Sendrecv(keyBuf + offset_stars[target], count_stars[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY_STAR,
-                        Key + offset_recv_stars[target], count_recv_stars[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY_STAR, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-
-#endif
             if(count[target] > 0 || count_recv[target] > 0)
             {
                 MPI_Sendrecv(partBuf + offset[target], count[target] * sizeof(struct particle_data),
@@ -1421,16 +1039,6 @@ void domain_exchange(void)
 
     NumPart += count_get;
     N_gas += count_get_sph;
-#ifdef LT_STELLAREVOLUTION
-    for(i = 0; i < count_get_stars; i++)
-    {
-        if(P[offset_recv_stars[0] + i].Type != 4)
-            printf("haloa oh!!!\n");
-        P[offset_recv_stars[0] + i].MetID = N_stars + i;
-        MetP[N_stars + i].PID = offset_recv_stars[0] + i;
-    }
-    N_stars += count_get_stars;
-#endif
     if(NumPart > All.MaxPart)
     {
         printf("TASK=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
@@ -1440,23 +1048,9 @@ void domain_exchange(void)
     if(N_gas > All.MaxPartSph)
         endrun(787879);
 
-#ifdef LT_STELLAREVOLUTION
-    if(N_stars > All.MaxPartMet)
-        endrun(787880);
-
-    myfree(metBuf);
-#endif
-
     myfree(keyBuf);
     myfree(sphBuf);
     myfree(partBuf);
-
-#ifdef LT_STELLAREVOLUTION
-    myfree(offset_recv_stars);
-    myfree(count_recv_stars);
-    myfree(offset_stars);
-    myfree(count_stars);
-#endif
 
     myfree(offset_recv_sph);
     myfree(offset_recv);
@@ -1686,9 +1280,6 @@ int domain_countToGo(size_t nlimit)
     {
         toGo[n] = 0;
         toGoSph[n] = 0;
-#ifdef LT_STELLAREVOLUTION
-        toGoStars[n] = 0;
-#endif
     }
 
     package = (sizeof(struct particle_data) + sizeof(struct sph_particle_data) + sizeof(peanokey));
@@ -1721,13 +1312,6 @@ int domain_countToGo(size_t nlimit)
                     toGoSph[DomainTask[no]] += 1;
                     nlimit -= sizeof(struct sph_particle_data);
                 }
-#ifdef LT_STELLAREVOLUTION
-                if((P[n].Type & 15) == 4)
-                {
-                    toGoStars[DomainTask[no]] += 1;
-                    nlimit -= sizeof(struct met_particle_data);
-                }
-#endif
                 P[n].Type |= 16;	/* flag this particle for export */
             }
         }
@@ -1735,9 +1319,6 @@ int domain_countToGo(size_t nlimit)
 
     MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
     MPI_Alltoall(toGoSph, 1, MPI_INT, toGetSph, 1, MPI_INT, MPI_COMM_WORLD);
-#ifdef LT_STELLAREVOLUTION
-    MPI_Alltoall(toGoStars, 1, MPI_INT, toGetStars, 1, MPI_INT, MPI_COMM_WORLD);
-#endif
 
     if(package >= nlimit)
         ret = 1;
@@ -1756,16 +1337,9 @@ int domain_countToGo(size_t nlimit)
 
         MPI_Allgather(&NumPart, 1, MPI_INT, list_NumPart, 1, MPI_INT, MPI_COMM_WORLD);
         MPI_Allgather(&N_gas, 1, MPI_INT, list_N_gas, 1, MPI_INT, MPI_COMM_WORLD);
-#ifdef LT_STELLAREVOLUTION
-        MPI_Allgather(&N_stars, 1, MPI_INT, list_N_stars, 1, MPI_INT, MPI_COMM_WORLD);
-#endif
 
         int flag, flagsum, ntoomany, ta, i, target;
         int count_togo, count_toget, count_togo_sph, count_toget_sph;
-
-#ifdef LT_STELLAREVOLUTION
-        int ntoomanystars, count_togo_stars, count_toget_stars;
-#endif
 
         do
         {
@@ -1781,106 +1355,54 @@ int domain_countToGo(size_t nlimit)
                     {
                         count_togo = count_toget = 0;
                         count_togo_sph = count_toget_sph = 0;
-#ifdef LT_STELLAREVOLUTION
-                        count_togo_stars = count_toget_stars = 0;
-#endif
                         for(i = 0; i < NTask; i++)
                         {
                             count_togo += toGo[i];
                             count_toget += toGet[i];
                             count_togo_sph += toGoSph[i];
                             count_toget_sph += toGetSph[i];
-#ifdef LT_STELLAREVOLUTION
-                            count_togo_stars += toGoStars[i];
-                            count_toget_stars += toGetStars[i];
-#endif
                         }
                     }
                     MPI_Bcast(&count_togo, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     MPI_Bcast(&count_toget, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     MPI_Bcast(&count_togo_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     MPI_Bcast(&count_toget_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
-#ifdef LT_STELLAREVOLUTION
-                    MPI_Bcast(&count_togo_stars, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_toget_stars, 1, MPI_INT, ta, MPI_COMM_WORLD);
-
-                    if(((ntoomany = list_N_gas[ta] + count_toget_sph - count_togo_sph - All.MaxPartSph) > 0) ||
-                            ((ntoomanystars =
-                              list_N_stars[ta] + count_toget_stars - count_togo_stars - All.MaxPartMet) > 0))
-#else
-                        if((ntoomany = list_N_gas[ta] + count_toget_sph - count_togo_sph - All.MaxPartSph) > 0)
-#endif
+                    if((ntoomany = list_N_gas[ta] + count_toget_sph - count_togo_sph - All.MaxPartSph) > 0)
+                    {
+                        if(ThisTask == 0)
                         {
-                            if(ThisTask == 0)
+                            printf
+                                ("exchange needs to be modified because I can't receive %d SPH-particles on task=%d\n",
+                                 ntoomany, ta);
+                            if(flagsum > 25)
+                                printf("list_N_gas[ta=%d]=%d  count_toget_sph=%d count_togo_sph=%d\n",
+                                        ta, list_N_gas[ta], count_toget_sph, count_togo_sph);
+                            fflush(stdout);
+                        }
+
+                        flag = 1;
+                        i = flagsum % NTask;
+                        while(ntoomany)
+                        {
+                            if(i == ThisTask)
                             {
-#ifdef LT_STELLAREVOLUTION
-                                if(ntoomany)
+                                if(toGoSph[ta] > 0)
                                 {
-#endif
-                                    printf
-                                        ("exchange needs to be modified because I can't receive %d SPH-particles on task=%d\n",
-                                         ntoomany, ta);
-                                    if(flagsum > 25)
-                                        printf("list_N_gas[ta=%d]=%d  count_toget_sph=%d count_togo_sph=%d\n",
-                                                ta, list_N_gas[ta], count_toget_sph, count_togo_sph);
-                                    fflush(stdout);
-#ifdef LT_STELLAREVOLUTION
+                                    toGoSph[ta]--;
+                                    count_toget_sph--;
+                                    count_toget--;
+                                    ntoomany--;
                                 }
-                                if(ntoomanystars)
-                                {
-                                    printf
-                                        ("exchange needs to be modified because I can't receive %d STAR-particles on task=%d\n",
-                                         ntoomany, ta);
-                                    if(flagsum > 25)
-                                        printf("list_N_stars[ta=%d]=%d  count_toget_stars=%d count_togo_stars=%d\n",
-                                                ta, list_N_stars[ta], count_toget_stars, count_togo_stars);
-                                    fflush(stdout);
-                                }
-#endif
                             }
 
-                            flag = 1;
-                            i = flagsum % NTask;
-#ifndef LT_STELLAREVOLUTION
-                            while(ntoomany)
-#else
-                                while(ntoomany || ntoomanystars)
-#endif
-                                {
-                                    if(i == ThisTask)
-                                    {
-                                        if(toGoSph[ta] > 0)
-#ifdef LT_STELLAREVOLUTION
-                                            if(ntoomany)
-#endif
-                                            {
-                                                toGoSph[ta]--;
-                                                count_toget_sph--;
-                                                count_toget--;
-                                                ntoomany--;
-                                            }
-#ifdef LT_STELLAREVOLUTION
-                                        if(toGoStars[ta] > 0 && ntoomanystars)
-                                        {
-                                            toGoStars[ta]--;
-                                            count_toget_stars--;
-                                            count_toget--;
-                                            ntoomanystars--;
-                                        }
-#endif
-                                    }
-
-                                    MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
-                                    MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
-                                    MPI_Bcast(&count_toget_sph, 1, MPI_INT, i, MPI_COMM_WORLD);
-#ifdef LT_STELLAREVOLUTION
-                                    MPI_Bcast(&count_toget_stars, 1, MPI_INT, i, MPI_COMM_WORLD);
-#endif
-                                    i++;
-                                    if(i >= NTask)
-                                        i = 0;
-                                }
+                            MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
+                            MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
+                            MPI_Bcast(&count_toget_sph, 1, MPI_INT, i, MPI_COMM_WORLD);
+                            i++;
+                            if(i >= NTask)
+                                i = 0;
                         }
+                    }
 
                     if((ntoomany = list_NumPart[ta] + count_toget - count_togo - All.MaxPart) > 0)
                     {
@@ -1937,19 +1459,11 @@ int domain_countToGo(size_t nlimit)
                 local_toGo = (int *)mymalloc("	      local_toGo", NTask * sizeof(int));
                 local_toGoSph = (int *)mymalloc("	      local_toGoSph", NTask * sizeof(int));
 
-#ifdef LT_STELLAREVOLUTION
-                int *local_toGoStars;
-
-                local_toGoStars = (int *)mymalloc("	      local_toGoStars", NTask * sizeof(int));
-#endif
 
                 for(n = 0; n < NTask; n++)
                 {
                     local_toGo[n] = 0;
                     local_toGoSph[n] = 0;
-#ifdef LT_STELLAREVOLUTION
-                    local_toGoStars[n] = 0;
-#endif
                 }
 
                 for(n = 0; n < NumPart; n++)
@@ -1977,17 +1491,6 @@ int domain_countToGo(size_t nlimit)
                                 P[n].Type |= 16;
                             }
                         }
-#ifdef LT_STELLAREVOLUTION
-                        else if((P[n].Type & 15) == 4)
-                        {
-                            if(local_toGoStars[target] < toGoStars[target] && local_toGo[target] < toGo[target])
-                            {
-                                local_toGo[target] += 1;
-                                local_toGoStars[target] += 1;
-                                P[n].Type |= 16;
-                            }
-                        }
-#endif
                         else
                         {
                             if(local_toGo[target] < toGo[target])
@@ -2003,18 +1506,10 @@ int domain_countToGo(size_t nlimit)
                 {
                     toGo[n] = local_toGo[n];
                     toGoSph[n] = local_toGoSph[n];
-#ifdef LT_STELLAREVOLUTION
-                    toGoStars[n] = local_toGoStars[n];
-#endif
                 }
 
                 MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
                 MPI_Alltoall(toGoSph, 1, MPI_INT, toGetSph, 1, MPI_INT, MPI_COMM_WORLD);
-#ifdef LT_STELLAREVOLUTION
-                MPI_Alltoall(toGoStars, 1, MPI_INT, toGetStars, 1, MPI_INT, MPI_COMM_WORLD);
-                myfree(local_toGoStars);
-#endif
-
                 myfree(local_toGoSph);
                 myfree(local_toGo);
             }
@@ -2515,12 +2010,6 @@ void domain_sumCost(void)
     local_domainCount = (int *) mymalloc("local_domainCount", NTopnodes * sizeof(int));
     local_domainCountSph = (int *) mymalloc("local_domainCountSph", NTopnodes * sizeof(int));
 
-#ifdef LT_STELLAREVOLUTION
-    int *local_domainCountStars;
-
-    local_domainCountStars = (int *) mymalloc("local_domainCountStars", NTopnodes * sizeof(int));
-#endif
-
     NTopleaves = 0;
     domain_walktoptree(0);
 
@@ -2529,9 +2018,6 @@ void domain_sumCost(void)
         local_domainWork[i] = 0;
         local_domainCount[i] = 0;
         local_domainCountSph[i] = 0;
-#ifdef LT_STELLAREVOLUTION
-        local_domainCountStars[i] = 0;
-#endif
     }
 
     if(ThisTask == 0)
@@ -2556,19 +2042,11 @@ void domain_sumCost(void)
         local_domainCount[no] += 1;
         if(P[n].Type == 0)
             local_domainCountSph[no] += 1;
-#ifdef LT_STELLAREVOLUTION
-        if(P[n].Type == 4)
-            local_domainCountStars[no] += 1;
-#endif
     }
 
     MPI_Allreduce(local_domainWork, domainWork, NTopleaves, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(local_domainCount, domainCount, NTopleaves, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(local_domainCountSph, domainCountSph, NTopleaves, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-#ifdef LT_STELLAREVOLUTION
-    MPI_Allreduce(local_domainCountStars, domainCountStars, NTopleaves, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    myfree(local_domainCountStars);
-#endif
     myfree(local_domainCountSph);
     myfree(local_domainCount);
     myfree(local_domainWork);
