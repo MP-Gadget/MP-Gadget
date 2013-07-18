@@ -1,4 +1,3 @@
-#ifndef LT_STELLAREVOLUTION
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -1101,8 +1100,6 @@ void set_units_sfr(void)
 #endif /* closes SFR */
 
 #endif /* closes COOLING */
-
-#endif /* closes LT_STELLAREVOLUTION */
 
 #if defined(SFR) || defined(BLACK_HOLES)
 void rearrange_particle_sequence(void)
