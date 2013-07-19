@@ -266,12 +266,6 @@ typedef double MyOutputFloat;
 typedef float MyOutputFloat;
 #endif
 
-#ifdef INPUT_IN_DOUBLEPRECISION
-typedef double MyInputFloat;
-#else
-typedef float MyInputFloat;
-#endif
-
 struct unbind_data
 {
     int index;
@@ -1980,8 +1974,12 @@ extern struct io_header
 }
 header;				/*!< holds header for snapshot files */
 
-
-
+enum datatype {
+    DTYPE_REAL = 1, /* can be single or double */
+    DTYPE_SINGLE = 3,
+    DTYPE_UINT32 = 0, /* uint32*/
+    DTYPE_UINT64 = 2, /* uint64*/
+};
 enum iofields
 { IO_POS,
     IO_VEL,

@@ -13,6 +13,7 @@
 
 #ifdef HAVE_HDF5
 #include <hdf5.h>
+hid_t  get_hdf5_datatype(enum datatype dtype, int doubleprecision);
 void write_header_attributes_in_hdf5(hid_t handle);
 void read_header_attributes_in_hdf5(char *fname);
 void write_parameters_attributes_in_hdf5(hid_t handle);
@@ -205,9 +206,6 @@ void write_file(char *fname, int readTask, int lastTask);
 void distribute_file(int nfiles, int firstfile, int firsttask, int lasttask, int *filenr, int *master,
 		     int *last);
 
-int get_values_per_blockelement(enum iofields blocknr);
-
-int get_datatype_in_block(enum iofields blocknr);
 void get_dataset_name(enum iofields blocknr, char *buf);
 
 
@@ -217,7 +215,11 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type);
 
 int get_particles_in_block(enum iofields blocknr, int *typelist);
 
-int get_bytes_per_blockelement(enum iofields blocknr, int mode);
+int get_bytes_per_blockelement(enum iofields blocknr, int doubleprecision);
+int get_datatype_elsize(enum datatype dtype, int doubleprecision);
+int get_values_per_blockelement(enum iofields blocknr);
+enum datatype get_datatype_in_block(enum iofields blocknr);
+int get_elsize_in_block(enum iofields blocknr, int doubleprecision);
 
 void read_file(char *fname, int readTask, int lastTask);
 

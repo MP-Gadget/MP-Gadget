@@ -382,7 +382,6 @@ void read_ic(char *fname)
 void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 {
     int n, k;
-    MyInputFloat *fp;
     MyIDType *ip;
     float *fp_single;
 
@@ -390,34 +389,22 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
     int alpha, beta;
 #endif
 
-#ifdef AUTO_SWAP_ENDIAN_READIC
     int vt, vpb;
     char *cp;
-#endif
-
-    fp = (MyInputFloat *) CommBuffer;
+    cp = (char *) CommBuffer;
     fp_single = (float *) CommBuffer;
     ip = (MyIDType *) CommBuffer;
+    vt = get_datatype_in_block(blocknr);
+    int elsize = get_elsize_in_block(blocknr, header.flag_doubleprecision);
+    double tmp = 0;
+#define READREAL(ptr) \
+    (tmp = header.flag_doubleprecision?((double*) ptr)[0]:((float*) ptr)[0], \
+     ptr += elsize, \
+     tmp)
 
 #ifdef AUTO_SWAP_ENDIAN_READIC
-    if(blocknr != IO_DMHSML && blocknr != IO_DMDENSITY && blocknr != IO_DMVELDISP && blocknr != IO_DMHSML_V
-            && blocknr != IO_DMDENSITY_V)
-    {
-        cp = (char *) CommBuffer;
-        vt = get_datatype_in_block(blocknr);
-        vpb = get_values_per_blockelement(blocknr);
-        if(vt == 2)
-            swap_Nbyte(cp, pc * vpb, 8);
-        else
-        {
-#ifdef INPUT_IN_DOUBLEPRECISION
-            if(vt == 1)
-                swap_Nbyte(cp, pc * vpb, 8);
-            else
-#endif
-                swap_Nbyte(cp, pc * vpb, 4);
-        }
-    }
+    vpb = get_values_per_blockelement(blocknr);
+    swap_Nbyte(cp, vpb * pc, get_datatype_elsize(vt, header.flag_doubleprecision));
 #endif
 
 #ifdef COSMIC_RAYS
@@ -429,7 +416,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
         case IO_POS:		/* positions */
             for(n = 0; n < pc; n++)
                 for(k = 0; k < 3; k++)
-                    P[offset + n].Pos[k] = *fp++;
+                    P[offset + n].Pos[k] = READREAL(cp);
 
             for(n = 0; n < pc; n++)
                 P[offset + n].Type = type;	/* initialize type here as well */
@@ -441,11 +428,11 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef RESCALEVINI
                     /* scaling v to use same IC's for different cosmologies */
                     if(RestartFlag == 0)
-                        P[offset + n].Vel[k] = (*fp++) * All.VelIniScale;
+                        P[offset + n].Vel[k] = READREAL(cp) * All.VelIniScale;
                     else
-                        P[offset + n].Vel[k] = *fp++;
+                        P[offset + n].Vel[k] = READREAL(cp);
 #else
-            P[offset + n].Vel[k] = *fp++;
+            P[offset + n].Vel[k] = READREAL(cp);
 #endif
             break;
 
@@ -456,7 +443,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 
         case IO_MASS:		/* particle mass */
             for(n = 0; n < pc; n++)
-                P[offset + n].Mass = *fp++;
+                P[offset + n].Mass = READREAL(cp);
             break;
 
 
@@ -465,15 +452,15 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #if !defined(COMOVING_DISTORTION) || defined(COMOVING_READIC)
             for(n = 0; n < pc; n++)
             {
-                P[offset + n].V_matrix[0][0] = *fp++;
-                P[offset + n].V_matrix[0][1] = *fp++;
-                P[offset + n].V_matrix[0][2] = *fp++;
-                P[offset + n].V_matrix[1][0] = *fp++;
-                P[offset + n].V_matrix[1][1] = *fp++;
-                P[offset + n].V_matrix[1][2] = *fp++;
-                P[offset + n].V_matrix[2][0] = *fp++;
-                P[offset + n].V_matrix[2][1] = *fp++;
-                P[offset + n].V_matrix[2][2] = *fp++;
+                P[offset + n].V_matrix[0][0] = READREAL(cp);
+                P[offset + n].V_matrix[0][1] = READREAL(cp);
+                P[offset + n].V_matrix[0][2] = READREAL(cp);
+                P[offset + n].V_matrix[1][0] = READREAL(cp);
+                P[offset + n].V_matrix[1][1] = READREAL(cp);
+                P[offset + n].V_matrix[1][2] = READREAL(cp);
+                P[offset + n].V_matrix[2][0] = READREAL(cp);
+                P[offset + n].V_matrix[2][1] = READREAL(cp);
+                P[offset + n].V_matrix[2][2] = READREAL(cp);
             }
 #endif
 #endif
@@ -483,7 +470,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef DISTORTIONTENSORPS
 #if !defined(COMOVING_DISTORTION) || defined(COMOVING_READIC)
             for(n = 0; n < pc; n++)
-                P[offset + n].init_density = *fp++ * pow(All.TimeBegin, 3.0);
+                P[offset + n].init_density = READREAL(cp) * pow(All.TimeBegin, 3.0);
             break;
 #endif
 #endif
@@ -492,7 +479,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef DISTORTIONTENSORPS
 #if !defined(COMOVING_DISTORTION) || defined(COMOVING_READIC)
             for(n = 0; n < pc; n++)
-                P[offset + n].caustic_counter = *fp++;
+                P[offset + n].caustic_counter = READREAL(cp);
             break;
 #endif
 #endif
@@ -503,7 +490,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
             {
                 for(alpha = 0; alpha < 6; alpha++)
                     for(beta = 0; beta < 6; beta++)
-                        P[offset + n].distortion_tensorps[alpha][beta] = *fp++;
+                        P[offset + n].distortion_tensorps[alpha][beta] = READREAL(cp);
             }
 
 #endif
@@ -513,27 +500,27 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
             for(n = 0; n < pc; n++)
             {
                 P[offset + n].OldAcc = P[offset + n].Mass;	/* use this to temporarily store the masses in the 2plt IC case */
-                P[offset + n].Mass = *fp++;
+                P[offset + n].Mass = READREAL(cp);
             }
             break;
 
         case IO_U:			/* temperature */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].Entropy = *fp++;
+                SphP[offset + n].Entropy = READREAL(cp);
             break;
 
         case IO_RHO:		/* density */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].d.Density = *fp++;
+                SphP[offset + n].d.Density = READREAL(cp);
             break;
 
         case IO_NE:		/* electron abundance */
 #if defined(COOLING) || defined(CHEMISTRY) || defined(UM_CHEMISTRY)
             for(n = 0; n < pc; n++)
 #if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
-                SphP[offset + n].elec = *fp++;
+                SphP[offset + n].elec = READREAL(cp);
 #else
-            SphP[offset + n].Ne = *fp++;
+            SphP[offset + n].Ne = READREAL(cp);
 #endif
 #endif
             break;
@@ -541,53 +528,53 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
         case IO_NH:		/* neutral hydrogen abundance */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HI = *fp++;
+                SphP[offset + n].HI = READREAL(cp);
             break;
 
         case IO_HII:		/* ionized hydrogen abundance */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HII = *fp++;
+                SphP[offset + n].HII = READREAL(cp);
             break;
 
         case IO_HeI:		/* neutral Helium */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HeI = *fp++;
+                SphP[offset + n].HeI = READREAL(cp);
             break;
 
         case IO_HeII:		/* ionized Heluum */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HeII = *fp++;
+                SphP[offset + n].HeII = READREAL(cp);
 
         case IO_HeIII:		/* double ionised Helium */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HeIII = *fp++;
+                SphP[offset + n].HeIII = READREAL(cp);
             break;
 
         case IO_H2I:		/* H2 molecule */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].H2I = *fp++;
+                SphP[offset + n].H2I = READREAL(cp);
             break;
 
         case IO_H2II:		/* ionised H2 molecule */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].H2II = *fp++;
+                SphP[offset + n].H2II = READREAL(cp);
 
         case IO_HM:		/* H minus */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HM = *fp++;
+                SphP[offset + n].HM = READREAL(cp);
             break;
 
         case IO_HeHII:		/* HeH+ */
 #if defined (UM_CHEMISTRY)
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HeHII = *fp++;
+                SphP[offset + n].HeHII = READREAL(cp);
 #endif
             break;
 
         case IO_HD:		/* HD */
 #if defined (UM_CHEMISTRY) &&  defined (UM_HD_COOLING)
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HD = *fp++;
+                SphP[offset + n].HD = READREAL(cp);
 #endif
             break;
 
@@ -601,7 +588,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
         case IO_DII:		/* D plus */
 #if defined (UM_CHEMISTRY) &&  defined (UM_HD_COOLING)
             for(n = 0; n < pc; n++)
-                SphP[offset + n].DII = *fp++;
+                SphP[offset + n].DII = READREAL(cp);
 #endif
             break;
 
@@ -623,21 +610,21 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 
         case IO_HSML:		/* SPH smoothing length */
             for(n = 0; n < pc; n++)
-                PPP[offset + n].Hsml = *fp++;
+                PPP[offset + n].Hsml = READREAL(cp);
             break;
 
 
         case IO_AGE:		/* Age of stars */
 #ifdef STELLARAGE
             for(n = 0; n < pc; n++)
-                P[offset + n].StellarAge = *fp++;
+                P[offset + n].StellarAge = READREAL(cp);
 #endif
             break;
 
         case IO_Z:			/* Gas and star metallicity */
 #ifdef METALS
             for(n = 0; n < pc; n++)
-                P[offset + n].Metallicity = *fp++;
+                P[offset + n].Metallicity = READREAL(cp);
 #endif
             break;
 
@@ -650,14 +637,14 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
         case IO_VTURB:	/* Turbulent Velocity */
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
-                SphP[offset + n].Vturb = *fp++;
+                SphP[offset + n].Vturb = READREAL(cp);
 #endif
             break;
 
         case IO_VRMS:
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
-                SphP[offset + n].Vrms = *fp++;
+                SphP[offset + n].Vrms = READREAL(cp);
 #endif
             break;
 
@@ -665,35 +652,35 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
                 for(k = 0; k < 3; k++)
-                    SphP[offset + n].Vbulk[k] = *fp++;
+                    SphP[offset + n].Vbulk[k] = READREAL(cp);
 #endif
             break;
 
         case IO_VDIV:
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
-                SphP[offset+n].v.DivVel = *fp++;
+                SphP[offset+n].v.DivVel = READREAL(cp);
 #endif
             break;
 
         case IO_VROT:
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
-                SphP[offset+n].r.CurlVel = *fp++;
+                SphP[offset+n].r.CurlVel = READREAL(cp);
 #endif
             break;
 
         case IO_TRUENGB:
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
-                SphP[offset + n].TrueNGB = *fp++;
+                SphP[offset + n].TrueNGB = READREAL(cp);
 #endif
             break;
 
         case IO_DPP:
 #ifdef JD_DPP
             for(n = 0; n < pc; n++)
-                SphP[offset + n].Dpp = *fp++;
+                SphP[offset + n].Dpp = READREAL(cp);
 #endif
             break;
 
@@ -701,7 +688,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef MAGNETIC
             for(n = 0; n < pc; n++)
                 for(k = 0; k < 3; k++)
-                    SphP[offset + n].BPred[k] = *fp++;
+                    SphP[offset + n].BPred[k] = READREAL(cp);
 #ifdef TRACEDIVB
             SphP[offset + n].divB = 0;
 #endif
@@ -721,7 +708,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef COSMIC_RAYS
             for(n = 0; n < pc; n++)
                 for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                    SphP[offset + n].CR_C0[CRpop] = *fp++;
+                    SphP[offset + n].CR_C0[CRpop] = READREAL(cp);
 #endif
             break;
 
@@ -729,7 +716,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef COSMIC_RAYS
             for(n = 0; n < pc; n++)
                 for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                    SphP[offset + n].CR_q0[CRpop] = *fp++;
+                    SphP[offset + n].CR_q0[CRpop] = READREAL(cp);
 #endif
             break;
 
@@ -740,7 +727,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef COSMIC_RAYS
             for(n = 0; n < pc; n++)
                 for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                    SphP[offset + n].CR_E0[CRpop] = *fp++;
+                    SphP[offset + n].CR_E0[CRpop] = READREAL(cp);
 #endif
             break;
 
@@ -748,7 +735,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef COSMIC_RAYS
             for(n = 0; n < pc; n++)
                 for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                    SphP[offset + n].CR_n0[CRpop] = *fp++;
+                    SphP[offset + n].CR_n0[CRpop] = READREAL(cp);
 #endif
             break;
 
@@ -759,14 +746,14 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
         case IO_BHMASS:
 #ifdef BLACK_HOLES
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_Mass = *fp++;
+                P[offset + n].BH_Mass = READREAL(cp);
 #endif
             break;
 
         case IO_BHMDOT:
 #ifdef BLACK_HOLES
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_Mdot = *fp++;
+                P[offset + n].BH_Mdot = READREAL(cp);
 #endif
             break;
 
@@ -780,21 +767,21 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
         case IO_BHMBUB:
 #ifdef BH_BUBBLES
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_Mass_bubbles = *fp++;
+                P[offset + n].BH_Mass_bubbles = READREAL(cp);
 #endif
             break;
 
         case IO_BHMINI:
 #ifdef BH_BUBBLES
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_Mass_ini = *fp++;
+                P[offset + n].BH_Mass_ini = READREAL(cp);
 #endif
             break;
 
         case IO_BHMRAD:
 #ifdef UNIFIED_FEEDBACK
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_Mass_radio = *fp++;
+                P[offset + n].BH_Mass_radio = READREAL(cp);
 #endif
             break;
 
@@ -802,7 +789,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef EOS_DEGENERATE
             for(n = 0; n < pc; n++)
                 for(k = 0; k < EOS_NSPECIES; k++)
-                    SphP[offset + n].xnuc[k] = *fp++;
+                    SphP[offset + n].xnuc[k] = READREAL(cp);
 #endif
             break;
 
@@ -828,7 +815,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef RADTRANSFER
                     for(n = 0; n < pc; n++)
                     {
-                        SphP[offset + n].nHII = *fp++;
+                        SphP[offset + n].nHII = READREAL(cp);
                         SphP[offset + n].nHI = 1.0 - SphP[offset + n].nHII;
                         SphP[offset + n].n_elec = SphP[offset + n].nHII;
                     }
@@ -839,14 +826,14 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef RADTRANSFER
                     for(n = 0; n < pc; n++)
                         for(k = 0; k < N_BINS; k++)
-                            SphP[offset + n].n_gamma[k] = *fp++;
+                            SphP[offset + n].n_gamma[k] = READREAL(cp);
 #endif
                     break;
 
                 case IO_nHeII:
 #ifdef RADTRANSFER
                     for(n = 0; n < pc; n++)
-                        SphP[offset + n].nHeII = *fp++;
+                        SphP[offset + n].nHeII = READREAL(cp);
 #endif
                     break;
 
@@ -854,7 +841,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef RADTRANSFER
                     for(n = 0; n < pc; n++)
                     {
-                        SphP[offset + n].nHeIII = *fp++;
+                        SphP[offset + n].nHeIII = READREAL(cp);
                         SphP[offset + n].nHeI = 1.0 - SphP[offset + n].nHeII - SphP[offset + n].nHeIII;
                         SphP[offset + n].n_elec +=
                             (SphP[offset + n].nHeII + 2.0 * SphP[offset + n].nHeIII) * (1.0 -
@@ -904,14 +891,14 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
         case IO_EULERA:
 #ifdef READ_EULER
             for(n = 0; n < pc; n++)
-                SphP[offset + n].EulerA = *fp++;
+                SphP[offset + n].EulerA = READREAL(cp);
 #endif
             break;
 
         case IO_EULERB:
 #ifdef READ_EULER
             for(n = 0; n < pc; n++)
-                SphP[offset + n].EulerB = *fp++;
+                SphP[offset + n].EulerB = READREAL(cp);
 #endif
             break;
 
@@ -920,7 +907,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
             for(n = 0; n < pc; n++)
                 for(k = 0; k < 3; k++)
                 {
-                    SphP[offset + n].APred[k] = *fp++;
+                    SphP[offset + n].APred[k] = READREAL(cp);
                     SphP[offset + n].SmoothA[k] = SphP[offset + n].APred[k];
                     SphP[offset + n].A[k] = SphP[offset + n].APred[k];
                 }
@@ -931,7 +918,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 #ifdef CHEMCOOL
             for(n = 0; n < pc; n++)
                 for(k = 0; k < TRAC_NUM; k++)
-                    SphP[offset + n].TracAbund[k] = *fp++;
+                    SphP[offset + n].TracAbund[k] = READREAL(cp);
 #endif
             break;
 
@@ -1113,27 +1100,6 @@ void read_file(char *fname, int readTask, int lastTask)
         MPI_Recv(&swap_file, sizeof(int), MPI_INT, readTask, TAG_SWAP, MPI_COMM_WORLD, &status);
 #endif
     }
-
-#ifndef SNAP_SET_TG
-#ifdef INPUT_IN_DOUBLEPRECISION
-    if(header.flag_doubleprecision == 0)
-    {
-        if(ThisTask == 0)
-            printf
-                ("\nProblem: Code compiled with INPUT_IN_DOUBLEPRECISION, but input files are in single precision!\n");
-        endrun(11);
-    }
-#else
-    if(header.flag_doubleprecision)
-    {
-        if(ThisTask == 0)
-            printf
-                ("\nProblem: Code not compiled with INPUT_IN_DOUBLEPRECISION, but input files are in double precision!\n");
-        endrun(10);
-    }
-#endif
-#endif
-
 
     if(All.TotNumPart == 0)
     {
@@ -1401,8 +1367,8 @@ void read_file(char *fname, int readTask, int lastTask)
                 fflush(stdout);
             }
 
-            bytes_per_blockelement = get_bytes_per_blockelement(blocknr, 1);
-
+            bytes_per_blockelement = get_bytes_per_blockelement(blocknr, 
+                    header.flag_doubleprecision);
             blockmaxlen = (size_t) ((All.BufferSize * 1024 * 1024) / bytes_per_blockelement);
 
             npart = get_particles_in_block(blocknr, &typelist[0]);
@@ -1508,22 +1474,8 @@ void read_file(char *fname, int readTask, int lastTask)
                                             H5Sselect_hyperslab(hdf5_dataspace_in_file, H5S_SELECT_SET,
                                                     start, NULL, count, NULL);
 
-                                            switch (get_datatype_in_block(blocknr))
-                                            {
-                                                case 0:
-                                                    hdf5_datatype = H5Tcopy(H5T_NATIVE_UINT);
-                                                    break;
-                                                case 1:
-#ifdef INPUT_IN_DOUBLEPRECISION
-                                                    hdf5_datatype = H5Tcopy(H5T_NATIVE_DOUBLE);
-#else
-                                                    hdf5_datatype = H5Tcopy(H5T_NATIVE_FLOAT);
-#endif
-                                                    break;
-                                                case 2:
-                                                    hdf5_datatype = H5Tcopy(H5T_NATIVE_UINT64);
-                                                    break;
-                                            }
+                                            hdf5_datatype = get_hdf5_datatype(blocknr,
+                                                    header.flag_doubleprecision);
 
                                             H5Dread(hdf5_dataset, hdf5_datatype, hdf5_dataspace_in_memory,
                                                     hdf5_dataspace_in_file, H5P_DEFAULT, CommBuffer);
@@ -2005,6 +1957,9 @@ void read_header_attributes_in_hdf5(char *fname)
     H5Aread(hdf5_attribute, H5T_NATIVE_INT, &header.flag_ic_info);
     H5Aclose(hdf5_attribute);
 
+    hdf5_attribute = H5Aopen_name(hdf5_headergrp, "Flag_DoublePrecision");
+    H5Aread(hdf5_attribute, H5T_NATIVE_INT, &header.flag_doubleprecision);
+    H5Aclose(hdf5_attribute);
 
     H5Gclose(hdf5_headergrp);
     H5Fclose(hdf5_file);

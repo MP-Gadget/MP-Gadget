@@ -1619,267 +1619,51 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 /*! This function tells the size of one data entry in each of the blocks
  *  defined for the output file.
  */
-int get_bytes_per_blockelement(enum iofields blocknr, int mode)
+int get_bytes_per_blockelement(enum iofields blocknr, int doubleprecision)
 {
-    int bytes_per_blockelement = 0;
+    return get_elsize_in_block(blocknr, doubleprecision)
+        * get_values_per_blockelement(blocknr);
+}
+int get_elsize_in_block(enum iofields blocknr, int doubleprecision) {
+        return get_datatype_elsize(
+            get_datatype_in_block(blocknr), 
+            doubleprecision) ;
+}
+int get_datatype_elsize(enum datatype dtype, int flag_double) {
+    switch(dtype) {
+        case DTYPE_UINT32:
+            return 4;
+        case DTYPE_REAL:
+            return flag_double?8:4;
+        case DTYPE_UINT64:
+            return 8;
+        case DTYPE_SINGLE:
+            return 4;
+        default:
+            abort();
+    }
+}
 
+enum datatype get_datatype_in_block(enum iofields blocknr)
+{
     switch (blocknr)
     {
-        case IO_POS:
-        case IO_VEL:
-        case IO_ACCEL:
-        case IO_VBULK:
-        case IO_BFLD:
-        case IO_VECTA:
-        case IO_GRADPHI:
-        case IO_BSMTH:
-        case IO_DBDT:
-        case IO_ROTB:
-        case IO_SROTB:
-        case IO_STRESSDIAG:
-        case IO_STRESSOFFDIAG:
-            if(mode)
-                bytes_per_blockelement = 3 * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = 3 * sizeof(MyOutputFloat);
-            break;
-
         case IO_ID:
-        case IO_BHPROGS:
-            bytes_per_blockelement = sizeof(MyIDType);
-            break;
-
-        case IO_nHII:
-        case IO_nHeII:
-        case IO_nHeIII:
-        case IO_MASS:
-        case IO_SECONDORDERMASS:
-        case IO_U:
-        case IO_RHO:
-        case IO_NE:
-        case IO_NH:
-        case IO_HII:
-        case IO_HeI:
-        case IO_HeII:
-        case IO_HeIII:
-        case IO_H2I:
-        case IO_H2II:
-        case IO_HM:
-        case IO_HD:
-        case IO_DI:
-        case IO_DII:
-        case IO_HeHII:
-        case IO_HSML:
-        case IO_VALPHA:
-        case IO_SFR:
-        case IO_AGE:
-        case IO_POT:
-        case IO_DTENTR:
-        case IO_STRESSBULK:
-        case IO_SHEARCOEFF:
-        case IO_TSTP:
-        case IO_DIVB:
-        case IO_VTURB:
-        case IO_VRMS:
-        case IO_TRUENGB:
-        case IO_VDIV:
-        case IO_VROT:
-        case IO_DPP:
-        case IO_ABVC:
-        case IO_AMDC:
-        case IO_PHI:
-        case IO_XPHI:
-        case IO_EULERA:
-        case IO_EULERB:
-        case IO_COOLRATE:
-        case IO_CONDRATE:
-        case IO_DENN:
-        case IO_EGYPROM:
-        case IO_EGYCOLD:
-        case IO_BHMASS:
-        case IO_BHMDOT:
-        case IO_BHMBUB:
-        case IO_BHMINI:
-        case IO_BHMRAD:
-        case IO_MACH:
-        case IO_DTENERGY:
-        case IO_PRESHOCK_CSND:
-        case IO_PRESHOCK_DENSITY:
-        case IO_PRESHOCK_ENERGY:
-        case IO_PRESHOCK_XCR:
-        case IO_DENSITY_JUMP:
-        case IO_ENERGY_JUMP:
-        case IO_CRINJECT:
-        case IO_CAUSTIC_COUNTER:
-        case IO_FLOW_DETERMINANT:
-        case IO_STREAM_DENSITY:
-        case IO_PHASE_SPACE_DETERMINANT:
-        case IO_EOSTEMP:
-        case IO_PRESSURE:
-        case IO_INIT_DENSITY:
-        case IO_iMass:
-        case IO_CLDX:
-        case IO_HTEMP:
-        case IO_ZSMOOTH:
-            if(mode)
-                bytes_per_blockelement = sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = sizeof(MyOutputFloat);
-            break;
-
-        case IO_CR_C0:
-        case IO_CR_Q0:
-        case IO_CR_P0:
-        case IO_CR_E0:
-        case IO_CR_n0:
-        case IO_CR_ThermalizationTime:
-        case IO_CR_DissipationTime:
-            if(mode)
-                bytes_per_blockelement = NUMCRPOP * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = NUMCRPOP * sizeof(MyOutputFloat);
-            break;
-
+#ifdef LONGIDS
+            return DTYPE_UINT64;
+#else
+            return DTYPE_UINT32;
+#endif
         case IO_DMHSML:
         case IO_DMDENSITY:
         case IO_DMVELDISP:
         case IO_DMHSML_V:
         case IO_DMDENSITY_V:
-            bytes_per_blockelement = sizeof(float);
-            break;
-
-        case IO_RADGAMMA:
-#ifdef RADTRANSFER
-            if(mode)
-                bytes_per_blockelement = N_BINS * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = N_BINS * sizeof(MyOutputFloat);
-#endif
-            break;
-
-        case IO_EDDINGTON_TENSOR:
-            if(mode)
-                bytes_per_blockelement = 6 * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = 6 * sizeof(MyOutputFloat);
-
-
-        case IO_Z:
-            if(mode)
-                bytes_per_blockelement = sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = sizeof(MyOutputFloat);
-            break;
-
-        case IO_TIDALTENSORPS:
-            if(mode)
-                bytes_per_blockelement = 9 * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = 9 * sizeof(MyOutputFloat);
-            break;
-
-        case IO_DISTORTIONTENSORPS:
-            if(mode)
-                bytes_per_blockelement = 36 * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = 36 * sizeof(MyOutputFloat);
-            break;
-
-        case IO_ANNIHILATION_RADIATION:
-            if(mode)
-                bytes_per_blockelement = 3 * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = 3 * sizeof(MyOutputFloat);
-            break;
-
-        case IO_LAST_CAUSTIC:
-            if(mode)
-                bytes_per_blockelement = 20 * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = 20 * sizeof(MyOutputFloat);
-            break;
-
-        case IO_SHEET_ORIENTATION:
-            if(mode)
-                bytes_per_blockelement = 9 * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = 9 * sizeof(MyOutputFloat);
-            break;
-        case IO_SHELL_INFO:
-            if(mode)
-                bytes_per_blockelement = 3 * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = 3 * sizeof(MyOutputFloat);
-            break;
-
-        case IO_EOSXNUC:
-#ifdef EOS_DEGENERATE
-            if(mode)
-                bytes_per_blockelement = EOS_NSPECIES * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = EOS_NSPECIES * sizeof(MyOutputFloat);
-            break;
-#else
-            if(mode)
-                bytes_per_blockelement = sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = sizeof(MyOutputFloat);
-            break;
-#endif
-
-        case IO_Zs:
-            bytes_per_blockelement = 0;
-            break;
-
-        case IO_ZAGE:
-        case IO_ZAGE_LLV:
-            bytes_per_blockelement = 0;
-            break;
-
-        case IO_CONTRIB:
-            bytes_per_blockelement = 0;
-            break;
-
-        case IO_CHEM:
-#ifdef CHEMCOOL
-            if(mode)
-                bytes_per_blockelement = TRAC_NUM * sizeof(MyInputFloat);
-            else
-                bytes_per_blockelement = TRAC_NUM * sizeof(MyOutputFloat);
-#else
-            bytes_per_blockelement = 0;
-#endif
-            break;
-
-
-        case IO_LASTENTRY:
-            endrun(214);
-            break;
-    }
-
-    return bytes_per_blockelement;
-}
-
-int get_datatype_in_block(enum iofields blocknr)
-{
-    int typekey;
-
-    switch (blocknr)
-    {
-        case IO_ID:
-#ifdef LONGIDS
-            typekey = 2;		/* native long long */
-#else
-            typekey = 0;		/* native int */
-#endif
-            break;
+            return DTYPE_SINGLE;
 
         default:
-            typekey = 1;		/* native MyOutputFloat */
-            break;
+            return DTYPE_REAL;
     }
-
-    return typekey;
 }
 
 
@@ -3884,7 +3668,8 @@ void write_file(char *fname, int writeTask, int lastTask)
 
         if(blockpresent(blocknr))
         {
-            bytes_per_blockelement = get_bytes_per_blockelement(blocknr, 0);
+            bytes_per_blockelement = get_bytes_per_blockelement(blocknr, 
+                    header.flag_doubleprecision);
 
             blockmaxlen = (size_t) ((All.BufferSize * 1024 * 1024) / bytes_per_blockelement);
 
@@ -3935,22 +3720,8 @@ void write_file(char *fname, int writeTask, int lastTask)
 #ifdef HAVE_HDF5
                         if(ThisTask == writeTask && All.SnapFormat == 3 && header.npart[type] > 0)
                         {
-                            switch (get_datatype_in_block(blocknr))
-                            {
-                                case 0:
-                                    hdf5_datatype = H5Tcopy(H5T_NATIVE_UINT);
-                                    break;
-                                case 1:
-#ifdef OUTPUT_IN_DOUBLEPRECISION
-                                    hdf5_datatype = H5Tcopy(H5T_NATIVE_DOUBLE);
-#else
-                                    hdf5_datatype = H5Tcopy(H5T_NATIVE_FLOAT);
-#endif
-                                    break;
-                                case 2:
-                                    hdf5_datatype = H5Tcopy(H5T_NATIVE_UINT64);
-                                    break;
-                            }
+                            hdf5_datatype = get_hdf5_datatype(get_datatype_in_block(blocknr),
+                                    header.flag_doubleprecision);
 
                             dims[0] = header.npart[type];
                             dims[1] = get_values_per_blockelement(blocknr);
@@ -4098,10 +3869,24 @@ void write_file(char *fname, int writeTask, int lastTask)
     }
 }
 
-
-
-
 #ifdef HAVE_HDF5
+
+hid_t  get_hdf5_datatype(enum datatype dtype, int doubleprecision) {
+    switch (dtype)
+    {
+        case DTYPE_UINT32:
+            return H5Tcopy(H5T_NATIVE_UINT);
+        case DTYPE_REAL:
+            if(doubleprecision) 
+                return H5Tcopy(H5T_NATIVE_DOUBLE);
+            else
+                return H5Tcopy(H5T_NATIVE_FLOAT);
+        case DTYPE_UINT64:
+            return H5Tcopy(H5T_NATIVE_UINT64);
+        case DTYPE_SINGLE:
+            return H5Tcopy(H5T_NATIVE_FLOAT);
+    }
+} 
 void write_header_attributes_in_hdf5(hid_t handle)
 {
     hsize_t adim[1] = { 6 };
