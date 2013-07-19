@@ -858,6 +858,7 @@ void init(void)
                 printf("Converting u -> entropy !\n");
 
             SphP[i].Entropy = GAMMA_MINUS1 * SphP[i].Entropy / pow(SphP[i].d.Density / a3, GAMMA_MINUS1);
+/* for DENSITY_INDEPENDENT_SPH, do it later after EgyWtDensity is decided*/
 #endif
 
 #else
@@ -1236,11 +1237,21 @@ void setup_smoothinglengths(void)
 #endif
 
 #ifdef DENSITY_INDEPENDENT_SPH
+    double a3;
+    if(All.ComovingIntegrationOn) {
+        a3 = All.Time * All.Time * All.Time;
+    }
+    else {
+        a3 = 1;
+    }
     /* initialization of the entropy variable is a little trickier in this version of SPH, 
        since we need to make sure it 'talks to' the density appropriately */
+    /* the first guess of density is the mass density */
+    /* up to this point SphP[i].Entropy is still energy */
     for(i = 0; i < N_gas; i++)
     {
-        SphP[i].EntVarPred = pow(SphP[i].Entropy,1/GAMMA);
+        double entropy = GAMMA_MINUS1 * SphP[i].Entropy / pow(SphP[i].d.Density / a3 , GAMMA_MINUS1);
+        SphP[i].EntVarPred = pow(entropy,1/GAMMA);
     }
 #endif
 
@@ -1253,22 +1264,38 @@ void setup_smoothinglengths(void)
 #ifdef DENSITY_INDEPENDENT_SPH
     if(header.flag_entropy_instead_u == 0)
     {
+        if (ThisTask == 0) {
+            printf("Converint u -> entropy, with density split sph\n");
+        }
         int j;
-        double a3;
-        if(All.ComovingIntegrationOn) {
-            a3 = All.Time * All.Time * All.Time;
-        }
-        else {
-            a3 = 1;
-        }
-        for(j=0;j<5;j++)
+        double badness;
+        double * olddensity = (double *)mymalloc("olddensity ", N_gas * sizeof(double));
+        for(j=0;j<100;j++)
         {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
             for(i = 0; i < N_gas; i++)
             {
-                SphP[i].Entropy = GAMMA_MINUS1 * SphP[i].Entropy / pow(SphP[i].EgyWtDensity/a3 , GAMMA_MINUS1);
-                SphP[i].EntVarPred = pow(SphP[i].Entropy,1/GAMMA);
+                double entropy = GAMMA_MINUS1 * SphP[i].Entropy / pow(SphP[i].EgyWtDensity / a3 , GAMMA_MINUS1);
+                SphP[i].EntVarPred = pow(entropy, 1/GAMMA);
+                olddensity[i] = SphP[i].EgyWtDensity;
             }
             density();
+            badness = 0;
+            for(i = 0; i < N_gas; i++) {
+                if(SphP[i].EgyWtDensity > 0) {
+                    badness = DMAX(badness, fabs(SphP[i].EgyWtDensity - olddensity[i]) / SphP[i].EgyWtDensity);
+                }
+            }
+            MPI_Allreduce(MPI_IN_PLACE, &badness, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+            if(ThisTask == 0) 
+                printf("iteration %03d, max relative difference = %g \n", j, badness);
+
+            if(badness < 1e-3) break;
+        }
+        myfree(olddensity);
+        for(i = 0; i < N_gas; i++) {
+            /* Now we convert from energy to entropy*/
+            SphP[i].Entropy = GAMMA_MINUS1 * SphP[i].Entropy / pow(SphP[i].EgyWtDensity/a3 , GAMMA_MINUS1);
         }
     }
 #endif
