@@ -1438,6 +1438,7 @@ extern struct particle_data
     MyFloat BH_FeedbackWeightSum;
     MyFloat BH_Density;
     MyFloat BH_EntOrPressure;
+    short int BH_TimeBinLimit;
 #ifdef BH_USE_GASVEL_IN_BONDI
     MyFloat BH_SurroundingGasVel[3];
 #endif

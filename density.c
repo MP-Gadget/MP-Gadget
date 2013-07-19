@@ -106,16 +106,14 @@ static struct densdata_out
     MyFloat Grad_ngamma[3][N_BINS];
 #endif
 
-#if defined(BLACK_HOLES)
+#ifdef BLACK_HOLES
     MyLongDouble SmoothedEntOrPressure;
     MyLongDouble FeedbackWeightSum;
+    MyLongDouble GasVel[3];
+    short int BH_TimeBinLimit;
 #endif
 #ifdef CONDUCTION_SATURATION
     MyFloat GradEntr[3];
-#endif
-
-#ifdef BLACK_HOLES
-    MyLongDouble GasVel[3];
 #endif
 
 #ifdef HYDRO_COST_FACTOR
@@ -660,6 +658,7 @@ void density(void)
 #ifdef BLACK_HOLES
                 if(P[place].Type == 5)
                 {
+                    P[place].BH_TimeBinLimit = IMIN(P[place].BH_TimeBinLimit, DensDataOut[j].BH_TimeBinLimit);
                     P[place].BH_Density += DensDataOut[j].Rho;
                     P[place].BH_FeedbackWeightSum += DensDataOut[j].FeedbackWeightSum;
                     P[place].BH_EntOrPressure += DensDataOut[j].SmoothedEntOrPressure;
@@ -1175,6 +1174,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
     double hsearch, hsearchcache[4];
 
     MyLongDouble rho;
+    short int timebin_min = 9999;
 #ifdef BLACK_HOLES
     MyLongDouble fb_weight_sum;  /*smoothing density used in feedback */
 #endif
@@ -1464,6 +1464,8 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
                         dhsmlrho += FLT(-mass_j * (NUMDIMS * hcache[Hinv] * wk + r * hcache[Hinv] * dwk));
 
+                        timebin_min = IMIN(timebin_min, P[j].TimeBin);
+
 #ifdef DENSITY_INDEPENDENT_SPH
                         egyrho += mass_j * SphP[j].EntVarPred * wk;
                         dhsmlegyrho += -mass_j * SphP[j].EntVarPred * (NUMDIMS * hcache[Hinv] * wk + r * hcache[Hinv] * dwk);
@@ -1726,6 +1728,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
         }
 #ifdef BLACK_HOLES
         P[target].BH_Density = rho;
+        P[target].BH_TimeBinLimit = timebin_min;
         P[target].BH_FeedbackWeightSum = fb_weight_sum;
         P[target].BH_EntOrPressure = smoothent_or_pres;
 #ifdef BH_USE_GASVEL_IN_BONDI
@@ -1745,6 +1748,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
         DensDataResult[target].Ninteractions = ninteractions;
 #endif
         DensDataResult[target].Rho = rho;
+        DensDataResult[target].BH_TimeBinLimit = timebin_min;
 
 #ifdef DENSITY_INDEPENDENT_SPH
         DensDataResult[target].EgyRho = egyrho;
