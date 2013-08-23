@@ -1748,7 +1748,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
         DensDataResult[target].Ninteractions = ninteractions;
 #endif
         DensDataResult[target].Rho = rho;
-        DensDataResult[target].BH_TimeBinLimit = timebin_min;
 
 #ifdef DENSITY_INDEPENDENT_SPH
         DensDataResult[target].EgyRho = egyrho;
@@ -1777,6 +1776,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #if defined(BLACK_HOLES)
         DensDataResult[target].SmoothedEntOrPressure = smoothent_or_pres;
         DensDataResult[target].FeedbackWeightSum = fb_weight_sum;
+        DensDataResult[target].BH_TimeBinLimit = timebin_min;
 #endif
 #ifdef CONDUCTION_SATURATION
         DensDataResult[target].GradEntr[0] = gradentr[0];
