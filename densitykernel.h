@@ -29,6 +29,6 @@ double density_kernel_wk(density_kernel_t * kernel, double u);
 double density_kernel_dwk(density_kernel_t * kernel, double u);
 double density_kernel_volume(density_kernel_t * kernel);
 
-inline double density_kernel_dW(density_kernel_t * kernel, double u, double wk, double dwk) {
+static inline double density_kernel_dW(density_kernel_t * kernel, double u, double wk, double dwk) {
     return - (NUMDIMS * kernel->Hinv * wk + u * dwk);
 }

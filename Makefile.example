@@ -3,9 +3,7 @@
 #######################################################################
 
 #--------------------------------------- Basic operation mode of code
-#OPT += DENSITY_INDEPENDENT_SPH
-#OPT += BH_CSND_FROM_PRESSURE # use pressure formula for csound in bh
-                              # BH_Entropy saves pressure
+OPT += -DDENSITY_INDEPENDENT_SPH
 OPT	+=  -DPERIODIC
 OPT	+=  -DCOOLING
 OPT	+=  -DSFR
@@ -58,20 +56,20 @@ OPT	+=  -DFOF                                # enable FoF output
 OPT	+=  -DFOF_PRIMARY_LINK_TYPES=2           # 2^type for the primary dark matter type
 OPT	+=  -DFOF_SECONDARY_LINK_TYPES=1+16+32	 # 2^type for the types linked to nearest primaries
 OPT 	+=  -DFOF_GROUP_MIN_LEN=32               # default is 32
-#OPT	+=  -DSUBFIND                            # enables substructure finder
-#OPT    +=  -DDENSITY_SPLIT_BY_TYPE=1+2+16+32    # 2^type for whch the densities should be calculated seperately  
+OPT	+=  -DSUBFIND                            # enables substructure finder
+OPT    +=  -DDENSITY_SPLIT_BY_TYPE=1+2+16+32    # 2^type for whch the densities should be calculated seperately  
 #OPT    +=  -DMAX_NGB_CHECK=3                    # Max numbers of neighbours for sattlepoint detection (default = 2)
 OPT     +=  -DSAVE_MASS_TAB                      # Saves the an additional array with the masses of the different components
-#OPT    +=  -DSUBFIND_SAVE_PARTICLELISTS         # Saves also phase-space and type variables parallel to IDs
-#OPT	+=  -DSO_VEL_DISPERSIONS                 # computes velocity dispersions for as part of FOF SO-properties
+OPT    +=  -DSUBFIND_SAVE_PARTICLELISTS         # Saves also phase-space and type variables parallel to IDs
+OPT	+=  -DSO_VEL_DISPERSIONS                 # computes velocity dispersions for as part of FOF SO-properties
 #OPT	+=  -DORDER_SNAPSHOTS_BY_ID
 #OPT	+=  -DSAVE_HSML_IN_IC_ORDER              # will store the hsml-values in the order of the particles in the IC file
 #OPT	+=  -DONLY_PRODUCE_HSML_FILES            # only carries out density estimate
 #OPT	+=  -DKEEP_DM_HSML_AS_GUESS              # uses hsml from last time as guess for actual subfind
 #OPT	+=  -DLINKLENGTH=0.16                    # Linkinglength for FoF (default=0.2)
 #OPT	+=  -DSUBFIND_READ_FOF
-#OPT	+=  -DSUBFIND_COLLECTIVE_STAGE1
-#OPT	+=  -DSUBFIND_COLLECTIVE_STAGE2
+OPT	+=  -DSUBFIND_COLLECTIVE_STAGE1
+OPT	+=  -DSUBFIND_COLLECTIVE_STAGE2
 #OPT	+=  -DSUBFIND_ALTERNATIVE_COLLECTIVE
 #OPT	+=  -DSUBFIND_RESHUFFLE_CATALOGUE
 #OPT	+=  -DSUBFIND_RESHUFFLE_CATALOGUE_WITH_VORONOI
@@ -80,10 +78,10 @@ OPT     +=  -DSAVE_MASS_TAB                      # Saves the an additional array
 
 #--------------------------------------- SFR/feedback model
 #OPT	+=  -DSOFTEREQS
-OPT	+=  -DMOREPARAMS
-OPT	+=  -DMETALS
-OPT	+=  -DSTELLARAGE
-OPT	+=  -DWINDS
+#xOPT	+=  -DMOREPARAMS
+#xOPT	+=  -DMETALS
+#xOPT	+=  -DSTELLARAGE
+#xOPT	+=  -DWINDS
 #OPT	+=  -DQUICK_LYALPHA
 #OPT	+=  -DISOTROPICWINDS
 #OPT	+=  -DMHM
@@ -1039,7 +1037,7 @@ endif
 ifeq ($(SYSTYPE),"Warp")
 CC       =   mpiicc
 #OPTIMIZE =  -O3 -ffast-math
-OPTIMIZE =  -xW
+OPTIMIZE =  
 GSL_INCL = -I/opt/gsl/impi/include/gsl
 GSL_LIBS = -L/opt/gsl/impi/lib64 -Wl,-rpath,/opt/gsl/impi/lib64
 FFTW_INCL= -I/opt/fftw/impi_intel-3.2/include
@@ -1114,8 +1112,8 @@ OBJS  =  \
 	   densitykernel.o \
 	 ImfLib/libimf.o ImfLib/libimf_vars.o 
 
-INCL   = cs_metals.h allvars.h proto.h forcetree.h cooling.h domain.h  cosmic_rays.h chemistry.h \
-	 machfinder.h subfind.h dd.h fof.h voronoi.h eos.h myqsort.h network.h network_solver.h chemcool_consts.h densitykernel.h Makefile \
+INCL   = allvars.h proto.h forcetree.h cooling.h domain.h  cosmic_rays.h chemistry.h \
+	 machfinder.h subfind.h dd.h fof.h eos.h myqsort.h network.h network_solver.h chemcool_consts.h Makefile \
 
 ifeq (CHEMCOOL,$(findstring CHEMCOOL,$(OPT)))
 
