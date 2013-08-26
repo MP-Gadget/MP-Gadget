@@ -8,6 +8,7 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "densitykernel.h"
 #ifdef COSMIC_RAYS
 #include "cosmic_rays.h"
 #endif
@@ -484,7 +485,7 @@ void hydro_force(void)
 	  /* calculation of F1 */
 #ifndef ALTVISCOSITY
 #ifndef EOS_DEGENERATE
-	  soundspeed_i = sqrt(GAMMA * SphP[place].Pressure / SphP[place].d.Density);
+	  soundspeed_i = sqrt(GAMMA * SphP[place].Pressure / SphP[place].EOMDensity);
 #else
 	  soundspeed_i = sqrt(SphP[place].dpdr);
 #endif
@@ -1306,7 +1307,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   int j, k, n, timestep;
   MyDouble *pos;
   MyFloat *vel;
-  MyFloat mass, h_i, dhsmlDensityFactor, rho, pressure, f1, f2;
+  MyFloat mass, dhsmlDensityFactor, rho, pressure, f1, f2;
   MyLongDouble acc[3], dtEntropy;
 
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -1324,10 +1325,13 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   MyFloat maxSignalVel;
 #endif
   double dx, dy, dz, dvx, dvy, dvz;
-  double h_i2, hinv, hinv4;
   double p_over_rho2_i, p_over_rho2_j, soundspeed_i, soundspeed_j;
-  double hfc, dwk_i, vdotr, vdotr2, visc, mu_ij, rho_ij, vsig;
-  double h_j, dwk_j;
+  double hfc, vdotr, vdotr2, visc, mu_ij, rho_ij, vsig;
+  double h_i, wk_i;
+  density_kernel_t kernel_i;
+  double h_j, wk_j;
+  density_kernel_t kernel_j;
+  double dwk_i, dwk_j;
   double r, r2, u;
   double hfc_visc;
 
@@ -1389,7 +1393,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   double mu0_1;
 
 #if defined(MAGNETIC_DIFFUSION) || defined(VECT_POTENTIAL)
-  double wk_j, wk_i, hinv3, magfac_diff;
+  double magfac_diff;
 #endif
 
 #ifdef MAGFORCE
@@ -1468,7 +1472,11 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif
 
 #ifndef EOS_DEGENERATE
+#ifdef DENSITY_INDEPENDENT_SPH
+      soundspeed_i = sqrt(GAMMA * pressure / egyrho);
+#else
       soundspeed_i = sqrt(GAMMA * pressure / rho);
+#endif
 #else
       soundspeed_i = sqrt(SphP[target].dpdr);
 #endif
@@ -1587,7 +1595,11 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
       pressure = HydroDataGet[target].Pressure;
       timestep = HydroDataGet[target].Timestep;
 #ifndef EOS_DEGENERATE
+#ifdef DENSITY_INDEPENDENT_SPH
+      soundspeed_i = sqrt(GAMMA * pressure / egyrho);
+#else
       soundspeed_i = sqrt(GAMMA * pressure / rho);
+#endif
 #else
       soundspeed_i = sqrt(HydroDataGet[target].dpdr);
 #endif
@@ -1660,6 +1672,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   /* initialize variables before SPH loop is started */
 
   acc[0] = acc[1] = acc[2] = dtEntropy = 0;
+  density_kernel_init(&kernel_i, h_i);
 
 #ifdef DIVBFORCE3
   magacc[0]=magacc[1]=magacc[2]=0.0;
@@ -1713,9 +1726,6 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif
 #endif /* end of MAGFORCE */
 #endif /* end of MAGNETIC */
-
-
-  h_i2 = h_i * h_i;
 
 #ifndef TRADITIONAL_SPH_FORMULATION
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -1794,7 +1804,8 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif
 	      r2 = dx * dx + dy * dy + dz * dz;
 	      h_j = PPP[j].Hsml;
-	      if(r2 < h_i2 || r2 < h_j * h_j)
+          density_kernel_init(&kernel_j, h_j);
+	      if(r2 < kernel_i.HH || r2 < kernel_j.HH)
 		{
 		  r = sqrt(r2);
 		  if(r > 0)
@@ -1803,7 +1814,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 
 #ifndef EOS_DEGENERATE
 #ifdef DENSITY_INDEPENDENT_SPH
-              soundspeed_j = sqrt(GAMMA * SphP[j].Pressure / SphP[j].d.Density);
+              soundspeed_j = sqrt(GAMMA * SphP[j].Pressure / SphP[j].EOMDensity);
 #else
               soundspeed_j = sqrt(GAMMA * p_over_rho2_j * SphP[j].d.Density);
 #endif
@@ -1822,87 +1833,10 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 		      else
 			vdotr2 = vdotr;
 
-		      if(r2 < h_i2)
-			{
-			  hinv = 1.0 / h_i;
-#ifndef  TWODIMS
-#ifndef  ONEDIM
-			  hinv4 = hinv * hinv * hinv * hinv;
-#else
-			  hinv4 = hinv * hinv;
-#endif
-#else
-			  hinv4 = hinv * hinv * hinv / boxSize_Z;
-#endif
-			  u = r * hinv;
-			  if(u < 0.5)
-			    dwk_i = hinv4 * u * (KERNEL_COEFF_3 * u - KERNEL_COEFF_4);
-			  else
-			    dwk_i = hinv4 * KERNEL_COEFF_6 * (1.0 - u) * (1.0 - u);
-#if defined(MAGNETIC_DIFFUSION) || defined(VECT_POTENTIAL)
-#ifndef  TWODIMS
-#ifndef  ONEDIM
-			  hinv3 = hinv * hinv * hinv;
-#else
-			  hinv3 = hinv * hinv;
-#endif
-#else
-			  hinv3 = hinv * hinv / boxSize_Z;
-#endif
-			  if(u <= 0.5)
-			    wk_i = hinv3 * (KERNEL_COEFF_1 + KERNEL_COEFF_2 * (u - 1) * u * u);
-			  else
-			    wk_i = hinv3 * KERNEL_COEFF_5 * (1.0 - u) * (1.0 - u) * (1.0 - u);
-#endif
-			}
-		      else
-			{
-			  dwk_i = 0;
-#if defined(MAGNETIC_DIFFUSION) || defined(VECT_POTENTIAL)
-			  wk_i = 0;
-#endif
-			}
-
-		      if(r2 < h_j * h_j)
-			{
-			  hinv = 1.0 / h_j;
-#ifndef  TWODIMS
-#ifndef  ONEDIM
-			  hinv4 = hinv * hinv * hinv * hinv;
-#else
-			  hinv4 = hinv * hinv;
-#endif
-#else
-			  hinv4 = hinv * hinv * hinv / boxSize_Z;
-#endif
-			  u = r * hinv;
-			  if(u < 0.5)
-			    dwk_j = hinv4 * u * (KERNEL_COEFF_3 * u - KERNEL_COEFF_4);
-			  else
-			    dwk_j = hinv4 * KERNEL_COEFF_6 * (1.0 - u) * (1.0 - u);
-#if defined(MAGNETIC_DIFFUSION)
-#ifndef  TWODIMS
-#ifndef  ONEDIM
-			  hinv3 = hinv * hinv * hinv;
-#else
-			  hinv3 = hinv * hinv;
-#endif
-#else
-			  hinv3 = hinv * hinv / boxSize_Z;
-#endif
-			  if(u <= 0.5)
-			    wk_j = hinv3 * (KERNEL_COEFF_1 + KERNEL_COEFF_2 * (u - 1) * u * u);
-			  else
-			    wk_j = hinv3 * KERNEL_COEFF_5 * (1.0 - u) * (1.0 - u) * (1.0 - u);
-#endif
-			}
-		      else
-			{
-			  dwk_j = 0;
-#if defined(MAGNETIC_DIFFUSION)
-			  wk_j = 0;
-#endif
-			}
+              wk_i = density_kernel_wk(&kernel_i, r * kernel_i.Hinv);
+              wk_j = density_kernel_wk(&kernel_j, r * kernel_j.Hinv);
+              dwk_i = density_kernel_dwk(&kernel_i, r * kernel_i.Hinv);
+              dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
 
 #ifdef JD_VTURB
 			if ( h_i >= PPP[j].Hsml)  /* Make sure j is inside targets hsml */

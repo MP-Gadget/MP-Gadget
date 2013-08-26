@@ -6,6 +6,7 @@
 #include <gsl/gsl_math.h>
 
 #include "allvars.h"
+#include "densitykernel.h"
 #include "proto.h"
 
 /*! \file blackhole.c
@@ -806,8 +807,6 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
     double dx, dy, dz, r2, r, vrel;
     double hsearch;
     double FeedbackWeightSum;
-    double hcache[4];
-    double hsearchcache[4];
 
 #ifdef UNIFIED_FEEDBACK
     double meddington;
@@ -870,9 +869,13 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 
     }
 
+    density_kernel_t kernel;
+    density_kernel_t bh_feedback_kernel;
     hsearch = density_decide_hsearch(5, h_i);
-    density_kernel_cache_h(h_i, hcache);
-    density_kernel_cache_h(hsearch, hsearchcache);
+
+    density_kernel_init(&kernel, h_i);
+    density_kernel_init(&bh_feedback_kernel, hsearch);
+
     /* initialize variables before SPH loop is started */
 
     /* Now start the actual SPH computation for this particle */
@@ -924,7 +927,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 
 #ifdef REPOSITION_ON_POTMIN
                         /* if this option is switched on, we may also encounter dark matter particles or stars */
-                        if(r2 < hcache[H2])
+                        if(r2 < kernel.HH)
                         {
                             if(P[j].p.Potential < minpot)
                             {
@@ -947,7 +950,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                             }
                         }
 #endif
-                        if(P[j].Type == 5 && r2 < hcache[H2])	/* we have a black hole merger */
+                        if(P[j].Type == 5 && r2 < kernel.HH)	/* we have a black hole merger */
                         {
                             if(id != P[j].ID)
                             {
@@ -971,13 +974,13 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                 }
                             }
                         }
-                        if(P[j].Type == 0 && r2 < hcache[H2])
+                        if(P[j].Type == 0 && r2 < kernel.HH)
                         {
                             /* here we have a gas particle */
 
                             r = sqrt(r2);
-                            double wk;
-                            density_kernel(r, hcache, &wk, NULL);
+                            double u = r * kernel.Hinv;
+                            double wk = density_kernel_wk(&kernel, u);
 #ifdef SWALLOWGAS
                             /* compute accretion probability */
                             double p, w;
@@ -997,8 +1000,9 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 #endif
 
                         }
-                        if(P[j].Type == 0 && r2 < hsearchcache[H2]) {
+                        if(P[j].Type == 0 && r2 < bh_feedback_kernel.HH) {
                             r = sqrt(r2);
+                            double u = r * bh_feedback_kernel.Hinv;
                             double wk;
                             double mass_j;
                             if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) {
@@ -1007,7 +1011,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                 mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
                             }
                             if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE)
-                                density_kernel(r, hsearchcache, &wk, NULL);
+                                wk = density_kernel_wk(&bh_feedback_kernel, u);
                             else
                                 wk = 1.0;
                             if(P[j].Mass > 0)

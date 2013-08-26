@@ -1111,10 +1111,11 @@ OBJS  =  \
 	 pm_periodic.o pm_nonperiodic.o longrange.o mymalloc.o \
 	 machfinder.o b_from_rot_a.o smooth_simple.o \
        phasespace.o phasespace_math.o  \
+	   densitykernel.o \
 	 ImfLib/libimf.o ImfLib/libimf_vars.o 
 
 INCL   = cs_metals.h allvars.h proto.h forcetree.h cooling.h domain.h  cosmic_rays.h chemistry.h \
-	 machfinder.h subfind.h dd.h fof.h voronoi.h eos.h myqsort.h network.h network_solver.h chemcool_consts.h Makefile \
+	 machfinder.h subfind.h dd.h fof.h voronoi.h eos.h myqsort.h network.h network_solver.h chemcool_consts.h densitykernel.h Makefile \
 
 ifeq (CHEMCOOL,$(findstring CHEMCOOL,$(OPT)))
 

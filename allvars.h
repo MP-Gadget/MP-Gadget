@@ -339,36 +339,6 @@ typedef MyFloat MyLongDouble;
 #define CPU_STRING_LEN 120
 
 
-#if !defined(TWODIMS) && !defined(ONEDIM)
-#define  NUMDIMS 3		/*!< For 3D-normalized kernel */
-#define  KERNEL_COEFF_1  2.546479089470	/*!< Coefficients for SPH spline kernel and its derivative */
-#define  KERNEL_COEFF_2  15.278874536822
-#define  KERNEL_COEFF_3  45.836623610466
-#define  KERNEL_COEFF_4  30.557749073644
-#define  KERNEL_COEFF_5  5.092958178941
-#define  KERNEL_COEFF_6  (-15.278874536822)
-#define  NORM_COEFF      4.188790204786	/*!< Coefficient for kernel normalization. Note:  4.0/3 * PI = 4.188790204786 */
-#else
-#ifndef  ONEDIM
-#define  NUMDIMS 2		/*!< For 2D-normalized kernel */
-#define  KERNEL_COEFF_1  (5.0/7*2.546479089470)	/*!< Coefficients for SPH spline kernel and its derivative */
-#define  KERNEL_COEFF_2  (5.0/7*15.278874536822)
-#define  KERNEL_COEFF_3  (5.0/7*45.836623610466)
-#define  KERNEL_COEFF_4  (5.0/7*30.557749073644)
-#define  KERNEL_COEFF_5  (5.0/7*5.092958178941)
-#define  KERNEL_COEFF_6  (5.0/7*(-15.278874536822))
-#define  NORM_COEFF      M_PI	/*!< Coefficient for kernel normalization. */
-#else
-#define  NUMDIMS 1             /*!< For 1D-normalized kernel */
-#define  KERNEL_COEFF_1  (4.0/3)
-#define  KERNEL_COEFF_2  (8.0)
-#define  KERNEL_COEFF_3  (24.0)
-#define  KERNEL_COEFF_4  (16.0)
-#define  KERNEL_COEFF_5  (8.0/3)
-#define  KERNEL_COEFF_6  (-8.0)
-#define  NORM_COEFF      2.0
-#endif
-#endif
 
 
 
@@ -739,6 +709,7 @@ extern struct global_data_all_processes
     /* some SPH parameters */
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
+    double DensityResolutionEta;		/*!< SPH resolution eta. See Price 2011. eq 12*/
 #ifdef SUBFIND
     int DesLinkNgb;
     double ErrTolThetaSubfind;
@@ -912,6 +883,9 @@ extern struct global_data_all_processes
            MinGasHsml;			/*!< minimum allowed SPH smoothing length */
 
 
+    int DensityKernelType;  /* 0 for Cubic Spline,  (recmd NumNgb = 33)
+                               1 for Quintic spline (recmd  NumNgb = 97)
+                             */
     double SofteningGas,		/*!< for type 0 */
            SofteningHalo,		/*!< for type 1 */
            SofteningDisk,		/*!< for type 2 */
@@ -1965,10 +1939,11 @@ extern struct io_header
                                     */
     float lpt_scalingfactor;      /*!< scaling factor for 2lpt initial conditions */
 
+    char flag_pressure_entropy;
 #ifdef COSMIC_RAYS
-    char fill[48-8*NUMCRPOP];	/*!< fills to 256 Bytes */
+    char fill[47-8*NUMCRPOP];	/*!< fills to 256 Bytes */
 #else
-    char fill[48];		/*!< fills to 256 Bytes */
+    char fill[47];		/*!< fills to 256 Bytes */
 #endif
 
 }
@@ -1987,7 +1962,9 @@ enum iofields
     IO_MASS,
     IO_SECONDORDERMASS,
     IO_U,
+    IO_ENTROPY,
     IO_RHO,
+    IO_RHOEGY,
     IO_NE,
     IO_NH,
     IO_HSML,

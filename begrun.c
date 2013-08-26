@@ -10,6 +10,7 @@
 
 
 #include "allvars.h"
+#include "densitykernel.h"
 #include "proto.h"
 #ifdef COSMIC_RAYS
 #include "cosmic_rays.h"
@@ -1023,6 +1024,10 @@ void read_parameter_file(char *fname)
         addr[nt] = All.OutputDir;
         id[nt++] = STRING;
 
+        strcpy(tag[nt], "DensityKernelType");
+        addr[nt] = &All.DensityKernelType;
+        id[nt++] = INT;
+
         strcpy(tag[nt], "SnapshotFileBase");
         addr[nt] = All.SnapshotFileBase;
         id[nt++] = STRING;
@@ -1169,9 +1174,9 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.CourantFac;
         id[nt++] = REAL;
 
-        strcpy(tag[nt], "DesNumNgb");
-        addr[nt] = &All.DesNumNgb;
-        id[nt++] = INT;
+        strcpy(tag[nt], "DensityResolutionEta");
+        addr[nt] = &All.DensityResolutionEta;
+        id[nt++] = REAL;
 
 
 #ifdef KSPACE_NEUTRINOS
@@ -2238,6 +2243,33 @@ NUMCRPOP = 1;
                 }
         }
 
+        {
+            printf("The Density Kernel type is %d\n", All.DensityKernelType);
+            All.DesNumNgb = density_kernel_desnumngb(All.DensityKernelType, 
+                    All.DensityResolutionEta);
+            printf("The Density resolution is %g * mean separation, or %d neighbours\n",
+                    All.DensityResolutionEta, All.DesNumNgb);
+            int k = 0;
+            for(k = 0; k < 2; k++) {
+                char fn[1024];
+                sprintf(fn, "density-kernel-%02d.txt", k);
+                FILE * fd = fopen(fn, "w");
+                double support = density_kernel_support(k);
+                density_kernel_t kernel;
+                density_kernel_init_with_type(&kernel, k, support); 
+                double max = 1000;
+                for(i = 0 ; i < max; i ++) {
+                    double u = i / max;
+                    double q = i / max * support;
+                    fprintf(fd, "%g %g %g \n", 
+                           q,
+                           density_kernel_wk(&kernel, u),
+                           density_kernel_dwk(&kernel, u)
+                    );
+                }
+                fclose(fd);
+            }
+        }
         if(All.OutputListOn && errorFlag == 0)
             errorFlag += read_outputlist(All.OutputListFilename);
         else

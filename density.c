@@ -6,6 +6,7 @@
 #include <gsl/gsl_math.h>
 
 #include "allvars.h"
+#include "densitykernel.h"
 #include "proto.h"
 #ifdef COSMIC_RAYS
 #include "cosmic_rays.h"
@@ -933,12 +934,6 @@ void density(void)
                     desnumngb = All.DesNumNgb * All.BlackHoleNgbFactor;
 #endif
 
-#if 0 && defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)
-                if(P[i].Type == 4)
-                    desnumngb = 64;	//NORM_COEFF * KERNEL_COEFF_1;   /* will assign the stellar luminosity to very few (one actually) gas particles */
-#endif
-
-
                 if(PPP[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
                         (PPP[i].n.NumNgb > (desnumngb + All.MaxNumNgbDeviation)
                          && PPP[i].Hsml > (1.01 * All.MinGasHsml)))
@@ -1101,37 +1096,6 @@ for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     CPU_Step[CPU_DENSMISC] += timeall - (timecomp + timewait + timecomm);
     }
 
-void density_kernel_cache_h(double h, double _[4]) {
-    _[H2] = h * h;
-    _[Hinv] = 1.0 / h;
-#ifndef  TWODIMS
-#ifndef  ONEDIM
-    _[Hinv3] = _[Hinv] * _[Hinv] * _[Hinv];
-#else
-    _[Hinv3] = _[Hinv];
-#endif
-#else
-    _[Hinv3] = [Hinv] * _[Hinv ]/ boxSize_Z;
-#endif
-    _[Hinv4] = _[Hinv3] * _[Hinv];
-}
-void density_kernel(double r, double _[4],double * wk, double * dwk) {
-    double u = r * _[Hinv];
-
-    if(u < 0.5)
-    {
-        *wk = _[Hinv3] * (KERNEL_COEFF_1 + KERNEL_COEFF_2 * (u - 1) * u * u);
-        if(dwk)
-            *dwk = _[Hinv4] * u * (KERNEL_COEFF_3 * u - KERNEL_COEFF_4);
-    }
-    else
-    {
-        *wk = _[Hinv3] * KERNEL_COEFF_5 * (1.0 - u) * (1.0 - u) * (1.0 - u);
-        if(dwk)
-            *dwk = _[Hinv4] * KERNEL_COEFF_6 * (1.0 - u) * (1.0 - u);
-    }
-}
-
 double density_decide_hsearch(int targettype, double h) {
 #ifdef BLACK_HOLES
     if(targettype == 5 && All.BlackHoleFeedbackRadius > 0) {
@@ -1170,13 +1134,15 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
     int startnode, numngb, numngb_inbox, listindex = 0;
 
-    double h, hcache[4]; 
-    double hsearch, hsearchcache[4];
-
+    double h;
+    double hsearch;
+    density_kernel_t kernel;
     MyLongDouble rho;
     short int timebin_min = 9999;
+
 #ifdef BLACK_HOLES
     MyLongDouble fb_weight_sum;  /*smoothing density used in feedback */
+    density_kernel_t bh_feedback_kernel;
 #endif
     int type;
     double wk, dwk;
@@ -1382,9 +1348,11 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
     }
 
 
-    density_kernel_cache_h(h, hcache);
-    density_kernel_cache_h(hsearch, hsearchcache);
-
+    density_kernel_init(&kernel, h);
+    double kernel_volume = density_kernel_volume(&kernel);
+#ifdef BLACK_HOLES
+    density_kernel_init(&bh_feedback_kernel, hsearch);
+#endif
     if(mode == 0)
     {
         startnode = All.MaxPart;	/* root node */
@@ -1436,10 +1404,12 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 
                 r = sqrt(r2);
 
-                if(r2 < hcache[H2])
+                if(r2 < kernel.HH)
                 {
 
-                    density_kernel(r, hcache, &wk, &dwk);
+                    double u = r * kernel.Hinv;
+                    wk = density_kernel_wk(&kernel, u);
+                    dwk = density_kernel_dwk(&kernel, u);
 
                     mass_j = P[j].Mass;
 
@@ -1460,15 +1430,17 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #else
                         rho += FLT(mass_j * wk);
 #endif
-                            weighted_numngb += FLT(NORM_COEFF * wk / hcache[Hinv3]);	/* 4.0/3 * PI = 4.188790204786 */
+                        weighted_numngb += wk * kernel_volume;
 
-                        dhsmlrho += FLT(-mass_j * (NUMDIMS * hcache[Hinv] * wk + r * hcache[Hinv] * dwk));
+                        /* Hinv is here becuase dhsmlrho is drho / dH.
+                         * nothing to worry here */
+                        dhsmlrho += mass_j * density_kernel_dW(&kernel, u, wk, dwk);
 
                         timebin_min = IMIN(timebin_min, P[j].TimeBin);
 
 #ifdef DENSITY_INDEPENDENT_SPH
                         egyrho += mass_j * SphP[j].EntVarPred * wk;
-                        dhsmlegyrho += -mass_j * SphP[j].EntVarPred * (NUMDIMS * hcache[Hinv] * wk + r * hcache[Hinv] * dwk);
+                        dhsmlegyrho += mass_j * SphP[j].EntVarPred * density_kernel_dW(&kernel, u, wk, dwk);
 #endif
 
 
@@ -1588,7 +1560,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                         }
                 }
 #ifdef BLACK_HOLES
-                if(type == 5 && r2 < hsearchcache[H2])
+                if(type == 5 && r2 < bh_feedback_kernel.HH)
                 {
                     double mass_j;
                     if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_OPTTHIN) {
@@ -1613,9 +1585,10 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                             mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
                         }
                         if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE) {
-                            double wksearch;
-                            density_kernel(r, hsearchcache, &wksearch, NULL);
-                            fb_weight_sum += FLT(mass_j * wksearch);
+                            double u = r * bh_feedback_kernel.Hinv;
+                            fb_weight_sum += FLT(mass_j * 
+                                  density_kernel_wk(&bh_feedback_kernel, u)
+                                   );
                         } else {
                             fb_weight_sum += FLT(mass_j);
                         }

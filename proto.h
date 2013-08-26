@@ -263,12 +263,6 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 void *density_evaluate_primary(void *p);
 void *density_evaluate_secondary(void *p);
 int density_isactive(int n);
-#define H2 0
-#define Hinv 1
-#define Hinv3 2
-#define Hinv4 3
-void density_kernel_cache_h(double h, double _[4]);
-void density_kernel(double r, double _[4],double * wk, double * dwk);
 double density_decide_hsearch(int targettype, double h);
 
 void GetMachNumberCR( struct sph_particle_data *Particle );

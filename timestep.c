@@ -970,7 +970,7 @@ int get_timestep(int p,		/*!< particle index */
 
     if(P[p].Type == 0)
     {
-        csnd = sqrt(GAMMA * SphP[p].Pressure / SphP[p].d.Density);
+        csnd = sqrt(GAMMA * SphP[p].Pressure / SphP[p].EOMDensity);
 
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
 

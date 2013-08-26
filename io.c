@@ -362,12 +362,28 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                     n++;
                 }
             break;
+        case IO_ENTROPY:
+            for(n = 0; n < pc; pindex++)
+                if(P[pindex].Type == type)
+                {
+                    *fp++ = SphP[pindex].Entropy;
+                    n++;
+                }
+            break;
 
         case IO_RHO:		/* density */
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
                     *fp++ = SphP[pindex].d.Density;
+                    n++;
+                }
+            break;
+        case IO_RHOEGY:
+            for(n = 0; n < pc; pindex++)
+                if(P[pindex].Type == type)
+                {
+                    *fp++ = SphP[pindex].EOMDensity;
                     n++;
                 }
             break;
@@ -405,6 +421,13 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 
                     *fp++ = nh0;
 #endif
+                    n++;
+                }
+#else
+            for(n = 0; n < pc; pindex++)
+                if(P[pindex].Type == type)
+                {
+                    *fp++ = SphP[pindex].EOMDensity;
                     n++;
                 }
 #endif
@@ -1697,7 +1720,9 @@ int get_values_per_blockelement(enum iofields blocknr)
         case IO_MASS:
         case IO_SECONDORDERMASS:
         case IO_U:
+        case IO_ENTROPY:
         case IO_RHO:
+        case IO_RHOEGY:
         case IO_NE:
         case IO_NH:
         case IO_HII:
@@ -1914,6 +1939,8 @@ int get_particles_in_block(enum iofields blocknr, int *typelist)
         case IO_EDDINGTON_TENSOR:
         case IO_U:
         case IO_RHO:
+        case IO_ENTROPY:
+        case IO_RHOEGY:
         case IO_NE:
         case IO_NH:
         case IO_HII:
@@ -2109,6 +2136,14 @@ int blockpresent(enum iofields blocknr)
         case IO_HSML:
             return 1;			/* always present */
 
+        case IO_ENTROPY:
+        case IO_RHOEGY:
+#ifdef DENSITY_INDEPENDENT_SPH
+            return 1;
+#else
+            return 0;
+#endif
+            break;
         case IO_NE:
         case IO_NH:
             if(All.CoolingOn == 0)
@@ -2752,8 +2787,14 @@ void get_Tab_IO_Label(enum iofields blocknr, char *label)
         case IO_U:
             strncpy(label, "U   ", 4);
             break;
+        case IO_ENTROPY:
+            strncpy(label, "ENTR", 4);
+            break;
         case IO_RHO:
             strncpy(label, "RHO ", 4);
+            break;
+        case IO_RHOEGY:
+            strncpy(label, "RHOE", 4);
             break;
         case IO_NE:
             strncpy(label, "NE  ", 4);
@@ -3107,8 +3148,14 @@ void get_dataset_name(enum iofields blocknr, char *buf)
         case IO_U:
             strcpy(buf, "InternalEnergy");
             break;
+        case IO_ENTROPY:
+            strcpy(buf, "Entropy");
+            break;
         case IO_RHO:
             strcpy(buf, "Density");
+            break;
+        case IO_RHOEGY:
+            strcpy(buf, "EgyWtDensity");
             break;
         case IO_NE:
             strcpy(buf, "ElectronAbundance");
@@ -3586,6 +3633,11 @@ void write_file(char *fname, int writeTask, int lastTask)
     header.OmegaLambda = All.OmegaLambda;
     header.HubbleParam = All.HubbleParam;
 
+#ifdef DENSITY_INDEPENDENT_SPH 
+    header.flag_pressure_entropy = 1;
+#else
+    header.flag_pressure_entropy = 0;
+#endif
 #ifdef OUTPUT_IN_DOUBLEPRECISION
     header.flag_doubleprecision = 1;
 #else
