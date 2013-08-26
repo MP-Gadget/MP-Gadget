@@ -9,6 +9,7 @@
 
 
 #include "allvars.h"
+#include "densitykernel.h"
 #include "proto.h"
 
 
@@ -411,7 +412,7 @@ int subfind_density_evaluate(int target, int mode, int *nexport, int *nsend_loca
     int j, n;
     int startnode, numngb, ngb, listindex = 0;
     double hmax;
-    double h, h2, hinv, hinv3;
+    double h;
     double rho, wk;
     double r, r2, u, mass_j, v2, vx, vy, vz;
     MyDouble *pos;
@@ -436,9 +437,8 @@ int subfind_density_evaluate(int target, int mode, int *nexport, int *nsend_loca
         endrun(5622);
 #endif
 
-    h2 = h * h;
-    hinv = 1.0 / h;
-    hinv3 = hinv * hinv * hinv;
+    density_kernel_t kernel;
+    density_kernel_init(&kernel, h);
 
 
     if(mode == 0)
@@ -476,9 +476,7 @@ int subfind_density_evaluate(int target, int mode, int *nexport, int *nsend_loca
                 {
                     P[target].DM_Hsml = hmax;
                     h = hmax;
-                    h2 = h * h;
-                    hinv = 1.0 / h;
-                    hinv3 = hinv * hinv * hinv;
+                    density_kernel_init(&kernel, h);
 
                     if(ngb != All.DesNumNgb)
                         endrun(121);
@@ -498,22 +496,17 @@ int subfind_density_evaluate(int target, int mode, int *nexport, int *nsend_loca
                     h = P[j].DM_Hsml;
                     if(h == 0)
                         endrun(5622);
-                    h2 = h * h;
-                    hinv = 1.0 / h;
-                    hinv3 = hinv * hinv * hinv;
+                    density_kernel_init(&kernel, h);
                 }
 #endif
 
-                if(r2 < h2)
+                if(r2 < kernel.HH)
                 {
                     r = sqrt(r2);
 
-                    u = r * hinv;
+                    u = r * kernel.Hinv;
 
-                    if(u < 0.5)
-                        wk = hinv3 * (KERNEL_COEFF_1 + KERNEL_COEFF_2 * (u - 1) * u * u);
-                    else
-                        wk = hinv3 * KERNEL_COEFF_5 * (1.0 - u) * (1.0 - u) * (1.0 - u);
+                    wk = density_kernel_wk(&kernel, u);
 
                     mass_j = P[j].Mass;
 
