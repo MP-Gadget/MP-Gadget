@@ -211,7 +211,7 @@ void get_dataset_name(enum iofields blocknr, char *buf);
 
 int blockpresent(enum iofields blocknr);
 void fill_write_buffer(enum iofields blocknr, int *pindex, int pc, int type);
-void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type);
+void empty_read_buffer(enum iofields blocknr, int elementsize, int offset, int pc, int type);
 
 int get_particles_in_block(enum iofields blocknr, int *typelist);
 
