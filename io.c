@@ -12,6 +12,7 @@
 #endif
 
 #include "allvars.h"
+#include "densitykernel.h"
 #include "proto.h"
 
 #ifdef JD_DPP
@@ -3638,6 +3639,9 @@ void write_file(char *fname, int writeTask, int lastTask)
 #else
     header.flag_pressure_entropy = 0;
 #endif
+    header.numdims = NUMDIMS;
+    header.densitykerneltype = All.DensityKernelType;
+
 #ifdef OUTPUT_IN_DOUBLEPRECISION
     header.flag_doubleprecision = 1;
 #else

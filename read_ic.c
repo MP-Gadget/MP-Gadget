@@ -379,10 +379,11 @@ void read_ic(char *fname)
 
 /*! This function reads out the buffer that was filled with particle data.
 */
-void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
+void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int offset, int pc, int type)
 {
     int n, k;
     MyIDType *ip;
+    int32_t * i32p;
     float *fp_single;
 
 #if defined(DISTORTIONTENSORPS) && defined(DISTORTION_READALL)
@@ -394,6 +395,7 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
     cp = (char *) CommBuffer;
     fp_single = (float *) CommBuffer;
     ip = (MyIDType *) CommBuffer;
+    i32p = (int32_t*) CommBuffer;
     vt = get_datatype_in_block(blocknr);
     int elsize = get_elsize_in_block(blocknr, header.flag_doubleprecision);
     double tmp = 0;
@@ -438,7 +440,10 @@ void empty_read_buffer(enum iofields blocknr, int offset, int pc, int type)
 
         case IO_ID:		/* particle ID */
             for(n = 0; n < pc; n++)
-                P[offset + n].ID = *ip++;
+                if(bytes_per_blockelement == 8) 
+                    P[offset + n].ID = *ip++;
+                if(bytes_per_blockelement == 4) 
+                    P[offset + n].ID = *i32p++;
             break;
 
         case IO_MASS:		/* particle mass */
@@ -1385,8 +1390,18 @@ void read_file(char *fname, int readTask, int lastTask)
                             find_block(label, fd);
                         }
 
-                        if(All.ICFormat == 1 || All.ICFormat == 2)
+                        if(All.ICFormat == 1 || All.ICFormat == 2) {
                             SKIP;
+#ifdef AUTO_SWAP_ENDIAN_READIC
+                            swap_Nbyte((char *) &blksize1, 1, 4);
+#endif
+                            if(blocknr == IO_ID) {
+                                if (bytes_per_blockelement != blksize1/ npart) {
+                                    printf("ID type in ic is uint32, will convert to uint64");
+                                }
+                                bytes_per_blockelement = blksize1 / npart;
+                            }
+                        }
                     }
                     for(type = 0, offset = 0, nread = 0; type < 6; type++)
                     {
@@ -1498,7 +1513,7 @@ void read_file(char *fname, int readTask, int lastTask)
 
                                     if(ThisTask == task)
                                     {
-                                        empty_read_buffer(blocknr, nstart + offset, pc, type);
+                                        empty_read_buffer(blocknr, bytes_per_blockelement, nstart + offset, pc, type);
 
                                         offset += pc;
                                     }
@@ -1519,7 +1534,6 @@ void read_file(char *fname, int readTask, int lastTask)
                             SKIP2;
 
 #ifdef AUTO_SWAP_ENDIAN_READIC
-                            swap_Nbyte((char *) &blksize1, 1, 4);
                             swap_Nbyte((char *) &blksize2, 1, 4);
 #endif
                             if(blksize1 != blksize2)

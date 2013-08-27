@@ -1940,10 +1940,12 @@ extern struct io_header
     float lpt_scalingfactor;      /*!< scaling factor for 2lpt initial conditions */
 
     char flag_pressure_entropy;
+    char numdims;
+    char densitykerneltype;
 #ifdef COSMIC_RAYS
-    char fill[47-8*NUMCRPOP];	/*!< fills to 256 Bytes */
+    char fill[45-8*NUMCRPOP];	/*!< fills to 256 Bytes */
 #else
-    char fill[47];		/*!< fills to 256 Bytes */
+    char fill[45];		/*!< fills to 256 Bytes */
 #endif
 
 }
