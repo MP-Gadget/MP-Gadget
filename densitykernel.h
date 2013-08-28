@@ -21,6 +21,8 @@ typedef struct {
     double dWknorm;
 } density_kernel_t;
 
+int density_kernel_type_end();
+char * density_kernel_name(int type);
 double density_kernel_support(int type);
 int density_kernel_desnumngb(int type, double eta);
 void density_kernel_init(density_kernel_t * kernel, double H);

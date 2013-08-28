@@ -1248,6 +1248,12 @@ void setup_smoothinglengths(void)
 #endif
 
 #ifdef DENSITY_INDEPENDENT_SPH
+    for(i = 0; i < N_gas; i++)
+    {
+        /* start the iteration from mass density */
+        SphP[i].EgyWtDensity = SphP[i].d.Density;
+    }
+
     if(header.flag_entropy_instead_u == 0)
     {
         double a3;
@@ -1259,12 +1265,6 @@ void setup_smoothinglengths(void)
         }
         /* initialization of the entropy variable is a little trickier in this version of SPH, 
            since we need to make sure it 'talks to' the density appropriately */
-
-        for(i = 0; i < N_gas; i++)
-        {
-            /* start the iteration from mass density */
-            SphP[i].EgyWtDensity = SphP[i].d.Density;
-        }
 
         if (ThisTask == 0) {
             printf("Converint u -> entropy, with density split sph\n");
@@ -1305,6 +1305,12 @@ void setup_smoothinglengths(void)
     for(i = 0; i < N_gas; i++) {
         SphP[i].EntVarPred = pow(SphP[i].Entropy, 1./GAMMA);
     }
+    density();
+    density();
+    density();
+    density();
+    density();
+    density();
 #endif
 
 #if defined(MAGNETIC) && defined(BFROMROTA)

@@ -1327,9 +1327,9 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   double dx, dy, dz, dvx, dvy, dvz;
   double p_over_rho2_i, p_over_rho2_j, soundspeed_i, soundspeed_j;
   double hfc, vdotr, vdotr2, visc, mu_ij, rho_ij, vsig;
-  double h_i, wk_i;
+  double h_i;
   density_kernel_t kernel_i;
-  double h_j, wk_j;
+  double h_j;
   density_kernel_t kernel_j;
   double dwk_i, dwk_j;
   double r, r2, u;
@@ -1833,8 +1833,6 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 		      else
 			vdotr2 = vdotr;
 
-              wk_i = density_kernel_wk(&kernel_i, r * kernel_i.Hinv);
-              wk_j = density_kernel_wk(&kernel_j, r * kernel_j.Hinv);
               dwk_i = density_kernel_dwk(&kernel_i, r * kernel_i.Hinv);
               dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
 

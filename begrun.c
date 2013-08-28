@@ -2244,7 +2244,14 @@ NUMCRPOP = 1;
         }
 
         {
-            printf("The Density Kernel type is %d\n", All.DensityKernelType);
+            if(All.DensityKernelType >= density_kernel_type_end()) {
+                printf("Error. DensityKernelType can be\n");
+                for(i = 0; i < density_kernel_type_end(); i++) {
+                    printf("%d %s\n", i, density_kernel_name(i));
+                }
+                errorFlag = 1; 
+            }
+            printf("The Density Kernel type is %d (%s)\n", All.DensityKernelType, density_kernel_name(All.DensityKernelType));
             All.DesNumNgb = density_kernel_desnumngb(All.DensityKernelType, 
                     All.DensityResolutionEta);
             printf("The Density resolution is %g * mean separation, or %d neighbours\n",
