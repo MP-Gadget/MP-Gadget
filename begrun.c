@@ -1024,6 +1024,10 @@ void read_parameter_file(char *fname)
         addr[nt] = All.OutputDir;
         id[nt++] = STRING;
 
+        strcpy(tag[nt], "TreeCoolFile");
+        addr[nt] = All.TreeCoolFile;
+        id[nt++] = STRING;
+
         strcpy(tag[nt], "DensityKernelType");
         addr[nt] = &All.DensityKernelType;
         id[nt++] = INT;

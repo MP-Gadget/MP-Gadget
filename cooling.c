@@ -1094,7 +1094,7 @@ void InitCool(void)
     InitCoolMemory();
     MakeCoolingTable();
 
-    ReadIonizeParams("TREECOOL");
+    ReadIonizeParams(All.TreeCoolFile);
 
     All.Time = All.TimeBegin;
     IonizeParams();
