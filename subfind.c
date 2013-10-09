@@ -285,6 +285,7 @@ void subfind(int num)
             P[i].targettask = ThisTask;
     }
 
+    /* 0 is to distribute particles*/
     subfind_exchange();		/* distributes gas particles as well if needed */
 
     t1 = second();
@@ -417,6 +418,7 @@ void subfind(int num)
     for(i = 0; i < NumPart; i++)
         P[i].targettask = P[i].origintask2;
 
+    /* 1 is to return to the original cpu*/
     subfind_exchange();		/* distributes gas particles as well if needed */
 
     t1 = second();

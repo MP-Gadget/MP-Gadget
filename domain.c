@@ -72,6 +72,9 @@ static void domain_insertnode(struct local_topnode_data *treeA, struct local_top
         int noB);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, long long count, double cost);
 
+static int domain_layoutfunc(int n);
+static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p));
+static void domain_exchange_once(void);
 
 
 static float *domainWork;	/*!< a table that gives the total "work" due to the particles stored by each processor */
@@ -144,14 +147,6 @@ void domain_Decomposition(void)
 
             all_bytes = 0;
 
-            toGo = (int *) mymalloc("toGo", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            toGoSph = (int *) mymalloc("toGoSph", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            toGet = (int *) mymalloc("toGet", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            toGetSph = (int *) mymalloc("toGetSph", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
             list_NumPart = (int *) mymalloc("list_NumPart", bytes = (sizeof(int) * NTask));
             all_bytes += bytes;
             list_N_gas = (int *) mymalloc("list_N_gas", bytes = (sizeof(int) * NTask));
@@ -216,10 +211,6 @@ void domain_Decomposition(void)
             myfree(list_cadj_cpu);
             myfree(list_N_gas);
             myfree(list_NumPart);
-            myfree(toGetSph);
-            myfree(toGet);
-            myfree(toGoSph);
-            myfree(toGo);
 
 
             MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -375,7 +366,7 @@ double domain_particle_costfactor(int i)
 int domain_decompose(void)
 {
     int i, no, status;
-    long long sumtogo, sumload;
+    long long sumload;
     int maxload;
     double sumwork, sumcpu, sumcost, maxwork, costfac, cadj_SpeedFac;
 
@@ -524,23 +515,25 @@ int domain_decompose(void)
 #endif
     }
 
+    domain_exchange(domain_layoutfunc);
+    return 0;
+}
+
+void domain_exchange(int (*layoutfunc)(int p)) {
+    int i, target;
+    long long sumtogo;
     /* flag the particles that need to be exported */
+
+    toGo = (int *) mymalloc("toGo", (sizeof(int) * NTask));
+    toGoSph = (int *) mymalloc("toGoSph", (sizeof(int) * NTask));
+    toGet = (int *) mymalloc("toGet", (sizeof(int) * NTask));
+    toGetSph = (int *) mymalloc("toGetSph", (sizeof(int) * NTask));
+
 
     for(i = 0; i < NumPart; i++)
     {
-#ifdef SUBFIND
-        if(GrNr >= 0 && P[i].GrNr != GrNr)
-            continue;
-#endif
-
-        no = 0;
-
-        while(topNodes[no].Daughter >= 0)
-            no = topNodes[no].Daughter + (KEY(i) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
-
-        no = topNodes[no].Leaf;
-
-        if(DomainTask[no] != ThisTask)
+        target = layoutfunc(i);
+        if(target != ThisTask)
             P[i].Type |= 32;
     }
 
@@ -559,7 +552,7 @@ int domain_decompose(void)
         }
 
         /* determine for each cpu how many particles have to be shifted to other cpus */
-        ret = domain_countToGo(exchange_limit);
+        ret = domain_countToGo(exchange_limit, layoutfunc);
 
         for(i = 0, sumtogo = 0; i < NTask; i++)
             sumtogo += toGo[i];
@@ -573,12 +566,16 @@ int domain_decompose(void)
             fflush(stdout);
         }
 
-        domain_exchange();
+        domain_exchange_once();
         iter++;
     }
     while(ret > 0);
 
-    return 0;
+    myfree(toGetSph);
+    myfree(toGet);
+    myfree(toGoSph);
+    myfree(toGo);
+
 }
 
 
@@ -658,7 +655,7 @@ int domain_check_memory_bound(void)
     return 0;
 }
 
-void domain_exchange(void)
+static void domain_exchange_once(void)
 {
     int count_togo = 0, count_togo_sph = 0, count_get = 0, count_get_sph = 0;
     int *count, *count_sph, *offset, *offset_sph;
@@ -1094,10 +1091,33 @@ void domain_findSplit_load_balanced(int ncpu, int ndomain)
 /*! This function determines how many particles that are currently stored
  *  on the local CPU have to be moved off according to the domain
  *  decomposition.
+ *
+ *  layoutfunc decides the target Task of particle p (used by
+ *  subfind_distribute.
+ *
  */
-int domain_countToGo(size_t nlimit)
+static int domain_layoutfunc(int n) {
+    int no;
+#ifdef SUBFIND
+    if(GrNr >= 0 && P[n].GrNr != GrNr)
+        return ThisTask;
+#endif
+    if(P[n].Type & 32)
+    {
+        no = 0;
+
+        while(topNodes[no].Daughter >= 0)
+            no = topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
+
+        no = topNodes[no].Leaf;
+        return DomainTask[no];
+    }
+    return ThisTask;
+}
+
+static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
 {
-    int n, no, ret, retsum;
+    int n, ret, retsum, target;
     size_t package;
 
     for(n = 0; n < NTask; n++)
@@ -1113,32 +1133,18 @@ int domain_countToGo(size_t nlimit)
 
     for(n = 0; n < NumPart && package < nlimit; n++)
     {
-#ifdef SUBFIND
-        if(GrNr >= 0 && P[n].GrNr != GrNr)
-            continue;
-#endif
-        if(P[n].Type & 32)
+        target = layoutfunc(n);
+        if (target == ThisTask) continue;
+
+        toGo[target] += 1;
+        nlimit -= sizeof(struct particle_data);
+
+        if((P[n].Type & 15) == 0)
         {
-            no = 0;
-
-            while(topNodes[no].Daughter >= 0)
-                no = topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
-
-            no = topNodes[no].Leaf;
-
-            if(DomainTask[no] != ThisTask)
-            {
-                toGo[DomainTask[no]] += 1;
-                nlimit -= sizeof(struct particle_data);
-
-                if((P[n].Type & 15) == 0)
-                {
-                    toGoSph[DomainTask[no]] += 1;
-                    nlimit -= sizeof(struct sph_particle_data);
-                }
-                P[n].Type |= 16;	/* flag this particle for export */
-            }
+            toGoSph[target] += 1;
+            nlimit -= sizeof(struct sph_particle_data);
         }
+        P[n].Type |= 16;	/* flag this particle for export */
     }
 
     MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
@@ -1296,15 +1302,7 @@ int domain_countToGo(size_t nlimit)
                     {
                         P[n].Type &= (15 + 32);	/* clear 16 */
 
-                        no = 0;
-
-                        while(topNodes[no].Daughter >= 0)
-                            no =
-                                topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
-
-                        no = topNodes[no].Leaf;
-
-                        target = DomainTask[no];
+                        target = layoutfunc(n);
 
                         if((P[n].Type & 15) == 0)
                         {
