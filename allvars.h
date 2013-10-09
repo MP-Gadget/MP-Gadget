@@ -237,13 +237,7 @@ typedef unsigned long long peanokey;
 #define SUBFIND_RESHUFFLE_CATALOGUE
 #endif
 
-#ifndef LONGIDS
-typedef unsigned int MyIDType;
-#define IDFMT "%u"
-#else
 typedef unsigned long long MyIDType;
-#define IDFMT "%llu"
-#endif
 
 
 

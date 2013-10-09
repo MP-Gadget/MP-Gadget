@@ -197,7 +197,7 @@ void advance_and_find_timesteps(void)
 
         bin = get_timestep_bin(ti_step);
         if(bin == -1) {
-            printf("time-step of integer size 1 not allowed, id = "IDFMT", debugging info follows. %d\n", P[i].ID, ti_step);
+            printf("time-step of integer size 1 not allowed, id = %llu, debugging info follows. %d\n", P[i].ID, ti_step);
             badstepsizecount++;
         }
         binold = P[i].TimeBin;
@@ -1155,7 +1155,7 @@ int get_timestep(int p,		/*!< particle index */
     {
         printf("\nError: A timestep of size zero was assigned on the integer timeline!\n"
                 "We better stop.\n"
-                "Task=%d Part-ID="IDFMT" dt=%g dt_elec=%g dt_cool=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g)\n\n",
+                "Task=%d Part-ID=%llu dt=%g dt_elec=%g dt_cool=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g)\n\n",
                 ThisTask, P[p].ID, dt, SphP[p].t_elec, SphP[p].t_cool, All.Timebase_interval, ti_step, ac,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
         fflush(stdout);
@@ -1167,7 +1167,7 @@ int get_timestep(int p,		/*!< particle index */
     {
         printf("\nError: A timestep of size zero was assigned on the integer timeline!\n"
                 "We better stop.\n"
-                "Task=%d Part-ID="IDFMT" dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
+                "Task=%d Part-ID=%llu dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
                 ThisTask, (MyIDType)P[p].ID, dt, dt_courant, dt_viscous, dt_displacement,
                 All.Timebase_interval, ti_step, ac,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].g.GravAccel[0], P[p].g.GravAccel[1],

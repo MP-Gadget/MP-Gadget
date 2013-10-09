@@ -170,7 +170,7 @@ void blackhole_accretion(void)
 
             if(P[n].BH_Mass > 0)
             {
-                fprintf(FdBlackHolesDetails, "BH=" IDFMT " %g %g %g %g %g %g   %2.7f %2.7f %2.7f %g %g %g %g\n",
+                fprintf(FdBlackHolesDetails, "BH=%llu %g %g %g %g %g %g   %2.7f %2.7f %2.7f %g %g %g %g\n",
                         P[n].ID, All.Time, P[n].BH_Mass, mdot, rho_proper, soundspeed, bhvel, P[n].Pos[0],P[n].Pos[1],P[n].Pos[2],
 #ifdef BH_USE_GASVEL_IN_BONDI
                         P[n].BH_SurroundingGasVel[0],
@@ -716,13 +716,8 @@ void blackhole_accretion(void)
         MPI_Allgatherv(bh_posz, num_activebh, MPI_FLOAT, tot_bh_posz, common_num_activebh, disp, MPI_FLOAT,
                 MPI_COMM_WORLD);
 
-#ifndef LONGIDS
-        MPI_Allgatherv(bh_id, num_activebh, MPI_UNSIGNED, tot_bh_id, common_num_activebh, disp, MPI_UNSIGNED,
-                MPI_COMM_WORLD);
-#else
         MPI_Allgatherv(bh_id, num_activebh, MPI_UNSIGNED_LONG_LONG, tot_bh_id, common_num_activebh, disp, MPI_UNSIGNED_LONG_LONG,
                 MPI_COMM_WORLD);
-#endif      
 
         for(l = 0; l < total_num_activebh; l++)
         {
@@ -964,7 +959,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                 if(vrel > 0.5 * csnd)
                                 {
                                     fprintf(FdBlackHolesDetails,
-                                            "ThisTask=%d, time=%g: id="IDFMT" would like to swallow "IDFMT", but vrel=%g csnd=%g\n",
+                                            "ThisTask=%d, time=%g: id=%llu would like to swallow %llu, but vrel=%g csnd=%g\n",
                                             ThisTask, All.Time, id, P[j].ID, vrel, csnd);
                                 }
                                 else
@@ -1149,7 +1144,7 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
                     if(P[j].Type == 5)	/* we have a black hole merger */
                     {
                         fprintf(FdBlackHolesDetails,
-                                "ThisTask=%d, time=%g: id="IDFMT" swallows "IDFMT" (%g %g)\n",
+                                "ThisTask=%d, time=%g: id=%llu swallows %llu (%g %g)\n",
                                 ThisTask, All.Time, id, P[j].ID, bh_mass, P[j].BH_Mass);
 
                         accreted_mass += FLT(P[j].Mass);

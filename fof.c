@@ -1775,15 +1775,9 @@ void fof_find_nearest_dmparticle(void)
                       fof_nearest_hsml[i] *= 2.0;
                       if(iter >= MAXITER - 10)
                         {
-#ifndef LONGIDS
-                          printf("i=%d task=%d ID=%u Hsml=%g  pos=(%g|%g|%g)\n",
-                                 i, ThisTask, P[i].ID, fof_nearest_hsml[i],
-                                 P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-#else
                           printf("i=%d task=%d ID=%llu Hsml=%g  pos=(%g|%g|%g)\n",
                                  i, ThisTask, P[i].ID, fof_nearest_hsml[i],
                                  P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-#endif
                           fflush(stdout);
                         }
                     }

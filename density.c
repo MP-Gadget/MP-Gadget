@@ -966,17 +966,10 @@ void density(void)
 
                     if(iter >= MAXITER - 10)
                     {
-#ifndef LONGIDS
-                        printf
-                            ("i=%d task=%d ID=%u Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-                             i, ThisTask, P[i].ID, PPP[i].Hsml, Left[i], Right[i],
-                             (float) PPP[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-#else
                         printf
                             ("i=%d task=%d ID=%llu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
                              i, ThisTask, P[i].ID, PPP[i].Hsml, Left[i], Right[i],
                              (float) PPP[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-#endif
                         fflush(stdout);
                     }
 

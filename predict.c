@@ -496,13 +496,8 @@ void drift_particle(int i, int time1)
         PPP[i].Hsml *= fac;
         if(PPP[i].Hsml > MAXHSML)
         {
-#ifndef LONGIDS
-            printf("warning: On Task=%d: we reached Hsml=%g for ID=%d\n",
-                    ThisTask, PPP[i].Hsml, P[i].ID);
-#else
             printf("warning: On Task=%d: we reached Hsml=%g for ID=%llu\n",
                     ThisTask, PPP[i].Hsml, P[i].ID);
-#endif
             PPP[i].Hsml = MAXHSML;
         }
         //---This was added

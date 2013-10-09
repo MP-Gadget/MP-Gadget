@@ -160,7 +160,6 @@ OPT	+=  -DFIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
 #OPT	+=  -DISOTHERM=200                  # adds potential of an isothermal sphere
 #OPT	+=  -DCOMPUTE_POTENTIAL_ENERGY
 #OPT	+=  -DALLOWEXTRAPARAMS
-OPT	+=  -DLONGIDS
 #OPT	+=  -DASSIGN_NEW_IDS
 OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very different from collisionless particles, this can helps to avoid problems in the domain decomposition
 #OPT	+=  -DLONG_X=140

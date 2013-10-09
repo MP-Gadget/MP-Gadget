@@ -1673,11 +1673,7 @@ enum datatype get_datatype_in_block(enum iofields blocknr)
     switch (blocknr)
     {
         case IO_ID:
-#ifdef LONGIDS
             return DTYPE_UINT64;
-#else
-            return DTYPE_UINT32;
-#endif
         case IO_DMHSML:
         case IO_DMDENSITY:
         case IO_DMVELDISP:
