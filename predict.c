@@ -488,22 +488,22 @@ void drift_particle(int i, int time1)
 #endif
 
         SphP[i].d.Density *= exp(-SphP[i].v.DivVel * dt_drift);
-        //      PPP[i].Hsml *= exp(0.333333333333 * SphP[i].v.DivVel * dt_drift);
+        //      P[i].Hsml *= exp(0.333333333333 * SphP[i].v.DivVel * dt_drift);
         //---This was added
         double fac = exp(0.333333333333 * SphP[i].v.DivVel * dt_drift);
         if(fac > 1.25)
             fac = 1.25;
-        PPP[i].Hsml *= fac;
-        if(PPP[i].Hsml > MAXHSML)
+        P[i].Hsml *= fac;
+        if(P[i].Hsml > MAXHSML)
         {
             printf("warning: On Task=%d: we reached Hsml=%g for ID=%llu\n",
-                    ThisTask, PPP[i].Hsml, P[i].ID);
-            PPP[i].Hsml = MAXHSML;
+                    ThisTask, P[i].Hsml, P[i].ID);
+            P[i].Hsml = MAXHSML;
         }
         //---This was added
 
-        if(PPP[i].Hsml < All.MinGasHsml)
-            PPP[i].Hsml = All.MinGasHsml;
+        if(P[i].Hsml < All.MinGasHsml)
+            P[i].Hsml = All.MinGasHsml;
 
 #ifndef WAKEUP
         dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);

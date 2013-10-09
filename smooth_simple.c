@@ -172,7 +172,7 @@ void smoothed_values(void)
             SmoothDataIn[j].Pos[0] = P[place].Pos[0];
             SmoothDataIn[j].Pos[1] = P[place].Pos[1];
             SmoothDataIn[j].Pos[2] = P[place].Pos[2];
-            SmoothDataIn[j].Hsml = PPP[place].Hsml;
+            SmoothDataIn[j].Hsml = P[place].Hsml;
             memcpy(SmoothDataIn[j].NodeList,
                     DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
         }
@@ -425,7 +425,7 @@ int smoothed_evaluate(int target, int mode, int *nexport, int *nsend_local)
     if(mode == 0)
     {
         pos = P[target].Pos;
-        h = PPP[target].Hsml;
+        h = P[target].Hsml;
     }
     else
     {

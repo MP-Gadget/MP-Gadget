@@ -162,12 +162,12 @@ void find_particles_and_save_them(int num)
 
 	  r2 = dx * dx + dy * dy;
 
-	  if(r2 < PPP[n].Hsml * PPP[n].Hsml)
+	  if(r2 < P[n].Hsml * P[n].Hsml)
 	    {
 	      for(k = 0; k < 3; k++)
 		particles[count_local].Pos[k] = P[n].Pos[k];
 
-	      particles[count_local].Hsml = PPP[n].Hsml;
+	      particles[count_local].Hsml = P[n].Hsml;
 	      particles[count_local].Vz = P[n].Vel[Los->zaxis];
 	      particles[count_local].Utherm = SphP[n].Entropy / GAMMA_MINUS1 * pow(SphP[n].d.Density *
 										   a3inv, GAMMA_MINUS1);
@@ -282,10 +282,10 @@ void add_along_lines_of_sight(void)
 
 	  r2 = dx * dx + dy * dy;
 
-	  if(r2 < PPP[n].Hsml * PPP[n].Hsml)
+	  if(r2 < P[n].Hsml * P[n].Hsml)
 	    {
-	      z0 = (P[n].Pos[Los->zaxis] - PPP[n].Hsml) / All.BoxSize * PIXELS;
-	      z1 = (P[n].Pos[Los->zaxis] + PPP[n].Hsml) / All.BoxSize * PIXELS;
+	      z0 = (P[n].Pos[Los->zaxis] - P[n].Hsml) / All.BoxSize * PIXELS;
+	      z1 = (P[n].Pos[Los->zaxis] + P[n].Hsml) / All.BoxSize * PIXELS;
 	      iz0 = (int) z0;
 	      iz1 = (int) z1;
 	      if(z0 < 0)
@@ -296,16 +296,16 @@ void add_along_lines_of_sight(void)
 		  dz = los_periodic((iz + 0.5) / PIXELS * All.BoxSize - P[n].Pos[Los->zaxis]);
 		  r = sqrt(r2 + dz * dz);
 
-		  if(PPP[n].Hsml > All.BoxSize)
+		  if(P[n].Hsml > All.BoxSize)
 		    {
-		      printf("Here:%d  n=%d %g\n", ThisTask, n, PPP[n].Hsml);
+		      printf("Here:%d  n=%d %g\n", ThisTask, n, P[n].Hsml);
 		      endrun(89);
 		    }
 
-		  if(r < PPP[n].Hsml)
+		  if(r < P[n].Hsml)
 		    {
-		      u = r / PPP[n].Hsml;
-		      h3inv = 1.0 / (PPP[n].Hsml * PPP[n].Hsml * PPP[n].Hsml);
+		      u = r / P[n].Hsml;
+		      h3inv = 1.0 / (P[n].Hsml * P[n].Hsml * P[n].Hsml);
 
 		      if(u < 0.5)
 			wk = h3inv * (KERNEL_COEFF_1 + KERNEL_COEFF_2 * (u - 1) * u * u);

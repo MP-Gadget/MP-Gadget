@@ -121,7 +121,7 @@ void snIa_heating(void)
 	  for(k = 0; k < 3; k++)
 	    SnheatingdataIn[j].Pos[k] = P[place].Pos[k];
 
-	  SnheatingdataIn[j].Hsml = PPP[place].Hsml;
+	  SnheatingdataIn[j].Hsml = P[place].Hsml;
 	  SnheatingdataIn[j].Density = P[place].DensAroundStar;
 
 	  dt = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / hubble_a;
@@ -200,7 +200,7 @@ int snIaheating_evaluate(int target, int mode, int *nexport, int *nsend_local)
 
       energy = All.SnIaHeatingRate * dt * P[target].Mass;
 
-      h_i = PPP[target].Hsml;
+      h_i = P[target].Hsml;
     }
   else
     {

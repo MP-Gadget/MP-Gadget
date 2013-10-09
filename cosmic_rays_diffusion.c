@@ -419,7 +419,7 @@ void cosmic_ray_diffusion_matrix_multiply(double *cr_E0_in, double *cr_E0_out, d
 	  for(k = 0; k < 3; k++)
 	    CR_DiffusionDataIn[j].Pos[k] = P[place].Pos[k];
 
-	  CR_DiffusionDataIn[j].Hsml = PPP[place].Hsml;
+	  CR_DiffusionDataIn[j].Hsml = P[place].Hsml;
 	  CR_DiffusionDataIn[j].Density = SphP[place].d.Density;
 	  CR_DiffusionDataIn[j].CR_E0_Kappa[CRpop] = CR_E0_Kappa[CRpop][place];
 	  CR_DiffusionDataIn[j].CR_n0_Kappa[CRpop] = CR_n0_Kappa[CRpop][place];
@@ -547,7 +547,7 @@ int cosmic_ray_diffusion_evaluate(int target, int mode,
   if(mode == 0)
     {
       pos = P[target].Pos;
-      h_i = PPP[target].Hsml;
+      h_i = P[target].Hsml;
       rho = SphP[target].d.Density;
       CR_E0_Kappa_i = CR_E0_Kappa[CRpop][target];
       CR_n0_Kappa_i = CR_n0_Kappa[CRpop][target];
@@ -620,7 +620,7 @@ int cosmic_ray_diffusion_evaluate(int target, int mode,
 #endif
 	      r2 = dx * dx + dy * dy + dz * dz;
 
-	      h_j = PPP[j].Hsml;
+	      h_j = P[j].Hsml;
 	      if(r2 < h_i2 || r2 < h_j * h_j)
 		{
 		  r = sqrt(r2);

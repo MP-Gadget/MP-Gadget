@@ -590,7 +590,7 @@ void subfind_setup_smoothinglengths(void)
 
 #ifdef DENSITY_SPLIT_BY_TYPE
                 if(P[i].Type == 0)
-                    P[i].DM_Hsml = PPP[i].Hsml;
+                    P[i].DM_Hsml = P[i].Hsml;
                 else
 #ifdef KEEP_DM_HSML_AS_GUESS
                     if(P[i].DM_Hsml < 0)

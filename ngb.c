@@ -78,7 +78,7 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
 	  if(P[p].Ti_current != All.Ti_Current)
 	    drift_particle(p, All.Ti_Current);
 
-	  dist = DMAX(PPP[p].Hsml, hsml);
+	  dist = DMAX(P[p].Hsml, hsml);
 
 	  dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
 	  if(dx > dist)
@@ -224,7 +224,7 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 	      UNLOCK_PARTNODEDRIFT;
 	    }
 
-	  dist = DMAX(PPP[p].Hsml, hsml);
+	  dist = DMAX(P[p].Hsml, hsml);
 
 	  dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
 	  if(dx > dist)

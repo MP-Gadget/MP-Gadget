@@ -137,7 +137,7 @@ void greenf_diffusion(void)
 			DensDataIn[nexport].Pos[0] = P[i].Pos[0];
 			DensDataIn[nexport].Pos[1] = P[i].Pos[1];
 			DensDataIn[nexport].Pos[2] = P[i].Pos[2];
-			DensDataIn[nexport].Hsml = PPP[i].Hsml;
+			DensDataIn[nexport].Hsml = P[i].Hsml;
 			DensDataIn[nexport].CR_Kappa[CRpop] = SphP[i].CR_Kappa[CRpop];
 			DensDataIn[nexport].CR_Kappa_egy[CRpop] = SphP[i].CR_Kappa_egy[CRpop];
 
@@ -304,7 +304,7 @@ void greenf_diffusion(void)
 			DensDataIn[nexport].CR_Kappa_egy[CRpop] = SphP[i].CR_Kappa_egy[CRpop];
 			DensDataIn[nexport].CR_WeightSum = SphP[i].CR_WeightSum;
 			DensDataIn[nexport].CR_WeightSum_egy = SphP[i].CR_WeightSum_egy;
-			DensDataIn[nexport].Hsml = PPP[i].Hsml;
+			DensDataIn[nexport].Hsml = P[i].Hsml;
 			DensDataIn[nexport].CR_E0[CRpop] = SphP[i].CR_E0[CRpop];
 			DensDataIn[nexport].CR_n0[CRpop] = SphP[i].CR_n0[CRpop];
 
@@ -452,7 +452,7 @@ void compute_diff_weights(int target, int mode)
   if(mode == 0)
     {
       pos = P[target].Pos;
-      h = PPP[target].Hsml;
+      h = P[target].Hsml;
       kappa = SphP[target].CR_Kappa;
       kappa_egy = SphP[target].CR_Kappa_egy;
     }
@@ -542,7 +542,7 @@ void scatter_diffusion(int target, int mode)
   if(mode == 0)
     {
       pos = P[target].Pos;
-      h = PPP[target].Hsml;
+      h = P[target].Hsml;
       kappa = SphP[target].CR_Kappa;
       kappa_egy = SphP[target].CR_Kappa_egy;
       weightsum = SphP[target].CR_WeightSum;

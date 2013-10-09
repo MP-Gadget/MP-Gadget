@@ -314,7 +314,7 @@ void conduction_matrix_multiply(double *in, double *out)
 	  for(k = 0; k < 3; k++)
 	    ConductionDataIn[j].Pos[k] = P[place].Pos[k];
 
-	  ConductionDataIn[j].Hsml = PPP[place].Hsml;
+	  ConductionDataIn[j].Hsml = P[place].Hsml;
 	  ConductionDataIn[j].Density = SphP[place].d.Density;
 	  ConductionDataIn[j].Kappa = Kappa[place];
 
@@ -435,7 +435,7 @@ int conduction_evaluate(int target, int mode, double *in, double *out, double *s
   if(mode == 0)
     {
       pos = P[target].Pos;
-      h_i = PPP[target].Hsml;
+      h_i = P[target].Hsml;
       rho = SphP[target].d.Density;
       Kappa_i = Kappa[target];
     }
@@ -504,7 +504,7 @@ int conduction_evaluate(int target, int mode, double *in, double *out, double *s
 #endif
 	      r2 = dx * dx + dy * dy + dz * dz;
 
-	      h_j = PPP[j].Hsml;
+	      h_j = P[j].Hsml;
 	      if(r2 < h_i2 || r2 < h_j * h_j)
 		{
 		  r = sqrt(r2);

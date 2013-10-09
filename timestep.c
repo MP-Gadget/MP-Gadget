@@ -950,7 +950,7 @@ int get_timestep(int p,		/*!< particle index */
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS_HSML
             if(P[p].Type == 0)
-                dt = sqrt(2 * All.ErrTolIntAccuracy * atime * PPP[p].Hsml / 2.8 / ac);
+                dt = sqrt(2 * All.ErrTolIntAccuracy * atime * P[p].Hsml / 2.8 / ac);
 #else
             if(P[p].Type == 0)
                 dt =
@@ -975,17 +975,17 @@ int get_timestep(int p,		/*!< particle index */
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
 
         if(All.ComovingIntegrationOn)
-            dt_courant = All.CourantFac * All.Time * DMAX(PPP[p].Hsml, All.SofteningTable[0]) / (fac3 * csnd);
+            dt_courant = All.CourantFac * All.Time * DMAX(P[p].Hsml, All.SofteningTable[0]) / (fac3 * csnd);
         else
-            dt_courant = All.CourantFac * DMAX(PPP[p].Hsml, All.SofteningTable[0]) / csnd;
+            dt_courant = All.CourantFac * DMAX(P[p].Hsml, All.SofteningTable[0]) / csnd;
 
         if(dt_courant > 2 * All.CourantFac * SphP[p].MinViscousDt)
             dt_courant = 2 * All.CourantFac * SphP[p].MinViscousDt;
 #else
         if(All.ComovingIntegrationOn)
-            dt_courant = 2 * All.CourantFac * All.Time * PPP[p].Hsml / (fac3 * SphP[p].MaxSignalVel);
+            dt_courant = 2 * All.CourantFac * All.Time * P[p].Hsml / (fac3 * SphP[p].MaxSignalVel);
         else
-            dt_courant = 2 * All.CourantFac * PPP[p].Hsml / SphP[p].MaxSignalVel;
+            dt_courant = 2 * All.CourantFac * P[p].Hsml / SphP[p].MaxSignalVel;
 #endif
 
         if(dt_courant < dt)
@@ -1179,7 +1179,7 @@ int get_timestep(int p,		/*!< particle index */
 #endif
         if(P[p].Type == 0)
             printf("hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SphP[p].a.HydroAccel[0], SphP[p].a.HydroAccel[1],
-                    SphP[p].a.HydroAccel[2], SphP[p].d.Density, PPP[p].Hsml, PPP[p].n.NumNgb);
+                    SphP[p].a.HydroAccel[2], SphP[p].d.Density, P[p].Hsml, P[p].n.NumNgb);
 #ifdef DENSITY_INDEPENDENT_SPH
         if(P[p].Type == 0)
             printf("egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SphP[p].EgyWtDensity, SphP[p].EntVarPred,

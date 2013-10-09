@@ -615,7 +615,7 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 
         case IO_HSML:		/* SPH smoothing length */
             for(n = 0; n < pc; n++)
-                PPP[offset + n].Hsml = READREAL(cp);
+                P[offset + n].Hsml = READREAL(cp);
             break;
 
 

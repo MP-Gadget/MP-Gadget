@@ -361,8 +361,8 @@ int compare_particles(int ncheck, int count)
 
 
 	  /* compare smoothing lengths */
-	  a1 = PP1[n].PPP.Hsml;
-	  a2 = PP2[n].PPP.Hsml;
+	  a1 = PP1[n].P.Hsml;
+	  a2 = PP2[n].P.Hsml;
 	  da = fabs(a1 - a2);
 
 	  if(da > ACC * a1)

@@ -559,7 +559,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    *fp++ = PPP[pindex].Hsml;
+                    *fp++ = P[pindex].Hsml;
                     n++;
                 }
             break;

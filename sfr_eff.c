@@ -516,7 +516,7 @@ void cooling_and_starformation(void)
                         P[NumPart + stars_spawned] = P[i];
                         P[NumPart + stars_spawned].Type = 4;
 #ifdef SNIA_HEATING
-                        PPP[NumPart + stars_spawned].Hsml = All.SofteningTable[0];
+                        P[NumPart + stars_spawned].Hsml = All.SofteningTable[0];
 #endif
 
                         NextActiveParticle[NumPart + stars_spawned] = FirstActiveParticle;

@@ -335,13 +335,6 @@ typedef MyFloat MyLongDouble;
 
 
 
-
-#if defined (BLACK_HOLES) || defined(RADTRANSFER) || defined(SNIA_HEATING)
-#define PPP P
-#else
-#define PPP SphP
-#endif
-
 #ifdef BLACK_HOLES
 #define BH_FEEDBACK_TOPHAT   0x2
 #define BH_FEEDBACK_SPLINE   0x4
@@ -1370,7 +1363,6 @@ extern struct particle_data
     MyFloat Metallicity;		/*!< metallicity of gas or star particle */
 #endif				/* closes METALS */
 
-#if defined (BLACK_HOLES) || defined(RADTRANSFER) || defined(SNIA_HEATING)
     MyFloat Hsml;
 
     union
@@ -1378,9 +1370,9 @@ extern struct particle_data
         MyFloat       NumNgb;
         MyLongDouble dNumNgb;
     } n;
+
 #if defined(RADTRANSFER) || defined(SNIA_HEATING)
     MyFloat DensAroundStar;
-#endif
 #endif
 
 
@@ -1566,15 +1558,6 @@ extern struct sph_particle_data
 #endif
         } s;
     } u;
-#endif
-
-#if !(defined(BLACK_HOLES) || defined(RADTRANSFER) || defined(SNIA_HEATING))
-    MyFloat Hsml;			/*!< current smoothing length */
-    union
-    {
-        MyFloat       NumNgb;
-        MyLongDouble dNumNgb;
-    } n;
 #endif
 
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)

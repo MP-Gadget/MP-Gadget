@@ -179,7 +179,7 @@ void blackhole_accretion(void)
 #else
                         0., 0., 0.,
 #endif 
-                        PPP[n].Hsml);
+                        P[n].Hsml);
             }
 
             dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / hubble_a;
@@ -300,7 +300,7 @@ void blackhole_accretion(void)
                 BlackholeDataIn[j].Vel[k] = P[place].Vel[k];
             }
 
-            BlackholeDataIn[j].Hsml = PPP[place].Hsml;
+            BlackholeDataIn[j].Hsml = P[place].Hsml;
             BlackholeDataIn[j].Mass = P[place].Mass;
             BlackholeDataIn[j].BH_Mass = P[place].BH_Mass;
             BlackholeDataIn[j].Density = P[place].BH_Density;
@@ -454,7 +454,7 @@ void blackhole_accretion(void)
             for(k = 0; k < 3; k++)
                 BlackholeDataIn[j].Pos[k] = P[place].Pos[k];
 
-            BlackholeDataIn[j].Hsml = PPP[place].Hsml;
+            BlackholeDataIn[j].Hsml = P[place].Hsml;
             BlackholeDataIn[j].BH_Mass = P[place].BH_Mass;
             BlackholeDataIn[j].ID = P[place].ID;
 
@@ -825,17 +825,13 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
         FeedbackWeightSum = P[target].BH_FeedbackWeightSum;
         mdot = P[target].BH_Mdot;
         dt = (P[target].TimeBin ? (1 << P[target].TimeBin) : 0) * All.Timebase_interval / hubble_a;
-        h_i = PPP[target].Hsml;
+        h_i = P[target].Hsml;
         mass = P[target].Mass;
         bh_mass = P[target].BH_Mass;
         velocity = P[target].Vel;
         csnd = blackhole_soundspeed(P[target].BH_EntOrPressure,
                 P[target].BH_Density);
 
-        if(csnd == 0.0) {
-            fprintf(stderr, "csnd == 0.0, entropy == %g, density = %g, hsml=%g\n", P[target].BH_EntOrPressure, P[target].BH_Density, h_i);
-            //endrun(999965);
-        }
         index = target;
         id = P[target].ID;
 #ifdef BH_KINETICFEEDBACK
@@ -862,6 +858,10 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
         activeenergy = BlackholeDataGet[target].ActiveEnergy;
 #endif
 
+    }
+    if(csnd == 0.0 && mdot != 0) {
+        fprintf(stderr, "csnd == 0.0, mdot=%g entropy == %g, density = %g, hsml=%g\n", mdot, P[target].BH_EntOrPressure, P[target].BH_Density, h_i);
+        //endrun(999965);
     }
 
     density_kernel_t kernel;
@@ -1096,7 +1096,7 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
     if(mode == 0)
     {
         pos = P[target].Pos;
-        h_i = PPP[target].Hsml;
+        h_i = P[target].Hsml;
         id = P[target].ID;
         bh_mass = P[target].BH_Mass;
     }

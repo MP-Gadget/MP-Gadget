@@ -90,7 +90,7 @@ void kinetic_feedback_mhm(void)
 		      KinDataIn[nexport].Density = SphP[i].Density;
 		      KinDataIn[nexport].Energy = SphP[i].FeedbackEnergy;
 
-		      KinDataIn[nexport].Hsml = PPP[i].Hsml;
+		      KinDataIn[nexport].Hsml = P[i].Hsml;
 		      KinDataIn[nexport].Index = i;
 		      KinDataIn[nexport].Task = j;
 		      nexport++;
@@ -190,7 +190,7 @@ void kinetic_evaluate(int target, int mode)
   if(mode == 0)
     {
       pos = P[target].Pos;
-      h = PPP[target].Hsml;
+      h = P[target].Hsml;
       rho = SphP[target].Density;
       energy = SphP[target].FeedbackEnergy;
     }

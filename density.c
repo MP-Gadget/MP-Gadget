@@ -412,7 +412,7 @@ void density(void)
                 DensDataIn[j].Pos[0] = P[place].Pos[0];
                 DensDataIn[j].Pos[1] = P[place].Pos[1];
                 DensDataIn[j].Pos[2] = P[place].Pos[2];
-                DensDataIn[j].Hsml = PPP[place].Hsml;
+                DensDataIn[j].Hsml = P[place].Hsml;
 
                 DensDataIn[j].Type = P[place].Type;
                 memcpy(DensDataIn[j].NodeList,
@@ -559,7 +559,7 @@ void density(void)
             {
                 place = DataIndexTable[j].Index;
 
-                PPP[place].n.dNumNgb += DensDataOut[j].Ngb;
+                P[place].n.dNumNgb += DensDataOut[j].Ngb;
 #ifdef HYDRO_COST_FACTOR
                 if(All.ComovingIntegrationOn)
                     P[place].GravCost += HYDRO_COST_FACTOR * All.Time * DensDataOut[j].Ninteractions;
@@ -686,7 +686,7 @@ void density(void)
         for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
             if(density_isactive(i))
             {
-                PPP[i].n.NumNgb = FLT(PPP[i].n.dNumNgb);
+                P[i].n.NumNgb = FLT(P[i].n.dNumNgb);
 
                 if(P[i].Type == 0)
                 {
@@ -713,7 +713,7 @@ void density(void)
 #ifdef VOLUME_CORRECTION
                             SphP[i].DensityOld = SphP[i].DensityStd;
 #endif
-                            SphP[i].h.DhsmlDensityFactor *= PPP[i].Hsml / (NUMDIMS * SphP[i].d.Density);
+                            SphP[i].h.DhsmlDensityFactor *= P[i].Hsml / (NUMDIMS * SphP[i].d.Density);
                             if(SphP[i].h.DhsmlDensityFactor > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
                                 SphP[i].h.DhsmlDensityFactor = 1 / (1 + SphP[i].h.DhsmlDensityFactor);
                             else
@@ -722,7 +722,7 @@ void density(void)
 #ifdef DENSITY_INDEPENDENT_SPH
                             if((SphP[i].EntVarPred>0)&&(SphP[i].EgyWtDensity>0))
                             {
-                                SphP[i].DhsmlEgyDensityFactor *= PPP[i].Hsml/ (NUMDIMS * SphP[i].EgyWtDensity);
+                                SphP[i].DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SphP[i].EgyWtDensity);
                                 SphP[i].DhsmlEgyDensityFactor *= -SphP[i].h.DhsmlDensityFactor;
                                 SphP[i].EgyWtDensity /= SphP[i].EntVarPred;
                             } else {
@@ -934,9 +934,9 @@ void density(void)
                     desnumngb = All.DesNumNgb * All.BlackHoleNgbFactor;
 #endif
 
-                if(PPP[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
-                        (PPP[i].n.NumNgb > (desnumngb + All.MaxNumNgbDeviation)
-                         && PPP[i].Hsml > (1.01 * All.MinGasHsml)))
+                if(P[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
+                        (P[i].n.NumNgb > (desnumngb + All.MaxNumNgbDeviation)
+                         && P[i].Hsml > (1.01 * All.MinGasHsml)))
                 {
                     /* need to redo this particle */
                     npleft++;
@@ -951,30 +951,30 @@ void density(void)
                             continue;
                         }
 
-                    if(PPP[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation))
-                        Left[i] = DMAX(PPP[i].Hsml, Left[i]);
+                    if(P[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation))
+                        Left[i] = DMAX(P[i].Hsml, Left[i]);
                     else
                     {
                         if(Right[i] != 0)
                         {
-                            if(PPP[i].Hsml < Right[i])
-                                Right[i] = PPP[i].Hsml;
+                            if(P[i].Hsml < Right[i])
+                                Right[i] = P[i].Hsml;
                         }
                         else
-                            Right[i] = PPP[i].Hsml;
+                            Right[i] = P[i].Hsml;
                     }
 
                     if(iter >= MAXITER - 10)
                     {
                         printf
                             ("i=%d task=%d ID=%llu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-                             i, ThisTask, P[i].ID, PPP[i].Hsml, Left[i], Right[i],
-                             (float) PPP[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+                             i, ThisTask, P[i].ID, P[i].Hsml, Left[i], Right[i],
+                             (float) P[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
                         fflush(stdout);
                     }
 
                     if(Right[i] > 0 && Left[i] > 0)
-                        PPP[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
+                        P[i].Hsml = pow(0.5 * (pow(Left[i], 3) + pow(Right[i], 3)), 1.0 / 3);
                     else
                     {
                         if(Right[i] == 0 && Left[i] == 0)
@@ -982,48 +982,48 @@ void density(void)
 
                         if(Right[i] == 0 && Left[i] > 0)
                         {
-                            if(P[i].Type == 0 && fabs(PPP[i].n.NumNgb - desnumngb) < 0.5 * desnumngb)
+                            if(P[i].Type == 0 && fabs(P[i].n.NumNgb - desnumngb) < 0.5 * desnumngb)
                             {
-                                fac = 1 - (PPP[i].n.NumNgb -
-                                        desnumngb) / (NUMDIMS * PPP[i].n.NumNgb) *
+                                fac = 1 - (P[i].n.NumNgb -
+                                        desnumngb) / (NUMDIMS * P[i].n.NumNgb) *
                                     SphP[i].h.DhsmlDensityFactor;
 
                                 if(fac < 1.26)
-                                    PPP[i].Hsml *= fac;
+                                    P[i].Hsml *= fac;
                                 else
-                                    PPP[i].Hsml *= 1.26;
+                                    P[i].Hsml *= 1.26;
                             }
                             else
-                                PPP[i].Hsml *= 1.26;
+                                P[i].Hsml *= 1.26;
                         }
 
                         if(Right[i] > 0 && Left[i] == 0)
                         {
-                            if(P[i].Type == 0 && fabs(PPP[i].n.NumNgb - desnumngb) < 0.5 * desnumngb)
+                            if(P[i].Type == 0 && fabs(P[i].n.NumNgb - desnumngb) < 0.5 * desnumngb)
                             {
-                                fac = 1 - (PPP[i].n.NumNgb -
-                                        desnumngb) / (NUMDIMS * PPP[i].n.NumNgb) *
+                                fac = 1 - (P[i].n.NumNgb -
+                                        desnumngb) / (NUMDIMS * P[i].n.NumNgb) *
                                     SphP[i].h.DhsmlDensityFactor;
 
                                 if(fac > 1 / 1.26)
-                                    PPP[i].Hsml *= fac;
+                                    P[i].Hsml *= fac;
                                 else
-                                    PPP[i].Hsml /= 1.26;
+                                    P[i].Hsml /= 1.26;
                             }
                             else
-                                PPP[i].Hsml /= 1.26;
+                                P[i].Hsml /= 1.26;
                         }
                     }
 
-                        if(PPP[i].Hsml < All.MinGasHsml)
-                            PPP[i].Hsml = All.MinGasHsml;
+                        if(P[i].Hsml < All.MinGasHsml)
+                            P[i].Hsml = All.MinGasHsml;
 
 #ifdef BLACK_HOLES
                     if(P[i].Type == 5)
                         if(Left[i] > All.BlackHoleMaxAccretionRadius)
                         {
                             /* this will stop the search for a new BH smoothing length in the next iteration */
-                            PPP[i].Hsml = Left[i] = Right[i] = All.BlackHoleMaxAccretionRadius;
+                            P[i].Hsml = Left[i] = Right[i] = All.BlackHoleMaxAccretionRadius;
                         }
 #endif
 
@@ -1272,7 +1272,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
     if(mode == 0)
     {
         pos = P[target].Pos;
-        h = PPP[target].Hsml;
+        h = P[target].Hsml;
         type = P[target].Type;
         hsearch = density_decide_hsearch(P[target].Type, h);
 #ifdef VOLUME_CORRECTION
@@ -1603,7 +1603,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
     }
     if(mode == 0)
     {
-        PPP[target].n.dNumNgb = weighted_numngb;
+        P[target].n.dNumNgb = weighted_numngb;
 #ifdef HYDRO_COST_FACTOR
         if(All.ComovingIntegrationOn)
             P[target].GravCost += HYDRO_COST_FACTOR * All.Time * ninteractions;

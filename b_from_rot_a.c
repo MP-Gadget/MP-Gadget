@@ -77,7 +77,7 @@ void rot_a(void)
 		  DensDataIn[nexport].Vel[1] = SphP[i].BPred[1];
 		  DensDataIn[nexport].Vel[2] = SphP[i].BPred[2];
 
-		  DensDataIn[nexport].Hsml = PPP[i].Hsml;
+		  DensDataIn[nexport].Hsml = P[i].Hsml;
 		  DensDataIn[nexport].Index = i;
 		  DensDataIn[nexport].Task = j;
 		  nexport++;
@@ -238,7 +238,7 @@ void rot_a_evaluate(int target, int mode)
     {
       pos = P[target].Pos;
       b = SphP[target].BPred;
-      h = PPP[target].Hsml;
+      h = P[target].Hsml;
     }
   else
     {

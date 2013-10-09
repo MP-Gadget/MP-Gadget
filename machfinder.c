@@ -139,7 +139,7 @@ void GetMachNumber(struct sph_particle_data *Particle)
   csnd = sqrt(GAMMA * Particle->Pressure / Particle->d.Density) * pow(atime, -3. / 2. * GAMMA_MINUS1);
 
   fac_hsml = All.Shock_Length;
-  rhs = fac_hsml * PPP[index].Hsml * atime / (csnd * Particle->Entropy) * Particle->e.DtEntropy * hubble_a;
+  rhs = fac_hsml * P[index].Hsml * atime / (csnd * Particle->Entropy) * Particle->e.DtEntropy * hubble_a;
 
 
 
@@ -287,7 +287,7 @@ int shock_conditions_fnd(const gsl_vector * v, void *auxParticle, gsl_vector * f
       /* thermal gas definitions: */
       P1 = Particle->Pressure * pow(All.Time, -3.0 * GAMMA);	/* = PCR1 + Pth1 */
       Pth1 = P1 - PCR1;
-      hsml = PPP[index].Hsml * All.Time;
+      hsml = P[index].Hsml * All.Time;
       Ath1 = Particle->Entropy;
       dAth1dt = Particle->e.DtEntropy * hubble_a;
     }
@@ -302,7 +302,7 @@ int shock_conditions_fnd(const gsl_vector * v, void *auxParticle, gsl_vector * f
       /* thermal gas definitions: */
       P1 = Particle->Pressure;	/* = PCR1 + Pth1 */
       Pth1 = P1 - PCR1;
-      hsml = PPP[index].Hsml;
+      hsml = P[index].Hsml;
       Ath1 = Particle->Entropy;
       dAth1dt = Particle->e.DtEntropy;
     }
@@ -441,7 +441,7 @@ int shock_conditions_f(const gsl_vector * v, void *auxParticle, gsl_vector * f)
       /* thermal gas definitions: */
       P1 = Particle->Pressure * pow(All.Time, -3.0 * GAMMA);	/* = PCR1 + Pth1 */
       Pth1 = P1 - PCR1;
-      hsml = PPP[index].Hsml * All.Time;
+      hsml = P[index].Hsml * All.Time;
       Ath1 = Particle->Entropy;
       dAth1dt = Particle->e.DtEntropy * hubble_a;
     }
@@ -456,7 +456,7 @@ int shock_conditions_f(const gsl_vector * v, void *auxParticle, gsl_vector * f)
       /* thermal gas definitions: */
       P1 = Particle->Pressure;	/* = PCR1 + Pth1 */
       Pth1 = P1 - PCR1;
-      hsml = PPP[index].Hsml;
+      hsml = P[index].Hsml;
       Ath1 = Particle->Entropy;
       dAth1dt = Particle->e.DtEntropy;
     }
@@ -480,7 +480,7 @@ int shock_conditions_f(const gsl_vector * v, void *auxParticle, gsl_vector * f)
       printf("  #define hubble_a %e  #define atime %e\n", hubble_a, atime);
       printf("  XCR  = %e;  inj_rate = %e;\n", XCR, inj_rate);
       printf("  rho1 = %e;  hsml     = %e;  Ath1 = %e;  dAth1dt = %e;\n",
-	     Particle->d.Density, PPP[index].Hsml, Particle->Entropy, Particle->e.DtEntropy);
+	     Particle->d.Density, P[index].Hsml, Particle->Entropy, Particle->e.DtEntropy);
       printf("  P1   = %e;  PCR1     = %e;  eCR1 = %e;  gCR     = %e;\n\n",
 	     Particle->Pressure, PCR1 * pow(atime, 3.0 * GAMMA), eCR1 / rho1, Particle->CR_Gamma0[0]);
       fflush(stdout);
@@ -539,7 +539,7 @@ int shock_conditions_df(const gsl_vector * v, void *auxParticle, gsl_matrix * J)
       /* thermal gas definitions: */
       P1 = Particle->Pressure * pow(All.Time, -3.0 * GAMMA);	/* = PCR1 + Pth1 */
       Pth1 = P1 - PCR1;
-      hsml = PPP[index].Hsml * All.Time;
+      hsml = P[index].Hsml * All.Time;
       Ath1 = Particle->Entropy;
       dAth1dt = Particle->e.DtEntropy * hubble_a;
     }
@@ -554,7 +554,7 @@ int shock_conditions_df(const gsl_vector * v, void *auxParticle, gsl_matrix * J)
       /* thermal gas definitions: */
       P1 = Particle->Pressure;	/* = PCR1 + Pth1 */
       Pth1 = P1 - PCR1;
-      hsml = PPP[index].Hsml;
+      hsml = P[index].Hsml;
       Ath1 = Particle->Entropy;
       dAth1dt = Particle->e.DtEntropy;
     }
@@ -579,7 +579,7 @@ int shock_conditions_df(const gsl_vector * v, void *auxParticle, gsl_matrix * J)
       printf("  #define hubble_a %e  #define atime %e\n", hubble_a, atime);
       printf("  XCR  = %e;  inj_rate = %e;\n", XCR, inj_rate);
       printf("  rho1 = %e;  hsml     = %e;  Ath1 = %e;  dAth1dt = %e;\n",
-	     Particle->d.Density, PPP[index].Hsml, Particle->Entropy, Particle->e.DtEntropy);
+	     Particle->d.Density, P[index].Hsml, Particle->Entropy, Particle->e.DtEntropy);
       printf("  P1   = %e;  PCR1     = %e;  eCR1 = %e;  gCR     = %e;\n\n",
 	     Particle->Pressure, PCR1 * pow(atime, 3.0 * GAMMA), eCR1 / rho1, Particle->CR_Gamma0[0]);
       fflush(stdout);
@@ -1208,7 +1208,7 @@ void GetMachNumberCR(struct sph_particle_data *Particle)
       inj_rate = Particle->e.DtEntropy * hubble_a / Particle->Entropy;
       printf("  XCR  = %e;  inj_rate = %e;  hubble_a %e   atime     %e\n", XCR, inj_rate, hubble_a, atime);
       printf("  rho1 = %e;  hsml     = %e;  Ath1   = %e;  dAth1dt = %e;\n",
-	     Particle->d.Density, PPP[index].Hsml, Particle->Entropy, Particle->e.DtEntropy);
+	     Particle->d.Density, P[index].Hsml, Particle->Entropy, Particle->e.DtEntropy);
       printf("  P1   = %e;  PCR1     = %e;  eCR1   = %e;  gCR     = %e;\n\n",
 	     Particle->Pressure, PCR1 * pow(atime, 3.0 * GAMMA),
 	     CR_Particle_SpecificEnergy(Particle, 0) * Particle->d.Density, Particle->CR_Gamma0[0]);
@@ -1463,7 +1463,7 @@ void GetMachNumberCR(struct sph_particle_data *Particle)
       Particle->Shock_DensityJump = DensityJump;
       Particle->Shock_EnergyJump = EnergyJump;
 
-      DeltaDecayTime = fac_hsml * PPP[index].Hsml * atime / (MCRestimate * c1);
+      DeltaDecayTime = fac_hsml * P[index].Hsml * atime / (MCRestimate * c1);
 
       /* convert (Delta t_physical) -> (Delta log a): */
       DeltaDecayTime *= hubble_a;

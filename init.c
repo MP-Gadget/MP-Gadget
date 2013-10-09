@@ -565,7 +565,7 @@ void init(void)
         if(RestartFlag == 0)
         {
 #ifndef READ_HSML
-            PPP[i].Hsml = 0;
+            P[i].Hsml = 0;
 #endif
             SphP[i].d.Density = -1;
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -1207,17 +1207,17 @@ void setup_smoothinglengths(void)
 #ifndef READ_HSML
 #ifndef TWODIMS
 #ifndef ONEDIM
-            PPP[i].Hsml =
+            P[i].Hsml =
                 pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / Nodes[no].u.d.mass, 1.0 / 3) * Nodes[no].len;
 #else
-            PPP[i].Hsml = All.DesNumNgb * (P[i].Mass / Nodes[no].u.d.mass) * Nodes[no].len;
+            P[i].Hsml = All.DesNumNgb * (P[i].Mass / Nodes[no].u.d.mass) * Nodes[no].len;
 #endif
 #else
-            PPP[i].Hsml =
+            P[i].Hsml =
                 pow(1.0 / (M_PI) * All.DesNumNgb * P[i].Mass / Nodes[no].u.d.mass, 1.0 / 2) * Nodes[no].len;
 #endif
-            if(All.SofteningTable[0] != 0 && PPP[i].Hsml > 200.0 * All.SofteningTable[0])
-                PPP[i].Hsml = All.SofteningTable[0];
+            if(All.SofteningTable[0] != 0 && P[i].Hsml > 200.0 * All.SofteningTable[0])
+                P[i].Hsml = All.SofteningTable[0];
 #endif
         }
     }
@@ -1227,7 +1227,7 @@ void setup_smoothinglengths(void)
     {
         for(i = 0; i < NumPart; i++)
             if(P[i].Type == 5)
-                PPP[i].Hsml = All.SofteningTable[5];
+                P[i].Hsml = All.SofteningTable[5];
     }
 #endif
 
@@ -1236,7 +1236,7 @@ void setup_smoothinglengths(void)
     {
         for(i = 0; i < NumPart; i++)
             if(P[i].Type == 4)
-                PPP[i].Hsml = All.SofteningTable[4];
+                P[i].Hsml = All.SofteningTable[4];
     }
 #endif
 

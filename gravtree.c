@@ -573,7 +573,7 @@ void gravity_tree(void)
 	      GravDataIn[j].Type = P[place].Type;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
 	      if(P[place].Type == 0)
-		GravDataIn[j].Soft = PPP[place].Hsml;
+		GravDataIn[j].Soft = P[place].Hsml;
 #endif
 #endif
 	      GravDataIn[j].OldAcc = P[place].OldAcc;

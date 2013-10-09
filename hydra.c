@@ -465,7 +465,7 @@ void hydro_force(void)
 	      HydroDataIn[j].Pos[k] = P[place].Pos[k];
 	      HydroDataIn[j].Vel[k] = SphP[place].VelPred[k];
 	    }
-	  HydroDataIn[j].Hsml = PPP[place].Hsml;
+	  HydroDataIn[j].Hsml = P[place].Hsml;
 	  HydroDataIn[j].Mass = P[place].Mass;
 	  HydroDataIn[j].Density = SphP[place].d.Density;
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -492,11 +492,11 @@ void hydro_force(void)
 #ifndef NAVIERSTOKES
 	  HydroDataIn[j].F1 = fabs(SphP[place].v.DivVel) /
 	    (fabs(SphP[place].v.DivVel) + SphP[place].r.CurlVel +
-	     0.0001 * soundspeed_i / PPP[place].Hsml / fac_mu);
+	     0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
 #else
 	  HydroDataIn[j].F1 = fabs(SphP[place].v.DivVel) /
 	    (fabs(SphP[place].v.DivVel) + SphP[place].u.s.CurlVel +
-	     0.0001 * soundspeed_i / PPP[place].Hsml / fac_mu);
+	     0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
 #endif
 
 #else
@@ -1063,13 +1063,13 @@ void hydro_force(void)
 
 #ifdef TIME_DEP_ART_VISC
 #if !defined(EOS_DEGENERATE)
-	cs_h = sqrt(GAMMA * SphP[i].Pressure / SphP[i].d.Density) / PPP[i].Hsml;
+	cs_h = sqrt(GAMMA * SphP[i].Pressure / SphP[i].d.Density) / P[i].Hsml;
 #else
-	cs_h = sqrt(SphP[i].dpdr) / PPP[i].Hsml;
+	cs_h = sqrt(SphP[i].dpdr) / P[i].Hsml;
 #endif
 	f = fabs(SphP[i].v.DivVel) / (fabs(SphP[i].v.DivVel) + SphP[i].r.CurlVel + 0.0001 * cs_h / fac_mu);
 	SphP[i].Dtalpha = -(SphP[i].alpha - All.AlphaMin) * All.DecayTime *
-	  0.5 * SphP[i].MaxSignalVel / (PPP[i].Hsml * fac_mu)
+	  0.5 * SphP[i].MaxSignalVel / (P[i].Hsml * fac_mu)
 	  + f * All.ViscSource * DMAX(0.0, -SphP[i].v.DivVel);
 	if(All.ComovingIntegrationOn)
 	  SphP[i].Dtalpha /= (hubble_a * All.Time * All.Time);
@@ -1077,7 +1077,7 @@ void hydro_force(void)
 #ifdef MAGNETIC
 #ifdef TIME_DEP_MAGN_DISP
 	SphP[i].DtBalpha = -(SphP[i].Balpha - All.ArtMagDispMin) * All.ArtMagDispTime *
-	  0.5 * SphP[i].MaxSignalVel / (PPP[i].Hsml * fac_mu)
+	  0.5 * SphP[i].MaxSignalVel / (P[i].Hsml * fac_mu)
 #ifndef ROT_IN_MAG_DIS
 	  + All.ArtMagDispSource * fabs(SphP[i].divB) / sqrt(mu0 * SphP[i].d.Density);
 #else
@@ -1129,7 +1129,7 @@ void hydro_force(void)
 #ifdef SFR 
 	  pow(1.-SphP[i].XColdCloud,POW_CC) *
 #endif
-	  All.DivBcleanParabolicSigma / PPP[i].Hsml;
+	  All.DivBcleanParabolicSigma / P[i].Hsml;
 	
 	if(All.ComovingIntegrationOn)
 	  SphP[i].DtPhi =
@@ -1457,7 +1457,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
     {
       pos = P[target].Pos;
       vel = SphP[target].VelPred;
-      h_i = PPP[target].Hsml;
+      h_i = P[target].Hsml;
       mass = P[target].Mass;
       rho = SphP[target].d.Density;
       pressure = SphP[target].Pressure;
@@ -1485,11 +1485,11 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #ifndef NAVIERSTOKES
       f1 = fabs(SphP[target].v.DivVel) /
 	(fabs(SphP[target].v.DivVel) + SphP[target].r.CurlVel +
-	 0.0001 * soundspeed_i / PPP[target].Hsml / fac_mu);
+	 0.0001 * soundspeed_i / P[target].Hsml / fac_mu);
 #else
       f1 = fabs(SphP[target].v.DivVel) /
 	(fabs(SphP[target].v.DivVel) + SphP[target].u.s.CurlVel +
-	 0.0001 * soundspeed_i / PPP[target].Hsml / fac_mu);
+	 0.0001 * soundspeed_i / P[target].Hsml / fac_mu);
 #endif
 #else
       f1 = SphP[target].v.DivVel;
@@ -1803,7 +1803,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 	      dz = NEAREST_Z(dz);
 #endif
 	      r2 = dx * dx + dy * dy + dz * dz;
-	      h_j = PPP[j].Hsml;
+	      h_j = P[j].Hsml;
           density_kernel_init(&kernel_j, h_j);
 	      if(r2 < kernel_i.HH || r2 < kernel_j.HH)
 		{
@@ -1837,7 +1837,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
               dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
 
 #ifdef JD_VTURB
-			if ( h_i >= PPP[j].Hsml)  /* Make sure j is inside targets hsml */
+			if ( h_i >= P[j].Hsml)  /* Make sure j is inside targets hsml */
 				vRms += (SphP[j].VelPred[0]-vBulk[0])*(SphP[j].VelPred[0]-vBulk[0]) 
 					  	+ (SphP[j].VelPred[1]-vBulk[1])*(SphP[j].VelPred[1]-vBulk[1]) 
 						   + (SphP[j].VelPred[2]-vBulk[2])*(SphP[j].VelPred[2]-vBulk[2]);
@@ -2084,11 +2084,11 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #ifndef NAVIERSTOKES
 			  f2 =
 			    fabs(SphP[j].v.DivVel) / (fabs(SphP[j].v.DivVel) + SphP[j].r.CurlVel +
-						      0.0001 * soundspeed_j / fac_mu / PPP[j].Hsml);
+						      0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 #else
 			  f2 =
 			    fabs(SphP[j].v.DivVel) / (fabs(SphP[j].v.DivVel) + SphP[j].u.s.CurlVel +
-						      0.0001 * soundspeed_j / fac_mu / PPP[j].Hsml);
+						      0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 #endif
 
 #ifdef NO_SHEAR_VISCOSITY_LIMITER
