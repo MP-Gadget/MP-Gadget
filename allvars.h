@@ -1275,7 +1275,45 @@ extern struct global_data_all_processes
 }
 All;
 
-
+struct blackhole_data {
+    MyIDType SwallowID;
+#ifdef BH_COUNTPROGS
+    int CountProgs;
+#endif
+    MyFloat Mass;
+    MyFloat Mdot;
+#ifdef BH_BUBBLES
+    MyFloat Mass_bubbles;
+    MyFloat Mass_ini;
+#ifdef UNIFIED_FEEDBACK
+    MyFloat Mass_radio;
+#endif
+#endif
+    MyFloat FeedbackWeightSum;
+    MyFloat Density;
+    MyFloat EntOrPressure;
+    short int TimeBinLimit;
+#ifdef BH_USE_GASVEL_IN_BONDI
+    MyFloat SurroundingGasVel[3];
+#endif
+    MyFloat accreted_Mass;
+    MyFloat accreted_BHMass;
+    MyFloat accreted_momentum[3];
+#ifdef BH_BUBBLES
+    MyFloat accreted_BHMass_bubbles;
+#ifdef UNIFIED_FEEDBACK
+    MyFloat accreted_BHMass_radio;
+#endif
+#endif
+#ifdef REPOSITION_ON_POTMIN
+    MyFloat MinPotPos[3];
+    MyFloat MinPot;
+#endif
+#ifdef BH_KINETICFEEDBACK
+    MyFloat ActiveTime;
+    MyFloat ActiveEnergy;
+#endif
+};
 
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
@@ -1377,43 +1415,7 @@ extern struct particle_data
 
 
 #ifdef BLACK_HOLES
-    MyIDType SwallowID;
-#ifdef BH_COUNTPROGS
-    int BH_CountProgs;
-#endif
-    MyFloat BH_Mass;
-    MyFloat BH_Mdot;
-#ifdef BH_BUBBLES
-    MyFloat BH_Mass_bubbles;
-    MyFloat BH_Mass_ini;
-#ifdef UNIFIED_FEEDBACK
-    MyFloat BH_Mass_radio;
-#endif
-#endif
-    MyFloat BH_FeedbackWeightSum;
-    MyFloat BH_Density;
-    MyFloat BH_EntOrPressure;
-    short int BH_TimeBinLimit;
-#ifdef BH_USE_GASVEL_IN_BONDI
-    MyFloat BH_SurroundingGasVel[3];
-#endif
-    MyFloat BH_accreted_Mass;
-    MyFloat BH_accreted_BHMass;
-    MyFloat BH_accreted_momentum[3];
-#ifdef BH_BUBBLES
-    MyFloat BH_accreted_BHMass_bubbles;
-#ifdef UNIFIED_FEEDBACK
-    MyFloat BH_accreted_BHMass_radio;
-#endif
-#endif
-#ifdef REPOSITION_ON_POTMIN
-    MyFloat BH_MinPotPos[3];
-    MyFloat BH_MinPot;
-#endif
-#ifdef BH_KINETICFEEDBACK
-    MyFloat ActiveTime;
-    MyFloat ActiveEnergy;
-#endif
+    struct blackhole_data BH;
 #endif
 
 #ifdef SUBFIND

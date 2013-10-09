@@ -242,7 +242,7 @@ void density(void)
             Left[i] = Right[i] = 0;
 
 #ifdef BLACK_HOLES
-            P[i].SwallowID = 0;
+            P[i].BH.SwallowID = 0;
 #endif
 #if defined(BLACK_HOLES) && defined(FLTROUNDOFFREDUCTION)
             if(P[i].Type == 0)
@@ -659,14 +659,14 @@ void density(void)
 #ifdef BLACK_HOLES
                 if(P[place].Type == 5)
                 {
-                    P[place].BH_TimeBinLimit = IMIN(P[place].BH_TimeBinLimit, DensDataOut[j].BH_TimeBinLimit);
-                    P[place].BH_Density += DensDataOut[j].Rho;
-                    P[place].BH_FeedbackWeightSum += DensDataOut[j].FeedbackWeightSum;
-                    P[place].BH_EntOrPressure += DensDataOut[j].SmoothedEntOrPressure;
+                    P[place].BH.TimeBinLimit = IMIN(P[place].BH.TimeBinLimit, DensDataOut[j].BH_TimeBinLimit);
+                    P[place].BH.Density += DensDataOut[j].Rho;
+                    P[place].BH.FeedbackWeightSum += DensDataOut[j].FeedbackWeightSum;
+                    P[place].BH.EntOrPressure += DensDataOut[j].SmoothedEntOrPressure;
 #ifdef BH_USE_GASVEL_IN_BONDI
-                    P[place].BH_SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
-                    P[place].BH_SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
-                    P[place].BH_SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
+                    P[place].BH.SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
+                    P[place].BH.SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
+                    P[place].BH.SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
 #endif
                 }
 #endif
@@ -912,13 +912,13 @@ void density(void)
 #ifdef BLACK_HOLES
                 if(P[i].Type == 5)
                 {
-                    if(P[i].BH_Density > 0)
+                    if(P[i].BH.Density > 0)
                     {
-                        P[i].BH_EntOrPressure /= P[i].BH_Density;
+                        P[i].BH.EntOrPressure /= P[i].BH.Density;
 #ifdef BH_USE_GASVEL_IN_BONDI
-                        P[i].BH_SurroundingGasVel[0] /= P[i].BH_Density;
-                        P[i].BH_SurroundingGasVel[1] /= P[i].BH_Density;
-                        P[i].BH_SurroundingGasVel[2] /= P[i].BH_Density;
+                        P[i].BH.SurroundingGasVel[0] /= P[i].BH.Density;
+                        P[i].BH.SurroundingGasVel[1] /= P[i].BH.Density;
+                        P[i].BH.SurroundingGasVel[2] /= P[i].BH.Density;
 #endif
                     }
                 }
@@ -1693,14 +1693,14 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
         }
 #ifdef BLACK_HOLES
-        P[target].BH_Density = rho;
-        P[target].BH_TimeBinLimit = timebin_min;
-        P[target].BH_FeedbackWeightSum = fb_weight_sum;
-        P[target].BH_EntOrPressure = smoothent_or_pres;
+        P[target].BH.Density = rho;
+        P[target].BH.TimeBinLimit = timebin_min;
+        P[target].BH.FeedbackWeightSum = fb_weight_sum;
+        P[target].BH.EntOrPressure = smoothent_or_pres;
 #ifdef BH_USE_GASVEL_IN_BONDI
-        P[target].BH_SurroundingGasVel[0] = gasvel[0];
-        P[target].BH_SurroundingGasVel[1] = gasvel[1];
-        P[target].BH_SurroundingGasVel[2] = gasvel[2];
+        P[target].BH.SurroundingGasVel[0] = gasvel[0];
+        P[target].BH.SurroundingGasVel[1] = gasvel[1];
+        P[target].BH.SurroundingGasVel[2] = gasvel[2];
 #endif
 #endif
 #if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)

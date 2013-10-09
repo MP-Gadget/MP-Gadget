@@ -248,16 +248,16 @@ void advance_and_find_timesteps(void)
             }
             if(P[i].Type == 5)
             {
-                TimeBin_BH_mass[binold] -= P[i].BH_Mass;
+                TimeBin_BH_mass[binold] -= P[i].BH.Mass;
                 TimeBin_BH_dynamicalmass[binold] -= P[i].Mass;
-                TimeBin_BH_Mdot[binold] -= P[i].BH_Mdot;
-                if(P[i].BH_Mass > 0)
-                    TimeBin_BH_Medd[binold] -= P[i].BH_Mdot / P[i].BH_Mass;
-                TimeBin_BH_mass[bin] += P[i].BH_Mass;
+                TimeBin_BH_Mdot[binold] -= P[i].BH.Mdot;
+                if(P[i].BH.Mass > 0)
+                    TimeBin_BH_Medd[binold] -= P[i].BH.Mdot / P[i].BH.Mass;
+                TimeBin_BH_mass[bin] += P[i].BH.Mass;
                 TimeBin_BH_dynamicalmass[bin] += P[i].Mass;
-                TimeBin_BH_Mdot[bin] += P[i].BH_Mdot;
-                if(P[i].BH_Mass > 0)
-                    TimeBin_BH_Medd[bin] += P[i].BH_Mdot / P[i].BH_Mass;
+                TimeBin_BH_Mdot[bin] += P[i].BH.Mdot;
+                if(P[i].BH.Mass > 0)
+                    TimeBin_BH_Medd[bin] += P[i].BH.Mdot / P[i].BH.Mass;
             }
 #endif
 
@@ -1048,13 +1048,13 @@ int get_timestep(int p,		/*!< particle index */
 #ifdef BLACK_HOLES
     if(P[p].Type == 5)
     {
-        if(P[p].BH_Mdot > 0 && P[p].BH_Mass > 0)
+        if(P[p].BH.Mdot > 0 && P[p].BH.Mass > 0)
         {
-            dt_accr = 0.25 * P[p].BH_Mass / P[p].BH_Mdot;
+            dt_accr = 0.25 * P[p].BH.Mass / P[p].BH.Mdot;
             if(dt_accr < dt)
                 dt = dt_accr;
         }
-        dt_limiter = 0.5 * (1L << P[p].BH_TimeBinLimit) * All.Timebase_interval / hubble_a;
+        dt_limiter = 0.5 * (1L << P[p].BH.TimeBinLimit) * All.Timebase_interval / hubble_a;
         if (dt_limiter < dt) dt = dt_limiter;
     }
 #endif
@@ -1062,14 +1062,14 @@ int get_timestep(int p,		/*!< particle index */
 #ifdef BH_BUBBLES
     if(P[p].Type == 5)
     {
-        if(P[p].BH_Mdot > 0 && P[p].BH_Mass > 0)
+        if(P[p].BH.Mdot > 0 && P[p].BH.Mass > 0)
         {
 #ifdef UNIFIED_FEEDBACK
             meddington = (4 * M_PI * GRAVITY * C * PROTONMASS /
-                    (0.1 * C * C * THOMPSON)) * P[p].BH_Mass * All.UnitTime_in_s;
-            if(P[p].BH_Mdot < All.RadioThreshold * meddington)
+                    (0.1 * C * C * THOMPSON)) * P[p].BH.Mass * All.UnitTime_in_s;
+            if(P[p].BH.Mdot < All.RadioThreshold * meddington)
 #endif
-                dt_accr = (All.BlackHoleRadioTriggeringFactor - 1) * P[p].BH_Mass / P[p].BH_Mdot;
+                dt_accr = (All.BlackHoleRadioTriggeringFactor - 1) * P[p].BH.Mass / P[p].BH.Mdot;
             if(dt_accr < dt)
                 dt = dt_accr;
         }

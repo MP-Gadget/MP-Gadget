@@ -511,14 +511,14 @@ void init(void)
             count_holes++;
 
             if(RestartFlag == 0)
-                P[i].BH_Mass = All.SeedBlackHoleMass;
+                P[i].BH.Mass = All.SeedBlackHoleMass;
 #ifdef BH_BUBBLES
             if(RestartFlag == 0)
             {
-                P[i].BH_Mass_bubbles = All.SeedBlackHoleMass;
-                P[i].BH_Mass_ini = All.SeedBlackHoleMass;
+                P[i].BH.Mass_bubbles = All.SeedBlackHoleMass;
+                P[i].BH.Mass_ini = All.SeedBlackHoleMass;
 #ifdef UNIFIED_FEEDBACK
-                P[i].BH_Mass_radio = All.SeedBlackHoleMass;
+                P[i].BH.Mass_radio = All.SeedBlackHoleMass;
 #endif
             }
 #endif

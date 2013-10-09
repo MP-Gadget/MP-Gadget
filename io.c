@@ -1097,7 +1097,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    *fp++ = P[pindex].BH_Mass;
+                    *fp++ = P[pindex].BH.Mass;
                     n++;
                 }
 #endif
@@ -1108,7 +1108,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    *fp++ = P[pindex].BH_Mdot;
+                    *fp++ = P[pindex].BH.Mdot;
                     n++;
                 }
 #endif
@@ -1119,7 +1119,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    *ip++ = P[pindex].BH_CountProgs;
+                    *ip++ = P[pindex].BH.CountProgs;
                     n++;
                 }
 #endif
@@ -1130,7 +1130,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    *fp++ = P[pindex].BH_Mass_bubbles;
+                    *fp++ = P[pindex].BH.Mass_bubbles;
                     n++;
                 }
 #endif
@@ -1141,7 +1141,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    *fp++ = P[pindex].BH_Mass_ini;
+                    *fp++ = P[pindex].BH.Mass_ini;
                     n++;
                 }
 #endif
@@ -1152,7 +1152,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    *fp++ = P[pindex].BH_Mass_radio;
+                    *fp++ = P[pindex].BH.Mass_radio;
                     n++;
                 }
 #endif

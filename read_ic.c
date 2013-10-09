@@ -751,42 +751,42 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
         case IO_BHMASS:
 #ifdef BLACK_HOLES
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_Mass = READREAL(cp);
+                P[offset + n].BH.Mass = READREAL(cp);
 #endif
             break;
 
         case IO_BHMDOT:
 #ifdef BLACK_HOLES
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_Mdot = READREAL(cp);
+                P[offset + n].BH.Mdot = READREAL(cp);
 #endif
             break;
 
         case IO_BHPROGS:
 #ifdef BH_COUNTPROGS
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_CountProgs = *ip++;
+                P[offset + n].BH.CountProgs = *ip++;
 #endif
             break;
 
         case IO_BHMBUB:
 #ifdef BH_BUBBLES
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_Mass_bubbles = READREAL(cp);
+                P[offset + n].BH.Mass_bubbles = READREAL(cp);
 #endif
             break;
 
         case IO_BHMINI:
 #ifdef BH_BUBBLES
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_Mass_ini = READREAL(cp);
+                P[offset + n].BH.Mass_ini = READREAL(cp);
 #endif
             break;
 
         case IO_BHMRAD:
 #ifdef UNIFIED_FEEDBACK
             for(n = 0; n < pc; n++)
-                P[offset + n].BH_Mass_radio = READREAL(cp);
+                P[offset + n].BH.Mass_radio = READREAL(cp);
 #endif
             break;
 
