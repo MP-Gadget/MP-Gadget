@@ -265,12 +265,8 @@ void *density_evaluate_secondary(void *p);
 int density_isactive(int n);
 double density_decide_hsearch(int targettype, double h);
 
-void GetMachNumberCR( struct sph_particle_data *Particle );
-#ifndef CS_MODEL
-void GetMachNumber( struct sph_particle_data* Particle );
-#else
-void GetMachNumber( struct sph_particle_data* Particle, struct particle_data* Particle_Hsml );
-#endif
+void GetMachNumberCR(int target);
+void GetMachNumber(int target);
 void GetShock_DtEnergy( struct sph_particle_data* Particle );
 
 #ifdef MAGNETIC

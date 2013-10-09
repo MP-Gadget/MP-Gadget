@@ -1041,7 +1041,7 @@ int ngb_treefind_stars(MyDouble searchcenter[3], MyFloat hsml, int target, int *
 	  else
 	    a = 1.0;
 
-	  if((SphP[p].d.Density / (a * a * a)) >= All.PhysDensThresh)
+	  if((SPHP(p).d.Density / (a * a * a)) >= All.PhysDensThresh)
 	    continue;
 
 	  if(P[p].Ti_current != All.Ti_Current)

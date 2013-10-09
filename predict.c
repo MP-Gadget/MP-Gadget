@@ -56,11 +56,11 @@ void reconstruct_timebins(void)
 
 #ifdef SFR
         if(P[i].Type == 0)
-            TimeBinSfr[bin] += SphP[i].Sfr;
+            TimeBinSfr[bin] += SPHP(i).Sfr;
 #endif
 #if BLACK_HOLES
         if(P[i].Type == 0) {
-            TimeBin_GAS_Injection[bin] += SphP[i].i.dInjected_BH_Energy;
+            TimeBin_GAS_Injection[bin] += SPHP(i).i.dInjected_BH_Energy;
         }
         if(P[i].Type == 5)
         {
@@ -480,17 +480,17 @@ void drift_particle(int i, int time1)
     {
 #ifdef PMGRID
         for(j = 0; j < 3; j++)
-            SphP[i].VelPred[j] +=
-                (P[i].g.GravAccel[j] + P[i].GravPM[j]) * dt_gravkick + SphP[i].a.HydroAccel[j] * dt_hydrokick;
+            SPHP(i).VelPred[j] +=
+                (P[i].g.GravAccel[j] + P[i].GravPM[j]) * dt_gravkick + SPHP(i).a.HydroAccel[j] * dt_hydrokick;
 #else
         for(j = 0; j < 3; j++)
-            SphP[i].VelPred[j] += P[i].g.GravAccel[j] * dt_gravkick + SphP[i].a.HydroAccel[j] * dt_hydrokick;
+            SPHP(i).VelPred[j] += P[i].g.GravAccel[j] * dt_gravkick + SPHP(i).a.HydroAccel[j] * dt_hydrokick;
 #endif
 
-        SphP[i].d.Density *= exp(-SphP[i].v.DivVel * dt_drift);
-        //      P[i].Hsml *= exp(0.333333333333 * SphP[i].v.DivVel * dt_drift);
+        SPHP(i).d.Density *= exp(-SPHP(i).v.DivVel * dt_drift);
+        //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).v.DivVel * dt_drift);
         //---This was added
-        double fac = exp(0.333333333333 * SphP[i].v.DivVel * dt_drift);
+        double fac = exp(0.333333333333 * SPHP(i).v.DivVel * dt_drift);
         if(fac > 1.25)
             fac = 1.25;
         P[i].Hsml *= fac;
@@ -518,26 +518,26 @@ void drift_particle(int i, int time1)
 
 #ifndef TRADITIONAL_SPH_FORMULATION
 #ifdef DENSITY_INDEPENDENT_SPH
-        SphP[i].EgyWtDensity *= exp(-SphP[i].v.DivVel * dt_drift);
-        SphP[i].EntVarPred = pow(SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr, 1/GAMMA);
+        SPHP(i).EgyWtDensity *= exp(-SPHP(i).v.DivVel * dt_drift);
+        SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr, 1/GAMMA);
 #endif
-        SphP[i].Pressure = (SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr) * pow(SphP[i].EOMDensity, GAMMA);
+        SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).EOMDensity, GAMMA);
 #else
-        SphP[i].Pressure = GAMMA_MINUS1 * (SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr) * SphP[i].d.Density;
+        SPHP(i).Pressure = GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * SPHP(i).d.Density;
 #endif
 
 #endif
 #else
         /* Here we use an isothermal equation of state */
-        SphP[i].Pressure = afac * GAMMA_MINUS1 * SphP[i].d.Density * All.InitGasU;
-        SphP[i].Entropy = SphP[i].Pressure / pow(SphP[i].d.Density, GAMMA);
+        SPHP(i).Pressure = afac * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
+        SPHP(i).Entropy = SPHP(i).Pressure / pow(SPHP(i).d.Density, GAMMA);
 #endif
 #else
         /* call tabulated eos with physical units */
-        eos_calc_egiven_v(SphP[i].d.Density * All.UnitDensity_in_cgs, SphP[i].xnuc, SphP[i].dxnuc,
-                dt_entr * All.UnitTime_in_s, SphP[i].Entropy, SphP[i].e.DtEntropy, &SphP[i].temp,
-                &SphP[i].Pressure, &SphP[i].dpdr);
-        SphP[i].Pressure /= All.UnitPressure_in_cgs;
+        eos_calc_egiven_v(SPHP(i).d.Density * All.UnitDensity_in_cgs, SPHP(i).xnuc, SPHP(i).dxnuc,
+                dt_entr * All.UnitTime_in_s, SPHP(i).Entropy, SPHP(i).e.DtEntropy, &SPHP(i).temp,
+                &SPHP(i).Pressure, &SPHP(i).dpdr);
+        SPHP(i).Pressure /= All.UnitPressure_in_cgs;
 #endif
 
 #ifdef COSMIC_RAYS
@@ -547,27 +547,27 @@ void drift_particle(int i, int time1)
 #endif
 #ifndef CR_NOPRESSURE
         for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-            SphP[i].Pressure += CR_Comoving_Pressure(SphP + i, CRpop);
+            SPHP(i).Pressure += CR_Comoving_Pressure(SphP + i, CRpop);
 #endif
 #endif
 
 
 #if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL))
 #ifdef DIVBCLEANING_DEDNER
-        SphP[i].PhiPred += SphP[i].DtPhi * dt_entr;
+        SPHP(i).PhiPred += SPHP(i).DtPhi * dt_entr;
 
 #endif
         for(j = 0; j < 3; j++)
-            SphP[i].BPred[j] += SphP[i].DtB[j] * dt_entr;
+            SPHP(i).BPred[j] += SPHP(i).DtB[j] * dt_entr;
 #endif
 #ifdef EULER_DISSIPATION
-        SphP[i].EulerA += SphP[i].DtEulerA * dt_entr;
-        SphP[i].EulerB += SphP[i].DtEulerB * dt_entr;
+        SPHP(i).EulerA += SPHP(i).DtEulerA * dt_entr;
+        SPHP(i).EulerB += SPHP(i).DtEulerB * dt_entr;
 #endif
 #ifdef VECT_POTENTIAL
-        SphP[i].APred[0] += SphP[i].DtA[0] * dt_entr;
-        SphP[i].APred[1] += SphP[i].DtA[1] * dt_entr;
-        SphP[i].APred[2] += SphP[i].DtA[2] * dt_entr;
+        SPHP(i).APred[0] += SPHP(i).DtA[0] * dt_entr;
+        SPHP(i).APred[1] += SPHP(i).DtA[1] * dt_entr;
+        SPHP(i).APred[2] += SPHP(i).DtA[2] * dt_entr;
 #endif
 
     }
@@ -650,14 +650,14 @@ double MeanAlpha_part = 0, MeanAlpha_sum;
 if(Flag_FullStep == 1)
 {
 #ifdef MAGNETIC
-MeanB_part += sqrt(SphP[i].BPred[0] * SphP[i].BPred[0] +
-SphP[i].BPred[1] * SphP[i].BPred[1] + SphP[i].BPred[2] * SphP[i].BPred[2]);
+MeanB_part += sqrt(SPHP(i).BPred[0] * SPHP(i).BPred[0] +
+SPHP(i).BPred[1] * SPHP(i).BPred[1] + SPHP(i).BPred[2] * SPHP(i).BPred[2]);
 #ifdef TRACEDIVB
-MaxDivB_part = DMAX(MaxDivB, fabs(SphP[i].divB));
+MaxDivB_part = DMAX(MaxDivB, fabs(SPHP(i).divB));
 #endif
 #endif
 #ifdef TIME_DEP_ART_VISC
-MeanAlpha_part += SphP[i].alpha;
+MeanAlpha_part += SPHP(i).alpha;
 #endif
 }
 #endif

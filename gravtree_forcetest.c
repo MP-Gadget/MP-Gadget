@@ -136,7 +136,7 @@ void gravity_forcetest(void)
 	  GravDataIn[j].Type = P[place].Type;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
 	  if(P[place].Type == 0)
-	    GravDataIn[j].Soft = SphP[place].Hsml;
+	    GravDataIn[j].Soft = SPHP(place).Hsml;
 #endif
 #endif
 	}

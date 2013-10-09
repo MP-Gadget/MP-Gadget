@@ -87,8 +87,8 @@ void kinetic_feedback_mhm(void)
 		      KinDataIn[nexport].Pos[1] = P[i].Pos[1];
 		      KinDataIn[nexport].Pos[2] = P[i].Pos[2];
 
-		      KinDataIn[nexport].Density = SphP[i].Density;
-		      KinDataIn[nexport].Energy = SphP[i].FeedbackEnergy;
+		      KinDataIn[nexport].Density = SPHP(i).Density;
+		      KinDataIn[nexport].Energy = SPHP(i).FeedbackEnergy;
 
 		      KinDataIn[nexport].Hsml = P[i].Hsml;
 		      KinDataIn[nexport].Index = i;
@@ -191,8 +191,8 @@ void kinetic_evaluate(int target, int mode)
     {
       pos = P[target].Pos;
       h = P[target].Hsml;
-      rho = SphP[target].Density;
-      energy = SphP[target].FeedbackEnergy;
+      rho = SPHP(target).Density;
+      energy = SPHP(target).FeedbackEnergy;
     }
   else
     {
@@ -268,9 +268,9 @@ void kinetic_evaluate(int target, int mode)
 		  P[j].Vel[1] += dvy;
 		  P[j].Vel[2] += dvz;
 
-		  SphP[j].VelPred[0] += dvx;
-		  SphP[j].VelPred[1] += dvy;
-		  SphP[j].VelPred[2] += dvz;
+		  SPHP(j).VelPred[0] += dvx;
+		  SPHP(j).VelPred[1] += dvy;
+		  SPHP(j).VelPred[2] += dvz;
 		}
 	    }
 	}

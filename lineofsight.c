@@ -169,7 +169,7 @@ void find_particles_and_save_them(int num)
 
 	      particles[count_local].Hsml = P[n].Hsml;
 	      particles[count_local].Vz = P[n].Vel[Los->zaxis];
-	      particles[count_local].Utherm = SphP[n].Entropy / GAMMA_MINUS1 * pow(SphP[n].d.Density *
+	      particles[count_local].Utherm = SPHP(n).Entropy / GAMMA_MINUS1 * pow(SPHP(n).d.Density *
 										   a3inv, GAMMA_MINUS1);
 	      particles[count_local].Mass = P[n].Mass;
 	      particles[count_local].Metallicity = P[n].Metallicity;
@@ -318,12 +318,12 @@ void add_along_lines_of_sight(void)
 		      while(bin < 0)
 			bin += PIXELS;
 
-		      ne = SphP[n].Ne;
+		      ne = SPHP(n).Ne;
 		      utherm = DMAX(All.MinEgySpec,
-				    SphP[n].Entropy / GAMMA_MINUS1 * pow(SphP[n].d.Density *
+				    SPHP(n).Entropy / GAMMA_MINUS1 * pow(SPHP(n).d.Density *
 									 a3inv, GAMMA_MINUS1));
 
-		      AbundanceRatios(utherm, SphP[n].d.Density * a3inv, &ne, &nh0, &nHeII);
+		      AbundanceRatios(utherm, SPHP(n).d.Density * a3inv, &ne, &nh0, &nHeII);
 
 		      meanWeight = 4.0 / (3 * HYDROGEN_MASSFRAC + 1 + 4 * HYDROGEN_MASSFRAC * ne);
 

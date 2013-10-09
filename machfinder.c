@@ -120,17 +120,16 @@ double MachNumberCalibration(double M)
  */
 
 /* --- function MachNumber: for the thermal gas without cosmic rays --- */
-void GetMachNumber(struct sph_particle_data *Particle)
+void GetMachNumber(int index) 
 {
   double M, dM, r;
   double f, df, rhs, fac_hsml, csnd, rho1;
   int i = 0;
+  struct sph_particle_data *Particle = &SPHP(i);
 
 #if ( CR_SHOCK != 2 )
   double DeltaDecayTime;
 #endif
-
-  int index = Particle - SphP;
 
   /* set physical pre-shock density: */
   rho1 = Particle->d.Density / (atime * atime * atime);
@@ -1154,7 +1153,7 @@ int shock_conditions_fdf(const gsl_vector * v, void *auxParticle, gsl_vector * f
 
 /* --- function MachNumberCR: 2D Newton-Raphson method --- */
 
-void GetMachNumberCR(struct sph_particle_data *Particle)
+void GetMachNumberCR(int index)
 {
 
   static double rho1, uth1, P1, PCR1, Pth1, gCR, g1, c1, P2, PCR2, M;
@@ -1176,7 +1175,7 @@ void GetMachNumberCR(struct sph_particle_data *Particle)
   const size_t n = 2;
   int SwitchDiagnostic = 0;
 
-  int index = Particle - SphP;
+  struct sph_particle_data *Particle = &SPHP(index);
 
   /* definitions for Mach number: */
   if(All.ComovingIntegrationOn)
@@ -1220,7 +1219,7 @@ void GetMachNumberCR(struct sph_particle_data *Particle)
   x0 = 2.;
   z0 = 2.;
 
-  GetMachNumber(Particle);
+  GetMachNumber(index);
 
   if(Mestimate < 1.4 || XCR < 0.01)
     {
@@ -1498,7 +1497,7 @@ void GetMachNumberCR(struct sph_particle_data *Particle)
 
 /* --- function MachNumberCR: 2D Newton-Raphson method --- */
 
-void GetMachNumberCR(struct sph_particle_data *Particle)
+void GetMachNumberCR(int index) 
 {
 
   static double rho1, uth1, P1, PCR1[NUMCRPOP], Pth1, gCR[NUMCRPOP], eCR1[NUMCRPOP];
@@ -1512,6 +1511,7 @@ void GetMachNumberCR(struct sph_particle_data *Particle)
 
   int CRpop;
   double PCR1sum, eCR1sum, gCRsum, PCR2sum;
+  struct sph_particle_data *Particle = &SPHP(i);
 
   PCR1sum = 0.0;
   eCR1sum = 0.0;
@@ -1593,7 +1593,7 @@ void GetMachNumberCR(struct sph_particle_data *Particle)
   x0 = 2.;
   z0 = 2.;
 
-  GetMachNumber(Particle);
+  GetMachNumber(index);
 
   if(Mestimate < 1.4 || XCR < 0.01)
     {
@@ -1936,7 +1936,7 @@ void heating(void)
 
 	      for(i = 0; i < N_gas; i++)
 		{
-		  u = SphP[i].Entropy / GAMMA_MINUS1 * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1);
+		  u = SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1);
 
 		  temp =
 		    meanweight / BOLTZMANN * GAMMA_MINUS1 * u * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
@@ -1948,7 +1948,7 @@ void heating(void)
 		    temp / (meanweight / BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs /
 			    All.UnitMass_in_g);
 
-		  SphP[i].Entropy = u * GAMMA_MINUS1 / pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1);
+		  SPHP(i).Entropy = u * GAMMA_MINUS1 / pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1);
 		}
 	    }
 	}

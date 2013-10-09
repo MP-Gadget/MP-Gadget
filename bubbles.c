@@ -223,10 +223,10 @@ void bubble(void)
 
 	      if(All.ComovingIntegrationOn)
 		E_bubble +=
-		  SphP[j].Entropy * P[j].Mass * pow(SphP[j].d.Density / pow(All.Time, 3),
+		  SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).d.Density / pow(All.Time, 3),
 						    GAMMA_MINUS1) / GAMMA_MINUS1;
 	      else
-		E_bubble += SphP[j].Entropy * P[j].Mass * pow(SphP[j].d.Density, GAMMA_MINUS1) / GAMMA_MINUS1;
+		E_bubble += SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).d.Density, GAMMA_MINUS1) / GAMMA_MINUS1;
 
 	      Mass_bubble += P[j].Mass;
 
@@ -306,10 +306,10 @@ void bubble(void)
 	      /* energy we want to inject in this particle */
 	      
 	      if(All.ComovingIntegrationOn)
-		SphP[j].Entropy +=
-		  GAMMA_MINUS1 * dE / P[j].Mass / pow(SphP[j].d.Density / pow(All.Time, 3), GAMMA_MINUS1);
+		SPHP(j).Entropy +=
+		  GAMMA_MINUS1 * dE / P[j].Mass / pow(SPHP(j).d.Density / pow(All.Time, 3), GAMMA_MINUS1);
 	      else
-		SphP[j].Entropy += GAMMA_MINUS1 * dE / P[j].Mass / pow(SphP[j].d.Density, GAMMA_MINUS1);
+		SPHP(j).Entropy += GAMMA_MINUS1 * dE / P[j].Mass / pow(SPHP(j).d.Density, GAMMA_MINUS1);
 	      
 	    }
 	}

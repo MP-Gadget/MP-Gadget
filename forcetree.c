@@ -682,9 +682,9 @@ void force_update_node_recursive(int no, int sib, int father)
 #ifdef GRAVITY_CENTROID
 		  if(P[p].Type == 0)
 		    {
-		      s[0] += (pa->Mass * SphP[p].Center[0]);
-		      s[1] += (pa->Mass * SphP[p].Center[1]);
-		      s[2] += (pa->Mass * SphP[p].Center[2]);
+		      s[0] += (pa->Mass * SPHP(p).Center[0]);
+		      s[1] += (pa->Mass * SPHP(p).Center[1]);
+		      s[2] += (pa->Mass * SPHP(p).Center[2]);
 		    }
 		  else
 		    {
@@ -730,7 +730,7 @@ void force_update_node_recursive(int no, int sib, int father)
 		      else
 			a = 1.0;
 
-		      if((SphP[p].d.Density / (a * a * a)) >= All.PhysDensThresh)
+		      if((SPHP(p).d.Density / (a * a * a)) >= All.PhysDensThresh)
 			{
 			  stellar_s[0] += (pa->Mass * pa->Pos[0]);
 			  stellar_s[1] += (pa->Mass * pa->Pos[1]);
@@ -775,8 +775,8 @@ void force_update_node_recursive(int no, int sib, int father)
 		      if(P[p].Hsml > hmax)
 			hmax = P[p].Hsml;
 
-		      if(SphP[p].v.DivVel > divVmax)
-			divVmax = SphP[p].v.DivVel;
+		      if(SPHP(p).v.DivVel > divVmax)
+			divVmax = SPHP(p).v.DivVel;
 		    }
 
 		  for(k = 0; k < 3; k++)
@@ -1222,9 +1222,9 @@ void force_update_node_center_of_mass_recursive(int no, int sib, int father)
 
 		  if(P[p].Type == 0)
 		    {
-		      s[0] += (pa->Mass * SphP[p].Center[0]);
-		      s[1] += (pa->Mass * SphP[p].Center[1]);
-		      s[2] += (pa->Mass * SphP[p].Center[2]);
+		      s[0] += (pa->Mass * SPHP(p).Center[0]);
+		      s[1] += (pa->Mass * SPHP(p).Center[1]);
+		      s[2] += (pa->Mass * SPHP(p).Center[2]);
 		    }
 		  else
 		    {
@@ -1958,13 +1958,13 @@ void force_update_hmax(void)
 	  {
 	    force_drift_node(no, All.Ti_Current);
 
-	    if(P[i].Hsml > Extnodes[no].hmax || SphP[i].v.DivVel > Extnodes[no].divVmax)
+	    if(P[i].Hsml > Extnodes[no].hmax || SPHP(i).v.DivVel > Extnodes[no].divVmax)
 	      {
 		if(P[i].Hsml > Extnodes[no].hmax)
 		  Extnodes[no].hmax = P[i].Hsml;
 
-		if(SphP[i].v.DivVel > Extnodes[no].divVmax)
-		  Extnodes[no].divVmax = SphP[i].v.DivVel;
+		if(SPHP(i).v.DivVel > Extnodes[no].divVmax)
+		  Extnodes[no].divVmax = SPHP(i).v.DivVel;
 
 		if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node */
 		  {
@@ -2125,9 +2125,9 @@ int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecou
 #ifdef GRAVITY_CENTROID
       if(P[target].Type == 0)
 	{
-	  pos_x = SphP[target].Center[0];
-	  pos_y = SphP[target].Center[1];
-	  pos_z = SphP[target].Center[2];
+	  pos_x = SPHP(target).Center[0];
+	  pos_y = SPHP(target).Center[1];
+	  pos_z = SPHP(target).Center[2];
 
 	}
       else
@@ -2211,9 +2211,9 @@ int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecou
 #ifdef GRAVITY_CENTROID
 	      if(P[no].Type == 0)
 		{
-		  dx = SphP[no].Center[0] - pos_x;
-		  dy = SphP[no].Center[1] - pos_y;
-		  dz = SphP[no].Center[2] - pos_z;
+		  dx = SPHP(no).Center[0] - pos_x;
+		  dy = SPHP(no).Center[1] - pos_y;
+		  dz = SPHP(no).Center[2] - pos_z;
 
 		}
 	      else

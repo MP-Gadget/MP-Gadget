@@ -47,14 +47,14 @@ double do_chemcool(int part_index, double dt)
 		  COOLI.index_current = i;
 		  COOLI.id_current = P[i].ID;
 
-		  yn = All.UnitDensity_in_cgs * HYDROGEN_MASSFRAC * SphP[i].d.Density * a3inv * hubble_param2 / PROTONMASS;
+		  yn = All.UnitDensity_in_cgs * HYDROGEN_MASSFRAC * SPHP(i).d.Density * a3inv * hubble_param2 / PROTONMASS;
 
-		  energy = energy_old = All.UnitEnergy_in_cgs / pow(All.UnitLength_in_cm, 3.0) * SphP[i].d.Density * a3inv * hubble_param2 * DMAX(All.MinEgySpec, (SphP[i].Entropy + SphP[i].e.DtEntropy * dt) * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1);
+		  energy = energy_old = All.UnitEnergy_in_cgs / pow(All.UnitLength_in_cm, 3.0) * SPHP(i).d.Density * a3inv * hubble_param2 * DMAX(All.MinEgySpec, (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1);
 
-		  dl = All.UnitLength_in_cm * SphP[i].Hsml * a / hubble_param;
+		  dl = All.UnitLength_in_cm * SPHP(i).Hsml * a / hubble_param;
 
 		  for(j = 0; j < TRAC_NUM; j++)
-		    abundances[j] = SphP[i].TracAbund[j];
+		    abundances[j] = SPHP(i).TracAbund[j];
 
 		  EVOLVE_ABUNDANCES(&timestep, &dl, &yn, &divv, &energy, abundances, &column_est);
 
@@ -65,12 +65,12 @@ double do_chemcool(int part_index, double dt)
 		      endrun(6634);
 		    }
 
-		  entropy_new = energy / All.UnitEnergy_in_cgs * pow(All.UnitLength_in_cm, 3.0) / hubble_param2 / pow(SphP[i].d.Density * a3inv, GAMMA) * GAMMA_MINUS1;
+		  entropy_new = energy / All.UnitEnergy_in_cgs * pow(All.UnitLength_in_cm, 3.0) / hubble_param2 / pow(SPHP(i).d.Density * a3inv, GAMMA) * GAMMA_MINUS1;
 
-		  SphP[i].e.DtEntropy = (entropy_new - SphP[i].Entropy) / dt;
+		  SPHP(i).e.DtEntropy = (entropy_new - SPHP(i).Entropy) / dt;
 
 		  for(j = 0; j < TRAC_NUM; j++)
-		    SphP[i].TracAbund[j] = abundances[j];
+		    SPHP(i).TracAbund[j] = abundances[j];
 		}
 	    }
 	}
@@ -79,11 +79,11 @@ double do_chemcool(int part_index, double dt)
     {
       i = part_index;
 
-      yn = All.UnitDensity_in_cgs * HYDROGEN_MASSFRAC * SphP[i].d.Density * a3inv * hubble_param2 / PROTONMASS;
+      yn = All.UnitDensity_in_cgs * HYDROGEN_MASSFRAC * SPHP(i).d.Density * a3inv * hubble_param2 / PROTONMASS;
 
-      energy = energy_old = SphP[i].Entropy * All.UnitEnergy_in_cgs / pow(All.UnitLength_in_cm, 3.0) * hubble_param2 * pow(SphP[i].d.Density * a3inv, GAMMA) / GAMMA_MINUS1;
+      energy = energy_old = SPHP(i).Entropy * All.UnitEnergy_in_cgs / pow(All.UnitLength_in_cm, 3.0) * hubble_param2 * pow(SPHP(i).d.Density * a3inv, GAMMA) / GAMMA_MINUS1;
 
-      dl = All.UnitLength_in_cm * SphP[i].Hsml * a / hubble_param;
+      dl = All.UnitLength_in_cm * SPHP(i).Hsml * a / hubble_param;
 
       nsp = NSPEC;
 
@@ -95,7 +95,7 @@ double do_chemcool(int part_index, double dt)
       rpar[3] = column_est;
 
       for(j = 0; j < TRAC_NUM; j++)
-	y[j] = abundances[j] = SphP[i].TracAbund[j];
+	y[j] = abundances[j] = SPHP(i).TracAbund[j];
 
       y[ITMP] = energy;
 
@@ -111,7 +111,7 @@ double do_chemcool(int part_index, double dt)
 	  energy = energy_old;
 
 	  for(j = 0; j < TRAC_NUM; j++)
-	    abundances[j] = SphP[i].TracAbund[j];
+	    abundances[j] = SPHP(i).TracAbund[j];
 
 	  EVOLVE_ABUNDANCES(&dt, &dl, &yn, &divv, &energy, abundances, &column_est);
 

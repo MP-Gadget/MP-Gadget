@@ -235,16 +235,16 @@ void advance_and_find_timesteps(void)
             {
                 TimeBinCountSph[binold]--;
 #ifdef SFR
-                TimeBinSfr[binold] -= SphP[i].Sfr;
-                TimeBinSfr[bin] += SphP[i].Sfr;
+                TimeBinSfr[binold] -= SPHP(i).Sfr;
+                TimeBinSfr[bin] += SPHP(i).Sfr;
 #endif
             }
 
 #ifdef BLACK_HOLES
             if(P[i].Type == 0) 
             {
-                TimeBin_GAS_Injection[binold] -= SphP[i].i.dInjected_BH_Energy;
-                TimeBin_GAS_Injection[bin] += SphP[i].i.dInjected_BH_Energy;
+                TimeBin_GAS_Injection[binold] -= SPHP(i).i.dInjected_BH_Energy;
+                TimeBin_GAS_Injection[bin] += SPHP(i).i.dInjected_BH_Energy;
             }
             if(P[i].Type == 5)
             {
@@ -466,9 +466,9 @@ void advance_and_find_timesteps(void)
                         (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
 
                 for(j = 0; j < 3; j++)
-                    SphP[i].VelPred[j] = P[i].Vel[j]
+                    SPHP(i).VelPred[j] = P[i].Vel[j]
                         + P[i].g.GravAccel[j] * dt_gravkickA
-                        + SphP[i].a.HydroAccel[j] * dt_hydrokick + P[i].GravPM[j] * dt_gravkickB;
+                        + SPHP(i).a.HydroAccel[j] * dt_hydrokick + P[i].GravPM[j] * dt_gravkickB;
             }
         }
     }
@@ -528,7 +528,7 @@ void advance_and_find_timesteps(void)
         if(P[i].Type != 0)
             continue;
 
-        if(!SphP[i].wakeup)
+        if(!SPHP(i).wakeup)
             continue;
 
         binold = P[i].TimeBin;
@@ -621,27 +621,27 @@ dt_gravkickB = (All.Ti_Current - (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2) * 
 
             for(k = 0; k < 3; k++)
             {
-                P[i].Vel[k] += SphP[i].a.HydroAccel[k] * dt_hydrokick;
+                P[i].Vel[k] += SPHP(i).a.HydroAccel[k] * dt_hydrokick;
             }
 #if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
             for(k = 0; k < 3; k++)
             {
-                SphP[i].B[k] += SphP[i].DtB[k] * dt_entr;
-                SphP[i].BPred[k] = SphP[i].B[k] - SphP[i].DtB[k] * dt_entr;
+                SPHP(i).B[k] += SPHP(i).DtB[k] * dt_entr;
+                SPHP(i).BPred[k] = SPHP(i).B[k] - SPHP(i).DtB[k] * dt_entr;
             }
 #endif
 #if !defined(EOS_DEGENERATE)
-            SphP[i].Entropy += SphP[i].e.DtEntropy * dt_entr;
+            SPHP(i).Entropy += SPHP(i).e.DtEntropy * dt_entr;
 #else
-            SphP[i].Entropy += SphP[i].e.DtEntropy * dt_entr * All.UnitTime_in_s;
+            SPHP(i).Entropy += SPHP(i).e.DtEntropy * dt_entr * All.UnitTime_in_s;
 #endif
 
 #ifdef NUCLEAR_NETWORK
             for(k = 0; k < EOS_NSPECIES; k++)
             {
-                SphP[i].xnuc[k] += SphP[i].dxnuc[k] * dt_entr * All.UnitTime_in_s;
+                SPHP(i).xnuc[k] += SPHP(i).dxnuc[k] * dt_entr * All.UnitTime_in_s;
             }
-            network_normalize(SphP[i].xnuc, &SphP[i].Entropy);
+            network_normalize(SPHP(i).xnuc, &SPHP(i).Entropy);
 #endif
 
             n++;
@@ -741,22 +741,22 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
     {
         for(j = 0; j < 3; j++)
         {
-            //        SphP[i].a.HydroAccel[0] = 0.0;
-            dv[j] += SphP[i].a.HydroAccel[j] * dt_hydrokick;
-            P[i].Vel[j] += SphP[i].a.HydroAccel[j] * dt_hydrokick;
+            //        SPHP(i).a.HydroAccel[0] = 0.0;
+            dv[j] += SPHP(i).a.HydroAccel[j] * dt_hydrokick;
+            P[i].Vel[j] += SPHP(i).a.HydroAccel[j] * dt_hydrokick;
 
-            SphP[i].VelPred[j] =
-                P[i].Vel[j] - dt_gravkick2 * P[i].g.GravAccel[j] - dt_hydrokick2 * SphP[i].a.HydroAccel[j];
+            SPHP(i).VelPred[j] =
+                P[i].Vel[j] - dt_gravkick2 * P[i].g.GravAccel[j] - dt_hydrokick2 * SPHP(i).a.HydroAccel[j];
 #ifdef PMGRID
-            SphP[i].VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
+            SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
 #endif
 #if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
-            SphP[i].B[j] += SphP[i].DtB[j] * dt_entr;
-            SphP[i].BPred[j] = SphP[i].B[j] - SphP[i].DtB[j] * dt_entr2;
+            SPHP(i).B[j] += SPHP(i).DtB[j] * dt_entr;
+            SPHP(i).BPred[j] = SPHP(i).B[j] - SPHP(i).DtB[j] * dt_entr2;
 #endif
 #ifdef VECT_POTENTIAL
-            SphP[i].A[j] += SphP[i].DtA[j] * dt_entr;
-            SphP[i].APred[j] = SphP[i].A[j] - SphP[i].DtA[j] * dt_entr2;
+            SPHP(i).A[j] += SPHP(i).DtA[j] * dt_entr;
+            SPHP(i).APred[j] = SPHP(i).A[j] - SPHP(i).DtA[j] * dt_entr2;
 #endif
         }
 
@@ -769,48 +769,48 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
             for(j=0;j < 3; j++)
             {
                 P[i].Vel[j] *= MAX_GAS_VEL * velfac / vv;
-                SphP[i].VelPred[j] =
-                    P[i].Vel[j] - dt_gravkick2 * P[i].g.GravAccel[j] - dt_hydrokick2 * SphP[i].a.HydroAccel[j];
+                SPHP(i).VelPred[j] =
+                    P[i].Vel[j] - dt_gravkick2 * P[i].g.GravAccel[j] - dt_hydrokick2 * SPHP(i).a.HydroAccel[j];
 #ifdef PMGRID
-                SphP[i].VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
+                SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
 #endif
             }
 #endif
 
 #if defined(MAGNETIC) && defined(DIVBCLEANING_DEDNER)
-        SphP[i].Phi += SphP[i].DtPhi * dt_entr;
-        SphP[i].PhiPred = SphP[i].Phi - SphP[i].DtPhi * dt_entr2;
+        SPHP(i).Phi += SPHP(i).DtPhi * dt_entr;
+        SPHP(i).PhiPred = SPHP(i).Phi - SPHP(i).DtPhi * dt_entr2;
 #endif
 #ifdef TIME_DEP_ART_VISC
-        SphP[i].alpha += SphP[i].Dtalpha * dt_entr;
-        SphP[i].alpha = DMIN(SphP[i].alpha, All.ArtBulkViscConst);
-        if(SphP[i].alpha < All.AlphaMin)
-            SphP[i].alpha = All.AlphaMin;
+        SPHP(i).alpha += SPHP(i).Dtalpha * dt_entr;
+        SPHP(i).alpha = DMIN(SPHP(i).alpha, All.ArtBulkViscConst);
+        if(SPHP(i).alpha < All.AlphaMin)
+            SPHP(i).alpha = All.AlphaMin;
 #endif
 #ifdef TIME_DEP_MAGN_DISP
-        SphP[i].Balpha += SphP[i].DtBalpha * dt_entr;
-        SphP[i].Balpha = DMIN(SphP[i].Balpha, All.ArtMagDispConst);
-        if(SphP[i].Balpha < All.ArtMagDispMin)
-            SphP[i].Balpha = All.ArtMagDispMin;
+        SPHP(i).Balpha += SPHP(i).DtBalpha * dt_entr;
+        SPHP(i).Balpha = DMIN(SPHP(i).Balpha, All.ArtMagDispConst);
+        if(SPHP(i).Balpha < All.ArtMagDispMin)
+            SPHP(i).Balpha = All.ArtMagDispMin;
 #endif
         /* In case of cooling, we prevent that the entropy (and
            hence temperature decreases by more than a factor 0.5 */
 
-        if(SphP[i].e.DtEntropy * dt_entr > -0.5 * SphP[i].Entropy)
+        if(SPHP(i).e.DtEntropy * dt_entr > -0.5 * SPHP(i).Entropy)
 #if !defined(EOS_DEGENERATE)
-            SphP[i].Entropy += SphP[i].e.DtEntropy * dt_entr;
+            SPHP(i).Entropy += SPHP(i).e.DtEntropy * dt_entr;
 #else
-        SphP[i].Entropy += SphP[i].e.DtEntropy * dt_entr * All.UnitTime_in_s;
+        SPHP(i).Entropy += SPHP(i).e.DtEntropy * dt_entr * All.UnitTime_in_s;
 #endif
         else
-            SphP[i].Entropy *= 0.5;
+            SPHP(i).Entropy *= 0.5;
 
 #ifdef NUCLEAR_NETWORK
         for(j = 0; j < EOS_NSPECIES; j++)
         {
-            SphP[i].xnuc[j] += SphP[i].dxnuc[j] * dt_entr * All.UnitTime_in_s;
+            SPHP(i).xnuc[j] += SPHP(i).dxnuc[j] * dt_entr * All.UnitTime_in_s;
         }
-        network_normalize(SphP[i].xnuc, &SphP[i].Entropy);
+        network_normalize(SPHP(i).xnuc, &SPHP(i).Entropy);
 #endif
 
 #ifdef CHEMISTRY
@@ -825,14 +825,14 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
         if(All.MinEgySpec)
         {
 #ifndef TRADITIONAL_SPH_FORMULATION
-            minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SphP[i].EOMDensity * a3inv, GAMMA_MINUS1);
+            minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1);
 #else
             minentropy = All.MinEgySpec;
 #endif
-            if(SphP[i].Entropy < minentropy)
+            if(SPHP(i).Entropy < minentropy)
             {
-                SphP[i].Entropy = minentropy;
-                SphP[i].e.DtEntropy = 0;
+                SPHP(i).Entropy = minentropy;
+                SPHP(i).e.DtEntropy = 0;
             }
         }
 
@@ -843,8 +843,8 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
 #else
         dt_entr = P[i].dt_step / 2 * All.Timebase_interval;
 #endif
-        if(SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr < 0.5 * SphP[i].Entropy)
-            SphP[i].e.DtEntropy = -0.5 * SphP[i].Entropy / dt_entr;
+        if(SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr < 0.5 * SPHP(i).Entropy)
+            SPHP(i).e.DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr;
 }
 
 if(All.DoDynamicUpdate)
@@ -918,9 +918,9 @@ int get_timestep(int p,		/*!< particle index */
 
         if(P[p].Type == 0)
         {
-            ax += fac2 * SphP[p].a.HydroAccel[0];
-            ay += fac2 * SphP[p].a.HydroAccel[1];
-            az += fac2 * SphP[p].a.HydroAccel[2];
+            ax += fac2 * SPHP(p).a.HydroAccel[0];
+            ay += fac2 * SPHP(p).a.HydroAccel[1];
+            az += fac2 * SPHP(p).a.HydroAccel[2];
         }
 
         ac = sqrt(ax * ax + ay * ay + az * az);	/* this is now the physical acceleration */
@@ -970,7 +970,7 @@ int get_timestep(int p,		/*!< particle index */
 
     if(P[p].Type == 0)
     {
-        csnd = sqrt(GAMMA * SphP[p].Pressure / SphP[p].EOMDensity);
+        csnd = sqrt(GAMMA * SPHP(p).Pressure / SPHP(p).EOMDensity);
 
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
 
@@ -979,29 +979,29 @@ int get_timestep(int p,		/*!< particle index */
         else
             dt_courant = All.CourantFac * DMAX(P[p].Hsml, All.SofteningTable[0]) / csnd;
 
-        if(dt_courant > 2 * All.CourantFac * SphP[p].MinViscousDt)
-            dt_courant = 2 * All.CourantFac * SphP[p].MinViscousDt;
+        if(dt_courant > 2 * All.CourantFac * SPHP(p).MinViscousDt)
+            dt_courant = 2 * All.CourantFac * SPHP(p).MinViscousDt;
 #else
         if(All.ComovingIntegrationOn)
-            dt_courant = 2 * All.CourantFac * All.Time * P[p].Hsml / (fac3 * SphP[p].MaxSignalVel);
+            dt_courant = 2 * All.CourantFac * All.Time * P[p].Hsml / (fac3 * SPHP(p).MaxSignalVel);
         else
-            dt_courant = 2 * All.CourantFac * P[p].Hsml / SphP[p].MaxSignalVel;
+            dt_courant = 2 * All.CourantFac * P[p].Hsml / SPHP(p).MaxSignalVel;
 #endif
 
         if(dt_courant < dt)
             dt = dt_courant;
 
 #ifdef MYFALSE
-        dt_viscous = All.CourantFac * SphP[p].MaxViscStep / hubble_a;	/* to convert dloga to physical dt */
+        dt_viscous = All.CourantFac * SPHP(p).MaxViscStep / hubble_a;	/* to convert dloga to physical dt */
 
         if(dt_viscous < dt)
             dt = dt_viscous;
 #endif
 
 #ifdef NS_TIMESTEP
-        if(fabs(SphP[p].ViscEntropyChange))
+        if(fabs(SPHP(p).ViscEntropyChange))
         {
-            dt_NS = VISC_TIMESTEP_PARAMETER * SphP[p].Entropy / SphP[p].ViscEntropyChange / hubble_a;
+            dt_NS = VISC_TIMESTEP_PARAMETER * SPHP(p).Entropy / SPHP(p).ViscEntropyChange / hubble_a;
 
             if(dt_NS < dt)
                 dt = dt_NS;
@@ -1010,21 +1010,21 @@ int get_timestep(int p,		/*!< particle index */
 
 
 #ifdef NUCLEAR_NETWORK
-        if(SphP[p].temp > 1e7)
+        if(SPHP(p).temp > 1e7)
         {
             /* check if the new timestep blows up our abundances */
             dt_network = dt * All.UnitTime_in_s;
             for(k = 0; k < EOS_NSPECIES; k++)
             {
-                if(SphP[p].dxnuc[k] > 0)
+                if(SPHP(p).dxnuc[k] > 0)
                 {
-                    dt_species = (1.0 - SphP[p].xnuc[k]) / SphP[p].dxnuc[k];
+                    dt_species = (1.0 - SPHP(p).xnuc[k]) / SPHP(p).dxnuc[k];
                     if(dt_species < dt_network)
                         dt_network = dt_species;
                 }
-                else if(SphP[p].dxnuc[k] < 0)
+                else if(SPHP(p).dxnuc[k] < 0)
                 {
-                    dt_species = (0.0 - SphP[p].xnuc[k]) / SphP[p].dxnuc[k];
+                    dt_species = (0.0 - SPHP(p).xnuc[k]) / SPHP(p).dxnuc[k];
                     if(dt_species < dt_network)
                         dt_network = dt_species;
                 }
@@ -1081,7 +1081,7 @@ int get_timestep(int p,		/*!< particle index */
 
     if(P[p].Type == 0)
     {
-        dt_cool = fabs(SphP[p].t_cool);	/* still in yrs */
+        dt_cool = fabs(SPHP(p).t_cool);	/* still in yrs */
         dt_cool *= SEC_PER_YEAR;	/* in seconds */
         dt_cool /= All.UnitTime_in_s;
         dt_cool *= All.HubbleParam;	/* internal units */
@@ -1093,14 +1093,14 @@ int get_timestep(int p,		/*!< particle index */
         if(dt_cool > 0 && dt_cool < dt)
             dt = dt_cool;
 #else
-        if(dt_cool > 0 && dt_cool < dt && SphP[p].DelayTime  < 0)
+        if(dt_cool > 0 && dt_cool < dt && SPHP(p).DelayTime  < 0)
             dt = dt_cool;
 #endif
 
 
         /* yet another criterion given by the electron number density change */
 
-        dt_elec = fabs(SphP[p].t_elec);	/* still in yrs */
+        dt_elec = fabs(SPHP(p).t_elec);	/* still in yrs */
         dt_elec *= SEC_PER_YEAR;	/* in seconds */
         dt_elec /= All.UnitTime_in_s;
         dt_elec *= All.HubbleParam;	/* internal units */
@@ -1112,7 +1112,7 @@ int get_timestep(int p,		/*!< particle index */
         if(dt_elec > 0 && dt_elec < dt)
             dt = dt_elec;
 #else
-        if(dt_elec > 0 && dt_elec < dt && SphP[p].DelayTime  < 0)
+        if(dt_elec > 0 && dt_elec < dt && SPHP(p).DelayTime  < 0)
             dt = dt_elec;
 #endif      
     }
@@ -1156,7 +1156,7 @@ int get_timestep(int p,		/*!< particle index */
         printf("\nError: A timestep of size zero was assigned on the integer timeline!\n"
                 "We better stop.\n"
                 "Task=%d Part-ID=%llu dt=%g dt_elec=%g dt_cool=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g)\n\n",
-                ThisTask, P[p].ID, dt, SphP[p].t_elec, SphP[p].t_cool, All.Timebase_interval, ti_step, ac,
+                ThisTask, P[p].ID, dt, SPHP(p).t_elec, SPHP(p).t_cool, All.Timebase_interval, ti_step, ac,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
         fflush(stdout);
         //endrun(818);
@@ -1178,21 +1178,21 @@ int get_timestep(int p,		/*!< particle index */
         printf("pm_force=(%g|%g|%g)\n", P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]);
 #endif
         if(P[p].Type == 0)
-            printf("hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SphP[p].a.HydroAccel[0], SphP[p].a.HydroAccel[1],
-                    SphP[p].a.HydroAccel[2], SphP[p].d.Density, P[p].Hsml, P[p].n.NumNgb);
+            printf("hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SPHP(p).a.HydroAccel[0], SPHP(p).a.HydroAccel[1],
+                    SPHP(p).a.HydroAccel[2], SPHP(p).d.Density, P[p].Hsml, P[p].n.NumNgb);
 #ifdef DENSITY_INDEPENDENT_SPH
         if(P[p].Type == 0)
-            printf("egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SphP[p].EgyWtDensity, SphP[p].EntVarPred,
-                    SphP[p].DhsmlEgyDensityFactor, SphP[p].Entropy, SphP[p].e.DtEntropy, SphP[p].Pressure);
+            printf("egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, SPHP(p).EntVarPred,
+                    SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).e.DtEntropy, SPHP(p).Pressure);
 #endif
 #ifdef SFR
         if(P[p].Type == 0) {
-            printf("sfr = %g\n" , SphP[p].Sfr);
+            printf("sfr = %g\n" , SPHP(p).Sfr);
         }
 #endif
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
         if(P[p].Type == 0) {
-            printf("injected_energy = %g\n" , SphP[p].i.Injected_BH_Energy);
+            printf("injected_energy = %g\n" , SPHP(p).i.Injected_BH_Energy);
         }
 #endif
 #ifdef COSMIC_RAYS
@@ -1200,8 +1200,8 @@ int get_timestep(int p,		/*!< particle index */
             for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
                 printf("Cosmic Ray Properties: C0: %g -- q0  : %g -- P  : %g\n"
                         "                       Rho: %g\n\n",
-                        SphP[p].CR_C0[CRpop], SphP[p].CR_q0[CRpop], CR_Particle_Pressure(SphP + p, CRpop),
-                        SphP[p].d.Density);
+                        SPHP(p).CR_C0[CRpop], SPHP(p).CR_q0[CRpop], CR_Particle_Pressure(SphP + p, CRpop),
+                        SPHP(p).d.Density);
 #endif
 
         fflush(stdout);

@@ -73,10 +73,10 @@ void compute_global_quantities_of_system(void)
 	{
 	  vel[j] = P[i].Vel[j] + P[i].g.GravAccel[j] * dt_gravkick;
 	  if(P[i].Type == 0)
-	    vel[j] += SphP[i].a.HydroAccel[j] * dt_hydrokick;
+	    vel[j] += SPHP(i).a.HydroAccel[j] * dt_hydrokick;
 	}
       if(P[i].Type == 0)
-	entr = SphP[i].Entropy + SphP[i].e.DtEntropy * dt_entr;
+	entr = SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr;
 
 #ifdef PMGRID
       if(All.ComovingIntegrationOn)
@@ -96,12 +96,12 @@ void compute_global_quantities_of_system(void)
 	{
 #ifndef EOS_DEGENERATE
 #ifndef TRADITIONAL_SPH_FORMULATION
-      egyspec = entr / (GAMMA_MINUS1) * pow(SphP[i].EOMDensity / a3, GAMMA_MINUS1);
+      egyspec = entr / (GAMMA_MINUS1) * pow(SPHP(i).EOMDensity / a3, GAMMA_MINUS1);
 #else
 	  egyspec = entr;
 #endif
 #else
-	  egyspec = SphP[i].u;
+	  egyspec = SPHP(i).u;
 #endif
 
 	  sys.EnergyIntComp[0] += P[i].Mass * egyspec;

@@ -123,21 +123,21 @@ void cosmic_ray_diffusion(void)
 	{
 	  for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
 	    {
-	      CR_E0[CRpop][i] = CR_E0_Old[CRpop][i] = SphP[i].CR_E0[CRpop];
-	      CR_n0[CRpop][i] = CR_n0_Old[CRpop][i] = SphP[i].CR_n0[CRpop];
+	      CR_E0[CRpop][i] = CR_E0_Old[CRpop][i] = SPHP(i).CR_E0[CRpop];
+	      CR_n0[CRpop][i] = CR_n0_Old[CRpop][i] = SPHP(i).CR_n0[CRpop];
 
 	      kappa = All.CR_DiffusionCoeff;
 
 	      if(All.CR_DiffusionDensScaling != 0.0)
 		kappa *=
-		  pow(SphP[i].d.Density * a3inv / All.CR_DiffusionDensZero, All.CR_DiffusionDensScaling);
+		  pow(SPHP(i).d.Density * a3inv / All.CR_DiffusionDensZero, All.CR_DiffusionDensScaling);
 
 	      if(All.CR_DiffusionEntropyScaling != 0.0)
-		kappa *= pow(SphP[i].Entropy / All.CR_DiffusionEntropyZero, All.CR_DiffusionEntropyScaling);
+		kappa *= pow(SPHP(i).Entropy / All.CR_DiffusionEntropyZero, All.CR_DiffusionEntropyScaling);
 
-	      if(SphP[i].CR_E0[CRpop] > 0)
+	      if(SPHP(i).CR_E0[CRpop] > 0)
 		{
-		  CR_q_i = SphP[i].CR_q0[CRpop] * pow(SphP[i].d.Density * a3inv, 0.33333);
+		  CR_q_i = SPHP(i).CR_q0[CRpop] * pow(SPHP(i).d.Density * a3inv, 0.33333);
 
 		  cr_efac_i =
 		    CR_Tab_MeanEnergy(CR_q_i, All.CR_Alpha[CRpop] - 0.3333) /
@@ -259,28 +259,28 @@ void cosmic_ray_diffusion(void)
 	{
 	  if(P[i].Type == 0)
 	    {
-	      SphP[i].CR_E0[CRpop] = CR_E0[CRpop][i];
-	      SphP[i].CR_n0[CRpop] = CR_n0[CRpop][i];
-	      SphP[i].CR_DeltaE[CRpop] = 0;
-	      SphP[i].CR_DeltaN[CRpop] = 0;
+	      SPHP(i).CR_E0[CRpop] = CR_E0[CRpop][i];
+	      SPHP(i).CR_n0[CRpop] = CR_n0[CRpop][i];
+	      SPHP(i).CR_DeltaE[CRpop] = 0;
+	      SPHP(i).CR_DeltaN[CRpop] = 0;
 
-	      if(SphP[i].CR_n0[CRpop] > 1.0e-12 && SphP[i].CR_E0[CRpop] > 0)
+	      if(SPHP(i).CR_n0[CRpop] > 1.0e-12 && SPHP(i).CR_E0[CRpop] > 0)
 		{
-		  meanKineticEnergy = SphP[i].CR_E0[CRpop] * m_p / SphP[i].CR_n0[CRpop];
+		  meanKineticEnergy = SPHP(i).CR_E0[CRpop] * m_p / SPHP(i).CR_n0[CRpop];
 
 		  qmeanKin = CR_q_from_mean_kinetic_energy(meanKineticEnergy, CRpop);
 
-		  SphP[i].CR_q0[CRpop] = qmeanKin * pow(SphP[i].d.Density * a3inv, -(1.0 / 3.0));
-		  SphP[i].CR_C0[CRpop] = SphP[i].CR_n0[CRpop] * (All.CR_Alpha[CRpop] - 1.0)
-		    * pow(SphP[i].CR_q0[CRpop], All.CR_Alpha[CRpop] - 1.0);
+		  SPHP(i).CR_q0[CRpop] = qmeanKin * pow(SPHP(i).d.Density * a3inv, -(1.0 / 3.0));
+		  SPHP(i).CR_C0[CRpop] = SPHP(i).CR_n0[CRpop] * (All.CR_Alpha[CRpop] - 1.0)
+		    * pow(SPHP(i).CR_q0[CRpop], All.CR_Alpha[CRpop] - 1.0);
 		}
 	      else
 		{
-		  SphP[i].CR_E0[CRpop] = 0.0;
-		  SphP[i].CR_n0[CRpop] = 0.0;
+		  SPHP(i).CR_E0[CRpop] = 0.0;
+		  SPHP(i).CR_n0[CRpop] = 0.0;
 
-		  SphP[i].CR_q0[CRpop] = 1.0e10;
-		  SphP[i].CR_C0[CRpop] = 0.0;
+		  SPHP(i).CR_q0[CRpop] = 1.0e10;
+		  SPHP(i).CR_C0[CRpop] = 0.0;
 		}
 
 	      sumnew += CR_E0[CRpop][i];
@@ -420,7 +420,7 @@ void cosmic_ray_diffusion_matrix_multiply(double *cr_E0_in, double *cr_E0_out, d
 	    CR_DiffusionDataIn[j].Pos[k] = P[place].Pos[k];
 
 	  CR_DiffusionDataIn[j].Hsml = P[place].Hsml;
-	  CR_DiffusionDataIn[j].Density = SphP[place].d.Density;
+	  CR_DiffusionDataIn[j].Density = SPHP(place).d.Density;
 	  CR_DiffusionDataIn[j].CR_E0_Kappa[CRpop] = CR_E0_Kappa[CRpop][place];
 	  CR_DiffusionDataIn[j].CR_n0_Kappa[CRpop] = CR_n0_Kappa[CRpop][place];
 
@@ -548,7 +548,7 @@ int cosmic_ray_diffusion_evaluate(int target, int mode,
     {
       pos = P[target].Pos;
       h_i = P[target].Hsml;
-      rho = SphP[target].d.Density;
+      rho = SPHP(target).d.Density;
       CR_E0_Kappa_i = CR_E0_Kappa[CRpop][target];
       CR_n0_Kappa_i = CR_n0_Kappa[CRpop][target];
     }
@@ -656,7 +656,7 @@ int cosmic_ray_diffusion_evaluate(int target, int mode,
 
 
 		      dwk = 0.5 * (dwk_i + dwk_j);
-		      wfac = 2.0 * P[j].Mass / (rho * SphP[j].d.Density) * (-dwk) / r;
+		      wfac = 2.0 * P[j].Mass / (rho * SPHP(j).d.Density) * (-dwk) / r;
 
 		      /* cosmic ray diffusion equation kernel */
 		      if((CR_E0_Kappa_i + CR_E0_Kappa[CRpop][j]) > 0)

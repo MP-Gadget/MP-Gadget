@@ -51,13 +51,13 @@ void cooling_and_starformation(void)	/* cooling routine when star formation is e
 	      dtime = dt;
 
 
-	    tdyn = 1 / sqrt(4 * M_PI * All.G * SphP[i].Density * a3inv);
+	    tdyn = 1 / sqrt(4 * M_PI * All.G * SPHP(i).Density * a3inv);
 
 	    rateOfSF = All.WindEfficiency * P[i].Mass / tdyn;
 
 	    sm = rateOfSF * dtime;	/* amount of stars expect to form */
 
-	    SphP[i].FeedbackEnergy = All.WindEnergyFraction * sm * All.FeedbackEnergy;
+	    SPHP(i).FeedbackEnergy = All.WindEnergyFraction * sm * All.FeedbackEnergy;
 
 	    p = sm / P[i].Mass;
 
@@ -72,7 +72,7 @@ void cooling_and_starformation(void)	/* cooling routine when star formation is e
 	    mass_of_star = P[i].Mass / (GENERATIONS - number_of_stars_generated);
 
 
-	    SphP[i].Sfr = rateOfSF * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+	    SPHP(i).Sfr = rateOfSF * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
 	    prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
@@ -153,7 +153,7 @@ void cooling_and_starformation(void)	/* cooling routine when star formation is e
 
   for(i = 0, sfrrate = 0; i < N_gas; i++)
     if(P[i].Type == 0)
-      sfrrate += SphP[i].Sfr;
+      sfrrate += SPHP(i).Sfr;
 
   MPI_Allreduce(&sfrrate, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
@@ -190,7 +190,7 @@ double get_starformation_rate(int i)
   else
     a3inv = 1;
 
-  tdyn = 1 / sqrt(4 * M_PI * All.G * SphP[i].Density * a3inv);
+  tdyn = 1 / sqrt(4 * M_PI * All.G * SPHP(i).Density * a3inv);
 
   rateOfSF = All.MaxSfrTimescale * P[i].Mass / tdyn;
 

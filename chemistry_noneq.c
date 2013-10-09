@@ -134,35 +134,35 @@ int compute_gamma(int ithis)
   exit(3333);			/* not yet clarified so not used */
 
   a3inv = 1 / (All.Time * All.Time * All.Time);
-  rho_gas = All.UnitDensity_in_cgs * SphP[ithis].d.Density * All.HubbleParam * All.HubbleParam * a3inv;
-  n_den = rho_gas / (PROTONMASS * (4 * SphP[ithis].HeI + SphP[ithis].HII + 4 * SphP[ithis].HeIII
-				   + SphP[ithis].HI + 4 * SphP[ithis].HeII
-				   + SphP[ithis].HM + 2 * SphP[ithis].H2II + 2 * SphP[ithis].H2I));
+  rho_gas = All.UnitDensity_in_cgs * SPHP(ithis).d.Density * All.HubbleParam * All.HubbleParam * a3inv;
+  n_den = rho_gas / (PROTONMASS * (4 * SPHP(ithis).HeI + SPHP(ithis).HII + 4 * SPHP(ithis).HeIII
+				   + SPHP(ithis).HI + 4 * SPHP(ithis).HeII
+				   + SPHP(ithis).HM + 2 * SPHP(ithis).H2II + 2 * SPHP(ithis).H2I));
 
-  mean_nden = SphP[ithis].HI + SphP[ithis].HII + SphP[ithis].elec
-    + SphP[ithis].HeI + SphP[ithis].HeII + SphP[ithis].HeIII
-    + SphP[ithis].HM + SphP[ithis].H2II + SphP[ithis].H2I;
+  mean_nden = SPHP(ithis).HI + SPHP(ithis).HII + SPHP(ithis).elec
+    + SPHP(ithis).HeI + SPHP(ithis).HeII + SPHP(ithis).HeIII
+    + SPHP(ithis).HM + SPHP(ithis).H2II + SPHP(ithis).H2I;
 
   /* unit conversion */
   egyspec_to_temp = All.UnitPressure_in_cgs / All.UnitDensity_in_cgs
-    * (SphP[ithis].Gamma - 1.0) / BOLTZMANN * PROTONMASS / (mean_nden * base.numden);
+    * (SPHP(ithis).Gamma - 1.0) / BOLTZMANN * PROTONMASS / (mean_nden * base.numden);
 
 
-  egyspec = SphP[ithis].Entropy / GAMMA_MINUS1 * pow(SphP[ithis].d.Density * a3inv, GAMMA_MINUS1);
+  egyspec = SPHP(ithis).Entropy / GAMMA_MINUS1 * pow(SPHP(ithis).d.Density * a3inv, GAMMA_MINUS1);
 
   gas_temp = egyspec * egyspec_to_temp;
 
 
-  n_H = SphP[ithis].HI + SphP[ithis].HII + SphP[ithis].HM + 2 * SphP[ithis].H2I;
+  n_H = SPHP(ithis).HI + SPHP(ithis).HII + SPHP(ithis).HM + 2 * SPHP(ithis).H2I;
 
-  y_HI = SphP[ithis].HI / n_H;
-  y_HII = SphP[ithis].HII / n_H;
-  y_HeI = SphP[ithis].HeI / n_H;
-  y_HeII = SphP[ithis].HeII / n_H;
-  y_HeIII = SphP[ithis].HeIII / n_H;
-  y_HM = SphP[ithis].HM / n_H;
-  y_H2 = SphP[ithis].H2I / n_H;
-  y_elec = SphP[ithis].elec / n_H;
+  y_HI = SPHP(ithis).HI / n_H;
+  y_HII = SPHP(ithis).HII / n_H;
+  y_HeI = SPHP(ithis).HeI / n_H;
+  y_HeII = SPHP(ithis).HeII / n_H;
+  y_HeIII = SPHP(ithis).HeIII / n_H;
+  y_HM = SPHP(ithis).HM / n_H;
+  y_H2 = SPHP(ithis).H2I / n_H;
+  y_elec = SPHP(ithis).elec / n_H;
 
 
 
@@ -175,9 +175,9 @@ int compute_gamma(int ithis)
 
   denominator = 1.5 * (y_HI + y_HII + y_HM + y_HeI + y_HeII + y_HeIII + y_elec) + gamma_H2_minus1_inv * y_H2;
 
-  SphP[ithis].Gamma = 1.0 + sum_y / denominator;
+  SPHP(ithis).Gamma = 1.0 + sum_y / denominator;
 
-  if(SphP[ithis].Gamma > 1.8 || SphP[ithis].Gamma < 1.4)
+  if(SPHP(ithis).Gamma > 1.8 || SPHP(ithis).Gamma < 1.4)
     {
       printf("Are you sure ?");
       endrun(332);
@@ -246,29 +246,29 @@ int compute_abundances(int mode, int ithis, double a_start, double a_end)
   if(All.ComovingIntegrationOn)
     {
       a3inv = 1 / (a_start * a_start * a_start);
-      rho_gas = All.UnitDensity_in_cgs * SphP[ithis].d.Density * All.HubbleParam * All.HubbleParam * a3inv;	/* physical gram / cm^3 */
+      rho_gas = All.UnitDensity_in_cgs * SPHP(ithis).d.Density * All.HubbleParam * All.HubbleParam * a3inv;	/* physical gram / cm^3 */
     }
   else
     {
       a3inv = 1;
-      rho_gas = All.UnitDensity_in_cgs * SphP[ithis].d.Density;
+      rho_gas = All.UnitDensity_in_cgs * SPHP(ithis).d.Density;
     }
 
 
 
   /* here mean molecular weight must be taken into account */
-  base.numden = rho_gas / (PROTONMASS * (4 * SphP[ithis].HeI + SphP[ithis].HII + 4 * SphP[ithis].HeIII
-					 + SphP[ithis].HI + 4 * SphP[ithis].HeII
-					 + SphP[ithis].HM + 2 * SphP[ithis].H2II + 2 * SphP[ithis].H2I));
+  base.numden = rho_gas / (PROTONMASS * (4 * SPHP(ithis).HeI + SPHP(ithis).HII + 4 * SPHP(ithis).HeIII
+					 + SPHP(ithis).HI + 4 * SPHP(ithis).HeII
+					 + SPHP(ithis).HM + 2 * SPHP(ithis).H2II + 2 * SPHP(ithis).H2I));
 
 
-  sum_nuclei = 4 * SphP[ithis].HeI + SphP[ithis].HII + 4 * SphP[ithis].HeIII
-    + SphP[ithis].HI + 4 * SphP[ithis].HeII + SphP[ithis].HM + 2 * SphP[ithis].H2II + 2 * SphP[ithis].H2I;
+  sum_nuclei = 4 * SPHP(ithis).HeI + SPHP(ithis).HII + 4 * SPHP(ithis).HeIII
+    + SPHP(ithis).HI + 4 * SPHP(ithis).HeII + SPHP(ithis).HM + 2 * SPHP(ithis).H2II + 2 * SPHP(ithis).H2I;
 
 
-  mean_nden = SphP[ithis].HI + SphP[ithis].HII + SphP[ithis].elec
-    + SphP[ithis].HeI + SphP[ithis].HeII + SphP[ithis].HeIII
-    + SphP[ithis].HM + SphP[ithis].H2II + SphP[ithis].H2I;
+  mean_nden = SPHP(ithis).HI + SPHP(ithis).HII + SPHP(ithis).elec
+    + SPHP(ithis).HeI + SPHP(ithis).HeII + SPHP(ithis).HeIII
+    + SPHP(ithis).HM + SPHP(ithis).H2II + SPHP(ithis).H2I;
 
 
   molecular_weight = sum_nuclei / mean_nden;
@@ -276,9 +276,9 @@ int compute_abundances(int mode, int ithis, double a_start, double a_end)
 
   /* unit conversion */
   egyspec_to_temp = All.UnitPressure_in_cgs / All.UnitDensity_in_cgs
-    * (SphP[ithis].Gamma - 1.0) / BOLTZMANN * PROTONMASS * molecular_weight;
+    * (SPHP(ithis).Gamma - 1.0) / BOLTZMANN * PROTONMASS * molecular_weight;
 
-  egyspec = SphP[ithis].Entropy / GAMMA_MINUS1 * pow(SphP[ithis].d.Density * a3inv, GAMMA_MINUS1);
+  egyspec = SPHP(ithis).Entropy / GAMMA_MINUS1 * pow(SPHP(ithis).d.Density * a3inv, GAMMA_MINUS1);
 
   T_gas = egyspec * egyspec_to_temp;
 
@@ -289,7 +289,7 @@ int compute_abundances(int mode, int ithis, double a_start, double a_end)
   if(P[ithis].ID == 1)
     {
       printf("Initial temperature    = %g %g %g %g %g\n",
-	     i_T_gas, SphP[ithis].Entropy, GAMMA_MINUS1, SphP[ithis].d.Density, a3inv);
+	     i_T_gas, SPHP(ithis).Entropy, GAMMA_MINUS1, SPHP(ithis).d.Density, a3inv);
       printf("Initial density in cgs = %g\n", i_rho_gas);
       printf("egyspec_to_temp = %g, mean_nden = %g, molecular_weight = %g\n", egyspec_to_temp, mean_nden,
 	     molecular_weight);
@@ -313,8 +313,8 @@ int compute_abundances(int mode, int ithis, double a_start, double a_end)
       T_gas_in = T_gas;
       ifunc = species_solver(advance_flag = 0, ithis, a_start, dt_in, rho_gas, T_gas_in, &elec_dot);
 
-      SphP[ithis].t_cool = t_cool * 1.0e6;	/* yrs */
-      SphP[ithis].t_elec = SphP[ithis].elec * base.numden / elec_dot * 1.0e6;	/* yrs */
+      SPHP(ithis).t_cool = t_cool * 1.0e6;	/* yrs */
+      SPHP(ithis).t_elec = SPHP(ithis).elec * base.numden / elec_dot * 1.0e6;	/* yrs */
 
       return (ithis);
     }
@@ -353,7 +353,7 @@ int compute_abundances(int mode, int ithis, double a_start, double a_end)
 
 
       time1 = All.Epsilon * fabs(t_cool);
-      time2 = All.Epsilon * fabs(SphP[ithis].elec * base.numden / elec_dot);
+      time2 = All.Epsilon * fabs(SPHP(ithis).elec * base.numden / elec_dot);
 
       if(All.ComovingIntegrationOn)
 	{
@@ -436,25 +436,25 @@ int compute_abundances(int mode, int ithis, double a_start, double a_end)
 LOOP_OUT:;
 
 
-  sum_nuclei = 4 * SphP[ithis].HeI + SphP[ithis].HII + 4 * SphP[ithis].HeIII
-    + SphP[ithis].HI + 4 * SphP[ithis].HeII + SphP[ithis].HM + 2 * SphP[ithis].H2II + 2 * SphP[ithis].H2I;
+  sum_nuclei = 4 * SPHP(ithis).HeI + SPHP(ithis).HII + 4 * SPHP(ithis).HeIII
+    + SPHP(ithis).HI + 4 * SPHP(ithis).HeII + SPHP(ithis).HM + 2 * SPHP(ithis).H2II + 2 * SPHP(ithis).H2I;
 
-  mean_nden = SphP[ithis].HI + SphP[ithis].HII + SphP[ithis].elec
-    + SphP[ithis].HeI + SphP[ithis].HeII + SphP[ithis].HeIII
-    + SphP[ithis].HM + SphP[ithis].H2II + SphP[ithis].H2I;
+  mean_nden = SPHP(ithis).HI + SPHP(ithis).HII + SPHP(ithis).elec
+    + SPHP(ithis).HeI + SPHP(ithis).HeII + SPHP(ithis).HeIII
+    + SPHP(ithis).HM + SPHP(ithis).H2II + SPHP(ithis).H2I;
 
 
   molecular_weight = sum_nuclei / mean_nden;
   egyspec_to_temp = All.UnitPressure_in_cgs / All.UnitDensity_in_cgs
-    * (SphP[ithis].Gamma - 1.0) / BOLTZMANN * PROTONMASS * molecular_weight;
+    * (SPHP(ithis).Gamma - 1.0) / BOLTZMANN * PROTONMASS * molecular_weight;
 
   egyspec = T_gas_out / egyspec_to_temp;
 
 
-  SphP[ithis].Entropy = egyspec * GAMMA_MINUS1 / pow(SphP[ithis].d.Density * a3inv, GAMMA_MINUS1);
-  SphP[ithis].Pressure = (SphP[ithis].Gamma - 1.0) * egyspec * SphP[ithis].d.Density;
-  SphP[ithis].t_cool = t_cool * 1.0e6;	/* yrs */
-  SphP[ithis].t_elec = SphP[ithis].elec * base.numden / elec_dot * 1.0e6;	/* yrs */
+  SPHP(ithis).Entropy = egyspec * GAMMA_MINUS1 / pow(SPHP(ithis).d.Density * a3inv, GAMMA_MINUS1);
+  SPHP(ithis).Pressure = (SPHP(ithis).Gamma - 1.0) * egyspec * SPHP(ithis).d.Density;
+  SPHP(ithis).t_cool = t_cool * 1.0e6;	/* yrs */
+  SPHP(ithis).t_elec = SPHP(ithis).elec * base.numden / elec_dot * 1.0e6;	/* yrs */
 
   return (i);
 
@@ -494,9 +494,9 @@ int energy_solver(int solve_it_flag, int ithis, double current_a, double dt,
   /*     compute total numberdensity in units of mh
      hence base.numden * HI gives the number density of HI  */
 
-  base.numden = rho_gas / (PROTONMASS * (4 * SphP[ithis].HeI + SphP[ithis].HII + 4 * SphP[ithis].HeIII
-					 + SphP[ithis].HI + 4 * SphP[ithis].HeII
-					 + SphP[ithis].HM + 2 * SphP[ithis].H2II + 2 * SphP[ithis].H2I));
+  base.numden = rho_gas / (PROTONMASS * (4 * SPHP(ithis).HeI + SPHP(ithis).HII + 4 * SPHP(ithis).HeIII
+					 + SPHP(ithis).HI + 4 * SPHP(ithis).HeII
+					 + SPHP(ithis).HM + 2 * SPHP(ithis).H2II + 2 * SPHP(ithis).H2I));
 
 
 
@@ -513,9 +513,9 @@ int energy_solver(int solve_it_flag, int ithis, double current_a, double dt,
 
   dt_half = dt / 2.0;
 
-  mean_nden = SphP[ithis].HI + SphP[ithis].HII + SphP[ithis].elec
-    + SphP[ithis].HeI + SphP[ithis].HeII + SphP[ithis].HeIII
-    + SphP[ithis].HM + SphP[ithis].H2II + SphP[ithis].H2I;
+  mean_nden = SPHP(ithis).HI + SPHP(ithis).HII + SPHP(ithis).elec
+    + SPHP(ithis).HeI + SPHP(ithis).HeII + SPHP(ithis).HeIII
+    + SPHP(ithis).HM + SPHP(ithis).H2II + SPHP(ithis).H2I;
 
 
   /* ------- Init time counter. */
@@ -527,7 +527,7 @@ int energy_solver(int solve_it_flag, int ithis, double current_a, double dt,
 
 
       /* --------- Compute thermal energy from temperature and mass. */
-      energy = (1.0 / (SphP[ithis].Gamma - 1.0)) * (mean_nden * base.numden) * (BOLTZMANN * (T_gas));
+      energy = (1.0 / (SPHP(ithis).Gamma - 1.0)) * (mean_nden * base.numden) * (BOLTZMANN * (T_gas));
 
 
       /* --------- Compute temperture index.  */
@@ -580,36 +580,36 @@ int energy_solver(int solve_it_flag, int ithis, double current_a, double dt,
       /* ========= Cooling Functions ======================================================= */
 
       /* --------- Collisional excitations */
-      edot_ceHI = -ceHI * SphP[ithis].HI * SphP[ithis].elec * base.numden * base.numden;
+      edot_ceHI = -ceHI * SPHP(ithis).HI * SPHP(ithis).elec * base.numden * base.numden;
       edot_ceHeI =
-	-ceHeI * SphP[ithis].HeII * SphP[ithis].elec * SphP[ithis].elec * base.numden * base.numden *
+	-ceHeI * SPHP(ithis).HeII * SPHP(ithis).elec * SPHP(ithis).elec * base.numden * base.numden *
 	base.numden;
-      edot_ceHeII = -ceHeII * SphP[ithis].HeII * SphP[ithis].elec * base.numden * base.numden;
+      edot_ceHeII = -ceHeII * SPHP(ithis).HeII * SPHP(ithis).elec * base.numden * base.numden;
 
 
       /* --------- Collisional ionizations */
-      edot_ciHI = -ciHI * SphP[ithis].HI * SphP[ithis].elec * base.numden * base.numden;
-      edot_ciHeI = -ciHeI * SphP[ithis].HeI * SphP[ithis].elec * base.numden * base.numden;
-      edot_ciHeII = -ciHeII * SphP[ithis].HeII * SphP[ithis].elec * base.numden * base.numden;
+      edot_ciHI = -ciHI * SPHP(ithis).HI * SPHP(ithis).elec * base.numden * base.numden;
+      edot_ciHeI = -ciHeI * SPHP(ithis).HeI * SPHP(ithis).elec * base.numden * base.numden;
+      edot_ciHeII = -ciHeII * SPHP(ithis).HeII * SPHP(ithis).elec * base.numden * base.numden;
       edot_ciHeIS =
-	-ciHeIS * SphP[ithis].HeII * SphP[ithis].elec * SphP[ithis].elec * base.numden * base.numden *
+	-ciHeIS * SPHP(ithis).HeII * SPHP(ithis).elec * SPHP(ithis).elec * base.numden * base.numden *
 	base.numden;
 
       /* --------- Recombinations  */
-      edot_reHI = -reHII * SphP[ithis].HII * SphP[ithis].elec * base.numden * base.numden;
-      edot_reHeII1 = -reHeII1 * SphP[ithis].HeII * SphP[ithis].elec * base.numden * base.numden;
-      edot_reHeII2 = -reHeII2 * SphP[ithis].HeII * SphP[ithis].elec * base.numden * base.numden;
-      edot_reHeIII = -reHeIII * SphP[ithis].HeIII * SphP[ithis].elec * base.numden * base.numden;
+      edot_reHI = -reHII * SPHP(ithis).HII * SPHP(ithis).elec * base.numden * base.numden;
+      edot_reHeII1 = -reHeII1 * SPHP(ithis).HeII * SPHP(ithis).elec * base.numden * base.numden;
+      edot_reHeII2 = -reHeII2 * SPHP(ithis).HeII * SPHP(ithis).elec * base.numden * base.numden;
+      edot_reHeIII = -reHeIII * SPHP(ithis).HeIII * SPHP(ithis).elec * base.numden * base.numden;
 
 
       /* --------- Compton cooling or heating */
-      edot_comp = -comp1 * (T_gas - comp2) * SphP[ithis].elec * base.numden;
+      edot_comp = -comp1 * (T_gas - comp2) * SPHP(ithis).elec * base.numden;
 
 
       /* --------- Bremsstrahlung */
       edot_brem =
-	-brem * (SphP[ithis].HII + SphP[ithis].HeII +
-		 SphP[ithis].HeIII) * SphP[ithis].elec * base.numden * base.numden;
+	-brem * (SPHP(ithis).HII + SPHP(ithis).HeII +
+		 SPHP(ithis).HeIII) * SPHP(ithis).elec * base.numden * base.numden;
 
 
       /* --------- Cooling from H2, Galli-Palla 1998 */
@@ -631,10 +631,10 @@ int energy_solver(int solve_it_flag, int ithis, double current_a, double dt,
 	 3.e-24 * exp(-0.51 / T3));
 
       HDLV = (6.7e-19 * exp(-5.86 / T3) + 1.6e-18 * exp(-11.7 / T3));
-      HDL = (HDLR + HDLV) / (SphP[ithis].HI * base.numden);
+      HDL = (HDLR + HDLV) / (SPHP(ithis).HI * base.numden);
 
       /*    cooling rate per molecule [erg/s]  */
-      cool_rate = SphP[ithis].HI * base.numden * HDL / (1. + (HDL / LDL));
+      cool_rate = SPHP(ithis).HI * base.numden * HDL / (1. + (HDL / LDL));
 
 
       /* heating by CMB */
@@ -649,19 +649,19 @@ int energy_solver(int solve_it_flag, int ithis, double current_a, double dt,
 	((9.5e-22 * pow(T3, 3.76)) / (1. + 0.12 * pow(T3, 2.1)) * exp(-pow(0.13 / T3, 3)) +
 	 3.e-24 * exp(-0.51 / T3));
       HDLV = (6.7e-19 * exp(-5.86 / T3) + 1.6e-18 * exp(-11.7 / T3));
-      HDL = (HDLR + HDLV) / (SphP[ithis].HI * base.numden);
+      HDL = (HDLR + HDLV) / (SPHP(ithis).HI * base.numden);
 
-      heat_rate = SphP[ithis].HI * base.numden * HDL / (1. + (HDL / LDL));
+      heat_rate = SPHP(ithis).HI * base.numden * HDL / (1. + (HDL / LDL));
 
-      edot_H2 = -SphP[ithis].H2I * base.numden * (cool_rate - heat_rate);
+      edot_H2 = -SPHP(ithis).H2I * base.numden * (cool_rate - heat_rate);
 
 
 
       /* ========= Heating functions ============================================================== */
       /* --------- Photoinization heating */
-      edot_radHI = piHI * SphP[ithis].HI * base.numden;
-      edot_radHeI = piHeI * SphP[ithis].HeI * base.numden;
-      edot_radHeII = piHeII * SphP[ithis].HeII * base.numden;
+      edot_radHI = piHI * SPHP(ithis).HI * base.numden;
+      edot_radHeI = piHeI * SPHP(ithis).HeI * base.numden;
+      edot_radHeII = piHeII * SPHP(ithis).HeII * base.numden;
 
 
       edot = edot_ceHI + edot_ceHeI + edot_ceHeII
@@ -756,9 +756,9 @@ int species_solver(int solve_it, int ithis, double a_now, double dt, double rho_
 
   /*     compute total numberdensity in units of mh
      hence base.numden*HI gives the number density of HI   */
-  base.numden = rho_gas / (PROTONMASS * (4 * SphP[ithis].HeI + SphP[ithis].HII + 4 * SphP[ithis].HeIII
-					 + SphP[ithis].HI + 4 * SphP[ithis].HeII
-					 + SphP[ithis].HM + 2 * SphP[ithis].H2II + 2 * SphP[ithis].H2I));
+  base.numden = rho_gas / (PROTONMASS * (4 * SPHP(ithis).HeI + SPHP(ithis).HII + 4 * SPHP(ithis).HeIII
+					 + SPHP(ithis).HI + 4 * SPHP(ithis).HeII
+					 + SPHP(ithis).HM + 2 * SPHP(ithis).H2II + 2 * SPHP(ithis).H2I));
 
 
   /* ----- Initialize rate coefs. */
@@ -832,16 +832,16 @@ int species_solver(int solve_it, int ithis, double a_now, double dt, double rho_
 
   if(!solve_it)
     {
-      *elec_dot = k1 * SphP[ithis].HI * SphP[ithis].elec * base.numden * base.numden
-	+ k3 * SphP[ithis].HeI * SphP[ithis].elec * base.numden * base.numden
-	+ k5 * SphP[ithis].HeII * SphP[ithis].elec * base.numden * base.numden
-	- k2 * SphP[ithis].HII * SphP[ithis].elec * base.numden * base.numden
-	- k4 * SphP[ithis].HeII * SphP[ithis].elec * base.numden * base.numden
-	- k6 * SphP[ithis].HeIII * SphP[ithis].elec * base.numden * base.numden
+      *elec_dot = k1 * SPHP(ithis).HI * SPHP(ithis).elec * base.numden * base.numden
+	+ k3 * SPHP(ithis).HeI * SPHP(ithis).elec * base.numden * base.numden
+	+ k5 * SPHP(ithis).HeII * SPHP(ithis).elec * base.numden * base.numden
+	- k2 * SPHP(ithis).HII * SPHP(ithis).elec * base.numden * base.numden
+	- k4 * SPHP(ithis).HeII * SPHP(ithis).elec * base.numden * base.numden
+	- k6 * SPHP(ithis).HeIII * SPHP(ithis).elec * base.numden * base.numden
 	/* check base.vol is properly updated */
-	+ (k24 * SphP[ithis].HI * base.numden / base.vol
-	   + k25 * SphP[ithis].HeII * base.numden / base.vol
-	   + k26 * SphP[ithis].HeI * base.numden / base.vol);
+	+ (k24 * SPHP(ithis).HI * base.numden / base.vol
+	   + k25 * SPHP(ithis).HeII * base.numden / base.vol
+	   + k26 * SPHP(ithis).HeI * base.numden / base.vol);
 
       goto LEAVE2;
     }
@@ -855,19 +855,19 @@ int species_solver(int solve_it, int ithis, double a_now, double dt, double rho_
       dt_half = dt / 2.;
 
       /* ------- Compute electron density rate of change. */
-      *elec_dot = k1 * SphP[ithis].HI * SphP[ithis].elec * base.numden * base.numden
-	+ k3 * SphP[ithis].HeI * SphP[ithis].elec * base.numden * base.numden
-	+ k5 * SphP[ithis].HeII * SphP[ithis].elec * base.numden * base.numden
-	- k2 * SphP[ithis].HII * SphP[ithis].elec * base.numden * base.numden
-	- k4 * SphP[ithis].HeII * SphP[ithis].elec * base.numden * base.numden
-	- k6 * SphP[ithis].HeIII * SphP[ithis].elec * base.numden * base.numden
-	+ (k24 * SphP[ithis].HI * base.numden / base.vol
-	   + k25 * SphP[ithis].HeII * base.numden / base.vol
-	   + k26 * SphP[ithis].HeI * base.numden / base.vol);
+      *elec_dot = k1 * SPHP(ithis).HI * SPHP(ithis).elec * base.numden * base.numden
+	+ k3 * SPHP(ithis).HeI * SPHP(ithis).elec * base.numden * base.numden
+	+ k5 * SPHP(ithis).HeII * SPHP(ithis).elec * base.numden * base.numden
+	- k2 * SPHP(ithis).HII * SPHP(ithis).elec * base.numden * base.numden
+	- k4 * SPHP(ithis).HeII * SPHP(ithis).elec * base.numden * base.numden
+	- k6 * SPHP(ithis).HeIII * SPHP(ithis).elec * base.numden * base.numden
+	+ (k24 * SPHP(ithis).HI * base.numden / base.vol
+	   + k25 * SPHP(ithis).HeII * base.numden / base.vol
+	   + k26 * SPHP(ithis).HeI * base.numden / base.vol);
 
 
 
-      dt_internal = fabs(All.Epsilon * SphP[ithis].elec / (*elec_dot) * base.numden / base.vol);
+      dt_internal = fabs(All.Epsilon * SPHP(ithis).elec / (*elec_dot) * base.numden / base.vol);
 
 
       if(dt - t_count < dt_internal)
@@ -882,64 +882,64 @@ int species_solver(int solve_it, int ithis, double a_now, double dt, double rho_
 
 	  /* HM non-equilibrium treatment 
 
-	     Ccoef = k7*SphP[ithis].HI*SphP[ithis].elec*base.kunit*base.numden*base.numden;
+	     Ccoef = k7*SPHP(ithis).HI*SPHP(ithis).elec*base.kunit*base.numden*base.numden;
 
-	     Dcoef = (k8+k17)*SphP[ithis].HI*base.kunit*base.numden
-	     + (k18+k19)*SphP[ithis].HII*base.kunit*base.numden
-	     + k16*SphP[ithis].elec*base.kunit*base.numden
+	     Dcoef = (k8+k17)*SPHP(ithis).HI*base.kunit*base.numden
+	     + (k18+k19)*SPHP(ithis).HII*base.kunit*base.numden
+	     + k16*SPHP(ithis).elec*base.kunit*base.numden
 	     + k27/base.time;
 
 
-	     SphP[ithis].HM = ( Ccoef*dt_internal*base.time + SphP[ithis].HM*base.numden ) 
+	     SPHP(ithis).HM = ( Ccoef*dt_internal*base.time + SPHP(ithis).HM*base.numden ) 
 	     / ( 1. + Dcoef*dt_internal*base.time ) / base.numden;
 
 
-	     Ccoef = k9 * SphP[ithis].HI * SphP[ithis].HII*base.kunit*base.numden*base.numden
-	     + k12 * SphP[ithis].H2I * SphP[ithis].HII*base.kunit*base.numden*base.numden
-	     + k19 * SphP[ithis].HM  * SphP[ithis].HII*base.kunit*base.numden*base.numden
-	     + k29 /base.time * SphP[ithis].H2I * base.numden;
+	     Ccoef = k9 * SPHP(ithis).HI * SPHP(ithis).HII*base.kunit*base.numden*base.numden
+	     + k12 * SPHP(ithis).H2I * SPHP(ithis).HII*base.kunit*base.numden*base.numden
+	     + k19 * SPHP(ithis).HM  * SPHP(ithis).HII*base.kunit*base.numden*base.numden
+	     + k29 /base.time * SPHP(ithis).H2I * base.numden;
 
-	     Dcoef = (k10*SphP[ithis].HI  + k20*SphP[ithis].elec + k21*SphP[ithis].HM) * base.kunit*base.numden
+	     Dcoef = (k10*SPHP(ithis).HI  + k20*SPHP(ithis).elec + k21*SPHP(ithis).HM) * base.kunit*base.numden
 	     + (k28+k30)/base.time;
 
-	     SphP[ithis].H2II =  ( Ccoef*dt_internal*base.time + SphP[ithis].H2II*base.numden ) 
+	     SPHP(ithis).H2II =  ( Ccoef*dt_internal*base.time + SPHP(ithis).H2II*base.numden ) 
 	     / ( 1. + Dcoef*dt_internal*base.time ) / base.numden;
 
-	     Ccoef =   ( k8  * SphP[ithis].HM   * SphP[ithis].HI
-	     + k10 * SphP[ithis].H2II * SphP[ithis].HI
-	     + k21 * SphP[ithis].H2II * SphP[ithis].HM )*base.kunit*base.numden*base.numden;
+	     Ccoef =   ( k8  * SPHP(ithis).HM   * SPHP(ithis).HI
+	     + k10 * SPHP(ithis).H2II * SPHP(ithis).HI
+	     + k21 * SPHP(ithis).H2II * SPHP(ithis).HM )*base.kunit*base.numden*base.numden;
 
-	     Dcoef = ( k11 * SphP[ithis].HI + k12 * SphP[ithis].HII + k14 * SphP[ithis].elec )*base.kunit*base.numden
+	     Dcoef = ( k11 * SPHP(ithis).HI + k12 * SPHP(ithis).HII + k14 * SPHP(ithis).elec )*base.kunit*base.numden
 	     + (k29+k31)/base.time;
 
-	     SphP[ithis].H2I = ( Ccoef*dt_internal*base.time + SphP[ithis].H2I*base.numden ) 
+	     SPHP(ithis).H2I = ( Ccoef*dt_internal*base.time + SPHP(ithis).H2I*base.numden ) 
 	     / ( 1. + Dcoef*dt_internal*base.time ) / base.numden;
 	   */
 
 
 
 	  /* HM, H2II, equilibrium treatment */
-	  denom = (k8 + k17) * SphP[ithis].HI + (k18 + k19) * SphP[ithis].HII + k16 * SphP[ithis].elec
+	  denom = (k8 + k17) * SPHP(ithis).HI + (k18 + k19) * SPHP(ithis).HII + k16 * SPHP(ithis).elec
 	    + k27 / (base.time * base.kunit * base.numden);
 
-	  SphP[ithis].HM = (k7 * SphP[ithis].HI * SphP[ithis].elec) / denom;
+	  SPHP(ithis).HM = (k7 * SPHP(ithis).HI * SPHP(ithis).elec) / denom;
 
-	  SphP[ithis].H2II = (k9 * SphP[ithis].HI * SphP[ithis].HII
-			      + k12 * SphP[ithis].H2I * SphP[ithis].HII
-			      + k19 * SphP[ithis].HM * SphP[ithis].HII
-			      + k29 * SphP[ithis].H2I / (base.time * base.kunit * base.numden))
-	    / (k10 * SphP[ithis].HI + k20 * SphP[ithis].elec + k21 * SphP[ithis].HM
+	  SPHP(ithis).H2II = (k9 * SPHP(ithis).HI * SPHP(ithis).HII
+			      + k12 * SPHP(ithis).H2I * SPHP(ithis).HII
+			      + k19 * SPHP(ithis).HM * SPHP(ithis).HII
+			      + k29 * SPHP(ithis).H2I / (base.time * base.kunit * base.numden))
+	    / (k10 * SPHP(ithis).HI + k20 * SPHP(ithis).elec + k21 * SPHP(ithis).HM
 	       + (k28 + k30) / (base.time * base.kunit * base.numden));
 
-	  Ccoef = (k8 * SphP[ithis].HM * SphP[ithis].HI
-		   + k10 * SphP[ithis].H2II * SphP[ithis].HI
-		   + k21 * SphP[ithis].H2II * SphP[ithis].HM) * base.kunit * base.numden * base.numden;
+	  Ccoef = (k8 * SPHP(ithis).HM * SPHP(ithis).HI
+		   + k10 * SPHP(ithis).H2II * SPHP(ithis).HI
+		   + k21 * SPHP(ithis).H2II * SPHP(ithis).HM) * base.kunit * base.numden * base.numden;
 
-	  Dcoef = (k11 * SphP[ithis].HI
-		   + k12 * SphP[ithis].HII
-		   + k14 * SphP[ithis].elec) * base.kunit * base.numden + (k29 + k31) / base.time;
+	  Dcoef = (k11 * SPHP(ithis).HI
+		   + k12 * SPHP(ithis).HII
+		   + k14 * SPHP(ithis).elec) * base.kunit * base.numden + (k29 + k31) / base.time;
 
-	  SphP[ithis].H2I = (Ccoef * dt_internal * base.time + SphP[ithis].H2I * base.numden)
+	  SPHP(ithis).H2I = (Ccoef * dt_internal * base.time + SPHP(ithis).H2I * base.numden)
 	    / (1. + Dcoef * dt_internal * base.time) / base.numden;
 
 	}
@@ -951,19 +951,19 @@ int species_solver(int solve_it, int ithis, double a_now, double dt, double rho_
       if(H_flag)
 	{
 	  /* ----------- HI */
-	  Ccoef = k2 * SphP[ithis].HII * SphP[ithis].elec * base.kunit * base.numden * base.numden;
-	  Dcoef = k1 * SphP[ithis].elec * base.kunit * base.numden + k24 / base.time;
+	  Ccoef = k2 * SPHP(ithis).HII * SPHP(ithis).elec * base.kunit * base.numden * base.numden;
+	  Dcoef = k1 * SPHP(ithis).elec * base.kunit * base.numden + k24 / base.time;
 
-	  HIp = (Ccoef * dt_internal * base.time + SphP[ithis].HI * base.numden)
+	  HIp = (Ccoef * dt_internal * base.time + SPHP(ithis).HI * base.numden)
 	    / (1. + Dcoef * dt_internal * base.time) / base.numden;
 
 	  /* ----------- HII */
 	  Ccoef =
-	    k1 * HIp * SphP[ithis].elec * base.kunit * base.numden * base.numden +
+	    k1 * HIp * SPHP(ithis).elec * base.kunit * base.numden * base.numden +
 	    k24 / base.time * HIp * base.numden;
 
-	  Dcoef = k2 * SphP[ithis].elec * base.kunit * base.numden;
-	  HIIp = (Ccoef * dt_internal * base.time + SphP[ithis].HII * base.numden)
+	  Dcoef = k2 * SPHP(ithis).elec * base.kunit * base.numden;
+	  HIIp = (Ccoef * dt_internal * base.time + SPHP(ithis).HII * base.numden)
 	    / (1. + Dcoef * dt_internal * base.time) / base.numden;
 
 	}
@@ -972,32 +972,32 @@ int species_solver(int solve_it, int ithis, double a_now, double dt, double rho_
       if(He_flag)
 	{
 	  /* ----------- HeI */
-	  Ccoef = k4 * SphP[ithis].HeII * SphP[ithis].elec * base.kunit * base.numden * base.numden;
-	  Dcoef = k3 * SphP[ithis].elec * base.kunit * base.numden + k26 / base.time;
-	  HeIp = (Ccoef * dt_internal * base.time + SphP[ithis].HeI * base.numden)
+	  Ccoef = k4 * SPHP(ithis).HeII * SPHP(ithis).elec * base.kunit * base.numden * base.numden;
+	  Dcoef = k3 * SPHP(ithis).elec * base.kunit * base.numden + k26 / base.time;
+	  HeIp = (Ccoef * dt_internal * base.time + SPHP(ithis).HeI * base.numden)
 	    / (1. + Dcoef * dt_internal * base.time) / base.numden;
 
 	  /* ----------- HeII */
-	  Ccoef = k3 * HeIp * SphP[ithis].elec * base.kunit * base.numden * base.numden
-	    + k6 * SphP[ithis].HeIII * SphP[ithis].elec * base.kunit * base.numden * base.numden
+	  Ccoef = k3 * HeIp * SPHP(ithis).elec * base.kunit * base.numden * base.numden
+	    + k6 * SPHP(ithis).HeIII * SPHP(ithis).elec * base.kunit * base.numden * base.numden
 	    + k26 / base.time * HeIp * base.numden;
 
-	  Dcoef = (k4 * SphP[ithis].elec + k5 * SphP[ithis].elec) * base.kunit * base.numden
+	  Dcoef = (k4 * SPHP(ithis).elec + k5 * SPHP(ithis).elec) * base.kunit * base.numden
 	    + k25 / base.time;
 
-	  HeIIp = (Ccoef * dt_internal * base.time + SphP[ithis].HeII * base.numden)
+	  HeIIp = (Ccoef * dt_internal * base.time + SPHP(ithis).HeII * base.numden)
 	    / (1. + Dcoef * dt_internal * base.time) / base.numden;
 
 
 
 
 	  /* ----------- HeIII */
-	  Ccoef = k5 * HeIIp * SphP[ithis].elec * base.kunit * base.numden * base.numden
+	  Ccoef = k5 * HeIIp * SPHP(ithis).elec * base.kunit * base.numden * base.numden
 	    + k25 / base.time * HeIIp * base.numden;
 
-	  Dcoef = k6 * SphP[ithis].elec * base.kunit * base.numden;
+	  Dcoef = k6 * SPHP(ithis).elec * base.kunit * base.numden;
 
-	  HeIIIp = (Ccoef * dt_internal * base.time + SphP[ithis].HeIII * base.numden)
+	  HeIIIp = (Ccoef * dt_internal * base.time + SPHP(ithis).HeIII * base.numden)
 	    / (1. + Dcoef * dt_internal * base.time) / base.numden;
 	}
 
@@ -1008,19 +1008,19 @@ int species_solver(int solve_it, int ithis, double a_now, double dt, double rho_
       Dcoef = -(k1 * HIp - k2 * HIIp
 		+ k3 * HeIp - k6 * HeIIIp + k5 * HeIIp - k4 * HeIIp) * base.kunit * base.numden;
 
-      elecp = (Ccoef * dt_internal * base.time + SphP[ithis].elec * base.numden)
+      elecp = (Ccoef * dt_internal * base.time + SPHP(ithis).elec * base.numden)
 	/ (1. + Dcoef * dt_internal * base.time) / base.numden;
 
 
-      SphP[ithis].HI = HIp;
-      SphP[ithis].HII = HIIp;
-      SphP[ithis].HeI = HeIp;
-      SphP[ithis].HeII = HeIIp;
-      SphP[ithis].HeIII = HeIIIp;
-      SphP[ithis].elec = elecp;
+      SPHP(ithis).HI = HIp;
+      SPHP(ithis).HII = HIIp;
+      SPHP(ithis).HeI = HeIp;
+      SPHP(ithis).HeII = HeIIp;
+      SPHP(ithis).HeIII = HeIIIp;
+      SPHP(ithis).elec = elecp;
 
-      if(SphP[ithis].HeII < 0)
-	SphP[ithis].HeII = 0;
+      if(SPHP(ithis).HeII < 0)
+	SPHP(ithis).HeII = 0;
 
 
 
@@ -1028,32 +1028,32 @@ int species_solver(int solve_it, int ithis, double a_now, double dt, double rho_
 
       /* --------- Undertake mass conservation corrections. */
       correction =
-	H_number_fraction / (SphP[ithis].HI + SphP[ithis].HII + SphP[ithis].HM + 2. * SphP[ithis].H2I +
-			     2. * SphP[ithis].H2II);
-      SphP[ithis].elec = 0;
+	H_number_fraction / (SPHP(ithis).HI + SPHP(ithis).HII + SPHP(ithis).HM + 2. * SPHP(ithis).H2I +
+			     2. * SPHP(ithis).H2II);
+      SPHP(ithis).elec = 0;
 
       if(H_flag)
 	{
-	  SphP[ithis].HI *= correction;
-	  SphP[ithis].HII *= correction;
-	  SphP[ithis].elec += SphP[ithis].HII;
+	  SPHP(ithis).HI *= correction;
+	  SPHP(ithis).HII *= correction;
+	  SPHP(ithis).elec += SPHP(ithis).HII;
 	}
 
       if(H2_flag)
 	{
-	  SphP[ithis].HM *= correction;
-	  SphP[ithis].H2I *= correction;
-	  SphP[ithis].H2II *= correction;
-	  SphP[ithis].elec = SphP[ithis].elec - SphP[ithis].HM + SphP[ithis].H2II;
+	  SPHP(ithis).HM *= correction;
+	  SPHP(ithis).H2I *= correction;
+	  SPHP(ithis).H2II *= correction;
+	  SPHP(ithis).elec = SPHP(ithis).elec - SPHP(ithis).HM + SPHP(ithis).H2II;
 	}
 
       if(He_flag)
 	{
-	  correction = He_number_fraction / (SphP[ithis].HeI + SphP[ithis].HeII + SphP[ithis].HeIII);
-	  SphP[ithis].HeI *= correction;
-	  SphP[ithis].HeII *= correction;
-	  SphP[ithis].HeIII *= correction;
-	  SphP[ithis].elec = SphP[ithis].elec + SphP[ithis].HeII + 2. * SphP[ithis].HeIII;
+	  correction = He_number_fraction / (SPHP(ithis).HeI + SPHP(ithis).HeII + SPHP(ithis).HeIII);
+	  SPHP(ithis).HeI *= correction;
+	  SPHP(ithis).HeII *= correction;
+	  SPHP(ithis).HeIII *= correction;
+	  SPHP(ithis).elec = SPHP(ithis).elec + SPHP(ithis).HeII + 2. * SPHP(ithis).HeIII;
 	}
 
       t_count = t_count + dt_internal;
@@ -1130,14 +1130,14 @@ int radiative_rates(int ithis, double a_now, double J_21)
 	  tau = 0.0;
 
 	  if(H_flag)
-	    tau = tau + SphP[ithis].HI * sigma24[j];
+	    tau = tau + SPHP(ithis).HI * sigma24[j];
 
 	  if(He_flag)
-	    tau = tau + SphP[ithis].HeI * sigma26[j] + SphP[ithis].HeII * sigma25[j];
+	    tau = tau + SPHP(ithis).HeI * sigma26[j] + SPHP(ithis).HeII * sigma25[j];
 
 	  if(H2_flag)
-	    tau = tau + SphP[ithis].HM * sigma27[j]
-	      + SphP[ithis].H2I * (sigma29[j] + sigma31[j]) + SphP[ithis].H2II * (sigma28[j] + sigma30[j]);
+	    tau = tau + SPHP(ithis).HM * sigma27[j]
+	      + SPHP(ithis).H2I * (sigma29[j] + sigma31[j]) + SPHP(ithis).H2II * (sigma28[j] + sigma30[j]);
 
 
       /*------- Compute J_nu for this frequency and radius. */
@@ -1256,7 +1256,7 @@ int radiative_rates(int ithis, double a_now, double J_21)
 
   /*    --------- Compute average f_shield over all angles. */
   f_shield_avg = 0.0;
-  x = (SphP[ithis].H2I * base.numden * base.len) / 1.e14;
+  x = (SPHP(ithis).H2I * base.numden * base.len) / 1.e14;
   f_shield = 1.0;
   if(x >= 1.0)
     f_shield = pow(x, -0.75);

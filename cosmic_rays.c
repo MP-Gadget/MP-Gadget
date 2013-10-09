@@ -1665,18 +1665,18 @@ void CR_test_routine(void)
   if(ThisTask == 0)
     {
       fd = fopen("CR_eqn_of_state.txt", "w");
-      for(SphP[i].d.Density = 1.01 * All.PhysDensThresh; SphP[i].d.Density <= 10000.0 * All.PhysDensThresh;
-	  SphP[i].d.Density *= 1.05)
+      for(SPHP(i).d.Density = 1.01 * All.PhysDensThresh; SPHP(i).d.Density <= 10000.0 * All.PhysDensThresh;
+	  SPHP(i).d.Density *= 1.05)
 	{
-	  tsfr = sqrt(All.PhysDensThresh / (SphP[i].d.Density * a3inv)) * All.MaxSfrTimescale;
+	  tsfr = sqrt(All.PhysDensThresh / (SPHP(i).d.Density * a3inv)) * All.MaxSfrTimescale;
 
-	  factorEVP = pow(SphP[i].d.Density * a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
+	  factorEVP = pow(SPHP(i).d.Density * a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
 
 	  egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
-	  ne = SphP[i].Ne;
-	  tcool = GetCoolingTime(egyhot, SphP[i].d.Density * a3inv, &ne);
-	  SphP[i].Ne = ne;
+	  ne = SPHP(i).Ne;
+	  tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne);
+	  SPHP(i).Ne = ne;
 
 	  y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
 
@@ -1694,7 +1694,7 @@ void CR_test_routine(void)
 
 	  trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
 
-	  tdyn = 1 / sqrt(4 * M_PI * All.G * SphP[i].d.Density);
+	  tdyn = 1 / sqrt(4 * M_PI * All.G * SPHP(i).d.Density);
 
 
 	  heatingrate = (1 - All.FactorSN) / tsfr * cloudmass / P[i].Mass * All.FeedbackEnergy * All.CR_SNEff;
@@ -1709,12 +1709,12 @@ void CR_test_routine(void)
 	  fraction = CR_Tab_EnergyFraction(qinj, All.CR_SNAlpha);
 
 	  egy_cr = (p * All.FeedbackEnergy * All.CR_SNEff / dtime) * fraction
-	    * CR_Tab_GetCoolingTimescale(q, SphP[i].d.Density);
+	    * CR_Tab_GetCoolingTimescale(q, SPHP(i).d.Density);
 
 	  bet = CR_Tab_Beta(q);
 
 	  P_cr =
-	    bet / 6.0 * (All.CR_Alpha - 1) * SphP[i].d.Density * egy_cr / (0.5 * bet +
+	    bet / 6.0 * (All.CR_Alpha - 1) * SPHP(i).d.Density * egy_cr / (0.5 * bet +
 									   pow(q,
 									       1 - All.CR_Alpha) * (sqrt(1 +
 													 square
@@ -1722,11 +1722,11 @@ void CR_test_routine(void)
 												    - 1));
 
 	  fprintf(fd, "%g  %g %g %g %g %g    %g   %g %g  %g %g  %g\n",
-		  SphP[i].d.Density, tsfr, tcool, th, trelax, tdyn, egyeff, qinj, q, egy_cr, P_cr, fraction);
+		  SPHP(i).d.Density, tsfr, tcool, th, trelax, tdyn, egyeff, qinj, q, egy_cr, P_cr, fraction);
 	}
       fclose(fd);
 
-      SphP[i].d.Density = 1.01 * All.PhysDensThresh;
+      SPHP(i).d.Density = 1.01 * All.PhysDensThresh;
 
       fd = fopen("trcool.txt", "w");
       rQinj = sqrt(k_B * 1.0e7 / mpc2);
@@ -1736,10 +1736,10 @@ void CR_test_routine(void)
 	  egy_sn = CR_MeanKineticEnergy(q, All.CR_SNAlpha) / CR_kinetic_energy(q);
 
 	  fprintf(fd, "%g  %g %g %g  %g %g  %g %g\n", q,
-		  CR_Particle_GetThermalizationTimescale(q, SphP[i].d.Density),
-		  CR_Particle_GetDissipationTimescale(q, SphP[i].d.Density),
-		  CR_Particle_GetCoulombTimescale(q, SphP[i].d.Density), egy, egy_sn,
-		  CR_Particle_GetCoolingTimescale(q, SphP[i].d.Density),
+		  CR_Particle_GetThermalizationTimescale(q, SPHP(i).d.Density),
+		  CR_Particle_GetDissipationTimescale(q, SPHP(i).d.Density),
+		  CR_Particle_GetCoulombTimescale(q, SPHP(i).d.Density), egy, egy_sn,
+		  CR_Particle_GetCoolingTimescale(q, SPHP(i).d.Density),
 		  CR_EnergyFractionAfterShiftingQ(rQinj, q, All.CR_SNAlpha));
 	}
       fclose(fd);
@@ -1752,7 +1752,7 @@ void CR_test_routine(void)
 	  egyhot = All.UnitMass_in_g / All.UnitEnergy_in_cgs / meanweight *
 	    (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * temp;
 
-	  tcool = GetCoolingTime(egyhot, SphP[i].d.Density * a3inv, &ne);
+	  tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne);
 
 	  meanweight = 4.0 / (3 * HYDROGEN_MASSFRAC + 1 + 4 * HYDROGEN_MASSFRAC * ne);
 
@@ -1764,7 +1764,7 @@ void CR_test_routine(void)
       fclose(fd);
     }
 
-  SphP[i].d.Density = 1.01 * All.PhysDensThresh;
+  SPHP(i).d.Density = 1.01 * All.PhysDensThresh;
 
   if(ThisTask == 0)
     do
@@ -1773,15 +1773,15 @@ void CR_test_routine(void)
 
 	printf("\n");
 
-	tsfr = sqrt(All.PhysDensThresh / (SphP[i].d.Density * a3inv)) * All.MaxSfrTimescale;
+	tsfr = sqrt(All.PhysDensThresh / (SPHP(i).d.Density * a3inv)) * All.MaxSfrTimescale;
 
-	factorEVP = pow(SphP[i].d.Density * a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
+	factorEVP = pow(SPHP(i).d.Density * a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
 
 	egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
-	ne = SphP[i].Ne;
-	tcool = GetCoolingTime(egyhot, SphP[i].d.Density * a3inv, &ne);
-	SphP[i].Ne = ne;
+	ne = SPHP(i).Ne;
+	tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne);
+	SPHP(i).Ne = ne;
 
 	y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
 
@@ -1791,24 +1791,24 @@ void CR_test_routine(void)
 
 	trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
 
-	egycurrent = SphP[i].Entropy * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+	egycurrent = SPHP(i).Entropy * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 
-	temp = u_to_temp_fac * (SphP[i].Entropy) /
-	  GAMMA_MINUS1 * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1);
+	temp = u_to_temp_fac * (SPHP(i).Entropy) /
+	  GAMMA_MINUS1 * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1);
 
-	SphP[i].Entropy =
+	SPHP(i).Entropy =
 	  (egyeff +
 	   (egycurrent -
-	    egyeff) * exp(-dtime / trelax)) * GAMMA_MINUS1 / pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1);
+	    egyeff) * exp(-dtime / trelax)) * GAMMA_MINUS1 / pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1);
 
 	cloudmass = x * P[i].Mass;
 
 	tcr =
-	  CR_Particle_GetCoolingTimescale(SphP[i].CR_q0 * pow(SphP[i].d.Density, 0.3333), SphP[i].d.Density);
+	  CR_Particle_GetCoolingTimescale(SPHP(i).CR_q0 * pow(SPHP(i).d.Density, 0.3333), SPHP(i).d.Density);
 
 	th = egyeff / ((1 - All.FactorSN) / tsfr * cloudmass / P[i].Mass * All.FeedbackEnergy);
 
-	tdyn = 1 / sqrt(4 * M_PI * All.G * SphP[i].d.Density);
+	tdyn = 1 / sqrt(4 * M_PI * All.G * SPHP(i).d.Density);
 
 	printf("tsfr=%g  tcool=%g  trelax=%g  tcr=%g  th=%g  tdyn=%g\n", tsfr, tcool, trelax, tcr, th, tdyn);
 
@@ -1820,15 +1820,15 @@ void CR_test_routine(void)
 	heatingrate = (1 - All.FactorSN) / tsfr * cloudmass / P[i].Mass * All.FeedbackEnergy * All.CR_SNEff;
 
 
-	tinj = SphP[i].CR_E0 / (p * All.FeedbackEnergy * All.CR_SNEff / dtime);
+	tinj = SPHP(i).CR_E0 / (p * All.FeedbackEnergy * All.CR_SNEff / dtime);
 
 	CR_Particle_Update(SphP + i);
-	printf("[1] SphP[i].CR_q0=%g SphP[i].CR_C0=%g  SphP[i].CR_E0=%g\n", SphP[i].CR_q0, SphP[i].CR_C0,
-	       SphP[i].CR_E0);
-	before = SphP[i].CR_E0;
-	instant_reheat = CR_Particle_SupernovaFeedback(&SphP[i], p * All.FeedbackEnergy * All.CR_SNEff, tinj);
+	printf("[1] SPHP(i).CR_q0=%g SPHP(i).CR_C0=%g  SPHP(i).CR_E0=%g\n", SPHP(i).CR_q0, SPHP(i).CR_C0,
+	       SPHP(i).CR_E0);
+	before = SPHP(i).CR_E0;
+	instant_reheat = CR_Particle_SupernovaFeedback(&SPHP(i), p * All.FeedbackEnergy * All.CR_SNEff, tinj);
 	CR_Particle_Update(SphP + i);
-	after = SphP[i].CR_E0;
+	after = SPHP(i).CR_E0;
 
 	heatingrate_effective = (p * All.FeedbackEnergy * All.CR_SNEff - instant_reheat) / dtime;
 
@@ -1837,30 +1837,30 @@ void CR_test_routine(void)
 
 	heatingrate_effective = (after - before) / dtime;
 
-	printf("[2] SphP[i].CR_q0=%g SphP[i].CR_C0=%g  SphP[i].CR_E0=%g\n", SphP[i].CR_q0, SphP[i].CR_C0,
-	       SphP[i].CR_E0);
+	printf("[2] SPHP(i).CR_q0=%g SPHP(i).CR_C0=%g  SPHP(i).CR_E0=%g\n", SPHP(i).CR_q0, SPHP(i).CR_C0,
+	       SPHP(i).CR_E0);
 
-	coolrate = SphP[i].CR_E0 / CR_Tab_GetCoolingTimescale(SphP[i].CR_q0 * pow(SphP[i].d.Density, 0.3333),
-							      SphP[i].d.Density);
+	coolrate = SPHP(i).CR_E0 / CR_Tab_GetCoolingTimescale(SPHP(i).CR_q0 * pow(SPHP(i).d.Density, 0.3333),
+							      SPHP(i).d.Density);
 
-	before = SphP[i].CR_E0;
+	before = SPHP(i).CR_E0;
 	utherm = CR_Particle_ThermalizeAndDissipate(SphP + i, dtime);
-	after = SphP[i].CR_E0;
+	after = SPHP(i).CR_E0;
 
 	coolrate_effective = (before - after) / dtime;
 
 	printf("thermalize: utherm=%g  %g\n", utherm, before - after);
 
-	printf("[3] SphP[i].CR_q0=%g SphP[i].CR_C0=%g  SphP[i].CR_E0=%g\n", SphP[i].CR_q0, SphP[i].CR_C0,
-	       SphP[i].CR_E0);
+	printf("[3] SPHP(i).CR_q0=%g SPHP(i).CR_C0=%g  SPHP(i).CR_E0=%g\n", SPHP(i).CR_q0, SPHP(i).CR_C0,
+	       SPHP(i).CR_E0);
 
 	printf
 	  ("step=%d dt=%g egycurrent=%g(temp=%g)  CR_e0=%g(temp=%g) sn_raw=%g  cr_heat=%g  cr_cool=%g (%g)   Q0=%g \n",
 	   nsteps, dtime,
 	   egycurrent, temp,
-	   SphP[i].CR_E0, u_to_temp_fac * SphP[i].CR_E0,
+	   SPHP(i).CR_E0, u_to_temp_fac * SPHP(i).CR_E0,
 	   heatingrate, heatingrate_effective, coolrate_effective, coolrate,
-	   SphP[i].CR_q0 * pow(SphP[i].d.Density, 0.3333));
+	   SPHP(i).CR_q0 * pow(SPHP(i).d.Density, 0.3333));
 
       }
     while(nsteps < 5000);

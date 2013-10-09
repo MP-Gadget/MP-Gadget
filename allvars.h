@@ -535,8 +535,6 @@ extern int *DomainTask;
 extern int *DomainNodeIndex;
 extern int *DomainList, DomainNumChanged;
 
-extern peanokey *Key, *KeySorted;
-
 #ifdef RADTRANSFER
 double rt_sigma_HI[N_BINS];
 double rt_sigma_HeI[N_BINS];
@@ -1482,8 +1480,7 @@ extern struct particle_data
 #endif
 
 }
-*P,				/*!< holds particle data on local processor */
-    *DomainPartBuf;		/*!< buffer for particle data used in domain decomposition */
+*P;				/*!< holds particle data on local processor */
 
 
 /* the following struture holds data that is stored for each SPH particle in addition to the collisionless
@@ -1791,12 +1788,14 @@ extern struct sph_particle_data
     double TracAbund[TRAC_NUM];
 #endif
 
-}
-*SphP,				/*!< holds SPH particle data on local processor */
-    *DomainSphBuf;			/*!< buffer for SPH particle data in domain decomposition */
+} *SphP;				/*!< holds SPH particle data on local processor */
 
-
-extern peanokey *DomainKeyBuf;
+#define SPHP(i) SphP[i]
+#define BHP(i) P[i].BH
+#define KEY(i) peano_hilbert_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac), \
+        (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac), \
+        (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), \
+        BITS_PER_DIMENSION)
 
 /* global state of system
 */

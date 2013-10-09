@@ -557,7 +557,7 @@ void gravity_tree(void)
 	      if(P[place].Type == 0)
 		{
 		  for(k = 0; k < 3; k++)
-		    GravDataIn[j].Pos[k] = SphP[place].Center[k];
+		    GravDataIn[j].Pos[k] = SPHP(place).Center[k];
 		}
 	      else
 		{

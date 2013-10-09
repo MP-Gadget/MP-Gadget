@@ -189,19 +189,19 @@ void run(void)
     {
         printf("Initial abundances: \n");
         printf("HI=%g, HII=%g, HeI=%g, HeII=%g, HeIII=%g \n",
-                SphP[1].HI, SphP[1].HII, SphP[1].HeI, SphP[1].HeII, SphP[1].HeIII);
+                SPHP(1).HI, SPHP(1).HII, SPHP(1).HeI, SPHP(1).HeII, SPHP(1).HeIII);
 
         printf("HM=%g, H2I=%g, H2II=%g, elec=%g, %d\n",
-                SphP[1].HM, SphP[1].H2I, SphP[1].H2II, SphP[1].elec, P[1].ID);
+                SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II, SPHP(1).elec, P[1].ID);
 
 #if defined (UM_CHEMISTRY) && defined (UM_HD_COOLING)
-        printf("HD=%g, DI=%g, DII=%g ", SphP[1].HD, SphP[1].DI, SphP[1].DII);
-        printf("HeHII=%g",SphP[1].HeHII);
+        printf("HD=%g, DI=%g, DII=%g ", SPHP(1).HD, SPHP(1).DI, SPHP(1).DII);
+        printf("HeHII=%g",SPHP(1).HeHII);
 #endif
 
         printf("\nx=%g, y=%g, z=%g, vx=%g, vy=%g, vz=%g, density=%g, entropy=%g\n",
                 P[N_gas - 1].Pos[0], P[N_gas - 1].Pos[1], P[N_gas - 1].Pos[2], P[N_gas - 1].Vel[0],
-                P[N_gas - 1].Vel[1], P[N_gas - 1].Vel[2], SphP[N_gas - 1].d.Density, SphP[N_gas - 1].Entropy);
+                P[N_gas - 1].Vel[1], P[N_gas - 1].Vel[2], SPHP(N_gas - 1).d.Density, SPHP(N_gas - 1).Entropy);
     }
 
 #endif
@@ -275,7 +275,7 @@ void find_next_sync_point_and_drift(void)
 
     for(i = 0, nh_max = 0; i < N_gas; i++)
     {
-        nh = HYDROGEN_MASSFRAC * SphP[i].d.Density * All.UnitDensity_in_cgs * a3inv * hubble_param2 / PROTONMASS;
+        nh = HYDROGEN_MASSFRAC * SPHP(i).d.Density * All.UnitDensity_in_cgs * a3inv * hubble_param2 / PROTONMASS;
 
         if(nh > nh_max)
             nh_max = nh;
@@ -755,14 +755,14 @@ void every_timestep_stuff(void)
 
 #if defined (CHEMISTRY) || defined (UM_CHEMISTRY)
             printf("Abundances  elec: %g, HM: %g, H2I: %g, H2II: %g\n",
-                    SphP[1].elec, SphP[1].HM, SphP[1].H2I, SphP[1].H2II);
+                    SPHP(1).elec, SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II);
             printf("Abundances  HI: %g, HII: %g, HeI: %g, HeII: %g, HeIII: %g\n",
-                    SphP[1].HI, SphP[1].HII, SphP[1].HeI, SphP[1].HeII, SphP[1].HeIII);
+                    SPHP(1).HI, SPHP(1).HII, SPHP(1).HeI, SPHP(1).HeII, SPHP(1).HeIII);
 #endif
 
 #if defined (UM_CHEMISTRY) && defined (UM_HD_COOLING)
-            printf("Abundances HD: %g,  DI: %g,  DII: %g\n", SphP[1].HD, SphP[1].DI, SphP[1].DII);
-            printf("Abundances HeHII: %g",SphP[1].HeHII);
+            printf("Abundances HD: %g,  DI: %g,  DII: %g\n", SPHP(1).HD, SPHP(1).DI, SPHP(1).DII);
+            printf("Abundances HeHII: %g",SPHP(1).HeHII);
 #endif
 
             fflush(FdInfo);
@@ -809,7 +809,7 @@ void every_timestep_stuff(void)
 
 #ifdef CHEMISTRY
         printf("Abundances elec: %g, HM: %g, H2I: %g, H2II: %g\n",
-                SphP[1].elec, SphP[1].HM, SphP[1].H2I, SphP[1].H2II);
+                SPHP(1).elec, SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II);
 #endif
 
 #ifdef XXLINFO

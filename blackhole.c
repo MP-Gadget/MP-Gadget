@@ -593,7 +593,7 @@ void blackhole_accretion(void)
     for(n = FirstActiveParticle; n >= 0; n = NextActiveParticle[n])
         if(P[n].Type == 0) {
             bin = P[n].TimeBin;
-            TimeBin_GAS_Injection[bin] += SphP[n].i.dInjected_BH_Energy;
+            TimeBin_GAS_Injection[bin] += SPHP(n).i.dInjected_BH_Energy;
         }
 
     for(n = FirstActiveParticle; n >= 0; n = NextActiveParticle[n])
@@ -1018,7 +1018,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 
                                 if(FeedbackWeightSum > 0)
                                 {
-                                    SphP[j].i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FeedbackWeightSum);
+                                    SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FeedbackWeightSum);
                                 }
 
 #else
@@ -1034,7 +1034,7 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                                 UnitVelocity_in_cm_per_s,
                                                 2);
                                     if(FeedbackWeightSum> 0)
-                                        SphP[j].i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FeedbackWeightSum);
+                                        SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FeedbackWeightSum);
                                 }
 #endif
 #endif
@@ -1196,7 +1196,7 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
 
                         P[j].Mass = 0;
                         bin = P[j].TimeBin;
-                        TimeBin_GAS_Injection[bin] += SphP[j].i.dInjected_BH_Energy;
+                        TimeBin_GAS_Injection[bin] += SPHP(j).i.dInjected_BH_Energy;
                         N_gas_swallowed++;
                     }
                 }
@@ -1472,11 +1472,11 @@ void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
 
                     if(All.ComovingIntegrationOn)
                         E_bubble +=
-                            SphP[j].Entropy * P[j].Mass * pow(SphP[j].EOMDensity / pow(All.Time, 3),
+                            SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).EOMDensity / pow(All.Time, 3),
                                     GAMMA_MINUS1) / GAMMA_MINUS1;
                     else
                         E_bubble +=
-                            SphP[j].Entropy * P[j].Mass * pow(SphP[j].EOMDensity, GAMMA_MINUS1) / GAMMA_MINUS1;
+                            SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).EOMDensity, GAMMA_MINUS1) / GAMMA_MINUS1;
 
                     Mass_bubble += P[j].Mass;
                 }
@@ -1588,11 +1588,11 @@ void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
 
                         if(All.ComovingIntegrationOn)
                             E_bubble +=
-                                SphP[j].Entropy * P[j].Mass * pow(SphP[j].EOMDensity / pow(All.Time, 3),
+                                SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).EOMDensity / pow(All.Time, 3),
                                         GAMMA_MINUS1) / GAMMA_MINUS1;
                         else
                             E_bubble +=
-                                SphP[j].Entropy * P[j].Mass * pow(SphP[j].EOMDensity, GAMMA_MINUS1) / GAMMA_MINUS1;
+                                SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).EOMDensity, GAMMA_MINUS1) / GAMMA_MINUS1;
 
                         Mass_bubble += P[j].Mass;
                     }
@@ -1672,12 +1672,12 @@ void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
 
 #ifndef CR_BUBBLES
                         if(All.ComovingIntegrationOn)
-                            SphP[j].Entropy +=
-                                GAMMA_MINUS1 * dE / P[j].Mass / pow(SphP[j].EOMDensity / pow(All.Time, 3),
+                            SPHP(j).Entropy +=
+                                GAMMA_MINUS1 * dE / P[j].Mass / pow(SPHP(j).EOMDensity / pow(All.Time, 3),
                                         GAMMA_MINUS1);
                         else
-                            SphP[j].Entropy +=
-                                GAMMA_MINUS1 * dE / P[j].Mass / pow(SphP[j].EOMDensity, GAMMA_MINUS1);
+                            SPHP(j).Entropy +=
+                                GAMMA_MINUS1 * dE / P[j].Mass / pow(SPHP(j).EOMDensity, GAMMA_MINUS1);
 #else
 
                         if(All.ComovingIntegrationOn)
@@ -1686,30 +1686,30 @@ void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
                             tinj = 10.0 * All.HubbleParam / All.UnitTime_in_Megayears;
 
                         instant_reheat =
-                            CR_Particle_SupernovaFeedback(&SphP[j], dE / P[j].Mass * All.CR_AGNEff, tinj);
+                            CR_Particle_SupernovaFeedback(&SPHP(j), dE / P[j].Mass * All.CR_AGNEff, tinj);
 
                         if(instant_reheat > 0)
                         {
                             if(All.ComovingIntegrationOn)
-                                SphP[j].Entropy +=
-                                    instant_reheat * GAMMA_MINUS1 / pow(SphP[j].EOMDensity / pow(All.Time, 3),
+                                SPHP(j).Entropy +=
+                                    instant_reheat * GAMMA_MINUS1 / pow(SPHP(j).EOMDensity / pow(All.Time, 3),
                                             GAMMA_MINUS1);
                             else
-                                SphP[j].Entropy +=
-                                    instant_reheat * GAMMA_MINUS1 / pow(SphP[j].EOMDensity, GAMMA_MINUS1);
+                                SPHP(j).Entropy +=
+                                    instant_reheat * GAMMA_MINUS1 / pow(SPHP(j).EOMDensity, GAMMA_MINUS1);
                         }
 
                         if(All.CR_AGNEff < 1)
                         {
                             if(All.ComovingIntegrationOn)
-                                SphP[j].Entropy +=
+                                SPHP(j).Entropy +=
                                     (1 -
-                                     All.CR_AGNEff) * dE * GAMMA_MINUS1 / P[j].Mass / pow(SphP[j].EOMDensity /
+                                     All.CR_AGNEff) * dE * GAMMA_MINUS1 / P[j].Mass / pow(SPHP(j).EOMDensity /
                                          pow(All.Time, 3),
                                          GAMMA_MINUS1);
                             else
-                                SphP[j].Entropy +=
-                                    (1 - All.CR_AGNEff) * dE * GAMMA_MINUS1 / P[j].Mass / pow(SphP[j].EOMDensity,
+                                SPHP(j).Entropy +=
+                                    (1 - All.CR_AGNEff) * dE * GAMMA_MINUS1 / P[j].Mass / pow(SPHP(j).EOMDensity,
                                             GAMMA_MINUS1);
                         }
 

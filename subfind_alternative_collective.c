@@ -128,7 +128,7 @@ void subfind_process_group_collectively(int num)
   qsort(P, NumPart, sizeof(struct particle_data), subfind_compare_P_GrNrGrNr);
 
   /* now we have the particles of the group at the beginning, but SPH particles are not aligned. 
-     They can however be accessed via SphP[P[i].origindex] */
+     They can however be accessed via SPHP(P[i).origindex] */
 
   for(i = 0, NumPartGroup = 0; i < NumPart; i++)
     if(P[i].GrNr == GrNr)

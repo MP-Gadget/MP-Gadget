@@ -37,7 +37,7 @@ void peano_hilbert_order(void)
       for(i = 0; i < N_gas; i++)
 	{
 	  mp[i].index = i;
-	  mp[i].key = Key[i];
+	  mp[i].key = KEY(i);
 	}
 
 #ifdef MYSORT
@@ -68,7 +68,7 @@ void peano_hilbert_order(void)
       for(i = N_gas; i < NumPart; i++)
 	{
 	  mp[i].index = i;
-	  mp[i].key = Key[i];
+	  mp[i].key = KEY(i);
 	}
 
 #ifdef MYSORT
@@ -116,7 +116,7 @@ void reorder_gas(void)
       if(Id[i] != i)
 	{
 	  Psource = P[i];
-	  SphPsource = SphP[i];
+	  SphPsource = SPHP(i);
 
 	  idsource = Id[i];
 	  dest = Id[i];
@@ -124,11 +124,11 @@ void reorder_gas(void)
 	  do
 	    {
 	      Psave = P[dest];
-	      SphPsave = SphP[dest];
+	      SphPsave = SPHP(dest);
 	      idsave = Id[dest];
 
 	      P[dest] = Psource;
-	      SphP[dest] = SphPsource;
+	      SPHP(dest) = SphPsource;
 	      Id[dest] = idsource;
 
 	      if(dest == i)

@@ -73,9 +73,9 @@ void rot_a(void)
 		  DensDataIn[nexport].Pos[1] = P[i].Pos[1];
 		  DensDataIn[nexport].Pos[2] = P[i].Pos[2];
 		  /* using velocity structure for BPred ... */
-		  DensDataIn[nexport].Vel[0] = SphP[i].BPred[0];
-		  DensDataIn[nexport].Vel[1] = SphP[i].BPred[1];
-		  DensDataIn[nexport].Vel[2] = SphP[i].BPred[2];
+		  DensDataIn[nexport].Vel[0] = SPHP(i).BPred[0];
+		  DensDataIn[nexport].Vel[1] = SPHP(i).BPred[1];
+		  DensDataIn[nexport].Vel[2] = SPHP(i).BPred[2];
 
 		  DensDataIn[nexport].Hsml = P[i].Hsml;
 		  DensDataIn[nexport].Index = i;
@@ -175,10 +175,10 @@ void rot_a(void)
 			  source = j + noffset[recvTask];
 			  place = DensDataIn[source].Index;
 
-			  SphP[place].BSmooth[0] += DensDataPartialResult[source].BSmooth[0];
-			  SphP[place].BSmooth[1] += DensDataPartialResult[source].BSmooth[1];
-			  SphP[place].BSmooth[2] += DensDataPartialResult[source].BSmooth[2];
-			  SphP[place].DensityNorm += DensDataPartialResult[source].DensityNorm;
+			  SPHP(place).BSmooth[0] += DensDataPartialResult[source].BSmooth[0];
+			  SPHP(place).BSmooth[1] += DensDataPartialResult[source].BSmooth[1];
+			  SPHP(place).BSmooth[2] += DensDataPartialResult[source].BSmooth[2];
+			  SPHP(place).DensityNorm += DensDataPartialResult[source].DensityNorm;
 			}
 		    }
 		}
@@ -199,9 +199,9 @@ void rot_a(void)
   for(i = 0; i < N_gas; i++)
     for(j = 0; j < 3; j++)
 #ifndef IGNORE_PERIODIC_IN_ROTA
-      SphP[i].B[j] = SphP[i].BPred[j] = SphP[i].BSmooth[j] / SphP[i].d.Density;
+      SPHP(i).B[j] = SPHP(i).BPred[j] = SPHP(i).BSmooth[j] / SPHP(i).d.Density;
 #else
-      SphP[i].B[j] = SphP[i].BPred[j] = SphP[i].BSmooth[j] / SphP[i].DensityNorm;
+      SPHP(i).B[j] = SPHP(i).BPred[j] = SPHP(i).BSmooth[j] / SPHP(i).DensityNorm;
 #endif
   myfree(ndonelist);
   myfree(nsend);
@@ -237,7 +237,7 @@ void rot_a_evaluate(int target, int mode)
   if(mode == 0)
     {
       pos = P[target].Pos;
-      b = SphP[target].BPred;
+      b = SPHP(target).BPred;
       h = P[target].Hsml;
     }
   else
@@ -270,9 +270,9 @@ void rot_a_evaluate(int target, int mode)
 	  dy = pos[1] - P[j].Pos[1];
 	  dz = pos[2] - P[j].Pos[2];
 
-	  dbx = b[0] - SphP[j].BPred[0];
-	  dby = b[1] - SphP[j].BPred[1];
-	  dbz = b[2] - SphP[j].BPred[2];
+	  dbx = b[0] - SPHP(j).BPred[0];
+	  dby = b[1] - SPHP(j).BPred[1];
+	  dbz = b[2] - SPHP(j).BPred[2];
 
 #ifndef IGNORE_PERIODIC_IN_ROTA
 #ifdef PERIODIC			/*  now find the closest image in the given box size  */
@@ -364,10 +364,10 @@ void rot_a_evaluate(int target, int mode)
 
   if(mode == 0)
     {
-      SphP[target].BSmooth[0] = rotb[0];	/* giving back rot(B) in the Smooth */
-      SphP[target].BSmooth[1] = rotb[1];	/* Data structure !!! */
-      SphP[target].BSmooth[2] = rotb[2];
-      SphP[target].DensityNorm = rho;
+      SPHP(target).BSmooth[0] = rotb[0];	/* giving back rot(B) in the Smooth */
+      SPHP(target).BSmooth[1] = rotb[1];	/* Data structure !!! */
+      SPHP(target).BSmooth[2] = rotb[2];
+      SPHP(target).DensityNorm = rho;
     }
   else
     {

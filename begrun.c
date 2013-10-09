@@ -45,6 +45,7 @@ void begrun(void)
         printf("\nRunning on %d processors.\n", NTask);
         printf("\nCode was compiled with settings:\n %s\n", COMPILETIMESETTINGS);
         printf("\nSize of particle structure       %d  [bytes]\n",sizeof(struct particle_data));
+        printf("\nSize of blackhole structure       %d  [bytes]\n",sizeof(struct blackhole_data));
         printf("\nSize of sph particle structure   %d  [bytes]\n",sizeof(struct sph_particle_data));
     }
 
@@ -335,8 +336,8 @@ Note:  All.PartAllocFactor is treated in restart() separately.
 
         if(P[i].Type == 0)
         {
-            SphP[i].VelPred[2] = 0;
-            SphP[i].a.HydroAccel[2] = 0;
+            SPHP(i).VelPred[2] = 0;
+            SPHP(i).a.HydroAccel[2] = 0;
         }
     }
 #endif

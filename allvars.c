@@ -164,8 +164,6 @@ int *DomainTask;
 int *DomainNodeIndex;
 int *DomainList, DomainNumChanged;
 
-peanokey *Key, *KeySorted;
-
 struct topnode_data *TopNodes;
 
 int NTopnodes, NTopleaves;
@@ -263,19 +261,14 @@ struct global_data_all_processes All;
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
  */
-struct particle_data *P,	/*!< holds particle data on local processor */
- *DomainPartBuf;		/*!< buffer for particle data used in domain decomposition */
+struct particle_data *P;	/*!< holds particle data on local processor */
 
 
 
 /* the following struture holds data that is stored for each SPH particle in addition to the collisionless
  * variables.
  */
-struct sph_particle_data *SphP,	/*!< holds SPH particle data on local processor */
- *DomainSphBuf;			/*!< buffer for SPH particle data in domain decomposition */
-
-
-peanokey *DomainKeyBuf;
+struct sph_particle_data * SphP;	/*!< holds SPH particle data on local processor */
 
 /* global state of system
 */

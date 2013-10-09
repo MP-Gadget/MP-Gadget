@@ -144,9 +144,6 @@ void domain_Decomposition(void)
 
             all_bytes = 0;
 
-            Key = (peanokey *) mymalloc("domain_key", bytes = (sizeof(peanokey) * All.MaxPart));
-            all_bytes += bytes;
-
             toGo = (int *) mymalloc("toGo", bytes = (sizeof(int) * NTask));
             all_bytes += bytes;
             toGoSph = (int *) mymalloc("toGoSph", bytes = (sizeof(int) * NTask));
@@ -228,7 +225,6 @@ void domain_Decomposition(void)
             MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
             if(retsum)
             {
-                myfree(Key);
                 domain_free();
                 if(ThisTask == 0)
                     printf("Increasing TopNodeAllocFactor=%g  ", All.TopNodeAllocFactor);
@@ -277,7 +273,6 @@ void domain_Decomposition(void)
 
         CPU_Step[CPU_PEANO] += measure_time();
 #endif
-        myfree(Key);
 
         memmove(TopNodes + NTopnodes, DomainTask, NTopnodes * sizeof(int));
 
@@ -541,7 +536,7 @@ int domain_decompose(void)
         no = 0;
 
         while(topNodes[no].Daughter >= 0)
-            no = topNodes[no].Daughter + (Key[i] - topNodes[no].StartKey) / (topNodes[no].Size / 8);
+            no = topNodes[no].Daughter + (KEY(i) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
 
         no = topNodes[no].Leaf;
 
@@ -579,7 +574,6 @@ int domain_decompose(void)
         }
 
         domain_exchange();
-
         iter++;
     }
     while(ret > 0);
@@ -664,20 +658,22 @@ int domain_check_memory_bound(void)
     return 0;
 }
 
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
-
 void domain_exchange(void)
 {
     int count_togo = 0, count_togo_sph = 0, count_get = 0, count_get_sph = 0;
     int *count, *count_sph, *offset, *offset_sph;
     int *count_recv, *count_recv_sph, *offset_recv, *offset_recv_sph;
-    int i, n, ngrp, no, target, n_requests;
+    int i, n, ngrp, no, target;
     struct particle_data *partBuf;
     struct sph_particle_data *sphBuf;
-    peanokey *keyBuf;
-    MPI_Request *requests;
 
+#ifndef NO_ISEND_IRECV_IN_DOMAIN
+    int n_requests;
+    MPI_Request *requests;
     requests = (MPI_Request *) mymalloc("requests", 16 * NTask * sizeof(MPI_Request));
+    n_requests = 0;
+#endif
+
     count = (int *) mymalloc("count", NTask * sizeof(int));
     count_sph = (int *) mymalloc("count_sph", NTask * sizeof(int));
     offset = (int *) mymalloc("offset", NTask * sizeof(int));
@@ -703,12 +699,10 @@ void domain_exchange(void)
 
         count_get += toGet[i];
         count_get_sph += toGetSph[i];
-
     }
 
     partBuf = (struct particle_data *) mymalloc("partBuf", count_togo * sizeof(struct particle_data));
     sphBuf = (struct sph_particle_data *) mymalloc("sphBuf", count_togo_sph * sizeof(struct sph_particle_data));
-    keyBuf = (peanokey *) mymalloc("keyBuf", count_togo * sizeof(peanokey));
 
     for(i = 0; i < NTask; i++)
         count[i] = count_sph[i] = 0;
@@ -722,7 +716,7 @@ void domain_exchange(void)
             no = 0;
 
             while(topNodes[no].Daughter >= 0)
-                no = topNodes[no].Daughter + (Key[n] - topNodes[no].StartKey) / (topNodes[no].Size / 8);
+                no = topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
 
             no = topNodes[no].Leaf;
 
@@ -731,14 +725,12 @@ void domain_exchange(void)
             if(P[n].Type == 0)
             {
                 partBuf[offset_sph[target] + count_sph[target]] = P[n];
-                keyBuf[offset_sph[target] + count_sph[target]] = Key[n];
-                sphBuf[offset_sph[target] + count_sph[target]] = SphP[n];
+                sphBuf[offset_sph[target] + count_sph[target]] = SPHP(n);
                 count_sph[target]++;
             }
             else
             {
                 partBuf[offset[target] + count[target]] = P[n];
-                keyBuf[offset[target] + count[target]] = Key[n];
                 count[target]++;
             }
 
@@ -747,9 +739,7 @@ void domain_exchange(void)
             {
                 P[n] = P[N_gas - 1];
                 P[N_gas - 1] = P[NumPart - 1];
-                Key[n] = Key[N_gas - 1];
-                Key[N_gas - 1] = Key[NumPart - 1];
-                SphP[n] = SphP[N_gas - 1];
+                SPHP(n) = SPHP(N_gas - 1);
 
                 NumPart--;
                 N_gas--;
@@ -758,7 +748,6 @@ void domain_exchange(void)
             else
             {
                 P[n] = P[NumPart - 1];
-                Key[n] = Key[NumPart - 1];
                 NumPart--;
                 n--;
             }
@@ -768,7 +757,6 @@ void domain_exchange(void)
     if(count_get_sph)
     {
         memmove(P + N_gas + count_get_sph, P + N_gas, (NumPart - N_gas) * sizeof(struct particle_data));
-        memmove(Key + N_gas + count_get_sph, Key + N_gas, (NumPart - N_gas) * sizeof(peanokey));
     }
 
     for(i = 0; i < NTask; i++)
@@ -784,8 +772,8 @@ void domain_exchange(void)
 
     for(i = 1; i < NTask; i++)
         offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
-    n_requests = 0;
 
+#ifndef NO_ISEND_IRECV_IN_DOMAIN
     for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
     {
         target = ThisTask ^ ngrp;
@@ -797,9 +785,6 @@ void domain_exchange(void)
                 MPI_Irecv(P + offset_recv_sph[target], count_recv_sph[target] * sizeof(struct particle_data),
                         MPI_BYTE, target, TAG_PDATA_SPH, MPI_COMM_WORLD, &requests[n_requests++]);
 
-                MPI_Irecv(Key + offset_recv_sph[target], count_recv_sph[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY_SPH, MPI_COMM_WORLD, &requests[n_requests++]);
-
                 MPI_Irecv(SphP + offset_recv_sph[target],
                         count_recv_sph[target] * sizeof(struct sph_particle_data), MPI_BYTE, target,
                         TAG_SPHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
@@ -810,8 +795,6 @@ void domain_exchange(void)
                 MPI_Irecv(P + offset_recv[target], count_recv[target] * sizeof(struct particle_data),
                         MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, &requests[n_requests++]);
 
-                MPI_Irecv(Key + offset_recv[target], count_recv[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY, MPI_COMM_WORLD, &requests[n_requests++]);
             }
         }
     }
@@ -832,9 +815,6 @@ void domain_exchange(void)
                 MPI_Isend(partBuf + offset_sph[target], count_sph[target] * sizeof(struct particle_data),
                         MPI_BYTE, target, TAG_PDATA_SPH, MPI_COMM_WORLD, &requests[n_requests++]);
 
-                MPI_Isend(keyBuf + offset_sph[target], count_sph[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY_SPH, MPI_COMM_WORLD, &requests[n_requests++]);
-
                 MPI_Isend(sphBuf + offset_sph[target], count_sph[target] * sizeof(struct sph_particle_data),
                         MPI_BYTE, target, TAG_SPHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
             }
@@ -844,159 +824,12 @@ void domain_exchange(void)
                 MPI_Isend(partBuf + offset[target], count[target] * sizeof(struct particle_data),
                         MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, &requests[n_requests++]);
 
-                MPI_Isend(keyBuf + offset[target], count[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY, MPI_COMM_WORLD, &requests[n_requests++]);
             }
         }
     }
 
     MPI_Waitall(n_requests, requests, MPI_STATUSES_IGNORE);
-
-    NumPart += count_get;
-    N_gas += count_get_sph;
-
-    if(NumPart > All.MaxPart)
-    {
-        printf("Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
-        endrun(787878);
-    }
-
-    if(N_gas > All.MaxPartSph)
-        endrun(787879);
-
-    myfree(keyBuf);
-    myfree(sphBuf);
-    myfree(partBuf);
-
-    myfree(offset_recv_sph);
-    myfree(offset_recv);
-    myfree(count_recv_sph);
-    myfree(count_recv);
-
-    myfree(offset_sph);
-    myfree(offset);
-    myfree(count_sph);
-    myfree(count);
-    myfree(requests);
-}
-
 #else
-
-void domain_exchange(void)
-{
-    int count_togo = 0, count_togo_sph = 0, count_get = 0, count_get_sph = 0;
-    int *count, *count_sph, *offset, *offset_sph;
-    int *count_recv, *count_recv_sph, *offset_recv, *offset_recv_sph;
-    int i, n, ngrp, no, target;
-    struct particle_data *partBuf;
-    struct sph_particle_data *sphBuf;
-    peanokey *keyBuf;
-
-    count = (int *) mymalloc("count", NTask * sizeof(int));
-    count_sph = (int *) mymalloc("count_sph", NTask * sizeof(int));
-    offset = (int *) mymalloc("offset", NTask * sizeof(int));
-    offset_sph = (int *) mymalloc("offset_sph", NTask * sizeof(int));
-
-    count_recv = (int *) mymalloc("count_recv", NTask * sizeof(int));
-    count_recv_sph = (int *) mymalloc("count_recv_sph", NTask * sizeof(int));
-    offset_recv = (int *) mymalloc("offset_recv", NTask * sizeof(int));
-    offset_recv_sph = (int *) mymalloc("offset_recv_sph", NTask * sizeof(int));
-
-    for(i = 1, offset_sph[0] = 0; i < NTask; i++)
-        offset_sph[i] = offset_sph[i - 1] + toGoSph[i - 1];
-
-    offset[0] = offset_sph[NTask - 1] + toGoSph[NTask - 1];
-
-    for(i = 1; i < NTask; i++)
-        offset[i] = offset[i - 1] + (toGo[i - 1] - toGoSph[i - 1]);
-
-    for(i = 0; i < NTask; i++)
-    {
-        count_togo += toGo[i];
-        count_togo_sph += toGoSph[i];
-
-        count_get += toGet[i];
-        count_get_sph += toGetSph[i];
-    }
-
-    partBuf = (struct particle_data *) mymalloc("partBuf", count_togo * sizeof(struct particle_data));
-    sphBuf = (struct sph_particle_data *) mymalloc("sphBuf", count_togo_sph * sizeof(struct sph_particle_data));
-    keyBuf = (peanokey *) mymalloc("keyBuf", count_togo * sizeof(peanokey));
-
-    for(i = 0; i < NTask; i++)
-        count[i] = count_sph[i] = 0;
-
-    for(n = 0; n < NumPart; n++)
-    {
-        if((P[n].Type & (32 + 16)) == (32 + 16))
-        {
-            P[n].Type &= 15;
-
-            no = 0;
-
-            while(topNodes[no].Daughter >= 0)
-                no = topNodes[no].Daughter + (Key[n] - topNodes[no].StartKey) / (topNodes[no].Size / 8);
-
-            no = topNodes[no].Leaf;
-
-            target = DomainTask[no];
-
-            if(P[n].Type == 0)
-            {
-                partBuf[offset_sph[target] + count_sph[target]] = P[n];
-                keyBuf[offset_sph[target] + count_sph[target]] = Key[n];
-                sphBuf[offset_sph[target] + count_sph[target]] = SphP[n];
-                count_sph[target]++;
-            }
-            else
-            {
-                partBuf[offset[target] + count[target]] = P[n];
-                keyBuf[offset[target] + count[target]] = Key[n];
-                count[target]++;
-            }
-
-            if(P[n].Type == 0)
-            {
-                P[n] = P[N_gas - 1];
-                P[N_gas - 1] = P[NumPart - 1];
-                Key[n] = Key[N_gas - 1];
-                Key[N_gas - 1] = Key[NumPart - 1];
-                SphP[n] = SphP[N_gas - 1];
-
-                NumPart--;
-                N_gas--;
-                n--;
-            }
-            else
-            {
-                P[n] = P[NumPart - 1];
-                Key[n] = Key[NumPart - 1];
-                NumPart--;
-                n--;
-            }
-        }
-    }
-
-    if(count_get_sph)
-    {
-        memmove(P + N_gas + count_get_sph, P + N_gas, (NumPart - N_gas) * sizeof(struct particle_data));
-        memmove(Key + N_gas + count_get_sph, Key + N_gas, (NumPart - N_gas) * sizeof(peanokey));
-    }
-
-    for(i = 0; i < NTask; i++)
-    {
-        count_recv_sph[i] = toGetSph[i];
-        count_recv[i] = toGet[i] - toGetSph[i];
-    }
-
-    for(i = 1, offset_recv_sph[0] = N_gas; i < NTask; i++)
-        offset_recv_sph[i] = offset_recv_sph[i - 1] + count_recv_sph[i - 1];
-
-    offset_recv[0] = NumPart + count_get_sph;
-
-    for(i = 1; i < NTask; i++)
-        offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
-
     for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
     {
         target = ThisTask ^ ngrp;
@@ -1016,10 +849,6 @@ void domain_exchange(void)
                         count_recv_sph[target] * sizeof(struct sph_particle_data), MPI_BYTE, target,
                         TAG_SPHDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-                MPI_Sendrecv(keyBuf + offset_sph[target], count_sph[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY_SPH,
-                        Key + offset_recv_sph[target], count_recv_sph[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY_SPH, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
 
             if(count[target] > 0 || count_recv[target] > 0)
@@ -1029,26 +858,22 @@ void domain_exchange(void)
                         P + offset_recv[target], count_recv[target] * sizeof(struct particle_data),
                         MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
-                MPI_Sendrecv(keyBuf + offset[target], count[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY,
-                        Key + offset_recv[target], count_recv[target] * sizeof(peanokey),
-                        MPI_BYTE, target, TAG_KEY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
             }
         }
     }
+#endif
 
     NumPart += count_get;
     N_gas += count_get_sph;
     if(NumPart > All.MaxPart)
     {
-        printf("TASK=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
+        printf("Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
         endrun(787878);
     }
 
     if(N_gas > All.MaxPartSph)
         endrun(787879);
 
-    myfree(keyBuf);
     myfree(sphBuf);
     myfree(partBuf);
 
@@ -1061,11 +886,10 @@ void domain_exchange(void)
     myfree(offset);
     myfree(count_sph);
     myfree(count);
-}
-
+#ifndef NO_ISEND_IRECV_IN_DOMAIN
+    myfree(requests);
 #endif
-
-
+}
 
 
 
@@ -1298,14 +1122,14 @@ int domain_countToGo(size_t nlimit)
             no = 0;
 
             while(topNodes[no].Daughter >= 0)
-                no = topNodes[no].Daughter + (Key[n] - topNodes[no].StartKey) / (topNodes[no].Size / 8);
+                no = topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
 
             no = topNodes[no].Leaf;
 
             if(DomainTask[no] != ThisTask)
             {
                 toGo[DomainTask[no]] += 1;
-                nlimit -= sizeof(struct particle_data) + sizeof(peanokey);
+                nlimit -= sizeof(struct particle_data);
 
                 if((P[n].Type & 15) == 0)
                 {
@@ -1476,7 +1300,7 @@ int domain_countToGo(size_t nlimit)
 
                         while(topNodes[no].Daughter >= 0)
                             no =
-                                topNodes[no].Daughter + (Key[n] - topNodes[no].StartKey) / (topNodes[no].Size / 8);
+                                topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
 
                         no = topNodes[no].Leaf;
 
@@ -1814,12 +1638,9 @@ int domain_determineTopTree(void)
             continue;
 #endif
 
-        mp[count].key = Key[i] = peano_hilbert_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac),
-                (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac),
-                (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac),
-                BITS_PER_DIMENSION);
+        mp[count].key = KEY(i);
 #ifdef SUBFIND_ALTERNATIVE_COLLECTIVE
-        P[i].Key = Key[i];
+        P[i].Key = KEY(i);
 #endif
         mp[count].index = i;
         count++;
@@ -2033,7 +1854,7 @@ void domain_sumCost(void)
         no = 0;
 
         while(topNodes[no].Daughter >= 0)
-            no = topNodes[no].Daughter + (Key[n] - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
+            no = topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
 
         no = topNodes[no].Leaf;
 

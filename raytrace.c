@@ -89,8 +89,8 @@ void raytrace(void)
       z = pos[2];
 
       hydrogen_mass = P[i].Mass / (1.0 + 4.0 * ABHE);
-      MH2 = hydrogen_mass * (2.0 * SphP[i].TracAbund[IH2]) * All.UnitMass_in_g;
-      MH = hydrogen_mass * (1.0 - 2.0 * SphP[i].TracAbund[IH2]) * All.UnitMass_in_g;
+      MH2 = hydrogen_mass * (2.0 * SPHP(i).TracAbund[IH2]) * All.UnitMass_in_g;
+      MH = hydrogen_mass * (1.0 - 2.0 * SPHP(i).TracAbund[IH2]) * All.UnitMass_in_g;
 
       num_H2 = MH2 / (2.0 * PROTONMASS);
       num_H = MH / PROTONMASS;
@@ -98,7 +98,7 @@ void raytrace(void)
       /* Use the fact that our abundances are defined relative to the total number density
        * of hydrogen nuclei
        */
-      num_CO = SphP[i].TracAbund[ICO] * (num_H + 2.0 * num_H2);
+      num_CO = SPHP(i).TracAbund[ICO] * (num_H + 2.0 * num_H2);
 #endif
 
       /* Find grid cell for this particle */
@@ -308,13 +308,13 @@ void raytrace(void)
 
       for(j = 0; j < 6; j++)
 	{
-	  SphP[i].TotalColumnDensity[j] = column_H[j][ix][iy][iz];
+	  SPHP(i).TotalColumnDensity[j] = column_H[j][ix][iy][iz];
 	}
 
       for(j = 0; j < 6; j++)
 	{
-	  SphP[i].H2ColumnDensity[j] = column_H2[j][ix][iy][iz];
-	  if(SphP[i].H2ColumnDensity[j] < 0.)
+	  SPHP(i).H2ColumnDensity[j] = column_H2[j][ix][iy][iz];
+	  if(SPHP(i).H2ColumnDensity[j] < 0.)
 	    {
 	      printf("%d %d %d %d\n", j, ix, iy, iz);
 	      printf("%g %g %g\n", x, y, z);
@@ -323,7 +323,7 @@ void raytrace(void)
 #if defined CO_SHIELDING && defined NEEDS_CO_RATES
       for(j = 0; j < 6; j++)
 	{
-	  SphP[i].COColumnDensity[j] = column_CO[j][ix][iy][iz];
+	  SPHP(i).COColumnDensity[j] = column_CO[j][ix][iy][iz];
 	}
 #endif
     }

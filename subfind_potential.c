@@ -89,7 +89,7 @@ void subfind_potential_compute(int num, struct unbind_data *d, int phase, double
 	  GravDataIn[j].Type = P[place].Type;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
 	  if(P[place].Type == 0)
-	    GravDataIn[j].Soft = SphP[place].Hsml;
+	    GravDataIn[j].Soft = SPHP(place).Hsml;
 #endif
 #endif
 	}

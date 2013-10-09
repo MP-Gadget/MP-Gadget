@@ -256,7 +256,7 @@ void hydro_force(void)
   for(i = 0; i < NumPart; i++)
     {
       if(P[i].Type == 0)
-	SphP[i].wakeup = 0;
+	SPHP(i).wakeup = 0;
     }
 #endif
 
@@ -463,44 +463,44 @@ void hydro_force(void)
 	  for(k = 0; k < 3; k++)
 	    {
 	      HydroDataIn[j].Pos[k] = P[place].Pos[k];
-	      HydroDataIn[j].Vel[k] = SphP[place].VelPred[k];
+	      HydroDataIn[j].Vel[k] = SPHP(place).VelPred[k];
 	    }
 	  HydroDataIn[j].Hsml = P[place].Hsml;
 	  HydroDataIn[j].Mass = P[place].Mass;
-	  HydroDataIn[j].Density = SphP[place].d.Density;
+	  HydroDataIn[j].Density = SPHP(place).d.Density;
 #ifdef DENSITY_INDEPENDENT_SPH
-      HydroDataIn[j].EgyRho = SphP[place].EgyWtDensity;
-      HydroDataIn[j].EntVarPred = SphP[place].EntVarPred;
-      HydroDataIn[j].DhsmlDensityFactor = SphP[place].DhsmlEgyDensityFactor;
+      HydroDataIn[j].EgyRho = SPHP(place).EgyWtDensity;
+      HydroDataIn[j].EntVarPred = SPHP(place).EntVarPred;
+      HydroDataIn[j].DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 #else
-	  HydroDataIn[j].DhsmlDensityFactor = SphP[place].h.DhsmlDensityFactor;
+	  HydroDataIn[j].DhsmlDensityFactor = SPHP(place).h.DhsmlDensityFactor;
 #endif
 
-	  HydroDataIn[j].Pressure = SphP[place].Pressure;
+	  HydroDataIn[j].Pressure = SPHP(place).Pressure;
 	  HydroDataIn[j].Timestep = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0);
 #ifdef EOS_DEGENERATE
-	  HydroDataIn[j].dpdr = SphP[place].dpdr;
+	  HydroDataIn[j].dpdr = SPHP(place).dpdr;
 #endif
 
 	  /* calculation of F1 */
 #ifndef ALTVISCOSITY
 #ifndef EOS_DEGENERATE
-	  soundspeed_i = sqrt(GAMMA * SphP[place].Pressure / SphP[place].EOMDensity);
+	  soundspeed_i = sqrt(GAMMA * SPHP(place).Pressure / SPHP(place).EOMDensity);
 #else
-	  soundspeed_i = sqrt(SphP[place].dpdr);
+	  soundspeed_i = sqrt(SPHP(place).dpdr);
 #endif
 #ifndef NAVIERSTOKES
-	  HydroDataIn[j].F1 = fabs(SphP[place].v.DivVel) /
-	    (fabs(SphP[place].v.DivVel) + SphP[place].r.CurlVel +
+	  HydroDataIn[j].F1 = fabs(SPHP(place).v.DivVel) /
+	    (fabs(SPHP(place).v.DivVel) + SPHP(place).r.CurlVel +
 	     0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
 #else
-	  HydroDataIn[j].F1 = fabs(SphP[place].v.DivVel) /
-	    (fabs(SphP[place].v.DivVel) + SphP[place].u.s.CurlVel +
+	  HydroDataIn[j].F1 = fabs(SPHP(place).v.DivVel) /
+	    (fabs(SPHP(place).v.DivVel) + SPHP(place).u.s.CurlVel +
 	     0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
 #endif
 
 #else
-	  HydroDataIn[j].F1 = SphP[place].v.DivVel;
+	  HydroDataIn[j].F1 = SPHP(place).v.DivVel;
 #endif
 
 #ifndef DONOTUSENODELIST
@@ -509,27 +509,27 @@ void hydro_force(void)
 #endif
 
 #ifdef JD_VTURB
-		HydroDataIn[j].Vbulk[0] = SphP[place].Vbulk[0];
-		HydroDataIn[j].Vbulk[1] = SphP[place].Vbulk[1];
-		HydroDataIn[j].Vbulk[2] = SphP[place].Vbulk[2];
+		HydroDataIn[j].Vbulk[0] = SPHP(place).Vbulk[0];
+		HydroDataIn[j].Vbulk[1] = SPHP(place).Vbulk[1];
+		HydroDataIn[j].Vbulk[2] = SPHP(place).Vbulk[2];
 #endif
 
 #ifdef MAGNETIC
 	  for(k = 0; k < 3; k++)
 	    {
 #ifndef SFR
-	      HydroDataIn[j].BPred[k] = SphP[place].BPred[k];
+	      HydroDataIn[j].BPred[k] = SPHP(place).BPred[k];
 #else
-	      HydroDataIn[j].BPred[k] = SphP[place].BPred[k] * pow(1.-SphP[place].XColdCloud,2.*POW_CC);
+	      HydroDataIn[j].BPred[k] = SPHP(place).BPred[k] * pow(1.-SPHP(place).XColdCloud,2.*POW_CC);
 #endif
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
 #ifdef SMOOTH_ROTB
-	      HydroDataIn[j].RotB[k] = SphP[place].SmoothedRotB[k];
+	      HydroDataIn[j].RotB[k] = SPHP(place).SmoothedRotB[k];
 #else
-	      HydroDataIn[j].RotB[k] = SphP[place].RotB[k];
+	      HydroDataIn[j].RotB[k] = SPHP(place).RotB[k];
 #endif
 #ifdef SFR
-	      HydroDataIn[j].RotB[k] *= pow(1.-SphP[place].XColdCloud,3.*POW_CC);
+	      HydroDataIn[j].RotB[k] *= pow(1.-SPHP(place).XColdCloud,3.*POW_CC);
 #endif
 #endif
 	    }
@@ -539,31 +539,31 @@ void hydro_force(void)
 	    Sph[place].r.Rot[2] * Sph[place].VelPred[2];
 #endif
 #if defined(EULERPOTENTIALS) && defined(EULER_DISSIPATION)
-	  HydroDataIn[j].EulerA = SphP[place].EulerA;
-	  HydroDataIn[j].EulerB = SphP[place].EulerB;
+	  HydroDataIn[j].EulerA = SPHP(place).EulerA;
+	  HydroDataIn[j].EulerB = SPHP(place).EulerB;
 #endif
 #ifdef VECT_POTENTIAL
-	  HydroDataIn[j].Apred[0] = SphP[place].APred[0];
-	  HydroDataIn[j].Apred[1] = SphP[place].APred[1];
-	  HydroDataIn[j].Apred[2] = SphP[place].APred[2];
+	  HydroDataIn[j].Apred[0] = SPHP(place).APred[0];
+	  HydroDataIn[j].Apred[1] = SPHP(place).APred[1];
+	  HydroDataIn[j].Apred[2] = SPHP(place).APred[2];
 #endif
 #ifdef DIVBCLEANING_DEDNER
 #ifdef SMOOTH_PHI
-	  HydroDataIn[j].PhiPred = SphP[place].SmoothPhi;
+	  HydroDataIn[j].PhiPred = SPHP(place).SmoothPhi;
 #else
-	  HydroDataIn[j].PhiPred = SphP[place].PhiPred;
+	  HydroDataIn[j].PhiPred = SPHP(place).PhiPred;
 #endif
 #endif
 #endif
 
 
 #if defined(NAVIERSTOKES)
-	  HydroDataIn[j].Entropy = SphP[place].Entropy;
+	  HydroDataIn[j].Entropy = SPHP(place).Entropy;
 #endif
 
 
 #ifdef TIME_DEP_ART_VISC
-	  HydroDataIn[j].alpha = SphP[place].alpha;
+	  HydroDataIn[j].alpha = SPHP(place).alpha;
 #endif
 
 
@@ -574,18 +574,18 @@ void hydro_force(void)
 #ifdef NAVIERSTOKES
 	  for(k = 0; k < 3; k++)
 	    {
-	      HydroDataIn[j].stressdiag[k] = SphP[i].u.s.StressDiag[k];
-	      HydroDataIn[j].stressoffdiag[k] = SphP[i].u.s.StressOffDiag[k];
+	      HydroDataIn[j].stressdiag[k] = SPHP(i).u.s.StressDiag[k];
+	      HydroDataIn[j].stressoffdiag[k] = SPHP(i).u.s.StressOffDiag[k];
 	    }
 	  HydroDataIn[j].shear_viscosity = get_shear_viscosity(i);
 
 #ifdef NAVIERSTOKES_BULK
-	  HydroDataIn[j].divvel = SphP[i].u.s.DivVel;
+	  HydroDataIn[j].divvel = SPHP(i).u.s.DivVel;
 #endif
 #endif
 
 #ifdef TIME_DEP_MAGN_DISP
-	  HydroDataIn[j].Balpha = SphP[place].Balpha;
+	  HydroDataIn[j].Balpha = SPHP(place).Balpha;
 #endif
 	}
 
@@ -694,10 +694,10 @@ void hydro_force(void)
 
 	  for(k = 0; k < 3; k++)
 	    {
-	      SphP[place].a.dHydroAccel[k] += HydroDataOut[j].Acc[k];
+	      SPHP(place).a.dHydroAccel[k] += HydroDataOut[j].Acc[k];
 	    }
 
-	  SphP[place].e.dDtEntropy += HydroDataOut[j].DtEntropy;
+	  SPHP(place).e.dDtEntropy += HydroDataOut[j].DtEntropy;
 
 #ifdef HYDRO_COST_FACTOR
 	  if(All.ComovingIntegrationOn)
@@ -707,38 +707,38 @@ void hydro_force(void)
 #endif
 
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-	  if(SphP[place].MinViscousDt > HydroDataOut[j].MinViscousDt)
-	    SphP[place].MinViscousDt = HydroDataOut[j].MinViscousDt;
+	  if(SPHP(place).MinViscousDt > HydroDataOut[j].MinViscousDt)
+	    SPHP(place).MinViscousDt = HydroDataOut[j].MinViscousDt;
 #else
-	  if(SphP[place].MaxSignalVel < HydroDataOut[j].MaxSignalVel)
-	    SphP[place].MaxSignalVel = HydroDataOut[j].MaxSignalVel;
+	  if(SPHP(place).MaxSignalVel < HydroDataOut[j].MaxSignalVel)
+	    SPHP(place).MaxSignalVel = HydroDataOut[j].MaxSignalVel;
 #endif
 
 #ifdef JD_VTURB
-	  SphP[place].Vrms += HydroDataOut[j].Vrms; 
+	  SPHP(place).Vrms += HydroDataOut[j].Vrms; 
 #endif
 
 #if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
 	  for(k = 0; k < 3; k++)
-	    SphP[place].DtB[k] += HydroDataOut[j].DtB[k];
+	    SPHP(place).DtB[k] += HydroDataOut[j].DtB[k];
 #endif
 #ifdef DIVBFORCE3
 	  for(k = 0; k < 3; k++)
-	    SphP[place].magacc[k] += HydroDataOut[j].magacc[k];
+	    SPHP(place).magacc[k] += HydroDataOut[j].magacc[k];
 	  for(k = 0; k < 3; k++)
-	    SphP[place].magcorr[k] += HydroDataOut[j].magcorr[k];
+	    SPHP(place).magcorr[k] += HydroDataOut[j].magcorr[k];
 #endif
 #ifdef DIVBCLEANING_DEDNER
 	  for(k = 0; k < 3; k++)
-	    SphP[place].GradPhi[k] += HydroDataOut[j].GradPhi[k];
+	    SPHP(place).GradPhi[k] += HydroDataOut[j].GradPhi[k];
 #endif
 #if VECT_POTENTIAL
 	  for(k = 0; k < 3; k++)
-	    SphP[place].DtA[k] += HydroDataOut[j].dta[k];
+	    SPHP(place).DtA[k] += HydroDataOut[j].dta[k];
 #endif
 #if defined(EULERPOTENTIALS) && defined(EULER_DISSIPATION)
-	  SphP[place].DtEulerA += HydroDataOut[j].DtEulerA;
-	  SphP[place].DtEulerB += HydroDataOut[j].DtEulerB;
+	  SPHP(place).DtEulerA += HydroDataOut[j].DtEulerA;
+	  SPHP(place).DtEulerB += HydroDataOut[j].DtEulerB;
 #endif
 	}
       tend = second();
@@ -764,10 +764,10 @@ void hydro_force(void)
   for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     if(P[i].Type == 0)
       {
-	SphP[i].e.DtEntropy = FLT(SphP[i].e.dDtEntropy);
+	SPHP(i).e.DtEntropy = FLT(SPHP(i).e.dDtEntropy);
 
 	for(j = 0; j < 3; j++)
-	  SphP[i].a.HydroAccel[j] = FLT(SphP[i].a.dHydroAccel[j]);
+	  SPHP(i).a.HydroAccel[j] = FLT(SPHP(i).a.dHydroAccel[j]);
       }
 #endif
 
@@ -792,9 +792,9 @@ void hydro_force(void)
 	 * => Delta u_p = DtE * dloga / ( H(a) a^2 a^(3(gamma-1)) )
 	 */
 
-	if(SphP[i].e.DtEntropy > 0.0)
+	if(SPHP(i).e.DtEntropy > 0.0)
 	  {
-	    rShockEnergy = SphP[i].e.DtEntropy *
+	    rShockEnergy = SPHP(i).e.DtEntropy *
 	      (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval / hubble_a2 / fac_egy;
 	  }
 	else
@@ -808,12 +808,12 @@ void hydro_force(void)
 
 #ifndef TRADITIONAL_SPH_FORMULATION
 	/* Translate energy change rate into entropy change rate */
-    SphP[i].e.DtEntropy *= GAMMA_MINUS1 / (hubble_a2 * pow(SphP[i].EOMDensity, GAMMA_MINUS1));
+    SPHP(i).e.DtEntropy *= GAMMA_MINUS1 / (hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
 #endif
 
 #else
 	/* DtEntropy stores the energy change rate in internal units */
-	SphP[i].e.DtEntropy *= All.UnitEnergy_in_cgs / All.UnitTime_in_s;
+	SPHP(i).e.DtEntropy *= All.UnitEnergy_in_cgs / All.UnitTime_in_s;
 #endif
 
 #ifdef MACHNUM
@@ -823,14 +823,14 @@ void hydro_force(void)
 	 * in case of cosmic rays!
 	 */
 #if (CR_SHOCK == 2)
-	GetMachNumberCR(SphP + i);
+	GetMachNumberCR(i);
 #else
 
-	GetMachNumber(SphP + i);
+	GetMachNumber(i);
 #endif /* COSMIC_RAYS */
 #endif /* MACHNUM */
 #ifdef MACHSTATISTIC
-	GetShock_DtEnergy(SphP + i);
+	GetShock_DtEnergy(&SPHP(i));
 #endif
 
 #ifdef CR_SHOCK
@@ -850,7 +850,7 @@ void hydro_force(void)
 	     *  #if ( CR_SHOCK == 1 )
 	     *  InjPopulation = CR_Find_Alpha_to_InjectTo(All.CR_ShockAlpha);
 	     *  #else
-	     *  InjPopulation = CR_find_alpha_InjectTo(SphP + i);
+	     *  InjPopulation = CR_find_alpha_InjectTo(&SPHP(i));
 	     *  #endif
 	     *  }
 	     *  else
@@ -858,7 +858,7 @@ void hydro_force(void)
 	     */
 
 	    rNonRethermalizedEnergy =
-	      CR_Particle_ShockInject(SphP + i,
+	      CR_Particle_ShockInject(&SPHP(i),
 				      rShockEnergy,
 				      (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval /
 				      hubble_a);
@@ -868,7 +868,7 @@ void hydro_force(void)
 	     * hence, we conserve energy if we do:
 	     */
 #ifndef CR_NO_CHANGE
-	    SphP[i].e.DtEntropy *= (1.0 - rNonRethermalizedEnergy / rShockEnergy);
+	    SPHP(i).e.DtEntropy *= (1.0 - rNonRethermalizedEnergy / rShockEnergy);
 #endif /* CR_NO_CHANGE */
 
 	    assert(rNonRethermalizedEnergy >= 0.0);
@@ -880,13 +880,13 @@ void hydro_force(void)
 	    utherm = 0.0;
 	    for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
 	      utherm +=
-		CR_Particle_ThermalizeAndDissipate(SphP + i,
+		CR_Particle_ThermalizeAndDissipate(&SPHP(i),
 						   (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) *
 						   All.Timebase_interval / hubble_a, CRpop);
 
 	    /* we need to add this thermalized energy to the internal energy */
 
-	    SphP[i].e.DtEntropy += GAMMA_MINUS1 * utherm * fac_egy / pow(SphP[i].d.Density, GAMMA_MINUS1) /
+	    SPHP(i).e.DtEntropy += GAMMA_MINUS1 * utherm * fac_egy / pow(SPHP(i).d.Density, GAMMA_MINUS1) /
 	      ((P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval);
 #endif
 
@@ -907,10 +907,10 @@ void hydro_force(void)
 	      {
 		for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
 		  {
-		    utherm = CR_Particle_ThermalizeAndDissipate(SphP + i, dt, CRpop);
+		    utherm = CR_Particle_ThermalizeAndDissipate(&SPHP(i), dt, CRpop);
 
-		    SphP[i].e.DtEntropy +=
-		      GAMMA_MINUS1 * utherm * fac_egy / pow(SphP[i].d.Density,
+		    SPHP(i).e.DtEntropy +=
+		      GAMMA_MINUS1 * utherm * fac_egy / pow(SPHP(i).d.Density,
 							    GAMMA_MINUS1) / (dt * hubble_a);
 		  }
 	      }
@@ -921,47 +921,47 @@ void hydro_force(void)
 	/* sigma_ab * sigma_ab */
 	for(k = 0, fac = 0; k < 3; k++)
 	  {
-	    fac += SphP[i].u.s.StressDiag[k] * SphP[i].u.s.StressDiag[k] +
-	      2 * SphP[i].u.s.StressOffDiag[k] * SphP[i].u.s.StressOffDiag[k];
+	    fac += SPHP(i).u.s.StressDiag[k] * SPHP(i).u.s.StressDiag[k] +
+	      2 * SPHP(i).u.s.StressOffDiag[k] * SPHP(i).u.s.StressOffDiag[k];
 	  }
 
 #ifndef NAVIERSTOKES_CONSTANT	/*entropy increase due to the shear viscosity */
 #ifdef NS_TIMESTEP
-	SphP[i].ViscEntropyChange = 0.5 * GAMMA_MINUS1 /
-	  (hubble_a2 * pow(SphP[i].d.Density, GAMMA_MINUS1)) *
-	  get_shear_viscosity(i) / SphP[i].d.Density * fac *
-	  pow((SphP[i].Entropy * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);
+	SPHP(i).ViscEntropyChange = 0.5 * GAMMA_MINUS1 /
+	  (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+	  get_shear_viscosity(i) / SPHP(i).d.Density * fac *
+	  pow((SPHP(i).Entropy * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);
 
-	SphP[i].e.DtEntropy += SphP[i].ViscEntropyChange;
+	SPHP(i).e.DtEntropy += SPHP(i).ViscEntropyChange;
 #else
-	SphP[i].e.DtEntropy += 0.5 * GAMMA_MINUS1 /
-	  (hubble_a2 * pow(SphP[i].d.Density, GAMMA_MINUS1)) *
-	  get_shear_viscosity(i) / SphP[i].d.Density * fac *
-	  pow((SphP[i].Entropy * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);
+	SPHP(i).e.DtEntropy += 0.5 * GAMMA_MINUS1 /
+	  (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+	  get_shear_viscosity(i) / SPHP(i).d.Density * fac *
+	  pow((SPHP(i).Entropy * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);
 #endif
 
 #else
-	SphP[i].e.DtEntropy += 0.5 * GAMMA_MINUS1 /
-	  (hubble_a2 * pow(SphP[i].d.Density, GAMMA_MINUS1)) *
-	  get_shear_viscosity(i) / SphP[i].d.Density * fac;
+	SPHP(i).e.DtEntropy += 0.5 * GAMMA_MINUS1 /
+	  (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+	  get_shear_viscosity(i) / SPHP(i).d.Density * fac;
 
 #ifdef NS_TIMESTEP
-	SphP[i].ViscEntropyChange = 0.5 * GAMMA_MINUS1 /
-	  (hubble_a2 * pow(SphP[i].d.Density, GAMMA_MINUS1)) *
-	  get_shear_viscosity(i) / SphP[i].d.Density * fac;
+	SPHP(i).ViscEntropyChange = 0.5 * GAMMA_MINUS1 /
+	  (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+	  get_shear_viscosity(i) / SPHP(i).d.Density * fac;
 #endif
 
 #endif
 
 #ifdef NAVIERSTOKES_BULK	/*entropy increase due to the bulk viscosity */
-	SphP[i].e.DtEntropy += GAMMA_MINUS1 /
-	  (hubble_a2 * pow(SphP[i].d.Density, GAMMA_MINUS1)) *
-	  All.NavierStokes_BulkViscosity / SphP[i].d.Density * pow(SphP[i].u.s.a4.DivVel, 2);
+	SPHP(i).e.DtEntropy += GAMMA_MINUS1 /
+	  (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+	  All.NavierStokes_BulkViscosity / SPHP(i).d.Density * pow(SPHP(i).u.s.a4.DivVel, 2);
 
 #ifdef NS_TIMESTEP
-	SphP[i].ViscEntropyChange = GAMMA_MINUS1 /
-	  (hubble_a2 * pow(SphP[i].d.Density, GAMMA_MINUS1)) *
-	  All.NavierStokes_BulkViscosity / SphP[i].d.Density * pow(SphP[i].u.s.a4.DivVel, 2);
+	SPHP(i).ViscEntropyChange = GAMMA_MINUS1 /
+	  (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+	  All.NavierStokes_BulkViscosity / SPHP(i).d.Density * pow(SPHP(i).u.s.a4.DivVel, 2);
 #endif
 
 #endif
@@ -970,10 +970,10 @@ void hydro_force(void)
 
 
 #ifdef JD_VTURB
-	SphP[i].Vrms += (SphP[i].VelPred[0]-SphP[i].Vbulk[0])*(SphP[i].VelPred[0]-SphP[i].Vbulk[0]) 
-					  + (SphP[i].VelPred[1]-SphP[i].Vbulk[1])*(SphP[i].VelPred[1]-SphP[i].Vbulk[1]) 
-					  + (SphP[i].VelPred[2]-SphP[i].Vbulk[2])*(SphP[i].VelPred[2]-SphP[i].Vbulk[2]);
-	SphP[i].Vrms = sqrt(SphP[i].Vrms/SphP[i].TrueNGB);
+	SPHP(i).Vrms += (SPHP(i).VelPred[0]-SPHP(i).Vbulk[0])*(SPHP(i).VelPred[0]-SPHP(i).Vbulk[0]) 
+					  + (SPHP(i).VelPred[1]-SPHP(i).Vbulk[1])*(SPHP(i).VelPred[1]-SPHP(i).Vbulk[1]) 
+					  + (SPHP(i).VelPred[2]-SPHP(i).Vbulk[2])*(SPHP(i).VelPred[2]-SPHP(i).Vbulk[2]);
+	SPHP(i).Vrms = sqrt(SPHP(i).Vrms/SPHP(i).TrueNGB);
 #endif
 
 #if defined(JD_DPP) && !defined(JD_DPPONSNAPSHOTONLY)
@@ -985,49 +985,49 @@ void hydro_force(void)
 	if(All.ComovingIntegrationOn)
 	  for(k = 0; k < 3; k++)
 #ifndef SFR
-	    SphP[i].DtB[k] -= 2.0 * SphP[i].BPred[k];
+	    SPHP(i).DtB[k] -= 2.0 * SPHP(i).BPred[k];
 #else
-	    SphP[i].DtB[k] -= 2.0 * SphP[i].BPred[k] * pow(1.-SphP[i].XColdCloud,2.*POW_CC);
+	    SPHP(i).DtB[k] -= 2.0 * SPHP(i).BPred[k] * pow(1.-SPHP(i).XColdCloud,2.*POW_CC);
 #endif
 #endif
 
 #ifdef WINDS
 	/* if we have winds, we decouple particles briefly if delaytime>0 */
 
-	if(SphP[i].DelayTime > 0)
+	if(SPHP(i).DelayTime > 0)
 	  {
 	    for(k = 0; k < 3; k++)
-	      SphP[i].a.HydroAccel[k] = 0;
+	      SPHP(i).a.HydroAccel[k] = 0;
 
-	    SphP[i].e.DtEntropy = 0;
+	    SPHP(i).e.DtEntropy = 0;
 
 #ifdef NOWINDTIMESTEPPING
-	    SphP[i].MaxSignalVel = 2 * sqrt(GAMMA * SphP[i].Pressure / SphP[i].d.Density);
+	    SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).d.Density);
 #else
 	    windspeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN *
 			     All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency) * All.Time;
 	    windspeed *= fac_mu;
 	    hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
-			 (SphP[i].d.Density * a3inv), (1. / 3.));
-	    SphP[i].MaxSignalVel = hsml_c * DMAX((2 * windspeed), SphP[i].MaxSignalVel);
+			 (SPHP(i).d.Density * a3inv), (1. / 3.));
+	    SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
 #endif
 	  }
 #endif
 
 #if VECT_POTENTIAL
 /*check if SFR cahnge is needed */
-	SphP[i].DtA[0] +=
-	  (SphP[i].VelPred[1] * SphP[i].BPred[2] -
-	   SphP[i].VelPred[2] * SphP[i].BPred[1]) / (atime * atime * hubble_a);
-	SphP[i].DtA[1] +=
-	  (SphP[i].VelPred[2] * SphP[i].BPred[0] -
-	   SphP[i].VelPred[0] * SphP[i].BPred[2]) / (atime * atime * hubble_a);
-	SphP[i].DtA[2] +=
-	  (SphP[i].VelPred[0] * SphP[i].BPred[1] -
-	   SphP[i].VelPred[1] * SphP[i].BPred[0]) / (atime * atime * hubble_a);
+	SPHP(i).DtA[0] +=
+	  (SPHP(i).VelPred[1] * SPHP(i).BPred[2] -
+	   SPHP(i).VelPred[2] * SPHP(i).BPred[1]) / (atime * atime * hubble_a);
+	SPHP(i).DtA[1] +=
+	  (SPHP(i).VelPred[2] * SPHP(i).BPred[0] -
+	   SPHP(i).VelPred[0] * SPHP(i).BPred[2]) / (atime * atime * hubble_a);
+	SPHP(i).DtA[2] +=
+	  (SPHP(i).VelPred[0] * SPHP(i).BPred[1] -
+	   SPHP(i).VelPred[1] * SPHP(i).BPred[0]) / (atime * atime * hubble_a);
 	if(All.ComovingIntegrationOn)
 	  for(k = 0; k < 3; k++)
-	    SphP[i].DtA[k] -= SphP[i].APred[k];
+	    SPHP(i).DtA[k] -= SPHP(i).APred[k];
 
 #endif
 
@@ -1044,15 +1044,15 @@ void hydro_force(void)
 	vec2pix_nest((long) All.Nside, t, &ipix);
 	if(r_new > All.healpixmap[ipix] * HEALPIX)
 	  {
-	    SphP[i].e.DtEntropy = 0;
+	    SPHP(i).e.DtEntropy = 0;
 	    for(k = 0; k < 3; k++)
 	      {
-		SphP[i].a.HydroAccel[k] = 0;
-		SphP[i].VelPred[k] = 0.0;
+		SPHP(i).a.HydroAccel[k] = 0;
+		SPHP(i).VelPred[k] = 0.0;
 		P[i].Vel[k] = 0.0;
 	      }
   	    ded_heal_fac = 2.;
-	    SphP[i].v.DivVel = 0.0;
+	    SPHP(i).v.DivVel = 0.0;
 	    count++;
 	    if(r_new > All.healpixmap[ipix] * HEALPIX * 1.5)
 	      {
@@ -1063,111 +1063,111 @@ void hydro_force(void)
 
 #ifdef TIME_DEP_ART_VISC
 #if !defined(EOS_DEGENERATE)
-	cs_h = sqrt(GAMMA * SphP[i].Pressure / SphP[i].d.Density) / P[i].Hsml;
+	cs_h = sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).d.Density) / P[i].Hsml;
 #else
-	cs_h = sqrt(SphP[i].dpdr) / P[i].Hsml;
+	cs_h = sqrt(SPHP(i).dpdr) / P[i].Hsml;
 #endif
-	f = fabs(SphP[i].v.DivVel) / (fabs(SphP[i].v.DivVel) + SphP[i].r.CurlVel + 0.0001 * cs_h / fac_mu);
-	SphP[i].Dtalpha = -(SphP[i].alpha - All.AlphaMin) * All.DecayTime *
-	  0.5 * SphP[i].MaxSignalVel / (P[i].Hsml * fac_mu)
-	  + f * All.ViscSource * DMAX(0.0, -SphP[i].v.DivVel);
+	f = fabs(SPHP(i).v.DivVel) / (fabs(SPHP(i).v.DivVel) + SPHP(i).r.CurlVel + 0.0001 * cs_h / fac_mu);
+	SPHP(i).Dtalpha = -(SPHP(i).alpha - All.AlphaMin) * All.DecayTime *
+	  0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
+	  + f * All.ViscSource * DMAX(0.0, -SPHP(i).v.DivVel);
 	if(All.ComovingIntegrationOn)
-	  SphP[i].Dtalpha /= (hubble_a * All.Time * All.Time);
+	  SPHP(i).Dtalpha /= (hubble_a * All.Time * All.Time);
 #endif
 #ifdef MAGNETIC
 #ifdef TIME_DEP_MAGN_DISP
-	SphP[i].DtBalpha = -(SphP[i].Balpha - All.ArtMagDispMin) * All.ArtMagDispTime *
-	  0.5 * SphP[i].MaxSignalVel / (P[i].Hsml * fac_mu)
+	SPHP(i).DtBalpha = -(SPHP(i).Balpha - All.ArtMagDispMin) * All.ArtMagDispTime *
+	  0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
 #ifndef ROT_IN_MAG_DIS
-	  + All.ArtMagDispSource * fabs(SphP[i].divB) / sqrt(mu0 * SphP[i].d.Density);
+	  + All.ArtMagDispSource * fabs(SPHP(i).divB) / sqrt(mu0 * SPHP(i).d.Density);
 #else
 #ifdef SMOOTH_ROTB
-	  + All.ArtMagDispSource / sqrt(mu0 * SphP[i].d.Density) *
-	  DMAX(fabs(SphP[i].divB), fabs(sqrt(SphP[i].SmoothedRotB[0] * SphP[i].SmoothedRotB[0] +
-					     SphP[i].SmoothedRotB[1] * SphP[i].SmoothedRotB[1] +
-					     SphP[i].SmoothedRotB[2] * SphP[i].SmoothedRotB[2])));
+	  + All.ArtMagDispSource / sqrt(mu0 * SPHP(i).d.Density) *
+	  DMAX(fabs(SPHP(i).divB), fabs(sqrt(SPHP(i).SmoothedRotB[0] * SPHP(i).SmoothedRotB[0] +
+					     SPHP(i).SmoothedRotB[1] * SPHP(i).SmoothedRotB[1] +
+					     SPHP(i).SmoothedRotB[2] * SPHP(i).SmoothedRotB[2])));
 #else
-	  + All.ArtMagDispSource / sqrt(mu0 * SphP[i].d.Density) *
-	  DMAX(fabs(SphP[i].divB), fabs(sqrt(SphP[i].RotB[0] * SphP[i].RotB[0] +
-					     SphP[i].RotB[1] * SphP[i].RotB[1] +
-					     SphP[i].RotB[2] * SphP[i].RotB[2])));
+	  + All.ArtMagDispSource / sqrt(mu0 * SPHP(i).d.Density) *
+	  DMAX(fabs(SPHP(i).divB), fabs(sqrt(SPHP(i).RotB[0] * SPHP(i).RotB[0] +
+					     SPHP(i).RotB[1] * SPHP(i).RotB[1] +
+					     SPHP(i).RotB[2] * SPHP(i).RotB[2])));
 #endif /* End SMOOTH_ROTB        */
 #endif /* End ROT_IN_MAG_DIS     */
 #endif /* End TIME_DEP_MAGN_DISP */
 
 #ifdef DIVBFORCE3
-	phiphi = sqrt(pow( SphP[i].magcorr[0] 	   , 2.)+ pow( SphP[i].magcorr[1]      ,2.) +pow( SphP[i].magcorr[2] 	  ,2.));
-	tmpb =   sqrt(pow( SphP[i].magacc[0] 	   , 2.)+ pow( SphP[i].magacc[1]       ,2.) +pow( SphP[i].magacc[2] 	  ,2.));
+	phiphi = sqrt(pow( SPHP(i).magcorr[0] 	   , 2.)+ pow( SPHP(i).magcorr[1]      ,2.) +pow( SPHP(i).magcorr[2] 	  ,2.));
+	tmpb =   sqrt(pow( SPHP(i).magacc[0] 	   , 2.)+ pow( SPHP(i).magacc[1]       ,2.) +pow( SPHP(i).magacc[2] 	  ,2.));
 
 	if(phiphi > DIVBFORCE3 * tmpb)
 	   for(k = 0; k < 3; k++)
-		SphP[i].magcorr[k]*= DIVBFORCE3 * tmpb / phiphi;
+		SPHP(i).magcorr[k]*= DIVBFORCE3 * tmpb / phiphi;
 
 	for(k = 0; k < 3; k++)
-		SphP[i].a.HydroAccel[k]+=(SphP[i].magacc[k]-SphP[i].magcorr[k]);
+		SPHP(i).a.HydroAccel[k]+=(SPHP(i).magacc[k]-SPHP(i).magcorr[k]);
 
 #endif
 
 #ifdef DIVBCLEANING_DEDNER
-	tmpb = 0.5 * SphP[i].MaxSignalVel;
+	tmpb = 0.5 * SPHP(i).MaxSignalVel;
 	phiphi = tmpb * All.DivBcleanHyperbolicSigma * atime
 #ifdef HEALPIX
 	  / ded_heal_fac 
 #endif
 #ifdef SFR 
-	  * pow(1.-SphP[i].XColdCloud,3.*POW_CC)
+	  * pow(1.-SPHP(i).XColdCloud,3.*POW_CC)
 #endif
-	  * SphP[i].SmoothDivB;
+	  * SPHP(i).SmoothDivB;
 #ifdef SMOOTH_PHI
-	phiphi += SphP[i].SmoothPhi *
+	phiphi += SPHP(i).SmoothPhi *
 #else
-	phiphi += SphP[i].PhiPred *
+	phiphi += SPHP(i).PhiPred *
 #endif
 #ifdef HEALPIX
 	  ded_heal_fac * 
 #endif
 #ifdef SFR 
-	  pow(1.-SphP[i].XColdCloud,POW_CC) *
+	  pow(1.-SPHP(i).XColdCloud,POW_CC) *
 #endif
 	  All.DivBcleanParabolicSigma / P[i].Hsml;
 	
 	if(All.ComovingIntegrationOn)
-	  SphP[i].DtPhi =
+	  SPHP(i).DtPhi =
 #ifdef SMOOTH_PHI
-	    - SphP[i].SmoothPhi
+	    - SPHP(i).SmoothPhi
 #else
-	    - SphP[i].PhiPred
+	    - SPHP(i).PhiPred
 #endif
 #ifdef SFR 
-	  * pow(1.-SphP[i].XColdCloud,POW_CC)
+	  * pow(1.-SPHP(i).XColdCloud,POW_CC)
 #endif
 	  - ( phiphi * tmpb) / (hubble_a * atime);	///carefull with the + or not +
 	else
-	  SphP[i].DtPhi = (-phiphi * tmpb);
+	  SPHP(i).DtPhi = (-phiphi * tmpb);
 	
 	if(All.ComovingIntegrationOn){
-		SphP[i].GradPhi[0]*=1/(hubble_a * atime);
-		SphP[i].GradPhi[1]*=1/(hubble_a * atime);
-		SphP[i].GradPhi[2]*=1/(hubble_a * atime);
+		SPHP(i).GradPhi[0]*=1/(hubble_a * atime);
+		SPHP(i).GradPhi[1]*=1/(hubble_a * atime);
+		SPHP(i).GradPhi[2]*=1/(hubble_a * atime);
 	}
-	phiphi = sqrt(pow( SphP[i].GradPhi[0] , 2.)+pow( SphP[i].GradPhi[1]  ,2.)+pow( SphP[i].GradPhi[2] ,2.));
-	tmpb   = sqrt(pow( SphP[i].DtB[0]      ,2.)+pow( SphP[i].DtB[1]      ,2.)+pow( SphP[i].DtB[2]     ,2.));
+	phiphi = sqrt(pow( SPHP(i).GradPhi[0] , 2.)+pow( SPHP(i).GradPhi[1]  ,2.)+pow( SPHP(i).GradPhi[2] ,2.));
+	tmpb   = sqrt(pow( SPHP(i).DtB[0]      ,2.)+pow( SPHP(i).DtB[1]      ,2.)+pow( SPHP(i).DtB[2]     ,2.));
 	
 	if(phiphi > All.DivBcleanQ * tmpb){
-		SphP[i].GradPhi[0]*= All.DivBcleanQ * tmpb / phiphi;
-		SphP[i].GradPhi[1]*= All.DivBcleanQ * tmpb / phiphi;
-		SphP[i].GradPhi[2]*= All.DivBcleanQ * tmpb / phiphi;
+		SPHP(i).GradPhi[0]*= All.DivBcleanQ * tmpb / phiphi;
+		SPHP(i).GradPhi[1]*= All.DivBcleanQ * tmpb / phiphi;
+		SPHP(i).GradPhi[2]*= All.DivBcleanQ * tmpb / phiphi;
 	}	
 	
-	SphP[i].e.DtEntropy += mu0 * (SphP[i].BPred[0] * SphP[i].GradPhi[0] + SphP[i].BPred[1] * SphP[i].GradPhi[1] + SphP[i].BPred[2] * SphP[i].GradPhi[2]) 
+	SPHP(i).e.DtEntropy += mu0 * (SPHP(i).BPred[0] * SPHP(i).GradPhi[0] + SPHP(i).BPred[1] * SPHP(i).GradPhi[1] + SPHP(i).BPred[2] * SPHP(i).GradPhi[2]) 
 #ifdef SFR
-				* pow(1.-SphP[i].XColdCloud,3.*POW_CC)
+				* pow(1.-SPHP(i).XColdCloud,3.*POW_CC)
 #endif
-				* GAMMA_MINUS1 / (hubble_a2 * pow(SphP[i].d.Density, GAMMA_MINUS1));
+				* GAMMA_MINUS1 / (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1));
 
-	SphP[i].DtB[0]+=SphP[i].GradPhi[0];
-	SphP[i].DtB[1]+=SphP[i].GradPhi[1];
-	SphP[i].DtB[2]+=SphP[i].GradPhi[2];
+	SPHP(i).DtB[0]+=SPHP(i).GradPhi[0];
+	SPHP(i).DtB[1]+=SPHP(i).GradPhi[1];
+	SPHP(i).DtB[2]+=SPHP(i).GradPhi[2];
 
 
 #endif /* End DEDNER */
@@ -1176,21 +1176,21 @@ void hydro_force(void)
 #ifdef SPH_BND_PARTICLES
 	if(P[i].ID == 0)
 	  {
-	    SphP[i].e.DtEntropy = 0;
+	    SPHP(i).e.DtEntropy = 0;
 #ifdef NS_TIMESTEP
-	    SphP[i].ViscEntropyChange = 0;
+	    SPHP(i).ViscEntropyChange = 0;
 #endif
 
 #ifdef DIVBCLEANING_DEDNER
-	    SphP[i].DtPhi = 0;
+	    SPHP(i).DtPhi = 0;
 #endif
 #if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
 	    for(k = 0; k < 3; k++)
-	      SphP[i].DtB[k] = 0;
+	      SPHP(i).DtB[k] = 0;
 #endif
 
 	    for(k = 0; k < 3; k++)
-	      SphP[i].a.HydroAccel[k] = 0;
+	      SPHP(i).a.HydroAccel[k] = 0;
 	  }
 #endif
       }
@@ -1230,20 +1230,20 @@ void hydro_force(void)
     if(P[i].Type == 0)
       {
 	/* evaluate network here, but do it only for temperatures > 10^7 K */
-	if(SphP[i].temp > 1e7)
+	if(SPHP(i).temp > 1e7)
 	  {
 	    nuc_particles++;
-	    network_integrate(SphP[i].temp, SphP[i].d.Density * All.UnitDensity_in_cgs, SphP[i].xnuc,
-			      SphP[i].dxnuc,
+	    network_integrate(SPHP(i).temp, SPHP(i).d.Density * All.UnitDensity_in_cgs, SPHP(i).xnuc,
+			      SPHP(i).dxnuc,
 			      (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval *
 			      All.UnitTime_in_s, &dedt_nuc);
-	    SphP[i].e.DtEntropy += dedt_nuc * All.UnitEnergy_in_cgs / All.UnitTime_in_s;
+	    SPHP(i).e.DtEntropy += dedt_nuc * All.UnitEnergy_in_cgs / All.UnitTime_in_s;
 	  }
 	else
 	  {
 	    for(k = 0; k < EOS_NSPECIES; k++)
 	      {
-		SphP[i].dxnuc[k] = 0;
+		SPHP(i).dxnuc[k] = 0;
 	      }
 	  }
       }
@@ -1268,11 +1268,11 @@ void hydro_force(void)
 	  for(j = 0; j < N_BINS; j++)
 	    {
 	      for(k = 0; k < 3; k++)
-		SphP[i].a.HydroAccel[k] += SphP[i].dn_gamma[j] *
-		  (HYDROGEN_MASSFRAC * SphP[i].d.Density) / (PROTONMASS / All.UnitMass_in_g *
-							     All.HubbleParam) * SphP[i].n[k][j] * 13.6 *
+		SPHP(i).a.HydroAccel[k] += SPHP(i).dn_gamma[j] *
+		  (HYDROGEN_MASSFRAC * SPHP(i).d.Density) / (PROTONMASS / All.UnitMass_in_g *
+							     All.HubbleParam) * SPHP(i).n[k][j] * 13.6 *
 		  1.60184e-12 / All.UnitEnergy_in_cgs * All.HubbleParam / (C / All.UnitVelocity_in_cm_per_s) /
-		  ((P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval) / SphP[i].d.Density;
+		  ((P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval) / SPHP(i).d.Density;
 	    }
       }
 #endif
@@ -1456,19 +1456,19 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   if(mode == 0)
     {
       pos = P[target].Pos;
-      vel = SphP[target].VelPred;
+      vel = SPHP(target).VelPred;
       h_i = P[target].Hsml;
       mass = P[target].Mass;
-      rho = SphP[target].d.Density;
-      pressure = SphP[target].Pressure;
+      rho = SPHP(target).d.Density;
+      pressure = SPHP(target).Pressure;
       timestep = (P[target].TimeBin ? (1 << P[target].TimeBin) : 0);
 
 #ifdef DENSITY_INDEPENDENT_SPH
-      egyrho = SphP[target].EgyWtDensity;
-      entvarpred = SphP[target].EntVarPred;
-      dhsmlDensityFactor = SphP[target].DhsmlEgyDensityFactor;
+      egyrho = SPHP(target).EgyWtDensity;
+      entvarpred = SPHP(target).EntVarPred;
+      dhsmlDensityFactor = SPHP(target).DhsmlEgyDensityFactor;
 #else
-      dhsmlDensityFactor = SphP[target].h.DhsmlDensityFactor;
+      dhsmlDensityFactor = SPHP(target).h.DhsmlDensityFactor;
 #endif
 
 #ifndef EOS_DEGENERATE
@@ -1478,38 +1478,38 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
       soundspeed_i = sqrt(GAMMA * pressure / rho);
 #endif
 #else
-      soundspeed_i = sqrt(SphP[target].dpdr);
+      soundspeed_i = sqrt(SPHP(target).dpdr);
 #endif
 
 #ifndef ALTVISCOSITY
 #ifndef NAVIERSTOKES
-      f1 = fabs(SphP[target].v.DivVel) /
-	(fabs(SphP[target].v.DivVel) + SphP[target].r.CurlVel +
+      f1 = fabs(SPHP(target).v.DivVel) /
+	(fabs(SPHP(target).v.DivVel) + SPHP(target).r.CurlVel +
 	 0.0001 * soundspeed_i / P[target].Hsml / fac_mu);
 #else
-      f1 = fabs(SphP[target].v.DivVel) /
-	(fabs(SphP[target].v.DivVel) + SphP[target].u.s.CurlVel +
+      f1 = fabs(SPHP(target).v.DivVel) /
+	(fabs(SPHP(target).v.DivVel) + SPHP(target).u.s.CurlVel +
 	 0.0001 * soundspeed_i / P[target].Hsml / fac_mu);
 #endif
 #else
-      f1 = SphP[target].v.DivVel;
+      f1 = SPHP(target).v.DivVel;
 #endif
 
 #ifdef JD_VTURB
-		vBulk[0] = SphP[target].Vbulk[0];
-		vBulk[1] = SphP[target].Vbulk[1];
-		vBulk[2] = SphP[target].Vbulk[2];
+		vBulk[0] = SPHP(target).Vbulk[0];
+		vBulk[1] = SPHP(target).Vbulk[1];
+		vBulk[2] = SPHP(target).Vbulk[2];
 #endif
 
 #ifdef MAGNETIC
 #ifndef SFR
-      bpred[0] = SphP[target].BPred[0];
-      bpred[1] = SphP[target].BPred[1];
-      bpred[2] = SphP[target].BPred[2];
+      bpred[0] = SPHP(target).BPred[0];
+      bpred[1] = SPHP(target).BPred[1];
+      bpred[2] = SPHP(target).BPred[2];
 #else
-      bpred[0] = SphP[target].BPred[0] * pow(1.-SphP[target].XColdCloud,2.*POW_CC);
-      bpred[1] = SphP[target].BPred[1] * pow(1.-SphP[target].XColdCloud,2.*POW_CC);
-      bpred[2] = SphP[target].BPred[2] * pow(1.-SphP[target].XColdCloud,2.*POW_CC);
+      bpred[0] = SPHP(target).BPred[0] * pow(1.-SPHP(target).XColdCloud,2.*POW_CC);
+      bpred[1] = SPHP(target).BPred[1] * pow(1.-SPHP(target).XColdCloud,2.*POW_CC);
+      bpred[2] = SPHP(target).BPred[2] * pow(1.-SPHP(target).XColdCloud,2.*POW_CC);
 #endif
 #ifdef ALFA_OMEGA_DYN
       alfaomega =
@@ -1517,51 +1517,51 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 	Sph[target].r.Rot[2] * Sph[target].VelPred[2];
 #endif
 #ifdef VECT_POTENTIAL
-      Apred[0] = SphP[target].APred[0];
-      Apred[1] = SphP[target].APred[1];
-      Apred[2] = SphP[target].APred[2];
+      Apred[0] = SPHP(target).APred[0];
+      Apred[1] = SPHP(target).APred[1];
+      Apred[2] = SPHP(target).APred[2];
 #endif
 #ifdef DIVBCLEANING_DEDNER
 #ifdef SMOOTH_PHI
-      PhiPred = SphP[target].SmoothPhi;
+      PhiPred = SPHP(target).SmoothPhi;
 #else
-      PhiPred = SphP[target].PhiPred;
+      PhiPred = SPHP(target).PhiPred;
 #endif
 #ifdef SFR
-      PhiPred *= pow(1.-SphP[target].XColdCloud,POW_CC);
+      PhiPred *= pow(1.-SPHP(target).XColdCloud,POW_CC);
 #endif
 #endif
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
 #ifdef SMOOTH_ROTB
-      rotb[0] = SphP[target].SmoothedRotB[0];
-      rotb[1] = SphP[target].SmoothedRotB[1];
-      rotb[2] = SphP[target].SmoothedRotB[2];
+      rotb[0] = SPHP(target).SmoothedRotB[0];
+      rotb[1] = SPHP(target).SmoothedRotB[1];
+      rotb[2] = SPHP(target).SmoothedRotB[2];
 #else
-      rotb[0] = SphP[target].RotB[0];
-      rotb[1] = SphP[target].RotB[1];
-      rotb[2] = SphP[target].RotB[2];
+      rotb[0] = SPHP(target).RotB[0];
+      rotb[1] = SPHP(target).RotB[1];
+      rotb[2] = SPHP(target).RotB[2];
 #endif
 #ifdef SFR
-      rotb[0] *= pow(1.-SphP[target].XColdCloud,3.*POW_CC);
-      rotb[1] *= pow(1.-SphP[target].XColdCloud,3.*POW_CC);
-      rotb[2] *= pow(1.-SphP[target].XColdCloud,3.*POW_CC);
+      rotb[0] *= pow(1.-SPHP(target).XColdCloud,3.*POW_CC);
+      rotb[1] *= pow(1.-SPHP(target).XColdCloud,3.*POW_CC);
+      rotb[2] *= pow(1.-SPHP(target).XColdCloud,3.*POW_CC);
 #endif
 #endif
 #ifdef TIME_DEP_MAGN_DISP
-      Balpha = SphP[target].Balpha;
+      Balpha = SPHP(target).Balpha;
 #endif
 #ifdef EULER_DISSIPATION
-      eulA = SphP[target].EulerA;
-      eulB = SphP[target].EulerB;
+      eulA = SPHP(target).EulerA;
+      eulB = SPHP(target).EulerB;
 #endif
 #endif /*  MAGNETIC  */
 
 #ifdef TIME_DEP_ART_VISC
-      alpha = SphP[target].alpha;
+      alpha = SPHP(target).alpha;
 #endif
 
 #if defined(NAVIERSTOKES)
-      Entropy = SphP[target].Entropy;
+      Entropy = SPHP(target).Entropy;
 #endif
 
 
@@ -1571,11 +1571,11 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif
 
 #ifdef NAVIERSTOKES
-      stressdiag = SphP[target].u.s.StressDiag;
-      stressoffdiag = SphP[target].u.s.StressOffDiag;
+      stressdiag = SPHP(target).u.s.StressDiag;
+      stressoffdiag = SPHP(target).u.s.StressOffDiag;
       shear_viscosity = get_shear_viscosity(target);
 #ifdef NAVIERSTOKES_BULK
-      divvel = SphP[target].u.s.a4.DivVel;
+      divvel = SPHP(target).u.s.a4.DivVel;
 #endif
 #endif
 
@@ -1790,7 +1790,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #ifdef NOWINDTIMESTEPPING
 #ifdef WINDS
 	      if(P[j].Type == 0)
-		if(SphP[j].DelayTime > 0)	/* ignore the wind particles */
+		if(SPHP(j).DelayTime > 0)	/* ignore the wind particles */
 		  continue;
 #endif
 #endif
@@ -1810,23 +1810,23 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 		  r = sqrt(r2);
 		  if(r > 0)
 		    {
-              p_over_rho2_j = SphP[j].Pressure / (SphP[j].EOMDensity * SphP[j].EOMDensity);
+              p_over_rho2_j = SPHP(j).Pressure / (SPHP(j).EOMDensity * SPHP(j).EOMDensity);
 
 #ifndef EOS_DEGENERATE
 #ifdef DENSITY_INDEPENDENT_SPH
-              soundspeed_j = sqrt(GAMMA * SphP[j].Pressure / SphP[j].EOMDensity);
+              soundspeed_j = sqrt(GAMMA * SPHP(j).Pressure / SPHP(j).EOMDensity);
 #else
-              soundspeed_j = sqrt(GAMMA * p_over_rho2_j * SphP[j].d.Density);
+              soundspeed_j = sqrt(GAMMA * p_over_rho2_j * SPHP(j).d.Density);
 #endif
 #else
-              soundspeed_j = sqrt(SphP[j].dpdr);
+              soundspeed_j = sqrt(SPHP(j).dpdr);
 #endif
 
-		      dvx = vel[0] - SphP[j].VelPred[0];
-		      dvy = vel[1] - SphP[j].VelPred[1];
-		      dvz = vel[2] - SphP[j].VelPred[2];
+		      dvx = vel[0] - SPHP(j).VelPred[0];
+		      dvy = vel[1] - SPHP(j).VelPred[1];
+		      dvz = vel[2] - SPHP(j).VelPred[2];
 		      vdotr = dx * dvx + dy * dvy + dz * dvz;
-		      rho_ij = 0.5 * (rho + SphP[j].d.Density);
+		      rho_ij = 0.5 * (rho + SPHP(j).d.Density);
 
 		      if(All.ComovingIntegrationOn)
 			vdotr2 = vdotr + hubble_a2 * r2;
@@ -1838,20 +1838,20 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 
 #ifdef JD_VTURB
 			if ( h_i >= P[j].Hsml)  /* Make sure j is inside targets hsml */
-				vRms += (SphP[j].VelPred[0]-vBulk[0])*(SphP[j].VelPred[0]-vBulk[0]) 
-					  	+ (SphP[j].VelPred[1]-vBulk[1])*(SphP[j].VelPred[1]-vBulk[1]) 
-						   + (SphP[j].VelPred[2]-vBulk[2])*(SphP[j].VelPred[2]-vBulk[2]);
+				vRms += (SPHP(j).VelPred[0]-vBulk[0])*(SPHP(j).VelPred[0]-vBulk[0]) 
+					  	+ (SPHP(j).VelPred[1]-vBulk[1])*(SPHP(j).VelPred[1]-vBulk[1]) 
+						   + (SPHP(j).VelPred[2]-vBulk[2])*(SPHP(j).VelPred[2]-vBulk[2]);
 #endif
 
 #ifdef MAGNETIC
 #ifndef SFR
-		      dBx = bpred[0] - SphP[j].BPred[0];
-		      dBy = bpred[1] - SphP[j].BPred[1];
-		      dBz = bpred[2] - SphP[j].BPred[2];
+		      dBx = bpred[0] - SPHP(j).BPred[0];
+		      dBy = bpred[1] - SPHP(j).BPred[1];
+		      dBz = bpred[2] - SPHP(j).BPred[2];
 #else
-		      dBx = bpred[0] - SphP[j].BPred[0] * pow(1.-SphP[j].XColdCloud,2.*POW_CC);
-		      dBy = bpred[1] - SphP[j].BPred[1] * pow(1.-SphP[j].XColdCloud,2.*POW_CC);
-		      dBz = bpred[2] - SphP[j].BPred[2] * pow(1.-SphP[j].XColdCloud,2.*POW_CC);
+		      dBx = bpred[0] - SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
+		      dBy = bpred[1] - SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
+		      dBz = bpred[2] - SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
 #endif
 
 		      magfac = P[j].Mass / r;	/* we moved 'dwk_i / rho' down ! */
@@ -1866,7 +1866,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif
 #ifdef MAGNETIC_DISSIPATION
 #ifdef TIME_DEP_MAGN_DISP
-		      Balpha_ij = 0.5 * (Balpha + SphP[j].Balpha);
+		      Balpha_ij = 0.5 * (Balpha + SPHP(j).Balpha);
 #else
 		      Balpha_ij = All.ArtMagDispConst;
 #endif
@@ -1875,20 +1875,20 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #if VECT_POTENTIAL
 		      dta[0] +=
 			P[j].Mass * dwk_i / r * (Apred[0] -
-						 SphP[j].APred[0]) * dx * vel[0] / (rho * atime * atime *
+						 SPHP(j).APred[0]) * dx * vel[0] / (rho * atime * atime *
 										    hubble_a);
 		      dta[1] +=
 			P[j].Mass * dwk_i / r * (Apred[1] -
-						 SphP[j].APred[1]) * dy * vel[1] / (rho * atime * atime *
+						 SPHP(j).APred[1]) * dy * vel[1] / (rho * atime * atime *
 										    hubble_a);
 		      dta[2] +=
 			P[j].Mass * dwk_i / r * (Apred[2] -
-						 SphP[j].APred[2]) * dz * vel[2] / (rho * atime * atime *
+						 SPHP(j).APred[2]) * dz * vel[2] / (rho * atime * atime *
 										    hubble_a);
 		      dta[0] +=
-			P[j].Mass * dwk_i / r * ((Apred[0] - SphP[j].APred[0]) * dx * vel[0] +
-						 (Apred[0] - SphP[j].APred[0]) * dy * vel[1] + (Apred[0] -
-												SphP[j].
+			P[j].Mass * dwk_i / r * ((Apred[0] - SPHP(j).APred[0]) * dx * vel[0] +
+						 (Apred[0] - SPHP(j).APred[0]) * dy * vel[1] + (Apred[0] -
+												SPHP(j).
 												APred[0]) *
 						 dz * vel[2]) / (rho * atime * atime * hubble_a);
 
@@ -1916,12 +1916,12 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif
 #endif
 #ifdef MAGFORCE
-		      magfac_j = 1 / (SphP[j].d.Density * SphP[j].d.Density);
+		      magfac_j = 1 / (SPHP(j).d.Density * SPHP(j).d.Density);
 #ifndef MU0_UNITY
 		      magfac_j /= (4 * M_PI);
 #endif
 #ifdef CORRECTBFRC
-		      magfac_j *= dwk_j * SphP[j].h.DhsmlDensityFactor;
+		      magfac_j *= dwk_j * SPHP(j).h.DhsmlDensityFactor;
 		      magfac_i = dwk_i * magfac_i_base;
 #else
 		      magfac_i = magfac_i_base;
@@ -1929,13 +1929,13 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 		      for(k = 0, b2_j = 0; k < 3; k++)
 			{
 #ifndef SFR
-			  b2_j += SphP[j].BPred[k] * SphP[j].BPred[k];
+			  b2_j += SPHP(j).BPred[k] * SPHP(j).BPred[k];
 			  for(l = 0; l < 3; l++)
-			    mm_j[k][l] = SphP[j].BPred[k] * SphP[j].BPred[l];
+			    mm_j[k][l] = SPHP(j).BPred[k] * SPHP(j).BPred[l];
 #else
-			  b2_j += SphP[j].BPred[k] * SphP[j].BPred[k] * pow(1.-SphP[j].XColdCloud,4.*POW_CC);
+			  b2_j += SPHP(j).BPred[k] * SPHP(j).BPred[k] * pow(1.-SPHP(j).XColdCloud,4.*POW_CC);
 			  for(l = 0; l < 3; l++)
-			    mm_j[k][l] = SphP[j].BPred[k] * SphP[j].BPred[l] * pow(1.-SphP[j].XColdCloud,4.*POW_CC);
+			    mm_j[k][l] = SPHP(j).BPred[k] * SPHP(j).BPred[l] * pow(1.-SPHP(j).XColdCloud,4.*POW_CC);
 #endif
 			}
 		      for(k = 0; k < 3; k++)
@@ -1945,15 +1945,15 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 		      phifac = magfac_sym * rho / rho_ij;
 #ifndef SFR
 #ifdef SMOOTH_PHI
-		      phifac *= (PhiPred - SphP[j].SmoothPhi) / (rho_ij);
+		      phifac *= (PhiPred - SPHP(j).SmoothPhi) / (rho_ij);
 #else
-		      phifac *= (PhiPred - SphP[j].PhiPred) / (rho_ij);
+		      phifac *= (PhiPred - SPHP(j).PhiPred) / (rho_ij);
 #endif
 #else /* SFR */ 
 #ifdef SMOOTH_PHI
-		      phifac *= (PhiPred - SphP[j].SmoothPhi * pow(1.-SphP[j].XColdCloud,POW_CC)) / (rho_ij);
+		      phifac *= (PhiPred - SPHP(j).SmoothPhi * pow(1.-SPHP(j).XColdCloud,POW_CC)) / (rho_ij);
 #else
-		      phifac *= (PhiPred - SphP[j].PhiPred   * pow(1.-SphP[j].XColdCloud,POW_CC)) / (rho_ij);
+		      phifac *= (PhiPred - SPHP(j).PhiPred   * pow(1.-SPHP(j).XColdCloud,POW_CC)) / (rho_ij);
 #endif 
 #endif /* SFR */
 		      
@@ -1964,21 +1964,21 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #ifdef MAGNETIC_SIGNALVEL
 #ifdef ALFVEN_VEL_LIMITER
 		      vcsa2_j = soundspeed_j * soundspeed_j +
-			DMIN(mu0_1 * b2_j / SphP[j].d.Density,
+			DMIN(mu0_1 * b2_j / SPHP(j).d.Density,
 			     ALFVEN_VEL_LIMITER * soundspeed_j * soundspeed_j);
 #else
-		      vcsa2_j = soundspeed_j * soundspeed_j + mu0_1 * b2_j / SphP[j].d.Density;
+		      vcsa2_j = soundspeed_j * soundspeed_j + mu0_1 * b2_j / SPHP(j).d.Density;
 #endif
 #ifndef SFR
-		      Bpro2_j = (SphP[j].BPred[0] * dx + SphP[j].BPred[1] * dy + SphP[j].BPred[2] * dz) / r;
+		      Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) / r;
 #else
-		      Bpro2_j = (SphP[j].BPred[0] * dx + SphP[j].BPred[1] * dy + SphP[j].BPred[2] * dz) * pow(1.-SphP[j].XColdCloud,2.*POW_CC) / r;
+		      Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) / r;
 #endif
 		      Bpro2_j *= Bpro2_j;
 		      magneticspeed_j = sqrt(vcsa2_j +
 					     sqrt(DMAX((vcsa2_j * vcsa2_j -
 							4 * soundspeed_j * soundspeed_j * Bpro2_j
-							* mu0_1 / SphP[j].d.Density), 0))) / 1.4142136;
+							* mu0_1 / SPHP(j).d.Density), 0))) / 1.4142136;
 		      Bpro2_i = (bpred[0] * dx + bpred[1] * dy + bpred[2] * dz) / r;
 		      Bpro2_i *= Bpro2_i;
 		      magneticspeed_i = sqrt(vcsa2_i +
@@ -2017,26 +2017,26 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 		      for(k = 0; k < 3; k++)
 			acc[k] -=
 #ifndef SFR
-			  magfac * bpred[k] *(((bpred[0]) * magfac_i + (SphP[j].BPred[0]) * magfac_j) * dx
-				            + ((bpred[1]) * magfac_i + (SphP[j].BPred[1]) * magfac_j) * dy
-					    + ((bpred[2]) * magfac_i + (SphP[j].BPred[2]) * magfac_j) * dz);
+			  magfac * bpred[k] *(((bpred[0]) * magfac_i + (SPHP(j).BPred[0]) * magfac_j) * dx
+				            + ((bpred[1]) * magfac_i + (SPHP(j).BPred[1]) * magfac_j) * dy
+					    + ((bpred[2]) * magfac_i + (SPHP(j).BPred[2]) * magfac_j) * dz);
 #else
-			  magfac * (	((bpred[k] * bpred[0]) * magfac_i + (bpred[k] * SphP[j].BPred[0] * pow(1.-SphP[j].XColdCloud,2.*POW_CC)) * magfac_j) * dx
-				    +   ((bpred[k] * bpred[1]) * magfac_i + (bpred[k] * SphP[j].BPred[1] * pow(1.-SphP[j].XColdCloud,2.*POW_CC)) * magfac_j) * dy
-				    +   ((bpred[k] * bpred[2]) * magfac_i + (bpred[k] * SphP[j].BPred[2] * pow(1.-SphP[j].XColdCloud,2.*POW_CC)) * magfac_j) * dz);
+			  magfac * (	((bpred[k] * bpred[0]) * magfac_i + (bpred[k] * SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dx
+				    +   ((bpred[k] * bpred[1]) * magfac_i + (bpred[k] * SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dy
+				    +   ((bpred[k] * bpred[2]) * magfac_i + (bpred[k] * SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dz);
 #endif
 #endif
 #if defined(DIVBFORCE3) && !defined(DIVBFORCE)
 		      for(k = 0; k < 3; k++)
 			magcorr[k] +=
 #ifndef SFR
-			  magfac * bpred[k] *(((bpred[0]) * magfac_i + (SphP[j].BPred[0]) * magfac_j) * dx
-				            + ((bpred[1]) * magfac_i + (SphP[j].BPred[1]) * magfac_j) * dy
-					    + ((bpred[2]) * magfac_i + (SphP[j].BPred[2]) * magfac_j) * dz);
+			  magfac * bpred[k] *(((bpred[0]) * magfac_i + (SPHP(j).BPred[0]) * magfac_j) * dx
+				            + ((bpred[1]) * magfac_i + (SPHP(j).BPred[1]) * magfac_j) * dy
+					    + ((bpred[2]) * magfac_i + (SPHP(j).BPred[2]) * magfac_j) * dz);
 #else
-			  magfac * bpred[k] *(((bpred[0]) * magfac_i + (SphP[j].BPred[0] * pow(1.-SphP[j].XColdCloud,2.*POW_CC) ) * magfac_j) * dx
-				            + ((bpred[1]) * magfac_i + (SphP[j].BPred[1] * pow(1.-SphP[j].XColdCloud,2.*POW_CC) ) * magfac_j) * dy
-					    + ((bpred[2]) * magfac_i + (SphP[j].BPred[2] * pow(1.-SphP[j].XColdCloud,2.*POW_CC) ) * magfac_j) * dz);
+			  magfac * bpred[k] *(((bpred[0]) * magfac_i + (SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dx
+				            + ((bpred[1]) * magfac_i + (SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dy
+					    + ((bpred[2]) * magfac_i + (SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dz);
 #endif
 #endif
 #endif /* end MAG FORCE   */
@@ -2083,11 +2083,11 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 
 #ifndef NAVIERSTOKES
 			  f2 =
-			    fabs(SphP[j].v.DivVel) / (fabs(SphP[j].v.DivVel) + SphP[j].r.CurlVel +
+			    fabs(SPHP(j).v.DivVel) / (fabs(SPHP(j).v.DivVel) + SPHP(j).r.CurlVel +
 						      0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 #else
 			  f2 =
-			    fabs(SphP[j].v.DivVel) / (fabs(SphP[j].v.DivVel) + SphP[j].u.s.CurlVel +
+			    fabs(SPHP(j).v.DivVel) / (fabs(SPHP(j).v.DivVel) + SPHP(j).u.s.CurlVel +
 						      0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 #endif
 
@@ -2095,7 +2095,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 			  f1 = f2 = 1;
 #endif
 #ifdef TIME_DEP_ART_VISC
-			  BulkVisc_ij = 0.5 * (alpha + SphP[j].alpha);
+			  BulkVisc_ij = 0.5 * (alpha + SPHP(j).alpha);
 #else
 			  BulkVisc_ij = All.ArtBulkViscConst;
 #endif
@@ -2112,12 +2112,12 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 			    mu_i = h_i * fabs(f1);	/* f1 hold here the velocity divergence of particle i */
 			  else
 			    mu_i = 0;
-			  if(SphP[j].v.DivVel < 0)
-			    mu_j = h_j * fabs(SphP[j].v.DivVel);
+			  if(SPHP(j).v.DivVel < 0)
+			    mu_j = h_j * fabs(SPHP(j).v.DivVel);
 			  else
 			    mu_j = 0;
 			  visc = All.ArtBulkViscConst * ((soundspeed_i + mu_i) * mu_i / rho +
-							 (soundspeed_j + mu_j) * mu_j / SphP[j].d.Density);
+							 (soundspeed_j + mu_j) * mu_j / SPHP(j).d.Density);
 #endif /* end of ALTVISCOSITY block */
 
 
@@ -2162,15 +2162,15 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 
           /* leading-order term */
               hfc += P[j].Mass *
-                      (dwk_i*p_over_rho2_i*SphP[j].EntVarPred/entvarpred +
-                       dwk_j*p_over_rho2_j*entvarpred/SphP[j].EntVarPred) / r;
+                      (dwk_i*p_over_rho2_i*SPHP(j).EntVarPred/entvarpred +
+                       dwk_j*p_over_rho2_j*entvarpred/SPHP(j).EntVarPred) / r;
 
           /* grad-h corrections */
               hfc += P[j].Mass *
                       (dwk_i*p_over_rho2_i*egyrho/rho*dhsmlDensityFactor +
-                       dwk_j*p_over_rho2_j*SphP[j].EgyWtDensity/SphP[j].d.Density*SphP[j].DhsmlEgyDensityFactor) / r;
+                       dwk_j*p_over_rho2_j*SPHP(j).EgyWtDensity/SPHP(j).d.Density*SPHP(j).DhsmlEgyDensityFactor) / r;
 #else
-		      p_over_rho2_j *= SphP[j].h.DhsmlDensityFactor;
+		      p_over_rho2_j *= SPHP(j).h.DhsmlDensityFactor;
 		      /* Formulation derived from the Lagrangian */
 		      hfc = hfc_visc + P[j].Mass * (p_over_rho2_i * dwk_i + p_over_rho2_j * dwk_j) / r;
 #endif
@@ -2184,7 +2184,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 
 #ifdef WINDS
 		      if(P[j].Type == 0)
-			if(SphP[j].DelayTime > 0)	/* No force by wind particles */
+			if(SPHP(j).DelayTime > 0)	/* No force by wind particles */
 			  {
 			    hfc = hfc_visc = 0;
 			  }
@@ -2215,21 +2215,21 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 		      faci *= pow((Entropy * pow(rho * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
 #endif
 		      facj = P[j].Mass * get_shear_viscosity(j) /
-			(SphP[j].d.Density * SphP[j].d.Density) * dwk_j / r;
+			(SPHP(j).d.Density * SPHP(j).d.Density) * dwk_j / r;
 
 #ifndef NAVIERSTOKES_CONSTANT
-		      facj *= pow((SphP[j].Entropy * pow(SphP[j].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
+		      facj *= pow((SPHP(j).Entropy * pow(SPHP(j).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
 #endif
 
 #ifdef NAVIERSTOKES_BULK
 		      facbi = mass * All.NavierStokes_BulkViscosity / (rho * rho) * dwk_i / r;
 		      facbj = P[j].Mass * All.NavierStokes_BulkViscosity /
-			(SphP[j].d.Density * SphP[j].d.Density) * dwk_j / r;
+			(SPHP(j).d.Density * SPHP(j).d.Density) * dwk_j / r;
 #endif
 
 #ifdef WINDS
 		      if(P[j].Type == 0)
-			if(SphP[j].DelayTime > 0)	/* No visc for wind particles */
+			if(SPHP(j).DelayTime > 0)	/* No visc for wind particles */
 			  {
 			    faci = facj = 0;
 #ifdef NAVIERSTOKES_BULK
@@ -2241,7 +2241,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #ifdef VISCOSITY_SATURATION
 		      IonMeanFreePath_i = All.IonMeanFreePath * pow((Entropy * pow(rho * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / rho;	/* u^2/rho */
 
-		      IonMeanFreePath_j = All.IonMeanFreePath * pow((SphP[j].Entropy * pow(SphP[j].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / SphP[j].d.Density;	/* u^2/rho */
+		      IonMeanFreePath_j = All.IonMeanFreePath * pow((SPHP(j).Entropy * pow(SPHP(j).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / SPHP(j).d.Density;	/* u^2/rho */
 
 		      for(k = 0, VelLengthScale_i = 0, VelLengthScale_j = 0; k < 3; k++)
 			{
@@ -2255,13 +2255,13 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 
 				}
 			    }
-			  if(fabs(SphP[j].u.s.StressDiag[k]) > 0)
+			  if(fabs(SPHP(j).u.s.StressDiag[k]) > 0)
 			    {
-			      VelLengthScale_j = 2 * soundspeed_j / fabs(SphP[j].u.s.StressDiag[k]);
+			      VelLengthScale_j = 2 * soundspeed_j / fabs(SPHP(j).u.s.StressDiag[k]);
 
 			      if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
 				{
-				  SphP[j].u.s.StressDiag[k] = SphP[j].u.s.StressDiag[k] *
+				  SPHP(j).u.s.StressDiag[k] = SPHP(j).u.s.StressDiag[k] *
 				    (VelLengthScale_j / IonMeanFreePath_j);
 
 				}
@@ -2276,13 +2276,13 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 				    stressoffdiag[k] * (VelLengthScale_i / IonMeanFreePath_i);
 				}
 			    }
-			  if(fabs(SphP[j].u.s.StressOffDiag[k]) > 0)
+			  if(fabs(SPHP(j).u.s.StressOffDiag[k]) > 0)
 			    {
-			      VelLengthScale_j = 2 * soundspeed_j / fabs(SphP[j].u.s.StressOffDiag[k]);
+			      VelLengthScale_j = 2 * soundspeed_j / fabs(SPHP(j).u.s.StressOffDiag[k]);
 
 			      if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
 				{
-				  SphP[j].u.s.StressOffDiag[k] = SphP[j].u.s.StressOffDiag[k] *
+				  SPHP(j).u.s.StressOffDiag[k] = SPHP(j).u.s.StressOffDiag[k] *
 				    (VelLengthScale_j / IonMeanFreePath_j);
 				}
 			    }
@@ -2291,16 +2291,16 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 
 		      /* Acceleration due to the shear viscosity */
 		      acc[0] += faci * (stressdiag[0] * dx + stressoffdiag[0] * dy + stressoffdiag[1] * dz)
-			+ facj * (SphP[j].u.s.StressDiag[0] * dx + SphP[j].u.s.StressOffDiag[0] * dy +
-				  SphP[j].u.s.StressOffDiag[1] * dz);
+			+ facj * (SPHP(j).u.s.StressDiag[0] * dx + SPHP(j).u.s.StressOffDiag[0] * dy +
+				  SPHP(j).u.s.StressOffDiag[1] * dz);
 
 		      acc[1] += faci * (stressoffdiag[0] * dx + stressdiag[1] * dy + stressoffdiag[2] * dz)
-			+ facj * (SphP[j].u.s.StressOffDiag[0] * dx + SphP[j].u.s.StressDiag[1] * dy +
-				  SphP[j].u.s.StressOffDiag[2] * dz);
+			+ facj * (SPHP(j).u.s.StressOffDiag[0] * dx + SPHP(j).u.s.StressDiag[1] * dy +
+				  SPHP(j).u.s.StressOffDiag[2] * dz);
 
 		      acc[2] += faci * (stressoffdiag[1] * dx + stressoffdiag[2] * dy + stressdiag[2] * dz)
-			+ facj * (SphP[j].u.s.StressOffDiag[1] * dx + SphP[j].u.s.StressOffDiag[2] * dy +
-				  SphP[j].u.s.StressDiag[2] * dz);
+			+ facj * (SPHP(j).u.s.StressOffDiag[1] * dx + SPHP(j).u.s.StressOffDiag[2] * dy +
+				  SPHP(j).u.s.StressDiag[2] * dz);
 
 		      /*Acceleration due to the bulk viscosity */
 #ifdef NAVIERSTOKES_BULK
@@ -2318,13 +2318,13 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 			    }
 			}
 
-		      if(fabs(SphP[j].u.s.a4.DivVel) > 0)
+		      if(fabs(SPHP(j).u.s.a4.DivVel) > 0)
 			{
-			  VelLengthScale_j = 3 * soundspeed_j / fabs(SphP[j].u.s.a4.DivVel);
+			  VelLengthScale_j = 3 * soundspeed_j / fabs(SPHP(j).u.s.a4.DivVel);
 
 			  if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
 			    {
-			      SphP[j].u.s.a4.DivVel = SphP[j].u.s.a4.DivVel *
+			      SPHP(j).u.s.a4.DivVel = SPHP(j).u.s.a4.DivVel *
 				(VelLengthScale_j / IonMeanFreePath_j);
 
 			    }
@@ -2332,9 +2332,9 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif
 
 
-		      acc[0] += facbi * divvel * dx + facbj * SphP[j].u.s.a4.DivVel * dx;
-		      acc[1] += facbi * divvel * dy + facbj * SphP[j].u.s.a4.DivVel * dy;
-		      acc[2] += facbi * divvel * dz + facbj * SphP[j].u.s.a4.DivVel * dz;
+		      acc[0] += facbi * divvel * dx + facbj * SPHP(j).u.s.a4.DivVel * dx;
+		      acc[1] += facbi * divvel * dy + facbj * SPHP(j).u.s.a4.DivVel * dy;
+		      acc[2] += facbi * divvel * dz + facbj * SPHP(j).u.s.a4.DivVel * dz;
 #endif
 #endif /* end NAVIERSTOKES */
 
@@ -2345,11 +2345,11 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 
 		      dteulA +=
 			alpha_ij_eul * 0.5 * vsig * (eulA -
-						     SphP[j].EulerA) * magfac_sym * r * rho / (rho_ij *
+						     SPHP(j).EulerA) * magfac_sym * r * rho / (rho_ij *
 											       rho_ij);
 		      dteulB +=
 			alpha_ij_eul * 0.5 * vsig * (eulB -
-						     SphP[j].EulerB) * magfac_sym * r * rho / (rho_ij *
+						     SPHP(j).EulerB) * magfac_sym * r * rho / (rho_ij *
 											       rho_ij);
 
 		      dTu_diss_eul = -magfac_sym * alpha_ij_eul * (dBx * dBx + dBy * dBy + dBz * dBz);
@@ -2365,9 +2365,9 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif
 
 #ifdef WAKEUP
-		      if(vsig > WAKEUP * SphP[j].MaxSignalVel)
+		      if(vsig > WAKEUP * SPHP(j).MaxSignalVel)
 			{
-			  SphP[j].wakeup = 1;
+			  SPHP(j).wakeup = 1;
 			}
 #endif
 		    }
@@ -2394,13 +2394,13 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   if(mode == 0)
     {
       for(k = 0; k < 3; k++)
-	SphP[target].a.dHydroAccel[k] = acc[k];
-      SphP[target].e.dDtEntropy = dtEntropy;
+	SPHP(target).a.dHydroAccel[k] = acc[k];
+      SPHP(target).e.dDtEntropy = dtEntropy;
 #ifdef DIVBFORCE3
       for(k = 0; k < 3; k++)
-         SphP[target].magacc[k] = magacc[k];
+         SPHP(target).magacc[k] = magacc[k];
       for(k = 0; k < 3; k++)
-         SphP[target].magcorr[k] = magcorr[k];
+         SPHP(target).magcorr[k] = magcorr[k];
 #endif
 #ifdef HYDRO_COST_FACTOR
       if(All.ComovingIntegrationOn)
@@ -2410,31 +2410,31 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 #endif
 
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-      SphP[target].MinViscousDt = minViscousDt;
+      SPHP(target).MinViscousDt = minViscousDt;
 #else
-      SphP[target].MaxSignalVel = maxSignalVel;
+      SPHP(target).MaxSignalVel = maxSignalVel;
 #endif
 
 #ifdef JD_VTURB
-		SphP[target].Vrms = vRms; 
+		SPHP(target).Vrms = vRms; 
 #endif
 
 #if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
       for(k = 0; k < 3; k++)
-	SphP[target].DtB[k] = dtB[k];
+	SPHP(target).DtB[k] = dtB[k];
 #endif
 #ifdef DIVBCLEANING_DEDNER
       for(k = 0; k < 3; k++)
-      	SphP[target].GradPhi[k] = gradphi[k];
+      	SPHP(target).GradPhi[k] = gradphi[k];
 #endif
 #ifdef VECT_POTENTIAL
-      SphP[target].DtA[0] = dta[0];
-      SphP[target].DtA[1] = dta[1];
-      SphP[target].DtA[2] = dta[2];
+      SPHP(target).DtA[0] = dta[0];
+      SPHP(target).DtA[1] = dta[1];
+      SPHP(target).DtA[2] = dta[2];
 #endif
 #ifdef EULER_DISSIPATION
-      SphP[target].DtEulerA = dteulA;
-      SphP[target].DtEulerB = dteulB;
+      SPHP(target).DtEulerA = dteulA;
+      SPHP(target).DtEulerB = dteulB;
 #endif
     }
   else

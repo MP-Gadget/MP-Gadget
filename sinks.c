@@ -123,14 +123,14 @@ void do_sinks(void)
 	      sink_send[index].pos[j] = P[NumPart - NumSinks + i].Pos[j];
 	      sink_send[index].vel[j] = P[NumPart - NumSinks + i].Vel[j];
 #ifdef MAGNETIC
-          sink_send[index].bfld[j] = SphP[NumPart - NumSinks + i].BPred[j];
+          sink_send[index].bfld[j] = SPHP(NumPart - NumSinks + i).BPred[j];
 #endif	   
 	    }
 
 	  sink_send[index].mass = P[NumPart - NumSinks + i].Mass;
 
 #ifdef MAGNETIC
-      sink_send[index].rho = SphP[NumPart - NumSinks + i].d.Density;
+      sink_send[index].rho = SPHP(NumPart - NumSinks + i).d.Density;
 #endif	  
 	  index++;
 	}
@@ -299,7 +299,7 @@ void do_sinks(void)
 
 		  if(r < All.SinkHsml / a * hubble_param)
 		    {
-		      h = DMAX(SphP[i].Hsml, All.ForceSoftening[5]);
+		      h = DMAX(SPHP(i).Hsml, All.ForceSoftening[5]);
 
 		      if(r > h)
 			wp = 1 / r;
@@ -361,7 +361,7 @@ void do_sinks(void)
 		  }
 
 		P[i] = P[N_gas - 1];
-		SphP[i] = SphP[N_gas - 1];
+		SPHP(i) = SPHP(N_gas - 1);
 
 		N_gas--;
 		NumPart--;
@@ -436,7 +436,7 @@ void do_sinks(void)
 	if(All.TotNumSinks == 0 || r2_min > All.SinkHsml * All.SinkHsml)
 	  {
 	    nh =
-	      HYDROGEN_MASSFRAC * SphP[i].d.Density * All.UnitDensity_in_cgs * a3inv * hubble_param2 /
+	      HYDROGEN_MASSFRAC * SPHP(i).d.Density * All.UnitDensity_in_cgs * a3inv * hubble_param2 /
 	      PROTONMASS;
 
 	    if(nh > local.nh_max)
@@ -506,14 +506,14 @@ void do_sinks(void)
 	      if(r2 < All.SinkHsml * All.SinkHsml)
 		{
 		  sink_send[index].mass = P[i].Mass;
-		  sink_send[index].soft = SphP[i].Hsml;
+		  sink_send[index].soft = SPHP(i).Hsml;
 #ifndef FB_BAROTROPIC_EOS
-		  sink_send[index].utherm = SphP[i].Entropy * pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+		  sink_send[index].utherm = SPHP(i).Entropy * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 #else
-		  sink_send[index].utherm = get_energy(SphP[i].d.Density);
+		  sink_send[index].utherm = get_energy(SPHP(i).d.Density);
 #endif				 
 #ifdef MAGNETIC
-		  sink_send[index].rho = SphP[i].d.Density;
+		  sink_send[index].rho = SPHP(i).d.Density;
 #endif
 
 		  for(j = 0; j < 3; j++)
@@ -521,7 +521,7 @@ void do_sinks(void)
 		      sink_send[index].pos[j] = P[i].Pos[j];
 		      sink_send[index].vel[j] = P[i].Vel[j];
 #ifdef MAGNETIC
-              sink_send[index].bfld[j] = SphP[i].BPred[j];
+              sink_send[index].bfld[j] = SPHP(i).BPred[j];
 #endif
 		    }
 
@@ -654,7 +654,7 @@ void do_sinks(void)
 			}
 
 		      P[i] = P[N_gas - 1];
-		      SphP[i] = SphP[N_gas - 1];
+		      SPHP(i) = SPHP(N_gas - 1);
 
 		      if(ThisTask == global.task && N_gas - 1 == sink_index)
 			sink_index = i;

@@ -178,7 +178,7 @@ void restart(int modus)
                     endrun(222);
                 }
                 /* Sph-Particle data  */
-                byten(&SphP[0], N_gas * sizeof(struct sph_particle_data), modus);
+                byten(SphP, N_gas * sizeof(struct sph_particle_data), modus);
             }
 
             /* write state of random number generator */

@@ -1074,7 +1074,7 @@ void fof_compute_group_properties(int gr, int start, int len)
 
 #ifdef SFR
       if(P[index].Type == 0)
-	Group[gr].Sfr += SphP[index].Sfr;
+	Group[gr].Sfr += SPHP(index).Sfr;
 #endif
 #ifdef BLACK_HOLES
       if(P[index].Type == 5)
@@ -1085,11 +1085,11 @@ void fof_compute_group_properties(int gr, int start, int len)
       if(P[index].Type == 0)
 	{
 #ifdef WINDS
-	  if(SphP[index].DelayTime == 0)
+	  if(SPHP(index).DelayTime == 0)
 #endif
-	    if(SphP[index].d.Density > Group[gr].MaxDens)
+	    if(SPHP(index).d.Density > Group[gr].MaxDens)
 	      {
-		Group[gr].MaxDens = SphP[index].d.Density;
+		Group[gr].MaxDens = SPHP(index).d.Density;
 		Group[gr].index_maxdens = index;
 		Group[gr].task_maxdens = ThisTask;
 	      }
@@ -2299,11 +2299,11 @@ void multi_bubbles(void)
 
 			  if(All.ComovingIntegrationOn)
 			    E_bubble +=
-			      SphP[j].Entropy * P[j].Mass * pow(SphP[j].d.Density / pow(All.Time, 3),
+			      SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).d.Density / pow(All.Time, 3),
 								GAMMA_MINUS1) / GAMMA_MINUS1;
 			  else
 			    E_bubble +=
-			      SphP[j].Entropy * P[j].Mass * pow(SphP[j].d.Density,
+			      SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).d.Density,
 								GAMMA_MINUS1) / GAMMA_MINUS1;
 
 			  Mass_bubble += P[j].Mass;
@@ -2392,12 +2392,12 @@ void multi_bubbles(void)
 
 
 			  if(All.ComovingIntegrationOn)
-			    SphP[j].Entropy +=
-			      GAMMA_MINUS1 * dE / P[j].Mass / pow(SphP[j].d.Density / pow(All.Time, 3),
+			    SPHP(j).Entropy +=
+			      GAMMA_MINUS1 * dE / P[j].Mass / pow(SPHP(j).d.Density / pow(All.Time, 3),
 								  GAMMA_MINUS1);
 			  else
-			    SphP[j].Entropy +=
-			      GAMMA_MINUS1 * dE / P[j].Mass / pow(SphP[j].d.Density, GAMMA_MINUS1);
+			    SPHP(j).Entropy +=
+			      GAMMA_MINUS1 * dE / P[j].Mass / pow(SPHP(j).d.Density, GAMMA_MINUS1);
 			  if(dE > 0 && P[j].ID > 0)
 			    P[j].ID = -P[j].ID;
 

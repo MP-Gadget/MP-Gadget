@@ -62,23 +62,23 @@ void greenf_diffusion(void)
 	    {
 	      NumSphUpdate++;
 
-	      egysum += SphP[n].CR_E0[CRpop];
+	      egysum += SPHP(n).CR_E0[CRpop];
 
-	      SphP[n].CR_DeltaE[CRpop] = 0;
-	      SphP[n].CR_DeltaN[CRpop] = 0;
+	      SPHP(n).CR_DeltaE[CRpop] = 0;
+	      SPHP(n).CR_DeltaN[CRpop] = 0;
 
 	      kappa = All.CR_DiffusionCoeff;
 
 	      if(All.CR_DiffusionDensScaling != 0.0)
 		kappa *=
-		  pow(SphP[n].d.Density * a3inv / All.CR_DiffusionDensZero, All.CR_DiffusionDensScaling);
+		  pow(SPHP(n).d.Density * a3inv / All.CR_DiffusionDensZero, All.CR_DiffusionDensScaling);
 
 	      if(All.CR_DiffusionEntropyScaling != 0.0)
-		kappa *= pow(SphP[n].Entropy / All.CR_DiffusionEntropyZero, All.CR_DiffusionEntropyScaling);
+		kappa *= pow(SPHP(n).Entropy / All.CR_DiffusionEntropyZero, All.CR_DiffusionEntropyScaling);
 
-	      if(SphP[n].CR_E0[CRpop] > 0)
+	      if(SPHP(n).CR_E0[CRpop] > 0)
 		{
-		  CR_q_i = SphP[n].CR_q0[CRpop] * pow(SphP[n].d.Density * a3inv, 0.33333);
+		  CR_q_i = SPHP(n).CR_q0[CRpop] * pow(SPHP(n).d.Density * a3inv, 0.33333);
 
 		  cr_efac_i =
 		    CR_Tab_MeanEnergy(CR_q_i, All.CR_Alpha[CRpop] - 0.3333, CRpop)
@@ -92,8 +92,8 @@ void greenf_diffusion(void)
 		kappa_egy = kappa;
 
 
-	      SphP[n].CR_Kappa[CRpop] = kappa;
-	      SphP[n].CR_Kappa_egy[CRpop] = kappa_egy;
+	      SPHP(n).CR_Kappa[CRpop] = kappa;
+	      SPHP(n).CR_Kappa_egy[CRpop] = kappa_egy;
 	    }
 	}
 
@@ -138,8 +138,8 @@ void greenf_diffusion(void)
 			DensDataIn[nexport].Pos[1] = P[i].Pos[1];
 			DensDataIn[nexport].Pos[2] = P[i].Pos[2];
 			DensDataIn[nexport].Hsml = P[i].Hsml;
-			DensDataIn[nexport].CR_Kappa[CRpop] = SphP[i].CR_Kappa[CRpop];
-			DensDataIn[nexport].CR_Kappa_egy[CRpop] = SphP[i].CR_Kappa_egy[CRpop];
+			DensDataIn[nexport].CR_Kappa[CRpop] = SPHP(i).CR_Kappa[CRpop];
+			DensDataIn[nexport].CR_Kappa_egy[CRpop] = SPHP(i).CR_Kappa_egy[CRpop];
 
 			DensDataIn[nexport].Index = i;
 			DensDataIn[nexport].Task = j;
@@ -238,8 +238,8 @@ void greenf_diffusion(void)
 			      source = j + noffset[recvTask];
 			      place = DensDataIn[source].Index;
 
-			      SphP[place].CR_WeightSum += DensDataPartialResult[source].CR_WeightSum;
-			      SphP[place].CR_WeightSum_egy += DensDataPartialResult[source].CR_WeightSum_egy;
+			      SPHP(place).CR_WeightSum += DensDataPartialResult[source].CR_WeightSum;
+			      SPHP(place).CR_WeightSum_egy += DensDataPartialResult[source].CR_WeightSum_egy;
 			    }
 			}
 		    }
@@ -300,13 +300,13 @@ void greenf_diffusion(void)
 			DensDataIn[nexport].Pos[1] = P[i].Pos[1];
 			DensDataIn[nexport].Pos[2] = P[i].Pos[2];
 
-			DensDataIn[nexport].CR_Kappa[CRpop] = SphP[i].CR_Kappa[CRpop];
-			DensDataIn[nexport].CR_Kappa_egy[CRpop] = SphP[i].CR_Kappa_egy[CRpop];
-			DensDataIn[nexport].CR_WeightSum = SphP[i].CR_WeightSum;
-			DensDataIn[nexport].CR_WeightSum_egy = SphP[i].CR_WeightSum_egy;
+			DensDataIn[nexport].CR_Kappa[CRpop] = SPHP(i).CR_Kappa[CRpop];
+			DensDataIn[nexport].CR_Kappa_egy[CRpop] = SPHP(i).CR_Kappa_egy[CRpop];
+			DensDataIn[nexport].CR_WeightSum = SPHP(i).CR_WeightSum;
+			DensDataIn[nexport].CR_WeightSum_egy = SPHP(i).CR_WeightSum_egy;
 			DensDataIn[nexport].Hsml = P[i].Hsml;
-			DensDataIn[nexport].CR_E0[CRpop] = SphP[i].CR_E0[CRpop];
-			DensDataIn[nexport].CR_n0[CRpop] = SphP[i].CR_n0[CRpop];
+			DensDataIn[nexport].CR_E0[CRpop] = SPHP(i).CR_E0[CRpop];
+			DensDataIn[nexport].CR_n0[CRpop] = SPHP(i).CR_n0[CRpop];
 
 			DensDataIn[nexport].Index = i;
 			DensDataIn[nexport].Task = j;
@@ -389,31 +389,31 @@ void greenf_diffusion(void)
 	{
 	  if(P[n].Type == 0)
 	    {
-	      SphP[n].CR_E0[CRpop] = SphP[n].CR_DeltaE[CRpop];
-	      SphP[n].CR_n0[CRpop] = SphP[n].CR_DeltaN[CRpop];
+	      SPHP(n).CR_E0[CRpop] = SPHP(n).CR_DeltaE[CRpop];
+	      SPHP(n).CR_n0[CRpop] = SPHP(n).CR_DeltaN[CRpop];
 
-	      egysum += SphP[n].CR_E0[CRpop];
+	      egysum += SPHP(n).CR_E0[CRpop];
 
-	      SphP[n].CR_DeltaE[CRpop] = 0;
-	      SphP[n].CR_DeltaN[CRpop] = 0;
+	      SPHP(n).CR_DeltaE[CRpop] = 0;
+	      SPHP(n).CR_DeltaN[CRpop] = 0;
 
-	      if(SphP[n].CR_n0[CRpop] > 1.0e-12 && SphP[n].CR_E0[CRpop] > 0)
+	      if(SPHP(n).CR_n0[CRpop] > 1.0e-12 && SPHP(n).CR_E0[CRpop] > 0)
 		{
-		  meanKineticEnergy = SphP[n].CR_E0[CRpop] * m_p / SphP[n].CR_n0[CRpop];
+		  meanKineticEnergy = SPHP(n).CR_E0[CRpop] * m_p / SPHP(n).CR_n0[CRpop];
 
 		  qmeanKin = CR_q_from_mean_kinetic_energy(meanKineticEnergy[CRpop], CRpop);
 
-		  SphP[n].CR_q0[CRpop] = qmeanKin * pow(SphP[n].d.Density * a3inv, -(1.0 / 3.0));
-		  SphP[n].CR_C0[CRpop] = SphP[n].CR_n0[CRpop] * (All.CR_Alpha[CRpop] - 1.0) *
-		    pow(SphP[n].CR_q0[CRpop], All.CR_Alpha[CRpop] - 1.0);
+		  SPHP(n).CR_q0[CRpop] = qmeanKin * pow(SPHP(n).d.Density * a3inv, -(1.0 / 3.0));
+		  SPHP(n).CR_C0[CRpop] = SPHP(n).CR_n0[CRpop] * (All.CR_Alpha[CRpop] - 1.0) *
+		    pow(SPHP(n).CR_q0[CRpop], All.CR_Alpha[CRpop] - 1.0);
 		}
 	      else
 		{
-		  SphP[n].CR_E0[CRpop] = 0.0;
-		  SphP[n].CR_n0[CRpop] = 0.0;
+		  SPHP(n).CR_E0[CRpop] = 0.0;
+		  SPHP(n).CR_n0[CRpop] = 0.0;
 
-		  SphP[n].CR_q0[CRpop] = 1.0e10;
-		  SphP[n].CR_C0[CRpop] = 0.0;
+		  SPHP(n).CR_q0[CRpop] = 1.0e10;
+		  SPHP(n).CR_C0[CRpop] = 0.0;
 		}
 	    }
 	}
@@ -453,8 +453,8 @@ void compute_diff_weights(int target, int mode)
     {
       pos = P[target].Pos;
       h = P[target].Hsml;
-      kappa = SphP[target].CR_Kappa;
-      kappa_egy = SphP[target].CR_Kappa_egy;
+      kappa = SPHP(target).CR_Kappa;
+      kappa_egy = SPHP(target).CR_Kappa_egy;
     }
   else
     {
@@ -516,8 +516,8 @@ void compute_diff_weights(int target, int mode)
 
   if(mode == 0)
     {
-      SphP[target].CR_WeightSum = weightsum;
-      SphP[target].CR_WeightSum_egy = weightsum_egy;
+      SPHP(target).CR_WeightSum = weightsum;
+      SPHP(target).CR_WeightSum_egy = weightsum_egy;
     }
   else
     {
@@ -543,12 +543,12 @@ void scatter_diffusion(int target, int mode)
     {
       pos = P[target].Pos;
       h = P[target].Hsml;
-      kappa = SphP[target].CR_Kappa;
-      kappa_egy = SphP[target].CR_Kappa_egy;
-      weightsum = SphP[target].CR_WeightSum;
-      weightsum_egy = SphP[target].CR_WeightSum_egy;
-      CR_E0 = SphP[target].CR_E0;
-      CR_n0 = SphP[target].CR_n0;
+      kappa = SPHP(target).CR_Kappa;
+      kappa_egy = SPHP(target).CR_Kappa_egy;
+      weightsum = SPHP(target).CR_WeightSum;
+      weightsum_egy = SPHP(target).CR_WeightSum_egy;
+      CR_E0 = SPHP(target).CR_E0;
+      CR_n0 = SPHP(target).CR_n0;
     }
   else
     {
@@ -603,10 +603,10 @@ void scatter_diffusion(int target, int mode)
 		  r = sqrt(r2);
 
 		  weight = P[j].Mass * exp(-r2 / kappaeff) / weightsum;
-		  SphP[j].CR_DeltaN += CR_n0 * weight;
+		  SPHP(j).CR_DeltaN += CR_n0 * weight;
 
 		  weight = P[j].Mass * exp(-r2 / kappaeff_egy) / weightsum_egy;
-		  SphP[j].CR_DeltaE += CR_E0 * weight;
+		  SPHP(j).CR_DeltaE += CR_E0 * weight;
 
 		}
 	    }

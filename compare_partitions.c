@@ -60,7 +60,7 @@ void compare_partitions(void)
       PP[n].P = P[n];
 
       if(P[n].Type == 0)
-	PP[n].SphP = SphP[n];
+	PP[n].SphP = SPHP(n);
     }
 
 

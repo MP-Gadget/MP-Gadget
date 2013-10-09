@@ -260,29 +260,29 @@ void smoothed_values(void)
             if(P[place].Type == 0)
             {
 #if defined(SMOOTH_PHI)
-                SphP[place].SmoothPhi += SmoothDataOut[j].SmoothPhi;
+                SPHP(place).SmoothPhi += SmoothDataOut[j].SmoothPhi;
 #endif /* SMOOTH_PHI */
 #if defined(VECT_POTENTIAL)
-                SphP[place].SmoothA[0] += SmoothDataOut[j].SmoothA[0];
-                SphP[place].SmoothA[1] += SmoothDataOut[j].SmoothA[1];
-                SphP[place].SmoothA[2] += SmoothDataOut[j].SmoothA[2];
+                SPHP(place).SmoothA[0] += SmoothDataOut[j].SmoothA[0];
+                SPHP(place).SmoothA[1] += SmoothDataOut[j].SmoothA[1];
+                SPHP(place).SmoothA[2] += SmoothDataOut[j].SmoothA[2];
 #endif /* VECT_POTENTIAL */
 #if defined(DIVBCLEANING_DEDNER) || defined(SCAL_PRO_CLEAN)
-                SphP[place].SmoothDivB += SmoothDataOut[j].SmoothDivB;
+                SPHP(place).SmoothDivB += SmoothDataOut[j].SmoothDivB;
 #endif
 #ifdef SMOOTH_ROTB
-                SphP[place].SmoothedRotB[0] += SmoothDataOut[j].SmoothRotB[0];
-                SphP[place].SmoothedRotB[1] += SmoothDataOut[j].SmoothRotB[1];
-                SphP[place].SmoothedRotB[2] += SmoothDataOut[j].SmoothRotB[2];
+                SPHP(place).SmoothedRotB[0] += SmoothDataOut[j].SmoothRotB[0];
+                SPHP(place).SmoothedRotB[1] += SmoothDataOut[j].SmoothRotB[1];
+                SPHP(place).SmoothedRotB[2] += SmoothDataOut[j].SmoothRotB[2];
 #endif /* SMOOTH_ROTB */
 
 #if defined(BSMOOTH)
-                SphP[place].BSmooth[0] += SmoothDataOut[j].BSmooth[0];
-                SphP[place].BSmooth[1] += SmoothDataOut[j].BSmooth[1];
-                SphP[place].BSmooth[2] += SmoothDataOut[j].BSmooth[2];
+                SPHP(place).BSmooth[0] += SmoothDataOut[j].BSmooth[0];
+                SPHP(place).BSmooth[1] += SmoothDataOut[j].BSmooth[1];
+                SPHP(place).BSmooth[2] += SmoothDataOut[j].BSmooth[2];
 #endif /* BSMOOTH */
 
-                SphP[place].DensityNorm += SmoothDataOut[j].DensityNorm;
+                SPHP(place).DensityNorm += SmoothDataOut[j].DensityNorm;
             }
 
         }
@@ -311,42 +311,42 @@ void smoothed_values(void)
                 if(P[i].Type == 0)
                 {
 #if defined(SMOOTH_PHI)
-                    SphP[i].SmoothPhi /= SphP[i].DensityNorm;
+                    SPHP(i).SmoothPhi /= SPHP(i).DensityNorm;
 #endif /* SMOOTH_PHI */
 #if defined(VECT_POTENTIAL)
-                    SphP[i].SmoothA[0] /= SphP[i].DensityNorm;
-                    SphP[i].SmoothA[1] /= SphP[i].DensityNorm;
-                    SphP[i].SmoothA[2] /= SphP[i].DensityNorm;
-                    SphP[i].APred[0] = SphP[i].SmoothA[0];
-                    SphP[i].APred[1] = SphP[i].SmoothA[1];
-                    SphP[i].APred[2] = SphP[i].SmoothA[2];
+                    SPHP(i).SmoothA[0] /= SPHP(i).DensityNorm;
+                    SPHP(i).SmoothA[1] /= SPHP(i).DensityNorm;
+                    SPHP(i).SmoothA[2] /= SPHP(i).DensityNorm;
+                    SPHP(i).APred[0] = SPHP(i).SmoothA[0];
+                    SPHP(i).APred[1] = SPHP(i).SmoothA[1];
+                    SPHP(i).APred[2] = SPHP(i).SmoothA[2];
 #endif
 #if defined(DIVBCLEANING_DEDNER) || defined(SCAL_PRO_CLEAN)
-                    SphP[i].SmoothDivB /= SphP[i].DensityNorm;
+                    SPHP(i).SmoothDivB /= SPHP(i).DensityNorm;
 #endif
 #ifdef SMOOTH_ROTB
-                    SphP[i].SmoothedRotB[0] /= SphP[i].DensityNorm;
-                    SphP[i].SmoothedRotB[1] /= SphP[i].DensityNorm;
-                    SphP[i].SmoothedRotB[2] /= SphP[i].DensityNorm;
+                    SPHP(i).SmoothedRotB[0] /= SPHP(i).DensityNorm;
+                    SPHP(i).SmoothedRotB[1] /= SPHP(i).DensityNorm;
+                    SPHP(i).SmoothedRotB[2] /= SPHP(i).DensityNorm;
 #endif /* SMOOTH_ROTB */
 
 #if defined(BSMOOTH)
-                    SphP[i].BSmooth[0] /= SphP[i].DensityNorm;
-                    SphP[i].BSmooth[1] /= SphP[i].DensityNorm;
-                    SphP[i].BSmooth[2] /= SphP[i].DensityNorm;
+                    SPHP(i).BSmooth[0] /= SPHP(i).DensityNorm;
+                    SPHP(i).BSmooth[1] /= SPHP(i).DensityNorm;
+                    SPHP(i).BSmooth[2] /= SPHP(i).DensityNorm;
 
                     if(Smooth_Flag == 1)
                     {
-                        dB[0] = All.BSmoothFrac * (SphP[i].BSmooth[0] - SphP[i].BPred[0]);
-                        dB[1] = All.BSmoothFrac * (SphP[i].BSmooth[1] - SphP[i].BPred[1]);
-                        dB[2] = All.BSmoothFrac * (SphP[i].BSmooth[2] - SphP[i].BPred[2]);
-                        SphP[i].BPred[0] += dB[0];
-                        SphP[i].BPred[1] += dB[1];
-                        SphP[i].BPred[2] += dB[2];
+                        dB[0] = All.BSmoothFrac * (SPHP(i).BSmooth[0] - SPHP(i).BPred[0]);
+                        dB[1] = All.BSmoothFrac * (SPHP(i).BSmooth[1] - SPHP(i).BPred[1]);
+                        dB[2] = All.BSmoothFrac * (SPHP(i).BSmooth[2] - SPHP(i).BPred[2]);
+                        SPHP(i).BPred[0] += dB[0];
+                        SPHP(i).BPred[1] += dB[1];
+                        SPHP(i).BPred[2] += dB[2];
 #ifndef EULERPOTENTIALS
-                        SphP[i].B[0] += dB[0];
-                        SphP[i].B[1] += dB[1];
-                        SphP[i].B[2] += dB[2];
+                        SPHP(i).B[0] += dB[0];
+                        SPHP(i).B[1] += dB[1];
+                        SPHP(i).B[2] += dB[2];
 #endif
                     }
 #endif /* BSMOOTH */
@@ -504,29 +504,29 @@ int smoothed_evaluate(int target, int mode, int *nexport, int *nsend_local)
                     }
 
                     mass_j = P[j].Mass;
-                    wk /= SphP[j].d.Density;
+                    wk /= SPHP(j).d.Density;
 
 #if defined(SMOOTH_PHI)
-                    SmoothPhi += mass_j * wk * SphP[j].PhiPred;
+                    SmoothPhi += mass_j * wk * SPHP(j).PhiPred;
 #endif /* SMOOTH_PHI */
 #if defined(VECT_POTENTIAL)
-                    smoothA[0] += mass_j * wk * SphP[j].APred[0];
-                    smoothA[1] += mass_j * wk * SphP[j].APred[1];
-                    smoothA[2] += mass_j * wk * SphP[j].APred[2];
+                    smoothA[0] += mass_j * wk * SPHP(j).APred[0];
+                    smoothA[1] += mass_j * wk * SPHP(j).APred[1];
+                    smoothA[2] += mass_j * wk * SPHP(j).APred[2];
 #endif
 #if defined(DIVBCLEANING_DEDNER) || defined(SCAL_PRO_CLEAN)
-                    SmoothDivB += mass_j * wk * SphP[j].divB;
+                    SmoothDivB += mass_j * wk * SPHP(j).divB;
 #endif
 #ifdef SMOOTH_ROTB
-                    smoothrotb[0] += mass_j * wk * SphP[j].RotB[0];
-                    smoothrotb[1] += mass_j * wk * SphP[j].RotB[1];
-                    smoothrotb[2] += mass_j * wk * SphP[j].RotB[2];
+                    smoothrotb[0] += mass_j * wk * SPHP(j).RotB[0];
+                    smoothrotb[1] += mass_j * wk * SPHP(j).RotB[1];
+                    smoothrotb[2] += mass_j * wk * SPHP(j).RotB[2];
 #endif /* SMOOTH_ROTB */
 
 #if defined(BSMOOTH)
-                    BSmooth[0] += mass_j * wk * SphP[j].BPred[0];
-                    BSmooth[1] += mass_j * wk * SphP[j].BPred[1];
-                    BSmooth[2] += mass_j * wk * SphP[j].BPred[2];
+                    BSmooth[0] += mass_j * wk * SPHP(j).BPred[0];
+                    BSmooth[1] += mass_j * wk * SPHP(j).BPred[1];
+                    BSmooth[2] += mass_j * wk * SPHP(j).BPred[2];
 #endif /* BSMOOTH */
                     DensityNorm += mass_j * wk;
                 }
@@ -548,29 +548,29 @@ int smoothed_evaluate(int target, int mode, int *nexport, int *nsend_local)
     if(mode == 0)
     {
 #if defined(SMOOTH_PHI)
-            SphP[target].SmoothPhi = SmoothPhi;
+            SPHP(target).SmoothPhi = SmoothPhi;
 #endif /* SMOOTH_PHI */
 #if defined(VECT_POTENTIAL)
-            SphP[target].SmoothA[0] = smoothA[0];
-            SphP[target].SmoothA[1] = smoothA[1];
-            SphP[target].SmoothA[2] = smoothA[2];
+            SPHP(target).SmoothA[0] = smoothA[0];
+            SPHP(target).SmoothA[1] = smoothA[1];
+            SPHP(target).SmoothA[2] = smoothA[2];
 #endif
 #if defined(DIVBCLEANING_DEDNER) || defined(SCAL_PRO_CLEAN)
-            SphP[target].SmoothDivB = SmoothDivB;
+            SPHP(target).SmoothDivB = SmoothDivB;
 #endif
 #ifdef SMOOTH_ROTB
-            SphP[target].SmoothedRotB[0] = smoothrotb[0];
-            SphP[target].SmoothedRotB[1] = smoothrotb[1];
-            SphP[target].SmoothedRotB[2] = smoothrotb[2];
+            SPHP(target).SmoothedRotB[0] = smoothrotb[0];
+            SPHP(target).SmoothedRotB[1] = smoothrotb[1];
+            SPHP(target).SmoothedRotB[2] = smoothrotb[2];
 #endif /* SMOOTH_ROTB */
 
 #if defined(BSMOOTH)
-            SphP[target].BSmooth[0] = BSmooth[0];
-            SphP[target].BSmooth[1] = BSmooth[1];
-            SphP[target].BSmooth[2] = BSmooth[2];
+            SPHP(target).BSmooth[0] = BSmooth[0];
+            SPHP(target).BSmooth[1] = BSmooth[1];
+            SPHP(target).BSmooth[2] = BSmooth[2];
 #endif /* BSMOOTH */
 
-            SphP[target].DensityNorm = DensityNorm;
+            SPHP(target).DensityNorm = DensityNorm;
 
     }
     else

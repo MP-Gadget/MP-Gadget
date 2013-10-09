@@ -277,8 +277,8 @@ int snIaheating_evaluate(int target, int mode, int *nexport, int *nsend_local)
 
 		      egy = P[j].Mass * wk / rho * energy;
 
-		      SphP[j].Entropy += egy / P[j].Mass * GAMMA_MINUS1 /
-			pow(SphP[j].d.Density * a3inv, GAMMA_MINUS1);
+		      SPHP(j).Entropy += egy / P[j].Mass * GAMMA_MINUS1 /
+			pow(SPHP(j).d.Density * a3inv, GAMMA_MINUS1);
 
 		    }
 		}

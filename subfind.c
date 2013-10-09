@@ -200,7 +200,7 @@ void subfind(int num)
 
         if(P[i].Type == 0)
             P[i].w.int_energy = DMAX(All.MinEgySpec,
-                    SphP[i].Entropy / GAMMA_MINUS1 * pow(SphP[i].d.Density * a3inv,
+                    SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).d.Density * a3inv,
                         GAMMA_MINUS1));
         else
             P[i].w.int_energy = 0;
@@ -344,7 +344,7 @@ void subfind(int num)
 
 
     /* now we have the particles of groups consecutively, but SPH particles are
-       not aligned. They can however be accessed via SphP[P[i].originindex] */
+       not aligned. They can however be accessed via SPHP(P[i).originindex] */
 
 
     /* let's count how many local particles we have in small groups */

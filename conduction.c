@@ -97,8 +97,8 @@ void conduction(void)
       if(P[i].Type == 0)
 	{
 	  /* this gives the thermal energy per unit mass for particle i */
-	  Energy[i] = EnergyOld[i] = SphP[i].Entropy *
-	    pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+	  Energy[i] = EnergyOld[i] = SPHP(i).Entropy *
+	    pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 
 #ifdef CONDUCTION_CONSTANT
 	  Kappa[i] = All.ConductionCoeff;
@@ -106,17 +106,17 @@ void conduction(void)
 	  Kappa[i] = All.ConductionCoeff * pow(EnergyOld[i], 2.5);
 #ifdef CONDUCTION_SATURATION
 	  electron_free_path =
-	    All.ElectronFreePathFactor * Energy[i] * Energy[i] / (SphP[i].d.Density * a3inv);
+	    All.ElectronFreePathFactor * Energy[i] * Energy[i] / (SPHP(i).d.Density * a3inv);
 	  temp_scale_length =
-	    All.Time * fabs(SphP[i].Entropy) / sqrt(SphP[i].GradEntr[0] * SphP[i].GradEntr[0] +
-						    SphP[i].GradEntr[1] * SphP[i].GradEntr[1] +
-						    SphP[i].GradEntr[2] * SphP[i].GradEntr[2]);
+	    All.Time * fabs(SPHP(i).Entropy) / sqrt(SPHP(i).GradEntr[0] * SPHP(i).GradEntr[0] +
+						    SPHP(i).GradEntr[1] * SPHP(i).GradEntr[1] +
+						    SPHP(i).GradEntr[2] * SPHP(i).GradEntr[2]);
 	  Kappa[i] /= (1 + 4.2 * electron_free_path / temp_scale_length);
 #endif
 #endif
 
 #ifdef SFR
-	  if(SphP[i].d.Density * a3inv >= All.PhysDensThresh)
+	  if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
 	    Kappa[i] = 0;
 #endif
 
@@ -197,7 +197,7 @@ void conduction(void)
 	  sumold += P[i].Mass * EnergyOld[i];
 	  sumtransfer += P[i].Mass * fabs(Energy[i] - EnergyOld[i]);
 
-	  SphP[i].Entropy = Energy[i] / pow(SphP[i].d.Density * a3inv, GAMMA_MINUS1) * GAMMA_MINUS1;
+	  SPHP(i).Entropy = Energy[i] / pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) * GAMMA_MINUS1;
 	}
     }
 
@@ -315,7 +315,7 @@ void conduction_matrix_multiply(double *in, double *out)
 	    ConductionDataIn[j].Pos[k] = P[place].Pos[k];
 
 	  ConductionDataIn[j].Hsml = P[place].Hsml;
-	  ConductionDataIn[j].Density = SphP[place].d.Density;
+	  ConductionDataIn[j].Density = SPHP(place).d.Density;
 	  ConductionDataIn[j].Kappa = Kappa[place];
 
 	  memcpy(ConductionDataIn[j].NodeList,
@@ -436,7 +436,7 @@ int conduction_evaluate(int target, int mode, double *in, double *out, double *s
     {
       pos = P[target].Pos;
       h_i = P[target].Hsml;
-      rho = SphP[target].d.Density;
+      rho = SPHP(target).d.Density;
       Kappa_i = Kappa[target];
     }
   else
@@ -545,7 +545,7 @@ int conduction_evaluate(int target, int mode, double *in, double *out, double *s
 			  kappa_mean = 2 * (Kappa_i * Kappa[j]) / (Kappa_i + Kappa[j]);
 			  dwk = 0.5 * (dwk_i + dwk_j);
 
-			  w = 2.0 * P[j].Mass / (rho * SphP[j].d.Density) * kappa_mean * (-dwk) / r;
+			  w = 2.0 * P[j].Mass / (rho * SPHP(j).d.Density) * kappa_mean * (-dwk) / r;
 
 			  out_sum += (-w * in[j]);
 			  w_sum += w;

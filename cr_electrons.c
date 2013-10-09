@@ -57,11 +57,11 @@ void compute_Dpp(size_t ipart)
 #ifdef JD_DPPONSNAPSHOTONLY /* Here we need a particle loop and discard the input parameter */
 	for( ipart=0; ipart<N_gas; ipart++ ){ /* Physical units */
 #endif        
-        hsml = SphP[ipart].Hsml*All.UnitLength_in_cm
+        hsml = SPHP(ipart).Hsml*All.UnitLength_in_cm
             *All.Time/All.HubbleParam;
         m_part = P[ipart].Mass * All.UnitMass_in_g
             /All.HubbleParam;
-        v_turb = SphP[ipart].Vrms 
+        v_turb = SPHP(ipart).Vrms 
             * All.UnitVelocity_in_cm_per_s*sqrt(All.Time);
         dt = All.TimeStep * All.UnitTime_in_s
             * sqrt(All.Time)/All.HubbleParam;
@@ -71,7 +71,7 @@ void compute_Dpp(size_t ipart)
         
         Eturb = 0.5 * m_part * v_turb*v_turb;
         
-        d_mps = hsml/pow(SphP[ipart].TrueNGB,1./3.);
+        d_mps = hsml/pow(SPHP(ipart).TrueNGB,1./3.);
         Vpart = FOURTHIRDSPI * d_mps*d_mps*d_mps;  
 
         k_min = 2*M_PI/(TURBULENCEINJECTIONSCALE*KPC2CM);
@@ -83,7 +83,7 @@ void compute_Dpp(size_t ipart)
         scalefactor = (pow(k_max,-2./3.)-pow(k_min,-2./3.))
                      /(pow(k_mps,-2./3.)-pow(k_sml,-2./3.));
 
-		SphP[ipart].Dpp =  DPP_FACTOR /I_x(ipart) /n_th /sqrt(T)
+		SPHP(ipart).Dpp =  DPP_FACTOR /I_x(ipart) /n_th /sqrt(T)
             * ETA_T * Eturb *scalefactor /dt /Vpart;
 #ifdef JD_DPPONSNAPSHOTONLY
 	}
@@ -98,9 +98,9 @@ static double I_x(size_t ipart)
 	double vms, vth, vsnd, valven; 
 	double x, B, T, rho; 
 	
-	B = sqrt(SphP[ipart].B[0]*SphP[ipart].B[0]
-			+SphP[ipart].B[1]*SphP[ipart].B[1]
-			+SphP[ipart].B[2]*SphP[ipart].B[2]);
+	B = sqrt(SPHP(ipart).B[0]*SPHP(ipart).B[0]
+			+SPHP(ipart).B[1]*SPHP(ipart).B[1]
+			+SPHP(ipart).B[2]*SPHP(ipart).B[2]);
 
 	T = help_temperature(ipart,NOCOMOV,PHYSICAL);
 
@@ -129,9 +129,9 @@ static double help_density(size_t ipart, double a, int unit)
 {
 	switch(unit){ 
 	case GADGET:
-		return(SphP[ipart].d.Density/(a*a*a));
+		return(SPHP(ipart).d.Density/(a*a*a));
 	case PHYSICAL:
-		return(SphP[ipart].d.Density/(a*a*a)*h*h
+		return(SPHP(ipart).d.Density/(a*a*a)*h*h
 			*All.UnitMass_in_g/pow(All.UnitLength_in_cm,3));
 	default:
 		endrun(10100);
@@ -144,9 +144,9 @@ static double help_pressure(size_t ipart, double a, int unit)
 {
 	switch(unit){ 
 	case GADGET:
-		return(SphP[ipart].Pressure*pow(a,3*GAMMA-6));
+		return(SPHP(ipart).Pressure*pow(a,3*GAMMA-6));
 	case PHYSICAL:
-		return(SphP[ipart].Pressure * GAMMA_MINUS1 * pow(a,3*GAMMA-6)
+		return(SPHP(ipart).Pressure * GAMMA_MINUS1 * pow(a,3*GAMMA-6)
                 * h*h * All.UnitPressure_in_cgs);
 	default:
 		endrun(10101);
@@ -159,11 +159,11 @@ static double help_internal_energy(size_t ipart, double a, int unit)
 
     switch(unit){  
 	case GADGET:
-        return(SphP[ipart].Entropy/GAMMA_MINUS1  
-                * pow(SphP[ipart].d.Density/(a*a*a),GAMMA_MINUS1));
+        return(SPHP(ipart).Entropy/GAMMA_MINUS1  
+                * pow(SPHP(ipart).d.Density/(a*a*a),GAMMA_MINUS1));
     case PHYSICAL:
-        return(SphP[ipart].Entropy/GAMMA_MINUS1  
-                * pow(SphP[ipart].d.Density/(a*a*a),GAMMA_MINUS1) 
+        return(SPHP(ipart).Entropy/GAMMA_MINUS1  
+                * pow(SPHP(ipart).d.Density/(a*a*a),GAMMA_MINUS1) 
                 * All.UnitEnergy_in_cgs/All.UnitMass_in_g);
     default:
         endrun(10102);
@@ -173,7 +173,7 @@ static double help_internal_energy(size_t ipart, double a, int unit)
 }
 /* [K] always */ 
 static double help_temperature(size_t ipart, double a, int unit)
-{   return(SphP[ipart].Entropy * pow(SphP[ipart].d.Density*a*a*a,GAMMA_MINUS1)
+{   return(SPHP(ipart).Entropy * pow(SPHP(ipart).d.Density*a*a*a,GAMMA_MINUS1)
         * PROTONMASS * MEAN_MOL_WEIGHT / BOLTZMANN * All.UnitEnergy_in_cgs / All.UnitMass_in_g);
 }
 
@@ -182,11 +182,11 @@ static double help_speed_of_sound(size_t ipart, double a, int unit)
 {
     switch(unit){ 
 	case GADGET:
-	    return(sqrt(GAMMA * SphP[ipart].Entropy * sqrt(a)
-		    * pow(SphP[ipart].d.Density,GAMMA_MINUS1)));
+	    return(sqrt(GAMMA * SPHP(ipart).Entropy * sqrt(a)
+		    * pow(SPHP(ipart).d.Density,GAMMA_MINUS1)));
     case PHYSICAL:
-        return(sqrt(GAMMA * SphP[ipart].Entropy * sqrt(a)
-		    * pow(SphP[ipart].d.Density,GAMMA_MINUS1)) 
+        return(sqrt(GAMMA * SPHP(ipart).Entropy * sqrt(a)
+		    * pow(SPHP(ipart).d.Density,GAMMA_MINUS1)) 
             * All.UnitVelocity_in_cm_per_s);
     default:
         endrun(10103);

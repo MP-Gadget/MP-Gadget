@@ -328,7 +328,7 @@ void read_ic(char *fname)
 #ifdef NO_UTHERM_IN_IC_FILE
     if(RestartFlag == 0)
         for(i = 0; i < N_gas; i++)
-            SphP[i].Entropy = 0;
+            SPHP(i).Entropy = 0;
 #endif
 
 
@@ -338,11 +338,11 @@ void read_ic(char *fname)
         {
             for(i = 0; i < N_gas; i++)
             {
-                if(ThisTask == 0 && i == 0 && SphP[i].Entropy == 0)
+                if(ThisTask == 0 && i == 0 && SPHP(i).Entropy == 0)
                     printf("Initializing u from InitGasTemp !\n");
 
-                if(SphP[i].Entropy == 0)
-                    SphP[i].Entropy = All.InitGasU;
+                if(SPHP(i).Entropy == 0)
+                    SPHP(i).Entropy = All.InitGasU;
 
                 /* Note: the coversion to entropy will be done in the function init(),
                    after the densities have been computed */
@@ -351,11 +351,11 @@ void read_ic(char *fname)
     }
 
     for(i = 0; i < N_gas; i++)
-        SphP[i].Entropy = DMAX(All.MinEgySpec, SphP[i].Entropy);
+        SPHP(i).Entropy = DMAX(All.MinEgySpec, SPHP(i).Entropy);
 
 #ifdef EOS_DEGENERATE
     for(i = 0; i < N_gas; i++)
-        SphP[i].u = 0;
+        SPHP(i).u = 0;
 #endif
 
     MPI_Barrier(MPI_COMM_WORLD);
@@ -511,21 +511,21 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 
         case IO_U:			/* temperature */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].Entropy = READREAL(cp);
+                SPHP(offset + n).Entropy = READREAL(cp);
             break;
 
         case IO_RHO:		/* density */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].d.Density = READREAL(cp);
+                SPHP(offset + n).d.Density = READREAL(cp);
             break;
 
         case IO_NE:		/* electron abundance */
 #if defined(COOLING) || defined(CHEMISTRY) || defined(UM_CHEMISTRY)
             for(n = 0; n < pc; n++)
 #if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
-                SphP[offset + n].elec = READREAL(cp);
+                SPHP(offset + n).elec = READREAL(cp);
 #else
-            SphP[offset + n].Ne = READREAL(cp);
+            SPHP(offset + n).Ne = READREAL(cp);
 #endif
 #endif
             break;
@@ -533,67 +533,67 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
         case IO_NH:		/* neutral hydrogen abundance */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HI = READREAL(cp);
+                SPHP(offset + n).HI = READREAL(cp);
             break;
 
         case IO_HII:		/* ionized hydrogen abundance */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HII = READREAL(cp);
+                SPHP(offset + n).HII = READREAL(cp);
             break;
 
         case IO_HeI:		/* neutral Helium */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HeI = READREAL(cp);
+                SPHP(offset + n).HeI = READREAL(cp);
             break;
 
         case IO_HeII:		/* ionized Heluum */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HeII = READREAL(cp);
+                SPHP(offset + n).HeII = READREAL(cp);
 
         case IO_HeIII:		/* double ionised Helium */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HeIII = READREAL(cp);
+                SPHP(offset + n).HeIII = READREAL(cp);
             break;
 
         case IO_H2I:		/* H2 molecule */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].H2I = READREAL(cp);
+                SPHP(offset + n).H2I = READREAL(cp);
             break;
 
         case IO_H2II:		/* ionised H2 molecule */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].H2II = READREAL(cp);
+                SPHP(offset + n).H2II = READREAL(cp);
 
         case IO_HM:		/* H minus */
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HM = READREAL(cp);
+                SPHP(offset + n).HM = READREAL(cp);
             break;
 
         case IO_HeHII:		/* HeH+ */
 #if defined (UM_CHEMISTRY)
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HeHII = READREAL(cp);
+                SPHP(offset + n).HeHII = READREAL(cp);
 #endif
             break;
 
         case IO_HD:		/* HD */
 #if defined (UM_CHEMISTRY) &&  defined (UM_HD_COOLING)
             for(n = 0; n < pc; n++)
-                SphP[offset + n].HD = READREAL(cp);
+                SPHP(offset + n).HD = READREAL(cp);
 #endif
             break;
 
         case IO_DI:		/* D */
 #if defined (UM_CHEMISTRY) &&  defined (UM_HD_COOLING)
             for(n = 0; n < pc; n++)
-                SphP[offset + n].DI = *fp++;
+                SPHP(offset + n).DI = *fp++;
 #endif
             break;
 
         case IO_DII:		/* D plus */
 #if defined (UM_CHEMISTRY) &&  defined (UM_HD_COOLING)
             for(n = 0; n < pc; n++)
-                SphP[offset + n].DII = READREAL(cp);
+                SPHP(offset + n).DII = READREAL(cp);
 #endif
             break;
 
@@ -642,14 +642,14 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
         case IO_VTURB:	/* Turbulent Velocity */
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
-                SphP[offset + n].Vturb = READREAL(cp);
+                SPHP(offset + n).Vturb = READREAL(cp);
 #endif
             break;
 
         case IO_VRMS:
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
-                SphP[offset + n].Vrms = READREAL(cp);
+                SPHP(offset + n).Vrms = READREAL(cp);
 #endif
             break;
 
@@ -657,35 +657,35 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
                 for(k = 0; k < 3; k++)
-                    SphP[offset + n].Vbulk[k] = READREAL(cp);
+                    SPHP(offset + n).Vbulk[k] = READREAL(cp);
 #endif
             break;
 
         case IO_VDIV:
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
-                SphP[offset+n].v.DivVel = READREAL(cp);
+                SPHP(offset+n).v.DivVel = READREAL(cp);
 #endif
             break;
 
         case IO_VROT:
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
-                SphP[offset+n].r.CurlVel = READREAL(cp);
+                SPHP(offset+n).r.CurlVel = READREAL(cp);
 #endif
             break;
 
         case IO_TRUENGB:
 #ifdef JD_VTURB
             for(n = 0; n < pc; n++)
-                SphP[offset + n].TrueNGB = READREAL(cp);
+                SPHP(offset + n).TrueNGB = READREAL(cp);
 #endif
             break;
 
         case IO_DPP:
 #ifdef JD_DPP
             for(n = 0; n < pc; n++)
-                SphP[offset + n].Dpp = READREAL(cp);
+                SPHP(offset + n).Dpp = READREAL(cp);
 #endif
             break;
 
@@ -693,18 +693,18 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef MAGNETIC
             for(n = 0; n < pc; n++)
                 for(k = 0; k < 3; k++)
-                    SphP[offset + n].BPred[k] = READREAL(cp);
+                    SPHP(offset + n).BPred[k] = READREAL(cp);
 #ifdef TRACEDIVB
-            SphP[offset + n].divB = 0;
+            SPHP(offset + n).divB = 0;
 #endif
 #ifdef MAGNETICSEED
-            SphP[offset + n].MagSeed = 0;
+            SPHP(offset + n).MagSeed = 0;
             for(k = 0; k < 3; k++)
-                SphP[offset + n].BPred[k] = 0.0;
+                SPHP(offset + n).BPred[k] = 0.0;
 #endif
 #ifdef DIVBCLEANING_DEDNER
-            SphP[offset + n].Phi = 0;
-            SphP[offset + n].PhiPred = 0;
+            SPHP(offset + n).Phi = 0;
+            SPHP(offset + n).PhiPred = 0;
 #endif
 #endif
             break;
@@ -713,7 +713,7 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef COSMIC_RAYS
             for(n = 0; n < pc; n++)
                 for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                    SphP[offset + n].CR_C0[CRpop] = READREAL(cp);
+                    SPHP(offset + n).CR_C0[CRpop] = READREAL(cp);
 #endif
             break;
 
@@ -721,7 +721,7 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef COSMIC_RAYS
             for(n = 0; n < pc; n++)
                 for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                    SphP[offset + n].CR_q0[CRpop] = READREAL(cp);
+                    SPHP(offset + n).CR_q0[CRpop] = READREAL(cp);
 #endif
             break;
 
@@ -732,7 +732,7 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef COSMIC_RAYS
             for(n = 0; n < pc; n++)
                 for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                    SphP[offset + n].CR_E0[CRpop] = READREAL(cp);
+                    SPHP(offset + n).CR_E0[CRpop] = READREAL(cp);
 #endif
             break;
 
@@ -740,7 +740,7 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef COSMIC_RAYS
             for(n = 0; n < pc; n++)
                 for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                    SphP[offset + n].CR_n0[CRpop] = READREAL(cp);
+                    SPHP(offset + n).CR_n0[CRpop] = READREAL(cp);
 #endif
             break;
 
@@ -794,7 +794,7 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef EOS_DEGENERATE
             for(n = 0; n < pc; n++)
                 for(k = 0; k < EOS_NSPECIES; k++)
-                    SphP[offset + n].xnuc[k] = READREAL(cp);
+                    SPHP(offset + n).xnuc[k] = READREAL(cp);
 #endif
             break;
 
@@ -820,9 +820,9 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef RADTRANSFER
                     for(n = 0; n < pc; n++)
                     {
-                        SphP[offset + n].nHII = READREAL(cp);
-                        SphP[offset + n].nHI = 1.0 - SphP[offset + n].nHII;
-                        SphP[offset + n].n_elec = SphP[offset + n].nHII;
+                        SPHP(offset + n).nHII = READREAL(cp);
+                        SPHP(offset + n).nHI = 1.0 - SPHP(offset + n).nHII;
+                        SPHP(offset + n).n_elec = SPHP(offset + n).nHII;
                     }
 #endif
                     break;
@@ -831,14 +831,14 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef RADTRANSFER
                     for(n = 0; n < pc; n++)
                         for(k = 0; k < N_BINS; k++)
-                            SphP[offset + n].n_gamma[k] = READREAL(cp);
+                            SPHP(offset + n).n_gamma[k] = READREAL(cp);
 #endif
                     break;
 
                 case IO_nHeII:
 #ifdef RADTRANSFER
                     for(n = 0; n < pc; n++)
-                        SphP[offset + n].nHeII = READREAL(cp);
+                        SPHP(offset + n).nHeII = READREAL(cp);
 #endif
                     break;
 
@@ -846,10 +846,10 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef RADTRANSFER
                     for(n = 0; n < pc; n++)
                     {
-                        SphP[offset + n].nHeIII = READREAL(cp);
-                        SphP[offset + n].nHeI = 1.0 - SphP[offset + n].nHeII - SphP[offset + n].nHeIII;
-                        SphP[offset + n].n_elec +=
-                            (SphP[offset + n].nHeII + 2.0 * SphP[offset + n].nHeIII) * (1.0 -
+                        SPHP(offset + n).nHeIII = READREAL(cp);
+                        SPHP(offset + n).nHeI = 1.0 - SPHP(offset + n).nHeII - SPHP(offset + n).nHeIII;
+                        SPHP(offset + n).n_elec +=
+                            (SPHP(offset + n).nHeII + 2.0 * SPHP(offset + n).nHeIII) * (1.0 -
                                     HYDROGEN_MASSFRAC) / 4.0 /
                             HYDROGEN_MASSFRAC;
                     }
@@ -896,14 +896,14 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
         case IO_EULERA:
 #ifdef READ_EULER
             for(n = 0; n < pc; n++)
-                SphP[offset + n].EulerA = READREAL(cp);
+                SPHP(offset + n).EulerA = READREAL(cp);
 #endif
             break;
 
         case IO_EULERB:
 #ifdef READ_EULER
             for(n = 0; n < pc; n++)
-                SphP[offset + n].EulerB = READREAL(cp);
+                SPHP(offset + n).EulerB = READREAL(cp);
 #endif
             break;
 
@@ -912,9 +912,9 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
             for(n = 0; n < pc; n++)
                 for(k = 0; k < 3; k++)
                 {
-                    SphP[offset + n].APred[k] = READREAL(cp);
-                    SphP[offset + n].SmoothA[k] = SphP[offset + n].APred[k];
-                    SphP[offset + n].A[k] = SphP[offset + n].APred[k];
+                    SPHP(offset + n).APred[k] = READREAL(cp);
+                    SPHP(offset + n).SmoothA[k] = SPHP(offset + n).APred[k];
+                    SPHP(offset + n).A[k] = SPHP(offset + n).APred[k];
                 }
 #endif
             break;
@@ -923,7 +923,7 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 #ifdef CHEMCOOL
             for(n = 0; n < pc; n++)
                 for(k = 0; k < TRAC_NUM; k++)
-                    SphP[offset + n].TracAbund[k] = READREAL(cp);
+                    SPHP(offset + n).TracAbund[k] = READREAL(cp);
 #endif
             break;
 
@@ -1624,8 +1624,8 @@ void read_file(char *fname, int readTask, int lastTask)
 
         for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
         {
-            SphP[i].CR_C0[CRpop] = 0.0;
-            SphP[i].CR_q0[CRpop] = 1.0e10;
+            SPHP(i).CR_C0[CRpop] = 0.0;
+            SPHP(i).CR_q0[CRpop] = 1.0e10;
         }
     }
 #endif
