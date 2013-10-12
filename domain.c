@@ -1102,17 +1102,13 @@ static int domain_layoutfunc(int n) {
     if(GrNr >= 0 && P[n].GrNr != GrNr)
         return ThisTask;
 #endif
-    if(P[n].Type & 32)
-    {
-        no = 0;
+    no = 0;
 
-        while(topNodes[no].Daughter >= 0)
-            no = topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
+    while(topNodes[no].Daughter >= 0)
+        no = topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
 
-        no = topNodes[no].Leaf;
-        return DomainTask[no];
-    }
-    return ThisTask;
+    no = topNodes[no].Leaf;
+    return DomainTask[no];
 }
 
 static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
@@ -1133,6 +1129,7 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
 
     for(n = 0; n < NumPart && package < nlimit; n++)
     {
+        if(!(P[n].Type & 32)) continue;
         target = layoutfunc(n);
         if (target == ThisTask) continue;
 
