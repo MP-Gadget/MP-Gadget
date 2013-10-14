@@ -1103,9 +1103,9 @@ static int domain_layoutfunc(int n) {
         return ThisTask;
 #endif
     no = 0;
-
+    peanokey key = KEY(n);
     while(topNodes[no].Daughter >= 0)
-        no = topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
+        no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size / 8);
 
     no = topNodes[no].Leaf;
     return DomainTask[no];
@@ -1847,9 +1847,9 @@ void domain_sumCost(void)
 #endif
 
         no = 0;
-
+        peanokey key = KEY(n);
         while(topNodes[no].Daughter >= 0)
-            no = topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
+            no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
 
         no = topNodes[no].Leaf;
 
