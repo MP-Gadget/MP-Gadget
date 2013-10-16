@@ -74,7 +74,7 @@ static void domain_add_cost(struct local_topnode_data *treeA, int noA, long long
 
 static int domain_layoutfunc(int n);
 static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p));
-static void domain_exchange_once(void);
+static void domain_exchange_once(int (*layoutfunc)(int p) );
 
 
 static float *domainWork;	/*!< a table that gives the total "work" due to the particles stored by each processor */
@@ -515,11 +515,18 @@ int domain_decompose(void)
 #endif
     }
 
-    domain_exchange(domain_layoutfunc);
+    domain_exchange(domain_layoutfunc, 0);
     return 0;
 }
 
-void domain_exchange(int (*layoutfunc)(int p)) {
+/* if onlyparticledata is 1, 
+ * exchange only the particle data.
+ * SPH/BH properties are not exchanged.
+ *
+ * usually onlyparticledata is 0. subfind use 1.
+ * */
+
+void domain_exchange(int (*layoutfunc)(int p), int onlyparticledata) {
     int i, target;
     long long sumtogo;
     /* flag the particles that need to be exported */
@@ -566,7 +573,7 @@ void domain_exchange(int (*layoutfunc)(int p)) {
             fflush(stdout);
         }
 
-        domain_exchange_once();
+        domain_exchange_once(layoutfunc);
         iter++;
     }
     while(ret > 0);
@@ -655,7 +662,7 @@ int domain_check_memory_bound(void)
     return 0;
 }
 
-static void domain_exchange_once(void)
+static void domain_exchange_once(int (*layoutfunc)(int p))
 {
     int count_togo = 0, count_togo_sph = 0, count_get = 0, count_get_sph = 0;
     int *count, *count_sph, *offset, *offset_sph;
@@ -710,14 +717,7 @@ static void domain_exchange_once(void)
         {
             P[n].Type &= 15;
 
-            no = 0;
-
-            while(topNodes[no].Daughter >= 0)
-                no = topNodes[no].Daughter + (KEY(n) - topNodes[no].StartKey) / (topNodes[no].Size / 8);
-
-            no = topNodes[no].Leaf;
-
-            target = DomainTask[no];
+            target = layoutfunc(n);
 
             if(P[n].Type == 0)
             {

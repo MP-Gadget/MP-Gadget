@@ -277,7 +277,8 @@ void subfind(int num)
 
     for(i = 0; i < NumPart; i++)
     {
-        P[i].origintask2 = ThisTask;
+        /* save origintask to origintask2, to recover after collective subfind*/
+        P[i].origintask2 = P[i].origintask = ThisTask;
 
         if(P[i].GrNr > Ncollective && P[i].GrNr <= TotNgroups)	/* particle is in small group */
             P[i].targettask = (P[i].GrNr - 1) % NTask;
@@ -286,7 +287,8 @@ void subfind(int num)
     }
 
     /* 0 is to distribute particles*/
-    subfind_exchange();		/* distributes gas particles as well if needed */
+    subfind_exchange(0, 0);		/* distributes gas particles as well if needed */
+
 
     t1 = second();
     if(ThisTask == 0)
@@ -330,12 +332,6 @@ void subfind(int num)
         printf("stage 1 ended\n");
     endrun(0);
 #endif
-
-    for(i = 0; i < NumPart; i++)
-    {
-        P[i].origindex = i;
-        P[i].origintask = ThisTask;
-    }
 
     t0 = second();
     qsort(P, NumPart, sizeof(struct particle_data), subfind_compare_P_GrNr_DM_Density);
@@ -415,11 +411,13 @@ void subfind(int num)
 
     t0 = second();
 
+    /* recover origin task (tainted by collective) */
+
     for(i = 0; i < NumPart; i++)
-        P[i].targettask = P[i].origintask2;
+        P[i].origintask = P[i].origintask2;
 
     /* 1 is to return to the original cpu*/
-    subfind_exchange();		/* distributes gas particles as well if needed */
+    subfind_exchange(1, 0);		/* distributes gas particles as well if needed */
 
     t1 = second();
     if(ThisTask == 0)
