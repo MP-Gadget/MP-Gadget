@@ -513,7 +513,7 @@ void subfind_process_group_collectively(int num)
 	}
 
       t0 = second();
-      subfind_distribute_particles(1);	/* assemble the particles on individual processors */
+      subfind_exchange(0, 1); /* assemble the particles on individual processors */
       t1 = second();
 
       if(ThisTask == 0)
@@ -544,7 +544,7 @@ void subfind_process_group_collectively(int num)
 	P[i].origintask &= (HIGHBIT - 1);	/* clear high bit if set */
 
       t0 = second();
-      subfind_distribute_particles(2);	/* bring them back to their original processor */
+      subfind_exchange(1, 1);    /* bring them back to their original processor */
       t1 = second();
 
 

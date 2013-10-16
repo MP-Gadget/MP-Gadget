@@ -242,7 +242,7 @@ void density(void)
             Left[i] = Right[i] = 0;
 
 #ifdef BLACK_HOLES
-            P[i].BH.SwallowID = 0;
+            BHP(i).SwallowID = 0;
 #endif
 #if defined(BLACK_HOLES) && defined(FLTROUNDOFFREDUCTION)
             if(P[i].Type == 0)
@@ -912,13 +912,13 @@ void density(void)
 #ifdef BLACK_HOLES
                 if(P[i].Type == 5)
                 {
-                    if(P[i].BH.Density > 0)
+                    if(BHP(i).Density > 0)
                     {
-                        P[i].BH.EntOrPressure /= P[i].BH.Density;
+                        BHP(i).EntOrPressure /= BHP(i).Density;
 #ifdef BH_USE_GASVEL_IN_BONDI
-                        P[i].BH.SurroundingGasVel[0] /= P[i].BH.Density;
-                        P[i].BH.SurroundingGasVel[1] /= P[i].BH.Density;
-                        P[i].BH.SurroundingGasVel[2] /= P[i].BH.Density;
+                        BHP(i).SurroundingGasVel[0] /= BHP(i).Density;
+                        BHP(i).SurroundingGasVel[1] /= BHP(i).Density;
+                        BHP(i).SurroundingGasVel[2] /= BHP(i).Density;
 #endif
                     }
                 }

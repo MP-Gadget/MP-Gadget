@@ -64,10 +64,10 @@ void reconstruct_timebins(void)
         }
         if(P[i].Type == 5)
         {
-            TimeBin_BH_mass[bin] += P[i].BH.Mass;
+            TimeBin_BH_mass[bin] += BHP(i).Mass;
             TimeBin_BH_dynamicalmass[bin] += P[i].Mass;
-            TimeBin_BH_Mdot[bin] += P[i].BH.Mdot;
-            TimeBin_BH_Medd[bin] += P[i].BH.Mdot / P[i].BH.Mass;
+            TimeBin_BH_Mdot[bin] += BHP(i).Mdot;
+            TimeBin_BH_Medd[bin] += BHP(i).Mdot / BHP(i).Mass;
         }
 #endif
     }
