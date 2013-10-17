@@ -1106,13 +1106,13 @@ OBJS  =  \
 	 gravtree.o hydra.o  driftfac.o darkenergy.o \
 	 potential.o  forcetree.o  peano.o gravtree_forcetest.o parallel_sort_special.o \
 	 pm_periodic.o pm_nonperiodic.o longrange.o mymalloc.o \
-	 machfinder.o b_from_rot_a.o smooth_simple.o \
+	 b_from_rot_a.o smooth_simple.o \
        phasespace.o phasespace_math.o  \
 	   densitykernel.o \
 	 ImfLib/libimf.o ImfLib/libimf_vars.o 
 
-INCL   = allvars.h proto.h forcetree.h cooling.h domain.h  cosmic_rays.h chemistry.h \
-	 machfinder.h subfind.h dd.h fof.h eos.h myqsort.h network.h network_solver.h chemcool_consts.h Makefile \
+INCL   = allvars.h proto.h forcetree.h cooling.h domain.h chemistry.h \
+	 subfind.h dd.h fof.h eos.h myqsort.h network.h network_solver.h chemcool_consts.h Makefile \
 
 ifeq (CHEMCOOL,$(findstring CHEMCOOL,$(OPT)))
 
