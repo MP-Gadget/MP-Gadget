@@ -1054,8 +1054,10 @@ int get_timestep(int p,		/*!< particle index */
             if(dt_accr < dt)
                 dt = dt_accr;
         }
-        dt_limiter = 0.5 * (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / hubble_a;
-        if (dt_limiter < dt) dt = dt_limiter;
+        if(BHP(p).TimeBinLimit >= 0) {
+            dt_limiter = 0.5 * (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / hubble_a;
+            if (dt_limiter < dt) dt = dt_limiter;
+        }
     }
 #endif
 
@@ -1150,25 +1152,12 @@ int get_timestep(int p,		/*!< particle index */
 
     ti_step = (int) (dt / All.Timebase_interval);
 
-#if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
-    if(ti_step == 0)
-    {
-        printf("\nError: A timestep of size zero was assigned on the integer timeline!\n"
-                "We better stop.\n"
-                "Task=%d Part-ID=%llu dt=%g dt_elec=%g dt_cool=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g)\n\n",
-                ThisTask, P[p].ID, dt, SPHP(p).t_elec, SPHP(p).t_cool, All.Timebase_interval, ti_step, ac,
-                P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
-        fflush(stdout);
-        //endrun(818);
-    }
-#endif
-
     if(!(ti_step > 1 && ti_step < TIMEBASE))
     {
         printf("\nError: A timestep of size zero was assigned on the integer timeline!\n"
                 "We better stop.\n"
-                "Task=%d Part-ID=%llu dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
-                ThisTask, (MyIDType)P[p].ID, dt, dt_courant, dt_viscous, dt_displacement,
+                "Task=%d type %d Part-ID=%llu dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
+                ThisTask, P[p].Type, (MyIDType)P[p].ID, dt, dt_courant, dt_viscous, dt_displacement,
                 All.Timebase_interval, ti_step, ac,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].g.GravAccel[0], P[p].g.GravAccel[1],
                 P[p].g.GravAccel[2],
