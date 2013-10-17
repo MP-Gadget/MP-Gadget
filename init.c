@@ -1226,8 +1226,10 @@ void setup_smoothinglengths(void)
     if(RestartFlag == 0 || RestartFlag == 2)
     {
         for(i = 0; i < NumPart; i++)
-            if(P[i].Type == 5)
+            if(P[i].Type == 5) {
                 P[i].Hsml = All.SofteningTable[5];
+                BHP(i).TimeBinLimit = -1;
+            }
     }
 #endif
 
