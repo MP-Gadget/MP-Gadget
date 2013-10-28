@@ -659,14 +659,14 @@ void density(void)
 #ifdef BLACK_HOLES
                 if(P[place].Type == 5)
                 {
-                    P[place].BH.TimeBinLimit = IMIN(P[place].BH.TimeBinLimit, DensDataOut[j].BH_TimeBinLimit);
-                    P[place].BH.Density += DensDataOut[j].Rho;
-                    P[place].BH.FeedbackWeightSum += DensDataOut[j].FeedbackWeightSum;
-                    P[place].BH.EntOrPressure += DensDataOut[j].SmoothedEntOrPressure;
+                    BHP(place).TimeBinLimit = IMIN(BHP(place).TimeBinLimit, DensDataOut[j].BH_TimeBinLimit);
+                    BHP(place).Density += DensDataOut[j].Rho;
+                    BHP(place).FeedbackWeightSum += DensDataOut[j].FeedbackWeightSum;
+                    BHP(place).EntOrPressure += DensDataOut[j].SmoothedEntOrPressure;
 #ifdef BH_USE_GASVEL_IN_BONDI
-                    P[place].BH.SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
-                    P[place].BH.SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
-                    P[place].BH.SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
+                    BHP(place).SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
+                    BHP(place).SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
+                    BHP(place).SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
 #endif
                 }
 #endif
@@ -1693,14 +1693,14 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
         }
 #ifdef BLACK_HOLES
-        P[target].BH.Density = rho;
-        P[target].BH.TimeBinLimit = timebin_min;
-        P[target].BH.FeedbackWeightSum = fb_weight_sum;
-        P[target].BH.EntOrPressure = smoothent_or_pres;
+        BHP(target).Density = rho;
+        BHP(target).TimeBinLimit = timebin_min;
+        BHP(target).FeedbackWeightSum = fb_weight_sum;
+        BHP(target).EntOrPressure = smoothent_or_pres;
 #ifdef BH_USE_GASVEL_IN_BONDI
-        P[target].BH.SurroundingGasVel[0] = gasvel[0];
-        P[target].BH.SurroundingGasVel[1] = gasvel[1];
-        P[target].BH.SurroundingGasVel[2] = gasvel[2];
+        BHP(target).SurroundingGasVel[0] = gasvel[0];
+        BHP(target).SurroundingGasVel[1] = gasvel[1];
+        BHP(target).SurroundingGasVel[2] = gasvel[2];
 #endif
 #endif
 #if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)

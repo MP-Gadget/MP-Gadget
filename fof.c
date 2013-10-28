@@ -1079,8 +1079,8 @@ void fof_compute_group_properties(int gr, int start, int len)
 #ifdef BLACK_HOLES
       if(P[index].Type == 5)
 	{
-	  Group[gr].BH_Mdot += P[index].BH.Mdot;
-	  Group[gr].BH_Mass += P[index].BH.Mass;
+	  Group[gr].BH_Mdot += BHP(index).Mdot;
+	  Group[gr].BH_Mass += BHP(index).Mass;
 	}
       if(P[index].Type == 0)
 	{
@@ -2030,18 +2030,18 @@ void fof_make_black_holes(void)
 #ifdef STELLARAGE
       P[import_indices[n]].StellarAge = All.Time;
 #endif
-      P[import_indices[n]].BH.Mass = All.SeedBlackHoleMass;
-      P[import_indices[n]].BH.Mdot = 0;
+      BHP(import_indices[n]).Mass = All.SeedBlackHoleMass;
+      BHP(import_indices[n]).Mdot = 0;
 
 #ifdef BH_COUNTPROGS
-      P[import_indices[n]].BH.CountProgs = 1;
+      BHP(import_indices[n]).CountProgs = 1;
 #endif
 
 #ifdef BH_BUBBLES
-      P[import_indices[n]].BH.Mass_bubbles = All.SeedBlackHoleMass;
-      P[import_indices[n]].BH.Mass_ini = All.SeedBlackHoleMass;
+      BHP(import_indices[n]).Mass_bubbles = All.SeedBlackHoleMass;
+      BHP(import_indices[n]).Mass_ini = All.SeedBlackHoleMass;
 #ifdef UNIFIED_FEEDBACK
-      P[import_indices[n]].BH.Mass_radio = All.SeedBlackHoleMass;
+      BHP(import_indices[n]).Mass_radio = All.SeedBlackHoleMass;
 #endif
 #endif
 
