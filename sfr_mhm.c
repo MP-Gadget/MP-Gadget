@@ -37,7 +37,7 @@ void cooling_and_starformation(void)	/* cooling routine when star formation is e
 
   for(bits = 0; GENERATIONS > (1 << bits); bits++);
 
-  for(i = 0; i < N_gas; i++)
+  for(i = 0; i < N_sph; i++)
     {
       if(P[i].Type == 0)
 	if(P[i].Ti_endstep == All.Ti_Current)
@@ -143,15 +143,15 @@ void cooling_and_starformation(void)	/* cooling routine when star formation is e
 
 
       All.TotNumPart += tot_spawned;
-      All.TotN_gas -= tot_converted;
+      All.TotN_sph -= tot_converted;
       NumPart += stars_spawned;
       NumForceUpdate += stars_spawned;
 
-      /* Note: N_gas is only reduced once rearrange_particle_sequence is called */
+      /* Note: N_sph is only reduced once rearrange_particle_sequence is called */
       /* Note: New tree construction can be avoided because of  `force_add_star_to_tree()' */
     }
 
-  for(i = 0, sfrrate = 0; i < N_gas; i++)
+  for(i = 0, sfrrate = 0; i < N_sph; i++)
     if(P[i].Type == 0)
       sfrrate += SPHP(i).Sfr;
 

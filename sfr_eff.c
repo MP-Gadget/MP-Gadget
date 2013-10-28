@@ -627,10 +627,10 @@ void cooling_and_starformation(void)
 
 
         All.TotNumPart += tot_spawned;
-        All.TotN_gas -= tot_converted;
+        All.TotN_sph -= tot_converted;
         NumPart += stars_spawned;
 
-        /* Note: N_gas is only reduced once rearrange_particle_sequence is called */
+        /* Note: N_sph is only reduced once rearrange_particle_sequence is called */
 
         /* Note: New tree construction can be avoided because of  `force_add_star_to_tree()' */
     }
@@ -1065,100 +1065,4 @@ void set_units_sfr(void)
 #endif /* closes SFR */
 
 #endif /* closes COOLING */
-
-#if defined(SFR) || defined(BLACK_HOLES)
-void rearrange_particle_sequence(void)
-{
-    int i, j, flag = 0, flag_sum;
-    struct particle_data psave;
-
-#ifdef BLACK_HOLES
-    int count_elim, count_gaselim, tot_elim, tot_gaselim;
-#endif
-
-#ifdef SFR
-    if(Stars_converted)
-    {
-        N_gas -= Stars_converted;
-        Stars_converted = 0;
-
-        for(i = 0; i < N_gas; i++)
-            if(P[i].Type != 0)
-            {
-                for(j = N_gas; j < NumPart; j++)
-                    if(P[j].Type == 0)
-                        break;
-
-                if(j >= NumPart)
-                    endrun(181170);
-
-                psave = P[i];
-                P[i] = P[j];
-                SPHP(i) = SPHP(j);
-                P[j] = psave;
-            }
-        flag = 1;
-    }
-#endif
-
-#ifdef BLACK_HOLES
-    count_elim = 0;
-    count_gaselim = 0;
-
-    for(i = 0; i < NumPart; i++)
-        if(P[i].Mass == 0)
-        {
-            TimeBinCount[P[i].TimeBin]--;
-
-            if(TimeBinActive[P[i].TimeBin])
-                NumForceUpdate--;
-
-            if(P[i].Type == 0)
-            {
-                TimeBinCountSph[P[i].TimeBin]--;
-
-                P[i] = P[N_gas - 1];
-                SPHP(i) = SPHP(N_gas - 1);
-
-                P[N_gas - 1] = P[NumPart - 1];
-
-                N_gas--;
-
-                count_gaselim++;
-            }
-            else
-            {
-                P[i] = P[NumPart - 1];
-            }
-
-            NumPart--;
-            i--;
-
-            count_elim++;
-        }
-
-    MPI_Allreduce(&count_elim, &tot_elim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&count_gaselim, &tot_gaselim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    if(count_elim)
-        flag = 1;
-
-    if(ThisTask == 0)
-    {
-        printf("Blackholes: Eliminated %d gas particles and merged away %d black holes.\n",
-                tot_gaselim, tot_elim - tot_gaselim);
-        fflush(stdout);
-    }
-
-    All.TotNumPart -= tot_elim;
-    All.TotN_gas -= tot_gaselim;
-    All.TotBHs -= tot_elim - tot_gaselim;
-#endif
-
-    MPI_Allreduce(&flag, &flag_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    if(flag_sum)
-        reconstruct_timebins();
-}
-#endif /* closing of SFR-conditional */
 

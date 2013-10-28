@@ -45,7 +45,7 @@ void begrun(void)
         printf("\nRunning on %d processors.\n", NTask);
         printf("\nCode was compiled with settings:\n %s\n", COMPILETIMESETTINGS);
         printf("\nSize of particle structure       %d  [bytes]\n",sizeof(struct particle_data));
-        printf("\nSize of blackhole structure       %d  [bytes]\n",sizeof(struct blackhole_data));
+        printf("\nSize of blackhole structure       %d  [bytes]\n",sizeof(struct bh_particle_data));
         printf("\nSize of sph particle structure   %d  [bytes]\n",sizeof(struct sph_particle_data));
     }
 

@@ -149,11 +149,11 @@ void find_particles_and_save_them(int num)
   FILE *fd = 0;
 
   countlist = mymalloc("countlist", sizeof(int) * NTask);
-  particles = mymalloc("particles", sizeof(struct line_of_sight_particles) * N_gas);
+  particles = mymalloc("particles", sizeof(struct line_of_sight_particles) * N_sph);
 
   a3inv = 1.0 / (All.Time * All.Time * All.Time);
 
-  for(n = 0, count_local = 0; n < N_gas; n++)
+  for(n = 0, count_local = 0; n < N_sph; n++)
     {
       if(P[n].Type == 0)
 	{
@@ -273,7 +273,7 @@ void add_along_lines_of_sight(void)
 
   a3inv = 1.0 / (All.Time * All.Time * All.Time);
 
-  for(n = 0; n < N_gas; n++)
+  for(n = 0; n < N_sph; n++)
     {
       if(P[n].Type == 0)
 	{

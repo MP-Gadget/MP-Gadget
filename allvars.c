@@ -128,8 +128,9 @@ int TreeReconstructFlag;
 int GlobFlag;
 
 
-int NumPart;			/*!< number of particles on the LOCAL processor */
-int N_gas;			/*!< number of gas particles on the LOCAL processor  */
+int NumPart;			/*!< total number of particles on the LOCAL processor */
+int N_sph;			/*!< number of gas particles on the LOCAL processor  */
+int N_bh;			/*!< number of bh particles on the LOCAL processor  */
 
 #ifdef SINKS
 int NumSinks;
@@ -269,6 +270,7 @@ struct particle_data *P;	/*!< holds particle data on local processor */
  * variables.
  */
 struct sph_particle_data * SphP;	/*!< holds SPH particle data on local processor */
+struct bh_particle_data * BhP;	/*!< holds BH particle data on local processor */
 
 /* global state of system
 */

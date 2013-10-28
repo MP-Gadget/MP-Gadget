@@ -282,7 +282,7 @@ void do_sinks(void)
 	    cm_array[i][j] = mom_array[i][j] = 0;
 	}
 
-      for(i = num_acc = 0; i < N_gas; i++)
+      for(i = num_acc = 0; i < N_sph; i++)
 	if(TimeBinActive[P[i].TimeBin])
 	  {
 	    iter = min_alpha = semimajor_axis = 0;
@@ -360,10 +360,10 @@ void do_sinks(void)
 		    mom_array[index][j] += P[i].Mass * P[i].Vel[j];
 		  }
 
-		P[i] = P[N_gas - 1];
-		SPHP(i) = SPHP(N_gas - 1);
+		P[i] = P[N_sph - 1];
+		SPHP(i) = SPHP(N_sph - 1);
 
-		N_gas--;
+		N_sph--;
 		NumPart--;
 		NumForceUpdate--;
 
@@ -371,8 +371,8 @@ void do_sinks(void)
 	      }
 	  }
 
-      if(num_acc > 0 && NumPart - N_gas > 0)
-	memmove(P + N_gas, P + N_gas + num_acc, (NumPart - N_gas) * sizeof(struct particle_data));
+      if(num_acc > 0 && NumPart - N_sph > 0)
+	memmove(P + N_sph, P + N_sph + num_acc, (NumPart - N_sph) * sizeof(struct particle_data));
 
       MPI_Allreduce(&num_acc, &num_acc_glob, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -406,7 +406,7 @@ void do_sinks(void)
 		}
 	    }
 
-	  All.TotN_gas -= num_acc_glob;
+	  All.TotN_sph -= num_acc_glob;
 	  All.TotNumPart -= num_acc_glob;
 	  GlobNumForceUpdate -= num_acc_glob;
 	}
@@ -418,7 +418,7 @@ void do_sinks(void)
 
   /* Sink Creation */
 
-  for(i = local.nh_max = sink_index = 0; i < N_gas; i++)
+  for(i = local.nh_max = sink_index = 0; i < N_sph; i++)
     if(TimeBinActive[P[i].TimeBin])
       {
 	for(j = iter = r2_min = 0; j < All.TotNumSinks; j++)
@@ -460,7 +460,7 @@ void do_sinks(void)
 
       MPI_Bcast(sink_pos, 3, MPI_DOUBLE, global.task, MPI_COMM_WORLD);
 
-      for(i = count = 0; i < N_gas; i++)
+      for(i = count = 0; i < N_sph; i++)
 	{
 	  dx = NGB_PERIODIC_LONG_X(P[i].Pos[0] - sink_pos[0]);
 	  dy = NGB_PERIODIC_LONG_Y(P[i].Pos[1] - sink_pos[1]);
@@ -495,7 +495,7 @@ void do_sinks(void)
 	      prev_list_bytes[i] = prev_list[i] * sizeof(struct sink_list);
 	    }
 
-	  for(i = 0, index = prev_list[ThisTask]; i < N_gas; i++)
+	  for(i = 0, index = prev_list[ThisTask]; i < N_sph; i++)
 	    {
 	      dx = NGB_PERIODIC_LONG_X(P[i].Pos[0] - sink_pos[0]);
 	      dy = NGB_PERIODIC_LONG_Y(P[i].Pos[1] - sink_pos[1]);
@@ -628,7 +628,7 @@ void do_sinks(void)
 	  if(e_grav > (2 * e_therm + e_mag) && e_grav > e_kin + e_therm + e_mag && divv < 0)		  
 #endif	
     {
-	      for(i = num_acc = numforceupdate = 0; i < N_gas; i++)
+	      for(i = num_acc = numforceupdate = 0; i < N_sph; i++)
 		{
 		  dx = NGB_PERIODIC_LONG_X(P[i].Pos[0] - sink_pos[0]);
 		  dy = NGB_PERIODIC_LONG_Y(P[i].Pos[1] - sink_pos[1]);
@@ -653,21 +653,21 @@ void do_sinks(void)
 			  psave = P[i];
 			}
 
-		      P[i] = P[N_gas - 1];
-		      SPHP(i) = SPHP(N_gas - 1);
+		      P[i] = P[N_sph - 1];
+		      SPHP(i) = SPHP(N_sph - 1);
 
-		      if(ThisTask == global.task && N_gas - 1 == sink_index)
+		      if(ThisTask == global.task && N_sph - 1 == sink_index)
 			sink_index = i;
 
-		      N_gas--;
+		      N_sph--;
 		      NumPart--;
 
 		      i--;
 		    }
 		}
 
-	      if(num_acc > 0 && NumPart - N_gas > 0)
-		memmove(P + N_gas, P + N_gas + num_acc, (NumPart - N_gas) * sizeof(struct particle_data));
+	      if(num_acc > 0 && NumPart - N_sph > 0)
+		memmove(P + N_sph, P + N_sph + num_acc, (NumPart - N_sph) * sizeof(struct particle_data));
 
 	      MPI_Allreduce(&num_acc, &num_acc_glob, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -675,7 +675,7 @@ void do_sinks(void)
 		{
 		  MPI_Allreduce(&numforceupdate, &globnumforceupdate, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-		  All.TotN_gas -= num_acc_glob;
+		  All.TotN_sph -= num_acc_glob;
 		  All.TotNumPart -= num_acc_glob;
 		  GlobNumForceUpdate -= globnumforceupdate;
 

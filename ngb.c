@@ -677,7 +677,7 @@ void ngb_treebuild(void)
   CPU_Step[CPU_MISC] += measure_time();
 
 #ifdef DENSITY_INDEPENDENT_SPH_DEBUG
-  force_treebuild(N_gas, NULL);
+  force_treebuild(N_sph, NULL);
 #else
   force_treebuild(NumPart, NULL);
 #endif

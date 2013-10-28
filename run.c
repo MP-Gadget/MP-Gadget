@@ -200,8 +200,8 @@ void run(void)
 #endif
 
         printf("\nx=%g, y=%g, z=%g, vx=%g, vy=%g, vz=%g, density=%g, entropy=%g\n",
-                P[N_gas - 1].Pos[0], P[N_gas - 1].Pos[1], P[N_gas - 1].Pos[2], P[N_gas - 1].Vel[0],
-                P[N_gas - 1].Vel[1], P[N_gas - 1].Vel[2], SPHP(N_gas - 1).d.Density, SPHP(N_gas - 1).Entropy);
+                P[N_sph - 1].Pos[0], P[N_sph - 1].Pos[1], P[N_sph - 1].Pos[2], P[N_sph - 1].Vel[0],
+                P[N_sph - 1].Vel[1], P[N_sph - 1].Vel[2], SPHP(N_sph - 1).d.Density, SPHP(N_sph - 1).Entropy);
     }
 
 #endif
@@ -273,7 +273,7 @@ void find_next_sync_point_and_drift(void)
     else
         a3inv = hubble_param2 = 1.0;
 
-    for(i = 0, nh_max = 0; i < N_gas; i++)
+    for(i = 0, nh_max = 0; i < N_sph; i++)
     {
         nh = HYDROGEN_MASSFRAC * SPHP(i).d.Density * All.UnitDensity_in_cgs * a3inv * hubble_param2 / PROTONMASS;
 

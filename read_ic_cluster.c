@@ -179,7 +179,7 @@ void read_ic_cluster(char *fname)
 
       printf("file contains %d HR and %d LR particles.\n", nhr, nlr);
 
-      All.TotN_gas = 0;
+      All.TotN_sph = 0;
       All.TotNumPart = nhr + nlr;
 
       printf("\nN_sph: %d\nN_halo: %d\nN_disk: %d\n\n", 0, nhr, nlr);
@@ -475,8 +475,8 @@ void read_ic_cluster(char *fname)
 	     counttype_bulge + counttype_disk);
 
       printf("\n");
-      printf("Collisionless particles   :  %d\n", (int) (All.TotNumPart - All.TotN_gas));
-      printf("Baryonic particles        :  %d\n", (int) All.TotN_gas);
+      printf("Collisionless particles   :  %d\n", (int) (All.TotNumPart - All.TotN_sph));
+      printf("Baryonic particles        :  %d\n", (int) All.TotN_sph);
       printf("                             ---------\n");
       printf("Total number of particles :  %d\n\n", (int) All.TotNumPart);
     }

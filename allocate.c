@@ -84,4 +84,23 @@ void allocate_memory(void)
             printf("Allocated %g MByte for storage of SPH data.\n\n", bytes_tot / (1024.0 * 1024.0));
 
     }
+
+    if(All.MaxPartBh > 0)
+    {
+        bytes_tot = 0;
+
+        if(!
+                (BhP =
+                 (struct bh_particle_data *) mymalloc("BhP", bytes =
+                     All.MaxPartBh * sizeof(struct bh_particle_data))))
+        {
+            printf("failed to allocate memory for `BhP' (%g MB).\n", bytes / (1024.0 * 1024.0));
+            endrun(1);
+        }
+        bytes_tot += bytes;
+
+        if(ThisTask == 0)
+            printf("Allocated %g MByte for storage of BH data.\n\n", bytes_tot / (1024.0 * 1024.0));
+
+    }
 }

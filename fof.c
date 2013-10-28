@@ -125,7 +125,7 @@ void fof_fof(int num)
 
   read_subfind_ids();
 
-  if(All.TotN_gas > 0)
+  if(All.TotN_sph > 0)
     {
       if(ThisTask == 0)
 	printf("\nThe option SUBFIND_RESHUFFLE_CATALOGUE does not work with gas particles yet\n");
@@ -2019,13 +2019,14 @@ void fof_make_black_holes(void)
       fflush(stdout);
     }
 
-  All.TotBHs += ntot;
+  All.TotN_bh += ntot;
 
   for(n = 0; n < nimport; n++)
     {
       if(P[import_indices[n]].Type != 0)
 	endrun(7772);
 
+      N_bh ++;
       P[import_indices[n]].Type = 5;	/* make it a black hole particle */
 #ifdef STELLARAGE
       P[import_indices[n]].StellarAge = All.Time;
@@ -2049,10 +2050,9 @@ void fof_make_black_holes(void)
       Stars_converted++;
 #endif
       TimeBinCountSph[P[import_indices[n]].TimeBin]--;
-
     }
 
-  All.TotN_gas -= ntot;
+  All.TotN_sph -= ntot;
   myfree(export_indices);
   myfree(import_indices);
 }

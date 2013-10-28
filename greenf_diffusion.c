@@ -56,7 +56,7 @@ void greenf_diffusion(void)
 
       egysum = 0;
 
-      for(n = 0, NumSphUpdate = 0; n < N_gas; n++)
+      for(n = 0, NumSphUpdate = 0; n < N_sph; n++)
 	{
 	  if(P[n].Type == 0)
 	    {
@@ -385,7 +385,7 @@ void greenf_diffusion(void)
 
       egysum = 0;
 
-      for(n = 0; n < N_gas; n++)
+      for(n = 0; n < N_sph; n++)
 	{
 	  if(P[n].Type == 0)
 	    {

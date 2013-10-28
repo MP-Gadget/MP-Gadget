@@ -41,7 +41,7 @@ void kinetic_feedback_mhm(void)
   nsend = mymalloc("nsend", sizeof(int) * NTask * NTask);
   ndonelist = mymalloc("ndonelist", sizeof(int) * NTask);
 
-  for(n = 0, NumSphUpdate = 0; n < N_gas; n++)
+  for(n = 0, NumSphUpdate = 0; n < N_sph; n++)
     {
       if(P[n].Type == 0)
 	{
@@ -68,7 +68,7 @@ void kinetic_feedback_mhm(void)
 
       /* do local particles and prepare export list */
 
-      for(nexport = 0, ndone = 0; i < N_gas && nexport < All.BunchSizeKinetic - NTask; i++)
+      for(nexport = 0, ndone = 0; i < N_sph && nexport < All.BunchSizeKinetic - NTask; i++)
 	if(P[i].Type == 0)
 	  if(P[i].Ti_endstep == All.Ti_Current)
 	    {

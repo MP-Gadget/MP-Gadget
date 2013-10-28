@@ -51,7 +51,8 @@ void read_ic(char *fname)
 #endif
 
     NumPart = 0;
-    N_gas = 0;
+    N_sph = 0;
+    N_bh = 0;
     All.TotNumPart = 0;
     num_files = find_files(fname);
 
@@ -144,157 +145,6 @@ void read_ic(char *fname)
         }
     }
 
-
-#ifdef GENERATE_GAS_IN_ICS
-    int count;
-    double fac, d, a, b, rho;
-#ifdef GENERATE_GAS_TG
-    int k, k1, k2, k3, N_prev = 0, N_gas_arr[NTask];
-    double x_start, y_start, z_start, ref_fac;
-#endif
-
-    if(RestartFlag == 0)
-    {
-        header.flag_entropy_instead_u = 0;
-
-        for(i = 0, count = 0; i < NumPart; i++)
-#ifdef SPLIT_PARTICLE_TYPE
-            if((1 << P[i].Type) & (SPLIT_PARTICLE_TYPE))
-#else
-                if(P[i].Type == 1)
-#endif
-                    count++;
-
-#ifdef GENERATE_GAS_TG
-        for(i = 0; i < NumPart; i++)
-            if(P[i].Type == 1)
-                count += pow(All.GenGasRefFac, 3) - 1;
-#endif
-
-        memmove(P + count, P, sizeof(struct particle_data) * NumPart);
-
-        NumPart += count;
-        N_gas += count;
-
-        if(N_gas > All.MaxPartSph)
-        {
-            printf("Task=%d ends up getting more SPH particles (%d) than allowed (%d)\n",
-                    ThisTask, N_gas, All.MaxPartSph);
-            endrun(111);
-        }
-
-#ifdef GENERATE_GAS_TG
-        MPI_Allgather(&N_gas, 1, MPI_INT, N_gas_arr, 1, MPI_INT, MPI_COMM_WORLD);
-
-        for(i = 0; i < ThisTask; i++)
-            N_prev += N_gas_arr[i];
-#endif
-
-        fac = All.OmegaBaryon / All.Omega0;
-        rho = All.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
-
-        int j;
-
-        for(i = count, j = 0; i < NumPart; i++)
-#ifdef SPLIT_PARTICLE_TYPE
-            if((1 << P[i].Type) & (SPLIT_PARTICLE_TYPE))
-#else
-                if(P[i].Type == 1)
-#endif
-                {
-                    d = pow(P[i].Mass / rho, 1.0 / 3);
-                    a = 0.5 * All.OmegaBaryon / All.Omega0 * d;
-                    b = 0.5 * (All.Omega0 - All.OmegaBaryon) / All.Omega0 * d;
-#ifdef GENERATE_GAS_TG
-                    if(P[i].Type == 1)
-                        ref_fac = All.GenGasRefFac;
-                    else
-                        ref_fac = 1;
-
-                    x_start = P[i].Pos[0] - b - d / 2.0 + d / (2.0 * ref_fac);
-                    y_start = P[i].Pos[1] - b - d / 2.0 + d / (2.0 * ref_fac);
-                    z_start = P[i].Pos[2] - b - d / 2.0 + d / (2.0 * ref_fac);
-
-                    for(k1 = 0; k1 < ref_fac; k1++)
-                        for(k2 = 0; k2 < ref_fac; k2++)
-                            for(k3 = 0; k3 < ref_fac; k3++)
-                            {
-                                k = j + k3 + ref_fac * (k2 + ref_fac * k1);
-
-                                P[k] = P[i];
-
-                                P[k].Mass *= fac / pow(ref_fac, 3);
-                                P[k].Type = 0;
-
-                                if(P[i].Type == 1)
-                                    P[k].ID = 1000000000 + N_prev + k;
-                                else
-                                    P[k].ID = 2000000000 + N_prev + k;
-
-                                P[k].Pos[0] = x_start + k1 * d / ref_fac;
-                                P[k].Pos[1] = y_start + k2 * d / ref_fac;
-                                P[k].Pos[2] = z_start + k3 * d / ref_fac;
-
-                                if(P[k].Pos[0] >= All.BoxSize)
-                                    P[k].Pos[0] -= All.BoxSize;
-
-                                if(P[k].Pos[1] >= All.BoxSize)
-                                    P[k].Pos[1] -= All.BoxSize;
-
-                                if(P[k].Pos[2] >= All.BoxSize)
-                                    P[k].Pos[2] -= All.BoxSize;
-                            }
-
-                    P[i].Mass *= (1 - fac);
-
-                    P[i].Pos[0] += a;
-                    P[i].Pos[1] += a;
-                    P[i].Pos[2] += a;
-
-                    if(P[i].Pos[0] >= All.BoxSize)
-                        P[i].Pos[0] -= All.BoxSize;
-
-                    if(P[i].Pos[1] >= All.BoxSize)
-                        P[i].Pos[1] -= All.BoxSize;
-
-                    if(P[i].Pos[2] >= All.BoxSize)
-                        P[i].Pos[2] -= All.BoxSize;
-
-                    j += pow(ref_fac, 3);
-#else
-                    P[j] = P[i];
-
-                    P[j].Mass *= fac;
-                    P[i].Mass *= (1 - fac);
-                    P[j].Type = 0;
-                    P[j].ID += 1000000000;
-
-                    P[i].Pos[0] += a;
-                    P[i].Pos[1] += a;
-                    P[i].Pos[2] += a;
-                    P[j].Pos[0] -= b;
-                    P[j].Pos[1] -= b;
-                    P[j].Pos[2] -= b;
-
-                    j++;
-#endif
-                }
-
-        All.MassTable[0] = 0;
-
-#ifdef SPLIT_PARTICLE_TYPE
-        for(i = 1; i < 6; i++)
-            if((1 << i) & (SPLIT_PARTICLE_TYPE))
-                All.MassTable[i] *= (1 - fac);
-#else
-        All.MassTable[1] *= (1 - fac);
-#endif
-
-    }
-#endif
-
-
-
 #if defined(BLACK_HOLES) && defined(SWALLOWGAS)
     if(RestartFlag == 0)
     {
@@ -327,7 +177,7 @@ void read_ic(char *fname)
 
 #ifdef NO_UTHERM_IN_IC_FILE
     if(RestartFlag == 0)
-        for(i = 0; i < N_gas; i++)
+        for(i = 0; i < N_sph; i++)
             SPHP(i).Entropy = 0;
 #endif
 
@@ -336,7 +186,7 @@ void read_ic(char *fname)
     {
         if(All.InitGasTemp > 0)
         {
-            for(i = 0; i < N_gas; i++)
+            for(i = 0; i < N_sph; i++)
             {
                 if(ThisTask == 0 && i == 0 && SPHP(i).Entropy == 0)
                     printf("Initializing u from InitGasTemp !\n");
@@ -350,11 +200,11 @@ void read_ic(char *fname)
         }
     }
 
-    for(i = 0; i < N_gas; i++)
+    for(i = 0; i < N_sph; i++)
         SPHP(i).Entropy = DMAX(All.MinEgySpec, SPHP(i).Entropy);
 
 #ifdef EOS_DEGENERATE
-    for(i = 0; i < N_gas; i++)
+    for(i = 0; i < N_sph; i++)
         SPHP(i).u = 0;
 #endif
 
@@ -420,8 +270,19 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
                 for(k = 0; k < 3; k++)
                     P[offset + n].Pos[k] = READREAL(cp);
 
-            for(n = 0; n < pc; n++)
+            for(n = 0; n < pc; n++) {
                 P[offset + n].Type = type;	/* initialize type here as well */
+                if(type == 5)
+                    P[offset + n].PI = N_bh + n;
+            }
+            /* and also increase the particle counts */
+            NumPart += pc;
+            if(type == 0) {
+                N_sph += pc;
+            }
+            if(type == 5) {
+                N_bh += pc;
+            }
             break;
 
         case IO_VEL:		/* velocities */
@@ -439,11 +300,13 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
             break;
 
         case IO_ID:		/* particle ID */
-            for(n = 0; n < pc; n++)
+            for(n = 0; n < pc; n++) {
                 if(bytes_per_blockelement == 8) 
                     P[offset + n].ID = *ip++;
                 if(bytes_per_blockelement == 4) 
                     P[offset + n].ID = *i32p++;
+                BhP[P[offset +n].PI].ID = P[offset + n].ID;
+            } 
             break;
 
         case IO_MASS:		/* particle mass */
@@ -992,7 +855,7 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 void read_file(char *fname, int readTask, int lastTask)
 {
     size_t blockmaxlen;
-    int i, n_in_file, n_for_this_task, ntask, pc, offset = 0, task;
+    int i, n_in_file, n_for_this_task[6], ntask, pc, offset = 0, task;
     int blksize1, blksize2;
     MPI_Status status;
     FILE *fd = 0;
@@ -1117,7 +980,8 @@ void read_file(char *fname, int readTask, int lastTask)
 #endif
             }
 
-        All.TotN_gas = header.npartTotal[0] + (((long long) header.npartTotalHighWord[0]) << 32);
+        All.TotN_sph = header.npartTotal[0] + (((long long) header.npartTotalHighWord[0]) << 32);
+        All.TotN_bh = header.npartTotal[5] + (((long long) header.npartTotalHighWord[5]) << 32);
 
         for(i = 0, All.TotNumPart = 0; i < 6; i++)
         {
@@ -1129,40 +993,13 @@ void read_file(char *fname, int readTask, int lastTask)
         All.TotNumNeutrinos = header.npartTotal[2] + (((long long) header.npartTotalHighWord[2]) << 32);
 #endif
 
-
-#ifdef GENERATE_GAS_IN_ICS
-        if(RestartFlag == 0)
-        {
-#ifdef SPLIT_PARTICLE_TYPE
-            for(i = 0; i < 6; i++)
-                if((1 << i) & (SPLIT_PARTICLE_TYPE))
-                {
-                    All.TotN_gas += header.npartTotal[i];
-                    All.TotNumPart += header.npartTotal[i];
-#ifdef GENERATE_GAS_TG
-                    if(i == 1)
-                    {
-                        All.TotN_gas += (pow(All.GenGasRefFac, 3) - 1) * header.npartTotal[i];
-                        All.TotNumPart += (pow(All.GenGasRefFac, 3) - 1) * header.npartTotal[i];
-                    }
-#endif
-                }
-#else
-            All.TotN_gas += header.npartTotal[1];
-            All.TotNumPart += header.npartTotal[1];
-#ifdef GENERATE_GAS_TG
-            All.TotN_gas += (pow(All.GenGasRefFac, 3) - 1) * header.npartTotal[1];
-            All.TotNumPart += (pow(All.GenGasRefFac, 3) - 1) * header.npartTotal[1];
-#endif
-#endif
-        }
-#endif
-
         for(i = 0; i < 6; i++)
             All.MassTable[i] = header.mass[i];
 
         All.MaxPart = (int) (All.PartAllocFactor * (All.TotNumPart / NTask));	/* sets the maximum number of particles that may */
-        All.MaxPartSph = (int) (All.PartAllocFactor * (All.TotN_gas / NTask));	/* sets the maximum number of particles that may 
+        All.MaxPartSph = (int) (All.PartAllocFactor * (All.TotN_sph / NTask));	/* sets the maximum number of particles that may 
+                                                                                   reside on a processor */
+        All.MaxPartBh = (int) (0.1 * All.PartAllocFactor * (All.TotN_sph / NTask));	/* sets the maximum number of particles that may 
                                                                                    reside on a processor */
 #ifdef INHOMOG_GASDISTR_HINT
         All.MaxPartSph = All.MaxPart;
@@ -1182,8 +1019,7 @@ void read_file(char *fname, int readTask, int lastTask)
 #ifdef END_TIME_DYN_BASED
         double rho, t_ff;
 
-        rho = All.EndTimeDens * PROTONMASS / HYDROGEN_MASSFRAC;
-
+        rho = All.EndTimeDens * PROTONMASS / HYDROGEN_MASSFRAC; 
         t_ff = sqrt(3.0 * M_PI / 32.0 / GRAVITY / rho); 
 
         if(All.ComovingIntegrationOn)
@@ -1238,24 +1074,25 @@ void read_file(char *fname, int readTask, int lastTask)
     {
         n_in_file = header.npart[type];
 
-        n_for_this_task = n_in_file / ntask;
+        n_for_this_task[type] = n_in_file / ntask;
         if((ThisTask - readTask) < (n_in_file % ntask))
-            n_for_this_task++;
-
-
-        if(type == 0)
-        {
-            if(N_gas + n_for_this_task > All.MaxPartSph)
-            {
-                printf("Not enough space on task=%d for SPH particles (space for %d, need at least %d)\n",
-                        ThisTask, All.MaxPartSph, N_gas + n_for_this_task);
-                fflush(stdout);
-                endrun(172);
-            }
-        }
-
-        nall += n_for_this_task;
-    }
+            n_for_this_task[type]++;
+        nall += n_for_this_task[type];
+     }
+     if(N_sph + n_for_this_task[0] > All.MaxPartSph)
+     {
+        printf("Not enough space on task=%d for SPH particles (space for %d, need at least %d)\n",
+                ThisTask, All.MaxPartSph, N_sph + n_for_this_task[0]);
+        fflush(stdout);
+        endrun(172);
+     }
+     if(N_bh + n_for_this_task[5] > All.MaxPartBh)
+     {
+        printf("Not enough space on task=%d for BH particles (space for %d, need at least %d)\n",
+                ThisTask, All.MaxPartSph, N_sph + n_for_this_task[5]);
+        fflush(stdout);
+        endrun(172);
+     }
 
     if(NumPart + nall > All.MaxPart)
     {
@@ -1265,9 +1102,8 @@ void read_file(char *fname, int readTask, int lastTask)
         endrun(173);
     }
 
-    memmove(&P[N_gas + nall], &P[N_gas], (NumPart - N_gas) * sizeof(struct particle_data));
-    nstart = N_gas;
-
+    memmove(&P[N_sph + nall], &P[N_sph], (NumPart - N_sph) * sizeof(struct particle_data));
+    nstart = N_sph;
 
 
     for(bnr = 0; bnr < 1000; bnr++)
@@ -1405,37 +1241,25 @@ void read_file(char *fname, int readTask, int lastTask)
                     }
                     for(type = 0, offset = 0, nread = 0; type < 6; type++)
                     {
-                        n_in_file = header.npart[type];
 #ifdef HAVE_HDF5
                         pcsum = 0;
 #endif
                         if(typelist[type] == 0)
                         {
-                            n_for_this_task = n_in_file / ntask;
-                            if((ThisTask - readTask) < (n_in_file % ntask))
-                                n_for_this_task++;
-
-                            offset += n_for_this_task;
+                            offset += n_for_this_task[type];
                         }
                         else
                         {
                             for(task = readTask; task <= lastTask; task++)
                             {
-                                n_for_this_task = n_in_file / ntask;
+                                n_in_file = header.npart[type];
+                                int toread = n_in_file / ntask;
                                 if((task - readTask) < (n_in_file % ntask))
-                                    n_for_this_task++;
-
-                                if(task == ThisTask)
-                                    if(NumPart + n_for_this_task > All.MaxPart)
-                                    {
-                                        printf("too many particles. %d %d %d\n", NumPart, n_for_this_task,
-                                                All.MaxPart);
-                                        endrun(1313);
-                                    }
-
+                                    toread++;
+                                /* to read */
                                 do
                                 {
-                                    pc = n_for_this_task;
+                                    pc = toread;
 
                                     if(pc > blockmaxlen)
                                         pc = blockmaxlen;
@@ -1518,9 +1342,9 @@ void read_file(char *fname, int readTask, int lastTask)
                                         offset += pc;
                                     }
 
-                                    n_for_this_task -= pc;
+                                    toread -= pc;
                                 }
-                                while(n_for_this_task > 0);
+                                while(toread > 0);
                             }
                         }
                     }
@@ -1553,50 +1377,6 @@ void read_file(char *fname, int readTask, int lastTask)
                 }
             }
         }
-    }
-
-
-#ifdef SAVE_HSML_IN_IC_ORDER
-    MyIDType IdCount = 0;
-
-    for(type = 0, offset = 0; type < 6; type++)
-    {
-        n_in_file = header.npart[type];
-
-        for(task = readTask; task <= lastTask; task++)
-        {
-            n_for_this_task = n_in_file / ntask;
-            if((task - readTask) < (n_in_file % ntask))
-                n_for_this_task++;
-
-            if(ThisTask == task)
-            {
-                int i;
-
-                for(i = 0; i < n_for_this_task; i++)
-                    P[nstart + offset + i].ID_ic_order = NumPartPerFile[FileNr] + IdCount + i;
-
-                offset += n_for_this_task;
-            }
-
-            IdCount += n_for_this_task;
-        }
-    }
-#endif
-
-
-    for(type = 0; type < 6; type++)
-    {
-        n_in_file = header.npart[type];
-
-        n_for_this_task = n_in_file / ntask;
-        if((ThisTask - readTask) < (n_in_file % ntask))
-            n_for_this_task++;
-
-        NumPart += n_for_this_task;
-
-        if(type == 0)
-            N_gas += n_for_this_task;
     }
 
     if(ThisTask == readTask)

@@ -381,7 +381,6 @@ void read_ic_cluster_gas(char *fname);
 void read_ic_cluster_wimp(char *fname);
 int read_outputlist(char *fname);
 void read_parameter_file(char *fname);
-void rearrange_particle_sequence(void);
 void reorder_gas(void);
 void reorder_particles(void);
 void restart(int mod);

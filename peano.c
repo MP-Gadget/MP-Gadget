@@ -29,24 +29,24 @@ void peano_hilbert_order(void)
   if(ThisTask == 0)
     printf("begin Peano-Hilbert order...\n");
 
-  if(N_gas)
+  if(N_sph)
     {
-      mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * N_gas);
-      Id = (int *) mymalloc("Id", sizeof(int) * N_gas);
+      mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * N_sph);
+      Id = (int *) mymalloc("Id", sizeof(int) * N_sph);
 
-      for(i = 0; i < N_gas; i++)
+      for(i = 0; i < N_sph; i++)
 	{
 	  mp[i].index = i;
 	  mp[i].key = KEY(i);
 	}
 
 #ifdef MYSORT
-      mysort_peano(mp, N_gas, sizeof(struct peano_hilbert_data), peano_compare_key);
+      mysort_peano(mp, N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
 #else
-      qsort(mp, N_gas, sizeof(struct peano_hilbert_data), peano_compare_key);
+      qsort(mp, N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
 #endif
 
-      for(i = 0; i < N_gas; i++)
+      for(i = 0; i < N_sph; i++)
 	Id[mp[i].index] = i;
 
       reorder_gas();
@@ -56,35 +56,35 @@ void peano_hilbert_order(void)
     }
 
 
-  if(NumPart - N_gas > 0)
+  if(NumPart - N_sph > 0)
     {
       mp =
-	(struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * (NumPart - N_gas));
-      mp -= (N_gas);
+	(struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * (NumPart - N_sph));
+      mp -= (N_sph);
 
-      Id = (int *) mymalloc("Id", sizeof(int) * (NumPart - N_gas));
-      Id -= (N_gas);
+      Id = (int *) mymalloc("Id", sizeof(int) * (NumPart - N_sph));
+      Id -= (N_sph);
 
-      for(i = N_gas; i < NumPart; i++)
+      for(i = N_sph; i < NumPart; i++)
 	{
 	  mp[i].index = i;
 	  mp[i].key = KEY(i);
 	}
 
 #ifdef MYSORT
-      mysort_peano(mp + N_gas, NumPart - N_gas, sizeof(struct peano_hilbert_data), peano_compare_key);
+      mysort_peano(mp + N_sph, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
 #else
-      qsort(mp + N_gas, NumPart - N_gas, sizeof(struct peano_hilbert_data), peano_compare_key);
+      qsort(mp + N_sph, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
 #endif
 
-      for(i = N_gas; i < NumPart; i++)
+      for(i = N_sph; i < NumPart; i++)
 	Id[mp[i].index] = i;
 
       reorder_particles();
 
-      Id += N_gas;
+      Id += N_sph;
       myfree(Id);
-      mp += N_gas;
+      mp += N_sph;
       myfree(mp);
     }
 
@@ -111,7 +111,7 @@ void reorder_gas(void)
   struct sph_particle_data SphPsave, SphPsource;
   int idsource, idsave, dest;
 
-  for(i = 0; i < N_gas; i++)
+  for(i = 0; i < N_sph; i++)
     {
       if(Id[i] != i)
 	{
@@ -152,7 +152,7 @@ void reorder_particles(void)
   struct particle_data Psave, Psource;
   int idsource, idsave, dest;
 
-  for(i = N_gas; i < NumPart; i++)
+  for(i = N_sph; i < NumPart; i++)
     {
       if(Id[i] != i)
 	{

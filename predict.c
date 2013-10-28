@@ -669,7 +669,7 @@ if(Flag_FullStep == 1)
 #ifdef MAGNETIC
 MPI_Reduce(&MeanB_part, &MeanB_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 if(ThisTask == 0)
-MeanB = MeanB_sum / All.TotN_gas;
+MeanB = MeanB_sum / All.TotN_sph;
 #ifdef TRACEDIVB
 MPI_Reduce(&MaxDivB_part, &MaxDivB_all, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
 if(ThisTask == 0)
@@ -679,7 +679,7 @@ MaxDivB = MaxDivB_all;
 #ifdef TIME_DEP_ART_VISC
 MPI_Reduce(&MeanAlpha_part, &MeanAlpha_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 if(ThisTask == 0)
-MeanAlpha = MeanAlpha_sum / All.TotN_gas;
+MeanAlpha = MeanAlpha_sum / All.TotN_sph;
 #endif
 }
 #endif

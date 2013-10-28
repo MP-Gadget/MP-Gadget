@@ -136,7 +136,7 @@ void restart(int modus)
                 {
                     All.PartAllocFactor = save_PartAllocFactor;
                     All.MaxPart = (int) (All.PartAllocFactor * (All.TotNumPart / NTask));
-                    All.MaxPartSph = (int) (All.PartAllocFactor * (All.TotN_gas / NTask));
+                    All.MaxPartSph = (int) (All.PartAllocFactor * (All.TotN_sph / NTask));
 #ifdef INHOMOG_GASDISTR_HINT
                     All.MaxPartSph = All.MaxPart;
 #endif
@@ -166,19 +166,19 @@ void restart(int modus)
             /* Particle data  */
             byten(&P[0], NumPart * sizeof(struct particle_data), modus);
 
-            in(&N_gas, modus);
-            if(N_gas > 0)
+            in(&N_sph, modus);
+            if(N_sph > 0)
             {
-                if(N_gas > All.MaxPartSph)
+                if(N_sph > All.MaxPartSph)
                 {
                     printf
                         ("SPH: it seems you have reduced(!) 'PartAllocFactor' below the value of %g needed to load the restart file.\n",
-                         N_gas / (((double) All.TotN_gas) / NTask));
+                         N_sph / (((double) All.TotN_sph) / NTask));
                     printf("fatal error\n");
                     endrun(222);
                 }
                 /* Sph-Particle data  */
-                byten(SphP, N_gas * sizeof(struct sph_particle_data), modus);
+                byten(SphP, N_sph * sizeof(struct sph_particle_data), modus);
             }
 
             /* write state of random number generator */

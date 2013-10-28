@@ -63,7 +63,6 @@ OPT     +=  -DSAVE_MASS_TAB                      # Saves the an additional array
 OPT    +=  -DSUBFIND_SAVE_PARTICLELISTS         # Saves also phase-space and type variables parallel to IDs
 OPT	+=  -DSO_VEL_DISPERSIONS                 # computes velocity dispersions for as part of FOF SO-properties
 #OPT	+=  -DORDER_SNAPSHOTS_BY_ID
-#OPT	+=  -DSAVE_HSML_IN_IC_ORDER              # will store the hsml-values in the order of the particles in the IC file
 #OPT	+=  -DONLY_PRODUCE_HSML_FILES            # only carries out density estimate
 #OPT	+=  -DKEEP_DM_HSML_AS_GUESS              # uses hsml from last time as guess for actual subfind
 #OPT	+=  -DLINKLENGTH=0.16                    # Linkinglength for FoF (default=0.2)
@@ -173,8 +172,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DREAD_HSML                     # reads hsml from IC file
 #OPT   	+=  -DADAPTIVE_GRAVSOFT_FORGAS      # allows variable softening length for gas particles (requires UNEQUALSOFTENINGLENGTH)
 #OPT	+=  -DADAPTIVE_GRAVSOFT_FORGAS_HSML # this sets the gravitational softening for SPH particles equal to the SPH smoothing (requires ADAPTIVE_GRAVSOFT_FORGAS)
-#OPT	+=  -DGENERATE_GAS_IN_ICS
-#OPT	+=  -DSPLIT_PARTICLE_TYPE=4+8
 #OPT    +=  -DNEUTRINOS                     # Option for special integration of light neutrino species 
 #OPT    +=  -DOMIT_NEUTRINOS_IN_SNAPS
 #OPT	+=  -DKSPACE_NEUTRINOS

@@ -64,13 +64,13 @@ void conduction(void)
       fflush(stdout);
     }
 
-  Energy = (double *) mymalloc("Energy", N_gas * sizeof(double));
-  EnergyOld = (double *) mymalloc("EnergyOld", N_gas * sizeof(double));
-  Residual = (double *) mymalloc("Residual", N_gas * sizeof(double));
-  DVec = (double *) mymalloc("DVec", N_gas * sizeof(double));
-  QVec = (double *) mymalloc("QVec", N_gas * sizeof(double));
+  Energy = (double *) mymalloc("Energy", N_sph * sizeof(double));
+  EnergyOld = (double *) mymalloc("EnergyOld", N_sph * sizeof(double));
+  Residual = (double *) mymalloc("Residual", N_sph * sizeof(double));
+  DVec = (double *) mymalloc("DVec", N_sph * sizeof(double));
+  QVec = (double *) mymalloc("QVec", N_sph * sizeof(double));
 
-  Kappa = (double *) mymalloc("Kappa", N_gas * sizeof(double));
+  Kappa = (double *) mymalloc("Kappa", N_sph * sizeof(double));
 
 
   if(All.ComovingIntegrationOn)
@@ -92,7 +92,7 @@ void conduction(void)
   /* First, let's compute the thermal energies per unit mass and
      conductivities for all particles */
 
-  for(i = 0; i < N_gas; i++)
+  for(i = 0; i < N_sph; i++)
     {
       if(P[i].Type == 0)
 	{
@@ -133,7 +133,7 @@ void conduction(void)
 
   conduction_matrix_multiply(EnergyOld, Residual);
 
-  for(i = 0; i < N_gas; i++)
+  for(i = 0; i < N_sph; i++)
     {
       if(P[i].Type == 0)
 	{
@@ -154,7 +154,7 @@ void conduction(void)
 
       alpha = delta1 / conduction_vector_multiply(DVec, QVec);
 
-      for(i = 0, loc_max_rel_change = 0; i < N_gas; i++)
+      for(i = 0, loc_max_rel_change = 0; i < N_sph; i++)
 	{
 	  Energy[i] += alpha * DVec[i];
 	  Residual[i] -= alpha * QVec[i];
@@ -169,7 +169,7 @@ void conduction(void)
 
       beta = delta1 / delta0;
 
-      for(i = 0; i < N_gas; i++)
+      for(i = 0; i < N_sph; i++)
 	DVec[i] = Residual[i] + beta * DVec[i];
 
       iter++;
@@ -189,7 +189,7 @@ void conduction(void)
   /* Now we have the solution vector in Energy[] */
   /* assign it to the entropies, and update the pressure */
 
-  for(i = 0, sumnew = sumold = sumtransfer = 0; i < N_gas; i++)
+  for(i = 0, sumnew = sumold = sumtransfer = 0; i < N_sph; i++)
     {
       if(P[i].Type == 0)
 	{
@@ -226,7 +226,7 @@ double conduction_vector_multiply(double *a, double *b)
   int i;
   double sum, sumall;
 
-  for(i = 0, sum = 0; i < N_gas; i++)
+  for(i = 0, sum = 0; i < N_sph; i++)
     if(P[i].Type == 0)
       sum += a[i] * b[i];
 
@@ -259,7 +259,7 @@ void conduction_matrix_multiply(double *in, double *out)
     (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
 
 
-  sum = (double *) mymalloc("sum", N_gas * sizeof(double));
+  sum = (double *) mymalloc("sum", N_sph * sizeof(double));
 
 
   i = 0;			/* need to go over all gas particles */
@@ -273,7 +273,7 @@ void conduction_matrix_multiply(double *in, double *out)
 	}
 
       /* do local particles and prepare export list */
-      for(nexport = 0; i < N_gas; i++)
+      for(nexport = 0; i < N_sph; i++)
 	if(P[i].Type == 0)
 	  {
 	    if(conduction_evaluate(i, 0, in, out, sum, &nexport, Send_count) < 0)
@@ -357,7 +357,7 @@ void conduction_matrix_multiply(double *in, double *out)
       for(j = 0; j < nimport; j++)
 	conduction_evaluate(j, 1, in, out, sum, &dummy, &dummy);
 
-      if(i >= N_gas)
+      if(i >= N_sph)
 	ndone_flag = 1;
       else
 	ndone_flag = 0;
@@ -402,7 +402,7 @@ void conduction_matrix_multiply(double *in, double *out)
 
   /* do final operations  */
 
-  for(i = 0; i < N_gas; i++)
+  for(i = 0; i < N_sph; i++)
     if(P[i].Type == 0)
       {
 	out[i] += in[i] * (1 + sum[i]);

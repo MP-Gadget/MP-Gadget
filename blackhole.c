@@ -91,7 +91,7 @@ static struct blackholedata_out
 
 static double hubble_a, ascale, a3inv;
 
-static int N_gas_swallowed, N_BH_swallowed;
+static int N_sph_swallowed, N_BH_swallowed;
 
 static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
     /* rho is comoving !*/
@@ -260,7 +260,7 @@ void blackhole_accretion(void)
     }
 
 
-    N_gas_swallowed = N_BH_swallowed = 0;
+    N_sph_swallowed = N_BH_swallowed = 0;
 
 
     /* allocate buffers to arrange communication */
@@ -590,7 +590,7 @@ void blackhole_accretion(void)
     myfree(Ngblist);
 
 
-    MPI_Reduce(&N_gas_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if(ThisTask == 0)
@@ -809,7 +809,7 @@ void blackhole_accretion(void)
                     (0.1 * C * C * THOMPSON)) * All.UnitTime_in_s);
 
         fprintf(FdBlackHoles, "%g %d %g %g %g %g %g %g\n",
-                All.Time, All.TotBHs, total_mass_holes, total_mdot, mdot_in_msun_per_year,
+                All.Time, All.TotN_bh, total_mass_holes, total_mdot, mdot_in_msun_per_year,
                 total_mass_real, total_mdoteddington, total_injection);
         fflush(FdBlackHoles);
     }
@@ -1241,7 +1241,7 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
                         P[j].Mass = 0;
                         bin = P[j].TimeBin;
                         TimeBin_GAS_Injection[bin] += SPHP(j).i.dInjected_BH_Energy;
-                        N_gas_swallowed++;
+                        N_sph_swallowed++;
                     }
                 }
             }

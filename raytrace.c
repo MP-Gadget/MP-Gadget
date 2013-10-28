@@ -69,7 +69,7 @@ void raytrace(void)
     }
 
   /* Crude interpolation onto grid */
-  for(i = 0; i < N_gas; i++)
+  for(i = 0; i < N_sph; i++)
     {
       for(j = 0; j < 3; j++)
 	{
@@ -274,7 +274,7 @@ void raytrace(void)
     }
 
   /* Crude interpolation onto particles */
-  for(i = 0; i < N_gas; i++)
+  for(i = 0; i < N_sph; i++)
     {
       for(j = 0; j < 3; j++)
 	{
@@ -366,7 +366,7 @@ void raytrace_init_regionsize(void)
 
 #endif /* PERIODIC */
 
-  for(i = 0; i < N_gas; i++)
+  for(i = 0; i < N_sph; i++)
     for(j = 0; j < 3; j++)
       {
 	pos[j] = P[i].Pos[j];

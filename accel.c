@@ -105,7 +105,7 @@ void compute_accelerations(int mode)
 #endif
 
 
-    if(All.TotN_gas > 0)
+    if(All.TotN_sph > 0)
     {
         /***** density *****/
         if(ThisTask == 0)

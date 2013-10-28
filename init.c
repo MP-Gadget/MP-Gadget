@@ -53,9 +53,6 @@ void init(void)
     double min_t_elec, max_t_elec;
     double a_start, a_end;
 #endif  
-#ifdef BLACK_HOLES
-    int count_holes = 0;
-#endif
 
 #ifdef EULERPOTENTIALS
     double a0, a1, a2;
@@ -508,8 +505,6 @@ void init(void)
 #ifdef BLACK_HOLES
         if(P[i].Type == 5)
         {
-            count_holes++;
-
             if(RestartFlag == 0)
                 BHP(i).Mass = All.SeedBlackHoleMass;
 #ifdef BH_BUBBLES
@@ -525,10 +520,6 @@ void init(void)
         }
 #endif
     }
-
-#ifdef BLACK_HOLES
-    MPI_Allreduce(&count_holes, &All.TotBHs, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-#endif
 
     for(i = 0; i < TIMEBINS; i++)
         TimeBinActive[i] = 1;
@@ -546,7 +537,7 @@ void init(void)
     All.CR_Diffusion_Ti_endstep = All.CR_Diffusion_Ti_begstep = 0;
 #endif
 
-    for(i = 0; i < N_gas; i++)	/* initialize sph_properties */
+    for(i = 0; i < N_sph; i++)	/* initialize sph_properties */
     {
         for(j = 0; j < 3; j++)
         {
@@ -850,7 +841,7 @@ void init(void)
      * Once the density has been computed, we can convert to entropy.
      */
 
-    for(i = 0; i < N_gas; i++)	/* initialize sph_properties */
+    for(i = 0; i < N_sph; i++)	/* initialize sph_properties */
     {
         if(header.flag_entropy_instead_u == 0)
         {
@@ -979,8 +970,8 @@ void init(void)
 #endif
 
         printf("x=%g, y=%g, z=%g, vx=%g, vy=%g, vz=%g,\ndensity=%g, entropy=%g\n",
-                P[N_gas - 1].Pos[0], P[N_gas - 1].Pos[1], P[N_gas - 1].Pos[2], P[N_gas - 1].Vel[0],
-                P[N_gas - 1].Vel[1], P[N_gas - 1].Vel[2], SPHP(N_gas - 1).d.Density, SPHP(N_gas - 1).Entropy);
+                P[N_sph - 1].Pos[0], P[N_sph - 1].Pos[1], P[N_sph - 1].Pos[2], P[N_sph - 1].Vel[0],
+                P[N_sph - 1].Vel[1], P[N_sph - 1].Vel[2], SPHP(N_sph - 1).d.Density, SPHP(N_sph - 1).Entropy);
 
 
     }
@@ -990,7 +981,7 @@ void init(void)
     max_t_cool = max_t_elec = -1.0e30;
 
 
-    for(i = 0; i < N_gas; i++)	/* Init Chemistry: */
+    for(i = 0; i < N_sph; i++)	/* Init Chemistry: */
     {
 #ifdef CHEMISTRY
         a_start = All.Time;
@@ -1082,15 +1073,15 @@ void init(void)
                 SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II, SPHP(1).elec, P[1].ID);
 
         printf("x=%g, y=%g, z=%g, vx=%g, vy=%g, vz=%g, density=%g, entropy=%g\n",
-                P[N_gas - 1].Pos[0], P[N_gas - 1].Pos[1], P[N_gas - 1].Pos[2], P[N_gas - 1].Vel[0],
-                P[N_gas - 1].Vel[1], P[N_gas - 1].Vel[2], SPHP(N_gas - 1).d.Density, SPHP(N_gas - 1).Entropy);
+                P[N_sph - 1].Pos[0], P[N_sph - 1].Pos[1], P[N_sph - 1].Pos[2], P[N_sph - 1].Vel[0],
+                P[N_sph - 1].Vel[1], P[N_sph - 1].Vel[2], SPHP(N_sph - 1).d.Density, SPHP(N_sph - 1).Entropy);
     }
 
     /* need predict the cooling time and elec_dot here */
     min_t_cool = min_t_elec = 1.0e30;
     max_t_cool = max_t_elec = -1.0e30;
 
-    for(i = 0; i < N_gas; i++)
+    for(i = 0; i < N_sph; i++)
     {
         a_start = All.Time;
         a_end = All.Time + 0.001;	/* 0.001 as an arbitrary value */
@@ -1190,7 +1181,7 @@ void setup_smoothinglengths(void)
 
     if(RestartFlag == 0)
     {
-        for(i = 0; i < N_gas; i++)
+        for(i = 0; i < N_sph; i++)
         {
             no = Father[i];
 
@@ -1250,7 +1241,7 @@ void setup_smoothinglengths(void)
 #endif
 
 #ifdef DENSITY_INDEPENDENT_SPH
-    for(i = 0; i < N_gas; i++)
+    for(i = 0; i < N_sph; i++)
     {
         /* start the iteration from mass density */
         SPHP(i).EgyWtDensity = SPHP(i).d.Density;
@@ -1274,10 +1265,10 @@ void setup_smoothinglengths(void)
 
         int j;
         double badness;
-        double * olddensity = (double *)mymalloc("olddensity ", N_gas * sizeof(double));
+        double * olddensity = (double *)mymalloc("olddensity ", N_sph * sizeof(double));
         for(j=0;j<100;j++)
         {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
-            for(i = 0; i < N_gas; i++)
+            for(i = 0; i < N_sph; i++)
             {
                 double entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
                 SPHP(i).EntVarPred = pow(entropy, 1/GAMMA);
@@ -1285,7 +1276,7 @@ void setup_smoothinglengths(void)
             }
             density();
             badness = 0;
-            for(i = 0; i < N_gas; i++) {
+            for(i = 0; i < N_sph; i++) {
                 if(SPHP(i).EgyWtDensity > 0) {
                     badness = DMAX(badness, fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity);
                 }
@@ -1298,13 +1289,13 @@ void setup_smoothinglengths(void)
             if(badness < 1e-7) break;
         }
         myfree(olddensity);
-        for(i = 0; i < N_gas; i++) {
+        for(i = 0; i < N_sph; i++) {
             /* EgyWtDensity stabilized, now we convert from energy to entropy*/
             SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity/a3 , GAMMA_MINUS1);
         }
     }
     /* regardless we initalize EntVarPred. This may be unnecessary*/
-    for(i = 0; i < N_gas; i++) {
+    for(i = 0; i < N_sph; i++) {
         SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
     }
     density();

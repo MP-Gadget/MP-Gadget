@@ -37,7 +37,7 @@
 static int *toGo, *toGoSph;
 static int *toGet, *toGetSph;
 static int *list_NumPart;
-static int *list_N_gas;
+static int *list_N_sph;
 static int *list_load;
 static int *list_loadsph;
 static double *list_work;
@@ -149,7 +149,7 @@ void domain_Decomposition(void)
 
             list_NumPart = (int *) mymalloc("list_NumPart", bytes = (sizeof(int) * NTask));
             all_bytes += bytes;
-            list_N_gas = (int *) mymalloc("list_N_gas", bytes = (sizeof(int) * NTask));
+            list_N_sph = (int *) mymalloc("list_N_sph", bytes = (sizeof(int) * NTask));
             all_bytes += bytes;
             list_cadj_cpu = (double *) mymalloc("list_cadj_cpu", bytes = (sizeof(double) * NTask));
             all_bytes += bytes;
@@ -209,7 +209,7 @@ void domain_Decomposition(void)
             myfree(list_load);
             myfree(list_cadj_cost);
             myfree(list_cadj_cpu);
-            myfree(list_N_gas);
+            myfree(list_N_sph);
             myfree(list_NumPart);
 
 
@@ -736,12 +736,12 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
             if(P[n].Type == 0)
             {
-                P[n] = P[N_gas - 1];
-                P[N_gas - 1] = P[NumPart - 1];
-                SPHP(n) = SPHP(N_gas - 1);
+                P[n] = P[N_sph - 1];
+                P[N_sph - 1] = P[NumPart - 1];
+                SPHP(n) = SPHP(N_sph - 1);
 
                 NumPart--;
-                N_gas--;
+                N_sph--;
                 n--;
             }
             else
@@ -755,7 +755,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
     if(count_get_sph)
     {
-        memmove(P + N_gas + count_get_sph, P + N_gas, (NumPart - N_gas) * sizeof(struct particle_data));
+        memmove(P + N_sph + count_get_sph, P + N_sph, (NumPart - N_sph) * sizeof(struct particle_data));
     }
 
     for(i = 0; i < NTask; i++)
@@ -764,7 +764,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
         count_recv[i] = toGet[i] - toGetSph[i];
     }
 
-    for(i = 1, offset_recv_sph[0] = N_gas; i < NTask; i++)
+    for(i = 1, offset_recv_sph[0] = N_sph; i < NTask; i++)
         offset_recv_sph[i] = offset_recv_sph[i - 1] + count_recv_sph[i - 1];
 
     offset_recv[0] = NumPart + count_get_sph;
@@ -863,14 +863,14 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 #endif
 
     NumPart += count_get;
-    N_gas += count_get_sph;
+    N_sph += count_get_sph;
     if(NumPart > All.MaxPart)
     {
         printf("Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
         endrun(787878);
     }
 
-    if(N_gas > All.MaxPartSph)
+    if(N_sph > All.MaxPartSph)
         endrun(787879);
 
     myfree(sphBuf);
@@ -1165,7 +1165,7 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
            constraint. */
 
         MPI_Allgather(&NumPart, 1, MPI_INT, list_NumPart, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_gas, 1, MPI_INT, list_N_gas, 1, MPI_INT, MPI_COMM_WORLD);
+        MPI_Allgather(&N_sph, 1, MPI_INT, list_N_sph, 1, MPI_INT, MPI_COMM_WORLD);
 
         int flag, flagsum, ntoomany, ta, i, target;
         int count_togo, count_toget, count_togo_sph, count_toget_sph;
@@ -1196,7 +1196,7 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
                     MPI_Bcast(&count_toget, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     MPI_Bcast(&count_togo_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     MPI_Bcast(&count_toget_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    if((ntoomany = list_N_gas[ta] + count_toget_sph - count_togo_sph - All.MaxPartSph) > 0)
+                    if((ntoomany = list_N_sph[ta] + count_toget_sph - count_togo_sph - All.MaxPartSph) > 0)
                     {
                         if(ThisTask == 0)
                         {
@@ -1204,8 +1204,8 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
                                 ("exchange needs to be modified because I can't receive %d SPH-particles on task=%d\n",
                                  ntoomany, ta);
                             if(flagsum > 25)
-                                printf("list_N_gas[ta=%d]=%d  count_toget_sph=%d count_togo_sph=%d\n",
-                                        ta, list_N_gas[ta], count_toget_sph, count_togo_sph);
+                                printf("list_N_sph[ta=%d]=%d  count_toget_sph=%d count_togo_sph=%d\n",
+                                        ta, list_N_sph[ta], count_toget_sph, count_togo_sph);
                             fflush(stdout);
                         }
 
@@ -2079,3 +2079,99 @@ void mysort_domain(void *b, size_t n, size_t s)
 
     myfree(tmp);
 }
+
+#if defined(SFR) || defined(BLACK_HOLES)
+void rearrange_particle_sequence(void)
+{
+    int i, j, flag = 0, flag_sum;
+    struct particle_data psave;
+
+#ifdef BLACK_HOLES
+    int count_elim, count_gaselim, tot_elim, tot_gaselim;
+#endif
+
+#ifdef SFR
+    if(Stars_converted)
+    {
+        N_sph -= Stars_converted;
+        Stars_converted = 0;
+
+        for(i = 0; i < N_sph; i++)
+            if(P[i].Type != 0)
+            {
+                for(j = N_sph; j < NumPart; j++)
+                    if(P[j].Type == 0)
+                        break;
+
+                if(j >= NumPart)
+                    endrun(181170);
+
+                psave = P[i];
+                P[i] = P[j];
+                SPHP(i) = SPHP(j);
+                P[j] = psave;
+            }
+        flag = 1;
+    }
+#endif
+
+#ifdef BLACK_HOLES
+    count_elim = 0;
+    count_gaselim = 0;
+
+    for(i = 0; i < NumPart; i++)
+        if(P[i].Mass == 0)
+        {
+            TimeBinCount[P[i].TimeBin]--;
+
+            if(TimeBinActive[P[i].TimeBin])
+                NumForceUpdate--;
+
+            if(P[i].Type == 0)
+            {
+                TimeBinCountSph[P[i].TimeBin]--;
+
+                P[i] = P[N_sph - 1];
+                SPHP(i) = SPHP(N_sph - 1);
+
+                P[N_sph - 1] = P[NumPart - 1];
+
+                N_sph--;
+
+                count_gaselim++;
+            }
+            else
+            {
+                P[i] = P[NumPart - 1];
+            }
+
+            NumPart--;
+            i--;
+
+            count_elim++;
+        }
+
+    MPI_Allreduce(&count_elim, &tot_elim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&count_gaselim, &tot_gaselim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    if(count_elim)
+        flag = 1;
+
+    if(ThisTask == 0)
+    {
+        printf("Blackholes: Eliminated %d gas particles and merged away %d black holes.\n",
+                tot_gaselim, tot_elim - tot_gaselim);
+        fflush(stdout);
+    }
+
+    All.TotNumPart -= tot_elim;
+    All.TotN_sph -= tot_gaselim;
+    All.TotN_bh -= tot_elim - tot_gaselim;
+#endif
+
+    MPI_Allreduce(&flag, &flag_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    if(flag_sum)
+        reconstruct_timebins();
+}
+#endif

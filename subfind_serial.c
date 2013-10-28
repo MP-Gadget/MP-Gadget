@@ -447,7 +447,7 @@ int subfind_unbind(struct unbind_data *ud, int len)
 	      P[p].u.DM_Potential = pot + P[p].Mass / All.SofteningTable[P[p].Type];
 	      P[p].u.DM_Potential *= All.G / atime;
 
-	      if(All.TotN_gas > 0 && (FOF_PRIMARY_LINK_TYPES & 1) == 0 && All.OmegaBaryon > 0)
+	      if(All.TotN_sph > 0 && (FOF_PRIMARY_LINK_TYPES & 1) == 0 && All.OmegaBaryon > 0)
 		P[p].u.DM_Potential *= All.Omega0 / (All.Omega0 - All.OmegaBaryon);
 
 	      if(P[p].u.DM_Potential < minpot || minindex == -1)
@@ -474,7 +474,7 @@ int subfind_unbind(struct unbind_data *ud, int len)
 		  P[p].u.DM_Potential = pot + P[p].Mass / All.SofteningTable[P[p].Type];
 		  P[p].u.DM_Potential *= All.G / atime;
 
-		  if(All.TotN_gas > 0 && (FOF_PRIMARY_LINK_TYPES & 1) == 0 && All.OmegaBaryon > 0)
+		  if(All.TotN_sph > 0 && (FOF_PRIMARY_LINK_TYPES & 1) == 0 && All.OmegaBaryon > 0)
 		    P[p].u.DM_Potential *= All.Omega0 / (All.Omega0 - All.OmegaBaryon);
 		}
 	    }

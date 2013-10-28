@@ -59,7 +59,7 @@ void savepositions(int num)
 #ifdef ORDER_SNAPSHOTS_BY_ID
         double t0, t1;
 
-        if(All.TotN_gas > 0)
+        if(All.TotN_sph > 0)
         {
             if(ThisTask == 0)
                 printf

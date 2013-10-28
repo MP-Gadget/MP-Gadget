@@ -1203,8 +1203,8 @@ void hydro_force(void)
     {
       if(ThisTask == 0)
 	printf(" hey %i (%i) particles where freeezed and limit is %f \n", total_count, count,
-	       (float) All.TotN_gas / 1000.0);
-      if(total_count * 1000.0 > All.TotN_gas)	/*//for normal resolution ~100 */
+	       (float) All.TotN_sph / 1000.0);
+      if(total_count * 1000.0 > All.TotN_sph)	/*//for normal resolution ~100 */
 	{
 	  if(ThisTask == 0)
 	    printf(" Next calculation of Healpix\n");

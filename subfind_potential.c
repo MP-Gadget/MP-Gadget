@@ -184,7 +184,7 @@ void subfind_potential_compute(int num, struct unbind_data *d, int phase, double
       P[d[i].index].u.DM_Potential += P[d[i].index].Mass / All.SofteningTable[P[d[i].index].Type];
       P[d[i].index].u.DM_Potential *= All.G / atime;
 
-      if(All.TotN_gas > 0 && (FOF_SECONDARY_LINK_TYPES & 1) == 0 && 
+      if(All.TotN_sph > 0 && (FOF_SECONDARY_LINK_TYPES & 1) == 0 && 
 	 (FOF_PRIMARY_LINK_TYPES & 1) == 0 && All.OmegaBaryon > 0)
   	P[d[i].index].u.DM_Potential *= All.Omega0 / (All.Omega0 - All.OmegaBaryon);
     }

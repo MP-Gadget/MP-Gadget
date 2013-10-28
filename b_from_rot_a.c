@@ -38,7 +38,7 @@ void rot_a(void)
   nsend = (int *) mymalloc("nsend", sizeof(int) * NTask * NTask);
   ndonelist = (int *) mymalloc("ndonelist", sizeof(int) * NTask);
 
-  NumSphUpdate = N_gas;
+  NumSphUpdate = N_sph;
 
   numlist = (int *) mymalloc("numlist", NTask * sizeof(int) * NTask);
   MPI_Allgather(&NumSphUpdate, 1, MPI_INT, numlist, 1, MPI_INT, MPI_COMM_WORLD);
@@ -56,7 +56,7 @@ void rot_a(void)
 	nsend_local[j] = 0;
 
       /* do local particles and prepare export list */
-      for(nexport = 0, ndone = 0; i < N_gas && nexport < All.BunchSizeDensity - NTask; i++)
+      for(nexport = 0, ndone = 0; i < N_sph && nexport < All.BunchSizeDensity - NTask; i++)
 	{
 	  ndone++;
 
@@ -196,7 +196,7 @@ void rot_a(void)
 	ntotleft -= ndonelist[j];
     }
 
-  for(i = 0; i < N_gas; i++)
+  for(i = 0; i < N_sph; i++)
     for(j = 0; j < 3; j++)
 #ifndef IGNORE_PERIODIC_IN_ROTA
       SPHP(i).B[j] = SPHP(i).BPred[j] = SPHP(i).BSmooth[j] / SPHP(i).d.Density;
