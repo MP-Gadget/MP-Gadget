@@ -501,7 +501,9 @@ extern int GlobFlag;
 extern char DumpFlag;
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
-extern int N_gas;		/*!< number of gas particles on the LOCAL processor  */
+/* the below numbers are inexact unless rearrange_particle_sequence is called */
+extern int N_sph;		/*!< number of gas particles on the LOCAL processor  */
+extern int N_bh;		/*!< number of bh particles on the LOCAL processor  */
 
 #ifdef SINKS
 extern int NumSinks;
@@ -645,19 +647,18 @@ extern void *CommBuffer;	/*!< points to communication buffer, which is used at a
 extern struct global_data_all_processes
 {
     long long TotNumPart;		/*!<  total particle numbers (global value) */
-    long long TotN_gas;		/*!<  total gas particle number (global value) */
+    long long TotN_sph;		/*!<  total gas particle number (global value) */
+    long long TotN_bh;
 
 #ifdef NEUTRINOS
     long long TotNumNeutrinos;
 #endif
 
-#ifdef BLACK_HOLES
-    int TotBHs;
-#endif
-
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
                               processor. */
     int MaxPartSph;		/*!< This gives the maxmimum number of SPH particles that can be stored on one
+                          processor. */
+    int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on one
                           processor. */
 
     int ICFormat;			/*!< selects different versions of IC file-format */
@@ -1273,7 +1274,8 @@ extern struct global_data_all_processes
 }
 All;
 
-struct blackhole_data {
+struct bh_particle_data {
+    MyIDType ID; /* for data consistency check, same as particle ID */
     MyIDType SwallowID;
 #ifdef BH_COUNTPROGS
     int CountProgs;
@@ -1311,7 +1313,7 @@ struct blackhole_data {
     MyFloat ActiveTime;
     MyFloat ActiveEnergy;
 #endif
-};
+} * BhP;
 
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
@@ -1320,8 +1322,17 @@ extern struct particle_data
 {
     MyDouble Pos[3];   /*!< particle position at its current time */
     MyDouble Mass;     /*!< particle mass */
-    short int Type;		/*!< flags particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
-    short int TimeBin;
+    struct {
+        unsigned int unused      :2;
+        unsigned int OnAnotherDomain     :1;
+        unsigned int WillExport    :1;
+        unsigned int Type        :4;		/*!< flags particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
+        /* first byte ends */
+        signed int TimeBin       :8;
+        /* second byte ends */
+        unsigned int PI          :32; /* particle property index; used by BH. points to the BH property in BhP array.*/
+    };
+    struct bh_particle_data BH;
     MyIDType ID;
     MyDouble Vel[3];   /*!< particle velocity at its current time */
 
@@ -1411,10 +1422,6 @@ extern struct particle_data
     MyFloat DensAroundStar;
 #endif
 
-
-#ifdef BLACK_HOLES
-    struct blackhole_data BH;
-#endif
 
 #ifdef SUBFIND
     MyIDType GrNr;
@@ -1791,6 +1798,7 @@ extern struct sph_particle_data
 } *SphP;				/*!< holds SPH particle data on local processor */
 
 #define SPHP(i) SphP[i]
+//#define BHP(i) BhP[P[i].PI]
 #define BHP(i) P[i].BH
 #define KEY(i) peano_hilbert_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac), \
         (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac), \

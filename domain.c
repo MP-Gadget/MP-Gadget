@@ -249,10 +249,11 @@ void domain_Decomposition(void)
 
         CPU_Step[CPU_DOMAIN] += measure_time();
 
+        /* asserting type is smaller than 5.*/
         for(i = 0; i < NumPart; i++)
-            if(P[i].Type > 5 || P[i].Type < 0)
+            if(P[i].WillExport || P[i].OnAnotherDomain)
             {
-                printf("task=%d:  P[i=%d].Type=%d\n", ThisTask, i, P[i].Type);
+                printf("task=%d:  P[i=%d].Type=%d %d %d\n", ThisTask, i, P[i].Type, P[i].WillExport, P[i].OnAnotherDomain);
                 endrun(111111);
             }
 
@@ -541,7 +542,7 @@ void domain_exchange(int (*layoutfunc)(int p), int onlyparticledata) {
     {
         target = layoutfunc(i);
         if(target != ThisTask)
-            P[i].Type |= 32;
+            P[i].OnAnotherDomain = 1;
     }
 
 
@@ -713,10 +714,11 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
     for(n = 0; n < NumPart; n++)
     {
-        if((P[n].Type & (32 + 16)) == (32 + 16))
+        if((P[n].OnAnotherDomain && P[n].WillExport))
         {
-            P[n].Type &= 15;
-
+            /* preparing for export */
+            P[n].OnAnotherDomain = 0;
+            P[n].WillExport = 0;
             target = layoutfunc(n);
 
             if(P[n].Type == 0)
@@ -1129,19 +1131,19 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
 
     for(n = 0; n < NumPart && package < nlimit; n++)
     {
-        if(!(P[n].Type & 32)) continue;
+        if(!P[n].OnAnotherDomain) continue;
         target = layoutfunc(n);
         if (target == ThisTask) continue;
 
         toGo[target] += 1;
         nlimit -= sizeof(struct particle_data);
 
-        if((P[n].Type & 15) == 0)
+        if(P[n].Type  == 0)
         {
             toGoSph[target] += 1;
             nlimit -= sizeof(struct sph_particle_data);
         }
-        P[n].Type |= 16;	/* flag this particle for export */
+        P[n].WillExport = 1;	/* flag this particle for export */
     }
 
     MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
@@ -1295,19 +1297,19 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
 
                 for(n = 0; n < NumPart; n++)
                 {
-                    if(P[n].Type & 32)
+                    if(P[n].OnAnotherDomain)
                     {
-                        P[n].Type &= (15 + 32);	/* clear 16 */
+                        P[n].WillExport = 0; /* clear 16 */
 
                         target = layoutfunc(n);
 
-                        if((P[n].Type & 15) == 0)
+                        if(P[n].Type == 0)
                         {
                             if(local_toGoSph[target] < toGoSph[target] && local_toGo[target] < toGo[target])
                             {
                                 local_toGo[target] += 1;
                                 local_toGoSph[target] += 1;
-                                P[n].Type |= 16;
+                                P[n].WillExport = 1;
                             }
                         }
                         else
@@ -1315,7 +1317,7 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
                             if(local_toGo[target] < toGo[target])
                             {
                                 local_toGo[target] += 1;
-                                P[n].Type |= 16;
+                                P[n].WillExport = 1;
                             }
                         }
                     }
