@@ -15,6 +15,35 @@
 
 #ifdef BLACK_HOLES
 
+struct blackhole_event {
+    enum {
+        BHEVENT_ACCRETION = 0,
+        BHEVENT_SCATTER = 1,
+        BHEVENT_SWALLOW = 2, 
+    } type;
+    double time;
+    MyIDType ID;
+    union {
+        struct blackhole_accretion_event {
+            /* for ACCRETION*/
+            double pos[3];
+            float bhmass;
+            float bhmdot;
+            float rho_proper;
+            float soundspeed;
+            float bhvel;
+            float gasvel[3];
+            float hsml;
+        } a;
+        struct blackhole_swallow_event { /* for SCATTER and SWALLOW */
+            MyIDType ID_swallow;
+            float bhmass_before;
+            float bhmass_swallow;
+            float vrel;   /* unused for SWALLOW */
+            float soundspeed; /* unused for SWALLOW */
+        } s;
+    };
+};
 static struct blackholedata_in
 {
     MyDouble Pos[3];
@@ -170,18 +199,21 @@ void blackhole_accretion(void)
 
             if(BHP(n).Mass > 0)
             {
-                fprintf(FdBlackHolesDetails, "BH=%llu %g %g %g %g %g %g   %2.7f %2.7f %2.7f %g %g %g %g\n",
-                        P[n].ID, All.Time, BHP(n).Mass, mdot, rho_proper, soundspeed, bhvel, P[n].Pos[0],P[n].Pos[1],P[n].Pos[2],
-#ifdef BH_USE_GASVEL_IN_BONDI
-                        BHP(n).SurroundingGasVel[0],
-                        BHP(n).SurroundingGasVel[1], 
-                        BHP(n).SurroundingGasVel[2], 
-#else
-                        0., 0., 0.,
-#endif 
-                        P[n].Hsml);
+                struct blackhole_event event;
+                event.type = BHEVENT_ACCRETION;
+                event.time = All.Time;
+                event.ID = P[n].ID;
+                event.a.bhmass = BHP(n).Mass;
+                event.a.bhmdot = mdot;
+                event.a.rho_proper = rho_proper;
+                event.a.soundspeed = soundspeed;
+                event.a.bhvel = bhvel;
+                event.a.pos[0] = P[n].Pos[0];
+                event.a.pos[1] = P[n].Pos[1];
+                event.a.pos[2] = P[n].Pos[2];
+                event.a.hsml = P[n].Hsml;
+                fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
             }
-
             dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / hubble_a;
 
 #ifdef BH_DRAG
@@ -958,9 +990,16 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
 
                                 if(vrel > 0.5 * csnd)
                                 {
-                                    fprintf(FdBlackHolesDetails,
-                                            "ThisTask=%d, time=%g: id=%llu would like to swallow %llu, but vrel=%g csnd=%g\n",
-                                            ThisTask, All.Time, id, P[j].ID, vrel, csnd);
+                                    struct blackhole_event event;
+                                    event.type = BHEVENT_SCATTER;
+                                    event.time = All.Time;
+                                    event.ID = id;
+                                    event.s.ID_swallow = P[j].ID;
+                                    event.s.bhmass_before = bh_mass;
+                                    event.s.bhmass_swallow = BHP(j).Mass;
+                                    event.s.vrel = vrel;
+                                    event.s.soundspeed = csnd;
+                                    fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
                                 }
                                 else
                                 {
@@ -1143,9 +1182,14 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
                 {
                     if(P[j].Type == 5)	/* we have a black hole merger */
                     {
-                        fprintf(FdBlackHolesDetails,
-                                "ThisTask=%d, time=%g: id=%llu swallows %llu (%g %g)\n",
-                                ThisTask, All.Time, id, P[j].ID, bh_mass, BHP(j).Mass);
+                        struct blackhole_event event;
+                        event.type = BHEVENT_SWALLOW;
+                        event.time = All.Time;
+                        event.ID = id;
+                        event.s.ID_swallow = P[j].ID;
+                        event.s.bhmass_before = bh_mass;
+                        event.s.bhmass_swallow = BHP(j).Mass;
+                        fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
 
                         accreted_mass += FLT(P[j].Mass);
                         accreted_BH_mass += FLT(BHP(j).Mass);

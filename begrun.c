@@ -670,7 +670,7 @@ void open_outputfiles(void)
 
 #ifdef BLACK_HOLES
     /* Note: This is done by everyone */
-    sprintf(buf, "%sblackhole_details_%d.txt", All.OutputDir, ThisTask);
+    sprintf(buf, "%sblackhole_details_%d.raw", All.OutputDir, ThisTask);
     if(!(FdBlackHolesDetails = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
