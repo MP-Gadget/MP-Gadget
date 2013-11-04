@@ -845,11 +845,11 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
 #endif
         if(SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr < 0.5 * SPHP(i).Entropy)
             SPHP(i).e.DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr;
-}
-
-if(All.DoDynamicUpdate)
-    force_kick_node(i, dv);
     }
+
+    if(All.DoDynamicUpdate)
+        force_kick_node(i, dv);
+}
 
 
 
@@ -1054,7 +1054,7 @@ int get_timestep(int p,		/*!< particle index */
             if(dt_accr < dt)
                 dt = dt_accr;
         }
-        if(BHP(p).TimeBinLimit >= 0) {
+        if(BHP(p).TimeBinLimit > 0) {
             dt_limiter = 0.5 * (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / hubble_a;
             if (dt_limiter < dt) dt = dt_limiter;
         }

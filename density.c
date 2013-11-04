@@ -659,7 +659,9 @@ void density(void)
 #ifdef BLACK_HOLES
                 if(P[place].Type == 5)
                 {
-                    BHP(place).TimeBinLimit = IMIN(BHP(place).TimeBinLimit, DensDataOut[j].BH_TimeBinLimit);
+                    if (BHP(place).TimeBinLimit < 0 || BHP(place).TimeBinLimit > DensDataOut[j].BH_TimeBinLimit) {
+                        BHP(place).TimeBinLimit = DensDataOut[j].BH_TimeBinLimit;
+                    }
                     BHP(place).Density += DensDataOut[j].Rho;
                     BHP(place).FeedbackWeightSum += DensDataOut[j].FeedbackWeightSum;
                     BHP(place).EntOrPressure += DensDataOut[j].SmoothedEntOrPressure;
@@ -1131,7 +1133,7 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
     double hsearch;
     density_kernel_t kernel;
     MyLongDouble rho;
-    short int timebin_min = 9999;
+    short int timebin_min = -1;
 
 #ifdef BLACK_HOLES
     MyLongDouble fb_weight_sum;  /*smoothing density used in feedback */
@@ -1429,7 +1431,8 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
                          * nothing to worry here */
                         dhsmlrho += mass_j * density_kernel_dW(&kernel, u, wk, dwk);
 
-                        timebin_min = IMIN(timebin_min, P[j].TimeBin);
+                        if (timebin_min <= 0 || timebin_min >= P[j].TimeBin) 
+                            timebin_min = P[j].TimeBin;
 
 #ifdef DENSITY_INDEPENDENT_SPH
                         egyrho += mass_j * SPHP(j).EntVarPred * wk;
