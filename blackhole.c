@@ -1320,6 +1320,9 @@ int ngb_treefind_blackhole(MyDouble searchcenter[3], MyFloat hsml, int target, i
             p = no;
             no = Nextnode[no];
 
+            if(P[p].Ti_current != All.Ti_Current)
+	        drift_particle(p, All.Ti_Current);
+
 #ifndef REPOSITION_ON_POTMIN
             if(P[p].Type != 0 && P[p].Type != 5)
                 continue;
@@ -1392,6 +1395,9 @@ int ngb_treefind_blackhole(MyDouble searchcenter[3], MyFloat hsml, int target, i
                     return numngb;
                 }
             }
+
+  	    if(current->Ti_current != All.Ti_Current)
+	         force_drift_node(no, All.Ti_Current);
 
             no = current->u.d.sibling;	/* in case the node can be discarded */
 
