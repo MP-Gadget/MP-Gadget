@@ -2161,19 +2161,25 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                       (dwk_i*p_over_rho2_i*SPHP(j).EntVarPred/entvarpred +
                        dwk_j*p_over_rho2_j*entvarpred/SPHP(j).EntVarPred) / r;
 
-              double r1 = egyrho / rho;
-              if(r1 > All.DensityContrastLimit) {
-                  r1 = All.DensityContrastLimit;
+              /* enable grad-h corrections only if contrastlimit is non negative */
+              if(All.DensityContrastLimit >= 0) {
+                  double r1 = egyrho / rho;
+                  double r2 = SPHP(j).EgyWtDensity / SPHP(j).d.Density;
+                  if(All.DensityContrastLimit > 0) {
+                      /* apply the limit if it is enabled > 0*/
+                      if(r1 > All.DensityContrastLimit) {
+                              r1 = All.DensityContrastLimit;
+                      }
+                      if(r2 > All.DensityContrastLimit) {
+                              r2 = All.DensityContrastLimit;
+                      }
+                  }
+              /* grad-h corrections */
+                  /* dhsmlDensityFactor is actually EgyDensityFactor */
+                  hfc += P[j].Mass *
+                          (dwk_i*p_over_rho2_i*r1*dhsmlDensityFactor +
+                           dwk_j*p_over_rho2_j*r2*SPHP(j).DhsmlEgyDensityFactor) / r;
               }
-              double r2 = SPHP(j).EgyWtDensity / SPHP(j).d.Density;
-              if(r2 > All.DensityContrastLimit) {
-                  r2 = All.DensityContrastLimit;
-              }
-          /* grad-h corrections */
-              /* dhsmlDensityFactor is actually EgyDensityFactor */
-              hfc += P[j].Mass *
-                      (dwk_i*p_over_rho2_i*r1*dhsmlDensityFactor +
-                       dwk_j*p_over_rho2_j*r2*SPHP(j).DhsmlEgyDensityFactor) / r;
 #else
 		      /* Formulation derived from the Lagrangian */
 		      hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *dhsmlDensityFactor * dwk_i 
