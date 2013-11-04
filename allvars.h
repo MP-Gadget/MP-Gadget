@@ -872,6 +872,8 @@ extern struct global_data_all_processes
     int DensityKernelType;  /* 0 for Cubic Spline,  (recmd NumNgb = 33)
                                1 for Quintic spline (recmd  NumNgb = 97)
                              */
+    double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
+
     double SofteningGas,		/*!< for type 0 */
            SofteningHalo,		/*!< for type 1 */
            SofteningDisk,		/*!< for type 2 */

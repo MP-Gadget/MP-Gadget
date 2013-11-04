@@ -1183,6 +1183,9 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.DensityResolutionEta;
         id[nt++] = REAL;
 
+        strcpy(tag[nt], "DensityContrastLimit");
+        addr[nt] = &All.DensityContrastLimit;
+        id[nt++] = REAL;
 
 #ifdef KSPACE_NEUTRINOS
         strcpy(tag[nt], "KspaceNeutrinoSeed");
