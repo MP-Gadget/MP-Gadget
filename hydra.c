@@ -1732,9 +1732,6 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
   p_over_rho2_i = pressure / (egyrho * egyrho);
 #else
   p_over_rho2_i = pressure / (rho * rho);
-#ifndef NO_DHSML
-  p_over_rho2_i *= dhsmlDensityFactor;
-#endif
 #endif
 #else
   p_over_rho2_i = pressure / (rho * rho);
@@ -2154,8 +2151,8 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
 			{
 			  visc = 0;
 			}
+                      hfc_visc = 0.5 * P[j].Mass * visc * (dwk_i + dwk_j) / r;
 #ifndef TRADITIONAL_SPH_FORMULATION
-		      hfc_visc = 0.5 * P[j].Mass * visc * (dwk_i + dwk_j) / r;
 
 #ifdef DENSITY_INDEPENDENT_SPH
               hfc = hfc_visc;
@@ -2170,9 +2167,9 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
                       (dwk_i*p_over_rho2_i*egyrho/rho*dhsmlDensityFactor +
                        dwk_j*p_over_rho2_j*SPHP(j).EgyWtDensity/SPHP(j).d.Density*SPHP(j).DhsmlEgyDensityFactor) / r;
 #else
-		      p_over_rho2_j *= SPHP(j).h.DhsmlDensityFactor;
 		      /* Formulation derived from the Lagrangian */
-		      hfc = hfc_visc + P[j].Mass * (p_over_rho2_i * dwk_i + p_over_rho2_j * dwk_j) / r;
+		      hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *dhsmlDensityFactor * dwk_i 
+                        + p_over_rho2_j * SPHP(j).h.DhsmlDensityFactor * dwk_j) / r;
 #endif
 #else
 		      hfc = hfc_visc +
