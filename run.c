@@ -741,6 +741,12 @@ void every_timestep_stuff(void)
     sumup_large_ints(TIMEBINS, TimeBinCount, tot_count);
     sumup_large_ints(TIMEBINS, TimeBinCountSph, tot_count_sph);
 
+    for(i = 0; i < NumPart; i++) {
+        if(P[i].Type == 5) {
+            printf("%ld %ld %g %g %g\n", P[i].ID , BHP(i).ID, BHP(i).Mass, BHP(i).Mdot, P[i].Mass);
+        } 
+    }
+    if(All.NumCurrentTiStep > 30) endrun(0);
     if(ThisTask == 0)
     {
         if(All.ComovingIntegrationOn)

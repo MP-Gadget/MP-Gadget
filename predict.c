@@ -30,7 +30,6 @@ void reconstruct_timebins(void)
         TimeBin_BH_dynamicalmass[bin] = 0;
         TimeBin_BH_Mdot[bin] = 0;
         TimeBin_BH_Medd[bin] = 0;
-        TimeBin_GAS_Injection[bin] = 0;
 #endif
     }
 
@@ -59,9 +58,6 @@ void reconstruct_timebins(void)
             TimeBinSfr[bin] += SPHP(i).Sfr;
 #endif
 #if BLACK_HOLES
-        if(P[i].Type == 0) {
-            TimeBin_GAS_Injection[bin] += SPHP(i).i.dInjected_BH_Energy;
-        }
         if(P[i].Type == 5)
         {
             TimeBin_BH_mass[bin] += BHP(i).Mass;

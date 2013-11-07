@@ -241,11 +241,6 @@ void advance_and_find_timesteps(void)
             }
 
 #ifdef BLACK_HOLES
-            if(P[i].Type == 0) 
-            {
-                TimeBin_GAS_Injection[binold] -= SPHP(i).i.dInjected_BH_Energy;
-                TimeBin_GAS_Injection[bin] += SPHP(i).i.dInjected_BH_Energy;
-            }
             if(P[i].Type == 5)
             {
                 TimeBin_BH_mass[binold] -= BHP(i).Mass;

@@ -117,7 +117,6 @@ void blackhole_accretion(void)
     double mdot, rho, rho_proper, bhvel, soundspeed, meddington, dt, mdot_in_msun_per_year;
     double mass_real, total_mass_real, medd, total_mdoteddington;
     double mass_holes, total_mass_holes, total_mdot;
-    double injection, total_injection;
 #ifdef BONDI
     double norm;
 #endif
@@ -619,13 +618,11 @@ void blackhole_accretion(void)
             TimeBin_BH_dynamicalmass[n] = 0;
             TimeBin_BH_Mdot[n] = 0;
             TimeBin_BH_Medd[n] = 0;
-            TimeBin_GAS_Injection[n] = 0;
         }
     }
     for(n = FirstActiveParticle; n >= 0; n = NextActiveParticle[n])
         if(P[n].Type == 0) {
             bin = P[n].TimeBin;
-            TimeBin_GAS_Injection[bin] += SPHP(n).i.dInjected_BH_Energy;
         }
 
     for(n = FirstActiveParticle; n >= 0; n = NextActiveParticle[n])
@@ -782,7 +779,6 @@ void blackhole_accretion(void)
     mass_holes = 0;
     mass_real = 0;
     medd = 0;
-    injection = 0;
     for(bin = 0; bin < TIMEBINS; bin++)
         if(TimeBinCount[bin])
         {
@@ -790,14 +786,12 @@ void blackhole_accretion(void)
             mass_real += TimeBin_BH_dynamicalmass[bin];
             mdot += TimeBin_BH_Mdot[bin];
             medd += TimeBin_BH_Medd[bin];
-            injection += TimeBin_GAS_Injection[bin];
         }
 
     MPI_Reduce(&mass_holes, &total_mass_holes, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&mass_real, &total_mass_real, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&mdot, &total_mdot, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&medd, &total_mdoteddington, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&injection, &total_injection, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if(ThisTask == 0)
     {
@@ -808,9 +802,9 @@ void blackhole_accretion(void)
         total_mdoteddington *= 1.0 / ((4 * M_PI * GRAVITY * C * PROTONMASS /
                     (0.1 * C * C * THOMPSON)) * All.UnitTime_in_s);
 
-        fprintf(FdBlackHoles, "%g %d %g %g %g %g %g %g\n",
+        fprintf(FdBlackHoles, "%g %d %g %g %g %g %g\n",
                 All.Time, All.TotN_bh, total_mass_holes, total_mdot, mdot_in_msun_per_year,
-                total_mass_real, total_mdoteddington, total_injection);
+                total_mass_real, total_mdoteddington);
         fflush(FdBlackHoles);
     }
 
@@ -1240,7 +1234,6 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
 
                         P[j].Mass = 0;
                         bin = P[j].TimeBin;
-                        TimeBin_GAS_Injection[bin] += SPHP(j).i.dInjected_BH_Energy;
                         N_sph_swallowed++;
                     }
                 }
