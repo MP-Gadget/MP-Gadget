@@ -242,7 +242,7 @@ void density(void)
             Left[i] = Right[i] = 0;
 
 #ifdef BLACK_HOLES
-            BHP(i).SwallowID = 0;
+            P[i].SwallowID = 0;
 #endif
 #if defined(BLACK_HOLES) && defined(FLTROUNDOFFREDUCTION)
             if(P[i].Type == 0)
@@ -670,6 +670,10 @@ void density(void)
                     BHP(place).SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
                     BHP(place).SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
 #endif
+                    /*
+                    printf("%d BHP(%d), TimeBinLimit=%d, TimeBin=%d\n",
+                            ThisTask, place, BHP(place).TimeBinLimit, P[place].TimeBin);
+                            */
                 }
 #endif
 
@@ -949,7 +953,7 @@ void density(void)
                         {
                             /* this one should be ok */
                             npleft--;
-                            P[i].TimeBin = -P[i].TimeBin - 1;	/* Mark as inactive */
+                            P[i].DensityIterationDone = 1;
                             continue;
                         }
 
@@ -1017,8 +1021,8 @@ void density(void)
                         }
                     }
 
-                        if(P[i].Hsml < All.MinGasHsml)
-                            P[i].Hsml = All.MinGasHsml;
+                    if(P[i].Hsml < All.MinGasHsml)
+                        P[i].Hsml = All.MinGasHsml;
 
 #ifdef BLACK_HOLES
                     if(P[i].Type == 5)
@@ -1029,52 +1033,51 @@ void density(void)
                         }
 #endif
 
-}
-else
-P[i].TimeBin = -P[i].TimeBin - 1;	/* Mark as inactive */
+                }
+                else
+                    P[i].DensityIterationDone = 1;
 
-}
-}
-tend = second();
-timecomp1 += timediff(tstart, tend);
+            }
+        }
+        tend = second();
+        timecomp1 += timediff(tstart, tend);
 
-sumup_large_ints(1, &npleft, &ntot);
+        sumup_large_ints(1, &npleft, &ntot);
 
-if(ntot > 0)
-{
-    iter++;
+        if(ntot > 0)
+        {
+            iter++;
 
-    if(iter > 0 && ThisTask == 0)
-    {
-        printf("ngb iteration %d: need to repeat for %d%09d particles.\n", iter,
-                (int) (ntot / 1000000000), (int) (ntot % 1000000000));
-        fflush(stdout);
+            if(iter > 0 && ThisTask == 0)
+            {
+                printf("ngb iteration %d: need to repeat for %d%09d particles.\n", iter,
+                        (int) (ntot / 1000000000), (int) (ntot % 1000000000));
+                fflush(stdout);
+            }
+
+            if(iter > MAXITER)
+            {
+                printf("failed to converge in neighbour iteration in density()\n");
+                fflush(stdout);
+                endrun(1155);
+            }
+        }
     }
+    while(ntot > 0);
 
-    if(iter > MAXITER)
+
+    myfree(DataNodeList);
+    myfree(DataIndexTable);
+    myfree(Right);
+    myfree(Left);
+    myfree(Ngblist);
+
+
+    /* mark as active again */
+    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
-        printf("failed to converge in neighbour iteration in density()\n");
-        fflush(stdout);
-        endrun(1155);
+        P[i].DensityIterationDone = 0;
     }
-}
-}
-while(ntot > 0);
-
-
-myfree(DataNodeList);
-myfree(DataIndexTable);
-myfree(Right);
-myfree(Left);
-myfree(Ngblist);
-
-
-/* mark as active again */
-for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-{
-    if(P[i].TimeBin < 0)
-        P[i].TimeBin = -P[i].TimeBin - 1;
-}
 
     /* collect some timing information */
 
@@ -1089,7 +1092,7 @@ for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     CPU_Step[CPU_DENSWAIT] += timewait;
     CPU_Step[CPU_DENSCOMM] += timecomm;
     CPU_Step[CPU_DENSMISC] += timeall - (timecomp + timewait + timecomm);
-    }
+}
 
 double density_decide_hsearch(int targettype, double h) {
 #ifdef BLACK_HOLES
@@ -1696,15 +1699,17 @@ int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount
 #endif
         }
 #ifdef BLACK_HOLES
-        BHP(target).Density = rho;
-        BHP(target).TimeBinLimit = timebin_min;
-        BHP(target).FeedbackWeightSum = fb_weight_sum;
-        BHP(target).EntOrPressure = smoothent_or_pres;
+        if(P[target].Type == 5)  {
+            BHP(target).Density = rho;
+            BHP(target).TimeBinLimit = timebin_min;
+            BHP(target).FeedbackWeightSum = fb_weight_sum;
+            BHP(target).EntOrPressure = smoothent_or_pres;
 #ifdef BH_USE_GASVEL_IN_BONDI
-        BHP(target).SurroundingGasVel[0] = gasvel[0];
-        BHP(target).SurroundingGasVel[1] = gasvel[1];
-        BHP(target).SurroundingGasVel[2] = gasvel[2];
+            BHP(target).SurroundingGasVel[0] = gasvel[0];
+            BHP(target).SurroundingGasVel[1] = gasvel[1];
+            BHP(target).SurroundingGasVel[2] = gasvel[2];
 #endif
+        }
 #endif
 #if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
         if(P[target].Type == 4)
@@ -1891,9 +1896,12 @@ void *density_evaluate_secondary(void *p)
 
 int density_isactive(int n)
 {
-    if(P[n].TimeBin < 0)
-        return 0;
+    if(P[n].DensityIterationDone) return 0;
 
+    if(P[n].TimeBin < 0) {
+        printf("TimeBin negative!\n use DensityIterationDone flag");
+        endrun(99999);
+    }
 #if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS))|| defined(SNIA_HEATING)
     if(P[n].Type == 4)
         return 1;

@@ -2023,39 +2023,15 @@ void fof_make_black_holes(void)
 
   for(n = 0; n < nimport; n++)
     {
-      if(P[import_indices[n]].Type != 0)
-	endrun(7772);
-
-      N_bh ++;
-      P[import_indices[n]].Type = 5;	/* make it a black hole particle */
-#ifdef STELLARAGE
-      P[import_indices[n]].StellarAge = All.Time;
-#endif
-      BHP(import_indices[n]).Mass = All.SeedBlackHoleMass;
-      BHP(import_indices[n]).Mdot = 0;
-
-#ifdef BH_COUNTPROGS
-      BHP(import_indices[n]).CountProgs = 1;
-#endif
-
-#ifdef BH_BUBBLES
-      BHP(import_indices[n]).Mass_bubbles = All.SeedBlackHoleMass;
-      BHP(import_indices[n]).Mass_ini = All.SeedBlackHoleMass;
-#ifdef UNIFIED_FEEDBACK
-      BHP(import_indices[n]).Mass_radio = All.SeedBlackHoleMass;
-#endif
-#endif
-
-#ifdef SFR
-      Stars_converted++;
-#endif
-      TimeBinCountSph[P[import_indices[n]].TimeBin]--;
+        blackhole_make_one(import_indices[n]);
     }
 
   All.TotN_sph -= ntot;
   myfree(export_indices);
   myfree(import_indices);
 }
+
+
 
 #endif
 

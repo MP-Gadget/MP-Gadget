@@ -453,7 +453,7 @@ void blackhole_accretion(void)
 
         for(nexport = 0; i >= 0; i = NextActiveParticle[i])
             if(P[i].Type == 5)
-                if(BHP(i).SwallowID == 0)
+                if(P[i].SwallowID == 0)
                     if(blackhole_evaluate_swallow(i, 0, &nexport, Send_count) < 0)
                         break;
 
@@ -997,8 +997,8 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                                 }
                                 else
                                 {
-                                    if(BHP(j).SwallowID < id && P[j].ID < id)
-                                        BHP(j).SwallowID = id;
+                                    if(P[j].SwallowID < id && P[j].ID < id)
+                                        P[j].SwallowID = id;
                                 }
                             }
                         }
@@ -1022,8 +1022,8 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                             w = get_random_number(P[j].ID);
                             if(w < p)
                             {
-                                if(BHP(j).SwallowID < id)
-                                    BHP(j).SwallowID = id;
+                                if(P[j].SwallowID < id)
+                                    P[j].SwallowID = id;
                             }
 #endif
 
@@ -1172,7 +1172,7 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
             {
                 j = Ngblist[n];
 
-                if(BHP(j).SwallowID == id)
+                if(P[j].SwallowID == id)
                 {
                     if(P[j].Type == 5)	/* we have a black hole merger */
                     {
@@ -1225,7 +1225,7 @@ int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nSend_lo
 
                 if(P[j].Type == 0)
                 {
-                    if(BHP(j).SwallowID == id)
+                    if(P[j].SwallowID == id)
                     {
                         accreted_mass += FLT(P[j].Mass);
 
@@ -1790,5 +1790,51 @@ void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
 
 }
 #endif /* end of BH_BUBBLE */
+
+void blackhole_make_one(int index) {
+    if(P[index].Type != 0) endrun(7772);
+
+    P[index].PI = N_bh;
+    N_bh ++;
+    P[index].Type = 5;	/* make it a black hole particle */
+#ifdef STELLARAGE
+    P[index].StellarAge = All.Time;
+#endif
+    BHP(index).ID = P[index].ID;
+    BHP(index).Mass = All.SeedBlackHoleMass;
+    BHP(index).Mdot = 0;
+
+#ifdef BH_COUNTPROGS
+    BHP(index).CountProgs = 1;
+#endif
+
+#ifdef BH_BUBBLES
+    BHP(index).Mass_bubbles = All.SeedBlackHoleMass;
+    BHP(index).Mass_ini = All.SeedBlackHoleMass;
+#ifdef UNIFIED_FEEDBACK
+    BHP(index).Mass_radio = All.SeedBlackHoleMass;
+#endif
+#endif
+
+#ifdef SFR
+    Stars_converted++;
+#endif
+    TimeBinCountSph[P[index].TimeBin]--;
+}
+
+void blackhole_make_extra() {
+    int i;
+    int converted = 0;
+    int ntot = 0;
+    for(i = 0; i < NumPart; i++) {
+        if(P[i].Type != 0) continue;
+        blackhole_make_one(i);
+        converted ++;
+        break;
+    }
+    MPI_Allreduce(&converted, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    All.TotN_sph -= ntot;
+    All.TotN_bh += ntot;
+}
 
 #endif

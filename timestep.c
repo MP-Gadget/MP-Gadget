@@ -1050,7 +1050,7 @@ int get_timestep(int p,		/*!< particle index */
                 dt = dt_accr;
         }
         if(BHP(p).TimeBinLimit > 0) {
-            dt_limiter = 0.5 * (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / hubble_a;
+            dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / hubble_a;
             if (dt_limiter < dt) dt = dt_limiter;
         }
     }

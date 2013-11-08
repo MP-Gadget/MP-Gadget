@@ -167,6 +167,8 @@ double INLINE_FUNC hubble_function_external(double a);
 #endif
 
 void blackhole_accretion(void);
+void blackhole_make_one(int index);
+void blackhole_make_extra();
 int blackhole_evaluate(int target, int mode, int *nexport, int *nsend_local);
 int blackhole_evaluate_swallow(int target, int mode, int *nexport, int *nsend_local);
 

@@ -1278,7 +1278,6 @@ All;
 
 struct bh_particle_data {
     MyIDType ID; /* for data consistency check, same as particle ID */
-    MyIDType SwallowID;
 #ifdef BH_COUNTPROGS
     int CountProgs;
 #endif
@@ -1325,7 +1324,8 @@ extern struct particle_data
     MyDouble Pos[3];   /*!< particle position at its current time */
     MyDouble Mass;     /*!< particle mass */
     struct {
-        unsigned int unused      :2;
+        unsigned int unused      :1;
+        unsigned int DensityIterationDone :1;
         unsigned int OnAnotherDomain     :1;
         unsigned int WillExport    :1;
         unsigned int Type        :4;		/*!< flags particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
@@ -1336,6 +1336,7 @@ extern struct particle_data
     };
     struct bh_particle_data BH;
     MyIDType ID;
+    MyIDType SwallowID;
     MyDouble Vel[3];   /*!< particle velocity at its current time */
 
     union
