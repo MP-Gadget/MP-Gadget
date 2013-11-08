@@ -34,10 +34,11 @@
 /*! toGo[task*NTask + partner] gives the number of particles in task 'task'
  *  that have to go to task 'partner'
  */
-static int *toGo, *toGoSph;
-static int *toGet, *toGetSph;
+static int *toGo, *toGoSph, *toGoBh;
+static int *toGet, *toGetSph, *toGetBh;
 static int *list_NumPart;
 static int *list_N_sph;
+static int *list_N_bh;
 static int *list_load;
 static int *list_loadsph;
 static double *list_work;
@@ -151,6 +152,8 @@ void domain_Decomposition(void)
             all_bytes += bytes;
             list_N_sph = (int *) mymalloc("list_N_sph", bytes = (sizeof(int) * NTask));
             all_bytes += bytes;
+            list_N_bh = (int *) mymalloc("list_N_bh", bytes = (sizeof(int) * NTask));
+            all_bytes += bytes;
             list_cadj_cpu = (double *) mymalloc("list_cadj_cpu", bytes = (sizeof(double) * NTask));
             all_bytes += bytes;
             list_cadj_cost = (double *) mymalloc("list_cadj_cost", bytes = (sizeof(double) * NTask));
@@ -209,6 +212,7 @@ void domain_Decomposition(void)
             myfree(list_load);
             myfree(list_cadj_cost);
             myfree(list_cadj_cpu);
+            myfree(list_N_bh);
             myfree(list_N_sph);
             myfree(list_NumPart);
 
@@ -534,8 +538,10 @@ void domain_exchange(int (*layoutfunc)(int p), int onlyparticledata) {
 
     toGo = (int *) mymalloc("toGo", (sizeof(int) * NTask));
     toGoSph = (int *) mymalloc("toGoSph", (sizeof(int) * NTask));
+    toGoBh = (int *) mymalloc("toGoBh", (sizeof(int) * NTask));
     toGet = (int *) mymalloc("toGet", (sizeof(int) * NTask));
     toGetSph = (int *) mymalloc("toGetSph", (sizeof(int) * NTask));
+    toGetBh = (int *) mymalloc("toGetBh", (sizeof(int) * NTask));
 
 
     for(i = 0; i < NumPart; i++)
@@ -579,8 +585,10 @@ void domain_exchange(int (*layoutfunc)(int p), int onlyparticledata) {
     }
     while(ret > 0);
 
+    myfree(toGetBh);
     myfree(toGetSph);
     myfree(toGet);
+    myfree(toGoBh);
     myfree(toGoSph);
     myfree(toGo);
 
@@ -665,12 +673,16 @@ int domain_check_memory_bound(void)
 
 static void domain_exchange_once(int (*layoutfunc)(int p))
 {
-    int count_togo = 0, count_togo_sph = 0, count_get = 0, count_get_sph = 0;
-    int *count, *count_sph, *offset, *offset_sph;
-    int *count_recv, *count_recv_sph, *offset_recv, *offset_recv_sph;
+    int count_togo = 0, count_togo_sph = 0, count_togo_bh = 0, 
+        count_get = 0, count_get_sph = 0, count_get_bh = 0;
+    int *count, *count_sph, *count_bh,
+        *offset, *offset_sph, *offset_bh;
+    int *count_recv, *count_recv_sph, *count_recv_bh,
+        *offset_recv, *offset_recv_sph, *offset_recv_bh;
     int i, n, ngrp, no, target;
     struct particle_data *partBuf;
     struct sph_particle_data *sphBuf;
+    struct bh_particle_data *bhBuf;
 
 #ifndef NO_ISEND_IRECV_IN_DOMAIN
     int n_requests;
@@ -681,16 +693,23 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
     count = (int *) mymalloc("count", NTask * sizeof(int));
     count_sph = (int *) mymalloc("count_sph", NTask * sizeof(int));
+    count_bh = (int *) mymalloc("count_bh", NTask * sizeof(int));
     offset = (int *) mymalloc("offset", NTask * sizeof(int));
     offset_sph = (int *) mymalloc("offset_sph", NTask * sizeof(int));
+    offset_bh = (int *) mymalloc("offset_bh", NTask * sizeof(int));
 
     count_recv = (int *) mymalloc("count_recv", NTask * sizeof(int));
     count_recv_sph = (int *) mymalloc("count_recv_sph", NTask * sizeof(int));
+    count_recv_bh = (int *) mymalloc("count_recv_bh", NTask * sizeof(int));
     offset_recv = (int *) mymalloc("offset_recv", NTask * sizeof(int));
     offset_recv_sph = (int *) mymalloc("offset_recv_sph", NTask * sizeof(int));
+    offset_recv_bh = (int *) mymalloc("offset_recv_bh", NTask * sizeof(int));
 
     for(i = 1, offset_sph[0] = 0; i < NTask; i++)
         offset_sph[i] = offset_sph[i - 1] + toGoSph[i - 1];
+
+    for(i = 1, offset_bh[0] = 0; i < NTask; i++)
+        offset_bh[i] = offset_bh[i - 1] + toGoBh[i - 1];
 
     offset[0] = offset_sph[NTask - 1] + toGoSph[NTask - 1];
 
@@ -701,16 +720,19 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     {
         count_togo += toGo[i];
         count_togo_sph += toGoSph[i];
+        count_togo_bh += toGoBh[i];
 
         count_get += toGet[i];
         count_get_sph += toGetSph[i];
+        count_get_bh += toGetBh[i];
     }
 
     partBuf = (struct particle_data *) mymalloc("partBuf", count_togo * sizeof(struct particle_data));
     sphBuf = (struct sph_particle_data *) mymalloc("sphBuf", count_togo_sph * sizeof(struct sph_particle_data));
+    bhBuf = (struct bh_particle_data *) mymalloc("bhBuf", count_togo_bh * sizeof(struct bh_particle_data));
 
     for(i = 0; i < NTask; i++)
-        count[i] = count_sph[i] = 0;
+        count[i] = count_sph[i] = count_bh[i] = 0;
 
     for(n = 0; n < NumPart; n++)
     {
@@ -726,6 +748,15 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
                 partBuf[offset_sph[target] + count_sph[target]] = P[n];
                 sphBuf[offset_sph[target] + count_sph[target]] = SPHP(n);
                 count_sph[target]++;
+            } else
+            if(P[n].Type == 5)
+            {
+                bhBuf[offset_bh[target] + count_bh[target]] = BhP[P[n].PI];
+                /* points to the subbuffer */
+                P[n].PI = count_bh[target];
+                partBuf[offset[target] + count[target]] = P[n];
+                count_bh[target]++;
+                count[target]++;
             }
             else
             {
@@ -761,11 +792,15 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     for(i = 0; i < NTask; i++)
     {
         count_recv_sph[i] = toGetSph[i];
+        count_recv_bh[i] = toGetBh[i];
         count_recv[i] = toGet[i] - toGetSph[i];
     }
 
     for(i = 1, offset_recv_sph[0] = N_sph; i < NTask; i++)
         offset_recv_sph[i] = offset_recv_sph[i - 1] + count_recv_sph[i - 1];
+
+    for(i = 1, offset_recv_bh[0] = N_bh; i < NTask; i++)
+        offset_recv_bh[i] = offset_recv_bh[i - 1] + count_recv_bh[i - 1];
 
     offset_recv[0] = NumPart + count_get_sph;
 
@@ -788,12 +823,30 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
                         count_recv_sph[target] * sizeof(struct sph_particle_data), MPI_BYTE, target,
                         TAG_SPHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
             }
-
             if(count_recv[target] > 0)
             {
                 MPI_Irecv(P + offset_recv[target], count_recv[target] * sizeof(struct particle_data),
                         MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, &requests[n_requests++]);
 
+            }
+            if(count_recv_bh[target] > 0)
+            {
+                MPI_Irecv(BhP + offset_recv_bh[target],
+                        count_recv_bh[target] * sizeof(struct bh_particle_data), MPI_BYTE, target,
+                        TAG_BHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
+                int i;
+                for(i = offset_recv[target], 
+                        j = offset_recv_bh[target]; 
+                        i < offset_recv[target] + count_recv[target]; 
+                        i++) {
+                    if(P[i].Type != 5) continue;
+                    P[i].PI = j;
+                    j++;
+                }
+                if(j != count_recv_bh[target] + offset_recv_bh[target]) {
+                    printf("communitate bh consitency\n");
+                    endrun(99999);
+                }
             }
         }
     }
@@ -824,6 +877,12 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
                         MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, &requests[n_requests++]);
 
             }
+            if(count_bh[target] > 0)
+            {
+                MPI_Isend(bhBuf + offset_bh[target], count_bh[target] * sizeof(struct bh_particle_data),
+                        MPI_BYTE, target, TAG_BHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
+            }
+
         }
     }
 
@@ -858,12 +917,36 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
                         MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
             }
+
+            if(count_bh[target] > 0 || count_recv_bh[target] > 0)
+            {
+                MPI_Sendrecv(bhBuf + offset_bh[target], count_bh[target] * sizeof(struct bh_particle_data),
+                        MPI_BYTE, target, TAG_BHDATA,
+                        BhP + offset_recv_bh[target],
+                        count_recv_bh[target] * sizeof(struct bh_particle_data), MPI_BYTE, target,
+                        TAG_BHDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                int i, j;
+                for(i = offset_recv[target], 
+                        j = offset_recv_bh[target]; 
+                        i < offset_recv[target] + count_recv[target]; 
+                        i++) {
+                    if(P[i].Type != 5) continue;
+                    P[i].PI = j;
+                    j++;
+                }
+                if(j != count_recv_bh[target] + offset_recv_bh[target]) {
+                    printf("communitate bh consitency\n");
+                    endrun(99999);
+                }
+
+            }
         }
     }
 #endif
 
     NumPart += count_get;
     N_sph += count_get_sph;
+    N_bh += count_get_bh;
     if(NumPart > All.MaxPart)
     {
         printf("Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
@@ -872,24 +955,99 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
     if(N_sph > All.MaxPartSph)
         endrun(787879);
+    if(N_bh > All.MaxPartSph)
+        endrun(787879);
 
+    myfree(bhBuf);
     myfree(sphBuf);
     myfree(partBuf);
-
+    myfree(offset_recv_bh);
     myfree(offset_recv_sph);
     myfree(offset_recv);
+    myfree(count_recv_bh);
     myfree(count_recv_sph);
     myfree(count_recv);
 
+    myfree(offset_bh);
     myfree(offset_sph);
     myfree(offset);
+    myfree(count_bh);
     myfree(count_sph);
     myfree(count);
 #ifndef NO_ISEND_IRECV_IN_DOMAIN
     myfree(requests);
 #endif
+
+    if(ThisTask == 0) {
+        fprintf(stderr, "checking ID consistency after exchange\n");
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    domain_garbage_collection_bh();
 }
 
+void domain_garbage_collection_bh() {
+    /* gc the bh */
+    int * bhreverselink = mymalloc("bhreverselink", sizeof(int) * N_bh);
+    int i, j;
+    for(i = 0; i < N_bh; i++) {
+        bhreverselink[i] = -1;
+    }
+    for(i = 0; i < NumPart; i++) {
+        if(P[i].Type != 5) continue;
+        bhreverselink[P[i].PI] = i;
+        if(P[i].PI >= N_bh) {
+            printf("bh PI consistency failed1\n");
+            endrun(99999); 
+        }
+        if(BhP[P[i].PI].ID != P[i].ID) {
+            printf("bh id consistency failed1\n");
+            endrun(99999); 
+        }
+    }
+    i = 0; 
+    j = N_bh - 1;
+    while(1) {
+        while(i < N_bh && bhreverselink[i] != -1) i++;
+        while(j >=0 && bhreverselink[j] == -1) j--;
+        if(i >= j) break;
+        /* i points to the first empty slot
+         * j points to the last used slot */
+        BhP[i] = BhP[j];
+        P[bhreverselink[j]].PI = i;
+        bhreverselink[i] = bhreverselink[j];
+        bhreverselink[j] = -1;
+    }
+
+    N_bh = j + 1;
+    j = 0;
+    for(i = 0; i < NumPart; i++) {
+        if(P[i].Type != 5) continue;
+        if(P[i].PI >= N_bh) {
+            printf("bh PI consistency failed2\n");
+            endrun(99999); 
+        }
+        if(BhP[P[i].PI].ID != P[i].ID) {
+            printf("bh id consistency failed2\n");
+            endrun(99999); 
+        }
+        j ++;
+    }
+    if(j != N_bh) {
+            printf("bh count failed2, j=%d, N_bh=%d\n", j, N_bh);
+            endrun(99999); 
+    }
+    myfree(bhreverselink);
+    int total = 0;
+    MPI_Reduce(&N_bh, &total, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    if(ThisTask == 0 && total != All.TotN_bh) {
+        printf("total bh count failed2, total=%d, TotN_bh=%ld\n", total, All.TotN_bh);
+        endrun(99999); 
+    }
+    if(ThisTask == 0) {
+        printf("total bh count = %d\n", total);
+    }
+}
 
 
 void domain_findSplit_work_balanced(int ncpu, int ndomain)
@@ -1122,6 +1280,7 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
     {
         toGo[n] = 0;
         toGoSph[n] = 0;
+        toGoBh[n] = 0;
     }
 
     package = (sizeof(struct particle_data) + sizeof(struct sph_particle_data) + sizeof(peanokey));
@@ -1143,11 +1302,17 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
             toGoSph[target] += 1;
             nlimit -= sizeof(struct sph_particle_data);
         }
+        if(P[n].Type  == 5)
+        {
+            toGoBh[target] += 1;
+            nlimit -= sizeof(struct bh_particle_data);
+        }
         P[n].WillExport = 1;	/* flag this particle for export */
     }
 
     MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
     MPI_Alltoall(toGoSph, 1, MPI_INT, toGetSph, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Alltoall(toGoBh, 1, MPI_INT, toGetBh, 1, MPI_INT, MPI_COMM_WORLD);
 
     if(package >= nlimit)
         ret = 1;
@@ -1165,10 +1330,11 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
            constraint. */
 
         MPI_Allgather(&NumPart, 1, MPI_INT, list_NumPart, 1, MPI_INT, MPI_COMM_WORLD);
+        MPI_Allgather(&N_bh, 1, MPI_INT, list_N_bh, 1, MPI_INT, MPI_COMM_WORLD);
         MPI_Allgather(&N_sph, 1, MPI_INT, list_N_sph, 1, MPI_INT, MPI_COMM_WORLD);
 
         int flag, flagsum, ntoomany, ta, i, target;
-        int count_togo, count_toget, count_togo_sph, count_toget_sph;
+        int count_togo, count_toget, count_togo_bh, count_toget_bh, count_togo_sph, count_toget_sph;
 
         do
         {
@@ -1184,18 +1350,23 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
                     {
                         count_togo = count_toget = 0;
                         count_togo_sph = count_toget_sph = 0;
+                        count_togo_bh = count_toget_bh = 0;
                         for(i = 0; i < NTask; i++)
                         {
                             count_togo += toGo[i];
                             count_toget += toGet[i];
                             count_togo_sph += toGoSph[i];
                             count_toget_sph += toGetSph[i];
+                            count_togo_bh += toGoBh[i];
+                            count_toget_bh += toGetBh[i];
                         }
                     }
                     MPI_Bcast(&count_togo, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     MPI_Bcast(&count_toget, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     MPI_Bcast(&count_togo_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     MPI_Bcast(&count_toget_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
+                    MPI_Bcast(&count_togo_bh, 1, MPI_INT, ta, MPI_COMM_WORLD);
+                    MPI_Bcast(&count_toget_bh, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     if((ntoomany = list_N_sph[ta] + count_toget_sph - count_togo_sph - All.MaxPartSph) > 0)
                     {
                         if(ThisTask == 0)
@@ -1227,6 +1398,42 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
                             MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
                             MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
                             MPI_Bcast(&count_toget_sph, 1, MPI_INT, i, MPI_COMM_WORLD);
+                            i++;
+                            if(i >= NTask)
+                                i = 0;
+                        }
+                    }
+                    if((ntoomany = list_N_bh[ta] + count_toget_bh - count_togo_bh - All.MaxPartBh) > 0)
+                    {
+                        if(ThisTask == 0)
+                        {
+                            printf
+                                ("exchange needs to be modified because I can't receive %d BH-particles on task=%d\n",
+                                 ntoomany, ta);
+                            if(flagsum > 25)
+                                printf("list_N_bh[ta=%d]=%d  count_toget_bh=%d count_togo_bh=%d\n",
+                                        ta, list_N_bh[ta], count_toget_bh, count_togo_bh);
+                            fflush(stdout);
+                        }
+
+                        flag = 1;
+                        i = flagsum % NTask;
+                        while(ntoomany)
+                        {
+                            if(i == ThisTask)
+                            {
+                                if(toGoBh[ta] > 0)
+                                {
+                                    toGoBh[ta]--;
+                                    count_toget_bh--;
+                                    count_toget--;
+                                    ntoomany--;
+                                }
+                            }
+
+                            MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
+                            MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
+                            MPI_Bcast(&count_toget_bh, 1, MPI_INT, i, MPI_COMM_WORLD);
                             i++;
                             if(i >= NTask)
                                 i = 0;
@@ -1283,16 +1490,18 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
 
             if(flagsum)
             {
-                int *local_toGo, *local_toGoSph;
+                int *local_toGo, *local_toGoSph, *local_toGoBh;
 
                 local_toGo = (int *)mymalloc("	      local_toGo", NTask * sizeof(int));
                 local_toGoSph = (int *)mymalloc("	      local_toGoSph", NTask * sizeof(int));
+                local_toGoBh = (int *)mymalloc("	      local_toGoBh", NTask * sizeof(int));
 
 
                 for(n = 0; n < NTask; n++)
                 {
                     local_toGo[n] = 0;
                     local_toGoSph[n] = 0;
+                    local_toGoBh[n] = 0;
                 }
 
                 for(n = 0; n < NumPart; n++)
@@ -1313,6 +1522,16 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
                             }
                         }
                         else
+                        if(P[n].Type == 5)
+                        {
+                            if(local_toGoBh[target] < toGoBh[target] && local_toGo[target] < toGo[target])
+                            {
+                                local_toGo[target] += 1;
+                                local_toGoBh[target] += 1;
+                                P[n].WillExport = 1;
+                            }
+                        }
+                        else
                         {
                             if(local_toGo[target] < toGo[target])
                             {
@@ -1327,10 +1546,13 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
                 {
                     toGo[n] = local_toGo[n];
                     toGoSph[n] = local_toGoSph[n];
+                    toGoBh[n] = local_toGoBh[n];
                 }
 
                 MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
                 MPI_Alltoall(toGoSph, 1, MPI_INT, toGetSph, 1, MPI_INT, MPI_COMM_WORLD);
+                MPI_Alltoall(toGoBh, 1, MPI_INT, toGetBh, 1, MPI_INT, MPI_COMM_WORLD);
+                myfree(local_toGoBh);
                 myfree(local_toGoSph);
                 myfree(local_toGo);
             }
@@ -2139,8 +2361,7 @@ void rearrange_particle_sequence(void)
                 N_sph--;
 
                 count_gaselim++;
-            }
-            else
+            } else
             {
                 P[i] = P[NumPart - 1];
             }

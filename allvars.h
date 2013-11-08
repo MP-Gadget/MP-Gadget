@@ -1332,11 +1332,10 @@ extern struct particle_data
         /* first byte ends */
         signed int TimeBin       :8;
         /* second byte ends */
-        unsigned int PI          :32; /* particle property index; used by BH. points to the BH property in BhP array.*/
     };
-    struct bh_particle_data BH;
+    unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
     MyIDType ID;
-    MyIDType SwallowID;
+    MyIDType SwallowID; /* who will swallow this particle */
     MyDouble Vel[3];   /*!< particle velocity at its current time */
 
     union
@@ -1801,8 +1800,8 @@ extern struct sph_particle_data
 } *SphP;				/*!< holds SPH particle data on local processor */
 
 #define SPHP(i) SphP[i]
-//#define BHP(i) BhP[P[i].PI]
-#define BHP(i) P[i].BH
+#define BHP(i) BhP[P[i].PI]
+
 #define KEY(i) peano_hilbert_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac), \
         (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac), \
         (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), \

@@ -52,6 +52,7 @@
 
 #define TAG_PDATA_SPH     70
 #define TAG_KEY_SPH       71
+#define TAG_BHDATA        75
 
 #ifdef RADTRANSFER
 #define TAG_RT_A          72

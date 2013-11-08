@@ -272,8 +272,9 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 
             for(n = 0; n < pc; n++) {
                 P[offset + n].Type = type;	/* initialize type here as well */
-                if(type == 5)
+                if(type == 5) {
                     P[offset + n].PI = N_bh + n;
+                }
             }
             /* and also increase the particle counts */
             NumPart += pc;
