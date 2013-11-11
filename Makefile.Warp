@@ -1,0 +1,8 @@
+CC       =   mpiicc
+#OPTIMIZE =  -O3 -ffast-math
+OPTIMIZE =  
+GSL_INCL = -I/opt/gsl/impi/include/gsl
+GSL_LIBS = -L/opt/gsl/impi/lib64 -Wl,-rpath,/opt/gsl/impi/lib64
+FFTW_INCL= -I/opt/fftw/impi_intel-3.2/include
+FFTW_LIBS= -L/opt/fftw/impi_intel-3.2/lib64 -Wl,-rpath,/opt/fftw/impi_intel-3.2/lib64
+MPICHLIB = #-L/opt/intel/impi/3.1/lib64 -Wl,-rpath,/opt/intel/impi/3.1/lib64
