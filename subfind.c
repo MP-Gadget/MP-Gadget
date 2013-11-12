@@ -332,6 +332,14 @@ void subfind(int num)
         printf("stage 1 ended\n");
     endrun(0);
 #endif
+    if(ThisTask == 0) {
+        printf("reseting origindex and origintask\n");
+    }
+    for(i = 0; i < NumPart; i++)
+    {
+        P[i].origindex = i;
+        P[i].origintask = ThisTask;
+    }
 
     t0 = second();
     qsort(P, NumPart, sizeof(struct particle_data), subfind_compare_P_GrNr_DM_Density);
@@ -408,13 +416,12 @@ void subfind(int num)
 #endif
 
 
-
-    t0 = second();
-
-    /* recover origin task (tainted by collective) */
+    /* recover origin task (tainted by serial subfind) */
 
     for(i = 0; i < NumPart; i++)
         P[i].origintask = P[i].origintask2;
+
+    t0 = second();
 
     /* 1 is to return to the original cpu*/
     subfind_exchange(1, 0);		/* distributes gas particles as well if needed */
@@ -422,7 +429,6 @@ void subfind(int num)
     t1 = second();
     if(ThisTask == 0)
         printf("subfind_exchange() (for return to original CPU)  took %g sec\n", timediff(t0, t1));
-
 
 
     All.DoDynamicUpdate = 0;
