@@ -662,15 +662,22 @@ double enclosed_mass(double R)
 void open_outputfiles(void)
 {
     char mode[2], buf[200];
+    char postfix[128];
 
-    if(RestartFlag == 0)
+    if(RestartFlag == 0 || RestartFlag == 2)
         strcpy(mode, "w");
     else
         strcpy(mode, "a");
 
+    if(RestartFlag == 2) {
+        sprintf(postfix, "-%03d", RestartSnapNum);
+    } else {
+        sprintf(postfix, "%s", "");
+    }
+
 #ifdef BLACK_HOLES
     /* Note: This is done by everyone */
-    sprintf(buf, "%sblackhole_details_%d.raw", All.OutputDir, ThisTask);
+    sprintf(buf, "%sblackhole_details_%d.raw", All.OutputDir, ThisTask, postfix);
     if(!(FdBlackHolesDetails = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
@@ -680,7 +687,7 @@ void open_outputfiles(void)
 
 #ifdef DISTORTIONTENSORPS
     /* create caustic log file */
-    sprintf(buf, "%scaustics_%d.txt", All.OutputDir, ThisTask);
+    sprintf(buf, "%scaustics_%d.txt%s", All.OutputDir, ThisTask, postfix);
     if(!(FdCaustics = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
@@ -691,35 +698,35 @@ void open_outputfiles(void)
     if(ThisTask != 0)		/* only the root processors writes to the log files */
         return;
 
-    sprintf(buf, "%s%s", All.OutputDir, All.CpuFile);
+    sprintf(buf, "%s%s%s", All.OutputDir, All.CpuFile, postfix);
     if(!(FdCPU = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
         endrun(1);
     }
 
-    sprintf(buf, "%s%s", All.OutputDir, All.InfoFile);
+    sprintf(buf, "%s%s%s", All.OutputDir, All.InfoFile, postfix);
     if(!(FdInfo = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
         endrun(1);
     }
 
-    sprintf(buf, "%s%s", All.OutputDir, All.EnergyFile);
+    sprintf(buf, "%s%s%s", All.OutputDir, All.EnergyFile, postfix);
     if(!(FdEnergy = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
         endrun(1);
     }
 
-    sprintf(buf, "%s%s", All.OutputDir, All.TimingsFile);
+    sprintf(buf, "%s%s%s", All.OutputDir, All.TimingsFile, postfix);
     if(!(FdTimings = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
         endrun(1);
     }
 
-    sprintf(buf, "%s%s", All.OutputDir, "balance.txt");
+    sprintf(buf, "%s%s%s", All.OutputDir, "balance.txt", postfix);
     if(!(FdBalance = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
@@ -783,7 +790,7 @@ void open_outputfiles(void)
     fprintf(FdBalance, "\n");
 
 #ifdef SCFPOTENTIAL
-    sprintf(buf, "%s%s", All.OutputDir, "scf_coeff.txt");
+    sprintf(buf, "%s%s%s", All.OutputDir, "scf_coeff.txt", postfix);
     if(!(FdSCF = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
@@ -792,7 +799,7 @@ void open_outputfiles(void)
 #endif
 
 #ifdef SFR
-    sprintf(buf, "%s%s", All.OutputDir, "sfr.txt");
+    sprintf(buf, "%s%s%s", All.OutputDir, "sfr.txt", postfix);
     if(!(FdSfr = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
@@ -801,14 +808,14 @@ void open_outputfiles(void)
 #endif
 
 #ifdef RADTRANSFER
-    sprintf(buf, "%s%s", All.OutputDir, "radtransfer.txt");
+    sprintf(buf, "%s%s%s", All.OutputDir, "radtransfer.txt", postfix);
     if(!(FdRad = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
         endrun(1);
     }
 
-    sprintf(buf, "%s%s", All.OutputDir, "radtransferNew.txt");
+    sprintf(buf, "%s%s%s", All.OutputDir, "radtransferNew.txt", postfix);
     if(!(FdRadNew = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
@@ -817,7 +824,7 @@ void open_outputfiles(void)
 #endif
 
 #ifdef BLACK_HOLES
-    sprintf(buf, "%s%s", All.OutputDir, "blackholes.txt");
+    sprintf(buf, "%s%s%s", All.OutputDir, "blackholes.txt", postfix);
     if(!(FdBlackHoles = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
@@ -830,7 +837,7 @@ void open_outputfiles(void)
 #ifdef FORCETEST
     if(RestartFlag == 0)
     {
-        sprintf(buf, "%s%s", All.OutputDir, "forcetest.txt");
+        sprintf(buf, "%s%s%s", All.OutputDir, "forcetest.txt", postfix);
         if(!(FdForceTest = fopen(buf, "w")))
         {
             printf("error in opening file '%s'\n", buf);
@@ -841,7 +848,7 @@ void open_outputfiles(void)
 #endif
 
 #ifdef XXLINFO
-    sprintf(buf, "%s%s", All.OutputDir, "xxl.txt");
+    sprintf(buf, "%s%s%s", All.OutputDir, "xxl.txt", postfix);
     if(!(FdXXL = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
@@ -868,7 +875,7 @@ void open_outputfiles(void)
 #endif
 
 #ifdef DARKENERGY
-    sprintf(buf, "%s%s", All.OutputDir, "darkenergy.txt");
+    sprintf(buf, "%s%s%s", All.OutputDir, "darkenergy.txt", postfix);
     if(!(FdDE = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
