@@ -1,6 +1,7 @@
 #######################################################################
 #  Look at end of file for a brief guide to the compile-time options. #
 #######################################################################
+SYSTYPE=Warp
 VPATH=../P-Gadget3
 
 #--------------------------------------- Basic operation mode of code
@@ -622,8 +623,6 @@ OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
 
 
 #--------------------------------------- Select target Computer
-SYSTYPE=Warp
-
 include Makefile.$(SYSTYPE)
 
 ifneq (HAVE_HDF5,$(findstring HAVE_HDF5,$(OPT)))
