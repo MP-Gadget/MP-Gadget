@@ -35,7 +35,7 @@ int MPI_Check_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
     }
 
 
-  if(!(buf = mymalloc(recvcount * size_recvtype + 1024)))
+  if(!(buf = malloc(recvcount * size_recvtype + 1024)))
     endrun(6);
 
   for(i = 0, p = buf; i < recvcount * size_recvtype + 1024; i++)
@@ -273,7 +273,7 @@ int MPI_Check_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
 
   memcpy(recvbufreal, recvbuf, recvcount * size_recvtype);
 
-  myfree(buf);
+  free(buf);
 
   return 0;
 }
