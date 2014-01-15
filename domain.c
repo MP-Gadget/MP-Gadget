@@ -691,6 +691,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     n_requests = 0;
 #endif
 
+
     count = (int *) mymalloc("count", NTask * sizeof(int));
     count_sph = (int *) mymalloc("count_sph", NTask * sizeof(int));
     count_bh = (int *) mymalloc("count_bh", NTask * sizeof(int));
@@ -955,7 +956,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
     if(N_sph > All.MaxPartSph)
         endrun(787879);
-    if(N_bh > All.MaxPartSph)
+    if(N_bh > All.MaxPartBh)
         endrun(787879);
 
     myfree(bhBuf);
