@@ -134,6 +134,8 @@ void init(void)
             endrun(0);
     }
 
+    /* this ensures the initial BhP array is consistent */
+    domain_garbage_collection_bh();
     All.Time = All.TimeBegin;
 
 #ifdef COOLING
