@@ -849,7 +849,7 @@ extern struct global_data_all_processes
                                       particle mass and the cosmological parameters). This parameter specifies
                                       this fraction. */
 
-    int MaxMemSize;
+    int MaxMemSizePerCore;
 
     double CourantFac;		/*!< SPH-Courant factor */
 

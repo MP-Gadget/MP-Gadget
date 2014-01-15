@@ -45,11 +45,11 @@ void mymalloc_init(void)
   memset(FunctionName, 0, MAXBLOCKS * MAXCHARS);
   memset(FileName, 0, MAXBLOCKS * MAXCHARS);
 
-  n = All.MaxMemSize * ((size_t) 1024 * 1024);
+  n = All.MaxMemSizePerCore * All.NumThreads * ((size_t) 1024 * 1024);
 
   if(!(Base = malloc(n)))
     {
-      printf("Failed to allocate memory for `Base' (%d Mbytes).\n", All.MaxMemSize);
+      printf("Failed to allocate memory for `Base' (%d Mbytes).\n", All.MaxMemSizePerCore * All.NumThreads);
       endrun(122);
     }
 

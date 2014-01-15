@@ -1125,8 +1125,8 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.PeriodicBoundariesOn;
         id[nt++] = INT;
 
-        strcpy(tag[nt], "MaxMemSize");
-        addr[nt] = &All.MaxMemSize;
+        strcpy(tag[nt], "MaxMemSizePerCore");
+        addr[nt] = &All.MaxMemSizePerCore;
         id[nt++] = INT;
 
         strcpy(tag[nt], "TimeOfFirstSnapshot");
