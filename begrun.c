@@ -684,15 +684,9 @@ void open_outputfiles(void)
     if (NTask > 100) chunk = 100;
     if (NTask > 1000) chunk = 1000;
 
-    if (ThisTask == 0) {
-        int i;
-        for(i = 0; i <= NTask / chunk; i += 1) {
-            sprintf(buf, "%sdumpdir-%d%s", All.OutputDir, i, postfix);
-            mkdir(buf, 02755);
-        }
-    } 
-    MPI_Barrier(MPI_COMM_WORLD);
     sprintf(dumpdir, "%sdumpdir-%d%s/", All.OutputDir, (int)(ThisTask / chunk), postfix);
+    mkdir(dumpdir, 02755);
+
 #ifdef BLACK_HOLES
     /* Note: This is done by everyone */
     sprintf(buf, "%sblackhole_details_%d.raw%s", dumpdir, ThisTask, postfix);
