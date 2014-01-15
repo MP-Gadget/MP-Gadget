@@ -306,7 +306,9 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
                     P[offset + n].ID = *ip++;
                 if(bytes_per_blockelement == 4) 
                     P[offset + n].ID = *i32p++;
-                BhP[P[offset +n].PI].ID = P[offset + n].ID;
+                if (type == 5) {
+                    BhP[P[offset +n].PI].ID = P[offset + n].ID;
+                }
             } 
             break;
 
