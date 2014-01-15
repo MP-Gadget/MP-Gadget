@@ -654,6 +654,7 @@ extern struct global_data_all_processes
     long long TotNumNeutrinos;
 #endif
 
+    int NumThreads;     /* number of threads to actaully use, smaller than NUM_THREADS */
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
                               processor. */
     int MaxPartSph;		/*!< This gives the maxmimum number of SPH particles that can be stored on one

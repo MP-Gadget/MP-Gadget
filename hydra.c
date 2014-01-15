@@ -344,7 +344,7 @@ void hydro_force(void)
 
         TimerFlag = 0;
 
-        for(j = 0; j < NUM_THREADS - 1; j++)
+        for(j = 0; j < All.NumThreads - 1; j++)
         {
             threadid[j] = j + 1;
             pthread_create(&mythreads[j], &attr, hydro_evaluate_primary, &threadid[j]);
@@ -355,7 +355,7 @@ void hydro_force(void)
         hydro_evaluate_primary(&mainthreadid);	/* do local particles and prepare export list */
 
 #ifdef NUM_THREADS
-        for(j = 0; j < NUM_THREADS - 1; j++)
+        for(j = 0; j < All.NumThreads - 1; j++)
             pthread_join(mythreads[j], NULL);
 #endif
 
@@ -633,13 +633,13 @@ void hydro_force(void)
         NextJ = 0;
 
 #ifdef NUM_THREADS
-        for(j = 0; j < NUM_THREADS - 1; j++)
+        for(j = 0; j < All.NumThreads - 1; j++)
             pthread_create(&mythreads[j], &attr, hydro_evaluate_secondary, &threadid[j]);
 #endif
         hydro_evaluate_secondary(&mainthreadid);
 
 #ifdef NUM_THREADS
-        for(j = 0; j < NUM_THREADS - 1; j++)
+        for(j = 0; j < All.NumThreads - 1; j++)
             pthread_join(mythreads[j], NULL);
 
         pthread_mutex_destroy(&mutex_partnodedrift);
@@ -776,33 +776,6 @@ void hydro_force(void)
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
         if(P[i].Type == 0)
         {
-#ifdef CR_SHOCK
-            /* state right here:
-             *
-             * _c denotes comoving quantities
-             * _p denotes physical quantities
-             *
-             *
-             * Delta u_p = rho_p^(gamma-1)/(gamma-1) Delta A
-             *
-             * Delta A = dA/dloga * Delta loga
-             *
-             * dA/dloga = DtE * (gamma-1) / ( H(a) a^2 rho_c^(gamma-1)
-             *
-             * => Delta u_p = DtE * dloga / ( H(a) a^2 a^(3(gamma-1)) )
-             */
-
-            if(SPHP(i).e.DtEntropy > 0.0)
-            {
-                rShockEnergy = SPHP(i).e.DtEntropy *
-                    (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval / hubble_a2 / fac_egy;
-            }
-            else
-            {
-                rShockEnergy = 0.0;
-            }
-
-#endif /* CR_SHOCK */
 
 #ifndef EOS_DEGENERATE
 
@@ -822,99 +795,10 @@ void hydro_force(void)
              * or the Mach number, density jump and specific energy jump
              * in case of cosmic rays!
              */
-#if (CR_SHOCK == 2)
-            GetMachNumberCR(i);
-#else
-
             GetMachNumber(i);
-#endif /* COSMIC_RAYS */
 #endif /* MACHNUM */
 #ifdef MACHSTATISTIC
             GetShock_DtEnergy(&SPHP(i));
-#endif
-
-#ifdef CR_SHOCK
-            if(rShockEnergy > 0.0)
-            {
-                /* Feed fraction "All.CR_ShockEfficiency" into CR and see what
-                 * amount of energy instantly gets rethermalized
-                 *
-                 * for this, we need the physical time step, which is
-                 * Delta t_p = Delta t_c / hubble_a
-                 */
-
-                /* The  CR_find_alpha_InjectTo induces an error in the density jump since it can set
-                 *  Particle->Shock_DensityJump = 1.0 + 1.0e-6 which is used in ShockInject as the input DensityJump
-                 *  if (NUMCRPOP > 1)
-                 *  {
-                 *  #if ( CR_SHOCK == 1 )
-                 *  InjPopulation = CR_Find_Alpha_to_InjectTo(All.CR_ShockAlpha);
-                 *  #else
-                 *  InjPopulation = CR_find_alpha_InjectTo(&SPHP(i));
-                 *  #endif
-                 *  }
-                 *  else
-                 *  InjPopulation = 0;
-                 */
-
-                rNonRethermalizedEnergy =
-                    CR_Particle_ShockInject(&SPHP(i),
-                            rShockEnergy,
-                            (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval /
-                            hubble_a);
-
-                /* Fraction of total energy that went and remained in CR is
-                 * rNonRethermalizedEnergy / rShockEnergy,
-                 * hence, we conserve energy if we do:
-                 */
-#ifndef CR_NO_CHANGE
-                SPHP(i).e.DtEntropy *= (1.0 - rNonRethermalizedEnergy / rShockEnergy);
-#endif /* CR_NO_CHANGE */
-
-                assert(rNonRethermalizedEnergy >= 0.0);
-
-                assert(rNonRethermalizedEnergy <= (rShockEnergy * All.CR_ShockEfficiency));
-
-
-#if (!defined(COOLING) && (defined(CR_DISSIPATION) || defined(CR_THERMALIZATION)))
-                utherm = 0.0;
-                for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                    utherm +=
-                        CR_Particle_ThermalizeAndDissipate(&SPHP(i),
-                                (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) *
-                                All.Timebase_interval / hubble_a, CRpop);
-
-                /* we need to add this thermalized energy to the internal energy */
-
-                SPHP(i).e.DtEntropy += GAMMA_MINUS1 * utherm * fac_egy / pow(SPHP(i).d.Density, GAMMA_MINUS1) /
-                    ((P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval);
-#endif
-
-            }
-#endif /* CR_SHOCK */
-
-
-#if (!defined(COOLING) && !defined(CR_SHOCK) && (defined(CR_DISSIPATION) || defined(CR_THERMALIZATION)))
-            double utherm;
-            double dt;
-            int CRpop;
-
-            dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval / hubble_a;
-
-            if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
-            {
-                if(dt > 0)
-                {
-                    for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                    {
-                        utherm = CR_Particle_ThermalizeAndDissipate(&SPHP(i), dt, CRpop);
-
-                        SPHP(i).e.DtEntropy +=
-                            GAMMA_MINUS1 * utherm * fac_egy / pow(SPHP(i).d.Density,
-                                    GAMMA_MINUS1) / (dt * hubble_a);
-                    }
-                }
-            }
 #endif
 
 #ifdef NAVIERSTOKES

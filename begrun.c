@@ -214,6 +214,9 @@ void begrun(void)
 Note:  All.PartAllocFactor is treated in restart() separately.  
 */
 
+#ifdef NUM_THREADS
+        All.NumThreads = all.NumThreads;
+#endif
         All.MinSizeTimestep = all.MinSizeTimestep;
         All.MaxSizeTimestep = all.MaxSizeTimestep;
         All.BufferSize = all.BufferSize;
@@ -1019,6 +1022,13 @@ void read_parameter_file(char *fname)
         endrun(0);
     }
 
+#ifdef NUM_THREADS
+    if(getenv("OMP_NUM_THREADS") == NULL) {
+        All.NumThreads = 1;
+    } else {
+        All.NumThreads = atoi(getenv("OMP_NUM_THREADS"));
+    }
+#endif
 
     if(ThisTask == 0)		/* read parameter file on process 0 */
     {
@@ -2330,12 +2340,21 @@ NUMCRPOP = 1;
             }
         }
 #endif
+#ifdef NUM_THREADS
+        if (All.NumThreads > NUM_THREADS) {
+            errorFlag = 1;
+            printf("error NumThreads %d is greater than max supported NUM_THREADS(%d)\n", All.NumThreads, NUM_THREADS);
+        }
+        printf("Running with %d Threads (support up to =%d)\n", All.NumThreads, NUM_THREADS);
+#endif
     }
 
     MPI_Bcast(&errorFlag, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
     if(errorFlag)
     {
+        fflush(stdout);
+        fflush(stderr);
         MPI_Finalize();
         exit(0);
     }

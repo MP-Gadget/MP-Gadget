@@ -295,7 +295,7 @@ void density(void)
 
             TimerFlag = 0;
 
-            for(j = 0; j < NUM_THREADS - 1; j++)
+            for(j = 0; j < All.NumThreads - 1; j++)
             {
                 threadid[j] = j + 1;
                 pthread_create(&mythreads[j], &attr, density_evaluate_primary, &threadid[j]);
@@ -306,7 +306,7 @@ void density(void)
             density_evaluate_primary(&mainthreadid);	/* do local particles and prepare export list */
 
 #ifdef NUM_THREADS
-            for(j = 0; j < NUM_THREADS - 1; j++)
+            for(j = 0; j < All.NumThreads - 1; j++)
                 pthread_join(mythreads[j], NULL);
 #endif
 
@@ -500,13 +500,13 @@ void density(void)
             NextJ = 0;
 
 #ifdef NUM_THREADS
-            for(j = 0; j < NUM_THREADS - 1; j++)
+            for(j = 0; j < All.NumThreads - 1; j++)
                 pthread_create(&mythreads[j], &attr, density_evaluate_secondary, &threadid[j]);
 #endif
             density_evaluate_secondary(&mainthreadid);
 
 #ifdef NUM_THREADS
-            for(j = 0; j < NUM_THREADS - 1; j++)
+            for(j = 0; j < All.NumThreads - 1; j++)
                 pthread_join(mythreads[j], NULL);
 
             pthread_mutex_destroy(&mutex_partnodedrift);

@@ -50,307 +50,307 @@ extern pthread_mutex_t mutex_nexport, mutex_partnodedrift;
  *  maximum h occuring among the particles it represents.
  */
 int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-		       int mode, int *nexport, int *nsend_local)
+        int mode, int *nexport, int *nsend_local)
 {
-  int no, p, numngb, task, nexport_save;
-  MyDouble dist, dx, dy, dz;
-  struct NODE *current;
+    int no, p, numngb, task, nexport_save;
+    MyDouble dist, dx, dy, dz;
+    struct NODE *current;
 
 #ifdef PERIODIC
-  MyDouble xtmp;
+    MyDouble xtmp;
 #endif
-  nexport_save = *nexport;
+    nexport_save = *nexport;
 
-  numngb = 0;
+    numngb = 0;
 
-  no = *startnode;
+    no = *startnode;
 
-  while(no >= 0)
+    while(no >= 0)
     {
-      if(no < All.MaxPart)	/* single particle */
-	{
-	  p = no;
-	  no = Nextnode[no];
+        if(no < All.MaxPart)	/* single particle */
+        {
+            p = no;
+            no = Nextnode[no];
 
-	  if(P[p].Type > 0)
-	    continue;
+            if(P[p].Type > 0)
+                continue;
 
-	  if(P[p].Ti_current != All.Ti_Current)
-	    drift_particle(p, All.Ti_Current);
+            if(P[p].Ti_current != All.Ti_Current)
+                drift_particle(p, All.Ti_Current);
 
-	  dist = DMAX(P[p].Hsml, hsml);
+            dist = DMAX(P[p].Hsml, hsml);
 
-	  dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  Ngblist[numngb++] = p;	/* Note: unlike in previous versions of the code, the buffer 
-					   can hold up to all particles */
-	}
-      else
-	{
-	  if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
-	    {
-	      if(mode == 1)
-		endrun(23131);
+            Ngblist[numngb++] = p;	/* Note: unlike in previous versions of the code, the buffer 
+                                       can hold up to all particles */
+        }
+        else
+        {
+            if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+            {
+                if(mode == 1)
+                    endrun(23131);
 
-	      if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-		{
-		  Exportflag[task] = target;
-		  Exportnodecount[task] = NODELISTLENGTH;
-		}
+                if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
+                {
+                    Exportflag[task] = target;
+                    Exportnodecount[task] = NODELISTLENGTH;
+                }
 
-	      if(Exportnodecount[task] == NODELISTLENGTH)
-		{
-		  if(*nexport >= All.BunchSize)
-		    {
-		      *nexport = nexport_save;
-		      if(nexport_save == 0)
-			endrun(13003);	/* in this case, the buffer is too small to process even a single particle */
-		      for(task = 0; task < NTask; task++)
-			nsend_local[task] = 0;
-		      for(no = 0; no < nexport_save; no++)
-			nsend_local[DataIndexTable[no].Task]++;
-		      return -1;
-		    }
-		  Exportnodecount[task] = 0;
-		  Exportindex[task] = *nexport;
-		  DataIndexTable[*nexport].Task = task;
-		  DataIndexTable[*nexport].Index = target;
-		  DataIndexTable[*nexport].IndexGet = *nexport;
-		  *nexport = *nexport + 1;
-		  nsend_local[task]++;
-		}
+                if(Exportnodecount[task] == NODELISTLENGTH)
+                {
+                    if(*nexport >= All.BunchSize)
+                    {
+                        *nexport = nexport_save;
+                        if(nexport_save == 0)
+                            endrun(13003);	/* in this case, the buffer is too small to process even a single particle */
+                        for(task = 0; task < NTask; task++)
+                            nsend_local[task] = 0;
+                        for(no = 0; no < nexport_save; no++)
+                            nsend_local[DataIndexTable[no].Task]++;
+                        return -1;
+                    }
+                    Exportnodecount[task] = 0;
+                    Exportindex[task] = *nexport;
+                    DataIndexTable[*nexport].Task = task;
+                    DataIndexTable[*nexport].Index = target;
+                    DataIndexTable[*nexport].IndexGet = *nexport;
+                    *nexport = *nexport + 1;
+                    nsend_local[task]++;
+                }
 
-	      DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
-		DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+                DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
+                    DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
 
-	      if(Exportnodecount[task] < NODELISTLENGTH)
-		DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
+                if(Exportnodecount[task] < NODELISTLENGTH)
+                    DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
 
-	      no = Nextnode[no - MaxNodes];
-	      continue;
-	    }
+                no = Nextnode[no - MaxNodes];
+                continue;
+            }
 
-	  current = &Nodes[no];
+            current = &Nodes[no];
 
-	  if(mode == 1)
-	    {
-	      if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-		{
-		  *startnode = -1;
-		  return numngb;
-		}
-	    }
+            if(mode == 1)
+            {
+                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                {
+                    *startnode = -1;
+                    return numngb;
+                }
+            }
 
-	  if(current->Ti_current != All.Ti_Current)
-	    force_drift_node(no, All.Ti_Current);
+            if(current->Ti_current != All.Ti_Current)
+                force_drift_node(no, All.Ti_Current);
 
-	  if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
-	    {
-	      if(current->u.d.mass)	/* open cell */
-		{
-		  no = current->u.d.nextnode;
-		  continue;
-		}
-	    }
+            if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
+            {
+                if(current->u.d.mass)	/* open cell */
+                {
+                    no = current->u.d.nextnode;
+                    continue;
+                }
+            }
 
-	  dist = DMAX(Extnodes[no].hmax, hsml) + 0.5 * current->len;
+            dist = DMAX(Extnodes[no].hmax, hsml) + 0.5 * current->len;
 
-	  no = current->u.d.sibling;	/* in case the node can be discarded */
+            no = current->u.d.sibling;	/* in case the node can be discarded */
 
-	  dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  /* now test against the minimal sphere enclosing everything */
-	  dist += FACT1 * current->len;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            /* now test against the minimal sphere enclosing everything */
+            dist += FACT1 * current->len;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  no = current->u.d.nextnode;	/* ok, we need to open the node */
-	}
+            no = current->u.d.nextnode;	/* ok, we need to open the node */
+        }
     }
 
 
-  *startnode = -1;
-  return numngb;
+    *startnode = -1;
+    return numngb;
 }
 
 
 int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-			       int mode, int *exportflag, int *exportnodecount, int *exportindex,
-			       int *ngblist)
+        int mode, int *exportflag, int *exportnodecount, int *exportindex,
+        int *ngblist)
 {
-  int no, p, numngb, task, nexp;
-  MyDouble dist, dx, dy, dz;
-  struct NODE *current;
+    int no, p, numngb, task, nexp;
+    MyDouble dist, dx, dy, dz;
+    struct NODE *current;
 
 #ifdef PERIODIC
-  MyDouble xtmp;
+    MyDouble xtmp;
 #endif
 
-  numngb = 0;
+    numngb = 0;
 
-  no = *startnode;
+    no = *startnode;
 
-  while(no >= 0)
+    while(no >= 0)
     {
-      if(no < All.MaxPart)	/* single particle */
-	{
-	  p = no;
-	  no = Nextnode[no];
+        if(no < All.MaxPart)	/* single particle */
+        {
+            p = no;
+            no = Nextnode[no];
 
-	  if(P[p].Type > 0)
-	    continue;
+            if(P[p].Type > 0)
+                continue;
 
-	  if(P[p].Ti_current != All.Ti_Current)
-	    {
-	      LOCK_PARTNODEDRIFT;
-	      drift_particle(p, All.Ti_Current);
-	      UNLOCK_PARTNODEDRIFT;
-	    }
+            if(P[p].Ti_current != All.Ti_Current)
+            {
+                LOCK_PARTNODEDRIFT;
+                drift_particle(p, All.Ti_Current);
+                UNLOCK_PARTNODEDRIFT;
+            }
 
-	  dist = DMAX(P[p].Hsml, hsml);
+            dist = DMAX(P[p].Hsml, hsml);
 
-	  dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  ngblist[numngb++] = p;	/* Note: unlike in previous versions of the code, the buffer 
-					   can hold up to all particles */
-	}
-      else
-	{
-	  if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
-	    {
+            ngblist[numngb++] = p;	/* Note: unlike in previous versions of the code, the buffer 
+                                       can hold up to all particles */
+        }
+        else
+        {
+            if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+            {
 #ifdef DONOTUSENODELIST
-	      if(mode == 1)
-		{
-		  no = Nextnode[no - MaxNodes];
-		  continue;
-		}
+                if(mode == 1)
+                {
+                    no = Nextnode[no - MaxNodes];
+                    continue;
+                }
 #endif
-	      if(mode == 1)
-		endrun(12312);
+                if(mode == 1)
+                    endrun(12312);
 
-	      if(target >= 0)	/* if no target is given, export will not occur */
-		{
-		  if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-		    {
-		      exportflag[task] = target;
-		      exportnodecount[task] = NODELISTLENGTH;
-		    }
+                if(target >= 0)	/* if no target is given, export will not occur */
+                {
+                    if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
+                    {
+                        exportflag[task] = target;
+                        exportnodecount[task] = NODELISTLENGTH;
+                    }
 
-		  if(exportnodecount[task] == NODELISTLENGTH)
-		    {
-		      LOCK_NEXPORT;
-		      if(Nexport >= All.BunchSize)
-			{
-			  /* out if buffer space. Need to discard work for this particle and interrupt */
-			  BufferFullFlag = 1;
-			  UNLOCK_NEXPORT;
-			  return -1;
-			}
-		      nexp = Nexport;
-		      Nexport++;
-		      UNLOCK_NEXPORT;
-		      exportnodecount[task] = 0;
-		      exportindex[task] = nexp;
-		      DataIndexTable[nexp].Task = task;
-		      DataIndexTable[nexp].Index = target;
-		      DataIndexTable[nexp].IndexGet = nexp;
-		    }
+                    if(exportnodecount[task] == NODELISTLENGTH)
+                    {
+                        LOCK_NEXPORT;
+                        if(Nexport >= All.BunchSize)
+                        {
+                            /* out if buffer space. Need to discard work for this particle and interrupt */
+                            BufferFullFlag = 1;
+                            UNLOCK_NEXPORT;
+                            return -1;
+                        }
+                        nexp = Nexport;
+                        Nexport++;
+                        UNLOCK_NEXPORT;
+                        exportnodecount[task] = 0;
+                        exportindex[task] = nexp;
+                        DataIndexTable[nexp].Task = task;
+                        DataIndexTable[nexp].Index = target;
+                        DataIndexTable[nexp].IndexGet = nexp;
+                    }
 
 #ifndef DONOTUSENODELIST
-		  DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-		    DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+                    DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
+                        DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
 
-		  if(exportnodecount[task] < NODELISTLENGTH)
-		    DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
+                    if(exportnodecount[task] < NODELISTLENGTH)
+                        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
 #endif
-		}
+                }
 
-	      no = Nextnode[no - MaxNodes];
-	      continue;
+                no = Nextnode[no - MaxNodes];
+                continue;
 
-	    }
+            }
 
-	  current = &Nodes[no];
+            current = &Nodes[no];
 
 #ifndef DONOTUSENODELIST
-	  if(mode == 1)
-	    {
-	      if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-		{
-		  *startnode = -1;
-		  return numngb;
-		}
-	    }
+            if(mode == 1)
+            {
+                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                {
+                    *startnode = -1;
+                    return numngb;
+                }
+            }
 #endif
 
-	  if(current->Ti_current != All.Ti_Current)
-	    {
-	      LOCK_PARTNODEDRIFT;
-	      force_drift_node(no, All.Ti_Current);
-	      UNLOCK_PARTNODEDRIFT;
-	    }
+            if(current->Ti_current != All.Ti_Current)
+            {
+                LOCK_PARTNODEDRIFT;
+                force_drift_node(no, All.Ti_Current);
+                UNLOCK_PARTNODEDRIFT;
+            }
 
-	  if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
-	    {
-	      if(current->u.d.mass)	/* open cell */
-		{
-		  no = current->u.d.nextnode;
-		  continue;
-		}
-	    }
+            if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
+            {
+                if(current->u.d.mass)	/* open cell */
+                {
+                    no = current->u.d.nextnode;
+                    continue;
+                }
+            }
 
-	  dist = DMAX(Extnodes[no].hmax, hsml) + 0.5 * current->len;
+            dist = DMAX(Extnodes[no].hmax, hsml) + 0.5 * current->len;
 
-	  no = current->u.d.sibling;	/* in case the node can be discarded */
+            no = current->u.d.sibling;	/* in case the node can be discarded */
 
-	  dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  /* now test against the minimal sphere enclosing everything */
-	  dist += FACT1 * current->len;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            /* now test against the minimal sphere enclosing everything */
+            dist += FACT1 * current->len;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  no = current->u.d.nextnode;	/* ok, we need to open the node */
-	}
+            no = current->u.d.nextnode;	/* ok, we need to open the node */
+        }
     }
 
 
-  *startnode = -1;
-  return numngb;
+    *startnode = -1;
+    return numngb;
 }
 
 
@@ -363,142 +363,142 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
  *  calling routine.
  */
 int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
-			  int *nexport, int *nsend_local)
+        int *nexport, int *nsend_local)
 {
-  int numngb, no, p, task, nexport_save;
-  struct NODE *current;
-  MyDouble dx, dy, dz, dist;
+    int numngb, no, p, task, nexport_save;
+    struct NODE *current;
+    MyDouble dx, dy, dz, dist;
 
 #ifdef PERIODIC
-  MyDouble xtmp;
+    MyDouble xtmp;
 #endif
-  nexport_save = *nexport;
+    nexport_save = *nexport;
 
-  numngb = 0;
-  no = *startnode;
+    numngb = 0;
+    no = *startnode;
 
-  while(no >= 0)
+    while(no >= 0)
     {
-      if(no < All.MaxPart)	/* single particle */
-	{
-	  p = no;
-	  no = Nextnode[no];
+        if(no < All.MaxPart)	/* single particle */
+        {
+            p = no;
+            no = Nextnode[no];
 
-	  if(P[p].Type > 0)
-	    continue;
+            if(P[p].Type > 0)
+                continue;
 
-	  if(P[p].Ti_current != All.Ti_Current)
-	    drift_particle(p, All.Ti_Current);
+            if(P[p].Ti_current != All.Ti_Current)
+                drift_particle(p, All.Ti_Current);
 
-	  dist = hsml;
-	  dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dist = hsml;
+            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  Ngblist[numngb++] = p;
-	}
-      else
-	{
-	  if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
-	    {
-	      if(mode == 1)
-		endrun(12312);
+            Ngblist[numngb++] = p;
+        }
+        else
+        {
+            if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+            {
+                if(mode == 1)
+                    endrun(12312);
 
-	      if(target >= 0)	/* if no target is given, export will not occur */
-		{
-		  if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-		    {
-		      Exportflag[task] = target;
-		      Exportnodecount[task] = NODELISTLENGTH;
-		    }
+                if(target >= 0)	/* if no target is given, export will not occur */
+                {
+                    if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
+                    {
+                        Exportflag[task] = target;
+                        Exportnodecount[task] = NODELISTLENGTH;
+                    }
 
-		  if(Exportnodecount[task] == NODELISTLENGTH)
-		    {
-		      if(*nexport >= All.BunchSize)
-			{
-			  *nexport = nexport_save;
-			  if(nexport_save == 0)
-			    endrun(13004);	/* in this case, the buffer is too small to process even a single particle */
-			  for(task = 0; task < NTask; task++)
-			    nsend_local[task] = 0;
-			  for(no = 0; no < nexport_save; no++)
-			    nsend_local[DataIndexTable[no].Task]++;
-			  return -1;
-			}
-		      Exportnodecount[task] = 0;
-		      Exportindex[task] = *nexport;
-		      DataIndexTable[*nexport].Task = task;
-		      DataIndexTable[*nexport].Index = target;
-		      DataIndexTable[*nexport].IndexGet = *nexport;
-		      *nexport = *nexport + 1;
-		      nsend_local[task]++;
-		    }
+                    if(Exportnodecount[task] == NODELISTLENGTH)
+                    {
+                        if(*nexport >= All.BunchSize)
+                        {
+                            *nexport = nexport_save;
+                            if(nexport_save == 0)
+                                endrun(13004);	/* in this case, the buffer is too small to process even a single particle */
+                            for(task = 0; task < NTask; task++)
+                                nsend_local[task] = 0;
+                            for(no = 0; no < nexport_save; no++)
+                                nsend_local[DataIndexTable[no].Task]++;
+                            return -1;
+                        }
+                        Exportnodecount[task] = 0;
+                        Exportindex[task] = *nexport;
+                        DataIndexTable[*nexport].Task = task;
+                        DataIndexTable[*nexport].Index = target;
+                        DataIndexTable[*nexport].IndexGet = *nexport;
+                        *nexport = *nexport + 1;
+                        nsend_local[task]++;
+                    }
 
-		  DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
-		    DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+                    DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
+                        DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
 
-		  if(Exportnodecount[task] < NODELISTLENGTH)
-		    DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
-		}
+                    if(Exportnodecount[task] < NODELISTLENGTH)
+                        DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
+                }
 
-	      no = Nextnode[no - MaxNodes];
-	      continue;
-	    }
+                no = Nextnode[no - MaxNodes];
+                continue;
+            }
 
-	  current = &Nodes[no];
+            current = &Nodes[no];
 
-	  if(mode == 1)
-	    {
-	      if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-		{
-		  *startnode = -1;
-		  return numngb;
-		}
-	    }
+            if(mode == 1)
+            {
+                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                {
+                    *startnode = -1;
+                    return numngb;
+                }
+            }
 
-	  if(current->Ti_current != All.Ti_Current)
-	    force_drift_node(no, All.Ti_Current);
+            if(current->Ti_current != All.Ti_Current)
+                force_drift_node(no, All.Ti_Current);
 
-	  if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
-	    {
-	      if(current->u.d.mass)	/* open cell */
-		{
-		  no = current->u.d.nextnode;
-		  continue;
-		}
-	    }
+            if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
+            {
+                if(current->u.d.mass)	/* open cell */
+                {
+                    no = current->u.d.nextnode;
+                    continue;
+                }
+            }
 
-	  no = current->u.d.sibling;	/* in case the node can be discarded */
+            no = current->u.d.sibling;	/* in case the node can be discarded */
 
-	  dist = hsml + 0.5 * current->len;;
-	  dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  /* now test against the minimal sphere enclosing everything */
-	  dist += FACT1 * current->len;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dist = hsml + 0.5 * current->len;;
+            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            /* now test against the minimal sphere enclosing everything */
+            dist += FACT1 * current->len;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  no = current->u.d.nextnode;	/* ok, we need to open the node */
-	}
+            no = current->u.d.nextnode;	/* ok, we need to open the node */
+        }
     }
 
-  *startnode = -1;
-  return numngb;
+    *startnode = -1;
+    return numngb;
 }
 
 
@@ -508,149 +508,149 @@ int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, in
  *  calling routine.
  */
 int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-				  int mode, int *exportflag, int *exportnodecount, int *exportindex,
-				  int *ngblist)
+        int mode, int *exportflag, int *exportnodecount, int *exportindex,
+        int *ngblist)
 {
-  int numngb, no, nexp, p, task;
-  struct NODE *current;
-  MyDouble dx, dy, dz, dist;
+    int numngb, no, nexp, p, task;
+    struct NODE *current;
+    MyDouble dx, dy, dz, dist;
 
 #ifdef PERIODIC
-  MyDouble xtmp;
+    MyDouble xtmp;
 #endif
 
-  numngb = 0;
-  no = *startnode;
+    numngb = 0;
+    no = *startnode;
 
-  while(no >= 0)
+    while(no >= 0)
     {
-      if(no < All.MaxPart)	/* single particle */
-	{
-	  p = no;
-	  no = Nextnode[no];
+        if(no < All.MaxPart)	/* single particle */
+        {
+            p = no;
+            no = Nextnode[no];
 
-	  if(P[p].Type > 0)
-	    continue;
+            if(P[p].Type > 0)
+                continue;
 
-	  if(P[p].Ti_current != All.Ti_Current)
-	    {
-	      LOCK_PARTNODEDRIFT;
-	      drift_particle(p, All.Ti_Current);
-	      UNLOCK_PARTNODEDRIFT;
-	    }
+            if(P[p].Ti_current != All.Ti_Current)
+            {
+                LOCK_PARTNODEDRIFT;
+                drift_particle(p, All.Ti_Current);
+                UNLOCK_PARTNODEDRIFT;
+            }
 
-	  dist = hsml;
-	  dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dist = hsml;
+            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  ngblist[numngb++] = p;
-	}
-      else
-	{
-	  if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
-	    {
-	      if(mode == 1)
-		endrun(12312);
+            ngblist[numngb++] = p;
+        }
+        else
+        {
+            if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+            {
+                if(mode == 1)
+                    endrun(12312);
 
-	      if(target >= 0)	/* if no target is given, export will not occur */
-		{
-		  if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-		    {
-		      exportflag[task] = target;
-		      exportnodecount[task] = NODELISTLENGTH;
-		    }
+                if(target >= 0)	/* if no target is given, export will not occur */
+                {
+                    if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
+                    {
+                        exportflag[task] = target;
+                        exportnodecount[task] = NODELISTLENGTH;
+                    }
 
-		  if(exportnodecount[task] == NODELISTLENGTH)
-		    {
-		      LOCK_NEXPORT;
-		      if(Nexport >= All.BunchSize)
-			{
-			  /* out if buffer space. Need to discard work for this particle and interrupt */
-			  BufferFullFlag = 1;
-			  UNLOCK_NEXPORT;
-			  return -1;
-			}
-		      nexp = Nexport;
-		      Nexport++;
-		      UNLOCK_NEXPORT;
-		      exportnodecount[task] = 0;
-		      exportindex[task] = nexp;
-		      DataIndexTable[nexp].Task = task;
-		      DataIndexTable[nexp].Index = target;
-		      DataIndexTable[nexp].IndexGet = nexp;
-		    }
+                    if(exportnodecount[task] == NODELISTLENGTH)
+                    {
+                        LOCK_NEXPORT;
+                        if(Nexport >= All.BunchSize)
+                        {
+                            /* out if buffer space. Need to discard work for this particle and interrupt */
+                            BufferFullFlag = 1;
+                            UNLOCK_NEXPORT;
+                            return -1;
+                        }
+                        nexp = Nexport;
+                        Nexport++;
+                        UNLOCK_NEXPORT;
+                        exportnodecount[task] = 0;
+                        exportindex[task] = nexp;
+                        DataIndexTable[nexp].Task = task;
+                        DataIndexTable[nexp].Index = target;
+                        DataIndexTable[nexp].IndexGet = nexp;
+                    }
 
-		  DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-		    DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+                    DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
+                        DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
 
-		  if(exportnodecount[task] < NODELISTLENGTH)
-		    DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
+                    if(exportnodecount[task] < NODELISTLENGTH)
+                        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
 
-		}
+                }
 
-	      no = Nextnode[no - MaxNodes];
-	      continue;
-	    }
+                no = Nextnode[no - MaxNodes];
+                continue;
+            }
 
-	  current = &Nodes[no];
+            current = &Nodes[no];
 
-	  if(mode == 1)
-	    {
-	      if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-		{
-		  *startnode = -1;
-		  return numngb;
-		}
-	    }
+            if(mode == 1)
+            {
+                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                {
+                    *startnode = -1;
+                    return numngb;
+                }
+            }
 
-	  if(current->Ti_current != All.Ti_Current)
-	    {
-	      LOCK_PARTNODEDRIFT;
-	      force_drift_node(no, All.Ti_Current);
-	      UNLOCK_PARTNODEDRIFT;
-	    }
+            if(current->Ti_current != All.Ti_Current)
+            {
+                LOCK_PARTNODEDRIFT;
+                force_drift_node(no, All.Ti_Current);
+                UNLOCK_PARTNODEDRIFT;
+            }
 
-	  if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
-	    {
-	      if(current->u.d.mass)	/* open cell */
-		{
-		  no = current->u.d.nextnode;
-		  continue;
-		}
-	    }
+            if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
+            {
+                if(current->u.d.mass)	/* open cell */
+                {
+                    no = current->u.d.nextnode;
+                    continue;
+                }
+            }
 
-	  no = current->u.d.sibling;	/* in case the node can be discarded */
+            no = current->u.d.sibling;	/* in case the node can be discarded */
 
-	  dist = hsml + 0.5 * current->len;;
-	  dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  /* now test against the minimal sphere enclosing everything */
-	  dist += FACT1 * current->len;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dist = hsml + 0.5 * current->len;;
+            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            /* now test against the minimal sphere enclosing everything */
+            dist += FACT1 * current->len;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  no = current->u.d.nextnode;	/* ok, we need to open the node */
-	}
+            no = current->u.d.nextnode;	/* ok, we need to open the node */
+        }
     }
 
-  *startnode = -1;
-  return numngb;
+    *startnode = -1;
+    return numngb;
 }
 
 
@@ -658,7 +658,7 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
 
 
 /*! Allocates memory for the neighbour list buffer.
- */
+*/
 void ngb_init(void)
 {
 
@@ -671,333 +671,333 @@ void ngb_init(void)
  */
 void ngb_treebuild(void)
 {
-  if(ThisTask == 0)
-    printf("Begin Ngb-tree construction.\n");
+    if(ThisTask == 0)
+        printf("Begin Ngb-tree construction.\n");
 
-  CPU_Step[CPU_MISC] += measure_time();
+    CPU_Step[CPU_MISC] += measure_time();
 
 #ifdef DENSITY_INDEPENDENT_SPH_DEBUG
-  force_treebuild(N_sph, NULL);
+    force_treebuild(N_sph, NULL);
 #else
-  force_treebuild(NumPart, NULL);
+    force_treebuild(NumPart, NULL);
 #endif
-  CPU_Step[CPU_TREEBUILD] += measure_time();
+    CPU_Step[CPU_TREEBUILD] += measure_time();
 
-  if(ThisTask == 0)
-    printf("Ngb-Tree contruction finished \n");
+    if(ThisTask == 0)
+        printf("Ngb-Tree contruction finished \n");
 }
 
 
 
 int ngb_treefind_fof_primary(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
-			     int *nexport, int *nsend_local)
+        int *nexport, int *nsend_local)
 {
-  int numngb, no, p, task, nexport_save;
-  struct NODE *current;
-  MyDouble dx, dy, dz, dist, r2;
+    int numngb, no, p, task, nexport_save;
+    struct NODE *current;
+    MyDouble dx, dy, dz, dist, r2;
 
 #ifdef PERIODIC
-  MyDouble xtmp;
+    MyDouble xtmp;
 #endif
-  nexport_save = *nexport;
+    nexport_save = *nexport;
 
-  numngb = 0;
-  no = *startnode;
+    numngb = 0;
+    no = *startnode;
 
-  while(no >= 0)
+    while(no >= 0)
     {
-      if(no < All.MaxPart)	/* single particle */
-	{
-	  p = no;
-	  no = Nextnode[no];
+        if(no < All.MaxPart)	/* single particle */
+        {
+            p = no;
+            no = Nextnode[no];
 
-	  if(!((1 << P[p].Type) & (FOF_PRIMARY_LINK_TYPES)))
-	    continue;
+            if(!((1 << P[p].Type) & (FOF_PRIMARY_LINK_TYPES)))
+                continue;
 
-	  if(mode == 0)
-	    continue;
+            if(mode == 0)
+                continue;
 
-	  dist = hsml;
-	  dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dist = hsml;
+            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  Ngblist[numngb++] = p;
-	}
-      else
-	{
-	  if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
-	    {
-	      if(mode == 1)
-		endrun(12312);
+            Ngblist[numngb++] = p;
+        }
+        else
+        {
+            if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+            {
+                if(mode == 1)
+                    endrun(12312);
 
-	      if(mode == 0)
-		{
-		  if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-		    {
-		      Exportflag[task] = target;
-		      Exportnodecount[task] = NODELISTLENGTH;
-		    }
+                if(mode == 0)
+                {
+                    if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
+                    {
+                        Exportflag[task] = target;
+                        Exportnodecount[task] = NODELISTLENGTH;
+                    }
 
-		  if(Exportnodecount[task] == NODELISTLENGTH)
-		    {
-		      if(*nexport >= All.BunchSize)
-			{
-			  *nexport = nexport_save;
-			  if(nexport_save == 0)
-			    endrun(13005);	/* in this case, the buffer is too small to process even a single particle */
-			  for(task = 0; task < NTask; task++)
-			    nsend_local[task] = 0;
-			  for(no = 0; no < nexport_save; no++)
-			    nsend_local[DataIndexTable[no].Task]++;
-			  return -1;
-			}
-		      Exportnodecount[task] = 0;
-		      Exportindex[task] = *nexport;
-		      DataIndexTable[*nexport].Task = task;
-		      DataIndexTable[*nexport].Index = target;
-		      DataIndexTable[*nexport].IndexGet = *nexport;
-		      *nexport = *nexport + 1;
-		      nsend_local[task]++;
-		    }
+                    if(Exportnodecount[task] == NODELISTLENGTH)
+                    {
+                        if(*nexport >= All.BunchSize)
+                        {
+                            *nexport = nexport_save;
+                            if(nexport_save == 0)
+                                endrun(13005);	/* in this case, the buffer is too small to process even a single particle */
+                            for(task = 0; task < NTask; task++)
+                                nsend_local[task] = 0;
+                            for(no = 0; no < nexport_save; no++)
+                                nsend_local[DataIndexTable[no].Task]++;
+                            return -1;
+                        }
+                        Exportnodecount[task] = 0;
+                        Exportindex[task] = *nexport;
+                        DataIndexTable[*nexport].Task = task;
+                        DataIndexTable[*nexport].Index = target;
+                        DataIndexTable[*nexport].IndexGet = *nexport;
+                        *nexport = *nexport + 1;
+                        nsend_local[task]++;
+                    }
 
-		  DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
-		    DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+                    DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
+                        DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
 
-		  if(Exportnodecount[task] < NODELISTLENGTH)
-		    DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
-		}
+                    if(Exportnodecount[task] < NODELISTLENGTH)
+                        DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
+                }
 
-	      if(mode == -1)
-		{
-		  *nexport = 1;
-		}
+                if(mode == -1)
+                {
+                    *nexport = 1;
+                }
 
-	      no = Nextnode[no - MaxNodes];
-	      continue;
+                no = Nextnode[no - MaxNodes];
+                continue;
 
-	    }
+            }
 
-	  current = &Nodes[no];
+            current = &Nodes[no];
 
-	  if(mode == 1)
-	    {
-	      if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-		{
-		  *startnode = -1;
-		  return numngb;
-		}
-	    }
+            if(mode == 1)
+            {
+                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                {
+                    *startnode = -1;
+                    return numngb;
+                }
+            }
 
-	  if(mode == 0)
-	    {
-	      if(!(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL)))	/* we have a node with only local particles, can skip branch */
-		{
-		  no = current->u.d.sibling;
-		  continue;
-		}
-	    }
+            if(mode == 0)
+            {
+                if(!(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL)))	/* we have a node with only local particles, can skip branch */
+                {
+                    no = current->u.d.sibling;
+                    continue;
+                }
+            }
 
-	  no = current->u.d.sibling;	/* in case the node can be discarded */
+            no = current->u.d.sibling;	/* in case the node can be discarded */
 
-	  dist = hsml + 0.5 * current->len;;
-	  dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  /* now test against the minimal sphere enclosing everything */
-	  dist += FACT1 * current->len;
-	  if((r2 = (dx * dx + dy * dy + dz * dz)) > dist * dist)
-	    continue;
+            dist = hsml + 0.5 * current->len;;
+            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            /* now test against the minimal sphere enclosing everything */
+            dist += FACT1 * current->len;
+            if((r2 = (dx * dx + dy * dy + dz * dz)) > dist * dist)
+                continue;
 
-	  if((current->u.d.bitflags & ((1 << BITFLAG_TOPLEVEL) + (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))) == 0)	/* only use fully local nodes */
-	    {
-	      /* test whether the node is contained within the sphere */
-	      dist = hsml - FACT2 * current->len;
-	      if(dist > 0)
-		if(r2 < dist * dist)
-		  {
-		    if(current->u.d.bitflags & (1 << BITFLAG_INSIDE_LINKINGLENGTH))	/* already flagged */
-		      {
-			/* sufficient to return only one particle inside this cell */
+            if((current->u.d.bitflags & ((1 << BITFLAG_TOPLEVEL) + (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))) == 0)	/* only use fully local nodes */
+            {
+                /* test whether the node is contained within the sphere */
+                dist = hsml - FACT2 * current->len;
+                if(dist > 0)
+                    if(r2 < dist * dist)
+                    {
+                        if(current->u.d.bitflags & (1 << BITFLAG_INSIDE_LINKINGLENGTH))	/* already flagged */
+                        {
+                            /* sufficient to return only one particle inside this cell */
 
-			p = current->u.d.nextnode;
-			while(p >= 0)
-			  {
-			    if(p < All.MaxPart)
-			      {
-				if(((1 << P[p].Type) & (FOF_PRIMARY_LINK_TYPES)))
-				  {
-				    dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
-				    dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
-				    dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
-				    if(dx * dx + dy * dy + dz * dz > hsml * hsml)
-				      break;
+                            p = current->u.d.nextnode;
+                            while(p >= 0)
+                            {
+                                if(p < All.MaxPart)
+                                {
+                                    if(((1 << P[p].Type) & (FOF_PRIMARY_LINK_TYPES)))
+                                    {
+                                        dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+                                        dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+                                        dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+                                        if(dx * dx + dy * dy + dz * dz > hsml * hsml)
+                                            break;
 
-				    Ngblist[numngb++] = p;
-				    break;
-				  }
-				p = Nextnode[p];
-			      }
-			    else if(p >= All.MaxPart + MaxNodes)
-			      p = Nextnode[p - MaxNodes];
-			    else
-			      p = Nodes[p].u.d.nextnode;
-			  }
-			continue;
-		      }
-		    else
-		      {
-			/* flag it now */
-			current->u.d.bitflags |= (1 << BITFLAG_INSIDE_LINKINGLENGTH);
-		      }
-		  }
-	    }
+                                        Ngblist[numngb++] = p;
+                                        break;
+                                    }
+                                    p = Nextnode[p];
+                                }
+                                else if(p >= All.MaxPart + MaxNodes)
+                                    p = Nextnode[p - MaxNodes];
+                                else
+                                    p = Nodes[p].u.d.nextnode;
+                            }
+                            continue;
+                        }
+                        else
+                        {
+                            /* flag it now */
+                            current->u.d.bitflags |= (1 << BITFLAG_INSIDE_LINKINGLENGTH);
+                        }
+                    }
+            }
 
-	  no = current->u.d.nextnode;	/* ok, we need to open the node */
-	}
+            no = current->u.d.nextnode;	/* ok, we need to open the node */
+        }
     }
 
-  *startnode = -1;
-  return numngb;
+    *startnode = -1;
+    return numngb;
 }
 
 
 
 /* find all particles of type FOF_PRIMARY_LINK_TYPES in smoothing length in order to find nearest one */
 int ngb_treefind_fof_nearest(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
-			     int *nexport, int *nsend_local)
+        int *nexport, int *nsend_local)
 {
-  int numngb, no, p, task, nexport_save;
-  struct NODE *current;
-  MyDouble dx, dy, dz, dist, r2;
+    int numngb, no, p, task, nexport_save;
+    struct NODE *current;
+    MyDouble dx, dy, dz, dist, r2;
 
 #define FACT2 0.86602540
 #ifdef PERIODIC
-  MyDouble xtmp;
+    MyDouble xtmp;
 #endif
-  nexport_save = *nexport;
+    nexport_save = *nexport;
 
-  numngb = 0;
-  no = *startnode;
+    numngb = 0;
+    no = *startnode;
 
-  while(no >= 0)
+    while(no >= 0)
     {
-      if(no < All.MaxPart)	/* single particle */
-	{
-	  p = no;
-	  no = Nextnode[no];
+        if(no < All.MaxPart)	/* single particle */
+        {
+            p = no;
+            no = Nextnode[no];
 
-	  if(!((1 << P[p].Type) & (FOF_PRIMARY_LINK_TYPES)))
-	    continue;
+            if(!((1 << P[p].Type) & (FOF_PRIMARY_LINK_TYPES)))
+                continue;
 
-	  dist = hsml;
-	  dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dist = hsml;
+            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  Ngblist[numngb++] = p;
-	}
-      else
-	{
-	  if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
-	    {
-	      if(mode == 1)
-		endrun(123192);
+            Ngblist[numngb++] = p;
+        }
+        else
+        {
+            if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+            {
+                if(mode == 1)
+                    endrun(123192);
 
-	      if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-		{
-		  Exportflag[task] = target;
-		  Exportnodecount[task] = NODELISTLENGTH;
-		}
+                if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
+                {
+                    Exportflag[task] = target;
+                    Exportnodecount[task] = NODELISTLENGTH;
+                }
 
-	      if(Exportnodecount[task] == NODELISTLENGTH)
-		{
-		  if(*nexport >= All.BunchSize)
-		    {
-		      *nexport = nexport_save;
-		      if(nexport_save == 0)
-			endrun(13005);	/* in this case, the buffer is too small to process even a single particle */
-		      for(task = 0; task < NTask; task++)
-			nsend_local[task] = 0;
-		      for(no = 0; no < nexport_save; no++)
-			nsend_local[DataIndexTable[no].Task]++;
-		      return -1;
-		    }
-		  Exportnodecount[task] = 0;
-		  Exportindex[task] = *nexport;
-		  DataIndexTable[*nexport].Task = task;
-		  DataIndexTable[*nexport].Index = target;
-		  DataIndexTable[*nexport].IndexGet = *nexport;
-		  *nexport = *nexport + 1;
-		  nsend_local[task]++;
-		}
+                if(Exportnodecount[task] == NODELISTLENGTH)
+                {
+                    if(*nexport >= All.BunchSize)
+                    {
+                        *nexport = nexport_save;
+                        if(nexport_save == 0)
+                            endrun(13005);	/* in this case, the buffer is too small to process even a single particle */
+                        for(task = 0; task < NTask; task++)
+                            nsend_local[task] = 0;
+                        for(no = 0; no < nexport_save; no++)
+                            nsend_local[DataIndexTable[no].Task]++;
+                        return -1;
+                    }
+                    Exportnodecount[task] = 0;
+                    Exportindex[task] = *nexport;
+                    DataIndexTable[*nexport].Task = task;
+                    DataIndexTable[*nexport].Index = target;
+                    DataIndexTable[*nexport].IndexGet = *nexport;
+                    *nexport = *nexport + 1;
+                    nsend_local[task]++;
+                }
 
-	      DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
-		DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+                DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
+                    DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
 
-	      if(Exportnodecount[task] < NODELISTLENGTH)
-		DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
+                if(Exportnodecount[task] < NODELISTLENGTH)
+                    DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
 
-	      no = Nextnode[no - MaxNodes];
-	      continue;
-	    }
+                no = Nextnode[no - MaxNodes];
+                continue;
+            }
 
-	  current = &Nodes[no];
+            current = &Nodes[no];
 
-	  if(mode == 1)
-	    {
-	      if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-		{
-		  *startnode = -1;
-		  return numngb;
-		}
-	    }
+            if(mode == 1)
+            {
+                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                {
+                    *startnode = -1;
+                    return numngb;
+                }
+            }
 
-	  no = current->u.d.sibling;	/* in case the node can be discarded */
+            no = current->u.d.sibling;	/* in case the node can be discarded */
 
-	  dist = hsml + 0.5 * current->len;;
-	  dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  /* now test against the minimal sphere enclosing everything */
-	  dist += FACT1 * current->len;
-	  if((r2 = (dx * dx + dy * dy + dz * dz)) > dist * dist)
-	    continue;
+            dist = hsml + 0.5 * current->len;;
+            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            /* now test against the minimal sphere enclosing everything */
+            dist += FACT1 * current->len;
+            if((r2 = (dx * dx + dy * dy + dz * dz)) > dist * dist)
+                continue;
 
-	  no = current->u.d.nextnode;	/* ok, we need to open the node */
-	}
+            no = current->u.d.nextnode;	/* ok, we need to open the node */
+        }
     }
 
-  *startnode = -1;
-  return numngb;
+    *startnode = -1;
+    return numngb;
 }
 
 
@@ -1010,148 +1010,148 @@ int ngb_treefind_fof_nearest(MyDouble searchcenter[3], MyFloat hsml, int target,
 
 #if defined(RADTRANSFER) && defined(SFR)
 int ngb_treefind_stars(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
-		       int *nexport, int *nsend_local)
+        int *nexport, int *nsend_local)
 {
-  int numngb, no, p, task, nexport_save;
-  struct NODE *current;
-  MyDouble dx, dy, dz, dist;
+    int numngb, no, p, task, nexport_save;
+    struct NODE *current;
+    MyDouble dx, dy, dz, dist;
 
 #ifdef PERIODIC
-  MyDouble xtmp;
+    MyDouble xtmp;
 #endif
-  nexport_save = *nexport;
+    nexport_save = *nexport;
 
-  numngb = 0;
-  no = *startnode;
+    numngb = 0;
+    no = *startnode;
 
-  while(no >= 0)
+    while(no >= 0)
     {
-      if(no < All.MaxPart)	/* single particle */
-	{
-	  p = no;
-	  no = Nextnode[no];
+        if(no < All.MaxPart)	/* single particle */
+        {
+            p = no;
+            no = Nextnode[no];
 
-	  if(P[p].Type > 0)
-	    continue;
+            if(P[p].Type > 0)
+                continue;
 
-	  double a;
+            double a;
 
-	  if(All.ComovingIntegrationOn == 1)
-	    a = All.Time;
-	  else
-	    a = 1.0;
+            if(All.ComovingIntegrationOn == 1)
+                a = All.Time;
+            else
+                a = 1.0;
 
-	  if((SPHP(p).d.Density / (a * a * a)) >= All.PhysDensThresh)
-	    continue;
+            if((SPHP(p).d.Density / (a * a * a)) >= All.PhysDensThresh)
+                continue;
 
-	  if(P[p].Ti_current != All.Ti_Current)
-	    drift_particle(p, All.Ti_Current);
+            if(P[p].Ti_current != All.Ti_Current)
+                drift_particle(p, All.Ti_Current);
 
-	  dist = hsml;
-	  dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dist = hsml;
+            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  Ngblist[numngb++] = p;
-	}
-      else
-	{
-	  if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
-	    {
-	      if(mode == 1)
-		endrun(12312);
+            Ngblist[numngb++] = p;
+        }
+        else
+        {
+            if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+            {
+                if(mode == 1)
+                    endrun(12312);
 
-	      if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-		{
-		  Exportflag[task] = target;
-		  Exportnodecount[task] = NODELISTLENGTH;
-		}
+                if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
+                {
+                    Exportflag[task] = target;
+                    Exportnodecount[task] = NODELISTLENGTH;
+                }
 
-	      if(Exportnodecount[task] == NODELISTLENGTH)
-		{
-		  if(*nexport >= All.BunchSize)
-		    {
-		      *nexport = nexport_save;
-		      if(nexport_save == 0)
-			endrun(13005);	/* in this case, the buffer is too small to process even a single particle */
-		      for(task = 0; task < NTask; task++)
-			nsend_local[task] = 0;
-		      for(no = 0; no < nexport_save; no++)
-			nsend_local[DataIndexTable[no].Task]++;
-		      return -1;
-		    }
-		  Exportnodecount[task] = 0;
-		  Exportindex[task] = *nexport;
-		  DataIndexTable[*nexport].Task = task;
-		  DataIndexTable[*nexport].Index = target;
-		  DataIndexTable[*nexport].IndexGet = *nexport;
-		  *nexport = *nexport + 1;
-		  nsend_local[task]++;
-		}
+                if(Exportnodecount[task] == NODELISTLENGTH)
+                {
+                    if(*nexport >= All.BunchSize)
+                    {
+                        *nexport = nexport_save;
+                        if(nexport_save == 0)
+                            endrun(13005);	/* in this case, the buffer is too small to process even a single particle */
+                        for(task = 0; task < NTask; task++)
+                            nsend_local[task] = 0;
+                        for(no = 0; no < nexport_save; no++)
+                            nsend_local[DataIndexTable[no].Task]++;
+                        return -1;
+                    }
+                    Exportnodecount[task] = 0;
+                    Exportindex[task] = *nexport;
+                    DataIndexTable[*nexport].Task = task;
+                    DataIndexTable[*nexport].Index = target;
+                    DataIndexTable[*nexport].IndexGet = *nexport;
+                    *nexport = *nexport + 1;
+                    nsend_local[task]++;
+                }
 
-	      DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
-		DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+                DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
+                    DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
 
-	      if(Exportnodecount[task] < NODELISTLENGTH)
-		DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
+                if(Exportnodecount[task] < NODELISTLENGTH)
+                    DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
 
-	      no = Nextnode[no - MaxNodes];
-	      continue;
-	    }
+                no = Nextnode[no - MaxNodes];
+                continue;
+            }
 
-	  current = &Nodes[no];
+            current = &Nodes[no];
 
-	  if(mode == 1)
-	    {
-	      if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-		{
-		  *startnode = -1;
-		  return numngb;
-		}
-	    }
+            if(mode == 1)
+            {
+                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                {
+                    *startnode = -1;
+                    return numngb;
+                }
+            }
 
-	  if(current->Ti_current != All.Ti_Current)
-	    force_drift_node(no, All.Ti_Current);
+            if(current->Ti_current != All.Ti_Current)
+                force_drift_node(no, All.Ti_Current);
 
-	  if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
-	    {
-	      if(current->u.d.mass)	/* open cell */
-		{
-		  no = current->u.d.nextnode;
-		  continue;
-		}
-	    }
+            if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
+            {
+                if(current->u.d.mass)	/* open cell */
+                {
+                    no = current->u.d.nextnode;
+                    continue;
+                }
+            }
 
-	  no = current->u.d.sibling;	/* in case the node can be discarded */
+            no = current->u.d.sibling;	/* in case the node can be discarded */
 
-	  dist = hsml + 0.5 * current->len;;
-	  dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
-	  if(dx > dist)
-	    continue;
-	  dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
-	  if(dy > dist)
-	    continue;
-	  dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
-	  if(dz > dist)
-	    continue;
-	  /* now test against the minimal sphere enclosing everything */
-	  dist += FACT1 * current->len;
-	  if(dx * dx + dy * dy + dz * dz > dist * dist)
-	    continue;
+            dist = hsml + 0.5 * current->len;;
+            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            if(dx > dist)
+                continue;
+            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            if(dy > dist)
+                continue;
+            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            if(dz > dist)
+                continue;
+            /* now test against the minimal sphere enclosing everything */
+            dist += FACT1 * current->len;
+            if(dx * dx + dy * dy + dz * dz > dist * dist)
+                continue;
 
-	  no = current->u.d.nextnode;	/* ok, we need to open the node */
-	}
+            no = current->u.d.nextnode;	/* ok, we need to open the node */
+        }
     }
 
-  *startnode = -1;
-  return numngb;
+    *startnode = -1;
+    return numngb;
 }
 #endif
