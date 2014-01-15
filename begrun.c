@@ -665,6 +665,7 @@ double enclosed_mass(double R)
 void open_outputfiles(void)
 {
     char mode[2], buf[200];
+    char dumpdir[200];
     char postfix[128];
 
     if(RestartFlag == 0 || RestartFlag == 2)
@@ -678,9 +679,23 @@ void open_outputfiles(void)
         sprintf(postfix, "%s", "");
     }
 
+    /* create spliced dirs */
+    int chunk = 1;
+    if (NTask > 10) chunk = 10;
+    if (NTask > 100) chunk = 100;
+    if (NTask > 1000) chunk = 1000;
+
+    if (ThisTask == 0) {
+        int i;
+        for(i = 0; i < NTask / chunk; i += 1) {
+            sprintf(buf, "%sdumpdir-%d%s", All.OutputDir, i, postfix);
+            mkdir(buf, 02755);
+        }
+    } 
+    sprintf(dumpdir, "%sdumpdir-%d%s/", All.OutputDir, (int)(ThisTask / chunk), postfix);
 #ifdef BLACK_HOLES
     /* Note: This is done by everyone */
-    sprintf(buf, "%sblackhole_details_%d.raw", All.OutputDir, ThisTask, postfix);
+    sprintf(buf, "%sblackhole_details_%d.raw%s", dumpdir, ThisTask, postfix);
     if(!(FdBlackHolesDetails = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
@@ -690,7 +705,7 @@ void open_outputfiles(void)
 
 #ifdef DISTORTIONTENSORPS
     /* create caustic log file */
-    sprintf(buf, "%scaustics_%d.txt%s", All.OutputDir, ThisTask, postfix);
+    sprintf(buf, "%scaustics_%d.txt%s", dumpdir, ThisTask, postfix);
     if(!(FdCaustics = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
