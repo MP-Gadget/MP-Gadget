@@ -1369,6 +1369,10 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.PartAllocFactor;
         id[nt++] = REAL;
 
+        strcpy(tag[nt], "TopNodeAllocFactor");
+        addr[nt] = &All.TopNodeAllocFactor;
+        id[nt++] = REAL;
+
         strcpy(tag[nt], "GravityConstantInternal");
         addr[nt] = &All.GravityConstantInternal;
         id[nt++] = REAL;

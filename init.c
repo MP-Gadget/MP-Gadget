@@ -194,7 +194,6 @@ void init(void)
 #endif
 #endif
 
-    All.TopNodeAllocFactor = 0.05;
     All.TreeAllocFactor = 0.7;
 
 
