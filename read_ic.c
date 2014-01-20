@@ -630,8 +630,12 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
 
         case IO_BHPROGS:
 #ifdef BH_COUNTPROGS
-            for(n = 0; n < pc; n++)
-                BHP(offset + n).CountProgs = *ip++;
+            for(n = 0; n < pc; n++) {
+                if(bytes_per_blockelement == 8) 
+                    BHP(offset + n).CountProgs = *ip++;
+                if(bytes_per_blockelement == 4) 
+                    BHP(offset + n).CountProgs = *i32p++;
+            }
 #endif
             break;
 
@@ -1234,13 +1238,21 @@ void read_file(char *fname, int readTask, int lastTask)
 #ifdef AUTO_SWAP_ENDIAN_READIC
                             swap_Nbyte((char *) &blksize1, 1, 4);
 #endif
-                            if(blocknr == IO_ID) {
+                            if(blocknr == IO_ID || blocknr == IO_BHPROGS) {
                                 if (bytes_per_blockelement != blksize1/ npart) {
                                     printf("ID type in ic is uint32, will convert to uint64");
                                 }
                                 bytes_per_blockelement = blksize1 / npart;
                             }
                         }
+                        for(task = readTask + 1; task <= lastTask; task++) {
+                            MPI_Ssend(&bytes_per_blockelement, sizeof(bytes_per_blockelement), 
+                                        MPI_BYTE, task, TAG_BYTES_PB, MPI_COMM_WORLD);
+                        }
+                    } else {
+                        /* in case a different bytes-per_blockelement is probed by readTask */
+                            MPI_Recv(&bytes_per_blockelement, sizeof(bytes_per_blockelement), 
+                                    MPI_BYTE, readTask, TAG_BYTES_PB, MPI_COMM_WORLD, &status);
                     }
                     for(type = 0, offset = 0, nread = 0; type < 6; type++)
                     {

@@ -45,6 +45,7 @@
 #define TAG_HOTNGB_B      53
 #define TAG_SWAP          54
 #define TAG_PM_FOLD       55
+#define TAG_BYTES_PB      56
 
 #ifdef BG_SFR
 #define TAG_STARDATA      60
