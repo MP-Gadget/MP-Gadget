@@ -4812,10 +4812,9 @@ void ewald_init(void)
         /* ok, let's recompute things. Actually, we do that in parallel. */
 
         size = (EN + 1) * (EN + 1) * (EN + 1) / NTask;
-        beg = ThisTask * size;
-        len = size;
-        if(ThisTask == (NTask - 1))
-            len = (EN + 1) * (EN + 1) * (EN + 1) - beg;
+        beg = ((long long) ThisTask) * size / NTask;
+        len = ((long long) ThisTask + 1) * size / NTask;
+        len -= beg;
         for(i = 0, count = 0; i <= EN; i++)
             for(j = 0; j <= EN; j++)
                 for(k = 0; k <= EN; k++)
