@@ -1239,9 +1239,6 @@ void read_file(char *fname, int readTask, int lastTask)
                             swap_Nbyte((char *) &blksize1, 1, 4);
 #endif
                             if(blocknr == IO_ID || blocknr == IO_BHPROGS) {
-                                if (bytes_per_blockelement != blksize1/ npart) {
-                                    printf("ID type in ic is uint32, will convert to uint64");
-                                }
                                 bytes_per_blockelement = blksize1 / npart;
                             }
                         }
