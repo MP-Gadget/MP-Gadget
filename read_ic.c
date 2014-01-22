@@ -34,10 +34,14 @@ static unsigned long FileNr;
 static long long *NumPartPerFile;
 #endif
 
+static void read_files(char * basename, int start, int end, int num_files);
+static void format_filename(char * buf, char * basename, int fid, int num_files);
+
 void read_ic(char *fname)
 {
     int i, num_files, rest_files, ngroups, gr, filenr, masterTask, lastTask, groupMaster;
     double u_init, molecular_weight;
+    int start, end;
     char buf[500];
 
     CPU_Step[CPU_MISC] += measure_time();
@@ -65,66 +69,13 @@ void read_ic(char *fname)
     MPI_Bcast(NumPartPerFile, num_files * sizeof(long long), MPI_BYTE, 0, MPI_COMM_WORLD);
 #endif
 
-    rest_files = num_files;
+    for(start = 0; start < num_files; 
+        start += All.NumFilesWrittenInParallel) {
 
-    while(rest_files > NTask)
-    {
-        sprintf(buf, "%s.%d", fname, ThisTask + (rest_files - NTask));
-        if(All.ICFormat == 3)
-            sprintf(buf, "%s.%d.hdf5", fname, ThisTask + (rest_files - NTask));
-#if defined(SAVE_HSML_IN_IC_ORDER) || defined(SUBFIND_RESHUFFLE_CATALOGUE)
-        FileNr = ThisTask + (rest_files - NTask);
-#endif
+        end = start + All.NumFilesWrittenInParallel;
+        if(end > num_files) end = num_files;
 
-        ngroups = NTask / All.NumFilesWrittenInParallel;
-        if((NTask % All.NumFilesWrittenInParallel))
-            ngroups++;
-        groupMaster = (ThisTask / ngroups) * ngroups;
-
-        for(gr = 0; gr < ngroups; gr++)
-        {
-            if(ThisTask == (groupMaster + gr))	/* ok, it's this processor's turn */
-                read_file(buf, ThisTask, ThisTask);
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-
-        rest_files -= NTask;
-    }
-
-
-    if(rest_files > 0)
-    {
-        distribute_file(rest_files, 0, 0, NTask - 1, &filenr, &masterTask, &lastTask);
-
-        if(num_files > 1)
-        {
-            sprintf(buf, "%s.%d", fname, filenr);
-            if(All.ICFormat == 3)
-                sprintf(buf, "%s.%d.hdf5", fname, filenr);
-#if defined(SAVE_HSML_IN_IC_ORDER) || defined(SUBFIND_RESHUFFLE_CATALOGUE)
-            FileNr = filenr;
-#endif
-        }
-        else
-        {
-            sprintf(buf, "%s", fname);
-            if(All.ICFormat == 3)
-                sprintf(buf, "%s.hdf5", fname);
-#if defined(SAVE_HSML_IN_IC_ORDER) || defined(SUBFIND_RESHUFFLE_CATALOGUE)
-            FileNr = 0;
-#endif
-        }
-
-        ngroups = rest_files / All.NumFilesWrittenInParallel;
-        if((rest_files % All.NumFilesWrittenInParallel))
-            ngroups++;
-
-        for(gr = 0; gr < ngroups; gr++)
-        {
-            if((filenr / All.NumFilesWrittenInParallel) == gr)	/* ok, it's this processor's turn */
-                read_file(buf, masterTask, lastTask);
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
+        read_files(fname, start, end, num_files);
     }
 
 #if defined(SUBFIND_RESHUFFLE_CATALOGUE)
@@ -226,6 +177,40 @@ void read_ic(char *fname)
     CPU_Step[CPU_SNAPSHOT] += measure_time();
 }
 
+static void format_filename(char * buf, char * basename, int fid, int num_files) {
+    char * postfix;
+    if (All.ICFormat == 3) {
+        postfix = ".hdf5";
+    } else {
+        postfix = "";
+    }
+    if(num_files > 1) {
+        sprintf(buf, "%s.%d%s", basename, fid, postfix);
+    } else {
+        sprintf(buf, "%s%s", basename, postfix);
+    } 
+}
+
+
+static void read_files(char * basename, int start, int end, int num_files) {
+    int i, fid;
+    int NtaskGroups = end - start;
+    char fn[1024];
+    for(i = 0, fid = start; fid < end; fid ++, i++) {
+        /* active group i goes from 0 to NtaskGroups - 1*/
+        int readTask = ((long long) i) * NTask / NtaskGroups;
+        int lastTask = ((long long) (i + 1)) * NTask / NtaskGroups - 1;
+        format_filename(fn, basename, fid, num_files);
+#if defined(SAVE_HSML_IN_IC_ORDER) || defined(SUBFIND_RESHUFFLE_CATALOGUE)
+        FileNr = fid;
+#endif
+        /* ThisTask will read if the active group contains ThisTask */
+        if (ThisTask >= readTask && ThisTask <= lastTask) {
+            read_file(fn, readTask, lastTask);
+        }
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+}
 
 /*! This function reads out the buffer that was filled with particle data.
 */
