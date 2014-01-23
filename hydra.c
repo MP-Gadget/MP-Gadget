@@ -44,8 +44,9 @@ extern int TimerFlag;
  *  (via artificial viscosity) is computed.
  */
 
-static int hydro_evaluate(int target, int mode, EvaluatorData * evdata);
+static int hydro_evaluate(int target, int mode, EvaluatorData * evdata, int * ngblist);
 static int hydro_isactive(int n);
+static void * hydro_alloc_ngblist();
 
 struct hydrodata_in
 {
@@ -180,6 +181,7 @@ void hydro_force(void)
     Evaluator ev;
     ev.ev_evaluate = hydro_evaluate;
     ev.ev_isactive = hydro_isactive;
+    ev.ev_alloc = hydro_alloc_ngblist;
 
     int i, j, k, ngrp, ndone, ndone_flag;
     int sendTask, recvTask, place;
@@ -1069,7 +1071,7 @@ void hydro_force(void)
  *  particle is specified which may either be local, or reside in the
  *  communication buffer.
  */
-static int hydro_evaluate(int target, int mode, EvaluatorData * evdata) 
+static int hydro_evaluate(int target, int mode, EvaluatorData * evdata, int * ngblist) 
 {
     int startnode, numngb, listindex = 0;
     int j, k, n, timestep;
@@ -1534,14 +1536,14 @@ static int hydro_evaluate(int target, int mode, EvaluatorData * evdata)
         {
             numngb =
                 ngb_treefind_pairs_threads(pos, h_i, target, &startnode, mode, evdata->exportflag, evdata->exportnodecount,
-                        evdata->exportindex, evdata->ngblist);
+                        evdata->exportindex, ngblist);
 
             if(numngb < 0)
                 return -1;
 
             for(n = 0; n < numngb; n++)
             {
-                j = evdata->ngblist[n];
+                j = ngblist[n];
 
 #ifdef HYDRO_COST_FACTOR
                 ninteractions++;
@@ -2261,6 +2263,11 @@ static int hydro_evaluate(int target, int mode, EvaluatorData * evdata)
     return 0;
 }
 
+static void * hydro_alloc_ngblist() {
+    int threadid = omp_get_thread_num();
+    printf("threadid = %d\n", threadid);
+    return Ngblist + threadid * NumPart;
+}
 static int hydro_isactive(int i) {
     return P[i].Type == 0;
 }

@@ -20,7 +20,8 @@ extern int Nexport, Nimport;
 extern int BufferFullFlag;
 
 static int density_isactive(int n);
-static int density_evaluate(int target, int mode, EvaluatorData * evdata);
+static int density_evaluate(int target, int mode, EvaluatorData * evdata, int * ngblist);
+static void * density_alloc_ngblist();
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
@@ -150,6 +151,7 @@ void density(void)
     Evaluator ev;
     ev.ev_evaluate = density_evaluate;
     ev.ev_isactive = density_isactive;
+    ev.ev_alloc = density_alloc_ngblist;
 
     int i, j, k, ndone, ndone_flag, npleft, dt_step, iter = 0;
 
@@ -1007,7 +1009,7 @@ double density_decide_hsearch(int targettype, double h) {
  *  target particle may either be local, or reside in the communication
  *  buffer.
  */
-static int density_evaluate(int target, int mode, EvaluatorData * evdata) 
+static int density_evaluate(int target, int mode, EvaluatorData * evdata, int * ngblist) 
 {
     int j, n;
 
@@ -1250,7 +1252,7 @@ static int density_evaluate(int target, int mode, EvaluatorData * evdata)
         {
             numngb_inbox =
                 ngb_treefind_variable_threads(pos, hsearch, target, &startnode, mode, evdata->exportflag, evdata->exportnodecount,
-                        evdata->exportindex, evdata->ngblist);
+                        evdata->exportindex, ngblist);
 
             if(numngb_inbox < 0)
                 return -1;
@@ -1260,7 +1262,7 @@ static int density_evaluate(int target, int mode, EvaluatorData * evdata)
 #ifdef HYDRO_COST_FACTOR
                 ninteractions++;
 #endif
-                j = evdata->ngblist[n];
+                j = ngblist[n];
 #ifdef WINDS
                     if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
                         if(!(delaytime > 0))	/* if I'm not wind, then ignore the wind particle */
@@ -1698,6 +1700,10 @@ static int density_evaluate(int target, int mode, EvaluatorData * evdata)
     return 0;
 }
 
+static void * density_alloc_ngblist() {
+    int threadid = omp_get_thread_num();
+    return Ngblist + threadid * NumPart;
+}
 
 static int density_isactive(int n)
 {
