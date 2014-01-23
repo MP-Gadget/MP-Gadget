@@ -235,10 +235,6 @@ int find_files(char *fname);
 int metals_compare_key(const void *a, const void *b);
 void enrichment_evaluate(int target, int mode);
 
-int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex, int *ngblist);
-void *hydro_evaluate_primary(void *p);
-void *hydro_evaluate_secondary(void *p);
-
 void pm_init_nonperiodic_allocate(void);
 
 void  pm_init_nonperiodic_free(void);
@@ -261,10 +257,6 @@ void mysort_pmnonperiodic(void *b, size_t n, size_t s, int (*cmp) (const void *,
 void mysort_peano(void *b, size_t n, size_t s, int (*cmp) (const void *, const void *));
 
 
-int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex, int *ngblist);
-void *density_evaluate_primary(void *p);
-void *density_evaluate_secondary(void *p);
-int density_isactive(int n);
 double density_decide_hsearch(int targettype, double h);
 
 void GetMachNumberCR(int target);

@@ -8,9 +8,6 @@
 #include <unistd.h>
 #include <gsl/gsl_rng.h>
 
-#ifdef _OPENMP
-#include <omp.h>
-#endif
 
 #include "allvars.h"
 #include "densitykernel.h"
@@ -1035,7 +1032,7 @@ void read_parameter_file(char *fname)
         endrun(0);
     }
 
-    All.NumThreads = omp_get_num_threads();
+    All.NumThreads = omp_get_max_threads();
 
     if(ThisTask == 0)		/* read parameter file on process 0 */
     {

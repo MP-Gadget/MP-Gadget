@@ -406,7 +406,7 @@ void gravity_tree(void)
 
 #pragma omp parallel 
                 {
-                int mainthreadid = omp_get_num_threads();
+                int mainthreadid = omp_get_thread_num();
                 gravity_primary_loop(&mainthreadid);	/* do local particles and prepare export list */
                 }
 
@@ -1664,12 +1664,9 @@ void *gravity_primary_loop(void *p)
 
     while(1)
     {
-#pragma omp flush(BufferFullFlag)
-        if(BufferFullFlag) break;
-
 #pragma omp critical (lock_nexport)
         {
-        i = NextParticle;
+        i = BufferFullFlag?-1:NextParticle;
         NextParticle = i<0?i:NextActiveParticle[i];
         }
 

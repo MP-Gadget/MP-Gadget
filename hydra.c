@@ -7,6 +7,7 @@
 
 
 #include "allvars.h"
+#include "evaluator.h"
 #include "proto.h"
 #include "densitykernel.h"
 #ifdef COSMIC_RAYS
@@ -43,6 +44,8 @@ extern int TimerFlag;
  *  (via artificial viscosity) is computed.
  */
 
+static int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex, int *ngblist);
+static int hydro_isactive(int n);
 
 struct hydrodata_in
 {
@@ -174,14 +177,16 @@ static double hubble_a, atime, hubble_a2, fac_mu, fac_vsic_fix, a3inv, fac_egy;
  */
 void hydro_force(void)
 {
+    Evaluator ev;
+    ev.ev_evaluate = hydro_evaluate;
+    ev.ev_isactive = hydro_isactive;
+
     int i, j, k, ngrp, ndone, ndone_flag;
     int sendTask, recvTask, place;
     double soundspeed_i;
     double timeall = 0, timecomp1 = 0, timecomp2 = 0, timecommsumm1 = 0, timecommsumm2 = 0, timewait1 =
         0, timewait2 = 0, timenetwork = 0;
     double timecomp, timecomm, timewait, tstart, tend, t0, t1;
-
-    int save_NextParticle;
 
     int64_t n_exported = 0;
 
@@ -306,82 +311,14 @@ void hydro_force(void)
 
         BufferFullFlag = 0;
         Nexport = 0;
-        save_NextParticle = NextParticle;
-
-        for(j = 0; j < NTask; j++)
-        {
-            Send_count[j] = 0;
-            Exportflag[j] = -1;
-        }
 
         /* do local particles and prepare export list */
         tstart = second();
 
-#pragma omp parallel
-        {
-        int mainthreadid = omp_get_thread_num();
-        hydro_evaluate_primary(&mainthreadid);	/* do local particles and prepare export list */
-        }
+        evaluate_primary(&ev);
 
         tend = second();
         timecomp1 += timediff(tstart, tend);
-
-        if(BufferFullFlag)
-        {
-            int last_nextparticle = NextParticle;
-
-            NextParticle = save_NextParticle;
-
-            while(NextParticle >= 0)
-            {
-                if(NextParticle == last_nextparticle)
-                    break;
-
-                if(ProcessedFlag[NextParticle] != 1)
-                    break;
-
-                ProcessedFlag[NextParticle] = 2;
-
-                NextParticle = NextActiveParticle[NextParticle];
-            }
-
-            if(NextParticle == save_NextParticle)
-            {
-                /* in this case, the buffer is too small to process even a single particle */
-                endrun(12998);
-            }
-
-
-            int new_export = 0;
-
-            for(j = 0, k = 0; j < Nexport; j++)
-                if(ProcessedFlag[DataIndexTable[j].Index] != 2)
-                {
-                    if(k < j + 1)
-                        k = j + 1;
-
-                    for(; k < Nexport; k++)
-                        if(ProcessedFlag[DataIndexTable[k].Index] == 2)
-                        {
-                            int old_index = DataIndexTable[j].Index;
-
-                            DataIndexTable[j] = DataIndexTable[k];
-                            DataNodeList[j] = DataNodeList[k];
-                            DataIndexTable[j].IndexGet = j;
-                            new_export++;
-
-                            DataIndexTable[k].Index = old_index;
-                            k++;
-                            break;
-                        }
-                }
-                else
-                    new_export++;
-
-            Nexport = new_export;
-
-        }
-
 
         n_exported += Nexport;
 
@@ -593,13 +530,7 @@ void hydro_force(void)
 
         tstart = second();
 
-        NextJ = 0;
-
-#pragma omp parallel
-        {
-            int mainthreadid = omp_get_thread_num();
-            hydro_evaluate_secondary(&mainthreadid);
-        }
+        evaluate_secondary(&ev);
 
         tend = second();
         timecomp2 += timediff(tstart, tend);
@@ -1138,7 +1069,7 @@ void hydro_force(void)
  *  particle is specified which may either be local, or reside in the
  *  communication buffer.
  */
-int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex,
+static int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex,
         int *ngblist)
 {
     int startnode, numngb, listindex = 0;
@@ -2331,74 +2262,7 @@ int hydro_evaluate(int target, int mode, int *exportflag, int *exportnodecount, 
     return 0;
 }
 
-void *hydro_evaluate_primary(void *p)
-{
-    int thread_id = *(int *) p;
-
-    int i, j;
-
-    int *exportflag, *exportnodecount, *exportindex, *ngblist;
-
-
-    ngblist = Ngblist + thread_id * NumPart;
-    exportflag = Exportflag + thread_id * NTask;
-    exportnodecount = Exportnodecount + thread_id * NTask;
-    exportindex = Exportindex + thread_id * NTask;
-
-    /* Note: exportflag is local to each thread */
-    for(j = 0; j < NTask; j++)
-        exportflag[j] = -1;
-
-    while(1)
-    {
-#pragma omp flush(BufferFullFlag)
-        if(BufferFullFlag) break;
-
-#pragma omp critical (lock_nexport)
-        {
-            i = NextParticle;
-            NextParticle = i<0?i:NextActiveParticle[i];
-        }
-        if (i < 0) break;
-        ProcessedFlag[i] = 0;
-        if(P[i].Type == 0)
-        {
-            if(hydro_evaluate(i, 0, exportflag, exportnodecount, exportindex, ngblist) < 0)
-                break;		/* export buffer has filled up */
-        }
-
-        ProcessedFlag[i] = 1;	/* particle successfully finished */
-
-    }
-
-    return NULL;
-
+static int hydro_isactive(int i) {
+    return P[i].Type == 0;
 }
 
-
-
-void *hydro_evaluate_secondary(void *p)
-{
-    int thread_id = *(int *) p;
-
-    int j, dummy, *ngblist;
-
-    ngblist = Ngblist + thread_id * NumPart;
-
-
-    while(1)
-    {
-#pragma omp critical (lock_nexport)
-        {
-        j = NextJ;
-        NextJ++;
-        }
-        if(j >= Nimport)
-            break;
-
-        hydro_evaluate(j, 1, &dummy, &dummy, &dummy, ngblist);
-    }
-
-    return NULL;
-
-}
