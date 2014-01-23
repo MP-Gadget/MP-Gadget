@@ -1,0 +1,123 @@
+ifneq (HAVE_HDF5,$(findstring HAVE_HDF5,$(OPT)))
+HDF5INCL =
+HDF5LIB  =
+endif
+
+ifeq (CHEMCOOL,$(findstring CHEMCOOL,$(OPT)))
+FOPT	+=  -WF,-DCHEMCOOL
+OPT	+=  -DCHEMISTRYNETWORK=1
+FOPT	+=  -WF,-DCHEMISTRYNETWORK=1
+endif
+
+EXEC   = P-Gadget3
+
+OPTIONS = $(OPTIMIZE) $(OPT) -DCOMPILETIMESETTINGS="\"neglect\"" #\"$(OPT)\"
+
+FOPTIONS = $(OPTIMIZE) $(FOPT)
+
+
+
+OBJS  =  \
+	 twopoint.o \
+	 conduction.o fof.o subfind.o subfind_vars.o subfind_collective.o subfind_serial.o subfind_so.o subfind_cont.o \
+	 subfind_distribute.o subfind_findlinkngb.o subfind_nearesttwo.o subfind_loctree.o \
+	 subfind_alternative_collective.o subfind_reshuffle.o \
+	 compare_partitions.o domain.o allvars.o main.o greenf_diffusion.o  \
+	 subfind_potential.o subfind_density.o lineofsight.o blackhole.o \
+	 run.o predict.o begrun.o endrun.o global.o chemistry_noneq.o \
+	 timestep.o init.o restart.o io.o sfr_eff.o checksummed_sendrecv.o \
+	 accel.o read_ic.o read_ic_cluster.o cooling.o ngb.o parallel_sort.o second_order.o \
+	 system.o allocate.o density.o bubbles.o sizelimited_sendrecv.o  \
+	 evaluator.o \
+	 gravtree.o hydra.o  driftfac.o darkenergy.o \
+	 potential.o  forcetree.o  peano.o gravtree_forcetest.o parallel_sort_special.o \
+	 pm_periodic.o pm_nonperiodic.o longrange.o mymalloc.o \
+	 b_from_rot_a.o smooth_simple.o \
+       phasespace.o phasespace_math.o  \
+	   densitykernel.o \
+	 ImfLib/libimf.o ImfLib/libimf_vars.o 
+
+INCL   = allvars.h proto.h forcetree.h cooling.h domain.h  chemistry.h evaluator.h \
+	 subfind.h dd.h fof.h eos.h myqsort.h network.h network_solver.h chemcool_consts.h Makefile \
+
+ifeq (CHEMCOOL,$(findstring CHEMCOOL,$(OPT)))
+
+OBJS  += chemcool.o raytrace.o \
+
+INCL  += chemcool_consts.h \
+
+FOBJS = calc_photo.o calc_temp.o cheminmo.o compute_heating.o compute_md_kappa.o const_rates.o cool_func.o \
+	cool_util.o coolinmo.o dvode.o evolve_abundances.o jac.o photoinit_lowZ.o \
+	rate_eq_primordial.o spline.o validate_rates.o \
+
+FINCL = cool.h fs_data.h mol_data.h non_eq.h shield_data.h Makefile \
+
+else
+FC    = $(CC)
+endif
+
+
+CFLAGS = $(OPTIONS) $(GSL_INCL) $(FFTW_INCL) $(HDF5INCL) 
+
+ifeq (VIP,$(findstring VIP,$(OPT)))
+FFLAGS = $(FOPTIONS)
+else
+FFLAGS = $(OPTIONS)
+endif
+
+ifeq (NOTYPEPREFIX_FFTW,$(findstring NOTYPEPREFIX_FFTW,$(OPT)))    # fftw installed with type prefix?
+ifeq ($(SYSTYPE), "Kraken_FFTW3")
+  FFTW_LIB = $(FFTW_LIBS) -lfftw3_mpi -lfftw3_threads -lfftw3
+else
+  FFTW_LIB = $(FFTW_LIBS) -lrfftw_mpi -lfftw_mpi -lrfftw -lfftw
+endif
+else
+ifeq (DOUBLEPRECISION_FFTW,$(findstring DOUBLEPRECISION_FFTW,$(OPT)))
+ifeq ($(SYSTYPE), "Kraken_FFTW3")
+  FFTW_LIB = $(FFTW_LIBS) -lfftw3_mpi -lfftw3_threads -lfftw3
+else
+  FFTW_LIB = $(FFTW_LIBS) -ldrfftw_mpi -ldfftw_mpi -ldrfftw -ldfftw
+endif
+else
+ifeq ($(SYSTYPE), "Kraken_FFTW3")
+  FFTW_LIB = $(FFTW_LIBS) -lfftw3f_mpi -lfftw3f_threads -lfftw3f
+else
+  FFTW_LIB = $(FFTW_LIBS) -lsrfftw_mpi -lsfftw_mpi -lsrfftw -lsfftw
+endif 
+endif
+endif
+
+
+
+#ifeq (NOTYPEPREFIX_FFTW,$(findstring NOTYPEPREFIX_FFTW,$(OPT)))    # fftw installed with type prefix?
+#  FFTW_LIB = $(FFTW_LIBS) -lrfftw_mpi -lfftw_mpi -lrfftw -lfftw
+#else
+#ifeq (DOUBLEPRECISION_FFTW,$(findstring DOUBLEPRECISION_FFTW,$(OPT)))
+#  FFTW_LIB = $(FFTW_LIBS) -ldrfftw_mpi -ldfftw_mpi -ldrfftw -ldfftw
+#else
+#  FFTW_LIB = $(FFTW_LIBS) -lsrfftw_mpi -lsfftw_mpi -lsrfftw -lsfftw
+#endif
+#endif
+
+
+LIBS   = -lm $(HDF5LIB) -g $(MPICHLIB) $(GSL_LIBS) -lgsl -lgslcblas $(FFTW_LIB)
+
+ifeq (NUM_THREADS,$(findstring NUM_THREADS,$(OPT))) 
+LIBS   +=  -lpthread
+endif
+
+LIBS   +=  $(GMPLIB)
+
+
+$(EXEC): $(OBJS) $(FOBJS)
+	$(FC) $(OPTIMIZE) $(OBJS) $(FOBJS) $(LIBS) $(RLIBS) -o $(EXEC)
+
+$(OBJS): $(INCL)
+
+$(FOBJS): $(FINCL)
+
+clean:
+	rm -f $(OBJS) $(FOBJS) $(EXEC)
+
+
+
