@@ -58,7 +58,7 @@ int MPI_Sizelimited_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype
 			     MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Status * status);
 
 void parallel_sort_special_P_GrNr_ID(void);
-void calculate_power_spectra(int num, long long *ntot_type_all);
+void calculate_power_spectra(int num, int64_t *ntot_type_all);
 
 int pmforce_is_particle_high_res(int type, MyFloat *pos);
 
@@ -395,8 +395,8 @@ void set_sph_kernel(void);
 void set_units(void);
 void setup_smoothinglengths(void);
 
-void sumup_large_ints(int n, int *src, long long *res);
-void sumup_longs(int n, long long *src, long long *res);
+void sumup_large_ints(int n, int *src, int64_t *res);
+void sumup_longs(int n, int64_t *src, int64_t *res);
 
 void statistics(void);
 double timediff(double t0, double t1);

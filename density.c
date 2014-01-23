@@ -167,7 +167,7 @@ void density(void)
 
     int ngrp, sendTask, recvTask, place;
 
-    long long ntot;
+    int64_t ntot;
 
     double fac;
 
@@ -181,7 +181,7 @@ void density(void)
 
     int save_NextParticle;
 
-    long long n_exported = 0;
+    int64_t n_exported = 0;
 
 #ifdef COSMIC_RAYS
     int CRpop;

@@ -42,7 +42,7 @@ void restart(int modus)
     if(modus == 0)
     {
         rearrange_particle_sequence();
-        All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);	/* ensures that new tree will be constructed */
+        All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);	/* ensures that new tree will be constructed */
     }
 #endif
 #endif
@@ -217,7 +217,7 @@ void restart(int modus)
                         ("Looks like you changed MULTIPLEDOMAINS from %d to %d.\nWill discard tree stored in restart files and construct a new one.\n",
                          nmulti, (int) MULTIPLEDOMAINS);
 
-                All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);	/* ensures that new tree will be constructed */
+                All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);	/* ensures that new tree will be constructed */
             }
             else
             {

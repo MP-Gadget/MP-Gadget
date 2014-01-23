@@ -28,7 +28,7 @@
 
 
 int Ngroups, TotNgroups;
-long long TotNids;
+int64_t TotNids;
 
 struct group_properties *Group;
 
@@ -100,7 +100,7 @@ void fof_fof(int num)
   int i, ndm, start, lenloc, largestgroup, n;
   double mass, masstot, rhodm, t0, t1;
   struct unbind_data *d;
-  long long ndmtot;
+  int64_t ndmtot;
 
 
 #ifdef SUBFIND_DENSITY_AND_POTENTIAL
@@ -154,7 +154,7 @@ void fof_fof(int num)
 
   CPU_Step[CPU_MISC] += measure_time();
 
-  All.NumForcesSinceLastDomainDecomp = (long long) (All.TotNumPart * All.TreeDomainUpdateFrequency + 1);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (All.TotNumPart * All.TreeDomainUpdateFrequency + 1);
   domain_Decomposition();
   force_treefree();
 
@@ -410,7 +410,7 @@ void fof_fof(int num)
   CPU_Step[CPU_FOF] += measure_time();
 
 #ifdef SUBFIND
-  All.NumForcesSinceLastDomainDecomp = (long long) (All.TotNumPart * All.TreeDomainUpdateFrequency + 1);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (All.TotNumPart * All.TreeDomainUpdateFrequency + 1);
   domain_Decomposition();
 #else
   force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
@@ -430,8 +430,8 @@ void fof_find_groups(void)
   int i, j, ndone_flag, link_count, dummy, nprocessed;
   int ndone, ngrp, sendTask, recvTask, place, nexport, nimport, link_across;
   int npart, marked;
-  long long totmarked, totnpart;
-  long long link_across_tot, ntot;
+  int64_t totmarked, totnpart;
+  int64_t link_across_tot, ntot;
   MyIDType *MinIDOld;
   char *FoFDataOut, *FoFDataResult, *MarkedFlag, *ChangedFlag;
   double t0, t1;
@@ -1256,7 +1256,7 @@ void fof_finish_group_properties(void)
 void fof_save_groups(int num)
 {
   int i, j, start, lenloc, nprocgroup, masterTask, groupTask, ngr, totlen;
-  long long totNids;
+  int64_t totNids;
   char buf[500];
   double t0, t1;
 
@@ -1467,7 +1467,7 @@ void fof_save_local_catalogue(int num)
   my_fwrite(&Ngroups, sizeof(int), 1, fd);
   my_fwrite(&TotNgroups, sizeof(int), 1, fd);
   my_fwrite(&Nids, sizeof(int), 1, fd);
-  my_fwrite(&TotNids, sizeof(long long), 1, fd);
+  my_fwrite(&TotNids, sizeof(int64_t), 1, fd);
   my_fwrite(&NTask, sizeof(int), 1, fd);
 
   /* group len */
@@ -1565,7 +1565,7 @@ void fof_save_local_catalogue(int num)
   my_fwrite(&Ngroups, sizeof(int), 1, fd);
   my_fwrite(&TotNgroups, sizeof(int), 1, fd);
   my_fwrite(&Nids, sizeof(int), 1, fd);
-  my_fwrite(&TotNids, sizeof(long long), 1, fd);
+  my_fwrite(&TotNids, sizeof(int64_t), 1, fd);
   my_fwrite(&NTask, sizeof(int), 1, fd);
   my_fwrite(&Send_offset[ThisTask], sizeof(int), 1, fd);	/* this is the number of IDs in previous files */
   my_fwrite(ids, sizeof(MyIDType), Nids, fd);
@@ -1576,7 +1576,7 @@ void fof_save_local_catalogue(int num)
 void fof_find_nearest_dmparticle(void)
 {
   int i, j, n, dummy;
-  long long ntot;
+  int64_t ntot;
   int ndone, ndone_flag, ngrp, sendTask, recvTask, place, nexport, nimport, npleft, iter;
 
   if(ThisTask == 0)
@@ -2626,7 +2626,7 @@ void read_fof(int num)
     }
 
 
-  All.NumForcesSinceLastDomainDecomp = (long long) (All.TotNumPart * All.TreeDomainUpdateFrequency + 1);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (All.TotNumPart * All.TreeDomainUpdateFrequency + 1);
   domain_Decomposition();
   force_treefree();
 
@@ -2645,14 +2645,14 @@ void read_fof(int num)
       my_fread(&Ngroups, sizeof(int), 1, fd);
       my_fread(&TotNgroups, sizeof(int), 1, fd);
       my_fread(&Nids, sizeof(int), 1, fd);
-      my_fread(&TotNids, sizeof(long long), 1, fd);
+      my_fread(&TotNids, sizeof(int64_t), 1, fd);
       my_fread(&ntask, sizeof(int), 1, fd);
       fclose(fd);
     }
 
   MPI_Bcast(&ntask, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(&TotNgroups, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&TotNids, sizeof(long long), MPI_BYTE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&TotNids, sizeof(int64_t), MPI_BYTE, 0, MPI_COMM_WORLD);
 
   t0 = second();
 
@@ -2710,7 +2710,7 @@ void read_fof(int num)
 	      my_fread(&ngroups, sizeof(int), 1, fd);
 	      my_fread(&TotNgroups, sizeof(int), 1, fd);
 	      my_fread(&nids, sizeof(int), 1, fd);
-	      my_fread(&TotNids, sizeof(long long), 1, fd);
+	      my_fread(&TotNids, sizeof(int64_t), 1, fd);
 	      my_fread(&ntask, sizeof(int), 1, fd);
 
 	      struct group_properties *tmpGroup =
@@ -2796,7 +2796,7 @@ void read_fof(int num)
 	      my_fread(&ngroups, sizeof(int), 1, fd);
 	      my_fread(&TotNgroups, sizeof(int), 1, fd);
 	      my_fread(&nids, sizeof(int), 1, fd);
-	      my_fread(&TotNids, sizeof(long long), 1, fd);
+	      my_fread(&TotNids, sizeof(int64_t), 1, fd);
 	      my_fread(&ntask, sizeof(int), 1, fd);
 	      my_fread(&nid_previous, sizeof(int), 1, fd);	/* this is the number of IDs in previous files */
 
@@ -2900,7 +2900,7 @@ void read_fof(int num)
 	      my_fread(&Ngroups, sizeof(int), 1, fd);
 	      my_fread(&TotNgroups, sizeof(int), 1, fd);
 	      my_fread(&Nids, sizeof(int), 1, fd);
-	      my_fread(&TotNids, sizeof(long long), 1, fd);
+	      my_fread(&TotNids, sizeof(int64_t), 1, fd);
 	      my_fread(&ntask, sizeof(int), 1, fd);
 	      if(NTask != ntask)
 		{
@@ -2964,7 +2964,7 @@ void read_fof(int num)
 	      my_fread(&Ngroups, sizeof(int), 1, fd);
 	      my_fread(&TotNgroups, sizeof(int), 1, fd);
 	      my_fread(&Nids, sizeof(int), 1, fd);
-	      my_fread(&TotNids, sizeof(long long), 1, fd);
+	      my_fread(&TotNids, sizeof(int64_t), 1, fd);
 	      my_fread(&ntask, sizeof(int), 1, fd);
 	      my_fread(&nid_previous, sizeof(int), 1, fd);	/* this is the number of IDs in previous files */
 
@@ -3016,7 +3016,7 @@ void read_fof(int num)
   myfree(recvoffset);
 
   /* do a check */
-  long long totlen;
+  int64_t totlen;
 
   for(i = 0, totlen = 0; i < TotNgroups; i++)
     totlen += list_of_allgrouplen[i];
@@ -3040,7 +3040,7 @@ void read_fof(int num)
     Group[i].Offset = Group[i - 1].Offset + Group[i - 1].Len;
 
 
-  long long *idoffset = mymalloc("idoffset", NTask * sizeof(long long));
+  int64_t *idoffset = mymalloc("idoffset", NTask * sizeof(int64_t));
 
   for(i = 1, idoffset[0] = 0; i < NTask; i++)
     idoffset[i] = idoffset[i - 1] + list_of_nids[i - 1];

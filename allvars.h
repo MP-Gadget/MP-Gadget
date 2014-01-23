@@ -18,6 +18,8 @@
 
 #include <mpi.h>
 #include <stdio.h>
+#include <stdint.h>
+
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_integration.h>
@@ -105,8 +107,7 @@
 
 #define  NODELISTLENGTH      8
 
-//typedef unsigned long long peanokey;
-typedef unsigned long long peanokey;
+typedef uint64_t peanokey;
 
 
 #define  BITS_PER_DIMENSION 21	/* for Peano-Hilbert order. Note: Maximum is 10 to fit in 32-bit integer ! */
@@ -237,7 +238,7 @@ typedef unsigned long long peanokey;
 #define SUBFIND_RESHUFFLE_CATALOGUE
 #endif
 
-typedef unsigned long long MyIDType;
+typedef uint64_t MyIDType;
 
 
 
@@ -461,7 +462,7 @@ extern MPI_Comm MPI_CommLocal;
 extern double CPUThisRun;	/*!< Sums CPU time of current process */
 
 extern int NumForceUpdate;	/*!< number of active particles on local processor in current timestep  */
-extern long long GlobNumForceUpdate;
+extern int64_t GlobNumForceUpdate;
 
 extern int NumSphUpdate;	/*!< number of active SPH particles on local processor in current timestep  */
 
@@ -509,7 +510,7 @@ extern int N_bh;		/*!< number of bh particles on the LOCAL processor  */
 extern int NumSinks;
 #endif
 
-extern long long Ntype[6];	/*!< total number of particles of each type */
+extern int64_t Ntype[6];	/*!< total number of particles of each type */
 extern int NtypeLocal[6];	/*!< local number of particles of each type */
 
 extern gsl_rng *random_generator;	/*!< the random number generator used */
@@ -548,7 +549,7 @@ extern struct topnode_data
 {
     peanokey Size;
     peanokey StartKey;
-    long long Count;
+    int64_t Count;
     MyFloat GravCost;
     int Daughter;
     int Pstart;
@@ -646,12 +647,12 @@ extern void *CommBuffer;	/*!< points to communication buffer, which is used at a
  */
 extern struct global_data_all_processes
 {
-    long long TotNumPart;		/*!<  total particle numbers (global value) */
-    long long TotN_sph;		/*!<  total gas particle number (global value) */
-    long long TotN_bh;
+    int64_t TotNumPart;		/*!<  total particle numbers (global value) */
+    int64_t TotN_sph;		/*!<  total gas particle number (global value) */
+    int64_t TotN_bh;
 
 #ifdef NEUTRINOS
-    long long TotNumNeutrinos;
+    int64_t TotNumNeutrinos;
 #endif
 
     int NumThreads;     /* number of threads to actaully use, smaller than NUM_THREADS */
@@ -729,9 +730,9 @@ extern struct global_data_all_processes
 
     /* some force counters  */
 
-    long long TotNumOfForces;	/*!< counts total number of force computations  */
+    int64_t TotNumOfForces;	/*!< counts total number of force computations  */
 
-    long long NumForcesSinceLastDomainDecomp;	/*!< count particle updates since last domain decomposition */
+    int64_t NumForcesSinceLastDomainDecomp;	/*!< count particle updates since last domain decomposition */
 
     /* some variable for dynamic work-load adjustment based on CPU measurements */
 

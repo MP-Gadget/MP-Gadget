@@ -31,7 +31,7 @@
 #define  PMGRID2 (2*(PMGRID/2 + 1))
 
 #if (PMGRID > 1024)
-typedef long long large_array_offset;
+typedef int64_t large_array_offset;
 #else
 typedef unsigned int large_array_offset;
 #endif
@@ -955,7 +955,7 @@ void pmforce_periodic(int mode, int *typelist)
   pm_init_periodic_free();
   force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
-  All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
   if(ThisTask == 0)
     {
@@ -1376,7 +1376,7 @@ void pmpotential_periodic(void)
   pm_init_periodic_free();
   force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
-  All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
   if(ThisTask == 0)
     {
@@ -2491,7 +2491,7 @@ void pmtidaltensor_periodic_diff(void)
   pm_init_periodic_free();
   force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
-  All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
   if(ThisTask == 0)
     {
@@ -3002,7 +3002,7 @@ void pmtidaltensor_periodic_fourier(int component)
   pm_init_periodic_free();
   force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
-  All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
   if(ThisTask == 0)
     {
@@ -3064,7 +3064,7 @@ void check_tidaltensor_periodic(int particle_ID)
  */
 #define BINS_PS  2000		/* number of bins for power spectrum computation */
 #define POWERSPEC_FOLDFAC 32
-static long long CountModes[2][BINS_PS];
+static int64_t CountModes[2][BINS_PS];
 static double SumPower[2][BINS_PS];
 static double SumPowerUncorrected[2][BINS_PS];	/* without binning correction (as for shot noise) */
 static double Power[2][BINS_PS];
@@ -3076,7 +3076,7 @@ static double Kbin[BINS_PS];
 static double K0, K1;
 static double binfac;
 static char power_spec_fname[500];
-static long long power_spec_totnumpart;
+static int64_t power_spec_totnumpart;
 static double power_spec_totmass;
 
 
@@ -3086,7 +3086,7 @@ void powerspec(int flag, int *typeflag)
   double k, k2, po, ponorm, smth, fac;
   double fx, fy, fz, ff, mass;
   double *powerbuf;
-  long long *countbuf;
+  int64_t *countbuf;
   double tstart, tend;
 
   if(ThisTask == 0)
@@ -3218,11 +3218,11 @@ void powerspec(int flag, int *typeflag)
 
   /* Now compute the power spectrum */
 
-  countbuf = mymalloc("countbuf", NTask * BINS_PS * sizeof(long long));
+  countbuf = mymalloc("countbuf", NTask * BINS_PS * sizeof(int64_t));
   powerbuf = mymalloc("powerbuf", NTask * BINS_PS * sizeof(double));
 
-  MPI_Allgather(CountModes[flag], BINS_PS * sizeof(long long), MPI_BYTE,
-		countbuf, BINS_PS * sizeof(long long), MPI_BYTE, MPI_COMM_WORLD);
+  MPI_Allgather(CountModes[flag], BINS_PS * sizeof(int64_t), MPI_BYTE,
+		countbuf, BINS_PS * sizeof(int64_t), MPI_BYTE, MPI_COMM_WORLD);
 
   for(i = 0; i < BINS_PS; i++)
     {
@@ -3312,7 +3312,7 @@ double PowerSpec_Efstathiou(double k)
 
 
 
-void calculate_power_spectra(int num, long long *ntot_type_all)
+void calculate_power_spectra(int num, int64_t *ntot_type_all)
 {
   int i, typeflag[6];
 

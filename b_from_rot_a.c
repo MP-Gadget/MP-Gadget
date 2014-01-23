@@ -19,7 +19,7 @@
 
 void rot_a(void)
 {
-  long long ntot, ntotleft;
+  int64_t ntot, ntotleft;
   int ndone;
   int *noffset, *nbuffer, *nsend, *nsend_local, *numlist, *ndonelist;
   int i, j, n;

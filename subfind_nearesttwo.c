@@ -21,7 +21,7 @@ static struct nearestdata_in
   MyFloat Density;
   MyFloat Dist[2];
   int Count;
-  long long Index[2];
+  int64_t Index[2];
   int NodeList[NODELISTLENGTH];
 }
  *NearestDataIn, *NearestDataGet;
@@ -30,7 +30,7 @@ static struct nearestdata_in
 static struct nearestdata_out
 {
   MyFloat Dist[2];
-  long long Index[2];
+  int64_t Index[2];
   int Count;
 }
  *NearestDataResult, *NearestDataOut;
@@ -265,7 +265,7 @@ int subfind_nearesttwo_evaluate(int target, int mode, int *nexport, int *nsend_l
 {
   int j, k, n, count;
   MyIDType ID;
-  long long index[2];
+  int64_t index[2];
   double dist[2];
   int startnode, numngb, numngb_inbox, listindex = 0;
   double hmax;
@@ -350,7 +350,7 @@ int subfind_nearesttwo_evaluate(int target, int mode, int *nexport, int *nsend_l
 		      if(count < 2)
 			{
 			  dist[count] = r2;
-			  index[count] = (((long long) ThisTask) << 32) + j;
+			  index[count] = (((int64_t) ThisTask) << 32) + j;
 			  count++;
 			}
 		      else
@@ -363,7 +363,7 @@ int subfind_nearesttwo_evaluate(int target, int mode, int *nexport, int *nsend_l
 			  if(r2 < dist[k])
 			    {
 			      dist[k] = r2;
-			      index[k] = (((long long) ThisTask) << 32) + j;
+			      index[k] = (((int64_t) ThisTask) << 32) + j;
 			    }
 			}
 		    }

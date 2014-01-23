@@ -24,7 +24,7 @@
  */
 
 static int n_type[6];
-static long long ntot_type_all[6];
+static int64_t ntot_type_all[6];
 
 
 /*! This function writes a snapshot of the particle distribution to one or
@@ -44,7 +44,7 @@ void savepositions(int num)
 #if defined(SFR) || defined(BLACK_HOLES)
     rearrange_particle_sequence();
     /* ensures that new tree will be constructed */
-    All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);
+    All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);
 #endif
 
 #if defined(JD_DPP) && defined(JD_DPPONSNAPSHOTONLY)

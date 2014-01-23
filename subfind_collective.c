@@ -47,22 +47,22 @@
 #define TAG_GET_TWOHEADS_DATA    233
 
 
-#define MASK ((((long long)1)<< 32)-1)
+#define MASK ((((int64_t)1)<< 32)-1)
 #define HIGHBIT (1 << 30)
 
 
 
 
 
-static long long *Head, *Next, *Tail;
+static int64_t *Head, *Next, *Tail;
 static int *Len;
 static int LocalLen;
 static int count_cand, max_candidates;
 
 static struct cand_dat
 {
-  long long head;
-  long long rank;
+  int64_t head;
+  int64_t rank;
   int len;
   int nsub;
   int subnr, parent;
@@ -79,8 +79,8 @@ static struct sort_density_data
 {
   MyFloat density;
   int ngbcount;
-  long long index;		/* this will store the task in the upper word */
-  long long ngb_index1, ngb_index2;
+  int64_t index;		/* this will store the task in the upper word */
+  int64_t ngb_index1, ngb_index2;
 }
  *sd;
 
@@ -155,7 +155,7 @@ void subfind_unbind_independent_ones(int count_cand)
 
 void subfind_process_group_collectively(int num)
 {
-  long long p;
+  int64_t p;
   int len, totgrouplen1, totgrouplen2;
   int ncand, parent, totcand, nremaining;
   int max_loc_length, max_length;
@@ -257,7 +257,7 @@ void subfind_process_group_collectively(int num)
     {
       sd[i].density = P[i].u.DM_Density;
       sd[i].ngbcount = NgbLoc[i].count;
-      sd[i].index = (((long long) ThisTask) << 32) + i;
+      sd[i].index = (((int64_t) ThisTask) << 32) + i;
       sd[i].ngb_index1 = NgbLoc[i].index[0];
       sd[i].ngb_index2 = NgbLoc[i].index[1];
     }
@@ -288,9 +288,9 @@ void subfind_process_group_collectively(int num)
 
 
   /* allocate and initialize distributed link list */
-  Head = mymalloc("Head", NumPartGroup * sizeof(long long));
-  Next = mymalloc("Next", NumPartGroup * sizeof(long long));
-  Tail = mymalloc("Tail", NumPartGroup * sizeof(long long));
+  Head = mymalloc("Head", NumPartGroup * sizeof(int64_t));
+  Next = mymalloc("Next", NumPartGroup * sizeof(int64_t));
+  Tail = mymalloc("Tail", NumPartGroup * sizeof(int64_t));
   Len = mymalloc("Len", NumPartGroup * sizeof(int));
 
   for(i = 0; i < NumPartGroup; i++)
@@ -1008,9 +1008,9 @@ void subfind_col_load_candidates(int num)
 		     ThisTask, NumPartGroup, numPartGroup);
 	    }
 
-	  my_fread(Head, NumPartGroup, sizeof(long long), fd);
-	  my_fread(Next, NumPartGroup, sizeof(long long), fd);
-	  my_fread(Tail, NumPartGroup, sizeof(long long), fd);
+	  my_fread(Head, NumPartGroup, sizeof(int64_t), fd);
+	  my_fread(Next, NumPartGroup, sizeof(int64_t), fd);
+	  my_fread(Tail, NumPartGroup, sizeof(int64_t), fd);
 	  my_fread(Len, NumPartGroup, sizeof(int), fd);
 
 	  my_fread(&count_cand, 1, sizeof(int), fd);
@@ -1038,8 +1038,8 @@ void subfind_col_find_candidates(int totgrouplen)
 {
   int ngbcount, retcode, len_attach;
   int i, k, len, master;
-  long long prev, tail, tail_attach, tmp, next, index;
-  long long p, ss, head, head_attach, ngb_index1, ngb_index2, rank;
+  int64_t prev, tail, tail_attach, tmp, next, index;
+  int64_t p, ss, head, head_attach, ngb_index1, ngb_index2, rank;
   double t0, t1, tt0, tt1;
 
   if(ThisTask == 0)
@@ -1195,7 +1195,7 @@ void subfind_col_find_candidates(int totgrouplen)
 	{
 	  for(i = 0; i < NumPartGroup; i++)
 	    {
-	      index = (((long long) ThisTask) << 32) + i;
+	      index = (((int64_t) ThisTask) << 32) + i;
 
 	      if(Head[i] == index)
 		{
@@ -1854,8 +1854,8 @@ void subfind_col_determine_sub_halo_properties(struct unbind_data *d, int num, d
 void subfind_poll_for_requests(void)
 {
   int index, nsub, source, tag, ibuf[3], target, submark, task;
-  long long head, next, rank, buf[5];
-  long long oldtail, newtail;
+  int64_t head, next, rank, buf[5];
+  int64_t oldtail, newtail;
   int task_newtail, i_newtail, task_oldtail, i_oldtail;
   MPI_Status status;
 
@@ -1873,10 +1873,10 @@ void subfind_poll_for_requests(void)
 	  MPI_Recv(ibuf, 2, MPI_INT, source, TAG_GET_TWOHEADS, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 	  buf[0] = Head[ibuf[0]];
 	  buf[1] = Head[ibuf[1]];
-	  MPI_Send(buf, 2 * sizeof(long long), MPI_BYTE, source, TAG_GET_TWOHEADS_DATA, MPI_COMM_WORLD);
+	  MPI_Send(buf, 2 * sizeof(int64_t), MPI_BYTE, source, TAG_GET_TWOHEADS_DATA, MPI_COMM_WORLD);
 	  break;
 	case TAG_SET_NEWTAIL:
-	  MPI_Recv(buf, 2 * sizeof(long long), MPI_BYTE, source, TAG_SET_NEWTAIL, MPI_COMM_WORLD,
+	  MPI_Recv(buf, 2 * sizeof(int64_t), MPI_BYTE, source, TAG_SET_NEWTAIL, MPI_COMM_WORLD,
 		   MPI_STATUS_IGNORE);
 	  index = buf[0];
 	  newtail = buf[1];
@@ -1888,7 +1888,7 @@ void subfind_poll_for_requests(void)
 	  if(task_newtail == ThisTask)
 	    {
 	      i_newtail = (newtail & MASK);
-	      Head[i_newtail] = (((long long) ThisTask) << 32) + index;
+	      Head[i_newtail] = (((int64_t) ThisTask) << 32) + index;
 	      Next[i_newtail] = -1;
 	    }
 	  task_oldtail = (oldtail >> 32);
@@ -1899,10 +1899,10 @@ void subfind_poll_for_requests(void)
 	    }
 
 	  buf[0] = oldtail;
-	  MPI_Send(buf, 1 * sizeof(long long), MPI_BYTE, source, TAG_GET_OLDTAIL, MPI_COMM_WORLD);
+	  MPI_Send(buf, 1 * sizeof(int64_t), MPI_BYTE, source, TAG_GET_OLDTAIL, MPI_COMM_WORLD);
 	  break;
 	case TAG_SET_ALL:
-	  MPI_Recv(buf, 5 * sizeof(long long), MPI_BYTE, source, TAG_SET_ALL, MPI_COMM_WORLD,
+	  MPI_Recv(buf, 5 * sizeof(int64_t), MPI_BYTE, source, TAG_SET_ALL, MPI_COMM_WORLD,
 		   MPI_STATUS_IGNORE);
 	  index = buf[0];
 	  Head[index] = buf[1];
@@ -1914,30 +1914,30 @@ void subfind_poll_for_requests(void)
 	  MPI_Recv(&index, 1, MPI_INT, source, tag, MPI_COMM_WORLD, &status);
 	  buf[0] = Tail[index];
 	  buf[1] = Len[index];
-	  MPI_Send(buf, 2 * sizeof(long long), MPI_BYTE, source, TAG_GET_TAILANDLEN_DATA, MPI_COMM_WORLD);
+	  MPI_Send(buf, 2 * sizeof(int64_t), MPI_BYTE, source, TAG_GET_TAILANDLEN_DATA, MPI_COMM_WORLD);
 	  break;
 	case TAG_SET_TAILANDLEN:
-	  MPI_Recv(buf, 3 * sizeof(long long), MPI_BYTE, source, TAG_SET_TAILANDLEN, MPI_COMM_WORLD,
+	  MPI_Recv(buf, 3 * sizeof(int64_t), MPI_BYTE, source, TAG_SET_TAILANDLEN, MPI_COMM_WORLD,
 		   MPI_STATUS_IGNORE);
 	  index = buf[0];
 	  Tail[index] = buf[1];
 	  Len[index] = buf[2];
 	  break;
 	case TAG_SET_HEADANDNEXT:
-	  MPI_Recv(buf, 3 * sizeof(long long), MPI_BYTE, source, TAG_SET_HEADANDNEXT, MPI_COMM_WORLD,
+	  MPI_Recv(buf, 3 * sizeof(int64_t), MPI_BYTE, source, TAG_SET_HEADANDNEXT, MPI_COMM_WORLD,
 		   MPI_STATUS_IGNORE);
 	  index = buf[0];
 	  Head[index] = buf[1];
 	  Next[index] = buf[2];
 	  break;
 	case TAG_SET_NEXT:
-	  MPI_Recv(buf, 2 * sizeof(long long), MPI_BYTE, source, TAG_SET_NEXT, MPI_COMM_WORLD,
+	  MPI_Recv(buf, 2 * sizeof(int64_t), MPI_BYTE, source, TAG_SET_NEXT, MPI_COMM_WORLD,
 		   MPI_STATUS_IGNORE);
 	  index = buf[0];
 	  Next[index] = buf[1];
 	  break;
 	case TAG_SETHEADGETNEXT:
-	  MPI_Recv(buf, 2 * sizeof(long long), MPI_BYTE, source, TAG_SETHEADGETNEXT, MPI_COMM_WORLD,
+	  MPI_Recv(buf, 2 * sizeof(int64_t), MPI_BYTE, source, TAG_SETHEADGETNEXT, MPI_COMM_WORLD,
 		   MPI_STATUS_IGNORE);
 	  index = buf[0];
 	  head = buf[1];
@@ -1949,15 +1949,15 @@ void subfind_poll_for_requests(void)
 	      index = (next & MASK);
 	    }
 	  while(next >= 0 && task == ThisTask);
-	  MPI_Send(&next, 1 * sizeof(long long), MPI_BYTE, source, TAG_SETHEADGETNEXT_DATA, MPI_COMM_WORLD);
+	  MPI_Send(&next, 1 * sizeof(int64_t), MPI_BYTE, source, TAG_SETHEADGETNEXT_DATA, MPI_COMM_WORLD);
 	  break;
 	case TAG_GET_NEXT:
 	  MPI_Recv(&index, 1, MPI_INT, source, tag, MPI_COMM_WORLD, &status);
-	  MPI_Send(&Next[index], 1 * sizeof(long long), MPI_BYTE, source, TAG_GET_NEXT_DATA, MPI_COMM_WORLD);
+	  MPI_Send(&Next[index], 1 * sizeof(int64_t), MPI_BYTE, source, TAG_GET_NEXT_DATA, MPI_COMM_WORLD);
 	  break;
 	case TAG_GET_HEAD:
 	  MPI_Recv(&index, 1, MPI_INT, source, tag, MPI_COMM_WORLD, &status);
-	  MPI_Send(&Head[index], 1 * sizeof(long long), MPI_BYTE, source, TAG_GET_HEAD_DATA, MPI_COMM_WORLD);
+	  MPI_Send(&Head[index], 1 * sizeof(int64_t), MPI_BYTE, source, TAG_GET_HEAD_DATA, MPI_COMM_WORLD);
 	  break;
 	case TAG_ADD_PARTICLE:
 	  MPI_Recv(&index, 1, MPI_INT, source, tag, MPI_COMM_WORLD, &status);
@@ -1998,7 +1998,7 @@ void subfind_poll_for_requests(void)
 	    }
 	  break;
 	case TAG_SETRANK:
-	  MPI_Recv(buf, 2 * sizeof(long long), MPI_BYTE, source, TAG_SETRANK, MPI_COMM_WORLD,
+	  MPI_Recv(buf, 2 * sizeof(int64_t), MPI_BYTE, source, TAG_SETRANK, MPI_COMM_WORLD,
 		   MPI_STATUS_IGNORE);
 	  index = buf[0];
 	  rank = buf[1];
@@ -2013,12 +2013,12 @@ void subfind_poll_for_requests(void)
 	  while((next >> 32) == ThisTask);
 	  buf[0] = next;
 	  buf[1] = rank;
-	  MPI_Send(buf, 2 * sizeof(long long), MPI_BYTE, source, TAG_SETRANK_OUT, MPI_COMM_WORLD);
+	  MPI_Send(buf, 2 * sizeof(int64_t), MPI_BYTE, source, TAG_SETRANK_OUT, MPI_COMM_WORLD);
 	  break;
 	case TAG_GET_RANK:
 	  MPI_Recv(&index, 1, MPI_INT, source, tag, MPI_COMM_WORLD, &status);
 	  rank = Len[index];
-	  MPI_Send(&rank, 1 * sizeof(long long), MPI_BYTE, source, TAG_GET_RANK_DATA, MPI_COMM_WORLD);
+	  MPI_Send(&rank, 1 * sizeof(int64_t), MPI_BYTE, source, TAG_GET_RANK_DATA, MPI_COMM_WORLD);
 	  break;
 
 	case TAG_POLLING_DONE:
@@ -2036,11 +2036,11 @@ void subfind_poll_for_requests(void)
 }
 
 
-long long subfind_distlinklist_setrank_and_get_next(long long index, long long *rank)
+int64_t subfind_distlinklist_setrank_and_get_next(int64_t index, int64_t *rank)
 {
   int task, i;
-  long long next;
-  long long buf[2];
+  int64_t next;
+  int64_t buf[2];
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2056,8 +2056,8 @@ long long subfind_distlinklist_setrank_and_get_next(long long index, long long *
       buf[0] = i;
       buf[1] = *rank;
 
-      MPI_Send(buf, 2 * sizeof(long long), MPI_BYTE, task, TAG_SETRANK, MPI_COMM_WORLD);
-      MPI_Recv(buf, 2 * sizeof(long long), MPI_BYTE, task, TAG_SETRANK_OUT, MPI_COMM_WORLD,
+      MPI_Send(buf, 2 * sizeof(int64_t), MPI_BYTE, task, TAG_SETRANK, MPI_COMM_WORLD);
+      MPI_Recv(buf, 2 * sizeof(int64_t), MPI_BYTE, task, TAG_SETRANK_OUT, MPI_COMM_WORLD,
 	       MPI_STATUS_IGNORE);
       next = buf[0];
       *rank = buf[1];
@@ -2066,11 +2066,11 @@ long long subfind_distlinklist_setrank_and_get_next(long long index, long long *
 }
 
 
-long long subfind_distlinklist_set_head_get_next(long long index, long long head)
+int64_t subfind_distlinklist_set_head_get_next(int64_t index, int64_t head)
 {
   int task, i;
-  long long buf[2];
-  long long next;
+  int64_t buf[2];
+  int64_t next;
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2084,8 +2084,8 @@ long long subfind_distlinklist_set_head_get_next(long long index, long long head
     {
       buf[0] = i;
       buf[1] = head;
-      MPI_Send(buf, 2 * sizeof(long long), MPI_BYTE, task, TAG_SETHEADGETNEXT, MPI_COMM_WORLD);
-      MPI_Recv(&next, 1 * sizeof(long long), MPI_BYTE, task, TAG_SETHEADGETNEXT_DATA, MPI_COMM_WORLD,
+      MPI_Send(buf, 2 * sizeof(int64_t), MPI_BYTE, task, TAG_SETHEADGETNEXT, MPI_COMM_WORLD);
+      MPI_Recv(&next, 1 * sizeof(int64_t), MPI_BYTE, task, TAG_SETHEADGETNEXT_DATA, MPI_COMM_WORLD,
 	       MPI_STATUS_IGNORE);
     }
 
@@ -2095,10 +2095,10 @@ long long subfind_distlinklist_set_head_get_next(long long index, long long head
 
 
 
-void subfind_distlinklist_set_next(long long index, long long next)
+void subfind_distlinklist_set_next(int64_t index, int64_t next)
 {
   int task, i;
-  long long buf[2];
+  int64_t buf[2];
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2111,11 +2111,11 @@ void subfind_distlinklist_set_next(long long index, long long next)
     {
       buf[0] = i;
       buf[1] = next;
-      MPI_Send(buf, 2 * sizeof(long long), MPI_BYTE, task, TAG_SET_NEXT, MPI_COMM_WORLD);
+      MPI_Send(buf, 2 * sizeof(int64_t), MPI_BYTE, task, TAG_SET_NEXT, MPI_COMM_WORLD);
     }
 }
 
-void subfind_distlinklist_add_particle(long long index)
+void subfind_distlinklist_add_particle(int64_t index)
 {
   int task, i;
 
@@ -2142,7 +2142,7 @@ void subfind_distlinklist_add_particle(long long index)
     }
 }
 
-void subfind_distlinklist_mark_particle(long long index, int target, int submark)
+void subfind_distlinklist_mark_particle(int64_t index, int target, int submark)
 {
   int task, i, ibuf[3];
 
@@ -2170,7 +2170,7 @@ void subfind_distlinklist_mark_particle(long long index, int target, int submark
 }
 
 
-void subfind_distlinklist_add_bound_particles(long long index, int nsub)
+void subfind_distlinklist_add_bound_particles(int64_t index, int nsub)
 {
   int task, i, ibuf[2];
 
@@ -2194,10 +2194,10 @@ void subfind_distlinklist_add_bound_particles(long long index, int nsub)
 }
 
 
-long long subfind_distlinklist_get_next(long long index)
+int64_t subfind_distlinklist_get_next(int64_t index)
 {
   int task, i;
-  long long next;
+  int64_t next;
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2209,17 +2209,17 @@ long long subfind_distlinklist_get_next(long long index)
   else
     {
       MPI_Send(&i, 1, MPI_INT, task, TAG_GET_NEXT, MPI_COMM_WORLD);
-      MPI_Recv(&next, 1 * sizeof(long long), MPI_BYTE, task, TAG_GET_NEXT_DATA, MPI_COMM_WORLD,
+      MPI_Recv(&next, 1 * sizeof(int64_t), MPI_BYTE, task, TAG_GET_NEXT_DATA, MPI_COMM_WORLD,
 	       MPI_STATUS_IGNORE);
     }
 
   return next;
 }
 
-long long subfind_distlinklist_get_rank(long long index)
+int64_t subfind_distlinklist_get_rank(int64_t index)
 {
   int task, i;
-  long long rank;
+  int64_t rank;
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2231,7 +2231,7 @@ long long subfind_distlinklist_get_rank(long long index)
   else
     {
       MPI_Send(&i, 1, MPI_INT, task, TAG_GET_RANK, MPI_COMM_WORLD);
-      MPI_Recv(&rank, 1 * sizeof(long long), MPI_BYTE, task, TAG_GET_RANK_DATA, MPI_COMM_WORLD,
+      MPI_Recv(&rank, 1 * sizeof(int64_t), MPI_BYTE, task, TAG_GET_RANK_DATA, MPI_COMM_WORLD,
 	       MPI_STATUS_IGNORE);
     }
 
@@ -2240,10 +2240,10 @@ long long subfind_distlinklist_get_rank(long long index)
 
 
 
-long long subfind_distlinklist_get_head(long long index)
+int64_t subfind_distlinklist_get_head(int64_t index)
 {
   int task, i;
-  long long head;
+  int64_t head;
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2255,18 +2255,18 @@ long long subfind_distlinklist_get_head(long long index)
   else
     {
       MPI_Send(&i, 1, MPI_INT, task, TAG_GET_HEAD, MPI_COMM_WORLD);
-      MPI_Recv(&head, 1 * sizeof(long long), MPI_BYTE, task, TAG_GET_HEAD_DATA, MPI_COMM_WORLD,
+      MPI_Recv(&head, 1 * sizeof(int64_t), MPI_BYTE, task, TAG_GET_HEAD_DATA, MPI_COMM_WORLD,
 	       MPI_STATUS_IGNORE);
     }
 
   return head;
 }
 
-void subfind_distlinklist_get_two_heads(long long ngb_index1, long long ngb_index2,
-					long long *head, long long *head_attach)
+void subfind_distlinklist_get_two_heads(int64_t ngb_index1, int64_t ngb_index2,
+					int64_t *head, int64_t *head_attach)
 {
   int task, i1, i2, ibuf[2];
-  long long buf[2];
+  int64_t buf[2];
 
   task = (ngb_index1 >> 32);
   i1 = (ngb_index1 & MASK);
@@ -2282,7 +2282,7 @@ void subfind_distlinklist_get_two_heads(long long ngb_index1, long long ngb_inde
       ibuf[0] = i1;
       ibuf[1] = i2;
       MPI_Send(ibuf, 2, MPI_INT, task, TAG_GET_TWOHEADS, MPI_COMM_WORLD);
-      MPI_Recv(buf, 2 * sizeof(long long), MPI_BYTE, task, TAG_GET_TWOHEADS_DATA, MPI_COMM_WORLD,
+      MPI_Recv(buf, 2 * sizeof(int64_t), MPI_BYTE, task, TAG_GET_TWOHEADS_DATA, MPI_COMM_WORLD,
 	       MPI_STATUS_IGNORE);
       *head = buf[0];
       *head_attach = buf[1];
@@ -2291,10 +2291,10 @@ void subfind_distlinklist_get_two_heads(long long ngb_index1, long long ngb_inde
 
 
 
-void subfind_distlinklist_set_headandnext(long long index, long long head, long long next)
+void subfind_distlinklist_set_headandnext(int64_t index, int64_t head, int64_t next)
 {
   int task, i;
-  long long buf[3];
+  int64_t buf[3];
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2309,15 +2309,15 @@ void subfind_distlinklist_set_headandnext(long long index, long long head, long 
       buf[0] = i;
       buf[1] = head;
       buf[2] = next;
-      MPI_Send(buf, 3 * sizeof(long long), MPI_BYTE, task, TAG_SET_HEADANDNEXT, MPI_COMM_WORLD);
+      MPI_Send(buf, 3 * sizeof(int64_t), MPI_BYTE, task, TAG_SET_HEADANDNEXT, MPI_COMM_WORLD);
     }
 }
 
-int subfind_distlinklist_get_tail_set_tail_increaselen(long long index, long long *tail, long long newtail)
+int subfind_distlinklist_get_tail_set_tail_increaselen(int64_t index, int64_t *tail, int64_t newtail)
 {
   int task, i, task_newtail, i_newtail, task_oldtail, i_oldtail, retcode;
-  long long oldtail;
-  long long buf[2];
+  int64_t oldtail;
+  int64_t buf[2];
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2351,8 +2351,8 @@ int subfind_distlinklist_get_tail_set_tail_increaselen(long long index, long lon
     {
       buf[0] = i;
       buf[1] = newtail;
-      MPI_Send(buf, 2 * sizeof(long long), MPI_BYTE, task, TAG_SET_NEWTAIL, MPI_COMM_WORLD);
-      MPI_Recv(&oldtail, 1 * sizeof(long long), MPI_BYTE, task, TAG_GET_OLDTAIL, MPI_COMM_WORLD,
+      MPI_Send(buf, 2 * sizeof(int64_t), MPI_BYTE, task, TAG_SET_NEWTAIL, MPI_COMM_WORLD);
+      MPI_Recv(&oldtail, 1 * sizeof(int64_t), MPI_BYTE, task, TAG_GET_OLDTAIL, MPI_COMM_WORLD,
 	       MPI_STATUS_IGNORE);
       *tail = oldtail;
 
@@ -2367,10 +2367,10 @@ int subfind_distlinklist_get_tail_set_tail_increaselen(long long index, long lon
 
 
 
-void subfind_distlinklist_set_tailandlen(long long index, long long tail, int len)
+void subfind_distlinklist_set_tailandlen(int64_t index, int64_t tail, int len)
 {
   int task, i;
-  long long buf[3];
+  int64_t buf[3];
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2385,17 +2385,17 @@ void subfind_distlinklist_set_tailandlen(long long index, long long tail, int le
       buf[0] = i;
       buf[1] = tail;
       buf[2] = len;
-      MPI_Send(buf, 3 * sizeof(long long), MPI_BYTE, task, TAG_SET_TAILANDLEN, MPI_COMM_WORLD);
+      MPI_Send(buf, 3 * sizeof(int64_t), MPI_BYTE, task, TAG_SET_TAILANDLEN, MPI_COMM_WORLD);
     }
 }
 
 
 
 
-void subfind_distlinklist_get_tailandlen(long long index, long long *tail, int *len)
+void subfind_distlinklist_get_tailandlen(int64_t index, int64_t *tail, int *len)
 {
   int task, i;
-  long long buf[2];
+  int64_t buf[2];
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2408,7 +2408,7 @@ void subfind_distlinklist_get_tailandlen(long long index, long long *tail, int *
   else
     {
       MPI_Send(&i, 1, MPI_INT, task, TAG_GET_TAILANDLEN, MPI_COMM_WORLD);
-      MPI_Recv(buf, 2 * sizeof(long long), MPI_BYTE, task, TAG_GET_TAILANDLEN_DATA, MPI_COMM_WORLD,
+      MPI_Recv(buf, 2 * sizeof(int64_t), MPI_BYTE, task, TAG_GET_TAILANDLEN_DATA, MPI_COMM_WORLD,
 	       MPI_STATUS_IGNORE);
       *tail = buf[0];
       *len = buf[1];
@@ -2416,10 +2416,10 @@ void subfind_distlinklist_get_tailandlen(long long index, long long *tail, int *
 }
 
 
-void subfind_distlinklist_set_all(long long index, long long head, long long tail, int len, long long next)
+void subfind_distlinklist_set_all(int64_t index, int64_t head, int64_t tail, int len, int64_t next)
 {
   int task, i;
-  long long buf[5];
+  int64_t buf[5];
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2438,7 +2438,7 @@ void subfind_distlinklist_set_all(long long index, long long head, long long tai
       buf[2] = tail;
       buf[3] = len;
       buf[4] = next;
-      MPI_Send(buf, 5 * sizeof(long long), MPI_BYTE, task, TAG_SET_ALL, MPI_COMM_WORLD);
+      MPI_Send(buf, 5 * sizeof(int64_t), MPI_BYTE, task, TAG_SET_ALL, MPI_COMM_WORLD);
     }
 }
 

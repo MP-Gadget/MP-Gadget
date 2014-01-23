@@ -39,8 +39,8 @@ struct twopointdata_in
 #define SQUARE_IT(x) ((x)*(x))
 
 
-static long long Count[BINS_TP], Count_bak[BINS_TP];
-static long long CountSpheres[BINS_TP];
+static int64_t Count[BINS_TP], Count_bak[BINS_TP];
+static int64_t CountSpheres[BINS_TP];
 static double Xi[BINS_TP];
 static double Rbin[BINS_TP];
 
@@ -61,7 +61,7 @@ void twopoint(void)
   int i, j, k, bin, n;
   double p, rs, vol, scaled_frac;
   int ndone, ndone_flag, dummy, nexport, nimport, place;
-  long long *countbuf;
+  int64_t *countbuf;
   int sendTask, recvTask, ngrp;
   double tstart, tend;
   double mass, masstot;
@@ -246,10 +246,10 @@ void twopoint(void)
 
   /* Now compute the actual correlation function */
 
-  countbuf = mymalloc("countbuf", NTask * BINS_TP * sizeof(long long));
+  countbuf = mymalloc("countbuf", NTask * BINS_TP * sizeof(int64_t));
 
-  MPI_Allgather(Count, BINS_TP * sizeof(long long), MPI_BYTE,
-		countbuf, BINS_TP * sizeof(long long), MPI_BYTE, MPI_COMM_WORLD);
+  MPI_Allgather(Count, BINS_TP * sizeof(int64_t), MPI_BYTE,
+		countbuf, BINS_TP * sizeof(int64_t), MPI_BYTE, MPI_COMM_WORLD);
 
   for(i = 0; i < BINS_TP; i++)
     {
@@ -258,8 +258,8 @@ void twopoint(void)
 	Count[i] += countbuf[n * BINS_TP + i];
     }
 
-  MPI_Allgather(CountSpheres, BINS_TP * sizeof(long long), MPI_BYTE,
-		countbuf, BINS_TP * sizeof(long long), MPI_BYTE, MPI_COMM_WORLD);
+  MPI_Allgather(CountSpheres, BINS_TP * sizeof(int64_t), MPI_BYTE,
+		countbuf, BINS_TP * sizeof(int64_t), MPI_BYTE, MPI_COMM_WORLD);
 
   for(i = 0; i < BINS_TP; i++)
     {
@@ -340,7 +340,7 @@ int twopoint_count_local(int target, int mode, int *nexport, int *nsend_local)
     {
       pos = P[target].Pos;
       rs = RsList[target];
-      memcpy(Count_bak, Count, sizeof(long long) * BINS_TP);
+      memcpy(Count_bak, Count, sizeof(int64_t) * BINS_TP);
     }
   else
     {
@@ -368,7 +368,7 @@ int twopoint_count_local(int target, int mode, int *nexport, int *nsend_local)
 	  if(twopoint_ngb_treefind_variable(pos, rs, target, &startnode, mode, nexport, nsend_local) < 0)
 	    {
 	      /* in this case restore the count-table */
-	      memcpy(Count, Count_bak, sizeof(long long) * BINS_TP);
+	      memcpy(Count, Count_bak, sizeof(int64_t) * BINS_TP);
 	      return -1;
 	    }
 	}

@@ -252,7 +252,7 @@ void x86_fix(void)
 #endif
 
 
-void sumup_large_ints(int n, int *src, long long *res)
+void sumup_large_ints(int n, int *src, int64_t *res)
 {
   int i, j, *numlist;
 
@@ -269,13 +269,13 @@ void sumup_large_ints(int n, int *src, long long *res)
   myfree(numlist);
 }
 
-void sumup_longs(int n, long long *src, long long *res)
+void sumup_longs(int n, int64_t *src, int64_t *res)
 {
   int i, j;
-  long long *numlist;
+  int64_t *numlist;
 
-  numlist = (long long *) mymalloc("numlist", NTask * n * sizeof(long long));
-  MPI_Allgather(src, n * sizeof(long long), MPI_BYTE, numlist, n * sizeof(long long), MPI_BYTE,
+  numlist = (int64_t *) mymalloc("numlist", NTask * n * sizeof(int64_t));
+  MPI_Allgather(src, n * sizeof(int64_t), MPI_BYTE, numlist, n * sizeof(int64_t), MPI_BYTE,
 		MPI_COMM_WORLD);
 
   for(j = 0; j < n; j++)

@@ -771,7 +771,7 @@ void init(void)
 #endif
 
 
-    All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+    All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
     Flag_FullStep = 1;		/* to ensure that Peano-Hilber order is done */
 
@@ -1050,7 +1050,7 @@ void init(void)
         long_range_init_regionsize();
 #ifdef PERIODIC
         int n, n_type[6];
-        long long ntot_type_all[6];
+        int64_t ntot_type_all[6];
         /* determine global and local particle numbers */
         for(n = 0; n < 6; n++)
             n_type[n] = 0;

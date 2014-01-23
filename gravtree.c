@@ -50,7 +50,7 @@ int TimerFlag;
 
 
 double Ewaldcount, Costtotal;
-long long N_nodesinlist;
+int64_t N_nodesinlist;
 
 
 int Ewald_iter;			/* global in file scope, for simplicity */
@@ -201,7 +201,7 @@ void calculate_centre_of_mass(void)
  */
 void gravity_tree(void)
 {
-    long long n_exported = 0;
+    int64_t n_exported = 0;
     int i, j, maxnumnodes, iter = 0;
     double t0, t1;
     double timeall = 0, timetree1 = 0, timetree2 = 0;

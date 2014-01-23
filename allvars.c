@@ -58,7 +58,7 @@ MPI_Comm MPI_CommLocal;
 double CPUThisRun;		/*!< Sums CPU time of current process */
 
 int NumForceUpdate;		/*!< number of active particles on local processor in current timestep  */
-long long GlobNumForceUpdate;
+int64_t GlobNumForceUpdate;
 int NumSphUpdate;		/*!< number of active SPH particles on local processor in current timestep  */
 
 int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for domain decomposition */
@@ -136,7 +136,7 @@ int N_bh;			/*!< number of bh particles on the LOCAL processor  */
 int NumSinks;
 #endif
 
-long long Ntype[6];		/*!< total number of particles of each type */
+int64_t Ntype[6];		/*!< total number of particles of each type */
 int NtypeLocal[6];		/*!< local number of particles of each type */
 
 gsl_rng *random_generator;	/*!< the random number generator used */

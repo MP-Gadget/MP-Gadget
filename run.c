@@ -61,7 +61,7 @@ void run(void)
 
 #ifdef COMPUTE_POTENTIAL_ENERGY
         if((All.Time - All.TimeLastStatistics) >= All.TimeBetStatistics)
-            All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+            All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 #endif
 
         domain_Decomposition();	/* do domain decomposition if needed */
@@ -234,7 +234,7 @@ void run(void)
 void find_next_sync_point_and_drift(void)
 {
     int n, i, prev, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
-    long long numforces2;
+    int64_t numforces2;
     double timeold;
 
     timeold = All.Time;
@@ -321,7 +321,7 @@ void find_next_sync_point_and_drift(void)
 
 #ifdef OUTPUTPOTENTIAL
 #if !defined(EVALPOTENTIAL) || (defined(EVALPOTENTIAL) && defined(RECOMPUTE_POTENTIAL_ON_OUTPUT))
-        All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+        All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
         domain_Decomposition();
         compute_potential();
 #endif
@@ -435,7 +435,7 @@ void generate_permutation_in_active_list(void)
 {
     int i, count, nseg, maxseg, last_particle;
     int *first_list, *last_list;
-    long long idsum_old, idsum_new;
+    int64_t idsum_old, idsum_new;
     struct permut_data *permut;
 
     for(i = FirstActiveParticle, idsum_old = 0; i >= 0; i = NextActiveParticle[i])
@@ -516,7 +516,7 @@ int permut_data_compare(const void *a, const void *b)
 int ShouldWeDoDynamicUpdate(void)
 {
     int n, num, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
-    long long numforces;
+    int64_t numforces;
 
 
     /* find the next kick time */
@@ -734,9 +734,9 @@ void every_timestep_stuff(void)
 {
     double z;
     int i;
-    long long tot, tot_sph;
-    long long tot_count[TIMEBINS];
-    long long tot_count_sph[TIMEBINS];
+    int64_t tot, tot_sph;
+    int64_t tot_count[TIMEBINS];
+    int64_t tot_count_sph[TIMEBINS];
 
     sumup_large_ints(TIMEBINS, TimeBinCount, tot_count);
     sumup_large_ints(TIMEBINS, TimeBinCountSph, tot_count_sph);

@@ -21,7 +21,7 @@ void greenf_diffusion(void)
   int *noffset, *nbuffer, *nsend, *nsend_local, *numlist, *ndonelist;
   int i, j, n;
   int ndone;
-  long long ntot, ntotleft;
+  int64_t ntot, ntotleft;
   int maxfill, source;
   int level, ngrp, sendTask, recvTask;
   int place, nexport;

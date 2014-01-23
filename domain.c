@@ -50,7 +50,7 @@ static struct local_topnode_data
 {
     peanokey Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
     peanokey StartKey;		/*!< first Peano-Hilbert key in top-level node */
-    long long Count;		/*!< counts the number of particles in this top-level node */
+    int64_t Count;		/*!< counts the number of particles in this top-level node */
     double Cost;
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
@@ -71,7 +71,7 @@ static struct peano_hilbert_data
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA,
         int noB);
-static void domain_add_cost(struct local_topnode_data *treeA, int noA, long long count, double cost);
+static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
 
 static int domain_layoutfunc(int n);
 static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p));
@@ -105,7 +105,7 @@ void domain_Decomposition(void)
 #ifdef PMGRID
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
-        All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+        All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
         /* to make sure that we do a domain decomposition before the PM-force is evaluated.
            this is needed to make sure that the particles are wrapped into the box */
     }
@@ -371,7 +371,7 @@ double domain_particle_costfactor(int i)
 int domain_decompose(void)
 {
     int i, no, status;
-    long long sumload;
+    int64_t sumload;
     int maxload;
     double sumwork, sumcpu, sumcost, maxwork, costfac, cadj_SpeedFac;
 
@@ -394,7 +394,7 @@ int domain_decompose(void)
         gravcost += costfac;
         All.Cadj_Cost += costfac;
     }
-    /* because Ntype[] is of type `long long', we cannot do a simple
+    /* because Ntype[] is of type `int64_t', we cannot do a simple
      * MPI_Allreduce() to sum the total particle numbers 
      */
     sumup_large_ints(6, NtypeLocal, Ntype);
@@ -533,7 +533,7 @@ int domain_decompose(void)
 
 void domain_exchange(int (*layoutfunc)(int p), int onlyparticledata) {
     int i, target;
-    long long sumtogo;
+    int64_t sumtogo;
     /* flag the particles that need to be exported */
 
     toGo = (int *) mymalloc("toGo", (sizeof(int) * NTask));
@@ -2148,10 +2148,10 @@ void domain_findExtent(void)
 
 
 
-void domain_add_cost(struct local_topnode_data *treeA, int noA, long long count, double cost)
+void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost)
 {
     int i, sub;
-    long long countA, countB;
+    int64_t countA, countB;
 
     countB = count / 8;
     countA = count - 7 * countB;
@@ -2179,7 +2179,7 @@ void domain_add_cost(struct local_topnode_data *treeA, int noA, long long count,
 void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB)
 {
     int j, sub;
-    long long count, countA, countB;
+    int64_t count, countA, countB;
     double cost, costA, costB;
 
     if(treeB[noB].Size < treeA[noA].Size)

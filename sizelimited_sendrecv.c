@@ -35,7 +35,7 @@ int MPI_Sizelimited_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype
       return 0;
     }
 
-  count_limit = (int) ((((long long) MPISENDRECV_SIZELIMIT) * 1024 * 1024) / size_sendtype);
+  count_limit = (int) ((((int64_t) MPISENDRECV_SIZELIMIT) * 1024 * 1024) / size_sendtype);
 
   while(sendcount > 0 || recvcount > 0)
     {

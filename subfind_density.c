@@ -40,7 +40,7 @@ static struct densdata_out
 
 
 static MyFloat *DM_Vx, *DM_Vy, *DM_Vz;
-static long long Ntotal;
+static int64_t Ntotal;
 
 #ifdef DENSITY_SPLIT_BY_TYPE
 void subfind_density(int j_in)
@@ -48,7 +48,7 @@ void subfind_density(int j_in)
 void subfind_density(void)
 #endif
 {
-    long long ntot;
+    int64_t ntot;
     int i, j, ndone, ndone_flag, npleft, dummy, iter = 0;
     MyFloat *Left, *Right;
     char *Todo;
@@ -731,7 +731,7 @@ void subfind_save_local_densities(int num)
 
     my_fwrite(&Nhsml, sizeof(int), 1, fd);
     my_fwrite(&Send_offset[ThisTask], sizeof(int), 1, fd);	/* this is the number of IDs in previous files */
-    my_fwrite(&Ntotal, sizeof(long long), 1, fd);
+    my_fwrite(&Ntotal, sizeof(int64_t), 1, fd);
     my_fwrite(&NTask, sizeof(int), 1, fd);
 
     tmp = mymalloc("tmp", Nhsml * sizeof(float));

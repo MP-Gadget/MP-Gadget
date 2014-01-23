@@ -14,19 +14,19 @@ sort_r2list;
 void subfind_col_find_candidates(int totgrouplen);
 void subfind_reshuffle_free(void);
 
-void read_hsml_files(float *Values, int count, enum iofields blocknr, long long nskip);
-void read_hsml_files_voronoi(float *Values, int count, enum iofields blocknr, long long nskip);
+void read_hsml_files(float *Values, int count, enum iofields blocknr, int64_t nskip);
+void read_hsml_files_voronoi(float *Values, int count, enum iofields blocknr, int64_t nskip);
 
-void subfind_distlinklist_get_two_heads(long long ngb_index1, long long ngb_index2, 
-					long long *head,      long long *head_attach);
+void subfind_distlinklist_get_two_heads(int64_t ngb_index1, int64_t ngb_index2, 
+					int64_t *head,      int64_t *head_attach);
 
 int subfind_reshuffle_compare_ID_list_ID(const void *a, const void *b);
 void  read_hsml_table(void);
-void get_hsml_file(long long nskip, int count, int *filenr, int *n_to_read, int *n_to_skip);
+void get_hsml_file(int64_t nskip, int count, int *filenr, int *n_to_read, int *n_to_skip);
 void read_subfind_ids(void);
 int subfind_reshuffle_compare_ID_list_ID(const void *a, const void *b);
 
-int subfind_distlinklist_get_tail_set_tail_increaselen(long long index, long long *tail, long long newtail);
+int subfind_distlinklist_get_tail_set_tail_increaselen(int64_t index, int64_t *tail, int64_t newtail);
 
 void subfind_exchange(int direction, int particledataonly);
 void subfind_col_save_candidates_task(int totgrouplen, int num);
@@ -124,20 +124,20 @@ int subfind_compare_ID_list(const void *a, const void *b);
 int subfind_compare_SubGroup_GrNr_SubNr(const void *a, const void *b);
 int subfind_compare_candidates_subnr(const void *a, const void *b);
 void subfind_poll_for_requests(void);
-long long subfind_distlinklist_setrank_and_get_next(long long index, long long *rank);
-long long subfind_distlinklist_get_rank(long long index);
-void subfind_distlinklist_set_next(long long index, long long next);
-void subfind_distlinklist_add_particle(long long index);
-void subfind_distlinklist_add_bound_particles(long long index, int nsub);
-void subfind_distlinklist_mark_particle(long long index, int target, int submark);
-long long subfind_distlinklist_get_next(long long index);
-long long subfind_distlinklist_get_head(long long index);
-void subfind_distlinklist_set_headandnext(long long index, long long head, long long next);
-void subfind_distlinklist_set_tailandlen(long long index, long long tail, int len);
-void subfind_distlinklist_get_tailandlen(long long index, long long *tail, int *len);
-void subfind_distlinklist_set_all(long long index, long long head, long long tail, int len, long long next);
-int subfind_distlinklist_get_ngb_count(long long index, long long *ngb_index1, long long *ngb_index2);
-long long subfind_distlinklist_set_head_get_next(long long index, long long head);
+int64_t subfind_distlinklist_setrank_and_get_next(int64_t index, int64_t *rank);
+int64_t subfind_distlinklist_get_rank(int64_t index);
+void subfind_distlinklist_set_next(int64_t index, int64_t next);
+void subfind_distlinklist_add_particle(int64_t index);
+void subfind_distlinklist_add_bound_particles(int64_t index, int nsub);
+void subfind_distlinklist_mark_particle(int64_t index, int target, int submark);
+int64_t subfind_distlinklist_get_next(int64_t index);
+int64_t subfind_distlinklist_get_head(int64_t index);
+void subfind_distlinklist_set_headandnext(int64_t index, int64_t head, int64_t next);
+void subfind_distlinklist_set_tailandlen(int64_t index, int64_t tail, int len);
+void subfind_distlinklist_get_tailandlen(int64_t index, int64_t *tail, int *len);
+void subfind_distlinklist_set_all(int64_t index, int64_t head, int64_t tail, int len, int64_t next);
+int subfind_distlinklist_get_ngb_count(int64_t index, int64_t *ngb_index1, int64_t *ngb_index2);
+int64_t subfind_distlinklist_set_head_get_next(int64_t index, int64_t head);
 
 
 extern int Ncollective;
@@ -176,7 +176,7 @@ extern struct nearest_r2_data
 
 extern struct nearest_ngb_data
 {
-  long long index[2];
+  int64_t index[2];
   int count;
 }
 *NgbLoc;

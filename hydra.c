@@ -198,7 +198,7 @@ void hydro_force(void)
 
     int save_NextParticle;
 
-    long long n_exported = 0;
+    int64_t n_exported = 0;
 
 #ifdef NAVIERSTOKES
     double fac;

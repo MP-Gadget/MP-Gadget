@@ -31,7 +31,7 @@ int swap_file = 8;
 
 #if defined(SAVE_HSML_IN_IC_ORDER) || defined(SUBFIND_RESHUFFLE_CATALOGUE)
 static unsigned long FileNr;
-static long long *NumPartPerFile;
+static int64_t *NumPartPerFile;
 #endif
 
 static void read_files(char * basename, int start, int end, int num_files);
@@ -61,12 +61,12 @@ void read_ic(char *fname)
     num_files = find_files(fname);
 
 #if defined(SAVE_HSML_IN_IC_ORDER) || defined(SUBFIND_RESHUFFLE_CATALOGUE)
-    NumPartPerFile = (long long *) mymalloc("NumPartPerFile", num_files * sizeof(long long));
+    NumPartPerFile = (int64_t *) mymalloc("NumPartPerFile", num_files * sizeof(int64_t));
 
     if(ThisTask == 0)
         get_particle_numbers(fname, num_files);
 
-    MPI_Bcast(NumPartPerFile, num_files * sizeof(long long), MPI_BYTE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(NumPartPerFile, num_files * sizeof(int64_t), MPI_BYTE, 0, MPI_COMM_WORLD);
 #endif
 
     for(start = 0; start < num_files; 
@@ -198,8 +198,8 @@ static void read_files(char * basename, int start, int end, int num_files) {
     char fn[1024];
     for(i = 0, fid = start; fid < end; fid ++, i++) {
         /* active group i goes from 0 to NtaskGroups - 1*/
-        int readTask = ((long long) i) * NTask / NtaskGroups;
-        int lastTask = ((long long) (i + 1)) * NTask / NtaskGroups - 1;
+        int readTask = ((int64_t) i) * NTask / NtaskGroups;
+        int lastTask = ((int64_t) (i + 1)) * NTask / NtaskGroups - 1;
         format_filename(fn, basename, fid, num_files);
 #if defined(SAVE_HSML_IN_IC_ORDER) || defined(SUBFIND_RESHUFFLE_CATALOGUE)
         FileNr = fid;
@@ -972,17 +972,17 @@ void read_file(char *fname, int readTask, int lastTask)
 #endif
             }
 
-        All.TotN_sph = header.npartTotal[0] + (((long long) header.npartTotalHighWord[0]) << 32);
-        All.TotN_bh = header.npartTotal[5] + (((long long) header.npartTotalHighWord[5]) << 32);
+        All.TotN_sph = header.npartTotal[0] + (((int64_t) header.npartTotalHighWord[0]) << 32);
+        All.TotN_bh = header.npartTotal[5] + (((int64_t) header.npartTotalHighWord[5]) << 32);
 
         for(i = 0, All.TotNumPart = 0; i < 6; i++)
         {
             All.TotNumPart += header.npartTotal[i];
-            All.TotNumPart += (((long long) header.npartTotalHighWord[i]) << 32);
+            All.TotNumPart += (((int64_t) header.npartTotalHighWord[i]) << 32);
         }
 
 #ifdef NEUTRINOS
-        All.TotNumNeutrinos = header.npartTotal[2] + (((long long) header.npartTotalHighWord[2]) << 32);
+        All.TotNumNeutrinos = header.npartTotal[2] + (((int64_t) header.npartTotalHighWord[2]) << 32);
 #endif
 
         for(i = 0; i < 6; i++)
@@ -1653,7 +1653,7 @@ void get_particle_numbers(char *fname, int num_files)
     }
 
 
-    long long n, sum;
+    int64_t n, sum;
 
     for(i = 0, sum = 0; i < num_files; i++)
     {

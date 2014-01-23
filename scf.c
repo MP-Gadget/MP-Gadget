@@ -278,7 +278,7 @@ void SCF_evaluate(MyDouble x, MyDouble y, MyDouble z, MyDouble *potential, MyDou
 
 #ifdef SCF_HYBRID
 static int SCF_n_type[6];
-static long long SCF_ntot_type_all[6];
+static int64_t SCF_ntot_type_all[6];
 
 /* reshift positions to center of mass */
 void SCF_do_center_of_mass_correction(double fac_rad, double start_rad, double fac_part, int max_iter)

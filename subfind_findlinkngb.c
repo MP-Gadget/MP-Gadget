@@ -34,7 +34,7 @@ static struct linkngbdata_out
 
 void subfind_find_linkngb(void)
 {
-  long long ntot;
+  int64_t ntot;
   int i, j, ndone, ndone_flag, npleft, dummy, iter = 0, save_DesNumNgb;
   MyFloat *Left, *Right;
   char *Todo;

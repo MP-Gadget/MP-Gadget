@@ -34,7 +34,7 @@
 
 
 #if (GRID > 1024)
-typedef long long large_array_offset;
+typedef int64_t large_array_offset;
 #else
 typedef unsigned int large_array_offset;
 #endif
@@ -595,7 +595,7 @@ void pm_setup_nonperiodic_kernel(void)
   pm_init_nonperiodic_free();
 
   force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-  All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 }
 
 #ifdef PLACEHIGHRESREGION
@@ -1233,7 +1233,7 @@ int pmforce_nonperiodic(int grnr)
 
   pm_init_nonperiodic_free();
   force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-  All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
   if(ThisTask == 0)
     printf("done PM.\n");
@@ -1933,7 +1933,7 @@ int pmpotential_nonperiodic(int grnr)
 
   pm_init_nonperiodic_free();
   force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-  All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
   if(ThisTask == 0)
     printf("done PM potential.\n");
@@ -2722,7 +2722,7 @@ int pmtidaltensor_nonperiodic_diff(int grnr)
 
   pm_init_nonperiodic_free();
   force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-  All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
   if(ThisTask == 0)
     printf("done PM.\n");
@@ -3236,7 +3236,7 @@ int pmtidaltensor_nonperiodic_fourier(int grnr, int component)
 
   pm_init_nonperiodic_free();
   force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-  All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+  All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
   if(ThisTask == 0)
     {

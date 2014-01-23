@@ -21,7 +21,7 @@ void fof_finish_group_properties(void);
 
 
 extern int Ngroups, TotNgroups;
-extern long long TotNids;
+extern int64_t TotNids;
 
 extern struct group_properties
 {

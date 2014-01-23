@@ -612,7 +612,7 @@ void subfind_save_local_catalogue(int num)
     my_fwrite(&Ngroups, sizeof(int), 1, fd);
     my_fwrite(&TotNgroups, sizeof(int), 1, fd);
     my_fwrite(&Nids, sizeof(int), 1, fd);
-    my_fwrite(&TotNids, sizeof(long long), 1, fd);
+    my_fwrite(&TotNids, sizeof(int64_t), 1, fd);
     my_fwrite(&NTask, sizeof(int), 1, fd);
     my_fwrite(&Nsubgroups, sizeof(int), 1, fd);
     my_fwrite(&TotNsubgroups, sizeof(int), 1, fd);
@@ -867,7 +867,7 @@ void subfind_save_local_catalogue(int num)
     my_fwrite(&Ngroups, sizeof(int), 1, fd);
     my_fwrite(&TotNgroups, sizeof(int), 1, fd);
     my_fwrite(&Nids, sizeof(int), 1, fd);
-    my_fwrite(&TotNids, sizeof(long long), 1, fd);
+    my_fwrite(&TotNids, sizeof(int64_t), 1, fd);
     my_fwrite(&NTask, sizeof(int), 1, fd);
     my_fwrite(&Send_offset[ThisTask], sizeof(int), 1, fd);
     my_fwrite(&All.Time, sizeof(double), 1, fd);
@@ -938,7 +938,7 @@ void subfind_save_local_catalogue(int num)
     my_fwrite(&Ngroups, sizeof(int), 1, fd);
     my_fwrite(&TotNgroups, sizeof(int), 1, fd);
     my_fwrite(&Nids, sizeof(int), 1, fd);
-    my_fwrite(&TotNids, sizeof(long long), 1, fd);
+    my_fwrite(&TotNids, sizeof(int64_t), 1, fd);
     my_fwrite(&NTask, sizeof(int), 1, fd);
     my_fwrite(&Send_offset[ThisTask], sizeof(int), 1, fd);
     my_fwrite(ids, sizeof(MyIDType), Nids, fd);

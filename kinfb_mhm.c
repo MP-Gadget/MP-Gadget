@@ -26,7 +26,7 @@ extern struct kindata_in
 
 void kinetic_feedback_mhm(void)
 {
-  long long ntot, ntotleft;
+  int64_t ntot, ntotleft;
   int ndone;
   int *noffset, *nbuffer, *nsend, *nsend_local, *numlist, *ndonelist;
   int i, j, n;

@@ -19,7 +19,7 @@ int MPI_Check_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
 {
   int checksumtag = 1000, errtag = 2000;
   int i, iter = 0, err_flag, err_flag_imported, size_sendtype, size_recvtype;
-  long long sendCheckSum, recvCheckSum, importedCheckSum;
+  int64_t sendCheckSum, recvCheckSum, importedCheckSum;
   unsigned char *p, *buf, *recvbuf;
 
   if(dest != source)

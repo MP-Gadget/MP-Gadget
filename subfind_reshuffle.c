@@ -19,8 +19,8 @@ static int table_read = 0, table_read_voronoi = 0;
 
 static int Nfiles, NfilesVoronoi;
 
-static long long *NumPartPerFile;
-static long long *NumPartPerFileVoronoi;
+static int64_t *NumPartPerFile;
+static int64_t *NumPartPerFileVoronoi;
 
 
 static struct id_list
@@ -34,7 +34,7 @@ static struct id_list
 void read_hsml_table(void)
 {
   int i, dummy, nhsml;
-  long long ntot;
+  int64_t ntot;
   char fname[1000];
   FILE *fd;
 
@@ -49,16 +49,16 @@ void read_hsml_table(void)
 
       my_fread(&nhsml, sizeof(int), 1, fd);
       my_fread(&dummy, sizeof(int), 1, fd);
-      my_fread(&ntot, sizeof(long long), 1, fd);
+      my_fread(&ntot, sizeof(int64_t), 1, fd);
       my_fread(&Nfiles, sizeof(int), 1, fd);
 
       if(i == 0)
-	NumPartPerFile = mymalloc("NumPartPerFile", (Nfiles + 1) * sizeof(long long));
+	NumPartPerFile = mymalloc("NumPartPerFile", (Nfiles + 1) * sizeof(int64_t));
 
       NumPartPerFile[i] = nhsml;
     }
 
-  long long n, sum;
+  int64_t n, sum;
 
   for(i = 0, sum = 0; i < Nfiles; i++)
     {
@@ -90,7 +90,7 @@ void subfind_reshuffle_free(void)
 }
 
 
-void get_hsml_file(long long nskip, int count, int *filenr, int *n_to_read, int *n_to_skip)
+void get_hsml_file(int64_t nskip, int count, int *filenr, int *n_to_read, int *n_to_skip)
 {
   int i;
 
@@ -112,13 +112,13 @@ void get_hsml_file(long long nskip, int count, int *filenr, int *n_to_read, int 
     *n_to_read = nrest;
 }
 
-void read_hsml_files(float *Values, int count, enum iofields blocknr, long long nskip)
+void read_hsml_files(float *Values, int count, enum iofields blocknr, int64_t nskip)
 {
   char fname[1000];
   FILE *fd;
   float *tmp;
   int i, n_to_read, n_to_skip, filenr, dummy, ntask, nhsml;
-  long long ntot;
+  int64_t ntot;
 
   if(blocknr == IO_DMHSML_V || blocknr == IO_DMDENSITY_V)
     read_hsml_files_voronoi(Values, count, blocknr, nskip);
@@ -141,7 +141,7 @@ void read_hsml_files(float *Values, int count, enum iofields blocknr, long long 
 
 	  my_fread(&nhsml, sizeof(int), 1, fd);
 	  my_fread(&dummy, sizeof(int), 1, fd);
-	  my_fread(&ntot, sizeof(long long), 1, fd);
+	  my_fread(&ntot, sizeof(int64_t), 1, fd);
 	  my_fread(&ntask, sizeof(int), 1, fd);
 
 	  if(blocknr == IO_DMDENSITY)
@@ -181,10 +181,10 @@ void read_subfind_ids(void)
   int *list_of_nids;
   int ngrp, sendTask, recvTask;
   int Nids, nprocgroup, masterTask, groupTask;
-  unsigned long long nid_previous;
+  unsigned int64_t nid_previous;
   int fof_compare_P_SubNr(const void *a, const void *b);
-  long long TotNids;
-  long long *NumIdsPerFile;
+  int64_t TotNids;
+  int64_t *NumIdsPerFile;
   static struct id_list  *ID_list;
 
   if(ThisTask == 0)
@@ -210,7 +210,7 @@ void read_subfind_ids(void)
 	  my_fread(&Ngroups, sizeof(int), 1, fd);
 	  my_fread(&TotNgroups, sizeof(int), 1, fd);
 	  my_fread(&Nids, sizeof(int), 1, fd);
-	  my_fread(&TotNids, sizeof(long long), 1, fd);
+	  my_fread(&TotNids, sizeof(int64_t), 1, fd);
 	  my_fread(&Nfiles, sizeof(int), 1, fd);
 	  my_fread(&nid_previous, sizeof(unsigned int), 1, fd);	/* this is the number of IDs in previous files */
 	  fclose(fd);
@@ -218,7 +218,7 @@ void read_subfind_ids(void)
 	  if(i == 0)
 	    {
 	      MPI_Bcast(&Nfiles, 1, MPI_INT, 0, MPI_COMM_WORLD);
-	      NumIdsPerFile = mymalloc("NumIdsPerFile", (Nfiles) * sizeof(long long));
+	      NumIdsPerFile = mymalloc("NumIdsPerFile", (Nfiles) * sizeof(int64_t));
 	    }
 
 	  NumIdsPerFile[i] = Nids;
@@ -227,10 +227,10 @@ void read_subfind_ids(void)
   else
     {
       MPI_Bcast(&Nfiles, 1, MPI_INT, 0, MPI_COMM_WORLD);
-      NumIdsPerFile = mymalloc("NumIdsPerFile", (Nfiles) * sizeof(long long));
+      NumIdsPerFile = mymalloc("NumIdsPerFile", (Nfiles) * sizeof(int64_t));
     }
 
-  MPI_Bcast(NumIdsPerFile, Nfiles * sizeof(long long), MPI_BYTE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(NumIdsPerFile, Nfiles * sizeof(int64_t), MPI_BYTE, 0, MPI_COMM_WORLD);
 
 
   /* start reading of group catalogue */
@@ -248,14 +248,14 @@ void read_subfind_ids(void)
       my_fread(&Ngroups, sizeof(int), 1, fd);
       my_fread(&TotNgroups, sizeof(int), 1, fd);
       my_fread(&Nids, sizeof(int), 1, fd);
-      my_fread(&TotNids, sizeof(long long), 1, fd);
+      my_fread(&TotNids, sizeof(int64_t), 1, fd);
       my_fread(&Nfiles, sizeof(int), 1, fd);
       fclose(fd);
     }
 
   MPI_Bcast(&Nfiles, 1, MPI_INT, 0, MPI_COMM_WORLD);
   MPI_Bcast(&TotNgroups, 1, MPI_INT, 0, MPI_COMM_WORLD);
-  MPI_Bcast(&TotNids, sizeof(long long), MPI_BYTE, 0, MPI_COMM_WORLD);
+  MPI_Bcast(&TotNids, sizeof(int64_t), MPI_BYTE, 0, MPI_COMM_WORLD);
 
   t0 = second();
 
@@ -301,7 +301,7 @@ void read_subfind_ids(void)
 	      my_fread(&ngroups, sizeof(int), 1, fd);
 	      my_fread(&TotNgroups, sizeof(int), 1, fd);
 	      my_fread(&nids, sizeof(int), 1, fd);
-	      my_fread(&TotNids, sizeof(long long), 1, fd);
+	      my_fread(&TotNids, sizeof(int64_t), 1, fd);
 	      my_fread(&Nfiles, sizeof(int), 1, fd);
 	      my_fread(&nid_previous, sizeof(int), 1, fd);	/* this is the number of IDs in previous files */
 
@@ -399,7 +399,7 @@ void read_subfind_ids(void)
 	      my_fread(&Ngroups, sizeof(int), 1, fd);
 	      my_fread(&TotNgroups, sizeof(int), 1, fd);
 	      my_fread(&Nids, sizeof(int), 1, fd);
-	      my_fread(&TotNids, sizeof(long long), 1, fd);
+	      my_fread(&TotNids, sizeof(int64_t), 1, fd);
 	      my_fread(&Nfiles, sizeof(int), 1, fd);
 	      my_fread(&nid_previous, sizeof(unsigned int), 1, fd);	/* this is the number of IDs in previous files */
 
@@ -498,7 +498,7 @@ void read_subfind_ids(void)
 	}
     }
 
-  long long totlen;
+  int64_t totlen;
 
   sumup_large_ints(1, &matches, &totlen);
   if(totlen != TotNids)
@@ -538,7 +538,7 @@ int subfind_reshuffle_compare_ID_list_ID(const void *a, const void *b)
 void read_hsml_table_voronoi(void)
 {
   int i, dummy, nhsml;
-  long long ntot;
+  int64_t ntot;
   char fname[1000];
   FILE *fd;
 
@@ -554,17 +554,17 @@ void read_hsml_table_voronoi(void)
 
       my_fread(&nhsml, sizeof(int), 1, fd);
       my_fread(&dummy, sizeof(int), 1, fd);
-      my_fread(&ntot, sizeof(long long), 1, fd);
+      my_fread(&ntot, sizeof(int64_t), 1, fd);
       my_fread(&NfilesVoronoi, sizeof(int), 1, fd);
 
       if(i == 0)
 	NumPartPerFileVoronoi =
-	  mymalloc("	NumPartPerFileVoronoi", (NfilesVoronoi + 1) * sizeof(long long));
+	  mymalloc("	NumPartPerFileVoronoi", (NfilesVoronoi + 1) * sizeof(int64_t));
 
       NumPartPerFileVoronoi[i] = nhsml;
     }
 
-  long long n, sum;
+  int64_t n, sum;
 
   for(i = 0, sum = 0; i < NfilesVoronoi; i++)
     {
@@ -581,7 +581,7 @@ void read_hsml_table_voronoi(void)
 }
 
 
-void get_hsml_file_voronoi(long long nskip, int count, int *filenr, int *n_to_read, int *n_to_skip)
+void get_hsml_file_voronoi(int64_t nskip, int count, int *filenr, int *n_to_read, int *n_to_skip)
 {
   int i;
 
@@ -603,13 +603,13 @@ void get_hsml_file_voronoi(long long nskip, int count, int *filenr, int *n_to_re
     *n_to_read = nrest;
 }
 
-void read_hsml_files_voronoi(float *Values, int count, enum iofields blocknr, long long nskip)
+void read_hsml_files_voronoi(float *Values, int count, enum iofields blocknr, int64_t nskip)
 {
   char fname[1000];
   FILE *fd;
   float *tmp;
   int i, n_to_read, n_to_skip, filenr, dummy, ntask, nhsml;
-  long long ntot;
+  int64_t ntot;
 
   while(count > 0)
     {
@@ -628,7 +628,7 @@ void read_hsml_files_voronoi(float *Values, int count, enum iofields blocknr, lo
 
       my_fread(&nhsml, sizeof(int), 1, fd);
       my_fread(&dummy, sizeof(int), 1, fd);
-      my_fread(&ntot, sizeof(long long), 1, fd);
+      my_fread(&ntot, sizeof(int64_t), 1, fd);
       my_fread(&ntask, sizeof(int), 1, fd);
 
       if(blocknr == IO_DMDENSITY_V)

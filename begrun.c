@@ -303,7 +303,7 @@ Note:  All.PartAllocFactor is treated in restart() separately.
            which also allocated the storage for it already */
 
         /* ensures that domain reconstruction will be done and new tree will be constructed */
-        All.NumForcesSinceLastDomainDecomp = (long long) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+        All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 #endif
     }
 
@@ -1003,10 +1003,10 @@ void read_parameter_file(char *fname)
 #endif
 
 
-    if(sizeof(long long) != 8)
+    if(sizeof(int64_t) != 8)
     {
         if(ThisTask == 0)
-            printf("\nType `long long' is not 64 bit on this platform. Stopping.\n\n");
+            printf("\nType `int64_t' is not 64 bit on this platform. Stopping.\n\n");
         endrun(0);
     }
 
@@ -2792,12 +2792,12 @@ int read_outputlist(char *fname)
 void readjust_timebase(double TimeMax_old, double TimeMax_new)
 {
     int i;
-    long long ti_end;
+    int64_t ti_end;
 
-    if(sizeof(long long) != 8)
+    if(sizeof(int64_t) != 8)
     {
         if(ThisTask == 0)
-            printf("\nType 'long long' is not 64 bit on this platform\n\n");
+            printf("\nType 'int64_t' is not 64 bit on this platform\n\n");
         endrun(555);
     }
 
@@ -2815,9 +2815,9 @@ void readjust_timebase(double TimeMax_old, double TimeMax_new)
     }
 
     if(All.ComovingIntegrationOn)
-        ti_end = (long long) (log(TimeMax_new / All.TimeBegin) / All.Timebase_interval);
+        ti_end = (int64_t) (log(TimeMax_new / All.TimeBegin) / All.Timebase_interval);
     else
-        ti_end = (long long) ((TimeMax_new - All.TimeBegin) / All.Timebase_interval);
+        ti_end = (int64_t) ((TimeMax_new - All.TimeBegin) / All.Timebase_interval);
 
     while(ti_end > TIMEBASE)
     {

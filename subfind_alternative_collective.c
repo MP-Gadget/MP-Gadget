@@ -18,14 +18,14 @@
 
 
 
-#define MASK ((((long long)1)<< 32)-1)
+#define MASK ((((int64_t)1)<< 32)-1)
 #define HIGHBIT (1 << 30)
 
 
 
 
 
-static long long **Head, **Next, **Tail;
+static int64_t **Head, **Next, **Tail;
 static int **Len;
 static int LocalLen;
 static int *count_cand, max_candidates, loc_count_cand;
@@ -36,8 +36,8 @@ static int **targettask, **submark, **origintask;
 
 static struct cand_dat
 {
-  long long head;
-  long long rank;
+  int64_t head;
+  int64_t rank;
   int len;
   int nsub;
   int subnr, parent;
@@ -55,14 +55,14 @@ static struct sort_density_data
 {
   MyFloat density;
   int ngbcount;
-  long long index;		/* this will store the task in the upper word */
-  long long ngb_index1, ngb_index2;
+  int64_t index;		/* this will store the task in the upper word */
+  int64_t ngb_index1, ngb_index2;
 }
  *sd;
 
 void subfind_process_group_collectively(int num)
 {
-  long long p;
+  int64_t p;
   int len, totgrouplen1, totgrouplen2;
   int parent, totcand, nremaining;
   int max_length;
@@ -177,22 +177,22 @@ void subfind_process_group_collectively(int num)
 	}
 
       /* allocate and initialize global link list on CPU0 */
-      Next = mymalloc("Next", NTask * sizeof(long long *));
+      Next = mymalloc("Next", NTask * sizeof(int64_t *));
       Len = mymalloc("Len", NTask * sizeof(int *));
 
       for(i = 0; i < NTask; i++)
 	{
-	  Next[i] = mymalloc("	  Next[i]", List_NumPartGroup[i] * sizeof(long long));
+	  Next[i] = mymalloc("	  Next[i]", List_NumPartGroup[i] * sizeof(int64_t));
 	  Len[i] = mymalloc("	  Len[i]", List_NumPartGroup[i] * sizeof(int));
 	}
 
-      Head = mymalloc("Head", NTask * sizeof(long long *));
-      Tail = mymalloc("Tail", NTask * sizeof(long long *));
+      Head = mymalloc("Head", NTask * sizeof(int64_t *));
+      Tail = mymalloc("Tail", NTask * sizeof(int64_t *));
 
       for(i = 0; i < NTask; i++)
 	{
-	  Head[i] = mymalloc("	  Head[i]", List_NumPartGroup[i] * sizeof(long long));
-	  Tail[i] = mymalloc("	  Tail[i]", List_NumPartGroup[i] * sizeof(long long));
+	  Head[i] = mymalloc("	  Head[i]", List_NumPartGroup[i] * sizeof(int64_t));
+	  Tail[i] = mymalloc("	  Tail[i]", List_NumPartGroup[i] * sizeof(int64_t));
 	}
     }
 
@@ -232,7 +232,7 @@ void subfind_process_group_collectively(int num)
     {
       sd[i].density = P[i].u.DM_Density;
       sd[i].ngbcount = NgbLoc[i].count;
-      sd[i].index = (((long long) ThisTask) << 32) + i;
+      sd[i].index = (((int64_t) ThisTask) << 32) + i;
       sd[i].ngb_index1 = NgbLoc[i].index[0];
       sd[i].ngb_index2 = NgbLoc[i].index[1];
     }
@@ -1274,7 +1274,7 @@ void subfind_unbind_independent_ones(int count_cand)
 int subfind_mark_independent_ones(void)
 {
   int nsubs, task, k, i, len, parent;
-  long long p;
+  int64_t p;
 
   nsubs = 0;
 
@@ -1857,7 +1857,7 @@ void subfind_col_determine_sub_halo_properties(struct unbind_data *d, int num, d
 
 
 
-void subfind_distlinklist_add_particle(long long index)
+void subfind_distlinklist_add_particle(int64_t index)
 {
   int task, i;
 
@@ -1871,7 +1871,7 @@ void subfind_distlinklist_add_particle(long long index)
     }
 }
 
-void subfind_distlinklist_mark_particle(long long index, int target, int mark)
+void subfind_distlinklist_mark_particle(int64_t index, int target, int mark)
 {
   int task, i;
 
@@ -1889,7 +1889,7 @@ void subfind_distlinklist_mark_particle(long long index, int target, int mark)
 }
 
 
-void subfind_distlinklist_add_bound_particles(long long index, int nsub)
+void subfind_distlinklist_add_bound_particles(int64_t index, int nsub)
 {
   int task, i;
 
@@ -1908,8 +1908,8 @@ void subfind_col_find_candidates(int totgrouplen)
 {
   int ngbcount, retcode, len_attach;
   int i, k, len, task, off;
-  long long prev, tail, tail_attach, tmp, next, index;
-  long long p, ss, head, head_attach, ngb_index1, ngb_index2, rank;
+  int64_t prev, tail, tail_attach, tmp, next, index;
+  int64_t p, ss, head, head_attach, ngb_index1, ngb_index2, rank;
   double t0, t1;
 
   /* now find the subhalo candidates by building up link lists from high density to low density */
@@ -2048,7 +2048,7 @@ void subfind_col_find_candidates(int totgrouplen)
     {
       for(i = 0; i < List_NumPartGroup[task]; i++)
 	{
-	  index = (((long long) task) << 32) + i;
+	  index = (((int64_t) task) << 32) + i;
 
 	  if(Head[task][i] == index)
 	    {
@@ -2120,10 +2120,10 @@ void subfind_col_find_candidates(int totgrouplen)
 
 
 
-long long subfind_distlinklist_setrank_and_get_next(long long index, long long *rank)
+int64_t subfind_distlinklist_setrank_and_get_next(int64_t index, int64_t *rank)
 {
   int task, i;
-  long long next;
+  int64_t next;
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2136,10 +2136,10 @@ long long subfind_distlinklist_setrank_and_get_next(long long index, long long *
 }
 
 
-long long subfind_distlinklist_set_head_get_next(long long index, long long head)
+int64_t subfind_distlinklist_set_head_get_next(int64_t index, int64_t head)
 {
   int task, i;
-  long long next;
+  int64_t next;
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2153,7 +2153,7 @@ long long subfind_distlinklist_set_head_get_next(long long index, long long head
 
 
 
-void subfind_distlinklist_set_next(long long index, long long next)
+void subfind_distlinklist_set_next(int64_t index, int64_t next)
 {
   int task, i;
 
@@ -2164,10 +2164,10 @@ void subfind_distlinklist_set_next(long long index, long long next)
 }
 
 
-long long subfind_distlinklist_get_next(long long index)
+int64_t subfind_distlinklist_get_next(int64_t index)
 {
   int task, i;
-  long long next;
+  int64_t next;
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2177,10 +2177,10 @@ long long subfind_distlinklist_get_next(long long index)
   return next;
 }
 
-long long subfind_distlinklist_get_rank(long long index)
+int64_t subfind_distlinklist_get_rank(int64_t index)
 {
   int task, i;
-  long long rank;
+  int64_t rank;
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2192,10 +2192,10 @@ long long subfind_distlinklist_get_rank(long long index)
 
 
 
-long long subfind_distlinklist_get_head(long long index)
+int64_t subfind_distlinklist_get_head(int64_t index)
 {
   int task, i;
-  long long head;
+  int64_t head;
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2205,8 +2205,8 @@ long long subfind_distlinklist_get_head(long long index)
   return head;
 }
 
-void subfind_distlinklist_get_two_heads(long long ngb_index1, long long ngb_index2,
-					long long *head, long long *head_attach)
+void subfind_distlinklist_get_two_heads(int64_t ngb_index1, int64_t ngb_index2,
+					int64_t *head, int64_t *head_attach)
 {
   int task, i1, i2;
 
@@ -2220,7 +2220,7 @@ void subfind_distlinklist_get_two_heads(long long ngb_index1, long long ngb_inde
 
 
 
-void subfind_distlinklist_set_headandnext(long long index, long long head, long long next)
+void subfind_distlinklist_set_headandnext(int64_t index, int64_t head, int64_t next)
 {
   int task, i;
 
@@ -2231,10 +2231,10 @@ void subfind_distlinklist_set_headandnext(long long index, long long head, long 
   Next[task][i] = next;
 }
 
-int subfind_distlinklist_get_tail_set_tail_increaselen(long long index, long long *tail, long long newtail)
+int subfind_distlinklist_get_tail_set_tail_increaselen(int64_t index, int64_t *tail, int64_t newtail)
 {
   int task, i, task_newtail, i_newtail, task_oldtail, i_oldtail, retcode;
-  long long oldtail;
+  int64_t oldtail;
 
   task = (index >> 32);
   i = (index & MASK);
@@ -2262,7 +2262,7 @@ int subfind_distlinklist_get_tail_set_tail_increaselen(long long index, long lon
 
 
 
-void subfind_distlinklist_set_tailandlen(long long index, long long tail, int len)
+void subfind_distlinklist_set_tailandlen(int64_t index, int64_t tail, int len)
 {
   int task, i;
 
@@ -2276,7 +2276,7 @@ void subfind_distlinklist_set_tailandlen(long long index, long long tail, int le
 
 
 
-void subfind_distlinklist_get_tailandlen(long long index, long long *tail, int *len)
+void subfind_distlinklist_get_tailandlen(int64_t index, int64_t *tail, int *len)
 {
   int task, i;
 
@@ -2288,7 +2288,7 @@ void subfind_distlinklist_get_tailandlen(long long index, long long *tail, int *
 }
 
 
-void subfind_distlinklist_set_all(long long index, long long head, long long tail, int len, long long next)
+void subfind_distlinklist_set_all(int64_t index, int64_t head, int64_t tail, int len, int64_t next)
 {
   int task, i;
 

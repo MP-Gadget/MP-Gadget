@@ -47,7 +47,7 @@ static double *Vx200, *Vy200, *Vz200, *Disp200;
 
 void subfind_overdensity(void)
 {
-  long long ntot;
+  int64_t ntot;
   int i, j, ndone, ndone_flag, npleft, dummy, rep, iter;
   MyFloat *Left, *Right;
   char *Todo;

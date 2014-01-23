@@ -54,7 +54,7 @@ void advance_and_find_timesteps(void)
     int time0, time1_old, time1_new;
     double dt_entr;
 
-    long long ntot;
+    int64_t ntot;
 #endif
 
     CPU_Step[CPU_MISC] += measure_time();
@@ -1206,7 +1206,7 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
 {
     int i, type;
     int count[6];
-    long long count_sum[6];
+    int64_t count_sum[6];
     double v[6], v_sum[6], mim[6], min_mass[6];
     double dt, dmean, asmth = 0;
 
