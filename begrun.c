@@ -8,6 +8,9 @@
 #include <unistd.h>
 #include <gsl/gsl_rng.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#endif
 
 #include "allvars.h"
 #include "densitykernel.h"
@@ -214,7 +217,8 @@ void begrun(void)
 Note:  All.PartAllocFactor is treated in restart() separately.  
 */
 
-#ifdef NUM_THREADS
+#ifdef _OPENMP
+        /* thus we will used the new NumThreads of this run */
         All.NumThreads = all.NumThreads;
 #endif
         All.MinSizeTimestep = all.MinSizeTimestep;
@@ -1031,13 +1035,7 @@ void read_parameter_file(char *fname)
         endrun(0);
     }
 
-#ifdef NUM_THREADS
-    if(getenv("OMP_NUM_THREADS") == NULL) {
-        All.NumThreads = 1;
-    } else {
-        All.NumThreads = atoi(getenv("OMP_NUM_THREADS"));
-    }
-#endif
+    All.NumThreads = omp_get_num_threads();
 
     if(ThisTask == 0)		/* read parameter file on process 0 */
     {
@@ -2352,13 +2350,6 @@ NUMCRPOP = 1;
                 } 
             }
         }
-#endif
-#ifdef NUM_THREADS
-        if (All.NumThreads > NUM_THREADS) {
-            errorFlag = 1;
-            printf("error NumThreads %d is greater than max supported NUM_THREADS(%d)\n", All.NumThreads, NUM_THREADS);
-        }
-        printf("Running with %d Threads (support up to =%d)\n", All.NumThreads, NUM_THREADS);
 #endif
     }
 

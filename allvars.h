@@ -26,6 +26,12 @@
 #include <gsl/gsl_spline.h>
 #include <gsl/gsl_errno.h>
 
+#ifdef _OPENMP
+#include <omp.h>
+#else
+#define omp_get_num_threads()  (1)
+#define omp_get_thread_num()  (0)
+#endif
 #ifdef CHEMCOOL
 #include "chemcool_consts.h"
 #include "f2c.h"
@@ -655,7 +661,7 @@ extern struct global_data_all_processes
     int64_t TotNumNeutrinos;
 #endif
 
-    int NumThreads;     /* number of threads to actaully use, smaller than NUM_THREADS */
+    int NumThreads;     /* number of threads used to simulate OpenMP tls */
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
                               processor. */
     int MaxPartSph;		/*!< This gives the maxmimum number of SPH particles that can be stored on one

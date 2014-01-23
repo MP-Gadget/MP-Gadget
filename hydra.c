@@ -25,21 +25,6 @@
 #endif
 #include <assert.h>
 
-#ifdef NUM_THREADS
-#include <pthread.h>
-#endif
-
-#ifdef NUM_THREADS
-extern pthread_mutex_t mutex_nexport;
-extern pthread_mutex_t mutex_partnodedrift;
-
-#define LOCK_NEXPORT     pthread_mutex_lock(&mutex_nexport);
-#define UNLOCK_NEXPORT   pthread_mutex_unlock(&mutex_nexport);
-#else
-#define LOCK_NEXPORT
-#define UNLOCK_NEXPORT
-#endif
-
 #if defined(MAGNETIC) && defined(SFR)
 #define POW_CC 1./3.
 #endif
@@ -332,33 +317,11 @@ void hydro_force(void)
         /* do local particles and prepare export list */
         tstart = second();
 
-#ifdef NUM_THREADS
-        pthread_t mythreads[NUM_THREADS - 1];
-        int threadid[NUM_THREADS - 1];
-        pthread_attr_t attr;
-
-        pthread_attr_init(&attr);
-        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-        pthread_mutex_init(&mutex_nexport, NULL);
-        pthread_mutex_init(&mutex_partnodedrift, NULL);
-
-        TimerFlag = 0;
-
-        for(j = 0; j < All.NumThreads - 1; j++)
+#pragma omp parallel
         {
-            threadid[j] = j + 1;
-            pthread_create(&mythreads[j], &attr, hydro_evaluate_primary, &threadid[j]);
-        }
-#endif
-        int mainthreadid = 0;
-
+        int mainthreadid = omp_get_thread_num();
         hydro_evaluate_primary(&mainthreadid);	/* do local particles and prepare export list */
-
-#ifdef NUM_THREADS
-        for(j = 0; j < All.NumThreads - 1; j++)
-            pthread_join(mythreads[j], NULL);
-#endif
-
+        }
 
         tend = second();
         timecomp1 += timediff(tstart, tend);
@@ -632,20 +595,11 @@ void hydro_force(void)
 
         NextJ = 0;
 
-#ifdef NUM_THREADS
-        for(j = 0; j < All.NumThreads - 1; j++)
-            pthread_create(&mythreads[j], &attr, hydro_evaluate_secondary, &threadid[j]);
-#endif
-        hydro_evaluate_secondary(&mainthreadid);
-
-#ifdef NUM_THREADS
-        for(j = 0; j < All.NumThreads - 1; j++)
-            pthread_join(mythreads[j], NULL);
-
-        pthread_mutex_destroy(&mutex_partnodedrift);
-        pthread_mutex_destroy(&mutex_nexport);
-        pthread_attr_destroy(&attr);
-#endif
+#pragma omp parallel
+        {
+            int mainthreadid = omp_get_thread_num();
+            hydro_evaluate_secondary(&mainthreadid);
+        }
 
         tend = second();
         timecomp2 += timediff(tstart, tend);
@@ -2397,19 +2351,16 @@ void *hydro_evaluate_primary(void *p)
 
     while(1)
     {
-        LOCK_NEXPORT;
+#pragma omp flush(BufferFullFlag)
+        if(BufferFullFlag) break;
 
-        if(BufferFullFlag != 0 || NextParticle < 0)
+#pragma omp critical (lock_nexport)
         {
-            UNLOCK_NEXPORT;
-            break;
+            i = NextParticle;
+            NextParticle = i<0?i:NextActiveParticle[i];
         }
-
-        i = NextParticle;
+        if (i < 0) break;
         ProcessedFlag[i] = 0;
-        NextParticle = NextActiveParticle[NextParticle];
-        UNLOCK_NEXPORT;
-
         if(P[i].Type == 0)
         {
             if(hydro_evaluate(i, 0, exportflag, exportnodecount, exportindex, ngblist) < 0)
@@ -2437,11 +2388,11 @@ void *hydro_evaluate_secondary(void *p)
 
     while(1)
     {
-        LOCK_NEXPORT;
+#pragma omp critical (lock_nexport)
+        {
         j = NextJ;
         NextJ++;
-        UNLOCK_NEXPORT;
-
+        }
         if(j >= Nimport)
             break;
 

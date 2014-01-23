@@ -26,10 +26,7 @@ void allocate_memory(void)
 
     int NTaskTimesThreads;
 
-    NTaskTimesThreads = NTask;
-#ifdef NUM_THREADS
-    NTaskTimesThreads = NUM_THREADS * NTask;
-#endif
+    NTaskTimesThreads = All.NumThreads * NTask;
 
     Exportflag = (int *) mymalloc("Exportflag", NTaskTimesThreads * sizeof(int));
     Exportindex = (int *) mymalloc("Exportindex", NTaskTimesThreads * sizeof(int));

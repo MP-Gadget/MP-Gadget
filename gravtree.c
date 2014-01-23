@@ -6,9 +6,6 @@
 #include <sys/stat.h>
 #include <sys/ipc.h>
 #include <sys/sem.h>
-#ifdef NUM_THREADS
-#include <pthread.h>
-#endif
 #include "allvars.h"
 #include "proto.h"
 
@@ -23,24 +20,11 @@
  *  short-range part.
  */
 
-#ifdef NUM_THREADS
-pthread_mutex_t mutex_nexport;
-pthread_mutex_t mutex_workcount;
-pthread_mutex_t mutex_partnodedrift;
-
-#define LOCK_NEXPORT     pthread_mutex_lock(&mutex_nexport);
-#define UNLOCK_NEXPORT   pthread_mutex_unlock(&mutex_nexport);
-#define LOCK_WORKCOUNT   pthread_mutex_lock(&mutex_workcount);
-#define UNLOCK_WORKCOUNT pthread_mutex_unlock(&mutex_workcount);
-
-#else
-#define LOCK_NEXPORT
-#define UNLOCK_NEXPORT
-#define LOCK_WORKCOUNT
-#define UNLOCK_WORKCOUNT
-#endif
-
-
+/* According to upstream P-GADGET3 
+ * correct workcount slows it down and yields little benefits in load balancing 
+ * */
+#define LOCK_WORKCOUNT 
+#define UNLOCK_WORKCOUNT 
 
 int NextParticle;
 int Nexport, Nimport;
@@ -420,33 +404,11 @@ void gravity_tree(void)
 
                 tstart = second();
 
-#ifdef NUM_THREADS
-                pthread_t mythreads[NUM_THREADS - 1];
-                int threadid[NUM_THREADS - 1];
-                pthread_attr_t attr;
-
-                pthread_attr_init(&attr);
-                pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-                pthread_mutex_init(&mutex_workcount, NULL);
-                pthread_mutex_init(&mutex_nexport, NULL);
-                pthread_mutex_init(&mutex_partnodedrift, NULL);
-
-                TimerFlag = 0;
-
-                for(j = 0; j < All.NumThreads - 1; j++)
+#pragma omp parallel 
                 {
-                    threadid[j] = j + 1;
-                    pthread_create(&mythreads[j], &attr, gravity_primary_loop, &threadid[j]);
-                }
-#endif
-                int mainthreadid = 0;
-
+                int mainthreadid = omp_get_num_threads();
                 gravity_primary_loop(&mainthreadid);	/* do local particles and prepare export list */
-
-#ifdef NUM_THREADS
-                for(j = 0; j < All.NumThreads - 1; j++)
-                    pthread_join(mythreads[j], NULL);
-#endif
+                }
 
                 tend = second();
                 timetree1 += timediff(tstart, tend);
@@ -621,21 +583,11 @@ void gravity_tree(void)
 
                 NextJ = 0;
 
-#ifdef NUM_THREADS
-                for(j = 0; j < All.NumThreads - 1; j++)
-                    pthread_create(&mythreads[j], &attr, gravity_secondary_loop, &threadid[j]);
-#endif
-                gravity_secondary_loop(&mainthreadid);
-
-#ifdef NUM_THREADS
-                for(j = 0; j < All.NumThreads - 1; j++)
-                    pthread_join(mythreads[j], NULL);
-
-                pthread_mutex_destroy(&mutex_partnodedrift);
-                pthread_mutex_destroy(&mutex_nexport);
-                pthread_mutex_destroy(&mutex_workcount);
-                pthread_attr_destroy(&attr);
-#endif
+#pragma omp parallel 
+                {
+                    int mainthreadid = omp_get_thread_num();
+                    gravity_secondary_loop(&mainthreadid);
+                }
 
                 tend = second();
                 timetree2 += timediff(tstart, tend);
@@ -1712,18 +1664,17 @@ void *gravity_primary_loop(void *p)
 
     while(1)
     {
-        LOCK_NEXPORT;
+#pragma omp flush(BufferFullFlag)
+        if(BufferFullFlag) break;
 
-        if(BufferFullFlag != 0 || NextParticle < 0)
+#pragma omp critical (lock_nexport)
         {
-            UNLOCK_NEXPORT;
-            break;
+        i = NextParticle;
+        NextParticle = i<0?i:NextActiveParticle[i];
         }
 
-        i = NextParticle;
+        if(i < 0) break;
         ProcessedFlag[i] = 0;
-        NextParticle = NextActiveParticle[NextParticle];
-        UNLOCK_NEXPORT;
 
 #if !defined(PMGRID)
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
@@ -1792,11 +1743,11 @@ void *gravity_secondary_loop(void *p)
 
     while(1)
     {
-        LOCK_NEXPORT;
+#pragma omp critical (lock_nexport)
+        {
         j = NextJ;
         NextJ++;
-        UNLOCK_NEXPORT;
-
+        }
         if(j >= Nimport)
             break;
 

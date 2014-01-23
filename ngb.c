@@ -24,20 +24,6 @@
 extern int Nexport;
 extern int BufferFullFlag;
 
-#ifdef NUM_THREADS
-extern pthread_mutex_t mutex_nexport, mutex_partnodedrift;
-
-#define LOCK_NEXPORT         pthread_mutex_lock(&mutex_nexport);
-#define UNLOCK_NEXPORT       pthread_mutex_unlock(&mutex_nexport);
-#define LOCK_PARTNODEDRIFT   pthread_mutex_lock(&mutex_partnodedrift);
-#define UNLOCK_PARTNODEDRIFT pthread_mutex_unlock(&mutex_partnodedrift);
-#else
-#define LOCK_NEXPORT
-#define UNLOCK_NEXPORT
-#define LOCK_PARTNODEDRIFT
-#define UNLOCK_PARTNODEDRIFT
-#endif
-
 /*! This routine finds all neighbours `j' that can interact with the
  *  particle `i' in the communication buffer.
  *
@@ -219,11 +205,9 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 
             if(P[p].Ti_current != All.Ti_Current)
             {
-                LOCK_PARTNODEDRIFT;
+#pragma omp critical (lock_partnodedrift)
                 drift_particle(p, All.Ti_Current);
-                UNLOCK_PARTNODEDRIFT;
             }
-
             dist = DMAX(P[p].Hsml, hsml);
 
             dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
@@ -265,17 +249,16 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 
                     if(exportnodecount[task] == NODELISTLENGTH)
                     {
-                        LOCK_NEXPORT;
-                        if(Nexport >= All.BunchSize)
+#pragma omp critical (lock_nexport) 
                         {
+                            nexp = Nexport;
+                            Nexport = (nexp >= All.BunchSize)?nexp:(nexp + 1);
+                        }
+                        if(nexp >= All.BunchSize) {
                             /* out if buffer space. Need to discard work for this particle and interrupt */
                             BufferFullFlag = 1;
-                            UNLOCK_NEXPORT;
                             return -1;
                         }
-                        nexp = Nexport;
-                        Nexport++;
-                        UNLOCK_NEXPORT;
                         exportnodecount[task] = 0;
                         exportindex[task] = nexp;
                         DataIndexTable[nexp].Task = task;
@@ -312,11 +295,9 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 
             if(current->Ti_current != All.Ti_Current)
             {
-                LOCK_PARTNODEDRIFT;
+#pragma omp critical (lock_partnodedrift)
                 force_drift_node(no, All.Ti_Current);
-                UNLOCK_PARTNODEDRIFT;
             }
-
             if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
             {
                 if(current->u.d.mass)	/* open cell */
@@ -534,11 +515,9 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
 
             if(P[p].Ti_current != All.Ti_Current)
             {
-                LOCK_PARTNODEDRIFT;
+#pragma omp critical (lock_partnodedrift)
                 drift_particle(p, All.Ti_Current);
-                UNLOCK_PARTNODEDRIFT;
             }
-
             dist = hsml;
             dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
             if(dx > dist)
@@ -571,17 +550,16 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
 
                     if(exportnodecount[task] == NODELISTLENGTH)
                     {
-                        LOCK_NEXPORT;
-                        if(Nexport >= All.BunchSize)
+#pragma omp critical (lock_nexport)
                         {
+                            nexp = Nexport;
+                            Nexport = (nexp >= All.BunchSize)?nexp:(nexp + 1);
+                        }
+                        if (nexp >= All.BunchSize) {
                             /* out if buffer space. Need to discard work for this particle and interrupt */
                             BufferFullFlag = 1;
-                            UNLOCK_NEXPORT;
                             return -1;
                         }
-                        nexp = Nexport;
-                        Nexport++;
-                        UNLOCK_NEXPORT;
                         exportnodecount[task] = 0;
                         exportindex[task] = nexp;
                         DataIndexTable[nexp].Task = task;
@@ -614,9 +592,8 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
 
             if(current->Ti_current != All.Ti_Current)
             {
-                LOCK_PARTNODEDRIFT;
+#pragma omp critical (lock_partnodedrift)
                 force_drift_node(no, All.Ti_Current);
-                UNLOCK_PARTNODEDRIFT;
             }
 
             if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))

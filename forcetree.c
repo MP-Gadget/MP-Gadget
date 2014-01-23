@@ -44,24 +44,6 @@ static int tree_allocated_flag = 0;
 extern int Nexport;
 extern int BufferFullFlag;
 
-#ifdef NUM_THREADS
-extern pthread_mutex_t mutex_nexport, mutex_partnodedrift;
-
-#define LOCK_NEXPORT         pthread_mutex_lock(&mutex_nexport);
-#define UNLOCK_NEXPORT       pthread_mutex_unlock(&mutex_nexport);
-#define LOCK_PARTNODEDRIFT   pthread_mutex_lock(&mutex_partnodedrift);
-#define UNLOCK_PARTNODEDRIFT pthread_mutex_unlock(&mutex_partnodedrift);
-#else
-#define LOCK_NEXPORT
-#define UNLOCK_NEXPORT
-#define LOCK_PARTNODEDRIFT
-#define UNLOCK_PARTNODEDRIFT
-#endif
-
-
-
-
-
 
 #ifdef PERIODIC
 /*! Size of 3D lock-up table for Ewald correction force */
@@ -2203,9 +2185,8 @@ int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecou
 
                 if(P[no].Ti_current != All.Ti_Current)
                 {
-                    LOCK_PARTNODEDRIFT;
+#pragma omp critical (lock_partnodedrift)
                     drift_particle(no, All.Ti_Current);
-                    UNLOCK_PARTNODEDRIFT;
                 }
 
 #ifdef GRAVITY_CENTROID
@@ -2262,17 +2243,15 @@ int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecou
 
                         if(exportnodecount[task] == NODELISTLENGTH)
                         {
-                            LOCK_NEXPORT;
-                            if(Nexport >= All.BunchSize)
+#pragma omp critical (lock_nexport)
                             {
-                                /* out if buffer space. Need to discard work for this particle and interrupt */
+                                nexp = Nexport;
+                                Nexport = nexp >= All.BunchSize?nexp:nexp + 1;
+                            }
+                            if(nexp >= All.BunchSize) {
                                 BufferFullFlag = 1;
-                                UNLOCK_NEXPORT;
                                 return -1;
                             }
-                            nexp = Nexport;
-                            Nexport++;
-                            UNLOCK_NEXPORT;
                             exportnodecount[task] = 0;
                             exportindex[task] = nexp;
                             DataIndexTable[nexp].Task = task;
@@ -2315,9 +2294,8 @@ int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecou
 
                 if(nop->Ti_current != All.Ti_Current)
                 {
-                    LOCK_PARTNODEDRIFT;
+#pragma omp critical (lock_partnodedrift)
                     force_drift_node(no, All.Ti_Current);
-                    UNLOCK_PARTNODEDRIFT;
                 }
 
                 dx = nop->u.d.s[0] - pos_x;
@@ -2840,9 +2818,8 @@ int force_treeevaluate_shortrange(int target, int mode, int *exportflag, int *ex
                 /* the index of the node is the index of the particle */
                 if(P[no].Ti_current != All.Ti_Current)
                 {
-                    LOCK_PARTNODEDRIFT;
+#pragma omp critical (lock_partnodedrift)
                     drift_particle(no, All.Ti_Current);
-                    UNLOCK_PARTNODEDRIFT;
                 }
 
                 dx = P[no].Pos[0] - pos_x;
@@ -2912,17 +2889,16 @@ int force_treeevaluate_shortrange(int target, int mode, int *exportflag, int *ex
 
                         if(exportnodecount[task] == NODELISTLENGTH)
                         {
-                            LOCK_NEXPORT;
-                            if(Nexport >= All.BunchSize)
+#pragma omp critical (lock_nexport) 
                             {
+                                nexp = Nexport;
+                                Nexport = (nexp >= All.BunchSize)?nexp:(nexp + 1);
+                            }
+                            if(nexp >= All.BunchSize) {
                                 /* out if buffer space. Need to discard work for this particle and interrupt */
                                 BufferFullFlag = 1;
-                                UNLOCK_NEXPORT;
                                 return -1;
                             }
-                            nexp = Nexport;
-                            Nexport++;
-                            UNLOCK_NEXPORT;
                             exportnodecount[task] = 0;
                             exportindex[task] = nexp;
                             DataIndexTable[nexp].Task = task;
@@ -2960,9 +2936,8 @@ int force_treeevaluate_shortrange(int target, int mode, int *exportflag, int *ex
 
                 if(nop->Ti_current != All.Ti_Current)
                 {
-                    LOCK_PARTNODEDRIFT;
+#pragma omp critical (lock_partnodedrift)
                     force_drift_node(no, All.Ti_Current);
-                    UNLOCK_PARTNODEDRIFT;
                 }
 
                 mass = nop->u.d.mass;
@@ -3372,9 +3347,8 @@ int force_treeevaluate_ewald_correction(int target, int mode, int *exportflag, i
                 /* observe the sign */
                 if(P[no].Ti_current != All.Ti_Current)
                 {
-                    LOCK_PARTNODEDRIFT;
+#pragma omp critical (lock_partnodedrift)
                     drift_particle(no, All.Ti_Current);
-                    UNLOCK_PARTNODEDRIFT;
                 }
 
                 dx = P[no].Pos[0] - pos_x;
@@ -3396,17 +3370,16 @@ int force_treeevaluate_ewald_correction(int target, int mode, int *exportflag, i
 
                         if(exportnodecount[task] == NODELISTLENGTH)
                         {
-                            LOCK_NEXPORT;
-                            if(Nexport >= All.BunchSize)
+#pragma omp critical (lock_nexport) 
                             {
+                                nexp = Nexport;
+                                Nexport = (nexp >= All.BunchSize)?nexp:(nexp + 1);
+                            }
+                            if(nexp >= All.BunchSize) {
                                 /* out if buffer space. Need to discard work for this particle and interrupt */
                                 BufferFullFlag = 1;
-                                UNLOCK_NEXPORT;
                                 return -1;
                             }
-                            nexp = Nexport;
-                            Nexport++;
-                            UNLOCK_NEXPORT;
                             exportnodecount[task] = 0;
                             exportindex[task] = nexp;
                             DataIndexTable[nexp].Task = task;
@@ -3444,9 +3417,8 @@ int force_treeevaluate_ewald_correction(int target, int mode, int *exportflag, i
 
                 if(nop->Ti_current != All.Ti_Current)
                 {
-                    LOCK_PARTNODEDRIFT;
+#pragma omp critical (lock_partnodedrift)
                     force_drift_node(no, All.Ti_Current);
-                    UNLOCK_PARTNODEDRIFT;
                 }
 
                 mass = nop->u.d.mass;
