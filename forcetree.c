@@ -2055,7 +2055,7 @@ void force_update_hmax(void)
  *  the value of TypeOfOpeningCriterion, either the geometrical BH
  *  cell-opening criterion, or the `relative' opening criterion is used.
  */
-int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex)
+int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex, int * nodesinlist_out)
 {
     struct NODE *nop = 0;
     int no, nexp, nodesinlist, ninteractions, ptype, task, listindex = 0;
@@ -2672,7 +2672,7 @@ int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecou
             for(i2 = 0; i2 < 3; i2++)
                 GravDataResult[target].tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
 #endif
-        *exportflag = nodesinlist;
+        *nodesinlist_out = nodesinlist;
     }
     return ninteractions;
 }
@@ -2689,7 +2689,7 @@ int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecou
  *  table.
  */
 int force_treeevaluate_shortrange(int target, int mode, int *exportflag, int *exportnodecount,
-        int *exportindex)
+        int *exportindex, int * nodesinlist_out)
 {
     struct NODE *nop = 0;
     int no, nodesinlist, ptype, ninteractions, nexp, tabindex, task, listindex = 0;
@@ -3259,7 +3259,7 @@ int force_treeevaluate_shortrange(int target, int mode, int *exportflag, int *ex
             for(i2 = 0; i2 < 3; i2++)
                 GravDataResult[target].tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
 #endif
-        *exportflag = nodesinlist;
+        *nodesinlist_out = nodesinlist;
     }
 
     return ninteractions;
@@ -3292,7 +3292,7 @@ int force_treeevaluate_shortrange(int target, int mode, int *exportflag, int *ex
  *  walk would be further refined.
  */
 int force_treeevaluate_ewald_correction(int target, int mode, int *exportflag, int *exportnodecount,
-        int *exportindex)
+        int *exportindex, int * cost_out)
 {
     struct NODE *nop = 0;
     int no, cost, listindex = 0;
@@ -3617,8 +3617,8 @@ int force_treeevaluate_ewald_correction(int target, int mode, int *exportflag, i
         GravDataResult[target].Acc[2] = acc_z;
         GravDataResult[target].Ninteractions = cost;
     }
-
-    return cost;
+    *cost_out = cost;
+    return 0;
 }
 
 #endif

@@ -32,9 +32,9 @@ void *gravity_primary_loop(void *p);
 void *gravity_secondary_loop(void *p);
 
 
-int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex);
-int force_treeevaluate_ewald_correction(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex);
-int force_treeevaluate_shortrange(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex);
+int force_treeevaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex, int * nnodesinlist);
+int force_treeevaluate_ewald_correction(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex, int * cost);
+int force_treeevaluate_shortrange(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex, int * nnodesinlist);
 
 
 int force_treeevaluate_potential(int target, int type, int *nexport, int *nsend_local);

@@ -1677,21 +1677,17 @@ void *gravity_primary_loop(void *p)
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
         if(Ewald_iter)
         {
-            ret = force_treeevaluate_ewald_correction(i, 0, exportflag, exportnodecount, exportindex);
-            if(ret >= 0)
-            {
-                LOCK_WORKCOUNT;
-                Ewaldcount += ret;	/* note: ewaldcount may be slightly incorrect for multiple threads if buffer gets filled up */
-                UNLOCK_WORKCOUNT;
-            }
-            else
+            if(force_treeevaluate_ewald_correction(i, 0, exportflag, exportnodecount, exportindex, &cost) < 0)
                 break;		/* export buffer has filled up */
+
+            LOCK_WORKCOUNT;
+            Ewaldcount += cost;
+            UNLOCK_WORKCOUNT;
         }
         else
 #endif
         {
-            ret = force_treeevaluate(i, 0, exportflag, exportnodecount, exportindex);
-            if(ret < 0)
+            if(force_treeevaluate(i, 0, exportflag, exportnodecount, exportindex, NULL) < 0)
                 break;		/* export buffer has filled up */
         }
 #else
@@ -1700,7 +1696,7 @@ void *gravity_primary_loop(void *p)
         if(P[i].Type != 2)
 #endif
         {
-            ret = force_treeevaluate_shortrange(i, 0, exportflag, exportnodecount, exportindex);
+            ret = force_treeevaluate_shortrange(i, 0, exportflag, exportnodecount, exportindex, NULL);
             if(ret < 0)
                 break;		/* export buffer has filled up */
         }
@@ -1737,6 +1733,7 @@ void *gravity_primary_loop(void *p)
 void *gravity_secondary_loop(void *p)
 {
     int j, nodesinlist, dummy;
+    int64_t cost;
 
     while(1)
     {
@@ -1752,7 +1749,7 @@ void *gravity_secondary_loop(void *p)
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
         if(Ewald_iter)
         {
-            int cost = force_treeevaluate_ewald_correction(j, 1, &dummy, &dummy, &dummy);
+            force_treeevaluate_ewald_correction(j, 1, &dummy, &dummy, &dummy, &cost);
 
             LOCK_WORKCOUNT;
             Ewaldcount += cost;
@@ -1761,13 +1758,13 @@ void *gravity_secondary_loop(void *p)
         else
 #endif
         {
-            force_treeevaluate(j, 1, &nodesinlist, &dummy, &dummy);
+            force_treeevaluate(j, 1, &dummy, &dummy, &dummy, &nodesinlist);
             LOCK_WORKCOUNT;
             N_nodesinlist += nodesinlist;
             UNLOCK_WORKCOUNT;
         }
 #else
-        force_treeevaluate_shortrange(j, 1, &nodesinlist, &dummy, &dummy);
+        force_treeevaluate_shortrange(j, 1, &dummy, &dummy, &dummy, &nodesinlist);
         LOCK_WORKCOUNT;
         N_nodesinlist += nodesinlist;
         UNLOCK_WORKCOUNT;
