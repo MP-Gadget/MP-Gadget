@@ -17,16 +17,16 @@ void evaluate_primary(Evaluator * ev) {
 
     int i, j;
 
-    int *exportflag, *exportnodecount, *exportindex, *ngblist;
+    EvaluatorData evdata;
 
-    ngblist = Ngblist + thread_id * NumPart;
-    exportflag = Exportflag + thread_id * NTask;
-    exportnodecount = Exportnodecount + thread_id * NTask;
-    exportindex = Exportindex + thread_id * NTask;
+    evdata.ngblist = Ngblist + thread_id * NumPart;
+    evdata.exportflag = Exportflag + thread_id * NTask;
+    evdata.exportnodecount = Exportnodecount + thread_id * NTask;
+    evdata.exportindex = Exportindex + thread_id * NTask;
 
     /* Note: exportflag is local to each thread */
     for(j = 0; j < NTask; j++)
-        exportflag[j] = -1;
+        evdata.exportflag[j] = -1;
 
     while(1)
     {
@@ -41,7 +41,7 @@ void evaluate_primary(Evaluator * ev) {
         ProcessedFlag[i] = 0;
         if(ev->ev_isactive(i))
         {
-            if(ev->ev_evaluate(i, 0, exportflag, exportnodecount, exportindex, ngblist) < 0)
+            if(ev->ev_evaluate(i, 0, &evdata) < 0)
                 break;		/* export buffer has filled up */
         }
 
@@ -56,11 +56,12 @@ void evaluate_secondary(Evaluator * ev) {
     {
         int j, dummy, *ngblist;
         int thread_id = omp_get_thread_num();
-        ngblist = Ngblist + thread_id * NumPart;
+        EvaluatorData evdata;
+        evdata.ngblist = Ngblist + thread_id * NumPart;
 
 #pragma omp for
         for(j = 0; j < Nimport; j++) {
-            ev->ev_evaluate(j, 1, &dummy, &dummy, &dummy, ngblist);
+            ev->ev_evaluate(j, 1, &evdata);
         }
     }
 

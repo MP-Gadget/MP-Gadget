@@ -1,8 +1,11 @@
-typedef int (*ev_evaluate_t) (int target, int mode,
-    int *exportflag,
-    int *exportnodecount,
-    int *exportindex,
-    int *ngblist);
+typedef struct _EvaluatorData {
+    int *exportflag;
+    int *exportnodecount;
+    int *exportindex;
+    int *ngblist;
+} EvaluatorData;
+
+typedef int (*ev_evaluate_t) (int target, int mode, EvaluatorData * data);
 
 typedef int (*ev_isactive_t) (int i);
 

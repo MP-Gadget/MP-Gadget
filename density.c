@@ -20,7 +20,7 @@ extern int Nexport, Nimport;
 extern int BufferFullFlag;
 
 static int density_isactive(int n);
-static int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex, int *ngblist);
+static int density_evaluate(int target, int mode, EvaluatorData * evdata);
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
@@ -1007,8 +1007,7 @@ double density_decide_hsearch(int targettype, double h) {
  *  target particle may either be local, or reside in the communication
  *  buffer.
  */
-static int density_evaluate(int target, int mode, int *exportflag, int *exportnodecount, int *exportindex,
-        int *ngblist)
+static int density_evaluate(int target, int mode, EvaluatorData * evdata) 
 {
     int j, n;
 
@@ -1250,8 +1249,8 @@ static int density_evaluate(int target, int mode, int *exportflag, int *exportno
         while(startnode >= 0)
         {
             numngb_inbox =
-                ngb_treefind_variable_threads(pos, hsearch, target, &startnode, mode, exportflag, exportnodecount,
-                        exportindex, ngblist);
+                ngb_treefind_variable_threads(pos, hsearch, target, &startnode, mode, evdata->exportflag, evdata->exportnodecount,
+                        evdata->exportindex, evdata->ngblist);
 
             if(numngb_inbox < 0)
                 return -1;
@@ -1261,7 +1260,7 @@ static int density_evaluate(int target, int mode, int *exportflag, int *exportno
 #ifdef HYDRO_COST_FACTOR
                 ninteractions++;
 #endif
-                j = ngblist[n];
+                j = evdata->ngblist[n];
 #ifdef WINDS
                     if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
                         if(!(delaytime > 0))	/* if I'm not wind, then ignore the wind particle */
@@ -1697,66 +1696,6 @@ static int density_evaluate(int target, int mode, int *exportflag, int *exportno
     }
 
     return 0;
-}
-
-
-void density_evaluate_primary()
-{
-#pragma omp parallel
-    {
-    int thread_id = omp_get_thread_num();
-
-    int i, j;
-
-    int *exportflag, *exportnodecount, *exportindex, *ngblist;
-
-    ngblist = Ngblist + thread_id * NumPart;
-    exportflag = Exportflag + thread_id * NTask;
-    exportnodecount = Exportnodecount + thread_id * NTask;
-    exportindex = Exportindex + thread_id * NTask;
-
-    /* Note: exportflag is local to each thread */
-    for(j = 0; j < NTask; j++)
-        exportflag[j] = -1;
-
-    while(1)
-    {
-#pragma omp critical (lock_nexport) 
-        {
-            i = BufferFullFlag?-1:NextParticle;
-            /* move next particle pointer if a particle is obtained */
-            NextParticle = (i < 0)?NextParticle:NextActiveParticle[i];
-        }   
-        if(i < 0) break;
-
-        ProcessedFlag[i] = 0;
-        if(density_isactive(i))
-        {
-            if(density_evaluate(i, 0, exportflag, exportnodecount, exportindex, ngblist) < 0)
-                break;		/* export buffer has filled up */
-        }
-
-        ProcessedFlag[i] = 1;	/* particle successfully finished */
-    }
-    }
-}
-
-
-
-void density_evaluate_secondary()
-{
-
-#pragma omp parallel
-    {
-        int j, dummy, *ngblist;
-        int thread_id = omp_get_thread_num();
-        ngblist = Ngblist + thread_id * NumPart;
-
-#pragma omp for
-        for(j = 0; j < Nimport; j++) {
-            density_evaluate(j, 1, &dummy, &dummy, &dummy, ngblist);
-        }
-    }
 }
 
 
