@@ -4,9 +4,6 @@
 #include <string.h>
 #include <math.h>
 #include <time.h>
-#ifdef NUM_THREADS
-#include <pthread.h>
-#endif
 
 #include "allvars.h"
 #include "proto.h"
