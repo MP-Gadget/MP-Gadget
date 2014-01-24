@@ -282,7 +282,7 @@ void hydro_force(void)
 
     /* allocate buffers to arrange communication */
 
-    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NTask * sizeof(int));
+    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NTask * NumPart * sizeof(int));
 
     All.BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + sizeof(struct data_nodelist) +
