@@ -178,9 +178,12 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
 
 
 int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-        int mode, int *exportflag, int *exportnodecount, int *exportindex,
+        int mode, Exporter * exporter,
         int *ngblist)
 {
+    int *exportflag = exporter->exportflag;
+    int *exportnodecount = exporter->exportnodecount;
+    int *exportindex = exporter->exportindex; 
     int no, p, numngb, task, nexp;
     MyDouble dist, dx, dy, dz;
     struct NODE *current;
@@ -489,9 +492,13 @@ int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, in
  *  calling routine.
  */
 int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-        int mode, int *exportflag, int *exportnodecount, int *exportindex,
+        int mode, Exporter * exporter, 
         int *ngblist)
 {
+    int *exportflag = exporter->exportflag;
+    int *exportnodecount = exporter->exportnodecount;
+    int *exportindex = exporter->exportindex; 
+
     int numngb, no, nexp, p, task;
     struct NODE *current;
     MyDouble dx, dy, dz, dist;

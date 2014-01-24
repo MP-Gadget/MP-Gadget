@@ -6,27 +6,31 @@ extern int Nexport, Nimport;
 extern int BufferFullFlag;
 
 static void evaluate_fix_export_buffer(int save_NextParticle);
+static void evaluate_init_exporter(Exporter * exporter);
+
+void evaluate_init_exporter(Exporter * exporter) {
+    int thread_id = omp_get_thread_num();
+    int j;
+    exporter->exportflag = Exportflag + thread_id * NTask;
+    exporter->exportnodecount = Exportnodecount + thread_id * NTask;
+    exporter->exportindex = Exportindex + thread_id * NTask;
+    for(j = 0; j < NTask; j++)
+        exporter->exportflag[j] = -1;
+}
 
 void evaluate_primary(Evaluator * ev) {
-
     int save_NextParticle = NextParticle;
 
 #pragma omp parallel
     {
-    int thread_id = omp_get_thread_num();
 
     int i, j;
 
-    EvaluatorData evdata;
+    Exporter exporter;
     int * ngblist = ev->ev_alloc();
-    evdata.exportflag = Exportflag + thread_id * NTask;
-    evdata.exportnodecount = Exportnodecount + thread_id * NTask;
-    evdata.exportindex = Exportindex + thread_id * NTask;
+    evaluate_init_exporter(&exporter);
 
     /* Note: exportflag is local to each thread */
-    for(j = 0; j < NTask; j++)
-        evdata.exportflag[j] = -1;
-
     while(1)
     {
 #pragma omp critical (lock_nexport) 
@@ -40,7 +44,7 @@ void evaluate_primary(Evaluator * ev) {
         ProcessedFlag[i] = 0;
         if(ev->ev_isactive(i))
         {
-            if(ev->ev_evaluate(i, 0, &evdata, ngblist) < 0)
+            if(ev->ev_evaluate(i, 0, &exporter, ngblist) < 0)
                 break;		/* export buffer has filled up */
         }
 
@@ -55,7 +59,7 @@ void evaluate_secondary(Evaluator * ev) {
     {
         int j, *ngblist;
         int thread_id = omp_get_thread_num();
-        EvaluatorData dummy;
+        Exporter dummy;
         ngblist = ev->ev_alloc();
 
 #pragma omp for

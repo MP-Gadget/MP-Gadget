@@ -44,7 +44,7 @@ extern int TimerFlag;
  *  (via artificial viscosity) is computed.
  */
 
-static int hydro_evaluate(int target, int mode, EvaluatorData * evdata, int * ngblist);
+static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngblist);
 static int hydro_isactive(int n);
 static void * hydro_alloc_ngblist();
 
@@ -1071,7 +1071,7 @@ void hydro_force(void)
  *  particle is specified which may either be local, or reside in the
  *  communication buffer.
  */
-static int hydro_evaluate(int target, int mode, EvaluatorData * evdata, int * ngblist) 
+static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngblist) 
 {
     int startnode, numngb, listindex = 0;
     int j, k, n, timestep;
@@ -1535,8 +1535,8 @@ static int hydro_evaluate(int target, int mode, EvaluatorData * evdata, int * ng
         while(startnode >= 0)
         {
             numngb =
-                ngb_treefind_pairs_threads(pos, h_i, target, &startnode, mode, evdata->exportflag, evdata->exportnodecount,
-                        evdata->exportindex, ngblist);
+                ngb_treefind_pairs_threads(pos, h_i, target, &startnode, 
+                        mode, exporter, ngblist);
 
             if(numngb < 0)
                 return -1;

@@ -2055,12 +2055,12 @@ void force_update_hmax(void)
  *  the value of TypeOfOpeningCriterion, either the geometrical BH
  *  cell-opening criterion, or the `relative' opening criterion is used.
  */
-int force_treeevaluate(int target, int mode, EvaluatorData * evdata, int * nodesinlist_out)
+int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinlist_out)
 {
 
-    int *exportflag = evdata->exportflag;
-    int *exportnodecount = evdata->exportnodecount;
-    int *exportindex = evdata->exportindex; 
+    int *exportflag = exporter->exportflag;
+    int *exportnodecount = exporter->exportnodecount;
+    int *exportindex = exporter->exportindex; 
 
     struct NODE *nop = 0;
     int no, nexp, nodesinlist, ninteractions, ptype, task, listindex = 0;
@@ -2693,11 +2693,11 @@ int force_treeevaluate(int target, int mode, EvaluatorData * evdata, int * nodes
  *  memory-access panelty (which reduces cache performance) incurred by the
  *  table.
  */
-int force_treeevaluate_shortrange(int target, int mode, EvaluatorData * evdata, int * nodesinlist_out)
+int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int * nodesinlist_out)
 {
-    int *exportflag = evdata->exportflag;
-    int *exportnodecount = evdata->exportnodecount;
-    int *exportindex = evdata->exportindex; 
+    int *exportflag = exporter->exportflag;
+    int *exportnodecount = exporter->exportnodecount;
+    int *exportindex = exporter->exportindex; 
 
     struct NODE *nop = 0;
     int no, nodesinlist, ptype, ninteractions, nexp, tabindex, task, listindex = 0;
@@ -3299,11 +3299,11 @@ int force_treeevaluate_shortrange(int target, int mode, EvaluatorData * evdata, 
  *  that was mapped to a different nearest neighbour position when the tree
  *  walk would be further refined.
  */
-int force_treeevaluate_ewald_correction(int target, int mode, EvaluatorData * evdata, int * cost_out)
+int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporter, int * cost_out)
 {
-    int *exportflag = evdata->exportflag;
-    int *exportnodecount = evdata->exportnodecount;
-    int *exportindex = evdata->exportindex; 
+    int *exportflag = exporter->exportflag;
+    int *exportnodecount = exporter->exportnodecount;
+    int *exportindex = exporter->exportindex; 
 
     struct NODE *nop = 0;
     int no, cost, listindex = 0;

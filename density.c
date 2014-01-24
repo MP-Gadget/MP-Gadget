@@ -20,7 +20,7 @@ extern int Nexport, Nimport;
 extern int BufferFullFlag;
 
 static int density_isactive(int n);
-static int density_evaluate(int target, int mode, EvaluatorData * evdata, int * ngblist);
+static int density_evaluate(int target, int mode, Exporter * exporter, int * ngblist);
 static void * density_alloc_ngblist();
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
@@ -1009,7 +1009,7 @@ double density_decide_hsearch(int targettype, double h) {
  *  target particle may either be local, or reside in the communication
  *  buffer.
  */
-static int density_evaluate(int target, int mode, EvaluatorData * evdata, int * ngblist) 
+static int density_evaluate(int target, int mode, Exporter * exporter, int * ngblist) 
 {
     int j, n;
 
@@ -1251,8 +1251,8 @@ static int density_evaluate(int target, int mode, EvaluatorData * evdata, int * 
         while(startnode >= 0)
         {
             numngb_inbox =
-                ngb_treefind_variable_threads(pos, hsearch, target, &startnode, mode, evdata->exportflag, evdata->exportnodecount,
-                        evdata->exportindex, ngblist);
+                ngb_treefind_variable_threads(pos, hsearch, target, &startnode, 
+                        mode, exporter, ngblist);
 
             if(numngb_inbox < 0)
                 return -1;
