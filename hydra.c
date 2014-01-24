@@ -282,14 +282,7 @@ void hydro_force(void)
 
     /* allocate buffers to arrange communication */
 
-    int NTaskTimesNumPart;
-
-    NTaskTimesNumPart = NumPart;
-#ifdef NUM_THREADS
-    NTaskTimesNumPart = NUM_THREADS * NumPart;
-#endif
-
-    Ngblist = (int *) mymalloc("Ngblist", NTaskTimesNumPart * sizeof(int));
+    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NTask * sizeof(int));
 
     All.BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + sizeof(struct data_nodelist) +
@@ -326,9 +319,9 @@ void hydro_force(void)
 
         for(j = 0; j < NTask; j++)
             Send_count[j] = 0;
-        for(j = 0; j < Nexport; j++)
+        for(j = 0; j < Nexport; j++) {
             Send_count[DataIndexTable[j].Task]++;
-
+        }
 #ifdef MYSORT
         mysort_dataindex(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare);
 #else
@@ -2169,7 +2162,6 @@ static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngbli
         }
 #endif
     }
-
 
     /* Now collect the result at the right place */
     if(mode == 0)
