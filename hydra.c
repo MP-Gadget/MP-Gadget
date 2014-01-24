@@ -2265,7 +2265,6 @@ static int hydro_evaluate(int target, int mode, EvaluatorData * evdata, int * ng
 
 static void * hydro_alloc_ngblist() {
     int threadid = omp_get_thread_num();
-    printf("threadid = %d\n", threadid);
     return Ngblist + threadid * NumPart;
 }
 static int hydro_isactive(int i) {

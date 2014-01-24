@@ -8,6 +8,7 @@
 #include <sys/sem.h>
 #include "allvars.h"
 #include "proto.h"
+#include "evaluator.h"
 
 /*! \file gravtree.c
  *  \brief main driver routines for gravitational (short-range) force computation
@@ -32,12 +33,17 @@ int BufferFullFlag;
 int NextJ;
 int TimerFlag;
 
+int * CostBuffer;
 
 double Ewaldcount, Costtotal;
 int64_t N_nodesinlist;
 
 
 int Ewald_iter;			/* global in file scope, for simplicity */
+
+static int gravtree_isactive(int i);
+static void * gravtree_alloccost();
+static int64_t gravtree_reducecost();
 
 
 #ifdef SHELL_CODE
@@ -201,6 +207,10 @@ void gravity_tree(void)
 #endif
 #ifndef NOGRAVITY
     int k, ewald_max, save_NextParticle;
+
+    Evaluator ev[2];
+    int64_t costs[2];
+
     int ndone, ndone_flag, ngrp;
     int place;
     int sendTask, recvTask;
@@ -209,6 +219,24 @@ void gravity_tree(void)
 
 #ifdef DISTORTIONTENSORPS
     int i1, i2;
+#endif
+#endif
+
+#ifdef PMGRID
+    ev[0].ev_evaluate = force_treeevaluate_shortrange;
+    ev[0].ev_alloc = gravtree_alloccost;
+    ev[0].ev_isactive = gravtree_isactive;
+    ewald_max = 0;
+#else
+    ev[0].ev_evaluate = force_treeevaluate;
+    ev[0].ev_alloc = gravtree_alloccost;
+    ev[0].ev_isactive = gravtree_isactive;
+    ewald_max = 0;
+#if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
+    ev[1].ev_evaluate = force_treeevaluate_ewald_correction;
+    ev[1].ev_alloc = gravtree_alloccost;
+    ev[1].ev_isactive = gravtree_isactive;
+    ewald_max = 1;
 #endif
 #endif
 
@@ -338,18 +366,10 @@ void gravity_tree(void)
     if(ThisTask == 0)
         printf("All.BunchSize=%d\n", All.BunchSize);
 
-    Ewaldcount = 0;
-    N_nodesinlist = 0;
-
+    CostBuffer = (int * ) mymalloc("CostBuffer", All.NumThreads * sizeof(int));
 
     CPU_Step[CPU_TREEMISC] += measure_time();
     t0 = second();
-
-#if defined(PERIODIC) && !defined(PMGRID) && !defined(GRAVITY_NOT_PERIODIC)
-    ewald_max = 1;
-#else
-    ewald_max = 0;
-#endif
 
 #ifdef SCF_HYBRID
     int scf_counter;
@@ -404,72 +424,12 @@ void gravity_tree(void)
 
                 tstart = second();
 
-#pragma omp parallel 
-                {
-                int mainthreadid = omp_get_thread_num();
-                gravity_primary_loop(&mainthreadid);	/* do local particles and prepare export list */
-                }
+                evaluate_primary(&ev[Ewald_iter]);
+
+                costs[Ewald_iter] += gravtree_reducecost();
 
                 tend = second();
                 timetree1 += timediff(tstart, tend);
-
-
-                if(BufferFullFlag)
-                {
-                    int last_nextparticle = NextParticle;
-
-                    NextParticle = save_NextParticle;
-
-                    while(NextParticle >= 0)
-                    {
-                        if(NextParticle == last_nextparticle)
-                            break;
-
-                        if(ProcessedFlag[NextParticle] != 1)
-                            break;
-
-                        ProcessedFlag[NextParticle] = 2;
-
-                        NextParticle = NextActiveParticle[NextParticle];
-                    }
-
-                    if(NextParticle == save_NextParticle)
-                    {
-                        /* in this case, the buffer is too small to process even a single particle */
-                        endrun(12998);
-                    }
-
-
-                    int new_export = 0;
-
-                    for(j = 0, k = 0; j < Nexport; j++)
-                        if(ProcessedFlag[DataIndexTable[j].Index] != 2)
-                        {
-                            if(k < j + 1)
-                                k = j + 1;
-
-                            for(; k < Nexport; k++)
-                                if(ProcessedFlag[DataIndexTable[k].Index] == 2)
-                                {
-                                    int old_index = DataIndexTable[j].Index;
-
-                                    DataIndexTable[j] = DataIndexTable[k];
-                                    DataNodeList[j] = DataNodeList[k];
-                                    DataIndexTable[j].IndexGet = j;
-                                    new_export++;
-
-                                    DataIndexTable[k].Index = old_index;
-                                    k++;
-                                    break;
-                                }
-                        }
-                        else
-                            new_export++;
-
-                    Nexport = new_export;
-
-                }
-
 
                 n_exported += Nexport;
 
@@ -583,11 +543,8 @@ void gravity_tree(void)
 
                 NextJ = 0;
 
-#pragma omp parallel 
-                {
-                    int mainthreadid = omp_get_thread_num();
-                    gravity_secondary_loop(&mainthreadid);
-                }
+                evaluate_secondary(&ev[Ewald_iter]);
+                costs[Ewald_iter] += gravtree_reducecost();
 
                 tend = second();
                 timetree2 += timediff(tstart, tend);
@@ -702,7 +659,9 @@ void gravity_tree(void)
     }
 #endif
 
-
+    Ewaldcount = costs[1];
+    N_nodesinlist += costs[0]; 
+    myfree(CostBuffer);
     myfree(DataNodeList);
     myfree(DataIndexTable);
 
@@ -1634,150 +1593,28 @@ void gravity_tree(void)
     CPU_Step[CPU_TREEMISC] += measure_time();
 }
 
-
-
-
-void *gravity_primary_loop(void *p)
-{
-    int i, j, ret;
-    int thread_id = *(int *) p;
-
-    int *exportflag, *exportnodecount, *exportindex;
-
-    exportflag = Exportflag + thread_id * NTask;
-    exportnodecount = Exportnodecount + thread_id * NTask;
-    exportindex = Exportindex + thread_id * NTask;
-
-    /* Note: exportflag is local to each thread */
-    for(j = 0; j < NTask; j++)
-        exportflag[j] = -1;
-
-#ifdef FIXEDTIMEINFIRSTPHASE
-    int counter = 0;
-    double tstart;
-
-    if(thread_id == 0)
-    {
-        tstart = second();
-    }
-#endif
-
-    while(1)
-    {
-#pragma omp critical (lock_nexport)
-        {
-        i = BufferFullFlag?-1:NextParticle;
-        NextParticle = i<0?i:NextActiveParticle[i];
-        }
-
-        if(i < 0) break;
-        ProcessedFlag[i] = 0;
-
-#if !defined(PMGRID)
-#if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
-        if(Ewald_iter)
-        {
-            if(force_treeevaluate_ewald_correction(i, 0, exportflag, exportnodecount, exportindex, &cost) < 0)
-                break;		/* export buffer has filled up */
-
-            LOCK_WORKCOUNT;
-            Ewaldcount += cost;
-            UNLOCK_WORKCOUNT;
-        }
-        else
-#endif
-        {
-            if(force_treeevaluate(i, 0, exportflag, exportnodecount, exportindex, NULL) < 0)
-                break;		/* export buffer has filled up */
-        }
+static int gravtree_isactive(int i) {
+#if defined(NEUTRINOS) && defined(PMGRID)
+        return P[i].Type != 2;
 #else
-
-#ifdef NEUTRINOS
-        if(P[i].Type != 2)
+        return 1;
 #endif
-        {
-            ret = force_treeevaluate_shortrange(i, 0, exportflag, exportnodecount, exportindex, NULL);
-            if(ret < 0)
-                break;		/* export buffer has filled up */
-        }
-
-#endif
-
-        ProcessedFlag[i] = 1;	/* particle successfully finished */
-
-#ifdef FIXEDTIMEINFIRSTPHASE
-        if(thread_id == 0)
-        {
-            counter++;
-            if((counter & 255) == 0)
-            {
-                if(timediff(tstart, second()) > FIXEDTIMEINFIRSTPHASE)
-                {
-                    TimerFlag = 1;
-                    break;
-                }
-            }
-        }
-        else
-        {
-            if(TimerFlag)
-                break;
-        }
-#endif
-    }
-
-    return NULL;
 }
 
-
-void *gravity_secondary_loop(void *p)
-{
-    int j, nodesinlist, dummy;
-    int64_t cost;
-
-    while(1)
-    {
-#pragma omp critical (lock_nexport)
-        {
-        j = NextJ;
-        NextJ++;
-        }
-        if(j >= Nimport)
-            break;
-
-#if !defined(PMGRID)
-#if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
-        if(Ewald_iter)
-        {
-            force_treeevaluate_ewald_correction(j, 1, &dummy, &dummy, &dummy, &cost);
-
-            LOCK_WORKCOUNT;
-            Ewaldcount += cost;
-            UNLOCK_WORKCOUNT;
-        }
-        else
-#endif
-        {
-            force_treeevaluate(j, 1, &dummy, &dummy, &dummy, &nodesinlist);
-            LOCK_WORKCOUNT;
-            N_nodesinlist += nodesinlist;
-            UNLOCK_WORKCOUNT;
-        }
-#else
-        force_treeevaluate_shortrange(j, 1, &dummy, &dummy, &dummy, &nodesinlist);
-        LOCK_WORKCOUNT;
-        N_nodesinlist += nodesinlist;
-        UNLOCK_WORKCOUNT;
-#endif
-    }
-
-    return NULL;
+static void * gravtree_alloccost() {
+    int threadid = omp_get_thread_num();
+    CostBuffer[threadid] = 0;
+    return &CostBuffer[threadid];
 }
 
-
-
-
-
+static int64_t gravtree_reducecost() {
+    int i;
+    int64_t cost = 0;
+    for(i = 0; i < omp_get_max_threads(); i ++) {
+        cost += CostBuffer[i];
+    }
+    return cost;
+}
 
 /*! This function sets the (comoving) softening length of all particle
  *  types in the table All.SofteningTable[...].  We check that the physical

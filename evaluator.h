@@ -1,3 +1,5 @@
+#ifndef _EVALUATOR_H_
+#define _EVALUATOR_H_
 typedef struct _EvaluatorData {
     int *exportflag;
     int *exportnodecount;
@@ -18,3 +20,4 @@ typedef struct _Evaluator {
 
 void evaluate_primary(Evaluator * ev);
 void evaluate_secondary(Evaluator * ev);
+#endif
