@@ -17,10 +17,6 @@
  */
 
 
-
-extern int Nexport;
-extern int BufferFullFlag;
-
 /*! This routine finds all neighbours `j' that can interact with the
  *  particle `i' in the communication buffer.
  *
@@ -178,9 +174,6 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
         int mode, Exporter * exporter,
         int *ngblist)
 {
-    int *exportflag = exporter->exportflag;
-    int *exportnodecount = exporter->exportnodecount;
-    int *exportindex = exporter->exportindex; 
     int no, p, numngb, task, nexp;
     MyDouble dist, dx, dy, dz;
     struct NODE *current;
@@ -241,38 +234,7 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 
                 if(target >= 0)	/* if no target is given, export will not occur */
                 {
-                    if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-                    {
-                        exportflag[task] = target;
-                        exportnodecount[task] = NODELISTLENGTH;
-                    }
-
-                    if(exportnodecount[task] == NODELISTLENGTH)
-                    {
-#pragma omp critical (lock_nexport) 
-                        {
-                            nexp = Nexport;
-                            Nexport = (nexp >= All.BunchSize)?nexp:(nexp + 1);
-                        }
-                        if(nexp >= All.BunchSize) {
-                            /* out if buffer space. Need to discard work for this particle and interrupt */
-                            BufferFullFlag = 1;
-                            return -1;
-                        }
-                        exportnodecount[task] = 0;
-                        exportindex[task] = nexp;
-                        DataIndexTable[nexp].Task = task;
-                        DataIndexTable[nexp].Index = target;
-                        DataIndexTable[nexp].IndexGet = nexp;
-                    }
-
-#ifndef DONOTUSENODELIST
-                    DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-                        DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
-
-                    if(exportnodecount[task] < NODELISTLENGTH)
-                        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
-#endif
+                    exporter_export_particle(exporter, target, no, 0);
                 }
 
                 no = Nextnode[no - MaxNodes];
@@ -492,10 +454,6 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
         int mode, Exporter * exporter, 
         int *ngblist)
 {
-    int *exportflag = exporter->exportflag;
-    int *exportnodecount = exporter->exportnodecount;
-    int *exportindex = exporter->exportindex; 
-
     int numngb, no, nexp, p, task;
     struct NODE *current;
     MyDouble dx, dy, dz, dist;
@@ -546,37 +504,7 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
 
                 if(target >= 0)	/* if no target is given, export will not occur */
                 {
-                    if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-                    {
-                        exportflag[task] = target;
-                        exportnodecount[task] = NODELISTLENGTH;
-                    }
-
-                    if(exportnodecount[task] == NODELISTLENGTH)
-                    {
-#pragma omp critical (lock_nexport)
-                        {
-                            nexp = Nexport;
-                            Nexport = (nexp >= All.BunchSize)?nexp:(nexp + 1);
-                        }
-                        if (nexp >= All.BunchSize) {
-                            /* out if buffer space. Need to discard work for this particle and interrupt */
-                            BufferFullFlag = 1;
-                            return -1;
-                        }
-                        exportnodecount[task] = 0;
-                        exportindex[task] = nexp;
-                        DataIndexTable[nexp].Task = task;
-                        DataIndexTable[nexp].Index = target;
-                        DataIndexTable[nexp].IndexGet = nexp;
-                    }
-
-                    DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-                        DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
-
-                    if(exportnodecount[task] < NODELISTLENGTH)
-                        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
-
+                    exporter_export_particle(exporter, target, no, 1);
                 }
 
                 no = Nextnode[no - MaxNodes];

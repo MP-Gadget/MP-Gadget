@@ -17,8 +17,6 @@ extern int NextParticle;
 
 extern int Nexport, Nimport;
 
-extern int BufferFullFlag;
-
 static int density_isactive(int n);
 static int density_evaluate(int target, int mode, Exporter * exporter, int * ngblist);
 static void * density_alloc_ngblist();
@@ -256,9 +254,6 @@ void density(void)
 
         do
         {
-            BufferFullFlag = 0;
-            Nexport = 0;
-
             tstart = second();
 
             evaluate_primary(&ev); /* do local particles and prepare export list */

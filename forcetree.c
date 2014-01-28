@@ -38,10 +38,6 @@ static int first_flag = 0;
 static int tree_allocated_flag = 0;
 
 
-extern int Nexport;
-extern int BufferFullFlag;
-
-
 #ifdef PERIODIC
 /*! Size of 3D lock-up table for Ewald correction force */
 #define EN  64
@@ -2055,10 +2051,6 @@ void force_update_hmax(void)
 int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinlist_out)
 {
 
-    int *exportflag = exporter->exportflag;
-    int *exportnodecount = exporter->exportnodecount;
-    int *exportindex = exporter->exportindex; 
-
     struct NODE *nop = 0;
     int no, nexp, nodesinlist, ninteractions, ptype, task, listindex = 0;
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
@@ -2237,35 +2229,7 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
                 {
                     if(mode == 0)
                     {
-                        if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-                        {
-                            exportflag[task] = target;
-                            exportnodecount[task] = NODELISTLENGTH;
-                        }
-
-                        if(exportnodecount[task] == NODELISTLENGTH)
-                        {
-#pragma omp critical (lock_nexport)
-                            {
-                                nexp = Nexport;
-                                Nexport = nexp >= All.BunchSize?nexp:nexp + 1;
-                            }
-                            if(nexp >= All.BunchSize) {
-                                BufferFullFlag = 1;
-                                return -1;
-                            }
-                            exportnodecount[task] = 0;
-                            exportindex[task] = nexp;
-                            DataIndexTable[nexp].Task = task;
-                            DataIndexTable[nexp].Index = target;
-                            DataIndexTable[nexp].IndexGet = nexp;
-                        }
-
-                        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-                            DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
-
-                        if(exportnodecount[task] < NODELISTLENGTH)
-                            DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
+                        exporter_export_particle(exporter, target, no, 1);
                     }
                     no = Nextnode[no - MaxNodes];
                     continue;
@@ -2692,10 +2656,6 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
  */
 int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int * nodesinlist_out)
 {
-    int *exportflag = exporter->exportflag;
-    int *exportnodecount = exporter->exportnodecount;
-    int *exportindex = exporter->exportindex; 
-
     struct NODE *nop = 0;
     int no, nodesinlist, ptype, ninteractions, nexp, tabindex, task, listindex = 0;
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
@@ -2886,36 +2846,7 @@ int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int
                 {
                     if(mode == 0)
                     {
-                        if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-                        {
-                            exportflag[task] = target;
-                            exportnodecount[task] = NODELISTLENGTH;
-                        }
-
-                        if(exportnodecount[task] == NODELISTLENGTH)
-                        {
-#pragma omp critical (lock_nexport) 
-                            {
-                                nexp = Nexport;
-                                Nexport = (nexp >= All.BunchSize)?nexp:(nexp + 1);
-                            }
-                            if(nexp >= All.BunchSize) {
-                                /* out if buffer space. Need to discard work for this particle and interrupt */
-                                BufferFullFlag = 1;
-                                return -1;
-                            }
-                            exportnodecount[task] = 0;
-                            exportindex[task] = nexp;
-                            DataIndexTable[nexp].Task = task;
-                            DataIndexTable[nexp].Index = target;
-                            DataIndexTable[nexp].IndexGet = nexp;
-                        }
-
-                        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-                            DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
-
-                        if(exportnodecount[task] < NODELISTLENGTH)
-                            DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
+                        exporter_export_particle(exporter, target, no, 1);
                     }
                     no = Nextnode[no - MaxNodes];
                     continue;
@@ -3298,10 +3229,6 @@ int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int
  */
 int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporter, int * cost_out)
 {
-    int *exportflag = exporter->exportflag;
-    int *exportnodecount = exporter->exportnodecount;
-    int *exportindex = exporter->exportindex; 
-
     struct NODE *nop = 0;
     int no, cost, listindex = 0;
     double dx, dy, dz, mass, r2;
@@ -3370,36 +3297,7 @@ int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporte
                 {
                     if(mode == 0)
                     {
-                        if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-                        {
-                            exportflag[task] = target;
-                            exportnodecount[task] = NODELISTLENGTH;
-                        }
-
-                        if(exportnodecount[task] == NODELISTLENGTH)
-                        {
-#pragma omp critical (lock_nexport) 
-                            {
-                                nexp = Nexport;
-                                Nexport = (nexp >= All.BunchSize)?nexp:(nexp + 1);
-                            }
-                            if(nexp >= All.BunchSize) {
-                                /* out if buffer space. Need to discard work for this particle and interrupt */
-                                BufferFullFlag = 1;
-                                return -1;
-                            }
-                            exportnodecount[task] = 0;
-                            exportindex[task] = nexp;
-                            DataIndexTable[nexp].Task = task;
-                            DataIndexTable[nexp].Index = target;
-                            DataIndexTable[nexp].IndexGet = nexp;
-                        }
-
-                        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-                            DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
-
-                        if(exportnodecount[task] < NODELISTLENGTH)
-                            DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
+                        exporter_export_particle(exporter, target, no, 1);
                     }
                     no = Nextnode[no - MaxNodes];
                     continue;

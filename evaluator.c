@@ -2,8 +2,8 @@
 #include "evaluator.h"
 
 extern int NextParticle;
-extern int Nexport, Nimport;
-extern int BufferFullFlag;
+int Nexport, Nimport;
+static int BufferFullFlag;
 
 static void evaluate_fix_export_buffer(int save_NextParticle);
 static void evaluate_init_exporter(Exporter * exporter);
@@ -18,7 +18,12 @@ void evaluate_init_exporter(Exporter * exporter) {
         exporter->exportflag[j] = -1;
 }
 
-void evaluate_primary(Evaluator * ev) {
+/* returns number of exports */
+int evaluate_primary(Evaluator * ev) {
+
+    BufferFullFlag = 0;
+    Nexport = 0;
+
     int save_NextParticle = NextParticle;
 
 #pragma omp parallel
@@ -52,6 +57,7 @@ void evaluate_primary(Evaluator * ev) {
     }
     }
     evaluate_fix_export_buffer(save_NextParticle);
+    return Nexport;
 }
 
 void evaluate_secondary(Evaluator * ev) {
@@ -68,6 +74,56 @@ void evaluate_secondary(Evaluator * ev) {
         }
     }
 
+}
+
+/* export a particle at target and no, thread safely
+ * 
+ * This can also be called from a nonthreaded code
+ *
+ * forceusenodelist == 1 mimics the behavior in forcetree.c
+ *
+ * */
+void exporter_export_particle(Exporter * exporter, int target, int no, int forceusenodelist) {
+    int *exportflag = exporter->exportflag;
+    int *exportnodecount = exporter->exportnodecount;
+    int *exportindex = exporter->exportindex; 
+    int task;
+
+    if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
+    {
+        exportflag[task] = target;
+        exportnodecount[task] = NODELISTLENGTH;
+    }
+
+    if(exportnodecount[task] == NODELISTLENGTH)
+    {
+        int nexp;
+#pragma omp critical (lock_nexport) 
+        {
+            nexp = Nexport;
+            Nexport = (nexp >= All.BunchSize)?nexp:(nexp + 1);
+        }
+        if(nexp >= All.BunchSize) {
+            /* out if buffer space. Need to discard work for this particle and interrupt */
+            BufferFullFlag = 1;
+            return -1;
+        }
+        exportnodecount[task] = 0;
+        exportindex[task] = nexp;
+        DataIndexTable[nexp].Task = task;
+        DataIndexTable[nexp].Index = target;
+        DataIndexTable[nexp].IndexGet = nexp;
+    }
+
+#ifdef DONOTUSENODELIST
+    if(! forceusenodelist) {
+        DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
+            DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+
+        if(exportnodecount[task] < NODELISTLENGTH)
+            DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
+    }
+#endif
 }
 
 static void evaluate_fix_export_buffer(int save_NextParticle) {

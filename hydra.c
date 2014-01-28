@@ -32,9 +32,6 @@
 
 extern int NextParticle;
 extern int Nexport, Nimport;
-extern int BufferFullFlag;
-extern int NextJ;
-extern int TimerFlag;
 
 /*! \file hydra.c
  *  \brief Computation of SPH forces and rate of entropy generation
@@ -303,10 +300,6 @@ void hydro_force(void)
 
     do
     {
-
-        BufferFullFlag = 0;
-        Nexport = 0;
-
         /* do local particles and prepare export list */
         tstart = second();
 

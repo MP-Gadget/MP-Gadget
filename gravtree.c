@@ -28,12 +28,9 @@
 #define UNLOCK_WORKCOUNT 
 
 int NextParticle;
-int Nexport, Nimport;
-int BufferFullFlag;
-int NextJ;
-int TimerFlag;
+extern int Nexport, Nimport;
 
-int * CostBuffer;
+static int * CostBuffer;
 
 double Ewaldcount, Costtotal;
 int64_t N_nodesinlist;
@@ -206,7 +203,7 @@ void gravity_tree(void)
     double min_time_first_phase, min_time_first_phase_glob;
 #endif
 #ifndef NOGRAVITY
-    int k, ewald_max, save_NextParticle;
+    int k, ewald_max;
 
     Evaluator ev[2];
     int64_t costs[2];
@@ -418,9 +415,6 @@ void gravity_tree(void)
             do
             {
                 iter++;
-                BufferFullFlag = 0;
-                Nexport = 0;
-                save_NextParticle = NextParticle;
 
                 tstart = second();
 
@@ -540,8 +534,6 @@ void gravity_tree(void)
 
                 /* now do the particles that were sent to us */
                 tstart = second();
-
-                NextJ = 0;
 
                 evaluate_secondary(&ev[Ewald_iter]);
                 costs[Ewald_iter] += gravtree_reducecost();

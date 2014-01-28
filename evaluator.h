@@ -1,9 +1,12 @@
 #ifndef _EVALUATOR_H_
 #define _EVALUATOR_H_
+
 typedef struct _Exportor {
     int *exportflag;
     int *exportnodecount;
     int *exportindex;
+    int BufferFullFlag;
+    int Nexport;
 } Exporter;
 
 typedef int (*ev_evaluate_t) (int target, int mode, Exporter * exportor, void * extradata);
@@ -17,7 +20,9 @@ typedef struct _Evaluator {
     ev_alloc_t ev_alloc;
 } Evaluator;
 
-void evaluate_primary(Evaluator * ev);
+int evaluate_primary(Evaluator * ev); 
 void evaluate_secondary(Evaluator * ev);
 void evaluate_init_exporter(Exporter * exporter);
+
+void exporter_export_particle(Exporter * exporter, int target, int no, int forceusenodelist);
 #endif
