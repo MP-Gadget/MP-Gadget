@@ -410,8 +410,7 @@ void gravity_tree(void)
         for(Ewald_iter = 0; Ewald_iter <= ewald_max; Ewald_iter++)
         {
 
-            NextParticle = FirstActiveParticle;	/* beginn with this index */
-
+            evaluate_begin(&ev[Ewald_iter]);
             do
             {
                 iter++;
@@ -431,14 +430,6 @@ void gravity_tree(void)
                     Send_count[j] = 0;
                 for(j = 0; j < Nexport; j++)
                     Send_count[DataIndexTable[j].Task]++;
-
-
-#ifdef MYSORT
-                mysort_dataindex(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare);
-#else
-                qsort(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare);
-#endif
-
 
                 tstart = second();
 
@@ -541,13 +532,8 @@ void gravity_tree(void)
                 tend = second();
                 timetree2 += timediff(tstart, tend);
 
-                if(NextParticle < 0)
-                    ndone_flag = 1;
-                else
-                    ndone_flag = 0;
-
                 tstart = second();
-                MPI_Allreduce(&ndone_flag, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+                MPI_Allreduce(&ev[Ewald_iter].done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
                 tend = second();
                 timewait2 += timediff(tstart, tend);
 
@@ -586,7 +572,6 @@ void gravity_tree(void)
                     for(k = 0; k < 3; k++)
                         P[place].g.dGravAccel[k] += GravDataOut[j].Acc[k];
 
-
 #ifdef DISTORTIONTENSORPS
                     for(i1 = 0; i1 < 3; i1++)
                         for(i2 = 0; i2 < 3; i2++)
@@ -606,6 +591,7 @@ void gravity_tree(void)
                 myfree(GravDataGet);
             }
             while(ndone < NTask);
+            evaluate_finish(&ev[Ewald_iter]);
         } /* Ewald_iter */
 
 #ifdef SCF_HYBRID
@@ -687,7 +673,6 @@ void gravity_tree(void)
         ay = P[i].g.GravAccel[1];
         az = P[i].g.GravAccel[2];
 #endif
-
         if(header.flag_ic_info == FLAG_SECOND_ORDER_ICS && All.Ti_Current == 0 && RestartFlag == 0)
             continue;		/* to prevent that we overwrite OldAcc in the first evaluation for 2lpt ICs */
 
@@ -711,7 +696,6 @@ void gravity_tree(void)
     {
         for(j = 0; j < 3; j++)
             P[i].g.GravAccel[j] *= All.G;
-
 
 #ifdef DISTORTIONTENSORPS
         /*

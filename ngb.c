@@ -7,7 +7,11 @@
 
 #include "allvars.h"
 #include "proto.h"
-
+#ifdef DONOTUSENODELIST
+#define USENODELISTINPAIRS 0
+#else
+#define USENODELISTINPARIS 1
+#endif
 
 /*! \file ngb.c
  *  \brief neighbour search by means of the tree
@@ -234,7 +238,8 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 
                 if(target >= 0)	/* if no target is given, export will not occur */
                 {
-                    exporter_export_particle(exporter, target, no, 0);
+                    if(-1 == exporter_export_particle(exporter, target, no, USENODELISTINPAIRS))
+                        return -1;
                 }
 
                 no = Nextnode[no - MaxNodes];
@@ -504,7 +509,8 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
 
                 if(target >= 0)	/* if no target is given, export will not occur */
                 {
-                    exporter_export_particle(exporter, target, no, 1);
+                    if(-1 == exporter_export_particle(exporter, target, no, 1))
+                        return -1;
                 }
 
                 no = Nextnode[no - MaxNodes];

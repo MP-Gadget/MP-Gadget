@@ -26,6 +26,8 @@
 #include <gsl/gsl_spline.h>
 #include <gsl/gsl_errno.h>
 
+#include <signal.h>
+#define BREAKPOINT raise(SIGTRAP)
 #ifdef _OPENMP
 #include <omp.h>
 #else
@@ -427,7 +429,6 @@ extern MyDouble boxSize_Z, boxHalf_Z, inverse_boxSize_Z;
 
 extern int FirstActiveParticle;
 extern int *NextActiveParticle;
-extern unsigned char *ProcessedFlag;
 
 extern int TimeBinCount[TIMEBINS];
 extern int TimeBinCountSph[TIMEBINS];
@@ -1333,10 +1334,10 @@ extern struct particle_data
     MyDouble Pos[3];   /*!< particle position at its current time */
     MyDouble Mass;     /*!< particle mass */
     struct {
-        unsigned int unused      :1;
+        unsigned int Evaluated :1;
         unsigned int DensityIterationDone :1;
         unsigned int OnAnotherDomain     :1;
-        unsigned int WillExport    :1;
+        unsigned int WillExport    :1; /* used in domain */
         unsigned int Type        :4;		/*!< flags particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
         /* first byte ends */
         signed int TimeBin       :8;

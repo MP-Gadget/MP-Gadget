@@ -1,11 +1,12 @@
 #include "allvars.h"
+#include "proto.h"
 #include "evaluator.h"
 
 extern int NextParticle;
 int Nexport, Nimport;
 static int BufferFullFlag;
 
-static void evaluate_fix_export_buffer(int save_NextParticle);
+static int * NextEvParticle;
 static void evaluate_init_exporter(Exporter * exporter);
 
 void evaluate_init_exporter(Exporter * exporter) {
@@ -18,15 +19,33 @@ void evaluate_init_exporter(Exporter * exporter) {
         exporter->exportflag[j] = -1;
 }
 
+void evaluate_begin(Evaluator * ev) {
+    NextEvParticle = (int*) mymalloc("NextEv", sizeof(int) * NumPart);
+    NextParticle = FirstActiveParticle;
+    memcpy(NextEvParticle, NextActiveParticle, sizeof(int) * NumPart);
+    ev->done = 0;
+}
+void evaluate_finish(Evaluator * ev) {
+    if(!ev->done) {
+        /* this shall not happen */
+        endrun(301811);
+    }
+    myfree(NextEvParticle);
+}
+
+int data_index_compare(const void *a, const void *b);
 /* returns number of exports */
 int evaluate_primary(Evaluator * ev) {
-
+    /* will start the evaluation from NextParticle*/
     BufferFullFlag = 0;
     Nexport = 0;
-
-    int save_NextParticle = NextParticle;
-
-#pragma omp parallel
+    int i;
+    for(i = 0; i < All.BunchSize; i ++) {
+        DataIndexTable[i].Task = NTask;
+        /*entries with NTask is not filled with particles, and will be
+         * sorted to the end */
+    }
+#pragma omp parallel 
     {
 
     int i, j;
@@ -42,21 +61,55 @@ int evaluate_primary(Evaluator * ev) {
         {
             i = BufferFullFlag?-1:NextParticle;
             /* move next particle pointer if a particle is obtained */
-            NextParticle = (i < 0)?NextParticle:NextActiveParticle[i];
+            NextParticle = (i < 0)?NextParticle:NextEvParticle[i];
         }   
         if(i < 0) break;
 
-        ProcessedFlag[i] = 0;
-        if(ev->ev_isactive(i))
+        if(ev->ev_isactive(i)) 
         {
-            if(ev->ev_evaluate(i, 0, &exporter, ngblist) < 0)
+            if(ev->ev_evaluate(i, 0, &exporter, ngblist) < 0) {
+#pragma omp critical (lock_nexport) 
+                {
+                /* add the particle back to the top of the queue*/
+                NextEvParticle[i] = NextParticle; 
+                NextParticle = i;
+                }
+                if (ThisTask == 0)
+                    printf("Task %d rejecting %d\n", ThisTask, i);
+                P[i].Evaluated = 0;
                 break;		/* export buffer has filled up */
+            } else {
+                P[i].Evaluated = 1;
+            }
         }
+    }
+    }
 
-        ProcessedFlag[i] = 1;	/* particle successfully finished */
+    for(i = 0; i < Nexport; i ++) {
+        /* if the NodeList of the particle is incomplete due
+         * to abandoned work, also do not export it */
+        if(! P[DataIndexTable[i].Index].Evaluated) {
+            DataIndexTable[i].Task = NTask; 
+        }
     }
+#ifdef MYSORT
+        mysort_dataindex(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare);
+#else
+        qsort(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare);
+#endif
+
+
+    int oldNexport = Nexport;
+    /* adjust Nexport to skip the allocated but unused ones due to threads */
+    while (Nexport > 0 && DataIndexTable[Nexport - 1].Task == NTask) {
+        Nexport --;
     }
-    evaluate_fix_export_buffer(save_NextParticle);
+    if (NextParticle == -1) ev->done = 1;
+
+    if(Nexport == 0 && BufferFullFlag) {
+        /* buffer too small !*/
+        endrun(1231245);
+    }
     return Nexport;
 }
 
@@ -83,7 +136,7 @@ void evaluate_secondary(Evaluator * ev) {
  * forceusenodelist == 1 mimics the behavior in forcetree.c
  *
  * */
-void exporter_export_particle(Exporter * exporter, int target, int no, int forceusenodelist) {
+int exporter_export_particle(Exporter * exporter, int target, int no, int forceusenodelist) {
     int *exportflag = exporter->exportflag;
     int *exportnodecount = exporter->exportnodecount;
     int *exportindex = exporter->exportindex; 
@@ -115,81 +168,13 @@ void exporter_export_particle(Exporter * exporter, int target, int no, int force
         DataIndexTable[nexp].IndexGet = nexp;
     }
 
-#ifdef DONOTUSENODELIST
-    if(! forceusenodelist) {
+    if(forceusenodelist) 
+    {
         DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
             DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
 
         if(exportnodecount[task] < NODELISTLENGTH)
             DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
     }
-#endif
-}
-
-static void evaluate_fix_export_buffer(int save_NextParticle) {
-    /* after threaded evaluation, it is possible 
-     * particles that has been taken is not processed by primary
-     * because of a buffer full fault.
-     * this code will rewind NextParticle to the last fully processed
-     * particle.
-     *
-     * In that case some particles may be evaluated twice;
-     * Let's hope the code works fine with double evaluations:
-     *   if none of the evaluation functions modify the particle that
-     *   shall be exported, this should be alright. (likely true)
-     * */
-    int j, k;
-    if(BufferFullFlag)
-    {
-        int last_nextparticle = NextParticle;
-
-        NextParticle = save_NextParticle;
-
-        while(NextParticle >= 0)
-        {
-            if(NextParticle == last_nextparticle)
-                break;
-
-            if(ProcessedFlag[NextParticle] != 1)
-                break;
-
-            ProcessedFlag[NextParticle] = 2;
-
-            NextParticle = NextActiveParticle[NextParticle];
-        }
-
-        if(NextParticle == save_NextParticle)
-        {
-            /* in this case, the buffer is too small to process even a single particle */
-            endrun(12998);
-        }
-
-        int new_export = 0;
-
-        for(j = 0, k = 0; j < Nexport; j++)
-            if(ProcessedFlag[DataIndexTable[j].Index] != 2)
-            {
-                if(k < j + 1)
-                    k = j + 1;
-
-                for(; k < Nexport; k++)
-                    if(ProcessedFlag[DataIndexTable[k].Index] == 2)
-                    {
-                        int old_index = DataIndexTable[j].Index;
-
-                        DataIndexTable[j] = DataIndexTable[k];
-                        DataNodeList[j] = DataNodeList[k];
-                        DataIndexTable[j].IndexGet = j;
-                        new_export++;
-
-                        DataIndexTable[k].Index = old_index;
-                        k++;
-                        break;
-                    }
-            }
-            else
-                new_export++;
-        printf("old Nexport = %d, new Nexport = %d\n", Nexport, new_export);
-        Nexport = new_export;
-    }
+    return 0;
 }

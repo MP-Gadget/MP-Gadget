@@ -279,7 +279,7 @@ void hydro_force(void)
 
     /* allocate buffers to arrange communication */
 
-    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NTask * NumPart * sizeof(int));
+    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
     All.BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + sizeof(struct data_nodelist) +
@@ -296,8 +296,7 @@ void hydro_force(void)
     CPU_Step[CPU_HYDMISC] += measure_time();
     t0 = second();
 
-    NextParticle = FirstActiveParticle;	/* beginn with this index */
-
+    evaluate_begin(&ev);
     do
     {
         /* do local particles and prepare export list */
@@ -315,11 +314,6 @@ void hydro_force(void)
         for(j = 0; j < Nexport; j++) {
             Send_count[DataIndexTable[j].Task]++;
         }
-#ifdef MYSORT
-        mysort_dataindex(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare);
-#else
-        qsort(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare);
-#endif
 
         tstart = second();
 
@@ -523,13 +517,8 @@ void hydro_force(void)
         tend = second();
         timecomp2 += timediff(tstart, tend);
 
-        if(NextParticle < 0)
-            ndone_flag = 1;
-        else
-            ndone_flag = 0;
-
         tstart = second();
-        MPI_Allreduce(&ndone_flag, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&ev.done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
         tend = second();
         timewait2 += timediff(tstart, tend);
 
@@ -622,7 +611,8 @@ void hydro_force(void)
         myfree(HydroDataGet);
     }
     while(ndone < NTask);
-
+    
+    evaluate_finish(&ev);
 
     myfree(DataNodeList);
     myfree(DataIndexTable);

@@ -23,6 +23,7 @@ void endrun(int ierr)
     {
       printf("task %d: endrun called with an error level of %d\n\n\n", ThisTask, ierr);
       fflush(stdout);
+      BREAKPOINT;
       MPI_Abort(MPI_COMM_WORLD, ierr);
       exit(0);
     }

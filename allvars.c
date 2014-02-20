@@ -76,7 +76,6 @@ int *Send_offset, *Send_count, *Recv_count, *Recv_offset, *Sendcount;
 
 int FirstActiveParticle;
 int *NextActiveParticle;
-unsigned char *ProcessedFlag;
 
 int TimeBinCount[TIMEBINS];
 int TimeBinCountSph[TIMEBINS];

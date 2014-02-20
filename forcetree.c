@@ -2229,7 +2229,8 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
                 {
                     if(mode == 0)
                     {
-                        exporter_export_particle(exporter, target, no, 1);
+                        if(-1 == exporter_export_particle(exporter, target, no, 1))
+                            return -1;
                     }
                     no = Nextnode[no - MaxNodes];
                     continue;
@@ -2846,7 +2847,8 @@ int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int
                 {
                     if(mode == 0)
                     {
-                        exporter_export_particle(exporter, target, no, 1);
+                        if(-1 == exporter_export_particle(exporter, target, no, 1))
+                            return -1;
                     }
                     no = Nextnode[no - MaxNodes];
                     continue;
@@ -3297,7 +3299,8 @@ int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporte
                 {
                     if(mode == 0)
                     {
-                        exporter_export_particle(exporter, target, no, 1);
+                        if(-1 == exporter_export_particle(exporter, target, no, 1)) 
+                            return -1;
                     }
                     no = Nextnode[no - MaxNodes];
                     continue;

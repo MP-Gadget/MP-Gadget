@@ -37,9 +37,6 @@ void allocate_memory(void)
     Recv_count = (int *) mymalloc("Recv_count", sizeof(int) * NTask);
     Recv_offset = (int *) mymalloc("Recv_offset", sizeof(int) * NTask);
 
-    ProcessedFlag = (unsigned char *) mymalloc("ProcessedFlag", bytes = All.MaxPart * sizeof(unsigned char));
-    bytes_tot += bytes;
-
     NextActiveParticle = (int *) mymalloc("NextActiveParticle", bytes = All.MaxPart * sizeof(int));
     bytes_tot += bytes;
 

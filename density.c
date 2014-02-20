@@ -250,7 +250,7 @@ void density(void)
     do
     {
 
-        NextParticle = FirstActiveParticle;	/* beginn with this index */
+        evaluate_begin(&ev);
 
         do
         {
@@ -271,11 +271,6 @@ void density(void)
                     endrun(412341);
                 }
             }
-#ifdef MYSORT
-            mysort_dataindex(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare);
-#else
-            qsort(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare);
-#endif
 
             tstart = second();
 
@@ -396,13 +391,8 @@ void density(void)
             tend = second();
             timecomp2 += timediff(tstart, tend);
 
-            if(NextParticle < 0)
-                ndone_flag = 1;
-            else
-                ndone_flag = 0;
-
             tstart = second();
-            MPI_Allreduce(&ndone_flag, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+            MPI_Allreduce(&ev.done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
             tend = second();
             timewait2 += timediff(tstart, tend);
 
@@ -566,6 +556,8 @@ void density(void)
             myfree(DensDataGet);
         }
         while(ndone < NTask);
+
+        evaluate_finish(&ev);
 
 #ifdef FLTROUNDOFFREDUCTION
         for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
