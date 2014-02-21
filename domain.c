@@ -117,6 +117,7 @@ void domain_Decomposition(void)
     {
         CPU_Step[CPU_MISC] += measure_time();
 
+#pragma omp parallel for
         for(i = 0; i < NumPart; i++)
             if(P[i].Ti_current != All.Ti_Current)
                 drift_particle(i, All.Ti_Current);
@@ -253,14 +254,6 @@ void domain_Decomposition(void)
 
         CPU_Step[CPU_DOMAIN] += measure_time();
 
-        /* asserting type is smaller than 5.*/
-        for(i = 0; i < NumPart; i++)
-            if(P[i].WillExport || P[i].OnAnotherDomain)
-            {
-                printf("task=%d:  P[i=%d].Type=%d %d %d\n", ThisTask, i, P[i].Type, P[i].WillExport, P[i].OnAnotherDomain);
-                endrun(111111);
-            }
-
 #ifdef PEANOHILBERT
 #ifdef SUBFIND
         if(GrNr < 0)		/* we don't do it when SUBFIND is executed for a certain group */
@@ -382,18 +375,31 @@ int domain_decompose(void)
     for(i = 0; i < 6; i++)
         NtypeLocal[i] = 0;
 
-    for(i = 0, gravcost = 0; i < NumPart; i++)
+    gravcost = 0;
+#pragma omp parallel reduction(+: gravcost) private(i)
     {
-#ifdef SUBFIND
-        if(GrNr >= 0 && P[i].GrNr != GrNr)
-            continue;
-#endif
-        NtypeLocal[P[i].Type]++;
-        costfac = domain_particle_costfactor(i);
+        int NtypeLocalThread[6] = {0};
 
-        gravcost += costfac;
-        All.Cadj_Cost += costfac;
+#pragma omp for
+        for(i = 0; i < NumPart; i++)
+        {
+#ifdef SUBFIND
+            if(GrNr >= 0 && P[i].GrNr != GrNr)
+                continue;
+#endif
+            NtypeLocalThread[P[i].Type]++;
+            costfac = domain_particle_costfactor(i);
+
+            gravcost += costfac;
+        }
+#pragma omp critical 
+        {
+            for(i = 0; i < 6; i ++) {
+                NtypeLocal[i] += NtypeLocalThread[i];
+            }
+        }
     }
+    All.Cadj_Cost += gravcost;
     /* because Ntype[] is of type `int64_t', we cannot do a simple
      * MPI_Allreduce() to sum the total particle numbers 
      */
@@ -532,7 +538,7 @@ int domain_decompose(void)
  * */
 
 void domain_exchange(int (*layoutfunc)(int p), int onlyparticledata) {
-    int i, target;
+    int i;
     int64_t sumtogo;
     /* flag the particles that need to be exported */
 
@@ -544,9 +550,10 @@ void domain_exchange(int (*layoutfunc)(int p), int onlyparticledata) {
     toGetBh = (int *) mymalloc("toGetBh", (sizeof(int) * NTask));
 
 
+#pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-        target = layoutfunc(i);
+        int target = layoutfunc(i);
         if(target != ThisTask)
             P[i].OnAnotherDomain = 1;
     }
@@ -735,53 +742,52 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     for(i = 0; i < NTask; i++)
         count[i] = count_sph[i] = count_bh[i] = 0;
 
+    /*FIXME: make this omp ! */
     for(n = 0; n < NumPart; n++)
     {
-        if((P[n].OnAnotherDomain && P[n].WillExport))
+        if(!(P[n].OnAnotherDomain && P[n].WillExport)) continue;
+        /* preparing for export */
+        P[n].OnAnotherDomain = 0;
+        P[n].WillExport = 0;
+        target = layoutfunc(n);
+
+        if(P[n].Type == 0)
         {
-            /* preparing for export */
-            P[n].OnAnotherDomain = 0;
-            P[n].WillExport = 0;
-            target = layoutfunc(n);
-
-            if(P[n].Type == 0)
-            {
-                partBuf[offset_sph[target] + count_sph[target]] = P[n];
-                sphBuf[offset_sph[target] + count_sph[target]] = SPHP(n);
-                count_sph[target]++;
-            } else
-            if(P[n].Type == 5)
-            {
-                bhBuf[offset_bh[target] + count_bh[target]] = BhP[P[n].PI];
-                /* points to the subbuffer */
-                P[n].PI = count_bh[target];
-                partBuf[offset[target] + count[target]] = P[n];
-                count_bh[target]++;
-                count[target]++;
-            }
-            else
-            {
-                partBuf[offset[target] + count[target]] = P[n];
-                count[target]++;
-            }
+            partBuf[offset_sph[target] + count_sph[target]] = P[n];
+            sphBuf[offset_sph[target] + count_sph[target]] = SPHP(n);
+            count_sph[target]++;
+        } else
+        if(P[n].Type == 5)
+        {
+            bhBuf[offset_bh[target] + count_bh[target]] = BhP[P[n].PI];
+            /* points to the subbuffer */
+            P[n].PI = count_bh[target];
+            partBuf[offset[target] + count[target]] = P[n];
+            count_bh[target]++;
+            count[target]++;
+        }
+        else
+        {
+            partBuf[offset[target] + count[target]] = P[n];
+            count[target]++;
+        }
 
 
-            if(P[n].Type == 0)
-            {
-                P[n] = P[N_sph - 1];
-                P[N_sph - 1] = P[NumPart - 1];
-                SPHP(n) = SPHP(N_sph - 1);
+        if(P[n].Type == 0)
+        {
+            P[n] = P[N_sph - 1];
+            P[N_sph - 1] = P[NumPart - 1];
+            SPHP(n) = SPHP(N_sph - 1);
 
-                NumPart--;
-                N_sph--;
-                n--;
-            }
-            else
-            {
-                P[n] = P[NumPart - 1];
-                NumPart--;
-                n--;
-            }
+            NumPart--;
+            N_sph--;
+            n--;
+        }
+        else
+        {
+            P[n] = P[NumPart - 1];
+            NumPart--;
+            n--;
         }
     }
 
@@ -994,6 +1000,7 @@ void domain_garbage_collection_bh() {
     for(i = 0; i < N_bh; i++) {
         bhreverselink[i] = -1;
     }
+#pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type != 5) continue;
         bhreverselink[P[i].PI] = i;
@@ -1022,6 +1029,7 @@ void domain_garbage_collection_bh() {
 
     N_bh = j + 1;
     j = 0;
+#pragma omp parallel for reduction(+: j)
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type != 5) continue;
         if(P[i].PI >= N_bh) {
@@ -1274,7 +1282,7 @@ static int domain_layoutfunc(int n) {
 
 static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
 {
-    int n, ret, retsum, target;
+    int n, ret, retsum;
     size_t package;
 
     for(n = 0; n < NTask; n++)
@@ -1289,10 +1297,12 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
         endrun(212);
 
 
-    for(n = 0; n < NumPart && package < nlimit; n++)
+    for(n = 0; n < NumPart; n++)
     {
+        if(package >= nlimit) continue;
         if(!P[n].OnAnotherDomain) continue;
-        target = layoutfunc(n);
+
+        int target = layoutfunc(n);
         if (target == ThisTask) continue;
 
         toGo[target] += 1;
@@ -1507,38 +1517,36 @@ static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
 
                 for(n = 0; n < NumPart; n++)
                 {
-                    if(P[n].OnAnotherDomain)
+                    if(!P[n].OnAnotherDomain) continue;
+                    P[n].WillExport = 0; /* clear 16 */
+
+                    int target = layoutfunc(n);
+
+                    if(P[n].Type == 0)
                     {
-                        P[n].WillExport = 0; /* clear 16 */
-
-                        target = layoutfunc(n);
-
-                        if(P[n].Type == 0)
+                        if(local_toGoSph[target] < toGoSph[target] && local_toGo[target] < toGo[target])
                         {
-                            if(local_toGoSph[target] < toGoSph[target] && local_toGo[target] < toGo[target])
-                            {
-                                local_toGo[target] += 1;
-                                local_toGoSph[target] += 1;
-                                P[n].WillExport = 1;
-                            }
+                            local_toGo[target] += 1;
+                            local_toGoSph[target] += 1;
+                            P[n].WillExport = 1;
                         }
-                        else
-                        if(P[n].Type == 5)
+                    }
+                    else
+                    if(P[n].Type == 5)
+                    {
+                        if(local_toGoBh[target] < toGoBh[target] && local_toGo[target] < toGo[target])
                         {
-                            if(local_toGoBh[target] < toGoBh[target] && local_toGo[target] < toGo[target])
-                            {
-                                local_toGo[target] += 1;
-                                local_toGoBh[target] += 1;
-                                P[n].WillExport = 1;
-                            }
+                            local_toGo[target] += 1;
+                            local_toGoBh[target] += 1;
+                            P[n].WillExport = 1;
                         }
-                        else
+                    }
+                    else
+                    {
+                        if(local_toGo[target] < toGo[target])
                         {
-                            if(local_toGo[target] < toGo[target])
-                            {
-                                local_toGo[target] += 1;
-                                P[n].WillExport = 1;
-                            }
+                            local_toGo[target] += 1;
+                            P[n].WillExport = 1;
                         }
                     }
                 }
@@ -2042,7 +2050,7 @@ int domain_determineTopTree(void)
 
 void domain_sumCost(void)
 {
-    int i, n, no;
+    int i, n;
     float *local_domainWork;
     int *local_domainCount;
     int *local_domainCountSph;
@@ -2064,6 +2072,7 @@ void domain_sumCost(void)
     if(ThisTask == 0)
         printf("NTopleaves= %d  NTopnodes=%d (space for %d)\n", NTopleaves, NTopnodes, MaxTopNodes);
 
+#pragma omp parallel for
     for(n = 0; n < NumPart; n++)
     {
 #ifdef SUBFIND
@@ -2071,18 +2080,23 @@ void domain_sumCost(void)
             continue;
 #endif
 
-        no = 0;
+        int no = 0;
         peanokey key = KEY(n);
         while(topNodes[no].Daughter >= 0)
             no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
 
         no = topNodes[no].Leaf;
 
+#pragma omp atomic
         local_domainWork[no] += (float) domain_particle_costfactor(n);
 
+#pragma omp atomic
         local_domainCount[no] += 1;
-        if(P[n].Type == 0)
+
+        if(P[n].Type == 0) {
+#pragma omp atomic
             local_domainCountSph[no] += 1;
+        }
     }
 
     MPI_Allreduce(local_domainWork, domainWork, NTopleaves, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
@@ -2098,30 +2112,52 @@ void domain_sumCost(void)
 */
 void domain_findExtent(void)
 {
-    int i, j;
+    int i;
     double len, xmin[3], xmax[3], xmin_glob[3], xmax_glob[3];
 
     /* determine local extension */
+    int j;
     for(j = 0; j < 3; j++)
     {
         xmin[j] = MAX_REAL_NUMBER;
         xmax[j] = -MAX_REAL_NUMBER;
     }
 
-    for(i = 0; i < NumPart; i++)
+#pragma omp parallel private(j)
     {
-#ifdef SUBFIND
-        if(GrNr >= 0 && P[i].GrNr != GrNr)
-            continue;
-#endif
-
+        double xminT[3], xmaxT[3];
         for(j = 0; j < 3; j++)
         {
-            if(xmin[j] > P[i].Pos[j])
-                xmin[j] = P[i].Pos[j];
+            xminT[j] = MAX_REAL_NUMBER;
+            xmaxT[j] = -MAX_REAL_NUMBER;
+        }
 
-            if(xmax[j] < P[i].Pos[j])
-                xmax[j] = P[i].Pos[j];
+#pragma omp for
+        for(i = 0; i < NumPart; i++)
+        {
+#ifdef SUBFIND
+            if(GrNr >= 0 && P[i].GrNr != GrNr)
+                continue;
+#endif
+
+            for(j = 0; j < 3; j++)
+            {
+                if(xminT[j] > P[i].Pos[j])
+                    xminT[j] = P[i].Pos[j];
+
+                if(xmaxT[j] < P[i].Pos[j])
+                    xmaxT[j] = P[i].Pos[j];
+            }
+        }
+#pragma omp critical 
+        {
+            for(j = 0; j < 3; j++) {
+                if(xmin[j] > xminT[j]) 
+                    xmin[j] = xminT[j]; 
+                if(xmax[j] < xmaxT[j]) 
+                    xmax[j] = xmaxT[j]; 
+            
+            } 
         }
     }
 
