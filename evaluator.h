@@ -24,6 +24,7 @@ void evaluate_finish(Evaluator * ev);
 int evaluate_primary(Evaluator * ev); 
 void evaluate_secondary(Evaluator * ev);
 void evaluate_init_exporter(Exporter * exporter);
+void evaluate_exchange(void * sendbuf, void * recvbuf, size_t elsize, int tag);
 
 /*returns -1 if the buffer is full */
 int exporter_export_particle(Exporter * exporter, int target, int no, int forceusenodelist);

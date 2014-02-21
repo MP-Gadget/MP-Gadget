@@ -476,25 +476,7 @@ void hydro_force(void)
 
         /* exchange particle data */
         tstart = second();
-        for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-        {
-            sendTask = ThisTask;
-            recvTask = ThisTask ^ ngrp;
-
-            if(recvTask < NTask)
-            {
-                if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-                {
-                    /* get the particles */
-                    MPI_Sendrecv(&HydroDataIn[Send_offset[recvTask]],
-                            Send_count[recvTask] * sizeof(struct hydrodata_in), MPI_BYTE,
-                            recvTask, TAG_HYDRO_A,
-                            &HydroDataGet[Recv_offset[recvTask]],
-                            Recv_count[recvTask] * sizeof(struct hydrodata_in), MPI_BYTE,
-                            recvTask, TAG_HYDRO_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                }
-            }
-        }
+        evaluate_export(HydroDataIn, HydroDataGet, sizeof(struct hydrodata_in), TAG_HYDRO_A);
         tend = second();
         timecommsumm1 += timediff(tstart, tend);
 
@@ -525,24 +507,7 @@ void hydro_force(void)
 
         /* get the result */
         tstart = second();
-        for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-        {
-            sendTask = ThisTask;
-            recvTask = ThisTask ^ ngrp;
-            if(recvTask < NTask)
-            {
-                if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-                {
-                    /* send the results */
-                    MPI_Sendrecv(&HydroDataResult[Recv_offset[recvTask]],
-                            Recv_count[recvTask] * sizeof(struct hydrodata_out),
-                            MPI_BYTE, recvTask, TAG_HYDRO_B,
-                            &HydroDataOut[Send_offset[recvTask]],
-                            Send_count[recvTask] * sizeof(struct hydrodata_out),
-                            MPI_BYTE, recvTask, TAG_HYDRO_B, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                }
-            }
-        }
+        evaluate_import(HydroDataResult, HydroDataOut, sizeof(struct hydrodata_out), TAG_HYDRO_B);
         tend = second();
         timecommsumm2 += timediff(tstart, tend);
 

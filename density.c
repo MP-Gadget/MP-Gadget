@@ -352,25 +352,9 @@ void density(void)
             }
             /* exchange particle data */
             tstart = second();
-            for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-            {
-                sendTask = ThisTask;
-                recvTask = ThisTask ^ ngrp;
 
-                if(recvTask < NTask)
-                {
-                    if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-                    {
-                        /* get the particles */
-                        MPI_Sendrecv(&DensDataIn[Send_offset[recvTask]],
-                                Send_count[recvTask] * sizeof(struct densdata_in), MPI_BYTE,
-                                recvTask, TAG_DENS_A,
-                                &DensDataGet[Recv_offset[recvTask]],
-                                Recv_count[recvTask] * sizeof(struct densdata_in), MPI_BYTE,
-                                recvTask, TAG_DENS_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    }
-                }
-            }
+            evaluate_export(DensDataIn, DensDataGet, sizeof(struct densdata_in), TAG_DENS_A);
+
             tend = second();
             timecommsumm1 += timediff(tstart, tend);
 
@@ -399,25 +383,7 @@ void density(void)
 
             /* get the result */
             tstart = second();
-            for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-            {
-                sendTask = ThisTask;
-                recvTask = ThisTask ^ ngrp;
-                if(recvTask < NTask)
-                {
-                    if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-                    {
-                        /* send the results */
-                        MPI_Sendrecv(&DensDataResult[Recv_offset[recvTask]],
-                                Recv_count[recvTask] * sizeof(struct densdata_out),
-                                MPI_BYTE, recvTask, TAG_DENS_B,
-                                &DensDataOut[Send_offset[recvTask]],
-                                Send_count[recvTask] * sizeof(struct densdata_out),
-                                MPI_BYTE, recvTask, TAG_DENS_B, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    }
-                }
-
-            }
+            evaluate_import(DensDataResult, DensDataOut, sizeof(struct densdata_out), TAG_DENS_B);
             tend = second();
             timecommsumm2 += timediff(tstart, tend);
 

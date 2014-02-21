@@ -178,3 +178,43 @@ int exporter_export_particle(Exporter * exporter, int target, int no, int forceu
     }
     return 0;
 }
+
+static void evaluate_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int tag, int import) {
+    /* if import is 1, import the results from neigbhours */
+    int ngrp;
+    char * sp = sendbuf;
+    char * rp = recvbuf;
+     
+    MPI_Status status;
+    
+    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
+    {
+        int sendTask = ThisTask;
+        int recvTask = ThisTask ^ ngrp;
+
+        if(recvTask < NTask)
+        {
+            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
+            {
+                int so = import?Recv_offset[recvTask]:Send_offset[recvTask];
+                int ro = import?Send_offset[recvTask]:Recv_offset[recvTask];
+                int sc = import?Recv_count[recvTask]:Send_count[recvTask];
+                int rc = import?Send_count[recvTask]:Recv_count[recvTask];
+
+                /* get the particles */
+                MPI_Sendrecv(sp + elsize * so,
+                        sc * elsize, MPI_BYTE,
+                        recvTask, tag,
+                        rp + elsize * ro,
+                        rc * elsize, MPI_BYTE,
+                        recvTask, tag, MPI_COMM_WORLD, &status);
+            }
+        }
+    }
+}
+void evaluate_export(void * sendbuf, void * recvbuf, size_t elsize, int tag) {
+    evaluate_im_or_ex(sendbuf, recvbuf, elsize, tag, 0);
+}
+void evaluate_import(void * sendbuf, void * recvbuf, size_t elsize, int tag) {
+    evaluate_im_or_ex(sendbuf, recvbuf, elsize, tag, 1);
+}

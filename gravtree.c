@@ -208,11 +208,9 @@ void gravity_tree(void)
     Evaluator ev[2];
     int64_t costs[2];
 
-    int ndone, ndone_flag, ngrp;
+    int ndone;
     int place;
-    int sendTask, recvTask;
     double tstart, tend, ax, ay, az;
-    MPI_Status status;
 
 #ifdef DISTORTIONTENSORPS
     int i1, i2;
@@ -272,7 +270,7 @@ void gravity_tree(void)
 #ifndef NOGRAVITY
 
 
-#if defined(SIM_ADAPTIVE_SOFT) || defined(REINIT_AT_TURNAROUND)
+#if 0 // defined(SIM_ADAPTIVE_SOFT) || defined(REINIT_AT_TURNAROUND)
     double turnaround_radius_local = 0.0, turnaround_radius_global = 0.0, v_part, r_part;
 
 #ifdef REINIT_AT_TURNAROUND_CMS
@@ -368,7 +366,7 @@ void gravity_tree(void)
     CPU_Step[CPU_TREEMISC] += measure_time();
     t0 = second();
 
-#ifdef SCF_HYBRID
+#if 0 //def SCF_HYBRID
     int scf_counter;
     /* 
        calculates the following forces:
@@ -492,25 +490,9 @@ void gravity_tree(void)
                 /* exchange particle data */
 
                 tstart = second();
-                for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-                {
-                    sendTask = ThisTask;
-                    recvTask = ThisTask ^ ngrp;
 
-                    if(recvTask < NTask)
-                    {
-                        if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-                        {
-                            /* get the particles */
-                            MPI_Sendrecv(&GravDataIn[Send_offset[recvTask]],
-                                    Send_count[recvTask] * sizeof(struct gravdata_in), MPI_BYTE,
-                                    recvTask, TAG_GRAV_A,
-                                    &GravDataGet[Recv_offset[recvTask]],
-                                    Recv_count[recvTask] * sizeof(struct gravdata_in), MPI_BYTE,
-                                    recvTask, TAG_GRAV_A, MPI_COMM_WORLD, &status);
-                        }
-                    }
-                }
+                evaluate_export(GravDataIn, GravDataGet, sizeof(struct gravdata_in), TAG_GRAV_A);
+
                 tend = second();
                 timecommsumm1 += timediff(tstart, tend);
 
@@ -540,25 +522,9 @@ void gravity_tree(void)
 
                 /* get the result */
                 tstart = second();
-                for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-                {
-                    sendTask = ThisTask;
-                    recvTask = ThisTask ^ ngrp;
-                    if(recvTask < NTask)
-                    {
-                        if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-                        {
-                            /* send the results */
-                            MPI_Sendrecv(&GravDataResult[Recv_offset[recvTask]],
-                                    Recv_count[recvTask] * sizeof(struct gravdata_out),
-                                    MPI_BYTE, recvTask, TAG_GRAV_B,
-                                    &GravDataOut[Send_offset[recvTask]],
-                                    Send_count[recvTask] * sizeof(struct gravdata_out),
-                                    MPI_BYTE, recvTask, TAG_GRAV_B, MPI_COMM_WORLD, &status);
-                        }
-                    }
 
-                }
+                evaluate_import(GravDataResult, GravDataOut, sizeof(struct gravdata_out), TAG_GRAV_B);
+
                 tend = second();
                 timecommsumm2 += timediff(tstart, tend);
 
