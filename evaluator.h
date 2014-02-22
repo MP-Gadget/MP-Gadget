@@ -12,10 +12,22 @@ typedef int (*ev_evaluate_t) (int target, int mode, Exporter * exportor, void * 
 typedef int (*ev_isactive_t) (int i);
 typedef void * (*ev_alloc_t) ();
 
+typedef void (*ev_copy_func)(int j, void * data_in, int * nodelist);
+typedef void (*ev_reduce_func)(int j, void * data_result);
+
 typedef struct _Evaluator {
     ev_evaluate_t ev_evaluate;
     ev_isactive_t ev_isactive;
     ev_alloc_t ev_alloc;
+    size_t ev_datain_elsize;
+    size_t ev_dataout_elsize;
+
+    double timewait1;
+    double timewait2;
+    double timecomp1;
+    double timecomp2;
+    double timecommsumm1;
+    double timecommsumm2;
     int done;
 } Evaluator;
 
@@ -24,8 +36,13 @@ void evaluate_finish(Evaluator * ev);
 int evaluate_primary(Evaluator * ev); 
 void evaluate_secondary(Evaluator * ev);
 void evaluate_init_exporter(Exporter * exporter);
-void evaluate_exchange(void * sendbuf, void * recvbuf, size_t elsize, int tag);
 
 /*returns -1 if the buffer is full */
 int exporter_export_particle(Exporter * exporter, int target, int no, int forceusenodelist);
+
+void evaluate_reduce_result(Evaluator * ev, void * sendbuf, int tag, ev_reduce_func reduce_func);
+
+/* */
+void evaluate_get_remote(Evaluator * ev, void * recvbuf, int tag, ev_copy_func copy_func);
+int evaluate_ndone(Evaluator * ev);
 #endif

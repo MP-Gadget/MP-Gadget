@@ -49,8 +49,7 @@ static struct densdata_in
     MyFloat MagSeed;
 #endif
     int Type;
-}
-*DensDataIn, *DensDataGet;
+} *DensDataGet;
 
 
 static struct densdata_out
@@ -117,7 +116,10 @@ static struct densdata_out
 #endif
 
 }
-*DensDataResult, *DensDataOut;
+*DensDataResult;
+
+static void density_reduce(int place, struct densdata_out * remote);
+static void density_copy(int place, struct densdata_in * input, int * nodelist);
 
 /*! \file density.c
  *  \brief SPH density computation and smoothing length determination
@@ -146,22 +148,22 @@ void density(void)
 {
     MyFloat *Left, *Right;
 
-    Evaluator ev;
+    Evaluator ev = {0};
+
     ev.ev_evaluate = density_evaluate;
     ev.ev_isactive = density_isactive;
     ev.ev_alloc = density_alloc_ngblist;
+    ev.ev_datain_elsize = sizeof(struct densdata_in);
+    ev.ev_dataout_elsize = sizeof(struct densdata_out);
 
-    int i, j, k, ndone, ndone_flag, npleft, dt_step, iter = 0;
-
-    int ngrp, sendTask, recvTask, place;
+    int i, j, k, ndone, npleft, dt_step, iter = 0;
 
     int64_t ntot;
 
     double fac;
 
-    double timeall = 0, timecomp1 = 0, timecomp2 = 0, timecommsumm1 = 0, timecommsumm2 = 0, timewait1 =
-        0, timewait2 = 0;
-    double timecomp, timecomm, timewait;
+    double timeall = 0;
+    double timecomp, timecomp3 = 0, timecomm, timewait;
 
     double dt_entr, tstart, tend, t0, t1;
 
@@ -216,31 +218,19 @@ void density(void)
 
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
-        if(density_isactive(i))
-        {
-            Left[i] = Right[i] = 0;
+        if(!density_isactive(i)) continue;
+        Left[i] = Right[i] = 0;
 
 #ifdef BLACK_HOLES
-            P[i].SwallowID = 0;
+        P[i].SwallowID = 0;
 #endif
 #if defined(BLACK_HOLES) && defined(FLTROUNDOFFREDUCTION)
-            if(P[i].Type == 0)
-                SPHP(i).i.dInjected_BH_Energy = SPHP(i).i.Injected_BH_Energy;
+        if(P[i].Type == 0)
+            SPHP(i).i.dInjected_BH_Energy = SPHP(i).i.Injected_BH_Energy;
 #endif
-        }
     }
 
     /* allocate buffers to arrange communication */
-
-    All.BunchSize =
-        (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + sizeof(struct data_nodelist) +
-                    sizeof(struct densdata_in) + sizeof(struct densdata_out) +
-                    sizemax(sizeof(struct densdata_in),
-                        sizeof(struct densdata_out))));
-    DataIndexTable =
-        (struct data_index *) mymalloc("DataIndexTable", All.BunchSize * sizeof(struct data_index));
-    DataNodeList =
-        (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
 
     t0 = second();
 
@@ -254,274 +244,33 @@ void density(void)
 
         do
         {
-            tstart = second();
 
             evaluate_primary(&ev); /* do local particles and prepare export list */
 
-            tend = second();
-            timecomp1 += timediff(tstart, tend);
-
             n_exported += Nexport;
 
-            for(j = 0; j < NTask; j++)
-                Send_count[j] = 0;
-            for(j = 0; j < Nexport; j++) {
-                Send_count[DataIndexTable[j].Task]++;
-                if(DataIndexTable[j].Task > NTask) {
-                    endrun(412341);
-                }
-            }
-
-            tstart = second();
-
-            MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
-
-            tend = second();
-            timewait1 += timediff(tstart, tend);
-
-            for(j = 0, Nimport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
-            {
-                Nimport += Recv_count[j];
-
-                if(j > 0)
-                {
-                    Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
-                    Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
-                }
-            }
-
             DensDataGet = (struct densdata_in *) mymalloc("DensDataGet", Nimport * sizeof(struct densdata_in));
-            DensDataIn = (struct densdata_in *) mymalloc("DensDataIn", Nexport * sizeof(struct densdata_in));
 
-            /* prepare particle data for export */
-            for(j = 0; j < Nexport; j++)
-            {
-                place = DataIndexTable[j].Index;
-
-                DensDataIn[j].Pos[0] = P[place].Pos[0];
-                DensDataIn[j].Pos[1] = P[place].Pos[1];
-                DensDataIn[j].Pos[2] = P[place].Pos[2];
-                DensDataIn[j].Hsml = P[place].Hsml;
-
-                DensDataIn[j].Type = P[place].Type;
-                memcpy(DensDataIn[j].NodeList,
-                        DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
-
-#if defined(BLACK_HOLES)
-                if(P[place].Type != 0)
-                {
-                    DensDataIn[j].Vel[0] = 0;
-                    DensDataIn[j].Vel[1] = 0;
-                    DensDataIn[j].Vel[2] = 0;
-                }
-                else
-#endif
-                {
-                    DensDataIn[j].Vel[0] = SPHP(place).VelPred[0];
-                    DensDataIn[j].Vel[1] = SPHP(place).VelPred[1];
-                    DensDataIn[j].Vel[2] = SPHP(place).VelPred[2];
-                }
-#ifdef VOLUME_CORRECTION
-                DensDataIn[j].DensityOld = SPHP(place).DensityOld;
-#endif
-
-#ifdef EULERPOTENTIALS
-                DensDataIn[j].EulerA = SPHP(place).EulerA;
-                DensDataIn[j].EulerB = SPHP(place).EulerB;
-#endif
-#ifdef VECT_POTENTIAL
-                DensDataIn[j].APred[0] = SPHP(place).APred[0];
-                DensDataIn[j].APred[1] = SPHP(place).APred[1];
-                DensDataIn[j].APred[2] = SPHP(place).APred[2];
-                DensDataIn[j].rrho = SPHP(place).d.Density;
-#endif
-#if defined(MAGNETICSEED)
-                DensDataIn[j].MagSeed = SPHP(place).MagSeed;
-#endif
-
-
-#ifdef WINDS
-                DensDataIn[j].DelayTime = SPHP(place).DelayTime;
-#endif
-
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-                DensDataIn[j].BPred[0] = SPHP(place).BPred[0];
-                DensDataIn[j].BPred[1] = SPHP(place).BPred[1];
-                DensDataIn[j].BPred[2] = SPHP(place).BPred[2];
-#endif
-            }
             /* exchange particle data */
-            tstart = second();
 
-            evaluate_export(DensDataIn, DensDataGet, sizeof(struct densdata_in), TAG_DENS_A);
+            evaluate_get_remote(&ev, DensDataGet, TAG_DENS_A, density_copy);
 
-            tend = second();
-            timecommsumm1 += timediff(tstart, tend);
-
-            myfree(DensDataIn);
             DensDataResult =
                 (struct densdata_out *) mymalloc("DensDataResult", Nimport * sizeof(struct densdata_out));
-            DensDataOut =
-                (struct densdata_out *) mymalloc("DensDataOut", Nexport * sizeof(struct densdata_out));
 
             report_memory_usage(&HighMark_sphdensity, "SPH_DENSITY");
 
             /* now do the particles that were sent to us */
 
-            tstart = second();
-
             evaluate_secondary(&ev);
 
-            tend = second();
-            timecomp2 += timediff(tstart, tend);
+            /* import the result to local particles */
+            evaluate_reduce_result(&ev, DensDataResult, TAG_DENS_B, density_reduce);
 
-            tstart = second();
-            MPI_Allreduce(&ev.done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-            tend = second();
-            timewait2 += timediff(tstart, tend);
-
-
-            /* get the result */
-            tstart = second();
-            evaluate_import(DensDataResult, DensDataOut, sizeof(struct densdata_out), TAG_DENS_B);
-            tend = second();
-            timecommsumm2 += timediff(tstart, tend);
-
-
-            /* add the result to the local particles */
-            tstart = second();
-            for(j = 0; j < Nexport; j++)
-            {
-                place = DataIndexTable[j].Index;
-
-                P[place].n.dNumNgb += DensDataOut[j].Ngb;
-#ifdef HYDRO_COST_FACTOR
-                if(All.ComovingIntegrationOn)
-                    P[place].GravCost += HYDRO_COST_FACTOR * All.Time * DensDataOut[j].Ninteractions;
-                else
-                    P[place].GravCost += HYDRO_COST_FACTOR * DensDataOut[j].Ninteractions;
-#endif
-
-                if(P[place].Type == 0)
-                {
-                    SPHP(place).d.dDensity += DensDataOut[j].Rho;
-                    SPHP(place).h.dDhsmlDensityFactor += DensDataOut[j].DhsmlDensity;
-#ifdef DENSITY_INDEPENDENT_SPH
-                    SPHP(place).EgyWtDensity += DensDataOut[j].EgyRho;
-                    SPHP(place).DhsmlEgyDensityFactor += DensDataOut[j].DhsmlEgyDensity;
-#endif
-
-#ifndef NAVIERSTOKES
-                    SPHP(place).v.dDivVel += DensDataOut[j].Div;
-                    SPHP(place).r.dRot[0] += DensDataOut[j].Rot[0];
-                    SPHP(place).r.dRot[1] += DensDataOut[j].Rot[1];
-                    SPHP(place).r.dRot[2] += DensDataOut[j].Rot[2];
-#else
-                    for(k = 0; k < 3; k++)
-                    {
-                        SPHP(place).u.DV[k][0] += DensDataOut[j].DV[k][0];
-                        SPHP(place).u.DV[k][1] += DensDataOut[j].DV[k][1];
-                        SPHP(place).u.DV[k][2] += DensDataOut[j].DV[k][2];
-                    }
-#endif
-
-#ifdef VOLUME_CORRECTION
-                    SPHP(place).DensityStd += DensDataOut[j].DensityStd;
-#endif
-
-#ifdef CONDUCTION_SATURATION
-                    SPHP(place).GradEntr[0] += DensDataOut[j].GradEntr[0];
-                    SPHP(place).GradEntr[1] += DensDataOut[j].GradEntr[1];
-                    SPHP(place).GradEntr[2] += DensDataOut[j].GradEntr[2];
-#endif
-
-#ifdef RADTRANSFER_FLUXLIMITER
-                    for(k = 0; k< N_BINS; k++)
-                    {
-                        SPHP(place).Grad_ngamma[0][k] += DensDataOut[j].Grad_ngamma[0][k];
-                        SPHP(place).Grad_ngamma[1][k] += DensDataOut[j].Grad_ngamma[1][k];
-                        SPHP(place).Grad_ngamma[2][k] += DensDataOut[j].Grad_ngamma[2][k];
-                    }
-#endif
-
-
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-                    SPHP(place).RotB[0] += DensDataOut[j].RotB[0];
-                    SPHP(place).RotB[1] += DensDataOut[j].RotB[1];
-                    SPHP(place).RotB[2] += DensDataOut[j].RotB[2];
-#endif
-
-#ifdef TRACEDIVB
-                    SPHP(place).divB += DensDataOut[j].divB;
-#endif
-
-#ifdef JD_VTURB
-                    SPHP(place).Vturb += DensDataOut[j].Vturb;
-                    SPHP(place).Vbulk[0] += DensDataOut[j].Vbulk[0];
-                    SPHP(place).Vbulk[1] += DensDataOut[j].Vbulk[1];
-                    SPHP(place).Vbulk[2] += DensDataOut[j].Vbulk[2];
-                    SPHP(place).TrueNGB += DensDataOut[j].TrueNGB;
-#endif
-
-#ifdef VECT_PRO_CLEAN
-                    SPHP(place).BPredVec[0] += DensDataOut[j].BPredVec[0];
-                    SPHP(place).BPredVec[1] += DensDataOut[j].BPredVec[1];
-                    SPHP(place).BPredVec[2] += DensDataOut[j].BPredVec[2];
-#endif
-#ifdef EULERPOTENTIALS
-                    SPHP(place).dEulerA[0] += DensDataOut[j].dEulerA[0];
-                    SPHP(place).dEulerA[1] += DensDataOut[j].dEulerA[1];
-                    SPHP(place).dEulerA[2] += DensDataOut[j].dEulerA[2];
-                    SPHP(place).dEulerB[0] += DensDataOut[j].dEulerB[0];
-                    SPHP(place).dEulerB[1] += DensDataOut[j].dEulerB[1];
-                    SPHP(place).dEulerB[2] += DensDataOut[j].dEulerB[2];
-#endif
-#ifdef VECT_POTENTIAL
-                    SPHP(place).dA[5] += DensDataOut[j].da[5];
-                    SPHP(place).dA[4] += DensDataOut[j].da[4];
-                    SPHP(place).dA[3] += DensDataOut[j].da[3];
-                    SPHP(place).dA[2] += DensDataOut[j].da[2];
-                    SPHP(place).dA[1] += DensDataOut[j].da[1];
-                    SPHP(place).dA[0] += DensDataOut[j].da[0];
-#endif
-                }
-
-#if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
-                if(P[place].Type == 4)
-                    P[place].DensAroundStar += DensDataOut[j].Rho;
-#endif
-
-#ifdef BLACK_HOLES
-                if(P[place].Type == 5)
-                {
-                    if (BHP(place).TimeBinLimit < 0 || BHP(place).TimeBinLimit > DensDataOut[j].BH_TimeBinLimit) {
-                        BHP(place).TimeBinLimit = DensDataOut[j].BH_TimeBinLimit;
-                    }
-                    BHP(place).Density += DensDataOut[j].Rho;
-                    BHP(place).FeedbackWeightSum += DensDataOut[j].FeedbackWeightSum;
-                    BHP(place).EntOrPressure += DensDataOut[j].SmoothedEntOrPressure;
-#ifdef BH_USE_GASVEL_IN_BONDI
-                    BHP(place).SurroundingGasVel[0] += DensDataOut[j].GasVel[0];
-                    BHP(place).SurroundingGasVel[1] += DensDataOut[j].GasVel[1];
-                    BHP(place).SurroundingGasVel[2] += DensDataOut[j].GasVel[2];
-#endif
-                    /*
-                    printf("%d BHP(%d), TimeBinLimit=%d, TimeBin=%d\n",
-                            ThisTask, place, BHP(place).TimeBinLimit, P[place].TimeBin);
-                            */
-                }
-#endif
-
-            }
-            tend = second();
-            timecomp1 += timediff(tstart, tend);
-
-
-            myfree(DensDataOut);
             myfree(DensDataResult);
             myfree(DensDataGet);
         }
-        while(ndone < NTask);
+        while(evaluate_ndone(&ev) < NTask);
 
         evaluate_finish(&ev);
 
@@ -877,7 +626,7 @@ void density(void)
             }
         }
         tend = second();
-        timecomp1 += timediff(tstart, tend);
+        timecomp3 += timediff(tstart, tend);
 
         sumup_large_ints(1, &npleft, &ntot);
 
@@ -903,8 +652,6 @@ void density(void)
     while(ntot > 0);
 
 
-    myfree(DataNodeList);
-    myfree(DataIndexTable);
     myfree(Right);
     myfree(Left);
     myfree(Ngblist);
@@ -921,9 +668,9 @@ void density(void)
     t1 = WallclockTime = second();
     timeall += timediff(t0, t1);
 
-    timecomp = timecomp1 + timecomp2;
-    timewait = timewait1 + timewait2;
-    timecomm = timecommsumm1 + timecommsumm2;
+    timecomp = timecomp3 + ev.timecomp1 + ev.timecomp2;
+    timewait = ev.timewait1 + ev.timewait2;
+    timecomm = ev.timecommsumm1 + ev.timecommsumm2;
 
     CPU_Step[CPU_DENSCOMPUTE] += timecomp;
     CPU_Step[CPU_DENSWAIT] += timewait;
@@ -958,6 +705,182 @@ double density_decide_hsearch(int targettype, double h) {
 
 }
 
+static void density_copy(int place, struct densdata_in * input, int * nodelist) {
+    input->Pos[0] = P[place].Pos[0];
+    input->Pos[1] = P[place].Pos[1];
+    input->Pos[2] = P[place].Pos[2];
+    input->Hsml = P[place].Hsml;
+
+    input->Type = P[place].Type;
+    memcpy(input->NodeList,
+            nodelist, 
+            NODELISTLENGTH * sizeof(int));
+
+#if defined(BLACK_HOLES)
+    if(P[place].Type != 0)
+    {
+        input->Vel[0] = 0;
+        input->Vel[1] = 0;
+        input->Vel[2] = 0;
+    }
+    else
+#endif
+    {
+        input->Vel[0] = SPHP(place).VelPred[0];
+        input->Vel[1] = SPHP(place).VelPred[1];
+        input->Vel[2] = SPHP(place).VelPred[2];
+    }
+#ifdef VOLUME_CORRECTION
+    input->DensityOld = SPHP(place).DensityOld;
+#endif
+
+#ifdef EULERPOTENTIALS
+    input->EulerA = SPHP(place).EulerA;
+    input->EulerB = SPHP(place).EulerB;
+#endif
+#ifdef VECT_POTENTIAL
+    input->APred[0] = SPHP(place).APred[0];
+    input->APred[1] = SPHP(place).APred[1];
+    input->APred[2] = SPHP(place).APred[2];
+    input->rrho = SPHP(place).d.Density;
+#endif
+#if defined(MAGNETICSEED)
+    input->MagSeed = SPHP(place).MagSeed;
+#endif
+
+
+#ifdef WINDS
+    input->DelayTime = SPHP(place).DelayTime;
+#endif
+
+#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
+    input->BPred[0] = SPHP(place).BPred[0];
+    input->BPred[1] = SPHP(place).BPred[1];
+    input->BPred[2] = SPHP(place).BPred[2];
+#endif
+}
+
+static void density_reduce(int place, struct densdata_out * remote) {
+
+    P[place].n.dNumNgb += remote->Ngb;
+#ifdef HYDRO_COST_FACTOR
+    if(All.ComovingIntegrationOn)
+        P[place].GravCost += HYDRO_COST_FACTOR * All.Time * remote->Ninteractions;
+    else
+        P[place].GravCost += HYDRO_COST_FACTOR * remote->Ninteractions;
+#endif
+
+    if(P[place].Type == 0)
+    {
+        SPHP(place).d.dDensity += remote->Rho;
+        SPHP(place).h.dDhsmlDensityFactor += remote->DhsmlDensity;
+#ifdef DENSITY_INDEPENDENT_SPH
+        SPHP(place).EgyWtDensity += remote->EgyRho;
+        SPHP(place).DhsmlEgyDensityFactor += remote->DhsmlEgyDensity;
+#endif
+
+#ifndef NAVIERSTOKES
+        SPHP(place).v.dDivVel += remote->Div;
+        SPHP(place).r.dRot[0] += remote->Rot[0];
+        SPHP(place).r.dRot[1] += remote->Rot[1];
+        SPHP(place).r.dRot[2] += remote->Rot[2];
+#else
+        for(k = 0; k < 3; k++)
+        {
+            SPHP(place).u.DV[k][0] += remote->DV[k][0];
+            SPHP(place).u.DV[k][1] += remote->DV[k][1];
+            SPHP(place).u.DV[k][2] += remote->DV[k][2];
+        }
+#endif
+
+#ifdef VOLUME_CORRECTION
+        SPHP(place).DensityStd += remote->DensityStd;
+#endif
+
+#ifdef CONDUCTION_SATURATION
+        SPHP(place).GradEntr[0] += remote->GradEntr[0];
+        SPHP(place).GradEntr[1] += remote->GradEntr[1];
+        SPHP(place).GradEntr[2] += remote->GradEntr[2];
+#endif
+
+#ifdef RADTRANSFER_FLUXLIMITER
+        for(k = 0; k< N_BINS; k++)
+        {
+            SPHP(place).Grad_ngamma[0][k] += remote->Grad_ngamma[0][k];
+            SPHP(place).Grad_ngamma[1][k] += remote->Grad_ngamma[1][k];
+            SPHP(place).Grad_ngamma[2][k] += remote->Grad_ngamma[2][k];
+        }
+#endif
+
+
+#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
+        SPHP(place).RotB[0] += remote->RotB[0];
+        SPHP(place).RotB[1] += remote->RotB[1];
+        SPHP(place).RotB[2] += remote->RotB[2];
+#endif
+
+#ifdef TRACEDIVB
+        SPHP(place).divB += remote->divB;
+#endif
+
+#ifdef JD_VTURB
+        SPHP(place).Vturb += remote->Vturb;
+        SPHP(place).Vbulk[0] += remote->Vbulk[0];
+        SPHP(place).Vbulk[1] += remote->Vbulk[1];
+        SPHP(place).Vbulk[2] += remote->Vbulk[2];
+        SPHP(place).TrueNGB += remote->TrueNGB;
+#endif
+
+#ifdef VECT_PRO_CLEAN
+        SPHP(place).BPredVec[0] += remote->BPredVec[0];
+        SPHP(place).BPredVec[1] += remote->BPredVec[1];
+        SPHP(place).BPredVec[2] += remote->BPredVec[2];
+#endif
+#ifdef EULERPOTENTIALS
+        SPHP(place).dEulerA[0] += remote->dEulerA[0];
+        SPHP(place).dEulerA[1] += remote->dEulerA[1];
+        SPHP(place).dEulerA[2] += remote->dEulerA[2];
+        SPHP(place).dEulerB[0] += remote->dEulerB[0];
+        SPHP(place).dEulerB[1] += remote->dEulerB[1];
+        SPHP(place).dEulerB[2] += remote->dEulerB[2];
+#endif
+#ifdef VECT_POTENTIAL
+        SPHP(place).dA[5] += remote->da[5];
+        SPHP(place).dA[4] += remote->da[4];
+        SPHP(place).dA[3] += remote->da[3];
+        SPHP(place).dA[2] += remote->da[2];
+        SPHP(place).dA[1] += remote->da[1];
+        SPHP(place).dA[0] += remote->da[0];
+#endif
+    }
+
+#if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
+    if(P[place].Type == 4)
+        P[place].DensAroundStar += remote->Rho;
+#endif
+
+#ifdef BLACK_HOLES
+    if(P[place].Type == 5)
+    {
+        if (BHP(place).TimeBinLimit < 0 || BHP(place).TimeBinLimit > remote->BH_TimeBinLimit) {
+            BHP(place).TimeBinLimit = remote->BH_TimeBinLimit;
+        }
+        BHP(place).Density += remote->Rho;
+        BHP(place).FeedbackWeightSum += remote->FeedbackWeightSum;
+        BHP(place).EntOrPressure += remote->SmoothedEntOrPressure;
+#ifdef BH_USE_GASVEL_IN_BONDI
+        BHP(place).SurroundingGasVel[0] += remote->GasVel[0];
+        BHP(place).SurroundingGasVel[1] += remote->GasVel[1];
+        BHP(place).SurroundingGasVel[2] += remote->GasVel[2];
+#endif
+        /*
+        printf("%d BHP(%d), TimeBinLimit=%d, TimeBin=%d\n",
+                ThisTask, place, BHP(place).TimeBinLimit, P[place].TimeBin);
+                */
+    }
+#endif
+
+}
 /*! This function represents the core of the SPH density computation. The
  *  target particle may either be local, or reside in the communication
  *  buffer.

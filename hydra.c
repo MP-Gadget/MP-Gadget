@@ -118,8 +118,7 @@ struct hydrodata_in
 #ifndef DONOTUSENODELIST
     int NodeList[NODELISTLENGTH];
 #endif
-}
-*HydroDataIn, *HydroDataGet;
+} *HydroDataGet;
 
 
 struct hydrodata_out
@@ -159,9 +158,11 @@ struct hydrodata_out
     int Ninteractions;
 #endif
 }
-*HydroDataResult, *HydroDataOut;
+*HydroDataResult;
 
 
+static void hydro_copy(int place, struct hydrodata_in * input, int * nodelist);
+static void hydro_reduce(int place, struct hydrodata_out * result);
 
 #ifdef MACHNUM
 double hubble_a, atime, hubble_a2, fac_mu, fac_vsic_fix, a3inv, fac_egy;
@@ -175,16 +176,16 @@ static double hubble_a, atime, hubble_a2, fac_mu, fac_vsic_fix, a3inv, fac_egy;
  */
 void hydro_force(void)
 {
-    Evaluator ev;
+    Evaluator ev = {0};
     ev.ev_evaluate = hydro_evaluate;
     ev.ev_isactive = hydro_isactive;
     ev.ev_alloc = hydro_alloc_ngblist;
+    ev.ev_datain_elsize = sizeof(struct hydrodata_in);
+    ev.ev_dataout_elsize = sizeof(struct hydrodata_out);
 
     int i, j, k, ngrp, ndone, ndone_flag;
     int sendTask, recvTask, place;
-    double soundspeed_i;
-    double timeall = 0, timecomp1 = 0, timecomp2 = 0, timecommsumm1 = 0, timecommsumm2 = 0, timewait1 =
-        0, timewait2 = 0, timenetwork = 0;
+    double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait, tstart, tend, t0, t1;
 
     int64_t n_exported = 0;
@@ -281,18 +282,6 @@ void hydro_force(void)
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
-    All.BunchSize =
-        (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + sizeof(struct data_nodelist) +
-                    sizeof(struct hydrodata_in) +
-                    sizeof(struct hydrodata_out) +
-                    sizemax(sizeof(struct hydrodata_in),
-                        sizeof(struct hydrodata_out))));
-    DataIndexTable =
-        (struct data_index *) mymalloc("DataIndexTable", All.BunchSize * sizeof(struct data_index));
-    DataNodeList =
-        (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
-
-
     CPU_Step[CPU_HYDMISC] += measure_time();
     t0 = second();
 
@@ -300,287 +289,32 @@ void hydro_force(void)
     do
     {
         /* do local particles and prepare export list */
-        tstart = second();
-
         evaluate_primary(&ev);
-
-        tend = second();
-        timecomp1 += timediff(tstart, tend);
 
         n_exported += Nexport;
 
-        for(j = 0; j < NTask; j++)
-            Send_count[j] = 0;
-        for(j = 0; j < Nexport; j++) {
-            Send_count[DataIndexTable[j].Task]++;
-        }
-
-        tstart = second();
-
-        MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
-
-        tend = second();
-        timewait1 += timediff(tstart, tend);
-
-        for(j = 0, Nimport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
-        {
-            Nimport += Recv_count[j];
-
-            if(j > 0)
-            {
-                Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
-                Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
-            }
-        }
-
         HydroDataGet = (struct hydrodata_in *) mymalloc("HydroDataGet", Nimport * sizeof(struct hydrodata_in));
-        HydroDataIn = (struct hydrodata_in *) mymalloc("HydroDataIn", Nexport * sizeof(struct hydrodata_in));
 
-        /* prepare particle data for export */
+        evaluate_get_remote(&ev, HydroDataGet, TAG_HYDRO_A, hydro_copy);
 
-        for(j = 0; j < Nexport; j++)
-        {
-            place = DataIndexTable[j].Index;
-
-            for(k = 0; k < 3; k++)
-            {
-                HydroDataIn[j].Pos[k] = P[place].Pos[k];
-                HydroDataIn[j].Vel[k] = SPHP(place).VelPred[k];
-            }
-            HydroDataIn[j].Hsml = P[place].Hsml;
-            HydroDataIn[j].Mass = P[place].Mass;
-            HydroDataIn[j].Density = SPHP(place).d.Density;
-#ifdef DENSITY_INDEPENDENT_SPH
-            HydroDataIn[j].EgyRho = SPHP(place).EgyWtDensity;
-            HydroDataIn[j].EntVarPred = SPHP(place).EntVarPred;
-            HydroDataIn[j].DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
-#else
-            HydroDataIn[j].DhsmlDensityFactor = SPHP(place).h.DhsmlDensityFactor;
-#endif
-
-            HydroDataIn[j].Pressure = SPHP(place).Pressure;
-            HydroDataIn[j].Timestep = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0);
-#ifdef EOS_DEGENERATE
-            HydroDataIn[j].dpdr = SPHP(place).dpdr;
-#endif
-
-            /* calculation of F1 */
-#ifndef ALTVISCOSITY
-#ifndef EOS_DEGENERATE
-            soundspeed_i = sqrt(GAMMA * SPHP(place).Pressure / SPHP(place).EOMDensity);
-#else
-            soundspeed_i = sqrt(SPHP(place).dpdr);
-#endif
-#ifndef NAVIERSTOKES
-            HydroDataIn[j].F1 = fabs(SPHP(place).v.DivVel) /
-                (fabs(SPHP(place).v.DivVel) + SPHP(place).r.CurlVel +
-                 0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
-#else
-            HydroDataIn[j].F1 = fabs(SPHP(place).v.DivVel) /
-                (fabs(SPHP(place).v.DivVel) + SPHP(place).u.s.CurlVel +
-                 0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
-#endif
-
-#else
-            HydroDataIn[j].F1 = SPHP(place).v.DivVel;
-#endif
-
-#ifndef DONOTUSENODELIST
-            memcpy(HydroDataIn[j].NodeList,
-                    DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
-#endif
-
-#ifdef JD_VTURB
-            HydroDataIn[j].Vbulk[0] = SPHP(place).Vbulk[0];
-            HydroDataIn[j].Vbulk[1] = SPHP(place).Vbulk[1];
-            HydroDataIn[j].Vbulk[2] = SPHP(place).Vbulk[2];
-#endif
-
-#ifdef MAGNETIC
-            for(k = 0; k < 3; k++)
-            {
-#ifndef SFR
-                HydroDataIn[j].BPred[k] = SPHP(place).BPred[k];
-#else
-                HydroDataIn[j].BPred[k] = SPHP(place).BPred[k] * pow(1.-SPHP(place).XColdCloud,2.*POW_CC);
-#endif
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-#ifdef SMOOTH_ROTB
-                HydroDataIn[j].RotB[k] = SPHP(place).SmoothedRotB[k];
-#else
-                HydroDataIn[j].RotB[k] = SPHP(place).RotB[k];
-#endif
-#ifdef SFR
-                HydroDataIn[j].RotB[k] *= pow(1.-SPHP(place).XColdCloud,3.*POW_CC);
-#endif
-#endif
-            }
-#ifdef ALFA_OMEGA_DYN
-            HydroDataIn[j].alfaomega =
-                Sph[place].r.Rot[0] * Sph[place].VelPred[0] + Sph[place].r.Rot[1] * Sph[place].VelPred[1] +
-                Sph[place].r.Rot[2] * Sph[place].VelPred[2];
-#endif
-#if defined(EULERPOTENTIALS) && defined(EULER_DISSIPATION)
-            HydroDataIn[j].EulerA = SPHP(place).EulerA;
-            HydroDataIn[j].EulerB = SPHP(place).EulerB;
-#endif
-#ifdef VECT_POTENTIAL
-            HydroDataIn[j].Apred[0] = SPHP(place).APred[0];
-            HydroDataIn[j].Apred[1] = SPHP(place).APred[1];
-            HydroDataIn[j].Apred[2] = SPHP(place).APred[2];
-#endif
-#ifdef DIVBCLEANING_DEDNER
-#ifdef SMOOTH_PHI
-            HydroDataIn[j].PhiPred = SPHP(place).SmoothPhi;
-#else
-            HydroDataIn[j].PhiPred = SPHP(place).PhiPred;
-#endif
-#endif
-#endif
-
-
-#if defined(NAVIERSTOKES)
-            HydroDataIn[j].Entropy = SPHP(place).Entropy;
-#endif
-
-
-#ifdef TIME_DEP_ART_VISC
-            HydroDataIn[j].alpha = SPHP(place).alpha;
-#endif
-
-
-#ifdef PARTICLE_DEBUG
-            HydroDataIn[j].ID = P[place].ID;
-#endif
-
-#ifdef NAVIERSTOKES
-            for(k = 0; k < 3; k++)
-            {
-                HydroDataIn[j].stressdiag[k] = SPHP(i).u.s.StressDiag[k];
-                HydroDataIn[j].stressoffdiag[k] = SPHP(i).u.s.StressOffDiag[k];
-            }
-            HydroDataIn[j].shear_viscosity = get_shear_viscosity(i);
-
-#ifdef NAVIERSTOKES_BULK
-            HydroDataIn[j].divvel = SPHP(i).u.s.DivVel;
-#endif
-#endif
-
-#ifdef TIME_DEP_MAGN_DISP
-            HydroDataIn[j].Balpha = SPHP(place).Balpha;
-#endif
-        }
-
-
-
-
-        /* exchange particle data */
-        tstart = second();
-        evaluate_export(HydroDataIn, HydroDataGet, sizeof(struct hydrodata_in), TAG_HYDRO_A);
-        tend = second();
-        timecommsumm1 += timediff(tstart, tend);
-
-
-        myfree(HydroDataIn);
         HydroDataResult =
             (struct hydrodata_out *) mymalloc("HydroDataResult", Nimport * sizeof(struct hydrodata_out));
-        HydroDataOut =
-            (struct hydrodata_out *) mymalloc("HydroDataOut", Nexport * sizeof(struct hydrodata_out));
-
 
         report_memory_usage(&HighMark_sphhydro, "SPH_HYDRO");
 
         /* now do the particles that were sent to us */
 
-        tstart = second();
-
         evaluate_secondary(&ev);
 
-        tend = second();
-        timecomp2 += timediff(tstart, tend);
-
-        tstart = second();
-        MPI_Allreduce(&ev.done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-        tend = second();
-        timewait2 += timediff(tstart, tend);
-
-
         /* get the result */
-        tstart = second();
-        evaluate_import(HydroDataResult, HydroDataOut, sizeof(struct hydrodata_out), TAG_HYDRO_B);
-        tend = second();
-        timecommsumm2 += timediff(tstart, tend);
+        evaluate_reduce_result(&ev, HydroDataResult, TAG_HYDRO_B, hydro_reduce);
 
-
-
-        /* add the result to the local particles */
-        tstart = second();
-        for(j = 0; j < Nexport; j++)
-        {
-            place = DataIndexTable[j].Index;
-
-            for(k = 0; k < 3; k++)
-            {
-                SPHP(place).a.dHydroAccel[k] += HydroDataOut[j].Acc[k];
-            }
-
-            SPHP(place).e.dDtEntropy += HydroDataOut[j].DtEntropy;
-
-#ifdef HYDRO_COST_FACTOR
-            if(All.ComovingIntegrationOn)
-                P[place].GravCost += HYDRO_COST_FACTOR * All.Time * HydroDataOut[j].Ninteractions;
-            else
-                P[place].GravCost += HYDRO_COST_FACTOR * HydroDataOut[j].Ninteractions;
-#endif
-
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-            if(SPHP(place).MinViscousDt > HydroDataOut[j].MinViscousDt)
-                SPHP(place).MinViscousDt = HydroDataOut[j].MinViscousDt;
-#else
-            if(SPHP(place).MaxSignalVel < HydroDataOut[j].MaxSignalVel)
-                SPHP(place).MaxSignalVel = HydroDataOut[j].MaxSignalVel;
-#endif
-
-#ifdef JD_VTURB
-            SPHP(place).Vrms += HydroDataOut[j].Vrms; 
-#endif
-
-#if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
-            for(k = 0; k < 3; k++)
-                SPHP(place).DtB[k] += HydroDataOut[j].DtB[k];
-#endif
-#ifdef DIVBFORCE3
-            for(k = 0; k < 3; k++)
-                SPHP(place).magacc[k] += HydroDataOut[j].magacc[k];
-            for(k = 0; k < 3; k++)
-                SPHP(place).magcorr[k] += HydroDataOut[j].magcorr[k];
-#endif
-#ifdef DIVBCLEANING_DEDNER
-            for(k = 0; k < 3; k++)
-                SPHP(place).GradPhi[k] += HydroDataOut[j].GradPhi[k];
-#endif
-#if VECT_POTENTIAL
-            for(k = 0; k < 3; k++)
-                SPHP(place).DtA[k] += HydroDataOut[j].dta[k];
-#endif
-#if defined(EULERPOTENTIALS) && defined(EULER_DISSIPATION)
-            SPHP(place).DtEulerA += HydroDataOut[j].DtEulerA;
-            SPHP(place).DtEulerB += HydroDataOut[j].DtEulerB;
-#endif
-        }
-        tend = second();
-        timecomp1 += timediff(tstart, tend);
-
-        myfree(HydroDataOut);
         myfree(HydroDataResult);
         myfree(HydroDataGet);
     }
-    while(ndone < NTask);
+    while(evaluate_ndone(&ev) < NTask);
     
     evaluate_finish(&ev);
-
-    myfree(DataNodeList);
-    myfree(DataIndexTable);
 
     myfree(Ngblist);
 
@@ -994,9 +728,9 @@ void hydro_force(void)
     t1 = WallclockTime = second();
     timeall += timediff(t0, t1);
 
-    timecomp = timecomp1 + timecomp2;
-    timewait = timewait1 + timewait2;
-    timecomm = timecommsumm1 + timecommsumm2;
+    timecomp = ev.timecomp1 + ev.timecomp2;
+    timewait = ev.timewait1 + ev.timewait2;
+    timecomm = ev.timecommsumm1 + ev.timecommsumm2;
 
     CPU_Step[CPU_HYDCOMPUTE] += timecomp;
     CPU_Step[CPU_HYDWAIT] += timewait;
@@ -1005,7 +739,189 @@ void hydro_force(void)
     CPU_Step[CPU_HYDMISC] += timeall - (timecomp + timewait + timecomm + timenetwork);
 }
 
+static void hydro_copy(int place, struct hydrodata_in * input, int * nodelist) {
+    int k;
+    double soundspeed_i;
+    for(k = 0; k < 3; k++)
+    {
+        input->Pos[k] = P[place].Pos[k];
+        input->Vel[k] = SPHP(place).VelPred[k];
+    }
+    input->Hsml = P[place].Hsml;
+    input->Mass = P[place].Mass;
+    input->Density = SPHP(place).d.Density;
+#ifdef DENSITY_INDEPENDENT_SPH
+    input->EgyRho = SPHP(place).EgyWtDensity;
+    input->EntVarPred = SPHP(place).EntVarPred;
+    input->DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
+#else
+    input->DhsmlDensityFactor = SPHP(place).h.DhsmlDensityFactor;
+#endif
 
+    input->Pressure = SPHP(place).Pressure;
+    input->Timestep = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0);
+#ifdef EOS_DEGENERATE
+    input->dpdr = SPHP(place).dpdr;
+#endif
+
+    /* calculation of F1 */
+#ifndef ALTVISCOSITY
+#ifndef EOS_DEGENERATE
+    soundspeed_i = sqrt(GAMMA * SPHP(place).Pressure / SPHP(place).EOMDensity);
+#else
+    soundspeed_i = sqrt(SPHP(place).dpdr);
+#endif
+#ifndef NAVIERSTOKES
+    input->F1 = fabs(SPHP(place).v.DivVel) /
+        (fabs(SPHP(place).v.DivVel) + SPHP(place).r.CurlVel +
+         0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
+#else
+    input->F1 = fabs(SPHP(place).v.DivVel) /
+        (fabs(SPHP(place).v.DivVel) + SPHP(place).u.s.CurlVel +
+         0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
+#endif
+
+#else
+    input->F1 = SPHP(place).v.DivVel;
+#endif
+
+#ifndef DONOTUSENODELIST
+    memcpy(input->NodeList, nodelist, NODELISTLENGTH * sizeof(int));
+#endif
+
+#ifdef JD_VTURB
+    input->Vbulk[0] = SPHP(place).Vbulk[0];
+    input->Vbulk[1] = SPHP(place).Vbulk[1];
+    input->Vbulk[2] = SPHP(place).Vbulk[2];
+#endif
+
+#ifdef MAGNETIC
+    for(k = 0; k < 3; k++)
+    {
+#ifndef SFR
+        input->BPred[k] = SPHP(place).BPred[k];
+#else
+        input->BPred[k] = SPHP(place).BPred[k] * pow(1.-SPHP(place).XColdCloud,2.*POW_CC);
+#endif
+#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
+#ifdef SMOOTH_ROTB
+        input->RotB[k] = SPHP(place).SmoothedRotB[k];
+#else
+        input->RotB[k] = SPHP(place).RotB[k];
+#endif
+#ifdef SFR
+        input->RotB[k] *= pow(1.-SPHP(place).XColdCloud,3.*POW_CC);
+#endif
+#endif
+    }
+#ifdef ALFA_OMEGA_DYN
+    input->alfaomega =
+        Sph[place].r.Rot[0] * Sph[place].VelPred[0] + Sph[place].r.Rot[1] * Sph[place].VelPred[1] +
+        Sph[place].r.Rot[2] * Sph[place].VelPred[2];
+#endif
+#if defined(EULERPOTENTIALS) && defined(EULER_DISSIPATION)
+    input->EulerA = SPHP(place).EulerA;
+    input->EulerB = SPHP(place).EulerB;
+#endif
+#ifdef VECT_POTENTIAL
+    input->Apred[0] = SPHP(place).APred[0];
+    input->Apred[1] = SPHP(place).APred[1];
+    input->Apred[2] = SPHP(place).APred[2];
+#endif
+#ifdef DIVBCLEANING_DEDNER
+#ifdef SMOOTH_PHI
+    input->PhiPred = SPHP(place).SmoothPhi;
+#else
+    input->PhiPred = SPHP(place).PhiPred;
+#endif
+#endif
+#endif
+
+
+#if defined(NAVIERSTOKES)
+    input->Entropy = SPHP(place).Entropy;
+#endif
+
+
+#ifdef TIME_DEP_ART_VISC
+    input->alpha = SPHP(place).alpha;
+#endif
+
+
+#ifdef PARTICLE_DEBUG
+    input->ID = P[place].ID;
+#endif
+
+#ifdef NAVIERSTOKES
+    for(k = 0; k < 3; k++)
+    {
+        input->stressdiag[k] = SPHP(i).u.s.StressDiag[k];
+        input->stressoffdiag[k] = SPHP(i).u.s.StressOffDiag[k];
+    }
+    input->shear_viscosity = get_shear_viscosity(i);
+
+#ifdef NAVIERSTOKES_BULK
+    input->divvel = SPHP(i).u.s.DivVel;
+#endif
+#endif
+
+#ifdef TIME_DEP_MAGN_DISP
+    input->Balpha = SPHP(place).Balpha;
+#endif
+}
+
+static void hydro_reduce(int place, struct hydrodata_out * result) {
+    int k;
+
+    for(k = 0; k < 3; k++)
+    {
+        SPHP(place).a.dHydroAccel[k] += result->Acc[k];
+    }
+
+    SPHP(place).e.dDtEntropy += result->DtEntropy;
+
+#ifdef HYDRO_COST_FACTOR
+    if(All.ComovingIntegrationOn)
+        P[place].GravCost += HYDRO_COST_FACTOR * All.Time * result->Ninteractions;
+    else
+        P[place].GravCost += HYDRO_COST_FACTOR * result->Ninteractions;
+#endif
+
+#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
+    if(SPHP(place).MinViscousDt > result->MinViscousDt)
+        SPHP(place).MinViscousDt = result->MinViscousDt;
+#else
+    if(SPHP(place).MaxSignalVel < result->MaxSignalVel)
+        SPHP(place).MaxSignalVel = result->MaxSignalVel;
+#endif
+
+#ifdef JD_VTURB
+    SPHP(place).Vrms += result->Vrms; 
+#endif
+
+#if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
+    for(k = 0; k < 3; k++)
+        SPHP(place).DtB[k] += result->DtB[k];
+#endif
+#ifdef DIVBFORCE3
+    for(k = 0; k < 3; k++)
+        SPHP(place).magacc[k] += result->magacc[k];
+    for(k = 0; k < 3; k++)
+        SPHP(place).magcorr[k] += result->magcorr[k];
+#endif
+#ifdef DIVBCLEANING_DEDNER
+    for(k = 0; k < 3; k++)
+        SPHP(place).GradPhi[k] += result->GradPhi[k];
+#endif
+#if VECT_POTENTIAL
+    for(k = 0; k < 3; k++)
+        SPHP(place).DtA[k] += result->dta[k];
+#endif
+#if defined(EULERPOTENTIALS) && defined(EULER_DISSIPATION)
+    SPHP(place).DtEulerA += result->DtEulerA;
+    SPHP(place).DtEulerB += result->DtEulerB;
+#endif
+}
 
 
 /*! This function is the 'core' of the SPH force computation. A target

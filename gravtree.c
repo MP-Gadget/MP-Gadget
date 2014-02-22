@@ -180,6 +180,8 @@ void calculate_centre_of_mass(void)
 }
 #endif
 
+static void grav_copy(int place, struct gravdata_in * input, int * nodelist) ;
+static void grav_reduce(int place, struct gravdata_out * result);
 
 /*! This function computes the gravitational forces for all active particles.
  *  If needed, a new tree is constructed, otherwise the dynamically updated
@@ -203,9 +205,9 @@ void gravity_tree(void)
     double min_time_first_phase, min_time_first_phase_glob;
 #endif
 #ifndef NOGRAVITY
-    int k, ewald_max;
+    int k, Ewald_max;
 
-    Evaluator ev[2];
+    Evaluator ev[2] = {0};
     int64_t costs[2];
 
     int ndone;
@@ -221,20 +223,23 @@ void gravity_tree(void)
     ev[0].ev_evaluate = force_treeevaluate_shortrange;
     ev[0].ev_alloc = gravtree_alloccost;
     ev[0].ev_isactive = gravtree_isactive;
-    ewald_max = 0;
+    Ewald_max = 0;
 #else
     ev[0].ev_evaluate = force_treeevaluate;
     ev[0].ev_alloc = gravtree_alloccost;
     ev[0].ev_isactive = gravtree_isactive;
-    ewald_max = 0;
+    Ewald_max = 0;
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
     ev[1].ev_evaluate = force_treeevaluate_ewald_correction;
     ev[1].ev_alloc = gravtree_alloccost;
     ev[1].ev_isactive = gravtree_isactive;
-    ewald_max = 1;
+    Ewald_max = 1;
 #endif
 #endif
-
+    for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++) {
+        ev[Ewald_iter].ev_datain_elsize = sizeof(struct gravdata_in);
+        ev[Ewald_iter].ev_dataout_elsize = sizeof(struct gravdata_out);
+    }
 #ifndef GRAVITY_CENTROID
     CPU_Step[CPU_MISC] += measure_time();
 
@@ -348,19 +353,6 @@ void gravity_tree(void)
     if(ThisTask == 0)
         printf("Begin tree force.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
-    All.BunchSize =
-        (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + sizeof(struct data_nodelist) +
-                    sizeof(struct gravdata_in) + sizeof(struct gravdata_out) +
-                    sizemax(sizeof(struct gravdata_in),
-                        sizeof(struct gravdata_out))));
-    DataIndexTable =
-        (struct data_index *) mymalloc("DataIndexTable", All.BunchSize * sizeof(struct data_index));
-    DataNodeList =
-        (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
-
-    if(ThisTask == 0)
-        printf("All.BunchSize=%d\n", All.BunchSize);
-
     CostBuffer = (int * ) mymalloc("CostBuffer", All.NumThreads * sizeof(int));
 
     CPU_Step[CPU_TREEMISC] += measure_time();
@@ -405,7 +397,7 @@ void gravity_tree(void)
         if(ThisTask == 0)
             printf("done.\n");    
 #endif
-        for(Ewald_iter = 0; Ewald_iter <= ewald_max; Ewald_iter++)
+        for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++)
         {
 
             evaluate_begin(&ev[Ewald_iter]);
@@ -413,150 +405,37 @@ void gravity_tree(void)
             {
                 iter++;
 
-                tstart = second();
-
                 evaluate_primary(&ev[Ewald_iter]);
 
                 costs[Ewald_iter] += gravtree_reducecost();
 
-                tend = second();
-                timetree1 += timediff(tstart, tend);
-
                 n_exported += Nexport;
 
-                for(j = 0; j < NTask; j++)
-                    Send_count[j] = 0;
-                for(j = 0; j < Nexport; j++)
-                    Send_count[DataIndexTable[j].Task]++;
-
-                tstart = second();
-
-                MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
-
-                tend = second();
-                timewait1 += timediff(tstart, tend);
-
-
-                for(j = 0, Nimport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
-                {
-                    Nimport += Recv_count[j];
-
-                    if(j > 0)
-                    {
-                        Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
-                        Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
-                    }
-                }
-
                 GravDataGet = (struct gravdata_in *) mymalloc("GravDataGet", Nimport * sizeof(struct gravdata_in));
-                GravDataIn = (struct gravdata_in *) mymalloc("GravDataIn", Nexport * sizeof(struct gravdata_in));
-
-                /* prepare particle data for export */
-
-                for(j = 0; j < Nexport; j++)
-                {
-                    place = DataIndexTable[j].Index;
-
-#ifdef GRAVITY_CENTROID
-                    if(P[place].Type == 0)
-                    {
-                        for(k = 0; k < 3; k++)
-                            GravDataIn[j].Pos[k] = SPHP(place).Center[k];
-                    }
-                    else
-                    {
-                        for(k = 0; k < 3; k++)
-                            GravDataIn[j].Pos[k] = P[place].Pos[k];
-                    }
-#else
-                    for(k = 0; k < 3; k++)
-                        GravDataIn[j].Pos[k] = P[place].Pos[k];
-#endif
-
-#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
-                    GravDataIn[j].Type = P[place].Type;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-                    if(P[place].Type == 0)
-                        GravDataIn[j].Soft = P[place].Hsml;
-#endif
-#endif
-                    GravDataIn[j].OldAcc = P[place].OldAcc;
-
-                    memcpy(GravDataIn[j].NodeList,
-                            DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
-                }
 
 
                 /* exchange particle data */
 
-                tstart = second();
+                evaluate_get_remote(&ev[Ewald_iter], GravDataGet, TAG_GRAV_A, grav_copy);
 
-                evaluate_export(GravDataIn, GravDataGet, sizeof(struct gravdata_in), TAG_GRAV_A);
-
-                tend = second();
-                timecommsumm1 += timediff(tstart, tend);
-
-
-                myfree(GravDataIn);
                 GravDataResult =
                     (struct gravdata_out *) mymalloc("GravDataResult", Nimport * sizeof(struct gravdata_out));
-                GravDataOut =
-                    (struct gravdata_out *) mymalloc("GravDataOut", Nexport * sizeof(struct gravdata_out));
-
+                
                 report_memory_usage(&HighMark_gravtree, "GRAVTREE");
 
                 /* now do the particles that were sent to us */
-                tstart = second();
 
                 evaluate_secondary(&ev[Ewald_iter]);
                 costs[Ewald_iter] += gravtree_reducecost();
 
-                tend = second();
-                timetree2 += timediff(tstart, tend);
-
-                tstart = second();
-                MPI_Allreduce(&ev[Ewald_iter].done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-                tend = second();
-                timewait2 += timediff(tstart, tend);
-
-
                 /* get the result */
-                tstart = second();
+                evaluate_reduce_result(&ev[Ewald_iter], GravDataResult, TAG_GRAV_B, grav_reduce);
 
-                evaluate_import(GravDataResult, GravDataOut, sizeof(struct gravdata_out), TAG_GRAV_B);
-
-                tend = second();
-                timecommsumm2 += timediff(tstart, tend);
-
-
-                /* add the results to the local particles */
-                tstart = second();
-                for(j = 0; j < Nexport; j++)
-                {
-                    place = DataIndexTable[j].Index;
-
-                    for(k = 0; k < 3; k++)
-                        P[place].g.dGravAccel[k] += GravDataOut[j].Acc[k];
-
-#ifdef DISTORTIONTENSORPS
-                    for(i1 = 0; i1 < 3; i1++)
-                        for(i2 = 0; i2 < 3; i2++)
-                            P[place].tidal_tensorps[i1][i2] += GravDataOut[j].tidal_tensorps[i1][i2];
-#endif
-
-                    P[place].GravCost += GravDataOut[j].Ninteractions;
-#ifdef EVALPOTENTIAL
-                    P[place].p.dPotential += GravDataOut[j].Potential;
-#endif
-                }
-                tend = second();
-                timetree1 += timediff(tstart, tend);
-
-                myfree(GravDataOut);
                 myfree(GravDataResult);
                 myfree(GravDataGet);
             }
-            while(ndone < NTask);
+            while(evaluate_ndone(&ev[Ewald_iter]) < NTask);
+
             evaluate_finish(&ev[Ewald_iter]);
         } /* Ewald_iter */
 
@@ -606,8 +485,6 @@ void gravity_tree(void)
     Ewaldcount = costs[1];
     N_nodesinlist += costs[0]; 
     myfree(CostBuffer);
-    myfree(DataNodeList);
-    myfree(DataIndexTable);
 
     /* now add things for comoving integration */
 
@@ -1464,10 +1341,17 @@ void gravity_tree(void)
     timeall += timediff(t0, t1);
 
     /*  gather some diagnostic information */
-
+    for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++) {
+        timetree1 += ev[Ewald_iter].timecomp1;
+        timetree2 += ev[Ewald_iter].timecomp2;
+        timewait1 += ev[Ewald_iter].timewait1;
+        timewait2 += ev[Ewald_iter].timewait2;
+        timecommsumm1 += ev[Ewald_iter].timecommsumm1 ;
+        timecommsumm2 += ev[Ewald_iter].timecommsumm2;
+    }
     timetree = timetree1 + timetree2;
     timewait = timewait1 + timewait2;
-    timecomm = timecommsumm1 + timecommsumm2;
+    timecomm= timecommsumm1 + timecommsumm2;
 
     MPI_Reduce(&timetree, &sumt, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&timetree, &maxt, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
@@ -1535,6 +1419,52 @@ void gravity_tree(void)
     CPU_Step[CPU_TREEMISC] += measure_time();
 }
 
+static void grav_copy(int place, struct gravdata_in * input, int * nodelist) {
+    int k;
+#ifdef GRAVITY_CENTROID
+    if(P[place].Type == 0)
+    {
+        for(k = 0; k < 3; k++)
+            input->Pos[k] = SPHP(place).Center[k];
+    }
+    else
+    {
+        for(k = 0; k < 3; k++)
+            input->Pos[k] = P[place].Pos[k];
+    }
+#else
+    for(k = 0; k < 3; k++)
+        input->Pos[k] = P[place].Pos[k];
+#endif
+
+#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
+    input->Type = P[place].Type;
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    if(P[place].Type == 0)
+        input->Soft = P[place].Hsml;
+#endif
+#endif
+    input->OldAcc = P[place].OldAcc;
+
+    memcpy(input->NodeList, nodelist, NODELISTLENGTH * sizeof(int));
+}
+
+static void grav_reduce(int place, struct gravdata_out * result) {
+    int k;
+    for(k = 0; k < 3; k++)
+        P[place].g.dGravAccel[k] += result->Acc[k];
+
+#ifdef DISTORTIONTENSORPS
+    for(i1 = 0; i1 < 3; i1++)
+        for(i2 = 0; i2 < 3; i2++)
+            P[place].tidal_tensorps[i1][i2] += result->tidal_tensorps[i1][i2];
+#endif
+
+    P[place].GravCost += result->Ninteractions;
+#ifdef EVALPOTENTIAL
+    P[place].p.dPotential += result->Potential;
+#endif
+}
 static int gravtree_isactive(int i) {
 #if defined(NEUTRINOS) && defined(PMGRID)
         return P[i].Type != 2;
