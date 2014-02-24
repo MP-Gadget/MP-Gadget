@@ -132,7 +132,7 @@ double get_drift_factor(int time0, int time1)
   int i1, i2;
   static int last_time0 = -1, last_time1 = -1;
   static double last_value;
-
+#pragma omp threadprivate(last_time0, last_time1, last_value)
   if(time0 == last_time0 && time1 == last_time1)
     return last_value;
 
@@ -180,6 +180,7 @@ double get_gravkick_factor(int time0, int time1)
   int i1, i2;
   static int last_time0 = -1, last_time1 = -1;
   static double last_value;
+#pragma omp threadprivate(last_time0, last_time1, last_value)
 
   if(time0 == last_time0 && time1 == last_time1)
     return last_value;
@@ -228,6 +229,7 @@ double get_hydrokick_factor(int time0, int time1)
   static int last_time0 = -1, last_time1 = -1;
   static double last_value;
 
+#pragma omp threadprivate(last_time0, last_time1, last_value)
   if(time0 == last_time0 && time1 == last_time1)
     return last_value;
 
