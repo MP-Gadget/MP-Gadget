@@ -1588,6 +1588,7 @@ void force_flag_localnodes(void)
  *  tree at the position of the spawning gas particle. This is possible
  *  because the Nextnode[] array essentially describes the full tree walk as a
  *  link list. Multipole moments of tree nodes need not be changed.
+ 
  */
 void force_add_star_to_tree(int igas, int istar)
 {
@@ -1601,13 +1602,34 @@ void force_add_star_to_tree(int igas, int istar)
 
 
 
-void force_drift_node(int no, int time1)
+static void real_force_drift_node(int no, int time1);
+void force_drift_node(int no, int time1) {
+    if(time1 == Nodes[no].Ti_current)
+        return;
+
+#ifdef OPENMP_USE_SPINLOCK
+    if(0 == pthread_spin_trylock(&Nodes[no].SpinLock)) {
+        if(time1 == Nodes[no].Ti_current) {
+            real_force_drift_node(no, time1);
+#pragma omp flush
+        }
+        pthread_spin_unlock(&Nodes[no].SpinLock); 
+    }
+#else
+    /* do not use spinlock */
+#pragma omp critical (_driftnode_)
+    {
+        if(time1 == Nodes[no].Ti_current) {
+            real_force_drift_node(no, time1);
+        }
+    }
+#endif
+}
+
+static void real_force_drift_node(int no, int time1)
 {
     int j, time0;
     double dt_drift, dt_drift_hmax, fac;
-
-    if(time1 == Nodes[no].Ti_current)
-        return;
 
     time0 = Extnodes[no].Ti_lastkicked;
 
@@ -2177,11 +2199,7 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
                 /* the index of the node is the index of the particle */
                 /* observe the sign */
 
-                if(P[no].Ti_current != All.Ti_Current)
-                {
-#pragma omp critical (lock_partnodedrift)
-                    drift_particle(no, All.Ti_Current);
-                }
+                drift_particle(no, All.Ti_Current);
 
 #ifdef GRAVITY_CENTROID
                 if(P[no].Type == 0)
@@ -2259,11 +2277,7 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
                     }
                 }
 
-                if(nop->Ti_current != All.Ti_Current)
-                {
-#pragma omp critical (lock_partnodedrift)
-                    force_drift_node(no, All.Ti_Current);
-                }
+                force_drift_node(no, All.Ti_Current);
 
                 dx = nop->u.d.s[0] - pos_x;
                 dy = nop->u.d.s[1] - pos_y;
@@ -2782,11 +2796,7 @@ int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int
             if(no < All.MaxPart)
             {
                 /* the index of the node is the index of the particle */
-                if(P[no].Ti_current != All.Ti_Current)
-                {
-#pragma omp critical (lock_partnodedrift)
-                    drift_particle(no, All.Ti_Current);
-                }
+                drift_particle(no, All.Ti_Current);
 
                 dx = P[no].Pos[0] - pos_x;
                 dy = P[no].Pos[1] - pos_y;
@@ -2872,11 +2882,7 @@ int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int
                     continue;
                 }
 
-                if(nop->Ti_current != All.Ti_Current)
-                {
-#pragma omp critical (lock_partnodedrift)
-                    force_drift_node(no, All.Ti_Current);
-                }
+                force_drift_node(no, All.Ti_Current);
 
                 mass = nop->u.d.mass;
 
@@ -3282,11 +3288,7 @@ int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporte
             {
                 /* the index of the node is the index of the particle */
                 /* observe the sign */
-                if(P[no].Ti_current != All.Ti_Current)
-                {
-#pragma omp critical (lock_partnodedrift)
-                    drift_particle(no, All.Ti_Current);
-                }
+                drift_particle(no, All.Ti_Current);
 
                 dx = P[no].Pos[0] - pos_x;
                 dy = P[no].Pos[1] - pos_y;
@@ -3324,11 +3326,7 @@ int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporte
                     continue;
                 }
 
-                if(nop->Ti_current != All.Ti_Current)
-                {
-#pragma omp critical (lock_partnodedrift)
-                    force_drift_node(no, All.Ti_Current);
-                }
+                force_drift_node(no, All.Ti_Current);
 
                 mass = nop->u.d.mass;
                 dx = nop->u.d.s[0] - pos_x;
@@ -3613,8 +3611,8 @@ int force_treeevaluate_potential(int target, int mode, int *nexport, int *nsend_
                 /* the index of the node is the index of the particle */
                 /* observe the sign */
 
-                if(P[no].Ti_current != All.Ti_Current)
-                    drift_particle(no, All.Ti_Current);
+                drift_particle(no, All.Ti_Current);
+
                 dx = P[no].Pos[0] - pos_x;
                 dy = P[no].Pos[1] - pos_y;
                 dz = P[no].Pos[2] - pos_z;
@@ -3680,8 +3678,8 @@ int force_treeevaluate_potential(int target, int mode, int *nexport, int *nsend_
                     continue;
                 }
 
-                if(nop->Ti_current != All.Ti_Current)
-                    force_drift_node(no, All.Ti_Current);
+                force_drift_node(no, All.Ti_Current);
+                
                 mass = nop->u.d.mass;
                 dx = nop->u.d.s[0] - pos_x;
                 dy = nop->u.d.s[1] - pos_y;
@@ -4128,8 +4126,7 @@ int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, 
                 /* the index of the node is the index of the particle */
                 /* observe the sign  */
 #ifndef SUBFIND_RESHUFFLE_AND_POTENTIAL
-                if(P[no].Ti_current != All.Ti_Current)
-                    drift_particle(no, All.Ti_Current);
+                drift_particle(no, All.Ti_Current);
 #endif
                 dx = P[no].Pos[0] - pos_x;
                 dy = P[no].Pos[1] - pos_y;
@@ -4196,8 +4193,7 @@ int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, 
                     continue;
                 }
 #ifndef SUBFIND_RESHUFFLE_AND_POTENTIAL
-                if(nop->Ti_current != All.Ti_Current)
-                    force_drift_node(no, All.Ti_Current);
+                force_drift_node(no, All.Ti_Current);
 #endif
                 mass = nop->u.d.mass;
                 dx = nop->u.d.s[0] - pos_x;
@@ -4432,6 +4428,18 @@ void force_treeallocate(int maxnodes, int maxpart)
                 MaxNodes, bytes / (1024.0 * 1024.0));
         endrun(3);
     }
+#ifdef OPENMP_USE_SPINLOCK
+    {
+        int i;
+        for (i = 0; i < MaxNodes + 1; i ++) {
+            /* Maybe we can directly set these guys to one
+             *
+             * at least with the glibc spinlock implementation.
+             * */
+            pthread_spin_init(&Nodes_base[i].SpinLock, 0);
+        }
+    }
+#endif
     allbytes += bytes;
     Nodes = Nodes_base - All.MaxPart;
     Extnodes = Extnodes_base - All.MaxPart;

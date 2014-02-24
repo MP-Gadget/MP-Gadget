@@ -12,7 +12,9 @@ OPT	+=  -DSFR
 #OPT	+=  -DSINKS
 OPT	+=  -DUNEQUALSOFTENINGS
 #OPT	+=  -DNUM_THREADS=4
-
+# shall be a lot faster than critical sections
+# but may not run on some systems
+OPT += OPENMP_USE_SPINLOCK
 
 #--------------------------------------- TreePM Options
 OPT	+=  -DPMGRID=512

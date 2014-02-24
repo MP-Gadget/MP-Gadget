@@ -102,10 +102,6 @@ endif
 
 LIBS   = -lm $(HDF5LIB) -g $(MPICHLIB) $(GSL_LIBS) -lgsl -lgslcblas $(FFTW_LIB)
 
-ifeq (NUM_THREADS,$(findstring NUM_THREADS,$(OPT))) 
-LIBS   +=  -lpthread
-endif
-
 LIBS   +=  $(GMPLIB)
 
 
@@ -113,6 +109,9 @@ $(EXEC): $(OBJS) $(FOBJS)
 	$(FC) $(OPTIMIZE) $(OBJS) $(FOBJS) $(LIBS) $(RLIBS) -o $(EXEC)
 
 $(OBJS): $(INCL)
+
+.c.o: $(INCL)
+	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
 
 $(FOBJS): $(FINCL)
 

@@ -150,7 +150,7 @@ void density(void)
 
     Evaluator ev = {0};
 
-    ev.ev_evaluate = density_evaluate;
+    ev.ev_evaluate = (ev_evaluate_func) density_evaluate;
     ev.ev_isactive = density_isactive;
     ev.ev_alloc = density_alloc_ngblist;
     ev.ev_datain_elsize = sizeof(struct densdata_in);
@@ -253,7 +253,7 @@ void density(void)
 
             /* exchange particle data */
 
-            evaluate_get_remote(&ev, DensDataGet, TAG_DENS_A, density_copy);
+            evaluate_get_remote(&ev, DensDataGet, TAG_DENS_A, (ev_copy_func) density_copy);
 
             DensDataResult =
                 (struct densdata_out *) mymalloc("DensDataResult", Nimport * sizeof(struct densdata_out));
@@ -265,7 +265,7 @@ void density(void)
             evaluate_secondary(&ev);
 
             /* import the result to local particles */
-            evaluate_reduce_result(&ev, DensDataResult, TAG_DENS_B, density_reduce);
+            evaluate_reduce_result(&ev, DensDataResult, TAG_DENS_B, (ev_reduce_func) density_reduce);
 
             myfree(DensDataResult);
             myfree(DensDataGet);

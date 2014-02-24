@@ -114,9 +114,31 @@ void reconstruct_timebins(void)
         endrun(121);
 }
 
+static void real_drift_particle(int i, int time1);
 
+void drift_particle(int i, int time1) {
+    if(P[i].Ti_current == time1) return;
 
-void drift_particle(int i, int time1)
+#ifdef OPENMP_USE_SPINLOCK
+    if(0 == pthread_spin_trylock(&P[i].SpinLock)) {
+        if(P[i].Ti_current != time1) {
+            real_drift_particle(i, time1);
+#pragma omp flush
+        }
+        pthread_spin_unlock(&P[i].SpinLock); 
+    }
+#else
+    /* do not use SpinLock */
+#pragma omp critical (_driftparticle_) 
+    {
+        if(P[i].Ti_current != time1) {
+            real_drift_particle(i, time1);
+        }
+    }
+#endif
+}
+
+static void real_drift_particle(int i, int time1)
 {
     int j, time0, dt_step;
     double dt_drift, dt_gravkick, dt_hydrokick, dt_entr;

@@ -119,8 +119,7 @@ void domain_Decomposition(void)
 
 #pragma omp parallel for
         for(i = 0; i < NumPart; i++)
-            if(P[i].Ti_current != All.Ti_Current)
-                drift_particle(i, All.Ti_Current);
+            drift_particle(i, All.Ti_Current);
 
         force_treefree();
         domain_free();
@@ -363,6 +362,7 @@ double domain_particle_costfactor(int i)
  */
 int domain_decompose(void)
 {
+
     int i, no, status;
     int64_t sumload;
     int maxload;
@@ -530,6 +530,17 @@ int domain_decompose(void)
     return 0;
 }
 
+void checklock() {
+    int j;
+#ifdef OPENMP_USE_SPINLOCK
+    for(j = 0; j < All.MaxPart; j++) {
+        if(0 == P[j].SpinLock) {
+            printf("lock failed %d, %d\n", j, P[j].SpinLock);
+            endrun(12312314); 
+        }
+    }
+#endif
+}
 /* if onlyparticledata is 1, 
  * exchange only the particle data.
  * SPH/BH properties are not exchanged.

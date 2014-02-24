@@ -43,6 +43,14 @@ void allocate_memory(void)
 
     P = (struct particle_data *) mymalloc("P", bytes = All.MaxPart * sizeof(struct particle_data));
 
+#ifdef OPENMP_USE_SPINLOCK
+    {
+        int i;
+        for(i = 0; i < All.MaxPart; i ++) {
+            pthread_spin_init(&P[i].SpinLock, 0);
+        }
+    }
+#endif
     if(ThisTask == 0)
             printf("\nAllocated %g MByte for particle storage.\n\n", bytes / (1024.0 * 1024.0));
 

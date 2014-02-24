@@ -7,18 +7,18 @@ typedef struct _Exportor {
     int *exportindex;
 } Exporter;
 
-typedef int (*ev_evaluate_t) (int target, int mode, Exporter * exportor, void * extradata);
+typedef int (*ev_evaluate_func) (int target, int mode, Exporter * exportor, void * extradata);
 
-typedef int (*ev_isactive_t) (int i);
-typedef void * (*ev_alloc_t) ();
+typedef int (*ev_isactive_func) (int i);
+typedef void * (*ev_alloc_func) ();
 
 typedef void (*ev_copy_func)(int j, void * data_in, int * nodelist);
 typedef void (*ev_reduce_func)(int j, void * data_result);
 
 typedef struct _Evaluator {
-    ev_evaluate_t ev_evaluate;
-    ev_isactive_t ev_isactive;
-    ev_alloc_t ev_alloc;
+    ev_evaluate_func ev_evaluate;
+    ev_isactive_func ev_isactive;
+    ev_alloc_func ev_alloc;
     size_t ev_datain_elsize;
     size_t ev_dataout_elsize;
 
@@ -29,6 +29,9 @@ typedef struct _Evaluator {
     double timecommsumm1;
     double timecommsumm2;
     int done;
+    int currentIndex;
+    int * ParticleQueue;
+    int QueueEnd;
 } Evaluator;
 
 void evaluate_begin(Evaluator * ev);

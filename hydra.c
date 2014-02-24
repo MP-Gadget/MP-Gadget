@@ -243,6 +243,7 @@ void hydro_force(void)
 #endif
 
 #ifdef WAKEUP
+#pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
         if(P[i].Type == 0)

@@ -30,6 +30,7 @@
 #define BREAKPOINT raise(SIGTRAP)
 #ifdef _OPENMP
 #include <omp.h>
+#include <pthread.h>
 #else
 #error no OMP
 #define omp_get_max_threads()  (1)
@@ -1331,6 +1332,9 @@ struct bh_particle_data {
  */
 extern struct particle_data
 {
+#ifdef OPENMP_USE_SPINLOCK
+    pthread_spinlock_t SpinLock;
+#endif
     MyDouble Pos[3];   /*!< particle position at its current time */
     MyDouble Mass;     /*!< particle mass */
     struct {
@@ -1343,6 +1347,7 @@ extern struct particle_data
         signed int TimeBin       :8;
         /* second byte ends */
     };
+
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
     MyIDType ID;
     MyIDType SwallowID; /* who will swallow this particle */
@@ -2087,6 +2092,10 @@ enum iofields
 
 extern struct NODE
 {
+#ifdef OPENMP_USE_SPINLOCK
+    pthread_spinlock_t SpinLock;
+#endif
+
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
 

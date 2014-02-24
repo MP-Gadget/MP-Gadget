@@ -200,11 +200,8 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
             if(P[p].Type > 0)
                 continue;
 
-            if(P[p].Ti_current != All.Ti_Current)
-            {
-#pragma omp critical (lock_partnodedrift)
-                drift_particle(p, All.Ti_Current);
-            }
+            drift_particle(p, All.Ti_Current);
+
             dist = DMAX(P[p].Hsml, hsml);
 
             dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
@@ -260,11 +257,8 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
             }
 #endif
 
-            if(current->Ti_current != All.Ti_Current)
-            {
-#pragma omp critical (lock_partnodedrift)
-                force_drift_node(no, All.Ti_Current);
-            }
+            force_drift_node(no, All.Ti_Current);
+
             if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
             {
                 if(current->u.d.mass)	/* open cell */
@@ -480,11 +474,8 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
             if(P[p].Type > 0)
                 continue;
 
-            if(P[p].Ti_current != All.Ti_Current)
-            {
-#pragma omp critical (lock_partnodedrift)
-                drift_particle(p, All.Ti_Current);
-            }
+            drift_particle(p, All.Ti_Current);
+
             dist = hsml;
             dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
             if(dx > dist)
@@ -528,11 +519,7 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
                 }
             }
 
-            if(current->Ti_current != All.Ti_Current)
-            {
-#pragma omp critical (lock_partnodedrift)
-                force_drift_node(no, All.Ti_Current);
-            }
+            force_drift_node(no, All.Ti_Current);
 
             if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
             {

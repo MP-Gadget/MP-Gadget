@@ -2,13 +2,32 @@
 #include "proto.h"
 #include "evaluator.h"
 
-extern int NextParticle;
 int Nexport, Nimport;
 static int BufferFullFlag;
 
 static int * NextEvParticle;
 static void evaluate_init_exporter(Exporter * exporter);
 
+static int atomic_fetch_and_add(int * ptr, int value) {
+    int k;
+#if _OPENMP >= 201107
+#pragma omp atomic capture
+    k = *ptr ++;
+#else
+    k = __sync_fetch_and_add(ptr, value);
+#endif
+    return k;
+}
+static int atomic_add_and_fetch(int * ptr, int value) {
+    int k;
+#if _OPENMP >= 201107
+#pragma omp atomic capture
+    k = ++ *ptr;
+#else
+    k = __sync_add_and_fetch(ptr, value);
+#endif
+    return k;
+}
 void evaluate_init_exporter(Exporter * exporter) {
     int thread_id = omp_get_thread_num();
     int j;
@@ -31,9 +50,15 @@ void evaluate_begin(Evaluator * ev) {
     DataNodeList =
         (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
 
-    NextEvParticle = (int*) mymalloc("NextEv", sizeof(int) * NumPart);
-    NextParticle = FirstActiveParticle;
-    memcpy(NextEvParticle, NextActiveParticle, sizeof(int) * NumPart);
+    ev->ParticleQueue = (int*) mymalloc("PQueue", sizeof(int) * NumPart);
+    int i = 0;
+    int p;
+    for(p = FirstActiveParticle; p>= 0; p = NextActiveParticle[p]) {
+       ev->ParticleQueue[i] = p;
+       i++;
+    }
+    ev->QueueEnd = i;
+    ev->currentIndex = 0;
     ev->done = 0;
 }
 
@@ -42,7 +67,7 @@ void evaluate_finish(Evaluator * ev) {
         /* this shall not happen */
         endrun(301811);
     }
-    myfree(NextEvParticle);
+    myfree(ev->ParticleQueue);
     myfree(DataNodeList);
     myfree(DataIndexTable);
 }
@@ -52,18 +77,19 @@ int data_index_compare(const void *a, const void *b);
 /* returns number of exports */
 int evaluate_primary(Evaluator * ev) {
     double tstart, tend;
-
     BufferFullFlag = 0;
     Nexport = 0;
 
     int i;
     tstart = second();
 
+#pragma omp parallel for if(All.BunchSize > 1024)
     for(i = 0; i < All.BunchSize; i ++) {
         DataIndexTable[i].Task = NTask;
         /*entries with NTask is not filled with particles, and will be
          * sorted to the end */
     }
+
 #pragma omp parallel 
     {
 
@@ -76,23 +102,21 @@ int evaluate_primary(Evaluator * ev) {
     /* Note: exportflag is local to each thread */
     while(1)
     {
-#pragma omp critical (lock_nexport) 
-        {
-            i = BufferFullFlag?-1:NextParticle;
-            /* move next particle pointer if a particle is obtained */
-            NextParticle = (i < 0)?NextParticle:NextEvParticle[i];
-        }   
-        if(i < 0) break;
+        if(BufferFullFlag) break;
+
+        int k = atomic_fetch_and_add(&ev->currentIndex, 1);
+
+        if(k >= ev->QueueEnd) {
+            break;
+        }
+        i = ev->ParticleQueue[k];
 
         if(ev->ev_isactive(i)) 
         {
             if(ev->ev_evaluate(i, 0, &exporter, ngblist) < 0) {
-#pragma omp critical (lock_nexport) 
-                {
                 /* add the particle back to the top of the queue*/
-                NextEvParticle[i] = NextParticle; 
-                NextParticle = i;
-                }
+                int k = atomic_add_and_fetch(&ev->currentIndex, -1);
+                ev->ParticleQueue[k] = i;
                 if (ThisTask == 0)
                     printf("Task %d rejecting %d\n", ThisTask, i);
                 P[i].Evaluated = 0;
@@ -107,6 +131,7 @@ int evaluate_primary(Evaluator * ev) {
     tend = second();
     ev->timecomp1 += timediff(tstart, tend);
 
+#pragma omp parallel for if (Nexport > 128)
     for(i = 0; i < Nexport; i ++) {
         /* if the NodeList of the particle is incomplete due
          * to abandoned work, also do not export it */
@@ -126,7 +151,7 @@ int evaluate_primary(Evaluator * ev) {
     while (Nexport > 0 && DataIndexTable[Nexport - 1].Task == NTask) {
         Nexport --;
     }
-    if (NextParticle == -1) ev->done = 1;
+    if (ev->currentIndex >= ev->QueueEnd) ev->done = 1;
 
     if(Nexport == 0 && BufferFullFlag) {
         /* buffer too small !*/
@@ -211,12 +236,11 @@ int exporter_export_particle(Exporter * exporter, int target, int no, int forceu
     if(exportnodecount[task] == NODELISTLENGTH)
     {
         int nexp;
-#pragma omp critical (lock_nexport) 
-        {
-            nexp = Nexport;
-            Nexport = (nexp >= All.BunchSize)?nexp:(nexp + 1);
-        }
+
+        nexp = atomic_fetch_and_add(&Nexport, 1);
+
         if(nexp >= All.BunchSize) {
+            Nexport = All.BunchSize;
             /* out if buffer space. Need to discard work for this particle and interrupt */
             BufferFullFlag = 1;
             return -1;
@@ -281,6 +305,7 @@ void evaluate_get_remote(Evaluator * ev, void * recvbuf, int tag, ev_copy_func c
 
     tstart = second();
     /* prepare particle data for export */
+#pragma omp parallel for if (Nexport > 128)
     for(j = 0; j < Nexport; j++)
     {
         int place = DataIndexTable[j].Index;
@@ -297,6 +322,16 @@ void evaluate_get_remote(Evaluator * ev, void * recvbuf, int tag, ev_copy_func c
     myfree(sendbuf);
 }
 
+int data_index_compare_by_index(const void *a, const void *b)
+{
+    if(((struct data_index *) a)->Index < (((struct data_index *) b)->Index))
+        return -1;
+
+    if(((struct data_index *) a)->Index > (((struct data_index *) b)->Index))
+        return +1;
+
+    return 0;
+}
 void evaluate_reduce_result(Evaluator * ev,
         void * sendbuf, int tag, 
         ev_reduce_func reduce_func) {
@@ -314,11 +349,38 @@ void evaluate_reduce_result(Evaluator * ev,
     ev->timecommsumm2 += timediff(tstart, tend);
 
     tstart = second();
-    for(j = 0; j < Nexport; j++)
-    {
-        int place = DataIndexTable[j].Index;
-        reduce_func(place, recvbuf + ev->ev_dataout_elsize * j);
+
+    for(j = 0; j < Nexport; j++) {
+        DataIndexTable[j].IndexGet = j;
     }
+
+#ifdef MYSORT
+    mysort_dataindex(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare_by_index);
+#else
+    qsort(DataIndexTable, Nexport, sizeof(struct data_index), data_index_compare_by_index);
+#endif
+    
+    int * UniqueOff = mymalloc("UniqueIndex", sizeof(int) * Nexport);
+    UniqueOff[0] = 0;
+    int Nunique= 1;
+
+    for(j = 1; j < Nexport; j++) {
+        if(DataIndexTable[j].Index != DataIndexTable[j-1].Index)
+            UniqueOff[Nunique++] = j;
+    }
+    UniqueOff[Nunique] = Nexport;
+
+#pragma omp parallel for if (Nunique > 16)
+    for(j = 0; j < Nunique; j++)
+    {
+        int k;
+        for(k = UniqueOff[j]; k < UniqueOff[j+1]; k++) {
+            int place = DataIndexTable[k].Index;
+            int get = DataIndexTable[k].IndexGet;
+            reduce_func(place, recvbuf + ev->ev_dataout_elsize * get);
+        }
+    }
+    myfree(UniqueOff);
     tend = second();
     ev->timecomp1 += timediff(tstart, tend);
     myfree(recvbuf);
