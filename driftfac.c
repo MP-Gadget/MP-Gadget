@@ -126,15 +126,15 @@ void init_drift_table(void)
  *  
  *  A lookup-table is used for reasons of speed. 
  */
+static int df_last_time0 = -1, df_last_time1 = -1;
+static double df_last_value;
+#pragma omp threadprivate(df_last_time0, df_last_time1, df_last_value)
 double get_drift_factor(int time0, int time1)
 {
   double a1, a2, df1, df2, u1, u2;
   int i1, i2;
-  static int last_time0 = -1, last_time1 = -1;
-  static double last_value;
-#pragma omp threadprivate(last_time0, last_time1, last_value)
-  if(time0 == last_time0 && time1 == last_time1)
-    return last_value;
+  if(time0 == df_last_time0 && time1 == df_last_time1)
+    return df_last_value;
 
   /* note: will only be called for cosmological integration */
 
@@ -167,23 +167,23 @@ double get_drift_factor(int time0, int time1)
   else
     df2 = DriftTable[i2 - 1] + (DriftTable[i2] - DriftTable[i2 - 1]) * (u2 - i2);
 
-  last_time0 = time0;
-  last_time1 = time1;
+  df_last_time0 = time0;
+  df_last_time1 = time1;
 
-  return last_value = (df2 - df1);
+  return df_last_value = (df2 - df1);
 }
 
 
+static int gk_last_time0 = -1, gk_last_time1 = -1;
+static double gk_last_value;
+#pragma omp threadprivate(gk_last_time0, gk_last_time1, gk_last_value)
 double get_gravkick_factor(int time0, int time1)
 {
   double a1, a2, df1, df2, u1, u2;
   int i1, i2;
-  static int last_time0 = -1, last_time1 = -1;
-  static double last_value;
-#pragma omp threadprivate(last_time0, last_time1, last_value)
 
-  if(time0 == last_time0 && time1 == last_time1)
-    return last_value;
+  if(time0 == gk_last_time0 && time1 == gk_last_time1)
+    return gk_last_value;
 
   /* note: will only be called for cosmological integration */
 
@@ -216,22 +216,22 @@ double get_gravkick_factor(int time0, int time1)
   else
     df2 = GravKickTable[i2 - 1] + (GravKickTable[i2] - GravKickTable[i2 - 1]) * (u2 - i2);
 
-  last_time0 = time0;
-  last_time1 = time1;
+  gk_last_time0 = time0;
+  gk_last_time1 = time1;
 
-  return last_value = (df2 - df1);
+  return gk_last_value = (df2 - df1);
 }
 
+static int hk_last_time0 = -1, hk_last_time1 = -1;
+static double hk_last_value;
+#pragma omp threadprivate(hk_last_time0, hk_last_time1, hk_last_value)
 double get_hydrokick_factor(int time0, int time1)
 {
   double a1, a2, df1, df2, u1, u2;
   int i1, i2;
-  static int last_time0 = -1, last_time1 = -1;
-  static double last_value;
 
-#pragma omp threadprivate(last_time0, last_time1, last_value)
-  if(time0 == last_time0 && time1 == last_time1)
-    return last_value;
+  if(time0 == hk_last_time0 && time1 == hk_last_time1)
+    return hk_last_value;
 
   /* note: will only be called for cosmological integration */
 
@@ -264,8 +264,8 @@ double get_hydrokick_factor(int time0, int time1)
   else
     df2 = HydroKickTable[i2 - 1] + (HydroKickTable[i2] - HydroKickTable[i2 - 1]) * (u2 - i2);
 
-  last_time0 = time0;
-  last_time1 = time1;
+  hk_last_time0 = time0;
+  hk_last_time1 = time1;
 
-  return last_value = (df2 - df1);
+  return hk_last_value = (df2 - df1);
 }
