@@ -873,7 +873,7 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
 }
 
 static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
-#define REDUCE(A, B) (A) = (mode==0)?0:((A) + (B))
+#define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
     int k;
 
     for(k = 0; k < 3; k++)

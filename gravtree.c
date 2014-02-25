@@ -179,7 +179,7 @@ void calculate_centre_of_mass(void)
 }
 #endif
 
-static void gravtree_copy(int place, struct gravdata_in * input, int * nodelist) ;
+static void gravtree_copy(int place, struct gravdata_in * input) ;
 static void gravtree_reduce(int place, struct gravdata_out * result, int mode);
 static void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode);
 
@@ -1453,12 +1453,13 @@ static void gravtree_copy(int place, struct gravdata_in * input) {
 }
 
 static void gravtree_reduce(int place, struct gravdata_out * result, int mode) {
-#define REDUCE(A, B) (A) = (mode==0)?0:((A) + (B))
+#define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
     int k;
     for(k = 0; k < 3; k++)
         REDUCE(P[place].g.dGravAccel[k], result->Acc[k]);
 
 #ifdef DISTORTIONTENSORPS
+    int i1, i2;
     for(i1 = 0; i1 < 3; i1++)
         for(i2 = 0; i2 < 3; i2++)
             REDUCE(P[place].tidal_tensorps[i1][i2], 

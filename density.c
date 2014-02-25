@@ -159,7 +159,7 @@ void density(void)
 
     int i, j, k, ndone, npleft, dt_step, iter = 0;
 
-    int64_t ntot;
+    int64_t ntot = 0;
 
     double fac;
 
@@ -259,6 +259,8 @@ void density(void)
 
             report_memory_usage(&HighMark_sphdensity, "SPH_DENSITY");
 
+            printf("ThisTask = %d, Export = %d, Import = %d\n", ThisTask, ev.Nexport, ev.Nimport);
+            fflush(stdout);
             /* now do the particles that were sent to us */
 
             evaluate_secondary(&ev);
@@ -619,8 +621,9 @@ void density(void)
 #endif
 
                 }
-                else
+                else {
                     P[i].DensityIterationDone = 1;
+                }
 
             }
         }
@@ -757,8 +760,7 @@ static void density_copy(int place, struct densdata_in * input) {
 }
 
 static void density_reduce(int place, struct densdata_out * remote, int mode) {
-
-#define REDUCE(A, B) (A) = (mode==0)?0:((A) + (B))
+#define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
     REDUCE(P[place].n.dNumNgb, remote->Ngb);
 
 #ifdef HYDRO_COST_FACTOR
@@ -880,7 +882,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
                 */
     }
 #endif
-
 }
 /*! This function represents the core of the SPH density computation. The
  *  target particle may either be local, or reside in the communication
