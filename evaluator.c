@@ -13,7 +13,15 @@ static int atomic_fetch_and_add(int * ptr, int value) {
       (*ptr)+=value;
     }
 #else
+#ifdef OPENMP_USE_SPINLOCK
     k = __sync_fetch_and_add(ptr, value);
+#else /* non spinlock*/
+#pragma omp critical
+    {
+      k = (*ptr);
+      (*ptr)+=value;
+    }
+#endif
 #endif
     return k;
 }
@@ -26,7 +34,15 @@ static int atomic_add_and_fetch(int * ptr, int value) {
       k = (*ptr);
     }
 #else
+#ifdef OPENMP_USE_SPINLOCK
     k = __sync_add_and_fetch(ptr, value);
+#else /* non spinlock */
+#pragma omp critical
+    { 
+      (*ptr)+=value;
+      k = (*ptr);
+    }
+#endif
 #endif
     return k;
 }
@@ -57,8 +73,9 @@ void evaluate_begin(Evaluator * ev) {
     int i = 0;
     int p;
     for(p = FirstActiveParticle; p>= 0; p = NextActiveParticle[p]) {
-       ev->ParticleQueue[i] = p;
-       i++;
+        ev->ParticleQueue[i] = p;
+        P[p].Evaluated = 0;
+        i++;
     }
     ev->QueueEnd = i;
     ev->currentIndex = 0;
@@ -86,7 +103,7 @@ int evaluate_primary(Evaluator * ev) {
     int i;
     tstart = second();
 
-#pragma omp parallel for if(All.BunchSize > 1024)
+ #pragma omp parallel for if(All.BunchSize > 1024)
     for(i = 0; i < All.BunchSize; i ++) {
         DataIndexTable[i].Task = NTask;
         /*entries with NTask is not filled with particles, and will be
@@ -116,6 +133,9 @@ int evaluate_primary(Evaluator * ev) {
 
         if(ev->ev_isactive(i)) 
         {
+            if(P[i].Evaluated) {
+                BREAKPOINT; 
+            }
             if(ev->ev_evaluate(i, 0, &exporter, ngblist) < 0) {
                 /* add the particle back to the top of the queue*/
                 int k = atomic_add_and_fetch(&ev->currentIndex, -1);
@@ -134,7 +154,7 @@ int evaluate_primary(Evaluator * ev) {
     tend = second();
     ev->timecomp1 += timediff(tstart, tend);
 
-#pragma omp parallel for if (ev->Nexport > 128)
+#pragma omp parallel for if (ev->Nexport > 1024)
     for(i = 0; i < ev->Nexport; i ++) {
         /* if the NodeList of the particle is incomplete due
          * to abandoned work, also do not export it */
@@ -142,10 +162,11 @@ int evaluate_primary(Evaluator * ev) {
             DataIndexTable[i].Task = NTask; 
         }
     }
+
 #ifdef MYSORT
-        mysort_dataindex(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare);
+    mysort_dataindex(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare);
 #else
-        qsort(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare);
+    qsort(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare);
 #endif
 
 
@@ -245,6 +266,7 @@ int exporter_export_particle(Exporter * exporter, int target, int no) {
             ev->Nexport = All.BunchSize;
             /* out if buffer space. Need to discard work for this particle and interrupt */
             ev->BufferFullFlag = 1;
+#pragma omp flush
             return -1;
         }
         exportnodecount[task] = 0;
@@ -309,6 +331,7 @@ void * evaluate_get_remote(Evaluator * ev, int tag) {
 
     tstart = second();
     /* prepare particle data for export */
+    //
 #pragma omp parallel for if (ev->Nexport > 128)
     for(j = 0; j < ev->Nexport; j++)
     {
@@ -339,6 +362,12 @@ int data_index_compare_by_index(const void *a, const void *b)
     if(((struct data_index *) a)->Index > (((struct data_index *) b)->Index))
         return +1;
 
+    if(((struct data_index *) a)->IndexGet < (((struct data_index *) b)->IndexGet))
+        return -1;
+
+    if(((struct data_index *) a)->IndexGet > (((struct data_index *) b)->IndexGet))
+        return +1;
+
     return 0;
 }
 void evaluate_reduce_result(Evaluator * ev,
@@ -361,28 +390,28 @@ void evaluate_reduce_result(Evaluator * ev,
         DataIndexTable[j].IndexGet = j;
     }
 
-#ifdef MYSORT
-    mysort_dataindex(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare_by_index);
-#else
+    /* mysort is a lie! */
     qsort(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare_by_index);
-#endif
     
     int * UniqueOff = mymalloc("UniqueIndex", sizeof(int) * ev->Nexport);
     UniqueOff[0] = 0;
-    int Nunique= 1;
+    int Nunique = 0;
 
     for(j = 1; j < ev->Nexport; j++) {
         if(DataIndexTable[j].Index != DataIndexTable[j-1].Index)
-            UniqueOff[Nunique++] = j;
+            UniqueOff[++Nunique] = j;
     }
-    UniqueOff[Nunique] = ev->Nexport;
+    if(ev->Nexport > 0)
+        UniqueOff[++Nunique] = ev->Nexport;
 
-#pragma omp parallel for if (Nunique > 16)
+#pragma omp parallel for private(j) if(Nunique > 16)
     for(j = 0; j < Nunique; j++)
     {
         int k;
-        for(k = UniqueOff[j]; k < UniqueOff[j+1]; k++) {
-            int place = DataIndexTable[k].Index;
+        int place = DataIndexTable[UniqueOff[j]].Index;
+        int start = UniqueOff[j];
+        int end = UniqueOff[j + 1];
+        for(k = start; k < end; k++) {
             int get = DataIndexTable[k].IndexGet;
             ev->ev_reduce(place, recvbuf + ev->ev_dataout_elsize * get, 1);
         }
