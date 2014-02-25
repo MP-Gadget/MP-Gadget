@@ -1864,6 +1864,7 @@ extern struct data_nodelist
 
 extern struct gravdata_in
 {
+    int NodeList[NODELISTLENGTH];
     MyFloat Pos[3];
 #if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
     int Type;
@@ -1872,7 +1873,6 @@ extern struct gravdata_in
 #endif
 #endif
     MyFloat OldAcc;
-    int NodeList[NODELISTLENGTH];
 }
 *GravDataIn,			/*!< holds particle data to be exported to other processors */
     *GravDataGet;			/*!< holds particle data imported from other processors */

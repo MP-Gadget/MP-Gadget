@@ -46,6 +46,9 @@ static void * hydro_alloc_ngblist();
 
 struct hydrodata_in
 {
+#ifndef DONOTUSENODELIST
+    int NodeList[NODELISTLENGTH];
+#endif
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyRho;
     MyFloat EntVarPred;
@@ -114,9 +117,6 @@ struct hydrodata_in
     MyFloat dpdr;
 #endif
 
-#ifndef DONOTUSENODELIST
-    int NodeList[NODELISTLENGTH];
-#endif
 } *HydroDataGet;
 
 
@@ -160,8 +160,8 @@ struct hydrodata_out
 *HydroDataResult;
 
 
-static void hydro_copy(int place, struct hydrodata_in * input, int * nodelist);
-static void hydro_reduce(int place, struct hydrodata_out * result);
+static void hydro_copy(int place, struct hydrodata_in * input);
+static void hydro_reduce(int place, struct hydrodata_out * result, int mode);
 
 #ifdef MACHNUM
 double hubble_a, atime, hubble_a2, fac_mu, fac_vsic_fix, a3inv, fac_egy;
@@ -182,7 +182,11 @@ void hydro_force(void)
     ev.ev_alloc = hydro_alloc_ngblist;
     ev.ev_copy = (ev_copy_func) hydro_copy;
     ev.ev_reduce = (ev_reduce_func) hydro_reduce;
-
+#ifdef DONOTUSENODELIST
+    ev.UseNodeList = 0;
+#else
+    ev.UseNodeList = 1;
+#endif
     ev.ev_datain_elsize = sizeof(struct hydrodata_in);
     ev.ev_dataout_elsize = sizeof(struct hydrodata_out);
 
@@ -295,14 +299,12 @@ void hydro_force(void)
         /* do local particles and prepare export list */
         evaluate_primary(&ev);
 
-        n_exported += Nexport;
+        n_exported += ev.Nexport;
 
-        HydroDataGet = (struct hydrodata_in *) mymalloc("HydroDataGet", Nimport * sizeof(struct hydrodata_in));
-
-        evaluate_get_remote(&ev, HydroDataGet, TAG_HYDRO_A);
+        HydroDataGet = (struct hydrodata_in *) evaluate_get_remote(&ev, TAG_HYDRO_A);
 
         HydroDataResult =
-            (struct hydrodata_out *) mymalloc("HydroDataResult", Nimport * sizeof(struct hydrodata_out));
+            (struct hydrodata_out *) mymalloc("HydroDataResult", ev.Nimport * sizeof(struct hydrodata_out));
 
         report_memory_usage(&HighMark_sphhydro, "SPH_HYDRO");
 
@@ -743,7 +745,7 @@ void hydro_force(void)
     CPU_Step[CPU_HYDMISC] += timeall - (timecomp + timewait + timecomm + timenetwork);
 }
 
-static void hydro_copy(int place, struct hydrodata_in * input, int * nodelist) {
+static void hydro_copy(int place, struct hydrodata_in * input) {
     int k;
     double soundspeed_i;
     for(k = 0; k < 3; k++)
@@ -787,10 +789,6 @@ static void hydro_copy(int place, struct hydrodata_in * input, int * nodelist) {
 
 #else
     input->F1 = SPHP(place).v.DivVel;
-#endif
-
-#ifndef DONOTUSENODELIST
-    memcpy(input->NodeList, nodelist, NODELISTLENGTH * sizeof(int));
 #endif
 
 #ifdef JD_VTURB
@@ -874,15 +872,16 @@ static void hydro_copy(int place, struct hydrodata_in * input, int * nodelist) {
 #endif
 }
 
-static void hydro_reduce(int place, struct hydrodata_out * result) {
+static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
+#define REDUCE(A, B) (A) = (mode==0)?0:((A) + (B))
     int k;
 
     for(k = 0; k < 3; k++)
     {
-        SPHP(place).a.dHydroAccel[k] += result->Acc[k];
+        REDUCE(SPHP(place).a.dHydroAccel[k], result->Acc[k]);
     }
 
-    SPHP(place).e.dDtEntropy += result->DtEntropy;
+    REDUCE(SPHP(place).e.dDtEntropy, result->DtEntropy);
 
 #ifdef HYDRO_COST_FACTOR
     if(All.ComovingIntegrationOn)
@@ -892,38 +891,38 @@ static void hydro_reduce(int place, struct hydrodata_out * result) {
 #endif
 
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-    if(SPHP(place).MinViscousDt > result->MinViscousDt)
+    if(mode == 0 || SPHP(place).MinViscousDt > result->MinViscousDt)
         SPHP(place).MinViscousDt = result->MinViscousDt;
 #else
-    if(SPHP(place).MaxSignalVel < result->MaxSignalVel)
+    if(mode == 0 || SPHP(place).MaxSignalVel < result->MaxSignalVel)
         SPHP(place).MaxSignalVel = result->MaxSignalVel;
 #endif
 
 #ifdef JD_VTURB
-    SPHP(place).Vrms += result->Vrms; 
+    REDUCE(SPHP(place).Vrms, result->Vrms); 
 #endif
 
 #if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
     for(k = 0; k < 3; k++)
-        SPHP(place).DtB[k] += result->DtB[k];
+        REDUCE(SPHP(place).DtB[k], result->DtB[k]);
 #endif
 #ifdef DIVBFORCE3
     for(k = 0; k < 3; k++)
-        SPHP(place).magacc[k] += result->magacc[k];
+        REDUCE(SPHP(place).magacc[k], result->magacc[k]);
     for(k = 0; k < 3; k++)
-        SPHP(place).magcorr[k] += result->magcorr[k];
+        REDUCE(SPHP(place).magcorr[k], result->magcorr[k]);
 #endif
 #ifdef DIVBCLEANING_DEDNER
     for(k = 0; k < 3; k++)
-        SPHP(place).GradPhi[k] += result->GradPhi[k];
+        REDUCE(SPHP(place).GradPhi[k], result->GradPhi[k]);
 #endif
 #if VECT_POTENTIAL
     for(k = 0; k < 3; k++)
-        SPHP(place).DtA[k] += result->dta[k];
+        REDUCE(SPHP(place).DtA[k], result->dta[k]);
 #endif
 #if defined(EULERPOTENTIALS) && defined(EULER_DISSIPATION)
-    SPHP(place).DtEulerA += result->DtEulerA;
-    SPHP(place).DtEulerB += result->DtEulerB;
+    REDUCE(SPHP(place).DtEulerA, result->DtEulerA);
+    REDUCE(SPHP(place).DtEulerB, result->DtEulerB);
 #endif
 }
 

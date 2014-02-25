@@ -28,7 +28,6 @@
 #define UNLOCK_WORKCOUNT 
 
 int NextParticle;
-extern int Nexport, Nimport;
 
 static int * CostBuffer;
 
@@ -181,7 +180,8 @@ void calculate_centre_of_mass(void)
 #endif
 
 static void gravtree_copy(int place, struct gravdata_in * input, int * nodelist) ;
-static void gravtree_reduce(int place, struct gravdata_out * result);
+static void gravtree_reduce(int place, struct gravdata_out * result, int mode);
+static void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode);
 
 /*! This function computes the gravitational forces for all active particles.
  *  If needed, a new tree is constructed, otherwise the dynamically updated
@@ -223,16 +223,22 @@ void gravity_tree(void)
     ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate_shortrange;
     ev[0].ev_alloc = gravtree_alloccost;
     ev[0].ev_isactive = gravtree_isactive;
+    ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
+    ev[0].UseNodeList = 1;
     Ewald_max = 0;
 #else
     ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate;
     ev[0].ev_alloc = gravtree_alloccost;
     ev[0].ev_isactive = gravtree_isactive;
+    ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
+    ev[0].UseNodeList = 1;
     Ewald_max = 0;
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
     ev[1].ev_evaluate = (ev_evaluate_func) force_treeevaluate_ewald_correction;
     ev[1].ev_alloc = gravtree_alloccost;
     ev[1].ev_isactive = gravtree_isactive;
+    ev[1].ev_reduce = (ev_reduce_func) gravtree_reduce_ewald;
+    ev[1].UseNodeList = 1;
     Ewald_max = 1;
 #endif
 #endif
@@ -240,7 +246,6 @@ void gravity_tree(void)
         ev[Ewald_iter].ev_datain_elsize = sizeof(struct gravdata_in);
         ev[Ewald_iter].ev_dataout_elsize = sizeof(struct gravdata_out);
         ev[Ewald_iter].ev_copy = (ev_copy_func) gravtree_copy;
-        ev[Ewald_iter].ev_reduce = (ev_reduce_func) gravtree_reduce;
     }
 #ifndef GRAVITY_CENTROID
     CPU_Step[CPU_MISC] += measure_time();
@@ -411,17 +416,14 @@ void gravity_tree(void)
 
                 costs[Ewald_iter] += gravtree_reducecost();
 
-                n_exported += Nexport;
-
-                GravDataGet = (struct gravdata_in *) mymalloc("GravDataGet", Nimport * sizeof(struct gravdata_in));
-
+                n_exported += ev[Ewald_iter].Nexport;
 
                 /* exchange particle data */
 
-                evaluate_get_remote(&ev[Ewald_iter], GravDataGet, TAG_GRAV_A);
+                GravDataGet = (struct gravdata_in *) evaluate_get_remote(&ev[Ewald_iter],  TAG_GRAV_A);
 
                 GravDataResult =
-                    (struct gravdata_out *) mymalloc("GravDataResult", Nimport * sizeof(struct gravdata_out));
+                    (struct gravdata_out *) mymalloc("GravDataResult", ev[Ewald_iter].Nimport * sizeof(struct gravdata_out));
                 
                 report_memory_usage(&HighMark_gravtree, "GRAVTREE");
 
@@ -1421,7 +1423,7 @@ void gravity_tree(void)
     CPU_Step[CPU_TREEMISC] += measure_time();
 }
 
-static void gravtree_copy(int place, struct gravdata_in * input, int * nodelist) {
+static void gravtree_copy(int place, struct gravdata_in * input) {
     int k;
 #ifdef GRAVITY_CENTROID
     if(P[place].Type == 0)
@@ -1448,25 +1450,34 @@ static void gravtree_copy(int place, struct gravdata_in * input, int * nodelist)
 #endif
     input->OldAcc = P[place].OldAcc;
 
-    memcpy(input->NodeList, nodelist, NODELISTLENGTH * sizeof(int));
 }
 
-static void gravtree_reduce(int place, struct gravdata_out * result) {
+static void gravtree_reduce(int place, struct gravdata_out * result, int mode) {
+#define REDUCE(A, B) (A) = (mode==0)?0:((A) + (B))
     int k;
     for(k = 0; k < 3; k++)
-        P[place].g.dGravAccel[k] += result->Acc[k];
+        REDUCE(P[place].g.dGravAccel[k], result->Acc[k]);
 
 #ifdef DISTORTIONTENSORPS
     for(i1 = 0; i1 < 3; i1++)
         for(i2 = 0; i2 < 3; i2++)
-            P[place].tidal_tensorps[i1][i2] += result->tidal_tensorps[i1][i2];
+            REDUCE(P[place].tidal_tensorps[i1][i2], 
+                    result->tidal_tensorps[i1][i2]);
 #endif
 
-    P[place].GravCost += result->Ninteractions;
+    REDUCE(P[place].GravCost, result->Ninteractions);
 #ifdef EVALPOTENTIAL
-    P[place].p.dPotential += result->Potential;
+    REDUCE(P[place].p.dPotential, result->Potential);
 #endif
 }
+static void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode) {
+    int k;
+    for(k = 0; k < 3; k++)
+        P[place].g.dGravAccel[k] += result->Acc[k];
+
+    P[place].GravCost += result->Ninteractions;
+}
+
 static int gravtree_isactive(int i) {
 #if defined(NEUTRINOS) && defined(PMGRID)
         return P[i].Type != 2;

@@ -15,8 +15,6 @@
 
 extern int NextParticle;
 
-extern int Nexport, Nimport;
-
 static int density_isactive(int n);
 static int density_evaluate(int target, int mode, Exporter * exporter, int * ngblist);
 static void * density_alloc_ngblist();
@@ -25,6 +23,7 @@ static void * density_alloc_ngblist();
 */
 static struct densdata_in
 {
+    int NodeList[NODELISTLENGTH];
     MyDouble Pos[3];
     MyFloat Vel[3];
     MyFloat Hsml;
@@ -34,7 +33,6 @@ static struct densdata_in
 #ifdef WINDS
     MyFloat DelayTime;
 #endif
-    int NodeList[NODELISTLENGTH];
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
     MyFloat BPred[3];
 #endif
@@ -118,8 +116,8 @@ static struct densdata_out
 }
 *DensDataResult;
 
-static void density_reduce(int place, struct densdata_out * remote);
-static void density_copy(int place, struct densdata_in * input, int * nodelist);
+static void density_reduce(int place, struct densdata_out * remote, int mode);
+static void density_copy(int place, struct densdata_in * input);
 
 /*! \file density.c
  *  \brief SPH density computation and smoothing length determination
@@ -155,7 +153,7 @@ void density(void)
     ev.ev_alloc = density_alloc_ngblist;
     ev.ev_copy = (ev_copy_func) density_copy;
     ev.ev_reduce = (ev_reduce_func) density_reduce;
-
+    ev.UseNodeList = 1;
     ev.ev_datain_elsize = sizeof(struct densdata_in);
     ev.ev_dataout_elsize = sizeof(struct densdata_out);
 
@@ -250,16 +248,14 @@ void density(void)
 
             evaluate_primary(&ev); /* do local particles and prepare export list */
 
-            n_exported += Nexport;
-
-            DensDataGet = (struct densdata_in *) mymalloc("DensDataGet", Nimport * sizeof(struct densdata_in));
+            n_exported += ev.Nexport;
 
             /* exchange particle data */
 
-            evaluate_get_remote(&ev, DensDataGet, TAG_DENS_A);
+            DensDataGet = (struct densdata_in * ) evaluate_get_remote(&ev, TAG_DENS_A);
 
             DensDataResult =
-                (struct densdata_out *) mymalloc("DensDataResult", Nimport * sizeof(struct densdata_out));
+                (struct densdata_out *) mymalloc("DensDataResult", ev.Nimport * sizeof(struct densdata_out));
 
             report_memory_usage(&HighMark_sphdensity, "SPH_DENSITY");
 
@@ -708,16 +704,13 @@ double density_decide_hsearch(int targettype, double h) {
 
 }
 
-static void density_copy(int place, struct densdata_in * input, int * nodelist) {
+static void density_copy(int place, struct densdata_in * input) {
     input->Pos[0] = P[place].Pos[0];
     input->Pos[1] = P[place].Pos[1];
     input->Pos[2] = P[place].Pos[2];
     input->Hsml = P[place].Hsml;
 
     input->Type = P[place].Type;
-    memcpy(input->NodeList,
-            nodelist, 
-            NODELISTLENGTH * sizeof(int));
 
 #if defined(BLACK_HOLES)
     if(P[place].Type != 0)
@@ -763,10 +756,13 @@ static void density_copy(int place, struct densdata_in * input, int * nodelist) 
 #endif
 }
 
-static void density_reduce(int place, struct densdata_out * remote) {
+static void density_reduce(int place, struct densdata_out * remote, int mode) {
 
-    P[place].n.dNumNgb += remote->Ngb;
+#define REDUCE(A, B) (A) = (mode==0)?0:((A) + (B))
+    REDUCE(P[place].n.dNumNgb, remote->Ngb);
+
 #ifdef HYDRO_COST_FACTOR
+    /* these will be added */
     if(All.ComovingIntegrationOn)
         P[place].GravCost += HYDRO_COST_FACTOR * All.Time * remote->Ninteractions;
     else
@@ -775,106 +771,108 @@ static void density_reduce(int place, struct densdata_out * remote) {
 
     if(P[place].Type == 0)
     {
-        SPHP(place).d.dDensity += remote->Rho;
-        SPHP(place).h.dDhsmlDensityFactor += remote->DhsmlDensity;
+        REDUCE(SPHP(place).d.dDensity, remote->Rho);
+        REDUCE(SPHP(place).h.dDhsmlDensityFactor, remote->DhsmlDensity);
 #ifdef DENSITY_INDEPENDENT_SPH
-        SPHP(place).EgyWtDensity += remote->EgyRho;
-        SPHP(place).DhsmlEgyDensityFactor += remote->DhsmlEgyDensity;
+        REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
+        REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
 #endif
 
 #ifndef NAVIERSTOKES
-        SPHP(place).v.dDivVel += remote->Div;
-        SPHP(place).r.dRot[0] += remote->Rot[0];
-        SPHP(place).r.dRot[1] += remote->Rot[1];
-        SPHP(place).r.dRot[2] += remote->Rot[2];
+        REDUCE(SPHP(place).v.dDivVel, remote->Div);
+        REDUCE(SPHP(place).r.dRot[0], remote->Rot[0]);
+        REDUCE(SPHP(place).r.dRot[1], remote->Rot[1]);
+        REDUCE(SPHP(place).r.dRot[2], remote->Rot[2]);
 #else
         for(k = 0; k < 3; k++)
         {
-            SPHP(place).u.DV[k][0] += remote->DV[k][0];
-            SPHP(place).u.DV[k][1] += remote->DV[k][1];
-            SPHP(place).u.DV[k][2] += remote->DV[k][2];
+            REDUCE(SPHP(place).u.DV[k][0], remote->DV[k][0]);
+            REDUCE(SPHP(place).u.DV[k][1], remote->DV[k][1]);
+            REDUCE(SPHP(place).u.DV[k][2], remote->DV[k][2]);
         }
 #endif
 
 #ifdef VOLUME_CORRECTION
-        SPHP(place).DensityStd += remote->DensityStd;
+        REDUCE(SPHP(place).DensityStd, remote->DensityStd);
 #endif
 
 #ifdef CONDUCTION_SATURATION
-        SPHP(place).GradEntr[0] += remote->GradEntr[0];
-        SPHP(place).GradEntr[1] += remote->GradEntr[1];
-        SPHP(place).GradEntr[2] += remote->GradEntr[2];
+        REDUCE(SPHP(place).GradEntr[0], remote->GradEntr[0]);
+        REDUCE(SPHP(place).GradEntr[1], remote->GradEntr[1]);
+        REDUCE(SPHP(place).GradEntr[2], remote->GradEntr[2]);
 #endif
 
 #ifdef RADTRANSFER_FLUXLIMITER
         for(k = 0; k< N_BINS; k++)
         {
-            SPHP(place).Grad_ngamma[0][k] += remote->Grad_ngamma[0][k];
-            SPHP(place).Grad_ngamma[1][k] += remote->Grad_ngamma[1][k];
-            SPHP(place).Grad_ngamma[2][k] += remote->Grad_ngamma[2][k];
+            REDUCE(SPHP(place).Grad_ngamma[0][k], remote->Grad_ngamma[0][k]);
+            REDUCE(SPHP(place).Grad_ngamma[1][k], remote->Grad_ngamma[1][k]);
+            REDUCE(SPHP(place).Grad_ngamma[2][k], remote->Grad_ngamma[2][k]);
         }
 #endif
 
 
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-        SPHP(place).RotB[0] += remote->RotB[0];
-        SPHP(place).RotB[1] += remote->RotB[1];
-        SPHP(place).RotB[2] += remote->RotB[2];
+        REDUCE(SPHP(place).RotB[0], remote->RotB[0]);
+        REDUCE(SPHP(place).RotB[1], remote->RotB[1]);
+        REDUCE(SPHP(place).RotB[2], remote->RotB[2]);
 #endif
 
 #ifdef TRACEDIVB
-        SPHP(place).divB += remote->divB;
+        REDUCE(SPHP(place).divB, remote->divB);
 #endif
 
 #ifdef JD_VTURB
-        SPHP(place).Vturb += remote->Vturb;
-        SPHP(place).Vbulk[0] += remote->Vbulk[0];
-        SPHP(place).Vbulk[1] += remote->Vbulk[1];
-        SPHP(place).Vbulk[2] += remote->Vbulk[2];
-        SPHP(place).TrueNGB += remote->TrueNGB;
+        REDUCE(SPHP(place).Vturb, remote->Vturb);
+        REDUCE(SPHP(place).Vbulk[0], remote->Vbulk[0]);
+        REDUCE(SPHP(place).Vbulk[1], remote->Vbulk[1]);
+        REDUCE(SPHP(place).Vbulk[2], remote->Vbulk[2]);
+        REDUCE(SPHP(place).TrueNGB, remote->TrueNGB);
 #endif
 
 #ifdef VECT_PRO_CLEAN
-        SPHP(place).BPredVec[0] += remote->BPredVec[0];
-        SPHP(place).BPredVec[1] += remote->BPredVec[1];
-        SPHP(place).BPredVec[2] += remote->BPredVec[2];
+        REDUCE(SPHP(place).BPredVec[0], remote->BPredVec[0]);
+        REDUCE(SPHP(place).BPredVec[1], remote->BPredVec[1]);
+        REDUCE(SPHP(place).BPredVec[2], remote->BPredVec[2]);
 #endif
 #ifdef EULERPOTENTIALS
-        SPHP(place).dEulerA[0] += remote->dEulerA[0];
-        SPHP(place).dEulerA[1] += remote->dEulerA[1];
-        SPHP(place).dEulerA[2] += remote->dEulerA[2];
-        SPHP(place).dEulerB[0] += remote->dEulerB[0];
-        SPHP(place).dEulerB[1] += remote->dEulerB[1];
-        SPHP(place).dEulerB[2] += remote->dEulerB[2];
+        REDUCE(SPHP(place).dEulerA[0], remote->dEulerA[0]);
+        REDUCE(SPHP(place).dEulerA[1], remote->dEulerA[1]);
+        REDUCE(SPHP(place).dEulerA[2], remote->dEulerA[2]);
+        REDUCE(SPHP(place).dEulerB[0], remote->dEulerB[0]);
+        REDUCE(SPHP(place).dEulerB[1], remote->dEulerB[1]);
+        REDUCE(SPHP(place).dEulerB[2], remote->dEulerB[2]);
 #endif
 #ifdef VECT_POTENTIAL
-        SPHP(place).dA[5] += remote->da[5];
-        SPHP(place).dA[4] += remote->da[4];
-        SPHP(place).dA[3] += remote->da[3];
-        SPHP(place).dA[2] += remote->da[2];
-        SPHP(place).dA[1] += remote->da[1];
-        SPHP(place).dA[0] += remote->da[0];
+        REDUCE(SPHP(place).dA[5], remote->da[5]);
+        REDUCE(SPHP(place).dA[4], remote->da[4]);
+        REDUCE(SPHP(place).dA[3], remote->da[3]);
+        REDUCE(SPHP(place).dA[2], remote->da[2]);
+        REDUCE(SPHP(place).dA[1], remote->da[1]);
+        REDUCE(SPHP(place).dA[0], remote->da[0]);
 #endif
     }
 
 #if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
     if(P[place].Type == 4)
-        P[place].DensAroundStar += remote->Rho;
+        REDUCE(P[place].DensAroundStar, remote->Rho);
 #endif
 
 #ifdef BLACK_HOLES
     if(P[place].Type == 5)
     {
-        if (BHP(place).TimeBinLimit < 0 || BHP(place).TimeBinLimit > remote->BH_TimeBinLimit) {
+        if (mode == 0 || 
+                BHP(place).TimeBinLimit < 0 || 
+                BHP(place).TimeBinLimit > remote->BH_TimeBinLimit) {
             BHP(place).TimeBinLimit = remote->BH_TimeBinLimit;
         }
-        BHP(place).Density += remote->Rho;
-        BHP(place).FeedbackWeightSum += remote->FeedbackWeightSum;
-        BHP(place).EntOrPressure += remote->SmoothedEntOrPressure;
+        REDUCE(BHP(place).Density, remote->Rho);
+        REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
+        REDUCE(BHP(place).EntOrPressure, remote->SmoothedEntOrPressure);
 #ifdef BH_USE_GASVEL_IN_BONDI
-        BHP(place).SurroundingGasVel[0] += remote->GasVel[0];
-        BHP(place).SurroundingGasVel[1] += remote->GasVel[1];
-        BHP(place).SurroundingGasVel[2] += remote->GasVel[2];
+        REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
+        REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
+        REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
 #endif
         /*
         printf("%d BHP(%d), TimeBinLimit=%d, TimeBin=%d\n",
