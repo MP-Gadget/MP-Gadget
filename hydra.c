@@ -30,7 +30,6 @@
 #define POW_CC 1./3.
 #endif
 
-extern int NextParticle;
 extern int Nexport, Nimport;
 
 /*! \file hydra.c
@@ -177,9 +176,13 @@ static double hubble_a, atime, hubble_a2, fac_mu, fac_vsic_fix, a3inv, fac_egy;
 void hydro_force(void)
 {
     Evaluator ev = {0};
-    ev.ev_evaluate = hydro_evaluate;
+
+    ev.ev_evaluate = (ev_evaluate_func) hydro_evaluate;
     ev.ev_isactive = hydro_isactive;
     ev.ev_alloc = hydro_alloc_ngblist;
+    ev.ev_copy = (ev_copy_func) hydro_copy;
+    ev.ev_reduce = (ev_reduce_func) hydro_reduce;
+
     ev.ev_datain_elsize = sizeof(struct hydrodata_in);
     ev.ev_dataout_elsize = sizeof(struct hydrodata_out);
 
@@ -296,7 +299,7 @@ void hydro_force(void)
 
         HydroDataGet = (struct hydrodata_in *) mymalloc("HydroDataGet", Nimport * sizeof(struct hydrodata_in));
 
-        evaluate_get_remote(&ev, HydroDataGet, TAG_HYDRO_A, hydro_copy);
+        evaluate_get_remote(&ev, HydroDataGet, TAG_HYDRO_A);
 
         HydroDataResult =
             (struct hydrodata_out *) mymalloc("HydroDataResult", Nimport * sizeof(struct hydrodata_out));
@@ -308,7 +311,7 @@ void hydro_force(void)
         evaluate_secondary(&ev);
 
         /* get the result */
-        evaluate_reduce_result(&ev, HydroDataResult, TAG_HYDRO_B, hydro_reduce);
+        evaluate_reduce_result(&ev, HydroDataResult, TAG_HYDRO_B);
 
         myfree(HydroDataResult);
         myfree(HydroDataGet);

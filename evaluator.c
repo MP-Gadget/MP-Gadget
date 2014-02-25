@@ -296,8 +296,8 @@ static void evaluate_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int
         }
     }
 }
-void evaluate_get_remote(Evaluator * ev, void * recvbuf, int tag, ev_copy_func copy_func
-        ) {
+
+void evaluate_get_remote(Evaluator * ev, void * recvbuf, int tag) {
     int j;
     double tstart, tend;
 
@@ -309,7 +309,7 @@ void evaluate_get_remote(Evaluator * ev, void * recvbuf, int tag, ev_copy_func c
     for(j = 0; j < Nexport; j++)
     {
         int place = DataIndexTable[j].Index;
-        copy_func(place, sendbuf + j * ev->ev_datain_elsize,
+        ev->ev_copy(place, sendbuf + j * ev->ev_datain_elsize,
             DataNodeList[DataIndexTable[j].IndexGet].NodeList);
     }
     tend = second();
@@ -333,14 +333,12 @@ int data_index_compare_by_index(const void *a, const void *b)
     return 0;
 }
 void evaluate_reduce_result(Evaluator * ev,
-        void * sendbuf, int tag, 
-        ev_reduce_func reduce_func) {
+        void * sendbuf, int tag) {
 
     int j;
     double tstart, tend;
 
-    char * recvbuf =
-        (struct densdata_out *) mymalloc("DensDataOut", 
+    char * recvbuf = (char*) mymalloc("EvDataOut", 
                 Nexport * ev->ev_dataout_elsize);
 
     tstart = second();
@@ -377,7 +375,7 @@ void evaluate_reduce_result(Evaluator * ev,
         for(k = UniqueOff[j]; k < UniqueOff[j+1]; k++) {
             int place = DataIndexTable[k].Index;
             int get = DataIndexTable[k].IndexGet;
-            reduce_func(place, recvbuf + ev->ev_dataout_elsize * get);
+            ev->ev_reduce(place, recvbuf + ev->ev_dataout_elsize * get);
         }
     }
     myfree(UniqueOff);

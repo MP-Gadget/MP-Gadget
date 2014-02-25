@@ -180,8 +180,8 @@ void calculate_centre_of_mass(void)
 }
 #endif
 
-static void grav_copy(int place, struct gravdata_in * input, int * nodelist) ;
-static void grav_reduce(int place, struct gravdata_out * result);
+static void gravtree_copy(int place, struct gravdata_in * input, int * nodelist) ;
+static void gravtree_reduce(int place, struct gravdata_out * result);
 
 /*! This function computes the gravitational forces for all active particles.
  *  If needed, a new tree is constructed, otherwise the dynamically updated
@@ -220,17 +220,17 @@ void gravity_tree(void)
 #endif
 
 #ifdef PMGRID
-    ev[0].ev_evaluate = force_treeevaluate_shortrange;
+    ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate_shortrange;
     ev[0].ev_alloc = gravtree_alloccost;
     ev[0].ev_isactive = gravtree_isactive;
     Ewald_max = 0;
 #else
-    ev[0].ev_evaluate = force_treeevaluate;
+    ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate;
     ev[0].ev_alloc = gravtree_alloccost;
     ev[0].ev_isactive = gravtree_isactive;
     Ewald_max = 0;
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
-    ev[1].ev_evaluate = force_treeevaluate_ewald_correction;
+    ev[1].ev_evaluate = (ev_evaluate_func) force_treeevaluate_ewald_correction;
     ev[1].ev_alloc = gravtree_alloccost;
     ev[1].ev_isactive = gravtree_isactive;
     Ewald_max = 1;
@@ -239,6 +239,8 @@ void gravity_tree(void)
     for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++) {
         ev[Ewald_iter].ev_datain_elsize = sizeof(struct gravdata_in);
         ev[Ewald_iter].ev_dataout_elsize = sizeof(struct gravdata_out);
+        ev[Ewald_iter].ev_copy = (ev_copy_func) gravtree_copy;
+        ev[Ewald_iter].ev_reduce = (ev_reduce_func) gravtree_reduce;
     }
 #ifndef GRAVITY_CENTROID
     CPU_Step[CPU_MISC] += measure_time();
@@ -416,7 +418,7 @@ void gravity_tree(void)
 
                 /* exchange particle data */
 
-                evaluate_get_remote(&ev[Ewald_iter], GravDataGet, TAG_GRAV_A, grav_copy);
+                evaluate_get_remote(&ev[Ewald_iter], GravDataGet, TAG_GRAV_A);
 
                 GravDataResult =
                     (struct gravdata_out *) mymalloc("GravDataResult", Nimport * sizeof(struct gravdata_out));
@@ -429,7 +431,7 @@ void gravity_tree(void)
                 costs[Ewald_iter] += gravtree_reducecost();
 
                 /* get the result */
-                evaluate_reduce_result(&ev[Ewald_iter], GravDataResult, TAG_GRAV_B, grav_reduce);
+                evaluate_reduce_result(&ev[Ewald_iter], GravDataResult, TAG_GRAV_B);
 
                 myfree(GravDataResult);
                 myfree(GravDataGet);
@@ -1419,7 +1421,7 @@ void gravity_tree(void)
     CPU_Step[CPU_TREEMISC] += measure_time();
 }
 
-static void grav_copy(int place, struct gravdata_in * input, int * nodelist) {
+static void gravtree_copy(int place, struct gravdata_in * input, int * nodelist) {
     int k;
 #ifdef GRAVITY_CENTROID
     if(P[place].Type == 0)
@@ -1449,7 +1451,7 @@ static void grav_copy(int place, struct gravdata_in * input, int * nodelist) {
     memcpy(input->NodeList, nodelist, NODELISTLENGTH * sizeof(int));
 }
 
-static void grav_reduce(int place, struct gravdata_out * result) {
+static void gravtree_reduce(int place, struct gravdata_out * result) {
     int k;
     for(k = 0; k < 3; k++)
         P[place].g.dGravAccel[k] += result->Acc[k];
