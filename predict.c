@@ -124,7 +124,12 @@ void drift_particle(int i, int time1) {
         if(P[i].Ti_current != time1) {
             real_drift_particle(i, time1);
 #pragma omp flush
+        } else {
+#pragma omp atomic
+            BlockedParticleDrifts ++;
         }
+#pragma omp atomic
+        TotalParticleDrifts ++;
         pthread_spin_unlock(&P[i].SpinLock); 
     } else {
         endrun(99999);
@@ -136,7 +141,10 @@ void drift_particle(int i, int time1) {
     {
         if(P[i].Ti_current != time1) {
             real_drift_particle(i, time1);
+        } else {
+            BlockedParticleDrifts ++;
         }
+        TotalParticleDrifts ++;
     }
 #endif
 }

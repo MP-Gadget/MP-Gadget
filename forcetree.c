@@ -1612,7 +1612,12 @@ void force_drift_node(int no, int time1) {
         if(time1 != Nodes[no].Ti_current) {
             real_force_drift_node(no, time1);
 #pragma omp flush
+        } else {
+#pragma omp atomic
+            BlockedNodeDrifts ++;
         }
+#pragma omp atomic
+        TotalNodeDrifts ++;
         pthread_spin_unlock(&Nodes[no].SpinLock); 
     } else {
         endrun(99999);
@@ -1623,7 +1628,10 @@ void force_drift_node(int no, int time1) {
     {
         if(time1 != Nodes[no].Ti_current) {
             real_force_drift_node(no, time1);
+        }  else {
+            BlockedNodeDrifts ++;
         }
+        TotalNodeDrifts ++;
     }
 #endif
 }

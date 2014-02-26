@@ -871,6 +871,15 @@ void write_cpu_log(void)
     MPI_Reduce(CPU_Step, max_CPU_Step, CPU_PARTS, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(CPU_Step, avg_CPU_Step, CPU_PARTS, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
+    int64_t totBlockedPD = -1, totBlockedND = -1;
+    int64_t totTotalPD = -1, totTotalND = -1;
+
+#ifdef _OPENMP
+    MPI_Reduce(&BlockedParticleDrifts, &totBlockedPD, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&BlockedNodeDrifts, &totBlockedND, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&TotalParticleDrifts, &totTotalPD, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&TotalNodeDrifts, &totTotalND, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
+#endif
 
     if(ThisTask == 0)
     {
@@ -913,6 +922,10 @@ void write_cpu_log(void)
             All.CPU_Sum[i] += avg_CPU_Step[i];
 
         fprintf(FdCPU, "Step %d, Time: %g, CPUs: %d\n", All.NumCurrentTiStep, All.Time, NTask);
+#ifdef _OPENMP
+        fprintf(FdCPU, "Blocked Drifts (Particle Node): %ld %ld\n", totBlockedPD, totBlockedND);
+        fprintf(FdCPU, "Total Drifts (Particle Node): %ld %ld\n", totTotalPD, totTotalND);
+#endif
         fprintf(FdCPU,
                 "total         %10.2f  %5.1f%%\n"
                 "treegrav      %10.2f  %5.1f%%\n"

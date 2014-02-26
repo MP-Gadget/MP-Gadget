@@ -1283,7 +1283,12 @@ extern struct global_data_all_processes
 #endif
 }
 All;
-
+#ifdef _OPENMP
+extern size_t BlockedParticleDrifts;
+extern size_t TotalParticleDrifts;
+extern size_t BlockedNodeDrifts;
+extern size_t TotalNodeDrifts;
+#endif
 struct bh_particle_data {
     MyIDType ID; /* for data consistency check, same as particle ID */
 #ifdef BH_COUNTPROGS

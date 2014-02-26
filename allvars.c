@@ -245,7 +245,6 @@ double GravKickTable[DRIFT_TABLE_LENGTH];
 /*! table for the cosmological kick factor for hydrodynmical forces */
 double HydroKickTable[DRIFT_TABLE_LENGTH];
 
-
 void *CommBuffer;		/*!< points to communication buffer, which is used at a few places */
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
@@ -255,9 +254,12 @@ void *CommBuffer;		/*!< points to communication buffer, which is used at a few p
  */
 struct global_data_all_processes All;
 
-
-
-
+#ifdef _OPENMP
+uint64_t BlockedParticleDrifts = 0;
+uint64_t BlockedNodeDrifts = 0;
+uint64_t TotalParticleDrifts = 0;
+uint64_t TotalNodeDrifts = 0;
+#endif
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
  */
