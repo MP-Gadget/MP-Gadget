@@ -30,8 +30,6 @@
 #define POW_CC 1./3.
 #endif
 
-extern int Nexport, Nimport;
-
 /*! \file hydra.c
  *  \brief Computation of SPH forces and rate of entropy generation
  *
@@ -43,6 +41,7 @@ extern int Nexport, Nimport;
 static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngblist);
 static int hydro_isactive(int n);
 static void * hydro_alloc_ngblist();
+static void hydro_post_process(int i);
 
 struct hydrodata_in
 {
@@ -216,24 +215,12 @@ void hydro_force(void)
 #endif
 #endif
 
-#ifdef WINDS
-    double windspeed, hsml_c;
-
-#endif
-
-
-#ifdef TIME_DEP_ART_VISC
-    double f, cs_h;
-#endif
 #if defined(MAGNETIC) && defined(MAGFORCE)
 #if defined(TIME_DEP_MAGN_DISP) || defined(DIVBCLEANING_DEDNER)
     double mu0 = 1;
 #endif
 #endif
 
-#if defined(DIVBCLEANING_DEDNER) || defined(DIVBFORCE3)
-    double phiphi, tmpb;
-#endif
 #if defined(HEALPIX)
     double r_new, t[3];
     long ipix;
@@ -341,311 +328,13 @@ void hydro_force(void)
 
 
 
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-        if(P[i].Type == 0)
-        {
+    int Nactive; 
+    int * queue = evaluate_get_queue(&ev, &Nactive);
+#pragma omp parallel for if(Nactive > 64) 
+    for(i = 0; i < Nactive; i++)
+        hydro_post_process(queue[i]);
 
-#ifndef EOS_DEGENERATE
-
-#ifndef TRADITIONAL_SPH_FORMULATION
-            /* Translate energy change rate into entropy change rate */
-            SPHP(i).e.DtEntropy *= GAMMA_MINUS1 / (hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
-#endif
-
-#else
-            /* DtEntropy stores the energy change rate in internal units */
-            SPHP(i).e.DtEntropy *= All.UnitEnergy_in_cgs / All.UnitTime_in_s;
-#endif
-
-#ifdef MACHNUM
-
-            /* Estimates the Mach number of particle i for non-radiative runs,
-             * or the Mach number, density jump and specific energy jump
-             * in case of cosmic rays!
-             */
-            GetMachNumber(i);
-#endif /* MACHNUM */
-#ifdef MACHSTATISTIC
-            GetShock_DtEnergy(&SPHP(i));
-#endif
-
-#ifdef NAVIERSTOKES
-            /* sigma_ab * sigma_ab */
-            for(k = 0, fac = 0; k < 3; k++)
-            {
-                fac += SPHP(i).u.s.StressDiag[k] * SPHP(i).u.s.StressDiag[k] +
-                    2 * SPHP(i).u.s.StressOffDiag[k] * SPHP(i).u.s.StressOffDiag[k];
-            }
-
-#ifndef NAVIERSTOKES_CONSTANT	/*entropy increase due to the shear viscosity */
-#ifdef NS_TIMESTEP
-            SPHP(i).ViscEntropyChange = 0.5 * GAMMA_MINUS1 /
-                (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
-                get_shear_viscosity(i) / SPHP(i).d.Density * fac *
-                pow((SPHP(i).Entropy * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);
-
-            SPHP(i).e.DtEntropy += SPHP(i).ViscEntropyChange;
-#else
-            SPHP(i).e.DtEntropy += 0.5 * GAMMA_MINUS1 /
-                (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
-                get_shear_viscosity(i) / SPHP(i).d.Density * fac *
-                pow((SPHP(i).Entropy * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);
-#endif
-
-#else
-            SPHP(i).e.DtEntropy += 0.5 * GAMMA_MINUS1 /
-                (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
-                get_shear_viscosity(i) / SPHP(i).d.Density * fac;
-
-#ifdef NS_TIMESTEP
-            SPHP(i).ViscEntropyChange = 0.5 * GAMMA_MINUS1 /
-                (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
-                get_shear_viscosity(i) / SPHP(i).d.Density * fac;
-#endif
-
-#endif
-
-#ifdef NAVIERSTOKES_BULK	/*entropy increase due to the bulk viscosity */
-            SPHP(i).e.DtEntropy += GAMMA_MINUS1 /
-                (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
-                All.NavierStokes_BulkViscosity / SPHP(i).d.Density * pow(SPHP(i).u.s.a4.DivVel, 2);
-
-#ifdef NS_TIMESTEP
-            SPHP(i).ViscEntropyChange = GAMMA_MINUS1 /
-                (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
-                All.NavierStokes_BulkViscosity / SPHP(i).d.Density * pow(SPHP(i).u.s.a4.DivVel, 2);
-#endif
-
-#endif
-
-#endif /* these entropy increases directly follow from the general heat transfer equation */
-
-
-#ifdef JD_VTURB
-            SPHP(i).Vrms += (SPHP(i).VelPred[0]-SPHP(i).Vbulk[0])*(SPHP(i).VelPred[0]-SPHP(i).Vbulk[0]) 
-                + (SPHP(i).VelPred[1]-SPHP(i).Vbulk[1])*(SPHP(i).VelPred[1]-SPHP(i).Vbulk[1]) 
-                + (SPHP(i).VelPred[2]-SPHP(i).Vbulk[2])*(SPHP(i).VelPred[2]-SPHP(i).Vbulk[2]);
-            SPHP(i).Vrms = sqrt(SPHP(i).Vrms/SPHP(i).TrueNGB);
-#endif
-
-#if defined(JD_DPP) && !defined(JD_DPPONSNAPSHOTONLY)
-            compute_Dpp(i);
-#endif
-
-#if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
-            /* take care of cosmological dilution */
-            if(All.ComovingIntegrationOn)
-                for(k = 0; k < 3; k++)
-#ifndef SFR
-                    SPHP(i).DtB[k] -= 2.0 * SPHP(i).BPred[k];
-#else
-            SPHP(i).DtB[k] -= 2.0 * SPHP(i).BPred[k] * pow(1.-SPHP(i).XColdCloud,2.*POW_CC);
-#endif
-#endif
-
-#ifdef WINDS
-            /* if we have winds, we decouple particles briefly if delaytime>0 */
-
-            if(SPHP(i).DelayTime > 0)
-            {
-                for(k = 0; k < 3; k++)
-                    SPHP(i).a.HydroAccel[k] = 0;
-
-                SPHP(i).e.DtEntropy = 0;
-
-#ifdef NOWINDTIMESTEPPING
-                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).d.Density);
-#else
-                windspeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN *
-                        All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency) * All.Time;
-                windspeed *= fac_mu;
-                hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
-                        (SPHP(i).d.Density * a3inv), (1. / 3.));
-                SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
-#endif
-            }
-#endif
-
-#if VECT_POTENTIAL
-            /*check if SFR cahnge is needed */
-            SPHP(i).DtA[0] +=
-                (SPHP(i).VelPred[1] * SPHP(i).BPred[2] -
-                 SPHP(i).VelPred[2] * SPHP(i).BPred[1]) / (atime * atime * hubble_a);
-            SPHP(i).DtA[1] +=
-                (SPHP(i).VelPred[2] * SPHP(i).BPred[0] -
-                 SPHP(i).VelPred[0] * SPHP(i).BPred[2]) / (atime * atime * hubble_a);
-            SPHP(i).DtA[2] +=
-                (SPHP(i).VelPred[0] * SPHP(i).BPred[1] -
-                 SPHP(i).VelPred[1] * SPHP(i).BPred[0]) / (atime * atime * hubble_a);
-            if(All.ComovingIntegrationOn)
-                for(k = 0; k < 3; k++)
-                    SPHP(i).DtA[k] -= SPHP(i).APred[k];
-
-#endif
-
-
-#if defined(HEALPIX)
-            r_new = 0;
-            ded_heal_fac = 1.;
-            for(k = 0; k < 3; k++)
-            {
-                t[k] = P[i].Pos[k] - SysState.CenterOfMassComp[0][k];
-                r_new = r_new + t[k] * t[k];
-            }
-            r_new = sqrt(r_new);
-            vec2pix_nest((long) All.Nside, t, &ipix);
-            if(r_new > All.healpixmap[ipix] * HEALPIX)
-            {
-                SPHP(i).e.DtEntropy = 0;
-                for(k = 0; k < 3; k++)
-                {
-                    SPHP(i).a.HydroAccel[k] = 0;
-                    SPHP(i).VelPred[k] = 0.0;
-                    P[i].Vel[k] = 0.0;
-                }
-                ded_heal_fac = 2.;
-                SPHP(i).v.DivVel = 0.0;
-                count++;
-                if(r_new > All.healpixmap[ipix] * HEALPIX * 1.5)
-                {
-                    count2++;
-                }
-            }
-#endif
-
-#ifdef TIME_DEP_ART_VISC
-#if !defined(EOS_DEGENERATE)
-            cs_h = sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).d.Density) / P[i].Hsml;
-#else
-            cs_h = sqrt(SPHP(i).dpdr) / P[i].Hsml;
-#endif
-            f = fabs(SPHP(i).v.DivVel) / (fabs(SPHP(i).v.DivVel) + SPHP(i).r.CurlVel + 0.0001 * cs_h / fac_mu);
-            SPHP(i).Dtalpha = -(SPHP(i).alpha - All.AlphaMin) * All.DecayTime *
-                0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
-                + f * All.ViscSource * DMAX(0.0, -SPHP(i).v.DivVel);
-            if(All.ComovingIntegrationOn)
-                SPHP(i).Dtalpha /= (hubble_a * All.Time * All.Time);
-#endif
-#ifdef MAGNETIC
-#ifdef TIME_DEP_MAGN_DISP
-            SPHP(i).DtBalpha = -(SPHP(i).Balpha - All.ArtMagDispMin) * All.ArtMagDispTime *
-                0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
-#ifndef ROT_IN_MAG_DIS
-                + All.ArtMagDispSource * fabs(SPHP(i).divB) / sqrt(mu0 * SPHP(i).d.Density);
-#else
-#ifdef SMOOTH_ROTB
-            + All.ArtMagDispSource / sqrt(mu0 * SPHP(i).d.Density) *
-                DMAX(fabs(SPHP(i).divB), fabs(sqrt(SPHP(i).SmoothedRotB[0] * SPHP(i).SmoothedRotB[0] +
-                                SPHP(i).SmoothedRotB[1] * SPHP(i).SmoothedRotB[1] +
-                                SPHP(i).SmoothedRotB[2] * SPHP(i).SmoothedRotB[2])));
-#else
-            + All.ArtMagDispSource / sqrt(mu0 * SPHP(i).d.Density) *
-                DMAX(fabs(SPHP(i).divB), fabs(sqrt(SPHP(i).RotB[0] * SPHP(i).RotB[0] +
-                                SPHP(i).RotB[1] * SPHP(i).RotB[1] +
-                                SPHP(i).RotB[2] * SPHP(i).RotB[2])));
-#endif /* End SMOOTH_ROTB        */
-#endif /* End ROT_IN_MAG_DIS     */
-#endif /* End TIME_DEP_MAGN_DISP */
-
-#ifdef DIVBFORCE3
-            phiphi = sqrt(pow( SPHP(i).magcorr[0] 	   , 2.)+ pow( SPHP(i).magcorr[1]      ,2.) +pow( SPHP(i).magcorr[2] 	  ,2.));
-            tmpb =   sqrt(pow( SPHP(i).magacc[0] 	   , 2.)+ pow( SPHP(i).magacc[1]       ,2.) +pow( SPHP(i).magacc[2] 	  ,2.));
-
-            if(phiphi > DIVBFORCE3 * tmpb)
-                for(k = 0; k < 3; k++)
-                    SPHP(i).magcorr[k]*= DIVBFORCE3 * tmpb / phiphi;
-
-            for(k = 0; k < 3; k++)
-                SPHP(i).a.HydroAccel[k]+=(SPHP(i).magacc[k]-SPHP(i).magcorr[k]);
-
-#endif
-
-#ifdef DIVBCLEANING_DEDNER
-            tmpb = 0.5 * SPHP(i).MaxSignalVel;
-            phiphi = tmpb * All.DivBcleanHyperbolicSigma * atime
-#ifdef HEALPIX
-                / ded_heal_fac 
-#endif
-#ifdef SFR 
-                * pow(1.-SPHP(i).XColdCloud,3.*POW_CC)
-#endif
-                * SPHP(i).SmoothDivB;
-#ifdef SMOOTH_PHI
-            phiphi += SPHP(i).SmoothPhi *
-#else
-                phiphi += SPHP(i).PhiPred *
-#endif
-#ifdef HEALPIX
-                ded_heal_fac * 
-#endif
-#ifdef SFR 
-                pow(1.-SPHP(i).XColdCloud,POW_CC) *
-#endif
-                All.DivBcleanParabolicSigma / P[i].Hsml;
-
-            if(All.ComovingIntegrationOn)
-                SPHP(i).DtPhi =
-#ifdef SMOOTH_PHI
-                    - SPHP(i).SmoothPhi
-#else
-                    - SPHP(i).PhiPred
-#endif
-#ifdef SFR 
-                    * pow(1.-SPHP(i).XColdCloud,POW_CC)
-#endif
-                    - ( phiphi * tmpb) / (hubble_a * atime);	///carefull with the + or not +
-            else
-                SPHP(i).DtPhi = (-phiphi * tmpb);
-
-            if(All.ComovingIntegrationOn){
-                SPHP(i).GradPhi[0]*=1/(hubble_a * atime);
-                SPHP(i).GradPhi[1]*=1/(hubble_a * atime);
-                SPHP(i).GradPhi[2]*=1/(hubble_a * atime);
-            }
-            phiphi = sqrt(pow( SPHP(i).GradPhi[0] , 2.)+pow( SPHP(i).GradPhi[1]  ,2.)+pow( SPHP(i).GradPhi[2] ,2.));
-            tmpb   = sqrt(pow( SPHP(i).DtB[0]      ,2.)+pow( SPHP(i).DtB[1]      ,2.)+pow( SPHP(i).DtB[2]     ,2.));
-
-            if(phiphi > All.DivBcleanQ * tmpb){
-                SPHP(i).GradPhi[0]*= All.DivBcleanQ * tmpb / phiphi;
-                SPHP(i).GradPhi[1]*= All.DivBcleanQ * tmpb / phiphi;
-                SPHP(i).GradPhi[2]*= All.DivBcleanQ * tmpb / phiphi;
-            }	
-
-            SPHP(i).e.DtEntropy += mu0 * (SPHP(i).BPred[0] * SPHP(i).GradPhi[0] + SPHP(i).BPred[1] * SPHP(i).GradPhi[1] + SPHP(i).BPred[2] * SPHP(i).GradPhi[2]) 
-#ifdef SFR
-                * pow(1.-SPHP(i).XColdCloud,3.*POW_CC)
-#endif
-                * GAMMA_MINUS1 / (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1));
-
-            SPHP(i).DtB[0]+=SPHP(i).GradPhi[0];
-            SPHP(i).DtB[1]+=SPHP(i).GradPhi[1];
-            SPHP(i).DtB[2]+=SPHP(i).GradPhi[2];
-
-
-#endif /* End DEDNER */
-#endif /* End Magnetic */
-
-#ifdef SPH_BND_PARTICLES
-            if(P[i].ID == 0)
-            {
-                SPHP(i).e.DtEntropy = 0;
-#ifdef NS_TIMESTEP
-                SPHP(i).ViscEntropyChange = 0;
-#endif
-
-#ifdef DIVBCLEANING_DEDNER
-                SPHP(i).DtPhi = 0;
-#endif
-#if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
-                for(k = 0; k < 3; k++)
-                    SPHP(i).DtB[k] = 0;
-#endif
-
-                for(k = 0; k < 3; k++)
-                    SPHP(i).a.HydroAccel[k] = 0;
-            }
-#endif
-        }
+    myfree(queue);
 
 #if defined(HEALPIX)
     MPI_Allreduce(&count, &total_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -2130,3 +1819,311 @@ static int hydro_isactive(int i) {
     return P[i].Type == 0;
 }
 
+static void hydro_post_process(int i) {
+    int k;
+    if(P[i].Type == 0)
+    {
+
+#ifndef EOS_DEGENERATE
+
+#ifndef TRADITIONAL_SPH_FORMULATION
+        /* Translate energy change rate into entropy change rate */
+        SPHP(i).e.DtEntropy *= GAMMA_MINUS1 / (hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
+#endif
+
+#else
+        /* DtEntropy stores the energy change rate in internal units */
+        SPHP(i).e.DtEntropy *= All.UnitEnergy_in_cgs / All.UnitTime_in_s;
+#endif
+
+#ifdef MACHNUM
+
+        /* Estimates the Mach number of particle i for non-radiative runs,
+         * or the Mach number, density jump and specific energy jump
+         * in case of cosmic rays!
+         */
+        GetMachNumber(i);
+#endif /* MACHNUM */
+#ifdef MACHSTATISTIC
+        GetShock_DtEnergy(&SPHP(i));
+#endif
+
+#ifdef NAVIERSTOKES
+        /* sigma_ab * sigma_ab */
+        double fac = 0;
+        for(k = 0; k < 3; k++)
+        {
+            fac += SPHP(i).u.s.StressDiag[k] * SPHP(i).u.s.StressDiag[k] +
+                2 * SPHP(i).u.s.StressOffDiag[k] * SPHP(i).u.s.StressOffDiag[k];
+        }
+
+#ifndef NAVIERSTOKES_CONSTANT	/*entropy increase due to the shear viscosity */
+#ifdef NS_TIMESTEP
+        SPHP(i).ViscEntropyChange = 0.5 * GAMMA_MINUS1 /
+            (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+            get_shear_viscosity(i) / SPHP(i).d.Density * fac *
+            pow((SPHP(i).Entropy * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);
+
+        SPHP(i).e.DtEntropy += SPHP(i).ViscEntropyChange;
+#else
+        SPHP(i).e.DtEntropy += 0.5 * GAMMA_MINUS1 /
+            (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+            get_shear_viscosity(i) / SPHP(i).d.Density * fac *
+            pow((SPHP(i).Entropy * pow(SPHP(i).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);
+#endif
+
+#else
+        SPHP(i).e.DtEntropy += 0.5 * GAMMA_MINUS1 /
+            (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+            get_shear_viscosity(i) / SPHP(i).d.Density * fac;
+
+#ifdef NS_TIMESTEP
+        SPHP(i).ViscEntropyChange = 0.5 * GAMMA_MINUS1 /
+            (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+            get_shear_viscosity(i) / SPHP(i).d.Density * fac;
+#endif
+
+#endif
+
+#ifdef NAVIERSTOKES_BULK	/*entropy increase due to the bulk viscosity */
+        SPHP(i).e.DtEntropy += GAMMA_MINUS1 /
+            (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+            All.NavierStokes_BulkViscosity / SPHP(i).d.Density * pow(SPHP(i).u.s.a4.DivVel, 2);
+
+#ifdef NS_TIMESTEP
+        SPHP(i).ViscEntropyChange = GAMMA_MINUS1 /
+            (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1)) *
+            All.NavierStokes_BulkViscosity / SPHP(i).d.Density * pow(SPHP(i).u.s.a4.DivVel, 2);
+#endif
+
+#endif
+
+#endif /* these entropy increases directly follow from the general heat transfer equation */
+
+
+#ifdef JD_VTURB
+        SPHP(i).Vrms += (SPHP(i).VelPred[0]-SPHP(i).Vbulk[0])*(SPHP(i).VelPred[0]-SPHP(i).Vbulk[0]) 
+            + (SPHP(i).VelPred[1]-SPHP(i).Vbulk[1])*(SPHP(i).VelPred[1]-SPHP(i).Vbulk[1]) 
+            + (SPHP(i).VelPred[2]-SPHP(i).Vbulk[2])*(SPHP(i).VelPred[2]-SPHP(i).Vbulk[2]);
+        SPHP(i).Vrms = sqrt(SPHP(i).Vrms/SPHP(i).TrueNGB);
+#endif
+
+#if defined(JD_DPP) && !defined(JD_DPPONSNAPSHOTONLY)
+        compute_Dpp(i);
+#endif
+
+#if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
+        /* take care of cosmological dilution */
+        if(All.ComovingIntegrationOn)
+            for(k = 0; k < 3; k++)
+#ifndef SFR
+                SPHP(i).DtB[k] -= 2.0 * SPHP(i).BPred[k];
+#else
+        SPHP(i).DtB[k] -= 2.0 * SPHP(i).BPred[k] * pow(1.-SPHP(i).XColdCloud,2.*POW_CC);
+#endif
+#endif
+
+#ifdef WINDS
+        /* if we have winds, we decouple particles briefly if delaytime>0 */
+
+        if(SPHP(i).DelayTime > 0)
+        {
+            for(k = 0; k < 3; k++)
+                SPHP(i).a.HydroAccel[k] = 0;
+
+            SPHP(i).e.DtEntropy = 0;
+
+#ifdef NOWINDTIMESTEPPING
+            SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).d.Density);
+#else
+            double windspeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN *
+                    All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency) * All.Time;
+            windspeed *= fac_mu;
+            double hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
+                    (SPHP(i).d.Density * a3inv), (1. / 3.));
+            SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
+#endif
+        }
+#endif
+
+#if VECT_POTENTIAL
+        /*check if SFR cahnge is needed */
+        SPHP(i).DtA[0] +=
+            (SPHP(i).VelPred[1] * SPHP(i).BPred[2] -
+             SPHP(i).VelPred[2] * SPHP(i).BPred[1]) / (atime * atime * hubble_a);
+        SPHP(i).DtA[1] +=
+            (SPHP(i).VelPred[2] * SPHP(i).BPred[0] -
+             SPHP(i).VelPred[0] * SPHP(i).BPred[2]) / (atime * atime * hubble_a);
+        SPHP(i).DtA[2] +=
+            (SPHP(i).VelPred[0] * SPHP(i).BPred[1] -
+             SPHP(i).VelPred[1] * SPHP(i).BPred[0]) / (atime * atime * hubble_a);
+        if(All.ComovingIntegrationOn)
+            for(k = 0; k < 3; k++)
+                SPHP(i).DtA[k] -= SPHP(i).APred[k];
+
+#endif
+
+
+#if defined(HEALPIX)
+        r_new = 0;
+        ded_heal_fac = 1.;
+        for(k = 0; k < 3; k++)
+        {
+            t[k] = P[i].Pos[k] - SysState.CenterOfMassComp[0][k];
+            r_new = r_new + t[k] * t[k];
+        }
+        r_new = sqrt(r_new);
+        vec2pix_nest((long) All.Nside, t, &ipix);
+        if(r_new > All.healpixmap[ipix] * HEALPIX)
+        {
+            SPHP(i).e.DtEntropy = 0;
+            for(k = 0; k < 3; k++)
+            {
+                SPHP(i).a.HydroAccel[k] = 0;
+                SPHP(i).VelPred[k] = 0.0;
+                P[i].Vel[k] = 0.0;
+            }
+            ded_heal_fac = 2.;
+            SPHP(i).v.DivVel = 0.0;
+            count++;
+            if(r_new > All.healpixmap[ipix] * HEALPIX * 1.5)
+            {
+                count2++;
+            }
+        }
+#endif
+
+#ifdef TIME_DEP_ART_VISC
+#if !defined(EOS_DEGENERATE)
+        double cs_h = sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).d.Density) / P[i].Hsml;
+#else
+        double cs_h = sqrt(SPHP(i).dpdr) / P[i].Hsml;
+#endif
+        double f = fabs(SPHP(i).v.DivVel) / (fabs(SPHP(i).v.DivVel) + SPHP(i).r.CurlVel + 0.0001 * cs_h / fac_mu);
+        SPHP(i).Dtalpha = -(SPHP(i).alpha - All.AlphaMin) * All.DecayTime *
+            0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
+            + f * All.ViscSource * DMAX(0.0, -SPHP(i).v.DivVel);
+        if(All.ComovingIntegrationOn)
+            SPHP(i).Dtalpha /= (hubble_a * All.Time * All.Time);
+#endif
+#ifdef MAGNETIC
+#ifdef TIME_DEP_MAGN_DISP
+        SPHP(i).DtBalpha = -(SPHP(i).Balpha - All.ArtMagDispMin) * All.ArtMagDispTime *
+            0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
+#ifndef ROT_IN_MAG_DIS
+            + All.ArtMagDispSource * fabs(SPHP(i).divB) / sqrt(mu0 * SPHP(i).d.Density);
+#else
+#ifdef SMOOTH_ROTB
+        + All.ArtMagDispSource / sqrt(mu0 * SPHP(i).d.Density) *
+            DMAX(fabs(SPHP(i).divB), fabs(sqrt(SPHP(i).SmoothedRotB[0] * SPHP(i).SmoothedRotB[0] +
+                            SPHP(i).SmoothedRotB[1] * SPHP(i).SmoothedRotB[1] +
+                            SPHP(i).SmoothedRotB[2] * SPHP(i).SmoothedRotB[2])));
+#else
+        + All.ArtMagDispSource / sqrt(mu0 * SPHP(i).d.Density) *
+            DMAX(fabs(SPHP(i).divB), fabs(sqrt(SPHP(i).RotB[0] * SPHP(i).RotB[0] +
+                            SPHP(i).RotB[1] * SPHP(i).RotB[1] +
+                            SPHP(i).RotB[2] * SPHP(i).RotB[2])));
+#endif /* End SMOOTH_ROTB        */
+#endif /* End ROT_IN_MAG_DIS     */
+#endif /* End TIME_DEP_MAGN_DISP */
+
+#ifdef DIVBFORCE3
+        double phiphi = sqrt(pow( SPHP(i).magcorr[0] 	   , 2.)+ pow( SPHP(i).magcorr[1]      ,2.) +pow( SPHP(i).magcorr[2] 	  ,2.));
+        double tmpb =   sqrt(pow( SPHP(i).magacc[0] 	   , 2.)+ pow( SPHP(i).magacc[1]       ,2.) +pow( SPHP(i).magacc[2] 	  ,2.));
+
+        if(phiphi > DIVBFORCE3 * tmpb)
+            for(k = 0; k < 3; k++)
+                SPHP(i).magcorr[k]*= DIVBFORCE3 * tmpb / phiphi;
+
+        for(k = 0; k < 3; k++)
+            SPHP(i).a.HydroAccel[k]+=(SPHP(i).magacc[k]-SPHP(i).magcorr[k]);
+
+#endif
+
+#ifdef DIVBCLEANING_DEDNER
+        double tmpb = 0.5 * SPHP(i).MaxSignalVel;
+        double phiphi = tmpb * All.DivBcleanHyperbolicSigma * atime
+#ifdef HEALPIX
+            / ded_heal_fac 
+#endif
+#ifdef SFR 
+            * pow(1.-SPHP(i).XColdCloud,3.*POW_CC)
+#endif
+            * SPHP(i).SmoothDivB;
+#ifdef SMOOTH_PHI
+        phiphi += SPHP(i).SmoothPhi *
+#else
+            phiphi += SPHP(i).PhiPred *
+#endif
+#ifdef HEALPIX
+            ded_heal_fac * 
+#endif
+#ifdef SFR 
+            pow(1.-SPHP(i).XColdCloud,POW_CC) *
+#endif
+            All.DivBcleanParabolicSigma / P[i].Hsml;
+
+        if(All.ComovingIntegrationOn)
+            SPHP(i).DtPhi =
+#ifdef SMOOTH_PHI
+                - SPHP(i).SmoothPhi
+#else
+                - SPHP(i).PhiPred
+#endif
+#ifdef SFR 
+                * pow(1.-SPHP(i).XColdCloud,POW_CC)
+#endif
+                - ( phiphi * tmpb) / (hubble_a * atime);	///carefull with the + or not +
+        else
+            SPHP(i).DtPhi = (-phiphi * tmpb);
+
+        if(All.ComovingIntegrationOn){
+            SPHP(i).GradPhi[0]*=1/(hubble_a * atime);
+            SPHP(i).GradPhi[1]*=1/(hubble_a * atime);
+            SPHP(i).GradPhi[2]*=1/(hubble_a * atime);
+        }
+        double phiphi = sqrt(pow( SPHP(i).GradPhi[0] , 2.)+pow( SPHP(i).GradPhi[1]  ,2.)+pow( SPHP(i).GradPhi[2] ,2.));
+        double tmpb   = sqrt(pow( SPHP(i).DtB[0]      ,2.)+pow( SPHP(i).DtB[1]      ,2.)+pow( SPHP(i).DtB[2]     ,2.));
+
+        if(phiphi > All.DivBcleanQ * tmpb){
+            SPHP(i).GradPhi[0]*= All.DivBcleanQ * tmpb / phiphi;
+            SPHP(i).GradPhi[1]*= All.DivBcleanQ * tmpb / phiphi;
+            SPHP(i).GradPhi[2]*= All.DivBcleanQ * tmpb / phiphi;
+        }	
+
+        SPHP(i).e.DtEntropy += mu0 * (SPHP(i).BPred[0] * SPHP(i).GradPhi[0] + SPHP(i).BPred[1] * SPHP(i).GradPhi[1] + SPHP(i).BPred[2] * SPHP(i).GradPhi[2]) 
+#ifdef SFR
+            * pow(1.-SPHP(i).XColdCloud,3.*POW_CC)
+#endif
+            * GAMMA_MINUS1 / (hubble_a2 * pow(SPHP(i).d.Density, GAMMA_MINUS1));
+
+        SPHP(i).DtB[0]+=SPHP(i).GradPhi[0];
+        SPHP(i).DtB[1]+=SPHP(i).GradPhi[1];
+        SPHP(i).DtB[2]+=SPHP(i).GradPhi[2];
+
+
+#endif /* End DEDNER */
+#endif /* End Magnetic */
+
+#ifdef SPH_BND_PARTICLES
+        if(P[i].ID == 0)
+        {
+            SPHP(i).e.DtEntropy = 0;
+#ifdef NS_TIMESTEP
+            SPHP(i).ViscEntropyChange = 0;
+#endif
+
+#ifdef DIVBCLEANING_DEDNER
+            SPHP(i).DtPhi = 0;
+#endif
+#if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
+            for(k = 0; k < 3; k++)
+                SPHP(i).DtB[k] = 0;
+#endif
+
+            for(k = 0; k < 3; k++)
+                SPHP(i).a.HydroAccel[k] = 0;
+        }
+#endif
+    }
+}

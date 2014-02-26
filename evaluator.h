@@ -53,6 +53,7 @@ int evaluate_primary(Evaluator * ev);
 void * evaluate_get_remote(Evaluator * ev, int tag);
 void evaluate_secondary(Evaluator * ev);
 void evaluate_reduce_result(Evaluator * ev, void * sendbuf, int tag);
+int * evaluate_get_queue(Evaluator * ev, int * len);
 
 /*returns -1 if the buffer is full */
 int exporter_export_particle(Exporter * exporter, int target, int no);

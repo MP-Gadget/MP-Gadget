@@ -146,6 +146,19 @@ static void real_ev(Evaluator * ev) {
         ev->ParticleQueue[k] = abandoned;
     }
 }
+int * evaluate_get_queue(Evaluator * ev, int * len) {
+    int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
+    int Nactive = 0;
+    int i;
+    for(i = FirstActiveParticle, Nactive = 0; i >= 0; i = NextActiveParticle[i])
+    {
+        if(!ev->ev_isactive(i)) continue;
+        queue[Nactive++] = i;
+    }
+    *len = Nactive;
+    return queue;
+}
+
 /* returns number of exports */
 int evaluate_primary(Evaluator * ev) {
     double tstart, tend;
