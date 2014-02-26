@@ -1056,76 +1056,53 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
 #endif
     rho = weighted_numngb = dhsmlrho = 0;
 
-    if(mode == 0)
-    {
-        pos = P[target].Pos;
-        h = P[target].Hsml;
-        type = P[target].Type;
-        hsearch = density_decide_hsearch(P[target].Type, h);
-#ifdef VOLUME_CORRECTION
-        densityold = SPHP(target).DensityOld;
-#endif
-        if(P[target].Type == 0)
-        {
-            vel = SPHP(target).VelPred;
-#ifdef WINDS
-            delaytime = SPHP(target).DelayTime;
-#endif
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-            bflt[0] = SPHP(target).BPred[0];
-            bflt[1] = SPHP(target).BPred[1];
-            bflt[2] = SPHP(target).BPred[2];
-#endif
-#ifdef VECT_POTENTIAL
-            aflt[0] = SPHP(target).APred[0];
-            aflt[1] = SPHP(target).APred[1];
-            aflt[2] = SPHP(target).APred[2];
-            rrho = SPHP(target).d.Density;
-#endif
-#ifdef EULERPOTENTIALS
-            eulera = SPHP(target).EulerA;
-            eulerb = SPHP(target).EulerB;
-#endif
-        }
-        else
-            vel = veldummy;
-#if defined(MAGNETICSEED)
-        spin = SPHP(target).MagSeed;
-#endif
+    struct densdata_in inputs, *input;
+    struct densdata_out outputs, *output;
+    if(mode == 0) {
+        input = &inputs;
+        output = &outputs;
+        density_copy(target, input);
+        startnode = All.MaxPart;	/* root node */
+        /* empty nodelist*/
+        input->NodeList[0] = -1;
+    } else {
+        input = &DensDataGet[target];
+        output = &DensDataResult[target];
+        startnode = input->NodeList[0];
+        listindex ++;
+        startnode = Nodes[startnode].u.d.nextnode;	/* open it */
     }
-    else
-    {
-        pos = DensDataGet[target].Pos;
-        vel = DensDataGet[target].Vel;
-        h = DensDataGet[target].Hsml;
-        type = DensDataGet[target].Type;
-        hsearch = density_decide_hsearch(DensDataGet[target].Type, h);
+
+    pos = input->Pos;
+    vel = input->Vel;
+    h = input->Hsml;
+    type = input->Type;
+    hsearch = density_decide_hsearch(input->Type, h);
 
 #ifdef WINDS
-        delaytime = DensDataGet[target].DelayTime;
+    delaytime = input->DelayTime;
 #endif
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-        bflt[0] = DensDataGet[target].BPred[0];
-        bflt[1] = DensDataGet[target].BPred[1];
-        bflt[2] = DensDataGet[target].BPred[2];
+    bflt[0] = input->BPred[0];
+    bflt[1] = input->BPred[1];
+    bflt[2] = input->BPred[2];
 #endif
 #ifdef VECT_POTENTIAL
-        aflt[0] = DensDataGet[target].APred[0];
-        aflt[1] = DensDataGet[target].APred[1];
-        aflt[2] = DensDataGet[target].APred[2];
-        rrho = DensDataGet[target].rrho;
+    aflt[0] = input->APred[0];
+    aflt[1] = input->APred[1];
+    aflt[2] = input->APred[2];
+    rrho = input->rrho;
 #endif
 #ifdef VOLUME_CORRECTION
-        densityold = DensDataGet[target].DensityOld;
+    densityold = input->DensityOld;
 #endif
 #ifdef EULERPOTENTIALS
-        eulera = DensDataGet[target].EulerA;
-        eulerb = DensDataGet[target].EulerB;
+    eulera = input->EulerA;
+    eulerb = input->EulerB;
 #endif
 #if defined(MAGNETICSEED)
-        spin =   DensDataGet[target].MagSeed;
+    spin =   input->MagSeed;
 #endif
-    }
 
 
     density_kernel_init(&kernel, h);
@@ -1133,15 +1110,6 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
 #ifdef BLACK_HOLES
     density_kernel_init(&bh_feedback_kernel, hsearch);
 #endif
-    if(mode == 0)
-    {
-        startnode = All.MaxPart;	/* root node */
-    }
-    else
-    {
-        startnode = DensDataGet[target].NodeList[0];
-        startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-    }
 
     numngb = 0;
 
@@ -1379,224 +1347,114 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
 #endif
             }
         }
-        if(mode == 1)
+        /* now check next node in the node list */
+        if(listindex < NODELISTLENGTH)
         {
+            startnode = input->NodeList[listindex];
+            if(startnode >= 0)
+                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
             listindex++;
-            if(listindex < NODELISTLENGTH)
-            {
-                startnode = DensDataGet[target].NodeList[listindex];
-                if(startnode >= 0)
-                    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-            }
         }
     }
-    if(mode == 0)
-    {
-        P[target].n.dNumNgb = weighted_numngb;
+
 #ifdef HYDRO_COST_FACTOR
-        if(All.ComovingIntegrationOn)
-            P[target].GravCost += HYDRO_COST_FACTOR * All.Time * ninteractions;
-        else
-            P[target].GravCost += HYDRO_COST_FACTOR * ninteractions;
+    output->Ninteractions = ninteractions;
 #endif
-        if(P[target].Type == 0)
-        {
-            SPHP(target).d.dDensity = rho;
+    output->Rho = rho;
+
 #ifdef DENSITY_INDEPENDENT_SPH
-            SPHP(target).EgyWtDensity = egyrho;
-            SPHP(target).DhsmlEgyDensityFactor = dhsmlegyrho;
+    output->EgyRho = egyrho;
+    output->DhsmlEgyDensity = dhsmlegyrho;
 #endif
 
 #ifdef VOLUME_CORRECTION
-            SPHP(target).DensityStd = densitystd;
+    output->DensityStd = densitystd;
 #endif
-            SPHP(target).h.dDhsmlDensityFactor = dhsmlrho;
+    output->Ngb = weighted_numngb;
+    output->DhsmlDensity = dhsmlrho;
 #ifndef NAVIERSTOKES
-            SPHP(target).v.dDivVel = divv;
-            SPHP(target).r.dRot[0] = rotv[0];
-            SPHP(target).r.dRot[1] = rotv[1];
-            SPHP(target).r.dRot[2] = rotv[2];
+    output->Div = divv;
+    output->Rot[0] = rotv[0];
+    output->Rot[1] = rotv[1];
+    output->Rot[2] = rotv[2];
 #else
-            for(k = 0; k < 3; k++)
-            {
-                SPHP(target).u.DV[k][0] = dvel[k][0];
-                SPHP(target).u.DV[k][1] = dvel[k][1];
-                SPHP(target).u.DV[k][2] = dvel[k][2];
-            }
-#endif
-
-#ifdef CONDUCTION_SATURATION
-            SPHP(target).GradEntr[0] = gradentr[0];
-            SPHP(target).GradEntr[1] = gradentr[1];
-            SPHP(target).GradEntr[2] = gradentr[2];
-#endif
-
-#ifdef RADTRANSFER_FLUXLIMITER
-            for(k = 0; k < N_BINS; k++)
-            {
-                SPHP(target).Grad_ngamma[0][k] = grad_ngamma[0][k];
-                SPHP(target).Grad_ngamma[1][k] = grad_ngamma[1][k];
-                SPHP(target).Grad_ngamma[2][k] = grad_ngamma[2][k];
-            }
-#endif
-
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-            SPHP(target).RotB[0] = rotb[0];
-            SPHP(target).RotB[1] = rotb[1];
-            SPHP(target).RotB[2] = rotb[2];
-#endif
-#ifdef VECT_POTENTIAL
-            SPHP(target).dA[0] = dA[0];
-            SPHP(target).dA[1] = dA[1];
-            SPHP(target).dA[2] = dA[2];
-            SPHP(target).dA[3] = dA[3];
-            SPHP(target).dA[4] = dA[4];
-            SPHP(target).dA[5] = dA[5];
-
-#endif
-
-#ifdef JD_VTURB
-            SPHP(target).Vturb = vturb;
-            SPHP(target).Vbulk[0] = vbulk[0];
-            SPHP(target).Vbulk[1] = vbulk[1];
-            SPHP(target).Vbulk[2] = vbulk[2];
-            SPHP(target).TrueNGB = trueNGB;
-#endif
-
-#ifdef TRACEDIVB
-            SPHP(target).divB = divB;
-#endif
-#ifdef EULERPOTENTIALS
-            SPHP(target).dEulerA[0] = deulera[0];
-            SPHP(target).dEulerA[1] = deulera[1];
-            SPHP(target).dEulerA[2] = deulera[2];
-            SPHP(target).dEulerB[0] = deulerb[0];
-            SPHP(target).dEulerB[1] = deulerb[1];
-            SPHP(target).dEulerB[2] = deulerb[2];
-#endif
-#ifdef VECT_PRO_CLEAN
-            SPHP(target).BPredVec[0] = BVec[0];
-            SPHP(target).BPredVec[1] = BVec[1];
-            SPHP(target).BPredVec[2] = BVec[2];
-#endif
-        }
-#ifdef BLACK_HOLES
-        if(P[target].Type == 5)  {
-            BHP(target).Density = rho;
-            BHP(target).TimeBinLimit = timebin_min;
-            BHP(target).FeedbackWeightSum = fb_weight_sum;
-            BHP(target).EntOrPressure = smoothent_or_pres;
-#ifdef BH_USE_GASVEL_IN_BONDI
-            BHP(target).SurroundingGasVel[0] = gasvel[0];
-            BHP(target).SurroundingGasVel[1] = gasvel[1];
-            BHP(target).SurroundingGasVel[2] = gasvel[2];
-#endif
-        }
-#endif
-#if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
-        if(P[target].Type == 4)
-            P[target].DensAroundStar = rho;
-#endif
-    }
-    else
+    for(k = 0; k < 3; k++)
     {
-        DensDataResult[target].ID = DensDataGet[target].ID;
-#ifdef HYDRO_COST_FACTOR
-        DensDataResult[target].Ninteractions = ninteractions;
-#endif
-        DensDataResult[target].Rho = rho;
-
-#ifdef DENSITY_INDEPENDENT_SPH
-        DensDataResult[target].EgyRho = egyrho;
-        DensDataResult[target].DhsmlEgyDensity = dhsmlegyrho;
-#endif
-
-#ifdef VOLUME_CORRECTION
-        DensDataResult[target].DensityStd = densitystd;
-#endif
-        DensDataResult[target].Ngb = weighted_numngb;
-        DensDataResult[target].DhsmlDensity = dhsmlrho;
-#ifndef NAVIERSTOKES
-        DensDataResult[target].Div = divv;
-        DensDataResult[target].Rot[0] = rotv[0];
-        DensDataResult[target].Rot[1] = rotv[1];
-        DensDataResult[target].Rot[2] = rotv[2];
-#else
-        for(k = 0; k < 3; k++)
-        {
-            DensDataResult[target].DV[k][0] = dvel[k][0];
-            DensDataResult[target].DV[k][1] = dvel[k][1];
-            DensDataResult[target].DV[k][2] = dvel[k][2];
-        }
+        output->DV[k][0] = dvel[k][0];
+        output->DV[k][1] = dvel[k][1];
+        output->DV[k][2] = dvel[k][2];
+    }
 #endif
 
 #if defined(BLACK_HOLES)
-        DensDataResult[target].SmoothedEntOrPressure = smoothent_or_pres;
-        DensDataResult[target].FeedbackWeightSum = fb_weight_sum;
-        DensDataResult[target].BH_TimeBinLimit = timebin_min;
+    output->SmoothedEntOrPressure = smoothent_or_pres;
+    output->FeedbackWeightSum = fb_weight_sum;
+    output->BH_TimeBinLimit = timebin_min;
 #endif
 #ifdef CONDUCTION_SATURATION
-        DensDataResult[target].GradEntr[0] = gradentr[0];
-        DensDataResult[target].GradEntr[1] = gradentr[1];
-        DensDataResult[target].GradEntr[2] = gradentr[2];
+    output->GradEntr[0] = gradentr[0];
+    output->GradEntr[1] = gradentr[1];
+    output->GradEntr[2] = gradentr[2];
 #endif
 
 #ifdef RADTRANSFER_FLUXLIMITER
-        for(k = 0; k < N_BINS; k++)
-        {
-            DensDataResult[target].Grad_ngamma[0][k] = grad_ngamma[0][k];
-            DensDataResult[target].Grad_ngamma[1][k] = grad_ngamma[1][k];
-            DensDataResult[target].Grad_ngamma[2][k] = grad_ngamma[2][k];
-        }
+    for(k = 0; k < N_BINS; k++)
+    {
+        output->Grad_ngamma[0][k] = grad_ngamma[0][k];
+        output->Grad_ngamma[1][k] = grad_ngamma[1][k];
+        output->Grad_ngamma[2][k] = grad_ngamma[2][k];
+    }
 #endif
 
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-        DensDataResult[target].RotB[0] = rotb[0];
-        DensDataResult[target].RotB[1] = rotb[1];
-        DensDataResult[target].RotB[2] = rotb[2];
+    output->RotB[0] = rotb[0];
+    output->RotB[1] = rotb[1];
+    output->RotB[2] = rotb[2];
 #endif
 
 #ifdef JD_VTURB
-        DensDataResult[target].Vturb = vturb;
-        DensDataResult[target].Vbulk[0] = vbulk[0];
-        DensDataResult[target].Vbulk[1] = vbulk[1];
-        DensDataResult[target].Vbulk[2] = vbulk[2];
-        DensDataResult[target].TrueNGB = trueNGB;
+    output->Vturb = vturb;
+    output->Vbulk[0] = vbulk[0];
+    output->Vbulk[1] = vbulk[1];
+    output->Vbulk[2] = vbulk[2];
+    output->TrueNGB = trueNGB;
 #endif
 
 #ifdef TRACEDIVB
-        DensDataResult[target].divB = divB;
+    output->divB = divB;
 #endif
 #ifdef BLACK_HOLES
-        DensDataResult[target].GasVel[0] = gasvel[0];
-        DensDataResult[target].GasVel[1] = gasvel[1];
-        DensDataResult[target].GasVel[2] = gasvel[2];
+    output->GasVel[0] = gasvel[0];
+    output->GasVel[1] = gasvel[1];
+    output->GasVel[2] = gasvel[2];
 #endif
 #ifdef VECT_POTENTIAL
-        DensDataResult[target].da[0] = dA[0];
-        DensDataResult[target].da[1] = dA[1];
-        DensDataResult[target].da[2] = dA[2];
-        DensDataResult[target].da[3] = dA[3];
-        DensDataResult[target].da[4] = dA[4];
-        DensDataResult[target].da[5] = dA[5];
+    output->da[0] = dA[0];
+    output->da[1] = dA[1];
+    output->da[2] = dA[2];
+    output->da[3] = dA[3];
+    output->da[4] = dA[4];
+    output->da[5] = dA[5];
 
 #endif
 
 #ifdef EULERPOTENTIALS
-        DensDataResult[target].dEulerA[0] = deulera[0];
-        DensDataResult[target].dEulerA[1] = deulera[1];
-        DensDataResult[target].dEulerA[2] = deulera[2];
-        DensDataResult[target].dEulerB[0] = deulerb[0];
-        DensDataResult[target].dEulerB[1] = deulerb[1];
-        DensDataResult[target].dEulerB[2] = deulerb[2];
+    output->dEulerA[0] = deulera[0];
+    output->dEulerA[1] = deulera[1];
+    output->dEulerA[2] = deulera[2];
+    output->dEulerB[0] = deulerb[0];
+    output->dEulerB[1] = deulerb[1];
+    output->dEulerB[2] = deulerb[2];
 #endif
 #ifdef VECT_PRO_CLEAN
-        DensDataResult[target].BPredVec[0] = BVec[0];
-        DensDataResult[target].BPredVec[1] = BVec[1];
-        DensDataResult[target].BPredVec[2] = BVec[2];
+    output->BPredVec[0] = BVec[0];
+    output->BPredVec[1] = BVec[1];
+    output->BPredVec[2] = BVec[2];
 #endif
-    }
 
+    if(mode == 0) {
+        density_reduce(target, output, 0);
+    }
     return 0;
 }
 
