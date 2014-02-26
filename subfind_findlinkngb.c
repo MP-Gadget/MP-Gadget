@@ -396,10 +396,6 @@ int subfind_ngb_treefind_linkngb(MyDouble searchcenter[3], double hsml, int targ
   struct NODE *current;
   double dx, dy, dz, dist, r2;
 
-#ifdef PERIODIC
-  MyDouble xtmp;
-#endif
-
   nexport_save = *nexport;
 
   *hmax = 0;
@@ -558,10 +554,6 @@ int subfind_ngb_treefind_linkpairs(MyDouble searchcenter[3], double hsml, int ta
   int numngb, i, no, p, task, nexport_save, exported = 0;
   struct NODE *current;
   double dx, dy, dz, dist, r2;
-
-#ifdef PERIODIC
-  MyDouble xtmp;
-#endif
 
   nexport_save = *nexport;
 

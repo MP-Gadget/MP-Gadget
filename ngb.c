@@ -34,9 +34,6 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
     MyDouble dist, dx, dy, dz;
     struct NODE *current;
 
-#ifdef PERIODIC
-    MyDouble xtmp;
-#endif
     nexport_save = *nexport;
 
     numngb = 0;
@@ -176,10 +173,6 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
     int no, p, numngb, task, nexp;
     MyDouble dist, dx, dy, dz;
     struct NODE *current;
-
-#ifdef PERIODIC
-    MyDouble xtmp;
-#endif
 
     numngb = 0;
 
@@ -452,10 +445,6 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
     struct NODE *current;
     MyDouble dx, dy, dz, dist;
 
-#ifdef PERIODIC
-    MyDouble xtmp;
-#endif
-
     numngb = 0;
     no = *startnode;
 
@@ -593,9 +582,6 @@ int ngb_treefind_fof_primary(MyDouble searchcenter[3], MyFloat hsml, int target,
     struct NODE *current;
     MyDouble dx, dy, dz, dist, r2;
 
-#ifdef PERIODIC
-    MyDouble xtmp;
-#endif
     nexport_save = *nexport;
 
     numngb = 0;
@@ -783,9 +769,6 @@ int ngb_treefind_fof_nearest(MyDouble searchcenter[3], MyFloat hsml, int target,
     MyDouble dx, dy, dz, dist, r2;
 
 #define FACT2 0.86602540
-#ifdef PERIODIC
-    MyDouble xtmp;
-#endif
     nexport_save = *nexport;
 
     numngb = 0;
@@ -913,9 +896,6 @@ int ngb_treefind_stars(MyDouble searchcenter[3], MyFloat hsml, int target, int *
     struct NODE *current;
     MyDouble dx, dy, dz, dist;
 
-#ifdef PERIODIC
-    MyDouble xtmp;
-#endif
     nexport_save = *nexport;
 
     numngb = 0;

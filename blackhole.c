@@ -1298,9 +1298,6 @@ int ngb_treefind_blackhole(MyDouble searchcenter[3], MyFloat hsml, int target, i
     struct NODE *current;
     MyDouble dx, dy, dz, dist;
 
-#ifdef PERIODIC
-    MyDouble xtmp;
-#endif
     nexport_save = *nexport;
 
     numngb = 0;

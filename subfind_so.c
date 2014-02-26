@@ -604,9 +604,7 @@ double subfind_ovderdens_treefind(MyDouble searchcenter[3], MyFloat hsml, int ta
   MyDouble dx, dy, dz, dist, r2;
 
 #define FACT2 0.86602540
-#ifdef PERIODIC
-  MyDouble xtmp;
-#endif
+
   nexport_save = *nexport;
 
   mass = 0;
@@ -839,9 +837,7 @@ int subfind_ovderdens_treefind_dispersion(MyDouble searchcenter[3], MyFloat hsml
   MyDouble dx, dy, dz, dist, r2;
 
 #define FACT2 0.86602540
-#ifdef PERIODIC
-  MyDouble xtmp;
-#endif
+
   nexport_save = *nexport;
 
   numngb = 0;

@@ -295,9 +295,6 @@ int subfind_contamination_treefind(MyDouble searchcenter[3], MyFloat hsml, int t
   int count;
   MyDouble dx, dy, dz, dist, r2;
 
-#ifdef PERIODIC
-  MyDouble xtmp;
-#endif
   nexport_save = *nexport;
 
   mass = 0;

@@ -403,10 +403,6 @@ int twopoint_ngb_treefind_variable(MyDouble searchcenter[3], MyFloat rsearch, in
   struct NODE *current;
   MyDouble dx, dy, dz, dist;
 
-#ifdef PERIODIC
-  MyDouble xtmp;
-#endif
-
   nexport_save = *nexport;
 
   no = *startnode;

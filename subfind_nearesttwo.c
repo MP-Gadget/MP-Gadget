@@ -441,10 +441,6 @@ int subfind_ngb_treefind_nearesttwo(MyDouble searchcenter[3], double hsml, int t
   struct NODE *current;
   double dx, dy, dz, dist, r2;
 
-#ifdef PERIODIC
-  double xtmp;
-#endif
-
   nexport_save = *nexport;
 
   *hmax = 0;

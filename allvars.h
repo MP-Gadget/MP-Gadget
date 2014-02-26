@@ -396,27 +396,24 @@ extern MyDouble boxSize_Z, boxHalf_Z, inverse_boxSize_Z;
 #endif
 #endif
 
+static inline double NGB_PERIODIC_LONG_XYZ(MyDouble x, MyDouble boxHalf, MyDouble boxSize) {
+    double xtmp = fabs(x);
 #ifdef PERIODIC
 #ifndef POWER6
-#define NGB_PERIODIC_LONG_X(x) (xtmp=fabs(x),(xtmp>boxHalf_X)?(boxSize_X-xtmp):xtmp)
-#define NGB_PERIODIC_LONG_Y(x) (xtmp=fabs(x),(xtmp>boxHalf_Y)?(boxSize_Y-xtmp):xtmp)
-#define NGB_PERIODIC_LONG_Z(x) (xtmp=fabs(x),(xtmp>boxHalf_Z)?(boxSize_Z-xtmp):xtmp)
+    if(xtmp > boxHalf) return boxSize - xtmp;
+    return xtmp;
 #else
-#ifdef DOUBLEPRECISION
-#define NGB_PERIODIC_LONG_X(x) (xtmp=fabs(x),__fsel(boxHalf_X-xtmp,xtmp,boxSize_X-xtmp))
-#define NGB_PERIODIC_LONG_Y(x) (xtmp=fabs(x),__fsel(boxHalf_Y-xtmp,xtmp,boxSize_Y-xtmp))
-#define NGB_PERIODIC_LONG_Z(x) (xtmp=fabs(x),__fsel(boxHalf_Z-xtmp,xtmp,boxSize_Z-xtmp))
-#else
-#define NGB_PERIODIC_LONG_X(x) (xtmp=fabsf(x),__fsels(boxHalf_X-xtmp,xtmp,boxSize_X-xtmp))
-#define NGB_PERIODIC_LONG_Y(x) (xtmp=fabsf(x),__fsels(boxHalf_Y-xtmp,xtmp,boxSize_Y-xtmp))
-#define NGB_PERIODIC_LONG_Z(x) (xtmp=fabsf(x),__fsels(boxHalf_Z-xtmp,xtmp,boxSize_Z-xtmp))
-#endif
+    double xtmp = fabs(x);
+    return __fsel(boxHalf-xtmp,xtmp,boxSize-xtmp);
 #endif
 #else
-#define NGB_PERIODIC_LONG_X(x) fabs(x)
-#define NGB_PERIODIC_LONG_Y(x) fabs(x)
-#define NGB_PERIODIC_LONG_Z(x) fabs(x)
+    return xtmp;
 #endif
+}
+
+#define NGB_PERIODIC_LONG_X(x) NGB_PERIODIC_LONG_XYZ(x, boxHalf_X, boxSize_X)
+#define NGB_PERIODIC_LONG_Y(x) NGB_PERIODIC_LONG_XYZ(x, boxHalf_Y, boxSize_Y)
+#define NGB_PERIODIC_LONG_Z(x) NGB_PERIODIC_LONG_XYZ(x, boxHalf_Z, boxSize_Z)
 
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 #define FACT2 0.86602540        /* FACT2 = 0.5 * sqrt(3) */

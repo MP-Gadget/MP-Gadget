@@ -85,6 +85,7 @@ void compute_accelerations(int mode)
     }
 
 #else
+
     gravity_tree();		/* computes gravity accel. */
 
     if(All.TypeOfOpeningCriterion == 1 && All.Ti_Current == 0)
