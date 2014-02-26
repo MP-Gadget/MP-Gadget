@@ -24,6 +24,7 @@ static void * density_alloc_ngblist();
 static struct densdata_in
 {
     int NodeList[NODELISTLENGTH];
+    MyIDType ID;
     MyDouble Pos[3];
     MyFloat Vel[3];
     MyFloat Hsml;
@@ -52,6 +53,7 @@ static struct densdata_in
 
 static struct densdata_out
 {
+    MyIDType ID;
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyRho;
     MyFloat DhsmlEgyDensity;
@@ -259,7 +261,6 @@ void density(void)
 
             report_memory_usage(&HighMark_sphdensity, "SPH_DENSITY");
 
-            printf("ThisTask = %d, Export = %d, Import = %d\n", ThisTask, ev.Nexport, ev.Nimport);
             fflush(stdout);
             /* now do the particles that were sent to us */
 
@@ -636,6 +637,22 @@ void density(void)
         {
             iter++;
 
+            /*
+            if(ntot < 1 ) {
+                for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+                {
+                    if(density_isactive(i) && !P[i].DensityIterationDone) {
+                        printf
+                            ("i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+                             i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, Left[i], Right[i],
+                             (float) P[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+                        fflush(stdout);
+                    }
+                }
+            
+            }
+            */
+
             if(iter > 0 && ThisTask == 0)
             {
                 printf("ngb iteration %d: need to repeat for %d%09d particles.\n", iter,
@@ -708,6 +725,7 @@ double density_decide_hsearch(int targettype, double h) {
 }
 
 static void density_copy(int place, struct densdata_in * input) {
+    input->ID = P[place].ID;
     input->Pos[0] = P[place].Pos[0];
     input->Pos[1] = P[place].Pos[1];
     input->Pos[2] = P[place].Pos[2];
@@ -763,6 +781,9 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 #define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
     REDUCE(P[place].n.dNumNgb, remote->Ngb);
 
+    if(remote->ID != P[place].ID) {
+        BREAKPOINT; 
+    }
 #ifdef HYDRO_COST_FACTOR
     /* these will be added */
     if(All.ComovingIntegrationOn)
@@ -1328,6 +1349,7 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
                         double nh0 = 0;
                         double nHeII = 0;
                         double ne = SPHP(j).Ne;
+#pragma omp critical (_abundance_)
                         AbundanceRatios(DMAX(All.MinEgySpec,
                                     SPHP(j).Entropy / GAMMA_MINUS1 
                                     * pow(SPHP(j).EOMDensity * a3inv,
@@ -1380,7 +1402,6 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
         if(P[target].Type == 0)
         {
             SPHP(target).d.dDensity = rho;
-
 #ifdef DENSITY_INDEPENDENT_SPH
             SPHP(target).EgyWtDensity = egyrho;
             SPHP(target).DhsmlEgyDensityFactor = dhsmlegyrho;
@@ -1479,6 +1500,7 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
     }
     else
     {
+        DensDataResult[target].ID = DensDataGet[target].ID;
 #ifdef HYDRO_COST_FACTOR
         DensDataResult[target].Ninteractions = ninteractions;
 #endif

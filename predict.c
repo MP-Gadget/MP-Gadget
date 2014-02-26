@@ -120,13 +120,16 @@ void drift_particle(int i, int time1) {
     if(P[i].Ti_current == time1) return;
 
 #ifdef OPENMP_USE_SPINLOCK
-    if(0 == pthread_spin_trylock(&P[i].SpinLock)) {
+    if(0 == pthread_spin_lock(&P[i].SpinLock)) {
         if(P[i].Ti_current != time1) {
             real_drift_particle(i, time1);
 #pragma omp flush
         }
         pthread_spin_unlock(&P[i].SpinLock); 
+    } else {
+        endrun(99999);
     }
+
 #else
     /* do not use SpinLock */
 #pragma omp critical (_driftparticle_) 

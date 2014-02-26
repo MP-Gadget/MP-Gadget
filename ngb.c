@@ -50,8 +50,7 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
             if(P[p].Type > 0)
                 continue;
 
-            if(P[p].Ti_current != All.Ti_Current)
-                drift_particle(p, All.Ti_Current);
+            drift_particle(p, All.Ti_Current);
 
             dist = DMAX(P[p].Hsml, hsml);
 
@@ -299,9 +298,6 @@ int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, in
     struct NODE *current;
     MyDouble dx, dy, dz, dist;
 
-#ifdef PERIODIC
-    MyDouble xtmp;
-#endif
     nexport_save = *nexport;
 
     numngb = 0;
@@ -317,8 +313,7 @@ int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, in
             if(P[p].Type > 0)
                 continue;
 
-            if(P[p].Ti_current != All.Ti_Current)
-                drift_particle(p, All.Ti_Current);
+            drift_particle(p, All.Ti_Current);
 
             dist = hsml;
             dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
@@ -921,8 +916,7 @@ int ngb_treefind_stars(MyDouble searchcenter[3], MyFloat hsml, int target, int *
             if((SPHP(p).d.Density / (a * a * a)) >= All.PhysDensThresh)
                 continue;
 
-            if(P[p].Ti_current != All.Ti_Current)
-                drift_particle(p, All.Ti_Current);
+            drift_particle(p, All.Ti_Current);
 
             dist = hsml;
             dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);

@@ -94,6 +94,58 @@ void evaluate_finish(Evaluator * ev) {
 
 int data_index_compare(const void *a, const void *b);
 
+static void real_ev(Evaluator * ev) {
+    int i;
+
+    Exporter exporter;
+    int * ngblist = ev->ev_alloc();
+    evaluate_init_exporter(ev, &exporter);
+    int abandoned = -1;
+    /* Note: exportflag is local to each thread */
+    while(1)
+    {
+        if(ev->BufferFullFlag) break;
+
+        int k = atomic_fetch_and_add(&(ev->currentIndex), 1);
+
+        if(k >= ev->QueueEnd) {
+            break;
+        }
+        i = ev->ParticleQueue[k];
+
+        if(!ev->ev_isactive(i)) continue;
+        if(P[i].Evaluated) {
+            BREAKPOINT; 
+        }
+        int rt;
+        rt = ev->ev_evaluate(i, 0, &exporter, ngblist);
+
+        if(rt < 0) {
+            abandoned = i;
+            P[i].Evaluated = 0;
+            break;		/* export buffer has filled up */
+        } else {
+            P[i].Evaluated = 1;
+        }
+    }
+    /* this barrier is important! to make sure no body is 
+     * reading from ParticleQueue */
+#pragma omp barrier
+#pragma omp single
+    {
+        if(ev->currentIndex >= ev->QueueEnd) {
+            ev->currentIndex = ev->QueueEnd;
+        }
+    }
+#pragma omp barrier
+    if(abandoned >= 0) {
+        int k = atomic_add_and_fetch(&ev->currentIndex, -1);
+        if(k >= ev->QueueEnd) {
+            BREAKPOINT;
+        }
+        ev->ParticleQueue[k] = abandoned;
+    }
+}
 /* returns number of exports */
 int evaluate_primary(Evaluator * ev) {
     double tstart, tend;
@@ -103,7 +155,7 @@ int evaluate_primary(Evaluator * ev) {
     int i;
     tstart = second();
 
- #pragma omp parallel for if(All.BunchSize > 1024)
+ #pragma omp parallel for if(All.BunchSize > 1024) 
     for(i = 0; i < All.BunchSize; i ++) {
         DataIndexTable[i].Task = NTask;
         /*entries with NTask is not filled with particles, and will be
@@ -112,63 +164,34 @@ int evaluate_primary(Evaluator * ev) {
 
 #pragma omp parallel 
     {
-
-    int i, j;
-
-    Exporter exporter;
-    int * ngblist = ev->ev_alloc();
-    evaluate_init_exporter(ev, &exporter);
-
-    /* Note: exportflag is local to each thread */
-    while(1)
-    {
-        if(ev->BufferFullFlag) break;
-
-        int k = atomic_fetch_and_add(&ev->currentIndex, 1);
-
-        if(k >= ev->QueueEnd) {
-            break;
-        }
-        i = ev->ParticleQueue[k];
-
-        if(ev->ev_isactive(i)) 
-        {
-            if(P[i].Evaluated) {
-                BREAKPOINT; 
-            }
-            if(ev->ev_evaluate(i, 0, &exporter, ngblist) < 0) {
-                /* add the particle back to the top of the queue*/
-                int k = atomic_add_and_fetch(&ev->currentIndex, -1);
-                ev->ParticleQueue[k] = i;
-                if (ThisTask == 0)
-                    printf("Task %d rejecting %d, k=%d\n", ThisTask, i, k);
-                P[i].Evaluated = 0;
-                break;		/* export buffer has filled up */
-            } else {
-                P[i].Evaluated = 1;
-            }
-        }
+        real_ev(ev);
     }
-    }
-
     tend = second();
     ev->timecomp1 += timediff(tstart, tend);
 
-#pragma omp parallel for if (ev->Nexport > 1024)
+    if(ev->BufferFullFlag)
+        ev->Nexport = All.BunchSize;
+#pragma omp parallel for if (ev->Nexport > 1024) 
     for(i = 0; i < ev->Nexport; i ++) {
         /* if the NodeList of the particle is incomplete due
          * to abandoned work, also do not export it */
-        if(! P[DataIndexTable[i].Index].Evaluated) {
+        int place = DataIndexTable[i].Index;
+        if(! P[place].Evaluated) {
+            /*
+            int good = 0;
+            int j;
+            for(j = ev->currentIndex; j < ev->QueueEnd; j++) {
+                if(ev->ParticleQueue[j] == place) good = 1;
+            }
+            if(!good) BREAKPOINT;
+            */
             DataIndexTable[i].Task = NTask; 
+            /* put in some junk so that we can detect them */
+            DataNodeList[DataIndexTable[i].IndexGet].NodeList[0] = -2;
         }
     }
 
-#ifdef MYSORT
-    mysort_dataindex(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare);
-#else
     qsort(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare);
-#endif
-
 
     int oldNexport = ev->Nexport;
     /* adjust Nexport to skip the allocated but unused ones due to threads */
@@ -184,8 +207,13 @@ int evaluate_primary(Evaluator * ev) {
 
     for(i = 0; i < NTask; i++)
         Send_count[i] = 0;
-    for(i = 0; i < ev->Nexport; i++)
+    for(i = 0; i < ev->Nexport; i++) {
+        if(DataIndexTable[i].Task >= NTask ||
+                DataIndexTable[i].Task < 0) {
+            BREAKPOINT;
+        }
         Send_count[DataIndexTable[i].Task]++;
+    }
 
     tstart = second();
     MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
@@ -222,7 +250,7 @@ void evaluate_secondary(Evaluator * ev) {
 
     tstart = second();
 
-#pragma omp parallel
+#pragma omp parallel 
     {
         int j, *ngblist;
         int thread_id = omp_get_thread_num();
@@ -260,10 +288,13 @@ int exporter_export_particle(Exporter * exporter, int target, int no) {
     {
         int nexp;
 
-        nexp = atomic_fetch_and_add(&ev->Nexport, 1);
+        if(ev->Nexport < All.BunchSize) {
+            nexp = atomic_fetch_and_add(&ev->Nexport, 1);
+        } else {
+            nexp = All.BunchSize;
+        }
 
         if(nexp >= All.BunchSize) {
-            ev->Nexport = All.BunchSize;
             /* out if buffer space. Need to discard work for this particle and interrupt */
             ev->BufferFullFlag = 1;
 #pragma omp flush
@@ -332,7 +363,7 @@ void * evaluate_get_remote(Evaluator * ev, int tag) {
     tstart = second();
     /* prepare particle data for export */
     //
-#pragma omp parallel for if (ev->Nexport > 128)
+#pragma omp parallel for if (ev->Nexport > 128) 
     for(j = 0; j < ev->Nexport; j++)
     {
         int place = DataIndexTable[j].Index;

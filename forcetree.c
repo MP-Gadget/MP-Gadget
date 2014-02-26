@@ -1608,18 +1608,20 @@ void force_drift_node(int no, int time1) {
         return;
 
 #ifdef OPENMP_USE_SPINLOCK
-    if(0 == pthread_spin_trylock(&Nodes[no].SpinLock)) {
-        if(time1 == Nodes[no].Ti_current) {
+    if(0 == pthread_spin_lock(&Nodes[no].SpinLock)) {
+        if(time1 != Nodes[no].Ti_current) {
             real_force_drift_node(no, time1);
 #pragma omp flush
         }
         pthread_spin_unlock(&Nodes[no].SpinLock); 
+    } else {
+        endrun(99999);
     }
 #else
     /* do not use spinlock */
 #pragma omp critical (_driftnode_)
     {
-        if(time1 == Nodes[no].Ti_current) {
+        if(time1 != Nodes[no].Ti_current) {
             real_force_drift_node(no, time1);
         }
     }

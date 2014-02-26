@@ -366,7 +366,7 @@ int domain_decompose(void)
     int i, no, status;
     int64_t sumload;
     int maxload;
-    double sumwork, sumcpu, sumcost, maxwork, costfac, cadj_SpeedFac;
+    double sumwork, sumcpu, sumcost, maxwork, cadj_SpeedFac;
 
 #ifdef CPUSPEEDADJUSTMENT
     double min_load, sum_speedfac;
@@ -388,7 +388,7 @@ int domain_decompose(void)
                 continue;
 #endif
             NtypeLocalThread[P[i].Type]++;
-            costfac = domain_particle_costfactor(i);
+            double costfac = domain_particle_costfactor(i);
 
             gravcost += costfac;
         }
@@ -2083,7 +2083,7 @@ void domain_sumCost(void)
     if(ThisTask == 0)
         printf("NTopleaves= %d  NTopnodes=%d (space for %d)\n", NTopleaves, NTopnodes, MaxTopNodes);
 
-#pragma omp parallel for
+// need to convert to #omp parallel
     for(n = 0; n < NumPart; n++)
     {
 #ifdef SUBFIND
@@ -2098,14 +2098,11 @@ void domain_sumCost(void)
 
         no = topNodes[no].Leaf;
 
-#pragma omp atomic
         local_domainWork[no] += (float) domain_particle_costfactor(n);
 
-#pragma omp atomic
         local_domainCount[no] += 1;
 
         if(P[n].Type == 0) {
-#pragma omp atomic
             local_domainCountSph[no] += 1;
         }
     }
