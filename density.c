@@ -218,8 +218,8 @@ void density(void)
 
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
-        if(!density_isactive(i)) continue;
         Left[i] = Right[i] = 0;
+        P[i].DensityIterationDone = 0;
 
 #ifdef BLACK_HOLES
         P[i].SwallowID = 0;
@@ -297,17 +297,19 @@ void density(void)
         npleft = 0;
 #pragma omp parallel for if(Nactive > 32) reduction(+: npleft)
         for(i = 0; i < Nactive; i++) {
-            density_post_process(queue[i], Left, Right);
+            int p = queue[i];
+            /* will change DensityIterationDone */
+            density_post_process(p, Left, Right);
             if(iter >= MAXITER - 10)
             {
                 printf
                     ("i=%d task=%d ID=%llu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-                     i, ThisTask, P[i].ID, P[i].Hsml, Left[i], Right[i],
-                     (float) P[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+                     queue[p], ThisTask, P[p].ID, P[p].Hsml, Left[p], Right[p],
+                     (float) P[p].n.NumNgb, Right[p] - Left[p], P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
                 fflush(stdout);
             }
 
-            if(!P[queue[i]].DensityIterationDone) npleft ++;
+            if(!P[p].DensityIterationDone) npleft ++;
         }
 
         myfree(queue);
@@ -353,17 +355,10 @@ void density(void)
     }
     while(ntot > 0);
 
-
     myfree(Right);
     myfree(Left);
     myfree(Ngblist);
 
-
-    /* mark as active again */
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-    {
-        P[i].DensityIterationDone = 0;
-    }
 
     /* collect some timing information */
 

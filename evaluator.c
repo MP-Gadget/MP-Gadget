@@ -69,11 +69,12 @@ void evaluate_begin(Evaluator * ev) {
     DataNodeList =
         (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
 
-    ev->ParticleQueue = (int*) mymalloc("PQueue", sizeof(int) * NumPart);
+    ev->PQueueRunning = (int*) mymalloc("PQueueRunning", sizeof(int) * NumPart);
     int i = 0;
     int p;
     for(p = FirstActiveParticle; p>= 0; p = NextActiveParticle[p]) {
-        ev->ParticleQueue[i] = p;
+        if(!ev->ev_isactive(p)) continue;
+        ev->PQueueRunning[i] = p;
         P[p].Evaluated = 0;
         i++;
     }
@@ -87,7 +88,7 @@ void evaluate_finish(Evaluator * ev) {
         /* this shall not happen */
         endrun(301811);
     }
-    myfree(ev->ParticleQueue);
+    myfree(ev->PQueueRunning);
     myfree(DataNodeList);
     myfree(DataIndexTable);
 }
@@ -111,11 +112,13 @@ static void real_ev(Evaluator * ev) {
         if(k >= ev->QueueEnd) {
             break;
         }
-        i = ev->ParticleQueue[k];
+        i = ev->PQueueRunning[k];
 
-        if(!ev->ev_isactive(i)) continue;
         if(P[i].Evaluated) {
             BREAKPOINT; 
+        }
+        if(!ev->ev_isactive(i)) {
+            BREAKPOINT;
         }
         int rt;
         rt = ev->ev_evaluate(i, 0, &exporter, ngblist);
@@ -129,7 +132,7 @@ static void real_ev(Evaluator * ev) {
         }
     }
     /* this barrier is important! to make sure no body is 
-     * reading from ParticleQueue */
+     * reading from PQueueRunning */
 #pragma omp barrier
 #pragma omp single
     {
@@ -143,14 +146,14 @@ static void real_ev(Evaluator * ev) {
         if(k >= ev->QueueEnd) {
             BREAKPOINT;
         }
-        ev->ParticleQueue[k] = abandoned;
+        ev->PQueueRunning[k] = abandoned;
     }
 }
 int * evaluate_get_queue(Evaluator * ev, int * len) {
     int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
     int Nactive = 0;
     int i;
-    for(i = FirstActiveParticle, Nactive = 0; i >= 0; i = NextActiveParticle[i])
+    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
         if(!ev->ev_isactive(i)) continue;
         queue[Nactive++] = i;
@@ -194,7 +197,7 @@ int evaluate_primary(Evaluator * ev) {
             int good = 0;
             int j;
             for(j = ev->currentIndex; j < ev->QueueEnd; j++) {
-                if(ev->ParticleQueue[j] == place) good = 1;
+                if(ev->PQueueRunning[j] == place) good = 1;
             }
             if(!good) BREAKPOINT;
             */

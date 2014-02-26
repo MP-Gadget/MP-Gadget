@@ -43,7 +43,7 @@ typedef struct _Evaluator {
 
     int done;
     int currentIndex;
-    int * ParticleQueue;
+    int * PQueueRunning;
     int QueueEnd;
 } Evaluator;
 
