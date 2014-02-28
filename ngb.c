@@ -125,8 +125,7 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
                 }
             }
 
-            if(current->Ti_current != All.Ti_Current)
-                force_drift_node(no, All.Ti_Current);
+            force_drift_node(no, All.Ti_Current);
 
             if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
             {
@@ -173,6 +172,9 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
     MyDouble dist, dx, dy, dz;
     struct NODE *current;
 
+    /* for now always blocking */
+    int blocking = 1;
+
     numngb = 0;
 
     no = *startnode;
@@ -187,7 +189,9 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
             if(P[p].Type > 0)
                 continue;
 
-            drift_particle(p, All.Ti_Current);
+            if(drift_particle_full(p, All.Ti_Current, blocking) < 0) {
+                return -2;
+            }
 
             dist = DMAX(P[p].Hsml, hsml);
 
@@ -244,7 +248,10 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
             }
 #endif
 
-            force_drift_node(no, All.Ti_Current);
+            if(force_drift_node_full(no, All.Ti_Current, blocking) < 0) {
+                return -2;
+            }
+
 
             if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
             {
@@ -389,8 +396,7 @@ int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, in
                 }
             }
 
-            if(current->Ti_current != All.Ti_Current)
-                force_drift_node(no, All.Ti_Current);
+            force_drift_node(no, All.Ti_Current);
 
             if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
             {
@@ -440,6 +446,8 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
     struct NODE *current;
     MyDouble dx, dy, dz, dist;
 
+    int blocking = 1; /* always blocking for now*/
+
     numngb = 0;
     no = *startnode;
 
@@ -453,7 +461,9 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
             if(P[p].Type > 0)
                 continue;
 
-            drift_particle(p, All.Ti_Current);
+            if(drift_particle_full(p, All.Ti_Current, blocking) < 0) {
+                return -2;
+            }
 
             dist = hsml;
             dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
@@ -498,7 +508,9 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
                 }
             }
 
-            force_drift_node(no, All.Ti_Current);
+            if(force_drift_node_full(no, All.Ti_Current, blocking) < 0) {
+                return -2;
+            }
 
             if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
             {
@@ -989,8 +1001,7 @@ int ngb_treefind_stars(MyDouble searchcenter[3], MyFloat hsml, int target, int *
                 }
             }
 
-            if(current->Ti_current != All.Ti_Current)
-                force_drift_node(no, All.Ti_Current);
+            force_drift_node(no, All.Ti_Current);
 
             if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
             {

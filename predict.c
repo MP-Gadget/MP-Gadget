@@ -117,10 +117,22 @@ void reconstruct_timebins(void)
 static void real_drift_particle(int i, int time1);
 
 void drift_particle(int i, int time1) {
-    if(P[i].Ti_current == time1) return;
+    drift_particle_full(i, time1, 1);
+}
+int drift_particle_full(int i, int time1, int blocking) {
+    if(P[i].Ti_current == time1) return 0 ;
+
+#pragma omp atomic
+    TotalParticleDrifts ++;
 
 #ifdef OPENMP_USE_SPINLOCK
-    if(0 == pthread_spin_lock(&P[i].SpinLock)) {
+    int lockstate;
+    if (blocking) {
+        lockstate = pthread_spin_lock(&P[i].SpinLock);
+    } else {
+        lockstate = pthread_spin_trylock(&P[i].SpinLock);
+    }
+    if(0 == lockstate) {
         if(P[i].Ti_current != time1) {
             real_drift_particle(i, time1);
 #pragma omp flush
@@ -128,11 +140,14 @@ void drift_particle(int i, int time1) {
 #pragma omp atomic
             BlockedParticleDrifts ++;
         }
-#pragma omp atomic
-        TotalParticleDrifts ++;
         pthread_spin_unlock(&P[i].SpinLock); 
+        return 0;
     } else {
-        endrun(99999);
+        if(blocking) {
+            endrun(99999);
+        } else {
+            return -1;
+        }
     }
 
 #else
@@ -144,8 +159,8 @@ void drift_particle(int i, int time1) {
         } else {
             BlockedParticleDrifts ++;
         }
-        TotalParticleDrifts ++;
     }
+    return 0;
 #endif
 }
 
@@ -153,6 +168,8 @@ static void real_drift_particle(int i, int time1)
 {
     int j, time0, dt_step;
     double dt_drift, dt_gravkick, dt_hydrokick, dt_entr;
+
+    if(P[i].Ti_current == time1) return;
 
 #ifdef DISTORTIONTENSORPS
     int j1, j2;
@@ -611,11 +628,9 @@ void move_particles(int time1)
 {
     int i;
 
-    if(ThisTask == 0)
-        printf("MOVE\n");
-
+#pragma omp parallel for
     for(i = 0; i < NumPart; i++)
-        drift_particle(i, time1);
+        real_drift_particle(i, time1);
 }
 
 

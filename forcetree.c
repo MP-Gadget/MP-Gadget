@@ -1604,11 +1604,23 @@ void force_add_star_to_tree(int igas, int istar)
 
 static void real_force_drift_node(int no, int time1);
 void force_drift_node(int no, int time1) {
+    force_drift_node_full(no, time1, 1);
+}
+
+int force_drift_node_full(int no, int time1, int blocking) {
     if(time1 == Nodes[no].Ti_current)
-        return;
+        return 0;
+#pragma omp atomic
+        TotalNodeDrifts ++;
 
 #ifdef OPENMP_USE_SPINLOCK
-    if(0 == pthread_spin_lock(&Nodes[no].SpinLock)) {
+    int lockstate;
+    if (blocking) {
+        lockstate = pthread_spin_lock(&Nodes[no].SpinLock);
+    } else {
+        lockstate = pthread_spin_trylock(&Nodes[no].SpinLock);
+    }
+    if(0 == lockstate) {
         if(time1 != Nodes[no].Ti_current) {
             real_force_drift_node(no, time1);
 #pragma omp flush
@@ -1616,11 +1628,13 @@ void force_drift_node(int no, int time1) {
 #pragma omp atomic
             BlockedNodeDrifts ++;
         }
-#pragma omp atomic
-        TotalNodeDrifts ++;
         pthread_spin_unlock(&Nodes[no].SpinLock); 
+        return 0;
     } else {
-        endrun(99999);
+        if(blocking) {
+            endrun(99999);
+        }
+        return -1;
     }
 #else
     /* do not use spinlock */
@@ -1631,8 +1645,8 @@ void force_drift_node(int no, int time1) {
         }  else {
             BlockedNodeDrifts ++;
         }
-        TotalNodeDrifts ++;
     }
+    return 0;
 #endif
 }
 
@@ -1640,6 +1654,7 @@ static void real_force_drift_node(int no, int time1)
 {
     int j, time0;
     double dt_drift, dt_drift_hmax, fac;
+    if(time1 == Nodes[no].Ti_current) return;
 
     time0 = Extnodes[no].Ti_lastkicked;
 
@@ -1769,7 +1784,7 @@ void force_kick_node(int i, MyFloat * dv)
 
     while(no >= 0)
     {
-        force_drift_node(no, All.Ti_Current);
+        real_force_drift_node(no, All.Ti_Current);
 
         for(j = 0; j < 3; j++)
         {
@@ -1898,7 +1913,7 @@ void force_finish_kick_nodes(void)
 
         while(no >= 0)
         {
-            force_drift_node(no, All.Ti_Current);
+            real_force_drift_node(no, All.Ti_Current);
 
             for(j = 0; j < 3; j++)
             {
@@ -1963,7 +1978,7 @@ void force_update_hmax(void)
 
             while(no >= 0)
             {
-                force_drift_node(no, All.Ti_Current);
+                real_force_drift_node(no, All.Ti_Current);
 
                 if(P[i].Hsml > Extnodes[no].hmax || SPHP(i).v.DivVel > Extnodes[no].divVmax)
                 {
@@ -2042,7 +2057,7 @@ void force_update_hmax(void)
 
         while(no >= 0)
         {
-            force_drift_node(no, All.Ti_Current);
+            real_force_drift_node(no, All.Ti_Current);
 
             if(domainHmax_all[2 * i] > Extnodes[no].hmax || domainHmax_all[2 * i + 1] > Extnodes[no].divVmax)
             {

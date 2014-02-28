@@ -19,6 +19,12 @@ typedef void (*ev_copy_func)(int j, void * data_in);
  * mode == 1 is to reduce the remote results */
 typedef void (*ev_reduce_func)(int j, void * data_result, int mode);
 
+struct ev_task {
+    int top_node;
+    int place; 
+} ;
+
+
 typedef struct _Evaluator {
     ev_evaluate_func ev_evaluate;
     ev_isactive_func ev_isactive;
@@ -41,10 +47,13 @@ typedef struct _Evaluator {
     int Nimport;
     int BufferFullFlag;
 
-    int done;
-    int currentIndex;
-    int * PQueueRunning;
-    int QueueEnd;
+    struct ev_task * PrimaryTasks;
+    int * PQueue;
+    int PQueueEnd;
+
+    /* per worker thread*/
+    int *currentIndex;
+    int *currentEnd;
 } Evaluator;
 
 void evaluate_begin(Evaluator * ev);

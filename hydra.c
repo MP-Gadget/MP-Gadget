@@ -1088,7 +1088,7 @@ static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngbli
                         mode, exporter, ngblist);
 
             if(numngb < 0)
-                return -1;
+                return numngb;
 
             for(n = 0; n < numngb; n++)
             {

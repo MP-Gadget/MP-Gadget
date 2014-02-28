@@ -800,7 +800,7 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
                         mode, exporter, ngblist);
 
             if(numngb_inbox < 0)
-                return -1;
+                return numngb_inbox;
 
             for(n = 0; n < numngb_inbox; n++)
             {

@@ -117,9 +117,7 @@ void domain_Decomposition(void)
     {
         CPU_Step[CPU_MISC] += measure_time();
 
-#pragma omp parallel for
-        for(i = 0; i < NumPart; i++)
-            drift_particle(i, All.Ti_Current);
+        move_particles(All.Ti_Current);
 
         force_treefree();
         domain_free();

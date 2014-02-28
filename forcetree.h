@@ -43,6 +43,7 @@ int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, 
 
 
 void force_drift_node(int no, int time1);
+int force_drift_node_full(int no, int time1, int blocking);
      
 void force_tree_discardpartials(void);
 void force_treeupdate_pseudos(int);
