@@ -29,8 +29,6 @@
 
 int NextParticle;
 
-static int * CostBuffer;
-
 double Ewaldcount, Costtotal;
 int64_t N_nodesinlist;
 
@@ -38,11 +36,9 @@ int64_t N_nodesinlist;
 int Ewald_iter;			/* global in file scope, for simplicity */
 
 static int gravtree_isactive(int i);
-static void * gravtree_alloccost();
-static int64_t gravtree_reducecost();
-static void gravtree_copy(int place, struct gravdata_in * input) ;
-static void gravtree_reduce(int place, struct gravdata_out * result, int mode);
-static void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode);
+void gravtree_copy(int place, struct gravdata_in * input) ;
+void gravtree_reduce(int place, struct gravdata_out * result, int mode);
+void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode);
 static void gravtree_post_process(int i);
 
 static void gravity_static_potential();
@@ -209,7 +205,6 @@ void gravity_tree(void)
     int k, Ewald_max;
 
     Evaluator ev[2] = {0};
-    int64_t costs[2];
 
     int ndone;
     int place;
@@ -222,21 +217,21 @@ void gravity_tree(void)
 
 #ifdef PMGRID
     ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate_shortrange;
-    ev[0].ev_alloc = gravtree_alloccost;
+    ev[0].ev_alloc = NULL;
     ev[0].ev_isactive = gravtree_isactive;
     ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
     ev[0].UseNodeList = 1;
     Ewald_max = 0;
 #else
     ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate;
-    ev[0].ev_alloc = gravtree_alloccost;
+    ev[0].ev_alloc = NULL;
     ev[0].ev_isactive = gravtree_isactive;
     ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
     ev[0].UseNodeList = 1;
     Ewald_max = 0;
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
     ev[1].ev_evaluate = (ev_evaluate_func) force_treeevaluate_ewald_correction;
-    ev[1].ev_alloc = gravtree_alloccost;
+    ev[1].ev_alloc = NULL;
     ev[1].ev_isactive = gravtree_isactive;
     ev[1].ev_reduce = (ev_reduce_func) gravtree_reduce_ewald;
     ev[1].UseNodeList = 1;
@@ -361,8 +356,6 @@ void gravity_tree(void)
     if(ThisTask == 0)
         printf("Begin tree force.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
-    CostBuffer = (int * ) mymalloc("CostBuffer", All.NumThreads * sizeof(int));
-
     CPU_Step[CPU_TREEMISC] += measure_time();
     t0 = second();
 
@@ -416,8 +409,6 @@ void gravity_tree(void)
 
                 evaluate_primary(&ev[Ewald_iter]);
 
-                costs[Ewald_iter] += gravtree_reducecost();
-
                 n_exported += ev[Ewald_iter].Nexport;
 
                 /* exchange particle data */
@@ -432,7 +423,6 @@ void gravity_tree(void)
                 /* now do the particles that were sent to us */
 
                 evaluate_secondary(&ev[Ewald_iter]);
-                costs[Ewald_iter] += gravtree_reducecost();
 
                 /* get the result */
                 evaluate_reduce_result(&ev[Ewald_iter], GravDataResult, TAG_GRAV_B);
@@ -443,6 +433,8 @@ void gravity_tree(void)
             while(evaluate_ndone(&ev[Ewald_iter]) < NTask);
 
             evaluate_finish(&ev[Ewald_iter]);
+
+            N_nodesinlist += ev[Ewald_iter].Nnodesinlist; 
         } /* Ewald_iter */
 
 #ifdef SCF_HYBRID
@@ -488,10 +480,12 @@ void gravity_tree(void)
     }
 #endif
 
-    Ewaldcount = costs[1];
-    N_nodesinlist += costs[0]; 
-    myfree(CostBuffer);
-    
+#if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
+    Ewaldcount = ev[1].Ninteractions;
+#else
+    Ewaldcount = 0;
+#endif
+
     if(header.flag_ic_info == FLAG_SECOND_ORDER_ICS)
     {
         if(!(All.Ti_Current == 0 && RestartFlag == 0))
@@ -528,6 +522,8 @@ void gravity_tree(void)
 #pragma omp parallel for if(Nactive > 32) reduction(+: Costtotal)
     for(i = 0; i < Nactive; i++) {
         gravtree_post_process(queue[i]);
+        /* this shall agree with sum of Ninteractions in all ev[..] need to
+         * check it*/
         Costtotal += P[i].GravCost;
     }
     myfree(queue);
@@ -649,7 +645,7 @@ void gravity_tree(void)
     CPU_Step[CPU_TREEMISC] += measure_time();
 }
 
-static void gravtree_copy(int place, struct gravdata_in * input) {
+void gravtree_copy(int place, struct gravdata_in * input) {
     int k;
 #ifdef GRAVITY_CENTROID
     if(P[place].Type == 0)
@@ -678,7 +674,7 @@ static void gravtree_copy(int place, struct gravdata_in * input) {
 
 }
 
-static void gravtree_reduce(int place, struct gravdata_out * result, int mode) {
+void gravtree_reduce(int place, struct gravdata_out * result, int mode) {
 #define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
     int k;
     for(k = 0; k < 3; k++)
@@ -697,7 +693,7 @@ static void gravtree_reduce(int place, struct gravdata_out * result, int mode) {
     REDUCE(P[place].p.dPotential, result->Potential);
 #endif
 }
-static void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode) {
+void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode) {
     int k;
     for(k = 0; k < 3; k++)
         P[place].g.dGravAccel[k] += result->Acc[k];
@@ -713,20 +709,6 @@ static int gravtree_isactive(int i) {
 #endif
 }
 
-static void * gravtree_alloccost() {
-    int threadid = omp_get_thread_num();
-    CostBuffer[threadid] = 0;
-    return &CostBuffer[threadid];
-}
-
-static int64_t gravtree_reducecost() {
-    int i;
-    int64_t cost = 0;
-    for(i = 0; i < omp_get_max_threads(); i ++) {
-        cost += CostBuffer[i];
-    }
-    return cost;
-}
 static void gravtree_post_process(int i) {
     int j, k;
 

@@ -8,6 +8,10 @@
 #include "allvars.h"
 #include "proto.h"
 
+/* get rid of these after hacks are moved to evaluator */
+void gravtree_copy(int place, struct gravdata_in * input) ;
+void gravtree_reduce(int place, struct gravdata_out * result, int mode);
+void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode);
 
 /*! \file forcetree.c
  *  \brief gravitational tree and code for Ewald correction
@@ -2095,11 +2099,12 @@ void force_update_hmax(void)
  *  the value of TypeOfOpeningCriterion, either the geometrical BH
  *  cell-opening criterion, or the `relative' opening criterion is used.
  */
-int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinlist_out)
+int force_treeevaluate(int target, int mode, LocalEvaluator * lv, void * unused)
 {
 
     struct NODE *nop = 0;
-    int no, nexp, nodesinlist, ninteractions, ptype, task, listindex = 0;
+    int no, nexp, ptype, task, listindex = 0;
+    int nnodesinlist = 0, ninteractions = 0; 
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
     double pos_x, pos_y, pos_z, aold;
     MyLongDouble acc_x, acc_y, acc_z;
@@ -2140,53 +2145,41 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
     acc_x = 0;
     acc_y = 0;
     acc_z = 0;
-    ninteractions = 0;
-    nodesinlist = 0;
+
+    struct gravdata_in inputs, *input;
+    struct gravdata_out outputs, *output;
 
     if(mode == 0)
     {
-#ifdef GRAVITY_CENTROID
-        if(P[target].Type == 0)
-        {
-            pos_x = SPHP(target).Center[0];
-            pos_y = SPHP(target).Center[1];
-            pos_z = SPHP(target).Center[2];
-
-        }
-        else
-        {
-            pos_x = P[target].Pos[0];
-            pos_y = P[target].Pos[1];
-            pos_z = P[target].Pos[2];
-        }
-#else
-        pos_x = P[target].Pos[0];
-        pos_y = P[target].Pos[1];
-        pos_z = P[target].Pos[2];
-#endif
-        ptype = P[target].Type;
-        aold = All.ErrTolForceAcc * P[target].OldAcc;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-        if(ptype == 0)
-            soft = P[target].Hsml;
-#endif
+        input = &inputs;
+        output = &outputs;
+        gravtree_copy(target, input);
+        no = All.MaxPart;	/* root node */
+        /* empty nodelist*/
+        input->NodeList[0] = -1;
     }
     else
     {
-        pos_x = GravDataGet[target].Pos[0];
-        pos_y = GravDataGet[target].Pos[1];
-        pos_z = GravDataGet[target].Pos[2];
-#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
-        ptype = GravDataGet[target].Type;
-#else
-        ptype = P[0].Type;
-#endif
-        aold = All.ErrTolForceAcc * GravDataGet[target].OldAcc;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-        if(ptype == 0)
-            soft = GravDataGet[target].Soft;
-#endif
+        input = &GravDataGet[target];
+        output = &GravDataResult[target];
+        no = input->NodeList[0];
+        listindex ++;
+        no = Nodes[no].u.d.nextnode;	/* open it */
     }
+
+    pos_x = input->Pos[0];
+    pos_y = input->Pos[1];
+    pos_z = input->Pos[2];
+#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
+    ptype = input->Type;
+#else
+    ptype = P[0].Type;
+#endif
+    aold = All.ErrTolForceAcc * input->OldAcc;
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    if(ptype == 0)
+        soft = input->Soft;
+#endif
 
 
 #ifndef UNEQUALSOFTENINGS
@@ -2202,18 +2195,6 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
     h3_inv_tidal = h_inv_tidal * h_inv_tidal * h_inv_tidal;
     h5_inv_tidal = h_inv_tidal * h_inv_tidal * h_inv_tidal * h_inv_tidal * h_inv_tidal;
 #endif
-
-
-    if(mode == 0)
-    {
-        no = All.MaxPart;		/* root node */
-    }
-    else
-    {
-        nodesinlist++;
-        no = GravDataGet[target].NodeList[0];
-        no = Nodes[no].u.d.nextnode;	/* open it */
-    }
 
     while(no >= 0)
     {
@@ -2272,7 +2253,7 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
                 {
                     if(mode == 0)
                     {
-                        if(-1 == exporter_export_particle(exporter, target, no))
+                        if(-1 == evaluate_export_particle(lv, target, no))
                             return -1;
                     }
                     no = Nextnode[no - MaxNodes];
@@ -2561,17 +2542,13 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
 
 
         }
-        if(mode == 1)
+        if(listindex < NODELISTLENGTH)
         {
-            listindex++;
-            if(listindex < NODELISTLENGTH)
-            {
-                no = GravDataGet[target].NodeList[listindex];
-                if(no >= 0)
-                {
-                    nodesinlist++;
-                    no = Nodes[no].u.d.nextnode;	/* open it */
-                }
+            no = input->NodeList[listindex];
+            if(no >= 0) {
+                no = Nodes[no].u.d.nextnode;	/* open it */
+                nnodesinlist++;
+                listindex++;
             }
         }
     }
@@ -2647,39 +2624,26 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
 #endif
 #endif
 
-    /* store result at the proper place */
-    if(mode == 0)
-    {
-        P[target].g.dGravAccel[0] = acc_x;
-        P[target].g.dGravAccel[1] = acc_y;
-        P[target].g.dGravAccel[2] = acc_z;
-        P[target].GravCost = ninteractions;
+    output->Acc[0] = acc_x;
+    output->Acc[1] = acc_y;
+    output->Acc[2] = acc_z;
+    output->Ninteractions = ninteractions;
 #ifdef EVALPOTENTIAL
-        P[target].p.dPotential = pot;
-#endif
-#ifdef DISTORTIONTENSORPS
-        for(i1 = 0; i1 < 3; i1++)
-            for(i2 = 0; i2 < 3; i2++)
-                P[target].tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
-#endif
-    }
-    else
-    {
-        GravDataResult[target].Acc[0] = acc_x;
-        GravDataResult[target].Acc[1] = acc_y;
-        GravDataResult[target].Acc[2] = acc_z;
-        GravDataResult[target].Ninteractions = ninteractions;
-#ifdef EVALPOTENTIAL
-        GravDataResult[target].Potential = pot;
+    output->Potential = pot;
 #endif
 
 #ifdef DISTORTIONTENSORPS
-        for(i1 = 0; i1 < 3; i1++)
-            for(i2 = 0; i2 < 3; i2++)
-                GravDataResult[target].tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
+    for(i1 = 0; i1 < 3; i1++)
+        for(i2 = 0; i2 < 3; i2++)
+            output->tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
 #endif
-        *nodesinlist_out = nodesinlist;
+
+    /* store result at the proper place */
+    if(mode == 0) {
+        gravtree_reduce(target, output, 0);
     }
+    lv->Ninteractions = ninteractions;
+    lv->Nnodesinlist = nnodesinlist;
     return ninteractions;
 }
 
@@ -2694,10 +2658,11 @@ int force_treeevaluate(int target, int mode, Exporter * exporter, int * nodesinl
  *  memory-access panelty (which reduces cache performance) incurred by the
  *  table.
  */
-int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int * nodesinlist_out)
+int force_treeevaluate_shortrange(int target, int mode, LocalEvaluator * lv, void * unused)
 {
     struct NODE *nop = 0;
-    int no, nodesinlist, ptype, ninteractions, nexp, tabindex, task, listindex = 0;
+    int no, ptype, nexp, tabindex, task, listindex = 0;
+    int nnodesinlist = 0, ninteractions = 0;
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
     double pos_x, pos_y, pos_z, aold;
     double eff_dist;
@@ -2741,54 +2706,52 @@ int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int
     acc_y = 0;
     acc_z = 0;
     ninteractions = 0;
-    nodesinlist = 0;
+    nnodesinlist = 0;
 
     rcut = All.Rcut[0];
     asmth = All.Asmth[0];
 
+    struct gravdata_in inputs, *input;
+    struct gravdata_out outputs, *output;
 
     if(mode == 0)
     {
-        pos_x = P[target].Pos[0];
-        pos_y = P[target].Pos[1];
-        pos_z = P[target].Pos[2];
-        ptype = P[target].Type;
-        aold = All.ErrTolForceAcc * P[target].OldAcc;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-        if(ptype == 0)
-            soft = P[target].Hsml;
-#endif
-#ifdef PLACEHIGHRESREGION
-        if(pmforce_is_particle_high_res(ptype, P[target].Pos))
-        {
-            rcut = All.Rcut[1];
-            asmth = All.Asmth[1];
-        }
-#endif
+        input = &inputs;
+        output = &outputs;
+        gravtree_copy(target, input);
+        no = All.MaxPart;	/* root node */
+        /* empty nodelist*/
+        input->NodeList[0] = -1;
     }
     else
     {
-        pos_x = GravDataGet[target].Pos[0];
-        pos_y = GravDataGet[target].Pos[1];
-        pos_z = GravDataGet[target].Pos[2];
+        input = &GravDataGet[target];
+        output = &GravDataResult[target];
+        no = input->NodeList[0];
+        listindex ++;
+        no = Nodes[no].u.d.nextnode;	/* open it */
+    }
+
+        pos_x = input->Pos[0];
+        pos_y = input->Pos[1];
+        pos_z = input->Pos[2];
 #if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
-        ptype = GravDataGet[target].Type;
+        ptype = input->Type;
 #else
         ptype = P[0].Type;
 #endif
-        aold = All.ErrTolForceAcc * GravDataGet[target].OldAcc;
+        aold = All.ErrTolForceAcc * input->OldAcc;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
         if(ptype == 0)
-            soft = GravDataGet[target].Soft;
+            soft = input->Soft;
 #endif
 #ifdef PLACEHIGHRESREGION
-        if(pmforce_is_particle_high_res(ptype, GravDataGet[target].Pos))
+        if(pmforce_is_particle_high_res(ptype, input->Pos))
         {
             rcut = All.Rcut[1];
             asmth = All.Asmth[1];
         }
 #endif
-    }
 
     rcut2 = rcut * rcut;
 
@@ -2802,17 +2765,6 @@ int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int
     h5_inv = h_inv * h_inv * h_inv * h_inv * h_inv;
 #endif
 #endif
-
-    if(mode == 0)
-    {
-        no = All.MaxPart;		/* root node */
-    }
-    else
-    {
-        nodesinlist++;
-        no = GravDataGet[target].NodeList[0];
-        no = Nodes[no].u.d.nextnode;	/* open it */
-    }
 
     while(no >= 0)
     {
@@ -2882,7 +2834,7 @@ int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int
                 {
                     if(mode == 0)
                     {
-                        if(-1 == exporter_export_particle(exporter, target, no))
+                        if(-1 == evaluate_export_particle(lv, target, no))
                             return -1;
                     }
                     no = Nextnode[no - MaxNodes];
@@ -3182,55 +3134,39 @@ int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int
 #endif
         }
 
-        if(mode == 1)
+        if(listindex < NODELISTLENGTH)
         {
-            listindex++;
-            if(listindex < NODELISTLENGTH)
+            no = input->NodeList[listindex];
+            if(no >= 0)
             {
-                no = GravDataGet[target].NodeList[listindex];
-                if(no >= 0)
-                {
-                    nodesinlist++;
-                    no = Nodes[no].u.d.nextnode;	/* open it */
-                }
+                no = Nodes[no].u.d.nextnode;	/* open it */
+                nnodesinlist++;
+                listindex++;
             }
         }
     }
 
+        output->Acc[0] = acc_x;
+        output->Acc[1] = acc_y;
+        output->Acc[2] = acc_z;
+        output->Ninteractions = ninteractions;
+#ifdef EVALPOTENTIAL
+        output->Potential = pot;
+#endif
+#ifdef DISTORTIONTENSORPS
+        for(i1 = 0; i1 < 3; i1++)
+            for(i2 = 0; i2 < 3; i2++)
+                output->tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
+#endif
 
     /* store result at the proper place */
     if(mode == 0)
     {
-        P[target].g.dGravAccel[0] = acc_x;
-        P[target].g.dGravAccel[1] = acc_y;
-        P[target].g.dGravAccel[2] = acc_z;
-        P[target].GravCost = ninteractions;
-#ifdef EVALPOTENTIAL
-        P[target].p.dPotential = pot;
-#endif
-#ifdef DISTORTIONTENSORPS
-        for(i1 = 0; i1 < 3; i1++)
-            for(i2 = 0; i2 < 3; i2++)
-                P[target].tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
-#endif
-    }
-    else
-    {
-        GravDataResult[target].Acc[0] = acc_x;
-        GravDataResult[target].Acc[1] = acc_y;
-        GravDataResult[target].Acc[2] = acc_z;
-        GravDataResult[target].Ninteractions = ninteractions;
-#ifdef EVALPOTENTIAL
-        GravDataResult[target].Potential = pot;
-#endif
-#ifdef DISTORTIONTENSORPS
-        for(i1 = 0; i1 < 3; i1++)
-            for(i2 = 0; i2 < 3; i2++)
-                GravDataResult[target].tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
-#endif
-        *nodesinlist_out = nodesinlist;
+        gravtree_reduce(target, output, 0);
     }
 
+    lv->Ninteractions = ninteractions;
+    lv->Nnodesinlist = nnodesinlist;
     return ninteractions;
 }
 
@@ -3260,10 +3196,10 @@ int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int
  *  that was mapped to a different nearest neighbour position when the tree
  *  walk would be further refined.
  */
-int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporter, int * cost_out)
+int force_treeevaluate_ewald_correction(int target, int mode, LocalEvaluator * lv, void * unused)
 {
     struct NODE *nop = 0;
-    int no, cost, listindex = 0;
+    int no, listindex = 0;
     double dx, dy, dz, mass, r2;
     int signx, signy, signz, nexp;
     int i, j, k, openflag, task;
@@ -3273,37 +3209,39 @@ int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporte
     double boxsize, boxhalf;
     double pos_x, pos_y, pos_z, aold;
 
+    int ninteractions = 0, nnodesinlist = 0;
     boxsize = All.BoxSize;
     boxhalf = 0.5 * All.BoxSize;
 
     acc_x = 0;
     acc_y = 0;
     acc_z = 0;
-    cost = 0;
-    if(mode == 0)
-    {
-        pos_x = P[target].Pos[0];
-        pos_y = P[target].Pos[1];
-        pos_z = P[target].Pos[2];
-        aold = All.ErrTolForceAcc * P[target].OldAcc;
-    }
-    else
-    {
-        pos_x = GravDataGet[target].Pos[0];
-        pos_y = GravDataGet[target].Pos[1];
-        pos_z = GravDataGet[target].Pos[2];
-        aold = All.ErrTolForceAcc * GravDataGet[target].OldAcc;
-    }
+
+    struct gravdata_in inputs, *input;
+    struct gravdata_out outputs, *output;
 
     if(mode == 0)
     {
-        no = All.MaxPart;		/* root node */
+        input = &inputs;
+        output = &outputs;
+        gravtree_copy(target, input);
+        no = All.MaxPart;	/* root node */
+        /* empty nodelist*/
+        input->NodeList[0] = -1;
     }
     else
     {
-        no = GravDataGet[target].NodeList[0];
+        input = &GravDataGet[target];
+        output = &GravDataResult[target];
+        no = input->NodeList[0];
+        listindex ++;
         no = Nodes[no].u.d.nextnode;	/* open it */
     }
+
+    pos_x = input->Pos[0];
+    pos_y = input->Pos[1];
+    pos_z = input->Pos[2];
+    aold = All.ErrTolForceAcc * input->OldAcc;
 
     while(no >= 0)
     {
@@ -3326,7 +3264,7 @@ int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporte
                 {
                     if(mode == 0)
                     {
-                        if(-1 == exporter_export_particle(exporter, target, no)) 
+                        if(-1 == evaluate_export_particle(lv, target, no)) 
                             return -1;
                     }
                     no = Nextnode[no - MaxNodes];
@@ -3518,38 +3456,33 @@ int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporte
                          [j][k] * f5 + fcorrz[i + 1][j][k + 1] * f6 + fcorrz[i + 1][j +
                          1][k] *
                          f7 + fcorrz[i + 1][j + 1][k + 1] * f8));
-            cost++;
+            ninteractions ++;
         }
 
-        if(mode == 1)
+        if(listindex < NODELISTLENGTH)
         {
-            listindex++;
-            if(listindex < NODELISTLENGTH)
-            {
-                no = GravDataGet[target].NodeList[listindex];
-                if(no >= 0)
-                    no = Nodes[no].u.d.nextnode;	/* open it */
+            no = input->NodeList[listindex];
+            if(no >= 0) {
+                no = Nodes[no].u.d.nextnode;	/* open it */
+                nnodesinlist ++;
+                listindex ++;
             }
         }
     }
 
+    output->Acc[0] = acc_x;
+    output->Acc[1] = acc_y;
+    output->Acc[2] = acc_z;
+    output->Ninteractions = ninteractions;
+
     /* add the result at the proper place */
 
-    if(mode == 0)
-    {
-        P[target].g.dGravAccel[0] += acc_x;
-        P[target].g.dGravAccel[1] += acc_y;
-        P[target].g.dGravAccel[2] += acc_z;
-        P[target].GravCost += cost;
+    if(mode == 0) {
+        gravtree_reduce_ewald(target, output, 0);
     }
-    else
-    {
-        GravDataResult[target].Acc[0] = acc_x;
-        GravDataResult[target].Acc[1] = acc_y;
-        GravDataResult[target].Acc[2] = acc_z;
-        GravDataResult[target].Ninteractions = cost;
-    }
-    *cost_out = cost;
+
+    lv->Ninteractions = ninteractions;
+    lv->Nnodesinlist = nnodesinlist;
     return 0;
 }
 

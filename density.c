@@ -16,7 +16,7 @@
 extern int NextParticle;
 
 static int density_isactive(int n);
-static int density_evaluate(int target, int mode, Exporter * exporter, int * ngblist);
+static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngblist);
 static void * density_alloc_ngblist();
 static void density_post_process(int i, MyFloat * Left, MyFloat * Right);
 
@@ -586,7 +586,7 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
  *  target particle may either be local, or reside in the communication
  *  buffer.
  */
-static int density_evaluate(int target, int mode, Exporter * exporter, int * ngblist) 
+static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngblist) 
 {
     int j, n;
 
@@ -613,9 +613,8 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
 
     MyLongDouble dhsmlrho;
 
-#ifdef HYDRO_COST_FACTOR
     int ninteractions = 0;
-#endif
+    int nnodesinlist = 0;
 
 #ifdef BLACK_HOLES
     MyLongDouble gasvel[3];
@@ -797,16 +796,14 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
         {
             numngb_inbox =
                 ngb_treefind_variable_threads(pos, hsearch, target, &startnode, 
-                        mode, exporter, ngblist);
+                        mode, lv, ngblist);
 
             if(numngb_inbox < 0)
                 return numngb_inbox;
 
             for(n = 0; n < numngb_inbox; n++)
             {
-#ifdef HYDRO_COST_FACTOR
                 ninteractions++;
-#endif
                 j = ngblist[n];
 #ifdef WINDS
                     if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
@@ -1029,11 +1026,15 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
         if(listindex < NODELISTLENGTH)
         {
             startnode = input->NodeList[listindex];
-            if(startnode >= 0)
+            if(startnode >= 0) {
                 startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-            listindex++;
+                listindex++;
+                nnodesinlist ++;
+            }
         }
     }
+
+    /* Now collect the result at the right place */
 
     output->ID = input->ID;
 #ifdef HYDRO_COST_FACTOR
@@ -1134,6 +1135,11 @@ static int density_evaluate(int target, int mode, Exporter * exporter, int * ngb
     if(mode == 0) {
         density_reduce(target, output, 0);
     }
+
+    /* some performance measures not currently used */
+    lv->Ninteractions += ninteractions;
+    lv->Nnodesinlist += nnodesinlist;
+
     return 0;
 }
 

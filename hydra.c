@@ -38,7 +38,7 @@
  *  (via artificial viscosity) is computed.
  */
 
-static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngblist);
+static int hydro_evaluate(int target, int mode, LocalEvaluator * lv, int * ngblist);
 static int hydro_isactive(int n);
 static void * hydro_alloc_ngblist();
 static void hydro_post_process(int i);
@@ -620,7 +620,7 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
  *  particle is specified which may either be local, or reside in the
  *  communication buffer.
  */
-static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngblist) 
+static int hydro_evaluate(int target, int mode, LocalEvaluator * lv, int * ngblist) 
 {
     int startnode, numngb, listindex = 0;
     int j, k, n, timestep;
@@ -633,9 +633,8 @@ static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngbli
     double egyrho = 0, entvarpred = 0;
 #endif
 
-#ifdef HYDRO_COST_FACTOR
     int ninteractions = 0;
-#endif
+    int nnodesinlist = 0;
 
 
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
@@ -772,147 +771,41 @@ static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngbli
     double c_ij, h_ij;
 #endif
 
-    if(mode == 0)
-    {
-        pos = P[target].Pos;
-        vel = SPHP(target).VelPred;
-        h_i = P[target].Hsml;
-        mass = P[target].Mass;
-        rho = SPHP(target).d.Density;
-        pressure = SPHP(target).Pressure;
-        timestep = (P[target].TimeBin ? (1 << P[target].TimeBin) : 0);
+    struct hydrodata_in inputs, *input;
+    struct hydrodata_out outputs, *output;
 
-#ifdef DENSITY_INDEPENDENT_SPH
-        egyrho = SPHP(target).EgyWtDensity;
-        entvarpred = SPHP(target).EntVarPred;
-        dhsmlDensityFactor = SPHP(target).DhsmlEgyDensityFactor;
+    if(mode == 0) {
+        input = &inputs;
+        output = &outputs;
+        hydro_copy(target, input);
+        startnode = All.MaxPart;	/* root node */
+        /* empty nodelist*/
+#ifndef DONOTUSENODELIST
+        input->NodeList[0] = -1;
+#endif
+    } else {
+        input = &HydroDataGet[target];
+        output = &HydroDataResult[target];
+#ifndef DONOTUSENODELIST
+        startnode = input->NodeList[0];
+        listindex ++;
+        startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 #else
-        dhsmlDensityFactor = SPHP(target).h.DhsmlDensityFactor;
+        startnode = All.MaxPart; /* root node */
 #endif
-
-#ifndef EOS_DEGENERATE
-#ifdef DENSITY_INDEPENDENT_SPH
-        soundspeed_i = sqrt(GAMMA * pressure / egyrho);
-#else
-        soundspeed_i = sqrt(GAMMA * pressure / rho);
-#endif
-#else
-        soundspeed_i = sqrt(SPHP(target).dpdr);
-#endif
-
-#ifndef ALTVISCOSITY
-#ifndef NAVIERSTOKES
-        f1 = fabs(SPHP(target).v.DivVel) /
-            (fabs(SPHP(target).v.DivVel) + SPHP(target).r.CurlVel +
-             0.0001 * soundspeed_i / P[target].Hsml / fac_mu);
-#else
-        f1 = fabs(SPHP(target).v.DivVel) /
-            (fabs(SPHP(target).v.DivVel) + SPHP(target).u.s.CurlVel +
-             0.0001 * soundspeed_i / P[target].Hsml / fac_mu);
-#endif
-#else
-        f1 = SPHP(target).v.DivVel;
-#endif
-
-#ifdef JD_VTURB
-        vBulk[0] = SPHP(target).Vbulk[0];
-        vBulk[1] = SPHP(target).Vbulk[1];
-        vBulk[2] = SPHP(target).Vbulk[2];
-#endif
-
-#ifdef MAGNETIC
-#ifndef SFR
-        bpred[0] = SPHP(target).BPred[0];
-        bpred[1] = SPHP(target).BPred[1];
-        bpred[2] = SPHP(target).BPred[2];
-#else
-        bpred[0] = SPHP(target).BPred[0] * pow(1.-SPHP(target).XColdCloud,2.*POW_CC);
-        bpred[1] = SPHP(target).BPred[1] * pow(1.-SPHP(target).XColdCloud,2.*POW_CC);
-        bpred[2] = SPHP(target).BPred[2] * pow(1.-SPHP(target).XColdCloud,2.*POW_CC);
-#endif
-#ifdef ALFA_OMEGA_DYN
-        alfaomega =
-            Sph[target].r.Rot[0] * Sph[target].VelPred[0] + Sph[target].r.Rot[1] * Sph[target].VelPred[1] +
-            Sph[target].r.Rot[2] * Sph[target].VelPred[2];
-#endif
-#ifdef VECT_POTENTIAL
-        Apred[0] = SPHP(target).APred[0];
-        Apred[1] = SPHP(target).APred[1];
-        Apred[2] = SPHP(target).APred[2];
-#endif
-#ifdef DIVBCLEANING_DEDNER
-#ifdef SMOOTH_PHI
-        PhiPred = SPHP(target).SmoothPhi;
-#else
-        PhiPred = SPHP(target).PhiPred;
-#endif
-#ifdef SFR
-        PhiPred *= pow(1.-SPHP(target).XColdCloud,POW_CC);
-#endif
-#endif
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-#ifdef SMOOTH_ROTB
-        rotb[0] = SPHP(target).SmoothedRotB[0];
-        rotb[1] = SPHP(target).SmoothedRotB[1];
-        rotb[2] = SPHP(target).SmoothedRotB[2];
-#else
-        rotb[0] = SPHP(target).RotB[0];
-        rotb[1] = SPHP(target).RotB[1];
-        rotb[2] = SPHP(target).RotB[2];
-#endif
-#ifdef SFR
-        rotb[0] *= pow(1.-SPHP(target).XColdCloud,3.*POW_CC);
-        rotb[1] *= pow(1.-SPHP(target).XColdCloud,3.*POW_CC);
-        rotb[2] *= pow(1.-SPHP(target).XColdCloud,3.*POW_CC);
-#endif
-#endif
-#ifdef TIME_DEP_MAGN_DISP
-        Balpha = SPHP(target).Balpha;
-#endif
-#ifdef EULER_DISSIPATION
-        eulA = SPHP(target).EulerA;
-        eulB = SPHP(target).EulerB;
-#endif
-#endif /*  MAGNETIC  */
-
-#ifdef TIME_DEP_ART_VISC
-        alpha = SPHP(target).alpha;
-#endif
-
-#if defined(NAVIERSTOKES)
-        Entropy = SPHP(target).Entropy;
-#endif
-
-
-
-#ifdef PARTICLE_DEBUG
-        ID = P[target].ID;
-#endif
-
-#ifdef NAVIERSTOKES
-        stressdiag = SPHP(target).u.s.StressDiag;
-        stressoffdiag = SPHP(target).u.s.StressOffDiag;
-        shear_viscosity = get_shear_viscosity(target);
-#ifdef NAVIERSTOKES_BULK
-        divvel = SPHP(target).u.s.a4.DivVel;
-#endif
-#endif
-
     }
-    else
-    {
-        pos = HydroDataGet[target].Pos;
-        vel = HydroDataGet[target].Vel;
-        h_i = HydroDataGet[target].Hsml;
-        mass = HydroDataGet[target].Mass;
-        dhsmlDensityFactor = HydroDataGet[target].DhsmlDensityFactor;
+        pos = input->Pos;
+        vel = input->Vel;
+        h_i = input->Hsml;
+        mass = input->Mass;
+        rho = input->Density;
+        pressure = input->Pressure;
+        timestep = input->Timestep;
+        dhsmlDensityFactor = input->DhsmlDensityFactor;
 #ifdef DENSITY_INDEPENDENT_SPH
-        egyrho = HydroDataGet[target].EgyRho;
-        entvarpred = HydroDataGet[target].EntVarPred;
+        egyrho = input->EgyRho;
+        entvarpred = input->EntVarPred;
 #endif
-        rho = HydroDataGet[target].Density;
-        pressure = HydroDataGet[target].Pressure;
-        timestep = HydroDataGet[target].Timestep;
 #ifndef EOS_DEGENERATE
 #ifdef DENSITY_INDEPENDENT_SPH
         soundspeed_i = sqrt(GAMMA * pressure / egyrho);
@@ -920,72 +813,71 @@ static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngbli
         soundspeed_i = sqrt(GAMMA * pressure / rho);
 #endif
 #else
-        soundspeed_i = sqrt(HydroDataGet[target].dpdr);
+        soundspeed_i = sqrt(input->dpdr);
 #endif
-        f1 = HydroDataGet[target].F1;
+        f1 = input->F1;
 
 #ifdef JD_VTURB
-        vBulk[0] = HydroDataGet[target].Vbulk[0];
-        vBulk[1] = HydroDataGet[target].Vbulk[1];
-        vBulk[2] = HydroDataGet[target].Vbulk[2];
+        vBulk[0] = input->Vbulk[0];
+        vBulk[1] = input->Vbulk[1];
+        vBulk[2] = input->Vbulk[2];
 #endif
 #ifdef MAGNETIC
-        bpred[0] = HydroDataGet[target].BPred[0];
-        bpred[1] = HydroDataGet[target].BPred[1];
-        bpred[2] = HydroDataGet[target].BPred[2];
+        bpred[0] = input->BPred[0];
+        bpred[1] = input->BPred[1];
+        bpred[2] = input->BPred[2];
 #ifdef ALFA_OMEGA_DYN
-        alfaomega = HydroDataGet[target].alfaomega;
+        alfaomega = input->alfaomega;
 #endif
 #ifdef VECT_POTENTIAL
-        Apred[0] = HydroDataGet[target].Apred[0];
-        Apred[1] = HydroDataGet[target].Apred[1];
-        Apred[2] = HydroDataGet[target].Apred[2];
+        Apred[0] = input->Apred[0];
+        Apred[1] = input->Apred[1];
+        Apred[2] = input->Apred[2];
 #endif
 #ifdef DIVBCLEANING_DEDNER
-        PhiPred = HydroDataGet[target].PhiPred;
+        PhiPred = input->PhiPred;
 #endif
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-        rotb[0] = HydroDataGet[target].RotB[0];
-        rotb[1] = HydroDataGet[target].RotB[1];
-        rotb[2] = HydroDataGet[target].RotB[2];
+        rotb[0] = input->RotB[0];
+        rotb[1] = input->RotB[1];
+        rotb[2] = input->RotB[2];
 #endif
 #ifdef TIME_DEP_MAGN_DISP
-        Balpha = HydroDataGet[target].Balpha;
+        Balpha = input->Balpha;
 #endif
 #ifdef EULER_DISSIPATION
-        eulA = HydroDataGet[target].EulerA;
-        eulB = HydroDataGet[target].EulerB;
+        eulA = input->EulerA;
+        eulB = input->EulerB;
 #endif
 #endif /* MAGNETIC */
 
 #ifdef TIME_DEP_ART_VISC
-        alpha = HydroDataGet[target].alpha;
+        alpha = input->alpha;
 #endif
 
 #if defined(NAVIERSTOKES)
-        Entropy = HydroDataGet[target].Entropy;
+        Entropy = input->Entropy;
 #endif
 
 
 #ifdef PARTICLE_DEBUG
-        ID = HydroDataGet[target].ID;
+        ID = input->ID;
 #endif
 
 
 #ifdef NAVIERSTOKES
-        stressdiag = HydroDataGet[target].stressdiag;
-        stressoffdiag = HydroDataGet[target].stressoffdiag;
-        shear_viscosity = HydroDataGet[target].shear_viscosity;
+        stressdiag = input->stressdiag;
+        stressoffdiag = input->stressoffdiag;
+        shear_viscosity = input->shear_viscosity;
 #endif
 #ifdef NAVIERSTOKES
-        stressdiag = HydroDataGet[target].stressdiag;
-        stressoffdiag = HydroDataGet[target].stressoffdiag;
-        shear_viscosity = HydroDataGet[target].shear_viscosity;
+        stressdiag = input->stressdiag;
+        stressoffdiag = input->stressoffdiag;
+        shear_viscosity = input->shear_viscosity;
 #ifdef NAVIERSTOKES_BULK
-        divvel = HydroDataGet[target].divvel;
+        divvel = input->divvel;
 #endif
 #endif
-    }
 
 
     /* initialize variables before SPH loop is started */
@@ -1065,27 +957,13 @@ static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngbli
 
     /* Now start the actual SPH computation for this particle */
 
-    if(mode == 0)
-    {
-        startnode = All.MaxPart;	/* root node */
-    }
-    else
-    {
-#ifndef DONOTUSENODELIST
-        startnode = HydroDataGet[target].NodeList[0];
-        startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-#else
-        startnode = All.MaxPart;	/* root node */
-#endif
-    }
-
     while(startnode >= 0)
     {
         while(startnode >= 0)
         {
             numngb =
                 ngb_treefind_pairs_threads(pos, h_i, target, &startnode, 
-                        mode, exporter, ngblist);
+                        mode, lv, ngblist);
 
             if(numngb < 0)
                 return numngb;
@@ -1094,9 +972,7 @@ static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngbli
             {
                 j = ngblist[n];
 
-#ifdef HYDRO_COST_FACTOR
                 ninteractions++;
-#endif
 
 #ifdef BLACK_HOLES
                 if(P[j].Mass == 0)
@@ -1706,107 +1582,65 @@ static int hydro_evaluate(int target, int mode, Exporter * exporter, int * ngbli
         }
 
 #ifndef DONOTUSENODELIST
-        if(mode == 1)
+        if(listindex < NODELISTLENGTH)
         {
-            listindex++;
-            if(listindex < NODELISTLENGTH)
-            {
-                startnode = HydroDataGet[target].NodeList[listindex];
-                if(startnode >= 0)
-                    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+            startnode = input->NodeList[listindex];
+            if(startnode >= 0) {
+                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+                listindex++;
+                nnodesinlist ++;
             }
         }
 #endif
     }
 
     /* Now collect the result at the right place */
-    if(mode == 0)
-    {
         for(k = 0; k < 3; k++)
-            SPHP(target).a.dHydroAccel[k] = acc[k];
-        SPHP(target).e.dDtEntropy = dtEntropy;
+            output->Acc[k] = acc[k];
+        output->DtEntropy = dtEntropy;
 #ifdef DIVBFORCE3
         for(k = 0; k < 3; k++)
-            SPHP(target).magacc[k] = magacc[k];
+            output->magacc[k] = magacc[k];
         for(k = 0; k < 3; k++)
-            SPHP(target).magcorr[k] = magcorr[k];
+            output->magcorr[k] = magcorr[k];
 #endif
 #ifdef HYDRO_COST_FACTOR
-        if(All.ComovingIntegrationOn)
-            P[target].GravCost += HYDRO_COST_FACTOR * All.Time * ninteractions;
-        else
-            P[target].GravCost += HYDRO_COST_FACTOR * ninteractions;
+        output->Ninteractions = ninteractions;
 #endif
 
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-        SPHP(target).MinViscousDt = minViscousDt;
+        output->MinViscousDt = minViscousDt;
 #else
-        SPHP(target).MaxSignalVel = maxSignalVel;
-#endif
-
-#ifdef JD_VTURB
-        SPHP(target).Vrms = vRms; 
-#endif
-
-#if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
-        for(k = 0; k < 3; k++)
-            SPHP(target).DtB[k] = dtB[k];
-#endif
-#ifdef DIVBCLEANING_DEDNER
-        for(k = 0; k < 3; k++)
-            SPHP(target).GradPhi[k] = gradphi[k];
-#endif
-#ifdef VECT_POTENTIAL
-        SPHP(target).DtA[0] = dta[0];
-        SPHP(target).DtA[1] = dta[1];
-        SPHP(target).DtA[2] = dta[2];
-#endif
-#ifdef EULER_DISSIPATION
-        SPHP(target).DtEulerA = dteulA;
-        SPHP(target).DtEulerB = dteulB;
-#endif
-    }
-    else
-    {
-        for(k = 0; k < 3; k++)
-            HydroDataResult[target].Acc[k] = acc[k];
-        HydroDataResult[target].DtEntropy = dtEntropy;
-#ifdef DIVBFORCE3
-        for(k = 0; k < 3; k++)
-            HydroDataResult[target].magacc[k] = magacc[k];
-        for(k = 0; k < 3; k++)
-            HydroDataResult[target].magcorr[k] = magcorr[k];
-#endif
-#ifdef HYDRO_COST_FACTOR
-        HydroDataResult[target].Ninteractions = ninteractions;
-#endif
-
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-        HydroDataResult[target].MinViscousDt = minViscousDt;
-#else
-        HydroDataResult[target].MaxSignalVel = maxSignalVel;
+        output->MaxSignalVel = maxSignalVel;
 #endif
 #ifdef JD_VTURB
-        HydroDataResult[target].Vrms = vRms; 
+        output->Vrms = vRms; 
 #endif
 #if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
         for(k = 0; k < 3; k++)
-            HydroDataResult[target].DtB[k] = dtB[k];
+            output->DtB[k] = dtB[k];
 #ifdef DIVBCLEANING_DEDNER
         for(k = 0; k < 3; k++)
-            HydroDataResult[target].GradPhi[k] = gradphi[k];
+            output->GradPhi[k] = gradphi[k];
 #endif
 #endif
 #ifdef VECT_POTENTIAL
-        HydroDataResult[target].dta[0] = dta[0];
-        HydroDataResult[target].dta[1] = dta[1];
-        HydroDataResult[target].dta[2] = dta[2];
+        output->dta[0] = dta[0];
+        output->dta[1] = dta[1];
+        output->dta[2] = dta[2];
 #endif
 #ifdef EULER_DISSIPATION
-        HydroDataResult[target].DtEulerA = dteulA;
-        HydroDataResult[target].DtEulerB = dteulB;
+        output->DtEulerA = dteulA;
+        output->DtEulerB = dteulB;
 #endif
+
+    if(mode == 0) {
+        hydro_reduce(target, output, 0);
     }
+
+    /* some performance measures not currently used */
+    lv->Ninteractions += ninteractions;
+    lv->Nnodesinlist += nnodesinlist;
 
     return 0;
 }

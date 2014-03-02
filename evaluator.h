@@ -2,14 +2,16 @@
 #define _EVALUATOR_H_
 
 struct _Evaluator;
-typedef struct _Exportor {
+typedef struct _LocalEvaluator {
     struct _Evaluator * ev;
     int *exportflag;
     int *exportnodecount;
     int *exportindex;
-} Exporter;
+    int64_t Ninteractions;
+    int64_t Nnodesinlist;
+} LocalEvaluator;
 
-typedef int (*ev_evaluate_func) (int target, int mode, Exporter * exportor, void * extradata);
+typedef int (*ev_evaluate_func) (int target, int mode, LocalEvaluator * lv, void * extradata);
 
 typedef int (*ev_isactive_func) (int i);
 typedef void * (*ev_alloc_func) ();
@@ -42,6 +44,8 @@ typedef struct _Evaluator {
     double timecomp2;
     double timecommsumm1;
     double timecommsumm2;
+    int64_t Ninteractions;
+    int64_t Nnodesinlist;
 
     int Nexport;
     int Nimport;
@@ -65,7 +69,7 @@ void evaluate_reduce_result(Evaluator * ev, void * sendbuf, int tag);
 int * evaluate_get_queue(Evaluator * ev, int * len);
 
 /*returns -1 if the buffer is full */
-int exporter_export_particle(Exporter * exporter, int target, int no);
+int evaluate_export_particle(LocalEvaluator * lv, int target, int no);
 
 int evaluate_ndone(Evaluator * ev);
 #endif

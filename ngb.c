@@ -165,7 +165,7 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
 
 
 int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-        int mode, Exporter * exporter,
+        int mode, LocalEvaluator * lv,
         int *ngblist)
 {
     int no, p, numngb, task, nexp;
@@ -226,7 +226,7 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 
                 if(target >= 0)	/* if no target is given, export will not occur */
                 {
-                    if(-1 == exporter_export_particle(exporter, target, no))
+                    if(-1 == evaluate_export_particle(lv, target, no))
                         return -1;
                 }
 
@@ -439,7 +439,7 @@ int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, in
  *  calling routine.
  */
 int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-        int mode, Exporter * exporter, 
+        int mode, LocalEvaluator * lv, 
         int *ngblist)
 {
     int numngb, no, nexp, p, task;
@@ -489,7 +489,7 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
 
                 if(target >= 0)	/* if no target is given, export will not occur */
                 {
-                    if(-1 == exporter_export_particle(exporter, target, no))
+                    if(-1 == evaluate_export_particle(lv, target, no))
                         return -1;
                 }
 

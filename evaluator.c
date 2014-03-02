@@ -2,7 +2,7 @@
 #include "proto.h"
 #include "evaluator.h"
 
-static void evaluate_init_exporter(Evaluator * ev, Exporter * exporter);
+static void evaluate_init_thread(Evaluator * ev, LocalEvaluator * lv);
 static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int length);
 
 static int atomic_fetch_and_add(int * ptr, int value) {
@@ -47,15 +47,17 @@ static int atomic_add_and_fetch(int * ptr, int value) {
 #endif
     return k;
 }
-void evaluate_init_exporter(Evaluator * ev, Exporter * exporter) {
+void evaluate_init_thread(Evaluator * ev, LocalEvaluator * lv) {
     int thread_id = omp_get_thread_num();
     int j;
-    exporter->ev = ev;
-    exporter->exportflag = Exportflag + thread_id * NTask;
-    exporter->exportnodecount = Exportnodecount + thread_id * NTask;
-    exporter->exportindex = Exportindex + thread_id * NTask;
+    lv->ev = ev;
+    lv->exportflag = Exportflag + thread_id * NTask;
+    lv->exportnodecount = Exportnodecount + thread_id * NTask;
+    lv->exportindex = Exportindex + thread_id * NTask;
+    lv->Ninteractions = 0;
+    lv->Nnodesinlist = 0;
     for(j = 0; j < NTask; j++)
-        exporter->exportflag[j] = -1;
+        lv->exportflag[j] = -1;
 }
 
 void evaluate_begin(Evaluator * ev) {
@@ -105,9 +107,12 @@ int data_index_compare(const void *a, const void *b);
 static void real_ev(Evaluator * ev) {
     int tid = omp_get_thread_num();
     int i;
-    Exporter exporter;
-    int * ngblist = ev->ev_alloc();
-    evaluate_init_exporter(ev, &exporter);
+    LocalEvaluator lv ;
+    void * extradata = NULL;
+    if(ev->ev_alloc) extradata = ev->ev_alloc();
+
+    evaluate_init_thread(ev, &lv);
+
     /* Note: exportflag is local to each thread */
     int k;
             /* use old index to recover from a buffer overflow*/;
@@ -125,7 +130,7 @@ static void real_ev(Evaluator * ev) {
             BREAKPOINT;
         }
         int rt;
-        rt = ev->ev_evaluate(i, 0, &exporter, ngblist);
+        rt = ev->ev_evaluate(i, 0, &lv, extradata);
         if(rt < 0) {
             P[i].Evaluated = 0;
             break;		/* export buffer has filled up, redo this particle */
@@ -134,6 +139,10 @@ static void real_ev(Evaluator * ev) {
         }
     }
     ev->currentIndex[tid] = k;
+#pragma omp atomic
+    ev->Ninteractions += lv.Ninteractions;
+#pragma omp atomic
+    ev->Nnodesinlist += lv.Nnodesinlist;
 }
 int * evaluate_get_queue(Evaluator * ev, int * len) {
     int i;
@@ -265,15 +274,21 @@ void evaluate_secondary(Evaluator * ev) {
 
 #pragma omp parallel 
     {
-        int j, *ngblist;
+        int j;
         int thread_id = omp_get_thread_num();
-        Exporter dummy;
-        ngblist = ev->ev_alloc();
-
+        LocalEvaluator lv;
+        void  * extradata = NULL;
+        if(ev->ev_alloc)
+            extradata = ev->ev_alloc();
+        evaluate_init_thread(ev, &lv);
 #pragma omp for
         for(j = 0; j < ev->Nimport; j++) {
-            ev->ev_evaluate(j, 1, &dummy, ngblist);
+            ev->ev_evaluate(j, 1, &lv, extradata);
         }
+#pragma omp atomic
+        ev->Ninteractions += lv.Ninteractions;
+#pragma omp atomic
+        ev->Nnodesinlist += lv.Nnodesinlist;
     }
     tend = second();
     ev->timecomp2 += timediff(tstart, tend);
@@ -284,11 +299,11 @@ void evaluate_secondary(Evaluator * ev) {
  * This can also be called from a nonthreaded code
  *
  * */
-int exporter_export_particle(Exporter * exporter, int target, int no) {
-    int *exportflag = exporter->exportflag;
-    int *exportnodecount = exporter->exportnodecount;
-    int *exportindex = exporter->exportindex; 
-    Evaluator * ev = exporter->ev;
+int evaluate_export_particle(LocalEvaluator * lv, int target, int no) {
+    int *exportflag = lv->exportflag;
+    int *exportnodecount = lv->exportnodecount;
+    int *exportindex = lv->exportindex; 
+    Evaluator * ev = lv->ev;
     int task;
 
     if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)

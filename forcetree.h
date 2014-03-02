@@ -33,9 +33,9 @@ void *gravity_primary_loop(void *p);
 void *gravity_secondary_loop(void *p);
 
 
-int force_treeevaluate(int target, int mode, Exporter * exporter, int * nnodesinlist);
-int force_treeevaluate_ewald_correction(int target, int mode, Exporter * exporter, int * cost);
-int force_treeevaluate_shortrange(int target, int mode, Exporter * exporter, int * nnodesinlist);
+int force_treeevaluate(int target, int mode, LocalEvaluator * lv, void * unused);
+int force_treeevaluate_ewald_correction(int target, int mode, LocalEvaluator * lv, void * unused);
+int force_treeevaluate_shortrange(int target, int mode, LocalEvaluator * lv, void * unused);
 
 
 int force_treeevaluate_potential(int target, int type, int *nexport, int *nsend_local);
@@ -113,11 +113,11 @@ int ngb_treefind_blackhole(MyDouble searchcenter[3], MyFloat hsml, int target, i
 int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
 		       int mode, int *nexport, int *nsend_local);
 int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-		       int mode, Exporter * exporter, int *ngblist);		       
+		       int mode, LocalEvaluator * lv, int *ngblist);		       
 int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
  			  int *nexport, int *nsend_local);
 int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
-			  Exporter * exporter, int *ngblist);
+			  LocalEvaluator * lv, int *ngblist);
 
 #endif
 
