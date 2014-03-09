@@ -34,6 +34,9 @@ int main(int argc, char **argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
   MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
+  fftw_init_threads();
+  fftw_mpi_init();
+  fftw_plan_with_nthreads(omp_get_max_threads());
 
 #ifdef INVARIANCETEST
   World_ThisTask = ThisTask;
