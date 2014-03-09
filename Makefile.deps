@@ -65,41 +65,8 @@ else
 FFLAGS = $(OPTIONS)
 endif
 
-ifeq (NOTYPEPREFIX_FFTW,$(findstring NOTYPEPREFIX_FFTW,$(OPT)))    # fftw installed with type prefix?
-ifeq ($(SYSTYPE), "Kraken_FFTW3")
-  FFTW_LIB = $(FFTW_LIBS) -lfftw3_mpi -lfftw3_threads -lfftw3
-else
-  FFTW_LIB = $(FFTW_LIBS) -lrfftw_mpi -lfftw_mpi -lrfftw -lfftw
-endif
-else
-ifeq (DOUBLEPRECISION_FFTW,$(findstring DOUBLEPRECISION_FFTW,$(OPT)))
-ifeq ($(SYSTYPE), "Kraken_FFTW3")
-  FFTW_LIB = $(FFTW_LIBS) -lfftw3_mpi -lfftw3_threads -lfftw3
-else
-  FFTW_LIB = $(FFTW_LIBS) -ldrfftw_mpi -ldfftw_mpi -ldrfftw -ldfftw
-endif
-else
-ifeq ($(SYSTYPE), "Kraken_FFTW3")
-  FFTW_LIB = $(FFTW_LIBS) -lfftw3f_mpi -lfftw3f_threads -lfftw3f
-else
-  FFTW_LIB = $(FFTW_LIBS) -lsrfftw_mpi -lsfftw_mpi -lsrfftw -lsfftw
-endif 
-endif
-endif
 
-
-
-#ifeq (NOTYPEPREFIX_FFTW,$(findstring NOTYPEPREFIX_FFTW,$(OPT)))    # fftw installed with type prefix?
-#  FFTW_LIB = $(FFTW_LIBS) -lrfftw_mpi -lfftw_mpi -lrfftw -lfftw
-#else
-#ifeq (DOUBLEPRECISION_FFTW,$(findstring DOUBLEPRECISION_FFTW,$(OPT)))
-#  FFTW_LIB = $(FFTW_LIBS) -ldrfftw_mpi -ldfftw_mpi -ldrfftw -ldfftw
-#else
-#  FFTW_LIB = $(FFTW_LIBS) -lsrfftw_mpi -lsfftw_mpi -lsrfftw -lsfftw
-#endif
-#endif
-
-
+FFTW_LIB = $(FFTW_LIBS) -lfftw3_mpi -lfftw3_threads -lfftw3
 LIBS   = -lm -lhdf5 -g $(MPICHLIB) $(GSL_LIBS) -lgsl -lgslcblas $(FFTW_LIB)
 
 LIBS   +=  $(GMPLIB)

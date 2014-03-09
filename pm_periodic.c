@@ -14,16 +14,7 @@
 #ifdef PMGRID
 #ifdef PERIODIC
 
-#ifdef NOTYPEPREFIX_FFTW
-#include        <rfftw_mpi.h>
-#else
-#ifdef DOUBLEPRECISION_FFTW
-#include     <drfftw_mpi.h>	/* double precision FFTW */
-#else
-#include     <srfftw_mpi.h>
-#endif
-#endif
-
+#include <fftw3-mpi.h>
 
 #include "allvars.h"
 #include "proto.h"
@@ -37,30 +28,29 @@ typedef unsigned int large_array_offset;
 #endif
 
 #ifdef FLTROUNDOFFREDUCTION
-#define d_fftw_real MyLongDouble
+#define d_double MyLongDouble
 #else
-#define d_fftw_real fftw_real
+#define d_double double
 #endif
 
-static rfftwnd_mpi_plan fft_forward_plan, fft_inverse_plan;
+static fftw_plan fft_forward_plan, fft_inverse_plan;
 
 static int slab_to_task[PMGRID];
 static int *slabs_per_task;
 static int *first_slab_of_task;
 
-static int slabstart_x, nslab_x, slabstart_y, nslab_y, smallest_slab;
+static ptrdiff_t slabstart_x, nslab_x, slabstart_y, nslab_y, smallest_slab;
 
 static int fftsize, maxfftsize;
 
-static fftw_real *rhogrid, *forcegrid, *workspace;
-static d_fftw_real *d_rhogrid, *d_forcegrid, *d_workspace;
+static double *rhogrid, *forcegrid;
+static d_double *d_rhogrid, *d_forcegrid;
 #ifdef KSPACE_NEUTRINOS
 static fftw_complex *Cdata;
 #endif
 
 #ifdef DISTORTIONTENSORPS
-static fftw_real *tidal_workspace;
-static fftw_real *d_tidal_workspace;
+static double *tidal_workspace;
 #endif
 
 
@@ -69,13 +59,13 @@ static fftw_complex *fft_of_rhogrid;
 
 static MyFloat to_slab_fac;
 
-void pm_periodic_transposeA(fftw_real * field, fftw_real * scratch);
-void pm_periodic_transposeB(fftw_real * field, fftw_real * scratch);
+void pm_periodic_transposeA(double * field, double * scratch);
+void pm_periodic_transposeB(double * field, double * scratch);
 int pm_periodic_compare_sortindex(const void *a, const void *b);
 
 #ifdef DISTORTIONTENSORPS
-void pm_periodic_transposeAz(fftw_real * field, fftw_real * scratch);
-void pm_periodic_transposeBz(fftw_real * field, fftw_real * scratch);
+void pm_periodic_transposeAz(double * field, double * scratch);
+void pm_periodic_transposeBz(double * field, double * scratch);
 #endif
 
 static struct part_slab_data
@@ -101,14 +91,25 @@ void pm_init_periodic(void)
 
     /* Set up the FFTW plan files. */
 
-    fft_forward_plan = rfftw3d_mpi_create_plan(MPI_COMM_WORLD, PMGRID, PMGRID, PMGRID,
-            FFTW_REAL_TO_COMPLEX, FFTW_ESTIMATE | FFTW_IN_PLACE);
-    fft_inverse_plan = rfftw3d_mpi_create_plan(MPI_COMM_WORLD, PMGRID, PMGRID, PMGRID,
-            FFTW_COMPLEX_TO_REAL, FFTW_ESTIMATE | FFTW_IN_PLACE);
+    /* 
+     * transform is r2c, thus the last dimension is packed!
+     * See http://www.fftw.org/doc/MPI-Plan-Creation.html
+     **/
+    fftsize = fftw_mpi_local_size_3d_transposed(PMGRID, PMGRID, PMGRID / 2 + 1,
+            MPI_COMM_WORLD,
+            &nslab_x, &slabstart_x, &nslab_y, &slabstart_y);
 
+    MPI_Allreduce(&fftsize, &maxfftsize, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+
+    pm_init_periodic_allocate();
+
+    fft_forward_plan = fftw_mpi_plan_dft_r2c_3d(PMGRID, PMGRID, 
+            PMGRID, rhogrid, fft_of_rhogrid, MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT);
+    fft_inverse_plan = fftw_mpi_plan_dft_c2r_3d(PMGRID, PMGRID, 
+            PMGRID, fft_of_rhogrid, rhogrid, MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN);
+
+    pm_init_periodic_free();
     /* Workspace out the ranges on each processor. */
-
-    rfftwnd_mpi_local_sizes(fft_forward_plan, &nslab_x, &slabstart_x, &nslab_y, &slabstart_y, &fftsize);
 
     for(i = 0; i < PMGRID; i++)
         slab_to_task_local[i] = 0;
@@ -128,8 +129,6 @@ void pm_init_periodic(void)
 
     to_slab_fac = PMGRID / All.BoxSize;
 
-    MPI_Allreduce(&fftsize, &maxfftsize, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-
 #ifdef KSPACE_NEUTRINOS
     kspace_neutrinos_init();
 #endif
@@ -137,10 +136,11 @@ void pm_init_periodic(void)
 
 
 /*! This function allocates the memory neeed to compute the long-range PM
- *  force. Three fields are used, one to hold the density (and its FFT, and
- *  then the real-space potential), one to hold the force field obtained by
- *  finite differencing, and finally a workspace field, which is used both as
- *  workspace for the parallel FFT, and as buffer for the communication
+ *  force. Three fields are used, one to hold the density (and
+ *  then the real-space potential), one to hold the fft of density, and
+ *  the force field obtained by
+ *  finite differenc in.
+ *  and a workspace for the parallel FFT, and as buffer for the communication
  *  algorithm used in the force computation.
  */
 void pm_init_periodic_allocate(void)
@@ -150,14 +150,14 @@ void pm_init_periodic_allocate(void)
 
     /* allocate the memory to hold the FFT fields */
 
-    if(!(rhogrid = (fftw_real *) mymalloc("rhogrid", bytes = maxfftsize * sizeof(d_fftw_real))))
+    if(!(rhogrid = (double *) mymalloc("rhogrid", bytes = maxfftsize * sizeof(d_double))))
     {
         printf("failed to allocate memory for `FFT-rhogrid' (%g MB).\n", bytes / (1024.0 * 1024.0));
         endrun(1);
     }
     bytes_tot += bytes;
 
-    if(!(forcegrid = (fftw_real *) mymalloc("forcegrid", bytes = maxfftsize * sizeof(d_fftw_real))))
+    if(!(forcegrid = (double *) mymalloc("forcegrid", bytes = maxfftsize * sizeof(d_double))))
     {
         printf("failed to allocate memory for `FFT-forcegrid' (%g MB).\n", bytes / (1024.0 * 1024.0));
         endrun(1);
@@ -180,7 +180,7 @@ void pm_init_periodic_allocate(void)
     bytes_tot += bytes;
 
 #ifdef DISTORTIONTENSORPS
-    if(!(tidal_workspace = (fftw_real *) mymalloc("tidal_workspace", bytes = maxfftsize * sizeof(d_fftw_real))))
+    if(!(tidal_workspace = (double *) mymalloc("tidal_workspace", bytes = maxfftsize * sizeof(d_double))))
     {
         printf("failed to allocate memory for `FFT-tidal_workspace' (%g MB).\n", bytes / (1024.0 * 1024.0));
         endrun(1);
@@ -193,16 +193,15 @@ void pm_init_periodic_allocate(void)
         printf("Using %g MByte for periodic FFT computation. (presently allocated=%g MB)\n",
                 bytes_tot / (1024.0 * 1024.0), AllocatedBytes / (1024.0 * 1024.0));
 
-    workspace = forcegrid;
+    /* 
+     * forcegrid is used after the potential is inversely transformed
+     * to rhogrid. fft_of_rho_grid is never used same time with forcegrid
+     * this makes the transform out-of-place.
+     * */
+    fft_of_rhogrid = (fftw_complex *) & forcegrid[0];
 
-    fft_of_rhogrid = (fftw_complex *) & rhogrid[0];
-
-    d_rhogrid = (d_fftw_real *) rhogrid;
-    d_forcegrid = (d_fftw_real *) forcegrid;
-    d_workspace = (d_fftw_real *) workspace;
-#ifdef DISTORTIONTENSORPS
-    d_tidal_workspace = (d_fftw_real *) tidal_workspace;
-#endif
+    d_rhogrid = (d_double *) rhogrid;
+    d_forcegrid = (d_double *) forcegrid;
 }
 
 
@@ -260,8 +259,8 @@ void pmforce_periodic(int mode, int *typelist)
     int *localfield_count, *localfield_first, *localfield_offset, *localfield_togo;
     MyDouble pp[3], *pos;
     large_array_offset offset, *localfield_globalindex, *import_globalindex;
-    d_fftw_real *localfield_d_data, *import_d_data;
-    fftw_real *localfield_data, *import_data;
+    d_double *localfield_d_data, *import_d_data;
+    double *localfield_data, *import_data;
 
 #ifdef SCALARFIELD
     int phase;
@@ -427,8 +426,8 @@ void pmforce_periodic(int mode, int *typelist)
             (large_array_offset *) mymalloc("localfield_globalindex",
                     num_field_points * sizeof(large_array_offset));
         localfield_d_data =
-            (d_fftw_real *) mymalloc("localfield_d_data", num_field_points * sizeof(d_fftw_real));
-        localfield_data = (fftw_real *) localfield_d_data;
+            (d_double *) mymalloc("localfield_d_data", num_field_points * sizeof(d_double));
+        localfield_data = (double *) localfield_d_data;
         localfield_first = (int *) mymalloc("localfield_first", NTask * sizeof(int));
         localfield_count = (int *) mymalloc("localfield_count", NTask * sizeof(int));
         localfield_offset = (int *) mymalloc("localfield_offset", NTask * sizeof(int));
@@ -536,8 +535,8 @@ void pmforce_periodic(int mode, int *typelist)
                 if(level > 0)
                 {
                     import_d_data =
-                        (d_fftw_real *) mymalloc("import_d_data", localfield_togo[recvTask * NTask + ThisTask] *
-                                sizeof(d_fftw_real));
+                        (d_double *) mymalloc("import_d_data", localfield_togo[recvTask * NTask + ThisTask] *
+                                sizeof(d_double));
                     import_globalindex =
                         (large_array_offset *) mymalloc("import_globalindex",
                                 localfield_togo[recvTask * NTask +
@@ -547,9 +546,9 @@ void pmforce_periodic(int mode, int *typelist)
                             || localfield_togo[recvTask * NTask + sendTask] > 0)
                     {
                         MPI_Sendrecv(localfield_d_data + localfield_offset[recvTask],
-                                localfield_togo[sendTask * NTask + recvTask] * sizeof(d_fftw_real),
+                                localfield_togo[sendTask * NTask + recvTask] * sizeof(d_double),
                                 MPI_BYTE, recvTask, TAG_NONPERIOD_A, import_d_data,
-                                localfield_togo[recvTask * NTask + sendTask] * sizeof(d_fftw_real),
+                                localfield_togo[recvTask * NTask + sendTask] * sizeof(d_double),
                                 MPI_BYTE, recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
                         MPI_Sendrecv(localfield_globalindex + localfield_offset[recvTask],
@@ -591,8 +590,7 @@ void pmforce_periodic(int mode, int *typelist)
         /* Do the FFT of the density field */
 
         report_memory_usage(&HighMark_pmperiodic, "PM_PERIODIC");
-
-        rfftwnd_mpi(fft_forward_plan, 1, rhogrid, workspace, FFTW_TRANSPOSED_ORDER);
+        fftw_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
 
         if(mode != 0)
         {
@@ -655,24 +653,24 @@ void pmforce_periodic(int mode, int *typelist)
                             /* end deconvolution */
 
                             ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
-                            fft_of_rhogrid[ip].re *= smth;
-                            fft_of_rhogrid[ip].im *= smth;
+                            fft_of_rhogrid[ip][0] *= smth;
+                            fft_of_rhogrid[ip][1] *= smth;
 
 #ifdef KSPACE_NEUTRINOS
                             double ampl = smth * kspace_prefac * sqrt(get_neutrino_powerspec(sqrt(k2) * 2 * M_PI / All.BoxSize, All.Time));
 
-                            fft_of_rhogrid[ip].re += ampl * Cdata[ip].re;
-                            fft_of_rhogrid[ip].im += ampl * Cdata[ip].im;
+                            fft_of_rhogrid[ip][0] += ampl * Cdata[ip][0];
+                            fft_of_rhogrid[ip][1] += ampl * Cdata[ip][1];
 #endif		      
                         }
                     }
 
             if(slabstart_y == 0)
-                fft_of_rhogrid[0].re = fft_of_rhogrid[0].im = 0.0;
+                fft_of_rhogrid[0][0] = fft_of_rhogrid[0][1] = 0.0;
 
             /* Do the inverse FFT to get the potential */
 
-            rfftwnd_mpi(fft_inverse_plan, 1, rhogrid, workspace, FFTW_TRANSPOSED_ORDER);
+            fftw_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
 
             /* Now rhogrid holds the potential */
 
@@ -687,8 +685,8 @@ void pmforce_periodic(int mode, int *typelist)
                     if(level > 0)
                     {
                         import_data =
-                            (fftw_real *) mymalloc("import_data",
-                                    localfield_togo[recvTask * NTask + ThisTask] * sizeof(fftw_real));
+                            (double *) mymalloc("import_data",
+                                    localfield_togo[recvTask * NTask + ThisTask] * sizeof(double));
                         import_globalindex =
                             (large_array_offset *) mymalloc("import_globalindex",
                                     localfield_togo[recvTask * NTask +
@@ -721,10 +719,10 @@ void pmforce_periodic(int mode, int *typelist)
                     if(level > 0)
                     {
                         MPI_Sendrecv(import_data,
-                                localfield_togo[recvTask * NTask + sendTask] * sizeof(fftw_real), MPI_BYTE,
+                                localfield_togo[recvTask * NTask + sendTask] * sizeof(double), MPI_BYTE,
                                 recvTask, TAG_NONPERIOD_A,
                                 localfield_data + localfield_offset[recvTask],
-                                localfield_togo[sendTask * NTask + recvTask] * sizeof(fftw_real), MPI_BYTE,
+                                localfield_togo[sendTask * NTask + recvTask] * sizeof(double), MPI_BYTE,
                                 recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
                         myfree(import_globalindex);
@@ -853,8 +851,8 @@ void pmforce_periodic(int mode, int *typelist)
                         if(level > 0)
                         {
                             import_data =
-                                (fftw_real *) mymalloc("import_data", localfield_togo[recvTask * NTask + ThisTask] *
-                                        sizeof(fftw_real));
+                                (double *) mymalloc("import_data", localfield_togo[recvTask * NTask + ThisTask] *
+                                        sizeof(double));
                             import_globalindex =
                                 (large_array_offset *) mymalloc("import_globalindex",
                                         localfield_togo[recvTask * NTask +
@@ -891,10 +889,10 @@ void pmforce_periodic(int mode, int *typelist)
                         if(level > 0)
                         {
                             MPI_Sendrecv(import_data,
-                                    localfield_togo[recvTask * NTask + sendTask] * sizeof(fftw_real), MPI_BYTE,
+                                    localfield_togo[recvTask * NTask + sendTask] * sizeof(double), MPI_BYTE,
                                     recvTask, TAG_NONPERIOD_A,
                                     localfield_data + localfield_offset[recvTask],
-                                    localfield_togo[sendTask * NTask + recvTask] * sizeof(fftw_real), MPI_BYTE,
+                                    localfield_togo[sendTask * NTask + recvTask] * sizeof(double), MPI_BYTE,
                                     recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
                             myfree(import_globalindex);
@@ -984,8 +982,8 @@ void pmpotential_periodic(void)
     MPI_Status status;
     int *localfield_count, *localfield_first, *localfield_offset, *localfield_togo;
     large_array_offset offset, *localfield_globalindex, *import_globalindex;
-    d_fftw_real *localfield_d_data, *import_d_data;
-    fftw_real *localfield_data, *import_data;
+    d_double *localfield_d_data, *import_d_data;
+    double *localfield_data, *import_data;
 
     force_treefree();
 
@@ -1065,8 +1063,8 @@ void pmpotential_periodic(void)
     /* allocate the local field */
     localfield_globalindex =
         (large_array_offset *) mymalloc("localfield_globalindex", num_field_points * sizeof(large_array_offset));
-    localfield_d_data = (d_fftw_real *) mymalloc("localfield_d_data", num_field_points * sizeof(d_fftw_real));
-    localfield_data = (fftw_real *) localfield_d_data;
+    localfield_d_data = (d_double *) mymalloc("localfield_d_data", num_field_points * sizeof(d_double));
+    localfield_data = (double *) localfield_d_data;
     localfield_first = (int *) mymalloc("localfield_first", NTask * sizeof(int));
     localfield_count = (int *) mymalloc("localfield_count", NTask * sizeof(int));
     localfield_offset = (int *) mymalloc("localfield_offset", NTask * sizeof(int));
@@ -1150,8 +1148,8 @@ void pmpotential_periodic(void)
             if(level > 0)
             {
                 import_d_data =
-                    (d_fftw_real *) mymalloc("import_d_data",
-                            localfield_togo[recvTask * NTask + ThisTask] * sizeof(d_fftw_real));
+                    (d_double *) mymalloc("import_d_data",
+                            localfield_togo[recvTask * NTask + ThisTask] * sizeof(d_double));
                 import_globalindex =
                     (large_array_offset *) mymalloc("import_globalindex",
                             localfield_togo[recvTask * NTask +
@@ -1161,10 +1159,10 @@ void pmpotential_periodic(void)
                         || localfield_togo[recvTask * NTask + sendTask] > 0)
                 {
                     MPI_Sendrecv(localfield_d_data + localfield_offset[recvTask],
-                            localfield_togo[sendTask * NTask + recvTask] * sizeof(d_fftw_real), MPI_BYTE,
+                            localfield_togo[sendTask * NTask + recvTask] * sizeof(d_double), MPI_BYTE,
                             recvTask, TAG_NONPERIOD_A,
                             import_d_data,
-                            localfield_togo[recvTask * NTask + sendTask] * sizeof(d_fftw_real), MPI_BYTE,
+                            localfield_togo[recvTask * NTask + sendTask] * sizeof(d_double), MPI_BYTE,
                             recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
                     MPI_Sendrecv(localfield_globalindex + localfield_offset[recvTask],
@@ -1207,7 +1205,7 @@ void pmpotential_periodic(void)
     report_memory_usage(&HighMark_pmperiodic, "PM_PERIODIC_POTENTIAL");
 
     /* Do the FFT of the density field */
-    rfftwnd_mpi(fft_forward_plan, 1, rhogrid, workspace, FFTW_TRANSPOSED_ORDER);
+    fftw_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
 
     /* multiply with Green's function for the potential */
 
@@ -1258,17 +1256,17 @@ void pmpotential_periodic(void)
                     /* end deconvolution */
 
                     ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
-                    fft_of_rhogrid[ip].re *= smth;
-                    fft_of_rhogrid[ip].im *= smth;
+                    fft_of_rhogrid[ip][0] *= smth;
+                    fft_of_rhogrid[ip][1] *= smth;
                 }
             }
 
     if(slabstart_y == 0)
-        fft_of_rhogrid[0].re = fft_of_rhogrid[0].im = 0.0;
+        fft_of_rhogrid[0][0] = fft_of_rhogrid[0][1] = 0.0;
 
     /* Do the inverse FFT to get the potential */
 
-    rfftwnd_mpi(fft_inverse_plan, 1, rhogrid, workspace, FFTW_TRANSPOSED_ORDER);
+    fftw_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
 
     /* Now rhogrid holds the potential */
 
@@ -1287,8 +1285,8 @@ void pmpotential_periodic(void)
             if(level > 0)
             {
                 import_data =
-                    (fftw_real *) mymalloc("import_data",
-                            localfield_togo[recvTask * NTask + ThisTask] * sizeof(fftw_real));
+                    (double *) mymalloc("import_data",
+                            localfield_togo[recvTask * NTask + ThisTask] * sizeof(double));
                 import_globalindex =
                     (large_array_offset *) mymalloc("import_globalindex",
                             localfield_togo[recvTask * NTask +
@@ -1322,10 +1320,10 @@ void pmpotential_periodic(void)
             if(level > 0)
             {
                 MPI_Sendrecv(import_data,
-                        localfield_togo[recvTask * NTask + sendTask] * sizeof(fftw_real), MPI_BYTE,
+                        localfield_togo[recvTask * NTask + sendTask] * sizeof(double), MPI_BYTE,
                         recvTask, TAG_NONPERIOD_A,
                         localfield_data + localfield_offset[recvTask],
-                        localfield_togo[sendTask * NTask + recvTask] * sizeof(fftw_real), MPI_BYTE,
+                        localfield_togo[sendTask * NTask + recvTask] * sizeof(double), MPI_BYTE,
                         recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
                 myfree(import_globalindex);
@@ -1448,7 +1446,7 @@ void mysort_pmperiodic(void *b, size_t n, size_t s, int (*cmp) (const void *, co
     myfree(tmp);
 }
 
-void pm_periodic_transposeA(fftw_real * field, fftw_real * scratch)
+void pm_periodic_transposeA(double * field, double * scratch)
 {
     int x, y, z, task;
 
@@ -1471,11 +1469,11 @@ void pm_periodic_transposeA(fftw_real * field, fftw_real * scratch)
     for(task = 0; task < NTask; task++)
     {
         MPI_Isend(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
 
         MPI_Irecv(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
     }
 
@@ -1491,10 +1489,10 @@ void pm_periodic_transposeA(fftw_real * field, fftw_real * scratch)
         if(task < NTask)
         {
             MPI_Sendrecv(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY,
                     field + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
@@ -1503,7 +1501,7 @@ void pm_periodic_transposeA(fftw_real * field, fftw_real * scratch)
 
 
 
-void pm_periodic_transposeB(fftw_real * field, fftw_real * scratch)
+void pm_periodic_transposeB(double * field, double * scratch)
 {
     int x, y, z, task;
 
@@ -1516,11 +1514,11 @@ void pm_periodic_transposeB(fftw_real * field, fftw_real * scratch)
     for(task = 0; task < NTask; task++)
     {
         MPI_Isend(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
 
         MPI_Irecv(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
     }
 
@@ -1538,10 +1536,10 @@ void pm_periodic_transposeB(fftw_real * field, fftw_real * scratch)
         if(task < NTask)
         {
             MPI_Sendrecv(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY,
                     scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
@@ -1560,7 +1558,7 @@ void pm_periodic_transposeB(fftw_real * field, fftw_real * scratch)
 }
 
 #ifdef DISTORTIONTENSORPS
-void pm_periodic_transposeAz(fftw_real * field, fftw_real * scratch)
+void pm_periodic_transposeAz(double * field, double * scratch)
 {
     int x, y, z, task;
 
@@ -1583,11 +1581,11 @@ void pm_periodic_transposeAz(fftw_real * field, fftw_real * scratch)
     for(task = 0; task < NTask; task++)
     {
         MPI_Isend(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
 
         MPI_Irecv(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
     }
 
@@ -1603,10 +1601,10 @@ void pm_periodic_transposeAz(fftw_real * field, fftw_real * scratch)
         if(task < NTask)
         {
             MPI_Sendrecv(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY,
                     field + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
@@ -1615,7 +1613,7 @@ void pm_periodic_transposeAz(fftw_real * field, fftw_real * scratch)
 
 
 
-void pm_periodic_transposeBz(fftw_real * field, fftw_real * scratch)
+void pm_periodic_transposeBz(double * field, double * scratch)
 {
     int x, y, z, task;
 
@@ -1628,11 +1626,11 @@ void pm_periodic_transposeBz(fftw_real * field, fftw_real * scratch)
     for(task = 0; task < NTask; task++)
     {
         MPI_Isend(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
 
         MPI_Irecv(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
     }
 
@@ -1650,10 +1648,10 @@ void pm_periodic_transposeBz(fftw_real * field, fftw_real * scratch)
         if(task < NTask)
         {
             MPI_Sendrecv(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY,
                     scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(fftw_real),
+                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
@@ -1710,8 +1708,8 @@ void pmtidaltensor_periodic_diff(void)
     MPI_Status status;
     int *localfield_count, *localfield_first, *localfield_offset, *localfield_togo;
     large_array_offset offset, *localfield_globalindex, *import_globalindex;
-    d_fftw_real *localfield_d_data, *import_d_data;
-    fftw_real *localfield_data, *import_data;
+    d_double *localfield_d_data, *import_d_data;
+    double *localfield_data, *import_data;
 
 #ifdef SCALARFIELD
     int phase;
@@ -1848,8 +1846,8 @@ void pmtidaltensor_periodic_diff(void)
             (large_array_offset *) mymalloc("localfield_globalindex",
                     num_field_points * sizeof(large_array_offset));
         localfield_d_data =
-            (d_fftw_real *) mymalloc("localfield_d_data", num_field_points * sizeof(d_fftw_real));
-        localfield_data = (fftw_real *) localfield_d_data;
+            (d_double *) mymalloc("localfield_d_data", num_field_points * sizeof(d_double));
+        localfield_data = (double *) localfield_d_data;
         localfield_first = (int *) mymalloc("localfield_first", NTask * sizeof(int));
         localfield_count = (int *) mymalloc("localfield_count", NTask * sizeof(int));
         localfield_offset = (int *) mymalloc("localfield_offset", NTask * sizeof(int));
@@ -1981,8 +1979,8 @@ void pmtidaltensor_periodic_diff(void)
                 if(level > 0)
                 {
                     import_d_data =
-                        (d_fftw_real *) mymalloc("import_d_data", localfield_togo[recvTask * NTask + ThisTask] *
-                                sizeof(d_fftw_real));
+                        (d_double *) mymalloc("import_d_data", localfield_togo[recvTask * NTask + ThisTask] *
+                                sizeof(d_double));
                     import_globalindex =
                         (large_array_offset *) mymalloc("import_globalindex",
                                 localfield_togo[recvTask * NTask +
@@ -1992,9 +1990,9 @@ void pmtidaltensor_periodic_diff(void)
                             || localfield_togo[recvTask * NTask + sendTask] > 0)
                     {
                         MPI_Sendrecv(localfield_d_data + localfield_offset[recvTask],
-                                localfield_togo[sendTask * NTask + recvTask] * sizeof(d_fftw_real),
+                                localfield_togo[sendTask * NTask + recvTask] * sizeof(d_double),
                                 MPI_BYTE, recvTask, TAG_NONPERIOD_A, import_d_data,
-                                localfield_togo[recvTask * NTask + sendTask] * sizeof(d_fftw_real),
+                                localfield_togo[recvTask * NTask + sendTask] * sizeof(d_double),
                                 MPI_BYTE, recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
                         MPI_Sendrecv(localfield_globalindex + localfield_offset[recvTask],
@@ -2037,7 +2035,7 @@ void pmtidaltensor_periodic_diff(void)
 
         report_memory_usage(&HighMark_pmperiodic, "PM_PERIODIC");
 
-        rfftwnd_mpi(fft_forward_plan, 1, rhogrid, workspace, FFTW_TRANSPOSED_ORDER);
+        fftw_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
 
 
         /* multiply with Green's function for the potential */
@@ -2094,17 +2092,17 @@ void pmtidaltensor_periodic_diff(void)
                         /* end deconvolution */
 
                         ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
-                        fft_of_rhogrid[ip].re *= smth;
-                        fft_of_rhogrid[ip].im *= smth;
+                        fft_of_rhogrid[ip][0] *= smth;
+                        fft_of_rhogrid[ip][1] *= smth;
                     }
                 }
 
         if(slabstart_y == 0)
-            fft_of_rhogrid[0].re = fft_of_rhogrid[0].im = 0.0;
+            fft_of_rhogrid[0][0] = fft_of_rhogrid[0][1] = 0.0;
 
         /* Do the inverse FFT to get the potential */
 
-        rfftwnd_mpi(fft_inverse_plan, 1, rhogrid, workspace, FFTW_TRANSPOSED_ORDER);
+        fftw_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
 
         /* Now rhogrid holds the potential */
 
@@ -2121,8 +2119,8 @@ void pmtidaltensor_periodic_diff(void)
                 if(level > 0)
                 {
                     import_data =
-                        (fftw_real *) mymalloc("import_data",
-                                localfield_togo[recvTask * NTask + ThisTask] * sizeof(fftw_real));
+                        (double *) mymalloc("import_data",
+                                localfield_togo[recvTask * NTask + ThisTask] * sizeof(double));
                     import_globalindex =
                         (large_array_offset *) mymalloc("import_globalindex",
                                 localfield_togo[recvTask * NTask +
@@ -2155,10 +2153,10 @@ void pmtidaltensor_periodic_diff(void)
                 if(level > 0)
                 {
                     MPI_Sendrecv(import_data,
-                            localfield_togo[recvTask * NTask + sendTask] * sizeof(fftw_real), MPI_BYTE,
+                            localfield_togo[recvTask * NTask + sendTask] * sizeof(double), MPI_BYTE,
                             recvTask, TAG_NONPERIOD_A,
                             localfield_data + localfield_offset[recvTask],
-                            localfield_togo[sendTask * NTask + recvTask] * sizeof(fftw_real), MPI_BYTE,
+                            localfield_togo[sendTask * NTask + recvTask] * sizeof(double), MPI_BYTE,
                             recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
                     myfree(import_globalindex);
@@ -2365,8 +2363,8 @@ void pmtidaltensor_periodic_diff(void)
                     if(level > 0)
                     {
                         import_data =
-                            (fftw_real *) mymalloc("import_data", localfield_togo[recvTask * NTask + ThisTask] *
-                                    sizeof(fftw_real));
+                            (double *) mymalloc("import_data", localfield_togo[recvTask * NTask + ThisTask] *
+                                    sizeof(double));
                         import_globalindex =
                             (large_array_offset *) mymalloc("import_globalindex",
                                     localfield_togo[recvTask * NTask +
@@ -2403,10 +2401,10 @@ void pmtidaltensor_periodic_diff(void)
                     if(level > 0)
                     {
                         MPI_Sendrecv(import_data,
-                                localfield_togo[recvTask * NTask + sendTask] * sizeof(fftw_real), MPI_BYTE,
+                                localfield_togo[recvTask * NTask + sendTask] * sizeof(double), MPI_BYTE,
                                 recvTask, TAG_NONPERIOD_A,
                                 localfield_data + localfield_offset[recvTask],
-                                localfield_togo[sendTask * NTask + recvTask] * sizeof(fftw_real), MPI_BYTE,
+                                localfield_togo[sendTask * NTask + recvTask] * sizeof(double), MPI_BYTE,
                                 recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
                         myfree(import_globalindex);
@@ -2530,8 +2528,8 @@ void pmtidaltensor_periodic_fourier(int component)
     MPI_Status status;
     int *localfield_count, *localfield_first, *localfield_offset, *localfield_togo;
     large_array_offset offset, *localfield_globalindex, *import_globalindex;
-    d_fftw_real *localfield_d_data, *import_d_data;
-    fftw_real *localfield_data, *import_data;
+    d_double *localfield_d_data, *import_d_data;
+    double *localfield_data, *import_data;
 
     force_treefree();
 
@@ -2611,8 +2609,8 @@ void pmtidaltensor_periodic_fourier(int component)
     /* allocate the local field */
     localfield_globalindex =
         (large_array_offset *) mymalloc("localfield_globalindex", num_field_points * sizeof(large_array_offset));
-    localfield_d_data = (d_fftw_real *) mymalloc("localfield_d_data", num_field_points * sizeof(d_fftw_real));
-    localfield_data = (fftw_real *) localfield_d_data;
+    localfield_d_data = (d_double *) mymalloc("localfield_d_data", num_field_points * sizeof(d_double));
+    localfield_data = (double *) localfield_d_data;
     localfield_first = (int *) mymalloc("localfield_first", NTask * sizeof(int));
     localfield_count = (int *) mymalloc("localfield_count", NTask * sizeof(int));
     localfield_offset = (int *) mymalloc("localfield_offset", NTask * sizeof(int));
@@ -2696,8 +2694,8 @@ void pmtidaltensor_periodic_fourier(int component)
             if(level > 0)
             {
                 import_d_data =
-                    (d_fftw_real *) mymalloc("import_d_data",
-                            localfield_togo[recvTask * NTask + ThisTask] * sizeof(d_fftw_real));
+                    (d_double *) mymalloc("import_d_data",
+                            localfield_togo[recvTask * NTask + ThisTask] * sizeof(d_double));
                 import_globalindex =
                     (large_array_offset *) mymalloc("import_globalindex",
                             localfield_togo[recvTask * NTask +
@@ -2707,10 +2705,10 @@ void pmtidaltensor_periodic_fourier(int component)
                         || localfield_togo[recvTask * NTask + sendTask] > 0)
                 {
                     MPI_Sendrecv(localfield_d_data + localfield_offset[recvTask],
-                            localfield_togo[sendTask * NTask + recvTask] * sizeof(d_fftw_real), MPI_BYTE,
+                            localfield_togo[sendTask * NTask + recvTask] * sizeof(d_double), MPI_BYTE,
                             recvTask, TAG_NONPERIOD_A,
                             import_d_data,
-                            localfield_togo[recvTask * NTask + sendTask] * sizeof(d_fftw_real), MPI_BYTE,
+                            localfield_togo[recvTask * NTask + sendTask] * sizeof(d_double), MPI_BYTE,
                             recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
                     MPI_Sendrecv(localfield_globalindex + localfield_offset[recvTask],
@@ -2751,7 +2749,7 @@ void pmtidaltensor_periodic_fourier(int component)
 
     /* Do the FFT of the density field */
 
-    rfftwnd_mpi(fft_forward_plan, 1, rhogrid, workspace, FFTW_TRANSPOSED_ORDER);
+    fftw_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
 
     /* multiply with Green's function for the potential */
 
@@ -2807,28 +2805,28 @@ void pmtidaltensor_periodic_fourier(int component)
                     /* modify greens function to get second derivatives of potential ("pulling" down k's) */
                     if(component == 0)
                     {
-                        fft_of_rhogrid[ip].re *= smth * kx * kx;
-                        fft_of_rhogrid[ip].im *= smth * kx * kx;
+                        fft_of_rhogrid[ip][0] *= smth * kx * kx;
+                        fft_of_rhogrid[ip][1] *= smth * kx * kx;
                     }
                     if(component == 1)
                     {
-                        fft_of_rhogrid[ip].re *= smth * kx * ky;
-                        fft_of_rhogrid[ip].im *= smth * kx * ky;
+                        fft_of_rhogrid[ip][0] *= smth * kx * ky;
+                        fft_of_rhogrid[ip][1] *= smth * kx * ky;
                     }
                     if(component == 2)
                     {
-                        fft_of_rhogrid[ip].re *= smth * kx * kz;
-                        fft_of_rhogrid[ip].im *= smth * kx * kz;
+                        fft_of_rhogrid[ip][0] *= smth * kx * kz;
+                        fft_of_rhogrid[ip][1] *= smth * kx * kz;
                     }
                     if(component == 3)
                     {
-                        fft_of_rhogrid[ip].re *= smth * ky * ky;
-                        fft_of_rhogrid[ip].im *= smth * ky * ky;
+                        fft_of_rhogrid[ip][0] *= smth * ky * ky;
+                        fft_of_rhogrid[ip][1] *= smth * ky * ky;
                     }
                     if(component == 4)
                     {
-                        fft_of_rhogrid[ip].re *= smth * ky * kz;
-                        fft_of_rhogrid[ip].im *= smth * ky * kz;
+                        fft_of_rhogrid[ip][0] *= smth * ky * kz;
+                        fft_of_rhogrid[ip][1] *= smth * ky * kz;
                     }
                     if(component == 5)
                     {
@@ -2842,32 +2840,32 @@ void pmtidaltensor_periodic_fourier(int component)
 
                         /*
                            double rep, imp;
-                           rep = fft_of_rhogrid[ip].re;
-                           imp = fft_of_rhogrid[ip].im;
+                           rep = fft_of_rhogrid[ip][0];
+                           imp = fft_of_rhogrid[ip][1];
 
-                           fft_of_rhogrid[ip].re = smth*imp*kz * (2*M_PI) / All.BoxSize;
-                           fft_of_rhogrid[ip].im = -smth*rep*kz * (2*M_PI) / All.BoxSize;
+                           fft_of_rhogrid[ip][0] = smth*imp*kz * (2*M_PI) / All.BoxSize;
+                           fft_of_rhogrid[ip][1] = -smth*rep*kz * (2*M_PI) / All.BoxSize;
                            */
 
-                        fft_of_rhogrid[ip].re *= smth * kz * kz;
-                        fft_of_rhogrid[ip].im *= smth * kz * kz;
+                        fft_of_rhogrid[ip][0] *= smth * kz * kz;
+                        fft_of_rhogrid[ip][1] *= smth * kz * kz;
 
                     }
 
                     /* prefactor = (2*M_PI) / All.BoxSize */
                     /* note: tidal tensor = - d^2 Phi/ dx_i dx_j  IS THE SIGN CORRECT ?!?! */
-                    fft_of_rhogrid[ip].re *= (2 * M_PI) * (2 * M_PI) / (All.BoxSize * All.BoxSize);
-                    fft_of_rhogrid[ip].im *= (2 * M_PI) * (2 * M_PI) / (All.BoxSize * All.BoxSize);
+                    fft_of_rhogrid[ip][0] *= (2 * M_PI) * (2 * M_PI) / (All.BoxSize * All.BoxSize);
+                    fft_of_rhogrid[ip][1] *= (2 * M_PI) * (2 * M_PI) / (All.BoxSize * All.BoxSize);
 
                 }
             }
 
     if(slabstart_y == 0)
-        fft_of_rhogrid[0].re = fft_of_rhogrid[0].im = 0.0;
+        fft_of_rhogrid[0][0] = fft_of_rhogrid[0][1] = 0.0;
 
     /* Do the inverse FFT to get the tidal tensor component */
 
-    rfftwnd_mpi(fft_inverse_plan, 1, rhogrid, workspace, FFTW_TRANSPOSED_ORDER);
+    fftw_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
 
     /* Now rhogrid holds the tidal tensor componet */
 
@@ -2886,8 +2884,8 @@ void pmtidaltensor_periodic_fourier(int component)
             if(level > 0)
             {
                 import_data =
-                    (fftw_real *) mymalloc("import_data",
-                            localfield_togo[recvTask * NTask + ThisTask] * sizeof(fftw_real));
+                    (double *) mymalloc("import_data",
+                            localfield_togo[recvTask * NTask + ThisTask] * sizeof(double));
                 import_globalindex =
                     (large_array_offset *) mymalloc("import_globalindex",
                             localfield_togo[recvTask * NTask +
@@ -2921,10 +2919,10 @@ void pmtidaltensor_periodic_fourier(int component)
             if(level > 0)
             {
                 MPI_Sendrecv(import_data,
-                        localfield_togo[recvTask * NTask + sendTask] * sizeof(fftw_real), MPI_BYTE,
+                        localfield_togo[recvTask * NTask + sendTask] * sizeof(double), MPI_BYTE,
                         recvTask, TAG_NONPERIOD_A,
                         localfield_data + localfield_offset[recvTask],
-                        localfield_togo[sendTask * NTask + recvTask] * sizeof(fftw_real), MPI_BYTE,
+                        localfield_togo[sendTask * NTask + recvTask] * sizeof(double), MPI_BYTE,
                         recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
                 myfree(import_globalindex);
@@ -3172,8 +3170,8 @@ void powerspec(int flag, int *typeflag)
 
                         ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + zz;
 
-                        po = (fft_of_rhogrid[ip].re * fft_of_rhogrid[ip].re
-                                + fft_of_rhogrid[ip].im * fft_of_rhogrid[ip].im);
+                        po = (fft_of_rhogrid[ip][0] * fft_of_rhogrid[ip][0]
+                                + fft_of_rhogrid[ip][1] * fft_of_rhogrid[ip][1]);
 
                         po *= fac * fac * smth;
 
@@ -3408,7 +3406,7 @@ void foldonitself(int *typelist)
     nsend_offset = mymalloc("nsend_offset", NTask * sizeof(int));
     nsend = mymalloc("nsend", NTask * NTask * sizeof(int));
 
-    buf_capacity = (maxfftsize * sizeof(d_fftw_real)) / (4 * sizeof(MyFloat));
+    buf_capacity = (maxfftsize * sizeof(d_double)) / (4 * sizeof(MyFloat));
     buf_capacity /= 2;
 
     pos_sendbuf = (MyFloat *) forcegrid;
@@ -3634,7 +3632,7 @@ void foldonitself(int *typelist)
     tstart = second();
 
     /* Do the FFT of the self-folded density field */
-    rfftwnd_mpi(fft_forward_plan, 1, rhogrid, workspace, FFTW_TRANSPOSED_ORDER);
+    fftw_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
 
     tend = second();
 
@@ -3793,7 +3791,7 @@ void kspace_neutrinos_init(void)
 
     kspace_neutrinos_set_seeds();   /* set seeds */
 
-    Cdata = (fftw_complex *) mymalloc("Cdata", maxfftsize * sizeof(d_fftw_real));  /* this will hold the neutrine waves */
+    Cdata = (fftw_complex *) mymalloc("Cdata", maxfftsize * sizeof(d_double));  /* this will hold the neutrine waves */
 
     /* first, clean the array */
 
@@ -3803,8 +3801,8 @@ void kspace_neutrinos_init(void)
             for(z = 0; z < PMGRID / 2 + 1; z++)
             {
                 ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
-                Cdata[ip].re = 0;
-                Cdata[ip].im = 0;
+                Cdata[ip][0] = 0;
+                Cdata[ip][1] = 0;
             }
 
 
@@ -3869,8 +3867,8 @@ void kspace_neutrinos_init(void)
                     if(y >= slabstart_y && y < (slabstart_y + nslab_y))
                     {
                         ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
-                        Cdata[ip].re =  delta * cos(phase);
-                        Cdata[ip].im =  delta * sin(phase);
+                        Cdata[ip][0] =  delta * cos(phase);
+                        Cdata[ip][1] =  delta * sin(phase);
                     }
                     else	/* z=0 plane needs special treatment */
                     {
@@ -3886,16 +3884,16 @@ void kspace_neutrinos_init(void)
                                 {
                                     ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
 
-                                    Cdata[ip].re = delta * cos(phase);
-                                    Cdata[ip].im = delta * sin(phase);
+                                    Cdata[ip][0] = delta * cos(phase);
+                                    Cdata[ip][1] = delta * sin(phase);
                                 }
 
                                 if(yy >= slabstart_y && yy < (slabstart_y + nslab_y))
                                 {
                                     ip = PMGRID * (PMGRID / 2 + 1) * (yy - slabstart_y) + (PMGRID / 2 + 1) * x + z;
 
-                                    Cdata[ip].re =  delta * cos(phase);
-                                    Cdata[ip].im = -delta * sin(phase);
+                                    Cdata[ip][0] =  delta * cos(phase);
+                                    Cdata[ip][1] = -delta * sin(phase);
                                 }
                             }
                         }
@@ -3916,16 +3914,16 @@ void kspace_neutrinos_init(void)
                                 {
                                     ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
 
-                                    Cdata[ip].re = delta * cos(phase);
-                                    Cdata[ip].im = delta * sin(phase);
+                                    Cdata[ip][0] = delta * cos(phase);
+                                    Cdata[ip][1] = delta * sin(phase);
                                 }
 
                                 if(yy >= slabstart_y && yy < (slabstart_y + nslab_y))
                                 {
                                     ip = PMGRID * (PMGRID / 2 + 1) * (yy - slabstart_y) + (PMGRID / 2 + 1) * xx + z;
 
-                                    Cdata[ip].re =  delta * cos(phase);
-                                    Cdata[ip].im = -delta * sin(phase);
+                                    Cdata[ip][0] =  delta * cos(phase);
+                                    Cdata[ip][1] = -delta * sin(phase);
                                 }
                             }
                         }
