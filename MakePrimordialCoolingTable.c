@@ -135,13 +135,14 @@ void find_abundances_and_rates(double logT, double rho, double ne_guess)
         }
 
         nH0 = aHp / (aHp + geH0 + gJH0ne);	/* eqn (33) */
+        /*
         if( fabs(1 / Time - 1 - 2.0) < 0.1) {
             if( fabs(logT - 3.96064) < 0.2) {
                  if(nHcgs >2.e-6 && nHcgs < 2.9e-6) {
                      printf("%g %g %d %g\n", logT, nHcgs, niter, nH0);
                  }
             }
-        }
+        } */
         nHp = 1.0 - nH0;		/* eqn (34) */
 
         if((gJHe0ne + geHe0) <= SMALLNUM)	/* no ionization at all */
@@ -288,6 +289,64 @@ double CoolingRate(double logT, double lognHcgs)
     return (Heat - Lambda);
 }
 
+
+
+/* this function determines the electron fraction, and hence the mean 
+ * molecular weight. With it arrives at a self-consistent temperature.
+ * Element abundances and the rates for the emission are also computed
+ */
+double convert_u_to_temp(double u, double rho)
+{
+    double temp, temp_old, temp_new, max = 0, ne_old;
+    double mu;
+    int iter = 0;
+
+    double u_input, rho_input, ne_input;
+    double ne_guess = 1.0;
+
+    u_input = u;
+    rho_input = rho;
+    ne_input = ne_guess;
+
+    mu = (1 + 4 * yhelium) / (1 + yhelium + ne_guess);
+    temp = GAMMA_MINUS1 / BOLTZMANN * u * PROTONMASS * mu;
+    do
+    {
+        ne_old = ne_guess;
+
+        find_abundances_and_rates(log10(temp), rho, ne_guess);
+        ne_guess = ne;
+        temp_old = temp;
+
+        mu = (1 + 4 * yhelium) / (1 + yhelium + ne_guess);
+
+        temp_new = GAMMA_MINUS1 / BOLTZMANN * u * PROTONMASS * mu;
+
+        max =
+            fmax(max,
+                    temp_new / (1 + yhelium + ne_guess) * fabs((ne_guess - ne_old) / (temp_new - temp_old + 1.0)));
+
+        temp = temp_old + (temp_new - temp_old) / (1 + max);
+        iter++;
+
+        if(iter > (MAXITER - 10))
+                printf("-> temp= %g ne=%g\n", temp, ne_guess);
+    }
+    while(fabs(temp - temp_old) > 1.0e-3 * temp && iter < MAXITER);
+
+    if(iter >= MAXITER)
+        {
+            printf("failed to converge in convert_u_to_temp()\n");
+            printf("u_input= %g\nrho_input=%g\n ne_input=%g\n", u_input, rho_input, ne_input);
+            printf
+                ("DoCool_u_old_input=%g\nDoCool_rho_input= %g\nDoCool_dt_input= %g\nDoCool_ne_guess_input= %g\n",
+                 DoCool_u_old_input, DoCool_rho_input, DoCool_dt_input, DoCool_ne_guess_input);
+
+            abort();
+        }
+
+    return temp;
+}
 
 
 
@@ -608,18 +667,20 @@ int main(int argc, char * argv[]) {
 
     MakeCoolingTable();
 
-    double table[9][51][51][200];
-    double Redshift_bins[51];
+    double table[9][52][51][200];
+    double Redshift_bins[52];
     double HydrogenNumberDensity_bins[51];
     double Temperature_bins[200];
+    double SpecInternalEnergy_bins[200];
     double z = 0.0;
     double logn = 0.0;
     double logT = 0.0;
+    double logU = 0.0;
     int i, j, k, l;
     hid_t fid;
 
-    for(i = 0; i < 51; i ++) {
-        z = i * 0.2;
+    for(i = 0; i < 52; i ++) {
+        z = (i - 1) * 0.2;
         Redshift_bins[i] = z;
     }
     for(j = 0; j < 51; j ++) {
@@ -628,13 +689,18 @@ int main(int argc, char * argv[]) {
     }
     for(k = 0; k < 200; k ++) {
         logT = 1 + 8. / 199.95651587694084 * k;
+        logU = 9.45 + 8. / 199 * k;
         Temperature_bins[k] = logT;
+        SpecInternalEnergy_bins[k] = logU;
     }
-    for(i = 0; i < 51; i ++) {
+    for(i = 0; i < 52; i ++) {
         z = Redshift_bins[i];
         Time = 1 / ( z + 1.);
-        IonizeParams();
-
+        if( z < 0) {
+            SetZeroIonization();
+        } else {
+            IonizeParams();
+        }
         for(j = 0; j < 51; j ++) {
             logn = HydrogenNumberDensity_bins[j];
             double nHcgs = pow(10., logn);
@@ -643,13 +709,17 @@ int main(int argc, char * argv[]) {
 
                 /* to match the AREPO table from Vogelsburger */
                 logT = Temperature_bins[k];
-                double T = pow(10., logT);
+                logU = SpecInternalEnergy_bins[k];
+
                 CoolingRate(logT, logn);
+                double nHcgs = pow(10., logn); //XH * rho / PROTONMASS;	/* hydrogen number dens in cgs units */
+
+                double rho = nHcgs / XH * PROTONMASS;
+                double T = log10(convert_u_to_temp(pow(10, logU), rho));
                 double a[] = {
-                    ne, nH0, nHp, nHep, nHe0, 
-                    nHepp, Heat, Lambda - LambdaCmptn, LambdaCmptn
+                    nHp, nHep, nHepp, Heat, Lambda - LambdaCmptn, LambdaCmptn, Lambda - Heat, T
                 };
-                for(l = 0; l < 9; l ++) {
+                for(l = 0; l < 8; l ++) {
                     table[l][i][j][k] = a[l];
                 }
             }
@@ -657,18 +727,25 @@ int main(int argc, char * argv[]) {
     }
 
     fid = H5Fcreate(argv[2], H5F_ACC_TRUNC, H5P_DEFAULT, H5P_DEFAULT);
-    write_component(fid, (double*)table[0], "ElectronAbundance");
-    write_component(fid, (double*)table[1], "nH0");
-    write_component(fid, (double*)table[2], "nHp");
-    write_component(fid, (double*)table[3], "nHep");
-    write_component(fid, (double*)table[4], "nHe0");
-    write_component(fid, (double*)table[5], "nHepp");
-    write_component(fid, (double*)table[6], "Heat");
-    write_component(fid, (double*)table[7], "PrimordialCoolingRate");
-    write_component(fid, (double*)table[8], "ComptonCoolingRate");
-    write_bins(fid, Redshift_bins, 51, "Redshift_bins");
+    write_component(fid, (double*)table[0], "nHp");
+    write_component(fid, (double*)table[1], "nHep");
+    write_component(fid, (double*)table[2], "nHepp");
+    write_component(fid, (double*)table[3], "PrimordialHeatingRate");
+    write_component(fid, (double*)table[4], "PrimordialCoolingRate");
+    write_component(fid, (double*)table[5], "ComptonCoolingRate");
+
+    printf("Remember NetCoolingRate is Cool - Heat + Compton\n");
+    write_component(fid, (double*)table[6], "NetCoolingRate");
+
+    printf("Remember Equilibrium Temperature is function of SpecInternalEnergy\n");
+
+    write_component(fid, (double*)table[7], "EquilibriumTemperature");
+
+    printf("Remember negative Redshift corresponds to 0-ionization! \n");
+    write_bins(fid, Redshift_bins, 52, "Redshift_bins");
     write_bins(fid, HydrogenNumberDensity_bins, 51, "HydrogenNumberDensity_bins");
     write_bins(fid, Temperature_bins, 200, "Temperature_bins");
+    write_bins(fid, SpecInternalEnergy_bins, 200, "SpecInternalEnergy_bins");
     H5Fclose(fid);
 }
 
@@ -683,7 +760,7 @@ void write_bins(hid_t fid, double * bins, int Nbins, char * name) {
 
 }
 void write_component(hid_t fid, double * table, char * name) {
-    hsize_t dims[3] = {51, 51, 200};
+    hsize_t dims[3] = {52, 51, 200};
     hid_t dsid = H5Screate_simple(3, dims, NULL);
     hid_t did = H5Dcreate2(fid, name, H5T_NATIVE_DOUBLE, dsid, 
             H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);

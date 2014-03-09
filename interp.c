@@ -27,8 +27,9 @@ void interp_init(Interp * obj, int Ndim, int * dims) {
 
     /* fillin strides */
     N = 1;
-    for(d = 0 ; d < Ndim; d ++) {
+    for(d = Ndim - 1 ; d >= 0; d --) {
         obj->dims[d] = dims[d];
+        /* column first, C ordering */
         obj->strides[d] = N;
         N *= dims[d];     
     }
@@ -75,7 +76,7 @@ double interp_eval(Interp * obj, double * x, double * ydata, int * status) {
 
     for(d = 0; d < obj->Ndim; d++) {
         double xd = (x[d] - obj->Min[d]) / obj->Step[d];
-        if (xd < obj->Min[d]) {
+        if (x[d] < obj->Min[d]) {
             status[d] = -1;
             xi[d] = 0;
             f[d] = 0;

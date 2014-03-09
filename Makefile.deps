@@ -34,7 +34,7 @@ OBJS  =  \
 	 pm_periodic.o pm_nonperiodic.o longrange.o mymalloc.o \
 	 b_from_rot_a.o smooth_simple.o \
        phasespace.o phasespace_math.o  \
-	   densitykernel.o \
+	   densitykernel.o interp.o \
 	 ImfLib/libimf.o ImfLib/libimf_vars.o 
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h  chemistry.h evaluator.h \
@@ -100,7 +100,7 @@ endif
 #endif
 
 
-LIBS   = -lm $(HDF5LIB) -g $(MPICHLIB) $(GSL_LIBS) -lgsl -lgslcblas $(FFTW_LIB)
+LIBS   = -lm -lhdf5 -g $(MPICHLIB) $(GSL_LIBS) -lgsl -lgslcblas $(FFTW_LIB)
 
 LIBS   +=  $(GMPLIB)
 
@@ -118,5 +118,6 @@ $(FOBJS): $(FINCL)
 clean:
 	rm -f $(OBJS) $(FOBJS) $(EXEC)
 
-
+MakePrimordialCoolingTable: MakePrimordialCoolingTable.c
+	$(FC) -o $@ $< -lm -lhdf5
 
