@@ -30,6 +30,7 @@ struct abundance {
 static double TableTemperature(double redshift, double logU, double lognH);
 static double TableCoolingRate(double redshift, double logU, double lognH);
 static void TableAbundance(double redshift, double logT, double lognH, struct abundance * y);
+static double TableMetalCoolingRate(double redshift, double logT, double lognH);
 
 static double * h5readdouble(char * filename, char * dataset, int * Nread) {
     void * buffer;
@@ -138,6 +139,7 @@ void InitCool(void) {
                     PC.SpecInternalEnergy_bins[PC.NSpecInternalEnergy_bins - 1]);
 
     }
+
     printf("z = %g log nH = %g log U = %g logT = %g\n",
             157., -0.1, 10.0,
             TableTemperature(157, 10.0, -0.1));
@@ -167,28 +169,41 @@ void InitCool(void) {
         CoolingNoMetal = 0;
     } else {
         CoolingNoMetal = 1;
-        MC.Redshift_bins = h5readdouble(All.MetalCoolFile, "Redshift_bins", &MC.NRedshift_bins);
-        MC.HydrogenNumberDensity_bins = h5readdouble(All.MetalCoolFile, "HydrogenNumberDensity_bins", &MC.NHydrogenNumberDensity_bins);
-        MC.Temperature_bins = h5readdouble(All.MetalCoolFile, "Temperature_bins", &MC.NTemperature_bins);
-        MC.Lmet_table = h5readdouble(All.MetalCoolFile, "NetCoolingRate", &size);
-
-        double * tabbedmet = h5readdouble(All.MetalCoolFile, "Metallicity_bins", &size);
+        
+        double * tabbedmet = h5readdouble(All.MetalCoolFile, "MetallicityInSolar_bins", &size);
 
         if(ThisTask == 0 && size != 1 || tabbedmet[0] != 0.0) {
             fprintf(stderr, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
             endrun(124214);
         }
         free(tabbedmet);
+        
+        MC.Redshift_bins = h5readdouble(All.MetalCoolFile, "Redshift_bins", &MC.NRedshift_bins);
+        MC.HydrogenNumberDensity_bins = h5readdouble(All.MetalCoolFile, "HydrogenNumberDensity_bins", &MC.NHydrogenNumberDensity_bins);
+        MC.Temperature_bins = h5readdouble(All.MetalCoolFile, "Temperature_bins", &MC.NTemperature_bins);
+        MC.Lmet_table = h5readdouble(All.MetalCoolFile, "NetCoolingRate", &size);
+
 
         int dims[] = {MC.NRedshift_bins, MC.NHydrogenNumberDensity_bins, MC.NTemperature_bins};
 
-        interp_init(&PC.interp, 3, dims);
+        interp_init(&MC.interp, 3, dims);
         interp_init_dim(&MC.interp, 0, MC.Redshift_bins[0], MC.Redshift_bins[MC.NRedshift_bins - 1]);
         interp_init_dim(&MC.interp, 1, MC.HydrogenNumberDensity_bins[0], 
                         MC.HydrogenNumberDensity_bins[MC.NHydrogenNumberDensity_bins - 1]);
         interp_init_dim(&MC.interp, 2, MC.Temperature_bins[0], 
                         MC.Temperature_bins[MC.NTemperature_bins - 1]);
     
+    }
+
+    if(ThisTask == 0) {
+        double z, T = 5, n = -6;
+        for(z = 0.0; z < 12.0; z += 1.0) {
+            printf("z = %g log nH = %g log T = %g Lmet = %g Lpnet = %g\n",
+                    z, n, T,
+                    TableMetalCoolingRate(z, T, n),
+                    TableCoolingRate(z, T, n)
+                    );
+        }
     }
 }
 
