@@ -11,6 +11,7 @@
 #ifdef COOLING
 /* used at init for caculating the star formation threshold*/
 static int ZeroIonizationFlag = 0;
+static int CoolingNoMetal = 1;
 /* hydrogen abundance by mass */
 
 #define XH HYDROGEN_MASSFRAC
@@ -80,35 +81,53 @@ struct {
     double * nHp_table;
     double * nHep_table;
     double * nHepp_table;
-    double * Lpnet_table; /* primordial cooling - heating + CMB Compton*/
+    double * Lpnet_table; /* primordial cooling - UVB heating + CMB Compton*/
     double * T_table;
 
     Interp interp;
     Interp interpT;
 } PC;
 
+struct {
+    int NRedshift_bins;
+    double * Redshift_bins;
+
+    int NHydrogenNumberDensity_bins;
+    double * HydrogenNumberDensity_bins;
+
+    int NTemperature_bins;
+    double * Temperature_bins;
+
+    double * Lmet_table; /* metal cooling @ one solar metalicity*/
+
+    Interp interp;
+} MC;
+
 void InitCool(void) {
+    /* XXX: we assume uniform bins. otherwise interp will fail! */
+
+    int size;  /* this variable is not checked. if the file was inconsistent we ruin the sim! */
 
     PC.Redshift_bins = h5readdouble(All.TreeCoolFile, "Redshift_bins", &PC.NRedshift_bins);
     PC.HydrogenNumberDensity_bins = h5readdouble(All.TreeCoolFile, "HydrogenNumberDensity_bins", &PC.NHydrogenNumberDensity_bins);
     PC.Temperature_bins = h5readdouble(All.TreeCoolFile, "Temperature_bins", &PC.NTemperature_bins);
     PC.SpecInternalEnergy_bins = h5readdouble(All.TreeCoolFile, "SpecInternalEnergy_bins", &PC.NSpecInternalEnergy_bins);
-    int size;
+
     PC.nHp_table = h5readdouble(All.TreeCoolFile, "nHp", &size);
     PC.nHep_table = h5readdouble(All.TreeCoolFile, "nHep", &size);
     PC.nHepp_table = h5readdouble(All.TreeCoolFile, "nHepp", &size);
     PC.Lpnet_table = h5readdouble(All.TreeCoolFile, "NetCoolingRate", &size);
     PC.T_table = h5readdouble(All.TreeCoolFile, "EquilibriumTemperature", &size);
 
-    int dims[] = {PC.NRedshift_bins, PC.NHydrogenNumberDensity_bins, PC.NTemperature_bins};
 
-    /* we assume uniform bins. otherwise interp will fail! */
-    interp_init(&PC.interp, 3, dims);
-    interp_init_dim(&PC.interp, 0, PC.Redshift_bins[0], PC.Redshift_bins[PC.NRedshift_bins - 1]);
-    interp_init_dim(&PC.interp, 1, PC.HydrogenNumberDensity_bins[0], 
-                    PC.HydrogenNumberDensity_bins[PC.NHydrogenNumberDensity_bins - 1]);
-    interp_init_dim(&PC.interp, 2, PC.Temperature_bins[0], 
-                    PC.Temperature_bins[PC.NTemperature_bins - 1]);
+    /* 
+     *
+     * initialize the temperature / spec internal energy look up table,
+     * This table is based on Primordial cooling and UVB. Metal is ignored, as
+     * argued in Vogelsberger et al  2013 Arepo paper.
+     *
+     * */
+    {
 
     int dimsT[] = {PC.NRedshift_bins, PC.NHydrogenNumberDensity_bins, PC.NSpecInternalEnergy_bins};
     interp_init(&PC.interpT, 3, dimsT);
@@ -117,9 +136,60 @@ void InitCool(void) {
                     PC.HydrogenNumberDensity_bins[PC.NHydrogenNumberDensity_bins - 1]);
     interp_init_dim(&PC.interpT, 2, PC.SpecInternalEnergy_bins[0], 
                     PC.SpecInternalEnergy_bins[PC.NSpecInternalEnergy_bins - 1]);
+
+    }
     printf("z = %g log nH = %g log U = %g logT = %g\n",
             157., -0.1, 10.0,
             TableTemperature(157, 10.0, -0.1));
+
+
+    /* initialize the primordial cooling table (H and He + UVB) */
+    {
+        int dims[] = {PC.NRedshift_bins, PC.NHydrogenNumberDensity_bins, PC.NTemperature_bins};
+
+        interp_init(&PC.interp, 3, dims);
+        interp_init_dim(&PC.interp, 0, PC.Redshift_bins[0], PC.Redshift_bins[PC.NRedshift_bins - 1]);
+        interp_init_dim(&PC.interp, 1, PC.HydrogenNumberDensity_bins[0], 
+                        PC.HydrogenNumberDensity_bins[PC.NHydrogenNumberDensity_bins - 1]);
+        interp_init_dim(&PC.interp, 2, PC.Temperature_bins[0], 
+                        PC.Temperature_bins[PC.NTemperature_bins - 1]);
+    }
+
+    /* now initialize the metal cooling table from cloudy; we got this file
+     * from vogelsberger's Arepo simulations; it is supposed to be 
+     * cloudy + UVB - H and He; look so.
+     * the table contains only 1 Z_sun values. Need to be scaled to the 
+     * metallicity.
+     *
+     * */
+            /* let's see if the Metal Cool File is magic NoMetal */ 
+    if(!strcmp(All.MetalCoolFile, "NoMetal")) {
+        CoolingNoMetal = 0;
+    } else {
+        CoolingNoMetal = 1;
+        MC.Redshift_bins = h5readdouble(All.MetalCoolFile, "Redshift_bins", &MC.NRedshift_bins);
+        MC.HydrogenNumberDensity_bins = h5readdouble(All.MetalCoolFile, "HydrogenNumberDensity_bins", &MC.NHydrogenNumberDensity_bins);
+        MC.Temperature_bins = h5readdouble(All.MetalCoolFile, "Temperature_bins", &MC.NTemperature_bins);
+        MC.Lmet_table = h5readdouble(All.MetalCoolFile, "NetCoolingRate", &size);
+
+        double * tabbedmet = h5readdouble(All.MetalCoolFile, "Metallicity_bins", &size);
+
+        if(ThisTask == 0 && size != 1 || tabbedmet[0] != 0.0) {
+            fprintf(stderr, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
+            endrun(124214);
+        }
+        free(tabbedmet);
+
+        int dims[] = {MC.NRedshift_bins, MC.NHydrogenNumberDensity_bins, MC.NTemperature_bins};
+
+        interp_init(&PC.interp, 3, dims);
+        interp_init_dim(&MC.interp, 0, MC.Redshift_bins[0], MC.Redshift_bins[MC.NRedshift_bins - 1]);
+        interp_init_dim(&MC.interp, 1, MC.HydrogenNumberDensity_bins[0], 
+                        MC.HydrogenNumberDensity_bins[MC.NHydrogenNumberDensity_bins - 1]);
+        interp_init_dim(&MC.interp, 2, MC.Temperature_bins[0], 
+                        MC.Temperature_bins[MC.NTemperature_bins - 1]);
+    
+    }
 }
 
 static void TableAbundance(double redshift, double logT, double lognH, struct abundance * y) {
@@ -143,7 +213,7 @@ static void TableAbundance(double redshift, double logT, double lognH, struct ab
     y->ne = y->nHp + y->nHep + 2.0 * y->nHepp;
 }
 
-/* the table stores net cooling rate. */
+/* the table stores net cooling rate of primoridal H + He + UVB heating. */
 static double TableCoolingRate(double redshift, double logT, double lognH) {
     if(ZeroIonizationFlag) redshift = -1;
 
@@ -161,6 +231,17 @@ static double TableCoolingRate(double redshift, double logT, double lognH) {
         double LambdaCmptn = 5.65e-36 * ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nH;
         rate = LambdaFF + LambdaCmptn;
     }
+    return rate;
+}
+
+
+/* the table stores net cooling rate of Metals emerged in the same UVB at 1 * Z_sun. */
+static double TableMetalCoolingRate(double redshift, double logT, double lognH) {
+    double x[] = {redshift, lognH, logT};
+    int status[3];
+    double rate = interp_eval(&MC.interp, x, MC.Lmet_table, status);
+    /* XXX: in case of very hot / very dense we just use whatever the table says at
+     * the limit. should be OK. Ask Tiziana about this */
     return rate;
 }
 
@@ -202,10 +283,15 @@ static double TableTemperature(double redshift, double logU, double lognH) {
  * This is different from old GADGET. 
  *
  * */
-static double HeatingRateU(double redshift, double u, double lognH) {
+static double HeatingRateU(double redshift, double u, double lognH, double Z) {
 
     double logT = TableTemperature(redshift, log10(u), lognH);
-    return - TableCoolingRate(redshift, logT, lognH);
+    double rate = - TableCoolingRate(redshift, logT, lognH);
+
+    if (Z != 0 && !CoolingNoMetal ) {
+        rate -= Z * TableCoolingRate(redshift, logT, lognH);
+    }
+    return rate;
 }
 
 /* returns abundance ratios
@@ -245,7 +331,7 @@ double AbundanceRatios(double u, double rho, double *ne, double *nH0, double *nH
  * the electron abundance is calculated too.
  *
  */
-double DoCooling(double u_old, double rho, double dt, double *ne_guess)
+double DoCooling(double u_old, double rho, double dt, double *ne_guess, double Z)
 {
     double u, du;
     double u_lower, u_upper;
@@ -281,7 +367,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess)
     u_upper = u;
 
     /**/
-    LambdaNet = HeatingRateU(redshift, u, lognH);
+    LambdaNet = HeatingRateU(redshift, u, lognH, Z);
 
     /* bracketing */
 
@@ -289,7 +375,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess)
     {
         u_upper *= sqrt(1.1);
         u_lower /= sqrt(1.1);
-            while(u_upper - u_old - ratefact * HeatingRateU(redshift, u_upper, lognH) * dt < 0)
+            while(u_upper - u_old - ratefact * HeatingRateU(redshift, u_upper, lognH, Z) * dt < 0)
             {
                 u_upper *= 1.1;
                 u_lower *= 1.1;
@@ -301,7 +387,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess)
     {
         u_lower /= sqrt(1.1);
         u_upper *= sqrt(1.1);
-            while(u_lower - u_old - ratefact * HeatingRateU(redshift, u_lower, lognH) * dt > 0)
+            while(u_lower - u_old - ratefact * HeatingRateU(redshift, u_lower, lognH, Z) * dt > 0)
             {
                 u_upper /= 1.1;
                 u_lower /= 1.1;
@@ -312,7 +398,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess)
     {
         u = 0.5 * (u_lower + u_upper);
 
-        LambdaNet = HeatingRateU(redshift, u, lognH);
+        LambdaNet = HeatingRateU(redshift, u, lognH, Z);
 
         if(u - u_old - ratefact * LambdaNet * dt > 0)
         {
@@ -351,7 +437,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess)
 /* returns cooling time. 
  * NOTE: If we actually have heating, a cooling time of 0 is returned.
  */
-double GetCoolingTime(double u_old, double rho, double *ne_guess)
+double GetCoolingTime(double u_old, double rho, double *ne_guess, double Z)
 {
     double u;
     double LambdaNet, coolingtime;
@@ -376,7 +462,7 @@ double GetCoolingTime(double u_old, double rho, double *ne_guess)
 
     u = u_old;
 
-    LambdaNet = HeatingRateU(redshift, u, lognH);
+    LambdaNet = HeatingRateU(redshift, u, lognH, Z);
 
     /* bracketing */
 

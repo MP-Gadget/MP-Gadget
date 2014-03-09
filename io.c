@@ -965,7 +965,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                     /* get cooling time */
                     u = SPHP(pindex).Entropy / GAMMA_MINUS1 * pow(SPHP(pindex).d.Density * a3inv, GAMMA_MINUS1);
 
-                    tcool = GetCoolingTime(u, SPHP(pindex).d.Density * a3inv, &ne);
+                    tcool = GetCoolingTime(u, SPHP(pindex).d.Density * a3inv, &ne, P[pindex].Metallicity);
 
                     /* convert cooling time with current thermal energy to du/dt */
                     if(tcool != 0)

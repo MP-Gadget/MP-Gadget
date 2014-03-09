@@ -68,8 +68,8 @@ void cooling_only(void)		/* normal cooling routine when star formation is disabl
             ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
             unew = DoCooling(DMAX(All.MinEgySpec,
                         (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
-                        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1))
-                    , SPHP(i).d.Density * a3inv, dtime, &ne);
+                        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1)), 
+                        SPHP(i).d.Density * a3inv, dtime, &ne, P[i].Metallicity);
             SPHP(i).Ne = ne;
 
             if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
@@ -303,7 +303,7 @@ void cooling_and_starformation(void)
                     }
                 }
 #else
-                unew = DoCooling(unew, SPHP(i).d.Density * a3inv, dtime, &ne);
+                unew = DoCooling(unew, SPHP(i).d.Density * a3inv, dtime, &ne, P[i].Metallicity);
 
                 SPHP(i).Ne = ne;
 
@@ -341,7 +341,7 @@ void cooling_and_starformation(void)
 
                 ne = SPHP(i).Ne;
 
-                tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne);
+                tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne, P[i].Metallicity);
 
                 SPHP(i).Ne = ne;
 
@@ -414,7 +414,7 @@ void cooling_and_starformation(void)
 
                             if(egycurrent > egyeff)
                             {
-                                tcool = GetCoolingTime(egycurrent, SPHP(i).d.Density * a3inv, &ne);
+                                tcool = GetCoolingTime(egycurrent, SPHP(i).d.Density * a3inv, &ne, P[i].Metallicity);
 
                                 if(tcool < trelax && tcool > 0)
                                     trelax = tcool;
@@ -696,8 +696,8 @@ double get_starformation_rate(int i)
 
     ne = SPHP(i).Ne;
 
-    tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne);
-    y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
+    tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne, P[i].Metallicity);
+    y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold, P[i].Metallicity);
 
     x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
 
@@ -750,8 +750,14 @@ void init_clouds(void)
         }
 
         ne = 1.0;
+
         SetZeroIonization();
-        tcool = GetCoolingTime(egyhot, dens, &ne);
+
+        /*XXX: We set the threshold without metal cooling;
+         * It probably make sense to set the parameters with
+         * a metalicity dependence.
+         * */
+        tcool = GetCoolingTime(egyhot, dens, &ne, 0.0);
 
         coolrate = egyhot / tcool / dens;
 
@@ -781,7 +787,7 @@ void init_clouds(void)
             egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
             ne = 0.5;
-            tcool = GetCoolingTime(egyhot, dens, &ne);
+            tcool = GetCoolingTime(egyhot, dens, &ne, 0.0);
 
             y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
             x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -799,7 +805,7 @@ void init_clouds(void)
             egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
             ne = 0.5;
-            tcool = GetCoolingTime(egyhot, dens, &ne);
+            tcool = GetCoolingTime(egyhot, dens, &ne, 0.0);
 
             y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
             x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -887,7 +893,7 @@ void integrate_sfr(void)
         egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
         ne = 1.0;
-        tcool = GetCoolingTime(egyhot, rho, &ne);
+        tcool = GetCoolingTime(egyhot, rho, &ne, 0.0);
 
         y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
         x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -931,7 +937,7 @@ void integrate_sfr(void)
                 egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
                 ne = 1.0;
-                tcool = GetCoolingTime(egyhot, rho, &ne);
+                tcool = GetCoolingTime(egyhot, rho, &ne, 0.0);
 
                 y =
                     tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
@@ -945,7 +951,7 @@ void integrate_sfr(void)
                 tsfr2 = sqrt(All.PhysDensThresh / rho2) * All.MaxSfrTimescale;
                 factorEVP2 = pow(rho2 / All.PhysDensThresh, -0.8) * All.FactorEVP;
                 egyhot2 = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
-                tcool2 = GetCoolingTime(egyhot2, rho2, &ne);
+                tcool2 = GetCoolingTime(egyhot2, rho2, &ne, 0.0);
                 y2 =
                     tsfr2 / tcool2 * egyhot2 / (All.FactorSN * All.EgySpecSN -
                             (1 - All.FactorSN) * All.EgySpecCold);

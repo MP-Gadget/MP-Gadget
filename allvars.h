@@ -909,6 +909,7 @@ extern struct global_data_all_processes
     /* some filenames */
     char InitCondFile[100],
          TreeCoolFile[100],
+         MetalCoolFile[100],
          OutputDir[100],
          SnapshotFileBase[100],
          EnergyFile[100],
