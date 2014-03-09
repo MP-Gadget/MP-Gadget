@@ -921,7 +921,7 @@ void write_cpu_log(void)
         for(i = 0; i < CPU_PARTS; i++)
             All.CPU_Sum[i] += avg_CPU_Step[i];
 
-        fprintf(FdCPU, "Step %d, Time: %g, CPUs: %d\n", All.NumCurrentTiStep, All.Time, NTask);
+        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads %d\n", All.NumCurrentTiStep, All.Time, NTask, All.NumThreads);
 #ifdef _OPENMP
         fprintf(FdCPU, "Blocked Drifts (Particle Node): %ld %ld\n", totBlockedPD, totBlockedND);
         fprintf(FdCPU, "Total Drifts (Particle Node): %ld %ld\n", totTotalPD, totTotalND);
