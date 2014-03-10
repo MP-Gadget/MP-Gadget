@@ -7,6 +7,7 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 
+#include <fftw3-mpi.h>
 #ifdef INVARIANCETEST
 #define DO_NOT_REDEFINE_MPI_COMM_WORLD
 #endif
