@@ -95,7 +95,7 @@ void pm_init_periodic(void)
      * transform is r2c, thus the last dimension is packed!
      * See http://www.fftw.org/doc/MPI-Plan-Creation.html
      **/
-    fftsize = fftw_mpi_local_size_3d_transposed(PMGRID, PMGRID, PMGRID / 2 + 1,
+    fftsize = 2 * fftw_mpi_local_size_3d_transposed(PMGRID, PMGRID, PMGRID / 2 + 1,
             MPI_COMM_WORLD,
             &nslab_x, &slabstart_x, &nslab_y, &slabstart_y);
 
@@ -480,7 +480,6 @@ void pmforce_periodic(int mode, int *typelist)
         for(i = 0; i < num_on_grid; i += 8)
         {
             pindex = (part[i].partindex >> 3);
-
             if(mode)
             {
                 /* make sure that particles are properly box-wrapped */
@@ -590,7 +589,7 @@ void pmforce_periodic(int mode, int *typelist)
         /* Do the FFT of the density field */
 
         report_memory_usage(&HighMark_pmperiodic, "PM_PERIODIC");
-        fftw_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
+        fftw_mpi_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
 
         if(mode != 0)
         {
@@ -670,7 +669,7 @@ void pmforce_periodic(int mode, int *typelist)
 
             /* Do the inverse FFT to get the potential */
 
-            fftw_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
+            fftw_mpi_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
 
             /* Now rhogrid holds the potential */
 
@@ -1205,7 +1204,7 @@ void pmpotential_periodic(void)
     report_memory_usage(&HighMark_pmperiodic, "PM_PERIODIC_POTENTIAL");
 
     /* Do the FFT of the density field */
-    fftw_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
+    fftw_mpi_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
 
     /* multiply with Green's function for the potential */
 
@@ -1266,7 +1265,7 @@ void pmpotential_periodic(void)
 
     /* Do the inverse FFT to get the potential */
 
-    fftw_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
+    fftw_mpi_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
 
     /* Now rhogrid holds the potential */
 
@@ -2035,7 +2034,7 @@ void pmtidaltensor_periodic_diff(void)
 
         report_memory_usage(&HighMark_pmperiodic, "PM_PERIODIC");
 
-        fftw_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
+        fftw_mpi_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
 
 
         /* multiply with Green's function for the potential */
@@ -2102,7 +2101,7 @@ void pmtidaltensor_periodic_diff(void)
 
         /* Do the inverse FFT to get the potential */
 
-        fftw_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
+        fftw_mpi_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
 
         /* Now rhogrid holds the potential */
 
@@ -2749,7 +2748,7 @@ void pmtidaltensor_periodic_fourier(int component)
 
     /* Do the FFT of the density field */
 
-    fftw_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
+    fftw_mpi_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
 
     /* multiply with Green's function for the potential */
 
@@ -2865,7 +2864,7 @@ void pmtidaltensor_periodic_fourier(int component)
 
     /* Do the inverse FFT to get the tidal tensor component */
 
-    fftw_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
+    fftw_mpi_execute_dft_c2r(fft_inverse_plan, fft_of_rhogrid, rhogrid);
 
     /* Now rhogrid holds the tidal tensor componet */
 
@@ -3632,7 +3631,7 @@ void foldonitself(int *typelist)
     tstart = second();
 
     /* Do the FFT of the self-folded density field */
-    fftw_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
+    fftw_mpi_execute_dft_r2c(fft_forward_plan, rhogrid, fft_of_rhogrid);
 
     tend = second();
 

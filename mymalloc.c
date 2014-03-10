@@ -132,11 +132,11 @@ void dump_memory_table(void)
 
 void *mymalloc_fullinfo(const char *varname, size_t n, const char *func, const char *file, int line)
 {
-  if((n % 8) > 0)
-    n = (n / 8 + 1) * 8;
+  if((n % 16) > 0)
+    n = (n / 16 + 1) * 16;
 
-  if(n < 8)
-    n = 8;
+  if(n < 16)
+    n = 16;
 
   if(Nblocks >= MAXBLOCKS)
     {
