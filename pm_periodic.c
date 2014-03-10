@@ -246,19 +246,14 @@ void pm_init_periodic_free(void)
  */
 void pmforce_periodic(int mode, int *typelist)
 {
-    double k2, kx, ky, kz, smth;
-    double dx, dy, dz;
-    double fx, fy, fz, ff;
-    double asmth2, fac, acc_dim;
+    double asmth2, fac;
     int i, j, slab, level, sendTask, recvTask, task;
-    int x, y, z, yl, zl, yr, zr, yll, zll, yrr, zrr, ip, dim;
-    int slab_x, slab_y, slab_z;
+    int x, y, z, dim;
     int slab_xx, slab_yy, slab_zz;
-    int num_on_grid, num_field_points, pindex, xx, yy, zz;
+    int num_on_grid, num_field_points;
     MPI_Status status;
     int *localfield_count, *localfield_first, *localfield_offset, *localfield_togo;
-    MyDouble pp[3], *pos;
-    large_array_offset offset, *localfield_globalindex, *import_globalindex;
+    large_array_offset *localfield_globalindex, *import_globalindex;
     d_double *localfield_d_data, *import_d_data;
     double *localfield_data, *import_data;
 
@@ -313,6 +308,8 @@ void pmforce_periodic(int mode, int *typelist)
                     continue;
 #endif
 
+            MyDouble pp[3];
+            double * pos;
             if(mode)
             {
                 /* make sure that particles are properly box-wrapped */
@@ -330,6 +327,8 @@ void pmforce_periodic(int mode, int *typelist)
             }
             else
                 pos = P[i].Pos;
+
+            int xx, yy, zz;
 
 #ifdef POWER6_fails
             double slab_x = __friz(to_slab_fac * pos[0]);
@@ -362,9 +361,9 @@ void pmforce_periodic(int mode, int *typelist)
                         num_on_grid++;
                     }
 #else
-            slab_x = (int) (to_slab_fac * pos[0]);
-            slab_y = (int) (to_slab_fac * pos[1]);
-            slab_z = (int) (to_slab_fac * pos[2]);
+            int slab_x = (int) (to_slab_fac * pos[0]);
+            int slab_y = (int) (to_slab_fac * pos[1]);
+            int slab_z = (int) (to_slab_fac * pos[2]);
 
             if(slab_x >= PMGRID)
                 slab_x -= PMGRID;
@@ -377,9 +376,9 @@ void pmforce_periodic(int mode, int *typelist)
                 for(yy = 0; yy < 2; yy++)
                     for(zz = 0; zz < 2; zz++)
                     {
-                        slab_xx = slab_x + xx;
-                        slab_yy = slab_y + yy;
-                        slab_zz = slab_z + zz;
+                        int slab_xx = slab_x + xx;
+                        int slab_yy = slab_y + yy;
+                        int slab_zz = slab_z + zz;
 
                         if(slab_xx >= PMGRID)
                             slab_xx -= PMGRID;
@@ -388,7 +387,7 @@ void pmforce_periodic(int mode, int *typelist)
                         if(slab_zz >= PMGRID)
                             slab_zz -= PMGRID;
 
-                        offset = ((large_array_offset) PMGRID2) * (PMGRID * slab_xx + slab_yy) + slab_zz;
+                        large_array_offset offset = ((large_array_offset) PMGRID2) * (PMGRID * slab_xx + slab_yy) + slab_zz;
 
                         part[num_on_grid].partindex = (i << 3) + (xx << 2) + (yy << 1) + zz;
                         part[num_on_grid].globalindex = offset;
@@ -477,9 +476,12 @@ void pmforce_periodic(int mode, int *typelist)
         for(i = 0; i < num_field_points; i++)
             localfield_d_data[i] = 0;
 
+//#pragma omp parallel for private(i, j)
         for(i = 0; i < num_on_grid; i += 8)
         {
-            pindex = (part[i].partindex >> 3);
+            int pindex = (part[i].partindex >> 3);
+            MyDouble pp[3];
+            MyDouble * pos;
             if(mode)
             {
                 /* make sure that particles are properly box-wrapped */
@@ -498,13 +500,13 @@ void pmforce_periodic(int mode, int *typelist)
             else
                 pos = P[pindex].Pos;
 
-            slab_x = (int) (to_slab_fac * pos[0]);
-            slab_y = (int) (to_slab_fac * pos[1]);
-            slab_z = (int) (to_slab_fac * pos[2]);
+            int slab_x = (int) (to_slab_fac * pos[0]);
+            int slab_y = (int) (to_slab_fac * pos[1]);
+            int slab_z = (int) (to_slab_fac * pos[2]);
 
-            dx = to_slab_fac * pos[0] - slab_x;
-            dy = to_slab_fac * pos[1] - slab_y;
-            dz = to_slab_fac * pos[2] - slab_z;
+            double dx = to_slab_fac * pos[0] - slab_x;
+            double dy = to_slab_fac * pos[1] - slab_y;
+            double dz = to_slab_fac * pos[2] - slab_z;
 
             localfield_d_data[part[i + 0].localindex] += P[pindex].Mass * (1.0 - dx) * (1.0 - dy) * (1.0 - dz);
             localfield_d_data[part[i + 1].localindex] += P[pindex].Mass * (1.0 - dx) * (1.0 - dy) * dz;
@@ -566,7 +568,7 @@ void pmforce_periodic(int mode, int *typelist)
                 for(i = 0; i < localfield_togo[recvTask * NTask + sendTask]; i++)
                 {
                     /* determine offset in local FFT slab */
-                    offset =
+                    large_array_offset offset =
                         import_globalindex[i] -
                         first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
 
@@ -600,10 +602,12 @@ void pmforce_periodic(int mode, int *typelist)
         {
             /* multiply with Green's function for the potential */
 
-            for(y = slabstart_y; y < slabstart_y + nslab_y; y++)
-                for(x = 0; x < PMGRID; x++)
+#pragma omp parallel for private(x, y, z)
+            for(x = 0; x < PMGRID; x++)
+                for(y = slabstart_y; y < slabstart_y + nslab_y; y++)
                     for(z = 0; z < PMGRID / 2 + 1; z++)
                     {
+                        double kx, ky, kz;
                         if(x > PMGRID / 2)
                             kx = x - PMGRID;
                         else
@@ -617,8 +621,8 @@ void pmforce_periodic(int mode, int *typelist)
                         else
                             kz = z;
 
-                        k2 = kx * kx + ky * ky + kz * kz;
-
+                        double k2 = kx * kx + ky * ky + kz * kz;
+                        double smth;
                         if(k2 > 0)
                         {
 #ifdef SCALARFIELD
@@ -630,6 +634,7 @@ void pmforce_periodic(int mode, int *typelist)
 
                             /* do deconvolution */
 
+                            double fx, fy, fz;
                             fx = fy = fz = 1;
                             if(kx != 0)
                             {
@@ -646,12 +651,12 @@ void pmforce_periodic(int mode, int *typelist)
                                 fz = (M_PI * kz) / PMGRID;
                                 fz = sin(fz) / fz;
                             }
-                            ff = 1 / (fx * fy * fz);
+                            double ff = 1 / (fx * fy * fz);
                             smth *= ff * ff * ff * ff;
 
                             /* end deconvolution */
 
-                            ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
+                            int ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
                             fft_of_rhogrid[ip][0] *= smth;
                             fft_of_rhogrid[ip][1] *= smth;
 
@@ -709,7 +714,7 @@ void pmforce_periodic(int mode, int *typelist)
 
                     for(i = 0; i < localfield_togo[recvTask * NTask + sendTask]; i++)
                     {
-                        offset =
+                        large_array_offset offset =
                             import_globalindex[i] -
                             first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
                         import_data[i] = rhogrid[offset];
@@ -732,23 +737,22 @@ void pmforce_periodic(int mode, int *typelist)
 
             /* read out the potential values, which all have been assembled in localfield_data */
 
-            double pot;
-
             for(i = 0, j = 0; i < NumPart; i++)
             {
+
                 while(j < num_on_grid && (part[j].partindex >> 3) != i)
                     j++;
 
-                slab_x = (int) (to_slab_fac * P[i].Pos[0]);
-                dx = to_slab_fac * P[i].Pos[0] - slab_x;
+                int slab_x = (int) (to_slab_fac * P[i].Pos[0]);
+                double dx = to_slab_fac * P[i].Pos[0] - slab_x;
 
-                slab_y = (int) (to_slab_fac * P[i].Pos[1]);
-                dy = to_slab_fac * P[i].Pos[1] - slab_y;
+                int slab_y = (int) (to_slab_fac * P[i].Pos[1]);
+                double dy = to_slab_fac * P[i].Pos[1] - slab_y;
 
-                slab_z = (int) (to_slab_fac * P[i].Pos[2]);
-                dz = to_slab_fac * P[i].Pos[2] - slab_z;
+                int slab_z = (int) (to_slab_fac * P[i].Pos[2]);
+                double dz = to_slab_fac * P[i].Pos[2] - slab_z;
 
-                pot =
+                double pot =
                     +localfield_data[part[j + 0].localindex] * (1.0 - dx) * (1.0 - dy) * (1.0 - dz)
                     + localfield_data[part[j + 1].localindex] * (1.0 - dx) * (1.0 - dy) * dz
                     + localfield_data[part[j + 2].localindex] * (1.0 - dx) * dy * (1.0 - dz)
@@ -773,11 +777,16 @@ void pmforce_periodic(int mode, int *typelist)
                 if(dim == 0)
                     pm_periodic_transposeA(rhogrid, forcegrid);	/* compute the transpose of the potential field */
 
-                for(xx = slabstart_x; xx < (slabstart_x + nslab_x); xx++)
-                    for(y = 0; y < PMGRID; y++)
+#pragma omp parallel for private(x, y, z)
+                for(y = 0; y < PMGRID; y++) {
+                    int xx;
+                    for(xx = slabstart_x; xx < (slabstart_x + nslab_x); xx++)
                         for(z = 0; z < PMGRID; z++)
                         {
                             x = xx - slabstart_x;
+
+                            int yrr, yll, yr, yl;
+                            int zrr, zll, zr, zl;
 
                             yrr = yll = yr = yl = y;
                             zrr = zll = zr = zl = z;
@@ -835,67 +844,68 @@ void pmforce_periodic(int mode, int *typelist)
                                                 rhogrid[PMGRID2 * (PMGRID * x + yrr) + zrr]));
                         }
 
-                if(dim == 0)
-                    pm_periodic_transposeB(forcegrid, rhogrid);	/* compute the transpose of the potential field */
+                    if(dim == 0)
+                        pm_periodic_transposeB(forcegrid, rhogrid);	/* compute the transpose of the potential field */
 
-                /* send the force components to the right processors */
+                    /* send the force components to the right processors */
 
-                for(level = 0; level < (1 << PTask); level++)	/* note: for level=0, target is the same task */
-                {
-                    sendTask = ThisTask;
-                    recvTask = ThisTask ^ level;
-
-                    if(recvTask < NTask)
+                    for(level = 0; level < (1 << PTask); level++)	/* note: for level=0, target is the same task */
                     {
-                        if(level > 0)
-                        {
-                            import_data =
-                                (double *) mymalloc("import_data", localfield_togo[recvTask * NTask + ThisTask] *
-                                        sizeof(double));
-                            import_globalindex =
-                                (large_array_offset *) mymalloc("import_globalindex",
-                                        localfield_togo[recvTask * NTask +
-                                        ThisTask] *
-                                        sizeof(large_array_offset));
+                        sendTask = ThisTask;
+                        recvTask = ThisTask ^ level;
 
-                            if(localfield_togo[sendTask * NTask + recvTask] > 0
-                                    || localfield_togo[recvTask * NTask + sendTask] > 0)
+                        if(recvTask < NTask)
+                        {
+                            if(level > 0)
                             {
-                                MPI_Sendrecv(localfield_globalindex + localfield_offset[recvTask],
-                                        localfield_togo[sendTask * NTask +
-                                        recvTask] * sizeof(large_array_offset), MPI_BYTE,
-                                        recvTask, TAG_NONPERIOD_C, import_globalindex,
-                                        localfield_togo[recvTask * NTask +
-                                        sendTask] * sizeof(large_array_offset), MPI_BYTE,
-                                        recvTask, TAG_NONPERIOD_C, MPI_COMM_WORLD, &status);
+                                import_data =
+                                    (double *) mymalloc("import_data", localfield_togo[recvTask * NTask + ThisTask] *
+                                            sizeof(double));
+                                import_globalindex =
+                                    (large_array_offset *) mymalloc("import_globalindex",
+                                            localfield_togo[recvTask * NTask +
+                                            ThisTask] *
+                                            sizeof(large_array_offset));
+
+                                if(localfield_togo[sendTask * NTask + recvTask] > 0
+                                        || localfield_togo[recvTask * NTask + sendTask] > 0)
+                                {
+                                    MPI_Sendrecv(localfield_globalindex + localfield_offset[recvTask],
+                                            localfield_togo[sendTask * NTask +
+                                            recvTask] * sizeof(large_array_offset), MPI_BYTE,
+                                            recvTask, TAG_NONPERIOD_C, import_globalindex,
+                                            localfield_togo[recvTask * NTask +
+                                            sendTask] * sizeof(large_array_offset), MPI_BYTE,
+                                            recvTask, TAG_NONPERIOD_C, MPI_COMM_WORLD, &status);
+                                }
                             }
-                        }
-                        else
-                        {
-                            import_data = localfield_data + localfield_offset[ThisTask];
-                            import_globalindex = localfield_globalindex + localfield_offset[ThisTask];
-                        }
+                            else
+                            {
+                                import_data = localfield_data + localfield_offset[ThisTask];
+                                import_globalindex = localfield_globalindex + localfield_offset[ThisTask];
+                            }
 
-                        for(i = 0; i < localfield_togo[recvTask * NTask + sendTask]; i++)
-                        {
-                            /* determine offset in local FFT slab */
-                            offset =
-                                import_globalindex[i] -
-                                first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
-                            import_data[i] = forcegrid[offset];
-                        }
+                            for(i = 0; i < localfield_togo[recvTask * NTask + sendTask]; i++)
+                            {
+                                /* determine offset in local FFT slab */
+                                large_array_offset offset =
+                                    import_globalindex[i] -
+                                    first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                                import_data[i] = forcegrid[offset];
+                            }
 
-                        if(level > 0)
-                        {
-                            MPI_Sendrecv(import_data,
-                                    localfield_togo[recvTask * NTask + sendTask] * sizeof(double), MPI_BYTE,
-                                    recvTask, TAG_NONPERIOD_A,
-                                    localfield_data + localfield_offset[recvTask],
-                                    localfield_togo[sendTask * NTask + recvTask] * sizeof(double), MPI_BYTE,
-                                    recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
+                            if(level > 0)
+                            {
+                                MPI_Sendrecv(import_data,
+                                        localfield_togo[recvTask * NTask + sendTask] * sizeof(double), MPI_BYTE,
+                                        recvTask, TAG_NONPERIOD_A,
+                                        localfield_data + localfield_offset[recvTask],
+                                        localfield_togo[sendTask * NTask + recvTask] * sizeof(double), MPI_BYTE,
+                                        recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
-                            myfree(import_globalindex);
-                            myfree(import_data);
+                                myfree(import_globalindex);
+                                myfree(import_data);
+                            }
                         }
                     }
                 }
@@ -912,16 +922,16 @@ void pmforce_periodic(int mode, int *typelist)
                     while(j < num_on_grid && (part[j].partindex >> 3) != i)
                         j++;
 
-                    slab_x = (int) (to_slab_fac * P[i].Pos[0]);
-                    dx = to_slab_fac * P[i].Pos[0] - slab_x;
+                    int slab_x = (int) (to_slab_fac * P[i].Pos[0]);
+                    double dx = to_slab_fac * P[i].Pos[0] - slab_x;
 
-                    slab_y = (int) (to_slab_fac * P[i].Pos[1]);
-                    dy = to_slab_fac * P[i].Pos[1] - slab_y;
+                    int slab_y = (int) (to_slab_fac * P[i].Pos[1]);
+                    double dy = to_slab_fac * P[i].Pos[1] - slab_y;
 
-                    slab_z = (int) (to_slab_fac * P[i].Pos[2]);
-                    dz = to_slab_fac * P[i].Pos[2] - slab_z;
+                    int slab_z = (int) (to_slab_fac * P[i].Pos[2]);
+                    double dz = to_slab_fac * P[i].Pos[2] - slab_z;
 
-                    acc_dim =
+                    double acc_dim =
                         +localfield_data[part[j + 0].localindex] * (1.0 - dx) * (1.0 - dy) * (1.0 - dz)
                         + localfield_data[part[j + 1].localindex] * (1.0 - dx) * (1.0 - dy) * dz
                         + localfield_data[part[j + 2].localindex] * (1.0 - dx) * dy * (1.0 - dz)
