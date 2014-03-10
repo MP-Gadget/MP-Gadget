@@ -1,8 +1,3 @@
-ifneq (HAVE_HDF5,$(findstring HAVE_HDF5,$(OPT)))
-HDF5INCL =
-HDF5LIB  =
-endif
-
 ifeq (CHEMCOOL,$(findstring CHEMCOOL,$(OPT)))
 FOPT	+=  -WF,-DCHEMCOOL
 OPT	+=  -DCHEMISTRYNETWORK=1
@@ -57,7 +52,7 @@ FC    = $(CC)
 endif
 
 
-CFLAGS = $(OPTIONS) $(GSL_INCL) $(FFTW_INCL) $(HDF5INCL) 
+CFLAGS = $(OPTIONS) $(GSL_INCL) $(FFTW_INCL) $(HDF5_INCL) 
 
 ifeq (VIP,$(findstring VIP,$(OPT)))
 FFLAGS = $(FOPTIONS)
@@ -66,8 +61,7 @@ FFLAGS = $(OPTIONS)
 endif
 
 
-FFTW_LIB = $(FFTW_LIBS) -lfftw3_mpi -lfftw3_threads -lfftw3
-LIBS   = -lm -lhdf5 -g $(MPICHLIB) $(GSL_LIBS) -lgsl -lgslcblas $(FFTW_LIB)
+LIBS   = -lm $(HDF_LIBS) -g $(MPICHLIB) $(GSL_LIBS) $(FFTW_LIBS)
 
 LIBS   +=  $(GMPLIB)
 
@@ -86,5 +80,5 @@ clean:
 	rm -f $(OBJS) $(FOBJS) $(EXEC)
 
 MakePrimordialCoolingTable: MakePrimordialCoolingTable.c
-	$(FC) -o $@ $< -lm -lhdf5
+	$(FC) $(HDF_INCL) -o $@ $< -lm $(HDF_LIBS)
 
