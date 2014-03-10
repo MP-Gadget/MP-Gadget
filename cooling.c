@@ -51,14 +51,14 @@ static double * h5readdouble(char * filename, char * dataset, int * Nread) {
 
         MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-        buffer = malloc(N * sizeof(double));
+        buffer = mymalloc(dataset, N * sizeof(double));
 
         H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer);
         H5Dclose(dset);
         H5Fclose(hfile);
     } else {
         MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
-        buffer = malloc(N * sizeof(double));
+        buffer = mymalloc(dataset, N * sizeof(double));
     }
 
     MPI_Bcast(buffer, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -176,7 +176,6 @@ void InitCool(void) {
             fprintf(stderr, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
             endrun(124214);
         }
-        free(tabbedmet);
         
         MC.Redshift_bins = h5readdouble(All.MetalCoolFile, "Redshift_bins", &MC.NRedshift_bins);
         MC.HydrogenNumberDensity_bins = h5readdouble(All.MetalCoolFile, "HydrogenNumberDensity_bins", &MC.NHydrogenNumberDensity_bins);
