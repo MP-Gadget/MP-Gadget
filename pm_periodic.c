@@ -602,7 +602,7 @@ void pmforce_periodic(int mode, int *typelist)
         {
             /* multiply with Green's function for the potential */
 
-//#pragma omp parallel for private(x, y, z)
+#pragma omp parallel for private(x, y, z)
             for(x = 0; x < PMGRID; x++)
                 for(y = slabstart_y; y < slabstart_y + nslab_y; y++)
                     for(z = 0; z < PMGRID / 2 + 1; z++)
@@ -777,7 +777,7 @@ void pmforce_periodic(int mode, int *typelist)
                 if(dim == 0)
                     pm_periodic_transposeA(rhogrid, forcegrid);	/* compute the transpose of the potential field */
 
-//#pragma omp parallel for private(x, y, z)
+#pragma omp parallel for private(x, y, z)
                 for(y = 0; y < PMGRID; y++) {
                     int xx;
                     for(xx = slabstart_x; xx < (slabstart_x + nslab_x); xx++)
@@ -843,69 +843,69 @@ void pmforce_periodic(int mode, int *typelist)
                                             (1.0 / 6) * (rhogrid[PMGRID2 * (PMGRID * x + yll) + zll] -
                                                 rhogrid[PMGRID2 * (PMGRID * x + yrr) + zrr]));
                         }
+                }
 
-                    if(dim == 0)
-                        pm_periodic_transposeB(forcegrid, rhogrid);	/* compute the transpose of the potential field */
+                if(dim == 0)
+                    pm_periodic_transposeB(forcegrid, rhogrid);	/* compute the transpose of the potential field */
 
-                    /* send the force components to the right processors */
+                /* send the force components to the right processors */
 
-                    for(level = 0; level < (1 << PTask); level++)	/* note: for level=0, target is the same task */
+                for(level = 0; level < (1 << PTask); level++)	/* note: for level=0, target is the same task */
+                {
+                    sendTask = ThisTask;
+                    recvTask = ThisTask ^ level;
+
+                    if(recvTask < NTask)
                     {
-                        sendTask = ThisTask;
-                        recvTask = ThisTask ^ level;
-
-                        if(recvTask < NTask)
+                        if(level > 0)
                         {
-                            if(level > 0)
-                            {
-                                import_data =
-                                    (double *) mymalloc("import_data", localfield_togo[recvTask * NTask + ThisTask] *
-                                            sizeof(double));
-                                import_globalindex =
-                                    (large_array_offset *) mymalloc("import_globalindex",
-                                            localfield_togo[recvTask * NTask +
-                                            ThisTask] *
-                                            sizeof(large_array_offset));
+                            import_data =
+                                (double *) mymalloc("import_data", localfield_togo[recvTask * NTask + ThisTask] *
+                                        sizeof(double));
+                            import_globalindex =
+                                (large_array_offset *) mymalloc("import_globalindex",
+                                        localfield_togo[recvTask * NTask +
+                                        ThisTask] *
+                                        sizeof(large_array_offset));
 
-                                if(localfield_togo[sendTask * NTask + recvTask] > 0
-                                        || localfield_togo[recvTask * NTask + sendTask] > 0)
-                                {
-                                    MPI_Sendrecv(localfield_globalindex + localfield_offset[recvTask],
-                                            localfield_togo[sendTask * NTask +
-                                            recvTask] * sizeof(large_array_offset), MPI_BYTE,
-                                            recvTask, TAG_NONPERIOD_C, import_globalindex,
-                                            localfield_togo[recvTask * NTask +
-                                            sendTask] * sizeof(large_array_offset), MPI_BYTE,
-                                            recvTask, TAG_NONPERIOD_C, MPI_COMM_WORLD, &status);
-                                }
-                            }
-                            else
+                            if(localfield_togo[sendTask * NTask + recvTask] > 0
+                                    || localfield_togo[recvTask * NTask + sendTask] > 0)
                             {
-                                import_data = localfield_data + localfield_offset[ThisTask];
-                                import_globalindex = localfield_globalindex + localfield_offset[ThisTask];
+                                MPI_Sendrecv(localfield_globalindex + localfield_offset[recvTask],
+                                        localfield_togo[sendTask * NTask +
+                                        recvTask] * sizeof(large_array_offset), MPI_BYTE,
+                                        recvTask, TAG_NONPERIOD_C, import_globalindex,
+                                        localfield_togo[recvTask * NTask +
+                                        sendTask] * sizeof(large_array_offset), MPI_BYTE,
+                                        recvTask, TAG_NONPERIOD_C, MPI_COMM_WORLD, &status);
                             }
+                        }
+                        else
+                        {
+                            import_data = localfield_data + localfield_offset[ThisTask];
+                            import_globalindex = localfield_globalindex + localfield_offset[ThisTask];
+                        }
 
-                            for(i = 0; i < localfield_togo[recvTask * NTask + sendTask]; i++)
-                            {
-                                /* determine offset in local FFT slab */
-                                large_array_offset offset =
-                                    import_globalindex[i] -
-                                    first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
-                                import_data[i] = forcegrid[offset];
-                            }
+                        for(i = 0; i < localfield_togo[recvTask * NTask + sendTask]; i++)
+                        {
+                            /* determine offset in local FFT slab */
+                            large_array_offset offset =
+                                import_globalindex[i] -
+                                first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                            import_data[i] = forcegrid[offset];
+                        }
 
-                            if(level > 0)
-                            {
-                                MPI_Sendrecv(import_data,
-                                        localfield_togo[recvTask * NTask + sendTask] * sizeof(double), MPI_BYTE,
-                                        recvTask, TAG_NONPERIOD_A,
-                                        localfield_data + localfield_offset[recvTask],
-                                        localfield_togo[sendTask * NTask + recvTask] * sizeof(double), MPI_BYTE,
-                                        recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
+                        if(level > 0)
+                        {
+                            MPI_Sendrecv(import_data,
+                                    localfield_togo[recvTask * NTask + sendTask] * sizeof(double), MPI_BYTE,
+                                    recvTask, TAG_NONPERIOD_A,
+                                    localfield_data + localfield_offset[recvTask],
+                                    localfield_togo[sendTask * NTask + recvTask] * sizeof(double), MPI_BYTE,
+                                    recvTask, TAG_NONPERIOD_A, MPI_COMM_WORLD, &status);
 
-                                myfree(import_globalindex);
-                                myfree(import_data);
-                            }
+                            myfree(import_globalindex);
+                            myfree(import_data);
                         }
                     }
                 }
