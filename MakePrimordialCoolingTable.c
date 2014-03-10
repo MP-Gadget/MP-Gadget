@@ -689,7 +689,7 @@ int main(int argc, char * argv[]) {
     }
     for(k = 0; k < 200; k ++) {
         logT = 1 + 8. / 199.95651587694084 * k;
-        logU = 9.45 + 8. / 199 * k;
+        logU = 9.25 + 8. / 199 * k;
         Temperature_bins[k] = logT;
         SpecInternalEnergy_bins[k] = logU;
     }

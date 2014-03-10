@@ -12,12 +12,8 @@
 #include "allvars.h"
 #include "densitykernel.h"
 #include "proto.h"
-#ifdef COSMIC_RAYS
-#include "cosmic_rays.h"
-#endif
-#ifdef CHEMCOOL
-#include "f2c.h"
-#endif
+
+#include "config.h"
 
 /*! \file begrun.c
  *  \brief initial set-up of a simulation run

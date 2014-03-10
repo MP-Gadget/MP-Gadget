@@ -1,12 +1,6 @@
-ifeq (CHEMCOOL,$(findstring CHEMCOOL,$(OPT)))
-FOPT	+=  -WF,-DCHEMCOOL
-OPT	+=  -DCHEMISTRYNETWORK=1
-FOPT	+=  -WF,-DCHEMISTRYNETWORK=1
-endif
+EXEC   = P-Gadget3 MakePrimordialCoolingTable
 
-EXEC   = P-Gadget3
-
-OPTIONS = $(OPTIMIZE) $(OPT) -DCOMPILETIMESETTINGS="\"neglect\"" #\"$(OPT)\"
+OPTIONS = $(OPTIMIZE) $(OPT)
 
 FOPTIONS = $(OPTIMIZE) $(FOPT)
 
@@ -14,71 +8,44 @@ FOPTIONS = $(OPTIMIZE) $(FOPT)
 
 OBJS  =  \
 	 twopoint.o gdbtools.o \
-	 conduction.o fof.o subfind.o subfind_vars.o subfind_collective.o subfind_serial.o subfind_so.o subfind_cont.o \
+	 fof.o subfind.o subfind_vars.o subfind_collective.o subfind_serial.o subfind_so.o subfind_cont.o \
 	 subfind_distribute.o subfind_findlinkngb.o subfind_nearesttwo.o subfind_loctree.o \
 	 subfind_alternative_collective.o subfind_reshuffle.o \
-	 compare_partitions.o domain.o allvars.o main.o greenf_diffusion.o  \
-	 subfind_potential.o subfind_density.o lineofsight.o blackhole.o \
-	 run.o predict.o begrun.o endrun.o global.o chemistry_noneq.o \
-	 timestep.o init.o restart.o io.o sfr_eff.o checksummed_sendrecv.o \
+	 domain.o allvars.o main.o \
+	 subfind_potential.o subfind_density.o blackhole.o \
+	 run.o predict.o begrun.o endrun.o global.o \
+	 timestep.o init.o restart.o io.o sfr_eff.o \
 	 accel.o read_ic.o read_ic_cluster.o cooling.o ngb.o parallel_sort.o second_order.o \
-	 system.o allocate.o density.o bubbles.o sizelimited_sendrecv.o  \
+	 system.o allocate.o density.o sizelimited_sendrecv.o  \
 	 evaluator.o \
 	 gravtree.o hydra.o  driftfac.o darkenergy.o \
 	 potential.o  forcetree.o  peano.o gravtree_forcetest.o parallel_sort_special.o \
 	 pm_periodic.o pm_nonperiodic.o longrange.o mymalloc.o \
-	 b_from_rot_a.o smooth_simple.o \
-       phasespace.o phasespace_math.o  \
-	   densitykernel.o interp.o \
-	 ImfLib/libimf.o ImfLib/libimf_vars.o 
+	 densitykernel.o interp.o
 
-INCL   = allvars.h proto.h forcetree.h cooling.h domain.h  chemistry.h evaluator.h \
-	 subfind.h dd.h fof.h eos.h myqsort.h network.h network_solver.h chemcool_consts.h Makefile \
-
-ifeq (CHEMCOOL,$(findstring CHEMCOOL,$(OPT)))
-
-OBJS  += chemcool.o raytrace.o \
-
-INCL  += chemcool_consts.h \
-
-FOBJS = calc_photo.o calc_temp.o cheminmo.o compute_heating.o compute_md_kappa.o const_rates.o cool_func.o \
-	cool_util.o coolinmo.o dvode.o evolve_abundances.o jac.o photoinit_lowZ.o \
-	rate_eq_primordial.o spline.o validate_rates.o \
-
-FINCL = cool.h fs_data.h mol_data.h non_eq.h shield_data.h Makefile \
-
-else
-FC    = $(CC)
-endif
+INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
+	 subfind.h dd.h fof.h eos.h myqsort.h Makefile \
 
 
-CFLAGS = $(OPTIONS) $(GSL_INCL) $(FFTW_INCL) $(HDF5_INCL) 
-
-ifeq (VIP,$(findstring VIP,$(OPT)))
-FFLAGS = $(FOPTIONS)
-else
-FFLAGS = $(OPTIONS)
-endif
-
+CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(FFTW_INCL) $(HDF5_INCL) 
 
 LIBS   = -lm $(HDF_LIBS) -g $(MPICHLIB) $(GSL_LIBS) $(FFTW_LIBS)
 
-LIBS   +=  $(GMPLIB)
+P-Gadget3: $(OBJS) 
+	$(CC) $(OPTIMIZE) $^ $(LIBS) -o $@
+
+config.h: Makefile
+	echo "const char * COMPILETIMESETTINGS = \"$(OPTIMIZE) $(OPTS)\";" > $@
 
 
-$(EXEC): $(OBJS) $(FOBJS)
-	$(FC) $(OPTIMIZE) $(OBJS) $(FOBJS) $(LIBS) $(RLIBS) -o $(EXEC)
-
-$(OBJS): $(INCL)
+$(OBJS): $(INCL) config.h
 
 .c.o: $(INCL)
 	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
 
-$(FOBJS): $(FINCL)
-
 clean:
-	rm -f $(OBJS) $(FOBJS) $(EXEC)
+	rm -f $(OBJS) $(EXEC)
 
 MakePrimordialCoolingTable: MakePrimordialCoolingTable.c
-	$(FC) $(HDF_INCL) -o $@ $< -lm $(HDF_LIBS)
+	$(CC) $(HDF_INCL) -o $@ $< -lm $(HDF_LIBS)
 

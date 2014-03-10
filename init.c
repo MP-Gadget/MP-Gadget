@@ -1272,6 +1272,7 @@ void setup_smoothinglengths(void)
         double * olddensity = (double *)mymalloc("olddensity ", N_sph * sizeof(double));
         for(j=0;j<100;j++)
         {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
+#pragma omp parallel for private(i)
             for(i = 0; i < N_sph; i++)
             {
                 double entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
@@ -1280,6 +1281,7 @@ void setup_smoothinglengths(void)
             }
             density();
             badness = 0;
+
             for(i = 0; i < N_sph; i++) {
                 if(SPHP(i).EgyWtDensity > 0) {
                     badness = DMAX(badness, fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity);
