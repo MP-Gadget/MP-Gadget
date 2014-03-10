@@ -88,7 +88,8 @@ void twopoint(void)
   binfac = BINS_TP / (log(R1) - log(R0));
 
 
-  for(i = 0, mass = 0; i < NumPart; i++)
+  mass = 0;
+  for(i = 0; i < NumPart; i++)
     mass += P[i].Mass;
 
   MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);

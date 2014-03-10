@@ -11,15 +11,15 @@ typedef struct _LocalEvaluator {
     int64_t Nnodesinlist;
 } LocalEvaluator;
 
-typedef int (*ev_evaluate_func) (int target, int mode, LocalEvaluator * lv, void * extradata);
+typedef int (*ev_evaluate_func) (const int target, const int mode, LocalEvaluator * lv, void * extradata);
 
-typedef int (*ev_isactive_func) (int i);
+typedef int (*ev_isactive_func) (const int i);
 typedef void * (*ev_alloc_func) ();
 
-typedef void (*ev_copy_func)(int j, void * data_in);
+typedef void (*ev_copy_func)(const int j, void * data_in);
 /* mode == 0 is to set the initial local value
  * mode == 1 is to reduce the remote results */
-typedef void (*ev_reduce_func)(int j, void * data_result, int mode);
+typedef void (*ev_reduce_func)(const int j, void * data_result, const int mode);
 
 struct ev_task {
     int top_node;

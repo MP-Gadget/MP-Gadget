@@ -1,3 +1,5 @@
+#include <string.h>
+#include <stdlib.h>
 #include "allvars.h"
 #include "proto.h"
 #include "evaluator.h"
@@ -79,10 +81,12 @@ void evaluate_begin(Evaluator * ev) {
     ev->PrimaryTasks = (struct ev_task *) mymalloc("PrimaryTasks", sizeof(struct ev_task) * ev->PQueueEnd);
 
     int i = 0;
+#pragma omp parallel for if(ev->PQueueEnd > 1024)
     for(i = 0; i < ev->PQueueEnd; i ++) {
         int p = ev->PQueue[i];
         P[p].Evaluated = 0;
     }
+
     fill_task_queue(ev, ev->PrimaryTasks, ev->PQueue, ev->PQueueEnd);
     ev->currentIndex = mymalloc("currentIndexPerThread", sizeof(int) * All.NumThreads);
     ev->currentEnd = mymalloc("currentEndPerThread", sizeof(int) * All.NumThreads);
@@ -222,10 +226,6 @@ int evaluate_primary(Evaluator * ev) {
     for(i = 0; i < NTask; i++)
         Send_count[i] = 0;
     for(i = 0; i < ev->Nexport; i++) {
-        if(DataIndexTable[i].Task >= NTask ||
-                DataIndexTable[i].Task < 0) {
-            BREAKPOINT;
-        }
         Send_count[DataIndexTable[i].Task]++;
     }
 

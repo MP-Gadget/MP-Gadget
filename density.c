@@ -218,7 +218,8 @@ void density(void)
 
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
-        Left[i] = Right[i] = 0;
+        Left[i] = 0;
+        Right[i] = 0;
         P[i].DensityIterationDone = 0;
 
 #ifdef BLACK_HOLES
