@@ -8,140 +8,40 @@
 #include "forcetree.h"
 
 #ifdef COOLING
+static double a3inv;
+static double hubble_a;
+static double time_hubble_a;
+static double ascale;
+static double u_to_temp_fac; /* assuming very hot !*/
+static unsigned int bits;
+
+/* these guys really shall be local to cooling_and_starformation, but
+ * I am too lazy to pass them around to subroutines.
+ */
+static int stars_converted;
+static int stars_spawned;
+static double sum_sm;
+static double sum_mass_stars;
+
+static int get_sfr_condition(int i);
+static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
+static void cooling_direct(int i);
+static void starformation(int i);
+static int make_particle_wind(int i, double efficiency);
+static int make_particle_star(int i, double p);
 
 /*
  * This routine does cooling and star formation for
  * the effective multi-phase model.
  */
 
-#ifndef MHM
-#ifndef SFR
-void cooling_only(void)		/* normal cooling routine when star formation is disabled */
-{
-    int i;
-    double dt, dtime, hubble_a = 0, a3inv, ne = 1;
-    double time_hubble_a, unew;
-
-#ifdef COSMIC_RAYS
-    int CRpop;
-#endif
-
-    if(All.ComovingIntegrationOn)
-    {
-        /* Factors for comoving integration of hydro */
-        a3inv = 1 / (All.Time * All.Time * All.Time);
-        hubble_a = hubble_function(All.Time);
-        time_hubble_a = All.Time * hubble_a;
-    }
-    else
-    {
-        a3inv = time_hubble_a = hubble_a = 1;
-    }
-
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-    {
-        if(P[i].Type == 0)
-        {
-            dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
-            /*  the actual time-step */
-
-            if(All.ComovingIntegrationOn)
-                dtime = All.Time * dt / time_hubble_a;
-            else
-                dtime = dt;
-
-
-#ifdef RT_COOLING_PHOTOHEATING
-            unew = radtransfer_cooling_photoheating(i, dtime);
-
-            if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
-            {
-                if(dt > 0)
-                {
-                    SPHP(i).e.DtEntropy += unew * GAMMA_MINUS1 /
-                        pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / dt;
-                    if(SPHP(i).e.DtEntropy < -0.5 * SPHP(i).Entropy / dt)
-                        SPHP(i).e.DtEntropy = -0.5 * SPHP(i).Entropy / dt;
-                }
-            }
-#else
-            ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
-            unew = DoCooling(DMAX(All.MinEgySpec,
-                        (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
-                        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1)), 
-                        SPHP(i).d.Density * a3inv, dtime, &ne, P[i].Metallicity);
-            SPHP(i).Ne = ne;
-
-            if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
-            {
-                if(dt > 0)
-                {
-
-#ifdef COSMIC_RAYS
-                    for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                        unew += CR_Particle_ThermalizeAndDissipate(SphP + i, dtime, CRpop);
-#endif
-                    SPHP(i).e.DtEntropy = (unew * GAMMA_MINUS1 /
-                            pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) - SPHP(i).Entropy) / dt;
-
-
-                    if(SPHP(i).e.DtEntropy < -0.5 * SPHP(i).Entropy / dt)
-                        SPHP(i).e.DtEntropy = -0.5 * SPHP(i).Entropy / dt;
-
-                }
-            }
-#endif
-
-        }
-    }
-}
-
-
-#else
 
 void cooling_and_starformation(void)
     /* cooling routine when star formation is enabled */
 {
-    int i, bin, flag, stars_spawned, tot_spawned, stars_converted, tot_converted, number_of_stars_generated;
-    unsigned int bits;
-    double dt, dtime, ascale = 1, hubble_a = 0, a3inv, ne = 1;
-    double time_hubble_a, unew, mass_of_star;
-    double sum_sm, total_sm, sm, rate, sum_mass_stars, total_sum_mass_stars;
-    double p, prob;
-    double cloudmass;
-    double factorEVP;
-    double tsfr, trelax;
-    double egyhot, egyeff, egycurrent, tcool, x, y, rate_in_msunperyear;
-    double sfrrate, totsfrrate;
-
-#ifdef WINDS
-    int j;
-    double v;
-    double norm, dir[3];
-
-#ifdef ISOTROPICWINDS
-    double theta, phi;
-#endif
-#endif
-#ifdef METALS
-    double w;
-#endif
-#ifdef COSMIC_RAYS
-    int CRpop;
-
-#ifdef CR_SN_INJECTION
-    double tinj = 0.0, instant_reheat = 0.0;
-    int InjPopulation;
-#endif
-#endif
-
-
-#if defined(QUICK_LYALPHA) || defined(BH_THERMALFEEDBACK) || defined (BH_KINETICFEEDBACK) || defined(MODIFIED_SFR)
-    double temp, u_to_temp_fac;
-
+    int i, bin, flag;
     u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
         * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-#endif
 
 #ifdef MODIFIED_SFR
 
@@ -160,10 +60,10 @@ void cooling_and_starformation(void)
 #endif
 #endif
 
-    for(bin = 0; bin < TIMEBINS; bin++)
-        if(TimeBinActive[bin])
-            TimeBinSfr[bin] = 0;
-
+    for(bin = 0; bin < TIMEBINS; bin++) {
+        if(!TimeBinActive[bin]) continue;
+        TimeBinSfr[bin] = 0;
+    }
     if(All.ComovingIntegrationOn)
     {
         /* Factors for comoving integration of hydro */
@@ -173,449 +73,69 @@ void cooling_and_starformation(void)
         ascale = All.Time;
     }
     else
-        a3inv = ascale = time_hubble_a = 1;
+        hubble_a = a3inv = ascale = time_hubble_a = 1;
 
 
 
     stars_spawned = stars_converted = 0;
     sum_sm = sum_mass_stars = 0;
 
-    for(bits = 0; GENERATIONS > (1 << bits); bits++);
-
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
-        if(P[i].Type == 0)
-        {
-            dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
-            /*  the actual time-step */
+        if(P[i].Type != 0) continue;
+#ifdef MAGNETIC
+        SPHP(i).XColdCloud = x;
+#endif
+#ifdef WINDS
+        if(SPHP(i).DelayTime > 0) {
+            double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+                /*  the actual time-step */
 
+            double dtime;
             if(All.ComovingIntegrationOn)
                 dtime = All.Time * dt / time_hubble_a;
             else
                 dtime = dt;
+            SPHP(i).DelayTime -= dtime;
+        }
 
-            /* check whether conditions for star formation are fulfilled.
-             *  
-             * f=1  normal cooling
-             * f=0  star formation
-             */
-            flag = 1;		/* default is normal cooling */
-
-#ifndef MODIFIED_SFR
-            if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
-                flag = 0;
-#else
-            if((SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
-                    && (SPHP(i).Entropy * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1 <
-                        SFRTempThresh))
-                flag = 0;
-#endif
-
-            if(All.ComovingIntegrationOn)
-                if(SPHP(i).d.Density < All.OverDensThresh)
-                    flag = 1;
-
-#ifdef BLACK_HOLES
-            if(P[i].Mass == 0)
-                flag = 1;
-#endif
-
-#ifdef WINDS
-            if(SPHP(i).DelayTime > 0)
-                flag = 1;		/* only normal cooling for particles in the wind */
-
-            if(SPHP(i).DelayTime > 0)
-                SPHP(i).DelayTime -= dtime;
-
-            if(SPHP(i).DelayTime > 0)
-                if(SPHP(i).d.Density * a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh)
-                    SPHP(i).DelayTime = 0;
-
-            if(SPHP(i).DelayTime < 0)
+        if(SPHP(i).DelayTime > 0) {
+            if(SPHP(i).d.Density * a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh)
                 SPHP(i).DelayTime = 0;
-
-#endif
-
-
-#ifdef QUICK_LYALPHA
-            temp = u_to_temp_fac * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
-                GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1);
-
-            if(SPHP(i).d.Density > All.OverDensThresh && temp < 1.0e5)
-                flag = 0;
-            else
-                flag = 1;
+        } else {
+            SPHP(i).DelayTime = 0;
+        }
 #endif
 #ifdef MAGNETIC
-            x=0.;
+        x=0.;
 #endif
-
+        /* check whether conditions for star formation are fulfilled.
+         *  
+         * f=1  normal cooling
+         * f=0  star formation
+         */
+        flag = get_sfr_condition(i);
 
 #if !defined(NOISMPRESSURE) && !defined(QUICK_LYALPHA)
-            if(flag == 1)		/* normal implicit isochoric cooling */
-#endif
-            {
-                SPHP(i).Sfr = 0;
-#if defined(COSMIC_RAYS) && defined(CR_OUTPUT_INJECTION)
-                SPHP(i).CR_Specific_SupernovaHeatingRate = 0;
-#endif
-                ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
-
-                unew = DMAX(All.MinEgySpec,
-                        (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
-                        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1));
-
-#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
-                if(SPHP(i).i.Injected_BH_Energy)
-                {
-                    if(P[i].Mass == 0)
-                        SPHP(i).i.Injected_BH_Energy = 0;
-                    else
-                        unew += SPHP(i).i.Injected_BH_Energy / P[i].Mass;
-
-                    temp = u_to_temp_fac * unew;
-
-
-                    if(temp > 5.0e9)
-                        unew = 5.0e9 / u_to_temp_fac;
-
-#ifdef FLTROUNDOFFREDUCTION
-                    SPHP(i).i.dInjected_BH_Energy = 0;
-#else
-                    SPHP(i).i.Injected_BH_Energy = 0;
-#endif
-                }
-#endif
-#ifdef RT_COOLING_PHOTOHEATING
-                unew = radtransfer_cooling_photoheating(i, dtime);
-
-                if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
-                {
-                    /* note: the adiabatic rate has been already added in ! */
-
-                    if(dt > 0)
-                    {
-                        SPHP(i).e.DtEntropy += unew * GAMMA_MINUS1 /
-                            pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / dt;
-
-                        if(SPHP(i).e.DtEntropy < -0.5 * SPHP(i).Entropy / dt)
-                            SPHP(i).e.DtEntropy = -0.5 * SPHP(i).Entropy / dt;
-                    }
-                }
-#else
-                unew = DoCooling(unew, SPHP(i).d.Density * a3inv, dtime, &ne, P[i].Metallicity);
-
-                SPHP(i).Ne = ne;
-
-                if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
-                {
-                    /* note: the adiabatic rate has been already added in ! */
-
-                    if(dt > 0)
-                    {
-#ifdef COSMIC_RAYS
-                        for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                            unew += CR_Particle_ThermalizeAndDissipate(SphP + i, dtime, CRpop);
-#endif
-
-                        SPHP(i).e.DtEntropy = (unew * GAMMA_MINUS1 /
-                                pow(SPHP(i).EOMDensity * a3inv,
-                                    GAMMA_MINUS1) - SPHP(i).Entropy) / dt;
-
-                        if(SPHP(i).e.DtEntropy < -0.5 * SPHP(i).Entropy / dt)
-                            SPHP(i).e.DtEntropy = -0.5 * SPHP(i).Entropy / dt;
-                    }
-                }
-#endif
-
-            }
-
-            if(flag == 0)		/* active star formation */
-            {
-#if !defined(QUICK_LYALPHA)
-                tsfr = sqrt(All.PhysDensThresh / (SPHP(i).d.Density * a3inv)) * All.MaxSfrTimescale;
-
-                factorEVP = pow(SPHP(i).d.Density * a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
-
-                egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
-
-                ne = SPHP(i).Ne;
-
-                tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne, P[i].Metallicity);
-
-                SPHP(i).Ne = ne;
-
-                y =
-                    tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
-
-                x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
-
-                egyeff = egyhot * (1 - x) + All.EgySpecCold * x;
-
-                cloudmass = x * P[i].Mass;
-
-                if(tsfr < dtime)
-                    tsfr = dtime;
-
-                sm = (1 - All.FactorSN) * dtime / tsfr * cloudmass;	/* amount of stars expect to form */
-
-                p = sm / P[i].Mass;
-
-                sum_sm += P[i].Mass * (1 - exp(-p));
-
-
-                if(dt > 0)
-                {
-                    if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
-                    {
-                        trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
-                        egycurrent =
-                            SPHP(i).Entropy * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-
-#ifdef COSMIC_RAYS
-#ifdef CR_SN_INJECTION
-                        if(All.CR_SNEff > 0)
-                        {
-                            if(NUMCRPOP > 1)
-                                InjPopulation = CR_Find_Alpha_to_InjectTo(All.CR_SNAlpha);
-                            else
-                                InjPopulation = 0;
-
-                            tinj =
-                                SPHP(i).CR_E0[InjPopulation] / (p * All.FeedbackEnergy * All.CR_SNEff / dtime);
-
-                            instant_reheat =
-                                CR_Particle_SupernovaFeedback(&SPHP(i), p * All.FeedbackEnergy * All.CR_SNEff,
-                                        tinj);
-                        }
-                        else
-                            instant_reheat = 0;
-
-#if defined(COSMIC_RAYS) && defined(CR_OUTPUT_INJECTION)
-                        SPHP(i).CR_Specific_SupernovaHeatingRate =
-                            (p * All.FeedbackEnergy * All.CR_SNEff - instant_reheat) / dtime;
-#endif
-                        egycurrent += instant_reheat;
-#endif
-                        for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                            egycurrent += CR_Particle_ThermalizeAndDissipate(SphP + i, dtime, CRpop);
-#endif /* COSMIC_RAYS */
-
-
-#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
-                        if(SPHP(i).i.Injected_BH_Energy > 0)
-                        {
-                            egycurrent += SPHP(i).i.Injected_BH_Energy / P[i].Mass;
-
-                            temp = u_to_temp_fac * egycurrent;
-
-                            if(temp > 5.0e9)
-                                egycurrent = 5.0e9 / u_to_temp_fac;
-
-                            if(egycurrent > egyeff)
-                            {
-                                tcool = GetCoolingTime(egycurrent, SPHP(i).d.Density * a3inv, &ne, P[i].Metallicity);
-
-                                if(tcool < trelax && tcool > 0)
-                                    trelax = tcool;
-                            }
-
-                            SPHP(i).i.Injected_BH_Energy = 0;
-                        }
-#endif
-#ifdef MAGNETICSEED
-                        SPHP(i).MagSeed =  egyhot * factorEVP *  1E-2;   // This is the definition of how much energy we will put in MF (we neglect cooling here, we have to check if thios has sense)
-                        egyeff-= SPHP(i).MagSeed;                 //Here we also substract that to the feedback
-
-                        SPHP(i).MagSeed *= All.UnitMass_in_g / All.UnitEnergy_in_cgs * SPHP(i).d.Density * (1.-x) * a3inv *All.Time ;// * a3inv
-#endif
-
-
-
-#if !defined(NOISMPRESSURE)
-                        SPHP(i).Entropy =
-                            (egyeff +
-                             (egycurrent -
-                              egyeff) * exp(-dtime / trelax)) * GAMMA_MINUS1 /
-                            pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1);
-
-                        SPHP(i).e.DtEntropy = 0;
-#endif
-                    }
-                }
-
-
-
-                /* the upper bits of the gas particle ID store how man stars this gas
-                   particle gas already generated */
-
-                if(bits == 0)
-                    number_of_stars_generated = 0;
-                else
-                    number_of_stars_generated = (P[i].ID >> (sizeof(MyIDType)*8 - bits));
-
-                mass_of_star = P[i].Mass / (GENERATIONS - number_of_stars_generated);
-
-
-                SPHP(i).Sfr = (1 - All.FactorSN) * cloudmass / tsfr *
-                    (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
-
-                TimeBinSfr[P[i].TimeBin] += SPHP(i).Sfr;
-#ifdef METALS
-                w = get_random_number(P[i].ID);
-                P[i].Metallicity += w * METAL_YIELD * (1 - exp(-p));
-#endif
-
-                prob = P[i].Mass / mass_of_star * (1 - exp(-p));
-#else /* belongs to ifndef(QUICK_LYALPHA) */
-
-                prob = 2.0;	/* this will always cause a star creation event */
-                if(bits == 0)
-                    number_of_stars_generated = 0;
-                else
-
-                    number_of_stars_generated = (P[i].ID >> (sizeof(MyIDType)*8 - bits));
-
-                mass_of_star = P[i].Mass / (GENERATIONS - number_of_stars_generated);
-
-                SPHP(i).Sfr = 0;
-
-#endif /* ends to QUICK_LYALPHA */
-
-                if(get_random_number(P[i].ID + 1) < prob)	/* ok, make a star */
-                {
-                    if(number_of_stars_generated == (GENERATIONS - 1))
-                    {
-                        /* here we turn the gas particle itself into a star */
-                        Stars_converted++;
-                        stars_converted++;
-
-                        sum_mass_stars += P[i].Mass;
-
-                        P[i].Type = 4;
-                        TimeBinCountSph[P[i].TimeBin]--;
-                        TimeBinSfr[P[i].TimeBin] -= SPHP(i).Sfr;
-
-#ifdef STELLARAGE
-                        P[i].StellarAge = All.Time;
-#endif
-                    }
-                    else
-                    {
-                        /* here we spawn a new star particle */
-
-                        if(NumPart + stars_spawned >= All.MaxPart)
-                        {
-                            printf
-                                ("On Task=%d with NumPart=%d we try to spawn %d particles. Sorry, no space left...(All.MaxPart=%d)\n",
-                                 ThisTask, NumPart, stars_spawned, All.MaxPart);
-                            fflush(stdout);
-                            endrun(8888);
-                        }
-
-                        P[NumPart + stars_spawned] = P[i];
-                        P[NumPart + stars_spawned].Type = 4;
-#ifdef SNIA_HEATING
-                        P[NumPart + stars_spawned].Hsml = All.SofteningTable[0];
-#endif
-
-                        NextActiveParticle[NumPart + stars_spawned] = FirstActiveParticle;
-                        FirstActiveParticle = NumPart + stars_spawned;
-                        NumForceUpdate++;
-
-                        TimeBinCount[P[NumPart + stars_spawned].TimeBin]++;
-
-                        PrevInTimeBin[NumPart + stars_spawned] = i;
-                        NextInTimeBin[NumPart + stars_spawned] = NextInTimeBin[i];
-                        if(NextInTimeBin[i] >= 0)
-                            PrevInTimeBin[NextInTimeBin[i]] = NumPart + stars_spawned;
-                        NextInTimeBin[i] = NumPart + stars_spawned;
-                        if(LastInTimeBin[P[i].TimeBin] == i)
-                            LastInTimeBin[P[i].TimeBin] = NumPart + stars_spawned;
-
-                        P[i].ID += ((MyIDType) 1 << (sizeof(MyIDType)*8 - bits));
-
-                        P[NumPart + stars_spawned].Mass = mass_of_star;
-                        P[i].Mass -= P[NumPart + stars_spawned].Mass;
-                        sum_mass_stars += P[NumPart + stars_spawned].Mass;
-#ifdef STELLARAGE
-                        P[NumPart + stars_spawned].StellarAge = All.Time;
-#endif
-                        force_add_star_to_tree(i, NumPart + stars_spawned);
-
-                        stars_spawned++;
-                    }
-                }
-
-#ifdef METALS
-                if(P[i].Type == 0)	/* to protect using a particle that has been turned into a star */
-                    P[i].Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
-#endif
-
-
-
-#ifdef WINDS
-                /* Here comes the wind model */
-
-                if(P[i].Type == 0)	/* to protect using a particle that has been turned into a star */
-                {
-                    p = All.WindEfficiency * sm / P[i].Mass;
-
-                    prob = 1 - exp(-p);
-
-                    if(get_random_number(P[i].ID + 2) < prob)	/* ok, make the particle go into the wind */
-                    {
-                        v =
-                            sqrt(2 * All.WindEnergyFraction * All.FactorSN *
-                                    All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
-#ifdef ISOTROPICWINDS
-                        theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
-                        phi = 2 * M_PI * get_random_number(P[i].ID + 4);
-
-                        dir[0] = sin(theta) * cos(phi);
-                        dir[1] = sin(theta) * sin(phi);
-                        dir[2] = cos(theta);
-#else
-                        dir[0] = P[i].g.GravAccel[1] * P[i].Vel[2] - P[i].g.GravAccel[2] * P[i].Vel[1];
-                        dir[1] = P[i].g.GravAccel[2] * P[i].Vel[0] - P[i].g.GravAccel[0] * P[i].Vel[2];
-                        dir[2] = P[i].g.GravAccel[0] * P[i].Vel[1] - P[i].g.GravAccel[1] * P[i].Vel[0];
-#endif
-
-                        for(j = 0, norm = 0; j < 3; j++)
-                            norm += dir[j] * dir[j];
-
-                        norm = sqrt(norm);
-                        if(get_random_number(P[i].ID + 5) < 0.5)
-                            norm = -norm;
-
-                        if(norm != 0)
-                        {
-                            for(j = 0; j < 3; j++)
-                                dir[j] /= norm;
-
-                            for(j = 0; j < 3; j++)
-                            {
-                                P[i].Vel[j] += v * ascale * dir[j];
-                                SPHP(i).VelPred[j] += v * ascale * dir[j];
-                            }
-
-                            SPHP(i).DelayTime = All.WindFreeTravelLength / v;
-                        }
-                    }
-                }
-#endif
-            }
+        /* normal implicit isochoric cooling */
+        if(flag == 1) {
+            cooling_direct(i);
         }
-#ifdef MAGNETIC
-        if(P[i].Type == 0)
-            SPHP(i).XColdCloud = x;
+#else
+        /* always do direct cooling in these cases */
+        cooling_direct(i);
 #endif
-
+        if(flag == 0) {
+            /* active star formation */
+            starformation(i);
+        }
     }				/* end of main loop over active particles */
 
 
+    int tot_spawned, tot_converted;
     MPI_Allreduce(&stars_spawned, &tot_spawned, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&stars_converted, &tot_converted, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
     if(tot_spawned > 0 || tot_converted > 0)
     {
         if(ThisTask == 0)
@@ -635,16 +155,21 @@ void cooling_and_starformation(void)
         /* Note: New tree construction can be avoided because of  `force_add_star_to_tree()' */
     }
 
-    for(bin = 0, sfrrate = 0; bin < TIMEBINS; bin++)
+    double sfrrate = 0, totsfrrate;
+    for(bin = 0; bin < TIMEBINS; bin++)
         if(TimeBinCount[bin])
             sfrrate += TimeBinSfr[bin];
 
     MPI_Allreduce(&sfrrate, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
+    double total_sum_mass_stars, total_sm;
+
     MPI_Reduce(&sum_sm, &total_sm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_mass_stars, &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     if(ThisTask == 0)
     {
+        double rate;
+        double rate_in_msunperyear;
         if(All.TimeStep > 0)
             rate = total_sm / (All.TimeStep / time_hubble_a);
         else
@@ -659,6 +184,441 @@ void cooling_and_starformation(void)
         fflush(FdSfr);
     }
 }
+
+/* returns 0 if the particle is actively forming stars */
+static int get_sfr_condition(int i) {
+/* no sfr !*/
+    if(!All.StarformationOn) {
+        return 1;
+    }
+#ifndef MODIFIED_SFR
+    if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
+        return 0;
+#else
+    if((SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
+            && (SPHP(i).Entropy * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1 <
+                SFRTempThresh))
+        return 0;
+#endif
+
+    if(All.ComovingIntegrationOn)
+        if(SPHP(i).d.Density < All.OverDensThresh)
+            return 1;
+
+#ifdef BLACK_HOLES
+    if(P[i].Mass == 0)
+        return 1;
+#endif
+
+#ifdef WINDS
+    if(SPHP(i).DelayTime > 0)
+        return 1;		/* only normal cooling for particles in the wind */
+#endif
+
+#ifdef QUICK_LYALPHA
+    temp = u_to_temp_fac * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
+        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1);
+
+    if(SPHP(i).d.Density > All.OverDensThresh && temp < 1.0e5)
+        return 0;
+    else
+        return 1;
+#endif
+    return 1;
+}
+
+static void cooling_direct(int i) {
+
+#ifdef COSMIC_RAYS
+    int CRpop;
+
+#ifdef CR_SN_INJECTION
+    double tinj = 0.0, instant_reheat = 0.0;
+    int InjPopulation;
+#endif
+#endif
+
+
+
+    double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+        /*  the actual time-step */
+
+    double dtime;
+    if(All.ComovingIntegrationOn)
+        dtime = All.Time * dt / time_hubble_a;
+    else
+        dtime = dt;
+
+    SPHP(i).Sfr = 0;
+#if defined(COSMIC_RAYS) && defined(CR_OUTPUT_INJECTION)
+    SPHP(i).CR_Specific_SupernovaHeatingRate = 0;
+#endif
+    double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
+
+    double unew = DMAX(All.MinEgySpec,
+            (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
+            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1));
+
+#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
+    if(SPHP(i).i.Injected_BH_Energy)
+    {
+        if(P[i].Mass == 0)
+            SPHP(i).i.Injected_BH_Energy = 0;
+        else
+            unew += SPHP(i).i.Injected_BH_Energy / P[i].Mass;
+
+        double temp = u_to_temp_fac * unew;
+
+
+        if(temp > 5.0e9)
+            unew = 5.0e9 / u_to_temp_fac;
+
+#ifdef FLTROUNDOFFREDUCTION
+        SPHP(i).i.dInjected_BH_Energy = 0;
+#else
+        SPHP(i).i.Injected_BH_Energy = 0;
+#endif
+    }
+#endif
+#ifdef RT_COOLING_PHOTOHEATING
+    unew = radtransfer_cooling_photoheating(i, dtime);
+
+    if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
+    {
+        /* note: the adiabatic rate has been already added in ! */
+
+        if(dt > 0)
+        {
+            SPHP(i).e.DtEntropy += unew * GAMMA_MINUS1 /
+                pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / dt;
+
+            if(SPHP(i).e.DtEntropy < -0.5 * SPHP(i).Entropy / dt)
+                SPHP(i).e.DtEntropy = -0.5 * SPHP(i).Entropy / dt;
+        }
+    }
+#else
+    unew = DoCooling(unew, SPHP(i).d.Density * a3inv, dtime, &ne, P[i].Metallicity);
+
+    SPHP(i).Ne = ne;
+
+    if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
+    {
+        /* note: the adiabatic rate has been already added in ! */
+
+        if(dt > 0)
+        {
+#ifdef COSMIC_RAYS
+            for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
+                unew += CR_Particle_ThermalizeAndDissipate(SphP + i, dtime, CRpop);
+#endif
+
+            SPHP(i).e.DtEntropy = (unew * GAMMA_MINUS1 /
+                    pow(SPHP(i).EOMDensity * a3inv,
+                        GAMMA_MINUS1) - SPHP(i).Entropy) / dt;
+
+            if(SPHP(i).e.DtEntropy < -0.5 * SPHP(i).Entropy / dt)
+                SPHP(i).e.DtEntropy = -0.5 * SPHP(i).Entropy / dt;
+        }
+    }
+#endif
+}
+
+static int make_particle_wind(int i, double efficiency) {
+    /* returns 0 if particle i is converteed to wind. */
+    int j;
+    double prob = 1 - exp(-efficiency);
+
+    if(get_random_number(P[i].ID + 2) >= prob)	return 1;
+    /* ok, make the particle go into the wind */
+    double v =
+        sqrt(2 * All.WindEnergyFraction * All.FactorSN *
+                All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
+    double dir[3];
+#ifdef ISOTROPICWINDS
+    double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
+    double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
+
+    dir[0] = sin(theta) * cos(phi);
+    dir[1] = sin(theta) * sin(phi);
+    dir[2] = cos(theta);
+#else
+    dir[0] = P[i].g.GravAccel[1] * P[i].Vel[2] - P[i].g.GravAccel[2] * P[i].Vel[1];
+    dir[1] = P[i].g.GravAccel[2] * P[i].Vel[0] - P[i].g.GravAccel[0] * P[i].Vel[2];
+    dir[2] = P[i].g.GravAccel[0] * P[i].Vel[1] - P[i].g.GravAccel[1] * P[i].Vel[0];
+#endif
+
+    double norm = 0;
+    for(j = 0; j < 3; j++)
+        norm += dir[j] * dir[j];
+
+    norm = sqrt(norm);
+    if(get_random_number(P[i].ID + 5) < 0.5)
+        norm = -norm;
+
+    if(norm != 0)
+    {
+        for(j = 0; j < 3; j++)
+            dir[j] /= norm;
+
+        for(j = 0; j < 3; j++)
+        {
+            P[i].Vel[j] += v * ascale * dir[j];
+            SPHP(i).VelPred[j] += v * ascale * dir[j];
+        }
+
+        SPHP(i).DelayTime = All.WindFreeTravelLength / v;
+    }
+    return 0;
+}
+static int make_particle_star(int i, double p) {
+
+    int number_of_stars_generated;
+    if(bits == 0)
+        number_of_stars_generated = 0;
+    else
+        number_of_stars_generated = (P[i].ID >> (sizeof(MyIDType)*8 - bits));
+
+    double mass_of_star = P[i].Mass / (GENERATIONS - number_of_stars_generated);
+
+
+#ifdef QUICK_LYALPHA
+    double prob = 2; /* always make a star */
+    /* this preserves the random sequence; if there is one. */
+#else
+    double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
+#endif
+    if(get_random_number(P[i].ID + 1) >= prob)	return -1;
+
+    /* ok, make a star */
+    if(number_of_stars_generated == (GENERATIONS - 1))
+    {
+        /* here we turn the gas particle itself into a star */
+        Stars_converted++;
+        stars_converted++;
+
+        sum_mass_stars += P[i].Mass;
+
+        P[i].Type = 4;
+        TimeBinCountSph[P[i].TimeBin]--;
+        TimeBinSfr[P[i].TimeBin] -= SPHP(i).Sfr;
+
+#ifdef STELLARAGE
+        P[i].StellarAge = All.Time;
+#endif
+    }
+    else
+    {
+        /* here we spawn a new star particle */
+
+        if(NumPart + stars_spawned >= All.MaxPart)
+        {
+            printf
+                ("On Task=%d with NumPart=%d we try to spawn %d particles. Sorry, no space left...(All.MaxPart=%d)\n",
+                 ThisTask, NumPart, stars_spawned, All.MaxPart);
+            fflush(stdout);
+            endrun(8888);
+        }
+
+        P[NumPart + stars_spawned] = P[i];
+        P[NumPart + stars_spawned].Type = 4;
+#ifdef SNIA_HEATING
+        P[NumPart + stars_spawned].Hsml = All.SofteningTable[0];
+#endif
+
+        NextActiveParticle[NumPart + stars_spawned] = FirstActiveParticle;
+        FirstActiveParticle = NumPart + stars_spawned;
+        NumForceUpdate++;
+
+        TimeBinCount[P[NumPart + stars_spawned].TimeBin]++;
+
+        PrevInTimeBin[NumPart + stars_spawned] = i;
+        NextInTimeBin[NumPart + stars_spawned] = NextInTimeBin[i];
+        if(NextInTimeBin[i] >= 0)
+            PrevInTimeBin[NextInTimeBin[i]] = NumPart + stars_spawned;
+        NextInTimeBin[i] = NumPart + stars_spawned;
+        if(LastInTimeBin[P[i].TimeBin] == i)
+            LastInTimeBin[P[i].TimeBin] = NumPart + stars_spawned;
+
+        P[i].ID += ((MyIDType) 1 << (sizeof(MyIDType)*8 - bits));
+
+        P[NumPart + stars_spawned].Mass = mass_of_star;
+        P[i].Mass -= P[NumPart + stars_spawned].Mass;
+        sum_mass_stars += P[NumPart + stars_spawned].Mass;
+#ifdef STELLARAGE
+        P[NumPart + stars_spawned].StellarAge = All.Time;
+#endif
+        force_add_star_to_tree(i, NumPart + stars_spawned);
+
+        stars_spawned++;
+    }
+    return 0;
+}
+static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
+    double egycurrent =
+        SPHP(i).Entropy * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+
+#ifdef COSMIC_RAYS
+#ifdef CR_SN_INJECTION
+    if(All.CR_SNEff > 0)
+    {
+        if(NUMCRPOP > 1)
+            InjPopulation = CR_Find_Alpha_to_InjectTo(All.CR_SNAlpha);
+        else
+            InjPopulation = 0;
+
+        tinj =
+            SPHP(i).CR_E0[InjPopulation] / (p * All.FeedbackEnergy * All.CR_SNEff / dtime);
+
+        instant_reheat =
+            CR_Particle_SupernovaFeedback(&SPHP(i), p * All.FeedbackEnergy * All.CR_SNEff,
+                    tinj);
+    }
+    else
+        instant_reheat = 0;
+
+#if defined(COSMIC_RAYS) && defined(CR_OUTPUT_INJECTION)
+    SPHP(i).CR_Specific_SupernovaHeatingRate =
+        (p * All.FeedbackEnergy * All.CR_SNEff - instant_reheat) / dtime;
+#endif
+    egycurrent += instant_reheat;
+#endif
+    for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
+        egycurrent += CR_Particle_ThermalizeAndDissipate(SphP + i, dtime, CRpop);
+#endif /* COSMIC_RAYS */
+
+
+#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
+    if(SPHP(i).i.Injected_BH_Energy > 0)
+    {
+        egycurrent += SPHP(i).i.Injected_BH_Energy / P[i].Mass;
+
+        double temp = u_to_temp_fac * egycurrent;
+
+        if(temp > 5.0e9)
+            egycurrent = 5.0e9 / u_to_temp_fac;
+
+        if(egycurrent > egyeff)
+        {
+            double ne = SPHP(i).Ne;
+            double tcool = GetCoolingTime(egycurrent, SPHP(i).d.Density * a3inv, &ne, P[i].Metallicity);
+
+            if(tcool < trelax && tcool > 0)
+                trelax = tcool;
+        }
+
+        SPHP(i).i.Injected_BH_Energy = 0;
+    }
+#endif
+#ifdef MAGNETICSEED
+    SPHP(i).MagSeed =  egyhot * factorEVP *  1E-2;   // This is the definition of how much energy we will put in MF (we neglect cooling here, we have to check if thios has sense)
+    egyeff-= SPHP(i).MagSeed;                 //Here we also substract that to the feedback
+
+    SPHP(i).MagSeed *= All.UnitMass_in_g / All.UnitEnergy_in_cgs * SPHP(i).d.Density * (1.-x) * a3inv *All.Time ;// * a3inv
+#endif
+
+
+
+#if !defined(NOISMPRESSURE)
+    SPHP(i).Entropy =
+        (egyeff +
+         (egycurrent -
+          egyeff) * exp(-dtime / trelax)) * GAMMA_MINUS1 /
+        pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1);
+
+    SPHP(i).e.DtEntropy = 0;
+#endif
+
+}
+
+static void starformation(int i) {
+    /* the upper bits of the gas particle ID store how man stars this gas
+       particle gas already generated */
+
+
+#if !defined(QUICK_LYALPHA)
+    double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+        /*  the actual time-step */
+
+    double dtime;
+    if(All.ComovingIntegrationOn)
+        dtime = All.Time * dt / time_hubble_a;
+    else
+        dtime = dt;
+
+    double tsfr = sqrt(All.PhysDensThresh / (SPHP(i).d.Density * a3inv)) * All.MaxSfrTimescale;
+
+    double factorEVP = pow(SPHP(i).d.Density * a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
+
+    double egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
+
+    double ne = SPHP(i).Ne;
+
+    double tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne, P[i].Metallicity);
+
+    SPHP(i).Ne = ne;
+
+    double y =
+        tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
+
+    double x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
+
+    double egyeff = egyhot * (1 - x) + All.EgySpecCold * x;
+
+    double cloudmass = x * P[i].Mass;
+
+    if(tsfr < dtime)
+        tsfr = dtime;
+
+    double sm = (1 - All.FactorSN) * dtime / tsfr * cloudmass;	/* amount of stars expect to form */
+
+    double p = sm / P[i].Mass;
+
+    sum_sm += P[i].Mass * (1 - exp(-p));
+
+    SPHP(i).Sfr = (1 - All.FactorSN) * cloudmass / tsfr *
+        (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+
+    TimeBinSfr[P[i].TimeBin] += SPHP(i).Sfr;
+
+#ifdef METALS
+    double w = get_random_number(P[i].ID);
+    P[i].Metallicity += w * METAL_YIELD * (1 - exp(-p));
+#endif
+
+    if(dt > 0 && P[i].TimeBin)
+    {
+        double trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
+      	/* upon start-up, we need to protect against dt==0 */
+        cooling_relaxed(i, egyeff, dtime, trelax);
+    }
+
+
+#else /* belongs to ifndef(QUICK_LYALPHA) */
+
+    SPHP(i).Sfr = 0;
+
+#endif /* ends to QUICK_LYALPHA */
+
+    make_particle_star(i, p);
+
+    if(P[i].Type == 0)	{
+    /* to protect using a particle that has been turned into a star */
+#ifdef METALS
+        P[i].Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
+#endif
+
+#ifdef WINDS
+    /* Here comes the wind model */
+        double pw = All.WindEfficiency * sm / P[i].Mass;
+        make_particle_wind(i, pw);
+#endif
+    }
+
+
+}
+
+
+
 
 double get_starformation_rate(int i)
 {
@@ -712,15 +672,6 @@ double get_starformation_rate(int i)
     return rateOfSF;
 }
 
-#endif /* closes MHM conditional */
-
-
-
-#endif /* SFR */
-
-
-
-#if defined(SFR)
 void init_clouds(void)
 {
     double A0, dens, tcool, ne, coolrate, egyhot, x, u4, meanweight;
@@ -1016,6 +967,8 @@ void integrate_sfr(void)
 #if defined(SFR)
 void set_units_sfr(void)
 {
+    for(bits = 0; GENERATIONS > (1 << bits); bits++);
+
     double meanweight;
 
 #ifdef COSMIC_RAYS
@@ -1067,8 +1020,6 @@ void set_units_sfr(void)
 #endif
 }
 
-
-#endif /* closes SFR */
 
 #endif /* closes COOLING */
 
