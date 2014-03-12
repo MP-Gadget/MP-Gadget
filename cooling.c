@@ -217,6 +217,11 @@ static void TableAbundance(double redshift, double logT, double lognH, struct ab
         y->nHp = 1.0;
         y->nHep = 0.0;
         y->nHepp = yhelium;
+    } else if(status[2] < 0) {
+        /* very cold: H and He both fully neutral */
+        y->nHp = 0.0;
+        y->nHep = 0.0;
+        y->nHepp = 0.0;
     } else {
         y->nHep = interp_eval(&PC.interp, x, PC.nHep_table, status);
         y->nHepp = interp_eval(&PC.interp, x, PC.nHepp_table, status);
@@ -244,6 +249,9 @@ static double TableCoolingRate(double redshift, double logT, double lognH) {
             /* add inverse Compton cooling off the microwave background */
         double LambdaCmptn = 5.65e-36 * ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nH;
         rate = LambdaFF + LambdaCmptn;
+    } else {
+        /* very cold: H and He both fully ionized */
+        /* simply use the lowest temperature rates */
     }
     return rate;
 }
@@ -255,7 +263,7 @@ static double TableMetalCoolingRate(double redshift, double logT, double lognH) 
     int status[3];
     double rate = interp_eval(&MC.interp, x, MC.Lmet_table, status);
     /* XXX: in case of very hot / very dense we just use whatever the table says at
-     * the limit. should be OK. Ask Tiziana about this */
+     * the limit. should be OK. */
     return rate;
 }
 
@@ -279,10 +287,10 @@ static double TableTemperature(double redshift, double logU, double lognH) {
         double mu = (1 + 4 * yhelium) / (1 + yhelium + 1 + 2 * yhelium);
         logT = log10(GAMMA_MINUS1 / BOLTZMANN * U * PROTONMASS * mu);
     } else if(status[2] < 0) {
-        /* very cold: will fail. 
-         * not necessarily neutral! */
-        printf("Warning: log U = %g too cool for the table; log T= %g \n",
-                logU, logT);
+        /* very cold neutral */
+        double U = pow(10.0, logU);
+        double mu = (4.0) / (1 + 3 * XH);
+        logT = log10(GAMMA_MINUS1 / BOLTZMANN * U * PROTONMASS * mu);
     }
     return logT;
 }
