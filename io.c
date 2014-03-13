@@ -3614,14 +3614,16 @@ void write_file(char *fname, int writeTask, int lastTask)
 #endif
 
 #ifdef SFR
-    header.flag_sfr = 1;
-    header.flag_feedback = 1;
+    if(All.StarformationOn) {
+        header.flag_sfr = 1;
+        header.flag_feedback = 1;
 #ifdef STELLARAGE
-    header.flag_stellarage = 1;
+        header.flag_stellarage = 1;
 #endif
 #ifdef METALS
-    header.flag_metals = 1;
+        header.flag_metals = 1;
 #endif
+    }
 #endif
 
     header.num_files = All.NumFilesPerSnapshot;

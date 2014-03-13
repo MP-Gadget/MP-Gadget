@@ -2475,10 +2475,8 @@ NUMCRPOP = 1;
     {
         if(ThisTask == 0)
         {
-            printf("Code was compiled with star formation switched on.\n");
-            printf("You must set `StarformationOn=1', or recompile the code.\n");
+            printf("StarformationOn is disabled!\n");
         }
-        endrun(0);
     }
     if(All.CoolingOn == 0)
     {
