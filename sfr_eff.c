@@ -185,48 +185,6 @@ void cooling_and_starformation(void)
     }
 }
 
-/* returns 0 if the particle is actively forming stars */
-static int get_sfr_condition(int i) {
-/* no sfr !*/
-    if(!All.StarformationOn) {
-        return 1;
-    }
-#ifndef MODIFIED_SFR
-    if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
-        return 0;
-#else
-    if((SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
-            && (SPHP(i).Entropy * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1 <
-                SFRTempThresh))
-        return 0;
-#endif
-
-    if(All.ComovingIntegrationOn)
-        if(SPHP(i).d.Density < All.OverDensThresh)
-            return 1;
-
-#ifdef BLACK_HOLES
-    if(P[i].Mass == 0)
-        return 1;
-#endif
-
-#ifdef WINDS
-    if(SPHP(i).DelayTime > 0)
-        return 1;		/* only normal cooling for particles in the wind */
-#endif
-
-#ifdef QUICK_LYALPHA
-    temp = u_to_temp_fac * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
-        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1);
-
-    if(SPHP(i).d.Density > All.OverDensThresh && temp < 1.0e5)
-        return 0;
-    else
-        return 1;
-#endif
-    return 1;
-}
-
 static void cooling_direct(int i) {
 
 #ifdef COSMIC_RAYS
@@ -322,6 +280,56 @@ static void cooling_direct(int i) {
     }
 #endif
 }
+
+#endif /* closing of COOLING-conditional */
+
+
+#if defined(SFR)
+
+
+/* returns 0 if the particle is actively forming stars */
+static int get_sfr_condition(int i) {
+    int flag = 1;
+/* no sfr !*/
+    if(!All.StarformationOn) {
+        return flag;
+    }
+#ifndef MODIFIED_SFR
+    if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
+        flag = 0;
+#else
+    if((SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
+            && (SPHP(i).Entropy * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1 <
+                SFRTempThresh))
+        flag 0;
+#endif
+
+    if(All.ComovingIntegrationOn)
+        if(SPHP(i).d.Density < All.OverDensThresh)
+            flag = 1;
+
+#ifdef BLACK_HOLES
+    if(P[i].Mass == 0)
+        flag = 1;
+#endif
+
+#ifdef WINDS
+    if(SPHP(i).DelayTime > 0)
+        flag = 1;		/* only normal cooling for particles in the wind */
+#endif
+
+#ifdef QUICK_LYALPHA
+    temp = u_to_temp_fac * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
+        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1);
+
+    if(SPHP(i).d.Density > All.OverDensThresh && temp < 1.0e5)
+        flag = 0;
+    else
+        flag = 1;
+#endif
+    return flag;
+}
+
 
 static int make_particle_wind(int i, double efficiency) {
     /* returns 0 if particle i is converteed to wind. */
@@ -961,10 +969,6 @@ void integrate_sfr(void)
         fclose(fd);
 }
 
-#endif /* closing of SFR-conditional */
-
-
-#if defined(SFR)
 void set_units_sfr(void)
 {
     for(bits = 0; GENERATIONS > (1 << bits); bits++);
