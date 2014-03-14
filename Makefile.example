@@ -9,12 +9,11 @@ OPT += -DDENSITY_INDEPENDENT_SPH
 OPT	+=  -DPERIODIC
 OPT	+=  -DCOOLING
 OPT	+=  -DSFR
-#OPT	+=  -DSINKS
 OPT	+=  -DUNEQUALSOFTENINGS
-#OPT	+=  -DNUM_THREADS=4
 # shall be a lot faster than critical sections
 # but may not run on some systems
 OPT += -DOPENMP_USE_SPINLOCK
+OPT += -DLIGHTCONE                       # write a lightcone on the fly in development
 
 #--------------------------------------- TreePM Options
 OPT	+=  -DPMGRID=512
@@ -34,6 +33,9 @@ OPT	+=  -DTOPNODEFACTOR=5.0
 OPT	+=  -DPEANOHILBERT
 OPT	+=  -DWALLCLOCK
 OPT	+=  -DMYSORT
+OPT	+=  -DLONGIDS                         # always use long id enable this
+OPT	+=  -DDONOTUSENODELIST                # do not use node list in hydro why?
+OPT	+=  -DALLOWEXTRAPARAMS
 #OPT	+=  -DCPUSPEEDADJUSTMENT
 #OPT	+=  -DHYDRO_COST_FACTOR=1000
 #OPT	+=  -DAUTO_SWAP_ENDIAN_READIC        # Enables automatic ENDIAN swapping for reading ICs
@@ -44,8 +46,6 @@ OPT	+=  -DMYSORT
 OPT	+=  -DDOUBLEPRECISION
 OPT	+=  -DDOUBLEPRECISION_FFTW
 OPT	+=  -DOUTPUT_IN_DOUBLEPRECISION # snapshot files will be written in double precision
-#OPT	+=  -DINPUT_IN_DOUBLEPRECISION
-
 
 #---------------------------------------- Invariance Test
 #OPT	+=  -DINVARIANCETEST
@@ -88,7 +88,6 @@ OPT	+=  -DSTELLARAGE
 OPT	+=  -DWINDS
 #OPT	+=  -DQUICK_LYALPHA
 #OPT	+=  -DISOTROPICWINDS
-#OPT	+=  -DMHM
 #OPT    +=  -DMODIFIED_SFR
 
 
@@ -103,32 +102,6 @@ OPT	+=  -DEVALPOTENTIAL           # computes gravitational potential
 OPT	+=  -DREPOSITION_ON_POTMIN    # repositions hole on potential minimum (requires EVALPOTENTIAL)
 OPT	+=  -DBH_COUNTPROGS	      # carries a counter for each BH that gives the total number of seeds that merged into it
 OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding gas velocity is used in addition to the sounds speed in the Bondi rate 
-
-
-#-------------------------------------- AGN-Bubble feedback
-#OPT	+=  -DBUBBLES                 # generation of hot bubbles in an isolated halo or the the biggest halo in the run
-#OPT	+=  -DMULTI_BUBBLES 	      # hot bubbles in all haloes above certain mass threshold (works only with FOF and without BUBBLES)
-#OPT	+=  -DEBUB_PROPTO_BHAR        # Energy content of the bubbles with cosmic time evolves as an integrated BHAR(z) over a Salpeter time (Di Matteo 2003 eq. [11])
-
-#OPT    +=  -DBH_BUBBLES              # calculate bubble energy directly from
-                                      # the black hole accretion rate
-
-#OPT    +=  -DUNIFIED_FEEDBACK        # activates BH_THERMALFEEDBACK at high
-                                      # Mdot and BH_BUBBLES FEEDBACK al low Mdot
-
-#------------------------------------ # [options from LT and DF]
-#OPT	+= -DLT_BH
-#OPT    += -DLT_BH_CUT_KERNEL
-#OPT    += -DLT_BH_USETOPHAT_KERNEL
-#OPT    += -DLT_BH_DONOT_USEDENSITY_IN_KERNEL
-#OPT	+= -DLT_BH_ACCRETE_SLICES
-
-#OPT    += -DLT_BH_LOG
-
-#OPT 	+= -DLT_DF_BH
-##OPT 	+= -DLT_DF_BH_MASS_SWITCH	# switch feedback mode by BH mass
-#OPT	+= -DLT_DF_BH_BHAR_SWITCH 	# switch feedback by BHAR
-##OPT	+= -DLT_DF_BH_ONLY_RADIOMODE_KERNEL	# use the selected kernel only in radio mode
 
 
 #-------------------------------------- Viscous gas treatment 
@@ -163,8 +136,6 @@ OPT	+=  -DFIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
 #OPT	+=  -DNO_TREEDATA_IN_RESTART
 #OPT	+=  -DISOTHERM=200                  # adds potential of an isothermal sphere
 #OPT	+=  -DCOMPUTE_POTENTIAL_ENERGY
-#OPT	+=  -DALLOWEXTRAPARAMS
-OPT	+=  -DLONGIDS # always enable this
 #OPT	+=  -DASSIGN_NEW_IDS
 OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very different from collisionless particles, this can helps to avoid problems in the domain decomposition
 #OPT	+=  -DLONG_X=140
@@ -188,7 +159,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DISOTHERM_EQS                  # isothermal equation of state
 #OPT	+=  -DNO_UTHERM_IN_IC_FILE
 #OPT	+=  -DSPECIAL_GAS_TREATMENT_IN_HIGHRESREGION
-OPT	+=  -DDONOTUSENODELIST
 
 #--------------------------------------- Time integration options
 #OPT	+=  -DALTERNATIVE_VISCOUS_TIMESTEP
@@ -394,42 +364,11 @@ OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
 #OPT	+=  -DCMB
 #OPT	+=  -DRADIATION
 
-
-#---------------------------------------- Cosmic Rays (Martin)
-#OPT	+=  -DCOSMIC_RAYS               # Cosmic Rays Master Switch
-#OPT    +=  -DNUMCRPOP=5                # Number of CR populations: Max is 6
-#OPT	+=  -DCR_IC                     # IC files contain CR information
-#OPT	+=  -DCR_IC_PHYSICAL
-#OPT	+=  -DCR_DISSIPATION            # Catastrophic losses
-#OPT	+=  -DCR_THERMALIZATION         # Coulomb cooling
-#OPT	+=  -DCR_SHOCK=2                # Shock energy is directed into CR
-			                # 2 = Mach-Number dependent shocks, Mach-number derived for thermal gas/CR composite
-			                # 3 = Mach-Number dependent shocks, Mach-number derived for thermal gas
-#OPT	+=  -DCR_DIFFUSION              # Cosmic Ray diffusion
-#OPT	+=  -DCR_DIFFUSION_GREEN        # alternative diffusion model
-#OPT	+=  -DUPDATE_PARANOIA=1         # 1 = Update on every predict, 2 = Update on every energy injection and on every predict
-#OPT	+=  -DCR_OUTPUT_INJECTION       # Output energy injection rate in snapshots
-#OPT	+=  -DCR_NO_CHANGE              # Compute changes to CR, but do not execute them, useful for estimating the size of effects
-#OPT	+=  -DCOSMIC_RAY_TEST           # starts a test routine instead of the simulation
-#OPT	+=  -DCR_NOPRESSURE             # computes CRs as usual, but ignores the pressure in the dynamics
-#OPT	+=  -DCR_SN_INJECTION           # switches on CRs due to SNe 
-#OPT	+=  -DCR_BUBBLES                # CRs in the AGN bubbles
-#OPT    +=  -DCR_OUTPUT_TIMESCALES      # returns output from CR_ThermalizationTime and CR_DissipationTime
-#OPT    +=  -DCR_OUTPUT_THERMO_VARIABLES # returns output from CR_P0, CR_E0, and CR_n0
-
 #---------------------------------------- Mach number finder (Christoph)
 #OPT	+=  -DMACHNUM                   # Mach number Master Switch
 #OPT	+=  -DMACHSTATISTIC             # Dissipated thermal energy at shocks
 #OPT	+=  -DCR_OUTPUT_JUMP_CONDITIONS # CR: density and thermal energy jump at shocks
 #OPT	+=  -DOUTPUT_PRESHOCK_CSND	# Output pre-shock sound speed and pre-shock physical density
-
-#--------------------------------------- Cecilia 's model
-#OPT	+=  -DCS_MODEL      
-#OPT	+=  -DCS_FEEDBACK
-#OPT	+=  -DCS_SNI
-#OPT	+=  -DCS_SNII
-#OPT	+=  -DCS_ENRICH
-#OPT	+=  -DCS_TESTS
 
 #--------------------------------------- Voronoi based SPH
 #OPT	+=  -DVORONOI
@@ -462,166 +401,6 @@ OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
 #OPT +=  -DNEGLECT_DTDY_TERMS
 #OPT +=  -DNETWORK_OUTPUT
 #OPT +=  -DNETWORK_OUTPUT_BINARY
-
-
-#--------------------------------------- Luca's model
-
-#OPT  += -DLT_METAL_COOLING           # METAL COOLING option
-#OPT  += -DLT_METALCOOLING_on_SMOOTH_Z
-#OPT  += -DLT_DAMP_METALCOOLING=5.1
-
-#OPT  += -DLT_SMOOTH_Z
-#OPT  += -DLT_SMOOTHZ_DETAILS
-#OPT  += -DLT_SMOOTH_SIZE
-#OPT  += -DLT_SMOOTH_NGB
-#OPT  += -DLT_MEAN_Z_ESTIMATE
-
-#OPT  += -DLT_SMOOTHZ_IN_IMF_SWITCH
-
-#OPT  += -DLT_SMOOTH_XCLD
-
-#....................................
-
-#OPT  += -DLT_STARBURSTS
-
-#....................................# STELLAR EVOLUTION options
-#OPT  += -DLT_STELLAREVOLUTION        # enable stellar evolution
-#OPT  += -DLT_NMet=9                  # number of species
-
-#OPT  += -DLT_SNII                    # enable snII
-#OPT  += -DLT_SNIa                    # enable SnIa
-#OPT  += -DLT_AGB                     # enable low mass stars
-
-#OPT  += -DLT_PM_LIFETIMES            # use Padovani&matteucci 1993 lifetimes
-#OPT  += -DLT_MM_LIFETIMES           # use Maeder&Menet 1989 lifetimes
-
-#OPT  +=  LT_STOCHASTIC_IRA
-
-#OPT  += -DLT_LOCAL_IRA
-#OPT  += -DLT_AVOID_SELFENRICHMENT
-#OPT  += -DLT_AVOID_ENRICH_SFGAS
-
-#OPT  += -DLT_TEMP_THRESH_FOR_MULTIPHASE
-
-#OPT  += -DLT_WIND_VELOCITY=500.0   # set the winds' velocity in km/s
-#OPT  += -DLT_HYDROWINDS
-#OPT  += -DLT_DECOUPLE_POSTWINDS_FROM_SF
-
-#OPT  += -DLT_EJECTA_IN_HOTPHASE
-#OPT  += -DLT_SNegy_IN_HOTPHASE
-#OPT  += -DLT_HOT_EJECTA
-#OPT  += -DLT_HOT_WINDS
-
-#OPT  += -DLT_CharT                  # extra conditions on SF:
-#                                      #  cooling time < sound cross time
-#                                      #  ffall time < sound cross time
-
-#.....................................# Other physics options
-#OPT  += -DLT_WINDS_EXT               # EXTRA WINDS options
-#OPT  += -DLT_WINDS_EXT_NOSF_BRANCH
-#OPT  += -DLT_TRACK_WINDS
-
-#OPT  += -DLT_USE_TOP_HAT_WEIGHT
-#OPT  += -DLT_USE_TOP_HAT_WEIGHT_STRICT
-#OPT  += -DLT_USE_SOLIDANGLE_WEIGHT
-
-#OPT  += -DLT_DONTUSE_DENSITY_in_WEIGHT
-
-#.....................................#
-
-#OPT   += -DLT_ZAGE
-#OPT   += -DLT_ZAGE_LLV
-
-#.....................................# logging/debug options
-#OPT  += -DLT_SEv_INFO                 # infos about enrichment
-#OPT  += -DLT_SEv_INFO_DETAILS_onSPREAD
-#OPT  += -DLT_SEv_INFO_DETAILS
-#OPT  += -DLT_EXTEGY_INFO              # infos about energy
-#OPT  += -DLT_CharT_INFO               # infos about cooling time,
-#                                       #  sound crossing time,
-#                                       #  free fall time
-#OPT  += -DLT_SEvDbg
-#OPT  += -DLT_TRACK_CONTRIBUTES
-#OPT  += -DLT_Nbits=8
-#OPT  += -DLT_power10_Nbits=2
-#.....................................#
-#OPT  += -DLT_COST_SE                 # account for cost of Sn in
-#                                       #  domain dec.
-
-#---------------------------------------------
-
-#OPT   +=  -DUM_CHEMISTRY        #<<<<<<< enable met/HD non-eq. chemistry
-
-#OPT   +=  -DUM_METAL_COOLING    #<<<<<<< enable met cooling only
-#OPT   +=  -DUM_H_MET_IMPACTS
-#OPT   +=  -DUM_e_MET_IMPACTS
-#OPT   +=  -DUM_ENABLE_CII_COOLING
-#OPT   +=  -DUM_ENABLE_SiII_COOLING
-#OPT   +=  -DUM_ENABLE_OI_COOLING
-#OPT   +=  -DUM_ENABLE_FeII_COOLING
-#OPT   +=  -DUM_WIND_DELAYTIME
-#OPT   +=  -DUM_CONTINUE
-#OPT   +=  -DUM_CUT_MOLECULES
-
-#NB:
-# switch off UM_CHEMISTRY (for non-eq cooling) and use
-# UM_METAL_COOLING + UM_MET_IN_LT_COOLING if you want to include low T met. cooling in Luca's  part only and neglect the non-eq options.
-
-#OPT   +=  -DUM_MET_NONEQ_CORRECTIONS
-#OPT   +=  -DUM_MET_IN_NONEQ_COOLING
-#OPT   +=  -DUM_MET_IN_LT_COOLING
-#OPT   +=  -DUM_HD_COOLING
-#OPT   +=  -DUM_NEW_RATES
-#OPT   +=  -DUM_NEW_RATES_HG97
-#OPT   +=  -DUM_CHEMISTRY_INISET  ## Use this with UM_READ_METALS_FROM_IC off
-
-##Some other possibilities to initialize the metals..
-#OPT   +=  -DUM_READ_METALS_FROM_IC
-#OPT   +=  -DUM_CHECK
-#
-#	UM_CHEMISTRY: is the main opt; 
-#	enables um_chemistry when CHEMISTRY is not defined
-#	UM_METAL_COOLING:
-#	enables low T metal cooling in cooling.c/um_metal_cooling.c
-#	(use with && UM_MET/NONEQ_LT_COOLING and/or UM_MET_IN_NONEQ_COOLING)
-#	UM_H_MET_IMPACTS:
-#	enables line cooling due to H-impact excitations with metals.
-#	UM_e_MET_IMPACTS:
-#	enables line cooling due to e-impact excitations with metals.
-#	Enable different kind of cooling with:
-#            UM_ENABLE_CII_COOLING
-#            UM_ENABLE_SiII_COOLING
-#            UM_ENABLE_OI_COOLING
-#            UM_ENABLE_FeII_COOLING
-# 	UM_MET_IN_LT_COOLING:
-#	adds low T metal cooling fct in cooling.c
-#       UM_MET_IN_NONEQ_COOLING:
-# 	adds low T metal cooling in um_chemistry_noneq.c
-#       UM_MET_NONEQ_CORRECTIONS:
-#	performs corrections in the non-equilibrium stuff
-#	when coupled with metals (UM_MET_IN_NONEQ_COOLING + LT_METAL_COOLING)
-#	UM_HD_COOLING
-#	enable HD cooling
-#	UM_H2plus_COOLING
-#	enable H2+ cooling
-#	UM_NEW_RATES
-#	updated rates
-#	UM_NEW_RATES_HG97
-#	enable Hui&Gnedin case B recombination rates (for high density gas)
-#	UM_CHEMISTRY_SETIN
-#	set up chemical composition when specified in the parameter file
-#	UM_CHECK:
-#	just to make some check on the run
-
-#--------------------------------------- TG's options
-#OPT	+=  -DCHEMCOOL
-
-#OPT	+=  -DEND_TIME_DYN_BASED
-
-#OPT	+=  -DSNAP_SET_TG
-#OPT	+=  -DNSTEPS_BASED_SNAPS
-#OPT	+=  -DDENSITY_BASED_SNAPS
-#OPT	+=  -DDYN_TIME_BASED_SNAPS
 
 
 #--------------------------------------- Select target Computer

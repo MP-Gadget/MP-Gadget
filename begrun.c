@@ -82,6 +82,10 @@ void begrun(void)
     init_clouds();
 #endif
 
+#ifdef LIGHTCONE
+    lightcone_init();
+#endif
+
 #ifdef CHEMCOOL
 #ifndef CHEMISTRYNETWORK
     terminate("CHEMISTRYNETWORK not specified!\n");
