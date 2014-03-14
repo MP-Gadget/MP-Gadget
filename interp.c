@@ -108,7 +108,7 @@ double interp_eval(Interp * obj, double * x, double * ydata, int * status) {
                 /* on this dimension the second data point 
                  * is not needed */
                 skip = 1;
-                continue;
+                break;
             }
 
             /* 
@@ -120,8 +120,9 @@ double interp_eval(Interp * obj, double * x, double * ydata, int * status) {
             filter *= foffset?f[d] : (1 - f[d]);
             l += foffset * obj->strides[d];
         }
-        if(!skip)
+        if(!skip) {
             ret += ydata[l] * filter;
+        }
     }
     return ret;
 }
