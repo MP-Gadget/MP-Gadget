@@ -35,7 +35,7 @@ P-Gadget3: $(OBJS)
 	$(CC) $(OPTIMIZE) $^ $(LIBS) -o $@
 
 config.h: Makefile
-	echo "const char * COMPILETIMESETTINGS = \"$(OPTIMIZE) $(OPTS)\";" > $@
+	echo "const char * COMPILETIMESETTINGS = \"$(OPTIMIZE) $(OPT)\";" > $@
 
 
 $(OBJS): $(INCL) config.h
