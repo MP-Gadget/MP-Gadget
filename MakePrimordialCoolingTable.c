@@ -4,6 +4,10 @@
 #include <math.h>
 #include <hdf5.h>
 
+#define NTemperature_bins 200
+#define NHydrogenNumberDensity_bins 51
+#define NRedshift_bins 52
+
 #define  BOLTZMANN   1.38066e-16
 #ifndef  GAMMA
 #define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
@@ -38,10 +42,10 @@ static double yhelium;
 static double mhboltz;		/* hydrogen mass over Boltzmann constant */
 static double ethmin;		/* minimum internal energy for neutral gas */
 
-static double Tmin = 1.0;	/* in log10 */
+static double Tmin = -0.3010299956639812 ;	/* in log10, 0.5 Kelvin */
 static double Tmax = 9.0;
 static double deltaT;
-
+static double *COOLTABT;
 static double *BetaH0, *BetaHep, *Betaff;
 static double *AlphaHp, *AlphaHep, *Alphad, *AlphaHepp;
 static double *GammaeH0, *GammaeHe0, *GammaeHep;
@@ -363,6 +367,7 @@ void InitCoolMemory(void)
     GammaeHe0 = (double *) malloc((NCOOLTAB + 1) * sizeof(double));
     GammaeHep = (double *) malloc((NCOOLTAB + 1) * sizeof(double));
     Betaff = (double *) malloc((NCOOLTAB + 1) * sizeof(double));
+    COOLTABT = (double*) malloc((NCOOLTAB + 1) * sizeof(double));
 }
 
 
@@ -385,8 +390,6 @@ void MakeCoolingTable(void)
 
     mhboltz = PROTONMASS / BOLTZMANN;
 
-    Tmin = 1.0;
-
     deltaT = (Tmax - Tmin) / NCOOLTAB;
 
     ethmin = pow(10.0, Tmin) * (1. + yhelium) / ((1. + 4. * yhelium) * mhboltz * GAMMA_MINUS1);
@@ -401,7 +404,7 @@ void MakeCoolingTable(void)
 
 
         T = pow(10.0, Tmin + deltaT * i);
-
+        COOLTABT[i] = log10(T);
         Tfact = 1.0 / (1 + sqrt(T / 1.0e5));
 
         if(118348 / T < 70)
@@ -667,11 +670,11 @@ int main(int argc, char * argv[]) {
 
     MakeCoolingTable();
 
-    double table[9][52][51][200];
-    double Redshift_bins[52];
-    double HydrogenNumberDensity_bins[51];
-    double Temperature_bins[200];
-    double SpecInternalEnergy_bins[200];
+    double table[9][NRedshift_bins][NHydrogenNumberDensity_bins][NTemperature_bins];
+    double Redshift_bins[NRedshift_bins];
+    double HydrogenNumberDensity_bins[NHydrogenNumberDensity_bins];
+    double Temperature_bins[NTemperature_bins];
+    double SpecInternalEnergy_bins[NTemperature_bins];
     double z = 0.0;
     double logn = 0.0;
     double logT = 0.0;
@@ -679,21 +682,31 @@ int main(int argc, char * argv[]) {
     int i, j, k, l;
     hid_t fid;
 
-    for(i = 0; i < 52; i ++) {
-        z = (i - 1) * 0.2;
+    Time = 1 / (11.);
+    IonizeParams();
+    find_abundances_and_rates(3.8598, 5.0764523e-23, 1.0);
+
+    for(i = 0; i < NRedshift_bins; i ++) {
+        z = (i - 1) * 10.0 / (NRedshift_bins - 2);
         Redshift_bins[i] = z;
     }
-    for(j = 0; j < 51; j ++) {
-        logn = -8 + 0.2 * j;
+    for(j = 0; j < NHydrogenNumberDensity_bins; j ++) {
+        logn = -8 + 10. / (NHydrogenNumberDensity_bins - 1) * j;
         HydrogenNumberDensity_bins[j] = logn;
     }
-    for(k = 0; k < 200; k ++) {
-        logT = 1 + 8. / 199.95651587694084 * k;
-        logU = 9.25 + 8. / 199 * k;
+    for(k = 0; k < NTemperature_bins; k ++) {
+        logT = 1 + 8. / (NTemperature_bins - 1) * k;
+        logU = 9.5 + 8. / (NTemperature_bins - 1)* k;
         Temperature_bins[k] = logT;
         SpecInternalEnergy_bins[k] = logU;
+        logn = log10(23.);
+        double rho = pow(10.0, logn) / XH * PROTONMASS;
+        double T = convert_u_to_temp(pow(10.0, logU), rho);
+        printf("%g %g %g %g\n", pow(10.0, logU), rho, T, nHp);
     }
-    for(i = 0; i < 52; i ++) {
+
+    IonizeParams();
+    for(i = 0; i < NRedshift_bins; i ++) {
         z = Redshift_bins[i];
         Time = 1 / ( z + 1.);
         if( z < 0) {
@@ -701,25 +714,34 @@ int main(int argc, char * argv[]) {
         } else {
             IonizeParams();
         }
-        for(j = 0; j < 51; j ++) {
+        for(j = 0; j < NHydrogenNumberDensity_bins; j ++) {
             logn = HydrogenNumberDensity_bins[j];
             double nHcgs = pow(10., logn);
 
-            for(k = 0; k < 200; k ++) {
+            for(k = 0; k < NTemperature_bins; k ++) {
 
                 /* to match the AREPO table from Vogelsburger */
                 logT = Temperature_bins[k];
                 logU = SpecInternalEnergy_bins[k];
 
-                CoolingRate(logT, logn);
+                double Lnet = CoolingRate(logT, logn);
                 double nHcgs = pow(10., logn); //XH * rho / PROTONMASS;	/* hydrogen number dens in cgs units */
 
                 double rho = nHcgs / XH * PROTONMASS;
                 double T = log10(convert_u_to_temp(pow(10, logU), rho));
+                double Lp = Lambda - LambdaCmptn;
+                if(Heat > 1e-60)
+                    Heat = log10(Heat);
+                else
+                    Heat = -60;
+                if(Lp > 1e-60)
+                    Lp = log10(Lp);
+                else
+                    Lp = -60;
                 double a[] = {
-                    nHp, nHep, nHepp, Heat, Lambda - LambdaCmptn, LambdaCmptn, Lambda - Heat, T
+                    nHp, nHep, nHepp, Heat, Lp, LambdaCmptn, T
                 };
-                for(l = 0; l < 8; l ++) {
+                for(l = 0; l < 7; l ++) {
                     table[l][i][j][k] = a[l];
                 }
             }
@@ -730,22 +752,35 @@ int main(int argc, char * argv[]) {
     write_component(fid, (double*)table[0], "nHp");
     write_component(fid, (double*)table[1], "nHep");
     write_component(fid, (double*)table[2], "nHepp");
-    write_component(fid, (double*)table[3], "PrimordialHeatingRate");
+    printf("Remember PrimordialCooling and UVHeating are in Log10\n");
+    write_component(fid, (double*)table[3], "UVHeatingRate");
     write_component(fid, (double*)table[4], "PrimordialCoolingRate");
     write_component(fid, (double*)table[5], "ComptonCoolingRate");
 
-    printf("Remember NetCoolingRate is Cool - Heat + Compton\n");
-    write_component(fid, (double*)table[6], "NetCoolingRate");
-
     printf("Remember Equilibrium Temperature is function of SpecInternalEnergy\n");
 
-    write_component(fid, (double*)table[7], "EquilibriumTemperature");
+    write_component(fid, (double*)table[6], "EquilibriumTemperature");
 
     printf("Remember negative Redshift corresponds to 0-ionization! \n");
-    write_bins(fid, Redshift_bins, 52, "Redshift_bins");
-    write_bins(fid, HydrogenNumberDensity_bins, 51, "HydrogenNumberDensity_bins");
-    write_bins(fid, Temperature_bins, 200, "Temperature_bins");
-    write_bins(fid, SpecInternalEnergy_bins, 200, "SpecInternalEnergy_bins");
+    write_bins(fid, Redshift_bins, NRedshift_bins, "Redshift_bins");
+    write_bins(fid, HydrogenNumberDensity_bins, NHydrogenNumberDensity_bins, "HydrogenNumberDensity_bins");
+    write_bins(fid, Temperature_bins, NTemperature_bins, "Temperature_bins");
+    write_bins(fid, SpecInternalEnergy_bins, NTemperature_bins, "SpecInternalEnergy_bins");
+
+    /* now lets write the rate table */
+    double Temperature_bins2[NCOOLTAB + 1];
+    write_bins(fid, COOLTABT, NCOOLTAB + 1, "RATES-Temperature_bins");
+    write_bins(fid, BetaH0, NCOOLTAB + 1, "RATES-BetaH0");
+    write_bins(fid, BetaHep, NCOOLTAB + 1, "RATES-BetaHep");
+    write_bins(fid, Betaff, NCOOLTAB + 1, "RATES-Betaff");
+    write_bins(fid, AlphaHp, NCOOLTAB + 1, "RATES-AlphaHp");
+    write_bins(fid, AlphaHep, NCOOLTAB + 1, "RATES-AlphaHep");
+    write_bins(fid, AlphaHepp, NCOOLTAB + 1, "RATES-AlphaHepp");
+    write_bins(fid, Alphad, NCOOLTAB + 1, "RATES-Alphad");
+    write_bins(fid, GammaeH0, NCOOLTAB + 1, "RATES-GammaeH0");
+    write_bins(fid, GammaeHe0, NCOOLTAB + 1, "RATES-GammaeHe0");
+    write_bins(fid, GammaeHep, NCOOLTAB + 1, "RATES-GammaeHep");
+
     H5Fclose(fid);
 }
 
@@ -760,7 +795,7 @@ void write_bins(hid_t fid, double * bins, int Nbins, char * name) {
 
 }
 void write_component(hid_t fid, double * table, char * name) {
-    hsize_t dims[3] = {52, 51, 200};
+    hsize_t dims[3] = {NRedshift_bins, NHydrogenNumberDensity_bins, NTemperature_bins};
     hid_t dsid = H5Screate_simple(3, dims, NULL);
     hid_t did = H5Dcreate2(fid, name, H5T_NATIVE_DOUBLE, dsid, 
             H5P_DEFAULT, H5P_DEFAULT, H5P_DEFAULT);
