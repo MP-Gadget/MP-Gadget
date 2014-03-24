@@ -65,7 +65,9 @@ static struct cand_dat
   int64_t rank;
   int len;
   int nsub;
-  int subnr, parent;
+  int subnr;
+  int parent;
+  int daughtercount;
   int bound_length;
 }
  *candidates;
@@ -97,7 +99,7 @@ void subfind_unbind_independent_ones(int count_cand)
   qsort(candidates, count_cand, sizeof(struct cand_dat), subfind_compare_candidates_nsubs);
 
   for(k = 0, i = 0; k < count_cand; k++)
-    if(candidates[k].parent == 0)
+    if(candidates[k].daughtercount == 0)
       {
 	while(P[i].submark < candidates[k].nsub)
 	  {
@@ -157,7 +159,7 @@ void subfind_process_group_collectively(int num)
 {
   int64_t p;
   int len, totgrouplen1, totgrouplen2;
-  int ncand, parent, totcand, nremaining;
+  int ncand, daughtercount, parent, totcand, nremaining;
   int max_loc_length, max_length;
   int count, countall, *countlist, *offset;
   int i, j, k, nr, grindex = 0, nsubs, subnr;
@@ -326,7 +328,7 @@ void subfind_process_group_collectively(int num)
     Tail[i] = -1;
 
   for(i = 0; i < count_cand; i++)
-    candidates[i].parent = 0;
+    candidates[i].daughtercount = 0;
 
   do
     {
@@ -362,22 +364,22 @@ void subfind_process_group_collectively(int num)
 
 	  for(k = 0; k < totcand; k++)
 	    {
-	      if(tmp_candidates[k].parent >= 0)
+	      if(tmp_candidates[k].daughtercount >= 0)
 		{
-		  tmp_candidates[k].parent = 0;
+		  tmp_candidates[k].daughtercount = 0;
 
 		  for(j = k + 1; j < totcand; j++)
 		    {
 		      if(tmp_candidates[j].rank > tmp_candidates[k].rank + tmp_candidates[k].len)
 			break;
 
-		      if(tmp_candidates[j].parent < 0)	/* ignore these */
+		      if(tmp_candidates[j].daughtercount < 0)	/* ignore these */
 			continue;
 
 		      if(tmp_candidates[k].rank + tmp_candidates[k].len >=
 			 tmp_candidates[j].rank + tmp_candidates[j].len)
 			{
-			  tmp_candidates[k].parent++;	/* we here count the number of subhalos that are enclosed */
+			  tmp_candidates[k].daughtercount ++;	/* we here count the number of subhalos that are enclosed */
 			}
 		      else
 			{
@@ -405,14 +407,14 @@ void subfind_process_group_collectively(int num)
 
 
       for(i = 0, count_leaves = 0, max_loc_length = 0; i < count_cand; i++)
-	if(candidates[i].parent == 0)
+	if(candidates[i].daughtercount == 0)
 	  {
 	    if(candidates[i].len > max_loc_length)
 	      max_loc_length = candidates[i].len;
 
 	    if(candidates[i].len > 0.15 * All.TotNumPart / NTask)	/* seems large, let's rather do it collectively */
 	      {
-		candidates[i].parent++;	/* this will ensure that it is not considered in this round */
+		candidates[i].daughtercount ++;	/* this will ensure that it is not considered in this round */
 	      }
 	    else
 	      {
@@ -468,14 +470,14 @@ void subfind_process_group_collectively(int num)
 	      if(ThisTask == master)
 		{
 		  len = candidates[k].len;
-		  parent = candidates[k].parent;	/* this is here actually the daughter count */
+		  daughtercount = candidates[k].daughtercount ;	/* this is here actually the daughter count */
 		}
 
 	      MPI_Bcast(&len, sizeof(len), MPI_BYTE, master, MPI_COMM_WORLD);
-	      MPI_Bcast(&parent, sizeof(parent), MPI_BYTE, master, MPI_COMM_WORLD);
+	      MPI_Bcast(&daughtercount, sizeof(daughtercount), MPI_BYTE, master, MPI_COMM_WORLD);
 	      MPI_Barrier(MPI_COMM_WORLD);
 
-	      if(parent == 0)
+	      if(daughtercount == 0)
 		{
 		  if(ThisTask != master)
 		    subfind_poll_for_requests();
@@ -562,8 +564,8 @@ void subfind_process_group_collectively(int num)
 	  Tail[i] = P[i].submark;	/* we use this to flag bound parts of substructures */
 
       for(i = 0; i < count_cand; i++)
-	if(candidates[i].parent == 0)
-	  candidates[i].parent = -1;
+	if(candidates[i].daughtercount == 0)
+	  candidates[i].daughtercount = -1;
     }
   while(tot_count_leaves > 0);
 
@@ -590,13 +592,13 @@ void subfind_process_group_collectively(int num)
 	    {
 	      len = candidates[k].len;
 	      nsubs = candidates[k].nsub;
-	      parent = candidates[k].parent;	/* this is here actually the daughter count */
+	      daughtercount = candidates[k].daughtercount;	/* this is here actually the daughter count */
 	    }
 
-	  MPI_Bcast(&parent, sizeof(parent), MPI_BYTE, master, MPI_COMM_WORLD);
+	  MPI_Bcast(&daughtercount, sizeof(daughtercount), MPI_BYTE, master, MPI_COMM_WORLD);
 	  MPI_Barrier(MPI_COMM_WORLD);
 
-	  if(parent >= 0)
+	  if(daughtercount >= 0)
 	    {
 	      MPI_Bcast(&len, sizeof(len), MPI_BYTE, master, MPI_COMM_WORLD);
 	      MPI_Bcast(&nsubs, sizeof(nsubs), MPI_BYTE, master, MPI_COMM_WORLD);
@@ -723,7 +725,7 @@ void subfind_process_group_collectively(int num)
       for(k = 0; k < totcand; k++)
 	{
 	  tmp_candidates[k].subnr = k;
-	  tmp_candidates[k].parent = 0;
+	  tmp_candidates[k].parent = -1;
 	}
 
       qsort(tmp_candidates, totcand, sizeof(struct cand_dat), subfind_compare_candidates_rank);
