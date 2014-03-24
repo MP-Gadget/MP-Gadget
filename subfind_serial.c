@@ -278,7 +278,7 @@ int subfind_process_group_serial(int gr, int Offs)
   for(k = 0; k < count_cand; k++)
     {
       candidates[k].subnr = k;
-      candidates[k].parent = 0;
+      candidates[k].parent = -1;
     }
 
   qsort(candidates, count_cand, sizeof(struct cand_dat), subfind_compare_serial_candidates_rank);
