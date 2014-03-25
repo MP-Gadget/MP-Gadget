@@ -524,7 +524,7 @@ int domain_decompose(void)
 #endif
     }
 
-    domain_exchange(domain_layoutfunc, 0);
+    domain_exchange(domain_layoutfunc);
     return 0;
 }
 
@@ -539,14 +539,13 @@ void checklock() {
     }
 #endif
 }
-/* if onlyparticledata is 1, 
- * exchange only the particle data.
- * SPH/BH properties are not exchanged.
- *
- * usually onlyparticledata is 0. subfind use 1.
- * */
+/* 
+ * 
+ * exchange particles according to layoutfunc.
+ * layoutfunc gives the target task of particle p.
+*/
 
-void domain_exchange(int (*layoutfunc)(int p), int onlyparticledata) {
+void domain_exchange(int (*layoutfunc)(int p)) {
     int i;
     int64_t sumtogo;
     /* flag the particles that need to be exported */

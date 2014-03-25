@@ -46,7 +46,8 @@ void subfind(int num)
 
 #ifdef DENSITY_SPLIT_BY_TYPE
     struct unbind_data *d;
-    int j, n, count[6], countall[6];
+    int j, n, count[6];
+	int64_t countall[6];
     double a3inv;
 #endif
 
@@ -68,7 +69,7 @@ void subfind(int num)
     for(i = 0; i < NumPart; i++)
         count[P[i].Type]++;
 
-    MPI_Allreduce(count, countall, 6, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    sumup_large_ints(6, count, countall);
 
     /* do first loop: basically just defining the hsml for different species */
     for(j = 0; j < 6; j++)
@@ -92,7 +93,7 @@ void subfind(int num)
 
                 t0 = second();
                 if(ThisTask == 0)
-                    printf("Tree construction for species %d (%d).\n", j, countall[j]);
+                    printf("Tree construction for species %d (%ld).\n", j, countall[j]);
 
                 CPU_Step[CPU_FOF] += measure_time();
 
@@ -153,7 +154,7 @@ void subfind(int num)
 
             t0 = second();
             if(ThisTask == 0)
-                printf("Tree construction for species %d (%d).\n", j, countall[j]);
+                printf("Tree construction for species %d (%ld).\n", j, countall[j]);
 
             CPU_Step[CPU_FOF] += measure_time();
 
@@ -234,6 +235,7 @@ void subfind(int num)
 #endif /* DENSITY_SPLIT_BY_TYPE */
 
 #ifndef SUBFIND_DENSITY_AND_POTENTIAL
+#ifdef SUBFIND_SAVE_DENSITY
     if(DumpFlag)
     {
         /* let's save the densities to a file (for making images) */
@@ -244,17 +246,19 @@ void subfind(int num)
             printf("saving densities took %g sec\n", timediff(t0, t1));
     }
 #endif
+#endif
 #ifdef ONLY_PRODUCE_HSML_FILES
     return;
 #endif
 
     /* count how many groups we have that should be done collectively */
-    limit = 0.6 * All.TotNumPart / NTask;
-
+    limit = All.MaxPart * All.SubFindCollectiveLimitFactor;
 
     for(i = 0, ncount = 0; i < Ngroups; i++)
-        if(Group[i].Len >= limit)
+        if(Group[i].Len >= limit) {
             ncount++;
+			Group[i].Nsubs = 0;
+		}
     MPI_Allreduce(&ncount, &Ncollective, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(ThisTask == 0)
@@ -283,16 +287,18 @@ void subfind(int num)
         if(P[i].GrNr > Ncollective && P[i].GrNr <= TotNgroups)	/* particle is in small group */
             P[i].targettask = (P[i].GrNr - 1) % NTask;
         else
-            P[i].targettask = ThisTask;
+            P[i].targettask = i % NTask; /* for this stage distribute collective groups evenly 
+                                            domain decomposition in collective subfind will 
+                                            distribute these guys again */
     }
 
     /* 0 is to distribute particles*/
-    subfind_exchange(0, 0);		/* distributes gas particles as well if needed */
+    subfind_exchange(0);		/* distributes gas particles as well if needed */
 
 
     t1 = second();
     if(ThisTask == 0)
-        printf("subfind_exchange()() took %g sec\n", timediff(t0, t1));
+        printf("pubfind_exchange()() took %g sec\n", timediff(t0, t1));
 
     subfind_distribute_groups();
 
@@ -303,7 +309,7 @@ void subfind(int num)
         if(P[i].GrNr > Ncollective && P[i].GrNr <= TotNgroups)
             if(((P[i].GrNr - 1) % NTask) != ThisTask)
             {
-                printf("i=%d %d task=%d\n", i, P[i].GrNr, ThisTask);
+                printf("i=%d %ld task=%d\n", i, P[i].GrNr, ThisTask);
                 endrun(87);
             }
 
@@ -320,12 +326,14 @@ void subfind(int num)
         P[i].SubNr = (1 << 30);	/* default */
 
     /* we begin by applying the collective version of subfind to distributed groups */
+#ifndef SUBFIND_SKIP_COLLECTIVE
     t0 = second();
     for(GrNr = 1; GrNr <= Ncollective; GrNr++)
         subfind_process_group_collectively(num);
     t1 = second();
     if(ThisTask == 0)
         printf("processing of collective halos took %g sec\n", timediff(t0, t1));
+#endif
 
 #ifdef SUBFIND_COLLECTIVE_STAGE1
     if(ThisTask == 0)
@@ -349,7 +357,7 @@ void subfind(int num)
 
 
     /* now we have the particles of groups consecutively, but SPH particles are
-       not aligned. They can however be accessed via SPHP(P[i).originindex] */
+       not aligned. They can however be accessed via SPHP(P[i].origindex) */
 
 
     /* let's count how many local particles we have in small groups */
@@ -399,8 +407,6 @@ void subfind(int num)
 
     /* now determine the remaining spherical overdensity values for the non-local groups */
 
-    domain_free_trick();
-
     CPU_Step[CPU_FOF] += measure_time();
 
 
@@ -424,13 +430,15 @@ void subfind(int num)
     t0 = second();
 
     /* 1 is to return to the original cpu*/
-    subfind_exchange(1, 0);		/* distributes gas particles as well if needed */
+    subfind_exchange(1);		/* distributes gas particles as well if needed */
 
     t1 = second();
     if(ThisTask == 0)
         printf("subfind_exchange() (for return to original CPU)  took %g sec\n", timediff(t0, t1));
 
 
+#ifdef SUBFIND_SO
+    domain_free_trick();
     All.DoDynamicUpdate = 0;
     domain_Decomposition();
 
@@ -459,8 +467,8 @@ void subfind(int num)
 
     force_treefree();
     domain_free();
-
     domain_allocate_trick();
+#endif
 
     /* now assemble final output */
     subfind_save_final(num);

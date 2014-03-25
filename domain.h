@@ -18,7 +18,7 @@ int domain_compare_toplist(const void *a, const void *b);
 double domain_particle_costfactor(int i);
 int domain_decompose(void);
 int domain_determineTopTree(void);
-void domain_exchange(int (*layoutfunc)(int p), int onlyparticledata);
+void domain_exchange(int (*layoutfunc)(int p));
 void domain_findExchangeNumbers(int task, int partner, int sphflag, int *send, int *recv);
 void domain_findExtent(void);
 void domain_findSplit(int cpustart, int ncpu, int first, int last);

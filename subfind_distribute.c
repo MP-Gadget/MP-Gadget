@@ -97,13 +97,13 @@ static int subfind_exchange_layout(int n) {
         return P[n].origintask;
     }
 }
-void subfind_exchange(int direction, int particleproponly) {
+void subfind_exchange(int direction) {
     /* direction == 0 is to send 
      * direction == 1 is to recollect.
      *
      * if dmonly is 1 only exchange dm particles */
     se_direction = direction;
-    domain_exchange(subfind_exchange_layout, particleproponly);
+    domain_exchange(subfind_exchange_layout);
 }
 
 #endif

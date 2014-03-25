@@ -707,6 +707,7 @@ extern struct global_data_all_processes
 #ifdef SUBFIND
     int DesLinkNgb;
     double ErrTolThetaSubfind;
+	double SubFindCollectiveLimitFactor;
 #endif
 
     double MaxNumNgbDeviation;	/*!< Maximum allowed deviation neighbour number */

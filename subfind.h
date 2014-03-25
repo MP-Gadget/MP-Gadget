@@ -28,7 +28,7 @@ int subfind_reshuffle_compare_ID_list_ID(const void *a, const void *b);
 
 int subfind_distlinklist_get_tail_set_tail_increaselen(int64_t index, int64_t *tail, int64_t newtail);
 
-void subfind_exchange(int direction, int particledataonly);
+void subfind_exchange(int direction);
 void subfind_col_save_candidates_task(int totgrouplen, int num);
 void subfind_col_load_candidates(int num);
 

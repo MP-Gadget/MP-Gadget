@@ -1257,6 +1257,10 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "DesLinkNgb");
         addr[nt] = &All.DesLinkNgb;
         id[nt++] = INT;
+
+        strcpy(tag[nt], "SubFindCollectiveLimitFactor");
+        addr[nt] = &All.SubFindCollectiveLimitFactor;
+        id[nt++] = REAL;
 #endif
 
         strcpy(tag[nt], "MaxNumNgbDeviation");
@@ -2319,6 +2323,13 @@ NUMCRPOP = 1;
             errorFlag += read_outputlist(All.OutputListFilename);
         else
             All.OutputListLength = 0;
+
+#ifdef SUBFIND
+		if(All.SubFindCollectiveLimitFactor >= 0.5) {
+			printf("SubFind CollectiveLimitFactor too big. Setting it to 0.5 \n");
+			All.SubFindCollectiveLimitFactor = 0.5;
+		}
+#endif
         /* parse blackhole feedback method string */
 #ifdef BLACK_HOLES
         All.BlackHoleFeedbackMethod = 0;
@@ -2713,7 +2724,6 @@ NUMCRPOP = 1;
 #undef STRING
 #undef INT
 #undef MAXTAGS
-
 
 #ifdef COSMIC_RAYS
     if(ThisTask == 0)
