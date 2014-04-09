@@ -1292,7 +1292,7 @@ void setup_smoothinglengths(void)
             if(ThisTask == 0) 
                 printf("iteration %03d, max relative difference = %g \n", j, badness);
 
-            if(badness < 1e-7) break;
+            if(badness < 1e-3) break;
         }
         myfree(olddensity);
         for(i = 0; i < N_sph; i++) {
