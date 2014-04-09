@@ -1331,13 +1331,28 @@ static void density_post_process(int i, MyFloat * Left, MyFloat * Right) {
 #else
         SPHP(i).Pressure =
             (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA);
-#endif
+#endif // DENSITY_INDEPENDENT_SPH
 
 #else
         SPHP(i).Pressure =
             GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * SPHP(i).d.Density;
-#endif
+#endif // TRADITIONAL_SPH_FORMULATION
 
+#else
+#ifdef TRADITIONAL_SPH_FORMULATION
+#error tranditional sph incompatible with softereqs
+#endif
+#ifdef DENSITY_INDEPENDENT_SPH
+#error pressure entropy incompatible with softereqs
+        /* use an intermediate EQS, between isothermal and the full multiphase model */
+        if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
+            SPHP(i).Pressure = All.FactorForSofterEQS *
+                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA) +
+                (1 -
+                 All.FactorForSofterEQS) * afac * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
+        else
+            SPHP(i).Pressure =
+                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA);
 #else
         /* use an intermediate EQS, between isothermal and the full multiphase model */
         if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
@@ -1348,7 +1363,8 @@ static void density_post_process(int i, MyFloat * Left, MyFloat * Right) {
         else
             SPHP(i).Pressure =
                 (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA);
-#endif
+#endif // DENSITY_INDEPENDENT_SPH
+#endif // SOFTEREQS
 #else
         /* Here we use an isothermal equation of state */
         SPHP(i).Pressure = afac * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
