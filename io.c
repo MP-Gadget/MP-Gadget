@@ -3514,7 +3514,8 @@ void write_file(char *fname, int writeTask, int lastTask)
     hid_t hdf5_file = 0, hdf5_grp[6], hdf5_headergrp = 0, hdf5_dataspace_memory, hdf5_paramgrp = 0;
     hid_t hdf5_datatype = 0, hdf5_dataspace_in_file = 0, hdf5_dataset = 0;
     herr_t hdf5_status;
-    hsize_t dims[2], count[2], start[2];
+    hsize_t dims[2], cdims[2], count[2], start[2];
+    hid_t plist_id;
     int rank = 0, pcsum = 0;
     char buf[500];
 #endif
@@ -3779,17 +3780,29 @@ void write_file(char *fname, int writeTask, int lastTask)
 
                             dims[0] = header.npart[type];
                             dims[1] = get_values_per_blockelement(blocknr);
+
+                            cdims[0] = 12800;
+                            cdims[1] = dims[1];
                             if(dims[1] == 1)
                                 rank = 1;
                             else
                                 rank = 2;
 
+
                             get_dataset_name(blocknr, buf);
 
                             hdf5_dataspace_in_file = H5Screate_simple(rank, dims, NULL);
+
+                            plist_id  = H5Pcreate (H5P_DATASET_CREATE);
+
+                            if (All.CompressionLevel > 0) {
+                                H5Pset_chunk (plist_id, rank, cdims);
+                                H5Pset_deflate (plist_id, All.CompressionLevel); 
+                            }
+
                             hdf5_dataset =
-                                H5Dcreate(hdf5_grp[type], buf, hdf5_datatype, hdf5_dataspace_in_file,
-                                        H5P_DEFAULT);
+                                H5Dcreate2(hdf5_grp[type], buf, hdf5_datatype, hdf5_dataspace_in_file,
+                                        H5P_DEFAULT, plist_id, H5P_DEFAULT);
 
                             pcsum = 0;
                         }
@@ -3940,6 +3953,8 @@ hid_t  get_hdf5_datatype(enum datatype dtype, int doubleprecision) {
         case DTYPE_SINGLE:
             return H5Tcopy(H5T_NATIVE_FLOAT);
     }
+    endrun(9999314);
+    return 0;
 } 
 void write_header_attributes_in_hdf5(hid_t handle)
 {

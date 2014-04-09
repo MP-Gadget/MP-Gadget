@@ -789,7 +789,7 @@ extern struct global_data_all_processes
     int CoolingOn;		/*!< flags that cooling is enabled */
     int StarformationOn;		/*!< flags that star formation is enabled */
 
-
+    int CompressionLevel;
     /* parameters determining output frequency */
 
     int SnapshotFileCount;	/*!< number of snapshot that is written next */

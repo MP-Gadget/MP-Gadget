@@ -1281,6 +1281,10 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.ICFormat;
         id[nt++] = INT;
 
+        strcpy(tag[nt], "CompressionLevel");
+        addr[nt] = &All.CompressionLevel;
+        id[nt++] = INT;
+
         strcpy(tag[nt], "SnapFormat");
         addr[nt] = &All.SnapFormat;
         id[nt++] = INT;

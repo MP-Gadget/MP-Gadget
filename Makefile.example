@@ -14,6 +14,8 @@ OPT	+=  -DUNEQUALSOFTENINGS
 # but may not run on some systems
 OPT += -DOPENMP_USE_SPINLOCK
 OPT += -DLIGHTCONE                       # write a lightcone on the fly in development
+OPT	+=  -DHAVE_HDF5                     # needed when HDF5 I/O support is desired
+OPT	+=  -DH5_USE_16_API # needed when HDF5 I/O support is desired
 
 #--------------------------------------- TreePM Options
 OPT	+=  -DPMGRID=512
@@ -177,7 +179,6 @@ OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
 #OPT	+=  -DOUTPUTCHANGEOFENTROPY
 #OPT	+=  -DOUTPUTTIMESTEP
 #OPT	+=  -DOUTPUTCOOLRATE                # outputs cooling rate, and conduction rate if enabled
-#OPT	+=  -DHAVE_HDF5                     # needed when HDF5 I/O support is desired
 #OPT	+=  -DOUTPUTBSMOOTH
 #OPT	+=  -DOUTPUTDENSNORM
 #OPT	+=  -DXXLINFO                       # Enables additional output for viscosityand bfield
@@ -409,7 +410,7 @@ OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
 #--------------------------------------- Select target Computer
 include Makefile.$(SYSTYPE)
 
-include Makefile.deps
+include $(VPATH)/Makefile.deps
 
 
 ###############################################################################
