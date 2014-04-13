@@ -1005,9 +1005,10 @@ void read_file(char *fname, int readTask, int lastTask)
             endrun(2);
         }
 
-        if(RestartFlag >= 2)
-            All.Time = All.TimeBegin = header.time;
-
+        if(RestartFlag >= 2) {
+            All.TimeBegin = header.time;
+            set_global_time(All.TimeBegin);
+        }
 #ifdef END_TIME_DYN_BASED
         double rho, t_ff;
 

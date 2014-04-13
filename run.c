@@ -307,10 +307,14 @@ void find_next_sync_point_and_drift(void)
     {
         All.Ti_Current = All.Ti_nextoutput;
 
+        double nexttime;
         if(All.ComovingIntegrationOn)
-            All.Time = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
+            nexttime = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
         else
-            All.Time = All.TimeBegin + All.Ti_Current * All.Timebase_interval;
+            nexttime = All.TimeBegin + All.Ti_Current * All.Timebase_interval;
+
+        set_global_time(nexttime);
+
 #ifdef TIMEDEPGRAV
         All.G = All.Gini * dGfak(All.Time);
 #endif
@@ -337,10 +341,14 @@ void find_next_sync_point_and_drift(void)
 
     All.Ti_Current = ti_next_kick_global;
 
+    double nexttime;
     if(All.ComovingIntegrationOn)
-        All.Time = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
+        nexttime = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
     else
-        All.Time = All.TimeBegin + All.Ti_Current * All.Timebase_interval;
+        nexttime = All.TimeBegin + All.Ti_Current * All.Timebase_interval;
+
+    set_global_time(nexttime);
+
 #ifdef TIMEDEPGRAV
     All.G = All.Gini * dGfak(All.Time);
 #endif

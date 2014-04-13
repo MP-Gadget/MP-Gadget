@@ -1197,7 +1197,7 @@ void InitCool(void)
         InitMetalCooling();    
     }
 
-    All.Time = All.TimeBegin;
+    set_global_time(All.TimeBegin);
     IonizeParams();
 
 }

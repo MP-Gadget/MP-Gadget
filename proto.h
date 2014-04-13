@@ -343,6 +343,7 @@ int find_next_outputtime(int time);
 void find_next_time(void);
 int find_next_time_walk(int node);
 void free_memory(void);
+void set_global_time(double newtime);
 void advance_and_find_timesteps(void);
 int get_timestep(int p, double *a, int flag);
 

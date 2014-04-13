@@ -21,6 +21,26 @@ static double dt_displacement = 0;
 static double dt_gravkickA, dt_gravkickB;
 #endif
 
+void set_global_time(double newtime) {
+    All.Time = newtime;
+    if(All.ComovingIntegrationOn)
+    {
+        All.cf.a2inv = 1 / (All.Time * All.Time);
+        All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
+        All.cf.afac = pow(All.Time, 3 * GAMMA_MINUS1);
+        All.cf.hubble_a = hubble_function(All.Time);
+        All.cf.hubble_a2 = All.Time * All.Time * hubble_function(All.Time);
+    }
+    else
+    {
+        All.cf.a2inv = 1;
+        All.cf.a3inv = 1;
+        All.cf.afac = 1;
+        All.cf.hubble_a = 1;
+        All.cf.hubble_a2 = 1;
+    }
+}
+
 /*! This function advances the system in momentum space, i.e. it does apply the 'kick' operation after the
  *  forces have been computed. Additionally, it assigns new timesteps to particles. At start-up, a
  *  half-timestep is carried out, as well as at the end of the simulation. In between, the half-step kick that

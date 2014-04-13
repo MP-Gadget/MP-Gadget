@@ -694,7 +694,8 @@ void init_clouds(void)
 
         if(All.ComovingIntegrationOn)
         {
-            All.Time = 1.0;	/* to be guaranteed to get z=0 rate */
+            /* to be guaranteed to get z=0 rate */
+            set_global_time(1.0);
             IonizeParams();
         }
 
@@ -796,7 +797,7 @@ void init_clouds(void)
 
         if(All.ComovingIntegrationOn)
         {
-            All.Time = All.TimeBegin;
+            set_global_time(All.TimeBegin);
             IonizeParams();
         }
 
@@ -824,7 +825,8 @@ void integrate_sfr(void)
 
     if(All.ComovingIntegrationOn)
     {
-        All.Time = 1.0;		/* to be guaranteed to get z=0 rate */
+        /* to be guaranteed to get z=0 rate */
+        set_global_time(1.0);
         IonizeParams();
     }
 
@@ -951,7 +953,7 @@ void integrate_sfr(void)
 
     if(All.ComovingIntegrationOn)
     {
-        All.Time = All.TimeBegin;
+        set_global_time(All.TimeBegin);
         IonizeParams();
     }
 

@@ -67,7 +67,7 @@ void init(void)
     int i1, i2;
 #endif
 
-    All.Time = All.TimeBegin;
+    set_global_time(All.TimeBegin);
 
     if(RestartFlag == 3 && RestartSnapNum < 0)
     {
@@ -136,8 +136,8 @@ void init(void)
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection_bh();
-    All.Time = All.TimeBegin;
 
+    set_global_time(All.TimeBegin);
 #ifdef COOLING
     IonizeParams();
 #endif

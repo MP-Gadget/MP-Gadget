@@ -69,7 +69,7 @@ void begrun(void)
 
 
 #ifdef COOLING
-    All.Time = All.TimeBegin;
+    set_global_time(All.TimeBegin);
     InitCool();
 #endif
 

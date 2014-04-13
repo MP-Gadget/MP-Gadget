@@ -808,6 +808,14 @@ extern struct global_data_all_processes
            TimeStep,			/*!< difference between current times of previous and current timestep */
            TimeMax;			/*!< marks the point of time until the simulation is to be evolved */
 
+    struct {
+        double a3inv; 
+        double a2inv; 
+        double afac; 
+        double hubble_a; 
+        double hubble_a2; 
+    } cf;
+
     /* variables for organizing discrete timeline */
 
     double Timebase_interval;	/*!< factor to convert from floating point time interval to integer timeline */
