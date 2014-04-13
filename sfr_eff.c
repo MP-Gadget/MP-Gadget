@@ -301,7 +301,7 @@ static int get_sfr_condition(int i) {
     if((SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
             && (SPHP(i).Entropy * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1 <
                 SFRTempThresh))
-        flag 0;
+        flag = 0;
 #endif
 
     if(All.ComovingIntegrationOn)
@@ -553,37 +553,27 @@ static void starformation(int i) {
     else
         dtime = dt;
 
-    double tsfr = sqrt(All.PhysDensThresh / (SPHP(i).d.Density * a3inv)) * All.MaxSfrTimescale;
+    /* 
+     * gadget-p doesn't have this cap.
+     * without the cap sm can be bigger than cloudmass.
+        if(tsfr < dtime)
+            tsfr = dtime;
+    */
 
-    double factorEVP = pow(SPHP(i).d.Density * a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
+    double egyeff, trelax;
+    double rateOfSF = get_starformation_rate(i, &trelax, &egyeff);
 
-    double egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
+    /* amount of stars expect to form */
 
-    double ne = SPHP(i).Ne;
-
-    double tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne, P[i].Metallicity);
-
-    SPHP(i).Ne = ne;
-
-    double y =
-        tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
-
-    double x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
-
-    double egyeff = egyhot * (1 - x) + All.EgySpecCold * x;
-
-    double cloudmass = x * P[i].Mass;
-
-    if(tsfr < dtime)
-        tsfr = dtime;
-
-    double sm = (1 - All.FactorSN) * dtime / tsfr * cloudmass;	/* amount of stars expect to form */
+    double sm = rateOfSF * dtime;	
 
     double p = sm / P[i].Mass;
 
     sum_sm += P[i].Mass * (1 - exp(-p));
 
-    SPHP(i).Sfr = (1 - All.FactorSN) * cloudmass / tsfr *
+    /* convert to Solar per Year but is this damn variable otherwise used 
+     * at all? */
+    SphP[i].Sfr = rateOfSF *
         (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
     TimeBinSfr[P[i].TimeBin] += SPHP(i).Sfr;
@@ -595,7 +585,6 @@ static void starformation(int i) {
 
     if(dt > 0 && P[i].TimeBin)
     {
-        double trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
       	/* upon start-up, we need to protect against dt==0 */
         cooling_relaxed(i, egyeff, dtime, trelax);
     }
@@ -625,10 +614,7 @@ static void starformation(int i) {
 
 }
 
-
-
-
-double get_starformation_rate(int i)
+double get_starformation_rate(int i, double * trelax, double * egyeff)
 {
     double rateOfSF;
     double a3inv;
@@ -636,26 +622,28 @@ double get_starformation_rate(int i)
     double tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
 
-
-
     if(All.ComovingIntegrationOn)
         a3inv = 1 / (All.Time * All.Time * All.Time);
     else
         a3inv = 1;
 
+    flag = get_sfr_condition(i);
 
-    flag = 1;			/* default is normal cooling */
-
-    if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
-        flag = 0;
-
-    if(All.ComovingIntegrationOn)
-        if(SPHP(i).d.Density < All.OverDensThresh)
-            flag = 1;
-
-    if(flag == 1)
+    if(flag == 1) {
+        /* this shall not happen but let's put in some safe
+         * numbers in case the code run wary!
+         * 
+         * the only case trelax and egyeff are
+         * required is in starformation(i)
+         * */
+        if (trelax) {
+            *trelax = All.MaxSfrTimescale;
+        }
+        if (egyeff) {
+            *egyeff = All.EgySpecCold;
+        }
         return 0;
-
+    }
     tsfr = sqrt(All.PhysDensThresh / (SPHP(i).d.Density * a3inv)) * All.MaxSfrTimescale;
 
     factorEVP = pow(SPHP(i).d.Density * a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
@@ -673,10 +661,12 @@ double get_starformation_rate(int i)
 
     rateOfSF = (1 - All.FactorSN) * cloudmass / tsfr;
 
-    /* convert to solar masses per yr */
-
-    rateOfSF *= (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
-
+    if (trelax) {
+        *trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
+    }
+    if (egyeff) {
+        *egyeff = egyhot * (1 - x) + All.EgySpecCold * x;
+    }
     return rateOfSF;
 }
 
@@ -1024,6 +1014,42 @@ void set_units_sfr(void)
 #endif
 }
 
+static double evaluate_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)
+{
+    /* column density from GradRho, copied from gadget-p; what is it
+     * calculating? */
+    double gradrho_mag;
+    if(rho<=0) {
+        gradrho_mag = 0;
+    } else {
+        gradrho_mag = sqrt(gradrho[0]*gradrho[0]+gradrho[1]*gradrho[1]+gradrho[2]*gradrho[2]);
+        if(gradrho_mag > 0) {gradrho_mag = rho*rho/gradrho_mag;} else {gradrho_mag=0;}
+        if(include_h > 0) gradrho_mag += include_h*rho*hsml;
+    }
+    return gradrho_mag; // *(Z/Zsolar) add metallicity dependence
+}
+
+static double get_tau_fmol(int i) {
+    /*  Krumholz & Gnedin fitting function for f_H2 as a function of local
+     *  properties, from gadget-p; we return the enhancement on SFR in this
+     *  function */
+    /*
+    double tau_fmol = evaluate_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).d.Density,1) * a2inv;
+    double zoverzsun = P[i].Metallicity/METAL_YIELD;
+
+    tau_fmol *= (0.1 + zoverzsun);
+    if(tau_fmol>0) {
+        tau_fmol *= 434.78*All.UnitDensity_in_cgs*All.HubbleParam*All.UnitLength_in_cm;
+        double y = 0.756*(1+3.1*pow(zoverzsun,0.365));
+        y = log(1+0.6*y+0.01*y*y)/(0.6*tau_fmol);
+        y = 1-0.75*y/(1+0.25*y);
+        if(y<0) y=0; if(y>1) y=1;
+        return y;
+
+    } // if(tau_fmol>0)
+    */
+    return 1.0;
+}
 
 #endif /* closes COOLING */
 

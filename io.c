@@ -573,7 +573,9 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
             for(n = 0; n < pc; pindex++)
                 if(P[pindex].Type == type)
                 {
-                    *fp++ = get_starformation_rate(pindex);
+                /* convert to solar masses per yr */
+                    *fp++ = get_starformation_rate(pindex, NULL, NULL) 
+                        * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
                     n++;
                 }
 #endif

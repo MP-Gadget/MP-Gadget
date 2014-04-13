@@ -348,7 +348,7 @@ int get_timestep(int p, double *a, int flag);
 
 void determine_PMinterior(void);
 
-double get_starformation_rate(int i);
+double get_starformation_rate(int i, double * trelax, double * egyeff);
 void gravity_tree(void);
 void hydro_force(void);
 void init(void);
