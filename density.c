@@ -115,7 +115,9 @@ static struct densdata_out
     MyFloat bpred[3];
     MyFloat da[6];
 #endif
-
+#ifdef SPH_GRAD_RHO
+    MyFloat GradRho[3];
+#endif
 }
 *DensDataResult;
 
@@ -504,6 +506,12 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
         REDUCE(SPHP(place).GradEntr[2], remote->GradEntr[2]);
 #endif
 
+#ifdef SPH_GRAD_RHO
+        REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
+        REDUCE(SPHP(place).GradRho[1], remote->GradRho[1]);
+        REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
+#endif
+
 #ifdef RADTRANSFER_FLUXLIMITER
         for(k = 0; k< N_BINS; k++)
         {
@@ -710,6 +718,12 @@ static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngb
     gradentr[0] = gradentr[1] = gradentr[2] = 0;
 #endif
 
+#ifdef SPH_GRAD_RHO
+    double gradrho[3];
+
+    gradrho[0] = gradrho[1] = gradrho[2] = 0;
+#endif
+
 #ifdef RADTRANSFER_FLUXLIMITER
     double grad_ngamma[3][N_BINS];
     int k;
@@ -886,6 +900,15 @@ static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngb
                             gradentr[0] += mass_j * dwk * dx / r * SPHP(j).Entropy;
                             gradentr[1] += mass_j * dwk * dy / r * SPHP(j).Entropy;
                             gradentr[2] += mass_j * dwk * dz / r * SPHP(j).Entropy;
+                        }
+#endif
+
+#ifdef SPH_GRAD_RHO
+                        if(r > 0)
+                        {
+                            gradrho[0] += mass_j * dwk * dx / r;
+                            gradrho[1] += mass_j * dwk * dy / r;
+                            gradrho[2] += mass_j * dwk * dz / r;
                         }
 #endif
 
@@ -1076,6 +1099,11 @@ static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngb
     output->GradEntr[0] = gradentr[0];
     output->GradEntr[1] = gradentr[1];
     output->GradEntr[2] = gradentr[2];
+#endif
+#ifdef SPH_GRAD_RHO
+    output->GradRho[0] = gradrho[0];
+    output->GradRho[1] = gradrho[1];
+    output->GradRho[2] = gradrho[2];
 #endif
 
 #ifdef RADTRANSFER_FLUXLIMITER

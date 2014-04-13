@@ -1816,6 +1816,9 @@ extern struct sph_particle_data
     double TracAbund[TRAC_NUM];
 #endif
 
+#ifdef SPH_GRAD_RHO 
+    MyFloat GradRho[3];
+#endif
 } *SphP;				/*!< holds SPH particle data on local processor */
 
 #define SPHP(i) SphP[i]

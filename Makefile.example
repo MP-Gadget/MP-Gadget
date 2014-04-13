@@ -16,6 +16,7 @@ OPT += -DOPENMP_USE_SPINLOCK
 OPT += -DLIGHTCONE                       # write a lightcone on the fly in development
 OPT	+=  -DHAVE_HDF5                     # needed when HDF5 I/O support is desired
 OPT	+=  -DH5_USE_16_API # needed when HDF5 I/O support is desired
+OPT += SPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 
 #--------------------------------------- TreePM Options
 OPT	+=  -DPMGRID=512
