@@ -8,10 +8,6 @@
 #include "forcetree.h"
 
 #ifdef COOLING
-static double a3inv;
-static double hubble_a;
-static double time_hubble_a;
-static double ascale;
 static double u_to_temp_fac; /* assuming very hot !*/
 static unsigned int bits;
 
@@ -64,18 +60,6 @@ void cooling_and_starformation(void)
         if(!TimeBinActive[bin]) continue;
         TimeBinSfr[bin] = 0;
     }
-    if(All.ComovingIntegrationOn)
-    {
-        /* Factors for comoving integration of hydro */
-        a3inv = 1 / (All.Time * All.Time * All.Time);
-        hubble_a = hubble_function(All.Time);
-        time_hubble_a = All.Time * hubble_a;
-        ascale = All.Time;
-    }
-    else
-        hubble_a = a3inv = ascale = time_hubble_a = 1;
-
-
 
     stars_spawned = stars_converted = 0;
     sum_sm = sum_mass_stars = 0;
@@ -92,15 +76,14 @@ void cooling_and_starformation(void)
                 /*  the actual time-step */
 
             double dtime;
-            if(All.ComovingIntegrationOn)
-                dtime = All.Time * dt / time_hubble_a;
-            else
-                dtime = dt;
+
+            dtime = dt / All.cf.hubble;
+
             SPHP(i).DelayTime -= dtime;
         }
 
         if(SPHP(i).DelayTime > 0) {
-            if(SPHP(i).d.Density * a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh)
+            if(SPHP(i).d.Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh)
                 SPHP(i).DelayTime = 0;
         } else {
             SPHP(i).DelayTime = 0;
@@ -171,7 +154,7 @@ void cooling_and_starformation(void)
         double rate;
         double rate_in_msunperyear;
         if(All.TimeStep > 0)
-            rate = total_sm / (All.TimeStep / time_hubble_a);
+            rate = total_sm / (All.TimeStep / (All.Time * All.cf.hubble));
         else
             rate = 0;
 
@@ -202,10 +185,8 @@ static void cooling_direct(int i) {
         /*  the actual time-step */
 
     double dtime;
-    if(All.ComovingIntegrationOn)
-        dtime = All.Time * dt / time_hubble_a;
-    else
-        dtime = dt;
+
+    dtime = dt / All.cf.hubble;
 
     SPHP(i).Sfr = 0;
 #if defined(COSMIC_RAYS) && defined(CR_OUTPUT_INJECTION)
@@ -215,7 +196,7 @@ static void cooling_direct(int i) {
 
     double unew = DMAX(All.MinEgySpec,
             (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
-            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1));
+            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
     if(SPHP(i).i.Injected_BH_Energy)
@@ -248,14 +229,14 @@ static void cooling_direct(int i) {
         if(dt > 0)
         {
             SPHP(i).e.DtEntropy += unew * GAMMA_MINUS1 /
-                pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / dt;
+                pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / dt;
 
             if(SPHP(i).e.DtEntropy < -0.5 * SPHP(i).Entropy / dt)
                 SPHP(i).e.DtEntropy = -0.5 * SPHP(i).Entropy / dt;
         }
     }
 #else
-    unew = DoCooling(unew, SPHP(i).d.Density * a3inv, dtime, &ne, P[i].Metallicity);
+    unew = DoCooling(unew, SPHP(i).d.Density * All.cf.a3inv, dtime, &ne, P[i].Metallicity);
 
     SPHP(i).Ne = ne;
 
@@ -271,7 +252,7 @@ static void cooling_direct(int i) {
 #endif
 
             SPHP(i).e.DtEntropy = (unew * GAMMA_MINUS1 /
-                    pow(SPHP(i).EOMDensity * a3inv,
+                    pow(SPHP(i).EOMDensity * All.cf.a3inv,
                         GAMMA_MINUS1) - SPHP(i).Entropy) / dt;
 
             if(SPHP(i).e.DtEntropy < -0.5 * SPHP(i).Entropy / dt)
@@ -295,11 +276,11 @@ static int get_sfr_condition(int i) {
         return flag;
     }
 #ifndef MODIFIED_SFR
-    if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
+    if(SPHP(i).d.Density * All.cf.a3inv >= All.PhysDensThresh)
         flag = 0;
 #else
-    if((SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
-            && (SPHP(i).Entropy * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1 <
+    if((SPHP(i).d.Density * All.cf.a3inv >= All.PhysDensThresh)
+            && (SPHP(i).Entropy * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1 <
                 SFRTempThresh))
         flag = 0;
 #endif
@@ -320,7 +301,7 @@ static int get_sfr_condition(int i) {
 
 #ifdef QUICK_LYALPHA
     temp = u_to_temp_fac * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
-        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1);
+        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
 
     if(SPHP(i).d.Density > All.OverDensThresh && temp < 1.0e5)
         flag = 0;
@@ -370,8 +351,8 @@ static int make_particle_wind(int i, double efficiency) {
 
         for(j = 0; j < 3; j++)
         {
-            P[i].Vel[j] += v * ascale * dir[j];
-            SPHP(i).VelPred[j] += v * ascale * dir[j];
+            P[i].Vel[j] += v * All.cf.a * dir[j];
+            SPHP(i).VelPred[j] += v * All.cf.a * dir[j];
         }
 
         SPHP(i).DelayTime = All.WindFreeTravelLength / v;
@@ -463,7 +444,7 @@ static int make_particle_star(int i, double p) {
 }
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     double egycurrent =
-        SPHP(i).Entropy * pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+        SPHP(i).Entropy * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 
 #ifdef COSMIC_RAYS
 #ifdef CR_SN_INJECTION
@@ -508,7 +489,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
         if(egycurrent > egyeff)
         {
             double ne = SPHP(i).Ne;
-            double tcool = GetCoolingTime(egycurrent, SPHP(i).d.Density * a3inv, &ne, P[i].Metallicity);
+            double tcool = GetCoolingTime(egycurrent, SPHP(i).d.Density * All.cf.a3inv, &ne, P[i].Metallicity);
 
             if(tcool < trelax && tcool > 0)
                 trelax = tcool;
@@ -521,7 +502,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     SPHP(i).MagSeed =  egyhot * factorEVP *  1E-2;   // This is the definition of how much energy we will put in MF (we neglect cooling here, we have to check if thios has sense)
     egyeff-= SPHP(i).MagSeed;                 //Here we also substract that to the feedback
 
-    SPHP(i).MagSeed *= All.UnitMass_in_g / All.UnitEnergy_in_cgs * SPHP(i).d.Density * (1.-x) * a3inv *All.Time ;// * a3inv
+    SPHP(i).MagSeed *= All.UnitMass_in_g / All.UnitEnergy_in_cgs * SPHP(i).d.Density * (1.-x) * All.cf.a3inv *All.Time ;// * All.cf.a3inv
 #endif
 
 
@@ -531,7 +512,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
         (egyeff +
          (egycurrent -
           egyeff) * exp(-dtime / trelax)) * GAMMA_MINUS1 /
-        pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1);
+        pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
 
     SPHP(i).e.DtEntropy = 0;
 #endif
@@ -547,11 +528,7 @@ static void starformation(int i) {
     double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
         /*  the actual time-step */
 
-    double dtime;
-    if(All.ComovingIntegrationOn)
-        dtime = All.Time * dt / time_hubble_a;
-    else
-        dtime = dt;
+    double dtime = dt / All.cf.hubble;
 
     /* 
      * gadget-p doesn't have this cap.
@@ -617,15 +594,9 @@ static void starformation(int i) {
 double get_starformation_rate(int i, double * trelax, double * egyeff)
 {
     double rateOfSF;
-    double a3inv;
     int flag;
     double tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
-
-    if(All.ComovingIntegrationOn)
-        a3inv = 1 / (All.Time * All.Time * All.Time);
-    else
-        a3inv = 1;
 
     flag = get_sfr_condition(i);
 
@@ -644,15 +615,15 @@ double get_starformation_rate(int i, double * trelax, double * egyeff)
         }
         return 0;
     }
-    tsfr = sqrt(All.PhysDensThresh / (SPHP(i).d.Density * a3inv)) * All.MaxSfrTimescale;
+    tsfr = sqrt(All.PhysDensThresh / (SPHP(i).d.Density * All.cf.a3inv)) * All.MaxSfrTimescale;
 
-    factorEVP = pow(SPHP(i).d.Density * a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
+    factorEVP = pow(SPHP(i).d.Density * All.cf.a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
 
     egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
     ne = SPHP(i).Ne;
 
-    tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * a3inv, &ne, P[i].Metallicity);
+    tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * All.cf.a3inv, &ne, P[i].Metallicity);
     y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold, P[i].Metallicity);
 
     x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));

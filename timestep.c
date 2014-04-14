@@ -25,18 +25,20 @@ void set_global_time(double newtime) {
     All.Time = newtime;
     if(All.ComovingIntegrationOn)
     {
+        All.cf.a = All.Time;
         All.cf.a2inv = 1 / (All.Time * All.Time);
         All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
         All.cf.afac = pow(All.Time, 3 * GAMMA_MINUS1);
-        All.cf.hubble_a = hubble_function(All.Time);
+        All.cf.hubble = hubble_function(All.Time);
         All.cf.hubble_a2 = All.Time * All.Time * hubble_function(All.Time);
     }
     else
     {
+        All.cf.a = 1;
         All.cf.a2inv = 1;
         All.cf.a3inv = 1;
         All.cf.afac = 1;
-        All.cf.hubble_a = 1;
+        All.cf.hubble = 1;
         All.cf.hubble_a2 = 1;
     }
 }
