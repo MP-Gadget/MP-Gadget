@@ -3783,7 +3783,7 @@ void write_file(char *fname, int writeTask, int lastTask)
                             dims[0] = header.npart[type];
                             dims[1] = get_values_per_blockelement(blocknr);
 
-                            cdims[0] = 12800;
+                            cdims[0] = IMIN(12800, dims[0]);
                             cdims[1] = dims[1];
                             if(dims[1] == 1)
                                 rank = 1;
