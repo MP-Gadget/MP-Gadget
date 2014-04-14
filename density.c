@@ -1011,7 +1011,7 @@ static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngb
                 if(type == 5 && r2 < bh_feedback_kernel.HH)
                 {
                     double mass_j;
-                    if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_OPTTHIN) {
+                    if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
 #ifdef COOLING
                         double nh0 = 0;
                         double nHeII = 0;
@@ -1028,12 +1028,12 @@ static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngb
                         if(r2 > 0)
                             fb_weight_sum += FLT(P[j].Mass * nh0) / r2;
                     } else {
-                        if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) {
+                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
                             mass_j = P[j].Mass;
                         } else {
                             mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
                         }
-                        if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE) {
+                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
                             double u = r * bh_feedback_kernel.Hinv;
                             fb_weight_sum += FLT(mass_j * 
                                   density_kernel_wk(&bh_feedback_kernel, u)

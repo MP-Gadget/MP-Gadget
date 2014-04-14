@@ -626,10 +626,10 @@ double get_starformation_rate(int i, double * trelax, double * egyeff)
         *egyeff = egyhot * (1 - x) + All.EgySpecCold * x;
     }
 
-    if (All.StarformationCriterion & SFR_CRITERION_MOLECULAR_H2) {
+    if (HAS(All.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
         rateOfSF *= get_sfr_factor_due_to_h2(i);
     }
-    if (All.StarformationCriterion & SFR_CRITERION_SELFGRAVITY) {
+    if (HAS(All.StarformationCriterion, SFR_CRITERION_SELFGRAVITY)) {
         rateOfSF *= get_sfr_factor_due_to_selfgravity(i);
     }
     return rateOfSF;
@@ -1031,7 +1031,7 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
         divv += 3.0*All.cf.hubble_a2; // hubble-flow correction
     }
 
-    if(All.StarformationCriterion & SFR_CRITERION_CONVERGENT_FLOW) {
+    if(HAS(All.StarformationCriterion, SFR_CRITERION_CONVERGENT_FLOW)) {
         if( divv>=0 ) return 0; // restrict to convergent flows (optional) //
     }
 
@@ -1060,7 +1060,7 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
             y = 0.1;
         }
     }
-    if (All.StarformationCriterion & SFR_CRITERION_CONTINUOUS_CUTOFF) {
+    if (HAS(All.StarformationCriterion, SFR_CRITERION_CONTINUOUS_CUTOFF)) {
         // continuous cutoff w alpha_vir instead of sharp (optional) //
         y *= 1.0/(1.0 + alpha_vir); 
     }

@@ -1033,12 +1033,12 @@ int blackhole_evaluate(int target, int mode, int *nexport, int *nSend_local)
                             double u = r * bh_feedback_kernel.Hinv;
                             double wk;
                             double mass_j;
-                            if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) {
+                            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
                                 mass_j = P[j].Mass;
                             } else {
                                 mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
                             }
-                            if(All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE)
+                            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
                                 wk = density_kernel_wk(&bh_feedback_kernel, u);
                             else
                                 wk = 1.0;

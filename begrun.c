@@ -991,7 +991,7 @@ static char * format_multichoice(struct multichoice * table, int value) {
     struct multichoice * p;
     char * c = buffer;
     for(p = table; p->name; p++) {
-        if(p->value & value) {
+        if(HAS(value, p->value)) {
             strcpy(c, p->name);
             c += strlen(p->name);
             c[0] = '&';
@@ -2438,29 +2438,29 @@ NUMCRPOP = 1;
 #ifdef BLACK_HOLES
         /* parse blackhole feedback method string */
         {
-            if(   ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_TOPHAT) != 0)
-                    ==  ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE) != 0)){
+            if(HAS(All.BlackHoleFeedbackMethod,  BH_FEEDBACK_TOPHAT)
+                ==  HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)){
                 printf("error BlackHoleFeedbackMethod contains either tophat or spline, but both\n");
                 endrun(0);
             }
-            if(   ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) != 0)
-                    ==  ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_VOLUME) != 0)){
+            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)
+                ==  HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_VOLUME)){
                 printf("error BlackHoleFeedbackMethod contains either volume or mass, but both\n");
                 endrun(0);
             }
         }
 #endif
 #ifdef SFR
-        if(!(All.StarformationCriterion & SFR_CRITERION_DENSITY)) {
+        if(!HAS(All.StarformationCriterion, SFR_CRITERION_DENSITY)) {
             printf("error: At least use SFR_CRITERION_DENSITY\n");
             endrun(0);
         }
 #ifndef SPH_GRAD_RHO
-        if(All.StarformationCriterion & SFR_CRITERION_MOLECULAR_H2) {
+        if(HAS(All.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
             printf("error: enable SPH_GRAD_RHO to use h2 criterion in sfr \n");
             endrun(0);
         }
-        if(All.StarformationCriterion & SFR_CRITERION_SELFGRAVITY) {
+        if(HAS(All.StarformationCriterion, SFR_CRITERION_SELFGRAVITY)) {
             printf("error: enable SPH_GRAD_RHO to use selfgravity in sfr \n");
             endrun(0);
         } 
