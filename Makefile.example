@@ -94,7 +94,6 @@ OPT	+=  -DSTELLARAGE
 OPT	+=  -DWINDS
 #OPT	+=  -DQUICK_LYALPHA
 #OPT	+=  -DISOTROPICWINDS
-#OPT    +=  -DMODIFIED_SFR
 
 
 #-------------------------------------- AGN stuff

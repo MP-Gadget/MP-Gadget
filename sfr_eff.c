@@ -39,15 +39,6 @@ void cooling_and_starformation(void)
     u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
         * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 
-#ifdef MODIFIED_SFR
-
-    double SFRTempThresh;
-
-    SFRTempThresh = 5.0e5 / u_to_temp_fac;
-
-#endif
-
-
 #ifdef FLTROUNDOFFREDUCTION
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
@@ -275,15 +266,8 @@ static int get_sfr_condition(int i) {
     if(!All.StarformationOn) {
         return flag;
     }
-#ifndef MODIFIED_SFR
     if(SPHP(i).d.Density * All.cf.a3inv >= All.PhysDensThresh)
         flag = 0;
-#else
-    if((SPHP(i).d.Density * All.cf.a3inv >= All.PhysDensThresh)
-            && (SPHP(i).Entropy * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1 <
-                SFRTempThresh))
-        flag = 0;
-#endif
 
     if(All.ComovingIntegrationOn)
         if(SPHP(i).d.Density < All.OverDensThresh)
@@ -1006,8 +990,8 @@ static double get_tau_fmol(int i) {
     /*  Krumholz & Gnedin fitting function for f_H2 as a function of local
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
-    /*
-    double tau_fmol = evaluate_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).d.Density,1) * a2inv;
+
+    double tau_fmol = evaluate_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).d.Density,1) * All.cf.a2inv;
     double zoverzsun = P[i].Metallicity/METAL_YIELD;
 
     tau_fmol *= (0.1 + zoverzsun);
@@ -1020,7 +1004,6 @@ static double get_tau_fmol(int i) {
         return y;
 
     } // if(tau_fmol>0)
-    */
     return 1.0;
 }
 
