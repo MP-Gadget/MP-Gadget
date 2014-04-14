@@ -25,6 +25,8 @@ static void cooling_direct(int i);
 static void starformation(int i);
 static int make_particle_wind(int i, double efficiency);
 static int make_particle_star(int i, double p);
+static double get_sfr_factor_due_to_selfgravity(int i);
+static double get_sfr_factor_due_to_h2(int i);
 
 /*
  * This routine does cooling and star formation for
@@ -599,6 +601,7 @@ double get_starformation_rate(int i, double * trelax, double * egyeff)
         }
         return 0;
     }
+
     tsfr = sqrt(All.PhysDensThresh / (SPHP(i).d.Density * All.cf.a3inv)) * All.MaxSfrTimescale;
 
     factorEVP = pow(SPHP(i).d.Density * All.cf.a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
@@ -621,6 +624,13 @@ double get_starformation_rate(int i, double * trelax, double * egyeff)
     }
     if (egyeff) {
         *egyeff = egyhot * (1 - x) + All.EgySpecCold * x;
+    }
+
+    if (All.StarformationCriterion & SFR_CRITERION_MOLECULAR_H2) {
+        rateOfSF *= get_sfr_factor_due_to_h2(i);
+    }
+    if (All.StarformationCriterion & SFR_CRITERION_SELFGRAVITY) {
+        rateOfSF *= get_sfr_factor_due_to_selfgravity(i);
     }
     return rateOfSF;
 }
@@ -986,14 +996,21 @@ static double evaluate_NH_from_GradRho(MyFloat gradrho[3], double hsml, double r
     return gradrho_mag; // *(Z/Zsolar) add metallicity dependence
 }
 
-static double get_tau_fmol(int i) {
+static double get_sfr_factor_due_to_h2(int i) {
     /*  Krumholz & Gnedin fitting function for f_H2 as a function of local
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
 
-    double tau_fmol = evaluate_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).d.Density,1) * All.cf.a2inv;
+#ifndef SPH_GRAD_RHO
+    /* if SPH_GRAD_RHO is not enabled, disable H2 molecular gas
+     * this really shall not happen because begrun will check against the
+     * condition.
+     * */
+    return 1.0;
+#else
+    double tau_fmol;
     double zoverzsun = P[i].Metallicity/METAL_YIELD;
-
+    tau_fmol = evaluate_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).d.Density,1) * All.cf.a2inv;
     tau_fmol *= (0.1 + zoverzsun);
     if(tau_fmol>0) {
         tau_fmol *= 434.78*All.UnitDensity_in_cgs*All.HubbleParam*All.UnitLength_in_cm;
@@ -1005,6 +1022,52 @@ static double get_tau_fmol(int i) {
 
     } // if(tau_fmol>0)
     return 1.0;
+#endif
+}
+static double get_sfr_factor_due_to_selfgravity(int i) {
+#ifdef SPH_GRAD_RHO
+    double divv = SPHP(i).v.DivVel * All.cf.a2inv; 
+    if(All.ComovingIntegrationOn) {
+        divv += 3.0*All.cf.hubble_a2; // hubble-flow correction
+    }
+
+    if(All.StarformationCriterion & SFR_CRITERION_CONVERGENT_FLOW) {
+        if( divv>=0 ) return 0; // restrict to convergent flows (optional) //
+    }
+
+    double dv2abs = (divv*divv 
+            + (SPHP(i).r.CurlVel*All.cf.a2inv)
+            * (SPHP(i).r.CurlVel*All.cf.a2inv)
+           ); // all in physical units
+    double alpha_vir = 0.2387 * dv2abs/(All.G * SPHP(i).d.Density*All.cf.a3inv);
+
+    double y = 1.0;
+    if(All.ComovingIntegrationOn)
+    {
+        if((alpha_vir < 1.0) 
+        || (SPHP(i).d.Density * All.cf.a3inv > 100. * All.PhysDensThresh)
+        )  {
+            y = 66.7;
+        } else {
+            y = 0.1;
+        }
+        // PFH: note the latter flag is an arbitrary choice currently set 
+        // -by hand- to prevent runaway densities from this prescription! //
+    } else {
+        if(alpha_vir < 1.0) {
+            y = 66.7;
+        } else {
+            y = 0.1;
+        }
+    }
+    if (All.StarformationCriterion & SFR_CRITERION_CONTINUOUS_CUTOFF) {
+        // continuous cutoff w alpha_vir instead of sharp (optional) //
+        y *= 1.0/(1.0 + alpha_vir); 
+    }
+    return y;
+#else
+    return 1.0;
+#endif
 }
 
 #endif /* closes COOLING */

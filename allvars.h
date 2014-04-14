@@ -347,11 +347,13 @@ typedef MyFloat MyLongDouble;
 
 
 #ifdef BLACK_HOLES
-#define BH_FEEDBACK_TOPHAT   0x2
-#define BH_FEEDBACK_SPLINE   0x4
-#define BH_FEEDBACK_MASS     0x8
-#define BH_FEEDBACK_VOLUME   0x10
-#define BH_FEEDBACK_OPTTHIN   0x20
+enum bhfeedbackmethod {
+     BH_FEEDBACK_TOPHAT   = 0x2,
+     BH_FEEDBACK_SPLINE   = 0x4,
+     BH_FEEDBACK_MASS     = 0x8,
+     BH_FEEDBACK_VOLUME   = 0x10,
+     BH_FEEDBACK_OPTTHIN  = 0x20,
+};
 #endif
 
 static inline double DMAX(double a, double b) {
@@ -646,6 +648,18 @@ extern double HydroKickTable[DRIFT_TABLE_LENGTH];
 
 extern void *CommBuffer;	/*!< points to communication buffer, which is used at a few places */
 
+/* 
+ * additional sfr criterion in addition to density threshold 
+ * All.StarformationCriterion */
+enum starformationcriterion {
+    SFR_CRITERION_DENSITY = 1,
+    SFR_CRITERION_MOLECULAR_H2 = 3, /* 2 + 1 */ 
+    SFR_CRITERION_SELFGRAVITY = 5,  /* 4 + 1 */
+    /* below are additional flags in SELFGRAVITY */
+    SFR_CRITERION_CONVERGENT_FLOW = 13, /* 8 + 4 + 1 */
+    SFR_CRITERION_CONTINUOUS_CUTOFF= 21, /* 16 + 4 + 1 */
+};
+
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
  * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
@@ -788,6 +802,7 @@ extern struct global_data_all_processes
     int OutputListOn;		/*!< flags that output times are listed in a specified file */
     int CoolingOn;		/*!< flags that cooling is enabled */
     int StarformationOn;		/*!< flags that star formation is enabled */
+    enum starformationcriterion StarformationCriterion;		/*!< flags that star formation is enabled */
 
     int CompressionLevel;
     /* parameters determining output frequency */
@@ -1067,8 +1082,7 @@ extern struct global_data_all_processes
     double TimeBetBlackHoleSearch;
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
-    int BlackHoleFeedbackMethod;	/*!< Radius the thermal feedback is fed comoving*/
-    char BlackHoleFeedbackMethodSTR[128];	/*!< Radius the thermal feedback is fed comoving*/
+    enum blackholefeedbackmethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
     double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
     double SeedBlackHoleMass;	/*!< Seed black hole mass */

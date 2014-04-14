@@ -971,7 +971,56 @@ void close_outputfiles(void)
 
 
 
+struct multichoice { char * name; int value; } ;
+static int parse_multichoice(struct multichoice * table, char * strchoices) {
+    int value = 0;
+    struct multichoice * p;
+    for(p = table; p->name; p++) {
+        if(strstr(strchoices, p->name)) {
+            value |= p->value;
+        }
+    }
+    if(value == 0) {
+        /* none is specified, use default (NULL named entry) */
+        value = p->value;
+    }
+    return value;
+}
+static char * format_multichoice(struct multichoice * table, int value) {
+    char buffer[2048];
+    struct multichoice * p;
+    char * c = buffer;
+    for(p = table; p->name; p++) {
+        if(p->value & value) {
+            strcpy(c, p->name);
+            c += strlen(p->name);
+            c[0] = '&';
+            c++;
+            c[0] = 0;
+        }
+    }
+    return strdup(buffer);
+}
+#ifdef BLACK_HOLES
+struct multichoice BlackHoleFeedbackMethodChoices [] = {
+    {"mass", BH_FEEDBACK_MASS},
+    {"volume", BH_FEEDBACK_VOLUME},
+    {"tophat", BH_FEEDBACK_TOPHAT},
+    {"spline", BH_FEEDBACK_SPLINE},
+    {NULL, BH_FEEDBACK_SPLINE | BH_FEEDBACK_MASS},
+};
+#endif 
+#ifdef SFR
+struct multichoice StarformationCriterionChoices [] = {
+    {"density", SFR_CRITERION_DENSITY},
+    {"h2", SFR_CRITERION_MOLECULAR_H2},
+    {"selfgravity", SFR_CRITERION_SELFGRAVITY},
+    {"convergent", SFR_CRITERION_CONVERGENT_FLOW},
+    {"continous", SFR_CRITERION_CONTINUOUS_CUTOFF},
+    {NULL, SFR_CRITERION_DENSITY},
+};
 
+#endif
 
 /*! This function parses the parameterfile in a simple way.  Each paramater is
  *  defined by a keyword (`tag'), and can be either of type douple, int, or
@@ -984,6 +1033,7 @@ void read_parameter_file(char *fname)
 #define REAL 1
 #define STRING 2
 #define INT 3
+#define MULTICHOICE 4
 #define MAXTAGS 300
 
     FILE *fd, *fdout;
@@ -991,6 +1041,7 @@ void read_parameter_file(char *fname)
     int i, j, nt;
     int id[MAXTAGS];
     void *addr[MAXTAGS];
+    struct multichoice * choices[MAXTAGS];
     char tag[MAXTAGS][50];
     int pnum, errorFlag = 0;
 
@@ -1663,8 +1714,9 @@ void read_parameter_file(char *fname)
         id[nt++] = REAL;
 
         strcpy(tag[nt], "BlackHoleFeedbackMethod");
-        addr[nt] = All.BlackHoleFeedbackMethodSTR;
-        id[nt++] = STRING;
+        addr[nt] = &All.BlackHoleFeedbackMethod;
+        choices[nt] = BlackHoleFeedbackMethodChoices;
+        id[nt++] = MULTICHOICE;
 
 #endif
 
@@ -1724,6 +1776,11 @@ void read_parameter_file(char *fname)
 #endif      
 
 #ifdef SFR
+        strcpy(tag[nt], "StarformationCriterion");
+        addr[nt] = &All.StarformationCriterion;
+        choices[nt] = StarformationCriterionChoices;
+        id[nt++] = MULTICHOICE;
+          
         strcpy(tag[nt], "CritOverDensity");
         addr[nt] = &All.CritOverDensity;
         id[nt++] = REAL;
@@ -2212,6 +2269,15 @@ void read_parameter_file(char *fname)
                                 fprintf(fdout, "%-35s%d\n", buf1, *((int *) addr[j]));
                                 fprintf(stdout, "%-35s%d\n", buf1, *((int *) addr[j]));
                                 break;
+                            case MULTICHOICE:
+                                *((int *) addr[j]) = parse_multichoice(choices[j], buf2);
+                                {
+                                    char * parsed = format_multichoice(choices[j], *((int *) addr[j]));
+                                    fprintf(fdout, "%-35s%s\n", buf1, parsed);
+                                    fprintf(stdout, "%-35s%s\n", buf1, parsed);
+                                    free(parsed);
+                                }
+                                break;
                         }
                     }
                     else
@@ -2334,40 +2400,6 @@ NUMCRPOP = 1;
 			All.SubFindCollectiveLimitFactor = 0.5;
 		}
 #endif
-        /* parse blackhole feedback method string */
-#ifdef BLACK_HOLES
-        All.BlackHoleFeedbackMethod = 0;
-        {
-            struct { char * name; int value; } 
-            *p, table[] = {
-                {"mass", BH_FEEDBACK_MASS},
-                {"volume", BH_FEEDBACK_VOLUME},
-                {"tophat", BH_FEEDBACK_TOPHAT},
-                {"spline", BH_FEEDBACK_SPLINE},
-                {NULL, BH_FEEDBACK_SPLINE},
-            };
-            for(p = table; p->name; p++) {
-                if(strstr(All.BlackHoleFeedbackMethodSTR, p->name)) {
-                    All.BlackHoleFeedbackMethod |= p->value;
-                }
-            }
-            if(   ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_TOPHAT) != 0)
-                    ==  ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE) != 0)){
-                printf("error BlackHoleFeedbackMethod contains either tophat or spline, but both\n");
-                errorFlag = 1;
-            }
-            if(   ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) != 0)
-                    ==  ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_VOLUME) != 0)){
-                printf("error BlackHoleFeedbackMethod contains either volume or mass, but both\n");
-                errorFlag = 1;
-            }
-            for(p = table; p->name; p++) {
-                if(All.BlackHoleFeedbackMethod & p->value) {
-                    printf("BH Feedback Method %s\n", p->name);
-                } 
-            }
-        }
-#endif
     }
 
     MPI_Bcast(&errorFlag, 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -2403,6 +2435,38 @@ NUMCRPOP = 1;
         endrun(0);
     }
 
+#ifdef BLACK_HOLES
+        /* parse blackhole feedback method string */
+        {
+            if(   ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_TOPHAT) != 0)
+                    ==  ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_SPLINE) != 0)){
+                printf("error BlackHoleFeedbackMethod contains either tophat or spline, but both\n");
+                endrun(0);
+            }
+            if(   ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_MASS) != 0)
+                    ==  ((All.BlackHoleFeedbackMethod & BH_FEEDBACK_VOLUME) != 0)){
+                printf("error BlackHoleFeedbackMethod contains either volume or mass, but both\n");
+                endrun(0);
+            }
+        }
+#endif
+#ifdef SFR
+        if(!(All.StarformationCriterion & SFR_CRITERION_DENSITY)) {
+            printf("error: At least use SFR_CRITERION_DENSITY\n");
+            endrun(0);
+        }
+#ifndef SPH_GRAD_RHO
+        if(All.StarformationCriterion & SFR_CRITERION_MOLECULAR_H2) {
+            printf("error: enable SPH_GRAD_RHO to use h2 criterion in sfr \n");
+            endrun(0);
+        }
+        if(All.StarformationCriterion & SFR_CRITERION_SELFGRAVITY) {
+            printf("error: enable SPH_GRAD_RHO to use selfgravity in sfr \n");
+            endrun(0);
+        } 
+#endif
+
+#endif
 #ifdef PERIODIC
     if(All.PeriodicBoundariesOn == 0)
     {
