@@ -2315,14 +2315,6 @@ void read_parameter_file(char *fname)
                 freopen(buf1, "w", stdout);
 #endif
 
-                sprintf(buf1, "%s%s", fname, "-usedvalues");
-                sprintf(buf2, "%s%s", All.OutputDir, "parameters-usedvalues");
-                sprintf(buf3, "cp %s %s", buf1, buf2);
-#ifndef NOCALLSOFSYSTEM
-                int ret;
-
-                ret = system(buf3);
-#endif
             }
         }
         else
