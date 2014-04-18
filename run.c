@@ -141,11 +141,9 @@ void run(void)
             {
                 close_outputfiles();
                 sprintf(buf, "%s", All.ResubmitCommand);
-#ifndef NOCALLSOFSYSTEM
                 int ret;
 
                 ret = system(buf);
-#endif
             }
             return;
         }
