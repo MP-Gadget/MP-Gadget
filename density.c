@@ -18,7 +18,8 @@ extern int NextParticle;
 static int density_isactive(int n);
 static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngblist);
 static void * density_alloc_ngblist();
-static void density_post_process(int i, MyFloat * Left, MyFloat * Right);
+static void density_post_process(int i);
+static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
@@ -301,8 +302,9 @@ void density(void)
 #pragma omp parallel for if(Nactive > 32) reduction(+: npleft)
         for(i = 0; i < Nactive; i++) {
             int p = queue[i];
-            /* will change DensityIterationDone */
-            density_post_process(p, Left, Right);
+            density_post_process(p);
+            /* will notify by setting DensityIterationDone */
+            density_check_neighbours(p, Left, Right);
             if(iter >= MAXITER - 10)
             {
                 printf
@@ -1201,7 +1203,7 @@ static int density_isactive(int n)
     return 0;
 }
 
-static void density_post_process(int i, MyFloat * Left, MyFloat * Right) {
+static void density_post_process(int i) {
     int dt_step, dt_entr;
     if(P[i].Type == 0)
     {
@@ -1436,8 +1438,9 @@ static void density_post_process(int i, MyFloat * Left, MyFloat * Right) {
         }
     }
 #endif
+}
 
-
+void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
     /* now check whether we had enough neighbours */
 
     double desnumngb = All.DesNumNgb;
