@@ -18,7 +18,7 @@
 static FILE *fd;
 
 static void in(int *x, int modus);
-static void byten(void *x, int n, int modus);
+static void byten(void *x, size_t n, int modus);
 
 
 /* This function reads or writes the restart files.
@@ -56,7 +56,6 @@ void restart(int modus)
 
     sprintf(buf, "%s/restartfiles/%s.%d", All.OutputDir, All.RestartFile, ThisTask);
     sprintf(buf_bak, "%s/restartfiles/%s.%d.bak", All.OutputDir, All.RestartFile, ThisTask);
-    sprintf(buf_mv, "mv %s %s", buf, buf_bak);
 
     if((NTask < All.NumFilesWrittenInParallel))
     {
@@ -80,11 +79,7 @@ void restart(int modus)
         {
             if(!modus)
             {
-#ifndef NOCALLSOFSYSTEM
-                int ret;
-
-                ret = system(buf_mv);	/* move old restart files to .bak files */
-#endif
+                rename(buf, buf_bak);
             }
         }
     }
@@ -360,7 +355,7 @@ void restart(int modus)
 
 /* reads/writes n bytes 
 */
-void byten(void *x, int n, int modus)
+void byten(void *x, size_t n, int modus)
 {
     if(modus)
         my_fread(x, n, 1, fd);
