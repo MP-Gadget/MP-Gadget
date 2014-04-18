@@ -365,6 +365,16 @@ void empty_read_buffer(enum iofields blocknr, int bytes_per_blockelement, int of
                 SPHP(offset + n).Entropy = READREAL(cp);
             break;
 
+        case IO_RHOEGY:		/* pressure-entropy density */
+            for(n = 0; n < pc; n++)
+                SPHP(offset + n).EOMDensity = READREAL(cp);
+            break;
+
+        case IO_ENTROPY:		/* pressure-entropy entropy*/
+            for(n = 0; n < pc; n++)
+                SPHP(offset + n).Entropy = READREAL(cp);
+            break;
+
         case IO_RHO:		/* density */
             for(n = 0; n < pc; n++)
                 SPHP(offset + n).d.Density = READREAL(cp);
