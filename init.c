@@ -1251,7 +1251,8 @@ void setup_smoothinglengths(void)
         SPHP(i).EgyWtDensity = SPHP(i).d.Density;
     }
 
-    if(header.flag_entropy_instead_u == 0)
+    /* for clean IC with U input only, we need to iterate to find entrpoy */
+    if(RestartFlag == 0 && header.flag_entropy_instead_u == 0)
     {
         double a3;
         if(All.ComovingIntegrationOn) {
@@ -1300,15 +1301,12 @@ void setup_smoothinglengths(void)
             SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity/a3 , GAMMA_MINUS1);
         }
     }
+    /* snapshot already has Entropy; hope it is read in correctly. (need a test
+     * on this!) */
     /* regardless we initalize EntVarPred. This may be unnecessary*/
     for(i = 0; i < N_sph; i++) {
         SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
     }
-    density();
-    density();
-    density();
-    density();
-    density();
     density();
 #endif
 
