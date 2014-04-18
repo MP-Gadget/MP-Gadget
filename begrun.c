@@ -975,9 +975,18 @@ struct multichoice { char * name; int value; } ;
 static int parse_multichoice(struct multichoice * table, char * strchoices) {
     int value = 0;
     struct multichoice * p;
-    for(p = table; p->name; p++) {
-        if(strstr(strchoices, p->name)) {
-            value |= p->value;
+    char * delim = ",;&| \t";
+    char * token = strtok(strchoices, delim);
+    for(token; token ; token = strtok(NULL, delim)) {
+        for(p = table; p->name; p++) {
+            if(strcasecmp(token, p->name) == 0) {
+                value |= p->value;
+                break;
+            }
+        }
+        if(p->name == NULL) {
+            /* error occured !*/
+            return 0; 
         }
     }
     if(value == 0) {
@@ -1001,6 +1010,7 @@ static char * format_multichoice(struct multichoice * table, int value) {
     }
     return strdup(buffer);
 }
+
 #ifdef BLACK_HOLES
 struct multichoice BlackHoleFeedbackMethodChoices [] = {
     {"mass", BH_FEEDBACK_MASS},
@@ -2270,11 +2280,21 @@ void read_parameter_file(char *fname)
                                 fprintf(stdout, "%-35s%d\n", buf1, *((int *) addr[j]));
                                 break;
                             case MULTICHOICE:
-                                *((int *) addr[j]) = parse_multichoice(choices[j], buf2);
                                 {
-                                    char * parsed = format_multichoice(choices[j], *((int *) addr[j]));
-                                    fprintf(fdout, "%-35s%s\n", buf1, parsed);
-                                    fprintf(stdout, "%-35s%s\n", buf1, parsed);
+                                    int value = parse_multichoice(choices[j], buf2);
+                                    *((int *) addr[j]) = value;
+                                    char * parsed = NULL;
+                                    if(value == 0) {
+                                        parsed = format_multichoice(choices[j], -1);
+                                        fprintf(stdout, 
+                                                "Error in file %s:   Tag '%s' possible choices are: %s.\n",
+                                                fname, buf1, parsed);
+                                        errorFlag = 1;
+                                    } else {
+                                        parsed = format_multichoice(choices[j], *((int *) addr[j]));
+                                        fprintf(fdout, "%-35s%s\n", buf1, parsed);
+                                        fprintf(stdout, "%-35s%s\n", buf1, parsed);
+                                    }
                                     free(parsed);
                                 }
                                 break;
