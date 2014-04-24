@@ -413,11 +413,8 @@ void gravity_tree(void)
 
                 /* exchange particle data */
 
-                GravDataGet = (struct gravdata_in *) evaluate_get_remote(&ev[Ewald_iter],  TAG_GRAV_A);
+                evaluate_get_remote(&ev[Ewald_iter],  TAG_GRAV_A);
 
-                GravDataResult =
-                    (struct gravdata_out *) mymalloc("GravDataResult", ev[Ewald_iter].Nimport * sizeof(struct gravdata_out));
-                
                 report_memory_usage(&HighMark_gravtree, "GRAVTREE");
 
                 /* now do the particles that were sent to us */
@@ -425,10 +422,7 @@ void gravity_tree(void)
                 evaluate_secondary(&ev[Ewald_iter]);
 
                 /* get the result */
-                evaluate_reduce_result(&ev[Ewald_iter], GravDataResult, TAG_GRAV_B);
-
-                myfree(GravDataResult);
-                myfree(GravDataGet);
+                evaluate_reduce_result(&ev[Ewald_iter], TAG_GRAV_B);
             }
             while(evaluate_ndone(&ev[Ewald_iter]) < NTask);
 

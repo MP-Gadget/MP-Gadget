@@ -15,15 +15,9 @@
 
 extern int NextParticle;
 
-static int density_isactive(int n);
-static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngblist);
-static void * density_alloc_ngblist();
-static void density_post_process(int i);
-static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
-
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
-static struct densdata_in
+struct densdata_in
 {
     int NodeList[NODELISTLENGTH];
     MyIDType ID;
@@ -50,10 +44,9 @@ static struct densdata_in
     MyFloat MagSeed;
 #endif
     int Type;
-} *DensDataGet;
+};
 
-
-static struct densdata_out
+struct densdata_out
 {
     MyIDType ID;
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -119,8 +112,14 @@ static struct densdata_out
 #ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
 #endif
-}
-*DensDataResult;
+};
+
+static int density_isactive(int n);
+static int density_evaluate(int target, int mode, struct densdata_in * input, struct densdata_out * output, LocalEvaluator * lv, int * ngblist);
+static void * density_alloc_ngblist();
+static void density_post_process(int i);
+static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
+
 
 static void density_reduce(int place, struct densdata_out * remote, int mode);
 static void density_copy(int place, struct densdata_in * input);
@@ -253,10 +252,7 @@ void density(void)
 
             /* exchange particle data */
 
-            DensDataGet = (struct densdata_in * ) evaluate_get_remote(&ev, TAG_DENS_A);
-
-            DensDataResult =
-                (struct densdata_out *) mymalloc("DensDataResult", ev.Nimport * sizeof(struct densdata_out));
+            evaluate_get_remote(&ev, TAG_DENS_A);
 
             report_memory_usage(&HighMark_sphdensity, "SPH_DENSITY");
 
@@ -266,10 +262,7 @@ void density(void)
             evaluate_secondary(&ev);
 
             /* import the result to local particles */
-            evaluate_reduce_result(&ev, DensDataResult, TAG_DENS_B);
-
-            myfree(DensDataResult);
-            myfree(DensDataGet);
+            evaluate_reduce_result(&ev, TAG_DENS_B);
         }
         while(evaluate_ndone(&ev) < NTask);
 
@@ -597,7 +590,10 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
  *  target particle may either be local, or reside in the communication
  *  buffer.
  */
-static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngblist) 
+static int density_evaluate(int target, int mode, 
+        struct densdata_in * input, 
+        struct densdata_out * output, 
+        LocalEvaluator * lv, int * ngblist)
 {
     int j, n;
 
@@ -750,18 +746,11 @@ static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngb
 #endif
     rho = weighted_numngb = dhsmlrho = 0;
 
-    struct densdata_in inputs, *input;
-    struct densdata_out outputs, *output;
     if(mode == 0) {
-        input = &inputs;
-        output = &outputs;
-        density_copy(target, input);
         startnode = All.MaxPart;	/* root node */
         /* empty nodelist*/
         input->NodeList[0] = -1;
     } else {
-        input = &DensDataGet[target];
-        output = &DensDataResult[target];
         startnode = input->NodeList[0];
         listindex ++;
         startnode = Nodes[startnode].u.d.nextnode;	/* open it */
@@ -1162,10 +1151,6 @@ static int density_evaluate(int target, int mode, LocalEvaluator * lv, int * ngb
     output->BPredVec[1] = BVec[1];
     output->BPredVec[2] = BVec[2];
 #endif
-
-    if(mode == 0) {
-        density_reduce(target, output, 0);
-    }
 
     /* some performance measures not currently used */
     lv->Ninteractions += ninteractions;

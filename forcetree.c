@@ -2099,7 +2099,10 @@ void force_update_hmax(void)
  *  the value of TypeOfOpeningCriterion, either the geometrical BH
  *  cell-opening criterion, or the `relative' opening criterion is used.
  */
-int force_treeevaluate(int target, int mode, LocalEvaluator * lv, void * unused)
+int force_treeevaluate(int target, int mode, 
+        struct gravdata_in  * input,
+        struct gravdata_out  * output,
+        LocalEvaluator * lv, void * unused)
 {
 
     struct NODE *nop = 0;
@@ -2146,22 +2149,14 @@ int force_treeevaluate(int target, int mode, LocalEvaluator * lv, void * unused)
     acc_y = 0;
     acc_z = 0;
 
-    struct gravdata_in inputs, *input;
-    struct gravdata_out outputs, *output;
-
     if(mode == 0)
     {
-        input = &inputs;
-        output = &outputs;
-        gravtree_copy(target, input);
         no = All.MaxPart;	/* root node */
         /* empty nodelist*/
         input->NodeList[0] = -1;
     }
     else
     {
-        input = &GravDataGet[target];
-        output = &GravDataResult[target];
         no = input->NodeList[0];
         listindex ++;
         no = Nodes[no].u.d.nextnode;	/* open it */
@@ -2639,9 +2634,6 @@ int force_treeevaluate(int target, int mode, LocalEvaluator * lv, void * unused)
 #endif
 
     /* store result at the proper place */
-    if(mode == 0) {
-        gravtree_reduce(target, output, 0);
-    }
     lv->Ninteractions = ninteractions;
     lv->Nnodesinlist = nnodesinlist;
     return ninteractions;
@@ -2658,7 +2650,10 @@ int force_treeevaluate(int target, int mode, LocalEvaluator * lv, void * unused)
  *  memory-access panelty (which reduces cache performance) incurred by the
  *  table.
  */
-int force_treeevaluate_shortrange(int target, int mode, LocalEvaluator * lv, void * unused)
+int force_treeevaluate_shortrange(int target, int mode, 
+        struct gravdata_in * input, 
+        struct gravdata_out * output, 
+        LocalEvaluator * lv, void * unused)
 {
     struct NODE *nop = 0;
     int no, ptype, nexp, tabindex, task, listindex = 0;
@@ -2711,22 +2706,14 @@ int force_treeevaluate_shortrange(int target, int mode, LocalEvaluator * lv, voi
     rcut = All.Rcut[0];
     asmth = All.Asmth[0];
 
-    struct gravdata_in inputs, *input;
-    struct gravdata_out outputs, *output;
-
     if(mode == 0)
     {
-        input = &inputs;
-        output = &outputs;
-        gravtree_copy(target, input);
         no = All.MaxPart;	/* root node */
         /* empty nodelist*/
         input->NodeList[0] = -1;
     }
     else
     {
-        input = &GravDataGet[target];
-        output = &GravDataResult[target];
         no = input->NodeList[0];
         listindex ++;
         no = Nodes[no].u.d.nextnode;	/* open it */
@@ -3159,12 +3146,6 @@ int force_treeevaluate_shortrange(int target, int mode, LocalEvaluator * lv, voi
                 output->tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
 #endif
 
-    /* store result at the proper place */
-    if(mode == 0)
-    {
-        gravtree_reduce(target, output, 0);
-    }
-
     lv->Ninteractions = ninteractions;
     lv->Nnodesinlist = nnodesinlist;
     return ninteractions;
@@ -3196,7 +3177,10 @@ int force_treeevaluate_shortrange(int target, int mode, LocalEvaluator * lv, voi
  *  that was mapped to a different nearest neighbour position when the tree
  *  walk would be further refined.
  */
-int force_treeevaluate_ewald_correction(int target, int mode, LocalEvaluator * lv, void * unused)
+int force_treeevaluate_ewald_correction(int target, int mode, 
+        struct gravdata_in  * input,
+        struct gravdata_out  * output,
+        LocalEvaluator * lv, void * unused)
 {
     struct NODE *nop = 0;
     int no, listindex = 0;
@@ -3217,22 +3201,14 @@ int force_treeevaluate_ewald_correction(int target, int mode, LocalEvaluator * l
     acc_y = 0;
     acc_z = 0;
 
-    struct gravdata_in inputs, *input;
-    struct gravdata_out outputs, *output;
-
     if(mode == 0)
     {
-        input = &inputs;
-        output = &outputs;
-        gravtree_copy(target, input);
         no = All.MaxPart;	/* root node */
         /* empty nodelist*/
         input->NodeList[0] = -1;
     }
     else
     {
-        input = &GravDataGet[target];
-        output = &GravDataResult[target];
         no = input->NodeList[0];
         listindex ++;
         no = Nodes[no].u.d.nextnode;	/* open it */
@@ -3474,12 +3450,6 @@ int force_treeevaluate_ewald_correction(int target, int mode, LocalEvaluator * l
     output->Acc[1] = acc_y;
     output->Acc[2] = acc_z;
     output->Ninteractions = ninteractions;
-
-    /* add the result at the proper place */
-
-    if(mode == 0) {
-        gravtree_reduce_ewald(target, output, 0);
-    }
 
     lv->Ninteractions = ninteractions;
     lv->Nnodesinlist = nnodesinlist;

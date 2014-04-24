@@ -169,9 +169,24 @@ enum NgbTreeFindSymmetric
     NGB_TREEFIND_ASYMMETRIC,
 } ;
 
+/* this is the internal code that looks for particles in the ngb tree from
+ * searchcenter upto hsml. if symmetric is NGB_TREE_FIND_SYMMETRIC, then upto
+ * max(P[i].Hsml, hsml). 
+ *
+ * the particle at target are marked for export. 
+ * nodes are exported too if ev->UseNodeList is True.
+ *
+ * ptypemask is the sum of 1 << type of particle types that are returned. 
+ *
+ * */
+/*! This function returns neighbours with distance <= hsml and returns them in
+ *  Ngblist. Actually, particles in a box of half side length hsml are
+ *  returned, i.e. the reduction to a sphere still needs to be done in the
+ *  calling routine.
+ */
 static int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
         int mode, LocalEvaluator * lv,
-        int *ngblist, enum NgbTreeFindSymmetric symmetric)
+        int *ngblist, enum NgbTreeFindSymmetric symmetric, int ptypemask)
 {
     int no, p, numngb, task, nexp;
     MyDouble dist, dx, dy, dz;
@@ -191,7 +206,7 @@ static int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int targ
             p = no;
             no = Nextnode[no];
 
-            if(P[p].Type > 0)
+            if(!((1<<P[p].Type) & ptypemask))
                 continue;
 
             if(drift_particle_full(p, All.Ti_Current, blocking) < 0) {
@@ -442,18 +457,13 @@ int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, in
 }
 
 
-/*! This function returns neighbours with distance <= hsml and returns them in
- *  Ngblist. Actually, particles in a box of half side length hsml are
- *  returned, i.e. the reduction to a sphere still needs to be done in the
- *  calling routine.
- */
 int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
         int mode, LocalEvaluator * lv, 
         int *ngblist)
 {
 
     return ngb_treefind_threads(searchcenter, hsml, target, startnode, mode, lv,
-            ngblist, NGB_TREEFIND_ASYMMETRIC);
+            ngblist, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only */
 }
 int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
         int mode, LocalEvaluator * lv, 
@@ -461,7 +471,7 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 {
 
     return ngb_treefind_threads(searchcenter, hsml, target, startnode, mode, lv,
-            ngblist, NGB_TREEFIND_SYMMETRIC);
+            ngblist, NGB_TREEFIND_SYMMETRIC, 1); /* gas only */
 }
 
 

@@ -120,6 +120,9 @@ static void real_ev(Evaluator * ev) {
     /* Note: exportflag is local to each thread */
     int k;
             /* use old index to recover from a buffer overflow*/;
+    void * input = alloca(ev->ev_datain_elsize);
+    void * output = alloca(ev->ev_dataout_elsize);
+
     for(k = ev->currentIndex[tid];
         k < ev->currentEnd[tid]; 
         k++) {
@@ -134,7 +137,9 @@ static void real_ev(Evaluator * ev) {
             BREAKPOINT;
         }
         int rt;
-        rt = ev->ev_evaluate(i, 0, &lv, extradata);
+        ev->ev_copy(i, input);
+        rt = ev->ev_evaluate(i, 0, input, output, &lv, extradata);
+        ev->ev_reduce(i, output, 0);
         if(rt < 0) {
             P[i].Evaluated = 0;
             break;		/* export buffer has filled up, redo this particle */
@@ -271,6 +276,7 @@ void evaluate_secondary(Evaluator * ev) {
     double tstart, tend;
 
     tstart = second();
+    ev->dataresult = mymalloc("EvDataResult", ev->Nimport * ev->ev_dataout_elsize);
 
 #pragma omp parallel 
     {
@@ -283,7 +289,9 @@ void evaluate_secondary(Evaluator * ev) {
         evaluate_init_thread(ev, &lv);
 #pragma omp for
         for(j = 0; j < ev->Nimport; j++) {
-            ev->ev_evaluate(j, 1, &lv, extradata);
+            void * input = ev->dataget + j * ev->ev_datain_elsize;
+            void * output = ev->dataresult + j * ev->ev_dataout_elsize;
+            ev->ev_evaluate(j, 1, input, output, &lv, extradata);
         }
 #pragma omp atomic
         ev->Ninteractions += lv.Ninteractions;
@@ -381,7 +389,7 @@ static void evaluate_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int
 }
 
 /* returns the remote particles */
-void * evaluate_get_remote(Evaluator * ev, int tag) {
+void evaluate_get_remote(Evaluator * ev, int tag) {
     int j;
     double tstart, tend;
 
@@ -410,7 +418,7 @@ void * evaluate_get_remote(Evaluator * ev, int tag) {
     tend = second();
     ev->timecommsumm1 += timediff(tstart, tend);
     myfree(sendbuf);
-    return recvbuf;
+    ev->dataget = recvbuf;
 }
 
 int data_index_compare_by_index(const void *a, const void *b)
@@ -429,12 +437,12 @@ int data_index_compare_by_index(const void *a, const void *b)
 
     return 0;
 }
-void evaluate_reduce_result(Evaluator * ev,
-        void * sendbuf, int tag) {
+void evaluate_reduce_result(Evaluator * ev, int tag) {
 
     int j;
     double tstart, tend;
 
+    void * sendbuf = ev->dataresult;
     char * recvbuf = (char*) mymalloc("EvDataOut", 
                 ev->Nexport * ev->ev_dataout_elsize);
 
@@ -479,6 +487,8 @@ void evaluate_reduce_result(Evaluator * ev,
     tend = second();
     ev->timecomp1 += timediff(tstart, tend);
     myfree(recvbuf);
+    myfree(ev->dataresult);
+    myfree(ev->dataget);
 }
 
 static int ev_task_cmp_by_top_node(const void * p1, const void * p2) {

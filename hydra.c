@@ -37,12 +37,6 @@
  *  computed, and where the rate of change of entropy due to the shock heating
  *  (via artificial viscosity) is computed.
  */
-
-static int hydro_evaluate(int target, int mode, LocalEvaluator * lv, int * ngblist);
-static int hydro_isactive(int n);
-static void * hydro_alloc_ngblist();
-static void hydro_post_process(int i);
-
 struct hydrodata_in
 {
 #ifndef DONOTUSENODELIST
@@ -116,8 +110,7 @@ struct hydrodata_in
     MyFloat dpdr;
 #endif
 
-} *HydroDataGet;
-
+};
 
 struct hydrodata_out
 {
@@ -155,8 +148,16 @@ struct hydrodata_out
 #ifdef HYDRO_COST_FACTOR
     int Ninteractions;
 #endif
-}
-*HydroDataResult;
+};
+
+
+static int hydro_evaluate(int target, int mode, 
+        struct hydrodata_in * input, 
+        struct hydrodata_out * output,
+        LocalEvaluator * lv, int * ngblist);
+static int hydro_isactive(int n);
+static void * hydro_alloc_ngblist();
+static void hydro_post_process(int i);
 
 
 static void hydro_copy(int place, struct hydrodata_in * input);
@@ -288,10 +289,7 @@ void hydro_force(void)
 
         n_exported += ev.Nexport;
 
-        HydroDataGet = (struct hydrodata_in *) evaluate_get_remote(&ev, TAG_HYDRO_A);
-
-        HydroDataResult =
-            (struct hydrodata_out *) mymalloc("HydroDataResult", ev.Nimport * sizeof(struct hydrodata_out));
+        evaluate_get_remote(&ev, TAG_HYDRO_A);
 
         report_memory_usage(&HighMark_sphhydro, "SPH_HYDRO");
 
@@ -300,10 +298,7 @@ void hydro_force(void)
         evaluate_secondary(&ev);
 
         /* get the result */
-        evaluate_reduce_result(&ev, HydroDataResult, TAG_HYDRO_B);
-
-        myfree(HydroDataResult);
-        myfree(HydroDataGet);
+        evaluate_reduce_result(&ev, TAG_HYDRO_B);
     }
     while(evaluate_ndone(&ev) < NTask);
     
@@ -620,7 +615,10 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
  *  particle is specified which may either be local, or reside in the
  *  communication buffer.
  */
-static int hydro_evaluate(int target, int mode, LocalEvaluator * lv, int * ngblist) 
+static int hydro_evaluate(int target, int mode, 
+        struct hydrodata_in * input, 
+        struct hydrodata_out * output,
+        LocalEvaluator * lv, int * ngblist)
 {
     int startnode, numngb, listindex = 0;
     int j, k, n, timestep;
@@ -771,21 +769,13 @@ static int hydro_evaluate(int target, int mode, LocalEvaluator * lv, int * ngbli
     double c_ij, h_ij;
 #endif
 
-    struct hydrodata_in inputs, *input;
-    struct hydrodata_out outputs, *output;
-
     if(mode == 0) {
-        input = &inputs;
-        output = &outputs;
-        hydro_copy(target, input);
         startnode = All.MaxPart;	/* root node */
         /* empty nodelist*/
 #ifndef DONOTUSENODELIST
         input->NodeList[0] = -1;
 #endif
     } else {
-        input = &HydroDataGet[target];
-        output = &HydroDataResult[target];
 #ifndef DONOTUSENODELIST
         startnode = input->NodeList[0];
         listindex ++;
@@ -1633,10 +1623,6 @@ static int hydro_evaluate(int target, int mode, LocalEvaluator * lv, int * ngbli
         output->DtEulerA = dteulA;
         output->DtEulerB = dteulB;
 #endif
-
-    if(mode == 0) {
-        hydro_reduce(target, output, 0);
-    }
 
     /* some performance measures not currently used */
     lv->Ninteractions += ninteractions;

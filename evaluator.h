@@ -11,7 +11,8 @@ typedef struct _LocalEvaluator {
     int64_t Nnodesinlist;
 } LocalEvaluator;
 
-typedef int (*ev_evaluate_func) (const int target, const int mode, LocalEvaluator * lv, void * extradata);
+typedef int (*ev_evaluate_func) (const int target, const int mode, 
+        void * input, void * output, LocalEvaluator * lv, void * extradata);
 
 typedef int (*ev_isactive_func) (const int i);
 typedef void * (*ev_alloc_func) ();
@@ -33,6 +34,9 @@ typedef struct _Evaluator {
     ev_alloc_func ev_alloc;
     ev_copy_func ev_copy;
     ev_reduce_func ev_reduce;
+
+    char * dataget;
+    char * dataresult;
 
     int UseNodeList;
     size_t ev_datain_elsize;
@@ -63,9 +67,9 @@ typedef struct _Evaluator {
 void evaluate_begin(Evaluator * ev);
 void evaluate_finish(Evaluator * ev);
 int evaluate_primary(Evaluator * ev); 
-void * evaluate_get_remote(Evaluator * ev, int tag);
+void evaluate_get_remote(Evaluator * ev, int tag);
 void evaluate_secondary(Evaluator * ev);
-void evaluate_reduce_result(Evaluator * ev, void * sendbuf, int tag);
+void evaluate_reduce_result(Evaluator * ev, int tag);
 int * evaluate_get_queue(Evaluator * ev, int * len);
 
 /*returns -1 if the buffer is full */

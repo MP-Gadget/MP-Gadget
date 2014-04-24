@@ -19,7 +19,7 @@ OBJS  =  \
 	 system.o allocate.o density.o sizelimited_sendrecv.o  \
 	 evaluator.o \
 	 gravtree.o hydra.o  driftfac.o darkenergy.o \
-	 potential.o  forcetree.o  peano.o gravtree_forcetest.o parallel_sort_special.o \
+	 forcetree.o  peano.o parallel_sort_special.o \
 	 pm_periodic.o pm_nonperiodic.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o 
 

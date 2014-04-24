@@ -33,9 +33,18 @@ void *gravity_primary_loop(void *p);
 void *gravity_secondary_loop(void *p);
 
 
-int force_treeevaluate(int target, int mode, LocalEvaluator * lv, void * unused);
-int force_treeevaluate_ewald_correction(int target, int mode, LocalEvaluator * lv, void * unused);
-int force_treeevaluate_shortrange(int target, int mode, LocalEvaluator * lv, void * unused);
+int force_treeevaluate(int target, int mode, 
+        struct gravdata_in * input,
+        struct gravdata_out * output,
+        LocalEvaluator * lv, void * unused);
+int force_treeevaluate_ewald_correction(int target, int mode, 
+        struct gravdata_in * input,
+        struct gravdata_out * output,
+        LocalEvaluator * lv, void * unused);
+int force_treeevaluate_shortrange(int target, int mode, 
+        struct gravdata_in * input,
+        struct gravdata_out * output,
+        LocalEvaluator * lv, void * unused);
 
 
 int force_treeevaluate_potential(int target, int type, int *nexport, int *nsend_local);

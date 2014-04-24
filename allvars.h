@@ -1893,7 +1893,7 @@ extern struct data_nodelist
 }
 *DataNodeList;
 
-extern struct gravdata_in
+struct gravdata_in
 {
     int NodeList[NODELISTLENGTH];
     MyFloat Pos[3];
@@ -1904,12 +1904,12 @@ extern struct gravdata_in
 #endif
 #endif
     MyFloat OldAcc;
-}
-*GravDataIn,			/*!< holds particle data to be exported to other processors */
-    *GravDataGet;			/*!< holds particle data imported from other processors */
+} ;
+
+extern struct gravdata_in *GravDataIn, *GravDataGet;
 
 
-extern struct gravdata_out
+struct gravdata_out
 {
     MyLongDouble Acc[3];
 #ifdef EVALPOTENTIAL
@@ -1919,18 +1919,17 @@ extern struct gravdata_out
     MyLongDouble tidal_tensorps[3][3];
 #endif
     int Ninteractions;
-}
-*GravDataResult,		/*!< holds the partial results computed for imported particles. Note: We use GravDataResult = GravDataGet, such that the result replaces the imported data */
-    *GravDataOut;			/*!< holds partial results received from other processors. This will overwrite the GravDataIn array */
+};
 
+extern struct gravdata_out *GravDataResult, *GravDataOut;
 
-extern struct potdata_out
+struct potdata_out
 {
     MyLongDouble Potential;
-}
-*PotDataResult,		/*!< holds the partial results computed for imported particles. Note: We use GravDataResult = GravDataGet, such that the result replaces the imported data */
-    *PotDataOut;			/*!< holds partial results received from other processors. This will overwrite the GravDataIn array */
+};
 
+
+extern struct potdata_out *PotDataResult, *PotDataOut;
 
 /*! Header for the standard file format.
 */
