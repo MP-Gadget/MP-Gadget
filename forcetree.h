@@ -121,12 +121,16 @@ int ngb_treefind_blackhole(MyDouble searchcenter[3], MyFloat hsml, int target, i
 
 int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
 		       int mode, int *nexport, int *nsend_local);
-int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-		       int mode, LocalEvaluator * lv, int *ngblist);		       
 int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
  			  int *nexport, int *nsend_local);
-int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
-			  LocalEvaluator * lv, int *ngblist);
+
+enum NgbTreeFindSymmetric {
+    NGB_TREEFIND_SYMMETRIC,
+    NGB_TREEFIND_ASYMMETRIC,
+};
+
+int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
+		       int mode, LocalEvaluator * lv, int *ngblist, enum NgbTreeFindSymmetric symmetric, int ptypemask);
 
 #endif
 

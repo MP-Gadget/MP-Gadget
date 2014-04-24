@@ -801,8 +801,8 @@ static int density_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb_inbox =
-                ngb_treefind_variable_threads(pos, hsearch, target, &startnode, 
-                        mode, lv, ngblist);
+                ngb_treefind_threads(pos, hsearch, target, &startnode, 
+                        mode, lv, ngblist, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
 
             if(numngb_inbox < 0)
                 return numngb_inbox;

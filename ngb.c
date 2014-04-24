@@ -163,12 +163,6 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
     return numngb;
 }
 
-enum NgbTreeFindSymmetric
-{
-    NGB_TREEFIND_SYMMETRIC,
-    NGB_TREEFIND_ASYMMETRIC,
-} ;
-
 /* this is the internal code that looks for particles in the ngb tree from
  * searchcenter upto hsml. if symmetric is NGB_TREE_FIND_SYMMETRIC, then upto
  * max(P[i].Hsml, hsml). 
@@ -184,7 +178,7 @@ enum NgbTreeFindSymmetric
  *  returned, i.e. the reduction to a sphere still needs to be done in the
  *  calling routine.
  */
-static int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
+int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
         int mode, LocalEvaluator * lv,
         int *ngblist, enum NgbTreeFindSymmetric symmetric, int ptypemask)
 {
@@ -455,27 +449,6 @@ int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, in
     *startnode = -1;
     return numngb;
 }
-
-
-int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-        int mode, LocalEvaluator * lv, 
-        int *ngblist)
-{
-
-    return ngb_treefind_threads(searchcenter, hsml, target, startnode, mode, lv,
-            ngblist, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only */
-}
-int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-        int mode, LocalEvaluator * lv, 
-        int *ngblist)
-{
-
-    return ngb_treefind_threads(searchcenter, hsml, target, startnode, mode, lv,
-            ngblist, NGB_TREEFIND_SYMMETRIC, 1); /* gas only */
-}
-
-
-
 
 
 

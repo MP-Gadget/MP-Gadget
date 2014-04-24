@@ -952,8 +952,8 @@ static int hydro_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb =
-                ngb_treefind_pairs_threads(pos, h_i, target, &startnode, 
-                        mode, lv, ngblist);
+                ngb_treefind_threads(pos, h_i, target, &startnode, 
+                        mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1); /* gas only 1 << 0 */
 
             if(numngb < 0)
                 return numngb;
