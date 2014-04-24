@@ -163,10 +163,15 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
     return numngb;
 }
 
+enum NgbTreeFindSymmetric
+{
+    NGB_TREEFIND_SYMMETRIC,
+    NGB_TREEFIND_ASYMMETRIC,
+} ;
 
-int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
+static int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
         int mode, LocalEvaluator * lv,
-        int *ngblist)
+        int *ngblist, enum NgbTreeFindSymmetric symmetric)
 {
     int no, p, numngb, task, nexp;
     MyDouble dist, dx, dy, dz;
@@ -174,7 +179,7 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 
     /* for now always blocking */
     int blocking = 1;
-
+    int donotusenodelist = ! lv->ev->UseNodeList;
     numngb = 0;
 
     no = *startnode;
@@ -193,8 +198,11 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
                 return -2;
             }
 
-            dist = DMAX(P[p].Hsml, hsml);
-
+            if(symmetric == NGB_TREEFIND_SYMMETRIC) {
+                dist = DMAX(P[p].Hsml, hsml);
+            } else {
+                dist = hsml;
+            }
             dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
@@ -207,23 +215,23 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
             if(dx * dx + dy * dy + dz * dz > dist * dist)
                 continue;
 
-            ngblist[numngb++] = p;	/* Note: unlike in previous versions of the code, the buffer 
+            ngblist[numngb++] = p;	
+            /* Note: unlike in previous versions of the code, the buffer 
                                        can hold up to all particles */
         }
         else
         {
             if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
             {
-#ifdef DONOTUSENODELIST
                 if(mode == 1)
                 {
-                    no = Nextnode[no - MaxNodes];
-                    continue;
+                    if(donotusenodelist) {
+                        no = Nextnode[no - MaxNodes];
+                        continue;
+                    } else {
+                        endrun(12312);
+                    }
                 }
-#endif
-                if(mode == 1)
-                    endrun(12312);
-
                 if(target >= 0)	/* if no target is given, export will not occur */
                 {
                     if(-1 == evaluate_export_particle(lv, target, no))
@@ -237,21 +245,20 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
 
             current = &Nodes[no];
 
-#ifndef DONOTUSENODELIST
             if(mode == 1)
             {
-                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-                {
-                    *startnode = -1;
-                    return numngb;
+                if (!donotusenodelist) {
+                    if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                    {
+                        *startnode = -1;
+                        return numngb;
+                    }
                 }
             }
-#endif
 
             if(force_drift_node_full(no, All.Ti_Current, blocking) < 0) {
                 return -2;
             }
-
 
             if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
             {
@@ -262,8 +269,11 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
                 }
             }
 
-            dist = DMAX(Extnodes[no].hmax, hsml) + 0.5 * current->len;
-
+            if(symmetric == NGB_TREEFIND_SYMMETRIC) {
+                dist = DMAX(Extnodes[no].hmax, hsml) + 0.5 * current->len;
+            } else {
+                dist = hsml + 0.5 * current->len;;
+            }
             no = current->u.d.sibling;	/* in case the node can be discarded */
 
             dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
@@ -283,7 +293,6 @@ int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int targe
             no = current->u.d.nextnode;	/* ok, we need to open the node */
         }
     }
-
 
     *startnode = -1;
     return numngb;
@@ -442,109 +451,19 @@ int ngb_treefind_variable_threads(MyDouble searchcenter[3], MyFloat hsml, int ta
         int mode, LocalEvaluator * lv, 
         int *ngblist)
 {
-    int numngb, no, nexp, p, task;
-    struct NODE *current;
-    MyDouble dx, dy, dz, dist;
 
-    int blocking = 1; /* always blocking for now*/
-
-    numngb = 0;
-    no = *startnode;
-
-    while(no >= 0)
-    {
-        if(no < All.MaxPart)	/* single particle */
-        {
-            p = no;
-            no = Nextnode[no];
-
-            if(P[p].Type > 0)
-                continue;
-
-            if(drift_particle_full(p, All.Ti_Current, blocking) < 0) {
-                return -2;
-            }
-
-            dist = hsml;
-            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
-            if(dx > dist)
-                continue;
-            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
-            if(dy > dist)
-                continue;
-            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
-            if(dz > dist)
-                continue;
-            if(dx * dx + dy * dy + dz * dz > dist * dist)
-                continue;
-
-            ngblist[numngb++] = p;
-        }
-        else
-        {
-            if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
-            {
-                if(mode == 1)
-                    endrun(12312);
-
-                if(target >= 0)	/* if no target is given, export will not occur */
-                {
-                    if(-1 == evaluate_export_particle(lv, target, no))
-                        return -1;
-                }
-
-                no = Nextnode[no - MaxNodes];
-                continue;
-            }
-
-            current = &Nodes[no];
-
-            if(mode == 1)
-            {
-                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-                {
-                    *startnode = -1;
-                    return numngb;
-                }
-            }
-
-            if(force_drift_node_full(no, All.Ti_Current, blocking) < 0) {
-                return -2;
-            }
-
-            if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
-            {
-                if(current->u.d.mass)	/* open cell */
-                {
-                    no = current->u.d.nextnode;
-                    continue;
-                }
-            }
-
-            no = current->u.d.sibling;	/* in case the node can be discarded */
-
-            dist = hsml + 0.5 * current->len;;
-            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
-            if(dx > dist)
-                continue;
-            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
-            if(dy > dist)
-                continue;
-            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
-            if(dz > dist)
-                continue;
-            /* now test against the minimal sphere enclosing everything */
-            dist += FACT1 * current->len;
-            if(dx * dx + dy * dy + dz * dz > dist * dist)
-                continue;
-
-            no = current->u.d.nextnode;	/* ok, we need to open the node */
-        }
-    }
-
-    *startnode = -1;
-    return numngb;
+    return ngb_treefind_threads(searchcenter, hsml, target, startnode, mode, lv,
+            ngblist, NGB_TREEFIND_ASYMMETRIC);
 }
+int ngb_treefind_pairs_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
+        int mode, LocalEvaluator * lv, 
+        int *ngblist)
+{
+
+    return ngb_treefind_threads(searchcenter, hsml, target, startnode, mode, lv,
+            ngblist, NGB_TREEFIND_SYMMETRIC);
+}
+
 
 
 
