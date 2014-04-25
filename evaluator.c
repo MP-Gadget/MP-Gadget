@@ -139,12 +139,12 @@ static void real_ev(Evaluator * ev) {
         int rt;
         ev->ev_copy(i, input);
         rt = ev->ev_evaluate(i, 0, input, output, &lv, extradata);
-        ev->ev_reduce(i, output, 0);
         if(rt < 0) {
             P[i].Evaluated = 0;
             break;		/* export buffer has filled up, redo this particle */
         } else {
             P[i].Evaluated = 1;
+            ev->ev_reduce(i, output, 0);
         }
     }
     ev->currentIndex[tid] = k;
