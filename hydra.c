@@ -41,6 +41,8 @@ struct hydrodata_in
 {
 #ifndef DONOTUSENODELIST
     int NodeList[NODELISTLENGTH];
+#else
+    int NodeList[2]; /* At least 2 elements are needed to drive the evaluator */
 #endif
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyRho;
@@ -769,21 +771,10 @@ static int hydro_evaluate(int target, int mode,
     double c_ij, h_ij;
 #endif
 
-    if(mode == 0) {
-        startnode = All.MaxPart;	/* root node */
-        /* empty nodelist*/
-#ifndef DONOTUSENODELIST
-        input->NodeList[0] = -1;
-#endif
-    } else {
-#ifndef DONOTUSENODELIST
-        startnode = input->NodeList[0];
-        listindex ++;
-        startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-#else
-        startnode = All.MaxPart; /* root node */
-#endif
-    }
+    startnode = input->NodeList[0];
+    listindex ++;
+    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+
         pos = input->Pos;
         vel = input->Vel;
         h_i = input->Hsml;
@@ -1571,7 +1562,6 @@ static int hydro_evaluate(int target, int mode,
             }
         }
 
-#ifndef DONOTUSENODELIST
         if(listindex < NODELISTLENGTH)
         {
             startnode = input->NodeList[listindex];
@@ -1581,7 +1571,6 @@ static int hydro_evaluate(int target, int mode,
                 nnodesinlist ++;
             }
         }
-#endif
     }
 
     /* Now collect the result at the right place */

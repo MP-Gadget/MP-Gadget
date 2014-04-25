@@ -2149,18 +2149,9 @@ int force_treeevaluate(int target, int mode,
     acc_y = 0;
     acc_z = 0;
 
-    if(mode == 0)
-    {
-        no = All.MaxPart;	/* root node */
-        /* empty nodelist*/
-        input->NodeList[0] = -1;
-    }
-    else
-    {
-        no = input->NodeList[0];
-        listindex ++;
-        no = Nodes[no].u.d.nextnode;	/* open it */
-    }
+    no = input->NodeList[0];
+    listindex ++;
+    no = Nodes[no].u.d.nextnode;	/* open it */
 
     pos_x = input->Pos[0];
     pos_y = input->Pos[1];
@@ -2706,38 +2697,29 @@ int force_treeevaluate_shortrange(int target, int mode,
     rcut = All.Rcut[0];
     asmth = All.Asmth[0];
 
-    if(mode == 0)
-    {
-        no = All.MaxPart;	/* root node */
-        /* empty nodelist*/
-        input->NodeList[0] = -1;
-    }
-    else
-    {
-        no = input->NodeList[0];
-        listindex ++;
-        no = Nodes[no].u.d.nextnode;	/* open it */
-    }
+    no = input->NodeList[0];
+    listindex ++;
+    no = Nodes[no].u.d.nextnode;	/* open it */
 
-        pos_x = input->Pos[0];
-        pos_y = input->Pos[1];
-        pos_z = input->Pos[2];
+    pos_x = input->Pos[0];
+    pos_y = input->Pos[1];
+    pos_z = input->Pos[2];
 #if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
-        ptype = input->Type;
+    ptype = input->Type;
 #else
-        ptype = P[0].Type;
+    ptype = P[0].Type;
 #endif
-        aold = All.ErrTolForceAcc * input->OldAcc;
+    aold = All.ErrTolForceAcc * input->OldAcc;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
-        if(ptype == 0)
-            soft = input->Soft;
+    if(ptype == 0)
+        soft = input->Soft;
 #endif
 #ifdef PLACEHIGHRESREGION
-        if(pmforce_is_particle_high_res(ptype, input->Pos))
-        {
-            rcut = All.Rcut[1];
-            asmth = All.Asmth[1];
-        }
+    if(pmforce_is_particle_high_res(ptype, input->Pos))
+    {
+        rcut = All.Rcut[1];
+        asmth = All.Asmth[1];
+    }
 #endif
 
     rcut2 = rcut * rcut;
@@ -3201,18 +3183,9 @@ int force_treeevaluate_ewald_correction(int target, int mode,
     acc_y = 0;
     acc_z = 0;
 
-    if(mode == 0)
-    {
-        no = All.MaxPart;	/* root node */
-        /* empty nodelist*/
-        input->NodeList[0] = -1;
-    }
-    else
-    {
-        no = input->NodeList[0];
-        listindex ++;
-        no = Nodes[no].u.d.nextnode;	/* open it */
-    }
+    no = input->NodeList[0];
+    listindex ++;
+    no = Nodes[no].u.d.nextnode;	/* open it */
 
     pos_x = input->Pos[0];
     pos_y = input->Pos[1];

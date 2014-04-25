@@ -138,6 +138,9 @@ static void real_ev(Evaluator * ev) {
         }
         int rt;
         ev->ev_copy(i, input);
+        ((int*) input)[0] = All.MaxPart; /* root node */
+        ((int*) input)[1] = -1; /* terminate immediately */
+        
         rt = ev->ev_evaluate(i, 0, input, output, &lv, extradata);
         if(rt < 0) {
             P[i].Evaluated = 0;
@@ -291,6 +294,10 @@ void evaluate_secondary(Evaluator * ev) {
         for(j = 0; j < ev->Nimport; j++) {
             void * input = ev->dataget + j * ev->ev_datain_elsize;
             void * output = ev->dataresult + j * ev->ev_dataout_elsize;
+            if(!ev->UseNodeList) {
+                ((int*) input)[0] = All.MaxPart; /* root node */
+                ((int*) input)[1] = -1; /* terminate immediately */
+            }
             ev->ev_evaluate(j, 1, input, output, &lv, extradata);
         }
 #pragma omp atomic

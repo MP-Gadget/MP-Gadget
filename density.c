@@ -746,15 +746,9 @@ static int density_evaluate(int target, int mode,
 #endif
     rho = weighted_numngb = dhsmlrho = 0;
 
-    if(mode == 0) {
-        startnode = All.MaxPart;	/* root node */
-        /* empty nodelist*/
-        input->NodeList[0] = -1;
-    } else {
-        startnode = input->NodeList[0];
-        listindex ++;
-        startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-    }
+    startnode = input->NodeList[0];
+    listindex ++;
+    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
     pos = input->Pos;
     vel = input->Vel;

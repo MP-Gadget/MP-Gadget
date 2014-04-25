@@ -605,15 +605,9 @@ int blackhole_evaluate(int target, int mode,
     ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
 #endif
 
-    if(mode == 0) {
-        startnode = All.MaxPart;	/* root node */
-        /* empty nodelist*/
-        input->NodeList[0] = -1;
-    } else {
-        startnode = input->NodeList[0];
-        listindex ++;
-        startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-    }
+    startnode = input->NodeList[0];
+    listindex ++;
+    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
     pos = input->Pos;
     rho = input->Density;
@@ -854,18 +848,9 @@ int blackhole_evaluate_swallow(int target, int mode,
     ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
 #endif
 
-    if(mode == 0)
-    {
-        startnode = All.MaxPart;	/* root node */
-        /* empty nodelist*/
-        input->NodeList[0] = -1;
-    }
-    else
-    {
-        startnode = input->NodeList[0];
-        listindex ++;
-        startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-    }
+    startnode = input->NodeList[0];
+    listindex ++;
+    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
     
     pos = input->Pos;
     h_i = input->Hsml;
