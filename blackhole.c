@@ -823,18 +823,6 @@ int blackhole_swallow_evaluate(int target, int mode,
     startnode = I->NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-    
-    O->Mass = 0;
-    O->BH_Mass = 0;
-    O->AccretedMomentum[0] = O->AccretedMomentum[1] = O->AccretedMomentum[2] = 0;
-
-#ifdef BH_COUNTPROGS
-    O->BH_CountProgs = 0;
-#endif
-#ifdef BH_BUBBLES
-    O->BH_Mass_bubbles = 0;
-    O->BH_Mass_radio = 0;
-#endif
 
     while(startnode >= 0)
     {

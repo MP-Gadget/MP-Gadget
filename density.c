@@ -596,8 +596,6 @@ static int density_evaluate(int target, int mode,
     density_kernel_t bh_feedback_kernel;
 #endif
 
-    O->Rho = O->Ngb = O->DhsmlDensity = 0;
-
     startnode = I->NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
@@ -612,9 +610,6 @@ static int density_evaluate(int target, int mode,
     density_kernel_init(&bh_feedback_kernel, hsearch);
 #endif
 
-#ifdef EULERPOTENTIALS
-    O->dEulerA[0] = O->dEulerA[1] = O->dEulerA[2] = O->dEulerB[0] = O->dEulerB[1] = O->dEulerB[2] = 0;
-#endif
 #if defined(MAGNETICSEED)
     double mu0_1 = 1;
 #ifndef MU0_UNITY
@@ -625,68 +620,6 @@ static int density_evaluate(int target, int mode,
         mu0_1 /= (All.HubbleParam * All.HubbleParam);
 #endif
 #endif
-
-#ifdef VECT_POTENTIAL
-    O->dA[0] = O->dA[1] = O->dA[2] = 0.0;
-    O->dA[3] = O->dA[4] = O->dA[5] = 0.0;
-#endif
-
-#ifdef DENSITY_INDEPENDENT_SPH
-    O->EgyRho = O->DhsmlEgyDensity = 0;
-#endif
-
-
-#if defined(BLACK_HOLES)
-    O->SmoothedEntOrPressure = 0;
-#endif
-
-#ifdef VOLUME_CORRECTION
-    O->DensityStd = 0;
-#endif
-
-#ifdef JD_VTURB
-    O->Vturb = 0;
-    O->Vbulk[3]={0};
-    O->TrueNGB = 0;
-#endif
-
-#ifdef TRACEDIVB
-    O->divB = 0;
-#endif
-#ifdef VECT_PRO_CLEAN
-    O->BPredVec[0] = O->BPredVec[1] = O->BPredVec[2] = 0;
-#endif
-
-#ifdef CONDUCTION_SATURATION
-    O->GradEntr[0] = O->GradEntr[1] = O->GradEntr[2] = 0;
-#endif
-
-#ifdef SPH_GRAD_RHO
-    O->GradRho[0] = O->GradRho[1] = O->GradRho[2] = 0;
-#endif
-
-#ifdef RADTRANSFER_FLUXLIMITER
-    int k;
-
-    for(k = 0; k < N_BINS; k++)
-        O->Grad_ngamma[0][k] = O->Grad_ngamma[1][k] = O->Grad_ngamma[2][k] = 0;
-#endif
-
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-    O->RotB[0] = O->RotB[1] = O->RotB[2] = 0;
-#endif
-
-#ifndef NAVIERSTOKES
-    O->Div = O->Rot[0] = O->Rot[1] = O->Rot[2] = 0;
-#else
-    for(k = 0; k < 3; k++)
-        O->DV[k][0] = O->DV[k][1] = O->DV[k][2] = 0;
-#endif
-#ifdef BLACK_HOLES
-    O->GasVel[0] = O->GasVel[1] = O->GasVel[2] = 0;
-    O->FeedbackWeightSum = 0;
-#endif
-
 
     numngb = 0;
 
