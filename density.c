@@ -88,7 +88,6 @@ struct densdata_out
     MyLongDouble SmoothedEntOrPressure;
     MyLongDouble FeedbackWeightSum;
     MyLongDouble GasVel[3];
-    short int BH_TimeBinLimit;
 #endif
 #ifdef CONDUCTION_SATURATION
     MyFloat GradEntr[3];
@@ -566,11 +565,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 #ifdef BLACK_HOLES
     if(P[place].Type == 5)
     {
-        if (mode == 0 || 
-                BHP(place).TimeBinLimit < 0 || 
-                BHP(place).TimeBinLimit > remote->BH_TimeBinLimit) {
-            BHP(place).TimeBinLimit = remote->BH_TimeBinLimit;
-        }
         REDUCE(BHP(place).Density, remote->Rho);
         REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
         REDUCE(BHP(place).EntOrPressure, remote->SmoothedEntOrPressure);
@@ -579,10 +573,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
         REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
         REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
 #endif
-        /*
-        printf("%d BHP(%d), TimeBinLimit=%d, TimeBin=%d\n",
-                ThisTask, place, BHP(place).TimeBinLimit, P[place].TimeBin);
-                */
     }
 #endif
 }
@@ -603,7 +593,6 @@ static int density_evaluate(int target, int mode,
     double hsearch;
     density_kernel_t kernel;
     MyLongDouble rho;
-    short int timebin_min = -1;
 
 #ifdef BLACK_HOLES
     MyLongDouble fb_weight_sum;  /*smoothing density used in feedback */
@@ -859,9 +848,6 @@ static int density_evaluate(int target, int mode,
                          * nothing to worry here */
                         dhsmlrho += mass_j * density_kernel_dW(&kernel, u, wk, dwk);
 
-                        if (timebin_min <= 0 || timebin_min >= P[j].TimeBin) 
-                            timebin_min = P[j].TimeBin;
-
 #ifdef DENSITY_INDEPENDENT_SPH
                         egyrho += mass_j * SPHP(j).EntVarPred * wk;
                         dhsmlegyrho += mass_j * SPHP(j).EntVarPred * density_kernel_dW(&kernel, u, wk, dwk);
@@ -1078,7 +1064,6 @@ static int density_evaluate(int target, int mode,
 #if defined(BLACK_HOLES)
     output->SmoothedEntOrPressure = smoothent_or_pres;
     output->FeedbackWeightSum = fb_weight_sum;
-    output->BH_TimeBinLimit = timebin_min;
 #endif
 #ifdef CONDUCTION_SATURATION
     output->GradEntr[0] = gradentr[0];

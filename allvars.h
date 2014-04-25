@@ -1332,7 +1332,6 @@ struct bh_particle_data {
     MyFloat FeedbackWeightSum;
     MyFloat Density;
     MyFloat EntOrPressure;
-    short int TimeBinLimit;
 #ifdef BH_USE_GASVEL_IN_BONDI
     MyFloat SurroundingGasVel[3];
 #endif
@@ -1353,6 +1352,7 @@ struct bh_particle_data {
     MyFloat ActiveTime;
     MyFloat ActiveEnergy;
 #endif
+    short int TimeBinLimit;
 } * BhP;
 
 /*! This structure holds all the information that is

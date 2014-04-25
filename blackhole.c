@@ -45,7 +45,7 @@ struct blackhole_event {
         } s;
     };
 };
-static struct blackholedata_in
+struct blackholedata_in
 {
     int NodeList[NODELISTLENGTH];
     MyDouble Pos[3];
@@ -64,10 +64,9 @@ static struct blackholedata_in
     MyFloat ActiveTime;
     MyFloat ActiveEnergy;
 #endif  
-}
-*BlackholeDataIn, *BlackholeDataGet;
+};
 
-static struct blackholedata_out
+struct blackholedata_out
 {
     MyLongDouble Mass;
     MyLongDouble BH_Mass;
@@ -85,8 +84,8 @@ static struct blackholedata_out
 #ifdef BH_COUNTPROGS
     int BH_CountProgs;
 #endif
-}
-*BlackholeDataResult, *BlackholeDataOut;
+    short int BH_TimeBinLimit;
+};
 
 static void * blackhole_alloc_ngblist();
 
@@ -598,6 +597,7 @@ int blackhole_evaluate(int target, int mode,
 #ifdef REPOSITION_ON_POTMIN
     MyFloat minpotpos[3] = { 0, 0, 0 }, minpot = BHPOTVALUEINIT;
 #endif
+
     int ptypemask = 0;
 #ifndef REPOSITION_ON_POTMIN
     ptypemask = 1 + (1 << 5);
@@ -605,6 +605,7 @@ int blackhole_evaluate(int target, int mode,
     ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
 #endif
 
+    short int timebin_min = -1;
     startnode = input->NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
@@ -772,6 +773,8 @@ int blackhole_evaluate(int target, int mode,
                                 wk = 1.0;
                             if(P[j].Mass > 0)
                             {
+                                if (timebin_min <= 0 || timebin_min >= P[j].TimeBin) 
+                                    timebin_min = P[j].TimeBin;
 #ifdef BH_THERMALFEEDBACK
 #ifndef UNIFIED_FEEDBACK
                                 energy = All.BlackHoleFeedbackFactor * 0.1 * mdot * dt *
@@ -816,6 +819,8 @@ int blackhole_evaluate(int target, int mode,
             }
         }
     }
+
+    output->BH_TimeBinLimit = timebin_min;
 
 #ifdef REPOSITION_ON_POTMIN
     for(k = 0; k < 3; k++)
@@ -995,6 +1000,11 @@ static void blackhole_reduce(int place, struct blackholedata_out * remote, int m
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
     }
 #endif
+    if (mode == 0 || 
+            BHP(place).TimeBinLimit < 0 || 
+            BHP(place).TimeBinLimit > remote->BH_TimeBinLimit) {
+        BHP(place).TimeBinLimit = remote->BH_TimeBinLimit;
+    }
 }
 
 static void blackhole_copy(int place, struct blackholedata_in * input) {
