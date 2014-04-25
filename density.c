@@ -669,158 +669,158 @@ static int density_evaluate(int target, int mode,
 
                     double mass_j = P[j].Mass;
 
-                        numngb++;
+                    numngb++;
 #ifdef JD_VTURB
-                        O->Vturb += (SPHP(j).VelPred[0] - I->Vel[0]) * (SPHP(j).VelPred[0] - I->Vel[0]) +
-                            (SPHP(j).VelPred[1] - I->Vel[1]) * (SPHP(j).VelPred[1] - I->Vel[1]) +
-                            (SPHP(j).VelPred[2] - I->Vel[2]) * (SPHP(j).VelPred[2] - I->Vel[2]);
-                        O->Vbulk[0] += SPHP(j).VelPred[0];
-                        O->Vbulk[1] += SPHP(j).VelPred[1];
-                        O->Vbulk[2] += SPHP(j).VelPred[2];
-                        O->TrueNGB++;
+                    O->Vturb += (SPHP(j).VelPred[0] - I->Vel[0]) * (SPHP(j).VelPred[0] - I->Vel[0]) +
+                        (SPHP(j).VelPred[1] - I->Vel[1]) * (SPHP(j).VelPred[1] - I->Vel[1]) +
+                        (SPHP(j).VelPred[2] - I->Vel[2]) * (SPHP(j).VelPred[2] - I->Vel[2]);
+                    O->Vbulk[0] += SPHP(j).VelPred[0];
+                    O->Vbulk[1] += SPHP(j).VelPred[1];
+                    O->Vbulk[2] += SPHP(j).VelPred[2];
+                    O->TrueNGB++;
 #endif
 
 #ifdef VOLUME_CORRECTION
-                        O->Rho += FLT(mass_j * wk * pow(I->DensityOld / SPHP(j).DensityOld, VOLUME_CORRECTION));
-                        O->DensityStd += FLT(mass_j * wk);
+                    O->Rho += FLT(mass_j * wk * pow(I->DensityOld / SPHP(j).DensityOld, VOLUME_CORRECTION));
+                    O->DensityStd += FLT(mass_j * wk);
 #else
-                        O->Rho += FLT(mass_j * wk);
+                    O->Rho += FLT(mass_j * wk);
 #endif
-                        O->Ngb += wk * kernel_volume;
+                    O->Ngb += wk * kernel_volume;
 
-                        /* Hinv is here becuase O->DhsmlDensity is drho / dH.
-                         * nothing to worry here */
-                        O->DhsmlDensity += mass_j * density_kernel_dW(&kernel, u, wk, dwk);
+                    /* Hinv is here becuase O->DhsmlDensity is drho / dH.
+                     * nothing to worry here */
+                    O->DhsmlDensity += mass_j * density_kernel_dW(&kernel, u, wk, dwk);
 
 #ifdef DENSITY_INDEPENDENT_SPH
-                        O->EgyRho += mass_j * SPHP(j).EntVarPred * wk;
-                        O->DhsmlEgyDensity += mass_j * SPHP(j).EntVarPred * density_kernel_dW(&kernel, u, wk, dwk);
+                    O->EgyRho += mass_j * SPHP(j).EntVarPred * wk;
+                    O->DhsmlEgyDensity += mass_j * SPHP(j).EntVarPred * density_kernel_dW(&kernel, u, wk, dwk);
 #endif
 
 
 #ifdef BLACK_HOLES
 #ifdef BH_CSND_FROM_PRESSURE
-                        O->SmoothedEntOrPressure += FLT(mass_j * wk * SPHP(j).Pressure);
+                    O->SmoothedEntOrPressure += FLT(mass_j * wk * SPHP(j).Pressure);
 #else
-                        O->SmoothedEntOrPressure += FLT(mass_j * wk * SPHP(j).Entropy);
+                    O->SmoothedEntOrPressure += FLT(mass_j * wk * SPHP(j).Entropy);
 #endif
-                        O->GasVel[0] += FLT(mass_j * wk * SPHP(j).VelPred[0]);
-                        O->GasVel[1] += FLT(mass_j * wk * SPHP(j).VelPred[1]);
-                        O->GasVel[2] += FLT(mass_j * wk * SPHP(j).VelPred[2]);
+                    O->GasVel[0] += FLT(mass_j * wk * SPHP(j).VelPred[0]);
+                    O->GasVel[1] += FLT(mass_j * wk * SPHP(j).VelPred[1]);
+                    O->GasVel[2] += FLT(mass_j * wk * SPHP(j).VelPred[2]);
 #endif
 
 #ifdef CONDUCTION_SATURATION
-                        if(r > 0)
-                        {
-                            O->GradEntr[0] += mass_j * dwk * dx / r * SPHP(j).Entropy;
-                            O->GradEntr[1] += mass_j * dwk * dy / r * SPHP(j).Entropy;
-                            O->GradEntr[2] += mass_j * dwk * dz / r * SPHP(j).Entropy;
-                        }
+                    if(r > 0)
+                    {
+                        O->GradEntr[0] += mass_j * dwk * dx / r * SPHP(j).Entropy;
+                        O->GradEntr[1] += mass_j * dwk * dy / r * SPHP(j).Entropy;
+                        O->GradEntr[2] += mass_j * dwk * dz / r * SPHP(j).Entropy;
+                    }
 #endif
 
 #ifdef SPH_GRAD_RHO
-                        if(r > 0)
-                        {
-                            O->GradRho[0] += mass_j * dwk * dx / r;
-                            O->GradRho[1] += mass_j * dwk * dy / r;
-                            O->GradRho[2] += mass_j * dwk * dz / r;
-                        }
+                    if(r > 0)
+                    {
+                        O->GradRho[0] += mass_j * dwk * dx / r;
+                        O->GradRho[1] += mass_j * dwk * dy / r;
+                        O->GradRho[2] += mass_j * dwk * dz / r;
+                    }
 #endif
 
 
 #ifdef RADTRANSFER_FLUXLIMITER
-                        if(r > 0)
-                            for(k = 0; k < N_BINS; k++)
-                            {
-                                O->Grad_ngamma[0][k] += mass_j * dwk * dx / r * SPHP(j).n_gamma[k];
-                                O->Grad_ngamma[1][k] += mass_j * dwk * dy / r * SPHP(j).n_gamma[k];
-                                O->Grad_ngamma[2][k] += mass_j * dwk * dz / r * SPHP(j).n_gamma[k];
-                            }
+                    if(r > 0)
+                        for(k = 0; k < N_BINS; k++)
+                        {
+                            O->Grad_ngamma[0][k] += mass_j * dwk * dx / r * SPHP(j).n_gamma[k];
+                            O->Grad_ngamma[1][k] += mass_j * dwk * dy / r * SPHP(j).n_gamma[k];
+                            O->Grad_ngamma[2][k] += mass_j * dwk * dz / r * SPHP(j).n_gamma[k];
+                        }
 #endif
 
 
-                        if(r > 0)
-                        {
-                            double fac = mass_j * dwk / r;
+                    if(r > 0)
+                    {
+                        double fac = mass_j * dwk / r;
 
-                            double dvx = I->Vel[0] - SPHP(j).VelPred[0];
-                            double dvy = I->Vel[1] - SPHP(j).VelPred[1];
-                            double dvz = I->Vel[2] - SPHP(j).VelPred[2];
+                        double dvx = I->Vel[0] - SPHP(j).VelPred[0];
+                        double dvy = I->Vel[1] - SPHP(j).VelPred[1];
+                        double dvz = I->Vel[2] - SPHP(j).VelPred[2];
 
 #ifndef NAVIERSTOKES
-                            O->Div += FLT(-fac * (dx * dvx + dy * dvy + dz * dvz));
+                        O->Div += FLT(-fac * (dx * dvx + dy * dvy + dz * dvz));
 
-                            O->Rot[0] += FLT(fac * (dz * dvy - dy * dvz));
-                            O->Rot[1] += FLT(fac * (dx * dvz - dz * dvx));
-                            O->Rot[2] += FLT(fac * (dy * dvx - dx * dvy));
+                        O->Rot[0] += FLT(fac * (dz * dvy - dy * dvz));
+                        O->Rot[1] += FLT(fac * (dx * dvz - dz * dvx));
+                        O->Rot[2] += FLT(fac * (dy * dvx - dx * dvy));
 #else
-                            O->DV[0][0] -= fac * dx * dvx;
-                            O->DV[0][1] -= fac * dx * dvy;
-                            O->DV[0][2] -= fac * dx * dvz;
-                            O->DV[1][0] -= fac * dy * dvx;
-                            O->DV[1][1] -= fac * dy * dvy;
-                            O->DV[1][2] -= fac * dy * dvz;
-                            O->DV[2][0] -= fac * dz * dvx;
-                            O->DV[2][1] -= fac * dz * dvy;
-                            O->DV[2][2] -= fac * dz * dvz;
+                        O->DV[0][0] -= fac * dx * dvx;
+                        O->DV[0][1] -= fac * dx * dvy;
+                        O->DV[0][2] -= fac * dx * dvz;
+                        O->DV[1][0] -= fac * dy * dvx;
+                        O->DV[1][1] -= fac * dy * dvy;
+                        O->DV[1][2] -= fac * dy * dvz;
+                        O->DV[2][0] -= fac * dz * dvx;
+                        O->DV[2][1] -= fac * dz * dvy;
+                        O->DV[2][2] -= fac * dz * dvz;
 #endif
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-                            double dbx = I->BPred[0] - SPHP(j).BPred[0];
-                            double dby = I->BPred[1] - SPHP(j).BPred[1];
-                            double dbz = I->BPred[2] - SPHP(j).BPred[2];
+                        double dbx = I->BPred[0] - SPHP(j).BPred[0];
+                        double dby = I->BPred[1] - SPHP(j).BPred[1];
+                        double dbz = I->BPred[2] - SPHP(j).BPred[2];
 #endif
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-                            O->RotB[0] += FLT(fac * (dz * dby - dy * dbz));
-                            O->RotB[1] += FLT(fac * (dx * dbz - dz * dbx));
-                            O->RotB[2] += FLT(fac * (dy * dbx - dx * dby));
+                        O->RotB[0] += FLT(fac * (dz * dby - dy * dbz));
+                        O->RotB[1] += FLT(fac * (dx * dbz - dz * dbx));
+                        O->RotB[2] += FLT(fac * (dy * dbx - dx * dby));
 #endif
 #ifdef VECT_POTENTIAL
-                            O->dA[0] += fac * (I->APred[0] - SPHP(j).APred[0]) * dy;	//dAx/dy
-                            O->dA[1] += fac * (I->APred[0] - SPHP(j).APred[0]) * dz;	//dAx/dz
-                            O->dA[2] += fac * (I->APred[1] - SPHP(j).APred[1]) * dx;	//dAy/dx
-                            O->dA[3] += fac * (I->APred[1] - SPHP(j).APred[1]) * dz;	//dAy/dz
-                            O->dA[4] += fac * (I->APred[2] - SPHP(j).APred[2]) * dx;	//dAz/dx
-                            O->dA[5] += fac * (I->APred[2] - SPHP(j).APred[2]) * dy;	//dAz/dy
+                        O->dA[0] += fac * (I->APred[0] - SPHP(j).APred[0]) * dy;	//dAx/dy
+                        O->dA[1] += fac * (I->APred[0] - SPHP(j).APred[0]) * dz;	//dAx/dz
+                        O->dA[2] += fac * (I->APred[1] - SPHP(j).APred[1]) * dx;	//dAy/dx
+                        O->dA[3] += fac * (I->APred[1] - SPHP(j).APred[1]) * dz;	//dAy/dz
+                        O->dA[4] += fac * (I->APred[2] - SPHP(j).APred[2]) * dx;	//dAz/dx
+                        O->dA[5] += fac * (I->APred[2] - SPHP(j).APred[2]) * dy;	//dAz/dy
 #endif
 #ifdef TRACEDIVB
-                            O->divB += FLT(-fac * (dbx * dx + dby * dy + dbz * dz));
+                        O->divB += FLT(-fac * (dbx * dx + dby * dy + dbz * dz));
 #endif
 #ifdef MAGNETICSEED
-                            double spin_0=sqrt(I->MagSeed*mu0_1*2.);//energy to B field
-                            spin_0=3./2.*spin_0/(sqrt(I->Vel[0]*I->Vel[0]+I->Vel[1]*I->Vel[1]+I->Vel[2]*I->Vel[2]));//*SPHP(j).d.Density;
+                        double spin_0=sqrt(I->MagSeed*mu0_1*2.);//energy to B field
+                        spin_0=3./2.*spin_0/(sqrt(I->Vel[0]*I->Vel[0]+I->Vel[1]*I->Vel[1]+I->Vel[2]*I->Vel[2]));//*SPHP(j).d.Density;
 
-                            if(I->MagSeed)
-                            {
-                                SPHP(j).BPred[0] += 1./(4.* M_PI * (pow(r,3.))) *
-                                    (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dx / r - spin_0 * I->Vel[0]);
-                                SPHP(j).BPred[1] += 1./(4.* M_PI * (pow(r,3.))) *
-                                    (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dy / r - spin_0 * I->Vel[1]);
-                                SPHP(j).BPred[2] += 1./(4.* M_PI * (pow(r,3.))) *
-                                    (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dz / r - spin_0 * I->Vel[2]);
-                            };
+                        if(I->MagSeed)
+                        {
+                            SPHP(j).BPred[0] += 1./(4.* M_PI * (pow(r,3.))) *
+                                (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dx / r - spin_0 * I->Vel[0]);
+                            SPHP(j).BPred[1] += 1./(4.* M_PI * (pow(r,3.))) *
+                                (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dy / r - spin_0 * I->Vel[1]);
+                            SPHP(j).BPred[2] += 1./(4.* M_PI * (pow(r,3.))) *
+                                (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dz / r - spin_0 * I->Vel[2]);
+                        };
 #endif
 #ifdef VECT_PRO_CLEAN
-                            O->BPredVec[0] +=
-                                FLT(fac * r2 * (SPHP(j).RotB[1] * dz - SPHP(j).RotB[2] * dy) / SPHP(j).d.Density);
-                            O->BPredVec[1] +=
-                                FLT(fac * r2 * (SPHP(j).RotB[2] * dx - SPHP(j).RotB[0] * dz) / SPHP(j).d.Density);
-                            O->BPredVec[2] +=
-                                FLT(fac * r2 * (SPHP(j).RotB[0] * dy - SPHP(j).RotB[1] * dx) / SPHP(j).d.Density);
+                        O->BPredVec[0] +=
+                            FLT(fac * r2 * (SPHP(j).RotB[1] * dz - SPHP(j).RotB[2] * dy) / SPHP(j).d.Density);
+                        O->BPredVec[1] +=
+                            FLT(fac * r2 * (SPHP(j).RotB[2] * dx - SPHP(j).RotB[0] * dz) / SPHP(j).d.Density);
+                        O->BPredVec[2] +=
+                            FLT(fac * r2 * (SPHP(j).RotB[0] * dy - SPHP(j).RotB[1] * dx) / SPHP(j).d.Density);
 #endif
 #ifdef EULERPOTENTIALS
-                            dea = I->EulerA - SPHP(j).EulerA;
-                            deb = I->EulerB - SPHP(j).EulerB;
+                        dea = I->EulerA - SPHP(j).EulerA;
+                        deb = I->EulerB - SPHP(j).EulerB;
 #ifdef EULER_VORTEX
-                            deb = NEAREST_Z(deb);
+                        deb = NEAREST_Z(deb);
 #endif
-                            O->dEulerA[0] -= fac * dx * dea;
-                            O->dEulerA[1] -= fac * dy * dea;
-                            O->dEulerA[2] -= fac * dz * dea;
-                            O->dEulerB[0] -= fac * dx * deb;
-                            O->dEulerB[1] -= fac * dy * deb;
-                            O->dEulerB[2] -= fac * dz * deb;
+                        O->dEulerA[0] -= fac * dx * dea;
+                        O->dEulerA[1] -= fac * dy * dea;
+                        O->dEulerA[2] -= fac * dz * dea;
+                        O->dEulerB[0] -= fac * dx * deb;
+                        O->dEulerB[1] -= fac * dy * deb;
+                        O->dEulerB[2] -= fac * dz * deb;
 #endif
-                        }
+                    }
                 }
 #ifdef BLACK_HOLES
                 if(I->Type == 5 && r2 < bh_feedback_kernel.HH)
