@@ -60,10 +60,6 @@ struct blackholedata_in
     MyFloat Csnd;
     MyIDType ID;
     int Index;
-#ifdef BH_KINETICFEEDBACK
-    MyFloat ActiveTime;
-    MyFloat ActiveEnergy;
-#endif  
 };
 
 struct blackholedata_out
@@ -91,20 +87,20 @@ static void * blackhole_alloc_ngblist();
 
 static int blackhole_isactive(int n);
 static void blackhole_reduce(int place, struct blackholedata_out * remote, int mode);
-static void blackhole_copy(int place, struct blackholedata_in * input);
+static void blackhole_copy(int place, struct blackholedata_in * I);
 
 static int blackhole_evaluate(int target, int mode, 
-        struct blackholedata_in * input, 
-        struct blackholedata_out * output, 
+        struct blackholedata_in * I, 
+        struct blackholedata_out * O, 
         LocalEvaluator * lv, int * ngblist);
 
 static int blackhole_swallow_isactive(int n);
 static void blackhole_swallow_reduce(int place, struct blackholedata_out * remote, int mode);
-static void blackhole_swallow_copy(int place, struct blackholedata_in * input);
+static void blackhole_swallow_copy(int place, struct blackholedata_in * I);
 
 static int blackhole_evaluate_swallow(int target, int mode, 
-        struct blackholedata_in * input, 
-        struct blackholedata_out * output, 
+        struct blackholedata_in * I, 
+        struct blackholedata_out * O, 
         LocalEvaluator * lv, int * ngblist);
 
 #define BHPOTVALUEINIT 1.0e30
@@ -133,12 +129,6 @@ void blackhole_accretion(void)
     int ndone_flag, ndone;
     int ngrp, sendTask, recvTask, place, nexport, nimport, dummy;
     int Ntot_gas_swallowed, Ntot_BH_swallowed;
-    double mdot, rho, rho_proper, bhvel, soundspeed, meddington, dt, mdot_in_msun_per_year;
-    double mass_real, total_mass_real, medd, total_mdoteddington;
-    double mass_holes, total_mass_holes, total_mdot;
-#ifdef BONDI
-    double norm;
-#endif
 
     Evaluator ev = {0};
 
@@ -186,28 +176,29 @@ void blackhole_accretion(void)
     for(n = FirstActiveParticle; n >= 0; n = NextActiveParticle[n])
         if(P[n].Type == 5)
         {
-            mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
+            double mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
 
-            rho = BHP(n).Density;
+            double rho = BHP(n).Density;
 #ifdef BH_USE_GASVEL_IN_BONDI
-            bhvel = sqrt(pow(P[n].Vel[0] - BHP(n).SurroundingGasVel[0], 2) +
+            double bhvel = sqrt(pow(P[n].Vel[0] - BHP(n).SurroundingGasVel[0], 2) +
                     pow(P[n].Vel[1] - BHP(n).SurroundingGasVel[1], 2) +
                     pow(P[n].Vel[2] - BHP(n).SurroundingGasVel[2], 2));
 #else
-            bhvel = 0;
+            double bhvel = 0;
 #endif
 
             bhvel /= All.cf.a;
-            rho_proper = rho * All.cf.a3inv;
+            double rho_proper = rho * All.cf.a3inv;
 
-            soundspeed = blackhole_soundspeed(BHP(n).EntOrPressure, rho);
+            double soundspeed = blackhole_soundspeed(BHP(n).EntOrPressure, rho);
 
             /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
-            meddington = (4 * M_PI * GRAVITY * C * PROTONMASS / (0.1 * C * C * THOMPSON)) * BHP(n).Mass
+            double meddington = (4 * M_PI * GRAVITY * C * PROTONMASS / (0.1 * C * C * THOMPSON)) * BHP(n).Mass
                 * All.UnitTime_in_s;
 
 #ifdef BONDI
-            norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
+            double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
+
             if(norm > 0)
                 mdot = 4. * M_PI * All.BlackHoleAccretionFactor * All.G * All.G *
                     BHP(n).Mass * BHP(n).Mass * rho_proper / norm;
@@ -239,7 +230,7 @@ void blackhole_accretion(void)
                 event.a.hsml = P[n].Hsml;
                 fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
             }
-            dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
+            double dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
 
 #ifdef BH_DRAG
             /* add a drag force for the black-holes,
@@ -526,10 +517,12 @@ void blackhole_accretion(void)
     myfree(Ngblist);
 #endif
 
-    mdot = 0;
-    mass_holes = 0;
-    mass_real = 0;
-    medd = 0;
+    double total_mass_real, total_mdoteddington;
+    double total_mass_holes, total_mdot;
+    double mdot = 0;
+    double mass_holes = 0;
+    double mass_real = 0;
+    double medd = 0;
     for(bin = 0; bin < TIMEBINS; bin++)
         if(TimeBinCount[bin])
         {
@@ -547,7 +540,7 @@ void blackhole_accretion(void)
     if(ThisTask == 0)
     {
         /* convert to solar masses per yr */
-        mdot_in_msun_per_year =
+        double mdot_in_msun_per_year =
             total_mdot * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
         total_mdoteddington *= 1.0 / ((4 * M_PI * GRAVITY * C * PROTONMASS /
@@ -571,32 +564,13 @@ void blackhole_accretion(void)
 
 
 int blackhole_evaluate(int target, int mode, 
-        struct blackholedata_in * input, 
-        struct blackholedata_out * output, 
+        struct blackholedata_in * I, 
+        struct blackholedata_out * O, 
         LocalEvaluator * lv, int * ngblist)
 {
 
-    int startnode, numngb, j, k, n, index, listindex = 0;
-    MyIDType id;
-    MyFloat *pos, *velocity, h_i, dt, mdot, rho, mass, bh_mass, csnd;
-    double dx, dy, dz, r2, r, vrel;
+    int startnode, numngb, k, n, listindex = 0;
     double hsearch;
-    double FeedbackWeightSum;
-
-#ifdef UNIFIED_FEEDBACK
-    double meddington;
-#endif
-
-#ifdef BH_KINETICFEEDBACK
-    /*  double deltavel; */
-    double activetime, activeenergy;
-#endif
-#ifdef BH_THERMALFEEDBACK
-    double energy;
-#endif
-#ifdef REPOSITION_ON_POTMIN
-    MyFloat minpotpos[3] = { 0, 0, 0 }, minpot = BHPOTVALUEINIT;
-#endif
 
     int ptypemask = 0;
 #ifndef REPOSITION_ON_POTMIN
@@ -605,33 +579,21 @@ int blackhole_evaluate(int target, int mode,
     ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
 #endif
 
-    short int timebin_min = -1;
-    startnode = input->NodeList[0];
+    O->BH_TimeBinLimit = -1;
+#ifdef REPOSITION_ON_POTMIN
+    O->BH_MinPot = BHPOTVALUEINIT;
+#endif
+
+
+    startnode = I->NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
-    pos = input->Pos;
-    rho = input->Density;
-    FeedbackWeightSum = input->FeedbackWeightSum;
-    mdot = input->Mdot;
-    dt = input->Dt;
-    h_i = input->Hsml;
-    mass = input->Mass;
-    bh_mass = input->BH_Mass;
-    velocity = input->Vel;
-    csnd = input->Csnd;
-    index = input->Index;
-    id = input->ID;
-#ifdef BH_KINETICFEEDBACK
-    activetime = input->ActiveTime;
-    activeenergy = input->ActiveEnergy;
-#endif
-
     density_kernel_t kernel;
     density_kernel_t bh_feedback_kernel;
-    hsearch = density_decide_hsearch(5, h_i);
+    hsearch = density_decide_hsearch(5, I->Hsml);
 
-    density_kernel_init(&kernel, h_i);
+    density_kernel_init(&kernel, I->Hsml);
     density_kernel_init(&bh_feedback_kernel, hsearch);
 
     /* initialize variables before SPH loop is started */
@@ -642,7 +604,7 @@ int blackhole_evaluate(int target, int mode,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(pos, hsearch, target, &startnode, mode, lv,
+            numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode, mode, lv,
                     ngblist, NGB_TREEFIND_ASYMMETRIC, ptypemask);
 
             if(numngb < 0)
@@ -650,15 +612,15 @@ int blackhole_evaluate(int target, int mode,
 
             for(n = 0; n < numngb; n++)
             {
-                j = ngblist[n];
+                int j = ngblist[n];
 
                 if(P[j].Mass > 0)
                 {
-                    if(mass > 0)
+                    if(I->Mass > 0)
                     {
-                        dx = pos[0] - P[j].Pos[0];
-                        dy = pos[1] - P[j].Pos[1];
-                        dz = pos[2] - P[j].Pos[2];
+                        double dx = I->Pos[0] - P[j].Pos[0];
+                        double dy = I->Pos[1] - P[j].Pos[1];
+                        double dz = I->Pos[2] - P[j].Pos[2];
 #ifdef PERIODIC			/*  now find the closest image in the given box size  */
                         if(dx > boxHalf_X)
                             dx -= boxSize_X;
@@ -673,28 +635,29 @@ int blackhole_evaluate(int target, int mode,
                         if(dz < -boxHalf_Z)
                             dz += boxSize_Z;
 #endif
-                        r2 = dx * dx + dy * dy + dz * dz;
+                        double r2 = dx * dx + dy * dy + dz * dz;
 
 #ifdef REPOSITION_ON_POTMIN
                         /* if this option is switched on, we may also encounter dark matter particles or stars */
                         if(r2 < kernel.HH)
                         {
-                            if(P[j].p.Potential < minpot)
+                            if(P[j].p.Potential < O->BH_MinPot)
                             {
                                 if(P[j].Type == 0 || P[j].Type == 1 || P[j].Type == 4 || P[j].Type == 5)
                                 {
                                     /* compute relative velocities */
 
+                                    double vrel = 0;
                                     for(k = 0, vrel = 0; k < 3; k++)
-                                        vrel += (P[j].Vel[k] - velocity[k]) * (P[j].Vel[k] - velocity[k]);
+                                        vrel += (P[j].Vel[k] - I->Vel[k]) * (P[j].Vel[k] - I->Vel[k]);
 
                                     vrel = sqrt(vrel) / All.cf.a;
 
-                                    if(vrel <= 0.25 * csnd)
+                                    if(vrel <= 0.25 * I->Csnd)
                                     {
-                                        minpot = P[j].p.Potential;
+                                        O->BH_MinPot = P[j].p.Potential;
                                         for(k = 0; k < 3; k++)
-                                            minpotpos[k] = P[j].Pos[k];
+                                            O->BH_MinPotPos[k] = P[j].Pos[k];
                                     }
                                 }
                             }
@@ -702,32 +665,33 @@ int blackhole_evaluate(int target, int mode,
 #endif
                         if(P[j].Type == 5 && r2 < kernel.HH)	/* we have a black hole merger */
                         {
-                            if(id != P[j].ID)
+                            if(I->ID != P[j].ID)
                             {
                                 /* compute relative velocity of BHs */
-
+ 
+                                double vrel = 0;
                                 for(k = 0, vrel = 0; k < 3; k++)
-                                    vrel += (P[j].Vel[k] - velocity[k]) * (P[j].Vel[k] - velocity[k]);
+                                    vrel += (P[j].Vel[k] - I->Vel[k]) * (P[j].Vel[k] - I->Vel[k]);
 
                                 vrel = sqrt(vrel) / All.cf.a;
 
-                                if(vrel > 0.5 * csnd)
+                                if(vrel > 0.5 * I->Csnd)
                                 {
                                     struct blackhole_event event;
                                     event.type = BHEVENT_SCATTER;
                                     event.time = All.Time;
-                                    event.ID = id;
+                                    event.ID = I->ID;
                                     event.s.ID_swallow = P[j].ID;
-                                    event.s.bhmass_before = bh_mass;
+                                    event.s.bhmass_before = I->BH_Mass;
                                     event.s.bhmass_swallow = BHP(j).Mass;
                                     event.s.vrel = vrel;
-                                    event.s.soundspeed = csnd;
+                                    event.s.soundspeed = I->Csnd;
                                     fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
                                 }
                                 else
                                 {
-                                    if(P[j].SwallowID < id && P[j].ID < id)
-                                        P[j].SwallowID = id;
+                                    if(P[j].SwallowID < I->ID && P[j].ID < I->ID)
+                                        P[j].SwallowID = I->ID;
                                 }
                             }
                         }
@@ -735,15 +699,15 @@ int blackhole_evaluate(int target, int mode,
                         {
                             /* here we have a gas particle */
 
-                            r = sqrt(r2);
+                            double r = sqrt(r2);
                             double u = r * kernel.Hinv;
                             double wk = density_kernel_wk(&kernel, u);
 #ifdef SWALLOWGAS
                             /* compute accretion probability */
                             double p, w;
 
-                            if((bh_mass - mass) > 0 && rho > 0)
-                                p = (bh_mass - mass) * wk / rho;
+                            if((I->BH_Mass - I->Mass) > 0 && I->Density > 0)
+                                p = (I->BH_Mass - I->Mass) * wk / I->Density;
                             else
                                 p = 0;
 
@@ -751,14 +715,14 @@ int blackhole_evaluate(int target, int mode,
                             w = get_random_number(P[j].ID);
                             if(w < p)
                             {
-                                if(P[j].SwallowID < id)
-                                    P[j].SwallowID = id;
+                                if(P[j].SwallowID < I->ID)
+                                    P[j].SwallowID = I->ID;
                             }
 #endif
 
                         }
                         if(P[j].Type == 0 && r2 < bh_feedback_kernel.HH) {
-                            r = sqrt(r2);
+                            double r = sqrt(r2);
                             double u = r * bh_feedback_kernel.Hinv;
                             double wk;
                             double mass_j;
@@ -773,32 +737,32 @@ int blackhole_evaluate(int target, int mode,
                                 wk = 1.0;
                             if(P[j].Mass > 0)
                             {
-                                if (timebin_min <= 0 || timebin_min >= P[j].TimeBin) 
-                                    timebin_min = P[j].TimeBin;
+                                if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin) 
+                                    O->BH_TimeBinLimit = P[j].TimeBin;
 #ifdef BH_THERMALFEEDBACK
 #ifndef UNIFIED_FEEDBACK
-                                energy = All.BlackHoleFeedbackFactor * 0.1 * mdot * dt *
+                                double energy = All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt *
                                     pow(C / All.UnitVelocity_in_cm_per_s, 2);
 
-                                if(FeedbackWeightSum > 0)
+                                if(I->FeedbackWeightSum > 0)
                                 {
-                                    SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FeedbackWeightSum);
+                                    SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
                                 }
 
 #else
-                                meddington = (4 * M_PI * GRAVITY * C *
-                                        PROTONMASS / (0.1 * C * C * THOMPSON)) * bh_mass *
+                                double meddington = (4 * M_PI * GRAVITY * C *
+                                        PROTONMASS / (0.1 * C * C * THOMPSON)) * I->BH_Mass *
                                     All.UnitTime_in_s;
 
-                                if(mdot > All.RadioThreshold * meddington)
+                                if(I->Mdot > All.RadioThreshold * meddington)
                                 {
-                                    energy =
-                                        All.BlackHoleFeedbackFactor * 0.1 * mdot * dt * pow(C /
+                                    double energy =
+                                        All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt * pow(C /
                                                 All.
                                                 UnitVelocity_in_cm_per_s,
                                                 2);
-                                    if(FeedbackWeightSum> 0)
-                                        SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / FeedbackWeightSum);
+                                    if(I->FeedbackWeightSum> 0)
+                                        SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
                                 }
 #endif
 #endif
@@ -812,7 +776,7 @@ int blackhole_evaluate(int target, int mode,
 
         if(listindex < NODELISTLENGTH)
         {
-            startnode = input->NodeList[listindex];
+            startnode = I->NodeList[listindex];
             if(startnode >= 0) {
                 startnode = Nodes[startnode].u.d.nextnode;	/* open it */
                 listindex ++;
@@ -820,32 +784,17 @@ int blackhole_evaluate(int target, int mode,
         }
     }
 
-    output->BH_TimeBinLimit = timebin_min;
-
-#ifdef REPOSITION_ON_POTMIN
-    for(k = 0; k < 3; k++)
-        output->BH_MinPotPos[k] = minpotpos[k];
-    output->BH_MinPot = minpot;
-#endif
-
     return 0;
 }
 
 
 int blackhole_evaluate_swallow(int target, int mode, 
-        struct blackholedata_in * input, 
-        struct blackholedata_out * output, 
+        struct blackholedata_in * I, 
+        struct blackholedata_out * O, 
         LocalEvaluator * lv, int * ngblist)
 {
-    int startnode, numngb, j, k, n, bin, listindex = 0;
-    MyIDType id;
-    MyLongDouble accreted_mass, accreted_BH_mass, accreted_momentum[3];
-    MyFloat *pos, h_i, bh_mass;
+    int startnode, numngb, k, n, listindex = 0;
 
-#ifdef BH_BUBBLES
-    MyLongDouble accreted_BH_mass_bubbles = 0;
-    MyLongDouble accreted_BH_mass_radio = 0;
-#endif
     int ptypemask = 0;
 #ifndef REPOSITION_ON_POTMIN
     ptypemask = 1 + (1 << 5);
@@ -853,27 +802,27 @@ int blackhole_evaluate_swallow(int target, int mode,
     ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
 #endif
 
-    startnode = input->NodeList[0];
+    startnode = I->NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
     
-    pos = input->Pos;
-    h_i = input->Hsml;
-    id = input->ID;
-    bh_mass = input->BH_Mass;
+    O->Mass = 0;
+    O->BH_Mass = 0;
+    O->AccretedMomentum[0] = O->AccretedMomentum[1] = O->AccretedMomentum[2] = 0;
 
-    accreted_mass = 0;
-    accreted_BH_mass = 0;
-    accreted_momentum[0] = accreted_momentum[1] = accreted_momentum[2] = 0;
 #ifdef BH_COUNTPROGS
-    int accreted_BH_progs = 0;
+    O->BH_CountProgs = 0;
+#endif
+#ifdef BH_BUBBLES
+    O->BH_Mass_bubbles = 0;
+    O->BH_Mass_radio = 0;
 #endif
 
     while(startnode >= 0)
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(pos, h_i, target, &startnode, 
+            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode, 
                     mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, ptypemask);
 
             if(numngb < 0)
@@ -881,37 +830,37 @@ int blackhole_evaluate_swallow(int target, int mode,
 
             for(n = 0; n < numngb; n++)
             {
-                j = ngblist[n];
+                int j = ngblist[n];
 
-                if(P[j].SwallowID == id)
+                if(P[j].SwallowID == I->ID)
                 {
                     if(P[j].Type == 5)	/* we have a black hole merger */
                     {
                         struct blackhole_event event;
                         event.type = BHEVENT_SWALLOW;
                         event.time = All.Time;
-                        event.ID = id;
+                        event.ID = I->ID;
                         event.s.ID_swallow = P[j].ID;
-                        event.s.bhmass_before = bh_mass;
+                        event.s.bhmass_before = I->BH_Mass;
                         event.s.bhmass_swallow = BHP(j).Mass;
                         fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
 
-                        accreted_mass += FLT(P[j].Mass);
-                        accreted_BH_mass += FLT(BHP(j).Mass);
+                        O->Mass += FLT(P[j].Mass);
+                        O->BH_Mass += FLT(BHP(j).Mass);
 #ifdef BH_BUBBLES
-                        accreted_BH_mass_bubbles += FLT(BHP(j).Mass_bubbles - BHP(j).Mass_ini);
+                        O->BH_Mass_bubbles += FLT(BHP(j).Mass_bubbles - BHP(j).Mass_ini);
 #ifdef UNIFIED_FEEDBACK
-                        accreted_BH_mass_radio += FLT(BHP(j).Mass_radio - BHP(j).Mass_ini);
+                        O->BH_Mass_radio += FLT(BHP(j).Mass_radio - BHP(j).Mass_ini);
 #endif
 #endif
                         for(k = 0; k < 3; k++)
-                            accreted_momentum[k] += FLT(P[j].Mass * P[j].Vel[k]);
+                            O->AccretedMomentum[k] += FLT(P[j].Mass * P[j].Vel[k]);
 
 #ifdef BH_COUNTPROGS
-                        accreted_BH_progs += BHP(j).CountProgs;
+                        O->BH_CountProgs += BHP(j).CountProgs;
 #endif
 
-                        bin = P[j].TimeBin;
+                        int bin = P[j].TimeBin;
 #pragma omp atomic
                         TimeBin_BH_mass[bin] -= BHP(j).Mass;
 #pragma omp atomic
@@ -941,15 +890,15 @@ int blackhole_evaluate_swallow(int target, int mode,
 
                 if(P[j].Type == 0)
                 {
-                    if(P[j].SwallowID == id)
+                    if(P[j].SwallowID == I->ID)
                     {
-                        accreted_mass += FLT(P[j].Mass);
+                        O->Mass += FLT(P[j].Mass);
 
                         for(k = 0; k < 3; k++)
-                            accreted_momentum[k] += FLT(P[j].Mass * P[j].Vel[k]);
+                            O->AccretedMomentum[k] += FLT(P[j].Mass * P[j].Vel[k]);
 
                         P[j].Mass = 0;
-                        bin = P[j].TimeBin;
+                        int bin = P[j].TimeBin;
 #pragma omp atomic
                         N_sph_swallowed++;
                     }
@@ -958,27 +907,13 @@ int blackhole_evaluate_swallow(int target, int mode,
         }
         if(listindex < NODELISTLENGTH)
         {
-            startnode = input->NodeList[listindex];
+            startnode = I->NodeList[listindex];
             if(startnode >= 0) {
                 startnode = Nodes[startnode].u.d.nextnode;	/* open it */
                 listindex++;
             }
         }
     }
-
-    output->Mass = accreted_mass;
-    output->BH_Mass = accreted_BH_mass;
-    for(k = 0; k < 3; k++)
-        output->AccretedMomentum[k] = accreted_momentum[k];
-#ifdef BH_BUBBLES
-    output->BH_Mass_bubbles = accreted_BH_mass_bubbles;
-#ifdef UNIFIED_FEEDBACK
-    output->BH_Mass_radio = accreted_BH_mass_radio;
-#endif
-#endif
-#ifdef BH_COUNTPROGS
-    output->BH_CountProgs = accreted_BH_progs;
-#endif
 
     return 0;
 }
@@ -1007,41 +942,41 @@ static void blackhole_reduce(int place, struct blackholedata_out * remote, int m
     }
 }
 
-static void blackhole_copy(int place, struct blackholedata_in * input) {
+static void blackhole_copy(int place, struct blackholedata_in * I) {
     int k;
     for(k = 0; k < 3; k++)
     {
-        input->Pos[k] = P[place].Pos[k];
-        input->Vel[k] = P[place].Vel[k];
+        I->Pos[k] = P[place].Pos[k];
+        I->Vel[k] = P[place].Vel[k];
     }
 
-    input->Hsml = P[place].Hsml;
-    input->Mass = P[place].Mass;
-    input->BH_Mass = BHP(place).Mass;
-    input->Density = BHP(place).Density;
-    input->FeedbackWeightSum = BHP(place).FeedbackWeightSum;
-    input->Mdot = BHP(place).Mdot;
-    input->Csnd =
+    I->Hsml = P[place].Hsml;
+    I->Mass = P[place].Mass;
+    I->BH_Mass = BHP(place).Mass;
+    I->Density = BHP(place).Density;
+    I->FeedbackWeightSum = BHP(place).FeedbackWeightSum;
+    I->Mdot = BHP(place).Mdot;
+    I->Csnd =
         blackhole_soundspeed(
                 BHP(place).EntOrPressure,
                 BHP(place).Density);
-    input->Dt =
+    I->Dt =
         (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
-    input->ID = P[place].ID;
+    I->ID = P[place].ID;
 
 }
 static int blackhole_swallow_isactive(int n) {
     return (P[n].Type == 5) && (P[n].SwallowID == 0);
 }
-static void blackhole_swallow_copy(int place, struct blackholedata_in * input) {
+static void blackhole_swallow_copy(int place, struct blackholedata_in * I) {
     int k;
     for(k = 0; k < 3; k++)
     {
-        input->Pos[k] = P[place].Pos[k];
+        I->Pos[k] = P[place].Pos[k];
     }
-    input->Hsml = P[place].Hsml;
-    input->BH_Mass = BHP(place).Mass;
-    input->ID = P[place].ID;
+    I->Hsml = P[place].Hsml;
+    I->BH_Mass = BHP(place).Mass;
+    I->ID = P[place].ID;
 }
 
 static void blackhole_swallow_reduce(int place, struct blackholedata_out * remote, int mode) {

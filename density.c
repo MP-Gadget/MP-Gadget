@@ -105,8 +105,8 @@ struct densdata_out
     MyFloat dEulerA[3], dEulerB[3];
 #endif
 #ifdef VECT_POTENTIAL
-    MyFloat bpred[3];
-    MyFloat da[6];
+    MyFloat BPred[3];
+    MyFloat dA[6];
 #endif
 #ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
@@ -114,14 +114,14 @@ struct densdata_out
 };
 
 static int density_isactive(int n);
-static int density_evaluate(int target, int mode, struct densdata_in * input, struct densdata_out * output, LocalEvaluator * lv, int * ngblist);
+static int density_evaluate(int target, int mode, struct densdata_in * I, struct densdata_out * O, LocalEvaluator * lv, int * ngblist);
 static void * density_alloc_ngblist();
 static void density_post_process(int i);
 static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
 
 
 static void density_reduce(int place, struct densdata_out * remote, int mode);
-static void density_copy(int place, struct densdata_in * input);
+static void density_copy(int place, struct densdata_in * I);
 
 /*! \file density.c
  *  \brief SPH density computation and smoothing length determination
@@ -174,12 +174,6 @@ void density(void)
 
 #ifdef COSMIC_RAYS
     int CRpop;
-#endif
-
-#ifdef NAVIERSTOKES
-    double dvel[3][3];
-
-    double rotx, roty, rotz;
 #endif
 
     if(All.ComovingIntegrationOn)
@@ -399,56 +393,56 @@ double density_decide_hsearch(int targettype, double h) {
 
 }
 
-static void density_copy(int place, struct densdata_in * input) {
-    input->ID = P[place].ID;
-    input->Pos[0] = P[place].Pos[0];
-    input->Pos[1] = P[place].Pos[1];
-    input->Pos[2] = P[place].Pos[2];
-    input->Hsml = P[place].Hsml;
+static void density_copy(int place, struct densdata_in * I) {
+    I->ID = P[place].ID;
+    I->Pos[0] = P[place].Pos[0];
+    I->Pos[1] = P[place].Pos[1];
+    I->Pos[2] = P[place].Pos[2];
+    I->Hsml = P[place].Hsml;
 
-    input->Type = P[place].Type;
+    I->Type = P[place].Type;
 
 #if defined(BLACK_HOLES)
     if(P[place].Type != 0)
     {
-        input->Vel[0] = 0;
-        input->Vel[1] = 0;
-        input->Vel[2] = 0;
+        I->Vel[0] = 0;
+        I->Vel[1] = 0;
+        I->Vel[2] = 0;
     }
     else
 #endif
     {
-        input->Vel[0] = SPHP(place).VelPred[0];
-        input->Vel[1] = SPHP(place).VelPred[1];
-        input->Vel[2] = SPHP(place).VelPred[2];
+        I->Vel[0] = SPHP(place).VelPred[0];
+        I->Vel[1] = SPHP(place).VelPred[1];
+        I->Vel[2] = SPHP(place).VelPred[2];
     }
 #ifdef VOLUME_CORRECTION
-    input->DensityOld = SPHP(place).DensityOld;
+    I->DensityOld = SPHP(place).DensityOld;
 #endif
 
 #ifdef EULERPOTENTIALS
-    input->EulerA = SPHP(place).EulerA;
-    input->EulerB = SPHP(place).EulerB;
+    I->EulerA = SPHP(place).EulerA;
+    I->EulerB = SPHP(place).EulerB;
 #endif
 #ifdef VECT_POTENTIAL
-    input->APred[0] = SPHP(place).APred[0];
-    input->APred[1] = SPHP(place).APred[1];
-    input->APred[2] = SPHP(place).APred[2];
-    input->rrho = SPHP(place).d.Density;
+    I->APred[0] = SPHP(place).APred[0];
+    I->APred[1] = SPHP(place).APred[1];
+    I->APred[2] = SPHP(place).APred[2];
+    I->rrho = SPHP(place).d.Density;
 #endif
 #if defined(MAGNETICSEED)
-    input->MagSeed = SPHP(place).MagSeed;
+    I->MagSeed = SPHP(place).MagSeed;
 #endif
 
 
 #ifdef WINDS
-    input->DelayTime = SPHP(place).DelayTime;
+    I->DelayTime = SPHP(place).DelayTime;
 #endif
 
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-    input->BPred[0] = SPHP(place).BPred[0];
-    input->BPred[1] = SPHP(place).BPred[1];
-    input->BPred[2] = SPHP(place).BPred[2];
+    I->BPred[0] = SPHP(place).BPred[0];
+    I->BPred[1] = SPHP(place).BPred[1];
+    I->BPred[2] = SPHP(place).BPred[2];
 #endif
 }
 
@@ -548,12 +542,12 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
         REDUCE(SPHP(place).dEulerB[2], remote->dEulerB[2]);
 #endif
 #ifdef VECT_POTENTIAL
-        REDUCE(SPHP(place).dA[5], remote->da[5]);
-        REDUCE(SPHP(place).dA[4], remote->da[4]);
-        REDUCE(SPHP(place).dA[3], remote->da[3]);
-        REDUCE(SPHP(place).dA[2], remote->da[2]);
-        REDUCE(SPHP(place).dA[1], remote->da[1]);
-        REDUCE(SPHP(place).dA[0], remote->da[0]);
+        REDUCE(SPHP(place).dA[5], remote->dA[5]);
+        REDUCE(SPHP(place).dA[4], remote->dA[4]);
+        REDUCE(SPHP(place).dA[3], remote->dA[3]);
+        REDUCE(SPHP(place).dA[2], remote->dA[2]);
+        REDUCE(SPHP(place).dA[1], remote->dA[1]);
+        REDUCE(SPHP(place).dA[0], remote->dA[0]);
 #endif
     }
 
@@ -581,60 +575,47 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
  *  buffer.
  */
 static int density_evaluate(int target, int mode, 
-        struct densdata_in * input, 
-        struct densdata_out * output, 
+        struct densdata_in * I, 
+        struct densdata_out * O, 
         LocalEvaluator * lv, int * ngblist)
 {
-    int j, n;
+    int n;
 
     int startnode, numngb, numngb_inbox, listindex = 0;
 
     double h;
     double hsearch;
-    density_kernel_t kernel;
-    MyLongDouble rho;
-
-#ifdef BLACK_HOLES
-    MyLongDouble fb_weight_sum;  /*smoothing density used in feedback */
-    density_kernel_t bh_feedback_kernel;
-#endif
-    int type;
-    double wk, dwk;
-
-    double dx, dy, dz, r, r2, mass_j;
-
-    double dvx, dvy, dvz;
-
-    MyLongDouble weighted_numngb;
-
-    MyLongDouble dhsmlrho;
 
     int ninteractions = 0;
     int nnodesinlist = 0;
 
-#ifdef BLACK_HOLES
-    MyLongDouble gasvel[3];
-#endif
-#ifndef NAVIERSTOKES
-    MyLongDouble divv, rotv[3];
-#else
     int k;
 
-    double dvel[3][3];
+    density_kernel_t kernel;
+#ifdef BLACK_HOLES
+    density_kernel_t bh_feedback_kernel;
 #endif
 
-    MyDouble *pos;
+    O->Rho = O->Ngb = O->DhsmlDensity = 0;
 
-    MyFloat *vel;
-    static MyFloat veldummy[3] = { 0, 0, 0 };
+    startnode = I->NodeList[0];
+    listindex ++;
+    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+
+    h = I->Hsml;
+    hsearch = density_decide_hsearch(I->Type, h);
+
+    density_kernel_init(&kernel, h);
+    double kernel_volume = density_kernel_volume(&kernel);
+
+#ifdef BLACK_HOLES
+    density_kernel_init(&bh_feedback_kernel, hsearch);
+#endif
 
 #ifdef EULERPOTENTIALS
-    MyDouble deulera[3], deulerb[3], eulera, eulerb, dea, deb;
-
-    deulera[0] = deulera[1] = deulera[2] = deulerb[0] = deulerb[1] = deulerb[2] = 0;
+    O->dEulerA[0] = O->dEulerA[1] = O->dEulerA[2] = O->dEulerB[0] = O->dEulerB[1] = O->dEulerB[2] = 0;
 #endif
 #if defined(MAGNETICSEED)
-    double spin=0,spin_0=0;
     double mu0_1 = 1;
 #ifndef MU0_UNITY
     mu0_1 *= (4 * M_PI);
@@ -646,136 +627,66 @@ static int density_evaluate(int target, int mode,
 #endif
 
 #ifdef VECT_POTENTIAL
-    MyDouble dA[6], aflt[3];
-
-    MyDouble bpred[3], rrho;
-
-    dA[0] = dA[1] = dA[2] = 0.0;
-    dA[3] = dA[4] = dA[5] = 0.0;
-    double hinv_j, dwk_j, wk_j, hinv3_j, hinv4_j;
+    O->dA[0] = O->dA[1] = O->dA[2] = 0.0;
+    O->dA[3] = O->dA[4] = O->dA[5] = 0.0;
 #endif
 
 #ifdef DENSITY_INDEPENDENT_SPH
-    double egyrho = 0, dhsmlegyrho = 0;
+    O->EgyRho = O->DhsmlEgyDensity = 0;
 #endif
 
 
 #if defined(BLACK_HOLES)
-    MyLongDouble smoothent_or_pres;
-
-    smoothent_or_pres = 0;
-#endif
-
-#ifdef WINDS
-    double delaytime;
+    O->SmoothedEntOrPressure = 0;
 #endif
 
 #ifdef VOLUME_CORRECTION
-    double densityold, densitystd = 0;
+    O->DensityStd = 0;
 #endif
 
 #ifdef JD_VTURB
-    MyFloat vturb = 0;
-    MyFloat vbulk[3]={0};
-    int trueNGB = 0;
-#endif
-
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-    MyFloat bflt[3];
-
-    MyDouble dbx, dby, dbz;
-#endif
-
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-    MyDouble rotb[3];
+    O->Vturb = 0;
+    O->Vbulk[3]={0};
+    O->TrueNGB = 0;
 #endif
 
 #ifdef TRACEDIVB
-    double divB = 0;
+    O->divB = 0;
 #endif
 #ifdef VECT_PRO_CLEAN
-    double BVec[3];
-
-    BVec[0] = BVec[1] = BVec[2] = 0;
+    O->BPredVec[0] = O->BPredVec[1] = O->BPredVec[2] = 0;
 #endif
 
 #ifdef CONDUCTION_SATURATION
-    double gradentr[3];
-
-    gradentr[0] = gradentr[1] = gradentr[2] = 0;
+    O->GradEntr[0] = O->GradEntr[1] = O->GradEntr[2] = 0;
 #endif
 
 #ifdef SPH_GRAD_RHO
-    double gradrho[3];
-
-    gradrho[0] = gradrho[1] = gradrho[2] = 0;
+    O->GradRho[0] = O->GradRho[1] = O->GradRho[2] = 0;
 #endif
 
 #ifdef RADTRANSFER_FLUXLIMITER
-    double grad_ngamma[3][N_BINS];
     int k;
 
     for(k = 0; k < N_BINS; k++)
-        grad_ngamma[0][k] = grad_ngamma[1][k] = grad_ngamma[2][k] = 0;
+        O->Grad_ngamma[0][k] = O->Grad_ngamma[1][k] = O->Grad_ngamma[2][k] = 0;
 #endif
 
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-    rotb[0] = rotb[1] = rotb[2] = 0;
+    O->RotB[0] = O->RotB[1] = O->RotB[2] = 0;
 #endif
 
 #ifndef NAVIERSTOKES
-    divv = rotv[0] = rotv[1] = rotv[2] = 0;
+    O->Div = O->Rot[0] = O->Rot[1] = O->Rot[2] = 0;
 #else
     for(k = 0; k < 3; k++)
-        dvel[k][0] = dvel[k][1] = dvel[k][2] = 0;
+        O->DV[k][0] = O->DV[k][1] = O->DV[k][2] = 0;
 #endif
 #ifdef BLACK_HOLES
-    gasvel[0] = gasvel[1] = gasvel[2] = 0;
-    fb_weight_sum = 0;
-#endif
-    rho = weighted_numngb = dhsmlrho = 0;
-
-    startnode = input->NodeList[0];
-    listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-
-    pos = input->Pos;
-    vel = input->Vel;
-    h = input->Hsml;
-    type = input->Type;
-    hsearch = density_decide_hsearch(input->Type, h);
-
-#ifdef WINDS
-    delaytime = input->DelayTime;
-#endif
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-    bflt[0] = input->BPred[0];
-    bflt[1] = input->BPred[1];
-    bflt[2] = input->BPred[2];
-#endif
-#ifdef VECT_POTENTIAL
-    aflt[0] = input->APred[0];
-    aflt[1] = input->APred[1];
-    aflt[2] = input->APred[2];
-    rrho = input->rrho;
-#endif
-#ifdef VOLUME_CORRECTION
-    densityold = input->DensityOld;
-#endif
-#ifdef EULERPOTENTIALS
-    eulera = input->EulerA;
-    eulerb = input->EulerB;
-#endif
-#if defined(MAGNETICSEED)
-    spin =   input->MagSeed;
+    O->GasVel[0] = O->GasVel[1] = O->GasVel[2] = 0;
+    O->FeedbackWeightSum = 0;
 #endif
 
-
-    density_kernel_init(&kernel, h);
-    double kernel_volume = density_kernel_volume(&kernel);
-#ifdef BLACK_HOLES
-    density_kernel_init(&bh_feedback_kernel, hsearch);
-#endif
 
     numngb = 0;
 
@@ -784,7 +695,7 @@ static int density_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb_inbox =
-                ngb_treefind_threads(pos, hsearch, target, &startnode, 
+                ngb_treefind_threads(I->Pos, hsearch, target, &startnode, 
                         mode, lv, ngblist, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
 
             if(numngb_inbox < 0)
@@ -793,93 +704,93 @@ static int density_evaluate(int target, int mode,
             for(n = 0; n < numngb_inbox; n++)
             {
                 ninteractions++;
-                j = ngblist[n];
+                int j = ngblist[n];
 #ifdef WINDS
                     if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
-                        if(!(delaytime > 0))	/* if I'm not wind, then ignore the wind particle */
+                        if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
                             continue;
 #endif
 #ifdef BLACK_HOLES
                 if(P[j].Mass == 0)
                     continue;
 #endif
-                dx = pos[0] - P[j].Pos[0];
-                dy = pos[1] - P[j].Pos[1];
-                dz = pos[2] - P[j].Pos[2];
+                double dx = I->Pos[0] - P[j].Pos[0];
+                double dy = I->Pos[1] - P[j].Pos[1];
+                double dz = I->Pos[2] - P[j].Pos[2];
 
 #ifdef PERIODIC			/*  now find the closest image in the given box size  */
                 dx = NEAREST_X(dx);
                 dy = NEAREST_Y(dy);
                 dz = NEAREST_Z(dz);
 #endif
-                r2 = dx * dx + dy * dy + dz * dz;
+                double r2 = dx * dx + dy * dy + dz * dz;
 
-                r = sqrt(r2);
+                double r = sqrt(r2);
 
                 if(r2 < kernel.HH)
                 {
 
                     double u = r * kernel.Hinv;
-                    wk = density_kernel_wk(&kernel, u);
-                    dwk = density_kernel_dwk(&kernel, u);
+                    double wk = density_kernel_wk(&kernel, u);
+                    double dwk = density_kernel_dwk(&kernel, u);
 
-                    mass_j = P[j].Mass;
+                    double mass_j = P[j].Mass;
 
                         numngb++;
 #ifdef JD_VTURB
-                        vturb += (SPHP(j).VelPred[0] - vel[0]) * (SPHP(j).VelPred[0] - vel[0]) +
-                            (SPHP(j).VelPred[1] - vel[1]) * (SPHP(j).VelPred[1] - vel[1]) +
-                            (SPHP(j).VelPred[2] - vel[2]) * (SPHP(j).VelPred[2] - vel[2]);
-                        vbulk[0] += SPHP(j).VelPred[0];
-                        vbulk[1] += SPHP(j).VelPred[1];
-                        vbulk[2] += SPHP(j).VelPred[2];
-                        trueNGB++;
+                        O->Vturb += (SPHP(j).VelPred[0] - I->Vel[0]) * (SPHP(j).VelPred[0] - I->Vel[0]) +
+                            (SPHP(j).VelPred[1] - I->Vel[1]) * (SPHP(j).VelPred[1] - I->Vel[1]) +
+                            (SPHP(j).VelPred[2] - I->Vel[2]) * (SPHP(j).VelPred[2] - I->Vel[2]);
+                        O->Vbulk[0] += SPHP(j).VelPred[0];
+                        O->Vbulk[1] += SPHP(j).VelPred[1];
+                        O->Vbulk[2] += SPHP(j).VelPred[2];
+                        O->TrueNGB++;
 #endif
 
 #ifdef VOLUME_CORRECTION
-                        rho += FLT(mass_j * wk * pow(densityold / SPHP(j).DensityOld, VOLUME_CORRECTION));
-                        densitystd += FLT(mass_j * wk);
+                        O->Rho += FLT(mass_j * wk * pow(I->DensityOld / SPHP(j).DensityOld, VOLUME_CORRECTION));
+                        O->DensityStd += FLT(mass_j * wk);
 #else
-                        rho += FLT(mass_j * wk);
+                        O->Rho += FLT(mass_j * wk);
 #endif
-                        weighted_numngb += wk * kernel_volume;
+                        O->Ngb += wk * kernel_volume;
 
-                        /* Hinv is here becuase dhsmlrho is drho / dH.
+                        /* Hinv is here becuase O->DhsmlDensity is drho / dH.
                          * nothing to worry here */
-                        dhsmlrho += mass_j * density_kernel_dW(&kernel, u, wk, dwk);
+                        O->DhsmlDensity += mass_j * density_kernel_dW(&kernel, u, wk, dwk);
 
 #ifdef DENSITY_INDEPENDENT_SPH
-                        egyrho += mass_j * SPHP(j).EntVarPred * wk;
-                        dhsmlegyrho += mass_j * SPHP(j).EntVarPred * density_kernel_dW(&kernel, u, wk, dwk);
+                        O->EgyRho += mass_j * SPHP(j).EntVarPred * wk;
+                        O->DhsmlEgyDensity += mass_j * SPHP(j).EntVarPred * density_kernel_dW(&kernel, u, wk, dwk);
 #endif
 
 
 #ifdef BLACK_HOLES
 #ifdef BH_CSND_FROM_PRESSURE
-                        smoothent_or_pres += FLT(mass_j * wk * SPHP(j).Pressure);
+                        O->SmoothedEntOrPressure += FLT(mass_j * wk * SPHP(j).Pressure);
 #else
-                        smoothent_or_pres += FLT(mass_j * wk * SPHP(j).Entropy);
+                        O->SmoothedEntOrPressure += FLT(mass_j * wk * SPHP(j).Entropy);
 #endif
-                        gasvel[0] += FLT(mass_j * wk * SPHP(j).VelPred[0]);
-                        gasvel[1] += FLT(mass_j * wk * SPHP(j).VelPred[1]);
-                        gasvel[2] += FLT(mass_j * wk * SPHP(j).VelPred[2]);
+                        O->GasVel[0] += FLT(mass_j * wk * SPHP(j).VelPred[0]);
+                        O->GasVel[1] += FLT(mass_j * wk * SPHP(j).VelPred[1]);
+                        O->GasVel[2] += FLT(mass_j * wk * SPHP(j).VelPred[2]);
 #endif
 
 #ifdef CONDUCTION_SATURATION
                         if(r > 0)
                         {
-                            gradentr[0] += mass_j * dwk * dx / r * SPHP(j).Entropy;
-                            gradentr[1] += mass_j * dwk * dy / r * SPHP(j).Entropy;
-                            gradentr[2] += mass_j * dwk * dz / r * SPHP(j).Entropy;
+                            O->GradEntr[0] += mass_j * dwk * dx / r * SPHP(j).Entropy;
+                            O->GradEntr[1] += mass_j * dwk * dy / r * SPHP(j).Entropy;
+                            O->GradEntr[2] += mass_j * dwk * dz / r * SPHP(j).Entropy;
                         }
 #endif
 
 #ifdef SPH_GRAD_RHO
                         if(r > 0)
                         {
-                            gradrho[0] += mass_j * dwk * dx / r;
-                            gradrho[1] += mass_j * dwk * dy / r;
-                            gradrho[2] += mass_j * dwk * dz / r;
+                            O->GradRho[0] += mass_j * dwk * dx / r;
+                            O->GradRho[1] += mass_j * dwk * dy / r;
+                            O->GradRho[2] += mass_j * dwk * dz / r;
                         }
 #endif
 
@@ -888,9 +799,9 @@ static int density_evaluate(int target, int mode,
                         if(r > 0)
                             for(k = 0; k < N_BINS; k++)
                             {
-                                grad_ngamma[0][k] += mass_j * dwk * dx / r * SPHP(j).n_gamma[k];
-                                grad_ngamma[1][k] += mass_j * dwk * dy / r * SPHP(j).n_gamma[k];
-                                grad_ngamma[2][k] += mass_j * dwk * dz / r * SPHP(j).n_gamma[k];
+                                O->Grad_ngamma[0][k] += mass_j * dwk * dx / r * SPHP(j).n_gamma[k];
+                                O->Grad_ngamma[1][k] += mass_j * dwk * dy / r * SPHP(j).n_gamma[k];
+                                O->Grad_ngamma[2][k] += mass_j * dwk * dz / r * SPHP(j).n_gamma[k];
                             }
 #endif
 
@@ -899,87 +810,87 @@ static int density_evaluate(int target, int mode,
                         {
                             double fac = mass_j * dwk / r;
 
-                            dvx = vel[0] - SPHP(j).VelPred[0];
-                            dvy = vel[1] - SPHP(j).VelPred[1];
-                            dvz = vel[2] - SPHP(j).VelPred[2];
+                            double dvx = I->Vel[0] - SPHP(j).VelPred[0];
+                            double dvy = I->Vel[1] - SPHP(j).VelPred[1];
+                            double dvz = I->Vel[2] - SPHP(j).VelPred[2];
 
 #ifndef NAVIERSTOKES
-                            divv += FLT(-fac * (dx * dvx + dy * dvy + dz * dvz));
+                            O->Div += FLT(-fac * (dx * dvx + dy * dvy + dz * dvz));
 
-                            rotv[0] += FLT(fac * (dz * dvy - dy * dvz));
-                            rotv[1] += FLT(fac * (dx * dvz - dz * dvx));
-                            rotv[2] += FLT(fac * (dy * dvx - dx * dvy));
+                            O->Rot[0] += FLT(fac * (dz * dvy - dy * dvz));
+                            O->Rot[1] += FLT(fac * (dx * dvz - dz * dvx));
+                            O->Rot[2] += FLT(fac * (dy * dvx - dx * dvy));
 #else
-                            dvel[0][0] -= fac * dx * dvx;
-                            dvel[0][1] -= fac * dx * dvy;
-                            dvel[0][2] -= fac * dx * dvz;
-                            dvel[1][0] -= fac * dy * dvx;
-                            dvel[1][1] -= fac * dy * dvy;
-                            dvel[1][2] -= fac * dy * dvz;
-                            dvel[2][0] -= fac * dz * dvx;
-                            dvel[2][1] -= fac * dz * dvy;
-                            dvel[2][2] -= fac * dz * dvz;
+                            O->DV[0][0] -= fac * dx * dvx;
+                            O->DV[0][1] -= fac * dx * dvy;
+                            O->DV[0][2] -= fac * dx * dvz;
+                            O->DV[1][0] -= fac * dy * dvx;
+                            O->DV[1][1] -= fac * dy * dvy;
+                            O->DV[1][2] -= fac * dy * dvz;
+                            O->DV[2][0] -= fac * dz * dvx;
+                            O->DV[2][1] -= fac * dz * dvy;
+                            O->DV[2][2] -= fac * dz * dvz;
 #endif
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-                            dbx = bflt[0] - SPHP(j).BPred[0];
-                            dby = bflt[1] - SPHP(j).BPred[1];
-                            dbz = bflt[2] - SPHP(j).BPred[2];
+                            double dbx = I->BPred[0] - SPHP(j).BPred[0];
+                            double dby = I->BPred[1] - SPHP(j).BPred[1];
+                            double dbz = I->BPred[2] - SPHP(j).BPred[2];
 #endif
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-                            rotb[0] += FLT(fac * (dz * dby - dy * dbz));
-                            rotb[1] += FLT(fac * (dx * dbz - dz * dbx));
-                            rotb[2] += FLT(fac * (dy * dbx - dx * dby));
+                            O->RotB[0] += FLT(fac * (dz * dby - dy * dbz));
+                            O->RotB[1] += FLT(fac * (dx * dbz - dz * dbx));
+                            O->RotB[2] += FLT(fac * (dy * dbx - dx * dby));
 #endif
 #ifdef VECT_POTENTIAL
-                            dA[0] += fac * (aflt[0] - SPHP(j).APred[0]) * dy;	//dAx/dy
-                            dA[1] += fac * (aflt[0] - SPHP(j).APred[0]) * dz;	//dAx/dz
-                            dA[2] += fac * (aflt[1] - SPHP(j).APred[1]) * dx;	//dAy/dx
-                            dA[3] += fac * (aflt[1] - SPHP(j).APred[1]) * dz;	//dAy/dz
-                            dA[4] += fac * (aflt[2] - SPHP(j).APred[2]) * dx;	//dAz/dx
-                            dA[5] += fac * (aflt[2] - SPHP(j).APred[2]) * dy;	//dAz/dy
+                            O->dA[0] += fac * (I->APred[0] - SPHP(j).APred[0]) * dy;	//dAx/dy
+                            O->dA[1] += fac * (I->APred[0] - SPHP(j).APred[0]) * dz;	//dAx/dz
+                            O->dA[2] += fac * (I->APred[1] - SPHP(j).APred[1]) * dx;	//dAy/dx
+                            O->dA[3] += fac * (I->APred[1] - SPHP(j).APred[1]) * dz;	//dAy/dz
+                            O->dA[4] += fac * (I->APred[2] - SPHP(j).APred[2]) * dx;	//dAz/dx
+                            O->dA[5] += fac * (I->APred[2] - SPHP(j).APred[2]) * dy;	//dAz/dy
 #endif
 #ifdef TRACEDIVB
-                            divB += FLT(-fac * (dbx * dx + dby * dy + dbz * dz));
+                            O->divB += FLT(-fac * (dbx * dx + dby * dy + dbz * dz));
 #endif
 #ifdef MAGNETICSEED
-                            spin_0=sqrt(spin*mu0_1*2.);//energy to B field
-                            spin_0=3./2.*spin_0/(sqrt(vel[0]*vel[0]+vel[1]*vel[1]+vel[2]*vel[2]));//*SPHP(j).d.Density;
+                            double spin_0=sqrt(I->MagSeed*mu0_1*2.);//energy to B field
+                            spin_0=3./2.*spin_0/(sqrt(I->Vel[0]*I->Vel[0]+I->Vel[1]*I->Vel[1]+I->Vel[2]*I->Vel[2]));//*SPHP(j).d.Density;
 
-                            if(spin)
+                            if(I->MagSeed)
                             {
                                 SPHP(j).BPred[0] += 1./(4.* M_PI * (pow(r,3.))) *
-                                    (3. *(dx*vel[0] + dy*vel[1] + dz*vel[2]) * spin_0 / r  * dx / r - spin_0 * vel[0]);
+                                    (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dx / r - spin_0 * I->Vel[0]);
                                 SPHP(j).BPred[1] += 1./(4.* M_PI * (pow(r,3.))) *
-                                    (3. *(dx*vel[0] + dy*vel[1] + dz*vel[2]) * spin_0 / r  * dy / r - spin_0 * vel[1]);
+                                    (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dy / r - spin_0 * I->Vel[1]);
                                 SPHP(j).BPred[2] += 1./(4.* M_PI * (pow(r,3.))) *
-                                    (3. *(dx*vel[0] + dy*vel[1] + dz*vel[2]) * spin_0 / r  * dz / r - spin_0 * vel[2]);
+                                    (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dz / r - spin_0 * I->Vel[2]);
                             };
 #endif
 #ifdef VECT_PRO_CLEAN
-                            BVec[0] +=
+                            O->BPredVec[0] +=
                                 FLT(fac * r2 * (SPHP(j).RotB[1] * dz - SPHP(j).RotB[2] * dy) / SPHP(j).d.Density);
-                            BVec[1] +=
+                            O->BPredVec[1] +=
                                 FLT(fac * r2 * (SPHP(j).RotB[2] * dx - SPHP(j).RotB[0] * dz) / SPHP(j).d.Density);
-                            BVec[2] +=
+                            O->BPredVec[2] +=
                                 FLT(fac * r2 * (SPHP(j).RotB[0] * dy - SPHP(j).RotB[1] * dx) / SPHP(j).d.Density);
 #endif
 #ifdef EULERPOTENTIALS
-                            dea = eulera - SPHP(j).EulerA;
-                            deb = eulerb - SPHP(j).EulerB;
+                            dea = I->EulerA - SPHP(j).EulerA;
+                            deb = I->EulerB - SPHP(j).EulerB;
 #ifdef EULER_VORTEX
                             deb = NEAREST_Z(deb);
 #endif
-                            deulera[0] -= fac * dx * dea;
-                            deulera[1] -= fac * dy * dea;
-                            deulera[2] -= fac * dz * dea;
-                            deulerb[0] -= fac * dx * deb;
-                            deulerb[1] -= fac * dy * deb;
-                            deulerb[2] -= fac * dz * deb;
+                            O->dEulerA[0] -= fac * dx * dea;
+                            O->dEulerA[1] -= fac * dy * dea;
+                            O->dEulerA[2] -= fac * dz * dea;
+                            O->dEulerB[0] -= fac * dx * deb;
+                            O->dEulerB[1] -= fac * dy * deb;
+                            O->dEulerB[2] -= fac * dz * deb;
 #endif
                         }
                 }
 #ifdef BLACK_HOLES
-                if(type == 5 && r2 < bh_feedback_kernel.HH)
+                if(I->Type == 5 && r2 < bh_feedback_kernel.HH)
                 {
                     double mass_j;
                     if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
@@ -997,7 +908,7 @@ static int density_evaluate(int target, int mode,
                         double nh0 = 0;
 #endif
                         if(r2 > 0)
-                            fb_weight_sum += FLT(P[j].Mass * nh0) / r2;
+                            O->FeedbackWeightSum += FLT(P[j].Mass * nh0) / r2;
                     } else {
                         if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
                             mass_j = P[j].Mass;
@@ -1006,11 +917,11 @@ static int density_evaluate(int target, int mode,
                         }
                         if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
                             double u = r * bh_feedback_kernel.Hinv;
-                            fb_weight_sum += FLT(mass_j * 
+                            O->FeedbackWeightSum += FLT(mass_j * 
                                   density_kernel_wk(&bh_feedback_kernel, u)
                                    );
                         } else {
-                            fb_weight_sum += FLT(mass_j);
+                            O->FeedbackWeightSum += FLT(mass_j);
                         }
                     }
                 }
@@ -1020,7 +931,7 @@ static int density_evaluate(int target, int mode,
         /* now check next node in the node list */
         if(listindex < NODELISTLENGTH)
         {
-            startnode = input->NodeList[listindex];
+            startnode = I->NodeList[listindex];
             if(startnode >= 0) {
                 startnode = Nodes[startnode].u.d.nextnode;	/* open it */
                 listindex++;
@@ -1031,107 +942,11 @@ static int density_evaluate(int target, int mode,
 
     /* Now collect the result at the right place */
 
-    output->ID = input->ID;
-#ifdef HYDRO_COST_FACTOR
-    output->Ninteractions = ninteractions;
-#endif
-    output->Rho = rho;
-
-#ifdef DENSITY_INDEPENDENT_SPH
-    output->EgyRho = egyrho;
-    output->DhsmlEgyDensity = dhsmlegyrho;
-#endif
-
-#ifdef VOLUME_CORRECTION
-    output->DensityStd = densitystd;
-#endif
-    output->Ngb = weighted_numngb;
-    output->DhsmlDensity = dhsmlrho;
-#ifndef NAVIERSTOKES
-    output->Div = divv;
-    output->Rot[0] = rotv[0];
-    output->Rot[1] = rotv[1];
-    output->Rot[2] = rotv[2];
-#else
-    for(k = 0; k < 3; k++)
-    {
-        output->DV[k][0] = dvel[k][0];
-        output->DV[k][1] = dvel[k][1];
-        output->DV[k][2] = dvel[k][2];
-    }
-#endif
-
-#if defined(BLACK_HOLES)
-    output->SmoothedEntOrPressure = smoothent_or_pres;
-    output->FeedbackWeightSum = fb_weight_sum;
-#endif
-#ifdef CONDUCTION_SATURATION
-    output->GradEntr[0] = gradentr[0];
-    output->GradEntr[1] = gradentr[1];
-    output->GradEntr[2] = gradentr[2];
-#endif
-#ifdef SPH_GRAD_RHO
-    output->GradRho[0] = gradrho[0];
-    output->GradRho[1] = gradrho[1];
-    output->GradRho[2] = gradrho[2];
-#endif
-
-#ifdef RADTRANSFER_FLUXLIMITER
-    for(k = 0; k < N_BINS; k++)
-    {
-        output->Grad_ngamma[0][k] = grad_ngamma[0][k];
-        output->Grad_ngamma[1][k] = grad_ngamma[1][k];
-        output->Grad_ngamma[2][k] = grad_ngamma[2][k];
-    }
-#endif
-
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-    output->RotB[0] = rotb[0];
-    output->RotB[1] = rotb[1];
-    output->RotB[2] = rotb[2];
-#endif
-
-#ifdef JD_VTURB
-    output->Vturb = vturb;
-    output->Vbulk[0] = vbulk[0];
-    output->Vbulk[1] = vbulk[1];
-    output->Vbulk[2] = vbulk[2];
-    output->TrueNGB = trueNGB;
-#endif
-
-#ifdef TRACEDIVB
-    output->divB = divB;
-#endif
-#ifdef BLACK_HOLES
-    output->GasVel[0] = gasvel[0];
-    output->GasVel[1] = gasvel[1];
-    output->GasVel[2] = gasvel[2];
-#endif
-#ifdef VECT_POTENTIAL
-    output->da[0] = dA[0];
-    output->da[1] = dA[1];
-    output->da[2] = dA[2];
-    output->da[3] = dA[3];
-    output->da[4] = dA[4];
-    output->da[5] = dA[5];
-
-#endif
-
-#ifdef EULERPOTENTIALS
-    output->dEulerA[0] = deulera[0];
-    output->dEulerA[1] = deulera[1];
-    output->dEulerA[2] = deulera[2];
-    output->dEulerB[0] = deulerb[0];
-    output->dEulerB[1] = deulerb[1];
-    output->dEulerB[2] = deulerb[2];
-#endif
-#ifdef VECT_PRO_CLEAN
-    output->BPredVec[0] = BVec[0];
-    output->BPredVec[1] = BVec[1];
-    output->BPredVec[2] = BVec[2];
-#endif
-
+    O->ID = I->ID;
     /* some performance measures not currently used */
+#ifdef HYDRO_COST_FACTOR
+    O->Ninteractions = ninteractions;
+#endif
     lv->Ninteractions += ninteractions;
     lv->Nnodesinlist += nnodesinlist;
 
@@ -1204,26 +1019,26 @@ static void density_post_process(int i) {
 #else
             for(k = 0; k < 3; k++)
             {
-                dvel[k][0] = SPHP(i).u.DV[k][0] / SPHP(i).d.Density;
-                dvel[k][1] = SPHP(i).u.DV[k][1] / SPHP(i).d.Density;
-                dvel[k][2] = SPHP(i).u.DV[k][2] / SPHP(i).d.Density;
+                O->DV[k][0] = SPHP(i).u.DV[k][0] / SPHP(i).d.Density;
+                O->DV[k][1] = SPHP(i).u.DV[k][1] / SPHP(i).d.Density;
+                O->DV[k][2] = SPHP(i).u.DV[k][2] / SPHP(i).d.Density;
             }
-            SPHP(i).u.s.DivVel = dvel[0][0] + dvel[1][1] + dvel[2][2];
+            SPHP(i).u.s.DivVel = O->DV[0][0] + O->DV[1][1] + O->DV[2][2];
 
-            SPHP(i).u.s.StressDiag[0] = 2 * dvel[0][0] - 2.0 / 3 * SPHP(i).u.s.DivVel;
-            SPHP(i).u.s.StressDiag[1] = 2 * dvel[1][1] - 2.0 / 3 * SPHP(i).u.s.DivVel;
-            SPHP(i).u.s.StressDiag[2] = 2 * dvel[2][2] - 2.0 / 3 * SPHP(i).u.s.DivVel;
+            SPHP(i).u.s.StressDiag[0] = 2 * O->DV[0][0] - 2.0 / 3 * SPHP(i).u.s.DivVel;
+            SPHP(i).u.s.StressDiag[1] = 2 * O->DV[1][1] - 2.0 / 3 * SPHP(i).u.s.DivVel;
+            SPHP(i).u.s.StressDiag[2] = 2 * O->DV[2][2] - 2.0 / 3 * SPHP(i).u.s.DivVel;
 
-            SPHP(i).u.s.StressOffDiag[0] = dvel[0][1] + dvel[1][0];	/* xy */
-            SPHP(i).u.s.StressOffDiag[1] = dvel[0][2] + dvel[2][0];	/* xz */
-            SPHP(i).u.s.StressOffDiag[2] = dvel[1][2] + dvel[2][1];	/* yz */
+            SPHP(i).u.s.StressOffDiag[0] = O->DV[0][1] + O->DV[1][0];	/* xy */
+            SPHP(i).u.s.StressOffDiag[1] = O->DV[0][2] + O->DV[2][0];	/* xz */
+            SPHP(i).u.s.StressOffDiag[2] = O->DV[1][2] + O->DV[2][1];	/* yz */
 
 #ifdef NAVIERSTOKES_BULK
             SPHP(i).u.s.StressBulk = All.NavierStokes_BulkViscosity * SPHP(i).u.s.DivVel;
 #endif
-            rotx = dvel[1][2] - dvel[2][1];
-            roty = dvel[2][0] - dvel[0][2];
-            rotz = dvel[0][1] - dvel[1][0];
+            double rotx = O->DV[1][2] - O->DV[2][1];
+            double roty = O->DV[2][0] - O->DV[0][2];
+            double rotz = O->DV[0][1] - O->DV[1][0];
             SPHP(i).u.s.CurlVel = sqrt(rotx * rotx + roty * roty + rotz * rotz);
 #endif
 
