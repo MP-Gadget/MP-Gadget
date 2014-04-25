@@ -624,94 +624,14 @@ static int hydro_evaluate(int target, int mode,
 {
     int startnode, numngb, listindex = 0;
     int j, k, n; 
-    MyFloat f2;
 
     int ninteractions = 0;
     int nnodesinlist = 0;
 
-
-    double dx, dy, dz, dvx, dvy, dvz;
     double p_over_rho2_i, p_over_rho2_j, soundspeed_i, soundspeed_j;
-    double hfc, vdotr, vdotr2, visc, mu_ij, rho_ij, vsig;
+
     density_kernel_t kernel_i;
-    double h_j;
     density_kernel_t kernel_j;
-    double dwk_i, dwk_j;
-    double r, r2, u;
-    double hfc_visc;
-
-#ifdef TRADITIONAL_SPH_FORMULATION
-    double hfc_egy;
-#endif
-
-    double BulkVisc_ij;
-
-#ifdef NAVIERSTOKES
-    double faci, facj;
-
-#ifdef VISCOSITY_SATURATION
-    double VelLengthScale_i, VelLengthScale_j;
-    double IonMeanFreePath_i, IonMeanFreePath_j;
-#endif
-#ifdef NAVIERSTOKES_BULK
-    double facbi, facbj;
-#endif
-#endif
-
-
-#ifdef ALTVISCOSITY
-    double mu_i, mu_j;
-#endif
-
-#ifndef NOVISCOSITYLIMITER
-    double dt;
-#endif
-
-
-#ifdef MAGNETIC
-
-    double dBx, dBy, dBz;
-    double magfac, magfac_i, magfac_j, magfac_i_base;
-    double mu0_1;
-
-#if defined(MAGNETIC_DIFFUSION) || defined(VECT_POTENTIAL)
-    double magfac_diff;
-#endif
-
-#ifdef MAGFORCE
-    double mm_i[3][3], mm_j[3][3];
-    double b2_i, b2_j;
-    int l;
-#endif
-
-#if defined(MAGNETIC_DISSIPATION) || defined(DIVBCLEANING_DEDNER) || defined(EULER_DISSIPATION) || defined(MAGNETIC_DIFFUSION)
-    double magfac_sym;
-#endif
-
-#ifdef MAGNETIC_DISSIPATION
-    double dTu_diss_b, Balpha_ij;
-
-#ifdef MAGDISSIPATION_PERPEN
-    double mft, mvt[3];
-#endif
-#endif
-
-#ifdef EULER_DISSIPATION
-    double dTu_diss_eul, alpha_ij_eul;
-#endif
-
-#ifdef DIVBCLEANING_DEDNER
-    double phifac;
-#endif
-#ifdef MAGNETIC_SIGNALVEL
-    double magneticspeed_i, magneticspeed_j, vcsa2_i, vcsa2_j, Bpro2_i, Bpro2_j;
-#endif
-
-#endif /* end magnetic */
-
-#ifdef CONVENTIONAL_VISCOSITY
-    double c_ij, h_ij;
-#endif
 
     startnode = I->NodeList[0];
     listindex ++;
@@ -734,15 +654,7 @@ static int hydro_evaluate(int target, int mode,
 
 
 #ifdef MAGNETIC
-#if ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
-    for(k = 0; k < 3; k++)
-        O->DtB[k] = 0;
-#endif
-#ifdef EULER_DISSIPATION
-    O->DtEulerA = 0;
-    O->DtEulerB = 0;
-#endif
-    mu0_1 = 1;
+    double mu0_1 = 1;
 #ifndef MU0_UNITY
     mu0_1 /= (4 * M_PI);
     mu0_1 *= All.UnitTime_in_s * All.UnitTime_in_s * All.UnitLength_in_cm / (All.UnitMass_in_g);
@@ -750,17 +662,15 @@ static int hydro_evaluate(int target, int mode,
         mu0_1 /= (All.HubbleParam * All.HubbleParam);
 
 #endif
-#ifdef DIVBCLEANING_DEDNER
-    O->GradPhi[2]= O->GradPhi[1]=  O->GradPhi[0]=0.0;
-#endif
 #ifdef MAGFORCE
-    magfac_i_base = 1 / (I->Density * rho);
+    double magfac_i_base = 1 / (I->Density * rho);
 #ifndef MU0_UNITY
     magfac_i_base /= (4 * M_PI);
 #endif
 #ifdef CORRECTBFRC
     magfac_i_base *= I->DhsmlDensityFactor;
 #endif
+    double mm_i[3][3];
     for(k = 0, b2_i = 0; k < 3; k++)
     {
         b2_i += I->Bpred[k] * I->Bpred[k];
@@ -771,10 +681,10 @@ static int hydro_evaluate(int target, int mode,
         mm_i[k][k] -= 0.5 * b2_i;
 #ifdef MAGNETIC_SIGNALVEL
 #ifdef ALFVEN_VEL_LIMITER
-    vcsa2_i = soundspeed_i * soundspeed_i +
+    double vcsa2_i = soundspeed_i * soundspeed_i +
         DMIN(mu0_1 * b2_i / I->Density, ALFVEN_VEL_LIMITER * soundspeed_i * soundspeed_i);
 #else
-    vcsa2_i = soundspeed_i * soundspeed_i + mu0_1 * b2_i / I->Density;
+    double vcsa2_i = soundspeed_i * soundspeed_i + mu0_1 * b2_i / I->Density;
 #endif
 #endif
 #endif /* end of MAGFORCE */
@@ -828,20 +738,19 @@ static int hydro_evaluate(int target, int mode,
                         continue;
 #endif
 #endif
-                dx = I->Pos[0] - P[j].Pos[0];
-                dy = I->Pos[1] - P[j].Pos[1];
-                dz = I->Pos[2] - P[j].Pos[2];
+                double dx = I->Pos[0] - P[j].Pos[0];
+                double dy = I->Pos[1] - P[j].Pos[1];
+                double dz = I->Pos[2] - P[j].Pos[2];
 #ifdef PERIODIC			/*  now find the closest image in the given box size  */
                 dx = NEAREST_X(dx);
                 dy = NEAREST_Y(dy);
                 dz = NEAREST_Z(dz);
 #endif
-                r2 = dx * dx + dy * dy + dz * dz;
-                h_j = P[j].Hsml;
-                density_kernel_init(&kernel_j, h_j);
+                double r2 = dx * dx + dy * dy + dz * dz;
+                density_kernel_init(&kernel_j, P[j].Hsml);
                 if(r2 < kernel_i.HH || r2 < kernel_j.HH)
                 {
-                    r = sqrt(r2);
+                    double r = sqrt(r2);
                     if(r > 0)
                     {
                         p_over_rho2_j = SPHP(j).Pressure / (SPHP(j).EOMDensity * SPHP(j).EOMDensity);
@@ -856,19 +765,19 @@ static int hydro_evaluate(int target, int mode,
                         soundspeed_j = sqrt(SPHP(j).dpdr);
 #endif
 
-                        dvx = I->Vel[0] - SPHP(j).VelPred[0];
-                        dvy = I->Vel[1] - SPHP(j).VelPred[1];
-                        dvz = I->Vel[2] - SPHP(j).VelPred[2];
-                        vdotr = dx * dvx + dy * dvy + dz * dvz;
-                        rho_ij = 0.5 * (I->Density + SPHP(j).d.Density);
-
+                        double dvx = I->Vel[0] - SPHP(j).VelPred[0];
+                        double dvy = I->Vel[1] - SPHP(j).VelPred[1];
+                        double dvz = I->Vel[2] - SPHP(j).VelPred[2];
+                        double vdotr = dx * dvx + dy * dvy + dz * dvz;
+                        double rho_ij = 0.5 * (I->Density + SPHP(j).d.Density);
+                        double vdotr2;
                         if(All.ComovingIntegrationOn)
                             vdotr2 = vdotr + hubble_a2 * r2;
                         else
                             vdotr2 = vdotr;
 
-                        dwk_i = density_kernel_dwk(&kernel_i, r * kernel_i.Hinv);
-                        dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
+                        double dwk_i = density_kernel_dwk(&kernel_i, r * kernel_i.Hinv);
+                        double dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
 
 #ifdef JD_VTURB
                         if ( I->Hsml >= P[j].Hsml)  /* Make sure j is inside targets hsml */
@@ -879,52 +788,50 @@ static int hydro_evaluate(int target, int mode,
 
 #ifdef MAGNETIC
 #ifndef SFR
-                        dBx = I->Bpred[0] - SPHP(j).BPred[0];
-                        dBy = I->Bpred[1] - SPHP(j).BPred[1];
-                        dBz = I->Bpred[2] - SPHP(j).BPred[2];
+                        double dBx = I->Bpred[0] - SPHP(j).BPred[0];
+                        double dBy = I->Bpred[1] - SPHP(j).BPred[1];
+                        double dBz = I->Bpred[2] - SPHP(j).BPred[2];
 #else
-                        dBx = I->Bpred[0] - SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
-                        dBy = I->Bpred[1] - SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
-                        dBz = I->Bpred[2] - SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
+                        double dBx = I->Bpred[0] - SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
+                        double dBy = I->Bpred[1] - SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
+                        double dBz = I->Bpred[2] - SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
 #endif
 
-                        magfac = P[j].Mass / r;	/* we moved 'dwk_i / I->Density' down ! */
-                        if(All.ComovingIntegrationOn)
-                            magfac *= 1. / (hubble_a * All.Time * All.Time);
+                        double magfac = P[j].Mass / r;	/* we moved 'dwk_i / I->Density' down ! */
+                        magfac *= 1.0 / All.cf.hubbla_a2;
                         /* last factor takes care of all cosmological prefactor */
 #ifdef CORRECTDB
                         magfac *= I->DhsmlDensityFactor;
 #endif
+
 #if defined(MAGNETIC_DISSIPATION) || defined(DIVBCLEANING_DEDNER) || defined(EULER_DISSIPATION) || defined(MAGNETIC_DIFFUSION)
-                        magfac_sym = magfac * (dwk_i + dwk_j) * 0.5;
+                        double magfac_sym = magfac * (dwk_i + dwk_j) * 0.5;
 #endif
 #ifdef MAGNETIC_DISSIPATION
 #ifdef TIME_DEP_MAGN_DISP
-                        Balpha_ij = 0.5 * (I->Balpha + SPHP(j).Balpha);
+                        double Balpha_ij = 0.5 * (I->Balpha + SPHP(j).Balpha);
 #else
-                        Balpha_ij = All.ArtMagDispConst;
+                        double Balpha_ij = All.ArtMagDispConst;
 #endif
 #endif
+
                         magfac *= dwk_i / I->Density;
 #if VECT_POTENTIAL
                         O->dta[0] +=
                             P[j].Mass * dwk_i / r * (I->Apred[0] -
-                                    SPHP(j).APred[0]) * dx * I->Vel[0] / (I->Density * atime * atime *
-                                    hubble_a);
+                                    SPHP(j).APred[0]) * dx * I->Vel[0] / (I->Density * All.cf.hubble_a2);
                         O->dta[1] +=
                             P[j].Mass * dwk_i / r * (I->Apred[1] -
-                                    SPHP(j).APred[1]) * dy * I->Vel[1] / (I->Density * atime * atime *
-                                    hubble_a);
+                                    SPHP(j).APred[1]) * dy * I->Vel[1] / (I->Density * All.cf.hubble_a2);
                         O->dta[2] +=
                             P[j].Mass * dwk_i / r * (I->Apred[2] -
-                                    SPHP(j).APred[2]) * dz * I->Vel[2] / (I->Density * atime * atime *
-                                    hubble_a);
+                                    SPHP(j).APred[2]) * dz * I->Vel[2] / (I->Density * All.cf.hubble_a2);
                         O->dta[0] +=
                             P[j].Mass * dwk_i / r * ((I->Apred[0] - SPHP(j).APred[0]) * dx * I->Vel[0] +
                                     (I->Apred[0] - SPHP(j).APred[0]) * dy * I->Vel[1] + (Apred[0] -
                                         SPHP(j).
                                         APred[0]) *
-                                    dz * I->Vel[2]) / (I->Density * atime * atime * hubble_a);
+                                    dz * I->Vel[2]) / (I->Density * All.cf.hubble_a2);
 
 #endif
 #if ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
@@ -939,28 +846,29 @@ static int hydro_evaluate(int target, int mode,
                                     (I->Bpred[2] * dvy - I->Bpred[1] * dvz) * dy);
 #endif
 #ifdef MAGNETIC_DIFFUSION  
-                        magfac_diff = (All.MagneticEta + All.MagneticEta) * magfac_sym / (rho_ij * rho_ij);
+                        double magfac_diff = (All.MagneticEta + All.MagneticEta) * magfac_sym / (rho_ij * rho_ij);
                         O->DtB[0] += magfac_diff * I->Density * dBx;
                         O->DtB[1] += magfac_diff * I->Density * dBy;
                         O->DtB[2] += magfac_diff * I->Density * dBz;
 #ifdef MAGNETIC_DIFFUSION_HEAT
-                        if(All.ComovingIntegrationOn)
-                            magfac_diff *= (hubble_a * All.Time * All.Time * All.Time * All.Time * All.Time);
+                        magfac_diff *= All.cf.hubble_a2 * All.cf.a * All.cf.a * All.cf.a;
                         O->DtEntropy -= 0.5 * magfac_diff * mu0_1 * (dBx * dBx + dBy * dBy + dBz * dBz);
 #endif
 #endif
 #ifdef MAGFORCE
-                        magfac_j = 1 / (SPHP(j).d.Density * SPHP(j).d.Density);
+                        double magfac_j = 1 / (SPHP(j).d.Density * SPHP(j).d.Density);
 #ifndef MU0_UNITY
                         magfac_j /= (4 * M_PI);
 #endif
 #ifdef CORRECTBFRC
                         magfac_j *= dwk_j * SPHP(j).h.DhsmlDensityFactor;
-                        magfac_i = dwk_i * magfac_i_base;
+                        double magfac_i = dwk_i * magfac_i_base;
 #else
-                        magfac_i = magfac_i_base;
+                        double magfac_i = magfac_i_base;
 #endif
-                        for(k = 0, b2_j = 0; k < 3; k++)
+                        double b2_j = 0;
+                        double mm_j[3][3];
+                        for(k = 0; k < 3; k++)
                         {
 #ifndef SFR
                             b2_j += SPHP(j).BPred[k] * SPHP(j).BPred[k];
@@ -976,7 +884,7 @@ static int hydro_evaluate(int target, int mode,
                             mm_j[k][k] -= 0.5 * b2_j;
 
 #ifdef DIVBCLEANING_DEDNER
-                        phifac = magfac_sym * I->Density / rho_ij;
+                        double phifac = magfac_sym * I->Density / rho_ij;
 #ifndef SFR
 #ifdef SMOOTH_PHI
                         phifac *= (I->PhiPred - SPHP(j).SmoothPhi) / (rho_ij);
@@ -997,31 +905,32 @@ static int hydro_evaluate(int target, int mode,
 #endif
 #ifdef MAGNETIC_SIGNALVEL
 #ifdef ALFVEN_VEL_LIMITER
-                        vcsa2_j = soundspeed_j * soundspeed_j +
+                        double vcsa2_j = soundspeed_j * soundspeed_j +
                             DMIN(mu0_1 * b2_j / SPHP(j).d.Density,
                                     ALFVEN_VEL_LIMITER * soundspeed_j * soundspeed_j);
 #else
-                        vcsa2_j = soundspeed_j * soundspeed_j + mu0_1 * b2_j / SPHP(j).d.Density;
+                        double vcsa2_j = soundspeed_j * soundspeed_j + mu0_1 * b2_j / SPHP(j).d.Density;
 #endif
 #ifndef SFR
-                        Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) / r;
+                        double Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) / r;
 #else
-                        Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) / r;
+                        double Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) / r;
 #endif
                         Bpro2_j *= Bpro2_j;
-                        magneticspeed_j = sqrt(vcsa2_j +
+
+                        double magneticspeed_j = sqrt(vcsa2_j +
                                 sqrt(DMAX((vcsa2_j * vcsa2_j -
                                             4 * soundspeed_j * soundspeed_j * Bpro2_j
                                             * mu0_1 / SPHP(j).d.Density), 0))) / 1.4142136;
-                        Bpro2_i = (I->Bpred[0] * dx + I->Bpred[1] * dy + I->Bpred[2] * dz) / r;
-                        Bpro2_i *= Bpro2_i;
-                        magneticspeed_i = sqrt(vcsa2_i +
+                        double Bpro2_i = (I->Bpred[0] * dx + I->Bpred[1] * dy + I->Bpred[2] * dz) / r;
+                        double Bpro2_i *= Bpro2_i;
+                        double magneticspeed_i = sqrt(vcsa2_i +
                                 sqrt(DMAX((vcsa2_i * vcsa2_i -
                                             4 * soundspeed_i * soundspeed_i * Bpro2_i
                                             * mu0_1 / I->Density), 0))) / 1.4142136;
 #endif
 #ifdef MAGNETIC_DISSIPATION
-                        dTu_diss_b = -magfac_sym * Balpha_ij * (dBx * dBx + dBy * dBy + dBz * dBz);
+                        double dTu_diss_b = -magfac_sym * Balpha_ij * (dBx * dBx + dBy * dBy + dBz * dBz);
 #endif
 #ifdef CORRECTBFRC
                         magfac = P[j].Mass / r;
@@ -1081,11 +990,10 @@ static int hydro_evaluate(int target, int mode,
 #endif
 #endif /* end of MAGNETIC */
 
-
 #ifndef MAGNETIC_SIGNALVEL
-                        vsig = soundspeed_i + soundspeed_j;
+                        double vsig = soundspeed_i + soundspeed_j;
 #else
-                        vsig = magneticspeed_i + magneticspeed_j;
+                        double vsig = magneticspeed_i + magneticspeed_j;
 #endif
 
 
@@ -1093,15 +1001,18 @@ static int hydro_evaluate(int target, int mode,
                         if(vsig > O->MaxSignalVel)
                             O->MaxSignalVel = vsig;
 #endif
-                        if(vdotr2 < 0)	/* ... artificial viscosity */
+
+                        double visc = 0;
+
+                        if(vdotr2 < 0)	/* ... artificial viscosity visc is 0 by default*/
                         {
 #ifndef ALTVISCOSITY
 #ifndef CONVENTIONAL_VISCOSITY
-                            mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
+                            double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
 #else
-                            c_ij = 0.5 * (soundspeed_i + soundspeed_j);
-                            h_ij = 0.5 * (I->Hsml + h_j);
-                            mu_ij = fac_mu * h_ij * vdotr2 / (r2 + 0.0001 * h_ij * h_ij);
+                            double c_ij = 0.5 * (soundspeed_i + soundspeed_j);
+                            double h_ij = 0.5 * (I->Hsml + P[j].Hsml);
+                            double mu_ij = fac_mu * h_ij * vdotr2 / (r2 + 0.0001 * h_ij * h_ij);
 #endif
 #ifdef MAGNETIC
                             vsig -= 1.5 * mu_ij;
@@ -1116,11 +1027,11 @@ static int hydro_evaluate(int target, int mode,
 #endif
 
 #ifndef NAVIERSTOKES
-                            f2 =
+                            double f2 =
                                 fabs(SPHP(j).v.DivVel) / (fabs(SPHP(j).v.DivVel) + SPHP(j).r.CurlVel +
                                         0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 #else
-                            f2 =
+                            double f2 =
                                 fabs(SPHP(j).v.DivVel) / (fabs(SPHP(j).v.DivVel) + SPHP(j).u.s.CurlVel +
                                         0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 #endif
@@ -1129,10 +1040,11 @@ static int hydro_evaluate(int target, int mode,
                             I->F1 = f2 = 1;
 #endif
 #ifdef TIME_DEP_ART_VISC
-                            BulkVisc_ij = 0.5 * (I->alpha + SPHP(j).alpha);
+                            double BulkVisc_ij = 0.5 * (I->alpha + SPHP(j).alpha);
 #else
-                            BulkVisc_ij = All.ArtBulkViscConst;
+                            double BulkVisc_ij = All.ArtBulkViscConst;
 #endif
+
 #ifndef CONVENTIONAL_VISCOSITY
                             visc = 0.25 * BulkVisc_ij * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
 #else
@@ -1142,12 +1054,13 @@ static int hydro_evaluate(int target, int mode,
 #endif
 
 #else /* start of ALTVISCOSITY block */
+                            double mu_i;
                             if(I->F1 < 0)
                                 mu_i = I->Hsml * fabs(I->F1);	/* f1 hold here the velocity divergence of particle i */
                             else
                                 mu_i = 0;
                             if(SPHP(j).v.DivVel < 0)
-                                mu_j = h_j * fabs(SPHP(j).v.DivVel);
+                                mu_j = P[j].Hsml * fabs(SPHP(j).v.DivVel);
                             else
                                 mu_j = 0;
                             visc = All.ArtBulkViscConst * ((soundspeed_i + mu_i) * mu_i / I->Density +
@@ -1163,7 +1076,7 @@ static int hydro_evaluate(int target, int mode,
                                 dt = fac_vsic_fix * vdotr2 /
                                     (0.5 * (I->Mass + P[j].Mass) * (dwk_i + dwk_j) * r * visc);
 
-                                dt /= hubble_a;
+                                dt /= All.cf.hubble;
 
                                 if(dt < O->MinViscousDt)
                                     O->MinViscousDt = dt;
@@ -1171,7 +1084,7 @@ static int hydro_evaluate(int target, int mode,
 #endif
 
 #ifndef NOVISCOSITYLIMITER
-                            dt =
+                            double dt =
                                 2 * IMAX(I->Timestep,
                                         (P[j].TimeBin ? (1 << P[j].TimeBin) : 0)) * All.Timebase_interval;
                             if(dt > 0 && (dwk_i + dwk_j) < 0)
@@ -1184,15 +1097,11 @@ static int hydro_evaluate(int target, int mode,
                             }
 #endif
                         }
-                        else
-                        {
-                            visc = 0;
-                        }
-                        hfc_visc = 0.5 * P[j].Mass * visc * (dwk_i + dwk_j) / r;
+                        double hfc_visc = 0.5 * P[j].Mass * visc * (dwk_i + dwk_j) / r;
 #ifndef TRADITIONAL_SPH_FORMULATION
 
 #ifdef DENSITY_INDEPENDENT_SPH
-                        hfc = hfc_visc;
+                        double hfc = hfc_visc;
                         /* leading-order term */
                         hfc += P[j].Mass *
                             (dwk_i*p_over_rho2_i*SPHP(j).EntVarPred/I->EntVarPred +
@@ -1219,15 +1128,15 @@ static int hydro_evaluate(int target, int mode,
                         }
 #else
                         /* Formulation derived from the Lagrangian */
-                        hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *I->DhsmlDensityFactor * dwk_i 
+                        double hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *I->DhsmlDensityFactor * dwk_i 
                                 + p_over_rho2_j * SPHP(j).h.DhsmlDensityFactor * dwk_j) / r;
 #endif
 #else
-                        hfc = hfc_visc +
+                        double hfc = hfc_visc +
                             0.5 * P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i + p_over_rho2_j);
 
                         /* hfc_egy = 0.5 * P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i + p_over_rho2_j); */
-                        hfc_egy = P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i);
+                        double hfc_egy = P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i);
 #endif
 
 #ifdef WINDS
@@ -1257,21 +1166,18 @@ static int hydro_evaluate(int target, int mode,
 
 
 #ifdef NAVIERSTOKES
-                        faci = I->Mass * I->shear_viscosity / (I->Density * rho) * dwk_i / r;
-
-#ifndef NAVIERSTOKES_CONSTANT
-                        faci *= pow((I->Entropy * pow(I->Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
-#endif
-                        facj = P[j].Mass * get_shear_viscosity(j) /
+                        double faci = I->Mass * I->shear_viscosity / (I->Density * rho) * dwk_i / r;
+                        double facj = P[j].Mass * get_shear_viscosity(j) /
                             (SPHP(j).d.Density * SPHP(j).d.Density) * dwk_j / r;
 
 #ifndef NAVIERSTOKES_CONSTANT
+                        faci *= pow((I->Entropy * pow(I->Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
                         facj *= pow((SPHP(j).I->Entropy * pow(SPHP(j).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
 #endif
 
 #ifdef NAVIERSTOKES_BULK
-                        facbi = I->Mass * All.NavierStokes_BulkViscosity / (I->Density * rho) * dwk_i / r;
-                        facbj = P[j].Mass * All.NavierStokes_BulkViscosity /
+                        double facbi = I->Mass * All.NavierStokes_BulkViscosity / (I->Density * rho) * dwk_i / r;
+                        double facbj = P[j].Mass * All.NavierStokes_BulkViscosity /
                             (SPHP(j).d.Density * SPHP(j).d.Density) * dwk_j / r;
 #endif
 
@@ -1287,11 +1193,13 @@ static int hydro_evaluate(int target, int mode,
 #endif
 
 #ifdef VISCOSITY_SATURATION
-                        IonMeanFreePath_i = All.IonMeanFreePath * pow((I->Entropy * pow(I->Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / rho;	/* u^2/rho */
+                        double IonMeanFreePath_i = All.IonMeanFreePath * pow((I->Entropy * pow(I->Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / rho;	/* u^2/rho */
 
-                        IonMeanFreePath_j = All.IonMeanFreePath * pow((SPHP(j).I->Entropy * pow(SPHP(j).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / SPHP(j).d.Density;	/* u^2/I->Density */
+                        double IonMeanFreePath_j = All.IonMeanFreePath * pow((SPHP(j).I->Entropy * pow(SPHP(j).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / SPHP(j).d.Density;	/* u^2/I->Density */
 
-                        for(k = 0, VelLengthScale_i = 0, VelLengthScale_j = 0; k < 3; k++)
+                        double VelLengthScale_i = 0;
+                        double VelLengthScale_j = 0;
+                        for(k = 0; k < 3; k++)
                         {
                             if(fabs(I->stressdiag[k]) > 0)
                             {
@@ -1389,7 +1297,7 @@ static int hydro_evaluate(int target, int mode,
 
 #ifdef MAGNETIC
 #ifdef EULER_DISSIPATION
-                        alpha_ij_eul = All.ArtMagDispConst;
+                        double alpha_ij_eul = All.ArtMagDispConst;
 
                         O->DtEulerA +=
                             alpha_ij_eul * 0.5 * vsig * (I->EulerA -
@@ -1400,7 +1308,7 @@ static int hydro_evaluate(int target, int mode,
                                     SPHP(j).EulerB) * magfac_sym * r * I->Density / (rho_ij *
                                     rho_ij);
 
-                        dTu_diss_eul = -magfac_sym * alpha_ij_eul * (dBx * dBx + dBy * dBy + dBz * dBz);
+                        double dTu_diss_eul = -magfac_sym * alpha_ij_eul * (dBx * dBx + dBy * dBy + dBz * dBz);
                         O->DtEntropy += dTu_diss_eul * 0.25 * vsig * mu0_1 * r / (rho_ij * rho_ij);
 #endif
 #ifdef MAGNETIC_DISSIPATION
