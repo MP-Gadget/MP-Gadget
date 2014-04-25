@@ -639,12 +639,12 @@ static int hydro_evaluate(int target, int mode,
 
 #ifndef EOS_DEGENERATE
 #ifdef DENSITY_INDEPENDENT_SPH
-        soundspeed_i = sqrt(GAMMA * I->Pressure / I->EgyRho);
+    soundspeed_i = sqrt(GAMMA * I->Pressure / I->EgyRho);
 #else
-        soundspeed_i = sqrt(GAMMA * I->Pressure / I->Density);
+    soundspeed_i = sqrt(GAMMA * I->Pressure / I->Density);
 #endif
 #else
-        soundspeed_i = sqrt(I->dpdr);
+    soundspeed_i = sqrt(I->dpdr);
 #endif
 
     /* initialize variables before SPH loop is started */
@@ -748,252 +748,274 @@ static int hydro_evaluate(int target, int mode,
 #endif
                 double r2 = dx * dx + dy * dy + dz * dz;
                 density_kernel_init(&kernel_j, P[j].Hsml);
-                if(r2 < kernel_i.HH || r2 < kernel_j.HH)
+                if(r2 > 0 && (r2 < kernel_i.HH || r2 < kernel_j.HH))
                 {
                     double r = sqrt(r2);
-                    if(r > 0)
-                    {
-                        p_over_rho2_j = SPHP(j).Pressure / (SPHP(j).EOMDensity * SPHP(j).EOMDensity);
+                    p_over_rho2_j = SPHP(j).Pressure / (SPHP(j).EOMDensity * SPHP(j).EOMDensity);
 
 #ifndef EOS_DEGENERATE
 #ifdef DENSITY_INDEPENDENT_SPH
-                        soundspeed_j = sqrt(GAMMA * SPHP(j).Pressure / SPHP(j).EOMDensity);
+                    soundspeed_j = sqrt(GAMMA * SPHP(j).Pressure / SPHP(j).EOMDensity);
 #else
-                        soundspeed_j = sqrt(GAMMA * p_over_rho2_j * SPHP(j).d.Density);
+                    soundspeed_j = sqrt(GAMMA * p_over_rho2_j * SPHP(j).d.Density);
 #endif
 #else
-                        soundspeed_j = sqrt(SPHP(j).dpdr);
+                    soundspeed_j = sqrt(SPHP(j).dpdr);
 #endif
 
-                        double dvx = I->Vel[0] - SPHP(j).VelPred[0];
-                        double dvy = I->Vel[1] - SPHP(j).VelPred[1];
-                        double dvz = I->Vel[2] - SPHP(j).VelPred[2];
-                        double vdotr = dx * dvx + dy * dvy + dz * dvz;
-                        double rho_ij = 0.5 * (I->Density + SPHP(j).d.Density);
-                        double vdotr2;
-                        if(All.ComovingIntegrationOn)
-                            vdotr2 = vdotr + hubble_a2 * r2;
-                        else
-                            vdotr2 = vdotr;
+                    double dvx = I->Vel[0] - SPHP(j).VelPred[0];
+                    double dvy = I->Vel[1] - SPHP(j).VelPred[1];
+                    double dvz = I->Vel[2] - SPHP(j).VelPred[2];
+                    double vdotr = dx * dvx + dy * dvy + dz * dvz;
+                    double rho_ij = 0.5 * (I->Density + SPHP(j).d.Density);
+                    double vdotr2;
+                    if(All.ComovingIntegrationOn)
+                        vdotr2 = vdotr + hubble_a2 * r2;
+                    else
+                        vdotr2 = vdotr;
 
-                        double dwk_i = density_kernel_dwk(&kernel_i, r * kernel_i.Hinv);
-                        double dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
+                    double dwk_i = density_kernel_dwk(&kernel_i, r * kernel_i.Hinv);
+                    double dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
 
 #ifdef JD_VTURB
-                        if ( I->Hsml >= P[j].Hsml)  /* Make sure j is inside targets hsml */
-                            O->Vrms += (SPHP(j).VelPred[0]-I->Vbulk[0])*(SPHP(j).VelPred[0]-vBulk[0]) 
-                                + (SPHP(j).VelPred[1]-I->Vbulk[1])*(SPHP(j).VelPred[1]-vBulk[1]) 
-                                + (SPHP(j).VelPred[2]-I->Vbulk[2])*(SPHP(j).VelPred[2]-vBulk[2]);
+                    if ( I->Hsml >= P[j].Hsml)  /* Make sure j is inside targets hsml */
+                        O->Vrms += (SPHP(j).VelPred[0]-I->Vbulk[0])*(SPHP(j).VelPred[0]-vBulk[0]) 
+                            + (SPHP(j).VelPred[1]-I->Vbulk[1])*(SPHP(j).VelPred[1]-vBulk[1]) 
+                            + (SPHP(j).VelPred[2]-I->Vbulk[2])*(SPHP(j).VelPred[2]-vBulk[2]);
 #endif
 
 #ifdef MAGNETIC
 #ifndef SFR
-                        double dBx = I->Bpred[0] - SPHP(j).BPred[0];
-                        double dBy = I->Bpred[1] - SPHP(j).BPred[1];
-                        double dBz = I->Bpred[2] - SPHP(j).BPred[2];
+                    double dBx = I->Bpred[0] - SPHP(j).BPred[0];
+                    double dBy = I->Bpred[1] - SPHP(j).BPred[1];
+                    double dBz = I->Bpred[2] - SPHP(j).BPred[2];
 #else
-                        double dBx = I->Bpred[0] - SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
-                        double dBy = I->Bpred[1] - SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
-                        double dBz = I->Bpred[2] - SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
+                    double dBx = I->Bpred[0] - SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
+                    double dBy = I->Bpred[1] - SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
+                    double dBz = I->Bpred[2] - SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
 #endif
 
-                        double magfac = P[j].Mass / r;	/* we moved 'dwk_i / I->Density' down ! */
-                        magfac *= 1.0 / All.cf.hubbla_a2;
-                        /* last factor takes care of all cosmological prefactor */
+                    double magfac = P[j].Mass / r;	/* we moved 'dwk_i / I->Density' down ! */
+                    magfac *= 1.0 / All.cf.hubbla_a2;
+                    /* last factor takes care of all cosmological prefactor */
 #ifdef CORRECTDB
-                        magfac *= I->DhsmlDensityFactor;
+                    magfac *= I->DhsmlDensityFactor;
 #endif
 
 #if defined(MAGNETIC_DISSIPATION) || defined(DIVBCLEANING_DEDNER) || defined(EULER_DISSIPATION) || defined(MAGNETIC_DIFFUSION)
-                        double magfac_sym = magfac * (dwk_i + dwk_j) * 0.5;
+                    double magfac_sym = magfac * (dwk_i + dwk_j) * 0.5;
 #endif
 #ifdef MAGNETIC_DISSIPATION
 #ifdef TIME_DEP_MAGN_DISP
-                        double Balpha_ij = 0.5 * (I->Balpha + SPHP(j).Balpha);
+                    double Balpha_ij = 0.5 * (I->Balpha + SPHP(j).Balpha);
 #else
-                        double Balpha_ij = All.ArtMagDispConst;
+                    double Balpha_ij = All.ArtMagDispConst;
 #endif
 #endif
 
-                        magfac *= dwk_i / I->Density;
+                    magfac *= dwk_i / I->Density;
 #if VECT_POTENTIAL
-                        O->dta[0] +=
-                            P[j].Mass * dwk_i / r * (I->Apred[0] -
-                                    SPHP(j).APred[0]) * dx * I->Vel[0] / (I->Density * All.cf.hubble_a2);
-                        O->dta[1] +=
-                            P[j].Mass * dwk_i / r * (I->Apred[1] -
-                                    SPHP(j).APred[1]) * dy * I->Vel[1] / (I->Density * All.cf.hubble_a2);
-                        O->dta[2] +=
-                            P[j].Mass * dwk_i / r * (I->Apred[2] -
-                                    SPHP(j).APred[2]) * dz * I->Vel[2] / (I->Density * All.cf.hubble_a2);
-                        O->dta[0] +=
-                            P[j].Mass * dwk_i / r * ((I->Apred[0] - SPHP(j).APred[0]) * dx * I->Vel[0] +
-                                    (I->Apred[0] - SPHP(j).APred[0]) * dy * I->Vel[1] + (Apred[0] -
-                                        SPHP(j).
-                                        APred[0]) *
-                                    dz * I->Vel[2]) / (I->Density * All.cf.hubble_a2);
+                    O->dta[0] +=
+                        P[j].Mass * dwk_i / r * (I->Apred[0] -
+                                SPHP(j).APred[0]) * dx * I->Vel[0] / (I->Density * All.cf.hubble_a2);
+                    O->dta[1] +=
+                        P[j].Mass * dwk_i / r * (I->Apred[1] -
+                                SPHP(j).APred[1]) * dy * I->Vel[1] / (I->Density * All.cf.hubble_a2);
+                    O->dta[2] +=
+                        P[j].Mass * dwk_i / r * (I->Apred[2] -
+                                SPHP(j).APred[2]) * dz * I->Vel[2] / (I->Density * All.cf.hubble_a2);
+                    O->dta[0] +=
+                        P[j].Mass * dwk_i / r * ((I->Apred[0] - SPHP(j).APred[0]) * dx * I->Vel[0] +
+                                (I->Apred[0] - SPHP(j).APred[0]) * dy * I->Vel[1] + (Apred[0] -
+                                    SPHP(j).
+                                    APred[0]) *
+                                dz * I->Vel[2]) / (I->Density * All.cf.hubble_a2);
 
 #endif
 #if ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
-                        O->DtB[0] +=
-                            magfac * ((I->Bpred[0] * dvy - I->Bpred[1] * dvx) * dy +
-                                    (I->Bpred[0] * dvz - I->Bpred[2] * dvx) * dz);
-                        O->DtB[1] +=
-                            magfac * ((I->Bpred[1] * dvz - I->Bpred[2] * dvy) * dz +
-                                    (I->Bpred[1] * dvx - I->Bpred[0] * dvy) * dx);
-                        O->DtB[2] +=
-                            magfac * ((I->Bpred[2] * dvx - I->Bpred[0] * dvz) * dx +
-                                    (I->Bpred[2] * dvy - I->Bpred[1] * dvz) * dy);
+                    O->DtB[0] +=
+                        magfac * ((I->Bpred[0] * dvy - I->Bpred[1] * dvx) * dy +
+                                (I->Bpred[0] * dvz - I->Bpred[2] * dvx) * dz);
+                    O->DtB[1] +=
+                        magfac * ((I->Bpred[1] * dvz - I->Bpred[2] * dvy) * dz +
+                                (I->Bpred[1] * dvx - I->Bpred[0] * dvy) * dx);
+                    O->DtB[2] +=
+                        magfac * ((I->Bpred[2] * dvx - I->Bpred[0] * dvz) * dx +
+                                (I->Bpred[2] * dvy - I->Bpred[1] * dvz) * dy);
 #endif
 #ifdef MAGNETIC_DIFFUSION  
-                        double magfac_diff = (All.MagneticEta + All.MagneticEta) * magfac_sym / (rho_ij * rho_ij);
-                        O->DtB[0] += magfac_diff * I->Density * dBx;
-                        O->DtB[1] += magfac_diff * I->Density * dBy;
-                        O->DtB[2] += magfac_diff * I->Density * dBz;
+                    double magfac_diff = (All.MagneticEta + All.MagneticEta) * magfac_sym / (rho_ij * rho_ij);
+                    O->DtB[0] += magfac_diff * I->Density * dBx;
+                    O->DtB[1] += magfac_diff * I->Density * dBy;
+                    O->DtB[2] += magfac_diff * I->Density * dBz;
 #ifdef MAGNETIC_DIFFUSION_HEAT
-                        magfac_diff *= All.cf.hubble_a2 * All.cf.a * All.cf.a * All.cf.a;
-                        O->DtEntropy -= 0.5 * magfac_diff * mu0_1 * (dBx * dBx + dBy * dBy + dBz * dBz);
+                    magfac_diff *= All.cf.hubble_a2 * All.cf.a * All.cf.a * All.cf.a;
+                    O->DtEntropy -= 0.5 * magfac_diff * mu0_1 * (dBx * dBx + dBy * dBy + dBz * dBz);
 #endif
 #endif
 #ifdef MAGFORCE
-                        double magfac_j = 1 / (SPHP(j).d.Density * SPHP(j).d.Density);
+                    double magfac_j = 1 / (SPHP(j).d.Density * SPHP(j).d.Density);
 #ifndef MU0_UNITY
-                        magfac_j /= (4 * M_PI);
+                    magfac_j /= (4 * M_PI);
 #endif
 #ifdef CORRECTBFRC
-                        magfac_j *= dwk_j * SPHP(j).h.DhsmlDensityFactor;
-                        double magfac_i = dwk_i * magfac_i_base;
+                    magfac_j *= dwk_j * SPHP(j).h.DhsmlDensityFactor;
+                    double magfac_i = dwk_i * magfac_i_base;
 #else
-                        double magfac_i = magfac_i_base;
+                    double magfac_i = magfac_i_base;
 #endif
-                        double b2_j = 0;
-                        double mm_j[3][3];
-                        for(k = 0; k < 3; k++)
-                        {
+                    double b2_j = 0;
+                    double mm_j[3][3];
+                    for(k = 0; k < 3; k++)
+                    {
 #ifndef SFR
-                            b2_j += SPHP(j).BPred[k] * SPHP(j).BPred[k];
-                            for(l = 0; l < 3; l++)
-                                mm_j[k][l] = SPHP(j).BPred[k] * SPHP(j).BPred[l];
+                        b2_j += SPHP(j).BPred[k] * SPHP(j).BPred[k];
+                        for(l = 0; l < 3; l++)
+                            mm_j[k][l] = SPHP(j).BPred[k] * SPHP(j).BPred[l];
 #else
-                            b2_j += SPHP(j).BPred[k] * SPHP(j).BPred[k] * pow(1.-SPHP(j).XColdCloud,4.*POW_CC);
-                            for(l = 0; l < 3; l++)
-                                mm_j[k][l] = SPHP(j).BPred[k] * SPHP(j).BPred[l] * pow(1.-SPHP(j).XColdCloud,4.*POW_CC);
+                        b2_j += SPHP(j).BPred[k] * SPHP(j).BPred[k] * pow(1.-SPHP(j).XColdCloud,4.*POW_CC);
+                        for(l = 0; l < 3; l++)
+                            mm_j[k][l] = SPHP(j).BPred[k] * SPHP(j).BPred[l] * pow(1.-SPHP(j).XColdCloud,4.*POW_CC);
 #endif
-                        }
-                        for(k = 0; k < 3; k++)
-                            mm_j[k][k] -= 0.5 * b2_j;
+                    }
+                    for(k = 0; k < 3; k++)
+                        mm_j[k][k] -= 0.5 * b2_j;
 
 #ifdef DIVBCLEANING_DEDNER
-                        double phifac = magfac_sym * I->Density / rho_ij;
+                    double phifac = magfac_sym * I->Density / rho_ij;
 #ifndef SFR
 #ifdef SMOOTH_PHI
-                        phifac *= (I->PhiPred - SPHP(j).SmoothPhi) / (rho_ij);
+                    phifac *= (I->PhiPred - SPHP(j).SmoothPhi) / (rho_ij);
 #else
-                        phifac *= (I->PhiPred - SPHP(j).PhiPred) / (rho_ij);
+                    phifac *= (I->PhiPred - SPHP(j).PhiPred) / (rho_ij);
 #endif
 #else /* SFR */ 
 #ifdef SMOOTH_PHI
-                        phifac *= (I->PhiPred - SPHP(j).SmoothPhi * pow(1.-SPHP(j).XColdCloud,POW_CC)) / (rho_ij);
+                    phifac *= (I->PhiPred - SPHP(j).SmoothPhi * pow(1.-SPHP(j).XColdCloud,POW_CC)) / (rho_ij);
 #else
-                        phifac *= (I->PhiPred - SPHP(j).PhiPred   * pow(1.-SPHP(j).XColdCloud,POW_CC)) / (rho_ij);
+                    phifac *= (I->PhiPred - SPHP(j).PhiPred   * pow(1.-SPHP(j).XColdCloud,POW_CC)) / (rho_ij);
 #endif 
 #endif /* SFR */
 
-                        O->GradPhi[0]+=phifac *dx;
-                        O->GradPhi[1]+=phifac *dy;
-                        O->GradPhi[2]+=phifac *dz;
+                    O->GradPhi[0]+=phifac *dx;
+                    O->GradPhi[1]+=phifac *dy;
+                    O->GradPhi[2]+=phifac *dz;
 #endif
 #ifdef MAGNETIC_SIGNALVEL
 #ifdef ALFVEN_VEL_LIMITER
-                        double vcsa2_j = soundspeed_j * soundspeed_j +
-                            DMIN(mu0_1 * b2_j / SPHP(j).d.Density,
-                                    ALFVEN_VEL_LIMITER * soundspeed_j * soundspeed_j);
+                    double vcsa2_j = soundspeed_j * soundspeed_j +
+                        DMIN(mu0_1 * b2_j / SPHP(j).d.Density,
+                                ALFVEN_VEL_LIMITER * soundspeed_j * soundspeed_j);
 #else
-                        double vcsa2_j = soundspeed_j * soundspeed_j + mu0_1 * b2_j / SPHP(j).d.Density;
+                    double vcsa2_j = soundspeed_j * soundspeed_j + mu0_1 * b2_j / SPHP(j).d.Density;
 #endif
 #ifndef SFR
-                        double Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) / r;
+                    double Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) / r;
 #else
-                        double Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) / r;
+                    double Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) / r;
 #endif
-                        Bpro2_j *= Bpro2_j;
+                    Bpro2_j *= Bpro2_j;
 
-                        double magneticspeed_j = sqrt(vcsa2_j +
-                                sqrt(DMAX((vcsa2_j * vcsa2_j -
-                                            4 * soundspeed_j * soundspeed_j * Bpro2_j
-                                            * mu0_1 / SPHP(j).d.Density), 0))) / 1.4142136;
-                        double Bpro2_i = (I->Bpred[0] * dx + I->Bpred[1] * dy + I->Bpred[2] * dz) / r;
-                        double Bpro2_i *= Bpro2_i;
-                        double magneticspeed_i = sqrt(vcsa2_i +
-                                sqrt(DMAX((vcsa2_i * vcsa2_i -
-                                            4 * soundspeed_i * soundspeed_i * Bpro2_i
-                                            * mu0_1 / I->Density), 0))) / 1.4142136;
+                    double magneticspeed_j = sqrt(vcsa2_j +
+                            sqrt(DMAX((vcsa2_j * vcsa2_j -
+                                        4 * soundspeed_j * soundspeed_j * Bpro2_j
+                                        * mu0_1 / SPHP(j).d.Density), 0))) / 1.4142136;
+                    double Bpro2_i = (I->Bpred[0] * dx + I->Bpred[1] * dy + I->Bpred[2] * dz) / r;
+                    double Bpro2_i *= Bpro2_i;
+                    double magneticspeed_i = sqrt(vcsa2_i +
+                            sqrt(DMAX((vcsa2_i * vcsa2_i -
+                                        4 * soundspeed_i * soundspeed_i * Bpro2_i
+                                        * mu0_1 / I->Density), 0))) / 1.4142136;
 #endif
 #ifdef MAGNETIC_DISSIPATION
-                        double dTu_diss_b = -magfac_sym * Balpha_ij * (dBx * dBx + dBy * dBy + dBz * dBz);
+                    double dTu_diss_b = -magfac_sym * Balpha_ij * (dBx * dBx + dBy * dBy + dBz * dBz);
 #endif
 #ifdef CORRECTBFRC
-                        magfac = P[j].Mass / r;
+                    magfac = P[j].Mass / r;
 #else
-                        magfac = P[j].Mass * 0.5 * (dwk_i + dwk_j) / r;
+                    magfac = P[j].Mass * 0.5 * (dwk_i + dwk_j) / r;
 #endif
-                        if(All.ComovingIntegrationOn)
-                            magfac *= pow(All.Time, 3 * GAMMA);
-                        /* last factor takes care of all cosmological prefactor */
+                    if(All.ComovingIntegrationOn)
+                        magfac *= pow(All.Time, 3 * GAMMA);
+                    /* last factor takes care of all cosmological prefactor */
 #ifndef MU0_UNITY
-                        magfac *= All.UnitTime_in_s * All.UnitTime_in_s *
-                            All.UnitLength_in_cm / All.UnitMass_in_g;
-                        if(All.ComovingIntegrationOn)
-                            magfac /= (All.HubbleParam * All.HubbleParam);
-                        /* take care of B unit conversion into GADGET units ! */
+                    magfac *= All.UnitTime_in_s * All.UnitTime_in_s *
+                        All.UnitLength_in_cm / All.UnitMass_in_g;
+                    if(All.ComovingIntegrationOn)
+                        magfac /= (All.HubbleParam * All.HubbleParam);
+                    /* take care of B unit conversion into GADGET units ! */
 #endif
-                        for(k = 0; k < 3; k++)
+                    for(k = 0; k < 3; k++)
 #ifndef DIVBFORCE3
-                            O->Acc[k] +=
+                        O->Acc[k] +=
 #else
-                                O->magacc[k]+=
+                            O->magacc[k]+=
 #endif
-                                magfac * ((mm_i[k][0] * magfac_i + mm_j[k][0] * magfac_j) * dx +
-                                        (mm_i[k][1] * magfac_i + mm_j[k][1] * magfac_j) * dy +
-                                        (mm_i[k][2] * magfac_i + mm_j[k][2] * magfac_j) * dz);
+                            magfac * ((mm_i[k][0] * magfac_i + mm_j[k][0] * magfac_j) * dx +
+                                    (mm_i[k][1] * magfac_i + mm_j[k][1] * magfac_j) * dy +
+                                    (mm_i[k][2] * magfac_i + mm_j[k][2] * magfac_j) * dz);
 #if defined(DIVBFORCE) && !defined(DIVBFORCE3)
-                        for(k = 0; k < 3; k++)
-                            O->Acc[k] -=
+                    for(k = 0; k < 3; k++)
+                        O->Acc[k] -=
 #ifndef SFR
-                                magfac * I->Bpred[k] *(((I->Bpred[0]) * magfac_i + (SPHP(j).BPred[0]) * magfac_j) * dx
-                                        + ((I->Bpred[1]) * magfac_i + (SPHP(j).BPred[1]) * magfac_j) * dy
-                                        + ((I->Bpred[2]) * magfac_i + (SPHP(j).BPred[2]) * magfac_j) * dz);
+                            magfac * I->Bpred[k] *(((I->Bpred[0]) * magfac_i + (SPHP(j).BPred[0]) * magfac_j) * dx
+                                    + ((I->Bpred[1]) * magfac_i + (SPHP(j).BPred[1]) * magfac_j) * dy
+                                    + ((I->Bpred[2]) * magfac_i + (SPHP(j).BPred[2]) * magfac_j) * dz);
 #else
-                        magfac * (	((I->Bpred[k] * I->Bpred[0]) * magfac_i + (I->Bpred[k] * SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dx
-                                +   ((I->Bpred[k] * I->Bpred[1]) * magfac_i + (I->Bpred[k] * SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dy
-                                +   ((I->Bpred[k] * I->Bpred[2]) * magfac_i + (I->Bpred[k] * SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dz);
+                    magfac * (	((I->Bpred[k] * I->Bpred[0]) * magfac_i + (I->Bpred[k] * SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dx
+                            +   ((I->Bpred[k] * I->Bpred[1]) * magfac_i + (I->Bpred[k] * SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dy
+                            +   ((I->Bpred[k] * I->Bpred[2]) * magfac_i + (I->Bpred[k] * SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dz);
 #endif
 #endif
 #if defined(DIVBFORCE3) && !defined(DIVBFORCE)
-                        for(k = 0; k < 3; k++)
-                            O->magcorr[k] +=
+                    for(k = 0; k < 3; k++)
+                        O->magcorr[k] +=
 #ifndef SFR
-                                magfac * I->Bpred[k] *(((I->Bpred[0]) * magfac_i + (SPHP(j).BPred[0]) * magfac_j) * dx
-                                        + ((I->Bpred[1]) * magfac_i + (SPHP(j).BPred[1]) * magfac_j) * dy
-                                        + ((I->Bpred[2]) * magfac_i + (SPHP(j).BPred[2]) * magfac_j) * dz);
+                            magfac * I->Bpred[k] *(((I->Bpred[0]) * magfac_i + (SPHP(j).BPred[0]) * magfac_j) * dx
+                                    + ((I->Bpred[1]) * magfac_i + (SPHP(j).BPred[1]) * magfac_j) * dy
+                                    + ((I->Bpred[2]) * magfac_i + (SPHP(j).BPred[2]) * magfac_j) * dz);
 #else
-                        magfac * I->Bpred[k] *(((I->Bpred[0]) * magfac_i + (SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dx
-                                + ((I->Bpred[1]) * magfac_i + (SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dy
-                                + ((I->Bpred[2]) * magfac_i + (SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dz);
+                    magfac * I->Bpred[k] *(((I->Bpred[0]) * magfac_i + (SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dx
+                            + ((I->Bpred[1]) * magfac_i + (SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dy
+                            + ((I->Bpred[2]) * magfac_i + (SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dz);
 #endif
 #endif
 #endif /* end MAG FORCE   */
 #ifdef ALFA_OMEGA_DYN // Known Bug
-                        O->DtB[0] += magfac * I->alfaomega * All.Tau_A0 / 3.0 * (dBy * dz - dBy * dy);
-                        O->DtB[1] += magfac * I->alfaomega * All.Tau_A0 / 3.0 * (dBz * dx - dBx * dz);
-                        O->DtB[2] += magfac * I->alfaomega * All.Tau_A0 / 3.0 * (dBx * dy - dBy * dx);
+                    O->DtB[0] += magfac * I->alfaomega * All.Tau_A0 / 3.0 * (dBy * dz - dBy * dy);
+                    O->DtB[1] += magfac * I->alfaomega * All.Tau_A0 / 3.0 * (dBz * dx - dBx * dz);
+                    O->DtB[2] += magfac * I->alfaomega * All.Tau_A0 / 3.0 * (dBx * dy - dBy * dx);
 #endif
 #endif /* end of MAGNETIC */
 
 #ifndef MAGNETIC_SIGNALVEL
-                        double vsig = soundspeed_i + soundspeed_j;
+                    double vsig = soundspeed_i + soundspeed_j;
 #else
-                        double vsig = magneticspeed_i + magneticspeed_j;
+                    double vsig = magneticspeed_i + magneticspeed_j;
+#endif
+
+
+#ifndef ALTERNATIVE_VISCOUS_TIMESTEP
+                    if(vsig > O->MaxSignalVel)
+                        O->MaxSignalVel = vsig;
+#endif
+
+                    double visc = 0;
+
+                    if(vdotr2 < 0)	/* ... artificial viscosity visc is 0 by default*/
+                    {
+#ifndef ALTVISCOSITY
+#ifndef CONVENTIONAL_VISCOSITY
+                        double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
+#else
+                        double c_ij = 0.5 * (soundspeed_i + soundspeed_j);
+                        double h_ij = 0.5 * (I->Hsml + P[j].Hsml);
+                        double mu_ij = fac_mu * h_ij * vdotr2 / (r2 + 0.0001 * h_ij * h_ij);
+#endif
+#ifdef MAGNETIC
+                        vsig -= 1.5 * mu_ij;
+#else
+                        vsig -= 3 * mu_ij;
 #endif
 
 
@@ -1002,331 +1024,306 @@ static int hydro_evaluate(int target, int mode,
                             O->MaxSignalVel = vsig;
 #endif
 
-                        double visc = 0;
-
-                        if(vdotr2 < 0)	/* ... artificial viscosity visc is 0 by default*/
-                        {
-#ifndef ALTVISCOSITY
-#ifndef CONVENTIONAL_VISCOSITY
-                            double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
-#else
-                            double c_ij = 0.5 * (soundspeed_i + soundspeed_j);
-                            double h_ij = 0.5 * (I->Hsml + P[j].Hsml);
-                            double mu_ij = fac_mu * h_ij * vdotr2 / (r2 + 0.0001 * h_ij * h_ij);
-#endif
-#ifdef MAGNETIC
-                            vsig -= 1.5 * mu_ij;
-#else
-                            vsig -= 3 * mu_ij;
-#endif
-
-
-#ifndef ALTERNATIVE_VISCOUS_TIMESTEP
-                            if(vsig > O->MaxSignalVel)
-                                O->MaxSignalVel = vsig;
-#endif
-
 #ifndef NAVIERSTOKES
-                            double f2 =
-                                fabs(SPHP(j).v.DivVel) / (fabs(SPHP(j).v.DivVel) + SPHP(j).r.CurlVel +
-                                        0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
+                        double f2 =
+                            fabs(SPHP(j).v.DivVel) / (fabs(SPHP(j).v.DivVel) + SPHP(j).r.CurlVel +
+                                    0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 #else
-                            double f2 =
-                                fabs(SPHP(j).v.DivVel) / (fabs(SPHP(j).v.DivVel) + SPHP(j).u.s.CurlVel +
-                                        0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
+                        double f2 =
+                            fabs(SPHP(j).v.DivVel) / (fabs(SPHP(j).v.DivVel) + SPHP(j).u.s.CurlVel +
+                                    0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 #endif
 
 #ifdef NO_SHEAR_VISCOSITY_LIMITER
-                            I->F1 = f2 = 1;
+                        I->F1 = f2 = 1;
 #endif
 #ifdef TIME_DEP_ART_VISC
-                            double BulkVisc_ij = 0.5 * (I->alpha + SPHP(j).alpha);
+                        double BulkVisc_ij = 0.5 * (I->alpha + SPHP(j).alpha);
 #else
-                            double BulkVisc_ij = All.ArtBulkViscConst;
+                        double BulkVisc_ij = All.ArtBulkViscConst;
 #endif
 
 #ifndef CONVENTIONAL_VISCOSITY
-                            visc = 0.25 * BulkVisc_ij * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
+                        visc = 0.25 * BulkVisc_ij * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
 #else
-                            visc =
-                                (-BulkVisc_ij * mu_ij * c_ij + 2 * BulkVisc_ij * mu_ij * mu_ij) /
-                                rho_ij * (I->F1 + f2) * 0.5;
+                        visc =
+                            (-BulkVisc_ij * mu_ij * c_ij + 2 * BulkVisc_ij * mu_ij * mu_ij) /
+                            rho_ij * (I->F1 + f2) * 0.5;
 #endif
 
 #else /* start of ALTVISCOSITY block */
-                            double mu_i;
-                            if(I->F1 < 0)
-                                mu_i = I->Hsml * fabs(I->F1);	/* f1 hold here the velocity divergence of particle i */
-                            else
-                                mu_i = 0;
-                            if(SPHP(j).v.DivVel < 0)
-                                mu_j = P[j].Hsml * fabs(SPHP(j).v.DivVel);
-                            else
-                                mu_j = 0;
-                            visc = All.ArtBulkViscConst * ((soundspeed_i + mu_i) * mu_i / I->Density +
-                                    (soundspeed_j + mu_j) * mu_j / SPHP(j).d.Density);
+                        double mu_i;
+                        if(I->F1 < 0)
+                            mu_i = I->Hsml * fabs(I->F1);	/* f1 hold here the velocity divergence of particle i */
+                        else
+                            mu_i = 0;
+                        if(SPHP(j).v.DivVel < 0)
+                            mu_j = P[j].Hsml * fabs(SPHP(j).v.DivVel);
+                        else
+                            mu_j = 0;
+                        visc = All.ArtBulkViscConst * ((soundspeed_i + mu_i) * mu_i / I->Density +
+                                (soundspeed_j + mu_j) * mu_j / SPHP(j).d.Density);
 #endif /* end of ALTVISCOSITY block */
 
 
-                            /* .... end artificial viscosity evaluation */
-                            /* now make sure that viscous acceleration is not too large */
+                        /* .... end artificial viscosity evaluation */
+                        /* now make sure that viscous acceleration is not too large */
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-                            if(visc > 0)
-                            {
-                                dt = fac_vsic_fix * vdotr2 /
-                                    (0.5 * (I->Mass + P[j].Mass) * (dwk_i + dwk_j) * r * visc);
+                        if(visc > 0)
+                        {
+                            dt = fac_vsic_fix * vdotr2 /
+                                (0.5 * (I->Mass + P[j].Mass) * (dwk_i + dwk_j) * r * visc);
 
-                                dt /= All.cf.hubble;
+                            dt /= All.cf.hubble;
 
-                                if(dt < O->MinViscousDt)
-                                    O->MinViscousDt = dt;
-                            }
+                            if(dt < O->MinViscousDt)
+                                O->MinViscousDt = dt;
+                        }
 #endif
 
 #ifndef NOVISCOSITYLIMITER
-                            double dt =
-                                2 * IMAX(I->Timestep,
-                                        (P[j].TimeBin ? (1 << P[j].TimeBin) : 0)) * All.Timebase_interval;
-                            if(dt > 0 && (dwk_i + dwk_j) < 0)
-                            {
+                        double dt =
+                            2 * IMAX(I->Timestep,
+                                    (P[j].TimeBin ? (1 << P[j].TimeBin) : 0)) * All.Timebase_interval;
+                        if(dt > 0 && (dwk_i + dwk_j) < 0)
+                        {
 #ifdef BLACK_HOLES
-                                if((I->Mass + P[j].Mass) > 0)
+                            if((I->Mass + P[j].Mass) > 0)
 #endif
-                                    visc = DMIN(visc, 0.5 * fac_vsic_fix * vdotr2 /
-                                            (0.5 * (I->Mass + P[j].Mass) * (dwk_i + dwk_j) * r * dt));
-                            }
-#endif
+                                visc = DMIN(visc, 0.5 * fac_vsic_fix * vdotr2 /
+                                        (0.5 * (I->Mass + P[j].Mass) * (dwk_i + dwk_j) * r * dt));
                         }
-                        double hfc_visc = 0.5 * P[j].Mass * visc * (dwk_i + dwk_j) / r;
+#endif
+                    }
+                    double hfc_visc = 0.5 * P[j].Mass * visc * (dwk_i + dwk_j) / r;
 #ifndef TRADITIONAL_SPH_FORMULATION
 
 #ifdef DENSITY_INDEPENDENT_SPH
-                        double hfc = hfc_visc;
-                        /* leading-order term */
-                        hfc += P[j].Mass *
-                            (dwk_i*p_over_rho2_i*SPHP(j).EntVarPred/I->EntVarPred +
-                             dwk_j*p_over_rho2_j*I->EntVarPred/SPHP(j).EntVarPred) / r;
+                    double hfc = hfc_visc;
+                    /* leading-order term */
+                    hfc += P[j].Mass *
+                        (dwk_i*p_over_rho2_i*SPHP(j).EntVarPred/I->EntVarPred +
+                         dwk_j*p_over_rho2_j*I->EntVarPred/SPHP(j).EntVarPred) / r;
 
-                        /* enable grad-h corrections only if contrastlimit is non negative */
-                        if(All.DensityContrastLimit >= 0) {
-                            double r1 = I->EgyRho / I->Density;
-                            double r2 = SPHP(j).EgyWtDensity / SPHP(j).d.Density;
-                            if(All.DensityContrastLimit > 0) {
-                                /* apply the limit if it is enabled > 0*/
-                                if(r1 > All.DensityContrastLimit) {
-                                    r1 = All.DensityContrastLimit;
-                                }
-                                if(r2 > All.DensityContrastLimit) {
-                                    r2 = All.DensityContrastLimit;
-                                }
+                    /* enable grad-h corrections only if contrastlimit is non negative */
+                    if(All.DensityContrastLimit >= 0) {
+                        double r1 = I->EgyRho / I->Density;
+                        double r2 = SPHP(j).EgyWtDensity / SPHP(j).d.Density;
+                        if(All.DensityContrastLimit > 0) {
+                            /* apply the limit if it is enabled > 0*/
+                            if(r1 > All.DensityContrastLimit) {
+                                r1 = All.DensityContrastLimit;
                             }
-                            /* grad-h corrections */
-                            /* I->DhsmlDensityFactor is actually EgyDensityFactor */
-                            hfc += P[j].Mass *
-                                (dwk_i*p_over_rho2_i*r1*I->DhsmlDensityFactor +
-                                 dwk_j*p_over_rho2_j*r2*SPHP(j).DhsmlEgyDensityFactor) / r;
+                            if(r2 > All.DensityContrastLimit) {
+                                r2 = All.DensityContrastLimit;
+                            }
                         }
+                        /* grad-h corrections */
+                        /* I->DhsmlDensityFactor is actually EgyDensityFactor */
+                        hfc += P[j].Mass *
+                            (dwk_i*p_over_rho2_i*r1*I->DhsmlDensityFactor +
+                             dwk_j*p_over_rho2_j*r2*SPHP(j).DhsmlEgyDensityFactor) / r;
+                    }
 #else
-                        /* Formulation derived from the Lagrangian */
-                        double hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *I->DhsmlDensityFactor * dwk_i 
-                                + p_over_rho2_j * SPHP(j).h.DhsmlDensityFactor * dwk_j) / r;
+                    /* Formulation derived from the Lagrangian */
+                    double hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *I->DhsmlDensityFactor * dwk_i 
+                            + p_over_rho2_j * SPHP(j).h.DhsmlDensityFactor * dwk_j) / r;
 #endif
 #else
-                        double hfc = hfc_visc +
-                            0.5 * P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i + p_over_rho2_j);
+                    double hfc = hfc_visc +
+                        0.5 * P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i + p_over_rho2_j);
 
-                        /* hfc_egy = 0.5 * P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i + p_over_rho2_j); */
-                        double hfc_egy = P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i);
+                    /* hfc_egy = 0.5 * P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i + p_over_rho2_j); */
+                    double hfc_egy = P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i);
 #endif
 
 #ifdef WINDS
-                        if(P[j].Type == 0)
-                            if(SPHP(j).DelayTime > 0)	/* No force by wind particles */
-                            {
-                                hfc = hfc_visc = 0;
-                            }
+                    if(P[j].Type == 0)
+                        if(SPHP(j).DelayTime > 0)	/* No force by wind particles */
+                        {
+                            hfc = hfc_visc = 0;
+                        }
 #endif
 
 #ifndef NOACCEL
-                        O->Acc[0] += FLT(-hfc * dx);
-                        O->Acc[1] += FLT(-hfc * dy);
-                        O->Acc[2] += FLT(-hfc * dz);
+                    O->Acc[0] += FLT(-hfc * dx);
+                    O->Acc[1] += FLT(-hfc * dy);
+                    O->Acc[2] += FLT(-hfc * dz);
 #endif
 
 #if !defined(EOS_DEGENERATE) && !defined(TRADITIONAL_SPH_FORMULATION)
-                        O->DtEntropy += FLT(0.5 * hfc_visc * vdotr2);
+                    O->DtEntropy += FLT(0.5 * hfc_visc * vdotr2);
 #else
 
 #ifdef TRADITIONAL_SPH_FORMULATION
-                        O->DtEntropy += FLT(0.5 * (hfc_visc + hfc_egy) * vdotr2);
+                    O->DtEntropy += FLT(0.5 * (hfc_visc + hfc_egy) * vdotr2);
 #else
-                        O->DtEntropy += FLT(0.5 * hfc * vdotr2);
+                    O->DtEntropy += FLT(0.5 * hfc * vdotr2);
 #endif
 #endif
 
 
 #ifdef NAVIERSTOKES
-                        double faci = I->Mass * I->shear_viscosity / (I->Density * rho) * dwk_i / r;
-                        double facj = P[j].Mass * get_shear_viscosity(j) /
-                            (SPHP(j).d.Density * SPHP(j).d.Density) * dwk_j / r;
+                    double faci = I->Mass * I->shear_viscosity / (I->Density * rho) * dwk_i / r;
+                    double facj = P[j].Mass * get_shear_viscosity(j) /
+                        (SPHP(j).d.Density * SPHP(j).d.Density) * dwk_j / r;
 
 #ifndef NAVIERSTOKES_CONSTANT
-                        faci *= pow((I->Entropy * pow(I->Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
-                        facj *= pow((SPHP(j).I->Entropy * pow(SPHP(j).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
+                    faci *= pow((I->Entropy * pow(I->Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
+                    facj *= pow((SPHP(j).I->Entropy * pow(SPHP(j).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
 #endif
 
 #ifdef NAVIERSTOKES_BULK
-                        double facbi = I->Mass * All.NavierStokes_BulkViscosity / (I->Density * rho) * dwk_i / r;
-                        double facbj = P[j].Mass * All.NavierStokes_BulkViscosity /
-                            (SPHP(j).d.Density * SPHP(j).d.Density) * dwk_j / r;
+                    double facbi = I->Mass * All.NavierStokes_BulkViscosity / (I->Density * rho) * dwk_i / r;
+                    double facbj = P[j].Mass * All.NavierStokes_BulkViscosity /
+                        (SPHP(j).d.Density * SPHP(j).d.Density) * dwk_j / r;
 #endif
 
 #ifdef WINDS
-                        if(P[j].Type == 0)
-                            if(SPHP(j).DelayTime > 0)	/* No visc for wind particles */
-                            {
-                                faci = facj = 0;
-#ifdef NAVIERSTOKES_BULK
-                                facbi = facbj = 0;
-#endif
-                            }
-#endif
-
-#ifdef VISCOSITY_SATURATION
-                        double IonMeanFreePath_i = All.IonMeanFreePath * pow((I->Entropy * pow(I->Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / rho;	/* u^2/rho */
-
-                        double IonMeanFreePath_j = All.IonMeanFreePath * pow((SPHP(j).I->Entropy * pow(SPHP(j).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / SPHP(j).d.Density;	/* u^2/I->Density */
-
-                        double VelLengthScale_i = 0;
-                        double VelLengthScale_j = 0;
-                        for(k = 0; k < 3; k++)
+                    if(P[j].Type == 0)
+                        if(SPHP(j).DelayTime > 0)	/* No visc for wind particles */
                         {
-                            if(fabs(I->stressdiag[k]) > 0)
-                            {
-                                VelLengthScale_i = 2 * soundspeed_i / fabs(I->stressdiag[k]);
-
-                                if(VelLengthScale_i < IonMeanFreePath_i && VelLengthScale_i > 0)
-                                {
-                                    I->stressdiag[k] = stressdiag[k] * (VelLengthScale_i / IonMeanFreePath_i);
-
-                                }
-                            }
-                            if(fabs(SPHP(j).u.s.StressDiag[k]) > 0)
-                            {
-                                VelLengthScale_j = 2 * soundspeed_j / fabs(SPHP(j).u.s.StressDiag[k]);
-
-                                if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
-                                {
-                                    SPHP(j).u.s.StressDiag[k] = SPHP(j).u.s.StressDiag[k] *
-                                        (VelLengthScale_j / IonMeanFreePath_j);
-
-                                }
-                            }
-                            if(fabs(I->stressoffdiag[k]) > 0)
-                            {
-                                VelLengthScale_i = 2 * soundspeed_i / fabs(I->stressoffdiag[k]);
-
-                                if(VelLengthScale_i < IonMeanFreePath_i && VelLengthScale_i > 0)
-                                {
-                                    I->stressoffdiag[k] =
-                                        I->stressoffdiag[k] * (VelLengthScale_i / IonMeanFreePath_i);
-                                }
-                            }
-                            if(fabs(SPHP(j).u.s.StressOffDiag[k]) > 0)
-                            {
-                                VelLengthScale_j = 2 * soundspeed_j / fabs(SPHP(j).u.s.StressOffDiag[k]);
-
-                                if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
-                                {
-                                    SPHP(j).u.s.StressOffDiag[k] = SPHP(j).u.s.StressOffDiag[k] *
-                                        (VelLengthScale_j / IonMeanFreePath_j);
-                                }
-                            }
+                            faci = facj = 0;
+#ifdef NAVIERSTOKES_BULK
+                            facbi = facbj = 0;
+#endif
                         }
 #endif
 
-                        /* Acceleration due to the shear viscosity */
-                        O->Acc[0] += faci * (I->stressdiag[0] * dx + I->stressoffdiag[0] * dy + stressoffdiag[1] * dz)
-                            + facj * (SPHP(j).u.s.StressDiag[0] * dx + SPHP(j).u.s.StressOffDiag[0] * dy +
-                                    SPHP(j).u.s.StressOffDiag[1] * dz);
-
-                        O->Acc[1] += faci * (I->stressoffdiag[0] * dx + I->stressdiag[1] * dy + stressoffdiag[2] * dz)
-                            + facj * (SPHP(j).u.s.StressOffDiag[0] * dx + SPHP(j).u.s.StressDiag[1] * dy +
-                                    SPHP(j).u.s.StressOffDiag[2] * dz);
-
-                        O->Acc[2] += faci * (I->stressoffdiag[1] * dx + stressoffdiag[2] * dy + I->stressdiag[2] * dz)
-                            + facj * (SPHP(j).u.s.StressOffDiag[1] * dx + SPHP(j).u.s.StressOffDiag[2] * dy +
-                                    SPHP(j).u.s.StressDiag[2] * dz);
-
-                        /*Acceleration due to the bulk viscosity */
-#ifdef NAVIERSTOKES_BULK
 #ifdef VISCOSITY_SATURATION
-                        VelLengthScale_i = 0;
-                        VelLengthScale_j = 0;
+                    double IonMeanFreePath_i = All.IonMeanFreePath * pow((I->Entropy * pow(I->Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / rho;	/* u^2/rho */
 
-                        if(fabs(I->divvel) > 0)
+                    double IonMeanFreePath_j = All.IonMeanFreePath * pow((SPHP(j).I->Entropy * pow(SPHP(j).d.Density * a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / SPHP(j).d.Density;	/* u^2/I->Density */
+
+                    double VelLengthScale_i = 0;
+                    double VelLengthScale_j = 0;
+                    for(k = 0; k < 3; k++)
+                    {
+                        if(fabs(I->stressdiag[k]) > 0)
                         {
-                            VelLengthScale_i = 3 * soundspeed_i / fabs(I->divvel);
+                            VelLengthScale_i = 2 * soundspeed_i / fabs(I->stressdiag[k]);
 
                             if(VelLengthScale_i < IonMeanFreePath_i && VelLengthScale_i > 0)
                             {
-                                I->divvel = divvel * (VelLengthScale_i / IonMeanFreePath_i);
+                                I->stressdiag[k] = stressdiag[k] * (VelLengthScale_i / IonMeanFreePath_i);
+
                             }
                         }
-
-                        if(fabs(SPHP(j).u.s.a4.DivVel) > 0)
+                        if(fabs(SPHP(j).u.s.StressDiag[k]) > 0)
                         {
-                            VelLengthScale_j = 3 * soundspeed_j / fabs(SPHP(j).u.s.a4.DivVel);
+                            VelLengthScale_j = 2 * soundspeed_j / fabs(SPHP(j).u.s.StressDiag[k]);
 
                             if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
                             {
-                                SPHP(j).u.s.a4.DivVel = SPHP(j).u.s.a4.DivVel *
+                                SPHP(j).u.s.StressDiag[k] = SPHP(j).u.s.StressDiag[k] *
                                     (VelLengthScale_j / IonMeanFreePath_j);
 
                             }
                         }
+                        if(fabs(I->stressoffdiag[k]) > 0)
+                        {
+                            VelLengthScale_i = 2 * soundspeed_i / fabs(I->stressoffdiag[k]);
+
+                            if(VelLengthScale_i < IonMeanFreePath_i && VelLengthScale_i > 0)
+                            {
+                                I->stressoffdiag[k] =
+                                    I->stressoffdiag[k] * (VelLengthScale_i / IonMeanFreePath_i);
+                            }
+                        }
+                        if(fabs(SPHP(j).u.s.StressOffDiag[k]) > 0)
+                        {
+                            VelLengthScale_j = 2 * soundspeed_j / fabs(SPHP(j).u.s.StressOffDiag[k]);
+
+                            if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
+                            {
+                                SPHP(j).u.s.StressOffDiag[k] = SPHP(j).u.s.StressOffDiag[k] *
+                                    (VelLengthScale_j / IonMeanFreePath_j);
+                            }
+                        }
+                    }
+#endif
+
+                    /* Acceleration due to the shear viscosity */
+                    O->Acc[0] += faci * (I->stressdiag[0] * dx + I->stressoffdiag[0] * dy + stressoffdiag[1] * dz)
+                        + facj * (SPHP(j).u.s.StressDiag[0] * dx + SPHP(j).u.s.StressOffDiag[0] * dy +
+                                SPHP(j).u.s.StressOffDiag[1] * dz);
+
+                    O->Acc[1] += faci * (I->stressoffdiag[0] * dx + I->stressdiag[1] * dy + stressoffdiag[2] * dz)
+                        + facj * (SPHP(j).u.s.StressOffDiag[0] * dx + SPHP(j).u.s.StressDiag[1] * dy +
+                                SPHP(j).u.s.StressOffDiag[2] * dz);
+
+                    O->Acc[2] += faci * (I->stressoffdiag[1] * dx + stressoffdiag[2] * dy + I->stressdiag[2] * dz)
+                        + facj * (SPHP(j).u.s.StressOffDiag[1] * dx + SPHP(j).u.s.StressOffDiag[2] * dy +
+                                SPHP(j).u.s.StressDiag[2] * dz);
+
+                    /*Acceleration due to the bulk viscosity */
+#ifdef NAVIERSTOKES_BULK
+#ifdef VISCOSITY_SATURATION
+                    VelLengthScale_i = 0;
+                    VelLengthScale_j = 0;
+
+                    if(fabs(I->divvel) > 0)
+                    {
+                        VelLengthScale_i = 3 * soundspeed_i / fabs(I->divvel);
+
+                        if(VelLengthScale_i < IonMeanFreePath_i && VelLengthScale_i > 0)
+                        {
+                            I->divvel = divvel * (VelLengthScale_i / IonMeanFreePath_i);
+                        }
+                    }
+
+                    if(fabs(SPHP(j).u.s.a4.DivVel) > 0)
+                    {
+                        VelLengthScale_j = 3 * soundspeed_j / fabs(SPHP(j).u.s.a4.DivVel);
+
+                        if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
+                        {
+                            SPHP(j).u.s.a4.DivVel = SPHP(j).u.s.a4.DivVel *
+                                (VelLengthScale_j / IonMeanFreePath_j);
+
+                        }
+                    }
 #endif
 
 
-                        O->Acc[0] += facbi * I->divvel * dx + facbj * SPHP(j).u.s.a4.DivVel * dx;
-                        O->Acc[1] += facbi * I->divvel * dy + facbj * SPHP(j).u.s.a4.DivVel * dy;
-                        O->Acc[2] += facbi * I->divvel * dz + facbj * SPHP(j).u.s.a4.DivVel * dz;
+                    O->Acc[0] += facbi * I->divvel * dx + facbj * SPHP(j).u.s.a4.DivVel * dx;
+                    O->Acc[1] += facbi * I->divvel * dy + facbj * SPHP(j).u.s.a4.DivVel * dy;
+                    O->Acc[2] += facbi * I->divvel * dz + facbj * SPHP(j).u.s.a4.DivVel * dz;
 #endif
 #endif /* end NAVIERSTOKES */
 
 
 #ifdef MAGNETIC
 #ifdef EULER_DISSIPATION
-                        double alpha_ij_eul = All.ArtMagDispConst;
+                    double alpha_ij_eul = All.ArtMagDispConst;
 
-                        O->DtEulerA +=
-                            alpha_ij_eul * 0.5 * vsig * (I->EulerA -
-                                    SPHP(j).EulerA) * magfac_sym * r * I->Density / (rho_ij *
-                                    rho_ij);
-                        O->DtEulerB +=
-                            alpha_ij_eul * 0.5 * vsig * (I->EulerB -
-                                    SPHP(j).EulerB) * magfac_sym * r * I->Density / (rho_ij *
-                                    rho_ij);
+                    O->DtEulerA +=
+                        alpha_ij_eul * 0.5 * vsig * (I->EulerA -
+                                SPHP(j).EulerA) * magfac_sym * r * I->Density / (rho_ij *
+                                rho_ij);
+                    O->DtEulerB +=
+                        alpha_ij_eul * 0.5 * vsig * (I->EulerB -
+                                SPHP(j).EulerB) * magfac_sym * r * I->Density / (rho_ij *
+                                rho_ij);
 
-                        double dTu_diss_eul = -magfac_sym * alpha_ij_eul * (dBx * dBx + dBy * dBy + dBz * dBz);
-                        O->DtEntropy += dTu_diss_eul * 0.25 * vsig * mu0_1 * r / (rho_ij * rho_ij);
+                    double dTu_diss_eul = -magfac_sym * alpha_ij_eul * (dBx * dBx + dBy * dBy + dBz * dBz);
+                    O->DtEntropy += dTu_diss_eul * 0.25 * vsig * mu0_1 * r / (rho_ij * rho_ij);
 #endif
 #ifdef MAGNETIC_DISSIPATION
-                        magfac_sym *= vsig * 0.5 * Balpha_ij * r * I->Density / (rho_ij * rho_ij);
-                        O->DtEntropy += dTu_diss_b * 0.25 * vsig * mu0_1 * r / (rho_ij * rho_ij);
-                        O->DtB[0] += magfac_sym * dBx;
-                        O->DtB[1] += magfac_sym * dBy;
-                        O->DtB[2] += magfac_sym * dBz;
+                    magfac_sym *= vsig * 0.5 * Balpha_ij * r * I->Density / (rho_ij * rho_ij);
+                    O->DtEntropy += dTu_diss_b * 0.25 * vsig * mu0_1 * r / (rho_ij * rho_ij);
+                    O->DtB[0] += magfac_sym * dBx;
+                    O->DtB[1] += magfac_sym * dBy;
+                    O->DtB[2] += magfac_sym * dBz;
 #endif
 #endif
 
 #ifdef WAKEUP
-                        if(vsig > WAKEUP * SPHP(j).MaxSignalVel)
-                        {
-                            SPHP(j).wakeup = 1;
-                        }
-#endif
+                    if(vsig > WAKEUP * SPHP(j).MaxSignalVel)
+                    {
+                        SPHP(j).wakeup = 1;
                     }
+#endif
                 }
             }
         }
