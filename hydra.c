@@ -731,8 +731,8 @@ static int hydro_evaluate(int target, int mode,
                     continue;
 #endif
 
+#ifdef WINDS_SH03
 #ifdef NOWINDTIMESTEPPING
-#ifdef WINDS
                 if(P[j].Type == 0)
                     if(SPHP(j).DelayTime > 0)	/* ignore the wind particles */
                         continue;
@@ -1137,7 +1137,7 @@ static int hydro_evaluate(int target, int mode,
                     double hfc_egy = P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i);
 #endif
 
-#ifdef WINDS
+#ifdef WINDS_SH03
                     if(P[j].Type == 0)
                         if(SPHP(j).DelayTime > 0)	/* No force by wind particles */
                         {
@@ -1179,7 +1179,7 @@ static int hydro_evaluate(int target, int mode,
                         (SPHP(j).d.Density * SPHP(j).d.Density) * dwk_j / r;
 #endif
 
-#ifdef WINDS
+#ifdef WINDS_SH03
                     if(P[j].Type == 0)
                         if(SPHP(j).DelayTime > 0)	/* No visc for wind particles */
                         {
@@ -1463,7 +1463,7 @@ static void hydro_post_process(int i) {
 #endif
 #endif
 
-#ifdef WINDS
+#ifdef WINDS_SH03
         /* if we have winds, we decouple particles briefly if delaytime>0 */
 
         if(SPHP(i).DelayTime > 0)
@@ -1476,8 +1476,7 @@ static void hydro_post_process(int i) {
 #ifdef NOWINDTIMESTEPPING
             SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).d.Density);
 #else
-            double windspeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN *
-                    All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency) * All.Time;
+            double windspeed = All.WindSpeed * All.cf.a;
             windspeed *= fac_mu;
             double hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
                     (SPHP(i).d.Density * a3inv), (1. / 3.));

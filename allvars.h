@@ -990,6 +990,7 @@ extern struct global_data_all_processes
     double TempClouds;
     double MaxSfrTimescale;
     double WindEfficiency;
+    double WindSpeed;
     double WindEnergyFraction;
     double WindFreeTravelLength;
     double WindFreeTravelDensFac;
@@ -1629,7 +1630,7 @@ extern struct sph_particle_data
 #ifdef SFR
     MyFloat Sfr;
 #endif
-#ifdef WINDS
+#ifdef WINDS_SH03
     MyFloat DelayTime;		/*!< remaining maximum decoupling time of wind particle */
 #endif
 

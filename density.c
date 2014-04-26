@@ -27,7 +27,7 @@ struct densdata_in
 #ifdef VOLUME_CORRECTION
     MyFloat DensityOld;
 #endif
-#ifdef WINDS
+#ifdef WINDS_SH03
     MyFloat DelayTime;
 #endif
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
@@ -435,7 +435,7 @@ static void density_copy(int place, struct densdata_in * I) {
 #endif
 
 
-#ifdef WINDS
+#ifdef WINDS_SH03
     I->DelayTime = SPHP(place).DelayTime;
 #endif
 
@@ -638,10 +638,10 @@ static int density_evaluate(int target, int mode,
             {
                 ninteractions++;
                 int j = ngblist[n];
-#ifdef WINDS
-                    if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
-                        if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
-                            continue;
+#ifdef WINDS_SH03
+                if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
+                    if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
+                        continue;
 #endif
 #ifdef BLACK_HOLES
                 if(P[j].Mass == 0)

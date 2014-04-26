@@ -23,8 +23,8 @@ static int get_sfr_condition(int i);
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 static void cooling_direct(int i);
 static void starformation(int i);
-static int make_particle_wind(int i, double efficiency);
-static int make_particle_star(int i, double p);
+static int make_particle_wind(int i);
+static int make_particle_star(int i, int number_of_stars_generated);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 
@@ -63,7 +63,7 @@ void cooling_and_starformation(void)
 #ifdef MAGNETIC
         SPHP(i).XColdCloud = x;
 #endif
-#ifdef WINDS
+#ifdef WINDS_SH03
         if(SPHP(i).DelayTime > 0) {
             double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
                 /*  the actual time-step */
@@ -107,6 +107,20 @@ void cooling_and_starformation(void)
         }
     }				/* end of main loop over active particles */
 
+
+    /* now lets make winds */
+#ifdef WINDS_VS08
+    Evaluator ev = {0};
+
+    ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate;
+    ev.ev_isactive = sfr_wind_isactive;
+    ev.ev_alloc = sfr_alloc_ngblist;
+    ev.ev_copy = (ev_copy_func) sfr_wind_copy;
+    ev.ev_reduce = (ev_reduce_func) blackhole_wind_reduce;
+    ev.UseNodeList = 0;
+    ev.ev_datain_elsize = sizeof(struct winddata_in);
+    ev.ev_dataout_elsize = sizeof(struct winddata_out);
+#endif
 
     int tot_spawned, tot_converted;
     MPI_Allreduce(&stars_spawned, &tot_spawned, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -280,7 +294,7 @@ static int get_sfr_condition(int i) {
         flag = 1;
 #endif
 
-#ifdef WINDS
+#ifdef WINDS_SH03
     if(SPHP(i).DelayTime > 0)
         flag = 1;		/* only normal cooling for particles in the wind */
 #endif
@@ -297,17 +311,60 @@ static int get_sfr_condition(int i) {
     return flag;
 }
 
+#ifdef WINDS_VS08
+static int sfr_wind_active(int target) {
+    return P[target].Type == 0;
+}
 
-static int make_particle_wind(int i, double efficiency) {
+static int sfr_wind_evaluate(int target, int mode,
+        struct winddata_in * I,
+        struct winddata_out * O,
+        LocalEvaluator * lv, int * ngblist) {
+
+    int startnode, numngb, k, n, listindex = 0;
+    startnode = I->NodeList[0];
+    listindex ++;
+    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+
+    double rateOfSF = I->Sfr / ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
+    double sm = rateOfSF * I->Dt;
+
+    while(startnode >= 0)
+    {
+        while(startnode >= 0)
+        {
+            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode, 
+                    mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1);
+
+            if(numngb < 0)
+                return numngb;
+
+            for(n = 0; n < numngb; n++)
+            {
+                int j = ngblist[n];
+            }
+        }
+        if(listindex < NODELISTLENGTH)
+        {
+            startnode = I->NodeList[listindex];
+            if(startnode >= 0) {
+                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+                listindex++;
+            }
+        }
+    }
+
+    return 0;
+
+
+}
+#endif
+
+static int make_particle_wind(int i) {
     /* returns 0 if particle i is converteed to wind. */
     int j;
-    double prob = 1 - exp(-efficiency);
-
-    if(get_random_number(P[i].ID + 2) >= prob)	return 1;
     /* ok, make the particle go into the wind */
-    double v =
-        sqrt(2 * All.WindEnergyFraction * All.FactorSN *
-                All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
+    double v = All.WindSpeed;
     double dir[3];
 #ifdef ISOTROPICWINDS
     double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
@@ -340,29 +397,14 @@ static int make_particle_wind(int i, double efficiency) {
             P[i].Vel[j] += v * All.cf.a * dir[j];
             SPHP(i).VelPred[j] += v * All.cf.a * dir[j];
         }
-
+#ifdef WINDS_SH03
         SPHP(i).DelayTime = All.WindFreeTravelLength / v;
+#endif
     }
     return 0;
 }
-static int make_particle_star(int i, double p) {
 
-    int number_of_stars_generated;
-    if(bits == 0)
-        number_of_stars_generated = 0;
-    else
-        number_of_stars_generated = (P[i].ID >> (sizeof(MyIDType)*8 - bits));
-
-    double mass_of_star = P[i].Mass / (GENERATIONS - number_of_stars_generated);
-
-
-#ifdef QUICK_LYALPHA
-    double prob = 2; /* always make a star */
-    /* this preserves the random sequence; if there is one. */
-#else
-    double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
-#endif
-    if(get_random_number(P[i].ID + 1) >= prob)	return -1;
+static int make_particle_star(int i, int number_of_stars_generated) {
 
     /* ok, make a star */
     if(number_of_stars_generated == (GENERATIONS - 1))
@@ -384,6 +426,7 @@ static int make_particle_star(int i, double p) {
     else
     {
         /* here we spawn a new star particle */
+        double mass_of_star = P[i].Mass / (GENERATIONS - number_of_stars_generated);
 
         if(NumPart + stars_spawned >= All.MaxPart)
         {
@@ -509,6 +552,13 @@ static void starformation(int i) {
     /* the upper bits of the gas particle ID store how man stars this gas
        particle gas already generated */
 
+    int number_of_stars_generated;
+    if(bits == 0)
+        number_of_stars_generated = 0;
+    else
+        number_of_stars_generated = (P[i].ID >> (sizeof(MyIDType)*8 - bits));
+
+    double mass_of_star = P[i].Mass / (GENERATIONS - number_of_stars_generated);
 
 #if !defined(QUICK_LYALPHA)
     double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
@@ -552,25 +602,30 @@ static void starformation(int i) {
         cooling_relaxed(i, egyeff, dtime, trelax);
     }
 
+    double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
 #else /* belongs to ifndef(QUICK_LYALPHA) */
 
     SPHP(i).Sfr = 0;
-
+    double prob = 2;
 #endif /* ends to QUICK_LYALPHA */
 
-    make_particle_star(i, p);
+    if(get_random_number(P[i].ID + 1) < prob)	{
+        make_particle_star(i, number_of_stars_generated);
+    }
 
     if(P[i].Type == 0)	{
     /* to protect using a particle that has been turned into a star */
 #ifdef METALS
         P[i].Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
 #endif
-
-#ifdef WINDS
-    /* Here comes the wind model */
+#ifdef WINDS_SH03
+        /* Here comes the wind model */
         double pw = All.WindEfficiency * sm / P[i].Mass;
-        make_particle_wind(i, pw);
+        double prob = 1 - exp(-pw);
+
+        if(get_random_number(P[i].ID + 2) < prob)
+            make_particle_wind(i);
 #endif
     }
 
@@ -766,13 +821,6 @@ void init_clouds(void)
             IonizeParams();
         }
 
-#ifdef WINDS
-        if(All.WindEfficiency > 0)
-            if(ThisTask == 0)
-                printf("Windspeed: %g\n",
-                        sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) /
-                            All.WindEfficiency));
-#endif
     }
 }
 
@@ -951,6 +999,11 @@ void set_units_sfr(void)
     All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
     All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
+    if(All.WindEfficiency > 0) {
+        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
+        if(ThisTask == 0)
+                printf("Windspeed: %g\n", All.WindSpeed);
+    }
 
 #ifdef COSMIC_RAYS
     if(All.CR_SNEff < 0.0)
