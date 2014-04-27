@@ -68,5 +68,6 @@
 #define TAG_TRCK          (TAG_SE + 1)
 #define TAG_CCRIT         (TAG_TRCK + 1)
 
-
 #endif
+#define TAG_EVALUATE_A (9999)
+#define TAG_EVALUATE_B (10000)

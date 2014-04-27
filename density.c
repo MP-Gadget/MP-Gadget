@@ -447,8 +447,7 @@ static void density_copy(int place, struct densdata_in * I) {
 }
 
 static void density_reduce(int place, struct densdata_out * remote, int mode) {
-#define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
-    REDUCE(P[place].n.dNumNgb, remote->Ngb);
+    EV_REDUCE(P[place].n.dNumNgb, remote->Ngb);
 
     if(remote->ID != P[place].ID) {
         BREAKPOINT; 
@@ -463,109 +462,109 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 
     if(P[place].Type == 0)
     {
-        REDUCE(SPHP(place).d.dDensity, remote->Rho);
-        REDUCE(SPHP(place).h.dDhsmlDensityFactor, remote->DhsmlDensity);
+        EV_REDUCE(SPHP(place).d.dDensity, remote->Rho);
+        EV_REDUCE(SPHP(place).h.dDhsmlDensityFactor, remote->DhsmlDensity);
 #ifdef DENSITY_INDEPENDENT_SPH
-        REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
-        REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
+        EV_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
+        EV_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
 #endif
 
 #ifndef NAVIERSTOKES
-        REDUCE(SPHP(place).v.dDivVel, remote->Div);
-        REDUCE(SPHP(place).r.dRot[0], remote->Rot[0]);
-        REDUCE(SPHP(place).r.dRot[1], remote->Rot[1]);
-        REDUCE(SPHP(place).r.dRot[2], remote->Rot[2]);
+        EV_REDUCE(SPHP(place).v.dDivVel, remote->Div);
+        EV_REDUCE(SPHP(place).r.dRot[0], remote->Rot[0]);
+        EV_REDUCE(SPHP(place).r.dRot[1], remote->Rot[1]);
+        EV_REDUCE(SPHP(place).r.dRot[2], remote->Rot[2]);
 #else
         for(k = 0; k < 3; k++)
         {
-            REDUCE(SPHP(place).u.DV[k][0], remote->DV[k][0]);
-            REDUCE(SPHP(place).u.DV[k][1], remote->DV[k][1]);
-            REDUCE(SPHP(place).u.DV[k][2], remote->DV[k][2]);
+            EV_REDUCE(SPHP(place).u.DV[k][0], remote->DV[k][0]);
+            EV_REDUCE(SPHP(place).u.DV[k][1], remote->DV[k][1]);
+            EV_REDUCE(SPHP(place).u.DV[k][2], remote->DV[k][2]);
         }
 #endif
 
 #ifdef VOLUME_CORRECTION
-        REDUCE(SPHP(place).DensityStd, remote->DensityStd);
+        EV_REDUCE(SPHP(place).DensityStd, remote->DensityStd);
 #endif
 
 #ifdef CONDUCTION_SATURATION
-        REDUCE(SPHP(place).GradEntr[0], remote->GradEntr[0]);
-        REDUCE(SPHP(place).GradEntr[1], remote->GradEntr[1]);
-        REDUCE(SPHP(place).GradEntr[2], remote->GradEntr[2]);
+        EV_REDUCE(SPHP(place).GradEntr[0], remote->GradEntr[0]);
+        EV_REDUCE(SPHP(place).GradEntr[1], remote->GradEntr[1]);
+        EV_REDUCE(SPHP(place).GradEntr[2], remote->GradEntr[2]);
 #endif
 
 #ifdef SPH_GRAD_RHO
-        REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
-        REDUCE(SPHP(place).GradRho[1], remote->GradRho[1]);
-        REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
+        EV_REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
+        EV_REDUCE(SPHP(place).GradRho[1], remote->GradRho[1]);
+        EV_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
 #endif
 
 #ifdef RADTRANSFER_FLUXLIMITER
         for(k = 0; k< N_BINS; k++)
         {
-            REDUCE(SPHP(place).Grad_ngamma[0][k], remote->Grad_ngamma[0][k]);
-            REDUCE(SPHP(place).Grad_ngamma[1][k], remote->Grad_ngamma[1][k]);
-            REDUCE(SPHP(place).Grad_ngamma[2][k], remote->Grad_ngamma[2][k]);
+            EV_REDUCE(SPHP(place).Grad_ngamma[0][k], remote->Grad_ngamma[0][k]);
+            EV_REDUCE(SPHP(place).Grad_ngamma[1][k], remote->Grad_ngamma[1][k]);
+            EV_REDUCE(SPHP(place).Grad_ngamma[2][k], remote->Grad_ngamma[2][k]);
         }
 #endif
 
 
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-        REDUCE(SPHP(place).RotB[0], remote->RotB[0]);
-        REDUCE(SPHP(place).RotB[1], remote->RotB[1]);
-        REDUCE(SPHP(place).RotB[2], remote->RotB[2]);
+        EV_REDUCE(SPHP(place).RotB[0], remote->RotB[0]);
+        EV_REDUCE(SPHP(place).RotB[1], remote->RotB[1]);
+        EV_REDUCE(SPHP(place).RotB[2], remote->RotB[2]);
 #endif
 
 #ifdef TRACEDIVB
-        REDUCE(SPHP(place).divB, remote->divB);
+        EV_REDUCE(SPHP(place).divB, remote->divB);
 #endif
 
 #ifdef JD_VTURB
-        REDUCE(SPHP(place).Vturb, remote->Vturb);
-        REDUCE(SPHP(place).Vbulk[0], remote->Vbulk[0]);
-        REDUCE(SPHP(place).Vbulk[1], remote->Vbulk[1]);
-        REDUCE(SPHP(place).Vbulk[2], remote->Vbulk[2]);
-        REDUCE(SPHP(place).TrueNGB, remote->TrueNGB);
+        EV_REDUCE(SPHP(place).Vturb, remote->Vturb);
+        EV_REDUCE(SPHP(place).Vbulk[0], remote->Vbulk[0]);
+        EV_REDUCE(SPHP(place).Vbulk[1], remote->Vbulk[1]);
+        EV_REDUCE(SPHP(place).Vbulk[2], remote->Vbulk[2]);
+        EV_REDUCE(SPHP(place).TrueNGB, remote->TrueNGB);
 #endif
 
 #ifdef VECT_PRO_CLEAN
-        REDUCE(SPHP(place).BPredVec[0], remote->BPredVec[0]);
-        REDUCE(SPHP(place).BPredVec[1], remote->BPredVec[1]);
-        REDUCE(SPHP(place).BPredVec[2], remote->BPredVec[2]);
+        EV_REDUCE(SPHP(place).BPredVec[0], remote->BPredVec[0]);
+        EV_REDUCE(SPHP(place).BPredVec[1], remote->BPredVec[1]);
+        EV_REDUCE(SPHP(place).BPredVec[2], remote->BPredVec[2]);
 #endif
 #ifdef EULERPOTENTIALS
-        REDUCE(SPHP(place).dEulerA[0], remote->dEulerA[0]);
-        REDUCE(SPHP(place).dEulerA[1], remote->dEulerA[1]);
-        REDUCE(SPHP(place).dEulerA[2], remote->dEulerA[2]);
-        REDUCE(SPHP(place).dEulerB[0], remote->dEulerB[0]);
-        REDUCE(SPHP(place).dEulerB[1], remote->dEulerB[1]);
-        REDUCE(SPHP(place).dEulerB[2], remote->dEulerB[2]);
+        EV_REDUCE(SPHP(place).dEulerA[0], remote->dEulerA[0]);
+        EV_REDUCE(SPHP(place).dEulerA[1], remote->dEulerA[1]);
+        EV_REDUCE(SPHP(place).dEulerA[2], remote->dEulerA[2]);
+        EV_REDUCE(SPHP(place).dEulerB[0], remote->dEulerB[0]);
+        EV_REDUCE(SPHP(place).dEulerB[1], remote->dEulerB[1]);
+        EV_REDUCE(SPHP(place).dEulerB[2], remote->dEulerB[2]);
 #endif
 #ifdef VECT_POTENTIAL
-        REDUCE(SPHP(place).dA[5], remote->dA[5]);
-        REDUCE(SPHP(place).dA[4], remote->dA[4]);
-        REDUCE(SPHP(place).dA[3], remote->dA[3]);
-        REDUCE(SPHP(place).dA[2], remote->dA[2]);
-        REDUCE(SPHP(place).dA[1], remote->dA[1]);
-        REDUCE(SPHP(place).dA[0], remote->dA[0]);
+        EV_REDUCE(SPHP(place).dA[5], remote->dA[5]);
+        EV_REDUCE(SPHP(place).dA[4], remote->dA[4]);
+        EV_REDUCE(SPHP(place).dA[3], remote->dA[3]);
+        EV_REDUCE(SPHP(place).dA[2], remote->dA[2]);
+        EV_REDUCE(SPHP(place).dA[1], remote->dA[1]);
+        EV_REDUCE(SPHP(place).dA[0], remote->dA[0]);
 #endif
     }
 
 #if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
     if(P[place].Type == 4)
-        REDUCE(P[place].DensAroundStar, remote->Rho);
+        EV_REDUCE(P[place].DensAroundStar, remote->Rho);
 #endif
 
 #ifdef BLACK_HOLES
     if(P[place].Type == 5)
     {
-        REDUCE(BHP(place).Density, remote->Rho);
-        REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
-        REDUCE(BHP(place).EntOrPressure, remote->SmoothedEntOrPressure);
+        EV_REDUCE(BHP(place).Density, remote->Rho);
+        EV_REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
+        EV_REDUCE(BHP(place).EntOrPressure, remote->SmoothedEntOrPressure);
 #ifdef BH_USE_GASVEL_IN_BONDI
-        REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
-        REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
-        REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
+        EV_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
+        EV_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
+        EV_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
 #endif
     }
 #endif

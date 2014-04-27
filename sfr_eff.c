@@ -28,6 +28,41 @@ static int make_particle_star(int i, int number_of_stars_generated);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 
+
+#ifdef WINDS_VS08
+struct winddata_in {
+    int NodeList[NODELISTLENGTH];
+    double Sfr;
+    double Dt;
+    double Pos[3];
+    double Hsml;
+    double TotalWeight;
+    MyIDType ID;
+};
+
+struct winddata_out {
+    double TotalWeight;
+};
+
+static struct winddata {
+    double TotalWeight;
+} * Wind;
+
+
+static int sfr_wind_isactive(int target);
+static void * sfr_wind_alloc_ngblist();
+static void sfr_wind_reduce_weight(int place, struct winddata_out * remote, int mode);
+static void sfr_wind_copy(int place, struct winddata_in * input);
+static int sfr_wind_evaluate_weight(int target, int mode,
+        struct winddata_in * I,
+        struct winddata_out * O,
+        LocalEvaluator * lv, int * ngblist);
+static int sfr_wind_evaluate(int target, int mode,
+        struct winddata_in * I,
+        struct winddata_out * O,
+        LocalEvaluator * lv, int * ngblist);
+
+#endif
 /*
  * This routine does cooling and star formation for
  * the effective multi-phase model.
@@ -63,7 +98,7 @@ void cooling_and_starformation(void)
 #ifdef MAGNETIC
         SPHP(i).XColdCloud = x;
 #endif
-#ifdef WINDS_SH03
+#if defined(WINDS_SH03) || defined(WINDS_VS08)
         if(SPHP(i).DelayTime > 0) {
             double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
                 /*  the actual time-step */
@@ -82,6 +117,7 @@ void cooling_and_starformation(void)
             SPHP(i).DelayTime = 0;
         }
 #endif
+
 #ifdef MAGNETIC
         x=0.;
 #endif
@@ -110,16 +146,29 @@ void cooling_and_starformation(void)
 
     /* now lets make winds */
 #ifdef WINDS_VS08
+    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
+    Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
     Evaluator ev = {0};
 
-    ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate;
     ev.ev_isactive = sfr_wind_isactive;
-    ev.ev_alloc = sfr_alloc_ngblist;
+    ev.ev_alloc = sfr_wind_alloc_ngblist;
     ev.ev_copy = (ev_copy_func) sfr_wind_copy;
-    ev.ev_reduce = (ev_reduce_func) blackhole_wind_reduce;
+    ev.ev_reduce = (ev_reduce_func) sfr_wind_reduce_weight;
     ev.UseNodeList = 0;
     ev.ev_datain_elsize = sizeof(struct winddata_in);
     ev.ev_dataout_elsize = sizeof(struct winddata_out);
+
+    /* sum the total weight of surrounding gas */
+    ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate_weight;
+
+    evaluate_run(&ev);
+
+    ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate;
+    ev.ev_reduce = NULL;
+
+    evaluate_run(&ev);
+    myfree(Wind);
+    myfree(Ngblist);
 #endif
 
     int tot_spawned, tot_converted;
@@ -312,22 +361,52 @@ static int get_sfr_condition(int i) {
 }
 
 #ifdef WINDS_VS08
-static int sfr_wind_active(int target) {
-    return P[target].Type == 0;
+
+static int sfr_wind_isactive(int target) {
+    if(P[target].Type == 4) {
+        /* 
+         * protect beginning of time. StellarAge starts at 0. 
+         * */
+#ifndef STELLARAGE
+#error Need STELLARAGE
+        /* stellar age needed to tell if the star particle is recently generated */
+#endif
+        if(All.Time > 0 && P[target].StellarAge == All.Time) {
+             return 1;
+        }
+    }
+    return 0;
 }
 
-static int sfr_wind_evaluate(int target, int mode,
+static void * sfr_wind_alloc_ngblist() {
+    int threadid = omp_get_thread_num();
+    return Ngblist + threadid * NumPart;
+}
+
+static void sfr_wind_reduce_weight(int place, struct winddata_out * remote, int mode) {
+    EV_REDUCE(Wind[place].TotalWeight, remote->TotalWeight);
+}
+static void sfr_wind_copy(int place, struct winddata_in * input) {
+    double dt = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
+    input->Dt = dt;
+    int k;
+    for (k = 0; k < 3; k ++)
+        input->Pos[k] = P[place].Pos[k];
+    input->Hsml = P[place].Hsml;
+    input->TotalWeight = Wind[place].TotalWeight;
+    input->ID = P[place].ID;
+}
+
+static int sfr_wind_evaluate_weight(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
         LocalEvaluator * lv, int * ngblist) {
-
+    /* this evaluator walks the tree and sums the total mass of surrounding gas 
+     * particles as described in VS08. */
     int startnode, numngb, k, n, listindex = 0;
     startnode = I->NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-
-    double rateOfSF = I->Sfr / ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
-    double sm = rateOfSF * I->Dt;
 
     while(startnode >= 0)
     {
@@ -342,6 +421,59 @@ static int sfr_wind_evaluate(int target, int mode,
             for(n = 0; n < numngb; n++)
             {
                 int j = ngblist[n];
+                /* Ignore wind particles */
+                if(SPHP(j).DelayTime > 0) continue;
+                O->TotalWeight += P[j].Mass;
+            }
+        }
+        if(listindex < NODELISTLENGTH)
+        {
+            startnode = I->NodeList[listindex];
+            if(startnode >= 0) {
+                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+                listindex++;
+            }
+        }
+    }
+
+    return 0;
+
+
+}
+static int sfr_wind_evaluate(int target, int mode,
+        struct winddata_in * I,
+        struct winddata_out * O,
+        LocalEvaluator * lv, int * ngblist) {
+
+    /* this evaluator walks the tree and blows wind. */
+
+    int startnode, numngb, k, n, listindex = 0;
+    startnode = I->NodeList[0];
+    listindex ++;
+    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+
+    while(startnode >= 0)
+    {
+        while(startnode >= 0)
+        {
+            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode, 
+                    mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1);
+
+            if(numngb < 0)
+                return numngb;
+
+            for(n = 0; n < numngb; n++)
+            {
+                int j = ngblist[n];
+
+                /* skip wind particles */
+                if(SPHP(j).DelayTime > 0) continue;
+
+                double p = All.WindEfficiency * P[j].Mass / I->TotalWeight;
+                double random = get_random_number(I->ID + P[j].ID);
+                if (random < p) {
+                    make_particle_wind(j);
+                }
             }
         }
         if(listindex < NODELISTLENGTH)
@@ -397,9 +529,7 @@ static int make_particle_wind(int i) {
             P[i].Vel[j] += v * All.cf.a * dir[j];
             SPHP(i).VelPred[j] += v * All.cf.a * dir[j];
         }
-#ifdef WINDS_SH03
         SPHP(i).DelayTime = All.WindFreeTravelLength / v;
-#endif
     }
     return 0;
 }
@@ -586,7 +716,7 @@ static void starformation(int i) {
 
     /* convert to Solar per Year but is this damn variable otherwise used 
      * at all? */
-    SphP[i].Sfr = rateOfSF *
+    SPHP(i).Sfr = rateOfSF *
         (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
     TimeBinSfr[P[i].TimeBin] += SPHP(i).Sfr;

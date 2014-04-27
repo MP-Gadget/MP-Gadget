@@ -1630,8 +1630,9 @@ extern struct sph_particle_data
 #ifdef SFR
     MyFloat Sfr;
 #endif
-#ifdef WINDS_SH03
-    MyFloat DelayTime;		/*!< remaining maximum decoupling time of wind particle */
+#if defined(WINDS_SH03) || defined(WINDS_VS08)
+    MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
+                            /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
 #endif
 
 #ifdef JD_VTURB

@@ -64,6 +64,7 @@ typedef struct _Evaluator {
     int *currentEnd;
 } Evaluator;
 
+void evaluate_run(Evaluator * ev);
 void evaluate_begin(Evaluator * ev);
 void evaluate_finish(Evaluator * ev);
 int evaluate_primary(Evaluator * ev); 
@@ -76,4 +77,5 @@ int * evaluate_get_queue(Evaluator * ev, int * len);
 int evaluate_export_particle(LocalEvaluator * lv, int target, int no);
 
 int evaluate_ndone(Evaluator * ev);
+#define EV_REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
 #endif

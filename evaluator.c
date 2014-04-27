@@ -3,6 +3,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "evaluator.h"
+#include "tags.h"
 
 static void evaluate_init_thread(Evaluator * ev, LocalEvaluator * lv);
 static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int length);
@@ -148,7 +149,8 @@ static void real_ev(Evaluator * ev) {
             break;		/* export buffer has filled up, redo this particle */
         } else {
             P[i].Evaluated = 1;
-            ev->ev_reduce(i, output, 0);
+            if(ev->ev_reduce != NULL)
+                ev->ev_reduce(i, output, 0);
         }
     }
     ev->currentIndex[tid] = k;
@@ -363,6 +365,22 @@ int evaluate_export_particle(LocalEvaluator * lv, int target, int no) {
     return 0;
 }
 
+void evaluate_run(Evaluator * ev) {
+    /* run the evaluator */
+    evaluate_begin(ev);
+    do
+    {
+        evaluate_primary(ev); /* do local particles and prepare export list */
+        /* exchange particle data */
+        evaluate_get_remote(ev, TAG_EVALUATE_A);
+        /* now do the particles that were sent to us */
+        evaluate_secondary(ev);
+        /* import the result to local particles */
+        evaluate_reduce_result(ev, TAG_EVALUATE_B);
+    } while(evaluate_ndone(ev) < NTask);
+    evaluate_finish(ev);
+}
+
 static void evaluate_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int tag, int import) {
     /* if import is 1, import the results from neigbhours */
     int ngrp;
@@ -480,16 +498,18 @@ void evaluate_reduce_result(Evaluator * ev, int tag) {
     if(ev->Nexport > 0)
         UniqueOff[++Nunique] = ev->Nexport;
 
+    if(ev->ev_reduce != NULL) {
 #pragma omp parallel for private(j) if(Nunique > 16)
-    for(j = 0; j < Nunique; j++)
-    {
-        int k;
-        int place = DataIndexTable[UniqueOff[j]].Index;
-        int start = UniqueOff[j];
-        int end = UniqueOff[j + 1];
-        for(k = start; k < end; k++) {
-            int get = DataIndexTable[k].IndexGet;
-            ev->ev_reduce(place, recvbuf + ev->ev_dataout_elsize * get, 1);
+        for(j = 0; j < Nunique; j++)
+        {
+            int k;
+            int place = DataIndexTable[UniqueOff[j]].Index;
+            int start = UniqueOff[j];
+            int end = UniqueOff[j + 1];
+            for(k = start; k < end; k++) {
+                int get = DataIndexTable[k].IndexGet;
+                ev->ev_reduce(place, recvbuf + ev->ev_dataout_elsize * get, 1);
+            }
         }
     }
     myfree(UniqueOff);

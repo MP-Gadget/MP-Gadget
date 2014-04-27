@@ -214,51 +214,13 @@ void blackhole_accretion(void)
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
-    /** Let's first spread the feedback energy, and determine which particles may be swalled by whom */
+    /* Let's first spread the feedback energy, 
+     * and determine which particles may be swalled by whom */
 
-    evaluate_begin(&fbev);
-
-    do
-    {
-
-        /* do local particles and prepare export list */
-        evaluate_primary(&fbev);
-
-        evaluate_get_remote(&fbev, TAG_BH_A);
-
-        /* now do the particles that were sent to us */
-
-        evaluate_secondary(&fbev);
-
-        /* get the result */
-        evaluate_reduce_result(&fbev, TAG_BH_B);
-    }
-    while(evaluate_ndone(&fbev) < NTask);
-
-    evaluate_finish(&fbev);
-
+    evaluate_run(&fbev);
 
     /* Now do the swallowing of particles */
-    evaluate_begin(&swev);
-
-    do
-    {
-        /* do local particles and prepare export list */
-        evaluate_primary(&swev);
-
-        evaluate_get_remote(&swev, TAG_BH_A);
-
-        /* now do the particles that were sent to us */
-
-        evaluate_secondary(&swev);
-
-        /* get the result */
-        evaluate_reduce_result(&swev, TAG_BH_B);
-
-    }
-    while(evaluate_ndone(&swev) < NTask);
-
-    evaluate_finish(&swev);
+    evaluate_run(&swev);
 
     myfree(Ngblist);
 
@@ -987,20 +949,20 @@ static void blackhole_swallow_copy(int place, struct swallowdata_in * I) {
 static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote, int mode) {
     int k;
 
-#define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
-    REDUCE(BHP(place).accreted_Mass, remote->Mass);
-    REDUCE(BHP(place).accreted_BHMass, remote->BH_Mass);
+#define EV_REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
+    EV_REDUCE(BHP(place).accreted_Mass, remote->Mass);
+    EV_REDUCE(BHP(place).accreted_BHMass, remote->BH_Mass);
 #ifdef BH_BUBBLES
-    REDUCE(BHP(place).accreted_BHMass_bubbles, remote->BH_Mass_bubbles);
+    EV_REDUCE(BHP(place).accreted_BHMass_bubbles, remote->BH_Mass_bubbles);
 #ifdef UNIFIED_FEEDBACK
-    REDUCE(BHP(place).accreted_BHMass_radio, remote->BH_Mass_radio);
+    EV_REDUCE(BHP(place).accreted_BHMass_radio, remote->BH_Mass_radio);
 #endif
 #endif
     for(k = 0; k < 3; k++) {
-        REDUCE(BHP(place).accreted_momentum[k], remote->AccretedMomentum[k]);
+        EV_REDUCE(BHP(place).accreted_momentum[k], remote->AccretedMomentum[k]);
     }
 #ifdef BH_COUNTPROGS
-    REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
+    EV_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
 #endif
 }
 
