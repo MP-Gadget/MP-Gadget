@@ -8,11 +8,6 @@
 #include "allvars.h"
 #include "proto.h"
 
-/* get rid of these after hacks are moved to evaluator */
-void gravtree_copy(int place, struct gravdata_in * input) ;
-void gravtree_reduce(int place, struct gravdata_out * result, int mode);
-void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode);
-
 /*! \file forcetree.c
  *  \brief gravitational tree and code for Ewald correction
  *
@@ -2100,8 +2095,8 @@ void force_update_hmax(void)
  *  cell-opening criterion, or the `relative' opening criterion is used.
  */
 int force_treeevaluate(int target, int mode, 
-        struct gravdata_in  * input,
-        struct gravdata_out  * output,
+        struct gravitydata_in  * input,
+        struct gravitydata_out  * output,
         LocalEvaluator * lv, void * unused)
 {
 
@@ -2642,8 +2637,8 @@ int force_treeevaluate(int target, int mode,
  *  table.
  */
 int force_treeevaluate_shortrange(int target, int mode, 
-        struct gravdata_in * input, 
-        struct gravdata_out * output, 
+        struct gravitydata_in * input, 
+        struct gravitydata_out * output, 
         LocalEvaluator * lv, void * unused)
 {
     struct NODE *nop = 0;
@@ -3160,8 +3155,8 @@ int force_treeevaluate_shortrange(int target, int mode,
  *  walk would be further refined.
  */
 int force_treeevaluate_ewald_correction(int target, int mode, 
-        struct gravdata_in  * input,
-        struct gravdata_out  * output,
+        struct gravitydata_in  * input,
+        struct gravitydata_out  * output,
         LocalEvaluator * lv, void * unused)
 {
     struct NODE *nop = 0;

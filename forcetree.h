@@ -24,7 +24,30 @@
 #define maskout_different_softening_flag(x) (x & (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE))
 #define extract_max_softening_type(x) ((x >> BITFLAG_MAX_SOFTENING_TYPE) & 7)
 
+struct gravitydata_in
+{
+    int NodeList[NODELISTLENGTH];
+    MyFloat Pos[3];
+#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
+    int Type;
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    MyFloat Soft;
+#endif
+#endif
+    MyFloat OldAcc;
+} ;
 
+struct gravitydata_out
+{
+    MyLongDouble Acc[3];
+#ifdef EVALPOTENTIAL
+    MyLongDouble Potential;
+#endif
+#ifdef DISTORTIONTENSORPS
+    MyLongDouble tidal_tensorps[3][3];
+#endif
+    int Ninteractions;
+};
 
 
 void force_flag_localnodes(void);
@@ -34,16 +57,16 @@ void *gravity_secondary_loop(void *p);
 
 
 int force_treeevaluate(int target, int mode, 
-        struct gravdata_in * input,
-        struct gravdata_out * output,
+        struct gravitydata_in * input,
+        struct gravitydata_out * output,
         LocalEvaluator * lv, void * unused);
 int force_treeevaluate_ewald_correction(int target, int mode, 
-        struct gravdata_in * input,
-        struct gravdata_out * output,
+        struct gravitydata_in * input,
+        struct gravitydata_out * output,
         LocalEvaluator * lv, void * unused);
 int force_treeevaluate_shortrange(int target, int mode, 
-        struct gravdata_in * input,
-        struct gravdata_out * output,
+        struct gravitydata_in * input,
+        struct gravitydata_out * output,
         LocalEvaluator * lv, void * unused);
 
 

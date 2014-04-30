@@ -1895,6 +1895,11 @@ extern struct data_nodelist
 }
 *DataNodeList;
 
+/* 
+ *
+ * These are deprecated symbols used by non-threaded evaluaters
+ * mostly in subfind / potential.
+ * */
 struct gravdata_in
 {
     int NodeList[NODELISTLENGTH];

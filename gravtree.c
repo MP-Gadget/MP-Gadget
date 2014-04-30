@@ -36,9 +36,9 @@ int64_t N_nodesinlist;
 int Ewald_iter;			/* global in file scope, for simplicity */
 
 static int gravtree_isactive(int i);
-void gravtree_copy(int place, struct gravdata_in * input) ;
-void gravtree_reduce(int place, struct gravdata_out * result, int mode);
-void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode);
+void gravtree_copy(int place, struct gravitydata_in * input) ;
+void gravtree_reduce(int place, struct gravitydata_out * result, int mode);
+void gravtree_reduce_ewald(int place, struct gravitydata_out * result, int mode);
 static void gravtree_post_process(int i);
 
 static void gravity_static_potential();
@@ -239,8 +239,8 @@ void gravity_tree(void)
 #endif
 #endif
     for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++) {
-        ev[Ewald_iter].ev_datain_elsize = sizeof(struct gravdata_in);
-        ev[Ewald_iter].ev_dataout_elsize = sizeof(struct gravdata_out);
+        ev[Ewald_iter].ev_datain_elsize = sizeof(struct gravitydata_in);
+        ev[Ewald_iter].ev_dataout_elsize = sizeof(struct gravitydata_out);
         ev[Ewald_iter].ev_copy = (ev_copy_func) gravtree_copy;
     }
 #ifndef GRAVITY_CENTROID
@@ -639,7 +639,7 @@ void gravity_tree(void)
     CPU_Step[CPU_TREEMISC] += measure_time();
 }
 
-void gravtree_copy(int place, struct gravdata_in * input) {
+void gravtree_copy(int place, struct gravitydata_in * input) {
     int k;
 #ifdef GRAVITY_CENTROID
     if(P[place].Type == 0)
@@ -668,7 +668,7 @@ void gravtree_copy(int place, struct gravdata_in * input) {
 
 }
 
-void gravtree_reduce(int place, struct gravdata_out * result, int mode) {
+void gravtree_reduce(int place, struct gravitydata_out * result, int mode) {
 #define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
     int k;
     for(k = 0; k < 3; k++)
@@ -687,7 +687,7 @@ void gravtree_reduce(int place, struct gravdata_out * result, int mode) {
     REDUCE(P[place].p.dPotential, result->Potential);
 #endif
 }
-void gravtree_reduce_ewald(int place, struct gravdata_out * result, int mode) {
+void gravtree_reduce_ewald(int place, struct gravitydata_out * result, int mode) {
     int k;
     for(k = 0; k < 3; k++)
         P[place].g.dGravAccel[k] += result->Acc[k];
