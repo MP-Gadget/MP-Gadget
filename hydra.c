@@ -1319,6 +1319,7 @@ static int hydro_evaluate(int target, int mode,
 #endif
 
 #ifdef WAKEUP
+#error This needs to be prtected by a lock
                     if(vsig > WAKEUP * SPHP(j).MaxSignalVel)
                     {
                         SPHP(j).wakeup = 1;

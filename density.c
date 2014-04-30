@@ -790,6 +790,7 @@ static int density_evaluate(int target, int mode,
 
                         if(I->MagSeed)
                         {
+#error This needs to be prortected by a lock
                             SPHP(j).BPred[0] += 1./(4.* M_PI * (pow(r,3.))) *
                                 (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dx / r - spin_0 * I->Vel[0]);
                             SPHP(j).BPred[1] += 1./(4.* M_PI * (pow(r,3.))) *

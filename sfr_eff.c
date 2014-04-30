@@ -462,10 +462,12 @@ static int sfr_wind_evaluate(int target, int mode,
             if(numngb < 0)
                 return numngb;
 
-            for(n = 0; n < numngb; n++)
+            for(n = 0; n < numngb; 
+                    (unlock_particle_if_not(ngblist[n], I->ID), n++)
+                    )
             {
+                lock_particle_if_not(ngblist[n], I->ID);
                 int j = ngblist[n];
-
                 /* skip wind particles */
                 if(SPHP(j).DelayTime > 0) continue;
 

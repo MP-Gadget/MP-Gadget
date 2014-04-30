@@ -115,7 +115,14 @@ void reconstruct_timebins(void)
 }
 
 static void real_drift_particle(int i, int time1);
-
+void lock_particle_if_not(int i, MyIDType id) {
+    if(P[i].ID == id) return;
+    pthread_spin_lock(&P[i].SpinLock);
+}
+void unlock_particle_if_not(int i, MyIDType id) {
+    if(P[i].ID == id) return;
+    pthread_spin_unlock(&P[i].SpinLock);
+}
 void drift_particle(int i, int time1) {
     drift_particle_full(i, time1, 1);
 }
