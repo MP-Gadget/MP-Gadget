@@ -144,33 +144,6 @@ void cooling_and_starformation(void)
     }				/* end of main loop over active particles */
 
 
-    /* now lets make winds */
-#ifdef WINDS_VS08
-    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
-    Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
-    Evaluator ev = {0};
-
-    ev.ev_isactive = sfr_wind_isactive;
-    ev.ev_alloc = sfr_wind_alloc_ngblist;
-    ev.ev_copy = (ev_copy_func) sfr_wind_copy;
-    ev.ev_reduce = (ev_reduce_func) sfr_wind_reduce_weight;
-    ev.UseNodeList = 0;
-    ev.ev_datain_elsize = sizeof(struct winddata_in);
-    ev.ev_dataout_elsize = sizeof(struct winddata_out);
-
-    /* sum the total weight of surrounding gas */
-    ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate_weight;
-
-    evaluate_run(&ev);
-
-    ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate;
-    ev.ev_reduce = NULL;
-
-    evaluate_run(&ev);
-    myfree(Wind);
-    myfree(Ngblist);
-#endif
-
     int tot_spawned, tot_converted;
     MPI_Allreduce(&stars_spawned, &tot_spawned, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&stars_converted, &tot_converted, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -222,6 +195,33 @@ void cooling_and_starformation(void)
                 total_sum_mass_stars);
         fflush(FdSfr);
     }
+
+    /* now lets make winds. this has to be after NumPart is updated */
+#ifdef WINDS_VS08
+    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
+    Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
+    Evaluator ev = {0};
+
+    ev.ev_isactive = sfr_wind_isactive;
+    ev.ev_alloc = sfr_wind_alloc_ngblist;
+    ev.ev_copy = (ev_copy_func) sfr_wind_copy;
+    ev.ev_reduce = (ev_reduce_func) sfr_wind_reduce_weight;
+    ev.UseNodeList = 1;
+    ev.ev_datain_elsize = sizeof(struct winddata_in);
+    ev.ev_dataout_elsize = sizeof(struct winddata_out);
+
+    /* sum the total weight of surrounding gas */
+    ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate_weight;
+
+    evaluate_run(&ev);
+
+    ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate;
+    ev.ev_reduce = NULL;
+
+    evaluate_run(&ev);
+    myfree(Wind);
+    myfree(Ngblist);
+#endif
 }
 
 static void cooling_direct(int i) {
