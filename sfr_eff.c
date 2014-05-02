@@ -27,6 +27,7 @@ static int make_particle_wind(int i);
 static int make_particle_star(int i, int number_of_stars_generated);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
+static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff);
 
 
 #ifdef WINDS_VS08
@@ -698,15 +699,8 @@ static void starformation(int i) {
 
     double dtime = dt / All.cf.hubble;
 
-    /* 
-     * gadget-p doesn't have this cap.
-     * without the cap sm can be bigger than cloudmass.
-        if(tsfr < dtime)
-            tsfr = dtime;
-    */
-
     double egyeff, trelax;
-    double rateOfSF = get_starformation_rate(i, &trelax, &egyeff);
+    double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyeff);
 
     /* amount of stars expect to form */
 
@@ -764,8 +758,12 @@ static void starformation(int i) {
 
 }
 
-double get_starformation_rate(int i, double * trelax, double * egyeff)
-{
+double get_starformation_rate(int i) {
+    /* returns SFR in internal units */
+    return get_starformation_rate_full(i, 1e9, NULL, NULL, NULL);
+}
+
+static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff) {
     double rateOfSF;
     int flag;
     double tsfr;
@@ -790,6 +788,13 @@ double get_starformation_rate(int i, double * trelax, double * egyeff)
     }
 
     tsfr = sqrt(All.PhysDensThresh / (SPHP(i).d.Density * All.cf.a3inv)) * All.MaxSfrTimescale;
+    /* 
+     * gadget-p doesn't have this cap.
+     * without the cap sm can be bigger than cloudmass.
+    */
+    if(tsfr < dtime)
+        tsfr = dtime;
+
 
     factorEVP = pow(SPHP(i).d.Density * All.cf.a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
 
@@ -798,13 +803,17 @@ double get_starformation_rate(int i, double * trelax, double * egyeff)
     ne = SPHP(i).Ne;
 
     tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * All.cf.a3inv, &ne, P[i].Metallicity);
-    y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold, P[i].Metallicity);
+    y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
 
     x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
 
     cloudmass = x * P[i].Mass;
 
     rateOfSF = (1 - All.FactorSN) * cloudmass / tsfr;
+
+    if (ne_new ) {
+        *ne_new = ne;
+    }
 
     if (trelax) {
         *trelax = tsfr * (1 - x) / x / (All.FactorSN * (1 + factorEVP));
