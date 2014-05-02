@@ -572,6 +572,10 @@ static int make_particle_star(int i, int number_of_stars_generated) {
 
         P[NumPart + stars_spawned] = P[i];
         P[NumPart + stars_spawned].Type = 4;
+        /* copy the Hsml of original gas particle
+         * this is used in Wind*/
+        P[NumPart + stars_spawned].Hsml = P[i].Hsml;
+
 #ifdef SNIA_HEATING
         P[NumPart + stars_spawned].Hsml = All.SofteningTable[0];
 #endif
