@@ -585,7 +585,7 @@ void init(void)
 #endif
             SPHP(i).v.DivVel = 0;
         }
-#ifdef WINDS_SH03
+#ifdef WINDS
         SPHP(i).DelayTime = 0;
 #endif
 #ifdef SFR

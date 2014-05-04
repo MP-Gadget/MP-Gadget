@@ -368,6 +368,16 @@ enum starformationcriterion {
     SFR_CRITERION_CONTINUOUS_CUTOFF= 21, /* 16 + 4 + 1 */
 };
 
+/* 
+ * wind models SH03, VS08 and OFJT10
+ * All.WindModel */
+enum windmodel {
+    WINDS_SUBGRID = 1,
+    WINDS_DECOUPLE_SPH = 2,
+    WINDS_USE_HALO = 4,
+    WINDS_FIXED_EFFICIENCY = 8,
+};
+
 
 static inline double DMAX(double a, double b) {
     if(a > b) return a;
@@ -804,6 +814,7 @@ extern struct global_data_all_processes
     int CoolingOn;		/*!< flags that cooling is enabled */
     int StarformationOn;		/*!< flags that star formation is enabled */
     enum starformationcriterion StarformationCriterion;		/*!< flags that star formation is enabled */
+    enum windmodel WindModel;		/*!< flags that star formation is enabled */
 
     int CompressionLevel;
     /* parameters determining output frequency */
@@ -989,12 +1000,17 @@ extern struct global_data_all_processes
     double TempSupernova;
     double TempClouds;
     double MaxSfrTimescale;
-    double WindEfficiency;
-    double WindSpeed;
-    double WindEnergyFraction;
     double WindFreeTravelLength;
     double WindFreeTravelDensFac;
     double FactorForSofterEQS;
+
+    /* used in VS08 and SH03*/
+    double WindEfficiency;
+    double WindSpeed;
+    double WindEnergyFraction;
+    /* used in OFJT10*/
+    double WindSigma0;
+    double WindSpeedFactor;
 #endif
 
 #ifdef DARKENERGY
@@ -1630,7 +1646,7 @@ extern struct sph_particle_data
 #ifdef SFR
     MyFloat Sfr;
 #endif
-#if defined(WINDS_SH03) || defined(WINDS_VS08)
+#ifdef WINDS
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
 #endif

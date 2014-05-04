@@ -23,14 +23,14 @@ static int get_sfr_condition(int i);
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 static void cooling_direct(int i);
 static void starformation(int i);
-static int make_particle_wind(int i);
+static int make_particle_wind(int i, double v, double vmean[3]);
 static int make_particle_star(int i, int number_of_stars_generated);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff);
 
 
-#ifdef WINDS_VS08
+#ifdef WINDS
 struct winddata_in {
     int NodeList[NODELISTLENGTH];
     double Sfr;
@@ -38,15 +38,33 @@ struct winddata_in {
     double Pos[3];
     double Hsml;
     double TotalWeight;
+    double DMRadius;
+    double Vdisp;
+    double Vmean[3];
     MyIDType ID;
 };
 
 struct winddata_out {
     double TotalWeight;
+    double V1sum[3];
+    double V2sum;
+    int Ngb;
 };
 
 static struct winddata {
+    double DMRadius;
+    double Left;
+    double Right;
     double TotalWeight;
+    union {
+        double Vdisp;
+        double V2sum;
+    };
+    union {
+        double Vmean[3];
+        double V1sum[3];
+    };
+    int Ngb;
 } * Wind;
 
 
@@ -198,31 +216,84 @@ void cooling_and_starformation(void)
     }
 
     /* now lets make winds. this has to be after NumPart is updated */
-#ifdef WINDS_VS08
-    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
-    Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
-    Evaluator ev = {0};
+    if(!HAS(All.WindModel, WINDS_SUBGRID)) {
+        int i;
+        Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
+        Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
+        Evaluator ev = {0};
 
-    ev.ev_isactive = sfr_wind_isactive;
-    ev.ev_alloc = sfr_wind_alloc_ngblist;
-    ev.ev_copy = (ev_copy_func) sfr_wind_copy;
-    ev.ev_reduce = (ev_reduce_func) sfr_wind_reduce_weight;
-    ev.UseNodeList = 1;
-    ev.ev_datain_elsize = sizeof(struct winddata_in);
-    ev.ev_dataout_elsize = sizeof(struct winddata_out);
+        ev.ev_isactive = sfr_wind_isactive;
+        ev.ev_alloc = sfr_wind_alloc_ngblist;
+        ev.ev_copy = (ev_copy_func) sfr_wind_copy;
+        ev.ev_reduce = (ev_reduce_func) sfr_wind_reduce_weight;
+        ev.UseNodeList = 1;
+        ev.ev_datain_elsize = sizeof(struct winddata_in);
+        ev.ev_dataout_elsize = sizeof(struct winddata_out);
 
-    /* sum the total weight of surrounding gas */
-    ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate_weight;
+        /* sum the total weight of surrounding gas */
+        ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate_weight;
+        int Nqueue;
+        int * queue = evaluate_get_queue(&ev, &Nqueue);
+        for(i = 0; i < Nqueue; i ++) {
+            int n = queue[i];
+            P[n].DensityIterationDone = 0;
+            Wind[n].DMRadius = 2 * P[n].Hsml;
+            Wind[n].Left = 0;
+            Wind[n].Right = -1;
+        }
+        int npleft = Nqueue;
+        int done = 0;
+        while(!done) {
+            evaluate_run(&ev);
+            for(i = 0; i < Nqueue; i ++) {
+                int n = queue[i];
+                if (P[n].DensityIterationDone) continue;
+                int diff = Wind[n].Ngb - 40;
+                if(diff < -2) {
+                    /* too few */
+                    Wind[n].Left = Wind[n].DMRadius;
+                } else if(diff > 2) {
+                    /* too many */
+                    Wind[n].Right = Wind[n].DMRadius;
+                } else {
+                    P[n].DensityIterationDone = 1;
+                    npleft --;
+                }
+                if(Wind[n].Right >= 0) {
+                    /* if Ngb hasn't converged to 40, see if DMRadius converged*/
+                    if(Wind[n].Right - Wind[n].Left < 1e-2) {
+                        P[n].DensityIterationDone = 1;
+                        npleft --;
+                    } else {
+                        Wind[n].DMRadius = 0.5 * (Wind[n].Left + Wind[n].Right);
+                    }
+                } else {
+                    Wind[n].DMRadius *= 1.3;
+                }
+            }
+            int64_t totalleft = 0;
+            sumup_large_ints(1, &npleft, &totalleft);
+            done = totalleft == 0;
+            if(ThisTask == 0) {
+                printf("Star DM iteration Total left = %ld\n", totalleft);
+            }
+        }
+        for(i = 0; i < Nqueue; i ++) {
+            int n = queue[i];
+            Wind[n].Vdisp = sqrt(Wind[n].V2sum / (3 * Wind[n].Ngb));
+            int k;
+            for(k = 0; k < 3; k ++) {
+                Wind[n].Vmean[k] = Wind[n].V1sum[k] / Wind[n].Ngb;
+            }
+        }
+        myfree(queue);
+        ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate;
+        ev.ev_reduce = NULL;
 
-    evaluate_run(&ev);
-
-    ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate;
-    ev.ev_reduce = NULL;
-
-    evaluate_run(&ev);
-    myfree(Wind);
-    myfree(Ngblist);
-#endif
+        evaluate_run(&ev);
+        myfree(Wind);
+        myfree(Ngblist);
+    }
 }
 
 static void cooling_direct(int i) {
@@ -344,10 +415,8 @@ static int get_sfr_condition(int i) {
         flag = 1;
 #endif
 
-#ifdef WINDS_SH03
     if(SPHP(i).DelayTime > 0)
         flag = 1;		/* only normal cooling for particles in the wind */
-#endif
 
 #ifdef QUICK_LYALPHA
     temp = u_to_temp_fac * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt) /
@@ -360,8 +429,6 @@ static int get_sfr_condition(int i) {
 #endif
     return flag;
 }
-
-#ifdef WINDS_VS08
 
 static int sfr_wind_isactive(int target) {
     if(P[target].Type == 4) {
@@ -384,9 +451,21 @@ static void * sfr_wind_alloc_ngblist() {
     return Ngblist + threadid * NumPart;
 }
 
-static void sfr_wind_reduce_weight(int place, struct winddata_out * remote, int mode) {
-    EV_REDUCE(Wind[place].TotalWeight, remote->TotalWeight);
+static void sfr_wind_reduce_weight(int place, struct winddata_out * O, int mode) {
+    EV_REDUCE(Wind[place].TotalWeight, O->TotalWeight);
+    int k;
+    for(k = 0; k < 3; k ++) {
+        EV_REDUCE(Wind[place].V1sum[k], O->V1sum[k]);
+    }
+    EV_REDUCE(Wind[place].V2sum, O->V2sum);
+    EV_REDUCE(Wind[place].Ngb, O->Ngb);
+    /*
+    printf("Reduce ID=%ld, NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
+            P[place].ID, O->Ngb, O->TotalWeight, O->V2sum,
+            O->V1sum[0], O->V1sum[1], O->V1sum[2]);
+            */
 }
+
 static void sfr_wind_copy(int place, struct winddata_in * input) {
     double dt = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
     input->Dt = dt;
@@ -396,6 +475,11 @@ static void sfr_wind_copy(int place, struct winddata_in * input) {
     input->Hsml = P[place].Hsml;
     input->TotalWeight = Wind[place].TotalWeight;
     input->ID = P[place].ID;
+
+    input->DMRadius = Wind[place].DMRadius;
+    input->Vdisp = Wind[place].Vdisp;
+    for (k = 0; k < 3; k ++)
+        input->Vmean[k] = Wind[place].Vmean[k];
 }
 
 static int sfr_wind_evaluate_weight(int target, int mode,
@@ -409,12 +493,14 @@ static int sfr_wind_evaluate_weight(int target, int mode,
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
+    double hsearch = DMAX(I->Hsml, I->DMRadius);
+
     while(startnode >= 0)
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode, 
-                    mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1);
+            numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode, 
+                    mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1 + 2);
 
             if(numngb < 0)
                 return numngb;
@@ -422,10 +508,39 @@ static int sfr_wind_evaluate_weight(int target, int mode,
             for(n = 0; n < numngb; n++)
             {
                 int j = ngblist[n];
-                /* Ignore wind particles */
-                if(SPHP(j).DelayTime > 0) continue;
-                O->TotalWeight += P[j].Mass;
+
+                double dx = I->Pos[0] - P[j].Pos[0];
+                double dy = I->Pos[1] - P[j].Pos[1];
+                double dz = I->Pos[2] - P[j].Pos[2];
+
+#ifdef PERIODIC			/*  now find the closest image in the given box size  */
+                dx = NEAREST_X(dx);
+                dy = NEAREST_Y(dy);
+                dz = NEAREST_Z(dz);
+#endif
+                double r2 = dx * dx + dy * dy + dz * dz;
+
+                if(P[j].Type == 0) {
+                    if(r2 > I->Hsml * I->Hsml) continue;
+                    /* Ignore wind particles */
+                    if(SPHP(j).DelayTime > 0) continue;
+                    O->TotalWeight += P[j].Mass;
+                }
+                if(P[j].Type == 1) {
+                    if(r2 > I->DMRadius * I->DMRadius) continue;
+                    O->Ngb ++;
+                    for(k = 0; k < 3; k ++) {
+                        O->V1sum[k] += P[j].Vel[k];
+                        O->V2sum += P[j].Vel[k] * P[j].Vel[k];
+                    }
+                }
+                
             }
+            /*
+            printf("ThisTask = %d %ld ngb=%d NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
+            ThisTask, I->ID, numngb, O->Ngb, O->TotalWeight, O->V2sum,
+            O->V1sum[0], O->V1sum[1], O->V1sum[2]);
+            */
         }
         if(listindex < NODELISTLENGTH)
         {
@@ -436,6 +551,7 @@ static int sfr_wind_evaluate_weight(int target, int mode,
             }
         }
     }
+
 
     return 0;
 
@@ -472,10 +588,34 @@ static int sfr_wind_evaluate(int target, int mode,
                 /* skip wind particles */
                 if(SPHP(j).DelayTime > 0) continue;
 
+                double dx = I->Pos[0] - P[j].Pos[0];
+                double dy = I->Pos[1] - P[j].Pos[1];
+                double dz = I->Pos[2] - P[j].Pos[2];
+
+#ifdef PERIODIC			/*  now find the closest image in the given box size  */
+                dx = NEAREST_X(dx);
+                dy = NEAREST_Y(dy);
+                dz = NEAREST_Z(dz);
+#endif
+                double r2 = dx * dx + dy * dy + dz * dz;
+                if(r2 > I->Hsml * I->Hsml) continue;
+
+                double windeff;
+                double v;
+                if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
+                    windeff = All.WindEfficiency;
+                    v = All.WindSpeed * All.cf.a;
+                } else if(HAS(All.WindModel, WINDS_USE_HALO)) {
+                    windeff = 1.0 / (I->Vdisp / All.cf.a / All.WindSigma0);
+                    windeff *= windeff;
+                    v = All.WindSpeedFactor * I->Vdisp;
+                } else {
+                    abort();
+                }
                 double p = All.WindEfficiency * P[j].Mass / I->TotalWeight;
                 double random = get_random_number(I->ID + P[j].ID);
                 if (random < p) {
-                    make_particle_wind(j);
+                    make_particle_wind(j, v, I->Vmean);
                 }
             }
         }
@@ -493,13 +633,12 @@ static int sfr_wind_evaluate(int target, int mode,
 
 
 }
-#endif
 
-static int make_particle_wind(int i) {
+static int make_particle_wind(int i, double v, double vmean[3]) {
+    /* v and vmean are in internal units (km/s *a ), not km/s !*/
     /* returns 0 if particle i is converteed to wind. */
     int j;
     /* ok, make the particle go into the wind */
-    double v = All.WindSpeed;
     double dir[3];
 #ifdef ISOTROPICWINDS
     double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
@@ -509,9 +648,13 @@ static int make_particle_wind(int i) {
     dir[1] = sin(theta) * sin(phi);
     dir[2] = cos(theta);
 #else
-    dir[0] = P[i].g.GravAccel[1] * P[i].Vel[2] - P[i].g.GravAccel[2] * P[i].Vel[1];
-    dir[1] = P[i].g.GravAccel[2] * P[i].Vel[0] - P[i].g.GravAccel[0] * P[i].Vel[2];
-    dir[2] = P[i].g.GravAccel[0] * P[i].Vel[1] - P[i].g.GravAccel[1] * P[i].Vel[0];
+    double vel[3];
+    for(j = 0; j < 3; j++) {
+        vel[j] = P[i].Vel[j] - vmean[j];
+    }
+    dir[0] = P[i].g.GravAccel[1] * vel[2] - P[i].g.GravAccel[2] * vel[1];
+    dir[1] = P[i].g.GravAccel[2] * vel[0] - P[i].g.GravAccel[0] * vel[2];
+    dir[2] = P[i].g.GravAccel[0] * vel[1] - P[i].g.GravAccel[1] * vel[0];
 #endif
 
     double norm = 0;
@@ -527,17 +670,24 @@ static int make_particle_wind(int i) {
         for(j = 0; j < 3; j++)
             dir[j] /= norm;
 
+        printf("ThisTask = %d making P[%d] ID=%ld to wind, pos=%g %g %g v=%g km/s vcenter = %g %g %g dir=%g %g %g\n",
+                ThisTask, i, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], 
+                v / All.cf.a, vmean[0], vmean[1], vmean[2], 
+                dir[0], dir[1], dir[2]);
+
         for(j = 0; j < 3; j++)
         {
-            P[i].Vel[j] += v * All.cf.a * dir[j];
-            SPHP(i).VelPred[j] += v * All.cf.a * dir[j];
+            P[i].Vel[j] += v * dir[j];
+            SPHP(i).VelPred[j] += v * dir[j];
         }
-        SPHP(i).DelayTime = All.WindFreeTravelLength / v;
+        SPHP(i).DelayTime = All.WindFreeTravelLength / (v / All.cf.a);
     }
     return 0;
 }
 
 static int make_particle_star(int i, int number_of_stars_generated) {
+    printf("ThisTask = %d making P[%d] ID=%ld to star, pos=%g %g %g\n",
+            ThisTask, i, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
     /* ok, make a star */
     if(number_of_stars_generated == (GENERATIONS - 1))
@@ -749,13 +899,15 @@ static void starformation(int i) {
 #ifdef METALS
         P[i].Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
 #endif
-#ifdef WINDS_SH03
-        /* Here comes the wind model */
-        double pw = All.WindEfficiency * sm / P[i].Mass;
-        double prob = 1 - exp(-pw);
-
-        if(get_random_number(P[i].ID + 2) < prob)
-            make_particle_wind(i);
+#ifdef WINDS
+        if(HAS(All.WindModel, WINDS_SUBGRID)) {
+            /* Here comes the Springel Hernquist 03 wind model */
+            double pw = All.WindEfficiency * sm / P[i].Mass;
+            double prob = 1 - exp(-pw);
+            double zero[3] = {0, 0, 0};
+            if(get_random_number(P[i].ID + 2) < prob)
+                make_particle_wind(i, All.WindSpeed * All.cf.a, zero);
+        }
 #endif
     }
 
@@ -1144,10 +1296,15 @@ void set_units_sfr(void)
     All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
     All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
-    if(All.WindEfficiency > 0) {
+    if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
         All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
         if(ThisTask == 0)
                 printf("Windspeed: %g\n", All.WindSpeed);
+    } else {
+        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
+        if(ThisTask == 0)
+                printf("Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
+
     }
 
 #ifdef COSMIC_RAYS

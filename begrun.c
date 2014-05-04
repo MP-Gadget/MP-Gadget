@@ -1030,6 +1030,17 @@ struct multichoice StarformationCriterionChoices [] = {
     {NULL, SFR_CRITERION_DENSITY},
 };
 
+struct multichoice WindModelChoices [] = {
+    {"subgrid", WINDS_SUBGRID},
+    {"decouple", WINDS_DECOUPLE_SPH},
+    {"halo", WINDS_USE_HALO},
+    {"fixedefficiency", WINDS_FIXED_EFFICIENCY},
+    {"sh03", WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY} ,
+    {"vs08", WINDS_FIXED_EFFICIENCY},
+    {"ofjt10", WINDS_USE_HALO},
+    {NULL, WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY},
+};
+
 #endif
 
 /*! This function parses the parameterfile in a simple way.  Each paramater is
@@ -1818,12 +1829,27 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.MaxSfrTimescale;
         id[nt++] = REAL;
 
+        strcpy(tag[nt], "WindModel");
+        addr[nt] = &All.WindModel;
+        choices[nt] = WindModelChoices;
+        id[nt++] = MULTICHOICE;
+
+        /* The following two are for VS08 and SH03*/
         strcpy(tag[nt], "WindEfficiency");
         addr[nt] = &All.WindEfficiency;
         id[nt++] = REAL;
 
         strcpy(tag[nt], "WindEnergyFraction");
         addr[nt] = &All.WindEnergyFraction;
+        id[nt++] = REAL;
+
+        /* The following two are for OFJT10*/
+        strcpy(tag[nt], "WindSigma0");
+        addr[nt] = &All.WindSigma0;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "WindSpeedFactor");
+        addr[nt] = &All.WindSpeedFactor;
         id[nt++] = REAL;
 
         strcpy(tag[nt], "WindFreeTravelLength");

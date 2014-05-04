@@ -1084,8 +1084,9 @@ void fof_compute_group_properties(int gr, int start, int len)
 	}
       if(P[index].Type == 0)
 	{
-#ifdef WINDS_SH03
-	  if(SPHP(index).DelayTime == 0)
+#ifdef WINDS
+        /* make bh in non wind gas on bh wind*/
+	  if(SPHP(index).DelayTime <= 0)
 #endif
 	    if(SPHP(index).d.Density > Group[gr].MaxDens)
 	      {

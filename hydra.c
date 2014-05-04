@@ -731,11 +731,13 @@ static int hydro_evaluate(int target, int mode,
                     continue;
 #endif
 
-#ifdef WINDS_SH03
+#ifdef WINDS
 #ifdef NOWINDTIMESTEPPING
-                if(P[j].Type == 0)
-                    if(SPHP(j).DelayTime > 0)	/* ignore the wind particles */
-                        continue;
+                if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
+                    if(P[j].Type == 0)
+                        if(SPHP(j).DelayTime > 0)	/* ignore the wind particles */
+                            continue;
+                }
 #endif
 #endif
                 double dx = I->Pos[0] - P[j].Pos[0];
@@ -1137,12 +1139,14 @@ static int hydro_evaluate(int target, int mode,
                     double hfc_egy = P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i);
 #endif
 
-#ifdef WINDS_SH03
-                    if(P[j].Type == 0)
-                        if(SPHP(j).DelayTime > 0)	/* No force by wind particles */
-                        {
-                            hfc = hfc_visc = 0;
-                        }
+#ifdef WINDS
+                    if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
+                        if(P[j].Type == 0)
+                            if(SPHP(j).DelayTime > 0)	/* No force by wind particles */
+                            {
+                                hfc = hfc_visc = 0;
+                            }
+                    }
 #endif
 
 #ifndef NOACCEL
@@ -1179,15 +1183,17 @@ static int hydro_evaluate(int target, int mode,
                         (SPHP(j).d.Density * SPHP(j).d.Density) * dwk_j / r;
 #endif
 
-#ifdef WINDS_SH03
-                    if(P[j].Type == 0)
-                        if(SPHP(j).DelayTime > 0)	/* No visc for wind particles */
-                        {
-                            faci = facj = 0;
+#ifdef WINDS
+                    if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
+                        if(P[j].Type == 0)
+                            if(SPHP(j).DelayTime > 0)	/* No visc for wind particles */
+                            {
+                                faci = facj = 0;
 #ifdef NAVIERSTOKES_BULK
-                            facbi = facbj = 0;
+                                facbi = facbj = 0;
 #endif
-                        }
+                            }
+                    }
 #endif
 
 #ifdef VISCOSITY_SATURATION
@@ -1464,25 +1470,27 @@ static void hydro_post_process(int i) {
 #endif
 #endif
 
-#ifdef WINDS_SH03
+#ifdef WINDS
         /* if we have winds, we decouple particles briefly if delaytime>0 */
 
-        if(SPHP(i).DelayTime > 0)
-        {
-            for(k = 0; k < 3; k++)
-                SPHP(i).a.HydroAccel[k] = 0;
+        if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
+            if(SPHP(i).DelayTime > 0)
+            {
+                for(k = 0; k < 3; k++)
+                    SPHP(i).a.HydroAccel[k] = 0;
 
-            SPHP(i).e.DtEntropy = 0;
+                SPHP(i).e.DtEntropy = 0;
 
 #ifdef NOWINDTIMESTEPPING
-            SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).d.Density);
+                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).d.Density);
 #else
-            double windspeed = All.WindSpeed * All.cf.a;
-            windspeed *= fac_mu;
-            double hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
-                    (SPHP(i).d.Density * a3inv), (1. / 3.));
-            SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
+                double windspeed = All.WindSpeed * All.cf.a;
+                windspeed *= fac_mu;
+                double hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
+                        (SPHP(i).d.Density * a3inv), (1. / 3.));
+                SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
 #endif
+            }
         }
 #endif
 
