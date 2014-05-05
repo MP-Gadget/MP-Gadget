@@ -612,7 +612,7 @@ static int sfr_wind_evaluate(int target, int mode,
                 } else {
                     abort();
                 }
-                double p = All.WindEfficiency * P[j].Mass / I->TotalWeight;
+                double p = windeff * P[j].Mass / I->TotalWeight;
                 double random = get_random_number(I->ID + P[j].ID);
                 if (random < p) {
                     make_particle_wind(j, v, I->Vmean);
