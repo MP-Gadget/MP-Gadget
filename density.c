@@ -827,6 +827,12 @@ static int density_evaluate(int target, int mode,
 #ifdef BLACK_HOLES
                 if(I->Type == 5 && r2 < bh_feedback_kernel.HH)
                 {
+#ifdef WINDS
+                    /* blackhole doesn't accrete from wind, regardlies coupled or
+                     * not */
+                    if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
+                            continue;
+#endif
                     double mass_j;
                     if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
 #ifdef COOLING

@@ -676,77 +676,81 @@ static int blackhole_feedback_evaluate(int target, int mode,
                         }
                     }
                 }
-                if(P[j].Type == 0 && r2 < kernel.HH)
-                {
-                    /* here we have a gas particle */
-
-                    double r = sqrt(r2);
-                    double u = r * kernel.Hinv;
-                    double wk = density_kernel_wk(&kernel, u);
-#ifdef SWALLOWGAS
-                    /* compute accretion probability */
-                    double p, w;
-
-                    if((I->BH_Mass - I->Mass) > 0 && I->Density > 0)
-                        p = (I->BH_Mass - I->Mass) * wk / I->Density;
-                    else
-                        p = 0;
-
-                    /* compute random number, uniform in [0,1] */
-                    w = get_random_number(P[j].ID);
-                    if(w < p)
-                    {
-                        if(P[j].SwallowID < I->ID)
-                            P[j].SwallowID = I->ID;
-                    }
+                if(P[j].Type == 0) {
+#ifdef WINDS
+                    /* BH does not accrete wind */
+                    if(SPHP(j).DelayTime > 0) continue;
 #endif
+                    if(r2 < kernel.HH) {
+                        /* here we have a gas particle */
 
-                }
-                if(P[j].Type == 0 && r2 < bh_feedback_kernel.HH) {
-                    double r = sqrt(r2);
-                    double u = r * bh_feedback_kernel.Hinv;
-                    double wk;
-                    double mass_j;
-                    if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
-                        mass_j = P[j].Mass;
-                    } else {
-                        mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
+                        double r = sqrt(r2);
+                        double u = r * kernel.Hinv;
+                        double wk = density_kernel_wk(&kernel, u);
+#ifdef SWALLOWGAS
+                        /* compute accretion probability */
+                        double p, w;
+
+                        if((I->BH_Mass - I->Mass) > 0 && I->Density > 0)
+                            p = (I->BH_Mass - I->Mass) * wk / I->Density;
+                        else
+                            p = 0;
+
+                        /* compute random number, uniform in [0,1] */
+                        w = get_random_number(P[j].ID);
+                        if(w < p)
+                        {
+                            if(P[j].SwallowID < I->ID)
+                                P[j].SwallowID = I->ID;
+                        }
+#endif
                     }
-                    if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
-                        wk = density_kernel_wk(&bh_feedback_kernel, u);
-                    else
-                        wk = 1.0;
-                    if(P[j].Mass > 0)
-                    {
-                        if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin) 
-                            O->BH_TimeBinLimit = P[j].TimeBin;
+                    if(r2 < bh_feedback_kernel.HH) {
+                        double r = sqrt(r2);
+                        double u = r * bh_feedback_kernel.Hinv;
+                        double wk;
+                        double mass_j;
+                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
+                            mass_j = P[j].Mass;
+                        } else {
+                            mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
+                        }
+                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
+                            wk = density_kernel_wk(&bh_feedback_kernel, u);
+                        else
+                            wk = 1.0;
+                        if(P[j].Mass > 0)
+                        {
+                            if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin) 
+                                O->BH_TimeBinLimit = P[j].TimeBin;
 #ifdef BH_THERMALFEEDBACK
 #ifndef UNIFIED_FEEDBACK
-                        double energy = All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt *
-                            pow(C / All.UnitVelocity_in_cm_per_s, 2);
+                            double energy = All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt *
+                                pow(C / All.UnitVelocity_in_cm_per_s, 2);
 
-                        if(I->FeedbackWeightSum > 0)
-                        {
-                            SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
-                        }
-
-#else
-                        double meddington = (4 * M_PI * GRAVITY * C *
-                                PROTONMASS / (0.1 * C * C * THOMPSON)) * I->BH_Mass *
-                            All.UnitTime_in_s;
-
-                        if(I->Mdot > All.RadioThreshold * meddington)
-                        {
-                            double energy =
-                                All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt * pow(C /
-                                        All.UnitVelocity_in_cm_per_s,
-                                        2);
-                            if(I->FeedbackWeightSum> 0) {
+                            if(I->FeedbackWeightSum > 0)
+                            {
                                 SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
                             }
+
+#else
+                            double meddington = (4 * M_PI * GRAVITY * C *
+                                    PROTONMASS / (0.1 * C * C * THOMPSON)) * I->BH_Mass *
+                                All.UnitTime_in_s;
+
+                            if(I->Mdot > All.RadioThreshold * meddington)
+                            {
+                                double energy =
+                                    All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt * pow(C /
+                                            All.UnitVelocity_in_cm_per_s,
+                                            2);
+                                if(I->FeedbackWeightSum> 0) {
+                                    SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
+                                }
+                            }
+#endif
+#endif
                         }
-#endif
-#endif
                     }
                 }
             }
