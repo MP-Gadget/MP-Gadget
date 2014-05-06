@@ -647,6 +647,12 @@ static int density_evaluate(int target, int mode,
 #ifdef BLACK_HOLES
                 if(P[j].Mass == 0)
                     continue;
+#ifdef WINDS
+                    /* blackhole doesn't accrete from wind, regardlies coupled or
+                     * not */
+                if(I->Type == 5 && SPHP(j).DelayTime > 0)	/* partner is a wind particle */
+                            continue;
+#endif
 #endif
                 double dx = I->Pos[0] - P[j].Pos[0];
                 double dy = I->Pos[1] - P[j].Pos[1];
