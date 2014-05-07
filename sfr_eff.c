@@ -280,11 +280,14 @@ void cooling_and_starformation(void)
         }
         for(i = 0; i < Nqueue; i ++) {
             int n = queue[i];
-            Wind[n].Vdisp = sqrt(Wind[n].V2sum / (3 * Wind[n].Ngb));
+            double vdisp = Wind[n].V2sum / Wind[n].Ngb;
             int k;
+            double v1sum = 0;
             for(k = 0; k < 3; k ++) {
                 Wind[n].Vmean[k] = Wind[n].V1sum[k] / Wind[n].Ngb;
+                vdisp -= Wind[n].Vmean[k] * Wind[n].Vmean[k];
             }
+            Wind[n].Vdisp = sqrt(vdisp / 3);
         }
         myfree(queue);
         ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate;
@@ -529,9 +532,11 @@ static int sfr_wind_evaluate_weight(int target, int mode,
                 if(P[j].Type == 1) {
                     if(r2 > I->DMRadius * I->DMRadius) continue;
                     O->Ngb ++;
+                    double d[3] = {dx, dy, dz};
                     for(k = 0; k < 3; k ++) {
-                        O->V1sum[k] += P[j].Vel[k];
-                        O->V2sum += P[j].Vel[k] * P[j].Vel[k];
+                        double vel = P[j].Vel[k] + All.cf.hubble * All.cf.a * All.cf.a * d[k];
+                        O->V1sum[k] += vel;
+                        O->V2sum += vel * vel;
                     }
                 }
                 
