@@ -616,6 +616,7 @@ extern FILE *FdSCF;
 
 #ifdef SFR
 extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
+extern FILE *FdSfrDetails;
 #endif
 
 #ifdef RADTRANSFER

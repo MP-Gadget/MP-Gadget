@@ -193,6 +193,7 @@ FILE *FdSCF;
 
 #ifdef SFR
 FILE *FdSfr;			/*!< file handle for sfr.txt log-file. */
+FILE *FdSfrDetails;
 #endif
 
 #ifdef RADTRANSFER

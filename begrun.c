@@ -676,7 +676,7 @@ void open_outputfiles(void)
         strcpy(mode, "a");
 
     if(RestartFlag == 2) {
-        sprintf(postfix, "-%03d", RestartSnapNum);
+        sprintf(postfix, "-R%03d", RestartSnapNum);
     } else {
         sprintf(postfix, "%s", "");
     }
@@ -691,8 +691,17 @@ void open_outputfiles(void)
 
 #ifdef BLACK_HOLES
     /* Note: This is done by everyone */
-    sprintf(buf, "%sblackhole_details_%d.raw%s", dumpdir, ThisTask, postfix);
+    sprintf(buf, "%sblackhole_details_%d.raw", dumpdir, ThisTask);
     if(!(FdBlackHolesDetails = fopen(buf, mode)))
+    {
+        printf("error in opening file '%s'\n", buf);
+        endrun(1);
+    }
+#endif
+#ifdef SFR
+    /* Note: This is done by everyone */
+    sprintf(buf, "%ssfr_details_%d.txt", dumpdir, ThisTask);
+    if(!(FdSfrDetails = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
         endrun(1);
@@ -701,7 +710,7 @@ void open_outputfiles(void)
 
 #ifdef DISTORTIONTENSORPS
     /* create caustic log file */
-    sprintf(buf, "%scaustics_%d.txt%s", dumpdir, ThisTask, postfix);
+    sprintf(buf, "%scaustics_%d.txt", dumpdir, ThisTask);
     if(!(FdCaustics = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
