@@ -4609,7 +4609,7 @@ void ewald_init(void)
                     {
                         if(ThisTask == 0)
                         {
-                            if((count % (len / 20)) == 0)
+                            if((len / 20) > 0 && (count % (len / 20)) == 0)
                             {
                                 printf("%4.1f percent done\n", count / (len / 100.0));
                                 fflush(stdout);
