@@ -36,6 +36,7 @@ struct winddata_in {
     double Sfr;
     double Dt;
     double Pos[3];
+    double Mass;
     double Hsml;
     double TotalWeight;
     double DMRadius;
@@ -475,6 +476,7 @@ static void sfr_wind_copy(int place, struct winddata_in * input) {
     int k;
     for (k = 0; k < 3; k ++)
         input->Pos[k] = P[place].Pos[k];
+    input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;
     input->TotalWeight = Wind[place].TotalWeight;
     input->ID = P[place].ID;
@@ -497,7 +499,10 @@ static int sfr_wind_evaluate_weight(int target, int mode,
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
     double hsearch = DMAX(I->Hsml, I->DMRadius);
-
+    /*
+    density_kernel_t kernel;
+    density_kernel_init(&kernel, I->Hsml);
+    */
     while(startnode >= 0)
     {
         while(startnode >= 0)
@@ -527,7 +532,10 @@ static int sfr_wind_evaluate_weight(int target, int mode,
                     if(r2 > I->Hsml * I->Hsml) continue;
                     /* Ignore wind particles */
                     if(SPHP(j).DelayTime > 0) continue;
-                    O->TotalWeight += P[j].Mass;
+                    //double r = sqrt(r2);
+                    //double wk = density_kernel_wk(&kernel, r);
+                    double wk = 1.0;
+                    O->TotalWeight += wk * P[j].Mass;
                 }
                 if(P[j].Type == 1) {
                     if(r2 > I->DMRadius * I->DMRadius) continue;
@@ -574,6 +582,10 @@ static int sfr_wind_evaluate(int target, int mode,
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
+    /*
+    density_kernel_t kernel;
+    density_kernel_init(&kernel, I->Hsml);
+    */
     while(startnode >= 0)
     {
         while(startnode >= 0)
@@ -617,7 +629,10 @@ static int sfr_wind_evaluate(int target, int mode,
                 } else {
                     abort();
                 }
-                double p = windeff * P[j].Mass / I->TotalWeight;
+                //double r = sqrt(r2);
+                //double wk = density_kernel_wk(&kernel, r);
+                double wk = 1.0;
+                double p = windeff * wk * I->Mass / I->TotalWeight;
                 double random = get_random_number(I->ID + P[j].ID);
                 if (random < p) {
                     make_particle_wind(j, v, I->Vmean);
