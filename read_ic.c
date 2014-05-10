@@ -1321,7 +1321,8 @@ void read_file(char *fname, int readTask, int lastTask)
                                             H5Sselect_hyperslab(hdf5_dataspace_in_file, H5S_SELECT_SET,
                                                     start, NULL, count, NULL);
 
-                                            hdf5_datatype = get_hdf5_datatype(blocknr,
+                                            hdf5_datatype = get_hdf5_datatype(
+                                                    get_datatype_in_block(blocknr),
                                                     header.flag_doubleprecision);
 
                                             H5Dread(hdf5_dataset, hdf5_datatype, hdf5_dataspace_in_memory,
