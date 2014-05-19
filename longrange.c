@@ -6,7 +6,7 @@
 
 #include "allvars.h"
 #include "proto.h"
-
+#include "petapm.h"
 
 /*! \file longrange.c
  *  \brief driver routines for computation of long-range gravitational PM force
@@ -19,6 +19,9 @@
  */
 void long_range_init(void)
 {
+#ifdef PETA_PM
+  petapm_init();
+#else  /*PETA_PM*/
 #ifdef PERIODIC
   pm_init_periodic();
 #ifdef PLACEHIGHRESREGION
@@ -27,6 +30,7 @@ void long_range_init(void)
 #else
   pm_init_nonperiodic();
 #endif
+#endif /*PETA_PM*/
 }
 
 
@@ -83,7 +87,11 @@ void long_range_force(void)
 
 
 #ifdef PERIODIC
+#ifdef PETA_PM
+  peta_pmforce();
+#else
   pmforce_periodic(0, NULL);
+#endif
 #ifdef DISTORTIONTENSORPS
 /* choose what kind of tidal field calculation you want */
 /* FOURIER based */

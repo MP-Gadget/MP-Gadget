@@ -20,7 +20,7 @@ OBJS  =  \
 	 evaluator.o \
 	 gravtree.o hydra.o  driftfac.o darkenergy.o \
 	 forcetree.o  peano.o parallel_sort_special.o \
-	 pm_periodic.o pm_nonperiodic.o longrange.o mymalloc.o \
+	 pm_periodic.o petapm.o pm_nonperiodic.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o 
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
