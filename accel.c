@@ -54,10 +54,15 @@ void compute_accelerations(int mode)
     }
 #endif
 
-    /* construct tree if needed */
-    /* the tree is used in grav dens, hydro, bh and sfr */
-    if(TreeReconstructFlag)
+    /* Check whether it is really time for a new domain decomposition */
+    if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPart * All.TreeDomainUpdateFrequency
+            || All.DoDynamicUpdate == 0)
     {
+
+        domain_Decomposition();	/* do domain decomposition */
+
+        /* construct tree if needed */
+        /* the tree is used in grav dens, hydro, bh and sfr */
         force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
         if(ThisTask == 0)
             printf("Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));

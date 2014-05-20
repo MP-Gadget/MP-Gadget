@@ -59,27 +59,6 @@ void run(void)
         IonizeParams();		/* set UV background for the current time */
 #endif
 
-#ifdef COMPUTE_POTENTIAL_ENERGY
-        if((All.Time - All.TimeLastStatistics) >= All.TimeBetStatistics)
-            All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
-#endif
-
-#ifdef PMGRID
-        if(All.PM_Ti_endstep == All.Ti_Current)
-        {
-            All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
-            /* to make sure that we do a domain decomposition before the PM-force is evaluated.
-               this is needed to make sure that the particles are wrapped into the box */
-        }
-#endif
-
-        /* Check whether it is really time for a new domain decomposition */
-        if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPart * All.TreeDomainUpdateFrequency
-                || All.DoDynamicUpdate == 0)
-        {
-            domain_Decomposition();	/* do domain decomposition if needed */
-        }
-
 
         compute_accelerations(0);	/* compute accelerations for 
                                      * the particles that are to be advanced  
@@ -337,7 +316,6 @@ void find_next_sync_point_and_drift(void)
 
 #ifdef OUTPUTPOTENTIAL
 #if !defined(EVALPOTENTIAL) || (defined(EVALPOTENTIAL) && defined(RECOMPUTE_POTENTIAL_ON_OUTPUT))
-        domain_Decomposition();
         compute_potential();
 #endif
 #endif

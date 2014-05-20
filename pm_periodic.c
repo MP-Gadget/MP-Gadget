@@ -362,12 +362,13 @@ void pmforce_periodic(int mode, int *typelist)
             int slab_y = (int) (to_slab_fac * pos[1]);
             int slab_z = (int) (to_slab_fac * pos[2]);
 
-            if(slab_x >= PMGRID)
-                slab_x -= PMGRID;
-            if(slab_y >= PMGRID)
-                slab_y -= PMGRID;
-            if(slab_z >= PMGRID)
-                slab_z -= PMGRID;
+            while(slab_x >= PMGRID) slab_x -= PMGRID;
+            while(slab_y >= PMGRID) slab_y -= PMGRID;
+            while(slab_z >= PMGRID) slab_z -= PMGRID;
+
+            while(slab_x < 0) slab_x += PMGRID;
+            while(slab_y < 0) slab_y += PMGRID;
+            while(slab_z < 0) slab_z += PMGRID;
 
             for(xx = 0; xx < 2; xx++)
                 for(yy = 0; yy < 2; yy++)
@@ -377,12 +378,12 @@ void pmforce_periodic(int mode, int *typelist)
                         int slab_yy = slab_y + yy;
                         int slab_zz = slab_z + zz;
 
-                        if(slab_xx >= PMGRID)
-                            slab_xx -= PMGRID;
-                        if(slab_yy >= PMGRID)
-                            slab_yy -= PMGRID;
-                        if(slab_zz >= PMGRID)
-                            slab_zz -= PMGRID;
+                        while(slab_xx >= PMGRID) slab_xx -= PMGRID;
+                        while(slab_yy >= PMGRID) slab_yy -= PMGRID;
+                        while(slab_zz >= PMGRID) slab_zz -= PMGRID;
+                        while(slab_xx < 0) slab_xx += PMGRID;
+                        while(slab_yy < 0) slab_yy += PMGRID;
+                        while(slab_zz < 0) slab_zz += PMGRID;
 
                         large_array_offset offset = ((large_array_offset) PMGRID2) * (PMGRID * slab_xx + slab_yy) + slab_zz;
 
@@ -1012,12 +1013,12 @@ void pmpotential_periodic(void)
         slab_y = (int) (to_slab_fac * P[i].Pos[1]);
         slab_z = (int) (to_slab_fac * P[i].Pos[2]);
 
-        if(slab_x >= PMGRID)
-            slab_x -= PMGRID;
-        if(slab_y >= PMGRID)
-            slab_y -= PMGRID;
-        if(slab_z >= PMGRID)
-            slab_z -= PMGRID;
+        while(slab_x >= PMGRID) slab_x -= PMGRID;
+        while(slab_y >= PMGRID) slab_y -= PMGRID;
+        while(slab_z >= PMGRID) slab_z -= PMGRID;
+        while(slab_x < 0) slab_x += PMGRID;
+        while(slab_y < 0) slab_y += PMGRID;
+        while(slab_z < 0) slab_z += PMGRID;
 
         for(xx = 0; xx < 2; xx++)
             for(yy = 0; yy < 2; yy++)
@@ -1027,12 +1028,12 @@ void pmpotential_periodic(void)
                     slab_yy = slab_y + yy;
                     slab_zz = slab_z + zz;
 
-                    if(slab_xx >= PMGRID)
-                        slab_xx -= PMGRID;
-                    if(slab_yy >= PMGRID)
-                        slab_yy -= PMGRID;
-                    if(slab_zz >= PMGRID)
-                        slab_zz -= PMGRID;
+                    while(slab_xx >= PMGRID) slab_xx -= PMGRID;
+                    while(slab_yy >= PMGRID) slab_yy -= PMGRID;
+                    while(slab_zz >= PMGRID) slab_zz -= PMGRID;
+                    while(slab_xx < 0) slab_xx += PMGRID;
+                    while(slab_yy < 0) slab_yy += PMGRID;
+                    while(slab_zz < 0) slab_zz += PMGRID;
 
                     offset = ((large_array_offset) PMGRID2) * (PMGRID * slab_xx + slab_yy) + slab_zz;
 

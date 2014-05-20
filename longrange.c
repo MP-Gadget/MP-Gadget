@@ -82,6 +82,10 @@ void long_range_force(void)
 #endif
     }
 
+#ifdef PERIODIC
+        do_box_wrapping();	/* map the particles back onto the box */
+#endif
+
 #ifdef NOGRAVITY
   return;
 #endif
