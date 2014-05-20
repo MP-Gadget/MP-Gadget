@@ -42,30 +42,6 @@ void compute_potential(void)
 
   CPU_Step[CPU_MISC] += measure_time();
 
-
-  if(TreeReconstructFlag)
-    {
-      force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-      if(ThisTask == 0)
-	printf("Tree construction.\n");
-
-      CPU_Step[CPU_MISC] += measure_time();
-
-#if defined(SFR) || defined(BLACK_HOLES)
-      rearrange_particle_sequence();
-#endif
-
-      force_treebuild(NumPart, NULL);
-
-      CPU_Step[CPU_TREEBUILD] += measure_time();
-
-      TreeReconstructFlag = 0;
-
-      if(ThisTask == 0)
-	printf("Tree construction done.\n");
-    }
-
-
   /* allocate buffers to arrange communication */
   All.BunchSize =
     (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + sizeof(struct data_nodelist) +

@@ -527,7 +527,6 @@ extern size_t HighMark_run,  HighMark_domain, HighMark_gravtree, HighMark_pmperi
        HighMark_pmnonperiodic,  HighMark_sphdensity, HighMark_sphhydro;
 
 
-extern int TreeReconstructFlag;
 extern int GlobFlag;
 
 extern char DumpFlag;

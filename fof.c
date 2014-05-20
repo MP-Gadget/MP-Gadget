@@ -411,13 +411,7 @@ void fof_fof(int num)
   domain_Decomposition();
 #endif
 
-  force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-
-  if(ThisTask == 0)
-    printf("Tree construction.\n");
-  force_treebuild(NumPart, NULL);
-
-  TreeReconstructFlag = 0;
+  force_treebuild_simple();
 }
 
 

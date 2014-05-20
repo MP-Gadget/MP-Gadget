@@ -123,7 +123,6 @@ double WallclockTime;		/*!< This holds the last wallclock time measurement for t
 int Flag_FullStep;		/*!< Flag used to signal that the current step involves all particles */
 
 
-int TreeReconstructFlag;
 int GlobFlag;
 
 

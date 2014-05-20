@@ -31,6 +31,7 @@ void compute_accelerations(int mode)
 #if defined(BUBBLES) || defined(MULTI_BUBBLES)
     double hubble_a;
 #endif
+    int TreeReconstructFlag = 0;
 
     if(ThisTask == 0)
     {
@@ -47,6 +48,8 @@ void compute_accelerations(int mode)
 #ifdef PMGRID
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
+        force_treefree();
+        TreeReconstructFlag = 1;
         long_range_force();
 
         CPU_Step[CPU_MESH] += measure_time();
@@ -60,23 +63,11 @@ void compute_accelerations(int mode)
     {
 
         domain_Decomposition();	/* do domain decomposition */
+        TreeReconstructFlag = 1;
+    }
 
-        /* construct tree if needed */
-        /* the tree is used in grav dens, hydro, bh and sfr */
-        force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-        if(ThisTask == 0)
-            printf("Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
-
-        CPU_Step[CPU_MISC] += measure_time();
-
-        force_treebuild(NumPart, NULL);
-
-        CPU_Step[CPU_TREEBUILD] += measure_time();
-
-        TreeReconstructFlag = 0;
-
-        if(ThisTask == 0)
-            printf("Tree construction done.\n");
+    if(TreeReconstructFlag) {
+        force_treebuild_simple();
     }
 
 #ifndef ONLY_PM

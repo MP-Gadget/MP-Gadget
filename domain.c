@@ -117,7 +117,6 @@ void domain_Decomposition(void)
         do_box_wrapping();	/* map the particles back onto the box */
 #endif
         All.NumForcesSinceLastDomainDecomp = 0;
-        TreeReconstructFlag = 1;	/* ensures that new tree will be constructed */
 
         if(ThisTask == 0)
         {
