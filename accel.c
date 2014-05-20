@@ -54,21 +54,11 @@ void compute_accelerations(int mode)
     }
 #endif
 
-
-#ifndef ONLY_PM
-#ifdef GRAVITY_CENTROID
-
-    CPU_Step[CPU_MISC] += measure_time();
-
-    /* set new softening lengths */
-#if !defined(SIM_ADAPTIVE_SOFT) && !defined(SIM_COMOVING_SOFT)
-    if(All.ComovingIntegrationOn)
-        set_softenings();
-#endif
-
-    /* contruct tree if needed */
+    /* construct tree if needed */
+    /* the tree is used in grav dens, hydro, bh and sfr */
     if(TreeReconstructFlag)
     {
+        force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
         if(ThisTask == 0)
             printf("Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
@@ -84,8 +74,7 @@ void compute_accelerations(int mode)
             printf("Tree construction done.\n");
     }
 
-#else
-
+#ifndef ONLY_PM
     gravity_tree();		/* computes gravity accel. */
 
     if(All.TypeOfOpeningCriterion == 1 && All.Ti_Current == 0)
@@ -93,7 +82,6 @@ void compute_accelerations(int mode)
                              * to allow usage of relative opening
                              * criterion for consistent accuracy.
                              */
-#endif
 #endif
 
 
@@ -301,27 +289,6 @@ void compute_accelerations(int mode)
 #endif
 
     }
-
-#ifdef GRAVITY_CENTROID
-#ifndef ONLY_PM
-
-    force_update_node_center_of_mass_recursive(All.MaxPart, -1, -1);
-
-    force_exchange_pseudodata();
-
-    force_treeupdate_pseudos(All.MaxPart);
-
-
-    gravity_tree();		/* computes gravity accel. */
-
-    if(All.TypeOfOpeningCriterion == 1 && All.Ti_Current == 0)
-        gravity_tree();		/* For the first timestep, we redo it
-                             * to allow usage of relative opening
-                             * criterion for consistent accuracy.
-                             */
-#endif
-#endif
-
 
     if(ThisTask == 0)
     {

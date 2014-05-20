@@ -6,8 +6,9 @@
 
 #include "allvars.h"
 #include "proto.h"
+#ifdef PETA_PM
 #include "petapm.h"
-
+#endif
 /*! \file longrange.c
  *  \brief driver routines for computation of long-range gravitational PM force
  */
@@ -20,7 +21,7 @@
 void long_range_init(void)
 {
 #ifdef PETA_PM
-  petapm_init();
+  petapm_init_periodic();
 #else  /*PETA_PM*/
 #ifdef PERIODIC
   pm_init_periodic();
@@ -88,7 +89,7 @@ void long_range_force(void)
 
 #ifdef PERIODIC
 #ifdef PETA_PM
-  peta_pmforce();
+  petapm_force();
 #else
   pmforce_periodic(0, NULL);
 #endif

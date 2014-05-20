@@ -45,6 +45,7 @@ void compute_potential(void)
 
   if(TreeReconstructFlag)
     {
+      force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
       if(ThisTask == 0)
 	printf("Tree construction.\n");
 

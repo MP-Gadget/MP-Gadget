@@ -64,7 +64,21 @@ void run(void)
             All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 #endif
 
-        domain_Decomposition();	/* do domain decomposition if needed */
+#ifdef PMGRID
+        if(All.PM_Ti_endstep == All.Ti_Current)
+        {
+            All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
+            /* to make sure that we do a domain decomposition before the PM-force is evaluated.
+               this is needed to make sure that the particles are wrapped into the box */
+        }
+#endif
+
+        /* Check whether it is really time for a new domain decomposition */
+        if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPart * All.TreeDomainUpdateFrequency
+                || All.DoDynamicUpdate == 0)
+        {
+            domain_Decomposition();	/* do domain decomposition if needed */
+        }
 
 
         compute_accelerations(0);	/* compute accelerations for 
@@ -323,7 +337,6 @@ void find_next_sync_point_and_drift(void)
 
 #ifdef OUTPUTPOTENTIAL
 #if !defined(EVALPOTENTIAL) || (defined(EVALPOTENTIAL) && defined(RECOMPUTE_POTENTIAL_ON_OUTPUT))
-        All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
         domain_Decomposition();
         compute_potential();
 #endif

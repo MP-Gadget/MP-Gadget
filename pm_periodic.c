@@ -264,9 +264,6 @@ void pmforce_periodic(int mode, int *typelist)
     kscreening2 = pow(All.BoxSize / All.ScalarScreeningLength / (2 * M_PI), 2);
 #endif
 
-
-    force_treefree();
-
     if(ThisTask == 0)
     {
         printf("Starting periodic PM calculation.  (presently allocated=%g MB)\n",
@@ -960,9 +957,6 @@ void pmforce_periodic(int mode, int *typelist)
 #endif
 
     pm_init_periodic_free();
-    force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-
-    All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
     if(ThisTask == 0)
     {

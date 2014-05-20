@@ -154,9 +154,7 @@ void fof_fof(int num)
 
   CPU_Step[CPU_MISC] += measure_time();
 
-  All.NumForcesSinceLastDomainDecomp = (int64_t) (All.TotNumPart * All.TreeDomainUpdateFrequency + 1);
   domain_Decomposition();
-  force_treefree();
 
 #ifdef ONLY_PRODUCE_HSML_FILES
   subfind(num);
@@ -410,11 +408,10 @@ void fof_fof(int num)
   CPU_Step[CPU_FOF] += measure_time();
 
 #ifdef SUBFIND
-  All.NumForcesSinceLastDomainDecomp = (int64_t) (All.TotNumPart * All.TreeDomainUpdateFrequency + 1);
   domain_Decomposition();
-#else
-  force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 #endif
+
+  force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
   if(ThisTask == 0)
     printf("Tree construction.\n");
@@ -2627,10 +2624,7 @@ void read_fof(int num)
     }
 
 
-  All.NumForcesSinceLastDomainDecomp = (int64_t) (All.TotNumPart * All.TreeDomainUpdateFrequency + 1);
   domain_Decomposition();
-  force_treefree();
-
 
   /* start reading of group catalogue */
 

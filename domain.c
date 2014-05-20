@@ -102,19 +102,6 @@ void domain_Decomposition(void)
     size_t bytes, all_bytes;
     double t0, t1;
 
-#ifdef PMGRID
-    if(All.PM_Ti_endstep == All.Ti_Current)
-    {
-        All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
-        /* to make sure that we do a domain decomposition before the PM-force is evaluated.
-           this is needed to make sure that the particles are wrapped into the box */
-    }
-#endif
-
-    /* Check whether it is really time for a new domain decomposition */
-    if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPart * All.TreeDomainUpdateFrequency
-            || All.DoDynamicUpdate == 0)
-    {
         CPU_Step[CPU_MISC] += measure_time();
 
         move_particles(All.Ti_Current);
@@ -271,11 +258,7 @@ void domain_Decomposition(void)
 
         DomainTask = (int *) (TopNodes + NTopnodes);
 
-        force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-
         reconstruct_timebins();
-    }
-
 }
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */

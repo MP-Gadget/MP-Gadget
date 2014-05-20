@@ -723,8 +723,8 @@ void do_sinks(void)
 
   if(num_update_glob)
     {
-      All.DoDynamicUpdate = 0;
       domain_Decomposition();
+      force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
       force_treebuild(NumPart, NULL);
     }

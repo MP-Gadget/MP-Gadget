@@ -771,11 +771,7 @@ void init(void)
 #endif
 
 
-    All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
-
     Flag_FullStep = 1;		/* to ensure that Peano-Hilber order is done */
-
-    TreeReconstructFlag = 1;
 
     domain_Decomposition();	/* do initial domain decomposition (gives equal numbers of particles) */
 

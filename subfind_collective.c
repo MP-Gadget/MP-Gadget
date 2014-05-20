@@ -201,8 +201,6 @@ void subfind_process_group_collectively(int num)
   /* distribute this halo among the processors */
   t0 = second();
 
-  All.DoDynamicUpdate = 0;
-
   domain_free_trick();
 
   domain_Decomposition();

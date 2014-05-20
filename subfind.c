@@ -439,7 +439,6 @@ void subfind(int num)
 
 #ifdef SUBFIND_SO
     domain_free_trick();
-    All.DoDynamicUpdate = 0;
     domain_Decomposition();
 
     force_treebuild(NumPart, NULL);

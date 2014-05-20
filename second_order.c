@@ -95,7 +95,7 @@ void second_order_ics(void)
 
   /* recompute long range force */
 
-  All.DoDynamicUpdate = 1;
+  /** All.DoDynamicUpdate = 1;  this won't do domain decomp at all */
   domain_Decomposition();	/* redo domain decomposition because particles may have shifted */
 
 

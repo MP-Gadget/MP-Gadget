@@ -469,6 +469,8 @@ void ngb_treebuild(void)
     if(ThisTask == 0)
         printf("Begin Ngb-tree construction.\n");
 
+    force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
+
     CPU_Step[CPU_MISC] += measure_time();
 
 #ifdef DENSITY_INDEPENDENT_SPH_DEBUG
