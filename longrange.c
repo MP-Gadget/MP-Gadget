@@ -82,10 +82,6 @@ void long_range_force(void)
 #endif
     }
 
-#ifdef PERIODIC
-        do_box_wrapping();	/* map the particles back onto the box */
-#endif
-
 #ifdef NOGRAVITY
   return;
 #endif
@@ -95,6 +91,7 @@ void long_range_force(void)
 #ifdef PETA_PM
   petapm_force();
 #else
+  do_box_wrapping();	/* map the particles back onto the box */
   pmforce_periodic(0, NULL);
 #endif
 #ifdef DISTORTIONTENSORPS
