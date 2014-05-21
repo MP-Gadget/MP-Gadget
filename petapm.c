@@ -164,7 +164,7 @@ void petapm_prepare() {
 #endif
             for(k = 0; k < 3; k ++) {
                 regions[r].offset[k] = (Nodes[no].center[k] - Nodes[no].len * 0.5  - Extnodes[no].hmax) / cellsize;
-                int end = ceil(Nodes[no].center[k] + Nodes[no].len * 0.5  + Extnodes[no].hmax) / cellsize;
+                int end = (int) ((Nodes[no].center[k] + Nodes[no].len * 0.5  + Extnodes[no].hmax) / cellsize) + 1;
                 regions[r].size[k] = end - regions[r].offset[k] + 1;
                 regions[r].center[k] = Nodes[no].center[k];
             }
@@ -479,7 +479,7 @@ static void pm_put_particle_to_mesh(int i) {
         iCell[k] = tmp;
         Res[k] = tmp - iCell[k];
         iCell[k] -= region->offset[k];
-        if(iCell[k] > region->size[k] - 1) {
+        if(iCell[k] >= region->size[k] - 1) {
             /* seriously?! particles are supposed to be contained in cells */
             abort(); 
         }
@@ -501,6 +501,7 @@ static void pm_put_particle_to_mesh(int i) {
                 /* offset == 1*/ (Res[k])    :
                 /* offset == 0*/ (1 - Res[k]);
         }
+        if(linear >= region->totalsize) abort();
 #pragma omp atomic
         region->buffer[linear] += weight * mass;
     }
