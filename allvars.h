@@ -1380,6 +1380,9 @@ extern struct particle_data
 #ifdef OPENMP_USE_SPINLOCK
     pthread_spinlock_t SpinLock;
 #endif
+#ifdef PETA_PM
+    int RegionInd; /* which region the particle belongs to */
+#endif
     MyDouble Pos[3];   /*!< particle position at its current time */
     MyDouble Mass;     /*!< particle mass */
     struct {
@@ -1397,7 +1400,6 @@ extern struct particle_data
     MyIDType ID;
     MyIDType SwallowID; /* who will swallow this particle */
     MyDouble Vel[3];   /*!< particle velocity at its current time */
-
     union
     {
         MyFloat       GravAccel[3];		/*!< particle acceleration due to gravity */

@@ -48,9 +48,16 @@ void compute_accelerations(int mode)
 #ifdef PMGRID
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
+#ifdef PETA_PM
+        petapm_prepare();
+#endif
         force_treefree();
         TreeReconstructFlag = 1;
         long_range_force();
+
+#ifdef PETA_PM
+        petapm_finish();
+#endif
 
         CPU_Step[CPU_MESH] += measure_time();
 
