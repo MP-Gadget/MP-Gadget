@@ -27,16 +27,47 @@ static struct Region * regions = NULL;
 static int Nregions = 0;
 static void region_init(struct Region * region);
 
+/* a batch is the communication object, represent a batch of
+ * pencil / cells exchanged  */
+
+struct Batch {
+    int start_region;
+    int end_region;
+    int NpExport;
+    int NcExport;
+    int NpImport;
+    int NcImport;
+    int * NpSend;   
+    int * NpRecv;
+    int * NcSend;
+    int * NcRecv;
+    int * DpSend;
+    int * DpRecv;
+    int * DcSend;
+    int * DcRecv;
+
+    struct Pencil * PencilSend;
+    struct Pencil * PencilRecv;
+    /* internal */
+    int * ibuffer;
+    struct Pencil * pbuffer;
+};
+static void batch_prepare (struct Batch * B, int current_region);
+static void batch_build_and_exchange_pencils(struct Batch * B);
+static void batch_finish(struct Batch * B);
+static void batch_build_and_exchange_cells_CIC(struct Batch * B);
 
 struct Pencil { /* a pencil starting at offset, with lenght len */
     int offset[3];
     int len;
-    ptrdiff_t first; /* first pixel in meshbuf */
+    int first; 
+    int meshbuf_first; /* first pixel in meshbuf */
     int task;
 };
 static int pencil_cmp_target(const struct Pencil * p1, const struct Pencil * p2);
-static int pencil_get_target(const struct Pencil * pencil);
+static int pos_get_target(const int pos[2]);
 
+static int64_t reduce_int64(int64_t input);
 /* for debuggin */
 static void verify_density_field();
 
@@ -198,11 +229,13 @@ void petapm_finish() {
 static void pm_put_particle_to_mesh(int i);
 
 void petapm_force() {
+    int current_region = 0;
+    int ndone = 0;
+    int iterations;
+    int i;
 
     pm_alloc();
     memset(real, 0, sizeof(double) * fftsize);
-    int iterations;
-    int i;
 
     /* CIC */
     if(ThisTask == 0) 
@@ -213,9 +246,9 @@ void petapm_force() {
         pm_put_particle_to_mesh(i); 
     }
 
-    int ndone = 0;
-    int current_region = 0;
     iterations = 0;
+    current_region = 0;
+    ndone = 0;
     while(ndone < NTask) {
         int done = pm_regions_to_pfft(&current_region);
         MPI_Allreduce(&done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -223,15 +256,20 @@ void petapm_force() {
             printf("regions to pfft iteration = %d\n", iterations);
         iterations++;
     }
+#if 1
     verify_density_field();
+#endif
 
     /* potential */
+
     /* call pfft */
 
     /* read out the potential */
+    iterations = 0;
+    current_region = 0;
     ndone = 0;
     while(ndone < NTask) {
-//        int done = pm_pfft_to_regions();
+//        int done = pm_pfft_to_regions(&current_region);
         int done = 1;
         MPI_Allreduce(&done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     }
@@ -248,154 +286,209 @@ void petapm_force() {
 
     pm_free();
 }
-static int pm_regions_to_pfft(int * current_region) {
 
-    ptrdiff_t offset; /* used for various purposes */
+/* build a batch of regions that fill buffersize */
+
+static void batch_prepare (struct Batch * B, int current_region) {
+    int r;
     int i;
-    if(*current_region == Nregions)
-        return 1;
 
-    int * Np_send = alloca(sizeof(int) * NTask);
-    int * Np_recv = alloca(sizeof(int) * NTask);
-    int * Nc_send = alloca(sizeof(int) * NTask);
-    int * Nc_recv = alloca(sizeof(int) * NTask);
-    int * sdisp = alloca(sizeof(int) * NTask);
-    int * rdisp = alloca(sizeof(int) * NTask);
+    B->ibuffer = mymalloc("PMlayout", sizeof(int) * NTask * 8);
 
-    memset(Np_send, 0, sizeof(int) * NTask);
-    memset(Nc_send, 0, sizeof(int) * NTask);
+    memset(B->ibuffer, 0, sizeof(int) * NTask * 8);
+    B->NpSend = &B->ibuffer[NTask * 0];
+    B->NpRecv = &B->ibuffer[NTask * 1];
+    B->NcSend = &B->ibuffer[NTask * 2];
+    B->NcRecv = &B->ibuffer[NTask * 3];
+    B->DcSend = &B->ibuffer[NTask * 4];
+    B->DcRecv = &B->ibuffer[NTask * 5];
+    B->DpSend = &B->ibuffer[NTask * 6];
+    B->DpRecv = &B->ibuffer[NTask * 7];
 
-    int NpExport = 0;
-    int NcExport = 0;
-    int NcImport = 0;
-    int NpImport = 0;
+    B->NpExport = 0;
+    B->NcExport = 0;
+    B->NpImport = 0;
+    B->NcImport = 0;
 
     All.BunchSize = (int)(All.BufferSize * 1024 * 1024) / sizeof(double);
 
     /* count pencils until buffer would run out */
-    int r;
-    int end_region; /* the last region in this bunch*/
-
-    for (r = *current_region; r < Nregions; r ++) {
-        if(NcExport + regions[r].totalsize > All.BunchSize 
+    for (r = current_region; r < Nregions; r ++) {
+        if(B->NcExport + regions[r].totalsize > All.BunchSize 
             /* at least send one region */
-                && r > *current_region) {
+                && r > current_region) {
             break;
         }
-        NcExport += regions[r].totalsize;
-        NpExport += regions[r].size[0] * regions[r].size[1];
+        B->NpExport += regions[r].size[0] * regions[r].size[1];
+        B->NcExport += regions[r].totalsize;
     }
-    end_region = r;
 
-    struct Pencil * PencilSend = (struct Pencil * ) 
-        mymalloc("PencilSend", NpExport * sizeof(struct Pencil));
+    B->start_region = current_region;
+    B->end_region = r;
 
-    /* now build pencils */
+    for (r = B->start_region; r < B->end_region; r++) {
+        int ix;
+#pragma omp parallel for private(ix)
+        for(ix = 0; ix < regions[r].size[0]; ix++) {
+            int iy;
+            for(iy = 0; iy < regions[r].size[1]; iy++) {
+                int pos[2];
+                pos[0] = ix + regions[r].offset[0];
+                pos[1] = iy + regions[r].offset[1];
+                int task = pos_get_target(pos);
+#pragma omp atomic
+                B->NpSend[task] ++;
+#pragma omp atomic
+                B->NcSend[task] += regions[r].size[2];
+            }
+        }
+    }
+    MPI_Alltoall(B->NpSend, 1, MPI_INT, B->NpRecv, 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Alltoall(B->NcSend, 1, MPI_INT, B->NcRecv, 1, MPI_INT, MPI_COMM_WORLD);
+
+    B->DpSend[0] = 0; B->DpRecv[0] = 0;
+    B->DcSend[0] = 0; B->DcRecv[0] = 0;
+    for(i = 1; i < NTask; i ++) {
+        B->DpSend[i] = B->NpSend[i - 1] + B->DpSend[i - 1];
+        B->DpRecv[i] = B->NpRecv[i - 1] + B->DpRecv[i - 1];
+        B->DcSend[i] = B->NcSend[i - 1] + B->DcSend[i - 1];
+        B->DcRecv[i] = B->NcRecv[i - 1] + B->DcRecv[i - 1];
+    }
+    B->NpImport = B->DpRecv[NTask -1] + B->NpRecv[NTask -1];
+    B->NcImport = B->DcRecv[NTask -1] + B->NcRecv[NTask -1];
+
+    /* some checks */
+    if(B->DpSend[NTask - 1] + B->NpSend[NTask -1] != B->NpExport) abort();
+    if(B->DcSend[NTask - 1] + B->NcSend[NTask -1] != B->NcExport) abort();
+
+    int64_t totNpExport = reduce_int64(B->NpExport);
+    int64_t totNcExport = reduce_int64(B->NcExport);
+    int64_t totNpImport = reduce_int64(B->NpImport);
+    int64_t totNcImport = reduce_int64(B->NcImport);
+    if(totNpExport != totNpImport) {
+        abort();
+    }
+    if(totNcExport != totNcImport) {
+        abort();
+    }
+    if(ThisTask == 0) {
+        printf("Exchange of %010ld Pencils and %010ld Cells\n", totNpExport, totNcExport);
+    }
+    
+    B->pbuffer = (struct Pencil * ) 
+        mymalloc("PencilBuffer", (B->NpExport + B->NpImport) * sizeof(struct Pencil));
+
+    B->PencilSend = &B->pbuffer[0];
+    B->PencilRecv = &B->pbuffer[B->NpExport];
+}
+
+static void batch_build_and_exchange_pencils(struct Batch * B) {
+    int r;
+    int i;
+    int offset;
+
+    /* now build pencils to be exported */
     int p0 = 0;
-    for (r = *current_region; r < end_region; r++) {
+    for (r = B->start_region; r < B->end_region; r++) {
         int ix;
 #pragma omp parallel for private(ix)
         for(ix = 0; ix < regions[r].size[0]; ix++) {
             int iy;
             for(iy = 0; iy < regions[r].size[1]; iy++) {
                 int poffset = ix * regions[r].size[1] + iy;
-                int p = p0 + poffset;
-                PencilSend[p].offset[0] = ix + regions[r].offset[0];
-                PencilSend[p].offset[1] = iy + regions[r].offset[1];
-                PencilSend[p].offset[2] = regions[r].offset[2];
-                PencilSend[p].len = regions[r].size[2];
-                PencilSend[p].first = (regions[r].buffer - meshbuf) +
+                struct Pencil * p = &B->PencilSend[p0 + poffset];
+
+                p->offset[0] = ix + regions[r].offset[0];
+                p->offset[1] = iy + regions[r].offset[1];
+                p->offset[2] = regions[r].offset[2];
+                p->len = regions[r].size[2];
+                p->meshbuf_first = (regions[r].buffer - meshbuf) +
                     regions[r].strides[0] * ix +
                     regions[r].strides[1] * iy;
-                PencilSend[p].task = pencil_get_target(&PencilSend[p]);
+                p->task = pos_get_target(p->offset);
             }
         }
         p0 += regions[r].size[0] * regions[r].size[1];
     }
 
     /* sort the pencils by the target rank for ease of next step */
-    qsort(PencilSend, NpExport, sizeof(struct Pencil), pencil_cmp_target);
+    qsort(B->PencilSend, B->NpExport, sizeof(struct Pencil), pencil_cmp_target);
 
-    /* collect the cells to be sent to the commbuffer */ 
-    double * BufSend = mymalloc("PMBufSend", NcExport * sizeof(double));
+    /* build the first pointers to refer to the correct relative buffer locations */
+    /* note that the buffer hasn't bee assembled yet */
     offset = 0;
-    for(i = 0; i < NpExport; i ++) {
-        memcpy(BufSend + offset, &meshbuf[PencilSend[i].first], sizeof(double) * PencilSend[i].len);
-        offset += PencilSend[i].len;
-    }
-
-    /* count Np_send and Nc_send, detach the `first' element to relative to the
-     * send-recv chunk */
-    int oldtarget = -1;
-    for(i = 0; i < NpExport; i ++) {
-        int target = pencil_get_target(&PencilSend[i]);
-        if (target != oldtarget) {
-            /* be aware PencilSend is sorted by target! */
-            offset = 0;
-            oldtarget= target;
-        }
-        PencilSend[i].first = offset;
-        offset += PencilSend[i].len;
-        Np_send[target] ++;
-        Nc_send[target] += PencilSend[i].len;
-    }
-
-    /* Alltoall to get Np_recv, Nc_recv */
-    MPI_Alltoall(Np_send, 1, MPI_INT, Np_recv, 1, MPI_INT, MPI_COMM_WORLD);
-    MPI_Alltoall(Nc_send, 1, MPI_INT, Nc_recv, 1, MPI_INT, MPI_COMM_WORLD);
-
-    /* Now we are ready to exchange the pencils */
-    /* first count total recv */
-
     for(i = 0; i < NTask; i ++) {
-        NpImport += Np_recv[i];
-        NcImport += Nc_recv[i];
+        int j;
+        struct Pencil * p = &B->PencilSend[offset];
+        p->first = 0;
+        for(j = 1; j < B->NpSend[i]; j++) {
+            p[j].first = p[j - 1].first + p[j - 1].len;
+        }
+        offset += B->NpSend[i];
     }
-    struct Pencil * PencilRecv = (struct Pencil * ) 
-        mymalloc("PencilRecv", NpImport * sizeof(struct Pencil));
-    double * BufRecv = mymalloc("PMBufRecv", NcImport * sizeof(double));
 
-    /* receive pencils */
-    sdisp[0] = 0; rdisp[0] = 0;
-    for(i = 1; i < NTask; i ++) {
-        sdisp[i] = Np_send[i - 1] + sdisp[i - 1];
-        rdisp[i] = Np_recv[i - 1] + rdisp[i - 1];
-    }
     MPI_Alltoallv(
-            PencilSend, Np_send, sdisp, MPI_PENCIL,
-            PencilRecv, Np_recv, rdisp, MPI_PENCIL, 
+            B->PencilSend, B->NpSend, B->DpSend, MPI_PENCIL,
+            B->PencilRecv, B->NpRecv, B->DpRecv, MPI_PENCIL, 
             MPI_COMM_WORLD);
+
+    /* set first to point to absolute position in the full import cell buffer */
+    offset = 0;
+    for(i = 0; i < NTask; i ++) {
+        struct Pencil * p = &B->PencilRecv[offset];
+        int j;
+        for(j = 0; j < B->NpRecv[i]; j++) {
+            p[j].first += B->DcRecv[i];
+        }
+        offset += B->NpRecv[i];
+    }
+    
+    /* set first to point to absolute position in the full export cell buffer */
+    offset = 0;
+    for(i = 0; i < NTask; i ++) {
+        struct Pencil * p = &B->PencilSend[offset];
+        int j;
+        for(j = 0; j < B->NpSend[i]; j++) {
+            p[j].first += B->DcSend[i];
+        }
+        offset += B->NpSend[i];
+    }
+}
+
+static void batch_finish(struct Batch * B) {
+    myfree(B->pbuffer);
+    myfree(B->ibuffer);
+}
+
+static void batch_build_and_exchange_cells_CIC(struct Batch * B) {
+    int i;
+    int offset;
+    /* This does the CIC for the pencil and cells in the batch */
+    double * BufSend = mymalloc("PMBufSend", B->NcExport * sizeof(double));
+    double * BufRecv = mymalloc("PMBufRecv", B->NcImport * sizeof(double));
+
+    offset = 0;
+    for(i = 0; i < B->NpExport; i ++) {
+        struct Pencil * p = &B->PencilSend[i];
+        memcpy(BufSend + offset, &meshbuf[p->meshbuf_first], 
+                sizeof(double) * p->len);
+        offset += p->len;
+    }
 
     /* receive cells */
-    sdisp[0] = 0; rdisp[0] = 0;
-    for(i = 1; i < NTask; i ++) {
-        sdisp[i] = Nc_send[i - 1] + sdisp[i - 1];
-        rdisp[i] = Nc_recv[i - 1] + rdisp[i - 1];
-    }
     MPI_Alltoallv(
-            BufSend, Nc_send, sdisp, MPI_DOUBLE,
-            BufRecv, Nc_recv, rdisp, MPI_DOUBLE, 
+            BufSend, B->NcSend, B->DcSend, MPI_DOUBLE,
+            BufRecv, B->NcRecv, B->DcRecv, MPI_DOUBLE, 
             MPI_COMM_WORLD);
 
-
-    /* fix the first pointers */
-    offset = 0;
-    for(i = 0; i < NTask; i ++) {
-        int p;
-        for(p = offset; p < offset + Np_recv[i]; p++) {
-            PencilRecv[p].first += rdisp[i];
-        }
-        offset += Np_recv[i];
-    }
-
-#if 0 
+#if 1
     double massExport = 0;
-    for(i = 0; i < NcExport; i ++) {
+    for(i = 0; i < B->NcExport; i ++) {
         massExport += BufSend[i];
     }
 
     double massImport = 0;
-    for(i = 0; i < NcImport; i ++) {
+    for(i = 0; i < B->NcImport; i ++) {
         massImport += BufRecv[i];
     }
     double totmassExport;
@@ -406,13 +499,15 @@ static int pm_regions_to_pfft(int * current_region) {
         printf("totmassExport = %g totmassImport = %g\n", totmassExport, totmassImport);
     }
 #endif
-    /* unpack penciles */
+
+    /* unpack penciles to CIC positions on this process */
 #pragma omp parallel for
-    for(i = 0; i < NpImport; i ++) {
+    for(i = 0; i < B->NpImport; i ++) {
+        struct Pencil * p = &B->PencilRecv[i];
         int k;
         ptrdiff_t linear0 = 0;
         for(k = 0; k < 2; k ++) {
-            int ix = PencilRecv[i].offset[k];
+            int ix = p->offset[k];
             while(ix < 0) ix += PMGRID;
             while(ix >= PMGRID) ix -= PMGRID;
             ix -= real_space_region.offset[k];
@@ -423,8 +518,8 @@ static int pm_regions_to_pfft(int * current_region) {
             linear0 += ix * real_space_region.strides[k];
         }
         int j;
-        for(j = 0; j < PencilRecv[i].len; j ++) {
-            int iz = PencilRecv[i].offset[2] + j;
+        for(j = 0; j < p->len; j ++) {
+            int iz = p->offset[2] + j;
             while(iz < 0) iz += PMGRID;
             while(iz >= PMGRID) iz -= PMGRID;
             if(iz >= real_space_region.size[2]) {
@@ -434,18 +529,25 @@ static int pm_regions_to_pfft(int * current_region) {
             ptrdiff_t linear = iz * real_space_region.strides[2] + linear0;
             /* most import line here, add the pencil to the real space field */
 #pragma omp atomic
-            real[linear] += BufRecv[PencilRecv[i].first + j];
+            real[linear] += BufRecv[p->first + j];
         }
     }
     myfree(BufRecv);
-    myfree(PencilRecv);
     myfree(BufSend);
-    myfree(PencilSend);
+}
 
-    /* next call will start processing from the end of this call */
-    *current_region = end_region;
+static int pm_regions_to_pfft(int * current_region) {
+    struct Batch B;
+    batch_prepare(&B, *current_region);
+    batch_build_and_exchange_pencils(&B);
+    batch_build_and_exchange_cells_CIC(&B);
+    batch_finish(&B);
+    *current_region = B.end_region;
+    if(*current_region == Nregions)
+        return 1;
     return 0;
 }
+
 static void pm_alloc() {
     real = (double * ) mymalloc("PMreal", fftsize * sizeof(double));
     complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
@@ -553,12 +655,12 @@ static void region_init(struct Region * region) {
     region->buffer = NULL;
 }
 
-static int pencil_get_target(const struct Pencil * pencil) {
+static int pos_get_target(const int pos[2]) {
     int k;
     int task2d[2];
     int rank;
     for(k = 0; k < 2; k ++) {
-        int ix = pencil->offset[k];
+        int ix = pos[k];
         while(ix < 0) ix += PMGRID;
         while(ix >= PMGRID) ix -= PMGRID;
         task2d[k] = Mesh2Task[k][ix];
@@ -567,8 +669,8 @@ static int pencil_get_target(const struct Pencil * pencil) {
     return rank;
 }
 static int pencil_cmp_target(const struct Pencil * p1, const struct Pencil * p2) {
-    int t1 = pencil_get_target(p1); 
-    int t2 = pencil_get_target(p2); 
+    int t1 = pos_get_target(p1->offset); 
+    int t2 = pos_get_target(p2->offset); 
     return ((t2 < t1) - (t1 < t2)) * 2 +
         ((p2->first < p1->first) - (p1->first < p2->first));
 }
@@ -612,4 +714,11 @@ static void verify_density_field() {
         printf("total Region mass = %g CIC mass = %g Particle mass = %g\n", totmass_Region, totmass_CIC, totmass_Part);
     }
 }
+
+static int64_t reduce_int64(int64_t input) {
+    int64_t result = 0;
+    MPI_Allreduce(&input, &result, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+    return result;
+}
+
 #endif
