@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+/* do NOT use complex.h it breaks the code */
 #include <pfft.h>
 
 #include "allvars.h"
@@ -25,7 +26,7 @@ static struct Region {
 
 static struct Region * regions = NULL;
 static int Nregions = 0;
-static void region_init(struct Region * region);
+static void region_init_strides(struct Region * region);
 
 /* a batch is the communication object, represent a batch of
  * pencil / cells exchanged  */
@@ -81,7 +82,7 @@ static double * real;
 static double * meshbuf;
 static size_t meshbufsize;
 static pfft_complex * complx;
-static pfft_complex * rho_k;
+static pfft_complex * pot_k;
 static int fftsize;
 static int maxfftsize;
 static void pm_alloc();
@@ -92,7 +93,10 @@ static int * ParticleRegion;
 static int ThisTask2d[2];
 static int NTask2d[2];
 static int * (Mesh2Task[2]); /* convertion mesh to task2d */
+static int * Mesh2K; /* convertion mesh to frequency (or K)  */
 static MPI_Datatype MPI_PENCIL;
+
+static double pot_factor;
 
 void petapm_init_periodic(void) {
     All.Asmth[0] = ASMTH * All.BoxSize / PMGRID;
@@ -102,6 +106,7 @@ void petapm_init_periodic(void) {
     ptrdiff_t np[2];
     Mesh2Task[0] = malloc(sizeof(int) * PMGRID);
     Mesh2Task[1] = malloc(sizeof(int) * PMGRID);
+    Mesh2K = malloc(sizeof(int) * PMGRID);
 
     MPI_Type_contiguous(sizeof(struct Pencil), MPI_BYTE, &MPI_PENCIL);
     MPI_Type_commit(&MPI_PENCIL);
@@ -130,19 +135,20 @@ void petapm_init_periodic(void) {
            real_space_region.size, real_space_region.offset, 
            fourier_space_region.size, fourier_space_region.offset);
 
-    region_init(&real_space_region);
-    region_init(&fourier_space_region); 
+    /* takes care of the padding */
+    region_init_strides(&real_space_region);
+    region_init_strides(&fourier_space_region); 
 
     MPI_Allreduce(&fftsize, &maxfftsize, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
     /* do the planning */
     pm_alloc();
     plan_forw = pfft_plan_dft_r2c_3d(
-        n, real, rho_k, comm_cart_2d, PFFT_FORWARD, 
+        n, real, pot_k, comm_cart_2d, PFFT_FORWARD, 
         PFFT_TRANSPOSED_OUT | PFFT_MEASURE | PFFT_DESTROY_INPUT);    
     plan_back = pfft_plan_dft_c2r_3d(
-        n, complx, real, comm_cart_2d, PFFT_FORWARD, 
-        PFFT_TRANSPOSED_OUT | PFFT_MEASURE | PFFT_DESTROY_INPUT);    
+        n, complx, real, comm_cart_2d, PFFT_BACKWARD, 
+        PFFT_TRANSPOSED_IN | PFFT_MEASURE | PFFT_DESTROY_INPUT);    
 
     pm_free();
 
@@ -174,6 +180,20 @@ void petapm_init_periodic(void) {
         }
         */
     }
+    /* as well as the mesh2k array, we save the 2PI factor as done in
+     * pm_periodic */
+    for(i = 0; i < PMGRID; i ++) {
+        if(i <= PMGRID / 2)
+            Mesh2K[i] = i;
+        else
+            Mesh2K[i] = i - PMGRID;
+    }
+    /* fac is - 4pi G     (L / 2pi) **2 / L ** 3 
+     *        Gravity       k2            DFT  
+     * */
+
+    pot_factor = - All.G / (M_PI * All.BoxSize);	/* to get potential */
+
 }
 
 static int pm_mark_region_for_node(int startno, int rid);
@@ -207,11 +227,12 @@ void petapm_prepare() {
             }
 
             /* setup the internal data structure of the region */
-            region_init(&regions[r]);
+            region_init_strides(&regions[r]);
 
             regions[r].len  = Nodes[no].len;
             regions[r].hmax = Extnodes[no].hmax;
             /* now lets mark particles to their hosting region */
+            /* FIXME make this parallel by move it out */
             regions[r].numpart = pm_mark_region_for_node(no, r);
             r++;
         }
@@ -232,9 +253,30 @@ void petapm_finish() {
     regions = NULL;
 }
     
-static int pm_local_cic();
-static int pm_regions_to_pfft(int * current_region);
-static int pm_pfft_to_regions(int * current_region);
+static void pm_move_to_pfft();
+static void pm_move_to_local();
+
+/* 
+ * read out field to particle i, with value no need to be thread safe 
+ * (particle i is never done by same thread)
+ * */
+typedef void (* pm_iterator)(int i, double * mesh, double weight);
+static void pm_iterate(pm_iterator iterator);
+/* apply transfer function to value */
+typedef void (*transfer_function) (int64_t k2, int kpos[3], pfft_complex * value);
+static void pm_apply_transfer_function(struct Region * fourier_space_region, 
+        pfft_complex * src, 
+        pfft_complex * dst, transfer_function H);
+
+static void potential_transfer(int64_t k2, int kpos[3], pfft_complex * value);
+static void force_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
+static void force_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
+static void force_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
+static void put_particle_to_mesh(int i, double * mesh, double weight);
+static void readout_potential(int i, double * mesh, double weight);
+static void readout_force_x(int i, double * mesh, double weight);
+static void readout_force_y(int i, double * mesh, double weight);
+static void readout_force_z(int i, double * mesh, double weight);
 
 void petapm_force() {
     int current_region = 0;
@@ -244,70 +286,88 @@ void petapm_force() {
 
     pm_alloc();
 
+    /* this takes care of the padding */
     memset(real, 0, sizeof(double) * fftsize);
     memset(meshbuf, 0, meshbufsize * sizeof(double));
 
-    pm_local_cic();
+    pm_iterate(put_particle_to_mesh);
 
-    iterations = 0;
-    current_region = 0;
-    ndone = 0;
-    while(ndone < NTask) {
-        int done = pm_regions_to_pfft(&current_region);
-        MPI_Allreduce(&done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-        if(ThisTask == 0)
-            printf("regions to pfft iteration = %d\n", iterations);
-        iterations++;
-    }
+    pm_move_to_pfft();
+
 #if 1
     verify_density_field();
 #endif
 
+    /* call pfft pot_k is CFT of rho */
+
+    /* this is because 
+     *
+     * CFT = DFT * dx **3
+     * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
+     * */
+    pfft_execute_dft_r2c(plan_forw, real, pot_k);
+
     /* potential */
 
-    /* call pfft */
+    /* apply the greens functionb turn pot_k into potential in fourier space */
+    pm_apply_transfer_function(&fourier_space_region, pot_k, complx, potential_transfer);
+    /* backup k space potential to pot_k */
+    memcpy(pot_k, complx, sizeof(double) * fftsize);
 
+    pfft_execute_dft_c2r(plan_back, complx, real);
     /* read out the potential */
-    iterations = 0;
-    current_region = 0;
-    ndone = 0;
-    while(ndone < NTask) {
-        int done = pm_pfft_to_regions(&current_region);
-        MPI_Allreduce(&done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    }
+    pm_move_to_local();
+    pm_iterate(readout_potential);
 
     /* forces */
-    /* call pfft */
-    /* read out the forces */
-    ndone = 0;
-    while(ndone < NTask) {
- //       int done = pm_pfft_to_regions();
-        int done = 1;
-        MPI_Allreduce(&done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    }
+
+    pm_apply_transfer_function(&fourier_space_region, pot_k, complx, force_x_transfer);
+    pfft_execute_dft_c2r(plan_back, complx, real);
+    pm_move_to_local();
+    pm_iterate(readout_force_x);
+
+    pm_apply_transfer_function(&fourier_space_region, pot_k, complx, force_y_transfer);
+    pfft_execute_dft_c2r(plan_back, complx, real);
+    pm_move_to_local();
+    pm_iterate(readout_force_y);
+
+    pm_apply_transfer_function(&fourier_space_region, pot_k, complx, force_z_transfer);
+    pfft_execute_dft_c2r(plan_back, complx, real);
+    pm_move_to_local();
+    pm_iterate(readout_force_z);
 
     pm_free();
 }
 
 
-static void pm_put_particle_to_mesh(int i);
-static int pm_local_cic() {
-    int i;
-    /* CIC */
-    if(ThisTask == 0) 
-        printf("starting CIC\n");
-#pragma omp parallel for 
-    for(i = 0; i < NumPart; i ++) {
-        pm_put_particle_to_mesh(i); 
+static int pm_move_to_pfft_single(int * current_region);
+static void pm_move_to_pfft() {
+    int iterations = 0;
+    int current_region = 0;
+    int ndone = 0;
+    while(ndone < NTask) {
+        int done = pm_move_to_pfft_single(&current_region);
+        MPI_Allreduce(&done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+        if(ThisTask == 0)
+            printf("regions to pfft iteration = %d\n", iterations);
+        iterations++;
     }
-    
-    MPI_Barrier(MPI_COMM_WORLD);
-    if(ThisTask == 0) 
-        printf("done CIC\n");
-    return 1;
-}
 
-static int pm_regions_to_pfft(int * current_region) {
+}
+static int pm_move_to_local_single(int * current_region);
+static void pm_move_to_local() {
+    int iterations = 0;
+    int current_region = 0;
+    int ndone = 0;
+    while(ndone < NTask) {
+        int done = pm_move_to_local_single(&current_region);
+        MPI_Allreduce(&done, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+        if(ThisTask == 0)
+            printf("regions to pfft iteration = %d\n", iterations);
+        iterations++;
+    }
+}
+static int pm_move_to_pfft_single(int * current_region) {
     struct Batch B;
     batch_prepare(&B, *current_region);
     batch_build_and_exchange_pencils(&B);
@@ -319,7 +379,7 @@ static int pm_regions_to_pfft(int * current_region) {
     return 0;
 }
 
-static int pm_pfft_to_regions(int * current_region) {
+static int pm_move_to_local_single(int * current_region) {
     struct Batch B;
     batch_prepare(&B, *current_region);
     batch_build_and_exchange_pencils(&B);
@@ -330,8 +390,6 @@ static int pm_pfft_to_regions(int * current_region) {
         return 1;
     return 0;
 }
-
-
 
 /* build a batch of regions that fill buffersize */
 
@@ -627,7 +685,7 @@ static void batch_iterate_cells(struct Batch * B, cell_iterator iter) {
 static void pm_alloc() {
     real = (double * ) mymalloc("PMreal", fftsize * sizeof(double));
     complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
-    rho_k = (pfft_complex * ) mymalloc("PMrho_k", fftsize * sizeof(double));
+    pot_k = (pfft_complex * ) mymalloc("PMpot_k", fftsize * sizeof(double));
     if(regions) {
         int i;
         size_t size = 0;
@@ -645,7 +703,8 @@ static void pm_alloc() {
     }
 }
 
-static void pm_put_particle_to_mesh(int i) {
+
+static void pm_iterate_one(int i, pm_iterator iterator) {
     struct Region * region = &regions[P[i].RegionInd];
     int k;
     double cellsize = All.BoxSize / PMGRID;
@@ -679,9 +738,23 @@ static void pm_put_particle_to_mesh(int i) {
                 /* offset == 0*/ (1 - Res[k]);
         }
         if(linear >= region->totalsize) abort();
-#pragma omp atomic
-        region->buffer[linear] += weight * mass;
+        iterator(i, &region->buffer[linear], weight);
     }
+}
+
+/* 
+ * iterate over all particle / mesh pairs, call iterator 
+ * function . iterator function shall be aware of thread safety.
+ * no threads run on same particle same time but may 
+ * access one mesh points same time.
+ * */
+static void pm_iterate(pm_iterator iterator) {
+    int i;
+#pragma omp parallel for 
+    for(i = 0; i < NumPart; i ++) {
+        pm_iterate_one(i, iterator); 
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 static int pm_mark_region_for_node(int startno, int rid) {
     int numpart = 0;
@@ -719,7 +792,7 @@ static int pm_mark_region_for_node(int startno, int rid) {
     return numpart;
 }
 
-static void region_init(struct Region * region) {
+static void region_init_strides(struct Region * region) {
     int k;
     size_t rt = 1;
     for(k = 2; k >= 0; k --) {
@@ -754,7 +827,7 @@ static void pm_free() {
     if(regions) {
         myfree(meshbuf);
     }
-    myfree(rho_k);
+    myfree(pot_k);
     myfree(complx);
     myfree(real);
 }
@@ -790,10 +863,151 @@ static void verify_density_field() {
     }
 }
 
+static void pm_apply_transfer_function(struct Region * region, 
+        pfft_complex * src, 
+        pfft_complex * dst, transfer_function H
+        ){
+    ptrdiff_t ip = 0;
+
+    double fac = PMGRID / All.BoxSize;
+
+//#pragma omp parallel for
+    for(ip = 0; ip < region->totalsize; ip ++) {
+        ptrdiff_t tmp = ip;
+        int pos[3];
+        int kpos[3];
+        int64_t k2 = 0.0;
+        int k;
+        for(k = 0; k < 3; k ++) {
+            pos[k] = tmp / region->strides[k];
+            tmp -= pos[k] * region->strides[k];
+            /* lets get the abs pos on the grid*/
+            pos[k] += region->offset[k];
+            /* check */
+            if(pos[k] >= PMGRID) abort();
+            kpos[k] = Mesh2K[pos[k]];
+            /* Watch out the cast */
+            k2 += ((int64_t)kpos[k]) * kpos[k];
+        }
+        dst[ip][0] = src[ip][0];
+        dst[ip][1] = src[ip][1];
+        H(k2, kpos, &dst[ip]);
+    }
+
+}
+
+/********************
+ * transfer functions for 
+ *
+ * potential from mass in cell
+ *
+ * and 
+ *
+ * force from potential
+ *
+ *********************/
+
+/* unnormalized sinc function sin(x) / x */
+static double sinc_unnormed(double x) {
+    if(x < 1e-5 && x > -1e-5) {
+        double x2 = x * x;
+        return 1.0 - x2 / 6. + x2  * x2 / 120.;
+    } else {
+        return sin(x) / x;
+    }
+}
+
+static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
+    if(k2 == 0) {
+        /* remote zero mode corresponding to the mean */
+        value[0][0] = 0.0;
+        value[1][1] = 0.0;
+        return;
+    } 
+    double asmth2 = (2 * M_PI) * All.Asmth[0] / All.BoxSize;
+    asmth2 *= asmth2;
+    double f = 1.0;
+    double smth = exp(-k2 * asmth2) / k2;
+    /* the CIC deconvolution kernel is
+     *
+     * sinc_unnormed(k_x L / 2 PMGRID) ** 2
+     *
+     * k_x = kpos * 2pi / L
+     *
+     * */
+    int k;
+    for(k = 0; k < 3; k ++) {
+        double tmp = (kpos[k] * M_PI) / PMGRID;
+        tmp = sinc_unnormed(tmp);
+        f *= (tmp * tmp);
+    }
+    /* 
+     * first decovolution is CIC in par->mesh
+     * second decovolution is correcting readout 
+     * I don't understand the second yet!
+     * */
+    double fac = pot_factor * smth * f * f;
+    value[0][0] *= fac;
+    value[0][1] *= fac;
+}
+
+/* the transfer functions for force in fourier space applied to potential */
+static double super_lancos_diff_kernel(double w) {
+/* super lancos in CH6 P 122 Design of Nonrecursive Filters by Hanning */
+    return 1. / 594 * 
+        (126 * sin(w) + 193 * sin(2 * w) + 142 * sin (3 * w) - 86 * sin(4 * w));
+}
+static void force_transfer(int k, pfft_complex * value) {
+    double tmp0;
+    double tmp1;
+    double fac = super_lancos_diff_kernel(k * (2 * M_PI / PMGRID)) * (PMGRID / All.BoxSize);
+    tmp0 = - value[0][1] * fac;
+    tmp1 = value[0][0] * fac;
+    value[0][0] = tmp0;
+    value[0][1] = tmp1;
+}
+static void force_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+    return force_transfer(kpos[0], value);
+}
+static void force_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+    return force_transfer(kpos[1], value);
+}
+static void force_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+    return force_transfer(kpos[2], value);
+}
+
+/**************
+ * functions iterating over particle / mesh pairs
+ ***************/
+static void put_particle_to_mesh(int i, double * mesh, double weight) {
+#pragma omp atomic
+    mesh[0] += weight * P[i].Mass;
+}
+static void readout_potential(int i, double * mesh, double weight) {
+    P[i].PM_Potential += weight * mesh[0];
+}
+static void readout_force_x(int i, double * mesh, double weight) {
+    P[i].GravPM[0] += weight * mesh[0];
+}
+static void readout_force_y(int i, double * mesh, double weight) {
+    P[i].GravPM[1] += weight * mesh[0];
+}
+static void readout_force_z(int i, double * mesh, double weight) {
+    P[i].GravPM[2] += weight * mesh[0];
+}
+
 static int64_t reduce_int64(int64_t input) {
     int64_t result = 0;
     MPI_Allreduce(&input, &result, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
     return result;
 }
-
 #endif
+
+/** Some FFT notes
+ *
+ *
+ * CFT = dx * iDFT (thus CFT has no 2pi factors and iCFT has, 
+ *           same as wikipedia.)
+ *
+ * iCFT(CFT) = (2pi) ** 3, thus iCFT also has no 2pi factors.
+ * **************************8*/
