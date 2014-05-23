@@ -198,46 +198,49 @@ void petapm_init_periodic(void) {
 
 static int pm_mark_region_for_node(int startno, int rid);
 
+static void convert_node_to_region(int no, int r);
 void petapm_prepare() {
     /* build a list of regions and record which region a particle belongs to */
-    int i;
-    int m;
     int no;
-    double cellsize = All.BoxSize / PMGRID;
     regions = malloc(sizeof(struct Region) * NTopleaves);
 
     int r = 0;
-    int k;
 
+    /*
+    int i;
+    int m;
     for(m = 0; m < MULTIPLEDOMAINS; m++) {
         for(i = DomainStartList[ThisTask * MULTIPLEDOMAINS + m]; i <= DomainEndList[ThisTask * MULTIPLEDOMAINS + m]; i++) {
             no = DomainNodeIndex[i];
-#if 0
-            printf("task = %d no = %d len = %g hmax = %g center = %g %g %g\n",
-                    ThisTask, no, Nodes[no].len, Extnodes[no].hmax, 
-                    Nodes[no].center[0],
-                    Nodes[no].center[1],
-                    Nodes[no].center[2]);
-#endif
-            for(k = 0; k < 3; k ++) {
-                regions[r].offset[k] = (Nodes[no].center[k] - Nodes[no].len * 0.5  - Extnodes[no].hmax) / cellsize;
-                int end = (int) ((Nodes[no].center[k] + Nodes[no].len * 0.5  + Extnodes[no].hmax) / cellsize) + 1;
-                regions[r].size[k] = end - regions[r].offset[k] + 1;
-                regions[r].center[k] = Nodes[no].center[k];
-            }
-
-            /* setup the internal data structure of the region */
-            region_init_strides(&regions[r]);
-
-            regions[r].len  = Nodes[no].len;
-            regions[r].hmax = Extnodes[no].hmax;
-            /* now lets mark particles to their hosting region */
-            /* FIXME make this parallel by move it out */
-            regions[r].numpart = pm_mark_region_for_node(no, r);
+            convert_node_to_region(no, r);
             r++;
         }
+    } */
+    no = All.MaxPart; /* start with the root */
+    while(no >= 0) {
+        if(!(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))) {
+            no = Nodes[no].u.d.sibling;
+            continue;
+        }
+        if(Nodes[no].len + 2 * Extnodes[no].hmax <= All.BoxSize / PMGRID * 24
+       ||  (
+            !(Nodes[no].u.d.bitflags & (1 << BITFLAG_INTERNAL_TOPLEVEL))
+            && (Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL)))
+                ) {
+            convert_node_to_region(no, r);
+            r ++;
+            no = Nodes[no].u.d.sibling;
+            continue;
+        } 
+        no = Nodes[no].u.d.nextnode;
     }
+
     Nregions = r;
+    int maxNregions;
+    MPI_Reduce(&Nregions, &maxNregions, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+    if(ThisTask == 0) {
+        printf("max number of regions is %d\n", maxNregions);
+    }
     int numpart = 0;
     for(r = 0; r < Nregions; r++) {
         numpart += regions[r].numpart;
@@ -246,6 +249,32 @@ void petapm_prepare() {
     if(numpart != NumPart) {
         abort();
     }
+}
+static void convert_node_to_region(int no, int r) {
+    int k;
+    double cellsize = All.BoxSize / PMGRID;
+#if 0
+    printf("task = %d no = %d len = %g hmax = %g center = %g %g %g\n",
+            ThisTask, no, Nodes[no].len, Extnodes[no].hmax, 
+            Nodes[no].center[0],
+            Nodes[no].center[1],
+            Nodes[no].center[2]);
+#endif
+    for(k = 0; k < 3; k ++) {
+        regions[r].offset[k] = (Nodes[no].center[k] - Nodes[no].len * 0.5  - Extnodes[no].hmax) / cellsize;
+        int end = (int) ((Nodes[no].center[k] + Nodes[no].len * 0.5  + Extnodes[no].hmax) / cellsize) + 1;
+        regions[r].size[k] = end - regions[r].offset[k] + 1;
+        regions[r].center[k] = Nodes[no].center[k];
+    }
+
+    /* setup the internal data structure of the region */
+    region_init_strides(&regions[r]);
+
+    regions[r].len  = Nodes[no].len;
+    regions[r].hmax = Extnodes[no].hmax;
+    /* now lets mark particles to their hosting region */
+    /* FIXME make this parallel by move it out */
+    regions[r].numpart = pm_mark_region_for_node(no, r);
 }
 
 void petapm_finish() {
