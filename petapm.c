@@ -28,6 +28,7 @@ static struct Region {
     double len;
     double hmax;
     int numpart;
+    int no; /* node number for debugging */
 } real_space_region, fourier_space_region;
 
 static struct Region * regions = NULL;
@@ -287,6 +288,7 @@ static void convert_node_to_region(int no, int r) {
 
     regions[r].len  = Nodes[no].len;
     regions[r].hmax = Extnodes[no].hmax;
+    regions[r].no = no;
     /* now lets mark particles to their hosting region */
     /* FIXME make this parallel by move it out */
     regions[r].numpart = pm_mark_region_for_node(no, r);
@@ -782,6 +784,7 @@ static void pm_iterate(pm_iterator iterator) {
 static int pm_mark_region_for_node(int startno, int rid) {
     int numpart = 0;
     int p;
+    int endno = Nodes[startno].u.d.sibling;
     int no = Nodes[startno].u.d.nextnode;
     while(no >= 0)
     {
@@ -802,8 +805,8 @@ static int pm_mark_region_for_node(int startno, int rid) {
                 continue;
             }
 
-            if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	
-                /* we reached a top-level node again, which means that we are done with the branch */
+            if(no == endno)
+                /* we arrived to the sibling which means that we are done with the node */
             {
                 break;
             }
