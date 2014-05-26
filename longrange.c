@@ -295,7 +295,32 @@ void long_range_force(void)
 	  P[i].GravPM[j] += fac * P[i].Pos[j];
     }
 #endif
+#if 0
+#ifdef PETA_PM
+  char * fnt = "longrange-peta-3.%d";
+#else
+  char * fnt = "longrange-pm.%d";
+#endif
+  char fn[1024];
+  sprintf(fn, fnt, ThisTask);
 
+  FILE * fp = fopen(fn, "w");
+  double * buf = malloc(NumPart * sizeof(double) * 7);
+  for(i = 0; i < NumPart; i ++) {
+      buf[i * 7] = P[i].PM_Potential;
+      int k;
+      for(k = 0; k < 3; k ++) {
+          buf[i * 7 + 1 + k] = P[i].GravPM[k];
+      }
+      for(k = 0; k < 3; k ++) {
+          buf[i * 7 + 4 + k] = P[i].Pos[k];
+      }
+  }
+  fwrite(buf, sizeof(double) * 7, NumPart, fp);
+  fclose(fp);
+  MPI_Barrier(MPI_COMM_WORLD);
+  abort();
+#endif
 }
 
 

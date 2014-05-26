@@ -9,6 +9,12 @@
 
 #include "allvars.h"
 #include "proto.h"
+
+#ifndef PETA_PM_ORDER
+#define PETA_PM_ORDER 1
+#warning Using low resolution force differentiation kernel. Consider using -DPETA_PM_ORDER=3
+#endif
+
 static size_t HighMark_petapm = 0;
 static struct Region {
     /* represents a region in the FFT Mesh */
@@ -133,7 +139,17 @@ void petapm_init_periodic(void) {
            PFFT_TRANSPOSED_OUT, 
            real_space_region.size, real_space_region.offset, 
            fourier_space_region.size, fourier_space_region.offset);
-
+    /* lets transpose the array in fourier space so that the strides 
+     * are correct (y, z, x) */
+    ptrdiff_t tmp1[3], tmp2[3];
+    for(k = 0; k < 3; k ++) {
+        tmp1[k] = fourier_space_region.offset[k];
+        tmp2[k] = fourier_space_region.size[k];
+    }
+    for(k = 0; k < 3; k ++) {
+        fourier_space_region.offset[k] = tmp1[(k + 1) % 3];
+        fourier_space_region.size[k] = tmp2[(k + 1) % 3];
+    }
     /* takes care of the padding */
     region_init_strides(&real_space_region);
     region_init_strides(&fourier_space_region); 
@@ -290,7 +306,7 @@ static void pm_move_to_local();
  * */
 typedef void (* pm_iterator)(int i, double * mesh, double weight);
 static void pm_iterate(pm_iterator iterator);
-/* apply transfer function to value */
+/* apply transfer function to value, kpos array is in x, y, z order */
 typedef void (*transfer_function) (int64_t k2, int kpos[3], pfft_complex * value);
 static void pm_apply_transfer_function(struct Region * fourier_space_region, 
         pfft_complex * src, 
@@ -341,6 +357,8 @@ void petapm_force() {
 
     /* apply the greens functionb turn pot_k into potential in fourier space */
     pm_apply_transfer_function(&fourier_space_region, pot_k, complx, potential_transfer);
+    //
+//    memcpy(complx, pot_k, sizeof(double) * fftsize);
     /* backup k space potential to pot_k */
     memcpy(pot_k, complx, sizeof(double) * fftsize);
 
@@ -396,15 +414,33 @@ static void layout_prepare (struct Layout * L) {
     L->NpImport = 0;
     L->NcImport = 0;
 
+    int NpAlloc = 0;
     /* count pencils until buffer would run out */
     for (r = 0; r < Nregions; r ++) {
-        L->NpExport += regions[r].size[0] * regions[r].size[1];
-        L->NcExport += regions[r].totalsize;
+        NpAlloc += regions[r].size[0] * regions[r].size[1];
     }
 
-    L->PencilSend = mymalloc("PencilSend", L->NpExport * sizeof(struct Pencil));
+    L->PencilSend = mymalloc("PencilSend", NpAlloc * sizeof(struct Pencil));
 
     layout_build_pencils(L);
+
+    /* sort the pencils by the target rank for ease of next step */
+    qsort(L->PencilSend, NpAlloc, sizeof(struct Pencil), pencil_cmp_target);
+    /* zero length pixels are moved to the tail */
+
+    /* now shrink NpExport*/
+    L->NpExport = NpAlloc;
+    while(L->PencilSend[L->NpExport - 1].len == 0) {
+        L->NpExport --;
+    }
+
+    /* count total number of cells to be exported */
+    int NcExport = 0;
+#pragma omp parallel for reduction(+: NcExport)
+    for(i = 0; i < L->NpExport; i++) {
+        NcExport += L->PencilSend[i].len;
+    }
+    L->NcExport = NcExport;
 
 #pragma omp parallel for
     for(i = 0; i < L->NpExport; i ++) {
@@ -433,6 +469,7 @@ static void layout_prepare (struct Layout * L) {
     if(L->DpSend[NTask - 1] + L->NpSend[NTask -1] != L->NpExport) abort();
     if(L->DcSend[NTask - 1] + L->NcSend[NTask -1] != L->NcExport) abort();
 
+    int64_t totNpAlloc = reduce_int64(NpAlloc);
     int64_t totNpExport = reduce_int64(L->NpExport);
     int64_t totNcExport = reduce_int64(L->NcExport);
     int64_t totNpImport = reduce_int64(L->NpImport);
@@ -445,7 +482,7 @@ static void layout_prepare (struct Layout * L) {
         abort();
     }
     if(ThisTask == 0) {
-        printf("Exchange of %010ld Pencils and %010ld Cells\n", totNpExport, totNcExport);
+        printf("Exchange of %010ld/%010ld Pencils and %010ld Cells (pending)\n", totNpExport, totNpAlloc, totNcExport);
     }
 
     L->PencilRecv = mymalloc("PencilRecv", L->NpImport * sizeof(struct Pencil));
@@ -473,14 +510,22 @@ static void layout_build_pencils(struct Layout * L) {
                 p->meshbuf_first = (regions[r].buffer - meshbuf) +
                     regions[r].strides[0] * ix +
                     regions[r].strides[1] * iy;
+                /* now lets compress the pencil */
+                while((p->len > 0) && (meshbuf[p->meshbuf_first + p->len - 1] == 0.0)) {
+                    p->len --;
+                }
+                while((p->len > 0) && (meshbuf[p->meshbuf_first] == 0.0)) {
+                    p->len --;
+                    p->meshbuf_first++;
+                    p->offset[2] ++;
+                }
+
                 p->task = pos_get_target(p->offset);
             }
         }
         p0 += regions[r].size[0] * regions[r].size[1];
     }
 
-    /* sort the pencils by the target rank for ease of next step */
-    qsort(L->PencilSend, L->NpExport, sizeof(struct Pencil), pencil_cmp_target);
 }
 
 static void layout_exchange_pencils(struct Layout * L) {
@@ -795,6 +840,9 @@ static int pos_get_target(const int pos[2]) {
     return rank;
 }
 static int pencil_cmp_target(const struct Pencil * p1, const struct Pencil * p2) {
+    /* move zero length pixels to the end */
+    if(p2->len == 0) return -1;
+    if(p1->len == 0) return 1;
     int t1 = pos_get_target(p1->offset); 
     int t2 = pos_get_target(p2->offset); 
     return ((t2 < t1) - (t1 < t2)) * 2 +
@@ -847,8 +895,6 @@ static void pm_apply_transfer_function(struct Region * region,
         ){
     ptrdiff_t ip = 0;
 
-    double fac = PMGRID / All.BoxSize;
-
 //#pragma omp parallel for
     for(ip = 0; ip < region->totalsize; ip ++) {
         ptrdiff_t tmp = ip;
@@ -867,9 +913,14 @@ static void pm_apply_transfer_function(struct Region * region,
             /* Watch out the cast */
             k2 += ((int64_t)kpos[k]) * kpos[k];
         }
+        /* swap 0 and 1 because fourier space was transposed */
+        /* kpos is y, z, x */
+        pos[0] = kpos[2];
+        pos[1] = kpos[0];
+        pos[2] = kpos[1];
         dst[ip][0] = src[ip][0];
         dst[ip][1] = src[ip][1];
-        H(k2, kpos, &dst[ip]);
+        H(k2, pos, &dst[ip]);
     }
 
 }
@@ -899,7 +950,7 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
     if(k2 == 0) {
         /* remote zero mode corresponding to the mean */
         value[0][0] = 0.0;
-        value[1][1] = 0.0;
+        value[0][1] = 0.0;
         return;
     } 
     double asmth2 = (2 * M_PI) * All.Asmth[0] / All.BoxSize;
@@ -917,7 +968,7 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
     for(k = 0; k < 3; k ++) {
         double tmp = (kpos[k] * M_PI) / PMGRID;
         tmp = sinc_unnormed(tmp);
-        f *= (tmp * tmp);
+        f *= 1. / (tmp * tmp);
     }
     /* 
      * first decovolution is CIC in par->mesh
@@ -930,15 +981,48 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
 }
 
 /* the transfer functions for force in fourier space applied to potential */
-static double super_lancos_diff_kernel(double w) {
-/* super lancos in CH6 P 122 Design of Nonrecursive Filters by Hanning */
+/* super lanzcos in CH6 P 122 Digital Filters by Richard W. Hamming */
+static double super_lanzcos_diff_kernel_3(double w) {
+/* order N = 3*/
     return 1. / 594 * 
-        (126 * sin(w) + 193 * sin(2 * w) + 142 * sin (3 * w) - 86 * sin(4 * w));
+       (126 * sin(w) + 193 * sin(2 * w) + 142 * sin (3 * w) - 86 * sin(4 * w));
+}
+static double super_lanzcos_diff_kernel_2(double w) {
+/* order N = 2*/
+    return 1 / 126. * (58 * sin(w) + 67 * sin (2 * w) - 22 * sin(3 * w));
+}
+static double super_lanzcos_diff_kernel_1(double w) {
+/* order N = 1 */
+/* 
+ * This is the same as GADGET-2 but in fourier space: 
+ * see gadget-2 paper and Hamming's book.
+ * c1 = 2 / 3, c2 = 1 / 12
+ * */
+    return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
+}
+static double diff_kernel(double w) {
+#if PETA_PM_ORDER == 1
+        return super_lanzcos_diff_kernel_1(w);
+#endif
+#if PETA_PM_ORDER == 2
+        return super_lanzcos_diff_kernel_2(w);
+#endif
+#if PETA_PM_ORDER == 3
+        return super_lanzcos_diff_kernel_3(w);
+#endif
+#if PETA_PM_ORDER > 3 
+#error PETA_PM_ORDER too high.
+#endif
 }
 static void force_transfer(int k, pfft_complex * value) {
     double tmp0;
     double tmp1;
-    double fac = super_lancos_diff_kernel(k * (2 * M_PI / PMGRID)) * (PMGRID / All.BoxSize);
+    /* 
+     * negative sign is from force_x = - Del_x pot 
+     *
+     * filter is   i K(w)
+     * */
+    double fac = -1 * diff_kernel (k * (2 * M_PI / PMGRID)) * (PMGRID / All.BoxSize);
     tmp0 = - value[0][1] * fac;
     tmp1 = value[0][0] * fac;
     value[0][0] = tmp0;
