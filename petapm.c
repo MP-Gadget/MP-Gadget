@@ -288,7 +288,7 @@ void petapm_prepare() {
     int numpart = 0;
 #pragma omp parallel for reduction(+: numpart)
     for(r = 0; r < Nregions; r++) {
-        regions[r].numpart = pm_mark_region_for_node(no, r);
+        regions[r].numpart = pm_mark_region_for_node(regions[r].no, r);
         numpart += regions[r].numpart;
     }
     /* All particles shall have been processed just once. Otherwise we die */
