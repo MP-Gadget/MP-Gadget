@@ -90,7 +90,6 @@ static size_t meshbufsize;
 static pfft_complex * complx;
 static pfft_complex * pot_k;
 static int fftsize;
-static int maxfftsize;
 static void pm_alloc();
 static void pm_free();
 static pfft_plan plan_forw, plan_back;
@@ -98,24 +97,39 @@ MPI_Comm comm_cart_2d;
 static int * ParticleRegion;
 static int ThisTask2d[2];
 static int NTask2d[2];
-static int * (Mesh2Task[2]); /* convertion mesh to task2d */
-static int * Mesh2K; /* convertion mesh to frequency (or K)  */
+static int * (Mesh2Task[2]); /* conversion from real space mesh to task2d,  */
+static int * Mesh2K; /* convertion fourier mesh to integer frequency (or K)  */
 static MPI_Datatype MPI_PENCIL;
 
 static double pot_factor;
 
 void petapm_init_periodic(void) {
+
+    /* define the global long / short range force cut */
+
     All.Asmth[0] = ASMTH * All.BoxSize / PMGRID;
     All.Rcut[0] = RCUT * All.Asmth[0];
+    /* fac is - 4pi G     (L / 2pi) **2 / L ** 3 
+     *        Gravity       k2            DFT  
+     * */
+
+    pot_factor = - All.G / (M_PI * All.BoxSize);	/* to get potential */
+
+
     pfft_init();
+
     ptrdiff_t n[3] = {PMGRID, PMGRID, PMGRID};
     ptrdiff_t np[2];
+
+    /* The following memory will never be freed */
     Mesh2Task[0] = malloc(sizeof(int) * PMGRID);
     Mesh2Task[1] = malloc(sizeof(int) * PMGRID);
     Mesh2K = malloc(sizeof(int) * PMGRID);
 
+    /* initialize the MPI Datatype of pencil */
     MPI_Type_contiguous(sizeof(struct Pencil), MPI_BYTE, &MPI_PENCIL);
     MPI_Type_commit(&MPI_PENCIL);
+
     /* try to find a square 2d decomposition */
     int i;
     int k;
@@ -140,25 +154,35 @@ void petapm_init_periodic(void) {
            PFFT_TRANSPOSED_OUT, 
            real_space_region.size, real_space_region.offset, 
            fourier_space_region.size, fourier_space_region.offset);
-    /* lets transpose the array in fourier space so that the strides 
-     * are correct (y, z, x) */
-    ptrdiff_t tmp1[3], tmp2[3];
-    for(k = 0; k < 3; k ++) {
-        tmp1[k] = fourier_space_region.offset[k];
-        tmp2[k] = fourier_space_region.size[k];
+
+    /*
+     * In fourier space, the transposed array is ordered in
+     * are in (y, z, x). The strides and sizes returned
+     * from local size is in (Nx, Ny, Nz), hence we roll them once
+     * so that the strides will give correct linear indexing for 
+     * integer coordinates given in order of (x, y, z).
+     * */
+
+#define ROLL(a, N, j) { \
+    typeof(a[0]) tmp[N]; \
+    ptrdiff_t k; \
+    for(k = 0; k < N; k ++) tmp[k] = a[k]; \
+    for(k = 0; k < N; k ++) a[k] = tmp[(k + j)% N]; \
     }
-    for(k = 0; k < 3; k ++) {
-        fourier_space_region.offset[k] = tmp1[(k + 1) % 3];
-        fourier_space_region.size[k] = tmp2[(k + 1) % 3];
-    }
-    /* takes care of the padding */
+
+    ROLL(fourier_space_region.offset, 3, 1);
+    ROLL(fourier_space_region.size, 3, 1);
+
+#undef ROLL
+
+    /* calculate the strides */
     region_init_strides(&real_space_region);
     region_init_strides(&fourier_space_region); 
 
-    MPI_Allreduce(&fftsize, &maxfftsize, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    /* planning the fft; need temporary arrays */
 
-    /* do the planning */
     pm_alloc();
+
     plan_forw = pfft_plan_dft_r2c_3d(
         n, real, pot_k, comm_cart_2d, PFFT_FORWARD, 
         PFFT_TRANSPOSED_OUT | PFFT_MEASURE | PFFT_DESTROY_INPUT);    
@@ -204,11 +228,6 @@ void petapm_init_periodic(void) {
         else
             Mesh2K[i] = i - PMGRID;
     }
-    /* fac is - 4pi G     (L / 2pi) **2 / L ** 3 
-     *        Gravity       k2            DFT  
-     * */
-
-    pot_factor = - All.G / (M_PI * All.BoxSize);	/* to get potential */
 
 }
 
@@ -216,38 +235,45 @@ static int pm_mark_region_for_node(int startno, int rid);
 
 static void convert_node_to_region(int no, int r);
 void petapm_prepare() {
-    /* build a list of regions and record which region a particle belongs to */
+    /* 
+     *
+     * walks down the tree, identify nodes that contains local mass and
+     * are sufficiently large in volume.
+     *
+     * for each nodes, a mesh region is created.
+     * the particles in a node are linked to their hosting region 
+     * (each particle belongs
+     * to exactly one region even though it may be covered by two) 
+     *
+     * */
     int no;
+    /* In worst case, each topleave becomes a region: thus
+     * NTopleaves is sufficient */
     regions = malloc(sizeof(struct Region) * NTopleaves);
 
     int r = 0;
 
-    /*
-    int i;
-    int m;
-    for(m = 0; m < MULTIPLEDOMAINS; m++) {
-        for(i = DomainStartList[ThisTask * MULTIPLEDOMAINS + m]; i <= DomainEndList[ThisTask * MULTIPLEDOMAINS + m]; i++) {
-            no = DomainNodeIndex[i];
-            convert_node_to_region(no, r);
-            r++;
-        }
-    } */
     no = All.MaxPart; /* start with the root */
     while(no >= 0) {
         if(!(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))) {
+            /* node doesn't contain particles on this process, do not open */
             no = Nodes[no].u.d.sibling;
             continue;
         }
         if(Nodes[no].len + 2 * Extnodes[no].hmax <= All.BoxSize / PMGRID * 24
+            /* node is large */
        ||  (
             !(Nodes[no].u.d.bitflags & (1 << BITFLAG_INTERNAL_TOPLEVEL))
             && (Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL)))
+            /* node is a top leaf */
                 ) {
             convert_node_to_region(no, r);
             r ++;
+            /* do not open */
             no = Nodes[no].u.d.sibling;
             continue;
         } 
+        /* open */
         no = Nodes[no].u.d.nextnode;
     }
 
@@ -257,15 +283,20 @@ void petapm_prepare() {
     if(ThisTask == 0) {
         printf("max number of regions is %d\n", maxNregions);
     }
+
+    /* now lets mark particles to their hosting region */
     int numpart = 0;
+#pragma omp parallel for reduction(+: numpart)
     for(r = 0; r < Nregions; r++) {
+        regions[r].numpart = pm_mark_region_for_node(no, r);
         numpart += regions[r].numpart;
     }
-    /* all particles shall have been processed just once. */
+    /* All particles shall have been processed just once. Otherwise we die */
     if(numpart != NumPart) {
         abort();
     }
 }
+
 static void convert_node_to_region(int no, int r) {
     int k;
     double cellsize = All.BoxSize / PMGRID;
@@ -289,9 +320,6 @@ static void convert_node_to_region(int no, int r) {
     regions[r].len  = Nodes[no].len;
     regions[r].hmax = Extnodes[no].hmax;
     regions[r].no = no;
-    /* now lets mark particles to their hosting region */
-    /* FIXME make this parallel by move it out */
-    regions[r].numpart = pm_mark_region_for_node(no, r);
 }
 
 void petapm_finish() {
@@ -456,6 +484,7 @@ static void layout_prepare (struct Layout * L) {
     MPI_Alltoall(L->NpSend, 1, MPI_INT, L->NpRecv, 1, MPI_INT, MPI_COMM_WORLD);
     MPI_Alltoall(L->NcSend, 1, MPI_INT, L->NcRecv, 1, MPI_INT, MPI_COMM_WORLD);
 
+    /* build the displacement array; why doesn't MPI build these automatically? */
     L->DpSend[0] = 0; L->DpRecv[0] = 0;
     L->DcSend[0] = 0; L->DcRecv[0] = 0;
     for(i = 1; i < NTask; i ++) {
@@ -483,12 +512,12 @@ static void layout_prepare (struct Layout * L) {
     if(totNcExport != totNcImport) {
         abort();
     }
+
+    /* exchange the pencils */
     if(ThisTask == 0) {
-        printf("Exchange of %010ld/%010ld Pencils and %010ld Cells (pending)\n", totNpExport, totNpAlloc, totNcExport);
+        printf("PetaPM:  %010ld/%010ld Pencils and %010ld Cells\n", totNpExport, totNpAlloc, totNcExport);
     }
-
     L->PencilRecv = mymalloc("PencilRecv", L->NpImport * sizeof(struct Pencil));
-
     layout_exchange_pencils(L);
 }
 
@@ -781,6 +810,7 @@ static void pm_iterate(pm_iterator iterator) {
     }
     MPI_Barrier(MPI_COMM_WORLD);
 }
+
 static int pm_mark_region_for_node(int startno, int rid) {
     int numpart = 0;
     int p;
@@ -886,7 +916,6 @@ static void verify_density_field() {
     double totmass_CIC = 0;
     MPI_Allreduce(&mass_CIC, &totmass_CIC, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-    printf("on me Region mass = %g CIC mass = %g Particle mass = %g\n", mass_Region, mass_CIC, mass_Part);
     if(ThisTask == 0) {
         printf("total Region mass = %g CIC mass = %g Particle mass = %g\n", totmass_Region, totmass_CIC, totmass_Part);
     }
