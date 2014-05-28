@@ -163,10 +163,17 @@ int * evaluate_get_queue(Evaluator * ev, int * len) {
     int i;
     int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
     int k = 0;
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-    {
-        if(!ev->ev_isactive(i)) continue;
-        queue[k++] = i;
+    if(ev->UseAllParticles) {
+        for(i = 0; i < NumPart; i++) {
+            if(!ev->ev_isactive(i)) continue;
+            queue[k++] = i;
+        }
+    } else {
+        for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+        {
+            if(!ev->ev_isactive(i)) continue;
+            queue[k++] = i;
+        }
     }
     *len = k;
     return queue;
