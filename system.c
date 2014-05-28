@@ -194,17 +194,6 @@ double second(void)
    */
 }
 
-double measure_time(void)	/* strategy: call this at end of functions to account for time in this function, and before another (nontrivial) function is called */
-{
-  double t, dt;
-
-  t = second();
-  dt = t - WallclockTime;
-  WallclockTime = t;
-
-  return dt;
-}
-
 /* returns the time difference between two measurements 
  * obtained with second(). The routine takes care of the 
  * possible overflow of the tick counter on 32bit systems.

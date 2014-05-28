@@ -43,7 +43,7 @@ void compute_accelerations(int mode)
     heating();
 #endif
 
-    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
+    walltime_measure(WALL_MISC);
 
 #ifdef PMGRID
     if(All.PM_Ti_endstep == All.Ti_Current)
@@ -59,7 +59,7 @@ void compute_accelerations(int mode)
         petapm_finish();
 #endif
 
-        CPU_Step[CPU_MESH] += walltime_measure(WALL_MESH);
+        walltime_measure(WALL_MESH);
 
     }
 #endif
@@ -241,7 +241,7 @@ void compute_accelerations(int mode)
         cooling_only();
 #endif
 
-        CPU_Step[CPU_COOLINGSFR] += walltime_measure(WALL_COOLINGSFR);
+        walltime_measure(WALL_COOLINGSFR);
 #endif /*ends COOLING */
 
 #ifdef CHEMCOOL

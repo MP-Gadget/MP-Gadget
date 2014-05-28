@@ -102,7 +102,7 @@ void domain_Decomposition(void)
     size_t bytes, all_bytes;
     double t0, t1;
 
-        CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
+        walltime_measure(WALL_MISC);
 
         move_particles(All.Ti_Current);
 
@@ -235,7 +235,7 @@ void domain_Decomposition(void)
             fflush(stdout);
         }
 
-        CPU_Step[CPU_DOMAIN] += walltime_measure(WALL_DOMAIN);
+        walltime_measure(WALL_DOMAIN);
 
 #ifdef PEANOHILBERT
 #ifdef SUBFIND
@@ -243,7 +243,7 @@ void domain_Decomposition(void)
 #endif
             peano_hilbert_order();
 
-        CPU_Step[CPU_PEANO] += walltime_measure(WALL_PEANO);
+        walltime_measure(WALL_PEANO);
 #endif
 
         memmove(TopNodes + NTopnodes, DomainTask, NTopnodes * sizeof(int));

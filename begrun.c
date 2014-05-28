@@ -758,60 +758,6 @@ void open_outputfiles(void)
     }
 
     fprintf(FdBalance, "\n");
-    fprintf(FdBalance, "Treewalk1      = '%c' / '%c'\n", CPU_Symbol[CPU_TREEWALK1],
-            CPU_SymbolImbalance[CPU_TREEWALK1]);
-    fprintf(FdBalance, "Treewalk2      = '%c' / '%c'\n", CPU_Symbol[CPU_TREEWALK2],
-            CPU_SymbolImbalance[CPU_TREEWALK2]);
-    fprintf(FdBalance, "Treewait1      = '%c' / '%c'\n", CPU_Symbol[CPU_TREEWAIT1],
-            CPU_SymbolImbalance[CPU_TREEWAIT1]);
-    fprintf(FdBalance, "Treewait2      = '%c' / '%c'\n", CPU_Symbol[CPU_TREEWAIT2],
-            CPU_SymbolImbalance[CPU_TREEWAIT2]);
-    fprintf(FdBalance, "Treesend       = '%c' / '%c'\n", CPU_Symbol[CPU_TREESEND],
-            CPU_SymbolImbalance[CPU_TREESEND]);
-    fprintf(FdBalance, "Treerecv       = '%c' / '%c'\n", CPU_Symbol[CPU_TREERECV],
-            CPU_SymbolImbalance[CPU_TREERECV]);
-    fprintf(FdBalance, "Treebuild      = '%c' / '%c'\n", CPU_Symbol[CPU_TREEBUILD],
-            CPU_SymbolImbalance[CPU_TREEBUILD]);
-    fprintf(FdBalance, "Treeupdate     = '%c' / '%c'\n", CPU_Symbol[CPU_TREEUPDATE],
-            CPU_SymbolImbalance[CPU_TREEUPDATE]);
-    fprintf(FdBalance, "Treehmaxupdate = '%c' / '%c'\n", CPU_Symbol[CPU_TREEHMAXUPDATE],
-            CPU_SymbolImbalance[CPU_TREEHMAXUPDATE]);
-    fprintf(FdBalance, "Treemisc =       '%c' / '%c'\n", CPU_Symbol[CPU_TREEMISC],
-            CPU_SymbolImbalance[CPU_TREEMISC]);
-    fprintf(FdBalance, "Domain decomp  = '%c' / '%c'\n", CPU_Symbol[CPU_DOMAIN],
-            CPU_SymbolImbalance[CPU_DOMAIN]);
-    fprintf(FdBalance, "Density compute= '%c' / '%c'\n", CPU_Symbol[CPU_DENSCOMPUTE],
-            CPU_SymbolImbalance[CPU_DENSCOMPUTE]);
-    fprintf(FdBalance, "Density imbal  = '%c' / '%c'\n", CPU_Symbol[CPU_DENSWAIT],
-            CPU_SymbolImbalance[CPU_DENSWAIT]);
-    fprintf(FdBalance, "Density commu  = '%c' / '%c'\n", CPU_Symbol[CPU_DENSCOMM],
-            CPU_SymbolImbalance[CPU_DENSCOMM]);
-    fprintf(FdBalance, "Density misc   = '%c' / '%c'\n", CPU_Symbol[CPU_DENSMISC],
-            CPU_SymbolImbalance[CPU_DENSMISC]);
-    fprintf(FdBalance, "Hydro compute  = '%c' / '%c'\n", CPU_Symbol[CPU_HYDCOMPUTE],
-            CPU_SymbolImbalance[CPU_HYDCOMPUTE]);
-    fprintf(FdBalance, "Hydro imbalance= '%c' / '%c'\n", CPU_Symbol[CPU_HYDWAIT],
-            CPU_SymbolImbalance[CPU_HYDWAIT]);
-    fprintf(FdBalance, "Hydro comm     = '%c' / '%c'\n", CPU_Symbol[CPU_HYDCOMM],
-            CPU_SymbolImbalance[CPU_HYDCOMM]);
-    fprintf(FdBalance, "Hydro misc     = '%c' / '%c'\n", CPU_Symbol[CPU_HYDMISC],
-            CPU_SymbolImbalance[CPU_HYDMISC]);
-    fprintf(FdBalance, "Drifts         = '%c' / '%c'\n", CPU_Symbol[CPU_DRIFT], CPU_SymbolImbalance[CPU_DRIFT]);
-    fprintf(FdBalance, "Blackhole      = '%c' / '%c'\n", CPU_Symbol[CPU_BLACKHOLES],
-            CPU_SymbolImbalance[CPU_BLACKHOLES]);
-    fprintf(FdBalance, "Kicks          = '%c' / '%c'\n", CPU_Symbol[CPU_TIMELINE],
-            CPU_SymbolImbalance[CPU_TIMELINE]);
-    fprintf(FdBalance, "Potential      = '%c' / '%c'\n", CPU_Symbol[CPU_POTENTIAL],
-            CPU_SymbolImbalance[CPU_POTENTIAL]);
-    fprintf(FdBalance, "PM             = '%c' / '%c'\n", CPU_Symbol[CPU_MESH], CPU_SymbolImbalance[CPU_MESH]);
-    fprintf(FdBalance, "Peano-Hilbert  = '%c' / '%c'\n", CPU_Symbol[CPU_PEANO], CPU_SymbolImbalance[CPU_PEANO]);
-    fprintf(FdBalance, "Cooling & SFR  = '%c' / '%c'\n", CPU_Symbol[CPU_COOLINGSFR],
-            CPU_SymbolImbalance[CPU_COOLINGSFR]);
-    fprintf(FdBalance, "Snapshot dump  = '%c' / '%c'\n", CPU_Symbol[CPU_SNAPSHOT],
-            CPU_SymbolImbalance[CPU_SNAPSHOT]);
-    fprintf(FdBalance, "FoF            = '%c' / '%c'\n", CPU_Symbol[CPU_FOF], CPU_SymbolImbalance[CPU_FOF]);
-    fprintf(FdBalance, "Miscellaneous  = '%c' / '%c'\n", CPU_Symbol[CPU_MISC], CPU_SymbolImbalance[CPU_MISC]);
-    fprintf(FdBalance, "\n");
 
 #ifdef SCFPOTENTIAL
     sprintf(buf, "%s%s%s", All.OutputDir, "scf_coeff.txt", postfix);

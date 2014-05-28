@@ -44,7 +44,7 @@ void read_ic(char *fname)
     int start, end;
     char buf[500];
 
-    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
+    walltime_measure(WALL_MISC);
 
 #ifdef RESCALEVINI
     if(ThisTask == 0 && RestartFlag == 0)
@@ -174,7 +174,7 @@ void read_ic(char *fname)
         fflush(stdout);
     }
 
-    CPU_Step[CPU_SNAPSHOT] += walltime_measure(WALL_SNAPSHOT);
+    walltime_measure(WALL_SNAPSHOT);
 }
 
 static void format_filename(char * buf, char * basename, int fid, int num_files) {

@@ -516,12 +516,7 @@ extern size_t AllocatedBytes;
 extern size_t HighMarkBytes;
 extern size_t FreeBytes;
 
-extern double CPU_Step[CPU_PARTS];
-extern char CPU_Symbol[CPU_PARTS];
-extern char CPU_SymbolImbalance[CPU_PARTS];
 extern char CPU_String[CPU_STRING_LEN + 1];
-
-extern double WallclockTime;    /*!< This holds the last wallclock time measurement for timings measurements */
 
 extern int Flag_FullStep;	/*!< Flag used to signal that the current step involves all particles */
 
@@ -871,7 +866,6 @@ extern struct global_data_all_processes
     /* variables that keep track of cumulative CPU consumption */
 
     double TimeLimitCPU;
-    double CPU_Sum[CPU_PARTS];    /*!< sums wallclock time/CPU consumption in whole run */
     struct ClockTable CT;
 
     /* tree code opening criterion */

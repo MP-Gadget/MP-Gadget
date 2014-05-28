@@ -281,7 +281,7 @@ void hydro_force(void)
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
-    CPU_Step[CPU_HYDMISC] += walltime_measure(WALL_HYDMISC);
+    walltime_measure(WALL_HYDMISC);
 
     evaluate_begin(&ev);
     do
@@ -423,13 +423,13 @@ void hydro_force(void)
     timewait = ev.timewait1 + ev.timewait2;
     timecomm = ev.timecommsumm1 + ev.timecommsumm2;
 
-    CPU_Step[CPU_HYDCOMPUTE] += walltime_add(WALL_HYDCOMPUTE, timecomp);
-    CPU_Step[CPU_HYDWAIT] += walltime_add(WALL_HYDWAIT, timewait);
-    CPU_Step[CPU_HYDCOMM] += walltime_add(WALL_HYDCOMM, timecomm);
+    walltime_add(WALL_HYDCOMPUTE, timecomp);
+    walltime_add(WALL_HYDWAIT, timewait);
+    walltime_add(WALL_HYDCOMM, timecomm);
 #ifdef NUCLEAR_NETWORK
-    CPU_Step[CPU_HYDNETWORK] += walltime_add(WALL_HYDNETWORK, timenetwork);
+    walltime_add(WALL_HYDNETWORK, timenetwork);
 #endif
-    CPU_Step[CPU_HYDMISC] += walltime_add(WALL_HYDMISC, timeall - (timecomp + timewait + timecomm + timenetwork));
+    walltime_add(WALL_HYDMISC, timeall - (timecomp + timewait + timecomm + timenetwork));
 }
 
 static void hydro_copy(int place, struct hydrodata_in * input) {

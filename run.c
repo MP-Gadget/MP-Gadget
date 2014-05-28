@@ -34,7 +34,7 @@ void run(void)
     unlink(contfname);
 
 
-    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
+    walltime_measure(WALL_MISC);
 
 #ifdef DENSITY_BASED_SNAPS
     All.nh_next = 10.0;
@@ -312,7 +312,7 @@ void find_next_sync_point_and_drift(void)
 
         move_particles(All.Ti_nextoutput);
 
-        CPU_Step[CPU_DRIFT] += walltime_measure(WALL_DRIFT);
+        walltime_measure(WALL_DRIFT);
 
 #ifdef OUTPUTPOTENTIAL
 #if !defined(EVALPOTENTIAL) || (defined(EVALPOTENTIAL) && defined(RECOMPUTE_POTENTIAL_ON_OUTPUT))
@@ -413,7 +413,7 @@ void find_next_sync_point_and_drift(void)
     }
 
 
-    CPU_Step[CPU_DRIFT] += walltime_measure(WALL_DRIFT);
+    walltime_measure(WALL_DRIFT);
 }
 
 
@@ -855,19 +855,7 @@ void every_timestep_stuff(void)
 
 void write_cpu_log(void)
 {
-    double max_CPU_Step[CPU_PARTS], avg_CPU_Step[CPU_PARTS], t0, t1, tsum;
-    int i;
-
-    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
-
     All.Cadj_Cpu += walltime_get_time(WALL_TREEWALK1) + walltime_get_time(WALL_TREEWALK2);
-
-
-    for(i = 1, CPU_Step[0] = 0; i < CPU_PARTS; i++)
-        CPU_Step[0] += CPU_Step[i];
-
-    MPI_Reduce(CPU_Step, max_CPU_Step, CPU_PARTS, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(CPU_Step, avg_CPU_Step, CPU_PARTS, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
     int64_t totBlockedPD = -1, totBlockedND = -1;
     int64_t totTotalPD = -1, totTotalND = -1;
@@ -883,28 +871,8 @@ void write_cpu_log(void)
 
     if(ThisTask == 0)
     {
-        for(i = 0; i < CPU_PARTS; i++)
-            avg_CPU_Step[i] /= NTask;
 
         put_symbol(0.0, 1.0, '#');
-
-        for(i = 1, tsum = 0.0; i < CPU_PARTS; i++)
-        {
-            if(max_CPU_Step[i] > 0)
-            {
-                t0 = tsum;
-                t1 = tsum + avg_CPU_Step[i] * (avg_CPU_Step[i] / max_CPU_Step[i]);
-                put_symbol(t0 / avg_CPU_Step[0], t1 / avg_CPU_Step[0], CPU_Symbol[i]);
-                tsum += t1 - t0;
-
-                t0 = tsum;
-                t1 = tsum + avg_CPU_Step[i] * ((max_CPU_Step[i] - avg_CPU_Step[i]) / max_CPU_Step[i]);
-                put_symbol(t0 / avg_CPU_Step[0], t1 / avg_CPU_Step[0], CPU_SymbolImbalance[i]);
-                tsum += t1 - t0;
-            }
-        }
-
-        put_symbol(tsum / max_CPU_Step[0], 1.0, '-');
 
         fprintf(FdBalance, "Step=%7d  sec=%10.3f  Nf=%2d%09d  %s\n", All.NumCurrentTiStep, walltime_step_max(WALL_ALL),
                 (int) (GlobNumForceUpdate / 1000000000), (int) (GlobNumForceUpdate % 1000000000), CPU_String);
@@ -912,125 +880,16 @@ void write_cpu_log(void)
     }
 
 
-    //CPUThisRun += CPU_Step[0];
     CPUThisRun += walltime_step_max(WALL_ALL);
-
-    for(i = 0; i < CPU_PARTS; i++)
-        CPU_Step[i] = 0;
 
     if(ThisTask == 0)
     {
-        for(i = 0; i < CPU_PARTS; i++)
-            All.CPU_Sum[i] += avg_CPU_Step[i];
 
         fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads %d\n", All.NumCurrentTiStep, All.Time, NTask, All.NumThreads);
 #ifdef _OPENMP
         fprintf(FdCPU, "Blocked Drifts (Particle Node): %ld %ld\n", totBlockedPD, totBlockedND);
         fprintf(FdCPU, "Total Drifts (Particle Node): %ld %ld\n", totTotalPD, totTotalND);
 #endif
-        fprintf(FdCPU,
-                "total         %10.2f  %5.1f%%\n"
-                "treegrav      %10.2f  %5.1f%%\n"
-                "   treebuild  %10.2f  %5.1f%%\n"
-                "   treeupdate %10.2f  %5.1f%%\n"
-                "   treewalk   %10.2f  %5.1f%%\n"
-                "   treecomm   %10.2f  %5.1f%%\n"
-                "   treeimbal  %10.2f  %5.1f%%\n"
-                "pmgrav        %10.2f  %5.1f%%\n"
-                "sph           %10.2f  %5.1f%%\n"
-                "   density    %10.2f  %5.1f%%\n"
-                "   denscomm   %10.2f  %5.1f%%\n"
-                "   densimbal  %10.2f  %5.1f%%\n"
-                "   hydrofrc   %10.2f  %5.1f%%\n"
-                "   hydcomm    %10.2f  %5.1f%%\n"
-                "   hydmisc    %10.2f  %5.1f%%\n"
-                "   hydnetwork %10.2f  %5.1f%%\n"
-                "   hydimbal   %10.2f  %5.1f%%\n"
-                "   hmaxupdate %10.2f  %5.1f%%\n"
-                "domain        %10.2f  %5.1f%%\n"
-                "potential     %10.2f  %5.1f%%\n"
-                "predict       %10.2f  %5.1f%%\n"
-                "kicks         %10.2f  %5.1f%%\n"
-                "i/o           %10.2f  %5.1f%%\n"
-                "peano         %10.2f  %5.1f%%\n"
-                "sfrcool       %10.2f  %5.1f%%\n"
-                "blackholes    %10.2f  %5.1f%%\n"
-                "fof/subfind   %10.2f  %5.1f%%\n"
-                "smoothing     %10.2f  %5.1f%%\n"
-                "hotngbs       %10.2f  %5.1f%%\n"
-                "weights_hot   %10.2f  %5.1f%%\n"
-                "enrich_hot    %10.2f  %5.1f%%\n"
-                "weights_cold  %10.2f  %5.1f%%\n"
-                "enrich_cold   %10.2f  %5.1f%%\n"
-                "cs_misc       %10.2f  %5.1f%%\n"
-                "misc          %10.2f  %5.1f%%\n",
-            All.CPU_Sum[CPU_ALL], 100.0,
-            All.CPU_Sum[CPU_TREEWALK1] + All.CPU_Sum[CPU_TREEWALK2]
-                + All.CPU_Sum[CPU_TREESEND] + All.CPU_Sum[CPU_TREERECV]
-                + All.CPU_Sum[CPU_TREEWAIT1] + All.CPU_Sum[CPU_TREEWAIT2]
-                + All.CPU_Sum[CPU_TREEBUILD] + All.CPU_Sum[CPU_TREEUPDATE]
-                + All.CPU_Sum[CPU_TREEMISC],
-            (All.CPU_Sum[CPU_TREEWALK1] + All.CPU_Sum[CPU_TREEWALK2]
-             + All.CPU_Sum[CPU_TREESEND] + All.CPU_Sum[CPU_TREERECV]
-             + All.CPU_Sum[CPU_TREEWAIT1] + All.CPU_Sum[CPU_TREEWAIT2]
-             + All.CPU_Sum[CPU_TREEBUILD] + All.CPU_Sum[CPU_TREEUPDATE]
-             + All.CPU_Sum[CPU_TREEMISC]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_TREEBUILD],
-            (All.CPU_Sum[CPU_TREEBUILD]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_TREEUPDATE],
-            (All.CPU_Sum[CPU_TREEUPDATE]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_TREEWALK1] + All.CPU_Sum[CPU_TREEWALK2],
-            (All.CPU_Sum[CPU_TREEWALK1] + All.CPU_Sum[CPU_TREEWALK2]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_TREESEND] + All.CPU_Sum[CPU_TREERECV],
-            (All.CPU_Sum[CPU_TREESEND] + All.CPU_Sum[CPU_TREERECV]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_TREEWAIT1] + All.CPU_Sum[CPU_TREEWAIT2],
-            (All.CPU_Sum[CPU_TREEWAIT1] + All.CPU_Sum[CPU_TREEWAIT2]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_MESH],
-            (All.CPU_Sum[CPU_MESH]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_DENSCOMPUTE] + All.CPU_Sum[CPU_DENSWAIT]
-                + All.CPU_Sum[CPU_DENSCOMM] + All.CPU_Sum[CPU_DENSMISC]
-                + All.CPU_Sum[CPU_HYDCOMPUTE] + All.CPU_Sum[CPU_HYDWAIT] + All.CPU_Sum[CPU_TREEHMAXUPDATE]
-                + All.CPU_Sum[CPU_HYDCOMM] + All.CPU_Sum[CPU_HYDMISC] + All.CPU_Sum[CPU_HYDNETWORK],
-            (All.CPU_Sum[CPU_DENSCOMPUTE] + All.CPU_Sum[CPU_DENSWAIT]
-             + All.CPU_Sum[CPU_DENSCOMM] + All.CPU_Sum[CPU_DENSMISC]
-             + All.CPU_Sum[CPU_HYDCOMPUTE] + All.CPU_Sum[CPU_HYDWAIT] + All.CPU_Sum[CPU_TREEHMAXUPDATE]
-             + All.CPU_Sum[CPU_HYDCOMM] + All.CPU_Sum[CPU_HYDMISC] +
-             All.CPU_Sum[CPU_HYDNETWORK]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_DENSCOMPUTE],
-            (All.CPU_Sum[CPU_DENSCOMPUTE]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_DENSCOMM],
-            (All.CPU_Sum[CPU_DENSCOMM]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_DENSWAIT],
-            (All.CPU_Sum[CPU_DENSWAIT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HYDCOMPUTE],
-            (All.CPU_Sum[CPU_HYDCOMPUTE]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HYDCOMM],
-            (All.CPU_Sum[CPU_HYDCOMM]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HYDMISC],
-            (All.CPU_Sum[CPU_HYDMISC]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HYDNETWORK],
-            (All.CPU_Sum[CPU_HYDNETWORK]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HYDWAIT],
-            (All.CPU_Sum[CPU_HYDWAIT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_TREEHMAXUPDATE],
-            (All.CPU_Sum[CPU_TREEHMAXUPDATE]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_DOMAIN],
-            (All.CPU_Sum[CPU_DOMAIN]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_POTENTIAL],
-            (All.CPU_Sum[CPU_POTENTIAL]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_DRIFT],
-            (All.CPU_Sum[CPU_DRIFT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_TIMELINE],
-            (All.CPU_Sum[CPU_TIMELINE]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_SNAPSHOT],
-            (All.CPU_Sum[CPU_SNAPSHOT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_PEANO],
-            (All.CPU_Sum[CPU_PEANO]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_COOLINGSFR],
-            (All.CPU_Sum[CPU_COOLINGSFR]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_BLACKHOLES],
-            (All.CPU_Sum[CPU_BLACKHOLES]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_FOF],
-            (All.CPU_Sum[CPU_FOF]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_SMTHCOMPUTE] + All.CPU_Sum[CPU_SMTHWAIT] + All.CPU_Sum[CPU_SMTHCOMM] +
-                All.CPU_Sum[CPU_SMTHMISC],
-            (All.CPU_Sum[CPU_SMTHCOMPUTE] + All.CPU_Sum[CPU_SMTHWAIT] + All.CPU_Sum[CPU_SMTHCOMM] +
-             All.CPU_Sum[CPU_SMTHMISC]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HOTNGBS],
-            (All.CPU_Sum[CPU_HOTNGBS]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_WEIGHTS_HOT],
-            (All.CPU_Sum[CPU_WEIGHTS_HOT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_ENRICH_HOT],
-            (All.CPU_Sum[CPU_ENRICH_HOT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_WEIGHTS_COLD],
-            (All.CPU_Sum[CPU_WEIGHTS_COLD]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_ENRICH_COLD],
-            (All.CPU_Sum[CPU_ENRICH_COLD]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_CSMISC],
-            (All.CPU_Sum[CPU_CSMISC]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_MISC],
-            (All.CPU_Sum[CPU_MISC]) / All.CPU_Sum[CPU_ALL] * 100);
-        fprintf(FdCPU, "\n");
-        fflush(FdCPU);
-    }
-
-
-    if(ThisTask == 0)  {
         walltime_report(FdCPU);
         fflush(FdCPU);
     }

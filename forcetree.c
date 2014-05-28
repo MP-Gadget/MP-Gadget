@@ -59,7 +59,7 @@ void force_treebuild_simple() {
     if(ThisTask == 0)
         printf("Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
-    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
+    walltime_measure(WALL_MISC);
 
 #if defined(SFR) || defined(BLACK_HOLES)
     rearrange_particle_sequence();
@@ -67,7 +67,7 @@ void force_treebuild_simple() {
 
     force_treebuild(NumPart, NULL);
 
-    CPU_Step[CPU_TREEBUILD] += walltime_measure(WALL_TREEBUILD);
+    walltime_measure(WALL_TREEBUILD);
 
     if(ThisTask == 0)
         printf("Tree construction done.\n");
@@ -2104,7 +2104,7 @@ void force_update_hmax(void)
     myfree(counts);
     myfree(DomainList);
 
-    CPU_Step[CPU_TREEHMAXUPDATE] += walltime_measure(WALL_TREEHMAXUPDATE);
+    walltime_measure(WALL_TREEHMAXUPDATE);
 }
 
 

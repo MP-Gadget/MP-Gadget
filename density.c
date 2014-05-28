@@ -207,7 +207,7 @@ void density(void)
         mu0 /= (All.HubbleParam * All.HubbleParam);
 #endif
 #endif
-    CPU_Step[CPU_DENSMISC] += walltime_measure(WALL_DENSMISC);
+    walltime_measure(WALL_DENSMISC);
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
@@ -231,7 +231,7 @@ void density(void)
 
     /* allocate buffers to arrange communication */
 
-    CPU_Step[CPU_MISC] = walltime_measure(WALL_MISC);
+    walltime_measure(WALL_MISC);
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do
@@ -362,10 +362,10 @@ void density(void)
     timewait = ev.timewait1 + ev.timewait2;
     timecomm = ev.timecommsumm1 + ev.timecommsumm2;
 
-    CPU_Step[CPU_DENSCOMPUTE] += walltime_add(WALL_DENSCOMPUTE, timecomp);
-    CPU_Step[CPU_DENSWAIT] += walltime_add(WALL_DENSWAIT, timewait);
-    CPU_Step[CPU_DENSCOMM] += walltime_add(WALL_DENSCOMM, timecomm);
-    CPU_Step[CPU_DENSMISC] += walltime_add(WALL_DENSMISC, timeall - (timecomp + timewait + timecomm));
+    walltime_add(WALL_DENSCOMPUTE, timecomp);
+    walltime_add(WALL_DENSWAIT, timewait);
+    walltime_add(WALL_DENSCOMM, timecomm);
+    walltime_add(WALL_DENSMISC, timeall - (timecomp + timewait + timecomm));
 }
 
 double density_decide_hsearch(int targettype, double h) {
