@@ -36,11 +36,11 @@ struct group_properties *Group;
 
 static struct fofdata_in
 {
+    int NodeList[NODELISTLENGTH];
     MyDouble Pos[3];
     MyFloat Hsml;
     MyIDType MinID;
     MyIDType MinIDTask;
-    int NodeList[NODELISTLENGTH];
 }
 *FoFDataIn, *FoFDataGet;
 
@@ -1565,11 +1565,46 @@ void fof_save_local_catalogue(int num)
 }
 
 
+static void fof_nearest_copy(int place, struct fofdata_in * I) {
+    int k;
+    for (k = 0; k < 3; k ++) {
+        I->Pos[k] = P[place].Pos[k];
+    }
+    I->Hsml = fof_nearest_hsml[place];
+}
+static void * fof_nearest_ngblist() {
+    int threadid = omp_get_thread_num();
+    return Ngblist + threadid * NumPart;
+}
+static int fof_nearest_isactive(int n) {
+    return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
+}
+static void fof_nearest_reduce(int place, struct fofdata_out * O, int mode) {
+    if(O->Distance < fof_nearest_distance[place])
+    {
+        fof_nearest_distance[place] = O->Distance;
+        MinID[place] = O->MinID;
+        MinIDTask[place] = O->MinIDTask;
+    }
+}
+static int fof_nearest_evaluate(int target, int mode, 
+        struct fofdata_in * I, struct fofdata_out * O,
+        LocalEvaluator * lv, int *ngblist);
 void fof_find_nearest_dmparticle(void)
 {
     int i, j, n, dummy;
     int64_t ntot;
     int ndone, ndone_flag, ngrp, sendTask, recvTask, place, nexport, nimport, npleft, iter;
+    Evaluator ev = {0};
+    ev.ev_evaluate = (ev_evaluate_func) fof_nearest_evaluate;
+    ev.ev_isactive = fof_nearest_isactive;
+    ev.ev_alloc = fof_nearest_ngblist;
+    ev.ev_copy = (ev_copy_func) fof_nearest_copy;
+    ev.ev_reduce = (ev_reduce_func) fof_nearest_reduce;
+    ev.UseNodeList = 1;
+    ev.UseAllParticles = 1;
+    ev.ev_datain_elsize = sizeof(struct fofdata_in);
+    ev.ev_dataout_elsize = sizeof(struct fofdata_out);
 
     if(ThisTask == 0)
     {
@@ -1592,17 +1627,7 @@ void fof_find_nearest_dmparticle(void)
 
     /* allocate buffers to arrange communication */
 
-    Ngblist = (int *) mymalloc("Ngblist", NumPart * sizeof(int));
-
-    All.BunchSize =
-        (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + sizeof(struct data_nodelist) +
-                    sizeof(struct fofdata_in) + sizeof(struct fofdata_out) +
-                    sizemax(sizeof(struct fofdata_in), sizeof(struct fofdata_out))));
-    DataIndexTable =
-        (struct data_index *) mymalloc("DataIndexTable", All.BunchSize * sizeof(struct data_index));
-    DataNodeList =
-        (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
-
+    Ngblist = (int *) mymalloc("Ngblist", NumPart * sizeof(int) * All.NumThreads);
 
     iter = 0;
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
@@ -1612,176 +1637,51 @@ void fof_find_nearest_dmparticle(void)
         fflush(stdout);
     }
 
-    do
+    do 
     {
-        i = 0;			/* beginn with this index */
+        evaluate_begin(&ev);
 
         do
         {
-            for(j = 0; j < NTask; j++)
-            {
-                Send_count[j] = 0;
-                Exportflag[j] = -1;
-            }
-
-            /* do local particles and prepare export list */
-            for(nexport = 0; i < NumPart; i++)
-                if(((1 << P[i].Type) & (FOF_SECONDARY_LINK_TYPES)))
-                {
-                    if(fof_nearest_distance[i] > 1.0e29)
-                    {
-                        if(fof_find_nearest_dmparticle_evaluate(i, 0, &nexport, Send_count) < 0)
-                            break;
-                    }
-                }
-
-#ifdef MYSORT
-            mysort_dataindex(DataIndexTable, nexport, sizeof(struct data_index), data_index_compare);
-#else
-            qsort(DataIndexTable, nexport, sizeof(struct data_index), data_index_compare);
-#endif
-
-            MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
-
-            for(j = 0, nimport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
-            {
-                nimport += Recv_count[j];
-
-                if(j > 0)
-                {
-                    Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
-                    Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
-                }
-            }
-
-            FoFDataGet = (struct fofdata_in *) mymalloc("FoFDataGet", nimport * sizeof(struct fofdata_in));
-            FoFDataIn = (struct fofdata_in *) mymalloc("FoFDataIn", nexport * sizeof(struct fofdata_in));
-
-            if(ThisTask == 0)
-            {
-                printf("still finding nearest... (presently allocated=%g MB)\n",
-                        AllocatedBytes / (1024.0 * 1024.0));
-                fflush(stdout);
-            }
-
-            for(j = 0; j < nexport; j++)
-            {
-                place = DataIndexTable[j].Index;
-
-                FoFDataIn[j].Pos[0] = P[place].Pos[0];
-                FoFDataIn[j].Pos[1] = P[place].Pos[1];
-                FoFDataIn[j].Pos[2] = P[place].Pos[2];
-                FoFDataIn[j].Hsml = fof_nearest_hsml[place];
-
-                memcpy(FoFDataIn[j].NodeList,
-                        DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
-            }
-
-            /* exchange particle data */
-            for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-            {
-                sendTask = ThisTask;
-                recvTask = ThisTask ^ ngrp;
-
-                if(recvTask < NTask)
-                {
-                    if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-                    {
-                        /* get the particles */
-                        MPI_Sendrecv(&FoFDataIn[Send_offset[recvTask]],
-                                Send_count[recvTask] * sizeof(struct fofdata_in), MPI_BYTE,
-                                recvTask, TAG_DENS_A,
-                                &FoFDataGet[Recv_offset[recvTask]],
-                                Recv_count[recvTask] * sizeof(struct fofdata_in), MPI_BYTE,
-                                recvTask, TAG_DENS_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    }
-                }
-            }
-
-            myfree(FoFDataIn);
-            FoFDataResult =
-                (struct fofdata_out *) mymalloc("FoFDataResult", nimport * sizeof(struct fofdata_out));
-            FoFDataOut = (struct fofdata_out *) mymalloc("FoFDataOut", nexport * sizeof(struct fofdata_out));
-
-            for(j = 0; j < nimport; j++)
-            {
-                fof_find_nearest_dmparticle_evaluate(j, 1, &dummy, &dummy);
-            }
-
-            for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-            {
-                sendTask = ThisTask;
-                recvTask = ThisTask ^ ngrp;
-                if(recvTask < NTask)
-                {
-                    if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-                    {
-                        /* send the results */
-                        MPI_Sendrecv(&FoFDataResult[Recv_offset[recvTask]],
-                                Recv_count[recvTask] * sizeof(struct fofdata_out),
-                                MPI_BYTE, recvTask, TAG_DENS_B,
-                                &FoFDataOut[Send_offset[recvTask]],
-                                Send_count[recvTask] * sizeof(struct fofdata_out),
-                                MPI_BYTE, recvTask, TAG_DENS_B, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    }
-                }
-
-            }
-
-            for(j = 0; j < nexport; j++)
-            {
-                place = DataIndexTable[j].Index;
-
-                if(FoFDataOut[j].Distance < fof_nearest_distance[place])
-                {
-                    fof_nearest_distance[place] = FoFDataOut[j].Distance;
-                    MinID[place] = FoFDataOut[j].MinID;
-                    MinIDTask[place] = FoFDataOut[j].MinIDTask;
-                }
-            }
-
-            if(i >= NumPart)
-                ndone_flag = 1;
-            else
-                ndone_flag = 0;
-
-            MPI_Allreduce(&ndone_flag, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-            myfree(FoFDataOut);
-            myfree(FoFDataResult);
-            myfree(FoFDataGet);
+            evaluate_primary(&ev);
+            evaluate_get_remote(&ev, TAG_DENS_A);
+            evaluate_secondary(&ev);
+            evaluate_reduce_result(&ev, TAG_DENS_B);
         }
-        while(ndone < NTask);
+        while(evaluate_ndone(&ev) < NTask);
+        evaluate_finish(&ev);
+
+        int Nactive;
+        int * queue = evaluate_get_queue(&ev, &Nactive);
 
         /* do final operations on results */
-        for(i = 0, npleft = 0; i < NumPart; i++)
+        npleft = 0;
+#pragma omp parallel for if(Nactive > 32) reduction(+: npleft)
+        for(i = 0; i < Nactive; i++)
         {
-            if(((1 << P[i].Type) & (FOF_SECONDARY_LINK_TYPES)))
+            int p = queue[i];
+            if(fof_nearest_distance[p] > 1.0e29)
             {
-                if(fof_nearest_distance[i] > 1.0e29)
+                if(fof_nearest_hsml[p] < 4 * LinkL)  /* we only search out to a maximum distance */
                 {
-                    if(fof_nearest_hsml[i] < 4 * LinkL)  /* we only search out to a maximum distance */
+                    /* need to redo this particle */
+                    npleft++;
+                    fof_nearest_hsml[p] *= 2.0;
+                    if(iter >= MAXITER - 10)
                     {
-                        /* need to redo this particle */
-                        npleft++;
-                        fof_nearest_hsml[i] *= 2.0;
-                        if(iter >= MAXITER - 10)
-                        {
-                            printf("i=%d task=%d ID=%llu Hsml=%g  pos=(%g|%g|%g)\n",
-                                    i, ThisTask, P[i].ID, fof_nearest_hsml[i],
-                                    P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-                            fflush(stdout);
-                        }
+                        printf("i=%d task=%d ID=%llu Hsml=%g  pos=(%g|%g|%g)\n",
+                                p, ThisTask, P[p].ID, fof_nearest_hsml[p],
+                                P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
+                        fflush(stdout);
                     }
-                    else
-                    {
-                        fof_nearest_distance[i] = 0;  /* we not continue to search for this particle */
-                    }
+                } else {
+                    fof_nearest_distance[p] = 0;  /* we not continue to search for this particle */
                 }
             }
         }
 
         sumup_large_ints(1, &npleft, &ntot);
+        if(ntot < 0) abort();
         if(ntot > 0)
         {
             iter++;
@@ -1798,11 +1698,10 @@ void fof_find_nearest_dmparticle(void)
                 endrun(1159);
             }
         }
+        myfree(queue);
     }
     while(ntot > 0);
 
-    myfree(DataNodeList);
-    myfree(DataIndexTable);
     myfree(Ngblist);
 
     myfree(fof_nearest_hsml);
@@ -1815,67 +1714,43 @@ void fof_find_nearest_dmparticle(void)
     }
 }
 
-
-int fof_find_nearest_dmparticle_evaluate(int target, int mode, int *nexport, int *nsend_local)
+static int fof_nearest_evaluate(int target, int mode, 
+        struct fofdata_in * I, struct fofdata_out * O,
+        LocalEvaluator * lv, int *ngblist)
 {
     int j, n, index, listindex = 0;
     int startnode, numngb_inbox;
     double h, r2max;
-    double dx, dy, dz, r2;
-    MyDouble *pos;
 
-    if(mode == 0)
-    {
-        pos = P[target].Pos;
-        h = fof_nearest_hsml[target];
-    }
-    else
-    {
-        pos = FoFDataGet[target].Pos;
-        h = FoFDataGet[target].Hsml;
-    }
+    startnode = I->NodeList[0];
+    listindex ++;
+    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
     index = -1;
+    h = I->Hsml;
     r2max = 1.0e30;
-
-    if(mode == 0)
-    {
-        startnode = All.MaxPart;	/* root node */
-    }
-    else
-    {
-        startnode = FoFDataGet[target].NodeList[0];
-        startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-    }
 
     while(startnode >= 0)
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_fof_nearest(pos, h, target, &startnode, mode, nexport, nsend_local);
+            numngb_inbox = ngb_treefind_threads(I->Pos, h, target, &startnode, mode, 
+                    lv, ngblist, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)
                 return -1;
 
             for(n = 0; n < numngb_inbox; n++)
             {
-                j = Ngblist[n];
-                dx = pos[0] - P[j].Pos[0];
-                dy = pos[1] - P[j].Pos[1];
-                dz = pos[2] - P[j].Pos[2];
+                j = ngblist[n];
+                double dx, dy, dz, r2;
+                dx = I->Pos[0] - P[j].Pos[0];
+                dy = I->Pos[1] - P[j].Pos[1];
+                dz = I->Pos[2] - P[j].Pos[2];
 #ifdef PERIODIC			/*  now find the closest image in the given box size  */
-                if(dx > boxHalf_X)
-                    dx -= boxSize_X;
-                if(dx < -boxHalf_X)
-                    dx += boxSize_X;
-                if(dy > boxHalf_Y)
-                    dy -= boxSize_Y;
-                if(dy < -boxHalf_Y)
-                    dy += boxSize_Y;
-                if(dz > boxHalf_Z)
-                    dz -= boxSize_Z;
-                if(dz < -boxHalf_Z)
-                    dz += boxSize_Z;
+                dx = NEAREST_X(dx);
+                dy = NEAREST_Y(dy);
+                dz = NEAREST_Z(dz);
 #endif
                 r2 = dx * dx + dy * dy + dz * dz;
                 if(r2 < r2max && r2 < h * h)
@@ -1886,38 +1761,25 @@ int fof_find_nearest_dmparticle_evaluate(int target, int mode, int *nexport, int
             }
         }
 
-        if(mode == 1)
+        if(listindex < NODELISTLENGTH)
         {
-            listindex++;
-            if(listindex < NODELISTLENGTH)
-            {
-                startnode = FoFDataGet[target].NodeList[listindex];
-                if(startnode >= 0)
-                    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+            startnode = I->NodeList[listindex];
+            if(startnode >= 0) {
+                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+                listindex ++;
             }
         }
     }
 
 
-    if(mode == 0)
+    if(index >= 0)
     {
-        if(index >= 0)
-        {
-            fof_nearest_distance[target] = sqrt(r2max);
-            MinID[target] = MinID[Head[index]];
-            MinIDTask[target] = MinIDTask[Head[index]];
-        }
+        O->Distance = sqrt(r2max);
+        O->MinID = MinID[Head[index]];
+        O->MinIDTask = MinIDTask[Head[index]];
     }
-    else
-    {
-        if(index >= 0)
-        {
-            FoFDataResult[target].Distance = sqrt(r2max);
-            FoFDataResult[target].MinID = MinID[Head[index]];
-            FoFDataResult[target].MinIDTask = MinIDTask[Head[index]];
-        }
-        else
-            FoFDataResult[target].Distance = 2.0e30;
+    else {
+        O->Distance = 2.0e30;
     }
     return 0;
 }
