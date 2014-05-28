@@ -79,7 +79,7 @@ void advance_and_find_timesteps(void)
     int64_t ntot;
 #endif
 
-    walltime_measure(WALL_MISC);
+    walltime_measure("/Misc");
 
     if(All.ComovingIntegrationOn)
     {
@@ -670,7 +670,7 @@ dt_gravkickB = (All.Ti_Current - (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2) * 
         printf("%d%09d particles woken up.\n", (int) (ntot / 1000000000), (int) (ntot % 1000000000));
 #endif
 
-    walltime_measure(WALL_TIMELINE);
+    walltime_measure("/Timeline");
 }
 
 

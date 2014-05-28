@@ -93,8 +93,6 @@ int main(int argc, char **argv)
   else
     RestartSnapNum = -1;
 
-  CPUThisRun = 0;
-
   begrun();			/* set-up run  */
 
   run();			/* main simulation loop */

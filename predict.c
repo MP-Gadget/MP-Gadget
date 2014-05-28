@@ -634,10 +634,13 @@ static void real_drift_particle(int i, int time1)
 void move_particles(int time1)
 {
     int i;
+    walltime_measure("/Misc");
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
         real_drift_particle(i, time1);
+
+    walltime_measure("/Drift");
 }
 
 

@@ -491,9 +491,6 @@ extern MPI_Comm MPI_CommLocal;
 #endif
 #endif
 
-
-extern double CPUThisRun;	/*!< Sums CPU time of current process */
-
 extern int NumForceUpdate;	/*!< number of active particles on local processor in current timestep  */
 extern int64_t GlobNumForceUpdate;
 

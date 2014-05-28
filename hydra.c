@@ -177,7 +177,6 @@ static double hubble_a, atime, hubble_a2, fac_mu, fac_vsic_fix, a3inv, fac_egy;
  */
 void hydro_force(void)
 {
-    int _clockid = WALL_HYD;
     Evaluator ev = {0};
 
     ev.ev_evaluate = (ev_evaluate_func) hydro_evaluate;
@@ -239,6 +238,7 @@ void hydro_force(void)
     int nuc_particles = 0;
     int nuc_particles_sum;
 #endif
+    walltime_measure("/Misc");
 
 #ifdef WAKEUP
 #pragma omp parallel for
@@ -281,7 +281,7 @@ void hydro_force(void)
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
-    walltime_measure(WALL_HYDMISC);
+    walltime_measure("/SPH/Hydro/Init");
 
     evaluate_begin(&ev);
     do
@@ -417,19 +417,19 @@ void hydro_force(void)
 
     /* collect some timing information */
 
-    timeall += walltime_measure(-1);
+    timeall += walltime_measure(NULL);
 
     timecomp = ev.timecomp1 + ev.timecomp2;
     timewait = ev.timewait1 + ev.timewait2;
     timecomm = ev.timecommsumm1 + ev.timecommsumm2;
 
-    walltime_add(WALL_HYDCOMPUTE, timecomp);
-    walltime_add(WALL_HYDWAIT, timewait);
-    walltime_add(WALL_HYDCOMM, timecomm);
+    walltime_add("/SPH/Hydro/Compute", timecomp);
+    walltime_add("/SPH/Hydro/Wait", timewait);
+    walltime_add("/SPH/Hydro/Comm", timecomm);
 #ifdef NUCLEAR_NETWORK
-    walltime_add(WALL_HYDNETWORK, timenetwork);
+    walltime_add("/SPH/Hydro/Network", timenetwork);
 #endif
-    walltime_add(WALL_HYDMISC, timeall - (timecomp + timewait + timecomm + timenetwork));
+    walltime_add("/SPH/Hydro/Misc", timeall - (timecomp + timewait + timecomm + timenetwork));
 }
 
 static void hydro_copy(int place, struct hydrodata_in * input) {

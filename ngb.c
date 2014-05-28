@@ -471,14 +471,14 @@ void ngb_treebuild(void)
 
     force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
-    walltime_measure(WALL_MISC);
+    walltime_measure("/Misc");
 
 #ifdef DENSITY_INDEPENDENT_SPH_DEBUG
     force_treebuild(N_sph, NULL);
 #else
     force_treebuild(NumPart, NULL);
 #endif
-    walltime_measure(WALL_TREEBUILD);
+    walltime_measure("/Tree/Build");
 
     if(ThisTask == 0)
         printf("Ngb-Tree contruction finished \n");

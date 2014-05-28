@@ -196,7 +196,7 @@ void begrun(void)
             All.NetworkWeakrates);
 #endif
 
-    All.TimeLastRestartFile = CPUThisRun;
+    All.TimeLastRestartFile = 0;
 
     if(RestartFlag == 0 || RestartFlag == 2 || RestartFlag == 3 || RestartFlag == 4 || RestartFlag == 5)
     {
@@ -366,7 +366,7 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         All.Ti_nextoutput = find_next_outputtime(All.Ti_Current);
 
 
-    All.TimeLastRestartFile = CPUThisRun;
+    All.TimeLastRestartFile = 0;
 }
 
 

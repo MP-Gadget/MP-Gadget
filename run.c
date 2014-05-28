@@ -34,7 +34,7 @@ void run(void)
     unlink(contfname);
 
 
-    walltime_measure(WALL_MISC);
+    walltime_measure("/Misc");
 
 #ifdef DENSITY_BASED_SNAPS
     All.nh_next = 10.0;
@@ -110,7 +110,7 @@ void run(void)
             }
 
             /* are we running out of CPU-time ? If yes, interrupt run. */
-            if(CPUThisRun > 0.85 * All.TimeLimitCPU)
+            if(All.CT.ElapsedTime > 0.85 * All.TimeLimitCPU)
             {
                 printf("reaching time-limit. stopping.\n");
                 stopflag = 2;
@@ -144,9 +144,9 @@ void run(void)
         /* is it time to write a regular restart-file? (for security) */
         if(ThisTask == 0)
         {
-            if((CPUThisRun - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile)
+            if((All.CT.ElapsedTime - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile)
             {
-                All.TimeLastRestartFile = CPUThisRun;
+                All.TimeLastRestartFile = All.CT.ElapsedTime;
                 stopflag = 3;
             }
             else
@@ -312,7 +312,6 @@ void find_next_sync_point_and_drift(void)
 
         move_particles(All.Ti_nextoutput);
 
-        walltime_measure(WALL_DRIFT);
 
 #ifdef OUTPUTPOTENTIAL
 #if !defined(EVALPOTENTIAL) || (defined(EVALPOTENTIAL) && defined(RECOMPUTE_POTENTIAL_ON_OUTPUT))
@@ -396,6 +395,7 @@ void find_next_sync_point_and_drift(void)
     generate_permutation_in_active_list();
 #endif
 
+    walltime_measure("/Misc");
     /* drift the active particles, others will be drifted on the fly if needed */
 
     for(i = FirstActiveParticle, NumForceUpdate = 0; i >= 0; i = NextActiveParticle[i])
@@ -412,8 +412,7 @@ void find_next_sync_point_and_drift(void)
         endrun(2);
     }
 
-
-    walltime_measure(WALL_DRIFT);
+    walltime_measure("/Drift");
 }
 
 
@@ -855,7 +854,7 @@ void every_timestep_stuff(void)
 
 void write_cpu_log(void)
 {
-    All.Cadj_Cpu += walltime_get_time(WALL_TREEWALK1) + walltime_get_time(WALL_TREEWALK2);
+    All.Cadj_Cpu += walltime_get_time("/Tree/Walk1") + walltime_get_time("/Tree/Walk2");
 
     int64_t totBlockedPD = -1, totBlockedND = -1;
     int64_t totTotalPD = -1, totTotalND = -1;
@@ -874,18 +873,16 @@ void write_cpu_log(void)
 
         put_symbol(0.0, 1.0, '#');
 
-        fprintf(FdBalance, "Step=%7d  sec=%10.3f  Nf=%2d%09d  %s\n", All.NumCurrentTiStep, walltime_step_max(WALL_ALL),
+        fprintf(FdBalance, "Step=%7d  sec=%10.3f  Nf=%2d%09d  %s\n", All.NumCurrentTiStep, walltime_step_max("/"),
                 (int) (GlobNumForceUpdate / 1000000000), (int) (GlobNumForceUpdate % 1000000000), CPU_String);
         fflush(FdBalance);
     }
 
 
-    CPUThisRun += walltime_step_max(WALL_ALL);
-
     if(ThisTask == 0)
     {
 
-        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads %d\n", All.NumCurrentTiStep, All.Time, NTask, All.NumThreads);
+        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", All.NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
 #ifdef _OPENMP
         fprintf(FdCPU, "Blocked Drifts (Particle Node): %ld %ld\n", totBlockedPD, totBlockedND);
         fprintf(FdCPU, "Total Drifts (Particle Node): %ld %ld\n", totTotalPD, totTotalND);

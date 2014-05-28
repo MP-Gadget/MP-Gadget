@@ -59,7 +59,7 @@ void force_treebuild_simple() {
     if(ThisTask == 0)
         printf("Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
-    walltime_measure(WALL_MISC);
+    walltime_measure("/Misc");
 
 #if defined(SFR) || defined(BLACK_HOLES)
     rearrange_particle_sequence();
@@ -67,7 +67,7 @@ void force_treebuild_simple() {
 
     force_treebuild(NumPart, NULL);
 
-    walltime_measure(WALL_TREEBUILD);
+    walltime_measure("/Tree/Build");
 
     if(ThisTask == 0)
         printf("Tree construction done.\n");
@@ -1987,6 +1987,7 @@ void force_update_hmax(void)
     int *counts, *offset_list, *offset_hmax;
     MyFloat *domainHmax_loc, *domainHmax_all;
 
+    walltime_measure("/Misc");
     GlobFlag++;
 
     DomainNumChanged = 0;
@@ -2104,7 +2105,7 @@ void force_update_hmax(void)
     myfree(counts);
     myfree(DomainList);
 
-    walltime_measure(WALL_TREEHMAXUPDATE);
+    walltime_measure("/Tree/HmaxUpdate");
 }
 
 

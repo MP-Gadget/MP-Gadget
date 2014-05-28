@@ -102,7 +102,7 @@ void domain_Decomposition(void)
     size_t bytes, all_bytes;
     double t0, t1;
 
-        walltime_measure(WALL_MISC);
+        walltime_measure("/Misc");
 
         move_particles(All.Ti_Current);
 
@@ -235,7 +235,7 @@ void domain_Decomposition(void)
             fflush(stdout);
         }
 
-        walltime_measure(WALL_DOMAIN);
+        walltime_measure("/Domain/Decompose");
 
 #ifdef PEANOHILBERT
 #ifdef SUBFIND
@@ -243,7 +243,7 @@ void domain_Decomposition(void)
 #endif
             peano_hilbert_order();
 
-        walltime_measure(WALL_PEANO);
+        walltime_measure("/Domain/Peano");
 #endif
 
         memmove(TopNodes + NTopnodes, DomainTask, NTopnodes * sizeof(int));
@@ -258,6 +258,7 @@ void domain_Decomposition(void)
         DomainTask = (int *) (TopNodes + NTopnodes);
 
         reconstruct_timebins();
+        walltime_measure("/Domain/Misc");
 }
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */

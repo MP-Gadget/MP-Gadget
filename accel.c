@@ -43,7 +43,7 @@ void compute_accelerations(int mode)
     heating();
 #endif
 
-    walltime_measure(WALL_MISC);
+    walltime_measure("/Misc");
 
 #ifdef PMGRID
     if(All.PM_Ti_endstep == All.Ti_Current)
@@ -59,7 +59,7 @@ void compute_accelerations(int mode)
         petapm_finish();
 #endif
 
-        walltime_measure(WALL_MESH);
+        walltime_measure("/LongRange");
 
     }
 #endif
@@ -241,7 +241,6 @@ void compute_accelerations(int mode)
         cooling_only();
 #endif
 
-        walltime_measure(WALL_COOLINGSFR);
 #endif /*ends COOLING */
 
 #ifdef CHEMCOOL

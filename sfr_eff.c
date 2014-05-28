@@ -96,6 +96,8 @@ void cooling_and_starformation(void)
     u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
         * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 
+    walltime_measure("/Misc");
+
 #ifdef FLTROUNDOFFREDUCTION
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
@@ -215,7 +217,7 @@ void cooling_and_starformation(void)
                 total_sum_mass_stars);
         fflush(FdSfr);
     }
-
+    walltime_measure("/Cooling/StarFormation");
     /* now lets make winds. this has to be after NumPart is updated */
     if(!HAS(All.WindModel, WINDS_SUBGRID)) {
         int i;
@@ -298,6 +300,7 @@ void cooling_and_starformation(void)
         myfree(Wind);
         myfree(Ngblist);
     }
+    walltime_measure("/Cooling/Wind");
 }
 
 static void cooling_direct(int i) {

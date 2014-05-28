@@ -148,9 +148,6 @@ double a3inv, afac;
 
 void density(void)
 {
-    int _clockid0 = WALL_SPH;
-    int _clockid = WALL_DENS;
-
     MyFloat *Left, *Right;
 
     Evaluator ev = {0};
@@ -207,7 +204,7 @@ void density(void)
         mu0 /= (All.HubbleParam * All.HubbleParam);
 #endif
 #endif
-    walltime_measure(WALL_DENSMISC);
+    walltime_measure("/Misc");
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
@@ -231,7 +228,7 @@ void density(void)
 
     /* allocate buffers to arrange communication */
 
-    walltime_measure(WALL_MISC);
+    walltime_measure("/SPH/Density/Init");
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do
@@ -356,16 +353,16 @@ void density(void)
 
     /* collect some timing information */
 
-    timeall = walltime_measure(-1);
+    timeall = walltime_measure(NULL);
 
     timecomp = timecomp3 + ev.timecomp1 + ev.timecomp2;
     timewait = ev.timewait1 + ev.timewait2;
     timecomm = ev.timecommsumm1 + ev.timecommsumm2;
 
-    walltime_add(WALL_DENSCOMPUTE, timecomp);
-    walltime_add(WALL_DENSWAIT, timewait);
-    walltime_add(WALL_DENSCOMM, timecomm);
-    walltime_add(WALL_DENSMISC, timeall - (timecomp + timewait + timecomm));
+    walltime_add("/SPH/Density/Compute", timecomp);
+    walltime_add("/SPH/Density/Wait", timewait);
+    walltime_add("/SPH/Density/Comm", timecomm);
+    walltime_add("/SPH/Density/Misc", timeall - (timecomp + timewait + timecomm));
 }
 
 double density_decide_hsearch(int targettype, double h) {

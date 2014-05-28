@@ -55,8 +55,6 @@ int Color;
 MPI_Comm MPI_CommLocal;
 #endif
 
-double CPUThisRun;		/*!< Sums CPU time of current process */
-
 int NumForceUpdate;		/*!< number of active particles on local processor in current timestep  */
 int64_t GlobNumForceUpdate;
 int NumSphUpdate;		/*!< number of active SPH particles on local processor in current timestep  */

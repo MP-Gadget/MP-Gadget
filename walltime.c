@@ -7,12 +7,21 @@
 static struct ClockTable * CT = NULL;
 
 static double WallTimeClock;
+static double LastReportTime;
+
+static void walltime_clock_insert(char * name);
+static void walltime_summary_clocks(struct Clock * C, int N);
+static void walltime_update_parents();
+static double seconds();
 
 void walltime_init(struct ClockTable * ct) {
     CT = ct;
     CT->Nmax = 128;
     CT->N = 0;
+    CT->ElapsedTime = 0;
     walltime_reset();
+    walltime_clock_insert("/");
+    LastReportTime = seconds();
 }
 
 static void walltime_summary_clocks(struct Clock * C, int N) {
@@ -56,12 +65,22 @@ void walltime_summary() {
     for(i = 0; i < CT->N; i ++) {
         CT->C[i].time = 0;
     }
+    /* wo do this here because all processes are sync after summary_clocks*/
+    double step_all = seconds() - LastReportTime;
+    printf("step_all = %g\n", step_all);
+    LastReportTime = seconds();
+    CT->ElapsedTime += step_all;
+    CT->StepTime = step_all;
 }
-static int clockcmp(struct Clock * p1, struct Clock * p2) {
+
+static int clockcmp(const void * c1, const void * c2) {
+    const struct Clock * p1 = c1;
+    const struct Clock * p2 = c2;
     return strcmp(p1->name, p2->name);
 }
 
 static void walltime_clock_insert(char * name) {
+    if(name[0] != '/') abort();
     if(strlen(name) > 1) {
         char tmp[80];
         strcpy(tmp, name);
@@ -97,17 +116,13 @@ int walltime_clock(char * name) {
     return rt - CT->C;
 };
 
-char * walltime_get_name(int id) {
-    return CT->C[id].name;
-}
-
-char walltime_get_symbol(int id) {
+char walltime_get_symbol(char * name) {
+    int id = walltime_clock(name);
     return CT->C[id].symbol;
 }
 
-static double seconds();
-
-double walltime_get(int id, enum clocktype type) {
+double walltime_get(char * name, enum clocktype type) {
+    int id = walltime_clock(name);
     /* only make sense on root */
     switch(type) {
         case CLOCK_STEP_MEAN:
@@ -125,7 +140,8 @@ double walltime_get(int id, enum clocktype type) {
     }
     return 0;
 }
-double walltime_get_time(int id) {
+double walltime_get_time(char * name) {
+    int id = walltime_clock(name);
     return CT->C[id].time;
 }
 
@@ -153,15 +169,19 @@ void walltime_reset() {
     WallTimeClock = seconds();
 }
 
-double walltime_add(int id, double dt) {
+double walltime_add(char * name, double dt) {
+    int id = walltime_clock(name);
     CT->C[id].time += dt;
     return dt;
 }
-double walltime_measure(int id) {
+double walltime_measure(char * name) {
     double t = seconds();
     double dt = t - WallTimeClock;
-    if(id >= 0) CT->C[id].time += dt;
     WallTimeClock = seconds();
+    if(name != NULL) {
+        int id = walltime_clock(name);
+        CT->C[id].time += dt;
+    }
     return dt;
 }
 
@@ -182,17 +202,16 @@ static double seconds(void)
 }
 void walltime_report(FILE * fp) {
     int i; 
-    double step_all = walltime_step_max(WALL_ALL);
-    double accu_all = walltime_accu_max(WALL_ALL);
     for(i = 0; i < CT->N; i ++) {
+        char * name = CT->C[i].name;
         fprintf(fp, "%-26s  %10.2f %4.1f%%  %10.2f %4.1f%%  %10.2f %10.2f\n",
-                walltime_get_name(i),
-                walltime_accu_mean(i),
-                walltime_accu_mean(i) / accu_all * 100.,
-                walltime_step_mean(i),
-                walltime_step_mean(i) / step_all * 100.,
-                walltime_step_max(i),
-                walltime_step_min(i)
+                CT->C[i].name,
+                CT->AC[i].mean,
+                CT->AC[i].mean / CT->ElapsedTime * 100.,
+                CT->C[i].mean,
+                CT->C[i].mean / CT->StepTime * 100.,
+                CT->C[i].min,
+                CT->C[i].max
                 );
     }
 }

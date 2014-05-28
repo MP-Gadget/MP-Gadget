@@ -152,7 +152,7 @@ void fof_fof(int num)
         fflush(stdout);
     }
 
-    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
+    walltime_measure("/Misc");
 
     domain_Decomposition();
 
@@ -206,8 +206,6 @@ void fof_fof(int num)
     Next = (MyIDType *) mymalloc("Next", NumPart * sizeof(MyIDType));
     Tail = (MyIDType *) mymalloc("Tail", NumPart * sizeof(MyIDType));
 
-    CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
-
     if(ThisTask == 0)
         printf("Tree construction.\n");
 
@@ -222,6 +220,7 @@ void fof_fof(int num)
 
     force_treebuild(n, d);
 
+    walltime_measure("/FOF/Build");
     myfree(d);
 
 
@@ -242,11 +241,12 @@ void fof_fof(int num)
     t1 = second();
     if(ThisTask == 0)
         printf("group finding took = %g sec\n", timediff(t0, t1));
-
+    walltime_measure("/FOF/FindGroups");
 
     t0 = second();
 
     fof_find_nearest_dmparticle();
+    walltime_measure("/FOF/NearestDM");
 
     t1 = second();
     if(ThisTask == 0)
@@ -319,6 +319,7 @@ void fof_fof(int num)
                     (int) (TotNids / 1000000000), (int) (TotNids % 1000000000));
         }
     }
+    walltime_measure("/FOF/Compile");
 
     t0 = second();
 
@@ -363,6 +364,7 @@ void fof_fof(int num)
 
     fof_finish_group_properties();
 
+    walltime_measure("/FOF/Prop");
     t1 = second();
     if(ThisTask == 0)
         printf("computation of group properties took = %g sec\n", timediff(t0, t1));
@@ -382,7 +384,7 @@ void fof_fof(int num)
         multi_bubbles();
 #endif
 
-    CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
+    walltime_measure("/FOF/Misc");
 
     if(num >= 0)
     {
@@ -391,6 +393,7 @@ void fof_fof(int num)
         subfind(num);
 #endif
     }
+    walltime_measure("/FOF/IO");
 
     myfree(Group);
 
@@ -405,12 +408,11 @@ void fof_fof(int num)
     }
 
 
-    CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
-
 #ifdef SUBFIND
     domain_Decomposition();
 #endif
 
+    walltime_measure("/FOF/MISC");
     force_treebuild_simple();
 }
 
