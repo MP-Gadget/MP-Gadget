@@ -41,6 +41,8 @@
 #include "f2c.h"
 #endif
 
+#include "walltime.h"
+
 #ifdef MPISENDRECV_CHECKSUM
 #define MPI_Sendrecv MPI_Check_Sendrecv
 #endif
@@ -870,6 +872,7 @@ extern struct global_data_all_processes
 
     double TimeLimitCPU;
     double CPU_Sum[CPU_PARTS];    /*!< sums wallclock time/CPU consumption in whole run */
+    struct ClockTable CT;
 
     /* tree code opening criterion */
 

@@ -34,7 +34,7 @@ void run(void)
     unlink(contfname);
 
 
-    CPU_Step[CPU_MISC] += measure_time();
+    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
 #ifdef DENSITY_BASED_SNAPS
     All.nh_next = 10.0;
@@ -312,7 +312,7 @@ void find_next_sync_point_and_drift(void)
 
         move_particles(All.Ti_nextoutput);
 
-        CPU_Step[CPU_DRIFT] += measure_time();
+        CPU_Step[CPU_DRIFT] += walltime_measure(WALL_DRIFT);
 
 #ifdef OUTPUTPOTENTIAL
 #if !defined(EVALPOTENTIAL) || (defined(EVALPOTENTIAL) && defined(RECOMPUTE_POTENTIAL_ON_OUTPUT))
@@ -413,7 +413,7 @@ void find_next_sync_point_and_drift(void)
     }
 
 
-    CPU_Step[CPU_DRIFT] += measure_time();
+    CPU_Step[CPU_DRIFT] += walltime_measure(WALL_DRIFT);
 }
 
 
@@ -858,9 +858,10 @@ void write_cpu_log(void)
     double max_CPU_Step[CPU_PARTS], avg_CPU_Step[CPU_PARTS], t0, t1, tsum;
     int i;
 
-    CPU_Step[CPU_MISC] += measure_time();
+    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
-    All.Cadj_Cpu += CPU_Step[CPU_TREEWALK1] + CPU_Step[CPU_TREEWALK2];
+    All.Cadj_Cpu += walltime_get_time(WALL_TREEWALK1) + walltime_get_time(WALL_TREEWALK2);
+
 
     for(i = 1, CPU_Step[0] = 0; i < CPU_PARTS; i++)
         CPU_Step[0] += CPU_Step[i];
@@ -877,6 +878,8 @@ void write_cpu_log(void)
     MPI_Reduce(&TotalParticleDrifts, &totTotalPD, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&TotalNodeDrifts, &totTotalND, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
 #endif
+
+    walltime_summary();
 
     if(ThisTask == 0)
     {
@@ -903,12 +906,14 @@ void write_cpu_log(void)
 
         put_symbol(tsum / max_CPU_Step[0], 1.0, '-');
 
-        fprintf(FdBalance, "Step=%7d  sec=%10.3f  Nf=%2d%09d  %s\n", All.NumCurrentTiStep, max_CPU_Step[0],
+        fprintf(FdBalance, "Step=%7d  sec=%10.3f  Nf=%2d%09d  %s\n", All.NumCurrentTiStep, walltime_step_max(WALL_ALL),
                 (int) (GlobNumForceUpdate / 1000000000), (int) (GlobNumForceUpdate % 1000000000), CPU_String);
         fflush(FdBalance);
     }
 
-    CPUThisRun += CPU_Step[0];
+
+    //CPUThisRun += CPU_Step[0];
+    CPUThisRun += walltime_step_max(WALL_ALL);
 
     for(i = 0; i < CPU_PARTS; i++)
         CPU_Step[i] = 0;
@@ -1021,6 +1026,12 @@ void write_cpu_log(void)
             (All.CPU_Sum[CPU_CSMISC]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_MISC],
             (All.CPU_Sum[CPU_MISC]) / All.CPU_Sum[CPU_ALL] * 100);
         fprintf(FdCPU, "\n");
+        fflush(FdCPU);
+    }
+
+
+    if(ThisTask == 0)  {
+        walltime_report(FdCPU);
         fflush(FdCPU);
     }
 }

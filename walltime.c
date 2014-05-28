@@ -4,103 +4,149 @@
 #include <stdio.h>
 #include "walltime.h"
 
-struct ClockTable {
-    int Nmax;
-    int N;
-    struct Clock * C;
-} CT = {0};
-
-struct Clock {
-    char * name;
-    double accum;
-    double time;
-    double max;
-    double min;
-    double mean;
-    char symbol;
-    int parent;
-};
+static struct ClockTable * CT = NULL;
 
 static double WallTimeClock;
 
-void walltime_init() {
-    CT.C = (struct Clock *) malloc(sizeof(struct Clock) * 4096);
-    CT.Nmax = 4096;
-    CT.N = 0;
+void walltime_init(struct ClockTable * ct) {
+    CT = ct;
+    CT->Nmax = 128;
+    CT->N = 0;
     walltime_reset();
 }
 
-/* put min max mean of MPI ranks to rank 0*/
-void walltime_summary() {
-    double t[CT.N];
-    double min[CT.N];
-    double max[CT.N];
-    double sum[CT.N];
+static void walltime_summary_clocks(struct Clock * C, int N) {
+    double t[N];
+    double min[N];
+    double max[N];
+    double sum[N];
     int i;
-    for(i = 0; i < CT.N; i ++) {
-        t[i] = CT.C[i].time;
+    for(i = 0; i < CT->N; i ++) {
+        t[i] = C[i].time;
     }
-    MPI_Reduce(t, min, CT.N, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-    MPI_Reduce(t, max, CT.N, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(t, sum, CT.N, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(t, min, N, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
+    MPI_Reduce(t, max, N, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(t, sum, N, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+
+    int NTask;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    /* min, max and mean are good only on process 0 */
+    for(i = 0; i < CT->N; i ++) {
+        C[i].min = min[i];
+        C[i].max = max[i];
+        C[i].mean = sum[i] / NTask;
+    }
+}
+
+/* put min max mean of MPI ranks to rank 0*/
+/* AC will have the total timing, C will have the current step information */
+void walltime_summary() {
+    walltime_update_parents();
+    int i;
     int N = 0;
     int rank = 0;
-    MPI_Comm_size(MPI_COMM_WORLD, &N);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    /* min, max and mean are good only on process 0 */
-    for(i = 0; i < CT.N; i ++) {
-        CT.C[i].min = min[i];
-        CT.C[i].max = max[i];
-        CT.C[i].mean = sum[i] / N;
-        CT.C[i].accum += CT.C[i].mean;
-        CT.C[i].time = 0;
+    /* add to the cumulative time */
+    for(i = 0; i < CT->N; i ++) {
+        CT->AC[i].time += CT->C[i].time;
+    }
+    walltime_summary_clocks(CT->C, CT->N);
+    walltime_summary_clocks(CT->AC, CT->N);
+
+    /* clear .time for next step */
+    for(i = 0; i < CT->N; i ++) {
+        CT->C[i].time = 0;
     }
 }
 static int clockcmp(struct Clock * p1, struct Clock * p2) {
     return strcmp(p1->name, p2->name);
 }
 
-int walltime_clock(char * name) {
-    if(CT.Nmax == 0) {
-        walltime_init();
-    }
-    struct Clock dummy;
-    dummy.name = name;
-    struct Clock * rt = bsearch(&dummy, CT.C, CT.N, sizeof(struct Clock), clockcmp);
-    if(rt == NULL) {
-        if(CT.N == CT.Nmax) {
-            CT.C = (struct Clock*) realloc(CT.C, sizeof(struct Clock) * CT.N * 2);
-            CT.Nmax = CT.N * 2;
+static void walltime_clock_insert(char * name) {
+    if(strlen(name) > 1) {
+        char tmp[80];
+        strcpy(tmp, name);
+        char * p;
+        int parent = walltime_clock("/");
+        for(p = tmp + 1; *p; p ++) {
+            if (*p == '/') {
+                *p = 0;
+                int parent = walltime_clock(tmp);
+                *p = '/';
+            }
         }
-        CT.C[CT.N].name = strdup(name);
-        CT.N ++;
-        qsort(CT.C, CT.N, sizeof(struct Clock), clockcmp);
-        rt = bsearch(&dummy, CT.C, CT.N, sizeof(struct Clock), clockcmp);
     }
-    return rt - CT.C;
+    if(CT->N == CT->Nmax) {
+        /* too many counters */
+        abort();
+    }
+    strcpy(CT->C[CT->N].name, name);
+    strcpy(CT->AC[CT->N].name, CT->C[CT->N].name);
+    CT->N ++;
+    qsort(CT->C, CT->N, sizeof(struct Clock), clockcmp);
+    qsort(CT->AC, CT->N, sizeof(struct Clock), clockcmp);
+}
+
+int walltime_clock(char * name) {
+    struct Clock dummy;
+    strcpy(dummy.name, name);
+    struct Clock * rt = bsearch(&dummy, CT->C, CT->N, sizeof(struct Clock), clockcmp);
+    if(rt == NULL) {
+        walltime_clock_insert(name);
+        rt = bsearch(&dummy, CT->C, CT->N, sizeof(struct Clock), clockcmp);
+    }
+    return rt - CT->C;
 };
 
 char * walltime_get_name(int id) {
-    return CT.C[id].name;
+    return CT->C[id].name;
 }
 
 char walltime_get_symbol(int id) {
-    return CT.C[id].symbol;
+    return CT->C[id].symbol;
 }
 
 static double seconds();
 
-double walltime_get_mean(int id) {
-    /* returns the sum of every clock with the same prefix */
-    char * prefix = CT.C[id].name;
-    int i = 0;
-    double t = 0;
-    for(i = 0; i < CT.N; i ++) {
-        if(!strncmp(prefix, CT.C[i].name, strlen(prefix))) {
-            t += CT.C[i].mean;
-        }
+double walltime_get(int id, enum clocktype type) {
+    /* only make sense on root */
+    switch(type) {
+        case CLOCK_STEP_MEAN:
+            return CT->C[id].mean;
+        case CLOCK_STEP_MIN:
+            return CT->C[id].min;
+        case CLOCK_STEP_MAX:
+            return CT->C[id].max;
+        case CLOCK_ACCU_MEAN:
+            return CT->AC[id].mean;
+        case CLOCK_ACCU_MIN:
+            return CT->AC[id].min;
+        case CLOCK_ACCU_MAX:
+            return CT->AC[id].max;
     }
-    return t;
+    return 0;
+}
+double walltime_get_time(int id) {
+    return CT->C[id].time;
+}
+
+static void walltime_update_parents() {
+    /* returns the sum of every clock with the same prefix */
+    int i = 0;
+    for(i = 0; i < CT->N; i ++) {
+        int j;
+        char * prefix = CT->C[i].name;
+        int l = strlen(prefix);
+        double t = 0;
+        for(j = i + 1; j < CT->N; j++) {
+            if(0 == strncmp(prefix, CT->C[j].name, l)) {
+                t += CT->C[j].time;
+            } else {
+                break;
+            }
+        }
+        /* update only if there are children */
+        if (t > 0) CT->C[i].time = t;
+    }
 }
 
 void walltime_reset() {
@@ -108,13 +154,13 @@ void walltime_reset() {
 }
 
 double walltime_add(int id, double dt) {
-    CT.C[id].time += dt;
+    CT->C[id].time += dt;
     return dt;
 }
 double walltime_measure(int id) {
     double t = seconds();
     double dt = t - WallTimeClock;
-    if(id >= 0) CT.C[id].time += dt;
+    if(id >= 0) CT->C[id].time += dt;
     WallTimeClock = seconds();
     return dt;
 }
@@ -134,18 +180,21 @@ static double seconds(void)
    * clock() has only a resolution of 10ms=0.01sec 
    */
 }
-
 void walltime_report(FILE * fp) {
     int i; 
-    double all = walltime_get_mean(WALL_ALL);
-    for(i = 0; i < CT.N; i ++) {
-        fprintf(fp, "%-18s    %10.2f   %4.1f%%\n",
+    double step_all = walltime_step_max(WALL_ALL);
+    double accu_all = walltime_accu_max(WALL_ALL);
+    for(i = 0; i < CT->N; i ++) {
+        fprintf(fp, "%-26s  %10.2f %4.1f%%  %10.2f %4.1f%%  %10.2f %10.2f\n",
                 walltime_get_name(i),
-                walltime_get_mean(i),
-                walltime_get_mean(i) / all * 100.
+                walltime_accu_mean(i),
+                walltime_accu_mean(i) / accu_all * 100.,
+                walltime_step_mean(i),
+                walltime_step_mean(i) / step_all * 100.,
+                walltime_step_max(i),
+                walltime_step_min(i)
                 );
     }
-
 }
 #if 0
 #define HELLO atom(&atomtable, "Hello")

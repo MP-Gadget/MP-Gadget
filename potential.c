@@ -40,7 +40,7 @@ void compute_potential(void)
       fflush(stdout);
     }
 
-  CPU_Step[CPU_MISC] += measure_time();
+  CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
   /* allocate buffers to arrange communication */
   All.BunchSize =
@@ -313,7 +313,7 @@ void compute_potential(void)
     P[i].Potential = 0;
 #endif
 
-  CPU_Step[CPU_POTENTIAL] += measure_time();
+  CPU_Step[CPU_POTENTIAL] += walltime_measure(WALL_POTENTIAL);
 }
 
 

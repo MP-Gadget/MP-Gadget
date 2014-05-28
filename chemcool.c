@@ -16,7 +16,7 @@ double do_chemcool(int part_index, double dt)
   double timestep, yn, energy, energy_old, entropy_new, dl, divv, column_est, t_start, Utherm_new, du;
   double abundances[TRAC_NUM], y[NSPEC], ydot[NSPEC], rpar[NRPAR];
 
-  CPU_Step[CPU_MISC] += measure_time();
+  CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
   column_est = divv = 0;
 
@@ -126,6 +126,6 @@ double do_chemcool(int part_index, double dt)
       return dt;
     }
 
-  CPU_Step[CPU_COOLINGSFR] += measure_time();
+  CPU_Step[CPU_COOLINGSFR] += walltime_measure(WALL_COOLINGSFR);
 }
 #endif

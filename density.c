@@ -148,10 +148,13 @@ double a3inv, afac;
 
 void density(void)
 {
+    int _clockid0 = WALL_SPH;
+    int _clockid = WALL_DENS;
+
     MyFloat *Left, *Right;
 
     Evaluator ev = {0};
-
+   
     ev.ev_evaluate = (ev_evaluate_func) density_evaluate;
     ev.ev_isactive = density_isactive;
     ev.ev_alloc = density_alloc_ngblist;
@@ -168,7 +171,7 @@ void density(void)
     double timeall = 0;
     double timecomp, timecomp3 = 0, timecomm, timewait;
 
-    double dt_entr, tstart, tend, t0, t1;
+    double dt_entr, tstart, tend;
 
     int64_t n_exported = 0;
 
@@ -204,7 +207,7 @@ void density(void)
         mu0 /= (All.HubbleParam * All.HubbleParam);
 #endif
 #endif
-    CPU_Step[CPU_DENSMISC] += measure_time();
+    CPU_Step[CPU_DENSMISC] += walltime_measure(WALL_DENSMISC);
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
@@ -228,7 +231,7 @@ void density(void)
 
     /* allocate buffers to arrange communication */
 
-    t0 = second();
+    CPU_Step[CPU_MISC] = walltime_measure(WALL_MISC);
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do
@@ -353,17 +356,16 @@ void density(void)
 
     /* collect some timing information */
 
-    t1 = WallclockTime = second();
-    timeall += timediff(t0, t1);
+    timeall = walltime_measure(-1);
 
     timecomp = timecomp3 + ev.timecomp1 + ev.timecomp2;
     timewait = ev.timewait1 + ev.timewait2;
     timecomm = ev.timecommsumm1 + ev.timecommsumm2;
 
-    CPU_Step[CPU_DENSCOMPUTE] += timecomp;
-    CPU_Step[CPU_DENSWAIT] += timewait;
-    CPU_Step[CPU_DENSCOMM] += timecomm;
-    CPU_Step[CPU_DENSMISC] += timeall - (timecomp + timewait + timecomm);
+    CPU_Step[CPU_DENSCOMPUTE] += walltime_add(WALL_DENSCOMPUTE, timecomp);
+    CPU_Step[CPU_DENSWAIT] += walltime_add(WALL_DENSWAIT, timewait);
+    CPU_Step[CPU_DENSCOMM] += walltime_add(WALL_DENSCOMM, timecomm);
+    CPU_Step[CPU_DENSMISC] += walltime_add(WALL_DENSMISC, timeall - (timecomp + timewait + timecomm));
 }
 
 double density_decide_hsearch(int targettype, double h) {

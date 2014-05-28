@@ -109,7 +109,7 @@ void smoothed_values(void)
     DataNodeList =
         (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
 
-    CPU_Step[CPU_SMTHMISC] += measure_time();
+    CPU_Step[CPU_SMTHMISC] += walltime_measure(WALL_SMTHMISC);
     t0 = second();
 
     i = FirstActiveParticle;	/* begin with this index */

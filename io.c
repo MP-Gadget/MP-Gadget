@@ -39,7 +39,7 @@ void savepositions(int num)
     char buf[500];
     int n, filenr, gr, ngroups, masterTask, lastTask;
 
-    CPU_Step[CPU_MISC] += measure_time();
+    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
 #if defined(SFR) || defined(BLACK_HOLES)
     rearrange_particle_sequence();
@@ -163,7 +163,7 @@ void savepositions(int num)
         if(ThisTask == 0)
             printf("done with snapshot.\n");
 
-        CPU_Step[CPU_SNAPSHOT] += measure_time();
+        CPU_Step[CPU_SNAPSHOT] += walltime_measure(WALL_SNAPSHOT);
 
 #ifdef SUBFIND_RESHUFFLE_CATALOGUE
         endrun(0);
@@ -179,7 +179,7 @@ void savepositions(int num)
     if(ThisTask == 0)
         printf("done with group catalogue.\n");
 
-    CPU_Step[CPU_FOF] += measure_time();
+    CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
 #endif
 
 #ifdef POWERSPEC_ON_OUTPUT
@@ -191,7 +191,7 @@ void savepositions(int num)
     if(ThisTask == 0)
         printf("done with power spectra.\n");
 
-    CPU_Step[CPU_MISC] += measure_time();
+    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 #endif
 }
 

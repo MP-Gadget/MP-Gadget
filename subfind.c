@@ -95,7 +95,7 @@ void subfind(int num)
                 if(ThisTask == 0)
                     printf("Tree construction for species %d (%ld).\n", j, countall[j]);
 
-                CPU_Step[CPU_FOF] += measure_time();
+                CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
 
                 force_treebuild(count[j], d);
 
@@ -111,7 +111,7 @@ void subfind(int num)
                 if(ThisTask == 0)
                     printf("Tree construction.\n");
 
-                CPU_Step[CPU_FOF] += measure_time();
+                CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
 
                 force_treebuild(NumPart, NULL);
 
@@ -156,7 +156,7 @@ void subfind(int num)
             if(ThisTask == 0)
                 printf("Tree construction for species %d (%ld).\n", j, countall[j]);
 
-            CPU_Step[CPU_FOF] += measure_time();
+            CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
 
             force_treebuild(count[j], d);
 
@@ -214,7 +214,7 @@ void subfind(int num)
     if(ThisTask == 0)
         printf("Tree construction.\n");
 
-    CPU_Step[CPU_FOF] += measure_time();
+    CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
 
     force_treebuild(NumPart, NULL);
 
@@ -407,7 +407,7 @@ void subfind(int num)
 
     /* now determine the remaining spherical overdensity values for the non-local groups */
 
-    CPU_Step[CPU_FOF] += measure_time();
+    CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
 
 
 #ifdef DENSITY_SPLIT_BY_TYPE
@@ -479,7 +479,7 @@ void subfind(int num)
 
     myfree(SubGroup);
 
-    CPU_Step[CPU_FOF] += measure_time();
+    CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
 }
 
 

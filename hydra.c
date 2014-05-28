@@ -177,6 +177,7 @@ static double hubble_a, atime, hubble_a2, fac_mu, fac_vsic_fix, a3inv, fac_egy;
  */
 void hydro_force(void)
 {
+    int _clockid = WALL_HYD;
     Evaluator ev = {0};
 
     ev.ev_evaluate = (ev_evaluate_func) hydro_evaluate;
@@ -195,7 +196,7 @@ void hydro_force(void)
     int i, j, k, ngrp, ndone, ndone_flag;
     int sendTask, recvTask, place;
     double timeall = 0, timenetwork = 0;
-    double timecomp, timecomm, timewait, tstart, tend, t0, t1;
+    double timecomp, timecomm, timewait, tstart, tend;
 
     int64_t n_exported = 0;
 
@@ -280,8 +281,7 @@ void hydro_force(void)
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
-    CPU_Step[CPU_HYDMISC] += measure_time();
-    t0 = second();
+    CPU_Step[CPU_HYDMISC] += walltime_measure(WALL_HYDMISC);
 
     evaluate_begin(&ev);
     do
@@ -417,18 +417,19 @@ void hydro_force(void)
 
     /* collect some timing information */
 
-    t1 = WallclockTime = second();
-    timeall += timediff(t0, t1);
+    timeall += walltime_measure(-1);
 
     timecomp = ev.timecomp1 + ev.timecomp2;
     timewait = ev.timewait1 + ev.timewait2;
     timecomm = ev.timecommsumm1 + ev.timecommsumm2;
 
-    CPU_Step[CPU_HYDCOMPUTE] += timecomp;
-    CPU_Step[CPU_HYDWAIT] += timewait;
-    CPU_Step[CPU_HYDCOMM] += timecomm;
-    CPU_Step[CPU_HYDNETWORK] += timenetwork;
-    CPU_Step[CPU_HYDMISC] += timeall - (timecomp + timewait + timecomm + timenetwork);
+    CPU_Step[CPU_HYDCOMPUTE] += walltime_add(WALL_HYDCOMPUTE, timecomp);
+    CPU_Step[CPU_HYDWAIT] += walltime_add(WALL_HYDWAIT, timewait);
+    CPU_Step[CPU_HYDCOMM] += walltime_add(WALL_HYDCOMM, timecomm);
+#ifdef NUCLEAR_NETWORK
+    CPU_Step[CPU_HYDNETWORK] += walltime_add(WALL_HYDNETWORK, timenetwork);
+#endif
+    CPU_Step[CPU_HYDMISC] += walltime_add(WALL_HYDMISC, timeall - (timecomp + timewait + timecomm + timenetwork));
 }
 
 static void hydro_copy(int place, struct hydrodata_in * input) {

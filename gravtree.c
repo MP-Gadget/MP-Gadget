@@ -187,9 +187,9 @@ void calculate_centre_of_mass(void)
  */
 void gravity_tree(void)
 {
+    int _clockid = WALL_TREE;
     int64_t n_exported = 0;
     int i, j, maxnumnodes, iter = 0;
-    double t0, t1;
     double timeall = 0, timetree1 = 0, timetree2 = 0;
     double timetree, timewait, timecomm;
     double timecommsumm1 = 0, timecommsumm2 = 0, timewait1 = 0, timewait2 = 0;
@@ -244,7 +244,7 @@ void gravity_tree(void)
         ev[Ewald_iter].ev_copy = (ev_copy_func) gravtree_copy;
     }
 #ifndef GRAVITY_CENTROID
-    CPU_Step[CPU_MISC] += measure_time();
+    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
     /* set new softening lengths */
 #ifndef SIM_ADAPTIVE_SOFT
@@ -339,8 +339,7 @@ void gravity_tree(void)
     if(ThisTask == 0)
         printf("Begin tree force.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
-    CPU_Step[CPU_TREEMISC] += measure_time();
-    t0 = second();
+    CPU_Step[CPU_TREEMISC] += walltime_measure(WALL_TREEMISC);
 
 #if 0 //def SCF_HYBRID
     int scf_counter;
@@ -509,8 +508,8 @@ void gravity_tree(void)
         printf("tree is done.\n");
 
 #else /* gravity is switched off */
-    t0 = second();
 
+    CPU_Step[CPU_TREEMISC] += walltime_measure(WALL_TREEMISC);
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
         for(j = 0; j < 3; j++)
             P[i].g.GravAccel[j] = 0;
@@ -540,8 +539,7 @@ void gravity_tree(void)
 
     /* Now the force computation is finished */
 
-    t1 = WallclockTime = second();
-    timeall += timediff(t0, t1);
+    timeall = walltime_measure(-1);
 
     /*  gather some diagnostic information */
     for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++) {
@@ -576,13 +574,13 @@ void gravity_tree(void)
     MPI_Reduce(&plb, &plb_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     MPI_Reduce(&Numnodestree, &maxnumnodes, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
 
-    CPU_Step[CPU_TREEMISC] += timeall - (timetree + timewait + timecomm);
-    CPU_Step[CPU_TREEWALK1] += timetree1;
-    CPU_Step[CPU_TREEWALK2] += timetree2;
-    CPU_Step[CPU_TREESEND] += timecommsumm1;
-    CPU_Step[CPU_TREERECV] += timecommsumm2;
-    CPU_Step[CPU_TREEWAIT1] += timewait1;
-    CPU_Step[CPU_TREEWAIT2] += timewait2;
+    CPU_Step[CPU_TREEMISC] += walltime_add(WALL_TREEMISC, timeall - (timetree + timewait + timecomm));
+    CPU_Step[CPU_TREEWALK1] += walltime_add(WALL_TREEWALK1, timetree1);
+    CPU_Step[CPU_TREEWALK2] += walltime_add(WALL_TREEWALK2, timetree2);
+    CPU_Step[CPU_TREESEND] += walltime_add(WALL_TREESEND, timecommsumm1);
+    CPU_Step[CPU_TREERECV] += walltime_add(WALL_TREERECV, timecommsumm2);
+    CPU_Step[CPU_TREEWAIT1] += walltime_add(WALL_TREEWAIT1, timewait1);
+    CPU_Step[CPU_TREEWAIT2] += walltime_add(WALL_TREEWAIT2, timewait2);
 
 
 #ifdef FIXEDTIMEINFIRSTPHASE
@@ -619,7 +617,7 @@ void gravity_tree(void)
         fflush(FdTimings);
     }
 
-    CPU_Step[CPU_TREEMISC] += measure_time();
+    CPU_Step[CPU_TREEMISC] += walltime_measure(WALL_TREEMISC);
 }
 
 void gravtree_copy(int place, struct gravitydata_in * input) {

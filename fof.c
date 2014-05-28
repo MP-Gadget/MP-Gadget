@@ -152,7 +152,7 @@ void fof_fof(int num)
         fflush(stdout);
     }
 
-    CPU_Step[CPU_MISC] += measure_time();
+    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
     domain_Decomposition();
 
@@ -206,7 +206,7 @@ void fof_fof(int num)
     Next = (MyIDType *) mymalloc("Next", NumPart * sizeof(MyIDType));
     Tail = (MyIDType *) mymalloc("Tail", NumPart * sizeof(MyIDType));
 
-    CPU_Step[CPU_FOF] += measure_time();
+    CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
 
     if(ThisTask == 0)
         printf("Tree construction.\n");
@@ -382,7 +382,7 @@ void fof_fof(int num)
         multi_bubbles();
 #endif
 
-    CPU_Step[CPU_FOF] += measure_time();
+    CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
 
     if(num >= 0)
     {
@@ -405,7 +405,7 @@ void fof_fof(int num)
     }
 
 
-    CPU_Step[CPU_FOF] += measure_time();
+    CPU_Step[CPU_FOF] += walltime_measure(WALL_FOF);
 
 #ifdef SUBFIND
     domain_Decomposition();

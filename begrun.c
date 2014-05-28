@@ -53,6 +53,7 @@ void begrun(void)
     read_parameter_file(ParameterFile);	/* ... read in parameters for this run */
 
     mymalloc_init();
+    walltime_init(&All.CT);
 
 #ifdef DEBUG
     write_pid_file();

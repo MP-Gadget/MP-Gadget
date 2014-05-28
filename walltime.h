@@ -34,14 +34,49 @@
 #define WALL_BLACKHOLES     W("/Blackholes")
 #define WALL_MISC           W("/Misc")
 
-void walltime_init();
 int walltime_clock(char * name);
 void walltime_reset();
 double walltime_measure(int clockid);
 double walltime_add(int clockid, double dt);
-double walltime_get_seconds (int id);
+
+enum clocktype {
+    CLOCK_STEP_MEAN ,
+    CLOCK_STEP_MAX ,
+    CLOCK_STEP_MIN ,
+    CLOCK_ACCU_MEAN ,
+    CLOCK_ACCU_MAX ,
+    CLOCK_ACCU_MIN ,
+};
+
+
 char walltime_get_symbol(int id);
 char * walltime_get_name(int id);
 
+double walltime_get_time(int id);
+double walltime_get(int id, enum clocktype type);
+#define walltime_step_min(id) walltime_get(id, CLOCK_STEP_MIN)
+#define walltime_step_max(id) walltime_get(id, CLOCK_STEP_MAX)
+#define walltime_step_mean(id) walltime_get(id, CLOCK_STEP_MEAN)
+#define walltime_accu_min(id) walltime_get(id, CLOCK_ACCU_MIN)
+#define walltime_accu_max(id) walltime_get(id, CLOCK_ACCU_MAX)
+#define walltime_accu_mean(id) walltime_get(id, CLOCK_ACCU_MEAN)
+
 void walltime_summary();
 void walltime_report(FILE * fd);
+
+struct Clock {
+    char name[40];
+    double time;
+    double max;
+    double min;
+    double mean;
+    char symbol;
+};
+
+struct ClockTable {
+    int Nmax;
+    int N;
+    struct Clock C[128];
+    struct Clock AC[128];
+};
+void walltime_init(struct ClockTable * table);

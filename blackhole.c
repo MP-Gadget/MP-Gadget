@@ -184,7 +184,7 @@ void blackhole_accretion(void)
         fflush(stdout);
     }
 
-    CPU_Step[CPU_MISC] += measure_time();
+    CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
     /* Let's first compute the Mdot values */
     int Nactive;
@@ -407,7 +407,7 @@ void blackhole_accretion(void)
 
     fflush(FdBlackHolesDetails);
 
-    CPU_Step[CPU_BLACKHOLES] += measure_time();
+    CPU_Step[CPU_BLACKHOLES] += walltime_measure(WALL_BLACKHOLES);
 }
 
 static void blackhole_accretion_evaluate(int n) {
