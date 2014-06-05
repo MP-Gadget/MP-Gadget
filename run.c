@@ -866,7 +866,7 @@ void write_cpu_log(void)
     MPI_Reduce(&TotalNodeDrifts, &totTotalND, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
 #endif
 
-    walltime_summary();
+    walltime_summary(0, MPI_COMM_WORLD);
 
     if(ThisTask == 0)
     {
@@ -887,9 +887,9 @@ void write_cpu_log(void)
         fprintf(FdCPU, "Blocked Drifts (Particle Node): %ld %ld\n", totBlockedPD, totBlockedND);
         fprintf(FdCPU, "Total Drifts (Particle Node): %ld %ld\n", totTotalPD, totTotalND);
 #endif
-        walltime_report(FdCPU);
         fflush(FdCPU);
     }
+    walltime_report(FdCPU, 0, MPI_COMM_WORLD);
 }
 
 

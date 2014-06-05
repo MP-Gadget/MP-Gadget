@@ -10,7 +10,7 @@ static double WallTimeClock;
 static double LastReportTime;
 
 static void walltime_clock_insert(char * name);
-static void walltime_summary_clocks(struct Clock * C, int N);
+static void walltime_summary_clocks(struct Clock * C, int N, int root, MPI_Comm comm);
 static void walltime_update_parents();
 static double seconds();
 
@@ -24,7 +24,7 @@ void walltime_init(struct ClockTable * ct) {
     LastReportTime = seconds();
 }
 
-static void walltime_summary_clocks(struct Clock * C, int N) {
+static void walltime_summary_clocks(struct Clock * C, int N, int root, MPI_Comm comm) {
     double t[N];
     double min[N];
     double max[N];
@@ -33,12 +33,12 @@ static void walltime_summary_clocks(struct Clock * C, int N) {
     for(i = 0; i < CT->N; i ++) {
         t[i] = C[i].time;
     }
-    MPI_Reduce(t, min, N, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-    MPI_Reduce(t, max, N, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(t, sum, N, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(t, min, N, MPI_DOUBLE, MPI_MIN, root, comm);
+    MPI_Reduce(t, max, N, MPI_DOUBLE, MPI_MAX, root, comm);
+    MPI_Reduce(t, sum, N, MPI_DOUBLE, MPI_SUM, root, comm);
 
     int NTask;
-    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    MPI_Comm_size(comm, &NTask);
     /* min, max and mean are good only on process 0 */
     for(i = 0; i < CT->N; i ++) {
         C[i].min = min[i];
@@ -49,7 +49,7 @@ static void walltime_summary_clocks(struct Clock * C, int N) {
 
 /* put min max mean of MPI ranks to rank 0*/
 /* AC will have the total timing, C will have the current step information */
-void walltime_summary() {
+void walltime_summary(int root, MPI_Comm comm) {
     walltime_update_parents();
     int i;
     int N = 0;
@@ -58,16 +58,16 @@ void walltime_summary() {
     for(i = 0; i < CT->N; i ++) {
         CT->AC[i].time += CT->C[i].time;
     }
-    walltime_summary_clocks(CT->C, CT->N);
-    walltime_summary_clocks(CT->AC, CT->N);
+    walltime_summary_clocks(CT->C, CT->N, root, comm);
+    walltime_summary_clocks(CT->AC, CT->N, root, comm);
 
     /* clear .time for next step */
     for(i = 0; i < CT->N; i ++) {
         CT->C[i].time = 0;
     }
+    MPI_Barrier(comm);
     /* wo do this here because all processes are sync after summary_clocks*/
     double step_all = seconds() - LastReportTime;
-    printf("step_all = %g\n", step_all);
     LastReportTime = seconds();
     CT->ElapsedTime += step_all;
     CT->StepTime = step_all;
@@ -190,17 +190,12 @@ double walltime_measure(char * name) {
  */
 static double seconds(void)
 {
-#ifdef WALLCLOCK
   return MPI_Wtime();
-#else
-  return ((double) clock()) / CLOCKS_PER_SEC;
-#endif
-
-  /* note: on AIX and presumably many other 32bit systems, 
-   * clock() has only a resolution of 10ms=0.01sec 
-   */
 }
-void walltime_report(FILE * fp) {
+void walltime_report(FILE * fp, int root, MPI_Comm comm) {
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+    if(rank != root) return;
     int i; 
     for(i = 0; i < CT->N; i ++) {
         char * name = CT->C[i].name;

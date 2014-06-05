@@ -1,17 +1,3 @@
-#define WALL_ALL            "/"
-#define WALL_TREEBUILD      "/Tree/Build"
-#define WALL_TREEUPDATE     "/Tree/Update"
-#define WALL_TREEHMAXUPDATE "/Tree/HmaxUpdate"
-#define WALL_DRIFT          "/Drift"
-#define WALL_TIMELINE       "/Timeline"
-#define WALL_POTENTIAL      "/Potential"
-#define WALL_MESH           "/Mesh"
-#define WALL_COOLINGSFR     "/CoolingSfr"
-#define WALL_SNAPSHOT       "/Snapshot"
-#define WALL_FOF            "/Fof"
-#define WALL_BLACKHOLES     "/Blackholes"
-#define WALL_MISC           "/Misc"
-
 int walltime_clock(char * name);
 void walltime_reset();
 double walltime_measure(char * name);
@@ -38,8 +24,8 @@ double walltime_get(char * name, enum clocktype type);
 #define walltime_accu_max(id) walltime_get(id, CLOCK_ACCU_MAX)
 #define walltime_accu_mean(id) walltime_get(id, CLOCK_ACCU_MEAN)
 
-void walltime_summary();
-void walltime_report(FILE * fd);
+void walltime_summary(int root, MPI_Comm comm);
+void walltime_report(FILE * fd, int root, MPI_Comm comm);
 
 struct Clock {
     char name[40];
