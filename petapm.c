@@ -139,6 +139,9 @@ void petapm_init_periodic(void) {
     np[0] = i;
     np[1] = NTask / i;
 
+    if(ThisTask == 0) {
+        printf("Using 2D Task mesh %td x %td \n", np[0], np[1]);
+    }
     if( pfft_create_procmesh_2d(MPI_COMM_WORLD, np[0], np[1], &comm_cart_2d) ){
         fprintf(stderr, "Error: This test file only works with %td processes.\n", np[0]*np[1]);
         abort();
@@ -295,6 +298,7 @@ void petapm_prepare() {
     if(numpart != NumPart) {
         abort();
     }
+    walltime_measure("/PMgrav/Regions");
 }
 
 static void convert_node_to_region(int no, int r) {
@@ -365,14 +369,18 @@ void petapm_force() {
     memset(real, 0, sizeof(double) * fftsize);
     memset(meshbuf, 0, meshbufsize * sizeof(double));
 
+    walltime_measure("/PMgrav/Misc");
     pm_iterate(put_particle_to_mesh);
+    walltime_measure("/PMgrav/cic");
 
     layout_prepare(&layout);
 
     layout_build_and_exchange_cells_to_pfft(&layout);
+    walltime_measure("/PMgrav/comm");
 #if 1
     verify_density_field();
 #endif
+    walltime_measure("/PMgrav/Misc");
 
     /* call pfft pot_k is CFT of rho */
 
@@ -382,6 +390,7 @@ void petapm_force() {
      * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
      * */
     pfft_execute_dft_r2c(plan_forw, real, pot_k);
+    walltime_measure("/PMgrav/r2c");
 
     /* potential */
 
@@ -391,32 +400,49 @@ void petapm_force() {
 //    memcpy(complx, pot_k, sizeof(double) * fftsize);
     /* backup k space potential to pot_k */
     memcpy(pot_k, complx, sizeof(double) * fftsize);
+    walltime_measure("/PMgrav/calc");
 
     pfft_execute_dft_c2r(plan_back, complx, real);
+    walltime_measure("/PMgrav/c2r");
     /* read out the potential */
     layout_build_and_exchange_cells_to_local(&layout);
+    walltime_measure("/PMgrav/comm");
     
     pm_iterate(readout_potential);
+    walltime_measure("/PMgrav/readout");
 
     /* forces */
 
     pm_apply_transfer_function(&fourier_space_region, pot_k, complx, force_x_transfer);
+    walltime_measure("/PMgrav/calc");
     pfft_execute_dft_c2r(plan_back, complx, real);
+    walltime_measure("/PMgrav/c2r");
     layout_build_and_exchange_cells_to_local(&layout);
+    walltime_measure("/PMgrav/comm");
     pm_iterate(readout_force_x);
+    walltime_measure("/PMgrav/readout");
 
     pm_apply_transfer_function(&fourier_space_region, pot_k, complx, force_y_transfer);
+    walltime_measure("/PMgrav/calc");
     pfft_execute_dft_c2r(plan_back, complx, real);
+    walltime_measure("/PMgrav/c2r");
     layout_build_and_exchange_cells_to_local(&layout);
+    walltime_measure("/PMgrav/comm");
     pm_iterate(readout_force_y);
+    walltime_measure("/PMgrav/readout");
 
     pm_apply_transfer_function(&fourier_space_region, pot_k, complx, force_z_transfer);
+    walltime_measure("/PMgrav/calc");
     pfft_execute_dft_c2r(plan_back, complx, real);
+    walltime_measure("/PMgrav/c2r");
     layout_build_and_exchange_cells_to_local(&layout);
+    walltime_measure("/PMgrav/comm");
     pm_iterate(readout_force_z);
+    walltime_measure("/PMgrav/readout");
 
     layout_finish(&layout);
     pm_free();
+    walltime_measure("/PMgrav/Misc");
 }
 
 /* build a communication layout */
@@ -927,7 +953,7 @@ static void pm_apply_transfer_function(struct Region * region,
         ){
     ptrdiff_t ip = 0;
 
-//#pragma omp parallel for
+#pragma omp parallel for
     for(ip = 0; ip < region->totalsize; ip ++) {
         ptrdiff_t tmp = ip;
         int pos[3];
