@@ -105,10 +105,8 @@ static int big_block_mpi_broadcast(BigBlock * bb, int root, MPI_Comm comm) {
     MPI_Bcast(bb->foffset, sizeof(ptrdiff_t) * bb->Nfile + 1, MPI_BYTE, root, comm);
     MPI_Bcast(bb->attrset.attrbuf, bb->attrset.bufused, MPI_BYTE, root, comm);
     MPI_Bcast(bb->attrset.attrlist, bb->attrset.listused * sizeof(BigBlockAttr), MPI_BYTE, root, comm);
-    for(i = 0; i < bb->attrset.listused; i++) {
-        BigBlockAttr * a = &bb->attrset.attrlist[i];
-        a->name = a->name - oldbuf + bb->attrset.attrbuf;
-        a->data = a->data - oldbuf + bb->attrset.attrbuf;
+    for(i = 0; i < bb->attrset.listused; i ++) {
+        bb->attrset.attrlist[i].data += (ptrdiff_t) (bb->attrset.attrbuf - oldbuf);
+        bb->attrset.attrlist[i].name += (ptrdiff_t) (bb->attrset.attrbuf - oldbuf);
     }
-    return 0;
 }

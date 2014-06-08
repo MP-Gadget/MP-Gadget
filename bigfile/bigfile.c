@@ -243,8 +243,17 @@ int big_block_add_attr(BigBlock * block, char * attrname, char * dtype, int nmem
         attrset->bufsize = 128;
     }
     while(attrset->bufsize - attrset->bufused < size) {
+        int i;
+        for(i = 0; i < attrset->listused; i ++) {
+            attrset->attrlist[i].data -= (ptrdiff_t) attrset->attrbuf;
+            attrset->attrlist[i].name -= (ptrdiff_t) attrset->attrbuf;
+        }
         attrset->attrbuf = realloc(attrset->attrbuf, attrset->bufsize * 2);
         attrset->bufsize *= 2;
+        for(i = 0; i < attrset->listused; i ++) {
+            attrset->attrlist[i].data += (ptrdiff_t) attrset->attrbuf;
+            attrset->attrlist[i].name += (ptrdiff_t) attrset->attrbuf;
+        }
     }
     char * free = attrset->attrbuf + attrset->bufused;
     attrset->bufused += size;
@@ -256,10 +265,12 @@ int big_block_add_attr(BigBlock * block, char * attrname, char * dtype, int nmem
     dtype_normalize(n->dtype, dtype);
 
     n->name = free;
-    strcpy(n->name, attrname);
+    strcpy(free, attrname);
     free += strlen(attrname) + 1;
     n->data = free;
+
     qsort(attrset->attrlist, attrset->listused, sizeof(BigBlockAttr), attr_cmp);
+
     return 0;
 }
 int big_block_set_attr(BigBlock * block, char * attrname, void * data, char * dtype, int nmemb) {
@@ -530,14 +541,14 @@ static void advance(BigArrayIter * iter) {
     BigArray * array = iter->array;
     int k;
     iter->pos[array->ndim - 1] ++;
-    (char*) iter->dataptr += array->strides[array->ndim - 1];
+    iter->dataptr = ((char*) iter->dataptr) + array->strides[array->ndim - 1];
     for(k = array->ndim - 1; k >= 0; k --) {
         if(iter->pos[k] == array->dims[k]) {
-            (char*) iter->dataptr -= array->strides[k] * iter->pos[k];
+            iter->dataptr = ((char*) iter->dataptr) - array->strides[k] * iter->pos[k];
             iter->pos[k] = 0;
             if(k > 0) {
                 iter->pos[k - 1] ++;
-                (char*) iter->dataptr += array->strides[k - 1];
+                iter->dataptr = ((char*) iter->dataptr) + array->strides[k - 1];
             }
         } else {
             break;
