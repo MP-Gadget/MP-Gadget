@@ -88,9 +88,11 @@ void compute_accelerations(int mode)
 #endif
 
 
+   #if 0
+#disable second order because the time profiling -- not yet updated with PETA_PM
     if(All.Ti_Current == 0 && RestartFlag == 0 && header.flag_ic_info == FLAG_SECOND_ORDER_ICS)
         second_order_ics();		/* produces the actual ICs from the special second order IC file */
-
+    #endif
 
 #ifdef FORCETEST
     gravity_forcetest();

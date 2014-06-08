@@ -99,13 +99,9 @@ void second_order_ics(void)
   domain_Decomposition();	/* redo domain decomposition because particles may have shifted */
 
 
-  walltime_measure(WALL_MISC);
-
 #ifdef PMGRID
   long_range_force();
 #endif
-
-  walltime_measure(WALL_MESH);
 
   gravity_tree();
 
