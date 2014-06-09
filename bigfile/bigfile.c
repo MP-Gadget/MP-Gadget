@@ -525,15 +525,21 @@ int dtype_convert(BigArrayIter * dst, BigArrayIter * src, size_t nmemb) {
     /* cast buf2 of dtype2 into buf1 of dtype1 */
     /* match src to machine endianness */
     if(src->array->dtype[0] != MACHINE_ENDIANNESS) {
-        byte_swap(src, nmemb);
+        BigArrayIter iter = *src;
+        byte_swap(&iter, nmemb);
     }
 
-    cast(dst, src, nmemb);
+    BigArrayIter iter1 = *dst;
+    BigArrayIter iter2 = *src;
+    cast(&iter1, &iter2, nmemb);
 
     /* match dst to machine endianness */
     if(dst->array->dtype[0] != MACHINE_ENDIANNESS) {
-        byte_swap(dst, nmemb);
+        BigArrayIter iter = *dst;
+        byte_swap(&iter, nmemb);
     }
+    *dst = iter1;
+    *src = iter2;
     return 0;
 }
 
