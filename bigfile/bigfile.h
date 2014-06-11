@@ -92,8 +92,8 @@ int big_block_set_attr(BigBlock * block, char * attrname, void * data, char * dt
 int big_block_get_attr(BigBlock * block, char * attrname, void * data, char * dtype, int nmemb);
 BigBlockAttr * big_block_lookup_attr(BigBlock * block, char * attrname);
 
-
 int dtype_normalize(char * dst, char * src);
+void dtype_format(char * buffer, char * dtype, void * data);
 int dtype_convert(BigArrayIter * dst, BigArrayIter * src, size_t nmemb);
 int dtype_convert_simple(void * dst, char * dstdtype, void * src, char * srcdtype, size_t nmemb);
 int dtype_cmp(char * dtype1, char * dtype2);

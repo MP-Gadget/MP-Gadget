@@ -525,6 +525,50 @@ int big_array_iter_init(BigArrayIter * iter, BigArray * array) {
     return 0;
 }
 
+/* format data in dtype to a string in buffer */
+void dtype_format(char * buffer, char * dtype, void * data) {
+    char ndtype[8];
+    char ndtype2[8];
+    char fmtchar;
+    char widthchar;
+    union {
+        int64_t *i8;
+        uint64_t *u8;
+        double *f8;
+        int32_t *i4;
+        uint32_t *u4;
+        float *f4;
+        void * v;
+    } p;
+
+    /* handle the endianness stuff in case it is not machine */
+    char converted[128];
+    dtype_normalize(ndtype2, dtype);
+    ndtype2[0] = '=';
+    dtype_normalize(ndtype, ndtype2);
+    dtype_convert_simple(converted, ndtype, data, dtype, 1);
+
+    p.v = converted;
+    if(!strcmp(ndtype + 1, "i8")) {
+        sprintf(buffer, "%ld", *p.i8);
+    } else 
+    if(!strcmp(ndtype + 1, "i4")) {
+        sprintf(buffer, "%d", *p.i4);
+    } else 
+    if(!strcmp(ndtype + 1, "u8")) {
+        sprintf(buffer, "%lu", *p.u8);
+    } else 
+    if(!strcmp(ndtype + 1, "u4")) {
+        sprintf(buffer, "%u", *p.u4);
+    } else 
+    if(!strcmp(ndtype + 1, "f8")) {
+        sprintf(buffer, "%g", *p.f8);
+    } else 
+    if(!strcmp(ndtype + 1, "f4")) {
+        sprintf(buffer, "%g", (double) *p.f4);
+    }
+}
+
 int dtype_convert_simple(void * dst, char * dstdtype, void * src, char * srcdtype, size_t nmemb) {
     BigArray dst_array, src_array;
     BigArrayIter dst_iter, src_iter;
@@ -534,6 +578,7 @@ int dtype_convert_simple(void * dst, char * dstdtype, void * src, char * srcdtyp
     big_array_iter_init(&src_iter, &src_array);
     return dtype_convert(&dst_iter, &src_iter, nmemb);
 }
+
 static void cast(BigArrayIter * dst, BigArrayIter * src, size_t nmemb);
 static void byte_swap(BigArrayIter * array, size_t nmemb);
 int dtype_convert(BigArrayIter * dst, BigArrayIter * src, size_t nmemb) {
