@@ -166,7 +166,10 @@ int big_block_create(BigBlock * bb, char * basename, char * dtype, int Nfile, si
 }
 
 int big_block_flush(BigBlock * block) {
-    big_block_write_attr_set(block);
+    if(block->attrset.dirty) {
+        big_block_write_attr_set(block);
+        block->attrset.dirty = 0;
+    }
     return 0;
 }
 int big_block_close(BigBlock * block) {
@@ -204,6 +207,7 @@ static int big_block_read_attr_set(BigBlock * bb) {
         if(1 != fread(data, ldata, 1, fattr)) return -1;
         big_block_set_attr(bb, name, data, dtype, nmemb);
     } 
+    bb->attrset.dirty = 0;
     fclose(fattr);
     return 0;
 }
@@ -280,24 +284,28 @@ int big_block_add_attr(BigBlock * block, char * attrname, char * dtype, int nmem
 
     return 0;
 }
-int big_block_set_attr(BigBlock * block, char * attrname, void * data, char * dtype, int nmemb) {
+BigBlockAttr * big_block_lookup_attr(BigBlock * block, char * attrname) {
     BigBlockAttrSet * attrset = &block->attrset;
     BigBlockAttr lookup = {0};
     lookup.name = attrname;
     BigBlockAttr * found = bsearch(&lookup, attrset->attrlist, attrset->listused, sizeof(BigBlockAttr), attr_cmp);
+    return found;
+}
+int big_block_set_attr(BigBlock * block, char * attrname, void * data, char * dtype, int nmemb) {
+    BigBlockAttrSet * attrset = &block->attrset;
+    attrset->dirty = 1;
+    BigBlockAttr * found = big_block_lookup_attr(block, attrname);
     if(!found) {
         big_block_add_attr(block, attrname, dtype, nmemb);
     }
-    found = bsearch(&lookup, attrset->attrlist, attrset->listused, sizeof(BigBlockAttr), attr_cmp);
+    found = big_block_lookup_attr(block, attrname);
     if(found->nmemb != nmemb) { abort(); }
     dtype_convert_simple(found->data, found->dtype, data, dtype, found->nmemb);
     return 0;
 }
 int big_block_get_attr(BigBlock * block, char * attrname, void * data, char * dtype, int nmemb) {
     BigBlockAttrSet * attrset = &block->attrset;
-    BigBlockAttr lookup = {0};
-    lookup.name = attrname;
-    BigBlockAttr * found = bsearch(&lookup, attrset->attrlist, attrset->listused, sizeof(BigBlockAttr), attr_cmp);
+    BigBlockAttr * found = big_block_lookup_attr(block, attrname);
     if(!found) return -1;
     if(found->nmemb != nmemb) { abort(); }
     dtype_convert_simple(data, dtype, found->data, found->dtype, found->nmemb);
