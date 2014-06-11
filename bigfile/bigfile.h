@@ -26,12 +26,15 @@ typedef struct BigBlock {
                         dtype[1] type char
                         dtype[2:] width in bytes
                     */
+    int nmemb;  /* num of dtype typed elements per item */
     char * basename;
     size_t size;
     size_t * fsize; /* Nfile + 1, in units of elements */
     size_t * foffset; /* Nfile + 1, in units of elements */
+    unsigned int * fchecksum; /* sysv sums of each file (unreduced) */
     int Nfile;
     BigBlockAttrSet attrset;
+    int dirty;
 } BigBlock;
 
 typedef struct BigBlockPtr{
@@ -74,15 +77,18 @@ typedef struct BigArrayIter {
     void * dataptr;
 } BigArrayIter;
 
+int big_file_set_buffer_size(size_t bytes);
+
 int big_file_open(BigFile * bf, char * basename);
 int big_file_create(BigFile * bf, char * basename);
 int big_file_open_block(BigFile * bf, BigBlock * block, char * blockname);
-int big_file_create_block(BigFile * bf, BigBlock * block, char * blockname, char * dtype, int Nfile, size_t fsize[]);
+int big_file_create_block(BigFile * bf, BigBlock * block, char * blockname, char * dtype, int nmemb, int Nfile, size_t fsize[]);
 void big_file_close(BigFile * bf);
+int big_block_flush(BigBlock * block);
 int big_file_mksubdir_r(char * pathname, char * subdir);
 
 int big_block_open(BigBlock * bb, char * basename);
-int big_block_create(BigBlock * bb, char * basename, char * dtype, int Nfile, size_t fsize[]);
+int big_block_create(BigBlock * bb, char * basename, char * dtype, int nmemb, int Nfile, size_t fsize[]);
 int big_block_close(BigBlock * block);
 int big_block_seek(BigBlock * bb, BigBlockPtr * ptr, ptrdiff_t offset);
 int big_block_seek_rel(BigBlock * bb, BigBlockPtr * ptr, ptrdiff_t rel);
