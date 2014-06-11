@@ -97,15 +97,20 @@ int big_block_open(BigBlock * bb, char * basename) {
     if (!fheader) {
         return -1;
     }
-    fread(bb->dtype, sizeof(char), 8, fheader);
-    fread(&bb->Nfile, sizeof(int), 1, fheader);
+    fscanf(fheader, "DTYPE: %s", bb->dtype);
+    fscanf(fheader, "NFILE: %d\n", &(bb->Nfile));
     bb->fsize = calloc(bb->Nfile, sizeof(size_t));
     bb->foffset = calloc(bb->Nfile + 1, sizeof(size_t));
     if (!bb->fsize) { return -1; }
     if (!bb->foffset) { return -1; }
-    fread(bb->fsize, sizeof(size_t), bb->Nfile, fheader);
-    fclose(fheader);
     int i;
+    for(i = 0; i < bb->Nfile; i ++) {
+        int fid; 
+        size_t size;
+        fscanf(fheader, EXT_DATA ": %td\n", &fid, &size);
+        bb->fsize[fid] = size;
+    }
+    fclose(fheader);
     bb->foffset[0] = 0;
     for(i = 0; i < bb->Nfile; i ++) {
         bb->foffset[i + 1] = bb->foffset[i] + bb->fsize[i];
@@ -144,9 +149,11 @@ int big_block_create(BigBlock * bb, char * basename, char * dtype, int Nfile, si
     if (!fheader) {
         return -1;
     }
-    fwrite(bb->dtype, sizeof(char), 8, fheader);
-    fwrite(&bb->Nfile, sizeof(int), 1, fheader);
-    fwrite(bb->fsize, sizeof(size_t), bb->Nfile, fheader);
+    fprintf(fheader, "DTYPE: %s\n", bb->dtype);
+    fprintf(fheader, "NFILE: %d\n", bb->Nfile);
+    for(i = 0; i < bb->Nfile; i ++) {
+        fprintf(fheader, EXT_DATA ": %td\n", i, bb->fsize[i]);
+    }
     fclose(fheader);
     bb->size = bb->foffset[bb->Nfile];
     memset(&bb->attrset, 0, sizeof(bb->attrset));
