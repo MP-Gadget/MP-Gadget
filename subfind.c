@@ -288,7 +288,7 @@ void subfind(int num)
         /* save origintask to origintask2, to recover after collective subfind*/
         P[i].origintask2 = P[i].origintask = ThisTask;
 
-        if(P[i].GrNr > Ncollective && P[i].GrNr <= TotNgroups)	/* particle is in small group */
+        if(P[i].GrNr > Ncollective && P[i].GrNr >= 0 )	/* particle is in small group */
             P[i].targettask = (P[i].GrNr - 1) % NTask;
         else
             P[i].targettask = i % NTask; /* for this stage distribute collective groups evenly 
@@ -310,7 +310,7 @@ void subfind(int num)
 
 
     for(i = 0; i < NumPart; i++)
-        if(P[i].GrNr > Ncollective && P[i].GrNr <= TotNgroups)
+        if(P[i].GrNr > Ncollective && P[i].GrNr >= 0)
             if(((P[i].GrNr - 1) % NTask) != ThisTask)
             {
                 printf("i=%d %ld task=%d\n", i, P[i].GrNr, ThisTask);
@@ -509,7 +509,7 @@ void subfind_save_final(int num)
 
     for(i = 0, Nids = 0; i < NumPart; i++)
     {
-        if(P[i].GrNr <= TotNgroups)
+        if(P[i].GrNr >= 0)
         {
             ID_list[Nids].GrNr = P[i].GrNr;
             ID_list[Nids].SubNr = P[i].SubNr;

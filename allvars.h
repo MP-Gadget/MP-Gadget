@@ -1480,9 +1480,11 @@ extern struct particle_data
     MyFloat DensAroundStar;
 #endif
 
+#ifdef FOF
+    int64_t GrNr;
+#endif
 
 #ifdef SUBFIND
-    MyIDType GrNr;
     int SubNr;
     int DM_NumNgb;
     unsigned short targettask, origintask2;

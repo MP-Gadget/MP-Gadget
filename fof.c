@@ -27,6 +27,8 @@
 #endif
 
 
+void fof_save_particles(int num);
+
 int Ngroups, TotNgroups;
 int64_t TotNids;
 
@@ -389,6 +391,7 @@ void fof_fof(int num)
     if(num >= 0)
     {
         fof_save_groups(num);
+        fof_save_particles(num);
 #ifdef SUBFIND
         subfind(num);
 #endif
@@ -1343,10 +1346,8 @@ void fof_save_groups(int num)
 
     ID_list = mymalloc("ID_list", sizeof(struct id_list) * NumPart);
 
-#ifdef SUBFIND
     for(i = 0; i < NumPart; i++)
-        P[i].GrNr = TotNgroups + 1;	/* will mark particles that are not in any group */
-#endif
+        P[i].GrNr = -1;	/* will mark particles that are not in any group */
 
     for(i = 0, start = 0, Nids = 0; i < NgroupsExt; i++)
     {
@@ -1365,9 +1366,7 @@ void fof_save_groups(int num)
             {
                 ID_list[Nids].GrNr = FOF_GList[i].GrNr;
                 ID_list[Nids].ID = P[FOF_PList[start + lenloc].Pindex].ID;
-#ifdef SUBFIND
                 P[FOF_PList[start + lenloc].Pindex].GrNr = FOF_GList[i].GrNr;
-#endif
                 Nids++;
                 lenloc++;
             }
@@ -2934,7 +2933,7 @@ void read_fof(int num)
     qsort(ID_list, Nids, sizeof(struct id_list), fof_compare_ID_list_ID);
 
     for(i = 0; i < NumPart; i++)
-        P[i].GrNr = TotNgroups + 1;	/* will mark particles that are not in any group */
+        P[i].GrNr = -1;	/* will mark particles that are not in any group */
 
     t1 = second();
     if(ThisTask == 0)

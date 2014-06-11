@@ -59,6 +59,7 @@ int main(int argc, char **argv)
   MPI_Comm_rank(MPI_CommLocal, &ThisTask);
   MPI_Comm_size(MPI_CommLocal, &NTask);
 #endif
+  register_io_blocks();
 
   for(PTask = 0; NTask > (1 << PTask); PTask++);
 

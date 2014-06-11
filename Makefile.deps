@@ -8,7 +8,8 @@ FOPTIONS = $(OPTIMIZE) $(FOPT)
 
 OBJS  =  \
 	 twopoint.o gdbtools.o \
-	 fof.o subfind.o subfind_vars.o subfind_collective.o subfind_serial.o subfind_so.o subfind_cont.o \
+	 fof.o fofpetaio.o petaio.o \
+     subfind.o subfind_vars.o subfind_collective.o subfind_serial.o subfind_so.o subfind_cont.o \
 	 subfind_distribute.o subfind_findlinkngb.o subfind_nearesttwo.o subfind_loctree.o \
 	 subfind_alternative_collective.o subfind_reshuffle.o \
 	 domain.o allvars.o main.o \
@@ -26,6 +27,7 @@ OBJS  =  \
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
 	 subfind.h dd.h fof.h eos.h myqsort.h \
+	 petaio.h \
 	 bigfile/bigfile.h bigfile/bigfile-mpi.h \
 	 Makefile \
 
