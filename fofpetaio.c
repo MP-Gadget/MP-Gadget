@@ -90,11 +90,20 @@ static int fof_sorted_layout(int i) {
 static int fof_origin_layout(int i) {
     return P[i].origintask;
 }
-static int fof_cmp_sortkey(struct PartIndex * p1, struct PartIndex * p2) {
+static int fof_cmp_sortkey(const void * c1, const void * c2) {
+    const struct PartIndex * p1 = c1;
+    const struct PartIndex * p2 = c2;
     return (p1->sortKey > p2->sortKey) - (p1->sortKey < p2->sortKey);
 }
-static int fof_cmp_origin(struct PartIndex * p1, struct PartIndex * p2) {
+static int fof_cmp_origin(const void * c1, const void * c2) {
+    const struct PartIndex * p1 = c1;
+    const struct PartIndex * p2 = c2;
     return (p1->origin > p2->origin) - (p1->origin < p2->origin);
+}
+static int p_cmp_GrNr(const void * c1, const void * c2) {
+    const struct particle_data * p1 = c1;
+    const struct particle_data * p2 = c2;
+    return (p1->GrNr > p2->GrNr) - (p1->GrNr < p2->GrNr);
 }
 static void fof_distribute_particles() {
     int i;
@@ -135,6 +144,38 @@ static void fof_distribute_particles() {
     domain_exchange(fof_sorted_layout);
 
     myfree(pi);
+    /* sort SPH and Others independently */
+
+    for(i = 0; i < N_sph; i ++) {
+        P[i].PI = i;
+    }
+
+    qsort(P, N_sph, sizeof(P[0]), p_cmp_GrNr);
+
+    /* permute the SphP struct to follow P */
+    for(i = 0; i < N_sph; i ++) {
+        if(P[i].PI == i) continue;
+        int j;
+        struct sph_particle_data s;
+        /* save the first one */
+        s = SphP[i];
+        j = i;
+        while(P[j].PI != i) {
+            int freeslot = P[j].PI;
+            /* move the freeslot to the right position */
+            SphP[j] = SphP[freeslot];
+            P[j].PI = j;
+            /* now fix P at freeslot */
+            j = freeslot;
+        }
+        /* this guy uses the very first one*/
+        SphP[j] = s;
+        P[j].PI = j;
+    }
+
+    /* sort sph */
+    qsort(P + N_sph, NumPart - N_sph, sizeof(P[0]), p_cmp_GrNr);
+
 }
 
 static void fof_return_particles() {
