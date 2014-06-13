@@ -188,10 +188,10 @@ void petapm_init_periodic(void) {
 
     plan_forw = pfft_plan_dft_r2c_3d(
         n, real, pot_k, comm_cart_2d, PFFT_FORWARD, 
-        PFFT_TRANSPOSED_OUT | PFFT_MEASURE | PFFT_DESTROY_INPUT);    
+        PFFT_TRANSPOSED_OUT | PFFT_ESTIMATE | PFFT_DESTROY_INPUT);    
     plan_back = pfft_plan_dft_c2r_3d(
         n, complx, real, comm_cart_2d, PFFT_BACKWARD, 
-        PFFT_TRANSPOSED_IN | PFFT_MEASURE | PFFT_DESTROY_INPUT);    
+        PFFT_TRANSPOSED_IN | PFFT_ESTIMATE | PFFT_DESTROY_INPUT);    
 
     pm_free();
 
