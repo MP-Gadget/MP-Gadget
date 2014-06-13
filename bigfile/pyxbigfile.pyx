@@ -4,6 +4,9 @@ from libc.string cimport strcpy
 import numpy
 
 cdef extern from "bigfile.c":
+    struct BigFile:
+        char * basename
+
     struct BigBlock:
         char * dtype
         int nmemb
@@ -34,11 +37,47 @@ cdef extern from "bigfile.c":
     int big_block_get_attr(BigBlock * block, char * attrname, void * data, char * dtype, int nmemb)
     int big_array_init(BigArray * array, void * buf, char * dtype, int ndim, size_t dims[], ptrdiff_t strides[])
 
+    int big_file_open_block(BigFile * bf, BigBlock * block, char * blockname)
+    int big_file_create_block(BigFile * bf, BigBlock * block, char * blockname, char * dtype, int nmemb, int Nfile, size_t fsize[])
+    int big_file_open(BigFile * bf, char * basename)
+    void big_file_close(BigFile * bf)
+
 def set_buffer_size(bytes):
     big_file_set_buffer_size(bytes)
 
 class BigFileError(Exception):
     pass
+cdef class PyBigFile:
+    cdef BigFile bf
+    cdef int closed
+
+    def __cinit__(self):
+        self.closed = True
+    def __init__(self, filename):
+        big_file_open(&self.bf, filename)
+        self.closed = False
+
+    def __dealloc__(self):
+        if not self.closed:
+            self.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        self.close()
+
+    def close(self):
+        big_file_close(&self.bf)
+        self.closed = True
+
+    def open(self, block):
+        cdef PyBigBlock rt = PyBigBlock()
+        if 0 != big_file_open_block(&self.bf, &rt.bb, block):
+            raise BigFileError("can't open block")
+        rt.closed = False
+        return rt
+
 cdef class PyBigBlock:
     cdef BigBlock bb
     cdef int closed
@@ -53,11 +92,13 @@ cdef class PyBigBlock:
     def __cinit__(self):
         self.closed = True
 
-    def __init__(self, filename, create=False, Nfile=None, dtype=None, size=None):
-        if create:
-            self.create(filename, Nfile, dtype, size)
-        else:
-            self.open(filename)
+    def __init__(self):
+#        , filename, create=False, Nfile=None, dtype=None, size=None):
+#        if create:
+#            self.create(filename, Nfile, dtype, size)
+#        else:
+#            self.open(filename)
+        pass
 
     def __enter__(self):
         return self
@@ -65,12 +106,16 @@ cdef class PyBigBlock:
     def __exit__(self, type, value, tb):
         self.close()
 
-    def open(self, filename):
+    @staticmethod
+    def open(filename):
+        cdef PyBigBlock self = PyBigBlock()
         if 0 != big_block_open(&self.bb, filename):
             raise BigFileError("Failed to open file")
         self.closed = False
-
-    def create(self, filename, Nfile, dtype, size):
+        return self
+    @staticmethod
+    def create(filename, Nfile, dtype, size):
+        cdef PyBigBlock self = PyBigBlock()
         dtype = numpy.dtype(dtype)
         assert len(dtype.shape) <= 1
         if len(dtype.shape) == 0:
@@ -84,6 +129,7 @@ cdef class PyBigBlock:
                 items, Nfile, <size_t*> fsize.data):
             raise BigFileError("Failed to create file")
         self.closed = False
+        return self
 
     def write(self, start, numpy.ndarray buf):
         cdef BigArray array
