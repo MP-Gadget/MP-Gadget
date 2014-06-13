@@ -8,6 +8,8 @@ typedef struct IOTableEntry {
     property_getter getter;
 } IOTableEntry;
 
+#define PTYPE_FOF_GROUP  1024
+
 void io_register_io_block(char * name, 
         char * dtype, 
         int items, 

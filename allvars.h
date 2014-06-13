@@ -1482,13 +1482,15 @@ extern struct particle_data
 
 #ifdef FOF
     int64_t GrNr;
+    int origintask;
+    int targettask;
 #endif
 
 #ifdef SUBFIND
     int SubNr;
     int DM_NumNgb;
-    unsigned short targettask, origintask2;
-    int origintask, submark, origindex;
+    int origintask2;
+    int submark, origindex;
     MyFloat DM_Hsml;
     union
     {

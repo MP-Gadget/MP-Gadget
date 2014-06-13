@@ -65,7 +65,7 @@ SIMPLE_GETTER(GTBlackholeMass, BHP(i).Mass, float, 1)
 SIMPLE_GETTER(GTBlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_GETTER(GTBlackholeProgenitors, BHP(i).CountProgs, float, 1)
 
-void GTStarFormationRate(int i, float * out) {
+static void GTStarFormationRate(int i, float * out) {
     /* Convert to Solar/year */
     *out = get_starformation_rate(i) 
         * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
@@ -119,6 +119,8 @@ void register_io_blocks() {
     IO_REG(BlackholeMass,          "f8", 1, 5);
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
+
+    fof_register_io_blocks();
 }
 
 

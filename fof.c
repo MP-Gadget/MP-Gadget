@@ -411,9 +411,7 @@ void fof_fof(int num)
     }
 
 
-#ifdef SUBFIND
     domain_Decomposition();
-#endif
 
     walltime_measure("/FOF/MISC");
     force_treebuild_simple();
