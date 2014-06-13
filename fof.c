@@ -1333,7 +1333,7 @@ void fof_save_groups(int num)
     }
 
     MPI_Allgather(&totlen, 1, MPI_INT, Send_count, 1, MPI_INT, MPI_COMM_WORLD);
-    unsigned int *uoffset = mymalloc("uoffset", NTask * sizeof(unsigned int));
+    ptrdiff_t *uoffset = mymalloc("uoffset", NTask * sizeof(ptrdiff_t));
 
     for(j = 1, uoffset[0] = 0; j < NTask; j++)
         uoffset[j] = uoffset[j - 1] + Send_count[j - 1];

@@ -26,7 +26,7 @@ extern int64_t TotNids;
 extern struct group_properties
 {
   int Len;
-  unsigned int Offset;
+  ptrdiff_t Offset;
   MyIDType MinID;
   MyIDType MinIDTask;
   int GrNr;
