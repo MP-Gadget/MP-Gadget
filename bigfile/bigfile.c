@@ -361,8 +361,9 @@ int big_block_seek(BigBlock * bb, BigBlockPtr * ptr, ptrdiff_t offset) {
     }
     /* handle negatives */
     if(offset < 0) offset += bb->foffset[bb->Nfile];
-    if(offset >= bb->size) {
+    if(offset > bb->size) {
         /* over the end of file */
+        /* note that we allow seeking at the end of file */
         return -1;
     }
     ptr->aoffset = offset;
