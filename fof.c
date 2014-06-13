@@ -1069,8 +1069,9 @@ void fof_compute_group_properties(int gr, int start, int len)
 
 
 #ifdef SFR
-        if(P[index].Type == 0)
-            Group[gr].Sfr += SPHP(index).Sfr;
+        if(P[index].Type == 0) {
+            Group[gr].Sfr += get_starformation_rate(index);
+        }
 #endif
 #ifdef BLACK_HOLES
         if(P[index].Type == 5)
