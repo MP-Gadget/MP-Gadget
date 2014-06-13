@@ -939,7 +939,7 @@ static void starformation(int i) {
 
 double get_starformation_rate(int i) {
     /* returns SFR in internal units */
-    return get_starformation_rate_full(i, 1e9, NULL, NULL, NULL);
+    return get_starformation_rate_full(i, 0, NULL, NULL, NULL);
 }
 
 static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff) {
