@@ -391,7 +391,6 @@ void fof_fof(int num)
     if(num >= 0)
     {
         fof_save_groups(num);
-        fof_save_particles(num);
 #ifdef SUBFIND
         subfind(num);
 #endif
@@ -1387,6 +1386,7 @@ void fof_save_groups(int num)
         printf("Task=%d Nids=%d totNids=%d TotNids=%d\n", ThisTask, Nids, (int) totNids, (int) TotNids);
         endrun(12);
     }
+#ifdef FOF_SAVE_OLD_CATALOGUE
 
     /* sort the particle IDs according to group-number */
 
@@ -1427,8 +1427,11 @@ void fof_save_groups(int num)
             fof_save_local_catalogue(num);
         MPI_Barrier(MPI_COMM_WORLD);	/* wait inside the group */
     }
-
+#endif
+    
     myfree(ID_list);
+
+    fof_save_particles(num);
 
     t1 = second();
 
