@@ -547,16 +547,21 @@ void domain_exchange(int (*layoutfunc)(int p)) {
         int target = layoutfunc(i);
         if(target != ThisTask)
             P[i].OnAnotherDomain = 1;
+        P[i].WillExport = 0;
     }
 
 
     int iter = 0, ret;
-    size_t exchange_limit;
+    ptrdiff_t exchange_limit;
 
     do
     {
         exchange_limit = FreeBytes - NTask * (24 * sizeof(int) + 16 * sizeof(MPI_Request));
 
+        /* never change more than 1GB, because send/recv has 2GB barrier */
+        if(exchange_limit > 1024 * 1024 * 1024) {
+            exchange_limit = 1024 * 1024 * 1024;
+        }
         if(exchange_limit <= 0)
         {
             printf("task=%d: exchange_limit=%d\n", ThisTask, (int) exchange_limit);
@@ -1271,7 +1276,7 @@ static int domain_layoutfunc(int n) {
     return DomainTask[no];
 }
 
-static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
+static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
 {
     int n, ret, retsum;
     size_t package;
