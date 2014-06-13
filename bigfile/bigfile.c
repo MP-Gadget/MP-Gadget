@@ -437,6 +437,8 @@ int big_block_read(BigBlock * bb, BigBlockPtr * ptr, BigArray * array) {
 }
 
 int big_block_write(BigBlock * bb, BigBlockPtr * ptr, BigArray * array) {
+    if(array->size == 0) return 0;
+
     bb->dirty = 1;
     char * chunkbuf = malloc(CHUNK_BYTES);
 
