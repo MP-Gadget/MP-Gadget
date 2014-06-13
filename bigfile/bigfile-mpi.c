@@ -26,7 +26,14 @@ int big_file_mpi_open_block(BigFile * bf, BigBlock * block, char * blockname, MP
     sprintf(basename, "%s/%s/", bf->basename, blockname);
     return big_block_mpi_open(block, basename, comm);
 }
-int big_file_mpi_create_block(BigFile * bf, BigBlock * block, char * blockname, char * dtype, int nmemb, int Nfile, size_t fsize[], MPI_Comm comm) {
+
+int big_file_mpi_create_block(BigFile * bf, BigBlock * block, char * blockname, char * dtype, int nmemb, int Nfile, size_t size, MPI_Comm comm) {
+    size_t fsize[Nfile];
+    int i;
+    for(i = 0; i < Nfile; i ++) {
+        fsize[i] = size * (i + 1) / Nfile 
+                 - size * (i) / Nfile;
+    }
     if(comm == MPI_COMM_NULL) return 0;
     char * basename = alloca(strlen(bf->basename) + strlen(blockname) + 128);
     big_file_mksubdir_r(bf->basename, blockname);
@@ -120,4 +127,5 @@ static int big_block_mpi_broadcast(BigBlock * bb, int root, MPI_Comm comm) {
         bb->attrset.attrlist[i].data += (ptrdiff_t) (bb->attrset.attrbuf - oldbuf);
         bb->attrset.attrlist[i].name += (ptrdiff_t) (bb->attrset.attrbuf - oldbuf);
     }
+    return 0;
 }
