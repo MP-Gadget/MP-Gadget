@@ -787,6 +787,15 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
         }
     }
 
+    for(i = 0; i < NTask; i ++) {
+        if(count_sph[i] != toGoSph[i] ) {
+            abort();
+        }
+        if(count_bh[i] != toGoBh[i] ) {
+            abort();
+        }
+    }
+
     if(count_get_sph)
     {
         memmove(P + N_sph + count_get_sph, P + N_sph, (NumPart - N_sph) * sizeof(struct particle_data));
@@ -988,18 +997,26 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
     domain_garbage_collection_bh();
 }
+static int bh_cmp_reverse_link(struct bh_particle_data * b1, struct bh_particle_data * b2) {
+    if(b1->ReverseLink == -1 && b2->ReverseLink == -1) {
+        return 0;
+    }
+    if(b1->ReverseLink == -1) return 1;
+    if(b2->ReverseLink == -1) return -1;
+    return (b1->ReverseLink > b2->ReverseLink) - (b1->ReverseLink < b2->ReverseLink);
+
+}
 
 void domain_garbage_collection_bh() {
     /* gc the bh */
-    int * bhreverselink = mymalloc("bhreverselink", sizeof(int) * N_bh);
     int i, j;
-    for(i = 0; i < N_bh; i++) {
-        bhreverselink[i] = -1;
+    for(i = 0; i < All.MaxPartBh; i++) {
+        BhP[i].ReverseLink = -1;
     }
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type != 5) continue;
-        bhreverselink[P[i].PI] = i;
+        BhP[P[i].PI].ReverseLink = i;
         if(P[i].PI >= N_bh) {
             printf("bh PI consistency failed1\n");
             endrun(99999); 
@@ -1009,21 +1026,25 @@ void domain_garbage_collection_bh() {
             endrun(99999); 
         }
     }
-    i = 0; 
-    j = N_bh - 1;
-    while(1) {
-        while(i < N_bh && bhreverselink[i] != -1) i++;
-        while(j >=0 && bhreverselink[j] == -1) j--;
-        if(i >= j) break;
-        /* i points to the first empty slot
-         * j points to the last used slot */
-        BhP[i] = BhP[j];
-        P[bhreverselink[j]].PI = i;
-        bhreverselink[i] = bhreverselink[j];
-        bhreverselink[j] = -1;
+
+    /* put unused guys to the end, and sort the used ones
+     * by their location in the P array */
+    qsort(BhP, N_bh, sizeof(BhP[0]), bh_cmp_reverse_link);
+
+    while(N_bh > 0 && BhP[N_bh - 1].ReverseLink == -1) {
+        N_bh --;
     }
 
-    N_bh = j + 1;
+    /* Now update the link in BhP */
+    for(i = 0; i < N_bh; i ++) {
+        P[BhP[i].ReverseLink].PI = i;
+    }
+
+    /* Now invalidate ReverseLink */
+    for(i = 0; i < N_bh; i ++) {
+        BhP[i].ReverseLink = -1;
+    }
+
     j = 0;
 #pragma omp parallel for reduction(+: j)
     for(i = 0; i < NumPart; i++) {
@@ -1042,7 +1063,7 @@ void domain_garbage_collection_bh() {
             printf("bh count failed2, j=%d, N_bh=%d\n", j, N_bh);
             endrun(99999); 
     }
-    myfree(bhreverselink);
+
     int total = 0;
     MPI_Reduce(&N_bh, &total, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     if(ThisTask == 0 && total != All.TotN_bh) {

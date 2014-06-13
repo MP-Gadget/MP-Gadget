@@ -1327,6 +1327,7 @@ extern size_t BlockedNodeDrifts;
 extern size_t TotalNodeDrifts;
 #endif
 struct bh_particle_data {
+    int ReverseLink; /* used at GC for reverse link to P */
     MyIDType ID; /* for data consistency check, same as particle ID */
 #ifdef BH_COUNTPROGS
     int CountProgs;
