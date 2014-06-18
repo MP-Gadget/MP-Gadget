@@ -163,7 +163,7 @@ void petapm_init_periodic(void) {
      * are in (y, z, x). The strides and sizes returned
      * from local size is in (Nx, Ny, Nz), hence we roll them once
      * so that the strides will give correct linear indexing for 
-     * integer coordinates given in order of (x, y, z).
+     * integer coordinates given in order of (y, z, x).
      * */
 
 #define ROLL(a, N, j) { \
