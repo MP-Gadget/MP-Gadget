@@ -54,6 +54,8 @@ void begrun(void)
 
     mymalloc_init();
     walltime_init(&All.CT);
+    petaio_init();
+
 
 #ifdef DEBUG
     write_pid_file();
