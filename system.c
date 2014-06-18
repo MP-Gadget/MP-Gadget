@@ -277,6 +277,28 @@ void sumup_longs(int n, int64_t *src, int64_t *res)
   myfree(numlist);
 }
 
+int64_t count_to_offset(int64_t countLocal) {
+    int64_t offsetLocal;
+    int64_t count[NTask];
+    int64_t offset[NTask];
+    MPI_Gather(&countLocal, 1, MPI_LONG, &count[0], 1, MPI_LONG, 0, MPI_COMM_WORLD);
+    if(ThisTask == 0) {
+        offset[0] = 0;
+        int i;
+        for(i = 1; i < NTask; i ++) {
+            offset[i] = offset[i-1] + count[i-1];
+        }
+    }
+    MPI_Scatter(&offset[0], 1, MPI_LONG, &offsetLocal, 1, MPI_LONG, 0, MPI_COMM_WORLD);
+    return offsetLocal;
+}
+
+int64_t count_sum(int64_t countLocal) {
+    int64_t sum = 0;
+    MPI_Allreduce(&countLocal, &sum, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+    return sum;
+}
+
 size_t sizemax(size_t a, size_t b)
 {
   if(a < b)

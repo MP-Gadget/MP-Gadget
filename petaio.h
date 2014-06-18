@@ -1,5 +1,7 @@
 typedef struct IOTableEntry IOTableEntry;
 typedef void (*property_getter) (int i, void * result);
+typedef int (*petaio_selection) (int i);
+
 typedef struct IOTableEntry {
     char name[64];
     int ptype;
@@ -10,11 +12,12 @@ typedef struct IOTableEntry {
 
 #define PTYPE_FOF_GROUP  1024
 
-void io_register_io_block(char * name, 
-        char * dtype, 
-        int items, 
-        int ptype, 
-        property_getter getter);
+void petaio_init();
+void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection select);
+void petaio_save_block(BigFile * bf, char * blockname, BigArray * array);
+void petaio_destroy_buffer(BigArray * array);
+
+void petaio_save_snapshot(int num);
 
 /* 
  * Decalres a io block with name (literal, not a string) 
@@ -27,6 +30,12 @@ void io_register_io_block(char * name,
  * */
 #define IO_REG(name, dtype, items, ptype) \
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name)
+void io_register_io_block(char * name, 
+        char * dtype, 
+        int items, 
+        int ptype, 
+        property_getter getter);
+
 
 /* 
  * define a simple getter function
@@ -55,3 +64,4 @@ extern struct IOTable {
     IOTableEntry ent[4096];
     int used;
 } IOTable;
+

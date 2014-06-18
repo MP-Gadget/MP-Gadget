@@ -392,6 +392,8 @@ void setup_smoothinglengths(void);
 
 void sumup_large_ints(int n, int *src, int64_t *res);
 void sumup_longs(int n, int64_t *src, int64_t *res);
+int64_t count_to_offset(int64_t countLocal);
+int64_t count_sum(int64_t countLocal);
 
 void statistics(void);
 double timediff(double t0, double t1);

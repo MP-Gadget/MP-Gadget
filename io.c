@@ -47,6 +47,7 @@ void savepositions(int num)
     All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);
 #endif
 
+#ifdef IO_OLD_SNAPSHOT
 #if defined(JD_DPP) && defined(JD_DPPONSNAPSHOTONLY)
     compute_Dpp(0); /* Particle loop already inside, just add water */
 #endif
@@ -169,6 +170,7 @@ void savepositions(int num)
         endrun(0);
 #endif
     }
+#endif /* IO_OLD_SNAPSHOT */
 
 #ifdef FOF
     if(ThisTask == 0)
@@ -181,6 +183,10 @@ void savepositions(int num)
 
 #endif
 
+    walltime_measure("/Snapshot/Misc");
+    petaio_save_snapshot(num);
+    walltime_measure("/Snapshot/Write");
+    
 #ifdef POWERSPEC_ON_OUTPUT
     if(ThisTask == 0)
         printf("\ncomputing power spectra...\n");

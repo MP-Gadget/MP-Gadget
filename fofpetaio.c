@@ -5,10 +5,11 @@
 #include <math.h>
 #include <string.h>
 
+#include "bigfile/bigfile-mpi.h"
+
 #include "allvars.h"
 #include "proto.h"
 #include "petaio.h"
-#include "bigfile/bigfile-mpi.h"
 
 #include "fof.h"
 
@@ -16,29 +17,19 @@
 extern int Ngroups, TotNgroups;
 extern struct group_properties *Group;
 
-static int ThisColor;
-static int ThisKey;
-MPI_Comm GROUP;
-static int GroupSize;
-static int NumFiles;
-static void saveblock(BigFile * bf, char * blockname, BigArray * array);
-static void write_header(BigFile * bf);
-static void build_buffer_particle(BigArray * array, IOTableEntry * ent);
+static void fof_write_header(BigFile * bf);
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent);
-static int64_t count_to_offset(int64_t countLocal);
-static int64_t count_sum(int64_t countLocal);
 
 static void fof_return_particles();
 static void fof_distribute_particles();
+
+static int fof_select_particle(int i) {
+    return P[i].GrNr > 0;
+}
+
 void fof_save_particles(int num) {
     char fname[4096];
     sprintf(fname, "%s/PIG_%03d", All.OutputDir, num);
-    /* Split the wolrd into writer groups */
-    NumFiles = All.NumFilesWrittenInParallel;
-    ThisColor = ThisTask * NumFiles / NTask;
-    MPI_Comm_split(MPI_COMM_WORLD, ThisColor, 0, &GROUP);
-    MPI_Comm_rank(GROUP, &ThisKey);
-    MPI_Comm_size(GROUP, &GroupSize);
 
     fof_distribute_particles();
 
@@ -50,7 +41,7 @@ void fof_save_particles(int num) {
         abort();
     }
 
-    write_header(&bf); 
+    fof_write_header(&bf); 
 
     int i;
     for(i = 0; i < IOTable.used; i ++) {
@@ -60,7 +51,7 @@ void fof_save_particles(int num) {
         BigArray array = {0};
         if(ptype < 6 && ptype >= 0) {
             sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-            build_buffer_particle(&array, &IOTable.ent[i]);
+            petaio_build_buffer(&array, &IOTable.ent[i], fof_select_particle);
         } else 
         if(ptype == PTYPE_FOF_GROUP) {
             sprintf(blockname, "FOFGroups/%s", IOTable.ent[i].name);
@@ -68,8 +59,8 @@ void fof_save_particles(int num) {
         } else {
             abort();
         }
-        saveblock(&bf, blockname, &array);
-        free(array.data);
+        petaio_save_block(&bf, blockname, &array);
+        petaio_destroy_buffer(&array);
     }
     big_file_mpi_close(&bf, MPI_COMM_WORLD);
 
@@ -182,39 +173,6 @@ static void fof_return_particles() {
     domain_exchange(fof_origin_layout);
 }
 
-static void build_buffer_particle(BigArray * array, IOTableEntry * ent) {
-    size_t dims[2];
-    ptrdiff_t strides[2];
-    int elsize = dtype_itemsize(ent->dtype);
-
-    int64_t npartLocal = 0;
-    int i;
-
-    for(i = 0; i < NumPart; i ++) {
-        if(P[i].Type != ent->ptype) continue;
-        if(P[i].GrNr < 0) continue;
-        npartLocal ++;
-    }
-
-    dims[0] = npartLocal;
-    dims[1] = ent->items;
-    strides[1] = elsize;
-    strides[0] = elsize * ent->items;
-
-    /* create the buffer */
-    char * buffer = malloc(dims[0] * dims[1] * elsize);
-    /* don't forget to free buffer after its done*/
-    big_array_init(array, buffer, ent->dtype, 2, dims, strides);
-
-    /* fill the buffer */
-    char * p = buffer;
-    for(i = 0; i < NumPart; i ++) {
-        if(P[i].Type != ent->ptype) continue;
-        if(P[i].GrNr < 0) continue;
-        ent->getter(i, p);
-        p += strides[0];
-    }
-}
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {
     size_t dims[2];
     ptrdiff_t strides[2];
@@ -239,40 +197,7 @@ static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {
     }
 }
 
-static void saveblock(BigFile * bf, char * blockname, BigArray * array) {
-    BigBlock bb = {0};
-    int i;
-    int k;
-    BigBlockPtr ptr;
-
-    int64_t offset = count_to_offset(array->dims[0]);
-    size_t size = count_sum(array->dims[0]);
-
-    /* create the block */
-    /* dims[1] is the number of members per item */
-    big_file_mpi_create_block(bf, &bb, blockname, array->dtype, array->dims[1], NumFiles, size, MPI_COMM_WORLD);
-    
-    if(ThisTask == 0) {
-        printf("Saving block %s  as %s: (%ld, %td)\n", blockname, array->dtype, 
-                size, array->dims[1]);
-    }
-
-    /* write the buffers one by one in each writer group */
-    for(i = 0; i < GroupSize; i ++) {
-        MPI_Barrier(GROUP);
-        if(i != ThisKey) continue;
-        if(0 != big_block_seek(&bb, &ptr, offset)) {
-            fprintf(stderr, "Failed to seek\n");
-            abort();
-        }
-        //printf("Task = %d, writing at %td\n", ThisTask, offsetLocal);
-        big_block_write(&bb, &ptr, array);
-    }
-
-    big_block_mpi_close(&bb, MPI_COMM_WORLD);
-}
-
-static void write_header(BigFile * bf) {
+static void fof_write_header(BigFile * bf) {
     BigBlock bh = {0};
     if(0 != big_file_mpi_create_block(bf, &bh, "header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         fprintf(stderr, "Failed to create header\n");
@@ -293,7 +218,7 @@ static void write_header(BigFile * bf) {
 
     MPI_Allreduce(npartLocal, npartTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
     
-    big_block_set_attr(&bh, "NumPartTotal", npartTotal, "u8", 6);
+    big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
     big_block_set_attr(&bh, "NumFOFGroupsTotal", &TotNgroups, "u8", 1);
     big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6);
     big_block_set_attr(&bh, "Time", &All.Time, "f8", 1);
@@ -326,23 +251,3 @@ void fof_register_io_blocks() {
     IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP);
 }
 
-static int64_t count_sum(int64_t countLocal) {
-    int64_t sum = 0;
-    MPI_Allreduce(&countLocal, &sum, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
-    return sum;
-}
-static int64_t count_to_offset(int64_t countLocal) {
-    int64_t offsetLocal;
-    int64_t count[NTask];
-    int64_t offset[NTask];
-    MPI_Gather(&countLocal, 1, MPI_LONG, &count[0], 1, MPI_LONG, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0) {
-        offset[0] = 0;
-        int i;
-        for(i = 1; i < NTask; i ++) {
-            offset[i] = offset[i-1] + count[i-1];
-        }
-    }
-    MPI_Scatter(&offset[0], 1, MPI_LONG, &offsetLocal, 1, MPI_LONG, 0, MPI_COMM_WORLD);
-    return offsetLocal;
-}

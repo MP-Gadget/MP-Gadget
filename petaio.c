@@ -5,9 +5,9 @@
 #include <math.h>
 #include <string.h>
 
+#include "bigfile/bigfile-mpi.h"
 #include "allvars.h"
 #include "proto.h"
-#include "bigfile/bigfile-mpi.h"
 
 #include "petaio.h"
 
@@ -19,6 +19,166 @@
  */
 
 struct IOTable IOTable = {0};
+
+static void petaio_write_header(BigFile * bf);
+
+static int ThisColor;
+static int ThisKey;
+static MPI_Comm GROUP;
+static int GroupSize;
+static int NumFiles;
+static void register_io_blocks();
+
+void petaio_init() {
+    /* Split the wolrd into writer groups */
+    NumFiles = All.NumFilesWrittenInParallel;
+    ThisColor = ThisTask * NumFiles / NTask;
+    MPI_Comm_split(MPI_COMM_WORLD, ThisColor, 0, &GROUP);
+    MPI_Comm_rank(GROUP, &ThisKey);
+    MPI_Comm_size(GROUP, &GroupSize);
+
+    register_io_blocks();
+}
+
+/* save a snapshot file */
+void petaio_save_snapshot(int num) {
+    char fname[4096];
+    sprintf(fname, "%s/PART_%03d", All.OutputDir, num);
+
+    BigFile bf = {0};
+    if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to create snapshot at %s\n", fname);
+        }
+        abort();
+    }
+    petaio_write_header(&bf); 
+
+    int i;
+    for(i = 0; i < IOTable.used; i ++) {
+        /* only process the particle blocks */
+        char blockname[128];
+        int ptype = IOTable.ent[i].ptype;
+        BigArray array = {0};
+        if(!(ptype < 6 && ptype >= 0)) {
+            continue;
+        }
+        sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
+        petaio_build_buffer(&array, &IOTable.ent[i], NULL);
+        petaio_save_block(&bf, blockname, &array);
+        petaio_destroy_buffer(&array);
+    }
+    big_file_mpi_close(&bf, MPI_COMM_WORLD);
+}
+
+
+
+/* write a header block */
+static void petaio_write_header(BigFile * bf) {
+    BigBlock bh = {0};
+    if(0 != big_file_mpi_create_block(bf, &bh, "header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
+        fprintf(stderr, "Failed to create header\n");
+        abort();
+    }
+    int i;
+    int k;
+    int64_t npartLocal[6];
+    int64_t npartTotal[6];
+
+    for (k = 0; k < 6; k ++) {
+        npartLocal[k] = 0;
+    }
+    for (i = 0; i < NumPart; i ++) {
+        npartLocal[P[i].Type] ++;
+    }
+
+    MPI_Allreduce(npartLocal, npartTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+    
+    big_block_set_attr(&bh, "NumPartTotal", npartTotal, "u8", 6);
+    big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6);
+    big_block_set_attr(&bh, "Time", &All.Time, "f8", 1);
+    big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1);
+    big_block_set_attr(&bh, "OmegaLambda", &All.OmegaLambda, "f8", 1);
+    big_block_set_attr(&bh, "Omega0", &All.Omega0, "f8", 1);
+    big_block_set_attr(&bh, "HubbleParam", &All.HubbleParam, "f8", 1);
+    big_block_mpi_close(&bh, MPI_COMM_WORLD);
+}
+
+/* build an IO buffer for block, based on selection function select
+ * 0 is to exclude
+ * !0 is to include */
+void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection select) {
+    size_t dims[2];
+    ptrdiff_t strides[2];
+    int elsize = dtype_itemsize(ent->dtype);
+
+    int64_t npartLocal = 0;
+    int i;
+
+    for(i = 0; i < NumPart; i ++) {
+        if(P[i].Type != ent->ptype) continue;
+        if(select && !select(i)) continue;
+        npartLocal ++;
+    }
+
+    dims[0] = npartLocal;
+    dims[1] = ent->items;
+    strides[1] = elsize;
+    strides[0] = elsize * ent->items;
+
+    /* create the buffer */
+    char * buffer = malloc(dims[0] * dims[1] * elsize);
+    /* don't forget to free buffer after its done*/
+    big_array_init(array, buffer, ent->dtype, 2, dims, strides);
+
+    /* fill the buffer */
+    char * p = buffer;
+    for(i = 0; i < NumPart; i ++) {
+        if(P[i].Type != ent->ptype) continue;
+        if(select && !select(i)) continue;
+        ent->getter(i, p);
+        p += strides[0];
+    }
+}
+
+/* destropy a buffer, freeing its memory */
+void petaio_destroy_buffer(BigArray * array) {
+    free(array->data);
+}
+
+/* save a block to disk */
+void petaio_save_block(BigFile * bf, char * blockname, BigArray * array) {
+    BigBlock bb = {0};
+    int i;
+    int k;
+    BigBlockPtr ptr;
+
+    int64_t offset = count_to_offset(array->dims[0]);
+    size_t size = count_sum(array->dims[0]);
+
+    /* create the block */
+    /* dims[1] is the number of members per item */
+    big_file_mpi_create_block(bf, &bb, blockname, array->dtype, array->dims[1], NumFiles, size, MPI_COMM_WORLD);
+    
+    if(ThisTask == 0) {
+        printf("Saving block %s  as %s: (%ld, %td)\n", blockname, array->dtype, 
+                size, array->dims[1]);
+    }
+
+    /* write the buffers one by one in each writer group */
+    for(i = 0; i < GroupSize; i ++) {
+        MPI_Barrier(GROUP);
+        if(i != ThisKey) continue;
+        if(0 != big_block_seek(&bb, &ptr, offset)) {
+            fprintf(stderr, "Failed to seek\n");
+            abort();
+        }
+        //printf("Task = %d, writing at %td\n", ThisTask, offsetLocal);
+        big_block_write(&bb, &ptr, array);
+    }
+
+    big_block_mpi_close(&bb, MPI_COMM_WORLD);
+}
 
 /* 
  * register an IO block of name for particle type ptype.
@@ -86,7 +246,7 @@ static void GTInternalEnergy(int i, float * out) {
         SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 }
 
-void register_io_blocks() {
+static void register_io_blocks() {
     int i;
     /* Bare Bone Gravity*/
     for(i = 0; i < 6; i ++) {
@@ -123,113 +283,3 @@ void register_io_blocks() {
     fof_register_io_blocks();
 }
 
-
-#if 0
-
-struct {
-    int blocknr;
-    int ptype;
-    char dtype[8];
-    void (*readout) (int i, void * value);
-} IO_BLOCK_DESCR[1024];
-
-void io_block_register(int blocknr, int ptype, char * dtype,
-        readout_func readout,
-        writein_func writein) {
-
-}
-
-static void read_ic_header(BigFile * bf);
-static int64_t npartTotal[6];
-static int64_t npartLocal[6];
-static int ptypeOffsetLocal[6];
-static int64_t partOffset[6];
-void read_ic(char * fname) {
-    walltime_measure("/Misc");
-    BigFile bf = {0};
-    BigBlock bb = {0};
-    BigBlockPtr ptr = {0};
-    if(!big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "Failed to open IC from %s\n", fname);
-        abort();
-    }
-    read_ic_header(&bf);
-    int ptype;
-    int blocknr;
-    for(blocknr = 0; blocknr < IO_LASTENTRY; i ++) {
-        char blockname[128];
-        if(!block_present(blocknr)) continue;
-
-        if(RestartFlag == 0 && blocknr == IO_U) continue;
-
-        get_dataset_name(blocknr, blockname + 2);
-        for(ptype = 0; ptype < 6; ptype ++) {
-            if(npartTotal[ptype] == 0) continue;
-            blockname[0] = ptype + '0';
-            blockname[1] = '/'
-            readblock(blocknr, ptype);
-
-        }
-    }
-    big_file_mpi_close(&bf, MPI_COMM_WORLD);
-}
-
-static void read_ic_header(BigFile * bf) {
-    BigBlock bh = {0};
-    big_file_mpi_open_block(bf, &bh, "header", MPI_COMM_WORLD);
-    int i;
-
-    /* set all flags to 0; we do not use header otherwise in petaio */
-    memset(&header, 0, sizeof(header));    
-
-    big_block_get_attr(&bh, "NumPartTotal", npartTotal, "i8", 6);
-    big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6);
-    big_block_get_attr(&bh, "Time", &All.TimeBegin, "f8", 1);
-    big_block_mpi_close(&bh, MPI_COMM_WORLD);
-
-    /* now initialialize all, this is donw on every body */
-    set_global_time(All.TimeBegin);
-
-    All.TotN_sph = npartTotal[0];
-    All.TotN_bh = npartTotal[5];
-    NumPart = 0;
-    for(i = 0; i < 6; i ++) {
-        All.TotNumPart += npartTotal[i];
-        partOffset[i] = npartTotal[i] * ThisTask / NTask;
-        npartLocal[i] = npartTotal[i] * (ThisTask + 1) / NTask - partOffset[i];
-        NumPart += npartLocal[i];
-    }
-    ptypeOffsetLocal[0] = 0;
-    for(i = 1; i< 6; i ++) {
-        ptypeOffsetLocal[i] = ptypeOffsetLocal[i - 1] + npartLocal[i - 1];
-    }
-
-    All.MaxPart = (int) (All.PartAllocFactor * (All.TotNumPart / NTask));	/* sets the maximum number of particles that may */
-    All.MaxPartSph = (int) (All.PartAllocFactor * (All.TotN_sph / NTask));	/* sets the maximum number of particles that may 
-                                                                               reside on a processor */
-    All.MaxPartBh = (int) (0.1 * All.PartAllocFactor * (All.TotN_sph / NTask));	/* sets the maximum number of particles that may 
-                                                                                   reside on a processor */
-    /* allocate memory */
-    allocate_memory();
-
-    /* setup the particle storage bits,
-     * so that SPHP, P, BHP are valid */
-    N_bh = 0;
-    N_sph = 0;
-    for(ptype = 0; ptype < 6; ptype ++) {
-        int j;
-        for(j = 0; j < npartLocal[ptype]; j ++) {
-            P[i].Type = ptype;
-            if(type == 0) {
-                N_sph ++;
-            } else
-            if(ptype == 5) {
-                P[i].PI = N_bh;
-                N_bh ++;
-            }
-            i ++; 
-        }
-    }
-}
-#endif
