@@ -16,7 +16,7 @@ static double seconds();
 
 void walltime_init(struct ClockTable * ct) {
     CT = ct;
-    CT->Nmax = 128;
+    CT->Nmax = 512;
     CT->N = 0;
     CT->ElapsedTime = 0;
     walltime_reset();
@@ -169,20 +169,37 @@ void walltime_reset() {
     WallTimeClock = seconds();
 }
 
-double walltime_add(char * name, double dt) {
+double walltime_add_internal(char * name, double dt) {
     int id = walltime_clock(name);
     CT->C[id].time += dt;
     return dt;
 }
-double walltime_measure(char * name) {
+double walltime_measure_internal(char * name) {
     double t = seconds();
     double dt = t - WallTimeClock;
     WallTimeClock = seconds();
-    if(name != NULL) {
+    if(name[0] != '.') {
         int id = walltime_clock(name);
         CT->C[id].time += dt;
     }
     return dt;
+}
+double walltime_measure_full(char * name, char * file, int line) {
+    char fullname[128];
+    char * basename = file + strlen(file);
+    while(basename >= file && *basename != '/') basename --;
+    basename ++;
+    sprintf(fullname, "%s/%s:%04d", name, basename, line);
+    return walltime_measure_internal(fullname);
+}
+double walltime_add_full(char * name, double dt, char * file, int line) {
+    char fullname[128];
+    char * basename = file + strlen(file);
+    while(basename >= file && *basename != '/') basename --;
+    basename ++;
+    sprintf(fullname, "%s/%s:%04d", name, basename, line);
+    return walltime_add_internal(fullname, dt);
+
 }
 
 /* returns the number of cpu-ticks in seconds that

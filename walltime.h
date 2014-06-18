@@ -1,7 +1,13 @@
 int walltime_clock(char * name);
 void walltime_reset();
-double walltime_measure(char * name);
-double walltime_add(char * name, double dt);
+#define WALLTIME_IGNORE "."
+#define LINENO(a, b) a ":" # b
+#define walltime_measure(name) walltime_measure_full(name, __FILE__ , __LINE__) 
+#define walltime_add(name, dt) walltime_add_full(name, dt,  __FILE__, __LINE__)
+double walltime_measure_internal(char * name);
+double walltime_add_internal(char * name, double dt);
+inline double walltime_measure_full(char * name, char * file, int line);
+inline double walltime_add_full(char * name, double dt, char * file, int line);
 
 enum clocktype {
     CLOCK_STEP_MEAN ,
@@ -28,7 +34,7 @@ void walltime_summary(int root, MPI_Comm comm);
 void walltime_report(FILE * fd, int root, MPI_Comm comm);
 
 struct Clock {
-    char name[40];
+    char name[128];
     double time;
     double max;
     double min;
@@ -39,8 +45,8 @@ struct Clock {
 struct ClockTable {
     int Nmax;
     int N;
-    struct Clock C[128];
-    struct Clock AC[128];
+    struct Clock C[512];
+    struct Clock AC[512];
     double ElapsedTime;
     double StepTime;
 };

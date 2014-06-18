@@ -353,7 +353,7 @@ void density(void)
 
     /* collect some timing information */
 
-    timeall = walltime_measure(NULL);
+    timeall = walltime_measure(WALLTIME_IGNORE);
 
     timecomp = timecomp3 + ev.timecomp1 + ev.timecomp2;
     timewait = ev.timewait1 + ev.timewait2;

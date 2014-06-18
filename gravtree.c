@@ -579,7 +579,7 @@ void gravity_tree(void)
     walltime_add("/Tree/Wait1", timewait1);
     walltime_add("/Tree/Wait2", timewait2);
 
-    timeall = walltime_measure(NULL);
+    timeall = walltime_measure(WALLTIME_IGNORE);
     walltime_add("/Tree/Misc", timeall - (timetree + timewait + timecomm));
 
 #ifdef FIXEDTIMEINFIRSTPHASE
