@@ -1,0 +1,3 @@
+[submodule "bigfile"]
+	path = bigfile
+	url = https://github.com/rainwoodman/bigfile
