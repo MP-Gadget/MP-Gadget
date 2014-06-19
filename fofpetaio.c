@@ -229,15 +229,15 @@ static void fof_write_header(BigFile * bf) {
     big_block_mpi_close(&bh, MPI_COMM_WORLD);
 }
 
-SIMPLE_GETTER(GTGroupID, Group[i].GrNr, uint32_t, 1)
-SIMPLE_GETTER(GTMassCenterPosition, Group[i].CM[0], double, 3)
-SIMPLE_GETTER(GTMassCenterVelocity, Group[i].Vel[0], float, 3)
-SIMPLE_GETTER(GTMass, Group[i].Mass, float, 1)
-SIMPLE_GETTER(GTMassByType, Group[i].MassType[0], float, 6)
-SIMPLE_GETTER(GTLengthByType, Group[i].LenType[0], uint32_t , 6)
-SIMPLE_GETTER(GTStarFormationRate, Group[i].Sfr, float, 1)
-SIMPLE_GETTER(GTBlackholeMass, Group[i].BH_Mass, float, 1)
-SIMPLE_GETTER(GTBlackholeAccretionRate, Group[i].BH_Mdot, float, 1)
+SIMPLE_PROPERTY(GroupID, Group[i].GrNr, uint32_t, 1)
+SIMPLE_PROPERTY(MassCenterPosition, Group[i].CM[0], double, 3)
+SIMPLE_PROPERTY(MassCenterVelocity, Group[i].Vel[0], float, 3)
+SIMPLE_PROPERTY(Mass, Group[i].Mass, float, 1)
+SIMPLE_PROPERTY(MassByType, Group[i].MassType[0], float, 6)
+SIMPLE_PROPERTY(LengthByType, Group[i].LenType[0], uint32_t , 6)
+SIMPLE_PROPERTY(StarFormationRate, Group[i].Sfr, float, 1)
+SIMPLE_PROPERTY(BlackholeMass, Group[i].BH_Mass, float, 1)
+SIMPLE_PROPERTY(BlackholeAccretionRate, Group[i].BH_Mdot, float, 1)
 
 void fof_register_io_blocks() {
     IO_REG(GroupID, "u4", 1, PTYPE_FOF_GROUP);

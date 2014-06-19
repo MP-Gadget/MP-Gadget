@@ -1,5 +1,6 @@
 typedef struct IOTableEntry IOTableEntry;
 typedef void (*property_getter) (int i, void * result);
+typedef void (*property_setter) (int i, void * target);
 typedef int (*petaio_selection) (int i);
 
 typedef struct IOTableEntry {
@@ -8,17 +9,23 @@ typedef struct IOTableEntry {
     char dtype[8];
     int items;
     property_getter getter;
+    property_setter setter;
 } IOTableEntry;
 
 #define PTYPE_FOF_GROUP  1024
 
 void petaio_init();
+void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal);
 void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection select);
-void petaio_save_block(BigFile * bf, char * blockname, BigArray * array);
+void petaio_readout_buffer(BigArray * array, IOTableEntry * ent);
 void petaio_destroy_buffer(BigArray * array);
 
-void petaio_save_snapshot(int num);
+void petaio_save_block(BigFile * bf, char * blockname, BigArray * array);
+void petaio_read_block(BigFile * bf, char * blockname, BigArray * array);
 
+void petaio_save_snapshot(int num);
+void petaio_read_snapshot(int num);
+void petaio_read_ic();
 /* 
  * Decalres a io block with name (literal, not a string) 
  * 
@@ -29,12 +36,16 @@ void petaio_save_snapshot(int num);
  * arrays.
  * */
 #define IO_REG(name, dtype, items, ptype) \
-    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name)
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name)
+#define IO_REG_WRONLY(name, dtype, items, ptype) \
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , NULL)
 void io_register_io_block(char * name, 
         char * dtype, 
         int items, 
         int ptype, 
-        property_getter getter);
+        property_getter getter,
+        property_setter setter
+        );
 
 
 /* 
@@ -56,7 +67,16 @@ static void name(int i, type * out) { \
         out[k] = *(&(field) + k); \
     } \
 }
-
+#define SIMPLE_SETTER(name, field, type, items) \
+static void name(int i, type * out) { \
+    int k; \
+    for(k = 0; k < items; k ++) { \
+        *(&(field) + k) = out[k]; \
+    } \
+}
+#define SIMPLE_PROPERTY(name, field, type, items) \
+    SIMPLE_GETTER(GT ## name , field, type, items) \
+    SIMPLE_SETTER(ST ## name , field, type, items) \
 /* 
  * currently 4096 entries are supported 
  * */

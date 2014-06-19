@@ -92,6 +92,18 @@ void init(void)
     }
 
 
+    if(RestartFlag >= 2 && RestartSnapNum >= 0)  {
+        petaio_read_snapshot(RestartSnapNum);
+    } else 
+    if(RestartFlag == 0) {
+        petaio_read_ic();
+    } else {
+        if(ThisTask == 0) {
+            fprintf(stderr, "RestartFlag and SnapNum comination is unknown");
+        }
+        abort();
+    }
+#ifdef IO_OLDSNAPSHOT
     switch (All.ICFormat)
     {
         case 1:
@@ -133,6 +145,7 @@ void init(void)
                 printf("ICFormat=%d not supported.\n", All.ICFormat);
             endrun(0);
     }
+#endif
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection_bh();
@@ -843,17 +856,20 @@ void init(void)
 
     for(i = 0; i < N_sph; i++)	/* initialize sph_properties */
     {
+        /* PETAIO:
+         * NON IC, this flag is 1
+         * IC it is 0. */
         if(header.flag_entropy_instead_u == 0)
         {
 #ifndef EOS_DEGENERATE
 
 #if !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
+/* for DENSITY_INDEPENDENT_SPH, this is done already. */
 
             if(ThisTask == 0 && i == 0)
                 printf("Converting u -> entropy !\n");
 
             SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).d.Density / a3, GAMMA_MINUS1);
-/* for DENSITY_INDEPENDENT_SPH, do it later after EgyWtDensity is decided*/
 #endif
 
 #else
