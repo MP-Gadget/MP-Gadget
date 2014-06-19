@@ -1,4 +1,4 @@
-EXEC   = P-Gadget3 MakePrimordialCoolingTable
+EXEC   = P-Gadget3 
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 
@@ -23,16 +23,16 @@ OBJS  =  \
 	 forcetree.o  peano.o parallel_sort_special.o \
 	 pm_periodic.o petapm.o pm_nonperiodic.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o \
-	 bigfile/bigfile.o bigfile/bigfile-mpi.o
+	 bigfile/src/bigfile.o bigfile/src/bigfile-mpi.o
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
 	 subfind.h dd.h fof.h eos.h myqsort.h \
 	 petaio.h \
-	 bigfile/bigfile.h bigfile/bigfile-mpi.h \
+	 bigfile/src/bigfile.h bigfile/src/bigfile-mpi.h \
 	 Makefile \
 
-
-CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(FFTW_INCL) $(HDF5_INCL) 
+BIGFILEINC = $(VPATH)/bigfile/src
+CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(FFTW_INCL) $(HDF5_INCL) -I$(BIGFILEINC)
 
 LIBS   = -lm $(HDF_LIBS) -g $(MPICHLIB) $(GSL_LIBS) $(FFTW_LIBS)
 

@@ -5,7 +5,7 @@
 #include <math.h>
 #include <string.h>
 
-#include "bigfile/bigfile-mpi.h"
+#include "bigfile-mpi.h"
 #include "allvars.h"
 #include "proto.h"
 
