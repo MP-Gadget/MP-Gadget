@@ -235,8 +235,6 @@ void domain_Decomposition(void)
             fflush(stdout);
         }
 
-        walltime_measure("/Domain/Decompose");
-
 #ifdef PEANOHILBERT
 #ifdef SUBFIND
         if(GrNr < 0)		/* we don't do it when SUBFIND is executed for a certain group */
@@ -349,6 +347,8 @@ int domain_decompose(void)
     int maxload;
     double sumwork, sumcpu, sumcost, maxwork, cadj_SpeedFac;
 
+
+    walltime_measure("/Domain/Decompose/Misc");
 #ifdef CPUSPEEDADJUSTMENT
     double min_load, sum_speedfac;
 #endif
@@ -443,16 +443,24 @@ int domain_decompose(void)
     /* determine global dimensions of domain grid */
     domain_findExtent();
 
+    walltime_measure("/Domain/Decompose/FindExtent");
+
     if(domain_determineTopTree())
         return 1;
 
 
+    walltime_measure("/Domain/Decompose/DetermineTopTree");
     /* find the split of the domain grid */
     domain_findSplit_work_balanced(MULTIPLEDOMAINS * NTask, NTopleaves);
+
+    walltime_measure("/Domain/Decompose/findworksplit");
+
     domain_assign_load_or_work_balanced(1);
 
+    walltime_measure("/Domain/Decompose/assignbalance");
 
     status = domain_check_memory_bound();
+    walltime_measure("/Domain/Decompose/memorybound");
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
     {
@@ -461,9 +469,13 @@ int domain_decompose(void)
                 ("Note: the domain decomposition is suboptimum because the ceiling for memory-imbalance is reached\n");
 
         domain_findSplit_load_balanced(MULTIPLEDOMAINS * NTask, NTopleaves);
+
+        walltime_measure("/Domain/Decompose/findloadsplit");
         domain_assign_load_or_work_balanced(0);
+        walltime_measure("/Domain/Decompose/assignbalance");
 
         status = domain_check_memory_bound();
+        walltime_measure("/Domain/Decompose/memorybound");
 
         if(status != 0)
         {
@@ -507,7 +519,9 @@ int domain_decompose(void)
 #endif
     }
 
+    walltime_measure("/Domain/Decompose/Misc");
     domain_exchange(domain_layoutfunc);
+    walltime_measure("/Domain/Decompose/exchange");
     return 0;
 }
 
