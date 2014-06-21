@@ -107,7 +107,7 @@ void petapm_init_periodic(void) {
 
     /* define the global long / short range force cut */
 
-    All.Asmth[0] = ASMTH * All.BoxSize / PMGRID;
+    All.Asmth[0] = ASMTH * All.BoxSize / All.Nmesh;
     All.Rcut[0] = RCUT * All.Asmth[0];
     /* fac is - 4pi G     (L / 2pi) **2 / L ** 3 
      *        Gravity       k2            DFT  
@@ -118,13 +118,13 @@ void petapm_init_periodic(void) {
 
     pfft_init();
 
-    ptrdiff_t n[3] = {PMGRID, PMGRID, PMGRID};
+    ptrdiff_t n[3] = {All.Nmesh, All.Nmesh, All.Nmesh};
     ptrdiff_t np[2];
 
     /* The following memory will never be freed */
-    Mesh2Task[0] = malloc(sizeof(int) * PMGRID);
-    Mesh2Task[1] = malloc(sizeof(int) * PMGRID);
-    Mesh2K = malloc(sizeof(int) * PMGRID);
+    Mesh2Task[0] = malloc(sizeof(int) * All.Nmesh);
+    Mesh2Task[1] = malloc(sizeof(int) * All.Nmesh);
+    Mesh2K = malloc(sizeof(int) * All.Nmesh);
 
     /* initialize the MPI Datatype of pencil */
     MPI_Type_contiguous(sizeof(struct Pencil), MPI_BYTE, &MPI_PENCIL);
@@ -205,8 +205,8 @@ void petapm_init_periodic(void) {
             real_space_region.size[1], 
             real_space_region.size[2]);
     for(k = 0; k < 2; k ++) {
-        int * tmp = (int*) alloca(sizeof(int) * PMGRID);
-        for(i = 0; i < PMGRID; i ++) {
+        int * tmp = (int*) alloca(sizeof(int) * All.Nmesh);
+        for(i = 0; i < All.Nmesh; i ++) {
             tmp[i] = 0;
         }
         for(i = 0; i < real_space_region.size[k]; i ++) {
@@ -214,10 +214,10 @@ void petapm_init_periodic(void) {
         }
         /* which column / row hosts this tile? */
         /* FIXME: this is very inefficient */
-        MPI_Allreduce(tmp, Mesh2Task[k], PMGRID, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+        MPI_Allreduce(tmp, Mesh2Task[k], All.Nmesh, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
         /*
         if(ThisTask == 0) {
-            for(i = 0; i < PMGRID; i ++) {
+            for(i = 0; i < All.Nmesh; i ++) {
                 printf("Mesh2Task[%d][%d] == %d\n", k, i, Mesh2Task[k][i]);
             }
         }
@@ -225,11 +225,11 @@ void petapm_init_periodic(void) {
     }
     /* as well as the mesh2k array, we save the 2PI factor as done in
      * pm_periodic */
-    for(i = 0; i < PMGRID; i ++) {
-        if(i <= PMGRID / 2)
+    for(i = 0; i < All.Nmesh; i ++) {
+        if(i <= All.Nmesh / 2)
             Mesh2K[i] = i;
         else
-            Mesh2K[i] = i - PMGRID;
+            Mesh2K[i] = i - All.Nmesh;
     }
 
 }
@@ -263,7 +263,7 @@ void petapm_prepare() {
             no = Nodes[no].u.d.sibling;
             continue;
         }
-        if(Nodes[no].len + 2 * Extnodes[no].hmax <= All.BoxSize / PMGRID * 24
+        if(Nodes[no].len + 2 * Extnodes[no].hmax <= All.BoxSize / All.Nmesh * 24
             /* node is large */
        ||  (
             !(Nodes[no].u.d.bitflags & (1 << BITFLAG_INTERNAL_TOPLEVEL))
@@ -303,7 +303,7 @@ void petapm_prepare() {
 
 static void convert_node_to_region(int no, int r) {
     int k;
-    double cellsize = All.BoxSize / PMGRID;
+    double cellsize = All.BoxSize / All.Nmesh;
 #if 0
     printf("task = %d no = %d len = %g hmax = %g center = %g %g %g\n",
             ThisTask, no, Nodes[no].len, Extnodes[no].hmax, 
@@ -736,8 +736,8 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter) {
         ptrdiff_t linear0 = 0;
         for(k = 0; k < 2; k ++) {
             int ix = p->offset[k];
-            while(ix < 0) ix += PMGRID;
-            while(ix >= PMGRID) ix -= PMGRID;
+            while(ix < 0) ix += All.Nmesh;
+            while(ix >= All.Nmesh) ix -= All.Nmesh;
             ix -= real_space_region.offset[k];
             if(ix >= real_space_region.size[k]) {
                 /* seroius problem assmpution about pfft layout was wrong*/
@@ -748,8 +748,8 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter) {
         int j;
         for(j = 0; j < p->len; j ++) {
             int iz = p->offset[2] + j;
-            while(iz < 0) iz += PMGRID;
-            while(iz >= PMGRID) iz -= PMGRID;
+            while(iz < 0) iz += All.Nmesh;
+            while(iz >= All.Nmesh) iz -= All.Nmesh;
             if(iz >= real_space_region.size[2]) {
                 /* seroius problem assmpution about pfft layout was wrong*/
                 abort();
@@ -787,7 +787,7 @@ static void pm_alloc() {
 static void pm_iterate_one(int i, pm_iterator iterator) {
     struct Region * region = &regions[P[i].RegionInd];
     int k;
-    double cellsize = All.BoxSize / PMGRID;
+    double cellsize = All.BoxSize / All.Nmesh;
     int iCell[3];  /* integer coordinate on the regional mesh */
     double Res[3]; /* residual*/
     for(k = 0; k < 3; k++) {
@@ -891,8 +891,8 @@ static int pos_get_target(const int pos[2]) {
     int rank;
     for(k = 0; k < 2; k ++) {
         int ix = pos[k];
-        while(ix < 0) ix += PMGRID;
-        while(ix >= PMGRID) ix -= PMGRID;
+        while(ix < 0) ix += All.Nmesh;
+        while(ix >= All.Nmesh) ix -= All.Nmesh;
         task2d[k] = Mesh2Task[k][ix];
     }
     MPI_Cart_rank(comm_cart_2d, task2d, &rank);
@@ -966,7 +966,7 @@ static void pm_apply_transfer_function(struct Region * region,
             /* lets get the abs pos on the grid*/
             pos[k] += region->offset[k];
             /* check */
-            if(pos[k] >= PMGRID) abort();
+            if(pos[k] >= All.Nmesh) abort();
             kpos[k] = Mesh2K[pos[k]];
             /* Watch out the cast */
             k2 += ((int64_t)kpos[k]) * kpos[k];
@@ -1017,14 +1017,14 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
     double smth = exp(-k2 * asmth2) / k2;
     /* the CIC deconvolution kernel is
      *
-     * sinc_unnormed(k_x L / 2 PMGRID) ** 2
+     * sinc_unnormed(k_x L / 2 All.Nmesh) ** 2
      *
      * k_x = kpos * 2pi / L
      *
      * */
     int k;
     for(k = 0; k < 3; k ++) {
-        double tmp = (kpos[k] * M_PI) / PMGRID;
+        double tmp = (kpos[k] * M_PI) / All.Nmesh;
         tmp = sinc_unnormed(tmp);
         f *= 1. / (tmp * tmp);
     }
@@ -1080,7 +1080,7 @@ static void force_transfer(int k, pfft_complex * value) {
      *
      * filter is   i K(w)
      * */
-    double fac = -1 * diff_kernel (k * (2 * M_PI / PMGRID)) * (PMGRID / All.BoxSize);
+    double fac = -1 * diff_kernel (k * (2 * M_PI / All.Nmesh)) * (All.Nmesh / All.BoxSize);
     tmp0 = - value[0][1] * fac;
     tmp1 = value[0][0] * fac;
     value[0][0] = tmp0;

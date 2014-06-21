@@ -1200,7 +1200,11 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "ErrTolTheta");
         addr[nt] = &All.ErrTolTheta;
         id[nt++] = REAL;
-
+#ifdef PMGRID
+        strcpy(tag[nt], "Nmesh");
+        addr[nt] = &All.Nmesh;
+        id[nt++] = INT;
+#endif 
 #ifdef SUBFIND
         strcpy(tag[nt], "ErrTolThetaSubfind");
         addr[nt] = &All.ErrTolThetaSubfind;

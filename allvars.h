@@ -845,6 +845,7 @@ extern struct global_data_all_processes
     int Ti_nextoutput;		/*!< next output time on integer timeline */
 
 #ifdef PMGRID
+    int Nmesh;
     int PM_Ti_endstep, PM_Ti_begstep;
     double Asmth[2], Rcut[2];
     double Corner[2][3], UpperCorner[2][3], Xmintot[2][3], Xmaxtot[2][3];
