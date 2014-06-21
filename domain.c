@@ -74,7 +74,7 @@ static void domain_insertnode(struct local_topnode_data *treeA, struct local_top
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
 
 static int domain_layoutfunc(int n);
-static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p));
+static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p));
 static void domain_exchange_once(int (*layoutfunc)(int p) );
 
 
