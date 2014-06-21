@@ -149,6 +149,7 @@ static void walltime_update_parents() {
     /* returns the sum of every clock with the same prefix */
     int i = 0;
     for(i = 0; i < CT->N; i ++) {
+        CT->Nchildren[i] = 0;
         int j;
         char * prefix = CT->C[i].name;
         int l = strlen(prefix);
@@ -156,6 +157,7 @@ static void walltime_update_parents() {
         for(j = i + 1; j < CT->N; j++) {
             if(0 == strncmp(prefix, CT->C[j].name, l)) {
                 t += CT->C[j].time;
+                CT->Nchildren[i] ++;
             } else {
                 break;
             }
@@ -189,7 +191,7 @@ double walltime_measure_full(char * name, char * file, int line) {
     char * basename = file + strlen(file);
     while(basename >= file && *basename != '/') basename --;
     basename ++;
-    sprintf(fullname, "%s/%s:%04d", name, basename, line);
+    sprintf(fullname, "%s@%s:%04d", name, basename, line);
     return walltime_measure_internal(fullname);
 }
 double walltime_add_full(char * name, double dt, char * file, int line) {
@@ -197,7 +199,7 @@ double walltime_add_full(char * name, double dt, char * file, int line) {
     char * basename = file + strlen(file);
     while(basename >= file && *basename != '/') basename --;
     basename ++;
-    sprintf(fullname, "%s/%s:%04d", name, basename, line);
+    sprintf(fullname, "%s@%s:%04d", name, basename, line);
     return walltime_add_internal(fullname, dt);
 
 }
@@ -216,8 +218,21 @@ void walltime_report(FILE * fp, int root, MPI_Comm comm) {
     int i; 
     for(i = 0; i < CT->N; i ++) {
         char * name = CT->C[i].name;
-        fprintf(fp, "%-26s  %10.2f %4.1f%%  %10.2f %4.1f%%  %10.2f %10.2f\n",
-                CT->C[i].name,
+        int level = 0;
+        char * p = name;
+        char * q = name;
+        while(*p) {
+            if(*p == '/') {
+                level ++;
+                name = p + 1;
+            }
+            p++;
+        }
+        /* if there is just one child, don't print it*/
+        if(CT->Nchildren[i] == 1) continue;
+        fprintf(fp, "%*s%-26s  %10.2f %4.1f%%  %10.2f %4.1f%%  %10.2f %10.2f\n",
+                level, "",  /* indents */
+                name,   /* just the last seg of name*/
                 CT->AC[i].mean,
                 CT->AC[i].mean / CT->ElapsedTime * 100.,
                 CT->C[i].mean,

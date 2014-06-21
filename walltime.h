@@ -47,6 +47,7 @@ struct ClockTable {
     int N;
     struct Clock C[512];
     struct Clock AC[512];
+    int Nchildren[512];
     double ElapsedTime;
     double StepTime;
 };
