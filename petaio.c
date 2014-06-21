@@ -53,7 +53,8 @@ void petaio_save_snapshot(int num) {
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         if(ThisTask == 0) {
-            fprintf(stderr, "Failed to create snapshot at %s\n", fname);
+            fprintf(stderr, "Failed to create snapshot at %s:%s\n", fname,
+                    big_file_get_error_message());
         }
         abort();
     }
@@ -73,7 +74,13 @@ void petaio_save_snapshot(int num) {
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
-    big_file_mpi_close(&bf, MPI_COMM_WORLD);
+    if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)){
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to close snapshot at %s:%s\n", fname,
+                    big_file_get_error_message());
+        }
+        abort();
+    }
 }
 
 void petaio_read_internal(char * fname, int ic) {
@@ -82,7 +89,8 @@ void petaio_read_internal(char * fname, int ic) {
     BigFile bf = {0};
     if(0 != big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
         if(ThisTask == 0) {
-            fprintf(stderr, "Failed to open snapshot at %s\n", fname);
+            fprintf(stderr, "Failed to open snapshot at %s:%s\n", fname,
+                    big_file_get_error_message());
         }
         abort();
     }
@@ -155,8 +163,13 @@ void petaio_read_internal(char * fname, int ic) {
         petaio_readout_buffer(&array, &IOTable.ent[i]);
         petaio_destroy_buffer(&array);
     }
-    big_file_mpi_close(&bf, MPI_COMM_WORLD);
-
+    if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)) {
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to close snapshot at %s:%s\n", fname,
+                    big_file_get_error_message());
+        }
+        abort();
+    }
 }
 
 
@@ -242,7 +255,10 @@ void petaio_read_ic() {
 static void petaio_write_header(BigFile * bf) {
     BigBlock bh = {0};
     if(0 != big_file_mpi_create_block(bf, &bh, "header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
-        fprintf(stderr, "Failed to create header\n");
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to create block at %s:%s\n", "header",
+                    big_file_get_error_message());
+        }
         abort();
     }
     int i;
@@ -258,30 +274,54 @@ static void petaio_write_header(BigFile * bf) {
     }
 
     MPI_Allreduce(npartLocal, npartTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
-    
-    big_block_set_attr(&bh, "NumPartTotal", npartTotal, "u8", 6);
-    big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6);
-    big_block_set_attr(&bh, "Time", &All.Time, "f8", 1);
-    big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1);
-    big_block_set_attr(&bh, "OmegaLambda", &All.OmegaLambda, "f8", 1);
-    big_block_set_attr(&bh, "Omega0", &All.Omega0, "f8", 1);
-    big_block_set_attr(&bh, "HubbleParam", &All.HubbleParam, "f8", 1);
-    big_block_mpi_close(&bh, MPI_COMM_WORLD);
+    if( 
+    (0 != big_block_set_attr(&bh, "NumPartTotal", npartTotal, "u8", 6)) ||
+    (0 != big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
+    (0 != big_block_set_attr(&bh, "Time", &All.Time, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "OmegaLambda", &All.OmegaLambda, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "Omega0", &All.Omega0, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "HubbleParam", &All.HubbleParam, "f8", 1)) ) {
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to write attributes %s\n",
+                    big_file_get_error_message());
+        }
+        abort();
+    }
+
+    if(0 != big_block_mpi_close(&bh, MPI_COMM_WORLD)) {
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to close block %s\n",
+                    big_file_get_error_message());
+        }
+        abort();
+    }
 }
 
 static void petaio_read_header(BigFile * bf) {
     BigBlock bh = {0};
     if(0 != big_file_mpi_open_block(bf, &bh, "header", MPI_COMM_WORLD)) {
-        fprintf(stderr, "Failed to open header\n");
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to create block at %s:%s\n", "header",
+                    big_file_get_error_message());
+        }
         abort();
     }
     int i;
     int k;
     double Time;
     double BoxSize;
-    big_block_get_attr(&bh, "TotNumPart", npartTotal, "u8", 6);
-    big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6);
-    big_block_get_attr(&bh, "Time", &Time, "f8", 1);
+    if(
+    (0 != big_block_get_attr(&bh, "TotNumPart", npartTotal, "u8", 6)) ||
+    (0 != big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
+    (0 != big_block_get_attr(&bh, "Time", &Time, "f8", 1)) ||
+    (0 != big_block_get_attr(&bh, "BoxSize", &BoxSize, "f8", 1))) {
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to read attr: %s\n",
+                    big_file_get_error_message());
+        }
+        abort();
+    }
 
     All.TotNumPart = 0;
     for(k = 0; k < 6; k ++) {
@@ -298,7 +338,6 @@ static void petaio_read_header(BigFile * bf) {
         set_global_time(All.TimeBegin);
     }
 
-    big_block_get_attr(&bh, "BoxSize", &BoxSize, "f8", 1);
     if(BoxSize != All.BoxSize) {
         if(ThisTask == 0) {
             fprintf(stderr, "BoxSize mismatch %g, snapfile has %g\n", All.BoxSize, BoxSize);
@@ -311,8 +350,13 @@ static void petaio_read_header(BigFile * bf) {
     big_block_get_attr(&bh, "Omega0", &All.Omega0, "f8", 1);
     big_block_get_attr(&bh, "HubbleParam", &All.HubbleParam, "f8", 1);
     */
-    big_block_mpi_close(&bh, MPI_COMM_WORLD);
-
+    if(0 != big_block_mpi_close(&bh, MPI_COMM_WORLD)) {
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to close block: %s\n",
+                    big_file_get_error_message());
+        }
+        abort();
+    }
     /* sets the maximum number of particles that may reside on a processor */
     All.MaxPart = (int) (All.PartAllocFactor * (All.TotNumPart / NTask));	
     All.MaxPartSph = (int) (All.PartAllocFactor * (All.TotN_sph / NTask));	
@@ -393,9 +437,10 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
     /* open the block */
     if(0 != big_file_mpi_open_block(bf, &bb, blockname, MPI_COMM_WORLD)) {
         if(ThisTask == 0) {
-            fprintf(stderr, "Failed to open file for block %s\n", blockname);
+            fprintf(stderr, "Failed to open block at %s:%s\n", blockname,
+                    big_file_get_error_message());
         }
-        endrun(12345);
+        abort();
     }
     
 
@@ -404,17 +449,23 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
         MPI_Barrier(GROUP);
         if(i != ThisKey) continue;
         if(0 != big_block_seek(&bb, &ptr, offset)) {
-            fprintf(stderr, "Failed to seek\n");
+            fprintf(stderr, "Failed to seek: %s\n", big_file_get_error_message());
             abort();
         }
         //printf("Task = %d, writing at %td\n", ThisTask, offsetLocal);
         if(0 != big_block_read(&bb, &ptr, array)) {
-            fprintf(stderr, "Failed to readform  block, ThisTask = %d\n", ThisTask);
+            fprintf(stderr, "Failed to readform  block, ThisTask = %d: %s\n", ThisTask, big_file_get_error_message);
             endrun(12345);
         }
     }
 
-    big_block_mpi_close(&bb, MPI_COMM_WORLD);
+    if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to close block at %s:%s\n", blockname,
+                    big_file_get_error_message());
+        }
+        abort();
+    }
 
 }
 
@@ -432,9 +483,10 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array) {
     /* dims[1] is the number of members per item */
     if(0 != big_file_mpi_create_block(bf, &bb, blockname, array->dtype, array->dims[1], NumFiles, size, MPI_COMM_WORLD)) {
         if(ThisTask == 0) {
-            fprintf(stderr, "Failed to create block: %s", blockname);
+            fprintf(stderr, "Failed to create block at %s:%s\n", blockname,
+                    big_file_get_error_message());
         }
-        endrun(123454);
+        abort();
     }
     
 
@@ -443,17 +495,23 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array) {
         MPI_Barrier(GROUP);
         if(i != ThisKey) continue;
         if(0 != big_block_seek(&bb, &ptr, offset)) {
-            fprintf(stderr, "Failed to seek\n");
+            fprintf(stderr, "Failed to seek:%s\n", big_file_get_error_message());
             endrun(124455);
         }
         //printf("Task = %d, writing at %td\n", ThisTask, offsetLocal);
         if(0 != big_block_write(&bb, &ptr, array)) {
-            fprintf(stderr, "Failed to write\n");
+            fprintf(stderr, "Failed to write, ThisTask=%d:%s\n", ThisTask, big_file_get_error_message());
             endrun(124455);
         }
     }
 
-    big_block_mpi_close(&bb, MPI_COMM_WORLD);
+    if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
+        if(ThisTask == 0) {
+            fprintf(stderr, "Failed to close block at %s:%s\n", blockname,
+                    big_file_get_error_message());
+        }
+        abort();
+    }
 }
 
 /* 
