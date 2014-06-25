@@ -36,9 +36,6 @@
  */
 static int *toGo, *toGoSph, *toGoBh;
 static int *toGet, *toGetSph, *toGetBh;
-static int *list_NumPart;
-static int *list_N_sph;
-static int *list_N_bh;
 static int *list_load;
 static int *list_loadsph;
 static double *list_work;
@@ -132,12 +129,6 @@ void domain_Decomposition(void)
 
             all_bytes = 0;
 
-            list_NumPart = (int *) mymalloc("list_NumPart", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            list_N_sph = (int *) mymalloc("list_N_sph", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            list_N_bh = (int *) mymalloc("list_N_bh", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
             list_cadj_cpu = (double *) mymalloc("list_cadj_cpu", bytes = (sizeof(double) * NTask));
             all_bytes += bytes;
             list_cadj_cost = (double *) mymalloc("list_cadj_cost", bytes = (sizeof(double) * NTask));
@@ -196,10 +187,6 @@ void domain_Decomposition(void)
             myfree(list_load);
             myfree(list_cadj_cost);
             myfree(list_cadj_cpu);
-            myfree(list_N_bh);
-            myfree(list_N_sph);
-            myfree(list_NumPart);
-
 
             MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
             if(retsum)
@@ -546,7 +533,6 @@ void domain_exchange(int (*layoutfunc)(int p)) {
     int i;
     int64_t sumtogo;
     /* flag the particles that need to be exported */
-
     toGo = (int *) mymalloc("toGo", (sizeof(int) * NTask));
     toGoSph = (int *) mymalloc("toGoSph", (sizeof(int) * NTask));
     toGoBh = (int *) mymalloc("toGoBh", (sizeof(int) * NTask));
@@ -1315,6 +1301,14 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
 {
     int n, ret, retsum;
     size_t package;
+
+    int *list_NumPart;
+    int *list_N_sph;
+    int *list_N_bh;
+
+    list_NumPart = (int *) alloca(sizeof(int) * NTask);
+    list_N_sph = (int *) alloca(sizeof(int) * NTask);
+    list_N_bh = (int *) alloca(sizeof(int) * NTask);
 
     for(n = 0; n < NTask; n++)
     {
