@@ -282,7 +282,7 @@ static void petaio_write_header(BigFile * bf) {
 
     MPI_Allreduce(npartLocal, npartTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
     if( 
-    (0 != big_block_set_attr(&bh, "NumPartTotal", npartTotal, "u8", 6)) ||
+    (0 != big_block_set_attr(&bh, "TotNumPart", npartTotal, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
     (0 != big_block_set_attr(&bh, "Time", &All.Time, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
@@ -319,7 +319,7 @@ static void petaio_read_header(BigFile * bf) {
     double Time;
     double BoxSize;
     if(
-    (0 != big_block_get_attr(&bh, "NumPartTotal", npartTotal, "u8", 6)) ||
+    (0 != big_block_get_attr(&bh, "TotNumPart", npartTotal, "u8", 6)) ||
     (0 != big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
     (0 != big_block_get_attr(&bh, "Time", &Time, "f8", 1)) ||
     (0 != big_block_get_attr(&bh, "BoxSize", &BoxSize, "f8", 1))) {
