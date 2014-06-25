@@ -85,7 +85,9 @@ static int maxLoad, maxLoadsph;
 
 static double totgravcost, totpartcount, gravcost;
 
-
+static MPI_Datatype MPI_TYPE_PARTICLE = 0;
+static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
+static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
 
 /*! This is the main routine for the domain decomposition.  It acts as a
  *  driver routine that allocates various temporary buffers, maps the
@@ -98,6 +100,16 @@ void domain_Decomposition(void)
     int i, ret, retsum;
     size_t bytes, all_bytes;
     double t0, t1;
+
+    /* register the mpi types used in communication if not yet. */
+    if (MPI_TYPE_PARTICLE == 0) {
+        MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
+        MPI_Type_contiguous(sizeof(struct bh_particle_data), MPI_BYTE, &MPI_TYPE_BHPARTICLE);
+        MPI_Type_contiguous(sizeof(struct sph_particle_data), MPI_BYTE, &MPI_TYPE_SPHPARTICLE);
+        MPI_Type_commit(&MPI_TYPE_PARTICLE);
+        MPI_Type_commit(&MPI_TYPE_BHPARTICLE);
+        MPI_Type_commit(&MPI_TYPE_SPHPARTICLE);
+    }
 
         walltime_measure("/Misc");
 
@@ -558,10 +570,6 @@ void domain_exchange(int (*layoutfunc)(int p)) {
     {
         exchange_limit = FreeBytes - NTask * (24 * sizeof(int) + 16 * sizeof(MPI_Request));
 
-        /* never change more than 1GB, because send/recv has 2GB barrier */
-        if(exchange_limit > 1024 * 1024 * 1024) {
-            exchange_limit = 1024 * 1024 * 1024;
-        }
         if(exchange_limit <= 0)
         {
             printf("task=%d: exchange_limit=%d\n", ThisTask, (int) exchange_limit);
@@ -687,14 +695,6 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     struct sph_particle_data *sphBuf;
     struct bh_particle_data *bhBuf;
 
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
-    int n_requests;
-    MPI_Request *requests;
-    requests = (MPI_Request *) mymalloc("requests", 16 * NTask * sizeof(MPI_Request));
-    n_requests = 0;
-#endif
-
-
     count = (int *) mymalloc("count", NTask * sizeof(int));
     count_sph = (int *) mymalloc("count_sph", NTask * sizeof(int));
     count_bh = (int *) mymalloc("count_bh", NTask * sizeof(int));
@@ -819,142 +819,37 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     for(i = 1; i < NTask; i++)
         offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
 
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        target = ThisTask ^ ngrp;
+    MPI_Alltoallv(partBuf, count_sph, offset_sph, MPI_TYPE_PARTICLE,
+                 P, count_recv_sph, offset_recv_sph, MPI_TYPE_PARTICLE,
+                 MPI_COMM_WORLD);
 
-        if(target < NTask)
-        {
-            if(count_recv_sph[target] > 0)
-            {
-                MPI_Irecv(P + offset_recv_sph[target], count_recv_sph[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA_SPH, MPI_COMM_WORLD, &requests[n_requests++]);
+    MPI_Alltoallv(sphBuf, count_sph, offset_sph, MPI_TYPE_SPHPARTICLE,
+                 SphP, count_recv_sph, offset_recv_sph, MPI_TYPE_SPHPARTICLE,
+                 MPI_COMM_WORLD);
 
-                MPI_Irecv(SphP + offset_recv_sph[target],
-                        count_recv_sph[target] * sizeof(struct sph_particle_data), MPI_BYTE, target,
-                        TAG_SPHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-            }
-            if(count_recv[target] > 0)
-            {
-                MPI_Irecv(P + offset_recv[target], count_recv[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, &requests[n_requests++]);
+    MPI_Alltoallv(partBuf, count, offset, MPI_TYPE_PARTICLE,
+                 P, count_recv, offset_recv, MPI_TYPE_PARTICLE,
+                 MPI_COMM_WORLD);
 
-            }
-            if(count_recv_bh[target] > 0)
-            {
-                MPI_Irecv(BhP + offset_recv_bh[target],
-                        count_recv_bh[target] * sizeof(struct bh_particle_data), MPI_BYTE, target,
-                        TAG_BHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-                int i;
-                for(i = offset_recv[target], 
-                        j = offset_recv_bh[target]; 
-                        i < offset_recv[target] + count_recv[target]; 
-                        i++) {
-                    if(P[i].Type != 5) continue;
-                    P[i].PI = j;
-                    j++;
-                }
-                if(j != count_recv_bh[target] + offset_recv_bh[target]) {
-                    printf("communitate bh consitency\n");
-                    endrun(99999);
-                }
-            }
+    MPI_Alltoallv(bhBuf, count_bh, offset_bh, MPI_TYPE_BHPARTICLE,
+                BhP, count_recv_bh, offset_recv_bh, MPI_TYPE_BHPARTICLE,
+                MPI_COMM_WORLD);
+                
+    for(target = 0; target < NTask; target++) {
+        int i, j;
+        for(i = offset_recv[target], 
+                j = offset_recv_bh[target]; 
+                i < offset_recv[target] + count_recv[target]; 
+                i++) {
+            if(P[i].Type != 5) continue;
+            P[i].PI = j;
+            j++;
+        }
+        if(j != count_recv_bh[target] + offset_recv_bh[target]) {
+            printf("communitate bh consitency\n");
+            endrun(99999);
         }
     }
-
-
-    MPI_Barrier(MPI_COMM_WORLD);	/* not really necessary, but this will guarantee that all receives are
-                                       posted before the sends, which helps the stability of MPI on 
-                                       bluegene, and perhaps some mpich1-clusters */
-
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        target = ThisTask ^ ngrp;
-
-        if(target < NTask)
-        {
-            if(count_sph[target] > 0)
-            {
-                MPI_Isend(partBuf + offset_sph[target], count_sph[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA_SPH, MPI_COMM_WORLD, &requests[n_requests++]);
-
-                MPI_Isend(sphBuf + offset_sph[target], count_sph[target] * sizeof(struct sph_particle_data),
-                        MPI_BYTE, target, TAG_SPHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-            }
-
-            if(count[target] > 0)
-            {
-                MPI_Isend(partBuf + offset[target], count[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-
-            }
-            if(count_bh[target] > 0)
-            {
-                MPI_Isend(bhBuf + offset_bh[target], count_bh[target] * sizeof(struct bh_particle_data),
-                        MPI_BYTE, target, TAG_BHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-            }
-
-        }
-    }
-
-    MPI_Waitall(n_requests, requests, MPI_STATUSES_IGNORE);
-#else
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        target = ThisTask ^ ngrp;
-
-        if(target < NTask)
-        {
-            if(count_sph[target] > 0 || count_recv_sph[target] > 0)
-            {
-                MPI_Sendrecv(partBuf + offset_sph[target], count_sph[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA_SPH,
-                        P + offset_recv_sph[target], count_recv_sph[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA_SPH, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-                MPI_Sendrecv(sphBuf + offset_sph[target], count_sph[target] * sizeof(struct sph_particle_data),
-                        MPI_BYTE, target, TAG_SPHDATA,
-                        SphP + offset_recv_sph[target],
-                        count_recv_sph[target] * sizeof(struct sph_particle_data), MPI_BYTE, target,
-                        TAG_SPHDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-            }
-
-            if(count[target] > 0 || count_recv[target] > 0)
-            {
-                MPI_Sendrecv(partBuf + offset[target], count[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA,
-                        P + offset_recv[target], count_recv[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-            }
-
-            if(count_bh[target] > 0 || count_recv_bh[target] > 0)
-            {
-                MPI_Sendrecv(bhBuf + offset_bh[target], count_bh[target] * sizeof(struct bh_particle_data),
-                        MPI_BYTE, target, TAG_BHDATA,
-                        BhP + offset_recv_bh[target],
-                        count_recv_bh[target] * sizeof(struct bh_particle_data), MPI_BYTE, target,
-                        TAG_BHDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                int i, j;
-                for(i = offset_recv[target], 
-                        j = offset_recv_bh[target]; 
-                        i < offset_recv[target] + count_recv[target]; 
-                        i++) {
-                    if(P[i].Type != 5) continue;
-                    P[i].PI = j;
-                    j++;
-                }
-                if(j != count_recv_bh[target] + offset_recv_bh[target]) {
-                    printf("communitate bh consitency\n");
-                    endrun(99999);
-                }
-
-            }
-        }
-    }
-#endif
 
     NumPart += count_get;
     N_sph += count_get_sph;
@@ -986,9 +881,6 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     myfree(count_bh);
     myfree(count_sph);
     myfree(count);
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
-    myfree(requests);
-#endif
 
     if(ThisTask == 0) {
         fprintf(stderr, "checking ID consistency after exchange\n");
