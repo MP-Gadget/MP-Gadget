@@ -2419,15 +2419,6 @@ NUMCRPOP = 1;
 
 
 
-    for(pnum = 0; All.NumFilesWrittenInParallel > (1 << pnum); pnum++);
-
-    if(All.NumFilesWrittenInParallel != (1 << pnum))
-    {
-        if(ThisTask == 0)
-            printf("NumFilesWrittenInParallel MUST be a power of 2\n");
-        endrun(0);
-    }
-
     if(All.NumFilesWrittenInParallel > NTask)
     {
         if(ThisTask == 0)
