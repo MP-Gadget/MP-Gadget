@@ -211,20 +211,34 @@ void density(void)
     Left = (MyFloat *) mymalloc("Left", NumPart * sizeof(MyFloat));
     Right = (MyFloat *) mymalloc("Right", NumPart * sizeof(MyFloat));
 
+    int Nactive;
+    int * queue;
+
+    /* this has to be done before get_queue so that 
+     * all particles are return for the first loop over all active particles.
+     * */
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
-        Left[i] = 0;
-        Right[i] = 0;
         P[i].DensityIterationDone = 0;
-
+    }
+    
+    /* the queue has every particle. Later on after some iterations are done
+     * Nactive will decrease -- the queue would be shorter.*/
+    queue = evaluate_get_queue(&ev, &Nactive);
+#pragma omp parallel for if(Nactive > 32)
+    for(i = 0; i < Nactive; i ++) {
+        int p = queue[i];
+        Left[p] = 0;
+        Right[p] = 0;
 #ifdef BLACK_HOLES
-        P[i].SwallowID = 0;
+        P[p].SwallowID = 0;
 #endif
 #if defined(BLACK_HOLES) && defined(FLTROUNDOFFREDUCTION)
-        if(P[i].Type == 0)
-            SPHP(i).i.dInjected_BH_Energy = SPHP(i).i.Injected_BH_Energy;
+        if(P[p].Type == 0)
+            SPHP(p).i.dInjected_BH_Energy = SPHP(p).i.Injected_BH_Energy;
 #endif
     }
+    myfree(queue);
 
     /* allocate buffers to arrange communication */
 
@@ -281,8 +295,8 @@ void density(void)
 
         /* do final operations on results */
         tstart = second();
-        int Nactive;
-        int * queue = evaluate_get_queue(&ev, &Nactive);
+
+        queue = evaluate_get_queue(&ev, &Nactive);
         
         npleft = 0;
 #pragma omp parallel for if(Nactive > 32) reduction(+: npleft)
