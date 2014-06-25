@@ -123,18 +123,16 @@ void petaio_read_internal(char * fname, int ic) {
 
 
     /* set up the memory topology */
-    int j = 0;
-    int lastbh = 0;
+    int offset = 0;
     for(ptype = 0; ptype < 6; ptype ++) {
+#pragma omp parallel for
         for(i = 0; i < npartLocal[ptype]; i++)
         {
+            int j = offset + i;
             P[j].Type = ptype;
-            j ++;
-            if(ptype == 5) {
-                P[j].PI = lastbh;
-                lastbh ++;
-            }
+            P[j].PI = i;
         }
+        offset += npartLocal[ptype];
     }
 
     for(i = 0; i < IOTable.used; i ++) {
@@ -169,6 +167,15 @@ void petaio_read_internal(char * fname, int ic) {
                     big_file_get_error_message());
         }
         abort();
+    }
+
+    /* set up the cross check for BH ID */
+#pragma omp parallel for
+    for(i = 0; i < NumPart; i++)
+    {
+        if(P[i].Type == 5) {
+            BhP[P[i].PI].ID = P[i].ID;
+        }
     }
 }
 
@@ -312,7 +319,7 @@ static void petaio_read_header(BigFile * bf) {
     double Time;
     double BoxSize;
     if(
-    (0 != big_block_get_attr(&bh, "TotNumPart", npartTotal, "u8", 6)) ||
+    (0 != big_block_get_attr(&bh, "NumPartTotal", npartTotal, "u8", 6)) ||
     (0 != big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
     (0 != big_block_get_attr(&bh, "Time", &Time, "f8", 1)) ||
     (0 != big_block_get_attr(&bh, "BoxSize", &BoxSize, "f8", 1))) {
@@ -328,9 +335,11 @@ static void petaio_read_header(BigFile * bf) {
         All.TotNumPart += npartTotal[k];
     }
     All.TotN_sph = npartTotal[0];
+    All.TotN_bh = npartTotal[5];
     if(ThisTask == 0) {
         printf("Total number of particles: %018ld\n", All.TotNumPart);
         printf("Total number of gas particles: %018ld\n", All.TotN_sph);
+        printf("Total number of bh particles: %018ld\n", All.TotN_bh);
     }
 
     if(RestartFlag >= 2) {
