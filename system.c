@@ -337,3 +337,80 @@ void report_VmRSS(void)
       fclose(fd);
     }
 }
+
+int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) {
+
+    int ThisTask;
+    int NTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    MPI_Comm_size(comm, &NTask);
+    int PTask;
+    int ngrp;
+
+    for(PTask = 0; NTask > (1 << PTask); PTask++);
+
+    ptrdiff_t lb;
+    ptrdiff_t send_elsize;
+    ptrdiff_t recv_elsize;
+
+    MPI_Type_get_extent(sendtype, &lb, &send_elsize);
+    MPI_Type_get_extent(recvtype, &lb, &recv_elsize);
+
+#ifndef NO_ISEND_IRECV_IN_DOMAIN
+    int n_requests;
+    MPI_Request requests[NTask * 2];
+    n_requests = 0;
+
+
+    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
+    {
+        int target = ThisTask ^ ngrp;
+
+        if(target >= NTask) continue;
+        if(recvcnts[target] == 0) continue;
+        MPI_Irecv(
+                ((char*) recvbuf) + recv_elsize * rdispls[target], 
+                recvcnts[target],
+                recvtype, target, 101934, comm, &requests[n_requests++]);
+    }
+
+    MPI_Barrier(comm);	/* not really necessary, but this will guarantee that all receives are
+                                       posted before the sends, which helps the stability of MPI on 
+                                       bluegene, and perhaps some mpich1-clusters */
+
+    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
+    {
+        int target = ThisTask ^ ngrp;
+        if(target >= NTask) continue;
+        if(sendcnts[target] == 0) continue;
+        MPI_Isend(((char*) sendbuf) + send_elsize * sdispls[target], 
+                sendcnts[target],
+                sendtype, target, 101934, comm, &requests[n_requests++]);
+    }
+
+    MPI_Waitall(n_requests, requests, MPI_STATUSES_IGNORE);
+
+#else
+    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
+    {
+        int target = ThisTask ^ ngrp;
+
+        if(target >= NTask) continue;
+        if(sendcnts[target] == 0 && recvcnts[target] == 0) continue;
+        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target], 
+                sendcnts[target], sendtype, 
+                target, 101934,
+                ((char*)recvbuf) + recv_elsize * rdispls[target],
+                recvcnts[target], recvtype, 
+                target, 101934, 
+                comm, MPI_STATUS_IGNORE);
+
+    }
+#endif
+    /* ensure the collective-ness */
+    MPI_Barrier(comm);
+
+    return 0;
+} 

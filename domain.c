@@ -819,19 +819,19 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     for(i = 1; i < NTask; i++)
         offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
 
-    MPI_Alltoallv(partBuf, count_sph, offset_sph, MPI_TYPE_PARTICLE,
+    MPI_Alltoallv_sparse(partBuf, count_sph, offset_sph, MPI_TYPE_PARTICLE,
                  P, count_recv_sph, offset_recv_sph, MPI_TYPE_PARTICLE,
                  MPI_COMM_WORLD);
 
-    MPI_Alltoallv(sphBuf, count_sph, offset_sph, MPI_TYPE_SPHPARTICLE,
+    MPI_Alltoallv_sparse(sphBuf, count_sph, offset_sph, MPI_TYPE_SPHPARTICLE,
                  SphP, count_recv_sph, offset_recv_sph, MPI_TYPE_SPHPARTICLE,
                  MPI_COMM_WORLD);
 
-    MPI_Alltoallv(partBuf, count, offset, MPI_TYPE_PARTICLE,
+    MPI_Alltoallv_sparse(partBuf, count, offset, MPI_TYPE_PARTICLE,
                  P, count_recv, offset_recv, MPI_TYPE_PARTICLE,
                  MPI_COMM_WORLD);
 
-    MPI_Alltoallv(bhBuf, count_bh, offset_bh, MPI_TYPE_BHPARTICLE,
+    MPI_Alltoallv_sparse(bhBuf, count_bh, offset_bh, MPI_TYPE_BHPARTICLE,
                 BhP, count_recv_bh, offset_recv_bh, MPI_TYPE_BHPARTICLE,
                 MPI_COMM_WORLD);
                 
