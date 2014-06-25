@@ -1193,15 +1193,29 @@ void check_omega(void)
  */
 void setup_smoothinglengths(void)
 {
-    int i, no, p;
+    int i;
 
     if(RestartFlag == 0)
     {
-        for(i = 0; i < N_sph; i++)
+#pragma omp parallel for
+        for(i = 0; i < NumPart; i++)
         {
+            int no, p;
             no = Father[i];
-
-            while(10 * All.DesNumNgb * P[i].Mass > Nodes[no].u.d.mass)
+            /* quick hack to adjust for the baryon fraction
+             * only this fraction of mass is of that type.
+             * this won't work for non-dm non baryon;
+             * ideally each node shall have separate count of 
+             * ptypes of each type. 
+             *
+             * Eventually the iteration will fix this. */
+            double massfactor;
+            if(P[i].Type == 0) {
+                massfactor = 0.04 / 0.26;
+            } else {
+                massfactor = 1.0 - 0.04 / 0.26;
+            }
+            while(10 * All.DesNumNgb * P[i].Mass > massfactor * Nodes[no].u.d.mass)
             {
                 p = Nodes[no].u.d.father;
 
@@ -1215,15 +1229,16 @@ void setup_smoothinglengths(void)
 #ifndef TWODIMS
 #ifndef ONEDIM
             P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / Nodes[no].u.d.mass, 1.0 / 3) * Nodes[no].len;
+                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass), 
+                        1.0 / 3) * Nodes[no].len;
 #else
-            P[i].Hsml = All.DesNumNgb * (P[i].Mass / Nodes[no].u.d.mass) * Nodes[no].len;
+            P[i].Hsml = All.DesNumNgb * (P[i].Mass / (massfactor * Nodes[no].u.d.mass)) * Nodes[no].len;
 #endif
 #else
             P[i].Hsml =
-                pow(1.0 / (M_PI) * All.DesNumNgb * P[i].Mass / Nodes[no].u.d.mass, 1.0 / 2) * Nodes[no].len;
+                pow(1.0 / (M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass), 1.0 / 2) * Nodes[no].len;
 #endif
-            if(All.SofteningTable[0] != 0 && P[i].Hsml > 200.0 * All.SofteningTable[0])
+            if(All.SofteningTable[0] != 0 && P[i].Hsml > 500.0 * All.SofteningTable[0])
                 P[i].Hsml = All.SofteningTable[0];
 #endif
         }
@@ -1285,7 +1300,7 @@ void setup_smoothinglengths(void)
         double * olddensity = (double *)mymalloc("olddensity ", N_sph * sizeof(double));
         for(j=0;j<100;j++)
         {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
-#pragma omp parallel for private(i)
+#pragma omp parallel for 
             for(i = 0; i < N_sph; i++)
             {
                 double entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
@@ -1295,9 +1310,20 @@ void setup_smoothinglengths(void)
             density();
             badness = 0;
 
-            for(i = 0; i < N_sph; i++) {
-                if(SPHP(i).EgyWtDensity > 0) {
-                    badness = DMAX(badness, fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity);
+#pragma omp parallel private(i)
+            {
+                double mybadness = 0;
+#pragma omp for
+                for(i = 0; i < N_sph; i++) {
+                    if(!SPHP(i).EgyWtDensity > 0) continue;
+                    double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
+                    if(value > mybadness) mybadness = value;
+                }
+#pragma omp critical 
+                {
+                    if(mybadness > badness) {
+                        badness = mybadness;
+                    }
                 }
             }
             MPI_Allreduce(MPI_IN_PLACE, &badness, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
@@ -1308,6 +1334,7 @@ void setup_smoothinglengths(void)
             if(badness < 1e-3) break;
         }
         myfree(olddensity);
+#pragma omp parallel for
         for(i = 0; i < N_sph; i++) {
             /* EgyWtDensity stabilized, now we convert from energy to entropy*/
             SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity/a3 , GAMMA_MINUS1);
