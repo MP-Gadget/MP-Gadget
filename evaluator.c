@@ -393,33 +393,20 @@ static void evaluate_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int
     int ngrp;
     char * sp = sendbuf;
     char * rp = recvbuf;
-     
-    MPI_Status status;
-    
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        int sendTask = ThisTask;
-        int recvTask = ThisTask ^ ngrp;
+    MPI_Datatype type;
+    MPI_Type_contiguous(elsize, MPI_BYTE, &type);
+    MPI_Type_commit(&type);
 
-        if(recvTask < NTask)
-        {
-            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-            {
-                int so = import?Recv_offset[recvTask]:Send_offset[recvTask];
-                int ro = import?Send_offset[recvTask]:Recv_offset[recvTask];
-                int sc = import?Recv_count[recvTask]:Send_count[recvTask];
-                int rc = import?Send_count[recvTask]:Recv_count[recvTask];
-
-                /* get the particles */
-                MPI_Sendrecv(sp + elsize * so,
-                        sc * elsize, MPI_BYTE,
-                        recvTask, tag,
-                        rp + elsize * ro,
-                        rc * elsize, MPI_BYTE,
-                        recvTask, tag, MPI_COMM_WORLD, &status);
-            }
-        }
+    if(import) {
+        MPI_Alltoallv_sparse(
+                sendbuf, Recv_count, Recv_offset, type,
+                recvbuf, Send_count, Send_offset, type, MPI_COMM_WORLD);
+    } else {
+        MPI_Alltoallv_sparse(
+                sendbuf, Send_count, Send_offset, type,
+                recvbuf, Recv_count, Recv_offset, type, MPI_COMM_WORLD);
     }
+    MPI_Type_free(&type);
 }
 
 /* returns the remote particles */
