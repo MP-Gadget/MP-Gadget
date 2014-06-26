@@ -60,11 +60,11 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
 
         qsort( Abase[tid], Anmemb[tid], size, compar);
 
-#pragma omp barrier
         /* now each sub array is sorted, kick start the merging */
 
         int sep;
         for (sep = 1; sep < Nt; sep *=2 ) {
+#pragma omp barrier
             int color = tid / sep;
             int key = tid % sep;
 
@@ -99,28 +99,15 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
 cont:
             /* now swap Abase and Atmp for next merge */
 #pragma omp barrier
-#pragma omp single
-            {
-#if 0
-            int i;
-            printf("tmp  ");
-            for(i = 0; i < nmemb ;i ++) {
-                printf("%d, ", ((int*) tmp)[i]);
-            }
-            printf("\n");
-            printf("base ");
-            for(i = 0; i < nmemb ;i ++) {
-                printf("%d, ", ((int*) base)[i]);
-            }
-            printf("\n ");
-#endif
-            void ** a = Abase;
-            Abase = Atmp;
-            Atmp = a;
+            if(tid == 0) {
+                void ** a = Abase;
+                Abase = Atmp;
+                Atmp = a;
             }
             /* at this point Abase contains the sorted array */
         }
 
+#pragma omp barrier
         /* output was written to the tmp rather than desired location, copy it */
         if(Abase[0] != base) {
             memcpy(Atmp[tid], Abase[tid], Anmemb_old[tid] * size);
