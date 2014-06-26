@@ -2088,44 +2088,65 @@ void domain_sumCost(void)
     int *local_domainCount;
     int *local_domainCountSph;
 
-    local_domainWork = (float *) mymalloc("local_domainWork", NTopnodes * sizeof(float));
-    local_domainCount = (int *) mymalloc("local_domainCount", NTopnodes * sizeof(int));
-    local_domainCountSph = (int *) mymalloc("local_domainCountSph", NTopnodes * sizeof(int));
+    local_domainWork = (float *) mymalloc("local_domainWork", All.NumThreads * NTopnodes * sizeof(float));
+    local_domainCount = (int *) mymalloc("local_domainCount", All.NumThreads * NTopnodes * sizeof(int));
+    local_domainCountSph = (int *) mymalloc("local_domainCountSph", All.NumThreads * NTopnodes * sizeof(int));
 
     NTopleaves = 0;
     domain_walktoptree(0);
 
-    for(i = 0; i < NTopleaves; i++)
-    {
-        local_domainWork[i] = 0;
-        local_domainCount[i] = 0;
-        local_domainCountSph[i] = 0;
-    }
-
     if(ThisTask == 0)
         printf("NTopleaves= %d  NTopnodes=%d (space for %d)\n", NTopleaves, NTopnodes, MaxTopNodes);
 
-// need to convert to #omp parallel
-    for(n = 0; n < NumPart; n++)
+#pragma omp parallel private(n, i)
     {
+        int tid = omp_get_thread_num();
+
+        float * mylocal_domainWork = local_domainWork + tid * NTopleaves;
+        int * mylocal_domainCount = local_domainCount + tid * NTopleaves;
+        int * mylocal_domainCountSph = local_domainCountSph + tid * NTopleaves;
+
+        for(i = 0; i < NTopleaves; i++)
+        {
+            mylocal_domainWork[i] = 0;
+            mylocal_domainCount[i] = 0;
+            mylocal_domainCountSph[i] = 0;
+        }
+
+
+#pragma omp for
+        for(n = 0; n < NumPart; n++)
+        {
 #ifdef SUBFIND
-        if(GrNr >= 0 && P[n].GrNr != GrNr)
-            continue;
+            if(GrNr >= 0 && P[n].GrNr != GrNr)
+                continue;
 #endif
 
-        int no = 0;
-        peanokey key = KEY(n);
-        while(topNodes[no].Daughter >= 0)
-            no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
+            int no = 0;
+            peanokey key = KEY(n);
+            while(topNodes[no].Daughter >= 0)
+                no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
 
-        no = topNodes[no].Leaf;
+            no = topNodes[no].Leaf;
 
-        local_domainWork[no] += (float) domain_particle_costfactor(n);
+            mylocal_domainWork[no] += (float) domain_particle_costfactor(n);
 
-        local_domainCount[no] += 1;
+            mylocal_domainCount[no] += 1;
 
-        if(P[n].Type == 0) {
-            local_domainCountSph[no] += 1;
+            if(P[n].Type == 0) {
+                mylocal_domainCountSph[no] += 1;
+            }
+        }
+    }
+
+#pragma omp parallel for
+    for(i = 0; i < NTopleaves; i++)
+    {
+        int tid;
+        for(tid = 1; tid < All.NumThreads; tid++) {
+            local_domainWork[i] += local_domainWork[i + tid * NTopleaves];
+            local_domainCount[i] += local_domainCount[i + tid * NTopleaves];
+            local_domainCountSph[i] += local_domainCountSph[i + tid * NTopleaves];
         }
     }
 
