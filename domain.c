@@ -897,6 +897,9 @@ static int bh_cmp_reverse_link(struct bh_particle_data * b1, struct bh_particle_
 }
 
 void domain_garbage_collection_bh() {
+    /* no need to gc if there is no bh to begin with*/
+    if (N_bh == 0) return;
+
     /* gc the bh */
     int i, j;
     for(i = 0; i < All.MaxPartBh; i++) {
