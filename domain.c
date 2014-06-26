@@ -1654,7 +1654,6 @@ int domain_nonrecursively_combine_topTree() {
 
 
                 if((NTopnodes + ntopnodes_import) > MaxTopNodes) {
-                    myfree(topNodes_import);
                     errorflag = 1;
                 } else {
                     if(ntopnodes_import < 0) {
