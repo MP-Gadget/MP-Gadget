@@ -2196,7 +2196,7 @@ void domain_findExtent(void)
         xmax[j] = -MAX_REAL_NUMBER;
     }
 
-#pragma omp parallel private(j)
+#pragma omp parallel private(j, i)
     {
         double xminT[3], xmaxT[3];
         for(j = 0; j < 3; j++)
