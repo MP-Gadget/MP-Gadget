@@ -2153,9 +2153,10 @@ void domain_findExtent(void)
         xmax[j] = -MAX_REAL_NUMBER;
     }
 
-#pragma omp parallel private(j, i)
+#pragma omp parallel private(i)
     {
         double xminT[3], xmaxT[3];
+        int j;
         for(j = 0; j < 3; j++)
         {
             xminT[j] = MAX_REAL_NUMBER;
@@ -2170,6 +2171,7 @@ void domain_findExtent(void)
                 continue;
 #endif
 
+            int j;
             for(j = 0; j < 3; j++)
             {
                 if(xminT[j] > P[i].Pos[j])
