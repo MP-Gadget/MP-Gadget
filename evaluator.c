@@ -8,48 +8,6 @@
 static void evaluate_init_thread(Evaluator * ev, LocalEvaluator * lv);
 static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int length);
 
-static int atomic_fetch_and_add(int * ptr, int value) {
-    int k;
-#if _OPENMP >= 201107
-#pragma omp atomic capture
-    {
-      k = (*ptr);
-      (*ptr)+=value;
-    }
-#else
-#ifdef OPENMP_USE_SPINLOCK
-    k = __sync_fetch_and_add(ptr, value);
-#else /* non spinlock*/
-#pragma omp critical
-    {
-      k = (*ptr);
-      (*ptr)+=value;
-    }
-#endif
-#endif
-    return k;
-}
-static int atomic_add_and_fetch(int * ptr, int value) {
-    int k;
-#if _OPENMP >= 201107
-#pragma omp atomic capture
-    { 
-      (*ptr)+=value;
-      k = (*ptr);
-    }
-#else
-#ifdef OPENMP_USE_SPINLOCK
-    k = __sync_add_and_fetch(ptr, value);
-#else /* non spinlock */
-#pragma omp critical
-    { 
-      (*ptr)+=value;
-      k = (*ptr);
-    }
-#endif
-#endif
-    return k;
-}
 void evaluate_init_thread(Evaluator * ev, LocalEvaluator * lv) {
     int thread_id = omp_get_thread_num();
     int j;
