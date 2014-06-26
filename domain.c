@@ -446,9 +446,6 @@ int domain_decompose(void)
 
     if(domain_determineTopTree())
         return 1;
-
-
-    walltime_measure("/Domain/Decompose/DetermineTopTree");
     /* find the split of the domain grid */
     domain_findSplit_work_balanced(MULTIPLEDOMAINS * NTask, NTopleaves);
 
@@ -1919,35 +1916,44 @@ int domain_determineTopTree(void)
 
     mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
 
-    for(i = 0, count = 0; i < NumPart; i++)
+    count = 0;
+#pragma omp parallel for reduction(+: count)
+    for(i = 0; i < NumPart; i++)
     {
 #ifdef SUBFIND
-        if(GrNr >= 0 && P[i].GrNr != GrNr)
+        if(GrNr >= 0 && P[i].GrNr != GrNr) {
+            mp[i].key = (peanokey) -1; /* unsigned, thus will be sorted to the end */
             continue;
+        }
 #endif
-
-        mp[count].key = KEY(i);
+        count ++;
+        mp[i].key = KEY(i);
 #ifdef SUBFIND_ALTERNATIVE_COLLECTIVE
         P[i].Key = KEY(i);
 #endif
-        mp[count].index = i;
-        count++;
+        mp[i].index = i;
     }
+
 
 #ifdef SUBFIND
     if(GrNr >= 0 && count != NumPartGroup)
         endrun(1222);
 #endif
 
+
+
+    walltime_measure("/Domain/DetermineTopTree/Misc");
 #ifdef MYSORT
-    mysort_domain(mp, count, sizeof(struct peano_hilbert_data));
+    mysort_domain(mp, NumPart, sizeof(struct peano_hilbert_data));
 #else
 #ifndef POWER6
-    qsort(mp, count, sizeof(struct peano_hilbert_data), domain_compare_key);
+    qsort(mp, NumPart, sizeof(struct peano_hilbert_data), domain_compare_key);
 #else
-    qsort_domain(mp, count);
+    qsort_domain(mp, NumPart);
 #endif
 #endif
+    
+    walltime_measure("/Domain/DetermineTopTree/Sort");
 
     NTopnodes = 1;
     topNodes[0].Daughter = -1;
@@ -1962,6 +1968,7 @@ int domain_determineTopTree(void)
     countlimit = totpartcount / (TOPNODEFACTOR * MULTIPLEDOMAINS * NTask);
 
     errflag = domain_check_for_local_refine(0, countlimit, costlimit);
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     myfree(mp);
 
@@ -2044,6 +2051,7 @@ int domain_determineTopTree(void)
 //        errflag = domain_recursively_combine_topTree(0, NTask); 
     }
 
+    walltime_measure("/Domain/DetermineTopTree/Combine");
 #if 0
     char buf[1000];
     sprintf(buf, "topnodes.bin.%d", ThisTask);
@@ -2113,8 +2121,10 @@ int domain_determineTopTree(void)
     if(ThisTask == 0)
         printf("After=%d\n", NTopnodes);
 #endif
+    walltime_measure("/Domain/DetermineTopTree/Addnodes");
     /* count toplevel leaves */
     domain_sumCost();
+    walltime_measure("/Domain/DetermineTopTree/Sumcost");
 
     if(NTopleaves < MULTIPLEDOMAINS * NTask)
         endrun(112);
