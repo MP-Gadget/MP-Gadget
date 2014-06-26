@@ -41,6 +41,8 @@ void run(void)
 #endif
 
 
+    write_cpu_log();		/* produce some CPU usage info */
+
     do				/* main loop */
     {
 
@@ -890,6 +892,9 @@ void write_cpu_log(void)
         fflush(FdCPU);
     }
     walltime_report(FdCPU, 0, MPI_COMM_WORLD);
+    if(ThisTask == 0) {
+        fflush(FdCPU);
+    }
 }
 
 
