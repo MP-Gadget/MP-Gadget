@@ -35,7 +35,7 @@ void reconstruct_timebins(void)
 
     for(i = 0; i < NumPart; i++)
     {
-        bin = P[i].TimeBin;
+        int bin = P[i].TimeBin;
 
         if(TimeBinCount[bin] > 0)
         {
