@@ -197,6 +197,7 @@ void petapm_init_periodic(void) {
 
     /* now lets fill up the mesh2task arrays */
 
+#if 0
     printf("ThisTask = %d (%td %td %td) - (%td %td %td)\n", ThisTask, 
             real_space_region.offset[0], 
             real_space_region.offset[1], 
@@ -204,6 +205,8 @@ void petapm_init_periodic(void) {
             real_space_region.size[0], 
             real_space_region.size[1], 
             real_space_region.size[2]);
+#endif
+
     for(k = 0; k < 2; k ++) {
         int * tmp = (int*) alloca(sizeof(int) * All.Nmesh);
         for(i = 0; i < All.Nmesh; i ++) {
