@@ -52,7 +52,7 @@ static struct local_topnode_data
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
     int Parent;
-    int PIndex;			/*!< first particle in node */
+    int PIndex;			/*!< first particle in node  used only in top-level tree build (this file)*/
 }
 *topNodes;			/*!< points to the root node of the top-level tree */
 
@@ -1605,6 +1605,149 @@ int domain_check_for_local_refine(int i, double countlimit, double costlimit)
     return 0;
 }
 
+int domain_nonrecursively_combine_topTree() {
+    /* 
+     * combine topTree non recursively, this uses MPI_Bcast within a group.
+     * it shall be quite a bit faster (~ x2) than the old recursive scheme.
+     *
+     * it takes less time at higher sep.
+     *
+     * The communicate should have been done with MPI Inter communicator.
+     * but I couldn't figure out how to do it that way.
+     * */
+    int sep = 1;
+    MPI_Datatype MPI_TYPE_TOPNODE;
+    MPI_Type_contiguous(sizeof(struct local_topnode_data), MPI_BYTE, &MPI_TYPE_TOPNODE);
+    MPI_Type_commit(&MPI_TYPE_TOPNODE);
+    int errorflag = 0;
+    int errorflagall;
+
+    for(sep = 1; sep < NTask; sep *=2) {
+
+        /* build the subcommunicators for broadcasting */
+        int Color = ThisTask / sep;
+        int Key = ThisTask % sep;
+        MPI_Comm comm;
+
+        MPI_Comm_split(MPI_COMM_WORLD, Color, Key, &comm);
+
+        int ntopnodes_import = 0;
+
+        int recvTask = -1; /* by default do not communicate */
+        /* leaders of even color and next odd color will exchange the topnodes */
+        if(Key == 0) {
+            if(Color % 2 == 0) {
+                recvTask = ThisTask + sep;
+            } else {
+                recvTask = ThisTask - sep;
+            }
+
+            /* nobody pair with my group */
+            if(recvTask >= NTask) recvTask = -1;
+#if 0
+            printf("ThisTask=%03d will recv from Task %d, sep=%d\n", ThisTask, recvTask, sep);
+#endif
+        }
+
+        /* so everybody knows where  the stuff is from, though
+         * in reality the lead job will do a bcast after recv */
+
+        MPI_Bcast(&recvTask, 1, MPI_INT, 0, comm);
+
+
+        /* exchange how many will be imported, if
+         * nothing will be received we use a zero 
+         *
+         * the code path has to be collective upto the MPI_Allreduce call 
+         * */
+        if(Key == 0) {
+            if(recvTask >= 0) {
+                MPI_Sendrecv(&NTopnodes, 1, MPI_INT, recvTask, TAG_GRAV_A,
+                        &ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A, MPI_COMM_WORLD,
+                        MPI_STATUS_IGNORE);
+            } else {
+                ntopnodes_import = 0;
+            }
+
+        }
+        MPI_Bcast(&ntopnodes_import, 1, MPI_INT, 0, comm);
+
+        /* if there isn't (likely) enough storage for the imported nodes (likely those
+         * imported nodes won't overlap with what we already have ),
+         * we need to abort everybody; the abort check is done at the beining of the loop
+         * because that's the only spot where process will surely encounter
+         * notice that the communicator shall be freed.  */
+
+        if((NTopnodes + ntopnodes_import) > MaxTopNodes) {
+            errorflag = 1;
+        }
+
+        MPI_Allreduce(&errorflag, &errorflagall, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+        if(errorflagall) {
+            MPI_Comm_free(&comm);
+            break;
+        }
+
+        if(recvTask < 0) {
+            continue;
+        }
+
+        struct local_topnode_data * topNodes_import = 
+            (struct local_topnode_data *) mymalloc("topNodes_import",
+                    IMAX(ntopnodes_import, NTopnodes) * sizeof(struct local_topnode_data));
+
+        if(Key == 0) {
+            /* leaders exchange the trees */
+#if 0
+            printf("ThisTask=%03d importing %d nodes from Task %d\n", 
+                    ThisTask, ntopnodes_import, recvTask);
+#endif
+            MPI_Sendrecv(topNodes,
+                    NTopnodes, MPI_TYPE_TOPNODE,
+                    recvTask, TAG_GRAV_B,
+                    topNodes_import,
+                    ntopnodes_import, MPI_TYPE_TOPNODE,
+                    recvTask, TAG_GRAV_B, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        }
+        /* broadcast the top nodes in the comm, old GADGET use send O(N), 
+         * bcast is O(logN) */
+
+        MPI_Bcast(topNodes_import, ntopnodes_import, MPI_TYPE_TOPNODE, 0, comm);
+        /* the intra communicator is no longer used in the combining stage */
+        MPI_Comm_free(&comm);
+
+        /* exchange top nodes and the imported ones on the right branch, 
+         * so that the final result is the same on both */
+        if(Color % 2 == 1) {
+            struct local_topnode_data * topNodes_temp = 
+                (struct local_topnode_data *) mymalloc("topNodes_temp",
+                        NTopnodes * sizeof(struct local_topnode_data));
+            memcpy(topNodes_temp, topNodes, NTopnodes * sizeof(struct local_topnode_data));
+            memcpy(topNodes, topNodes_import, ntopnodes_import * sizeof(struct local_topnode_data));
+            memcpy(topNodes_import, topNodes_temp, NTopnodes * sizeof(struct local_topnode_data));
+            myfree(topNodes_temp);
+            int tmp = NTopnodes;
+            NTopnodes = ntopnodes_import;
+            ntopnodes_import = tmp;
+        }
+
+        domain_insertnode(topNodes, topNodes_import, 0, 0);
+
+#if 0
+        if(ThisTask == 0 || ThisTask == 1) {
+            char buf[1000];
+            sprintf(buf, "stepdump-%d.%d", sep, ThisTask);
+            FILE * fp = fopen(buf, "w");
+            fwrite(topNodes, sizeof(struct local_topnode_data), NTopnodes, fp);
+            fclose(fp);
+        }
+#endif
+        myfree(topNodes_import);
+    }
+    MPI_Type_free(&MPI_TYPE_TOPNODE);
+    MPI_Barrier(MPI_COMM_WORLD);
+    return errorflagall;
+}
 
 int domain_recursively_combine_topTree(int start, int ncpu)
 {
@@ -1745,7 +1888,6 @@ int domain_recursively_combine_topTree(int start, int ncpu)
 
     return errflag;
 }
-
 
 #ifdef ALT_QSORT
 #define KEY_TYPE struct peano_hilbert_data
@@ -1897,9 +2039,25 @@ int domain_determineTopTree(void)
     }
     else
     {
-        errflag = domain_recursively_combine_topTree(0, NTask);
+        errflag = domain_nonrecursively_combine_topTree();
+//        errflag = domain_recursively_combine_topTree(0, NTask); 
     }
 
+#if 0
+    char buf[1000];
+    sprintf(buf, "topnodes.bin.%d", ThisTask);
+    FILE * fd = fopen(buf, "w");
+
+    /* these PIndex are non-essential in other modules, so we reset them */
+    for(i = 0; i < NTopnodes; i ++) {
+        topNodes[i].PIndex = -1;
+    }
+    fwrite(topNodes, sizeof(struct local_topnode_data), NTopnodes, fd);
+    fclose(fd);
+
+    //MPI_Barrier(MPI_COMM_WORLD);
+    //MPI_Abort(MPI_COMM_WORLD, 0);
+#endif
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(errsum)
