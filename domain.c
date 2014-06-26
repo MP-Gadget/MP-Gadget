@@ -1689,6 +1689,7 @@ int domain_nonrecursively_combine_topTree() {
         }
 
         if(recvTask < 0) {
+            MPI_Comm_free(&comm);
             continue;
         }
 
