@@ -182,7 +182,7 @@ int evaluate_primary(Evaluator * ev) {
         }
     }
 
-    qsort(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare);
+    qsort_openmp(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare);
 
     /* adjust Nexport to skip the allocated but unused ones due to threads */
     while (ev->Nexport > 0 && DataIndexTable[ev->Nexport - 1].Task == NTask) {
@@ -437,7 +437,7 @@ void evaluate_reduce_result(Evaluator * ev, int tag) {
     }
 
     /* mysort is a lie! */
-    qsort(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare_by_index);
+    qsort_openmp(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare_by_index);
     
     int * UniqueOff = mymalloc("UniqueIndex", sizeof(int) * (ev->Nexport + 1));
     UniqueOff[0] = 0;

@@ -81,6 +81,9 @@ int fof_find_dmparticles_evaluate(int target, int mode, int *nexport, int *nsend
 void fof_compute_group_properties(int gr, int start, int len);
 
 void parallel_sort(void *base, size_t nmemb, size_t size, int (*compar) (const void *, const void *));
+void qsort_openmp(void *base, size_t nmemb, size_t size,
+                         int(*compar)(const void *, const void *));
+
 int compare_IDs(const void *a, const void *b);
 void test_id_uniqueness(void);
 

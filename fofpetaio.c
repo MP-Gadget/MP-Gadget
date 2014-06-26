@@ -141,7 +141,7 @@ static void fof_distribute_particles() {
         P[i].PI = i;
     }
 
-    qsort(P, N_sph, sizeof(P[0]), p_cmp_GrNr);
+    qsort_openmp(P, N_sph, sizeof(P[0]), p_cmp_GrNr);
 
     /* permute the SphP struct to follow P */
     for(i = 0; i < N_sph; i ++) {
@@ -165,7 +165,7 @@ static void fof_distribute_particles() {
     }
 
     /* sort sph */
-    qsort(P + N_sph, NumPart - N_sph, sizeof(P[0]), p_cmp_GrNr);
+    qsort_openmp(P + N_sph, NumPart - N_sph, sizeof(P[0]), p_cmp_GrNr);
 
 }
 

@@ -16,7 +16,7 @@ OBJS  =  \
 	 subfind_potential.o subfind_density.o blackhole.o \
 	 run.o predict.o begrun.o endrun.o global.o \
 	 timestep.o init.o restart.o io.o sfr_eff.o \
-	 accel.o read_ic.o read_ic_cluster.o cooling.o ngb.o parallel_sort.o \
+	 accel.o read_ic.o read_ic_cluster.o cooling.o ngb.o parallel_sort.o openmpsort.o \
 	 system.o allocate.o density.o sizelimited_sendrecv.o  \
 	 evaluator.o \
 	 gravtree.o hydra.o  driftfac.o darkenergy.o \

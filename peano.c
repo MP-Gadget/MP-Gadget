@@ -43,7 +43,7 @@ void peano_hilbert_order(void)
 #ifdef MYSORT
       mysort_peano(mp, N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
 #else
-      qsort(mp, N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
+      qsort_openmp(mp, N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
 #endif
 
       for(i = 0; i < N_sph; i++)
@@ -74,7 +74,7 @@ void peano_hilbert_order(void)
 #ifdef MYSORT
       mysort_peano(mp + N_sph, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
 #else
-      qsort(mp + N_sph, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
+      qsort_openmp(mp + N_sph, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
 #endif
 
       for(i = N_sph; i < NumPart; i++)

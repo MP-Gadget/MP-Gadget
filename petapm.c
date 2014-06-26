@@ -484,7 +484,7 @@ static void layout_prepare (struct Layout * L) {
     layout_build_pencils(L);
 
     /* sort the pencils by the target rank for ease of next step */
-    qsort(L->PencilSend, NpAlloc, sizeof(struct Pencil), pencil_cmp_target);
+    qsort_openmp(L->PencilSend, NpAlloc, sizeof(struct Pencil), pencil_cmp_target);
     /* zero length pixels are moved to the tail */
 
     /* now shrink NpExport*/
