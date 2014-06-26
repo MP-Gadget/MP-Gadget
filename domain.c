@@ -517,7 +517,6 @@ int domain_decompose(void)
 
     walltime_measure("/Domain/Decompose/Misc");
     domain_exchange(domain_layoutfunc);
-    walltime_measure("/Domain/Decompose/exchange");
     return 0;
 }
 
@@ -559,6 +558,7 @@ void domain_exchange(int (*layoutfunc)(int p)) {
         P[i].WillExport = 0;
     }
 
+    walltime_measure("/Domain/exchange/init");
 
     int iter = 0, ret;
     ptrdiff_t exchange_limit;
@@ -575,6 +575,7 @@ void domain_exchange(int (*layoutfunc)(int p)) {
 
         /* determine for each cpu how many particles have to be shifted to other cpus */
         ret = domain_countToGo(exchange_limit, layoutfunc);
+        walltime_measure("/Domain/exchange/togo");
 
         for(i = 0, sumtogo = 0; i < NTask; i++)
             sumtogo += toGo[i];
@@ -783,6 +784,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
             n--;
         }
     }
+    walltime_measure("/Domain/exchange/makebuf");
 
     for(i = 0; i < NTask; i ++) {
         if(count_sph[i] != toGoSph[i] ) {
@@ -819,18 +821,22 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     MPI_Alltoallv_sparse(partBuf, count_sph, offset_sph, MPI_TYPE_PARTICLE,
                  P, count_recv_sph, offset_recv_sph, MPI_TYPE_PARTICLE,
                  MPI_COMM_WORLD);
+    walltime_measure("/Domain/exchange/alltoall");
 
     MPI_Alltoallv_sparse(sphBuf, count_sph, offset_sph, MPI_TYPE_SPHPARTICLE,
                  SphP, count_recv_sph, offset_recv_sph, MPI_TYPE_SPHPARTICLE,
                  MPI_COMM_WORLD);
+    walltime_measure("/Domain/exchange/alltoall");
 
     MPI_Alltoallv_sparse(partBuf, count, offset, MPI_TYPE_PARTICLE,
                  P, count_recv, offset_recv, MPI_TYPE_PARTICLE,
                  MPI_COMM_WORLD);
+    walltime_measure("/Domain/exchange/alltoall");
 
     MPI_Alltoallv_sparse(bhBuf, count_bh, offset_bh, MPI_TYPE_BHPARTICLE,
                 BhP, count_recv_bh, offset_recv_bh, MPI_TYPE_BHPARTICLE,
                 MPI_COMM_WORLD);
+    walltime_measure("/Domain/exchange/alltoall");
                 
     for(target = 0; target < NTask; target++) {
         int i, j;
@@ -885,6 +891,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     MPI_Barrier(MPI_COMM_WORLD);
 
     domain_garbage_collection_bh();
+    walltime_measure("/Domain/exchange/finalize");
 }
 static int bh_cmp_reverse_link(struct bh_particle_data * b1, struct bh_particle_data * b2) {
     if(b1->ReverseLink == -1 && b2->ReverseLink == -1) {
