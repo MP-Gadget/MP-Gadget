@@ -50,6 +50,11 @@ void petaio_save_snapshot(int num) {
     char fname[4096];
     sprintf(fname, "%s/PART_%03d", All.OutputDir, num);
 
+    if(ThisTask == 0) {
+        printf("saving snapshot into %s\n", fname);
+        fflush(stdout);
+    }
+
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         if(ThisTask == 0) {
@@ -411,6 +416,7 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection 
     int64_t npartLocal = 0;
     int i;
 
+#pragma omp parallel for reduction(+: npartLocal)
     for(i = 0; i < NumPart; i ++) {
         if(P[i].Type != ent->ptype) continue;
         if(select && !select(i)) continue;
@@ -418,6 +424,8 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection 
     }
     /* don't forget to free buffer after its done*/
     petaio_alloc_buffer(array, ent, npartLocal);
+
+    if(npartLocal == 0) return;
 
     /* fill the buffer */
     char * p = array->data;
@@ -488,6 +496,8 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array) {
     int64_t offset = count_to_offset(array->dims[0]);
     size_t size = count_sum(array->dims[0]);
 
+    /* skip the 0 size blocks */
+    if(size == 0) return;
     /* create the block */
     /* dims[1] is the number of members per item */
     if(0 != big_file_mpi_create_block(bf, &bb, blockname, array->dtype, array->dims[1], NumFiles, size, MPI_COMM_WORLD)) {
@@ -609,7 +619,7 @@ static void register_io_blocks() {
     /* Bare Bone SPH*/
     IO_REG(SmoothingLength,  "f4", 1, 0);
     IO_REG(Density,          "f4", 1, 0);
-    IO_REG(Pressure,         "f4", 1, 0);
+//    IO_REG(Pressure,         "f4", 1, 0);
     IO_REG(Entropy,          "f4", 1, 0);
 
     /* Cooling */

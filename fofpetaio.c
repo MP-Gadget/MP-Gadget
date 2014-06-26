@@ -30,9 +30,12 @@ static int fof_select_particle(int i) {
 void fof_save_particles(int num) {
     char fname[4096];
     sprintf(fname, "%s/PIG_%03d", All.OutputDir, num);
-
+    if(ThisTask == 0) {
+        printf("saving particle in group into %s\n", fname);
+        fflush(stdout);
+    }
     fof_distribute_particles();
-
+    
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         if(ThisTask == 0) {
@@ -98,11 +101,6 @@ static int p_cmp_GrNr(const void * c1, const void * c2) {
 }
 static void fof_distribute_particles() {
     int i;
-    for(i = 0; i < NumPart; i ++) {
-        P[i].origintask = ThisTask;
-        P[i].targettask = P[i].ID % NTask; /* default target */
-    }
-
     struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * NumPart);
 
     int64_t NpigLocal = 0;
@@ -113,6 +111,7 @@ static void fof_distribute_particles() {
         pi[j].sortKey = P[i].GrNr;
         NpigLocal ++;
     }
+
     /* sort pi to decide targetTask */
     parallel_sort(pi, NpigLocal, sizeof(struct PartIndex), fof_cmp_sortkey);
 
@@ -120,6 +119,12 @@ static void fof_distribute_particles() {
     int64_t offsetLocal = count_to_offset(NpigLocal);
 
     size_t chunksize = (Npig / NTask) + (Npig % NTask != 0);
+
+#pragma omp parallel for
+    for(i = 0; i < NumPart; i ++) {
+        P[i].origintask = ThisTask;
+        P[i].targettask = ThisTask; //P[i].ID % NTask; /* default target */
+    }
 
     for(i = 0; i < NpigLocal; i ++) {
         ptrdiff_t offset = offsetLocal + i;
@@ -137,6 +142,7 @@ static void fof_distribute_particles() {
     myfree(pi);
     /* sort SPH and Others independently */
 
+#pragma omp parallel for
     for(i = 0; i < N_sph; i ++) {
         P[i].PI = i;
     }
@@ -164,7 +170,7 @@ static void fof_distribute_particles() {
         P[j].PI = j;
     }
 
-    /* sort sph */
+    /* sort rest */
     qsort_openmp(P + N_sph, NumPart - N_sph, sizeof(P[0]), p_cmp_GrNr);
 
 }
