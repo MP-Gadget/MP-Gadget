@@ -1859,13 +1859,16 @@ void fof_make_black_holes(void)
         sendTask = ThisTask;
         recvTask = ThisTask ^ level;
 
-        if(recvTask < NTask)
-            MPI_Sendrecv(&export_indices[Send_offset[recvTask]],
-                    Send_count[recvTask] * sizeof(int),
-                    MPI_BYTE, recvTask, TAG_FOF_E,
-                    &import_indices[Recv_offset[recvTask]],
-                    Recv_count[recvTask] * sizeof(int),
-                    MPI_BYTE, recvTask, TAG_FOF_E, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        if(recvTask < NTask) {
+            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)  {
+                MPI_Sendrecv(&export_indices[Send_offset[recvTask]],
+                        Send_count[recvTask] * sizeof(int),
+                        MPI_BYTE, recvTask, TAG_FOF_E,
+                        &import_indices[Recv_offset[recvTask]],
+                        Recv_count[recvTask] * sizeof(int),
+                        MPI_BYTE, recvTask, TAG_FOF_E, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+        }
     }
 
     MPI_Allreduce(&nimport, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
