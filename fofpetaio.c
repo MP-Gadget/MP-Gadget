@@ -62,6 +62,10 @@ void fof_save_particles(int num) {
         } else {
             abort();
         }
+        if(ThisTask == 0) {
+            printf("Writing Block %s\n", blockname);
+            fflush(stdout);
+        }
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }

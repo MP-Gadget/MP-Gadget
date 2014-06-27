@@ -75,6 +75,10 @@ void petaio_save_snapshot(int num) {
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
+        if(ThisTask == 0) {
+            printf("Writing Block %s\n", blockname);
+            fflush(stdout);
+        }
         petaio_build_buffer(&array, &IOTable.ent[i], NULL);
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
