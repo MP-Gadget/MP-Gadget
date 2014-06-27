@@ -147,7 +147,7 @@ static void fof_distribute_particles() {
         P[i].PI = i;
     }
 
-    qsort_openmp(P, N_sph, sizeof(P[0]), p_cmp_GrNr);
+    qsort(P, N_sph, sizeof(P[0]), p_cmp_GrNr);
 
     /* permute the SphP struct to follow P */
     for(i = 0; i < N_sph; i ++) {
@@ -171,7 +171,7 @@ static void fof_distribute_particles() {
     }
 
     /* sort rest */
-    qsort_openmp(P + N_sph, NumPart - N_sph, sizeof(P[0]), p_cmp_GrNr);
+    qsort(P + N_sph, NumPart - N_sph, sizeof(P[0]), p_cmp_GrNr);
 
 }
 
@@ -180,26 +180,16 @@ static void fof_return_particles() {
 }
 
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {
-    size_t dims[2];
-    ptrdiff_t strides[2];
-    int elsize = dtype_itemsize(ent->dtype);
 
     int64_t npartLocal = Ngroups;
 
-    dims[0] = npartLocal;
-    dims[1] = ent->items;
-    strides[1] = elsize;
-    strides[0] = elsize * ent->items;
-
-    /* create the buffer */
-    char * buffer = malloc(dims[0] * dims[1] * elsize);
-    big_array_init(array, buffer, ent->dtype, 2, dims, strides);
+    petaio_alloc_buffer(array, ent, npartLocal);
     /* fill the buffer */
-    char * p = buffer;
+    char * p = array->data;
     int i;
     for(i = 0; i < Ngroups; i ++) {
         ent->getter(i, p);
-        p += strides[0];
+        p += array->strides[0];
     }
 }
 

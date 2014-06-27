@@ -391,7 +391,7 @@ void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLoca
     dims[1] = ent->items;
     strides[1] = elsize;
     strides[0] = elsize * ent->items;
-    char * buffer = malloc(dims[0] * dims[1] * elsize);
+    char * buffer = mymalloc("IOBUFFER", dims[0] * dims[1] * elsize);
 
     big_array_init(array, buffer, ent->dtype, 2, dims, strides);
 }
@@ -439,7 +439,7 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection 
 
 /* destropy a buffer, freeing its memory */
 void petaio_destroy_buffer(BigArray * array) {
-    free(array->data);
+    myfree(array->data);
 }
 
 /* read a block from disk, spread the values to memory with setters  */
