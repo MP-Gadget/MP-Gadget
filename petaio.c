@@ -500,6 +500,9 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array) {
     int64_t offset = count_to_offset(array->dims[0]);
     size_t size = count_sum(array->dims[0]);
 
+    if(ThisTask == 0) {
+        printf("Will write %td particles to %d Files\n", size, NumFiles);
+    }
     /* skip the 0 size blocks */
     if(size == 0) return;
     /* create the block */
