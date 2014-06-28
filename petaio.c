@@ -46,15 +46,31 @@ void petaio_init() {
 }
 
 /* save a snapshot file */
+static void petaio_save_internal(char * fname);
 void petaio_save_snapshot(int num) {
     char fname[4096];
     sprintf(fname, "%s/PART_%03d", All.OutputDir, num);
-
     if(ThisTask == 0) {
         printf("saving snapshot into %s\n", fname);
         fflush(stdout);
     }
+    petaio_save_internal(fname);
+}
 
+/* this is unused.
+void petaio_save_restart() {
+    char fname[4096];
+    sprintf(fname, "%s/RESTART", All.OutputDir);
+    if(ThisTask == 0) {
+        printf("saving restart into %s\n", fname);
+        fflush(stdout);
+    }
+    petaio_save_internal(fname);
+}
+*/
+
+
+static void petaio_save_internal(char * fname) {
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         if(ThisTask == 0) {
@@ -481,7 +497,7 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
         }
         //printf("Task = %d, writing at %td\n", ThisTask, offsetLocal);
         if(0 != big_block_read(&bb, &ptr, array)) {
-            fprintf(stderr, "Failed to readform  block, ThisTask = %d: %s\n", ThisTask, big_file_get_error_message);
+            fprintf(stderr, "Failed to readform  block, ThisTask = %d: %s\n", ThisTask, big_file_get_error_message());
             endrun(12345);
         }
     }

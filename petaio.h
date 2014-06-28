@@ -24,6 +24,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array);
 void petaio_read_block(BigFile * bf, char * blockname, BigArray * array);
 
 void petaio_save_snapshot(int num);
+void petaio_save_restart();
 void petaio_read_snapshot(int num);
 void petaio_read_ic();
 /* 

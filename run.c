@@ -26,6 +26,7 @@ void run(void)
     int ifunc;
 #endif
     int stopflag = 0;
+#ifdef OLD_RESTART
     char buf[200], stopfname[200], contfname[200];
 
 
@@ -33,7 +34,7 @@ void run(void)
     sprintf(contfname, "%scont", All.OutputDir);
     unlink(contfname);
 
-
+#endif
     walltime_measure("/Misc");
 
 #ifdef DENSITY_BASED_SNAPS
@@ -51,6 +52,10 @@ void run(void)
                                              * at the desired time.
                                              */
 
+        if(stopflag == 1 || stopflag == 2) {
+            /* OK snapshot file is written, lets quit */
+            return;
+        }
         every_timestep_stuff();	/* write some info to log-files */
 
 #if defined(RADIATIVE_RATES) || defined(RADIATION)
@@ -100,6 +105,12 @@ void run(void)
 
         All.NumCurrentTiStep++;
 
+        stopflag = find_restart_flag();
+        if(stopflag != 0) {
+            All.Ti_nextoutput = All.Ti_Current;
+            /* next loop will write a new snapshot file */
+        }
+#ifdef OLD_RESTART
         /* Check whether we need to interrupt the run */
         if(ThisTask == 0)
         {
@@ -162,7 +173,7 @@ void run(void)
             restart(0);		/* write an occasional restart file */
             stopflag = 0;
         }
-
+#endif
         report_memory_usage(&HighMark_run, "RUN");
     }
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
@@ -215,7 +226,53 @@ void run(void)
 #endif
 
 }
+static int find_restart_flag() {
+        /* Check whether we need to interrupt the run */
+    int stopflag = 0;
+    char stopfname[4096], contfname[4096];
+    char restartfname[4096];
 
+
+    sprintf(stopfname, "%s/stop", All.OutputDir);
+    sprintf(restartfname, "%s/restart", All.OutputDir);
+    sprintf(contfname, "%s/cont", All.OutputDir);
+
+    if(ThisTask == 0)
+    {
+        FILE * fd;
+        /* Is the stop-file present? If yes, interrupt the run. */
+        if((fd = fopen(stopfname, "r")))
+        {
+            printf("human controlled stopping.\n");
+            fclose(fd);
+            stopflag = 1;
+            unlink(stopfname);
+        }
+
+        /* are we running out of CPU-time ? If yes, interrupt run. */
+        if(All.CT.ElapsedTime > 0.85 * All.TimeLimitCPU) {
+            printf("reaching time-limit. stopping.\n");
+            stopflag = 2;
+        }
+        if((fd = fopen(restartfname, "r")))
+        {
+            All.TimeLastRestartFile = All.CT.ElapsedTime;
+            printf("human controlled snapshot.\n");
+            fclose(fd);
+            stopflag = 3;
+            unlink(restartfname);
+        }
+        if((All.CT.ElapsedTime - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile) {
+            All.TimeLastRestartFile = All.CT.ElapsedTime;
+            printf("time to write a snapshot for restarting\n");
+            stopflag = 3;
+        }
+    }
+
+    MPI_Bcast(&stopflag, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    return stopflag;
+}
 
 /*! This function finds the next synchronization point of the system
  * (i.e. the earliest point of time any of the particles needs a force
