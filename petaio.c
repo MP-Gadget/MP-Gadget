@@ -420,7 +420,13 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection 
     int64_t npartLocal = 0;
     int i;
 
-#pragma omp parallel for reduction(+: npartLocal)
+/* This didn't work with CRAY:
+ * always has npartLocal = 0
+ * after the loop if openmp is used;
+ * but I can't reproduce this with a striped version
+ * of code. need to investigate.
+ * #pragma omp parallel for reduction(+: npartLocal)
+ */
     for(i = 0; i < NumPart; i ++) {
         if(P[i].Type != ent->ptype) continue;
         if(select && !select(i)) continue;
