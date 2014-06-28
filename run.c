@@ -256,7 +256,6 @@ static int find_restart_flag() {
         }
         if((fd = fopen(restartfname, "r")))
         {
-            All.TimeLastRestartFile = All.CT.ElapsedTime;
             printf("human controlled snapshot.\n");
             fclose(fd);
             stopflag = 3;
