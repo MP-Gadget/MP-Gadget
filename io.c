@@ -56,7 +56,7 @@ void savepositions(int num)
     {
         if(ThisTask == 0)
             printf("\nwriting snapshot file #%d... \n", num);
-
+        
 #ifdef ORDER_SNAPSHOTS_BY_ID
         double t0, t1;
 
@@ -172,6 +172,10 @@ void savepositions(int num)
     }
 #endif /* IO_OLD_SNAPSHOT */
 
+    walltime_measure("/Snapshot/Misc");
+    petaio_save_snapshot(num);
+    walltime_measure("/Snapshot/Write");
+
 #ifdef FOF
     if(ThisTask == 0)
         printf("\ncomputing group catalogue...\n");
@@ -183,10 +187,15 @@ void savepositions(int num)
 
 #endif
 
-    walltime_measure("/Snapshot/Misc");
-    petaio_save_snapshot(num);
-    walltime_measure("/Snapshot/Write");
-    
+    if(ThisTask == 0) {
+        char buf[1024];
+        sprintf(buf, "%s/LastSnapshotNum.txt", All.OutputDir);
+        FILE * fd = fopen(buf, "w+");
+        fprintf(fd, "Time %g Redshift %g Ti_current %d Snapnumber %03d\n", All.Time, 1 / All.Time - 1, All.Ti_Current, num);
+        fclose(fd);
+
+    }
+
 #ifdef POWERSPEC_ON_OUTPUT
     if(ThisTask == 0)
         printf("\ncomputing power spectra...\n");
