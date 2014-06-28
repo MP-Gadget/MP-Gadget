@@ -86,7 +86,7 @@ double interp_eval(Interp * obj, double * x, double * ydata, int * status) {
             xi[d] = obj->dims[d] - 1;
             f[d] = 0;
         } else {
-            xi[d] = xd;
+            xi[d] = floor(xd);
             f[d] = xd - xi[d];
             status[d] = 0;
         }
