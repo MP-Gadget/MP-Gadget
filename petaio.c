@@ -433,9 +433,6 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
 void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection select) {
     int elsize = dtype_itemsize(ent->dtype);
 
-    int64_t npartLocal = 0;
-    int i;
-
 /* This didn't work with CRAY:
  * always has npartLocal = 0
  * after the loop if openmp is used;
@@ -443,23 +440,49 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection 
  * of code. need to investigate.
  * #pragma omp parallel for reduction(+: npartLocal)
  */
-    for(i = 0; i < NumPart; i ++) {
-        if(P[i].Type != ent->ptype) continue;
-        if(select && !select(i)) continue;
-        npartLocal ++;
-    }
-    /* don't forget to free buffer after its done*/
-    petaio_alloc_buffer(array, ent, npartLocal);
-
-    if(npartLocal == 0) return;
-
-    /* fill the buffer */
-    char * p = array->data;
-    for(i = 0; i < NumPart; i ++) {
-        if(P[i].Type != ent->ptype) continue;
-        if(select && !select(i)) continue;
-        ent->getter(i, p);
-        p += array->strides[0];
+    int npartThread[All.NumThreads];
+    int offsetThread[All.NumThreads];
+    int i;
+#pragma omp parallel
+    {
+        int i;
+        int tid = omp_get_thread_num();
+        int NT = omp_get_num_threads();
+        int start = (size_t) NumPart * tid / NT;
+        int end = (size_t) NumPart * (tid + 1) / NT;
+        int npartLocal = 0;
+        npartThread[tid] = 0;
+        for(i = start; i < end; i ++) {
+            if(P[i].Type != ent->ptype) continue;
+            if(select && !select(i)) continue;
+            npartThread[tid] ++;
+        }
+#pragma omp barrier
+        offsetThread[0] = 0;
+        for(i = 1; i < NT; i ++) {
+            offsetThread[i] = offsetThread[i - 1] + npartThread[i - 1];
+        }
+        for(i = 0; i < NT; i ++) {
+            npartLocal += npartThread[tid];
+        }
+#pragma omp master 
+        {
+        /* don't forget to free buffer after its done*/
+            petaio_alloc_buffer(array, ent, npartLocal);
+        }
+#pragma omp barrier
+#if 0
+        printf("Thread = %d offset=%d count=%d start=%d end=%d\n", tid, offsetThread[tid], npartThread[tid], start, end);
+#endif
+        /* fill the buffer */
+        char * p = array->data;
+        p += array->strides[0] * offsetThread[tid];
+        for(i = start; i < end; i ++) {
+            if(P[i].Type != ent->ptype) continue;
+            if(select && !select(i)) continue;
+            ent->getter(i, p);
+            p += array->strides[0];
+        }
     }
 }
 
