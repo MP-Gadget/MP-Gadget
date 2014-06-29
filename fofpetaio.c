@@ -10,7 +10,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "petaio.h"
-
+#include "domain.h"
 #include "fof.h"
 
 /* from FoF*/
