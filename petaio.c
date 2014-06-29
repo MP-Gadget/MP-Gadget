@@ -681,7 +681,7 @@ static void register_io_blocks() {
 
     /* SF */
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
-    IO_REG(StarFormationTime, "f4", 1, 0);
+    IO_REG(StarFormationTime, "f4", 1, 4);
     IO_REG(Metallicity,       "f4", 1, 0);
     IO_REG(Metallicity,       "f4", 1, 4);
 
