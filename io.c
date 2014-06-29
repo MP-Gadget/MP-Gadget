@@ -190,7 +190,7 @@ void savepositions(int num)
     if(ThisTask == 0) {
         char buf[1024];
         sprintf(buf, "%s/LastSnapshotNum.txt", All.OutputDir);
-        FILE * fd = fopen(buf, "w+");
+        FILE * fd = fopen(buf, "a");
         fprintf(fd, "Time %g Redshift %g Ti_current %d Snapnumber %03d\n", All.Time, 1 / All.Time - 1, All.Ti_Current, num);
         fclose(fd);
 
