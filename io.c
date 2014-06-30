@@ -427,11 +427,13 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 #else
                     ne = SPHP(pindex).Ne;
 
+                    struct UVBG uvbg;
+                    GetParticleUVBG(pindex, &uvbg);
                     AbundanceRatios(DMAX(All.MinEgySpec,
                                 SPHP(pindex).Entropy / GAMMA_MINUS1 * pow(SPHP(pindex).EOMDensity *
                                     a3inv,
                                     GAMMA_MINUS1)),
-                            SPHP(pindex).d.Density * a3inv, &ne, &nh0, &nHeII);
+                            SPHP(pindex).d.Density * a3inv, &uvbg, &ne, &nh0, &nHeII);
 
                     *fp++ = nh0;
 #endif
@@ -4202,4 +4204,3 @@ int io_compare_P_GrNr_ID(const void *a, const void *b)
 }
 
 #endif
-

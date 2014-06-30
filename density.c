@@ -858,14 +858,16 @@ static int density_evaluate(int target, int mode,
                         double nh0 = 0;
                         double nHeII = 0;
                         double ne = SPHP(j).Ne;
+                        struct UVBG uvbg;
+                        GetParticleUVBG(j, &uvbg);
 #pragma omp critical (_abundance_)
                         AbundanceRatios(DMAX(All.MinEgySpec,
                                     SPHP(j).Entropy / GAMMA_MINUS1 
                                     * pow(SPHP(j).EOMDensity * a3inv,
                                         GAMMA_MINUS1)),
-                                SPHP(j).d.Density * a3inv, &ne, &nh0, &nHeII);
+                                SPHP(j).d.Density * a3inv, &uvbg, &ne, &nh0, &nHeII);
 #else
-                        double nh0 = 0;
+                        double nh0 = 1.0;
 #endif
                         if(r2 > 0)
                             O->FeedbackWeightSum += FLT(P[j].Mass * nh0) / r2;

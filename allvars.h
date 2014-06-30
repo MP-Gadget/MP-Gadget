@@ -948,6 +948,8 @@ extern struct global_data_all_processes
          CpuFile[100],
          InfoFile[100], TimingsFile[100], RestartFile[100], ResubmitCommand[100], OutputListFilename[100];
 
+    char UVFluctuationFile[100];
+
     /*! table with desired output times */
     double OutputListTimes[MAXLEN_OUTPUTLIST];
     char OutputListFlag[MAXLEN_OUTPUTLIST];
@@ -1580,7 +1582,7 @@ extern struct sph_particle_data
     MyFloat DensityOld;
     MyFloat DensityStd;
 #endif
-
+    
     union
     {
         MyFloat       Density;		/*!< current baryonic mass density of particle */

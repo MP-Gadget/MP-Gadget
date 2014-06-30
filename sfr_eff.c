@@ -371,7 +371,9 @@ static void cooling_direct(int i) {
         }
     }
 #else
-    unew = DoCooling(unew, SPHP(i).d.Density * All.cf.a3inv, dtime, &ne, P[i].Metallicity);
+    struct UVBG uvbg;
+    GetParticleUVBG(i, &uvbg);
+    unew = DoCooling(unew, SPHP(i).d.Density * All.cf.a3inv, dtime, &uvbg, &ne, P[i].Metallicity);
 
     SPHP(i).Ne = ne;
 
@@ -818,6 +820,8 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
     if(SPHP(i).i.Injected_BH_Energy > 0)
     {
+        struct UVBG uvbg;
+        GetParticleUVBG(i, &uvbg);
         egycurrent += SPHP(i).i.Injected_BH_Energy / P[i].Mass;
 
         double temp = u_to_temp_fac * egycurrent;
@@ -828,7 +832,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
         if(egycurrent > egyeff)
         {
             double ne = SPHP(i).Ne;
-            double tcool = GetCoolingTime(egycurrent, SPHP(i).d.Density * All.cf.a3inv, &ne, P[i].Metallicity);
+            double tcool = GetCoolingTime(egycurrent, SPHP(i).d.Density * All.cf.a3inv, &uvbg, &ne, P[i].Metallicity);
 
             if(tcool < trelax && tcool > 0)
                 trelax = tcool;
@@ -947,7 +951,7 @@ static double get_starformation_rate_full(int i, double dtime, double * ne_new, 
     int flag;
     double tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
-
+    struct UVBG uvbg;
     flag = get_sfr_condition(i);
 
     if(flag == 1) {
@@ -974,6 +978,7 @@ static double get_starformation_rate_full(int i, double dtime, double * ne_new, 
     if(tsfr < dtime)
         tsfr = dtime;
 
+    GetParticleUVBG(i, &uvbg);
 
     factorEVP = pow(SPHP(i).d.Density * All.cf.a3inv / All.PhysDensThresh, -0.8) * All.FactorEVP;
 
@@ -981,7 +986,7 @@ static double get_starformation_rate_full(int i, double dtime, double * ne_new, 
 
     ne = SPHP(i).Ne;
 
-    tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * All.cf.a3inv, &ne, P[i].Metallicity);
+    tcool = GetCoolingTime(egyhot, SPHP(i).d.Density * All.cf.a3inv, &uvbg, &ne, P[i].Metallicity);
     y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
 
     x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -1042,12 +1047,13 @@ void init_clouds(void)
         ne = 1.0;
 
         SetZeroIonization();
-
+        struct UVBG uvbg;
+        GetGlobalUVBG(&uvbg);
         /*XXX: We set the threshold without metal cooling;
          * It probably make sense to set the parameters with
          * a metalicity dependence.
          * */
-        tcool = GetCoolingTime(egyhot, dens, &ne, 0.0);
+        tcool = GetCoolingTime(egyhot, dens, &uvbg, &ne, 0.0);
 
         coolrate = egyhot / tcool / dens;
 
@@ -1077,7 +1083,7 @@ void init_clouds(void)
             egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
             ne = 0.5;
-            tcool = GetCoolingTime(egyhot, dens, &ne, 0.0);
+            tcool = GetCoolingTime(egyhot, dens, &uvbg, &ne, 0.0);
 
             y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
             x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -1095,7 +1101,7 @@ void init_clouds(void)
             egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
             ne = 0.5;
-            tcool = GetCoolingTime(egyhot, dens, &ne, 0.0);
+            tcool = GetCoolingTime(egyhot, dens, &uvbg, &ne, 0.0);
 
             y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
             x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -1151,7 +1157,6 @@ void integrate_sfr(void)
     double meanweight, u4, z, tsfr, tcool, egyhot, factorEVP, egyeff, egyeff2;
     FILE *fd;
 
-
     meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
     u4 = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * 1.0e4;
     u4 *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
@@ -1162,6 +1167,10 @@ void integrate_sfr(void)
         set_global_time(1.0);
         IonizeParams();
     }
+
+    struct UVBG uvbg;
+    GetGlobalUVBG(&uvbg);
+
 
     if(ThisTask == 0)
         fd = fopen("eos.txt", "w");
@@ -1177,7 +1186,7 @@ void integrate_sfr(void)
         egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
         ne = 1.0;
-        tcool = GetCoolingTime(egyhot, rho, &ne, 0.0);
+        tcool = GetCoolingTime(egyhot, rho, &uvbg, &ne, 0.0);
 
         y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
         x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -1221,7 +1230,7 @@ void integrate_sfr(void)
                 egyhot = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
 
                 ne = 1.0;
-                tcool = GetCoolingTime(egyhot, rho, &ne, 0.0);
+                tcool = GetCoolingTime(egyhot, rho, &uvbg, &ne, 0.0);
 
                 y =
                     tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
@@ -1235,7 +1244,7 @@ void integrate_sfr(void)
                 tsfr2 = sqrt(All.PhysDensThresh / rho2) * All.MaxSfrTimescale;
                 factorEVP2 = pow(rho2 / All.PhysDensThresh, -0.8) * All.FactorEVP;
                 egyhot2 = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
-                tcool2 = GetCoolingTime(egyhot2, rho2, &ne, 0.0);
+                tcool2 = GetCoolingTime(egyhot2, rho2, &uvbg, &ne, 0.0);
                 y2 =
                     tsfr2 / tcool2 * egyhot2 / (All.FactorSN * All.EgySpecSN -
                             (1 - All.FactorSN) * All.EgySpecCold);

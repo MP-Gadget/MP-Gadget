@@ -1085,6 +1085,10 @@ void read_parameter_file(char *fname)
         addr[nt] = All.MetalCoolFile;
         id[nt++] = STRING;
 
+        strcpy(tag[nt], "UVFluctuationFile");
+        addr[nt] = All.UVFluctuationFile;
+        id[nt++] = STRING;
+
         strcpy(tag[nt], "DensityKernelType");
         addr[nt] = &All.DensityKernelType;
         id[nt++] = INT;

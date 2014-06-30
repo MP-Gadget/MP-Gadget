@@ -642,18 +642,25 @@ static void GTStarFormationRate(int i, float * out) {
 static void GTNeutralHydrogenFraction(int i, float * out) {
     double ne, nh0, nHeII;
     ne = SPHP(i).Ne;
-
+    struct UVBG uvbg;
+    GetParticleUVBG(i, &uvbg);
     AbundanceRatios(DMAX(All.MinEgySpec,
                 SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity *
                     All.cf.a3inv,
                     GAMMA_MINUS1)),
-            SPHP(i).d.Density * All.cf.a3inv, &ne, &nh0, &nHeII);
+            SPHP(i).d.Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
     *out = nh0;
 } 
 
 static void GTInternalEnergy(int i, float * out) {
     *out = DMAX(All.MinEgySpec,
         SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+}
+
+static void GTJUV(int i, float * out) {
+    struct UVBG uvbg;
+    GetParticleUVBG(i, &uvbg);
+    *out = uvbg.J_UV;
 }
 
 static void register_io_blocks() {

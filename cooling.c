@@ -56,12 +56,12 @@ struct {
     Interp interp;
 } MC;
 
-static void find_abundances_and_rates(double logT, double nHcgs, struct abundance * y, struct rates * r);
-static double convert_u_to_temp(double u, double nHcgs, struct abundance * y);
+static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * uvbg, struct abundance * y, struct rates * r);
+static double convert_u_to_temp(double u, double nHcgs, struct UVBG * uvbg, struct abundance * y);
 static double * h5readdouble(char * filename, char * dataset, int * Nread);
 
-double PrimordialCoolingRate(double logT, double nHcgs, double *nelec);
-double CoolingRateFromU(double u, double nHcgs, double *ne_guess, double Z);
+double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, double *nelec);
+double CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z);
 static void IonizeParamsTable(void);
 static void InitMetalCooling();
 static double TableMetalCoolingRate(double redshift, double logT, double lognH);
@@ -86,14 +86,14 @@ static double *BetaH0, *BetaHep, *Betaff;
 static double *AlphaHp, *AlphaHep, *Alphad, *AlphaHepp;
 static double *GammaeH0, *GammaeHe0, *GammaeHep;
 
-static double J_UV = 0, gJH0 = 0, gJHep = 0, gJHe0 = 0, epsH0 = 0, epsHep = 0, epsHe0 = 0;
+struct UVBG GlobalUVBG = {0};
 
 static double DoCool_u_old_input, DoCool_rho_input, DoCool_dt_input, DoCool_ne_guess_input;
 
 /* returns new internal energy per unit mass. 
  * Arguments are passed in code units, density is proper density.
  */
-double DoCooling(double u_old, double rho, double dt, double *ne_guess, double Z)
+double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z)
 {
     double u, du;
     double u_lower, u_upper;
@@ -118,7 +118,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess, double Z
     u_lower = u;
     u_upper = u;
 
-    LambdaNet = CoolingRateFromU(u, nHcgs, ne_guess, Z);
+    LambdaNet = CoolingRateFromU(u, nHcgs, uvbg, ne_guess, Z);
 
     /* bracketing */
 
@@ -126,7 +126,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess, double Z
     {
         u_upper *= sqrt(1.1);
         u_lower /= sqrt(1.1);
-            while(u_upper - u_old - ratefact * CoolingRateFromU(u_upper, nHcgs, ne_guess, Z) * dt < 0)
+            while(u_upper - u_old - ratefact * CoolingRateFromU(u_upper, nHcgs, uvbg, ne_guess, Z) * dt < 0)
             {
                 u_upper *= 1.1;
                 u_lower *= 1.1;
@@ -138,7 +138,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess, double Z
     {
         u_lower /= sqrt(1.1);
         u_upper *= sqrt(1.1);
-            while(u_lower - u_old - ratefact * CoolingRateFromU(u_lower, nHcgs, ne_guess, Z) * dt > 0)
+            while(u_lower - u_old - ratefact * CoolingRateFromU(u_lower, nHcgs, uvbg, ne_guess, Z) * dt > 0)
             {
                 u_upper /= 1.1;
                 u_lower /= 1.1;
@@ -149,7 +149,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess, double Z
     {
         u = 0.5 * (u_lower + u_upper);
 
-        LambdaNet = CoolingRateFromU(u, nHcgs, ne_guess, Z);
+        LambdaNet = CoolingRateFromU(u, nHcgs, uvbg, ne_guess, Z);
 
         if(u - u_old - ratefact * LambdaNet * dt > 0)
         {
@@ -187,7 +187,7 @@ double DoCooling(double u_old, double rho, double dt, double *ne_guess, double Z
 /* returns cooling time. 
  * NOTE: If we actually have heating, a cooling time of 0 is returned.
  */
-double GetCoolingTime(double u_old, double rho, double *ne_guess, double Z)
+double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg, double *ne_guess, double Z)
 {
     double u;
     double ratefact;
@@ -206,7 +206,7 @@ double GetCoolingTime(double u_old, double rho, double *ne_guess, double Z)
 
     u = u_old;
 
-    LambdaNet = CoolingRateFromU(u, nHcgs, ne_guess, Z);
+    LambdaNet = CoolingRateFromU(u, nHcgs, uvbg, ne_guess, Z);
 
     /* bracketing */
 
@@ -224,7 +224,7 @@ double GetCoolingTime(double u_old, double rho, double *ne_guess, double Z)
 /* returns new internal energy per unit mass. 
  * Arguments are passed in code units, density is proper density.
  */
-double DoInstabilityCooling(double m_old, double u, double rho, double dt, double fac, double *ne_guess, double Z)
+double DoInstabilityCooling(double m_old, double u, double rho, double dt, double fac, struct UVBG * uvbg, double *ne_guess, double Z)
 {
     double m, dm;
     double m_lower, m_upper;
@@ -254,7 +254,7 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
     m_lower = m;
     m_upper = m;
 
-    LambdaNet = CoolingRateFromU(u, nHcgs, ne_guess, Z);
+    LambdaNet = CoolingRateFromU(u, nHcgs, uvbg, ne_guess, Z);
 
     /* bracketing */
 
@@ -264,7 +264,7 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
         m_lower /= sqrt(1.1);
         while(m_upper - m_old -
             m_upper * m_upper / m_old * ratefact * CoolingRateFromU(u, nHcgs * m_upper / m_old,
-                    ne_guess, Z) * dt < 0)
+                    uvbg, ne_guess, Z) * dt < 0)
                     {
                         m_upper *= 1.1;
                         m_lower *= 1.1;
@@ -277,7 +277,7 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
         m_upper *= sqrt(1.1);
         while(m_lower - m_old -
             m_lower * m_lower / m_old * ratefact * CoolingRateFromU(u, nHcgs * m_lower / m_old,
-                    ne_guess, Z) * dt > 0)
+                    uvbg, ne_guess, Z) * dt > 0)
                     {
                         m_upper /= 1.1;
                         m_lower /= 1.1;
@@ -288,7 +288,7 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
     {
         m = 0.5 * (m_lower + m_upper);
 
-        LambdaNet = CoolingRateFromU(u, nHcgs * m / m_old, ne_guess, Z);
+        LambdaNet = CoolingRateFromU(u, nHcgs * m / m_old, uvbg, ne_guess, Z);
 
         if(m - m_old - m * m / m_old * ratefact * LambdaNet * dt > 0)
         {
@@ -339,7 +339,7 @@ void cool_test(void)
     nein = (1 + 4 * yhelium) / muin - (1 + yhelium);
     struct abundance y;
     double nHcgs = rhoin * XH / PROTONMASS;
-    printf("%g\n", convert_u_to_temp(uin, nHcgs, &y));
+    printf("%g\n", convert_u_to_temp(uin, nHcgs, &GlobalUVBG, &y));
 }
 
 
@@ -347,13 +347,12 @@ void cool_test(void)
  * molecular weight. With it arrives at a self-consistent temperature.
  * Element abundances and the rates for the emission are also computed
  */
-static double convert_u_to_temp(double u, double nHcgs, struct abundance * y)
+static double convert_u_to_temp(double u, double nHcgs, struct UVBG * uvbg, struct abundance * y)
 {
     double temp, temp_old, temp_new, max = 0, ne_old;
     double mu;
     struct rates r;
     int iter = 0;
-
     double u_input, rho_input, ne_input;
 
     u_input = u;
@@ -367,7 +366,7 @@ static double convert_u_to_temp(double u, double nHcgs, struct abundance * y)
     {
         ne_old = y->ne;
 
-        find_abundances_and_rates(log10(temp), nHcgs, y, &r);
+        find_abundances_and_rates(log10(temp), nHcgs, uvbg, y, &r);
 
         temp_old = temp;
 
@@ -404,7 +403,7 @@ static double convert_u_to_temp(double u, double nHcgs, struct abundance * y)
 
 /* this function computes the actual abundance ratios 
 */
-static void find_abundances_and_rates(double logT, double nHcgs, struct abundance * y, struct rates * r)
+static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * uvbg, struct abundance * y, struct rates * r)
 {
     double neold, nenew;
     int j, niter;
@@ -466,15 +465,15 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct abundanc
         r->geHe0 = flow * GammaeHe0[j] + fhi * GammaeHe0[j + 1];
         r->geHep = flow * GammaeHep[j] + fhi * GammaeHep[j + 1];
 
-        if(necgs <= 1.e-25 || J_UV == 0)
+        if(necgs <= 1.e-25 || uvbg->J_UV == 0)
         {
             gJH0ne = gJHe0ne = gJHepne = 0;
         }
         else
         {
-            gJH0ne = gJH0 / necgs;
-            gJHe0ne = gJHe0 / necgs;
-            gJHepne = gJHep / necgs;
+            gJH0ne = uvbg->gJH0 / necgs;
+            gJHe0ne = uvbg->gJHe0 / necgs;
+            gJHepne = uvbg->gJHep / necgs;
         }
 
         y->nH0 = r->aHp / (r->aHp + r->geH0 + gJH0ne);	/* eqn (33) */
@@ -498,7 +497,7 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct abundanc
         y->ne = y->nHp + y->nHep + 2 * y->nHepp;	/* eqn (38) */
         necgs = y->ne * nHcgs;
 
-        if(J_UV == 0)
+        if(uvbg->J_UV == 0)
             break;
 
         nenew = 0.5 * (y->ne + neold);
@@ -533,17 +532,17 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct abundanc
  *  and abundance ratios, and then it calculates 
  *  (heating rate-cooling rate)/n_h^2 in cgs units 
  */
-double CoolingRateFromU(double u, double nHcgs, double *ne_guess, double Z)
+double CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z)
 {
     double temp;
     struct abundance y;
 
     y.ne = *ne_guess;
-    temp = convert_u_to_temp(u, nHcgs, &y);
+    temp = convert_u_to_temp(u, nHcgs, uvbg, &y);
     *ne_guess = y.ne;
     double logT = log10(temp);
     double redshift = 1 / All.Time -  1.;
-    double LambdaNet = PrimordialCoolingRate(logT, nHcgs, ne_guess);
+    double LambdaNet = PrimordialCoolingRate(logT, nHcgs, uvbg, ne_guess);
     if(! CoolingNoMetal) {
         double lognH = log10(nHcgs);
         LambdaNet -= Z * TableMetalCoolingRate(redshift, logT, lognH);
@@ -555,7 +554,7 @@ double CoolingRateFromU(double u, double nHcgs, double *ne_guess, double Z)
 /*  this function computes the self-consistent temperature
  *  and abundance ratios 
  */
-double AbundanceRatios(double u, double rho, double *ne_guess, double *nH0_pointer, double *nHeII_pointer)
+double AbundanceRatios(double u, double rho, struct UVBG * uvbg, double *ne_guess, double *nH0_pointer, double *nHeII_pointer)
 {
     double temp;
     struct abundance y;
@@ -569,7 +568,7 @@ double AbundanceRatios(double u, double rho, double *ne_guess, double *nH0_point
 
     double nHcgs = rho / PROTONMASS * XH;
     y.ne = *ne_guess;
-    temp = convert_u_to_temp(u, nHcgs, &y);
+    temp = convert_u_to_temp(u, nHcgs, uvbg, &y);
     *ne_guess = y.ne;
 
     *nH0_pointer = y.nH0;
@@ -585,7 +584,7 @@ extern FILE *fd;
 
 /*  Calculates (heating rate-cooling rate)/n_h^2 in cgs units 
 */
-static double PrimordialCoolingRate(double logT, double nHcgs, double *nelec)
+static double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, double *nelec)
 {
     double Lambda, Heat;
     double LambdaExc, LambdaIon, LambdaRec, LambdaFF, LambdaCmptn = 0.0;
@@ -608,7 +607,7 @@ static double PrimordialCoolingRate(double logT, double nHcgs, double *nelec)
 
     if(logT < Tmax)
     {
-        find_abundances_and_rates(logT, nHcgs, &y, &r);
+        find_abundances_and_rates(logT, nHcgs, uvbg, &y, &r);
         *nelec = y.ne;
         /* Compute cooling and heating rate (cf KWH Table 1) in units of nH**2 */
         T = pow(10.0, logT);
@@ -655,8 +654,8 @@ static double PrimordialCoolingRate(double logT, double nHcgs, double *nelec)
             LambdaCmptn = 0;
 
         Heat = 0;
-        if(J_UV != 0)
-            Heat += (y.nH0 * epsH0 + y.nHe0 * epsHe0 + y.nHep * epsHep) / nHcgs;
+        if(uvbg->J_UV != 0)
+            Heat += (y.nH0 * uvbg->epsH0 + y.nHe0 * uvbg->epsHe0 + y.nHep * uvbg->epsHep) / nHcgs;
 
     }
     else				/* here we're outside of tabulated rates, T>Tmax K */
@@ -724,6 +723,7 @@ double LogTemp(double u, double ne)	/* ne= electron density in terms of hydrogen
 
 
 
+static void InitUVF(void);
 void InitCoolMemory(void)
 {
     BetaH0 = (double *) mymalloc("BetaH0", (NCOOLTAB + 1) * sizeof(double));
@@ -950,14 +950,14 @@ static double * h5readdouble(char * filename, char * dataset, int * Nread) {
 
         MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-        buffer = mymalloc(dataset, N * sizeof(double));
+        buffer = malloc(N * sizeof(double));
 
         H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer);
         H5Dclose(dset);
         H5Fclose(hfile);
     } else {
         MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
-        buffer = mymalloc(dataset, N * sizeof(double));
+        buffer = malloc(N * sizeof(double));
     }
 
     MPI_Bcast(buffer, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -976,7 +976,7 @@ static float inlogz[TABLESIZE];
 static float gH0[TABLESIZE], gHe[TABLESIZE], gHep[TABLESIZE];
 static float eH0[TABLESIZE], eHe[TABLESIZE], eHep[TABLESIZE];
 static int nheattab;		/* length of table */
-
+static double CurrentReionizedFraction;
 
 void ReadIonizeParams(char *fname)
 {
@@ -1014,8 +1014,8 @@ void ReadIonizeParams(char *fname)
 
 void IonizeParams(void)
 {
-    IonizeParamsTable();
 
+    IonizeParamsTable();
     /*
        IonizeParamsFunction();
        */
@@ -1029,15 +1029,12 @@ static void IonizeParamsTable(void)
     double logz, dzlow, dzhi;
     double redshift;
 
-    if(All.ComovingIntegrationOn)
-        redshift = 1 / All.Time - 1;
-    else
-    {
-        gJHe0 = gJHep = gJH0 = 0;
-        epsHe0 = epsHep = epsH0 = 0;
-        J_UV = 0;
+    if(!All.ComovingIntegrationOn) {
+        memset(&GlobalUVBG, 0, sizeof(GlobalUVBG));
         return;
     }
+
+    redshift = 1 / All.Time - 1;
 
     logz = log10(redshift + 1.0);
     ilow = 0;
@@ -1054,20 +1051,18 @@ static void IonizeParamsTable(void)
 
     if(logz > inlogz[nheattab - 1] || gH0[ilow] == 0 || gH0[ilow + 1] == 0 || nheattab == 0)
     {
-        gJHe0 = gJHep = gJH0 = 0;
-        epsHe0 = epsHep = epsH0 = 0;
-        J_UV = 0;
+        memset(&GlobalUVBG, 0, sizeof(GlobalUVBG));
         return;
     }
     else
-        J_UV = 1.e-21;		/* irrelevant as long as it's not 0 */
+        GlobalUVBG.J_UV = 1.e-21;		/* irrelevant as long as it's not 0 */
 
-    gJH0 = JAMPL * pow(10., (dzhi * log10(gH0[ilow]) + dzlow * log10(gH0[ilow + 1])) / (dzlow + dzhi));
-    gJHe0 = JAMPL * pow(10., (dzhi * log10(gHe[ilow]) + dzlow * log10(gHe[ilow + 1])) / (dzlow + dzhi));
-    gJHep = JAMPL * pow(10., (dzhi * log10(gHep[ilow]) + dzlow * log10(gHep[ilow + 1])) / (dzlow + dzhi));
-    epsH0 = JAMPL * pow(10., (dzhi * log10(eH0[ilow]) + dzlow * log10(eH0[ilow + 1])) / (dzlow + dzhi));
-    epsHe0 = JAMPL * pow(10., (dzhi * log10(eHe[ilow]) + dzlow * log10(eHe[ilow + 1])) / (dzlow + dzhi));
-    epsHep = JAMPL * pow(10., (dzhi * log10(eHep[ilow]) + dzlow * log10(eHep[ilow + 1])) / (dzlow + dzhi));
+    GlobalUVBG.gJH0 = JAMPL * pow(10., (dzhi * log10(gH0[ilow]) + dzlow * log10(gH0[ilow + 1])) / (dzlow + dzhi));
+    GlobalUVBG.gJHe0 = JAMPL * pow(10., (dzhi * log10(gHe[ilow]) + dzlow * log10(gHe[ilow + 1])) / (dzlow + dzhi));
+    GlobalUVBG.gJHep = JAMPL * pow(10., (dzhi * log10(gHep[ilow]) + dzlow * log10(gHep[ilow + 1])) / (dzlow + dzhi));
+    GlobalUVBG.epsH0 = JAMPL * pow(10., (dzhi * log10(eH0[ilow]) + dzlow * log10(eH0[ilow + 1])) / (dzlow + dzhi));
+    GlobalUVBG.epsHe0 = JAMPL * pow(10., (dzhi * log10(eHe[ilow]) + dzlow * log10(eHe[ilow + 1])) / (dzlow + dzhi));
+    GlobalUVBG.epsHep = JAMPL * pow(10., (dzhi * log10(eHep[ilow]) + dzlow * log10(eHep[ilow + 1])) / (dzlow + dzhi));
 
     return;
 }
@@ -1075,9 +1070,7 @@ static void IonizeParamsTable(void)
 
 void SetZeroIonization(void)
 {
-    gJHe0 = gJHep = gJH0 = 0;
-    epsHe0 = epsHep = epsH0 = 0;
-    J_UV = 0;
+    memset(&GlobalUVBG, 0, sizeof(GlobalUVBG));
 }
 
 
@@ -1093,37 +1086,34 @@ void IonizeParamsFunction(void)
     double Jold = -1.0;
     double redshift;
 
-    J_UV = 0.;
-    gJHe0 = gJHep = gJH0 = 0.;
-    epsHe0 = epsHep = epsH0 = 0.;
-
+    memset(&GlobalUVBG, 0, sizeof(GlobalUVBG));
 
     if(All.ComovingIntegrationOn)	/* analytically compute params from power law J_nu */
     {
         redshift = 1 / All.Time - 1;
 
         if(redshift >= 6)
-            J_UV = 0.;
+            GlobalUVBG.J_UV = 0.;
         else
         {
             if(redshift >= 3)
-                J_UV = 4e-22 / (1 + redshift);
+                GlobalUVBG.J_UV = 4e-22 / (1 + redshift);
             else
             {
                 if(redshift >= 2)
-                    J_UV = 1e-22;
+                    GlobalUVBG.J_UV = 1e-22;
                 else
-                    J_UV = 1.e-22 * pow(3.0 / (1 + redshift), -3.0);
+                    GlobalUVBG.J_UV = 1.e-22 * pow(3.0 / (1 + redshift), -3.0);
             }
         }
 
-        if(J_UV == Jold)
+        if(GlobalUVBG.J_UV == Jold)
             return;
 
 
-        Jold = J_UV;
+        Jold = GlobalUVBG.J_UV;
 
-        if(J_UV == 0)
+        if(GlobalUVBG.J_UV == 0)
             return;
 
 
@@ -1150,27 +1140,27 @@ void IonizeParamsFunction(void)
             eint += fac * (tinv - 1.) * at;
         }
 
-        gJH0 = a0 * gint / planck;
-        epsH0 = a0 * eint * (e0_H / planck);
-        gJHep = gJH0 * pow(e0_H / e0_Hep, UVALPHA) / 4.0;
-        epsHep = epsH0 * pow((e0_H / e0_Hep), UVALPHA - 1.) / 4.0;
+        GlobalUVBG.gJH0 = a0 * gint / planck;
+        GlobalUVBG.epsH0 = a0 * eint * (e0_H / planck);
+        GlobalUVBG.gJHep = GlobalUVBG.gJH0 * pow(e0_H / e0_Hep, UVALPHA) / 4.0;
+        GlobalUVBG.epsHep = GlobalUVBG.epsH0 * pow((e0_H / e0_Hep), UVALPHA - 1.) / 4.0;
 
         at = 7.83e-18;
         beta = 1.66;
         s = 2.05;
 
-        gJHe0 = (at / planck) * pow((e0_H / e0_He), UVALPHA) *
+        GlobalUVBG.gJHe0 = (at / planck) * pow((e0_H / e0_He), UVALPHA) *
             (beta / (UVALPHA + s) + (1. - beta) / (UVALPHA + s + 1));
-        epsHe0 = (e0_He / planck) * at * pow(e0_H / e0_He, UVALPHA) *
+        GlobalUVBG.epsHe0 = (e0_He / planck) * at * pow(e0_H / e0_He, UVALPHA) *
             (beta / (UVALPHA + s - 1) + (1 - 2 * beta) / (UVALPHA + s) - (1 - beta) / (UVALPHA + s + 1));
 
         pi = M_PI;
-        gJH0 *= 4. * pi * J_UV;
-        gJHep *= 4. * pi * J_UV;
-        gJHe0 *= 4. * pi * J_UV;
-        epsH0 *= 4. * pi * J_UV;
-        epsHep *= 4. * pi * J_UV;
-        epsHe0 *= 4. * pi * J_UV;
+        GlobalUVBG.gJH0 *= 4. * pi * GlobalUVBG.J_UV;
+        GlobalUVBG.gJHep *= 4. * pi * GlobalUVBG.J_UV;
+        GlobalUVBG.gJHe0 *= 4. * pi * GlobalUVBG.J_UV;
+        GlobalUVBG.epsH0 *= 4. * pi * GlobalUVBG.J_UV;
+        GlobalUVBG.epsHep *= 4. * pi * GlobalUVBG.J_UV;
+        GlobalUVBG.epsHe0 *= 4. * pi * GlobalUVBG.J_UV;
     }
 }
 
@@ -1181,7 +1171,6 @@ void InitCool(void)
     MakeCoolingTable();
 
     ReadIonizeParams(All.TreeCoolFile);
-
     /* now initialize the metal cooling table from cloudy; we got this file
      * from vogelsberger's Arepo simulations; it is supposed to be 
      * cloudy + UVB - H and He; look so.
@@ -1199,7 +1188,7 @@ void InitCool(void)
 
     set_global_time(All.TimeBegin);
     IonizeParams();
-
+    InitUVF();
 }
 
 static void InitMetalCooling() {
@@ -1235,4 +1224,121 @@ static double TableMetalCoolingRate(double redshift, double logT, double lognH) 
     return rate;
 }
 
+static struct {
+    int disabled;
+    Interp interp;
+    Interp Finterp;
+    double * Table;
+    ptrdiff_t Nside;
+    double * Fraction;
+    double * Zbins;
+    int N_Zbins;
+} UVF;
+
+static void InitUVF(void) {
+    /* The UV fluctation file is an hdf5 with these tables:
+     * ReionizedFraction: values of the reionized fraction as function of
+     * redshift.
+     * Redshift_Bins: uniform redshifts of the reionized fraction values 
+     *
+     * XYZ_Bins: the uniform XYZ points where Z_reion is tabulated. (length of Nside)
+     *
+     * Zreion_Table: a Nside (X) x Nside (Y)x Nside (z) C ordering double array,
+     * the reionization redshift as function of space, on a grid give by
+     * XYZ_Bins.
+     *
+     * Notice that this table is broadcast to all MPI ranks, thus it can't be
+     * too big. (400x400x400 is around 400 MBytes)
+     *
+     * */
+    if(!strcmp(All.UVFluctuationFile, "UNIFORM")) {
+        if(ThisTask == 0)
+            printf("Using UNIFORM UV BG from %s\n", All.TreeCoolFile);
+        UVF.disabled = 1;
+        return;
+    } else {
+        if(ThisTask == 0)
+            printf("Using NON-UNIFORM UV BG from %s and %s\n", All.TreeCoolFile, All.UVFluctuationFile);
+        UVF.disabled = 0;
+    }
+    int size;
+    {
+        /* read the reionized fraction */
+        UVF.Zbins = h5readdouble(All.UVFluctuationFile, "Redshift_Bins", &UVF.N_Zbins);
+        UVF.Fraction = h5readdouble(All.UVFluctuationFile, "ReionizedFraction", &UVF.N_Zbins);
+        int dims[] = {UVF.N_Zbins};
+        interp_init(&UVF.Finterp, 1, dims);
+        interp_init_dim(&UVF.Finterp, 0, UVF.Zbins[0], UVF.Zbins[UVF.N_Zbins - 1]);
+    }
+
+    double * XYZ_Bins = h5readdouble(All.UVFluctuationFile, "XYZ_Bins", &size);
+    UVF.Nside = size;
+
+    int Nside = UVF.Nside;
+    double * data = h5readdouble(All.UVFluctuationFile, "Zreion_Table", &size);
+    /* This is kinda big, so we move it to mymalloc (leaving more free space for
+     * system /MPI */
+    UVF.Table = mymalloc("Zreion", (sizeof(double) * Nside) * (Nside * Nside));
+    int i;
+    /* convert to float internally, saving memory */
+    for(i = 0; i < size; i ++) {
+        UVF.Table[i] = data[i];
+    }
+    free(data);
+
+    if(UVF.Table[0] < 0.01 || UVF.Table[0] > 100.0) {
+        fprintf(stderr, "UV Flucutaiton doesn't seem right\n");
+        endrun(21314);
+    }
+
+    int dims[] = {Nside, Nside, Nside};
+    interp_init(&UVF.interp, 3, dims);
+    interp_init_dim(&UVF.interp, 0, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
+    interp_init_dim(&UVF.interp, 1, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
+    interp_init_dim(&UVF.interp, 2, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
+}
+/* Fraction of total universe that is ionized.
+ * currently unused. Unclear if the UVBG in Treecool shall be adjusted
+ * by the factor or not. seems to be NOT after reading Giguere's paper.
+ * */
+static double GetReionizedFraction(double time) {
+    if(UVF.disabled) {
+        return 1.0;
+    }
+    int status[1];
+    double redshift = 1 / time - 1;
+    double x[] = {redshift};
+    double fraction = interp_eval(&UVF.Finterp, x, UVF.Fraction, status);
+    if(status[0] < 0) return 0.0;
+    if(status[0] > 0) return 1.0;
+    return fraction;
+}
+
+
+/* 
+ * returns the spatial dependent UVBG if UV fluctuation is enabled. 
+ *
+ * */
+void GetParticleUVBG(int i, struct UVBG * uvbg) {
+    /* directly use the TREECOOL table if UVF is disabled */
+    if(UVF.disabled) {
+        memcpy(uvbg, &GlobalUVBG, sizeof(struct UVBG));
+        return;
+    }
+    double pos[3];
+    int k;
+    for(k = 0; k < 3; k ++) {
+        pos[k] = P[i].Pos[k];
+    }
+    double zreion = interp_eval_periodic(&UVF.interp, pos, UVF.Table);
+    double z = 1 / All.Time - 1;
+    if(zreion < z) {
+        memset(uvbg, 0, sizeof(struct UVBG));
+    } else {
+        memcpy(uvbg, &GlobalUVBG, sizeof(struct UVBG));
+    }
+}
+void GetGlobalUVBG(struct UVBG * uvbg) {
+    memcpy(uvbg, &GlobalUVBG, sizeof(struct UVBG));
+}
 #endif
