@@ -127,6 +127,44 @@ double interp_eval(Interp * obj, double * x, double * ydata, int * status) {
     return ret;
 }
 
+double interp_eval_periodic(Interp * obj, double * x, double * ydata) {
+    int * xi = alloca(sizeof(int) * obj->Ndim);
+    int * xi1 = alloca(sizeof(int) * obj->Ndim);
+    double * f = alloca(sizeof(double) * obj->Ndim);
+
+    int d;
+    for(d = 0; d < obj->Ndim; d++) {
+        double xd = (x[d] - obj->Min[d]) / obj->Step[d];
+        xi[d] = floor(xd);
+        f[d] = xd - xi[d];
+    }
+
+    double ret = 0;
+    /* the origin, "this point" */
+
+    int i;
+    /* for each point covered by the filter */
+    for(i = 0; i < obj->fsize; i ++) {
+        double filter = 1.0;
+        for(d = 0; d < obj->Ndim; d++ ) {
+            int foffset = (i & (1 << d))?1:0;
+            xi1[d] = xi[d] + foffset;
+            while(xi1[d] >= obj->dims[d]) xi1[d] -= obj->dims[d];
+            while(xi1[d] < 0 ) xi1[d] += obj->dims[d];
+            /* 
+             * are we on this point or next point?
+             *
+             * weight on next point is f[d]
+             * weight on this point is 1 - f[d] 
+             * */
+            filter *= foffset?f[d] : (1 - f[d]);
+        }
+        ptrdiff_t l = linearindex(obj->strides, xi1, obj->Ndim);
+        ret += ydata[l] * filter;
+    }
+    return ret;
+}
+
 void interp_destroy(Interp * obj) {
     free(obj->data);
 }
@@ -139,7 +177,6 @@ int main(int argc, char * argv[]) {
     interp_init(&ip, 2, dims);
     interp_init_dim(&ip, 0, 0, 2.0);
     interp_init_dim(&ip, 1, 0, 2.0);
-
     {
         int i, j;
 
@@ -157,11 +194,39 @@ int main(int argc, char * argv[]) {
         printf("\n");
         double i, j;
         int status[2];
-        for(i = -0.4; i <= 2.4; i += 0.2) {
-            for(j = -0.4; j <= 2.4; j += 0.2) {
+        for(i = -0.4; i <= 3.0; i += 0.4) {
+            for(j = -0.4; j <= 3.0; j += 0.4) {
                 double x[] = {i, j};
                 double y = interp_eval(&ip, x, (double*) ydata, status);
-                printf("%3.2f ", y);
+                double yp = interp_eval_periodic (&ip, x, (double*) ydata);
+                printf("%3.2f/%3.2f ", y, yp);
+            }
+            printf("\n");
+        }
+    } 
+    {
+        int i, j;
+
+        for(i = 0; i < 3; i++) {
+            for(j = 0; j < 3; j++) {
+                int xi[] = {i, j};
+                ydata[i][j] = i + j;
+                printf("%g ", ydata[i][j]);
+            }
+            printf("\n");
+        }
+    }
+
+    {
+        printf("\n");
+        double i, j;
+        int status[2];
+        for(i = -0.4; i <= 3.0; i += 0.4) {
+            for(j = -0.4; j <= 3.0; j += 0.4) {
+                double x[] = {i, j};
+                double y = interp_eval(&ip, x, (double*) ydata, status);
+                double yp = interp_eval_periodic (&ip, x, (double*) ydata);
+                printf("%3.2f/%3.2f ", y, yp);
             }
             printf("\n");
         }
