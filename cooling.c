@@ -970,7 +970,7 @@ static double * h5readdouble(char * filename, char * dataset, int * Nread) {
 /* table input (from file TREECOOL) for ionizing parameters */
 
 #define JAMPL	1.0		/* amplitude factor relative to input table */
-#define TABLESIZE 200		/* Max # of lines in TREECOOL */
+#define TABLESIZE 500		/* Max # of lines in TREECOOL */
 
 static float inlogz[TABLESIZE];
 static float gH0[TABLESIZE], gHe[TABLESIZE], gHep[TABLESIZE];
