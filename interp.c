@@ -41,6 +41,11 @@ void interp_init(Interp * obj, int Ndim, int * dims) {
     obj->fsize = fsize;
 }
 
+/* set up an interplation dimension.
+ * Max is inclusive. aka if dims[d] == 2, Min = 0, Max = 1
+ * then the steps are 0, 1.
+ * 
+ **/
 void interp_init_dim(Interp * obj, int d, double Min, double Max) {
     obj->Min[d] = Min;
     obj->Max[d] = Max;
@@ -127,6 +132,7 @@ double interp_eval(Interp * obj, double * x, double * ydata, int * status) {
     return ret;
 }
 
+/* interpolation assuming periodic boundary */
 double interp_eval_periodic(Interp * obj, double * x, double * ydata) {
     int * xi = alloca(sizeof(int) * obj->Ndim);
     int * xi1 = alloca(sizeof(int) * obj->Ndim);
