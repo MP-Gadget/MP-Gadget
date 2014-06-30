@@ -448,8 +448,9 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection 
         int i;
         int tid = omp_get_thread_num();
         int NT = omp_get_num_threads();
-        int start = (size_t) NumPart * tid / NT;
-        int end = (size_t) NumPart * (tid + 1) / NT;
+        if(NT > All.NumThreads) abort();
+        int start = ((size_t) NumPart) * tid / NT;
+        int end = ((size_t) NumPart) * (tid + 1) / NT;
         int npartLocal = 0;
         npartThread[tid] = 0;
         for(i = start; i < end; i ++) {
@@ -463,7 +464,7 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection 
             offsetThread[i] = offsetThread[i - 1] + npartThread[i - 1];
         }
         for(i = 0; i < NT; i ++) {
-            npartLocal += npartThread[tid];
+            npartLocal += npartThread[i];
         }
 #pragma omp master 
         {
@@ -472,7 +473,7 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection 
         }
 #pragma omp barrier
 #if 0
-        printf("Thread = %d offset=%d count=%d start=%d end=%d\n", tid, offsetThread[tid], npartThread[tid], start, end);
+        printf("Thread = %d offset=%d count=%d start=%d end=%d %d\n", tid, offsetThread[tid], npartThread[tid], start, end, npartLocal);
 #endif
         /* fill the buffer */
         char * p = array->data;
