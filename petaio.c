@@ -216,6 +216,11 @@ void petaio_read_snapshot(int num) {
     header.flag_entropy_instead_u = 1;
     petaio_read_internal(fname, 0);
 }
+
+/* Notice that IC follows the Gadget-1/2 unit, but snapshots use
+ * internal units. Old code converts at init.c; we now convert 
+ * here in read_ic.
+ * */
 void petaio_read_ic() {
     int i;
     memset(&header, 0, sizeof(header));
@@ -279,6 +284,16 @@ void petaio_read_ic() {
     for(i = 0; i < N_sph; i++)
         SPHP(i).u = 0;
 #endif
+
+    if(All.ComovingIntegrationOn)	/*  change to new velocity variable */
+    {
+#pragma omp parallel for
+        for(i = 0; i < NumPart; i++) {
+            int k;
+            for(k = 0; k < 3; k++)
+                P[i].Vel[k] *= sqrt(All.TimeBegin) * All.TimeBegin;
+        }
+    }
 
 }
 
@@ -686,6 +701,7 @@ static void register_io_blocks() {
     IO_REG(ElectronAbundance,       "f4", 1, 0);
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0);
     IO_REG_WRONLY(InternalEnergy,   "f4", 1, 0);
+    IO_REG_WRONLY(JUV,   "f4", 1, 0);
 
     /* SF */
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);

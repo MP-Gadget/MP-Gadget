@@ -253,13 +253,15 @@ void init(void)
     }
 #endif
 
+#ifdef IO_OLDSNAPSHOT
+    /* with petaio the conversion is done in petaio_read_ic */
     if(All.ComovingIntegrationOn)	/*  change to new velocity variable */
     {
         for(i = 0; i < NumPart; i++)
             for(j = 0; j < 3; j++)
                 P[i].Vel[j] *= sqrt(All.Time) * All.Time;
     }
-
+#endif
 
     /* DISTORTION GENERAL SETUP */
 #ifdef DISTORTIONTENSORPS
