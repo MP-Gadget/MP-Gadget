@@ -1659,7 +1659,8 @@ void fof_find_nearest_dmparticle(void)
 
         /* do final operations on results */
         npleft = 0;
-#pragma omp parallel for if(Nactive > 32) reduction(+: npleft)
+/* CRAY cc doesn't do this one right */
+//#pragma omp parallel for reduction(+: npleft)
         for(i = 0; i < Nactive; i++)
         {
             int p = queue[i];
@@ -1682,7 +1683,6 @@ void fof_find_nearest_dmparticle(void)
                 }
             }
         }
-
         sumup_large_ints(1, &npleft, &ntot);
         if(ntot < 0) abort();
         if(ntot > 0)
