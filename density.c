@@ -299,7 +299,7 @@ void density(void)
         queue = evaluate_get_queue(&ev, &Nactive);
         
         npleft = 0;
-#pragma omp parallel for if(Nactive > 32) reduction(+: npleft)
+#pragma omp parallel for if(Nactive > 32)
         for(i = 0; i < Nactive; i++) {
             int p = queue[i];
             density_post_process(p);
@@ -314,7 +314,10 @@ void density(void)
                 fflush(stdout);
             }
 
-            if(!P[p].DensityIterationDone) npleft ++;
+            if(!P[p].DensityIterationDone) {
+#pragma omp atomic
+                npleft ++;
+            }
         }
 
         myfree(queue);
