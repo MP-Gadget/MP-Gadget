@@ -494,11 +494,12 @@ void gravity_tree(void)
     int Nactive;
     /* doesn't matter which ev to use, they have the same ev_active*/
     int * queue = evaluate_get_queue(&ev[0], &Nactive);
-#pragma omp parallel for if(Nactive > 32) reduction(+: Costtotal)
+#pragma omp parallel for if(Nactive > 32)
     for(i = 0; i < Nactive; i++) {
         gravtree_post_process(queue[i]);
         /* this shall agree with sum of Ninteractions in all ev[..] need to
          * check it*/
+#pragma omp atomic
         Costtotal += P[i].GravCost;
     }
     myfree(queue);
