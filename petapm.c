@@ -317,7 +317,7 @@ static void convert_node_to_region(int no, int r) {
 #endif
     for(k = 0; k < 3; k ++) {
         regions[r].offset[k] = floor((Nodes[no].center[k] - Nodes[no].len * 0.5  - Extnodes[no].hmax) / cellsize);
-        int end = (int) floor((Nodes[no].center[k] + Nodes[no].len * 0.5  + Extnodes[no].hmax) / cellsize) + 1;
+        int end = (int) ceil((Nodes[no].center[k] + Nodes[no].len * 0.5  + Extnodes[no].hmax) / cellsize) + 1;
         regions[r].size[k] = end - regions[r].offset[k] + 1;
         regions[r].center[k] = Nodes[no].center[k];
     }
