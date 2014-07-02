@@ -299,6 +299,7 @@ void petapm_prepare() {
     }
     /* All particles shall have been processed just once. Otherwise we die */
     if(numpart != NumPart) {
+        fprintf(stderr, "numpart = %d\n", numpart);
         abort();
     }
     walltime_measure("/PMgrav/Regions");
@@ -526,9 +527,14 @@ static void layout_prepare (struct Layout * L) {
     L->NcImport = L->DcRecv[NTask -1] + L->NcRecv[NTask -1];
 
     /* some checks */
-    if(L->DpSend[NTask - 1] + L->NpSend[NTask -1] != L->NpExport) abort();
-    if(L->DcSend[NTask - 1] + L->NcSend[NTask -1] != L->NcExport) abort();
-
+    if(L->DpSend[NTask - 1] + L->NpSend[NTask -1] != L->NpExport) {
+        fprintf(stderr, "NpExport = %d\n", L->NpExport);
+        abort();
+    }
+    if(L->DcSend[NTask - 1] + L->NcSend[NTask -1] != L->NcExport) {
+        fprintf(stderr, "NcExport = %d\n", L->NcExport);
+        abort();
+    }
     int64_t totNpAlloc = reduce_int64(NpAlloc);
     int64_t totNpExport = reduce_int64(L->NpExport);
     int64_t totNcExport = reduce_int64(L->NcExport);
@@ -536,12 +542,15 @@ static void layout_prepare (struct Layout * L) {
     int64_t totNcImport = reduce_int64(L->NcImport);
 
     if(totNpExport != totNpImport) {
+        fprintf(stderr, "totNpExport = %ld\n", totNpExport);
         abort();
     }
     if(totNcExport != totNcImport) {
+        fprintf(stderr, "totNcExport = %ld\n", totNcExport);
         abort();
     }
 
+    MPI_Barrier(MPI_COMM_WORLD);
     /* exchange the pencils */
     if(ThisTask == 0) {
         printf("PetaPM:  %010ld/%010ld Pencils and %010ld Cells\n", totNpExport, totNpAlloc, totNcExport);
@@ -801,9 +810,11 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
         iCell[k] -= region->offset[k];
         if(iCell[k] >= region->size[k] - 1) {
             /* seriously?! particles are supposed to be contained in cells */
+            fprintf(stderr, "particle out of cell better stop %d %td\n", iCell[k], region->size[k]);
             abort(); 
         }
         if(iCell[k] < 0) {
+            fprintf(stderr, "particle out of cell better stop (negative) %d \n", iCell[k]);
             abort();
         }
     }
@@ -821,7 +832,10 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
                 /* offset == 1*/ (Res[k])    :
                 /* offset == 0*/ (1 - Res[k]);
         }
-        if(linear >= region->totalsize) abort();
+        if(linear >= region->totalsize) {
+            fprintf(stderr, "particle linear index out of cell better stop\n");
+            abort();
+        }
         iterator(i, &region->buffer[linear], weight);
     }
 }
@@ -970,7 +984,10 @@ static void pm_apply_transfer_function(struct Region * region,
             /* lets get the abs pos on the grid*/
             pos[k] += region->offset[k];
             /* check */
-            if(pos[k] >= All.Nmesh) abort();
+            if(pos[k] >= All.Nmesh) {
+                fprintf(stderr, "position diden't make sense\n");
+                abort();
+            }
             kpos[k] = Mesh2K[pos[k]];
             /* Watch out the cast */
             k2 += ((int64_t)kpos[k]) * kpos[k];
