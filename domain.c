@@ -356,10 +356,10 @@ int domain_decompose(void)
         NtypeLocal[i] = 0;
 
     gravcost = 0;
-#pragma omp parallel reduction(+: gravcost) private(i)
+#pragma omp parallel private(i)
     {
         int NtypeLocalThread[6] = {0};
-
+        double mygravcost = 0;
 #pragma omp for
         for(i = 0; i < NumPart; i++)
         {
@@ -370,10 +370,12 @@ int domain_decompose(void)
             NtypeLocalThread[P[i].Type]++;
             double costfac = domain_particle_costfactor(i);
 
-            gravcost += costfac;
+            mygravcost += costfac;
         }
 #pragma omp critical 
         {
+/* avoid omp reduction for now: Craycc doesn't always do it right */
+            gravcost += mygravcost;
             for(i = 0; i < 6; i ++) {
                 NtypeLocal[i] += NtypeLocalThread[i];
             }
@@ -945,7 +947,7 @@ void domain_garbage_collection_bh() {
     }
 
     j = 0;
-#pragma omp parallel for reduction(+: j)
+#pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type != 5) continue;
         if(P[i].PI >= N_bh) {
@@ -956,6 +958,7 @@ void domain_garbage_collection_bh() {
             printf("bh id consistency failed2\n");
             endrun(99999); 
         }
+#pragma omp atomic
         j ++;
     }
     if(j != N_bh) {
@@ -1873,7 +1876,7 @@ int domain_determineTopTree(void)
     mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
 
     count = 0;
-#pragma omp parallel for reduction(+: count)
+#pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
 #ifdef SUBFIND
@@ -1882,6 +1885,7 @@ int domain_determineTopTree(void)
             continue;
         }
 #endif
+#pragma omp atomic
         count ++;
         mp[i].key = KEY(i);
 #ifdef SUBFIND_ALTERNATIVE_COLLECTIVE
