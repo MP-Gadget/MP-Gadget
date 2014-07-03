@@ -906,11 +906,15 @@ static int bh_cmp_reverse_link(struct bh_particle_data * b1, struct bh_particle_
 }
 
 void domain_garbage_collection_bh() {
-    /* no need to gc if there is no bh to begin with*/
-    if (N_bh == 0) return;
 
     /* gc the bh */
     int i, j;
+    int total = 0;
+
+    /* no need to gc if there is no bh to begin with*/
+    if (N_bh == 0) goto ex_nobh;
+
+#pragma omp parallel for
     for(i = 0; i < All.MaxPartBh; i++) {
         BhP[i].ReverseLink = -1;
     }
@@ -966,7 +970,7 @@ void domain_garbage_collection_bh() {
             endrun(99999); 
     }
 
-    int total = 0;
+ex_nobh:
     MPI_Reduce(&N_bh, &total, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     if(ThisTask == 0 && total != All.TotN_bh) {
         printf("total bh count failed2, total=%d, TotN_bh=%ld\n", total, All.TotN_bh);
