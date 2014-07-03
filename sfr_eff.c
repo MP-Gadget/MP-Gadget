@@ -696,8 +696,8 @@ static int make_particle_wind(int i, double v, double vmean[3]) {
             dir[j] /= norm;
 
         fprintf(FdSfrDetails, 
-             "making wind time=%g P[%d] ID=%ld mass=%g pos=%g %g %g v=%g km/s vcenter = %g %g %g dir=%g %g %g\n",
-                All.Time, i, P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], 
+             "Wind T %g %lu M %g P %g %g %g V %g VC %g %g %g D %g %g %g\n",
+                All.Time, P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], 
                 v / All.cf.a, vmean[0], vmean[1], vmean[2], dir[0], dir[1], dir[2]);
 
         for(j = 0; j < 3; j++)
@@ -711,8 +711,8 @@ static int make_particle_wind(int i, double v, double vmean[3]) {
 }
 
 static int make_particle_star(int i, int number_of_stars_generated) {
-    fprintf(FdSfrDetails, "making star time=%g P[%d] ID=%ld mass=%g rho(phys)=%g pos=%g %g %g\n",
-            All.Time, i, P[i].ID, P[i].Mass, SPHP(i).d.Density * All.cf.a3inv, 
+    fprintf(FdSfrDetails, "Star T %g %lu M %g RHOP %g P %g %g %g\n",
+            All.Time, P[i].ID, P[i].Mass, SPHP(i).d.Density * All.cf.a3inv, 
             P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
     /* ok, make a star */
     if(number_of_stars_generated == (GENERATIONS - 1))
