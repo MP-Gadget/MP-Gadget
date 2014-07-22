@@ -108,14 +108,21 @@ static void fof_distribute_particles() {
     struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * NumPart);
 
     int64_t NpigLocal = 0;
+    int GrNrMax = -1;	/* will mark particles that are not in any group */
+    int GrNrMaxGlobal = 0;
     for(i = 0; i < NumPart; i ++) {
         int j = NpigLocal;
         if(P[i].GrNr < 0) continue;
-        pi[j].origin = ThisTask * All.MaxPart + i;
+        if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
+/* Yu: found it! this shall be int64 */
+        // pi[j].origin =  ThisTask * All.MaxPart + i;
+        pi[j].origin = ((uint64_t) ThisTask) * All.MaxPart + i;
         pi[j].sortKey = P[i].GrNr;
         NpigLocal ++;
     }
-
+    MPI_Reduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+    if(ThisTask == 0)
+        printf("GrNrMax before exchange is %d\n", GrNrMaxGlobal);
     /* sort pi to decide targetTask */
     parallel_sort(pi, NpigLocal, sizeof(struct PartIndex), fof_cmp_sortkey);
 
@@ -132,7 +139,10 @@ static void fof_distribute_particles() {
 
     for(i = 0; i < NpigLocal; i ++) {
         ptrdiff_t offset = offsetLocal + i;
-        pi[i].targetTask = DMIN(offset / chunksize, NTask - 1);
+/* YU: A typo error here, should be IMIN, DMIN is for double but this should have tainted TargetTask,
+   offset and chunksize are int  */
+        //pi[i].targetTask = DMIN(offset / chunksize, NTask - 1);
+        pi[i].targetTask = IMIN(offset / chunksize, NTask - 1);
     }
     /* return pi to the original processors */
     parallel_sort(pi, NpigLocal, sizeof(struct PartIndex), fof_cmp_origin);
@@ -145,6 +155,15 @@ static void fof_distribute_particles() {
 
     myfree(pi);
     /* sort SPH and Others independently */
+
+    GrNrMax = -1;
+    for(i = 0; i < NumPart; i ++) {
+        if(P[i].GrNr < 0) continue;
+        if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
+    }
+    MPI_Reduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+    if(ThisTask == 0)
+        printf("GrNrMax after exchange is %d\n", GrNrMaxGlobal);
 
 #pragma omp parallel for
     for(i = 0; i < N_sph; i ++) {
@@ -177,6 +196,14 @@ static void fof_distribute_particles() {
     /* sort rest */
     qsort(P + N_sph, NumPart - N_sph, sizeof(P[0]), p_cmp_GrNr);
 
+    GrNrMax = -1;
+    for(i = 0; i < NumPart; i ++) {
+        if(P[i].GrNr < 0) continue;
+        if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
+    }
+    MPI_Reduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+    if(ThisTask == 0)
+        printf("GrNrMax after permutation is %d\n", GrNrMaxGlobal);
 }
 
 static void fof_return_particles() {
