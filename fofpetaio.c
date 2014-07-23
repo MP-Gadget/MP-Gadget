@@ -26,7 +26,11 @@ static void fof_distribute_particles();
 static int fof_select_particle(int i) {
     return P[i].GrNr > 0;
 }
-
+static int fof_cmp_argind(const void *p1, const void * p2) {
+    const int * i1 = p1;
+    const int * i2 = p2;
+    return (P[*i1].GrNr > P[*i2].GrNr) - (P[*i1].GrNr < P[*i2].GrNr);
+}
 void fof_save_particles(int num) {
     char fname[4096];
     sprintf(fname, "%s/PIG_%03d", All.OutputDir, num);
@@ -34,8 +38,23 @@ void fof_save_particles(int num) {
         printf("saving particle in group into %s\n", fname);
         fflush(stdout);
     }
+    walltime_measure("/FOF/IO/Misc");
     fof_distribute_particles();
+    walltime_measure("/FOF/IO/Distribute");
     
+    int * argind = mymalloc("argind", sizeof(int) * NumPart);
+    int NumPIG = 0;
+    int i;
+    for(i = 0; i < NumPart; i ++) {
+        int j = NumPIG;
+        if(P[i].GrNr >= 0) {
+            argind[j] = i;
+            NumPIG ++;
+        }
+    }
+    qsort(argind, NumPIG, sizeof(int), fof_cmp_argind);
+    walltime_measure("/FOF/IO/argind");
+
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         if(ThisTask == 0) {
@@ -46,7 +65,6 @@ void fof_save_particles(int num) {
 
     fof_write_header(&bf); 
 
-    int i;
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
         char blockname[128];
@@ -66,12 +84,16 @@ void fof_save_particles(int num) {
             printf("Writing Block %s\n", blockname);
             fflush(stdout);
         }
-        petaio_save_block(&bf, blockname, &array);
+        petaio_save_block(&bf, blockname, &array, All.NumFilesPerPIG, All.NumWritersPerPIG);
         petaio_destroy_buffer(&array);
     }
+
+    myfree(argind); 
     big_file_mpi_close(&bf, MPI_COMM_WORLD);
+    walltime_measure("/FOF/IO/Write");
 
     fof_return_particles();
+    walltime_measure("/FOF/IO/Return");
 }
 
 struct PartIndex {
@@ -98,11 +120,7 @@ static int fof_cmp_origin(const void * c1, const void * c2) {
     const struct PartIndex * p2 = c2;
     return (p1->origin > p2->origin) - (p1->origin < p2->origin);
 }
-static int p_cmp_GrNr(const void * c1, const void * c2) {
-    const struct particle_data * p1 = c1;
-    const struct particle_data * p2 = c2;
-    return (p1->GrNr > p2->GrNr) - (p1->GrNr < p2->GrNr);
-}
+
 static void fof_distribute_particles() {
     int i;
     struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * NumPart);
@@ -141,8 +159,10 @@ static void fof_distribute_particles() {
         ptrdiff_t offset = offsetLocal + i;
 /* YU: A typo error here, should be IMIN, DMIN is for double but this should have tainted TargetTask,
    offset and chunksize are int  */
-        //pi[i].targetTask = DMIN(offset / chunksize, NTask - 1);
-        pi[i].targetTask = IMIN(offset / chunksize, NTask - 1);
+        //pi[i].targetTask = IMIN(offset / chunksize, NTask - 1);
+    /* YU: let's see if we keep the FOF particle load on the processes, IO would be faster
+           (as at high z many ranks has no FOF), communication becomes sparse. */
+        pi[i].targetTask = ThisTask;
     }
     /* return pi to the original processors */
     parallel_sort(pi, NpigLocal, sizeof(struct PartIndex), fof_cmp_origin);
@@ -165,47 +185,7 @@ static void fof_distribute_particles() {
     if(ThisTask == 0)
         printf("GrNrMax after exchange is %d\n", GrNrMaxGlobal);
 
-#pragma omp parallel for
-    for(i = 0; i < N_sph; i ++) {
-        P[i].PI = i;
-    }
-
-    qsort(P, N_sph, sizeof(P[0]), p_cmp_GrNr);
-
-    /* permute the SphP struct to follow P */
-    for(i = 0; i < N_sph; i ++) {
-        if(P[i].PI == i) continue;
-        int j;
-        struct sph_particle_data s;
-        /* save the first one */
-        s = SphP[i];
-        j = i;
-        while(P[j].PI != i) {
-            int freeslot = P[j].PI;
-            /* move the freeslot to the right position */
-            SphP[j] = SphP[freeslot];
-            P[j].PI = j;
-            /* now fix P at freeslot */
-            j = freeslot;
-        }
-        /* this guy uses the very first one*/
-        SphP[j] = s;
-        P[j].PI = j;
-    }
-
-    /* sort rest */
-    qsort(P + N_sph, NumPart - N_sph, sizeof(P[0]), p_cmp_GrNr);
-
-    GrNrMax = -1;
-    for(i = 0; i < NumPart; i ++) {
-        if(P[i].GrNr < 0) continue;
-        if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
-    }
-    MPI_Reduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0)
-        printf("GrNrMax after permutation is %d\n", GrNrMaxGlobal);
 }
-
 static void fof_return_particles() {
     domain_exchange(fof_origin_layout);
 }
