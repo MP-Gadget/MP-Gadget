@@ -23,11 +23,6 @@ struct IOTable IOTable = {0};
 static void petaio_write_header(BigFile * bf);
 static void petaio_read_header(BigFile * bf);
 
-static int ThisColor;
-static int ThisKey;
-static MPI_Comm GROUP;
-static int GroupSize;
-static int NumFiles;
 static void register_io_blocks();
 
 /* these are only used in reading in */
@@ -35,13 +30,6 @@ static int64_t npartTotal[6];
 static int64_t npartLocal[6];
 
 void petaio_init() {
-    /* Split the wolrd into writer groups */
-    NumFiles = All.NumFilesWrittenInParallel;
-    ThisColor = ThisTask * NumFiles / NTask;
-    MPI_Comm_split(MPI_COMM_WORLD, ThisColor, 0, &GROUP);
-    MPI_Comm_rank(GROUP, &ThisKey);
-    MPI_Comm_size(GROUP, &GroupSize);
-
     register_io_blocks();
 }
 
@@ -95,8 +83,8 @@ static void petaio_save_internal(char * fname) {
             printf("Writing Block %s\n", blockname);
             fflush(stdout);
         }
-        petaio_build_buffer(&array, &IOTable.ent[i], NULL);
-        petaio_save_block(&bf, blockname, &array);
+        petaio_build_buffer(&array, &IOTable.ent[i], NULL, 0);
+        petaio_save_block(&bf, blockname, &array, All.NumFilesPerSnapshot, All.NumWritersPerSnapshot);
         petaio_destroy_buffer(&array);
     }
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)){
@@ -442,10 +430,10 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
         p += array->strides[0];
     }
 }
-/* build an IO buffer for block, based on selection function select
- * 0 is to exclude
- * !0 is to include */
-void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection select) {
+/* build an IO buffer for block, based on selection
+ * only check P[ selection[i]]
+*/
+void petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int NumSelection) {
     int elsize = dtype_itemsize(ent->dtype);
 
 /* This didn't work with CRAY:
@@ -464,13 +452,13 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection 
         int tid = omp_get_thread_num();
         int NT = omp_get_num_threads();
         if(NT > All.NumThreads) abort();
-        int start = ((size_t) NumPart) * tid / NT;
-        int end = ((size_t) NumPart) * (tid + 1) / NT;
+        int start = ((size_t) NumSelection) * tid / NT;
+        int end = ((size_t) NumSelection) * (tid + 1) / NT;
         int npartLocal = 0;
         npartThread[tid] = 0;
         for(i = start; i < end; i ++) {
-            if(P[i].Type != ent->ptype) continue;
-            if(select && !select(i)) continue;
+            int j = selection?selection[i]:i;
+            if(P[j].Type != ent->ptype) continue;
             npartThread[tid] ++;
         }
 #pragma omp barrier
@@ -494,9 +482,9 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, petaio_selection 
         char * p = array->data;
         p += array->strides[0] * offsetThread[tid];
         for(i = start; i < end; i ++) {
-            if(P[i].Type != ent->ptype) continue;
-            if(select && !select(i)) continue;
-            ent->getter(i, p);
+            int j = selection?selection[i]:i;
+            if(P[j].Type != ent->ptype) continue;
+            ent->getter(j, p);
             p += array->strides[0];
         }
     }
@@ -509,6 +497,16 @@ void petaio_destroy_buffer(BigArray * array) {
 
 /* read a block from disk, spread the values to memory with setters  */
 void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
+    MPI_Comm GROUP;
+    int GroupSize;
+    int ThisColor;
+    int ThisKey;
+    /* Split the wolrd into writer groups */
+    ThisColor = ThisTask * All.NumWritersPerSnapshot/ NTask;
+    MPI_Comm_split(MPI_COMM_WORLD, ThisColor, 0, &GROUP);
+    MPI_Comm_rank(GROUP, &ThisKey);
+    MPI_Comm_size(GROUP, &GroupSize);
+
     BigBlock bb = {0};
     int i;
     int k;
@@ -548,11 +546,22 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
         }
         abort();
     }
-
+    MPI_Comm_free(&GROUP);
 }
 
 /* save a block to disk */
-void petaio_save_block(BigFile * bf, char * blockname, BigArray * array) {
+void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int NumFiles, int NumWriters) {
+
+    MPI_Comm GROUP;
+    int GroupSize;
+    int ThisColor;
+    int ThisKey;
+    /* Split the wolrd into writer groups */
+    ThisColor = ThisTask * NumWriters / NTask;
+    MPI_Comm_split(MPI_COMM_WORLD, ThisColor, 0, &GROUP);
+    MPI_Comm_rank(GROUP, &ThisKey);
+    MPI_Comm_size(GROUP, &GroupSize);
+
     BigBlock bb = {0};
     int i;
     int k;
@@ -592,6 +601,10 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array) {
         }
     }
 
+    if(ThisTask == 0) {
+        printf("Done writing %td particles to %d Files\n", size, NumFiles);
+    }
+
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
         if(ThisTask == 0) {
             fprintf(stderr, "Failed to close block at %s:%s\n", blockname,
@@ -599,6 +612,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array) {
         }
         abort();
     }
+    MPI_Comm_free(&GROUP);
 }
 
 /* 

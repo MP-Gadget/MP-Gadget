@@ -237,7 +237,7 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         All.ErrTolForceAcc = all.ErrTolForceAcc;
         All.TypeOfTimestepCriterion = all.TypeOfTimestepCriterion;
         All.TypeOfOpeningCriterion = all.TypeOfOpeningCriterion;
-        All.NumFilesWrittenInParallel = all.NumFilesWrittenInParallel;
+        All.NumWritersPerSnapshot = all.NumWritersPerSnapshot;
         All.TreeDomainUpdateFrequency = all.TreeDomainUpdateFrequency;
 
         All.OutputListOn = all.OutputListOn;
@@ -1331,8 +1331,15 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.NumFilesPerSnapshot;
         id[nt++] = INT;
 
-        strcpy(tag[nt], "NumFilesWrittenInParallel");
-        addr[nt] = &All.NumFilesWrittenInParallel;
+        strcpy(tag[nt], "NumWritersPerSnapshot");
+        addr[nt] = &All.NumWritersPerSnapshot;
+        id[nt++] = INT;
+
+        strcpy(tag[nt], "NumFilesPerPIG");
+        addr[nt] = &All.NumFilesPerPIG;
+        id[nt++] = INT;
+        strcpy(tag[nt], "NumWritersPerPIG");
+        addr[nt] = &All.NumWritersPerPIG;
         id[nt++] = INT;
 
         strcpy(tag[nt], "ResubmitOn");
@@ -2423,11 +2430,13 @@ NUMCRPOP = 1;
 
 
 
-    if(All.NumFilesWrittenInParallel > NTask)
+    if(All.NumWritersPerSnapshot > NTask)
     {
-        if(ThisTask == 0)
-            printf("NumFilesWrittenInParallel MUST be smaller than number of processors\n");
-        endrun(0);
+       All.NumWritersPerSnapshot = NTask;
+    }
+    if(All.NumWritersPerPIG > NTask)
+    {
+       All.NumWritersPerPIG = NTask;
     }
 
 #ifdef BLACK_HOLES

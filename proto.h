@@ -385,7 +385,7 @@ void reorder_gas(void);
 void reorder_particles(void);
 void restart(int mod);
 void run(void);
-void savepositions(int num);
+void savepositions(int num, int reason);
 void savepositions_ioformat1(int num);
 double second(void);
 void set_softenings(void);

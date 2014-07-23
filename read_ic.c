@@ -70,9 +70,9 @@ void read_ic(char *fname)
 #endif
 
     for(start = 0; start < num_files; 
-        start += All.NumFilesWrittenInParallel) {
+        start += All.NumWritersPerSnapshot) {
 
-        end = start + All.NumFilesWrittenInParallel;
+        end = start + All.NumWritersPerSnapshot;
         if(end > num_files) end = num_files;
 
         read_files(fname, start, end, num_files);

@@ -33,7 +33,9 @@ static int64_t ntot_type_all[6];
  * which are written simultaneously. Each file contains data from a group of
  * processors of size roughly NTask/NumFilesPerSnapshot.
  */
-void savepositions(int num)
+/* reason == 0 regular snapshot, do fof and write it out */
+/* reason != 0 checkpoints, do not run fof */
+void savepositions(int num, int reason)
 {
     size_t bytes;
     char buf[500];
@@ -177,14 +179,17 @@ void savepositions(int num)
     walltime_measure("/Snapshot/Write");
 
 #ifdef FOF
-    if(ThisTask == 0)
-        printf("\ncomputing group catalogue...\n");
+    /* regular snapshot, do fof and write it out */
+    if(reason == 0) {
+        if(ThisTask == 0)
+            printf("\ncomputing group catalogue...\n");
 
-    fof_fof(num);
+        fof_fof(num);
 
-    if(ThisTask == 0)
-        printf("done with group catalogue.\n");
-
+        if(ThisTask == 0)
+            printf("done with group catalogue.\n");
+    }
+    walltime_measure("/Snapshot/WriteFOF");
 #endif
 
     if(ThisTask == 0) {

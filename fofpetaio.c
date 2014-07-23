@@ -54,7 +54,7 @@ void fof_save_particles(int num) {
         BigArray array = {0};
         if(ptype < 6 && ptype >= 0) {
             sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-            petaio_build_buffer(&array, &IOTable.ent[i], fof_select_particle);
+            petaio_build_buffer(&array, &IOTable.ent[i], argind, NumPIG);
         } else 
         if(ptype == PTYPE_FOF_GROUP) {
             sprintf(blockname, "FOFGroups/%s", IOTable.ent[i].name);

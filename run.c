@@ -18,6 +18,8 @@
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
+static int human_interaction();
+int stopflag = 0;
 void run(void)
 {
     FILE *fd;
@@ -25,7 +27,6 @@ void run(void)
 #if defined(RADIATIVE_RATES) || defined(RADIATION)
     int ifunc;
 #endif
-    int stopflag = 0;
 #ifdef OLD_RESTART
     char buf[200], stopfname[200], contfname[200];
 
@@ -105,7 +106,7 @@ void run(void)
 
         All.NumCurrentTiStep++;
 
-        stopflag = find_restart_flag();
+        stopflag = human_interaction();
         if(stopflag != 0) {
             All.Ti_nextoutput = All.Ti_Current;
             /* next loop will write a new snapshot file */
@@ -173,14 +174,14 @@ void run(void)
             restart(0);		/* write an occasional restart file */
             stopflag = 0;
         }
-#endif
+#endif /* old restart*/
         report_memory_usage(&HighMark_run, "RUN");
     }
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
 #ifndef SNAP_SET_TG
     restart(0);
 
-    savepositions(All.SnapshotFileCount++);
+    savepositions(All.SnapshotFileCount++, 0);
 #endif	
     /* write a last snapshot
      * file at final time (will
@@ -226,20 +227,82 @@ void run(void)
 #endif
 
 }
-static int find_restart_flag() {
+static int human_interaction() {
         /* Check whether we need to interrupt the run */
     int stopflag = 0;
     char stopfname[4096], contfname[4096];
     char restartfname[4096];
-
+    char ioctlfname[4096];
 
     sprintf(stopfname, "%s/stop", All.OutputDir);
     sprintf(restartfname, "%s/restart", All.OutputDir);
     sprintf(contfname, "%s/cont", All.OutputDir);
+    sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
 
     if(ThisTask == 0)
     {
         FILE * fd;
+        if((fd = fopen(ioctlfname, "r"))) {
+             /* there is an ioctl file, parse it and update
+              * All.NumFilesPerSnapshot
+              * All.NumFilesPerPIG
+              * All.NumWritersPerSnapshot
+              * All.NumWritersPerPig
+              */
+            size_t n = 0;
+            char * line = NULL;
+            int NumFilesPerSnapshot = -1;
+            int NumFilesPerPIG = -1;
+            int NumWritersPerSnapshot = -1;
+            int NumWritersPerPIG = -1;
+            while(-1 != getline(&line, &n, fd)) {
+                sscanf(line, "NumFilesPerSnapshot %d", &NumFilesPerSnapshot);
+                sscanf(line, "NumWritersPerPIG %d", &NumWritersPerPIG);
+                sscanf(line, "NumFilesPerPIG %d", &NumFilesPerPIG);
+                sscanf(line, "NumWritersPerSnapshot %d", &NumWritersPerSnapshot);
+            }
+            free(line);
+            int changed = 0;
+            if(NumFilesPerSnapshot > 0 && 
+                NumFilesPerSnapshot != All.NumFilesPerSnapshot) {
+                All.NumFilesPerSnapshot = NumFilesPerSnapshot;
+                changed = 1;
+            }
+            if(NumWritersPerSnapshot > 0 && 
+                NumWritersPerSnapshot != All.NumWritersPerSnapshot) {
+                All.NumWritersPerSnapshot = NumWritersPerSnapshot;
+                changed = 1;
+            }
+            if(NumFilesPerPIG > 0 && 
+                NumFilesPerPIG != All.NumFilesPerPIG) {
+                All.NumFilesPerPIG = NumFilesPerPIG;
+                changed = 1;
+            }
+            if(NumWritersPerPIG > 0 && 
+                NumWritersPerPIG != All.NumWritersPerPIG) {
+                All.NumWritersPerPIG = NumWritersPerPIG;
+                changed = 1;
+            }
+            if(changed) {
+                if(All.NumWritersPerSnapshot > NTask) {
+                    All.NumWritersPerSnapshot = NTask;
+                }
+                if(All.NumWritersPerPIG > NTask) {
+                    All.NumWritersPerPIG = NTask;
+                }
+                printf("New IO parameter recieved from %s:\n"
+                       "NumFilesPerSnapshot %d\n"
+                       "NumFilesPerPIG      %d\n"
+                       "NumWritersPerSnapshot %d\n"
+                       "NumWritersPerPIG     %d\n",
+                    ioctlfname,
+                    All.NumFilesPerSnapshot,
+                    All.NumFilesPerPIG,
+                    All.NumWritersPerSnapshot,
+                    All.NumWritersPerPIG);
+            }
+            fclose(fd);
+        }
         /* Is the stop-file present? If yes, interrupt the run. */
         if((fd = fopen(stopfname, "r")))
         {
@@ -338,7 +401,7 @@ void find_next_sync_point_and_drift(void)
 
 #ifdef NSTEPS_BASED_SNAPS
     if((All.NumCurrentTiStep + 2) % All.SnapNumFac == 0)
-        savepositions(All.SnapshotFileCount++);
+        savepositions(All.SnapshotFileCount++, 0);
 #else
 
 #ifdef DENSITY_BASED_SNAPS
@@ -349,7 +412,7 @@ void find_next_sync_point_and_drift(void)
         if(ThisTask == 0)
             printf("nh_next = %g\n", All.nh_next);
 
-        savepositions(All.SnapshotFileCount++);
+        savepositions(All.SnapshotFileCount++, 0);
     }
 #else
     while(ti_next_kick_global >= All.Ti_nextoutput && All.Ti_nextoutput >= 0)
@@ -378,7 +441,7 @@ void find_next_sync_point_and_drift(void)
 #endif
 
 
-        savepositions(All.SnapshotFileCount++);	/* write snapshot file */
+        savepositions(All.SnapshotFileCount++, stopflag);	/* write snapshot file */
 
         All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);
     }
