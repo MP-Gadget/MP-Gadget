@@ -395,7 +395,6 @@ void fof_fof(int num)
         subfind(num);
 #endif
     }
-    walltime_measure("/FOF/IO");
 
     myfree(Group);
 
@@ -1597,7 +1596,7 @@ void fof_find_nearest_dmparticle(void)
 {
     int i, j, n, dummy;
     int64_t ntot;
-    int ndone, ndone_flag, ngrp, sendTask, recvTask, place, nexport, nimport, npleft, iter;
+    int ndone, ndone_flag, ngrp, sendTask, recvTask, place, nexport, nimport,  iter;
     Evaluator ev = {0};
     ev.ev_evaluate = (ev_evaluate_func) fof_nearest_evaluate;
     ev.ev_isactive = fof_nearest_isactive;
@@ -1624,7 +1623,12 @@ void fof_find_nearest_dmparticle(void)
         if(((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)))
         {
             fof_nearest_distance[n] = 1.0e30;
-            fof_nearest_hsml[n] = 0.1 * LinkL;
+            if(P[n].Type == 0) {
+                /* use gas sml as a hint (faster convergence than 0.1 LinkL at high-z */
+                fof_nearest_hsml[n] = 0.5 * P[n].Hsml;
+            } else {
+                fof_nearest_hsml[n] = 0.1 * LinkL;
+            }
         }
     }
 
@@ -1658,12 +1662,15 @@ void fof_find_nearest_dmparticle(void)
         int * queue = evaluate_get_queue(&ev, &Nactive);
 
         /* do final operations on results */
-        npleft = 0;
+        int npleft = 0;
+        int count = 0;
+        int64_t counttot = 0;
 /* CRAY cc doesn't do this one right */
 //#pragma omp parallel for reduction(+: npleft)
         for(i = 0; i < Nactive; i++)
         {
             int p = queue[i];
+            count ++;
             if(fof_nearest_distance[p] > 1.0e29)
             {
                 if(fof_nearest_hsml[p] < 4 * LinkL)  /* we only search out to a maximum distance */
@@ -1671,6 +1678,7 @@ void fof_find_nearest_dmparticle(void)
                     /* need to redo this particle */
                     npleft++;
                     fof_nearest_hsml[p] *= 2.0;
+/*
                     if(iter >= MAXITER - 10)
                     {
                         printf("i=%d task=%d ID=%llu Hsml=%g  pos=(%g|%g|%g)\n",
@@ -1678,22 +1686,23 @@ void fof_find_nearest_dmparticle(void)
                                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
                         fflush(stdout);
                     }
+*/
                 } else {
                     fof_nearest_distance[p] = 0;  /* we not continue to search for this particle */
                 }
             }
         }
         sumup_large_ints(1, &npleft, &ntot);
+        sumup_large_ints(1, &count, &counttot);
+        if(ThisTask == 0)
+        {
+            printf("fof-nearest iteration %d: need to repeat for %010ld /%010ld particles.\n", iter, ntot, counttot);
+            fflush(stdout);
+        }
         if(ntot < 0) abort();
         if(ntot > 0)
         {
             iter++;
-            if(iter > 0 && ThisTask == 0)
-            {
-                printf("fof-nearest iteration %d: need to repeat for %010ld particles.\n", iter, ntot);
-                fflush(stdout);
-            }
-
             if(iter > MAXITER)
             {
                 printf("failed to converge in fof-nearest\n");
