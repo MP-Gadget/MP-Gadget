@@ -52,8 +52,21 @@ void fof_save_particles(int num) {
             NumPIG ++;
         }
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    int NumPIGMax, NumPIGMin;
+    MPI_Reduce(&NumPIG, &NumPIGMax, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&NumPIG, &NumPIGMin, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
+    if(ThisTask == 0) {
+        printf("NumPIGmin=%d NumPIGmax=%d\n", NumPIGMin, NumPIGMax);
+    }
+
     qsort(argind, NumPIG, sizeof(int), fof_cmp_argind);
     walltime_measure("/FOF/IO/argind");
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(ThisTask == 0) {
+        printf("argind sorted", NumPIG);
+    }
 
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
@@ -62,6 +75,12 @@ void fof_save_particles(int num) {
         }
         abort();
     }
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(ThisTask == 0) {
+        printf("Task 0 : File created!", NumPIG);
+    }
+
 
     fof_write_header(&bf); 
 
