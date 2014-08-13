@@ -452,8 +452,8 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, 
         int tid = omp_get_thread_num();
         int NT = omp_get_num_threads();
         if(NT > All.NumThreads) abort();
-        int start = ((size_t) NumSelection) * tid / NT;
-        int end = ((size_t) NumSelection) * (tid + 1) / NT;
+        int start = (selection?((size_t) NumSelection):((size_t)NumPart)) * tid / NT;
+        int end = (selection?((size_t) NumSelection):((size_t)NumPart)) * (tid + 1) / NT;
         int npartLocal = 0;
         npartThread[tid] = 0;
         for(i = start; i < end; i ++) {
@@ -708,14 +708,14 @@ static void register_io_blocks() {
     /* Bare Bone SPH*/
     IO_REG(SmoothingLength,  "f4", 1, 0);
     IO_REG(Density,          "f4", 1, 0);
-//    IO_REG(Pressure,         "f4", 1, 0);
+    IO_REG_WRONLY(Pressure,         "f4", 1, 0);
     IO_REG(Entropy,          "f4", 1, 0);
 
     /* Cooling */
     IO_REG(ElectronAbundance,       "f4", 1, 0);
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0);
     IO_REG_WRONLY(InternalEnergy,   "f4", 1, 0);
-    IO_REG_WRONLY(JUV,   "f4", 1, 0);
+//    IO_REG_WRONLY(JUV,   "f4", 1, 0);
 
     /* SF */
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
