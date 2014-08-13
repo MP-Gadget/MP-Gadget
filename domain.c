@@ -1096,7 +1096,7 @@ void domain_assign_load_or_work_balanced(int mode)
                     domain[domainAssign[n].task].load += domainWork[i];
         }
 
-        qsort_openmp(domain, ndomains, sizeof(struct domain_loadorigin_data), domain_sort_loadorigin);
+        qsort(domain, ndomains, sizeof(struct domain_loadorigin_data), domain_sort_loadorigin);
 
         for(i = 0; i < ndomains / 2; i++)
         {
@@ -1116,7 +1116,7 @@ void domain_assign_load_or_work_balanced(int mode)
         domainAssign[n].end = DomainEndList[n];
     }
 
-    qsort_openmp(domainAssign, MULTIPLEDOMAINS * NTask, sizeof(struct domain_segments_data), domain_sort_segments);
+    qsort(domainAssign, MULTIPLEDOMAINS * NTask, sizeof(struct domain_segments_data), domain_sort_segments);
 
     for(n = 0; n < MULTIPLEDOMAINS * NTask; n++)
     {
@@ -1911,7 +1911,7 @@ int domain_determineTopTree(void)
     mysort_domain(mp, NumPart, sizeof(struct peano_hilbert_data));
 #else
 #ifndef POWER6
-    qsort_openmp(mp, NumPart, sizeof(struct peano_hilbert_data), domain_compare_key);
+    qsort(mp, NumPart, sizeof(struct peano_hilbert_data), domain_compare_key);
 #else
     qsort_domain(mp, NumPart);
 #endif
