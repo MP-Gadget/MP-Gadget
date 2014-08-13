@@ -268,28 +268,30 @@ static int human_interaction() {
                 All.NumFilesPerSnapshot = NumFilesPerSnapshot;
                 changed = 1;
             }
-            if(NumWritersPerSnapshot > 0 && 
-                NumWritersPerSnapshot != All.NumWritersPerSnapshot) {
-                All.NumWritersPerSnapshot = NumWritersPerSnapshot;
-                changed = 1;
+            if(NumWritersPerSnapshot > 0) {
+                if(All.NumWritersPerSnapshot > NTask) {
+                    All.NumWritersPerSnapshot = NTask;
+                }
+                if(NumWritersPerSnapshot != All.NumWritersPerSnapshot) {
+                    All.NumWritersPerSnapshot = NumWritersPerSnapshot;
+                    changed = 1;
+                }
             }
             if(NumFilesPerPIG > 0 && 
                 NumFilesPerPIG != All.NumFilesPerPIG) {
                 All.NumFilesPerPIG = NumFilesPerPIG;
                 changed = 1;
             }
-            if(NumWritersPerPIG > 0 && 
-                NumWritersPerPIG != All.NumWritersPerPIG) {
-                All.NumWritersPerPIG = NumWritersPerPIG;
-                changed = 1;
-            }
-            if(changed) {
-                if(All.NumWritersPerSnapshot > NTask) {
-                    All.NumWritersPerSnapshot = NTask;
-                }
+            if(NumWritersPerPIG > 0) {
                 if(All.NumWritersPerPIG > NTask) {
                     All.NumWritersPerPIG = NTask;
                 }
+                if(NumWritersPerPIG != All.NumWritersPerPIG) {
+                    All.NumWritersPerPIG = NumWritersPerPIG;
+                    changed = 1;
+                }
+            }
+            if(changed) {
                 printf("New IO parameter recieved from %s:\n"
                        "NumFilesPerSnapshot %d\n"
                        "NumFilesPerPIG      %d\n"
