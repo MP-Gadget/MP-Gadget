@@ -1331,7 +1331,7 @@ void fof_save_groups(int num)
     /* this guy is bad */
     // parallel_sort(Group, Ngroups, sizeof(struct group_properties), fof_compare_Group_GrNr);
     radix_sort_mpi(Group, Ngroups, sizeof(struct group_properties), 
-      //      fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
+            fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
 
     /* fill in the offset-values */
     for(i = 0, totlen = 0; i < Ngroups; i++)
