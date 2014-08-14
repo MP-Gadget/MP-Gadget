@@ -509,7 +509,8 @@ void init(void)
 
         P[i].GravCost = 1;
 #if defined(EVALPOTENTIAL) || defined(COMPUTE_POTENTIAL_ENERGY)
-        P[i].p.Potential = 0;
+        if(RestartFlag < 3)
+            P[i].p.Potential = 0;
 #endif
 #ifdef STELLARAGE
         if(RestartFlag == 0)
