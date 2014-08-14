@@ -23,7 +23,8 @@ OBJS  =  \
 	 forcetree.o  peano.o parallel_sort_special.o \
 	 pm_periodic.o petapm.o pm_nonperiodic.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o \
-	 bigfile/src/bigfile.o bigfile/src/bigfile-mpi.o
+	 bigfile/src/bigfile.o bigfile/src/bigfile-mpi.o \
+	 radixsort/radixsort.o radixsort/radixsort-mpi.o
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
 	 subfind.h dd.h fof.h eos.h myqsort.h \

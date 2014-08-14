@@ -11,6 +11,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
+#include "radixsort/radixsort.h"
 
 #ifdef HAVE_HDF5
 #include <hdf5.h>
@@ -136,6 +137,7 @@ void fof_fof(int num)
 
     t0 = second();
     //  parallel_sort(P, NumPart, sizeof(struct particle_data), io_compare_P_GrNr_ID);
+    /* unused */
     parallel_sort_special_P_GrNr_ID();
     t1 = second();
     if(ThisTask == 0)
@@ -1247,6 +1249,10 @@ void fof_finish_group_properties(void)
 
 
 
+static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg);
+static void fof_radix_FOF_GList_LocCountTaskDiffMinID(const void * a, void * radix, void * arg);
+static void fof_radix_FOF_GList_ExtCountMinID(const void * a, void * radix, void * arg);
+
 void fof_save_groups(int num)
 {
     int i, j, start, lenloc, nprocgroup, masterTask, groupTask, ngr, totlen;
@@ -1273,8 +1279,11 @@ void fof_save_groups(int num)
 #endif
     }
 
-    parallel_sort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list),
-            fof_compare_FOF_GList_LocCountTaskDiffMinID);
+    /* this guy is bad */
+//    parallel_sort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list),
+//            fof_compare_FOF_GList_LocCountTaskDiffMinID);
+    radix_sort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list),
+            fof_radix_FOF_GList_LocCountTaskDiffMinID, 24, NULL, MPI_COMM_WORLD);
 
     for(i = 0, ngr = 0; i < NgroupsExt; i++)
     {
@@ -1301,7 +1310,10 @@ void fof_save_groups(int num)
     }
 
     /* bring the group list back into the original order */
-    parallel_sort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_ExtCountMinID);
+    /* this guy is bad*/
+//    parallel_sort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_ExtCountMinID);
+      radix_sort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), 
+            fof_radix_FOF_GList_ExtCountMinID, 16, NULL, MPI_COMM_WORLD);
 
     /* Assign the group numbers to the group properties array */
     for(i = 0, start = 0; i < Ngroups; i++)
@@ -1316,7 +1328,10 @@ void fof_save_groups(int num)
     }
 
     /* sort the groups according to group-number */
-    parallel_sort(Group, Ngroups, sizeof(struct group_properties), fof_compare_Group_GrNr);
+    /* this guy is bad */
+    // parallel_sort(Group, Ngroups, sizeof(struct group_properties), fof_compare_Group_GrNr);
+    radix_sort_mpi(Group, Ngroups, sizeof(struct group_properties), 
+      //      fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
 
     /* fill in the offset-values */
     for(i = 0, totlen = 0; i < Ngroups; i++)
@@ -1389,6 +1404,7 @@ void fof_save_groups(int num)
 
     /* sort the particle IDs according to group-number */
 
+    /* this guy is unused */
     parallel_sort(ID_list, Nids, sizeof(struct id_list), fof_compare_ID_list_GrNrID);
 
     t1 = second();
@@ -1912,7 +1928,10 @@ void find_CM_of_biggest_group(void)
     int i, rootcpu;
     struct group_properties BiggestGroup;
 
-    parallel_sort(Group, Ngroups, sizeof(struct group_properties), fof_compare_Group_Len);
+    /* unused */
+    //parallel_sort(Group, Ngroups, sizeof(struct group_properties), fof_compare_Group_Len);
+    radix_sort_mpi(Group, Ngroups, sizeof(struct group_properties), fof_radix_Group_Len, 8, 
+            NULL, MPI_COMM_WORLD);
 
     /* the biggest group will now be the first group on the first cpu that has any groups */
     MPI_Allgather(&Ngroups, 1, MPI_INT, Send_count, 1, MPI_INT, MPI_COMM_WORLD);
@@ -1923,8 +1942,10 @@ void find_CM_of_biggest_group(void)
         BiggestGroup = Group[0];
 
     /* bring groups back into original order */
-    parallel_sort(Group, Ngroups, sizeof(struct group_properties), fof_compare_Group_MinIDTask_MinID);
-
+    /* unused */
+//    parallel_sort(Group, Ngroups, sizeof(struct group_properties), fof_compare_Group_MinIDTask_MinID);
+    radix_sort_mpi(Group, Ngroups, sizeof(struct group_properties), fof_radix_Group_MinIDTask_MinID, 16, 
+            NULL, MPI_COMM_WORLD);
     MPI_Bcast(&BiggestGroup, sizeof(struct group_properties), MPI_BYTE, rootcpu, MPI_COMM_WORLD);
 
     All.BiggestGroupLen = BiggestGroup.Len;
@@ -2306,6 +2327,11 @@ double fof_periodic_wrap(double x)
     return x;
 }
 
+void fof_radix_FOF_PList_MinID(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct fof_particle_list * f = (struct fof_particle_list *) a;
+    u[0] = f->MinID;
+}
 
 int fof_compare_FOF_PList_MinID(const void *a, const void *b)
 {
@@ -2318,7 +2344,13 @@ int fof_compare_FOF_PList_MinID(const void *a, const void *b)
     return 0;
 }
 
+void fof_radix_FOF_GList_MinID(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct fof_group_list * f = (struct fof_group_list *) a;
+    u[0] = f->MinID;
+}
 int fof_compare_FOF_GList_MinID(const void *a, const void *b)
+
 {
     if(((struct fof_group_list *) a)->MinID < ((struct fof_group_list *) b)->MinID)
         return -1;
@@ -2329,6 +2361,11 @@ int fof_compare_FOF_GList_MinID(const void *a, const void *b)
     return 0;
 }
 
+void fof_radix_FOF_GList_MinIDTask(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct fof_group_list * f = (struct fof_group_list *) a;
+    u[0] = f->MinIDTask;
+}
 int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b)
 {
     if(((struct fof_group_list *) a)->MinIDTask < ((struct fof_group_list *) b)->MinIDTask)
@@ -2338,6 +2375,14 @@ int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b)
         return +1;
 
     return 0;
+}
+
+static void fof_radix_FOF_GList_LocCountTaskDiffMinID(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct fof_group_list * f = (struct fof_group_list *) a;
+    u[0] = labs(f->ExtCount - f->MinIDTask);
+    u[1] = f->MinID;
+    u[2] = f->LocCount;
 }
 
 int fof_compare_FOF_GList_LocCountTaskDiffMinID(const void *a, const void *b)
@@ -2365,6 +2410,13 @@ int fof_compare_FOF_GList_LocCountTaskDiffMinID(const void *a, const void *b)
     return 0;
 }
 
+static void fof_radix_FOF_GList_ExtCountMinID(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct fof_group_list * f = (struct fof_group_list *) a;
+    u[0] = f->MinID;
+    u[1] = f->ExtCount;
+}
+
 int fof_compare_FOF_GList_ExtCountMinID(const void *a, const void *b)
 {
     if(((struct fof_group_list *) a)->ExtCount < ((struct fof_group_list *) b)->ExtCount)
@@ -2382,6 +2434,13 @@ int fof_compare_FOF_GList_ExtCountMinID(const void *a, const void *b)
     return 0;
 }
 
+void fof_radix_Group_MinID(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct group_properties * f = (struct group_properties*) a;
+    u[0] = f->MinID;
+}
+
+
 int fof_compare_Group_MinID(const void *a, const void *b)
 {
     if(((struct group_properties *) a)->MinID < ((struct group_properties *) b)->MinID)
@@ -2392,6 +2451,13 @@ int fof_compare_Group_MinID(const void *a, const void *b)
 
     return 0;
 }
+
+static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct group_properties * f = (struct group_properties*) a;
+    u[0] = f->GrNr;
+}
+
 
 int fof_compare_Group_GrNr(const void *a, const void *b)
 {
@@ -2404,6 +2470,12 @@ int fof_compare_Group_GrNr(const void *a, const void *b)
     return 0;
 }
 
+void fof_radix_Group_MinIDTask(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct group_properties * f = (struct group_properties *) a;
+    u[0] = f->MinIDTask;
+}
+
 int fof_compare_Group_MinIDTask(const void *a, const void *b)
 {
     if(((struct group_properties *) a)->MinIDTask < ((struct group_properties *) b)->MinIDTask)
@@ -2413,6 +2485,13 @@ int fof_compare_Group_MinIDTask(const void *a, const void *b)
         return +1;
 
     return 0;
+}
+
+void fof_radix_Group_MinIDTask_MinID(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct group_properties * f = (struct group_properties *) a;
+    u[0] = f->MinID;
+    u[1] = f->MinIDTask;
 }
 
 int fof_compare_Group_MinIDTask_MinID(const void *a, const void *b)
@@ -2432,6 +2511,11 @@ int fof_compare_Group_MinIDTask_MinID(const void *a, const void *b)
     return 0;
 }
 
+void fof_radix_Group_Len(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct group_properties * f = (struct group_properties *) a;
+    u[0] = f->Len;
+}
 
 int fof_compare_Group_Len(const void *a, const void *b)
 {
@@ -2445,7 +2529,7 @@ int fof_compare_Group_Len(const void *a, const void *b)
 }
 
 
-
+/* unused */
 int fof_compare_ID_list_GrNrID(const void *a, const void *b)
 {
     if(((struct id_list *) a)->GrNr < ((struct id_list *) b)->GrNr)

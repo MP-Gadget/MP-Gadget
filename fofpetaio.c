@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "bigfile-mpi.h"
+#include "radixsort/radixsort.h"
 
 #include "allvars.h"
 #include "proto.h"
@@ -65,7 +66,7 @@ void fof_save_particles(int num) {
     walltime_measure("/FOF/IO/argind");
     MPI_Barrier(MPI_COMM_WORLD);
     if(ThisTask == 0) {
-        printf("argind sorted", NumPIG);
+        printf("argind sorted\n");
     }
 
     BigFile bf = {0};
@@ -78,7 +79,7 @@ void fof_save_particles(int num) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     if(ThisTask == 0) {
-        printf("Task 0 : File created!", NumPIG);
+        printf("Task 0 : File created!\n");
     }
 
 
@@ -129,6 +130,17 @@ static int fof_sorted_layout(int i) {
 static int fof_origin_layout(int i) {
     return P[i].origintask;
 }
+static void fof_radix_sortkey(const void * c1, void * out, void * arg) {
+    uint64_t * u = out;
+    const struct PartIndex * pi = c1;
+    *u = pi->sortKey;
+}
+static void fof_radix_origin(const void * c1, void * out, void * arg) {
+    uint64_t * u = out;
+    const struct PartIndex * pi = c1;
+    *u = pi->origin;
+}
+
 static int fof_cmp_sortkey(const void * c1, const void * c2) {
     const struct PartIndex * p1 = c1;
     const struct PartIndex * p2 = c2;
@@ -161,7 +173,9 @@ static void fof_distribute_particles() {
     if(ThisTask == 0)
         printf("GrNrMax before exchange is %d\n", GrNrMaxGlobal);
     /* sort pi to decide targetTask */
-    parallel_sort(pi, NpigLocal, sizeof(struct PartIndex), fof_cmp_sortkey);
+    //parallel_sort(pi, NpigLocal, sizeof(struct PartIndex), fof_cmp_sortkey);
+    radix_sort_mpi(pi, NpigLocal, sizeof(struct PartIndex), 
+            fof_radix_sortkey, 8, NULL, MPI_COMM_WORLD);
 
     int64_t Npig = count_sum(NpigLocal);
     int64_t offsetLocal = count_to_offset(NpigLocal);
@@ -184,7 +198,8 @@ static void fof_distribute_particles() {
         pi[i].targetTask = ThisTask;
     }
     /* return pi to the original processors */
-    parallel_sort(pi, NpigLocal, sizeof(struct PartIndex), fof_cmp_origin);
+    //parallel_sort(pi, NpigLocal, sizeof(struct PartIndex), fof_cmp_origin);
+    radix_sort_mpi(pi, NpigLocal, sizeof(struct PartIndex), fof_radix_origin, 8, NULL, MPI_COMM_WORLD);
     for(i = 0; i < NpigLocal; i ++) {
         int index = pi[i].origin % All.MaxPart;
         P[index].targettask = pi[i].targetTask;
