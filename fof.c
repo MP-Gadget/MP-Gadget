@@ -2382,7 +2382,7 @@ static void fof_radix_FOF_GList_LocCountTaskDiffMinID(const void * a, void * rad
     struct fof_group_list * f = (struct fof_group_list *) a;
     u[0] = labs(f->ExtCount - f->MinIDTask);
     u[1] = f->MinID;
-    u[2] = f->LocCount;
+    u[2] = UINT64_MAX - f->LocCount;
 }
 
 int fof_compare_FOF_GList_LocCountTaskDiffMinID(const void *a, const void *b)
@@ -2514,7 +2514,7 @@ int fof_compare_Group_MinIDTask_MinID(const void *a, const void *b)
 void fof_radix_Group_Len(const void * a, void * radix, void * arg) {
     uint64_t * u = (uint64_t *) radix;
     struct group_properties * f = (struct group_properties *) a;
-    u[0] = f->Len;
+    u[0] = UINT64_MAX - f->Len;
 }
 
 int fof_compare_Group_Len(const void *a, const void *b)
