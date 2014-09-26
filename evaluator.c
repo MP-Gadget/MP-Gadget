@@ -8,48 +8,6 @@
 static void evaluate_init_thread(Evaluator * ev, LocalEvaluator * lv);
 static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int length);
 
-static int atomic_fetch_and_add(int * ptr, int value) {
-    int k;
-#if _OPENMP >= 201107
-#pragma omp atomic capture
-    {
-      k = (*ptr);
-      (*ptr)+=value;
-    }
-#else
-#ifdef OPENMP_USE_SPINLOCK
-    k = __sync_fetch_and_add(ptr, value);
-#else /* non spinlock*/
-#pragma omp critical
-    {
-      k = (*ptr);
-      (*ptr)+=value;
-    }
-#endif
-#endif
-    return k;
-}
-static int atomic_add_and_fetch(int * ptr, int value) {
-    int k;
-#if _OPENMP >= 201107
-#pragma omp atomic capture
-    { 
-      (*ptr)+=value;
-      k = (*ptr);
-    }
-#else
-#ifdef OPENMP_USE_SPINLOCK
-    k = __sync_add_and_fetch(ptr, value);
-#else /* non spinlock */
-#pragma omp critical
-    { 
-      (*ptr)+=value;
-      k = (*ptr);
-    }
-#endif
-#endif
-    return k;
-}
 void evaluate_init_thread(Evaluator * ev, LocalEvaluator * lv) {
     int thread_id = omp_get_thread_num();
     int j;
@@ -163,10 +121,17 @@ int * evaluate_get_queue(Evaluator * ev, int * len) {
     int i;
     int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
     int k = 0;
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-    {
-        if(!ev->ev_isactive(i)) continue;
-        queue[k++] = i;
+    if(ev->UseAllParticles) {
+        for(i = 0; i < NumPart; i++) {
+            if(!ev->ev_isactive(i)) continue;
+            queue[k++] = i;
+        }
+    } else {
+        for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+        {
+            if(!ev->ev_isactive(i)) continue;
+            queue[k++] = i;
+        }
     }
     *len = k;
     return queue;
@@ -217,7 +182,7 @@ int evaluate_primary(Evaluator * ev) {
         }
     }
 
-    qsort(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare);
+    qsort_openmp(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare);
 
     /* adjust Nexport to skip the allocated but unused ones due to threads */
     while (ev->Nexport > 0 && DataIndexTable[ev->Nexport - 1].Task == NTask) {
@@ -386,33 +351,20 @@ static void evaluate_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int
     int ngrp;
     char * sp = sendbuf;
     char * rp = recvbuf;
-     
-    MPI_Status status;
-    
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        int sendTask = ThisTask;
-        int recvTask = ThisTask ^ ngrp;
+    MPI_Datatype type;
+    MPI_Type_contiguous(elsize, MPI_BYTE, &type);
+    MPI_Type_commit(&type);
 
-        if(recvTask < NTask)
-        {
-            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-            {
-                int so = import?Recv_offset[recvTask]:Send_offset[recvTask];
-                int ro = import?Send_offset[recvTask]:Recv_offset[recvTask];
-                int sc = import?Recv_count[recvTask]:Send_count[recvTask];
-                int rc = import?Send_count[recvTask]:Recv_count[recvTask];
-
-                /* get the particles */
-                MPI_Sendrecv(sp + elsize * so,
-                        sc * elsize, MPI_BYTE,
-                        recvTask, tag,
-                        rp + elsize * ro,
-                        rc * elsize, MPI_BYTE,
-                        recvTask, tag, MPI_COMM_WORLD, &status);
-            }
-        }
+    if(import) {
+        MPI_Alltoallv_sparse(
+                sendbuf, Recv_count, Recv_offset, type,
+                recvbuf, Send_count, Send_offset, type, MPI_COMM_WORLD);
+    } else {
+        MPI_Alltoallv_sparse(
+                sendbuf, Send_count, Send_offset, type,
+                recvbuf, Recv_count, Recv_offset, type, MPI_COMM_WORLD);
     }
+    MPI_Type_free(&type);
 }
 
 /* returns the remote particles */
@@ -485,7 +437,7 @@ void evaluate_reduce_result(Evaluator * ev, int tag) {
     }
 
     /* mysort is a lie! */
-    qsort(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare_by_index);
+    qsort_openmp(DataIndexTable, ev->Nexport, sizeof(struct data_index), data_index_compare_by_index);
     
     int * UniqueOff = mymalloc("UniqueIndex", sizeof(int) * (ev->Nexport + 1));
     UniqueOff[0] = 0;

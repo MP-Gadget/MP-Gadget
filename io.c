@@ -33,13 +33,15 @@ static int64_t ntot_type_all[6];
  * which are written simultaneously. Each file contains data from a group of
  * processors of size roughly NTask/NumFilesPerSnapshot.
  */
-void savepositions(int num)
+/* reason == 0 regular snapshot, do fof and write it out */
+/* reason != 0 checkpoints, do not run fof */
+void savepositions(int num, int reason)
 {
     size_t bytes;
     char buf[500];
     int n, filenr, gr, ngroups, masterTask, lastTask;
 
-    CPU_Step[CPU_MISC] += measure_time();
+    walltime_measure("/Misc");
 
 #if defined(SFR) || defined(BLACK_HOLES)
     rearrange_particle_sequence();
@@ -47,6 +49,7 @@ void savepositions(int num)
     All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);
 #endif
 
+#ifdef IO_OLD_SNAPSHOT
 #if defined(JD_DPP) && defined(JD_DPPONSNAPSHOTONLY)
     compute_Dpp(0); /* Particle loop already inside, just add water */
 #endif
@@ -55,7 +58,7 @@ void savepositions(int num)
     {
         if(ThisTask == 0)
             printf("\nwriting snapshot file #%d... \n", num);
-
+        
 #ifdef ORDER_SNAPSHOTS_BY_ID
         double t0, t1;
 
@@ -163,24 +166,40 @@ void savepositions(int num)
         if(ThisTask == 0)
             printf("done with snapshot.\n");
 
-        CPU_Step[CPU_SNAPSHOT] += measure_time();
+        walltime_measure("/Snapshot/Write");
 
 #ifdef SUBFIND_RESHUFFLE_CATALOGUE
         endrun(0);
 #endif
     }
+#endif /* IO_OLD_SNAPSHOT */
+
+    walltime_measure("/Snapshot/Misc");
+    petaio_save_snapshot(num);
+    walltime_measure("/Snapshot/Write");
 
 #ifdef FOF
-    if(ThisTask == 0)
-        printf("\ncomputing group catalogue...\n");
+    /* regular snapshot, do fof and write it out */
+    if(reason == 0) {
+        if(ThisTask == 0)
+            printf("\ncomputing group catalogue...\n");
 
-    fof_fof(num);
+        fof_fof(num);
 
-    if(ThisTask == 0)
-        printf("done with group catalogue.\n");
-
-    CPU_Step[CPU_FOF] += measure_time();
+        if(ThisTask == 0)
+            printf("done with group catalogue.\n");
+    }
+    walltime_measure("/Snapshot/WriteFOF");
 #endif
+
+    if(ThisTask == 0) {
+        char buf[1024];
+        sprintf(buf, "%s/LastSnapshotNum.txt", All.OutputDir);
+        FILE * fd = fopen(buf, "a");
+        fprintf(fd, "Time %g Redshift %g Ti_current %d Snapnumber %03d\n", All.Time, 1 / All.Time - 1, All.Ti_Current, num);
+        fclose(fd);
+
+    }
 
 #ifdef POWERSPEC_ON_OUTPUT
     if(ThisTask == 0)
@@ -191,7 +210,6 @@ void savepositions(int num)
     if(ThisTask == 0)
         printf("done with power spectra.\n");
 
-    CPU_Step[CPU_MISC] += measure_time();
 #endif
 }
 
@@ -414,11 +432,13 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 #else
                     ne = SPHP(pindex).Ne;
 
+                    struct UVBG uvbg;
+                    GetParticleUVBG(pindex, &uvbg);
                     AbundanceRatios(DMAX(All.MinEgySpec,
                                 SPHP(pindex).Entropy / GAMMA_MINUS1 * pow(SPHP(pindex).EOMDensity *
                                     a3inv,
                                     GAMMA_MINUS1)),
-                            SPHP(pindex).d.Density * a3inv, &ne, &nh0, &nHeII);
+                            SPHP(pindex).d.Density * a3inv, &uvbg, &ne, &nh0, &nHeII);
 
                     *fp++ = nh0;
 #endif
@@ -3783,7 +3803,7 @@ void write_file(char *fname, int writeTask, int lastTask)
                             dims[0] = header.npart[type];
                             dims[1] = get_values_per_blockelement(blocknr);
 
-                            cdims[0] = IMIN(12800, dims[0]);
+                            cdims[0] = IMIN(5120000, dims[0]);
                             cdims[1] = dims[1];
                             if(dims[1] == 1)
                                 rank = 1;
@@ -4189,4 +4209,3 @@ int io_compare_P_GrNr_ID(const void *a, const void *b)
 }
 
 #endif
-

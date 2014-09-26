@@ -18,6 +18,8 @@
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
+static int human_interaction();
+int stopflag = 0;
 void run(void)
 {
     FILE *fd;
@@ -25,7 +27,7 @@ void run(void)
 #if defined(RADIATIVE_RATES) || defined(RADIATION)
     int ifunc;
 #endif
-    int stopflag = 0;
+#ifdef OLD_RESTART
     char buf[200], stopfname[200], contfname[200];
 
 
@@ -33,13 +35,15 @@ void run(void)
     sprintf(contfname, "%scont", All.OutputDir);
     unlink(contfname);
 
-
-    CPU_Step[CPU_MISC] += measure_time();
+#endif
+    walltime_measure("/Misc");
 
 #ifdef DENSITY_BASED_SNAPS
     All.nh_next = 10.0;
 #endif
 
+
+    write_cpu_log();		/* produce some CPU usage info */
 
     do				/* main loop */
     {
@@ -49,6 +53,10 @@ void run(void)
                                              * at the desired time.
                                              */
 
+        if(stopflag == 1 || stopflag == 2) {
+            /* OK snapshot file is written, lets quit */
+            return;
+        }
         every_timestep_stuff();	/* write some info to log-files */
 
 #if defined(RADIATIVE_RATES) || defined(RADIATION)
@@ -58,13 +66,6 @@ void run(void)
 #ifdef COOLING
         IonizeParams();		/* set UV background for the current time */
 #endif
-
-#ifdef COMPUTE_POTENTIAL_ENERGY
-        if((All.Time - All.TimeLastStatistics) >= All.TimeBetStatistics)
-            All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
-#endif
-
-        domain_Decomposition();	/* do domain decomposition if needed */
 
 
         compute_accelerations(0);	/* compute accelerations for 
@@ -105,6 +106,12 @@ void run(void)
 
         All.NumCurrentTiStep++;
 
+        stopflag = human_interaction();
+        if(stopflag != 0) {
+            All.Ti_nextoutput = All.Ti_Current;
+            /* next loop will write a new snapshot file */
+        }
+#ifdef OLD_RESTART
         /* Check whether we need to interrupt the run */
         if(ThisTask == 0)
         {
@@ -117,7 +124,7 @@ void run(void)
             }
 
             /* are we running out of CPU-time ? If yes, interrupt run. */
-            if(CPUThisRun > 0.85 * All.TimeLimitCPU)
+            if(All.CT.ElapsedTime > 0.85 * All.TimeLimitCPU)
             {
                 printf("reaching time-limit. stopping.\n");
                 stopflag = 2;
@@ -151,9 +158,9 @@ void run(void)
         /* is it time to write a regular restart-file? (for security) */
         if(ThisTask == 0)
         {
-            if((CPUThisRun - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile)
+            if((All.CT.ElapsedTime - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile)
             {
-                All.TimeLastRestartFile = CPUThisRun;
+                All.TimeLastRestartFile = All.CT.ElapsedTime;
                 stopflag = 3;
             }
             else
@@ -167,14 +174,14 @@ void run(void)
             restart(0);		/* write an occasional restart file */
             stopflag = 0;
         }
-
+#endif /* old restart*/
         report_memory_usage(&HighMark_run, "RUN");
     }
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
 #ifndef SNAP_SET_TG
     restart(0);
 
-    savepositions(All.SnapshotFileCount++);
+    savepositions(All.SnapshotFileCount++, 0);
 #endif	
     /* write a last snapshot
      * file at final time (will
@@ -220,7 +227,116 @@ void run(void)
 #endif
 
 }
+static int human_interaction() {
+        /* Check whether we need to interrupt the run */
+    int stopflag = 0;
+    char stopfname[4096], contfname[4096];
+    char restartfname[4096];
+    char ioctlfname[4096];
 
+    sprintf(stopfname, "%s/stop", All.OutputDir);
+    sprintf(restartfname, "%s/restart", All.OutputDir);
+    sprintf(contfname, "%s/cont", All.OutputDir);
+    sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
+
+    if(ThisTask == 0)
+    {
+        FILE * fd;
+        if((fd = fopen(ioctlfname, "r"))) {
+             /* there is an ioctl file, parse it and update
+              * All.NumFilesPerSnapshot
+              * All.NumFilesPerPIG
+              * All.NumWritersPerSnapshot
+              * All.NumWritersPerPig
+              */
+            size_t n = 0;
+            char * line = NULL;
+            int NumFilesPerSnapshot = -1;
+            int NumFilesPerPIG = -1;
+            int NumWritersPerSnapshot = -1;
+            int NumWritersPerPIG = -1;
+            while(-1 != getline(&line, &n, fd)) {
+                sscanf(line, "NumFilesPerSnapshot %d", &NumFilesPerSnapshot);
+                sscanf(line, "NumWritersPerPIG %d", &NumWritersPerPIG);
+                sscanf(line, "NumFilesPerPIG %d", &NumFilesPerPIG);
+                sscanf(line, "NumWritersPerSnapshot %d", &NumWritersPerSnapshot);
+            }
+            free(line);
+            int changed = 0;
+            if(NumFilesPerSnapshot > 0 && 
+                NumFilesPerSnapshot != All.NumFilesPerSnapshot) {
+                All.NumFilesPerSnapshot = NumFilesPerSnapshot;
+                changed = 1;
+            }
+            if(NumWritersPerSnapshot > 0) {
+                if(All.NumWritersPerSnapshot > NTask) {
+                    All.NumWritersPerSnapshot = NTask;
+                }
+                if(NumWritersPerSnapshot != All.NumWritersPerSnapshot) {
+                    All.NumWritersPerSnapshot = NumWritersPerSnapshot;
+                    changed = 1;
+                }
+            }
+            if(NumFilesPerPIG > 0 && 
+                NumFilesPerPIG != All.NumFilesPerPIG) {
+                All.NumFilesPerPIG = NumFilesPerPIG;
+                changed = 1;
+            }
+            if(NumWritersPerPIG > 0) {
+                if(All.NumWritersPerPIG > NTask) {
+                    All.NumWritersPerPIG = NTask;
+                }
+                if(NumWritersPerPIG != All.NumWritersPerPIG) {
+                    All.NumWritersPerPIG = NumWritersPerPIG;
+                    changed = 1;
+                }
+            }
+            if(changed) {
+                printf("New IO parameter recieved from %s:\n"
+                       "NumFilesPerSnapshot %d\n"
+                       "NumFilesPerPIG      %d\n"
+                       "NumWritersPerSnapshot %d\n"
+                       "NumWritersPerPIG     %d\n",
+                    ioctlfname,
+                    All.NumFilesPerSnapshot,
+                    All.NumFilesPerPIG,
+                    All.NumWritersPerSnapshot,
+                    All.NumWritersPerPIG);
+            }
+            fclose(fd);
+        }
+        /* Is the stop-file present? If yes, interrupt the run. */
+        if((fd = fopen(stopfname, "r")))
+        {
+            printf("human controlled stopping.\n");
+            fclose(fd);
+            stopflag = 1;
+            unlink(stopfname);
+        }
+
+        /* are we running out of CPU-time ? If yes, interrupt run. */
+        if(All.CT.ElapsedTime > 0.85 * All.TimeLimitCPU) {
+            printf("reaching time-limit. stopping.\n");
+            stopflag = 2;
+        }
+        if((fd = fopen(restartfname, "r")))
+        {
+            printf("human controlled snapshot.\n");
+            fclose(fd);
+            stopflag = 3;
+            unlink(restartfname);
+        }
+        if((All.CT.ElapsedTime - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile) {
+            All.TimeLastRestartFile = All.CT.ElapsedTime;
+            printf("time to write a snapshot for restarting\n");
+            stopflag = 3;
+        }
+    }
+
+    MPI_Bcast(&stopflag, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+    return stopflag;
+}
 
 /*! This function finds the next synchronization point of the system
  * (i.e. the earliest point of time any of the particles needs a force
@@ -287,7 +403,7 @@ void find_next_sync_point_and_drift(void)
 
 #ifdef NSTEPS_BASED_SNAPS
     if((All.NumCurrentTiStep + 2) % All.SnapNumFac == 0)
-        savepositions(All.SnapshotFileCount++);
+        savepositions(All.SnapshotFileCount++, 0);
 #else
 
 #ifdef DENSITY_BASED_SNAPS
@@ -298,7 +414,7 @@ void find_next_sync_point_and_drift(void)
         if(ThisTask == 0)
             printf("nh_next = %g\n", All.nh_next);
 
-        savepositions(All.SnapshotFileCount++);
+        savepositions(All.SnapshotFileCount++, 0);
     }
 #else
     while(ti_next_kick_global >= All.Ti_nextoutput && All.Ti_nextoutput >= 0)
@@ -319,18 +435,15 @@ void find_next_sync_point_and_drift(void)
 
         move_particles(All.Ti_nextoutput);
 
-        CPU_Step[CPU_DRIFT] += measure_time();
 
 #ifdef OUTPUTPOTENTIAL
 #if !defined(EVALPOTENTIAL) || (defined(EVALPOTENTIAL) && defined(RECOMPUTE_POTENTIAL_ON_OUTPUT))
-        All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
-        domain_Decomposition();
         compute_potential();
 #endif
 #endif
 
 
-        savepositions(All.SnapshotFileCount++);	/* write snapshot file */
+        savepositions(All.SnapshotFileCount++, stopflag);	/* write snapshot file */
 
         All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);
     }
@@ -405,6 +518,7 @@ void find_next_sync_point_and_drift(void)
     generate_permutation_in_active_list();
 #endif
 
+    walltime_measure("/Misc");
     /* drift the active particles, others will be drifted on the fly if needed */
 
     for(i = FirstActiveParticle, NumForceUpdate = 0; i >= 0; i = NextActiveParticle[i])
@@ -421,8 +535,7 @@ void find_next_sync_point_and_drift(void)
         endrun(2);
     }
 
-
-    CPU_Step[CPU_DRIFT] += measure_time();
+    walltime_measure("/Drift");
 }
 
 
@@ -864,18 +977,7 @@ void every_timestep_stuff(void)
 
 void write_cpu_log(void)
 {
-    double max_CPU_Step[CPU_PARTS], avg_CPU_Step[CPU_PARTS], t0, t1, tsum;
-    int i;
-
-    CPU_Step[CPU_MISC] += measure_time();
-
-    All.Cadj_Cpu += CPU_Step[CPU_TREEWALK1] + CPU_Step[CPU_TREEWALK2];
-
-    for(i = 1, CPU_Step[0] = 0; i < CPU_PARTS; i++)
-        CPU_Step[0] += CPU_Step[i];
-
-    MPI_Reduce(CPU_Step, max_CPU_Step, CPU_PARTS, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(CPU_Step, avg_CPU_Step, CPU_PARTS, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    All.Cadj_Cpu += walltime_get_time("/Tree/Walk1") + walltime_get_time("/Tree/Walk2");
 
     int64_t totBlockedPD = -1, totBlockedND = -1;
     int64_t totTotalPD = -1, totTotalND = -1;
@@ -887,149 +989,31 @@ void write_cpu_log(void)
     MPI_Reduce(&TotalNodeDrifts, &totTotalND, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
 #endif
 
+    walltime_summary(0, MPI_COMM_WORLD);
+
     if(ThisTask == 0)
     {
-        for(i = 0; i < CPU_PARTS; i++)
-            avg_CPU_Step[i] /= NTask;
 
         put_symbol(0.0, 1.0, '#');
 
-        for(i = 1, tsum = 0.0; i < CPU_PARTS; i++)
-        {
-            if(max_CPU_Step[i] > 0)
-            {
-                t0 = tsum;
-                t1 = tsum + avg_CPU_Step[i] * (avg_CPU_Step[i] / max_CPU_Step[i]);
-                put_symbol(t0 / avg_CPU_Step[0], t1 / avg_CPU_Step[0], CPU_Symbol[i]);
-                tsum += t1 - t0;
-
-                t0 = tsum;
-                t1 = tsum + avg_CPU_Step[i] * ((max_CPU_Step[i] - avg_CPU_Step[i]) / max_CPU_Step[i]);
-                put_symbol(t0 / avg_CPU_Step[0], t1 / avg_CPU_Step[0], CPU_SymbolImbalance[i]);
-                tsum += t1 - t0;
-            }
-        }
-
-        put_symbol(tsum / max_CPU_Step[0], 1.0, '-');
-
-        fprintf(FdBalance, "Step=%7d  sec=%10.3f  Nf=%2d%09d  %s\n", All.NumCurrentTiStep, max_CPU_Step[0],
+        fprintf(FdBalance, "Step=%7d  sec=%10.3f  Nf=%2d%09d  %s\n", All.NumCurrentTiStep, walltime_step_max("/"),
                 (int) (GlobNumForceUpdate / 1000000000), (int) (GlobNumForceUpdate % 1000000000), CPU_String);
         fflush(FdBalance);
     }
 
-    CPUThisRun += CPU_Step[0];
-
-    for(i = 0; i < CPU_PARTS; i++)
-        CPU_Step[i] = 0;
 
     if(ThisTask == 0)
     {
-        for(i = 0; i < CPU_PARTS; i++)
-            All.CPU_Sum[i] += avg_CPU_Step[i];
 
-        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads %d\n", All.NumCurrentTiStep, All.Time, NTask, All.NumThreads);
+        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", All.NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
 #ifdef _OPENMP
         fprintf(FdCPU, "Blocked Drifts (Particle Node): %ld %ld\n", totBlockedPD, totBlockedND);
         fprintf(FdCPU, "Total Drifts (Particle Node): %ld %ld\n", totTotalPD, totTotalND);
 #endif
-        fprintf(FdCPU,
-                "total         %10.2f  %5.1f%%\n"
-                "treegrav      %10.2f  %5.1f%%\n"
-                "   treebuild  %10.2f  %5.1f%%\n"
-                "   treeupdate %10.2f  %5.1f%%\n"
-                "   treewalk   %10.2f  %5.1f%%\n"
-                "   treecomm   %10.2f  %5.1f%%\n"
-                "   treeimbal  %10.2f  %5.1f%%\n"
-                "pmgrav        %10.2f  %5.1f%%\n"
-                "sph           %10.2f  %5.1f%%\n"
-                "   density    %10.2f  %5.1f%%\n"
-                "   denscomm   %10.2f  %5.1f%%\n"
-                "   densimbal  %10.2f  %5.1f%%\n"
-                "   hydrofrc   %10.2f  %5.1f%%\n"
-                "   hydcomm    %10.2f  %5.1f%%\n"
-                "   hydmisc    %10.2f  %5.1f%%\n"
-                "   hydnetwork %10.2f  %5.1f%%\n"
-                "   hydimbal   %10.2f  %5.1f%%\n"
-                "   hmaxupdate %10.2f  %5.1f%%\n"
-                "domain        %10.2f  %5.1f%%\n"
-                "potential     %10.2f  %5.1f%%\n"
-                "predict       %10.2f  %5.1f%%\n"
-                "kicks         %10.2f  %5.1f%%\n"
-                "i/o           %10.2f  %5.1f%%\n"
-                "peano         %10.2f  %5.1f%%\n"
-                "sfrcool       %10.2f  %5.1f%%\n"
-                "blackholes    %10.2f  %5.1f%%\n"
-                "fof/subfind   %10.2f  %5.1f%%\n"
-                "smoothing     %10.2f  %5.1f%%\n"
-                "hotngbs       %10.2f  %5.1f%%\n"
-                "weights_hot   %10.2f  %5.1f%%\n"
-                "enrich_hot    %10.2f  %5.1f%%\n"
-                "weights_cold  %10.2f  %5.1f%%\n"
-                "enrich_cold   %10.2f  %5.1f%%\n"
-                "cs_misc       %10.2f  %5.1f%%\n"
-                "misc          %10.2f  %5.1f%%\n",
-            All.CPU_Sum[CPU_ALL], 100.0,
-            All.CPU_Sum[CPU_TREEWALK1] + All.CPU_Sum[CPU_TREEWALK2]
-                + All.CPU_Sum[CPU_TREESEND] + All.CPU_Sum[CPU_TREERECV]
-                + All.CPU_Sum[CPU_TREEWAIT1] + All.CPU_Sum[CPU_TREEWAIT2]
-                + All.CPU_Sum[CPU_TREEBUILD] + All.CPU_Sum[CPU_TREEUPDATE]
-                + All.CPU_Sum[CPU_TREEMISC],
-            (All.CPU_Sum[CPU_TREEWALK1] + All.CPU_Sum[CPU_TREEWALK2]
-             + All.CPU_Sum[CPU_TREESEND] + All.CPU_Sum[CPU_TREERECV]
-             + All.CPU_Sum[CPU_TREEWAIT1] + All.CPU_Sum[CPU_TREEWAIT2]
-             + All.CPU_Sum[CPU_TREEBUILD] + All.CPU_Sum[CPU_TREEUPDATE]
-             + All.CPU_Sum[CPU_TREEMISC]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_TREEBUILD],
-            (All.CPU_Sum[CPU_TREEBUILD]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_TREEUPDATE],
-            (All.CPU_Sum[CPU_TREEUPDATE]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_TREEWALK1] + All.CPU_Sum[CPU_TREEWALK2],
-            (All.CPU_Sum[CPU_TREEWALK1] + All.CPU_Sum[CPU_TREEWALK2]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_TREESEND] + All.CPU_Sum[CPU_TREERECV],
-            (All.CPU_Sum[CPU_TREESEND] + All.CPU_Sum[CPU_TREERECV]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_TREEWAIT1] + All.CPU_Sum[CPU_TREEWAIT2],
-            (All.CPU_Sum[CPU_TREEWAIT1] + All.CPU_Sum[CPU_TREEWAIT2]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_MESH],
-            (All.CPU_Sum[CPU_MESH]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_DENSCOMPUTE] + All.CPU_Sum[CPU_DENSWAIT]
-                + All.CPU_Sum[CPU_DENSCOMM] + All.CPU_Sum[CPU_DENSMISC]
-                + All.CPU_Sum[CPU_HYDCOMPUTE] + All.CPU_Sum[CPU_HYDWAIT] + All.CPU_Sum[CPU_TREEHMAXUPDATE]
-                + All.CPU_Sum[CPU_HYDCOMM] + All.CPU_Sum[CPU_HYDMISC] + All.CPU_Sum[CPU_HYDNETWORK],
-            (All.CPU_Sum[CPU_DENSCOMPUTE] + All.CPU_Sum[CPU_DENSWAIT]
-             + All.CPU_Sum[CPU_DENSCOMM] + All.CPU_Sum[CPU_DENSMISC]
-             + All.CPU_Sum[CPU_HYDCOMPUTE] + All.CPU_Sum[CPU_HYDWAIT] + All.CPU_Sum[CPU_TREEHMAXUPDATE]
-             + All.CPU_Sum[CPU_HYDCOMM] + All.CPU_Sum[CPU_HYDMISC] +
-             All.CPU_Sum[CPU_HYDNETWORK]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_DENSCOMPUTE],
-            (All.CPU_Sum[CPU_DENSCOMPUTE]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_DENSCOMM],
-            (All.CPU_Sum[CPU_DENSCOMM]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_DENSWAIT],
-            (All.CPU_Sum[CPU_DENSWAIT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HYDCOMPUTE],
-            (All.CPU_Sum[CPU_HYDCOMPUTE]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HYDCOMM],
-            (All.CPU_Sum[CPU_HYDCOMM]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HYDMISC],
-            (All.CPU_Sum[CPU_HYDMISC]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HYDNETWORK],
-            (All.CPU_Sum[CPU_HYDNETWORK]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HYDWAIT],
-            (All.CPU_Sum[CPU_HYDWAIT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_TREEHMAXUPDATE],
-            (All.CPU_Sum[CPU_TREEHMAXUPDATE]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_DOMAIN],
-            (All.CPU_Sum[CPU_DOMAIN]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_POTENTIAL],
-            (All.CPU_Sum[CPU_POTENTIAL]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_DRIFT],
-            (All.CPU_Sum[CPU_DRIFT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_TIMELINE],
-            (All.CPU_Sum[CPU_TIMELINE]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_SNAPSHOT],
-            (All.CPU_Sum[CPU_SNAPSHOT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_PEANO],
-            (All.CPU_Sum[CPU_PEANO]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_COOLINGSFR],
-            (All.CPU_Sum[CPU_COOLINGSFR]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_BLACKHOLES],
-            (All.CPU_Sum[CPU_BLACKHOLES]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_FOF],
-            (All.CPU_Sum[CPU_FOF]) / All.CPU_Sum[CPU_ALL] * 100,
-            All.CPU_Sum[CPU_SMTHCOMPUTE] + All.CPU_Sum[CPU_SMTHWAIT] + All.CPU_Sum[CPU_SMTHCOMM] +
-                All.CPU_Sum[CPU_SMTHMISC],
-            (All.CPU_Sum[CPU_SMTHCOMPUTE] + All.CPU_Sum[CPU_SMTHWAIT] + All.CPU_Sum[CPU_SMTHCOMM] +
-             All.CPU_Sum[CPU_SMTHMISC]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_HOTNGBS],
-            (All.CPU_Sum[CPU_HOTNGBS]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_WEIGHTS_HOT],
-            (All.CPU_Sum[CPU_WEIGHTS_HOT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_ENRICH_HOT],
-            (All.CPU_Sum[CPU_ENRICH_HOT]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_WEIGHTS_COLD],
-            (All.CPU_Sum[CPU_WEIGHTS_COLD]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_ENRICH_COLD],
-            (All.CPU_Sum[CPU_ENRICH_COLD]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_CSMISC],
-            (All.CPU_Sum[CPU_CSMISC]) / All.CPU_Sum[CPU_ALL] * 100, All.CPU_Sum[CPU_MISC],
-            (All.CPU_Sum[CPU_MISC]) / All.CPU_Sum[CPU_ALL] * 100);
-        fprintf(FdCPU, "\n");
+        fflush(FdCPU);
+    }
+    walltime_report(FdCPU, 0, MPI_COMM_WORLD);
+    if(ThisTask == 0) {
         fflush(FdCPU);
     }
 }

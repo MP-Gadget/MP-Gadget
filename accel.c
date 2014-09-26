@@ -31,6 +31,7 @@ void compute_accelerations(int mode)
 #if defined(BUBBLES) || defined(MULTI_BUBBLES)
     double hubble_a;
 #endif
+    int TreeReconstructFlag = 0;
 
     if(ThisTask == 0)
     {
@@ -42,50 +43,41 @@ void compute_accelerations(int mode)
     heating();
 #endif
 
-    CPU_Step[CPU_MISC] += measure_time();
+    walltime_measure("/Misc");
 
 #ifdef PMGRID
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
+#ifdef PETA_PM
+        petapm_prepare();
+#endif
+        force_treefree();
+        TreeReconstructFlag = 1;
         long_range_force();
 
-        CPU_Step[CPU_MESH] += measure_time();
+#ifdef PETA_PM
+        petapm_finish();
+#endif
+
+        walltime_measure("/LongRange");
 
     }
 #endif
 
+    /* Check whether it is really time for a new domain decomposition */
+    if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPart * All.TreeDomainUpdateFrequency
+            || All.DoDynamicUpdate == 0)
+    {
+
+        domain_Decomposition();	/* do domain decomposition */
+        TreeReconstructFlag = 1;
+    }
+
+    if(TreeReconstructFlag) {
+        force_treebuild_simple();
+    }
 
 #ifndef ONLY_PM
-#ifdef GRAVITY_CENTROID
-
-    CPU_Step[CPU_MISC] += measure_time();
-
-    /* set new softening lengths */
-#if !defined(SIM_ADAPTIVE_SOFT) && !defined(SIM_COMOVING_SOFT)
-    if(All.ComovingIntegrationOn)
-        set_softenings();
-#endif
-
-    /* contruct tree if needed */
-    if(TreeReconstructFlag)
-    {
-        if(ThisTask == 0)
-            printf("Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
-
-        CPU_Step[CPU_MISC] += measure_time();
-
-        force_treebuild(NumPart, NULL);
-
-        CPU_Step[CPU_TREEBUILD] += measure_time();
-
-        TreeReconstructFlag = 0;
-
-        if(ThisTask == 0)
-            printf("Tree construction done.\n");
-    }
-
-#else
-
     gravity_tree();		/* computes gravity accel. */
 
     if(All.TypeOfOpeningCriterion == 1 && All.Ti_Current == 0)
@@ -94,12 +86,13 @@ void compute_accelerations(int mode)
                              * criterion for consistent accuracy.
                              */
 #endif
-#endif
 
 
+   #if 0
+#disable second order because the time profiling -- not yet updated with PETA_PM
     if(All.Ti_Current == 0 && RestartFlag == 0 && header.flag_ic_info == FLAG_SECOND_ORDER_ICS)
         second_order_ics();		/* produces the actual ICs from the special second order IC file */
-
+    #endif
 
 #ifdef FORCETEST
     gravity_forcetest();
@@ -250,7 +243,6 @@ void compute_accelerations(int mode)
         cooling_only();
 #endif
 
-        CPU_Step[CPU_COOLINGSFR] += measure_time();
 #endif /*ends COOLING */
 
 #ifdef CHEMCOOL
@@ -301,27 +293,6 @@ void compute_accelerations(int mode)
 #endif
 
     }
-
-#ifdef GRAVITY_CENTROID
-#ifndef ONLY_PM
-
-    force_update_node_center_of_mass_recursive(All.MaxPart, -1, -1);
-
-    force_exchange_pseudodata();
-
-    force_treeupdate_pseudos(All.MaxPart);
-
-
-    gravity_tree();		/* computes gravity accel. */
-
-    if(All.TypeOfOpeningCriterion == 1 && All.Ti_Current == 0)
-        gravity_tree();		/* For the first timestep, we redo it
-                             * to allow usage of relative opening
-                             * criterion for consistent accuracy.
-                             */
-#endif
-#endif
-
 
     if(ThisTask == 0)
     {

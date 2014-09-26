@@ -1,0 +1,6 @@
+[submodule "bigfile"]
+	path = bigfile
+	url = https://github.com/rainwoodman/bigfile
+[submodule "radixsort"]
+	path = radixsort
+	url = git@github.com:/rainwoodman/radixsort.git

@@ -51,6 +51,7 @@ void subfind(int num)
     double a3inv;
 #endif
 
+    walltime_measure("/Misc");
     if(ThisTask == 0)
         printf("\nWe now execute a parallel version of SUBFIND.\n");
 
@@ -95,8 +96,6 @@ void subfind(int num)
                 if(ThisTask == 0)
                     printf("Tree construction for species %d (%ld).\n", j, countall[j]);
 
-                CPU_Step[CPU_FOF] += measure_time();
-
                 force_treebuild(count[j], d);
 
                 myfree(d);
@@ -111,14 +110,13 @@ void subfind(int num)
                 if(ThisTask == 0)
                     printf("Tree construction.\n");
 
-                CPU_Step[CPU_FOF] += measure_time();
-
                 force_treebuild(NumPart, NULL);
 
                 t1 = second();
                 if(ThisTask == 0)
                     printf("tree build took %g sec\n", timediff(t0, t1));
             }
+            walltime_measure("/SubFind/Tree1");
 
 
             /* let's determine the local densities */
@@ -129,6 +127,7 @@ void subfind(int num)
             if(ThisTask == 0)
                 printf("density and smoothing length for species %d took %g sec\n", j, timediff(t0, t1));
 
+
             force_treefree();
 
             /* let's save density contribution of own species */
@@ -136,6 +135,7 @@ void subfind(int num)
                 if(P[i].Type == j)
                     P[i].w.density_sum = P[i].u.DM_Density;
 
+            walltime_measure("/SubFind/Density1");
         }
     }
 
@@ -144,6 +144,8 @@ void subfind(int num)
     {
         if((1 << j) & (DENSITY_SPLIT_BY_TYPE))
         {
+
+            walltime_measure("/Misc");
             force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
             /* build index list of particles of selectes species */
@@ -156,8 +158,6 @@ void subfind(int num)
             if(ThisTask == 0)
                 printf("Tree construction for species %d (%ld).\n", j, countall[j]);
 
-            CPU_Step[CPU_FOF] += measure_time();
-
             force_treebuild(count[j], d);
 
             myfree(d);
@@ -165,6 +165,7 @@ void subfind(int num)
             t1 = second();
             if(ThisTask == 0)
                 printf("tree build for species %d took %g sec\n", j, timediff(t0, t1));
+            walltime_measure("/SubFind/Tree2");
 
             /* let's determine the local densities */
             t0 = second();
@@ -183,6 +184,7 @@ void subfind(int num)
             if(ThisTask == 0)
                 printf("density() of species %d took %g sec\n", j, timediff(t0, t1));
 
+            walltime_measure("/SubFind/Density2");
             force_treefree();
 
             /* let's sum up density contribution */
@@ -214,7 +216,7 @@ void subfind(int num)
     if(ThisTask == 0)
         printf("Tree construction.\n");
 
-    CPU_Step[CPU_FOF] += measure_time();
+    walltime_measure("/Misc");
 
     force_treebuild(NumPart, NULL);
 
@@ -232,6 +234,7 @@ void subfind(int num)
         printf("dark matter density() took %g sec\n", timediff(t0, t1));
 
     force_treefree();
+    walltime_measure("/SubFind/Density");
 #endif /* DENSITY_SPLIT_BY_TYPE */
 
 #ifndef SUBFIND_DENSITY_AND_POTENTIAL
@@ -244,6 +247,7 @@ void subfind(int num)
         t1 = second();
         if(ThisTask == 0)
             printf("saving densities took %g sec\n", timediff(t0, t1));
+        walltime_measure("/SubFind/Write");
     }
 #endif
 #endif
@@ -284,7 +288,7 @@ void subfind(int num)
         /* save origintask to origintask2, to recover after collective subfind*/
         P[i].origintask2 = P[i].origintask = ThisTask;
 
-        if(P[i].GrNr > Ncollective && P[i].GrNr <= TotNgroups)	/* particle is in small group */
+        if(P[i].GrNr > Ncollective && P[i].GrNr >= 0 )	/* particle is in small group */
             P[i].targettask = (P[i].GrNr - 1) % NTask;
         else
             P[i].targettask = i % NTask; /* for this stage distribute collective groups evenly 
@@ -306,7 +310,7 @@ void subfind(int num)
 
 
     for(i = 0; i < NumPart; i++)
-        if(P[i].GrNr > Ncollective && P[i].GrNr <= TotNgroups)
+        if(P[i].GrNr > Ncollective && P[i].GrNr >= 0)
             if(((P[i].GrNr - 1) % NTask) != ThisTask)
             {
                 printf("i=%d %ld task=%d\n", i, P[i].GrNr, ThisTask);
@@ -407,7 +411,8 @@ void subfind(int num)
 
     /* now determine the remaining spherical overdensity values for the non-local groups */
 
-    CPU_Step[CPU_FOF] += measure_time();
+
+    walltime_measure("/SubFind/Plan");
 
 
 #ifdef DENSITY_SPLIT_BY_TYPE
@@ -435,11 +440,11 @@ void subfind(int num)
     t1 = second();
     if(ThisTask == 0)
         printf("subfind_exchange() (for return to original CPU)  took %g sec\n", timediff(t0, t1));
+    walltime_measure("/SubFind/Exchange1");
 
 
 #ifdef SUBFIND_SO
     domain_free_trick();
-    All.DoDynamicUpdate = 0;
     domain_Decomposition();
 
     force_treebuild(NumPart, NULL);
@@ -454,6 +459,7 @@ void subfind(int num)
     if(ThisTask == 0)
         printf("determining spherical overdensity masses took %g sec\n", timediff(t0, t1));
 
+    walltime_measure("/SubFind/SO");
 
     /* determine which halos are contaminated by boundary particles */
     t0 = second();
@@ -464,6 +470,7 @@ void subfind(int num)
     if(ThisTask == 0)
         printf("determining contamination of halos took %g sec\n", timediff(t0, t1));
 
+    walltime_measure("/SubFind/Contamination");
 
     force_treefree();
     domain_free();
@@ -480,7 +487,7 @@ void subfind(int num)
 
     myfree(SubGroup);
 
-    CPU_Step[CPU_FOF] += measure_time();
+    walltime_measure("/SubFind/Write");
 }
 
 
@@ -502,7 +509,7 @@ void subfind_save_final(int num)
 
     for(i = 0, Nids = 0; i < NumPart; i++)
     {
-        if(P[i].GrNr <= TotNgroups)
+        if(P[i].GrNr >= 0)
         {
             ID_list[Nids].GrNr = P[i].GrNr;
             ID_list[Nids].SubNr = P[i].SubNr;

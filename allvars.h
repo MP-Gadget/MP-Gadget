@@ -41,6 +41,8 @@
 #include "f2c.h"
 #endif
 
+#include "walltime.h"
+
 #ifdef MPISENDRECV_CHECKSUM
 #define MPI_Sendrecv MPI_Check_Sendrecv
 #endif
@@ -132,8 +134,8 @@ typedef uint64_t peanokey;
 #define  myrealloc(x, y)           myrealloc_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
 #define  myrealloc_movable(x, y)   myrealloc_movable_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
 
-#define  myfree(x)                 myfree_fullinfo(x, __FUNCTION__, __FILE__, __LINE__)
-#define  myfree_movable(x)         myfree_movable_fullinfo(x, __FUNCTION__, __FILE__, __LINE__)
+#define  myfree(x)                 (myfree_fullinfo(x, __FUNCTION__, __FILE__, __LINE__), x = NULL)
+#define  myfree_movable(x)         (myfree_movable_fullinfo(x, __FUNCTION__, __FILE__, __LINE__), x = NULL)
 
 #define  report_memory_usage(x, y) report_detailed_memory_usage_of_largest_task(x, y, __FUNCTION__, __FILE__, __LINE__)
 
@@ -489,9 +491,6 @@ extern MPI_Comm MPI_CommLocal;
 #endif
 #endif
 
-
-extern double CPUThisRun;	/*!< Sums CPU time of current process */
-
 extern int NumForceUpdate;	/*!< number of active particles on local processor in current timestep  */
 extern int64_t GlobNumForceUpdate;
 
@@ -514,12 +513,7 @@ extern size_t AllocatedBytes;
 extern size_t HighMarkBytes;
 extern size_t FreeBytes;
 
-extern double CPU_Step[CPU_PARTS];
-extern char CPU_Symbol[CPU_PARTS];
-extern char CPU_SymbolImbalance[CPU_PARTS];
 extern char CPU_String[CPU_STRING_LEN + 1];
-
-extern double WallclockTime;    /*!< This holds the last wallclock time measurement for timings measurements */
 
 extern int Flag_FullStep;	/*!< Flag used to signal that the current step involves all particles */
 
@@ -527,7 +521,6 @@ extern size_t HighMark_run,  HighMark_domain, HighMark_gravtree, HighMark_pmperi
        HighMark_pmnonperiodic,  HighMark_sphdensity, HighMark_sphhydro;
 
 
-extern int TreeReconstructFlag;
 extern int GlobFlag;
 
 extern char DumpFlag;
@@ -702,9 +695,11 @@ extern struct global_data_all_processes
     int DoDynamicUpdate;
 
     int NumFilesPerSnapshot;	/*!< number of files in multi-file snapshot dumps */
-    int NumFilesWrittenInParallel;	/*!< maximum number of files that may be written simultaneously when
+    int NumFilesPerPIG;	/*!< number of files in multi-file snapshot dumps */
+    int NumWritersPerSnapshot;	/*!< maximum number of files that may be written simultaneously when
                                       writing/reading restart-files, or when writing snapshot files */
 
+    int NumWritersPerPIG;	
     double BufferSize;		/*!< size of communication buffer in MB */
     int BunchSize;     	        /*!< number of particles fitting into the buffer in the parallel tree algorithm  */
 
@@ -852,6 +847,7 @@ extern struct global_data_all_processes
     int Ti_nextoutput;		/*!< next output time on integer timeline */
 
 #ifdef PMGRID
+    int Nmesh;
     int PM_Ti_endstep, PM_Ti_begstep;
     double Asmth[2], Rcut[2];
     double Corner[2][3], UpperCorner[2][3], Xmintot[2][3], Xmaxtot[2][3];
@@ -870,7 +866,7 @@ extern struct global_data_all_processes
     /* variables that keep track of cumulative CPU consumption */
 
     double TimeLimitCPU;
-    double CPU_Sum[CPU_PARTS];    /*!< sums wallclock time/CPU consumption in whole run */
+    struct ClockTable CT;
 
     /* tree code opening criterion */
 
@@ -953,6 +949,8 @@ extern struct global_data_all_processes
          EnergyFile[100],
          CpuFile[100],
          InfoFile[100], TimingsFile[100], RestartFile[100], ResubmitCommand[100], OutputListFilename[100];
+
+    char UVFluctuationFile[100];
 
     /*! table with desired output times */
     double OutputListTimes[MAXLEN_OUTPUTLIST];
@@ -1334,6 +1332,7 @@ extern size_t BlockedNodeDrifts;
 extern size_t TotalNodeDrifts;
 #endif
 struct bh_particle_data {
+    int ReverseLink; /* used at GC for reverse link to P */
     MyIDType ID; /* for data consistency check, same as particle ID */
 #ifdef BH_COUNTPROGS
     int CountProgs;
@@ -1381,6 +1380,9 @@ extern struct particle_data
 #ifdef OPENMP_USE_SPINLOCK
     pthread_spinlock_t SpinLock;
 #endif
+#ifdef PETA_PM
+    int RegionInd; /* which region the particle belongs to */
+#endif
     MyDouble Pos[3];   /*!< particle position at its current time */
     MyDouble Mass;     /*!< particle mass */
     struct {
@@ -1398,7 +1400,6 @@ extern struct particle_data
     MyIDType ID;
     MyIDType SwallowID; /* who will swallow this particle */
     MyDouble Vel[3];   /*!< particle velocity at its current time */
-
     union
     {
         MyFloat       GravAccel[3];		/*!< particle acceleration due to gravity */
@@ -1485,13 +1486,17 @@ extern struct particle_data
     MyFloat DensAroundStar;
 #endif
 
+#ifdef FOF
+    int64_t GrNr;
+    int origintask;
+    int targettask;
+#endif
 
 #ifdef SUBFIND
-    MyIDType GrNr;
     int SubNr;
     int DM_NumNgb;
-    unsigned short targettask, origintask2;
-    int origintask, submark, origindex;
+    int origintask2;
+    int submark, origindex;
     MyFloat DM_Hsml;
     union
     {
@@ -1579,7 +1584,7 @@ extern struct sph_particle_data
     MyFloat DensityOld;
     MyFloat DensityStd;
 #endif
-
+    
     union
     {
         MyFloat       Density;		/*!< current baryonic mass density of particle */

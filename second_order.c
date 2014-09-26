@@ -95,17 +95,13 @@ void second_order_ics(void)
 
   /* recompute long range force */
 
-  All.DoDynamicUpdate = 1;
+  /** All.DoDynamicUpdate = 1;  this won't do domain decomp at all */
   domain_Decomposition();	/* redo domain decomposition because particles may have shifted */
 
-
-  CPU_Step[CPU_MISC] += measure_time();
 
 #ifdef PMGRID
   long_range_force();
 #endif
-
-  CPU_Step[CPU_MESH] += measure_time();
 
   gravity_tree();
 

@@ -6,8 +6,9 @@
 
 #include "allvars.h"
 #include "proto.h"
-
-
+#ifdef PETA_PM
+#include "petapm.h"
+#endif
 /*! \file longrange.c
  *  \brief driver routines for computation of long-range gravitational PM force
  */
@@ -19,6 +20,9 @@
  */
 void long_range_init(void)
 {
+#ifdef PETA_PM
+  petapm_init_periodic();
+#else  /*PETA_PM*/
 #ifdef PERIODIC
   pm_init_periodic();
 #ifdef PLACEHIGHRESREGION
@@ -27,6 +31,7 @@ void long_range_init(void)
 #else
   pm_init_nonperiodic();
 #endif
+#endif /*PETA_PM*/
 }
 
 
@@ -83,7 +88,12 @@ void long_range_force(void)
 
 
 #ifdef PERIODIC
+#ifdef PETA_PM
+  petapm_force();
+#else
+  do_box_wrapping();	/* map the particles back onto the box */
   pmforce_periodic(0, NULL);
+#endif
 #ifdef DISTORTIONTENSORPS
 /* choose what kind of tidal field calculation you want */
 /* FOURIER based */
@@ -285,7 +295,32 @@ void long_range_force(void)
 	  P[i].GravPM[j] += fac * P[i].Pos[j];
     }
 #endif
+#if 0
+#ifdef PETA_PM
+  char * fnt = "longrange-peta-3.%d";
+#else
+  char * fnt = "longrange-pm.%d";
+#endif
+  char fn[1024];
+  sprintf(fn, fnt, ThisTask);
 
+  FILE * fp = fopen(fn, "w");
+  double * buf = malloc(NumPart * sizeof(double) * 7);
+  for(i = 0; i < NumPart; i ++) {
+      buf[i * 7] = P[i].PM_Potential;
+      int k;
+      for(k = 0; k < 3; k ++) {
+          buf[i * 7 + 1 + k] = P[i].GravPM[k];
+      }
+      for(k = 0; k < 3; k ++) {
+          buf[i * 7 + 4 + k] = P[i].Pos[k];
+      }
+  }
+  fwrite(buf, sizeof(double) * 7, NumPart, fp);
+  fclose(fp);
+  MPI_Barrier(MPI_COMM_WORLD);
+  abort();
+#endif
 }
 
 

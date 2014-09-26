@@ -36,9 +36,6 @@
  */
 static int *toGo, *toGoSph, *toGoBh;
 static int *toGet, *toGetSph, *toGetBh;
-static int *list_NumPart;
-static int *list_N_sph;
-static int *list_N_bh;
 static int *list_load;
 static int *list_loadsph;
 static double *list_work;
@@ -55,7 +52,7 @@ static struct local_topnode_data
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
     int Parent;
-    int PIndex;			/*!< first particle in node */
+    int PIndex;			/*!< first particle in node  used only in top-level tree build (this file)*/
 }
 *topNodes;			/*!< points to the root node of the top-level tree */
 
@@ -74,7 +71,7 @@ static void domain_insertnode(struct local_topnode_data *treeA, struct local_top
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
 
 static int domain_layoutfunc(int n);
-static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p));
+static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p));
 static void domain_exchange_once(int (*layoutfunc)(int p) );
 
 
@@ -88,7 +85,9 @@ static int maxLoad, maxLoadsph;
 
 static double totgravcost, totpartcount, gravcost;
 
-
+static MPI_Datatype MPI_TYPE_PARTICLE = 0;
+static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
+static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
 
 /*! This is the main routine for the domain decomposition.  It acts as a
  *  driver routine that allocates various temporary buffers, maps the
@@ -102,20 +101,17 @@ void domain_Decomposition(void)
     size_t bytes, all_bytes;
     double t0, t1;
 
-#ifdef PMGRID
-    if(All.PM_Ti_endstep == All.Ti_Current)
-    {
-        All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
-        /* to make sure that we do a domain decomposition before the PM-force is evaluated.
-           this is needed to make sure that the particles are wrapped into the box */
+    /* register the mpi types used in communication if not yet. */
+    if (MPI_TYPE_PARTICLE == 0) {
+        MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
+        MPI_Type_contiguous(sizeof(struct bh_particle_data), MPI_BYTE, &MPI_TYPE_BHPARTICLE);
+        MPI_Type_contiguous(sizeof(struct sph_particle_data), MPI_BYTE, &MPI_TYPE_SPHPARTICLE);
+        MPI_Type_commit(&MPI_TYPE_PARTICLE);
+        MPI_Type_commit(&MPI_TYPE_BHPARTICLE);
+        MPI_Type_commit(&MPI_TYPE_SPHPARTICLE);
     }
-#endif
 
-    /* Check whether it is really time for a new domain decomposition */
-    if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPart * All.TreeDomainUpdateFrequency
-            || All.DoDynamicUpdate == 0)
-    {
-        CPU_Step[CPU_MISC] += measure_time();
+        walltime_measure("/Misc");
 
         move_particles(All.Ti_Current);
 
@@ -130,7 +126,6 @@ void domain_Decomposition(void)
         do_box_wrapping();	/* map the particles back onto the box */
 #endif
         All.NumForcesSinceLastDomainDecomp = 0;
-        TreeReconstructFlag = 1;	/* ensures that new tree will be constructed */
 
         if(ThisTask == 0)
         {
@@ -146,12 +141,6 @@ void domain_Decomposition(void)
 
             all_bytes = 0;
 
-            list_NumPart = (int *) mymalloc("list_NumPart", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            list_N_sph = (int *) mymalloc("list_N_sph", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            list_N_bh = (int *) mymalloc("list_N_bh", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
             list_cadj_cpu = (double *) mymalloc("list_cadj_cpu", bytes = (sizeof(double) * NTask));
             all_bytes += bytes;
             list_cadj_cost = (double *) mymalloc("list_cadj_cost", bytes = (sizeof(double) * NTask));
@@ -210,10 +199,6 @@ void domain_Decomposition(void)
             myfree(list_load);
             myfree(list_cadj_cost);
             myfree(list_cadj_cpu);
-            myfree(list_N_bh);
-            myfree(list_N_sph);
-            myfree(list_NumPart);
-
 
             MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
             if(retsum)
@@ -249,15 +234,13 @@ void domain_Decomposition(void)
             fflush(stdout);
         }
 
-        CPU_Step[CPU_DOMAIN] += measure_time();
-
 #ifdef PEANOHILBERT
 #ifdef SUBFIND
         if(GrNr < 0)		/* we don't do it when SUBFIND is executed for a certain group */
 #endif
             peano_hilbert_order();
 
-        CPU_Step[CPU_PEANO] += measure_time();
+        walltime_measure("/Domain/Peano");
 #endif
 
         memmove(TopNodes + NTopnodes, DomainTask, NTopnodes * sizeof(int));
@@ -271,11 +254,8 @@ void domain_Decomposition(void)
 
         DomainTask = (int *) (TopNodes + NTopnodes);
 
-        force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-
         reconstruct_timebins();
-    }
-
+        walltime_measure("/Domain/Misc");
 }
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
@@ -366,6 +346,8 @@ int domain_decompose(void)
     int maxload;
     double sumwork, sumcpu, sumcost, maxwork, cadj_SpeedFac;
 
+
+    walltime_measure("/Domain/Decompose/Misc");
 #ifdef CPUSPEEDADJUSTMENT
     double min_load, sum_speedfac;
 #endif
@@ -374,10 +356,10 @@ int domain_decompose(void)
         NtypeLocal[i] = 0;
 
     gravcost = 0;
-#pragma omp parallel reduction(+: gravcost) private(i)
+#pragma omp parallel private(i)
     {
         int NtypeLocalThread[6] = {0};
-
+        double mygravcost = 0;
 #pragma omp for
         for(i = 0; i < NumPart; i++)
         {
@@ -388,10 +370,12 @@ int domain_decompose(void)
             NtypeLocalThread[P[i].Type]++;
             double costfac = domain_particle_costfactor(i);
 
-            gravcost += costfac;
+            mygravcost += costfac;
         }
 #pragma omp critical 
         {
+/* avoid omp reduction for now: Craycc doesn't always do it right */
+            gravcost += mygravcost;
             for(i = 0; i < 6; i ++) {
                 NtypeLocal[i] += NtypeLocalThread[i];
             }
@@ -460,16 +444,21 @@ int domain_decompose(void)
     /* determine global dimensions of domain grid */
     domain_findExtent();
 
+    walltime_measure("/Domain/Decompose/FindExtent");
+
     if(domain_determineTopTree())
         return 1;
-
-
     /* find the split of the domain grid */
     domain_findSplit_work_balanced(MULTIPLEDOMAINS * NTask, NTopleaves);
+
+    walltime_measure("/Domain/Decompose/findworksplit");
+
     domain_assign_load_or_work_balanced(1);
 
+    walltime_measure("/Domain/Decompose/assignbalance");
 
     status = domain_check_memory_bound();
+    walltime_measure("/Domain/Decompose/memorybound");
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
     {
@@ -478,9 +467,13 @@ int domain_decompose(void)
                 ("Note: the domain decomposition is suboptimum because the ceiling for memory-imbalance is reached\n");
 
         domain_findSplit_load_balanced(MULTIPLEDOMAINS * NTask, NTopleaves);
+
+        walltime_measure("/Domain/Decompose/findloadsplit");
         domain_assign_load_or_work_balanced(0);
+        walltime_measure("/Domain/Decompose/assignbalance");
 
         status = domain_check_memory_bound();
+        walltime_measure("/Domain/Decompose/memorybound");
 
         if(status != 0)
         {
@@ -524,6 +517,7 @@ int domain_decompose(void)
 #endif
     }
 
+    walltime_measure("/Domain/Decompose/Misc");
     domain_exchange(domain_layoutfunc);
     return 0;
 }
@@ -549,7 +543,6 @@ void domain_exchange(int (*layoutfunc)(int p)) {
     int i;
     int64_t sumtogo;
     /* flag the particles that need to be exported */
-
     toGo = (int *) mymalloc("toGo", (sizeof(int) * NTask));
     toGoSph = (int *) mymalloc("toGoSph", (sizeof(int) * NTask));
     toGoBh = (int *) mymalloc("toGoBh", (sizeof(int) * NTask));
@@ -564,11 +557,13 @@ void domain_exchange(int (*layoutfunc)(int p)) {
         int target = layoutfunc(i);
         if(target != ThisTask)
             P[i].OnAnotherDomain = 1;
+        P[i].WillExport = 0;
     }
 
+    walltime_measure("/Domain/exchange/init");
 
     int iter = 0, ret;
-    size_t exchange_limit;
+    ptrdiff_t exchange_limit;
 
     do
     {
@@ -582,6 +577,7 @@ void domain_exchange(int (*layoutfunc)(int p)) {
 
         /* determine for each cpu how many particles have to be shifted to other cpus */
         ret = domain_countToGo(exchange_limit, layoutfunc);
+        walltime_measure("/Domain/exchange/togo");
 
         for(i = 0, sumtogo = 0; i < NTask; i++)
             sumtogo += toGo[i];
@@ -699,14 +695,6 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     struct sph_particle_data *sphBuf;
     struct bh_particle_data *bhBuf;
 
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
-    int n_requests;
-    MPI_Request *requests;
-    requests = (MPI_Request *) mymalloc("requests", 16 * NTask * sizeof(MPI_Request));
-    n_requests = 0;
-#endif
-
-
     count = (int *) mymalloc("count", NTask * sizeof(int));
     count_sph = (int *) mymalloc("count_sph", NTask * sizeof(int));
     count_bh = (int *) mymalloc("count_bh", NTask * sizeof(int));
@@ -798,6 +786,16 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
             n--;
         }
     }
+    walltime_measure("/Domain/exchange/makebuf");
+
+    for(i = 0; i < NTask; i ++) {
+        if(count_sph[i] != toGoSph[i] ) {
+            abort();
+        }
+        if(count_bh[i] != toGoBh[i] ) {
+            abort();
+        }
+    }
 
     if(count_get_sph)
     {
@@ -822,142 +820,41 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     for(i = 1; i < NTask; i++)
         offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
 
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        target = ThisTask ^ ngrp;
+    MPI_Alltoallv_sparse(partBuf, count_sph, offset_sph, MPI_TYPE_PARTICLE,
+                 P, count_recv_sph, offset_recv_sph, MPI_TYPE_PARTICLE,
+                 MPI_COMM_WORLD);
+    walltime_measure("/Domain/exchange/alltoall");
 
-        if(target < NTask)
-        {
-            if(count_recv_sph[target] > 0)
-            {
-                MPI_Irecv(P + offset_recv_sph[target], count_recv_sph[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA_SPH, MPI_COMM_WORLD, &requests[n_requests++]);
+    MPI_Alltoallv_sparse(sphBuf, count_sph, offset_sph, MPI_TYPE_SPHPARTICLE,
+                 SphP, count_recv_sph, offset_recv_sph, MPI_TYPE_SPHPARTICLE,
+                 MPI_COMM_WORLD);
+    walltime_measure("/Domain/exchange/alltoall");
 
-                MPI_Irecv(SphP + offset_recv_sph[target],
-                        count_recv_sph[target] * sizeof(struct sph_particle_data), MPI_BYTE, target,
-                        TAG_SPHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-            }
-            if(count_recv[target] > 0)
-            {
-                MPI_Irecv(P + offset_recv[target], count_recv[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, &requests[n_requests++]);
+    MPI_Alltoallv_sparse(partBuf, count, offset, MPI_TYPE_PARTICLE,
+                 P, count_recv, offset_recv, MPI_TYPE_PARTICLE,
+                 MPI_COMM_WORLD);
+    walltime_measure("/Domain/exchange/alltoall");
 
-            }
-            if(count_recv_bh[target] > 0)
-            {
-                MPI_Irecv(BhP + offset_recv_bh[target],
-                        count_recv_bh[target] * sizeof(struct bh_particle_data), MPI_BYTE, target,
-                        TAG_BHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-                int i;
-                for(i = offset_recv[target], 
-                        j = offset_recv_bh[target]; 
-                        i < offset_recv[target] + count_recv[target]; 
-                        i++) {
-                    if(P[i].Type != 5) continue;
-                    P[i].PI = j;
-                    j++;
-                }
-                if(j != count_recv_bh[target] + offset_recv_bh[target]) {
-                    printf("communitate bh consitency\n");
-                    endrun(99999);
-                }
-            }
+    MPI_Alltoallv_sparse(bhBuf, count_bh, offset_bh, MPI_TYPE_BHPARTICLE,
+                BhP, count_recv_bh, offset_recv_bh, MPI_TYPE_BHPARTICLE,
+                MPI_COMM_WORLD);
+    walltime_measure("/Domain/exchange/alltoall");
+                
+    for(target = 0; target < NTask; target++) {
+        int i, j;
+        for(i = offset_recv[target], 
+                j = offset_recv_bh[target]; 
+                i < offset_recv[target] + count_recv[target]; 
+                i++) {
+            if(P[i].Type != 5) continue;
+            P[i].PI = j;
+            j++;
+        }
+        if(j != count_recv_bh[target] + offset_recv_bh[target]) {
+            printf("communitate bh consitency\n");
+            endrun(99999);
         }
     }
-
-
-    MPI_Barrier(MPI_COMM_WORLD);	/* not really necessary, but this will guarantee that all receives are
-                                       posted before the sends, which helps the stability of MPI on 
-                                       bluegene, and perhaps some mpich1-clusters */
-
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        target = ThisTask ^ ngrp;
-
-        if(target < NTask)
-        {
-            if(count_sph[target] > 0)
-            {
-                MPI_Isend(partBuf + offset_sph[target], count_sph[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA_SPH, MPI_COMM_WORLD, &requests[n_requests++]);
-
-                MPI_Isend(sphBuf + offset_sph[target], count_sph[target] * sizeof(struct sph_particle_data),
-                        MPI_BYTE, target, TAG_SPHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-            }
-
-            if(count[target] > 0)
-            {
-                MPI_Isend(partBuf + offset[target], count[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-
-            }
-            if(count_bh[target] > 0)
-            {
-                MPI_Isend(bhBuf + offset_bh[target], count_bh[target] * sizeof(struct bh_particle_data),
-                        MPI_BYTE, target, TAG_BHDATA, MPI_COMM_WORLD, &requests[n_requests++]);
-            }
-
-        }
-    }
-
-    MPI_Waitall(n_requests, requests, MPI_STATUSES_IGNORE);
-#else
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        target = ThisTask ^ ngrp;
-
-        if(target < NTask)
-        {
-            if(count_sph[target] > 0 || count_recv_sph[target] > 0)
-            {
-                MPI_Sendrecv(partBuf + offset_sph[target], count_sph[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA_SPH,
-                        P + offset_recv_sph[target], count_recv_sph[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA_SPH, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-                MPI_Sendrecv(sphBuf + offset_sph[target], count_sph[target] * sizeof(struct sph_particle_data),
-                        MPI_BYTE, target, TAG_SPHDATA,
-                        SphP + offset_recv_sph[target],
-                        count_recv_sph[target] * sizeof(struct sph_particle_data), MPI_BYTE, target,
-                        TAG_SPHDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-            }
-
-            if(count[target] > 0 || count_recv[target] > 0)
-            {
-                MPI_Sendrecv(partBuf + offset[target], count[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA,
-                        P + offset_recv[target], count_recv[target] * sizeof(struct particle_data),
-                        MPI_BYTE, target, TAG_PDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
-            }
-
-            if(count_bh[target] > 0 || count_recv_bh[target] > 0)
-            {
-                MPI_Sendrecv(bhBuf + offset_bh[target], count_bh[target] * sizeof(struct bh_particle_data),
-                        MPI_BYTE, target, TAG_BHDATA,
-                        BhP + offset_recv_bh[target],
-                        count_recv_bh[target] * sizeof(struct bh_particle_data), MPI_BYTE, target,
-                        TAG_BHDATA, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                int i, j;
-                for(i = offset_recv[target], 
-                        j = offset_recv_bh[target]; 
-                        i < offset_recv[target] + count_recv[target]; 
-                        i++) {
-                    if(P[i].Type != 5) continue;
-                    P[i].PI = j;
-                    j++;
-                }
-                if(j != count_recv_bh[target] + offset_recv_bh[target]) {
-                    printf("communitate bh consitency\n");
-                    endrun(99999);
-                }
-
-            }
-        }
-    }
-#endif
 
     NumPart += count_get;
     N_sph += count_get_sph;
@@ -989,9 +886,6 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     myfree(count_bh);
     myfree(count_sph);
     myfree(count);
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
-    myfree(requests);
-#endif
 
     if(ThisTask == 0) {
         fprintf(stderr, "checking ID consistency after exchange\n");
@@ -999,19 +893,35 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     MPI_Barrier(MPI_COMM_WORLD);
 
     domain_garbage_collection_bh();
+    walltime_measure("/Domain/exchange/finalize");
+}
+static int bh_cmp_reverse_link(struct bh_particle_data * b1, struct bh_particle_data * b2) {
+    if(b1->ReverseLink == -1 && b2->ReverseLink == -1) {
+        return 0;
+    }
+    if(b1->ReverseLink == -1) return 1;
+    if(b2->ReverseLink == -1) return -1;
+    return (b1->ReverseLink > b2->ReverseLink) - (b1->ReverseLink < b2->ReverseLink);
+
 }
 
 void domain_garbage_collection_bh() {
+
     /* gc the bh */
-    int * bhreverselink = mymalloc("bhreverselink", sizeof(int) * N_bh);
     int i, j;
-    for(i = 0; i < N_bh; i++) {
-        bhreverselink[i] = -1;
+    int total = 0;
+
+    /* no need to gc if there is no bh to begin with*/
+    if (N_bh == 0) goto ex_nobh;
+
+#pragma omp parallel for
+    for(i = 0; i < All.MaxPartBh; i++) {
+        BhP[i].ReverseLink = -1;
     }
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type != 5) continue;
-        bhreverselink[P[i].PI] = i;
+        BhP[P[i].PI].ReverseLink = i;
         if(P[i].PI >= N_bh) {
             printf("bh PI consistency failed1\n");
             endrun(99999); 
@@ -1021,23 +931,27 @@ void domain_garbage_collection_bh() {
             endrun(99999); 
         }
     }
-    i = 0; 
-    j = N_bh - 1;
-    while(1) {
-        while(i < N_bh && bhreverselink[i] != -1) i++;
-        while(j >=0 && bhreverselink[j] == -1) j--;
-        if(i >= j) break;
-        /* i points to the first empty slot
-         * j points to the last used slot */
-        BhP[i] = BhP[j];
-        P[bhreverselink[j]].PI = i;
-        bhreverselink[i] = bhreverselink[j];
-        bhreverselink[j] = -1;
+
+    /* put unused guys to the end, and sort the used ones
+     * by their location in the P array */
+    qsort(BhP, N_bh, sizeof(BhP[0]), bh_cmp_reverse_link);
+
+    while(N_bh > 0 && BhP[N_bh - 1].ReverseLink == -1) {
+        N_bh --;
     }
 
-    N_bh = j + 1;
+    /* Now update the link in BhP */
+    for(i = 0; i < N_bh; i ++) {
+        P[BhP[i].ReverseLink].PI = i;
+    }
+
+    /* Now invalidate ReverseLink */
+    for(i = 0; i < N_bh; i ++) {
+        BhP[i].ReverseLink = -1;
+    }
+
     j = 0;
-#pragma omp parallel for reduction(+: j)
+#pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type != 5) continue;
         if(P[i].PI >= N_bh) {
@@ -1048,14 +962,15 @@ void domain_garbage_collection_bh() {
             printf("bh id consistency failed2\n");
             endrun(99999); 
         }
+#pragma omp atomic
         j ++;
     }
     if(j != N_bh) {
             printf("bh count failed2, j=%d, N_bh=%d\n", j, N_bh);
             endrun(99999); 
     }
-    myfree(bhreverselink);
-    int total = 0;
+
+ex_nobh:
     MPI_Reduce(&N_bh, &total, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     if(ThisTask == 0 && total != All.TotN_bh) {
         printf("total bh count failed2, total=%d, TotN_bh=%ld\n", total, All.TotN_bh);
@@ -1288,10 +1203,18 @@ static int domain_layoutfunc(int n) {
     return DomainTask[no];
 }
 
-static int domain_countToGo(size_t nlimit, int (*layoutfunc)(int p))
+static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
 {
     int n, ret, retsum;
     size_t package;
+
+    int *list_NumPart;
+    int *list_N_sph;
+    int *list_N_bh;
+
+    list_NumPart = (int *) alloca(sizeof(int) * NTask);
+    list_N_sph = (int *) alloca(sizeof(int) * NTask);
+    list_N_bh = (int *) alloca(sizeof(int) * NTask);
 
     for(n = 0; n < NTask; n++)
     {
@@ -1696,6 +1619,96 @@ int domain_check_for_local_refine(int i, double countlimit, double costlimit)
     return 0;
 }
 
+int domain_nonrecursively_combine_topTree() {
+    /* 
+     * combine topTree non recursively, this uses MPI_Bcast within a group.
+     * it shall be quite a bit faster (~ x2) than the old recursive scheme.
+     *
+     * it takes less time at higher sep.
+     *
+     * The communicate should have been done with MPI Inter communicator.
+     * but I couldn't figure out how to do it that way.
+     * */
+    int sep = 1;
+    MPI_Datatype MPI_TYPE_TOPNODE;
+    MPI_Type_contiguous(sizeof(struct local_topnode_data), MPI_BYTE, &MPI_TYPE_TOPNODE);
+    MPI_Type_commit(&MPI_TYPE_TOPNODE);
+    int errorflag = 0;
+    int errorflagall;
+
+    for(sep = 1; sep < NTask; sep *=2) {
+        /* build the subcommunicators for broadcasting */
+        int Color = ThisTask / sep;
+        int Key = ThisTask % sep;
+        int ntopnodes_import = 0;
+        struct local_topnode_data * topNodes_import = NULL;
+
+        int recvTask = -1; /* by default do not communicate */
+
+        if(Key != 0) {
+            /* non leaders will skip exchanges */
+            goto loop_continue;
+        }
+
+        /* leaders of even color will combine nodes from next odd color,
+         * so that when sep is increased eventually rank 0 will have all
+         * nodes */
+        if(Color % 2 == 0) {
+            /* even guys recv */
+            recvTask = ThisTask + sep;
+            if(recvTask < NTask) {
+                MPI_Recv(
+                        &ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A,
+                        MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                topNodes_import = (struct local_topnode_data *) mymalloc("topNodes_import",
+                            IMAX(ntopnodes_import, NTopnodes) * sizeof(struct local_topnode_data));
+
+                MPI_Recv(
+                        topNodes_import,
+                        ntopnodes_import, MPI_TYPE_TOPNODE, 
+                        recvTask, TAG_GRAV_B, 
+                        MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+
+
+                if((NTopnodes + ntopnodes_import) > MaxTopNodes) {
+                    errorflag = 1;
+                } else {
+                    if(ntopnodes_import < 0) {
+                        fprintf(stderr, "severe domain error using a unintended rank \n");
+                        abort();
+                    }
+                    if(ntopnodes_import > 0 ) {
+                        domain_insertnode(topNodes, topNodes_import, 0, 0);
+                    } 
+                }
+                myfree(topNodes_import);
+            }
+        } else {
+            /* odd guys send */
+            recvTask = ThisTask - sep;
+            if(recvTask >= 0) {
+                MPI_Send(&NTopnodes, 1, MPI_INT, recvTask, TAG_GRAV_A,
+                        MPI_COMM_WORLD);
+                MPI_Send(topNodes,
+                        NTopnodes, MPI_TYPE_TOPNODE,
+                        recvTask, TAG_GRAV_B,
+                        MPI_COMM_WORLD);
+            }
+            NTopnodes = -1;
+        }
+
+loop_continue:
+        MPI_Allreduce(&errorflag, &errorflagall, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+        if(errorflagall) {
+            break;
+        }
+    }
+
+    MPI_Bcast(&NTopnodes, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(topNodes, NTopnodes, MPI_TYPE_TOPNODE, 0, MPI_COMM_WORLD);
+    MPI_Type_free(&MPI_TYPE_TOPNODE);
+    return errorflagall;
+}
 
 int domain_recursively_combine_topTree(int start, int ncpu)
 {
@@ -1837,7 +1850,6 @@ int domain_recursively_combine_topTree(int start, int ncpu)
     return errflag;
 }
 
-
 #ifdef ALT_QSORT
 #define KEY_TYPE struct peano_hilbert_data
 #define KEY_BASE_TYPE peanokey
@@ -1867,35 +1879,45 @@ int domain_determineTopTree(void)
 
     mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
 
-    for(i = 0, count = 0; i < NumPart; i++)
+    count = 0;
+#pragma omp parallel for
+    for(i = 0; i < NumPart; i++)
     {
 #ifdef SUBFIND
-        if(GrNr >= 0 && P[i].GrNr != GrNr)
+        if(GrNr >= 0 && P[i].GrNr != GrNr) {
+            mp[i].key = (peanokey) -1; /* unsigned, thus will be sorted to the end */
             continue;
+        }
 #endif
-
-        mp[count].key = KEY(i);
+#pragma omp atomic
+        count ++;
+        mp[i].key = KEY(i);
 #ifdef SUBFIND_ALTERNATIVE_COLLECTIVE
         P[i].Key = KEY(i);
 #endif
-        mp[count].index = i;
-        count++;
+        mp[i].index = i;
     }
+
 
 #ifdef SUBFIND
     if(GrNr >= 0 && count != NumPartGroup)
         endrun(1222);
 #endif
 
+
+
+    walltime_measure("/Domain/DetermineTopTree/Misc");
 #ifdef MYSORT
-    mysort_domain(mp, count, sizeof(struct peano_hilbert_data));
+    mysort_domain(mp, NumPart, sizeof(struct peano_hilbert_data));
 #else
 #ifndef POWER6
-    qsort(mp, count, sizeof(struct peano_hilbert_data), domain_compare_key);
+    qsort(mp, NumPart, sizeof(struct peano_hilbert_data), domain_compare_key);
 #else
-    qsort_domain(mp, count);
+    qsort_domain(mp, NumPart);
 #endif
 #endif
+    
+    walltime_measure("/Domain/DetermineTopTree/Sort");
 
     NTopnodes = 1;
     topNodes[0].Daughter = -1;
@@ -1910,6 +1932,7 @@ int domain_determineTopTree(void)
     countlimit = totpartcount / (TOPNODEFACTOR * MULTIPLEDOMAINS * NTask);
 
     errflag = domain_check_for_local_refine(0, countlimit, costlimit);
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     myfree(mp);
 
@@ -1988,9 +2011,26 @@ int domain_determineTopTree(void)
     }
     else
     {
-        errflag = domain_recursively_combine_topTree(0, NTask);
+        errflag = domain_nonrecursively_combine_topTree();
+//        errflag = domain_recursively_combine_topTree(0, NTask); 
     }
 
+    walltime_measure("/Domain/DetermineTopTree/Combine");
+#if 0
+    char buf[1000];
+    sprintf(buf, "topnodes.bin.%d", ThisTask);
+    FILE * fd = fopen(buf, "w");
+
+    /* these PIndex are non-essential in other modules, so we reset them */
+    for(i = 0; i < NTopnodes; i ++) {
+        topNodes[i].PIndex = -1;
+    }
+    fwrite(topNodes, sizeof(struct local_topnode_data), NTopnodes, fd);
+    fclose(fd);
+
+    //MPI_Barrier(MPI_COMM_WORLD);
+    //MPI_Abort(MPI_COMM_WORLD, 0);
+#endif
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(errsum)
@@ -2045,8 +2085,10 @@ int domain_determineTopTree(void)
     if(ThisTask == 0)
         printf("After=%d\n", NTopnodes);
 #endif
+    walltime_measure("/Domain/DetermineTopTree/Addnodes");
     /* count toplevel leaves */
     domain_sumCost();
+    walltime_measure("/Domain/DetermineTopTree/Sumcost");
 
     if(NTopleaves < MULTIPLEDOMAINS * NTask)
         endrun(112);
@@ -2063,44 +2105,65 @@ void domain_sumCost(void)
     int *local_domainCount;
     int *local_domainCountSph;
 
-    local_domainWork = (float *) mymalloc("local_domainWork", NTopnodes * sizeof(float));
-    local_domainCount = (int *) mymalloc("local_domainCount", NTopnodes * sizeof(int));
-    local_domainCountSph = (int *) mymalloc("local_domainCountSph", NTopnodes * sizeof(int));
+    local_domainWork = (float *) mymalloc("local_domainWork", All.NumThreads * NTopnodes * sizeof(float));
+    local_domainCount = (int *) mymalloc("local_domainCount", All.NumThreads * NTopnodes * sizeof(int));
+    local_domainCountSph = (int *) mymalloc("local_domainCountSph", All.NumThreads * NTopnodes * sizeof(int));
 
     NTopleaves = 0;
     domain_walktoptree(0);
 
-    for(i = 0; i < NTopleaves; i++)
-    {
-        local_domainWork[i] = 0;
-        local_domainCount[i] = 0;
-        local_domainCountSph[i] = 0;
-    }
-
     if(ThisTask == 0)
         printf("NTopleaves= %d  NTopnodes=%d (space for %d)\n", NTopleaves, NTopnodes, MaxTopNodes);
 
-// need to convert to #omp parallel
-    for(n = 0; n < NumPart; n++)
+#pragma omp parallel private(n, i)
     {
+        int tid = omp_get_thread_num();
+
+        float * mylocal_domainWork = local_domainWork + tid * NTopleaves;
+        int * mylocal_domainCount = local_domainCount + tid * NTopleaves;
+        int * mylocal_domainCountSph = local_domainCountSph + tid * NTopleaves;
+
+        for(i = 0; i < NTopleaves; i++)
+        {
+            mylocal_domainWork[i] = 0;
+            mylocal_domainCount[i] = 0;
+            mylocal_domainCountSph[i] = 0;
+        }
+
+
+#pragma omp for
+        for(n = 0; n < NumPart; n++)
+        {
 #ifdef SUBFIND
-        if(GrNr >= 0 && P[n].GrNr != GrNr)
-            continue;
+            if(GrNr >= 0 && P[n].GrNr != GrNr)
+                continue;
 #endif
 
-        int no = 0;
-        peanokey key = KEY(n);
-        while(topNodes[no].Daughter >= 0)
-            no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
+            int no = 0;
+            peanokey key = KEY(n);
+            while(topNodes[no].Daughter >= 0)
+                no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
 
-        no = topNodes[no].Leaf;
+            no = topNodes[no].Leaf;
 
-        local_domainWork[no] += (float) domain_particle_costfactor(n);
+            mylocal_domainWork[no] += (float) domain_particle_costfactor(n);
 
-        local_domainCount[no] += 1;
+            mylocal_domainCount[no] += 1;
 
-        if(P[n].Type == 0) {
-            local_domainCountSph[no] += 1;
+            if(P[n].Type == 0) {
+                mylocal_domainCountSph[no] += 1;
+            }
+        }
+    }
+
+#pragma omp parallel for
+    for(i = 0; i < NTopleaves; i++)
+    {
+        int tid;
+        for(tid = 1; tid < All.NumThreads; tid++) {
+            local_domainWork[i] += local_domainWork[i + tid * NTopleaves];
+            local_domainCount[i] += local_domainCount[i + tid * NTopleaves];
+            local_domainCountSph[i] += local_domainCountSph[i + tid * NTopleaves];
         }
     }
 
@@ -2128,9 +2191,10 @@ void domain_findExtent(void)
         xmax[j] = -MAX_REAL_NUMBER;
     }
 
-#pragma omp parallel private(j)
+#pragma omp parallel private(i)
     {
         double xminT[3], xmaxT[3];
+        int j;
         for(j = 0; j < 3; j++)
         {
             xminT[j] = MAX_REAL_NUMBER;
@@ -2145,6 +2209,7 @@ void domain_findExtent(void)
                 continue;
 #endif
 
+            int j;
             for(j = 0; j < 3; j++)
             {
                 if(xminT[j] > P[i].Pos[j])

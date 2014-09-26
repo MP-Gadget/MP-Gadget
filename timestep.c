@@ -79,7 +79,7 @@ void advance_and_find_timesteps(void)
     int64_t ntot;
 #endif
 
-    CPU_Step[CPU_MISC] += measure_time();
+    walltime_measure("/Misc");
 
     if(All.ComovingIntegrationOn)
     {
@@ -332,7 +332,7 @@ void advance_and_find_timesteps(void)
             printf("bad timestep spotted terminating and saving snapshot as %d\n", All.SnapshotFileCount);
         DumpFlag = 1;
         All.NumCurrentTiStep = 0;
-        savepositions(999999);
+        savepositions(999999, 0);
         MPI_Barrier(MPI_COMM_WORLD);
         endrun(1231134);
     }
@@ -670,7 +670,7 @@ dt_gravkickB = (All.Ti_Current - (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2) * 
         printf("%d%09d particles woken up.\n", (int) (ntot / 1000000000), (int) (ntot % 1000000000));
 #endif
 
-    CPU_Step[CPU_TIMELINE] += measure_time();
+    walltime_measure("/Timeline");
 }
 
 

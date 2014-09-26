@@ -44,7 +44,7 @@ void snIa_heating(void)
       fflush(stdout);
     }
 
-  CPU_Step[CPU_MISC] += measure_time();
+  CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
   if(All.ComovingIntegrationOn)
     {
@@ -179,7 +179,7 @@ void snIa_heating(void)
   myfree(Ngblist);
 
 
-  CPU_Step[CPU_COOLINGSFR] += measure_time();
+  CPU_Step[CPU_COOLINGSFR] += walltime_measure(WALL_COOLINGSFR);
 }
 
 

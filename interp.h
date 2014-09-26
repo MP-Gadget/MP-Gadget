@@ -25,6 +25,7 @@ ptrdiff_t interp_index(Interp * obj, int * xi);
  * will be -1 if below lower bound
  *         +1 if above upper bound  */
 double interp_eval(Interp * obj, double * x, double * ydata, int * status);
+double interp_eval_periodic(Interp * obj, double * x, double * ydata);
 
 void interp_destroy(Interp * obj);
 

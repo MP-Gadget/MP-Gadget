@@ -44,7 +44,7 @@ void read_ic(char *fname)
     int start, end;
     char buf[500];
 
-    CPU_Step[CPU_MISC] += measure_time();
+    walltime_measure("/Misc");
 
 #ifdef RESCALEVINI
     if(ThisTask == 0 && RestartFlag == 0)
@@ -70,9 +70,9 @@ void read_ic(char *fname)
 #endif
 
     for(start = 0; start < num_files; 
-        start += All.NumFilesWrittenInParallel) {
+        start += All.NumWritersPerSnapshot) {
 
-        end = start + All.NumFilesWrittenInParallel;
+        end = start + All.NumWritersPerSnapshot;
         if(end > num_files) end = num_files;
 
         read_files(fname, start, end, num_files);
@@ -174,7 +174,7 @@ void read_ic(char *fname)
         fflush(stdout);
     }
 
-    CPU_Step[CPU_SNAPSHOT] += measure_time();
+    walltime_measure("/Snapshot/Read");
 }
 
 static void format_filename(char * buf, char * basename, int fid, int num_files) {

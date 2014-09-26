@@ -51,6 +51,28 @@ static double fac_intp;
 #endif
 
 
+void force_treebuild_simple() {
+    /* construct tree if needed */
+    /* the tree is used in grav dens, hydro, bh and sfr */
+    force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
+
+    if(ThisTask == 0)
+        printf("Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+
+    walltime_measure("/Misc");
+
+#if defined(SFR) || defined(BLACK_HOLES)
+    rearrange_particle_sequence();
+#endif
+
+    force_treebuild(NumPart, NULL);
+
+    walltime_measure("/Tree/Build");
+
+    if(ThisTask == 0)
+        printf("Tree construction done.\n");
+
+}
 
 /*! This function is a driver routine for constructing the gravitational
  *  oct-tree, which is done by calling a small number of other functions.
@@ -1965,6 +1987,7 @@ void force_update_hmax(void)
     int *counts, *offset_list, *offset_hmax;
     MyFloat *domainHmax_loc, *domainHmax_all;
 
+    walltime_measure("/Misc");
     GlobFlag++;
 
     DomainNumChanged = 0;
@@ -2082,7 +2105,7 @@ void force_update_hmax(void)
     myfree(counts);
     myfree(DomainList);
 
-    CPU_Step[CPU_TREEHMAXUPDATE] += measure_time();
+    walltime_measure("/Tree/HmaxUpdate");
 }
 
 

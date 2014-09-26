@@ -35,7 +35,7 @@ void reconstruct_timebins(void)
 
     for(i = 0; i < NumPart; i++)
     {
-        bin = P[i].TimeBin;
+        int bin = P[i].TimeBin;
 
         if(TimeBinCount[bin] > 0)
         {
@@ -634,10 +634,13 @@ static void real_drift_particle(int i, int time1)
 void move_particles(int time1)
 {
     int i;
+    walltime_measure("/Misc");
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
         real_drift_particle(i, time1);
+
+    walltime_measure("/Drift");
 }
 
 
@@ -650,9 +653,10 @@ void move_particles(int time1)
 #ifdef PERIODIC
 void do_box_wrapping(void)
 {
-    int i, j;
+    int i;
     double boxsize[3];
 
+    int j;
     for(j = 0; j < 3; j++)
         boxsize[j] = All.BoxSize;
 
@@ -666,15 +670,18 @@ void do_box_wrapping(void)
     boxsize[2] *= LONG_Z;
 #endif
 
-    for(i = 0; i < NumPart; i++)
-        for(j = 0; j < 3; j++)
+#pragma omp parallel for
+    for(i = 0; i < NumPart; i++) {
+        int k;
+        for(k = 0; k < 3; k++)
         {
-            while(P[i].Pos[j] < 0)
-                P[i].Pos[j] += boxsize[j];
+            while(P[i].Pos[k] < 0)
+                P[i].Pos[k] += boxsize[k];
 
-            while(P[i].Pos[j] >= boxsize[j])
-                P[i].Pos[j] -= boxsize[j];
+            while(P[i].Pos[k] >= boxsize[k])
+                P[i].Pos[k] -= boxsize[k];
         }
+    }
 }
 #endif
 

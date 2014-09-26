@@ -151,7 +151,7 @@ void density(void)
     MyFloat *Left, *Right;
 
     Evaluator ev = {0};
-
+   
     ev.ev_evaluate = (ev_evaluate_func) density_evaluate;
     ev.ev_isactive = density_isactive;
     ev.ev_alloc = density_alloc_ngblist;
@@ -168,7 +168,7 @@ void density(void)
     double timeall = 0;
     double timecomp, timecomp3 = 0, timecomm, timewait;
 
-    double dt_entr, tstart, tend, t0, t1;
+    double dt_entr, tstart, tend;
 
     int64_t n_exported = 0;
 
@@ -204,31 +204,45 @@ void density(void)
         mu0 /= (All.HubbleParam * All.HubbleParam);
 #endif
 #endif
-    CPU_Step[CPU_DENSMISC] += measure_time();
+    walltime_measure("/Misc");
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
     Left = (MyFloat *) mymalloc("Left", NumPart * sizeof(MyFloat));
     Right = (MyFloat *) mymalloc("Right", NumPart * sizeof(MyFloat));
 
+    int Nactive;
+    int * queue;
+
+    /* this has to be done before get_queue so that 
+     * all particles are return for the first loop over all active particles.
+     * */
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
-        Left[i] = 0;
-        Right[i] = 0;
         P[i].DensityIterationDone = 0;
-
+    }
+    
+    /* the queue has every particle. Later on after some iterations are done
+     * Nactive will decrease -- the queue would be shorter.*/
+    queue = evaluate_get_queue(&ev, &Nactive);
+#pragma omp parallel for if(Nactive > 32)
+    for(i = 0; i < Nactive; i ++) {
+        int p = queue[i];
+        Left[p] = 0;
+        Right[p] = 0;
 #ifdef BLACK_HOLES
-        P[i].SwallowID = 0;
+        P[p].SwallowID = 0;
 #endif
 #if defined(BLACK_HOLES) && defined(FLTROUNDOFFREDUCTION)
-        if(P[i].Type == 0)
-            SPHP(i).i.dInjected_BH_Energy = SPHP(i).i.Injected_BH_Energy;
+        if(P[p].Type == 0)
+            SPHP(p).i.dInjected_BH_Energy = SPHP(p).i.Injected_BH_Energy;
 #endif
     }
+    myfree(queue);
 
     /* allocate buffers to arrange communication */
 
-    t0 = second();
+    walltime_measure("/SPH/Density/Init");
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do
@@ -281,11 +295,11 @@ void density(void)
 
         /* do final operations on results */
         tstart = second();
-        int Nactive;
-        int * queue = evaluate_get_queue(&ev, &Nactive);
+
+        queue = evaluate_get_queue(&ev, &Nactive);
         
         npleft = 0;
-#pragma omp parallel for if(Nactive > 32) reduction(+: npleft)
+#pragma omp parallel for if(Nactive > 32)
         for(i = 0; i < Nactive; i++) {
             int p = queue[i];
             density_post_process(p);
@@ -300,7 +314,10 @@ void density(void)
                 fflush(stdout);
             }
 
-            if(!P[p].DensityIterationDone) npleft ++;
+            if(!P[p].DensityIterationDone) {
+#pragma omp atomic
+                npleft ++;
+            }
         }
 
         myfree(queue);
@@ -353,17 +370,16 @@ void density(void)
 
     /* collect some timing information */
 
-    t1 = WallclockTime = second();
-    timeall += timediff(t0, t1);
+    timeall = walltime_measure(WALLTIME_IGNORE);
 
     timecomp = timecomp3 + ev.timecomp1 + ev.timecomp2;
     timewait = ev.timewait1 + ev.timewait2;
     timecomm = ev.timecommsumm1 + ev.timecommsumm2;
 
-    CPU_Step[CPU_DENSCOMPUTE] += timecomp;
-    CPU_Step[CPU_DENSWAIT] += timewait;
-    CPU_Step[CPU_DENSCOMM] += timecomm;
-    CPU_Step[CPU_DENSMISC] += timeall - (timecomp + timewait + timecomm);
+    walltime_add("/SPH/Density/Compute", timecomp);
+    walltime_add("/SPH/Density/Wait", timewait);
+    walltime_add("/SPH/Density/Comm", timecomm);
+    walltime_add("/SPH/Density/Misc", timeall - (timecomp + timewait + timecomm));
 }
 
 double density_decide_hsearch(int targettype, double h) {
@@ -845,14 +861,16 @@ static int density_evaluate(int target, int mode,
                         double nh0 = 0;
                         double nHeII = 0;
                         double ne = SPHP(j).Ne;
+                        struct UVBG uvbg;
+                        GetParticleUVBG(j, &uvbg);
 #pragma omp critical (_abundance_)
                         AbundanceRatios(DMAX(All.MinEgySpec,
                                     SPHP(j).Entropy / GAMMA_MINUS1 
                                     * pow(SPHP(j).EOMDensity * a3inv,
                                         GAMMA_MINUS1)),
-                                SPHP(j).d.Density * a3inv, &ne, &nh0, &nHeII);
+                                SPHP(j).d.Density * a3inv, &uvbg, &ne, &nh0, &nHeII);
 #else
-                        double nh0 = 0;
+                        double nh0 = 1.0;
 #endif
                         if(r2 > 0)
                             O->FeedbackWeightSum += FLT(P[j].Mass * nh0) / r2;

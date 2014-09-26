@@ -55,8 +55,6 @@ int Color;
 MPI_Comm MPI_CommLocal;
 #endif
 
-double CPUThisRun;		/*!< Sums CPU time of current process */
-
 int NumForceUpdate;		/*!< number of active particles on local processor in current timestep  */
 int64_t GlobNumForceUpdate;
 int NumSphUpdate;		/*!< number of active SPH particles on local processor in current timestep  */
@@ -107,23 +105,11 @@ size_t AllocatedBytes;
 size_t HighMarkBytes;
 size_t FreeBytes;
 
-double CPU_Step[CPU_PARTS];
-char CPU_Symbol[CPU_PARTS] =
-  { '-', '*', '=', ';', '<', '[', '^', ':', '.', '~', '|', '+', '"', '/', '`', ',', '>', '@', '#', '&', '$',
-  ']', '(', '?', ')', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '\\', '\%', '{', '}'
-};
-char CPU_SymbolImbalance[CPU_PARTS] =
-  { 'a', 't', 'u', 'v', 'b', 'w', 'd', 'r', 'h', 'm', 'n', 'l', 'o', 'p', 's', 'f', 'i', 'g', 'c', 'e', 'x',
-  'y', 'z', 'A', 'I', 'W', 'T', 'V', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L'
-};
 char CPU_String[CPU_STRING_LEN + 1];
-
-double WallclockTime;		/*!< This holds the last wallclock time measurement for timings measurements */
 
 int Flag_FullStep;		/*!< Flag used to signal that the current step involves all particles */
 
 
-int TreeReconstructFlag;
 int GlobFlag;
 
 

@@ -194,17 +194,6 @@ double second(void)
    */
 }
 
-double measure_time(void)	/* strategy: call this at end of functions to account for time in this function, and before another (nontrivial) function is called */
-{
-  double t, dt;
-
-  t = second();
-  dt = t - WallclockTime;
-  WallclockTime = t;
-
-  return dt;
-}
-
 /* returns the time difference between two measurements 
  * obtained with second(). The routine takes care of the 
  * possible overflow of the tick counter on 32bit systems.
@@ -288,6 +277,28 @@ void sumup_longs(int n, int64_t *src, int64_t *res)
   myfree(numlist);
 }
 
+int64_t count_to_offset(int64_t countLocal) {
+    int64_t offsetLocal;
+    int64_t count[NTask];
+    int64_t offset[NTask];
+    MPI_Gather(&countLocal, 1, MPI_LONG, &count[0], 1, MPI_LONG, 0, MPI_COMM_WORLD);
+    if(ThisTask == 0) {
+        offset[0] = 0;
+        int i;
+        for(i = 1; i < NTask; i ++) {
+            offset[i] = offset[i-1] + count[i-1];
+        }
+    }
+    MPI_Scatter(&offset[0], 1, MPI_LONG, &offsetLocal, 1, MPI_LONG, 0, MPI_COMM_WORLD);
+    return offsetLocal;
+}
+
+int64_t count_sum(int64_t countLocal) {
+    int64_t sum = 0;
+    MPI_Allreduce(&countLocal, &sum, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+    return sum;
+}
+
 size_t sizemax(size_t a, size_t b)
 {
   if(a < b)
@@ -326,3 +337,80 @@ void report_VmRSS(void)
       fclose(fd);
     }
 }
+
+int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) {
+
+    int ThisTask;
+    int NTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    MPI_Comm_size(comm, &NTask);
+    int PTask;
+    int ngrp;
+
+    for(PTask = 0; NTask > (1 << PTask); PTask++);
+
+    ptrdiff_t lb;
+    ptrdiff_t send_elsize;
+    ptrdiff_t recv_elsize;
+
+    MPI_Type_get_extent(sendtype, &lb, &send_elsize);
+    MPI_Type_get_extent(recvtype, &lb, &recv_elsize);
+
+#ifndef NO_ISEND_IRECV_IN_DOMAIN
+    int n_requests;
+    MPI_Request requests[NTask * 2];
+    n_requests = 0;
+
+
+    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
+    {
+        int target = ThisTask ^ ngrp;
+
+        if(target >= NTask) continue;
+        if(recvcnts[target] == 0) continue;
+        MPI_Irecv(
+                ((char*) recvbuf) + recv_elsize * rdispls[target], 
+                recvcnts[target],
+                recvtype, target, 101934, comm, &requests[n_requests++]);
+    }
+
+    MPI_Barrier(comm);	/* not really necessary, but this will guarantee that all receives are
+                                       posted before the sends, which helps the stability of MPI on 
+                                       bluegene, and perhaps some mpich1-clusters */
+
+    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
+    {
+        int target = ThisTask ^ ngrp;
+        if(target >= NTask) continue;
+        if(sendcnts[target] == 0) continue;
+        MPI_Isend(((char*) sendbuf) + send_elsize * sdispls[target], 
+                sendcnts[target],
+                sendtype, target, 101934, comm, &requests[n_requests++]);
+    }
+
+    MPI_Waitall(n_requests, requests, MPI_STATUSES_IGNORE);
+
+#else
+    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
+    {
+        int target = ThisTask ^ ngrp;
+
+        if(target >= NTask) continue;
+        if(sendcnts[target] == 0 && recvcnts[target] == 0) continue;
+        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target], 
+                sendcnts[target], sendtype, 
+                target, 101934,
+                ((char*)recvbuf) + recv_elsize * rdispls[target],
+                recvcnts[target], recvtype, 
+                target, 101934, 
+                comm, MPI_STATUS_IGNORE);
+
+    }
+#endif
+    /* ensure the collective-ness */
+    MPI_Barrier(comm);
+
+    return 0;
+} 

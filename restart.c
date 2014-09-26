@@ -57,16 +57,16 @@ void restart(int modus)
     sprintf(buf, "%s/restartfiles/%s.%d", All.OutputDir, All.RestartFile, ThisTask);
     sprintf(buf_bak, "%s/restartfiles/%s.%d.bak", All.OutputDir, All.RestartFile, ThisTask);
 
-    if((NTask < All.NumFilesWrittenInParallel))
+    if((NTask < All.NumWritersPerSnapshot))
     {
         printf
             ("Fatal error.\nNumber of processors must be a smaller or equal than `NumFilesWrittenInParallel'.\n");
         endrun(2131);
     }
 
-    nprocgroup = NTask / All.NumFilesWrittenInParallel;
+    nprocgroup = NTask / All.NumWritersPerSnapshot;
 
-    if((NTask % All.NumFilesWrittenInParallel))
+    if((NTask % All.NumWritersPerSnapshot))
     {
         nprocgroup++;
     }

@@ -61,7 +61,7 @@ void do_sinks(void)
 
   /* Sink Preparation */
 
-  CPU_Step[CPU_MISC] += measure_time();
+  CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
   if(ThisTask == 0)
     {
@@ -723,8 +723,8 @@ void do_sinks(void)
 
   if(num_update_glob)
     {
-      All.DoDynamicUpdate = 0;
       domain_Decomposition();
+      force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
       force_treebuild(NumPart, NULL);
     }
@@ -735,6 +735,6 @@ void do_sinks(void)
       fflush(stdout);
     }
 
-  CPU_Step[CPU_BLACKHOLES] += measure_time();
+  CPU_Step[CPU_BLACKHOLES] += walltime_measure(WALL_BLACKHOLES);
 }
 #endif

@@ -39,6 +39,8 @@ typedef struct _Evaluator {
     char * dataresult;
 
     int UseNodeList;
+    int UseAllParticles; /* if 1 use all particles 
+                             if 0 use active particles */
     size_t ev_datain_elsize;
     size_t ev_dataout_elsize;
     

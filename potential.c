@@ -40,30 +40,7 @@ void compute_potential(void)
       fflush(stdout);
     }
 
-  CPU_Step[CPU_MISC] += measure_time();
-
-
-  if(TreeReconstructFlag)
-    {
-      if(ThisTask == 0)
-	printf("Tree construction.\n");
-
-      CPU_Step[CPU_MISC] += measure_time();
-
-#if defined(SFR) || defined(BLACK_HOLES)
-      rearrange_particle_sequence();
-#endif
-
-      force_treebuild(NumPart, NULL);
-
-      CPU_Step[CPU_TREEBUILD] += measure_time();
-
-      TreeReconstructFlag = 0;
-
-      if(ThisTask == 0)
-	printf("Tree construction done.\n");
-    }
-
+  CPU_Step[CPU_MISC] += walltime_measure(WALL_MISC);
 
   /* allocate buffers to arrange communication */
   All.BunchSize =
@@ -336,7 +313,7 @@ void compute_potential(void)
     P[i].Potential = 0;
 #endif
 
-  CPU_Step[CPU_POTENTIAL] += measure_time();
+  CPU_Step[CPU_POTENTIAL] += walltime_measure(WALL_POTENTIAL);
 }
 
 

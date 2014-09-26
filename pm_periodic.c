@@ -19,13 +19,7 @@
 #include "allvars.h"
 #include "proto.h"
 
-#define  PMGRID2 (2*(PMGRID/2 + 1))
-
-#if (PMGRID > 1024)
 typedef int64_t large_array_offset;
-#else
-typedef unsigned int large_array_offset;
-#endif
 
 #ifdef FLTROUNDOFFREDUCTION
 #define d_double MyLongDouble
@@ -35,7 +29,7 @@ typedef unsigned int large_array_offset;
 
 static fftw_plan fft_forward_plan, fft_inverse_plan;
 
-static int slab_to_task[PMGRID];
+static int slab_to_task[65536];
 static int *slabs_per_task;
 static int *first_slab_of_task;
 
@@ -84,9 +78,9 @@ static int *part_sortindex;
 void pm_init_periodic(void)
 {
     int i;
-    int slab_to_task_local[PMGRID];
+    int slab_to_task_local[All.Nmesh];
 
-    All.Asmth[0] = ASMTH * All.BoxSize / PMGRID;
+    All.Asmth[0] = ASMTH * All.BoxSize / All.Nmesh;
     All.Rcut[0] = RCUT * All.Asmth[0];
 
     /* Set up the FFTW plan files. */
@@ -95,7 +89,7 @@ void pm_init_periodic(void)
      * transform is r2c, thus the last dimension is packed!
      * See http://www.fftw.org/doc/MPI-Plan-Creation.html
      **/
-    fftsize = 2 * fftw_mpi_local_size_3d_transposed(PMGRID, PMGRID, PMGRID / 2 + 1,
+    fftsize = 2 * fftw_mpi_local_size_3d_transposed(All.Nmesh, All.Nmesh, All.Nmesh / 2 + 1,
             MPI_COMM_WORLD,
             &nslab_x, &slabstart_x, &nslab_y, &slabstart_y);
 
@@ -103,21 +97,21 @@ void pm_init_periodic(void)
 
     pm_init_periodic_allocate();
 
-    fft_forward_plan = fftw_mpi_plan_dft_r2c_3d(PMGRID, PMGRID, 
-            PMGRID, rhogrid, fft_of_rhogrid, MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT);
-    fft_inverse_plan = fftw_mpi_plan_dft_c2r_3d(PMGRID, PMGRID, 
-            PMGRID, fft_of_rhogrid, rhogrid, MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN);
+    fft_forward_plan = fftw_mpi_plan_dft_r2c_3d(All.Nmesh, All.Nmesh, 
+            All.Nmesh, rhogrid, fft_of_rhogrid, MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_OUT);
+    fft_inverse_plan = fftw_mpi_plan_dft_c2r_3d(All.Nmesh, All.Nmesh, 
+            All.Nmesh, fft_of_rhogrid, rhogrid, MPI_COMM_WORLD, FFTW_ESTIMATE | FFTW_MPI_TRANSPOSED_IN);
 
     pm_init_periodic_free();
     /* Workspace out the ranges on each processor. */
 
-    for(i = 0; i < PMGRID; i++)
+    for(i = 0; i < All.Nmesh; i++)
         slab_to_task_local[i] = 0;
 
     for(i = 0; i < nslab_x; i++)
         slab_to_task_local[slabstart_x + i] = ThisTask;
 
-    MPI_Allreduce(slab_to_task_local, slab_to_task, PMGRID, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(slab_to_task_local, slab_to_task, All.Nmesh, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     MPI_Allreduce(&nslab_x, &smallest_slab, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
@@ -127,7 +121,7 @@ void pm_init_periodic(void)
     first_slab_of_task = (int *) mymalloc("first_slab_of_task", NTask * sizeof(int));
     MPI_Allgather(&slabstart_x, 1, MPI_INT, first_slab_of_task, 1, MPI_INT, MPI_COMM_WORLD);
 
-    to_slab_fac = PMGRID / All.BoxSize;
+    to_slab_fac = All.Nmesh / All.BoxSize;
 
 #ifdef KSPACE_NEUTRINOS
     kspace_neutrinos_init();
@@ -264,9 +258,6 @@ void pmforce_periodic(int mode, int *typelist)
     kscreening2 = pow(All.BoxSize / All.ScalarScreeningLength / (2 * M_PI), 2);
 #endif
 
-
-    force_treefree();
-
     if(ThisTask == 0)
     {
         printf("Starting periodic PM calculation.  (presently allocated=%g MB)\n",
@@ -278,7 +269,7 @@ void pmforce_periodic(int mode, int *typelist)
     asmth2 *= asmth2;
 
     fac = All.G / (M_PI * All.BoxSize);	/* to get potential */
-    fac *= 1 / (2 * All.BoxSize / PMGRID);	/* for finite differencing */
+    fac *= 1 / (2 * All.BoxSize / All.Nmesh);	/* for finite differencing */
 
 #ifdef KSPACE_NEUTRINOS
     double rhocrit = 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
@@ -336,9 +327,9 @@ void pmforce_periodic(int mode, int *typelist)
             double slab_z = __friz(to_slab_fac * pos[2]);
             double fx, fy, fz;
 
-            slab_x = __fsel(slab_x - (double) PMGRID, (double) PMGRID - 1.0, slab_x);
-            slab_y = __fsel(slab_y - (double) PMGRID, (double) PMGRID - 1.0, slab_y);
-            slab_z = __fsel(slab_z - (double) PMGRID, (double) PMGRID - 1.0, slab_z);
+            slab_x = __fsel(slab_x - (double) All.Nmesh, (double) All.Nmesh - 1.0, slab_x);
+            slab_y = __fsel(slab_y - (double) All.Nmesh, (double) All.Nmesh - 1.0, slab_y);
+            slab_z = __fsel(slab_z - (double) All.Nmesh, (double) All.Nmesh - 1.0, slab_z);
 
             for(xx = 0, fx = 0.0; xx < 2; xx++, fx += 1.0)
                 for(yy = 0, fy = 0.0; yy < 2; yy++, fy += 1.0)
@@ -349,11 +340,11 @@ void pmforce_periodic(int mode, int *typelist)
                         double slab_zz = slab_z + fz;
                         double offset;
 
-                        slab_xx = __fsel(slab_xx - (double) PMGRID, slab_xx - (double) PMGRID, slab_xx);
-                        slab_yy = __fsel(slab_yy - (double) PMGRID, slab_yy - (double) PMGRID, slab_yy);
-                        slab_zz = __fsel(slab_zz - (double) PMGRID, slab_zz - (double) PMGRID, slab_zz);
+                        slab_xx = __fsel(slab_xx - (double) All.Nmesh, slab_xx - (double) All.Nmesh, slab_xx);
+                        slab_yy = __fsel(slab_yy - (double) All.Nmesh, slab_yy - (double) All.Nmesh, slab_yy);
+                        slab_zz = __fsel(slab_zz - (double) All.Nmesh, slab_zz - (double) All.Nmesh, slab_zz);
 
-                        offset = ((double) PMGRID2) * ((double) PMGRID * slab_xx + slab_yy) + slab_zz;
+                        offset = ((double) ((All.Nmesh/2 + 1) * 2)) * ((double) All.Nmesh * slab_xx + slab_yy) + slab_zz;
 
                         part[num_on_grid].partindex = (i << 3) + (xx << 2) + (yy << 1) + zz;
                         part[num_on_grid].globalindex = (large_array_offset) offset;
@@ -365,12 +356,13 @@ void pmforce_periodic(int mode, int *typelist)
             int slab_y = (int) (to_slab_fac * pos[1]);
             int slab_z = (int) (to_slab_fac * pos[2]);
 
-            if(slab_x >= PMGRID)
-                slab_x -= PMGRID;
-            if(slab_y >= PMGRID)
-                slab_y -= PMGRID;
-            if(slab_z >= PMGRID)
-                slab_z -= PMGRID;
+            while(slab_x >= All.Nmesh) slab_x -= All.Nmesh;
+            while(slab_y >= All.Nmesh) slab_y -= All.Nmesh;
+            while(slab_z >= All.Nmesh) slab_z -= All.Nmesh;
+
+            while(slab_x < 0) slab_x += All.Nmesh;
+            while(slab_y < 0) slab_y += All.Nmesh;
+            while(slab_z < 0) slab_z += All.Nmesh;
 
             for(xx = 0; xx < 2; xx++)
                 for(yy = 0; yy < 2; yy++)
@@ -380,14 +372,14 @@ void pmforce_periodic(int mode, int *typelist)
                         int slab_yy = slab_y + yy;
                         int slab_zz = slab_z + zz;
 
-                        if(slab_xx >= PMGRID)
-                            slab_xx -= PMGRID;
-                        if(slab_yy >= PMGRID)
-                            slab_yy -= PMGRID;
-                        if(slab_zz >= PMGRID)
-                            slab_zz -= PMGRID;
+                        while(slab_xx >= All.Nmesh) slab_xx -= All.Nmesh;
+                        while(slab_yy >= All.Nmesh) slab_yy -= All.Nmesh;
+                        while(slab_zz >= All.Nmesh) slab_zz -= All.Nmesh;
+                        while(slab_xx < 0) slab_xx += All.Nmesh;
+                        while(slab_yy < 0) slab_yy += All.Nmesh;
+                        while(slab_zz < 0) slab_zz += All.Nmesh;
 
-                        large_array_offset offset = ((large_array_offset) PMGRID2) * (PMGRID * slab_xx + slab_yy) + slab_zz;
+                        large_array_offset offset = ((large_array_offset) ((All.Nmesh/2 + 1) * 2)) * (All.Nmesh * slab_xx + slab_yy) + slab_zz;
 
                         part[num_on_grid].partindex = (i << 3) + (xx << 2) + (yy << 1) + zz;
                         part[num_on_grid].globalindex = offset;
@@ -454,7 +446,7 @@ void pmforce_periodic(int mode, int *typelist)
 
             localfield_globalindex[num_field_points] = part[part_sortindex[i]].globalindex;
 
-            slab = part[part_sortindex[i]].globalindex / (PMGRID * PMGRID2);
+            slab = part[part_sortindex[i]].globalindex / (All.Nmesh * ((All.Nmesh/2 + 1) * 2));
             task = slab_to_task[slab];
             if(localfield_count[task] == 0)
                 localfield_first[task] = num_field_points;
@@ -570,7 +562,7 @@ void pmforce_periodic(int mode, int *typelist)
                     /* determine offset in local FFT slab */
                     large_array_offset offset =
                         import_globalindex[i] -
-                        first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                        first_slab_of_task[ThisTask] * All.Nmesh * ((large_array_offset) ((All.Nmesh/2 + 1) * 2));
 
                     d_rhogrid[offset] += import_d_data[i];
                 }
@@ -603,21 +595,21 @@ void pmforce_periodic(int mode, int *typelist)
             /* multiply with Green's function for the potential */
 
 //#pragma omp parallel for private(x, y, z)
-            for(x = 0; x < PMGRID; x++)
+            for(x = 0; x < All.Nmesh; x++)
                 for(y = slabstart_y; y < slabstart_y + nslab_y; y++)
-                    for(z = 0; z < PMGRID / 2 + 1; z++)
+                    for(z = 0; z < All.Nmesh / 2 + 1; z++)
                     {
                         double kx, ky, kz;
-                        if(x > PMGRID / 2)
-                            kx = x - PMGRID;
+                        if(x > All.Nmesh / 2)
+                            kx = x - All.Nmesh;
                         else
                             kx = x;
-                        if(y > PMGRID / 2)
-                            ky = y - PMGRID;
+                        if(y > All.Nmesh / 2)
+                            ky = y - All.Nmesh;
                         else
                             ky = y;
-                        if(z > PMGRID / 2)
-                            kz = z - PMGRID;
+                        if(z > All.Nmesh / 2)
+                            kz = z - All.Nmesh;
                         else
                             kz = z;
 
@@ -638,17 +630,17 @@ void pmforce_periodic(int mode, int *typelist)
                             fx = fy = fz = 1;
                             if(kx != 0)
                             {
-                                fx = (M_PI * kx) / PMGRID;
+                                fx = (M_PI * kx) / All.Nmesh;
                                 fx = sin(fx) / fx;
                             }
                             if(ky != 0)
                             {
-                                fy = (M_PI * ky) / PMGRID;
+                                fy = (M_PI * ky) / All.Nmesh;
                                 fy = sin(fy) / fy;
                             }
                             if(kz != 0)
                             {
-                                fz = (M_PI * kz) / PMGRID;
+                                fz = (M_PI * kz) / All.Nmesh;
                                 fz = sin(fz) / fz;
                             }
                             double ff = 1 / (fx * fy * fz);
@@ -656,7 +648,7 @@ void pmforce_periodic(int mode, int *typelist)
 
                             /* end deconvolution */
 
-                            int ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
+                            int ip = All.Nmesh * (All.Nmesh / 2 + 1) * (y - slabstart_y) + (All.Nmesh / 2 + 1) * x + z;
                             fft_of_rhogrid[ip][0] *= smth;
                             fft_of_rhogrid[ip][1] *= smth;
 
@@ -716,7 +708,7 @@ void pmforce_periodic(int mode, int *typelist)
                     {
                         large_array_offset offset =
                             import_globalindex[i] -
-                            first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                            first_slab_of_task[ThisTask] * All.Nmesh * ((large_array_offset) ((All.Nmesh/2 + 1) * 2));
                         import_data[i] = rhogrid[offset];
                     }
 
@@ -762,7 +754,7 @@ void pmforce_periodic(int mode, int *typelist)
                     + localfield_data[part[j + 6].localindex] * (dx) * dy * (1.0 - dz)
                     + localfield_data[part[j + 7].localindex] * (dx) * dy * dz;
 
-                P[i].PM_Potential += pot * fac * (2 * All.BoxSize / PMGRID);
+                P[i].PM_Potential += pot * fac * (2 * All.BoxSize / All.Nmesh);
                 /* compensate the finite differencing factor */ ;
             }
 
@@ -778,10 +770,10 @@ void pmforce_periodic(int mode, int *typelist)
                     pm_periodic_transposeA(rhogrid, forcegrid);	/* compute the transpose of the potential field */
 
 //#pragma omp parallel for private(x, y, z)
-                for(y = 0; y < PMGRID; y++) {
+                for(y = 0; y < All.Nmesh; y++) {
                     int xx;
                     for(xx = slabstart_x; xx < (slabstart_x + nslab_x); xx++)
-                        for(z = 0; z < PMGRID; z++)
+                        for(z = 0; z < All.Nmesh; z++)
                         {
                             x = xx - slabstart_x;
 
@@ -799,49 +791,49 @@ void pmforce_periodic(int mode, int *typelist)
                                     yl = y - 1;
                                     yrr = y + 2;
                                     yll = y - 2;
-                                    if(yr >= PMGRID)
-                                        yr -= PMGRID;
-                                    if(yrr >= PMGRID)
-                                        yrr -= PMGRID;
+                                    if(yr >= All.Nmesh)
+                                        yr -= All.Nmesh;
+                                    if(yrr >= All.Nmesh)
+                                        yrr -= All.Nmesh;
                                     if(yl < 0)
-                                        yl += PMGRID;
+                                        yl += All.Nmesh;
                                     if(yll < 0)
-                                        yll += PMGRID;
+                                        yll += All.Nmesh;
                                     break;
                                 case 2:
                                     zr = z + 1;
                                     zl = z - 1;
                                     zrr = z + 2;
                                     zll = z - 2;
-                                    if(zr >= PMGRID)
-                                        zr -= PMGRID;
-                                    if(zrr >= PMGRID)
-                                        zrr -= PMGRID;
+                                    if(zr >= All.Nmesh)
+                                        zr -= All.Nmesh;
+                                    if(zrr >= All.Nmesh)
+                                        zrr -= All.Nmesh;
                                     if(zl < 0)
-                                        zl += PMGRID;
+                                        zl += All.Nmesh;
                                     if(zll < 0)
-                                        zll += PMGRID;
+                                        zll += All.Nmesh;
                                     break;
                             }
 
                             if(dim == 0)
                             {
-                                forcegrid[PMGRID * (x + y * nslab_x) + z]
+                                forcegrid[All.Nmesh * (x + y * nslab_x) + z]
                                     =
                                     fac * ((4.0 / 3) *
-                                            (rhogrid[PMGRID * (x + yl * nslab_x) + zl] -
-                                             rhogrid[PMGRID * (x + yr * nslab_x) + zr]) -
-                                            (1.0 / 6) * (rhogrid[PMGRID * (x + yll * nslab_x) + zll] -
-                                                rhogrid[PMGRID * (x + yrr * nslab_x) + zrr]));
+                                            (rhogrid[All.Nmesh * (x + yl * nslab_x) + zl] -
+                                             rhogrid[All.Nmesh * (x + yr * nslab_x) + zr]) -
+                                            (1.0 / 6) * (rhogrid[All.Nmesh * (x + yll * nslab_x) + zll] -
+                                                rhogrid[All.Nmesh * (x + yrr * nslab_x) + zrr]));
                             }
                             else
-                                forcegrid[PMGRID2 * (PMGRID * x + y) + z]
+                                forcegrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + y) + z]
                                     =
                                     fac * ((4.0 / 3) *
-                                            (rhogrid[PMGRID2 * (PMGRID * x + yl) + zl] -
-                                             rhogrid[PMGRID2 * (PMGRID * x + yr) + zr]) -
-                                            (1.0 / 6) * (rhogrid[PMGRID2 * (PMGRID * x + yll) + zll] -
-                                                rhogrid[PMGRID2 * (PMGRID * x + yrr) + zrr]));
+                                            (rhogrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + yl) + zl] -
+                                             rhogrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + yr) + zr]) -
+                                            (1.0 / 6) * (rhogrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + yll) + zll] -
+                                                rhogrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + yrr) + zrr]));
                         }
                 }
 
@@ -891,7 +883,7 @@ void pmforce_periodic(int mode, int *typelist)
                             /* determine offset in local FFT slab */
                             large_array_offset offset =
                                 import_globalindex[i] -
-                                first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                                first_slab_of_task[ThisTask] * All.Nmesh * ((large_array_offset) ((All.Nmesh/2 + 1) * 2));
                             import_data[i] = forcegrid[offset];
                         }
 
@@ -960,9 +952,6 @@ void pmforce_periodic(int mode, int *typelist)
 #endif
 
     pm_init_periodic_free();
-    force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-
-    All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
 
     if(ThisTask == 0)
     {
@@ -1018,12 +1007,12 @@ void pmpotential_periodic(void)
         slab_y = (int) (to_slab_fac * P[i].Pos[1]);
         slab_z = (int) (to_slab_fac * P[i].Pos[2]);
 
-        if(slab_x >= PMGRID)
-            slab_x -= PMGRID;
-        if(slab_y >= PMGRID)
-            slab_y -= PMGRID;
-        if(slab_z >= PMGRID)
-            slab_z -= PMGRID;
+        while(slab_x >= All.Nmesh) slab_x -= All.Nmesh;
+        while(slab_y >= All.Nmesh) slab_y -= All.Nmesh;
+        while(slab_z >= All.Nmesh) slab_z -= All.Nmesh;
+        while(slab_x < 0) slab_x += All.Nmesh;
+        while(slab_y < 0) slab_y += All.Nmesh;
+        while(slab_z < 0) slab_z += All.Nmesh;
 
         for(xx = 0; xx < 2; xx++)
             for(yy = 0; yy < 2; yy++)
@@ -1033,14 +1022,14 @@ void pmpotential_periodic(void)
                     slab_yy = slab_y + yy;
                     slab_zz = slab_z + zz;
 
-                    if(slab_xx >= PMGRID)
-                        slab_xx -= PMGRID;
-                    if(slab_yy >= PMGRID)
-                        slab_yy -= PMGRID;
-                    if(slab_zz >= PMGRID)
-                        slab_zz -= PMGRID;
+                    while(slab_xx >= All.Nmesh) slab_xx -= All.Nmesh;
+                    while(slab_yy >= All.Nmesh) slab_yy -= All.Nmesh;
+                    while(slab_zz >= All.Nmesh) slab_zz -= All.Nmesh;
+                    while(slab_xx < 0) slab_xx += All.Nmesh;
+                    while(slab_yy < 0) slab_yy += All.Nmesh;
+                    while(slab_zz < 0) slab_zz += All.Nmesh;
 
-                    offset = ((large_array_offset) PMGRID2) * (PMGRID * slab_xx + slab_yy) + slab_zz;
+                    offset = ((large_array_offset) ((All.Nmesh/2 + 1) * 2)) * (All.Nmesh * slab_xx + slab_yy) + slab_zz;
 
                     part[num_on_grid].partindex = (i << 3) + (xx << 2) + (yy << 1) + zz;
                     part[num_on_grid].globalindex = offset;
@@ -1101,7 +1090,7 @@ void pmpotential_periodic(void)
 
         localfield_globalindex[num_field_points] = part[part_sortindex[i]].globalindex;
 
-        slab = part[part_sortindex[i]].globalindex / (PMGRID * PMGRID2);
+        slab = part[part_sortindex[i]].globalindex / (All.Nmesh * ((All.Nmesh/2 + 1) * 2));
         task = slab_to_task[slab];
         if(localfield_count[task] == 0)
             localfield_first[task] = num_field_points;
@@ -1192,7 +1181,7 @@ void pmpotential_periodic(void)
                 /* determine offset in local FFT slab */
                 offset =
                     import_globalindex[i] -
-                    first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                    first_slab_of_task[ThisTask] * All.Nmesh * ((large_array_offset) ((All.Nmesh/2 + 1) * 2));
 
                 d_rhogrid[offset] += import_d_data[i];
             }
@@ -1219,19 +1208,19 @@ void pmpotential_periodic(void)
     /* multiply with Green's function for the potential */
 
     for(y = slabstart_y; y < slabstart_y + nslab_y; y++)
-        for(x = 0; x < PMGRID; x++)
-            for(z = 0; z < PMGRID / 2 + 1; z++)
+        for(x = 0; x < All.Nmesh; x++)
+            for(z = 0; z < All.Nmesh / 2 + 1; z++)
             {
-                if(x > PMGRID / 2)
-                    kx = x - PMGRID;
+                if(x > All.Nmesh / 2)
+                    kx = x - All.Nmesh;
                 else
                     kx = x;
-                if(y > PMGRID / 2)
-                    ky = y - PMGRID;
+                if(y > All.Nmesh / 2)
+                    ky = y - All.Nmesh;
                 else
                     ky = y;
-                if(z > PMGRID / 2)
-                    kz = z - PMGRID;
+                if(z > All.Nmesh / 2)
+                    kz = z - All.Nmesh;
                 else
                     kz = z;
 
@@ -1246,17 +1235,17 @@ void pmpotential_periodic(void)
                     fx = fy = fz = 1;
                     if(kx != 0)
                     {
-                        fx = (M_PI * kx) / PMGRID;
+                        fx = (M_PI * kx) / All.Nmesh;
                         fx = sin(fx) / fx;
                     }
                     if(ky != 0)
                     {
-                        fy = (M_PI * ky) / PMGRID;
+                        fy = (M_PI * ky) / All.Nmesh;
                         fy = sin(fy) / fy;
                     }
                     if(kz != 0)
                     {
-                        fz = (M_PI * kz) / PMGRID;
+                        fz = (M_PI * kz) / All.Nmesh;
                         fz = sin(fz) / fz;
                     }
                     ff = 1 / (fx * fy * fz);
@@ -1264,7 +1253,7 @@ void pmpotential_periodic(void)
 
                     /* end deconvolution */
 
-                    ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
+                    ip = All.Nmesh * (All.Nmesh / 2 + 1) * (y - slabstart_y) + (All.Nmesh / 2 + 1) * x + z;
                     fft_of_rhogrid[ip][0] *= smth;
                     fft_of_rhogrid[ip][1] *= smth;
                 }
@@ -1322,7 +1311,7 @@ void pmpotential_periodic(void)
                 /* determine offset in local FFT slab */
                 offset =
                     import_globalindex[i] -
-                    first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                    first_slab_of_task[ThisTask] * All.Nmesh * ((large_array_offset) ((All.Nmesh/2 + 1) * 2));
                 import_data[i] = rhogrid[offset];
             }
 
@@ -1462,11 +1451,11 @@ void pm_periodic_transposeA(double * field, double * scratch)
     for(task = 0; task < NTask; task++)
         for(x = 0; x < nslab_x; x++)
             for(y = first_slab_of_task[task]; y < first_slab_of_task[task] + slabs_per_task[task]; y++)
-                for(z = 0; z < PMGRID; z++)
+                for(z = 0; z < All.Nmesh; z++)
                 {
-                    scratch[PMGRID * (first_slab_of_task[task] * nslab_x +
+                    scratch[All.Nmesh * (first_slab_of_task[task] * nslab_x +
                             x * slabs_per_task[task] + (y - first_slab_of_task[task])) + z] =
-                        field[PMGRID2 * (PMGRID * x + y) + z];
+                        field[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + y) + z];
                 }
 
 #ifndef NO_ISEND_IRECV_IN_DOMAIN
@@ -1477,12 +1466,12 @@ void pm_periodic_transposeA(double * field, double * scratch)
 
     for(task = 0; task < NTask; task++)
     {
-        MPI_Isend(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+        MPI_Isend(scratch + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
 
-        MPI_Irecv(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+        MPI_Irecv(field + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
     }
 
@@ -1497,11 +1486,11 @@ void pm_periodic_transposeA(double * field, double * scratch)
 
         if(task < NTask)
         {
-            MPI_Sendrecv(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+            MPI_Sendrecv(scratch + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                    All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY,
-                    field + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+                    field + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                    All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
@@ -1522,12 +1511,12 @@ void pm_periodic_transposeB(double * field, double * scratch)
 
     for(task = 0; task < NTask; task++)
     {
-        MPI_Isend(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+        MPI_Isend(field + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
 
-        MPI_Irecv(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+        MPI_Irecv(scratch + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
     }
 
@@ -1544,11 +1533,11 @@ void pm_periodic_transposeB(double * field, double * scratch)
 
         if(task < NTask)
         {
-            MPI_Sendrecv(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+            MPI_Sendrecv(field + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                    All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY,
-                    scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+                    scratch + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                    All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
@@ -1557,10 +1546,10 @@ void pm_periodic_transposeB(double * field, double * scratch)
     for(task = 0; task < NTask; task++)
         for(x = 0; x < nslab_x; x++)
             for(y = first_slab_of_task[task]; y < first_slab_of_task[task] + slabs_per_task[task]; y++)
-                for(z = 0; z < PMGRID; z++)
+                for(z = 0; z < All.Nmesh; z++)
                 {
-                    field[PMGRID2 * (PMGRID * x + y) + z] =
-                        scratch[PMGRID * (first_slab_of_task[task] * nslab_x +
+                    field[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + y) + z] =
+                        scratch[All.Nmesh * (first_slab_of_task[task] * nslab_x +
                                 x * slabs_per_task[task] + (y - first_slab_of_task[task])) + z];
                 }
 
@@ -1573,12 +1562,12 @@ void pm_periodic_transposeAz(double * field, double * scratch)
 
     for(task = 0; task < NTask; task++)
         for(x = 0; x < nslab_x; x++)
-            for(y = 0; y < PMGRID; y++)
+            for(y = 0; y < All.Nmesh; y++)
                 for(z = first_slab_of_task[task]; z < first_slab_of_task[task] + slabs_per_task[task]; z++)
                 {
-                    scratch[nslab_x * (first_slab_of_task[task] * PMGRID +
-                            x * PMGRID + y) + (z - first_slab_of_task[task])] =
-                        field[PMGRID2 * (PMGRID * x + y) + z];
+                    scratch[nslab_x * (first_slab_of_task[task] * All.Nmesh +
+                            x * All.Nmesh + y) + (z - first_slab_of_task[task])] =
+                        field[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + y) + z];
                 }
 
 #ifndef NO_ISEND_IRECV_IN_DOMAIN
@@ -1589,12 +1578,12 @@ void pm_periodic_transposeAz(double * field, double * scratch)
 
     for(task = 0; task < NTask; task++)
     {
-        MPI_Isend(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+        MPI_Isend(scratch + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
 
-        MPI_Irecv(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+        MPI_Irecv(field + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
     }
 
@@ -1609,11 +1598,11 @@ void pm_periodic_transposeAz(double * field, double * scratch)
 
         if(task < NTask)
         {
-            MPI_Sendrecv(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+            MPI_Sendrecv(scratch + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                    All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY,
-                    field + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+                    field + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                    All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
@@ -1634,12 +1623,12 @@ void pm_periodic_transposeBz(double * field, double * scratch)
 
     for(task = 0; task < NTask; task++)
     {
-        MPI_Isend(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+        MPI_Isend(field + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
 
-        MPI_Irecv(scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+        MPI_Irecv(scratch + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                 MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, &requests[nrequests++]);
     }
 
@@ -1656,11 +1645,11 @@ void pm_periodic_transposeBz(double * field, double * scratch)
 
         if(task < NTask)
         {
-            MPI_Sendrecv(field + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+            MPI_Sendrecv(field + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                    All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY,
-                    scratch + PMGRID * first_slab_of_task[task] * nslab_x,
-                    PMGRID * nslab_x * slabs_per_task[task] * sizeof(double),
+                    scratch + All.Nmesh * first_slab_of_task[task] * nslab_x,
+                    All.Nmesh * nslab_x * slabs_per_task[task] * sizeof(double),
                     MPI_BYTE, task, TAG_KEY, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
     }
@@ -1668,12 +1657,12 @@ void pm_periodic_transposeBz(double * field, double * scratch)
 
     for(task = 0; task < NTask; task++)
         for(x = 0; x < nslab_x; x++)
-            for(y = 0; y < PMGRID; y++)
+            for(y = 0; y < All.Nmesh; y++)
                 for(z = first_slab_of_task[task]; z < first_slab_of_task[task] + slabs_per_task[task]; z++)
                 {
-                    field[PMGRID2 * (PMGRID * x + y) + z] =
-                        scratch[nslab_x * (first_slab_of_task[task] * PMGRID +
-                                x * PMGRID + y) + (z - first_slab_of_task[task])];
+                    field[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + y) + z] =
+                        scratch[nslab_x * (first_slab_of_task[task] * All.Nmesh +
+                                x * All.Nmesh + y) + (z - first_slab_of_task[task])];
                 }
 
 }
@@ -1741,7 +1730,7 @@ void pmtidaltensor_periodic_diff(void)
     asmth2 *= asmth2;
 
     fac = All.G / (M_PI * All.BoxSize);	/* to get potential */
-    fac *= 1 / (2 * All.BoxSize / PMGRID);	/* for finite differencing */
+    fac *= 1 / (2 * All.BoxSize / All.Nmesh);	/* for finite differencing */
 
 
     pm_init_periodic_allocate();
@@ -1766,9 +1755,9 @@ void pmtidaltensor_periodic_diff(void)
             double slab_z = __friz(to_slab_fac * P[i].Pos[2]);
             double fx, fy, fz;
 
-            slab_x = __fsel(slab_x - (double) PMGRID, (double) PMGRID - 1.0, slab_x);
-            slab_y = __fsel(slab_y - (double) PMGRID, (double) PMGRID - 1.0, slab_y);
-            slab_z = __fsel(slab_z - (double) PMGRID, (double) PMGRID - 1.0, slab_z);
+            slab_x = __fsel(slab_x - (double) All.Nmesh, (double) All.Nmesh - 1.0, slab_x);
+            slab_y = __fsel(slab_y - (double) All.Nmesh, (double) All.Nmesh - 1.0, slab_y);
+            slab_z = __fsel(slab_z - (double) All.Nmesh, (double) All.Nmesh - 1.0, slab_z);
 
             for(xx = 0, fx = 0.0; xx < 2; xx++, fx += 1.0)
                 for(yy = 0, fy = 0.0; yy < 2; yy++, fy += 1.0)
@@ -1779,11 +1768,11 @@ void pmtidaltensor_periodic_diff(void)
                         double slab_zz = slab_z + fz;
                         double offset;
 
-                        slab_xx = __fsel(slab_xx - (double) PMGRID, slab_xx - (double) PMGRID, slab_xx);
-                        slab_yy = __fsel(slab_yy - (double) PMGRID, slab_yy - (double) PMGRID, slab_yy);
-                        slab_zz = __fsel(slab_zz - (double) PMGRID, slab_zz - (double) PMGRID, slab_zz);
+                        slab_xx = __fsel(slab_xx - (double) All.Nmesh, slab_xx - (double) All.Nmesh, slab_xx);
+                        slab_yy = __fsel(slab_yy - (double) All.Nmesh, slab_yy - (double) All.Nmesh, slab_yy);
+                        slab_zz = __fsel(slab_zz - (double) All.Nmesh, slab_zz - (double) All.Nmesh, slab_zz);
 
-                        offset = ((double) PMGRID2) * ((double) PMGRID * slab_xx + slab_yy) + slab_zz;
+                        offset = ((double) ((All.Nmesh/2 + 1) * 2)) * ((double) All.Nmesh * slab_xx + slab_yy) + slab_zz;
 
                         part[num_on_grid].partindex = (i << 3) + (xx << 2) + (yy << 1) + zz;
                         part[num_on_grid].globalindex = (large_array_offset) offset;
@@ -1795,12 +1784,12 @@ void pmtidaltensor_periodic_diff(void)
             slab_y = (int) (to_slab_fac * P[i].Pos[1]);
             slab_z = (int) (to_slab_fac * P[i].Pos[2]);
 
-            if(slab_x >= PMGRID)
-                slab_x -= PMGRID;
-            if(slab_y >= PMGRID)
-                slab_y -= PMGRID;
-            if(slab_z >= PMGRID)
-                slab_z -= PMGRID;
+            if(slab_x >= All.Nmesh)
+                slab_x -= All.Nmesh;
+            if(slab_y >= All.Nmesh)
+                slab_y -= All.Nmesh;
+            if(slab_z >= All.Nmesh)
+                slab_z -= All.Nmesh;
 
             for(xx = 0; xx < 2; xx++)
                 for(yy = 0; yy < 2; yy++)
@@ -1810,14 +1799,14 @@ void pmtidaltensor_periodic_diff(void)
                         slab_yy = slab_y + yy;
                         slab_zz = slab_z + zz;
 
-                        if(slab_xx >= PMGRID)
-                            slab_xx -= PMGRID;
-                        if(slab_yy >= PMGRID)
-                            slab_yy -= PMGRID;
-                        if(slab_zz >= PMGRID)
-                            slab_zz -= PMGRID;
+                        if(slab_xx >= All.Nmesh)
+                            slab_xx -= All.Nmesh;
+                        if(slab_yy >= All.Nmesh)
+                            slab_yy -= All.Nmesh;
+                        if(slab_zz >= All.Nmesh)
+                            slab_zz -= All.Nmesh;
 
-                        offset = ((large_array_offset) PMGRID2) * (PMGRID * slab_xx + slab_yy) + slab_zz;
+                        offset = ((large_array_offset) ((All.Nmesh/2 + 1) * 2)) * (All.Nmesh * slab_xx + slab_yy) + slab_zz;
 
                         part[num_on_grid].partindex = (i << 3) + (xx << 2) + (yy << 1) + zz;
                         part[num_on_grid].globalindex = offset;
@@ -1884,7 +1873,7 @@ void pmtidaltensor_periodic_diff(void)
 
             localfield_globalindex[num_field_points] = part[part_sortindex[i]].globalindex;
 
-            slab = part[part_sortindex[i]].globalindex / (PMGRID * PMGRID2);
+            slab = part[part_sortindex[i]].globalindex / (All.Nmesh * ((All.Nmesh/2 + 1) * 2));
             task = slab_to_task[slab];
             if(localfield_count[task] == 0)
                 localfield_first[task] = num_field_points;
@@ -1935,10 +1924,10 @@ void pmtidaltensor_periodic_diff(void)
 
         // set some values
         for(x = slabstart_x; x < slabstart_x + nslab_x; x++)
-        for(y = 0; y < PMGRID; y++)
-        for(z = 0; z < PMGRID; z++)
+        for(y = 0; y < All.Nmesh; y++)
+        for(z = 0; z < All.Nmesh; z++)
         {
-        ip=PMGRID2 * (PMGRID * (x-slabstart_x) + y) + z;
+        ip=((All.Nmesh/2 + 1) * 2) * (All.Nmesh * (x-slabstart_x) + y) + z;
         rhogrid[ip]=x*1.0;
         printf("before %d %d %d: %f\n", x, y, z, rhogrid[ip]);
         }
@@ -1952,22 +1941,22 @@ void pmtidaltensor_periodic_diff(void)
 
 
         // y transpose
-        for(x = 0; x < PMGRID; x++)
+        for(x = 0; x < All.Nmesh; x++)
         for(y = slabstart_x; y < slabstart_x + nslab_x; y++)
-        for(z = 0; z < PMGRID; z++)
+        for(z = 0; z < All.Nmesh; z++)
         {
-        ip=PMGRID * (nslab_x * x + (y-slabstart_x)) + z;
+        ip=All.Nmesh * (nslab_x * x + (y-slabstart_x)) + z;
         printf("after-P %d %d %d: %f\n", x, y, z, rhogrid[ip]);
 
         }
 
 
         // z transpose
-        for(x = 0; x < PMGRID; x++)
+        for(x = 0; x < All.Nmesh; x++)
         for(z = slabstart_x; z < slabstart_x + nslab_x; z++)
-        for(y = 0; y < PMGRID; y++)
+        for(y = 0; y < All.Nmesh; y++)
         {
-        ip=nslab_x * (PMGRID * x + y) + (z-slabstart_x);
+        ip=nslab_x * (All.Nmesh * x + y) + (z-slabstart_x);
         printf("after-P %d %d %d: %f\n", x, y, z, rhogrid[ip]);
 
         }
@@ -2022,7 +2011,7 @@ void pmtidaltensor_periodic_diff(void)
                     /* determine offset in local FFT slab */
                     offset =
                         import_globalindex[i] -
-                        first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                        first_slab_of_task[ThisTask] * All.Nmesh * ((large_array_offset) ((All.Nmesh/2 + 1) * 2));
 
                     d_rhogrid[offset] += import_d_data[i];
                 }
@@ -2050,19 +2039,19 @@ void pmtidaltensor_periodic_diff(void)
         /* multiply with Green's function for the potential */
 
         for(y = slabstart_y; y < slabstart_y + nslab_y; y++)
-            for(x = 0; x < PMGRID; x++)
-                for(z = 0; z < PMGRID / 2 + 1; z++)
+            for(x = 0; x < All.Nmesh; x++)
+                for(z = 0; z < All.Nmesh / 2 + 1; z++)
                 {
-                    if(x > PMGRID / 2)
-                        kx = x - PMGRID;
+                    if(x > All.Nmesh / 2)
+                        kx = x - All.Nmesh;
                     else
                         kx = x;
-                    if(y > PMGRID / 2)
-                        ky = y - PMGRID;
+                    if(y > All.Nmesh / 2)
+                        ky = y - All.Nmesh;
                     else
                         ky = y;
-                    if(z > PMGRID / 2)
-                        kz = z - PMGRID;
+                    if(z > All.Nmesh / 2)
+                        kz = z - All.Nmesh;
                     else
                         kz = z;
 
@@ -2082,17 +2071,17 @@ void pmtidaltensor_periodic_diff(void)
                         fx = fy = fz = 1;
                         if(kx != 0)
                         {
-                            fx = (M_PI * kx) / PMGRID;
+                            fx = (M_PI * kx) / All.Nmesh;
                             fx = sin(fx) / fx;
                         }
                         if(ky != 0)
                         {
-                            fy = (M_PI * ky) / PMGRID;
+                            fy = (M_PI * ky) / All.Nmesh;
                             fy = sin(fy) / fy;
                         }
                         if(kz != 0)
                         {
-                            fz = (M_PI * kz) / PMGRID;
+                            fz = (M_PI * kz) / All.Nmesh;
                             fz = sin(fz) / fz;
                         }
                         ff = 1 / (fx * fy * fz);
@@ -2100,7 +2089,7 @@ void pmtidaltensor_periodic_diff(void)
 
                         /* end deconvolution */
 
-                        ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
+                        ip = All.Nmesh * (All.Nmesh / 2 + 1) * (y - slabstart_y) + (All.Nmesh / 2 + 1) * x + z;
                         fft_of_rhogrid[ip][0] *= smth;
                         fft_of_rhogrid[ip][1] *= smth;
                     }
@@ -2155,7 +2144,7 @@ void pmtidaltensor_periodic_diff(void)
                 {
                     offset =
                         import_globalindex[i] -
-                        first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                        first_slab_of_task[ThisTask] * All.Nmesh * ((large_array_offset) ((All.Nmesh/2 + 1) * 2));
                     import_data[i] = rhogrid[offset];
                 }
 
@@ -2202,7 +2191,7 @@ void pmtidaltensor_periodic_diff(void)
                 + localfield_data[part[j + 6].localindex] * (dx) * dy * (1.0 - dz)
                 + localfield_data[part[j + 7].localindex] * (dx) * dy * dz;
 
-            P[i].PM_Potential += pot * fac * (2 * All.BoxSize / PMGRID);
+            P[i].PM_Potential += pot * fac * (2 * All.BoxSize / All.Nmesh);
             /* compensate the finite differencing factor */ ;
         }
 #endif
@@ -2233,8 +2222,8 @@ void pmtidaltensor_periodic_diff(void)
             }
 
             for(xx = slabstart_x; xx < (slabstart_x + nslab_x); xx++)
-                for(y = 0; y < PMGRID; y++)
-                    for(z = 0; z < PMGRID; z++)
+                for(y = 0; y < All.Nmesh; y++)
+                    for(z = 0; z < All.Nmesh; z++)
                     {
                         x = xx - slabstart_x;
 
@@ -2250,14 +2239,14 @@ void pmtidaltensor_periodic_diff(void)
                                 yl = y - 1;
                                 yrr = y + 2;
                                 yll = y - 2;
-                                if(yr >= PMGRID)
-                                    yr -= PMGRID;
-                                if(yrr >= PMGRID)
-                                    yrr -= PMGRID;
+                                if(yr >= All.Nmesh)
+                                    yr -= All.Nmesh;
+                                if(yrr >= All.Nmesh)
+                                    yrr -= All.Nmesh;
                                 if(yl < 0)
-                                    yl += PMGRID;
+                                    yl += All.Nmesh;
                                 if(yll < 0)
-                                    yll += PMGRID;
+                                    yll += All.Nmesh;
                                 break;
                             case 2:
                             case 1:
@@ -2266,90 +2255,90 @@ void pmtidaltensor_periodic_diff(void)
                                 yl = y - 1;
                                 yrr = y + 2;
                                 yll = y - 2;
-                                if(yr >= PMGRID)
-                                    yr -= PMGRID;
-                                if(yrr >= PMGRID)
-                                    yrr -= PMGRID;
+                                if(yr >= All.Nmesh)
+                                    yr -= All.Nmesh;
+                                if(yrr >= All.Nmesh)
+                                    yrr -= All.Nmesh;
                                 if(yl < 0)
-                                    yl += PMGRID;
+                                    yl += All.Nmesh;
                                 if(yll < 0)
-                                    yll += PMGRID;
+                                    yll += All.Nmesh;
                                 zr = z + 1;
                                 zl = z - 1;
                                 zrr = z + 2;
                                 zll = z - 2;
-                                if(zr >= PMGRID)
-                                    zr -= PMGRID;
-                                if(zrr >= PMGRID)
-                                    zrr -= PMGRID;
+                                if(zr >= All.Nmesh)
+                                    zr -= All.Nmesh;
+                                if(zrr >= All.Nmesh)
+                                    zrr -= All.Nmesh;
                                 if(zl < 0)
-                                    zl += PMGRID;
+                                    zl += All.Nmesh;
                                 if(zll < 0)
-                                    zll += PMGRID;
+                                    zll += All.Nmesh;
                                 break;
                             case 5:
                                 zr = z + 1;
                                 zl = z - 1;
                                 zrr = z + 2;
                                 zll = z - 2;
-                                if(zr >= PMGRID)
-                                    zr -= PMGRID;
-                                if(zrr >= PMGRID)
-                                    zrr -= PMGRID;
+                                if(zr >= All.Nmesh)
+                                    zr -= All.Nmesh;
+                                if(zrr >= All.Nmesh)
+                                    zrr -= All.Nmesh;
                                 if(zl < 0)
-                                    zl += PMGRID;
+                                    zl += All.Nmesh;
                                 if(zll < 0)
-                                    zll += PMGRID;
+                                    zll += All.Nmesh;
                                 break;
                         }
                         if(dim == 0)
                         {
-                            forcegrid[PMGRID * (x + y * nslab_x) + z] =
-                                -2.0 * PMGRID / All.BoxSize * (rhogrid[PMGRID * (x + yl * nslab_x) + z] +
-                                        rhogrid[PMGRID * (x + yr * nslab_x) + z] -
-                                        2.0 * rhogrid[PMGRID * (x + y * nslab_x) + z]) * fac;
+                            forcegrid[All.Nmesh * (x + y * nslab_x) + z] =
+                                -2.0 * All.Nmesh / All.BoxSize * (rhogrid[All.Nmesh * (x + yl * nslab_x) + z] +
+                                        rhogrid[All.Nmesh * (x + yr * nslab_x) + z] -
+                                        2.0 * rhogrid[All.Nmesh * (x + y * nslab_x) + z]) * fac;
 
                         }
                         if(dim == 1)
                         {
-                            forcegrid[nslab_x * (y + z * PMGRID) + x] =
-                                -0.5 * fac * PMGRID / All.BoxSize * (rhogrid[nslab_x * (yl + zl * PMGRID) + x] +
-                                        rhogrid[nslab_x * (yr + zr * PMGRID) + x] -
-                                        rhogrid[nslab_x * (yl + zr * PMGRID) + x] -
-                                        rhogrid[nslab_x * (yr + zl * PMGRID) + x]);
+                            forcegrid[nslab_x * (y + z * All.Nmesh) + x] =
+                                -0.5 * fac * All.Nmesh / All.BoxSize * (rhogrid[nslab_x * (yl + zl * All.Nmesh) + x] +
+                                        rhogrid[nslab_x * (yr + zr * All.Nmesh) + x] -
+                                        rhogrid[nslab_x * (yl + zr * All.Nmesh) + x] -
+                                        rhogrid[nslab_x * (yr + zl * All.Nmesh) + x]);
                         }
 
                         if(dim == 2)
                         {
-                            forcegrid[PMGRID * (x + y * nslab_x) + z] =
-                                -0.5 * fac * PMGRID / All.BoxSize * (rhogrid[PMGRID * (x + yl * nslab_x) + zl] +
-                                        rhogrid[PMGRID * (x + yr * nslab_x) + zr] -
-                                        rhogrid[PMGRID * (x + yl * nslab_x) + zr] -
-                                        rhogrid[PMGRID * (x + yr * nslab_x) + zl]);
+                            forcegrid[All.Nmesh * (x + y * nslab_x) + z] =
+                                -0.5 * fac * All.Nmesh / All.BoxSize * (rhogrid[All.Nmesh * (x + yl * nslab_x) + zl] +
+                                        rhogrid[All.Nmesh * (x + yr * nslab_x) + zr] -
+                                        rhogrid[All.Nmesh * (x + yl * nslab_x) + zr] -
+                                        rhogrid[All.Nmesh * (x + yr * nslab_x) + zl]);
                         }
 
                         if(dim == 3)
                         {
-                            forcegrid[PMGRID2 * (PMGRID * x + y) + z] =
-                                -2.0 * PMGRID / All.BoxSize * (rhogrid[PMGRID2 * (PMGRID * x + yl) + zl] +
-                                        rhogrid[PMGRID2 * (PMGRID * x + yr) + zr] -
-                                        2.0 * rhogrid[PMGRID2 * (PMGRID * x + y) + z]) * fac;
+                            forcegrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + y) + z] =
+                                -2.0 * All.Nmesh / All.BoxSize * (rhogrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + yl) + zl] +
+                                        rhogrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + yr) + zr] -
+                                        2.0 * rhogrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + y) + z]) * fac;
                         }
                         if(dim == 4)
                         {
-                            forcegrid[PMGRID2 * (y + x * PMGRID) + z] =
-                                -0.5 * fac * PMGRID / All.BoxSize * (rhogrid[PMGRID2 * (yl + x * PMGRID) + zl] +
-                                        rhogrid[PMGRID2 * (yr + x * PMGRID) + zr] -
-                                        rhogrid[PMGRID2 * (yl + x * PMGRID) + zr] -
-                                        rhogrid[PMGRID2 * (yr + x * PMGRID) + zl]);
+                            forcegrid[((All.Nmesh/2 + 1) * 2) * (y + x * All.Nmesh) + z] =
+                                -0.5 * fac * All.Nmesh / All.BoxSize * (rhogrid[((All.Nmesh/2 + 1) * 2) * (yl + x * All.Nmesh) + zl] +
+                                        rhogrid[((All.Nmesh/2 + 1) * 2) * (yr + x * All.Nmesh) + zr] -
+                                        rhogrid[((All.Nmesh/2 + 1) * 2) * (yl + x * All.Nmesh) + zr] -
+                                        rhogrid[((All.Nmesh/2 + 1) * 2) * (yr + x * All.Nmesh) + zl]);
 
                         }
                         if(dim == 5)
                         {
-                            forcegrid[PMGRID2 * (PMGRID * x + y) + z] =
-                                -2.0 * PMGRID / All.BoxSize * (rhogrid[PMGRID2 * (PMGRID * x + yl) + zl] +
-                                        rhogrid[PMGRID2 * (PMGRID * x + yr) + zr] -
-                                        2.0 * rhogrid[PMGRID2 * (PMGRID * x + y) + z]) * fac;
+                            forcegrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + y) + z] =
+                                -2.0 * All.Nmesh / All.BoxSize * (rhogrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + yl) + zl] +
+                                        rhogrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + yr) + zr] -
+                                        2.0 * rhogrid[((All.Nmesh/2 + 1) * 2) * (All.Nmesh * x + y) + z]) * fac;
                         }
 
                     }
@@ -2403,7 +2392,7 @@ void pmtidaltensor_periodic_diff(void)
                         /* determine offset in local FFT slab */
                         offset =
                             import_globalindex[i] -
-                            first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                            first_slab_of_task[ThisTask] * All.Nmesh * ((large_array_offset) ((All.Nmesh/2 + 1) * 2));
                         import_data[i] = forcegrid[offset];
                     }
 
@@ -2564,12 +2553,12 @@ void pmtidaltensor_periodic_fourier(int component)
         slab_y = (int) (to_slab_fac * P[i].Pos[1]);
         slab_z = (int) (to_slab_fac * P[i].Pos[2]);
 
-        if(slab_x >= PMGRID)
-            slab_x -= PMGRID;
-        if(slab_y >= PMGRID)
-            slab_y -= PMGRID;
-        if(slab_z >= PMGRID)
-            slab_z -= PMGRID;
+        if(slab_x >= All.Nmesh)
+            slab_x -= All.Nmesh;
+        if(slab_y >= All.Nmesh)
+            slab_y -= All.Nmesh;
+        if(slab_z >= All.Nmesh)
+            slab_z -= All.Nmesh;
 
         for(xx = 0; xx < 2; xx++)
             for(yy = 0; yy < 2; yy++)
@@ -2579,14 +2568,14 @@ void pmtidaltensor_periodic_fourier(int component)
                     slab_yy = slab_y + yy;
                     slab_zz = slab_z + zz;
 
-                    if(slab_xx >= PMGRID)
-                        slab_xx -= PMGRID;
-                    if(slab_yy >= PMGRID)
-                        slab_yy -= PMGRID;
-                    if(slab_zz >= PMGRID)
-                        slab_zz -= PMGRID;
+                    if(slab_xx >= All.Nmesh)
+                        slab_xx -= All.Nmesh;
+                    if(slab_yy >= All.Nmesh)
+                        slab_yy -= All.Nmesh;
+                    if(slab_zz >= All.Nmesh)
+                        slab_zz -= All.Nmesh;
 
-                    offset = ((large_array_offset) PMGRID2) * (PMGRID * slab_xx + slab_yy) + slab_zz;
+                    offset = ((large_array_offset) ((All.Nmesh/2 + 1) * 2)) * (All.Nmesh * slab_xx + slab_yy) + slab_zz;
 
                     part[num_on_grid].partindex = (i << 3) + (xx << 2) + (yy << 1) + zz;
                     part[num_on_grid].globalindex = offset;
@@ -2647,7 +2636,7 @@ void pmtidaltensor_periodic_fourier(int component)
 
         localfield_globalindex[num_field_points] = part[part_sortindex[i]].globalindex;
 
-        slab = part[part_sortindex[i]].globalindex / (PMGRID * PMGRID2);
+        slab = part[part_sortindex[i]].globalindex / (All.Nmesh * ((All.Nmesh/2 + 1) * 2));
         task = slab_to_task[slab];
         if(localfield_count[task] == 0)
             localfield_first[task] = num_field_points;
@@ -2738,7 +2727,7 @@ void pmtidaltensor_periodic_fourier(int component)
                 /* determine offset in local FFT slab */
                 offset =
                     import_globalindex[i] -
-                    first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                    first_slab_of_task[ThisTask] * All.Nmesh * ((large_array_offset) ((All.Nmesh/2 + 1) * 2));
 
                 d_rhogrid[offset] += import_d_data[i];
             }
@@ -2763,19 +2752,19 @@ void pmtidaltensor_periodic_fourier(int component)
     /* multiply with Green's function for the potential */
 
     for(y = slabstart_y; y < slabstart_y + nslab_y; y++)
-        for(x = 0; x < PMGRID; x++)
-            for(z = 0; z < PMGRID / 2 + 1; z++)
+        for(x = 0; x < All.Nmesh; x++)
+            for(z = 0; z < All.Nmesh / 2 + 1; z++)
             {
-                if(x > PMGRID / 2)
-                    kx = x - PMGRID;
+                if(x > All.Nmesh / 2)
+                    kx = x - All.Nmesh;
                 else
                     kx = x;
-                if(y > PMGRID / 2)
-                    ky = y - PMGRID;
+                if(y > All.Nmesh / 2)
+                    ky = y - All.Nmesh;
                 else
                     ky = y;
-                if(z > PMGRID / 2)
-                    kz = z - PMGRID;
+                if(z > All.Nmesh / 2)
+                    kz = z - All.Nmesh;
                 else
                     kz = z;
 
@@ -2790,17 +2779,17 @@ void pmtidaltensor_periodic_fourier(int component)
                     fx = fy = fz = 1;
                     if(kx != 0)
                     {
-                        fx = (M_PI * kx) / PMGRID;
+                        fx = (M_PI * kx) / All.Nmesh;
                         fx = sin(fx) / fx;
                     }
                     if(ky != 0)
                     {
-                        fy = (M_PI * ky) / PMGRID;
+                        fy = (M_PI * ky) / All.Nmesh;
                         fy = sin(fy) / fy;
                     }
                     if(kz != 0)
                     {
-                        fz = (M_PI * kz) / PMGRID;
+                        fz = (M_PI * kz) / All.Nmesh;
                         fz = sin(fz) / fz;
                     }
                     ff = 1 / (fx * fy * fz);
@@ -2809,7 +2798,7 @@ void pmtidaltensor_periodic_fourier(int component)
 
                     /* end deconvolution */
 
-                    ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
+                    ip = All.Nmesh * (All.Nmesh / 2 + 1) * (y - slabstart_y) + (All.Nmesh / 2 + 1) * x + z;
 
                     /* modify greens function to get second derivatives of potential ("pulling" down k's) */
                     if(component == 0)
@@ -2921,7 +2910,7 @@ void pmtidaltensor_periodic_fourier(int component)
                 /* determine offset in local FFT slab */
                 offset =
                     import_globalindex[i] -
-                    first_slab_of_task[ThisTask] * PMGRID * ((large_array_offset) PMGRID2);
+                    first_slab_of_task[ThisTask] * All.Nmesh * ((large_array_offset) ((All.Nmesh/2 + 1) * 2));
                 import_data[i] = rhogrid[offset];
             }
 
@@ -3128,23 +3117,23 @@ void powerspec(int flag, int *typeflag)
     }
 
     for(y = slabstart_y; y < slabstart_y + nslab_y; y++)
-        for(x = 0; x < PMGRID; x++)
-            for(z = 0; z < PMGRID; z++)
+        for(x = 0; x < All.Nmesh; x++)
+            for(z = 0; z < All.Nmesh; z++)
             {
                 zz = z;
-                if(z >= PMGRID / 2 + 1)
-                    zz = PMGRID - z;
+                if(z >= All.Nmesh / 2 + 1)
+                    zz = All.Nmesh - z;
 
-                if(x > PMGRID / 2)
-                    kx = x - PMGRID;
+                if(x > All.Nmesh / 2)
+                    kx = x - All.Nmesh;
                 else
                     kx = x;
-                if(y > PMGRID / 2)
-                    ky = y - PMGRID;
+                if(y > All.Nmesh / 2)
+                    ky = y - All.Nmesh;
                 else
                     ky = y;
-                if(z > PMGRID / 2)
-                    kz = z - PMGRID;
+                if(z > All.Nmesh / 2)
+                    kz = z - All.Nmesh;
                 else
                     kz = z;
 
@@ -3152,24 +3141,24 @@ void powerspec(int flag, int *typeflag)
 
                 if(k2 > 0)
                 {
-                    if(k2 < (PMGRID / 2.0) * (PMGRID / 2.0))
+                    if(k2 < (All.Nmesh / 2.0) * (All.Nmesh / 2.0))
                     {
                         /* do deconvolution */
 
                         fx = fy = fz = 1;
                         if(kx != 0)
                         {
-                            fx = (M_PI * kx) / PMGRID;
+                            fx = (M_PI * kx) / All.Nmesh;
                             fx = sin(fx) / fx;
                         }
                         if(ky != 0)
                         {
-                            fy = (M_PI * ky) / PMGRID;
+                            fy = (M_PI * ky) / All.Nmesh;
                             fy = sin(fy) / fy;
                         }
                         if(kz != 0)
                         {
-                            fz = (M_PI * kz) / PMGRID;
+                            fz = (M_PI * kz) / All.Nmesh;
                             fz = sin(fz) / fz;
                         }
                         ff = 1 / (fx * fy * fz);
@@ -3177,7 +3166,7 @@ void powerspec(int flag, int *typeflag)
 
                         /* end deconvolution */
 
-                        ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + zz;
+                        ip = All.Nmesh * (All.Nmesh / 2 + 1) * (y - slabstart_y) + (All.Nmesh / 2 + 1) * x + zz;
 
                         po = (fft_of_rhogrid[ip][0] * fft_of_rhogrid[ip][0]
                                 + fft_of_rhogrid[ip][1] * fft_of_rhogrid[ip][1]);
@@ -3455,8 +3444,8 @@ void foldonitself(int *typelist)
 
             slab_x = to_slab_fac_folded * pp[0];
             slab_xx = slab_x + 1;
-            slab_x %= PMGRID;
-            slab_xx %= PMGRID;
+            slab_x %= All.Nmesh;
+            slab_xx %= All.Nmesh;
 
             nsend_local[slab_to_task[slab_x]]++;
             nbuf++;
@@ -3493,8 +3482,8 @@ void foldonitself(int *typelist)
 
             slab_x = to_slab_fac_folded * pp[0];
             slab_xx = slab_x + 1;
-            slab_x %= PMGRID;
-            slab_xx %= PMGRID;
+            slab_x %= All.Nmesh;
+            slab_xx %= All.Nmesh;
 
             for(j = 0; j < 3; j++)
                 pos_sendbuf[4 * (nsend_offset[slab_to_task[slab_x]] + nsend_local[slab_to_task[slab_x]]) + j] =
@@ -3576,20 +3565,20 @@ void foldonitself(int *typelist)
                     slab_x = to_slab_fac_folded * pp[0];
                     dx = to_slab_fac_folded * pp[0] - slab_x;
                     slab_xx = slab_x + 1;
-                    slab_x %= PMGRID;
-                    slab_xx %= PMGRID;
+                    slab_x %= All.Nmesh;
+                    slab_xx %= All.Nmesh;
 
                     slab_y = to_slab_fac_folded * pp[1];
                     dy = to_slab_fac_folded * pp[1] - slab_y;
                     slab_yy = slab_y + 1;
-                    slab_y %= PMGRID;
-                    slab_yy %= PMGRID;
+                    slab_y %= All.Nmesh;
+                    slab_yy %= All.Nmesh;
 
                     slab_z = to_slab_fac_folded * pp[2];
                     dz = to_slab_fac_folded * pp[2] - slab_z;
                     slab_zz = slab_z + 1;
-                    slab_z %= PMGRID;
-                    slab_zz %= PMGRID;
+                    slab_z %= All.Nmesh;
+                    slab_zz %= All.Nmesh;
 
                     float mass = pos[3];
 
@@ -3597,20 +3586,20 @@ void foldonitself(int *typelist)
                     {
                         slab_x -= first_slab_of_task[ThisTask];
 
-                        rhogrid[(slab_x * PMGRID + slab_y) * PMGRID2 + slab_z] += mass * (1.0 - dx) * (1.0 - dy) * (1.0 - dz);
-                        rhogrid[(slab_x * PMGRID + slab_yy) * PMGRID2 + slab_z] += mass * (1.0 - dx) * dy * (1.0 - dz);
-                        rhogrid[(slab_x * PMGRID + slab_y) * PMGRID2 + slab_zz] += mass * (1.0 - dx) * (1.0 - dy) * dz;
-                        rhogrid[(slab_x * PMGRID + slab_yy) * PMGRID2 + slab_zz] += mass * (1.0 - dx) * dy * dz;
+                        rhogrid[(slab_x * All.Nmesh + slab_y) * ((All.Nmesh/2 + 1) * 2) + slab_z] += mass * (1.0 - dx) * (1.0 - dy) * (1.0 - dz);
+                        rhogrid[(slab_x * All.Nmesh + slab_yy) * ((All.Nmesh/2 + 1) * 2) + slab_z] += mass * (1.0 - dx) * dy * (1.0 - dz);
+                        rhogrid[(slab_x * All.Nmesh + slab_y) * ((All.Nmesh/2 + 1) * 2) + slab_zz] += mass * (1.0 - dx) * (1.0 - dy) * dz;
+                        rhogrid[(slab_x * All.Nmesh + slab_yy) * ((All.Nmesh/2 + 1) * 2) + slab_zz] += mass * (1.0 - dx) * dy * dz;
                     }
 
                     if(slab_to_task[slab_xx] == ThisTask)
                     {
                         slab_xx -= first_slab_of_task[ThisTask];
 
-                        rhogrid[(slab_xx * PMGRID + slab_y) * PMGRID2 + slab_z] += mass * (dx) * (1.0 - dy) * (1.0 - dz);
-                        rhogrid[(slab_xx * PMGRID + slab_yy) * PMGRID2 + slab_z] += mass * (dx) * dy * (1.0 - dz);
-                        rhogrid[(slab_xx * PMGRID + slab_y) * PMGRID2 + slab_zz] += mass * (dx) * (1.0 - dy) * dz;
-                        rhogrid[(slab_xx * PMGRID + slab_yy) * PMGRID2 + slab_zz] += mass * (dx) * dy * dz;
+                        rhogrid[(slab_xx * All.Nmesh + slab_y) * ((All.Nmesh/2 + 1) * 2) + slab_z] += mass * (dx) * (1.0 - dy) * (1.0 - dz);
+                        rhogrid[(slab_xx * All.Nmesh + slab_yy) * ((All.Nmesh/2 + 1) * 2) + slab_z] += mass * (dx) * dy * (1.0 - dz);
+                        rhogrid[(slab_xx * All.Nmesh + slab_y) * ((All.Nmesh/2 + 1) * 2) + slab_zz] += mass * (dx) * (1.0 - dy) * dz;
+                        rhogrid[(slab_xx * All.Nmesh + slab_yy) * ((All.Nmesh/2 + 1) * 2) + slab_zz] += mass * (dx) * dy * dz;
                     }
 
                 }
@@ -3696,7 +3685,7 @@ void dump_potential(void)
                 endrun(11);
             }
 
-            n = PMGRID;
+            n = All.Nmesh;
             fwrite(&n, sizeof(int), 1, fd);
 
             n = sizeof(float);
@@ -3716,13 +3705,13 @@ void dump_potential(void)
             potential = (float *) forcegrid;
 
             for(i = 0; i < slabs_per_task[ThisTask]; i++)
-                for(j = 0; j < PMGRID; j++)
-                    for(k = 0; k < PMGRID; k++)
-                        *potential++ = fac * rhogrid[(i * PMGRID + j) * PMGRID2 + k];
+                for(j = 0; j < All.Nmesh; j++)
+                    for(k = 0; k < All.Nmesh; k++)
+                        *potential++ = fac * rhogrid[(i * All.Nmesh + j) * ((All.Nmesh/2 + 1) * 2) + k];
 
             potential = (float *) forcegrid;
 
-            fwrite(potential, sizeof(float), PMGRID * PMGRID * slabs_per_task[ThisTask], fd);
+            fwrite(potential, sizeof(float), All.Nmesh * All.Nmesh * slabs_per_task[ThisTask], fd);
 
             fclose(fd);
         }
@@ -3758,33 +3747,33 @@ void kspace_neutrinos_set_seeds(void)
 
     random_generator_neutrinos = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(random_generator_neutrinos, All.KspaceNeutrinoSeed);
-    seedtable = mymalloc("seedtable", PMGRID * PMGRID * sizeof(unsigned int));
+    seedtable = mymalloc("seedtable", All.Nmesh * All.Nmesh * sizeof(unsigned int));
 
-    for(i = 0; i < PMGRID / 2; i++)
+    for(i = 0; i < All.Nmesh / 2; i++)
     {
         for(j = 0; j < i; j++)
-            seedtable[i * PMGRID + j] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
+            seedtable[i * All.Nmesh + j] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
 
         for(j = 0; j < i + 1; j++)
-            seedtable[j * PMGRID + i] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
+            seedtable[j * All.Nmesh + i] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
 
         for(j = 0; j < i; j++)
-            seedtable[(PMGRID - 1 - i) * PMGRID + j] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
+            seedtable[(All.Nmesh - 1 - i) * All.Nmesh + j] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
 
         for(j = 0; j < i + 1; j++)
-            seedtable[(PMGRID - 1 - j) * PMGRID + i] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
+            seedtable[(All.Nmesh - 1 - j) * All.Nmesh + i] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
 
         for(j = 0; j < i; j++)
-            seedtable[i * PMGRID + (PMGRID - 1 - j)] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
+            seedtable[i * All.Nmesh + (All.Nmesh - 1 - j)] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
 
         for(j = 0; j < i + 1; j++)
-            seedtable[j * PMGRID + (PMGRID - 1 - i)] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
+            seedtable[j * All.Nmesh + (All.Nmesh - 1 - i)] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
 
         for(j = 0; j < i; j++)
-            seedtable[(PMGRID - 1 - i) * PMGRID + (PMGRID - 1 - j)] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
+            seedtable[(All.Nmesh - 1 - i) * All.Nmesh + (All.Nmesh - 1 - j)] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
 
         for(j = 0; j < i + 1; j++)
-            seedtable[(PMGRID - 1 - j) * PMGRID + (PMGRID - 1 - i)] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
+            seedtable[(All.Nmesh - 1 - j) * All.Nmesh + (All.Nmesh - 1 - i)] = 0x7fffffff * gsl_rng_uniform(random_generator_neutrinos);
     }
 }
 
@@ -3806,46 +3795,46 @@ void kspace_neutrinos_init(void)
 
     /* note: we use TRANSPOSED_ORDER in pm_periodic, while in N-GenIC we use NORMAL_ORDER */
     for(y = slabstart_y; y < slabstart_y + nslab_y; y++)
-        for(x = 0; x < PMGRID; x++)
-            for(z = 0; z < PMGRID / 2 + 1; z++)
+        for(x = 0; x < All.Nmesh; x++)
+            for(z = 0; z < All.Nmesh / 2 + 1; z++)
             {
-                ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
+                ip = All.Nmesh * (All.Nmesh / 2 + 1) * (y - slabstart_y) + (All.Nmesh / 2 + 1) * x + z;
                 Cdata[ip][0] = 0;
                 Cdata[ip][1] = 0;
             }
 
 
-    for(x = 0; x < PMGRID; x++)
-        for(y = 0; y < PMGRID; y++)
+    for(x = 0; x < All.Nmesh; x++)
+        for(y = 0; y < All.Nmesh; y++)
         {
-            gsl_rng_set(random_generator_neutrinos, seedtable[x * PMGRID + y]);
+            gsl_rng_set(random_generator_neutrinos, seedtable[x * All.Nmesh + y]);
 
-            for(z = 0; z < PMGRID / 2; z++)
+            for(z = 0; z < All.Nmesh / 2; z++)
             {
                 phase = gsl_rng_uniform(random_generator_neutrinos) * 2 * M_PI;
                 do
                     ampl = gsl_rng_uniform(random_generator_neutrinos);
                 while(ampl == 0);
 
-                if(x == PMGRID / 2 || y == PMGRID / 2 || z == PMGRID / 2)
+                if(x == All.Nmesh / 2 || y == All.Nmesh / 2 || z == All.Nmesh / 2)
                     continue;
                 if(x == 0 && y == 0 && z == 0)
                     continue;
 
-                if(x < PMGRID / 2)
+                if(x < All.Nmesh / 2)
                     kvec[0] = x * 2 * M_PI / All.BoxSize;
                 else
-                    kvec[0] = -(PMGRID - x) * 2 * M_PI / All.BoxSize;
+                    kvec[0] = -(All.Nmesh - x) * 2 * M_PI / All.BoxSize;
 
-                if(y < PMGRID / 2)
+                if(y < All.Nmesh / 2)
                     kvec[1] = y * 2 * M_PI / All.BoxSize;
                 else
-                    kvec[1] = -(PMGRID - y) * 2 * M_PI / All.BoxSize;
+                    kvec[1] = -(All.Nmesh - y) * 2 * M_PI / All.BoxSize;
 
-                if(z < PMGRID / 2)
+                if(z < All.Nmesh / 2)
                     kvec[2] = z * 2 * M_PI / All.BoxSize;
                 else
-                    kvec[2] = -(PMGRID - z) * 2 * M_PI / All.BoxSize;
+                    kvec[2] = -(All.Nmesh - z) * 2 * M_PI / All.BoxSize;
 
                 kmag2 = kvec[0] * kvec[0] + kvec[1] * kvec[1] + kvec[2] * kvec[2];
                 kmag = sqrt(kmag2);
@@ -3875,7 +3864,7 @@ void kspace_neutrinos_init(void)
                 {
                     if(y >= slabstart_y && y < (slabstart_y + nslab_y))
                     {
-                        ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
+                        ip = All.Nmesh * (All.Nmesh / 2 + 1) * (y - slabstart_y) + (All.Nmesh / 2 + 1) * x + z;
                         Cdata[ip][0] =  delta * cos(phase);
                         Cdata[ip][1] =  delta * sin(phase);
                     }
@@ -3883,15 +3872,15 @@ void kspace_neutrinos_init(void)
                     {
                         if(x == 0)
                         {
-                            if(y >= PMGRID / 2)
+                            if(y >= All.Nmesh / 2)
                                 continue;
                             else
                             {
-                                yy = PMGRID - y;	/* note: y!=0 surely holds at this point */
+                                yy = All.Nmesh - y;	/* note: y!=0 surely holds at this point */
 
                                 if(y >= slabstart_y && y < (slabstart_y + nslab_y))
                                 {
-                                    ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
+                                    ip = All.Nmesh * (All.Nmesh / 2 + 1) * (y - slabstart_y) + (All.Nmesh / 2 + 1) * x + z;
 
                                     Cdata[ip][0] = delta * cos(phase);
                                     Cdata[ip][1] = delta * sin(phase);
@@ -3899,7 +3888,7 @@ void kspace_neutrinos_init(void)
 
                                 if(yy >= slabstart_y && yy < (slabstart_y + nslab_y))
                                 {
-                                    ip = PMGRID * (PMGRID / 2 + 1) * (yy - slabstart_y) + (PMGRID / 2 + 1) * x + z;
+                                    ip = All.Nmesh * (All.Nmesh / 2 + 1) * (yy - slabstart_y) + (All.Nmesh / 2 + 1) * x + z;
 
                                     Cdata[ip][0] =  delta * cos(phase);
                                     Cdata[ip][1] = -delta * sin(phase);
@@ -3908,20 +3897,20 @@ void kspace_neutrinos_init(void)
                         }
                         else	/* here comes x!=0 : conjugate can be on other processor! */
                         {
-                            if(x >= PMGRID / 2)
+                            if(x >= All.Nmesh / 2)
                                 continue;
                             else
                             {
-                                xx = PMGRID - x;
-                                if(xx == PMGRID)
+                                xx = All.Nmesh - x;
+                                if(xx == All.Nmesh)
                                     xx = 0;
-                                yy = PMGRID - y;
-                                if(yy == PMGRID)
+                                yy = All.Nmesh - y;
+                                if(yy == All.Nmesh)
                                     yy = 0;
 
                                 if(y >= slabstart_y && y < (slabstart_y + nslab_y))
                                 {
-                                    ip = PMGRID * (PMGRID / 2 + 1) * (y - slabstart_y) + (PMGRID / 2 + 1) * x + z;
+                                    ip = All.Nmesh * (All.Nmesh / 2 + 1) * (y - slabstart_y) + (All.Nmesh / 2 + 1) * x + z;
 
                                     Cdata[ip][0] = delta * cos(phase);
                                     Cdata[ip][1] = delta * sin(phase);
@@ -3929,7 +3918,7 @@ void kspace_neutrinos_init(void)
 
                                 if(yy >= slabstart_y && yy < (slabstart_y + nslab_y))
                                 {
-                                    ip = PMGRID * (PMGRID / 2 + 1) * (yy - slabstart_y) + (PMGRID / 2 + 1) * xx + z;
+                                    ip = All.Nmesh * (All.Nmesh / 2 + 1) * (yy - slabstart_y) + (All.Nmesh / 2 + 1) * xx + z;
 
                                     Cdata[ip][0] =  delta * cos(phase);
                                     Cdata[ip][1] = -delta * sin(phase);

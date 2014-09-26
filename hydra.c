@@ -195,7 +195,7 @@ void hydro_force(void)
     int i, j, k, ngrp, ndone, ndone_flag;
     int sendTask, recvTask, place;
     double timeall = 0, timenetwork = 0;
-    double timecomp, timecomm, timewait, tstart, tend, t0, t1;
+    double timecomp, timecomm, timewait, tstart, tend;
 
     int64_t n_exported = 0;
 
@@ -238,6 +238,7 @@ void hydro_force(void)
     int nuc_particles = 0;
     int nuc_particles_sum;
 #endif
+    walltime_measure("/Misc");
 
 #ifdef WAKEUP
 #pragma omp parallel for
@@ -280,8 +281,7 @@ void hydro_force(void)
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
-    CPU_Step[CPU_HYDMISC] += measure_time();
-    t0 = second();
+    walltime_measure("/SPH/Hydro/Init");
 
     evaluate_begin(&ev);
     do
@@ -417,18 +417,19 @@ void hydro_force(void)
 
     /* collect some timing information */
 
-    t1 = WallclockTime = second();
-    timeall += timediff(t0, t1);
+    timeall += walltime_measure(WALLTIME_IGNORE);
 
     timecomp = ev.timecomp1 + ev.timecomp2;
     timewait = ev.timewait1 + ev.timewait2;
     timecomm = ev.timecommsumm1 + ev.timecommsumm2;
 
-    CPU_Step[CPU_HYDCOMPUTE] += timecomp;
-    CPU_Step[CPU_HYDWAIT] += timewait;
-    CPU_Step[CPU_HYDCOMM] += timecomm;
-    CPU_Step[CPU_HYDNETWORK] += timenetwork;
-    CPU_Step[CPU_HYDMISC] += timeall - (timecomp + timewait + timecomm + timenetwork);
+    walltime_add("/SPH/Hydro/Compute", timecomp);
+    walltime_add("/SPH/Hydro/Wait", timewait);
+    walltime_add("/SPH/Hydro/Comm", timecomm);
+#ifdef NUCLEAR_NETWORK
+    walltime_add("/SPH/Hydro/Network", timenetwork);
+#endif
+    walltime_add("/SPH/Hydro/Misc", timeall - (timecomp + timewait + timecomm + timenetwork));
 }
 
 static void hydro_copy(int place, struct hydrodata_in * input) {

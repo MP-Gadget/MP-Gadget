@@ -81,6 +81,9 @@ int fof_find_dmparticles_evaluate(int target, int mode, int *nexport, int *nsend
 void fof_compute_group_properties(int gr, int start, int len);
 
 void parallel_sort(void *base, size_t nmemb, size_t size, int (*compar) (const void *, const void *));
+void qsort_openmp(void *base, size_t nmemb, size_t size,
+                         int(*compar)(const void *, const void *));
+
 int compare_IDs(const void *a, const void *b);
 void test_id_uniqueness(void);
 
@@ -382,7 +385,7 @@ void reorder_gas(void);
 void reorder_particles(void);
 void restart(int mod);
 void run(void);
-void savepositions(int num);
+void savepositions(int num, int reason);
 void savepositions_ioformat1(int num);
 double second(void);
 void set_softenings(void);
@@ -392,6 +395,54 @@ void setup_smoothinglengths(void);
 
 void sumup_large_ints(int n, int *src, int64_t *res);
 void sumup_longs(int n, int64_t *src, int64_t *res);
+int64_t count_to_offset(int64_t countLocal);
+int64_t count_sum(int64_t countLocal);
+
+int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
+inline int atomic_fetch_and_add(int * ptr, int value) {
+    int k;
+#if _OPENMP >= 201107
+#pragma omp atomic capture
+    {
+      k = (*ptr);
+      (*ptr)+=value;
+    }
+#else
+#ifdef OPENMP_USE_SPINLOCK
+    k = __sync_fetch_and_add(ptr, value);
+#else /* non spinlock*/
+#pragma omp critical
+    {
+      k = (*ptr);
+      (*ptr)+=value;
+    }
+#endif
+#endif
+    return k;
+}
+inline int atomic_add_and_fetch(int * ptr, int value) {
+    int k;
+#if _OPENMP >= 201107
+#pragma omp atomic capture
+    { 
+      (*ptr)+=value;
+      k = (*ptr);
+    }
+#else
+#ifdef OPENMP_USE_SPINLOCK
+    k = __sync_add_and_fetch(ptr, value);
+#else /* non spinlock */
+#pragma omp critical
+    { 
+      (*ptr)+=value;
+      k = (*ptr);
+    }
+#endif
+#endif
+    return k;
+}
 
 void statistics(void);
 double timediff(double t0, double t1);

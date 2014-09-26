@@ -145,6 +145,7 @@ void blackhole_accretion(void)
     int ngrp, sendTask, recvTask, place, nexport, nimport, dummy;
     int Ntot_gas_swallowed, Ntot_BH_swallowed;
 
+    walltime_measure("/Misc");
     Evaluator fbev = {0};
 
     fbev.ev_evaluate = (ev_evaluate_func) blackhole_feedback_evaluate;
@@ -184,7 +185,6 @@ void blackhole_accretion(void)
         fflush(stdout);
     }
 
-    CPU_Step[CPU_MISC] += measure_time();
 
     /* Let's first compute the Mdot values */
     int Nactive;
@@ -407,7 +407,7 @@ void blackhole_accretion(void)
 
     fflush(FdBlackHolesDetails);
 
-    CPU_Step[CPU_BLACKHOLES] += measure_time();
+    walltime_measure("/BH");
 }
 
 static void blackhole_accretion_evaluate(int n) {

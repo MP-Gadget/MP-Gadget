@@ -93,14 +93,6 @@ int main(int argc, char **argv)
   else
     RestartSnapNum = -1;
 
-  /* initialize CPU-time/Wallclock-time measurement */
-  for(i = 0; i < CPU_PARTS; i++)
-    All.CPU_Sum[i] = CPU_Step[i] = 0;
-
-  CPUThisRun = 0;
-  WallclockTime = second();
-
-
   begrun();			/* set-up run  */
 
   run();			/* main simulation loop */
