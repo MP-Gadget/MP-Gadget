@@ -27,7 +27,7 @@ OBJS  =  \
 	 radixsort/radixsort.o radixsort/radixsort-mpi.o
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
-	 subfind.h dd.h fof.h eos.h myqsort.h \
+	 subfind.h fof.h myqsort.h \
 	 petaio.h \
 	 bigfile/src/bigfile.h bigfile/src/bigfile-mpi.h \
 	 Makefile \
@@ -39,7 +39,8 @@ LIBS   = -lm $(HDF_LIBS) -g $(MPICHLIB) $(GSL_LIBS) $(FFTW_LIBS)
 
 P-Gadget3: $(OBJS) 
 	$(CC) $(OPTIMIZE) $^ $(LIBS) -o $@
-
+targets:
+	for i in $(OBJS:.o=); do ls $$i.*; done
 config.h: Makefile
 	echo "const char * COMPILETIMESETTINGS = \"$(OPTIMIZE) $(OPT)\";" > $@
 
