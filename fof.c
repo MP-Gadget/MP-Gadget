@@ -1400,49 +1400,6 @@ void fof_save_groups(int num)
         printf("Task=%d Nids=%d totNids=%d TotNids=%d\n", ThisTask, Nids, (int) totNids, (int) TotNids);
         endrun(12);
     }
-#ifdef FOF_SAVE_OLD_CATALOGUE
-
-    /* sort the particle IDs according to group-number */
-
-    /* this guy is unused */
-    parallel_sort(ID_list, Nids, sizeof(struct id_list), fof_compare_ID_list_GrNrID);
-
-    t1 = second();
-    if(ThisTask == 0)
-    {
-        printf("Group catalogues globally sorted. took = %g sec\n", timediff(t0, t1));
-        printf("starting saving of group catalogue\n");
-        fflush(stdout);
-    }
-
-    t0 = second();
-
-    if(ThisTask == 0)
-    {
-        sprintf(buf, "%s/groups_%03d", All.OutputDir, num);
-        mkdir(buf, 02755);
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-
-
-    if(NTask < All.NumFilesWrittenInParallel)
-    {
-        printf
-            ("Fatal error.\nNumber of processors must be a smaller or equal than `NumFilesWrittenInParallel'.\n");
-        endrun(241931);
-    }
-
-    nprocgroup = NTask / All.NumFilesWrittenInParallel;
-    if((NTask % All.NumFilesWrittenInParallel))
-        nprocgroup++;
-    masterTask = (ThisTask / nprocgroup) * nprocgroup;
-    for(groupTask = 0; groupTask < nprocgroup; groupTask++)
-    {
-        if(ThisTask == (masterTask + groupTask))	/* ok, it's this processor's turn */
-            fof_save_local_catalogue(num);
-        MPI_Barrier(MPI_COMM_WORLD);	/* wait inside the group */
-    }
-#endif
     
     myfree(ID_list);
 
