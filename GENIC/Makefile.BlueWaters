@@ -1,0 +1,5 @@
+CC       =   cc
+OPTIMIZE =   -O3 -h gnu -h omp -h aggress -h flex_mp=tolerant -h autothread -h negmsgs -h report=fsv \
+            -L$(HOME)/.local/lib -I$(HOME)/.local/include -L/u/staff/straka/ -lprofiler-newest3
+GSL_INCL = $(GSL_INC)
+GSL_LIBS = $(GSL_LIB)

@@ -1,0 +1,21 @@
+OPT   +=  -DPRODUCEGAS   # Set this to automatically produce gas particles 
+                         # for a single DM species in the input file by interleaved by a half a grid spacing
+
+
+#OPT   +=  -DMULTICOMPONENTGLASSFILE  # set this if the initial glass file contains multiple components
+
+#OPT   +=  -DDIFFERENT_TRANSFER_FUNC  # set this if you want to implement a transfer function that depends on
+                                     # particle type
+
+#OPT   +=  -DNO64BITID    # switch this on if you want normal 32-bit IDs
+#OPT   +=  -DCORRECT_CIC  # only switch this on if particles are homogenously distributed over mesh cells (say glass)
+
+
+
+CC       =   mpicc        # sets the C-compiler (default)
+OPTIMIZE =   -O3 -Wall    # optimization and warning flags (default)
+#MPICHLIB =  -lmpich
+
+include Makefile.$(SYSTYPE)
+include Makefile.deps
+
