@@ -2,7 +2,7 @@
 #  Look at end of file for a brief guide to the compile-time options. #
 #######################################################################
 SYSTYPE=Warp
-VPATH=../P-Gadget3
+VPATH=./
 
 #--------------------------------------- Basic operation mode of code
 OPT += -DDENSITY_INDEPENDENT_SPH
