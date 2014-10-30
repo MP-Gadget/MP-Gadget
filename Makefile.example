@@ -125,8 +125,8 @@ OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding g
 
 
 #-------------------------------------------- Things for special behaviour
-OPT	+=  -DPOWERSPEC_ON_OUTPUT
-OPT	+=  -DPOWERSPEC_ON_OUTPUT_EACH_TYPE
+#OPT	+=  -DPOWERSPEC_ON_OUTPUT   # unsupported with PETAPM
+#OPT	+=  -DPOWERSPEC_ON_OUTPUT_EACH_TYPE # unsupported with PETAPM
 #OPT	+=  -DTRADITIONAL_SPH_FORMULATION
 OPT	+=  -DNOTEST_FOR_IDUNIQUENESS
 #OPT	+=  -DSNIA_HEATING
