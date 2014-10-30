@@ -121,11 +121,11 @@ void petaio_read_internal(char * fname, int ic) {
     N_bh = npartLocal[5];
 
     /* check */
-    if(N_sph >= All.MaxPartSph) {
+    if(N_sph > All.MaxPartSph) {
         fprintf(stderr, "Task %d overwhelmed by sph: %d > %d\n", ThisTask, N_sph, All.MaxPartSph);
         abort();
     }
-    if(N_bh >= All.MaxPartBh) {
+    if(N_bh > All.MaxPartBh) {
         fprintf(stderr, "Task %d overwhelmed by bh: %d > %d\n", ThisTask, N_bh, All.MaxPartBh);
         abort();
     }
@@ -375,7 +375,7 @@ static void petaio_read_header(BigFile * bf) {
         set_global_time(All.TimeBegin);
     }
 
-    if(BoxSize != All.BoxSize) {
+    if(fabs(BoxSize - All.BoxSize) / All.BoxSize > 1e-6) {
         if(ThisTask == 0) {
             fprintf(stderr, "BoxSize mismatch %g, snapfile has %g\n", All.BoxSize, BoxSize);
         }
