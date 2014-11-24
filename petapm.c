@@ -261,17 +261,21 @@ void petapm_prepare() {
 
     no = All.MaxPart; /* start with the root */
     while(no >= 0) {
+        force_drift_node(no, All.Ti_Current);
+
         if(!(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))) {
             /* node doesn't contain particles on this process, do not open */
             no = Nodes[no].u.d.sibling;
             continue;
         }
-        if(Nodes[no].len + 2 * Extnodes[no].hmax <= All.BoxSize / All.Nmesh * 24
+        if(
             /* node is large */
-       ||  (
+           (Nodes[no].len <= All.BoxSize / All.Nmesh * 24)
+           ||  
+            /* node is a top leaf */
+            (
             !(Nodes[no].u.d.bitflags & (1 << BITFLAG_INTERNAL_TOPLEVEL))
             && (Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL)))
-            /* node is a top leaf */
                 ) {
             convert_node_to_region(no, r);
             r ++;
