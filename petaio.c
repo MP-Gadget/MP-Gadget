@@ -397,11 +397,14 @@ static void petaio_read_header(BigFile * bf) {
     /* sets the maximum number of particles that may reside on a processor */
     All.MaxPart = (int) (All.PartAllocFactor * (All.TotNumPart / NTask));	
     All.MaxPartSph = (int) (All.PartAllocFactor * (All.TotN_sph / NTask));	
-    All.MaxPartBh = (int) (0.1 * All.PartAllocFactor * (All.TotN_sph / NTask));	
 
 #ifdef INHOMOG_GASDISTR_HINT
-    All.MaxPartSph = All.MaxPart;
+    if(All.TotN_sph > 0) {
+        All.MaxPartSph = All.MaxPart;
+    }
 #endif
+    /* at most 10% of SPH can form BH*/
+    All.MaxPartBh = (int) (0.1 * All.MaxPartSph);	
 
 }
 
