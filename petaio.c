@@ -718,16 +718,20 @@ static void register_io_blocks() {
 //    IO_REG_WRONLY(JUV,   "f4", 1, 0);
 
     /* SF */
+#ifdef SFR
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
     IO_REG(StarFormationTime, "f4", 1, 4);
     IO_REG(Metallicity,       "f4", 1, 0);
     IO_REG(Metallicity,       "f4", 1, 4);
-
+#endif
+#ifdef BLACK_HOLES
     /* Blackhole */
     IO_REG(BlackholeMass,          "f8", 1, 5);
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
-
+#endif
+#ifdef FOF
     fof_register_io_blocks();
+#endif
 }
 
