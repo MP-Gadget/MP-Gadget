@@ -38,8 +38,13 @@ and SFR. To run a N-Body sim, use IC files with no Gas particles.
 make
 ```
 == Usage, parameter files ==
+There are two example runs in run/
 
-in etc/, there is an example parameter file.
+first make the code in source tree with Makefile.example
+
+then:
+    run.sh : simulation with gas
+    run-dm.sh : simulation without gas (dm only)
 
 == Initial Condition ==
 There is an IC generator in GENIC directory. It compiles similarily. You need to

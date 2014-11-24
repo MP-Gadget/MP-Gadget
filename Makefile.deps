@@ -16,35 +16,40 @@ OBJS  =  \
 	 gravtree.o hydra.o  driftfac.o darkenergy.o \
 	 forcetree.o ewald.o peano.o parallel_sort_special.o \
 	 petapm.o longrange.o mymalloc.o \
-	 densitykernel.o interp.o lightcone.o walltime.o \
-	 radixsort/radixsort.o radixsort/radixsort-mpi.o
+	 densitykernel.o interp.o lightcone.o walltime.o
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
 	 fof.h myqsort.h \
 	 petaio.h \
-	 Makefile \
+	 Makefile 
 
-BIGFILEINC = $(VPATH)/bigfile/src
-CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(BIGFILEINC) -Idepends/include
+CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -Idepends/include
 
-LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -Ldepends/lib -lbigfile-mpi -lbigfile -lpfft -lfftw3_mpi -lfftw3_threads -lfftw3 
+BUNDLEDLIBS = -lradixsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft -lfftw3_mpi -lfftw3_threads -lfftw3 
+LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -Ldepends/lib $(BUNDLEDLIBS)
 
-P-Gadget3: $(OBJS) depends/lib/libfftw3.a depends/lib/libpfft.a depends/lib/libbigfile.a
+P-Gadget3: $(OBJS) depends
 	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
-targets:
-	for i in $(OBJS:.o=); do ls $$i.*; done
 
 config.h: Makefile
 	echo "const char * COMPILETIMESETTINGS = \"$(OPTIMIZE) $(OPT)\";" > $@
 
-depends/lib/libbigfile.a:
+depends: depends/radixsort depends/bigfile depends/fftw3 depends/pfft
+depends/radixsort:
+	cd $(VPATH)/radixsort; \
+	make install PREFIX=$(PWD)/depends/ CC=$(CC) CFLAGS="$(OPTIMIZE)"
+	touch $@
+depends/bigfile:
 	cd $(VPATH)/bigfile/src; \
 	make install PREFIX=$(PWD)/depends/ CC=$(CC) CFLAGS="$(OPTIMIZE)"
+	touch $@
 
-depends/lib/libfftw3.a:
+depends/fftw3:
 	CC="$(CC)" MPICC="$(CC)" CFLAGS="$(OPTIMIZE)" sh $(VPATH)/pfft-python/depends/install_fftw.sh $(PWD)/depends/
-depends/lib/libpfft.a: depends/lib/libfftw3.a
+	touch $@
+depends/pfft: depends/fftw3
 	CC="$(CC)" CFLAGS="$(OPTIMIZE)" sh $(VPATH)/pfft-python/depends/install_pfft.sh $(PWD)/depends/
+	touch $@
 
 $(OBJS): $(INCL) config.h
 
