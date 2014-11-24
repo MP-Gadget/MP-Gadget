@@ -490,9 +490,12 @@ void print_spec(void)
   if(ThisTask == 0)
     {
       sprintf(buf, "%s/inputspec_%s.txt", OutputDir, FileBase);
-
+      
       fd = fopen(buf, "w");
-
+      if (fd == NULL) {
+          printf("Failed to create powerspec file at:%s\n", buf);
+        return;
+      }
       gf = GrowthFactor(0.001, 1.0) / (1.0 / 0.001);
 
       DDD = GrowthFactor(1.0 / (Redshift + 1), 1.0);

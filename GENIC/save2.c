@@ -23,7 +23,7 @@ int64_t TotNumPart;
 void write_particle_data(void) {
 
     int64_t numpart_64 = NumPart;
-    MPI_Allreduce(&NumPart, &TotNumPart, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&numpart_64, &TotNumPart, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
     NumPartPerFileList = alloca(sizeof(int64_t) * NumFiles);
     {
         int i;
