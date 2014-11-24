@@ -18,8 +18,8 @@ OBJS  =  \
 	 system.o allocate.o density.o sizelimited_sendrecv.o  \
 	 evaluator.o \
 	 gravtree.o hydra.o  driftfac.o darkenergy.o \
-	 forcetree.o  peano.o parallel_sort_special.o \
-	petapm.o longrange.o mymalloc.o \
+	 forcetree.o ewald.o peano.o parallel_sort_special.o \
+	 petapm.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o \
 	 bigfile/src/bigfile.o bigfile/src/bigfile-mpi.o \
 	 radixsort/radixsort.o radixsort/radixsort-mpi.o

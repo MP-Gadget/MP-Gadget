@@ -143,8 +143,11 @@ void begrun(void)
     }
 #endif
 
+    
 #ifdef PERIODIC
+#ifndef PETAPM
     ewald_init();
+#endif
 #endif
 
 #ifdef PERIODIC
