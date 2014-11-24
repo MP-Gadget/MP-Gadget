@@ -161,12 +161,13 @@ void saveheader(BigFile * bf) {
     int64_t totnumpart[6] = {0};
     double mass[6] = {0};
     totnumpart[1] = TotNumPart;
-    mass[1] = (Omega) * 3 * Hubble * Hubble / (8 * PI * G) * pow(Box, 3) / TotNumPart;
-#ifdef PRODUCEGAS
-    totnumpart[0] = TotNumPart;
-    mass[0] = (OmegaBaryon) * 3 * Hubble * Hubble / (8 * PI * G) * pow(Box, 3) / TotNumPart;
-    mass[1] = (Omega - OmegaBaryon) * 3 * Hubble * Hubble / (8 * PI * G) * pow(Box, 3) / TotNumPart;
-#endif
+    if (ProduceGas) {
+        totnumpart[0] = TotNumPart;
+        mass[0] = (OmegaBaryon) * 3 * Hubble * Hubble / (8 * PI * G) * pow(Box, 3) / TotNumPart;
+        mass[1] = (Omega - OmegaBaryon) * 3 * Hubble * Hubble / (8 * PI * G) * pow(Box, 3) / TotNumPart;
+    } else {
+        mass[1] = (Omega) * 3 * Hubble * Hubble / (8 * PI * G) * pow(Box, 3) / TotNumPart;
+    }
     double redshift = 1.0 / InitTime - 1.;
 
     int rt =(0 != big_block_set_attr(&bheader, "TotNumPart", totnumpart, "i8", 6)) ||
