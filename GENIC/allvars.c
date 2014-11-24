@@ -19,10 +19,7 @@ long long IDStart;
 
 
 
-char GlassFile[500];
 char FileWithInputSpectrum[500];
-
-int GlassTileFac;
 
 double Box;
 int Seed;

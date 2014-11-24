@@ -1,5 +1,9 @@
+CC       =   mpicc        # sets the C-compiler (default)
+OPTIMIZE =   -O3 -Wall    # optimization and warning flags (default)
 
 OPTIONS =  $(OPT)
+
+include ../Makefile.$(SYSTYPE)
 
 EXEC   = N-GenIC
 
@@ -12,8 +16,7 @@ OBJS   = main.o power.o allvars.o read_param.o \
 #		 fftwdisp.o \
 
 INCL   = allvars.h proto.h  nrsrc/nrutil.h  \
-	../bigfile/src/bigfile-mpi.h ../bigfile/src/bigfile.h \
-	Makefile
+	../bigfile/src/bigfile-mpi.h ../bigfile/src/bigfile.h
 
 FFTW_LIB =  $(FFTW_LIBS) -lpfft -lfftw3_mpi -lfftw3
 

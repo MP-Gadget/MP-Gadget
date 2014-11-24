@@ -82,17 +82,9 @@ void read_parameterfile(char *fname)
   addr[nt] = &Nsample;
   id[nt++] = INT;
 
-  strcpy(tag[nt], "GlassFile");
-  addr[nt] = GlassFile;
-  id[nt++] = STRING;
-
   strcpy(tag[nt], "FileWithInputSpectrum");
   addr[nt] = FileWithInputSpectrum;
   id[nt++] = STRING;
-
-  strcpy(tag[nt], "GlassTileFac");
-  addr[nt] = &GlassTileFac;
-  id[nt++] = INT;
 
   strcpy(tag[nt], "Seed");
   addr[nt] = &Seed;

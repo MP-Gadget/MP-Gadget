@@ -1,3 +1,8 @@
+#Copy this file to Makefile
+# and set SYSTYPE
+#
+SYSTYPE=default
+
 OPT   +=  -DPRODUCEGAS   # Set this to automatically produce gas particles 
                          # for a single DM species in the input file by interleaved by a half a grid spacing
 
@@ -12,10 +17,6 @@ OPT   +=  -DPRODUCEGAS   # Set this to automatically produce gas particles
 
 
 
-CC       =   mpicc        # sets the C-compiler (default)
-OPTIMIZE =   -O3 -Wall    # optimization and warning flags (default)
-#MPICHLIB =  -lmpich
-
-include Makefile.$(SYSTYPE)
 include Makefile.deps
+
 

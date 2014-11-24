@@ -1,4 +1,0 @@
-CC       =   mpiicc
-OPTIMIZE =   -g -O0 -openmp
-GSL_INCL = $(GSL_INC)
-GSL_LIBS = $(GSL_LIB)

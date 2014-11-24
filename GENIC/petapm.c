@@ -1073,34 +1073,6 @@ static double super_lanzcos_diff_kernel_1(double w) {
  * */
     return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
 }
-static double diff_kernel(double w) {
-#if PETA_PM_ORDER == 1
-        return super_lanzcos_diff_kernel_1(w);
-#endif
-#if PETA_PM_ORDER == 2
-        return super_lanzcos_diff_kernel_2(w);
-#endif
-#if PETA_PM_ORDER == 3
-        return super_lanzcos_diff_kernel_3(w);
-#endif
-#if PETA_PM_ORDER > 3 
-#error PETA_PM_ORDER too high.
-#endif
-}
-static void diff_transfer(int64_t k, pfft_complex * value) {
-    double tmp0;
-    double tmp1;
-    /* 
-     * negative sign is from force_x = - Del_x pot 
-     *
-     * filter is   i K(w)
-     * */
-    double fac = diff_kernel (k * (2 * M_PI / Nmesh));
-    tmp0 = - value[0][1] * fac;
-    tmp1 = value[0][0] * fac;
-    value[0][0] = tmp0;
-    value[0][1] = tmp1;
-}
 static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (Box / (2 * PI)) * kpos[0] / k2;

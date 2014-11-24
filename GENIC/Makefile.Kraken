@@ -1,9 +1,0 @@
-CC       =   cc # sets the C-compiler
-OPTIMIZE =   -fast
-GSL_INCL = -I/sw/xt/gsl/1.14/cnl2.2_pgi11.4.0/include
-GSL_LIBS = -L/sw/xt/gsl/1.14/cnl2.2_pgi11.4.0/lib
-FFTW_INCL=  -I/opt/fftw/2.1.5/cnos/include
-FFTW_LIBS=  -L/opt/fftw/2.1.5/cnos/lib
-MPICHLIB =
-HDF5INCL =
-HDF5LIB  =
