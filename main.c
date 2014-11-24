@@ -136,13 +136,9 @@ GADGET-2 needs the following non-standard libraries for compilation:
   open-source package can be obtained at http://www.fftw.org,
   for example. It is only needed for simulations that use the TreePM algorithm.
 
-Note that FFTW needs to be compiled with parallel support enabled.
+Note that PFFT needs to be compiled with parallel support enabled.
 This can be achieved by passing the option <b>--enable-mpi</b> to the
-configure script. When at it, you might as well add
-<b>--enable-type-prefix</b> to obtain the libraries in both a single
-and double precision version. If this has not been done, you should
-set the option \b NOTYPEPREFIX_FFTW in GADGET's \ref Gadget-Makefile
-"Makefile".
+configure script. 
 
 Note that if any of the above libraries is not installed in standard
 locations on your system, the \ref Gadget-Makefile "Makefile" provided
@@ -357,11 +353,6 @@ clean</b>, which will erase all object files, followed by <b>make</b>.
    machines (like Cray T3E) have \b sizeof(int)=8. In this case, set
    the T3E flag.
 
-
-- \b NOTYPEPREFIX_FFTW \n If this is set, the fftw-header/libraries
-   are accessed without type prefix (adopting whatever was chosen as
-   default at compile-time of fftw). Otherwise, the type prefix 'd'
-   for double-precision is used.
  
 \section secmake5 Input options
 

@@ -473,11 +473,11 @@ static void real_drift_particle(int i, int time1)
 
             /* write data to caustic log file -> allows caustics to be tracked on time-stepping frequency */
             fprintf(FdCaustics, "%g %g %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
-                    (MyOutputFloat) All.Time,
-                    (MyOutputFloat) rho_0,
+                     All.Time,
+                     rho_0,
                     P[i].ID,
-                    (MyOutputFloat) P[i].Pos[0], (MyOutputFloat) P[i].Pos[1], (MyOutputFloat) P[i].Pos[2],
-                    (MyOutputFloat) P[i].Vel[0], (MyOutputFloat) P[i].Vel[1], (MyOutputFloat) P[i].Vel[2],
+                     P[i].Pos[0],  P[i].Pos[1],  P[i].Pos[2],
+                     P[i].Vel[0],  P[i].Vel[1],  P[i].Vel[2],
                     caustic_counter,
                     s_1, s_2, s_3, smear_x, smear_y, smear_z,
                     summed_annihilation, CurrentTurnaroundRadius, D_xP,

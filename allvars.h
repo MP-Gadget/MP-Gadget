@@ -254,26 +254,8 @@ typedef uint64_t peanokey;
 
 typedef uint64_t MyIDType;
 
-
-
-#ifndef DOUBLEPRECISION     /* default is single-precision */
-typedef float  MyFloat;
-typedef float  MyDouble;
-#else
-#if (DOUBLEPRECISION == 2)   /* mixed precision */
-typedef float   MyFloat;
-typedef double  MyDouble;
-#else                        /* everything double-precision */
 typedef double  MyFloat;
 typedef double  MyDouble;
-#endif
-#endif
-
-#ifdef OUTPUT_IN_DOUBLEPRECISION
-typedef double MyOutputFloat;
-#else
-typedef float MyOutputFloat;
-#endif
 
 struct unbind_data
 {
@@ -2193,9 +2175,6 @@ extern struct NODE
     MyFloat mass_dm;
 #endif
     int Ti_current;
-#ifdef PAD_STRUCTURES           /* Padds to 16*4 / 24*4 in case of DOUBLEPRECISION */
-    int pad[3];
-#endif
 }
 *Nodes_base,			/*!< points to the actual memory allocted for the nodes */
     *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]

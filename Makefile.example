@@ -46,11 +46,6 @@ OPT	+=  -DALLOWEXTRAPARAMS
 #OPT	+=  -DPERMUTATAION_OPTIMIZATION
 
 
-#---------------------------------------- Single/Double Precision
-OPT	+=  -DDOUBLEPRECISION
-OPT	+=  -DDOUBLEPRECISION_FFTW
-OPT	+=  -DOUTPUT_IN_DOUBLEPRECISION # snapshot files will be written in double precision
-
 #---------------------------------------- Invariance Test
 #OPT	+=  -DINVARIANCETEST
 #OPT	+=  -DINVARIANCETEST_SIZE1=2
@@ -116,7 +111,6 @@ OPT	+=  -DFIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
 #OPT	+=  -DNOISMPRESSURE
 #OPT	+=  -DNOVISCOSITYLIMITER
 #OPT	+=  -DNOTREERND
-#OPT	+=  -DNOTYPEPREFIX_FFTW
 #OPT	+=  -DNO_TREEDATA_IN_RESTART
 #OPT	+=  -DISOTHERM=200                  # adds potential of an isothermal sphere
 #OPT	+=  -DCOMPUTE_POTENTIAL_ENERGY
@@ -529,9 +523,6 @@ include $(VPATH)/Makefile.deps
 #     - T3E:       The code assumes that sizeof(int)=4 holds. A few machines
 #                  (like Cray T3E) have sizeof(int)=8. In this case, set the
 #                  T3E flag.
-#     - NOTYPEPREFIX_FFTW: If this is set, the fftw-header/libraries are accessed
-#                  without type prefix (adopting whatever was chosen as default at compile
-#                  of fftw). Otherwise, the type prefix 'd' for double is used.
 #
 # Input options:
 #

@@ -1011,17 +1011,6 @@ void force_exchange_pseudodata(void)
         MyFloat mass_dm;
 #endif
         unsigned int bitflags;
-#ifdef PAD_STRUCTURES
-#ifndef DOUBLEPRECISION 
-        int pad[5];
-#else
-#if (DOUBLEPRECISION == 2)   /* mixed precision */
-        int pad[5];
-#else
-        int pad[3];
-#endif
-#endif /* DOUBLEPRECISION  */
-#endif
     }
     *DomainMoment;
 
@@ -4590,11 +4579,8 @@ void ewald_init(void)
         fflush(stdout);
     }
 
-#ifdef DOUBLEPRECISION
     sprintf(buf, "ewald_spc_table_%d_dbl.dat", EN);
-#else
-    sprintf(buf, "ewald_spc_table_%d.dat", EN);
-#endif
+
     if((fd = fopen(buf, "r")))
     {
         if(ThisTask == 0)
