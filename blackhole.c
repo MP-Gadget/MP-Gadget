@@ -64,7 +64,7 @@ struct feedbackdata_in
 
 struct feedbackdata_out
 {
-#ifdef REPOSITION_ON_POTMIN
+#ifdef BH_REPOSITION_ON_POTMIN
     MyFloat BH_MinPotPos[3];
     MyFloat BH_MinPot;
 #endif
@@ -175,11 +175,12 @@ void blackhole_accretion(void)
     int Nactive;
     int * queue = evaluate_get_queue(&fbev, &Nactive);
 
+#ifdef BH_ACCRETION
     for(i = 0; i < Nactive; i ++) {
         int n = queue[i];
         blackhole_accretion_evaluate(n);
     }
-
+#endif
 
     /* Now let's invoke the functions that stochasticall swallow gas
      * and deal with black hole mergers.
@@ -205,8 +206,9 @@ void blackhole_accretion(void)
     evaluate_run(&fbev);
 
     /* Now do the swallowing of particles */
+#if defined(BH_SWALLOWGAS) || defined(BH_MERGER)
     evaluate_run(&swev);
-
+#endif
     myfree(Ngblist);
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -301,7 +303,6 @@ static void blackhole_accretion_evaluate(int n) {
     double meddington = (4 * M_PI * GRAVITY * C * PROTONMASS / (0.1 * C * C * THOMPSON)) * BHP(n).Mass
         * All.UnitTime_in_s;
 
-#ifdef BONDI
     double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
 
     if(norm > 0)
@@ -309,10 +310,8 @@ static void blackhole_accretion_evaluate(int n) {
             BHP(n).Mass * BHP(n).Mass * rho_proper / norm;
     else
         mdot = 0;
-#endif
 
-
-#ifdef ENFORCE_EDDINGTON_LIMIT
+#ifdef BH_ENFORCE_EDDINGTON_LIMIT
     if(mdot > All.BlackHoleEddingtonFactor * meddington)
         mdot = All.BlackHoleEddingtonFactor * meddington;
 #endif
@@ -364,11 +363,12 @@ static void blackhole_accretion_evaluate(int n) {
 
 static void blackhole_postprocess(int n) {
     int k;
-#ifdef REPOSITION_ON_POTMIN
+#ifdef BH_REPOSITION_ON_POTMIN
     if(BHP(n).MinPot < 0.5 * BHPOTVALUEINIT)
         for(k = 0; k < 3; k++)
             P[n].Pos[k] = BHP(n).MinPotPos[k];
 #endif
+#ifdef BH_ACCRETION
     if(BHP(n).accreted_Mass > 0)
     {
         for(k = 0; k < 3; k++)
@@ -380,7 +380,6 @@ static void blackhole_postprocess(int n) {
         BHP(n).Mass += BHP(n).accreted_BHMass;
         BHP(n).accreted_Mass = 0;
     }
-
     int bin = P[n].TimeBin;
 #pragma omp atomic
     TimeBin_BH_mass[bin] += BHP(n).Mass;
@@ -392,6 +391,7 @@ static void blackhole_postprocess(int n) {
 #pragma omp atomic
         TimeBin_BH_Medd[bin] += BHP(n).Mdot / BHP(n).Mass;
     }
+#endif
 }
 
 static int blackhole_feedback_evaluate(int target, int mode, 
@@ -404,14 +404,14 @@ static int blackhole_feedback_evaluate(int target, int mode,
     double hsearch;
 
     int ptypemask = 0;
-#ifndef REPOSITION_ON_POTMIN
+#ifndef BH_REPOSITION_ON_POTMIN
     ptypemask = 1 + (1 << 5);
 #else
     ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
 #endif
 
     O->BH_TimeBinLimit = -1;
-#ifdef REPOSITION_ON_POTMIN
+#ifdef BH_REPOSITION_ON_POTMIN
     O->BH_MinPot = BHPOTVALUEINIT;
 #endif
 
@@ -449,26 +449,21 @@ static int blackhole_feedback_evaluate(int target, int mode,
                 int j = ngblist[n];
 
                 if(P[j].Mass < 0) continue;
+
+                if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin) 
+                    O->BH_TimeBinLimit = P[j].TimeBin;
+
                 double dx = I->Pos[0] - P[j].Pos[0];
                 double dy = I->Pos[1] - P[j].Pos[1];
                 double dz = I->Pos[2] - P[j].Pos[2];
-#ifdef PERIODIC			/*  now find the closest image in the given box size  */
-                if(dx > boxHalf_X)
-                    dx -= boxSize_X;
-                if(dx < -boxHalf_X)
-                    dx += boxSize_X;
-                if(dy > boxHalf_Y)
-                    dy -= boxSize_Y;
-                if(dy < -boxHalf_Y)
-                    dy += boxSize_Y;
-                if(dz > boxHalf_Z)
-                    dz -= boxSize_Z;
-                if(dz < -boxHalf_Z)
-                    dz += boxSize_Z;
+#if defined(PERIODIC) 
+                dx = NEAREST(dx);
+                dy = NEAREST(dy);
+                dz = NEAREST(dz);
 #endif
                 double r2 = dx * dx + dy * dy + dz * dz;
 
-#ifdef REPOSITION_ON_POTMIN
+#ifdef BH_REPOSITION_ON_POTMIN
                 /* if this option is switched on, we may also encounter dark matter particles or stars */
                 if(r2 < kernel.HH)
                 {
@@ -494,6 +489,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
                     }
                 }
 #endif
+#ifdef BH_MERGER
                 if(P[j].Type == 5 && r2 < kernel.HH)	/* we have a black hole merger */
                 {
                     if(I->ID != P[j].ID)
@@ -526,18 +522,19 @@ static int blackhole_feedback_evaluate(int target, int mode,
                         }
                     }
                 }
+#endif
                 if(P[j].Type == 0) {
 #ifdef WINDS
                     /* BH does not accrete wind */
                     if(SPHP(j).DelayTime > 0) continue;
 #endif
+#ifdef BH_SWALLOWGAS
                     if(r2 < kernel.HH) {
                         /* here we have a gas particle */
 
                         double r = sqrt(r2);
                         double u = r * kernel.Hinv;
                         double wk = density_kernel_wk(&kernel, u);
-#ifdef SWALLOWGAS
                         /* compute accretion probability */
                         double p, w;
 
@@ -553,9 +550,11 @@ static int blackhole_feedback_evaluate(int target, int mode,
                             if(P[j].SwallowID < I->ID)
                                 P[j].SwallowID = I->ID;
                         }
-#endif
                     }
-                    if(r2 < bh_feedback_kernel.HH) {
+#endif
+
+#ifdef BH_THERMALFEEDBACK
+                    if(r2 < bh_feedback_kernel.HH && P[j].Mass > 0) {
                         double r = sqrt(r2);
                         double u = r * bh_feedback_kernel.Hinv;
                         double wk;
@@ -568,39 +567,33 @@ static int blackhole_feedback_evaluate(int target, int mode,
                         if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
                             wk = density_kernel_wk(&bh_feedback_kernel, u);
                         else
-                            wk = 1.0;
-                        if(P[j].Mass > 0)
-                        {
-                            if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin) 
-                                O->BH_TimeBinLimit = P[j].TimeBin;
-#ifdef BH_THERMALFEEDBACK
+                        wk = 1.0;
 #ifndef UNIFIED_FEEDBACK
-                            double energy = All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt *
-                                pow(C / All.UnitVelocity_in_cm_per_s, 2);
+                        double energy = All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt *
+                            pow(C / All.UnitVelocity_in_cm_per_s, 2);
 
-                            if(I->FeedbackWeightSum > 0)
-                            {
-                                SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
-                            }
+                        if(I->FeedbackWeightSum > 0)
+                        {
+                            SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
+                        }
 
 #else
-                            double meddington = (4 * M_PI * GRAVITY * C *
-                                    PROTONMASS / (0.1 * C * C * THOMPSON)) * I->BH_Mass *
-                                All.UnitTime_in_s;
+                        double meddington = (4 * M_PI * GRAVITY * C *
+                                PROTONMASS / (0.1 * C * C * THOMPSON)) * I->BH_Mass *
+                            All.UnitTime_in_s;
 
-                            if(I->Mdot > All.RadioThreshold * meddington)
-                            {
-                                double energy =
-                                    All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt * pow(C /
-                                            All.UnitVelocity_in_cm_per_s,
-                                            2);
-                                if(I->FeedbackWeightSum> 0) {
-                                    SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
-                                }
+                        if(I->Mdot > All.RadioThreshold * meddington)
+                        {
+                            double energy =
+                                All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt * pow(C /
+                                        All.UnitVelocity_in_cm_per_s,
+                                        2);
+                            if(I->FeedbackWeightSum> 0) {
+                                SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
                             }
-#endif
-#endif
                         }
+#endif
+#endif
                     }
                 }
             }
@@ -620,6 +613,11 @@ static int blackhole_feedback_evaluate(int target, int mode,
 }
 
 
+/** 
+ * perform blackhole swallow / merger; 
+ * ran only if BH_MERGER or BH_SWALLOWGAS
+ * is defined
+ */
 int blackhole_swallow_evaluate(int target, int mode, 
         struct swallowdata_in * I, 
         struct swallowdata_out * O, 
@@ -628,7 +626,7 @@ int blackhole_swallow_evaluate(int target, int mode,
     int startnode, numngb, k, n, listindex = 0;
 
     int ptypemask = 0;
-#ifndef REPOSITION_ON_POTMIN
+#ifndef BH_REPOSITION_ON_POTMIN
     ptypemask = 1 + (1 << 5);
 #else
     ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
@@ -655,6 +653,7 @@ int blackhole_swallow_evaluate(int target, int mode,
                 lock_particle_if_not(ngblist[n], I->ID);
                 int j = ngblist[n];
                 if(P[j].SwallowID != I->ID) continue;
+#ifdef BH_MERGER
                 if(P[j].Type == 5)	/* we have a black hole merger */
                 {
                     struct blackhole_event event;
@@ -694,7 +693,9 @@ int blackhole_swallow_evaluate(int target, int mode,
 #pragma omp atomic
                     N_BH_swallowed++;
                 }
+#endif
 
+#ifdef BH_SWALLOWGAS
                 if(P[j].Type == 0)
                 {
                     O->Mass += FLT(P[j].Mass);
@@ -707,6 +708,7 @@ int blackhole_swallow_evaluate(int target, int mode,
 #pragma omp atomic
                     N_sph_swallowed++;
                 }
+#endif 
             }
         }
         if(listindex < NODELISTLENGTH)
@@ -731,7 +733,7 @@ static void * blackhole_alloc_ngblist() {
 }
 static void blackhole_feedback_reduce(int place, struct feedbackdata_out * remote, int mode) {
     int k;
-#ifdef REPOSITION_ON_POTMIN
+#ifdef BH_REPOSITION_ON_POTMIN
     if(mode == 0 || BHP(place).MinPot > remote->BH_MinPot)
     {
         BHP(place).MinPot = remote->BH_MinPot;

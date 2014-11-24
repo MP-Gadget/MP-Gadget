@@ -20,7 +20,7 @@ OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & 
 OPT += -DWINDS
 OPT += -DPETAPM  # new peta scale PFFT based PM
 OPT += -DPETAPM_ORDER=1  # order of finite differentiation kernel 1 is same as gadget
-
+OPT	+=  -DEVALPOTENTIAL           # computes gravitational potential
 
 #--------------------------------------- TreePM Options
 #OPT	+=  -DGRIDBOOST=2
@@ -75,14 +75,14 @@ OPT	+=  -DWINDS
 
 #-------------------------------------- AGN stuff
 OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
-OPT	+=  -DBONDI                   # Bondi-Hoyle style accretion model
-OPT	+=  -DENFORCE_EDDINGTON_LIMIT # put a hard limit on the maximum accretion rate
+OPT	+=  -DBH_ACCRETION # Bondi-Hoyle style accretion model
+OPT	+=  -DBH_ENFORCE_EDDINGTON_LIMIT # put a hard limit on the maximum accretion rate
 OPT	+=  -DBH_THERMALFEEDBACK      # couple a fraction of the BH luminosity into surrounding gas
 #OPT	+=  -DBH_DRAG                 # Drag on black-holes due to accretion
-OPT	+=  -DSWALLOWGAS              # Enables stochastic accretion of gas particles consistent with growth rate of hole
-OPT	+=  -DEVALPOTENTIAL           # computes gravitational potential
-OPT	+=  -DREPOSITION_ON_POTMIN    # repositions hole on potential minimum (requires EVALPOTENTIAL)
+OPT	+=  -DBH_SWALLOWGAS              # Enables stochastic accretion of gas particles consistent with growth rate of hole
+OPT	+=  -DBH_SWALLOWBH # Enables blackhole mergers.
 OPT	+=  -DBH_COUNTPROGS	      # carries a counter for each BH that gives the total number of seeds that merged into it
+OPT	+=  -DBH_REPOSITION_ON_POTMIN    # repositions hole on potential minimum (requires EVALPOTENTIAL)
 OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding gas velocity is used in addition to the sounds speed in the Bondi rate 
 
 

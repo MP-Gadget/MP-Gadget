@@ -4,3 +4,18 @@
 #ifdef PMGRID
 #error the PMGRID module is deprecated; use PETAPM.
 #endif
+#ifdef SWALLOWGAS
+#error SWALLOWGAS shall be replaced with BH_SWALLOWGAS also check BH_SWALLOWBH
+#endif
+#ifdef REPOSITION_ON_POTMIN
+#error REPOSITION_ON_POTMIN   shall be replacedwith BH_REPOSITION_ON_POTMIN
+#endif
+#ifdef BONDI
+#error BONDI is replaced with BH_ACCRETION
+#endif
+#ifdef ENFORCE_EDDINGTON_LIMIT
+#error ENFORCE_EDDINGTON_LIMIT is replaced with BH_ENFORCE_EDDINGTON_LIMIT
+#endif
+#ifdef USE_GASVEL_IN_BONDI
+#error USE_GASVEL_IN_BONDI is replaced with BH_USE_GAS_VEL_IN_BONDI
+#endif

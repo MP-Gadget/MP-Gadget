@@ -227,7 +227,7 @@ void petaio_read_ic() {
             P[i].Mass = All.MassTable[P[i].Type];
     }
 
-#if defined(BLACK_HOLES) && defined(SWALLOWGAS)
+#if defined(BLACK_HOLES) && defined(BH_SWALLOWGAS)
     All.MassTable[5] = 0;
 #endif
 
