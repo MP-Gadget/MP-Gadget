@@ -653,8 +653,11 @@ SIMPLE_PROPERTY(ID, P[i].ID, uint64_t, 1)
 SIMPLE_PROPERTY(Potential, P[i].p.Potential, float, 1)
 SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).d.Density, float, 1)
-SIMPLE_PROPERTY(Pressure, SPHP(i).Pressure, float, 1)
+#ifdef DENSITY_INDEPENDENT_SPH
+SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
 SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
+#endif
+SIMPLE_PROPERTY(Pressure, SPHP(i).Pressure, float, 1)
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #ifdef SFR
 SIMPLE_PROPERTY(StarFormationTime, P[i].StellarAge, float, 1)
@@ -715,8 +718,11 @@ static void register_io_blocks() {
     /* Bare Bone SPH*/
     IO_REG(SmoothingLength,  "f4", 1, 0);
     IO_REG(Density,          "f4", 1, 0);
-    IO_REG_WRONLY(Pressure,         "f4", 1, 0);
+#ifdef DENSITY_INDEPENDENT_SPH
+    IO_REG(EgyWtDensity,          "f4", 1, 0);
     IO_REG(Entropy,          "f4", 1, 0);
+    IO_REG_WRONLY(Pressure,         "f4", 1, 0);
+#endif
 
     /* Cooling */
     IO_REG(ElectronAbundance,       "f4", 1, 0);

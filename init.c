@@ -1137,15 +1137,15 @@ void setup_smoothinglengths(void)
 #endif
 
 #ifdef DENSITY_INDEPENDENT_SPH
-    for(i = 0; i < N_sph; i++)
-    {
-        /* start the iteration from mass density */
-        SPHP(i).EgyWtDensity = SPHP(i).d.Density;
-    }
-
     /* for clean IC with U input only, we need to iterate to find entrpoy */
     if(RestartFlag == 0 && header.flag_entropy_instead_u == 0)
     {
+        for(i = 0; i < N_sph; i++)
+        {
+            /* start the iteration from mass density */
+            SPHP(i).EgyWtDensity = SPHP(i).d.Density;
+        }
+
         double a3;
         if(All.ComovingIntegrationOn) {
             a3 = All.Time * All.Time * All.Time;
@@ -1205,7 +1205,9 @@ void setup_smoothinglengths(void)
             SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity/a3 , GAMMA_MINUS1);
         }
     }
-    /* snapshot already has Entropy; hope it is read in correctly. (need a test
+
+    /* snapshot already has Entropy and EgyWtDensity; 
+     * hope it is read in correctly. (need a test
      * on this!) */
     /* regardless we initalize EntVarPred. This may be unnecessary*/
     for(i = 0; i < N_sph; i++) {
