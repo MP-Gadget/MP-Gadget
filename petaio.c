@@ -734,6 +734,7 @@ static void register_io_blocks() {
 #ifdef BLACK_HOLES
     /* Blackhole */
     IO_REG(BlackholeMass,          "f8", 1, 5);
+    IO_REG(StarFormationTime, "f4", 1, 5);
 #ifdef BH_ACCRETION
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
 #endif
