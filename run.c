@@ -913,7 +913,7 @@ void every_timestep_stuff(void)
                 }
             }
         printf("               -----------------------------------\n");
-#ifdef PMGRID
+#ifdef PETAPM
         if(All.PM_Ti_endstep == All.Ti_Current)
             printf("PM-Step. Total:%2d%09d %2d%09d    Sum:%2d%09d\n",
                     (int) ((tot - tot_sph) / 1000000000), (int) ((tot - tot_sph) % 1000000000),

@@ -18,12 +18,11 @@ OPT	+=  -DHAVE_HDF5                     # needed when HDF5 I/O support is desire
 OPT	+=  -DH5_USE_16_API # needed when HDF5 I/O support is desired
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 OPT += -DWINDS
-OPT += -DPETA_PM  # new peta scale PFFT based PM
-OPT += -DPETA_PM_ORDER=1  # order of finite differentiation kernel 1 is same as gadget
+OPT += -DPETAPM  # new peta scale PFFT based PM
+OPT += -DPETAPM_ORDER=1  # order of finite differentiation kernel 1 is same as gadget
 
 
 #--------------------------------------- TreePM Options
-OPT	+=  -DPMGRID=512
 #OPT	+=  -DGRIDBOOST=2
 #OPT	+=  -DASMTH=1.25
 #OPT	+=  -DRCUT=4.5

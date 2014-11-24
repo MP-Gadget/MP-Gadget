@@ -1,4 +1,4 @@
-#ifdef PETA_PM
+#ifdef PETAPM
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,9 +10,9 @@
 #include "allvars.h"
 #include "proto.h"
 
-#ifndef PETA_PM_ORDER
-#define PETA_PM_ORDER 1
-#warning Using low resolution force differentiation kernel. Consider using -DPETA_PM_ORDER=3
+#ifndef PETAPM_ORDER
+#define PETAPM_ORDER 1
+#warning Using low resolution force differentiation kernel. Consider using -DPETAPM_ORDER=3
 #endif
 
 static size_t HighMark_petapm = 0;
@@ -1096,17 +1096,17 @@ static double super_lanzcos_diff_kernel_1(double w) {
     return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
 }
 static double diff_kernel(double w) {
-#if PETA_PM_ORDER == 1
+#if PETAPM_ORDER == 1
         return super_lanzcos_diff_kernel_1(w);
 #endif
-#if PETA_PM_ORDER == 2
+#if PETAPM_ORDER == 2
         return super_lanzcos_diff_kernel_2(w);
 #endif
-#if PETA_PM_ORDER == 3
+#if PETAPM_ORDER == 3
         return super_lanzcos_diff_kernel_3(w);
 #endif
-#if PETA_PM_ORDER > 3 
-#error PETA_PM_ORDER too high.
+#if PETAPM_ORDER > 3 
+#error PETAPM_ORDER too high.
 #endif
 }
 static void force_transfer(int k, pfft_complex * value) {

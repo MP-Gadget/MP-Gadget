@@ -676,7 +676,7 @@ void mult_matrix_transpose_A(MyDouble ** matrix_a, MyDouble ** matrix_b, int dim
 void luinvert(MyDouble ** input_matrix, int n, MyDouble ** inverse_matrix);
 void eigsrt(MyDouble d[], MyDouble ** v, int n);
 void jacobi(MyDouble ** a, int n, MyDouble d[], MyDouble ** v, int *nrot, MyIDType pindex);
-#ifdef PMGRID
+#ifdef PETAPM
 void pmtidaltensor_periodic_diff(void);
 void pmtidaltensor_periodic_fourier(int component);
 int pmtidaltensor_nonperiodic_diff(int grnr);

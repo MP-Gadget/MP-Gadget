@@ -6,32 +6,23 @@
 
 #include "allvars.h"
 #include "proto.h"
-#ifdef PETA_PM
+#ifdef PETAPM
 #include "petapm.h"
 #endif
 /*! \file longrange.c
  *  \brief driver routines for computation of long-range gravitational PM force
  */
 
-#ifdef PMGRID
+#ifdef PETAPM
 
 /*! Driver routine to call initializiation of periodic or/and non-periodic FFT
  *  routines.
  */
 void long_range_init(void)
 {
-#ifdef PETA_PM
+#ifdef PETAPM
   petapm_init_periodic();
-#else  /*PETA_PM*/
-#ifdef PERIODIC
-  pm_init_periodic();
-#ifdef PLACEHIGHRESREGION
-  pm_init_nonperiodic();
-#endif
-#else
-  pm_init_nonperiodic();
-#endif
-#endif /*PETA_PM*/
+#endif /*PETAPM*/
 }
 
 
@@ -88,7 +79,7 @@ void long_range_force(void)
 
 
 #ifdef PERIODIC
-#ifdef PETA_PM
+#ifdef PETAPM
   petapm_force();
 #else
   do_box_wrapping();	/* map the particles back onto the box */
@@ -296,7 +287,7 @@ void long_range_force(void)
     }
 #endif
 #if 0
-#ifdef PETA_PM
+#ifdef PETAPM
   char * fnt = "longrange-peta-3.%d";
 #else
   char * fnt = "longrange-pm.%d";

@@ -177,7 +177,7 @@ void begrun(void)
 
     gsl_rng_set(random_generator, 42);	/* start-up seed */
 
-#ifdef PMGRID
+#ifdef PETAPM
     if(RestartFlag != 3 && RestartFlag != 4)
         long_range_init();
 #ifdef SUBFIND_RESHUFFLE_AND_POTENTIAL
@@ -314,7 +314,7 @@ Note:  All.PartAllocFactor is treated in restart() separately.
 
     open_outputfiles();
 
-#ifdef PMGRID
+#ifdef PETAPM
     long_range_init_regionsize();
 #endif
 
@@ -1204,7 +1204,7 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "ErrTolTheta");
         addr[nt] = &All.ErrTolTheta;
         id[nt++] = REAL;
-#ifdef PMGRID
+#ifdef PETAPM
         strcpy(tag[nt], "Nmesh");
         addr[nt] = &All.Nmesh;
         id[nt++] = INT;
@@ -2899,7 +2899,7 @@ void readjust_timebase(double TimeMax_old, double TimeMax_new)
         ti_end /= 2;
         All.Ti_Current /= 2;
 
-#ifdef PMGRID
+#ifdef PETAPM
         All.PM_Ti_begstep /= 2;
         All.PM_Ti_endstep /= 2;
 #endif

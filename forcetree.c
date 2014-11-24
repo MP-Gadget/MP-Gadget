@@ -2648,7 +2648,7 @@ int force_treeevaluate(int target, int mode,
     return ninteractions;
 }
 
-#ifdef PMGRID
+#ifdef PETAPM
 /*! In the TreePM algorithm, the tree is walked only locally around the
  *  target coordinate.  Tree nodes that fall outside a box of half
  *  side-length Rcut= RCUT*ASMTH*MeshSize can be discarded. The short-range
@@ -3947,7 +3947,7 @@ int subfind_force_treeevaluate_potential(int target, int mode, int *nexport, int
 
 
 
-#ifdef PMGRID
+#ifdef PETAPM
 /*! This function computes the short-range potential when the TreePM
  *  algorithm is used. This potential is the Newtonian potential, modified
  *  by a complementary error function.

@@ -103,7 +103,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
 #ifdef PERIODIC
     MyFloat boxSize;
 #endif
-#ifdef PMGRID
+#ifdef PETAPM
     double dt_gravkick_pm = 0;
 #endif
     double dt_gravkick, dt_hydrokick, a3inv = 1, fac1, fac2;
@@ -133,7 +133,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
     else
         a3inv = fac1 = fac2 = 1;
 
-#ifdef PMGRID
+#ifdef PETAPM
     if(All.ComovingIntegrationOn)
         dt_gravkick_pm =
             get_gravkick_factor(All.PM_Ti_begstep,
@@ -212,7 +212,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                         if(P[pindex].Type == 0)
                             fp[k] += SPHP(pindex).a.HydroAccel[k] * dt_hydrokick;
                     }
-#ifdef PMGRID
+#ifdef PETAPM
                     for(k = 0; k < 3; k++)
                         fp[k] += P[pindex].GravPM[k] * dt_gravkick_pm;
 #endif
@@ -520,7 +520,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                 {
                     for(k = 0; k < 3; k++)
                         fp[k] = fac1 * P[pindex].g.GravAccel[k];
-#ifdef PMGRID
+#ifdef PETAPM
                     for(k = 0; k < 3; k++)
                         fp[k] += fac1 * P[pindex].GravPM[k];
 #endif
@@ -1166,7 +1166,7 @@ void fill_write_buffer(enum iofields blocknr, int *startindex, int pc, int type)
                         for(l = 0; l < 3; l++)
                         {
                             fp[k * 3 + l] = (MyOutputFloat) P[pindex].tidal_tensorps[k][l];
-#if defined(PMGRID)
+#ifdef PETAPM
                             fp[k * 3 + l] += (MyOutputFloat) P[pindex].tidal_tensorpsPM[k][l];
 #endif
 

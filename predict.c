@@ -531,7 +531,7 @@ static void real_drift_particle(int i, int time1)
 #ifndef HPM
     if(P[i].Type == 0)
     {
-#ifdef PMGRID
+#ifdef PETAPM
         for(j = 0; j < 3; j++)
             SPHP(i).VelPred[j] +=
                 (P[i].g.GravAccel[j] + P[i].GravPM[j]) * dt_gravkick + SPHP(i).a.HydroAccel[j] * dt_hydrokick;

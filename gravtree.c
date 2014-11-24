@@ -214,7 +214,7 @@ void gravity_tree(void)
 #endif
 #endif
 
-#ifdef PMGRID
+#ifdef PETAPM
     ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate_shortrange;
     ev[0].ev_alloc = NULL;
     ev[0].ev_isactive = gravtree_isactive;
@@ -478,7 +478,7 @@ void gravity_tree(void)
     /* now add things for comoving integration */
 
 #ifndef PERIODIC
-#ifndef PMGRID
+#ifndef PETAPM
     if(All.ComovingIntegrationOn)
     {
         double fac = 0.5 * All.Hubble * All.Hubble * All.Omega0 / All.G;
@@ -677,7 +677,7 @@ void gravtree_reduce_ewald(int place, struct gravitydata_out * result, int mode)
 }
 
 static int gravtree_isactive(int i) {
-#if defined(NEUTRINOS) && defined(PMGRID)
+#if defined(NEUTRINOS) && defined(PETAPM)
         return P[i].Type != 2;
 #else
         return 1;
@@ -690,7 +690,7 @@ static void gravtree_post_process(int i) {
     if(! (header.flag_ic_info == FLAG_SECOND_ORDER_ICS && All.Ti_Current == 0 && RestartFlag == 0)) {
         /* to prevent that we overwrite OldAcc in the first evaluation for 2lpt ICs */
         double ax, ay, az;
-#ifdef PMGRID
+#ifdef PETAPM
         ax = P[i].g.GravAccel[0] + P[i].GravPM[0] / All.G;
         ay = P[i].g.GravAccel[1] + P[i].GravPM[1] / All.G;
         az = P[i].g.GravAccel[2] + P[i].GravPM[2] / All.G;
@@ -792,7 +792,7 @@ static void gravtree_post_process(int i) {
 
     P[i].p.Potential *= All.G;
 
-#ifdef PMGRID
+#ifdef PETAPM
     P[i].p.Potential += P[i].PM_Potential;	/* add in long-range potential */
 #endif
 
@@ -827,7 +827,7 @@ static void gravtree_post_process(int i) {
     /* Finally, the following factor allows a computation of a cosmological simulation
        with vacuum energy in physical coordinates */
 #ifndef PERIODIC
-#ifndef PMGRID
+#ifndef PETAPM
     if(All.ComovingIntegrationOn == 0)
     {
         double fac = All.OmegaLambda * All.Hubble * All.Hubble;

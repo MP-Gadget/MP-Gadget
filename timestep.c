@@ -17,7 +17,7 @@
 static double fac1, fac2, fac3, hubble_a, atime, a3inv;
 static double dt_displacement = 0;
 
-#ifdef PMGRID
+#ifdef PETAPM
 static double dt_gravkickA, dt_gravkickB;
 #endif
 
@@ -55,7 +55,7 @@ void advance_and_find_timesteps(void)
     int badstepsizecount = 0;
     int badstepsizecount_global = 0;
 
-#ifdef PMGRID
+#ifdef PETAPM
     int j, dt_step;
     double dt_gravkick, dt_hydrokick;
 
@@ -70,7 +70,7 @@ void advance_and_find_timesteps(void)
 #endif
 #ifdef WAKEUP
     int n, k, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global, max_time_bin_active;
-#ifndef PMGRID
+#ifndef PETAPM
     int dt_step;
 #endif  
     int time0, time1_old, time1_new;
@@ -96,7 +96,7 @@ void advance_and_find_timesteps(void)
     if(Flag_FullStep || dt_displacement == 0)
         find_dt_displacement_constraint(hubble_a * atime * atime);
 
-#ifdef PMGRID
+#ifdef PETAPM
     if(All.ComovingIntegrationOn)
         dt_gravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
             get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
@@ -110,7 +110,7 @@ void advance_and_find_timesteps(void)
         for(j = 0; j < 3; j++)
         {
             P[i].g.GravAccel[j] *= -1;
-#ifdef PMGRID
+#ifdef PETAPM
             P[i].GravPM[j] *= -1;
             P[i].g.GravAccel[j] += P[i].GravPM[j];
             P[i].GravPM[j] = 0;
@@ -395,7 +395,7 @@ void advance_and_find_timesteps(void)
 #endif
 
 
-#ifdef PMGRID
+#ifdef PETAPM
     if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
     {
         All.DoDynamicUpdate = 0;
@@ -605,7 +605,7 @@ void advance_and_find_timesteps(void)
             time1_new = P[i].Ti_begstep + dt_step;
 
             /* This part has still to be adapted ...
-#ifdef PMGRID
+#ifdef PETAPM
 if(All.ComovingIntegrationOn)
 dt_gravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
 get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
@@ -764,7 +764,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
 
             SPHP(i).VelPred[j] =
                 P[i].Vel[j] - dt_gravkick2 * P[i].g.GravAccel[j] - dt_hydrokick2 * SPHP(i).a.HydroAccel[j];
-#ifdef PMGRID
+#ifdef PETAPM
             SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
 #endif
 #if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
@@ -788,7 +788,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
                 P[i].Vel[j] *= MAX_GAS_VEL * velfac / vv;
                 SPHP(i).VelPred[j] =
                     P[i].Vel[j] - dt_gravkick2 * P[i].g.GravAccel[j] - dt_hydrokick2 * SPHP(i).a.HydroAccel[j];
-#ifdef PMGRID
+#ifdef PETAPM
                 SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
 #endif
             }
@@ -927,7 +927,7 @@ int get_timestep(int p,		/*!< particle index */
         ay = fac1 * P[p].g.GravAccel[1];
         az = fac1 * P[p].g.GravAccel[2];
 
-#ifdef PMGRID
+#ifdef PETAPM
         ax += fac1 * P[p].GravPM[0];
         ay += fac1 * P[p].GravPM[1];
         az += fac1 * P[p].GravPM[2];
@@ -1180,7 +1180,7 @@ int get_timestep(int p,		/*!< particle index */
                 P[p].g.GravAccel[2],
                 sqrt(2 * All.ErrTolIntAccuracy * atime * All.SofteningTable[P[p].Type] / ac) * hubble_a, All.ErrTolIntAccuracy
               );
-#ifdef PMGRID
+#ifdef PETAPM
         printf("pm_force=(%g|%g|%g)\n", P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]);
 #endif
         if(P[p].Type == 0)
@@ -1297,7 +1297,7 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
 #endif
                 dt = All.MaxRMSDisplacementFac * hfac * dmean / sqrt(v_sum[type] / count_sum[type]);
 
-#ifdef PMGRID
+#ifdef PETAPM
                 asmth = All.Asmth[0];
 #ifdef PLACEHIGHRESREGION
                 if(((1 << type) & (PLACEHIGHRESREGION)))

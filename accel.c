@@ -45,22 +45,16 @@ void compute_accelerations(int mode)
 
     walltime_measure("/Misc");
 
-#ifdef PMGRID
+#ifdef PETAPM
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
-#ifdef PETA_PM
         petapm_prepare();
-#endif
         force_treefree();
         TreeReconstructFlag = 1;
         long_range_force();
 
-#ifdef PETA_PM
         petapm_finish();
-#endif
-
         walltime_measure("/LongRange");
-
     }
 #endif
 
@@ -89,7 +83,7 @@ void compute_accelerations(int mode)
 
 
    #if 0
-#disable second order because the time profiling -- not yet updated with PETA_PM
+#disable second order because the time profiling -- not yet updated with PETAPM
     if(All.Ti_Current == 0 && RestartFlag == 0 && header.flag_ic_info == FLAG_SECOND_ORDER_ICS)
         second_order_ics();		/* produces the actual ICs from the special second order IC file */
     #endif

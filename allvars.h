@@ -16,6 +16,8 @@
 #ifndef ALLVARS_H
 #define ALLVARS_H
 
+#include "config-migrate.h"
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdint.h>
@@ -618,7 +620,7 @@ extern FILE *FdRadNew;		/*!< file handle for radtransferNew.txt log-file. */
 #endif
 
 #ifdef DISTORTIONTENSORPS
-#ifdef PMGRID
+#ifdef PETAPM
 extern FILE *FdTidaltensor;     /*!< file handle for tidaltensor.txt log-file. */
 #endif
 extern FILE *FdCaustics;	/*!< file handle for Caustics.txt log-file. */
@@ -846,7 +848,7 @@ extern struct global_data_all_processes
     int Ti_Current;		/*!< current time on integer timeline */
     int Ti_nextoutput;		/*!< next output time on integer timeline */
 
-#ifdef PMGRID
+#ifdef PETAPM
     int Nmesh;
     int PM_Ti_endstep, PM_Ti_begstep;
     double Asmth[2], Rcut[2];
@@ -1380,7 +1382,7 @@ extern struct particle_data
 #ifdef OPENMP_USE_SPINLOCK
     pthread_spinlock_t SpinLock;
 #endif
-#ifdef PETA_PM
+#ifdef PETAPM
     int RegionInd; /* which region the particle belongs to */
 #endif
     MyDouble Pos[3];   /*!< particle position at its current time */
@@ -1405,7 +1407,7 @@ extern struct particle_data
         MyFloat       GravAccel[3];		/*!< particle acceleration due to gravity */
         MyLongDouble dGravAccel[3];
     } g;  
-#ifdef PMGRID
+#ifdef PETAPM
     MyFloat GravPM[3];		/*!< particle acceleration due to long-range PM gravity force */
 #endif
 #ifdef FORCETEST
@@ -1456,14 +1458,14 @@ extern struct particle_data
     MyDouble lc_smear_y;
     MyDouble lc_smear_z;
 #endif
-#ifdef PMGRID
+#ifdef PETAPM
     MyLongDouble tidal_tensorpsPM[3][3];	    /*!< for TreePM simulations, long range tidal field */
 #endif
 #endif
 
     MyFloat OldAcc;			/*!< magnitude of old gravitational force. Used in relative opening
                               criterion */
-#if defined(EVALPOTENTIAL) && defined(PMGRID)
+#if defined(EVALPOTENTIAL) && defined(PETAPM)
     MyFloat PM_Potential;
 #endif
 

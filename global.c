@@ -78,7 +78,7 @@ void compute_global_quantities_of_system(void)
       if(P[i].Type == 0)
 	entr = SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr;
 
-#ifdef PMGRID
+#ifdef PETAPM
       if(All.ComovingIntegrationOn)
 	dt_gravkick = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
 	  get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);

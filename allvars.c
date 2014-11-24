@@ -188,7 +188,7 @@ FILE *FdRadNew;			/*!< file handle for radtransferNew.txt log-file. */
 #endif
 
 #ifdef DISTORTIONTENSORPS
-#ifdef PMGRID
+#ifdef PETAPM
 FILE *FdTidaltensor;		/*!< file handle for Tidaltensor.txt log-file. */
 #endif
 FILE *FdCaustics;		/*!< file handle for Caustics.txt log-file. */

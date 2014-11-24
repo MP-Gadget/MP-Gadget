@@ -209,14 +209,14 @@ given in Table 1.
 
 The TreePM algorithm is switched on by passing the desired PM
 mesh-size at compile time via the makefile to the code. The relevant
-parameter is \b PMGRID, see below. Using an explicit force split, the
+parameter is \b PETAPM, see below. Using an explicit force split, the
 long-range force is then computed with Fourier techniques, while the
 short-range force is done with the tree. Because the tree needs only
 be walked locally, a speed-up can arise, particularly for near to
 homogeneous particle distributions, but not only restricted to
 them. Periodic and non-periodic boundary conditions are
 implemented. In the latter case, the code will internally compute FFTs
-of size \b 2*PMGRID in order to allow for the required zero-padding.
+of size \b 2*PETAPM in order to allow for the required zero-padding.
 
 Pure SPH simulations can also be run in periodic boxes whose
 x-dimension is an integer multiple of the dimensions in the y- and
@@ -317,57 +317,14 @@ clean</b>, which will erase all object files, followed by <b>make</b>.
 
 \section secmake3 Options for the numerical algorithms
 
-- \b PMGRID=128 \n This enables the TreePM method, i.e. the long-range
+- \b PETAPM \n This enables the TreePM method, i.e. the long-range
    force is computed with a PM-algorithm, and the short range force
    with the tree. The parameter has to be set to the size of the mesh
    that should be used, e.g.~64, 96, 128, etc. The mesh dimensions
    need not necessarily be a power of two, but the FFT is fastest for
    such a choice.  Note: If the simulation is not in a periodic box,
    then a FFT method for vacuum boundaries is employed, using a mesh
-   with dimension twice that specified by <b>PMGRID</b>.
-
-- \b PLACEHIGHRESREGION=1+8 \n If this option is set (will only work
-   together with \b PMGRID, then the long range force is computed in
-   two stages: One Fourier-grid is used to cover the whole simulation
-   volume, allowing the computation of the large-scale force.  A
-   second Fourier mesh is placed on the region occupied by
-   `high-resolution' particles, allowing the computation of an
-   intermediate-scale force. Finally, the force on very small scales
-   is computed by the tree. This procedure can be useful for
-   `zoom-simulations', where the majority of particles (the high-res
-   particles) are occupying only a small fraction of the volume. To
-   activate this option, the parameter needs to be set to an integer
-   that encodes the particle types that make up the high-res particles
-   in the form of a bit mask. For example, if types 0, 1, and 4 are
-   the high-res particles, then the parameter should be set to
-   <b>PLACEHIGHRESREGION=1+2+16</b>, i.e. to the sum
-   \f$2^0+2^1+2^4\f$. The spatial region covered by the high-res grid
-   is determined automatically from the initial conditions. Note: If a
-   periodic box is used, the high-res zone may not intersect the box
-   boundaries.
-
-- \b ENLARGEREGION=1.1 \n The spatial region covered by the high-res
-   zone normally has a fixed size during the simulation, which
-   initially is set to the smallest region that encompasses all
-   high-res particles. Normally, the simulation will be interrupted,
-   if high-res particles leave this region in the course of the
-   run. However, by setting this parameter to a value larger than one,
-   the high-res region can be expanded.  For example, setting it to
-   1.4 will enlarge its side-length by 40% (it remains centred on the
-   high-res particles). Hence, with such a setting, the high-res
-   region may expand or move by a limited amount. If in addition \b
-   SYNCHRONIZATION is activated, then the code will be able to
-   continue even if high-res particles leave the initial high-res
-   grid. In this case, the code will update the size and position of
-   the grid that is placed onto the high-resolution region
-   automatically. To prevent that this potentially happens every
-   single PM step, one should nevertheless assign a value slightly
-   larger than 1 to \b ENLARGEREGION.
-
-- \b DOUBLEPRECISION \n This makes the code store and compute internal
-   particle data in double precision. Note that output files are
-   nevertheless written by converting the values that are saved to
-   single precision.
+   with dimension twice that specified by <b>PETAPM</b>.
 
 - \b NOTREERND \n If this is not set, the tree construction will
    succeed even when there are a few particles at identical

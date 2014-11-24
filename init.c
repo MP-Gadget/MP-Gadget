@@ -410,7 +410,7 @@ void init(void)
 #endif
 
 
-#ifdef PMGRID
+#ifdef PETAPM
         /* long range tidal field init */
         P[i].tidal_tensorpsPM[0][0] = 0;
         P[i].tidal_tensorpsPM[0][1] = 0;
@@ -484,7 +484,7 @@ void init(void)
             P[i].DM_Hsml = -1;
 #endif
 
-#ifdef PMGRID
+#ifdef PETAPM
         for(j = 0; j < 3; j++)
             P[i].GravPM[j] = 0;
 #endif
@@ -537,7 +537,7 @@ void init(void)
 
     reconstruct_timebins();
 
-#ifdef PMGRID
+#ifdef PETAPM
     All.PM_Ti_endstep = All.PM_Ti_begstep = 0;
 #endif
 
@@ -1034,7 +1034,7 @@ void init(void)
 #ifdef SUBFIND_RESHUFFLE_AND_POTENTIAL
         if(ThisTask == 0)
             printf("SUBFIND_RESHUFFLE_AND_POTENTIAL: Calculating potential energy before reshuffling...\n");
-#ifdef PMGRID
+#ifdef PETAPM
         long_range_init_regionsize();
 #endif
         compute_potential();
