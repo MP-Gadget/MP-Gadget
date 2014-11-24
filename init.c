@@ -94,49 +94,6 @@ void init(void)
         }
         abort();
     }
-#ifdef IO_OLDSNAPSHOT
-    switch (All.ICFormat)
-    {
-        case 1:
-        case 2:
-        case 3:
-        case 4:
-            if(RestartFlag >= 2 && RestartSnapNum >= 0)
-            {
-                char fname[1000];
-
-                if(All.NumFilesPerSnapshot > 1)
-                    sprintf(fname, "%s/snapdir_%03d/%s_%03d", All.OutputDir, RestartSnapNum, All.SnapshotFileBase,
-                            RestartSnapNum);
-                else
-                    sprintf(fname, "%s%s_%03d", All.OutputDir, All.SnapshotFileBase, RestartSnapNum);
-                read_ic(fname);
-                if(RestartFlag == 4)
-                {
-                    sprintf(All.SnapshotFileBase, "%s_converted", All.SnapshotFileBase);
-                    if(ThisTask == 0)
-                        printf("Start writing file %s\n", All.SnapshotFileBase);
-                    printf("RestartSnapNum %d\n", RestartSnapNum);
-                    savepositions(RestartSnapNum);
-                    endrun(0);
-                }
-
-            }
-            else
-            {
-                if(All.ICFormat == 4)
-                    read_ic_cluster(All.InitCondFile);
-                else
-                    read_ic(All.InitCondFile);
-            }
-            break;
-
-        default:
-            if(ThisTask == 0)
-                printf("ICFormat=%d not supported.\n", All.ICFormat);
-            endrun(0);
-    }
-#endif
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection_bh();
@@ -241,16 +198,6 @@ void init(void)
     {
         printf("Restarting from the snapshot file with the wrong FirstBubbleRedshift! \n");
         endrun(0);
-    }
-#endif
-
-#ifdef IO_OLDSNAPSHOT
-    /* with petaio the conversion is done in petaio_read_ic */
-    if(All.ComovingIntegrationOn)	/*  change to new velocity variable */
-    {
-        for(i = 0; i < NumPart; i++)
-            for(j = 0; j < 3; j++)
-                P[i].Vel[j] *= sqrt(All.Time) * All.Time;
     }
 #endif
 
