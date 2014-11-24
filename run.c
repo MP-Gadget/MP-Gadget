@@ -144,14 +144,6 @@ void run(void)
                     fclose(fd);
             }
 
-            if(stopflag == 2 && All.ResubmitOn && ThisTask == 0)
-            {
-                close_outputfiles();
-                sprintf(buf, "%s", All.ResubmitCommand);
-                int ret;
-
-                ret = system(buf);
-            }
             return;
         }
 

@@ -222,7 +222,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         All.MaxSizeTimestep = all.MaxSizeTimestep;
         All.BufferSize = all.BufferSize;
         All.TimeLimitCPU = all.TimeLimitCPU;
-        All.ResubmitOn = all.ResubmitOn;
         All.TimeBetSnapshot = all.TimeBetSnapshot;
         All.TimeBetStatistics = all.TimeBetStatistics;
         All.CpuTimeBetRestartFile = all.CpuTimeBetRestartFile;
@@ -270,7 +269,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         All.DarkEnergyParam = all.DarkEnergyParam;
 #endif
 
-        strcpy(All.ResubmitCommand, all.ResubmitCommand);
         strcpy(All.OutputListFilename, all.OutputListFilename);
         strcpy(All.OutputDir, all.OutputDir);
         strcpy(All.RestartFile, all.RestartFile);
@@ -1113,10 +1111,6 @@ void read_parameter_file(char *fname)
         addr[nt] = All.RestartFile;
         id[nt++] = STRING;
 
-        strcpy(tag[nt], "ResubmitCommand");
-        addr[nt] = All.ResubmitCommand;
-        id[nt++] = STRING;
-
         strcpy(tag[nt], "OutputListFilename");
         addr[nt] = All.OutputListFilename;
         id[nt++] = STRING;
@@ -1319,10 +1313,6 @@ void read_parameter_file(char *fname)
         id[nt++] = INT;
         strcpy(tag[nt], "NumWritersPerPIG");
         addr[nt] = &All.NumWritersPerPIG;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "ResubmitOn");
-        addr[nt] = &All.ResubmitOn;
         id[nt++] = INT;
 
         strcpy(tag[nt], "CoolingOn");

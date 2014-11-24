@@ -67,56 +67,10 @@ void catch_abort(int sig)
 
 void catch_fatal(int sig)
 {
-  terminate_processes();
   MPI_Finalize();
 
   signal(sig, SIG_DFL);
   raise(sig);
-}
-
-
-void terminate_processes(void)
-{
-  pid_t my_pid;
-  char buf[500], hostname[500], *cp;
-  char commandbuf[500];
-  FILE *fd;
-  int i, pid;
-
-  sprintf(buf, "%s%s", All.OutputDir, "PIDs.txt");
-
-  my_pid = getpid();
-
-  if((fd = fopen(buf, "r")))
-    {
-      for(i = 0; i < NTask; i++)
-	{
-	  int ret;
-
-	  ret = fscanf(fd, "%s %d", hostname, &pid);
-
-	  cp = hostname;
-	  while(*cp)
-	    {
-	      if(*cp == '.')
-		*cp = 0;
-	      else
-		cp++;
-	    }
-
-	  if(my_pid != pid)
-	    {
-	      sprintf(commandbuf, "ssh %s kill -ABRT %d", hostname, pid);
-	      printf("--> %s\n", commandbuf);
-	      fflush(stdout);
-#ifndef NOCALLSOFSYSTEM
-	      ret = system(commandbuf);
-#endif
-	    }
-	}
-
-      fclose(fd);
-    }
 }
 
 void write_pid_file(void)
