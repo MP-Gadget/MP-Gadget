@@ -245,13 +245,6 @@ typedef uint64_t peanokey;
 #define MINRESTFAC 0.05
 
 
-#ifdef SUBFIND_DENSITY_AND_POTENTIAL  /*!< activate needed options */
-#define ONLY_PRODUCE_HSML_FILES
-#define COMPUTE_POTENTIAL_ENERGY
-#define SUBFIND_RESHUFFLE_AND_POTENTIAL
-#define SUBFIND_RESHUFFLE_CATALOGUE
-#endif
-
 typedef uint64_t MyIDType;
 
 typedef double  MyFloat;
@@ -570,12 +563,6 @@ extern int NTopnodes, NTopleaves;
 extern double RndTable[RNDTABLE];
 
 
-#ifdef SUBFIND
-extern int GrNr;
-extern int NumPartGroup;
-#endif
-
-
 /* variables for input/output , usually only used on process 0 */
 
 
@@ -709,12 +696,6 @@ extern struct global_data_all_processes
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
     double DensityResolutionEta;		/*!< SPH resolution eta. See Price 2011. eq 12*/
-#ifdef SUBFIND
-    int DesLinkNgb;
-    double ErrTolThetaSubfind;
-	double SubFindCollectiveLimitFactor;
-#endif
-
     double MaxNumNgbDeviation;	/*!< Maximum allowed deviation neighbour number */
 #ifdef START_WITH_EXTRA_NGBDEV
     double MaxNumNgbDeviationStart;    /*!< Maximum allowed deviation neighbour number to start with*/
@@ -1474,48 +1455,6 @@ extern struct particle_data
     int64_t GrNr;
     int origintask;
     int targettask;
-#endif
-
-#ifdef SUBFIND
-    int SubNr;
-    int DM_NumNgb;
-    int origintask2;
-    int submark, origindex;
-    MyFloat DM_Hsml;
-    union
-    {
-        MyFloat DM_Density;
-        MyFloat DM_Potential;
-    } u;
-    union
-    {
-        MyFloat DM_VelDisp;
-        MyFloat DM_BindingEnergy;
-    } v;
-#ifdef DENSITY_SPLIT_BY_TYPE
-    union
-    {
-        MyFloat int_energy;
-        MyFloat density_sum;
-    } w;
-#endif
-
-#ifdef SUBFIND_RESHUFFLE_CATALOGUE_WITH_VORONOI
-    MyFloat DM_Hsml_V;
-    MyFloat DM_Density_V;
-#endif
-
-#ifdef SAVE_HSML_IN_IC_ORDER
-    MyIDType ID_ic_order;
-#endif
-#ifdef SUBFIND_ALTERNATIVE_COLLECTIVE
-    peanokey Key;
-#endif
-#endif
-
-#if defined(ORDER_SNAPSHOTS_BY_ID) && !defined(SUBFIND)
-    int     GrNr;
-    int     SubNr;
 #endif
 
 #ifdef SHELL_CODE

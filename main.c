@@ -73,7 +73,7 @@ int main(int argc, char **argv)
 	  printf("       0          Read iniial conditions and start simulation\n");
 	  printf("       1          Read restart files and resume simulation\n");
 	  printf("       2          Restart from specified snapshot dump and continue simulation\n");
-	  printf("       3          Run FOF and optionally SUBFIND if enabled\n");
+	  printf("       3          Run FOF if enabled\n");
 	  printf("       4          Convert snapshot file to different format\n");
 	  printf("\n");
 	}

@@ -235,10 +235,7 @@ void domain_Decomposition(void)
         }
 
 #ifdef PEANOHILBERT
-#ifdef SUBFIND
-        if(GrNr < 0)		/* we don't do it when SUBFIND is executed for a certain group */
-#endif
-            peano_hilbert_order();
+        peano_hilbert_order();
 
         walltime_measure("/Domain/Peano");
 #endif
@@ -363,10 +360,6 @@ int domain_decompose(void)
 #pragma omp for
         for(i = 0; i < NumPart; i++)
         {
-#ifdef SUBFIND
-            if(GrNr >= 0 && P[i].GrNr != GrNr)
-                continue;
-#endif
             NtypeLocalThread[P[i].Type]++;
             double costfac = domain_particle_costfactor(i);
 
@@ -637,25 +630,6 @@ int domain_check_memory_bound(void)
             max_sphload = sphload;
     }
 
-#ifdef SUBFIND
-    if(GrNr >= 0)
-    {
-        load = max_load;
-        sphload = max_sphload;
-
-        for(i = 0; i < NumPart; i++)
-        {
-            if(P[i].GrNr != GrNr)
-            {
-                load++;
-                if(P[i].Type == 0)
-                    sphload++;
-            }
-        }
-        MPI_Allreduce(&load, &max_load, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-        MPI_Allreduce(&sphload, &max_sphload, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    }
-#endif
 
     if(max_load > maxLoad)
     {
@@ -1190,10 +1164,6 @@ void domain_findSplit_load_balanced(int ncpu, int ndomain)
  */
 static int domain_layoutfunc(int n) {
     int no;
-#ifdef SUBFIND
-    if(GrNr >= 0 && P[n].GrNr != GrNr)
-        return ThisTask;
-#endif
     no = 0;
     peanokey key = KEY(n);
     while(topNodes[no].Daughter >= 0)
@@ -1883,28 +1853,11 @@ int domain_determineTopTree(void)
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-#ifdef SUBFIND
-        if(GrNr >= 0 && P[i].GrNr != GrNr) {
-            mp[i].key = (peanokey) -1; /* unsigned, thus will be sorted to the end */
-            continue;
-        }
-#endif
 #pragma omp atomic
         count ++;
         mp[i].key = KEY(i);
-#ifdef SUBFIND_ALTERNATIVE_COLLECTIVE
-        P[i].Key = KEY(i);
-#endif
         mp[i].index = i;
     }
-
-
-#ifdef SUBFIND
-    if(GrNr >= 0 && count != NumPartGroup)
-        endrun(1222);
-#endif
-
-
 
     walltime_measure("/Domain/DetermineTopTree/Misc");
 #ifdef MYSORT
@@ -2134,11 +2087,6 @@ void domain_sumCost(void)
 #pragma omp for
         for(n = 0; n < NumPart; n++)
         {
-#ifdef SUBFIND
-            if(GrNr >= 0 && P[n].GrNr != GrNr)
-                continue;
-#endif
-
             int no = 0;
             peanokey key = KEY(n);
             while(topNodes[no].Daughter >= 0)
@@ -2204,11 +2152,6 @@ void domain_findExtent(void)
 #pragma omp for
         for(i = 0; i < NumPart; i++)
         {
-#ifdef SUBFIND
-            if(GrNr >= 0 && P[i].GrNr != GrNr)
-                continue;
-#endif
-
             int j;
             for(j = 0; j < 3; j++)
             {

@@ -72,7 +72,7 @@ void init(void)
     if(RestartFlag == 3 && RestartSnapNum < 0)
     {
         if(ThisTask == 0)
-            printf("Need to give the snapshot number if FOF/SUBFIND is selected for output\n");
+            printf("Need to give the snapshot number if FOF is selected for output\n");
         endrun(0);
     }
 
@@ -978,18 +978,6 @@ void init(void)
 
     if(RestartFlag == 3)
     {
-#ifdef SUBFIND_RESHUFFLE_AND_POTENTIAL
-        if(ThisTask == 0)
-            printf("SUBFIND_RESHUFFLE_AND_POTENTIAL: Calculating potential energy before reshuffling...\n");
-#ifdef PETAPM
-        long_range_init_regionsize();
-#endif
-        compute_potential();
-        if(ThisTask == 0)
-            printf("potential energy done.\n");
-
-#endif
-
 #ifdef FOF
         fof_fof(RestartSnapNum);
 #endif

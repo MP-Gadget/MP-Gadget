@@ -183,13 +183,6 @@ void begrun(void)
 #ifdef PETAPM
     if(RestartFlag != 3 && RestartFlag != 4)
         long_range_init();
-#ifdef SUBFIND_RESHUFFLE_AND_POTENTIAL
-    long_range_init();
-#endif
-#endif
-
-#ifdef SUBFIND
-    GrNr = -1;
 #endif
 
 #ifdef EOS_DEGENERATE
@@ -1212,11 +1205,6 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.Nmesh;
         id[nt++] = INT;
 #endif 
-#ifdef SUBFIND
-        strcpy(tag[nt], "ErrTolThetaSubfind");
-        addr[nt] = &All.ErrTolThetaSubfind;
-        id[nt++] = REAL;
-#endif
 
         strcpy(tag[nt], "ErrTolForceAcc");
         addr[nt] = &All.ErrTolForceAcc;
@@ -1289,18 +1277,6 @@ void read_parameter_file(char *fname)
 
         strcpy(tag[nt], "InputSpectrum_UnitLength_in_cm");
         addr[nt] = &All.InputSpectrum_UnitLength_in_cm;
-        id[nt++] = REAL;
-#endif
-
-
-
-#ifdef SUBFIND
-        strcpy(tag[nt], "DesLinkNgb");
-        addr[nt] = &All.DesLinkNgb;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "SubFindCollectiveLimitFactor");
-        addr[nt] = &All.SubFindCollectiveLimitFactor;
         id[nt++] = REAL;
 #endif
 
@@ -2408,12 +2384,6 @@ NUMCRPOP = 1;
         else
             All.OutputListLength = 0;
 
-#ifdef SUBFIND
-		if(All.SubFindCollectiveLimitFactor >= 0.5) {
-			printf("SubFind CollectiveLimitFactor too big. Setting it to 0.5 \n");
-			All.SubFindCollectiveLimitFactor = 0.5;
-		}
-#endif
     }
 
     MPI_Bcast(&errorFlag, 1, MPI_INT, 0, MPI_COMM_WORLD);

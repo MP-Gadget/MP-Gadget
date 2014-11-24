@@ -157,11 +157,6 @@ int NTopnodes, NTopleaves;
 
 double RndTable[RNDTABLE];
 
-#ifdef SUBFIND
-int GrNr;
-int NumPartGroup;
-#endif
-
 /* variables for input/output , usually only used on process 0 */
 
 

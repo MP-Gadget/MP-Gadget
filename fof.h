@@ -46,20 +46,6 @@ extern struct group_properties
   int index_maxdens, task_maxdens;
 #endif
 
-#ifdef SUBFIND
-  int Nsubs;
-  int FirstSub;
-  MyDouble Pos[3];
-  double M_Mean200, R_Mean200;
-  double M_Crit200, R_Crit200;
-  double M_TopHat200, R_TopHat200;
-  int ContaminationLen;
-  double ContaminationMass;
-#ifdef SO_VEL_DISPERSIONS  
-  double VelDisp_Mean200, VelDisp_Crit200, VelDisp_TopHat200;
-#endif
-#endif
-
 } *Group;
 
 #endif

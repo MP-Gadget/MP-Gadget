@@ -3233,9 +3233,8 @@ int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, 
             {
                 /* the index of the node is the index of the particle */
                 /* observe the sign  */
-#ifndef SUBFIND_RESHUFFLE_AND_POTENTIAL
                 drift_particle(no, All.Ti_Current);
-#endif
+
                 dx = P[no].Pos[0] - pos_x;
                 dy = P[no].Pos[1] - pos_y;
                 dz = P[no].Pos[2] - pos_z;
@@ -3300,9 +3299,9 @@ int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, 
                     no = nop->u.d.nextnode;
                     continue;
                 }
-#ifndef SUBFIND_RESHUFFLE_AND_POTENTIAL
+
                 force_drift_node(no, All.Ti_Current);
-#endif
+
                 mass = nop->u.d.mass;
                 dx = nop->u.d.s[0] - pos_x;
                 dy = nop->u.d.s[1] - pos_y;

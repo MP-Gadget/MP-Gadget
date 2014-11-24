@@ -23,10 +23,6 @@
 
 #ifdef FOF
 #include "fof.h"
-#ifdef SUBFIND
-#include "subfind.h"
-#endif
-
 
 void fof_save_particles(int num);
 
@@ -106,49 +102,6 @@ void fof_fof(int num)
     int64_t ndmtot;
 
 
-#ifdef SUBFIND_DENSITY_AND_POTENTIAL
-    if(ThisTask == 0)
-        printf("\nStarting SUBFIND_DENSITY_AND_POTENTIAL...\n");
-
-    subfind(num);
-    strcat(All.SnapshotFileBase, "_rho_and_pot");
-    savepositions(RestartSnapNum);
-    if(ThisTask == 0)
-        printf("\nSUBFIND_DENSITY_AND_POTENTIAL done.\n");
-    endrun(0);
-#endif
-
-#ifdef SUBFIND_READ_FOF
-    read_fof(num);
-#endif
-
-
-#ifdef SUBFIND_RESHUFFLE_CATALOGUE
-    force_treefree();
-
-    read_subfind_ids();
-
-    if(All.TotN_sph > 0)
-    {
-        if(ThisTask == 0)
-            printf("\nThe option SUBFIND_RESHUFFLE_CATALOGUE does not work with gas particles yet\n");
-        endrun(0);
-    }
-
-    t0 = second();
-    //  parallel_sort(P, NumPart, sizeof(struct particle_data), io_compare_P_GrNr_ID);
-    /* unused */
-    parallel_sort_special_P_GrNr_ID();
-    t1 = second();
-    if(ThisTask == 0)
-        printf("Ordering of particle-data took = %g sec\n", timediff(t0, t1));
-
-    strcat(All.SnapshotFileBase, "_subidorder");
-    savepositions(RestartSnapNum);
-    endrun(0);
-#endif
-
-
     if(ThisTask == 0)
     {
         printf("\nBegin to compute FoF group catalogues...  (presently allocated=%g MB)\n",
@@ -159,11 +112,6 @@ void fof_fof(int num)
     walltime_measure("/Misc");
 
     domain_Decomposition();
-
-#ifdef ONLY_PRODUCE_HSML_FILES
-    subfind(num);
-    endrun(0);
-#endif
 
     for(i = 0, ndm = 0, mass = 0; i < NumPart; i++)
 #ifdef DENSITY_SPLIT_BY_TYPE
@@ -393,9 +341,6 @@ void fof_fof(int num)
     if(num >= 0)
     {
         fof_save_groups(num);
-#ifdef SUBFIND
-        subfind(num);
-#endif
     }
 
     myfree(Group);
