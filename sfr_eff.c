@@ -1177,7 +1177,7 @@ void integrate_sfr(void)
     else
         fd = 0;
 
-    for(rho = All.PhysDensThresh; rho <= 1e7 * All.PhysDensThresh; rho *= 1.2)
+    for(rho = All.PhysDensThresh; rho <= 1e7 * All.PhysDensThresh; rho *= 2)
     {
         tsfr = sqrt(All.PhysDensThresh / rho) * All.MaxSfrTimescale;
 
