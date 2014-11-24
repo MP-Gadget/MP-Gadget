@@ -7,7 +7,7 @@ FOPTIONS = $(OPTIMIZE) $(FOPT)
 
 
 OBJS  =  \
-	 twopoint.o gdbtools.o \
+	 gdbtools.o \
 	 fof.o fofpetaio.o petaio.o \
 	 domain.o allvars.o main.o \
 	 blackhole.o \
