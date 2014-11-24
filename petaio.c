@@ -656,12 +656,19 @@ SIMPLE_PROPERTY(Density, SPHP(i).d.Density, float, 1)
 SIMPLE_PROPERTY(Pressure, SPHP(i).Pressure, float, 1)
 SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
+#ifdef SFR
 SIMPLE_PROPERTY(StarFormationTime, P[i].StellarAge, float, 1)
 SIMPLE_PROPERTY(Metallicity, P[i].Metallicity, float, 1)
+#endif
+#ifdef BLACK_HOLES
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
+#ifdef BH_ACCRETION
 SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
+#endif
+#ifdef BH_COUNTPROGS
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
-
+#endif
+#endif
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
 
 static void GTStarFormationRate(int i, float * out) {
@@ -727,8 +734,12 @@ static void register_io_blocks() {
 #ifdef BLACK_HOLES
     /* Blackhole */
     IO_REG(BlackholeMass,          "f8", 1, 5);
+#ifdef BH_ACCRETION
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
+#endif
+#ifdef BH_COUNTPROGS
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
+#endif
 #endif
 #ifdef FOF
     fof_register_io_blocks();

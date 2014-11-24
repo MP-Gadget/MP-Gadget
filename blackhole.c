@@ -593,8 +593,8 @@ static int blackhole_feedback_evaluate(int target, int mode,
                             }
                         }
 #endif
-#endif
                     }
+#endif
                 }
             }
         }
