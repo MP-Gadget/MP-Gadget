@@ -20,7 +20,7 @@ NumWritersPerSnapshot 4
 NumFilesPerPIG       4
 NumWritersPerPIG     4
 
-Nmesh 512
+Nmesh 128
 
 % CPU time -limit
 	
