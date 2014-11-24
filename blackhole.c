@@ -343,6 +343,7 @@ static void blackhole_accretion_evaluate(int n) {
 
     if(BHP(n).Mass > 0)
     {
+        int k;
         fac = BHP(n).Mdot * dt / BHP(n).Mass;
         /*
            fac = meddington * dt / BHP(n).Mass;
@@ -820,20 +821,4 @@ void blackhole_make_one(int index) {
 #endif
     TimeBinCountSph[P[index].TimeBin]--;
 }
-
-void blackhole_make_extra() {
-    int i;
-    int converted = 0;
-    int ntot = 0;
-    for(i = 0; i < NumPart; i++) {
-        if(P[i].Type != 0) continue;
-        blackhole_make_one(i);
-        converted ++;
-        break;
-    }
-    MPI_Allreduce(&converted, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    All.TotN_sph -= ntot;
-    All.TotN_bh += ntot;
-}
-
 #endif

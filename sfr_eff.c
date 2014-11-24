@@ -179,10 +179,7 @@ void cooling_and_starformation(void)
             fflush(stdout);
         }
 
-
-        All.TotNumPart += tot_spawned;
-        All.TotN_sph -= tot_converted;
-        NumPart += stars_spawned;
+//        All.TotN_sph -= tot_converted;
 
         /* Note: N_sph is only reduced once rearrange_particle_sequence is called */
 
@@ -736,49 +733,23 @@ static int make_particle_star(int i, int number_of_stars_generated) {
         /* here we spawn a new star particle */
         double mass_of_star = P[i].Mass / (GENERATIONS - number_of_stars_generated);
 
-        if(NumPart + stars_spawned >= All.MaxPart)
-        {
-            printf
-                ("On Task=%d with NumPart=%d we try to spawn %d particles. Sorry, no space left...(All.MaxPart=%d)\n",
-                 ThisTask, NumPart, stars_spawned, All.MaxPart);
-            fflush(stdout);
-            endrun(8888);
-        }
+        int child = domain_fork_particle(i);
 
-        P[NumPart + stars_spawned] = P[i];
-        P[NumPart + stars_spawned].Type = 4;
-        /* copy the Hsml of original gas particle
-         * this is used in Wind*/
-        P[NumPart + stars_spawned].Hsml = P[i].Hsml;
+        /* set ptype */
+        P[child].Type = 4;
 
 #ifdef SNIA_HEATING
-        P[NumPart + stars_spawned].Hsml = All.SofteningTable[0];
+        P[child].Hsml = All.SofteningTable[0];
 #endif
-
-        NextActiveParticle[NumPart + stars_spawned] = FirstActiveParticle;
-        FirstActiveParticle = NumPart + stars_spawned;
-        NumForceUpdate++;
-
-        TimeBinCount[P[NumPart + stars_spawned].TimeBin]++;
-
-        PrevInTimeBin[NumPart + stars_spawned] = i;
-        NextInTimeBin[NumPart + stars_spawned] = NextInTimeBin[i];
-        if(NextInTimeBin[i] >= 0)
-            PrevInTimeBin[NextInTimeBin[i]] = NumPart + stars_spawned;
-        NextInTimeBin[i] = NumPart + stars_spawned;
-        if(LastInTimeBin[P[i].TimeBin] == i)
-            LastInTimeBin[P[i].TimeBin] = NumPart + stars_spawned;
 
         P[i].ID += ((MyIDType) 1 << (sizeof(MyIDType)*8 - bits));
 
-        P[NumPart + stars_spawned].Mass = mass_of_star;
-        P[i].Mass -= P[NumPart + stars_spawned].Mass;
-        sum_mass_stars += P[NumPart + stars_spawned].Mass;
+        P[child].Mass = mass_of_star;
+        P[i].Mass -= P[child].Mass;
+        sum_mass_stars += P[child].Mass;
 #ifdef STELLARAGE
-        P[NumPart + stars_spawned].StellarAge = All.Time;
+        P[child].StellarAge = All.Time;
 #endif
-        force_add_star_to_tree(i, NumPart + stars_spawned);
-
         stars_spawned++;
     }
     return 0;

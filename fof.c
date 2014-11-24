@@ -1666,14 +1666,11 @@ void fof_make_black_holes(void)
         fflush(stdout);
     }
 
-    All.TotN_bh += ntot;
-
     for(n = 0; n < nimport; n++)
     {
         blackhole_make_one(import_indices[n]);
     }
 
-    All.TotN_sph -= ntot;
     myfree(export_indices);
     myfree(import_indices);
 }

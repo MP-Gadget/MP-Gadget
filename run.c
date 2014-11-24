@@ -475,7 +475,7 @@ void find_next_sync_point_and_drift(void)
 
     sumup_large_ints(1, &NumForceUpdate, &GlobNumForceUpdate);
 
-    if(GlobNumForceUpdate == All.TotNumPart)
+    if(GlobNumForceUpdate >= All.TotNumPart)
         Flag_FullStep = 1;
     else
         Flag_FullStep = 0;

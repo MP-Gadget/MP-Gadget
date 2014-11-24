@@ -4,6 +4,7 @@
 
 
 void domain_garbage_collection_bh();
+int domain_fork_particle();
 void domain_findSplit_work_balanced(int ncpu, int ndomain);
 void domain_findSplit_load_balanced(int ncpu, int ndomain);
 int domain_sort_loadorigin(const void *a, const void *b);

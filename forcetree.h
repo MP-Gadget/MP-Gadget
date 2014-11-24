@@ -97,8 +97,6 @@ void force_exchange_pseudodata(void);
 
 void force_insert_pseudo_particles(void);
 
-void force_add_star_to_tree(int igas, int istar);
-
 void   force_costevaluate(void);
 int    force_getcost_single(void);
 int    force_getcost_quadru(void);

@@ -885,6 +885,9 @@ void domain_garbage_collection_bh() {
     int i, j;
     int total = 0;
 
+    int total0 = 0;
+    MPI_Reduce(&N_bh, &total0, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+
     /* no need to gc if there is no bh to begin with*/
     if (N_bh == 0) goto ex_nobh;
 
@@ -946,13 +949,63 @@ void domain_garbage_collection_bh() {
 
 ex_nobh:
     MPI_Reduce(&N_bh, &total, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0 && total != All.TotN_bh) {
-        printf("total bh count failed2, total=%d, TotN_bh=%ld\n", total, All.TotN_bh);
+    if(ThisTask == 0 && total != total0) {
+        printf("total bh count failed2, total=%d, total0=%ld\n", total, total0);
         endrun(99999); 
     }
-    if(ThisTask == 0) {
-        printf("total bh count = %d\n", total);
+}
+
+int domain_fork_particle(int parent) {
+    /* this will fork a zero mass particle at the given location of parent
+     * with duplicated Particle ID.
+     * the new particle's index is returned.
+     *
+     * Its mass and ptype can be then adjusted. (watchout detached BH /SPH
+     * data!)
+     * It's PIndex still points to the old Pindex!
+     * */
+
+    if(NumPart >= All.MaxPart)
+    {
+        printf
+            ("On Task=%d with NumPart=%d we try to spawn. Sorry, no space left...(All.MaxPart=%d)\n",
+             ThisTask, NumPart, All.MaxPart);
+        fflush(stdout);
+        endrun(8888);
     }
+    int child = atomic_fetch_and_add(&NumPart, 1);
+
+    NextActiveParticle[child] = FirstActiveParticle;
+    FirstActiveParticle = child;
+    NumForceUpdate++;
+
+    P[child] = P[parent];
+    /* the PIndex still points to the old PIndex */
+    P[child].Mass = 0;
+
+    TimeBinCount[P[child].TimeBin]++;
+
+    PrevInTimeBin[child] = parent;
+    NextInTimeBin[child] = NextInTimeBin[parent];
+    if(NextInTimeBin[parent] >= 0)
+        PrevInTimeBin[NextInTimeBin[parent]] = child;
+    NextInTimeBin[parent] = child;
+    if(LastInTimeBin[P[parent].TimeBin] == parent)
+        LastInTimeBin[P[parent].TimeBin] = child;
+
+    /*! When a new additional star particle is created, we can put it into the
+     *  tree at the position of the spawning gas particle. This is possible
+     *  because the Nextnode[] array essentially describes the full tree walk as a
+     *  link list. Multipole moments of tree nodes need not be changed.
+     */
+    int no;
+
+    no = Nextnode[parent];
+    Nextnode[parent] = child;
+    Nextnode[child] = no;
+    Father[child] = Father[parent];
+
+    return child;
 }
 
 
@@ -2435,9 +2488,6 @@ void rearrange_particle_sequence(void)
         fflush(stdout);
     }
 
-    All.TotNumPart -= tot_elim;
-    All.TotN_sph -= tot_gaselim;
-    All.TotN_bh -= tot_elim - tot_gaselim;
 #endif
 
     MPI_Allreduce(&flag, &flag_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);

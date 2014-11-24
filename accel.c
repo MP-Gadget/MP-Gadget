@@ -89,7 +89,6 @@ void compute_accelerations(int mode)
     gravity_forcetest();
 #endif
 
-
     if(All.TotN_sph > 0)
     {
         /***** density *****/
@@ -241,9 +240,26 @@ void compute_accelerations(int mode)
 #endif
     }
 
+    /* let's update Tot counts in one place tot variables;
+     * at this point there can still be holes in SphP
+     * because rearrange_particle_squence is not called yet.
+     * but anywaysTotN_sph variables are not well defined and
+     * not used any places but printing.
+     *
+     * we shall just say they we sync these variables right after gravity
+     * calculation in every timestep.
+     * */
+
+    sumup_large_ints(1, &NumPart, &All.TotNumPart);
+    sumup_large_ints(1, &N_sph, &All.TotN_sph);
+    sumup_large_ints(1, &N_bh, &All.TotN_bh);
+    
     if(ThisTask == 0)
     {
         printf("force computation done.\n");
+        printf("Total Number of Particles: %td Gas %td Bh %td.\n",
+                All.TotNumPart, All.TotN_sph, All.TotN_bh);
+
         fflush(stdout);
     }
 }

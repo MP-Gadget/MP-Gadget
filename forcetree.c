@@ -1593,25 +1593,6 @@ void force_flag_localnodes(void)
         }
 }
 
-
-/*! When a new additional star particle is created, we can put it into the
- *  tree at the position of the spawning gas particle. This is possible
- *  because the Nextnode[] array essentially describes the full tree walk as a
- *  link list. Multipole moments of tree nodes need not be changed.
- 
- */
-void force_add_star_to_tree(int igas, int istar)
-{
-    int no;
-
-    no = Nextnode[igas];
-    Nextnode[igas] = istar;
-    Nextnode[istar] = no;
-    Father[istar] = Father[igas];
-}
-
-
-
 static void real_force_drift_node(int no, int time1);
 void force_drift_node(int no, int time1) {
     force_drift_node_full(no, time1, 1);
