@@ -46,6 +46,10 @@ void read_parameterfile(char *fname)
   addr[nt] = &OmegaBaryon;
   id[nt++] = FLOAT;
 
+  strcpy(tag[nt], "ProduceGas");
+  addr[nt] = &ProduceGas;
+  id[nt++] = INT;
+
   strcpy(tag[nt], "OmegaDM_2ndSpecies");
   addr[nt] = &OmegaDM_2ndSpecies;
   id[nt++] = FLOAT;

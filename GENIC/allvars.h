@@ -86,12 +86,10 @@ extern int      SphereMode;
 extern long long IDStart;
 
 
-extern char     GlassFile[500]; 
 extern char     FileWithInputSpectrum[500];
 
-extern int      GlassTileFac; 
-
 extern double   Box;
+extern int   ProduceGas;
 extern int Seed;
 
 extern int      NumPart;

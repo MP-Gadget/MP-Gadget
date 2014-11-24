@@ -68,34 +68,35 @@ void write_particle_data(void) {
     }
 
     saveheader(&bf);
-#ifdef PRODUCEGAS
-    double meanspacing = Box / pow(TotNumPart, 1.0 / 3);
-    double shift_gas = -0.5 * (Omega - OmegaBaryon) / (Omega) * meanspacing;
-    double shift_dm = +0.5 * OmegaBaryon / (Omega) * meanspacing;
-#else
-    double shift_dm = 0;
-#endif
-#ifdef PRODUCEGAS
-    int i;
-    for(i = 0; i < NumPart; i ++) {
-        int k;
-        for(k = 0; k < 3; k ++) {
-            P[i].Pos[k] = periodic_wrap(P[i].Pos[k] + shift_gas);
-            
-        }
-    }
-    saveblock(&bf, &P[0].Pos, "0/Position", "f8", 3);
-    saveblock(&bf, &P[0].Vel, "0/Velocity", "f4", 3);
-    saveblock(&bf, &P[0].ID, "0/ID", "u8", 1);
 
-    for(i = 0; i < NumPart; i ++) {
-        int k;
-        for(k = 0; k < 3; k ++) {
-            P[i].Pos[k] = periodic_wrap(P[i].Pos[k] + (shift_dm - shift_gas));
+    if (ProduceGas) {
+        /* First shift gas */
+        double meanspacing = Box / pow(TotNumPart, 1.0 / 3);
+        double shift_gas = -0.5 * (Omega - OmegaBaryon) / (Omega) * meanspacing;
+        double shift_dm = +0.5 * OmegaBaryon / (Omega) * meanspacing;
+        int i;
+        for(i = 0; i < NumPart; i ++) {
+            int k;
+            for(k = 0; k < 3; k ++) {
+                P[i].Pos[k] = periodic_wrap(P[i].Pos[k] + shift_gas);
+                
+            }
         }
-        P[i].ID += TotNumPart;
+        /* Write Gas */
+        saveblock(&bf, &P[0].Pos, "0/Position", "f8", 3);
+        saveblock(&bf, &P[0].Vel, "0/Velocity", "f4", 3);
+        saveblock(&bf, &P[0].ID, "0/ID", "u8", 1);
+
+        /* Then shift back to DM */
+        for(i = 0; i < NumPart; i ++) {
+            int k;
+            for(k = 0; k < 3; k ++) {
+                P[i].Pos[k] = periodic_wrap(P[i].Pos[k] + (shift_dm - shift_gas));
+            }
+            P[i].ID += TotNumPart;
+        }
     }
-#endif
+    /* Write DM */
     saveblock(&bf, &P[0].Pos, "1/Position", "f8", 3);
     saveblock(&bf, &P[0].Vel, "1/Velocity", "f4", 3);
     saveblock(&bf, &P[0].ID, "1/ID", "u8", 1);

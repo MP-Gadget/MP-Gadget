@@ -1,13 +1,6 @@
 OutputDir        ./    % Directory for output
 FileBase         debug              % Base-filename of output files
 
-
-GlassFile        GRID  % Glass-File
-GlassTileFac     0                      % Number of times the glass file is 
-                                          % tiled in each dimension (must be
-                                          % an integer)
-
-
 Nmesh            64 % This is the size of the FFT grid used to 
                             % compute the displacement field. One
                             % should have Nmesh >= Nsample.
@@ -28,6 +21,7 @@ Box             32000.0   % Periodic box size of simulation
 Omega            0.2814      % Total matter density  (at z=0)
 OmegaLambda      0.7186      % Cosmological constant (at z=0)
 OmegaBaryon      0.0464     % Baryon density        (at z=0)
+ProduceGas       1        % 1 is to make gas 0 DM only (OmegaBaryon is not used)
 OmegaDM_2ndSpecies 0       % Omega for a second dark matter species (at z=0)
 HubbleParam      0.697      % Hubble paramater (may be used for power spec parameterization)
 

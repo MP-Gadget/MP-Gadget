@@ -22,6 +22,7 @@ long long IDStart;
 char FileWithInputSpectrum[500];
 
 double Box;
+int ProduceGas;
 int Seed;
 
 int NumPart;
