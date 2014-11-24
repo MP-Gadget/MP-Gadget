@@ -1,7 +1,7 @@
 #######################################################################
 #  Look at end of file for a brief guide to the compile-time options. #
 #######################################################################
-SYSTYPE=Warp
+SYSTYPE=Local
 VPATH=./
 
 #--------------------------------------- Basic operation mode of code
