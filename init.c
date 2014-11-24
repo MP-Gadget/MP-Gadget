@@ -170,37 +170,6 @@ void init(void)
     All.TimeNextBlackHoleCheck = All.TimeBegin;
 #endif
 
-
-
-#ifdef BUBBLES
-    if(All.ComovingIntegrationOn)
-        All.TimeOfNextBubble = 1. / (1. + All.FirstBubbleRedshift);
-    else
-        All.TimeOfNextBubble = All.TimeBegin + All.BubbleTimeInterval / All.UnitTime_in_Megayears;
-    if(ThisTask == 0)
-        printf("Initial time: %g and first bubble time %g \n", All.TimeBegin, All.TimeOfNextBubble);
-
-    if(RestartFlag == 2 && All.TimeBegin > All.TimeOfNextBubble)
-    {
-        printf("Restarting from the snapshot file with the wrong FirstBubbleRedshift! \n");
-        endrun(0);
-    }
-#endif
-
-#ifdef MULTI_BUBBLES
-    if(All.ComovingIntegrationOn)
-        All.TimeOfNextBubble = 1. / (1. + All.FirstBubbleRedshift);
-    else
-        All.TimeOfNextBubble = All.TimeBegin + All.BubbleTimeInterval / All.UnitTime_in_Megayears;
-    if(ThisTask == 0)
-        printf("Initial time: %g and time of the first bubbles %g \n", All.TimeBegin, All.TimeOfNextBubble);
-    if(RestartFlag == 2 && All.TimeBegin > All.TimeOfNextBubble)
-    {
-        printf("Restarting from the snapshot file with the wrong FirstBubbleRedshift! \n");
-        endrun(0);
-    }
-#endif
-
     /* DISTORTION GENERAL SETUP */
 #ifdef DISTORTIONTENSORPS
 #if defined(SIM_ADAPTIVE_SOFT) || defined(REINIT_AT_TURNAROUND)
@@ -465,16 +434,6 @@ void init(void)
         {
             if(RestartFlag == 0)
                 BHP(i).Mass = All.SeedBlackHoleMass;
-#ifdef BH_BUBBLES
-            if(RestartFlag == 0)
-            {
-                BHP(i).Mass_bubbles = All.SeedBlackHoleMass;
-                BHP(i).Mass_ini = All.SeedBlackHoleMass;
-#ifdef UNIFIED_FEEDBACK
-                BHP(i).Mass_radio = All.SeedBlackHoleMass;
-#endif
-            }
-#endif
         }
 #endif
     }

@@ -85,12 +85,6 @@ struct swallowdata_out
     MyLongDouble Mass;
     MyLongDouble BH_Mass;
     MyLongDouble AccretedMomentum[3];
-#ifdef BH_BUBBLES
-    MyLongDouble BH_Mass_bubbles;
-#ifdef UNIFIED_FEEDBACK
-    MyLongDouble BH_Mass_radio;
-#endif
-#endif
 #ifdef BH_COUNTPROGS
     int BH_CountProgs;
 #endif
@@ -168,15 +162,6 @@ void blackhole_accretion(void)
     swev.ev_dataout_elsize = sizeof(struct swallowdata_out);
 
 
-#ifdef BH_BUBBLES
-    MyFloat bh_center[3];
-    double *bh_dmass, *tot_bh_dmass;
-    float *bh_posx, *bh_posy, *bh_posz;
-    float *tot_bh_posx, *tot_bh_posy, *tot_bh_posz;
-    int l, num_activebh = 0, total_num_activebh = 0;
-    int *common_num_activebh, *disp;
-    MyIDType *bh_id, *tot_bh_id;
-#endif
     MPI_Status status;
 
     if(ThisTask == 0)
@@ -253,121 +238,6 @@ void blackhole_accretion(void)
     }
 
     myfree(queue);
-
-#ifdef BH_BUBBLES
-    Ngblist = (int *) mymalloc("Ngblist", NumPart * sizeof(int));
-
-    MPI_Allreduce(&num_activebh, &total_num_activebh, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    if(ThisTask == 0)
-    {
-        printf("The total number of active BHs is: %d\n", total_num_activebh);
-        fflush(stdout);
-    }
-
-    if(total_num_activebh > 0)
-    {
-        bh_dmass = mymalloc("bh_dmass", num_activebh * sizeof(double));
-        tot_bh_dmass = mymalloc("tot_bh_dmass", total_num_activebh * sizeof(double));
-        bh_posx = mymalloc("bh_posx", num_activebh * sizeof(float));
-        bh_posy = mymalloc("bh_posy", num_activebh * sizeof(float));
-        bh_posz = mymalloc("bh_posz", num_activebh * sizeof(float));
-        tot_bh_posx = mymalloc("tot_bh_posx", total_num_activebh * sizeof(float));
-        tot_bh_posy = mymalloc("tot_bh_posy", total_num_activebh * sizeof(float));
-        tot_bh_posz = mymalloc("tot_bh_posz", total_num_activebh * sizeof(float));
-        //      bh_id = mymalloc("bh_id", num_activebh * sizeof(unsigned int));
-        //      tot_bh_id = mymalloc("tot_bh_id", total_num_activebh * sizeof(unsigned int));
-        bh_id = mymalloc("bh_id", num_activebh * sizeof(MyIDType));
-        tot_bh_id = mymalloc("tot_bh_id", total_num_activebh * sizeof(MyIDType));
-
-        for(n = 0; n < num_activebh; n++)
-        {
-            bh_dmass[n] = 0.0;
-            bh_posx[n] = 0.0;
-            bh_posy[n] = 0.0;
-            bh_posz[n] = 0.0;
-            bh_id[n] = 0;
-        }
-
-        for(n = 0; n < total_num_activebh; n++)
-        {
-            tot_bh_dmass[n] = 0.0;
-            tot_bh_posx[n] = 0.0;
-            tot_bh_posy[n] = 0.0;
-            tot_bh_posz[n] = 0.0;
-            tot_bh_id[n] = 0;
-        }
-
-        for(n = FirstActiveParticle, l = 0; n >= 0; n = NextActiveParticle[n])
-            if(P[n].Type == 5)
-            {
-                if(BHP(n).Mass_bubbles > 0
-                        && BHP(n).Mass_bubbles > All.BlackHoleRadioTriggeringFactor * BHP(n).Mass_ini)
-                {
-#ifndef UNIFIED_FEEDBACK
-                    bh_dmass[l] = BHP(n).Mass_bubbles - BHP(n).Mass_ini;
-#else
-                    bh_dmass[l] = BHP(n).Mass_radio - BHP(n).Mass_ini;
-                    BHP(n).Mass_radio = BHP(n).Mass;
-#endif
-                    BHP(n).Mass_ini = BHP(n).Mass;
-                    BHP(n).Mass_bubbles = BHP(n).Mass;
-
-                    bh_posx[l] = P[n].Pos[0];
-                    bh_posy[l] = P[n].Pos[1];
-                    bh_posz[l] = P[n].Pos[2];
-                    bh_id[l] = P[n].ID;
-
-                    l++;
-                }
-            }
-        common_num_activebh = mymalloc("common_num_activebh", NTask * sizeof(int));
-        disp = mymalloc("disp", NTask * sizeof(int));
-
-        MPI_Allgather(&num_activebh, 1, MPI_INT, common_num_activebh, 1, MPI_INT, MPI_COMM_WORLD);
-
-        for(k = 1, disp[0] = 0; k < NTask; k++)
-            disp[k] = disp[k - 1] + common_num_activebh[k - 1];
-
-
-        MPI_Allgatherv(bh_dmass, num_activebh, MPI_DOUBLE, tot_bh_dmass, common_num_activebh, disp, MPI_DOUBLE,
-                MPI_COMM_WORLD);
-        MPI_Allgatherv(bh_posx, num_activebh, MPI_FLOAT, tot_bh_posx, common_num_activebh, disp, MPI_FLOAT,
-                MPI_COMM_WORLD);
-        MPI_Allgatherv(bh_posy, num_activebh, MPI_FLOAT, tot_bh_posy, common_num_activebh, disp, MPI_FLOAT,
-                MPI_COMM_WORLD);
-        MPI_Allgatherv(bh_posz, num_activebh, MPI_FLOAT, tot_bh_posz, common_num_activebh, disp, MPI_FLOAT,
-                MPI_COMM_WORLD);
-
-        MPI_Allgatherv(bh_id, num_activebh, MPI_UNSIGNED_LONG_LONG, tot_bh_id, common_num_activebh, disp, MPI_UNSIGNED_LONG_LONG,
-                MPI_COMM_WORLD);
-
-        for(l = 0; l < total_num_activebh; l++)
-        {
-            bh_center[0] = tot_bh_posx[l];
-            bh_center[1] = tot_bh_posy[l];
-            bh_center[2] = tot_bh_posz[l];
-
-            if(tot_bh_dmass[l] > 0)
-                bh_bubble(tot_bh_dmass[l], bh_center, tot_bh_id[l]);
-
-        }
-
-        myfree(disp);
-        myfree(common_num_activebh);
-        myfree(tot_bh_id);
-        myfree(bh_id);
-        myfree(tot_bh_posz);
-        myfree(tot_bh_posy);
-        myfree(tot_bh_posx);
-        myfree(bh_posz);
-        myfree(bh_posy);
-        myfree(bh_posx);
-        myfree(tot_bh_dmass);
-        myfree(bh_dmass);
-    }
-    myfree(Ngblist);
-#endif
 
     double total_mass_real, total_mdoteddington;
     double total_mass_holes, total_mdot;
@@ -490,13 +360,6 @@ static void blackhole_accretion_evaluate(int n) {
 
     BHP(n).Mass += BHP(n).Mdot * dt;
 
-#ifdef BH_BUBBLES
-    BHP(n).Mass_bubbles += BHP(n).Mdot * dt;
-#ifdef UNIFIED_FEEDBACK
-    if(BHP(n).Mdot < All.RadioThreshold * meddington)
-        BHP(n).Mass_radio += BHP(n).Mdot * dt;
-#endif
-#endif
 }
 
 static void blackhole_postprocess(int n) {
@@ -515,12 +378,6 @@ static void blackhole_postprocess(int n) {
 
         P[n].Mass += BHP(n).accreted_Mass;
         BHP(n).Mass += BHP(n).accreted_BHMass;
-#ifdef BH_BUBBLES
-        BHP(n).Mass_bubbles += BHP(n).accreted_BHMass_bubbles;
-#ifdef UNIFIED_FEEDBACK
-        BHP(n).Mass_radio += BHP(n).accreted_BHMass_radio;
-#endif
-#endif
         BHP(n).accreted_Mass = 0;
     }
 
@@ -535,13 +392,6 @@ static void blackhole_postprocess(int n) {
 #pragma omp atomic
         TimeBin_BH_Medd[bin] += BHP(n).Mdot / BHP(n).Mass;
     }
-#ifdef BH_BUBBLES
-    if(BHP(n).Mass_bubbles > 0
-            && BHP(n).Mass_bubbles > All.BlackHoleRadioTriggeringFactor * BHP(n).Mass_ini) {
-#pragma omp atomic
-        num_activebh++;
-    }
-#endif
 }
 
 static int blackhole_feedback_evaluate(int target, int mode, 
@@ -818,12 +668,6 @@ int blackhole_swallow_evaluate(int target, int mode,
 
                     O->Mass += FLT(P[j].Mass);
                     O->BH_Mass += FLT(BHP(j).Mass);
-#ifdef BH_BUBBLES
-                    O->BH_Mass_bubbles += FLT(BHP(j).Mass_bubbles - BHP(j).Mass_ini);
-#ifdef UNIFIED_FEEDBACK
-                    O->BH_Mass_radio += FLT(BHP(j).Mass_radio - BHP(j).Mass_ini);
-#endif
-#endif
                     for(k = 0; k < 3; k++)
                         O->AccretedMomentum[k] += FLT(P[j].Mass * P[j].Vel[k]);
 
@@ -847,13 +691,6 @@ int blackhole_swallow_evaluate(int target, int mode,
                     BHP(j).Mass = 0;
                     BHP(j).Mdot = 0;
 
-#ifdef BH_BUBBLES
-                    BHP(j).Mass_bubbles = 0;
-                    BHP(j).Mass_ini = 0;
-#ifdef UNIFIED_FEEDBACK
-                    BHP(j).Mass_radio = 0;
-#endif
-#endif
 #pragma omp atomic
                     N_BH_swallowed++;
                 }
@@ -951,12 +788,6 @@ static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote,
 #define EV_REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
     EV_REDUCE(BHP(place).accreted_Mass, remote->Mass);
     EV_REDUCE(BHP(place).accreted_BHMass, remote->BH_Mass);
-#ifdef BH_BUBBLES
-    EV_REDUCE(BHP(place).accreted_BHMass_bubbles, remote->BH_Mass_bubbles);
-#ifdef UNIFIED_FEEDBACK
-    EV_REDUCE(BHP(place).accreted_BHMass_radio, remote->BH_Mass_radio);
-#endif
-#endif
     for(k = 0; k < 3; k++) {
         EV_REDUCE(BHP(place).accreted_momentum[k], remote->AccretedMomentum[k]);
     }
@@ -964,377 +795,6 @@ static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote,
     EV_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
 #endif
 }
-
-#ifdef BH_BUBBLES
-void bh_bubble(double bh_dmass, MyFloat center[3], MyIDType BH_id)
-{
-    double phi, theta;
-    double dx, dy, dz, rr, r2, dE;
-    double E_bubble, totE_bubble;
-    double BubbleDistance = 0.0, BubbleRadius = 0.0, BubbleEnergy = 0.0;
-    double ICMDensity;
-    double Mass_bubble, totMass_bubble;
-    double u_to_temp_fac;
-    MyDouble pos[3];
-    int numngb, tot_numngb, startnode, numngb_inbox;
-    int n, i, j, dummy;
-
-#ifdef CR_BUBBLES
-    double tinj = 0.0, instant_reheat = 0.0;
-    double sum_instant_reheat = 0.0, tot_instant_reheat = 0.0;
-#endif
-
-    u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS /
-        BOLTZMANN * GAMMA_MINUS1 * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
-
-    if(All.ComovingIntegrationOn)
-    {
-
-        BubbleDistance = All.BubbleDistance;
-        BubbleRadius = All.BubbleRadius;
-
-        /*switch to comoving if it is assumed that Rbub should be constant with redshift */
-
-        /* BubbleDistance = All.BubbleDistance / All.Time;
-           BubbleRadius = All.BubbleRadius / All.Time; */
-    }
-    else
-    {
-        BubbleDistance = All.BubbleDistance;
-        BubbleRadius = All.BubbleRadius;
-    }
-
-    BubbleEnergy = All.RadioFeedbackFactor * 0.1 * bh_dmass * All.UnitMass_in_g / All.HubbleParam * pow(C, 2);	/*in cgs units */
-
-    phi = 2 * M_PI * get_random_number(BH_id);
-    theta = acos(2 * get_random_number(BH_id + 1) - 1);
-    rr = pow(get_random_number(BH_id + 2), 1. / 3.) * BubbleDistance;
-
-    pos[0] = sin(theta) * cos(phi);
-    pos[1] = sin(theta) * sin(phi);
-    pos[2] = cos(theta);
-
-    for(i = 0; i < 3; i++)
-        pos[i] *= rr;
-
-    for(i = 0; i < 3; i++)
-        pos[i] += center[i];
-
-
-    /* First, let's see how many particles are in the bubble of the default radius */
-
-    numngb = 0;
-    E_bubble = 0.;
-    Mass_bubble = 0.;
-
-    startnode = All.MaxPart;
-    do
-    {
-        numngb_inbox = ngb_treefind_variable(pos, BubbleRadius, -1, &startnode, 0, &dummy, &dummy);
-
-        for(n = 0; n < numngb_inbox; n++)
-        {
-            j = Ngblist[n];
-            dx = pos[0] - P[j].Pos[0];
-            dy = pos[1] - P[j].Pos[1];
-            dz = pos[2] - P[j].Pos[2];
-
-#ifdef PERIODIC			/*  now find the closest image in the given box size  */
-            if(dx > boxHalf_X)
-                dx -= boxSize_X;
-            if(dx < -boxHalf_X)
-                dx += boxSize_X;
-            if(dy > boxHalf_Y)
-                dy -= boxSize_Y;
-            if(dy < -boxHalf_Y)
-                dy += boxSize_Y;
-            if(dz > boxHalf_Z)
-                dz -= boxSize_Z;
-            if(dz < -boxHalf_Z)
-                dz += boxSize_Z;
-#endif
-            r2 = dx * dx + dy * dy + dz * dz;
-
-            if(r2 < BubbleRadius * BubbleRadius)
-            {
-                if(P[j].Type == 0)
-                {
-                    numngb++;
-
-                    if(All.ComovingIntegrationOn)
-                        E_bubble +=
-                            SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).EOMDensity / pow(All.Time, 3),
-                                    GAMMA_MINUS1) / GAMMA_MINUS1;
-                    else
-                        E_bubble +=
-                            SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).EOMDensity, GAMMA_MINUS1) / GAMMA_MINUS1;
-
-                    Mass_bubble += P[j].Mass;
-                }
-            }
-        }
-    }
-    while(startnode >= 0);
-
-
-    MPI_Allreduce(&numngb, &tot_numngb, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&E_bubble, &totE_bubble, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&Mass_bubble, &totMass_bubble, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    totE_bubble *= All.UnitEnergy_in_cgs;
-
-    if(totMass_bubble > 0)
-    {
-        if(ThisTask == 0)
-        {
-            printf("found %d particles in bubble with energy %g and total mass %g \n",
-                    tot_numngb, totE_bubble, totMass_bubble);
-            fflush(stdout);
-        }
-
-
-        /*calculate comoving density of ICM inside the bubble */
-
-        ICMDensity = totMass_bubble / (4.0 * M_PI / 3.0 * pow(BubbleRadius, 3));
-
-        if(All.ComovingIntegrationOn)
-            ICMDensity = ICMDensity / (pow(All.Time, 3));	/*now physical */
-
-        /*Rbub=R0*[(Ejet/Ejet,0)/(rho_ICM/rho_ICM,0)]^(1./5.) - physical */
-
-        rr = rr / BubbleDistance;
-
-        BubbleRadius =
-            All.BubbleRadius * pow((BubbleEnergy * All.DefaultICMDensity / (All.BubbleEnergy * ICMDensity)),
-                    1. / 5.);
-
-        BubbleDistance =
-            All.BubbleDistance * pow((BubbleEnergy * All.DefaultICMDensity / (All.BubbleEnergy * ICMDensity)),
-                    1. / 5.);
-
-        if(All.ComovingIntegrationOn)
-        {
-            /*switch to comoving if it is assumed that Rbub should be constant with redshift */
-            /* BubbleRadius = BubbleRadius / All.Time;
-               BubbleDistance = BubbleDistance / All.Time; */
-        }
-
-        /*recalculate pos */
-        rr = rr * BubbleDistance;
-
-        pos[0] = sin(theta) * cos(phi);
-        pos[1] = sin(theta) * sin(phi);
-        pos[2] = cos(theta);
-
-        for(i = 0; i < 3; i++)
-            pos[i] *= rr;
-
-        for(i = 0; i < 3; i++)
-            pos[i] += center[i];
-
-        /* now find particles in Bubble again,
-           and recalculate number, mass and energy */
-
-        numngb = 0;
-        E_bubble = 0.;
-        Mass_bubble = 0.;
-        tot_numngb = 0;
-        totE_bubble = 0.;
-        totMass_bubble = 0.;
-
-        startnode = All.MaxPart;
-
-        do
-        {
-            numngb_inbox = ngb_treefind_variable(pos, BubbleRadius, -1, &startnode, 0, &dummy, &dummy);
-
-            for(n = 0; n < numngb_inbox; n++)
-            {
-                j = Ngblist[n];
-                dx = pos[0] - P[j].Pos[0];
-                dy = pos[1] - P[j].Pos[1];
-                dz = pos[2] - P[j].Pos[2];
-
-#ifdef PERIODIC			/*  now find the closest image in the given box size  */
-                if(dx > boxHalf_X)
-                    dx -= boxSize_X;
-                if(dx < -boxHalf_X)
-                    dx += boxSize_X;
-                if(dy > boxHalf_Y)
-                    dy -= boxSize_Y;
-                if(dy < -boxHalf_Y)
-                    dy += boxSize_Y;
-                if(dz > boxHalf_Z)
-                    dz -= boxSize_Z;
-                if(dz < -boxHalf_Z)
-                    dz += boxSize_Z;
-#endif
-                r2 = dx * dx + dy * dy + dz * dz;
-
-                if(r2 < BubbleRadius * BubbleRadius)
-                {
-                    if(P[j].Type == 0 && P[j].Mass > 0)
-                    {
-                        numngb++;
-
-                        if(All.ComovingIntegrationOn)
-                            E_bubble +=
-                                SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).EOMDensity / pow(All.Time, 3),
-                                        GAMMA_MINUS1) / GAMMA_MINUS1;
-                        else
-                            E_bubble +=
-                                SPHP(j).Entropy * P[j].Mass * pow(SPHP(j).EOMDensity, GAMMA_MINUS1) / GAMMA_MINUS1;
-
-                        Mass_bubble += P[j].Mass;
-                    }
-                }
-            }
-        }
-        while(startnode >= 0);
-
-
-        MPI_Allreduce(&numngb, &tot_numngb, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&E_bubble, &totE_bubble, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&Mass_bubble, &totMass_bubble, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-        totE_bubble *= All.UnitEnergy_in_cgs;
-
-        if(totMass_bubble > 0)
-        {
-            if(ThisTask == 0)
-            {
-                printf("found %d particles in bubble of rescaled radius with energy %g and total mass %g \n",
-                        tot_numngb, totE_bubble, totMass_bubble);
-                printf("energy shall be increased by: (Eini+Einj)/Eini = %g \n",
-                        (BubbleEnergy + totE_bubble) / totE_bubble);
-                fflush(stdout);
-            }
-        }
-
-        /* now find particles in Bubble again, and inject energy */
-
-#ifdef CR_BUBBLES
-        sum_instant_reheat = 0.0;
-        tot_instant_reheat = 0.0;
-#endif
-
-        startnode = All.MaxPart;
-
-        do
-        {
-            numngb_inbox = ngb_treefind_variable(pos, BubbleRadius, -1, &startnode, 0, &dummy, &dummy);
-
-            for(n = 0; n < numngb_inbox; n++)
-            {
-                j = Ngblist[n];
-                dx = pos[0] - P[j].Pos[0];
-                dy = pos[1] - P[j].Pos[1];
-                dz = pos[2] - P[j].Pos[2];
-
-#ifdef PERIODIC			/*  now find the closest image in the given box size  */
-                if(dx > boxHalf_X)
-                    dx -= boxSize_X;
-                if(dx < -boxHalf_X)
-                    dx += boxSize_X;
-                if(dy > boxHalf_Y)
-                    dy -= boxSize_Y;
-                if(dy < -boxHalf_Y)
-                    dy += boxSize_Y;
-                if(dz > boxHalf_Z)
-                    dz -= boxSize_Z;
-                if(dz < -boxHalf_Z)
-                    dz += boxSize_Z;
-#endif
-                r2 = dx * dx + dy * dy + dz * dz;
-
-                if(r2 < BubbleRadius * BubbleRadius)
-                {
-                    if(P[j].Type == 0 && P[j].Mass > 0)
-                    {
-                        /* energy we want to inject in this particle */
-
-                        if(All.StarformationOn)
-                            dE = ((BubbleEnergy / All.UnitEnergy_in_cgs) / totMass_bubble) * P[j].Mass;
-                        else
-                            dE = (BubbleEnergy / All.UnitEnergy_in_cgs) / tot_numngb;
-
-                        if(u_to_temp_fac * dE / P[j].Mass > 5.0e9)
-                            dE = 5.0e9 * P[j].Mass / u_to_temp_fac;
-
-#ifndef CR_BUBBLES
-                        if(All.ComovingIntegrationOn)
-                            SPHP(j).Entropy +=
-                                GAMMA_MINUS1 * dE / P[j].Mass / pow(SPHP(j).EOMDensity / pow(All.Time, 3),
-                                        GAMMA_MINUS1);
-                        else
-                            SPHP(j).Entropy +=
-                                GAMMA_MINUS1 * dE / P[j].Mass / pow(SPHP(j).EOMDensity, GAMMA_MINUS1);
-#else
-
-                        tinj = 10.0 * All.HubbleParam * All.cf.hubble / All.UnitTime_in_Megayears;
-
-                        instant_reheat =
-                            CR_Particle_SupernovaFeedback(&SPHP(j), dE / P[j].Mass * All.CR_AGNEff, tinj);
-
-                        if(instant_reheat > 0)
-                        {
-                            if(All.ComovingIntegrationOn)
-                                SPHP(j).Entropy +=
-                                    instant_reheat * GAMMA_MINUS1 / pow(SPHP(j).EOMDensity / pow(All.Time, 3),
-                                            GAMMA_MINUS1);
-                            else
-                                SPHP(j).Entropy +=
-                                    instant_reheat * GAMMA_MINUS1 / pow(SPHP(j).EOMDensity, GAMMA_MINUS1);
-                        }
-
-                        if(All.CR_AGNEff < 1)
-                        {
-                            if(All.ComovingIntegrationOn)
-                                SPHP(j).Entropy +=
-                                    (1 -
-                                     All.CR_AGNEff) * dE * GAMMA_MINUS1 / P[j].Mass / pow(SPHP(j).EOMDensity /
-                                         pow(All.Time, 3),
-                                         GAMMA_MINUS1);
-                            else
-                                SPHP(j).Entropy +=
-                                    (1 - All.CR_AGNEff) * dE * GAMMA_MINUS1 / P[j].Mass / pow(SPHP(j).EOMDensity,
-                                            GAMMA_MINUS1);
-                        }
-
-
-                        sum_instant_reheat += instant_reheat * P[j].Mass;
-#endif
-
-                    }
-                }
-            }
-        }
-        while(startnode >= 0);
-
-#ifdef CR_BUBBLES
-        MPI_Allreduce(&sum_instant_reheat, &tot_instant_reheat, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-        if(ThisTask == 0)
-        {
-            printf("Total BubbleEnergy %g Thermalized Energy %g \n", BubbleEnergy,
-                    tot_instant_reheat * All.UnitEnergy_in_cgs);
-            fflush(stdout);
-
-        }
-#endif
-    }
-    else
-    {
-        if(ThisTask == 0)
-        {
-            printf("No particles in bubble found! \n");
-            fflush(stdout);
-        }
-
-    }
-
-}
-#endif /* end of BH_BUBBLE */
 
 void blackhole_make_one(int index) {
     if(P[index].Type != 0) endrun(7772);
@@ -1351,14 +811,6 @@ void blackhole_make_one(int index) {
 
 #ifdef BH_COUNTPROGS
     BHP(index).CountProgs = 1;
-#endif
-
-#ifdef BH_BUBBLES
-    BHP(index).Mass_bubbles = All.SeedBlackHoleMass;
-    BHP(index).Mass_ini = All.SeedBlackHoleMass;
-#ifdef UNIFIED_FEEDBACK
-    BHP(index).Mass_radio = All.SeedBlackHoleMass;
-#endif
 #endif
 
 #ifdef SFR

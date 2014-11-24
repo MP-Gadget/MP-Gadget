@@ -28,9 +28,6 @@ void compute_accelerations(int mode)
 #ifdef RADTRANSFER
     double timeeach = 0, timeall = 0, tstart = 0, tend = 0;
 #endif
-#if defined(BUBBLES) || defined(MULTI_BUBBLES)
-    double hubble_a;
-#endif
     int TreeReconstructFlag = 0;
 
     if(ThisTask == 0)
@@ -242,50 +239,6 @@ void compute_accelerations(int mode)
 #ifdef CHEMCOOL
         do_chemcool(-1, 0);
 #endif
-
-#ifndef BH_BUBBLES
-#ifdef BUBBLES
-        /**** bubble feedback *****/
-        if(All.Time >= All.TimeOfNextBubble)
-        {
-#ifdef FOFs
-            fof_fof(-1);
-            bubble();
-#else
-            bubble();
-#endif
-            if(All.ComovingIntegrationOn)
-            {
-                hubble_a = hubble_function(All.Time);
-                All.TimeOfNextBubble *= (1.0 + All.BubbleTimeInterval * hubble_a);
-            }
-            else
-                All.TimeOfNextBubble += All.BubbleTimeInterval / All.UnitTime_in_Megayears;
-
-            if(ThisTask == 0)
-                printf("Time of the bubble generation: %g\n", 1. / All.TimeOfNextBubble - 1.);
-        }
-#endif
-#endif
-
-#if defined(MULTI_BUBBLES) && defined(FOF)
-        if(All.Time >= All.TimeOfNextBubble)
-        {
-            fof_fof(-1);
-
-            if(All.ComovingIntegrationOn)
-            {
-                hubble_a = hubble_func(All.Time);
-                All.TimeOfNextBubble *= (1.0 + All.BubbleTimeInterval * hubble_a);
-            }
-            else
-                All.TimeOfNextBubble += All.BubbleTimeInterval / All.UnitTime_in_Megayears;
-
-            if(ThisTask == 0)
-                printf("Time of the bubble generation: %g\n", 1. / All.TimeOfNextBubble - 1.);
-        }
-#endif
-
     }
 
     if(ThisTask == 0)

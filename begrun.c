@@ -1480,74 +1480,6 @@ void read_parameter_file(char *fname)
         id[nt++] = REAL;
 #endif
 
-#if defined(BUBBLES) || defined(MULTI_BUBBLES)
-        strcpy(tag[nt], "BubbleDistance");
-        addr[nt] = &All.BubbleDistance;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BubbleRadius");
-        addr[nt] = &All.BubbleRadius;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BubbleTimeInterval");
-        addr[nt] = &All.BubbleTimeInterval;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BubbleEnergy");
-        addr[nt] = &All.BubbleEnergy;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "FirstBubbleRedshift");
-        addr[nt] = &All.FirstBubbleRedshift;
-        id[nt++] = REAL;
-#endif
-
-#ifdef MULTI_BUBBLES
-        strcpy(tag[nt], "MinFoFMassForNewSeed");
-        addr[nt] = &All.MinFoFMassForNewSeed;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "ClusterMass200");
-        addr[nt] = &All.ClusterMass200;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "massDMpart");
-        addr[nt] = &All.massDMpart;
-        id[nt++] = REAL;
-
-#endif
-
-#ifdef BH_BUBBLES
-        strcpy(tag[nt], "BubbleDistance");
-        addr[nt] = &All.BubbleDistance;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BubbleRadius");
-        addr[nt] = &All.BubbleRadius;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BubbleEnergy");
-        addr[nt] = &All.BubbleEnergy;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BlackHoleRadioTriggeringFactor");
-        addr[nt] = &All.BlackHoleRadioTriggeringFactor;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "DefaultICMDensity");
-        addr[nt] = &All.DefaultICMDensity;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "RadioFeedbackFactor");
-        addr[nt] = &All.RadioFeedbackFactor;
-        id[nt++] = REAL;
-#ifdef UNIFIED_FEEDBACK
-        strcpy(tag[nt], "RadioThreshold");
-        addr[nt] = &All.RadioThreshold;
-        id[nt++] = REAL;
-#endif
-#endif
-
 #ifdef COSMIC_RAYS
         for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
         {
@@ -1625,11 +1557,6 @@ void read_parameter_file(char *fname)
         id[nt++] = REAL;
 #endif
 
-#ifdef CR_BUBBLES
-        strcpy(tag[nt], "CR_AGNEff");
-        addr[nt] = &All.CR_AGNEff;
-        id[nt++] = REAL;
-#endif
 #endif /* COSMIC_RAYS */
 
 
@@ -2742,27 +2669,6 @@ NUMCRPOP = 1;
         fprintf(stdout, "This will lead to no correction at all, better stop.\n");
     }
     endrun(0);
-#endif
-
-#ifdef BH_BUBBLES
-#ifndef BLACK_HOLES
-    if(ThisTask == 0)
-    {
-        printf("Code was compiled with BH_BUBBLES, but not with BLACK_HOLES.\n");
-        printf("This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
-#if defined(BUBBLES) || defined(MULTI_BUBBLES) || defined(EBUB_PROPTO_BHAR)
-    if(ThisTask == 0)
-    {
-        printf
-            ("If the code is compiled with BH_BUBBLES, then BUBBLES, MULTI_BUBBLES or EBUB_PROPTO_BHAR options cannot be used.\n");
-        printf("This is not allowed.\n");
-    }
-    endrun(0);
-#endif
 #endif
 
 #undef REAL

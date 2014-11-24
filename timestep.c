@@ -1078,23 +1078,6 @@ int get_timestep(int p,		/*!< particle index */
     }
 #endif
 
-#ifdef BH_BUBBLES
-    if(P[p].Type == 5)
-    {
-        if(BHP(p).Mdot > 0 && BHP(p).Mass > 0)
-        {
-#ifdef UNIFIED_FEEDBACK
-            meddington = (4 * M_PI * GRAVITY * C * PROTONMASS /
-                    (0.1 * C * C * THOMPSON)) * BHP(p).Mass * All.UnitTime_in_s;
-            if(BHP(p).Mdot < All.RadioThreshold * meddington)
-#endif
-                dt_accr = (All.BlackHoleRadioTriggeringFactor - 1) * BHP(p).Mass / BHP(p).Mdot;
-            if(dt_accr < dt)
-                dt = dt_accr;
-        }
-    }
-#endif
-
 #ifdef NONEQUILIBRIUM
     /* another criterion given by the local cooling time */
 

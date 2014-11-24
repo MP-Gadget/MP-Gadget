@@ -1114,9 +1114,6 @@ extern struct global_data_all_processes
     double Shock_Fix_Qinj;	/*!< inject only CRps with threshold cutoff Shock_Fix_Qinj */
 #endif
 
-#ifdef CR_BUBBLES
-    double CR_AGNEff;               /*!< AGN injection efficiency [0..1] */
-#endif
 #endif				/* COSMIC_RAYS */
 
 #ifdef MACHNUM
@@ -1127,48 +1124,6 @@ extern struct global_data_all_processes
 
 #ifdef REIONIZATION
     int not_yet_reionized;	/*!< flag that makes sure that there is only one reionization */
-#endif
-
-
-
-#ifdef BUBBLES
-    double BubbleDistance;
-    double BubbleRadius;
-    double BubbleTimeInterval;
-    double BubbleEnergy;
-    double TimeOfNextBubble;
-    double FirstBubbleRedshift;
-#ifdef FOF
-    int BiggestGroupLen;
-    float BiggestGroupCM[3];
-    double BiggestGroupMass;
-#endif
-#endif
-
-#ifdef BH_BUBBLES
-    double BubbleDistance;
-    double BubbleRadius;
-    double BubbleEnergy;
-    double BlackHoleRadioTriggeringFactor;
-    double DefaultICMDensity;
-    double RadioFeedbackFactor;
-#ifdef UNIFIED_FEEDBACK
-    double RadioThreshold;
-#endif
-#endif
-
-#if defined(MULTI_BUBBLES) && defined(FOF)
-#ifndef BLACK_HOLES
-    double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
-    double massDMpart;
-#endif
-    double BubbleDistance;
-    double BubbleRadius;
-    double BubbleTimeInterval;
-    double BubbleEnergy;
-    double TimeOfNextBubble;
-    double ClusterMass200;
-    double FirstBubbleRedshift;
 #endif
 
 #ifdef NAVIERSTOKES
@@ -1304,13 +1259,6 @@ struct bh_particle_data {
 #endif
     MyFloat Mass;
     MyFloat Mdot;
-#ifdef BH_BUBBLES
-    MyFloat Mass_bubbles;
-    MyFloat Mass_ini;
-#ifdef UNIFIED_FEEDBACK
-    MyFloat Mass_radio;
-#endif
-#endif
     MyFloat FeedbackWeightSum;
     MyFloat Density;
     MyFloat EntOrPressure;
@@ -1320,12 +1268,6 @@ struct bh_particle_data {
     MyFloat accreted_Mass;
     MyFloat accreted_BHMass;
     MyFloat accreted_momentum[3];
-#ifdef BH_BUBBLES
-    MyFloat accreted_BHMass_bubbles;
-#ifdef UNIFIED_FEEDBACK
-    MyFloat accreted_BHMass_radio;
-#endif
-#endif
 #ifdef REPOSITION_ON_POTMIN
     MyFloat MinPotPos[3];
     MyFloat MinPot;
