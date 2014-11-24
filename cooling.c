@@ -1251,7 +1251,10 @@ static void InitUVF(void) {
      * too big. (400x400x400 is around 400 MBytes)
      *
      * */
-    if(!strcmp(All.UVFluctuationFile, "UNIFORM")) {
+    if(!strcmp(All.UVFluctuationFile, "UNIFORM")
+    ||        
+    !strcmp(All.UVFluctuationFile, "@UNIFORM")
+     ) {
         if(ThisTask == 0)
             printf("Using UNIFORM UV BG from %s\n", All.TreeCoolFile);
         UVF.disabled = 1;
