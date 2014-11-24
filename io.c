@@ -7,10 +7,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#ifdef HAVE_HDF5
-#include <hdf5.h>
-#endif
-
 #include "allvars.h"
 #include "densitykernel.h"
 #include "proto.h"

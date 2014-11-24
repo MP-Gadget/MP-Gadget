@@ -13,10 +13,6 @@
 #include "domain.h"
 #include "radixsort/radixsort.h"
 
-#ifdef HAVE_HDF5
-#include <hdf5.h>
-#endif
-
 /*! \file fof.c
  *  \brief parallel FoF group finder
  */

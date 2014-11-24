@@ -2,10 +2,6 @@ EXEC   = P-Gadget3
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 
-FOPTIONS = $(OPTIMIZE) $(FOPT)
-
-
-
 OBJS  =  \
 	 gdbtools.o \
 	 fof.o fofpetaio.o petaio.o \
@@ -50,7 +46,3 @@ $(OBJS): $(INCL) config.h
 
 clean:
 	rm -f $(OBJS) $(EXEC)
-
-MakePrimordialCoolingTable: MakePrimordialCoolingTable.c
-	$(CC) $(HDF_INCL) -o $@ $< -lm $(HDF_LIBS)
-
