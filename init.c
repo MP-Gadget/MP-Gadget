@@ -83,15 +83,6 @@ void init(void)
         endrun(0);
     }
 
-    if(RestartFlag == 5 && RestartSnapNum < 0)
-    {
-        if(ThisTask == 0)
-            printf
-                ("Need to give the snapshot number if power spectrum and two-point correlation function should be calculated\n");
-        endrun(0);
-    }
-
-
     if(RestartFlag >= 2 && RestartSnapNum >= 0)  {
         petaio_read_snapshot(RestartSnapNum);
     } else 
@@ -803,7 +794,7 @@ void init(void)
     All.MaxNumNgbDeviation = All.MaxNumNgbDeviationStart;
 #endif
 
-    if(RestartFlag != 3 && RestartFlag != 5)
+    if(RestartFlag != 3)
         setup_smoothinglengths();
 
 #ifdef START_WITH_EXTRA_NGBDEV
@@ -1055,29 +1046,6 @@ void init(void)
 #ifdef FOF
         fof_fof(RestartSnapNum);
 #endif
-        endrun(0);
-    }
-
-    if(RestartFlag == 5)
-    {
-        /* calculating powerspec and twopoint function */
-#ifdef PMGRID
-        long_range_init_regionsize();
-#ifdef PERIODIC
-        int n, n_type[6];
-        int64_t ntot_type_all[6];
-        /* determine global and local particle numbers */
-        for(n = 0; n < 6; n++)
-            n_type[n] = 0;
-        for(n = 0; n < NumPart; n++)
-            n_type[P[n].Type]++;
-        sumup_large_ints(6, n_type, ntot_type_all);
-
-        calculate_power_spectra(RestartSnapNum, ntot_type_all);
-#endif
-#endif
-        force_treebuild(NumPart, NULL);
-        twopoint();
         endrun(0);
     }
 

@@ -13,7 +13,7 @@ OPT	+=  -DUNEQUALSOFTENINGS
 # shall be a lot faster than critical sections
 # but may not run on some systems
 OPT += -DOPENMP_USE_SPINLOCK
-OPT += -DLIGHTCONE                       # write a lightcone on the fly in development
+#OPT += -DLIGHTCONE                       # write a lightcone on the fly in development
 OPT	+=  -DHAVE_HDF5                     # needed when HDF5 I/O support is desired
 OPT	+=  -DH5_USE_16_API # needed when HDF5 I/O support is desired
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
@@ -27,8 +27,6 @@ OPT	+=  -DPMGRID=512
 #OPT	+=  -DGRIDBOOST=2
 #OPT	+=  -DASMTH=1.25
 #OPT	+=  -DRCUT=4.5
-#OPT	+=  -DPLACEHIGHRESREGION=1+2+8
-#OPT	+=  -DENLARGEREGION=2.0
 
 
 #--------------------------------------- Multi-Domain and Top-Level Tree options
@@ -125,8 +123,6 @@ OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding g
 
 
 #-------------------------------------------- Things for special behaviour
-#OPT	+=  -DPOWERSPEC_ON_OUTPUT   # unsupported with PETAPM
-#OPT	+=  -DPOWERSPEC_ON_OUTPUT_EACH_TYPE # unsupported with PETAPM
 #OPT	+=  -DTRADITIONAL_SPH_FORMULATION
 OPT	+=  -DNOTEST_FOR_IDUNIQUENESS
 #OPT	+=  -DSNIA_HEATING

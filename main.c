@@ -75,7 +75,6 @@ int main(int argc, char **argv)
 	  printf("       2          Restart from specified snapshot dump and continue simulation\n");
 	  printf("       3          Run FOF and optionally SUBFIND if enabled\n");
 	  printf("       4          Convert snapshot file to different format\n");
-	  printf("       5          Calculate power spectrum and two-point function\n");
 	  printf("\n");
 	}
       endrun(0);
