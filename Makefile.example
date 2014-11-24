@@ -64,28 +64,8 @@ OPT	+=  -DFOF                                # enable FoF output
 OPT	+=  -DFOF_PRIMARY_LINK_TYPES=2           # 2^type for the primary dark matter type
 OPT	+=  -DFOF_SECONDARY_LINK_TYPES=1+16+32	 # 2^type for the types linked to nearest primaries
 OPT 	+=  -DFOF_GROUP_MIN_LEN=32               # default is 32
-#OPT	+=  -DSUBFIND                            # enables substructure finder
-#OPT    +=  -DDENSITY_SPLIT_BY_TYPE=1+2+16+32    # 2^type for whch the densities should be calculated seperately  
-##OPT    +=  -DMAX_NGB_CHECK=3                    # Max numbers of neighbours for sattlepoint detection (default = 2)
-#OPT     +=  -DSAVE_MASS_TAB                      # Saves the an additional array with the masses of the different components
-#OPT    +=  -DSUBFIND_SAVE_PARTICLELISTS         # Saves also phase-space and type variables parallel to IDs
-##OPT	+=  -DORDER_SNAPSHOTS_BY_ID
-##OPT	+=  -DSAVE_HSML_IN_IC_ORDER              # will store the hsml-values in the order of the particles in the IC file
-##OPT	+=  -DONLY_PRODUCE_HSML_FILES            # only carries out density estimate
-##OPT	+=  -DSUBFIND_SAVE_DENSITY                # save density and hsml files
-##OPT	+=  -DKEEP_DM_HSML_AS_GUESS              # uses hsml from last time as guess for actual subfind
 ##OPT	+=  -DLINKLENGTH=0.16                    # Linkinglength for FoF (default=0.2)
-##OPT	+=  -DSUBFIND_READ_FOF
-##OPT    +=  -DSUBFIND_SO                        # evaluate the spherical overdensity (SO) of FOF groups; if disabled the SO properties will be junk
 #OPT	+=  -DSO_VEL_DISPERSIONS                 # computes velocity dispersions for as part of FOF SO-properties
-##OPT +=  -DSUBFIND_SKIP_COLLECTIVE         # skip collective subfind
-#OPT	+=  -DSUBFIND_COLLECTIVE_STAGE1
-#OPT	+=  -DSUBFIND_COLLECTIVE_STAGE2
-##OPT	+=  -DSUBFIND_ALTERNATIVE_COLLECTIVE
-##OPT	+=  -DSUBFIND_RESHUFFLE_CATALOGUE
-##OPT	+=  -DSUBFIND_RESHUFFLE_CATALOGUE_WITH_VORONOI
-##OPT    +=  -DSUBFIND_RESHUFFLE_AND_POTENTIAL    #needs -DSUBFIND_RESHUFFLE_CATALOGUE and COMPUTE_POTENTIAL_ENERGY
-##OPT    +=  -DSUBFIND_DENSITY_AND_POTENTIAL       #only calculated density and potential and write them into snapshot 
 
 #--------------------------------------- SFR/feedback model
 #OPT	+=  -DSOFTEREQS
