@@ -21,6 +21,7 @@ Box             32000.0   % Periodic box size of simulation
 Omega            0.2814      % Total matter density  (at z=0)
 OmegaLambda      0.7186      % Cosmological constant (at z=0)
 OmegaBaryon      0.0464     % Baryon density        (at z=0)
+ProduceGas       1         % 1 = Produce gas  0 = no gas, just DM.
 OmegaDM_2ndSpecies 0       % Omega for a second dark matter species (at z=0)
 HubbleParam      0.697      % Hubble paramater (may be used for power spec parameterization)
 
