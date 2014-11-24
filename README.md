@@ -4,13 +4,6 @@ Massvively parallel version of P-Gadget3.
 
 == Pre-Installation ==
 
-pfft3 shall be installed. It is a bit tricky to install.
-
-Luckily, on coma, pfft3 is already installed. To use it
-```
-source ~yfeng1/local/bin/setup.sh
-```
-
 == Installation ==
 ```
 git clone https://github.com/rainwoodman/MP-Gadget3
@@ -20,34 +13,57 @@ git submodules init
 
 ```
 
-Now we need to look at Makefile.example
+We will need hdf5 and gsl. They are quite standard libraries.
+usually can be loaded with 
+
+```
+module load hdf5 gsl
+env |grep HDF
+env |grep GSL
+```
+copy Makefile.default to Makefile.Local
+
+edit Makefile.Local and set HDF / GSL flags according to the environments.
+
+On coma, use Makefile.Warp, and run the following commands to load HDF + GSL
+```
+source ~yfeng1/local/bin/setup.sh
+```
+
 ```
 copy Makefile.example Makefile
 ```
 
-Edit Makefile and enable some flags. 
+Edit Makefile and enable the flags. (Tricky and undocumented! talk to Yu Feng)
 
-An important variable is SYSTYPE. On COMA, set this to Warp will compile fine.
-Otherwise, reference Makefile.Warp to build your own Makefile.MyMachine file and
-set SYSTYPE=MyMachine in Makefile
+An important variable is SYSTYPE. We will include Makefile.$(SYSTYPE) for the
+machine local settings that are unique to this machine.
+
+On COMA and Warp use the same settings.
+
+Otherwise, reference Makefile.default to build your own Makefile.Local file and
+set SYSTYPE=Local in Makefile
 
 The defaults shall work for most cases; it enables Pressure-Entropy SPH and Blackhole, Cooling
 and SFR. To run a N-Body sim, use IC files with no Gas particles.
 
+Finally build the submodules and MP-Gadget3.
 ```
-make
+make -j 8
 ```
-== Usage, parameter files ==
-There are two example runs in run/
+It takes some time to build fftw3 and pfft. Other libraries are bigfile and
+radixsort, which are written by me and really quick to build. 
+In the end, we will have 2 binaries:
 
-first make the code in source tree with Makefile.example
+P-Gadget3 and GENIC/N-GenIC
 
-then:
+P-Gadget3 is the main simulation program.
+N-GenIC is the initial condition generator.
+
+== Usage: parameter files ==
+
+There are two example runs in run/. 
+
     run.sh : simulation with gas
     run-dm.sh : simulation without gas (dm only)
-
-== Initial Condition ==
-There is an IC generator in GENIC directory. It compiles similarily. You need to
-set SYSTYPE variable and create a Makefile.$(SYSTYPE) file.
-IC generator also depends on pfft.
 
