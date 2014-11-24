@@ -27,17 +27,22 @@ INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
 	 Makefile \
 
 BIGFILEINC = $(VPATH)/bigfile/src
-CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(FFTW_INCL) $(HDF5_INCL) -I$(BIGFILEINC)
+CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(BIGFILEINC) -Idepends/include
 
-LIBS   = -lm $(HDF_LIBS) -g $(MPICHLIB) $(GSL_LIBS) $(FFTW_LIBS)
+LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -Ldepends/lib -lpfft -lfftw3_mpi -lfftw3_threads -lfftw3 
 
-P-Gadget3: $(OBJS) 
-	$(CC) $(OPTIMIZE) $^ $(LIBS) -o $@
+P-Gadget3: $(OBJS) depends/lib/libfftw3.a depends/lib/libpfft.a
+	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
 targets:
 	for i in $(OBJS:.o=); do ls $$i.*; done
+
 config.h: Makefile
 	echo "const char * COMPILETIMESETTINGS = \"$(OPTIMIZE) $(OPT)\";" > $@
 
+depends/lib/libfftw3.a:
+	CC="$(CC)" MPICC="$(CC)" CFLAGS="$(OPTIMIZE)" sh $(VPATH)/pfft-python/depends/install_fftw.sh $(PWD)/depends/
+depends/lib/libpfft.a: depends/lib/libfftw3.a
+	CC="$(CC)" CFLAGS="$(OPTIMIZE)" sh $(VPATH)/pfft-python/depends/install_pfft.sh $(PWD)/depends/
 
 $(OBJS): $(INCL) config.h
 
