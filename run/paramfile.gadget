@@ -1,0 +1,181 @@
+%  Relevant files
+
+InitCondFile  	   debug/IC
+OutputDir          debug
+TreeCoolFile       ../etc/TREECOOL_fg_june11
+MetalCoolFile      ../etc/cooling_metal_UVB.hdf5
+OutputListFilename output-production.txt
+UVFluctuationFile  @UNIFORM
+
+EnergyFile         energy.txt
+InfoFile           info.txt
+TimingsFile        timings.txt
+CpuFile            cpu.txt
+
+RestartFile        restart
+SnapshotFileBase   snapshot
+
+NumFilesPerSnapshot	  4
+NumWritersPerSnapshot 4
+NumFilesPerPIG       4
+NumWritersPerPIG     4
+
+Nmesh 512
+
+% CPU time -limit
+	
+TimeLimitCPU     43000 %= 8 hours
+ResubmitOn        0
+ResubmitCommand   my-scriptfile  
+
+
+% Code options
+
+
+ICFormat                 1
+SnapFormat               3
+CompressionLevel         4
+ComovingIntegrationOn    1
+
+TypeOfTimestepCriterion  0
+OutputListOn             1 
+PeriodicBoundariesOn     1
+
+%  Characteristics of run
+
+TimeBegin           0.00625   
+TimeMax	            1.00000
+
+Omega0           0.2814      % Total matter density  (at z=0)
+OmegaLambda      0.7186      % Cosmological constant (at z=0)
+OmegaBaryon      0.0464     % Baryon density        (at z=0)
+HubbleParam      0.697      % Hubble paramater (may be used for power spec parameterization)
+BoxSize               32000.0
+
+CoolingOn             1
+StarformationOn       1
+StarformationCriterion  density,h2
+
+% Output frequency
+
+TimeBetSnapshot        0
+TimeOfFirstSnapshot    0
+
+CpuTimeBetRestartFile  9000.0
+TimeBetStatistics         0.1
+
+
+% Accuracy of time integration
+
+ErrTolIntAccuracy      0.02 
+
+MaxRMSDisplacementFac  0.2
+
+CourantFac             0.15     
+
+MaxSizeTimestep       0.1
+MinSizeTimestep       0.0
+
+
+
+% Tree algorithm, force accuracy, domain update frequency
+
+ErrTolTheta            0.5            
+TypeOfOpeningCriterion 1
+ErrTolForceAcc         0.005
+
+%Subfind params
+%DesLinkNgb           20
+%ErrTolThetaSubfind   0.5
+
+TreeDomainUpdateFrequency    0.025  
+
+
+%  Further parameters of SPH
+DensityKernelType      1    % 0 is Cubic spline
+DensityContrastLimit   100   % max contrast for hydro force calculation
+DensityResolutionEta   1.0  % for Cubic spline 1.0 = 33
+MaxNumNgbDeviation     2
+ArtBulkViscConst       0.75
+InitGasTemp            580.0        % always ignored if set to 0 
+MinGasTemp             5.0    
+
+
+% Memory allocation
+
+PartAllocFactor       2.0
+BufferSize            100          % in MByte
+TopNodeAllocFactor    0.20
+MaxMemSizePerCore            1200        % per MPI task, in MB
+
+
+% System of units
+
+ 
+UnitLength_in_cm         3.085678e21        ;  1.0 kpc
+UnitMass_in_g            1.989e43           ;  1.0e10 solar masses
+UnitVelocity_in_cm_per_s 1e5                ;  1 km/sec
+GravityConstantInternal  0
+
+
+
+% Softening lengths
+
+MinGasHsmlFractional 0.0
+
+SofteningGas       15
+SofteningHalo      15
+SofteningDisk      0
+SofteningBulge     0           
+SofteningStars     15
+SofteningBndry     15             %This is BH
+
+SofteningGasMaxPhys       1.85
+SofteningHaloMaxPhys      1.85
+SofteningDiskMaxPhys      0
+SofteningBulgeMaxPhys     0           
+SofteningStarsMaxPhys     1.85
+SofteningBndryMaxPhys     1.85      %This is BH
+
+
+%----------------------BH Stuff-------------------------
+BlackHoleFeedbackFactor    0.05
+BlackHoleFeedbackRadius    0.
+BlackHoleFeedbackRadiusMaxPhys    0.
+BlackHoleFeedbackMethod    spline,mass
+SeedBlackHoleMass          5.0e-5
+BlackHoleAccretionFactor   100.0
+BlackHoleNgbFactor         2.0
+BlackHoleEddingtonFactor   3.0
+
+MinFoFMassForNewSeed       5.0
+TimeBetBlackHoleSearch     0.10
+BlackHoleMaxAccretionRadius 999999 % need to ask Volker about this
+
+%----------------------BH Stuff-------------------------
+
+CritPhysDensity     0       %  critical physical density for star formation in
+
+                            %  hydrogen number density in cm^(-3)
+
+MaxSfrTimescale     1.5     % in internal time units
+
+
+CritOverDensity      57.7    %  overdensity threshold value
+
+TempSupernova        1.0e8   %  in Kelvin
+
+TempClouds           1000.0   %  in Kelvin
+FactorSN             0.1
+FactorEVP            1000.0
+
+WindModel            ofjt10,decouple
+WindEfficiency                     2.0
+WindEnergyFraction                 1.0
+WindSigma0             353.0 %km/s
+WindSpeedFactor        3.7
+
+
+WindFreeTravelLength               20
+WindFreeTravelDensFac              0.1
+
