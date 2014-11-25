@@ -1299,8 +1299,9 @@ extern struct particle_data
         unsigned int WillExport    :1; /* used in domain */
         unsigned int Type        :4;		/*!< flags particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
         /* first byte ends */
-        signed int TimeBin       :8;
+        signed char TimeBin;
         /* second byte ends */
+        unsigned char Generation; /* How many particles it has spawned*/
     };
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/

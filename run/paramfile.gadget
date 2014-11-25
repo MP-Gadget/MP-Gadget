@@ -25,8 +25,6 @@ Nmesh 128
 % CPU time -limit
 	
 TimeLimitCPU     43000 %= 8 hours
-ResubmitOn        0
-ResubmitCommand   my-scriptfile  
 
 
 % Code options

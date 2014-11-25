@@ -9,7 +9,6 @@
 
 #ifdef COOLING
 static double u_to_temp_fac; /* assuming very hot !*/
-static unsigned int bits;
 
 /* these guys really shall be local to cooling_and_starformation, but
  * I am too lazy to pass them around to subroutines.
@@ -24,7 +23,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 static void cooling_direct(int i);
 static void starformation(int i);
 static int make_particle_wind(int i, double v, double vmean[3]);
-static int make_particle_star(int i, int number_of_stars_generated);
+static int make_particle_star(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff);
@@ -707,12 +706,16 @@ static int make_particle_wind(int i, double v, double vmean[3]) {
     return 0;
 }
 
-static int make_particle_star(int i, int number_of_stars_generated) {
+static int make_particle_star(int i) {
     fprintf(FdSfrDetails, "Star T %g %lu M %g RHOP %g P %g %g %g\n",
             All.Time, P[i].ID, P[i].Mass, SPHP(i).d.Density * All.cf.a3inv, 
             P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+
+    /* here we spawn a new star particle */
+    double mass_of_star =  All.MassTable[0] / GENERATIONS;
+
     /* ok, make a star */
-    if(number_of_stars_generated == (GENERATIONS - 1))
+    if(P[i].Mass < 1.1 * mass_of_star)
     {
         /* here we turn the gas particle itself into a star */
         Stars_converted++;
@@ -730,9 +733,6 @@ static int make_particle_star(int i, int number_of_stars_generated) {
     }
     else
     {
-        /* here we spawn a new star particle */
-        double mass_of_star = P[i].Mass / (GENERATIONS - number_of_stars_generated);
-
         int child = domain_fork_particle(i);
 
         /* set ptype */
@@ -741,8 +741,6 @@ static int make_particle_star(int i, int number_of_stars_generated) {
 #ifdef SNIA_HEATING
         P[child].Hsml = All.SofteningTable[0];
 #endif
-
-        P[i].ID += ((MyIDType) 1 << (sizeof(MyIDType)*8 - bits));
 
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
@@ -834,16 +832,8 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 }
 
 static void starformation(int i) {
-    /* the upper bits of the gas particle ID store how man stars this gas
-       particle gas already generated */
 
-    int number_of_stars_generated;
-    if(bits == 0)
-        number_of_stars_generated = 0;
-    else
-        number_of_stars_generated = (P[i].ID >> (sizeof(MyIDType)*8 - bits));
-
-    double mass_of_star = P[i].Mass / (GENERATIONS - number_of_stars_generated);
+    double mass_of_star = All.MassTable[0] / GENERATIONS;
 
 #if !defined(QUICK_LYALPHA)
     double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
@@ -889,7 +879,7 @@ static void starformation(int i) {
 #endif /* ends to QUICK_LYALPHA */
 
     if(get_random_number(P[i].ID + 1) < prob)	{
-        make_particle_star(i, number_of_stars_generated);
+        make_particle_star(i);
     }
 
     if(P[i].Type == 0)	{
@@ -1276,7 +1266,6 @@ void integrate_sfr(void)
 
 void set_units_sfr(void)
 {
-    for(bits = 0; GENERATIONS > (1 << bits); bits++);
 
     double meanweight;
 

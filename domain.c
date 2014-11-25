@@ -957,8 +957,15 @@ ex_nobh:
 }
 
 int domain_fork_particle(int parent) {
-    /* this will fork a zero mass particle at the given location of parent
-     * with duplicated Particle ID.
+    /* this will fork a zero mass particle at the given location of parent.
+     *
+     * Assumes the particle is protected by locks in threaded env.
+     *
+     * The Generation of parent is incremented.
+     * The child carries the incremented generation number.
+     * The ID of the child is modified, with the new generation number set
+     * at the highest 8 bits.
+     *
      * the new particle's index is returned.
      *
      * Its mass and ptype can be then adjusted. (watchout detached BH /SPH
@@ -975,11 +982,15 @@ int domain_fork_particle(int parent) {
         endrun(8888);
     }
     int child = atomic_fetch_and_add(&NumPart, 1);
-
+    
     NextActiveParticle[child] = FirstActiveParticle;
     FirstActiveParticle = child;
     NumForceUpdate++;
 
+    P[parent].Generation ++;
+    uint64_t g = P[parent].Generation;
+    /* change the child ID according to the generation. */
+    P[child].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
     P[child] = P[parent];
     /* the PIndex still points to the old PIndex */
     P[child].Mass = 0;

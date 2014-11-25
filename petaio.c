@@ -223,21 +223,8 @@ void petaio_read_ic() {
     /* touch up the mass -- IC files save mass in header */
     for(i = 0; i < NumPart; i++)
     {
-        if(All.MassTable[P[i].Type] != 0)
-            P[i].Mass = All.MassTable[P[i].Type];
+        P[i].Mass = All.MassTable[P[i].Type];
     }
-
-#if defined(BLACK_HOLES) && defined(BH_SWALLOWGAS)
-    All.MassTable[5] = 0;
-#endif
-
-#ifdef SFR
-    if(All.MassTable[4] == 0 && All.MassTable[0] > 0)
-    {
-        All.MassTable[0] = 0;
-        All.MassTable[4] = 0;
-    }
-#endif
 
     double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.InitGasTemp;
     u_init *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;	/* unit conversion */
@@ -653,6 +640,7 @@ SIMPLE_PROPERTY(Position, P[i].Pos[0], double, 3)
 SIMPLE_PROPERTY(Velocity, P[i].Vel[0], float, 3)
 SIMPLE_PROPERTY(Mass, P[i].Mass, float, 1)
 SIMPLE_PROPERTY(ID, P[i].ID, uint64_t, 1)
+SIMPLE_PROPERTY(Generation, P[i].Generation, unsigned char, 1)
 SIMPLE_PROPERTY(Potential, P[i].p.Potential, float, 1)
 SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).d.Density, float, 1)
@@ -714,6 +702,7 @@ static void register_io_blocks() {
         IO_REG(Velocity, "f4", 3, i);
         IO_REG(Mass,     "f4", 1, i);
         IO_REG(ID,       "u8", 1, i);
+        IO_REG(Generation,       "u1", 1, i);
         IO_REG(Potential, "f4", 1, i);
         IO_REG_WRONLY(GroupID, "u4", 1, i);
     }

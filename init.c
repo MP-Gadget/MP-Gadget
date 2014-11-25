@@ -409,6 +409,7 @@ void init(void)
         P[i].DensityIterationDone = 0;
         P[i].OnAnotherDomain = 0;
         P[i].WillExport = 0;
+        P[i].Generation = 0;
         P[i].TimeBin = 0;
 
         if(header.flag_ic_info != FLAG_SECOND_ORDER_ICS)
