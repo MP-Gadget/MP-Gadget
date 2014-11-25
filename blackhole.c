@@ -802,8 +802,7 @@ static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote,
 void blackhole_make_one(int index) {
     if(P[index].Type != 0) endrun(7772);
 
-    P[index].PI = N_bh;
-    N_bh ++;
+    P[index].PI = atomic_fetch_and_add(&N_bh, 1);
     P[index].Type = 5;	/* make it a black hole particle */
 #ifdef STELLARAGE
     P[index].StellarAge = All.Time;

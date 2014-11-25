@@ -833,6 +833,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     NumPart += count_get;
     N_sph += count_get_sph;
     N_bh += count_get_bh;
+
     if(NumPart > All.MaxPart)
     {
         printf("Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
@@ -886,6 +887,7 @@ void domain_garbage_collection_bh() {
     int total = 0;
 
     int total0 = 0;
+
     MPI_Reduce(&N_bh, &total0, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
     /* no need to gc if there is no bh to begin with*/
@@ -950,8 +952,7 @@ void domain_garbage_collection_bh() {
 ex_nobh:
     MPI_Reduce(&N_bh, &total, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     if(ThisTask == 0 && total != total0) {
-        printf("total bh count failed2, total=%d, total0=%ld\n", total, total0);
-        endrun(99999); 
+        printf("After BH garbage collection, before = %d after= %d\n", total0, total);
     }
 }
 
