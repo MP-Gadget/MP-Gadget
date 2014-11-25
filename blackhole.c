@@ -802,22 +802,24 @@ static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote,
 void blackhole_make_one(int index) {
     if(P[index].Type != 0) endrun(7772);
 
-    P[index].PI = atomic_fetch_and_add(&N_bh, 1);
-    P[index].Type = 5;	/* make it a black hole particle */
+    int child = domain_fork_particle(index);
+
+    P[child].PI = atomic_fetch_and_add(&N_bh, 1);
+    P[child].Type = 5;	/* make it a black hole particle */
 #ifdef STELLARAGE
-    P[index].StellarAge = All.Time;
+    P[child].StellarAge = All.Time;
 #endif
-    BHP(index).ID = P[index].ID;
-    BHP(index).Mass = All.SeedBlackHoleMass;
-    BHP(index).Mdot = 0;
+    P[child].Mass = All.SeedBlackHoleMass;
+    P[index].Mass -= All.SeedBlackHoleMass;
+    BHP(child).Mass = All.SeedBlackHoleMass;
+    BHP(child).Mdot = 0;
 
 #ifdef BH_COUNTPROGS
-    BHP(index).CountProgs = 1;
+    BHP(child).CountProgs = 1;
 #endif
 
 #ifdef SFR
     Stars_converted++;
 #endif
-    TimeBinCountSph[P[index].TimeBin]--;
 }
 #endif
