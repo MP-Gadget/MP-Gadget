@@ -63,7 +63,8 @@ depends/pfft: depends/fftw3
 	CC="$(CC)" CFLAGS="$(OPTIMIZE)" sh $(VPATH)/pfft-python/depends/install_pfft.sh $(PWD)/depends/
 	touch $@
 
-$(OBJS): $(INCL) config.h
+$(OBJS): $(INCL) config.h depends
+$(ICOBJS): $(INCL) config.h depends
 
 .c.o: $(INCL)
 	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
