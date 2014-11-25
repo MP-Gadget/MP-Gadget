@@ -1102,12 +1102,6 @@ extern struct global_data_all_processes
 
 #endif				/* COSMIC_RAYS */
 
-#ifdef MACHNUM
-    double Shock_Length;		/*!< length scale on which the shock is smoothed out */
-    double Shock_DeltaDecayTimeMax;	/*!< maximum time interval (Dloga) for which the
-                                      Mach number is kept at its maximum */
-#endif
-
 #ifdef REIONIZATION
     int not_yet_reionized;	/*!< flag that makes sure that there is only one reionization */
 #endif
@@ -1595,43 +1589,6 @@ extern struct sph_particle_data
 #ifdef MHM
     MyFloat FeedbackEnergy;
 #endif
-
-#ifdef COSMIC_RAYS
-    MyFloat CR_C0[NUMCRPOP];			/*!< Cosmic ray amplitude adiabatic invariable */
-    MyFloat CR_q0[NUMCRPOP];			/*!< Cosmic ray cutoff adiabatic invariable */
-    MyFloat CR_E0[NUMCRPOP];			/*!< Specific Energy at Rho0 */
-    MyFloat CR_n0[NUMCRPOP];			/*!< baryon fraction in cosmic rays */
-
-    MyFloat CR_DeltaE[NUMCRPOP];		/*!< Specific Energy growth during timestep */
-    MyFloat CR_DeltaN[NUMCRPOP];		/*!< baryon fraction growth during timestep */
-#ifdef MACHNUM
-    MyFloat CR_Gamma0[NUMCRPOP];
-#endif
-
-#ifdef CR_OUTPUT_INJECTION
-    MyFloat CR_Specific_SupernovaHeatingRate;
-#endif
-#endif				/* COSMIC_RAYS */
-
-#ifdef MACHNUM
-    MyFloat Shock_MachNumber;	/*!< Mach number */
-    MyFloat Shock_DecayTime;	/*!< Shock decay time */
-#ifdef COSMIC_RAYS
-    MyFloat Shock_DensityJump;	/*!< Density jump at the shock */
-    MyFloat Shock_EnergyJump;	/*!< Energy jump at the shock */
-    MyFloat PreShock_PhysicalDensity;	/*!< Specific energy in the preshock regime */
-    MyFloat PreShock_PhysicalEnergy;	/*!< Density in the preshock regime */
-    MyFloat PreShock_XCR;		/*!< XCR = PCR / Pth in the preshock regime */
-#endif
-#ifdef MACHSTATISTIC
-    MyFloat Shock_DtEnergy;		/*!< Change of thermal specific energy at Shocks */
-#endif
-#ifdef OUTPUT_PRESHOCK_CSND
-    MyFloat PreShock_PhysicalSoundSpeed;	/*!< Sound speed in the preshock regime */
-    MyFloat PreShock_PhysicalDensity;	/*!< Specific energy in the preshock regime */
-#endif
-#endif				/* Mach number estimate */
-
 
 #if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
     MyFloat elec;

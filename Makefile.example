@@ -44,15 +44,6 @@ OPT	+=  -DALLOWEXTRAPARAMS
 #OPT	+=  -DAUTO_SWAP_ENDIAN_READIC        # Enables automatic ENDIAN swapping for reading ICs
 #OPT	+=  -DPERMUTATAION_OPTIMIZATION
 
-
-#---------------------------------------- Invariance Test
-#OPT	+=  -DINVARIANCETEST
-#OPT	+=  -DINVARIANCETEST_SIZE1=2
-#OPT	+=  -DINVARIANCETEST_SIZE2=6
-#OPT	+=  -DFLTROUNDOFFREDUCTION      # enables (expensive!) `double-double' round-off reduction in particle sums
-#OPT	+=  -DSOFTDOUBLEDOUBLE          # needs to be set if a C++ software implementation of 128bit double-double precision should be used
-
-
 #---------------------------------------- On the fly FOF groupfinder 
 OPT	+=  -DFOF                                # enable FoF output
 OPT	+=  -DFOF_PRIMARY_LINK_TYPES=2           # 2^type for the primary dark matter type
@@ -144,27 +135,6 @@ OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
 #OPT	+=  -DNOWINDTIMESTEPPING            # Disable wind reducing timestep (not recommended)
 #OPT	+=  -DNOPMSTEPADJUSTMENT
 #OPT	+=  -DFORCE_EQUAL_TIMESTEPS
-
-#--------------------------------------- Output/Input options
-#OPT	+=  -DOUTPUTPOTENTIAL
-#OPT	+=  -DRECOMPUTE_POTENTIAL_ON_OUTPUT # update potential every output even it EVALPOTENTIAL is set
-#OPT	+=  -DOUTPUTACCELERATION
-#OPT	+=  -DOUTPUTCHANGEOFENTROPY
-#OPT	+=  -DOUTPUTTIMESTEP
-#OPT	+=  -DOUTPUTCOOLRATE                # outputs cooling rate, and conduction rate if enabled
-#OPT	+=  -DOUTPUTBSMOOTH
-#OPT	+=  -DOUTPUTDENSNORM
-#OPT	+=  -DXXLINFO                       # Enables additional output for viscosityand bfield
-#OPT	+=  -DOUTPUTLINEOFSIGHT             # enables on-the-fly output of Ly-alpha absorption spectra
-#OPT	+=  -DOUTPUTLINEOFSIGHT_SPECTRUM
-#OPT	+=  -DOUTPUTLINEOFSIGHT_PARTICLES
-
-#--------------------------------------- Testing and Debugging options
-#OPT	+=  -DFORCETEST=0.1
-#OPT	+=  -DDEBUG                     # enables core-dumps and FPU exceptions
-#OPT	+=  -DPARTICLE_DEBUG            # auxiliary communication of IDs
-#OPT	+=  -DVERBOSE
-
 
 #--------------------------------------- Static NFW Potential
 #OPT	+=  -DSTATICNFW

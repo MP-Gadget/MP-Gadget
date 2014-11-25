@@ -6,21 +6,6 @@
 
 #include "allvars.h"
 #include "proto.h"
-#ifdef COSMIC_RAYS
-#include "cosmic_rays.h"
-#endif
-
-#ifdef MACHNUM
-#ifdef COSMIC_RAYS
-#define h  All.HubbleParam
-#define cm (h/All.UnitLength_in_cm)
-#define s  (h/All.UnitTime_in_s)
-#define LightSpeed (2.9979e10*cm/s)
-#define c2   ( LightSpeed * LightSpeed )
-#endif
-#endif
-
-
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
@@ -37,16 +22,6 @@ void init(void)
     int i, j;
     double a3, atime;
 
-#ifdef COSMIC_RAYS
-    int CRpop;
-#endif
-
-#if defined(COSMIC_RAYS) && defined(MACHNUM)
-    double Pth1, PCR1[NUMCRPOP], rBeta[NUMCRPOP], C_phys[NUMCRPOP], q_phys[NUMCRPOP];
-#endif
-#ifdef CR_INITPRESSURE
-    double cr_pressure, q_phys, C_phys[NUMCRPOP];
-#endif
 #if defined (CHEMISTRY) || defined (UM_CHEMISTRY)
     int ifunc;
     double min_t_cool, max_t_cool;
@@ -792,82 +767,10 @@ void init(void)
 
         SPHP(i).v.DivVel = 0;
 
-#ifdef MACHNUM
-        SPHP(i).Shock_MachNumber = 1.0;
-#ifdef COSMIC_RAYS
-        Pth1 = SPHP(i).Entropy * pow(SPHP(i).d.Density / a3, GAMMA);
-
-#ifdef CR_IC_PHYSICAL
-        for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-        {
-            C_phys[CRpop] = SPHP(i).CR_C0[CRpop];
-            q_phys[CRpop] = SPHP(i).CR_q0[CRpop];
-        }
-#else
-        for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-        {
-            C_phys[CRpop] = SPHP(i).CR_C0[CRpop] * pow(SPHP(i).d.Density, (All.CR_Alpha[CRpop] - 1.0) / 3.0);
-            q_phys[CRpop] = SPHP(i).CR_q0[CRpop] * pow(SPHP(i).d.Density, 1.0 / 3.0);
-        }
-#endif
-        SPHP(i).PreShock_XCR = 0.0;
-        for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-        {
-            rBeta[CRpop] = gsl_sf_beta((All.CR_Alpha[CRpop] - 2.0) * 0.5, (3.0 - All.CR_Alpha[CRpop]) * 0.5) *
-                gsl_sf_beta_inc((All.CR_Alpha[CRpop] - 2.0) * 0.5, (3.0 - All.CR_Alpha[CRpop]) * 0.5,
-                        1.0 / (1.0 + q_phys[CRpop] * q_phys[CRpop]));
-
-            PCR1[CRpop] = C_phys[CRpop] * c2 * SPHP(i).d.Density * rBeta[CRpop] / 6.0;
-            PCR1[CRpop] *= pow(atime, -3.0 * GAMMA);
-            SPHP(i).PreShock_XCR += PCR1[CRpop] / Pth1;
-        }
-
-        SPHP(i).PreShock_PhysicalDensity = SPHP(i).d.Density / a3;
-        SPHP(i).PreShock_PhysicalEnergy =
-            SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).d.Density / a3, GAMMA_MINUS1);
-
-        SPHP(i).Shock_DensityJump = 1.0001;
-        SPHP(i).Shock_EnergyJump = 1.0;
-#endif /* COSMIC_RAYS */
-#ifdef OUTPUT_PRESHOCK_CSND
-        Pth1 = SPHP(i).Entropy * pow(SPHP(i).d.Density / a3, GAMMA);
-        SPHP(i).PreShock_PhysicalSoundSpeed =
-            sqrt(GAMMA * Pth1 / SPHP(i).d.Density) * pow(atime, -3. / 2. * GAMMA_MINUS1);
-        SPHP(i).PreShock_PhysicalDensity = SPHP(i).d.Density / a3;
-#endif /* OUTPUT_PRESHOCK_CSND */
-#endif /* MACHNUM */
-
 #ifdef REIONIZATION
         All.not_yet_reionized = 1;
 #endif
 
-#ifdef CR_IC_PHYSICAL
-        /* Scale CR variables so that values from IC file are now the
-         * physical values, not the adiabatic invariants
-         */
-        for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-        {
-            SPHP(i).CR_C0[CRpop] *= pow(SPHP(i).d.Density, (1.0 - All.CR_Alpha[CRpop]) / 3.0);
-            SPHP(i).CR_q0[CRpop] *= pow(SPHP(i).d.Density, -1.0 / 3.0);
-        }
-#endif
-
-#ifdef CR_INITPRESSURE
-
-        cr_pressure = CR_INITPRESSURE * SPHP(i).Entropy * pow(SPHP(i).d.Density / a3, GAMMA);
-        SPHP(i).Entropy *= (1 - CR_INITPRESSURE);
-        q_phys = 1.685;
-
-        for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-        {
-            C_phys[CRpop] =
-                cr_pressure / (SPHP(i).d.Density / a3 * CR_Tab_Beta(q_phys, CRpop) *
-                        (C / All.UnitVelocity_in_cm_per_s) * (C / All.UnitVelocity_in_cm_per_s) / 6.0);
-
-            SPHP(i).CR_C0[CRpop] = C_phys[CRpop] * pow(SPHP(i).d.Density, (1.0 - All.CR_Alpha[CRpop]) / 3.0);
-            SPHP(i).CR_q0[CRpop] = q_phys * pow(SPHP(i).d.Density, -1.0 / 3.0);
-        }
-#endif
     }
 
 #if defined (CHEMISTRY) || defined (UM_CHEMISTRY)

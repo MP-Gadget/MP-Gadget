@@ -13,9 +13,6 @@
 #ifdef COSMIC_RAYS
 #include "cosmic_rays.h"
 #endif
-#ifdef MACHNUM
-#include "machfinder.h"
-#endif
 
 #ifdef JD_DPP
 #include "cr_electrons.h"
@@ -165,11 +162,7 @@ static void hydro_post_process(int i);
 static void hydro_copy(int place, struct hydrodata_in * input);
 static void hydro_reduce(int place, struct hydrodata_out * result, int mode);
 
-#ifdef MACHNUM
-double hubble_a, atime, hubble_a2, fac_mu, fac_vsic_fix, a3inv, fac_egy;
-#else
 static double hubble_a, atime, hubble_a2, fac_mu, fac_vsic_fix, a3inv, fac_egy;
-#endif
 
 /*! This function is the driver routine for the calculation of hydrodynamical
  *  force and rate of change of entropy due to shock heating for all active
@@ -1368,18 +1361,6 @@ static void hydro_post_process(int i) {
 #else
         /* DtEntropy stores the energy change rate in internal units */
         SPHP(i).e.DtEntropy *= All.UnitEnergy_in_cgs / All.UnitTime_in_s;
-#endif
-
-#ifdef MACHNUM
-
-        /* Estimates the Mach number of particle i for non-radiative runs,
-         * or the Mach number, density jump and specific energy jump
-         * in case of cosmic rays!
-         */
-        GetMachNumber(i);
-#endif /* MACHNUM */
-#ifdef MACHSTATISTIC
-        GetShock_DtEnergy(&SPHP(i));
 #endif
 
 #ifdef NAVIERSTOKES
