@@ -1010,13 +1010,18 @@ int domain_fork_particle(int parent) {
      *  because the Nextnode[] array essentially describes the full tree walk as a
      *  link list. Multipole moments of tree nodes need not be changed.
      */
-    int no;
 
-    no = Nextnode[parent];
-    Nextnode[parent] = child;
-    Nextnode[child] = no;
-    Father[child] = Father[parent];
+    /* we do this only if there is an active force tree 
+     * checking Nextnode is not the best way of doing so though.
+     * */
+    if(Nextnode) {
+        int no;
 
+        no = Nextnode[parent];
+        Nextnode[parent] = child;
+        Nextnode[child] = no;
+        Father[child] = Father[parent];
+    }
     return child;
 }
 
