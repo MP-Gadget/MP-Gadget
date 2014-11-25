@@ -39,12 +39,12 @@ struct gravitydata_in
 
 struct gravitydata_out
 {
-    MyLongDouble Acc[3];
+    MyDouble Acc[3];
 #ifdef EVALPOTENTIAL
-    MyLongDouble Potential;
+    MyDouble Potential;
 #endif
 #ifdef DISTORTIONTENSORPS
-    MyLongDouble tidal_tensorps[3][3];
+    MyDouble tidal_tensorps[3][3];
 #endif
     int Ninteractions;
 };

@@ -53,11 +53,11 @@ struct densdata_out
     MyFloat EgyRho;
     MyFloat DhsmlEgyDensity;
 #endif
-    MyLongDouble Rho;
-    MyLongDouble DhsmlDensity;
-    MyLongDouble Ngb;
+    MyDouble Rho;
+    MyDouble DhsmlDensity;
+    MyDouble Ngb;
 #ifndef NAVIERSTOKES
-    MyLongDouble Div, Rot[3];
+    MyDouble Div, Rot[3];
 #else
     MyFloat DV[3][3];
 #endif
@@ -85,9 +85,9 @@ struct densdata_out
 #endif
 
 #ifdef BLACK_HOLES
-    MyLongDouble SmoothedEntOrPressure;
-    MyLongDouble FeedbackWeightSum;
-    MyLongDouble GasVel[3];
+    MyDouble SmoothedEntOrPressure;
+    MyDouble FeedbackWeightSum;
+    MyDouble GasVel[3];
 #endif
 #ifdef CONDUCTION_SATURATION
     MyFloat GradEntr[3];
@@ -233,10 +233,6 @@ void density(void)
 #ifdef BLACK_HOLES
         P[p].SwallowID = 0;
 #endif
-#if defined(BLACK_HOLES) && defined(FLTROUNDOFFREDUCTION)
-        if(P[p].Type == 0)
-            SPHP(p).i.dInjected_BH_Energy = SPHP(p).i.Injected_BH_Energy;
-#endif
     }
     myfree(queue);
 
@@ -274,24 +270,6 @@ void density(void)
         while(evaluate_ndone(&ev) < NTask);
 
         evaluate_finish(&ev);
-
-#ifdef FLTROUNDOFFREDUCTION
-        for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-            if(density_isactive(i))
-            {
-                P[i].n.NumNgb = FLT(P[i].n.dNumNgb);
-
-                if(P[i].Type == 0)
-                {
-                    SPHP(i).d.Density = FLT(SPHP(i).d.dDensity);
-                    SPHP(i).h.DhsmlDensityFactor = FLT(SPHP(i).h.dDhsmlDensityFactor);
-                    SPHP(i).v.DivVel = FLT(SPHP(i).v.dDivVel);
-                    for(j = 0; j < 3; j++)
-                        SPHP(i).r.Rot[j] = FLT(SPHP(i).r.dRot[j]);
-                }
-            }
-#endif
-
 
         /* do final operations on results */
         tstart = second();
@@ -704,10 +682,10 @@ static int density_evaluate(int target, int mode,
 #endif
 
 #ifdef VOLUME_CORRECTION
-                    O->Rho += FLT(mass_j * wk * pow(I->DensityOld / SPHP(j).DensityOld, VOLUME_CORRECTION));
-                    O->DensityStd += FLT(mass_j * wk);
+                    O->Rho += (mass_j * wk * pow(I->DensityOld / SPHP(j).DensityOld, VOLUME_CORRECTION));
+                    O->DensityStd += (mass_j * wk);
 #else
-                    O->Rho += FLT(mass_j * wk);
+                    O->Rho += (mass_j * wk);
 #endif
                     O->Ngb += wk * kernel_volume;
 
@@ -723,13 +701,13 @@ static int density_evaluate(int target, int mode,
 
 #ifdef BLACK_HOLES
 #ifdef BH_CSND_FROM_PRESSURE
-                    O->SmoothedEntOrPressure += FLT(mass_j * wk * SPHP(j).Pressure);
+                    O->SmoothedEntOrPressure += (mass_j * wk * SPHP(j).Pressure);
 #else
-                    O->SmoothedEntOrPressure += FLT(mass_j * wk * SPHP(j).Entropy);
+                    O->SmoothedEntOrPressure += (mass_j * wk * SPHP(j).Entropy);
 #endif
-                    O->GasVel[0] += FLT(mass_j * wk * SPHP(j).VelPred[0]);
-                    O->GasVel[1] += FLT(mass_j * wk * SPHP(j).VelPred[1]);
-                    O->GasVel[2] += FLT(mass_j * wk * SPHP(j).VelPred[2]);
+                    O->GasVel[0] += (mass_j * wk * SPHP(j).VelPred[0]);
+                    O->GasVel[1] += (mass_j * wk * SPHP(j).VelPred[1]);
+                    O->GasVel[2] += (mass_j * wk * SPHP(j).VelPred[2]);
 #endif
 
 #ifdef CONDUCTION_SATURATION
@@ -771,11 +749,11 @@ static int density_evaluate(int target, int mode,
                         double dvz = I->Vel[2] - SPHP(j).VelPred[2];
 
 #ifndef NAVIERSTOKES
-                        O->Div += FLT(-fac * (dx * dvx + dy * dvy + dz * dvz));
+                        O->Div += (-fac * (dx * dvx + dy * dvy + dz * dvz));
 
-                        O->Rot[0] += FLT(fac * (dz * dvy - dy * dvz));
-                        O->Rot[1] += FLT(fac * (dx * dvz - dz * dvx));
-                        O->Rot[2] += FLT(fac * (dy * dvx - dx * dvy));
+                        O->Rot[0] += (fac * (dz * dvy - dy * dvz));
+                        O->Rot[1] += (fac * (dx * dvz - dz * dvx));
+                        O->Rot[2] += (fac * (dy * dvx - dx * dvy));
 #else
                         O->DV[0][0] -= fac * dx * dvx;
                         O->DV[0][1] -= fac * dx * dvy;
@@ -793,9 +771,9 @@ static int density_evaluate(int target, int mode,
                         double dbz = I->BPred[2] - SPHP(j).BPred[2];
 #endif
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-                        O->RotB[0] += FLT(fac * (dz * dby - dy * dbz));
-                        O->RotB[1] += FLT(fac * (dx * dbz - dz * dbx));
-                        O->RotB[2] += FLT(fac * (dy * dbx - dx * dby));
+                        O->RotB[0] += (fac * (dz * dby - dy * dbz));
+                        O->RotB[1] += (fac * (dx * dbz - dz * dbx));
+                        O->RotB[2] += (fac * (dy * dbx - dx * dby));
 #endif
 #ifdef VECT_POTENTIAL
                         O->dA[0] += fac * (I->APred[0] - SPHP(j).APred[0]) * dy;	//dAx/dy
@@ -806,7 +784,7 @@ static int density_evaluate(int target, int mode,
                         O->dA[5] += fac * (I->APred[2] - SPHP(j).APred[2]) * dy;	//dAz/dy
 #endif
 #ifdef TRACEDIVB
-                        O->divB += FLT(-fac * (dbx * dx + dby * dy + dbz * dz));
+                        O->divB += (-fac * (dbx * dx + dby * dy + dbz * dz));
 #endif
 #ifdef MAGNETICSEED
                         double spin_0=sqrt(I->MagSeed*mu0_1*2.);//energy to B field
@@ -825,11 +803,11 @@ static int density_evaluate(int target, int mode,
 #endif
 #ifdef VECT_PRO_CLEAN
                         O->BPredVec[0] +=
-                            FLT(fac * r2 * (SPHP(j).RotB[1] * dz - SPHP(j).RotB[2] * dy) / SPHP(j).d.Density);
+                            (fac * r2 * (SPHP(j).RotB[1] * dz - SPHP(j).RotB[2] * dy) / SPHP(j).d.Density);
                         O->BPredVec[1] +=
-                            FLT(fac * r2 * (SPHP(j).RotB[2] * dx - SPHP(j).RotB[0] * dz) / SPHP(j).d.Density);
+                            (fac * r2 * (SPHP(j).RotB[2] * dx - SPHP(j).RotB[0] * dz) / SPHP(j).d.Density);
                         O->BPredVec[2] +=
-                            FLT(fac * r2 * (SPHP(j).RotB[0] * dy - SPHP(j).RotB[1] * dx) / SPHP(j).d.Density);
+                            (fac * r2 * (SPHP(j).RotB[0] * dy - SPHP(j).RotB[1] * dx) / SPHP(j).d.Density);
 #endif
 #ifdef EULERPOTENTIALS
                         dea = I->EulerA - SPHP(j).EulerA;
@@ -873,7 +851,7 @@ static int density_evaluate(int target, int mode,
                         double nh0 = 1.0;
 #endif
                         if(r2 > 0)
-                            O->FeedbackWeightSum += FLT(P[j].Mass * nh0) / r2;
+                            O->FeedbackWeightSum += (P[j].Mass * nh0) / r2;
                     } else {
                         if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
                             mass_j = P[j].Mass;
@@ -882,11 +860,11 @@ static int density_evaluate(int target, int mode,
                         }
                         if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
                             double u = r * bh_feedback_kernel.Hinv;
-                            O->FeedbackWeightSum += FLT(mass_j * 
+                            O->FeedbackWeightSum += (mass_j * 
                                   density_kernel_wk(&bh_feedback_kernel, u)
                                    );
                         } else {
-                            O->FeedbackWeightSum += FLT(mass_j);
+                            O->FeedbackWeightSum += (mass_j);
                         }
                     }
                 }

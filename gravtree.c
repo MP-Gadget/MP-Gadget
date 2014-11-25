@@ -443,18 +443,6 @@ void gravity_tree(void)
 #endif
 
 
-
-#ifdef FLTROUNDOFFREDUCTION
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-    {
-#ifdef EVALPOTENTIAL
-        P[i].p.Potential = FLT(P[i].p.dPotential);
-#endif
-        for(j = 0; j < 3; j++)
-            P[i].g.GravAccel[j] = FLT(P[i].g.dGravAccel[j]);
-    }
-#endif
-
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
     Ewaldcount = ev[1].Ninteractions;
 #else

@@ -116,8 +116,8 @@ struct hydrodata_in
 
 struct hydrodata_out
 {
-    MyLongDouble Acc[3];
-    MyLongDouble DtEntropy;
+    MyDouble Acc[3];
+    MyDouble DtEntropy;
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
     MyFloat MinViscousDt;
 #else
@@ -310,20 +310,6 @@ void hydro_force(void)
 
 
     /* do final operations on results */
-
-
-#ifdef FLTROUNDOFFREDUCTION
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-        if(P[i].Type == 0)
-        {
-            SPHP(i).e.DtEntropy = FLT(SPHP(i).e.dDtEntropy);
-
-            for(j = 0; j < 3; j++)
-                SPHP(i).a.HydroAccel[j] = FLT(SPHP(i).a.dHydroAccel[j]);
-        }
-#endif
-
-
 
     int Nactive; 
     int * queue = evaluate_get_queue(&ev, &Nactive);
@@ -1151,19 +1137,19 @@ static int hydro_evaluate(int target, int mode,
 #endif
 
 #ifndef NOACCEL
-                    O->Acc[0] += FLT(-hfc * dx);
-                    O->Acc[1] += FLT(-hfc * dy);
-                    O->Acc[2] += FLT(-hfc * dz);
+                    O->Acc[0] += (-hfc * dx);
+                    O->Acc[1] += (-hfc * dy);
+                    O->Acc[2] += (-hfc * dz);
 #endif
 
 #if !defined(EOS_DEGENERATE) && !defined(TRADITIONAL_SPH_FORMULATION)
-                    O->DtEntropy += FLT(0.5 * hfc_visc * vdotr2);
+                    O->DtEntropy += (0.5 * hfc_visc * vdotr2);
 #else
 
 #ifdef TRADITIONAL_SPH_FORMULATION
-                    O->DtEntropy += FLT(0.5 * (hfc_visc + hfc_egy) * vdotr2);
+                    O->DtEntropy += (0.5 * (hfc_visc + hfc_egy) * vdotr2);
 #else
-                    O->DtEntropy += FLT(0.5 * hfc * vdotr2);
+                    O->DtEntropy += (0.5 * hfc * vdotr2);
 #endif
 #endif
 

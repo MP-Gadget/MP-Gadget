@@ -262,20 +262,6 @@ extern MPI_Status mpistat;
 #define MPI_STATUS_IGNORE &mpistat
 #endif
 
-#ifdef FLTROUNDOFFREDUCTION
-#define FLT(x) ((MyFloat)(x))
-#ifdef SOFTDOUBLEDOUBLE      /* this requires a C++ compilation */
-#include "dd.h"
-typedef dd MyLongDouble;
-#else
-typedef long double MyLongDouble;
-#endif
-#else  /* not enabled */
-#define FLT(x) (x)
-typedef MyFloat MyLongDouble;
-#endif  /* end FLTROUNDOFFREDUCTION */
-
-
 #define CPU_ALL            0
 #define CPU_TREEWALK1      1
 #define CPU_TREEWALK2      2
@@ -1311,7 +1297,7 @@ extern struct particle_data
     union
     {
         MyFloat       GravAccel[3];		/*!< particle acceleration due to gravity */
-        MyLongDouble dGravAccel[3];
+        MyDouble dGravAccel[3];
     } g;  
 #ifdef PETAPM
     MyFloat GravPM[3];		/*!< particle acceleration due to long-range PM gravity force */
@@ -1323,14 +1309,14 @@ extern struct particle_data
     union
     {
         MyFloat       Potential;		/*!< gravitational potential */
-        MyLongDouble dPotential;
+        MyDouble dPotential;
     } p;
 #endif
 
 #ifdef DISTORTIONTENSORPS
-    MyLongDouble distortion_tensorps[6][6];          /*!< Phase Space Distortion tensor */
-    MyLongDouble tidal_tensorps[3][3];               /*!< tidal tensor (=second derivatives of grav. potential) */
-    MyLongDouble V_matrix[3][3];                     /*!< initial orientation of CDM sheet the particle is embedded in */
+    MyDouble distortion_tensorps[6][6];          /*!< Phase Space Distortion tensor */
+    MyDouble tidal_tensorps[3][3];               /*!< tidal tensor (=second derivatives of grav. potential) */
+    MyDouble V_matrix[3][3];                     /*!< initial orientation of CDM sheet the particle is embedded in */
     MyDouble init_density;                           /*!< initial stream density */
     MyFloat caustic_counter;                         /*!< caustic counter */
     MyDouble last_stream_determinant;                /*!< last stream density determinant, needed to identify caustics */
@@ -1365,7 +1351,7 @@ extern struct particle_data
     MyDouble lc_smear_z;
 #endif
 #ifdef PETAPM
-    MyLongDouble tidal_tensorpsPM[3][3];	    /*!< for TreePM simulations, long range tidal field */
+    MyDouble tidal_tensorpsPM[3][3];	    /*!< for TreePM simulations, long range tidal field */
 #endif
 #endif
 
@@ -1387,7 +1373,7 @@ extern struct particle_data
     union
     {
         MyFloat       NumNgb;
-        MyLongDouble dNumNgb;
+        MyDouble dNumNgb;
     } n;
 
 #if defined(RADTRANSFER) || defined(SNIA_HEATING)
@@ -1454,34 +1440,34 @@ extern struct sph_particle_data
     union
     {
         MyFloat       Density;		/*!< current baryonic mass density of particle */
-        MyLongDouble dDensity;
+        MyDouble dDensity;
     } d;
     union
     {
         MyFloat       DtEntropy;		/*!< rate of change of entropy */
-        MyLongDouble dDtEntropy;
+        MyDouble dDtEntropy;
     } e;
     union
     {
         MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
-        MyLongDouble dHydroAccel[3];
+        MyDouble dHydroAccel[3];
     } a;
     union
     {
         MyFloat       DhsmlDensityFactor;	/*!< correction factor needed in entropy formulation of SPH */
-        MyLongDouble dDhsmlDensityFactor;
+        MyDouble dDhsmlDensityFactor;
     } h;
     union
     {
         MyFloat       DivVel;		/*!< local velocity divergence */
-        MyLongDouble dDivVel;
+        MyDouble dDivVel;
     } v;
 #ifndef NAVIERSTOKES
     union
     {
         MyFloat CurlVel;     	        /*!< local velocity curl */
         MyFloat       Rot[3];		/*!< local velocity curl */
-        MyLongDouble dRot[3];
+        MyDouble dRot[3];
     } r;
 #else
     union
@@ -1504,7 +1490,7 @@ extern struct sph_particle_data
     union
     {
         MyFloat       Injected_BH_Energy;
-        MyLongDouble dInjected_BH_Energy;
+        MyDouble dInjected_BH_Energy;
     } i;
 #endif
 
@@ -1806,12 +1792,12 @@ extern struct gravdata_in *GravDataIn, *GravDataGet;
 
 struct gravdata_out
 {
-    MyLongDouble Acc[3];
+    MyDouble Acc[3];
 #ifdef EVALPOTENTIAL
-    MyLongDouble Potential;
+    MyDouble Potential;
 #endif
 #ifdef DISTORTIONTENSORPS
-    MyLongDouble tidal_tensorps[3][3];
+    MyDouble tidal_tensorps[3][3];
 #endif
     int Ninteractions;
 };
@@ -1820,7 +1806,7 @@ extern struct gravdata_out *GravDataResult, *GravDataOut;
 
 struct potdata_out
 {
-    MyLongDouble Potential;
+    MyDouble Potential;
 };
 
 
@@ -2065,20 +2051,13 @@ extern struct NODE
 
 extern struct extNODE
 {
-    MyLongDouble dp[3];
+    MyDouble dp[3];
 #ifdef GRAVITY_CENTROID
     int suns[8];
 #endif
 #ifdef SCALARFIELD
-    MyLongDouble dp_dm[3];
+    MyDouble dp_dm[3];
     MyFloat vs_dm[3];
-#endif
-#ifdef FLTROUNDOFFREDUCTION
-    MyFloat s_base[3];
-    MyFloat len_base;
-#ifdef SCALARFIELD
-    MyFloat s_dm_base[3];
-#endif
 #endif
     MyFloat vs[3];
     MyFloat vmax;

@@ -1,5 +1,4 @@
 CC       =   mpiicc
-#OPTIMIZE =  -O3 -ffast-math
 OPTIMIZE =  -openmp -O0 -g
 HDF_INCL = 
 HDF_LIBS = -lhdf5 -lz

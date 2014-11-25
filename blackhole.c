@@ -82,9 +82,9 @@ struct swallowdata_in
 
 struct swallowdata_out
 {
-    MyLongDouble Mass;
-    MyLongDouble BH_Mass;
-    MyLongDouble AccretedMomentum[3];
+    MyDouble Mass;
+    MyDouble BH_Mass;
+    MyDouble AccretedMomentum[3];
 #ifdef BH_COUNTPROGS
     int BH_CountProgs;
 #endif
@@ -575,7 +575,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
 
                         if(I->FeedbackWeightSum > 0)
                         {
-                            SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
+                            SPHP(j).i.dInjected_BH_Energy += (energy * mass_j * wk / I->FeedbackWeightSum);
                         }
 
 #else
@@ -590,7 +590,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
                                         All.UnitVelocity_in_cm_per_s,
                                         2);
                             if(I->FeedbackWeightSum> 0) {
-                                SPHP(j).i.dInjected_BH_Energy += FLT(energy * mass_j * wk / I->FeedbackWeightSum);
+                                SPHP(j).i.dInjected_BH_Energy += (energy * mass_j * wk / I->FeedbackWeightSum);
                             }
                         }
 #endif
@@ -666,10 +666,10 @@ int blackhole_swallow_evaluate(int target, int mode,
                     event.s.bhmass_swallow = BHP(j).Mass;
                     fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
 
-                    O->Mass += FLT(P[j].Mass);
-                    O->BH_Mass += FLT(BHP(j).Mass);
+                    O->Mass += (P[j].Mass);
+                    O->BH_Mass += (BHP(j).Mass);
                     for(k = 0; k < 3; k++)
-                        O->AccretedMomentum[k] += FLT(P[j].Mass * P[j].Vel[k]);
+                        O->AccretedMomentum[k] += (P[j].Mass * P[j].Vel[k]);
 
 #ifdef BH_COUNTPROGS
                     O->BH_CountProgs += BHP(j).CountProgs;
@@ -699,10 +699,10 @@ int blackhole_swallow_evaluate(int target, int mode,
 #ifdef BH_SWALLOWGAS
                 if(P[j].Type == 0)
                 {
-                    O->Mass += FLT(P[j].Mass);
+                    O->Mass += (P[j].Mass);
 
                     for(k = 0; k < 3; k++)
-                        O->AccretedMomentum[k] += FLT(P[j].Mass * P[j].Vel[k]);
+                        O->AccretedMomentum[k] += (P[j].Mass * P[j].Vel[k]);
 
                     P[j].Mass = 0;
                     int bin = P[j].TimeBin;

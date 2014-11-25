@@ -97,14 +97,6 @@ void cooling_and_starformation(void)
 
     walltime_measure("/Misc");
 
-#ifdef FLTROUNDOFFREDUCTION
-#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-        if(P[i].Type == 0)
-            SPHP(i).i.Injected_BH_Energy = FLT(SPHP(i).i.dInjected_BH_Energy);
-#endif
-#endif
-
     for(bin = 0; bin < TIMEBINS; bin++) {
         if(!TimeBinActive[bin]) continue;
         TimeBinSfr[bin] = 0;
@@ -343,11 +335,7 @@ static void cooling_direct(int i) {
         if(temp > 5.0e9)
             unew = 5.0e9 / u_to_temp_fac;
 
-#ifdef FLTROUNDOFFREDUCTION
-        SPHP(i).i.dInjected_BH_Energy = 0;
-#else
         SPHP(i).i.Injected_BH_Energy = 0;
-#endif
     }
 #endif
 #ifdef RT_COOLING_PHOTOHEATING

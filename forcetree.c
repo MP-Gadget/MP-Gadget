@@ -925,17 +925,6 @@ void force_update_node_recursive(int no, int sib, int father)
         Extnodes[no].dp[1] = 0;
         Extnodes[no].dp[2] = 0;
 
-#ifdef FLTROUNDOFFREDUCTION
-        Extnodes[no].s_base[0] = Nodes[no].u.d.s[0];
-        Extnodes[no].s_base[1] = Nodes[no].u.d.s[1];
-        Extnodes[no].s_base[2] = Nodes[no].u.d.s[2];
-        Extnodes[no].len_base = Nodes[no].len;
-#ifdef SCALARFIELD
-        Extnodes[no].s_dm_base[0] = Nodes[no].s_dm[0];
-        Extnodes[no].s_dm_base[1] = Nodes[no].s_dm[1];
-        Extnodes[no].s_dm_base[2] = Nodes[no].s_dm[2];
-#endif
-#endif
         if(count_particles > 1)	/* this flags that the node represents more than one particle */
             multiple_flag = (1 << BITFLAG_MULTIPLEPARTICLES);
         else
@@ -1094,11 +1083,6 @@ void force_exchange_pseudodata(void)
                     Nodes[no].u.d.s[0] = DomainMoment[i].s[0];
                     Nodes[no].u.d.s[1] = DomainMoment[i].s[1];
                     Nodes[no].u.d.s[2] = DomainMoment[i].s[2];
-#ifdef FLTROUNDOFFREDUCTION
-                    Extnodes[no].s_base[0] = DomainMoment[i].s[0];
-                    Extnodes[no].s_base[1] = DomainMoment[i].s[1];
-                    Extnodes[no].s_base[2] = DomainMoment[i].s[2];
-#endif
                     Extnodes[no].vs[0] = DomainMoment[i].vs[0];
                     Extnodes[no].vs[1] = DomainMoment[i].vs[1];
                     Extnodes[no].vs[2] = DomainMoment[i].vs[2];
@@ -1500,17 +1484,6 @@ void force_treeupdate_pseudos(int no)
 
     Extnodes[no].Flag = GlobFlag;
 
-#ifdef FLTROUNDOFFREDUCTION
-    Extnodes[no].s_base[0] = Nodes[no].u.d.s[0];
-    Extnodes[no].s_base[1] = Nodes[no].u.d.s[1];
-    Extnodes[no].s_base[2] = Nodes[no].u.d.s[2];
-#ifdef SCALARFIELD
-    Extnodes[no].s_dm_base[0] = Nodes[no].s_dm[0];
-    Extnodes[no].s_dm_base[1] = Nodes[no].s_dm[1];
-    Extnodes[no].s_dm_base[2] = Nodes[no].s_dm[2];
-#endif
-#endif
-
     if(count_particles > 1)
         multiple_flag = (1 << BITFLAG_MULTIPLEPARTICLES);
     else
@@ -1674,57 +1647,29 @@ static void real_force_drift_node(int no, int time1)
 
         for(j = 0; j < 3; j++)
         {
-            Extnodes[no].vs[j] += fac * FLT(Extnodes[no].dp[j]);
+            Extnodes[no].vs[j] += fac * (Extnodes[no].dp[j]);
             Extnodes[no].dp[j] = 0;
 #ifdef SCALARFIELD
-            Extnodes[no].vs_dm[j] += fac_dm * FLT(Extnodes[no].dp_dm[j]);
+            Extnodes[no].vs_dm[j] += fac_dm * (Extnodes[no].dp_dm[j]);
             Extnodes[no].dp_dm[j] = 0;
 #endif
 
-#ifdef FLTROUNDOFFREDUCTION
-            Extnodes[no].s_base[j] = Nodes[no].u.d.s[j];
-#ifdef SCALARFIELD
-            Extnodes[no].s_dm_base[j] = Nodes[no].s_dm[j];
-#endif
-#endif
         }
-#ifdef FLTROUNDOFFREDUCTION
-        Extnodes[no].len_base = Nodes[no].len;
-#endif
         Nodes[no].u.d.bitflags &= (~(1 << BITFLAG_NODEHASBEENKICKED));
     }
 
     if(All.ComovingIntegrationOn)
     {
         dt_drift_hmax = get_drift_factor(Nodes[no].Ti_current, time1);
-#ifdef FLTROUNDOFFREDUCTION
-        dt_drift = get_drift_factor(time0, time1);
-#else
         dt_drift = dt_drift_hmax;
-#endif
     }
     else
     {
 
         dt_drift_hmax = (time1 - Nodes[no].Ti_current) * All.Timebase_interval;
-#ifdef FLTROUNDOFFREDUCTION
-        dt_drift = (time1 - time0) * All.Timebase_interval;
-#else
         dt_drift = dt_drift_hmax;
-#endif
     }
 
-#ifdef FLTROUNDOFFREDUCTION
-    for(j = 0; j < 3; j++)
-        Nodes[no].u.d.s[j] = Extnodes[no].s_base[j] + Extnodes[no].vs[j] * dt_drift;
-    Nodes[no].len = Extnodes[no].len_base + 2 * Extnodes[no].vmax * dt_drift;
-
-#ifdef SCALARFIELD
-    for(j = 0; j < 3; j++)
-        Nodes[no].s_dm[j] = Extnodes[no].s_dm_base[j] + Extnodes[no].vs_dm[j] * dt_drift;
-#endif
-
-#else
     for(j = 0; j < 3; j++)
         Nodes[no].u.d.s[j] += Extnodes[no].vs[j] * dt_drift;
     Nodes[no].len += 2 * Extnodes[no].vmax * dt_drift;
@@ -1732,8 +1677,6 @@ static void real_force_drift_node(int no, int time1)
 #ifdef SCALARFIELD
     for(j = 0; j < 3; j++)
         Nodes[no].s_dm[j] += Extnodes[no].vs_dm[j] * dt_drift;
-#endif
-
 #endif
 
     //  Extnodes[no].hmax *= exp(0.333333333333 * Extnodes[no].divVmax * dt_drift_hmax);
@@ -1811,10 +1754,10 @@ void force_finish_kick_nodes(void)
     int i, j, no, ta, totDomainNumChanged;
     int *domainList_all;
     int *counts, *counts_dp, *offset_list, *offset_dp, *offset_vmax;
-    MyLongDouble *domainDp_loc, *domainDp_all;
+    MyDouble *domainDp_loc, *domainDp_all;
 
 #ifdef SCALARFIELD
-    MyLongDouble *domainDp_dm_loc, *domainDp_dm_all;
+    MyDouble *domainDp_dm_loc, *domainDp_dm_all;
 #endif
     MyFloat *domainVmax_loc, *domainVmax_all;
 
@@ -1826,9 +1769,9 @@ void force_finish_kick_nodes(void)
     offset_dp = (int *) mymalloc("offset_dp", sizeof(int) * NTask);
     offset_vmax = (int *) mymalloc("offset_vmax", sizeof(int) * NTask);
 
-    domainDp_loc = (MyLongDouble *) mymalloc("domainDp_loc", DomainNumChanged * 3 * sizeof(MyLongDouble));
+    domainDp_loc = (MyDouble *) mymalloc("domainDp_loc", DomainNumChanged * 3 * sizeof(MyDouble));
 #ifdef SCALARFIELD
-    domainDp_dm_loc = (MyLongDouble *) mymalloc("domainDp_dm_loc", DomainNumChanged * 3 * sizeof(MyLongDouble));
+    domainDp_dm_loc = (MyDouble *) mymalloc("domainDp_dm_loc", DomainNumChanged * 3 * sizeof(MyDouble));
 #endif
     domainVmax_loc = (MyFloat *) mymalloc("domainVmax_loc", DomainNumChanged * sizeof(MyFloat));
 
@@ -1853,7 +1796,7 @@ void force_finish_kick_nodes(void)
         if(ta > 0)
         {
             offset_list[ta] = offset_list[ta - 1] + counts[ta - 1];
-            offset_dp[ta] = offset_dp[ta - 1] + counts[ta - 1] * 3 * sizeof(MyLongDouble);
+            offset_dp[ta] = offset_dp[ta - 1] + counts[ta - 1] * 3 * sizeof(MyDouble);
             offset_vmax[ta] = offset_vmax[ta - 1] + counts[ta - 1] * sizeof(MyFloat);
         }
     }
@@ -1863,10 +1806,10 @@ void force_finish_kick_nodes(void)
         printf("I exchange kick momenta for %d top-level nodes out of %d\n", totDomainNumChanged, NTopleaves);
     }
 
-    domainDp_all = (MyLongDouble *) mymalloc("domainDp_all", totDomainNumChanged * 3 * sizeof(MyLongDouble));
+    domainDp_all = (MyDouble *) mymalloc("domainDp_all", totDomainNumChanged * 3 * sizeof(MyDouble));
 #ifdef SCALARFIELD
     domainDp_dm_all =
-        (MyLongDouble *) mymalloc("domainDp_dm_all", totDomainNumChanged * 3 * sizeof(MyLongDouble));
+        (MyDouble *) mymalloc("domainDp_dm_all", totDomainNumChanged * 3 * sizeof(MyDouble));
 #endif
     domainVmax_all = (MyFloat *) mymalloc("domainVmax_all", totDomainNumChanged * sizeof(MyFloat));
 
@@ -1877,16 +1820,16 @@ void force_finish_kick_nodes(void)
 
     for(ta = 0; ta < NTask; ta++)
     {
-        counts_dp[ta] = counts[ta] * 3 * sizeof(MyLongDouble);
+        counts_dp[ta] = counts[ta] * 3 * sizeof(MyDouble);
         counts[ta] *= sizeof(MyFloat);
     }
 
 
-    MPI_Allgatherv(domainDp_loc, DomainNumChanged * 3 * sizeof(MyLongDouble), MPI_BYTE,
+    MPI_Allgatherv(domainDp_loc, DomainNumChanged * 3 * sizeof(MyDouble), MPI_BYTE,
             domainDp_all, counts_dp, offset_dp, MPI_BYTE, MPI_COMM_WORLD);
 
 #ifdef SCALARFIELD
-    MPI_Allgatherv(domainDp_dm_loc, DomainNumChanged * 3 * sizeof(MyLongDouble), MPI_BYTE,
+    MPI_Allgatherv(domainDp_dm_loc, DomainNumChanged * 3 * sizeof(MyDouble), MPI_BYTE,
             domainDp_dm_all, counts_dp, offset_dp, MPI_BYTE, MPI_COMM_WORLD);
 #endif
 
@@ -2098,14 +2041,14 @@ int force_treeevaluate(int target, int mode,
     int nnodesinlist = 0, ninteractions = 0; 
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
     double pos_x, pos_y, pos_z, aold;
-    MyLongDouble acc_x, acc_y, acc_z;
+    MyDouble acc_x, acc_y, acc_z;
 
 #ifdef SCALARFIELD
     double dx_dm = 0, dy_dm = 0, dz_dm = 0, mass_dm = 0;
 #endif
 #ifdef EVALPOTENTIAL
     double wp;
-    MyLongDouble pot;
+    MyDouble pot;
 
     pot = 0.0;
 #endif
@@ -2392,7 +2335,7 @@ int force_treeevaluate(int target, int mode,
             {
                 fac = mass / (r2 * r);
 #ifdef EVALPOTENTIAL
-                pot += FLT(-mass / r);
+                pot += (-mass / r);
 #endif
             }
             else
@@ -2415,13 +2358,13 @@ int force_treeevaluate(int target, int mode,
                     wp =
                         -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
                                 u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
-                pot += FLT(mass * h_inv * wp);
+                pot += (mass * h_inv * wp);
 #endif
             }
 
-            acc_x += FLT(dx * fac);
-            acc_y += FLT(dy * fac);
-            acc_z += FLT(dz * fac);
+            acc_x += (dx * fac);
+            acc_y += (dy * fac);
+            acc_z += (dz * fac);
 
 
             if(mass > 0)
@@ -2463,9 +2406,9 @@ int force_treeevaluate(int target, int mode,
                 fac *=
                     All.ScalarBeta * (1 + r / All.ScalarScreeningLength) * exp(-r / All.ScalarScreeningLength);
 
-                acc_x += FLT(dx_dm * fac);
-                acc_y += FLT(dy_dm * fac);
-                acc_z += FLT(dz_dm * fac);
+                acc_x += (dx_dm * fac);
+                acc_y += (dy_dm * fac);
+                acc_z += (dz_dm * fac);
             }
 #endif
 
@@ -2529,7 +2472,7 @@ int force_treeevaluate(int target, int mode,
     MyDouble accel = acc_x * pos_x + acc_y * pos_y + acc_z * pos_z;
     MyDouble rad = sqrt(pos_x * pos_x + pos_y * pos_y + pos_z * pos_z);
     MyDouble rad2 = rad * rad;
-    MyLongDouble acc_x_temp, acc_y_temp, acc_z_temp;
+    MyDouble acc_x_temp, acc_y_temp, acc_z_temp;
     MyDouble tidal_tensorps_temp[3][3];
 
     /* projected accel */
@@ -2635,7 +2578,7 @@ int force_treeevaluate_shortrange(int target, int mode,
     double pos_x, pos_y, pos_z, aold;
     double eff_dist;
     double rcut, asmth, asmthfac, rcut2, dist;
-    MyLongDouble acc_x, acc_y, acc_z;
+    MyDouble acc_x, acc_y, acc_z;
 
 #ifdef DISTORTIONTENSORPS
     int i1, i2;
@@ -2652,7 +2595,7 @@ int force_treeevaluate_shortrange(int target, int mode,
 #endif
 #ifdef EVALPOTENTIAL
     double wp, facpot;
-    MyLongDouble pot;
+    MyDouble pot;
 
     pot = 0;
 #endif
@@ -3007,9 +2950,9 @@ int force_treeevaluate_shortrange(int target, int mode,
 #endif
                 fac *= shortrange_table[tabindex];
 
-                acc_x += FLT(dx * fac);
-                acc_y += FLT(dy * fac);
-                acc_z += FLT(dz * fac);
+                acc_x += (dx * fac);
+                acc_y += (dy * fac);
+                acc_z += (dz * fac);
 #ifdef DISTORTIONTENSORPS
                 /*
                    tidal_tensorps[][] = Matrix of second derivatives of grav. potential, symmetric:
@@ -3035,7 +2978,7 @@ int force_treeevaluate_shortrange(int target, int mode,
                 tidal_tensorps[2][1] = tidal_tensorps[1][2];
 #endif
 #ifdef EVALPOTENTIAL
-                pot += FLT(facpot * shortrange_table_potential[tabindex]);
+                pot += (facpot * shortrange_table_potential[tabindex]);
 #endif
                 ninteractions++;
             }
@@ -3077,9 +3020,9 @@ int force_treeevaluate_shortrange(int target, int mode,
                 if(tabindex < NTAB)
                 {
                     fac *= shortrange_table[tabindex];
-                    acc_x += FLT(dx_dm * fac);
-                    acc_y += FLT(dy_dm * fac);
-                    acc_z += FLT(dz_dm * fac);
+                    acc_x += (dx_dm * fac);
+                    acc_y += (dy_dm * fac);
+                    acc_z += (dz_dm * fac);
                 }
             }
 #endif
@@ -3125,7 +3068,7 @@ int force_treeevaluate_shortrange(int target, int mode,
 int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, int *nsend_local)
 {
     struct NODE *nop = 0;
-    MyLongDouble pot;
+    MyDouble pot;
     int no, ptype, tabindex, task, nexport_save, listindex = 0;
     double r2, dx, dy, dz, mass, r, u, h, h_inv, wp;
     double pos_x, pos_y, pos_z, aold;
@@ -3443,7 +3386,7 @@ int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, 
             {
                 fac = shortrange_table_potential[tabindex];
                 if(r >= h)
-                    pot += FLT(-fac * mass / r);
+                    pot += (-fac * mass / r);
                 else
                 {
 #ifdef UNEQUALSOFTENINGS
@@ -3456,7 +3399,7 @@ int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, 
                         wp =
                             -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
                                     u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
-                    pot += FLT(fac * mass * h_inv * wp);
+                    pot += (fac * mass * h_inv * wp);
                 }
             }
         }
