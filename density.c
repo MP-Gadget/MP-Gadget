@@ -141,7 +141,6 @@ static void density_copy(int place, struct densdata_in * I);
  * that one has to deal with substantially more than normal number of
  * neighbours.)
  */
-double a3inv, afac;
 
 void density(void)
 {
@@ -168,14 +167,6 @@ void density(void)
     double dt_entr, tstart, tend;
 
     int64_t n_exported = 0;
-
-    if(All.ComovingIntegrationOn)
-    {
-        a3inv = 1 / (All.Time * All.Time * All.Time);
-        afac = pow(All.Time, 3 * GAMMA_MINUS1);
-    }
-    else
-        a3inv = afac = 1;
 
 #if defined(EULERPOTENTIALS) || defined(VECT_PRO_CLEAN) || defined(TRACEDIVB) || defined(VECT_POTENTIAL)
     double efak;
@@ -361,11 +352,7 @@ double density_decide_hsearch(int targettype, double h) {
          * just like how it was done for grav smoothing.
          * */
         double rds;
-        if (All.ComovingIntegrationOn) {
-            rds = All.BlackHoleFeedbackRadiusMaxPhys / All.Time;
-        } else {
-            rds = All.BlackHoleFeedbackRadiusMaxPhys;
-        }
+        rds = All.BlackHoleFeedbackRadiusMaxPhys / All.cf.a;
 
         if(rds > All.BlackHoleFeedbackRadius) {
             rds = All.BlackHoleFeedbackRadius;
@@ -441,10 +428,7 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
     }
 #ifdef HYDRO_COST_FACTOR
     /* these will be added */
-    if(All.ComovingIntegrationOn)
-        P[place].GravCost += HYDRO_COST_FACTOR * All.Time * remote->Ninteractions;
-    else
-        P[place].GravCost += HYDRO_COST_FACTOR * remote->Ninteractions;
+    P[place].GravCost += HYDRO_COST_FACTOR * All.cf.a * remote->Ninteractions;
 #endif
 
     if(P[place].Type == 0)
@@ -837,9 +821,9 @@ static int density_evaluate(int target, int mode,
 #pragma omp critical (_abundance_)
                         AbundanceRatios(DMAX(All.MinEgySpec,
                                     SPHP(j).Entropy / GAMMA_MINUS1 
-                                    * pow(SPHP(j).EOMDensity * a3inv,
+                                    * pow(SPHP(j).EOMDensity * All.cf.a3inv,
                                         GAMMA_MINUS1)),
-                                SPHP(j).d.Density * a3inv, &uvbg, &ne, &nh0, &nHeII);
+                                SPHP(j).d.Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
 #else
                         double nh0 = 1.0;
 #endif
@@ -1090,21 +1074,21 @@ static void density_post_process(int i) {
 #ifdef DENSITY_INDEPENDENT_SPH
 #error pressure entropy incompatible with softereqs
         /* use an intermediate EQS, between isothermal and the full multiphase model */
-        if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
+        if(SPHP(i).d.Density * All.cf.a3inv >= All.PhysDensThresh)
             SPHP(i).Pressure = All.FactorForSofterEQS *
                 (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA) +
                 (1 -
-                 All.FactorForSofterEQS) * afac * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
+                 All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
         else
             SPHP(i).Pressure =
                 (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA);
 #else
         /* use an intermediate EQS, between isothermal and the full multiphase model */
-        if(SPHP(i).d.Density * a3inv >= All.PhysDensThresh)
+        if(SPHP(i).d.Density * All.cf.a3inv >= All.PhysDensThresh)
             SPHP(i).Pressure = All.FactorForSofterEQS *
                 (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA) +
                 (1 -
-                 All.FactorForSofterEQS) * afac * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
+                 All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
         else
             SPHP(i).Pressure =
                 (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA);
@@ -1112,7 +1096,7 @@ static void density_post_process(int i) {
 #endif // SOFTEREQS
 #else
         /* Here we use an isothermal equation of state */
-        SPHP(i).Pressure = afac * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
+        SPHP(i).Pressure = All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
         SPHP(i).Entropy = SPHP(i).Pressure / pow(SPHP(i).d.Density, GAMMA);
 #endif
 #else

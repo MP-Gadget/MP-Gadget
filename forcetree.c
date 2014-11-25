@@ -719,14 +719,7 @@ void force_update_node_recursive(int no, int sib, int father)
 #if defined(SFR) && defined(EDDINGTON_TENSOR_SFR)
                     if(pa->Type == 0)
                     {
-                        double a;
-
-                        if(All.ComovingIntegrationOn == 1)
-                            a = All.Time;
-                        else
-                            a = 1.0;
-
-                        if((SPHP(p).d.Density / (a * a * a)) >= All.PhysDensThresh)
+                        if((SPHP(p).d.Density * All.cf.a3inv) >= All.PhysDensThresh)
                         {
                             stellar_s[0] += (pa->Mass * pa->Pos[0]);
                             stellar_s[1] += (pa->Mass * pa->Pos[1]);
@@ -1665,7 +1658,6 @@ static void real_force_drift_node(int no, int time1)
     }
     else
     {
-
         dt_drift_hmax = (time1 - Nodes[no].Ti_current) * All.Timebase_interval;
         dt_drift = dt_drift_hmax;
     }

@@ -211,18 +211,6 @@ static void real_drift_particle(int i, int time1)
 #endif
 #endif /* DISTORTIONTENSORPS */
 
-#if defined(SOFTEREQS) || defined(MHM)
-    double a3inv, afac;
-
-    if(All.ComovingIntegrationOn)
-    {
-        a3inv = 1 / (All.Time * All.Time * All.Time);
-        afac = pow(All.Time, 3 * GAMMA_MINUS1);
-    }
-    else
-        a3inv = afac = 1;
-#endif
-
     time0 = P[i].Ti_current;
 
     if(time1 < time0)
@@ -573,7 +561,7 @@ static void real_drift_particle(int i, int time1)
 #endif
 #else
         /* Here we use an isothermal equation of state */
-        SPHP(i).Pressure = afac * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
+        SPHP(i).Pressure = All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
         SPHP(i).Entropy = SPHP(i).Pressure / pow(SPHP(i).d.Density, GAMMA);
 #endif
 #else

@@ -985,7 +985,6 @@ int domain_fork_particle(int parent) {
     
     NextActiveParticle[child] = FirstActiveParticle;
     FirstActiveParticle = child;
-    NumForceUpdate++;
 
     P[parent].Generation ++;
     uint64_t g = P[parent].Generation;
@@ -1004,6 +1003,7 @@ int domain_fork_particle(int parent) {
     NextInTimeBin[parent] = child;
     if(LastInTimeBin[P[parent].TimeBin] == parent)
         LastInTimeBin[P[parent].TimeBin] = child;
+    NumForceUpdate++;
 
     /*! When a new additional star particle is created, we can put it into the
      *  tree at the position of the spawning gas particle. This is possible

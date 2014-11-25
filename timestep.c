@@ -11,7 +11,7 @@
  *  momentum space and assigning new timesteps
  */
 
-static double fac1, fac2, fac3, hubble_a, atime, a3inv;
+static double fac2, fac3; 
 static double dt_displacement = 0;
 
 #ifdef PETAPM
@@ -25,7 +25,7 @@ void set_global_time(double newtime) {
         All.cf.a = All.Time;
         All.cf.a2inv = 1 / (All.Time * All.Time);
         All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
-        All.cf.afac = pow(All.Time, 3 * GAMMA_MINUS1);
+        All.cf.fac_egy = pow(All.Time, 3 * GAMMA_MINUS1);
         All.cf.hubble = hubble_function(All.Time);
         All.cf.hubble_a2 = All.Time * All.Time * hubble_function(All.Time);
     }
@@ -34,7 +34,7 @@ void set_global_time(double newtime) {
         All.cf.a = 1;
         All.cf.a2inv = 1;
         All.cf.a3inv = 1;
-        All.cf.afac = 1;
+        All.cf.fac_egy = 1;
         All.cf.hubble = 1;
         All.cf.hubble_a2 = 1;
     }
@@ -80,18 +80,14 @@ void advance_and_find_timesteps(void)
 
     if(All.ComovingIntegrationOn)
     {
-        fac1 = 1 / (All.Time * All.Time);
         fac2 = 1 / pow(All.Time, 3 * GAMMA - 2);
         fac3 = pow(All.Time, 3 * (1 - GAMMA) / 2.0);
-        hubble_a = hubble_function(All.Time);
-        a3inv = 1 / (All.Time * All.Time * All.Time);
-        atime = All.Time;
     }
     else
-        fac1 = fac2 = fac3 = hubble_a = a3inv = atime = 1;
+        fac2 = fac3 = 1;
 
     if(Flag_FullStep || dt_displacement == 0)
-        find_dt_displacement_constraint(hubble_a * atime * atime);
+        find_dt_displacement_constraint(All.cf.hubble * All.cf.a * All.cf.a);
 
 #ifdef PETAPM
     if(All.ComovingIntegrationOn)
@@ -839,7 +835,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
         if(All.MinEgySpec)
         {
 #ifndef TRADITIONAL_SPH_FORMULATION
-            minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * a3inv, GAMMA_MINUS1);
+            minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
 #else
             minentropy = All.MinEgySpec;
 #endif
@@ -916,14 +912,14 @@ int get_timestep(int p,		/*!< particle index */
 
     if(flag <= 0)
     {
-        ax = fac1 * P[p].g.GravAccel[0];
-        ay = fac1 * P[p].g.GravAccel[1];
-        az = fac1 * P[p].g.GravAccel[2];
+        ax = All.cf.a2inv * P[p].g.GravAccel[0];
+        ay = All.cf.a2inv * P[p].g.GravAccel[1];
+        az = All.cf.a2inv * P[p].g.GravAccel[2];
 
 #ifdef PETAPM
-        ax += fac1 * P[p].GravPM[0];
-        ay += fac1 * P[p].GravPM[1];
-        az += fac1 * P[p].GravPM[2];
+        ax += All.cf.a2inv * P[p].GravPM[0];
+        ay += All.cf.a2inv * P[p].GravPM[1];
+        az += All.cf.a2inv * P[p].GravPM[2];
 #endif
 
         if(P[p].Type == 0)
@@ -950,21 +946,21 @@ int get_timestep(int p,		/*!< particle index */
             {
                 dt = flag * All.Timebase_interval;
 
-                dt /= hubble_a;	/* convert dloga to physical timestep  */
+                dt /= All.cf.hubble;	/* convert dloga to physical timestep  */
 
-                ac = 2 * All.ErrTolIntAccuracy * atime * All.SofteningTable[P[p].Type] / (dt * dt);
+                ac = 2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / (dt * dt);
                 *aphys = ac;
                 return flag;
             }
-            dt = sqrt(2 * All.ErrTolIntAccuracy * atime * All.SofteningTable[P[p].Type] / ac);
+            dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac);
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS_HSML
             if(P[p].Type == 0)
-                dt = sqrt(2 * All.ErrTolIntAccuracy * atime * P[p].Hsml / 2.8 / ac);
+                dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * P[p].Hsml / 2.8 / ac);
 #else
             if(P[p].Type == 0)
                 dt =
-                    sqrt(2 * All.ErrTolIntAccuracy * atime * All.SofteningTable[P[p].Type] *
+                    sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] *
                             pow(P[p].Mass / All.ReferenceGasMass, 1.0 / 3) / ac);
 #endif
 #endif
@@ -1002,7 +998,7 @@ int get_timestep(int p,		/*!< particle index */
             dt = dt_courant;
 
 #ifdef MYFALSE
-        dt_viscous = All.CourantFac * SPHP(p).MaxViscStep / hubble_a;	/* to convert dloga to physical dt */
+        dt_viscous = All.CourantFac * SPHP(p).MaxViscStep / All.cf.hubble;	/* to convert dloga to physical dt */
 
         if(dt_viscous < dt)
             dt = dt_viscous;
@@ -1011,7 +1007,7 @@ int get_timestep(int p,		/*!< particle index */
 #ifdef NS_TIMESTEP
         if(fabs(SPHP(p).ViscEntropyChange))
         {
-            dt_NS = VISC_TIMESTEP_PARAMETER * SPHP(p).Entropy / SPHP(p).ViscEntropyChange / hubble_a;
+            dt_NS = VISC_TIMESTEP_PARAMETER * SPHP(p).Entropy / SPHP(p).ViscEntropyChange / All.cf.hubble;
 
             if(dt_NS < dt)
                 dt = dt_NS;
@@ -1065,7 +1061,7 @@ int get_timestep(int p,		/*!< particle index */
                 dt = dt_accr;
         }
         if(BHP(p).TimeBinLimit > 0) {
-            dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / hubble_a;
+            dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
             if (dt_limiter < dt) dt = dt_limiter;
         }
     }
@@ -1114,9 +1110,9 @@ int get_timestep(int p,		/*!< particle index */
 #endif
 
     /* convert the physical timestep to dloga if needed. Note: If comoving integration has not been selected,
-       hubble_a=1.
+       All.cf.hubble=1.
        */
-    dt *= hubble_a;
+    dt *= All.cf.hubble;
 
 #ifdef ONLY_PM
     dt = All.MaxSizeTimestep;
@@ -1154,7 +1150,7 @@ int get_timestep(int p,		/*!< particle index */
                 All.Timebase_interval, ti_step, ac,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].g.GravAccel[0], P[p].g.GravAccel[1],
                 P[p].g.GravAccel[2],
-                sqrt(2 * All.ErrTolIntAccuracy * atime * All.SofteningTable[P[p].Type] / ac) * hubble_a, All.ErrTolIntAccuracy
+                sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac) * All.cf.hubble, All.ErrTolIntAccuracy
               );
 #ifdef PETAPM
         printf("pm_force=(%g|%g|%g)\n", P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]);
