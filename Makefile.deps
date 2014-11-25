@@ -70,4 +70,4 @@ $(ICOBJS): $(INCL) config.h depends
 	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
 
 clean:
-	rm -f $(OBJS) $(EXEC)
+	rm -f $(OBJS) $(EXEC) $(ICOBJS)
