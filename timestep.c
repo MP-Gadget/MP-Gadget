@@ -5,9 +5,6 @@
 #include <math.h>
 #include "allvars.h"
 #include "proto.h"
-#ifdef COSMIC_RAYS
-#include "cosmic_rays.h"
-#endif
 
 /*! \file timestep.c 
  *  \brief routines for 'kicking' particles in
@@ -912,10 +909,6 @@ int get_timestep(int p,		/*!< particle index */
     double dt_cool, dt_elec;
 #endif
 
-#ifdef COSMIC_RAYS
-    int CRpop;
-#endif
-
 #ifdef NUCLEAR_NETWORK
     double dt_network, dt_species;
     int k;
@@ -1184,15 +1177,6 @@ int get_timestep(int p,		/*!< particle index */
             printf("injected_energy = %g\n" , SPHP(p).i.Injected_BH_Energy);
         }
 #endif
-#ifdef COSMIC_RAYS
-        if(P[p].Type == 0)
-            for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                printf("Cosmic Ray Properties: C0: %g -- q0  : %g -- P  : %g\n"
-                        "                       Rho: %g\n\n",
-                        SPHP(p).CR_C0[CRpop], SPHP(p).CR_q0[CRpop], CR_Particle_Pressure(SphP + p, CRpop),
-                        SPHP(p).d.Density);
-#endif
-
         fflush(stdout);
         //endrun(818);
     }

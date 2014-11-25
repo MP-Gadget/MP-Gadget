@@ -8,9 +8,6 @@
 #include "allvars.h"
 #include "densitykernel.h"
 #include "proto.h"
-#ifdef COSMIC_RAYS
-#include "cosmic_rays.h"
-#endif
 #include "evaluator.h"
 
 extern int NextParticle;
@@ -171,10 +168,6 @@ void density(void)
     double dt_entr, tstart, tend;
 
     int64_t n_exported = 0;
-
-#ifdef COSMIC_RAYS
-    int CRpop;
-#endif
 
     if(All.ComovingIntegrationOn)
     {
@@ -1128,20 +1121,6 @@ static void density_post_process(int i) {
                 SPHP(i).dxnuc, dt_entr * All.UnitTime_in_s, SPHP(i).Entropy,
                 SPHP(i).e.DtEntropy, &SPHP(i).temp, &SPHP(i).Pressure, &SPHP(i).dpdr);
         SPHP(i).Pressure /= All.UnitPressure_in_cgs;
-#endif
-
-#ifdef COSMIC_RAYS
-        for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-        {
-            CR_Particle_Update(SphP + i, CRpop);
-#ifndef CR_NOPRESSURE
-            SPHP(i).Pressure += CR_Comoving_Pressure(SphP + i, CRpop);
-#endif
-        }
-#endif
-
-#ifdef BP_REAL_CRs
-        bp_cr_update(SPHP(i));
 #endif
 
     }

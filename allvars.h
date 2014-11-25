@@ -1067,41 +1067,6 @@ extern struct global_data_all_processes
 #endif
 #endif
 
-#ifdef COSMIC_RAYS
-    double CR_Alpha[NUMCRPOP];	/*!< Cosmic ray spectral index [2..3] */
-    double CR_SNEff;		/*!< SN injection efficiency [0..1] */
-    double CR_SNAlpha;		/*!< SN injection spectral index [2..3] */
-    int bDebugFlag;		/*!< enables debug outputs after triggered */
-
-#if defined(CR_DIFFUSION)
-    double CR_DiffusionCoeff;	/*!< (temporary) fixed value for CR diffusivity */
-
-    double CR_DiffusionDensScaling;	/*!< grade of density dependence of diffusivity */
-    double CR_DiffusionDensZero;	/*!< Reference point density for diffusivity */
-
-    double CR_DiffusionEntropyScaling;	/*!< grade of specific energy dependence of diffusivity */
-
-    double CR_DiffusionEntropyZero;	/*!< Reference Entropic function for diffusivity */
-
-    double CR_DiffusionMaxSizeTimestep;
-    int CR_Diffusion_Ti_begstep, CR_Diffusion_Ti_endstep;
-#endif				/* CR_DIFFUSION */
-
-#if defined(CR_SHOCK)
-#if (CR_SHOCK == 1)
-    double CR_ShockAlpha;		/*!< spectral index to be used in shock injection */
-#else
-    double CR_ShockCutoff;	/*!< Cutoff factor x_inj for CR accel */
-#endif
-    double CR_ShockEfficiency;	/*!< energy fraction of shock energy fed into CR */
-#endif				/* CR_SHOCK */
-
-#ifdef FIX_QINJ
-    double Shock_Fix_Qinj;	/*!< inject only CRps with threshold cutoff Shock_Fix_Qinj */
-#endif
-
-#endif				/* COSMIC_RAYS */
-
 #ifdef REIONIZATION
     int not_yet_reionized;	/*!< flag that makes sure that there is only one reionization */
 #endif
@@ -1776,9 +1741,6 @@ extern struct io_header
     int npart[6];			/*!< number of particles of each type in this file */
     double mass[6];		/*!< mass of particles of each type. If 0, then the masses are explicitly
                           stored in the mass-block of the snapshot file, otherwise they are omitted */
-#ifdef COSMIC_RAYS
-    double SpectralIndex_CR_Pop[NUMCRPOP]; /*!< spectral indices of cosmic ray populations */
-#endif
     double time;			/*!< time of snapshot file */
     double redshift;		/*!< redshift of snapshot file */
     int flag_sfr;			/*!< flags whether the simulation was including star formation */
@@ -1814,14 +1776,8 @@ extern struct io_header
     char flag_pressure_entropy;
     char numdims;
     char densitykerneltype;
-#ifdef COSMIC_RAYS
-    char fill[45-8*NUMCRPOP];	/*!< fills to 256 Bytes */
-#else
     char fill[45];		/*!< fills to 256 Bytes */
-#endif
-
-}
-header;				/*!< holds header for snapshot files */
+} header;				/*!< holds header for snapshot files */
 
 enum datatype {
     DTYPE_REAL = 1, /* can be single or double */

@@ -314,18 +314,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
 
     reconstruct_timebins();
 
-#ifdef COSMIC_RAYS
-    int CRpop;
-
-    for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-        CR_initialize_beta_tabs(All.CR_Alpha[CRpop], CRpop);
-    CR_Tab_Initialize();
-#ifdef COSMIC_RAY_TEST
-    CR_test_routine();
-#endif
-
-#endif
-
 #ifdef TWODIMS
     int i;
 
@@ -1019,15 +1007,6 @@ void read_parameter_file(char *fname)
     int pnum, errorFlag = 0;
 
     All.StarformationOn = 0;	/* defaults */
-
-#ifdef COSMIC_RAYS
-    char tempBuf[20];
-
-    int CRpop, x;
-
-    double tempAlpha;
-#endif
-
 
     if(sizeof(int64_t) != 8)
     {
@@ -2147,21 +2126,6 @@ void read_parameter_file(char *fname)
             errorFlag = 1;
         }
 
-        /* Counts number of CR populations in parameter file */
-        /*
-#ifdef COSMIC_RAYS
-CRpop=0;
-while ((All.CR_Alpha[CRpop] != 0.0 ) && ( CRpop < MaxNumCRpop ))
-CRpop++;
-NUMCRPOP = CRpop;
-#else
-NUMCRPOP = 1;
-#endif
-*/
-#ifdef COSMIC_RAYS
-        printf(" NUMCRPOP = %i \n", NUMCRPOP);
-#endif
-
         for(i = 0; i < nt; i++)
         {
                 if(*tag[i])
@@ -2575,12 +2539,6 @@ NUMCRPOP = 1;
 #undef INT
 #undef MAXTAGS
 
-#ifdef COSMIC_RAYS
-    if(ThisTask == 0)
-    {
-        printf("CR SN Efficiency: %g\n", All.CR_SNEff);
-    }
-#endif
 }
 
 

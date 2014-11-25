@@ -4,9 +4,6 @@
 #endif
 #include "forcetree.h"
 #include "cooling.h"
-#ifdef COSMIC_RAYS
-#include "cosmic_rays.h"
-#endif
 #ifdef LT_STELLAREVOLUTION
 #include "lt.h"
 #endif

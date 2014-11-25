@@ -293,17 +293,6 @@ void cooling_and_starformation(void)
 
 static void cooling_direct(int i) {
 
-#ifdef COSMIC_RAYS
-    int CRpop;
-
-#ifdef CR_SN_INJECTION
-    double tinj = 0.0, instant_reheat = 0.0;
-    int InjPopulation;
-#endif
-#endif
-
-
-
     double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
         /*  the actual time-step */
 
@@ -312,9 +301,7 @@ static void cooling_direct(int i) {
     dtime = dt / All.cf.hubble;
 
     SPHP(i).Sfr = 0;
-#if defined(COSMIC_RAYS) && defined(CR_OUTPUT_INJECTION)
-    SPHP(i).CR_Specific_SupernovaHeatingRate = 0;
-#endif
+
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
     double unew = DMAX(All.MinEgySpec,
@@ -367,10 +354,6 @@ static void cooling_direct(int i) {
 
         if(dt > 0)
         {
-#ifdef COSMIC_RAYS
-            for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-                unew += CR_Particle_ThermalizeAndDissipate(SphP + i, dtime, CRpop);
-#endif
 
             SPHP(i).e.DtEntropy = (unew * GAMMA_MINUS1 /
                     pow(SPHP(i).EOMDensity * All.cf.a3inv,
@@ -743,36 +726,6 @@ static int make_particle_star(int i) {
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     double egycurrent =
         SPHP(i).Entropy * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
-
-#ifdef COSMIC_RAYS
-#ifdef CR_SN_INJECTION
-    if(All.CR_SNEff > 0)
-    {
-        if(NUMCRPOP > 1)
-            InjPopulation = CR_Find_Alpha_to_InjectTo(All.CR_SNAlpha);
-        else
-            InjPopulation = 0;
-
-        tinj =
-            SPHP(i).CR_E0[InjPopulation] / (p * All.FeedbackEnergy * All.CR_SNEff / dtime);
-
-        instant_reheat =
-            CR_Particle_SupernovaFeedback(&SPHP(i), p * All.FeedbackEnergy * All.CR_SNEff,
-                    tinj);
-    }
-    else
-        instant_reheat = 0;
-
-#if defined(COSMIC_RAYS) && defined(CR_OUTPUT_INJECTION)
-    SPHP(i).CR_Specific_SupernovaHeatingRate =
-        (p * All.FeedbackEnergy * All.CR_SNEff - instant_reheat) / dtime;
-#endif
-    egycurrent += instant_reheat;
-#endif
-    for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-        egycurrent += CR_Particle_ThermalizeAndDissipate(SphP + i, dtime, CRpop);
-#endif /* COSMIC_RAYS */
-
 
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
     if(SPHP(i).i.Injected_BH_Energy > 0)
@@ -1257,10 +1210,6 @@ void set_units_sfr(void)
 
     double meanweight;
 
-#ifdef COSMIC_RAYS
-    double feedbackenergyinergs;
-#endif
-
     All.OverDensThresh =
         All.CritOverDensity * All.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
 
@@ -1287,33 +1236,6 @@ void set_units_sfr(void)
 
     }
 
-#ifdef COSMIC_RAYS
-    if(All.CR_SNEff < 0.0)
-        /* if CR_SNeff < 0.0, then substract CR Feedback energy from thermal
-         * feedback energy
-         */
-    {
-        if(ThisTask == 0)
-        {
-            printf("%g percent of thermal feedback go into Cosmic Rays.\nRemaining ", -100.0 * All.CR_SNEff);
-        }
-
-        All.EgySpecSN *= (1.0 + All.CR_SNEff);
-        All.CR_SNEff = -All.CR_SNEff / (1.0 + All.CR_SNEff);
-
-    }
-
-    All.FeedbackEnergy = All.FactorSN / (1 - All.FactorSN) * All.EgySpecSN;
-
-    feedbackenergyinergs = All.FeedbackEnergy / All.UnitMass_in_g * (All.UnitEnergy_in_cgs * SOLAR_MASS);
-
-    if(ThisTask == 0)
-    {
-        printf("Feedback energy per formed solar mass in stars= %g  ergs\n", feedbackenergyinergs);
-        printf("OverDensThresh= %g\nPhysDensThresh= %g (internal units)\n", All.OverDensThresh,
-                All.PhysDensThresh);
-    }
-#endif
 }
 
 static double evaluate_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)

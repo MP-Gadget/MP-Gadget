@@ -6,11 +6,6 @@
 #include <gsl/gsl_math.h>
 #include "allvars.h"
 #include "proto.h"
-#ifdef COSMIC_RAYS
-#include "cosmic_rays.h"
-#endif
-
-
 void reconstruct_timebins(void)
 {
     int i, n, prev, bin;
@@ -215,10 +210,6 @@ static void real_drift_particle(int i, int time1)
     CurrentTurnaroundRadius = All.CurrentTurnaroundRadius;
 #endif
 #endif /* DISTORTIONTENSORPS */
-
-#ifdef COSMIC_RAYS
-    int CRpop;
-#endif
 
 #if defined(SOFTEREQS) || defined(MHM)
     double a3inv, afac;
@@ -592,18 +583,6 @@ static void real_drift_particle(int i, int time1)
                 &SPHP(i).Pressure, &SPHP(i).dpdr);
         SPHP(i).Pressure /= All.UnitPressure_in_cgs;
 #endif
-
-#ifdef COSMIC_RAYS
-#if defined( CR_UPDATE_PARANOIA )
-        for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-            CR_Particle_Update(SphP + i, CRpop);
-#endif
-#ifndef CR_NOPRESSURE
-        for(CRpop = 0; CRpop < NUMCRPOP; CRpop++)
-            SPHP(i).Pressure += CR_Comoving_Pressure(SphP + i, CRpop);
-#endif
-#endif
-
 
 #if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL))
 #ifdef DIVBCLEANING_DEDNER

@@ -10,13 +10,6 @@
 #include "evaluator.h"
 #include "proto.h"
 #include "densitykernel.h"
-#ifdef COSMIC_RAYS
-#include "cosmic_rays.h"
-#endif
-
-#ifdef JD_DPP
-#include "cr_electrons.h"
-#endif	
 
 #ifndef DEBUG
 #define NDEBUG
