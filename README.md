@@ -9,7 +9,8 @@ Massvively parallel version of P-Gadget3.
 git clone https://github.com/rainwoodman/MP-Gadget3
 
 cd MP-Gadget3
-git submodules init
+git submodule init
+git submodule update
 
 ```
 
