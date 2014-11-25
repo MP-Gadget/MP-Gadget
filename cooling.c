@@ -82,13 +82,12 @@ static double Tmin = 0.0;	/* in log10 */
 static double Tmax = 9.0;
 static double deltaT;
 
+/* These tables are readonly after initialized */
 static double *BetaH0, *BetaHep, *Betaff;
 static double *AlphaHp, *AlphaHep, *Alphad, *AlphaHepp;
 static double *GammaeH0, *GammaeHe0, *GammaeHep;
 
 struct UVBG GlobalUVBG = {0};
-
-static double DoCool_u_old_input, DoCool_rho_input, DoCool_dt_input, DoCool_ne_guess_input;
 
 /* returns new internal energy per unit mass. 
  * Arguments are passed in code units, density is proper density.
@@ -100,12 +99,6 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
     double ratefact;
     double LambdaNet;
     int iter = 0;
-
-    DoCool_u_old_input = u_old;
-    DoCool_rho_input = rho;
-    DoCool_dt_input = dt;
-    DoCool_ne_guess_input = *ne_guess;
-
 
     rho *= All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam;	/* convert to physical cgs units */
     u_old *= All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
@@ -172,8 +165,6 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
     if(iter >= MAXITER)
     {
         printf("failed to converge in DoCooling()\n");
-        printf("DoCool_u_old_input=%g\nDoCool_rho_input= %g\nDoCool_dt_input= %g\nDoCool_ne_guess_input= %g\n",
-                DoCool_u_old_input, DoCool_rho_input, DoCool_dt_input, DoCool_ne_guess_input);
         endrun(10);
     }
 
@@ -192,10 +183,6 @@ double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg, double *ne_g
     double u;
     double ratefact;
     double LambdaNet, coolingtime;
-
-    DoCool_u_old_input = u_old;
-    DoCool_rho_input = rho;
-    DoCool_ne_guess_input = *ne_guess;
 
     rho *= All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam;	/* convert to physical cgs units */
     u_old *= All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
@@ -231,11 +218,6 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
     double ratefact;
     double LambdaNet;
     int iter = 0;
-
-    DoCool_u_old_input = u;
-    DoCool_rho_input = rho;
-    DoCool_dt_input = dt;
-    DoCool_ne_guess_input = *ne_guess;
 
     if(fac <= 0)			/* the hot phase is actually colder than the cold reservoir! */
     {
@@ -311,9 +293,6 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
     if(iter >= MAXITER)
     {
         printf("failed to converge in DoCooling()\n");
-        printf("DoCool_u_old_input=%g\nDoCool_rho_input= %g\nDoCool_dt_input= %g\nDoCool_ne_guess_input= %g\n",
-                DoCool_u_old_input, DoCool_rho_input, DoCool_dt_input, DoCool_ne_guess_input);
-        printf("m_old= %g\n", m_old);
         endrun(11);
     }
 
@@ -389,11 +368,6 @@ static double convert_u_to_temp(double u, double nHcgs, struct UVBG * uvbg, stru
     if(iter >= MAXITER)
         {
             printf("failed to converge in convert_u_to_temp()\n");
-            printf("u_input= %g\nrho_input=%g\n ne_input=%g\n", u_input, rho_input, ne_input);
-            printf
-                ("DoCool_u_old_input=%g\nDoCool_rho_input= %g\nDoCool_dt_input= %g\nDoCool_ne_guess_input= %g\n",
-                 DoCool_u_old_input, DoCool_rho_input, DoCool_dt_input, DoCool_ne_guess_input);
-
             endrun(12);
         }
 
@@ -515,9 +489,6 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * u
     if(niter >= MAXITER)
     {
         printf("no convergence reached in find_abundances_and_rates()\n");
-        printf("logT_input= %g  rho_input= %g  ne_input= %g\n", logT_input, rho_input, ne_input);
-        printf("DoCool_u_old_input=%g\nDoCool_rho_input= %g\nDoCool_dt_input= %g\nDoCool_ne_guess_input= %g\n",
-                DoCool_u_old_input, DoCool_rho_input, DoCool_dt_input, DoCool_ne_guess_input);
         endrun(13);
     }
 
@@ -558,10 +529,6 @@ double AbundanceRatios(double u, double rho, struct UVBG * uvbg, double *ne_gues
 {
     double temp;
     struct abundance y;
-
-    DoCool_u_old_input = u;
-    DoCool_rho_input = rho;
-    DoCool_ne_guess_input = *ne_guess;
 
     rho *= All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam;	/* convert to physical cgs units */
     u *= All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
