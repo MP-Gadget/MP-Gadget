@@ -989,8 +989,8 @@ int domain_fork_particle(int parent) {
     P[parent].Generation ++;
     uint64_t g = P[parent].Generation;
     /* change the child ID according to the generation. */
-    P[child].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
     P[child] = P[parent];
+    P[child].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
     /* the PIndex still points to the old PIndex */
     P[child].Mass = 0;
 

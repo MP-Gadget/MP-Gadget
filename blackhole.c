@@ -811,15 +811,12 @@ void blackhole_make_one(int index) {
 #endif
     P[child].Mass = All.SeedBlackHoleMass;
     P[index].Mass -= All.SeedBlackHoleMass;
+    BHP(child).ID = P[child].ID;
     BHP(child).Mass = All.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
 
 #ifdef BH_COUNTPROGS
     BHP(child).CountProgs = 1;
-#endif
-
-#ifdef SFR
-    Stars_converted++;
 #endif
 }
 #endif
