@@ -196,7 +196,7 @@ void init(void)
     for(i = 0; i < NumPart; i++)	/*  start-up initialization */
     {
         for(j = 0; j < 3; j++)
-            P[i].g.GravAccel[j] = 0;
+            P[i].GravAccel[j] = 0;
 
         /* DISTORTION PARTICLE SETUP */
 #ifdef DISTORTIONTENSORPS
@@ -393,7 +393,7 @@ void init(void)
         P[i].GravCost = 1;
 #if defined(EVALPOTENTIAL) || defined(COMPUTE_POTENTIAL_ENERGY)
         if(RestartFlag < 3)
-            P[i].p.Potential = 0;
+            P[i].Potential = 0;
 #endif
 #ifdef STELLARAGE
         if(RestartFlag == 0)
@@ -435,10 +435,10 @@ void init(void)
         for(j = 0; j < 3; j++)
         {
             SPHP(i).VelPred[j] = P[i].Vel[j];
-            SPHP(i).a.HydroAccel[j] = 0;
+            SPHP(i).HydroAccel[j] = 0;
         }
 
-        SPHP(i).e.DtEntropy = 0;
+        SPHP(i).DtEntropy = 0;
 
 #if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
         SPHP(i).Gamma = GAMMA;	/* set universal value */
@@ -451,7 +451,7 @@ void init(void)
 #ifndef READ_HSML
             P[i].Hsml = 0;
 #endif
-            SPHP(i).d.Density = -1;
+            SPHP(i).Density = -1;
 #ifdef DENSITY_INDEPENDENT_SPH
             SPHP(i).EgyWtDensity = -1;
             SPHP(i).EntVarPred = -1;
@@ -472,7 +472,7 @@ void init(void)
             SPHP(i).TracAbund[IHEP] = All.InitHeIIAbund;
             SPHP(i).TracAbund[IHEPP] = All.InitHeIIIAbund;
 #endif
-            SPHP(i).v.DivVel = 0;
+            SPHP(i).DivVel = 0;
         }
 #ifdef WINDS
         SPHP(i).DelayTime = 0;
@@ -605,17 +605,7 @@ void init(void)
 #endif
 
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
-        SPHP(i).i.Injected_BH_Energy = 0;
-#endif
-
-#ifdef BP_REAL_CRs
-        for(j = 0; j < BP_REAL_CRs; j++)
-        {
-            SPHP(i).CRpNorm[j] = 0.0;
-            SPHP(i).CRpSlope[j] = 0.0;
-            SPHP(i).CReNorm[j] = 0.0;
-            SPHP(i).CReSlope[j] = 0.0;
-        }
+        SPHP(i).Injected_BH_Energy = 0;
 #endif
     }
 
@@ -625,12 +615,12 @@ void init(void)
         P[i].Pos[2] = 0;
         P[i].Vel[2] = 0;
 
-        P[i].g.GravAccel[2] = 0;
+        P[i].GravAccel[2] = 0;
 
         if(P[i].Type == 0)
         {
             SPHP(i).VelPred[2] = 0;
-            SPHP(i).a.HydroAccel[2] = 0;
+            SPHP(i).HydroAccel[2] = 0;
         }
     }
 #endif
@@ -641,12 +631,12 @@ void init(void)
         P[i].Pos[1] = P[i].Pos[2] = 0;
         P[i].Vel[1] = P[i].Vel[2] = 0;
 
-        P[i].g.GravAccel[1] = P[i].g.GravAccel[2] = 0;
+        P[i].GravAccel[1] = P[i].GravAccel[2] = 0;
 
         if(P[i].Type == 0)
         {
             SPHP(i).VelPred[1] = SPHP(i).VelPred[2] = 0;
-            SPHP(i).a.HydroAccel[1] =SPHP(i).a.HydroAccel[2] = 0;
+            SPHP(i).HydroAccel[1] =SPHP(i).HydroAccel[2] = 0;
         }
     }
 #endif
@@ -745,7 +735,7 @@ void init(void)
             if(ThisTask == 0 && i == 0)
                 printf("Converting u -> entropy !\n");
 
-            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).d.Density / a3, GAMMA_MINUS1);
+            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).Density / a3, GAMMA_MINUS1);
 #endif
 
 #else
@@ -757,15 +747,15 @@ void init(void)
             SPHP(i).Entropy *= All.UnitEnergy_in_cgs;
             /* call eos with physical units, energy and entropy are always stored in physical units */
             SPHP(i).temp = 1.0;
-            eos_calc_egiven_v(SPHP(i).d.Density * All.UnitDensity_in_cgs, SPHP(i).xnuc, SPHP(i).dxnuc,
+            eos_calc_egiven_v(SPHP(i).Density * All.UnitDensity_in_cgs, SPHP(i).xnuc, SPHP(i).dxnuc,
                     0, SPHP(i).Entropy, 0, &SPHP(i).temp, &SPHP(i).Pressure, &SPHP(i).dpdr);
             SPHP(i).Pressure /= All.UnitPressure_in_cgs;
 #endif
         }
 
-        SPHP(i).e.DtEntropy = 0;
+        SPHP(i).DtEntropy = 0;
 
-        SPHP(i).v.DivVel = 0;
+        SPHP(i).DivVel = 0;
 
 #ifdef REIONIZATION
         All.not_yet_reionized = 1;
@@ -791,7 +781,7 @@ void init(void)
 
         printf("x=%g, y=%g, z=%g, vx=%g, vy=%g, vz=%g,\ndensity=%g, entropy=%g\n",
                 P[N_sph - 1].Pos[0], P[N_sph - 1].Pos[1], P[N_sph - 1].Pos[2], P[N_sph - 1].Vel[0],
-                P[N_sph - 1].Vel[1], P[N_sph - 1].Vel[2], SPHP(N_sph - 1).d.Density, SPHP(N_sph - 1).Entropy);
+                P[N_sph - 1].Vel[1], P[N_sph - 1].Vel[2], SPHP(N_sph - 1).Density, SPHP(N_sph - 1).Entropy);
 
 
     }
@@ -859,7 +849,7 @@ void init(void)
 
         printf("x=%g, y=%g, z=%g, vx=%g, vy=%g, vz=%g, density=%g, entropy=%g\n",
                 P[N_sph - 1].Pos[0], P[N_sph - 1].Pos[1], P[N_sph - 1].Pos[2], P[N_sph - 1].Vel[0],
-                P[N_sph - 1].Vel[1], P[N_sph - 1].Vel[2], SPHP(N_sph - 1).d.Density, SPHP(N_sph - 1).Entropy);
+                P[N_sph - 1].Vel[1], P[N_sph - 1].Vel[2], SPHP(N_sph - 1).Density, SPHP(N_sph - 1).Entropy);
     }
 
     /* need predict the cooling time and elec_dot here */
@@ -1047,7 +1037,7 @@ void setup_smoothinglengths(void)
         for(i = 0; i < N_sph; i++)
         {
             /* start the iteration from mass density */
-            SPHP(i).EgyWtDensity = SPHP(i).d.Density;
+            SPHP(i).EgyWtDensity = SPHP(i).Density;
         }
 
         double a3;

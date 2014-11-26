@@ -513,16 +513,16 @@ static void real_drift_particle(int i, int time1)
 #ifdef PETAPM
         for(j = 0; j < 3; j++)
             SPHP(i).VelPred[j] +=
-                (P[i].g.GravAccel[j] + P[i].GravPM[j]) * dt_gravkick + SPHP(i).a.HydroAccel[j] * dt_hydrokick;
+                (P[i].GravAccel[j] + P[i].GravPM[j]) * dt_gravkick + SPHP(i).HydroAccel[j] * dt_hydrokick;
 #else
         for(j = 0; j < 3; j++)
-            SPHP(i).VelPred[j] += P[i].g.GravAccel[j] * dt_gravkick + SPHP(i).a.HydroAccel[j] * dt_hydrokick;
+            SPHP(i).VelPred[j] += P[i].GravAccel[j] * dt_gravkick + SPHP(i).HydroAccel[j] * dt_hydrokick;
 #endif
 
-        SPHP(i).d.Density *= exp(-SPHP(i).v.DivVel * dt_drift);
-        //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).v.DivVel * dt_drift);
+        SPHP(i).Density *= exp(-SPHP(i).DivVel * dt_drift);
+        //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * dt_drift);
         //---This was added
-        double fac = exp(0.333333333333 * SPHP(i).v.DivVel * dt_drift);
+        double fac = exp(0.333333333333 * SPHP(i).DivVel * dt_drift);
         if(fac > 1.25)
             fac = 1.25;
         P[i].Hsml *= fac;
@@ -550,12 +550,12 @@ static void real_drift_particle(int i, int time1)
 
 #ifndef TRADITIONAL_SPH_FORMULATION
 #ifdef DENSITY_INDEPENDENT_SPH
-        SPHP(i).EgyWtDensity *= exp(-SPHP(i).v.DivVel * dt_drift);
-        SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr, 1/GAMMA);
+        SPHP(i).EgyWtDensity *= exp(-SPHP(i).DivVel * dt_drift);
+        SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr, 1/GAMMA);
 #endif
-        SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).EOMDensity, GAMMA);
+        SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).EOMDensity, GAMMA);
 #else
-        SPHP(i).Pressure = GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * SPHP(i).d.Density;
+        SPHP(i).Pressure = GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * SPHP(i).d.Density;
 #endif
 
 #endif
@@ -567,7 +567,7 @@ static void real_drift_particle(int i, int time1)
 #else
         /* call tabulated eos with physical units */
         eos_calc_egiven_v(SPHP(i).d.Density * All.UnitDensity_in_cgs, SPHP(i).xnuc, SPHP(i).dxnuc,
-                dt_entr * All.UnitTime_in_s, SPHP(i).Entropy, SPHP(i).e.DtEntropy, &SPHP(i).temp,
+                dt_entr * All.UnitTime_in_s, SPHP(i).Entropy, SPHP(i).DtEntropy, &SPHP(i).temp,
                 &SPHP(i).Pressure, &SPHP(i).dpdr);
         SPHP(i).Pressure /= All.UnitPressure_in_cgs;
 #endif

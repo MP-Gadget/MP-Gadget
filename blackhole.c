@@ -353,8 +353,8 @@ static void blackhole_accretion_evaluate(int n) {
 
         if(dt > 0)
             for(k = 0; k < 3; k++)
-                P[n].g.GravAccel[k] +=
-                    -All.cf.a * All.cf.a * fac / dt * (P[n].Vel[k] - BHP(n).SurroundingGasVel[k]) / All.cf.a;
+                P[n].GravAccel[k] +=
+                    -All.cf.a2inv * fac / dt * (P[n].Vel[k] - BHP(n).SurroundingGasVel[k]) / All.cf.a;
     }
 #endif
 
@@ -468,7 +468,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
                 /* if this option is switched on, we may also encounter dark matter particles or stars */
                 if(r2 < kernel.HH)
                 {
-                    if(P[j].p.Potential < O->BH_MinPot)
+                    if(P[j].Potential < O->BH_MinPot)
                     {
                         if(P[j].Type == 0 || P[j].Type == 1 || P[j].Type == 4 || P[j].Type == 5)
                         {
@@ -482,7 +482,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
 
                             if(vrel <= 0.25 * I->Csnd)
                             {
-                                O->BH_MinPot = P[j].p.Potential;
+                                O->BH_MinPot = P[j].Potential;
                                 for(k = 0; k < 3; k++)
                                     O->BH_MinPotPos[k] = P[j].Pos[k];
                             }
@@ -575,7 +575,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
 
                         if(I->FeedbackWeightSum > 0)
                         {
-                            SPHP(j).i.dInjected_BH_Energy += (energy * mass_j * wk / I->FeedbackWeightSum);
+                            SPHP(j).Injected_BH_Energy += (energy * mass_j * wk / I->FeedbackWeightSum);
                         }
 
 #else
@@ -590,7 +590,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
                                         All.UnitVelocity_in_cm_per_s,
                                         2);
                             if(I->FeedbackWeightSum> 0) {
-                                SPHP(j).i.dInjected_BH_Energy += (energy * mass_j * wk / I->FeedbackWeightSum);
+                                SPHP(j).Injected_BH_Energy += (energy * mass_j * wk / I->FeedbackWeightSum);
                             }
                         }
 #endif

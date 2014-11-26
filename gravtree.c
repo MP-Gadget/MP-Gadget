@@ -429,7 +429,7 @@ void gravity_tree(void)
             else 
             {
                 for(j = 0; j < 3; j++)
-                    P[i].GravAccelSum[j] += P[i].g.dGravAccel[j];
+                    P[i].GravAccelSum[j] += P[i].GravAccel[j];
             }
         } 
     } /* scf_counter */
@@ -438,7 +438,7 @@ void gravity_tree(void)
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
         for(j = 0; j < 3; j++)
-            P[i].g.dGravAccel[j] = P[i].GravAccelSum[j];
+            P[i].GravAccel[j] = P[i].GravAccelSum[j];
     }  
 #endif
 
@@ -473,7 +473,7 @@ void gravity_tree(void)
 
         for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
             for(j = 0; j < 3; j++)
-                P[i].g.GravAccel[j] += fac * P[i].Pos[j];
+                P[i].GravAccel[j] += fac * P[i].Pos[j];
     }
 #endif
 #endif
@@ -500,7 +500,7 @@ void gravity_tree(void)
     walltime_measure("/Misc");
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
         for(j = 0; j < 3; j++)
-            P[i].g.GravAccel[j] = 0;
+            P[i].GravAccel[j] = 0;
 
 
 #ifdef DISTORTIONTENSORPS
@@ -641,7 +641,7 @@ void gravtree_reduce(int place, struct gravitydata_out * result, int mode) {
 #define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
     int k;
     for(k = 0; k < 3; k++)
-        REDUCE(P[place].g.dGravAccel[k], result->Acc[k]);
+        REDUCE(P[place].GravAccel[k], result->Acc[k]);
 
 #ifdef DISTORTIONTENSORPS
     int i1, i2;
@@ -653,13 +653,13 @@ void gravtree_reduce(int place, struct gravitydata_out * result, int mode) {
 
     REDUCE(P[place].GravCost, result->Ninteractions);
 #ifdef EVALPOTENTIAL
-    REDUCE(P[place].p.dPotential, result->Potential);
+    REDUCE(P[place].Potential, result->Potential);
 #endif
 }
 void gravtree_reduce_ewald(int place, struct gravitydata_out * result, int mode) {
     int k;
     for(k = 0; k < 3; k++)
-        P[place].g.dGravAccel[k] += result->Acc[k];
+        P[place].GravAccel[k] += result->Acc[k];
 
     P[place].GravCost += result->Ninteractions;
 }
@@ -679,19 +679,19 @@ static void gravtree_post_process(int i) {
         /* to prevent that we overwrite OldAcc in the first evaluation for 2lpt ICs */
         double ax, ay, az;
 #ifdef PETAPM
-        ax = P[i].g.GravAccel[0] + P[i].GravPM[0] / All.G;
-        ay = P[i].g.GravAccel[1] + P[i].GravPM[1] / All.G;
-        az = P[i].g.GravAccel[2] + P[i].GravPM[2] / All.G;
+        ax = P[i].GravAccel[0] + P[i].GravPM[0] / All.G;
+        ay = P[i].GravAccel[1] + P[i].GravPM[1] / All.G;
+        az = P[i].GravAccel[2] + P[i].GravPM[2] / All.G;
 #else
-        ax = P[i].g.GravAccel[0];
-        ay = P[i].g.GravAccel[1];
-        az = P[i].g.GravAccel[2];
+        ax = P[i].GravAccel[0];
+        ay = P[i].GravAccel[1];
+        az = P[i].GravAccel[2];
 #endif
 
         P[i].OldAcc = sqrt(ax * ax + ay * ay + az * az);
     }
     for(j = 0; j < 3; j++)
-        P[i].g.GravAccel[j] *= All.G;
+        P[i].GravAccel[j] *= All.G;
 
 #ifdef DISTORTIONTENSORPS
     /*
@@ -771,17 +771,17 @@ static void gravtree_post_process(int i) {
 
 #ifdef EVALPOTENTIAL
     /* remove self-potential */
-    P[i].p.Potential += P[i].Mass / All.SofteningTable[P[i].Type];
+    P[i].Potential += P[i].Mass / All.SofteningTable[P[i].Type];
 
     if(All.ComovingIntegrationOn)
         if(All.PeriodicBoundariesOn)
-            P[i].p.Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) *
+            P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) *
                 pow(All.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G), 1.0 / 3);
 
-    P[i].p.Potential *= All.G;
+    P[i].Potential *= All.G;
 
 #ifdef PETAPM
-    P[i].p.Potential += P[i].PM_Potential;	/* add in long-range potential */
+    P[i].Potential += P[i].PM_Potential;	/* add in long-range potential */
 #endif
 
     if(All.ComovingIntegrationOn)
@@ -794,7 +794,7 @@ static void gravtree_post_process(int i) {
         for(k = 0, r2 = 0; k < 3; k++)
             r2 += P[i].Pos[k] * P[i].Pos[k];
 
-        P[i].p.Potential += fac * r2;
+        P[i].Potential += fac * r2;
 #endif
     }
     else
@@ -808,7 +808,7 @@ static void gravtree_post_process(int i) {
             for(k = 0, r2 = 0; k < 3; k++)
                 r2 += P[i].Pos[k] * P[i].Pos[k];
 
-            P[i].p.Potential += fac * r2;
+            P[i].Potential += fac * r2;
         }
     }
 #endif
@@ -820,7 +820,7 @@ static void gravtree_post_process(int i) {
     {
         double fac = All.OmegaLambda * All.Hubble * All.Hubble;
         for(j = 0; j < 3; j++)
-            P[i].g.GravAccel[j] += fac * P[i].Pos[j];
+            P[i].GravAccel[j] += fac * P[i].Pos[j];
     }
 #endif
 #endif
@@ -1083,13 +1083,13 @@ static void gravity_static_potential() {
         {
 #endif
             /* scale */
-            P[i].g.GravAccel[0] += All.G * SCF_HQ_MASS/(SCF_HQ_A*SCF_HQ_A) * axs;
-            P[i].g.GravAccel[1] += All.G * SCF_HQ_MASS/(SCF_HQ_A*SCF_HQ_A) * ays;      
-            P[i].g.GravAccel[2] += All.G * SCF_HQ_MASS/(SCF_HQ_A*SCF_HQ_A) * azs;            
+            P[i].GravAccel[0] += All.G * SCF_HQ_MASS/(SCF_HQ_A*SCF_HQ_A) * axs;
+            P[i].GravAccel[1] += All.G * SCF_HQ_MASS/(SCF_HQ_A*SCF_HQ_A) * ays;      
+            P[i].GravAccel[2] += All.G * SCF_HQ_MASS/(SCF_HQ_A*SCF_HQ_A) * azs;            
             /* OR: not */
-            //P[i].g.GravAccel[0] += All.G * axs;
-            //P[i].g.GravAccel[1] += All.G * ays;      
-            //P[i].g.GravAccel[2] += All.G * azs;            
+            //P[i].GravAccel[0] += All.G * axs;
+            //P[i].GravAccel[1] += All.G * ays;      
+            //P[i].GravAccel[2] += All.G * azs;            
 
 #ifdef DEBUG
             if (P[i].ID==150000)
@@ -1268,11 +1268,11 @@ static void gravity_static_potential() {
         if(P[i].radius != 0.0)
         {
             /* radial forces on shell */
-            P[i].g.GravAccel[0] +=
+            P[i].GravAccel[0] +=
                 -All.G * P[i].enclosed_mass / pow(P[i].radius * P[i].radius + hsoft * hsoft, 1.5) * P[i].Pos[0];
-            P[i].g.GravAccel[1] +=
+            P[i].GravAccel[1] +=
                 -All.G * P[i].enclosed_mass / pow(P[i].radius * P[i].radius + hsoft * hsoft, 1.5) * P[i].Pos[1];
-            P[i].g.GravAccel[2] +=
+            P[i].GravAccel[2] +=
                 -All.G * P[i].enclosed_mass / pow(P[i].radius * P[i].radius + hsoft * hsoft, 1.5) * P[i].Pos[2];
 
 #ifdef DISTORTIONTENSORPS
@@ -1367,7 +1367,7 @@ static void gravity_static_potential() {
         if(r > 0)
         {
             for(l = 0; l < 3; l++)
-                P[i].g.GravAccel[l] += -All.G * m * P[i].Pos[l] / (r * r * r);
+                P[i].GravAccel[l] += -All.G * m * P[i].Pos[l] / (r * r * r);
 
 #ifdef DISTORTIONTENSORPS
             double R200 = pow(NFW_M200 * All.G / (100 * All.Hubble * All.Hubble), 1.0 / 3);
@@ -1426,7 +1426,7 @@ static void gravity_static_potential() {
         r = sqrt(P[i].Pos[0] * P[i].Pos[0] + P[i].Pos[1] * P[i].Pos[1] + P[i].Pos[2] * P[i].Pos[2]);
 
         for(l = 0; l < 3; l++)
-            P[i].g.GravAccel[l] += -P[i].Pos[l] / pow(r * r + 1, 1.5);
+            P[i].GravAccel[l] += -P[i].Pos[l] / pow(r * r + 1, 1.5);
 
 #ifdef DISTORTIONTENSORPS
         double x, y, z, r2, f, f2;
@@ -1474,7 +1474,7 @@ static void gravity_static_potential() {
         if(r > 0)
         {
             for(l = 0; l < 3; l++)
-                P[i].g.GravAccel[l] += -All.G * m * P[i].Pos[l] / (r * r * r);
+                P[i].GravAccel[l] += -All.G * m * P[i].Pos[l] / (r * r * r);
 
 #ifdef DISTORTIONTENSORPS
             double x, y, z, r2, r3, f, f2, f3;
@@ -1521,9 +1521,9 @@ static void gravity_static_potential() {
         f = LP_RC2 + x * x + y * y / LP_Q2 + z * z / LP_P2;
         if(f > 0)
         {
-            P[i].g.GravAccel[0] += -LP_V02 * x / f;
-            P[i].g.GravAccel[1] += -LP_V02 * y / (LP_Q2 * f);
-            P[i].g.GravAccel[2] += -LP_V02 * z / (LP_P2 * f);
+            P[i].GravAccel[0] += -LP_V02 * x / f;
+            P[i].GravAccel[1] += -LP_V02 * y / (LP_Q2 * f);
+            P[i].GravAccel[2] += -LP_V02 * z / (LP_P2 * f);
 
 #ifdef DISTORTIONTENSORPS
             double f2;
@@ -1558,9 +1558,9 @@ static void gravity_static_potential() {
         r2 = r * r;
         if(r > 0)
         {
-            P[i].g.GravAccel[0] += -SM_V02 / r2 * (1 - SM_a / r * atan(r / SM_a)) * x;
-            P[i].g.GravAccel[1] += -SM_V02 / r2 * (1 - SM_a / r * atan(r / SM_a)) * y;
-            P[i].g.GravAccel[2] += -SM_V02 / r2 * (1 - SM_a / r * atan(r / SM_a)) * z;
+            P[i].GravAccel[0] += -SM_V02 / r2 * (1 - SM_a / r * atan(r / SM_a)) * x;
+            P[i].GravAccel[1] += -SM_V02 / r2 * (1 - SM_a / r * atan(r / SM_a)) * y;
+            P[i].GravAccel[2] += -SM_V02 / r2 * (1 - SM_a / r * atan(r / SM_a)) * z;
 
 
 #ifdef DISTORTIONTENSORPS
@@ -1626,7 +1626,7 @@ static void gravity_static_potential() {
         if(r > 0)
         {
             for(k = 0; k < 2; k++)
-                P[i].g.GravAccel[k] += -All.G * m * (P[i].Pos[k] - 10.0) / (r * r * r);
+                P[i].GravAccel[k] += -All.G * m * (P[i].Pos[k] - 10.0) / (r * r * r);
         }
     }
 

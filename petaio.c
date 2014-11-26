@@ -575,7 +575,6 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int Num
         abort();
     }
     
-
     /* write the buffers one by one in each writer group */
     for(i = 0; i < GroupSize; i ++) {
         MPI_Barrier(GROUP);
@@ -641,9 +640,9 @@ SIMPLE_PROPERTY(Velocity, P[i].Vel[0], float, 3)
 SIMPLE_PROPERTY(Mass, P[i].Mass, float, 1)
 SIMPLE_PROPERTY(ID, P[i].ID, uint64_t, 1)
 SIMPLE_PROPERTY(Generation, P[i].Generation, unsigned char, 1)
-SIMPLE_PROPERTY(Potential, P[i].p.Potential, float, 1)
+SIMPLE_PROPERTY(Potential, P[i].Potential, float, 1)
 SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
-SIMPLE_PROPERTY(Density, SPHP(i).d.Density, float, 1)
+SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 #ifdef DENSITY_INDEPENDENT_SPH
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
 SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
@@ -679,7 +678,7 @@ static void GTNeutralHydrogenFraction(int i, float * out) {
                 SPHP(i).Entropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity *
                     All.cf.a3inv,
                     GAMMA_MINUS1)),
-            SPHP(i).d.Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
+            SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
     *out = nh0;
 } 
 

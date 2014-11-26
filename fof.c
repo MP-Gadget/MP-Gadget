@@ -1014,9 +1014,9 @@ void fof_compute_group_properties(int gr, int start, int len)
             /* make bh in non wind gas on bh wind*/
             if(SPHP(index).DelayTime <= 0)
 #endif
-                if(SPHP(index).d.Density > Group[gr].MaxDens)
+                if(SPHP(index).Density > Group[gr].MaxDens)
                 {
-                    Group[gr].MaxDens = SPHP(index).d.Density;
+                    Group[gr].MaxDens = SPHP(index).Density;
                     Group[gr].index_maxdens = index;
                     Group[gr].task_maxdens = ThisTask;
                 }

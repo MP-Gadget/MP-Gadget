@@ -402,7 +402,7 @@ static void density_copy(int place, struct densdata_in * I) {
     I->APred[0] = SPHP(place).APred[0];
     I->APred[1] = SPHP(place).APred[1];
     I->APred[2] = SPHP(place).APred[2];
-    I->rrho = SPHP(place).d.Density;
+    I->rrho = SPHP(place).Density;
 #endif
 #if defined(MAGNETICSEED)
     I->MagSeed = SPHP(place).MagSeed;
@@ -433,18 +433,18 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 
     if(P[place].Type == 0)
     {
-        EV_REDUCE(SPHP(place).d.dDensity, remote->Rho);
-        EV_REDUCE(SPHP(place).h.dDhsmlDensityFactor, remote->DhsmlDensity);
+        EV_REDUCE(SPHP(place).Density, remote->Rho);
+        EV_REDUCE(SPHP(place).DhsmlDensityFactor, remote->DhsmlDensity);
 #ifdef DENSITY_INDEPENDENT_SPH
         EV_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
         EV_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
 #endif
 
 #ifndef NAVIERSTOKES
-        EV_REDUCE(SPHP(place).v.dDivVel, remote->Div);
-        EV_REDUCE(SPHP(place).r.dRot[0], remote->Rot[0]);
-        EV_REDUCE(SPHP(place).r.dRot[1], remote->Rot[1]);
-        EV_REDUCE(SPHP(place).r.dRot[2], remote->Rot[2]);
+        EV_REDUCE(SPHP(place).DivVel, remote->Div);
+        EV_REDUCE(SPHP(place).r.Rot[0], remote->Rot[0]);
+        EV_REDUCE(SPHP(place).r.Rot[1], remote->Rot[1]);
+        EV_REDUCE(SPHP(place).r.Rot[2], remote->Rot[2]);
 #else
         for(k = 0; k < 3; k++)
         {
@@ -765,7 +765,7 @@ static int density_evaluate(int target, int mode,
 #endif
 #ifdef MAGNETICSEED
                         double spin_0=sqrt(I->MagSeed*mu0_1*2.);//energy to B field
-                        spin_0=3./2.*spin_0/(sqrt(I->Vel[0]*I->Vel[0]+I->Vel[1]*I->Vel[1]+I->Vel[2]*I->Vel[2]));//*SPHP(j).d.Density;
+                        spin_0=3./2.*spin_0/(sqrt(I->Vel[0]*I->Vel[0]+I->Vel[1]*I->Vel[1]+I->Vel[2]*I->Vel[2]));//*SPHP(j).Density;
 
                         if(I->MagSeed)
                         {
@@ -780,11 +780,11 @@ static int density_evaluate(int target, int mode,
 #endif
 #ifdef VECT_PRO_CLEAN
                         O->BPredVec[0] +=
-                            (fac * r2 * (SPHP(j).RotB[1] * dz - SPHP(j).RotB[2] * dy) / SPHP(j).d.Density);
+                            (fac * r2 * (SPHP(j).RotB[1] * dz - SPHP(j).RotB[2] * dy) / SPHP(j).Density);
                         O->BPredVec[1] +=
-                            (fac * r2 * (SPHP(j).RotB[2] * dx - SPHP(j).RotB[0] * dz) / SPHP(j).d.Density);
+                            (fac * r2 * (SPHP(j).RotB[2] * dx - SPHP(j).RotB[0] * dz) / SPHP(j).Density);
                         O->BPredVec[2] +=
-                            (fac * r2 * (SPHP(j).RotB[0] * dy - SPHP(j).RotB[1] * dx) / SPHP(j).d.Density);
+                            (fac * r2 * (SPHP(j).RotB[0] * dy - SPHP(j).RotB[1] * dx) / SPHP(j).Density);
 #endif
 #ifdef EULERPOTENTIALS
                         dea = I->EulerA - SPHP(j).EulerA;
@@ -823,7 +823,7 @@ static int density_evaluate(int target, int mode,
                                     SPHP(j).Entropy / GAMMA_MINUS1 
                                     * pow(SPHP(j).EOMDensity * All.cf.a3inv,
                                         GAMMA_MINUS1)),
-                                SPHP(j).d.Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
+                                SPHP(j).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
 #else
                         double nh0 = 1.0;
 #endif
@@ -906,22 +906,22 @@ static void density_post_process(int i) {
     int dt_step, dt_entr;
     if(P[i].Type == 0)
     {
-        if(SPHP(i).d.Density > 0)
+        if(SPHP(i).Density > 0)
         {
 #ifdef VOLUME_CORRECTION
             SPHP(i).DensityOld = SPHP(i).DensityStd;
 #endif
-            SPHP(i).h.DhsmlDensityFactor *= P[i].Hsml / (NUMDIMS * SPHP(i).d.Density);
-            if(SPHP(i).h.DhsmlDensityFactor > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
-                SPHP(i).h.DhsmlDensityFactor = 1 / (1 + SPHP(i).h.DhsmlDensityFactor);
+            SPHP(i).DhsmlDensityFactor *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
+            if(SPHP(i).DhsmlDensityFactor > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
+                SPHP(i).DhsmlDensityFactor = 1 / (1 + SPHP(i).DhsmlDensityFactor);
             else
-                SPHP(i).h.DhsmlDensityFactor = 1;
+                SPHP(i).DhsmlDensityFactor = 1;
 
 #ifdef DENSITY_INDEPENDENT_SPH
             if((SPHP(i).EntVarPred>0)&&(SPHP(i).EgyWtDensity>0))
             {
                 SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
-                SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).h.DhsmlDensityFactor;
+                SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
                 SPHP(i).EgyWtDensity /= SPHP(i).EntVarPred;
             } else {
                 SPHP(i).DhsmlEgyDensityFactor=0; 
@@ -933,15 +933,15 @@ static void density_post_process(int i) {
 #ifndef NAVIERSTOKES
             SPHP(i).r.CurlVel = sqrt(SPHP(i).r.Rot[0] * SPHP(i).r.Rot[0] +
                     SPHP(i).r.Rot[1] * SPHP(i).r.Rot[1] +
-                    SPHP(i).r.Rot[2] * SPHP(i).r.Rot[2]) / SPHP(i).d.Density;
+                    SPHP(i).r.Rot[2] * SPHP(i).r.Rot[2]) / SPHP(i).Density;
 
-            SPHP(i).v.DivVel /= SPHP(i).d.Density;
+            SPHP(i).DivVel /= SPHP(i).Density;
 #else
             for(k = 0; k < 3; k++)
             {
-                O->DV[k][0] = SPHP(i).u.DV[k][0] / SPHP(i).d.Density;
-                O->DV[k][1] = SPHP(i).u.DV[k][1] / SPHP(i).d.Density;
-                O->DV[k][2] = SPHP(i).u.DV[k][2] / SPHP(i).d.Density;
+                O->DV[k][0] = SPHP(i).u.DV[k][0] / SPHP(i).Density;
+                O->DV[k][1] = SPHP(i).u.DV[k][1] / SPHP(i).Density;
+                O->DV[k][2] = SPHP(i).u.DV[k][2] / SPHP(i).Density;
             }
             SPHP(i).u.s.DivVel = O->DV[0][0] + O->DV[1][1] + O->DV[2][2];
 
@@ -964,26 +964,26 @@ static void density_post_process(int i) {
 
 
 #ifdef CONDUCTION_SATURATION
-            SPHP(i).GradEntr[0] /= SPHP(i).d.Density;
-            SPHP(i).GradEntr[1] /= SPHP(i).d.Density;
-            SPHP(i).GradEntr[2] /= SPHP(i).d.Density;
+            SPHP(i).GradEntr[0] /= SPHP(i).Density;
+            SPHP(i).GradEntr[1] /= SPHP(i).Density;
+            SPHP(i).GradEntr[2] /= SPHP(i).Density;
 #endif
 
 
 #ifdef RADTRANSFER_FLUXLIMITER
             for(k = 0; k< N_BINS; k++)
             {
-                SPHP(i).Grad_ngamma[0][k] /= SPHP(i).d.Density;
-                SPHP(i).Grad_ngamma[1][k] /= SPHP(i).d.Density;
-                SPHP(i).Grad_ngamma[2][k] /= SPHP(i).d.Density;
+                SPHP(i).Grad_ngamma[0][k] /= SPHP(i).Density;
+                SPHP(i).Grad_ngamma[1][k] /= SPHP(i).Density;
+                SPHP(i).Grad_ngamma[2][k] /= SPHP(i).Density;
             }
 #endif
 
 
 #if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-            SPHP(i).RotB[0] /= SPHP(i).d.Density;
-            SPHP(i).RotB[1] /= SPHP(i).d.Density;
-            SPHP(i).RotB[2] /= SPHP(i).d.Density;
+            SPHP(i).RotB[0] /= SPHP(i).Density;
+            SPHP(i).RotB[1] /= SPHP(i).Density;
+            SPHP(i).RotB[2] /= SPHP(i).Density;
 #endif
 
 #ifdef JD_VTURB
@@ -994,7 +994,7 @@ static void density_post_process(int i) {
 #endif
 
 #ifdef TRACEDIVB
-            SPHP(i).divB /= SPHP(i).d.Density;
+            SPHP(i).divB /= SPHP(i).Density;
 #endif
 
 #ifdef VECT_PRO_CLEAN
@@ -1003,12 +1003,12 @@ static void density_post_process(int i) {
             SPHP(i).BPred[2] += efak * SPHP(i).BPredVec[2];
 #endif
 #ifdef EULERPOTENTIALS
-            SPHP(i).dEulerA[0] *= efak / SPHP(i).d.Density;
-            SPHP(i).dEulerA[1] *= efak / SPHP(i).d.Density;
-            SPHP(i).dEulerA[2] *= efak / SPHP(i).d.Density;
-            SPHP(i).dEulerB[0] *= efak / SPHP(i).d.Density;
-            SPHP(i).dEulerB[1] *= efak / SPHP(i).d.Density;
-            SPHP(i).dEulerB[2] *= efak / SPHP(i).d.Density;
+            SPHP(i).dEulerA[0] *= efak / SPHP(i).Density;
+            SPHP(i).dEulerA[1] *= efak / SPHP(i).Density;
+            SPHP(i).dEulerA[2] *= efak / SPHP(i).Density;
+            SPHP(i).dEulerB[0] *= efak / SPHP(i).Density;
+            SPHP(i).dEulerB[1] *= efak / SPHP(i).Density;
+            SPHP(i).dEulerB[2] *= efak / SPHP(i).Density;
 
             SPHP(i).BPred[0] =
                 SPHP(i).dEulerA[1] * SPHP(i).dEulerB[2] - SPHP(i).dEulerA[2] * SPHP(i).dEulerB[1];
@@ -1018,15 +1018,15 @@ static void density_post_process(int i) {
                 SPHP(i).dEulerA[0] * SPHP(i).dEulerB[1] - SPHP(i).dEulerA[1] * SPHP(i).dEulerB[0];
 #endif
 #ifdef	VECT_POTENTIAL
-            SPHP(i).BPred[0] = (SPHP(i).dA[5] - SPHP(i).dA[3]) / SPHP(i).d.Density * efak;
-            SPHP(i).BPred[1] = (SPHP(i).dA[1] - SPHP(i).dA[4]) / SPHP(i).d.Density * efak;
-            SPHP(i).BPred[2] = (SPHP(i).dA[2] - SPHP(i).dA[0]) / SPHP(i).d.Density * efak;
+            SPHP(i).BPred[0] = (SPHP(i).dA[5] - SPHP(i).dA[3]) / SPHP(i).Density * efak;
+            SPHP(i).BPred[1] = (SPHP(i).dA[1] - SPHP(i).dA[4]) / SPHP(i).Density * efak;
+            SPHP(i).BPred[2] = (SPHP(i).dA[2] - SPHP(i).dA[0]) / SPHP(i).Density * efak;
 
 #endif
 #ifdef MAGNETICSEED
             if(SPHP(i).MagSeed!=0. )
             {
-                SPHP(i).MagSeed=sqrt(2.0*mu0*SPHP(i).MagSeed)/ //// *SPHP(i).d.Density /
+                SPHP(i).MagSeed=sqrt(2.0*mu0*SPHP(i).MagSeed)/ //// *SPHP(i).Density /
                     sqrt(
                             SPHP(i).VelPred[2]*SPHP(i).VelPred[2]+
                             SPHP(i).VelPred[1]*SPHP(i).VelPred[1]+
@@ -1059,12 +1059,12 @@ static void density_post_process(int i) {
         SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
 #else
         SPHP(i).Pressure =
-            (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA);
+            (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
 #endif // DENSITY_INDEPENDENT_SPH
 
 #else
         SPHP(i).Pressure =
-            GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * SPHP(i).d.Density;
+            GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * SPHP(i).Density;
 #endif // TRADITIONAL_SPH_FORMULATION
 
 #else
@@ -1074,34 +1074,34 @@ static void density_post_process(int i) {
 #ifdef DENSITY_INDEPENDENT_SPH
 #error pressure entropy incompatible with softereqs
         /* use an intermediate EQS, between isothermal and the full multiphase model */
-        if(SPHP(i).d.Density * All.cf.a3inv >= All.PhysDensThresh)
+        if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
             SPHP(i).Pressure = All.FactorForSofterEQS *
-                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA) +
+                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA) +
                 (1 -
-                 All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
+                 All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
         else
             SPHP(i).Pressure =
-                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA);
+                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
 #else
         /* use an intermediate EQS, between isothermal and the full multiphase model */
-        if(SPHP(i).d.Density * All.cf.a3inv >= All.PhysDensThresh)
+        if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
             SPHP(i).Pressure = All.FactorForSofterEQS *
-                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA) +
+                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA) +
                 (1 -
-                 All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
+                 All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
         else
             SPHP(i).Pressure =
-                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).d.Density, GAMMA);
+                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
 #endif // DENSITY_INDEPENDENT_SPH
 #endif // SOFTEREQS
 #else
         /* Here we use an isothermal equation of state */
-        SPHP(i).Pressure = All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
-        SPHP(i).Entropy = SPHP(i).Pressure / pow(SPHP(i).d.Density, GAMMA);
+        SPHP(i).Pressure = All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
+        SPHP(i).Entropy = SPHP(i).Pressure / pow(SPHP(i).Density, GAMMA);
 #endif
 #else
         /* call tabulated eos with physical units */
-        eos_calc_egiven_v(SPHP(i).d.Density * All.UnitDensity_in_cgs, SPHP(i).xnuc,
+        eos_calc_egiven_v(SPHP(i).Density * All.UnitDensity_in_cgs, SPHP(i).xnuc,
                 SPHP(i).dxnuc, dt_entr * All.UnitTime_in_s, SPHP(i).Entropy,
                 SPHP(i).e.DtEntropy, &SPHP(i).temp, &SPHP(i).Pressure, &SPHP(i).dpdr);
         SPHP(i).Pressure /= All.UnitPressure_in_cgs;
@@ -1179,7 +1179,7 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
                 {
                     double fac = 1 - (P[i].n.NumNgb -
                             desnumngb) / (NUMDIMS * P[i].n.NumNgb) *
-                        SPHP(i).h.DhsmlDensityFactor;
+                        SPHP(i).DhsmlDensityFactor;
 
                     if(fac < 1.26)
                         P[i].Hsml *= fac;
@@ -1196,7 +1196,7 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
                 {
                     double fac = 1 - (P[i].n.NumNgb -
                             desnumngb) / (NUMDIMS * P[i].n.NumNgb) *
-                        SPHP(i).h.DhsmlDensityFactor;
+                        SPHP(i).DhsmlDensityFactor;
 
                     if(fac > 1 / 1.26)
                         P[i].Hsml *= fac;

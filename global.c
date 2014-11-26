@@ -48,7 +48,7 @@ void compute_global_quantities_of_system(void)
       sys.MassComp[P[i].Type] += P[i].Mass;
 
 #if defined(EVALPOTENTIAL) || defined(COMPUTE_POTENTIAL_ENERGY)
-      sys.EnergyPotComp[P[i].Type] += 0.5 * P[i].Mass * P[i].p.Potential / a1;
+      sys.EnergyPotComp[P[i].Type] += 0.5 * P[i].Mass * P[i].Potential / a1;
 #endif
 
 #ifndef WAKEUP
@@ -71,12 +71,12 @@ void compute_global_quantities_of_system(void)
 
       for(j = 0; j < 3; j++)
 	{
-	  vel[j] = P[i].Vel[j] + P[i].g.GravAccel[j] * dt_gravkick;
+	  vel[j] = P[i].Vel[j] + P[i].GravAccel[j] * dt_gravkick;
 	  if(P[i].Type == 0)
-	    vel[j] += SPHP(i).a.HydroAccel[j] * dt_hydrokick;
+	    vel[j] += SPHP(i).HydroAccel[j] * dt_hydrokick;
 	}
       if(P[i].Type == 0)
-	entr = SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr;
+	entr = SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr;
 
 #ifdef PETAPM
       if(All.ComovingIntegrationOn)

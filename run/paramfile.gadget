@@ -146,8 +146,8 @@ BlackHoleAccretionFactor   100.0
 BlackHoleNgbFactor         2.0
 BlackHoleEddingtonFactor   3.0
 
-MinFoFMassForNewSeed       5.0
-TimeBetBlackHoleSearch     0.10
+MinFoFMassForNewSeed       0.01
+TimeBetBlackHoleSearch     1.01
 BlackHoleMaxAccretionRadius 999999 % need to ask Volker about this
 
 %----------------------BH Stuff-------------------------

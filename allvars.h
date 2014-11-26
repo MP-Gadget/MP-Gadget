@@ -1253,11 +1253,7 @@ extern struct particle_data
     MyIDType ID;
     MyIDType SwallowID; /* who will swallow this particle */
     MyDouble Vel[3];   /*!< particle velocity at its current time */
-    union
-    {
-        MyFloat       GravAccel[3];		/*!< particle acceleration due to gravity */
-        MyDouble dGravAccel[3];
-    } g;  
+    MyFloat       GravAccel[3];		/*!< particle acceleration due to gravity */
 #ifdef PETAPM
     MyFloat GravPM[3];		/*!< particle acceleration due to long-range PM gravity force */
 #endif
@@ -1265,11 +1261,7 @@ extern struct particle_data
     MyFloat GravAccelDirect[3];	/*!< particle acceleration calculated by direct summation */
 #endif
 #if defined(EVALPOTENTIAL) || defined(COMPUTE_POTENTIAL_ENERGY) || defined(OUTPUTPOTENTIAL)
-    union
-    {
-        MyFloat       Potential;		/*!< gravitational potential */
-        MyDouble dPotential;
-    } p;
+    MyFloat       Potential;		/*!< gravitational potential */
 #endif
 
 #ifdef DISTORTIONTENSORPS
@@ -1396,37 +1388,15 @@ extern struct sph_particle_data
     MyFloat DensityStd;
 #endif
     
-    union
-    {
-        MyFloat       Density;		/*!< current baryonic mass density of particle */
-        MyDouble dDensity;
-    } d;
-    union
-    {
-        MyFloat       DtEntropy;		/*!< rate of change of entropy */
-        MyDouble dDtEntropy;
-    } e;
-    union
-    {
-        MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
-        MyDouble dHydroAccel[3];
-    } a;
-    union
-    {
-        MyFloat       DhsmlDensityFactor;	/*!< correction factor needed in entropy formulation of SPH */
-        MyDouble dDhsmlDensityFactor;
-    } h;
-    union
-    {
-        MyFloat       DivVel;		/*!< local velocity divergence */
-        MyDouble dDivVel;
-    } v;
+    MyFloat       Density;		/*!< current baryonic mass density of particle */
+    MyFloat       DtEntropy;		/*!< rate of change of entropy */
+    MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
+    MyFloat       DhsmlDensityFactor;	/*!< correction factor needed in entropy formulation of SPH */
+    MyFloat       DivVel;		/*!< local velocity divergence */
 #ifndef NAVIERSTOKES
-    union
-    {
+    union {
         MyFloat CurlVel;     	        /*!< local velocity curl */
         MyFloat       Rot[3];		/*!< local velocity curl */
-        MyDouble dRot[3];
     } r;
 #else
     union
@@ -1446,11 +1416,7 @@ extern struct sph_particle_data
 #endif
 
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
-    union
-    {
-        MyFloat       Injected_BH_Energy;
-        MyDouble dInjected_BH_Energy;
-    } i;
+    MyFloat       Injected_BH_Energy;
 #endif
 
 #ifdef COOLING

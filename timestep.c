@@ -40,7 +40,7 @@ void set_global_time(double newtime) {
     }
 }
 
-/*! This function advances the system in momentum space, i.e. it does apply the 'kick' operation after the
+/*! This function advances the system in momentum space, i. it does apply the 'kick' operation after the
  *  forces have been computed. Additionally, it assigns new timesteps to particles. At start-up, a
  *  half-timestep is carried out, as well as at the end of the simulation. In between, the half-step kick that
  *  ends the previous timestep and the half-step kick for the new timestep are combined into one operation.
@@ -102,16 +102,16 @@ void advance_and_find_timesteps(void)
     {
         for(j = 0; j < 3; j++)
         {
-            P[i].g.GravAccel[j] *= -1;
+            P[i].GravAccel[j] *= -1;
 #ifdef PETAPM
             P[i].GravPM[j] *= -1;
-            P[i].g.GravAccel[j] += P[i].GravPM[j];
+            P[i].GravAccel[j] += P[i].GravPM[j];
             P[i].GravPM[j] = 0;
 #endif
         }
 
-        disp = sqrt(P[i].g.GravAccel[0] * P[i].g.GravAccel[0] +
-                P[i].g.GravAccel[1] * P[i].g.GravAccel[1] + P[i].g.GravAccel[2] * P[i].g.GravAccel[2]);
+        disp = sqrt(P[i].GravAccel[0] * P[i].GravAccel[0] +
+                P[i].GravAccel[1] * P[i].GravAccel[1] + P[i].GravAccel[2] * P[i].GravAccel[2]);
 
         disp *= 2.0 / (3 * All.Hubble * All.Hubble);
 
@@ -143,8 +143,8 @@ void advance_and_find_timesteps(void)
         for(j = 0; j < 3; j++)
         {
             P[i].Vel[j] = 0;
-            P[i].Pos[j] += fac * P[i].g.GravAccel[j] * 2.0 / (3 * All.Hubble * All.Hubble);
-            P[i].g.GravAccel[j] = 0;
+            P[i].Pos[j] += fac * P[i].GravAccel[j] * 2.0 / (3 * All.Hubble * All.Hubble);
+            P[i].GravAccel[j] = 0;
         }
     }
 #endif
@@ -477,8 +477,8 @@ void advance_and_find_timesteps(void)
 
                 for(j = 0; j < 3; j++)
                     SPHP(i).VelPred[j] = P[i].Vel[j]
-                        + P[i].g.GravAccel[j] * dt_gravkickA
-                        + SPHP(i).a.HydroAccel[j] * dt_hydrokick + P[i].GravPM[j] * dt_gravkickB;
+                        + P[i].GravAccel[j] * dt_gravkickA
+                        + SPHP(i).HydroAccel[j] * dt_hydrokick + P[i].GravPM[j] * dt_gravkickB;
             }
         }
     }
@@ -626,12 +626,12 @@ dt_gravkickB = (All.Ti_Current - (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2) * 
              * as the position of the particle was calculated with a "wrong" velocity before  */
             for(k = 0; k < 3; k++)
             {
-                P[i].Vel[k] += P[i].g.GravAccel[k] * dt_gravkick;
+                P[i].Vel[k] += P[i].GravAccel[k] * dt_gravkick;
             }
 
             for(k = 0; k < 3; k++)
             {
-                P[i].Vel[k] += SPHP(i).a.HydroAccel[k] * dt_hydrokick;
+                P[i].Vel[k] += SPHP(i).HydroAccel[k] * dt_hydrokick;
             }
 #if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
             for(k = 0; k < 3; k++)
@@ -641,9 +641,9 @@ dt_gravkickB = (All.Ti_Current - (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2) * 
             }
 #endif
 #if !defined(EOS_DEGENERATE)
-            SPHP(i).Entropy += SPHP(i).e.DtEntropy * dt_entr;
+            SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
 #else
-            SPHP(i).Entropy += SPHP(i).e.DtEntropy * dt_entr * All.UnitTime_in_s;
+            SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr * All.UnitTime_in_s;
 #endif
 
 #ifdef NUCLEAR_NETWORK
@@ -715,7 +715,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
 
     for(j = 0; j < 3; j++)
     {
-        dv[j] = P[i].g.GravAccel[j] * dt_gravkick;
+        dv[j] = P[i].GravAccel[j] * dt_gravkick;
 #ifdef RELAXOBJECT
         dv[j] -= P[i].Vel[j] * All.RelaxFac * dt_gravkick;
 #endif
@@ -751,12 +751,12 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
     {
         for(j = 0; j < 3; j++)
         {
-            //        SPHP(i).a.HydroAccel[0] = 0.0;
-            dv[j] += SPHP(i).a.HydroAccel[j] * dt_hydrokick;
-            P[i].Vel[j] += SPHP(i).a.HydroAccel[j] * dt_hydrokick;
+            //        SPHP(i).HydroAccel[0] = 0.0;
+            dv[j] += SPHP(i).HydroAccel[j] * dt_hydrokick;
+            P[i].Vel[j] += SPHP(i).HydroAccel[j] * dt_hydrokick;
 
             SPHP(i).VelPred[j] =
-                P[i].Vel[j] - dt_gravkick2 * P[i].g.GravAccel[j] - dt_hydrokick2 * SPHP(i).a.HydroAccel[j];
+                P[i].Vel[j] - dt_gravkick2 * P[i].GravAccel[j] - dt_hydrokick2 * SPHP(i).HydroAccel[j];
 #ifdef PETAPM
             SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
 #endif
@@ -780,7 +780,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
             {
                 P[i].Vel[j] *= MAX_GAS_VEL * velfac / vv;
                 SPHP(i).VelPred[j] =
-                    P[i].Vel[j] - dt_gravkick2 * P[i].g.GravAccel[j] - dt_hydrokick2 * SPHP(i).a.HydroAccel[j];
+                    P[i].Vel[j] - dt_gravkick2 * P[i].GravAccel[j] - dt_hydrokick2 * SPHP(i).HydroAccel[j];
 #ifdef PETAPM
                 SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
 #endif
@@ -806,11 +806,11 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
         /* In case of cooling, we prevent that the entropy (and
            hence temperature decreases by more than a factor 0.5 */
 
-        if(SPHP(i).e.DtEntropy * dt_entr > -0.5 * SPHP(i).Entropy)
+        if(SPHP(i).DtEntropy * dt_entr > -0.5 * SPHP(i).Entropy)
 #if !defined(EOS_DEGENERATE)
-            SPHP(i).Entropy += SPHP(i).e.DtEntropy * dt_entr;
+            SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
 #else
-        SPHP(i).Entropy += SPHP(i).e.DtEntropy * dt_entr * All.UnitTime_in_s;
+        SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr * All.UnitTime_in_s;
 #endif
         else
             SPHP(i).Entropy *= 0.5;
@@ -842,7 +842,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
             if(SPHP(i).Entropy < minentropy)
             {
                 SPHP(i).Entropy = minentropy;
-                SPHP(i).e.DtEntropy = 0;
+                SPHP(i).DtEntropy = 0;
             }
         }
 
@@ -853,8 +853,8 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
 #else
         dt_entr = P[i].dt_step / 2 * All.Timebase_interval;
 #endif
-        if(SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr < 0.5 * SPHP(i).Entropy)
-            SPHP(i).e.DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr;
+        if(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr < 0.5 * SPHP(i).Entropy)
+            SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr;
     }
 
     if(All.DoDynamicUpdate)
@@ -912,9 +912,9 @@ int get_timestep(int p,		/*!< particle index */
 
     if(flag <= 0)
     {
-        ax = All.cf.a2inv * P[p].g.GravAccel[0];
-        ay = All.cf.a2inv * P[p].g.GravAccel[1];
-        az = All.cf.a2inv * P[p].g.GravAccel[2];
+        ax = All.cf.a2inv * P[p].GravAccel[0];
+        ay = All.cf.a2inv * P[p].GravAccel[1];
+        az = All.cf.a2inv * P[p].GravAccel[2];
 
 #ifdef PETAPM
         ax += All.cf.a2inv * P[p].GravPM[0];
@@ -924,9 +924,9 @@ int get_timestep(int p,		/*!< particle index */
 
         if(P[p].Type == 0)
         {
-            ax += fac2 * SPHP(p).a.HydroAccel[0];
-            ay += fac2 * SPHP(p).a.HydroAccel[1];
-            az += fac2 * SPHP(p).a.HydroAccel[2];
+            ax += fac2 * SPHP(p).HydroAccel[0];
+            ay += fac2 * SPHP(p).HydroAccel[1];
+            az += fac2 * SPHP(p).HydroAccel[2];
         }
 
         ac = sqrt(ax * ax + ay * ay + az * az);	/* this is now the physical acceleration */
@@ -1148,20 +1148,20 @@ int get_timestep(int p,		/*!< particle index */
                 "Task=%d type %d Part-ID=%llu dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
                 ThisTask, P[p].Type, (MyIDType)P[p].ID, dt, dt_courant, dt_viscous, dt_displacement,
                 All.Timebase_interval, ti_step, ac,
-                P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].g.GravAccel[0], P[p].g.GravAccel[1],
-                P[p].g.GravAccel[2],
+                P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].GravAccel[0], P[p].GravAccel[1],
+                P[p].GravAccel[2],
                 sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac) * All.cf.hubble, All.ErrTolIntAccuracy
               );
 #ifdef PETAPM
         printf("pm_force=(%g|%g|%g)\n", P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]);
 #endif
         if(P[p].Type == 0)
-            printf("hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SPHP(p).a.HydroAccel[0], SPHP(p).a.HydroAccel[1],
-                    SPHP(p).a.HydroAccel[2], SPHP(p).d.Density, P[p].Hsml, P[p].n.NumNgb);
+            printf("hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1],
+                    SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].n.NumNgb);
 #ifdef DENSITY_INDEPENDENT_SPH
         if(P[p].Type == 0)
             printf("egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, SPHP(p).EntVarPred,
-                    SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).e.DtEntropy, SPHP(p).Pressure);
+                    SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).Pressure);
 #endif
 #ifdef SFR
         if(P[p].Type == 0) {
@@ -1170,7 +1170,7 @@ int get_timestep(int p,		/*!< particle index */
 #endif
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
         if(P[p].Type == 0) {
-            printf("injected_energy = %g\n" , SPHP(p).i.Injected_BH_Energy);
+            printf("injected_energy = %g\n" , SPHP(p).Injected_BH_Energy);
         }
 #endif
         fflush(stdout);

@@ -764,8 +764,8 @@ void force_update_node_recursive(int no, int sib, int father)
                         if(P[p].Hsml > hmax)
                             hmax = P[p].Hsml;
 
-                        if(SPHP(p).v.DivVel > divVmax)
-                            divVmax = SPHP(p).v.DivVel;
+                        if(SPHP(p).DivVel > divVmax)
+                            divVmax = SPHP(p).DivVel;
                     }
 
                     for(k = 0; k < 3; k++)
@@ -1907,13 +1907,13 @@ void force_update_hmax(void)
             {
                 real_force_drift_node(no, All.Ti_Current);
 
-                if(P[i].Hsml > Extnodes[no].hmax || SPHP(i).v.DivVel > Extnodes[no].divVmax)
+                if(P[i].Hsml > Extnodes[no].hmax || SPHP(i).DivVel > Extnodes[no].divVmax)
                 {
                     if(P[i].Hsml > Extnodes[no].hmax)
                         Extnodes[no].hmax = P[i].Hsml;
 
-                    if(SPHP(i).v.DivVel > Extnodes[no].divVmax)
-                        Extnodes[no].divVmax = SPHP(i).v.DivVel;
+                    if(SPHP(i).DivVel > Extnodes[no].divVmax)
+                        Extnodes[no].divVmax = SPHP(i).DivVel;
 
                     if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node */
                     {
@@ -3410,7 +3410,7 @@ int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, 
     /* store result at the proper place */
 #if defined(EVALPOTENTIAL) || defined(COMPUTE_POTENTIAL_ENERGY) || defined(OUTPUTPOTENTIAL)
     if(mode == 0)
-        P[target].p.dPotential = pot;
+        P[target].Potential = pot;
     else
         PotDataResult[target].Potential = pot;
 #endif
