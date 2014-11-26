@@ -429,9 +429,10 @@ static int blackhole_feedback_evaluate(int target, int mode,
 
                 if(P[j].Mass < 0) continue;
 
-                if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin) 
-                    O->BH_TimeBinLimit = P[j].TimeBin;
-
+                if(P[j].Type != 5) {
+                    if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin) 
+                        O->BH_TimeBinLimit = P[j].TimeBin;
+                }
                 double dx = I->Pos[0] - P[j].Pos[0];
                 double dy = I->Pos[1] - P[j].Pos[1];
                 double dz = I->Pos[2] - P[j].Pos[2];
