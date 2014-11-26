@@ -994,6 +994,7 @@ int domain_fork_particle(int parent) {
     /* the PIndex still points to the old PIndex */
     P[child].Mass = 0;
 
+    /* FIXME: these are not thread safe !!not !!*/
     TimeBinCount[P[child].TimeBin]++;
 
     PrevInTimeBin[child] = parent;
@@ -1003,7 +1004,11 @@ int domain_fork_particle(int parent) {
     NextInTimeBin[parent] = child;
     if(LastInTimeBin[P[parent].TimeBin] == parent)
         LastInTimeBin[P[parent].TimeBin] = child;
-    NumForceUpdate++;
+
+    /* increase NumForceUpdate only if this particle was
+     * active */
+    if(TimeBinActive[P[child].TimeBin])
+        NumForceUpdate++;
 
     /*! When a new additional star particle is created, we can put it into the
      *  tree at the position of the spawning gas particle. This is possible
