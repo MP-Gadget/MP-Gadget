@@ -336,28 +336,6 @@ static void blackhole_accretion_evaluate(int n) {
     }
     double dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
 
-#ifdef BH_DRAG
-    /* add a drag force for the black-holes,
-       accounting for the accretion */
-    double fac;
-
-    if(BHP(n).Mass > 0)
-    {
-        int k;
-        fac = BHP(n).Mdot * dt / BHP(n).Mass;
-        /*
-           fac = meddington * dt / BHP(n).Mass;
-           */
-        if(fac > 1)
-            fac = 1;
-
-        if(dt > 0)
-            for(k = 0; k < 3; k++)
-                P[n].GravAccel[k] +=
-                    -All.cf.a2inv * fac / dt * (P[n].Vel[k] - BHP(n).SurroundingGasVel[k]) / All.cf.a;
-    }
-#endif
-
     BHP(n).Mass += BHP(n).Mdot * dt;
 
 }
