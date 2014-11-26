@@ -150,6 +150,9 @@ void cooling_and_starformation(void)
         /* always do direct cooling in these cases */
         cooling_direct(i);
 #endif
+#ifdef ENDLESSSTARS
+        flag = 0;
+#endif
         if(flag == 0) {
             /* active star formation */
             starformation(i);
@@ -776,7 +779,6 @@ static void starformation(int i) {
 
     double mass_of_star = All.MassTable[0] / GENERATIONS;
 
-#if !defined(QUICK_LYALPHA)
     double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
         /*  the actual time-step */
 
@@ -813,12 +815,9 @@ static void starformation(int i) {
 
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
 
-#else /* belongs to ifndef(QUICK_LYALPHA) */
-
-    SPHP(i).Sfr = 0;
-    double prob = 2;
-#endif /* ends to QUICK_LYALPHA */
-
+#ifdef ENDLESSSTARS
+    prob = 2.0;
+#endif
     if(get_random_number(P[i].ID + 1) < prob)	{
         make_particle_star(i);
     }
@@ -854,6 +853,7 @@ static double get_starformation_rate_full(int i, double dtime, double * ne_new, 
     double tsfr;
     double factorEVP, egyhot, ne, tcool, y, x, cloudmass;
     struct UVBG uvbg;
+
     flag = get_sfr_condition(i);
 
     if(flag == 1) {
