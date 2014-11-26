@@ -652,9 +652,7 @@ void gravtree_reduce(int place, struct gravitydata_out * result, int mode) {
 #endif
 
     REDUCE(P[place].GravCost, result->Ninteractions);
-#ifdef EVALPOTENTIAL
     REDUCE(P[place].Potential, result->Potential);
-#endif
 }
 void gravtree_reduce_ewald(int place, struct gravitydata_out * result, int mode) {
     int k;
@@ -769,7 +767,7 @@ static void gravtree_post_process(int i) {
             P[i].tidal_tensorps[i1][i2] *= All.G;
 #endif /* DISTORTIONTENSORPS */
 
-#ifdef EVALPOTENTIAL
+    /* calculate the potential */
     /* remove self-potential */
     P[i].Potential += P[i].Mass / All.SofteningTable[P[i].Type];
 
@@ -811,7 +809,7 @@ static void gravtree_post_process(int i) {
             P[i].Potential += fac * r2;
         }
     }
-#endif
+
     /* Finally, the following factor allows a computation of a cosmological simulation
        with vacuum energy in physical coordinates */
 #ifndef PERIODIC

@@ -19,7 +19,6 @@ OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & 
 OPT += -DWINDS
 OPT += -DPETAPM  # new peta scale PFFT based PM
 OPT += -DPETAPM_ORDER=1  # order of finite differentiation kernel 1 is same as gadget
-OPT	+=  -DEVALPOTENTIAL           # computes gravitational potential
 
 #--------------------------------------- TreePM Options
 #OPT	+=  -DGRIDBOOST=2

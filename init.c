@@ -391,10 +391,10 @@ void init(void)
             P[i].OldAcc = 0;	/* Do not zero in 2lpt case as masses are stored here */
 
         P[i].GravCost = 1;
-#if defined(EVALPOTENTIAL) || defined(COMPUTE_POTENTIAL_ENERGY)
+
         if(RestartFlag < 3)
             P[i].Potential = 0;
-#endif
+
 #ifdef STELLARAGE
         if(RestartFlag == 0)
             P[i].StellarAge = 0;

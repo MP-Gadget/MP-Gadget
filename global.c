@@ -47,9 +47,7 @@ void compute_global_quantities_of_system(void)
     {
       sys.MassComp[P[i].Type] += P[i].Mass;
 
-#if defined(EVALPOTENTIAL) || defined(COMPUTE_POTENTIAL_ENERGY)
       sys.EnergyPotComp[P[i].Type] += 0.5 * P[i].Mass * P[i].Potential / a1;
-#endif
 
 #ifndef WAKEUP
       dt_step = P[i].TimeBin ? (1 << P[i].TimeBin) : 0;

@@ -57,9 +57,8 @@ void long_range_force(void)
   for(i = 0; i < NumPart; i++)
     {
       P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
-#ifdef EVALPOTENTIAL
       P[i].PM_Potential = 0;
-#endif
+
 #ifdef DISTORTIONTENSORPS
       P[i].tidal_tensorpsPM[0][0] = 0;
       P[i].tidal_tensorpsPM[0][1] = 0;

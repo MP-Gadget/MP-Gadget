@@ -427,14 +427,6 @@ void find_next_sync_point_and_drift(void)
 
         move_particles(All.Ti_nextoutput);
 
-
-#ifdef OUTPUTPOTENTIAL
-#if !defined(EVALPOTENTIAL) || (defined(EVALPOTENTIAL) && defined(RECOMPUTE_POTENTIAL_ON_OUTPUT))
-        compute_potential();
-#endif
-#endif
-
-
         savepositions(All.SnapshotFileCount++, stopflag);	/* write snapshot file */
 
         All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);

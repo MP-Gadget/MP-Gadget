@@ -2038,12 +2038,11 @@ int force_treeevaluate(int target, int mode,
 #ifdef SCALARFIELD
     double dx_dm = 0, dy_dm = 0, dz_dm = 0, mass_dm = 0;
 #endif
-#ifdef EVALPOTENTIAL
+
     double wp;
     MyDouble pot;
 
     pot = 0.0;
-#endif
 
 #ifdef DISTORTIONTENSORPS
     int i1, i2;
@@ -2326,9 +2325,7 @@ int force_treeevaluate(int target, int mode,
             if(r >= h)
             {
                 fac = mass / (r2 * r);
-#ifdef EVALPOTENTIAL
                 pot += (-mass / r);
-#endif
             }
             else
             {
@@ -2343,7 +2340,8 @@ int force_treeevaluate(int target, int mode,
                     fac =
                         mass * h3_inv * (21.333333333333 - 48.0 * u +
                                 38.4 * u * u - 10.666666666667 * u * u * u - 0.066666666667 / (u * u * u));
-#ifdef EVALPOTENTIAL
+
+                /* now the potential */
                 if(u < 0.5)
                     wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
                 else
@@ -2351,7 +2349,6 @@ int force_treeevaluate(int target, int mode,
                         -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
                                 u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
                 pot += (mass * h_inv * wp);
-#endif
             }
 
             acc_x += (dx * fac);
@@ -2531,9 +2528,7 @@ int force_treeevaluate(int target, int mode,
     output->Acc[1] = acc_y;
     output->Acc[2] = acc_z;
     output->Ninteractions = ninteractions;
-#ifdef EVALPOTENTIAL
     output->Potential = pot;
-#endif
 
 #ifdef DISTORTIONTENSORPS
     for(i1 = 0; i1 < 3; i1++)
@@ -2585,12 +2580,11 @@ int force_treeevaluate_shortrange(int target, int mode,
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     double soft = 0;
 #endif
-#ifdef EVALPOTENTIAL
     double wp, facpot;
     MyDouble pot;
 
     pot = 0;
-#endif
+    
 #ifdef PERIODIC
     double boxsize, boxhalf;
 
@@ -2891,9 +2885,7 @@ int force_treeevaluate_shortrange(int target, int mode,
                 /* second derivative of potential needs this factor */
                 fac2 = 3.0 * mass / (r2 * r2 * r);
 #endif
-#ifdef EVALPOTENTIAL
                 facpot = -mass / r;
-#endif
             }
             else
             {
@@ -2911,7 +2903,6 @@ int force_treeevaluate_shortrange(int target, int mode,
                     fac =
                         mass * h3_inv * (21.333333333333 - 48.0 * u +
                                 38.4 * u * u - 10.666666666667 * u * u * u - 0.066666666667 / (u * u * u));
-#ifdef EVALPOTENTIAL
                 if(u < 0.5)
                     wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
                 else
@@ -2920,7 +2911,7 @@ int force_treeevaluate_shortrange(int target, int mode,
                                 u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
 
                 facpot = mass * h_inv * wp;
-#endif
+
 #ifdef DISTORTIONTENSORPS
                 /*second derivates needed -> calculate them from softend potential,
                   (see Gadget 1 paper and there g2 function). SIGN?! */
@@ -2969,9 +2960,7 @@ int force_treeevaluate_shortrange(int target, int mode,
                 tidal_tensorps[2][0] = tidal_tensorps[0][2];
                 tidal_tensorps[2][1] = tidal_tensorps[1][2];
 #endif
-#ifdef EVALPOTENTIAL
                 pot += (facpot * shortrange_table_potential[tabindex]);
-#endif
                 ninteractions++;
             }
 
@@ -3036,9 +3025,8 @@ int force_treeevaluate_shortrange(int target, int mode,
         output->Acc[1] = acc_y;
         output->Acc[2] = acc_z;
         output->Ninteractions = ninteractions;
-#ifdef EVALPOTENTIAL
         output->Potential = pot;
-#endif
+        
 #ifdef DISTORTIONTENSORPS
         for(i1 = 0; i1 < 3; i1++)
             for(i2 = 0; i2 < 3; i2++)
@@ -3051,374 +3039,6 @@ int force_treeevaluate_shortrange(int target, int mode,
 }
 
 #endif
-
-#ifdef PETAPM
-/*! This function computes the short-range potential when the TreePM
- *  algorithm is used. This potential is the Newtonian potential, modified
- *  by a complementary error function.
- */
-int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, int *nsend_local)
-{
-    struct NODE *nop = 0;
-    MyDouble pot;
-    int no, ptype, tabindex, task, nexport_save, listindex = 0;
-    double r2, dx, dy, dz, mass, r, u, h, h_inv, wp;
-    double pos_x, pos_y, pos_z, aold;
-    double eff_dist, fac, rcut, asmth, asmthfac;
-    double dxx, dyy, dzz;
-
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    double soft = 0;
-#endif
-#ifdef PERIODIC
-    double boxsize, boxhalf;
-
-    boxsize = All.BoxSize;
-    boxhalf = 0.5 * All.BoxSize;
-#endif
-    nexport_save = *nexport;
-    pot = 0;
-
-    rcut = All.Rcut[0];
-    asmth = All.Asmth[0];
-
-    if(mode == 0)
-    {
-        pos_x = P[target].Pos[0];
-        pos_y = P[target].Pos[1];
-        pos_z = P[target].Pos[2];
-        ptype = P[target].Type;
-        aold = All.ErrTolForceAcc * P[target].OldAcc;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-        if(ptype == 0)
-            soft = P[target].Hsml;
-#endif
-#ifdef PLACEHIGHRESREGION
-        if(pmforce_is_particle_high_res(ptype, P[target].Pos))
-        {
-            rcut = All.Rcut[1];
-            asmth = All.Asmth[1];
-        }
-#endif
-    }
-    else
-    {
-        pos_x = GravDataGet[target].Pos[0];
-        pos_y = GravDataGet[target].Pos[1];
-        pos_z = GravDataGet[target].Pos[2];
-#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
-        ptype = GravDataGet[target].Type;
-#else
-        ptype = P[0].Type;
-#endif
-        aold = All.ErrTolForceAcc * GravDataGet[target].OldAcc;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-        if(ptype == 0)
-            soft = GravDataGet[target].Soft;
-#endif
-#ifdef PLACEHIGHRESREGION
-        if(pmforce_is_particle_high_res(ptype, GravDataGet[target].Pos))
-        {
-            rcut = All.Rcut[1];
-            asmth = All.Asmth[1];
-        }
-#endif
-    }
-
-
-    asmthfac = 0.5 / asmth * (NTAB / 3.0);
-#ifndef UNEQUALSOFTENINGS
-    h = All.ForceSoftening[ptype];
-    h_inv = 1.0 / h;
-#endif
-    if(mode == 0)
-    {
-        no = All.MaxPart;		/* root node */
-    }
-    else
-    {
-        no = GravDataGet[target].NodeList[0];
-        no = Nodes[no].u.d.nextnode;	/* open it */
-    }
-
-    while(no >= 0)
-    {
-        while(no >= 0)
-        {
-            if(no < All.MaxPart)	/* single particle */
-            {
-                /* the index of the node is the index of the particle */
-                /* observe the sign  */
-                drift_particle(no, All.Ti_Current);
-
-                dx = P[no].Pos[0] - pos_x;
-                dy = P[no].Pos[1] - pos_y;
-                dz = P[no].Pos[2] - pos_z;
-                mass = P[no].Mass;
-            }
-            else
-            {
-                if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
-                {
-                    if(mode == 0)
-                    {
-                        if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-                        {
-                            Exportflag[task] = target;
-                            Exportnodecount[task] = NODELISTLENGTH;
-                        }
-
-                        if(Exportnodecount[task] == NODELISTLENGTH)
-                        {
-                            if(*nexport >= All.BunchSize)
-                            {
-                                *nexport = nexport_save;
-                                if(nexport_save == 0)
-                                    endrun(13002);	/* in this case, the buffer is too small to process even a single particle */
-                                for(task = 0; task < NTask; task++)
-                                    nsend_local[task] = 0;
-                                for(no = 0; no < nexport_save; no++)
-                                    nsend_local[DataIndexTable[no].Task]++;
-                                return -1;
-                            }
-                            Exportnodecount[task] = 0;
-                            Exportindex[task] = *nexport;
-                            DataIndexTable[*nexport].Task = task;
-                            DataIndexTable[*nexport].Index = target;
-                            DataIndexTable[*nexport].IndexGet = *nexport;
-                            *nexport = *nexport + 1;
-                            nsend_local[task]++;
-                        }
-
-                        DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]++] =
-                            DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
-                        if(Exportnodecount[task] < NODELISTLENGTH)
-                            DataNodeList[Exportindex[task]].NodeList[Exportnodecount[task]] = -1;
-                    }
-                    no = Nextnode[no - MaxNodes];
-                    continue;
-                }
-
-                nop = &Nodes[no];
-                if(mode == 1)
-                {
-                    if(nop->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-                    {
-                        no = -1;
-                        continue;
-                    }
-                }
-
-                if(!(nop->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
-                {
-                    /* open cell */
-                    no = nop->u.d.nextnode;
-                    continue;
-                }
-
-                force_drift_node(no, All.Ti_Current);
-
-                mass = nop->u.d.mass;
-                dx = nop->u.d.s[0] - pos_x;
-                dy = nop->u.d.s[1] - pos_y;
-                dz = nop->u.d.s[2] - pos_z;
-            }
-
-#if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
-            dx = NEAREST(dx);
-            dy = NEAREST(dy);
-            dz = NEAREST(dz);
-#endif
-            r2 = dx * dx + dy * dy + dz * dz;
-            if(no < All.MaxPart)
-            {
-#ifdef UNEQUALSOFTENINGS
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-                if(ptype == 0)
-                    h = soft;
-                else
-                    h = All.ForceSoftening[ptype];
-                if(P[no].Type == 0)
-                {
-                    if(h < P[no].Hsml)
-                        h = P[no].Hsml;
-                }
-                else
-                {
-                    if(h < All.ForceSoftening[P[no].Type])
-                        h = All.ForceSoftening[P[no].Type];
-                }
-#else
-                h = All.ForceSoftening[ptype];
-                if(h < All.ForceSoftening[P[no].Type])
-                    h = All.ForceSoftening[P[no].Type];
-#endif
-#endif
-                no = Nextnode[no];
-            }
-            else			/* we have an  internal node. Need to check opening criterion */
-            {
-                /* check whether we can stop walking along this branch */
-                if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
-                {
-                    if(mode == 0)
-                    {
-                        if(Exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
-                        {
-                            Exportflag[task] = target;
-                            DataIndexTable[*nexport].Index = target;
-                            DataIndexTable[*nexport].Task = task;	/* Destination task */
-                            *nexport = *nexport + 1;
-                            nsend_local[task]++;
-                        }
-                    }
-                    no = Nextnode[no - MaxNodes];
-                    continue;
-                }
-
-
-                eff_dist = rcut + 0.5 * nop->len;
-                dxx = nop->center[0] - pos_x;	/* observe the sign ! */
-                dyy = nop->center[1] - pos_y;	/* this vector is -y in my thesis notation */
-                dzz = nop->center[2] - pos_z;
-#ifdef PERIODIC
-                dxx = NEAREST(dxx);
-                dyy = NEAREST(dyy);
-                dzz = NEAREST(dzz);
-#endif
-                if(dxx < -eff_dist || dxx > eff_dist)
-                {
-                    no = nop->u.d.sibling;
-                    continue;
-                }
-
-                if(dyy < -eff_dist || dyy > eff_dist)
-                {
-                    no = nop->u.d.sibling;
-                    continue;
-                }
-
-                if(dzz < -eff_dist || dzz > eff_dist)
-                {
-                    no = nop->u.d.sibling;
-                    continue;
-                }
-
-                if(All.ErrTolTheta)	/* check Barnes-Hut opening criterion */
-                {
-                    if(nop->len * nop->len > r2 * All.ErrTolTheta * All.ErrTolTheta)
-                    {
-                        /* open cell */
-                        no = nop->u.d.nextnode;
-                        continue;
-                    }
-                }
-                else		/* check relative opening criterion */
-                {
-                    if(mass * nop->len * nop->len > r2 * r2 * aold)
-                    {
-                        /* open cell */
-                        no = nop->u.d.nextnode;
-                        continue;
-                    }
-
-                    if(fabs(nop->center[0] - pos_x) < 0.60 * nop->len)
-                    {
-                        if(fabs(nop->center[1] - pos_y) < 0.60 * nop->len)
-                        {
-                            if(fabs(nop->center[2] - pos_z) < 0.60 * nop->len)
-                            {
-                                no = nop->u.d.nextnode;
-                                continue;
-                            }
-                        }
-                    }
-                }
-
-#ifdef UNEQUALSOFTENINGS
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
-                h = All.ForceSoftening[ptype];
-                if(h < All.ForceSoftening[extract_max_softening_type(nop->u.d.bitflags)])
-                {
-                    h = All.ForceSoftening[extract_max_softening_type(nop->u.d.bitflags)];
-                    if(r2 < h * h)
-                    {
-                        /* bit-5 signals that there are particles of
-                         * different softening in the node
-                         */
-                        if(maskout_different_softening_flag(nop->u.d.bitflags))
-                        {
-                            no = nop->u.d.nextnode;
-                            continue;
-                        }
-                    }
-                }
-#else
-                if(ptype == 0)
-                    h = soft;
-                else
-                    h = All.ForceSoftening[ptype];
-                if(h < nop->maxsoft)
-                {
-                    h = nop->maxsoft;
-                    if(r2 < h * h)
-                    {
-                        no = nop->u.d.nextnode;
-                        continue;
-                    }
-                }
-#endif
-#endif
-                no = nop->u.d.sibling;	/* node can be used */
-            }
-
-            r = sqrt(r2);
-            tabindex = (int) (r * asmthfac);
-            if(tabindex < NTAB)
-            {
-                fac = shortrange_table_potential[tabindex];
-                if(r >= h)
-                    pot += (-fac * mass / r);
-                else
-                {
-#ifdef UNEQUALSOFTENINGS
-                    h_inv = 1.0 / h;
-#endif
-                    u = r * h_inv;
-                    if(u < 0.5)
-                        wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
-                    else
-                        wp =
-                            -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
-                                    u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
-                    pot += (fac * mass * h_inv * wp);
-                }
-            }
-        }
-        if(mode == 1)
-        {
-            listindex++;
-            if(listindex < NODELISTLENGTH)
-            {
-                no = GravDataGet[target].NodeList[listindex];
-                if(no >= 0)
-                    no = Nodes[no].u.d.nextnode;	/* open it */
-            }
-        }
-    }
-
-    /* store result at the proper place */
-#if defined(EVALPOTENTIAL) || defined(COMPUTE_POTENTIAL_ENERGY) || defined(OUTPUTPOTENTIAL)
-    if(mode == 0)
-        P[target].Potential = pot;
-    else
-        PotDataResult[target].Potential = pot;
-#endif
-    return 0;
-}
-
-#endif
-
 
 
 /*! This function allocates the memory used for storage of the tree and of

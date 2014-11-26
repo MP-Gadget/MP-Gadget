@@ -619,10 +619,8 @@ int force_treeevaluate_ewald_correction(int target, int mode,
                          [j][k] * f5 + fcorrz[i + 1][j][k + 1] * f6 + fcorrz[i + 1][j +
                          1][k] *
                          f7 + fcorrz[i + 1][j + 1][k + 1] * f8));
-#ifdef EVALPOTENTIAL
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
             pot += FLT(mass * ewald_pot_corr(dx, dy, dz));
-#endif
 #endif
 
             ninteractions ++;
