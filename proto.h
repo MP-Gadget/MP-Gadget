@@ -8,15 +8,6 @@
 #include "lt.h"
 #endif
 
-#ifdef HAVE_HDF5
-#include <hdf5.h>
-hid_t  get_hdf5_datatype(enum datatype dtype, int doubleprecision);
-void write_header_attributes_in_hdf5(hid_t handle);
-void read_header_attributes_in_hdf5(char *fname);
-void write_parameters_attributes_in_hdf5(hid_t handle);
-void write_units_attributes_in_hdf5(hid_t handle);
-void write_constants_attributes_in_hdf5(hid_t handle);
-#endif
 void report_VmRSS(void);
 
 void read_fof(int num);
@@ -203,34 +194,8 @@ void fof_make_black_holes(void);
 
 int io_compare_P_GrNr_ID(const void *a, const void *b);
 
-void write_file(char *fname, int readTask, int lastTask);
-
-void distribute_file(int nfiles, int firstfile, int firsttask, int lasttask, int *filenr, int *master,
-		     int *last);
-
-void get_dataset_name(enum iofields blocknr, char *buf);
-
-
-int blockpresent(enum iofields blocknr);
-void fill_write_buffer(enum iofields blocknr, int *pindex, int pc, int type);
-void empty_read_buffer(enum iofields blocknr, int elementsize, int offset, int pc, int type);
-
-int get_particles_in_block(enum iofields blocknr, int *typelist);
-
-int get_bytes_per_blockelement(enum iofields blocknr, int doubleprecision);
-int get_datatype_elsize(enum datatype dtype, int doubleprecision);
-int get_values_per_blockelement(enum iofields blocknr);
-enum datatype get_datatype_in_block(enum iofields blocknr);
-int get_elsize_in_block(enum iofields blocknr, int doubleprecision);
-
-void read_file(char *fname, int readTask, int lastTask);
-
-void get_Tab_IO_Label(enum iofields blocknr, char *label);
-
 
 void long_range_init_regionsize(void);
-
-int find_files(char *fname);
 
 int metals_compare_key(const void *a, const void *b);
 void enrichment_evaluate(int target, int mode);
