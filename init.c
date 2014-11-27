@@ -1146,7 +1146,9 @@ void assign_unique_ids(void)
 }
 
 
-
+static void radix_id(const void * data, void * radix, void * arg) {
+    ((uint64_t *) radix)[0] = ((MyIDType*) data)[0];
+}
 void test_id_uniqueness(void)
 {
     int i;
@@ -1174,7 +1176,7 @@ void test_id_uniqueness(void)
     for(i = 0; i < NumPart; i++)
         ids[i] = P[i].ID;
 
-    parallel_sort(ids, NumPart, sizeof(MyIDType), compare_IDs);
+    radix_sort_mpi(ids, NumPart, sizeof(MyIDType), radix_id, 8, NULL, MPI_COMM_WORLD);
 
     for(i = 1; i < NumPart; i++)
         if(ids[i] == ids[i - 1])
