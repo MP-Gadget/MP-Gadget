@@ -216,6 +216,7 @@ void cooling_and_starformation(void)
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
         Evaluator ev = {0};
 
+        ev.ev_label = "SFR_WIND";
         ev.ev_isactive = sfr_wind_isactive;
         ev.ev_alloc = sfr_wind_alloc_ngblist;
         ev.ev_copy = (ev_copy_func) sfr_wind_copy;

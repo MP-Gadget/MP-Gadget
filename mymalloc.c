@@ -64,13 +64,29 @@ void mymalloc_init(void)
     HighMarkBytes = 0;
 }
 
-void report_detailed_memory_usage_of_largest_task(size_t * OldHighMarkBytes, const char *label,
+void report_detailed_memory_usage_of_largest_task(const char *label,
         const char *func, const char *file, int line)
 {
     size_t *sizelist, maxsize, minsize;
     double avgsize;
     int i, task;
-
+    static size_t highmarks[1024] = {0};
+    static char * labels[1024] = {0};
+    size_t * OldHighMarkBytes = NULL;
+    for(i = 0; i < 1024; i ++) {
+        if(labels[i] == NULL) {
+            labels[i] = strdup(label);
+            break;
+        }
+        if(!strcmp(labels[i], label)) {
+            break;
+        }
+    }
+    if(i == 1024) {
+        //"need more label space;"
+        endrun(33214);
+    }
+    OldHighMarkBytes = &highmarks[i];
     sizelist = (size_t *) mymalloc("sizelist", NTask * sizeof(size_t));
     MPI_Allgather(&AllocatedBytes, sizeof(size_t), MPI_BYTE, sizelist, sizeof(size_t), MPI_BYTE,
             MPI_COMM_WORLD);

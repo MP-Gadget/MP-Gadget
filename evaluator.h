@@ -34,6 +34,7 @@ typedef struct _Evaluator {
     ev_alloc_func ev_alloc;
     ev_copy_func ev_copy;
     ev_reduce_func ev_reduce;
+    char * ev_label;  /* name of the evaluator (used in printing messages) */
 
     char * dataget;
     char * dataresult;
@@ -44,6 +45,7 @@ typedef struct _Evaluator {
     size_t ev_datain_elsize;
     size_t ev_dataout_elsize;
     
+    /* performance metrics */
     double timewait1;
     double timewait2;
     double timecomp1;
@@ -52,7 +54,10 @@ typedef struct _Evaluator {
     double timecommsumm2;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
+    int64_t Nexport_sum;
+    int64_t Niterations;
 
+    /* internal flags*/
     int Nexport;
     int Nimport;
     int BufferFullFlag;

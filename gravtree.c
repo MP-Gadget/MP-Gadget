@@ -170,6 +170,7 @@ void gravity_tree(void)
 #endif
 
 #ifdef PETAPM
+    ev[0].ev_label = "FORCETREE_SHORTRANGE";
     ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate_shortrange;
     ev[0].ev_alloc = NULL;
     ev[0].ev_isactive = gravtree_isactive;
@@ -177,6 +178,7 @@ void gravity_tree(void)
     ev[0].UseNodeList = 1;
     Ewald_max = 0;
 #else
+    ev[0].ev_label = "FORCETREE";
     ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate;
     ev[0].ev_alloc = NULL;
     ev[0].ev_isactive = gravtree_isactive;
@@ -184,6 +186,7 @@ void gravity_tree(void)
     ev[0].UseNodeList = 1;
     Ewald_max = 0;
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
+    ev[0].ev_label = "FORCETREE_EWALD";
     ev[1].ev_evaluate = (ev_evaluate_func) force_treeevaluate_ewald_correction;
     ev[1].ev_alloc = NULL;
     ev[1].ev_isactive = gravtree_isactive;
@@ -337,33 +340,9 @@ void gravity_tree(void)
         for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++)
         {
 
-            evaluate_begin(&ev[Ewald_iter]);
-
-            do
-            {
-                iter++;
-
-                evaluate_primary(&ev[Ewald_iter]);
-
-                n_exported += ev[Ewald_iter].Nexport;
-
-                /* exchange particle data */
-
-                evaluate_get_remote(&ev[Ewald_iter],  TAG_GRAV_A);
-
-                report_memory_usage(&HighMark_gravtree, "GRAVTREE");
-
-                /* now do the particles that were sent to us */
-
-                evaluate_secondary(&ev[Ewald_iter]);
-
-                /* get the result */
-                evaluate_reduce_result(&ev[Ewald_iter], TAG_GRAV_B);
-            }
-            while(evaluate_ndone(&ev[Ewald_iter]) < NTask);
-
-            evaluate_finish(&ev[Ewald_iter]);
-
+            evaluate_run(&ev[Ewald_iter]);
+            iter += ev[Ewald_iter].Niterations;
+            n_exported += ev[Ewald_iter].Nexport_sum;
             N_nodesinlist += ev[Ewald_iter].Nnodesinlist; 
         } /* Ewald_iter */
 

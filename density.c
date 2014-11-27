@@ -148,6 +148,7 @@ void density(void)
 
     Evaluator ev = {0};
    
+    ev.ev_label = "DENSITY";
     ev.ev_evaluate = (ev_evaluate_func) density_evaluate;
     ev.ev_isactive = density_isactive;
     ev.ev_alloc = density_alloc_ngblist;
@@ -165,8 +166,6 @@ void density(void)
     double timecomp, timecomp3 = 0, timecomm, timewait;
 
     double dt_entr, tstart, tend;
-
-    int64_t n_exported = 0;
 
 #if defined(EULERPOTENTIALS) || defined(VECT_PRO_CLEAN) || defined(TRACEDIVB) || defined(VECT_POTENTIAL)
     double efak;
@@ -228,32 +227,7 @@ void density(void)
     do
     {
 
-        evaluate_begin(&ev);
-
-        do
-        {
-
-            evaluate_primary(&ev); /* do local particles and prepare export list */
-
-            n_exported += ev.Nexport;
-
-            /* exchange particle data */
-
-            evaluate_get_remote(&ev, TAG_DENS_A);
-
-            report_memory_usage(&HighMark_sphdensity, "SPH_DENSITY");
-
-            fflush(stdout);
-            /* now do the particles that were sent to us */
-
-            evaluate_secondary(&ev);
-
-            /* import the result to local particles */
-            evaluate_reduce_result(&ev, TAG_DENS_B);
-        }
-        while(evaluate_ndone(&ev) < NTask);
-
-        evaluate_finish(&ev);
+        evaluate_run(&ev);
 
         /* do final operations on results */
         tstart = second();

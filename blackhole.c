@@ -142,6 +142,7 @@ void blackhole_accretion(void)
     walltime_measure("/Misc");
     Evaluator fbev = {0};
 
+    fbev.ev_label = "BH_FEEDBACK";
     fbev.ev_evaluate = (ev_evaluate_func) blackhole_feedback_evaluate;
     fbev.ev_isactive = blackhole_feedback_isactive;
     fbev.ev_alloc = blackhole_alloc_ngblist;
@@ -152,6 +153,7 @@ void blackhole_accretion(void)
     fbev.ev_dataout_elsize = sizeof(struct feedbackdata_out);
 
     Evaluator swev = {0};
+    swev.ev_label = "BH_SWALLOW";
     swev.ev_evaluate = (ev_evaluate_func) blackhole_swallow_evaluate;
     swev.ev_isactive = blackhole_swallow_isactive;
     swev.ev_alloc = blackhole_alloc_ngblist;

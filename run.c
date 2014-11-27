@@ -167,7 +167,7 @@ void run(void)
             stopflag = 0;
         }
 #endif /* old restart*/
-        report_memory_usage(&HighMark_run, "RUN");
+        report_memory_usage("RUN");
     }
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
 #ifndef SNAP_SET_TG

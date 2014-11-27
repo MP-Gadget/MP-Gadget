@@ -176,7 +176,7 @@ void domain_Decomposition(void)
             maxLoad = (int) (All.MaxPart * REDUC_FAC);
             maxLoadsph = (int) (All.MaxPartSph * REDUC_FAC);
 
-            report_memory_usage(&HighMark_domain, "DOMAIN");
+            report_memory_usage("DOMAIN");
 
             ret = domain_decompose();
 

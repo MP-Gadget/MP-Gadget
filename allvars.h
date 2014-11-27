@@ -139,7 +139,7 @@ typedef uint64_t peanokey;
 #define  myfree(x)                 (myfree_fullinfo(x, __FUNCTION__, __FILE__, __LINE__), x = NULL)
 #define  myfree_movable(x)         (myfree_movable_fullinfo(x, __FUNCTION__, __FILE__, __LINE__), x = NULL)
 
-#define  report_memory_usage(x, y) report_detailed_memory_usage_of_largest_task(x, y, __FUNCTION__, __FILE__, __LINE__)
+#define  report_memory_usage(x) report_detailed_memory_usage_of_largest_task(x, __FUNCTION__, __FILE__, __LINE__)
 
 #ifndef  GAMMA
 #define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */

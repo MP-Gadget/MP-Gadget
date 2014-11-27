@@ -338,10 +338,13 @@ void evaluate_run(Evaluator * ev) {
         evaluate_primary(ev); /* do local particles and prepare export list */
         /* exchange particle data */
         evaluate_get_remote(ev, TAG_EVALUATE_A);
+        report_memory_usage(ev->ev_label);
         /* now do the particles that were sent to us */
         evaluate_secondary(ev);
         /* import the result to local particles */
         evaluate_reduce_result(ev, TAG_EVALUATE_B);
+        ev->Niterations ++;
+        ev->Nexport_sum += ev->Nexport;
     } while(evaluate_ndone(ev) < NTask);
     evaluate_finish(ev);
 }

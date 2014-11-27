@@ -116,7 +116,7 @@ void myfree_movable_fullinfo(void *p, const char *func, const char *file, int li
 
 void mymalloc_init(void);
 void dump_memory_table(void);
-void report_detailed_memory_usage_of_largest_task(size_t *OldHighMarkBytes, const char *label, const char *func, const char *file, int line);
+void report_detailed_memory_usage_of_largest_task(const char *label, const char *func, const char *file, int line);
 
 double get_shear_viscosity(int i);
 

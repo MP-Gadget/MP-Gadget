@@ -1369,6 +1369,7 @@ void fof_find_nearest_dmparticle(void)
     int64_t ntot;
     int ndone, ndone_flag, ngrp, sendTask, recvTask, place, nexport, nimport,  iter;
     Evaluator ev = {0};
+    ev.ev_label = "FOF_FIND_NEAREST";
     ev.ev_evaluate = (ev_evaluate_func) fof_nearest_evaluate;
     ev.ev_isactive = fof_nearest_isactive;
     ev.ev_alloc = fof_nearest_ngblist;

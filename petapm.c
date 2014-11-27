@@ -791,7 +791,7 @@ static void pm_alloc() {
         }
         meshbufsize = size;
         meshbuf = (double *) mymalloc("PMmesh", size * sizeof(double));
-        report_memory_usage(&HighMark_petapm, "PetaPM");
+        report_memory_usage("PetaPM");
         size = 0;
         for(i = 0 ; i < Nregions; i ++) {
             regions[i].buffer = meshbuf + size;

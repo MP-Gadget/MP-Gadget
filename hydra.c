@@ -165,6 +165,7 @@ void hydro_force(void)
 {
     Evaluator ev = {0};
 
+    ev.ev_label = "HYDRO";
     ev.ev_evaluate = (ev_evaluate_func) hydro_evaluate;
     ev.ev_isactive = hydro_isactive;
     ev.ev_alloc = hydro_alloc_ngblist;
@@ -182,8 +183,6 @@ void hydro_force(void)
     int sendTask, recvTask, place;
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait, tstart, tend;
-
-    int64_t n_exported = 0;
 
 #ifdef NAVIERSTOKES
     double fac;
@@ -254,28 +253,7 @@ void hydro_force(void)
 
     walltime_measure("/SPH/Hydro/Init");
 
-    evaluate_begin(&ev);
-    do
-    {
-        /* do local particles and prepare export list */
-        evaluate_primary(&ev);
-
-        n_exported += ev.Nexport;
-
-        evaluate_get_remote(&ev, TAG_HYDRO_A);
-
-        report_memory_usage(&HighMark_sphhydro, "SPH_HYDRO");
-
-        /* now do the particles that were sent to us */
-
-        evaluate_secondary(&ev);
-
-        /* get the result */
-        evaluate_reduce_result(&ev, TAG_HYDRO_B);
-    }
-    while(evaluate_ndone(&ev) < NTask);
-    
-    evaluate_finish(&ev);
+    evaluate_run(&ev);
 
     myfree(Ngblist);
 
