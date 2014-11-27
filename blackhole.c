@@ -143,7 +143,7 @@ void blackhole_accretion(void)
     Evaluator fbev = {0};
 
     fbev.ev_label = "BH_FEEDBACK";
-    fbev.ev_evaluate = (ev_evaluate_func) blackhole_feedback_evaluate;
+    fbev.ev_evaluate = (ev_ev_func) blackhole_feedback_evaluate;
     fbev.ev_isactive = blackhole_feedback_isactive;
     fbev.ev_alloc = blackhole_alloc_ngblist;
     fbev.ev_copy = (ev_copy_func) blackhole_feedback_copy;
@@ -154,7 +154,7 @@ void blackhole_accretion(void)
 
     Evaluator swev = {0};
     swev.ev_label = "BH_SWALLOW";
-    swev.ev_evaluate = (ev_evaluate_func) blackhole_swallow_evaluate;
+    swev.ev_evaluate = (ev_ev_func) blackhole_swallow_evaluate;
     swev.ev_isactive = blackhole_swallow_isactive;
     swev.ev_alloc = blackhole_alloc_ngblist;
     swev.ev_copy = (ev_copy_func) blackhole_swallow_copy;
@@ -175,7 +175,7 @@ void blackhole_accretion(void)
 
     /* Let's first compute the Mdot values */
     int Nactive;
-    int * queue = evaluate_get_queue(&fbev, &Nactive);
+    int * queue = ev_get_queue(&fbev, &Nactive);
 
 #ifdef BH_ACCRETION
     for(i = 0; i < Nactive; i ++) {
@@ -205,11 +205,11 @@ void blackhole_accretion(void)
     /* Let's first spread the feedback energy, 
      * and determine which particles may be swalled by whom */
 
-    evaluate_run(&fbev);
+    ev_run(&fbev);
 
     /* Now do the swallowing of particles */
 #if defined(BH_SWALLOWGAS) || defined(BH_MERGER)
-    evaluate_run(&swev);
+    ev_run(&swev);
 #endif
     myfree(Ngblist);
 

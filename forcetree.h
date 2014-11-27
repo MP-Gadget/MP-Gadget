@@ -58,18 +58,18 @@ int force_treeevaluate(int target, int mode,
         struct gravitydata_in * input,
         struct gravitydata_out * output,
         LocalEvaluator * lv, void * unused);
-int force_treeevaluate_ewald_correction(int target, int mode, 
+int force_treeev_ewald_correction(int target, int mode, 
         struct gravitydata_in * input,
         struct gravitydata_out * output,
         LocalEvaluator * lv, void * unused);
-int force_treeevaluate_shortrange(int target, int mode, 
+int force_treeev_shortrange(int target, int mode, 
         struct gravitydata_in * input,
         struct gravitydata_out * output,
         LocalEvaluator * lv, void * unused);
 
 
-int force_treeevaluate_potential(int target, int type, int *nexport, int *nsend_local);
-int force_treeevaluate_potential_shortrange(int target, int mode, int *nexport, int *nsend_local);
+int force_treeev_potential(int target, int type, int *nexport, int *nsend_local);
+int force_treeev_potential_shortrange(int target, int mode, int *nexport, int *nsend_local);
 
 
 void force_drift_node(int no, int time1);
@@ -104,7 +104,7 @@ void   force_treeallocate(int maxnodes, int maxpart);
 int    force_treebuild(int npart, struct unbind_data *mp);
 int    force_treebuild_single(int npart, struct unbind_data *mp);
 
-int    force_treeevaluate_direct(int target, int mode);
+int    force_treeev_direct(int target, int mode);
 
 
 void   force_treefree(void);

@@ -1370,7 +1370,7 @@ void fof_find_nearest_dmparticle(void)
     int ndone, ndone_flag, ngrp, sendTask, recvTask, place, nexport, nimport,  iter;
     Evaluator ev = {0};
     ev.ev_label = "FOF_FIND_NEAREST";
-    ev.ev_evaluate = (ev_evaluate_func) fof_nearest_evaluate;
+    ev.ev_evaluate = (ev_ev_func) fof_nearest_evaluate;
     ev.ev_isactive = fof_nearest_isactive;
     ev.ev_alloc = fof_nearest_ngblist;
     ev.ev_copy = (ev_copy_func) fof_nearest_copy;
@@ -1418,20 +1418,20 @@ void fof_find_nearest_dmparticle(void)
 
     do 
     {
-        evaluate_begin(&ev);
+        ev_begin(&ev);
 
         do
         {
-            evaluate_primary(&ev);
-            evaluate_get_remote(&ev, TAG_DENS_A);
-            evaluate_secondary(&ev);
-            evaluate_reduce_result(&ev, TAG_DENS_B);
+            ev_primary(&ev);
+            ev_get_remote(&ev, TAG_DENS_A);
+            ev_secondary(&ev);
+            ev_reduce_result(&ev, TAG_DENS_B);
         }
-        while(evaluate_ndone(&ev) < NTask);
-        evaluate_finish(&ev);
+        while(ev_ndone(&ev) < NTask);
+        ev_finish(&ev);
 
         int Nactive;
-        int * queue = evaluate_get_queue(&ev, &Nactive);
+        int * queue = ev_get_queue(&ev, &Nactive);
 
         /* do final operations on results */
         int npleft = 0;

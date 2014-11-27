@@ -149,7 +149,7 @@ void density(void)
     Evaluator ev = {0};
    
     ev.ev_label = "DENSITY";
-    ev.ev_evaluate = (ev_evaluate_func) density_evaluate;
+    ev.ev_evaluate = (ev_ev_func) density_evaluate;
     ev.ev_isactive = density_isactive;
     ev.ev_alloc = density_alloc_ngblist;
     ev.ev_copy = (ev_copy_func) density_copy;
@@ -207,7 +207,7 @@ void density(void)
     
     /* the queue has every particle. Later on after some iterations are done
      * Nactive will decrease -- the queue would be shorter.*/
-    queue = evaluate_get_queue(&ev, &Nactive);
+    queue = ev_get_queue(&ev, &Nactive);
 #pragma omp parallel for if(Nactive > 32)
     for(i = 0; i < Nactive; i ++) {
         int p = queue[i];
@@ -227,12 +227,12 @@ void density(void)
     do
     {
 
-        evaluate_run(&ev);
+        ev_run(&ev);
 
         /* do final operations on results */
         tstart = second();
 
-        queue = evaluate_get_queue(&ev, &Nactive);
+        queue = ev_get_queue(&ev, &Nactive);
         
         npleft = 0;
 #pragma omp parallel for if(Nactive > 32)

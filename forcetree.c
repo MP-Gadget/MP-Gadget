@@ -2161,7 +2161,7 @@ int force_treeevaluate(int target, int mode,
                 {
                     if(mode == 0)
                     {
-                        if(-1 == evaluate_export_particle(lv, target, no))
+                        if(-1 == ev_export_particle(lv, target, no))
                             return -1;
                     }
                     no = Nextnode[no - MaxNodes];
@@ -2553,7 +2553,7 @@ int force_treeevaluate(int target, int mode,
  *  memory-access panelty (which reduces cache performance) incurred by the
  *  table.
  */
-int force_treeevaluate_shortrange(int target, int mode, 
+int force_treeev_shortrange(int target, int mode, 
         struct gravitydata_in * input, 
         struct gravitydata_out * output, 
         LocalEvaluator * lv, void * unused)
@@ -2714,7 +2714,7 @@ int force_treeevaluate_shortrange(int target, int mode,
                 {
                     if(mode == 0)
                     {
-                        if(-1 == evaluate_export_particle(lv, target, no))
+                        if(-1 == ev_export_particle(lv, target, no))
                             return -1;
                     }
                     no = Nextnode[no - MaxNodes];
@@ -3144,7 +3144,7 @@ void force_treefree(void)
  *  accuracy.
  */
 #ifdef FORCETEST
-int force_treeevaluate_direct(int target, int mode)
+int force_treeev_direct(int target, int mode)
 {
     double epsilon;
     double h, h_inv, dx, dy, dz, r, r2, u, r_inv, fac;

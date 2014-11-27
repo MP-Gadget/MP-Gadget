@@ -243,7 +243,7 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
                 }
                 if(target >= 0)	/* if no target is given, export will not occur */
                 {
-                    if(-1 == evaluate_export_particle(lv, target, no))
+                    if(-1 == ev_export_particle(lv, target, no))
                         return -1;
                 }
 

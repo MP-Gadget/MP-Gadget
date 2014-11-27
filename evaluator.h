@@ -11,7 +11,7 @@ typedef struct _LocalEvaluator {
     int64_t Nnodesinlist;
 } LocalEvaluator;
 
-typedef int (*ev_evaluate_func) (const int target, const int mode, 
+typedef int (*ev_ev_func) (const int target, const int mode, 
         void * input, void * output, LocalEvaluator * lv, void * extradata);
 
 typedef int (*ev_isactive_func) (const int i);
@@ -29,7 +29,7 @@ struct ev_task {
 
 
 typedef struct _Evaluator {
-    ev_evaluate_func ev_evaluate;
+    ev_ev_func ev_evaluate;
     ev_isactive_func ev_isactive;
     ev_alloc_func ev_alloc;
     ev_copy_func ev_copy;
@@ -71,18 +71,18 @@ typedef struct _Evaluator {
     int *currentEnd;
 } Evaluator;
 
-void evaluate_run(Evaluator * ev);
-void evaluate_begin(Evaluator * ev);
-void evaluate_finish(Evaluator * ev);
-int evaluate_primary(Evaluator * ev); 
-void evaluate_get_remote(Evaluator * ev, int tag);
-void evaluate_secondary(Evaluator * ev);
-void evaluate_reduce_result(Evaluator * ev, int tag);
-int * evaluate_get_queue(Evaluator * ev, int * len);
+void ev_run(Evaluator * ev);
+void ev_begin(Evaluator * ev);
+void ev_finish(Evaluator * ev);
+int ev_primary(Evaluator * ev); 
+void ev_get_remote(Evaluator * ev, int tag);
+void ev_secondary(Evaluator * ev);
+void ev_reduce_result(Evaluator * ev, int tag);
+int * ev_get_queue(Evaluator * ev, int * len);
 
 /*returns -1 if the buffer is full */
-int evaluate_export_particle(LocalEvaluator * lv, int target, int no);
+int ev_export_particle(LocalEvaluator * lv, int target, int no);
 
-int evaluate_ndone(Evaluator * ev);
+int ev_ndone(Evaluator * ev);
 #define EV_REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
 #endif

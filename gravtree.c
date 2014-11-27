@@ -171,7 +171,7 @@ void gravity_tree(void)
 
 #ifdef PETAPM
     ev[0].ev_label = "FORCETREE_SHORTRANGE";
-    ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate_shortrange;
+    ev[0].ev_evaluate = (ev_ev_func) force_treeev_shortrange;
     ev[0].ev_alloc = NULL;
     ev[0].ev_isactive = gravtree_isactive;
     ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
@@ -179,7 +179,7 @@ void gravity_tree(void)
     Ewald_max = 0;
 #else
     ev[0].ev_label = "FORCETREE";
-    ev[0].ev_evaluate = (ev_evaluate_func) force_treeevaluate;
+    ev[0].ev_evaluate = (ev_ev_func) force_treeevaluate;
     ev[0].ev_alloc = NULL;
     ev[0].ev_isactive = gravtree_isactive;
     ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
@@ -187,7 +187,7 @@ void gravity_tree(void)
     Ewald_max = 0;
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
     ev[0].ev_label = "FORCETREE_EWALD";
-    ev[1].ev_evaluate = (ev_evaluate_func) force_treeevaluate_ewald_correction;
+    ev[1].ev_evaluate = (ev_ev_func) force_treeev_ewald_correction;
     ev[1].ev_alloc = NULL;
     ev[1].ev_isactive = gravtree_isactive;
     ev[1].ev_reduce = (ev_reduce_func) gravtree_reduce_ewald;
@@ -340,7 +340,7 @@ void gravity_tree(void)
         for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++)
         {
 
-            evaluate_run(&ev[Ewald_iter]);
+            ev_run(&ev[Ewald_iter]);
             iter += ev[Ewald_iter].Niterations;
             n_exported += ev[Ewald_iter].Nexport_sum;
             N_nodesinlist += ev[Ewald_iter].Nnodesinlist; 
@@ -415,7 +415,7 @@ void gravity_tree(void)
 
     int Nactive;
     /* doesn't matter which ev to use, they have the same ev_active*/
-    int * queue = evaluate_get_queue(&ev[0], &Nactive);
+    int * queue = ev_get_queue(&ev[0], &Nactive);
 #pragma omp parallel for if(Nactive > 32)
     for(i = 0; i < Nactive; i++) {
         gravtree_post_process(queue[i]);

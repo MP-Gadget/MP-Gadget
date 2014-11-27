@@ -5,10 +5,10 @@
 #include "evaluator.h"
 #include "tags.h"
 
-static void evaluate_init_thread(Evaluator * ev, LocalEvaluator * lv);
+static void ev_init_thread(Evaluator * ev, LocalEvaluator * lv);
 static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int length);
 
-void evaluate_init_thread(Evaluator * ev, LocalEvaluator * lv) {
+void ev_init_thread(Evaluator * ev, LocalEvaluator * lv) {
     int thread_id = omp_get_thread_num();
     int j;
     lv->ev = ev;
@@ -21,7 +21,7 @@ void evaluate_init_thread(Evaluator * ev, LocalEvaluator * lv) {
         lv->exportflag[j] = -1;
 }
 
-void evaluate_begin(Evaluator * ev) {
+void ev_begin(Evaluator * ev) {
     All.BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + 
                     sizeof(struct data_nodelist) +
@@ -35,7 +35,7 @@ void evaluate_begin(Evaluator * ev) {
 
     ev->PQueueEnd = 0;
 
-    ev->PQueue = evaluate_get_queue(ev, &ev->PQueueEnd);
+    ev->PQueue = ev_get_queue(ev, &ev->PQueueEnd);
 
     ev->PrimaryTasks = (struct ev_task *) mymalloc("PrimaryTasks", sizeof(struct ev_task) * ev->PQueueEnd);
 
@@ -56,7 +56,7 @@ void evaluate_begin(Evaluator * ev) {
     }
 }
 
-void evaluate_finish(Evaluator * ev) {
+void ev_finish(Evaluator * ev) {
     myfree(ev->currentEnd);
     myfree(ev->currentIndex);
     myfree(ev->PrimaryTasks);
@@ -74,7 +74,7 @@ static void real_ev(Evaluator * ev) {
     void * extradata = NULL;
     if(ev->ev_alloc) extradata = ev->ev_alloc();
 
-    evaluate_init_thread(ev, &lv);
+    ev_init_thread(ev, &lv);
 
     /* Note: exportflag is local to each thread */
     int k;
@@ -117,7 +117,7 @@ static void real_ev(Evaluator * ev) {
 #pragma omp atomic
     ev->Nnodesinlist += lv.Nnodesinlist;
 }
-int * evaluate_get_queue(Evaluator * ev, int * len) {
+int * ev_get_queue(Evaluator * ev, int * len) {
     int i;
     int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
     int k = 0;
@@ -138,7 +138,7 @@ int * evaluate_get_queue(Evaluator * ev, int * len) {
 }
 
 /* returns number of exports */
-int evaluate_primary(Evaluator * ev) {
+int ev_primary(Evaluator * ev) {
     double tstart, tend;
     ev->BufferFullFlag = 0;
     ev->Nexport = 0;
@@ -224,7 +224,7 @@ int evaluate_primary(Evaluator * ev) {
     return ev->Nexport;
 }
 
-int evaluate_ndone(Evaluator * ev) {
+int ev_ndone(Evaluator * ev) {
     int ndone;
     double tstart, tend;
     tstart = second();
@@ -243,7 +243,7 @@ int evaluate_ndone(Evaluator * ev) {
 
 }
 
-void evaluate_secondary(Evaluator * ev) {
+void ev_secondary(Evaluator * ev) {
     double tstart, tend;
 
     tstart = second();
@@ -257,7 +257,7 @@ void evaluate_secondary(Evaluator * ev) {
         void  * extradata = NULL;
         if(ev->ev_alloc)
             extradata = ev->ev_alloc();
-        evaluate_init_thread(ev, &lv);
+        ev_init_thread(ev, &lv);
 #pragma omp for
         for(j = 0; j < ev->Nimport; j++) {
             void * input = ev->dataget + j * ev->ev_datain_elsize;
@@ -283,7 +283,7 @@ void evaluate_secondary(Evaluator * ev) {
  * This can also be called from a nonthreaded code
  *
  * */
-int evaluate_export_particle(LocalEvaluator * lv, int target, int no) {
+int ev_export_particle(LocalEvaluator * lv, int target, int no) {
     int *exportflag = lv->exportflag;
     int *exportnodecount = lv->exportnodecount;
     int *exportindex = lv->exportindex; 
@@ -330,26 +330,26 @@ int evaluate_export_particle(LocalEvaluator * lv, int target, int no) {
     return 0;
 }
 
-void evaluate_run(Evaluator * ev) {
+void ev_run(Evaluator * ev) {
     /* run the evaluator */
-    evaluate_begin(ev);
+    ev_begin(ev);
     do
     {
-        evaluate_primary(ev); /* do local particles and prepare export list */
+        ev_primary(ev); /* do local particles and prepare export list */
         /* exchange particle data */
-        evaluate_get_remote(ev, TAG_EVALUATE_A);
+        ev_get_remote(ev, TAG_EVALUATE_A);
         report_memory_usage(ev->ev_label);
         /* now do the particles that were sent to us */
-        evaluate_secondary(ev);
+        ev_secondary(ev);
         /* import the result to local particles */
-        evaluate_reduce_result(ev, TAG_EVALUATE_B);
+        ev_reduce_result(ev, TAG_EVALUATE_B);
         ev->Niterations ++;
         ev->Nexport_sum += ev->Nexport;
-    } while(evaluate_ndone(ev) < NTask);
-    evaluate_finish(ev);
+    } while(ev_ndone(ev) < NTask);
+    ev_finish(ev);
 }
 
-static void evaluate_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int tag, int import) {
+static void ev_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int tag, int import) {
     /* if import is 1, import the results from neigbhours */
     int ngrp;
     char * sp = sendbuf;
@@ -371,7 +371,7 @@ static void evaluate_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int
 }
 
 /* returns the remote particles */
-void evaluate_get_remote(Evaluator * ev, int tag) {
+void ev_get_remote(Evaluator * ev, int tag) {
     int j;
     double tstart, tend;
 
@@ -396,7 +396,7 @@ void evaluate_get_remote(Evaluator * ev, int tag) {
     ev->timecomp1 += timediff(tstart, tend);
 
     tstart = second();
-    evaluate_im_or_ex(sendbuf, recvbuf, ev->ev_datain_elsize, tag, 0);
+    ev_im_or_ex(sendbuf, recvbuf, ev->ev_datain_elsize, tag, 0);
     tend = second();
     ev->timecommsumm1 += timediff(tstart, tend);
     myfree(sendbuf);
@@ -419,7 +419,7 @@ int data_index_compare_by_index(const void *a, const void *b)
 
     return 0;
 }
-void evaluate_reduce_result(Evaluator * ev, int tag) {
+void ev_reduce_result(Evaluator * ev, int tag) {
 
     int j;
     double tstart, tend;
@@ -429,7 +429,7 @@ void evaluate_reduce_result(Evaluator * ev, int tag) {
                 ev->Nexport * ev->ev_dataout_elsize);
 
     tstart = second();
-    evaluate_im_or_ex(sendbuf, recvbuf, ev->ev_dataout_elsize, tag, 1);
+    ev_im_or_ex(sendbuf, recvbuf, ev->ev_dataout_elsize, tag, 1);
     tend = second();
     ev->timecommsumm2 += timediff(tstart, tend);
 

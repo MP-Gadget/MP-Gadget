@@ -373,7 +373,7 @@ void ewald_force(int iii, int jjj, int kkk, double x[3], double force[3])
  *  that was mapped to a different nearest neighbour position when the tree
  *  walk would be further refined.
  */
-int force_treeevaluate_ewald_correction(int target, int mode, 
+int force_treeev_ewald_correction(int target, int mode, 
         struct gravitydata_in  * input,
         struct gravitydata_out  * output,
         LocalEvaluator * lv, void * unused)
@@ -427,7 +427,7 @@ int force_treeevaluate_ewald_correction(int target, int mode,
                 {
                     if(mode == 0)
                     {
-                        if(-1 == evaluate_export_particle(lv, target, no)) 
+                        if(-1 == ev_export_particle(lv, target, no)) 
                             return -1;
                     }
                     no = Nextnode[no - MaxNodes];

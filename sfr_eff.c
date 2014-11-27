@@ -72,7 +72,7 @@ static int sfr_wind_isactive(int target);
 static void * sfr_wind_alloc_ngblist();
 static void sfr_wind_reduce_weight(int place, struct winddata_out * remote, int mode);
 static void sfr_wind_copy(int place, struct winddata_in * input);
-static int sfr_wind_evaluate_weight(int target, int mode,
+static int sfr_wind_ev_weight(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
         LocalEvaluator * lv, int * ngblist);
@@ -226,9 +226,9 @@ void cooling_and_starformation(void)
         ev.ev_dataout_elsize = sizeof(struct winddata_out);
 
         /* sum the total weight of surrounding gas */
-        ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate_weight;
+        ev.ev_evaluate = (ev_ev_func) sfr_wind_ev_weight;
         int Nqueue;
-        int * queue = evaluate_get_queue(&ev, &Nqueue);
+        int * queue = ev_get_queue(&ev, &Nqueue);
         for(i = 0; i < Nqueue; i ++) {
             int n = queue[i];
             P[n].DensityIterationDone = 0;
@@ -239,7 +239,7 @@ void cooling_and_starformation(void)
         int npleft = Nqueue;
         int done = 0;
         while(!done) {
-            evaluate_run(&ev);
+            ev_run(&ev);
             for(i = 0; i < Nqueue; i ++) {
                 int n = queue[i];
                 if (P[n].DensityIterationDone) continue;
@@ -285,10 +285,10 @@ void cooling_and_starformation(void)
             Wind[n].Vdisp = sqrt(vdisp / 3);
         }
         myfree(queue);
-        ev.ev_evaluate = (ev_evaluate_func) sfr_wind_evaluate;
+        ev.ev_evaluate = (ev_ev_func) sfr_wind_evaluate;
         ev.ev_reduce = NULL;
 
-        evaluate_run(&ev);
+        ev_run(&ev);
         myfree(Wind);
         myfree(Ngblist);
     }
@@ -463,7 +463,7 @@ static void sfr_wind_copy(int place, struct winddata_in * input) {
         input->Vmean[k] = Wind[place].Vmean[k];
 }
 
-static int sfr_wind_evaluate_weight(int target, int mode,
+static int sfr_wind_ev_weight(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
         LocalEvaluator * lv, int * ngblist) {
@@ -1239,7 +1239,7 @@ void set_units_sfr(void)
 
 }
 
-static double evaluate_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)
+static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)
 {
     /* column density from GradRho, copied from gadget-p; what is it
      * calculating? */
@@ -1268,7 +1268,7 @@ static double get_sfr_factor_due_to_h2(int i) {
 #else
     double tau_fmol;
     double zoverzsun = P[i].Metallicity/METAL_YIELD;
-    tau_fmol = evaluate_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
+    tau_fmol = ev_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
     tau_fmol *= (0.1 + zoverzsun);
     if(tau_fmol>0) {
         tau_fmol *= 434.78*All.UnitDensity_in_cgs*All.HubbleParam*All.UnitLength_in_cm;

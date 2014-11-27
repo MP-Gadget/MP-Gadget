@@ -166,7 +166,7 @@ void hydro_force(void)
     Evaluator ev = {0};
 
     ev.ev_label = "HYDRO";
-    ev.ev_evaluate = (ev_evaluate_func) hydro_evaluate;
+    ev.ev_evaluate = (ev_ev_func) hydro_evaluate;
     ev.ev_isactive = hydro_isactive;
     ev.ev_alloc = hydro_alloc_ngblist;
     ev.ev_copy = (ev_copy_func) hydro_copy;
@@ -253,7 +253,7 @@ void hydro_force(void)
 
     walltime_measure("/SPH/Hydro/Init");
 
-    evaluate_run(&ev);
+    ev_run(&ev);
 
     myfree(Ngblist);
 
@@ -261,7 +261,7 @@ void hydro_force(void)
     /* do final operations on results */
 
     int Nactive; 
-    int * queue = evaluate_get_queue(&ev, &Nactive);
+    int * queue = ev_get_queue(&ev, &Nactive);
 #pragma omp parallel for if(Nactive > 64) 
     for(i = 0; i < Nactive; i++)
         hydro_post_process(queue[i]);
