@@ -844,51 +844,72 @@ void every_timestep_stuff(void)
     sumup_large_ints(TIMEBINS, TimeBinCount, tot_count);
     sumup_large_ints(TIMEBINS, TimeBinCountSph, tot_count_sph);
 
+    /* let's update Tot counts in one place tot variables;
+     * at this point there can still be holes in SphP
+     * because rearrange_particle_squence is not called yet.
+     * but anywaysTotN_sph variables are not well defined and
+     * not used any places but printing.
+     *
+     * we shall just say they we sync these variables right after gravity
+     * calculation in every timestep.
+     * */
+
+    sumup_large_ints(1, &NumPart, &All.TotNumPart);
+    sumup_large_ints(1, &N_sph, &All.TotN_sph);
+    sumup_large_ints(1, &N_bh, &All.TotN_bh);
+
     if(ThisTask == 0)
     {
+        char buf[1024];
+        
+        char extra[1024] = {0};
+#ifdef PETAPM
+        if(All.PM_Ti_endstep == All.Ti_Current)
+            strcat(extra, "PM-Step");
+#endif
+
         if(All.ComovingIntegrationOn)
         {
             z = 1.0 / (All.Time) - 1;
-            fprintf(FdInfo, "\nBegin Step %d, Time: %g, Redshift: %g, Nf = %d%09d, Systemstep: %g, Dloga: %g\n",
-                    All.NumCurrentTiStep, All.Time, z,
-                    (int) (GlobNumForceUpdate / 1000000000), (int) (GlobNumForceUpdate % 1000000000),
-                    All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep));
-            printf("\nBegin Step %d, Time: %g, Redshift: %g, Systemstep: %g, Dloga: %g\n", All.NumCurrentTiStep,
-                    All.Time, z, All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep));
+            sprintf(buf, "\nBegin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
+                        All.NumCurrentTiStep, All.Time, z,
+                        GlobNumForceUpdate,
+                        All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep), 
+                        extra);
+        } else {
+            sprintf(buf , "\nBegin Step %d, Time: %g, Nf = %014ld, Systemstep: %g, status:%s\n", All.NumCurrentTiStep,
+                    All.Time, GlobNumForceUpdate,
+                    All.TimeStep,
+                    extra);
+        }
+        fprintf(FdInfo, "%s", buf);
+        printf("%s", buf);
 
 #if defined (CHEMISTRY) || defined (UM_CHEMISTRY)
-            printf("Abundances  elec: %g, HM: %g, H2I: %g, H2II: %g\n",
-                    SPHP(1).elec, SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II);
-            printf("Abundances  HI: %g, HII: %g, HeI: %g, HeII: %g, HeIII: %g\n",
-                    SPHP(1).HI, SPHP(1).HII, SPHP(1).HeI, SPHP(1).HeII, SPHP(1).HeIII);
+        printf("Abundances  elec: %g, HM: %g, H2I: %g, H2II: %g\n",
+                SPHP(1).elec, SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II);
+        printf("Abundances  HI: %g, HII: %g, HeI: %g, HeII: %g, HeIII: %g\n",
+                SPHP(1).HI, SPHP(1).HII, SPHP(1).HeI, SPHP(1).HeII, SPHP(1).HeIII);
 #endif
 
 #if defined (UM_CHEMISTRY) && defined (UM_HD_COOLING)
-            printf("Abundances HD: %g,  DI: %g,  DII: %g\n", SPHP(1).HD, SPHP(1).DI, SPHP(1).DII);
-            printf("Abundances HeHII: %g",SPHP(1).HeHII);
+        printf("Abundances HD: %g,  DI: %g,  DII: %g\n", SPHP(1).HD, SPHP(1).DI, SPHP(1).DII);
+        printf("Abundances HeHII: %g",SPHP(1).HeHII);
 #endif
 
-            fflush(FdInfo);
-        }
-        else
-        {
-            fprintf(FdInfo, "\nBegin Step %d, Time: %g, Nf = %d%09d, Systemstep: %g\n", All.NumCurrentTiStep,
-                    All.Time, (int) (GlobNumForceUpdate / 1000000000), (int) (GlobNumForceUpdate % 1000000000),
-                    All.TimeStep);
-            printf("\nBegin Step %d, Time: %g, Systemstep: %g\n", All.NumCurrentTiStep, All.Time, All.TimeStep);
-            fflush(FdInfo);
-        }
+        fflush(FdInfo);
 
+        printf("TotNumPart: %014ld SPH %014ld BH %014ld\n",
+                All.TotNumPart, All.TotN_sph, All.TotN_bh);
         printf("Occupied timebins: non-sph         sph       dt\n");
         for(i = TIMEBINS - 1, tot = tot_sph = 0; i >= 0; i--)
             if(tot_count_sph[i] > 0 || tot_count[i] > 0)
             {
-                printf(" %c  bin=%2d     %2d%09d %2d%09d   %6g\n",
+                printf(" %c  bin=%2d     %014ld %014ld   %6g\n",
                         TimeBinActive[i] ? 'X' : ' ',
                         i,
-                        (int) ((tot_count[i] - tot_count_sph[i]) / 1000000000),
-                        (int) ((tot_count[i] - tot_count_sph[i]) % 1000000000),
-                        (int) (tot_count_sph[i] / 1000000000), (int) (tot_count_sph[i] % 1000000000),
+                        (tot_count[i] - tot_count_sph[i]),
+                        tot_count_sph[i], 
                         i > 0 ? (1 << i) * All.Timebase_interval : 0.0);
                 if(TimeBinActive[i])
                 {
@@ -897,40 +918,14 @@ void every_timestep_stuff(void)
                 }
             }
         printf("               -----------------------------------\n");
-#ifdef PETAPM
-        if(All.PM_Ti_endstep == All.Ti_Current)
-            printf("PM-Step. Total:%2d%09d %2d%09d    Sum:%2d%09d\n",
-                    (int) ((tot - tot_sph) / 1000000000), (int) ((tot - tot_sph) % 1000000000),
-                    (int) (tot_sph / 1000000000), (int) (tot_sph % 1000000000),
-                    (int) (tot / 1000000000), (int) (tot % 1000000000));
-        else
-#endif
-            printf("Total active:  %2d%09d %2d%09d    Sum:%2d%09d\n",
-                    (int) ((tot - tot_sph) / 1000000000), (int) ((tot - tot_sph) % 1000000000),
-                    (int) (tot_sph / 1000000000), (int) (tot_sph % 1000000000),
-                    (int) (tot / 1000000000), (int) (tot % 1000000000));
+        printf("Total:%014ld %014ld    Sum:%014ld\n",
+            (tot - tot_sph),
+            (tot_sph), 
+            (tot));
 
 #ifdef CHEMISTRY
         printf("Abundances elec: %g, HM: %g, H2I: %g, H2II: %g\n",
                 SPHP(1).elec, SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II);
-#endif
-
-#ifdef XXLINFO
-        if(Flag_FullStep == 1)
-        {
-            fprintf(FdXXL, "%d %g ", All.NumCurrentTiStep, All.Time);
-#ifdef MAGNETIC
-            fprintf(FdXXL, "%e ", MeanB);
-#ifdef TRACEDIVB
-            fprintf(FdXXL, "%e ", MaxDivB);
-#endif
-#endif
-#ifdef TIME_DEP_ART_VISC
-            fprintf(FdXXL, "%f ", MeanAlpha);
-#endif
-            fprintf(FdXXL, "\n");
-            fflush(FdXXL);
-        }
 #endif
 
 #ifdef DARKENERGY
@@ -980,8 +975,8 @@ void write_cpu_log(void)
 
         put_symbol(0.0, 1.0, '#');
 
-        fprintf(FdBalance, "Step=%7d  sec=%10.3f  Nf=%2d%09d  %s\n", All.NumCurrentTiStep, walltime_step_max("/"),
-                (int) (GlobNumForceUpdate / 1000000000), (int) (GlobNumForceUpdate % 1000000000), CPU_String);
+        fprintf(FdBalance, "Step=%7d  sec=%10.3f  Nf=%014ld  %s\n", All.NumCurrentTiStep, walltime_step_max("/"),
+                GlobNumForceUpdate, CPU_String);
         fflush(FdBalance);
     }
 
