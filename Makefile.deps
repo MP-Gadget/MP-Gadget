@@ -11,11 +11,11 @@ OBJS  =  \
 	 run.o predict.o begrun.o endrun.o global.o \
 	 timestep.o init.o restart.o io.o sfr_eff.o \
 	 accel.o \
-	 cooling.o ngb.o parallel_sort.o openmpsort.o \
+	 cooling.o ngb.o openmpsort.o \
 	 system.o allocate.o density.o sizelimited_sendrecv.o  \
 	 evaluator.o \
 	 gravtree.o hydra.o  driftfac.o darkenergy.o \
-	 forcetree.o ewald.o peano.o parallel_sort_special.o \
+	 forcetree.o ewald.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o
 

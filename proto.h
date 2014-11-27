@@ -54,7 +54,6 @@ int MPI_Sizelimited_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype
 			     int dest, int sendtag, void *recvbuf, int recvcount,
 			     MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Status * status);
 
-void parallel_sort_special_P_GrNr_ID(void);
 void calculate_power_spectra(int num, int64_t *ntot_type_all);
 
 int pmforce_is_particle_high_res(int type, MyFloat *pos);
@@ -77,7 +76,6 @@ void fof_get_group_velocity(double *cmvel, int gr);
 int fof_find_dmparticles_evaluate(int target, int mode, int *nexport, int *nsend_local);
 void fof_compute_group_properties(int gr, int start, int len);
 
-void parallel_sort(void *base, size_t nmemb, size_t size, int (*compar) (const void *, const void *));
 void qsort_openmp(void *base, size_t nmemb, size_t size,
                          int(*compar)(const void *, const void *));
 
