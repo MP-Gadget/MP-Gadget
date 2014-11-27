@@ -40,9 +40,7 @@ struct gravitydata_in
 struct gravitydata_out
 {
     MyDouble Acc[3];
-#ifdef EVALPOTENTIAL
     MyDouble Potential;
-#endif
 #ifdef DISTORTIONTENSORPS
     MyDouble tidal_tensorps[3][3];
 #endif

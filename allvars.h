@@ -1260,9 +1260,7 @@ extern struct particle_data
 #ifdef FORCETEST
     MyFloat GravAccelDirect[3];	/*!< particle acceleration calculated by direct summation */
 #endif
-#if defined(EVALPOTENTIAL) || defined(COMPUTE_POTENTIAL_ENERGY) || defined(OUTPUTPOTENTIAL)
     MyFloat       Potential;		/*!< gravitational potential */
-#endif
 
 #ifdef DISTORTIONTENSORPS
     MyDouble distortion_tensorps[6][6];          /*!< Phase Space Distortion tensor */
@@ -1308,9 +1306,7 @@ extern struct particle_data
 
     MyFloat OldAcc;			/*!< magnitude of old gravitational force. Used in relative opening
                               criterion */
-#if defined(EVALPOTENTIAL) && defined(PETAPM)
     MyFloat PM_Potential;
-#endif
 
 #ifdef STELLARAGE
     MyFloat StellarAge;		/*!< formation time of star particle */
@@ -1681,9 +1677,7 @@ extern struct gravdata_in *GravDataIn, *GravDataGet;
 struct gravdata_out
 {
     MyDouble Acc[3];
-#ifdef EVALPOTENTIAL
     MyDouble Potential;
-#endif
 #ifdef DISTORTIONTENSORPS
     MyDouble tidal_tensorps[3][3];
 #endif
