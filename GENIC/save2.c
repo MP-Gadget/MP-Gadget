@@ -98,6 +98,7 @@ void write_particle_data(void) {
         }
     }
     /* Write DM */
+    saveblock(&bf, &P[0].Density, "1/ICDensity", "f4", 1);
     saveblock(&bf, &P[0].Pos, "1/Position", "f8", 3);
     saveblock(&bf, &P[0].Vel, "1/Velocity", "f4", 3);
     saveblock(&bf, &P[0].ID, "1/ID", "u8", 1);

@@ -309,10 +309,12 @@ static void pm_apply_transfer_function(struct Region * fourier_space_region,
         pfft_complex * dst, transfer_function H);
 
 static void diff_transfer(int64_t k2, pfft_complex * value);
+static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void put_particle_to_mesh(int i, double * mesh, double weight);
+static void readout_density(int i, double * mesh, double weight);
 static void readout_potential(int i, double * mesh, double weight);
 static void readout_force_x(int i, double * mesh, double weight);
 static void readout_force_y(int i, double * mesh, double weight);
@@ -356,7 +358,7 @@ void petapm_force() {
 
     walltime_measure("/Fill");
     /* Density */
-    /*
+    
     pm_apply_transfer_function(&fourier_space_region, rho_k, complx, density_transfer);
     pfft_execute_dft_c2r(plan_back, complx, real);
     layout_build_and_exchange_cells_to_local(&layout);
@@ -365,7 +367,7 @@ void petapm_force() {
         printf("reading out density\n");
         fflush(stdout);
     }
-    */
+    
     walltime_measure("/Disp/X");
 
     /* displacements */
@@ -1097,7 +1099,8 @@ static double super_lanzcos_diff_kernel_1(double w) {
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         /* density is smoothed in k space by a gaussian kernel of 1 mesh grid */
-        double r2 = Box / Nmesh;
+        double r2 = 1.0 / Nmesh;
+        r2 *= r2;
         double fac = exp(- k2 * r2);
         value[0][0] *= fac;
         value[0][1] *= fac;
