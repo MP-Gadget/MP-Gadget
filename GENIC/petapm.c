@@ -76,7 +76,7 @@ static double * real;
 static double * meshbuf;
 static size_t meshbufsize;
 static pfft_complex * complx;
-static pfft_complex * pot_k;
+static pfft_complex * rho_k;
 static int fftsize;
 static void pm_alloc();
 static void pm_free();
@@ -168,7 +168,7 @@ void petapm_init_periodic(void) {
     pm_alloc();
 
     plan_forw = pfft_plan_dft_r2c_3d(
-        n, real, pot_k, comm_cart_2d, PFFT_FORWARD, 
+        n, real, rho_k, comm_cart_2d, PFFT_FORWARD, 
         PFFT_TRANSPOSED_OUT | PFFT_ESTIMATE | PFFT_DESTROY_INPUT);    
     plan_back = pfft_plan_dft_c2r_3d(
         n, complx, real, comm_cart_2d, PFFT_BACKWARD, 
@@ -222,7 +222,7 @@ void initialize_ffts(void) {
 }
 
 long long ijk_to_id(int i, int j, int k) {
-    long long id = ((long long) i) * Nmesh * Nmesh + ((long long)j) * Nmesh + k + 1;
+    long long id = ((long long) i) * Nsample * Nsample + ((long long)j) * Nsample + k + 1;
     return id;
 }
 
@@ -231,20 +231,19 @@ void free_ffts(void)
 }
 
 static void setup_grid() {
-    NumPart = real_space_region.size[0] * real_space_region.size[1];
     int size[3];
+    int offset[3];
     int k;
-    for(k = 0; k < 3; k ++) {
-        size[k] = real_space_region.size[k];
-        if(size[k] + real_space_region.offset[k] > Nmesh) {
-            size[k] = Nmesh - real_space_region.offset[k];
-        }
+    NumPart = 1;
+    for(k = 0; k < 2; k ++) {
+        offset[k] = (ThisTask2d[k]) * Nsample / NTask2d[k];
+        size[k] = (ThisTask2d[k] + 1) * Nsample / NTask2d[k];
+        size[k] -= offset[k];
+        NumPart *= size[k];
     }
-    if(real_space_region.size[2] + real_space_region.offset[2] > Nmesh) {
-        NumPart *= Nmesh - real_space_region.offset[2];
-    } else {
-        NumPart *= real_space_region.size[2];
-    }
+    offset[2] = 0;
+    size[2] = Nsample;
+    NumPart *= size[2];
     P = (struct part_data *) malloc(sizeof(struct part_data) * NumPart);
 
     int i;
@@ -253,9 +252,9 @@ static void setup_grid() {
         x = i / (size[2] * size[1]) + real_space_region.offset[0];
         y = (i % (size[1] * size[2])) / size[2] + real_space_region.offset[1];
         z = (i % size[2]) + real_space_region.offset[2];
-        P[i].Pos[0] = x * Box / Nmesh;
-        P[i].Pos[1] = y * Box / Nmesh;
-        P[i].Pos[2] = z * Box / Nmesh;
+        P[i].Pos[0] = x * Box / Nsample;
+        P[i].Pos[1] = y * Box / Nsample;
+        P[i].Pos[2] = z * Box / Nsample;
         P[i].ID = ijk_to_id(x, y, z);
     }
 }
@@ -264,12 +263,22 @@ static void makeregion() {
     int k;
     int r = 0;
     int i;
-    for(k = 0; k < 3; k ++) {
-        regions[r].offset[k] = real_space_region.offset[k] - 1;
-        regions[r].size[k] = real_space_region.size[k] + 2;
-        if(regions[r].size[k] + regions[r].offset[k] > Nmesh + 2) {
-            regions[r].size[k] = Nmesh + 2 - real_space_region.offset[k];
+    double min[3] = {Box, Box, Box};
+    double max[3] = {0, 0, 0.};
+
+    for(i = 0; i < NumPart; i ++) {
+        for(k = 0; k < 3; k ++) {
+            if(min[k] > P[i].Pos[k]) 
+                min[k] = P[i].Pos[k];
+            if(max[k] < P[i].Pos[k]) 
+                max[k] = P[i].Pos[k];
         }
+    }
+
+    for(k = 0; k < 3; k ++) {
+        regions[r].offset[k] = floor(min[k] / Box * Nmesh - 1);
+        regions[r].size[k] = ceil(max[k] / Box * Nmesh + 2);
+        regions[r].size[k] -= regions[r].offset[k];
     }
 
     /* setup the internal data structure of the region */
@@ -308,7 +317,7 @@ static void readout_potential(int i, double * mesh, double weight);
 static void readout_force_x(int i, double * mesh, double weight);
 static void readout_force_y(int i, double * mesh, double weight);
 static void readout_force_z(int i, double * mesh, double weight);
-static void gaussian_fill(struct Region * region, pfft_complex * pot_k);
+static void gaussian_fill(struct Region * region, pfft_complex * rho_k);
 
 void petapm_force() {
     int current_region = 0;
@@ -338,7 +347,7 @@ void petapm_force() {
     }
 
     /* fill in the initial gausian field */
-    gaussian_fill(&fourier_space_region, pot_k);
+    gaussian_fill(&fourier_space_region, rho_k);
 
     if(ThisTask == 0) {
         printf("filling \n");
@@ -346,10 +355,22 @@ void petapm_force() {
     }
 
     walltime_measure("/Fill");
+    /* Density */
+    /*
+    pm_apply_transfer_function(&fourier_space_region, rho_k, complx, density_transfer);
+    pfft_execute_dft_c2r(plan_back, complx, real);
+    layout_build_and_exchange_cells_to_local(&layout);
+    pm_iterate(readout_density);
+    if(ThisTask == 0) {
+        printf("reading out density\n");
+        fflush(stdout);
+    }
+    */
+    walltime_measure("/Disp/X");
 
     /* displacements */
 
-    pm_apply_transfer_function(&fourier_space_region, pot_k, complx, disp_x_transfer);
+    pm_apply_transfer_function(&fourier_space_region, rho_k, complx, disp_x_transfer);
     pfft_execute_dft_c2r(plan_back, complx, real);
     layout_build_and_exchange_cells_to_local(&layout);
     pm_iterate(readout_force_x);
@@ -359,7 +380,7 @@ void petapm_force() {
     }
     walltime_measure("/Disp/X");
     
-    pm_apply_transfer_function(&fourier_space_region, pot_k, complx, disp_y_transfer);
+    pm_apply_transfer_function(&fourier_space_region, rho_k, complx, disp_y_transfer);
     pfft_execute_dft_c2r(plan_back, complx, real);
     layout_build_and_exchange_cells_to_local(&layout);
     pm_iterate(readout_force_y);
@@ -369,7 +390,7 @@ void petapm_force() {
     }
     walltime_measure("/Disp/Y");
 
-    pm_apply_transfer_function(&fourier_space_region, pot_k, complx, disp_z_transfer);
+    pm_apply_transfer_function(&fourier_space_region, rho_k, complx, disp_z_transfer);
     pfft_execute_dft_c2r(plan_back, complx, real);
     layout_build_and_exchange_cells_to_local(&layout);
     pm_iterate(readout_force_z);
@@ -746,7 +767,7 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter) {
 static void pm_alloc() {
     real = (double * ) malloc(fftsize * sizeof(double));
     complx = (pfft_complex *) malloc(fftsize * sizeof(double));
-    pot_k = (pfft_complex * ) malloc(fftsize * sizeof(double));
+    rho_k = (pfft_complex * ) malloc(fftsize * sizeof(double));
     if(regions) {
         int i;
         size_t size = 0;
@@ -772,7 +793,7 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
     double Res[3]; /* residual*/
     for(k = 0; k < 3; k++) {
         double tmp = P[i].Pos[k] / cellsize;
-        iCell[k] = tmp;
+        iCell[k] = floor(tmp);
         Res[k] = tmp - iCell[k];
         iCell[k] -= region->offset[k];
         if(iCell[k] >= region->size[k] - 1) {
@@ -853,7 +874,7 @@ static void pm_free() {
     if(regions) {
         free(meshbuf);
     }
-    free(pot_k);
+    free(rho_k);
     free(complx);
     free(real);
 }
@@ -907,7 +928,7 @@ static void pm_apply_transfer_function(struct Region * region,
  * force from potential
  *
  *********************/
-static void gaussian_fill(struct Region * region, pfft_complex * pot_k) {
+static void gaussian_fill(struct Region * region, pfft_complex * rho_k) {
     gsl_rng * random_generator_seed = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(random_generator_seed, Seed);
 
@@ -1000,10 +1021,10 @@ static void gaussian_fill(struct Region * region, pfft_complex * pot_k) {
                 }
                 p_of_k *= PowerSpec(kmag);
                 double delta = fac * sqrt(p_of_k) / Dplus;
-                pot_k[ip][0] = delta * cos(phase);
-                pot_k[ip][1] = delta * sin(phase);
+                rho_k[ip][0] = delta * cos(phase);
+                rho_k[ip][1] = delta * sin(phase);
                 if(hermitian) {
-                    pot_k[ip][1] *= -1;
+                    rho_k[ip][1] *= -1;
                 }
             }
         }
@@ -1073,9 +1094,27 @@ static double super_lanzcos_diff_kernel_1(double w) {
  * */
     return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
 }
+static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+    if(k2) {
+        /* density is smoothed in k space by a gaussian kernel of 1 mesh grid */
+        double r2 = Box / Nmesh;
+        double fac = exp(- k2 * r2);
+        value[0][0] *= fac;
+        value[0][1] *= fac;
+    }
+}
 static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (Box / (2 * PI)) * kpos[0] / k2;
+        /*
+         We avoid high precision kernels to maintain compatibility with N-GenIC.
+         The following formular shall cross check with fac in the limit of 
+         native diff_kernel (disp_y, disp_z shall match too!)
+         
+        double fac1 = (2 * PI) / Box;
+        double fac = diff_kernel(kpos[0] * (2 * PI / Nmesh)) * (Nmesh / Box) / (
+                    k2 * fac1 * fac1);
+                    */
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -1103,6 +1142,9 @@ static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
  ***************/
 static void mark_all_mesh(int i, double * mesh, double weight) {
     mesh[0] = 1.0;
+}
+static void readout_density(int i, double * mesh, double weight) {
+    P[i].Density += weight * mesh[0];
 }
 static void readout_force_x(int i, double * mesh, double weight) {
     P[i].Vel[0] += weight * mesh[0];

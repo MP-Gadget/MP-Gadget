@@ -101,6 +101,7 @@ extern struct part_data
 {
   double Pos[3];
   float Vel[3];
+  float Density;
 #ifdef  MULTICOMPONENTGLASSFILE                      
   int   Type;
 #endif
