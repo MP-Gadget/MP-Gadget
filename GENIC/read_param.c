@@ -22,6 +22,7 @@ void read_parameterfile(char *fname)
 #define INT 3
 #define MAXTAGS 300
 
+  Ngrid = 0;
   FILE *fd;
   char buf[200], buf1[200], buf2[200], buf3[200];
   int i, j, nt;
@@ -82,8 +83,8 @@ void read_parameterfile(char *fname)
   addr[nt] = &Nmesh;
   id[nt++] = INT;
 
-  strcpy(tag[nt], "Nsample");
-  addr[nt] = &Nsample;
+  strcpy(tag[nt], "Ngrid");
+  addr[nt] = &Ngrid;
   id[nt++] = INT;
 
   strcpy(tag[nt], "FileWithInputSpectrum");
@@ -217,7 +218,9 @@ void read_parameterfile(char *fname)
       exit(0);
     }
 
-
+  if(Ngrid == 0) {
+      Ngrid = Nmesh;
+  }
 #undef FLOAT
 #undef STRING
 #undef INT

@@ -13,7 +13,7 @@ int *Local_nx_table;
 
 FILE *FdTmp, *FdTmpInput;
 
-int Nmesh, Nsample;
+int Nmesh, Nsample, Ngrid;
 
 long long IDStart;
 

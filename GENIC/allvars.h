@@ -79,7 +79,7 @@ extern int      WhichSpectrum;
 
 extern FILE     *FdTmp, *FdTmpInput;
 
-extern int      Nmesh, Nsample;
+extern int      Nmesh, Nsample, Ngrid;
 
 extern int      SphereMode;
 

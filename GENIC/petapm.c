@@ -222,7 +222,7 @@ void initialize_ffts(void) {
 }
 
 long long ijk_to_id(int i, int j, int k) {
-    long long id = ((long long) i) * Nsample * Nsample + ((long long)j) * Nsample + k + 1;
+    long long id = ((long long) i) * Ngrid * Ngrid + ((long long)j) * Ngrid + k + 1;
     return id;
 }
 
@@ -236,15 +236,15 @@ static void setup_grid() {
     int k;
     NumPart = 1;
     for(k = 0; k < 2; k ++) {
-        offset[k] = (ThisTask2d[k]) * Nsample / NTask2d[k];
-        size[k] = (ThisTask2d[k] + 1) * Nsample / NTask2d[k];
+        offset[k] = (ThisTask2d[k]) * Ngrid / NTask2d[k];
+        size[k] = (ThisTask2d[k] + 1) * Ngrid / NTask2d[k];
         size[k] -= offset[k];
         NumPart *= size[k];
     }
     offset[2] = 0;
-    size[2] = Nsample;
+    size[2] = Ngrid;
     NumPart *= size[2];
-    P = (struct part_data *) malloc(sizeof(struct part_data) * NumPart);
+    P = (struct part_data *) calloc(NumPart, sizeof(struct part_data));
 
     int i;
     for(i = 0; i < NumPart; i ++) {
@@ -252,9 +252,9 @@ static void setup_grid() {
         x = i / (size[2] * size[1]) + real_space_region.offset[0];
         y = (i % (size[1] * size[2])) / size[2] + real_space_region.offset[1];
         z = (i % size[2]) + real_space_region.offset[2];
-        P[i].Pos[0] = x * Box / Nsample;
-        P[i].Pos[1] = y * Box / Nsample;
-        P[i].Pos[2] = z * Box / Nsample;
+        P[i].Pos[0] = x * Box / Ngrid;
+        P[i].Pos[1] = y * Box / Ngrid;
+        P[i].Pos[2] = z * Box / Ngrid;
         P[i].ID = ijk_to_id(x, y, z);
     }
 }
@@ -1008,7 +1008,7 @@ static void gaussian_fill(struct Region * region, pfft_complex * rho_k) {
                 double kmag = sqrt(kmag2) * 2 * PI / Box;
                 double p_of_k = - log(ampl);
 			    if(SphereMode == 1) {
-			      if(kmag2 >= (Nsample / 2) * (Nsample / 2))	/* select a sphere in k-space */ {
+			      if(kmag2 >= (Ngrid / 2) * (Ngrid / 2))	/* select a sphere in k-space */ {
                     p_of_k = 0;
                   }
 			    }
