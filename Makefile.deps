@@ -53,14 +53,14 @@ depends/radixsort:
 	touch $@
 depends/bigfile:
 	cd $(VPATH)/bigfile/src; \
-	make install PREFIX=$(PWD)/depends/ CC=$(CC) CFLAGS="$(OPTIMIZE)"
+	make install PREFIX=$(PWD)/depends/ CC=$(CC) MPICC=$(CC) CFLAGS="$(OPTIMIZE)"
 	touch $@
 
 depends/fftw3:
 	CC="$(CC)" MPICC="$(CC)" CFLAGS="$(OPTIMIZE)" sh $(VPATH)/pfft-python/depends/install_fftw.sh $(PWD)/depends/
 	touch $@
 depends/pfft: depends/fftw3
-	CC="$(CC)" CFLAGS="$(OPTIMIZE)" sh $(VPATH)/pfft-python/depends/install_pfft.sh $(PWD)/depends/
+	CC="$(CC)" CFLAGS="$(OPTIMIZE) -I $(PWD)/depends/include -L$(PWD)/depends/lib" sh $(VPATH)/pfft-python/depends/install_pfft.sh $(PWD)/depends/
 	touch $@
 
 $(OBJS): $(INCL) config.h depends
