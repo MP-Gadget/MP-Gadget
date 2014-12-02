@@ -77,7 +77,7 @@ struct Pencil { /* a pencil starting at offset, with lenght len */
     int meshbuf_first; /* first pixel in meshbuf */
     int task;
 };
-static int pencil_cmp_target(const struct Pencil * p1, const struct Pencil * p2);
+static int pencil_cmp_target(const void * v1, const void * v2);
 static int pos_get_target(const int pos[2]);
 
 static int64_t reduce_int64(int64_t input);
@@ -757,7 +757,7 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter) {
             ix -= real_space_region.offset[k];
             if(ix >= real_space_region.size[k]) {
                 /* seroius problem assmpution about pfft layout was wrong*/
-                fprintf(stderr, "check here: original ix = %td\n", p->offset[k]);
+                fprintf(stderr, "check here: original ix = %d\n", p->offset[k]);
                 abort();
             }
             linear0 += ix * real_space_region.strides[k];
@@ -936,7 +936,9 @@ static int pos_get_target(const int pos[2]) {
     MPI_Cart_rank(comm_cart_2d, task2d, &rank);
     return rank;
 }
-static int pencil_cmp_target(const struct Pencil * p1, const struct Pencil * p2) {
+static int pencil_cmp_target(const void * v1, const void * v2) {
+    const struct Pencil * p1 = v1;
+    const struct Pencil * p2 = v2;
     /* move zero length pixels to the end */
     if(p2->len == 0) return -1;
     if(p1->len == 0) return 1;
