@@ -344,19 +344,15 @@ static void blackhole_accretion_evaluate(int n) {
 
 static void blackhole_postprocess(int n) {
     int k;
-#ifdef BH_REPOSITION_ON_POTMIN
-    if(BHP(n).MinPot < 0.5 * BHPOTVALUEINIT)
-        for(k = 0; k < 3; k++)
-            P[n].Pos[k] = BHP(n).MinPotPos[k];
-#endif
 #ifdef BH_ACCRETION
     if(BHP(n).accreted_Mass > 0)
     {
+#ifndef BH_REPOSITION_ON_POTMIN
         for(k = 0; k < 3; k++)
             P[n].Vel[k] =
                 (P[n].Vel[k] * P[n].Mass + BHP(n).accreted_momentum[k]) /
                 (P[n].Mass + BHP(n).accreted_Mass);
-
+#endif
         P[n].Mass += BHP(n).accreted_Mass;
         BHP(n).Mass += BHP(n).accreted_BHMass;
         BHP(n).accreted_Mass = 0;

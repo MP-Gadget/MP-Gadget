@@ -147,6 +147,7 @@ int drift_particle_full(int i, int time1, int blocking) {
     } else {
         if(blocking) {
             endrun(99999);
+            return -1;
         } else {
             return -1;
         }
@@ -236,6 +237,16 @@ static void real_drift_particle(int i, int time1)
 
     for(j = 0; j < 3; j++)
         P[i].Pos[j] += P[i].Vel[j] * dt_drift;
+
+#ifdef BH_REPOSITION_ON_POTMIN
+#define BHPOTVALUEINIT 1.0e30
+    if(P[i].Type == 5) {
+        int k;
+        if(BHP(i).MinPot < 0.5 * BHPOTVALUEINIT)
+            for(k = 0; k < 3; k++)
+                P[i].Pos[k] = BHP(i).MinPotPos[k];
+    }
+#endif
 
 
     /* START PHASE-SPACE ANALYSIS ------------------------------------------------------ */
