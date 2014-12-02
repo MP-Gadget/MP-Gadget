@@ -235,9 +235,12 @@ static void real_drift_particle(int i, int time1)
     }
 
 
-    for(j = 0; j < 3; j++)
-        P[i].Pos[j] += P[i].Vel[j] * dt_drift;
+    double oldpos[3];
 
+    for(j = 0; j < 3; j++) {
+        oldpos[j] = P[i].Pos[j];
+        P[i].Pos[j] += P[i].Vel[j] * dt_drift;
+    }
 #ifdef BH_REPOSITION_ON_POTMIN
 #define BHPOTVALUEINIT 1.0e30
     if(P[i].Type == 5) {
@@ -248,7 +251,9 @@ static void real_drift_particle(int i, int time1)
     }
 #endif
 
-
+#ifdef LIGHTCONE
+    lightcone_cross(i, oldpos);
+#endif
     /* START PHASE-SPACE ANALYSIS ------------------------------------------------------ */
 #ifdef DISTORTIONTENSORPS
 

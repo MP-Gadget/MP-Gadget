@@ -713,3 +713,8 @@ int kdelta(int a, int b);
 double gnlm_var(int n, int l, int m);
 double hnlm_var(int n, int l, int m);
 #endif
+#ifdef LIGHTCONE
+void lightcone_init();
+void lightcone_cross(int p, double oldpos[3]);
+void lightcone_set_time(double a);
+#endif
