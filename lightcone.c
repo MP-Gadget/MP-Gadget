@@ -171,16 +171,20 @@ void lightcone_set_time(double a) {
             /* write a smaller fraction of the points at high redshift
              */
             /* This is the angular resolution rule */
-            SampleFraction = HorizonDistance / HorizonDistanceRef;
+            SampleFraction = HorizonDistanceRef / HorizonDistance;
             SampleFraction *= SampleFraction; 
             SampleFraction *= SampleFraction; 
             /* This is the luminosity resolution rule */
 #if 0
-            SampleFraction = HorizonDistance / HorizonDistanceRef;
-            SampleFraction *= (1 + z) / (1 + ReferenceRedshift);
+            SampleFraction = HorizonDistanceRef / HorizonDistance;
+            SampleFraction *= (1 + ReferenceRedshift) / (1 + z);
             SampleFraction *= SampleFraction; 
 
 #endif
+        }
+        if(ThisTask == 0) {
+
+            printf("RefRedeshit=%g, SampleFraction=%g\n", ReferenceRedshift, SampleFraction);
         }
     } else {
         SampleFraction = 0;
