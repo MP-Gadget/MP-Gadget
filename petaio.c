@@ -662,8 +662,9 @@ SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
 #endif
 #endif
+#ifdef FOF
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
-
+#endif
 static void GTStarFormationRate(int i, float * out) {
     /* Convert to Solar/year */
     *out = get_starformation_rate(i) 
@@ -703,7 +704,9 @@ static void register_io_blocks() {
         IO_REG(ID,       "u8", 1, i);
         IO_REG(Generation,       "u1", 1, i);
         IO_REG(Potential, "f4", 1, i);
+#ifdef FOF
         IO_REG_WRONLY(GroupID, "u4", 1, i);
+#endif
     }
 
     /* Bare Bone SPH*/

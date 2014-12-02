@@ -13,7 +13,7 @@
 #include "petaio.h"
 #include "domain.h"
 #include "fof.h"
-
+#ifdef FOF
 /* from FoF*/
 extern int Ngroups, TotNgroups;
 extern struct group_properties *Group;
@@ -293,4 +293,4 @@ void fof_register_io_blocks() {
     IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP);
 #endif
 }
-
+#endif
