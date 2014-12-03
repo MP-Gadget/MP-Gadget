@@ -41,7 +41,8 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
     void ** Abase = Abase_store;
     void ** Atmp = Atmp_store;
 
-    void * tmp = malloc(size * nmemb);
+    void * tmp;
+    tmp = malloc(size * nmemb);
 
 #pragma omp parallel
     {
@@ -67,7 +68,15 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
 #pragma omp barrier
             int color = tid / sep;
             int key = tid % sep;
-
+#if 0
+            if(tid == 0) {
+                printf("sep = %d Abase[0] %p base %p, Atmp[0] %p tmp %p\n", 
+                        sep, Abase[0], base, Atmp[0], tmp);
+                printf("base 73134 = %d 73135 = %d\n", ((int*) base)[73134], ((int*) base)[73135]);
+                printf("tmp  73134 = %d 73135 = %d\n", ((int*) tmp )[73134], ((int*) tmp )[73135]);
+            }
+#endif
+#pragma omp barrier
             /* only group leaders work */
             if(key != 0) {
                 goto cont;    
@@ -76,26 +85,29 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
             if(color % 2 == 0) {
                 nextT = tid + sep;
                 /*merge with next guy */
-                if(nextT >= Nt) {
-                    goto cont;
-                }
             } else {
                 goto cont;
             }
-#if 0
-            printf("%d merging with %td/%td:%td %td/%td:%td\n", tid, 
-                    ((char*)Abase[tid] - (char*) base) / size,
-                    ((char*)Abase[tid] - (char*) tmp) / size,
-                    Anmemb[tid], 
-                    ((char*)Abase[nextT] - (char*) base) / size,
-                    ((char*)Abase[nextT] - (char*) tmp) / size,
-                    Anmemb[nextT]);
+            /* only even leaders arrives to this point*/
+            if(nextT >= Nt) {
+                /* no next guy, copy directly.*/
+                merge(Abase[tid], Anmemb[tid], NULL, 0, Atmp[tid], size, compar);
+            }  else {
+#if 0                
+                printf("%d + %d merging with %td/%td:%td %td/%td:%td\n", tid, nextT,
+                        ((char*)Abase[tid] - (char*) base) / size,
+                        ((char*)Abase[tid] - (char*) tmp) / size,
+                        Anmemb[tid], 
+                        ((char*)Abase[nextT] - (char*) base) / size,
+                        ((char*)Abase[nextT] - (char*) tmp) / size,
+                        Anmemb[nextT]);
 #endif
-            /* only even leaders with nextT arrives to this point*/
-            merge(Abase[tid], Anmemb[tid], Abase[nextT], Anmemb[nextT], Atmp[tid], size, compar);
-            /* merge two lists */
-            Anmemb[tid] = Anmemb[tid] + Anmemb[nextT];
-            Anmemb[nextT] = 0;
+                merge(Abase[tid], Anmemb[tid], Abase[nextT], Anmemb[nextT], Atmp[tid], size, compar);
+                /* merge two lists */
+                Anmemb[tid] = Anmemb[tid] + Anmemb[nextT];
+                Anmemb[nextT] = 0;
+            }
+
 cont:
             /* now swap Abase and Atmp for next merge */
 #pragma omp barrier
@@ -117,6 +129,15 @@ cont:
 }
 
 #if 0
+int checksorted(int * start, int nmemb) {
+    int i;
+    for(i = 1; i < nmemb; i ++) {
+        if( start[i-1] > start[i]) {
+            return i;
+        }
+    }
+    return 0;
+}
 static int compare(const void *a, const void *b) {
         return ( *(int*)a - *(int*)b );
 }
@@ -125,6 +146,7 @@ int main(int argc, char * argv[]) {
     int i;
     if( argc != 2 && argc != 3 ) {
         fprintf(stderr,"usage: quicksort_omp Nelements [Nthreads]\n");
+        fprintf(stderr,"abad case is 87763 12.\n");
         return -1;
     }
     //
