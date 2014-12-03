@@ -100,6 +100,8 @@ void lightcone_init() {
         endrun(1231414);
     }
     HorizonDistanceRef = lightcone_get_horizon(1 / (1 + ReferenceRedshift));
+    printf("lightcone reference redshift = %g distance = %g\n",
+            ReferenceRedshift, HorizonDistanceRef);
 }
 
 /* returns the horizon distance */
@@ -115,6 +117,7 @@ static double lightcone_get_horizon(double a) {
     double u1 = loga - tab_loga[bin];
     double u2 = tab_loga[bin + 1] - loga;
     u1 /= (tab_loga[bin + 1] - tab_loga[bin]);
+    u2 /= (tab_loga[bin + 1] - tab_loga[bin]);
     return tab_Dc[bin] * u2 + tab_Dc[bin + 1] * u1;
 }
 
@@ -183,8 +186,8 @@ void lightcone_set_time(double a) {
 #endif
         }
         if(ThisTask == 0) {
-
-            printf("RefRedeshit=%g, SampleFraction=%g\n", ReferenceRedshift, SampleFraction);
+            printf("RefRedeshit=%g, SampleFraction=%g HorizonDistance=%g\n", 
+                    ReferenceRedshift, SampleFraction, HorizonDistance);
         }
     } else {
         SampleFraction = 0;
