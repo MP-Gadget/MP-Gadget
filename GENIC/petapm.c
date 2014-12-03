@@ -1038,7 +1038,6 @@ static void gaussian_fill(struct Region * region, pfft_complex * rho_k) {
         gsl_rng_free(random_generator1);
     }
     free(seedtable);
-    memset(rho_k, 0, sizeof(double) * fftsize);
 }
 
 /* unnormalized sinc function sin(x) / x */
