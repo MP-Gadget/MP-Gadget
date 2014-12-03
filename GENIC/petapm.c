@@ -868,7 +868,6 @@ static int pos_get_target(const int pos[2]) {
 }
 static int pencil_cmp_target(const struct Pencil * p1, const struct Pencil * p2) {
     /* move zero length pixels to the end */
-    printf("%d %d\n", p2->len, p1->len);
     if(p2->len == 0) return -1;
     if(p1->len == 0) return 1;
     int t1 = pos_get_target(p1->offset); 
