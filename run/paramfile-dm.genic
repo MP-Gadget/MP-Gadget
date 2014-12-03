@@ -1,14 +1,14 @@
 OutputDir        ./debug    % Directory for output
 FileBase         IC              % Base-filename of output files
 
-Nmesh            256 % This is the size of the FFT grid used to 
+Nmesh            16 % This is the size of the FFT grid used to 
                             % compute the displacement field. One
                             % should have Nmesh >= Nsample.
 
-Ngrid            256 % number of partic per grid direction.
+Ngrid            16 % number of partic per grid direction.
  
 
-Box             1024000.0   % Periodic box size of simulation
+Box             128000.0   % Periodic box size of simulation
 
 
 

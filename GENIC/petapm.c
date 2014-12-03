@@ -600,6 +600,10 @@ static void layout_exchange_pencils(struct Layout * L) {
     for(i = 0; i < NTask; i ++) {
         int j;
         struct Pencil * p = &L->PencilSend[offset];
+
+        /* do not tamper p->first if there no pencil */
+        if(L->NpSend[i] == 0) continue;
+
         p->first = 0;
         for(j = 1; j < L->NpSend[i]; j++) {
             p[j].first = p[j - 1].first + p[j - 1].len;
@@ -864,12 +868,13 @@ static int pos_get_target(const int pos[2]) {
 }
 static int pencil_cmp_target(const struct Pencil * p1, const struct Pencil * p2) {
     /* move zero length pixels to the end */
+    printf("%d %d\n", p2->len, p1->len);
     if(p2->len == 0) return -1;
     if(p1->len == 0) return 1;
     int t1 = pos_get_target(p1->offset); 
     int t2 = pos_get_target(p2->offset); 
     return ((t2 < t1) - (t1 < t2)) * 2 +
-        ((p2->first < p1->first) - (p1->first < p2->first));
+        ((p2->meshbuf_first < p1->meshbuf_first) - (p1->meshbuf_first < p2->meshbuf_first));
 }
 
 static void pm_free() {
@@ -1034,6 +1039,7 @@ static void gaussian_fill(struct Region * region, pfft_complex * rho_k) {
         gsl_rng_free(random_generator1);
     }
     free(seedtable);
+    memset(rho_k, 0, sizeof(double) * fftsize);
 }
 
 /* unnormalized sinc function sin(x) / x */

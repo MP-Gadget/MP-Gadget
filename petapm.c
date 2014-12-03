@@ -612,6 +612,7 @@ static void layout_exchange_pencils(struct Layout * L) {
     for(i = 0; i < NTask; i ++) {
         int j;
         struct Pencil * p = &L->PencilSend[offset];
+        if(L->NpSend[i] == 0) continue;
         p->first = 0;
         for(j = 1; j < L->NpSend[i]; j++) {
             p[j].first = p[j - 1].first + p[j - 1].len;
@@ -945,7 +946,7 @@ static int pencil_cmp_target(const void * v1, const void * v2) {
     int t1 = pos_get_target(p1->offset); 
     int t2 = pos_get_target(p2->offset); 
     return ((t2 < t1) - (t1 < t2)) * 2 +
-        ((p2->first < p1->first) - (p1->first < p2->first));
+        ((p2->meshbuf_first < p1->meshbuf_first) - (p1->meshbuf_first < p2->meshbuf_first));
 }
 
 static void pm_free() {
