@@ -195,9 +195,9 @@ void init(void)
 
     for(i = 0; i < NumPart; i++)	/*  start-up initialization */
     {
-        for(j = 0; j < 3; j++)
+        for(j = 0; j < 3; j++) {
             P[i].GravAccel[j] = 0;
-
+        }
         /* DISTORTION PARTICLE SETUP */
 #ifdef DISTORTIONTENSORPS
         /*init tidal tensor for first output (not used for calculation) */

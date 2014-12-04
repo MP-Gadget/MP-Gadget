@@ -322,7 +322,7 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         P[i].Pos[2] = 0;
         P[i].Vel[2] = 0;
 
-        P[i].g.GravAccel[2] = 0;
+        P[i].GravAccel[2] = 0;
 
         if(P[i].Type == 0)
         {
@@ -2267,28 +2267,6 @@ void read_parameter_file(char *fname)
 #endif
 #endif
 
-#ifdef COOLING
-    if(All.CoolingOn == 0)
-    {
-        if(ThisTask == 0)
-        {
-            printf("Code was compiled with cooling switched on.\n");
-            printf("You must set `CoolingOn=1', or recompile the code.\n");
-        }
-        endrun(0);
-    }
-#else
-    if(All.CoolingOn == 1)
-    {
-        if(ThisTask == 0)
-        {
-            printf("Code was compiled with cooling switched off.\n");
-            printf("You must set `CoolingOn=0', or recompile the code.\n");
-        }
-        endrun(0);
-    }
-#endif
-
     if(All.TypeOfTimestepCriterion >= 3)
     {
         if(ThisTask == 0)
@@ -2345,7 +2323,7 @@ void read_parameter_file(char *fname)
             printf("Code was compiled with star formation switched off.\n");
             printf("You must set `StarformationOn=0', or recompile the code.\n");
         }
-        endrun(0);
+        All.StarformationOn = 0;
     }
 #endif
 

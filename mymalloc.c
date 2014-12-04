@@ -49,14 +49,17 @@ void mymalloc_init(void)
     /* n is aligned*/
     n = align_size(All.MaxMemSizePerCore * All.NumThreads * ((size_t) 1024 * 1024));
 
+#ifndef VALGRIND
     /* extra space for aligning Base */
     if(!(Base = malloc(n + ALIGNMENT)))
     {
         printf("Failed to allocate memory for `Base' (%d Mbytes).\n", All.MaxMemSizePerCore * All.NumThreads);
         endrun(122);
     }
-
     Base = (char*) align_size((size_t) Base);
+#else
+    Base = NULL;
+#endif
     TotBytes = FreeBytes = n;
 
     AllocatedBytes = 0;
@@ -151,6 +154,9 @@ void dump_memory_table(void)
 
 void *mymalloc_fullinfo(const char *varname, size_t n, const char *func, const char *file, int line)
 {
+#ifdef VALGRIND
+    return malloc(n);
+#endif
     n = align_size(n);
 
     if(Nblocks >= MAXBLOCKS)
@@ -192,6 +198,10 @@ void *mymalloc_fullinfo(const char *varname, size_t n, const char *func, const c
 
 void myfree_fullinfo(void *p, const char *func, const char *file, int line)
 {
+#ifdef VALGRIND
+    free(p);
+    return;
+#endif
     if(Nblocks == 0)
         endrun(76878);
 
@@ -211,8 +221,10 @@ void myfree_fullinfo(void *p, const char *func, const char *file, int line)
 
 void *myrealloc_fullinfo(void *p, size_t n, const char *func, const char *file, int line)
 {
+#ifdef VALGRIND
+    return realloc(p, n);
+#endif
     n = align_size(n);
-
     if(Nblocks == 0)
         endrun(76879);
 

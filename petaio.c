@@ -648,10 +648,17 @@ SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
 SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
 #endif
 SIMPLE_PROPERTY(Pressure, SPHP(i).Pressure, float, 1)
+#ifdef COOLING
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
+#endif
 #ifdef SFR
 SIMPLE_PROPERTY(StarFormationTime, P[i].StellarAge, float, 1)
 SIMPLE_PROPERTY(Metallicity, P[i].Metallicity, float, 1)
+static void GTStarFormationRate(int i, float * out) {
+    /* Convert to Solar/year */
+    *out = get_starformation_rate(i) 
+        * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
+}
 #endif
 #ifdef BLACK_HOLES
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
@@ -665,11 +672,7 @@ SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
 #ifdef FOF
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
 #endif
-static void GTStarFormationRate(int i, float * out) {
-    /* Convert to Solar/year */
-    *out = get_starformation_rate(i) 
-        * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
-}
+#ifdef COOLING
 static void GTNeutralHydrogenFraction(int i, float * out) {
     double ne, nh0, nHeII;
     ne = SPHP(i).Ne;
@@ -693,7 +696,7 @@ static void GTJUV(int i, float * out) {
     GetParticleUVBG(i, &uvbg);
     *out = uvbg.J_UV;
 }
-
+#endif
 static void register_io_blocks() {
     int i;
     /* Bare Bone Gravity*/
@@ -719,9 +722,11 @@ static void register_io_blocks() {
 #endif
 
     /* Cooling */
+#ifdef COOLING
     IO_REG(ElectronAbundance,       "f4", 1, 0);
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0);
     IO_REG_WRONLY(InternalEnergy,   "f4", 1, 0);
+#endif
 //    IO_REG_WRONLY(JUV,   "f4", 1, 0);
 
     /* SF */
