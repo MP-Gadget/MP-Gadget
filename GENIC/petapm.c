@@ -774,6 +774,17 @@ static void pm_alloc() {
     real = (double * ) malloc(fftsize * sizeof(double));
     complx = (pfft_complex *) malloc(fftsize * sizeof(double));
     rho_k = (pfft_complex * ) malloc(fftsize * sizeof(double));
+#if 0
+    /* this will set all of the values to NaNs 
+     * if any of the points are not initialized it will mark everything
+     * NaN.
+     *
+     * valgrind --malloc-fill=0xff does the same.
+     * */
+    memset(real , -1, sizeof(double) * fftsize);
+    memset(complx, -1, sizeof(double) * fftsize);
+    memset(rho_k, -1, sizeof(double) * fftsize);
+#endif
     if(regions) {
         int i;
         size_t size = 0;
@@ -994,7 +1005,7 @@ static void gaussian_fill(struct Region * region, pfft_complex * rho_k) {
             double skip = gsl_rng_uniform(random_generator1);
             skip = gsl_rng_uniform(random_generator1);
             int k;
-            for(k = 0; k < Nmesh / 2; k ++) {
+            for(k = 0; k <= Nmesh / 2; k ++) {
                 /* on k = 0 plane, we use the lower quadrant generator, 
                  * then hermit transform the result if it is nessessary */
                 gsl_rng * random_generator = k?random_generator1:random_generator0;
@@ -1022,7 +1033,8 @@ static void gaussian_fill(struct Region * region, pfft_complex * rho_k) {
                 if(j == Nmesh / 2) {
                     p_of_k = 0;
                 }
-                if(k == Nmesh / 2) {
+                if(k >= Nmesh / 2) {
+                    /* this is to cut off at the Nyquist*/
                     p_of_k = 0;
                 }
                 p_of_k *= PowerSpec(kmag);
@@ -1038,6 +1050,28 @@ static void gaussian_fill(struct Region * region, pfft_complex * rho_k) {
         gsl_rng_free(random_generator1);
     }
     free(seedtable);
+#if 0
+    /* dump the gaussian field for debugging 
+     * 
+     * the z directioin is in axis 1.
+     *
+     * */
+    FILE * rhokf = fopen("rhok", "w");
+    printf("strides %td %td %td\n", 
+            region->strides[0],
+            region->strides[1],
+            region->strides[2]);
+    printf("size %td %td %td\n", 
+            region->size[0],
+            region->size[1],
+            region->size[2]);
+    printf("offset %td %td %td\n", 
+            region->offset[0],
+            region->offset[1],
+            region->offset[2]);
+    fwrite(rho_k, sizeof(double) * fftsize, 1, rhokf);
+    fclose(rhokf);
+#endif
 }
 
 /* unnormalized sinc function sin(x) / x */
