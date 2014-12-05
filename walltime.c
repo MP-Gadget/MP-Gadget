@@ -187,7 +187,7 @@ double walltime_measure_internal(char * name) {
     return dt;
 }
 double walltime_measure_full(char * name, char * file, int line) {
-    char fullname[128];
+    char fullname[128] = {0};
     char * basename = file + strlen(file);
     while(basename >= file && *basename != '/') basename --;
     basename ++;
@@ -195,7 +195,7 @@ double walltime_measure_full(char * name, char * file, int line) {
     return walltime_measure_internal(fullname);
 }
 double walltime_add_full(char * name, double dt, char * file, int line) {
-    char fullname[128];
+    char fullname[128] = {0};
     char * basename = file + strlen(file);
     while(basename >= file && *basename != '/') basename --;
     basename ++;
