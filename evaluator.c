@@ -43,6 +43,8 @@ void ev_begin(Evaluator * ev) {
     DataNodeList =
         (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
 
+    memset(DataNodeList, -1, sizeof(struct data_nodelist) * All.BunchSize);
+
     ev->PQueueEnd = 0;
 
     ev->PQueue = ev_get_queue(ev, &ev->PQueueEnd);
@@ -381,6 +383,8 @@ void ev_get_remote(Evaluator * ev, int tag) {
     void * recvbuf = mymalloc("EvDataGet", ev->Nimport * ev->ev_datain_elsize);
     char * sendbuf = mymalloc("EvDataIn", ev->Nexport * ev->ev_datain_elsize);
 
+    memset(sendbuf, -1, ev->Nexport * ev->ev_datain_elsize);
+
     tstart = second();
     /* prepare particle data for export */
     //
@@ -390,8 +394,9 @@ void ev_get_remote(Evaluator * ev, int tag) {
         int place = DataIndexTable[j].Index;
         /* the convention is to have nodelist at the beginning */
         if(ev->UseNodeList) {
-            memcpy(sendbuf + j * ev->ev_datain_elsize, DataNodeList[DataIndexTable[j].IndexGet].NodeList, 
-                    sizeof(int) * NODELISTLENGTH);
+            int c = 0;
+            int * nl = DataNodeList[DataIndexTable[j].IndexGet].NodeList;
+            memcpy(sendbuf + j * ev->ev_datain_elsize, nl, sizeof(int) * NODELISTLENGTH);
         }
         ev->ev_copy(place, sendbuf + j * ev->ev_datain_elsize);
     }

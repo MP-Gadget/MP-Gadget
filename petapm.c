@@ -560,6 +560,7 @@ static void layout_prepare (struct Layout * L) {
         printf("PetaPM:  %010ld/%010ld Pencils and %010ld Cells\n", totNpExport, totNpAlloc, totNcExport);
     }
     L->PencilRecv = mymalloc("PencilRecv", L->NpImport * sizeof(struct Pencil));
+    memset(L->PencilRecv, 0xfc, L->NpImport * sizeof(struct Pencil));
     layout_exchange_pencils(L);
 }
 
