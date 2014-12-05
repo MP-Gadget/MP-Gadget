@@ -5,8 +5,18 @@
 #include "evaluator.h"
 #include "tags.h"
 
+
 static void ev_init_thread(Evaluator * ev, LocalEvaluator * lv);
 static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int length);
+
+/*
+ * for debugging
+ */
+#define WATCH { \
+        printf("ev->PrimaryTasks[0] = %d %d (%d) %s:%d\n", ev->PrimaryTasks[0].top_node, ev->PrimaryTasks[0].place, ev->PQueueEnd, __FILE__, __LINE__); \
+    }
+static Evaluator * GDB_current_ev = NULL;
+
 
 void ev_init_thread(Evaluator * ev, LocalEvaluator * lv) {
     int thread_id = omp_get_thread_num();
@@ -36,26 +46,18 @@ void ev_begin(Evaluator * ev) {
     ev->PQueueEnd = 0;
 
     ev->PQueue = ev_get_queue(ev, &ev->PQueueEnd);
-
     ev->PrimaryTasks = (struct ev_task *) mymalloc("PrimaryTasks", sizeof(struct ev_task) * ev->PQueueEnd);
-
-    int i = 0;
-#pragma omp parallel for if(ev->PQueueEnd > 1024)
-    for(i = 0; i < ev->PQueueEnd; i ++) {
-        int p = ev->PQueue[i];
-        P[p].Evaluated = 0;
-    }
 
     fill_task_queue(ev, ev->PrimaryTasks, ev->PQueue, ev->PQueueEnd);
     ev->currentIndex = mymalloc("currentIndexPerThread", sizeof(int) * All.NumThreads);
     ev->currentEnd = mymalloc("currentEndPerThread", sizeof(int) * All.NumThreads);
 
+    int i;
     for(i = 0; i < All.NumThreads; i ++) {
         ev->currentIndex[i] = ((size_t) i) * ev->PQueueEnd / All.NumThreads;
         ev->currentEnd[i] = ((size_t) i + 1) * ev->PQueueEnd / All.NumThreads;
     }
 }
-
 void ev_finish(Evaluator * ev) {
     myfree(ev->currentEnd);
     myfree(ev->currentIndex);
@@ -332,6 +334,7 @@ int ev_export_particle(LocalEvaluator * lv, int target, int no) {
 
 void ev_run(Evaluator * ev) {
     /* run the evaluator */
+    GDB_current_ev = ev;
     ev_begin(ev);
     do
     {
@@ -501,6 +504,7 @@ static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int 
        */
         tq[i].top_node = no;
         tq[i].place = pq[i];
+        P[pq[i]].Evaluated = 0;
     }
     // qsort(tq, length, sizeof(struct ev_task), ev_task_cmp_by_top_node);
 }
