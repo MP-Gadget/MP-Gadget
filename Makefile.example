@@ -7,16 +7,7 @@ VPATH=./
 #--------------------------------------- Basic operation mode of code
 OPT += -DDENSITY_INDEPENDENT_SPH
 OPT	+=  -DPERIODIC
-OPT	+=  -DCOOLING
-OPT	+=  -DSFR
-OPT	+=  -DUNEQUALSOFTENINGS
-# shall be a lot faster than critical sections
-# but may not run on some systems
-OPT += -DOPENMP_USE_SPINLOCK
-#OPT += -DLIGHTCONE                       # write a lightcone on the fly in development
-OPT	+=  -DH5_USE_16_API # needed when HDF5 I/O support is desired
-OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
-OPT += -DWINDS
+#OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 OPT += -DPETAPM  # new peta scale PFFT based PM
 OPT += -DPETAPM_ORDER=1  # order of finite differentiation kernel 1 is same as gadget
 
@@ -25,6 +16,16 @@ OPT += -DPETAPM_ORDER=1  # order of finite differentiation kernel 1 is same as g
 #OPT	+=  -DASMTH=1.25
 #OPT	+=  -DRCUT=4.5
 
+#OPT += VALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
+
+# flags shall that always be there they need to be cleaned up
+OPT += -DOPENMP_USE_SPINLOCK
+OPT	+=  -DUNEQUALSOFTENINGS
+OPT	+=  -DMOREPARAMS
+OPT	+=  -DALLOWEXTRAPARAMS
+OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
+OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
+OPT	+=  -DBH_REPOSITION_ON_POTMIN    # repositions hole on potential minimum (required )
 
 #--------------------------------------- Multi-Domain and Top-Level Tree options
 OPT	+=  -DMULTIPLEDOMAINS=32
@@ -35,9 +36,7 @@ OPT	+=  -DTOPNODEFACTOR=5.0
 OPT	+=  -DPEANOHILBERT
 OPT	+=  -DWALLCLOCK
 OPT	+=  -DMYSORT
-OPT	+=  -DLONGIDS                         # always use long id enable this
 OPT	+=  -DDONOTUSENODELIST                # do not use node list in hydro why?
-OPT	+=  -DALLOWEXTRAPARAMS
 #OPT	+=  -DCPUSPEEDADJUSTMENT
 #OPT	+=  -DHYDRO_COST_FACTOR=1000
 #OPT	+=  -DAUTO_SWAP_ENDIAN_READIC        # Enables automatic ENDIAN swapping for reading ICs
@@ -53,8 +52,10 @@ OPT 	+=  -DFOF_GROUP_MIN_LEN=32               # default is 32
 #OPT	+=  -DSO_VEL_DISPERSIONS                 # computes velocity dispersions for as part of FOF SO-properties
 
 #--------------------------------------- SFR/feedback model
+# most of the sfr modes are controled in paramfile (which needs a overhaul too!)
+OPT	+=  -DCOOLING
+OPT	+=  -DSFR
 #OPT	+=  -DSOFTEREQS
-OPT	+=  -DMOREPARAMS
 OPT	+=  -DMETALS
 OPT	+=  -DSTELLARAGE
 OPT	+=  -DWINDS
@@ -70,7 +71,6 @@ OPT	+=  -DBH_THERMALFEEDBACK      # couple a fraction of the BH luminosity into 
 OPT	+=  -DBH_SWALLOWGAS              # Enables stochastic accretion of gas particles consistent with growth rate of hole
 OPT	+=  -DBH_SWALLOWBH # Enables blackhole mergers.
 OPT	+=  -DBH_COUNTPROGS	      # carries a counter for each BH that gives the total number of seeds that merged into it
-OPT	+=  -DBH_REPOSITION_ON_POTMIN    # repositions hole on potential minimum (requires EVALPOTENTIAL)
 OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding gas velocity is used in addition to the sounds speed in the Bondi rate 
 
 
@@ -91,7 +91,7 @@ OPT	+=  -DNOTEST_FOR_IDUNIQUENESS
 #OPT	+=  -DSNIA_HEATING
 #OPT    +=  -DRADIAL_TREE                   #make tree forces exact radial (only implemented in tree, not TreePM)
 #OPT	+=  -DFIXEDTIMEINFIRSTPHASE=1000.0
-OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN
+OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
 OPT	+=  -DFIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
 #OPT	+=  -DMPISENDRECV_SIZELIMIT=100
 #OPT	+=  -DMPISENDRECV_CHECKSUM
@@ -104,7 +104,7 @@ OPT	+=  -DFIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
 #OPT	+=  -DISOTHERM=200                  # adds potential of an isothermal sphere
 #OPT	+=  -DCOMPUTE_POTENTIAL_ENERGY
 #OPT	+=  -DASSIGN_NEW_IDS
-OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very different from collisionless particles, this can helps to avoid problems in the domain decomposition
+OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very different from collisionless particles, this can helps to avoid problems in the domain decomposition -- increase All.MaxPartSph
 #OPT	+=  -DLONG_X=140
 #OPT	+=  -DLONG_Y=1
 #OPT	+=  -DLONG_Z=1
@@ -129,7 +129,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 
 #--------------------------------------- Time integration options
 #OPT	+=  -DALTERNATIVE_VISCOUS_TIMESTEP
-OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
 #OPT	+=  -DNOWINDTIMESTEPPING            # Disable wind reducing timestep (not recommended)
 #OPT	+=  -DNOPMSTEPADJUSTMENT
 #OPT	+=  -DFORCE_EQUAL_TIMESTEPS
@@ -539,20 +538,6 @@ include $(VPATH)/Makefile.deps
 #                        IDs must be set to numbers >=1 for this to work.
 #
 ###############################################################################
-
-
-
-
-# - FLTROUNDOFFREDUCTION     enables round off reduction in particle sums
-#		             if DOUBLEPRECISION is set, these sums are done in 'long double'
-#                            if single precision is used, they are done in 'double'
-#                            This should in principle allow to make computations
-#                            *exactly* invariant to different numbers of CPUs.
-#
-# - SOFTDOUBLEDOUBLE         when this is set, a software implementation of
-#                            128bit double-double addition is used, implemented as a c++ class.
-#                            Hence, this option requires compilation with a c++ compiler
-#
 
 
 #     - QUICK_LYALPHA:   This only works for cosmological simulations in periodic boxes
