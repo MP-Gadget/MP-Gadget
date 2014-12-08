@@ -15,6 +15,7 @@ OBJS  =  \
 	 system.o allocate.o density.o sizelimited_sendrecv.o  \
 	 evaluator.o \
 	 gravtree.o hydra.o  driftfac.o darkenergy.o \
+	 gravpm.o \
 	 forcetree.o ewald.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o

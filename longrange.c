@@ -6,9 +6,6 @@
 
 #include "allvars.h"
 #include "proto.h"
-#ifdef PETAPM
-#include "petapm.h"
-#endif
 /*! \file longrange.c
  *  \brief driver routines for computation of long-range gravitational PM force
  */
@@ -21,7 +18,7 @@
 void long_range_init(void)
 {
 #ifdef PETAPM
-  petapm_init_periodic();
+  gravpm_init_periodic();
 #endif /*PETAPM*/
 }
 
@@ -53,7 +50,6 @@ void long_range_force(void)
   double fac;
 #endif
 
-
   for(i = 0; i < NumPart; i++)
     {
       P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
@@ -73,13 +69,14 @@ void long_range_force(void)
     }
 
 #ifdef NOGRAVITY
+
   return;
 #endif
 
 
 #ifdef PERIODIC
 #ifdef PETAPM
-  petapm_force();
+  gravpm_force();
 #else
   do_box_wrapping();	/* map the particles back onto the box */
   pmforce_periodic(0, NULL);

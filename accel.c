@@ -45,12 +45,8 @@ void compute_accelerations(int mode)
 #ifdef PETAPM
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
-        petapm_prepare();
-        force_treefree();
-        TreeReconstructFlag = 1;
         long_range_force();
-
-        petapm_finish();
+        TreeReconstructFlag = 1;
         walltime_measure("/LongRange");
     }
 #endif
