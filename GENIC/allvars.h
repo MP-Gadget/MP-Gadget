@@ -102,7 +102,7 @@ extern struct part_data
   double Pos[3];
   float Vel[3];
   float Density;
-  int64_t ID;
+  uint64_t ID;
   double Mass;
   int RegionInd;
 } *P;
