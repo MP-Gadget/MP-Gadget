@@ -361,7 +361,7 @@ int64_t count_sum(int64_t countLocal);
 int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
-inline int atomic_fetch_and_add(int * ptr, int value) {
+static inline int atomic_fetch_and_add(int * ptr, int value) {
     int k;
 #if _OPENMP >= 201107
 #pragma omp atomic capture
@@ -382,7 +382,7 @@ inline int atomic_fetch_and_add(int * ptr, int value) {
 #endif
     return k;
 }
-inline int atomic_add_and_fetch(int * ptr, int value) {
+static inline int atomic_add_and_fetch(int * ptr, int value) {
     int k;
 #if _OPENMP >= 201107
 #pragma omp atomic capture
