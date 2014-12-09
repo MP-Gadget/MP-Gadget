@@ -551,7 +551,7 @@ extern FILE *fd;
 
 /*  Calculates (heating rate-cooling rate)/n_h^2 in cgs units 
 */
-static double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, double *nelec)
+double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, double *nelec)
 {
     double Lambda, Heat;
     double LambdaExc, LambdaIon, LambdaRec, LambdaFF, LambdaCmptn = 0.0;
