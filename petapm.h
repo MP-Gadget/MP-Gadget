@@ -21,11 +21,42 @@ typedef struct {
     char * name;
     void (*transfer)(int64_t k2, int kpos[3], pfft_complex * value);
     void (*readout)(int i, double * mesh, double weight);
-} petapm_functions;
+} PetaPMFunctions;
+
+typedef void * (*petapm_malloc_func)(char * name, size_t * size);
+typedef void * (*petapm_mfree_func)(void * ptr);
+
+typedef struct {
+    void * P;
+    size_t elsize;
+    size_t offset_pos;
+    size_t offset_mass;
+    size_t offset_regionind;
+    int NumPart;
+} PetaPMParticleStruct;
 
 void petapm_init(double BoxSize, int _Nmesh);
 void petapm_region_init_strides(PetaPMRegion * region);
 
 void petapm_force(petapm_prepare_func prepare, 
-        petapm_functions * functions, 
+        petapm_transfer_func global_transfer,
+        PetaPMFunctions * functions, 
+        PetaPMParticleStruct * pstruct,
         void * userdata);
+
+void petapm_force_init(
+        petapm_prepare_func prepare, 
+        PetaPMParticleStruct * pstruct,
+        void * userdata);
+void petapm_force_r2c( 
+        petapm_transfer_func global_transfer
+        );
+void petapm_force_c2r(
+        PetaPMFunctions * functions);
+void petapm_force_finish();
+PetaPMRegion * petapm_get_fourier_region();
+PetaPMRegion * petapm_get_real_region();
+pfft_complex * petapm_get_rho_k();
+int petapm_mesh_to_k(int i);
+int *petapm_get_thistask2d();
+int *petapm_get_ntask2d();

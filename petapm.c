@@ -6,22 +6,19 @@
 #include <math.h>
 /* do NOT use complex.h it breaks the code */
 
-#include "allvars.h"
-#include "proto.h"
+//#include "allvars.h"
+//#include "proto.h"
 #include "petapm.h"
 
-#ifndef PETAPM_ORDER
-#define PETAPM_ORDER 1
-#warning Using low resolution force differentiation kernel. Consider using -DPETAPM_ORDER=3
+#ifndef mymalloc
+#define mymalloc(a, b) malloc(b)
+#define myfree(a) free(a)
+#define report_memory_usage(a)   {;}
 #endif
-static size_t HighMark_petapm = 0;
-static PetaPMRegion real_space_region, fourier_space_region;
+#ifndef walltime_measure
+#define walltime_measure(a)  {;}
+#endif
 
-static PetaPMRegion * regions = NULL;
-static int Nregions = 0;
-
-static double CellSize;
-static int Nmesh;
 /* a layout is the communication object, represent 
  * pencil / cells exchanged  */
 
@@ -71,24 +68,56 @@ static int64_t reduce_int64(int64_t input);
 /* for debuggin */
 static void verify_density_field();
 
-static double * real;
-static double * meshbuf;
-static size_t meshbufsize;
-static pfft_complex * complx;
-static pfft_complex * rho_k;
+/* These varibles are initialized by petapm_init*/
+static PetaPMRegion real_space_region, fourier_space_region;
 static int fftsize;
-static void pm_alloc();
-static void pm_free();
 static pfft_plan plan_forw, plan_back;
 MPI_Comm comm_cart_2d;
-static int * ParticleRegion;
 static int ThisTask2d[2];
 static int NTask2d[2];
 static int * (Mesh2Task[2]); /* conversion from real space mesh to task2d,  */
 static int * Mesh2K; /* convertion fourier mesh to integer frequency (or K)  */
 static MPI_Datatype MPI_PENCIL;
+static double CellSize;
+static int Nmesh;
+static int NTask;
+static int ThisTask;
 
+/* there variables are allocated every force calculation */
+static double * real;
+static double * meshbuf;
+static size_t meshbufsize;
+static pfft_complex * complx;
+static pfft_complex * rho_k;
+static void pm_alloc();
+static void pm_free();
 
+static PetaPMRegion * regions = NULL; /* created by 'prepare' callback in petapm_force */
+static int Nregions = 0;
+
+static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
+#define POS(i) ((double*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_pos]))
+#define MASS(i) ((double*) (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_mass]))
+#define REGION(i) ((int*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_regionind]))
+
+PetaPMRegion * petapm_get_fourier_region() {
+    return &fourier_space_region;
+}
+PetaPMRegion * petapm_get_real_region() {
+    return &real_space_region;
+}
+pfft_complex * petapm_get_rho_k() {
+    return rho_k;
+}
+int petapm_mesh_to_k(int i) {
+    return Mesh2K[i];
+}
+int *petapm_get_thistask2d() {
+    return ThisTask2d;
+}
+int *petapm_get_ntask2d() {
+    return NTask2d;
+}
 void petapm_init(double BoxSize, int _Nmesh) {
 
     /* define the global long / short range force cut */
@@ -105,6 +134,8 @@ void petapm_init(double BoxSize, int _Nmesh) {
     Mesh2Task[1] = malloc(sizeof(int) * Nmesh);
     Mesh2K = malloc(sizeof(int) * Nmesh);
 
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     /* initialize the MPI Datatype of pencil */
     MPI_Type_contiguous(sizeof(struct Pencil), MPI_BYTE, &MPI_PENCIL);
     MPI_Type_commit(&MPI_PENCIL);
@@ -233,14 +264,27 @@ static void pm_apply_transfer_function(struct Region * fourier_space_region,
         pfft_complex * dst, transfer_function H);
 
 static void put_particle_to_mesh(int i, double * mesh, double weight);
-void petapm_force(petapm_prepare_func prepare, 
-        petapm_functions * functions, 
+
+/*
+ * 1. calls prepare to build the Regions covering particles
+ * 2. CIC the particles
+ * 3. Transform to rho_k
+ * 4. apply global_transfer (if not NULL -- 
+ *       this is the place to fill in gaussian seeds,
+ *       the transfer is stacked onto all following transfers. 
+ * 5. for each transfer, readout in functions
+ * 6.    apply trasnfer from global_transfer -> complex
+ * 7.    trasnsform to real
+ * 8.    readout 
+ * 9. free regions
+ * */
+static struct Layout layout;
+
+void petapm_force_init(
+        petapm_prepare_func prepare, 
+        PetaPMParticleStruct * pstruct,
         void * userdata) {
-    int current_region = 0;
-    int ndone = 0;
-    int iterations;
-    int i;
-    struct Layout layout;
+    CPS = pstruct;
 
     regions = prepare(userdata, &Nregions);
     pm_alloc();
@@ -261,7 +305,11 @@ void petapm_force(petapm_prepare_func prepare,
     verify_density_field();
 #endif
     walltime_measure("/PMgrav/Misc");
+}
 
+void petapm_force_r2c( 
+        petapm_transfer_func global_transfer
+        ) {
     /* call pfft rho_k is CFT of rho */
 
     /* this is because 
@@ -269,11 +317,16 @@ void petapm_force(petapm_prepare_func prepare,
      * CFT = DFT * dx **3
      * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
      * */
-    pfft_execute_dft_r2c(plan_forw, real, rho_k);
+    pfft_execute_dft_r2c(plan_forw, real, complx);
+    pm_apply_transfer_function(&fourier_space_region, complx, rho_k, global_transfer);
     walltime_measure("/PMgrav/r2c");
+}
 
-    /* potential */
-    petapm_functions * f = functions;
+void petapm_force_c2r(
+        PetaPMFunctions * functions) {
+
+    int i;
+    PetaPMFunctions * f = functions;
     for (f = functions; f->name; f ++) {
         petapm_transfer_func transfer = f->transfer;
         petapm_readout_func readout = f->readout;
@@ -292,12 +345,25 @@ void petapm_force(petapm_prepare_func prepare,
     }
 
     layout_finish(&layout);
-    pm_free();
     walltime_measure("/PMgrav/Misc");
 
+}
+void petapm_force_finish() {
+    pm_free();
     free(regions);
     regions = NULL;
     Nregions = 0;
+}
+
+void petapm_force(petapm_prepare_func prepare, 
+        petapm_transfer_func global_transfer,
+        PetaPMFunctions * functions, 
+        PetaPMParticleStruct * pstruct,
+        void * userdata) {
+    petapm_force_init(prepare, pstruct, userdata);
+    petapm_force_r2c(global_transfer);
+    petapm_force_c2r(functions);
+    petapm_force_finish();
 }
     
 /* build a communication layout */
@@ -651,12 +717,16 @@ static void pm_alloc() {
 
 
 static void pm_iterate_one(int i, pm_iterator iterator) {
-    struct Region * region = &regions[P[i].RegionInd];
     int k;
     int iCell[3];  /* integer coordinate on the regional mesh */
     double Res[3]; /* residual*/
+    double * Pos = POS(i);
+    double * Mass = MASS(i);
+    int RegionInd = REGION(i)[0];
+
+    struct Region * region = &regions[RegionInd];
     for(k = 0; k < 3; k++) {
-        double tmp = P[i].Pos[k] / CellSize;
+        double tmp = Pos[k] / CellSize;
         iCell[k] = floor(tmp);
         Res[k] = tmp - iCell[k];
         iCell[k] -= region->offset[k];
@@ -680,15 +750,15 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
             abort(); 
         }
         if(iCell[k] < 0) {
-            fprintf(stderr, "particle out of cell better stop (negative) %d %g %g %g %d region: %td %td\n", iCell[k], 
-                P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], P[i].Type,
+            fprintf(stderr, "particle out of cell better stop (negative) %d %g %g %g region: %td %td\n", iCell[k], 
+                Pos[0], Pos[1], Pos[2],
                 region->offset[k], region->size[k]);
             abort();
         }
     }
 
     int connection = 0;
-    double mass = P[i].Mass;
+    double mass = Mass[0];
     for(connection = 0; connection < 8; connection++) {
         double weight = 1.0;
         ptrdiff_t linear = 0;
@@ -717,7 +787,7 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
 static void pm_iterate(pm_iterator iterator) {
     int i;
 #pragma omp parallel for 
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < CPS->NumPart; i ++) {
         pm_iterate_one(i, iterator); 
     }
     MPI_Barrier(MPI_COMM_WORLD);
@@ -772,8 +842,9 @@ static void verify_density_field() {
     /* verify the density field */
     double mass_Part = 0;
 #pragma omp parallel for reduction(+: mass_Part)
-    for(i = 0; i < NumPart; i ++) {
-        mass_Part += P[i].Mass;
+    for(i = 0; i < CPS->NumPart; i ++) {
+        double * Mass = MASS(i);
+        mass_Part += Mass[0];
     }
     double totmass_Part = 0;
     MPI_Allreduce(&mass_Part, &totmass_Part, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -832,7 +903,9 @@ static void pm_apply_transfer_function(struct Region * region,
         pos[2] = kpos[1];
         dst[ip][0] = src[ip][0];
         dst[ip][1] = src[ip][1];
-        H(k2, pos, &dst[ip]);
+        if(H) {
+            H(k2, pos, &dst[ip]);
+        }
     }
 
 }
@@ -842,8 +915,9 @@ static void pm_apply_transfer_function(struct Region * region,
  * functions iterating over particle / mesh pairs
  ***************/
 static void put_particle_to_mesh(int i, double * mesh, double weight) {
+    double * Mass = MASS(i);
 #pragma omp atomic
-    mesh[0] += weight * P[i].Mass;
+    mesh[0] += weight * Mass[0];
 }
 static int64_t reduce_int64(int64_t input) {
     int64_t result = 0;

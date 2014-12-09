@@ -35,7 +35,9 @@ P-Gadget3: $(OBJS) depends
 
 ICOBJS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
          GENIC/nrsrc/nrutil.o GENIC/nrsrc/qromb.o GENIC/nrsrc/polint.o GENIC/nrsrc/trapzd.o \
-		 GENIC/petapm.o \
+		 petapm.o \
+		 openmpsort.o \
+		 GENIC/zeldovich.o \
 		GENIC/save2.o  \
 		GENIC/walltime.o
 
