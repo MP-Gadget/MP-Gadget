@@ -121,20 +121,19 @@ GravityConstantInternal  0
 
 MinGasHsmlFractional 0.0
 
-SofteningGas       1500
-SofteningHalo      1500
+SofteningGas       50
+SofteningHalo      50
 SofteningDisk      0
 SofteningBulge     0           
-SofteningStars     1500
-SofteningBndry     1500             %This is BH
+SofteningStars     50
+SofteningBndry     50             %This is BH
 
-SofteningGasMaxPhys       1500
-SofteningHaloMaxPhys      1500
+SofteningGasMaxPhys       50
+SofteningHaloMaxPhys      50
 SofteningDiskMaxPhys      0
 SofteningBulgeMaxPhys     0           
-SofteningStarsMaxPhys     1500
-SofteningBndryMaxPhys     1500      %This is BH
-
+SofteningStarsMaxPhys     50
+SofteningBndryMaxPhys     50      %This is BH
 
 %----------------------BH Stuff-------------------------
 BlackHoleFeedbackFactor    0.05

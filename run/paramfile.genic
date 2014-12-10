@@ -6,6 +6,7 @@ Nmesh            64 % This is the size of the FFT grid used to
                             % should have Nmesh >= Nsample.
 
 Ngrid            64 % number of particles per grid direction.
+Nsample          64 % k space sampling upper limit
  
 
 Box             64000.0   % Periodic box size of simulation
