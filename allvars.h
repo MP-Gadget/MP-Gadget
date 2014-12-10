@@ -1215,6 +1215,7 @@ struct bh_particle_data {
     MyFloat accreted_momentum[3];
 #ifdef BH_REPOSITION_ON_POTMIN
     MyFloat MinPotPos[3];
+    MyFloat MinPotVel[3];
     MyFloat MinPot;
 #endif
 #ifdef BH_KINETICFEEDBACK

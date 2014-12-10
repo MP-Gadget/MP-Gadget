@@ -259,7 +259,7 @@ typedef void (* pm_iterator)(int i, double * mesh, double weight);
 static void pm_iterate(pm_iterator iterator);
 /* apply transfer function to value, kpos array is in x, y, z order */
 typedef void (*transfer_function) (int64_t k2, int kpos[3], pfft_complex * value);
-static void pm_apply_transfer_function(struct Region * fourier_space_region, 
+static void pm_apply_transfer_function(PetaPMRegion * fourier_space_region, 
         pfft_complex * src, 
         pfft_complex * dst, transfer_function H);
 
@@ -724,7 +724,7 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
     double * Mass = MASS(i);
     int RegionInd = REGION(i)[0];
 
-    struct Region * region = &regions[RegionInd];
+    PetaPMRegion * region = &regions[RegionInd];
     for(k = 0; k < 3; k++) {
         double tmp = Pos[k] / CellSize;
         iCell[k] = floor(tmp);
@@ -793,7 +793,7 @@ static void pm_iterate(pm_iterator iterator) {
     MPI_Barrier(MPI_COMM_WORLD);
 }
 
-void petapm_region_init_strides(struct Region * region) {
+void petapm_region_init_strides(PetaPMRegion * region) {
     int k;
     size_t rt = 1;
     for(k = 2; k >= 0; k --) {
@@ -869,7 +869,7 @@ static void verify_density_field() {
     }
 }
 
-static void pm_apply_transfer_function(struct Region * region, 
+static void pm_apply_transfer_function(PetaPMRegion * region, 
         pfft_complex * src, 
         pfft_complex * dst, transfer_function H
         ){

@@ -13,7 +13,7 @@
 #include "petapm.h"
 
 static int pm_mark_region_for_node(int startno, int rid);
-static void convert_node_to_region(int no, PetaPMRegion * r);
+static void convert_node_to_region(PetaPMRegion * r);
 
 static void potential_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void force_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
@@ -103,7 +103,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
             !(Nodes[no].u.d.bitflags & (1 << BITFLAG_INTERNAL_TOPLEVEL))
             && (Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL)))
                 ) {
-            convert_node_to_region(no, &regions[r]);
+            regions[r].no = no;
             r ++;
             /* do not open */
             no = Nodes[no].u.d.sibling;
@@ -132,6 +132,9 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
         fprintf(stderr, "numpart = %d\n", numpart);
         abort();
     }
+    for(r =0; r < *Nregions; r++) {
+        convert_node_to_region(&regions[r]);
+    }
     force_treefree();
     walltime_measure("/PMgrav/Regions");
     return regions;
@@ -150,6 +153,29 @@ static int pm_mark_region_for_node(int startno, int rid) {
             no = Nextnode[no];
             drift_particle(p, All.Ti_Current);
             P[p].RegionInd = rid;
+            /* 
+             *
+             * Enlarge the startno so that it encloses all particles 
+             * this happens if a BH particle is relocated to a PotMin
+             * out-side the (enlarged )drifted node.
+             * because the POTMIN relocation is unphysical, this can
+             * happen immediately after a BH is seeded at the dense-most
+             * gas particle. rare rare event!
+             *
+             * */
+            int k;
+            for(k = 0; k < 3; k ++) {
+                double l1 = Nodes[startno].center[k] - P[p].Pos[k];
+                double l2 = P[p].Pos[k] - Nodes[startno].center[k];
+                l1 *= 2;
+                l2 *= 2;
+                if (l1 > Nodes[startno].len) {
+                    Nodes[startno].len = l1;
+                }
+                if (l2 > Nodes[startno].len) {
+                    Nodes[startno].len = l2;
+                }
+            }
             numpart ++;
         }
         else
@@ -175,9 +201,10 @@ static int pm_mark_region_for_node(int startno, int rid) {
 }
 
 
-static void convert_node_to_region(int no, PetaPMRegion * r) {
+static void convert_node_to_region(PetaPMRegion * r) {
     int k;
     double cellsize = All.BoxSize / All.Nmesh;
+    int no = r->no;
 #if 0
     printf("task = %d no = %d len = %g hmax = %g center = %g %g %g\n",
             ThisTask, no, Nodes[no].len, Extnodes[no].hmax, 
@@ -197,7 +224,6 @@ static void convert_node_to_region(int no, PetaPMRegion * r) {
 
     r->len  = Nodes[no].len;
     r->hmax = Extnodes[no].hmax;
-    r->no = no;
 }
 
 /********************

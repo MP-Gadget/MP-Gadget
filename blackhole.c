@@ -66,6 +66,7 @@ struct feedbackdata_out
 {
 #ifdef BH_REPOSITION_ON_POTMIN
     MyFloat BH_MinPotPos[3];
+    MyFloat BH_MinPotVel[3];
     MyFloat BH_MinPot;
 #endif
     short int BH_TimeBinLimit;
@@ -460,8 +461,10 @@ static int blackhole_feedback_evaluate(int target, int mode,
                             if(vrel <= 0.25 * I->Csnd)
                             {
                                 O->BH_MinPot = P[j].Potential;
-                                for(k = 0; k < 3; k++)
+                                for(k = 0; k < 3; k++) {
                                     O->BH_MinPotPos[k] = P[j].Pos[k];
+                                    O->BH_MinPotVel[k] = P[j].Vel[k];
+                                }
                             }
                         }
                     }
@@ -715,8 +718,10 @@ static void blackhole_feedback_reduce(int place, struct feedbackdata_out * remot
     if(mode == 0 || BHP(place).MinPot > remote->BH_MinPot)
     {
         BHP(place).MinPot = remote->BH_MinPot;
-        for(k = 0; k < 3; k++)
+        for(k = 0; k < 3; k++) {
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
+            BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
+        }
     }
 #endif
     if (mode == 0 || 
@@ -791,6 +796,7 @@ void blackhole_make_one(int index) {
     BHP(child).ID = P[child].ID;
     BHP(child).Mass = All.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
+    BHP(child).MinPot = BHPOTVALUEINIT;
 
 #ifdef BH_COUNTPROGS
     BHP(child).CountProgs = 1;

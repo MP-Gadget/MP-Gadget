@@ -246,8 +246,10 @@ static void real_drift_particle(int i, int time1)
     if(P[i].Type == 5) {
         int k;
         if(BHP(i).MinPot < 0.5 * BHPOTVALUEINIT)
-            for(k = 0; k < 3; k++)
+            for(k = 0; k < 3; k++) {
                 P[i].Pos[k] = BHP(i).MinPotPos[k];
+                P[i].Vel[k] = BHP(i).MinPotVel[k];
+            }
     }
 #endif
 
