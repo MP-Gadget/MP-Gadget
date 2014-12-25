@@ -61,7 +61,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     All.Asmth[0] = ASMTH * All.BoxSize / All.Nmesh;
     All.Rcut[0] = RCUT * All.Asmth[0];
     /* fac is - 4pi G     (L / 2pi) **2 / L ** 3 
-     *        Gravity       k2            DFT  
+     *        Gravity       k2            DFT (dk **3, but )
      * */
 
     pot_factor = - All.G / (M_PI * All.BoxSize);	/* to get potential */
@@ -165,15 +165,19 @@ static int pm_mark_region_for_node(int startno, int rid) {
              * */
             int k;
             for(k = 0; k < 3; k ++) {
-                double l1 = Nodes[startno].center[k] - P[p].Pos[k];
-                double l2 = P[p].Pos[k] - Nodes[startno].center[k];
-                l1 *= 2;
-                l2 *= 2;
-                if (l1 > Nodes[startno].len) {
-                    Nodes[startno].len = l1;
+                double l = P[p].Pos[k] - Nodes[startno].center[k];
+                if (l < - 0.5 * All.BoxSize) {
+                    l += All.BoxSize;
                 }
-                if (l2 > Nodes[startno].len) {
-                    Nodes[startno].len = l2;
+                if (l > 0.5 * All.BoxSize) {
+                    l -= All.BoxSize;
+                }
+                if (l < 0) {
+                    l = - l;
+                }
+                l = l * 2;
+                if (l > Nodes[startno].len) {
+                    Nodes[startno].len = l;
                 }
             }
             numpart ++;
