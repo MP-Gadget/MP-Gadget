@@ -932,5 +932,11 @@ static int64_t reduce_int64(int64_t input) {
  * CFT = dx * iDFT (thus CFT has no 2pi factors and iCFT has, 
  *           same as wikipedia.)
  *
- * iCFT(CFT) = (2pi) ** 3, thus iCFT also has no 2pi factors.
+ * iCFT = dk * DFT
+ * iCFT(CFG) = dx * dk * DFT(iDFT)
+ *           = L / N * (2pi / L) * N
+ *           = 2 pi
+ * agreed with the usual def that
+ * iCFT(CFT) = 2pi
+ *
  * **************************8*/

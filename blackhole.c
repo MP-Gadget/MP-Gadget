@@ -164,9 +164,6 @@ void blackhole_accretion(void)
     swev.ev_datain_elsize = sizeof(struct swallowdata_in);
     swev.ev_dataout_elsize = sizeof(struct swallowdata_out);
 
-
-    MPI_Status status;
-
     if(ThisTask == 0)
     {
         printf("Beginning black-hole accretion\n");

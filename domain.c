@@ -1921,7 +1921,6 @@ int domain_determineTopTree(void)
     int recvTask, sendTask, ntopnodes_import, errflag, errsum;
     struct local_topnode_data *topNodes_import, *topNodes_temp;
     double costlimit, countlimit;
-    MPI_Status status;
 
     mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
 
@@ -1991,7 +1990,7 @@ int domain_determineTopTree(void)
             {
                 /* inform each other about the length of the trees */
                 MPI_Sendrecv(&NTopnodes, 1, MPI_INT, recvTask, TAG_GRAV_A,
-                        &ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A, MPI_COMM_WORLD, &status);
+                        &ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
 
                 topNodes_import =
@@ -2005,7 +2004,7 @@ int domain_determineTopTree(void)
                         recvTask, TAG_GRAV_B,
                         topNodes_import,
                         ntopnodes_import * sizeof(struct local_topnode_data), MPI_BYTE,
-                        recvTask, TAG_GRAV_B, MPI_COMM_WORLD, &status);
+                        recvTask, TAG_GRAV_B, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
                 if(sendTask > recvTask)	/* swap the two trees so that result will be equal on all cpus */
                 {
