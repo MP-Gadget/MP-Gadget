@@ -1,3 +1,4 @@
+#include <stdint.h>
 #define  PI          3.14159265358979323846 
 #define  GRAVITY     6.672e-8
 #define  HUBBLE      3.2407789e-18   /* in h/sec */
