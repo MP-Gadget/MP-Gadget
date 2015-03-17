@@ -45,6 +45,12 @@ extern struct group_properties
   double MaxDens;
   int index_maxdens, task_maxdens;
 #endif
+#ifdef GAL_PART
+  double Gal_Mass;
+  double Gal_SFR;
+  double MaxDens;
+  int index_maxdens, task_maxdens;
+#endif
 
 } *Group;
 

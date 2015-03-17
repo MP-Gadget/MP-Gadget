@@ -321,6 +321,15 @@ enum bhfeedbackmethod {
      BH_FEEDBACK_OPTTHIN  = 0x20,
 };
 #endif
+#ifdef GAL_PART
+enum galfeedbackmethod {
+     GAL_FEEDBACK_TOPHAT   = 0x2,
+     GAL_FEEDBACK_SPLINE   = 0x4,
+     GAL_FEEDBACK_MASS     = 0x8,
+     GAL_FEEDBACK_VOLUME   = 0x10,
+     GAL_FEEDBACK_OPTTHIN  = 0x20,
+};
+#endif
 /* 
  * additional sfr criterion in addition to density threshold 
  * All.StarformationCriterion */
@@ -436,6 +445,14 @@ extern double TimeBin_BH_mass[TIMEBINS];
 extern double TimeBin_BH_dynamicalmass[TIMEBINS];
 extern double TimeBin_BH_Mdot[TIMEBINS];
 extern double TimeBin_BH_Medd[TIMEBINS];
+extern double TimeBin_GAS_Injection[TIMEBINS];
+#endif
+
+#ifdef GAL_PART
+extern double TimeBin_Gal_mass[TIMEBINS];
+extern double TimeBin_Gal_dynamicalmass[TIMEBINS];
+extern double TimeBin_Gal_SFR[TIMEBINS];
+//extern double TimeBin_BH_Medd[TIMEBINS];
 extern double TimeBin_GAS_Injection[TIMEBINS];
 #endif
 
@@ -586,6 +603,10 @@ extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
 extern FILE *FdBlackHolesDetails;
 #endif
 
+#ifdef GAL_PART
+extern FILE *FdGals;           /*!< file handle for Galaxies.txt log-file. */
+extern FILE *FdGalsDetails;
+#endif
 
 #ifdef FORCETEST
 extern FILE *FdForceTest;	/*!< file handle for forcetest.txt log-file. */
@@ -1066,6 +1087,23 @@ extern struct global_data_all_processes
     double BlackHoleRefSoundspeed;
 #endif
 #endif
+
+#ifdef GAL_PART
+    double TimeNextGalCheck;
+    double TimeBetGalSearch;
+    double GalAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
+    double GalFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
+    enum bhfeedbackmethod GalFeedbackMethod;	/*!< method of the feedback*/
+    double GalFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
+    double GalFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
+    double SeedGalMass;	/*!< Seed black hole mass */
+    double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
+    double GalNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
+  //double BlackHoleMaxAccretionRadius;
+  //double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
+    double massDMpart;
+#endif
+
 
 #ifdef REIONIZATION
     int not_yet_reionized;	/*!< flag that makes sure that there is only one reionization */

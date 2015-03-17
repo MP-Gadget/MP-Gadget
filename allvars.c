@@ -99,6 +99,14 @@ double TimeBin_BH_Medd[TIMEBINS];
 double TimeBin_GAS_Injection[TIMEBINS];
 #endif
 
+#ifdef GAL_PART
+double TimeBin_Gal_mass[TIMEBINS];
+double TimeBin_Gal_dynamicalmass[TIMEBINS];
+double TimeBin_Gal_SFR[TIMEBINS];
+//double TimeBin_BH_Medd[TIMEBINS];
+double TimeBin_GAS_Injection[TIMEBINS];
+#endif
+
 char DumpFlag = 1;
 
 size_t AllocatedBytes;
@@ -192,6 +200,11 @@ FILE *FdCaustics;		/*!< file handle for Caustics.txt log-file. */
 #ifdef BLACK_HOLES
 FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
 FILE *FdBlackHolesDetails;
+#endif
+
+#ifdef GAL_PART
+FILE *FdGals;		/*!< file handle for Galaxies.txt log-file. */
+FILE *FdGalsDetails;
 #endif
 
 
