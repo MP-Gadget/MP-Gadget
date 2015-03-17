@@ -1263,6 +1263,35 @@ struct bh_particle_data {
     short int TimeBinLimit;
 } * BhP;
 
+struct Gal_particle_data {
+    int ReverseLink; /* used at GC for reverse link to P */
+    MyIDType ID; /* for data consistency check, same as particle ID */
+#ifdef BH_COUNTPROGS
+    int CountProgs;
+#endif
+    MyFloat Mass;
+    MyFloat SFR;
+    MyFloat FeedbackWeightSum;
+    MyFloat Density;
+    MyFloat EntOrPressure;
+#ifdef BH_USE_GASVEL_IN_BONDI
+    MyFloat SurroundingGasVel[3];
+#endif
+    MyFloat accreted_Mass;
+    MyFloat accreted_BHMass;
+    MyFloat accreted_momentum[3];
+#ifdef BH_REPOSITION_ON_POTMIN
+    MyFloat MinPotPos[3];
+    MyFloat MinPotVel[3];
+    MyFloat MinPot;
+#endif
+#ifdef BH_KINETICFEEDBACK
+    MyFloat ActiveTime;
+    MyFloat ActiveEnergy;
+#endif
+    short int TimeBinLimit;
+} * GalP;
+
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
  */
@@ -1289,6 +1318,7 @@ extern struct particle_data
     };
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
+    unsigned int GalI; /* particle property index; used by GAL. points to the GAL property in GalP array.*/
     MyIDType ID;
     MyIDType SwallowID; /* who will swallow this particle */
     MyDouble Vel[3];   /*!< particle velocity at its current time */
@@ -1646,6 +1676,7 @@ extern struct sph_particle_data
 
 #define SPHP(i) SphP[i]
 #define BHP(i) BhP[P[i].PI]
+#define GALP(i) GalP[P[i].GalI]
 
 #define KEY(i) peano_hilbert_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac), \
         (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac), \
