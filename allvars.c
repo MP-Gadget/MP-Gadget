@@ -99,14 +99,6 @@ double TimeBin_BH_Medd[TIMEBINS];
 double TimeBin_GAS_Injection[TIMEBINS];
 #endif
 
-#ifdef GAL_PART
-double TimeBin_Gal_mass[TIMEBINS];
-double TimeBin_Gal_dynamicalmass[TIMEBINS];
-double TimeBin_Gal_SFR[TIMEBINS];
-//double TimeBin_BH_Medd[TIMEBINS];
-double TimeBin_GAS_Injection[TIMEBINS];
-#endif
-
 char DumpFlag = 1;
 
 size_t AllocatedBytes;

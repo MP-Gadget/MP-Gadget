@@ -1039,8 +1039,8 @@ void fof_compute_group_properties(int gr, int start, int len)
 	/*NEED TO FIX THIS */
         if(P[index].Type == 5)
         {
-            Group[gr].Gal_SFR += GAL(index).Sfr;
-            Group[gr].GAL_Mass += GAL(index).Mass;
+            Group[gr].Gal_SFR += BHP(index).Sfr;
+            Group[gr].GAL_Mass += BHP(index).Mass;
         }
         if(P[index].Type == 0)
         {
@@ -1807,7 +1807,7 @@ void fof_make_gals(void)
 
     for(n = 0; n < nimport; n++)
     {
-        blackhole_make_one(import_indices[n]);
+        gal_make_one(import_indices[n]);
     }
 
     myfree(export_indices);

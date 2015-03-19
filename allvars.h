@@ -440,19 +440,11 @@ extern int *PrevInTimeBin;
 extern double TimeBinSfr[TIMEBINS];
 #endif
 
-#ifdef BLACK_HOLES
+#ifdef BLACK_HOLES || GAL_PART
 extern double TimeBin_BH_mass[TIMEBINS];
 extern double TimeBin_BH_dynamicalmass[TIMEBINS];
 extern double TimeBin_BH_Mdot[TIMEBINS];
 extern double TimeBin_BH_Medd[TIMEBINS];
-extern double TimeBin_GAS_Injection[TIMEBINS];
-#endif
-
-#ifdef GAL_PART
-extern double TimeBin_Gal_mass[TIMEBINS];
-extern double TimeBin_Gal_dynamicalmass[TIMEBINS];
-extern double TimeBin_Gal_SFR[TIMEBINS];
-//extern double TimeBin_BH_Medd[TIMEBINS];
 extern double TimeBin_GAS_Injection[TIMEBINS];
 #endif
 
@@ -1066,12 +1058,17 @@ extern struct global_data_all_processes
 #endif
 #endif
 
-#ifdef BLACK_HOLES
+#ifdef BLACK_HOLES || GAL_PART
     double TimeNextBlackHoleCheck;
     double TimeBetBlackHoleSearch;
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
+#ifdef BLACK_HOLES
     enum bhfeedbackmethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
+#endif
+#ifdef GAL_PART
+    enum galfeedbackmethod GalFeedbackMethod;	/*!< method of the feedback*/
+#endif
     double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
     double SeedBlackHoleMass;	/*!< Seed black hole mass */
@@ -1087,23 +1084,6 @@ extern struct global_data_all_processes
     double BlackHoleRefSoundspeed;
 #endif
 #endif
-
-#ifdef GAL_PART
-    double TimeNextGalCheck;
-    double TimeBetGalSearch;
-    double GalAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
-    double GalFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
-    enum bhfeedbackmethod GalFeedbackMethod;	/*!< method of the feedback*/
-    double GalFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
-    double GalFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
-    double SeedGalMass;	/*!< Seed black hole mass */
-    double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
-    double GalNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
-  //double BlackHoleMaxAccretionRadius;
-  //double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
-    double massDMpart;
-#endif
-
 
 #ifdef REIONIZATION
     int not_yet_reionized;	/*!< flag that makes sure that there is only one reionization */
@@ -1240,6 +1220,9 @@ struct bh_particle_data {
 #ifdef BH_COUNTPROGS
     int CountProgs;
 #endif
+#ifdef GAL_PART
+    MyFloat Sfr;
+#endif
     MyFloat Mass;
     MyFloat Mdot;
     MyFloat FeedbackWeightSum;
@@ -1262,35 +1245,6 @@ struct bh_particle_data {
 #endif
     short int TimeBinLimit;
 } * BhP;
-
-struct Gal_particle_data {
-    int ReverseLink; /* used at GC for reverse link to P */
-    MyIDType ID; /* for data consistency check, same as particle ID */
-#ifdef BH_COUNTPROGS
-    int CountProgs;
-#endif
-    MyFloat Mass;
-    MyFloat SFR;
-    MyFloat FeedbackWeightSum;
-    MyFloat Density;
-    MyFloat EntOrPressure;
-#ifdef BH_USE_GASVEL_IN_BONDI
-    MyFloat SurroundingGasVel[3];
-#endif
-    MyFloat accreted_Mass;
-    MyFloat accreted_BHMass;
-    MyFloat accreted_momentum[3];
-#ifdef BH_REPOSITION_ON_POTMIN
-    MyFloat MinPotPos[3];
-    MyFloat MinPotVel[3];
-    MyFloat MinPot;
-#endif
-#ifdef BH_KINETICFEEDBACK
-    MyFloat ActiveTime;
-    MyFloat ActiveEnergy;
-#endif
-    short int TimeBinLimit;
-} * GalP;
 
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
@@ -1318,7 +1272,6 @@ extern struct particle_data
     };
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
-    unsigned int GalI; /* particle property index; used by GAL. points to the GAL property in GalP array.*/
     MyIDType ID;
     MyIDType SwallowID; /* who will swallow this particle */
     MyDouble Vel[3];   /*!< particle velocity at its current time */
@@ -1676,7 +1629,6 @@ extern struct sph_particle_data
 
 #define SPHP(i) SphP[i]
 #define BHP(i) BhP[P[i].PI]
-#define GALP(i) GalP[P[i].GalI]
 
 #define KEY(i) peano_hilbert_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac), \
         (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac), \
