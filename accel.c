@@ -220,6 +220,24 @@ void compute_accelerations(int mode)
 #endif
 #endif
 
+#ifdef GAL_PART
+        /***** galaxy accretion and feedback *****/
+        //blackhole_accretion();
+#ifdef FOF
+        /* this will find new black hole seed halos */
+        if(All.Time >= All.TimeNextBlackHoleCheck)
+	  {
+            fof_fof(-1);
+
+            if(All.ComovingIntegrationOn)
+	      All.TimeNextBlackHoleCheck *= All.TimeBetBlackHoleSearch;
+            else
+	      All.TimeNextBlackHoleCheck += All.TimeBetBlackHoleSearch;
+	  }
+#endif
+#endif
+
+
 
 #ifdef COOLING	/**** radiative cooling and star formation *****/
 

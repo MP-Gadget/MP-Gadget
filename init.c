@@ -141,7 +141,7 @@ void init(void)
             check_omega();
 
     All.TimeLastStatistics = All.TimeBegin - All.TimeBetStatistics;
-#ifdef BLACK_HOLES
+#ifdef BLACK_HOLES || GAL_PART
     All.TimeNextBlackHoleCheck = All.TimeBegin;
 #endif
 
@@ -406,6 +406,14 @@ void init(void)
 #endif
 
 #ifdef BLACK_HOLES
+        if(P[i].Type == 5)
+        {
+            if(RestartFlag == 0)
+                BHP(i).Mass = All.SeedBlackHoleMass;
+        }
+#endif
+#ifdef GAL_PART
+	//THIS NEEDS TO BE FIXED
         if(P[i].Type == 5)
         {
             if(RestartFlag == 0)
@@ -1003,7 +1011,7 @@ void setup_smoothinglengths(void)
         }
     }
 
-#ifdef BLACK_HOLES
+#ifdef BLACK_HOLES || GAL_PART
     if(RestartFlag == 0 || RestartFlag == 2)
     {
         for(i = 0; i < NumPart; i++)

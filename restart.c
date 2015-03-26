@@ -37,7 +37,7 @@ void restart(int modus)
     int i, nprocgroup, masterTask, groupTask, old_MaxPart, old_MaxNodes;
     struct global_data_all_processes all_task0;
 
-#if defined(SFR) || defined(BLACK_HOLES)
+#if defined(SFR) || defined(BLACK_HOLES) || defined(GAL_PART)
 #ifdef NO_TREEDATA_IN_RESTART
     if(modus == 0)
     {

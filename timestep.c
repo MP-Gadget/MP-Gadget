@@ -274,6 +274,22 @@ void advance_and_find_timesteps(void)
             }
 #endif
 
+#ifdef GAL_PART
+            if(P[i].Type == 5)
+            {
+                TimeBin_BH_mass[binold] -= BHP(i).Mass;
+                TimeBin_BH_dynamicalmass[binold] -= P[i].Mass;
+                TimeBin_BH_Mdot[binold] -= BHP(i).Sfr;
+                if(BHP(i).Mass > 0)
+                    TimeBin_BH_Medd[binold] -= BHP(i).Sfr / BHP(i).Mass;
+                TimeBin_BH_mass[bin] += BHP(i).Mass;
+                TimeBin_BH_dynamicalmass[bin] += P[i].Mass;
+                TimeBin_BH_Mdot[bin] += BHP(i).Sfr;
+                if(BHP(i).Mass > 0)
+                    TimeBin_BH_Medd[bin] += BHP(i).Sfr / BHP(i).Mass;
+            }
+#endif
+
             prev = PrevInTimeBin[i];
             next = NextInTimeBin[i];
 
@@ -891,6 +907,11 @@ int get_timestep(int p,		/*!< particle index */
         hubble_param = 1.0;
 #endif
 
+#ifdef GAL_PART
+    double dt_accr;
+    double dt_limiter;
+#endif
+
 #ifdef BLACK_HOLES
     double dt_accr;
     double dt_limiter;
@@ -1070,6 +1091,22 @@ int get_timestep(int p,		/*!< particle index */
     }
 #endif
 
+#ifdef GAL_PART
+    if(P[p].Type == 5)
+    {
+        if(BHP(p).Sfr > 0 && BHP(p).Mass > 0)
+        {
+            dt_accr = 0.25 * BHP(p).Mass / BHP(p).Sfr;
+            if(dt_accr < dt)
+                dt = dt_accr;
+        }
+        if(BHP(p).TimeBinLimit > 0) {
+            dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
+            if (dt_limiter < dt) dt = dt_limiter;
+        }
+    }
+#endif
+
 #ifdef NONEQUILIBRIUM
     /* another criterion given by the local cooling time */
 
@@ -1239,6 +1276,13 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
         count_sum[5] = count_sum[0];
         min_mass[5] = min_mass[0];
 #endif
+#ifdef GAL_PART
+        v_sum[0] += v_sum[5];
+        count_sum[0] += count_sum[5];
+        v_sum[5] = v_sum[0];
+        count_sum[5] = count_sum[0];
+        min_mass[5] = min_mass[0];
+#endif
 #endif
 
         for(type = 0; type < 6; type++)
@@ -1256,6 +1300,12 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
                                 1.0 / 3);
 
 #ifdef BLACK_HOLES
+                if(type == 5)
+                    dmean =
+                        pow(min_mass[type] / (All.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
+                                1.0 / 3);
+#endif
+#ifdef GAL_PART
                 if(type == 5)
                     dmean =
                         pow(min_mass[type] / (All.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),

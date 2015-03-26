@@ -61,7 +61,7 @@ void force_treebuild_simple() {
 
     walltime_measure("/Misc");
 
-#if defined(SFR) || defined(BLACK_HOLES)
+#if defined(SFR) || defined(BLACK_HOLES) || defined(GAL_PART)
     rearrange_particle_sequence();
 #endif
 

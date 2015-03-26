@@ -601,6 +601,10 @@ static int gravtree_isactive(int i) {
     /* blackhole has not gravity, they move along to pot minimium */
     isactive = isactive && (P[i].Type != 5);
 #endif
+#ifdef GAL_PART
+    /* Galaxy particles have no gravity, they move along to pot minimium for now*/
+    isactive = isactive && (P[i].Type != 5);
+#endif
     return isactive;
 }
 

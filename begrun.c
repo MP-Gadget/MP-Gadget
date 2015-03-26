@@ -683,6 +683,15 @@ void open_outputfiles(void)
         endrun(1);
     }
 #endif
+#ifdef GAL_PART
+    /* Note: This is done by everyone */
+    sprintf(buf, "%sgalaxy_details_%d.raw", dumpdir, ThisTask);
+    if(!(FdGalsDetails = fopen(buf, mode)))
+      {
+        printf("error in opening file '%s'\n", buf);
+        endrun(1);
+      }
+#endif
 #ifdef SFR
     /* Note: This is done by everyone */
     sprintf(buf, "%ssfr_details_%d.txt", dumpdir, ThisTask);
@@ -786,7 +795,14 @@ void open_outputfiles(void)
     }
 #endif
 
-
+#ifdef GAL_PART
+    sprintf(buf, "%s%s%s", All.OutputDir, "galaxies.txt", postfix);
+    if(!(FdGals = fopen(buf, mode)))
+    {
+        printf("error in opening file '%s'\n", buf);
+        endrun(1);
+    }
+#endif
 
 #ifdef FORCETEST
     if(RestartFlag == 0)
@@ -869,6 +885,10 @@ void close_outputfiles(void)
     fclose(FdBlackHolesDetails);	/* needs to be done by everyone */
 #endif
 
+#ifdef GAL_PART
+    fclose(FdGalsDetails);
+#endif
+
 #ifdef CAUSTIC_FINDER
     fclose(FdCaustics);		/* needs to be done by everyone */
 #endif
@@ -897,6 +917,10 @@ void close_outputfiles(void)
 
 #ifdef BLACK_HOLES
     fclose(FdBlackHoles);
+#endif
+
+#ifdef GAL_PART
+    fclose(FdGals);
 #endif
 
 #ifdef XXLINFO
@@ -960,6 +984,15 @@ struct multichoice BlackHoleFeedbackMethodChoices [] = {
     {NULL, BH_FEEDBACK_SPLINE | BH_FEEDBACK_MASS},
 };
 #endif 
+#ifdef GAL_PART
+struct multichoice GalaxyFeedbackMethodChoices [] = {
+  {"mass", GAL_FEEDBACK_MASS},
+  {"volume", GAL_FEEDBACK_VOLUME},
+  {"tophat", GAL_FEEDBACK_TOPHAT},
+  {"spline", GAL_FEEDBACK_SPLINE},
+  {NULL, GAL_FEEDBACK_SPLINE | GAL_FEEDBACK_MASS},
+};
+#endif
 #ifdef SFR
 struct multichoice StarformationCriterionChoices [] = {
     {"density", SFR_CRITERION_DENSITY},
@@ -1494,6 +1527,55 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "BlackHoleFeedbackMethod");
         addr[nt] = &All.BlackHoleFeedbackMethod;
         choices[nt] = BlackHoleFeedbackMethodChoices;
+        id[nt++] = MULTICHOICE;
+
+#endif
+
+#ifdef GAL_PART
+        strcpy(tag[nt], "TimeBetBlackHoleSearch");
+        addr[nt] = &All.TimeBetBlackHoleSearch;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "BlackHoleAccretionFactor");
+        addr[nt] = &All.BlackHoleAccretionFactor;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "BlackHoleEddingtonFactor");
+        addr[nt] = &All.BlackHoleEddingtonFactor;
+        id[nt++] = REAL;
+
+
+        strcpy(tag[nt], "SeedBlackHoleMass");
+        addr[nt] = &All.SeedBlackHoleMass;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "MinFoFMassForNewSeed");
+        addr[nt] = &All.MinFoFMassForNewSeed;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "BlackHoleNgbFactor");
+        addr[nt] = &All.BlackHoleNgbFactor;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "BlackHoleMaxAccretionRadius");
+        addr[nt] = &All.BlackHoleMaxAccretionRadius;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "BlackHoleFeedbackFactor");
+        addr[nt] = &All.BlackHoleFeedbackFactor;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "BlackHoleFeedbackRadius");
+        addr[nt] = &All.BlackHoleFeedbackRadius;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "BlackHoleFeedbackRadiusMaxPhys");
+        addr[nt] = &All.BlackHoleFeedbackRadiusMaxPhys;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "GalaxyFeedbackMethod");
+        addr[nt] = &All.GalaxyFeedbackMethod;
+        choices[nt] = GalaxyFeedbackMethodChoices;
         id[nt++] = MULTICHOICE;
 
 #endif
@@ -2217,6 +2299,23 @@ void read_parameter_file(char *fname)
             }
         }
 #endif
+
+#ifdef GAL_PART
+        /* parse blackhole feedback method string */
+        {
+            if(HAS(All.GalaxyFeedbackMethod,  GAL_FEEDBACK_TOPHAT)
+                ==  HAS(All.GalaxyFeedbackMethod, GAL_FEEDBACK_SPLINE)){
+                printf("error GalaxyFeedbackMethod contains either tophat or spline, but both\n");
+                endrun(0);
+            }
+            if(HAS(All.GalaxyFeedbackMethod, GAL_FEEDBACK_MASS)
+                ==  HAS(All.GalaxyFeedbackMethod, GAL_FEEDBACK_VOLUME)){
+                printf("error GalaxyFeedbackMethod contains either volume or mass, but both\n");
+                endrun(0);
+            }
+        }
+#endif
+
 #ifdef SFR
         if(!HAS(All.StarformationCriterion, SFR_CRITERION_DENSITY)) {
             printf("error: At least use SFR_CRITERION_DENSITY\n");

@@ -35,7 +35,7 @@ void savepositions(int num, int reason)
 
     walltime_measure("/Misc");
 
-#if defined(SFR) || defined(BLACK_HOLES)
+#if defined(SFR) || defined(BLACK_HOLES) || defined(GAL_PART)
     rearrange_particle_sequence();
     /* ensures that new tree will be constructed */
     All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);

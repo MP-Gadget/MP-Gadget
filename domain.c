@@ -119,7 +119,7 @@ void domain_Decomposition(void)
         force_treefree();
         domain_free();
 
-#if defined(SFR) || defined(BLACK_HOLES)
+#if defined(SFR) || defined(BLACK_HOLES) || defined(GAL_PART)
         rearrange_particle_sequence();
 #endif
 
@@ -2427,13 +2427,17 @@ void mysort_domain(void *b, size_t n, size_t s)
     myfree(tmp);
 }
 
-#if defined(SFR) || defined(BLACK_HOLES)
+#if defined(SFR) || defined(BLACK_HOLES) || defined(GAL_PART)
 void rearrange_particle_sequence(void)
 {
     int i, j, flag = 0, flag_sum;
     struct particle_data psave;
 
 #ifdef BLACK_HOLES
+    int count_elim, count_gaselim, tot_elim, tot_gaselim;
+#endif
+
+#ifdef GAL_PART
     int count_elim, count_gaselim, tot_elim, tot_gaselim;
 #endif
 
@@ -2462,7 +2466,7 @@ void rearrange_particle_sequence(void)
     }
 #endif
 
-#ifdef BLACK_HOLES
+#ifdef BLACK_HOLES || GAL_PART
     count_elim = 0;
     count_gaselim = 0;
 

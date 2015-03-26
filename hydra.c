@@ -663,6 +663,10 @@ static int hydro_evaluate(int target, int mode,
                 if(P[j].Mass == 0)
                     continue;
 #endif
+#ifdef GAL_PART
+                if(P[j].Mass == 0)
+                    continue;
+#endif
 
 #ifdef WINDS
 #ifdef NOWINDTIMESTEPPING
@@ -1021,7 +1025,7 @@ static int hydro_evaluate(int target, int mode,
                                     (P[j].TimeBin ? (1 << P[j].TimeBin) : 0)) * All.Timebase_interval;
                         if(dt > 0 && (dwk_i + dwk_j) < 0)
                         {
-#ifdef BLACK_HOLES
+#ifdef BLACK_HOLES || GAL_PART
                             if((I->Mass + P[j].Mass) > 0)
 #endif
                                 visc = DMIN(visc, 0.5 * fac_vsic_fix * vdotr2 /
