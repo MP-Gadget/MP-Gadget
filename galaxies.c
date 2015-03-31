@@ -484,7 +484,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
 
                         if(vrel > 0.5 * I->Csnd)
                         {
-                            struct blackhole_event event;
+                            struct gal_event event;
                             event.type = BHEVENT_SCATTER;
                             event.time = All.Time;
                             event.ID = I->ID;
@@ -636,7 +636,7 @@ int blackhole_swallow_evaluate(int target, int mode,
 #ifdef BH_MERGER
                 if(P[j].Type == 5)	/* we have a black hole merger */
                 {
-                    struct blackhole_event event;
+                    struct gal_event event;
                     event.type = BHEVENT_SWALLOW;
                     event.time = All.Time;
                     event.ID = I->ID;
