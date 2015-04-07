@@ -440,7 +440,15 @@ extern int *PrevInTimeBin;
 extern double TimeBinSfr[TIMEBINS];
 #endif
 
-#ifdef BLACK_HOLES || GAL_PART
+#ifdef BLACK_HOLES
+extern double TimeBin_BH_mass[TIMEBINS];
+extern double TimeBin_BH_dynamicalmass[TIMEBINS];
+extern double TimeBin_BH_Mdot[TIMEBINS];
+extern double TimeBin_BH_Medd[TIMEBINS];
+extern double TimeBin_GAS_Injection[TIMEBINS];
+#endif
+
+#ifdef GAL_PART
 extern double TimeBin_BH_mass[TIMEBINS];
 extern double TimeBin_BH_dynamicalmass[TIMEBINS];
 extern double TimeBin_BH_Mdot[TIMEBINS];
@@ -1058,17 +1066,34 @@ extern struct global_data_all_processes
 #endif
 #endif
 
-#ifdef BLACK_HOLES || GAL_PART
+#ifdef BLACK_HOLES 
     double TimeNextBlackHoleCheck;
     double TimeBetBlackHoleSearch;
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
-#ifdef BLACK_HOLES
     enum bhfeedbackmethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
+    double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
+    double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
+    double SeedBlackHoleMass;	/*!< Seed black hole mass */
+    double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
+    double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
+    double BlackHoleMaxAccretionRadius;
+    double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
+#ifdef FOF
+    double massDMpart;
 #endif
+#ifdef MODIFIEDBONDI
+    double BlackHoleRefDensity;
+    double BlackHoleRefSoundspeed;
+#endif
+#endif
+
 #ifdef GAL_PART
-    enum galfeedbackmethod GalFeedbackMethod;	/*!< method of the feedback*/
-#endif
+    double TimeNextBlackHoleCheck;
+    double TimeBetBlackHoleSearch;
+    double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
+    double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
+    enum galfeedbackmethod GalaxyFeedbackMethod;   /*!< method of the feedback*/
     double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
     double SeedBlackHoleMass;	/*!< Seed black hole mass */

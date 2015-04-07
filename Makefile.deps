@@ -7,7 +7,7 @@ OBJS  =  \
 	 gdbtools.o \
 	 fof.o fofpetaio.o petaio.o \
 	 domain.o allvars.o main.o \
-	 blackhole.o \
+	 blackhole.o galaxies.o \
 	 run.o predict.o begrun.o endrun.o global.o \
 	 timestep.o init.o restart.o io.o sfr_eff.o \
 	 accel.o \

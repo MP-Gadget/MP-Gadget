@@ -271,14 +271,14 @@ void blackhole_accretion(void)
         total_mdoteddington *= 1.0 / ((4 * M_PI * GRAVITY * C * PROTONMASS /
                     (0.1 * C * C * THOMPSON)) * All.UnitTime_in_s);
 
-        fprintf(FdBlackHoles, "%g %td %g %g %g %g %g\n",
+        fprintf(FdGals, "%g %td %g %g %g %g %g\n",
                 All.Time, All.TotN_bh, total_mass_holes, total_mdot, mdot_in_msun_per_year,
                 total_mass_real, total_mdoteddington);
-        fflush(FdBlackHoles);
+        fflush(FdGals);
     }
 
 
-    fflush(FdBlackHolesDetails);
+    fflush(FdGalsDetails);
 
     walltime_measure("/BH");
 }
@@ -334,7 +334,7 @@ static void blackhole_accretion_evaluate(int n) {
         event.a.pos[1] = P[n].Pos[1];
         event.a.pos[2] = P[n].Pos[2];
         event.a.hsml = P[n].Hsml;
-        fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
+        fwrite(&event, sizeof(event), 1, FdGalsDetails);
     }
     double dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
 
@@ -493,7 +493,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
                             event.s.bhmass_swallow = BHP(j).Mass;
                             event.s.vrel = vrel;
                             event.s.soundspeed = I->Csnd;
-                            fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
+                            fwrite(&event, sizeof(event), 1, FdGalDetails);
                         }
                         else
                         {
@@ -539,12 +539,12 @@ static int blackhole_feedback_evaluate(int target, int mode,
                         double u = r * bh_feedback_kernel.Hinv;
                         double wk;
                         double mass_j;
-                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
+                        if(HAS(All.GalaxyFeedbackMethod, BH_FEEDBACK_MASS)) {
                             mass_j = P[j].Mass;
                         } else {
                             mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
                         }
-                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
+                        if(HAS(All.GalaxyFeedbackMethod, BH_FEEDBACK_SPLINE))
                             wk = density_kernel_wk(&bh_feedback_kernel, u);
                         else
                         wk = 1.0;
@@ -643,7 +643,7 @@ int blackhole_swallow_evaluate(int target, int mode,
                     event.s.ID_swallow = P[j].ID;
                     event.s.bhmass_before = I->BH_Mass;
                     event.s.bhmass_swallow = BHP(j).Mass;
-                    fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
+                    fwrite(&event, sizeof(event), 1, FdGalsDetails);
 
                     O->Mass += (P[j].Mass);
                     O->BH_Mass += (BHP(j).Mass);
@@ -780,7 +780,7 @@ static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote,
 #endif
 }
 
-void blackhole_make_one(int index) {
+void gal_make_one(int index) {
     if(P[index].Type != 0) endrun(7772);
 
     int child = domain_fork_particle(index);

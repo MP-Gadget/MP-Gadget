@@ -1040,7 +1040,7 @@ void fof_compute_group_properties(int gr, int start, int len)
         if(P[index].Type == 5)
         {
             Group[gr].Gal_SFR += BHP(index).Sfr;
-            Group[gr].GAL_Mass += BHP(index).Mass;
+            Group[gr].Gal_Mass += BHP(index).Mass;
         }
         if(P[index].Type == 0)
         {
@@ -1813,8 +1813,6 @@ void fof_make_gals(void)
     myfree(export_indices);
     myfree(import_indices);
 }
-
-
 
 #endif
 

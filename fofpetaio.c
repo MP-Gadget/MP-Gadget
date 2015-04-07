@@ -275,10 +275,14 @@ SIMPLE_PROPERTY(Mass, Group[i].Mass, float, 1)
 SIMPLE_PROPERTY(MassByType, Group[i].MassType[0], float, 6)
 SIMPLE_PROPERTY(LengthByType, Group[i].LenType[0], uint32_t , 6)
 SIMPLE_PROPERTY(StarFormationRate, Group[i].Sfr, float, 1)
+#ifdef BLACK_HOLES
 SIMPLE_PROPERTY(BlackholeMass, Group[i].BH_Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, Group[i].BH_Mdot, float, 1)
-SIMPLE_PROPERTY(GalaxyMass, Group[i].GAL_Mass, float, 1)
-SIMPLE_PROPERTY(GalaxySFRate, Group[i].GAL_SFR, float, 1)
+#endif
+#ifdef GAL_PART
+SIMPLE_PROPERTY(GalaxyMass, Group[i].Gal_Mass, float, 1)
+SIMPLE_PROPERTY(GalaxySFRate, Group[i].Gal_SFR, float, 1)
+#endif
 
 void fof_register_io_blocks() {
     IO_REG(GroupID, "u4", 1, PTYPE_FOF_GROUP);
