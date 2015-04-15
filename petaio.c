@@ -744,6 +744,7 @@ static void register_io_blocks() {
     /* Blackhole */
     IO_REG(GalaxyMass,          "f8", 1, 5);
     IO_REG(GalaxySFRate, "f4", 1, 5);
+    IO_REG(StarFormationTime, "f4", 1, 5);
 #endif
 #ifdef BLACK_HOLES
     /* Blackhole */
