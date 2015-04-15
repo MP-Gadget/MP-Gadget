@@ -25,7 +25,7 @@ INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
 	 petaio.h \
 	 Makefile 
 
-CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -Idepends/include -DH5_USE_16_API
+CFLAGS = -I$(VPATH) -I. $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -Idepends/include -DH5_USE_16_API
 
 BUNDLEDLIBS = -lradixsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft -lfftw3_mpi -lfftw3_threads -lfftw3 
 LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -Ldepends/lib $(BUNDLEDLIBS)
