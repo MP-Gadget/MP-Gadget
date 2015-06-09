@@ -220,7 +220,7 @@ void density(void)
         int p = queue[i];
         Left[p] = 0;
         Right[p] = 0;
-#ifdef BLACK_HOLES || GAL_PART
+#if defined(BLACK_HOLES) || defined(GAL_PART)
         P[p].SwallowID = 0;
 #endif
     }
@@ -326,7 +326,7 @@ void density(void)
 }
 
 double density_decide_hsearch(int targettype, double h) {
-#ifdef BLACK_HOLES || GAL_PART
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(targettype == 5 && All.BlackHoleFeedbackRadius > 0) {
         /* BlackHoleFeedbackRadius is in comoving.
          * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys 

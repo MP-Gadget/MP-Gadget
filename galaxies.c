@@ -539,12 +539,12 @@ static int blackhole_feedback_evaluate(int target, int mode,
                         double u = r * bh_feedback_kernel.Hinv;
                         double wk;
                         double mass_j;
-                        if(HAS(All.GalaxyFeedbackMethod, BH_FEEDBACK_MASS)) {
+                        if(HAS(All.GalaxyFeedbackMethod, GAL_FEEDBACK_MASS)) {
                             mass_j = P[j].Mass;
                         } else {
                             mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
                         }
-                        if(HAS(All.GalaxyFeedbackMethod, BH_FEEDBACK_SPLINE))
+                        if(HAS(All.GalaxyFeedbackMethod, GAL_FEEDBACK_SPLINE))
                             wk = density_kernel_wk(&bh_feedback_kernel, u);
                         else
                         wk = 1.0;

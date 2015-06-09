@@ -2466,7 +2466,7 @@ void rearrange_particle_sequence(void)
     }
 #endif
 
-#ifdef BLACK_HOLES || GAL_PART
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     count_elim = 0;
     count_gaselim = 0;
 

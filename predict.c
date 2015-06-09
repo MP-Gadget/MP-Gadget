@@ -20,7 +20,7 @@ void reconstruct_timebins(void)
 #ifdef SFR
         TimeBinSfr[bin] = 0;
 #endif
-#ifdef BLACK_HOLES || GAL_PART
+#if defined(BLACK_HOLES) || defined(GAL_PART)
         TimeBin_BH_mass[bin] = 0;
         TimeBin_BH_dynamicalmass[bin] = 0;
         TimeBin_BH_Mdot[bin] = 0;

@@ -390,7 +390,7 @@ static int get_sfr_condition(int i) {
         if(SPHP(i).Density < All.OverDensThresh)
             flag = 1;
 
-#ifdef BLACK_HOLES || GAL_PART
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(P[i].Mass == 0)
         flag = 1;
 #endif

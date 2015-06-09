@@ -141,7 +141,7 @@ void init(void)
             check_omega();
 
     All.TimeLastStatistics = All.TimeBegin - All.TimeBetStatistics;
-#ifdef BLACK_HOLES || GAL_PART
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     All.TimeNextBlackHoleCheck = All.TimeBegin;
 #endif
 
@@ -1011,7 +1011,7 @@ void setup_smoothinglengths(void)
         }
     }
 
-#ifdef BLACK_HOLES || GAL_PART
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(RestartFlag == 0 || RestartFlag == 2)
     {
         for(i = 0; i < NumPart; i++)
