@@ -22,7 +22,11 @@ void fof_finish_group_properties(void);
 
 extern int Ngroups, TotNgroups;
 extern int64_t TotNids;
-
+struct group_particle_host {
+    int index;
+    int task;
+    double Value;
+};
 extern struct group_properties
 {
   int Len;
@@ -48,8 +52,8 @@ extern struct group_properties
 #ifdef GAL_PART
   double Gal_Mass;
   double Gal_SFR;
-  double MaxDens;
-  int index_maxdens, task_maxdens;
+  struct group_particle_host DenseGas;
+  struct group_particle_host CentralGalaxy;
 #endif
 
 } *Group;

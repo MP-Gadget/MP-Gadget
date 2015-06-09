@@ -983,8 +983,11 @@ void fof_compute_group_properties(int gr, int start, int len)
 #ifdef GAL_PART
     Group[gr].Gal_Mass = 0;
     Group[gr].Gal_SFR = 0;
-    Group[gr].index_maxdens = Group[gr].task_maxdens = -1;
-    Group[gr].MaxDens = 0;
+    Group[gr].DenseGas.index = -1;
+    Group[gr].DenseGas.task = -1;
+    Group[gr].DenseGas.Value = 0;
+    /* just set it empty */
+    Group[gr].CentralGalaxy = Group[gr].DenseGas;
 #endif
 
     for(k = 0; k < 3; k++)
@@ -1041,19 +1044,25 @@ void fof_compute_group_properties(int gr, int start, int len)
         {
             Group[gr].Gal_SFR += BHP(index).Sfr;
             Group[gr].Gal_Mass += BHP(index).Mass;
+            if(BHP(index).Mass > Group[gr].CentralGalaxy.Value)
+            {
+                Group[gr].CentralGalaxy.Value = BHP(index).Mass;
+                Group[gr].CentralGalaxy.index = index;
+                Group[gr].CentralGalaxy.task = ThisTask;
+            }
         }
         if(P[index].Type == 0)
         {
-	  //#ifdef WINDS
-	  /* make bh in non wind gas on bh wind*/
-	  //if(SPHP(index).DelayTime <= 0)
-	  //#endif
-	  if(SPHP(index).Density > Group[gr].MaxDens)
-	    {
-	      Group[gr].MaxDens = SPHP(index).Density;
-	      Group[gr].index_maxdens = index;
-	      Group[gr].task_maxdens = ThisTask;
-	    }
+            //#ifdef WINDS
+            /* make bh in non wind gas on bh wind*/
+            //if(SPHP(index).DelayTime <= 0)
+            //#endif
+            if(SPHP(index).Density > Group[gr].DenseGas.Value)
+            {
+                Group[gr].DenseGas.Value = SPHP(index).Density;
+                Group[gr].DenseGas.index = index;
+                Group[gr].DenseGas.task = ThisTask;
+            }
         }
 #endif
 
@@ -1161,12 +1170,14 @@ void fof_exchange_group_data(void)
 #ifdef GAL_PART
         Group[start].Gal_SFR += get_Group[i].Gal_SFR;
         Group[start].Gal_Mass += get_Group[i].Gal_Mass;
-        if(get_Group[i].MaxDens > Group[start].MaxDens)
-	  {
-            Group[start].MaxDens = get_Group[i].MaxDens;
-            Group[start].index_maxdens = get_Group[i].index_maxdens;
-            Group[start].task_maxdens = get_Group[i].task_maxdens;
-	  }
+        if(get_Group[i].DenseGas.Value > Group[start].DenseGas.Value)
+        {
+            Group[start].DenseGas = get_Group[i].DenseGas;
+        }
+        if(get_Group[i].CentralGalaxy.Value > Group[start].CentralGalaxy.Value)
+        {
+            get_Group[i].CentralGalaxy.Value = Group[start].CentralGalaxy.Value;
+        }
 #endif
         for(j = 0; j < 3; j++)
         {
@@ -1740,8 +1751,9 @@ void fof_make_gals(void)
                 (All.Omega0 - All.OmegaBaryon) / All.Omega0 * All.MinFoFMassForNewSeed)
             if(Group[i].LenType[5] == 0)
             {
-                if(Group[i].index_maxdens >= 0)
-                    Send_count[Group[i].task_maxdens]++;
+            /* candidates for new galaxies */
+                if(Group[i].DenseGas.index >= 0)
+                    Send_count[Group[i].DenseGas.task]++;
             }
     }
 
@@ -1771,32 +1783,17 @@ void fof_make_gals(void)
                 (All.Omega0 - All.OmegaBaryon) / All.Omega0 * All.MinFoFMassForNewSeed)
             if(Group[i].LenType[5] == 0)
             {
-                if(Group[i].index_maxdens >= 0)
-                    export_indices[Send_offset[Group[i].task_maxdens] +
-                        Send_count[Group[i].task_maxdens]++] = Group[i].index_maxdens;
+                if(Group[i].DenseGas.index >= 0)
+                    export_indices[Send_offset[Group[i].DenseGas.task] +
+                        Send_count[Group[i].DenseGas.task]++] = Group[i].DenseGas.index;
             }
     }
 
-    memcpy(&import_indices[Recv_offset[ThisTask]], &export_indices[Send_offset[ThisTask]],
-            Send_count[ThisTask] * sizeof(int));
-
-    for(level = 1; level < (1 << PTask); level++)
-    {
-        sendTask = ThisTask;
-        recvTask = ThisTask ^ level;
-
-        if(recvTask < NTask) {
-            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)  {
-                MPI_Sendrecv(&export_indices[Send_offset[recvTask]],
-                        Send_count[recvTask] * sizeof(int),
-                        MPI_BYTE, recvTask, TAG_FOF_E,
-                        &import_indices[Recv_offset[recvTask]],
-                        Recv_count[recvTask] * sizeof(int),
-                        MPI_BYTE, recvTask, TAG_FOF_E, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-    }
-
+    MPI_Alltoallv_sparse(
+                export_indices, Send_count, Send_offset, MPI_INT,
+                import_indices, Recv_count, Recv_offset, MPI_INT, 
+            MPI_COMM_WORLD);
+        
     MPI_Allreduce(&nimport, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(ThisTask == 0)
