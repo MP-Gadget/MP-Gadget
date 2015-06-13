@@ -51,7 +51,7 @@ HubbleParam      0.697      % Hubble paramater (may be used for power spec param
 BoxSize               64000.0
 
 CoolingOn             1
-StarformationOn       1
+StarformationOn       0
 StarformationCriterion  density,h2
 
 % Output frequency
@@ -146,7 +146,7 @@ BlackHoleNgbFactor         2.0
 BlackHoleEddingtonFactor   3.0
 
 MinFoFMassForNewSeed       5
-TimeBetBlackHoleSearch     1.03
+TimeBetBlackHoleSearch     1.01
 BlackHoleMaxAccretionRadius 999999 %
 
 %----------------------BH Stuff-------------------------
