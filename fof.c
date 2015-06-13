@@ -1729,11 +1729,18 @@ void fof_make_black_holes(void)
 
 #ifdef GAL_PART
 
+int cmp_group_particle_host(const void * p1, const void * p2) {
+    const struct group_particle_host * h1, * h2;
+    h1 = (const struct group_particle_host * )p1;
+    h2 = (const struct group_particle_host * )p2;
+    
+    return (h1->task > h2->task) - (h1->task < h2->task);
+}
 void fof_make_gals(void)
 {
     int i, j, n, ntot;
-    int nexport, nimport, sendTask, recvTask, level;
-    int *import_indices, *export_indices;
+    int nexport;
+    struct group_particle_host *import_particles, *export_particles;
     double massDMpart;
 
     if(All.MassTable[1] > 0)
@@ -1742,57 +1749,50 @@ void fof_make_gals(void)
         endrun(991234569); /* deprecate massDMpart in paramfile*/
     }
 
-    for(n = 0; n < NTask; n++)
+    import_particles = mymalloc("import_indices", Ngroups * sizeof(struct group_particle_host));
+    export_particles = mymalloc("export_indices", Ngroups * sizeof(struct group_particle_host));
+
+    nexport = 0;
+    for(n = 0; n < NTask; n++) {
         Send_count[n] = 0;
+    }
 
     for(i = 0; i < Ngroups; i++)
     {
-        if(Group[i].LenType[1] * massDMpart >=
+        if(Group[i].LenType[1] * massDMpart < 
                 (All.Omega0 - All.OmegaBaryon) / All.Omega0 * All.MinFoFMassForNewSeed)
-            if(Group[i].LenType[5] == 0)
-            {
-            /* candidates for new galaxies */
-                if(Group[i].DenseGas.index >= 0)
-                    Send_count[Group[i].DenseGas.task]++;
-            }
-    }
+            continue;
+        if(Group[i].LenType[5] > 0)
+            continue;
 
-    MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
-
-    for(j = 0, nimport = nexport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
-    {
-        nexport += Send_count[j];
-        nimport += Recv_count[j];
-
-        if(j > 0)
-        {
-            Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
-            Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
+        /* candidates for new galaxies */
+        if(Group[i].DenseGas.index >= 0) {
+            Send_count[Group[i].DenseGas.task] ++;
+            export_particles[nexport] = Group[i].DenseGas;
+            nexport ++;
         }
     }
 
-    import_indices = mymalloc("import_indices", nimport * sizeof(int));
-    export_indices = mymalloc("export_indices", nexport * sizeof(int));
+    qsort(export_particles, nexport, sizeof(export_particles[0]), cmp_group_particle_host);
 
-    for(n = 0; n < NTask; n++)
-        Send_count[n] = 0;
+    MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
 
-    for(i = 0; i < Ngroups; i++)
-    {
-        if(Group[i].LenType[1] * massDMpart >=
-                (All.Omega0 - All.OmegaBaryon) / All.Omega0 * All.MinFoFMassForNewSeed)
-            if(Group[i].LenType[5] == 0)
-            {
-                if(Group[i].DenseGas.index >= 0)
-                    export_indices[Send_offset[Group[i].DenseGas.task] +
-                        Send_count[Group[i].DenseGas.task]++] = Group[i].DenseGas.index;
-            }
+    Recv_offset[0] = Send_offset[0] = 0;
+    for(n = 1; n < NTask; n++) {
+        Recv_offset[n] = Recv_offset[n - 1] + Recv_count[n - 1];
+        Send_offset[n] = Send_offset[n - 1] + Send_count[n - 1];
     }
 
+    int nimport = Recv_offset[NTask - 1] + Recv_count[NTask - 1];
+
+    MPI_Datatype MPI_TYPE;
+    MPI_Type_contiguous(sizeof(export_particles[0]), MPI_BYTE, &MPI_TYPE);
+    MPI_Type_commit(&MPI_TYPE);
     MPI_Alltoallv_sparse(
-                export_indices, Send_count, Send_offset, MPI_INT,
-                import_indices, Recv_count, Recv_offset, MPI_INT, 
+                export_particles, Send_count, Send_offset, MPI_TYPE,
+                import_particles, Recv_count, Recv_offset, MPI_TYPE, 
             MPI_COMM_WORLD);
+    MPI_Type_free(&MPI_TYPE);
         
     MPI_Allreduce(&nimport, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -1804,11 +1804,15 @@ void fof_make_gals(void)
 
     for(n = 0; n < nimport; n++)
     {
-        gal_make_one(import_indices[n]);
+        if(import_particles[n].task != ThisTask) {
+            printf("bad import particle list\n");
+            endrun(31241); 
+        }
+        gal_make_one(import_particles[n].index);
     }
 
-    myfree(export_indices);
-    myfree(import_indices);
+    myfree(export_particles);
+    myfree(import_particles);
 }
 
 #endif
