@@ -1247,6 +1247,13 @@ struct bh_particle_data {
 #endif
 #ifdef GAL_PART
     MyFloat Sfr;
+    int IsCentral;
+    struct {
+        double MassType[6];
+        double Mass;
+        double CM[3];
+        double Vel[3];
+    } HostProperty;
 #endif
     MyFloat Mass;
     MyFloat Mdot;

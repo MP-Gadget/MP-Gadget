@@ -324,8 +324,10 @@ void fof_fof(int num)
 #endif
 
 #ifdef GAL_PART
-    if(num < 0)
+    if(num < 0) {
         fof_make_gals();
+        fof_update_gals();
+    }
 #endif
 
     walltime_measure("/FOF/Misc");
@@ -1736,13 +1738,15 @@ int cmp_group_particle_host(const void * p1, const void * p2) {
     
     return (h1->task > h2->task) - (h1->task < h2->task);
 }
+
 void fof_make_gals(void)
 {
     int i, j, n, ntot;
     int nexport;
     struct group_particle_host *import_particles, *export_particles;
     double massDMpart;
-
+    int * Send_count = alloca(NTask * sizeof(int));
+    int * Recv_count = alloca(NTask * sizeof(int));
     if(All.MassTable[1] > 0)
         massDMpart = All.MassTable[1];
     else {
@@ -1777,22 +1781,19 @@ void fof_make_gals(void)
 
     MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
 
-    Recv_offset[0] = Send_offset[0] = 0;
-    for(n = 1; n < NTask; n++) {
-        Recv_offset[n] = Recv_offset[n - 1] + Recv_count[n - 1];
-        Send_offset[n] = Send_offset[n - 1] + Send_count[n - 1];
-    }
-
-    int nimport = Recv_offset[NTask - 1] + Recv_count[NTask - 1];
-
     MPI_Datatype MPI_TYPE;
     MPI_Type_contiguous(sizeof(export_particles[0]), MPI_BYTE, &MPI_TYPE);
     MPI_Type_commit(&MPI_TYPE);
-    MPI_Alltoallv_sparse(
-                export_particles, Send_count, Send_offset, MPI_TYPE,
-                import_particles, Recv_count, Recv_offset, MPI_TYPE, 
+    MPI_Alltoallv_smart(
+                export_particles, Send_count, NULL, MPI_TYPE,
+                import_particles, Recv_count, NULL, MPI_TYPE, 
             MPI_COMM_WORLD);
     MPI_Type_free(&MPI_TYPE);
+
+    int nimport = 0;
+    for(n = 0; n < NTask; n++) {
+        nimport += Recv_count[n];
+    }
         
     MPI_Allreduce(&nimport, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -1808,6 +1809,12 @@ void fof_make_gals(void)
             printf("bad import particle list\n");
             endrun(31241); 
         }
+        printf("ID %ld center = %g %g %g \n",
+            P[import_particles[n].index].ID,
+            P[import_particles[n].index].Pos[0],
+            P[import_particles[n].index].Pos[1],
+            P[import_particles[n].index].Pos[2]);
+            
         gal_make_one(import_particles[n].index);
     }
 
@@ -1815,6 +1822,117 @@ void fof_make_gals(void)
     myfree(import_particles);
 }
 
+struct group_galaxy_data {
+    struct group_particle_host host;
+    double MassType[6];
+    double Mass;
+    double CM[3];
+    double Vel[3];
+};
+
+void fof_update_gals(void)
+{
+    int i, j, n, ntot;
+    int nexport;
+    struct group_galaxy_data *import_particles, *export_particles;
+    double massDMpart;
+    int * Send_count = alloca(NTask * sizeof(int));
+    int * Recv_count = alloca(NTask * sizeof(int));
+    if(All.MassTable[1] > 0)
+        massDMpart = All.MassTable[1];
+    else {
+        endrun(991234569); /* deprecate massDMpart in paramfile*/
+    }
+
+    import_particles = mymalloc("import_indices", Ngroups * sizeof(struct group_galaxy_data));
+    export_particles = mymalloc("export_indices", Ngroups * sizeof(struct group_galaxy_data));
+
+    nexport = 0;
+    for(n = 0; n < NTask; n++) {
+        Send_count[n] = 0;
+    }
+
+    for(i = 0; i < Ngroups; i++)
+    {
+        /* candidates for new galaxies */
+        if(Group[i].CentralGalaxy.index > 0) {
+            Send_count[Group[i].CentralGalaxy.task] ++;
+            export_particles[nexport].host = Group[i].CentralGalaxy;
+            int j;
+            for(j = 0; j < 6; j ++) {
+                export_particles[nexport].MassType[j] = Group[i].MassType[j];
+            }
+            for(j = 0; j < 3; j ++) {
+                export_particles[nexport].CM[j] = Group[i].CM[j];
+                export_particles[nexport].Vel[j] = Group[i].Vel[j];
+            }
+            export_particles[nexport].Mass = Group[i].Mass;
+            nexport ++;
+        }
+    }
+
+    qsort(export_particles, nexport, sizeof(export_particles[0]), cmp_group_particle_host);
+
+    MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
+
+    MPI_Datatype MPI_TYPE;
+    MPI_Type_contiguous(sizeof(export_particles[0]), MPI_BYTE, &MPI_TYPE);
+    MPI_Type_commit(&MPI_TYPE);
+    MPI_Alltoallv_smart(
+                export_particles, Send_count, NULL, MPI_TYPE,
+                import_particles, Recv_count, NULL, MPI_TYPE, 
+            MPI_COMM_WORLD);
+    MPI_Type_free(&MPI_TYPE);
+
+    int nimport = 0;
+    for(n = 0; n < NTask; n++) {
+        nimport += Recv_count[n];
+    }
+        
+    MPI_Allreduce(&nimport, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    int ntot2;
+    MPI_Allreduce(&N_bh, &ntot2, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    if(ThisTask == 0)
+    {
+        printf("\nUpdating %d central galaxy particles out of %d galaxy particles\n\n", ntot, ntot2);
+        fflush(stdout);
+    }
+
+    for(n = 0; n < NumPart; n++) {
+        if(P[n].Type != 5) continue;
+        BHP(n).IsCentral = 0;
+    }
+
+    for(n = 0; n < nimport; n++)
+    {
+        if(import_particles[n].host.task != ThisTask) {
+            printf("bad import particle list\n");
+            endrun(31241); 
+        }
+        int index = import_particles[n].host.index;
+        int j;
+        printf("ID = %ld CM = %g %g %g Mass = %g\n",
+            P[index].ID,
+            import_particles[n].CM[0],
+            import_particles[n].CM[1],
+            import_particles[n].CM[2],
+            import_particles[n].Mass);
+ 
+        for(j = 0; j < 6; j ++) {
+            BHP(index).HostProperty.MassType[j] = import_particles[n].MassType[j];
+        }
+        for(j = 0; j < 3; j ++) {
+            BHP(index).HostProperty.CM[j] = import_particles[n].CM[j];
+            BHP(index).HostProperty.Vel[j] = import_particles[n].Vel[j];
+        }
+        BHP(index).HostProperty.Mass = import_particles[n].Mass;
+        BHP(index).IsCentral = 1;
+    }
+
+    myfree(export_particles);
+    myfree(import_particles);
+}
 #endif
 
 
