@@ -118,6 +118,40 @@ static int blackhole_swallow_evaluate(int target, int mode,
 
 static int N_sph_swallowed, N_BH_swallowed;
 
+// NOTES on what we need to include
+// galaxy growth & star formation
+// inputs:
+// Halo ID, Halo Radius, Mass, and Angular momentum, Mass gas in the vacinity (similar to BH), a time step, OLD gas, Mass in stars. 
+// Parameters FDIFF, ETA, A_ACCRETE, RADSCALE, for now sig_z 
+// 
+// double Lambda_denom_fac, Lambda, Rgas_c, Rhalo3, Rstar;
+// double Mgas_c_new, Mgas_c, Sig_gas_c, Sig_star;
+// double ms_denom_fac, rho_star_disc;
+//
+// Lambda_denom_fac = 2.0 * sqrt (GRAVITY * Mhalo * Mhalo * Mhalo * Rhalo); 
+// Lambda = Jhalo / Lambda_denom_fac;
+// Rgas_c = Lambda * Rhalo ;
+// Rstar = RADSCALE * Rgas_c;
+// Rhalo3 = Rhalo * Rhalo * Rhalo;
+// Mgas_c_new = A_ACCRETE * Mgas_v * delta_t * sqrt(GRAVITY * Mhalo / Rhalo3);
+// Mgas_c = Mgas_c_old + Mgas_c_new;
+// ms_denom_fac = M_PI * M_PI * Sig_gas_c * Sig_gas_c * GRAVITY; 
+// rho_star_disc = ;
+// Sig_star = Mstar / (2.0 * M_PI * Rstar * Rstar);
+// rho_star_disc = Sig_star / (0.54 * Rstar); //Leroy+ 2008 
+// M_dot_star = ETA * fdiff * 0.125 * M_PI * Mgas_c * Sig_gas_c * GRAVITY * ( 2 - fdiff + sqrt((2 - fdiff)*(2 - fdiff) +  32.0*sig_z*rho_star_disc / ms_denom_fac));
+// Mgas_c_old = Mgas_c - M_dot_star * delta_t;
+// Mstar += M_dot_star * delta_t;    
+/* double exp_disc(double M, double r) {
+}
+ */ 
+// empirical wind proportional 
+// M_dot_out = M_dot_star
+// v_out = v_esc
+// AGN feedback
+// if M_dot_star > 5 Msol/yr
+// E_out = epsilon * M_dot_star * delta_t
+
 static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
     /* rho is comoving !*/
     double cs;
@@ -133,6 +167,9 @@ static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
     }
     return cs;
 }
+
+// empirical wind proportional
+// 
 
 void blackhole_accretion(void)
 {
