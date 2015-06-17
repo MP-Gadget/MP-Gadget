@@ -1246,6 +1246,9 @@ struct bh_particle_data {
     int CountProgs;
 #endif
 #ifdef GAL_PART
+    int CountProgs;
+    MyFloat DiskMassGas;
+    MyFloat DiskMassStar;
     MyFloat Sfr;
     int IsCentral;
     struct {
@@ -1253,10 +1256,16 @@ struct bh_particle_data {
         double Mass;
         double CM[3];
         double Vel[3];
+        double AngularMomentum;
     } HostProperty;
+    MyFloat MinPotPos[3];
+    MyFloat MinPotVel[3];
+    MyFloat MinPot;
 #endif
     MyFloat Mass;
+#ifdef BLACK_HOLE
     MyFloat Mdot;
+#endif
     MyFloat FeedbackWeightSum;
     MyFloat Density;
     MyFloat EntOrPressure;
@@ -1465,7 +1474,7 @@ extern struct sph_particle_data
     } u;
 #endif
 
-#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
+#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK) || defined(GAL_PART)
     MyFloat       Injected_BH_Energy;
 #endif
 

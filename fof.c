@@ -1053,6 +1053,7 @@ void fof_compute_group_properties(int gr, int start, int len)
                 Group[gr].CentralGalaxy.task = ThisTask;
             }
         }
+        // FIXME: cummulate r * V for all particles
         if(P[index].Type == 0)
         {
             //#ifdef WINDS

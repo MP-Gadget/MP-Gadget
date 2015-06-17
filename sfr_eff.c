@@ -312,7 +312,7 @@ static void cooling_direct(int i) {
             (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
             GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
-#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
+#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK) || defined(GAL_PART)
     if(SPHP(i).Injected_BH_Energy)
     {
         if(P[i].Mass == 0)

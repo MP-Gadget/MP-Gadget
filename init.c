@@ -907,7 +907,12 @@ void init(void)
     }
 #endif
 
-
+#ifdef GAL_PART
+    if(RestartFlag == 2) {
+        /* update galaxy host properties */
+        fof_fof(-1);
+    }
+#endif
 }
 
 

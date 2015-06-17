@@ -250,7 +250,7 @@ static void real_drift_particle(int i, int time1)
         oldpos[j] = P[i].Pos[j];
         P[i].Pos[j] += P[i].Vel[j] * dt_drift;
     }
-#ifdef BH_REPOSITION_ON_POTMIN
+#if defined(BH_REPOSITION_ON_POTMIN) || defined(GAL_PART)
 #define BHPOTVALUEINIT 1.0e30
     if(P[i].Type == 5) {
         int k;

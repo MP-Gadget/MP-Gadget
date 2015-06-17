@@ -25,7 +25,6 @@ OPT	+=  -DMOREPARAMS
 OPT	+=  -DALLOWEXTRAPARAMS
 OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
-OPT	+=  -DBH_REPOSITION_ON_POTMIN    # repositions hole on potential minimum (required )
 
 #--------------------------------------- Multi-Domain and Top-Level Tree options
 OPT	+=  -DMULTIPLEDOMAINS=32
@@ -66,13 +65,13 @@ OPT	+=  -DWINDS
 #-------------------------------------- AGN stuff
 #OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
 OPT += -DGAL_PART
-OPT	+=  -DBH_ACCRETION # Bondi-Hoyle style accretion model
-OPT	+=  -DBH_ENFORCE_EDDINGTON_LIMIT # put a hard limit on the maximum accretion rate
-OPT	+=  -DBH_THERMALFEEDBACK      # couple a fraction of the BH luminosity into surrounding gas
-OPT	+=  -DBH_SWALLOWGAS              # Enables stochastic accretion of gas particles consistent with growth rate of hole
-OPT	+=  -DBH_SWALLOWBH # Enables blackhole mergers.
-OPT	+=  -DBH_COUNTPROGS	      # carries a counter for each BH that gives the total number of seeds that merged into it
-OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding gas velocity is used in addition to the sounds speed in the Bondi rate 
+#OPT	+=  -DBH_ACCRETION # Bondi-Hoyle style accretion model
+#OPT	+=  -DBH_ENFORCE_EDDINGTON_LIMIT # put a hard limit on the maximum accretion rate
+#OPT	+=  -DBH_THERMALFEEDBACK      # couple a fraction of the BH luminosity into surrounding gas
+#OPT	+=  -DBH_SWALLOWGAS              # Enables stochastic accretion of gas particles consistent with growth rate of hole
+#OPT	+=  -DBH_SWALLOWBH # Enables blackhole mergers.
+#OPT	+=  -DBH_COUNTPROGS	      # carries a counter for each BH that gives the total number of seeds that merged into it
+#OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding gas velocity is used in addition to the sounds speed in the Bondi rate 
 
 
 #-------------------------------------- Viscous gas treatment 
