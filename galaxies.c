@@ -61,6 +61,11 @@ struct feedbackdata_in
     MyFloat Vel[3];
     MyFloat Csnd;
     MyIDType ID;
+    //ADDED by NB for winds
+    double TotalWeight;
+    double DMRadius;
+    double Vdisp;
+    double Vesc;
 };
 
 struct feedbackdata_out
@@ -69,6 +74,11 @@ struct feedbackdata_out
     MyFloat BH_MinPotVel[3];
     MyFloat BH_MinPot;
     short int BH_TimeBinLimit;
+    //ADDED by NB for winds
+    double TotalWeight;
+    double V1sum[3];
+    double V2sum;
+    int Ngb;
 };
 
 struct swallowdata_in
@@ -510,7 +520,29 @@ static int blackhole_feedback_evaluate(int target, int mode,
                                 P[j].SwallowID = I->ID;
                         }
                     }
-
+		    if(r2 < bh_feedback_kernel.HH && P[j].Mass > 0)
+		      {  // THIS IS JUST THE WIND
+			double windeff;
+			double v;
+			if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
+			  windeff = All.WindEfficiency;
+			  v = All.WindSpeed * All.cf.a;
+			} else if(HAS(All.WindModel, WINDS_USE_HALO)) {
+			  windeff = 1.0 / (I->Vdisp / All.cf.a / All.WindSigma0);
+			  windeff *= windeff;
+			  v = All.WindSpeedFactor * I->Vdisp;
+			} else {
+			  abort();
+			}
+			//double r = sqrt(r2);                                                                   
+			//double wk = density_kernel_wk(&kernel, r);                                             
+			double wk = 1.0;
+			double p = windeff * wk * I->Mass / I->TotalWeight;
+			double random = get_random_number(I->ID + P[j].ID);
+			if (random < p) {
+			  make_particle_wind(j, v, I->Vesc);
+			}
+		      }
                     if(r2 < bh_feedback_kernel.HH && P[j].Mass > 0
                         && I->Sfr > 5 / 10.2 /* ~5 Msun/year in code units FIXME*/
                     ) {
@@ -552,6 +584,61 @@ static int blackhole_feedback_evaluate(int target, int mode,
 
     return 0;
 }
+
+static int make_particle_wind(int i, double v, double vmean[3]) {
+  /* v and vmean are in internal units (km/s *a ), not km/s !*/
+  /* returns 0 if particle i is converteed to wind. */
+  int j;
+  /* ok, make the particle go into the wind */
+  double dir[3];
+#ifdef ISOTROPICWINDS
+  double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
+  double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
+  
+  dir[0] = sin(theta) * cos(phi);
+  dir[1] = sin(theta) * sin(phi);
+  dir[2] = cos(theta);
+#else
+  double vel[3];
+  for(j = 0; j < 3; j++) {
+    vel[j] = P[i].Vel[j] - vmean[j];
+  }
+  dir[0] = P[i].GravAccel[1] * vel[2] - P[i].GravAccel[2] * vel[1];
+  dir[1] = P[i].GravAccel[2] * vel[0] - P[i].GravAccel[0] * vel[2];
+  dir[2] = P[i].GravAccel[0] * vel[1] - P[i].GravAccel[1] * vel[0];
+#endif
+  
+  double norm = 0;
+  for(j = 0; j < 3; j++)
+    norm += dir[j] * dir[j];
+  
+  norm = sqrt(norm);
+  if(get_random_number(P[i].ID + 5) < 0.5)
+    norm = -norm;
+  
+  if(norm != 0)
+    {
+      for(j = 0; j < 3; j++)
+	dir[j] /= norm;
+      
+      fprintf(stdout,//FdSfrDetails,
+	      "Wind T %g %lu M %g P %g %g %g V %g VC %g %g %g D %g %g %g\n",
+	      All.Time, P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],
+	      v / All.cf.a, vmean[0], vmean[1], vmean[2], dir[0], dir[1], dir[2]);
+      
+      for(j = 0; j < 3; j++)
+	{
+	  P[i].Vel[j] += v * dir[j];
+	  SPHP(i).VelPred[j] += v * dir[j];
+	}
+      SPHP(i).DelayTime = All.WindFreeTravelLength / (v / All.cf.a);
+    }
+  return 0;   
+}
+
+
+
+
 
 
 /** 
