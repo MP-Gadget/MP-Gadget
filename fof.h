@@ -37,6 +37,7 @@ extern struct group_properties
 #ifdef GAL_PART
   double Gal_Mass;
   double Gal_SFR;
+  double AngularMomentum[3];
   struct group_particle_host DenseGas;
   struct group_particle_host CentralGalaxy;
 #endif

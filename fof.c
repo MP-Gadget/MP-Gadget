@@ -33,8 +33,13 @@ int fof_compare_ID_list_GrNrID(const void *a, const void *b);
 int fof_compare_Group_MinIDTask_MinID(const void *a, const void *b);
 int fof_compare_Group_Len(const void *a, const void *b);
 
-void fof_compute_group_properties(void);
-void fof_exchange_group_data(void);
+void fof_compute_group_properties(void add_particle(int GrNr, int index));
+void fof_add_particle(int gr, int index);
+void fof_add_angular_momentum(int gr, int index);
+void fof_exchange_group_data(void (*join)(struct group_properties * target, struct group_properties * input));
+void fof_join_angular_momentum(struct group_properties * target, struct group_properties * input);
+void fof_join_groups(struct group_properties * target, struct group_properties * input);
+
 void fof_finish_group_properties(void);
 
 void fof_save_particles(int num);
@@ -335,6 +340,7 @@ void fof_fof(int num)
         Group[i].MaxDens = 0;
     #endif
 
+        int k;
     #ifdef GAL_PART
         Group[i].Gal_Mass = 0;
         Group[i].Gal_SFR = 0;
@@ -343,8 +349,11 @@ void fof_fof(int num)
         Group[i].DenseGas.Value = 0;
         /* just set it empty */
         Group[i].CentralGalaxy = Group[i].DenseGas;
+        for(k = 0; k < 3; k++)
+        {
+            Group[i].AngularMomentum[k] = 0;
+        }
     #endif
-        int k;
 
         for(k = 0; k < 3; k++)
         {
@@ -369,11 +378,32 @@ void fof_fof(int num)
         start += lenloc;
     }
 
-    fof_compute_group_properties();
+    fof_compute_group_properties(fof_add_particle);
 
-    fof_exchange_group_data();
+    fof_exchange_group_data(fof_join_groups);
 
     fof_finish_group_properties();
+
+    fof_compute_group_properties(fof_add_angular_momentum);
+
+    fof_exchange_group_data(fof_join_angular_momentum);
+
+    /* eliminate the non-local groups */
+    int ngr;
+    for(i = 0, ngr = NgroupsExt; i < ngr; i++)
+    {
+        if(Group[i].MinIDTask != ThisTask)
+        {
+            Group[i] = Group[ngr - 1];
+            i--;
+            ngr--;
+        }
+    }
+
+    if(ngr != Ngroups)
+        endrun(876889);
+
+    qsort(Group, Ngroups, sizeof(struct group_properties), fof_compare_Group_MinID);
 
     walltime_measure("/FOF/Prop");
     t1 = second();
@@ -1025,7 +1055,7 @@ void fof_compile_catalogue(void)
     qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinID);
 }
 
-void fof_add_group_properties(int gr, int index) {
+void fof_add_particle(int gr, int index) {
     int j;
 
     Group[gr].Len++;
@@ -1099,17 +1129,44 @@ void fof_add_group_properties(int gr, int index) {
     }
 }
 
-void fof_compute_group_properties()
+void fof_add_angular_momentum(int gr, int index) {
+
+#ifdef GAL_PART
+    double xyz[3], vel[3];
+    int j;
+    for(j = 0; j < 3; j++)
+    {
+        xyz[j] = P[index].Pos[j];
+        vel[j] = P[index].Vel[j] - Group[gr].Vel[j];
+#ifdef PERIODIC
+        xyz[j] = fof_periodic(xyz[j] - Group[gr].CM[j]);
+#endif
+    }
+    const int j1[3] = {1, 2, 0};
+    const int j2[3] = {2, 0, 1};
+    for(j = 0; j < 3; j ++) {
+        Group[gr].AngularMomentum[j] += xyz[j1[j]] * P[index].Mass * vel[j2[j]];
+    }
+#endif
+}
+
+void fof_compute_group_properties(void add_particle(int GrNr, int index))
 {
     int j, k, index;
     double xyz[3];
 
     for(index = 0; index < NumPart; index ++) {
         if(P[index].GrNr < 0) continue;
-        fof_add_group_properties(P[index].GrNr, index);
+        add_particle(P[index].GrNr, index);
     }
 }
 
+void fof_join_angular_momentum(struct group_properties * target, struct group_properties * input) {
+    int k;
+    for (k = 0; k < 3; k ++) {
+        target->AngularMomentum[k] += input->AngularMomentum[k];
+    }
+}
 void fof_join_groups(struct group_properties * target, struct group_properties * input) {
     int j;
 
@@ -1159,7 +1216,7 @@ void fof_join_groups(struct group_properties * target, struct group_properties *
     }
 }
 
-void fof_exchange_group_data(void)
+void fof_exchange_group_data(void (*join)(struct group_properties * target, struct group_properties * input))
 {
     struct group_properties *get_Group;
     int i, j, ngrp, sendTask, recvTask, nimport, start;
@@ -1205,8 +1262,8 @@ void fof_exchange_group_data(void)
             if(start >= NgroupsExt)
                 endrun(797890);
         }
-
-        fof_join_groups(&Group[start], &get_Group[i]);
+    
+        join(&Group[start], &get_Group[i]);
     }
     myfree(get_Group);
 }
@@ -1232,22 +1289,6 @@ void fof_finish_group_properties(void)
             }
         }
     }
-
-    /* eliminate the non-local groups */
-    for(i = 0, ngr = NgroupsExt; i < ngr; i++)
-    {
-        if(Group[i].MinIDTask != ThisTask)
-        {
-            Group[i] = Group[ngr - 1];
-            i--;
-            ngr--;
-        }
-    }
-
-    if(ngr != Ngroups)
-        endrun(876889);
-
-    qsort(Group, Ngroups, sizeof(struct group_properties), fof_compare_Group_MinID);
 }
 
 
