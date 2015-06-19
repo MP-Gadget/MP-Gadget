@@ -21,6 +21,22 @@
 #ifdef FOF
 #include "fof.h"
 
+int fof_compare_FOF_PList_MinID(const void *a, const void *b);
+int fof_compare_FOF_GList_MinID(const void *a, const void *b);
+int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b);
+int fof_compare_FOF_GList_LocCountTaskDiffMinID(const void *a, const void *b);
+int fof_compare_FOF_GList_ExtCountMinID(const void *a, const void *b);
+int fof_compare_Group_GrNr(const void *a, const void *b);
+int fof_compare_Group_MinIDTask(const void *a, const void *b);
+int fof_compare_Group_MinID(const void *a, const void *b);
+int fof_compare_ID_list_GrNrID(const void *a, const void *b);
+int fof_compare_Group_MinIDTask_MinID(const void *a, const void *b);
+int fof_compare_Group_Len(const void *a, const void *b);
+
+void fof_compute_group_properties(void);
+void fof_exchange_group_data(void);
+void fof_finish_group_properties(void);
+
 void fof_save_particles(int num);
 
 int Ngroups, TotNgroups;
@@ -283,6 +299,9 @@ void fof_fof(int num)
         fflush(stdout);
     }
 
+    for(i = 0; i < NumPart; i++)
+        P[i].GrNr = -1;	/* will mark particles that are not in any group */
+
     for(i = 0, start = 0; i < NgroupsExt; i++)
     {
         while(FOF_PList[start].MinID < FOF_GList[i].MinID)
@@ -304,10 +323,53 @@ void fof_fof(int num)
         Group[i].MinID = FOF_GList[i].MinID;
         Group[i].MinIDTask = FOF_GList[i].MinIDTask;
 
-        fof_compute_group_properties(i, start, lenloc);
+        Group[i].Len = 0;
+        Group[i].Mass = 0;
+    #ifdef SFR
+        Group[i].Sfr = 0;
+    #endif
+    #ifdef BLACK_HOLES
+        Group[i].BH_Mass = 0;
+        Group[i].BH_Mdot = 0;
+        Group[i].index_maxdens = Group[i].task_maxdens = -1;
+        Group[i].MaxDens = 0;
+    #endif
+
+    #ifdef GAL_PART
+        Group[i].Gal_Mass = 0;
+        Group[i].Gal_SFR = 0;
+        Group[i].DenseGas.index = -1;
+        Group[i].DenseGas.task = -1;
+        Group[i].DenseGas.Value = 0;
+        /* just set it empty */
+        Group[i].CentralGalaxy = Group[i].DenseGas;
+    #endif
+        int k;
+
+        for(k = 0; k < 3; k++)
+        {
+            Group[i].CM[k] = 0;
+            Group[i].Vel[k] = 0;
+            Group[i].FirstPos[k] = P[FOF_PList[start].Pindex].Pos[k];
+        }
+
+        for(k = 0; k < 6; k++)
+        {
+            Group[i].LenType[k] = 0;
+            Group[i].MassType[k] = 0;
+        }
+
+        for(k = 0; k < lenloc; k++)
+        {
+            int index = FOF_PList[start + k].Pindex;
+
+            P[index].GrNr = i;
+        }
 
         start += lenloc;
     }
+
+    fof_compute_group_properties();
 
     fof_exchange_group_data();
 
@@ -963,124 +1025,139 @@ void fof_compile_catalogue(void)
     qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinID);
 }
 
+void fof_add_group_properties(int gr, int index) {
+    int j;
+
+    Group[gr].Len++;
+    Group[gr].Mass += P[index].Mass;
+    Group[gr].LenType[P[index].Type]++;
+    Group[gr].MassType[P[index].Type] += P[index].Mass;
 
 
-void fof_compute_group_properties(int gr, int start, int len)
+#ifdef SFR
+    if(P[index].Type == 0) {
+        Group[gr].Sfr += get_starformation_rate(index);
+    }
+#endif
+#ifdef BLACK_HOLES
+    if(P[index].Type == 5)
+    {
+        Group[gr].BH_Mdot += BHP(index).Mdot;
+        Group[gr].BH_Mass += BHP(index).Mass;
+    }
+    if(P[index].Type == 0)
+    {
+#ifdef WINDS
+        /* make bh in non wind gas on bh wind*/
+        if(SPHP(index).DelayTime <= 0)
+#endif
+            if(SPHP(index).Density > Group[gr].MaxDens)
+            {
+                Group[gr].MaxDens = SPHP(index).Density;
+                Group[gr].index_maxdens = index;
+                Group[gr].task_maxdens = ThisTask;
+            }
+    }
+#endif
+#ifdef GAL_PART
+/*NEED TO FIX THIS */
+    if(P[index].Type == 5)
+    {
+        Group[gr].Gal_SFR += BHP(index).Sfr;
+        Group[gr].Gal_Mass += BHP(index).Mass;
+        if(BHP(index).Mass > Group[gr].CentralGalaxy.Value)
+        {
+            Group[gr].CentralGalaxy.Value = BHP(index).Mass;
+            Group[gr].CentralGalaxy.index = index;
+            Group[gr].CentralGalaxy.task = ThisTask;
+        }
+    }
+    // FIXME: cummulate r * V for all particles
+    if(P[index].Type == 0)
+    {
+        //#ifdef WINDS
+        /* make bh in non wind gas on bh wind*/
+        //if(SPHP(index).DelayTime <= 0)
+        //#endif
+        if(SPHP(index).Density > Group[gr].DenseGas.Value)
+        {
+            Group[gr].DenseGas.Value = SPHP(index).Density;
+            Group[gr].DenseGas.index = index;
+            Group[gr].DenseGas.task = ThisTask;
+        }
+    }
+#endif
+    for(j = 0; j < 3; j++)
+    {
+        double xyz[3];
+        xyz[j] = P[index].Pos[j];
+#ifdef PERIODIC
+        xyz[j] = fof_periodic(xyz[j] - Group[gr].FirstPos[j]);
+#endif
+        Group[gr].CM[j] += P[index].Mass * xyz[j];
+        Group[gr].Vel[j] += P[index].Mass * P[index].Vel[j];
+    }
+}
+
+void fof_compute_group_properties()
 {
     int j, k, index;
     double xyz[3];
 
-    Group[gr].Len = 0;
-    Group[gr].Mass = 0;
-#ifdef SFR
-    Group[gr].Sfr = 0;
-#endif
-#ifdef BLACK_HOLES
-    Group[gr].BH_Mass = 0;
-    Group[gr].BH_Mdot = 0;
-    Group[gr].index_maxdens = Group[gr].task_maxdens = -1;
-    Group[gr].MaxDens = 0;
-#endif
-
-#ifdef GAL_PART
-    Group[gr].Gal_Mass = 0;
-    Group[gr].Gal_SFR = 0;
-    Group[gr].DenseGas.index = -1;
-    Group[gr].DenseGas.task = -1;
-    Group[gr].DenseGas.Value = 0;
-    /* just set it empty */
-    Group[gr].CentralGalaxy = Group[gr].DenseGas;
-#endif
-
-    for(k = 0; k < 3; k++)
-    {
-        Group[gr].CM[k] = 0;
-        Group[gr].Vel[k] = 0;
-        Group[gr].FirstPos[k] = P[FOF_PList[start].Pindex].Pos[k];
-    }
-
-    for(k = 0; k < 6; k++)
-    {
-        Group[gr].LenType[k] = 0;
-        Group[gr].MassType[k] = 0;
-    }
-
-    for(k = 0; k < len; k++)
-    {
-        index = FOF_PList[start + k].Pindex;
-
-        Group[gr].Len++;
-        Group[gr].Mass += P[index].Mass;
-        Group[gr].LenType[P[index].Type]++;
-        Group[gr].MassType[P[index].Type] += P[index].Mass;
-
-
-#ifdef SFR
-        if(P[index].Type == 0) {
-            Group[gr].Sfr += get_starformation_rate(index);
-        }
-#endif
-#ifdef BLACK_HOLES
-        if(P[index].Type == 5)
-        {
-            Group[gr].BH_Mdot += BHP(index).Mdot;
-            Group[gr].BH_Mass += BHP(index).Mass;
-        }
-        if(P[index].Type == 0)
-        {
-#ifdef WINDS
-            /* make bh in non wind gas on bh wind*/
-            if(SPHP(index).DelayTime <= 0)
-#endif
-                if(SPHP(index).Density > Group[gr].MaxDens)
-                {
-                    Group[gr].MaxDens = SPHP(index).Density;
-                    Group[gr].index_maxdens = index;
-                    Group[gr].task_maxdens = ThisTask;
-                }
-        }
-#endif
-#ifdef GAL_PART
-	/*NEED TO FIX THIS */
-        if(P[index].Type == 5)
-        {
-            Group[gr].Gal_SFR += BHP(index).Sfr;
-            Group[gr].Gal_Mass += BHP(index).Mass;
-            if(BHP(index).Mass > Group[gr].CentralGalaxy.Value)
-            {
-                Group[gr].CentralGalaxy.Value = BHP(index).Mass;
-                Group[gr].CentralGalaxy.index = index;
-                Group[gr].CentralGalaxy.task = ThisTask;
-            }
-        }
-        // FIXME: cummulate r * V for all particles
-        if(P[index].Type == 0)
-        {
-            //#ifdef WINDS
-            /* make bh in non wind gas on bh wind*/
-            //if(SPHP(index).DelayTime <= 0)
-            //#endif
-            if(SPHP(index).Density > Group[gr].DenseGas.Value)
-            {
-                Group[gr].DenseGas.Value = SPHP(index).Density;
-                Group[gr].DenseGas.index = index;
-                Group[gr].DenseGas.task = ThisTask;
-            }
-        }
-#endif
-
-        for(j = 0; j < 3; j++)
-        {
-            xyz[j] = P[index].Pos[j];
-#ifdef PERIODIC
-            xyz[j] = fof_periodic(xyz[j] - Group[gr].FirstPos[j]);
-#endif
-            Group[gr].CM[j] += P[index].Mass * xyz[j];
-            Group[gr].Vel[j] += P[index].Mass * P[index].Vel[j];
-        }
+    for(index = 0; index < NumPart; index ++) {
+        if(P[index].GrNr < 0) continue;
+        fof_add_group_properties(P[index].GrNr, index);
     }
 }
 
+void fof_join_groups(struct group_properties * target, struct group_properties * input) {
+    int j;
+
+    target->Len += input->Len;
+    target->Mass += input->Mass;
+
+    for(j = 0; j < 6; j++)
+    {
+        target->LenType[j] += input->LenType[j];
+        target->MassType[j] += input->MassType[j];
+    }
+
+#ifdef SFR
+    target->Sfr += input->Sfr;
+#endif
+#ifdef BLACK_HOLES
+    target->BH_Mdot += input->BH_Mdot;
+    target->BH_Mass += input->BH_Mass;
+    if(input->MaxDens > target->MaxDens)
+    {
+        target->MaxDens = input->MaxDens;
+        target->index_maxdens = input->index_maxdens;
+        target->task_maxdens = input->task_maxdens;
+    }
+#endif
+#ifdef GAL_PART
+    target->Gal_SFR += input->Gal_SFR;
+    target->Gal_Mass += input->Gal_Mass;
+    if(input->DenseGas.Value > target->DenseGas.Value)
+    {
+        target->DenseGas = input->DenseGas;
+    }
+    if(input->CentralGalaxy.Value > target->CentralGalaxy.Value)
+    {
+        input->CentralGalaxy.Value = target->CentralGalaxy.Value;
+    }
+#endif
+    for(j = 0; j < 3; j++)
+    {
+        double xyz[3];
+        xyz[j] = input->CM[j] / input->Mass + input->FirstPos[j];
+#ifdef PERIODIC
+        xyz[j] = fof_periodic(xyz[j] - target->FirstPos[j]);
+#endif
+        target->CM[j] += input->Mass * xyz[j];
+        target->Vel[j] += input->Vel[j];
+    }
+}
 
 void fof_exchange_group_data(void)
 {
@@ -1099,40 +1176,21 @@ void fof_exchange_group_data(void)
 
     MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
 
-    for(j = 0, nimport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
+    for(j = 0, nimport = 0;  j < NTask; j++)
     {
-        if(j == ThisTask)		/* we will not exchange the ones that are local */
-            Recv_count[j] = 0;
         nimport += Recv_count[j];
-
-        if(j > 0)
-        {
-            Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
-            Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
-        }
     }
 
     get_Group = (struct group_properties *) mymalloc("get_Group", sizeof(struct group_properties) * nimport);
 
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        sendTask = ThisTask;
-        recvTask = ThisTask ^ ngrp;
-
-        if(recvTask < NTask)
-        {
-            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-            {
-                /* get the group data */
-                MPI_Sendrecv(&Group[Send_offset[recvTask]],
-                        Send_count[recvTask] * sizeof(struct group_properties), MPI_BYTE,
-                        recvTask, TAG_DENS_A,
-                        &get_Group[Recv_offset[recvTask]],
-                        Recv_count[recvTask] * sizeof(struct group_properties), MPI_BYTE,
-                        recvTask, TAG_DENS_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-    }
+    MPI_Datatype MPI_TYPE;
+    MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE);
+    MPI_Type_commit(&MPI_TYPE);
+    MPI_Alltoallv_smart(
+                Group, Send_count, NULL, MPI_TYPE,
+                get_Group, Recv_count, NULL, MPI_TYPE, 
+            MPI_COMM_WORLD);
+    MPI_Type_free(&MPI_TYPE);
 
     /* sort the groups again according to MinID */
     qsort(Group, NgroupsExt, sizeof(struct group_properties), fof_compare_Group_MinID);
@@ -1148,51 +1206,8 @@ void fof_exchange_group_data(void)
                 endrun(797890);
         }
 
-        Group[start].Len += get_Group[i].Len;
-        Group[start].Mass += get_Group[i].Mass;
-
-        for(j = 0; j < 6; j++)
-        {
-            Group[start].LenType[j] += get_Group[i].LenType[j];
-            Group[start].MassType[j] += get_Group[i].MassType[j];
-        }
-
-#ifdef SFR
-        Group[start].Sfr += get_Group[i].Sfr;
-#endif
-#ifdef BLACK_HOLES
-        Group[start].BH_Mdot += get_Group[i].BH_Mdot;
-        Group[start].BH_Mass += get_Group[i].BH_Mass;
-        if(get_Group[i].MaxDens > Group[start].MaxDens)
-        {
-            Group[start].MaxDens = get_Group[i].MaxDens;
-            Group[start].index_maxdens = get_Group[i].index_maxdens;
-            Group[start].task_maxdens = get_Group[i].task_maxdens;
-        }
-#endif
-#ifdef GAL_PART
-        Group[start].Gal_SFR += get_Group[i].Gal_SFR;
-        Group[start].Gal_Mass += get_Group[i].Gal_Mass;
-        if(get_Group[i].DenseGas.Value > Group[start].DenseGas.Value)
-        {
-            Group[start].DenseGas = get_Group[i].DenseGas;
-        }
-        if(get_Group[i].CentralGalaxy.Value > Group[start].CentralGalaxy.Value)
-        {
-            get_Group[i].CentralGalaxy.Value = Group[start].CentralGalaxy.Value;
-        }
-#endif
-        for(j = 0; j < 3; j++)
-        {
-            xyz[j] = get_Group[i].CM[j] / get_Group[i].Mass + get_Group[i].FirstPos[j];
-#ifdef PERIODIC
-            xyz[j] = fof_periodic(xyz[j] - Group[start].FirstPos[j]);
-#endif
-            Group[start].CM[j] += get_Group[i].Mass * xyz[j];
-            Group[start].Vel[j] += get_Group[i].Vel[j];
-        }
+        fof_join_groups(&Group[start], &get_Group[i]);
     }
-
     myfree(get_Group);
 }
 
