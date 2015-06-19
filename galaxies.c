@@ -123,6 +123,8 @@ static int blackhole_swallow_evaluate(int target, int mode,
 
 static int N_sph_swallowed, N_BH_swallowed;
 
+static int make_particle_wind(int i, double v, double vesc);
+
 // NOTES on what we need to include
 // galaxy growth & star formation
 // inputs:
@@ -585,28 +587,19 @@ static int blackhole_feedback_evaluate(int target, int mode,
     return 0;
 }
 
-static int make_particle_wind(int i, double v, double vmean[3]) {
+static int make_particle_wind(int i, double v, double vesc) {
   /* v and vmean are in internal units (km/s *a ), not km/s !*/
   /* returns 0 if particle i is converteed to wind. */
   int j;
   /* ok, make the particle go into the wind */
   double dir[3];
-#ifdef ISOTROPICWINDS
+
   double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
   double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
   
   dir[0] = sin(theta) * cos(phi);
   dir[1] = sin(theta) * sin(phi);
   dir[2] = cos(theta);
-#else
-  double vel[3];
-  for(j = 0; j < 3; j++) {
-    vel[j] = P[i].Vel[j] - vmean[j];
-  }
-  dir[0] = P[i].GravAccel[1] * vel[2] - P[i].GravAccel[2] * vel[1];
-  dir[1] = P[i].GravAccel[2] * vel[0] - P[i].GravAccel[0] * vel[2];
-  dir[2] = P[i].GravAccel[0] * vel[1] - P[i].GravAccel[1] * vel[0];
-#endif
   
   double norm = 0;
   for(j = 0; j < 3; j++)
@@ -622,9 +615,9 @@ static int make_particle_wind(int i, double v, double vmean[3]) {
 	dir[j] /= norm;
       
       fprintf(stdout,//FdSfrDetails,
-	      "Wind T %g %lu M %g P %g %g %g V %g VC %g %g %g D %g %g %g\n",
+	      "Wind T %g %lu M %g P %g %g %g V %g D %g %g %g\n",
 	      All.Time, P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],
-	      v / All.cf.a, vmean[0], vmean[1], vmean[2], dir[0], dir[1], dir[2]);
+	      v / All.cf.a, dir[0], dir[1], dir[2]);
       
       for(j = 0; j < 3; j++)
 	{
