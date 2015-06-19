@@ -297,14 +297,14 @@ void galaxy_growth(void)
 
 static void galaxy_starformation_evaluate(int n) {
     double dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
-    double rho = BHP(n).Density;
+    //double rho = BHP(n).Density*All.cf.a3inv; //Physical density
 
     double Rref0 = 100.0;
     double Mref = All.Omega0 * 200 * 27.75 * pow(Rref0 / 1000., 3.0)  * (4 * M_PI / 3.);
 
     double Mhalo = BHP(n).HostProperty.Mass;
-    double Rhalo = Rref0 * pow(Mhalo / Mref, 0.33333);
-    double Mgas_v = 4 * M_PI / 3. * pow(P[n].Hsml, 3.0) * BHP(n).Density;
+    double Rhalo = Rref0 * pow(Mhalo / Mref, 0.33333) * All.cf.a; //physical radius
+    double Mgas_v = 4 * M_PI / 3. * pow(P[n].Hsml, 3.0) * BHP(n).Density; 
 
 // Angular Momentum of entire halo
 // r-r0 * v - v0
@@ -316,7 +316,7 @@ static void galaxy_starformation_evaluate(int n) {
     double RADSCALE = 0.5; 
     double sig_z = 10.0;
     double Lambda_denom_fac = 2.0 * sqrt (GRAVITY * Mhalo * Mhalo * Mhalo * Rhalo); 
-    double Jhalo = Lambda_denom_fac; //FIXME: use the true number once it is there.
+    double Jhalo = Lambda_denom_fac; //FIXME: use the true number once it is there ||| to be physical ALSO.
 
     double Lambda = Jhalo / Lambda_denom_fac;
     double Rgas_c = Lambda * Rhalo ;
