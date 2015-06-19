@@ -314,10 +314,6 @@ static void galaxy_starformation_evaluate(int n) {
     double Rhalo = Rref0 * pow(Mhalo / Mref, 0.33333) * All.cf.a; //physical radius
     double Mgas_v = 4 * M_PI / 3. * pow(P[n].Hsml, 3.0) * BHP(n).Density; 
 
-// Angular Momentum of entire halo
-// r-r0 * v - v0
-// r * v - r0 * v - r * v0 + r0 * v0
-//
     double FDIFF = 1.0; 
     double ETA = 0.02; 
     double A_ACCRETE = 0.1; 
@@ -331,7 +327,7 @@ static void galaxy_starformation_evaluate(int n) {
             double j = BHP(n).HostProperty.AngularMomentum[k];
             Jhalo += j * j;
         }
-        Jhalo = sqrt(Jhalo);
+        Jhalo = sqrt(Jhalo); /* r * a * v_proper = r_proper * v_proper, thus Jhalo is in physical*/
 
         double Lambda = Jhalo / Lambda_denom_fac;
         double Rgas_c = Lambda * Rhalo ;
