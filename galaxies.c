@@ -528,25 +528,16 @@ static int blackhole_feedback_evaluate(int target, int mode,
                     {  // THIS IS JUST THE WIND
                         double windeff;
                         double v;
-                        if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
-                            windeff = All.WindEfficiency;
-                            v = All.WindSpeed * All.cf.a;
-                        } else if(HAS(All.WindModel, WINDS_USE_HALO)) {
-                            /*FIXME: this is broken !*/
-                            //abort();
-                            //windeff = 1.0 / (I->Vdisp / All.cf.a / All.WindSigma0);
-                            //windeff *= windeff;
-                            //v = All.WindSpeedFactor * I->Vdisp;
-                            windeff = 0;
+                        if(HAS(All.WindModel, WINDS_SUBGRID)) {
+                            /* Here comes the Springel Hernquist 03 wind model */
+                            double sm = I->Sfr * I->Dt;
+                            double pw = All.WindEfficiency * sm / P[j].Mass;
+                            double prob = 1 - exp(-pw);
+                            double zero[3] = {0, 0, 0};
+                            if(get_random_number(P[j].ID + 2) < prob)
+                                make_particle_wind(j, All.WindSpeed * All.cf.a);
                         } else {
-                            abort();
-                        }
-                        double r = sqrt(r2);                                                                   
-                        double wk = density_kernel_wk(&bh_feedback_kernel, r);                                             
-                        double p = windeff * wk * I->Mass / I->Density;
-                        double random = get_random_number(I->ID + P[j].ID);
-                        if (random < p) {
-                            make_particle_wind(j, v);
+                            abort(); /* only subgrid wind is supported */
                         }
                     }
                     if(r2 < bh_feedback_kernel.HH && P[j].Mass > 0
