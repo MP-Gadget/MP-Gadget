@@ -323,7 +323,7 @@ static void galaxy_starformation_evaluate(int n) {
     double A_ACCRETE = 0.1; 
     double RADSCALE = 0.5; 
     double sig_z = 10.0;
-    double Lambda_denom_fac = 2.0 * sqrt (GRAVITY * Mhalo * Mhalo * Mhalo * Rhalo); 
+    double Lambda_denom_fac = 2.0 * sqrt (All.G * Mhalo * Mhalo * Mhalo * Rhalo); 
     double Jhalo = 0;
     int k;
     for(k = 0; k < 3; k ++) {
@@ -336,16 +336,16 @@ static void galaxy_starformation_evaluate(int n) {
     double Rgas_c = Lambda * Rhalo ;
     double Rstar = RADSCALE * Rgas_c;
     double Rhalo3 = Rhalo * Rhalo * Rhalo;
-    double Mgas_c_new = A_ACCRETE * Mgas_v * dt * sqrt(GRAVITY * Mhalo / Rhalo3);
+    double Mgas_c_new = A_ACCRETE * Mgas_v * dt * sqrt(All.G * Mhalo / Rhalo3);
     double Sig_gas_c = (BHP(n).DiskMassGas + Mgas_c_new) / (2 * M_PI * Rgas_c * Rgas_c);
     double Sig_star = BHP(n).DiskMassStar / (2.0 * M_PI * Rstar * Rstar);
     double rho_star_disc = Sig_star / (0.54 * Rstar); //Leroy+ 2008 
 
-    double  ms_denom_fac = M_PI * M_PI * Sig_gas_c * Sig_gas_c * GRAVITY; 
+    double  ms_denom_fac = M_PI * M_PI * Sig_gas_c * Sig_gas_c * All.G; 
  
     BHP(n).Sfr = ETA * FDIFF * 0.125 * M_PI * \
           (BHP(n).DiskMassGas + Mgas_c_new) \
-          * Sig_gas_c * GRAVITY * ( 2 - FDIFF + sqrt((2 - FDIFF)*(2 - FDIFF) +  \
+          * Sig_gas_c * All.G * ( 2 - FDIFF + sqrt((2 - FDIFF)*(2 - FDIFF) +  \
           32.0 * sig_z * rho_star_disc / ms_denom_fac));
     BHP(n).DiskMassStar += BHP(n).Sfr * dt;
     BHP(n).DiskMassGas += Mgas_c_new - BHP(n).Sfr * dt;
