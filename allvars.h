@@ -1256,7 +1256,7 @@ struct bh_particle_data {
         double Mass;
         double CM[3];
         double Vel[3];
-        double AngularMomentum;
+        double AngularMomentum[3];
     } HostProperty;
     MyFloat MinPotPos[3];
     MyFloat MinPotVel[3];

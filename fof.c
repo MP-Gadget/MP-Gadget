@@ -1885,6 +1885,7 @@ struct group_galaxy_data {
     double Mass;
     double CM[3];
     double Vel[3];
+    double AngularMomentum[3];
 };
 
 void fof_update_gals(void)
@@ -1922,6 +1923,7 @@ void fof_update_gals(void)
             for(j = 0; j < 3; j ++) {
                 export_particles[nexport].CM[j] = Group[i].CM[j];
                 export_particles[nexport].Vel[j] = Group[i].Vel[j];
+                export_particles[nexport].AngularMomentum[j] = Group[i].AngularMomentum[j];
             }
             export_particles[nexport].Mass = Group[i].Mass;
             nexport ++;
@@ -1982,6 +1984,7 @@ void fof_update_gals(void)
         for(j = 0; j < 3; j ++) {
             BHP(index).HostProperty.CM[j] = import_particles[n].CM[j];
             BHP(index).HostProperty.Vel[j] = import_particles[n].Vel[j];
+            BHP(index).HostProperty.AngularMomentum[j] = import_particles[n].AngularMomentum[j];
         }
         BHP(index).HostProperty.Mass = import_particles[n].Mass;
         BHP(index).IsCentral = 1;

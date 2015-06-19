@@ -61,11 +61,9 @@ struct feedbackdata_in
     MyFloat Vel[3];
     MyFloat Csnd;
     MyIDType ID;
-    //ADDED by NB for winds
-    double TotalWeight;
-    double DMRadius;
-    double Vdisp;
-    double Vesc;
+    MyFloat AngularMomentum[3];
+    MyFloat DiskMassGas;
+    MyFloat DiskMassStar;
 };
 
 struct feedbackdata_out
@@ -74,8 +72,6 @@ struct feedbackdata_out
     MyFloat BH_MinPotVel[3];
     MyFloat BH_MinPot;
     short int BH_TimeBinLimit;
-    //ADDED by NB for winds
-    double TotalWeight;
     double V1sum[3];
     double V2sum;
     int Ngb;
@@ -123,7 +119,7 @@ static int blackhole_swallow_evaluate(int target, int mode,
 
 static int N_sph_swallowed, N_BH_swallowed;
 
-static int make_particle_wind(int i, double v, double vesc);
+static int make_particle_wind(int i, double v);
 
 // NOTES on what we need to include
 // galaxy growth & star formation
@@ -328,7 +324,13 @@ static void galaxy_starformation_evaluate(int n) {
     double RADSCALE = 0.5; 
     double sig_z = 10.0;
     double Lambda_denom_fac = 2.0 * sqrt (GRAVITY * Mhalo * Mhalo * Mhalo * Rhalo); 
-    double Jhalo = Lambda_denom_fac; //FIXME: use the true number once it is there ||| to be physical ALSO.
+    double Jhalo = 0;
+    int k;
+    for(k = 0; k < 3; k ++) {
+        double j = BHP(n).HostProperty.AngularMomentum[k];
+        Jhalo += j * j;
+    }
+    Jhalo = sqrt(Jhalo);
 
     double Lambda = Jhalo / Lambda_denom_fac;
     double Rgas_c = Lambda * Rhalo ;
@@ -522,32 +524,34 @@ static int blackhole_feedback_evaluate(int target, int mode,
                                 P[j].SwallowID = I->ID;
                         }
                     }
-		    if(r2 < bh_feedback_kernel.HH && P[j].Mass > 0)
-		      {  // THIS IS JUST THE WIND
-			double windeff;
-			double v;
-			if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
-			  windeff = All.WindEfficiency;
-			  v = All.WindSpeed * All.cf.a;
-			} else if(HAS(All.WindModel, WINDS_USE_HALO)) {
-			  windeff = 1.0 / (I->Vdisp / All.cf.a / All.WindSigma0);
-			  windeff *= windeff;
-			  v = All.WindSpeedFactor * I->Vdisp;
-			} else {
-			  abort();
-			}
-			//double r = sqrt(r2);                                                                   
-			//double wk = density_kernel_wk(&kernel, r);                                             
-			double wk = 1.0;
-			double p = windeff * wk * I->Mass / I->TotalWeight;
-			double random = get_random_number(I->ID + P[j].ID);
-			if (random < p) {
-			  make_particle_wind(j, v, I->Vesc);
-			}
-		      }
+                    if(r2 < bh_feedback_kernel.HH && P[j].Mass > 0)
+                    {  // THIS IS JUST THE WIND
+                        double windeff;
+                        double v;
+                        if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
+                            windeff = All.WindEfficiency;
+                            v = All.WindSpeed * All.cf.a;
+                        } else if(HAS(All.WindModel, WINDS_USE_HALO)) {
+                            /*FIXME: this is broken !*/
+                            //abort();
+                            //windeff = 1.0 / (I->Vdisp / All.cf.a / All.WindSigma0);
+                            //windeff *= windeff;
+                            //v = All.WindSpeedFactor * I->Vdisp;
+                            windeff = 0;
+                        } else {
+                            abort();
+                        }
+                        double r = sqrt(r2);                                                                   
+                        double wk = density_kernel_wk(&bh_feedback_kernel, r);                                             
+                        double p = windeff * wk * I->Mass / I->Density;
+                        double random = get_random_number(I->ID + P[j].ID);
+                        if (random < p) {
+                            make_particle_wind(j, v);
+                        }
+                    }
                     if(r2 < bh_feedback_kernel.HH && P[j].Mass > 0
-                        && I->Sfr > 5 / 10.2 /* ~5 Msun/year in code units FIXME*/
-                    ) {
+                            && I->Sfr > 5 / 10.2 /* ~5 Msun/year in code units FIXME*/
+                      ) {
                         double r = sqrt(r2);
                         double u = r * bh_feedback_kernel.Hinv;
                         double wk;
@@ -560,7 +564,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
                         if(HAS(All.GalaxyFeedbackMethod, GAL_FEEDBACK_SPLINE))
                             wk = density_kernel_wk(&bh_feedback_kernel, u);
                         else
-                        wk = 1.0;
+                            wk = 1.0;
                         double energy = All.BlackHoleFeedbackFactor * 0.1 * I->Sfr * I->Dt *
                             pow(C / All.UnitVelocity_in_cm_per_s, 2);
 
@@ -587,7 +591,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
     return 0;
 }
 
-static int make_particle_wind(int i, double v, double vesc) {
+static int make_particle_wind(int i, double v) {
   /* v and vmean are in internal units (km/s *a ), not km/s !*/
   /* returns 0 if particle i is converteed to wind. */
   int j;
@@ -761,6 +765,7 @@ static void blackhole_feedback_copy(int place, struct feedbackdata_in * I) {
     {
         I->Pos[k] = P[place].Pos[k];
         I->Vel[k] = P[place].Vel[k];
+        I->AngularMomentum[k] = BHP(place).HostProperty.AngularMomentum[k];
     }
 
     I->Hsml = P[place].Hsml;
@@ -768,6 +773,8 @@ static void blackhole_feedback_copy(int place, struct feedbackdata_in * I) {
     I->BH_Mass = BHP(place).Mass;
     I->Density = BHP(place).Density;
     I->FeedbackWeightSum = BHP(place).FeedbackWeightSum;
+    I->DiskMassGas = BHP(place).DiskMassGas;
+    I->DiskMassStar = BHP(place).DiskMassStar;
     I->Sfr = BHP(place).Sfr;
     I->Csnd =
         blackhole_soundspeed(
