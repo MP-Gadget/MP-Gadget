@@ -146,7 +146,7 @@ BlackHoleNgbFactor         2.0
 BlackHoleEddingtonFactor   3.0
 
 MinFoFMassForNewSeed       5
-TimeBetBlackHoleSearch     1.01
+TimeBetBlackHoleSearch     0.005
 BlackHoleMaxAccretionRadius 999999 %
 
 %----------------------BH Stuff-------------------------

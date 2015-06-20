@@ -229,9 +229,6 @@ void compute_accelerations(int mode)
 	  {
             fof_fof(-1);
 
-            if(All.ComovingIntegrationOn)
-	      All.TimeNextBlackHoleCheck *= All.TimeBetBlackHoleSearch;
-            else
 	      All.TimeNextBlackHoleCheck += All.TimeBetBlackHoleSearch;
 	  }
 #endif
