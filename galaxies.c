@@ -340,12 +340,15 @@ static void galaxy_starformation_evaluate(int n) {
         double  ms_denom_fac = M_PI * M_PI * Sig_gas_c * Sig_gas_c * All.G; 
      
 
-        BHP(n).Sfr = ETA * FDIFF * 0.125 * M_PI 
-              * BHP(n).DiskMassGas 
-              * Sig_gas_c * All.G 
-              * ( 2 - FDIFF + sqrt((2 - FDIFF)*(2 - FDIFF) + 
-              32.0 * sig_z * rho_star_disc / ms_denom_fac));
-
+        if (BHP(n).DiskMassGas == 0) {
+            BHP(n).Sfr = 0;
+        } else {
+            BHP(n).Sfr = ETA * FDIFF * 0.125 * M_PI 
+                  * BHP(n).DiskMassGas 
+                  * Sig_gas_c * All.G 
+                  * ( 2 - FDIFF + sqrt((2 - FDIFF)*(2 - FDIFF) + 
+                  32.0 * sig_z * rho_star_disc / ms_denom_fac));
+        }
         BHP(n).GasDiskAccretionRate = 
             A_ACCRETE * Mgas_v * 
             sqrt(All.G * BHP(n).Mass / pow(Rgas_c, 3));
