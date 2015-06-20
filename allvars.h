@@ -1250,6 +1250,7 @@ struct bh_particle_data {
     MyFloat DiskMassGas;
     MyFloat DiskMassStar;
     MyFloat Sfr;
+    MyFloat GasDiskAccretionRate;
     int IsCentral;
     struct {
         double MassType[6];
