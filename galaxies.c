@@ -312,11 +312,11 @@ static void galaxy_starformation_evaluate(int n) {
 
     double Mhalo = BHP(n).HostProperty.Mass;
     double Rhalo = Rref0 * pow(Mhalo / Mref, 0.33333) * All.cf.a; //physical radius
-    double Mgas_v = 4 * M_PI / 3. * pow(P[n].Hsml, 3.0) * BHP(n).Density; 
-
+    //double Mgas_v = 4 * M_PI / 3. * pow(P[n].Hsml, 3.0) * BHP(n).Density; 
+ 
     double FDIFF = 1.0; 
     double ETA = 0.0008333; 
-    double A_ACCRETE = 0.1; 
+    double A_ACCRETE = 2.0; 
     double RADSCALE = 0.5; 
     double sig_z = 10.0;
     if(dt > 0) {
@@ -331,6 +331,7 @@ static void galaxy_starformation_evaluate(int n) {
 
         double Lambda = Jhalo / Lambda_denom_fac;
         double Rgas_c = Lambda * Rhalo ;
+	double Mgas_v = 4 * M_PI / 3. * pow(A_ACCRETE*Rgas_c, 3.0) * BHP(n).Density / pow(All.cf.a,3);
         double Rstar = RADSCALE * Rgas_c;
         double Rhalo3 = Rhalo * Rhalo * Rhalo;
         double Sig_gas_c = BHP(n).DiskMassGas / (2.0 * M_PI * Rgas_c * Rgas_c);
@@ -339,7 +340,6 @@ static void galaxy_starformation_evaluate(int n) {
 
         double  ms_denom_fac = M_PI * M_PI * Sig_gas_c * Sig_gas_c * All.G; 
      
-
         if (BHP(n).DiskMassGas == 0) {
             BHP(n).Sfr = 0;
         } else {
@@ -349,15 +349,20 @@ static void galaxy_starformation_evaluate(int n) {
                   * ( 2 - FDIFF + sqrt((2 - FDIFF)*(2 - FDIFF) + 
                   32.0 * sig_z * rho_star_disc / ms_denom_fac));
         }
-        BHP(n).GasDiskAccretionRate = 
-            A_ACCRETE * Mgas_v * 
-            sqrt(All.G * BHP(n).Mass / pow(Rgas_c, 3));
+	if ((Mgas_v  - BHP(n).Mass_v_old) > 0)  {
+	  BHP(n).GasDiskAccretionRate = (Mgas_v  - BHP(n).Mass_v_old) * sqrt(32.0 * All.G * (Mhalo/Rhalo3) / (3.0 * M_PI)); 
+	} else {
+	  BHP(n).GasDiskAccretionRate = 0;
+	}
+	//A_ACCRETE * Mgas_v * 
+	  //sqrt(All.G * BHP(n).Mass / pow(Rgas_c, 3));
         
         BHP(n).DiskMassStar += BHP(n).Sfr * dt;
         BHP(n).DiskMassGas += 
                 (BHP(n).GasDiskAccretionRate - BHP(n).Sfr) * dt;
 
         BHP(n).Mass = BHP(n).DiskMassStar + BHP(n).DiskMassGas;
+	BHP(n).Mass_v_old = Mgas_v;
     }
 }
 

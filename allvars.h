@@ -1248,6 +1248,7 @@ struct bh_particle_data {
 #ifdef GAL_PART
     int CountProgs;
     MyFloat DiskMassGas;
+    MyFloat Mass_v_old;
     MyFloat DiskMassStar;
     MyFloat Sfr;
     MyFloat GasDiskAccretionRate;
