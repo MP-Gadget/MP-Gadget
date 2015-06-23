@@ -63,6 +63,7 @@ struct feedbackdata_in
     MyFloat AngularMomentum[3];
     MyFloat DiskMassGas;
     MyFloat DiskMassStar;
+    MyFloat Mhalo;
 };
 
 struct feedbackdata_out
@@ -285,7 +286,14 @@ void galaxy_growth(void)
 
     walltime_measure("/BH");
 }
+static double get_Rhalo(double Mhalo) {
+    /* proper R halo*/
+    double Rref0 = 100.0;
+    double Mref = All.Omega0 * 200 * 27.75 * pow(Rref0 / 1000., 3.0)  * (4 * M_PI / 3.);
 
+    double Rhalo = Rref0 * pow(Mhalo / Mref, 0.33333) * All.cf.a; //physical radius
+    return Mhalo;
+}
 static void galaxy_starformation_evaluate(int n) {
     double dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
     //double rho = BHP(n).Density*All.cf.a3inv; //Physical density
@@ -294,7 +302,7 @@ static void galaxy_starformation_evaluate(int n) {
     double Mref = All.Omega0 * 200 * 27.75 * pow(Rref0 / 1000., 3.0)  * (4 * M_PI / 3.);
 
     double Mhalo = BHP(n).HostProperty.Mass;
-    double Rhalo = Rref0 * pow(Mhalo / Mref, 0.33333) * All.cf.a; //physical radius
+    double Rhalo = get_Rhalo(Mhalo);
     //double Mgas_v = 4 * M_PI / 3. * pow(P[n].Hsml, 3.0) * BHP(n).Density; 
  
     double FDIFF = 1.0; 
@@ -496,8 +504,10 @@ static int blackhole_feedback_evaluate(int target, int mode,
                             double pw = All.WindEfficiency * sm / P[j].Mass;
                             double prob = 1 - exp(-pw);
                             double zero[3] = {0, 0, 0};
+                            double Rhalo = get_Rhalo(I->Mhalo);
+                            double vesc = sqrt(2 * All.G * I->Mhalo / Rhalo);
                             if(get_random_number(P[j].ID + 2) < prob)
-                                make_particle_wind(j, All.WindSpeed * All.cf.a);
+                                make_particle_wind(j, vesc * All.cf.a);
                         } else {
                             abort(); /* only subgrid wind is supported */
                         }
@@ -732,6 +742,7 @@ static void blackhole_feedback_copy(int place, struct feedbackdata_in * I) {
     I->Dt =
         (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
     I->ID = P[place].ID;
+    I->Mhalo = BHP(place).HostProperty.Mass;
 }
 static int blackhole_swallow_isactive(int n) {
     return (P[n].Type == 5) && (P[n].SwallowID == 0) && (BHP(n).IsCentral);
