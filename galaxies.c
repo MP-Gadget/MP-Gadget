@@ -829,6 +829,7 @@ void gal_make_one(int index) {
     BHP(child).Sfr = 0;
     BHP(child).DiskMassGas = 0;
     BHP(child).DiskMassStar = 0;
+    BHP(child).Mass_v_old = 0;
     BHP(child).IsCentral = 1;
     BHP(child).MinPot = BHPOTVALUEINIT;
 
