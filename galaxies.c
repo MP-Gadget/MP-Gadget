@@ -483,32 +483,8 @@ static int blackhole_feedback_evaluate(int target, int mode,
                 {
                     if(I->ID != P[j].ID)
                     {
-                        /* compute relative velocity of BHs */
-
-                        double vrel = 0;
-                        for(k = 0, vrel = 0; k < 3; k++)
-                            vrel += (P[j].Vel[k] - I->Vel[k]) * (P[j].Vel[k] - I->Vel[k]);
-
-                        vrel = sqrt(vrel) / All.cf.a;
-
-                        if(vrel > 0.5 * I->Csnd)
-                        {
-                            struct gal_event event;
-                            event.type = BHEVENT_SCATTER;
-                            event.time = All.Time;
-                            event.ID = I->ID;
-                            event.s.ID_swallow = P[j].ID;
-                            event.s.bhmass_before = I->BH_Mass;
-                            event.s.bhmass_swallow = BHP(j).Mass;
-                            event.s.vrel = vrel;
-                            event.s.soundspeed = I->Csnd;
-                            fwrite(&event, sizeof(event), 1, FdGalsDetails);
-                        }
-                        else
-                        {
-                            if(P[j].SwallowID < I->ID && P[j].ID < I->ID)
-                                P[j].SwallowID = I->ID;
-                        }
+                        if(P[j].SwallowID < I->ID && P[j].ID < I->ID)
+                            P[j].SwallowID = I->ID;
                     }
                 }
                 if(P[j].Type == 0) {
