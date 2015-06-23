@@ -59,7 +59,6 @@ struct feedbackdata_in
     MyFloat Mass;
     MyFloat BH_Mass;
     MyFloat Vel[3];
-    MyFloat Csnd;
     MyIDType ID;
     MyFloat AngularMomentum[3];
     MyFloat DiskMassGas;
@@ -135,22 +134,6 @@ static int make_particle_wind(int i, double v);
 // AGN feedback
 // if M_dot_star > 5 Msol/yr
 // E_out = epsilon * M_dot_star * delta_t
-
-static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
-    /* rho is comoving !*/
-    double cs;
-#ifdef BH_CSND_FROM_PRESSURE
-    cs = sqrt(GAMMA * entropy_or_pressure / rho);
-
-#else
-    cs = sqrt(GAMMA * entropy_or_pressure * 
-            pow(rho, GAMMA_MINUS1));
-#endif
-    if(All.ComovingIntegrationOn) {
-        cs *= pow(All.Time, -1.5 * GAMMA_MINUS1);
-    }
-    return cs;
-}
 
 // empirical wind proportional
 // 
@@ -459,21 +442,10 @@ static int blackhole_feedback_evaluate(int target, int mode,
                     {
                         if(P[j].Type == 0 || P[j].Type == 1 || P[j].Type == 4 || P[j].Type == 5)
                         {
-                            /* compute relative velocities */
-
-                            double vrel = 0;
-                            for(k = 0, vrel = 0; k < 3; k++)
-                                vrel += (P[j].Vel[k] - I->Vel[k]) * (P[j].Vel[k] - I->Vel[k]);
-
-                            vrel = sqrt(vrel) / All.cf.a;
-
-                            if(vrel <= 0.25 * I->Csnd)
-                            {
-                                O->BH_MinPot = P[j].Potential;
-                                for(k = 0; k < 3; k++) {
-                                    O->BH_MinPotPos[k] = P[j].Pos[k];
-                                    O->BH_MinPotVel[k] = P[j].Vel[k];
-                                }
+                            O->BH_MinPot = P[j].Potential;
+                            for(k = 0; k < 3; k++) {
+                                O->BH_MinPotPos[k] = P[j].Pos[k];
+                                O->BH_MinPotVel[k] = P[j].Vel[k];
                             }
                         }
                     }
@@ -757,10 +729,6 @@ static void blackhole_feedback_copy(int place, struct feedbackdata_in * I) {
     I->DiskMassGas = BHP(place).DiskMassGas;
     I->DiskMassStar = BHP(place).DiskMassStar;
     I->Sfr = BHP(place).Sfr;
-    I->Csnd =
-        blackhole_soundspeed(
-                BHP(place).EntOrPressure,
-                BHP(place).Density);
     I->Dt =
         (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
     I->ID = P[place].ID;
