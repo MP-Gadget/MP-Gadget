@@ -127,8 +127,8 @@ static int make_particle_wind(int i, double v);
 // Galaxy particle index, Halo Radius, Mass, and Angular momentum, Mass gas in the vacinity (similar to BH), a time step, OLD gas, Mass in stars. 
 //
 /* double exp_disc(double M, double r) {
-}
- */ 
+   }
+   */ 
 // empirical wind proportional 
 // M_dot_out = M_dot_star
 // v_out = v_esc
@@ -304,7 +304,7 @@ static void galaxy_starformation_evaluate(int n) {
     double Mhalo = BHP(n).HostProperty.Mass;
     double Rhalo = get_Rhalo(Mhalo);
     //double Mgas_v = 4 * M_PI / 3. * pow(P[n].Hsml, 3.0) * BHP(n).Density; 
- 
+
     double FDIFF = 1.0; 
     double ETA = 0.0008333; 
     double A_ACCRETE = 2.0; 
@@ -322,7 +322,7 @@ static void galaxy_starformation_evaluate(int n) {
 
         double Lambda = Jhalo / Lambda_denom_fac;
         double Rgas_c = Lambda * Rhalo ;
-	double Mgas_v = 4 * M_PI / 3. * pow(A_ACCRETE*Rgas_c, 3.0) * BHP(n).Density / pow(All.cf.a,3);
+        double Mgas_v = 4 * M_PI / 3. * pow(A_ACCRETE*Rgas_c, 3.0) * BHP(n).Density / pow(All.cf.a,3);
         double Rstar = RADSCALE * Rgas_c;
         double Rhalo3 = Rhalo * Rhalo * Rhalo;
         double Sig_gas_c = BHP(n).DiskMassGas / (2.0 * M_PI * Rgas_c * Rgas_c);
@@ -330,30 +330,31 @@ static void galaxy_starformation_evaluate(int n) {
         double rho_star_disc = Sig_star / (0.54 * Rstar); //Leroy+ 2008 
 
         double  ms_denom_fac = M_PI * M_PI * Sig_gas_c * Sig_gas_c * All.G; 
-     
-        if (BHP(n).DiskMassGas == 0) {
+
+        if (BHP(n).DiskMassGas == 0 || BHP(n).Mass_v_old < 0) {
             BHP(n).Sfr = 0;
+            BHP(n).GasDiskAccretionRate = 0;
         } else {
             BHP(n).Sfr = ETA * FDIFF * 0.125 * M_PI 
-                  * BHP(n).DiskMassGas 
-                  * Sig_gas_c * All.G 
-                  * ( 2 - FDIFF + sqrt((2 - FDIFF)*(2 - FDIFF) + 
-                  32.0 * sig_z * rho_star_disc / ms_denom_fac));
+                * BHP(n).DiskMassGas 
+                * Sig_gas_c * All.G 
+                * ( 2 - FDIFF + sqrt((2 - FDIFF)*(2 - FDIFF) + 
+                            32.0 * sig_z * rho_star_disc / ms_denom_fac));
+            if ((Mgas_v - BHP(n).Mass_v_old) > 0)  {
+                BHP(n).GasDiskAccretionRate = (Mgas_v  - BHP(n).Mass_v_old) * sqrt(32.0 * All.G * (Mhalo/Rhalo3) / (3.0 * M_PI)); 
+            } else {
+                BHP(n).GasDiskAccretionRate = 0;
+            }
+            //A_ACCRETE * Mgas_v * 
+            //sqrt(All.G * BHP(n).Mass / pow(Rgas_c, 3));
+
         }
-	if ((Mgas_v  - BHP(n).Mass_v_old) > 0)  {
-	  BHP(n).GasDiskAccretionRate = (Mgas_v  - BHP(n).Mass_v_old) * sqrt(32.0 * All.G * (Mhalo/Rhalo3) / (3.0 * M_PI)); 
-	} else {
-	  BHP(n).GasDiskAccretionRate = 0;
-	}
-	//A_ACCRETE * Mgas_v * 
-	  //sqrt(All.G * BHP(n).Mass / pow(Rgas_c, 3));
-        
         BHP(n).DiskMassStar += BHP(n).Sfr * dt;
         BHP(n).DiskMassGas += 
-                (BHP(n).GasDiskAccretionRate - BHP(n).Sfr) * dt;
+            (BHP(n).GasDiskAccretionRate - BHP(n).Sfr) * dt;
 
         BHP(n).Mass = BHP(n).DiskMassStar + BHP(n).DiskMassGas;
-	BHP(n).Mass_v_old = Mgas_v;
+        BHP(n).Mass_v_old = Mgas_v;
     }
 }
 
@@ -420,9 +421,9 @@ static int blackhole_feedback_evaluate(int target, int mode,
                 return numngb;
 
             for(n = 0; 
-                n < numngb; 
-                (unlock_particle_if_not(ngblist[n], I->ID), n++)
-                )
+                    n < numngb; 
+                    (unlock_particle_if_not(ngblist[n], I->ID), n++)
+               )
             {
                 lock_particle_if_not(ngblist[n], I->ID);
                 int j = ngblist[n];
@@ -555,45 +556,45 @@ static int blackhole_feedback_evaluate(int target, int mode,
 }
 
 static int make_particle_wind(int i, double v) {
-  /* v and vmean are in internal units (km/s *a ), not km/s !*/
-  /* returns 0 if particle i is converteed to wind. */
-  int j;
-  /* ok, make the particle go into the wind */
-  double dir[3];
+    /* v and vmean are in internal units (km/s *a ), not km/s !*/
+    /* returns 0 if particle i is converteed to wind. */
+    int j;
+    /* ok, make the particle go into the wind */
+    double dir[3];
 
-  double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
-  double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
-  
-  dir[0] = sin(theta) * cos(phi);
-  dir[1] = sin(theta) * sin(phi);
-  dir[2] = cos(theta);
-  
-  double norm = 0;
-  for(j = 0; j < 3; j++)
-    norm += dir[j] * dir[j];
-  
-  norm = sqrt(norm);
-  if(get_random_number(P[i].ID + 5) < 0.5)
-    norm = -norm;
-  
-  if(norm != 0)
+    double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
+    double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
+
+    dir[0] = sin(theta) * cos(phi);
+    dir[1] = sin(theta) * sin(phi);
+    dir[2] = cos(theta);
+
+    double norm = 0;
+    for(j = 0; j < 3; j++)
+        norm += dir[j] * dir[j];
+
+    norm = sqrt(norm);
+    if(get_random_number(P[i].ID + 5) < 0.5)
+        norm = -norm;
+
+    if(norm != 0)
     {
-      for(j = 0; j < 3; j++)
-	dir[j] /= norm;
-      
-      fprintf(stdout,//FdSfrDetails,
-	      "Wind T %g %lu M %g P %g %g %g V %g D %g %g %g\n",
-	      All.Time, P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],
-	      v / All.cf.a, dir[0], dir[1], dir[2]);
-      
-      for(j = 0; j < 3; j++)
-	{
-	  P[i].Vel[j] += v * dir[j];
-	  SPHP(i).VelPred[j] += v * dir[j];
-	}
-      SPHP(i).DelayTime = All.WindFreeTravelLength / (v / All.cf.a);
+        for(j = 0; j < 3; j++)
+            dir[j] /= norm;
+
+        fprintf(stdout,//FdSfrDetails,
+                "Wind T %g %lu M %g P %g %g %g V %g D %g %g %g\n",
+                All.Time, P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],
+                v / All.cf.a, dir[0], dir[1], dir[2]);
+
+        for(j = 0; j < 3; j++)
+        {
+            P[i].Vel[j] += v * dir[j];
+            SPHP(i).VelPred[j] += v * dir[j];
+        }
+        SPHP(i).DelayTime = All.WindFreeTravelLength / (v / All.cf.a);
     }
-  return 0;   
+    return 0;   
 }
 
 
@@ -631,8 +632,8 @@ int blackhole_swallow_evaluate(int target, int mode,
                 return numngb;
 
             for(n = 0; n < numngb; 
-                 (unlock_particle_if_not(ngblist[n], I->ID), n++)
-                 )
+                    (unlock_particle_if_not(ngblist[n], I->ID), n++)
+               )
             {
                 lock_particle_if_not(ngblist[n], I->ID);
                 int j = ngblist[n];
@@ -784,7 +785,7 @@ void gal_make_one(int index) {
     BHP(child).Sfr = 0;
     BHP(child).DiskMassGas = 0;
     BHP(child).DiskMassStar = 0;
-    BHP(child).Mass_v_old = 0;
+    BHP(child).Mass_v_old = -1;
     BHP(child).IsCentral = 1;
     BHP(child).MinPot = BHPOTVALUEINIT;
 
