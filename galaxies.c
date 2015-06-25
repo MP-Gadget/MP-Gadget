@@ -211,9 +211,8 @@ void galaxy_growth(void)
     ev_run(&fbev);
 
     /* Now do the swallowing of particles */
-#if defined(BH_SWALLOWGAS) || defined(BH_MERGER)
     ev_run(&swev);
-#endif
+
     myfree(Ngblist);
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
