@@ -285,7 +285,7 @@ SIMPLE_PROPERTY(BlackholeAccretionRate, Group[i].BH_Mdot, float, 1)
 SIMPLE_PROPERTY(GalaxyMass, BHP(i).Mass, float, 1)
 SIMPLE_PROPERTY(GalaxyMassGas, BHP(i).DiskMassGas, float, 1)
 SIMPLE_PROPERTY(GalaxyMassStar, BHP(i).DiskMassStar, float, 1)
-SIMPLE_PROPERTY(GalaxyGasDiskRate, BHP(i).GasDiskAccretionRate, float, 1)
+SIMPLE_PROPERTY(GalaxyGasDiskRate, BHP(i).GasDiskAccretionRate, double, 1)
 SIMPLE_PROPERTY(GalaxyIsCentral, BHP(i).IsCentral, int, 1)
 SIMPLE_PROPERTY(GalaxyMinPot, BHP(i).MinPot, float, 1)
 SIMPLE_PROPERTY(GalaxySFRate, BHP(i).Sfr, float, 1)
@@ -307,8 +307,14 @@ void fof_register_io_blocks() {
     IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP);
 #endif
 #ifdef GAL_PART
-    IO_REG(GalaxyMass, "f4", 1, PTYPE_FOF_GROUP);
-    IO_REG(GalaxySFRate, "f4", 1, PTYPE_FOF_GROUP);
+    IO_REG(GalaxyMass,          "f4", 1, 5);
+    IO_REG(GalaxyMassGas,          "f4", 1, 5);
+    IO_REG(GalaxyMassStar,          "f4", 1, 5);
+    IO_REG(GalaxyGasDiskRate,          "f4", 1, 5);
+    IO_REG(GalaxyIsCentral,          "i4", 1, 5);
+    IO_REG(GalaxyMinPot,          "f4", 1, 5);
+    IO_REG(GalaxyProgs,          "i4", 1, 5);
+    IO_REG(GalaxySFRate, "f4", 1, 5);
 #endif
 
 }
