@@ -392,7 +392,7 @@ void init(void)
 
         P[i].GravCost = 1;
 
-        if(RestartFlag < 3)
+        if(RestartFlag < 2)
             P[i].Potential = 0;
 
 #ifdef STELLARAGE
