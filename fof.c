@@ -1095,9 +1095,9 @@ void fof_add_particle(int gr, int index) {
     {
         Group[gr].Gal_SFR += BHP(index).Sfr;
         Group[gr].Gal_Mass += BHP(index).Mass;
-        if(BHP(index).Mass > Group[gr].CentralGalaxy.Value)
+        if(- P[index].Potential > Group[gr].CentralGalaxy.Value)
         {
-            Group[gr].CentralGalaxy.Value = BHP(index).Mass;
+            Group[gr].CentralGalaxy.Value = - P[index].Potential;
             Group[gr].CentralGalaxy.index = index;
             Group[gr].CentralGalaxy.task = ThisTask;
         }
@@ -1201,7 +1201,7 @@ void fof_join_groups(struct group_properties * target, struct group_properties *
     }
     if(input->CentralGalaxy.Value > target->CentralGalaxy.Value)
     {
-        input->CentralGalaxy.Value = target->CentralGalaxy.Value;
+        input->CentralGalaxy = target->CentralGalaxy;
     }
 #endif
     for(j = 0; j < 3; j++)
@@ -1913,7 +1913,7 @@ void fof_update_gals(void)
     for(i = 0; i < Ngroups; i++)
     {
         /* candidates for new galaxies */
-        if(Group[i].CentralGalaxy.index > 0) {
+        if(Group[i].CentralGalaxy.index >= 0) {
             Send_count[Group[i].CentralGalaxy.task] ++;
             export_particles[nexport].host = Group[i].CentralGalaxy;
             int j;
