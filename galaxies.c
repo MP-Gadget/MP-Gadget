@@ -320,6 +320,7 @@ static void galaxy_starformation_evaluate(int n) {
         Jhalo = sqrt(Jhalo); /* r * a * v_proper = r_proper * v_proper, thus Jhalo is in physical*/
 
         double Lambda = Jhalo / Lambda_denom_fac;
+        Lambda = 0.05;
         double Rgas_c = Lambda * Rhalo ;
         double Mgas_v = 4 * M_PI / 3. * pow(A_ACCRETE*Rgas_c, 3.0) * BHP(n).Density / pow(All.cf.a,3);
         double Rstar = RADSCALE * Rgas_c;
@@ -330,24 +331,40 @@ static void galaxy_starformation_evaluate(int n) {
 
         double  ms_denom_fac = M_PI * M_PI * Sig_gas_c * Sig_gas_c * All.G; 
 
-        if (BHP(n).DiskMassGas == 0 || BHP(n).Mass_v_old < 0) {
-            BHP(n).Sfr = 0;
+        if (BHP(n).Mass_v_old <= 0) {
             BHP(n).GasDiskAccretionRate = 0;
+        } else {
+            if ((Mgas_v - BHP(n).Mass_v_old) > 0)  {
+                BHP(n).GasDiskAccretionRate = (Mgas_v  - BHP(n).Mass_v_old) * sqrt(32.0 * All.G * (Mhalo/Rhalo3) / (3.0 * M_PI)); 
+            } else {
+                BHP(n).GasDiskAccretionRate = 0;
+            }
+        }
+
+        if (BHP(n).DiskMassGas <= 0) {
+            BHP(n).Sfr = 0;
         } else {
             BHP(n).Sfr = ETA * FDIFF * 0.125 * M_PI 
                 * BHP(n).DiskMassGas 
                 * Sig_gas_c * All.G 
                 * ( 2 - FDIFF + sqrt((2 - FDIFF)*(2 - FDIFF) + 
                             32.0 * sig_z * rho_star_disc / ms_denom_fac));
-            if ((Mgas_v - BHP(n).Mass_v_old) > 0)  {
-                BHP(n).GasDiskAccretionRate = (Mgas_v  - BHP(n).Mass_v_old) * sqrt(32.0 * All.G * (Mhalo/Rhalo3) / (3.0 * M_PI)); 
-            } else {
-                BHP(n).GasDiskAccretionRate = 0;
-            }
+        }
             //A_ACCRETE * Mgas_v * 
             //sqrt(All.G * BHP(n).Mass / pow(Rgas_c, 3));
 
-        }
+        printf("ID = %td Mgas_v = %g Mgas_v_old = %g Sfr = %g "
+                "Density = %g, "
+                "Rgas_c = %g, "
+                "Jhalo = %g, "
+                "Lambda = %g, "
+                "DiskMassGas = %g, "
+                "GasDiskAccretionRate = %g\n",
+                P[n].ID, Mgas_v, BHP(n).Mass_v_old, BHP(n).Sfr, BHP(n).Density, Rgas_c, 
+                Jhalo, Lambda_denom_fac,
+                BHP(n).DiskMassGas,
+                BHP(n).GasDiskAccretionRate);
+
         BHP(n).DiskMassStar += BHP(n).Sfr * dt;
         BHP(n).DiskMassGas += 
             (BHP(n).GasDiskAccretionRate - BHP(n).Sfr) * dt;
