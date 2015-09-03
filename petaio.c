@@ -669,6 +669,10 @@ static void GTStarFormationRate(int i, float * out) {
     *out = get_starformation_rate(i) 
         * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
 }
+static void STStarFormationRate(int i, float * out) {
+    /* Convert to Solar/year */
+    SPHP(i).Sfr = *out;
+}
 static void GTNeutralHydrogenFraction(int i, float * out) {
     double ne, nh0, nHeII;
     ne = SPHP(i).Ne;
@@ -718,7 +722,7 @@ static void register_io_blocks() {
 //    IO_REG_WRONLY(JUV,   "f4", 1, 0);
 
     /* SF */
-    IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
+    IO_REG(StarFormationRate, "f4", 1, 0);
     IO_REG(StarFormationTime, "f4", 1, 4);
     IO_REG(Metallicity,       "f4", 1, 0);
     IO_REG(Metallicity,       "f4", 1, 4);
