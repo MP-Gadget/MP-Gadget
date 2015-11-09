@@ -111,7 +111,7 @@ void cooling_and_starformation(void)
 #ifdef MAGNETIC
         SPHP(i).XColdCloud = x;
 #endif
-#if defined(WINDS_SH03) || defined(WINDS_VS08)
+//#if defined(WINDS_SH03) || defined(WINDS_VS08)
         if(SPHP(i).DelayTime > 0) {
             double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
                 /*  the actual time-step */
@@ -129,7 +129,7 @@ void cooling_and_starformation(void)
         } else {
             SPHP(i).DelayTime = 0;
         }
-#endif
+//#endif
 
 #ifdef MAGNETIC
         x=0.;
