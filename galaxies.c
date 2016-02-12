@@ -716,7 +716,7 @@ int blackhole_swallow_evaluate(int target, int mode,
 }
 
 static int blackhole_feedback_isactive(int n) {
-    return (P[n].Type == 5) && (P[n].Mass > 0) && (BHP(n).IsCentral);
+  return (P[n].Type == 5) && (P[n].Mass > 0);// && (BHP(n).IsCentral);
 }
 static void * blackhole_alloc_ngblist() {
     int threadid = omp_get_thread_num();
@@ -762,7 +762,7 @@ static void blackhole_feedback_copy(int place, struct feedbackdata_in * I) {
     I->Mhalo = BHP(place).HostProperty.Mass;
 }
 static int blackhole_swallow_isactive(int n) {
-    return (P[n].Type == 5) && (P[n].SwallowID == 0) && (BHP(n).IsCentral);
+  return (P[n].Type == 5) && (P[n].SwallowID == 0);// && (BHP(n).IsCentral);
 }
 static void blackhole_swallow_copy(int place, struct swallowdata_in * I) {
     int k;
