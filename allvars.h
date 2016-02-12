@@ -1265,7 +1265,7 @@ struct bh_particle_data {
     MyFloat MinPot;
 #endif
     MyFloat Mass;
-#ifdef BLACK_HOLE
+#ifdef BLACK_HOLES
     MyFloat Mdot;
 #endif
     MyFloat FeedbackWeightSum;

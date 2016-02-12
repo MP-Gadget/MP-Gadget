@@ -383,11 +383,11 @@ void fof_fof(int num)
     fof_exchange_group_data(fof_join_groups);
 
     fof_finish_group_properties();
-
+#ifdef GAL_PART    
     fof_compute_group_properties(fof_add_angular_momentum);
 
     fof_exchange_group_data(fof_join_angular_momentum);
-
+#endif
     /* eliminate the non-local groups */
     int ngr;
     for(i = 0, ngr = NgroupsExt; i < ngr; i++)
@@ -1161,12 +1161,16 @@ void fof_compute_group_properties(void add_particle(int GrNr, int index))
     }
 }
 
+
 void fof_join_angular_momentum(struct group_properties * target, struct group_properties * input) {
+#ifdef GAL_PART
     int k;
     for (k = 0; k < 3; k ++) {
         target->AngularMomentum[k] += input->AngularMomentum[k];
     }
+#endif
 }
+
 void fof_join_groups(struct group_properties * target, struct group_properties * input) {
     int j;
 
