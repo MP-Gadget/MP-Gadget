@@ -10,6 +10,11 @@
 #include "proto.h"
 
 #include "petaio.h"
+#ifdef FOF
+    /*Defined in fofpetaio.c and only used here*/
+    void fof_register_io_blocks();
+#endif
+
 
 /************
  *

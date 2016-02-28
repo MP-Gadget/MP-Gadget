@@ -9,6 +9,7 @@
 //#include "allvars.h"
 //#include "proto.h"
 #include "petapm.h"
+#include "openmpsort.h"
 
 #ifndef mymalloc
 #define mymalloc(a, b) malloc(b)

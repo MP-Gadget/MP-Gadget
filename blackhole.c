@@ -9,6 +9,7 @@
 #include "densitykernel.h"
 #include "proto.h"
 #include "evaluator.h"
+#include "domain.h"
 
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers

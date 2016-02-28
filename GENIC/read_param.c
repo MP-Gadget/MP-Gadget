@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#include <mpi.h>
 #include "allvars.h"
 #include "proto.h"
 

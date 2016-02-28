@@ -6,6 +6,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "forcetree.h"
+#include "domain.h"
 
 #ifdef COOLING
 static double u_to_temp_fac; /* assuming very hot !*/

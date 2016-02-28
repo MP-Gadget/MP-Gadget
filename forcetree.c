@@ -7,6 +7,7 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "domain.h"
 
 /*! \file forcetree.c
  *  \brief gravitational tree and code for Ewald correction

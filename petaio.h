@@ -1,3 +1,8 @@
+#ifndef PETAIO_H
+#define PETAIO_H
+
+#include "bigfile.h"
+
 typedef void (*property_getter) (int i, void * result);
 typedef void (*property_setter) (int i, void * target);
 typedef int (*petaio_selection) (int i);
@@ -85,3 +90,4 @@ extern struct IOTable {
     int used;
 } IOTable;
 
+#endif

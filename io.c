@@ -10,6 +10,8 @@
 #include "allvars.h"
 #include "densitykernel.h"
 #include "proto.h"
+#include "petaio.h"
+#include "domain.h"
 
 /*! \file io.c
  *  \brief Output of a snapshot file to disk.

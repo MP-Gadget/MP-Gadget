@@ -1,3 +1,6 @@
+#ifndef DOMAIN_H
+#define DOMAIN_H
+
 #ifndef ALLVARS_H
 #include "allvars.h"
 #endif
@@ -39,3 +42,5 @@ void domain_walktoptree(int no);
 void mysort_domain(void *b, size_t n, size_t s);
 
 void rearrange_particle_sequence(void);
+
+#endif

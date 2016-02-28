@@ -5,6 +5,9 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_integration.h>
+/*For mkdir*/
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "allvars.h"
 #include "proto.h"
 

@@ -7,6 +7,10 @@
 #include "allvars.h"
 #include "proto.h"
 
+#include "petaio.h"
+#include "domain.h"
+#include "radixsort/radixsort.h"
+
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
  */

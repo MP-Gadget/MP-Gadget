@@ -12,6 +12,7 @@
 #include "allvars.h"
 #include "densitykernel.h"
 #include "proto.h"
+#include "petaio.h"
 
 #include "config.h"
 
