@@ -34,7 +34,9 @@
 #include <omp.h>
 #include <pthread.h>
 #else
+#ifndef __clang_analyzer__
 #error no OMP
+#endif
 #define omp_get_max_threads()  (1)
 #define omp_get_thread_num()  (0)
 #endif
