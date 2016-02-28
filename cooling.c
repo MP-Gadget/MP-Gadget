@@ -1135,12 +1135,14 @@ void InitCool(void)
 
 static void InitMetalCooling() {
     int size;
+    //This is never used
     double * tabbedmet = h5readdouble(All.MetalCoolFile, "MetallicityInSolar_bins", &size);
 
     if(ThisTask == 0 && size != 1 || tabbedmet[0] != 0.0) {
         fprintf(stderr, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
         endrun(124214);
     }
+    free(tabbedmet);
     
     MC.Redshift_bins = h5readdouble(All.MetalCoolFile, "Redshift_bins", &MC.NRedshift_bins);
     MC.HydrogenNumberDensity_bins = h5readdouble(All.MetalCoolFile, "HydrogenNumberDensity_bins", &MC.NHydrogenNumberDensity_bins);
@@ -1241,6 +1243,7 @@ static void InitUVF(void) {
     interp_init_dim(&UVF.interp, 0, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
     interp_init_dim(&UVF.interp, 1, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
     interp_init_dim(&UVF.interp, 2, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
+    free(XYZ_Bins);
 }
 /* Fraction of total universe that is ionized.
  * currently unused. Unclear if the UVBG in Treecool shall be adjusted
