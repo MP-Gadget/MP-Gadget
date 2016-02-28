@@ -2,6 +2,7 @@
 #include <string.h>
 #include <math.h>
 #include <mpi.h>
+#include <gsl/gsl_integration.h>
 #include "allvars.h"
 #include "proto.h"
 
@@ -211,7 +212,7 @@ void initialize_powerspectrum(void)
 
 double PowerSpec_Tabulated(double k)
 {
-  double logk, logD, P, kold, u, dlogk, Delta2;
+  double logk, logD, P, u, dlogk, Delta2; //kold
   int binlow, binhigh, binmid;
   
   double mydlogk,dlogk_PowerTable;
@@ -219,7 +220,7 @@ double PowerSpec_Tabulated(double k)
   
 
 
-  kold = k;
+//   kold = k;
 
   logk = log10(k);
 
@@ -325,17 +326,25 @@ double tk_eh(double k)		/* from Martin White */
 }
 
 
-
 double TopHatSigma2(double R)
 {
   r_tophat = R;
 
-  return qromb(sigma2_int, 0, 500.0 * 1 / R);	/* note: 500/R is here chosen as 
-						   integration boundary (infinity) */
+  gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
+  double result,abserr;
+  gsl_function F;
+  F.function = &sigma2_int;
+  F.params = NULL;
+
+  /* note: 500/R is here chosen as integration boundary (infinity) */
+  gsl_integration_qags (&F, 0, 500. / R, 0, 1e-4,1000,w,&result, &abserr);
+//   printf("gsl_integration_qng in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size);
+  gsl_integration_workspace_free (w);
+  return result;
 }
 
 
-double sigma2_int(double k)
+double sigma2_int(double k, void * params)
 {
   double kr, kr3, kr2, w, x;
 
@@ -362,15 +371,22 @@ double GrowthFactor(double astart, double aend)
 
 double growth(double a)
 {
+  gsl_integration_workspace * w = gsl_integration_workspace_alloc (200);
   double hubble_a;
+  double result,abserr;
+  gsl_function F;
+  F.function = &growth_int;
 
   hubble_a = sqrt(Omega / (a * a * a) + (1 - Omega - OmegaLambda) / (a * a) + OmegaLambda);
 
-  return hubble_a * qromb(growth_int, 0, a);
+  gsl_integration_qag (&F, 0, a, 0, 1e-4,200,GSL_INTEG_GAUSS61, w,&result, &abserr);
+//   printf("gsl_integration_qng in growth. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size);
+  gsl_integration_workspace_free (w);
+  return hubble_a * result;
 }
 
 
-double growth_int(double a)
+double growth_int(double a, void * params)
 {
   return pow(a / (Omega + (1 - Omega - OmegaLambda) * a + OmegaLambda * a * a * a), 1.5);
 }
@@ -396,7 +412,7 @@ double fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE];
 
 double WDM_V0 = 0;
 
-double fermi_dirac_kernel(double x)
+double fermi_dirac_kernel(double x, void * params)
 {
   return x * x / (exp(x) + 1);
 }
@@ -405,12 +421,20 @@ void fermi_dirac_init(void)
 {
   int i;
 
+  /*These functions are so smooth that we don't need much space*/
+  gsl_integration_workspace * w = gsl_integration_workspace_alloc (100);
+  double abserr;
+  gsl_function F;
+  F.function = &fermi_dirac_kernel;
+  F.params = NULL;
+
   for(i = 0; i < LENGTH_FERMI_DIRAC_TABLE; i++)
     {
       fermi_dirac_vel[i] = MAX_FERMI_DIRAC * i / (LENGTH_FERMI_DIRAC_TABLE - 1.0);
-      fermi_dirac_cumprob[i] = qromb(fermi_dirac_kernel, 0, fermi_dirac_vel[i]);
+      gsl_integration_qag (&F, 0, fermi_dirac_vel[i], 0, 1e-6,100,GSL_INTEG_GAUSS61, w,&(fermi_dirac_cumprob[i]), &abserr);
     }
 
+  gsl_integration_workspace_free (w);
   for(i = 0; i < LENGTH_FERMI_DIRAC_TABLE; i++)
     fermi_dirac_cumprob[i] /= fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE - 1];
 

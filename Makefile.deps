@@ -34,7 +34,6 @@ P-Gadget3: $(OBJS) depends
 	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
 
 ICOBJS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
-         GENIC/nrsrc/nrutil.o GENIC/nrsrc/qromb.o GENIC/nrsrc/polint.o GENIC/nrsrc/trapzd.o \
 		 petapm.o \
 		 openmpsort.o \
 		 GENIC/zeldovich.o \
@@ -43,7 +42,6 @@ ICOBJS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
 
 GENIC/N-GenIC: $(ICOBJS) depends
 	mkdir -p GENIC
-	mkdir -p GENIC/nrsrc
 	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
 config.h: Makefile
