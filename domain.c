@@ -1682,7 +1682,7 @@ int domain_nonrecursively_combine_topTree() {
     MPI_Type_contiguous(sizeof(struct local_topnode_data), MPI_BYTE, &MPI_TYPE_TOPNODE);
     MPI_Type_commit(&MPI_TYPE_TOPNODE);
     int errorflag = 0;
-    int errorflagall;
+    int errorflagall = 0;
 
     for(sep = 1; sep < NTask; sep *=2) {
         /* build the subcommunicators for broadcasting */

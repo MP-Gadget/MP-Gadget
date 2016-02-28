@@ -125,7 +125,7 @@ void restart(int modus)
             old_MaxPart = All.MaxPart;
             old_MaxNodes = (int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes;
 
-            if(modus)		/* read */
+            if(modus > 0)		/* read */
             {
                 if(All.PartAllocFactor != save_PartAllocFactor)
                 {

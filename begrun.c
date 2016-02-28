@@ -915,7 +915,7 @@ void close_outputfiles(void)
 struct multichoice { char * name; int value; } ;
 static int parse_multichoice(struct multichoice * table, char * strchoices) {
     int value = 0;
-    struct multichoice * p;
+    struct multichoice * p = table;
     char * delim = ",;&| \t";
     char * token = strtok(strchoices, delim);
     for(token; token ; token = strtok(NULL, delim)) {
