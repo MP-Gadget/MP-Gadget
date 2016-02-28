@@ -354,7 +354,7 @@ void fof_fof(int num)
 void fof_find_groups(void)
 {
     int i, j, ndone_flag, link_count, dummy, nprocessed;
-    int ndone, ngrp, sendTask, recvTask, place, nexport, nimport, link_across;
+    int ndone, ngrp, recvTask, place, nexport, nimport, link_across;
     int npart, marked;
     int64_t totmarked, totnpart;
     int64_t link_across_tot, ntot;
@@ -506,7 +506,6 @@ void fof_find_groups(void)
             /* exchange particle data */
             for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
             {
-                sendTask = ThisTask;
                 recvTask = ThisTask ^ ngrp;
 
                 if(recvTask < NTask)
@@ -543,7 +542,6 @@ void fof_find_groups(void)
             /* exchange data */
             for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
             {
-                sendTask = ThisTask;
                 recvTask = ThisTask ^ ngrp;
 
                 if(recvTask < NTask)
@@ -741,7 +739,7 @@ int fof_find_dmparticles_evaluate(int target, int mode, int *nexport, int *nsend
 
 void fof_compile_catalogue(void)
 {
-    int i, j, start, nimport, ngrp, sendTask, recvTask;
+    int i, j, start, nimport, ngrp, recvTask;
     struct fof_group_list *get_FOF_GList;
 
     /* sort according to MinID */
@@ -833,7 +831,6 @@ void fof_compile_catalogue(void)
 
     for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
     {
-        sendTask = ThisTask;
         recvTask = ThisTask ^ ngrp;
 
         if(recvTask < NTask)
@@ -909,7 +906,6 @@ void fof_compile_catalogue(void)
 
     for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
     {
-        sendTask = ThisTask;
         recvTask = ThisTask ^ ngrp;
 
         if(recvTask < NTask)
@@ -1040,7 +1036,7 @@ void fof_compute_group_properties(int gr, int start, int len)
 void fof_exchange_group_data(void)
 {
     struct group_properties *get_Group;
-    int i, j, ngrp, sendTask, recvTask, nimport, start;
+    int i, j, ngrp, recvTask, nimport, start;
     double xyz[3];
 
     /* sort the groups according to task */
@@ -1071,7 +1067,6 @@ void fof_exchange_group_data(void)
 
     for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
     {
-        sendTask = ThisTask;
         recvTask = ThisTask ^ ngrp;
 
         if(recvTask < NTask)
@@ -1368,7 +1363,7 @@ void fof_find_nearest_dmparticle(void)
 {
     int i, j, n, dummy;
     int64_t ntot;
-    int ndone, ndone_flag, ngrp, sendTask, recvTask, place, nexport, nimport,  iter;
+    int ndone, ndone_flag, ngrp, recvTask, place, nexport, nimport,  iter;
     Evaluator ev = {0};
     ev.ev_label = "FOF_FIND_NEAREST";
     ev.ev_evaluate = (ev_ev_func) fof_nearest_evaluate;
@@ -1577,7 +1572,7 @@ static int fof_nearest_evaluate(int target, int mode,
 void fof_make_black_holes(void)
 {
     int i, j, n, ntot;
-    int nexport, nimport, sendTask, recvTask, level;
+    int nexport, nimport, recvTask, level;
     int *import_indices, *export_indices;
     double massDMpart;
 
@@ -1638,7 +1633,6 @@ void fof_make_black_holes(void)
 
     for(level = 1; level < (1 << PTask); level++)
     {
-        sendTask = ThisTask;
         recvTask = ThisTask ^ level;
 
         if(recvTask < NTask) {

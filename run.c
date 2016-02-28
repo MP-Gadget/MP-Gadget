@@ -357,7 +357,6 @@ void find_next_sync_point_and_drift(void)
             }
             else
             {
-                dt_bin = 0;
                 ti_next_for_bin = All.Ti_Current;
             }
 
@@ -634,7 +633,6 @@ int ShouldWeDoDynamicUpdate(void)
             }
             else
             {
-                dt_bin = 0;
                 ti_next_for_bin = All.Ti_Current;
             }
 

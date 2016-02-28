@@ -1057,8 +1057,8 @@ void init_clouds(void)
 void integrate_sfr(void)
 {
     double rho0, rho, rho2, q, dz, gam, sigma = 0, sigma_u4, sigmasfr = 0, ne, P1;
-    double x = 0, y, P, P2, x2, y2, tsfr2, factorEVP2, egyhot2, tcool2, drho, dq;
-    double meanweight, u4, z, tsfr, tcool, egyhot, factorEVP, egyeff, egyeff2;
+    double x = 0, y, P, P2, x2, y2, tsfr2, egyhot2, tcool2, drho, dq;
+    double meanweight, u4, tsfr, tcool, egyhot, factorEVP, egyeff, egyeff2;
     FILE *fd;
 
     meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
@@ -1116,7 +1116,6 @@ void integrate_sfr(void)
 
     for(rho0 = All.PhysDensThresh; rho0 <= 10000 * All.PhysDensThresh; rho0 *= 1.02)
     {
-        z = 0;
         rho = rho0;
         q = 0;
         dz = 0.001;
@@ -1146,7 +1145,6 @@ void integrate_sfr(void)
 
                 rho2 = 1.1 * rho;
                 tsfr2 = sqrt(All.PhysDensThresh / rho2) * All.MaxSfrTimescale;
-                factorEVP2 = pow(rho2 / All.PhysDensThresh, -0.8) * All.FactorEVP;
                 egyhot2 = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
                 tcool2 = GetCoolingTime(egyhot2, rho2, &uvbg, &ne, 0.0);
                 y2 =

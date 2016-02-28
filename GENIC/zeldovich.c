@@ -180,7 +180,7 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
     gsl_rng * random_generator_seed = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(random_generator_seed, Seed);
 
-    unsigned int * seedtable = malloc(sizeof(int) * Nmesh * Nmesh);
+    unsigned int * seedtable = malloc(sizeof(unsigned int) * Nmesh * Nmesh);
 
 #define SETSEED(i, j) { \
     unsigned int seed = 0x7fffffff * gsl_rng_uniform(random_generator_seed); \

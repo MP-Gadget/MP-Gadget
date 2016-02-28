@@ -877,7 +877,7 @@ static int density_isactive(int n)
 }
 
 static void density_post_process(int i) {
-    int dt_step, dt_entr;
+    int dt_step;
     if(P[i].Type == 0)
     {
         if(SPHP(i).Density > 0)
@@ -1023,7 +1023,6 @@ static void density_post_process(int i) {
 #else
         dt_step = P[i].dt_step;
 #endif
-        dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
 
 #ifndef EOS_DEGENERATE
 #ifndef MHM
@@ -1032,6 +1031,7 @@ static void density_post_process(int i) {
 #ifdef DENSITY_INDEPENDENT_SPH
         SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
 #else
+        int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
         SPHP(i).Pressure =
             (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
 #endif // DENSITY_INDEPENDENT_SPH

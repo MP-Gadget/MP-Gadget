@@ -429,7 +429,6 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
  * only check P[ selection[i]]
 */
 void petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int NumSelection) {
-    int elsize = dtype_itemsize(ent->dtype);
 
 /* This didn't work with CRAY:
  * always has npartLocal = 0

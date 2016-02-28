@@ -683,7 +683,6 @@ int blackhole_swallow_evaluate(int target, int mode,
                         O->AccretedMomentum[k] += (P[j].Mass * P[j].Vel[k]);
 
                     P[j].Mass = 0;
-                    int bin = P[j].TimeBin;
 #pragma omp atomic
                     N_sph_swallowed++;
                 }

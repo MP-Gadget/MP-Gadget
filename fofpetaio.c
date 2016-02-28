@@ -176,21 +176,21 @@ static void fof_distribute_particles() {
     radix_sort_mpi(pi, NpigLocal, sizeof(struct PartIndex), 
             fof_radix_sortkey, 8, NULL, MPI_COMM_WORLD);
 
-    int64_t Npig = count_sum(NpigLocal);
-    int64_t offsetLocal = count_to_offset(NpigLocal);
-
-    size_t chunksize = (Npig / NTask) + (Npig % NTask != 0);
-
 #pragma omp parallel for
     for(i = 0; i < NumPart; i ++) {
         P[i].origintask = ThisTask;
         P[i].targettask = ThisTask; //P[i].ID % NTask; /* default target */
     }
 
+    //int64_t Npig = count_sum(NpigLocal);
+    //int64_t offsetLocal = count_to_offset(NpigLocal);
+
+    //size_t chunksize = (Npig / NTask) + (Npig % NTask != 0);
+
     for(i = 0; i < NpigLocal; i ++) {
-        ptrdiff_t offset = offsetLocal + i;
 /* YU: A typo error here, should be IMIN, DMIN is for double but this should have tainted TargetTask,
    offset and chunksize are int  */
+        //ptrdiff_t offset = offsetLocal + i;
         //pi[i].targetTask = IMIN(offset / chunksize, NTask - 1);
     /* YU: let's see if we keep the FOF particle load on the processes, IO would be faster
            (as at high z many ranks has no FOF), communication becomes sparse. */

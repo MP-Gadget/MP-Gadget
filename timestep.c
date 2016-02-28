@@ -879,7 +879,7 @@ int get_timestep(int p,		/*!< particle index */
                       aphys */ )
 {
     double ax, ay, az, ac;
-    double csnd = 0, dt = 0, dt_courant = 0;
+    double dt = 0, dt_courant = 0;
     int ti_step;
     double dt_viscous = 0;
 #ifdef CHEMCOOL
@@ -979,9 +979,9 @@ int get_timestep(int p,		/*!< particle index */
 
     if(P[p].Type == 0)
     {
-        csnd = sqrt(GAMMA * SPHP(p).Pressure / SPHP(p).EOMDensity);
-
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
+        double csnd = sqrt(GAMMA * SPHP(p).Pressure / SPHP(p).EOMDensity);
+
 
         if(All.ComovingIntegrationOn)
             dt_courant = All.CourantFac * All.Time * DMAX(P[p].Hsml, All.SofteningTable[0]) / (fac3 * csnd);

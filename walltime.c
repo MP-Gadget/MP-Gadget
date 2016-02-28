@@ -89,7 +89,7 @@ static void walltime_clock_insert(char * name) {
         for(p = tmp + 1; *p; p ++) {
             if (*p == '/') {
                 *p = 0;
-                int parent = walltime_clock(tmp);
+                parent = walltime_clock(tmp);
                 *p = '/';
             }
         }
@@ -220,7 +220,6 @@ void walltime_report(FILE * fp, int root, MPI_Comm comm) {
         char * name = CT->C[i].name;
         int level = 0;
         char * p = name;
-        char * q = name;
         while(*p) {
             if(*p == '/') {
                 level ++;

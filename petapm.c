@@ -274,8 +274,8 @@ static void put_particle_to_mesh(int i, double * mesh, double weight);
  *       this is the place to fill in gaussian seeds,
  *       the transfer is stacked onto all following transfers. 
  * 5. for each transfer, readout in functions
- * 6.    apply trasnfer from global_transfer -> complex
- * 7.    trasnsform to real
+ * 6.    apply transfer from global_transfer -> complex
+ * 7.    transform to real
  * 8.    readout 
  * 9. free regions
  * */
@@ -722,7 +722,6 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
     int iCell[3];  /* integer coordinate on the regional mesh */
     double Res[3]; /* residual*/
     double * Pos = POS(i);
-    double * Mass = MASS(i);
     int RegionInd = REGION(i)[0];
 
     PetaPMRegion * region = &regions[RegionInd];
@@ -758,8 +757,7 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
         }
     }
 
-    int connection = 0;
-    double mass = Mass[0];
+    int connection;
     for(connection = 0; connection < 8; connection++) {
         double weight = 1.0;
         ptrdiff_t linear = 0;
