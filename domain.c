@@ -871,7 +871,9 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     domain_garbage_collection_bh();
     walltime_measure("/Domain/exchange/finalize");
 }
-static int bh_cmp_reverse_link(struct bh_particle_data * b1, struct bh_particle_data * b2) {
+static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
+    const struct bh_particle_data * b1 = (struct bh_particle_data *) b1in;
+    const struct bh_particle_data * b2 = (struct bh_particle_data *) b2in;
     if(b1->ReverseLink == -1 && b2->ReverseLink == -1) {
         return 0;
     }
