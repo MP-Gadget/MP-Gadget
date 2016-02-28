@@ -411,6 +411,9 @@ void set_units(void)
         printf("Annihilation radiation units:\n");
         printf("UnitDensity_in_Gev_per_cm3 = %g\n", All.UnitDensity_in_Gev_per_cm3);
 #endif
+#ifdef INCLUDE_RADIATION
+      printf("Radiation density Omega_R = %g\n",OMEGAR);
+#endif
 
         printf("\n");
     }
