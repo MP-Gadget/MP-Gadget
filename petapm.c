@@ -706,6 +706,7 @@ static void pm_alloc() {
             size += regions[i].totalsize;
         }
         meshbufsize = size;
+        if ( size == 0 ) return;
         meshbuf = (double *) mymalloc("PMmesh", size * sizeof(double));
         report_memory_usage("PetaPM");
         size = 0;
