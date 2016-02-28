@@ -6,8 +6,8 @@ void walltime_reset();
 #define walltime_add(name, dt) walltime_add_full(name, dt,  __FILE__, __LINE__)
 double walltime_measure_internal(char * name);
 double walltime_add_internal(char * name, double dt);
-inline double walltime_measure_full(char * name, char * file, int line);
-inline double walltime_add_full(char * name, double dt, char * file, int line);
+double walltime_measure_full(char * name, char * file, int line);
+double walltime_add_full(char * name, double dt, char * file, int line);
 
 enum clocktype {
     CLOCK_STEP_MEAN ,
