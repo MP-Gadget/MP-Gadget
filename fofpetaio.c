@@ -274,7 +274,9 @@ SIMPLE_PROPERTY(MassCenterVelocity, Group[i].Vel[0], float, 3)
 SIMPLE_PROPERTY(Mass, Group[i].Mass, float, 1)
 SIMPLE_PROPERTY(MassByType, Group[i].MassType[0], float, 6)
 SIMPLE_PROPERTY(LengthByType, Group[i].LenType[0], uint32_t , 6)
+#ifdef SFR
 SIMPLE_PROPERTY(StarFormationRate, Group[i].Sfr, float, 1)
+#endif
 #ifdef BLACK_HOLES
 SIMPLE_PROPERTY(BlackholeMass, Group[i].BH_Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, Group[i].BH_Mdot, float, 1)
