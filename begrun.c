@@ -2223,7 +2223,7 @@ void read_parameter_file(char *fname)
             printf("error: At least use SFR_CRITERION_DENSITY\n");
             endrun(0);
         }
-#ifndef SPH_GRAD_RHO
+#if ! defined SPH_GRAD_RHO || ! defined METALS
         if(HAS(All.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
             printf("error: enable SPH_GRAD_RHO to use h2 criterion in sfr \n");
             endrun(0);

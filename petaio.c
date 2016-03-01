@@ -659,7 +659,9 @@ SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #ifdef STELLARAGE
 SIMPLE_PROPERTY(StarFormationTime, P[i].StellarAge, float, 1)
 #endif
+#ifdef METALS
 SIMPLE_PROPERTY(Metallicity, P[i].Metallicity, float, 1)
+#endif
 static void GTStarFormationRate(int i, float * out) {
     /* Convert to Solar/year */
     *out = get_starformation_rate(i) 
@@ -741,9 +743,11 @@ static void register_io_blocks() {
 #ifdef STELLARAGE
     IO_REG(StarFormationTime, "f4", 1, 4);
 #endif
+#ifdef METALS
     IO_REG(Metallicity,       "f4", 1, 0);
     IO_REG(Metallicity,       "f4", 1, 4);
-#endif
+#endif /* METALS */
+#endif /* SFR */
 #ifdef BLACK_HOLES
     /* Blackhole */
     IO_REG(BlackholeMass,          "f8", 1, 5);

@@ -8,6 +8,12 @@
 #include "forcetree.h"
 #include "domain.h"
 
+#ifdef METALS
+#define METALLICITY(i) (P[(i)].Metallicity)
+#else
+#define METALLICITY(i) (0.)
+#endif
+
 #ifdef COOLING
 static double u_to_temp_fac; /* assuming very hot !*/
 
@@ -351,7 +357,7 @@ static void cooling_direct(int i) {
 #else
     struct UVBG uvbg;
     GetParticleUVBG(i, &uvbg);
-    unew = DoCooling(unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, P[i].Metallicity);
+    unew = DoCooling(unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, METALLICITY(i));
 
     SPHP(i).Ne = ne;
 
@@ -896,7 +902,7 @@ static double get_starformation_rate_full(int i, double dtime, double * ne_new, 
 
     ne = SPHP(i).Ne;
 
-    tcool = GetCoolingTime(egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, P[i].Metallicity);
+    tcool = GetCoolingTime(egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, METALLICITY(i));
     y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
 
     x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -1264,10 +1270,10 @@ static double get_sfr_factor_due_to_h2(int i) {
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
 
-#ifndef SPH_GRAD_RHO
+#if ! defined SPH_GRAD_RHO || ! defined METALS
     /* if SPH_GRAD_RHO is not enabled, disable H2 molecular gas
      * this really shall not happen because begrun will check against the
-     * condition.
+     * condition. Ditto if not metal tracking.
      * */
     return 1.0;
 #else
