@@ -52,8 +52,6 @@ static void walltime_summary_clocks(struct Clock * C, int N, int root, MPI_Comm 
 void walltime_summary(int root, MPI_Comm comm) {
     walltime_update_parents();
     int i;
-    int N = 0;
-    int rank = 0;
     /* add to the cumulative time */
     for(i = 0; i < CT->N; i ++) {
         CT->AC[i].time += CT->C[i].time;
@@ -89,7 +87,7 @@ static void walltime_clock_insert(char * name) {
         for(p = tmp + 1; *p; p ++) {
             if (*p == '/') {
                 *p = 0;
-                int parent = walltime_clock(tmp);
+                parent = walltime_clock(tmp);
                 *p = '/';
             }
         }
@@ -220,7 +218,6 @@ void walltime_report(FILE * fp, int root, MPI_Comm comm) {
         char * name = CT->C[i].name;
         int level = 0;
         char * p = name;
-        char * q = name;
         while(*p) {
             if(*p == '/') {
                 level ++;

@@ -22,8 +22,6 @@ static int human_interaction();
 int stopflag = 0;
 void run(void)
 {
-    FILE *fd;
-
 #if defined(RADIATIVE_RATES) || defined(RADIATION)
     int ifunc;
 #endif
@@ -357,7 +355,6 @@ void find_next_sync_point_and_drift(void)
             }
             else
             {
-                dt_bin = 0;
                 ti_next_for_bin = All.Ti_Current;
             }
 
@@ -634,7 +631,6 @@ int ShouldWeDoDynamicUpdate(void)
             }
             else
             {
-                dt_bin = 0;
                 ti_next_for_bin = All.Ti_Current;
             }
 

@@ -12,6 +12,7 @@
 #include "allvars.h"
 #include "densitykernel.h"
 #include "proto.h"
+#include "petaio.h"
 
 #include "config.h"
 
@@ -914,10 +915,10 @@ void close_outputfiles(void)
 struct multichoice { char * name; int value; } ;
 static int parse_multichoice(struct multichoice * table, char * strchoices) {
     int value = 0;
-    struct multichoice * p;
+    struct multichoice * p = table;
     char * delim = ",;&| \t";
-    char * token = strtok(strchoices, delim);
-    for(token; token ; token = strtok(NULL, delim)) {
+    char * token;
+    for(token = strtok(strchoices, delim); token ; token = strtok(NULL, delim)) {
         for(p = table; p->name; p++) {
             if(strcasecmp(token, p->name) == 0) {
                 value |= p->value;
@@ -1004,7 +1005,7 @@ void read_parameter_file(char *fname)
     void *addr[MAXTAGS];
     struct multichoice * choices[MAXTAGS];
     char tag[MAXTAGS][50];
-    int pnum, errorFlag = 0;
+    int errorFlag = 0;
 
     All.StarformationOn = 0;	/* defaults */
 
@@ -2029,6 +2030,8 @@ void read_parameter_file(char *fname)
 
                     *buf = 0;
                     ret = fgets(buf, 200, fd);
+                    if(ret == NULL)
+                        continue;
                     if(sscanf(buf, "%s%s%s", buf1, buf2, buf3) < 2)
                         continue;
 
@@ -2222,7 +2225,7 @@ void read_parameter_file(char *fname)
             printf("error: At least use SFR_CRITERION_DENSITY\n");
             endrun(0);
         }
-#ifndef SPH_GRAD_RHO
+#if ! defined SPH_GRAD_RHO || ! defined METALS
         if(HAS(All.StarformationCriterion, SFR_CRITERION_MOLECULAR_H2)) {
             printf("error: enable SPH_GRAD_RHO to use h2 criterion in sfr \n");
             endrun(0);

@@ -24,9 +24,6 @@ static void build_buffer_fof(BigArray * array, IOTableEntry * ent);
 static void fof_return_particles();
 static void fof_distribute_particles();
 
-static int fof_select_particle(int i) {
-    return P[i].GrNr > 0;
-}
 static int fof_cmp_argind(const void *p1, const void * p2) {
     const int * i1 = p1;
     const int * i2 = p2;
@@ -140,7 +137,11 @@ static void fof_radix_origin(const void * c1, void * out, void * arg) {
     const struct PartIndex * pi = c1;
     *u = pi->origin;
 }
-
+#if 0
+/*Unused functions*/
+static int fof_select_particle(int i) {
+    return P[i].GrNr > 0;
+}
 static int fof_cmp_sortkey(const void * c1, const void * c2) {
     const struct PartIndex * p1 = c1;
     const struct PartIndex * p2 = c2;
@@ -151,6 +152,7 @@ static int fof_cmp_origin(const void * c1, const void * c2) {
     const struct PartIndex * p2 = c2;
     return (p1->origin > p2->origin) - (p1->origin < p2->origin);
 }
+#endif
 
 static void fof_distribute_particles() {
     int i;
@@ -176,21 +178,21 @@ static void fof_distribute_particles() {
     radix_sort_mpi(pi, NpigLocal, sizeof(struct PartIndex), 
             fof_radix_sortkey, 8, NULL, MPI_COMM_WORLD);
 
-    int64_t Npig = count_sum(NpigLocal);
-    int64_t offsetLocal = count_to_offset(NpigLocal);
-
-    size_t chunksize = (Npig / NTask) + (Npig % NTask != 0);
-
 #pragma omp parallel for
     for(i = 0; i < NumPart; i ++) {
         P[i].origintask = ThisTask;
         P[i].targettask = ThisTask; //P[i].ID % NTask; /* default target */
     }
 
+    //int64_t Npig = count_sum(NpigLocal);
+    //int64_t offsetLocal = count_to_offset(NpigLocal);
+
+    //size_t chunksize = (Npig / NTask) + (Npig % NTask != 0);
+
     for(i = 0; i < NpigLocal; i ++) {
-        ptrdiff_t offset = offsetLocal + i;
 /* YU: A typo error here, should be IMIN, DMIN is for double but this should have tainted TargetTask,
    offset and chunksize are int  */
+        //ptrdiff_t offset = offsetLocal + i;
         //pi[i].targetTask = IMIN(offset / chunksize, NTask - 1);
     /* YU: let's see if we keep the FOF particle load on the processes, IO would be faster
            (as at high z many ranks has no FOF), communication becomes sparse. */
@@ -274,9 +276,13 @@ SIMPLE_PROPERTY(MassCenterVelocity, Group[i].Vel[0], float, 3)
 SIMPLE_PROPERTY(Mass, Group[i].Mass, float, 1)
 SIMPLE_PROPERTY(MassByType, Group[i].MassType[0], float, 6)
 SIMPLE_PROPERTY(LengthByType, Group[i].LenType[0], uint32_t , 6)
+#ifdef SFR
 SIMPLE_PROPERTY(StarFormationRate, Group[i].Sfr, float, 1)
+#endif
+#ifdef BLACK_HOLES
 SIMPLE_PROPERTY(BlackholeMass, Group[i].BH_Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, Group[i].BH_Mdot, float, 1)
+#endif
 
 void fof_register_io_blocks() {
     IO_REG(GroupID, "u4", 1, PTYPE_FOF_GROUP);

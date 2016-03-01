@@ -143,7 +143,7 @@ void calculate_centre_of_mass(void)
 void gravity_tree(void)
 {
     int64_t n_exported = 0;
-    int i, j, maxnumnodes, iter = 0;
+    int i, maxnumnodes, iter = 0;
     double timeall = 0, timetree1 = 0, timetree2 = 0;
     double timetree, timewait, timecomm;
     double timecommsumm1 = 0, timecommsumm2 = 0, timewait1 = 0, timewait2 = 0;
@@ -156,13 +156,9 @@ void gravity_tree(void)
     double min_time_first_phase, min_time_first_phase_glob;
 #endif
 #ifndef NOGRAVITY
-    int k, Ewald_max;
+    int Ewald_max;
 
     Evaluator ev[2] = {0};
-
-    int ndone;
-    int place;
-    double tstart, tend;
 
 #ifdef DISTORTIONTENSORPS
     int i1, i2;

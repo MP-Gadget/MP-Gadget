@@ -179,10 +179,9 @@ void hydro_force(void)
     ev.ev_datain_elsize = sizeof(struct hydrodata_in);
     ev.ev_dataout_elsize = sizeof(struct hydrodata_out);
 
-    int i, j, k, ngrp, ndone, ndone_flag;
-    int sendTask, recvTask, place;
+    int i;
     double timeall = 0, timenetwork = 0;
-    double timecomp, timecomm, timewait, tstart, tend;
+    double timecomp, timecomm, timewait;
 
 #ifdef NAVIERSTOKES
     double fac;
@@ -556,7 +555,7 @@ static int hydro_evaluate(int target, int mode,
         LocalEvaluator * lv, int * ngblist)
 {
     int startnode, numngb, listindex = 0;
-    int j, k, n; 
+    int j, n; 
 
     int ninteractions = 0;
     int nnodesinlist = 0;
@@ -1299,9 +1298,9 @@ static int hydro_isactive(int i) {
 }
 
 static void hydro_post_process(int i) {
-    int k;
     if(P[i].Type == 0)
     {
+        int k;
 
 #ifndef EOS_DEGENERATE
 
@@ -1576,6 +1575,7 @@ static void hydro_post_process(int i) {
 #ifdef SPH_BND_PARTICLES
         if(P[i].I->ID == 0)
         {
+            int k;
             SPHP(i).e.DtEntropy = 0;
 #ifdef NS_TIMESTEP
             SPHP(i).ViscEntropyChange = 0;

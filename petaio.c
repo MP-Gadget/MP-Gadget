@@ -10,6 +10,11 @@
 #include "proto.h"
 
 #include "petaio.h"
+#ifdef FOF
+    /*Defined in fofpetaio.c and only used here*/
+    void fof_register_io_blocks();
+#endif
+
 
 /************
  *
@@ -253,7 +258,6 @@ void petaio_read_ic() {
                after the densities have been computed */
         }
     }
-    header.flag_entropy_instead_u == 0;
 
 #ifdef EOS_DEGENERATE
     for(i = 0; i < N_sph; i++)
@@ -329,10 +333,9 @@ static void petaio_read_header(BigFile * bf) {
         }
         abort();
     }
-    int i;
-    int k;
     double Time;
     double BoxSize;
+    int k;
     if(
     (0 != big_block_get_attr(&bh, "TotNumPart", npartTotal, "u8", 6)) ||
     (0 != big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
@@ -424,7 +427,6 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
  * only check P[ selection[i]]
 */
 void petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int NumSelection) {
-    int elsize = dtype_itemsize(ent->dtype);
 
 /* This didn't work with CRAY:
  * always has npartLocal = 0
@@ -435,7 +437,6 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, 
  */
     int npartThread[All.NumThreads];
     int offsetThread[All.NumThreads];
-    int i;
 #pragma omp parallel
     {
         int i;
@@ -499,7 +500,6 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
 
     BigBlock bb = {0};
     int i;
-    int k;
     BigBlockPtr ptr;
 
     int64_t offset = count_to_offset(array->dims[0]);
@@ -554,7 +554,6 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int Num
 
     BigBlock bb = {0};
     int i;
-    int k;
     BigBlockPtr ptr;
 
     int64_t offset = count_to_offset(array->dims[0]);
@@ -646,14 +645,18 @@ SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 #ifdef DENSITY_INDEPENDENT_SPH
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
 SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
+SIMPLE_GETTER(GTPressure, SPHP(i).Pressure, float, 1)
 #endif
-SIMPLE_PROPERTY(Pressure, SPHP(i).Pressure, float, 1)
 #ifdef COOLING
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #endif
 #ifdef SFR
+#ifdef STELLARAGE
 SIMPLE_PROPERTY(StarFormationTime, P[i].StellarAge, float, 1)
+#endif
+#ifdef METALS
 SIMPLE_PROPERTY(Metallicity, P[i].Metallicity, float, 1)
+#endif
 static void GTStarFormationRate(int i, float * out) {
     /* Convert to Solar/year */
     *out = get_starformation_rate(i) 
@@ -726,16 +729,21 @@ static void register_io_blocks() {
     IO_REG(ElectronAbundance,       "f4", 1, 0);
     IO_REG_WRONLY(NeutralHydrogenFraction, "f4", 1, 0);
     IO_REG_WRONLY(InternalEnergy,   "f4", 1, 0);
+    IO_REG_WRONLY(JUV,   "f4", 1, 0);
 #endif
 //    IO_REG_WRONLY(JUV,   "f4", 1, 0);
 
     /* SF */
 #ifdef SFR
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
+#ifdef STELLARAGE
     IO_REG(StarFormationTime, "f4", 1, 4);
+#endif
+#ifdef METALS
     IO_REG(Metallicity,       "f4", 1, 0);
     IO_REG(Metallicity,       "f4", 1, 4);
-#endif
+#endif /* METALS */
+#endif /* SFR */
 #ifdef BLACK_HOLES
     /* Blackhole */
     IO_REG(BlackholeMass,          "f8", 1, 5);

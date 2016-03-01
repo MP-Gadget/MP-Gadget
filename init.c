@@ -7,6 +7,10 @@
 #include "allvars.h"
 #include "proto.h"
 
+#include "petaio.h"
+#include "domain.h"
+#include "radixsort/radixsort.h"
+
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
  */
@@ -1074,7 +1078,7 @@ void setup_smoothinglengths(void)
                 double mybadness = 0;
 #pragma omp for
                 for(i = 0; i < N_sph; i++) {
-                    if(!SPHP(i).EgyWtDensity > 0) continue;
+                    if(!(SPHP(i).EgyWtDensity > 0)) continue;
                     double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
                     if(value > mybadness) mybadness = value;
                 }

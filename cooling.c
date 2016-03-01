@@ -308,15 +308,16 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
 
 void cool_test(void)
 {
-    double uin, rhoin, tempin, muin, nein;
+    double uin, rhoin, muin, nein;
 
+    //tempin = 34.0025;
     uin = 6.01329e+09;
     rhoin = 7.85767e-29;
-    tempin = 34.0025;
     muin = 0.691955;
 
     nein = (1 + 4 * yhelium) / muin - (1 + yhelium);
     struct abundance y;
+    y.ne = nein;
     double nHcgs = rhoin * XH / PROTONMASS;
     printf("%g\n", convert_u_to_temp(uin, nHcgs, &GlobalUVBG, &y));
 }
@@ -332,11 +333,7 @@ static double convert_u_to_temp(double u, double nHcgs, struct UVBG * uvbg, stru
     double mu;
     struct rates r;
     int iter = 0;
-    double u_input, rho_input, ne_input;
-
-    u_input = u;
-    rho_input = nHcgs;
-    ne_input = y->ne;
+/*     double u_input, rho_input, ne_input; */
 
     mu = (1 + 4 * yhelium) / (1 + yhelium + y->ne);
     temp = GAMMA_MINUS1 / BOLTZMANN * u * PROTONMASS * mu;
@@ -381,13 +378,9 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * u
 {
     double neold, nenew;
     int j, niter;
-    double Tlow, Thi, flow, fhi, t;
+    double flow, fhi, t;
 
-    double logT_input, rho_input, ne_input;
-
-    logT_input = logT;
-    rho_input = nHcgs;
-    ne_input = y->ne;
+/*     double logT_input, rho_input, ne_input; */
 
     if(logT <= Tmin)		/* everything neutral */
     {
@@ -413,15 +406,12 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * u
 
     t = (logT - Tmin) / deltaT;
     j = (int) t;
-    Tlow = Tmin + deltaT * j;
-    Thi = Tlow + deltaT;
     fhi = t - j;
     flow = 1 - fhi;
 
     if(y->ne== 0)
         y->ne = 1.0;
 
-    neold = y->ne;
     niter = 0;
     double necgs = y->ne * nHcgs;
 
@@ -469,7 +459,6 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * u
         neold = y->ne;
 
         y->ne = y->nHp + y->nHep + 2 * y->nHepp;	/* eqn (38) */
-        necgs = y->ne * nHcgs;
 
         if(uvbg->J_UV == 0)
             break;
@@ -554,9 +543,6 @@ extern FILE *fd;
 double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, double *nelec)
 {
     double Lambda, Heat;
-    double LambdaExc, LambdaIon, LambdaRec, LambdaFF, LambdaCmptn = 0.0;
-    double LambdaExcH0, LambdaExcHep, LambdaIonH0, LambdaIonHe0, LambdaIonHep;
-    double LambdaRecHp, LambdaRecHep, LambdaRecHepp, LambdaRecHepd;
     double redshift;
     double T;
     struct abundance y;
@@ -574,6 +560,9 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
 
     if(logT < Tmax)
     {
+        double LambdaExc, LambdaIon, LambdaRec, LambdaFF;
+        double LambdaExcH0, LambdaExcHep, LambdaIonH0, LambdaIonHe0, LambdaIonHep;
+        double LambdaRecHp, LambdaRecHep, LambdaRecHepp, LambdaRecHepd;
         find_abundances_and_rates(logT, nHcgs, uvbg, &y, &r);
         *nelec = y.ne;
         /* Compute cooling and heating rate (cf KWH Table 1) in units of nH**2 */
@@ -613,12 +602,10 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
         if(All.ComovingIntegrationOn)
         {
             redshift = 1 / All.Time - 1;
-            LambdaCmptn = 5.65e-36 * y.ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
+            double LambdaCmptn = 5.65e-36 * y.ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
 
             Lambda += LambdaCmptn;
         }
-        else
-            LambdaCmptn = 0;
 
         Heat = 0;
         if(uvbg->J_UV != 0)
@@ -629,11 +616,8 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
     {
         /* at high T (fully ionized); only free-free and Compton cooling are present.  
            Assumes no heating. */
-
+        double LambdaFF, LambdaCmptn;
         Heat = 0;
-
-        LambdaExcH0 = LambdaExcHep = LambdaIonH0 = LambdaIonHe0 = LambdaIonHep =
-            LambdaRecHp = LambdaRecHep = LambdaRecHepp = LambdaRecHepd = 0;
 
         /* very hot: H and He both fully ionized */
         y.nHp = 1.0;
@@ -652,8 +636,6 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
             /* add inverse Compton cooling off the microwave background */
             LambdaCmptn = 5.65e-36 * y.ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
         }
-        else
-            LambdaCmptn = 0;
 
         Lambda = LambdaFF + LambdaCmptn;
     }
@@ -943,7 +925,6 @@ static float inlogz[TABLESIZE];
 static float gH0[TABLESIZE], gHe[TABLESIZE], gHep[TABLESIZE];
 static float eH0[TABLESIZE], eHe[TABLESIZE], eHep[TABLESIZE];
 static int nheattab;		/* length of table */
-static double CurrentReionizedFraction;
 
 void ReadIonizeParams(char *fname)
 {
@@ -1050,7 +1031,6 @@ void IonizeParamsFunction(void)
     double pi;
 
 #define UVALPHA         1.0
-    double Jold = -1.0;
     double redshift;
 
     memset(&GlobalUVBG, 0, sizeof(GlobalUVBG));
@@ -1073,12 +1053,6 @@ void IonizeParamsFunction(void)
                     GlobalUVBG.J_UV = 1.e-22 * pow(3.0 / (1 + redshift), -3.0);
             }
         }
-
-        if(GlobalUVBG.J_UV == Jold)
-            return;
-
-
-        Jold = GlobalUVBG.J_UV;
 
         if(GlobalUVBG.J_UV == 0)
             return;
@@ -1160,12 +1134,14 @@ void InitCool(void)
 
 static void InitMetalCooling() {
     int size;
+    //This is never used
     double * tabbedmet = h5readdouble(All.MetalCoolFile, "MetallicityInSolar_bins", &size);
 
-    if(ThisTask == 0 && size != 1 || tabbedmet[0] != 0.0) {
+    if(ThisTask == 0 && (size != 1 || tabbedmet[0] != 0.0)) {
         fprintf(stderr, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
         endrun(124214);
     }
+    free(tabbedmet);
     
     MC.Redshift_bins = h5readdouble(All.MetalCoolFile, "Redshift_bins", &MC.NRedshift_bins);
     MC.HydrogenNumberDensity_bins = h5readdouble(All.MetalCoolFile, "HydrogenNumberDensity_bins", &MC.NHydrogenNumberDensity_bins);
@@ -1266,7 +1242,10 @@ static void InitUVF(void) {
     interp_init_dim(&UVF.interp, 0, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
     interp_init_dim(&UVF.interp, 1, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
     interp_init_dim(&UVF.interp, 2, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
+    free(XYZ_Bins);
 }
+
+#if 0
 /* Fraction of total universe that is ionized.
  * currently unused. Unclear if the UVBG in Treecool shall be adjusted
  * by the factor or not. seems to be NOT after reading Giguere's paper.
@@ -1283,6 +1262,7 @@ static double GetReionizedFraction(double time) {
     if(status[0] > 0) return 1.0;
     return fraction;
 }
+#endif
 
 
 /* 

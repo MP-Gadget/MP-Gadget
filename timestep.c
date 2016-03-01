@@ -215,7 +215,7 @@ void advance_and_find_timesteps(void)
 
         bin = get_timestep_bin(ti_step);
         if(bin == -1) {
-            printf("time-step of integer size 1 not allowed, id = %llu, debugging info follows. %d\n", P[i].ID, ti_step);
+            printf("time-step of integer size 1 not allowed, id = %lu, debugging info follows. %d\n", P[i].ID, ti_step);
             badstepsizecount++;
         }
         binold = P[i].TimeBin;
@@ -879,7 +879,7 @@ int get_timestep(int p,		/*!< particle index */
                       aphys */ )
 {
     double ax, ay, az, ac;
-    double csnd = 0, dt = 0, dt_courant = 0;
+    double dt = 0, dt_courant = 0;
     int ti_step;
     double dt_viscous = 0;
 #ifdef CHEMCOOL
@@ -979,9 +979,9 @@ int get_timestep(int p,		/*!< particle index */
 
     if(P[p].Type == 0)
     {
-        csnd = sqrt(GAMMA * SPHP(p).Pressure / SPHP(p).EOMDensity);
-
 #ifdef ALTERNATIVE_VISCOUS_TIMESTEP
+        double csnd = sqrt(GAMMA * SPHP(p).Pressure / SPHP(p).EOMDensity);
+
 
         if(All.ComovingIntegrationOn)
             dt_courant = All.CourantFac * All.Time * DMAX(P[p].Hsml, All.SofteningTable[0]) / (fac3 * csnd);
@@ -1148,7 +1148,7 @@ int get_timestep(int p,		/*!< particle index */
     {
         printf("\nError: A timestep of size zero was assigned on the integer timeline!\n"
                 "We better stop.\n"
-                "Task=%d type %d Part-ID=%llu dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
+                "Task=%d type %d Part-ID=%lu dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
                 ThisTask, P[p].Type, (MyIDType)P[p].ID, dt, dt_courant, dt_viscous, dt_displacement,
                 All.Timebase_interval, ti_step, ac,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].GravAccel[0], P[p].GravAccel[1],

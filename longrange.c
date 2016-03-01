@@ -12,6 +12,10 @@
 
 #ifdef PETAPM
 
+/*Defined in gravpm.c and only used here*/
+void  gravpm_init_periodic();
+void  gravpm_force();
+
 /*! Driver routine to call initializiation of periodic or/and non-periodic FFT
  *  routines.
  */

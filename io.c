@@ -10,14 +10,12 @@
 #include "allvars.h"
 #include "densitykernel.h"
 #include "proto.h"
+#include "petaio.h"
+#include "domain.h"
 
 /*! \file io.c
  *  \brief Output of a snapshot file to disk.
  */
-
-static int n_type[6];
-static int64_t ntot_type_all[6];
-
 
 /*! This function writes a snapshot of the particle distribution to one or
  * several files using Gadget's default file format.  If
@@ -29,10 +27,6 @@ static int64_t ntot_type_all[6];
 /* reason != 0 checkpoints, do not run fof */
 void savepositions(int num, int reason)
 {
-    size_t bytes;
-    char buf[500];
-    int n, filenr, gr, ngroups, masterTask, lastTask;
-
     walltime_measure("/Misc");
 
 #if defined(SFR) || defined(BLACK_HOLES)

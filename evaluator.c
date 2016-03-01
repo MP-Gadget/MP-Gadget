@@ -34,10 +34,7 @@ void ev_init_thread(Evaluator * ev, LocalEvaluator * lv) {
 void ev_begin(Evaluator * ev) {
     All.BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + 
-                    sizeof(struct data_nodelist) +
-                    ev->ev_datain_elsize + ev->ev_dataout_elsize,
-                    sizemax(ev->ev_datain_elsize,
-                        ev->ev_dataout_elsize)));
+                    sizeof(struct data_nodelist) + ev->ev_datain_elsize + ev->ev_dataout_elsize);
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", All.BunchSize * sizeof(struct data_index));
     DataNodeList =
@@ -256,7 +253,6 @@ void ev_secondary(Evaluator * ev) {
 #pragma omp parallel 
     {
         int j;
-        int thread_id = omp_get_thread_num();
         LocalEvaluator lv;
         void  * extradata = NULL;
         if(ev->ev_alloc)
@@ -356,9 +352,6 @@ void ev_run(Evaluator * ev) {
 
 static void ev_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int tag, int import) {
     /* if import is 1, import the results from neigbhours */
-    int ngrp;
-    char * sp = sendbuf;
-    char * rp = recvbuf;
     MPI_Datatype type;
     MPI_Type_contiguous(elsize, MPI_BYTE, &type);
     MPI_Type_commit(&type);
@@ -394,7 +387,6 @@ void ev_get_remote(Evaluator * ev, int tag) {
         int place = DataIndexTable[j].Index;
         /* the convention is to have nodelist at the beginning */
         if(ev->UseNodeList) {
-            int c = 0;
             int * nl = DataNodeList[DataIndexTable[j].IndexGet].NodeList;
             memcpy(sendbuf + j * ev->ev_datain_elsize, nl, sizeof(int) * NODELISTLENGTH);
         }
@@ -483,13 +475,14 @@ void ev_reduce_result(Evaluator * ev, int tag) {
     myfree(ev->dataget);
 }
 
+#if 0
 static int ev_task_cmp_by_top_node(const void * p1, const void * p2) {
     const struct ev_task * t1 = p1, * t2 = p2;
     if(t1->top_node > t2->top_node) return 1;
     if(t1->top_node < t2->top_node) return -1;
     return 0;
 }
-
+#endif
 
 static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int length) {
     int i;

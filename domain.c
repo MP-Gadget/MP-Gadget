@@ -339,7 +339,7 @@ double domain_particle_costfactor(int i)
 int domain_decompose(void)
 {
 
-    int i, no, status;
+    int i, status;
     int64_t sumload;
     int maxload;
     double sumwork, sumcpu, sumcost, maxwork, cadj_SpeedFac;
@@ -665,7 +665,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
         *offset, *offset_sph, *offset_bh;
     int *count_recv, *count_recv_sph, *count_recv_bh,
         *offset_recv, *offset_recv_sph, *offset_recv_bh;
-    int i, n, ngrp, no, target;
+    int i, n, target;
     struct particle_data *partBuf;
     struct sph_particle_data *sphBuf;
     struct bh_particle_data *bhBuf;
@@ -871,7 +871,9 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     domain_garbage_collection_bh();
     walltime_measure("/Domain/exchange/finalize");
 }
-static int bh_cmp_reverse_link(struct bh_particle_data * b1, struct bh_particle_data * b2) {
+static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
+    const struct bh_particle_data * b1 = (struct bh_particle_data *) b1in;
+    const struct bh_particle_data * b2 = (struct bh_particle_data *) b2in;
     if(b1->ReverseLink == -1 && b2->ReverseLink == -1) {
         return 0;
     }
@@ -1321,7 +1323,7 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
         MPI_Allgather(&N_bh, 1, MPI_INT, list_N_bh, 1, MPI_INT, MPI_COMM_WORLD);
         MPI_Allgather(&N_sph, 1, MPI_INT, list_N_sph, 1, MPI_INT, MPI_COMM_WORLD);
 
-        int flag, flagsum, ntoomany, ta, i, target;
+        int flag, flagsum, ntoomany, ta, i;
         int count_togo, count_toget, count_togo_bh, count_toget_bh, count_togo_sph, count_toget_sph;
 
         do
@@ -1680,7 +1682,7 @@ int domain_nonrecursively_combine_topTree() {
     MPI_Type_contiguous(sizeof(struct local_topnode_data), MPI_BYTE, &MPI_TYPE_TOPNODE);
     MPI_Type_commit(&MPI_TYPE_TOPNODE);
     int errorflag = 0;
-    int errorflagall;
+    int errorflagall = 0;
 
     for(sep = 1; sep < NTask; sep *=2) {
         /* build the subcommunicators for broadcasting */

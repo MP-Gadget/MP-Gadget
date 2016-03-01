@@ -234,11 +234,14 @@ static void real_drift_particle(int i, int time1)
         dt_drift = dt_gravkick = dt_hydrokick = (time1 - time0) * All.Timebase_interval;
     }
 
-
+#ifdef LIGHTCONE
     double oldpos[3];
-
     for(j = 0; j < 3; j++) {
         oldpos[j] = P[i].Pos[j];
+    }
+#endif
+
+    for(j = 0; j < 3; j++) {
         P[i].Pos[j] += P[i].Vel[j] * dt_drift;
     }
 #ifdef BH_REPOSITION_ON_POTMIN
@@ -546,7 +549,7 @@ static void real_drift_particle(int i, int time1)
         P[i].Hsml *= fac;
         if(P[i].Hsml > MAXHSML)
         {
-            printf("warning: On Task=%d: we reached Hsml=%g for ID=%llu\n",
+            printf("warning: On Task=%d: we reached Hsml=%g for ID=%lu\n",
                     ThisTask, P[i].Hsml, P[i].ID);
             P[i].Hsml = MAXHSML;
         }

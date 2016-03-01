@@ -5,6 +5,9 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_integration.h>
+/*For mkdir*/
+#include <sys/stat.h>
+#include <sys/types.h>
 #include "allvars.h"
 #include "proto.h"
 
@@ -72,8 +75,8 @@ static void lightcone_init_entry(int i) {
 
     gsl_integration_workspace_free (w);
     tab_Dc[i] = result;
-    double a = exp(tab_loga[i]);
-    double z = 1 / a - 1;
+//    double a = exp(tab_loga[i]);
+//    double z = 1 / a - 1;
 //    printf("a = %g z = %g Dc = %g\n", a, z, result);
 }
 

@@ -9,6 +9,7 @@
 #include "densitykernel.h"
 #include "proto.h"
 #include "evaluator.h"
+#include "domain.h"
 
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
@@ -682,7 +683,6 @@ int blackhole_swallow_evaluate(int target, int mode,
                         O->AccretedMomentum[k] += (P[j].Mass * P[j].Vel[k]);
 
                     P[j].Mass = 0;
-                    int bin = P[j].TimeBin;
 #pragma omp atomic
                     N_sph_swallowed++;
                 }

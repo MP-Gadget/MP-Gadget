@@ -8,14 +8,13 @@ include ../Makefile.$(SYSTYPE)
 EXEC   = N-GenIC
 
 OBJS   = main.o power.o allvars.o read_param.o \
-         nrsrc/nrutil.o nrsrc/qromb.o nrsrc/polint.o nrsrc/trapzd.o \
 		 petapm.o \
 		save2.o  \
 		walltime.o \
 		../bigfile/src/bigfile-mpi.o ../bigfile/src/bigfile.o 
 #		 fftwdisp.o \
 
-INCL   = allvars.h proto.h  nrsrc/nrutil.h  \
+INCL   = allvars.h proto.h  \
 	../bigfile/src/bigfile-mpi.h ../bigfile/src/bigfile.h
 
 FFTW_LIB =  $(FFTW_LIBS) -lpfft -lfftw3_mpi -lfftw3

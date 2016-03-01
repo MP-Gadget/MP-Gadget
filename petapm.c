@@ -9,6 +9,7 @@
 //#include "allvars.h"
 //#include "proto.h"
 #include "petapm.h"
+#include "openmpsort.h"
 
 #ifndef mymalloc
 #define mymalloc(a, b) malloc(b)
@@ -45,7 +46,6 @@ struct Layout {
 };
 
 static void layout_prepare (struct Layout * L);
-static void layout_build_and_exchange_pencils(struct Layout * L);
 static void layout_finish(struct Layout * L);
 static void layout_build_and_exchange_cells_to_pfft(struct Layout * L);
 static void layout_build_and_exchange_cells_to_local(struct Layout * L);
@@ -248,9 +248,6 @@ void petapm_init(double BoxSize, int _Nmesh) {
 
 }
 
-static void pm_move_to_pfft();
-static void pm_move_to_local();
-
 /* 
  * read out field to particle i, with value no need to be thread safe 
  * (particle i is never done by same thread)
@@ -273,8 +270,8 @@ static void put_particle_to_mesh(int i, double * mesh, double weight);
  *       this is the place to fill in gaussian seeds,
  *       the transfer is stacked onto all following transfers. 
  * 5. for each transfer, readout in functions
- * 6.    apply trasnfer from global_transfer -> complex
- * 7.    trasnsform to real
+ * 6.    apply transfer from global_transfer -> complex
+ * 7.    transform to real
  * 8.    readout 
  * 9. free regions
  * */
@@ -325,7 +322,6 @@ void petapm_force_r2c(
 void petapm_force_c2r(
         PetaPMFunctions * functions) {
 
-    int i;
     PetaPMFunctions * f = functions;
     for (f = functions; f->name; f ++) {
         petapm_transfer_func transfer = f->transfer;
@@ -516,7 +512,6 @@ static void layout_build_pencils(struct Layout * L) {
 }
 
 static void layout_exchange_pencils(struct Layout * L) {
-    int r;
     int i;
     int offset;
 
@@ -705,6 +700,7 @@ static void pm_alloc() {
             size += regions[i].totalsize;
         }
         meshbufsize = size;
+        if ( size == 0 ) return;
         meshbuf = (double *) mymalloc("PMmesh", size * sizeof(double));
         report_memory_usage("PetaPM");
         size = 0;
@@ -721,7 +717,6 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
     int iCell[3];  /* integer coordinate on the regional mesh */
     double Res[3]; /* residual*/
     double * Pos = POS(i);
-    double * Mass = MASS(i);
     int RegionInd = REGION(i)[0];
 
     PetaPMRegion * region = &regions[RegionInd];
@@ -757,8 +752,7 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
         }
     }
 
-    int connection = 0;
-    double mass = Mass[0];
+    int connection;
     for(connection = 0; connection < 8; connection++) {
         double weight = 1.0;
         ptrdiff_t linear = 0;

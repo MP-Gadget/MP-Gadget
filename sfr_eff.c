@@ -6,6 +6,13 @@
 #include "allvars.h"
 #include "proto.h"
 #include "forcetree.h"
+#include "domain.h"
+
+#ifdef METALS
+#define METALLICITY(i) (P[(i)].Metallicity)
+#else
+#define METALLICITY(i) (0.)
+#endif
 
 #ifdef COOLING
 static double u_to_temp_fac; /* assuming very hot !*/
@@ -18,15 +25,19 @@ static int stars_spawned;
 static double sum_sm;
 static double sum_mass_stars;
 
-static int get_sfr_condition(int i);
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 static void cooling_direct(int i);
-static void starformation(int i);
+#ifdef WINDS
 static int make_particle_wind(int i, double v, double vmean[3]);
+#endif
+#ifdef SFR
+static int get_sfr_condition(int i);
 static int make_particle_star(int i);
+static void starformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff);
+#endif
 
 
 #ifdef WINDS
@@ -111,7 +122,7 @@ void cooling_and_starformation(void)
 #ifdef MAGNETIC
         SPHP(i).XColdCloud = x;
 #endif
-//#if defined(WINDS_SH03) || defined(WINDS_VS08)
+#ifdef WINDS
         if(SPHP(i).DelayTime > 0) {
             double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
                 /*  the actual time-step */
@@ -129,7 +140,7 @@ void cooling_and_starformation(void)
         } else {
             SPHP(i).DelayTime = 0;
         }
-//#endif
+#endif
 
 #ifdef MAGNETIC
         x=0.;
@@ -209,6 +220,7 @@ void cooling_and_starformation(void)
         fflush(FdSfr);
     }
     walltime_measure("/Cooling/StarFormation");
+#ifdef WINDS
     /* now lets make winds. this has to be after NumPart is updated */
     if(!HAS(All.WindModel, WINDS_SUBGRID)) {
         int i;
@@ -293,6 +305,7 @@ void cooling_and_starformation(void)
         myfree(Ngblist);
     }
     walltime_measure("/Cooling/Wind");
+#endif
 }
 
 static void cooling_direct(int i) {
@@ -348,7 +361,7 @@ static void cooling_direct(int i) {
 #else
     struct UVBG uvbg;
     GetParticleUVBG(i, &uvbg);
-    unew = DoCooling(unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, P[i].Metallicity);
+    unew = DoCooling(unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, METALLICITY(i));
 
     SPHP(i).Ne = ne;
 
@@ -395,12 +408,18 @@ static int get_sfr_condition(int i) {
         flag = 1;
 #endif
 
+#ifdef WINDS
     if(SPHP(i).DelayTime > 0)
         flag = 1;		/* only normal cooling for particles in the wind */
+#endif
 
 #ifdef QUICK_LYALPHA
-    temp = u_to_temp_fac * (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
-        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
+    double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+    double unew = DMAX(All.MinEgySpec,
+            (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
+            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+
+    double temp = u_to_temp_fac * unew;
 
     if(SPHP(i).Density > All.OverDensThresh && temp < 1.0e5)
         flag = 0;
@@ -410,6 +429,7 @@ static int get_sfr_condition(int i) {
     return flag;
 }
 
+#ifdef WINDS
 static int sfr_wind_isactive(int target) {
     if(P[target].Type == 4) {
         /* 
@@ -680,6 +700,7 @@ static int make_particle_wind(int i, double v, double vmean[3]) {
     }
     return 0;
 }
+#endif
 
 static int make_particle_star(int i) {
     fprintf(FdSfrDetails, "Star T %g %lu M %g RHOP %g P %g %g %g\n",
@@ -889,7 +910,7 @@ static double get_starformation_rate_full(int i, double dtime, double * ne_new, 
 
     ne = SPHP(i).Ne;
 
-    tcool = GetCoolingTime(egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, P[i].Metallicity);
+    tcool = GetCoolingTime(egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, METALLICITY(i));
     y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
 
     x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -1056,8 +1077,8 @@ void init_clouds(void)
 void integrate_sfr(void)
 {
     double rho0, rho, rho2, q, dz, gam, sigma = 0, sigma_u4, sigmasfr = 0, ne, P1;
-    double x = 0, y, P, P2, x2, y2, tsfr2, factorEVP2, egyhot2, tcool2, drho, dq;
-    double meanweight, u4, z, tsfr, tcool, egyhot, factorEVP, egyeff, egyeff2;
+    double x = 0, y, P, P2, x2, y2, tsfr2, egyhot2, tcool2, drho, dq;
+    double meanweight, u4, tsfr, tcool, egyhot, factorEVP, egyeff, egyeff2;
     FILE *fd;
 
     meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
@@ -1115,7 +1136,6 @@ void integrate_sfr(void)
 
     for(rho0 = All.PhysDensThresh; rho0 <= 10000 * All.PhysDensThresh; rho0 *= 1.02)
     {
-        z = 0;
         rho = rho0;
         q = 0;
         dz = 0.001;
@@ -1145,7 +1165,6 @@ void integrate_sfr(void)
 
                 rho2 = 1.1 * rho;
                 tsfr2 = sqrt(All.PhysDensThresh / rho2) * All.MaxSfrTimescale;
-                factorEVP2 = pow(rho2 / All.PhysDensThresh, -0.8) * All.FactorEVP;
                 egyhot2 = All.EgySpecSN / (1 + factorEVP) + All.EgySpecCold;
                 tcool2 = GetCoolingTime(egyhot2, rho2, &uvbg, &ne, 0.0);
                 y2 =
@@ -1239,6 +1258,7 @@ void set_units_sfr(void)
 
 }
 
+#if defined SPH_GRAD_RHO && defined METALS
 static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)
 {
     /* column density from GradRho, copied from gadget-p; what is it
@@ -1253,16 +1273,17 @@ static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, do
     }
     return gradrho_mag; // *(Z/Zsolar) add metallicity dependence
 }
+#endif
 
 static double get_sfr_factor_due_to_h2(int i) {
     /*  Krumholz & Gnedin fitting function for f_H2 as a function of local
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
 
-#ifndef SPH_GRAD_RHO
+#if ! defined SPH_GRAD_RHO || ! defined METALS
     /* if SPH_GRAD_RHO is not enabled, disable H2 molecular gas
      * this really shall not happen because begrun will check against the
-     * condition.
+     * condition. Ditto if not metal tracking.
      * */
     return 1.0;
 #else

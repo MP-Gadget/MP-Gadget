@@ -182,7 +182,7 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
         int mode, LocalEvaluator * lv,
         int *ngblist, enum NgbTreeFindSymmetric symmetric, int ptypemask)
 {
-    int no, p, numngb, task, nexp;
+    int no, p, numngb;
     MyDouble dist, dx, dy, dz;
     struct NODE *current;
 
