@@ -52,8 +52,6 @@ static void walltime_summary_clocks(struct Clock * C, int N, int root, MPI_Comm 
 void walltime_summary(int root, MPI_Comm comm) {
     walltime_update_parents();
     int i;
-    int N = 0;
-    int rank = 0;
     /* add to the cumulative time */
     for(i = 0; i < CT->N; i ++) {
         CT->AC[i].time += CT->C[i].time;

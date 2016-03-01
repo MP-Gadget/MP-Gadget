@@ -22,8 +22,6 @@ static int human_interaction();
 int stopflag = 0;
 void run(void)
 {
-    FILE *fd;
-
 #if defined(RADIATIVE_RATES) || defined(RADIATION)
     int ifunc;
 #endif

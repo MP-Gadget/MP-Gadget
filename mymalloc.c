@@ -19,7 +19,6 @@ static unsigned long Nblocks;
 static char *Table[MAXBLOCKS] = {NULL};
 static size_t BlockSize[MAXBLOCKS] = {0};
 static char MovableFlag[MAXBLOCKS] = {0};
-static char **BasePointers[MAXBLOCKS] = {NULL};
 
 static char VarName[MAXBLOCKS][MAXCHARS] = {0};
 static char FunctionName[MAXBLOCKS][MAXCHARS] = {0};

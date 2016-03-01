@@ -19,7 +19,6 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void force_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void force_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void force_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void put_particle_to_mesh(int i, double * mesh, double weight);
 static void readout_potential(int i, double * mesh, double weight);
 static void readout_force_x(int i, double * mesh, double weight);
 static void readout_force_y(int i, double * mesh, double weight);
@@ -287,15 +286,20 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
 
 /* the transfer functions for force in fourier space applied to potential */
 /* super lanzcos in CH6 P 122 Digital Filters by Richard W. Hamming */
+#if PETAPM_ORDER == 3
 static double super_lanzcos_diff_kernel_3(double w) {
 /* order N = 3*/
     return 1. / 594 * 
        (126 * sin(w) + 193 * sin(2 * w) + 142 * sin (3 * w) - 86 * sin(4 * w));
 }
+#endif
+#if PETAPM_ORDER == 2
 static double super_lanzcos_diff_kernel_2(double w) {
 /* order N = 2*/
     return 1 / 126. * (58 * sin(w) + 67 * sin (2 * w) - 22 * sin(3 * w));
 }
+#endif
+#if PETAPM_ORDER == 1
 static double super_lanzcos_diff_kernel_1(double w) {
 /* order N = 1 */
 /* 
@@ -305,6 +309,7 @@ static double super_lanzcos_diff_kernel_1(double w) {
  * */
     return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
 }
+#endif
 static double diff_kernel(double w) {
 #if PETAPM_ORDER == 1
         return super_lanzcos_diff_kernel_1(w);

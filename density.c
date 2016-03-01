@@ -158,14 +158,14 @@ void density(void)
     ev.ev_datain_elsize = sizeof(struct densdata_in);
     ev.ev_dataout_elsize = sizeof(struct densdata_out);
 
-    int i, j, k, npleft, iter = 0;
+    int i, npleft, iter = 0;
 
     int64_t ntot = 0;
 
     double timeall = 0;
     double timecomp, timecomp3 = 0, timecomm, timewait;
 
-    double dt_entr, tstart, tend;
+    double tstart, tend;
 
 #if defined(EULERPOTENTIALS) || defined(VECT_PRO_CLEAN) || defined(TRACEDIVB) || defined(VECT_POTENTIAL)
     double efak;
@@ -244,7 +244,7 @@ void density(void)
             if(iter >= MAXITER - 10)
             {
                 printf
-                    ("i=%d task=%d ID=%llu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+                    ("i=%d task=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
                      queue[p], ThisTask, P[p].ID, P[p].Hsml, Left[p], Right[p],
                      (float) P[p].n.NumNgb, Right[p] - Left[p], P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
                 fflush(stdout);
@@ -532,8 +532,6 @@ static int density_evaluate(int target, int mode,
 
     int ninteractions = 0;
     int nnodesinlist = 0;
-
-    int k;
 
     density_kernel_t kernel;
 #ifdef BLACK_HOLES
@@ -1024,6 +1022,7 @@ static void density_post_process(int i) {
         dt_step = P[i].dt_step;
 #endif
 
+        int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
 #ifndef EOS_DEGENERATE
 #ifndef MHM
 #ifndef SOFTEREQS
@@ -1031,7 +1030,6 @@ static void density_post_process(int i) {
 #ifdef DENSITY_INDEPENDENT_SPH
         SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
 #else
-        int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
         SPHP(i).Pressure =
             (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
 #endif // DENSITY_INDEPENDENT_SPH

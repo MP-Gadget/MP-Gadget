@@ -212,11 +212,10 @@ void initialize_powerspectrum(void)
 
 double PowerSpec_Tabulated(double k)
 {
-  double logk, logD, P, u, dlogk, Delta2; //kold
-  int binlow, binhigh, binmid;
+  double logk, logD, P, u, dlogk; // Delta2; //kold
   
   double mydlogk,dlogk_PowerTable;
-  int mybinhigh,mybinlow,mybinmid;
+  int mybinhigh,mybinlow;
   
 
 

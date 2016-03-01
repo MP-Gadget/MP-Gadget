@@ -12,14 +12,11 @@
 #include "walltime.h"
 
 #define MESH2K(i) petapm_mesh_to_k(i)
-static void diff_transfer(int64_t k2, pfft_complex * value);
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void put_particle_to_mesh(int i, double * mesh, double weight);
 static void readout_density(int i, double * mesh, double weight);
-static void readout_potential(int i, double * mesh, double weight);
 static void readout_force_x(int i, double * mesh, double weight);
 static void readout_force_y(int i, double * mesh, double weight);
 static void readout_force_z(int i, double * mesh, double weight);
@@ -412,9 +409,6 @@ static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 /**************
  * functions iterating over particle / mesh pairs
  ***************/
-static void mark_all_mesh(int i, double * mesh, double weight) {
-    mesh[0] = 1.0;
-}
 static void readout_density(int i, double * mesh, double weight) {
     P[i].Density += weight * mesh[0];
 }

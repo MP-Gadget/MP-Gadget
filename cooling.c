@@ -308,7 +308,7 @@ double DoInstabilityCooling(double m_old, double u, double rho, double dt, doubl
 
 void cool_test(void)
 {
-    double uin, rhoin, tempin, muin, nein;
+    double uin, rhoin, muin, nein;
 
     //tempin = 34.0025;
     uin = 6.01329e+09;
@@ -333,7 +333,7 @@ static double convert_u_to_temp(double u, double nHcgs, struct UVBG * uvbg, stru
     double mu;
     struct rates r;
     int iter = 0;
-    double u_input, rho_input, ne_input;
+/*     double u_input, rho_input, ne_input; */
 
     mu = (1 + 4 * yhelium) / (1 + yhelium + y->ne);
     temp = GAMMA_MINUS1 / BOLTZMANN * u * PROTONMASS * mu;
@@ -380,7 +380,7 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * u
     int j, niter;
     double flow, fhi, t;
 
-    double logT_input, rho_input, ne_input;
+/*     double logT_input, rho_input, ne_input; */
 
     if(logT <= Tmin)		/* everything neutral */
     {
@@ -925,7 +925,6 @@ static float inlogz[TABLESIZE];
 static float gH0[TABLESIZE], gHe[TABLESIZE], gHep[TABLESIZE];
 static float eH0[TABLESIZE], eHe[TABLESIZE], eHep[TABLESIZE];
 static int nheattab;		/* length of table */
-static double CurrentReionizedFraction;
 
 void ReadIonizeParams(char *fname)
 {
@@ -1138,7 +1137,7 @@ static void InitMetalCooling() {
     //This is never used
     double * tabbedmet = h5readdouble(All.MetalCoolFile, "MetallicityInSolar_bins", &size);
 
-    if(ThisTask == 0 && size != 1 || tabbedmet[0] != 0.0) {
+    if(ThisTask == 0 && (size != 1 || tabbedmet[0] != 0.0)) {
         fprintf(stderr, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
         endrun(124214);
     }
@@ -1245,6 +1244,8 @@ static void InitUVF(void) {
     interp_init_dim(&UVF.interp, 2, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
     free(XYZ_Bins);
 }
+
+#if 0
 /* Fraction of total universe that is ionized.
  * currently unused. Unclear if the UVBG in Treecool shall be adjusted
  * by the factor or not. seems to be NOT after reading Giguere's paper.
@@ -1261,6 +1262,7 @@ static double GetReionizedFraction(double time) {
     if(status[0] > 0) return 1.0;
     return fraction;
 }
+#endif
 
 
 /* 

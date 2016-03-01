@@ -46,7 +46,6 @@ struct Layout {
 };
 
 static void layout_prepare (struct Layout * L);
-static void layout_build_and_exchange_pencils(struct Layout * L);
 static void layout_finish(struct Layout * L);
 static void layout_build_and_exchange_cells_to_pfft(struct Layout * L);
 static void layout_build_and_exchange_cells_to_local(struct Layout * L);
@@ -249,9 +248,6 @@ void petapm_init(double BoxSize, int _Nmesh) {
 
 }
 
-static void pm_move_to_pfft();
-static void pm_move_to_local();
-
 /* 
  * read out field to particle i, with value no need to be thread safe 
  * (particle i is never done by same thread)
@@ -326,7 +322,6 @@ void petapm_force_r2c(
 void petapm_force_c2r(
         PetaPMFunctions * functions) {
 
-    int i;
     PetaPMFunctions * f = functions;
     for (f = functions; f->name; f ++) {
         petapm_transfer_func transfer = f->transfer;
@@ -517,7 +512,6 @@ static void layout_build_pencils(struct Layout * L) {
 }
 
 static void layout_exchange_pencils(struct Layout * L) {
-    int r;
     int i;
     int offset;
 

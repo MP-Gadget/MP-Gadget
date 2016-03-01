@@ -38,20 +38,6 @@ static int first_flag = 0;
 static int tree_allocated_flag = 0;
 
 
-#ifdef PERIODIC
-/*! Size of 3D lock-up table for Ewald correction force */
-#define EN  64
-/*! 3D lock-up table for Ewald correction to force and potential. Only one
- *  octant is stored, the rest constructed by using the symmetry
- */
-static MyFloat fcorrx[EN + 1][EN + 1][EN + 1];
-static MyFloat fcorry[EN + 1][EN + 1][EN + 1];
-static MyFloat fcorrz[EN + 1][EN + 1][EN + 1];
-static MyFloat potcorr[EN + 1][EN + 1][EN + 1];
-static double fac_intp;
-#endif
-
-
 void force_treebuild_simple() {
     /* construct tree if needed */
     /* the tree is used in grav dens, hydro, bh and sfr */
@@ -1610,11 +1596,9 @@ int force_drift_node_full(int no, int time1, int blocking) {
 
 static void real_force_drift_node(int no, int time1)
 {
-    int j, time0;
+    int j;
     double dt_drift, dt_drift_hmax, fac;
     if(time1 == Nodes[no].Ti_current) return;
-
-    time0 = Extnodes[no].Ti_lastkicked;
 
     if(Nodes[no].u.d.bitflags & (1 << BITFLAG_NODEHASBEENKICKED))
     {
@@ -2030,7 +2014,7 @@ int force_treeevaluate(int target, int mode,
 {
 
     struct NODE *nop = 0;
-    int no, nexp, ptype, task, listindex = 0;
+    int no, ptype, listindex = 0;
     int nnodesinlist = 0, ninteractions = 0; 
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
     double pos_x, pos_y, pos_z, aold;
@@ -2053,12 +2037,6 @@ int force_treeevaluate(int target, int mode,
 
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     double soft = 0;
-#endif
-#ifdef PERIODIC
-    double boxsize, boxhalf;
-
-    boxsize = All.BoxSize;
-    boxhalf = 0.5 * All.BoxSize;
 #endif
 
 #ifdef DISTORTIONTENSORPS
@@ -2560,7 +2538,7 @@ int force_treeev_shortrange(int target, int mode,
         LocalEvaluator * lv, void * unused)
 {
     struct NODE *nop = 0;
-    int no, ptype, nexp, tabindex, task, listindex = 0;
+    int no, ptype, tabindex, listindex = 0;
     int nnodesinlist = 0, ninteractions = 0;
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
     double pos_x, pos_y, pos_z, aold;
@@ -2586,13 +2564,6 @@ int force_treeev_shortrange(int target, int mode,
 
     pot = 0;
     
-#ifdef PERIODIC
-    double boxsize, boxhalf;
-
-    boxsize = All.BoxSize;
-    boxhalf = 0.5 * All.BoxSize;
-#endif
-
 #ifdef DISTORTIONTENSORPS
     for(i1 = 0; i1 < 3; i1++)
         for(i2 = 0; i2 < 3; i2++)

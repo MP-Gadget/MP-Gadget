@@ -143,7 +143,6 @@ void density_kernel_init_with_type(density_kernel_t * kernel, int type, double H
     kernel->H = H;
     kernel->HH = H * H;
     kernel->Hinv = 1. / H;
-    int nDim;
     kernel->type = type;
     double support = KERNELS[kernel->type].support;
     double sigma = KERNELS[kernel->type].sigma[NUMDIMS - 1];

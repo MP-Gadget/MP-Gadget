@@ -339,7 +339,7 @@ double domain_particle_costfactor(int i)
 int domain_decompose(void)
 {
 
-    int i, no, status;
+    int i, status;
     int64_t sumload;
     int maxload;
     double sumwork, sumcpu, sumcost, maxwork, cadj_SpeedFac;
@@ -665,7 +665,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
         *offset, *offset_sph, *offset_bh;
     int *count_recv, *count_recv_sph, *count_recv_bh,
         *offset_recv, *offset_recv_sph, *offset_recv_bh;
-    int i, n, ngrp, no, target;
+    int i, n, target;
     struct particle_data *partBuf;
     struct sph_particle_data *sphBuf;
     struct bh_particle_data *bhBuf;
@@ -1323,7 +1323,7 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
         MPI_Allgather(&N_bh, 1, MPI_INT, list_N_bh, 1, MPI_INT, MPI_COMM_WORLD);
         MPI_Allgather(&N_sph, 1, MPI_INT, list_N_sph, 1, MPI_INT, MPI_COMM_WORLD);
 
-        int flag, flagsum, ntoomany, ta, i, target;
+        int flag, flagsum, ntoomany, ta, i;
         int count_togo, count_toget, count_togo_bh, count_toget_bh, count_togo_sph, count_toget_sph;
 
         do

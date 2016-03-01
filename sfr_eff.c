@@ -25,15 +25,19 @@ static int stars_spawned;
 static double sum_sm;
 static double sum_mass_stars;
 
-static int get_sfr_condition(int i);
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 static void cooling_direct(int i);
-static void starformation(int i);
+#ifdef WINDS
 static int make_particle_wind(int i, double v, double vmean[3]);
+#endif
+#ifdef SFR
+static int get_sfr_condition(int i);
 static int make_particle_star(int i);
+static void starformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff);
+#endif
 
 
 #ifdef WINDS
@@ -1254,6 +1258,7 @@ void set_units_sfr(void)
 
 }
 
+#if defined SPH_GRAD_RHO && defined METALS
 static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)
 {
     /* column density from GradRho, copied from gadget-p; what is it
@@ -1268,6 +1273,7 @@ static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, do
     }
     return gradrho_mag; // *(Z/Zsolar) add metallicity dependence
 }
+#endif
 
 static double get_sfr_factor_due_to_h2(int i) {
     /*  Krumholz & Gnedin fitting function for f_H2 as a function of local

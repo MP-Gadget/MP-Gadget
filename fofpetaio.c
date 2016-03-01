@@ -24,9 +24,6 @@ static void build_buffer_fof(BigArray * array, IOTableEntry * ent);
 static void fof_return_particles();
 static void fof_distribute_particles();
 
-static int fof_select_particle(int i) {
-    return P[i].GrNr > 0;
-}
 static int fof_cmp_argind(const void *p1, const void * p2) {
     const int * i1 = p1;
     const int * i2 = p2;
@@ -140,7 +137,11 @@ static void fof_radix_origin(const void * c1, void * out, void * arg) {
     const struct PartIndex * pi = c1;
     *u = pi->origin;
 }
-
+#if 0
+/*Unused functions*/
+static int fof_select_particle(int i) {
+    return P[i].GrNr > 0;
+}
 static int fof_cmp_sortkey(const void * c1, const void * c2) {
     const struct PartIndex * p1 = c1;
     const struct PartIndex * p2 = c2;
@@ -151,6 +152,7 @@ static int fof_cmp_origin(const void * c1, const void * c2) {
     const struct PartIndex * p2 = c2;
     return (p1->origin > p2->origin) - (p1->origin < p2->origin);
 }
+#endif
 
 static void fof_distribute_particles() {
     int i;

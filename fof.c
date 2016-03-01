@@ -40,13 +40,12 @@ static struct fofdata_in
 }
 *FoFDataIn, *FoFDataGet;
 
-static struct fofdata_out
+struct fofdata_out
 {
     MyFloat Distance;
     MyIDType MinID;
     MyIDType MinIDTask;
-}
-*FoFDataResult, *FoFDataOut;
+};
 
 
 static struct fof_particle_list
@@ -1182,9 +1181,8 @@ static void fof_radix_FOF_GList_ExtCountMinID(const void * a, void * radix, void
 
 void fof_save_groups(int num)
 {
-    int i, j, start, lenloc, nprocgroup, masterTask, groupTask, ngr, totlen;
+    int i, j, start, lenloc, ngr, totlen;
     int64_t totNids;
-    char buf[500];
     double t0, t1;
 
     if(ThisTask == 0)
@@ -1361,9 +1359,8 @@ static int fof_nearest_evaluate(int target, int mode,
         LocalEvaluator * lv, int *ngblist);
 void fof_find_nearest_dmparticle(void)
 {
-    int i, j, n, dummy;
+    int i, n, iter;
     int64_t ntot;
-    int ndone, ndone_flag, ngrp, recvTask, place, nexport, nimport,  iter;
     Evaluator ev = {0};
     ev.ev_label = "FOF_FIND_NEAREST";
     ev.ev_evaluate = (ev_ev_func) fof_nearest_evaluate;
