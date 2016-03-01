@@ -112,7 +112,7 @@ void cooling_and_starformation(void)
 #ifdef MAGNETIC
         SPHP(i).XColdCloud = x;
 #endif
-//#if defined(WINDS_SH03) || defined(WINDS_VS08)
+#ifdef WINDS
         if(SPHP(i).DelayTime > 0) {
             double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
                 /*  the actual time-step */
@@ -130,7 +130,7 @@ void cooling_and_starformation(void)
         } else {
             SPHP(i).DelayTime = 0;
         }
-//#endif
+#endif
 
 #ifdef MAGNETIC
         x=0.;
@@ -210,6 +210,7 @@ void cooling_and_starformation(void)
         fflush(FdSfr);
     }
     walltime_measure("/Cooling/StarFormation");
+#ifdef WINDS
     /* now lets make winds. this has to be after NumPart is updated */
     if(!HAS(All.WindModel, WINDS_SUBGRID)) {
         int i;
@@ -294,6 +295,7 @@ void cooling_and_starformation(void)
         myfree(Ngblist);
     }
     walltime_measure("/Cooling/Wind");
+#endif
 }
 
 static void cooling_direct(int i) {
@@ -396,8 +398,10 @@ static int get_sfr_condition(int i) {
         flag = 1;
 #endif
 
+#ifdef WINDS
     if(SPHP(i).DelayTime > 0)
         flag = 1;		/* only normal cooling for particles in the wind */
+#endif
 
 #ifdef QUICK_LYALPHA
     temp = u_to_temp_fac * (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
@@ -411,6 +415,7 @@ static int get_sfr_condition(int i) {
     return flag;
 }
 
+#ifdef WINDS
 static int sfr_wind_isactive(int target) {
     if(P[target].Type == 4) {
         /* 
@@ -681,6 +686,7 @@ static int make_particle_wind(int i, double v, double vmean[3]) {
     }
     return 0;
 }
+#endif
 
 static int make_particle_star(int i) {
     fprintf(FdSfrDetails, "Star T %g %lu M %g RHOP %g P %g %g %g\n",
