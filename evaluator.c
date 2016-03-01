@@ -32,13 +32,9 @@ void ev_init_thread(Evaluator * ev, LocalEvaluator * lv) {
 }
 
 void ev_begin(Evaluator * ev) {
-    /* This is weird because of the comma on line 40*/
     All.BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + 
-                    sizeof(struct data_nodelist) +
-                    ev->ev_datain_elsize + ev->ev_dataout_elsize,
-                    sizemax(ev->ev_datain_elsize,
-                        ev->ev_dataout_elsize)));
+                    sizeof(struct data_nodelist) + ev->ev_datain_elsize + ev->ev_dataout_elsize);
     DataIndexTable =
         (struct data_index *) mymalloc("DataIndexTable", All.BunchSize * sizeof(struct data_index));
     DataNodeList =
