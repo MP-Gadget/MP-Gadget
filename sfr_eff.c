@@ -410,8 +410,12 @@ static int get_sfr_condition(int i) {
 #endif
 
 #ifdef QUICK_LYALPHA
-    temp = u_to_temp_fac * (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
-        GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
+    double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+    double unew = DMAX(All.MinEgySpec,
+            (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
+            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+
+    double temp = u_to_temp_fac * unew;
 
     if(SPHP(i).Density > All.OverDensThresh && temp < 1.0e5)
         flag = 0;
