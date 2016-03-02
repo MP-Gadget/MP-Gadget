@@ -12,7 +12,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
-#include "radixsort/radixsort.h"
+#include "mpsort/mpsort.h"
 
 /*! \file fof.c
  *  \brief parallel FoF group finder
@@ -1204,7 +1204,7 @@ void fof_save_groups(int num)
 #endif
     }
 
-    radix_sort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list),
+    mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list),
             fof_radix_FOF_GList_LocCountTaskDiffMinID, 24, NULL, MPI_COMM_WORLD);
 
     for(i = 0, ngr = 0; i < NgroupsExt; i++)
@@ -1232,7 +1232,7 @@ void fof_save_groups(int num)
     }
 
     /* bring the group list back into the original order */
-      radix_sort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), 
+      mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), 
             fof_radix_FOF_GList_ExtCountMinID, 16, NULL, MPI_COMM_WORLD);
 
     /* Assign the group numbers to the group properties array */
@@ -1248,7 +1248,7 @@ void fof_save_groups(int num)
     }
 
     /* sort the groups according to group-number */
-    radix_sort_mpi(Group, Ngroups, sizeof(struct group_properties), 
+    mpsort_mpi(Group, Ngroups, sizeof(struct group_properties), 
             fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
 
     /* fill in the offset-values */

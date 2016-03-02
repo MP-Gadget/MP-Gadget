@@ -9,7 +9,7 @@
 
 #include "petaio.h"
 #include "domain.h"
-#include "radixsort/radixsort.h"
+#include "mpsort/mpsort.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
@@ -1180,7 +1180,7 @@ void test_id_uniqueness(void)
     for(i = 0; i < NumPart; i++)
         ids[i] = P[i].ID;
 
-    radix_sort_mpi(ids, NumPart, sizeof(MyIDType), radix_id, 8, NULL, MPI_COMM_WORLD);
+    mpsort_mpi(ids, NumPart, sizeof(MyIDType), radix_id, 8, NULL, MPI_COMM_WORLD);
 
     for(i = 1; i < NumPart; i++)
         if(ids[i] == ids[i - 1])

@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "bigfile-mpi.h"
-#include "radixsort/radixsort.h"
+#include "mpsort/mpsort.h"
 
 #include "allvars.h"
 #include "proto.h"
@@ -175,7 +175,7 @@ static void fof_distribute_particles() {
     if(ThisTask == 0)
         printf("GrNrMax before exchange is %d\n", GrNrMaxGlobal);
     /* sort pi to decide targetTask */
-    radix_sort_mpi(pi, NpigLocal, sizeof(struct PartIndex), 
+    mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex), 
             fof_radix_sortkey, 8, NULL, MPI_COMM_WORLD);
 
 #pragma omp parallel for
@@ -199,7 +199,7 @@ static void fof_distribute_particles() {
         pi[i].targetTask = ThisTask;
     }
     /* return pi to the original processors */
-    radix_sort_mpi(pi, NpigLocal, sizeof(struct PartIndex), fof_radix_origin, 8, NULL, MPI_COMM_WORLD);
+    mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex), fof_radix_origin, 8, NULL, MPI_COMM_WORLD);
     for(i = 0; i < NpigLocal; i ++) {
         int index = pi[i].origin % All.MaxPart;
         P[index].targettask = pi[i].targetTask;
