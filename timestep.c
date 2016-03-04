@@ -565,22 +565,11 @@ void advance_and_find_timesteps(void)
             ti_step_old = P[i].dt_step;
             dt_step = ti_next_kick_global - P[i].Ti_begstep;
             P[i].dt_step = dt_step;
-            /*
-               dt_entr = (-ti_step_old / 2 + dt_step / 2) * All.Timebase_interval;
-               */
+
             time0 = P[i].Ti_begstep;
             time1_old = P[i].Ti_begstep + ti_step_old;
             time1_new = P[i].Ti_begstep + dt_step;
 
-            /* This part has still to be adapted ...
-#ifdef PETAPM
-if(All.ComovingIntegrationOn)
-dt_gravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
-get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
-else
-dt_gravkickB = (All.Ti_Current - (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2) * All.Timebase_interval;
-#endif
-*/
             if(All.ComovingIntegrationOn)
             {
                 dt_entr = dt_gravkick = dt_hydrokick = (-(time1_old - time0) / 2
@@ -1093,10 +1082,13 @@ int get_timestep(int p,		/*!< particle index */
     dt = All.MaxSizeTimestep;
 #endif
 
-
+    
 
     if(dt >= All.MaxSizeTimestep)
         dt = All.MaxSizeTimestep;
+
+    if(dt < All.MinSizeTimestep)
+        dt = All.MinSizeTimestep;
 
 
     if(dt >= dt_displacement)
