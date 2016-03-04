@@ -22,15 +22,6 @@ static int human_interaction();
 int stopflag = 0;
 void run(void)
 {
-#ifdef OLD_RESTART
-    char buf[200], stopfname[200], contfname[200];
-
-
-    sprintf(stopfname, "%sstop", All.OutputDir);
-    sprintf(contfname, "%scont", All.OutputDir);
-    unlink(contfname);
-
-#endif
     walltime_measure("/Misc");
 
 #ifdef DENSITY_BASED_SNAPS
@@ -102,62 +93,6 @@ void run(void)
             All.Ti_nextoutput = All.Ti_Current;
             /* next loop will write a new snapshot file */
         }
-#ifdef OLD_RESTART
-        /* Check whether we need to interrupt the run */
-        if(ThisTask == 0)
-        {
-            /* Is the stop-file present? If yes, interrupt the run. */
-            if((fd = fopen(stopfname, "r")))
-            {
-                fclose(fd);
-                stopflag = 1;
-                unlink(stopfname);
-            }
-
-            /* are we running out of CPU-time ? If yes, interrupt run. */
-            if(All.CT.ElapsedTime > 0.85 * All.TimeLimitCPU)
-            {
-                printf("reaching time-limit. stopping.\n");
-                stopflag = 2;
-            }
-        }
-
-        MPI_Bcast(&stopflag, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-        if(stopflag)
-        {
-            restart(0);		/* write restart file */
-            MPI_Barrier(MPI_COMM_WORLD);
-
-            if(stopflag == 2 && ThisTask == 0)
-            {
-                if((fd = fopen(contfname, "w")))
-                    fclose(fd);
-            }
-
-            return;
-        }
-
-        /* is it time to write a regular restart-file? (for security) */
-        if(ThisTask == 0)
-        {
-            if((All.CT.ElapsedTime - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile)
-            {
-                All.TimeLastRestartFile = All.CT.ElapsedTime;
-                stopflag = 3;
-            }
-            else
-                stopflag = 0;
-        }
-
-        MPI_Bcast(&stopflag, 1, MPI_INT, 0, MPI_COMM_WORLD);
-
-        if(stopflag == 3)
-        {
-            restart(0);		/* write an occasional restart file */
-            stopflag = 0;
-        }
-#endif /* old restart*/
         report_memory_usage("RUN");
     }
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
