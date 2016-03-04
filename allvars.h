@@ -152,9 +152,6 @@ typedef uint64_t peanokey;
 #define  OSCILLATOR_STRENGTH       0.41615
 #define  OSCILLATOR_STRENGTH_HeII  0.41615
 
-#ifdef NAVIERSTOKES
-#define  LOG_LAMBDA      37.8	/* logarithmic Coulomb factor */
-#endif
 #define  SEC_PER_MEGAYEAR   3.155e13
 #define  SEC_PER_YEAR       3.155e7
 
@@ -792,18 +789,6 @@ extern struct global_data_all_processes
 #endif
 #endif
 
-#ifdef NAVIERSTOKES
-    double NavierStokes_ShearViscosity;
-    double FractionSpitzerViscosity;
-    double ShearViscosityTemperature;
-#endif
-#ifdef NAVIERSTOKES_BULK
-    double NavierStokes_BulkViscosity;
-#endif
-#ifdef VISCOSITY_SATURATION
-    double IonMeanFreePath;
-#endif
-
 #ifdef EOS_DEGENERATE
     char EosTable[100];
     char EosSpecies[100];
@@ -985,21 +970,6 @@ extern struct sph_particle_data
         MyFloat CurlVel;     	        /*!< local velocity curl */
         MyFloat       Rot[3];		/*!< local velocity curl */
     } r;
-#else
-    union
-    {
-        MyFloat DV[3][3];
-        struct
-        {
-            MyFloat DivVel;
-            MyFloat CurlVel;
-            MyFloat StressDiag[3];
-            MyFloat StressOffDiag[3];
-#ifdef NAVIERSTOKES_BULK
-            MyFloat StressBulk;
-#endif
-        } s;
-    } u;
 #endif
 
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
@@ -1022,10 +992,6 @@ extern struct sph_particle_data
 #ifdef TIME_DEP_ART_VISC
     MyFloat alpha, Dtalpha;
 #endif
-#ifdef NS_TIMESTEP
-    MyFloat ViscEntropyChange;
-#endif
-
 #ifdef EOS_DEGENERATE
     MyFloat u;                            /* internal energy density */
     MyFloat temp;                         /* temperature */

@@ -269,72 +269,6 @@ void set_units(void)
 #if defined(SFR)
     set_units_sfr();
 #endif
-
-
-#define cm (All.HubbleParam/All.UnitLength_in_cm)
-#define g  (All.HubbleParam/All.UnitMass_in_g)
-#define s  (All.HubbleParam/All.UnitTime_in_s)
-#define erg (g*cm*cm/(s*s))
-#define keV (1.602e-9*erg)
-#define deg 1.0
-#define m_p (PROTONMASS * g)
-#define k_B (BOLTZMANN * erg / deg)
-
-#ifdef NAVIERSTOKES
-    /* Braginskii-Spitzer shear viscosity parametrization */
-    /* mu = 0.406 * m_p^0.5 * (k_b* T)^(5/2) / e^4 / logLambda  [g/cm/s] */
-    /* eta = frac * mu */
-
-    meanweight = 4.0 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* assuming full ionization */
-
-#ifdef NAVIERSTOKES_CONSTANT
-    All.NavierStokes_ShearViscosity = All.FractionSpitzerViscosity * 0.406 * pow(PROTONMASS, 0.5) * pow(BOLTZMANN * All.ShearViscosityTemperature, 5. / 2.) / pow(ELECTRONCHARGE, 4) / LOG_LAMBDA;	/*in cgs units */
-
-    if(ThisTask == 0)
-        printf("Constant shear viscosity in cgs units: eta = %g\n", All.NavierStokes_ShearViscosity);
-
-    All.NavierStokes_ShearViscosity *= All.UnitTime_in_s * All.UnitLength_in_cm / All.UnitMass_in_g / All.HubbleParam;	/* in internal code units */
-
-    if(ThisTask == 0)
-        printf("Constant shear viscosity in internal code units: eta = %g\n", All.NavierStokes_ShearViscosity);
-
-#else
-    All.NavierStokes_ShearViscosity = All.FractionSpitzerViscosity * 0.406 * pow(PROTONMASS, 0.5) * pow((meanweight * PROTONMASS * GAMMA_MINUS1), 5. / 2.) / pow(ELECTRONCHARGE, 4) / LOG_LAMBDA;	/*in cgs units */
-    /*T = mu*m_p*(gamma-1)/k_b * E * UnitEnergy/UnitMass */
-
-    All.NavierStokes_ShearViscosity *= pow((All.UnitEnergy_in_cgs / All.UnitMass_in_g), 5. / 2.);	/* now energy can be multiplied later in the internal code units */
-    All.NavierStokes_ShearViscosity *= All.UnitTime_in_s * All.UnitLength_in_cm / All.UnitMass_in_g / All.HubbleParam;	/* in internal code units */
-
-    if(ThisTask == 0)
-        printf("Variable shear viscosity in internal code units: eta = %g\n", All.NavierStokes_ShearViscosity);
-
-#endif
-
-#ifdef NAVIERSTOKES_BULK
-    if(ThisTask == 0)
-        printf("Costant bulk viscosity in internal code units: zeta = %g\n", All.NavierStokes_BulkViscosity);
-#endif
-
-#ifdef VISCOSITY_SATURATION
-    /* calculate ion mean free path assuming complete ionization: 
-       ion mean free path for hydrogen is similar to that of helium, 
-       thus we calculate only for hydrogen */
-    /* l_i = 3^(3/2)*(k*T)^2 / (4*\pi^(1/2)*ni*(Z*e)^4*lnL) */
-
-    All.IonMeanFreePath = pow(3.0, 1.5) / (4.0 * sqrt(M_PI) * pow(ELECTRONCHARGE, 4) * LOG_LAMBDA);
-
-    All.IonMeanFreePath *= pow(meanweight * PROTONMASS * GAMMA_MINUS1, 2) * pow((All.UnitEnergy_in_cgs / All.UnitMass_in_g), 2);	/*kT -> u */
-
-    All.IonMeanFreePath /= (HYDROGEN_MASSFRAC / PROTONMASS) *
-        (All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam);
-    /* n_H = rho * Hfr / mp *//* now is cgs units *///changed / to * in front of the unitdensity
-
-    All.IonMeanFreePath *= All.HubbleParam / All.UnitLength_in_cm;
-    /* in internal code units */
-#endif
-
-#endif
-
 }
 
 
@@ -964,24 +898,6 @@ void read_parameter_file(char *fname)
 #if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
         strcpy(tag[nt], "ReferenceGasMass");
         addr[nt] = &All.ReferenceGasMass;
-        id[nt++] = REAL;
-#endif
-
-#ifdef NAVIERSTOKES
-        strcpy(tag[nt], "FractionSpitzerViscosity");
-        addr[nt] = &All.FractionSpitzerViscosity;
-        id[nt++] = REAL;
-#endif
-
-#ifdef NAVIERSTOKES_CONSTANT
-        strcpy(tag[nt], "ShearViscosityTemperature");
-        addr[nt] = &All.ShearViscosityTemperature;
-        id[nt++] = REAL;
-#endif
-
-#ifdef NAVIERSTOKES_BULK
-        strcpy(tag[nt], "NavierStokes_BulkViscosity");
-        addr[nt] = &All.NavierStokes_BulkViscosity;
         id[nt++] = REAL;
 #endif
 

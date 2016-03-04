@@ -42,8 +42,6 @@ struct densdata_out
     MyDouble Ngb;
 #ifndef NAVIERSTOKES
     MyDouble Div, Rot[3];
-#else
-    MyFloat DV[3][3];
 #endif
 
 #ifdef BLACK_HOLES
@@ -337,13 +335,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
         EV_REDUCE(SPHP(place).r.Rot[0], remote->Rot[0]);
         EV_REDUCE(SPHP(place).r.Rot[1], remote->Rot[1]);
         EV_REDUCE(SPHP(place).r.Rot[2], remote->Rot[2]);
-#else
-        for(k = 0; k < 3; k++)
-        {
-            EV_REDUCE(SPHP(place).u.DV[k][0], remote->DV[k][0]);
-            EV_REDUCE(SPHP(place).u.DV[k][1], remote->DV[k][1]);
-            EV_REDUCE(SPHP(place).u.DV[k][2], remote->DV[k][2]);
-        }
 #endif
 
 #ifdef VOLUME_CORRECTION
@@ -524,16 +515,6 @@ static int density_evaluate(int target, int mode,
                         O->Rot[0] += (fac * (dz * dvy - dy * dvz));
                         O->Rot[1] += (fac * (dx * dvz - dz * dvx));
                         O->Rot[2] += (fac * (dy * dvx - dx * dvy));
-#else
-                        O->DV[0][0] -= fac * dx * dvx;
-                        O->DV[0][1] -= fac * dx * dvy;
-                        O->DV[0][2] -= fac * dx * dvz;
-                        O->DV[1][0] -= fac * dy * dvx;
-                        O->DV[1][1] -= fac * dy * dvy;
-                        O->DV[1][2] -= fac * dy * dvz;
-                        O->DV[2][0] -= fac * dz * dvx;
-                        O->DV[2][1] -= fac * dz * dvy;
-                        O->DV[2][2] -= fac * dz * dvz;
 #endif
                     }
                 }
@@ -672,30 +653,6 @@ static void density_post_process(int i) {
                     SPHP(i).r.Rot[2] * SPHP(i).r.Rot[2]) / SPHP(i).Density;
 
             SPHP(i).DivVel /= SPHP(i).Density;
-#else
-            for(k = 0; k < 3; k++)
-            {
-                O->DV[k][0] = SPHP(i).u.DV[k][0] / SPHP(i).Density;
-                O->DV[k][1] = SPHP(i).u.DV[k][1] / SPHP(i).Density;
-                O->DV[k][2] = SPHP(i).u.DV[k][2] / SPHP(i).Density;
-            }
-            SPHP(i).u.s.DivVel = O->DV[0][0] + O->DV[1][1] + O->DV[2][2];
-
-            SPHP(i).u.s.StressDiag[0] = 2 * O->DV[0][0] - 2.0 / 3 * SPHP(i).u.s.DivVel;
-            SPHP(i).u.s.StressDiag[1] = 2 * O->DV[1][1] - 2.0 / 3 * SPHP(i).u.s.DivVel;
-            SPHP(i).u.s.StressDiag[2] = 2 * O->DV[2][2] - 2.0 / 3 * SPHP(i).u.s.DivVel;
-
-            SPHP(i).u.s.StressOffDiag[0] = O->DV[0][1] + O->DV[1][0];	/* xy */
-            SPHP(i).u.s.StressOffDiag[1] = O->DV[0][2] + O->DV[2][0];	/* xz */
-            SPHP(i).u.s.StressOffDiag[2] = O->DV[1][2] + O->DV[2][1];	/* yz */
-
-#ifdef NAVIERSTOKES_BULK
-            SPHP(i).u.s.StressBulk = All.NavierStokes_BulkViscosity * SPHP(i).u.s.DivVel;
-#endif
-            double rotx = O->DV[1][2] - O->DV[2][1];
-            double roty = O->DV[2][0] - O->DV[0][2];
-            double rotz = O->DV[0][1] - O->DV[1][0];
-            SPHP(i).u.s.CurlVel = sqrt(rotx * rotx + roty * roty + rotz * rotz);
 #endif
 
 
@@ -877,11 +834,4 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
     }
 
 }
-
-#ifdef NAVIERSTOKES
-double get_shear_viscosity(int i)
-{
-    return All.NavierStokes_ShearViscosity;
-}
-#endif
 

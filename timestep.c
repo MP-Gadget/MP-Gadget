@@ -7,12 +7,12 @@
 #include "proto.h"
 #include "cosmology.h"
 
-/*! \file timestep.c 
+/*! \file timestep.c
  *  \brief routines for 'kicking' particles in
  *  momentum space and assigning new timesteps
  */
 
-static double fac2, fac3; 
+static double fac2, fac3;
 static double dt_displacement = 0;
 
 static double dt_gravkickA, dt_gravkickB;
@@ -481,7 +481,7 @@ void advance_and_find_timesteps(void)
                 + get_hydrokick_factor(time0, time1_new) / 2;
 
             /* This may now work in comoving runs */
-            /* WARNING: this velocity correction is inconsistent, 
+            /* WARNING: this velocity correction is inconsistent,
              * as the position of the particle was calculated with a "wrong" velocity before  */
             for(k = 0; k < 3; k++)
             {
@@ -649,10 +649,6 @@ int get_timestep(int p,		/*!< particle index */
 #endif
 #endif
 
-#ifdef NS_TIMESTEP
-    double dt_NS = 0;
-#endif
-
     if(flag <= 0)
     {
         ax = All.cf.a2inv * P[p].GravAccel[0];
@@ -739,16 +735,6 @@ int get_timestep(int p,		/*!< particle index */
             dt = dt_viscous;
 #endif
 
-#ifdef NS_TIMESTEP
-        if(fabs(SPHP(p).ViscEntropyChange))
-        {
-            dt_NS = VISC_TIMESTEP_PARAMETER * SPHP(p).Entropy / SPHP(p).ViscEntropyChange / All.cf.hubble;
-
-            if(dt_NS < dt)
-                dt = dt_NS;
-        }
-#endif
-
     }
 
 #ifdef BLACK_HOLES
@@ -776,7 +762,7 @@ int get_timestep(int p,		/*!< particle index */
     dt = All.MaxSizeTimestep;
 #endif
 
-    
+
 
     if(dt >= All.MaxSizeTimestep)
         dt = All.MaxSizeTimestep;

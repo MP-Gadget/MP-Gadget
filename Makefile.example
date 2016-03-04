@@ -76,13 +76,6 @@ OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding g
 
 #-------------------------------------- Viscous gas treatment 
 #OPT	+=  -DNAVIERSTOKES            # Braginskii-Spitzer parametrization of the shear viscosity: mu = f x T^{5/2}
-#OPT	+=  -DNAVIERSTOKES_CONSTANT   # Shear viscosity set constant for all gas particles
-#OPT	+=  -DNAVIERSTOKES_BULK       # Bulk viscosity set constant for all gas particles. To run with bulk visocity only one has to set shear viscosity to zero in the parameterfile.
-#OPT	+=  -DVISCOSITY_SATURATION    # Both shear and bulk viscosities are saturated, so that unphysical accelerations and entropy increases are avoided. Relevant for the cosmological simulations.
-#OPT	+=  -DNS_TIMESTEP             # Enables timestep criterion based on entropy increase due to internal friction forces
-#OPT	+=  -DOUTPUTSTRESS            # Outputs diagonal and offdiagonal components of viscous shear stress tensor
-#OPT	+=  -DOUTPUTBULKSTRESS        # Outputs viscous bulk stress tensor
-#OPT	+=  -DOUTPUTSHEARCOEFF        # Outputs variable shear viscosity coefficient in internal code units
 
 
 #-------------------------------------------- Things for special behaviour
