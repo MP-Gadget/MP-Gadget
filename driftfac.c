@@ -13,6 +13,15 @@
 static double logTimeBegin;
 static double logTimeMax;
 
+/*! table for the cosmological drift factors */
+static double DriftTable[DRIFT_TABLE_LENGTH];
+
+/*! table for the cosmological kick factor for gravitational forces */
+static double GravKickTable[DRIFT_TABLE_LENGTH];
+
+/*! table for the cosmological kick factor for hydrodynmical forces */
+static double HydroKickTable[DRIFT_TABLE_LENGTH];
+
 
 double drift_integ(double a, void *param)
 {
