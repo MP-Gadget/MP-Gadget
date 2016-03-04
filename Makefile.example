@@ -117,7 +117,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DREAD_HSML                     # reads hsml from IC file
 #OPT   	+=  -DADAPTIVE_GRAVSOFT_FORGAS      # allows variable softening length for gas particles (requires UNEQUALSOFTENINGLENGTH)
 #OPT	+=  -DADAPTIVE_GRAVSOFT_FORGAS_HSML # this sets the gravitational softening for SPH particles equal to the SPH smoothing (requires ADAPTIVE_GRAVSOFT_FORGAS)
-#OPT	+=  -DGENERATE_GAS_IN_ICS
 #OPT	+=  -DSPLIT_PARTICLE_TYPE=4+8
 #OPT    +=  -DNEUTRINOS                     # Option for special integration of light neutrino species 
 #OPT    +=  -DOMIT_NEUTRINOS_IN_SNAPS
@@ -134,12 +133,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DFORCE_EQUAL_TIMESTEPS
 
 #--------------------------------------- Options for simplified halo formation process in an Einstei-De Sitter (Newtonian) Universe
-#OPT	+= -DSHELL_CODE=200              #activate shell code, the value corresponds to the smoothing length for dM/dr calclulation
-                                         #the core softening length equals the halo particle softening length from parameterfile 
-                                         #this option replaces the GADGET Poisson solver by a simple 1D integration  
-#OPT	+= -DSIM_ADAPTIVE_SOFT=0.667     #set softening for shell code/Tree as fraction of current turnaround radius -> softened SIM
-                                         #the halo softening length value is used as the fraction value, e.g. 0.1 -> 10% of turnaround
-                                         #the epsilon value of the density perturbation needs to be specified for turnaround radius calc
 #OPT	+= -DPHYS_COMOVING_SOFT          #set softening for Tree as fixed fraction in comoving coordinates
 #OPT	+= -DREINIT_AT_TURNAROUND=0.667  #reinit phase-space distortion tensor when particles crosses the turnaround radius. 
                                          #the epsilon value of the density perturbation needs to be specified to calculate
@@ -147,31 +140,12 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT    += -DREINIT_AT_TURNAROUND_CMS    #calculate centre of mass within REINIT_AT_TURNAROUND_CMS fraction of turnaround radius
 #OPT	+= -DANALYTIC_TURNAROUND         #use analytic turnaround radius instead of the numerical one
 
-
-#--------------------------------------- Real Cosmic Rays
-#OPT    +=  -DJD_VTURB
-#OPT    +=  -DBP_REAL_CRs=10             # Number of energy bins for CRs
-
 #--------------------------------------- SPH viscosity options
 #OPT	+=  -DCONVENTIONAL_VISCOSITY     # enables the old viscosity
 #OPT	+=  -DTIME_DEP_ART_VISC          # Enables time dependend viscosity
 #OPT	+=  -DNO_SHEAR_VISCOSITY_LIMITER # Turns of the shear viscosity supression
 #OPT	+=  -DHIGH_ART_VISC_START        # Start with high rather than low viscosity
 #OPT	+=  -DALTVISCOSITY               # enables alternative viscosity based on div(v)
-
-
-#....................................... Induction equation stuff
-#OPT	+=  -DDIVBINDUCTION              # Turns on divB term in induction eq. (REMOVED)
-#OPT	+=  -DCORRECTDB                  # Turns on dW/dh correction in induction eq.
-
-#....................................... Force equation stuff
-#OPT	+=  -DMU0_UNITY                  # Sets \mu_0 to unity
-#OPT	+=  -DARTBPRES                   # Anti clumping term ala Morris (REMOVED)
-#OPT	+=  -DDIVBFORCE                  # Subtract div(B) force from M-tensor
-#OPT	+=  -DCORRECTBFRC                # Turns on dW/dh correction for B force 
-
-#....................................... Smoothing Options
-#OPT	+=  -DBSMOOTH                    # Turns on B field smoothing
 
 #....................................... Healpix stuff
 #OPT    +=  -DHEALPIX=1.05		 # Generates a healpix map, to retain particles in the 
@@ -182,33 +156,12 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #--------------------------------------- Glass making/ 2nd-order initial conditions
 #OPT	+=  -DMAKEGLASS
 
-#--------------------------------------- Raditive Transfer
-#OPT	+=  -DRADTRANSFER
-#OPT	+=  -DCG
-#OPT	+=  -DRADTRANSFER_FLUXLIMITER
-#OPT	+=  -DRADTRANSFER_MODIFY_EDDINGTON_TENSOR
-#OPT	+=  -DRT_COOLING_PHOTOHEATING
-#OPT	+=  -DRT_RAD_PRESSURE
-#OPT    +=  -DEDDINGTON_TENSOR_GAS
-#OPT	+=  -DEDDINGTON_TENSOR_STARS
-#OPT	+=  -DEDDINGTON_TENSOR_SFR
-#OPT    +=  -DEDDINGTON_TENSOR_BH
-#OPT	+=  -DRT_OUTPUT_ET
-
 #--------------------------------------- degenerate equation of state
 #OPT	+=  -DEOS_DEGENERATE
 #OPT	+=  -DEOS_COULOMB_CORRECTIONS
 #OPT	+=  -DEOS_NSPECIES=3
 #OPT	+=  -DWAKEUP=4.1           /* allows 2 timestep bins within kernel */
 #OPT	+=  -DRELAXOBJECT
-
-#--------------------------------------- nuclear network
-#OPT +=  -DNUCLEAR_NETWORK
-#OPT +=  -DFIXED_TEMPERATURE
-#OPT +=  -DNEGLECT_DTDY_TERMS
-#OPT +=  -DNETWORK_OUTPUT
-#OPT +=  -DNETWORK_OUTPUT_BINARY
-
 
 #--------------------------------------- Select target Computer
 include Makefile.$(SYSTYPE)
@@ -411,59 +364,4 @@ include $(VPATH)/Makefile.deps
 #                        but should be faster. It is recommended to set GENERATIONS equal
 #                        to 1 for maximum speed-up.
 #
-#     - TIDALTENSOR:     Calculates the tidal tensor for each particle. 
-
 ##################################################################################
-#
-#  Options for RT:
-#
-#  - RADTRANSFER        main switch; RT equation solved using the Jacobi iterative method
-#
-#  - CG                 RT equation solved with the Conjugate Gradient iterative method
-#
-#  - RADTRANSFER_FLUXLIMITER	intorduces a flux limiter, so that the Ifront speed does not exceed c
-#
-#  - RADTRANSFER_MODIFY_EDDINGTON_TENSOR	modifies the Eddingto tensor to the fully anisotropic version
-#
-#  - RT_PHOTOHEATING	includes photoheating
-#
-#  - RT_COOLING		includes cooling prcesses (only for tests)
-#
-#  - EDDINGTON_TENSOR_STARS	includes stars, but not sfr partices
-#
-#  - RT_COLLISIONAL_IONIZATION	includes collisional ionization
-#
-####################################################################################                 
-#
-#  Overview of options added for fine-grained phase-space analysis: (Mark)
-#
-#  * Static Logarithmic Potential with Core:
-#   - STATICLP
-#   - LP_V02
-#   - LP_RC2
-#   - LP_Q2
-#   - LP_P2=1.0
-#
-#  * Static "Sikivie 1" potential for inner caustic study  (see Natarajan&Sikivie,2006)
-#   - STATICSM
-#   - SM_V02=100.0
-#   - SM_a=0.285 
-#
-#  * Options for simplified halo formation process and related things
-#   - SHELL_CODE=200 
-#   - SIM_ADAPTIVE_SOFT     
-#   - REINIT_AT_TURNAROUND=0.667  
-#   - ANALYTIC_TURNAROUND
-#   - NO_CENTER_ANNIHILATION    
-#
-#  * Things for special behaviour
-#   - RADIAL_TREE
-#
-#  * Fine-grained phase space structure analysis 
-#   - DISTORTIONTENSORPS        
-#   - OUTPUT_DISTORTIONTENSORPS 
-#   - OUTPUT_TIDALTENSORPS     
-#   - CAUSTIC_FINDER=2+4+8+16+32 
-#   - ANNIHILATION_RADIATION  
-#   - OUTPUT_LAST_CAUSTIC  
-####################################################################################
