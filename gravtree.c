@@ -155,14 +155,11 @@ void gravity_tree(void)
     int counter;
     double min_time_first_phase, min_time_first_phase_glob;
 #endif
-#ifndef NOGRAVITY
+
     int Ewald_max;
 
     Evaluator ev[2] = {0};
 
-#endif
-
-#ifdef PETAPM
     ev[0].ev_label = "FORCETREE_SHORTRANGE";
     ev[0].ev_evaluate = (ev_ev_func) force_treeev_shortrange;
     ev[0].ev_alloc = NULL;
@@ -170,45 +167,18 @@ void gravity_tree(void)
     ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
     ev[0].UseNodeList = 1;
     Ewald_max = 0;
-#else
-    ev[0].ev_label = "FORCETREE";
-    ev[0].ev_evaluate = (ev_ev_func) force_treeevaluate;
-    ev[0].ev_alloc = NULL;
-    ev[0].ev_isactive = gravtree_isactive;
-    ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
-    ev[0].UseNodeList = 1;
-    Ewald_max = 0;
-#if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
-    ev[0].ev_label = "FORCETREE_EWALD";
-    ev[1].ev_evaluate = (ev_ev_func) force_treeev_ewald_correction;
-    ev[1].ev_alloc = NULL;
-    ev[1].ev_isactive = gravtree_isactive;
-    ev[1].ev_reduce = (ev_reduce_func) gravtree_reduce_ewald;
-    ev[1].UseNodeList = 1;
-    Ewald_max = 1;
-#endif
-#endif
+
     for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++) {
         ev[Ewald_iter].ev_datain_elsize = sizeof(struct gravitydata_in);
         ev[Ewald_iter].ev_dataout_elsize = sizeof(struct gravitydata_out);
         ev[Ewald_iter].ev_copy = (ev_copy_func) gravtree_copy;
     }
-#ifndef GRAVITY_CENTROID
+
     walltime_measure("/Misc");
 
     /* set new softening lengths */
-#ifndef SIM_ADAPTIVE_SOFT
-    if(All.ComovingIntegrationOn)
-        set_softenings();
-#endif
 
-#if PHYS_COMOVING_SOFT
     set_softenings();
-#endif
-
-#endif
-
-#ifndef NOGRAVITY
 
     /* allocate buffers to arrange communication */
     if(ThisTask == 0)
@@ -216,90 +186,16 @@ void gravity_tree(void)
 
     walltime_measure("/Misc");
 
-#if 0 //def SCF_HYBRID
-    int scf_counter;
-    /* 
-       calculates the following forces:
-       STAR<->STAR, STAR->DM (scf_counter=0)
-       DM<->DM (scf_counter=1)
-       */  
-
-    for(scf_counter = 0; scf_counter <= 1; scf_counter++)
-    {  
-        /* set DM mass to zero and set gravsum to zero */
-        if (scf_counter==0)
-        { 
-            for(i = 0; i < NumPart; i++)
-            {
-                if (P[i].Type==1) /* DM particle */
-                    P[i].Mass=0.0;
-
-                for(j = 0; j < 3; j++)
-                    P[i].GravAccelSum[j] = 0.0;	
-            }
-        }
-        /* set stellar mass to zero */    
-        if (scf_counter==1)
-        { 
-            for(i = 0; i < NumPart; i++)
-            {
-                if (P[i].Type==2) /* stellar particle */
-                    P[i].Mass=0.0;
-            }
-        }
-
-        /* particle masses changed, so reconstruct tree */
-        if(ThisTask == 0) 
-            printf("SCF Tree construction %d\n", scf_counter);
-        force_treebuild(NumPart, NULL);
-        if(ThisTask == 0)
-            printf("done.\n");    
-#endif
-        for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++)
-        {
-
-            ev_run(&ev[Ewald_iter]);
-            iter += ev[Ewald_iter].Niterations;
-            n_exported += ev[Ewald_iter].Nexport_sum;
-            N_nodesinlist += ev[Ewald_iter].Nnodesinlist; 
-        } /* Ewald_iter */
-
-#ifdef SCF_HYBRID
-        /* restore particle masses */
-        for(i = 0; i < NumPart; i++)
-            P[i].Mass=P[i].MassBackup;
-
-
-        /* add up accelerations from tree to AccelSum */
-        for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-        {
-            /* ignore STAR<-DM contribution */
-            if (scf_counter==1 && P[i].Type==2)
-            { 
-                continue;
-            }       
-            else 
-            {
-                for(j = 0; j < 3; j++)
-                    P[i].GravAccelSum[j] += P[i].GravAccel[j];
-            }
-        } 
-    } /* scf_counter */
-
-    /* set acceleration to summed up accelerations */
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+    for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++)
     {
-        for(j = 0; j < 3; j++)
-            P[i].GravAccel[j] = P[i].GravAccelSum[j];
-    }  
-#endif
 
+        ev_run(&ev[Ewald_iter]);
+        iter += ev[Ewald_iter].Niterations;
+        n_exported += ev[Ewald_iter].Nexport_sum;
+        N_nodesinlist += ev[Ewald_iter].Nnodesinlist; 
+    } /* Ewald_iter */
 
-#if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
     Ewaldcount = ev[1].Ninteractions;
-#else
-    Ewaldcount = 0;
-#endif
 
     if(header.flag_ic_info == FLAG_SECOND_ORDER_ICS)
     {
@@ -317,20 +213,6 @@ void gravity_tree(void)
     Costtotal = 0;
     /* now add things for comoving integration */
 
-#ifndef PERIODIC
-#ifndef PETAPM
-    if(All.ComovingIntegrationOn)
-    {
-        double fac = 0.5 * All.Hubble * All.Hubble * All.Omega0 / All.G;
-
-        for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-            for(j = 0; j < 3; j++)
-                P[i].GravAccel[j] += fac * P[i].Pos[j];
-    }
-#endif
-#endif
-
-
     int Nactive;
     /* doesn't matter which ev to use, they have the same ev_active*/
     int * queue = ev_get_queue(&ev[0], &Nactive);
@@ -346,16 +228,6 @@ void gravity_tree(void)
 
     if(ThisTask == 0)
         printf("tree is done.\n");
-
-#else /* gravity is switched off */
-
-    walltime_measure("/Misc");
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-        for(j = 0; j < 3; j++)
-            P[i].GravAccel[j] = 0;
-
-
-#endif /* end of NOGRAVITY */
 
     /* This code is removed for now gravity_static_potential(); */
 
@@ -490,9 +362,6 @@ void gravtree_reduce_ewald(int place, struct gravitydata_out * result, int mode)
 
 static int gravtree_isactive(int i) {
     int isactive = 1;
-#if defined(NEUTRINOS) && defined(PETAPM)
-    isactive = isactive && (P[i].Type != 2);
-#endif
 #ifdef BLACK_HOLES
     /* blackhole has not gravity, they move along to pot minimium */
     isactive = isactive && (P[i].Type != 5);
@@ -506,15 +375,9 @@ static void gravtree_post_process(int i) {
     if(! (header.flag_ic_info == FLAG_SECOND_ORDER_ICS && All.Ti_Current == 0 && RestartFlag == 0)) {
         /* to prevent that we overwrite OldAcc in the first evaluation for 2lpt ICs */
         double ax, ay, az;
-#ifdef PETAPM
         ax = P[i].GravAccel[0] + P[i].GravPM[0] / All.G;
         ay = P[i].GravAccel[1] + P[i].GravPM[1] / All.G;
         az = P[i].GravAccel[2] + P[i].GravPM[2] / All.G;
-#else
-        ax = P[i].GravAccel[0];
-        ay = P[i].GravAccel[1];
-        az = P[i].GravAccel[2];
-#endif
 
         P[i].OldAcc = sqrt(ax * ax + ay * ay + az * az);
     }
@@ -525,57 +388,12 @@ static void gravtree_post_process(int i) {
     /* remove self-potential */
     P[i].Potential += P[i].Mass / All.SofteningTable[P[i].Type];
 
-    if(All.ComovingIntegrationOn)
-        if(All.PeriodicBoundariesOn)
-            P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) *
-                pow(All.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G), 1.0 / 3);
+    P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) *
+        pow(All.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G), 1.0 / 3);
 
     P[i].Potential *= All.G;
 
-#ifdef PETAPM
     P[i].Potential += P[i].PM_Potential;	/* add in long-range potential */
-#endif
-
-    if(All.ComovingIntegrationOn)
-    {
-#ifndef PERIODIC
-        double fac, r2;
-
-        fac = -0.5 * All.Omega0 * All.Hubble * All.Hubble;
-
-        for(k = 0, r2 = 0; k < 3; k++)
-            r2 += P[i].Pos[k] * P[i].Pos[k];
-
-        P[i].Potential += fac * r2;
-#endif
-    }
-    else
-    {
-        double fac, r2;
-
-        fac = -0.5 * All.OmegaLambda * All.Hubble * All.Hubble;
-
-        if(fac != 0)
-        {
-            for(k = 0, r2 = 0; k < 3; k++)
-                r2 += P[i].Pos[k] * P[i].Pos[k];
-
-            P[i].Potential += fac * r2;
-        }
-    }
-
-    /* Finally, the following factor allows a computation of a cosmological simulation
-       with vacuum energy in physical coordinates */
-#ifndef PERIODIC
-#ifndef PETAPM
-    if(All.ComovingIntegrationOn == 0)
-    {
-        double fac = All.OmegaLambda * All.Hubble * All.Hubble;
-        for(j = 0; j < 3; j++)
-            P[i].GravAccel[j] += fac * P[i].Pos[j];
-    }
-#endif
-#endif
 
 }
 
@@ -587,95 +405,38 @@ void set_softenings(void)
 {
     int i;
 
-#if PHYS_COMOVING_SOFT
-    double art_a;
-#endif
-    if(All.ComovingIntegrationOn)
-    {
-        if(All.SofteningGas * All.Time > All.SofteningGasMaxPhys)
-            All.SofteningTable[0] = All.SofteningGasMaxPhys / All.Time;
-        else
-            All.SofteningTable[0] = All.SofteningGas;
-
-        if(All.SofteningHalo * All.Time > All.SofteningHaloMaxPhys)
-            All.SofteningTable[1] = All.SofteningHaloMaxPhys / All.Time;
-        else
-            All.SofteningTable[1] = All.SofteningHalo;
-
-        if(All.SofteningDisk * All.Time > All.SofteningDiskMaxPhys)
-            All.SofteningTable[2] = All.SofteningDiskMaxPhys / All.Time;
-        else
-            All.SofteningTable[2] = All.SofteningDisk;
-
-        if(All.SofteningBulge * All.Time > All.SofteningBulgeMaxPhys)
-            All.SofteningTable[3] = All.SofteningBulgeMaxPhys / All.Time;
-        else
-            All.SofteningTable[3] = All.SofteningBulge;
-
-        if(All.SofteningStars * All.Time > All.SofteningStarsMaxPhys)
-            All.SofteningTable[4] = All.SofteningStarsMaxPhys / All.Time;
-        else
-            All.SofteningTable[4] = All.SofteningStars;
-
-        if(All.SofteningBndry * All.Time > All.SofteningBndryMaxPhys)
-            All.SofteningTable[5] = All.SofteningBndryMaxPhys / All.Time;
-        else
-            All.SofteningTable[5] = All.SofteningBndry;
-#ifdef SINKS
-        All.SofteningTable[5] = All.SinkHsml / All.Time * All.HubbleParam;
-#endif
-    }
+    if(All.SofteningGas * All.Time > All.SofteningGasMaxPhys)
+        All.SofteningTable[0] = All.SofteningGasMaxPhys / All.Time;
     else
-    {
-#if PHYS_COMOVING_SOFT
-        art_a = pow(All.Time / All.TimeMax, 2.0 / 3.0);
-
-        if(ThisTask == 0)
-            printf("Test aart: %f SoftInPhys %f \n", art_a, All.SofteningGas * art_a);
-
-        /* in the Initial Parameters one enters Softening* in Comoving Units and SofttenigMaxPhys is in Phys :P
-         * and now we want all in Physical Units!*/
-        if(All.SofteningGas * art_a > All.SofteningGasMaxPhys)
-            All.SofteningTable[0] = All.SofteningGasMaxPhys;
-        else
-            All.SofteningTable[0] = All.SofteningGas * art_a;
-
-        if(All.SofteningHalo * art_a > All.SofteningHaloMaxPhys)
-            All.SofteningTable[1] = All.SofteningHaloMaxPhys;
-        else
-            All.SofteningTable[1] = All.SofteningHalo * art_a;
-
-        if(All.SofteningDisk * art_a > All.SofteningDiskMaxPhys)
-            All.SofteningTable[2] = All.SofteningDiskMaxPhys;
-        else
-            All.SofteningTable[2] = All.SofteningDisk * art_a;
-
-        if(All.SofteningBulge * art_a > All.SofteningBulgeMaxPhys)
-            All.SofteningTable[3] = All.SofteningBulgeMaxPhys;
-        else
-            All.SofteningTable[3] = All.SofteningBulge * art_a;
-
-        if(All.SofteningStars * art_a > All.SofteningStarsMaxPhys)
-            All.SofteningTable[4] = All.SofteningStarsMaxPhys;
-        else
-            All.SofteningTable[4] = All.SofteningStars * art_a;
-
-        if(All.SofteningBndry * art_a > All.SofteningBndryMaxPhys)
-            All.SofteningTable[5] = All.SofteningBndryMaxPhys;
-        else
-            All.SofteningTable[5] = All.SofteningBndry * art_a;
-#else
         All.SofteningTable[0] = All.SofteningGas;
+
+    if(All.SofteningHalo * All.Time > All.SofteningHaloMaxPhys)
+        All.SofteningTable[1] = All.SofteningHaloMaxPhys / All.Time;
+    else
         All.SofteningTable[1] = All.SofteningHalo;
+
+    if(All.SofteningDisk * All.Time > All.SofteningDiskMaxPhys)
+        All.SofteningTable[2] = All.SofteningDiskMaxPhys / All.Time;
+    else
         All.SofteningTable[2] = All.SofteningDisk;
+
+    if(All.SofteningBulge * All.Time > All.SofteningBulgeMaxPhys)
+        All.SofteningTable[3] = All.SofteningBulgeMaxPhys / All.Time;
+    else
         All.SofteningTable[3] = All.SofteningBulge;
+
+    if(All.SofteningStars * All.Time > All.SofteningStarsMaxPhys)
+        All.SofteningTable[4] = All.SofteningStarsMaxPhys / All.Time;
+    else
         All.SofteningTable[4] = All.SofteningStars;
+
+    if(All.SofteningBndry * All.Time > All.SofteningBndryMaxPhys)
+        All.SofteningTable[5] = All.SofteningBndryMaxPhys / All.Time;
+    else
         All.SofteningTable[5] = All.SofteningBndry;
 #ifdef SINKS
-        All.SofteningTable[5] = All.SinkHsml;
+    All.SofteningTable[5] = All.SinkHsml / All.Time * All.HubbleParam;
 #endif
-#endif
-    }
 
     for(i = 0; i < 6; i++)
         All.ForceSoftening[i] = 2.8 * All.SofteningTable[i];

@@ -186,16 +186,9 @@ static void real_drift_particle(int i, int time1)
     if(time1 == time0)
         return;
 
-    if(All.ComovingIntegrationOn)
-    {
-        dt_drift = get_drift_factor(time0, time1);
-        dt_gravkick = get_gravkick_factor(time0, time1);
-        dt_hydrokick = get_hydrokick_factor(time0, time1);
-    }
-    else
-    {
-        dt_drift = dt_gravkick = dt_hydrokick = (time1 - time0) * All.Timebase_interval;
-    }
+    dt_drift = get_drift_factor(time0, time1);
+    dt_gravkick = get_gravkick_factor(time0, time1);
+    dt_hydrokick = get_hydrokick_factor(time0, time1);
 
 #ifdef LIGHTCONE
     double oldpos[3];
@@ -227,14 +220,9 @@ static void real_drift_particle(int i, int time1)
 #ifndef HPM
     if(P[i].Type == 0)
     {
-#ifdef PETAPM
         for(j = 0; j < 3; j++)
             SPHP(i).VelPred[j] +=
                 (P[i].GravAccel[j] + P[i].GravPM[j]) * dt_gravkick + SPHP(i).HydroAccel[j] * dt_hydrokick;
-#else
-        for(j = 0; j < 3; j++)
-            SPHP(i).VelPred[j] += P[i].GravAccel[j] * dt_gravkick + SPHP(i).HydroAccel[j] * dt_hydrokick;
-#endif
 
         SPHP(i).Density *= exp(-SPHP(i).DivVel * dt_drift);
         //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * dt_drift);
@@ -316,7 +304,6 @@ void move_particles(int time1)
  *  has been called, a new domain decomposition should be done, which will
  *  also force a new tree construction.
  */
-#ifdef PERIODIC
 void do_box_wrapping(void)
 {
     int i;
@@ -349,7 +336,6 @@ void do_box_wrapping(void)
         }
     }
 }
-#endif
 
 
 

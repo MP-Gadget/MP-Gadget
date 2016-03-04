@@ -85,32 +85,9 @@ void begrun(void)
     lightcone_init();
 #endif
 
-#ifdef PERIODIC
-#ifndef PETAPM
-    ewald_init();
-#endif
-#endif
-
-#ifdef PERIODIC
     boxSize = All.BoxSize;
     boxHalf = 0.5 * All.BoxSize;
     inverse_boxSize = 1. / boxSize;
-#ifdef LONG_X
-    boxHalf_X = boxHalf * LONG_X;
-    boxSize_X = boxSize * LONG_X;
-    inverse_boxSize_X = 1. / boxSize_X;
-#endif
-#ifdef LONG_Y
-    boxHalf_Y = boxHalf * LONG_Y;
-    boxSize_Y = boxSize * LONG_Y;
-    inverse_boxSize_Y = 1. / boxSize_Y;
-#endif
-#ifdef LONG_Z
-    boxHalf_Z = boxHalf * LONG_Z;
-    boxSize_Z = boxSize * LONG_Z;
-    inverse_boxSize_Z = 1. / boxSize_Z;
-#endif
-#endif
 
 #ifdef TIME_DEP_ART_VISC
     All.ViscSource = All.ViscSource0 / log((GAMMA + 1) / (GAMMA - 1));
@@ -121,10 +98,8 @@ void begrun(void)
 
     gsl_rng_set(random_generator, 42);	/* start-up seed */
 
-#ifdef PETAPM
     if(RestartFlag != 3 && RestartFlag != 4)
         long_range_init();
-#endif
 
 #ifdef EOS_DEGENERATE
     eos_init(All.EosTable, All.EosSpecies);
@@ -234,10 +209,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
 
     open_outputfiles();
 
-#ifdef PETAPM
-    long_range_init_regionsize();
-#endif
-
     reconstruct_timebins();
 
 #ifdef TWODIMS
@@ -267,8 +238,7 @@ Note:  All.PartAllocFactor is treated in restart() separately.
 #endif
 
 
-    if(All.ComovingIntegrationOn)
-        init_drift_table();
+    init_drift_table();
 
     if(RestartFlag == 2)
         All.Ti_nextoutput = find_next_outputtime(All.Ti_Current + 100);
@@ -850,10 +820,6 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.BoxSize;
         id[nt++] = REAL;
 
-        strcpy(tag[nt], "PeriodicBoundariesOn");
-        addr[nt] = &All.PeriodicBoundariesOn;
-        id[nt++] = INT;
-
         strcpy(tag[nt], "MaxMemSizePerCore");
         addr[nt] = &All.MaxMemSizePerCore;
         id[nt++] = INT;
@@ -905,11 +871,10 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "ErrTolTheta");
         addr[nt] = &All.ErrTolTheta;
         id[nt++] = REAL;
-#ifdef PETAPM
+
         strcpy(tag[nt], "Nmesh");
         addr[nt] = &All.Nmesh;
         id[nt++] = INT;
-#endif 
 
         strcpy(tag[nt], "ErrTolForceAcc");
         addr[nt] = &All.ErrTolForceAcc;
@@ -994,10 +959,6 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.MaxNumNgbDeviationStart;
         id[nt++] = REAL;
 #endif
-
-        strcpy(tag[nt], "ComovingIntegrationOn");
-        addr[nt] = &All.ComovingIntegrationOn;
-        id[nt++] = INT;
 
         strcpy(tag[nt], "ICFormat");
         addr[nt] = &All.ICFormat;
@@ -1630,38 +1591,6 @@ void read_parameter_file(char *fname)
 #endif
 
 #endif
-#ifdef PERIODIC
-    if(All.PeriodicBoundariesOn == 0)
-    {
-        if(ThisTask == 0)
-        {
-            printf("Code was compiled with periodic boundary conditions switched on.\n");
-            printf("You must set `PeriodicBoundariesOn=1', or recompile the code.\n");
-        }
-        endrun(0);
-    }
-#else
-    if(All.PeriodicBoundariesOn == 1)
-    {
-        if(ThisTask == 0)
-        {
-            printf("Code was compiled with periodic boundary conditions switched off.\n");
-            printf("You must set `PeriodicBoundariesOn=0', or recompile the code.\n");
-        }
-        endrun(0);
-    }
-#endif
-
-#ifdef EDDINGTON_TENSOR_BH
-#ifndef BLACK_HOLES
-    if(ThisTask == 0)
-    {
-        printf("Code was compiled with EDDINGTON_TENSOR_BH, but not with BLACK_HOLES.\n");
-        printf("Switch on BLACK_HOLES.\n");
-    }
-    endrun(0);
-#endif
-#endif
 
     if(All.TypeOfTimestepCriterion >= 3)
     {
@@ -1865,10 +1794,7 @@ void readjust_timebase(double TimeMax_old, double TimeMax_new)
         endrun(556);
     }
 
-    if(All.ComovingIntegrationOn)
-        ti_end = (int64_t) (log(TimeMax_new / All.TimeBegin) / All.Timebase_interval);
-    else
-        ti_end = (int64_t) ((TimeMax_new - All.TimeBegin) / All.Timebase_interval);
+    ti_end = (int64_t) (log(TimeMax_new / All.TimeBegin) / All.Timebase_interval);
 
     while(ti_end > TIMEBASE)
     {
@@ -1877,10 +1803,8 @@ void readjust_timebase(double TimeMax_old, double TimeMax_new)
         ti_end /= 2;
         All.Ti_Current /= 2;
 
-#ifdef PETAPM
         All.PM_Ti_begstep /= 2;
         All.PM_Ti_endstep /= 2;
-#endif
 
         for(i = 0; i < NumPart; i++)
         {

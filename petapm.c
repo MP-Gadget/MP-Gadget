@@ -1,4 +1,3 @@
-#ifdef PETAPM
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,8 +5,6 @@
 #include <math.h>
 /* do NOT use complex.h it breaks the code */
 
-//#include "allvars.h"
-//#include "proto.h"
 #include "petapm.h"
 #include "openmpsort.h"
 
@@ -918,7 +915,6 @@ static int64_t reduce_int64(int64_t input) {
     MPI_Allreduce(&input, &result, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
     return result;
 }
-#endif
 
 /** Some FFT notes
  *

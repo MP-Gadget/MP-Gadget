@@ -1,4 +1,3 @@
-#ifdef PETAPM
 #ifndef PETAPM_ORDER
 #define PETAPM_ORDER 1
 #warning Using low resolution force differentiation kernel. Consider using -DPETAPM_ORDER=3
@@ -360,4 +359,3 @@ static void readout_force_z(int i, double * mesh, double weight) {
     P[i].GravPM[2] += weight * mesh[0];
 }
 
-#endif

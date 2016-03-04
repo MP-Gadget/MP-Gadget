@@ -481,11 +481,10 @@ static int density_evaluate(int target, int mode,
                 double dy = I->Pos[1] - P[j].Pos[1];
                 double dz = I->Pos[2] - P[j].Pos[2];
 
-#ifdef PERIODIC			/*  now find the closest image in the given box size  */
-                dx = NEAREST_X(dx);
-                dy = NEAREST_Y(dy);
-                dz = NEAREST_Z(dz);
-#endif
+                dx = NEAREST(dx);
+                dy = NEAREST(dy);
+                dz = NEAREST(dz);
+
                 double r2 = dx * dx + dy * dy + dz * dz;
 
                 double r = sqrt(r2);

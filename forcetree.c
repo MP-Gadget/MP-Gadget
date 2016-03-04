@@ -1636,16 +1636,8 @@ static void real_force_drift_node(int no, int time1)
         Nodes[no].u.d.bitflags &= (~(1 << BITFLAG_NODEHASBEENKICKED));
     }
 
-    if(All.ComovingIntegrationOn)
-    {
-        dt_drift_hmax = get_drift_factor(Nodes[no].Ti_current, time1);
-        dt_drift = dt_drift_hmax;
-    }
-    else
-    {
-        dt_drift_hmax = (time1 - Nodes[no].Ti_current) * All.Timebase_interval;
-        dt_drift = dt_drift_hmax;
-    }
+    dt_drift_hmax = get_drift_factor(Nodes[no].Ti_current, time1);
+    dt_drift = dt_drift_hmax;
 
     for(j = 0; j < 3; j++)
         Nodes[no].u.d.s[j] += Extnodes[no].vs[j] * dt_drift;
@@ -2173,11 +2165,10 @@ int force_treeevaluate(int target, int mode,
 #endif
             }
 
-#if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
             dx = NEAREST(dx);
             dy = NEAREST(dy);
             dz = NEAREST(dz);
-#endif
+
             r2 = dx * dx + dy * dy + dz * dz;
 
 
@@ -2320,11 +2311,9 @@ int force_treeevaluate(int target, int mode,
 #ifdef SCALARFIELD
             if(ptype != 0)	/* we have a dark matter particle as target */
             {
-#if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
                 dx_dm = NEAREST(dx_dm);
                 dy_dm = NEAREST(dy_dm);
                 dz_dm = NEAREST(dz_dm);
-#endif
                 r2 = dx_dm * dx_dm + dy_dm * dy_dm + dz_dm * dz_dm;
 
                 r = sqrt(r2);
@@ -2385,7 +2374,6 @@ int force_treeevaluate(int target, int mode,
     return ninteractions;
 }
 
-#ifdef PETAPM
 /*! In the TreePM algorithm, the tree is walked only locally around the
  *  target coordinate.  Tree nodes that fall outside a box of half
  *  side-length Rcut= RCUT*ASMTH*MeshSize can be discarded. The short-range
@@ -2477,11 +2465,11 @@ int force_treeev_shortrange(int target, int mode,
                 dx = P[no].Pos[0] - pos_x;
                 dy = P[no].Pos[1] - pos_y;
                 dz = P[no].Pos[2] - pos_z;
-#ifdef PERIODIC
+
                 dx = NEAREST(dx);
                 dy = NEAREST(dy);
                 dz = NEAREST(dz);
-#endif
+
                 r2 = dx * dx + dy * dy + dz * dz;
 
                 mass = P[no].Mass;
@@ -2581,42 +2569,31 @@ int force_treeev_shortrange(int target, int mode,
                 }
 #endif
 
-#ifdef PERIODIC
                 dx = NEAREST(dx);
                 dy = NEAREST(dy);
                 dz = NEAREST(dz);
-#endif
                 r2 = dx * dx + dy * dy + dz * dz;
 
                 if(r2 > rcut2)
                 {
                     /* check whether we can stop walking along this branch */
                     eff_dist = rcut + 0.5 * nop->len;
-#ifdef PERIODIC
                     dist = NEAREST(nop->center[0] - pos_x);
-#else
-                    dist = nop->center[0] - pos_x;
-#endif
+
                     if(dist < -eff_dist || dist > eff_dist)
                     {
                         no = nop->u.d.sibling;
                         continue;
                     }
-#ifdef PERIODIC
                     dist = NEAREST(nop->center[1] - pos_y);
-#else
-                    dist = nop->center[1] - pos_y;
-#endif
+
                     if(dist < -eff_dist || dist > eff_dist)
                     {
                         no = nop->u.d.sibling;
                         continue;
                     }
-#ifdef PERIODIC
                     dist = NEAREST(nop->center[2] - pos_z);
-#else
-                    dist = nop->center[2] - pos_z;
-#endif
+
                     if(dist < -eff_dist || dist > eff_dist)
                     {
                         no = nop->u.d.sibling;
@@ -2743,11 +2720,9 @@ int force_treeev_shortrange(int target, int mode,
 #ifdef SCALARFIELD
             if(ptype != 0)	/* we have a dark matter particle as target */
             {
-#ifdef PERIODIC
                 dx_dm = NEAREST(dx_dm);
                 dy_dm = NEAREST(dy_dm);
                 dz_dm = NEAREST(dz_dm);
-#endif
                 r2 = dx_dm * dx_dm + dy_dm * dy_dm + dz_dm * dz_dm;
                 r = sqrt(r2);
                 if(r >= h)
@@ -2806,8 +2781,6 @@ int force_treeev_shortrange(int target, int mode,
     lv->Nnodesinlist = nnodesinlist;
     return ninteractions;
 }
-
-#endif
 
 
 /*! This function allocates the memory used for storage of the tree and of
@@ -2903,130 +2876,6 @@ void force_treefree(void)
         tree_allocated_flag = 0;
     }
 }
-
-
-
-
-/*! This function does the force computation with direct summation for the
- *  specified particle in the communication buffer. This can be useful for
- *  debugging purposes, in particular for explicit checks of the force
- *  accuracy.
- */
-#ifdef FORCETEST
-int force_treeev_direct(int target, int mode)
-{
-    double epsilon;
-    double h, h_inv, dx, dy, dz, r, r2, u, r_inv, fac;
-    int i, ptype;
-    double pos_x, pos_y, pos_z;
-    double acc_x, acc_y, acc_z;
-
-#ifdef PERIODIC
-    double fcorr[3];
-#endif
-#ifdef PERIODIC
-    double boxsize, boxhalf;
-
-    boxsize = All.BoxSize;
-    boxhalf = 0.5 * All.BoxSize;
-#endif
-    acc_x = 0;
-    acc_y = 0;
-    acc_z = 0;
-    if(mode == 0)
-    {
-        pos_x = P[target].Pos[0];
-        pos_y = P[target].Pos[1];
-        pos_z = P[target].Pos[2];
-        ptype = P[target].Type;
-    }
-    else
-    {
-        pos_x = GravDataGet[target].Pos[0];
-        pos_y = GravDataGet[target].Pos[1];
-        pos_z = GravDataGet[target].Pos[2];
-#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
-        ptype = GravDataGet[target].Type;
-#else
-        ptype = P[0].Type;
-#endif
-    }
-
-
-    for(i = 0; i < NumPart; i++)
-    {
-        epsilon = DMAX(All.ForceSoftening[P[i].Type], All.ForceSoftening[ptype]);
-        h = epsilon;
-        h_inv = 1 / h;
-        dx = P[i].Pos[0] - pos_x;
-        dy = P[i].Pos[1] - pos_y;
-        dz = P[i].Pos[2] - pos_z;
-#ifdef PERIODIC
-        while(dx > boxhalf)
-            dx -= boxsize;
-        while(dy > boxhalf)
-            dy -= boxsize;
-        while(dz > boxhalf)
-            dz -= boxsize;
-        while(dx < -boxhalf)
-            dx += boxsize;
-        while(dy < -boxhalf)
-            dy += boxsize;
-        while(dz < -boxhalf)
-            dz += boxsize;
-#endif
-        r2 = dx * dx + dy * dy + dz * dz;
-        r = sqrt(r2);
-        u = r * h_inv;
-        if(u >= 1)
-        {
-            r_inv = 1 / r;
-            fac = P[i].Mass * r_inv * r_inv * r_inv;
-        }
-        else
-        {
-            if(u < 0.5)
-                fac = P[i].Mass * h_inv * h_inv * h_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
-            else
-                fac =
-                    P[i].Mass * h_inv * h_inv * h_inv * (21.333333333333 -
-                            48.0 * u + 38.4 * u * u -
-                            10.666666666667 * u * u *
-                            u - 0.066666666667 / (u * u * u));
-        }
-
-        acc_x += dx * fac;
-        acc_y += dy * fac;
-        acc_z += dz * fac;
-#ifdef PERIODIC
-        if(u > 1.0e-5)
-        {
-            ewald_corr(dx, dy, dz, fcorr);
-            acc_x += P[i].Mass * fcorr[0];
-            acc_y += P[i].Mass * fcorr[1];
-            acc_z += P[i].Mass * fcorr[2];
-        }
-#endif
-    }
-
-
-    if(mode == 0)
-    {
-        P[target].GravAccelDirect[0] = acc_x;
-        P[target].GravAccelDirect[1] = acc_y;
-        P[target].GravAccelDirect[2] = acc_z;
-    }
-    else
-    {
-        GravDataResult[target].Acc[0] = acc_x;
-        GravDataResult[target].Acc[1] = acc_y;
-        GravDataResult[target].Acc[2] = acc_z;
-    }
-
-
-    return NumPart;
-}
-#endif
 
 
 /*! This function dumps some of the basic particle data to a file. In case

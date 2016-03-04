@@ -23,17 +23,9 @@ void compute_global_quantities_of_system(void)
 
 
 
-  if(All.ComovingIntegrationOn)
-    {
-      a1 = All.Time;
-      a2 = All.Time * All.Time;
-      a3 = All.Time * All.Time * All.Time;
-    }
-  else
-    {
-      a1 = a2 = a3 = 1;
-    }
-
+  a1 = All.Time;
+  a2 = All.Time * All.Time;
+  a3 = All.Time * All.Time * All.Time;
 
   for(n = 0; n < 6; n++)
     {
@@ -55,17 +47,11 @@ void compute_global_quantities_of_system(void)
       dt_step = P[i].dt_step;
 #endif
 
-      if(All.ComovingIntegrationOn)
-	{
 	  dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
 	  dt_gravkick = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
 	    get_gravkick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
 	  dt_hydrokick = get_hydrokick_factor(P[i].Ti_begstep, All.Ti_Current) -
 	    get_hydrokick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
-	}
-      else
-	dt_entr = dt_gravkick = dt_hydrokick =
-	  (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
 
       for(j = 0; j < 3; j++)
 	{
@@ -76,16 +62,11 @@ void compute_global_quantities_of_system(void)
       if(P[i].Type == 0)
 	entr = SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr;
 
-#ifdef PETAPM
-      if(All.ComovingIntegrationOn)
 	dt_gravkick = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
 	  get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
-      else
-	dt_gravkick = (All.Ti_Current - (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2) * All.Timebase_interval;
 
       for(j = 0; j < 3; j++)
-	vel[j] += P[i].GravPM[j] * dt_gravkick;
-#endif
+        vel[j] += P[i].GravPM[j] * dt_gravkick;
 
       sys.EnergyKinComp[P[i].Type] +=
 	0.5 * P[i].Mass * (vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]) / a2;

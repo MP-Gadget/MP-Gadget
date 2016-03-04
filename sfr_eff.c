@@ -393,9 +393,8 @@ static int get_sfr_condition(int i) {
     if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
         flag = 0;
 
-    if(All.ComovingIntegrationOn)
-        if(SPHP(i).Density < All.OverDensThresh)
-            flag = 1;
+    if(SPHP(i).Density < All.OverDensThresh)
+        flag = 1;
 
 #ifdef BLACK_HOLES
     if(P[i].Mass == 0)
@@ -511,11 +510,9 @@ static int sfr_wind_ev_weight(int target, int mode,
                 double dy = I->Pos[1] - P[j].Pos[1];
                 double dz = I->Pos[2] - P[j].Pos[2];
 
-#ifdef PERIODIC			/*  now find the closest image in the given box size  */
-                dx = NEAREST_X(dx);
-                dy = NEAREST_Y(dy);
-                dz = NEAREST_Z(dz);
-#endif
+                dx = NEAREST(dx);
+                dy = NEAREST(dy);
+                dz = NEAREST(dz);
                 double r2 = dx * dx + dy * dy + dz * dz;
 
                 if(P[j].Type == 0) {
@@ -599,11 +596,9 @@ static int sfr_wind_evaluate(int target, int mode,
                 double dy = I->Pos[1] - P[j].Pos[1];
                 double dz = I->Pos[2] - P[j].Pos[2];
 
-#ifdef PERIODIC			/*  now find the closest image in the given box size  */
-                dx = NEAREST_X(dx);
-                dy = NEAREST_Y(dy);
-                dz = NEAREST_Z(dz);
-#endif
+                dx = NEAREST(dx);
+                dy = NEAREST(dy);
+                dz = NEAREST(dz);
                 double r2 = dx * dx + dy * dy + dz * dz;
                 if(r2 > I->Hsml * I->Hsml) continue;
 
@@ -942,17 +937,11 @@ void init_clouds(void)
         u4 *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
 
-        if(All.ComovingIntegrationOn)
-            dens = 1.0e6 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
-        else
-            dens = 1.0e6 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
+        dens = 1.0e6 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
 
-        if(All.ComovingIntegrationOn)
-        {
-            /* to be guaranteed to get z=0 rate */
-            set_global_time(1.0);
-            IonizeParams();
-        }
+        /* to be guaranteed to get z=0 rate */
+        set_global_time(1.0);
+        IonizeParams();
 
         ne = 1.0;
 
@@ -1051,12 +1040,8 @@ void init_clouds(void)
 
         }
 
-        if(All.ComovingIntegrationOn)
-        {
-            set_global_time(All.TimeBegin);
-            IonizeParams();
-        }
-
+        set_global_time(All.TimeBegin);
+        IonizeParams();
     }
 }
 
@@ -1071,12 +1056,9 @@ void integrate_sfr(void)
     u4 = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * 1.0e4;
     u4 *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
-    if(All.ComovingIntegrationOn)
-    {
-        /* to be guaranteed to get z=0 rate */
-        set_global_time(1.0);
-        IonizeParams();
-    }
+    /* to be guaranteed to get z=0 rate */
+    set_global_time(1.0);
+    IonizeParams();
 
     struct UVBG uvbg;
     GetGlobalUVBG(&uvbg);
@@ -1201,11 +1183,8 @@ void integrate_sfr(void)
     }
 
 
-    if(All.ComovingIntegrationOn)
-    {
-        set_global_time(All.TimeBegin);
-        IonizeParams();
-    }
+    set_global_time(All.TimeBegin);
+    IonizeParams();
 
     if(ThisTask == 0)
         fclose(fd);
@@ -1292,9 +1271,8 @@ static double get_sfr_factor_due_to_h2(int i) {
 static double get_sfr_factor_due_to_selfgravity(int i) {
 #ifdef SPH_GRAD_RHO
     double divv = SPHP(i).DivVel * All.cf.a2inv; 
-    if(All.ComovingIntegrationOn) {
-        divv += 3.0*All.cf.hubble_a2; // hubble-flow correction
-    }
+
+    divv += 3.0*All.cf.hubble_a2; // hubble-flow correction
 
     if(HAS(All.StarformationCriterion, SFR_CRITERION_CONVERGENT_FLOW)) {
         if( divv>=0 ) return 0; // restrict to convergent flows (optional) //
@@ -1307,24 +1285,17 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
     double alpha_vir = 0.2387 * dv2abs/(All.G * SPHP(i).Density*All.cf.a3inv);
 
     double y = 1.0;
-    if(All.ComovingIntegrationOn)
-    {
-        if((alpha_vir < 1.0) 
-        || (SPHP(i).Density * All.cf.a3inv > 100. * All.PhysDensThresh)
-        )  {
-            y = 66.7;
-        } else {
-            y = 0.1;
-        }
-        // PFH: note the latter flag is an arbitrary choice currently set 
-        // -by hand- to prevent runaway densities from this prescription! //
+
+    if((alpha_vir < 1.0) 
+    || (SPHP(i).Density * All.cf.a3inv > 100. * All.PhysDensThresh)
+    )  {
+        y = 66.7;
     } else {
-        if(alpha_vir < 1.0) {
-            y = 66.7;
-        } else {
-            y = 0.1;
-        }
+        y = 0.1;
     }
+    // PFH: note the latter flag is an arbitrary choice currently set 
+    // -by hand- to prevent runaway densities from this prescription! //
+
     if (HAS(All.StarformationCriterion, SFR_CRITERION_CONTINUOUS_CUTOFF)) {
         // continuous cutoff w alpha_vir instead of sharp (optional) //
         y *= 1.0/(1.0 + alpha_vir); 

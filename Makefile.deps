@@ -16,7 +16,7 @@ OBJS  =  \
 	 evaluator.o \
 	 gravtree.o hydra.o  driftfac.o darkenergy.o \
 	 gravpm.o \
-	 forcetree.o ewald.o peano.o \
+	 forcetree.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o
 

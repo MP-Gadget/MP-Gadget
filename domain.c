@@ -123,9 +123,8 @@ void domain_Decomposition(void)
         rearrange_particle_sequence();
 #endif
 
-#ifdef PERIODIC
         do_box_wrapping();	/* map the particles back onto the box */
-#endif
+
         All.NumForcesSinceLastDomainDecomp = 0;
 
         if(ThisTask == 0)

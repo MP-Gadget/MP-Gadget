@@ -190,8 +190,6 @@ void fof_make_black_holes(void);
 int io_compare_P_GrNr_ID(const void *a, const void *b);
 
 
-void long_range_init_regionsize(void);
-
 int metals_compare_key(const void *a, const void *b);
 void enrichment_evaluate(int target, int mode);
 
@@ -411,14 +409,6 @@ double pow(double, double);
 
 void long_range_init(void);
 void long_range_force(void);
-void pm_init_periodic(void);
-void pmforce_periodic(int mode, int *typelist);
-void pm_init_regionsize(void);
-void pm_init_nonperiodic(void);
-int pmforce_nonperiodic(int grnr);
-
-int pmpotential_nonperiodic(int grnr);
-void pmpotential_periodic(void);
 
 void readjust_timebase(double TimeMax_old, double TimeMax_new);
 

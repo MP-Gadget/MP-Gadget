@@ -66,20 +66,10 @@ void init(void)
     IonizeParams();
 #endif
 
-    if(All.ComovingIntegrationOn)
-    {
-        All.Timebase_interval = (log(All.TimeMax) - log(All.TimeBegin)) / TIMEBASE;
-        All.Ti_Current = 0;
-        a3 = All.Time * All.Time * All.Time;
-        atime = All.Time;
-    }
-    else
-    {
-        All.Timebase_interval = (All.TimeMax - All.TimeBegin) / TIMEBASE;
-        All.Ti_Current = 0;
-        a3 = 1;
-        atime = 1;
-    }
+    All.Timebase_interval = (log(All.TimeMax) - log(All.TimeBegin)) / TIMEBASE;
+    All.Ti_Current = 0;
+    a3 = All.Time * All.Time * All.Time;
+    atime = All.Time;
 
 #ifdef RADTRANSFER
     All.Radiation_Ti_begstep = 0;
@@ -113,9 +103,7 @@ void init(void)
     All.Cadj_Cost = 1.0e-30;
     All.Cadj_Cpu = 1.0e-3;
 
-    if(All.ComovingIntegrationOn)
-        if(All.PeriodicBoundariesOn == 1)
-            check_omega();
+    check_omega();
 
     All.TimeLastStatistics = All.TimeBegin - All.TimeBetStatistics;
 #ifdef BLACK_HOLES
@@ -133,10 +121,9 @@ void init(void)
             P[i].DM_Hsml = -1;
 #endif
 
-#ifdef PETAPM
         for(j = 0; j < 3; j++)
             P[i].GravPM[j] = 0;
-#endif
+
         P[i].Ti_begstep = 0;
         P[i].Ti_current = 0;
         P[i].DensityIterationDone = 0;
@@ -177,9 +164,7 @@ void init(void)
 
     reconstruct_timebins();
 
-#ifdef PETAPM
     All.PM_Ti_endstep = All.PM_Ti_begstep = 0;
-#endif
 
     for(i = 0; i < N_sph; i++)	/* initialize sph_properties */
     {
@@ -540,12 +525,8 @@ void setup_smoothinglengths(void)
         }
 
         double a3;
-        if(All.ComovingIntegrationOn) {
-            a3 = All.Time * All.Time * All.Time;
-        }
-        else {
-            a3 = 1;
-        }
+        a3 = All.Time * All.Time * All.Time;
+
         /* initialization of the entropy variable is a little trickier in this version of SPH, 
            since we need to make sure it 'talks to' the density appropriately */
 

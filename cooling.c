@@ -587,13 +587,10 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
 
         Lambda = LambdaExc + LambdaIon + LambdaRec + LambdaFF;
 
-        if(All.ComovingIntegrationOn)
-        {
-            redshift = 1 / All.Time - 1;
-            double LambdaCmptn = 5.65e-36 * y.ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
+        redshift = 1 / All.Time - 1;
+        double LambdaCmptn = 5.65e-36 * y.ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
 
-            Lambda += LambdaCmptn;
-        }
+        Lambda += LambdaCmptn;
 
         Heat = 0;
         if(uvbg->J_UV != 0)
@@ -618,12 +615,9 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
         LambdaFF =
             1.42e-27 * sqrt(T) * (1.1 + 0.34 * exp(-(5.5 - logT) * (5.5 - logT) / 3)) * (y.nHp + 4 * y.nHepp) * y.ne;
 
-        if(All.ComovingIntegrationOn)
-        {
-            redshift = 1 / All.Time - 1;
-            /* add inverse Compton cooling off the microwave background */
-            LambdaCmptn = 5.65e-36 * y.ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
-        }
+        redshift = 1 / All.Time - 1;
+        /* add inverse Compton cooling off the microwave background */
+        LambdaCmptn = 5.65e-36 * y.ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
 
         Lambda = LambdaFF + LambdaCmptn;
     }
@@ -965,11 +959,6 @@ static void IonizeParamsTable(void)
     double logz, dzlow, dzhi;
     double redshift;
 
-    if(!All.ComovingIntegrationOn) {
-        memset(&GlobalUVBG, 0, sizeof(GlobalUVBG));
-        return;
-    }
-
     redshift = 1 / All.Time - 1;
 
     logz = log10(redshift + 1.0);
@@ -1023,74 +1012,72 @@ void IonizeParamsFunction(void)
 
     memset(&GlobalUVBG, 0, sizeof(GlobalUVBG));
 
-    if(All.ComovingIntegrationOn)	/* analytically compute params from power law J_nu */
-    {
-        redshift = 1 / All.Time - 1;
+    redshift = 1 / All.Time - 1;
 
-        if(redshift >= 6)
-            GlobalUVBG.J_UV = 0.;
+    if(redshift >= 6)
+        GlobalUVBG.J_UV = 0.;
+    else
+    {
+        if(redshift >= 3)
+            GlobalUVBG.J_UV = 4e-22 / (1 + redshift);
         else
         {
-            if(redshift >= 3)
-                GlobalUVBG.J_UV = 4e-22 / (1 + redshift);
+            if(redshift >= 2)
+                GlobalUVBG.J_UV = 1e-22;
             else
-            {
-                if(redshift >= 2)
-                    GlobalUVBG.J_UV = 1e-22;
-                else
-                    GlobalUVBG.J_UV = 1.e-22 * pow(3.0 / (1 + redshift), -3.0);
-            }
+                GlobalUVBG.J_UV = 1.e-22 * pow(3.0 / (1 + redshift), -3.0);
         }
-
-        if(GlobalUVBG.J_UV == 0)
-            return;
-
-
-        a0 = 6.30e-18;
-        planck = 6.6262e-27;
-        ev = 1.6022e-12;
-        e0_H = 13.6058 * ev;
-        e0_He = 24.59 * ev;
-        e0_Hep = 54.4232 * ev;
-
-        gint = 0.0;
-        eint = 0.0;
-        nint = 5000;
-        at = 1. / ((double) nint);
-
-        for(i = 1; i <= nint; i++)
-        {
-            t = (double) i;
-            t = (t - 0.5) * at;
-            tinv = 1. / t;
-            eps = sqrt(tinv - 1.);
-            fac = exp(4. - 4. * atan(eps) / eps) / (1. - exp(-2. * M_PI / eps)) * pow(t, UVALPHA + 3.);
-            gint += fac * at;
-            eint += fac * (tinv - 1.) * at;
-        }
-
-        GlobalUVBG.gJH0 = a0 * gint / planck;
-        GlobalUVBG.epsH0 = a0 * eint * (e0_H / planck);
-        GlobalUVBG.gJHep = GlobalUVBG.gJH0 * pow(e0_H / e0_Hep, UVALPHA) / 4.0;
-        GlobalUVBG.epsHep = GlobalUVBG.epsH0 * pow((e0_H / e0_Hep), UVALPHA - 1.) / 4.0;
-
-        at = 7.83e-18;
-        beta = 1.66;
-        s = 2.05;
-
-        GlobalUVBG.gJHe0 = (at / planck) * pow((e0_H / e0_He), UVALPHA) *
-            (beta / (UVALPHA + s) + (1. - beta) / (UVALPHA + s + 1));
-        GlobalUVBG.epsHe0 = (e0_He / planck) * at * pow(e0_H / e0_He, UVALPHA) *
-            (beta / (UVALPHA + s - 1) + (1 - 2 * beta) / (UVALPHA + s) - (1 - beta) / (UVALPHA + s + 1));
-
-        pi = M_PI;
-        GlobalUVBG.gJH0 *= 4. * pi * GlobalUVBG.J_UV;
-        GlobalUVBG.gJHep *= 4. * pi * GlobalUVBG.J_UV;
-        GlobalUVBG.gJHe0 *= 4. * pi * GlobalUVBG.J_UV;
-        GlobalUVBG.epsH0 *= 4. * pi * GlobalUVBG.J_UV;
-        GlobalUVBG.epsHep *= 4. * pi * GlobalUVBG.J_UV;
-        GlobalUVBG.epsHe0 *= 4. * pi * GlobalUVBG.J_UV;
     }
+
+    if(GlobalUVBG.J_UV == 0)
+        return;
+
+
+    a0 = 6.30e-18;
+    planck = 6.6262e-27;
+    ev = 1.6022e-12;
+    e0_H = 13.6058 * ev;
+    e0_He = 24.59 * ev;
+    e0_Hep = 54.4232 * ev;
+
+    gint = 0.0;
+    eint = 0.0;
+    nint = 5000;
+    at = 1. / ((double) nint);
+
+    for(i = 1; i <= nint; i++)
+    {
+        t = (double) i;
+        t = (t - 0.5) * at;
+        tinv = 1. / t;
+        eps = sqrt(tinv - 1.);
+        fac = exp(4. - 4. * atan(eps) / eps) / (1. - exp(-2. * M_PI / eps)) * pow(t, UVALPHA + 3.);
+        gint += fac * at;
+        eint += fac * (tinv - 1.) * at;
+    }
+
+    GlobalUVBG.gJH0 = a0 * gint / planck;
+    GlobalUVBG.epsH0 = a0 * eint * (e0_H / planck);
+    GlobalUVBG.gJHep = GlobalUVBG.gJH0 * pow(e0_H / e0_Hep, UVALPHA) / 4.0;
+    GlobalUVBG.epsHep = GlobalUVBG.epsH0 * pow((e0_H / e0_Hep), UVALPHA - 1.) / 4.0;
+
+    at = 7.83e-18;
+    beta = 1.66;
+    s = 2.05;
+
+    GlobalUVBG.gJHe0 = (at / planck) * pow((e0_H / e0_He), UVALPHA) *
+        (beta / (UVALPHA + s) + (1. - beta) / (UVALPHA + s + 1));
+    GlobalUVBG.epsHe0 = (e0_He / planck) * at * pow(e0_H / e0_He, UVALPHA) *
+        (beta / (UVALPHA + s - 1) + (1 - 2 * beta) / (UVALPHA + s) - (1 - beta) / (UVALPHA + s + 1));
+
+    pi = M_PI;
+    GlobalUVBG.gJH0 *= 4. * pi * GlobalUVBG.J_UV;
+    GlobalUVBG.gJHep *= 4. * pi * GlobalUVBG.J_UV;
+    GlobalUVBG.gJHe0 *= 4. * pi * GlobalUVBG.J_UV;
+    GlobalUVBG.epsH0 *= 4. * pi * GlobalUVBG.J_UV;
+    GlobalUVBG.epsHep *= 4. * pi * GlobalUVBG.J_UV;
+    GlobalUVBG.epsHe0 *= 4. * pi * GlobalUVBG.J_UV;
+
 }
 
 

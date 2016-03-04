@@ -55,17 +55,10 @@
 #include "assert.h"
 
 
-#ifdef PERIODIC
 #define NEAREST_X(x) (((x)>boxHalf_X)?((x)-boxSize_X):(((x)<-boxHalf_X)?((x)+boxSize_X):(x)))
 #define NEAREST_Y(y) (((y)>boxHalf_Y)?((y)-boxSize_Y):(((y)<-boxHalf_Y)?((y)+boxSize_Y):(y)))
 #define NEAREST_Z(z) (((z)>boxHalf_Z)?((z)-boxSize_Z):(((z)<-boxHalf_Z)?((z)+boxSize_Z):(z)))
 #define NEAREST(x) (((x)>boxHalf)?((x)-boxSize):(((x)<-boxHalf)?((x)+boxSize):(x)))
-#else
-#define NEAREST_X(x) (x)
-#define NEAREST_Y(x) (x)
-#define NEAREST_Z(x) (x)
-#define NEAREST(x) (x)
-#endif
 
 
 #define  GADGETVERSION   "3.0"	/*!< code version string */
@@ -332,44 +325,7 @@ static inline int IMIN(int a, int b) {
     return b;
 }
 
-#ifdef PERIODIC
 extern MyDouble boxSize, boxHalf, inverse_boxSize;
-#ifdef LONG_X
-extern MyDouble boxSize_X, boxHalf_X, inverse_boxSize_X;
-#else
-#define boxSize_X boxSize
-#define boxHalf_X boxHalf
-#define inverse_boxSize_X inverse_boxSize
-#endif
-#ifdef LONG_Y
-extern MyDouble boxSize_Y, boxHalf_Y, inverse_boxSize_Y;
-#else
-#define boxSize_Y boxSize
-#define boxHalf_Y boxHalf
-#define inverse_boxSize_Y inverse_boxSize
-#endif
-#ifdef LONG_Z
-extern MyDouble boxSize_Z, boxHalf_Z, inverse_boxSize_Z;
-#else
-#define boxSize_Z boxSize
-#define boxHalf_Z boxHalf
-#define inverse_boxSize_Z inverse_boxSize
-#endif
-#endif
-
-static inline double NGB_PERIODIC_LONG_XYZ(MyDouble x, MyDouble boxHalf, MyDouble boxSize) {
-    double xtmp = fabs(x);
-#ifdef PERIODIC
-    if(xtmp > boxHalf) return boxSize - xtmp;
-    return xtmp;
-#else
-    return xtmp;
-#endif
-}
-
-#define NGB_PERIODIC_LONG_X(x) NGB_PERIODIC_LONG_XYZ(x, boxHalf_X, boxSize_X)
-#define NGB_PERIODIC_LONG_Y(x) NGB_PERIODIC_LONG_XYZ(x, boxHalf_Y, boxSize_Y)
-#define NGB_PERIODIC_LONG_Z(x) NGB_PERIODIC_LONG_XYZ(x, boxHalf_Z, boxSize_Z)
 
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 #define FACT2 0.86602540        /* FACT2 = 0.5 * sqrt(3) */
@@ -687,8 +643,6 @@ extern struct global_data_all_processes
 
     /* Code options */
 
-    int ComovingIntegrationOn;	/*!< flags that comoving integration is enabled */
-    int PeriodicBoundariesOn;	/*!< flags that periodic boundaries are enabled */
     int ResubmitOn;		/*!< flags that automatic resubmission of job to queue system is enabled */
     int TypeOfOpeningCriterion;	/*!< determines tree cell-opening criterion: 0 for Barnes-Hut, 1 for relative
                                   criterion */
@@ -734,13 +688,11 @@ extern struct global_data_all_processes
     int Ti_Current;		/*!< current time on integer timeline */
     int Ti_nextoutput;		/*!< next output time on integer timeline */
 
-#ifdef PETAPM
     int Nmesh;
     int PM_Ti_endstep, PM_Ti_begstep;
     double Asmth[2], Rcut[2];
     double Corner[2][3], UpperCorner[2][3], Xmintot[2][3], Xmaxtot[2][3];
     double TotalMeshSize[2];
-#endif
 
     int Ti_nextlineofsight;
 #ifdef OUTPUTLINEOFSIGHT
@@ -1055,9 +1007,9 @@ extern struct particle_data
 #ifdef OPENMP_USE_SPINLOCK
     pthread_spinlock_t SpinLock;
 #endif
-#ifdef PETAPM
+
     int RegionInd; /* which region the particle belongs to */
-#endif
+
     MyDouble Pos[3];   /*!< particle position at its current time */
     MyDouble Mass;     /*!< particle mass */
     struct {
@@ -1077,12 +1029,9 @@ extern struct particle_data
     MyIDType SwallowID; /* who will swallow this particle */
     MyDouble Vel[3];   /*!< particle velocity at its current time */
     MyFloat       GravAccel[3];		/*!< particle acceleration due to gravity */
-#ifdef PETAPM
+
     MyFloat GravPM[3];		/*!< particle acceleration due to long-range PM gravity force */
-#endif
-#ifdef FORCETEST
-    MyFloat GravAccelDirect[3];	/*!< particle acceleration calculated by direct summation */
-#endif
+
     MyFloat       Potential;		/*!< gravitational potential */
 
     MyFloat OldAcc;			/*!< magnitude of old gravitational force. Used in relative opening

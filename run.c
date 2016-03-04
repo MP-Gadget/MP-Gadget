@@ -331,13 +331,8 @@ void find_next_sync_point_and_drift(void)
 #ifdef SNAP_SET_TG
     double a3inv, hubble_param2, nh, nh_max, nh_glob_max;
 
-    if(All.ComovingIntegrationOn)
-    {
-        a3inv = 1.0 / (All.Time * All.Time * All.Time);
-        hubble_param2 = All.HubbleParam * All.HubbleParam;
-    }
-    else
-        a3inv = hubble_param2 = 1.0;
+    a3inv = 1.0 / (All.Time * All.Time * All.Time);
+    hubble_param2 = All.HubbleParam * All.HubbleParam;
 
     for(i = 0, nh_max = 0; i < N_sph; i++)
     {
@@ -374,10 +369,8 @@ void find_next_sync_point_and_drift(void)
         All.Ti_Current = All.Ti_nextoutput;
 
         double nexttime;
-        if(All.ComovingIntegrationOn)
-            nexttime = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
-        else
-            nexttime = All.TimeBegin + All.Ti_Current * All.Timebase_interval;
+
+        nexttime = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
 
         set_global_time(nexttime);
 
@@ -397,10 +390,8 @@ void find_next_sync_point_and_drift(void)
     All.Ti_Current = ti_next_kick_global;
 
     double nexttime;
-    if(All.ComovingIntegrationOn)
-        nexttime = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
-    else
-        nexttime = All.TimeBegin + All.Ti_Current * All.Timebase_interval;
+
+    nexttime = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
 
     set_global_time(nexttime);
 
@@ -647,10 +638,7 @@ int find_next_outputtime(int ti_curr)
 
             if(time >= All.TimeBegin && time <= All.TimeMax)
             {
-                if(All.ComovingIntegrationOn)
-                    ti = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
-                else
-                    ti = (int) ((time - All.TimeBegin) / All.Timebase_interval);
+                ti = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
 
                 if(ti >= ti_curr)
                 {
@@ -671,27 +659,13 @@ int find_next_outputtime(int ti_curr)
     }
     else
     {
-        if(All.ComovingIntegrationOn)
+        if(All.TimeBetSnapshot <= 1.0)
         {
-            if(All.TimeBetSnapshot <= 1.0)
-            {
-                printf("TimeBetSnapshot > 1.0 required for your simulation.\n");
-                endrun(13123);
-            }
-        }
-        else
-        {
-            if(All.TimeBetSnapshot <= 0.0)
-            {
-                printf("TimeBetSnapshot > 0.0 required for your simulation.\n");
-                endrun(13123);
-            }
+            printf("TimeBetSnapshot > 1.0 required for your simulation.\n");
+            endrun(13123);
         }
 #ifdef SNAP_SET_TG
-        if(All.ComovingIntegrationOn)
-            time = All.TimeBegin * All.TimeBetSnapshot;
-        else
-            time = All.TimeBegin + All.TimeBetSnapshot;
+        time = All.TimeBegin * All.TimeBetSnapshot;
 #else
         time = All.TimeOfFirstSnapshot;
 #endif
@@ -699,10 +673,7 @@ int find_next_outputtime(int ti_curr)
 
         while(time < All.TimeBegin)
         {
-            if(All.ComovingIntegrationOn)
-                time *= All.TimeBetSnapshot;
-            else
-                time += All.TimeBetSnapshot;
+            time *= All.TimeBetSnapshot;
 
             iter++;
 
@@ -719,25 +690,13 @@ int find_next_outputtime(int ti_curr)
 
         t_ff = sqrt(3.0 * M_PI / 32.0 / GRAVITY / rho);
 
-        if(All.ComovingIntegrationOn)
-        {
-            time = pow(3.0 / 2.0 * HUBBLE * All.HubbleParam * sqrt(All.Omega0) * ff_frac * t_ff + pow(All.Time, 3.0 / 2.0), 2.0 / 3.0);
+        time = pow(3.0 / 2.0 * HUBBLE * All.HubbleParam * sqrt(All.Omega0) * ff_frac * t_ff + pow(All.Time, 3.0 / 2.0), 2.0 / 3.0);
 
-            ti_next = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
-        }
-        else
-        {
-            time = All.Time + ff_frac * t_ff / All.UnitTime_in_s;
-
-            ti_next = (int) ((time - All.TimeBegin) / All.Timebase_interval);
-        }
+        ti_next = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
 #else
         while(time <= All.TimeMax)
         {
-            if(All.ComovingIntegrationOn)
-                ti = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
-            else
-                ti = (int) ((time - All.TimeBegin) / All.Timebase_interval);
+            ti = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
 
             if(ti >= ti_curr)
             {
@@ -745,10 +704,7 @@ int find_next_outputtime(int ti_curr)
                 break;
             }
 
-            if(All.ComovingIntegrationOn)
-                time *= All.TimeBetSnapshot;
-            else
-                time += All.TimeBetSnapshot;
+            time *= All.TimeBetSnapshot;
 
             iter++;
 
@@ -771,10 +727,7 @@ int find_next_outputtime(int ti_curr)
     }
     else
     {
-        if(All.ComovingIntegrationOn)
-            next = All.TimeBegin * exp(ti_next * All.Timebase_interval);
-        else
-            next = All.TimeBegin + ti_next * All.Timebase_interval;
+        next = All.TimeBegin * exp(ti_next * All.Timebase_interval);
 
         if(ThisTask == 0)
             printf("\nSetting next time for snapshot file to Time_next= %g  (DumpFlag=%d)\n\n", next, DumpFlag);
@@ -822,25 +775,17 @@ void every_timestep_stuff(void)
         char buf[1024];
         
         char extra[1024] = {0};
-#ifdef PETAPM
+
         if(All.PM_Ti_endstep == All.Ti_Current)
             strcat(extra, "PM-Step");
-#endif
 
-        if(All.ComovingIntegrationOn)
-        {
-            z = 1.0 / (All.Time) - 1;
-            sprintf(buf, "\nBegin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                        All.NumCurrentTiStep, All.Time, z,
-                        GlobNumForceUpdate,
-                        All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep), 
-                        extra);
-        } else {
-            sprintf(buf , "\nBegin Step %d, Time: %g, Nf = %014ld, Systemstep: %g, status:%s\n", All.NumCurrentTiStep,
-                    All.Time, GlobNumForceUpdate,
-                    All.TimeStep,
+        z = 1.0 / (All.Time) - 1;
+        sprintf(buf, "\nBegin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
+                    All.NumCurrentTiStep, All.Time, z,
+                    GlobNumForceUpdate,
+                    All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep), 
                     extra);
-        }
+
         fprintf(FdInfo, "%s", buf);
         printf("%s", buf);
 

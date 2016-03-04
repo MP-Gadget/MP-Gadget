@@ -493,11 +493,10 @@ static int hydro_evaluate(int target, int mode,
                 double dx = I->Pos[0] - P[j].Pos[0];
                 double dy = I->Pos[1] - P[j].Pos[1];
                 double dz = I->Pos[2] - P[j].Pos[2];
-#ifdef PERIODIC			/*  now find the closest image in the given box size  */
-                dx = NEAREST_X(dx);
-                dy = NEAREST_Y(dy);
-                dz = NEAREST_Z(dz);
-#endif
+
+                dx = NEAREST(dx);
+                dy = NEAREST(dy);
+                dz = NEAREST(dz);
                 double r2 = dx * dx + dy * dy + dz * dz;
                 density_kernel_init(&kernel_j, P[j].Hsml);
                 if(r2 > 0 && (r2 < kernel_i.HH || r2 < kernel_j.HH))
@@ -520,11 +519,7 @@ static int hydro_evaluate(int target, int mode,
                     double dvz = I->Vel[2] - SPHP(j).VelPred[2];
                     double vdotr = dx * dvx + dy * dvy + dz * dvz;
                     double rho_ij = 0.5 * (I->Density + SPHP(j).Density);
-                    double vdotr2;
-                    if(All.ComovingIntegrationOn)
-                        vdotr2 = vdotr + All.cf.hubble_a2 * r2;
-                    else
-                        vdotr2 = vdotr;
+                    double vdotr2 = vdotr + All.cf.hubble_a2 * r2;
 
                     double dwk_i = density_kernel_dwk(&kernel_i, r * kernel_i.Hinv);
                     double dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);

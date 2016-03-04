@@ -248,9 +248,6 @@ clean</b>, which will erase all object files, followed by <b>make</b>.
 
 \section secmake1 Options that describe the physics of the simulation
 
-- \b PERIODIC \n Set this if you want to have periodic boundary
-   conditions.
-
 - \b COOLING \n This enables radiative cooling and heating. It also
    enables an external UV background which is read from a file called
    <em>TREECOOL</em>.
@@ -272,12 +269,6 @@ clean</b>, which will erase all object files, followed by <b>make</b>.
 
 - \b NOGRAVITY \n This switches off gravity. Makes only sense for pure
    SPH simulations in non-expanding space.
-
-- \b LONG_X/Y/Z \n These options can be used together with PERIODIC and
-     NOGRAVITY only.  When set, the options define numerical factors that
-     can be used to distorts the periodic simulation cube into a
-     parallelepiped of arbitrary aspect ratio. This can be useful for
-     idealized SPH tests.
 
 - \b TWODIMS \n This effectively switches of one dimension in SPH,
      i.e. the code follows only 2d hydrodynamics in the xy-, yz-, or

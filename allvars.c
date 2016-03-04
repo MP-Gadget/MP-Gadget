@@ -17,22 +17,7 @@
 
 
 
-#ifdef PERIODIC
 MyDouble boxSize, boxHalf, inverse_boxSize;
-
-#ifdef LONG_X
-MyDouble boxSize_X, boxHalf_X, inverse_boxSize_X;
-#else
-#endif
-#ifdef LONG_Y
-MyDouble boxSize_Y, boxHalf_Y, inverse_boxSize_Y;
-#else
-#endif
-#ifdef LONG_Z
-MyDouble boxSize_Z, boxHalf_Z, inverse_boxSize_Z;
-#else
-#endif
-#endif
 
 #ifdef FIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
 MPI_Status mpistat;

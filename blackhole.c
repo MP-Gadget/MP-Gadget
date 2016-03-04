@@ -128,9 +128,8 @@ static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
     cs = sqrt(GAMMA * entropy_or_pressure * 
             pow(rho, GAMMA_MINUS1));
 #endif
-    if(All.ComovingIntegrationOn) {
-        cs *= pow(All.Time, -1.5 * GAMMA_MINUS1);
-    }
+    cs *= pow(All.Time, -1.5 * GAMMA_MINUS1);
+
     return cs;
 }
 
@@ -433,11 +432,11 @@ static int blackhole_feedback_evaluate(int target, int mode,
                 double dx = I->Pos[0] - P[j].Pos[0];
                 double dy = I->Pos[1] - P[j].Pos[1];
                 double dz = I->Pos[2] - P[j].Pos[2];
-#if defined(PERIODIC) 
+
                 dx = NEAREST(dx);
                 dy = NEAREST(dy);
                 dz = NEAREST(dz);
-#endif
+
                 double r2 = dx * dx + dy * dy + dz * dz;
 
 #ifdef BH_REPOSITION_ON_POTMIN

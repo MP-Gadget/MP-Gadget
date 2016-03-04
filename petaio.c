@@ -264,14 +264,12 @@ void petaio_read_ic() {
         SPHP(i).u = 0;
 #endif
 
-    if(All.ComovingIntegrationOn)	/*  change to new velocity variable */
-    {
 #pragma omp parallel for
-        for(i = 0; i < NumPart; i++) {
-            int k;
-            for(k = 0; k < 3; k++)
-                P[i].Vel[k] *= sqrt(All.TimeBegin) * All.TimeBegin;
-        }
+    for(i = 0; i < NumPart; i++) {
+        int k;
+        /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
+        for(k = 0; k < 3; k++)
+            P[i].Vel[k] *= sqrt(All.TimeBegin) * All.TimeBegin;
     }
 
 }

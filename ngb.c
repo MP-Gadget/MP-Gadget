@@ -54,13 +54,13 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
 
             dist = DMAX(P[p].Hsml, hsml);
 
-            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            dx = NEAREST(P[p].Pos[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            dy = NEAREST(P[p].Pos[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            dz = NEAREST(P[p].Pos[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             if(dx * dx + dy * dy + dz * dz > dist * dist)
@@ -140,13 +140,13 @@ int ngb_treefind_pairs(MyDouble searchcenter[3], MyFloat hsml, int target, int *
 
             no = current->u.d.sibling;	/* in case the node can be discarded */
 
-            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            dx = NEAREST(current->center[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            dy = NEAREST(current->center[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            dz = NEAREST(current->center[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             /* now test against the minimal sphere enclosing everything */
@@ -212,13 +212,13 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
             } else {
                 dist = hsml;
             }
-            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            dx = NEAREST(P[p].Pos[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            dy = NEAREST(P[p].Pos[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            dz = NEAREST(P[p].Pos[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             if(dx * dx + dy * dy + dz * dz > dist * dist)
@@ -285,13 +285,13 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
             }
             no = current->u.d.sibling;	/* in case the node can be discarded */
 
-            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            dx = NEAREST(current->center[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            dy = NEAREST(current->center[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            dz = NEAREST(current->center[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             /* now test against the minimal sphere enclosing everything */
@@ -341,13 +341,13 @@ int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, in
             drift_particle(p, All.Ti_Current);
 
             dist = hsml;
-            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            dx = NEAREST(P[p].Pos[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            dy = NEAREST(P[p].Pos[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            dz = NEAREST(P[p].Pos[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             if(dx * dx + dy * dy + dz * dz > dist * dist)
@@ -428,13 +428,13 @@ int ngb_treefind_variable(MyDouble searchcenter[3], MyFloat hsml, int target, in
             no = current->u.d.sibling;	/* in case the node can be discarded */
 
             dist = hsml + 0.5 * current->len;;
-            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            dx = NEAREST(current->center[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            dy = NEAREST(current->center[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            dz = NEAREST(current->center[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             /* now test against the minimal sphere enclosing everything */
@@ -512,13 +512,13 @@ int ngb_treefind_fof_primary(MyDouble searchcenter[3], MyFloat hsml, int target,
                 continue;
 
             dist = hsml;
-            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            dx = NEAREST(P[p].Pos[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            dy = NEAREST(P[p].Pos[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            dz = NEAREST(P[p].Pos[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             if(dx * dx + dy * dy + dz * dz > dist * dist)
@@ -603,13 +603,13 @@ int ngb_treefind_fof_primary(MyDouble searchcenter[3], MyFloat hsml, int target,
             no = current->u.d.sibling;	/* in case the node can be discarded */
 
             dist = hsml + 0.5 * current->len;;
-            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            dx = NEAREST(current->center[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            dy = NEAREST(current->center[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            dz = NEAREST(current->center[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             /* now test against the minimal sphere enclosing everything */
@@ -635,9 +635,9 @@ int ngb_treefind_fof_primary(MyDouble searchcenter[3], MyFloat hsml, int target,
                                 {
                                     if(((1 << P[p].Type) & (FOF_PRIMARY_LINK_TYPES)))
                                     {
-                                        dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
-                                        dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
-                                        dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+                                        dx = NEAREST(P[p].Pos[0] - searchcenter[0]);
+                                        dy = NEAREST(P[p].Pos[1] - searchcenter[1]);
+                                        dz = NEAREST(P[p].Pos[2] - searchcenter[2]);
                                         if(dx * dx + dy * dy + dz * dz > hsml * hsml)
                                             break;
 
@@ -696,13 +696,13 @@ int ngb_treefind_fof_nearest(MyDouble searchcenter[3], MyFloat hsml, int target,
                 continue;
 
             dist = hsml;
-            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            dx = NEAREST(P[p].Pos[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            dy = NEAREST(P[p].Pos[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            dz = NEAREST(P[p].Pos[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             if(dx * dx + dy * dy + dz * dz > dist * dist)
@@ -769,13 +769,13 @@ int ngb_treefind_fof_nearest(MyDouble searchcenter[3], MyFloat hsml, int target,
             no = current->u.d.sibling;	/* in case the node can be discarded */
 
             dist = hsml + 0.5 * current->len;;
-            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            dx = NEAREST(current->center[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            dy = NEAREST(current->center[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            dz = NEAREST(current->center[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             /* now test against the minimal sphere enclosing everything */
@@ -835,13 +835,13 @@ int ngb_treefind_stars(MyDouble searchcenter[3], MyFloat hsml, int target, int *
             drift_particle(p, All.Ti_Current);
 
             dist = hsml;
-            dx = NGB_PERIODIC_LONG_X(P[p].Pos[0] - searchcenter[0]);
+            dx = NEAREST(P[p].Pos[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(P[p].Pos[1] - searchcenter[1]);
+            dy = NEAREST(P[p].Pos[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(P[p].Pos[2] - searchcenter[2]);
+            dz = NEAREST(P[p].Pos[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             if(dx * dx + dy * dy + dz * dz > dist * dist)
@@ -919,13 +919,13 @@ int ngb_treefind_stars(MyDouble searchcenter[3], MyFloat hsml, int target, int *
             no = current->u.d.sibling;	/* in case the node can be discarded */
 
             dist = hsml + 0.5 * current->len;;
-            dx = NGB_PERIODIC_LONG_X(current->center[0] - searchcenter[0]);
+            dx = NEAREST(current->center[0] - searchcenter[0]);
             if(dx > dist)
                 continue;
-            dy = NGB_PERIODIC_LONG_Y(current->center[1] - searchcenter[1]);
+            dy = NEAREST(current->center[1] - searchcenter[1]);
             if(dy > dist)
                 continue;
-            dz = NGB_PERIODIC_LONG_Z(current->center[2] - searchcenter[2]);
+            dz = NEAREST(current->center[2] - searchcenter[2]);
             if(dz > dist)
                 continue;
             /* now test against the minimal sphere enclosing everything */

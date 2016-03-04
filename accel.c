@@ -42,14 +42,12 @@ void compute_accelerations(int mode)
 
     walltime_measure("/Misc");
 
-#ifdef PETAPM
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
         long_range_force();
         TreeReconstructFlag = 1;
         walltime_measure("/LongRange");
     }
-#endif
 
     /* Check whether it is really time for a new domain decomposition */
     if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPart * All.TreeDomainUpdateFrequency
@@ -74,16 +72,6 @@ void compute_accelerations(int mode)
                              */
 #endif
 
-
-   #if 0
-#disable second order because the time profiling -- not yet updated with PETAPM
-    if(All.Ti_Current == 0 && RestartFlag == 0 && header.flag_ic_info == FLAG_SECOND_ORDER_ICS)
-        second_order_ics();		/* produces the actual ICs from the special second order IC file */
-    #endif
-
-#ifdef FORCETEST
-    gravity_forcetest();
-#endif
 
     if(All.TotN_sph > 0)
     {
@@ -197,10 +185,7 @@ void compute_accelerations(int mode)
         {
             fof_fof(-1);
 
-            if(All.ComovingIntegrationOn)
-                All.TimeNextBlackHoleCheck *= All.TimeBetBlackHoleSearch;
-            else
-                All.TimeNextBlackHoleCheck += All.TimeBetBlackHoleSearch;
+            All.TimeNextBlackHoleCheck *= All.TimeBetBlackHoleSearch;
         }
 #endif
 #endif
