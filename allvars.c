@@ -285,13 +285,6 @@ int Numnodestree;		/*!< number of (internal) nodes in each tree */
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
 int *Father;			/*!< gives parent node in tree (Prenodes array) */
 
-#ifdef STATICNFW
-double Rs, R200;
-double Dc;
-double RhoCrit, V200;
-double fac;
-#endif
-
 #if defined (UM_CHEMISTRY) || defined (UM_METAL_COOLING)
 /* --==[ link with LT_ stuffs]==-- */
 float *um_ZsPoint, um_FillEl_mu, um_mass;

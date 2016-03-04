@@ -369,9 +369,6 @@ void set_units(void)
     double coulomb_log;
 #endif
 #endif
-#ifdef STATICNFW
-    double Mtot;
-#endif
 
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
     All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
@@ -534,79 +531,7 @@ void set_units(void)
 #endif /* CONDUCTION */
 
 
-#ifdef STATICNFW
-    R200 = pow(NFW_M200 * All.G / (100 * All.Hubble * All.Hubble), 1.0 / 3);
-    Rs = R200 / NFW_C;
-    Dc = 200.0 / 3 * NFW_C * NFW_C * NFW_C / (log(1 + NFW_C) - NFW_C / (1 + NFW_C));
-    RhoCrit = 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
-    V200 = 10 * All.Hubble * R200;
-    if(ThisTask == 0)
-        printf("V200= %g\n", V200);
-
-    fac = 1.0;
-    Mtot = enclosed_mass(R200);
-    if(ThisTask == 0)
-        printf("M200= %g\n", Mtot);
-
-    /* fac = M200 / Mtot */
-    fac = V200 * V200 * V200 / (10 * All.G * All.Hubble) / Mtot;
-    Mtot = enclosed_mass(R200);
-    if(ThisTask == 0)
-        printf("M200= %g\n", Mtot);
-#endif
 }
-
-#ifdef STATICNFW
-/*! auxiliary function for static NFW potential
-*/
-double enclosed_mass(double R)
-{
-    /* Eps is in units of Rs !!!! */
-
-    /* use unsoftened NFW if NFW_Eps=0 */
-    if(NFW_Eps > 0.0)
-        if(R > Rs * NFW_C)
-            R = Rs * NFW_C;
-
-    if(NFW_Eps > 0.0)
-    {
-        return fac * 4 * M_PI * RhoCrit * Dc *
-            (-
-             (Rs * Rs * Rs *
-              (1 - NFW_Eps + log(Rs) - 2 * NFW_Eps * log(Rs) +
-               NFW_Eps * NFW_Eps * log(NFW_Eps * Rs))) / ((NFW_Eps - 1) * (NFW_Eps - 1)) + (Rs * Rs * Rs * (Rs -
-               NFW_Eps
-               * Rs -
-               (2 *
-                NFW_Eps
-                -
-                1) *
-               (R +
-                Rs) *
-               log(R
-                   +
-                   Rs)
-               +
-               NFW_Eps
-               *
-               NFW_Eps
-               * (R +
-                   Rs)
-               *
-               log(R
-                   +
-                   NFW_Eps
-                   *
-                   Rs)))
-                   / ((NFW_Eps - 1) * (NFW_Eps - 1) * (R + Rs)));
-    }
-    else				/* analytic NFW */
-    {
-        return fac * 4 * M_PI * RhoCrit * Dc *
-            (-(Rs * Rs * Rs * (1 + log(Rs))) + Rs * Rs * Rs * (Rs + (R + Rs) * log(R + Rs)) / (R + Rs));
-    }
-}
-#endif
 
 
 
