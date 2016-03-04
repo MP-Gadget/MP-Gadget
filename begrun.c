@@ -379,6 +379,7 @@ void set_units(void)
         printf("UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);
         printf("UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
         printf("UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
+        printf("Radiation density Omega_R = %g\n",OMEGAR);
 
         printf("\n");
     }

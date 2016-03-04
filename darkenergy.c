@@ -411,7 +411,11 @@ double INLINE_FUNC hubble_function(double a)
 #ifdef EXTERNALHUBBLE
   hubble_a = hubble_function_external(a);
 #else
-  hubble_a = All.Omega0 / (a * a * a) + (1 - All.Omega0 - All.OmegaLambda) / (a * a)
+  hubble_a = All.Omega0 / (a * a * a) + OMEGAK / (a * a)
+#ifdef INCLUDE_RADIATION
+  /*Note OMEGAR is defined to be 0 if INCLUDE_RADIATION is not on*/
+   + OMEGAR/(a*a*a*a)
+#endif
 #ifdef DARKENERGY
     + DarkEnergy_a(a);
 #else
