@@ -818,12 +818,6 @@ extern struct global_data_all_processes
     double SinkDensThresh;
 #endif
 
-#ifdef RELAXOBJECT
-    double RelaxBaseFac;
-    double RelaxFac;
-#endif
-
-
 #ifdef SNAP_SET_TG
     int SnapNumFac;
 #endif

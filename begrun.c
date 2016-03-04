@@ -170,10 +170,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         strcpy(All.EosSpecies, all.EosSpecies);
 #endif
 
-#ifdef RELAXOBJECT
-        All.RelaxBaseFac = all.RelaxBaseFac;
-#endif
-
         if(All.TimeMax != all.TimeMax)
             readjust_timebase(All.TimeMax, all.TimeMax);
 
@@ -1120,12 +1116,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "EosSpecies");
         addr[nt] = All.EosSpecies;
         id[nt++] = STRING;
-#endif
-
-#ifdef RELAXOBJECT
-        strcpy(tag[nt], "RelaxBaseFac");
-        addr[nt] = &All.RelaxBaseFac;
-        id[nt++] = REAL;
 #endif
 
 #ifdef SINKS
