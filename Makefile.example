@@ -133,39 +133,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DNOPMSTEPADJUSTMENT
 #OPT	+=  -DFORCE_EQUAL_TIMESTEPS
 
-#--------------------------------------- Static NFW Potential
-#OPT	+=  -DSTATICNFW
-#OPT	+=  -DNFW_C=12
-#OPT	+=  -DNFW_M200=100.0
-#OPT	+=  -DNFW_Eps=0.01
-#OPT	+=  -DNFW_DARKFRACTION=0.87
-
-#--------------------------------------- Static unit Plummer sphere (G=M=a=1)
-#OPT    +=  -DSTATICPLUMMER   
-
-#--------------------------------------- Static Hernquist Potential
-#OPT	+=  -DSTATICHQ
-#OPT	+=  -DHQ_M200=186.015773
-#OPT	+=  -DHQ_C=10.0
-#OPT	+=  -DHQ_DARKFRACTION=0.9
-
-#--------------------------------------- Static Logarithmic Potential with Core
-#OPT	+=  -DSTATICLP
-#OPT	+=  -DLP_V02=10000.0
-#OPT	+=  -DLP_RC2=1.0
-#OPT	+=  -DLP_Q2=1.0
-#OPT	+=  -DLP_P2=1.0
-
-#--------------------------------------- Static Brandt Potential
-#OPT   +=  -DSTATICBRANDT
-#OPT   +=  -DBRANDT_OmegaBr=0.5
-#OPT   +=  -DBRANDT_R0=2.0
-
-#--------------------------------------- Static "Sikivie 1" potential for inner caustic study  (see Natarajan&Sikivie,2006)
-#OPT    +=  -DSTATICSM
-#OPT    +=  -DSM_V02=100.0
-#OPT    +=  -DSM_a=0.285 
-
 #--------------------------------------- Options for simplified halo formation process in an Einstei-De Sitter (Newtonian) Universe
 #OPT	+= -DSHELL_CODE=200              #activate shell code, the value corresponds to the smoothing length for dM/dr calclulation
                                          #the core softening length equals the halo particle softening length from parameterfile 
@@ -179,11 +146,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 					 #correct initial sheet orientation and initial stream density
 #OPT    += -DREINIT_AT_TURNAROUND_CMS    #calculate centre of mass within REINIT_AT_TURNAROUND_CMS fraction of turnaround radius
 #OPT	+= -DANALYTIC_TURNAROUND         #use analytic turnaround radius instead of the numerical one
-
-#--------------------------------------- Thermal conduction
-#OPT	+=  -DCONDUCTION
-#OPT	+=  -DCONDUCTION_CONSTANT
-#OPT	+=  -DCONDUCTION_SATURATION
 
 #--------------------------------------- Long-range scalar field
 #OPT	+=  -DSCALARFIELD
@@ -201,15 +163,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DALTVISCOSITY               # enables alternative viscosity based on div(v)
 
 
-#--------------------------------------- Magnetic Field options
-#OPT	+=  -DMAGNETIC                   # Turns on B Field (including induction eqn) 
-#OPT    +=  -DEULERPOTENTIALS            # Evolves alpha,betha instead of B
-#OPT	+=  -DMAGFORCE                   # Turns on B force
-#OPT	+=  -DMAGNETIC_SIGNALVEL         # Extend definition of signal velocity 
-                                         # by the magneto sonic waves
-#OPT	+=  -DALFVEN_VEL_LIMITER=10      # Limits the contribution of the Alfven waves
-                                         # to the singal velocity 
-
 #....................................... Induction equation stuff
 #OPT	+=  -DDIVBINDUCTION              # Turns on divB term in induction eq. (REMOVED)
 #OPT	+=  -DCORRECTDB                  # Turns on dW/dh correction in induction eq.
@@ -223,42 +176,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #....................................... Smoothing Options
 #OPT	+=  -DBSMOOTH                    # Turns on B field smoothing
 
-#....................................... Artificial magnetic dissipation options
-#OPT	+=  -DMAGNETIC_DISSIPATION       # Turns on artificial magnetic dissipation 
-#OPT	+=  -DMAGDISSIPATION_PERPEN      # Uses only the perpendicular magnetic 
-                                         # field component for dissipation (REMOVED)
-#OPT	+=  -DTIME_DEP_MAGN_DISP         # Enables time dependent coefficients
-#OPT	+=  -DHIGH_MAGN_DISP_START       # Starts from high coefficient
-#OPT	+=  -DROT_IN_MAG_DIS             # Adds the RotB term in dissipation 
-
-#....................................... DivB cleaning options
-#OPT	+=  -DDIVBCLEANING_DEDNER        # Turns on hyp/par cleaning (Dedner 2002)
-#OPT	+=  -DSMOOTH_PHI                 # Turns on smoothing of Phi
-
-# DivBcleaningParabolicSigma = 2
-# DivBcleaningHyperbolicSigma = 1
-# DivBcleaningQ = 0.5
-
-#....................................... magnetic diffusion options
-#OPT	+=  -DMAGNETIC_DIFFUSION         # Turns on magnetic diffusion
-#OPT	+=  -DMAGNETIC_DIFFUSION_HEAT    # Converts diffuesd B field into internal energy
-#OPT	+=  -DSMOOTH_ROTB                # Turns on smoothing of rot(B)
-
-#....................................... Bebugging stuff
-#OPT	+=  -DTRACEDIVB                  # Writes div(B) into snapshot
-#OPT	+=  -DDBOUTPUT                   # Writes dB/dt into snapshot
-#OPT	+=  -DOUTPUT_ROTB                # Writes rotB into snapshot
-#OPT	+=  -DOUTPUT_SROTB               # Writes smoothed rotB into snapshot
-
-#....................................... Initil condition stuff
-#OPT	+=  -DBINISET                    # Allows to set Bx,By,Bz in parameter file
-#OPT	+=  -DBFROMROTA                  # Allows to five vector potential instead of
-                                         # B within the IC file
-#OPT	+=  -DIGNORE_PERIODIC_IN_ROTA    # Don't use the periodic mapping when 
-                                         # calculating rot(A)
-                                         # Note A might not be periodic even if B is. 
-#OPT	+=  -DBRIOWU                     # Extrapolate A outside simulation in case 
-                                         # of Brio & Wu test problem
 #....................................... Healpix stuff
 #OPT    +=  -DHEALPIX=1.05		 # Generates a healpix map, to retain particles in the 
 					 # HiRes region. It should be a tolerance value.
@@ -280,47 +197,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DEDDINGTON_TENSOR_SFR
 #OPT    +=  -DEDDINGTON_TENSOR_BH
 #OPT	+=  -DRT_OUTPUT_ET
-
-#--------------------------------------- Fine-grained phase space structure analysis 
-#OPT	+=  -DDISTORTIONTENSORPS           #main switch: integrate phase-space distortion tensor 
-#OPT    +=  -DOUTPUT_DISTORTIONTENSORPS    #write phase-space distortion tensor to snapshot 
-#OPT	+=  -DOUTPUT_TIDALTENSORPS         #write configuration-space tidal tensor to snapshot 
-#OPT	+=  -DCAUSTIC_FINDER=2+4+8+16+32   #find caustics (only 2^type particles) and write caustic info to caustics_#.txt
-#OPT	+=  -DOUTPUT_LAST_CAUSTIC          #write info on last passed caustic to snapshot (needs CAUSTIC_FINDER to be set)
-#OPT    +=  -DDISTORTION_READALL           #read in all GDE relavant information from ICs  
-#OPT    +=  -DCOMOVING_DISTORTION=1000.0   #cosmological simulation; for turnaround calculation the final comoving r_ta is given
-#OPT    +=  -DCOMOVING_READIC              #read sheet orientatio/initial density from IC instead of setting linear regime values
-#OPT    +=  -DGDE_DEBUG                    #debug mode for GDE
-
-#---------------------------------------- nonequilibrium proimodal chemisitry
-#OPT	+=  -DNONEQUILIBRIUM
-#OPT	+=  -DCHEMISTRY
-#OPT	+=  -DCMB
-#OPT	+=  -DRADIATION
-
-#---------------------------------------- Mach number finder (Christoph)
-#OPT	+=  -DMACHNUM                   # Mach number Master Switch
-#OPT	+=  -DMACHSTATISTIC             # Dissipated thermal energy at shocks
-#OPT	+=  -DCR_OUTPUT_JUMP_CONDITIONS # CR: density and thermal energy jump at shocks
-#OPT	+=  -DOUTPUT_PRESHOCK_CSND	# Output pre-shock sound speed and pre-shock physical density
-
-#--------------------------------------- Voronoi based SPH
-#OPT	+=  -DVORONOI
-#OPT 	+=  -DEXTENDED_GHOST_SEARCH           # This extends the ghost search to the full 3x3 domain instead of the principal domain
-#OPT 	+=  -DALTERNATIVE_GHOST_SEARCH        # This switches on the "old" routines that find the ghost neighbours
-#OPT	+=  -DVORONOI_MESHOUTPUT
-#OPT	+=  -DGAMMA=5.0/3.0
-#OPT 	+=  -DVORONOI_SHAPESCHEME
-#OPT	+=  -DVORONOI_MESHRELAX
-#OPT	+=  -DVORONOI_MESHRELAX_KEEPRESSURE
-#OPT	+=  -DMESHRELAX_DENSITY_IN_INPUT
-#OPT	+=  -DVORONOI_TIME_DEP_ART_VISC
-#OPT	+=  -DVORONOI_CFL_COND
-#OPT	+=  -DVORONOI_BALSARA
-#OPT	+=  -DVORONOI_RELAX_VIA_VISC
-#OPT	+=  -DVORONOI_CENTERING
-#OPT	+=  -DGRAVITY_CENTROID
-#OPT	+=  -DGRAVITY_NOT_PERIODIC
 
 #--------------------------------------- degenerate equation of state
 #OPT	+=  -DEOS_DEGENERATE
