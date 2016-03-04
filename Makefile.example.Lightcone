@@ -132,7 +132,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DSPLIT_PARTICLE_TYPE=4+8
 #OPT    +=  -DNEUTRINOS                     # Option for special integration of light neutrino species 
 #OPT    +=  -DOMIT_NEUTRINOS_IN_SNAPS
-#OPT	+=  -DKSPACE_NEUTRINOS
 #OPT	+=  -DSTART_WITH_EXTRA_NGBDEV        # Uses special MaxNumNgbDeviation for starting
 #OPT	+=  -DVOLUME_CORRECTION=1.75
 #OPT	+=  -DISOTHERM_EQS                  # isothermal equation of state
@@ -218,15 +217,6 @@ OPT	+=  -DNOSTOP_WHEN_BELOW_MINTIMESTEP
 #OPT	+=  -DCONDUCTION
 #OPT	+=  -DCONDUCTION_CONSTANT
 #OPT	+=  -DCONDUCTION_SATURATION
-
-
-#--------------------------------------- Dark energy
-#OPT	+=  -DDARKENERGY # Enables Dark Energy
-#OPT	+=  -DTIMEDEPDE  # read w(z) from a DE file
-#OPT	+=  -DRESCALEVINI # rescale v_ini in read_ic / read_ic_cluster
-#OPT    +=  -DEXTERNALHUBBLE # reads the hubble function from the DE file
-#OPT    +=  -DTIMEDEPGRAV # resacles H and G according to DE model
-#OPT    +=  -DDARKENERGY_DEBUG # enable writing of drift/kick table
 
 
 #--------------------------------------- Long-range scalar field

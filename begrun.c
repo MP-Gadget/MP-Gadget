@@ -12,6 +12,7 @@
 #include "allvars.h"
 #include "densitykernel.h"
 #include "proto.h"
+#include "cosmology.h"
 #include "petaio.h"
 
 #include "config.h"
@@ -61,12 +62,6 @@ void begrun(void)
 #ifdef DEBUG
     write_pid_file();
     enable_core_dumps_and_fpu_exceptions();
-#endif
-
-#ifdef DARKENERGY
-#ifdef TIMEDEPDE
-    fwa_init();
-#endif
 #endif
 
     set_units();
@@ -166,10 +161,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         All.AlphaMin = all.AlphaMin;
 #endif
 
-#ifdef DARKENERGY
-        All.DarkEnergyParam = all.DarkEnergyParam;
-#endif
-
         strcpy(All.OutputListFilename, all.OutputListFilename);
         strcpy(All.OutputDir, all.OutputDir);
         strcpy(All.RestartFile, all.RestartFile);
@@ -258,11 +249,6 @@ void set_units(void)
         All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
     else
         All.G = All.GravityConstantInternal;
-#ifdef TIMEDEPGRAV
-    All.Gini = All.G;
-    All.G = All.Gini * dGfak(All.TimeBegin);
-#endif
-
     All.UnitDensity_in_cgs = All.UnitMass_in_g / pow(All.UnitLength_in_cm, 3);
     All.UnitPressure_in_cgs = All.UnitMass_in_g / All.UnitLength_in_cm / pow(All.UnitTime_in_s, 2);
     All.UnitCoolingRate_in_cgs = All.UnitPressure_in_cgs / All.UnitTime_in_s;
@@ -507,34 +493,6 @@ void open_outputfiles(void)
     }
 #endif
 
-#ifdef DARKENERGY
-    sprintf(buf, "%s%s%s", All.OutputDir, "darkenergy.txt", postfix);
-    if(!(FdDE = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-    else
-    {
-        if(RestartFlag == 0)
-        {
-            fprintf(FdDE, "nstep time H(a) ");
-#ifndef TIMEDEPDE
-            fprintf(FdDE, "w0 Omega_L ");
-#else
-            fprintf(FdDE, "w(a) Omega_L ");
-#endif
-#ifdef TIMEDEPGRAV
-            fprintf(FdDE, "dH dG ");
-#endif
-            fprintf(FdDE, "\n");
-            fflush(FdDE);
-        }
-    }
-#endif
-
-
-
 }
 
 
@@ -574,10 +532,6 @@ void close_outputfiles(void)
 
 #ifdef XXLINFO
     fclose(FdXXL);
-#endif
-
-#ifdef DARKENERGY
-    fclose(FdDE);
 #endif
 
 }
@@ -883,44 +837,6 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.DensityContrastLimit;
         id[nt++] = REAL;
 
-#ifdef KSPACE_NEUTRINOS
-        strcpy(tag[nt], "KspaceNeutrinoSeed");
-        addr[nt] = &All.KspaceNeutrinoSeed;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "Nsample");
-        addr[nt] = &All.Nsample;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "SphereMode");
-        addr[nt] = &All.SphereMode;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "KspaceDirWithTransferfunctions");
-        addr[nt] = All.KspaceDirWithTransferfunctions;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "KspaceBaseNameTransferfunctions");
-        addr[nt] = All.KspaceBaseNameTransferfunctions;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "PrimordialIndex");
-        addr[nt] = &All.PrimordialIndex;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "Sigma8");
-        addr[nt] = &All.Sigma8;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "OmegaNu");
-        addr[nt] = &All.OmegaNu;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InputSpectrum_UnitLength_in_cm");
-        addr[nt] = &All.InputSpectrum_UnitLength_in_cm;
-        id[nt++] = REAL;
-#endif
-
         strcpy(tag[nt], "MaxNumNgbDeviation");
         addr[nt] = &All.MaxNumNgbDeviation;
         id[nt++] = REAL;
@@ -1049,16 +965,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "MinGasTemp");
         addr[nt] = &All.MinGasTemp;
         id[nt++] = REAL;
-
-#ifdef SCALARFIELD
-        strcpy(tag[nt], "ScalarBeta");
-        addr[nt] = &All.ScalarBeta;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "ScalarScreeningLength");
-        addr[nt] = &All.ScalarScreeningLength;
-        id[nt++] = REAL;
-#endif
 
 #ifdef OUTPUTLINEOFSIGHT
         strcpy(tag[nt], "TimeFirstLineOfSight");
@@ -1215,27 +1121,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "FactorForSofterEQS");
         addr[nt] = &All.FactorForSofterEQS;
         id[nt++] = REAL;
-#endif
-#ifdef DARKENERGY
-#ifndef TIMEDEPDE
-        strcpy(tag[nt], "DarkEnergyParam");
-        addr[nt] = &All.DarkEnergyParam;
-        id[nt++] = REAL;
-#endif
-#endif
-
-#ifdef RESCALEVINI
-        strcpy(tag[nt], "VelIniScale");
-        addr[nt] = &All.VelIniScale;
-        id[nt++] = REAL;
-#endif
-
-#ifdef DARKENERGY
-#ifdef TIMEDEPDE
-        strcpy(tag[nt], "DarkEnergyFile");
-        addr[nt] = All.DarkEnergyFile;
-        id[nt++] = STRING;
-#endif
 #endif
 
 #ifdef TIME_DEP_ART_VISC
@@ -1635,34 +1520,6 @@ void read_parameter_file(char *fname)
     endrun(0);
 #endif
 
-#ifdef DARKENERGY
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with DARKENERGY, but not with MOREPARAMS.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
-#ifdef TIMEDEPDE
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with TIMEDEPDE, but not with MOREPARAMS.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-#endif
-
-#ifdef TIMEDEPDE
-#ifndef DARKENERGY
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with TIMEDEPDE, but not with DARKENERGY.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
 #endif
 
 #undef REAL

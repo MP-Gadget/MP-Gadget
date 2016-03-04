@@ -5,6 +5,7 @@
 #include <math.h>
 #include "allvars.h"
 #include "proto.h"
+#include "cosmology.h"
 
 /*! \file timestep.c 
  *  \brief routines for 'kicking' particles in
@@ -668,10 +669,6 @@ int get_timestep(int p,		/*!< particle index */
     double dt_NS = 0;
 #endif
 
-#ifdef NONEQUILIBRIUM
-    double dt_cool, dt_elec;
-#endif
-
 #ifdef NUCLEAR_NETWORK
     double dt_network, dt_species;
     int k;
@@ -817,48 +814,6 @@ int get_timestep(int p,		/*!< particle index */
             dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
             if (dt_limiter < dt) dt = dt_limiter;
         }
-    }
-#endif
-
-#ifdef NONEQUILIBRIUM
-    /* another criterion given by the local cooling time */
-
-    if(P[p].Type == 0)
-    {
-        dt_cool = fabs(SPHP(p).t_cool);	/* still in yrs */
-        dt_cool *= SEC_PER_YEAR;	/* in seconds */
-        dt_cool /= All.UnitTime_in_s;
-        dt_cool *= All.HubbleParam;	/* internal units */
-
-        dt_cool = All.Epsilon * dt_cool;
-
-
-#ifndef UM_CONTINUE      
-        if(dt_cool > 0 && dt_cool < dt)
-            dt = dt_cool;
-#else
-        if(dt_cool > 0 && dt_cool < dt && SPHP(p).DelayTime  < 0)
-            dt = dt_cool;
-#endif
-
-
-        /* yet another criterion given by the electron number density change */
-
-        dt_elec = fabs(SPHP(p).t_elec);	/* still in yrs */
-        dt_elec *= SEC_PER_YEAR;	/* in seconds */
-        dt_elec /= All.UnitTime_in_s;
-        dt_elec *= All.HubbleParam;	/* internal units */
-
-
-        dt_elec = All.Epsilon * dt_elec;
-
-#ifndef UM_CONTINUE            
-        if(dt_elec > 0 && dt_elec < dt)
-            dt = dt_elec;
-#else
-        if(dt_elec > 0 && dt_elec < dt && SPHP(p).DelayTime  < 0)
-            dt = dt_elec;
-#endif      
     }
 #endif
 

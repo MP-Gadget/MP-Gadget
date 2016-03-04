@@ -401,13 +401,6 @@ void check_omega(void)
 
     omega =
         masstot / (All.BoxSize * All.BoxSize * All.BoxSize) / (3 * All.Hubble * All.Hubble / (8 * M_PI * All.G));
-#ifdef TIMEDEPGRAV
-    omega *= All.Gini / All.G;
-#endif
-
-#ifdef KSPACE_NEUTRINOS
-    omega += All.OmegaNu;
-#endif
 
     if(fabs(omega - All.Omega0) > 1.0e-3)
     {

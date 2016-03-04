@@ -332,7 +332,7 @@ void gravtree_copy(int place, struct gravitydata_in * input) {
         input->Pos[k] = P[place].Pos[k];
 #endif
 
-#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
+#if defined(UNEQUALSOFTENINGS)
     input->Type = P[place].Type;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     if(P[place].Type == 0)

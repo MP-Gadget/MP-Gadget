@@ -8,6 +8,7 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "cosmology.h"
 
 
 static double logTimeBegin;
@@ -67,18 +68,6 @@ void init_drift_table(void)
   int i;
   double result, abserr;
 
-  /*---------- DEBUG ! ------------*/
-#ifdef DARKENERGY_DEBUG
-  FILE *FdDKfac;
-  char mode[2], buf[200];
-
-  strcpy(mode, "w");
-  sprintf(buf, "%s%s", All.OutputDir, "driftkickfac.txt");
-  FdDKfac = fopen(buf, mode);
-  fprintf(FdDKfac, "i a drift GravKick HydroKick\n");
-  /*---------- DEBUG ! ------------*/
-#endif
-
   gsl_function F;
   gsl_integration_workspace *workspace;
 
@@ -109,22 +98,8 @@ void init_drift_table(void)
 			  1.0e-8, WORKSIZE, GSL_INTEG_GAUSS41, workspace, &result, &abserr);
       HydroKickTable[i] = result;
 
-#ifdef DARKENERGY_DEBUG
-  /*---------- DEBUG ! ------------*/
-      fprintf(FdDKfac, "%d %e %e %e %e \n", i,
-	      exp(logTimeBegin + ((logTimeMax - logTimeBegin) / DRIFT_TABLE_LENGTH) * (i + 1)), DriftTable[i],
-	      GravKickTable[i], HydroKickTable[i]);
-  /*---------- DEBUG ! ------------*/
-#endif
     }
-
   gsl_integration_workspace_free(workspace);
-
-#ifdef DARKENERGY_DEBUG
-  /*---------- DEBUG ! ------------*/
-  fclose(FdDKfac);
-  /*---------- DEBUG ! ------------*/
-#endif
 }
 
 

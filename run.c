@@ -374,10 +374,6 @@ void find_next_sync_point_and_drift(void)
 
         set_global_time(nexttime);
 
-#ifdef TIMEDEPGRAV
-        All.G = All.Gini * dGfak(All.Time);
-#endif
-
         move_particles(All.Ti_nextoutput);
 
         savepositions(All.SnapshotFileCount++, stopflag);	/* write snapshot file */
@@ -394,10 +390,6 @@ void find_next_sync_point_and_drift(void)
     nexttime = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
 
     set_global_time(nexttime);
-
-#ifdef TIMEDEPGRAV
-    All.G = All.Gini * dGfak(All.Time);
-#endif
 
     All.TimeStep = All.Time - timeold;
 
@@ -815,25 +807,6 @@ void every_timestep_stuff(void)
             (tot_sph), 
             (tot));
 
-#ifdef DARKENERGY
-        if(All.ComovingIntegrationOn == 1)
-        {
-            double hubble_a;
-
-            hubble_a = hubble_function(All.Time);
-            fprintf(FdDE, "%d %g %e ", All.NumCurrentTiStep, All.Time, hubble_a);
-#ifndef TIMEDEPDE
-            fprintf(FdDE, "%e ", All.DarkEnergyParam);
-#else
-            fprintf(FdDE, "%e %e ", get_wa(All.Time), DarkEnergy_a(All.Time));
-#endif
-#ifdef TIMEDEPGRAV
-            fprintf(FdDE, "%e %e", dHfak(All.Time), dGfak(All.Time));
-#endif
-            fprintf(FdDE, "\n");
-            fflush(FdDE);
-        }
-#endif
     }
 
     set_random_numbers();
