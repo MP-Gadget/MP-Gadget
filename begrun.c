@@ -699,15 +699,6 @@ void open_outputfiles(void)
         endrun(1);
     }
 
-    sprintf(buf, "%s%s%s", All.OutputDir, "balance.txt", postfix);
-    if(!(FdBalance = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-
-    fprintf(FdBalance, "\n");
-
 #ifdef SCFPOTENTIAL
     sprintf(buf, "%s%s%s", All.OutputDir, "scf_coeff.txt", postfix);
     if(!(FdSCF = fopen(buf, mode)))
@@ -845,7 +836,6 @@ void close_outputfiles(void)
     fclose(FdInfo);
     fclose(FdEnergy);
     fclose(FdTimings);
-    fclose(FdBalance);
 
 #ifdef SCFPOTENTIAL
     fclose(FdSCF);

@@ -969,17 +969,6 @@ void write_cpu_log(void)
     if(ThisTask == 0)
     {
 
-        put_symbol(0.0, 1.0, '#');
-
-        fprintf(FdBalance, "Step=%7d  sec=%10.3f  Nf=%014ld  %s\n", All.NumCurrentTiStep, walltime_step_max("/"),
-                GlobNumForceUpdate, CPU_String);
-        fflush(FdBalance);
-    }
-
-
-    if(ThisTask == 0)
-    {
-
         fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", All.NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
 #ifdef _OPENMP
         fprintf(FdCPU, "Blocked Drifts (Particle Node): %ld %ld\n", totBlockedPD, totBlockedND);
@@ -993,28 +982,6 @@ void write_cpu_log(void)
     }
 }
 
-
-void put_symbol(double t0, double t1, char c)
-{
-    int i, j;
-
-    i = (int) (t0 * CPU_STRING_LEN + 0.5);
-    j = (int) (t1 * CPU_STRING_LEN);
-
-    if(i < 0)
-        i = 0;
-    if(j < 0)
-        j = 0;
-    if(i >= CPU_STRING_LEN)
-        i = CPU_STRING_LEN;
-    if(j >= CPU_STRING_LEN)
-        j = CPU_STRING_LEN;
-
-    while(i <= j)
-        CPU_String[i++] = c;
-
-    CPU_String[CPU_STRING_LEN] = 0;
-}
 
 
 /*! This routine first calls a computation of various global

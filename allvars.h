@@ -264,55 +264,6 @@ extern MPI_Status mpistat;
 #define MPI_STATUS_IGNORE &mpistat
 #endif
 
-#define CPU_ALL            0
-#define CPU_TREEWALK1      1
-#define CPU_TREEWALK2      2
-#define CPU_TREEWAIT1      3
-#define CPU_TREEWAIT2      4
-#define CPU_TREESEND       5
-#define CPU_TREERECV       6
-#define CPU_TREEMISC       7
-#define CPU_TREEBUILD      8
-#define CPU_TREEUPDATE     9
-#define CPU_TREEHMAXUPDATE 10
-#define CPU_DOMAIN         11
-#define CPU_DENSCOMPUTE    12
-#define CPU_DENSWAIT       13
-#define CPU_DENSCOMM       14
-#define CPU_DENSMISC       15
-#define CPU_HYDCOMPUTE     16
-#define CPU_HYDWAIT        17
-#define CPU_HYDCOMM        18
-#define CPU_HYDMISC        19
-#define CPU_DRIFT          20
-#define CPU_TIMELINE       21
-#define CPU_POTENTIAL      22
-#define CPU_MESH           23
-#define CPU_PEANO          24
-#define CPU_COOLINGSFR     25
-#define CPU_SNAPSHOT       26
-#define CPU_FOF            27
-#define CPU_BLACKHOLES     28
-#define CPU_MISC           29
-#define CPU_SMTHCOMPUTE    30
-#define CPU_SMTHWAIT       31
-#define CPU_SMTHCOMM       32
-#define CPU_SMTHMISC       33
-#define CPU_HOTNGBS        34
-#define CPU_WEIGHTS_HOT    35
-#define CPU_ENRICH_HOT     36
-#define CPU_WEIGHTS_COLD   37
-#define CPU_ENRICH_COLD    38
-#define CPU_CSMISC         39
-#define CPU_HYDNETWORK     40
-
-#define CPU_PARTS          41  /* this gives the number of parts above (must be last) */
-
-#define CPU_STRING_LEN 120
-
-
-
-
 #define HAS(val, flag) ((flag & (val)) == (flag))
 #ifdef BLACK_HOLES
 enum bhfeedbackmethod {
@@ -478,8 +429,6 @@ extern size_t AllocatedBytes;
 extern size_t HighMarkBytes;
 extern size_t FreeBytes;
 
-extern char CPU_String[CPU_STRING_LEN + 1];
-
 extern int Flag_FullStep;	/*!< Flag used to signal that the current step involves all particles */
 
 extern size_t HighMark_run,  HighMark_domain, HighMark_gravtree, HighMark_pmperiodic,
@@ -559,7 +508,6 @@ extern char ParameterFile[100];	/*!< file name of parameterfile used for startin
 extern FILE *FdInfo,		/*!< file handle for info.txt log-file. */
        *FdEnergy,			/*!< file handle for energy.txt log-file. */
        *FdTimings,			/*!< file handle for timings.txt log-file. */
-       *FdBalance,			/*!< file handle for balance.txt log-file. */
        *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
 #ifdef SCFPOTENTIAL

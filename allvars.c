@@ -105,8 +105,6 @@ size_t AllocatedBytes;
 size_t HighMarkBytes;
 size_t FreeBytes;
 
-char CPU_String[CPU_STRING_LEN + 1];
-
 int Flag_FullStep;		/*!< Flag used to signal that the current step involves all particles */
 
 
@@ -165,7 +163,6 @@ char ParameterFile[100];	/*!< file name of parameterfile used for starting the s
 FILE *FdInfo,			/*!< file handle for info.txt log-file. */
  *FdEnergy,			/*!< file handle for energy.txt log-file. */
  *FdTimings,			/*!< file handle for timings.txt log-file. */
- *FdBalance,			/*!< file handle for balance.txt log-file. */
  *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
 #ifdef SCFPOTENTIAL
