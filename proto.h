@@ -416,12 +416,6 @@ extern int eos_calc_egiven_v( double rho, double *xnuc, double *dxnuc, double fa
 extern int eos_calc_tgiven_v( double rho, double *xnuc, double *dxnuc, double fac, double temp, double *e, double *dedt );
 #endif
 
-#ifdef NUCLEAR_NETWORK
-extern void network_init( char *speciesfile, char *ratesfile, char *partfile, char *massesfile, char *weakratesfile );
-extern void network_normalize(double *x, double *e);
-extern void network_integrate( double temp, double rho, double *x, double *dx, double dt, double *dedt );
-#endif
-
 #if defined(HEALPIX) 
 
 void mk_xy2pix(int *x2pix, int *y2pix);

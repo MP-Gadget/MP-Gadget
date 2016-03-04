@@ -144,11 +144,6 @@ void hydro_force(void)
     double ded_heal_fac = 0;
 #endif
 
-#ifdef NUCLEAR_NETWORK
-    double dedt_nuc;
-    int nuc_particles = 0;
-    int nuc_particles_sum;
-#endif
     walltime_measure("/Misc");
 
 #ifdef WAKEUP
@@ -206,66 +201,6 @@ void hydro_force(void)
     }
 #endif
 
-#ifdef NUCLEAR_NETWORK
-    if(ThisTask == 0)
-    {
-        printf("Doing nuclear network.\n");
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    tstart = second();
-
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-        if(P[i].Type == 0)
-        {
-            /* evaluate network here, but do it only for temperatures > 10^7 K */
-            if(SPHP(i).temp > 1e7)
-            {
-                nuc_particles++;
-                network_integrate(SPHP(i).temp, SPHP(i).Density * All.UnitDensity_in_cgs, SPHP(i).xnuc,
-                        SPHP(i).dxnuc,
-                        (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval *
-                        All.UnitTime_in_s, &dedt_nuc);
-                SPHP(i).e.DtEntropy += dedt_nuc * All.UnitEnergy_in_cgs / All.UnitTime_in_s;
-            }
-            else
-            {
-                for(k = 0; k < EOS_NSPECIES; k++)
-                {
-                    SPHP(i).dxnuc[k] = 0;
-                }
-            }
-        }
-
-    tend = second();
-    timenetwork += timediff(tstart, tend);
-
-    MPI_Allreduce(&nuc_particles, &nuc_particles_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    if(ThisTask == 0)
-    {
-        printf("Nuclear network done for %d particles.\n", nuc_particles_sum);
-    }
-
-    timewait1 += timediff(tend, second());
-#endif
-
-#ifdef RT_RAD_PRESSURE
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-        if(P[i].Type == 0)
-        {
-            if(All.Time != All.TimeBegin)
-                for(j = 0; j < N_BINS; j++)
-                {
-                    for(k = 0; k < 3; k++)
-                        SPHP(i).HydroAccel[k] += SPHP(i).dn_gamma[j] *
-                            (HYDROGEN_MASSFRAC * SPHP(i).Density) / (PROTONMASS / All.UnitMass_in_g *
-                                    All.HubbleParam) * SPHP(i).n[k][j] * 13.6 *
-                            1.60184e-12 / All.UnitEnergy_in_cgs * All.HubbleParam / (C / All.UnitVelocity_in_cm_per_s) /
-                            ((P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval) / SPHP(i).Density;
-                }
-        }
-#endif
-
     /* collect some timing information */
 
     timeall += walltime_measure(WALLTIME_IGNORE);
@@ -277,9 +212,6 @@ void hydro_force(void)
     walltime_add("/SPH/Hydro/Compute", timecomp);
     walltime_add("/SPH/Hydro/Wait", timewait);
     walltime_add("/SPH/Hydro/Comm", timecomm);
-#ifdef NUCLEAR_NETWORK
-    walltime_add("/SPH/Hydro/Network", timenetwork);
-#endif
     walltime_add("/SPH/Hydro/Misc", timeall - (timecomp + timewait + timecomm + timenetwork));
 }
 

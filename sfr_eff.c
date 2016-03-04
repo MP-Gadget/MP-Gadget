@@ -336,23 +336,7 @@ static void cooling_direct(int i) {
         SPHP(i).Injected_BH_Energy = 0;
     }
 #endif
-#ifdef RT_COOLING_PHOTOHEATING
-    unew = radtransfer_cooling_photoheating(i, dtime);
 
-    if(P[i].TimeBin)	/* upon start-up, we need to protect against dt==0 */
-    {
-        /* note: the adiabatic rate has been already added in ! */
-
-        if(dt > 0)
-        {
-            SPHP(i).DtEntropy += unew * GAMMA_MINUS1 /
-                pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / dt;
-
-            if(SPHP(i).DtEntropy < -0.5 * SPHP(i).Entropy / dt)
-                SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt;
-        }
-    }
-#else
     struct UVBG uvbg;
     GetParticleUVBG(i, &uvbg);
     unew = DoCooling(unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, METALLICITY(i));
@@ -374,7 +358,6 @@ static void cooling_direct(int i) {
                 SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt;
         }
     }
-#endif
 }
 
 #endif /* closing of COOLING-conditional */

@@ -100,11 +100,6 @@ void begrun(void)
     eos_init(All.EosTable, All.EosSpecies);
 #endif
 
-#ifdef NUCLEAR_NETWORK
-    network_init(All.EosSpecies, All.NetworkRates, All.NetworkPartFunc, All.NetworkMasses,
-            All.NetworkWeakrates);
-#endif
-
     All.TimeLastRestartFile = 0;
 
     if(RestartFlag == 0 || RestartFlag == 2 || RestartFlag == 3 || RestartFlag == 4 || RestartFlag == 5)
@@ -177,13 +172,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
 
 #ifdef RELAXOBJECT
         All.RelaxBaseFac = all.RelaxBaseFac;
-#endif
-
-#ifdef NUCLEAR_NETWORK
-        strcpy(All.NetworkRates, all.NetworkRates);
-        strcpy(All.NetworkPartFunc, all.NetworkPartFunc);
-        strcpy(All.NetworkMasses, all.NetworkMasses);
-        strcpy(All.NetworkWeakrates, all.NetworkWeakrates);
 #endif
 
         if(All.TimeMax != all.TimeMax)
@@ -1147,24 +1135,6 @@ void read_parameter_file(char *fname)
         id[nt++] = STRING;
 #endif
 
-#ifdef NUCLEAR_NETWORK
-        strcpy(tag[nt], "NetworkRates");
-        addr[nt] = All.NetworkRates;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "NetworkPartFunc");
-        addr[nt] = All.NetworkPartFunc;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "NetworkMasses");
-        addr[nt] = All.NetworkMasses;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "NetworkWeakrates");
-        addr[nt] = All.NetworkWeakrates;
-        id[nt++] = STRING;
-#endif
-
 #ifdef RELAXOBJECT
         strcpy(tag[nt], "RelaxBaseFac");
         addr[nt] = &All.RelaxBaseFac;
@@ -1181,16 +1151,6 @@ void read_parameter_file(char *fname)
         id[nt++] = REAL;
 #endif
 
-
-#ifdef BP_REAL_CRs
-        strcpy(tag[nt], "MinCREnergy");
-        addr[nt] = &All.ecr_min;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "MaxCREnergy");
-        addr[nt] = &All.ecr_max;
-        id[nt++] = REAL;
-#endif
 
 #ifdef SNAP_SET_TG
         strcpy(tag[nt], "SnapNumFac");

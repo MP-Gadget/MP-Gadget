@@ -498,14 +498,6 @@ void advance_and_find_timesteps(void)
             SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr * All.UnitTime_in_s;
 #endif
 
-#ifdef NUCLEAR_NETWORK
-            for(k = 0; k < EOS_NSPECIES; k++)
-            {
-                SPHP(i).xnuc[k] += SPHP(i).dxnuc[k] * dt_entr * All.UnitTime_in_s;
-            }
-            network_normalize(SPHP(i).xnuc, &SPHP(i).Entropy);
-#endif
-
             n++;
         }
     }
@@ -600,14 +592,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
         else
             SPHP(i).Entropy *= 0.5;
 
-#ifdef NUCLEAR_NETWORK
-        for(j = 0; j < EOS_NSPECIES; j++)
-        {
-            SPHP(i).xnuc[j] += SPHP(i).dxnuc[j] * dt_entr * All.UnitTime_in_s;
-        }
-        network_normalize(SPHP(i).xnuc, &SPHP(i).Entropy);
-#endif
-
         if(All.MinEgySpec)
         {
 #ifndef TRADITIONAL_SPH_FORMULATION
@@ -667,11 +651,6 @@ int get_timestep(int p,		/*!< particle index */
 
 #ifdef NS_TIMESTEP
     double dt_NS = 0;
-#endif
-
-#ifdef NUCLEAR_NETWORK
-    double dt_network, dt_species;
-    int k;
 #endif
 
     if(flag <= 0)
@@ -767,35 +746,6 @@ int get_timestep(int p,		/*!< particle index */
 
             if(dt_NS < dt)
                 dt = dt_NS;
-        }
-#endif
-
-
-#ifdef NUCLEAR_NETWORK
-        if(SPHP(p).temp > 1e7)
-        {
-            /* check if the new timestep blows up our abundances */
-            dt_network = dt * All.UnitTime_in_s;
-            for(k = 0; k < EOS_NSPECIES; k++)
-            {
-                if(SPHP(p).dxnuc[k] > 0)
-                {
-                    dt_species = (1.0 - SPHP(p).xnuc[k]) / SPHP(p).dxnuc[k];
-                    if(dt_species < dt_network)
-                        dt_network = dt_species;
-                }
-                else if(SPHP(p).dxnuc[k] < 0)
-                {
-                    dt_species = (0.0 - SPHP(p).xnuc[k]) / SPHP(p).dxnuc[k];
-                    if(dt_species < dt_network)
-                        dt_network = dt_species;
-                }
-
-            }
-
-            dt_network /= All.UnitTime_in_s;
-            if(dt_network < dt)
-                dt = dt_network;
         }
 #endif
 

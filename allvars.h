@@ -826,21 +826,9 @@ extern struct global_data_all_processes
     double SinkDensThresh;
 #endif
 
-#ifdef NUCLEAR_NETWORK
-    char NetworkRates[100];
-    char NetworkPartFunc[100];
-    char NetworkMasses[100];
-    char NetworkWeakrates[100];
-#endif
-
 #ifdef RELAXOBJECT
     double RelaxBaseFac;
     double RelaxFac;
-#endif
-
-#ifdef BP_REAL_CRs
-    double ecr_min,ecr_max;
-    double ecr_bound[REAL_CRs+1];
 #endif
 
 
