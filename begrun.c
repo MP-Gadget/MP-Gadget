@@ -381,10 +381,6 @@ void set_units(void)
     All.UnitCoolingRate_in_cgs = All.UnitPressure_in_cgs / All.UnitTime_in_s;
     All.UnitEnergy_in_cgs = All.UnitMass_in_g * pow(All.UnitLength_in_cm, 2) / pow(All.UnitTime_in_s, 2);
 
-#ifdef DISTORTIONTENSORPS
-    /* 5.609589206e23 is the factor to convert from g to GeV/c^2, the rest comes from All.UnitDensity_in_cgs */
-    All.UnitDensity_in_Gev_per_cm3 = 5.609589206e23 / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g;
-#endif
     /* convert some physical input parameters to internal units */
 
     All.Hubble = HUBBLE * All.UnitTime_in_s;
@@ -398,10 +394,6 @@ void set_units(void)
         printf("UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);
         printf("UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
         printf("UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
-#ifdef DISTORTIONTENSORPS
-        printf("Annihilation radiation units:\n");
-        printf("UnitDensity_in_Gev_per_cm3 = %g\n", All.UnitDensity_in_Gev_per_cm3);
-#endif
 
         printf("\n");
     }
@@ -527,16 +519,6 @@ void open_outputfiles(void)
     /* Note: This is done by everyone */
     sprintf(buf, "%ssfr_details_%d.txt", dumpdir, ThisTask);
     if(!(FdSfrDetails = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
-#ifdef DISTORTIONTENSORPS
-    /* create caustic log file */
-    sprintf(buf, "%scaustics_%d.txt", dumpdir, ThisTask);
-    if(!(FdCaustics = fopen(buf, mode)))
     {
         printf("error in opening file '%s'\n", buf);
         endrun(1);
@@ -1216,11 +1198,6 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.MinGasTemp;
         id[nt++] = REAL;
 
-#ifdef DISTORTIONTENSORPS
-        strcpy(tag[nt], "DM_velocity_dispersion");
-        addr[nt] = &All.DM_velocity_dispersion;
-        id[nt++] = REAL;
-#endif
 #ifdef SCALARFIELD
         strcpy(tag[nt], "ScalarBeta");
         addr[nt] = &All.ScalarBeta;

@@ -59,17 +59,6 @@ void long_range_force(void)
       P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
       P[i].PM_Potential = 0;
 
-#ifdef DISTORTIONTENSORPS
-      P[i].tidal_tensorpsPM[0][0] = 0;
-      P[i].tidal_tensorpsPM[0][1] = 0;
-      P[i].tidal_tensorpsPM[0][2] = 0;
-      P[i].tidal_tensorpsPM[1][0] = 0;
-      P[i].tidal_tensorpsPM[1][1] = 0;
-      P[i].tidal_tensorpsPM[1][2] = 0;
-      P[i].tidal_tensorpsPM[2][0] = 0;
-      P[i].tidal_tensorpsPM[2][1] = 0;
-      P[i].tidal_tensorpsPM[2][2] = 0;
-#endif
     }
 
 #ifdef NOGRAVITY
@@ -85,123 +74,31 @@ void long_range_force(void)
   do_box_wrapping();	/* map the particles back onto the box */
   pmforce_periodic(0, NULL);
 #endif
-#ifdef DISTORTIONTENSORPS
-/* choose what kind of tidal field calculation you want */
-/* FOURIER based */
-/*
-  pmtidaltensor_periodic_fourier(0);
-  pmtidaltensor_periodic_fourier(1);
-  pmtidaltensor_periodic_fourier(2);
-  pmtidaltensor_periodic_fourier(3);
-  pmtidaltensor_periodic_fourier(4);
-  pmtidaltensor_periodic_fourier(5);
-*/
-/* FINITE DIFFERENCES based */
-  pmtidaltensor_periodic_diff();
-  /* check tidal tensor of given particle ID */
-  check_tidaltensor_periodic(10000);
-#endif
 #ifdef PLACEHIGHRESREGION
   i = pmforce_nonperiodic(1);
-#ifdef DISTORTIONTENSORPS
-/* choose what kind of tidal field calculation you want */
-/* FOURIER based */
-/*
-  pmtidaltensor_nonperiodic_fourier(1, 0);
-  pmtidaltensor_nonperiodic_fourier(1, 1);
-  pmtidaltensor_nonperiodic_fourier(1, 2);
-  pmtidaltensor_nonperiodic_fourier(1, 3);
-  pmtidaltensor_nonperiodic_fourier(1, 4);
-  pmtidaltensor_nonperiodic_fourier(1, 5);
-*/
-/* FINITE DIFFERENCES based */
-  pmtidaltensor_nonperiodic_diff(1);
-#endif
   if(i == 1)			/* this is returned if a particle lied outside allowed range */
     {
       pm_init_regionsize();
       pm_setup_nonperiodic_kernel();
       i = pmforce_nonperiodic(1);	/* try again */
-#ifdef DISTORTIONTENSORPS
-/* choose what kind of tidal field calculation you want */
-/* FOURIER based */
-/*
-      pmtidaltensor_nonperiodic_fourier(1, 0);
-      pmtidaltensor_nonperiodic_fourier(1, 1);
-      pmtidaltensor_nonperiodic_fourier(1, 2);
-      pmtidaltensor_nonperiodic_fourier(1, 3);
-      pmtidaltensor_nonperiodic_fourier(1, 4);
-      pmtidaltensor_nonperiodic_fourier(1, 5);
-*/
-/* FINITE DIFFERENCES based */
-      pmtidaltensor_nonperiodic_diff(1);
-#endif
 
     }
   if(i == 1)
     endrun(68686);
-#ifdef DISTORTIONTENSORPS
-  check_tidaltensor_nonperiodic(10000);
-#endif
 #endif
 #else
   i = pmforce_nonperiodic(0);
-#ifdef DISTORTIONTENSORPS
-/* choose what kind of tidal field calculation you want */
-/* FOURIER based */
-/*
-  pmtidaltensor_nonperiodic_fourier(0, 0);
-  pmtidaltensor_nonperiodic_fourier(0, 1);
-  pmtidaltensor_nonperiodic_fourier(0, 2);
-  pmtidaltensor_nonperiodic_fourier(0, 3);
-  pmtidaltensor_nonperiodic_fourier(0, 4);
-  pmtidaltensor_nonperiodic_fourier(0, 5);
-*/
-/* FINITE DIFFERENCES based */
-  pmtidaltensor_nonperiodic_diff(0);
-#endif
 
   if(i == 1)			/* this is returned if a particle lied outside allowed range */
     {
       pm_init_regionsize();
       pm_setup_nonperiodic_kernel();
       i = pmforce_nonperiodic(0);	/* try again */
-#ifdef DISTORTIONTENSORPS
-/* choose what kind of tidal field calculation you want */
-/* FOURIER based */
-/*
-      pmtidaltensor_nonperiodic_fourier(0, 0);
-      pmtidaltensor_nonperiodic_fourier(0, 1);
-      pmtidaltensor_nonperiodic_fourier(0, 2);
-      pmtidaltensor_nonperiodic_fourier(0, 3);
-      pmtidaltensor_nonperiodic_fourier(0, 4);
-      pmtidaltensor_nonperiodic_fourier(0, 5);
-*/
-/* FINITE DIFFERENCES based */
-      pmtidaltensor_nonperiodic_diff(0);
-#endif
     }
   if(i == 1)
     endrun(68687);
-#ifdef DISTORTIONTENSORPS
-  check_tidaltensor_nonperiodic(10000);
-#endif
 #ifdef PLACEHIGHRESREGION
   i = pmforce_nonperiodic(1);
-#ifdef DISTORTIONTENSORPS
-/* choose what kind of tidal field calculation you want */
-/* FOURIER based */
-/*
-  pmtidaltensor_nonperiodic_fourier(1, 0);
-  pmtidaltensor_nonperiodic_fourier(1, 1);
-  pmtidaltensor_nonperiodic_fourier(1, 2);
-  pmtidaltensor_nonperiodic_fourier(1, 3);
-  pmtidaltensor_nonperiodic_fourier(1, 4);
-  pmtidaltensor_nonperiodic_fourier(1, 5);
-*/
-/* FINITE DIFFERENCES based */
-  pmtidaltensor_nonperiodic_diff(1);
-#endif
   if(i == 1)			/* this is returned if a particle lied outside allowed range */
     {
       pm_init_regionsize();
@@ -212,53 +109,11 @@ void long_range_force(void)
       for(i = 0; i < NumPart; i++)
 	P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
 
-#ifdef DISTORTIONTENSORPS
-      P[i].tidal_tensorpsPM[0][0] = 0;
-      P[i].tidal_tensorpsPM[0][1] = 0;
-      P[i].tidal_tensorpsPM[0][2] = 0;
-      P[i].tidal_tensorpsPM[1][0] = 0;
-      P[i].tidal_tensorpsPM[1][1] = 0;
-      P[i].tidal_tensorpsPM[1][2] = 0;
-      P[i].tidal_tensorpsPM[2][0] = 0;
-      P[i].tidal_tensorpsPM[2][1] = 0;
-      P[i].tidal_tensorpsPM[2][2] = 0;
-#endif
       i = pmforce_nonperiodic(0) + pmforce_nonperiodic(1);
 
-#ifdef DISTORTIONTENSORPS
-/* choose what kind of tidal field calculation you want */
-/* FOURIER based */
-/*
-      pmtidaltensor_nonperiodic_fourier(0, 0);
-      pmtidaltensor_nonperiodic_fourier(0, 1);
-      pmtidaltensor_nonperiodic_fourier(0, 2);
-      pmtidaltensor_nonperiodic_fourier(0, 3);
-      pmtidaltensor_nonperiodic_fourier(0, 4);
-      pmtidaltensor_nonperiodic_fourier(0, 5);
-*/
-/* FINITE DIFFERENCES based */
-      pmtidaltensor_nonperiodic_diff(0);
-
-/* choose what kind of tidal field calculation you want */
-/* FOURIER based */
-/*
-      pmtidaltensor_nonperiodic_fourier(1, 0);
-      pmtidaltensor_nonperiodic_fourier(1, 1);
-      pmtidaltensor_nonperiodic_fourier(1, 2);
-      pmtidaltensor_nonperiodic_fourier(1, 3);
-      pmtidaltensor_nonperiodic_fourier(1, 4);
-      pmtidaltensor_nonperiodic_fourier(1, 5);
-*/
-/* FINITE DIFFERENCES based */
-      pmtidaltensor_nonperiodic_diff(1);
-#endif
     }
   if(i != 0)
     endrun(68688);
-#ifdef DISTORTIONTENSORPS
-  check_tidaltensor_periodic(10000);
-  check_tidaltensor_nonperiodic(10000);
-#endif
 #endif
 #endif
 

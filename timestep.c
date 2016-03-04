@@ -59,11 +59,6 @@ void advance_and_find_timesteps(void)
     int j, dt_step;
     double dt_gravkick, dt_hydrokick;
 
-#ifdef DISTORTIONTENSORPS
-    /* for the distortion 'velocity part', so only the lower two 3x3 submatrices will be != 0 */
-    MyDouble dv_distortion_tensorps[6][6];
-    int j1, j2;
-#endif
 #endif
 #ifdef MAKEGLASS
     double disp, dispmax, globmax, dmean, fac, disp2sum, globdisp2sum;
@@ -380,33 +375,6 @@ void advance_and_find_timesteps(void)
             for(j = 0; j < 3; j++)	/* do the kick */
                 P[i].Vel[j] += P[i].GravPM[j] * dt_gravkick;
 
-#ifdef DISTORTIONTENSORPS
-            /* add long range tidal forces calculated on mesh */
-            /* now we do the distortiontensor kick */
-            for(j1 = 0; j1 < 3; j1++)
-                for(j2 = 0; j2 < 3; j2++)
-                {
-                    dv_distortion_tensorps[j1 + 3][j2] = 0.0;
-                    dv_distortion_tensorps[j1 + 3][j2 + 3] = 0.0;
-
-                    /* the 'acceleration' is given by the product of tidaltensor and distortiontensor */
-                    for(j = 0; j < 3; j++)
-                    {
-                        dv_distortion_tensorps[j1 + 3][j2] +=
-                            P[i].tidal_tensorpsPM[j1][j] * P[i].distortion_tensorps[j][j2];
-                        dv_distortion_tensorps[j1 + 3][j2 + 3] +=
-                            P[i].tidal_tensorpsPM[j1][j] * P[i].distortion_tensorps[j][j2 + 3];
-                    }
-                    dv_distortion_tensorps[j1 + 3][j2] *= dt_gravkick;
-                    dv_distortion_tensorps[j1 + 3][j2 + 3] *= dt_gravkick;
-                    /* add it to the distortiontensor 'velocities' */
-                    P[i].distortion_tensorps[j1 + 3][j2] += dv_distortion_tensorps[j1 + 3][j2];
-                    P[i].distortion_tensorps[j1 + 3][j2 + 3] += dv_distortion_tensorps[j1 + 3][j2 + 3];
-                }
-#endif
-
-
-
             if(P[i].Type == 0)
             {
 #ifndef WAKEUP
@@ -619,12 +587,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
     double a_start, a_end;
 #endif
 
-#ifdef DISTORTIONTENSORPS
-    /* for the distortion 'velocity part', so only the lower two 3x3 submatrices will be != 0 */
-    MyDouble dv_distortion_tensorps[6][6];
-    int j1, j2;
-#endif
-
 #ifdef MAX_GAS_VEL
     double vv,velfac;
 #endif
@@ -661,31 +623,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
 #endif
         P[i].Vel[j] += dv[j];
     }
-
-#ifdef DISTORTIONTENSORPS
-    /* now we do the distortiontensor kick */
-    for(j1 = 0; j1 < 3; j1++)
-        for(j2 = 0; j2 < 3; j2++)
-        {
-            dv_distortion_tensorps[j1 + 3][j2] = 0.0;
-            dv_distortion_tensorps[j1 + 3][j2 + 3] = 0.0;
-
-            /* the 'acceleration' is given by the product of tidaltensor and distortiontensor */
-            for(j = 0; j < 3; j++)
-            {
-                dv_distortion_tensorps[j1 + 3][j2] +=
-                    P[i].tidal_tensorps[j1][j] * P[i].distortion_tensorps[j][j2];
-                dv_distortion_tensorps[j1 + 3][j2 + 3] +=
-                    P[i].tidal_tensorps[j1][j] * P[i].distortion_tensorps[j][j2 + 3];
-            }
-            dv_distortion_tensorps[j1 + 3][j2] *= dt_gravkick;
-            dv_distortion_tensorps[j1 + 3][j2 + 3] *= dt_gravkick;
-
-            /* add it to the distortiontensor 'velocities' */
-            P[i].distortion_tensorps[j1 + 3][j2] += dv_distortion_tensorps[j1 + 3][j2];
-            P[i].distortion_tensorps[j1 + 3][j2 + 3] += dv_distortion_tensorps[j1 + 3][j2 + 3];
-        }
-#endif
 
     if(P[i].Type == 0)		/* SPH stuff */
     {

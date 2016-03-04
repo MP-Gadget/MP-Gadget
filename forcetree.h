@@ -41,9 +41,6 @@ struct gravitydata_out
 {
     MyDouble Acc[3];
     MyDouble Potential;
-#ifdef DISTORTIONTENSORPS
-    MyDouble tidal_tensorps[3][3];
-#endif
     int Ninteractions;
 };
 

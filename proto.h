@@ -418,9 +418,6 @@ double growthfactor_integ(double a, void *param);
 double hydrokick_integ(double a, void *param);
 void init_drift_table(void);
 double get_drift_factor(int time0, int time1);
-#if defined(DISTORTIONTENSOR) || defined(DISTORTIONTENSORPS) 
-double get_distortionkick_factor(int time0, int time1);
-#endif
 double measure_time(void);
 
 
@@ -606,43 +603,6 @@ void swap_Nbyte(char *data, int n, int m);
 void swap_header(void);
 #endif
 void find_block(char *label,FILE *fd);
-
-#ifdef DISTORTIONTENSORPS
-void get_half_kick_distortion(int pindex, MyDouble half_kick_add[6][6]);
-void analyse_phase_space(MyIDType pindex, 
-                         MyDouble *s_1, MyDouble *s_2, MyDouble *s_3, 
-                         MyDouble *smear_x, MyDouble *smear_y, MyDouble *smear_z,
-                         MyDouble *D_xP_proj, MyDouble *second_deriv, MyDouble *sigma);
-MyDouble get_analytic_annihilation(MyDouble s_1, MyDouble s_2, MyDouble s_3, 
-                                   MyDouble s_1_prime, MyDouble s_2_prime, MyDouble s_3_prime,
-                                   MyDouble second_deriv, MyDouble second_deriv_prime, 
-                                   MyDouble dt, MyDouble sigma);
-MyDouble get_max_caustic_density(MyDouble s_1, MyDouble s_2,
-                                 MyDouble s_1_prime, MyDouble s_2_prime, 
-                                 MyDouble second_deriv, MyDouble second_deriv_prime, 
-                                 MyDouble sigma,
-                                 MyIDType pindex);
-void get_current_ps_info(MyIDType pindex, MyDouble * flde, MyDouble * psde);
-/* some math functions we need from phasespace_math.c */
-void ludcmp(MyDouble ** a, int n, int *indx, MyDouble * d);
-MyDouble **matrix(long nrl, long nrh, long ncl, long nch);
-MyDouble *vector(long nl, long nh);
-void free_matrix(MyDouble ** m, long nrl, long nrh, long ncl, long nch);
-void free_vector(MyDouble * v, long nl, long nh);
-void mult_matrix(MyDouble ** matrix_a, MyDouble ** matrix_b, int dimension, MyDouble ** matrix_result);
-void mult_matrix_transpose_A(MyDouble ** matrix_a, MyDouble ** matrix_b, int dimension, MyDouble ** matrix_result);
-void luinvert(MyDouble ** input_matrix, int n, MyDouble ** inverse_matrix);
-void eigsrt(MyDouble d[], MyDouble ** v, int n);
-void jacobi(MyDouble ** a, int n, MyDouble d[], MyDouble ** v, int *nrot, MyIDType pindex);
-#ifdef PETAPM
-void pmtidaltensor_periodic_diff(void);
-void pmtidaltensor_periodic_fourier(int component);
-int pmtidaltensor_nonperiodic_diff(int grnr);
-int pmtidaltensor_nonperiodic_fourier(int component, int grnr);
-void check_tidaltensor_periodic(int particle_ID);
-void check_tidaltensor_nonperiodic(int particle_ID);
-#endif
-#endif
 
 #ifdef SINKS
 void do_sinks(void);

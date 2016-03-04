@@ -2029,22 +2029,9 @@ int force_treeevaluate(int target, int mode,
 
     pot = 0.0;
 
-#ifdef DISTORTIONTENSORPS
-    int i1, i2;
-    double fac2, h_tidal, h_inv_tidal, h3_inv_tidal, h5_inv_tidal;
-    MyDouble tidal_tensorps[3][3];
-#endif
-
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     double soft = 0;
 #endif
-
-#ifdef DISTORTIONTENSORPS
-    for(i1 = 0; i1 < 3; i1++)
-        for(i2 = 0; i2 < 3; i2++)
-            tidal_tensorps[i1][i2] = 0.0;
-#endif
-
 
     acc_x = 0;
     acc_y = 0;
@@ -2073,14 +2060,6 @@ int force_treeevaluate(int target, int mode,
     h = All.ForceSoftening[ptype];
     h_inv = 1.0 / h;
     h3_inv = h_inv * h_inv * h_inv;
-#endif
-
-#ifdef DISTORTIONTENSORPS
-    /* different tidal field softening */
-    h_tidal = All.ForceSoftening[ptype];
-    h_inv_tidal = 1.0 / h_tidal;
-    h3_inv_tidal = h_inv_tidal * h_inv_tidal * h_inv_tidal;
-    h5_inv_tidal = h_inv_tidal * h_inv_tidal * h_inv_tidal * h_inv_tidal * h_inv_tidal;
 #endif
 
     while(no >= 0)
@@ -2381,45 +2360,6 @@ int force_treeevaluate(int target, int mode,
 #endif
 
 
-#ifdef DISTORTIONTENSORPS
-            if(r >= h_tidal)
-            {
-                fac = mass / (r2 * r);
-                fac2 = 3.0 * mass / (r2 * r2 * r);
-            }
-            else
-            {
-                u = r * h_inv_tidal;
-                if(u < 0.5)
-                    fac = mass * h3_inv_tidal * (10.666666666667 + u * u * (32.0 * u - 38.4));
-                else
-                    fac =
-                        mass * h3_inv_tidal * (21.333333333333 - 48.0 * u +
-                                38.4 * u * u - 10.666666666667 * u * u * u -
-                                0.066666666667 / (u * u * u));
-
-                /*second derivates (see Gadget 1 paper and there g2 function) */
-                if(u < 0.5)
-                    fac2 = mass * h5_inv_tidal * (76.8 - 96.0 * u);
-                else
-                    fac2 = mass * h5_inv_tidal * (-0.2 / (u * u * u * u * u) + 48.0 / u - 76.8 + 32.0 * u);
-            }
-
-
-            /* tidal tensor */
-            tidal_tensorps[0][0] += (-fac + dx * dx * fac2);
-            tidal_tensorps[0][1] += (dx * dy * fac2);
-            tidal_tensorps[0][2] += (dx * dz * fac2);
-            tidal_tensorps[1][1] += (-fac + dy * dy * fac2);
-            tidal_tensorps[1][2] += (dy * dz * fac2);
-            tidal_tensorps[2][2] += (-fac + dz * dz * fac2);
-            tidal_tensorps[1][0] = tidal_tensorps[0][1];
-            tidal_tensorps[2][0] = tidal_tensorps[0][2];
-            tidal_tensorps[2][1] = tidal_tensorps[1][2];
-#endif
-
-
-
         }
         if(listindex < NODELISTLENGTH)
         {
@@ -2433,87 +2373,11 @@ int force_treeevaluate(int target, int mode,
     }
 
 
-#ifdef DISTORTIONTENSORPS
-#ifdef RADIAL_TREE
-    /* 1D -> only radial forces */
-    /* scalar product to get the projection of accel along r */
-    MyDouble accel = acc_x * pos_x + acc_y * pos_y + acc_z * pos_z;
-    MyDouble rad = sqrt(pos_x * pos_x + pos_y * pos_y + pos_z * pos_z);
-    MyDouble rad2 = rad * rad;
-    MyDouble acc_x_temp, acc_y_temp, acc_z_temp;
-    MyDouble tidal_tensorps_temp[3][3];
-
-    /* projected accel */
-    acc_x_temp = accel * pos_x / rad2;
-    acc_y_temp = accel * pos_y / rad2;
-    acc_z_temp = accel * pos_z / rad2;
-
-    /* derivatives of projected accel */
-    tidal_tensorps_temp[0][0] =
-        (acc_x + tidal_tensorps[0][0] * pos_x + tidal_tensorps[1][0] * pos_y +
-         tidal_tensorps[2][0] * pos_z) * pos_x / rad2 + accel * (1.0 / rad2 -
-             2.0 * pos_x * pos_x / (rad2 * rad2));
-    tidal_tensorps_temp[0][1] =
-        (acc_y + tidal_tensorps[0][1] * pos_x + tidal_tensorps[1][1] * pos_y +
-         tidal_tensorps[2][1] * pos_z) * pos_x / rad2 + accel * (0.0 / rad2 -
-             2.0 * pos_x * pos_y / (rad2 * rad2));
-    tidal_tensorps_temp[0][2] =
-        (acc_z + tidal_tensorps[0][2] * pos_x + tidal_tensorps[1][2] * pos_y +
-         tidal_tensorps[2][2] * pos_z) * pos_x / rad2 + accel * (0.0 / rad2 -
-             2.0 * pos_x * pos_z / (rad2 * rad2));
-
-    tidal_tensorps_temp[1][0] =
-        (acc_x + tidal_tensorps[0][0] * pos_x + tidal_tensorps[1][0] * pos_y +
-         tidal_tensorps[2][0] * pos_z) * pos_y / rad2 + accel * (0.0 / rad2 -
-             2.0 * pos_y * pos_x / (rad2 * rad2));
-    tidal_tensorps_temp[1][1] =
-        (acc_y + tidal_tensorps[0][1] * pos_x + tidal_tensorps[1][1] * pos_y +
-         tidal_tensorps[2][1] * pos_z) * pos_y / rad2 + accel * (1.0 / rad2 -
-             2.0 * pos_y * pos_y / (rad2 * rad2));
-    tidal_tensorps_temp[1][2] =
-        (acc_z + tidal_tensorps[0][2] * pos_x + tidal_tensorps[1][2] * pos_y +
-         tidal_tensorps[2][2] * pos_z) * pos_y / rad2 + accel * (0.0 / rad2 -
-             2.0 * pos_y * pos_z / (rad2 * rad2));
-
-    tidal_tensorps_temp[2][0] =
-        (acc_x + tidal_tensorps[0][0] * pos_x + tidal_tensorps[1][0] * pos_y +
-         tidal_tensorps[2][0] * pos_z) * pos_z / rad2 + accel * (0.0 / rad2 -
-             2.0 * pos_z * pos_x / (rad2 * rad2));
-    tidal_tensorps_temp[2][1] =
-        (acc_y + tidal_tensorps[0][1] * pos_x + tidal_tensorps[1][1] * pos_y +
-         tidal_tensorps[2][1] * pos_z) * pos_z / rad2 + accel * (0.0 / rad2 -
-             2.0 * pos_z * pos_y / (rad2 * rad2));
-    tidal_tensorps_temp[2][2] =
-        (acc_z + tidal_tensorps[0][2] * pos_x + tidal_tensorps[1][2] * pos_y +
-         tidal_tensorps[2][2] * pos_z) * pos_z / rad2 + accel * (1.0 / rad2 -
-             2.0 * pos_z * pos_z / (rad2 * rad2));
-    tidal_tensorps[0][0] = tidal_tensorps_temp[0][0];
-    tidal_tensorps[0][1] = tidal_tensorps_temp[0][1];
-    tidal_tensorps[0][2] = tidal_tensorps_temp[0][2];
-    tidal_tensorps[1][0] = tidal_tensorps_temp[1][0];
-    tidal_tensorps[1][1] = tidal_tensorps_temp[1][1];
-    tidal_tensorps[1][2] = tidal_tensorps_temp[1][2];
-    tidal_tensorps[2][0] = tidal_tensorps_temp[2][0];
-    tidal_tensorps[2][1] = tidal_tensorps_temp[2][1];
-    tidal_tensorps[2][2] = tidal_tensorps_temp[2][2];
-
-    acc_x = acc_x_temp;
-    acc_y = acc_y_temp;
-    acc_z = acc_z_temp;
-#endif
-#endif
-
     output->Acc[0] = acc_x;
     output->Acc[1] = acc_y;
     output->Acc[2] = acc_z;
     output->Ninteractions = ninteractions;
     output->Potential = pot;
-
-#ifdef DISTORTIONTENSORPS
-    for(i1 = 0; i1 < 3; i1++)
-        for(i2 = 0; i2 < 3; i2++)
-            output->tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
-#endif
 
     /* store result at the proper place */
     lv->Ninteractions = ninteractions;
@@ -2546,13 +2410,6 @@ int force_treeev_shortrange(int target, int mode,
     double rcut, asmth, asmthfac, rcut2, dist;
     MyDouble acc_x, acc_y, acc_z;
 
-#ifdef DISTORTIONTENSORPS
-    int i1, i2;
-    double fac2, h5_inv;
-    double fac_tidal;
-    MyDouble tidal_tensorps[3][3];
-#endif
-
 #ifdef SCALARFIELD
     double dx_dm = 0, dy_dm = 0, dz_dm = 0, mass_dm = 0;
 #endif
@@ -2564,13 +2421,6 @@ int force_treeev_shortrange(int target, int mode,
 
     pot = 0;
     
-#ifdef DISTORTIONTENSORPS
-    for(i1 = 0; i1 < 3; i1++)
-        for(i2 = 0; i2 < 3; i2++)
-            tidal_tensorps[i1][i2] = 0.0;
-#endif
-
-
     acc_x = 0;
     acc_y = 0;
     acc_z = 0;
@@ -2613,9 +2463,6 @@ int force_treeev_shortrange(int target, int mode,
     h = All.ForceSoftening[ptype];
     h_inv = 1.0 / h;
     h3_inv = h_inv * h_inv * h_inv;
-#ifdef DISTORTIONTENSORPS
-    h5_inv = h_inv * h_inv * h_inv * h_inv * h_inv;
-#endif
 #endif
 
     while(no >= 0)
@@ -2853,10 +2700,6 @@ int force_treeev_shortrange(int target, int mode,
             if(r >= h)
             {
                 fac = mass / (r2 * r);
-#ifdef DISTORTIONTENSORPS
-                /* second derivative of potential needs this factor */
-                fac2 = 3.0 * mass / (r2 * r2 * r);
-#endif
                 facpot = -mass / r;
             }
             else
@@ -2864,9 +2707,6 @@ int force_treeev_shortrange(int target, int mode,
 #ifdef UNEQUALSOFTENINGS
                 h_inv = 1.0 / h;
                 h3_inv = h_inv * h_inv * h_inv;
-#ifdef DISTORTIONTENSORPS
-                h5_inv = h_inv * h_inv * h_inv * h_inv * h_inv;
-#endif
 #endif
                 u = r * h_inv;
                 if(u < 0.5)
@@ -2884,54 +2724,17 @@ int force_treeev_shortrange(int target, int mode,
 
                 facpot = mass * h_inv * wp;
 
-#ifdef DISTORTIONTENSORPS
-                /*second derivates needed -> calculate them from softend potential,
-                  (see Gadget 1 paper and there g2 function). SIGN?! */
-                if(u < 0.5)
-                    fac2 = mass * h5_inv * (76.8 - 96.0 * u);
-                else
-                    fac2 = mass * h5_inv * (-0.2 / (u * u * u * u * u) + 48.0 / u - 76.8 + 32.0 * u);
-#endif
-
             }
 
             tabindex = (int) (asmthfac * r);
 
             if(tabindex < NTAB)
             {
-#ifdef DISTORTIONTENSORPS
-                /* save original fac without shortrange_table facor (needed for tidal field calculation) */
-                fac_tidal = fac;
-#endif
                 fac *= shortrange_table[tabindex];
 
                 acc_x += (dx * fac);
                 acc_y += (dy * fac);
                 acc_z += (dz * fac);
-#ifdef DISTORTIONTENSORPS
-                /*
-                   tidal_tensorps[][] = Matrix of second derivatives of grav. potential, symmetric:
-                   |Txx Txy Txz|   |tidal_tensorps[0][0] tidal_tensorps[0][1] tidal_tensorps[0][2]|
-                   |Tyx Tyy Tyz| = |tidal_tensorps[1][0] tidal_tensorps[1][1] tidal_tensorps[1][2]| 
-                   |Tzx Tzy Tzz|   |tidal_tensorps[2][0] tidal_tensorps[2][1] tidal_tensorps[2][2]|
-                   */
-
-                tidal_tensorps[0][0] += ((-fac_tidal + dx * dx * fac2) * shortrange_table[tabindex]) +
-                    dx * dx * fac2 / 3.0 * shortrange_table_tidal[tabindex];
-                tidal_tensorps[0][1] += ((dx * dy * fac2) * shortrange_table[tabindex]) +
-                    dx * dy * fac2 / 3.0 * shortrange_table_tidal[tabindex];
-                tidal_tensorps[0][2] += ((dx * dz * fac2) * shortrange_table[tabindex]) +
-                    dx * dz * fac2 / 3.0 * shortrange_table_tidal[tabindex];
-                tidal_tensorps[1][1] += ((-fac_tidal + dy * dy * fac2) * shortrange_table[tabindex]) +
-                    dy * dy * fac2 / 3.0 * shortrange_table_tidal[tabindex];
-                tidal_tensorps[1][2] += ((dy * dz * fac2) * shortrange_table[tabindex]) +
-                    dy * dz * fac2 / 3.0 * shortrange_table_tidal[tabindex];
-                tidal_tensorps[2][2] += ((-fac_tidal + dz * dz * fac2) * shortrange_table[tabindex]) +
-                    dz * dz * fac2 / 3.0 * shortrange_table_tidal[tabindex];
-                tidal_tensorps[1][0] = tidal_tensorps[0][1];
-                tidal_tensorps[2][0] = tidal_tensorps[0][2];
-                tidal_tensorps[2][1] = tidal_tensorps[1][2];
-#endif
                 pot += (facpot * shortrange_table_potential[tabindex]);
                 ninteractions++;
             }
@@ -2999,12 +2802,6 @@ int force_treeev_shortrange(int target, int mode,
         output->Ninteractions = ninteractions;
         output->Potential = pot;
         
-#ifdef DISTORTIONTENSORPS
-        for(i1 = 0; i1 < 3; i1++)
-            for(i2 = 0; i2 < 3; i2++)
-                output->tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
-#endif
-
     lv->Ninteractions = ninteractions;
     lv->Nnodesinlist = nnodesinlist;
     return ninteractions;

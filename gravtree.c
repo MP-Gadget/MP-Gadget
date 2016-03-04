@@ -160,9 +160,6 @@ void gravity_tree(void)
 
     Evaluator ev[2] = {0};
 
-#ifdef DISTORTIONTENSORPS
-    int i1, i2;
-#endif
 #endif
 
 #ifdef PETAPM
@@ -212,81 +209,6 @@ void gravity_tree(void)
 #endif
 
 #ifndef NOGRAVITY
-
-
-#if 0 // defined(SIM_ADAPTIVE_SOFT) || defined(REINIT_AT_TURNAROUND)
-    double turnaround_radius_local = 0.0, turnaround_radius_global = 0.0, v_part, r_part;
-
-#ifdef REINIT_AT_TURNAROUND_CMS
-    calculate_centre_of_mass();
-#endif
-
-    /* get local turnaroundradius */
-    for(i = 0; i < NumPart; i++)
-    {
-        r_part = sqrt((P[i].Pos[0] - All.cms_x) * (P[i].Pos[0] - All.cms_x) +
-                (P[i].Pos[1] - All.cms_y) * (P[i].Pos[1] - All.cms_y) +
-                (P[i].Pos[2] - All.cms_z) * (P[i].Pos[2] - All.cms_z));
-        v_part = (P[i].Pos[0] * P[i].Vel[0] + P[i].Pos[1] * P[i].Vel[1] + P[i].Pos[2] * P[i].Vel[2]);
-        if((v_part < 0.0) && (r_part > turnaround_radius_local))
-            turnaround_radius_local = r_part;
-    }
-
-    /* find global turnaround radius by taking maximum of all CPUs */
-    MPI_Allreduce(&turnaround_radius_local, &turnaround_radius_global, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-
-#ifdef ANALYTIC_TURNAROUND
-#ifdef COMOVING_DISTORTION
-    /* comoving turnaround radius */
-    All.CurrentTurnaroundRadius =
-        All.InitialTurnaroundRadius * pow(All.Time / All.TimeBegin, 1.0 / (3.0 * All.SIM_epsilon));
-#else
-    All.CurrentTurnaroundRadius =
-        All.InitialTurnaroundRadius * pow(All.Time / All.TimeBegin,
-                2.0 / 3.0 + 2.0 / (3.0 * 3 * All.SIM_epsilon));
-#endif
-#else
-    All.CurrentTurnaroundRadius = turnaround_radius_global;
-#endif /* ANALYTIC_TURNAROUND */
-
-    if(ThisTask == 0)
-    {
-        printf("REINIT_AT_TURNAROUND: current turnaround radius = %g\n", All.CurrentTurnaroundRadius);
-        fflush(stdout);
-    }
-
-#ifdef SIM_ADAPTIVE_SOFT
-    if(ThisTask == 0)
-    {
-#ifdef ANALYTIC_TURNAROUND
-#ifdef COMOVING_DISTORTION
-        printf("COMOVING_DISTORTION: comoving turnaround radius = %g\n", All.CurrentTurnaroundRadius);
-#else
-        printf("SIM/SHEL_CODE adaptive core softening: simulation turnaround radius = %g\n",
-                turnaround_radius_global);
-        printf("SIM/SHEL_CODE adaptive core softening: analytic turnaround radius   = %g\n",
-                All.CurrentTurnaroundRadius);
-#endif
-#else
-        printf("SIM/TREE adaptive softening: current turnaround radius  = %g\n", All.CurrentTurnaroundRadius);
-#endif /* ANALYTIC_TURNAROUND */
-        fflush(stdout);
-    }
-
-    /* set the table values, because it is used for the time stepping, the Plummer equivalent softening length */
-    All.SofteningTable[0] = All.CurrentTurnaroundRadius * All.SofteningGas;
-    All.SofteningTable[1] = All.CurrentTurnaroundRadius * All.SofteningHalo;
-    All.SofteningTable[2] = All.CurrentTurnaroundRadius * All.SofteningDisk;
-    All.SofteningTable[3] = All.CurrentTurnaroundRadius * All.SofteningBulge;
-    All.SofteningTable[4] = All.CurrentTurnaroundRadius * All.SofteningStars;
-    All.SofteningTable[5] = All.CurrentTurnaroundRadius * All.SofteningBndry;
-
-    /* this is used in tree, the spline softening length */
-    for(i = 0; i < 6; i++)
-        All.ForceSoftening[i] = 2.8 * All.SofteningTable[i];
-#endif /* SIM_ADAPTIVE_SOFT */
-#endif /* SIM_ADAPTIVE_SOFT || REINIT_AT_TURNAROUND */
-
 
     /* allocate buffers to arrange communication */
     if(ThisTask == 0)
@@ -433,20 +355,6 @@ void gravity_tree(void)
             P[i].GravAccel[j] = 0;
 
 
-#ifdef DISTORTIONTENSORPS
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-    {
-        P[i].tidal_tensorps[0][0] = 0.0;
-        P[i].tidal_tensorps[0][1] = 0.0;
-        P[i].tidal_tensorps[0][2] = 0.0;
-        P[i].tidal_tensorps[1][0] = 0.0;
-        P[i].tidal_tensorps[1][1] = 0.0;
-        P[i].tidal_tensorps[1][2] = 0.0;
-        P[i].tidal_tensorps[2][0] = 0.0;
-        P[i].tidal_tensorps[2][1] = 0.0;
-        P[i].tidal_tensorps[2][2] = 0.0;
-    }
-#endif
 #endif /* end of NOGRAVITY */
 
     /* This code is removed for now gravity_static_potential(); */
@@ -569,14 +477,6 @@ void gravtree_reduce(int place, struct gravitydata_out * result, int mode) {
     for(k = 0; k < 3; k++)
         REDUCE(P[place].GravAccel[k], result->Acc[k]);
 
-#ifdef DISTORTIONTENSORPS
-    int i1, i2;
-    for(i1 = 0; i1 < 3; i1++)
-        for(i2 = 0; i2 < 3; i2++)
-            REDUCE(P[place].tidal_tensorps[i1][i2], 
-                    result->tidal_tensorps[i1][i2]);
-#endif
-
     REDUCE(P[place].GravCost, result->Ninteractions);
     REDUCE(P[place].Potential, result->Potential);
 }
@@ -620,82 +520,6 @@ static void gravtree_post_process(int i) {
     }
     for(j = 0; j < 3; j++)
         P[i].GravAccel[j] *= All.G;
-
-#ifdef DISTORTIONTENSORPS
-    /*
-       Diaganol terms of tidal tensor need correction, because tree is running over
-       all particles -> also over target particle -> extra term -> correct it
-       */
-#ifdef RADIAL_TREE
-    /* 1D -> only radial forces */
-    MyDouble r2 = P[i].Pos[0] * P[i].Pos[0] + P[i].Pos[1] * P[i].Pos[1] + P[i].Pos[2] * P[i].Pos[2];
-
-    P[i].tidal_tensorps[0][0] += P[i].Mass /
-        (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type]) *
-        10.666666666667 * P[i].Pos[0] * P[i].Pos[0] / r2;;
-
-    P[i].tidal_tensorps[0][1] += P[i].Mass /
-        (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type]) *
-        10.666666666667 * P[i].Pos[0] * P[i].Pos[1] / r2;;
-
-    P[i].tidal_tensorps[0][2] += P[i].Mass /
-        (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type]) *
-        10.666666666667 * P[i].Pos[0] * P[i].Pos[2] / r2;;
-
-    P[i].tidal_tensorps[1][0] += P[i].Mass /
-        (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type]) *
-        10.666666666667 * P[i].Pos[1] * P[i].Pos[0] / r2;;
-
-    P[i].tidal_tensorps[1][1] += P[i].Mass /
-        (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type]) *
-        10.666666666667 * P[i].Pos[1] * P[i].Pos[1] / r2;;
-
-    P[i].tidal_tensorps[1][2] += P[i].Mass /
-        (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type]) *
-        10.666666666667 * P[i].Pos[1] * P[i].Pos[2] / r2;;
-
-    P[i].tidal_tensorps[2][0] += P[i].Mass /
-        (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type]) *
-        10.666666666667 * P[i].Pos[2] * P[i].Pos[0] / r2;;
-
-    P[i].tidal_tensorps[2][1] += P[i].Mass /
-        (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type]) *
-        10.666666666667 * P[i].Pos[2] * P[i].Pos[1] / r2;;
-
-    P[i].tidal_tensorps[2][2] += P[i].Mass /
-        (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type]) *
-        10.666666666667 * P[i].Pos[2] * P[i].Pos[2] / r2;;
-
-#else
-    /* 3D -> full forces */
-    P[i].tidal_tensorps[0][0] +=
-        P[i].Mass / (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] *
-                All.ForceSoftening[P[i].Type]) * 10.666666666667;
-
-    P[i].tidal_tensorps[1][1] +=
-        P[i].Mass / (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] *
-                All.ForceSoftening[P[i].Type]) * 10.666666666667;
-
-    P[i].tidal_tensorps[2][2] +=
-        P[i].Mass / (All.ForceSoftening[P[i].Type] * All.ForceSoftening[P[i].Type] *
-                All.ForceSoftening[P[i].Type]) * 10.666666666667;
-
-#endif
-
-#ifdef COMOVING_DISTORTION
-    P[i].tidal_tensorps[0][0] +=
-        4.0 * M_PI / 3.0 * (All.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G));
-    P[i].tidal_tensorps[1][1] +=
-        4.0 * M_PI / 3.0 * (All.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G));
-    P[i].tidal_tensorps[2][2] +=
-        4.0 * M_PI / 3.0 * (All.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G));
-#endif
-
-    /*now muliply by All.G */
-    for(i1 = 0; i1 < 3; i1++)
-        for(i2 = 0; i2 < 3; i2++)
-            P[i].tidal_tensorps[i1][i2] *= All.G;
-#endif /* DISTORTIONTENSORPS */
 
     /* calculate the potential */
     /* remove self-potential */

@@ -524,13 +524,6 @@ extern FILE *FdRad;		/*!< file handle for radtransfer.txt log-file. */
 extern FILE *FdRadNew;		/*!< file handle for radtransferNew.txt log-file. */
 #endif
 
-#ifdef DISTORTIONTENSORPS
-#ifdef PETAPM
-extern FILE *FdTidaltensor;     /*!< file handle for tidaltensor.txt log-file. */
-#endif
-extern FILE *FdCaustics;	/*!< file handle for Caustics.txt log-file. */
-#endif
-
 #ifdef BLACK_HOLES
 extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
 extern FILE *FdBlackHolesDetails;
@@ -870,11 +863,6 @@ extern struct global_data_all_processes
     double ErrTolForceAccParam;
 #endif
 
-#ifdef DISTORTIONTENSORPS
-    /* present day velocity dispersion of DM particle in cm/s (e.g. Neutralino = 0.03 cm/s) */
-    double DM_velocity_dispersion;
-#endif
-
 #ifdef SFR		/* star formation and feedback sector */
     double CritOverDensity;
     double CritPhysDensity;
@@ -1190,48 +1178,6 @@ extern struct particle_data
     MyFloat GravAccelDirect[3];	/*!< particle acceleration calculated by direct summation */
 #endif
     MyFloat       Potential;		/*!< gravitational potential */
-
-#ifdef DISTORTIONTENSORPS
-    MyDouble distortion_tensorps[6][6];          /*!< Phase Space Distortion tensor */
-    MyDouble tidal_tensorps[3][3];               /*!< tidal tensor (=second derivatives of grav. potential) */
-    MyDouble V_matrix[3][3];                     /*!< initial orientation of CDM sheet the particle is embedded in */
-    MyDouble init_density;                           /*!< initial stream density */
-    MyFloat caustic_counter;                         /*!< caustic counter */
-    MyDouble last_stream_determinant;                /*!< last stream density determinant, needed to identify caustics */
-#ifdef REINIT_AT_TURNAROUND
-    int turnaround_flag;                             /*!< mark when a particle turned around */
-#endif
-#ifdef COMOVING_DISTORTION
-    double a0;
-#endif
-    MyDouble annihilation;                            /*!< integrated annihilation rate */
-    MyDouble analytic_annihilation;                   /*!< analytically integrated annihilation rate */
-    MyDouble rho_normed_cutoff_current;               /*!< current and last normed_cutoff density in rho_max/rho_init * sqrt(sigma) */
-    MyDouble rho_normed_cutoff_last;
-    MyDouble s_1_current, s_2_current, s_3_current;   /*! < current and last stretching factor */
-    MyDouble s_1_last, s_2_last, s_3_last;
-    MyDouble second_deriv_current;                    /*! < current and last second derivative */
-    MyDouble second_deriv_last;
-    MyDouble stream_density;                          /*!< physical stream density that is going to be integrated (in terms of rho_crit) */
-    MyFloat analytic_caustics;                        /*!< number of caustics that were integrated analytically,
-                                                        i.e. where the physical caustic density was higher
-                                                        than the numerical GDE density */
-#ifdef OUTPUT_LAST_CAUSTIC
-    MyDouble lc_Time;                          /*!< time of caustic passage */
-    MyDouble lc_Pos[3];                        /*!< position of caustic */
-    MyDouble lc_Vel[3];                        /*!< particle velocity when passing through caustic */
-    MyDouble lc_rho_normed_cutoff;             /*!< normed_cutoff density at caustic */
-    MyDouble lc_Dir_x[3];                      /*!< principal axis frame of smear out */
-    MyDouble lc_Dir_y[3];
-    MyDouble lc_Dir_z[3];
-    MyDouble lc_smear_x;                       /*!< smear out length */
-    MyDouble lc_smear_y;
-    MyDouble lc_smear_z;
-#endif
-#ifdef PETAPM
-    MyDouble tidal_tensorpsPM[3][3];	    /*!< for TreePM simulations, long range tidal field */
-#endif
-#endif
 
     MyFloat OldAcc;			/*!< magnitude of old gravitational force. Used in relative opening
                               criterion */

@@ -179,13 +179,6 @@ FILE *FdRad;			/*!< file handle for radtransfer.txt log-file. */
 FILE *FdRadNew;			/*!< file handle for radtransferNew.txt log-file. */
 #endif
 
-#ifdef DISTORTIONTENSORPS
-#ifdef PETAPM
-FILE *FdTidaltensor;		/*!< file handle for Tidaltensor.txt log-file. */
-#endif
-FILE *FdCaustics;		/*!< file handle for Caustics.txt log-file. */
-#endif
-
 #ifdef BLACK_HOLES
 FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
 FILE *FdBlackHolesDetails;
