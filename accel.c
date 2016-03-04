@@ -25,9 +25,6 @@
  */
 void compute_accelerations(int mode)
 {
-#ifdef RADTRANSFER
-    double timeeach = 0, timeall = 0, tstart = 0, tend = 0;
-#endif
     int TreeReconstructFlag = 0;
 
     if(ThisTask == 0)
@@ -99,82 +96,6 @@ void compute_accelerations(int mode)
         }
 
         hydro_force();		/* adds hydrodynamical accelerations  and computes du/dt  */
-
-#ifdef RADTRANSFER
-        if(Flag_FullStep)		/* only do it for full timesteps */
-        {
-            All.Radiation_Ti_endstep = All.Ti_Current;
-
-
-            if(ThisTask == 0)
-            {
-                printf("Start Eddington tensor computation...\n");
-                fflush(stdout);
-            }
-
-            eddington();
-
-#ifdef RT_RAD_PRESSURE
-            n();
-#endif
-
-            if(ThisTask == 0)
-            {
-                printf("done Eddington tensor! \n");
-                fflush(stdout);
-            }
-
-#ifdef EDDINGTON_TENSOR_SFR
-            density_sfr();
-            sfr_lum();
-#endif
-
-#ifdef EDDINGTON_TENSOR_STARS
-            rt_get_lum_stars();
-            star_lum();
-#endif
-
-#ifdef EDDINGTON_TENSOR_GAS
-            gas_lum();
-#endif
-
-#ifdef EDDINGTON_TENSOR_BH
-            bh_lum();
-#endif
-
-            /***** evolve the transport of radiation *****/
-            if(ThisTask == 0)
-            {
-                printf("start radtransfer...\n");
-                fflush(stdout);
-            }
-
-            tstart = second();
-
-            radtransfer();
-
-            radtransfer_update_chemistry();
-
-            tend = second();
-            timeeach = timediff(tstart, tend);
-            MPI_Allreduce(&timeeach, &timeall, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-            if(ThisTask == 0)
-            {
-                printf("time consumed is %g \n", timeall);
-                printf("done with radtransfer! \n");
-                fflush(stdout);
-            }
-
-            All.Radiation_Ti_begstep = All.Radiation_Ti_endstep;
-        }
-#endif
-
-#ifdef MHM
-        /***** kinetic feedback *****/
-        kinetic_feedback_mhm();
-#endif
-
 
 #ifdef BLACK_HOLES
         /***** black hole accretion and feedback *****/

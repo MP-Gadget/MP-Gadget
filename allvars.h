@@ -75,12 +75,6 @@
                                          */
 #define MAXHSML 30000.0
 
-#ifdef RADTRANSFER
-#define N_BINS 10
-#define start_E 13.6
-#define end_E 53.6
-#endif
-
 #ifndef  MULTIPLEDOMAINS
 #define  MULTIPLEDOMAINS     1
 #endif
@@ -445,13 +439,6 @@ extern int *DomainTask;
 extern int *DomainNodeIndex;
 extern int *DomainList, DomainNumChanged;
 
-#ifdef RADTRANSFER
-double rt_sigma_HI[N_BINS];
-double rt_sigma_HeI[N_BINS];
-double rt_sigma_HeII[N_BINS];
-double lum[N_BINS];
-#endif
-
 extern struct topnode_data
 {
     peanokey Size;
@@ -486,11 +473,6 @@ extern FILE *FdSCF;
 #ifdef SFR
 extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
 extern FILE *FdSfrDetails;
-#endif
-
-#ifdef RADTRANSFER
-extern FILE *FdRad;		/*!< file handle for radtransfer.txt log-file. */
-extern FILE *FdRadNew;		/*!< file handle for radtransferNew.txt log-file. */
 #endif
 
 #ifdef BLACK_HOLES
@@ -799,13 +781,6 @@ extern struct global_data_all_processes
     double ReferenceGasMass;
 #endif
 
-#ifdef RADTRANSFER
-    double IonizingLumPerSolarMass;
-    double IonizingLumPerSFR;
-    int Radiation_Ti_begstep;
-    int Radiation_Ti_endstep;
-#endif
-
 #if defined(SIM_ADAPTIVE_SOFT) || defined(REINIT_AT_TURNAROUND)
     double CurrentTurnaroundRadius;
     double InitialTurnaroundRadius;
@@ -1053,7 +1028,7 @@ extern struct particle_data
         MyDouble dNumNgb;
     } n;
 
-#if defined(RADTRANSFER) || defined(SNIA_HEATING)
+#ifdef SNIA_HEATING
     MyFloat DensAroundStar;
 #endif
 
@@ -1171,38 +1146,6 @@ extern struct sph_particle_data
 #endif
 #ifdef NS_TIMESTEP
     MyFloat ViscEntropyChange;
-#endif
-
-#ifdef MHM
-    MyFloat FeedbackEnergy;
-#endif
-
-#ifdef RADTRANSFER
-    MyFloat ET[6];                /* eddington tensor - symmetric -> only 6 elements needed */
-    MyFloat Je[N_BINS];           /* emmisivity */
-    MyFloat nHI;                  /* HI fraction */
-    MyFloat nHII;                 /* HII fraction */
-    MyFloat nHeI;                 /* HeI fraction */
-    MyFloat nHeII;                 /* HeII fraction */
-    MyFloat nHeIII;                 /* HeIII fraction */
-    MyFloat n_elec;               /* electron fraction */
-    MyFloat n_gamma[N_BINS];
-#ifdef RADTRANSFER_FLUXLIMITER
-    MyFloat Grad_ngamma[3][N_BINS];
-#endif
-#ifdef RT_RAD_PRESSURE
-    MyFloat dn_gamma[N_BINS];
-    MyFloat n[3][N_BINS];
-#endif
-#ifdef SFR
-    MyDouble DensitySfr;
-    MyDouble HsmlSfr;
-    MyDouble DhsmlDensityFactorSfr;
-    MyDouble NgbSfr;
-#endif
-#ifndef CG
-    MyFloat n_gamma_old;
-#endif
 #endif
 
 #ifdef EOS_DEGENERATE
@@ -1328,15 +1271,6 @@ extern struct NODE
 
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
-
-#ifdef RADTRANSFER
-    MyFloat stellar_mass;         /*!< mass in stars in the node*/
-    MyFloat stellar_s[3];         /*!< enter of mass for the stars in the node*/
-#ifdef RT_RAD_PRESSURE
-    MyFloat bh_mass;
-    MyFloat bh_s[3];
-#endif
-#endif
 
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     MyFloat maxsoft;		/*!< hold the maximum gravitational softening of particle in the

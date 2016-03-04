@@ -52,10 +52,6 @@ struct densdata_out
     int TrueNGB;
 #endif
 
-#ifdef RADTRANSFER_FLUXLIMITER
-    MyFloat Grad_ngamma[3][N_BINS];
-#endif
-
 #ifdef BLACK_HOLES
     MyDouble SmoothedEntOrPressure;
     MyDouble FeedbackWeightSum;
@@ -366,16 +362,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
         EV_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
 #endif
 
-#ifdef RADTRANSFER_FLUXLIMITER
-        for(k = 0; k< N_BINS; k++)
-        {
-            EV_REDUCE(SPHP(place).Grad_ngamma[0][k], remote->Grad_ngamma[0][k]);
-            EV_REDUCE(SPHP(place).Grad_ngamma[1][k], remote->Grad_ngamma[1][k]);
-            EV_REDUCE(SPHP(place).Grad_ngamma[2][k], remote->Grad_ngamma[2][k]);
-        }
-#endif
-
-
 #ifdef JD_VTURB
         EV_REDUCE(SPHP(place).Vturb, remote->Vturb);
         EV_REDUCE(SPHP(place).Vbulk[0], remote->Vbulk[0]);
@@ -386,7 +372,7 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 
     }
 
-#if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
+#ifdef SNIA_HEATING
     if(P[place].Type == 4)
         EV_REDUCE(P[place].DensAroundStar, remote->Rho);
 #endif
@@ -548,17 +534,6 @@ static int density_evaluate(int target, int mode,
 #endif
 
 
-#ifdef RADTRANSFER_FLUXLIMITER
-                    if(r > 0)
-                        for(k = 0; k < N_BINS; k++)
-                        {
-                            O->Grad_ngamma[0][k] += mass_j * dwk * dx / r * SPHP(j).n_gamma[k];
-                            O->Grad_ngamma[1][k] += mass_j * dwk * dy / r * SPHP(j).n_gamma[k];
-                            O->Grad_ngamma[2][k] += mass_j * dwk * dz / r * SPHP(j).n_gamma[k];
-                        }
-#endif
-
-
                     if(r > 0)
                     {
                         double fac = mass_j * dwk / r;
@@ -671,7 +646,7 @@ static int density_isactive(int n)
         printf("TimeBin negative!\n use DensityIterationDone flag");
         endrun(99999);
     }
-#if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS))|| defined(SNIA_HEATING)
+#ifdef SNIA_HEATING
     if(P[n].Type == 4)
         return 1;
 #endif
@@ -748,16 +723,6 @@ static void density_post_process(int i) {
 #endif
 
 
-#ifdef RADTRANSFER_FLUXLIMITER
-            for(k = 0; k< N_BINS; k++)
-            {
-                SPHP(i).Grad_ngamma[0][k] /= SPHP(i).Density;
-                SPHP(i).Grad_ngamma[1][k] /= SPHP(i).Density;
-                SPHP(i).Grad_ngamma[2][k] /= SPHP(i).Density;
-            }
-#endif
-
-
 #ifdef JD_VTURB
             SPHP(i).Vturb = sqrt(SPHP(i).Vturb / SPHP(i).TrueNGB);
             SPHP(i).Vbulk[0] /= SPHP(i).TrueNGB;
@@ -775,27 +740,26 @@ static void density_post_process(int i) {
 
         int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
 #ifndef EOS_DEGENERATE
-#ifndef MHM
-#ifndef SOFTEREQS
-#ifndef TRADITIONAL_SPH_FORMULATION
-#ifdef DENSITY_INDEPENDENT_SPH
+    #ifndef SOFTEREQS
+        #ifndef TRADITIONAL_SPH_FORMULATION
+            #ifdef DENSITY_INDEPENDENT_SPH
         SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
-#else
+            #else
         SPHP(i).Pressure =
             (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
-#endif // DENSITY_INDEPENDENT_SPH
+            #endif // DENSITY_INDEPENDENT_SPH
 
-#else
+        #else
         SPHP(i).Pressure =
             GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * SPHP(i).Density;
-#endif // TRADITIONAL_SPH_FORMULATION
+        #endif // TRADITIONAL_SPH_FORMULATION
 
-#else
-#ifdef TRADITIONAL_SPH_FORMULATION
-#error tranditional sph incompatible with softereqs
-#endif
-#ifdef DENSITY_INDEPENDENT_SPH
-#error pressure entropy incompatible with softereqs
+    #else
+        #ifdef TRADITIONAL_SPH_FORMULATION
+            #error tranditional sph incompatible with softereqs
+        #endif
+        #ifdef DENSITY_INDEPENDENT_SPH
+            #error pressure entropy incompatible with softereqs
         /* use an intermediate EQS, between isothermal and the full multiphase model */
         if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
             SPHP(i).Pressure = All.FactorForSofterEQS *
@@ -805,7 +769,7 @@ static void density_post_process(int i) {
         else
             SPHP(i).Pressure =
                 (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
-#else
+        #else
         /* use an intermediate EQS, between isothermal and the full multiphase model */
         if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
             SPHP(i).Pressure = All.FactorForSofterEQS *
@@ -815,13 +779,8 @@ static void density_post_process(int i) {
         else
             SPHP(i).Pressure =
                 (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
-#endif // DENSITY_INDEPENDENT_SPH
-#endif // SOFTEREQS
-#else
-        /* Here we use an isothermal equation of state */
-        SPHP(i).Pressure = All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
-        SPHP(i).Entropy = SPHP(i).Pressure / pow(SPHP(i).Density, GAMMA);
-#endif
+        #endif // DENSITY_INDEPENDENT_SPH
+    #endif // SOFTEREQS
 #else
         /* call tabulated eos with physical units */
         eos_calc_egiven_v(SPHP(i).Density * All.UnitDensity_in_cgs, SPHP(i).xnuc,

@@ -415,56 +415,6 @@ void readjust_timebase(double TimeMax_old, double TimeMax_new);
 double enclosed_mass(double R);
 void pm_setup_nonperiodic_kernel(void);
 
-#ifdef RADTRANSFER
-/* Eddington tensor computation */
-int eddington_treeevaluate(int target, int mode, int *nexport, int *nsend_local);
-void eddington(void);
-
-int n_treeevaluate(int target, int mode, int *nexport, int *nsend_local);
-void n(void);
-
-/* radiative transfer integration */
-void radtransfer(void);
-void radtransfer_He(void);
-#ifndef CG
-int radtransfer_evaluate(int target, int mode, int *nexport, int *nsend_local);
-void radtransfer_begin(void);
-#else
-double radtransfer_vector_multiply(double *a, double *b);
-double radtransfer_vector_sum(double *a);
-void radtransfer_matrix_multiply(double *in, double *out, double *sum);
-int radtransfer_evaluate(int target, int mode, double *in, double *out, double *sum, int *nexport, int *nsend_local);
-#endif
-void radtransfer_mean(void);
-void radtransfer_set_simple_inits(void);
-void radtransfer_update_chemistry(void);
-
-void rt_get_sigma(void);
-void rt_get_lum_stars(void);
-void rt_get_lum_gas(int target, double *je);
-
-double rt_GetCoolingTime(int i, double u, double rho);
-double radtransfer_cooling_photoheating(int i, double dt);
-void rt_get_rates(int i);
-
-/* emission approximation */
-int ngb_treefind_stars(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode, 
-		       int *nexport, int *nsend_local);
-void density_sfr(void);
-int density_sfr_evaluate(int target, int mode, int *nexport, int *nsend_local);
-
-void sfr_lum(void);
-int sfr_lum_evaluate(int target, int mode, int *nexport, int *nsend_local);
-
-void gas_lum(void);
-void star_lum(void);
-int star_lum_evaluate(int target, int mode, int *nexport, int *nsend_local);
-
-void bh_lum(void);
-int bh_lum_evaluate(int target, int mode, int *nexport, int *nsend_local);
-
-#endif //end radtransfer
-
 
 #ifdef AUTO_SWAP_ENDIAN_READIC
 void swap_Nbyte(char *data, int n, int m);

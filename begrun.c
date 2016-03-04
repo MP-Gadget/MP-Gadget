@@ -230,14 +230,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
 #endif
 
 
-#ifdef RADTRANSFER
-    if(RestartFlag == 0)
-        radtransfer_set_simple_inits();
-
-    rt_get_sigma();
-#endif
-
-
     init_drift_table();
 
     if(RestartFlag == 2)
@@ -470,22 +462,6 @@ void open_outputfiles(void)
     }
 #endif
 
-#ifdef RADTRANSFER
-    sprintf(buf, "%s%s%s", All.OutputDir, "radtransfer.txt", postfix);
-    if(!(FdRad = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-
-    sprintf(buf, "%s%s%s", All.OutputDir, "radtransferNew.txt", postfix);
-    if(!(FdRadNew = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
 #ifdef BLACK_HOLES
     sprintf(buf, "%s%s%s", All.OutputDir, "blackholes.txt", postfix);
     if(!(FdBlackHoles = fopen(buf, mode)))
@@ -590,11 +566,6 @@ void close_outputfiles(void)
 
 #ifdef SFR
     fclose(FdSfr);
-#endif
-
-#ifdef RADTRANSFER
-    fclose(FdRad);
-    fclose(FdRadNew);
 #endif
 
 #ifdef BLACK_HOLES
@@ -1313,17 +1284,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "RelaxBaseFac");
         addr[nt] = &All.RelaxBaseFac;
         id[nt++] = REAL;
-#endif
-
-#ifdef RADTRANSFER
-        strcpy(tag[nt], "IonizingLumPerSolarMass");
-        addr[nt] = &All.IonizingLumPerSolarMass;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "IonizingLumPerSFR");
-        addr[nt] = &All.IonizingLumPerSFR;
-        id[nt++] = REAL;
-
 #endif
 
 #ifdef SINKS

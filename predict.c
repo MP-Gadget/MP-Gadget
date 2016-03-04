@@ -250,25 +250,19 @@ static void real_drift_particle(int i, int time1)
         dt_entr = (time1 - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
 
 #ifndef EOS_DEGENERATE
-#ifndef MHM
-#ifndef SOFTEREQS
+    #ifndef SOFTEREQS
 
-#ifndef TRADITIONAL_SPH_FORMULATION
-#ifdef DENSITY_INDEPENDENT_SPH
+        #ifndef TRADITIONAL_SPH_FORMULATION
+            #ifdef DENSITY_INDEPENDENT_SPH
         SPHP(i).EgyWtDensity *= exp(-SPHP(i).DivVel * dt_drift);
         SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr, 1/GAMMA);
-#endif
+            #endif
         SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).EOMDensity, GAMMA);
-#else
+        #else
         SPHP(i).Pressure = GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * SPHP(i).d.Density;
-#endif
+        #endif
 
-#endif
-#else
-        /* Here we use an isothermal equation of state */
-        SPHP(i).Pressure = All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).d.Density * All.InitGasU;
-        SPHP(i).Entropy = SPHP(i).Pressure / pow(SPHP(i).d.Density, GAMMA);
-#endif
+    #endif
 #else
         /* call tabulated eos with physical units */
         eos_calc_egiven_v(SPHP(i).d.Density * All.UnitDensity_in_cgs, SPHP(i).xnuc, SPHP(i).dxnuc,

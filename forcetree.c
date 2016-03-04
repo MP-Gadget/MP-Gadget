@@ -476,15 +476,7 @@ void force_update_node_recursive(int no, int sib, int father)
 #ifdef SCALARFIELD
     MyFloat s_dm[3], vs_dm[3], mass_dm;
 #endif
-#ifdef RADTRANSFER
-    MyFloat stellar_mass;
-    MyFloat stellar_s[3];
 
-#ifdef RT_RAD_PRESSURE
-    MyFloat bh_mass;
-    MyFloat bh_s[3];
-#endif
-#endif
 #ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
     int maxsofttype, current_maxsofttype, diffsoftflag;
@@ -516,15 +508,6 @@ void force_update_node_recursive(int no, int sib, int father)
 
         last = no;
 
-#ifdef RADTRANSFER
-        stellar_mass = 0;
-        stellar_s[0] = 0;
-        stellar_s[1] = 0;
-        stellar_s[2] = 0;
-#ifdef RT_RAD_PRESSURE
-        bh_mass = bh_s[0] = bh_s[1] = bh_s[2] = 0.0;
-#endif
-#endif
 #ifdef SCALARFIELD
         mass_dm = 0;
         s_dm[0] = vs_dm[0] = 0;
@@ -586,18 +569,6 @@ void force_update_node_recursive(int no, int sib, int father)
                         vs[0] += (Nodes[p].u.d.mass * Extnodes[p].vs[0]);
                         vs[1] += (Nodes[p].u.d.mass * Extnodes[p].vs[1]);
                         vs[2] += (Nodes[p].u.d.mass * Extnodes[p].vs[2]);
-#ifdef RADTRANSFER
-                        stellar_s[0] += (Nodes[p].stellar_mass * Nodes[p].stellar_s[0]);
-                        stellar_s[1] += (Nodes[p].stellar_mass * Nodes[p].stellar_s[1]);
-                        stellar_s[2] += (Nodes[p].stellar_mass * Nodes[p].stellar_s[2]);
-                        stellar_mass += (Nodes[p].stellar_mass);
-#ifdef RT_RAD_PRESSURE
-                        bh_s[0] += (Nodes[p].bh_mass * Nodes[p].bh_s[0]);
-                        bh_s[1] += (Nodes[p].bh_mass * Nodes[p].bh_s[1]);
-                        bh_s[2] += (Nodes[p].bh_mass * Nodes[p].bh_s[2]);
-                        bh_mass += (Nodes[p].bh_mass);
-#endif
-#endif
 #ifdef SCALARFIELD
                         mass_dm += (Nodes[p].mass_dm);
                         s_dm[0] += (Nodes[p].mass_dm * Nodes[p].s_dm[0]);
@@ -683,56 +654,6 @@ void force_update_node_recursive(int no, int sib, int father)
                     vs[0] += (pa->Mass * pa->Vel[0]);
                     vs[1] += (pa->Mass * pa->Vel[1]);
                     vs[2] += (pa->Mass * pa->Vel[2]);
-#ifdef RADTRANSFER
-#ifdef EDDINGTON_TENSOR_STARS
-                    if(pa->Type == 4 || pa->Type == 2 || pa->Type == 3)
-                    {
-                        stellar_s[0] += (pa->Mass * pa->Pos[0]);
-                        stellar_s[1] += (pa->Mass * pa->Pos[1]);
-                        stellar_s[2] += (pa->Mass * pa->Pos[2]);
-                        stellar_mass += (pa->Mass);
-                    }
-#endif
-#ifdef EDDINGTON_TENSOR_GAS
-                    if(pa->Type == 0)
-                    {
-                        stellar_s[0] += (pa->Mass * pa->Pos[0]);
-                        stellar_s[1] += (pa->Mass * pa->Pos[1]);
-                        stellar_s[2] += (pa->Mass * pa->Pos[2]);
-                        stellar_mass += (pa->Mass);
-                    }
-#endif
-
-#if defined(SFR) && defined(EDDINGTON_TENSOR_SFR)
-                    if(pa->Type == 0)
-                    {
-                        if((SPHP(p).d.Density * All.cf.a3inv) >= All.PhysDensThresh)
-                        {
-                            stellar_s[0] += (pa->Mass * pa->Pos[0]);
-                            stellar_s[1] += (pa->Mass * pa->Pos[1]);
-                            stellar_s[2] += (pa->Mass * pa->Pos[2]);
-                            stellar_mass += (pa->Mass);
-                        }
-                    }
-#endif
-#if defined(BLACK_HOLES) && defined(EDDINGTON_TENSOR_BH)
-                    if(pa->Type == 5)
-                    {
-                        stellar_s[0] += (pa->Mass * pa->Pos[0]);
-                        stellar_s[1] += (pa->Mass * pa->Pos[1]);
-                        stellar_s[2] += (pa->Mass * pa->Pos[2]);
-                        stellar_mass += (pa->Mass);
-
-#ifdef RT_RAD_PRESSURE
-                        bh_s[0] += (pa->Mass * pa->Pos[0]);
-                        bh_s[1] += (pa->Mass * pa->Pos[1]);
-                        bh_s[2] += (pa->Mass * pa->Pos[2]);
-                        bh_mass += (pa->Mass);
-#endif
-
-                    }
-#endif
-#endif
 
 #ifdef SCALARFIELD
                     if(pa->Type != 0)
@@ -813,34 +734,6 @@ void force_update_node_recursive(int no, int sib, int father)
             vs[2] = 0;
         }
 
-#ifdef RADTRANSFER
-        if(stellar_mass)
-        {
-            stellar_s[0] /= stellar_mass;
-            stellar_s[1] /= stellar_mass;
-            stellar_s[2] /= stellar_mass;
-        }
-        else
-        {
-            stellar_s[0] = Nodes[no].center[0];
-            stellar_s[1] = Nodes[no].center[1];
-            stellar_s[2] = Nodes[no].center[2];
-        }
-#ifdef RT_RAD_PRESSURE
-        if(bh_mass)
-        {
-            bh_s[0] /= bh_mass;
-            bh_s[1] /= bh_mass;
-            bh_s[2] /= bh_mass;
-        }
-        else
-        {
-            bh_s[0] = Nodes[no].center[0];
-            bh_s[1] = Nodes[no].center[1];
-            bh_s[2] = Nodes[no].center[2];
-        }
-#endif
-#endif
 #ifdef SCALARFIELD
         if(mass_dm)
         {
@@ -868,18 +761,7 @@ void force_update_node_recursive(int no, int sib, int father)
         Nodes[no].u.d.s[0] = s[0];
         Nodes[no].u.d.s[1] = s[1];
         Nodes[no].u.d.s[2] = s[2];
-#ifdef RADTRANSFER
-        Nodes[no].stellar_s[0] = stellar_s[0];
-        Nodes[no].stellar_s[1] = stellar_s[1];
-        Nodes[no].stellar_s[2] = stellar_s[2];
-        Nodes[no].stellar_mass = stellar_mass;
-#ifdef RT_RAD_PRESSURE
-        Nodes[no].bh_s[0] = bh_s[0];
-        Nodes[no].bh_s[1] = bh_s[1];
-        Nodes[no].bh_s[2] = bh_s[2];
-        Nodes[no].bh_mass = bh_mass;
-#endif
-#endif
+
 #ifdef SCALARFIELD
         Nodes[no].s_dm[0] = s_dm[0];
         Nodes[no].s_dm[1] = s_dm[1];
@@ -966,14 +848,6 @@ void force_exchange_pseudodata(void)
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
         MyFloat maxsoft;
 #endif
-#ifdef RADTRANSFER
-        MyFloat stellar_mass;
-        MyFloat stellar_s[3];
-#ifdef RT_RAD_PRESSURE
-        MyFloat bh_mass;
-        MyFloat bh_s[3];
-#endif
-#endif
 #ifdef SCALARFIELD
         MyFloat s_dm[3];
         MyFloat vs_dm[3];
@@ -1007,18 +881,7 @@ void force_exchange_pseudodata(void)
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
             DomainMoment[i].maxsoft = Nodes[no].maxsoft;
 #endif
-#ifdef RADTRANSFER
-            DomainMoment[i].stellar_s[0] = Nodes[no].stellar_s[0];
-            DomainMoment[i].stellar_s[1] = Nodes[no].stellar_s[1];
-            DomainMoment[i].stellar_s[2] = Nodes[no].stellar_s[2];
-            DomainMoment[i].stellar_mass = Nodes[no].stellar_mass;
-#ifdef RT_RAD_PRESSURE
-            DomainMoment[i].bh_s[0] = Nodes[no].bh_s[0];
-            DomainMoment[i].bh_s[1] = Nodes[no].bh_s[1];
-            DomainMoment[i].bh_s[2] = Nodes[no].bh_s[2];
-            DomainMoment[i].bh_mass = Nodes[no].bh_mass;
-#endif
-#endif
+
 #ifdef SCALARFIELD
             DomainMoment[i].s_dm[0] = Nodes[no].s_dm[0];
             DomainMoment[i].s_dm[1] = Nodes[no].s_dm[1];
@@ -1075,18 +938,7 @@ void force_exchange_pseudodata(void)
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
                     Nodes[no].maxsoft = DomainMoment[i].maxsoft;
 #endif
-#ifdef RADTRANSFER
-                    Nodes[no].stellar_s[0] = DomainMoment[i].stellar_s[0];
-                    Nodes[no].stellar_s[1] = DomainMoment[i].stellar_s[1];
-                    Nodes[no].stellar_s[2] = DomainMoment[i].stellar_s[2];
-                    Nodes[no].stellar_mass = DomainMoment[i].stellar_mass;
-#ifdef RT_RAD_PRESSURE
-                    Nodes[no].bh_s[0] = DomainMoment[i].bh_s[0];
-                    Nodes[no].bh_s[1] = DomainMoment[i].bh_s[1];
-                    Nodes[no].bh_s[2] = DomainMoment[i].bh_s[2];
-                    Nodes[no].bh_mass = DomainMoment[i].bh_mass;
-#endif
-#endif
+
 #ifdef SCALARFIELD
                     Nodes[no].s_dm[0] = DomainMoment[i].s_dm[0];
                     Nodes[no].s_dm[1] = DomainMoment[i].s_dm[1];
@@ -1216,15 +1068,6 @@ void force_treeupdate_pseudos(int no)
     MyFloat hmax, vmax, divVmax;
     MyFloat s[3], vs[3], mass;
 
-#ifdef RADTRANSFER
-    MyFloat stellar_mass;
-    MyFloat stellar_s[3];
-
-#ifdef RT_RAD_PRESSURE
-    MyFloat bh_mass;
-    MyFloat bh_s[3];
-#endif
-#endif
 #ifdef SCALARFIELD
     MyFloat s_dm[3], vs_dm[3], mass_dm;
 #endif
@@ -1237,15 +1080,6 @@ void force_treeupdate_pseudos(int no)
 #endif
 #endif
 
-#ifdef RADTRANSFER
-    stellar_mass = 0;
-    stellar_s[0] = 0;
-    stellar_s[1] = 0;
-    stellar_s[2] = 0;
-#ifdef RT_RAD_PRESSURE
-    bh_mass = bh_s[0] = bh_s[1] = bh_s[2] = 0.0;
-#endif
-#endif
 #ifdef SCALARFIELD
     mass_dm = 0;
     s_dm[0] = vs_dm[0] = 0;
@@ -1285,18 +1119,7 @@ void force_treeupdate_pseudos(int no)
             s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
             s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
             s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
-#ifdef RADTRANSFER
-            stellar_mass += (Nodes[p].stellar_mass);
-            stellar_s[0] += (Nodes[p].stellar_mass * Nodes[p].stellar_s[0]);
-            stellar_s[1] += (Nodes[p].stellar_mass * Nodes[p].stellar_s[1]);
-            stellar_s[2] += (Nodes[p].stellar_mass * Nodes[p].stellar_s[2]);
-#ifdef RT_RAD_PRESSURE
-            bh_mass += (Nodes[p].bh_mass);
-            bh_s[0] += (Nodes[p].bh_mass * Nodes[p].bh_s[0]);
-            bh_s[1] += (Nodes[p].bh_mass * Nodes[p].bh_s[1]);
-            bh_s[2] += (Nodes[p].bh_mass * Nodes[p].bh_s[2]);
-#endif
-#endif
+
 #ifdef SCALARFIELD
             mass_dm += (Nodes[p].mass_dm);
             s_dm[0] += (Nodes[p].mass_dm * Nodes[p].s_dm[0]);
@@ -1379,34 +1202,6 @@ void force_treeupdate_pseudos(int no)
         vs[2] = 0;
     }
 
-#ifdef RADTRANSFER
-    if(stellar_mass)
-    {
-        stellar_s[0] /= stellar_mass;
-        stellar_s[1] /= stellar_mass;
-        stellar_s[2] /= stellar_mass;
-    }
-    else
-    {
-        stellar_s[0] = Nodes[no].center[0];
-        stellar_s[1] = Nodes[no].center[1];
-        stellar_s[2] = Nodes[no].center[2];
-    }
-#ifdef RT_RAD_PRESSURE
-    if(bh_mass)
-    {
-        bh_s[0] /= bh_mass;
-        bh_s[1] /= bh_mass;
-        bh_s[2] /= bh_mass;
-    }
-    else
-    {
-        bh_s[0] = Nodes[no].center[0];
-        bh_s[1] = Nodes[no].center[1];
-        bh_s[2] = Nodes[no].center[2];
-    }
-#endif
-#endif
 #ifdef SCALARFIELD
     if(mass_dm)
     {
@@ -1436,18 +1231,7 @@ void force_treeupdate_pseudos(int no)
     Extnodes[no].vs[1] = vs[1];
     Extnodes[no].vs[2] = vs[2];
     Nodes[no].u.d.mass = mass;
-#ifdef RADTRANSFER
-    Nodes[no].stellar_s[0] = stellar_s[0];
-    Nodes[no].stellar_s[1] = stellar_s[1];
-    Nodes[no].stellar_s[2] = stellar_s[2];
-    Nodes[no].stellar_mass = stellar_mass;
-#ifdef RT_RAD_PRESSURE
-    Nodes[no].bh_s[0] = bh_s[0];
-    Nodes[no].bh_s[1] = bh_s[1];
-    Nodes[no].bh_s[2] = bh_s[2];
-    Nodes[no].bh_mass = bh_mass;
-#endif
-#endif
+
 #ifdef SCALARFIELD
     Nodes[no].s_dm[0] = s_dm[0];
     Nodes[no].s_dm[1] = s_dm[1];

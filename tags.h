@@ -55,10 +55,5 @@
 #define TAG_KEY_SPH       71
 #define TAG_BHDATA        75
 
-#ifdef RADTRANSFER
-#define TAG_RT_A          72
-#define TAG_RT_B          73
-#endif
-
 #define TAG_EVALUATE_A (9999)
 #define TAG_EVALUATE_B (10000)

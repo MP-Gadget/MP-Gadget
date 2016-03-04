@@ -71,11 +71,6 @@ void init(void)
     a3 = All.Time * All.Time * All.Time;
     atime = All.Time;
 
-#ifdef RADTRANSFER
-    All.Radiation_Ti_begstep = 0;
-#endif
-
-
     set_softenings();
 
     All.NumCurrentTiStep = 0;	/* setup some counters */
@@ -501,16 +496,6 @@ void setup_smoothinglengths(void)
             }
     }
 #endif
-
-#if defined(RADTRANSFER)
-    if(RestartFlag == 0 || RestartFlag == 2)
-    {
-        for(i = 0; i < NumPart; i++)
-            if(P[i].Type == 4)
-                P[i].Hsml = All.SofteningTable[4];
-    }
-#endif
-
 
     density();
 

@@ -159,11 +159,6 @@ FILE *FdSfr;			/*!< file handle for sfr.txt log-file. */
 FILE *FdSfrDetails;
 #endif
 
-#ifdef RADTRANSFER
-FILE *FdRad;			/*!< file handle for radtransfer.txt log-file. */
-FILE *FdRadNew;			/*!< file handle for radtransferNew.txt log-file. */
-#endif
-
 #ifdef BLACK_HOLES
 FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
 FILE *FdBlackHolesDetails;
