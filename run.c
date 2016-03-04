@@ -24,11 +24,6 @@ void run(void)
 {
     walltime_measure("/Misc");
 
-#ifdef DENSITY_BASED_SNAPS
-    All.nh_next = 10.0;
-#endif
-
-
     write_cpu_log();		/* produce some CPU usage info */
 
     do				/* main loop */
@@ -90,11 +85,11 @@ void run(void)
         report_memory_usage("RUN");
     }
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
-#ifndef SNAP_SET_TG
+
     restart(0);
 
     savepositions(All.SnapshotFileCount++, 0);
-#endif	
+
     /* write a last snapshot
      * file at final time (will
      * be overwritten if
@@ -250,42 +245,6 @@ void find_next_sync_point_and_drift(void)
 
     MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
-#ifdef SNAP_SET_TG
-    double a3inv, hubble_param2, nh, nh_max, nh_glob_max;
-
-    a3inv = 1.0 / (All.Time * All.Time * All.Time);
-    hubble_param2 = All.HubbleParam * All.HubbleParam;
-
-    for(i = 0, nh_max = 0; i < N_sph; i++)
-    {
-        nh = HYDROGEN_MASSFRAC * SPHP(i).d.Density * All.UnitDensity_in_cgs * a3inv * hubble_param2 / PROTONMASS;
-
-        if(nh > nh_max)
-            nh_max = nh;
-    }
-
-    MPI_Allreduce(&nh_max, &nh_glob_max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-
-    if(ThisTask == 0)
-        printf("\nNH_MAX = %g\n\n", nh_glob_max);
-#endif
-
-#ifdef NSTEPS_BASED_SNAPS
-    if((All.NumCurrentTiStep + 2) % All.SnapNumFac == 0)
-        savepositions(All.SnapshotFileCount++, 0);
-#else
-
-#ifdef DENSITY_BASED_SNAPS
-    if(nh_glob_max > All.nh_next)
-    {
-        All.nh_next *= pow(10.0, 0.25);
-
-        if(ThisTask == 0)
-            printf("nh_next = %g\n", All.nh_next);
-
-        savepositions(All.SnapshotFileCount++, 0);
-    }
-#else
     while(ti_next_kick_global >= All.Ti_nextoutput && All.Ti_nextoutput >= 0)
     {
         All.Ti_Current = All.Ti_nextoutput;
@@ -302,8 +261,6 @@ void find_next_sync_point_and_drift(void)
 
         All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);
     }
-#endif
-#endif
 
     All.Ti_Current = ti_next_kick_global;
 
@@ -578,11 +535,9 @@ int find_next_outputtime(int ti_curr)
             printf("TimeBetSnapshot > 1.0 required for your simulation.\n");
             endrun(13123);
         }
-#ifdef SNAP_SET_TG
+
         time = All.TimeBegin * All.TimeBetSnapshot;
-#else
-        time = All.TimeOfFirstSnapshot;
-#endif
+
         iter = 0;
 
         while(time < All.TimeBegin)
@@ -597,17 +552,7 @@ int find_next_outputtime(int ti_curr)
                 endrun(110);
             }
         }
-#ifdef DYN_TIME_BASED_SNAPS
-        double rho, t_ff, ff_frac = 0.2;
 
-        rho = nh_glob_max * PROTONMASS / HYDROGEN_MASSFRAC;
-
-        t_ff = sqrt(3.0 * M_PI / 32.0 / GRAVITY / rho);
-
-        time = pow(3.0 / 2.0 * HUBBLE * All.HubbleParam * sqrt(All.Omega0) * ff_frac * t_ff + pow(All.Time, 3.0 / 2.0), 2.0 / 3.0);
-
-        ti_next = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
-#else
         while(time <= All.TimeMax)
         {
             ti = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
@@ -628,7 +573,6 @@ int find_next_outputtime(int ti_curr)
                 endrun(111);
             }
         }
-#endif
     }
 
 

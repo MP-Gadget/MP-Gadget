@@ -818,18 +818,6 @@ extern struct global_data_all_processes
     double SinkDensThresh;
 #endif
 
-#ifdef SNAP_SET_TG
-    int SnapNumFac;
-#endif
-
-#ifdef DENSITY_BASED_SNAPS
-    double nh_next;
-#endif
-
-#ifdef END_TIME_DYN_BASED
-    double EndTimeDens;
-#endif
-
 #ifdef GENERATE_GAS_IN_ICS
 #ifdef GENERATE_GAS_TG
     int GenGasRefFac;

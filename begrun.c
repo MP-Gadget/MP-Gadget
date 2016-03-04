@@ -1128,19 +1128,6 @@ void read_parameter_file(char *fname)
         id[nt++] = REAL;
 #endif
 
-
-#ifdef SNAP_SET_TG
-        strcpy(tag[nt], "SnapNumFac");
-        addr[nt] = &All.SnapNumFac;
-        id[nt++] = INT;
-#endif
-
-#ifdef END_TIME_DYN_BASED
-        strcpy(tag[nt], "EndTimeDens"); 
-        addr[nt] = &All.EndTimeDens;
-        id[nt++] = REAL;
-#endif
-
 #ifdef GENERATE_GAS_IN_ICS
 #ifdef GENERATE_GAS_TG
         strcpy(tag[nt], "GenGasRefFac");
