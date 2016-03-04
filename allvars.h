@@ -428,10 +428,6 @@ extern FILE *FdInfo,		/*!< file handle for info.txt log-file. */
        *FdTimings,			/*!< file handle for timings.txt log-file. */
        *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
-#ifdef SCFPOTENTIAL
-extern FILE *FdSCF;
-#endif
-
 #ifdef SFR
 extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
 extern FILE *FdSfrDetails;
@@ -960,11 +956,6 @@ extern struct particle_data
 
 #ifdef WAKEUP
     int dt_step;
-#endif
-
-#ifdef SCF_HYBRID
-    MyDouble GravAccelSum[3];
-    MyFloat MassBackup;
 #endif
 
 }

@@ -62,9 +62,6 @@ void run(void)
         compare_partitions();
 #endif
 
-#ifdef SCF_HYBRID
-        SCF_do_center_of_mass_correction(0.75,10.0*SCF_HQ_A, 0.01, 1000);
-#endif
         /* check whether we want a full energy statistics */
         if((All.Time - All.TimeLastStatistics) >= All.TimeBetStatistics)
         {
@@ -73,9 +70,6 @@ void run(void)
 #endif
             energy_statistics();	/* compute and output energy statistics */
 
-#ifdef SCFPOTENTIAL
-            SCF_write(0);
-#endif
             All.TimeLastStatistics += All.TimeBetStatistics;
         }
 

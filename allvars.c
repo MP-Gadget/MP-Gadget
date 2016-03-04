@@ -150,10 +150,6 @@ FILE *FdInfo,			/*!< file handle for info.txt log-file. */
  *FdTimings,			/*!< file handle for timings.txt log-file. */
  *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
-#ifdef SCFPOTENTIAL
-FILE *FdSCF;
-#endif
-
 #ifdef SFR
 FILE *FdSfr;			/*!< file handle for sfr.txt log-file. */
 FILE *FdSfrDetails;

@@ -418,15 +418,6 @@ void open_outputfiles(void)
         endrun(1);
     }
 
-#ifdef SCFPOTENTIAL
-    sprintf(buf, "%s%s%s", All.OutputDir, "scf_coeff.txt", postfix);
-    if(!(FdSCF = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
 #ifdef SFR
     sprintf(buf, "%s%s%s", All.OutputDir, "sfr.txt", postfix);
     if(!(FdSfr = fopen(buf, mode)))
@@ -505,10 +496,6 @@ void close_outputfiles(void)
     fclose(FdInfo);
     fclose(FdEnergy);
     fclose(FdTimings);
-
-#ifdef SCFPOTENTIAL
-    fclose(FdSCF);
-#endif
 
 #ifdef SFR
     fclose(FdSfr);
