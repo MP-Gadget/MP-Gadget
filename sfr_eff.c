@@ -1262,8 +1262,8 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
     }
 
     double dv2abs = (divv*divv 
-            + (SPHP(i).r.CurlVel*All.cf.a2inv)
-            * (SPHP(i).r.CurlVel*All.cf.a2inv)
+            + (SPHP(i).CurlVel*All.cf.a2inv)
+            * (SPHP(i).CurlVel*All.cf.a2inv)
            ); // all in physical units
     double alpha_vir = 0.2387 * dv2abs/(All.G * SPHP(i).Density*All.cf.a3inv);
 

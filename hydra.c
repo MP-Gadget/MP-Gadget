@@ -228,11 +228,9 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
 #else
     soundspeed_i = sqrt(SPHP(place).dpdr);
 #endif
-#ifndef NAVIERSTOKES
     input->F1 = fabs(SPHP(place).DivVel) /
-        (fabs(SPHP(place).DivVel) + SPHP(place).r.CurlVel +
+        (fabs(SPHP(place).DivVel) + SPHP(place).CurlVel +
          0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
-#endif
 
 #else
     input->F1 = SPHP(place).DivVel;
@@ -426,11 +424,9 @@ static int hydro_evaluate(int target, int mode,
                             O->MaxSignalVel = vsig;
 #endif
 
-#ifndef NAVIERSTOKES
                         double f2 =
-                            fabs(SPHP(j).DivVel) / (fabs(SPHP(j).DivVel) + SPHP(j).r.CurlVel +
+                            fabs(SPHP(j).DivVel) / (fabs(SPHP(j).DivVel) + SPHP(j).CurlVel +
                                     0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
-#endif
 
 #ifdef NO_SHEAR_VISCOSITY_LIMITER
                         I->F1 = f2 = 1;
@@ -681,7 +677,7 @@ static void hydro_post_process(int i) {
 #else
         double cs_h = sqrt(SPHP(i).dpdr) / P[i].Hsml;
 #endif
-        double f = fabs(SPHP(i).DivVel) / (fabs(SPHP(i).DivVel) + SPHP(i).r.CurlVel + 0.0001 * cs_h / fac_mu);
+        double f = fabs(SPHP(i).DivVel) / (fabs(SPHP(i).DivVel) + SPHP(i).CurlVel + 0.0001 * cs_h / fac_mu);
         SPHP(i).Dtalpha = -(SPHP(i).I->alpha - All.AlphaMin) * All.DecayTime *
             0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
             + f * All.ViscSource * DMAX(0.0, -SPHP(i).DivVel);

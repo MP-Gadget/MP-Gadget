@@ -73,11 +73,6 @@ OPT	+=  -DBH_SWALLOWBH # Enables blackhole mergers.
 OPT	+=  -DBH_COUNTPROGS	      # carries a counter for each BH that gives the total number of seeds that merged into it
 OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding gas velocity is used in addition to the sounds speed in the Bondi rate 
 
-
-#-------------------------------------- Viscous gas treatment 
-#OPT	+=  -DNAVIERSTOKES            # Braginskii-Spitzer parametrization of the shear viscosity: mu = f x T^{5/2}
-
-
 #-------------------------------------------- Things for special behaviour
 OPT	+=  -DINCLUDE_RADIATION		# Add radiation density to backround evolution. Only affects the Hubble flow.
 #OPT	+=  -DTRADITIONAL_SPH_FORMULATION
