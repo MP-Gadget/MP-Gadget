@@ -568,11 +568,6 @@ extern struct global_data_all_processes
                                   the maximum(!) number of particles.  Note: A typical local tree for N
                                   particles needs usually about ~0.65*N nodes. */
 
-#ifdef SCALARFIELD
-    double ScalarBeta;
-    double ScalarScreeningLength;
-#endif
-
     /* some SPH parameters */
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
@@ -1338,10 +1333,6 @@ extern struct NODE
         d;
     }
     u;
-#ifdef SCALARFIELD
-    MyFloat s_dm[3];
-    MyFloat mass_dm;
-#endif
     int Ti_current;
 }
 *Nodes_base,			/*!< points to the actual memory allocted for the nodes */
@@ -1354,10 +1345,6 @@ extern struct extNODE
     MyDouble dp[3];
 #ifdef GRAVITY_CENTROID
     int suns[8];
-#endif
-#ifdef SCALARFIELD
-    MyDouble dp_dm[3];
-    MyFloat vs_dm[3];
 #endif
     MyFloat vs[3];
     MyFloat vmax;

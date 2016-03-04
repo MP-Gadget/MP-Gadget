@@ -103,7 +103,7 @@ int force_treebuild(int npart, struct unbind_data *mp)
 
 
 
-/*! Constructs the gravitational oct-tree.  
+/*! Constructs the gravitational oct-tree.
  *
  *  The index convention for accessing tree nodes is the following: the
  *  indices 0...NumPart-1 reference single particles, the indices
@@ -147,7 +147,7 @@ int force_treebuild_single(int npart, struct unbind_data *mp)
     /* create a set of empty nodes corresponding to the top-level domain
      * grid. We need to generate these nodes first to make sure that we have a
      * complete top-level tree which allows the easy insertion of the
-     * pseudo-particles at the right place 
+     * pseudo-particles at the right place
      */
 
     force_create_empty_nodes(All.MaxPart, 0, 1, 0, 0, 0, &numnodes, &nfree);
@@ -460,11 +460,11 @@ void force_insert_pseudo_particles(void)
  *  belongs to the top-level tree corresponding to the domain
  *  decomposition, while Bit 1 signals whether the top-level node is
  *  dependent on local mass.
- * 
+ *
  *  If UNEQUALSOFTENINGS is set, bits 2-4 give the particle type with
  *  the maximum softening among the particles in the node, and bit 5
  *  flags whether the node contains any particles with lower softening
- *  than that.  
+ *  than that.
  */
 void force_update_node_recursive(int no, int sib, int father)
 {
@@ -473,9 +473,6 @@ void force_update_node_recursive(int no, int sib, int father)
     MyFloat s[3], vs[3], mass;
     struct particle_data *pa;
 
-#ifdef SCALARFIELD
-    MyFloat s_dm[3], vs_dm[3], mass_dm;
-#endif
 #ifdef RADTRANSFER
     MyFloat stellar_mass;
     MyFloat stellar_s[3];
@@ -524,12 +521,6 @@ void force_update_node_recursive(int no, int sib, int father)
 #ifdef RT_RAD_PRESSURE
         bh_mass = bh_s[0] = bh_s[1] = bh_s[2] = 0.0;
 #endif
-#endif
-#ifdef SCALARFIELD
-        mass_dm = 0;
-        s_dm[0] = vs_dm[0] = 0;
-        s_dm[1] = vs_dm[1] = 0;
-        s_dm[2] = vs_dm[2] = 0;
 #endif
         mass = 0;
         s[0] = 0;
@@ -597,15 +588,6 @@ void force_update_node_recursive(int no, int sib, int father)
                         bh_s[2] += (Nodes[p].bh_mass * Nodes[p].bh_s[2]);
                         bh_mass += (Nodes[p].bh_mass);
 #endif
-#endif
-#ifdef SCALARFIELD
-                        mass_dm += (Nodes[p].mass_dm);
-                        s_dm[0] += (Nodes[p].mass_dm * Nodes[p].s_dm[0]);
-                        s_dm[1] += (Nodes[p].mass_dm * Nodes[p].s_dm[1]);
-                        s_dm[2] += (Nodes[p].mass_dm * Nodes[p].s_dm[2]);
-                        vs_dm[0] += (Nodes[p].mass_dm * Extnodes[p].vs_dm[0]);
-                        vs_dm[1] += (Nodes[p].mass_dm * Extnodes[p].vs_dm[1]);
-                        vs_dm[2] += (Nodes[p].mass_dm * Extnodes[p].vs_dm[2]);
 #endif
                         if(Nodes[p].u.d.mass > 0)
                         {
@@ -734,18 +716,6 @@ void force_update_node_recursive(int no, int sib, int father)
 #endif
 #endif
 
-#ifdef SCALARFIELD
-                    if(pa->Type != 0)
-                    {
-                        mass_dm += (pa->Mass);
-                        s_dm[0] += (pa->Mass * pa->Pos[0]);
-                        s_dm[1] += (pa->Mass * pa->Pos[1]);
-                        s_dm[2] += (pa->Mass * pa->Pos[2]);
-                        vs_dm[0] += (pa->Mass * pa->Vel[0]);
-                        vs_dm[1] += (pa->Mass * pa->Vel[1]);
-                        vs_dm[2] += (pa->Mass * pa->Vel[2]);
-                    }
-#endif
                     if(pa->Type == 0)
                     {
                         if(P[p].Hsml > hmax)
@@ -841,26 +811,6 @@ void force_update_node_recursive(int no, int sib, int father)
         }
 #endif
 #endif
-#ifdef SCALARFIELD
-        if(mass_dm)
-        {
-            s_dm[0] /= mass_dm;
-            s_dm[1] /= mass_dm;
-            s_dm[2] /= mass_dm;
-            vs_dm[0] /= mass_dm;
-            vs_dm[1] /= mass_dm;
-            vs_dm[2] /= mass_dm;
-        }
-        else
-        {
-            s_dm[0] = Nodes[no].center[0];
-            s_dm[1] = Nodes[no].center[1];
-            s_dm[2] = Nodes[no].center[2];
-            vs_dm[0] = 0;
-            vs_dm[1] = 0;
-            vs_dm[2] = 0;
-        }
-#endif
 
 
         Nodes[no].Ti_current = All.Ti_Current;
@@ -880,19 +830,6 @@ void force_update_node_recursive(int no, int sib, int father)
         Nodes[no].bh_mass = bh_mass;
 #endif
 #endif
-#ifdef SCALARFIELD
-        Nodes[no].s_dm[0] = s_dm[0];
-        Nodes[no].s_dm[1] = s_dm[1];
-        Nodes[no].s_dm[2] = s_dm[2];
-        Nodes[no].mass_dm = mass_dm;
-        Extnodes[no].vs_dm[0] = vs_dm[0];
-        Extnodes[no].vs_dm[1] = vs_dm[1];
-        Extnodes[no].vs_dm[2] = vs_dm[2];
-        Extnodes[no].dp_dm[0] = 0;
-        Extnodes[no].dp_dm[1] = 0;
-        Extnodes[no].dp_dm[2] = 0;
-#endif
-
         Extnodes[no].Ti_lastkicked = All.Ti_Current;
         Extnodes[no].Flag = GlobFlag;
         Extnodes[no].vs[0] = vs[0];
@@ -974,11 +911,6 @@ void force_exchange_pseudodata(void)
         MyFloat bh_s[3];
 #endif
 #endif
-#ifdef SCALARFIELD
-        MyFloat s_dm[3];
-        MyFloat vs_dm[3];
-        MyFloat mass_dm;
-#endif
         unsigned int bitflags;
     }
     *DomainMoment;
@@ -1018,15 +950,6 @@ void force_exchange_pseudodata(void)
             DomainMoment[i].bh_s[2] = Nodes[no].bh_s[2];
             DomainMoment[i].bh_mass = Nodes[no].bh_mass;
 #endif
-#endif
-#ifdef SCALARFIELD
-            DomainMoment[i].s_dm[0] = Nodes[no].s_dm[0];
-            DomainMoment[i].s_dm[1] = Nodes[no].s_dm[1];
-            DomainMoment[i].s_dm[2] = Nodes[no].s_dm[2];
-            DomainMoment[i].mass_dm = Nodes[no].mass_dm;
-            DomainMoment[i].vs_dm[0] = Extnodes[no].vs_dm[0];
-            DomainMoment[i].vs_dm[1] = Extnodes[no].vs_dm[1];
-            DomainMoment[i].vs_dm[2] = Extnodes[no].vs_dm[2];
 #endif
         }
 
@@ -1087,15 +1010,6 @@ void force_exchange_pseudodata(void)
                     Nodes[no].bh_mass = DomainMoment[i].bh_mass;
 #endif
 #endif
-#ifdef SCALARFIELD
-                    Nodes[no].s_dm[0] = DomainMoment[i].s_dm[0];
-                    Nodes[no].s_dm[1] = DomainMoment[i].s_dm[1];
-                    Nodes[no].s_dm[2] = DomainMoment[i].s_dm[2];
-                    Nodes[no].mass_dm = DomainMoment[i].mass_dm;
-                    Extnodes[no].vs_dm[0] = DomainMoment[i].vs_dm[0];
-                    Extnodes[no].vs_dm[1] = DomainMoment[i].vs_dm[1];
-                    Extnodes[no].vs_dm[2] = DomainMoment[i].vs_dm[2];
-#endif
                 }
 
     myfree(DomainMoment);
@@ -1108,7 +1022,7 @@ void force_update_node_center_of_mass_recursive(int no, int sib, int father)
 {
     int j, jj, p, pp, nextsib, suns[8], count_particles;
 
-    //   int k, multiple_flag; 
+    //   int k, multiple_flag;
     //   MyFloat hmax, vmax, v, divVmax;
     MyFloat s[3], mass;
 
@@ -1225,9 +1139,6 @@ void force_treeupdate_pseudos(int no)
     MyFloat bh_s[3];
 #endif
 #endif
-#ifdef SCALARFIELD
-    MyFloat s_dm[3], vs_dm[3], mass_dm;
-#endif
 
 #ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
@@ -1245,12 +1156,6 @@ void force_treeupdate_pseudos(int no)
 #ifdef RT_RAD_PRESSURE
     bh_mass = bh_s[0] = bh_s[1] = bh_s[2] = 0.0;
 #endif
-#endif
-#ifdef SCALARFIELD
-    mass_dm = 0;
-    s_dm[0] = vs_dm[0] = 0;
-    s_dm[1] = vs_dm[1] = 0;
-    s_dm[2] = vs_dm[2] = 0;
 #endif
     mass = 0;
     s[0] = 0;
@@ -1296,15 +1201,6 @@ void force_treeupdate_pseudos(int no)
             bh_s[1] += (Nodes[p].bh_mass * Nodes[p].bh_s[1]);
             bh_s[2] += (Nodes[p].bh_mass * Nodes[p].bh_s[2]);
 #endif
-#endif
-#ifdef SCALARFIELD
-            mass_dm += (Nodes[p].mass_dm);
-            s_dm[0] += (Nodes[p].mass_dm * Nodes[p].s_dm[0]);
-            s_dm[1] += (Nodes[p].mass_dm * Nodes[p].s_dm[1]);
-            s_dm[2] += (Nodes[p].mass_dm * Nodes[p].s_dm[2]);
-            vs_dm[0] += (Nodes[p].mass_dm * Extnodes[p].vs_dm[0]);
-            vs_dm[1] += (Nodes[p].mass_dm * Extnodes[p].vs_dm[1]);
-            vs_dm[2] += (Nodes[p].mass_dm * Extnodes[p].vs_dm[2]);
 #endif
             vs[0] += (Nodes[p].u.d.mass * Extnodes[p].vs[0]);
             vs[1] += (Nodes[p].u.d.mass * Extnodes[p].vs[1]);
@@ -1407,27 +1303,6 @@ void force_treeupdate_pseudos(int no)
     }
 #endif
 #endif
-#ifdef SCALARFIELD
-    if(mass_dm)
-    {
-        s_dm[0] /= mass_dm;
-        s_dm[1] /= mass_dm;
-        s_dm[2] /= mass_dm;
-        vs_dm[0] /= mass_dm;
-        vs_dm[1] /= mass_dm;
-        vs_dm[2] /= mass_dm;
-    }
-    else
-    {
-        s_dm[0] = Nodes[no].center[0];
-        s_dm[1] = Nodes[no].center[1];
-        s_dm[2] = Nodes[no].center[2];
-        vs_dm[0] = 0;
-        vs_dm[1] = 0;
-        vs_dm[2] = 0;
-    }
-#endif
-
 
     Nodes[no].u.d.s[0] = s[0];
     Nodes[no].u.d.s[1] = s[1];
@@ -1448,16 +1323,6 @@ void force_treeupdate_pseudos(int no)
     Nodes[no].bh_mass = bh_mass;
 #endif
 #endif
-#ifdef SCALARFIELD
-    Nodes[no].s_dm[0] = s_dm[0];
-    Nodes[no].s_dm[1] = s_dm[1];
-    Nodes[no].s_dm[2] = s_dm[2];
-    Nodes[no].mass_dm = mass_dm;
-    Extnodes[no].vs_dm[0] = vs_dm[0];
-    Extnodes[no].vs_dm[1] = vs_dm[1];
-    Extnodes[no].vs_dm[2] = vs_dm[2];
-#endif
-
     Extnodes[no].hmax = hmax;
     Extnodes[no].vmax = vmax;
     Extnodes[no].divVmax = divVmax;
@@ -1572,7 +1437,7 @@ int force_drift_node_full(int no, int time1, int blocking) {
 #pragma omp atomic
             BlockedNodeDrifts ++;
         }
-        pthread_spin_unlock(&Nodes[no].SpinLock); 
+        pthread_spin_unlock(&Nodes[no].SpinLock);
         return 0;
     } else {
         if(blocking) {
@@ -1604,7 +1469,7 @@ static void real_force_drift_node(int no, int time1)
     {
         if(Extnodes[no].Ti_lastkicked != Nodes[no].Ti_current)
         {
-            printf("Task=%d Extnodes[no].Ti_lastkicked=%d  Nodes[no].Ti_current=%d\n", 
+            printf("Task=%d Extnodes[no].Ti_lastkicked=%d  Nodes[no].Ti_current=%d\n",
                     ThisTask, Extnodes[no].Ti_lastkicked, Nodes[no].Ti_current);
             terminate("inconsistency in drift node");
         }
@@ -1614,24 +1479,10 @@ static void real_force_drift_node(int no, int time1)
         else
             fac = 0;
 
-#ifdef SCALARFIELD
-        double fac_dm;
-
-        if(Nodes[no].mass_dm)
-            fac_dm = 1 / Nodes[no].mass_dm;
-        else
-            fac_dm = 0;
-#endif
-
         for(j = 0; j < 3; j++)
         {
             Extnodes[no].vs[j] += fac * (Extnodes[no].dp[j]);
             Extnodes[no].dp[j] = 0;
-#ifdef SCALARFIELD
-            Extnodes[no].vs_dm[j] += fac_dm * (Extnodes[no].dp_dm[j]);
-            Extnodes[no].dp_dm[j] = 0;
-#endif
-
         }
         Nodes[no].u.d.bitflags &= (~(1 << BITFLAG_NODEHASBEENKICKED));
     }
@@ -1651,11 +1502,6 @@ static void real_force_drift_node(int no, int time1)
         Nodes[no].u.d.s[j] += Extnodes[no].vs[j] * dt_drift;
     Nodes[no].len += 2 * Extnodes[no].vmax * dt_drift;
 
-#ifdef SCALARFIELD
-    for(j = 0; j < 3; j++)
-        Nodes[no].s_dm[j] += Extnodes[no].vs_dm[j] * dt_drift;
-#endif
-
     //  Extnodes[no].hmax *= exp(0.333333333333 * Extnodes[no].divVmax * dt_drift_hmax);
 
     Nodes[no].Ti_current = time1;
@@ -1667,10 +1513,6 @@ void force_kick_node(int i, MyFloat * dv)
     int j, no;
     MyFloat dp[3], v, vmax;
 
-#ifdef SCALARFIELD
-    MyFloat dp_dm[3];
-#endif
-
 #ifdef NEUTRINOS
     if(P[i].Type == 2)
         return;
@@ -1679,12 +1521,6 @@ void force_kick_node(int i, MyFloat * dv)
     for(j = 0; j < 3; j++)
     {
         dp[j] = P[i].Mass * dv[j];
-#ifdef SCALARFIELD
-        if(P[i].Type != 0)
-            dp_dm[j] = P[i].Mass * dv[j];
-        else
-            dp_dm[j] = 0;
-#endif
     }
 
     for(j = 0, vmax = 0; j < 3; j++)
@@ -1700,9 +1536,6 @@ void force_kick_node(int i, MyFloat * dv)
         for(j = 0; j < 3; j++)
         {
             Extnodes[no].dp[j] += dp[j];
-#ifdef SCALARFIELD
-            Extnodes[no].dp_dm[j] += dp_dm[j];
-#endif
         }
 
         if(Extnodes[no].vmax < vmax)
@@ -1733,9 +1566,6 @@ void force_finish_kick_nodes(void)
     int *counts, *counts_dp, *offset_list, *offset_dp, *offset_vmax;
     MyDouble *domainDp_loc, *domainDp_all;
 
-#ifdef SCALARFIELD
-    MyDouble *domainDp_dm_loc, *domainDp_dm_all;
-#endif
     MyFloat *domainVmax_loc, *domainVmax_all;
 
     /* share the momentum-data of the pseudo-particles accross CPUs */
@@ -1747,9 +1577,6 @@ void force_finish_kick_nodes(void)
     offset_vmax = (int *) mymalloc("offset_vmax", sizeof(int) * NTask);
 
     domainDp_loc = (MyDouble *) mymalloc("domainDp_loc", DomainNumChanged * 3 * sizeof(MyDouble));
-#ifdef SCALARFIELD
-    domainDp_dm_loc = (MyDouble *) mymalloc("domainDp_dm_loc", DomainNumChanged * 3 * sizeof(MyDouble));
-#endif
     domainVmax_loc = (MyFloat *) mymalloc("domainVmax_loc", DomainNumChanged * sizeof(MyFloat));
 
     for(i = 0; i < DomainNumChanged; i++)
@@ -1757,9 +1584,6 @@ void force_finish_kick_nodes(void)
         for(j = 0; j < 3; j++)
         {
             domainDp_loc[i * 3 + j] = Extnodes[DomainList[i]].dp[j];
-#ifdef SCALARFIELD
-            domainDp_dm_loc[i * 3 + j] = Extnodes[DomainList[i]].dp_dm[j];
-#endif
         }
         domainVmax_loc[i] = Extnodes[DomainList[i]].vmax;
     }
@@ -1784,10 +1608,6 @@ void force_finish_kick_nodes(void)
     }
 
     domainDp_all = (MyDouble *) mymalloc("domainDp_all", totDomainNumChanged * 3 * sizeof(MyDouble));
-#ifdef SCALARFIELD
-    domainDp_dm_all =
-        (MyDouble *) mymalloc("domainDp_dm_all", totDomainNumChanged * 3 * sizeof(MyDouble));
-#endif
     domainVmax_all = (MyFloat *) mymalloc("domainVmax_all", totDomainNumChanged * sizeof(MyFloat));
 
     domainList_all = (int *) mymalloc("domainList_all", totDomainNumChanged * sizeof(int));
@@ -1804,11 +1624,6 @@ void force_finish_kick_nodes(void)
 
     MPI_Allgatherv(domainDp_loc, DomainNumChanged * 3 * sizeof(MyDouble), MPI_BYTE,
             domainDp_all, counts_dp, offset_dp, MPI_BYTE, MPI_COMM_WORLD);
-
-#ifdef SCALARFIELD
-    MPI_Allgatherv(domainDp_dm_loc, DomainNumChanged * 3 * sizeof(MyDouble), MPI_BYTE,
-            domainDp_dm_all, counts_dp, offset_dp, MPI_BYTE, MPI_COMM_WORLD);
-#endif
 
     MPI_Allgatherv(domainVmax_loc, DomainNumChanged * sizeof(MyFloat), MPI_BYTE,
             domainVmax_all, counts, offset_vmax, MPI_BYTE, MPI_COMM_WORLD);
@@ -1829,9 +1644,6 @@ void force_finish_kick_nodes(void)
             for(j = 0; j < 3; j++)
             {
                 Extnodes[no].dp[j] += domainDp_all[3 * i + j];
-#ifdef SCALARFIELD
-                Extnodes[no].dp_dm[j] += domainDp_dm_all[3 * i + j];
-#endif
             }
 
             if(Extnodes[no].vmax < domainVmax_all[i])
@@ -1846,14 +1658,8 @@ void force_finish_kick_nodes(void)
 
     myfree(domainList_all);
     myfree(domainVmax_all);
-#ifdef SCALARFIELD
-    myfree(domainDp_dm_all);
-#endif
     myfree(domainDp_all);
     myfree(domainVmax_loc);
-#ifdef SCALARFIELD
-    myfree(domainDp_dm_loc);
-#endif
     myfree(domainDp_loc);
     myfree(offset_vmax);
     myfree(offset_dp);
@@ -2007,7 +1813,7 @@ void force_update_hmax(void)
  *  the value of TypeOfOpeningCriterion, either the geometrical BH
  *  cell-opening criterion, or the `relative' opening criterion is used.
  */
-int force_treeevaluate(int target, int mode, 
+int force_treeevaluate(int target, int mode,
         struct gravitydata_in  * input,
         struct gravitydata_out  * output,
         LocalEvaluator * lv, void * unused)
@@ -2015,14 +1821,10 @@ int force_treeevaluate(int target, int mode,
 
     struct NODE *nop = 0;
     int no, ptype, listindex = 0;
-    int nnodesinlist = 0, ninteractions = 0; 
+    int nnodesinlist = 0, ninteractions = 0;
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
     double pos_x, pos_y, pos_z, aold;
     MyDouble acc_x, acc_y, acc_z;
-
-#ifdef SCALARFIELD
-    double dx_dm = 0, dy_dm = 0, dz_dm = 0, mass_dm = 0;
-#endif
 
     double wp;
     MyDouble pot;
@@ -2044,7 +1846,7 @@ int force_treeevaluate(int target, int mode,
     pos_x = input->Pos[0];
     pos_y = input->Pos[1];
     pos_z = input->Pos[2];
-#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
+#if defined(UNEQUALSOFTENINGS)
     ptype = input->Type;
 #else
     ptype = P[0].Type;
@@ -2094,24 +1896,6 @@ int force_treeevaluate(int target, int mode,
 #endif
 
                 mass = P[no].Mass;
-#ifdef SCALARFIELD
-                if(ptype != 0)	/* we have a dark matter particle as target */
-                {
-                    if(P[no].Type != 0)
-                    {
-                        dx_dm = dx;
-                        dy_dm = dy;
-                        dz_dm = dz;
-
-                        mass_dm = mass;
-                    }
-                    else
-                    {
-                        mass_dm = 0;
-                        dx_dm = dy_dm = dz_dm = 0;
-                    }
-                }
-#endif
             }
             else
             {
@@ -2156,21 +1940,6 @@ int force_treeevaluate(int target, int mode,
                 dz = nop->u.d.s[2] - pos_z;
 
 
-#ifdef SCALARFIELD
-                if(ptype != 0)	/* we have a dark matter particle as target */
-                {
-                    dx_dm = nop->s_dm[0] - pos_x;
-                    dy_dm = nop->s_dm[1] - pos_y;
-                    dz_dm = nop->s_dm[2] - pos_z;
-
-                    mass_dm = nop->mass_dm;
-                }
-                else
-                {
-                    mass_dm = 0;
-                    dx_dm = dy_dm = dz_dm = 0;
-                }
-#endif
             }
 
 #if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
@@ -2317,49 +2086,6 @@ int force_treeevaluate(int target, int mode,
             if(mass > 0)
                 ninteractions++;
 
-#ifdef SCALARFIELD
-            if(ptype != 0)	/* we have a dark matter particle as target */
-            {
-#if defined(PERIODIC) && !defined(GRAVITY_NOT_PERIODIC)
-                dx_dm = NEAREST(dx_dm);
-                dy_dm = NEAREST(dy_dm);
-                dz_dm = NEAREST(dz_dm);
-#endif
-                r2 = dx_dm * dx_dm + dy_dm * dy_dm + dz_dm * dz_dm;
-
-                r = sqrt(r2);
-
-                if(r >= h)
-                    fac = mass_dm / (r2 * r);
-                else
-                {
-#ifdef UNEQUALSOFTENINGS
-                    h_inv = 1.0 / h;
-                    h3_inv = h_inv * h_inv * h_inv;
-#endif
-                    u = r * h_inv;
-
-                    if(u < 0.5)
-                        fac = mass_dm * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
-                    else
-                        fac =
-                            mass_dm * h3_inv * (21.333333333333 - 48.0 * u +
-                                    38.4 * u * u - 10.666666666667 * u * u * u -
-                                    0.066666666667 / (u * u * u));
-                }
-
-                /* assemble force with strength, screening length, and target charge.  */
-
-                fac *=
-                    All.ScalarBeta * (1 + r / All.ScalarScreeningLength) * exp(-r / All.ScalarScreeningLength);
-
-                acc_x += (dx_dm * fac);
-                acc_y += (dy_dm * fac);
-                acc_z += (dz_dm * fac);
-            }
-#endif
-
-
         }
         if(listindex < NODELISTLENGTH)
         {
@@ -2396,9 +2122,9 @@ int force_treeevaluate(int target, int mode,
  *  memory-access panelty (which reduces cache performance) incurred by the
  *  table.
  */
-int force_treeev_shortrange(int target, int mode, 
-        struct gravitydata_in * input, 
-        struct gravitydata_out * output, 
+int force_treeev_shortrange(int target, int mode,
+        struct gravitydata_in * input,
+        struct gravitydata_out * output,
         LocalEvaluator * lv, void * unused)
 {
     struct NODE *nop = 0;
@@ -2410,9 +2136,6 @@ int force_treeev_shortrange(int target, int mode,
     double rcut, asmth, asmthfac, rcut2, dist;
     MyDouble acc_x, acc_y, acc_z;
 
-#ifdef SCALARFIELD
-    double dx_dm = 0, dy_dm = 0, dz_dm = 0, mass_dm = 0;
-#endif
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     double soft = 0;
 #endif
@@ -2420,7 +2143,7 @@ int force_treeev_shortrange(int target, int mode,
     MyDouble pot;
 
     pot = 0;
-    
+
     acc_x = 0;
     acc_y = 0;
     acc_z = 0;
@@ -2437,7 +2160,7 @@ int force_treeev_shortrange(int target, int mode,
     pos_x = input->Pos[0];
     pos_y = input->Pos[1];
     pos_z = input->Pos[2];
-#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
+#if defined(UNEQUALSOFTENINGS)
     ptype = input->Type;
 #else
     ptype = P[0].Type;
@@ -2485,23 +2208,6 @@ int force_treeev_shortrange(int target, int mode,
                 r2 = dx * dx + dy * dy + dz * dz;
 
                 mass = P[no].Mass;
-#ifdef SCALARFIELD
-                if(ptype != 0)	/* we have a dark matter particle as target */
-                {
-                    if(P[no].Type == 1)
-                    {
-                        dx_dm = dx;
-                        dy_dm = dy;
-                        dz_dm = dz;
-                        mass_dm = mass;
-                    }
-                    else
-                    {
-                        mass_dm = 0;
-                        dx_dm = dy_dm = dz_dm = 0;
-                    }
-                }
-#endif
 #ifdef UNEQUALSOFTENINGS
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
                 if(ptype == 0)
@@ -2565,21 +2271,6 @@ int force_treeev_shortrange(int target, int mode,
                 dx = nop->u.d.s[0] - pos_x;
                 dy = nop->u.d.s[1] - pos_y;
                 dz = nop->u.d.s[2] - pos_z;
-
-#ifdef SCALARFIELD
-                if(ptype != 0)	/* we have a dark matter particle as target */
-                {
-                    dx_dm = nop->s_dm[0] - pos_x;
-                    dy_dm = nop->s_dm[1] - pos_y;
-                    dz_dm = nop->s_dm[2] - pos_z;
-                    mass_dm = nop->mass_dm;
-                }
-                else
-                {
-                    mass_dm = 0;
-                    dx_dm = dy_dm = dz_dm = 0;
-                }
-#endif
 
 #ifdef PERIODIC
                 dx = NEAREST(dx);
@@ -2739,49 +2430,6 @@ int force_treeev_shortrange(int target, int mode,
                 ninteractions++;
             }
 
-
-#ifdef SCALARFIELD
-            if(ptype != 0)	/* we have a dark matter particle as target */
-            {
-#ifdef PERIODIC
-                dx_dm = NEAREST(dx_dm);
-                dy_dm = NEAREST(dy_dm);
-                dz_dm = NEAREST(dz_dm);
-#endif
-                r2 = dx_dm * dx_dm + dy_dm * dy_dm + dz_dm * dz_dm;
-                r = sqrt(r2);
-                if(r >= h)
-                    fac = mass_dm / (r2 * r);
-                else
-                {
-#ifdef UNEQUALSOFTENINGS
-                    h_inv = 1.0 / h;
-                    h3_inv = h_inv * h_inv * h_inv;
-#endif
-                    u = r * h_inv;
-                    if(u < 0.5)
-                        fac = mass_dm * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
-                    else
-                        fac =
-                            mass_dm * h3_inv * (21.333333333333 - 48.0 * u +
-                                    38.4 * u * u - 10.666666666667 * u * u * u -
-                                    0.066666666667 / (u * u * u));
-                }
-
-                /* assemble force with strength, screening length, and target charge.  */
-
-                fac *=
-                    All.ScalarBeta * (1 + r / All.ScalarScreeningLength) * exp(-r / All.ScalarScreeningLength);
-                tabindex = (int) (asmthfac * r);
-                if(tabindex < NTAB)
-                {
-                    fac *= shortrange_table[tabindex];
-                    acc_x += (dx_dm * fac);
-                    acc_y += (dy_dm * fac);
-                    acc_z += (dz_dm * fac);
-                }
-            }
-#endif
         }
 
         if(listindex < NODELISTLENGTH)
@@ -2801,7 +2449,7 @@ int force_treeev_shortrange(int target, int mode,
         output->Acc[2] = acc_z;
         output->Ninteractions = ninteractions;
         output->Potential = pot;
-        
+
     lv->Ninteractions = ninteractions;
     lv->Nnodesinlist = nnodesinlist;
     return ninteractions;
@@ -2945,7 +2593,7 @@ int force_treeev_direct(int target, int mode)
         pos_x = GravDataGet[target].Pos[0];
         pos_y = GravDataGet[target].Pos[1];
         pos_z = GravDataGet[target].Pos[2];
-#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
+#if defined(UNEQUALSOFTENINGS)
         ptype = GravDataGet[target].Type;
 #else
         ptype = P[0].Type;

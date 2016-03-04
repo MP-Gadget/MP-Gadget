@@ -1034,16 +1034,6 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.MinGasTemp;
         id[nt++] = REAL;
 
-#ifdef SCALARFIELD
-        strcpy(tag[nt], "ScalarBeta");
-        addr[nt] = &All.ScalarBeta;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "ScalarScreeningLength");
-        addr[nt] = &All.ScalarScreeningLength;
-        id[nt++] = REAL;
-#endif
-
 #ifdef OUTPUTLINEOFSIGHT
         strcpy(tag[nt], "TimeFirstLineOfSight");
         addr[nt] = &All.TimeFirstLineOfSight;

@@ -147,9 +147,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT    += -DREINIT_AT_TURNAROUND_CMS    #calculate centre of mass within REINIT_AT_TURNAROUND_CMS fraction of turnaround radius
 #OPT	+= -DANALYTIC_TURNAROUND         #use analytic turnaround radius instead of the numerical one
 
-#--------------------------------------- Long-range scalar field
-#OPT	+=  -DSCALARFIELD
-
 
 #--------------------------------------- Real Cosmic Rays
 #OPT    +=  -DJD_VTURB
