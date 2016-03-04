@@ -320,10 +320,6 @@ void find_next_sync_point_and_drift(void)
         NextActiveParticle[prev] = -1;
 
 
-#ifdef PERMUTATAION_OPTIMIZATION
-    generate_permutation_in_active_list();
-#endif
-
     walltime_measure("/Misc");
     /* drift the active particles, others will be drifted on the fly if needed */
 
@@ -343,100 +339,6 @@ void find_next_sync_point_and_drift(void)
 
     walltime_measure("/Drift");
 }
-
-
-#ifdef PERMUTATAION_OPTIMIZATION
-
-#define CHUNKSIZE 1000
-
-struct permut_data
-{
-    double rnd;
-    int seg;
-};
-
-
-void generate_permutation_in_active_list(void)
-{
-    int i, count, nseg, maxseg, last_particle;
-    int *first_list, *last_list;
-    int64_t idsum_old, idsum_new;
-    struct permut_data *permut;
-
-    for(i = FirstActiveParticle, idsum_old = 0; i >= 0; i = NextActiveParticle[i])
-        idsum_old += P[i].ID;
-
-    maxseg = NumPart / CHUNKSIZE + 1;
-
-    first_list = (int *) mymalloc("first_list", maxseg * sizeof(int));
-    last_list = (int *) mymalloc("last_list", maxseg * sizeof(int));
-
-    nseg = 0;
-    first_list[nseg] = FirstActiveParticle;
-
-    for(i = last_particle = FirstActiveParticle, count = 0; i >= 0; i = NextActiveParticle[i])
-    {
-        last_particle = i;
-        count++;
-
-        if((count % 1000) == 0 && NextActiveParticle[i] >= 0)
-        {
-            last_list[nseg] = last_particle;
-            nseg++;
-            first_list[nseg] = NextActiveParticle[i];
-        }
-    }
-
-    last_list[nseg] = last_particle;
-    nseg++;
-
-    permut = (struct permut_data *) mymalloc("permut", nseg * sizeof(struct permut_data));
-
-    for(i = 0; i < nseg; i++)
-    {
-        permut[i].rnd = get_random_number(i);
-        permut[i].seg = i;
-    }
-
-    qsort(permut, nseg, sizeof(struct permut_data), permut_data_compare);
-
-    FirstActiveParticle = first_list[permut[0].seg];
-
-    for(i = 0; i < nseg; i++)
-    {
-        if(i == nseg - 1)
-        {
-            if(last_list[permut[i].seg] >= 0)
-                NextActiveParticle[last_list[permut[i].seg]] = -1;
-        }
-        else
-            NextActiveParticle[last_list[permut[i].seg]] = first_list[permut[i + 1].seg];
-    }
-
-    for(i = FirstActiveParticle, idsum_new = 0; i >= 0; i = NextActiveParticle[i])
-        idsum_new += P[i].ID;
-
-    if(idsum_old != idsum_new)
-        endrun(12199991);
-
-    myfree(permut);
-    myfree(last_list);
-    myfree(first_list);
-}
-
-int permut_data_compare(const void *a, const void *b)
-{
-    if(((struct permut_data *) a)->rnd < (((struct permut_data *) b)->rnd))
-        return -1;
-
-    if(((struct permut_data *) a)->rnd > (((struct permut_data *) b)->rnd))
-        return +1;
-
-    return 0;
-}
-
-#endif
-
 
 int ShouldWeDoDynamicUpdate(void)
 {
