@@ -547,10 +547,6 @@ extern FILE *FdBlackHolesDetails;
 extern FILE *FdForceTest;	/*!< file handle for forcetest.txt log-file. */
 #endif
 
-#ifdef DARKENERGY
-extern FILE *FdDE;  /*!< file handle for darkenergy.txt log-file. */
-#endif
-
 #ifdef XXLINFO
 extern FILE *FdXXL;		/*!< file handle for xxl.txt log-file. */
 
@@ -889,20 +885,6 @@ extern struct global_data_all_processes
     /* used in OFJT10*/
     double WindSigma0;
     double WindSpeedFactor;
-#endif
-
-#ifdef DARKENERGY
-    double DarkEnergyParam;	/*!< fixed w for equation of state */
-#ifdef TIMEDEPDE
-    char DarkEnergyFile[100];	/*!< tabelized w for equation of state */
-#ifdef TIMEDEPGRAV
-    double Gini;
-#endif
-#endif
-#endif
-
-#ifdef RESCALEVINI
-    double VelIniScale;		/*!< Scale the initial velocities by this amount */
 #endif
 
 #if defined(SNIA_HEATING)

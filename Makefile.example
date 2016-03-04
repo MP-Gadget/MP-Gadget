@@ -186,16 +186,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DCONDUCTION_CONSTANT
 #OPT	+=  -DCONDUCTION_SATURATION
 
-
-#--------------------------------------- Dark energy
-#OPT	+=  -DDARKENERGY # Enables Dark Energy
-#OPT	+=  -DTIMEDEPDE  # read w(z) from a DE file
-#OPT	+=  -DRESCALEVINI # rescale v_ini in read_ic / read_ic_cluster
-#OPT    +=  -DEXTERNALHUBBLE # reads the hubble function from the DE file
-#OPT    +=  -DTIMEDEPGRAV # resacles H and G according to DE model
-#OPT    +=  -DDARKENERGY_DEBUG # enable writing of drift/kick table
-
-
 #--------------------------------------- Long-range scalar field
 #OPT	+=  -DSCALARFIELD
 
