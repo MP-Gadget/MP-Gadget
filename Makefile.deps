@@ -13,15 +13,15 @@ OBJS  =  \
 	 accel.o \
 	 cooling.o ngb.o openmpsort.o \
 	 system.o allocate.o density.o sizelimited_sendrecv.o  \
-	 evaluator.o \
-	 gravtree.o hydra.o  driftfac.o darkenergy.o \
+	 evaluator.o cosmology.o \
+	 gravtree.o hydra.o  driftfac.o \
 	 gravpm.o \
 	 forcetree.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
-	 fof.h myqsort.h \
+	 fof.h myqsort.h cosmology.h \
 	 petaio.h \
 	 Makefile 
 
