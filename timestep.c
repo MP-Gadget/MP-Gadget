@@ -905,14 +905,8 @@ int get_timestep(int p,		/*!< particle index */
         dt_cool = All.Epsilon * dt_cool;
 
 
-#ifndef UM_CONTINUE      
         if(dt_cool > 0 && dt_cool < dt)
             dt = dt_cool;
-#else
-        if(dt_cool > 0 && dt_cool < dt && SPHP(p).DelayTime  < 0)
-            dt = dt_cool;
-#endif
-
 
         /* yet another criterion given by the electron number density change */
 
@@ -924,13 +918,8 @@ int get_timestep(int p,		/*!< particle index */
 
         dt_elec = All.Epsilon * dt_elec;
 
-#ifndef UM_CONTINUE            
         if(dt_elec > 0 && dt_elec < dt)
             dt = dt_elec;
-#else
-        if(dt_elec > 0 && dt_elec < dt && SPHP(p).DelayTime  < 0)
-            dt = dt_elec;
-#endif      
     }
 #endif
 
