@@ -86,6 +86,7 @@ OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding g
 
 
 #-------------------------------------------- Things for special behaviour
+OPT	+=  -DINCLUDE_RADIATION		# Add radiation density to backround evolution. Only affects the Hubble flow.
 #OPT	+=  -DTRADITIONAL_SPH_FORMULATION
 OPT	+=  -DNOTEST_FOR_IDUNIQUENESS
 #OPT	+=  -DSNIA_HEATING
