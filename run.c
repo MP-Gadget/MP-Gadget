@@ -96,11 +96,6 @@ void run(void)
         report_memory_usage("RUN");
     }
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
-#ifndef SNAP_SET_TG
-    restart(0);
-
-    savepositions(All.SnapshotFileCount++, 0);
-#endif	
     /* write a last snapshot
      * file at final time (will
      * be overwritten if
@@ -255,26 +250,6 @@ void find_next_sync_point_and_drift(void)
     }
 
     MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-#ifdef SNAP_SET_TG
-    double a3inv, hubble_param2, nh, nh_max, nh_glob_max;
-
-    a3inv = 1.0 / (All.Time * All.Time * All.Time);
-    hubble_param2 = All.HubbleParam * All.HubbleParam;
-
-    for(i = 0, nh_max = 0; i < N_sph; i++)
-    {
-        nh = HYDROGEN_MASSFRAC * SPHP(i).d.Density * All.UnitDensity_in_cgs * a3inv * hubble_param2 / PROTONMASS;
-
-        if(nh > nh_max)
-            nh_max = nh;
-    }
-
-    MPI_Allreduce(&nh_max, &nh_glob_max, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-
-    if(ThisTask == 0)
-        printf("\nNH_MAX = %g\n\n", nh_glob_max);
-#endif
 
 #ifdef NSTEPS_BASED_SNAPS
     if((All.NumCurrentTiStep + 2) % All.SnapNumFac == 0)
@@ -584,11 +559,7 @@ int find_next_outputtime(int ti_curr)
             printf("TimeBetSnapshot > 1.0 required for your simulation.\n");
             endrun(13123);
         }
-#ifdef SNAP_SET_TG
-        time = All.TimeBegin * All.TimeBetSnapshot;
-#else
         time = All.TimeOfFirstSnapshot;
-#endif
         iter = 0;
 
         while(time < All.TimeBegin)

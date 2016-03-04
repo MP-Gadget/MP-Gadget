@@ -828,22 +828,12 @@ extern struct global_data_all_processes
 #endif
 
 
-#ifdef SNAP_SET_TG
-    int SnapNumFac;
-#endif
-
 #ifdef DENSITY_BASED_SNAPS
     double nh_next;
 #endif
 
 #ifdef END_TIME_DYN_BASED
     double EndTimeDens;
-#endif
-
-#ifdef GENERATE_GAS_IN_ICS
-#ifdef GENERATE_GAS_TG
-    int GenGasRefFac;
-#endif
 #endif
 
 }
@@ -945,12 +935,6 @@ extern struct particle_data
     int64_t GrNr;
     int origintask;
     int targettask;
-#endif
-
-#ifdef SHELL_CODE
-    MyDouble radius;
-    MyDouble enclosed_mass;
-    MyDouble dMdr;
 #endif
 
     float GravCost;		/*!< weight factor used for balancing the work-load */
