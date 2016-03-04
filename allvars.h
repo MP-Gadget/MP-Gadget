@@ -588,20 +588,6 @@ extern struct global_data_all_processes
     double MinGasTemp;		/*!< may be used to set a floor for the gas temperature */
     double MinEgySpec;		/*!< the minimum allowed temperature expressed as energy per unit mass */
 
-
-#ifdef KSPACE_NEUTRINOS
-    int KspaceNeutrinoSeed;
-    int Nsample;
-    int SphereMode;
-    char	KspaceDirWithTransferfunctions[500];
-    char	KspaceBaseNameTransferfunctions[500];
-    double PrimordialIndex;
-    double Sigma8;
-    double InputSpectrum_UnitLength_in_cm; 
-    double OmegaNu;
-#endif
-
-
     /* some force counters  */
 
     int64_t TotNumOfForces;	/*!< counts total number of force computations  */

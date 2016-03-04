@@ -901,44 +901,6 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.DensityContrastLimit;
         id[nt++] = REAL;
 
-#ifdef KSPACE_NEUTRINOS
-        strcpy(tag[nt], "KspaceNeutrinoSeed");
-        addr[nt] = &All.KspaceNeutrinoSeed;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "Nsample");
-        addr[nt] = &All.Nsample;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "SphereMode");
-        addr[nt] = &All.SphereMode;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "KspaceDirWithTransferfunctions");
-        addr[nt] = All.KspaceDirWithTransferfunctions;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "KspaceBaseNameTransferfunctions");
-        addr[nt] = All.KspaceBaseNameTransferfunctions;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "PrimordialIndex");
-        addr[nt] = &All.PrimordialIndex;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "Sigma8");
-        addr[nt] = &All.Sigma8;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "OmegaNu");
-        addr[nt] = &All.OmegaNu;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InputSpectrum_UnitLength_in_cm");
-        addr[nt] = &All.InputSpectrum_UnitLength_in_cm;
-        id[nt++] = REAL;
-#endif
-
         strcpy(tag[nt], "MaxNumNgbDeviation");
         addr[nt] = &All.MaxNumNgbDeviation;
         id[nt++] = REAL;

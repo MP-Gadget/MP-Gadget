@@ -121,7 +121,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DSPLIT_PARTICLE_TYPE=4+8
 #OPT    +=  -DNEUTRINOS                     # Option for special integration of light neutrino species 
 #OPT    +=  -DOMIT_NEUTRINOS_IN_SNAPS
-#OPT	+=  -DKSPACE_NEUTRINOS
 #OPT	+=  -DSTART_WITH_EXTRA_NGBDEV        # Uses special MaxNumNgbDeviation for starting
 #OPT	+=  -DVOLUME_CORRECTION=1.75
 #OPT	+=  -DISOTHERM_EQS                  # isothermal equation of state
