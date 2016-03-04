@@ -9,7 +9,7 @@ Ngrid            64 % number of particles per grid direction.
 Nsample          64 % k space sampling upper limit
  
 
-Box             64000.0   % Periodic box size of simulation
+Box             32000.0   % Periodic box size of simulation
 
 
 
@@ -20,7 +20,7 @@ ProduceGas       1         % 1 = Produce gas  0 = no gas, just DM.
 OmegaDM_2ndSpecies 0       % Omega for a second dark matter species (at z=0)
 HubbleParam      0.697      % Hubble paramater (may be used for power spec parameterization)
 
-Redshift         159        % Starting redshift
+Redshift         9        % Starting redshift
 
 Sigma8           0.810      % power spectrum normalization
 

@@ -15,10 +15,10 @@ CpuFile            cpu.txt
 RestartFile        restart
 SnapshotFileBase   snapshot
 
-NumFilesPerSnapshot	  4
-NumWritersPerSnapshot 4
-NumFilesPerPIG       4
-NumWritersPerPIG     4
+NumFilesPerSnapshot	  1
+NumWritersPerSnapshot 1
+NumFilesPerPIG       1
+NumWritersPerPIG     1
 
 Nmesh 128
 
@@ -41,14 +41,14 @@ PeriodicBoundariesOn     1
 
 %  Characteristics of run
 
-TimeBegin           0.00625   
+TimeBegin           0.1
 TimeMax	            1.00000
 
 Omega0           0.2814      % Total matter density  (at z=0)
 OmegaLambda      0.7186      % Cosmological constant (at z=0)
 OmegaBaryon      0.0464     % Baryon density        (at z=0)
 HubbleParam      0.697      % Hubble paramater (may be used for power spec parameterization)
-BoxSize               64000.0
+BoxSize               32000.0
 
 CoolingOn             1
 StarformationOn       1
@@ -72,7 +72,7 @@ MaxRMSDisplacementFac  0.2
 CourantFac             0.15     
 
 MaxSizeTimestep       0.1
-MinSizeTimestep       0.0
+MinSizeTimestep       0.05
 
 
 
