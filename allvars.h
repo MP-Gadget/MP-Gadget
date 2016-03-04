@@ -321,17 +321,6 @@ extern int ThisTask;		/*!< the number of the local processor  */
 extern int NTask;		/*!< number of processors */
 extern int PTask;		/*!< note: NTask = 2^PTask */
 
-#ifdef INVARIANCETEST
-extern int World_ThisTask;
-extern int World_NTask;
-extern int Color;
-extern MPI_Comm MPI_CommLocal;
-#ifndef DO_NOT_REDEFINE_MPI_COMM_WORLD
-#undef  MPI_COMM_WORLD
-#define MPI_COMM_WORLD MPI_CommLocal
-#endif
-#endif
-
 extern int NumForceUpdate;	/*!< number of active particles on local processor in current timestep  */
 extern int64_t GlobNumForceUpdate;
 

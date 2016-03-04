@@ -53,10 +53,6 @@ void run(void)
         do_sinks();
 #endif
 
-#ifdef INVARIANCETEST
-        compare_partitions();
-#endif
-
         /* check whether we want a full energy statistics */
         if((All.Time - All.TimeLastStatistics) >= All.TimeBetStatistics)
         {

@@ -33,13 +33,6 @@ int ThisTask;			/*!< the number of the local processor  */
 int NTask;			/*!< number of processors */
 int PTask;			/*!< note: NTask = 2^PTask */
 
-#ifdef INVARIANCETEST
-int World_ThisTask;
-int World_NTask;
-int Color;
-MPI_Comm MPI_CommLocal;
-#endif
-
 int NumForceUpdate;		/*!< number of active particles on local processor in current timestep  */
 int64_t GlobNumForceUpdate;
 int NumSphUpdate;		/*!< number of active SPH particles on local processor in current timestep  */

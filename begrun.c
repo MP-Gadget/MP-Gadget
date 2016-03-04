@@ -1211,13 +1211,7 @@ void read_parameter_file(char *fname)
                     }
                     else
                     {
-#ifdef ALLOWEXTRAPARAMS
                         fprintf(stdout, "WARNING from file %s:   Tag '%s' ignored !\n", fname, buf1);
-#else
-                        fprintf(stdout, "Error in file %s:   Tag '%s' not allowed or multiple defined.\n",
-                                fname, buf1);
-                        errorFlag = 1;
-#endif
                     }
                 }
                 fclose(fd);
@@ -1228,21 +1222,6 @@ void read_parameter_file(char *fname)
                 if(i > 0)
                     if(All.OutputDir[i - 1] != '/')
                         strcat(All.OutputDir, "/");
-
-#ifdef INVARIANCETEST
-                i = strlen(All.OutputDir);
-                All.OutputDir[i - 1] = 0;
-                strcat(All.OutputDir, "/run0");
-                i = strlen(All.OutputDir);
-                All.OutputDir[i - 1] += Color;
-                mkdir(All.OutputDir, 02755);
-                strcat(All.OutputDir, "/");
-
-                sprintf(buf1, "%s%s", All.OutputDir, "logfile.txt");
-                printf("stdout will now appear in the file '%s'\n", buf1);
-                fflush(stdout);
-                freopen(buf1, "w", stdout);
-#endif
 
             }
         }
