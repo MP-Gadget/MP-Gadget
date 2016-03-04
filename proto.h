@@ -4,9 +4,6 @@
 #endif
 #include "forcetree.h"
 #include "cooling.h"
-#ifdef LT_STELLAREVOLUTION
-#include "lt.h"
-#endif
 #include "openmpsort.h"
 
 void report_VmRSS(void);
@@ -276,11 +273,7 @@ int dissolvegas(void);
 void do_box_wrapping(void);
 void domain_Decomposition(void);
 double enclosed_mass(double R);
-#ifndef LT_STELLAREVOLUTION
 void endrun(int);
-#else
-void EndRun(int, const char *, const char *, const int);
-#endif
 void energy_statistics(void);
 void ensure_neighbours(void);
 
@@ -308,13 +301,8 @@ double get_starformation_rate(int i);
 void gravity_tree(void);
 void hydro_force(void);
 void init(void);
-#ifndef LT_STELLAREVOLUTION
 void init_clouds(void);
 void integrate_sfr(void);
-#else
-void init_clouds(int, double, double, double, double, double*, double*);
-void integrate_sfr(double, double, double, double, double, double);
-#endif
 void insert_node(int i);
 int mark_targets(void);
 size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE * stream);
@@ -436,70 +424,6 @@ void readjust_timebase(double TimeMax_old, double TimeMax_new);
 
 double enclosed_mass(double R);
 void pm_setup_nonperiodic_kernel(void);
-
-#ifdef LT_STELLAREVOLUTION
-void               fsolver_error_handler     (const char *, const char *, int, int);
-int                get_Yset                  (int);
-
-void               ReadYields                (int, int, int);
-void               reading_thresholds_for_thermal_instability   (void);
-double             GetMetalLambda            (double, double);
-
-void               init_SN                   (void);
-unsigned int       evolve_SN                 (void);
-double INLINE_FUNC get_NextChemTime          (double, int, int*);
-double INLINE_FUNC get_cost_SE               (int);
-int    INLINE_FUNC get_chemstep              (int, int, double*, double);
-int    INLINE_FUNC get_current_chem_bin      (double, int);
-int                get_chemstep_bin          (double, double, int*, int);
-int                compare_steps             (const void*, const void*);
-
-int                append_chemicallyactive_particles(unsigned int *);
-void               drop_chemicallyactive_particles  (void);
-
-
-void               read_metals               (void);
-
-void               init_clouds_cm            (int, double*, double*, double, double, double, int, double*);
-
-int                load_SFs_IMFs             (void);
-int                get_SF_index              (int, int*, int*);
-
-int                write_eff_model           (int, int);
-int                read_eff_model            (int, int);
-
-void               read_SnIa_yields          (void);
-void               read_SnII_yields          (void);
-void               read_AGB_yields           (void);
-
-void               read_metalcool_table      (void);
-
-void               initialize_star_lifetimes (void);
-double INLINE_FUNC get_age                   (double);
-
-void               recalculate_stellarevolution_vars(void *, int);
-void               recalc_eff_model          (void);
-
-int                calculate_effective_yields(double, double, int);
-double             calculate_FactorSN        (double, double, void*);
-
-double             get_imf_params            (double);
-double INLINE_FUNC normalize_imf             (double, double, void*);
-
-double             *get_meanZ(void);
-void               write_metallicity_stat    (void);
-void               get_metals_sumcheck       (int mode);
-double INLINE_FUNC get_metalmass             (float *);
-double INLINE_FUNC get_metallicity           (int, int);
-double INLINE_FUNC get_metallicity_solarunits(MyFloat);
-
-double INLINE_FUNC get_entropy               (int);
-
-int    INLINE_FUNC getindex                  (double*, int, int, double*, int*);
-
-int    INLINE_FUNC perturb                   (double*, double*);
-
-#endif
 
 #ifdef RADTRANSFER
 /* Eddington tensor computation */

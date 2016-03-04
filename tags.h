@@ -60,14 +60,5 @@
 #define TAG_RT_B          73
 #endif
 
-#ifdef LT_STELLAREVOLUTION
-#define TAG_PDATA_STARS   100
-#define TAG_KEY_STARS     (TAG_PDATA_STARS + 1)
-#define TAG_METDATA       (TAG_KEY_STARS + 1)
-#define TAG_SE            (TAG_METDATA + 1)
-#define TAG_TRCK          (TAG_SE + 1)
-#define TAG_CCRIT         (TAG_TRCK + 1)
-
-#endif
 #define TAG_EVALUATE_A (9999)
 #define TAG_EVALUATE_B (10000)
