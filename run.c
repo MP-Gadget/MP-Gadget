@@ -22,9 +22,6 @@ static int human_interaction();
 int stopflag = 0;
 void run(void)
 {
-#if defined(RADIATIVE_RATES) || defined(RADIATION)
-    int ifunc;
-#endif
 #ifdef OLD_RESTART
     char buf[200], stopfname[200], contfname[200];
 
@@ -56,10 +53,6 @@ void run(void)
             return;
         }
         every_timestep_stuff();	/* write some info to log-files */
-
-#if defined(RADIATIVE_RATES) || defined(RADIATION)
-        ifunc = init_rad(All.Time);
-#endif
 
 #ifdef COOLING
         IonizeParams();		/* set UV background for the current time */
