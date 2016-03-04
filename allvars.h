@@ -560,8 +560,6 @@ extern double MeanAlpha;
 #endif
 #endif
 
-extern void *CommBuffer;	/*!< points to communication buffer, which is used at a few places */
-
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
  * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
@@ -1593,47 +1591,6 @@ extern struct data_nodelist
     int NodeList[NODELISTLENGTH];
 }
 *DataNodeList;
-
-/* 
- *
- * These are deprecated symbols used by non-threaded evaluaters
- * mostly in subfind / potential.
- * */
-struct gravdata_in
-{
-    int NodeList[NODELISTLENGTH];
-    MyFloat Pos[3];
-#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
-    int Type;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    MyFloat Soft;
-#endif
-#endif
-    MyFloat OldAcc;
-} ;
-
-extern struct gravdata_in *GravDataIn, *GravDataGet;
-
-
-struct gravdata_out
-{
-    MyDouble Acc[3];
-    MyDouble Potential;
-#ifdef DISTORTIONTENSORPS
-    MyDouble tidal_tensorps[3][3];
-#endif
-    int Ninteractions;
-};
-
-extern struct gravdata_out *GravDataResult, *GravDataOut;
-
-struct potdata_out
-{
-    MyDouble Potential;
-};
-
-
-extern struct potdata_out *PotDataResult, *PotDataOut;
 
 /*! Header for the standard file format.
 */

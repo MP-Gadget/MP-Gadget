@@ -215,8 +215,6 @@ double MeanAlpha;
 #endif
 #endif
 
-void *CommBuffer;		/*!< points to communication buffer, which is used at a few places */
-
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
  * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
@@ -257,19 +255,6 @@ struct data_index *DataIndexTable;	/*!< the particles to be exported are grouped
 					   assigned to the correct particle */
 
 struct data_nodelist *DataNodeList;
-
-struct gravdata_in *GravDataIn,	/*!< holds particle data to be exported to other processors */
- *GravDataGet;			/*!< holds particle data imported from other processors */
-
-
-struct gravdata_out *GravDataResult,	/*!< holds the partial results computed for imported particles. Note: We use GravDataResult = GravDataGet, such that the result replaces the imported data */
- *GravDataOut;			/*!< holds partial results received from other processors. This will overwrite the GravDataIn array */
-
-
-struct potdata_out *PotDataResult,	/*!< holds the partial results computed for imported particles. Note: We use GravDataResult = GravDataGet, such that the result replaces the imported data */
- *PotDataOut;			/*!< holds partial results received from other processors. This will overwrite the GravDataIn array */
-
-
 
 
 /*! Header for the standard file format.
