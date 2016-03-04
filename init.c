@@ -369,10 +369,6 @@ void init(void)
 
         SPHP(i).DivVel = 0;
 
-#ifdef REIONIZATION
-        All.not_yet_reionized = 1;
-#endif
-
     }
 
     if(RestartFlag == 3)

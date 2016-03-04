@@ -799,10 +799,6 @@ extern struct global_data_all_processes
 #endif
 #endif
 
-#ifdef REIONIZATION
-    int not_yet_reionized;	/*!< flag that makes sure that there is only one reionization */
-#endif
-
 #ifdef NAVIERSTOKES
     double NavierStokes_ShearViscosity;
     double FractionSpitzerViscosity;

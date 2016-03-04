@@ -33,10 +33,6 @@ void compute_accelerations(int mode)
         fflush(stdout);
     }
 
-#ifdef REIONIZATION
-    heating();
-#endif
-
     walltime_measure("/Misc");
 
     if(All.PM_Ti_endstep == All.Ti_Current)
