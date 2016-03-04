@@ -46,12 +46,6 @@ struct densdata_out
     MyFloat DV[3][3];
 #endif
 
-#ifdef JD_VTURB
-    MyFloat Vturb;
-    MyFloat Vbulk[3];
-    int TrueNGB;
-#endif
-
 #ifdef BLACK_HOLES
     MyDouble SmoothedEntOrPressure;
     MyDouble FeedbackWeightSum;
@@ -362,14 +356,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
         EV_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
 #endif
 
-#ifdef JD_VTURB
-        EV_REDUCE(SPHP(place).Vturb, remote->Vturb);
-        EV_REDUCE(SPHP(place).Vbulk[0], remote->Vbulk[0]);
-        EV_REDUCE(SPHP(place).Vbulk[1], remote->Vbulk[1]);
-        EV_REDUCE(SPHP(place).Vbulk[2], remote->Vbulk[2]);
-        EV_REDUCE(SPHP(place).TrueNGB, remote->TrueNGB);
-#endif
-
     }
 
 #ifdef SNIA_HEATING
@@ -485,16 +471,6 @@ static int density_evaluate(int target, int mode,
                     double mass_j = P[j].Mass;
 
                     numngb++;
-#ifdef JD_VTURB
-                    O->Vturb += (SPHP(j).VelPred[0] - I->Vel[0]) * (SPHP(j).VelPred[0] - I->Vel[0]) +
-                        (SPHP(j).VelPred[1] - I->Vel[1]) * (SPHP(j).VelPred[1] - I->Vel[1]) +
-                        (SPHP(j).VelPred[2] - I->Vel[2]) * (SPHP(j).VelPred[2] - I->Vel[2]);
-                    O->Vbulk[0] += SPHP(j).VelPred[0];
-                    O->Vbulk[1] += SPHP(j).VelPred[1];
-                    O->Vbulk[2] += SPHP(j).VelPred[2];
-                    O->TrueNGB++;
-#endif
-
 #ifdef VOLUME_CORRECTION
                     O->Rho += (mass_j * wk * pow(I->DensityOld / SPHP(j).DensityOld, VOLUME_CORRECTION));
                     O->DensityStd += (mass_j * wk);
@@ -722,13 +698,6 @@ static void density_post_process(int i) {
             SPHP(i).u.s.CurlVel = sqrt(rotx * rotx + roty * roty + rotz * rotz);
 #endif
 
-
-#ifdef JD_VTURB
-            SPHP(i).Vturb = sqrt(SPHP(i).Vturb / SPHP(i).TrueNGB);
-            SPHP(i).Vbulk[0] /= SPHP(i).TrueNGB;
-            SPHP(i).Vbulk[1] /= SPHP(i).TrueNGB;
-            SPHP(i).Vbulk[2] /= SPHP(i).TrueNGB;
-#endif
 
         }
 

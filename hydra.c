@@ -49,10 +49,6 @@ struct hydrodata_in
     MyIDType I->ID;			/*!< particle identifier */
 #endif
 
-#ifdef JD_VTURB
-    MyFloat Vbulk[3];
-#endif
-
 #ifdef TIME_DEP_ART_VISC
     MyFloat I->alpha;
 #endif
@@ -87,9 +83,6 @@ struct hydrodata_out
     MyFloat MinViscousDt;
 #else
     MyFloat MaxSignalVel;
-#endif
-#ifdef JD_VTURB
-    MyFloat Vrms;
 #endif
 
 #ifdef HYDRO_COST_FACTOR
@@ -336,12 +329,6 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
     input->F1 = SPHP(place).DivVel;
 #endif
 
-#ifdef JD_VTURB
-    input->Vbulk[0] = SPHP(place).Vbulk[0];
-    input->Vbulk[1] = SPHP(place).Vbulk[1];
-    input->Vbulk[2] = SPHP(place).Vbulk[2];
-#endif
-
 #if defined(NAVIERSTOKES)
     input->I->Entropy = SPHP(place).Entropy;
 #endif
@@ -392,10 +379,6 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
 #else
     if(mode == 0 || SPHP(place).MaxSignalVel < result->MaxSignalVel)
         SPHP(place).MaxSignalVel = result->MaxSignalVel;
-#endif
-
-#ifdef JD_VTURB
-    REDUCE(SPHP(place).Vrms, result->Vrms); 
 #endif
 
 }
@@ -523,13 +506,6 @@ static int hydro_evaluate(int target, int mode,
 
                     double dwk_i = density_kernel_dwk(&kernel_i, r * kernel_i.Hinv);
                     double dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
-
-#ifdef JD_VTURB
-                    if ( I->Hsml >= P[j].Hsml)  /* Make sure j is inside targets hsml */
-                        O->Vrms += (SPHP(j).VelPred[0]-I->Vbulk[0])*(SPHP(j).VelPred[0]-vBulk[0]) 
-                            + (SPHP(j).VelPred[1]-I->Vbulk[1])*(SPHP(j).VelPred[1]-vBulk[1]) 
-                            + (SPHP(j).VelPred[2]-I->Vbulk[2])*(SPHP(j).VelPred[2]-vBulk[2]);
-#endif
 
                     double vsig = soundspeed_i + soundspeed_j;
 
@@ -942,17 +918,6 @@ static void hydro_post_process(int i) {
 
 #endif /* these entropy increases directly follow from the general heat transfer equation */
 
-
-#ifdef JD_VTURB
-        SPHP(i).Vrms += (SPHP(i).VelPred[0]-SPHP(i).Vbulk[0])*(SPHP(i).VelPred[0]-SPHP(i).Vbulk[0]) 
-            + (SPHP(i).VelPred[1]-SPHP(i).Vbulk[1])*(SPHP(i).VelPred[1]-SPHP(i).Vbulk[1]) 
-            + (SPHP(i).VelPred[2]-SPHP(i).Vbulk[2])*(SPHP(i).VelPred[2]-SPHP(i).Vbulk[2]);
-        SPHP(i).Vrms = sqrt(SPHP(i).Vrms/SPHP(i).TrueNGB);
-#endif
-
-#if defined(JD_DPP) && !defined(JD_DPPONSNAPSHOTONLY)
-        compute_Dpp(i);
-#endif
 
 #ifdef WINDS
         /* if we have winds, we decouple particles briefly if delaytime>0 */

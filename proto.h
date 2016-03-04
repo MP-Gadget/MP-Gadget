@@ -430,10 +430,6 @@ void healpix_halo_cond(float *res);
 
 #endif
 
-#ifdef JD_DPP
-void compute_Dpp();
-#endif
-
 #ifdef LIGHTCONE
 void lightcone_init();
 void lightcone_cross(int p, double oldpos[3]);

@@ -1058,14 +1058,6 @@ extern struct sph_particle_data
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
 #endif
 
-#ifdef JD_VTURB
-    MyFloat Vturb;		/*!< RMS velocity inside kernel around particle vel */
-    MyFloat Vrms;		    /*!< RMS velocity inside kernel around Vbulk */
-    MyFloat Vbulk[3];	    /*!< Mean velocity inside kernel */
-    MyFloat Dpp;			/*!< Reacceleration Coefficient as (Cassano+ '04) */
-    int TrueNGB;			/*!< Number of neighbours inside hsml */
-#endif
-
 #ifdef TIME_DEP_ART_VISC
     MyFloat alpha, Dtalpha;
 #endif
