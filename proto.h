@@ -135,25 +135,6 @@ void smoothed_values(void);
 
 int fof_find_dmparticles_evaluate(int target, int mode, int *nexport, int *nsend_local);
 
-double INLINE_FUNC hubble_function(double a);
-#ifdef DARKENERGY
-double DarkEnergy_a(double);
-double DarkEnergy_t(double);
-#ifdef TIMEDEPDE
-void fwa_init(void);
-double INLINE_FUNC fwa(double);
-double INLINE_FUNC get_wa(double);
-#ifdef TIMEDEPGRAV
-double INLINE_FUNC dHfak(double a);
-double INLINE_FUNC dGfak(double a);
-#endif
-#ifdef EXTERNALHUBBLE
-double INLINE_FUNC hubble_function_external(double a);
-#endif
-#endif
-
-#endif
-
 void blackhole_accretion(void);
 void blackhole_make_one(int index);
 void blackhole_make_extra();

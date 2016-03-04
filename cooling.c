@@ -548,10 +548,6 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
     struct abundance y;
     struct rates r;
 
-#if defined (UM_METAL_COOLING) && defined (UM_MET_IN_LT_COOLING)
-    double LambdaMetalLines;
-#endif
-
     if(logT <= Tmin)
         logT = Tmin + 0.5 * deltaT;	/* floor at Tmin */
 

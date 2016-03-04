@@ -155,44 +155,6 @@ typedef uint64_t peanokey;
 #ifdef NAVIERSTOKES
 #define  LOG_LAMBDA      37.8	/* logarithmic Coulomb factor */
 #endif
-
-/*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
- * A note on normalisation (as of 08/02/2012):
- * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
- * calculating Omega_K in the code and specifying Omega_Lambda and Omega_Matter in the paramfile.
- * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
- * making h0 (very) slightly larger than specified.
- */
-#ifdef INCLUDE_RADIATION
-
-#define  T_CMB0      2.7255	/* present-day CMB temperature, from Fixsen 2009. */
-/*Stefan-Boltzmann constant in cgs units*/
-#define STEFAN_BOLTZMANN 5.670373e-5
-/* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2)*/
-#define OMEGAG (4*STEFAN_BOLTZMANN*8*M_PI*GRAVITY/(3*C*C*C*HUBBLE*HUBBLE)*pow(T_CMB0,4)/All.HubbleParam/All.HubbleParam)
-#if defined NEUTRINOS
-    /*Neutrinos are massive and included elsewhere*/
-    #define OMEGAR OMEGAG
-#else
-    /* Note there is a slight correction from 4/11
-     * due to the neutrinos being slightly coupled at e+- annihilation.
-     * See Mangano et al 2005 (hep-ph/0506164)
-     *The correction is (3.046/3)^(1/4), for N_eff = 3.046 */
-    #define TNU     (T_CMB0*pow(4/11.,1/3.)*1.00328)              /* Neutrino + antineutrino background temperature in Kelvin */
-    /*Neutrinos are included in the radiation*/
-    /*For massless neutrinos, rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff, but we absorbed N_eff into T_nu above*/
-    #define OMEGANU (OMEGAG*7/8.*pow(TNU/T_CMB0,4)*3)
-    /*With massless neutrinos only, add the neutrinos to the radiation*/
-    #define OMEGAR (OMEGAG+OMEGANU)
-#endif
-#else
-        /*Default is no radiation*/
-        #define OMEGAR 0.
-#endif
-
-/* For convenience define OMEGAK*/
-#define OMEGAK (1-All.Omega0 - All.OmegaLambda)
-
 #define  SEC_PER_MEGAYEAR   3.155e13
 #define  SEC_PER_YEAR       3.155e7
 
@@ -485,10 +447,6 @@ extern FILE *FdBlackHolesDetails;
 extern FILE *FdForceTest;	/*!< file handle for forcetest.txt log-file. */
 #endif
 
-#ifdef DARKENERGY
-extern FILE *FdDE;  /*!< file handle for darkenergy.txt log-file. */
-#endif
-
 #ifdef XXLINFO
 extern FILE *FdXXL;		/*!< file handle for xxl.txt log-file. */
 
@@ -548,11 +506,6 @@ extern struct global_data_all_processes
                                   the maximum(!) number of particles.  Note: A typical local tree for N
                                   particles needs usually about ~0.65*N nodes. */
 
-#ifdef SCALARFIELD
-    double ScalarBeta;
-    double ScalarScreeningLength;
-#endif
-
     /* some SPH parameters */
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
@@ -567,20 +520,6 @@ extern struct global_data_all_processes
     double InitGasU;		/*!< the same, but converted to thermal energy per unit mass */
     double MinGasTemp;		/*!< may be used to set a floor for the gas temperature */
     double MinEgySpec;		/*!< the minimum allowed temperature expressed as energy per unit mass */
-
-
-#ifdef KSPACE_NEUTRINOS
-    int KspaceNeutrinoSeed;
-    int Nsample;
-    int SphereMode;
-    char	KspaceDirWithTransferfunctions[500];
-    char	KspaceBaseNameTransferfunctions[500];
-    double PrimordialIndex;
-    double Sigma8;
-    double InputSpectrum_UnitLength_in_cm; 
-    double OmegaNu;
-#endif
-
 
     /* some force counters  */
 
@@ -816,20 +755,6 @@ extern struct global_data_all_processes
     /* used in OFJT10*/
     double WindSigma0;
     double WindSpeedFactor;
-#endif
-
-#ifdef DARKENERGY
-    double DarkEnergyParam;	/*!< fixed w for equation of state */
-#ifdef TIMEDEPDE
-    char DarkEnergyFile[100];	/*!< tabelized w for equation of state */
-#ifdef TIMEDEPGRAV
-    double Gini;
-#endif
-#endif
-#endif
-
-#ifdef RESCALEVINI
-    double VelIniScale;		/*!< Scale the initial velocities by this amount */
 #endif
 
 #if defined(SNIA_HEATING)
@@ -1291,10 +1216,6 @@ extern struct NODE
         d;
     }
     u;
-#ifdef SCALARFIELD
-    MyFloat s_dm[3];
-    MyFloat mass_dm;
-#endif
     int Ti_current;
 }
 *Nodes_base,			/*!< points to the actual memory allocted for the nodes */
@@ -1307,10 +1228,6 @@ extern struct extNODE
     MyDouble dp[3];
 #ifdef GRAVITY_CENTROID
     int suns[8];
-#endif
-#ifdef SCALARFIELD
-    MyDouble dp_dm[3];
-    MyFloat vs_dm[3];
 #endif
     MyFloat vs[3];
     MyFloat vmax;
