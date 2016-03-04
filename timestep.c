@@ -363,34 +363,6 @@ void advance_and_find_timesteps(void)
     }
 #endif
 
-#ifdef CR_DIFFUSION
-    if(All.CR_Diffusion_Ti_endstep == All.Ti_Current)
-    {
-        if(All.CR_Diffusion_Ti_endstep < All.Ti_Current)
-            endrun(1231);
-
-        ti_step = TIMEBASE;
-        while(ti_step > (All.CR_DiffusionMaxSizeTimestep / All.Timebase_interval))
-            ti_step >>= 1;
-        while(ti_step > (All.MaxSizeTimestep / All.Timebase_interval))
-            ti_step >>= 1;
-
-        if(ti_step > (All.CR_Diffusion_Ti_endstep - All.CR_Diffusion_Ti_begstep))	/* PM-timestep wants to increase */
-        {
-            /* we only increase if an integer number of steps will bring us to the end */
-            if(((TIMEBASE - All.CR_Diffusion_Ti_endstep) % ti_step) > 0)
-                ti_step = All.CR_Diffusion_Ti_endstep - All.CR_Diffusion_Ti_begstep;	/* leave at old step */
-        }
-
-        if(All.Ti_Current == TIMEBASE)	/* we here finish the last timestep. */
-            ti_step = 0;
-
-        All.CR_Diffusion_Ti_begstep = All.CR_Diffusion_Ti_endstep;
-        All.CR_Diffusion_Ti_endstep = All.CR_Diffusion_Ti_begstep + ti_step;
-    }
-#endif
-
-
 #ifdef PETAPM
     if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
     {
@@ -1135,11 +1107,6 @@ int get_timestep(int p,		/*!< particle index */
     if(P[p].Type == 0)
         if(dt >= All.MaxSizeConductionStep)
             dt = All.MaxSizeConductionStep;
-#endif
-#ifdef CR_DIFFUSION
-    if(P[p].Type == 0)
-        if(dt >= All.CR_DiffusionMaxSizeTimestep)
-            dt = All.CR_DiffusionMaxSizeTimestep;
 #endif
 
     ti_step = (int) (dt / All.Timebase_interval);

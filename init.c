@@ -430,9 +430,6 @@ void init(void)
 #ifdef CONDUCTION
     All.Conduction_Ti_endstep = All.Conduction_Ti_begstep = 0;
 #endif
-#ifdef CR_DIFFUSION
-    All.CR_Diffusion_Ti_endstep = All.CR_Diffusion_Ti_begstep = 0;
-#endif
 
     for(i = 0; i < N_sph; i++)	/* initialize sph_properties */
     {

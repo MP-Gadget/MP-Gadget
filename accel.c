@@ -122,11 +122,6 @@ void compute_accelerations(int mode)
             conduction();
 #endif
 
-#ifdef CR_DIFFUSION
-        if(All.CR_Diffusion_Ti_endstep == All.Ti_Current)
-            cosmic_ray_diffusion();
-#endif
-
 #ifdef RADTRANSFER
         if(Flag_FullStep)		/* only do it for full timesteps */
         {

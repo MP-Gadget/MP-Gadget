@@ -533,42 +533,6 @@ void set_units(void)
 #endif /* CONDUCTION_CONSTANT */
 #endif /* CONDUCTION */
 
-#if defined(CR_DIFFUSION)
-    if(All.CR_DiffusionDensZero == 0.0)
-    {
-        /* Set reference density for CR Diffusion to rhocrit at z=0 */
-        All.CR_DiffusionDensZero = 3.0 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
-    }
-
-    if(All.CR_DiffusionEntropyZero == 0.0)
-    {
-        All.CR_DiffusionEntropyZero = 1.0e4;
-    }
-
-    /* Set reference entropic function to correspond to 
-       Reference Temperature @ ReferenceDensity */
-    if(ThisTask == 0)
-    {
-        printf("CR Diffusion: T0 = %g\n", All.CR_DiffusionEntropyZero);
-    }
-
-    /* convert Temperature value in Kelvin to thermal energy per unit mass
-       in internal units, and then to entropy */
-    All.CR_DiffusionEntropyZero *=
-        BOLTZMANN / (4.0 * PROTONMASS / (3.0 * HYDROGEN_MASSFRAC + 1.0)) *
-        All.UnitMass_in_g / All.UnitEnergy_in_cgs / pow(All.CR_DiffusionDensZero, GAMMA_MINUS1);
-
-    /* Change the density scaling, so that the temp scaling is mapped
-       onto an entropy scaling that is numerically less expensive */
-    All.CR_DiffusionDensScaling += GAMMA_MINUS1 * All.CR_DiffusionEntropyScaling;
-
-    if(ThisTask == 0)
-    {
-        printf("CR Diffusion: Rho0 = %g -- A0 = %g\n", All.CR_DiffusionDensZero, All.CR_DiffusionEntropyZero);
-    }
-
-#endif /* CR_DIFFUSION */
-
 
 #ifdef STATICNFW
     R200 = pow(NFW_M200 * All.G / (100 * All.Hubble * All.Hubble), 1.0 / 3);
@@ -2623,10 +2587,6 @@ void readjust_timebase(double TimeMax_old, double TimeMax_new)
 #ifdef CONDUCTION
         All.Conduction_Ti_begstep /= 2;
         All.Conduction_Ti_endstep /= 2;
-#endif
-#ifdef CR_DIFFUSION
-        All.CR_Diffusion_Ti_begstep /= 2;
-        All.CR_Diffusion_Ti_endstep /= 2;
 #endif
 
         for(i = 0; i < NumPart; i++)

@@ -132,10 +132,6 @@ struct hydrodata_out
 #ifdef VECT_POTENTIAL
     MyFloat O->dta[3];
 #endif
-#if  defined(CR_SHOCK)
-    MyFloat CR_EnergyChange[NUMCRPOP];
-    MyFloat CR_BaryonFractionChange[NUMCRPOP];
-#endif
 
 #ifdef HYDRO_COST_FACTOR
     int Ninteractions;
@@ -185,21 +181,6 @@ void hydro_force(void)
 
 #ifdef NAVIERSTOKES
     double fac;
-#endif
-
-#if (!defined(COOLING) && !defined(CR_SHOCK) && (defined(CR_DISSIPATION) || defined(CR_THERMALIZATION)))
-    double utherm;
-    double dt;
-    int CRpop;
-#endif
-
-#if defined(CR_SHOCK)
-    double rShockEnergy;
-    double rNonRethermalizedEnergy;
-
-#ifndef COOLING
-    double utherm, CRpop;
-#endif
 #endif
 
 #if defined(MAGNETIC) && defined(MAGFORCE)
