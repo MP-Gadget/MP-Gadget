@@ -132,14 +132,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DNOPMSTEPADJUSTMENT
 #OPT	+=  -DFORCE_EQUAL_TIMESTEPS
 
-#--------------------------------------- Options for simplified halo formation process in an Einstei-De Sitter (Newtonian) Universe
-#OPT	+= -DPHYS_COMOVING_SOFT          #set softening for Tree as fixed fraction in comoving coordinates
-#OPT	+= -DREINIT_AT_TURNAROUND=0.667  #reinit phase-space distortion tensor when particles crosses the turnaround radius. 
-                                         #the epsilon value of the density perturbation needs to be specified to calculate
-					 #correct initial sheet orientation and initial stream density
-#OPT    += -DREINIT_AT_TURNAROUND_CMS    #calculate centre of mass within REINIT_AT_TURNAROUND_CMS fraction of turnaround radius
-#OPT	+= -DANALYTIC_TURNAROUND         #use analytic turnaround radius instead of the numerical one
-
 #--------------------------------------- SPH viscosity options
 #OPT	+=  -DCONVENTIONAL_VISCOSITY     # enables the old viscosity
 #OPT	+=  -DTIME_DEP_ART_VISC          # Enables time dependend viscosity

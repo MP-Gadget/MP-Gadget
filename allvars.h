@@ -720,13 +720,6 @@ extern struct global_data_all_processes
     double ReferenceGasMass;
 #endif
 
-#if defined(SIM_ADAPTIVE_SOFT) || defined(REINIT_AT_TURNAROUND)
-    double CurrentTurnaroundRadius;
-    double InitialTurnaroundRadius;
-    double SIM_epsilon;
-    double cms_x, cms_y, cms_z;
-#endif
-
 #ifdef ADAPTIVE_FORCE_ACC
     double ErrTolForceAccParam;
 #endif
