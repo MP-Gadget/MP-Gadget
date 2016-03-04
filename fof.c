@@ -62,10 +62,6 @@ static struct fof_group_list
     MyIDType MinIDTask;
     int LocCount;
     int ExtCount;
-#ifdef DENSITY_SPLIT_BY_TYPE
-    int LocDMCount;
-    int ExtDMCount;
-#endif
     int GrNr;
 }
 *FOF_GList;
@@ -109,30 +105,17 @@ void fof_fof(int num)
 
     domain_Decomposition();
 
-    for(i = 0, ndm = 0, mass = 0; i < NumPart; i++)
-#ifdef DENSITY_SPLIT_BY_TYPE
-    {
+    for(i = 0, ndm = 0, mass = 0; i < NumPart; i++) {
         if(((1 << P[i].Type) & (FOF_PRIMARY_LINK_TYPES)))
+        {
             ndm++;
-        if(((1 << P[i].Type) & (DENSITY_SPLIT_BY_TYPE)))
             mass += P[i].Mass;
+        }
     }
-#else
-    if(((1 << P[i].Type) & (FOF_PRIMARY_LINK_TYPES)))
-    {
-        ndm++;
-        mass += P[i].Mass;
-    }
-#endif
-
     sumup_large_ints(1, &ndm, &ndmtot);
     MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-#ifdef DENSITY_SPLIT_BY_TYPE
-    rhodm = All.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
-#else
     rhodm = (All.Omega0 - All.OmegaBaryon) * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
-#endif
 
     LinkL = LINKLENGTH * pow(masstot / ndmtot / rhodm, 1.0 / 3);
 
@@ -752,25 +735,11 @@ void fof_compile_catalogue(void)
         {
             FOF_GList[i].LocCount = 1;
             FOF_GList[i].ExtCount = 0;
-#ifdef DENSITY_SPLIT_BY_TYPE
-            if(((1 << P[FOF_PList[i].Pindex].Type) & (FOF_PRIMARY_LINK_TYPES)))
-                FOF_GList[i].LocDMCount = 1;
-            else
-                FOF_GList[i].LocDMCount = 0;
-            FOF_GList[i].ExtDMCount = 0;
-#endif
         }
         else
         {
             FOF_GList[i].LocCount = 0;
             FOF_GList[i].ExtCount = 1;
-#ifdef DENSITY_SPLIT_BY_TYPE
-            FOF_GList[i].LocDMCount = 0;
-            if(((1 << P[FOF_PList[i].Pindex].Type) & (FOF_PRIMARY_LINK_TYPES)))
-                FOF_GList[i].ExtDMCount = 1;
-            else
-                FOF_GList[i].ExtDMCount = 0;
-#endif
         }
     }
 
@@ -787,10 +756,6 @@ void fof_compile_catalogue(void)
         {
             FOF_GList[start].LocCount += FOF_GList[i].LocCount;
             FOF_GList[start].ExtCount += FOF_GList[i].ExtCount;
-#ifdef DENSITY_SPLIT_BY_TYPE
-            FOF_GList[start].LocDMCount += FOF_GList[i].LocDMCount;
-            FOF_GList[start].ExtDMCount += FOF_GList[i].ExtDMCount;
-#endif
         }
         else
         {
@@ -872,9 +837,6 @@ void fof_compile_catalogue(void)
             endrun(124);
 
         FOF_GList[start].ExtCount += get_FOF_GList[i].ExtCount;
-#ifdef DENSITY_SPLIT_BY_TYPE
-        FOF_GList[start].ExtDMCount += get_FOF_GList[i].ExtDMCount;
-#endif
     }
 
     /* copy the size information back into the list, to inform the others */
@@ -889,10 +851,6 @@ void fof_compile_catalogue(void)
 
         get_FOF_GList[i].ExtCount = FOF_GList[start].ExtCount;
         get_FOF_GList[i].LocCount = FOF_GList[start].LocCount;
-#ifdef DENSITY_SPLIT_BY_TYPE
-        get_FOF_GList[i].ExtDMCount = FOF_GList[start].ExtDMCount;
-        get_FOF_GList[i].LocDMCount = FOF_GList[start].LocDMCount;
-#endif
     }
 
     /* sort the imported/exported list according to MinIDTask */
@@ -927,24 +885,20 @@ void fof_compile_catalogue(void)
     /* eliminate all groups that are too small, and count local groups */
     for(i = 0, Ngroups = 0, Nids = 0; i < NgroupsExt; i++)
     {
-#ifdef DENSITY_SPLIT_BY_TYPE
-        if(FOF_GList[i].LocDMCount + FOF_GList[i].ExtDMCount < FOF_GROUP_MIN_LEN)
-#else
-            if(FOF_GList[i].LocCount + FOF_GList[i].ExtCount < FOF_GROUP_MIN_LEN)
-#endif
+        if(FOF_GList[i].LocCount + FOF_GList[i].ExtCount < FOF_GROUP_MIN_LEN)
+        {
+            FOF_GList[i] = FOF_GList[NgroupsExt - 1];
+            NgroupsExt--;
+            i--;
+        }
+        else
+        {
+            if(FOF_GList[i].MinIDTask == ThisTask)
             {
-                FOF_GList[i] = FOF_GList[NgroupsExt - 1];
-                NgroupsExt--;
-                i--;
+                Ngroups++;
+                Nids += FOF_GList[i].LocCount + FOF_GList[i].ExtCount;
             }
-            else
-            {
-                if(FOF_GList[i].MinIDTask == ThisTask)
-                {
-                    Ngroups++;
-                    Nids += FOF_GList[i].LocCount + FOF_GList[i].ExtCount;
-                }
-            }
+        }
     }
 
     /* sort the group list according to MinID */
@@ -1198,10 +1152,6 @@ void fof_save_groups(int num)
     {
         FOF_GList[i].LocCount += FOF_GList[i].ExtCount;	/* total length */
         FOF_GList[i].ExtCount = ThisTask;	/* original task */
-#ifdef DENSITY_SPLIT_BY_TYPE
-        FOF_GList[i].LocDMCount += FOF_GList[i].ExtDMCount;	/* total length */
-        FOF_GList[i].ExtDMCount = ThisTask;	/* not longer needed/used (hopefully) */
-#endif
     }
 
     mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list),
