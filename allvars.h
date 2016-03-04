@@ -318,17 +318,6 @@ extern int ThisTask;		/*!< the number of the local processor  */
 extern int NTask;		/*!< number of processors */
 extern int PTask;		/*!< note: NTask = 2^PTask */
 
-#ifdef INVARIANCETEST
-extern int World_ThisTask;
-extern int World_NTask;
-extern int Color;
-extern MPI_Comm MPI_CommLocal;
-#ifndef DO_NOT_REDEFINE_MPI_COMM_WORLD
-#undef  MPI_COMM_WORLD
-#define MPI_COMM_WORLD MPI_CommLocal
-#endif
-#endif
-
 extern int NumForceUpdate;	/*!< number of active particles on local processor in current timestep  */
 extern int64_t GlobNumForceUpdate;
 
@@ -425,10 +414,6 @@ extern FILE *FdInfo,		/*!< file handle for info.txt log-file. */
        *FdTimings,			/*!< file handle for timings.txt log-file. */
        *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
-#ifdef SCFPOTENTIAL
-extern FILE *FdSCF;
-#endif
-
 #ifdef SFR
 extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
 extern FILE *FdSfrDetails;
@@ -437,19 +422,6 @@ extern FILE *FdSfrDetails;
 #ifdef BLACK_HOLES
 extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
 extern FILE *FdBlackHolesDetails;
-#endif
-
-
-#ifdef FORCETEST
-extern FILE *FdForceTest;	/*!< file handle for forcetest.txt log-file. */
-#endif
-
-#ifdef XXLINFO
-extern FILE *FdXXL;		/*!< file handle for xxl.txt log-file. */
-
-#ifdef TIME_DEP_ART_VISC
-extern double MeanAlpha;
-#endif
 #endif
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
@@ -800,20 +772,6 @@ extern struct global_data_all_processes
     double SinkDensThresh;
 #endif
 
-#ifdef RELAXOBJECT
-    double RelaxBaseFac;
-    double RelaxFac;
-#endif
-
-
-#ifdef DENSITY_BASED_SNAPS
-    double nh_next;
-#endif
-
-#ifdef END_TIME_DYN_BASED
-    double EndTimeDens;
-#endif
-
 }
 All;
 #ifdef _OPENMP
@@ -922,11 +880,6 @@ extern struct particle_data
 
 #ifdef WAKEUP
     int dt_step;
-#endif
-
-#ifdef SCF_HYBRID
-    MyDouble GravAccelSum[3];
-    MyFloat MassBackup;
 #endif
 
 }

@@ -170,10 +170,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         strcpy(All.EosSpecies, all.EosSpecies);
 #endif
 
-#ifdef RELAXOBJECT
-        All.RelaxBaseFac = all.RelaxBaseFac;
-#endif
-
         if(All.TimeMax != all.TimeMax)
             readjust_timebase(All.TimeMax, all.TimeMax);
 
@@ -352,15 +348,6 @@ void open_outputfiles(void)
         endrun(1);
     }
 
-#ifdef SCFPOTENTIAL
-    sprintf(buf, "%s%s%s", All.OutputDir, "scf_coeff.txt", postfix);
-    if(!(FdSCF = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
 #ifdef SFR
     sprintf(buf, "%s%s%s", All.OutputDir, "sfr.txt", postfix);
     if(!(FdSfr = fopen(buf, mode)))
@@ -381,40 +368,6 @@ void open_outputfiles(void)
 
 
 
-#ifdef FORCETEST
-    if(RestartFlag == 0)
-    {
-        sprintf(buf, "%s%s%s", All.OutputDir, "forcetest.txt", postfix);
-        if(!(FdForceTest = fopen(buf, "w")))
-        {
-            printf("error in opening file '%s'\n", buf);
-            endrun(1);
-        }
-        fclose(FdForceTest);
-    }
-#endif
-
-#ifdef XXLINFO
-    sprintf(buf, "%s%s%s", All.OutputDir, "xxl.txt", postfix);
-    if(!(FdXXL = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-    else
-    {
-        if(RestartFlag == 0)
-        {
-            fprintf(FdXXL, "nstep time ");
-#ifdef TIME_DEP_ART_VISC
-            fprintf(FdXXL, "<alpha> ");
-#endif
-            fprintf(FdXXL, "\n");
-            fflush(FdXXL);
-        }
-    }
-#endif
-
 }
 
 
@@ -428,10 +381,6 @@ void close_outputfiles(void)
     fclose(FdBlackHolesDetails);	/* needs to be done by everyone */
 #endif
 
-#ifdef CAUSTIC_FINDER
-    fclose(FdCaustics);		/* needs to be done by everyone */
-#endif
-
     if(ThisTask != 0)		/* only the root processors writes to the log files */
         return;
 
@@ -440,20 +389,12 @@ void close_outputfiles(void)
     fclose(FdEnergy);
     fclose(FdTimings);
 
-#ifdef SCFPOTENTIAL
-    fclose(FdSCF);
-#endif
-
 #ifdef SFR
     fclose(FdSfr);
 #endif
 
 #ifdef BLACK_HOLES
     fclose(FdBlackHoles);
-#endif
-
-#ifdef XXLINFO
-    fclose(FdXXL);
 #endif
 
 }
@@ -1051,12 +992,6 @@ void read_parameter_file(char *fname)
         id[nt++] = STRING;
 #endif
 
-#ifdef RELAXOBJECT
-        strcpy(tag[nt], "RelaxBaseFac");
-        addr[nt] = &All.RelaxBaseFac;
-        id[nt++] = REAL;
-#endif
-
 #ifdef SINKS
         strcpy(tag[nt], "SinkHsml");
         addr[nt] = &All.SinkHsml;
@@ -1064,13 +999,6 @@ void read_parameter_file(char *fname)
 
         strcpy(tag[nt], "SinkDensThresh");
         addr[nt] = &All.SinkDensThresh;
-        id[nt++] = REAL;
-#endif
-
-
-#ifdef END_TIME_DYN_BASED
-        strcpy(tag[nt], "EndTimeDens"); 
-        addr[nt] = &All.EndTimeDens;
         id[nt++] = REAL;
 #endif
 
@@ -1149,13 +1077,7 @@ void read_parameter_file(char *fname)
                     }
                     else
                     {
-#ifdef ALLOWEXTRAPARAMS
                         fprintf(stdout, "WARNING from file %s:   Tag '%s' ignored !\n", fname, buf1);
-#else
-                        fprintf(stdout, "Error in file %s:   Tag '%s' not allowed or multiple defined.\n",
-                                fname, buf1);
-                        errorFlag = 1;
-#endif
                     }
                 }
                 fclose(fd);
@@ -1166,21 +1088,6 @@ void read_parameter_file(char *fname)
                 if(i > 0)
                     if(All.OutputDir[i - 1] != '/')
                         strcat(All.OutputDir, "/");
-
-#ifdef INVARIANCETEST
-                i = strlen(All.OutputDir);
-                All.OutputDir[i - 1] = 0;
-                strcat(All.OutputDir, "/run0");
-                i = strlen(All.OutputDir);
-                All.OutputDir[i - 1] += Color;
-                mkdir(All.OutputDir, 02755);
-                strcat(All.OutputDir, "/");
-
-                sprintf(buf1, "%s%s", All.OutputDir, "logfile.txt");
-                printf("stdout will now appear in the file '%s'\n", buf1);
-                fflush(stdout);
-                freopen(buf1, "w", stdout);
-#endif
 
             }
         }
@@ -1322,15 +1229,6 @@ void read_parameter_file(char *fname)
 
 #ifdef SFR
 
-#ifndef MOREPARAMS
-    if(ThisTask == 0)
-    {
-        printf("Code was compiled with SFR, but not with MOREPARAMS.\n");
-        printf("This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
     if(All.StarformationOn == 0)
     {
         if(ThisTask == 0)
@@ -1370,18 +1268,6 @@ void read_parameter_file(char *fname)
     }
     endrun(0);
 #endif
-#endif
-
-#ifndef MOREPARAMS
-#ifdef TIME_DEP_ART_VISC
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with TIME_DEP_ART_VISC, but not with MOREPARAMS.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
 #endif
 
 #undef REAL

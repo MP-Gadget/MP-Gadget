@@ -8,9 +8,6 @@
 #include <gsl/gsl_math.h>
 
 #include <fftw3-mpi.h>
-#ifdef INVARIANCETEST
-#define DO_NOT_REDEFINE_MPI_COMM_WORLD
-#endif
 
 #include "allvars.h"
 #include "proto.h"
@@ -36,27 +33,6 @@ int main(int argc, char **argv)
   fftw_init_threads();
   fftw_mpi_init();
   fftw_plan_with_nthreads(omp_get_max_threads());
-
-#ifdef INVARIANCETEST
-  World_ThisTask = ThisTask;
-  World_NTask = NTask;
-
-  if(World_NTask != (INVARIANCETEST_SIZE1 + INVARIANCETEST_SIZE2))
-    {
-      printf("wrong number of procs for invariance-test\n");
-      MPI_Finalize();		/* clean up & finalize MPI */
-      return 0;
-    }
-
-  if(World_ThisTask < INVARIANCETEST_SIZE1)
-    Color = 0;
-  else
-    Color = 1;
-
-  MPI_Comm_split(MPI_COMM_WORLD, Color, 0, &MPI_CommLocal);
-  MPI_Comm_rank(MPI_CommLocal, &ThisTask);
-  MPI_Comm_size(MPI_CommLocal, &NTask);
-#endif
 
   for(PTask = 0; NTask > (1 << PTask); PTask++);
 

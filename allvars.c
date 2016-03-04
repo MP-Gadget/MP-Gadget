@@ -33,13 +33,6 @@ int ThisTask;			/*!< the number of the local processor  */
 int NTask;			/*!< number of processors */
 int PTask;			/*!< note: NTask = 2^PTask */
 
-#ifdef INVARIANCETEST
-int World_ThisTask;
-int World_NTask;
-int Color;
-MPI_Comm MPI_CommLocal;
-#endif
-
 int NumForceUpdate;		/*!< number of active particles on local processor in current timestep  */
 int64_t GlobNumForceUpdate;
 int NumSphUpdate;		/*!< number of active SPH particles on local processor in current timestep  */
@@ -150,10 +143,6 @@ FILE *FdInfo,			/*!< file handle for info.txt log-file. */
  *FdTimings,			/*!< file handle for timings.txt log-file. */
  *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
-#ifdef SCFPOTENTIAL
-FILE *FdSCF;
-#endif
-
 #ifdef SFR
 FILE *FdSfr;			/*!< file handle for sfr.txt log-file. */
 FILE *FdSfrDetails;
@@ -162,11 +151,6 @@ FILE *FdSfrDetails;
 #ifdef BLACK_HOLES
 FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
 FILE *FdBlackHolesDetails;
-#endif
-
-
-#ifdef FORCETEST
-FILE *FdForceTest;		/*!< file handle for forcetest.txt log-file. */
 #endif
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the

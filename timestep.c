@@ -151,22 +151,6 @@ void advance_and_find_timesteps(void)
     MPI_Allreduce(&ti_min, &ti_min_glob, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 #endif
 
-#ifdef RELAXOBJECT
-    if(All.Time < 0.2 * All.TimeMax)
-    {
-        All.RelaxFac = 1. / All.RelaxBaseFac;
-    }
-    else if(All.Time > 0.8 * All.TimeMax)
-    {
-        All.RelaxFac = 0.;
-    }
-    else
-    {
-        All.RelaxFac =
-            1. / (All.RelaxBaseFac * pow(10., (All.Time - 0.2 * All.TimeMax) / (0.6 * All.TimeMax) * 3.));
-    }
-#endif
-
     badstepsizecount = 0;
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
@@ -538,9 +522,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
     for(j = 0; j < 3; j++)
     {
         dv[j] = P[i].GravAccel[j] * dt_gravkick;
-#ifdef RELAXOBJECT
-        dv[j] -= P[i].Vel[j] * All.RelaxFac * dt_gravkick;
-#endif
         P[i].Vel[j] += dv[j];
     }
 
