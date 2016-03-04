@@ -117,11 +117,6 @@ void compute_accelerations(int mode)
 
         hydro_force();		/* adds hydrodynamical accelerations  and computes du/dt  */
 
-#ifdef CONDUCTION
-        if(All.Conduction_Ti_endstep == All.Ti_Current)
-            conduction();
-#endif
-
 #ifdef RADTRANSFER
         if(Flag_FullStep)		/* only do it for full timesteps */
         {

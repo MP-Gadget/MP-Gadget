@@ -339,30 +339,6 @@ void advance_and_find_timesteps(void)
     }
 
 
-#ifdef CONDUCTION
-    if(All.Conduction_Ti_endstep == All.Ti_Current)
-    {
-        ti_step = TIMEBASE;
-        while(ti_step > (All.MaxSizeConductionStep / All.Timebase_interval))
-            ti_step >>= 1;
-        while(ti_step > (All.MaxSizeTimestep / All.Timebase_interval))
-            ti_step >>= 1;
-
-        if(ti_step > (All.Conduction_Ti_endstep - All.Conduction_Ti_begstep))	/* PM-timestep wants to increase */
-        {
-            /* we only increase if an integer number of steps will bring us to the end */
-            if(((TIMEBASE - All.Conduction_Ti_endstep) % ti_step) > 0)
-                ti_step = All.Conduction_Ti_endstep - All.Conduction_Ti_begstep;	/* leave at old step */
-        }
-
-        if(All.Ti_Current == TIMEBASE)	/* we here finish the last timestep. */
-            ti_step = 0;
-
-        All.Conduction_Ti_begstep = All.Conduction_Ti_endstep;
-        All.Conduction_Ti_endstep = All.Conduction_Ti_begstep + ti_step;
-    }
-#endif
-
 #ifdef PETAPM
     if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
     {
@@ -1094,12 +1070,6 @@ int get_timestep(int p,		/*!< particle index */
     if(dt >= dt_displacement)
         dt = dt_displacement;
 
-
-#ifdef CONDUCTION
-    if(P[p].Type == 0)
-        if(dt >= All.MaxSizeConductionStep)
-            dt = All.MaxSizeConductionStep;
-#endif
 
     ti_step = (int) (dt / All.Timebase_interval);
 

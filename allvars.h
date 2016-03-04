@@ -927,16 +927,6 @@ extern struct global_data_all_processes
     double AlphaMin;		/*!< Minimum of allowed viscosity parameter */
 #endif
 
-#ifdef CONDUCTION
-    double ConductionCoeff;	/*!< Thermal Conductivity */
-#ifdef CONDUCTION_SATURATION
-    double ElectronFreePathFactor;	/*!< Factor to get electron mean free path */
-#endif
-
-    int Conduction_Ti_begstep, Conduction_Ti_endstep;
-    double MaxSizeConductionStep;
-#endif
-
 #if defined(HEALPIX)
     //change this to read in the Parameterfile
     int Nside;
@@ -1447,9 +1437,6 @@ extern struct sph_particle_data
 #endif
 #ifdef NS_TIMESTEP
     MyFloat ViscEntropyChange;
-#endif
-#ifdef CONDUCTION_SATURATION
-    MyFloat GradEntr[3];
 #endif
 
 #ifdef MHM

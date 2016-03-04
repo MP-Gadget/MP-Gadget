@@ -364,12 +364,6 @@ void set_units(void)
 {
     double meanweight;
 
-#ifdef CONDUCTION
-#ifndef CONDUCTION_CONSTANT
-    double coulomb_log;
-#endif
-#endif
-
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
     All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
 
@@ -486,50 +480,6 @@ void set_units(void)
 #endif
 
 #endif
-
-#ifdef CONDUCTION
-#ifndef CONDUCTION_CONSTANT
-
-    meanweight = m_p * 4.0 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
-    /* assuming full ionization */
-
-    coulomb_log = 37.8;
-    /* accordin1g to Sarazin's book */
-
-    All.ConductionCoeff *=
-        (1.84e-5 / coulomb_log * pow(meanweight / k_B * GAMMA_MINUS1, 2.5) * erg / (s * deg * cm));
-    /* Kappa_Spitzer definition taken from Zakamska & Narayan 2003 
-     * ( ApJ 582:162-169, Eq. (5) )
-     */
-
-    /* Note: Because we replace \nabla(T) in the conduction equation with
-     * \nable(u), our conduction coefficient is not the usual kappa, but
-     * rather kappa*(gamma-1)*mu/kB. We therefore need to multiply with 
-     * another factor of (meanweight / k_B * GAMMA_MINUS1).
-     */
-    All.ConductionCoeff *= meanweight / k_B * GAMMA_MINUS1;
-
-    /* The conversion of ConductionCoeff between internal units and cgs
-     * units involves one factor of 'h'. We take care of this here.
-     */
-    All.ConductionCoeff /= All.HubbleParam;
-
-#ifdef CONDUCTION_SATURATION
-    All.ElectronFreePathFactor = 8 * pow(3.0, 1.5) * pow(GAMMA_MINUS1, 2) / pow(3 + 5 * HYDROGEN_MASSFRAC, 2)
-        / (1 + HYDROGEN_MASSFRAC) / sqrt(M_PI) / coulomb_log * pow(PROTONMASS, 3) / pow(ELECTRONCHARGE, 4)
-        / (All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam)
-        * pow(All.UnitPressure_in_cgs / All.UnitDensity_in_cgs, 2);
-
-    /* If the above value is multiplied with u^2/rho in code units (with rho being the physical density), then
-     * one gets the electrong mean free path in centimeter. Since we want to compare this with another length
-     * scale in code units, we now add an additional factor to convert back to code units.
-     */
-    All.ElectronFreePathFactor *= All.HubbleParam / All.UnitLength_in_cm;
-#endif
-
-#endif /* CONDUCTION_CONSTANT */
-#endif /* CONDUCTION */
-
 
 }
 
@@ -1315,17 +1265,6 @@ void read_parameter_file(char *fname)
 #ifdef CHEMISTRY
         strcpy(tag[nt], "Epsilon");
         addr[nt] = &All.Epsilon;
-        id[nt++] = REAL;
-#endif
-
-
-#ifdef CONDUCTION
-        strcpy(tag[nt], "ConductionEfficiency");
-        addr[nt] = &All.ConductionCoeff;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "MaxSizeConductionStep");
-        addr[nt] = &All.MaxSizeConductionStep;
         id[nt++] = REAL;
 #endif
 
@@ -2498,10 +2437,6 @@ void readjust_timebase(double TimeMax_old, double TimeMax_new)
 #ifdef PETAPM
         All.PM_Ti_begstep /= 2;
         All.PM_Ti_endstep /= 2;
-#endif
-#ifdef CONDUCTION
-        All.Conduction_Ti_begstep /= 2;
-        All.Conduction_Ti_endstep /= 2;
 #endif
 
         for(i = 0; i < NumPart; i++)

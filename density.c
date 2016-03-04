@@ -86,9 +86,6 @@ struct densdata_out
     MyDouble FeedbackWeightSum;
     MyDouble GasVel[3];
 #endif
-#ifdef CONDUCTION_SATURATION
-    MyFloat GradEntr[3];
-#endif
 
 #ifdef HYDRO_COST_FACTOR
     int Ninteractions;
@@ -432,12 +429,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
         EV_REDUCE(SPHP(place).DensityStd, remote->DensityStd);
 #endif
 
-#ifdef CONDUCTION_SATURATION
-        EV_REDUCE(SPHP(place).GradEntr[0], remote->GradEntr[0]);
-        EV_REDUCE(SPHP(place).GradEntr[1], remote->GradEntr[1]);
-        EV_REDUCE(SPHP(place).GradEntr[2], remote->GradEntr[2]);
-#endif
-
 #ifdef SPH_GRAD_RHO
         EV_REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
         EV_REDUCE(SPHP(place).GradRho[1], remote->GradRho[1]);
@@ -657,15 +648,6 @@ static int density_evaluate(int target, int mode,
                     O->GasVel[0] += (mass_j * wk * SPHP(j).VelPred[0]);
                     O->GasVel[1] += (mass_j * wk * SPHP(j).VelPred[1]);
                     O->GasVel[2] += (mass_j * wk * SPHP(j).VelPred[2]);
-#endif
-
-#ifdef CONDUCTION_SATURATION
-                    if(r > 0)
-                    {
-                        O->GradEntr[0] += mass_j * dwk * dx / r * SPHP(j).Entropy;
-                        O->GradEntr[1] += mass_j * dwk * dy / r * SPHP(j).Entropy;
-                        O->GradEntr[2] += mass_j * dwk * dz / r * SPHP(j).Entropy;
-                    }
 #endif
 
 #ifdef SPH_GRAD_RHO
@@ -932,13 +914,6 @@ static void density_post_process(int i) {
             double roty = O->DV[2][0] - O->DV[0][2];
             double rotz = O->DV[0][1] - O->DV[1][0];
             SPHP(i).u.s.CurlVel = sqrt(rotx * rotx + roty * roty + rotz * rotz);
-#endif
-
-
-#ifdef CONDUCTION_SATURATION
-            SPHP(i).GradEntr[0] /= SPHP(i).Density;
-            SPHP(i).GradEntr[1] /= SPHP(i).Density;
-            SPHP(i).GradEntr[2] /= SPHP(i).Density;
 #endif
 
 

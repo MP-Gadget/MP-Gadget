@@ -427,10 +427,6 @@ void init(void)
     All.PM_Ti_endstep = All.PM_Ti_begstep = 0;
 #endif
 
-#ifdef CONDUCTION
-    All.Conduction_Ti_endstep = All.Conduction_Ti_begstep = 0;
-#endif
-
     for(i = 0; i < N_sph; i++)	/* initialize sph_properties */
     {
         for(j = 0; j < 3; j++)
