@@ -437,11 +437,6 @@ void readjust_timebase(double TimeMax_old, double TimeMax_new);
 double enclosed_mass(double R);
 void pm_setup_nonperiodic_kernel(void);
 
-#if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
-double dmax(double, double);
-double dmin(double, double);
-#endif
-
 #ifdef LT_STELLAREVOLUTION
 void               fsolver_error_handler     (const char *, const char *, int, int);
 int                get_Yset                  (int);
@@ -505,41 +500,6 @@ int    INLINE_FUNC getindex                  (double*, int, int, double*, int*);
 int    INLINE_FUNC perturb                   (double*, double*);
 
 #endif
-
-#if defined (UM_METAL_COOLING)/* not necessarily UM_CHEMISTRY */
-
-#ifdef UM_e_MET_IMPACTS
-double um_metal_line_cooling(double, double, int, double);
-#else
-double um_metal_line_cooling(double, double, int);
-#endif
-
-#endif
-
-#if defined(CHEMISTRY)
-int compute_abundances(int mode, int ithis, double a_start, double a_end);
-#endif
-
-#if defined(UM_CHEMISTRY)
-int compute_abundances(int mode, int ithis, double a_start, double a_end, double *um_energy);
-#endif
-
-#if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
-int InitChem(void);
-int init_rad(double);
-#endif
-
-#ifdef UM_CHEMISTRY
-double Um_Compute_MeanMolecularWeight(int);
-double Um_DoCooling(double, double, double, double*, double, int, int);
-double Um_GetCoolingTime(double, double, double*, double, int);
-double Um_AbundanceRatios(double, double, double*, double*, double*, double, double, int);
-#endif
-
-#ifdef UM_CHECK
-void Um_cooling_check(void);
-#endif
-
 
 #ifdef RADTRANSFER
 /* Eddington tensor computation */
@@ -625,46 +585,10 @@ void healpix_halo_cond(float *res);
 
 #endif
 
-#ifdef CHEMCOOL
-void coolinmo_(void);
-void cheminmo_(void);
-void init_tolerances_(void);
-void load_h2_table_(void);
-void init_temperature_lookup_(void);
-double do_chemcool(int part_index, double dt);
-double evolve_abundances_(double* dt, double* dl, double* yn, double* divv, double* energy, double* abundances, double* column_est);
-void rate_eq_(int* nsp, double* t_start, double* y, double* ydot, double* rpar, int* ipar);
-#endif
-
 #ifdef JD_DPP
 void compute_Dpp();
 #endif
 
-
-#ifdef SCFPOTENTIAL
-void SCF_do_center_of_mass_correction(double fac_rad, double start_rad, double fac_part, int max_iter);
-void SCF_write(int task);
-void SCF_calc_from_random(long *seed);
-void SCF_calc_from_particles(void);
-void SCF_init(void);
-void SCF_reset(void);
-void SCF_free(void);
-void SCF_evaluate(MyDouble x, MyDouble y, MyDouble z, MyDouble *potential, MyDouble *ax, MyDouble *ay, MyDouble *az);
-void SCF_collect_update(void);
-
-void sphere_acc(double x, double y, double z, double *xa, double *ya, double *za);
-void to_unit(double x, double y, double z, double *xs, double *ys, double *zs);
-double ran1(long *idum);
-double gasdev(long *idum);
-double factrl(int n);
-int nlm_all(int num, int n, int l, int m);
-int nlm(int n, int l, int m);
-int nl(int n, int l);
-int lm(int l, int m);
-int kdelta(int a, int b);
-double gnlm_var(int n, int l, int m);
-double hnlm_var(int n, int l, int m);
-#endif
 #ifdef LIGHTCONE
 void lightcone_init();
 void lightcone_cross(int p, double oldpos[3]);

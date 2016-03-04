@@ -216,9 +216,6 @@ void compute_accelerations(int mode)
 
 #endif /*ends COOLING */
 
-#ifdef CHEMCOOL
-        do_chemcool(-1, 0);
-#endif
     }
     if(ThisTask == 0)
     {

@@ -575,10 +575,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
     MyFloat dv[3];
     double minentropy;
     double dt_entr, dt_gravkick, dt_hydrokick, dt_gravkick2, dt_hydrokick2, dt_entr2;
-#ifdef CHEMISTRY
-    int ifunc, mode;
-    double a_start, a_end;
-#endif
 
 #ifdef MAX_GAS_VEL
     double vv,velfac;
@@ -675,15 +671,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
         network_normalize(SPHP(i).xnuc, &SPHP(i).Entropy);
 #endif
 
-#ifdef CHEMISTRY
-        /* update the chemical abundances for the new density and temperature */
-        a_start = All.TimeBegin * exp(tstart * All.Timebase_interval);
-        a_end = All.TimeBegin * exp(tend * All.Timebase_interval);
-
-        /* time in cosmic expansion parameter */
-        ifunc = compute_abundances(mode = 1, i, a_start, a_end);
-#endif
-
         if(All.MinEgySpec)
         {
 #ifndef TRADITIONAL_SPH_FORMULATION
@@ -731,14 +718,6 @@ int get_timestep(int p,		/*!< particle index */
     double dt = 0, dt_courant = 0;
     int ti_step;
     double dt_viscous = 0;
-#ifdef CHEMCOOL
-    double hubble_param;
-
-    if(All.ComovingIntegrationOn)
-        hubble_param = All.HubbleParam;
-    else
-        hubble_param = 1.0;
-#endif
 
 #ifdef BLACK_HOLES
     double dt_accr;
@@ -895,12 +874,6 @@ int get_timestep(int p,		/*!< particle index */
         }
 #endif
 
-#ifdef CHEMCOOL
-        dt_courant = do_chemcool(p, dt_courant * All.UnitTime_in_s / hubble_param);
-
-        if(dt_courant < dt)
-            dt = dt_courant;
-#endif
     }
 
 #ifdef BLACK_HOLES

@@ -568,14 +568,6 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
         /* Compute cooling and heating rate (cf KWH Table 1) in units of nH**2 */
         T = pow(10.0, logT);
 
-#if defined (UM_CHEMISTRY) && defined (UM_METAL_COOLING) && defined (UM_MET_IN_LT_COOLING)
-#ifdef UM_e_MET_IMPACTS
-        LambdaMetalLines = um_metal_line_cooling(T, rho, LT_NMet, ne * nHcgs) / (nHcgs * nHcgs);
-#else
-        LambdaMetalLines = um_metal_line_cooling(T, rho, LT_NMet) / (nHcgs * nHcgs);
-#endif
-#endif
-
         LambdaExcH0 = r.bH0 * y.ne * y.nH0;
         LambdaExcHep = r.bHep * y.ne * y.nHep;
         LambdaExc = LambdaExcH0 + LambdaExcHep;	/* excitation */
@@ -594,10 +586,6 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
         LambdaFF = r.bff * (y.nHp + y.nHep + 4 * y.nHepp) * y.ne;
 
         Lambda = LambdaExc + LambdaIon + LambdaRec + LambdaFF;
-
-#if defined (UM_CHEMISTRY) && defined (UM_METAL_COOLING) && defined (UM_MET_IN_LT_COOLING)
-        Lambda += LambdaMetalLines;
-#endif
 
         if(All.ComovingIntegrationOn)
         {

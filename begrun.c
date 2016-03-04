@@ -77,11 +77,6 @@ void begrun(void)
     InitCool();
 #endif
 
-#if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
-    printf("Initialize chemistry..\n");
-    InitChem();
-#endif
-
 #if defined(SFR)
     init_clouds();
 #endif
@@ -90,61 +85,6 @@ void begrun(void)
     lightcone_init();
 #endif
 
-#ifdef CHEMCOOL
-#ifndef CHEMISTRYNETWORK
-    terminate("CHEMISTRYNETWORK not specified!\n");
-#endif
-    All.ChemistryNetwork = CHEMISTRYNETWORK;
-
-    if(ThisTask == 0)
-    {
-        printf("initializing chemistry...\n");
-        fflush(stdout);
-    }
-
-    COOLR.tdust = All.InitDustTemp;
-    COOLR.deff = All.H2RefDustEff;
-    COOLR.abundo = All.OxyAbund;
-    COOLR.abundc = All.CarbAbund;
-    COOLR.abundsi = All.SiAbund;
-    COOLR.abundD = All.DeutAbund;
-    COOLR.abundmg = All.MgAbund;
-    COOLR.G0 = All.UVField;
-    COOLR.phi_pah = All.PhiPAH;
-    COOLR.dust_to_gas_ratio = All.DustToGasRatio;
-    COOLR.AV_conversion_factor = All.AVConversionFactor;
-    COOLR.cosmic_ray_ion_rate = All.CosmicRayIonRate;
-    COOLR.redshift = All.InitRedshift;
-    COOLR.AV_ext = All.ExternalDustExtinction;
-    COOLR.pdv_term = 0.0;
-    COOLR.h2_form_ex = All.H2FormEx;
-    COOLR.h2_form_kin = All.H2FormKin;
-    COOLR.dm_density = 0.0;
-    COOLI.iphoto = All.PhotochemApprox;
-    COOLI.iflag_mn = All.MNRateFlag;
-    COOLI.iflag_ad = All.ADRateFlag;
-    COOLI.iflag_atom = All.AtomicFlag;
-    COOLI.iflag_3bh2a = All.ThreeBodyFlagA;
-    COOLI.iflag_3bh2b = All.ThreeBodyFlagB;
-    COOLI.iflag_h3pra = All.H3PlusRateFlag;
-    COOLI.idma_mass_option = 0;
-    COOLI.no_chem = 0;
-    COOLI.irad_heat = All.RadHeatFlag;
-
-    COOLINMO();
-    CHEMINMO();
-    INIT_TOLERANCES();
-    LOAD_H2_TABLE();
-    INIT_TEMPERATURE_LOOKUP();
-
-    if(ThisTask == 0)
-    {
-        printf("initialization of chemistry finished.\n");
-        fflush(stdout);
-    }
-#endif
-
-    
 #ifdef PERIODIC
 #ifndef PETAPM
     ewald_init();
@@ -1219,12 +1159,6 @@ void read_parameter_file(char *fname)
         id[nt++] = REAL;
 #endif
 
-#ifdef CHEMISTRY
-        strcpy(tag[nt], "Epsilon");
-        addr[nt] = &All.Epsilon;
-        id[nt++] = REAL;
-#endif
-
 #ifdef BLACK_HOLES
         strcpy(tag[nt], "TimeBetBlackHoleSearch");
         addr[nt] = &All.TimeBetBlackHoleSearch;
@@ -1273,61 +1207,6 @@ void read_parameter_file(char *fname)
         id[nt++] = MULTICHOICE;
 
 #endif
-
-#if defined (UM_CHEMISTRY) && defined (UM_CHEMISTRY_INISET)
-        /* read the composition from the parameter file */
-        strcpy(tag[nt], "START_elec");
-        addr[nt] = &All.Startelec;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_HI");
-        addr[nt] = &All.StartHI;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_HII");
-        addr[nt] = &All.StartHII;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_HM");
-        addr[nt] = &All.StartHM;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_HeI");
-        addr[nt] = &All.StartHeI;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_HeII");
-        addr[nt] = &All.StartHeII;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_HeIII");
-        addr[nt] = &All.StartHeIII;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_H2I");
-        addr[nt] = &All.StartH2I;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_H2II");
-        addr[nt] = &All.StartH2II;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_HD");
-        addr[nt] = &All.StartHD;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_DI");
-        addr[nt] = &All.StartDI;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_DII");
-        addr[nt] = &All.StartDII;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "START_HeHII");
-        addr[nt] = &All.StartHeHII;
-        id[nt++] = REAL;
-#endif      
 
 #ifdef SFR
         strcpy(tag[nt], "StarformationCriterion");
@@ -1505,190 +1384,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "MaxCREnergy");
         addr[nt] = &All.ecr_max;
         id[nt++] = REAL;
-#endif
-
-#if defined (CHEMISTRY) || defined (UM_CHEMISTRY)
-        strcpy(tag[nt], "Epsilon");
-        addr[nt] = &All.Epsilon;
-        id[nt++] = REAL;
-#endif
-
-#ifdef CHEMCOOL
-        strcpy(tag[nt], "H2RefDustEff");
-        addr[nt] = &All.H2RefDustEff;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "OxyAbund");
-        addr[nt] = &All.OxyAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "CarbAbund");
-        addr[nt] = &All.CarbAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "SiAbund");
-        addr[nt] = &All.SiAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "DeutAbund");
-        addr[nt] = &All.DeutAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "MgAbund");
-        addr[nt] = &All.MgAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "UVField");
-        addr[nt] = &All.UVField;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "PhiPAH");
-        addr[nt] = &All.PhiPAH;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitDustTemp");
-        addr[nt] = &All.InitDustTemp;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "DustToGasRatio");
-        addr[nt] = &All.DustToGasRatio;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "AVConversionFactor");
-        addr[nt] = &All.AVConversionFactor;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "CosmicRayIonRate");
-        addr[nt] = &All.CosmicRayIonRate;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitRedshift");
-        addr[nt] = &All.InitRedshift;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "ExternalDustExtinction");
-        addr[nt] = &All.ExternalDustExtinction;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "H2FormEx");
-        addr[nt] = &All.H2FormEx;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "H2FormKin");
-        addr[nt] = &All.H2FormKin;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "PhotochemApprox");
-        addr[nt] = &All.PhotochemApprox;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "ADRateFlag");
-        addr[nt] = &All.ADRateFlag;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "MNRateFlag");
-        addr[nt] = &All.MNRateFlag;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "AtomicFlag");
-        addr[nt] = &All.AtomicFlag;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "ThreeBodyFlagA");
-        addr[nt] = &All.ThreeBodyFlagA;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "ThreeBodyFlagB");
-        addr[nt] = &All.ThreeBodyFlagB;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "H3PlusRateFlag");
-        addr[nt] = &All.H3PlusRateFlag;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "InitMolHydroAbund");
-        addr[nt] = &All.InitMolHydroAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitHPlusAbund");
-        addr[nt] = &All.InitHPlusAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitDIIAbund");
-        addr[nt] = &All.InitDIIAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitHDAbund");
-        addr[nt] = &All.InitHDAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitHeIIAbund");
-        addr[nt] = &All.InitHeIIAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitHeIIIAbund");
-        addr[nt] = &All.InitHeIIIAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitCIIAbund");
-        addr[nt] = &All.InitCIIAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitSiIIAbund");
-        addr[nt] = &All.InitSiIIAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitOIIAbund");
-        addr[nt] = &All.InitOIIAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitCOAbund");
-        addr[nt] = &All.InitCOAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitC2Abund");
-        addr[nt] = &All.InitC2Abund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitOHAbund");
-        addr[nt] = &All.InitOHAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitH2OAbund");
-        addr[nt] = &All.InitH2OAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitO2Abund");
-        addr[nt] = &All.InitO2Abund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitHCOPlusAbund");
-        addr[nt] = &All.InitHCOPlusAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitCHAbund");
-        addr[nt] = &All.InitCHAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitCH2Abund");
-        addr[nt] = &All.InitCH2Abund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitSiIIIAbund");
-        addr[nt] = &All.InitSiIIIAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitCH3PlusAbund");
-        addr[nt] = &All.InitCH3PlusAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "InitMgPlusAbund");
-        addr[nt] = &All.InitMgPlusAbund;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "RadHeatFlag");
-        addr[nt] = &All.RadHeatFlag;
-        id[nt++] = INT;
 #endif
 
 #ifdef SNAP_SET_TG

@@ -26,18 +26,6 @@ void init(void)
     int i, j;
     double a3, atime;
 
-#if defined (CHEMISTRY) || defined (UM_CHEMISTRY)
-    int ifunc;
-    double min_t_cool, max_t_cool;
-    double min_t_elec, max_t_elec;
-    double a_start, a_end;
-#endif  
-
-#ifdef EULERPOTENTIALS
-    double a0, a1, a2;
-    double b0, b1, b2;
-#endif
-
 #ifdef START_WITH_EXTRA_NGBDEV
     double MaxNumNgbDeviationMerk;
 #endif
@@ -76,10 +64,6 @@ void init(void)
     set_global_time(All.TimeBegin);
 #ifdef COOLING
     IonizeParams();
-#endif
-
-#if defined (CHEMISTRY) || defined (UM_CHEMISTRY)
-    InitChem();
 #endif
 
     if(All.ComovingIntegrationOn)
@@ -207,12 +191,6 @@ void init(void)
 
         SPHP(i).DtEntropy = 0;
 
-#if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
-        SPHP(i).Gamma = GAMMA;	/* set universal value */
-        SPHP(i).t_cool = 0;
-        SPHP(i).t_elec = 0;
-#endif
-
         if(RestartFlag == 0)
         {
 #ifndef READ_HSML
@@ -227,17 +205,7 @@ void init(void)
             SPHP(i).DensityOld = 1;
 #endif
 #ifdef COOLING
-#ifndef UM_CHEMISTRY          
             SPHP(i).Ne = 1.0;
-#endif
-#endif
-#ifdef CHEMCOOL
-            SPHP(i).TracAbund[IH2] = All.InitMolHydroAbund;
-            SPHP(i).TracAbund[IHP] = All.InitHPlusAbund;
-            SPHP(i).TracAbund[IDP] = All.InitDIIAbund;
-            SPHP(i).TracAbund[IHD] = All.InitHDAbund;
-            SPHP(i).TracAbund[IHEP] = All.InitHeIIAbund;
-            SPHP(i).TracAbund[IHEPP] = All.InitHeIIIAbund;
 #endif
             SPHP(i).DivVel = 0;
         }
@@ -247,26 +215,6 @@ void init(void)
 #ifdef SFR
         SPHP(i).Sfr = 0;
 #endif
-#if defined (UM_CHEMISTRY) && defined (UM_CHEMISTRY_INISET)
-        SPHP(i).elec = All.Startelec;
-
-        SPHP(i).HI = All.StartHI;
-        SPHP(i).HII = All.StartHII;
-        SPHP(i).HM = All.StartHM;
-
-        SPHP(i).HeI = All.StartHeI;
-        SPHP(i).HeII = All.StartHeII;
-        SPHP(i).HeIII = All.StartHeIII;
-
-        SPHP(i).H2I = All.StartH2I;
-        SPHP(i).H2II = All.StartH2II;
-
-        SPHP(i).HD = All.StartHD;
-        SPHP(i).DI = All.StartDI;
-        SPHP(i).DII = All.StartDII;
-
-        SPHP(i).HeHII = All.StartHeHII;
-#endif      
 
 #ifdef TIME_DEP_ART_VISC
 #ifdef HIGH_ART_VISC_START
@@ -447,72 +395,6 @@ void init(void)
 
     }
 
-#if defined (CHEMISTRY) || defined (UM_CHEMISTRY)
-
-    if(ThisTask == 0)
-    {
-        printf("Initial abundances (for P[1].ID=%d):\n",P[1].ID);
-
-        printf("HI=%g, HII=%g, HeI=%g, HeII=%g, HeIII=%g \n",
-                SPHP(1).HI, SPHP(1).HII, SPHP(1).HeI, SPHP(1).HeII, SPHP(1).HeIII);
-        printf("HM=%g, H2I=%g, H2II=%g, elec=%g\n",
-                SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II, SPHP(1).elec);
-
-#if defined (UM_CHEMISTRY) && defined(UM_HD_COOLING)
-        printf("HD=%g,  DI=%g, DII=%g\n",SPHP(1).HD,SPHP(1).DI,SPHP(1).DII);
-        printf("HeHII=%g\n",SPHP(1).HeHII);
-#endif
-
-        printf("x=%g, y=%g, z=%g, vx=%g, vy=%g, vz=%g,\ndensity=%g, entropy=%g\n",
-                P[N_sph - 1].Pos[0], P[N_sph - 1].Pos[1], P[N_sph - 1].Pos[2], P[N_sph - 1].Vel[0],
-                P[N_sph - 1].Vel[1], P[N_sph - 1].Vel[2], SPHP(N_sph - 1).Density, SPHP(N_sph - 1).Entropy);
-
-
-    }
-
-    /* need predict the cooling time and elec_dot here */
-    min_t_cool = min_t_elec = 1.0e30;
-    max_t_cool = max_t_elec = -1.0e30;
-
-
-    for(i = 0; i < N_sph; i++)	/* Init Chemistry: */
-    {
-#ifdef CHEMISTRY
-        a_start = All.Time;
-        a_end = All.Time + 0.001;	/*  0.001 as an arbitrary value */
-        ifunc = compute_abundances(0, i, a_start, a_end);
-#endif
-
-
-#ifdef UM_CHEMISTRY
-
-        double um_u;
-
-        a_start = All.Time;
-        a_end = All.Time + 0.001;	/* 0.001 as an arbitrary value */
-        ifunc = compute_abundances(0, i, a_start, a_end, &um_u);
-
-#endif
-
-        if(fabs(SPHP(i).t_cool) < min_t_cool)
-            min_t_cool = fabs(SPHP(i).t_cool);
-        if(fabs(SPHP(i).t_cool) > max_t_cool)
-            max_t_cool = fabs(SPHP(i).t_cool);
-
-        if(fabs(SPHP(i).t_elec) < min_t_elec)
-            min_t_elec = fabs(SPHP(i).t_elec);
-        if(fabs(SPHP(i).t_elec) > max_t_elec)
-            max_t_elec = fabs(SPHP(i).t_elec);
-    }
-
-    fprintf(stdout, "PE %d t_cool min= %g, max= %g in yrs \n", ThisTask, min_t_cool, max_t_cool);
-    fflush(stdout);
-    fprintf(stdout, "PE %d t_elec min= %g, max= %g in yrs \n", ThisTask, min_t_elec, max_t_elec);
-    fflush(stdout);
-
-#endif
-
-
     if(RestartFlag == 3)
     {
 #ifdef FOF
@@ -520,69 +402,6 @@ void init(void)
 #endif
         endrun(0);
     }
-
-#ifdef CHEMISTRY
-    if(ThisTask == 0)
-    {
-        printf("Initial abundances: \n");
-        printf("HI=%g, HII=%g, HeI=%g, HeII=%g, HeIII=%g \n",
-                SPHP(1).HI, SPHP(1).HII, SPHP(1).HeI, SPHP(1).HeII, SPHP(1).HeIII);
-
-        printf("HM=%g, H2I=%g, H2II=%g, elec=%g, %d\n",
-                SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II, SPHP(1).elec, P[1].ID);
-
-        printf("x=%g, y=%g, z=%g, vx=%g, vy=%g, vz=%g, density=%g, entropy=%g\n",
-                P[N_sph - 1].Pos[0], P[N_sph - 1].Pos[1], P[N_sph - 1].Pos[2], P[N_sph - 1].Vel[0],
-                P[N_sph - 1].Vel[1], P[N_sph - 1].Vel[2], SPHP(N_sph - 1).Density, SPHP(N_sph - 1).Entropy);
-    }
-
-    /* need predict the cooling time and elec_dot here */
-    min_t_cool = min_t_elec = 1.0e30;
-    max_t_cool = max_t_elec = -1.0e30;
-
-    for(i = 0; i < N_sph; i++)
-    {
-        a_start = All.Time;
-        a_end = All.Time + 0.001;	/* 0.001 as an arbitrary value */
-
-        ifunc = compute_abundances(0, i, a_start, a_end);
-
-
-        if(fabs(SPHP(i).t_cool) < min_t_cool)
-            min_t_cool = fabs(SPHP(i).t_cool);
-        if(fabs(SPHP(i).t_cool) > max_t_cool)
-            max_t_cool = fabs(SPHP(i).t_cool);
-
-        if(fabs(SPHP(i).t_elec) < min_t_elec)
-            min_t_elec = fabs(SPHP(i).t_elec);
-        if(fabs(SPHP(i).t_elec) > max_t_elec)
-            max_t_elec = fabs(SPHP(i).t_elec);
-
-    }
-
-    fprintf(stdout, "PE %d t_cool min= %g, max= %g in yrs \n", ThisTask, min_t_cool, max_t_cool);
-    fflush(stdout);
-    fprintf(stdout, "PE %d t_elec min= %g, max= %g in yrs \n", ThisTask, min_t_elec, max_t_elec);
-    fflush(stdout);
-
-#endif
-
-
-#ifdef SCFPOTENTIAL
-    if(ThisTask == 0)
-    { 
-        printf("Init SCF...\n");
-        fflush(stdout);   
-    }
-    SCF_init();
-    if(ThisTask == 0)
-    { 
-        printf("Initial random seed = %ld\n", scf_seed);
-        printf("done.\n");
-        fflush(stdout);  
-    }
-#endif
-
 
 }
 

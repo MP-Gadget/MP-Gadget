@@ -179,43 +179,6 @@ void run(void)
      * All.TimeMax is increased
      * and the run is continued)
      */
-#if defined(CHEMISTRY) || defined (UM_CHEMISTRY)
-    if(ThisTask == 0)
-    {
-        printf("Initial abundances: \n");
-        printf("HI=%g, HII=%g, HeI=%g, HeII=%g, HeIII=%g \n",
-                SPHP(1).HI, SPHP(1).HII, SPHP(1).HeI, SPHP(1).HeII, SPHP(1).HeIII);
-
-        printf("HM=%g, H2I=%g, H2II=%g, elec=%g, %d\n",
-                SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II, SPHP(1).elec, P[1].ID);
-
-#if defined (UM_CHEMISTRY) && defined (UM_HD_COOLING)
-        printf("HD=%g, DI=%g, DII=%g ", SPHP(1).HD, SPHP(1).DI, SPHP(1).DII);
-        printf("HeHII=%g",SPHP(1).HeHII);
-#endif
-
-        printf("\nx=%g, y=%g, z=%g, vx=%g, vy=%g, vz=%g, density=%g, entropy=%g\n",
-                P[N_sph - 1].Pos[0], P[N_sph - 1].Pos[1], P[N_sph - 1].Pos[2], P[N_sph - 1].Vel[0],
-                P[N_sph - 1].Vel[1], P[N_sph - 1].Vel[2], SPHP(N_sph - 1).d.Density, SPHP(N_sph - 1).Entropy);
-    }
-
-#endif
-
-
-#ifdef SCFPOTENTIAL
-    if(ThisTask == 0)
-    { 
-        printf("Free SCF...\n");
-        fflush(stdout);   
-    }
-    SCF_free();
-    if(ThisTask == 0)
-    { 
-        printf("done.\n");
-        fflush(stdout);  
-    }
-#endif
-
 }
 static int human_interaction() {
         /* Check whether we need to interrupt the run */
@@ -881,18 +844,6 @@ void every_timestep_stuff(void)
         fprintf(FdInfo, "%s", buf);
         printf("%s", buf);
 
-#if defined (CHEMISTRY) || defined (UM_CHEMISTRY)
-        printf("Abundances  elec: %g, HM: %g, H2I: %g, H2II: %g\n",
-                SPHP(1).elec, SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II);
-        printf("Abundances  HI: %g, HII: %g, HeI: %g, HeII: %g, HeIII: %g\n",
-                SPHP(1).HI, SPHP(1).HII, SPHP(1).HeI, SPHP(1).HeII, SPHP(1).HeIII);
-#endif
-
-#if defined (UM_CHEMISTRY) && defined (UM_HD_COOLING)
-        printf("Abundances HD: %g,  DI: %g,  DII: %g\n", SPHP(1).HD, SPHP(1).DI, SPHP(1).DII);
-        printf("Abundances HeHII: %g",SPHP(1).HeHII);
-#endif
-
         fflush(FdInfo);
 
         printf("TotNumPart: %014ld SPH %014ld BH %014ld\n",
@@ -918,11 +869,6 @@ void every_timestep_stuff(void)
             (tot - tot_sph),
             (tot_sph), 
             (tot));
-
-#ifdef CHEMISTRY
-        printf("Abundances elec: %g, HM: %g, H2I: %g, H2II: %g\n",
-                SPHP(1).elec, SPHP(1).HM, SPHP(1).H2I, SPHP(1).H2II);
-#endif
 
 #ifdef DARKENERGY
         if(All.ComovingIntegrationOn == 1)

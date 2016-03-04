@@ -40,10 +40,6 @@
 #define omp_get_max_threads()  (1)
 #define omp_get_thread_num()  (0)
 #endif
-#ifdef CHEMCOOL
-#include "chemcool_consts.h"
-#include "f2c.h"
-#endif
 
 #include "walltime.h"
 
@@ -56,9 +52,6 @@
 #endif
 
 #include "tags.h"
-#if defined(CHEMISTRY) || defined (UM_CHEMISTRY)
-#include "chemistry.h"
-#endif
 #include "assert.h"
 
 
@@ -184,10 +177,6 @@ typedef uint64_t peanokey;
 #define  LOG_LAMBDA      37.8	/* logarithmic Coulomb factor */
 #endif
 
-#if defined(CHEMISTRY) || defined(UM_CHEMISTRY) || defined(INCLUDE_RADIATION)
-#define  T_CMB0      2.7255	/* present-day CMB temperature, from Fixsen 2009. */
-#endif
-
 /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
  * A note on normalisation (as of 08/02/2012):
  * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
@@ -196,6 +185,8 @@ typedef uint64_t peanokey;
  * making h0 (very) slightly larger than specified.
  */
 #ifdef INCLUDE_RADIATION
+
+#define  T_CMB0      2.7255	/* present-day CMB temperature, from Fixsen 2009. */
 /*Stefan-Boltzmann constant in cgs units*/
 #define STEFAN_BOLTZMANN 5.670373e-5
 /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2)*/
@@ -764,10 +755,6 @@ extern struct global_data_all_processes
     double TotalMeshSize[2];
 #endif
 
-#if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
-    double Epsilon;
-#endif
-
     int Ti_nextlineofsight;
 #ifdef OUTPUTLINEOFSIGHT
     double TimeFirstLineOfSight;
@@ -1017,55 +1004,6 @@ extern struct global_data_all_processes
     double ecr_bound[REAL_CRs+1];
 #endif
 
-#ifdef CHEMCOOL
-    int NeedAbundancesForOutput;
-    double H2RefDustEff;
-    double OxyAbund;
-    double CarbAbund;
-    double SiAbund;
-    double DeutAbund;
-    double MgAbund;
-    double UVField;
-    double PhiPAH;
-    double InitDustTemp;
-    double DustToGasRatio;
-    double AVConversionFactor;
-    double CosmicRayIonRate;
-    double InitRedshift;
-    double ExternalDustExtinction;
-    double H2FormEx;
-    double H2FormKin;
-    int PhotochemApprox;
-    int ChemistryNetwork;
-    int ADRateFlag;
-    int MNRateFlag;
-    int AtomicFlag;
-    int ThreeBodyFlagA;
-    int ThreeBodyFlagB;
-    int H3PlusRateFlag;
-    int DMAFlag;
-    int RadHeatFlag;
-    double InitMolHydroAbund;
-    double InitHPlusAbund;
-    double InitDIIAbund;
-    double InitHDAbund;
-    double InitHeIIAbund;
-    double InitHeIIIAbund;
-    double InitCIIAbund;
-    double InitSiIIAbund;
-    double InitOIIAbund;
-    double InitCOAbund;
-    double InitC2Abund;
-    double InitOHAbund;
-    double InitH2OAbund;
-    double InitO2Abund;
-    double InitHCOPlusAbund;
-    double InitCHAbund;
-    double InitCH2Abund;
-    double InitSiIIIAbund;
-    double InitCH3PlusAbund;
-    double InitMgPlusAbund;
-#endif
 
 #ifdef SNAP_SET_TG
     int SnapNumFac;
@@ -1085,15 +1023,6 @@ extern struct global_data_all_processes
 #endif
 #endif
 
-#if defined (UM_CHEMISTRY) && defined (UM_CHEMISTRY_INISET)
-    /* used if read initial composition from the parameter file */
-    double Startelec;
-    double StartHI, StartHII, StartHM;
-    double StartHeI, StartHeII, StartHeIII;
-    double StartH2I, StartH2II;
-    double StartHD, StartDI, StartDII;
-    double StartHeHII;
-#endif
 }
 All;
 #ifdef _OPENMP
@@ -1281,11 +1210,9 @@ extern struct sph_particle_data
 #endif
 
 #ifdef COOLING
-#if !defined(UM_CHEMISTRY)  
     MyFloat Ne;  /*!< electron fraction, expressed as local electron number
                    density normalized to the hydrogen number density. Gives
                    indirectly ionization state and mean molecular weight. */
-#endif  
 #endif
 #ifdef SFR
     MyFloat Sfr;
@@ -1312,38 +1239,6 @@ extern struct sph_particle_data
 
 #ifdef MHM
     MyFloat FeedbackEnergy;
-#endif
-
-#if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
-    MyFloat elec;
-    MyFloat HI;
-    MyFloat HII;
-
-    MyFloat HeI;
-    MyFloat HeII;
-    MyFloat HeIII;
-
-    MyFloat H2I;
-    MyFloat H2II;
-
-    MyFloat HM;
-
-    MyFloat Gamma;
-    MyFloat t_elec, t_cool;
-
-#ifdef UM_CHEMISTRY
-    MyFloat Um_MeanMolecularWeight;
-#endif
-
-#ifdef UM_HD_COOLING
-    MyFloat HD;
-    MyFloat DI;
-    MyFloat DII;
-#endif
-#ifdef UM_CHEMISTRY
-    MyFloat HeHII;
-#endif
-
 #endif
 
 #ifdef RADTRANSFER
@@ -1384,17 +1279,6 @@ extern struct sph_particle_data
 
 #ifdef WAKEUP
     short int wakeup;             /*!< flag to wake up particle */
-#endif
-
-#ifdef BP_REAL_CRs
-    MyFloat CRpNorm[BP_REAL_CRs];
-    MyFloat CRpSlope[BP_REAL_CRs];
-    MyFloat CReNorm[BP_REAL_CRs];
-    MyFloat CReSlope[BP_REAL_CRs];
-#endif
-
-#ifdef CHEMCOOL
-    double TracAbund[TRAC_NUM];
 #endif
 
 #ifdef SPH_GRAD_RHO 
@@ -1575,132 +1459,4 @@ extern int Numnodestree;	/*!< number of (internal) nodes in each tree */
 extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
 extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 
-#ifdef STATICNFW
-extern double Rs, R200;
-extern double Dc;
-extern double RhoCrit, V200;
-extern double fac;
 #endif
-
-#if defined  (UM_METAL_COOLING)
-/* --==[ link with LT_ stuffs]==-- */
-extern float *um_ZsPoint, um_FillEl_mu, um_mass;
-#endif
-
-
-#if defined(CHEMISTRY) || defined(UM_CHEMISTRY)
-/* ----- chemistry part ------- */
-
-#define H_number_fraction 0.76
-#define He_number_fraction 0.06
-
-/* ----- Tables ------- */
-extern double T[N_T], J0_nu[N_nu], J_nu[N_nu], nu[N_nu];
-extern double k1a[N_T], k2a[N_T], k3a[N_T], k4a[N_T], k5a[N_T], k6a[N_T], k7a[N_T], k8a[N_T], k9a[N_T],
-       k10a[N_T], k11a[N_T];
-extern double k12a[N_T], k13a[N_T], k14a[N_T], k15a[N_T], k16a[N_T], k17a[N_T], k18a[N_T], k19a[N_T],
-       k20a[N_T], k21a[N_T];
-extern double ciHIa[N_T], ciHeIa[N_T], ciHeIIa[N_T], ciHeISa[N_T], reHIIa[N_T], brema[N_T];
-extern double ceHIa[N_T], ceHeIa[N_T], ceHeIIa[N_T], reHeII1a[N_T], reHeII2a[N_T], reHeIIIa[N_T];
-
-/* cross-sections */
-#ifdef RADIATION
-extern double sigma24[N_nu], sigma25[N_nu], sigma26[N_nu], sigma27[N_nu], sigma28[N_nu], sigma29[N_nu],
-       sigma30[N_nu], sigma31[N_nu];
-#endif
-#endif
-
-/* ----- for HD cooling ----- */
-#if defined (UM_CHEMISTRY) && defined (UM_HD_COOLING)
-extern double kHD1a[N_T],kHD2a[N_T],kHD3a[N_T],kHD4a[N_T],kHD5a[N_T],kHD6a[N_T];
-#endif
-/* ----- for HeHII chemistry ----- */
-#ifdef UM_CHEMISTRY
-extern double kHeHII1a[N_T],kHeHII2a[N_T],kHeHII3a[N_T];
-#endif
-
-
-#if defined (UM_CHEMISTRY) && defined (CHEMISTRY)
-#error you cannot define both UM_CHEMISTRY and CHEMISTRY ! 
-#endif
-
-
-#ifdef UM_METAL_COOLING
-#define T_SUP_INTERPOL_LIMIT        1.e4
-#endif
-
-
-#ifdef CHEMCOOL
-extern struct{
-    double temptab[NMD];
-    double cltab[NMD][NCLTAB];
-    double chtab[NMD][NCHTAB];
-    double dtcltab[NMD][NCLTAB];
-    double dtchtab[NMD][NCHTAB];
-    double crtab[NCRTAB];
-    double crphot[NCRPHOT];
-    double phtab[NPHTAB];
-    double cst[NCONST];
-    double dtlog;
-    double tdust;
-    double tmax;
-    double tmin;
-    double deff;
-    double abundc;
-    double abundo;
-    double abundsi;
-    double abundD;
-    double abundmg;
-    double G0;
-    double f_rsc;
-    double phi_pah;
-    double dust_to_gas_ratio;
-    double AV_conversion_factor;
-    double cosmic_ray_ion_rate;
-    double redshift;
-    double AV_ext;
-    double pdv_term;
-    double h2_form_ex;
-    double h2_form_kin;
-    double dm_density;
-}COOLR;
-
-extern struct{
-    int iphoto;
-    int iflag_mn;
-    int iflag_ad;
-    int iflag_atom;
-    int iflag_3bh2a;
-    int iflag_3bh2b;
-    int iflag_h3pra;
-    int iflag_h2opc;
-    int id_current;
-    int index_current;
-    int idma_mass_option;
-    int no_chem;
-    int irad_heat;
-}COOLI;
-
-#endif
-
-
-
-#endif
-
-
-
-
-
-
-
-#ifdef SCFPOTENTIAL
-extern long scf_seed;
-extern MyDouble *Anltilde, *coeflm, *twoalpha, *c1, *c2, *c3;
-extern MyDouble *cosmphi, *sinmphi;
-extern MyDouble *ultrasp, *ultraspt, *ultrasp1;
-extern MyDouble *dblfact, *plm, *dplm;
-extern MyDouble *sinsum, *cossum;
-extern MyDouble *sinsum_all, *cossum_all;
-#endif
-
-
