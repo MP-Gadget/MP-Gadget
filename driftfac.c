@@ -8,6 +8,7 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "cosmology.h"
 
 
 static double logTimeBegin;

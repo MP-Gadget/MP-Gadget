@@ -135,8 +135,6 @@ void smoothed_values(void);
 
 int fof_find_dmparticles_evaluate(int target, int mode, int *nexport, int *nsend_local);
 
-double INLINE_FUNC hubble_function(double a);
-
 void blackhole_accretion(void);
 void blackhole_make_one(int index);
 void blackhole_make_extra();
