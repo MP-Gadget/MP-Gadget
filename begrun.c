@@ -434,40 +434,6 @@ void open_outputfiles(void)
 
 
 
-#ifdef FORCETEST
-    if(RestartFlag == 0)
-    {
-        sprintf(buf, "%s%s%s", All.OutputDir, "forcetest.txt", postfix);
-        if(!(FdForceTest = fopen(buf, "w")))
-        {
-            printf("error in opening file '%s'\n", buf);
-            endrun(1);
-        }
-        fclose(FdForceTest);
-    }
-#endif
-
-#ifdef XXLINFO
-    sprintf(buf, "%s%s%s", All.OutputDir, "xxl.txt", postfix);
-    if(!(FdXXL = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-    else
-    {
-        if(RestartFlag == 0)
-        {
-            fprintf(FdXXL, "nstep time ");
-#ifdef TIME_DEP_ART_VISC
-            fprintf(FdXXL, "<alpha> ");
-#endif
-            fprintf(FdXXL, "\n");
-            fflush(FdXXL);
-        }
-    }
-#endif
-
 }
 
 
@@ -479,10 +445,6 @@ void close_outputfiles(void)
 {
 #ifdef BLACK_HOLES
     fclose(FdBlackHolesDetails);	/* needs to be done by everyone */
-#endif
-
-#ifdef CAUSTIC_FINDER
-    fclose(FdCaustics);		/* needs to be done by everyone */
 #endif
 
     if(ThisTask != 0)		/* only the root processors writes to the log files */
@@ -499,10 +461,6 @@ void close_outputfiles(void)
 
 #ifdef BLACK_HOLES
     fclose(FdBlackHoles);
-#endif
-
-#ifdef XXLINFO
-    fclose(FdXXL);
 #endif
 
 }
@@ -1363,15 +1321,6 @@ void read_parameter_file(char *fname)
 
 #ifdef SFR
 
-#ifndef MOREPARAMS
-    if(ThisTask == 0)
-    {
-        printf("Code was compiled with SFR, but not with MOREPARAMS.\n");
-        printf("This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
     if(All.StarformationOn == 0)
     {
         if(ThisTask == 0)
@@ -1411,18 +1360,6 @@ void read_parameter_file(char *fname)
     }
     endrun(0);
 #endif
-#endif
-
-#ifndef MOREPARAMS
-#ifdef TIME_DEP_ART_VISC
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with TIME_DEP_ART_VISC, but not with MOREPARAMS.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
 #endif
 
 #undef REAL

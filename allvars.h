@@ -427,19 +427,6 @@ extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
 extern FILE *FdBlackHolesDetails;
 #endif
 
-
-#ifdef FORCETEST
-extern FILE *FdForceTest;	/*!< file handle for forcetest.txt log-file. */
-#endif
-
-#ifdef XXLINFO
-extern FILE *FdXXL;		/*!< file handle for xxl.txt log-file. */
-
-#ifdef TIME_DEP_ART_VISC
-extern double MeanAlpha;
-#endif
-#endif
-
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
  * parameter file).  Holding this data in a structure is convenient for writing/reading the restart file, and
  * it allows the introduction of new global variables in a simple way. The only thing to do is to introduce
