@@ -1940,11 +1940,7 @@ int domain_determineTopTree(void)
 #ifdef MYSORT
     mysort_domain(mp, NumPart, sizeof(struct peano_hilbert_data));
 #else
-#ifndef POWER6
     qsort(mp, NumPart, sizeof(struct peano_hilbert_data), domain_compare_key);
-#else
-    qsort_domain(mp, NumPart);
-#endif
 #endif
     
     walltime_measure("/Domain/DetermineTopTree/Sort");

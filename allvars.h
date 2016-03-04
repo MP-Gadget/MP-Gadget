@@ -56,18 +56,10 @@
 
 
 #ifdef PERIODIC
-#ifdef POWER6
-#define NEAREST_X(x) ((x)  - boxSize_X * __frin ( (x) * inverse_boxSize_X))
-#define NEAREST_Y(y) ((y)  - boxSize_Y * __frin ( (y) * inverse_boxSize_Y))
-#define NEAREST_Z(z) ((z)  - boxSize_Z * __frin ( (z) * inverse_boxSize_Z))
-#define NEAREST(x) ((x)  - boxSize * __frin ( (x) * inverse_boxSize))
-#else
 #define NEAREST_X(x) (((x)>boxHalf_X)?((x)-boxSize_X):(((x)<-boxHalf_X)?((x)+boxSize_X):(x)))
 #define NEAREST_Y(y) (((y)>boxHalf_Y)?((y)-boxSize_Y):(((y)<-boxHalf_Y)?((y)+boxSize_Y):(y)))
 #define NEAREST_Z(z) (((z)>boxHalf_Z)?((z)-boxSize_Z):(((z)<-boxHalf_Z)?((z)+boxSize_Z):(z)))
 #define NEAREST(x) (((x)>boxHalf)?((x)-boxSize):(((x)<-boxHalf)?((x)+boxSize):(x)))
-#define __fsel(crit,age,alt) (((crit) >= 0.0) ? (age) : (alt))
-#endif
 #else
 #define NEAREST_X(x) (x)
 #define NEAREST_Y(x) (x)
@@ -368,13 +360,8 @@ extern MyDouble boxSize_Z, boxHalf_Z, inverse_boxSize_Z;
 static inline double NGB_PERIODIC_LONG_XYZ(MyDouble x, MyDouble boxHalf, MyDouble boxSize) {
     double xtmp = fabs(x);
 #ifdef PERIODIC
-#ifndef POWER6
     if(xtmp > boxHalf) return boxSize - xtmp;
     return xtmp;
-#else
-    double xtmp = fabs(x);
-    return __fsel(boxHalf-xtmp,xtmp,boxSize-xtmp);
-#endif
 #else
     return xtmp;
 #endif
