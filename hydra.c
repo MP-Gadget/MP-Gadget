@@ -16,10 +16,6 @@
 #endif
 #include <assert.h>
 
-#if defined(MAGNETIC) && defined(SFR)
-#define POW_CC 1./3.
-#endif
-
 /*! \file hydra.c
  *  \brief Computation of SPH forces and rate of entropy generation
  *
@@ -57,27 +53,6 @@ struct hydrodata_in
     MyFloat Vbulk[3];
 #endif
 
-#ifdef MAGNETIC
-    MyFloat BPred[3];
-#ifdef VECT_POTENTIAL
-    MyFloat I->Apred[3];
-#endif
-#ifdef ALFA_OMEGA_DYN
-    MyFloat I->alfaomega;
-#endif
-#ifdef EULER_DISSIPATION
-    MyFloat EulerA, EulerB;
-#endif
-#ifdef TIME_DEP_MAGN_DISP
-    MyFloat I->Balpha;
-#endif
-#ifdef DIVBCLEANING_DEDNER
-    MyFloat I->PhiPred;
-#endif
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-    MyFloat RotB[3];
-#endif
-#endif
 #ifdef TIME_DEP_ART_VISC
     MyFloat I->alpha;
 #endif
@@ -115,22 +90,6 @@ struct hydrodata_out
 #endif
 #ifdef JD_VTURB
     MyFloat Vrms;
-#endif
-#if defined(MAGNETIC) && (!defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL))
-    MyFloat DtB[3];
-#ifdef DIVBFORCE3
-    MyFloat magacc[3];
-    MyFloat magcorr[3];
-#endif
-#ifdef DIVBCLEANING_DEDNER
-    MyFloat GradPhi[3];
-#endif
-#endif
-#if defined(EULERPOTENTIALS) && defined(EULER_DISSIPATION)
-    MyFloat DtEulerA, DtEulerB;
-#endif
-#ifdef VECT_POTENTIAL
-    MyFloat O->dta[3];
 #endif
 
 #ifdef HYDRO_COST_FACTOR
@@ -183,12 +142,6 @@ void hydro_force(void)
     double fac;
 #endif
 
-#if defined(MAGNETIC) && defined(MAGFORCE)
-#if defined(TIME_DEP_MAGN_DISP) || defined(DIVBCLEANING_DEDNER)
-    double mu0 = 1;
-#endif
-#endif
-
 #if defined(HEALPIX)
     double r_new, t[3];
     long ipix;
@@ -216,16 +169,6 @@ void hydro_force(void)
 
     fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
     fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
-
-#if defined(MAGFORCE) && defined(TIME_DEP_MAGN_DISP) || defined(DIVBCLEANING_DEDNER)
-#ifndef MU0_UNITY
-    mu0 *= (4 * M_PI);
-    mu0 /= All.UnitTime_in_s * All.UnitTime_in_s * All.UnitLength_in_cm / All.UnitMass_in_g;
-    if(All.ComovingIntegrationOn)
-        mu0 /= (All.HubbleParam * All.HubbleParam);
-#endif
-#endif
-
 
     /* allocate buffers to arrange communication */
 
@@ -399,49 +342,6 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
     input->Vbulk[2] = SPHP(place).Vbulk[2];
 #endif
 
-#ifdef MAGNETIC
-    for(k = 0; k < 3; k++)
-    {
-#ifndef SFR
-        input->BPred[k] = SPHP(place).BPred[k];
-#else
-        input->BPred[k] = SPHP(place).BPred[k] * pow(1.-SPHP(place).XColdCloud,2.*POW_CC);
-#endif
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-#ifdef SMOOTH_ROTB
-        input->RotB[k] = SPHP(place).SmoothedRotB[k];
-#else
-        input->RotB[k] = SPHP(place).RotB[k];
-#endif
-#ifdef SFR
-        input->RotB[k] *= pow(1.-SPHP(place).XColdCloud,3.*POW_CC);
-#endif
-#endif
-    }
-#ifdef ALFA_OMEGA_DYN
-    input->I->alfaomega =
-        Sph[place].r.Rot[0] * Sph[place].VelPred[0] + Sph[place].r.Rot[1] * Sph[place].VelPred[1] +
-        Sph[place].r.Rot[2] * Sph[place].VelPred[2];
-#endif
-#if defined(EULERPOTENTIALS) && defined(EULER_DISSIPATION)
-    input->EulerA = SPHP(place).EulerA;
-    input->EulerB = SPHP(place).EulerB;
-#endif
-#ifdef VECT_POTENTIAL
-    input->I->Apred[0] = SPHP(place).APred[0];
-    input->I->Apred[1] = SPHP(place).APred[1];
-    input->I->Apred[2] = SPHP(place).APred[2];
-#endif
-#ifdef DIVBCLEANING_DEDNER
-#ifdef SMOOTH_PHI
-    input->I->PhiPred = SPHP(place).SmoothPhi;
-#else
-    input->I->PhiPred = SPHP(place).PhiPred;
-#endif
-#endif
-#endif
-
-
 #if defined(NAVIERSTOKES)
     input->I->Entropy = SPHP(place).Entropy;
 #endif
@@ -469,9 +369,6 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
 #endif
 #endif
 
-#ifdef TIME_DEP_MAGN_DISP
-    input->I->Balpha = SPHP(place).Balpha;
-#endif
 }
 
 static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
@@ -501,28 +398,6 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
     REDUCE(SPHP(place).Vrms, result->Vrms); 
 #endif
 
-#if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
-    for(k = 0; k < 3; k++)
-        REDUCE(SPHP(place).DtB[k], result->DtB[k]);
-#endif
-#ifdef DIVBFORCE3
-    for(k = 0; k < 3; k++)
-        REDUCE(SPHP(place).magacc[k], result->magacc[k]);
-    for(k = 0; k < 3; k++)
-        REDUCE(SPHP(place).magcorr[k], result->magcorr[k]);
-#endif
-#ifdef DIVBCLEANING_DEDNER
-    for(k = 0; k < 3; k++)
-        REDUCE(SPHP(place).GradPhi[k], result->GradPhi[k]);
-#endif
-#if VECT_POTENTIAL
-    for(k = 0; k < 3; k++)
-        REDUCE(SPHP(place).DtA[k], result->dta[k]);
-#endif
-#if defined(EULERPOTENTIALS) && defined(EULER_DISSIPATION)
-    REDUCE(SPHP(place).DtEulerA, result->DtEulerA);
-    REDUCE(SPHP(place).DtEulerB, result->DtEulerB);
-#endif
 }
 
 
@@ -564,44 +439,6 @@ static int hydro_evaluate(int target, int mode,
 
     O->Acc[0] = O->Acc[1] = O->Acc[2] = O->DtEntropy = 0;
     density_kernel_init(&kernel_i, I->Hsml);
-
-
-#ifdef MAGNETIC
-    double mu0_1 = 1;
-#ifndef MU0_UNITY
-    mu0_1 /= (4 * M_PI);
-    mu0_1 *= All.UnitTime_in_s * All.UnitTime_in_s * All.UnitLength_in_cm / (All.UnitMass_in_g);
-    if(All.ComovingIntegrationOn)
-        mu0_1 /= (All.HubbleParam * All.HubbleParam);
-
-#endif
-#ifdef MAGFORCE
-    double magfac_i_base = 1 / (I->Density * rho);
-#ifndef MU0_UNITY
-    magfac_i_base /= (4 * M_PI);
-#endif
-#ifdef CORRECTBFRC
-    magfac_i_base *= I->DhsmlDensityFactor;
-#endif
-    double mm_i[3][3];
-    for(k = 0, b2_i = 0; k < 3; k++)
-    {
-        b2_i += I->Bpred[k] * I->Bpred[k];
-        for(l = 0; l < 3; l++)
-            mm_i[k][l] = I->Bpred[k] * I->Bpred[l];
-    }
-    for(k = 0; k < 3; k++)
-        mm_i[k][k] -= 0.5 * b2_i;
-#ifdef MAGNETIC_SIGNALVEL
-#ifdef ALFVEN_VEL_LIMITER
-    double vcsa2_i = soundspeed_i * soundspeed_i +
-        DMIN(mu0_1 * b2_i / I->Density, ALFVEN_VEL_LIMITER * soundspeed_i * soundspeed_i);
-#else
-    double vcsa2_i = soundspeed_i * soundspeed_i + mu0_1 * b2_i / I->Density;
-#endif
-#endif
-#endif /* end of MAGFORCE */
-#endif /* end of MAGNETIC */
 
 #ifndef TRADITIONAL_SPH_FORMULATION
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -699,214 +536,7 @@ static int hydro_evaluate(int target, int mode,
                             + (SPHP(j).VelPred[2]-I->Vbulk[2])*(SPHP(j).VelPred[2]-vBulk[2]);
 #endif
 
-#ifdef MAGNETIC
-#ifndef SFR
-                    double dBx = I->Bpred[0] - SPHP(j).BPred[0];
-                    double dBy = I->Bpred[1] - SPHP(j).BPred[1];
-                    double dBz = I->Bpred[2] - SPHP(j).BPred[2];
-#else
-                    double dBx = I->Bpred[0] - SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
-                    double dBy = I->Bpred[1] - SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
-                    double dBz = I->Bpred[2] - SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC);
-#endif
-
-                    double magfac = P[j].Mass / r;	/* we moved 'dwk_i / I->Density' down ! */
-                    magfac *= 1.0 / All.cf.hubbla_a2;
-                    /* last factor takes care of all cosmological prefactor */
-#ifdef CORRECTDB
-                    magfac *= I->DhsmlDensityFactor;
-#endif
-
-#if defined(MAGNETIC_DISSIPATION) || defined(DIVBCLEANING_DEDNER) || defined(EULER_DISSIPATION) || defined(MAGNETIC_DIFFUSION)
-                    double magfac_sym = magfac * (dwk_i + dwk_j) * 0.5;
-#endif
-#ifdef MAGNETIC_DISSIPATION
-#ifdef TIME_DEP_MAGN_DISP
-                    double Balpha_ij = 0.5 * (I->Balpha + SPHP(j).Balpha);
-#else
-                    double Balpha_ij = All.ArtMagDispConst;
-#endif
-#endif
-
-                    magfac *= dwk_i / I->Density;
-#if VECT_POTENTIAL
-                    O->dta[0] +=
-                        P[j].Mass * dwk_i / r * (I->Apred[0] -
-                                SPHP(j).APred[0]) * dx * I->Vel[0] / (I->Density * All.cf.All.cf.hubble_a2);
-                    O->dta[1] +=
-                        P[j].Mass * dwk_i / r * (I->Apred[1] -
-                                SPHP(j).APred[1]) * dy * I->Vel[1] / (I->Density * All.cf.All.cf.hubble_a2);
-                    O->dta[2] +=
-                        P[j].Mass * dwk_i / r * (I->Apred[2] -
-                                SPHP(j).APred[2]) * dz * I->Vel[2] / (I->Density * All.cf.All.cf.hubble_a2);
-                    O->dta[0] +=
-                        P[j].Mass * dwk_i / r * ((I->Apred[0] - SPHP(j).APred[0]) * dx * I->Vel[0] +
-                                (I->Apred[0] - SPHP(j).APred[0]) * dy * I->Vel[1] + (Apred[0] -
-                                    SPHP(j).
-                                    APred[0]) *
-                                dz * I->Vel[2]) / (I->Density * All.cf.All.cf.hubble_a2);
-
-#endif
-#if ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL) )
-                    O->DtB[0] +=
-                        magfac * ((I->Bpred[0] * dvy - I->Bpred[1] * dvx) * dy +
-                                (I->Bpred[0] * dvz - I->Bpred[2] * dvx) * dz);
-                    O->DtB[1] +=
-                        magfac * ((I->Bpred[1] * dvz - I->Bpred[2] * dvy) * dz +
-                                (I->Bpred[1] * dvx - I->Bpred[0] * dvy) * dx);
-                    O->DtB[2] +=
-                        magfac * ((I->Bpred[2] * dvx - I->Bpred[0] * dvz) * dx +
-                                (I->Bpred[2] * dvy - I->Bpred[1] * dvz) * dy);
-#endif
-#ifdef MAGNETIC_DIFFUSION  
-                    double magfac_diff = (All.MagneticEta + All.MagneticEta) * magfac_sym / (rho_ij * rho_ij);
-                    O->DtB[0] += magfac_diff * I->Density * dBx;
-                    O->DtB[1] += magfac_diff * I->Density * dBy;
-                    O->DtB[2] += magfac_diff * I->Density * dBz;
-#ifdef MAGNETIC_DIFFUSION_HEAT
-                    magfac_diff *= All.cf.All.cf.hubble_a2 * All.cf.a * All.cf.a * All.cf.a;
-                    O->DtEntropy -= 0.5 * magfac_diff * mu0_1 * (dBx * dBx + dBy * dBy + dBz * dBz);
-#endif
-#endif
-#ifdef MAGFORCE
-                    double magfac_j = 1 / (SPHP(j).Density * SPHP(j).Density);
-#ifndef MU0_UNITY
-                    magfac_j /= (4 * M_PI);
-#endif
-#ifdef CORRECTBFRC
-                    magfac_j *= dwk_j * SPHP(j).h.DhsmlDensityFactor;
-                    double magfac_i = dwk_i * magfac_i_base;
-#else
-                    double magfac_i = magfac_i_base;
-#endif
-                    double b2_j = 0;
-                    double mm_j[3][3];
-                    for(k = 0; k < 3; k++)
-                    {
-#ifndef SFR
-                        b2_j += SPHP(j).BPred[k] * SPHP(j).BPred[k];
-                        for(l = 0; l < 3; l++)
-                            mm_j[k][l] = SPHP(j).BPred[k] * SPHP(j).BPred[l];
-#else
-                        b2_j += SPHP(j).BPred[k] * SPHP(j).BPred[k] * pow(1.-SPHP(j).XColdCloud,4.*POW_CC);
-                        for(l = 0; l < 3; l++)
-                            mm_j[k][l] = SPHP(j).BPred[k] * SPHP(j).BPred[l] * pow(1.-SPHP(j).XColdCloud,4.*POW_CC);
-#endif
-                    }
-                    for(k = 0; k < 3; k++)
-                        mm_j[k][k] -= 0.5 * b2_j;
-
-#ifdef DIVBCLEANING_DEDNER
-                    double phifac = magfac_sym * I->Density / rho_ij;
-#ifndef SFR
-#ifdef SMOOTH_PHI
-                    phifac *= (I->PhiPred - SPHP(j).SmoothPhi) / (rho_ij);
-#else
-                    phifac *= (I->PhiPred - SPHP(j).PhiPred) / (rho_ij);
-#endif
-#else /* SFR */ 
-#ifdef SMOOTH_PHI
-                    phifac *= (I->PhiPred - SPHP(j).SmoothPhi * pow(1.-SPHP(j).XColdCloud,POW_CC)) / (rho_ij);
-#else
-                    phifac *= (I->PhiPred - SPHP(j).PhiPred   * pow(1.-SPHP(j).XColdCloud,POW_CC)) / (rho_ij);
-#endif 
-#endif /* SFR */
-
-                    O->GradPhi[0]+=phifac *dx;
-                    O->GradPhi[1]+=phifac *dy;
-                    O->GradPhi[2]+=phifac *dz;
-#endif
-#ifdef MAGNETIC_SIGNALVEL
-#ifdef ALFVEN_VEL_LIMITER
-                    double vcsa2_j = soundspeed_j * soundspeed_j +
-                        DMIN(mu0_1 * b2_j / SPHP(j).Density,
-                                ALFVEN_VEL_LIMITER * soundspeed_j * soundspeed_j);
-#else
-                    double vcsa2_j = soundspeed_j * soundspeed_j + mu0_1 * b2_j / SPHP(j).Density;
-#endif
-#ifndef SFR
-                    double Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) / r;
-#else
-                    double Bpro2_j = (SPHP(j).BPred[0] * dx + SPHP(j).BPred[1] * dy + SPHP(j).BPred[2] * dz) * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) / r;
-#endif
-                    Bpro2_j *= Bpro2_j;
-
-                    double magneticspeed_j = sqrt(vcsa2_j +
-                            sqrt(DMAX((vcsa2_j * vcsa2_j -
-                                        4 * soundspeed_j * soundspeed_j * Bpro2_j
-                                        * mu0_1 / SPHP(j).Density), 0))) / 1.4142136;
-                    double Bpro2_i = (I->Bpred[0] * dx + I->Bpred[1] * dy + I->Bpred[2] * dz) / r;
-                    double Bpro2_i *= Bpro2_i;
-                    double magneticspeed_i = sqrt(vcsa2_i +
-                            sqrt(DMAX((vcsa2_i * vcsa2_i -
-                                        4 * soundspeed_i * soundspeed_i * Bpro2_i
-                                        * mu0_1 / I->Density), 0))) / 1.4142136;
-#endif
-#ifdef MAGNETIC_DISSIPATION
-                    double dTu_diss_b = -magfac_sym * Balpha_ij * (dBx * dBx + dBy * dBy + dBz * dBz);
-#endif
-#ifdef CORRECTBFRC
-                    magfac = P[j].Mass / r;
-#else
-                    magfac = P[j].Mass * 0.5 * (dwk_i + dwk_j) / r;
-#endif
-                    magfac *= pow(All.cf.a, 3 * GAMMA);
-                    /* last factor takes care of all cosmological prefactor */
-#ifndef MU0_UNITY
-                    magfac *= All.UnitTime_in_s * All.UnitTime_in_s *
-                        All.UnitLength_in_cm / All.UnitMass_in_g;
-                    if(All.ComovingIntegrationOn)
-                        magfac /= (All.HubbleParam * All.HubbleParam);
-                    /* take care of B unit conversion into GADGET units ! */
-#endif
-                    for(k = 0; k < 3; k++)
-#ifndef DIVBFORCE3
-                        O->Acc[k] +=
-#else
-                            O->magacc[k]+=
-#endif
-                            magfac * ((mm_i[k][0] * magfac_i + mm_j[k][0] * magfac_j) * dx +
-                                    (mm_i[k][1] * magfac_i + mm_j[k][1] * magfac_j) * dy +
-                                    (mm_i[k][2] * magfac_i + mm_j[k][2] * magfac_j) * dz);
-#if defined(DIVBFORCE) && !defined(DIVBFORCE3)
-                    for(k = 0; k < 3; k++)
-                        O->Acc[k] -=
-#ifndef SFR
-                            magfac * I->Bpred[k] *(((I->Bpred[0]) * magfac_i + (SPHP(j).BPred[0]) * magfac_j) * dx
-                                    + ((I->Bpred[1]) * magfac_i + (SPHP(j).BPred[1]) * magfac_j) * dy
-                                    + ((I->Bpred[2]) * magfac_i + (SPHP(j).BPred[2]) * magfac_j) * dz);
-#else
-                    magfac * (	((I->Bpred[k] * I->Bpred[0]) * magfac_i + (I->Bpred[k] * SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dx
-                            +   ((I->Bpred[k] * I->Bpred[1]) * magfac_i + (I->Bpred[k] * SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dy
-                            +   ((I->Bpred[k] * I->Bpred[2]) * magfac_i + (I->Bpred[k] * SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC)) * magfac_j) * dz);
-#endif
-#endif
-#if defined(DIVBFORCE3) && !defined(DIVBFORCE)
-                    for(k = 0; k < 3; k++)
-                        O->magcorr[k] +=
-#ifndef SFR
-                            magfac * I->Bpred[k] *(((I->Bpred[0]) * magfac_i + (SPHP(j).BPred[0]) * magfac_j) * dx
-                                    + ((I->Bpred[1]) * magfac_i + (SPHP(j).BPred[1]) * magfac_j) * dy
-                                    + ((I->Bpred[2]) * magfac_i + (SPHP(j).BPred[2]) * magfac_j) * dz);
-#else
-                    magfac * I->Bpred[k] *(((I->Bpred[0]) * magfac_i + (SPHP(j).BPred[0] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dx
-                            + ((I->Bpred[1]) * magfac_i + (SPHP(j).BPred[1] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dy
-                            + ((I->Bpred[2]) * magfac_i + (SPHP(j).BPred[2] * pow(1.-SPHP(j).XColdCloud,2.*POW_CC) ) * magfac_j) * dz);
-#endif
-#endif
-#endif /* end MAG FORCE   */
-#ifdef ALFA_OMEGA_DYN // Known Bug
-                    O->DtB[0] += magfac * I->alfaomega * All.Tau_A0 / 3.0 * (dBy * dz - dBy * dy);
-                    O->DtB[1] += magfac * I->alfaomega * All.Tau_A0 / 3.0 * (dBz * dx - dBx * dz);
-                    O->DtB[2] += magfac * I->alfaomega * All.Tau_A0 / 3.0 * (dBx * dy - dBy * dx);
-#endif
-#endif /* end of MAGNETIC */
-
-#ifndef MAGNETIC_SIGNALVEL
                     double vsig = soundspeed_i + soundspeed_j;
-#else
-                    double vsig = magneticspeed_i + magneticspeed_j;
-#endif
 
 
 #ifndef ALTERNATIVE_VISCOUS_TIMESTEP
@@ -926,11 +556,7 @@ static int hydro_evaluate(int target, int mode,
                         double h_ij = 0.5 * (I->Hsml + P[j].Hsml);
                         double mu_ij = fac_mu * h_ij * vdotr2 / (r2 + 0.0001 * h_ij * h_ij);
 #endif
-#ifdef MAGNETIC
-                        vsig -= 1.5 * mu_ij;
-#else
                         vsig -= 3 * mu_ij;
-#endif
 
 
 #ifndef ALTERNATIVE_VISCOUS_TIMESTEP
@@ -1210,32 +836,6 @@ static int hydro_evaluate(int target, int mode,
 #endif
 #endif /* end NAVIERSTOKES */
 
-
-#ifdef MAGNETIC
-#ifdef EULER_DISSIPATION
-                    double alpha_ij_eul = All.ArtMagDispConst;
-
-                    O->DtEulerA +=
-                        alpha_ij_eul * 0.5 * vsig * (I->EulerA -
-                                SPHP(j).EulerA) * magfac_sym * r * I->Density / (rho_ij *
-                                rho_ij);
-                    O->DtEulerB +=
-                        alpha_ij_eul * 0.5 * vsig * (I->EulerB -
-                                SPHP(j).EulerB) * magfac_sym * r * I->Density / (rho_ij *
-                                rho_ij);
-
-                    double dTu_diss_eul = -magfac_sym * alpha_ij_eul * (dBx * dBx + dBy * dBy + dBz * dBz);
-                    O->DtEntropy += dTu_diss_eul * 0.25 * vsig * mu0_1 * r / (rho_ij * rho_ij);
-#endif
-#ifdef MAGNETIC_DISSIPATION
-                    magfac_sym *= vsig * 0.5 * Balpha_ij * r * I->Density / (rho_ij * rho_ij);
-                    O->DtEntropy += dTu_diss_b * 0.25 * vsig * mu0_1 * r / (rho_ij * rho_ij);
-                    O->DtB[0] += magfac_sym * dBx;
-                    O->DtB[1] += magfac_sym * dBy;
-                    O->DtB[2] += magfac_sym * dBz;
-#endif
-#endif
-
 #ifdef WAKEUP
 #error This needs to be prtected by a lock
                     if(vsig > WAKEUP * SPHP(j).MaxSignalVel)
@@ -1359,19 +959,6 @@ static void hydro_post_process(int i) {
         compute_Dpp(i);
 #endif
 
-#if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
-        /* take care of cosmological dilution */
-        if(All.ComovingIntegrationOn) {
-            for(k = 0; k < 3; k++) {
-#ifndef SFR
-                SPHP(i).DtB[k] -= 2.0 * SPHP(i).BPred[k];
-#else
-                SPHP(i).DtB[k] -= 2.0 * SPHP(i).BPred[k] * pow(1.-SPHP(i).XColdCloud,2.*POW_CC);
-#endif
-            }
-        }
-#endif
-
 #ifdef WINDS
         /* if we have winds, we decouple particles briefly if delaytime>0 */
 
@@ -1395,24 +982,6 @@ static void hydro_post_process(int i) {
             }
         }
 #endif
-
-#if VECT_POTENTIAL
-        /*check if SFR cahnge is needed */
-        SPHP(i).DtA[0] +=
-            (SPHP(i).VelPred[1] * SPHP(i).BPred[2] -
-             SPHP(i).VelPred[2] * SPHP(i).BPred[1]) / (All.cf.a * All.cf.a * All.cf.hubble);
-        SPHP(i).DtA[1] +=
-            (SPHP(i).VelPred[2] * SPHP(i).BPred[0] -
-             SPHP(i).VelPred[0] * SPHP(i).BPred[2]) / (All.cf.a * All.cf.a * All.cf.hubble);
-        SPHP(i).DtA[2] +=
-            (SPHP(i).VelPred[0] * SPHP(i).BPred[1] -
-             SPHP(i).VelPred[1] * SPHP(i).BPred[0]) / (All.cf.a * All.cf.a * All.cf.hubble);
-        if(All.ComovingIntegrationOn) {
-            for(k = 0; k < 3; k++)
-                SPHP(i).DtA[k] -= SPHP(i).APred[k];
-        }
-#endif
-
 
 #if defined(HEALPIX)
         r_new = 0;
@@ -1455,103 +1024,6 @@ static void hydro_post_process(int i) {
             + f * All.ViscSource * DMAX(0.0, -SPHP(i).DivVel);
         SPHP(i).Dtalpha /= All.cf.hubble_a2;
 #endif
-#ifdef MAGNETIC
-#ifdef TIME_DEP_MAGN_DISP
-        SPHP(i).DtBalpha = -(SPHP(i).I->Balpha - All.ArtMagDispMin) * All.ArtMagDispTime *
-            0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
-#ifndef ROT_IN_MAG_DIS
-            + All.ArtMagDispSource * fabs(SPHP(i).divB) / sqrt(mu0 * SPHP(i).Density);
-#else
-#ifdef SMOOTH_ROTB
-        + All.ArtMagDispSource / sqrt(mu0 * SPHP(i).Density) *
-            DMAX(fabs(SPHP(i).divB), fabs(sqrt(SPHP(i).SmoothedRotB[0] * SPHP(i).SmoothedRotB[0] +
-                            SPHP(i).SmoothedRotB[1] * SPHP(i).SmoothedRotB[1] +
-                            SPHP(i).SmoothedRotB[2] * SPHP(i).SmoothedRotB[2])));
-#else
-        + All.ArtMagDispSource / sqrt(mu0 * SPHP(i).Density) *
-            DMAX(fabs(SPHP(i).divB), fabs(sqrt(SPHP(i).RotB[0] * SPHP(i).RotB[0] +
-                            SPHP(i).RotB[1] * SPHP(i).RotB[1] +
-                            SPHP(i).RotB[2] * SPHP(i).RotB[2])));
-#endif /* End SMOOTH_ROTB        */
-#endif /* End ROT_IN_MAG_DIS     */
-#endif /* End TIME_DEP_MAGN_DISP */
-
-#ifdef DIVBFORCE3
-        double phiphi = sqrt(pow( SPHP(i).magcorr[0] 	   , 2.)+ pow( SPHP(i).magcorr[1]      ,2.) +pow( SPHP(i).magcorr[2] 	  ,2.));
-        double tmpb =   sqrt(pow( SPHP(i).magacc[0] 	   , 2.)+ pow( SPHP(i).magacc[1]       ,2.) +pow( SPHP(i).magacc[2] 	  ,2.));
-
-        if(phiphi > DIVBFORCE3 * tmpb)
-            for(k = 0; k < 3; k++)
-                SPHP(i).magcorr[k]*= DIVBFORCE3 * tmpb / phiphi;
-
-        for(k = 0; k < 3; k++)
-            SPHP(i).HydroAccel[k]+=(SPHP(i).magacc[k]-SPHP(i).magcorr[k]);
-
-#endif
-
-#ifdef DIVBCLEANING_DEDNER
-        double tmpb = 0.5 * SPHP(i).MaxSignalVel;
-        double phiphi = tmpb * All.DivBcleanHyperbolicSigma * All.cf.a
-#ifdef HEALPIX
-            / ded_heal_fac 
-#endif
-#ifdef SFR 
-            * pow(1.-SPHP(i).XColdCloud,3.*POW_CC)
-#endif
-            * SPHP(i).SmoothDivB;
-#ifdef SMOOTH_PHI
-        phiphi += SPHP(i).SmoothPhi *
-#else
-            phiphi += SPHP(i).I->PhiPred *
-#endif
-#ifdef HEALPIX
-            ded_heal_fac * 
-#endif
-#ifdef SFR 
-            pow(1.-SPHP(i).XColdCloud,POW_CC) *
-#endif
-            All.DivBcleanParabolicSigma / P[i].Hsml;
-
-        if(All.ComovingIntegrationOn)
-            SPHP(i).DtPhi =
-#ifdef SMOOTH_PHI
-                - SPHP(i).SmoothPhi
-#else
-                - SPHP(i).I->PhiPred
-#endif
-#ifdef SFR 
-                * pow(1.-SPHP(i).XColdCloud,POW_CC)
-#endif
-                - ( phiphi * tmpb) / (All.cf.hubble * All.cf.a);	///carefull with the + or not +
-        else
-            SPHP(i).DtPhi = (-phiphi * tmpb);
-
-        SPHP(i).GradPhi[0]*=1/(All.cf.hubble * All.cf.a);
-        SPHP(i).GradPhi[1]*=1/(All.cf.hubble * All.cf.a);
-        SPHP(i).GradPhi[2]*=1/(All.cf.hubble * All.cf.a);
-
-        double phiphi = sqrt(pow( SPHP(i).GradPhi[0] , 2.)+pow( SPHP(i).GradPhi[1]  ,2.)+pow( SPHP(i).GradPhi[2] ,2.));
-        double tmpb   = sqrt(pow( SPHP(i).DtB[0]      ,2.)+pow( SPHP(i).DtB[1]      ,2.)+pow( SPHP(i).DtB[2]     ,2.));
-
-        if(phiphi > All.DivBcleanQ * tmpb){
-            SPHP(i).GradPhi[0]*= All.DivBcleanQ * tmpb / phiphi;
-            SPHP(i).GradPhi[1]*= All.DivBcleanQ * tmpb / phiphi;
-            SPHP(i).GradPhi[2]*= All.DivBcleanQ * tmpb / phiphi;
-        }	
-
-        SPHP(i).e.DtEntropy += mu0 * (SPHP(i).BPred[0] * SPHP(i).GradPhi[0] + SPHP(i).BPred[1] * SPHP(i).GradPhi[1] + SPHP(i).BPred[2] * SPHP(i).GradPhi[2]) 
-#ifdef SFR
-            * pow(1.-SPHP(i).XColdCloud,3.*POW_CC)
-#endif
-            * GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(i).Density, GAMMA_MINUS1));
-
-        SPHP(i).DtB[0]+=SPHP(i).GradPhi[0];
-        SPHP(i).DtB[1]+=SPHP(i).GradPhi[1];
-        SPHP(i).DtB[2]+=SPHP(i).GradPhi[2];
-
-
-#endif /* End DEDNER */
-#endif /* End Magnetic */
 
 #ifdef SPH_BND_PARTICLES
         if(P[i].I->ID == 0)
@@ -1560,14 +1032,6 @@ static void hydro_post_process(int i) {
             SPHP(i).e.DtEntropy = 0;
 #ifdef NS_TIMESTEP
             SPHP(i).ViscEntropyChange = 0;
-#endif
-
-#ifdef DIVBCLEANING_DEDNER
-            SPHP(i).DtPhi = 0;
-#endif
-#if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
-            for(k = 0; k < 3; k++)
-                SPHP(i).DtB[k] = 0;
 #endif
 
             for(k = 0; k < 3; k++)

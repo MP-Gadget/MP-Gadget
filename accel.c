@@ -96,11 +96,6 @@ void compute_accelerations(int mode)
 
         density();		/* computes density, and pressure */
 
-#if (defined(DIVBCLEANING_DEDNER) || defined(SMOOTH_ROTB) || defined(BSMOOTH) || defined(VECT_POTENTIAL))
-        smoothed_values();
-#endif
-
-
 #if defined(SNIA_HEATING)
         snIa_heating();
 #endif

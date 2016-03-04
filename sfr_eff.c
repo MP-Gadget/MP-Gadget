@@ -119,9 +119,6 @@ void cooling_and_starformation(void)
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
         if(P[i].Type != 0) continue;
-#ifdef MAGNETIC
-        SPHP(i).XColdCloud = x;
-#endif
 #ifdef WINDS
         if(SPHP(i).DelayTime > 0) {
             double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
@@ -142,9 +139,6 @@ void cooling_and_starformation(void)
         }
 #endif
 
-#ifdef MAGNETIC
-        x=0.;
-#endif
         /* check whether conditions for star formation are fulfilled.
          *  
          * f=1  normal cooling
@@ -776,14 +770,6 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
         SPHP(i).Injected_BH_Energy = 0;
     }
 #endif
-#ifdef MAGNETICSEED
-    SPHP(i).MagSeed =  egyhot * factorEVP *  1E-2;   // This is the definition of how much energy we will put in MF (we neglect cooling here, we have to check if thios has sense)
-    egyeff-= SPHP(i).MagSeed;                 //Here we also substract that to the feedback
-
-    SPHP(i).MagSeed *= All.UnitMass_in_g / All.UnitEnergy_in_cgs * SPHP(i).Density * (1.-x) * All.cf.a3inv *All.Time ;// * All.cf.a3inv
-#endif
-
-
 
 #if !defined(NOISMPRESSURE)
     SPHP(i).Entropy =

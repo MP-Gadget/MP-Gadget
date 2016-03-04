@@ -251,21 +251,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         All.AlphaMin = all.AlphaMin;
 #endif
 
-#if defined(MAGNETIC_DISSIPATION) || defined(EULER_DISSIPATION)
-        All.ArtMagDispConst = all.ArtMagDispConst;
-#ifdef TIME_DEP_MAGN_DISP
-        All.ArtMagDispMin = all.ArtMagDispMin;
-        All.ArtMagDispSource = all.ArtMagDispSource;
-        All.ArtMagDispTime = all.ArtMagDispTime;
-#endif
-#endif
-
-#ifdef DIVBCLEANING_DEDNER
-        All.DivBcleanParabolicSigma = all.DivBcleanParabolicSigma;
-        All.DivBcleanHyperbolicSigma = all.DivBcleanHyperbolicSigma;
-        All.DivBcleanQ = all.DivBcleanQ;
-#endif
-
 #ifdef DARKENERGY
         All.DarkEnergyParam = all.DarkEnergyParam;
 #endif
@@ -626,12 +611,6 @@ void open_outputfiles(void)
         if(RestartFlag == 0)
         {
             fprintf(FdXXL, "nstep time ");
-#ifdef MAGNETIC
-            fprintf(FdXXL, "<|B|> ");
-#ifdef TRACEDIVB
-            fprintf(FdXXL, "max(divB) ");
-#endif
-#endif
 #ifdef TIME_DEP_ART_VISC
             fprintf(FdXXL, "<alpha> ");
 #endif
@@ -1461,83 +1440,6 @@ void read_parameter_file(char *fname)
         id[nt++] = REAL;
 #endif
 
-#if defined(MAGNETIC_DISSIPATION) || defined(EULER_DISSIPATION)
-        strcpy(tag[nt], "ArtificialMagneticDissipationConstant");
-        addr[nt] = &All.ArtMagDispConst;
-        id[nt++] = REAL;
-
-#ifdef TIME_DEP_MAGN_DISP
-        strcpy(tag[nt], "ArtificialMagneticDissipationMin");
-        addr[nt] = &All.ArtMagDispMin;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "ArtificialMagneticDissipationSource");
-        addr[nt] = &All.ArtMagDispSource;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "ArtificialMagneticDissipationDecaytime");
-        addr[nt] = &All.ArtMagDispTime;
-        id[nt++] = REAL;
-#endif
-#endif
-
-#ifdef DIVBCLEANING_DEDNER
-        strcpy(tag[nt], "DivBcleaningParabolicSigma");
-        addr[nt] = &All.DivBcleanParabolicSigma;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "DivBcleaningHyperbolicSigma");
-        addr[nt] = &All.DivBcleanHyperbolicSigma;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "DivBcleaningQ");
-        addr[nt] = &All.DivBcleanQ;
-        id[nt++] = REAL;
-#endif
-
-#ifdef MAGNETIC
-#ifdef ALFA_OMEGA_DYN
-        strcpy(tag[nt], "TauAlfaOmegaDynamo");
-        addr[nt] = &All.Tau_AO;
-        id[nt++] = REAL;
-#endif
-#ifdef BINISET
-        strcpy(tag[nt], "BiniX");
-        addr[nt] = &All.BiniX;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BiniY");
-        addr[nt] = &All.BiniY;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "BiniZ");
-        addr[nt] = &All.BiniZ;
-        id[nt++] = REAL;
-#endif
-
-#if defined(BSMOOTH) 
-        strcpy(tag[nt], "BSmoothInt");
-        addr[nt] = &All.BSmoothInt;
-        id[nt++] = INT;
-
-        strcpy(tag[nt], "BSmoothFrac");
-        addr[nt] = &All.BSmoothFrac;
-        id[nt++] = REAL;
-
-#ifdef SETMAINTIMESTEPCOUNT
-        strcpy(tag[nt], "MainTimestepCount");
-        addr[nt] = &All.MainTimestepCountIni;
-        id[nt++] = INT;
-#endif
-#endif
-
-#ifdef MAGNETIC_DIFFUSION
-        strcpy(tag[nt], "MagneticEta");
-        addr[nt] = &All.MagneticEta;
-        id[nt++] = REAL;
-#endif
-#endif
-
 #ifdef EOS_DEGENERATE
         strcpy(tag[nt], "EosTable");
         addr[nt] = All.EosTable;
@@ -2176,138 +2078,6 @@ void read_parameter_file(char *fname)
     }
     endrun(0);
 #endif
-#endif
-
-#ifndef EULERPOTENTIALS
-#ifdef EULER_DISSIPATION
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with EULER_DISSIPATION, but not with EULERPOTENTIALS.\n");
-        fprintf(stdout, "This is not sensible.\n");
-    }
-    endrun(0);
-#endif
-#endif
-#if defined(EULER_DISSIPATION) && defined(MAGNETIC_DISSIPATION)
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with EULER_DISSIPATION, and MAGNETIC_DISSIPATION.\n");
-        fprintf(stdout, "This is not sensible.\n");
-    }
-    endrun(0);
-#endif
-
-#ifndef MAGNETIC
-#ifdef TRACEDIVB
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with TRACEDIVB, but not with MAGNETIC.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
-#ifdef DBOUTPUT
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with DBOUTPUT, but not with MAGNETIC.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
-#ifdef MAGFORCE
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with MAGFORCE, but not with MAGNETIC.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
-#ifdef BSMOOTH
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with BSMOOTH, but not with MAGNETIC.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
-#ifdef BFROMROTA
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with BFROMROTA, but not with MAGNETIC.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-
-#ifdef MU0_UNITY
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with MU0_UNITY, but not with MAGNETIC.\n");
-        fprintf(stdout, "This makes no sense.\n");
-    }
-    endrun(0);
-#endif
-
-#ifdef MAGNETIC_DISSIPATION
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with MAGNETIC_DISSIPATION, but not with MAGNETIC.\n");
-        fprintf(stdout, "This makes no sense.\n");
-    }
-    endrun(0);
-#endif
-
-#ifdef TIME_DEP_MAGN_DISP
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with TIME_DEP_MAGN_DISP, but not with MAGNETIC.\n");
-        fprintf(stdout, "This makes no sense.\n");
-    }
-    endrun(0);
-#endif
-
-#ifdef DIVBCLEANING_DEDNER
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with DIVBCLEANING_DEDNER, but not with MAGNETIC.\n");
-        fprintf(stdout, "This makes no sense.\n");
-    }
-    endrun(0);
-#endif
-
-#endif
-
-#if defined(NOWINDTIMESTEPPING) && defined(MAGNETIC)
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with NOWINDTIMESTEPPING and with MAGNETIC.\n");
-        fprintf(stdout, "This is not allowed, as it leads to inconsitent MHD for wind particles.\n");
-    }
-    endrun(0);
-#endif
-
-#ifndef MAGFORCE
-#if defined(DIVBFORCE) || defined(DIVBFORCE3)
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with DIVBFORCE, but not with MAGFORCE.\n");
-        fprintf(stdout, "This is not allowed.\n");
-    }
-    endrun(0);
-#endif
-#endif
-
-#if defined(DIVBFORCE) && defined(DIVBFORCE3)
-    if(ThisTask == 0)
-    {
-        fprintf(stdout, "Code was compiled with DIVBFORCE and with DIVBFORCE3.\n");
-        fprintf(stdout, "This will lead to no correction at all, better stop.\n");
-    }
-    endrun(0);
 #endif
 
 #undef REAL

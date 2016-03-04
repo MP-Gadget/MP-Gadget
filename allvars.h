@@ -541,13 +541,6 @@ extern FILE *FdDE;  /*!< file handle for darkenergy.txt log-file. */
 #ifdef XXLINFO
 extern FILE *FdXXL;		/*!< file handle for xxl.txt log-file. */
 
-#ifdef MAGNETIC
-extern double MeanB;
-
-#ifdef TRACEDIVB
-extern double MaxDivB;
-#endif
-#endif
 #ifdef TIME_DEP_ART_VISC
 extern double MeanAlpha;
 #endif
@@ -923,44 +916,6 @@ extern struct global_data_all_processes
     double Minmass,Maxmass;
 #endif
 
-#ifdef MAGNETIC
-#ifdef	ALFA_OMEGA_DYN
-    double Tau_AO;
-#endif
-#ifdef BINISET
-    double BiniX, BiniY, BiniZ;	/*!< Initial values for B */
-#endif
-
-#if defined(BSMOOTH) 
-    int BSmoothInt;
-    double BSmoothFrac;
-    int MainTimestepCounts;
-#ifdef SETMAINTIMESTEPCOUNT
-    int MainTimestepCountIni;
-#endif
-#endif
-
-#if defined(MAGNETIC_DISSIPATION) || defined(EULER_DISSIPATION)
-    double ArtMagDispConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial magnetic disipation */
-#ifdef TIME_DEP_MAGN_DISP
-    double ArtMagDispMin;
-    double ArtMagDispSource;
-    double ArtMagDispTime;
-#endif
-#endif
-
-#ifdef DIVBCLEANING_DEDNER
-    double DivBcleanParabolicSigma;
-    double DivBcleanHyperbolicSigma;
-    double DivBcleanQ;
-#endif
-
-
-#ifdef MAGNETIC_DIFFUSION
-    double MagneticEta;
-#endif
-#endif
-
 #ifdef BLACK_HOLES
     double TimeNextBlackHoleCheck;
     double TimeBetBlackHoleSearch;
@@ -1311,71 +1266,6 @@ extern struct sph_particle_data
     MyFloat Vbulk[3];	    /*!< Mean velocity inside kernel */
     MyFloat Dpp;			/*!< Reacceleration Coefficient as (Cassano+ '04) */
     int TrueNGB;			/*!< Number of neighbours inside hsml */
-#endif
-
-#ifdef MAGNETIC
-    MyFloat BPred[3];
-#ifdef DIVBFORCE3
-    MyFloat magacc[3];
-    MyFloat magcorr[3];
-#endif
-#ifdef SFR
-    MyFloat XColdCloud;
-#endif
-#ifdef VECT_POTENTIAL
-    MyFloat A[3];
-    MyFloat APred[3];
-    MyFloat SmoothA[3];
-    MyFloat DtA[3];
-    MyFloat dA[6]; //check if needed
-#endif
-#ifdef EULERPOTENTIALS
-    MyFloat EulerA,EulerB;
-    MyFloat dEulerA[3],dEulerB[3];
-#ifdef EULER_DISSIPATION
-    MyFloat DtEulerA,DtEulerB;
-#endif
-#endif
-#if !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL)
-    MyFloat B[3];
-    MyFloat DtB[3];
-#endif
-#if defined(TRACEDIVB) || defined(TIME_DEP_MAGN_DISP)
-    MyFloat divB;
-#endif
-#ifdef VECT_PRO_CLEAN
-    MyFloat BPredVec[3];
-#endif
-#if defined(MAGNETICSEED)
-    MyFloat MagSeed;
-#endif
-#if defined(BSMOOTH) || defined(BFROMROTA) 
-    MyFloat BSmooth[3];
-#endif
-#ifdef TIME_DEP_MAGN_DISP
-    MyFloat Balpha, DtBalpha;
-#endif
-#ifdef DIVBCLEANING_DEDNER
-    MyFloat Phi, PhiPred, DtPhi;
-    MyFloat GradPhi[3];
-#ifdef SMOOTH_PHI
-    MyFloat SmoothPhi;
-#endif
-#endif
-#if defined(DIVBCLEANING_DEDNER) || defined(SCAL_PRO_CLEAN)
-    MyFloat SmoothDivB;
-#endif
-
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(VECT_PRO_CLEAN)
-    MyFloat RotB[3];
-#ifdef SMOOTH_ROTB
-    MyFloat SmoothedRotB[3];
-#endif
-#endif
-
-#endif
-#if (defined(MAGNETIC) && (defined(BSMOOTH) || defined(SMOOTH_ROTB) || defined(DIVBCLEANING_DEDNER) || defined(VECT_POTENTIAL) || defined(MAGNETICSEED)))
-    MyFloat DensityNorm;
 #endif
 
 #ifdef TIME_DEP_ART_VISC

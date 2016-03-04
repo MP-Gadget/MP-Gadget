@@ -226,12 +226,6 @@ void GetMachNumberCR(int target);
 void GetMachNumber(int target);
 void GetShock_DtEnergy( struct sph_particle_data* Particle );
 
-#ifdef MAGNETIC
-#ifdef BFROMROTA
-void rot_a(void);
-void rot_a_evaluate(int i, int mode);
-#endif
-#endif
 size_t sizemax(size_t a, size_t b);
 
 

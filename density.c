@@ -27,19 +27,6 @@ struct densdata_in
 #ifdef WINDS
     MyFloat DelayTime;
 #endif
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-    MyFloat BPred[3];
-#endif
-#ifdef VECT_POTENTIAL
-    MyFloat APred[3];
-    MyFloat rrho;
-#endif
-#ifdef EULERPOTENTIALS
-    MyFloat EulerA, EulerB;
-#endif
-#if defined(MAGNETICSEED)
-    MyFloat MagSeed;
-#endif
     int Type;
 };
 
@@ -65,18 +52,6 @@ struct densdata_out
     int TrueNGB;
 #endif
 
-#ifdef MAGNETIC
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-    MyFloat RotB[3];
-#endif
-#ifdef TRACEDIVB
-    MyFloat divB;
-#endif
-#ifdef VECT_PRO_CLEAN
-    MyFloat BPredVec[3];
-#endif
-#endif
-
 #ifdef RADTRANSFER_FLUXLIMITER
     MyFloat Grad_ngamma[3][N_BINS];
 #endif
@@ -97,10 +72,6 @@ struct densdata_out
 
 #ifdef EULERPOTENTIALS
     MyFloat dEulerA[3], dEulerB[3];
-#endif
-#ifdef VECT_POTENTIAL
-    MyFloat BPred[3];
-    MyFloat dA[6];
 #endif
 #ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
@@ -164,26 +135,6 @@ void density(void)
 
     double tstart, tend;
 
-#if defined(EULERPOTENTIALS) || defined(VECT_PRO_CLEAN) || defined(TRACEDIVB) || defined(VECT_POTENTIAL)
-    double efak;
-
-    if(All.ComovingIntegrationOn)
-        efak = 1. / All.Time / All.HubbleParam;
-    else
-        efak = 1;
-#endif
-
-#if defined(MAGNETICSEED)
-    int count_seed = 0, count_seed_tot=0;
-    double mu0 = 1;
-#ifndef MU0_UNITY
-    mu0 *= (4 * M_PI);
-    mu0 /= All.UnitTime_in_s * All.UnitTime_in_s *
-        All.UnitLength_in_cm / All.UnitMass_in_g;
-    if(All.ComovingIntegrationOn)
-        mu0 /= (All.HubbleParam * All.HubbleParam);
-#endif
-#endif
     walltime_measure("/Misc");
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
@@ -365,30 +316,10 @@ static void density_copy(int place, struct densdata_in * I) {
     I->DensityOld = SPHP(place).DensityOld;
 #endif
 
-#ifdef EULERPOTENTIALS
-    I->EulerA = SPHP(place).EulerA;
-    I->EulerB = SPHP(place).EulerB;
-#endif
-#ifdef VECT_POTENTIAL
-    I->APred[0] = SPHP(place).APred[0];
-    I->APred[1] = SPHP(place).APred[1];
-    I->APred[2] = SPHP(place).APred[2];
-    I->rrho = SPHP(place).Density;
-#endif
-#if defined(MAGNETICSEED)
-    I->MagSeed = SPHP(place).MagSeed;
-#endif
-
-
 #ifdef WINDS
     I->DelayTime = SPHP(place).DelayTime;
 #endif
 
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-    I->BPred[0] = SPHP(place).BPred[0];
-    I->BPred[1] = SPHP(place).BPred[1];
-    I->BPred[2] = SPHP(place).BPred[2];
-#endif
 }
 
 static void density_reduce(int place, struct densdata_out * remote, int mode) {
@@ -445,16 +376,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 #endif
 
 
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-        EV_REDUCE(SPHP(place).RotB[0], remote->RotB[0]);
-        EV_REDUCE(SPHP(place).RotB[1], remote->RotB[1]);
-        EV_REDUCE(SPHP(place).RotB[2], remote->RotB[2]);
-#endif
-
-#ifdef TRACEDIVB
-        EV_REDUCE(SPHP(place).divB, remote->divB);
-#endif
-
 #ifdef JD_VTURB
         EV_REDUCE(SPHP(place).Vturb, remote->Vturb);
         EV_REDUCE(SPHP(place).Vbulk[0], remote->Vbulk[0]);
@@ -463,27 +384,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
         EV_REDUCE(SPHP(place).TrueNGB, remote->TrueNGB);
 #endif
 
-#ifdef VECT_PRO_CLEAN
-        EV_REDUCE(SPHP(place).BPredVec[0], remote->BPredVec[0]);
-        EV_REDUCE(SPHP(place).BPredVec[1], remote->BPredVec[1]);
-        EV_REDUCE(SPHP(place).BPredVec[2], remote->BPredVec[2]);
-#endif
-#ifdef EULERPOTENTIALS
-        EV_REDUCE(SPHP(place).dEulerA[0], remote->dEulerA[0]);
-        EV_REDUCE(SPHP(place).dEulerA[1], remote->dEulerA[1]);
-        EV_REDUCE(SPHP(place).dEulerA[2], remote->dEulerA[2]);
-        EV_REDUCE(SPHP(place).dEulerB[0], remote->dEulerB[0]);
-        EV_REDUCE(SPHP(place).dEulerB[1], remote->dEulerB[1]);
-        EV_REDUCE(SPHP(place).dEulerB[2], remote->dEulerB[2]);
-#endif
-#ifdef VECT_POTENTIAL
-        EV_REDUCE(SPHP(place).dA[5], remote->dA[5]);
-        EV_REDUCE(SPHP(place).dA[4], remote->dA[4]);
-        EV_REDUCE(SPHP(place).dA[3], remote->dA[3]);
-        EV_REDUCE(SPHP(place).dA[2], remote->dA[2]);
-        EV_REDUCE(SPHP(place).dA[1], remote->dA[1]);
-        EV_REDUCE(SPHP(place).dA[0], remote->dA[0]);
-#endif
     }
 
 #if (defined(RADTRANSFER) && defined(EDDINGTON_TENSOR_STARS)) || defined(SNIA_HEATING)
@@ -541,17 +441,6 @@ static int density_evaluate(int target, int mode,
 
 #ifdef BLACK_HOLES
     density_kernel_init(&bh_feedback_kernel, hsearch);
-#endif
-
-#if defined(MAGNETICSEED)
-    double mu0_1 = 1;
-#ifndef MU0_UNITY
-    mu0_1 *= (4 * M_PI);
-    mu0_1 /= All.UnitTime_in_s * All.UnitTime_in_s *
-        All.UnitLength_in_cm / All.UnitMass_in_g;
-    if(All.ComovingIntegrationOn)
-        mu0_1 /= (All.HubbleParam * All.HubbleParam);
-#endif
 #endif
 
     numngb = 0;
@@ -695,63 +584,6 @@ static int density_evaluate(int target, int mode,
                         O->DV[2][0] -= fac * dz * dvx;
                         O->DV[2][1] -= fac * dz * dvy;
                         O->DV[2][2] -= fac * dz * dvz;
-#endif
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS) || defined(TRACEDIVB)
-                        double dbx = I->BPred[0] - SPHP(j).BPred[0];
-                        double dby = I->BPred[1] - SPHP(j).BPred[1];
-                        double dbz = I->BPred[2] - SPHP(j).BPred[2];
-#endif
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-                        O->RotB[0] += (fac * (dz * dby - dy * dbz));
-                        O->RotB[1] += (fac * (dx * dbz - dz * dbx));
-                        O->RotB[2] += (fac * (dy * dbx - dx * dby));
-#endif
-#ifdef VECT_POTENTIAL
-                        O->dA[0] += fac * (I->APred[0] - SPHP(j).APred[0]) * dy;	//dAx/dy
-                        O->dA[1] += fac * (I->APred[0] - SPHP(j).APred[0]) * dz;	//dAx/dz
-                        O->dA[2] += fac * (I->APred[1] - SPHP(j).APred[1]) * dx;	//dAy/dx
-                        O->dA[3] += fac * (I->APred[1] - SPHP(j).APred[1]) * dz;	//dAy/dz
-                        O->dA[4] += fac * (I->APred[2] - SPHP(j).APred[2]) * dx;	//dAz/dx
-                        O->dA[5] += fac * (I->APred[2] - SPHP(j).APred[2]) * dy;	//dAz/dy
-#endif
-#ifdef TRACEDIVB
-                        O->divB += (-fac * (dbx * dx + dby * dy + dbz * dz));
-#endif
-#ifdef MAGNETICSEED
-                        double spin_0=sqrt(I->MagSeed*mu0_1*2.);//energy to B field
-                        spin_0=3./2.*spin_0/(sqrt(I->Vel[0]*I->Vel[0]+I->Vel[1]*I->Vel[1]+I->Vel[2]*I->Vel[2]));//*SPHP(j).Density;
-
-                        if(I->MagSeed)
-                        {
-#error This needs to be prortected by a lock
-                            SPHP(j).BPred[0] += 1./(4.* M_PI * (pow(r,3.))) *
-                                (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dx / r - spin_0 * I->Vel[0]);
-                            SPHP(j).BPred[1] += 1./(4.* M_PI * (pow(r,3.))) *
-                                (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dy / r - spin_0 * I->Vel[1]);
-                            SPHP(j).BPred[2] += 1./(4.* M_PI * (pow(r,3.))) *
-                                (3. *(dx*I->Vel[0] + dy*I->Vel[1] + dz*I->Vel[2]) * spin_0 / r  * dz / r - spin_0 * I->Vel[2]);
-                        };
-#endif
-#ifdef VECT_PRO_CLEAN
-                        O->BPredVec[0] +=
-                            (fac * r2 * (SPHP(j).RotB[1] * dz - SPHP(j).RotB[2] * dy) / SPHP(j).Density);
-                        O->BPredVec[1] +=
-                            (fac * r2 * (SPHP(j).RotB[2] * dx - SPHP(j).RotB[0] * dz) / SPHP(j).Density);
-                        O->BPredVec[2] +=
-                            (fac * r2 * (SPHP(j).RotB[0] * dy - SPHP(j).RotB[1] * dx) / SPHP(j).Density);
-#endif
-#ifdef EULERPOTENTIALS
-                        dea = I->EulerA - SPHP(j).EulerA;
-                        deb = I->EulerB - SPHP(j).EulerB;
-#ifdef EULER_VORTEX
-                        deb = NEAREST_Z(deb);
-#endif
-                        O->dEulerA[0] -= fac * dx * dea;
-                        O->dEulerA[1] -= fac * dy * dea;
-                        O->dEulerA[2] -= fac * dz * dea;
-                        O->dEulerB[0] -= fac * dx * deb;
-                        O->dEulerB[1] -= fac * dy * deb;
-                        O->dEulerB[2] -= fac * dz * deb;
 #endif
                     }
                 }
@@ -927,12 +759,6 @@ static void density_post_process(int i) {
 #endif
 
 
-#if defined(MAGNETIC_DIFFUSION) || defined(ROT_IN_MAG_DIS)
-            SPHP(i).RotB[0] /= SPHP(i).Density;
-            SPHP(i).RotB[1] /= SPHP(i).Density;
-            SPHP(i).RotB[2] /= SPHP(i).Density;
-#endif
-
 #ifdef JD_VTURB
             SPHP(i).Vturb = sqrt(SPHP(i).Vturb / SPHP(i).TrueNGB);
             SPHP(i).Vbulk[0] /= SPHP(i).TrueNGB;
@@ -940,55 +766,6 @@ static void density_post_process(int i) {
             SPHP(i).Vbulk[2] /= SPHP(i).TrueNGB;
 #endif
 
-#ifdef TRACEDIVB
-            SPHP(i).divB /= SPHP(i).Density;
-#endif
-
-#ifdef VECT_PRO_CLEAN
-            SPHP(i).BPred[0] += efak * SPHP(i).BPredVec[0];
-            SPHP(i).BPred[1] += efak * SPHP(i).BPredVec[1];
-            SPHP(i).BPred[2] += efak * SPHP(i).BPredVec[2];
-#endif
-#ifdef EULERPOTENTIALS
-            SPHP(i).dEulerA[0] *= efak / SPHP(i).Density;
-            SPHP(i).dEulerA[1] *= efak / SPHP(i).Density;
-            SPHP(i).dEulerA[2] *= efak / SPHP(i).Density;
-            SPHP(i).dEulerB[0] *= efak / SPHP(i).Density;
-            SPHP(i).dEulerB[1] *= efak / SPHP(i).Density;
-            SPHP(i).dEulerB[2] *= efak / SPHP(i).Density;
-
-            SPHP(i).BPred[0] =
-                SPHP(i).dEulerA[1] * SPHP(i).dEulerB[2] - SPHP(i).dEulerA[2] * SPHP(i).dEulerB[1];
-            SPHP(i).BPred[1] =
-                SPHP(i).dEulerA[2] * SPHP(i).dEulerB[0] - SPHP(i).dEulerA[0] * SPHP(i).dEulerB[2];
-            SPHP(i).BPred[2] =
-                SPHP(i).dEulerA[0] * SPHP(i).dEulerB[1] - SPHP(i).dEulerA[1] * SPHP(i).dEulerB[0];
-#endif
-#ifdef	VECT_POTENTIAL
-            SPHP(i).BPred[0] = (SPHP(i).dA[5] - SPHP(i).dA[3]) / SPHP(i).Density * efak;
-            SPHP(i).BPred[1] = (SPHP(i).dA[1] - SPHP(i).dA[4]) / SPHP(i).Density * efak;
-            SPHP(i).BPred[2] = (SPHP(i).dA[2] - SPHP(i).dA[0]) / SPHP(i).Density * efak;
-
-#endif
-#ifdef MAGNETICSEED
-            if(SPHP(i).MagSeed!=0. )
-            {
-                SPHP(i).MagSeed=sqrt(2.0*mu0*SPHP(i).MagSeed)/ //// *SPHP(i).Density /
-                    sqrt(
-                            SPHP(i).VelPred[2]*SPHP(i).VelPred[2]+
-                            SPHP(i).VelPred[1]*SPHP(i).VelPred[1]+
-                            SPHP(i).VelPred[0]*SPHP(i).VelPred[0]);
-                SPHP(i).BPred[0]+= SPHP(i).VelPred[0]*SPHP(i).MagSeed;
-                SPHP(i).BPred[1]+= SPHP(i).VelPred[1]*SPHP(i).MagSeed;
-                SPHP(i).BPred[2]+= SPHP(i).VelPred[2]*SPHP(i).MagSeed;
-
-                if(ThisTask == 0 && count_seed == 1) printf("MAG  SEED %i and %e\n",count_seed, SPHP(i).MagSeed);
-                if(ThisTask == 0 && count_seed == 1) printf("ONLY SEED %6e %6e %6e\n",SPHP(i).BPred[2],SPHP(i).BPred[1],SPHP(i).BPred[0]);
-                fflush(stdout);
-                SPHP(i).MagSeed=0.;
-                count_seed++;
-            }
-#endif
         }
 
 #ifndef WAKEUP

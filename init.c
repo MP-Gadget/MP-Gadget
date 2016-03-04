@@ -122,13 +122,6 @@ void init(void)
 
     All.TotNumOfForces = 0;
     All.NumForcesSinceLastDomainDecomp = 0;
-#if defined(MAGNETIC) && defined(BSMOOTH)
-#ifdef SETMAINTIMESTEPCOUNT
-    All.MainTimestepCounts = All.MainTimestepCountIni;
-#else
-    All.MainTimestepCounts = 0;
-#endif
-#endif
 
     All.TreeAllocFactor = 0.7;
 
@@ -274,89 +267,6 @@ void init(void)
 
         SPHP(i).HeHII = All.StartHeHII;
 #endif      
-#ifdef MAGNETIC
-#ifdef BINISET
-        if (RestartFlag == 0){ /* Set only when starting from ICs */
-            SPHP(i).BPred[0] = All.BiniX;
-            SPHP(i).BPred[1] = All.BiniY;
-            SPHP(i).BPred[2] = All.BiniZ;
-        }
-#ifdef VECT_POTENTIAL
-        if(All.BiniY == 0 && All.BiniZ == 0)
-        {
-            SPHP(i).APred[0] = 0.;
-            SPHP(i).APred[1] = 0.;
-            SPHP(i).APred[2] = (All.BiniX * P[i].Pos[1]) * atime * All.HubbleParam;
-            SPHP(i).A[0] = SPHP(i).APred[0];
-            SPHP(i).A[1] = SPHP(i).APred[1];
-            SPHP(i).A[2] = SPHP(i).APred[2];
-            SPHP(i).DtA[0] = SPHP(i).DtA[1] = SPHP(i).DtA[2] = 0.;
-        }
-        else
-        {
-            if(ThisTask == 0)
-            {
-                printf("Can not reconstruct VECTOR potentials from Bini values !\n");
-                endrun(6724);
-            }
-        }
-#endif
-#ifdef EULERPOTENTIALS
-        if(All.BiniY == 0 && All.BiniZ == 0)
-        {
-            a0 = 0;
-            a1 = All.BiniX;
-            a2 = 0;
-            b0 = 0;
-            b1 = 1;
-            b2 = 1;
-        }
-        else
-        {
-            if(All.BiniX != 0 && (All.BiniY != 0 || All.BiniZ != 0))
-            {
-                b0 = -(All.BiniZ + All.BiniY) / All.BiniX;
-                b1 = 1;
-                b2 = 1;
-                a0 = 0;
-                a1 = -All.BiniZ / b0;
-                a2 = All.BiniY / b0;
-            }
-            else
-            {
-                a0 = a1 = a2 = b0 = b1 = b2 = 0;
-                if(ThisTask == 0)
-                {
-                    printf("Can not reconstruct Euler potentials from Bini values !\n");
-                    endrun(6723);
-                }
-            }
-        }
-        SPHP(i).EulerA = (a0 * P[i].Pos[0] + a1 * P[i].Pos[1] + a2 * P[i].Pos[2]) * atime * All.HubbleParam;
-        SPHP(i).EulerB = (b0 * P[i].Pos[0] + b1 * P[i].Pos[1] + b2 * P[i].Pos[2]) * atime * All.HubbleParam;
-#endif
-#endif /*BINISET*/
-#ifndef EULERPOTENTIALS
-        for(j = 0; j < 3; j++)
-        {
-#ifndef VECT_POTENTIAL
-            SPHP(i).DtB[j] = 0;
-#endif
-            SPHP(i).B[j] = SPHP(i).BPred[j];
-        }
-#endif
-#ifdef TIME_DEP_MAGN_DISP
-#ifdef HIGH_MAGN_DISP_START
-        SPHP(i).Balpha = All.ArtMagDispConst;
-#else
-        SPHP(i).Balpha = All.ArtMagDispMin;
-#endif
-        SPHP(i).DtBalpha = 0.0;
-#endif
-#ifdef DIVBCLEANING_DEDNER
-        SPHP(i).Phi = SPHP(i).PhiPred = SPHP(i).DtPhi = 0;
-#endif
-#endif
 
 #ifdef TIME_DEP_ART_VISC
 #ifdef HIGH_ART_VISC_START
@@ -799,10 +709,6 @@ void setup_smoothinglengths(void)
 
 
     density();
-#ifdef VECT_POTENTIAL
-    smoothed_values();
-    density();
-#endif
 
 #ifdef DENSITY_INDEPENDENT_SPH
     /* for clean IC with U input only, we need to iterate to find entrpoy */
@@ -882,15 +788,6 @@ void setup_smoothinglengths(void)
         SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
     }
     density();
-#endif
-
-#if defined(MAGNETIC) && defined(BFROMROTA)
-    if(RestartFlag == 0)
-    {
-        if(ThisTask == 0)
-            printf("Converting: Vector Potential -> Bfield\n");
-        rot_a();
-    }
 #endif
 
 }

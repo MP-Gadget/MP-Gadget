@@ -289,24 +289,6 @@ static void real_drift_particle(int i, int time1)
         SPHP(i).Pressure /= All.UnitPressure_in_cgs;
 #endif
 
-#if defined(MAGNETIC) && ( !defined(EULERPOTENTIALS) || !defined(VECT_POTENTIAL))
-#ifdef DIVBCLEANING_DEDNER
-        SPHP(i).PhiPred += SPHP(i).DtPhi * dt_entr;
-
-#endif
-        for(j = 0; j < 3; j++)
-            SPHP(i).BPred[j] += SPHP(i).DtB[j] * dt_entr;
-#endif
-#ifdef EULER_DISSIPATION
-        SPHP(i).EulerA += SPHP(i).DtEulerA * dt_entr;
-        SPHP(i).EulerB += SPHP(i).DtEulerB * dt_entr;
-#endif
-#ifdef VECT_POTENTIAL
-        SPHP(i).APred[0] += SPHP(i).DtA[0] * dt_entr;
-        SPHP(i).APred[1] += SPHP(i).DtA[1] * dt_entr;
-        SPHP(i).APred[2] += SPHP(i).DtA[2] * dt_entr;
-#endif
-
     }
 #endif /* end of HPM */
 
@@ -371,58 +353,3 @@ void do_box_wrapping(void)
 
 
 
-/*
-
-#ifdef XXLINFO
-#ifdef MAGNETIC
-double MeanB_part = 0, MeanB_sum;
-
-#ifdef TRACEDIVB
-double MaxDivB_part = 0, MaxDivB_all;
-#endif
-#endif
-#ifdef TIME_DEP_ART_VISC
-double MeanAlpha_part = 0, MeanAlpha_sum;
-#endif
-#endif
-
-
-
-#ifdef XXLINFO
-if(Flag_FullStep == 1)
-{
-#ifdef MAGNETIC
-MeanB_part += sqrt(SPHP(i).BPred[0] * SPHP(i).BPred[0] +
-SPHP(i).BPred[1] * SPHP(i).BPred[1] + SPHP(i).BPred[2] * SPHP(i).BPred[2]);
-#ifdef TRACEDIVB
-MaxDivB_part = DMAX(MaxDivB, fabs(SPHP(i).divB));
-#endif
-#endif
-#ifdef TIME_DEP_ART_VISC
-MeanAlpha_part += SPHP(i).alpha;
-#endif
-}
-#endif
-
-
-#ifdef XXLINFO
-if(Flag_FullStep == 1)
-{
-#ifdef MAGNETIC
-MPI_Reduce(&MeanB_part, &MeanB_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-if(ThisTask == 0)
-MeanB = MeanB_sum / All.TotN_sph;
-#ifdef TRACEDIVB
-MPI_Reduce(&MaxDivB_part, &MaxDivB_all, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-if(ThisTask == 0)
-MaxDivB = MaxDivB_all;
-#endif
-#endif
-#ifdef TIME_DEP_ART_VISC
-MPI_Reduce(&MeanAlpha_part, &MeanAlpha_sum, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-if(ThisTask == 0)
-MeanAlpha = MeanAlpha_sum / All.TotN_sph;
-#endif
-}
-#endif
-*/

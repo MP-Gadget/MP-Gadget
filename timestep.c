@@ -541,13 +541,6 @@ void advance_and_find_timesteps(void)
             {
                 P[i].Vel[k] += SPHP(i).HydroAccel[k] * dt_hydrokick;
             }
-#if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
-            for(k = 0; k < 3; k++)
-            {
-                SPHP(i).B[k] += SPHP(i).DtB[k] * dt_entr;
-                SPHP(i).BPred[k] = SPHP(i).B[k] - SPHP(i).DtB[k] * dt_entr;
-            }
-#endif
 #if !defined(EOS_DEGENERATE)
             SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
 #else
@@ -637,14 +630,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
 #ifdef PETAPM
             SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
 #endif
-#if defined(MAGNETIC) && !defined(EULERPOTENTIALS) && !defined(VECT_POTENTIAL)
-            SPHP(i).B[j] += SPHP(i).DtB[j] * dt_entr;
-            SPHP(i).BPred[j] = SPHP(i).B[j] - SPHP(i).DtB[j] * dt_entr2;
-#endif
-#ifdef VECT_POTENTIAL
-            SPHP(i).A[j] += SPHP(i).DtA[j] * dt_entr;
-            SPHP(i).APred[j] = SPHP(i).A[j] - SPHP(i).DtA[j] * dt_entr2;
-#endif
         }
 
 #ifdef MAX_GAS_VEL
@@ -664,21 +649,11 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
             }
 #endif
 
-#if defined(MAGNETIC) && defined(DIVBCLEANING_DEDNER)
-        SPHP(i).Phi += SPHP(i).DtPhi * dt_entr;
-        SPHP(i).PhiPred = SPHP(i).Phi - SPHP(i).DtPhi * dt_entr2;
-#endif
 #ifdef TIME_DEP_ART_VISC
         SPHP(i).alpha += SPHP(i).Dtalpha * dt_entr;
         SPHP(i).alpha = DMIN(SPHP(i).alpha, All.ArtBulkViscConst);
         if(SPHP(i).alpha < All.AlphaMin)
             SPHP(i).alpha = All.AlphaMin;
-#endif
-#ifdef TIME_DEP_MAGN_DISP
-        SPHP(i).Balpha += SPHP(i).DtBalpha * dt_entr;
-        SPHP(i).Balpha = DMIN(SPHP(i).Balpha, All.ArtMagDispConst);
-        if(SPHP(i).Balpha < All.ArtMagDispMin)
-            SPHP(i).Balpha = All.ArtMagDispMin;
 #endif
         /* In case of cooling, we prevent that the entropy (and
            hence temperature decreases by more than a factor 0.5 */
