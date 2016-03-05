@@ -711,10 +711,6 @@ extern struct global_data_all_processes
     double WindSpeedFactor;
 #endif
 
-#if defined(SNIA_HEATING)
-    double SnIaHeatingRate;
-#endif
-
 #ifdef TIME_DEP_ART_VISC
     double ViscSource0;		/*!< Given sourceterm in viscosity evolution */
     double DecayLength;		/*!< Number of h for the viscosity decay */
@@ -850,10 +846,6 @@ extern struct particle_data
         MyFloat       NumNgb;
         MyDouble dNumNgb;
     } n;
-
-#ifdef SNIA_HEATING
-    MyFloat DensAroundStar;
-#endif
 
 #ifdef FOF
     int64_t GrNr;

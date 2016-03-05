@@ -683,7 +683,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "MaxRMSDisplacementFac");
         addr[nt] = &All.MaxRMSDisplacementFac;
         id[nt++] = REAL;
-
         strcpy(tag[nt], "ArtBulkViscConst");
         addr[nt] = &All.ArtBulkViscConst;
         id[nt++] = REAL;
@@ -946,12 +945,6 @@ void read_parameter_file(char *fname)
 
         strcpy(tag[nt], "WindFreeTravelDensFac");
         addr[nt] = &All.WindFreeTravelDensFac;
-        id[nt++] = REAL;
-#endif
-
-#if defined(SNIA_HEATING)
-        strcpy(tag[nt], "SnIaHeatingRate");
-        addr[nt] = &All.SnIaHeatingRate;
         id[nt++] = REAL;
 #endif
 

@@ -342,11 +342,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 
     }
 
-#ifdef SNIA_HEATING
-    if(P[place].Type == 4)
-        EV_REDUCE(P[place].DensAroundStar, remote->Rho);
-#endif
-
 #ifdef BLACK_HOLES
     if(P[place].Type == 5)
     {
@@ -594,11 +589,6 @@ static int density_isactive(int n)
         printf("TimeBin negative!\n use DensityIterationDone flag");
         endrun(99999);
     }
-#ifdef SNIA_HEATING
-    if(P[n].Type == 4)
-        return 1;
-#endif
-
 #ifdef BLACK_HOLES
     if(P[n].Type == 5)
         return 1;

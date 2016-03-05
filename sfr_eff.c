@@ -705,11 +705,6 @@ static int make_particle_star(int i) {
 
         /* set ptype */
         P[child].Type = 4;
-
-#ifdef SNIA_HEATING
-        P[child].Hsml = All.SofteningTable[0];
-#endif
-
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
         sum_mass_stars += P[child].Mass;
