@@ -46,11 +46,11 @@ struct hydrodata_in
     int Timestep;
 
 #ifdef PARTICLE_DEBUG
-    MyIDType I->ID;			/*!< particle identifier */
+    MyIDType ID;			/*!< particle identifier */
 #endif
 
 #ifdef TIME_DEP_ART_VISC
-    MyFloat I->alpha;
+    MyFloat alpha;
 #endif
 
 
@@ -237,12 +237,12 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
 #endif
 
 #ifdef TIME_DEP_ART_VISC
-    input->I->alpha = SPHP(place).alpha;
+    input->alpha = SPHP(place).alpha;
 #endif
 
 
 #ifdef PARTICLE_DEBUG
-    input->I->ID = P[place].ID;
+    input->ID = P[place].ID;
 #endif
 
 }
@@ -678,7 +678,7 @@ static void hydro_post_process(int i) {
         double cs_h = sqrt(SPHP(i).dpdr) / P[i].Hsml;
 #endif
         double f = fabs(SPHP(i).DivVel) / (fabs(SPHP(i).DivVel) + SPHP(i).CurlVel + 0.0001 * cs_h / fac_mu);
-        SPHP(i).Dtalpha = -(SPHP(i).I->alpha - All.AlphaMin) * All.DecayTime *
+        SPHP(i).Dtalpha = -(SPHP(i).alpha - All.AlphaMin) * All.DecayTime *
             0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
             + f * All.ViscSource * DMAX(0.0, -SPHP(i).DivVel);
         SPHP(i).Dtalpha /= All.cf.hubble_a2;
