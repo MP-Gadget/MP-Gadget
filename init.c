@@ -11,11 +11,11 @@
 #include "domain.h"
 #include "mpsort/mpsort.h"
 
+static void test_id_uniqueness(void);
+
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
  */
-void test_id_uniqueness(void);
-
 
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
@@ -243,10 +243,7 @@ void init(void)
     }
 #endif
 
-#ifndef NOTEST_FOR_IDUNIQUENESS
     test_id_uniqueness();
-#endif
-
 
     Flag_FullStep = 1;		/* to ensure that Peano-Hilber order is done */
 
@@ -515,7 +512,8 @@ void setup_smoothinglengths(void)
 static void radix_id(const void * data, void * radix, void * arg) {
     ((uint64_t *) radix)[0] = ((MyIDType*) data)[0];
 }
-void test_id_uniqueness(void)
+
+static void test_id_uniqueness(void)
 {
     int i;
     double t0, t1;
@@ -535,7 +533,6 @@ void test_id_uniqueness(void)
 
     t0 = second();
 
-#ifndef SPH_BND_PARTICLES
     ids = (MyIDType *) mymalloc("ids", NumPart * sizeof(MyIDType));
     ids_first = (MyIDType *) mymalloc("ids_first", NTask * sizeof(MyIDType));
 
@@ -564,7 +561,6 @@ void test_id_uniqueness(void)
 
     myfree(ids_first);
     myfree(ids);
-#endif
 
     t1 = second();
 

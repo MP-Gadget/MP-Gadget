@@ -575,15 +575,5 @@ static void hydro_post_process(int i) {
         SPHP(i).Dtalpha /= All.cf.hubble_a2;
 #endif
 
-#ifdef SPH_BND_PARTICLES
-        if(P[i].I->ID == 0)
-        {
-            int k;
-            SPHP(i).e.DtEntropy = 0;
-
-            for(k = 0; k < 3; k++)
-                SPHP(i).HydroAccel[k] = 0;
-        }
-#endif
     }
 }
