@@ -1,23 +1,16 @@
 # vim: set ft=make:
+DESTDIR ?= .
 
-EXEC = P-Gadget3 GENIC/N-GenIC
+TARGETS = P-Gadget3 GENIC/N-GenIC
 
-CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(VPATH)/depends/include -DH5_USE_16_API
+CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(PWD)/depends/include -DH5_USE_16_API
 
 BUNDLEDLIBS = -lmpsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft -lfftw3_mpi -lfftw3_threads -lfftw3 
-LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -L$(VPATH)/depends/lib $(BUNDLEDLIBS)
-
-
-all: depends $(EXEC)
-
-.PHONY: depends
-
-depends:
-	cd $(VPATH)/depends; make
+LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -L$(PWD)/depends/lib $(BUNDLEDLIBS)
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 
-OBJS  =  \
+OBJECTS  =  \
 	 gdbtools.o \
 	 fof.o fofpetaio.o petaio.o \
 	 domain.o allvars.o main.o \
@@ -34,32 +27,45 @@ OBJS  =  \
 	 petapm.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o
 
-INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
-	 fof.h cosmology.h \
-	 petaio.h \
-	 Makefile 
-
-P-Gadget3: $(OBJS)
-	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
-
-ICOBJS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
+ICOBJECTS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
 		 petapm.o \
 		 openmpsort.o \
 		 GENIC/zeldovich.o \
 		GENIC/save2.o  \
 		GENIC/walltime.o
 
-GENIC/N-GenIC: $(ICOBJS)
-	mkdir -p GENIC
+INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
+	 fof.h cosmology.h \
+	 petaio.h \
+	 Makefile 
+
+EXEC = $(TARGETS:%=$(DESTDIR)/%)
+OBJS = $(OBJECTS:%=$(DESTDIR)/%)
+ICOBJS = $(ICOBJECTS:%=$(DESTDIR)/%)
+
+all: depends $(EXEC)
+
+.PHONY: depends
+
+depends:
+	cd $(VPATH)/depends; make
+
+
+$(DESTDIR)/P-Gadget3: $(OBJS)
+	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
+
+$(DESTDIR)/GENIC/N-GenIC: $(ICOBJS)
+	mkdir -p `dirname $@`
 	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
-config.h: Makefile
+$(DESTDIR)/config.h: Makefile
+	mkdir -p `dirname $@`
 	echo "const char * COMPILETIMESETTINGS = \"$(OPTIMIZE) $(OPT)\";" > $@
 
-$(OBJS): $(INCL) config.h 
-$(ICOBJS): $(INCL) config.h 
+$(OBJS): $(INCL) $(DESTDIR)/config.h 
+$(ICOBJS): $(INCL) $(DESTDIR)/config.h 
 
-.c.o: $(INCL)
+$(DESTDIR)/%.o: %.c $(INCL)
 	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
 
 clean:

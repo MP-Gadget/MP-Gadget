@@ -1,8 +1,0 @@
-#Copy this file to Makefile
-# and set SYSTYPE
-#
-SYSTYPE=default
-
-include Makefile.deps
-
-

@@ -1,3 +1,6 @@
+# off-tree build into $(DESTDIR)
+DESTDIR  = build/
+
 CC       =   mpicc
 OPTIMIZE =  -fopenmp -O0 -g
 HDF_INCL = 
