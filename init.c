@@ -13,6 +13,7 @@
 #include "domain.h"
 #include "mpsort.h"
 #include "mymalloc.h"
+#include "fof.h"
 
 static void test_id_uniqueness(void);
 

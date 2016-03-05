@@ -8,6 +8,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "forcetree.h"
+#include "fof.h"
 
 /*! \file accel.c
  *  \brief driver routines to carry out force computation
