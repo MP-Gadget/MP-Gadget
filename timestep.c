@@ -501,10 +501,9 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
     int j;
     MyFloat dv[3];
     double minentropy;
-    double dt_entr, dt_gravkick, dt_hydrokick, dt_gravkick2, dt_hydrokick2, dt_entr2;
+    double dt_entr, dt_gravkick, dt_hydrokick, dt_gravkick2, dt_hydrokick2;
 
     dt_entr = (tend - tstart) * All.Timebase_interval;
-    dt_entr2 = (tend - tcurrent) * All.Timebase_interval;
     dt_gravkick = get_gravkick_factor(tstart, tend);
     dt_hydrokick = get_hydrokick_factor(tstart, tend);
     dt_gravkick2 = get_gravkick_factor(tcurrent, tend);
