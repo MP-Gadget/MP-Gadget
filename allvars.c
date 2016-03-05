@@ -52,9 +52,6 @@ int LastInTimeBin[TIMEBINS];
 int *NextInTimeBin;
 int *PrevInTimeBin;
 
-size_t HighMark_run, HighMark_domain, HighMark_gravtree,
-  HighMark_pmperiodic, HighMark_pmnonperiodic, HighMark_sphdensity, HighMark_sphhydro;
-
 #ifdef SFR
 double TimeBinSfr[TIMEBINS];
 #endif
@@ -68,10 +65,6 @@ double TimeBin_GAS_Injection[TIMEBINS];
 #endif
 
 char DumpFlag = 1;
-
-size_t AllocatedBytes;
-size_t HighMarkBytes;
-size_t FreeBytes;
 
 int Flag_FullStep;		/*!< Flag used to signal that the current step involves all particles */
 

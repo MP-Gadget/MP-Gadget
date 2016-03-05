@@ -296,15 +296,7 @@ extern int RestartFlag;		/*!< taken from command line used to start code. 0 is n
                               marks a restart from a snapshot file. */
 extern int RestartSnapNum;
 
-extern size_t AllocatedBytes;
-extern size_t HighMarkBytes;
-extern size_t FreeBytes;
-
 extern int Flag_FullStep;	/*!< Flag used to signal that the current step involves all particles */
-
-extern size_t HighMark_run,  HighMark_domain, HighMark_gravtree, HighMark_pmperiodic,
-       HighMark_pmnonperiodic,  HighMark_sphdensity, HighMark_sphhydro;
-
 
 extern int GlobFlag;
 
@@ -986,4 +978,5 @@ extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
 
+void endrun(int);
 #endif
