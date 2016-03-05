@@ -405,14 +405,6 @@ extern int eos_calc_egiven_v( double rho, double *xnuc, double *dxnuc, double fa
 extern int eos_calc_tgiven_v( double rho, double *xnuc, double *dxnuc, double fac, double temp, double *e, double *dedt );
 #endif
 
-#if defined(HEALPIX)
-
-void mk_xy2pix(int *x2pix, int *y2pix);
-void vec2pix_nest( const long nside, double *vec, long *ipix);
-void healpix_halo_cond(float *res);
-
-#endif
-
 #ifdef LIGHTCONE
 void lightcone_init();
 void lightcone_cross(int p, double oldpos[3]);

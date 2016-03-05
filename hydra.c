@@ -116,15 +116,6 @@ void hydro_force(void)
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait;
 
-#if defined(HEALPIX)
-    double r_new, t[3];
-    long ipix;
-    int count = 0;
-    int count2 = 0;
-    int total_count = 0;
-    double ded_heal_fac = 0;
-#endif
-
     walltime_measure("/Misc");
 
 #ifdef WAKEUP
@@ -159,28 +150,6 @@ void hydro_force(void)
         hydro_post_process(queue[i]);
 
     myfree(queue);
-
-#if defined(HEALPIX)
-    MPI_Allreduce(&count, &total_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    count = 0;
-    MPI_Allreduce(&count2, &count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    if(total_count > 0)
-    {
-        if(ThisTask == 0)
-            printf(" hey %i (%i) particles where freeezed and limit is %f \n", total_count, count,
-                    (float) All.TotN_sph / 1000.0);
-        if(total_count * 1000.0 > All.TotN_sph)	/*//for normal resolution ~100 */
-        {
-            if(ThisTask == 0)
-                printf(" Next calculation of Healpix\n");
-            healpix_halo_cond(All.healpixmap);
-
-        }
-        total_count = 0;
-        count2 = 0;
-        fflush(stdout);
-    }
-#endif
 
     /* collect some timing information */
 
@@ -635,35 +604,6 @@ static void hydro_post_process(int i) {
                         (SPHP(i).Density * All.cf.a3inv), (1. / 3.));
                 SPHP(i).MaxSignalVel = hsml_c * DMAX((2 * windspeed), SPHP(i).MaxSignalVel);
 #endif
-            }
-        }
-#endif
-
-#if defined(HEALPIX)
-        r_new = 0;
-        ded_heal_fac = 1.;
-        for(k = 0; k < 3; k++)
-        {
-            t[k] = P[i].Pos[k] - SysState.CenterOfMassComp[0][k];
-            r_new = r_new + t[k] * t[k];
-        }
-        r_new = sqrt(r_new);
-        vec2pix_nest((long) All.Nside, t, &ipix);
-        if(r_new > All.healpixmap[ipix] * HEALPIX)
-        {
-            SPHP(i).e.DtEntropy = 0;
-            for(k = 0; k < 3; k++)
-            {
-                SPHP(i).HydroAccel[k] = 0;
-                SPHP(i).VelPred[k] = 0.0;
-                P[i].Vel[k] = 0.0;
-            }
-            ded_heal_fac = 2.;
-            SPHP(i).DivVel = 0.0;
-            count++;
-            if(r_new > All.healpixmap[ipix] * HEALPIX * 1.5)
-            {
-                count2++;
             }
         }
 #endif

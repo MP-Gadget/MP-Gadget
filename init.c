@@ -274,48 +274,6 @@ void init(void)
     All.MaxNumNgbDeviation = MaxNumNgbDeviationMerk;
 #endif
 
-#if defined(HEALPIX)
-
-    compute_global_quantities_of_system();
-
-    //this should be readed in the parameterfile
-    All.Nside = 32;
-    //
-    if(ThisTask == 0)
-        printf(" First calculation of Healpix %i with %i \n", All.Nside, NSIDE2NPIX(All.Nside));
-    // initialize the healpix array (just in case)
-    All.healpixmap = (float *) malloc(NSIDE2NPIX(All.Nside) * sizeof(float));
-    for(i = 0; i < NSIDE2NPIX(All.Nside); i++)
-        All.healpixmap[i] = 0;
-
-    double Minmass, Maxmass;
-
-    All.Maxmass = 0.0;
-    Minmass = 1E10;
-    for(i = 0; i < NumPart; i++)
-    {
-        if(P[i].Type == 1)
-        {
-            if(P[i].Mass != 0.0)
-                Minmass = P[i].Mass < Minmass ? P[i].Mass : Minmass;
-            Maxmass = P[i].Mass > Maxmass ? P[i].Mass : Maxmass;
-        }
-    }
-    All.Minmass = Maxmass;
-
-    if(ThisTask == 0)
-        printf("Pasamos masas: %f // %f \n", Maxmass, Minmass);
-
-    MPI_Allreduce(&Maxmass, &All.Maxmass, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&Minmass, &All.Minmass, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-
-    if(ThisTask == 0)
-        printf("Pasamos masas x 2: %f // %f \n", All.Maxmass, All.Minmass);
-
-    healpix_halo_cond(All.healpixmap);
-
-#endif /* final of general HEALPIX */
-
     /* at this point, the entropy variable actually contains the
      * internal energy, read in from the initial conditions file.
      * Once the density has been computed, we can convert to entropy.

@@ -98,12 +98,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DHIGH_ART_VISC_START        # Start with high rather than low viscosity
 #OPT	+=  -DALTVISCOSITY               # enables alternative viscosity based on div(v)
 
-#....................................... Healpix stuff
-#OPT    +=  -DHEALPIX=1.05		 # Generates a healpix map, to retain particles in the 
-					 # HiRes region. It should be a tolerance value.
-#OPT    +=  -DHEALPIX_INNERBOUND=2
-#OPT    +=  -DHEALPIX_OUTERBOUND=4
-
 #--------------------------------------- Glass making/ 2nd-order initial conditions
 #OPT	+=  -DMAKEGLASS
 

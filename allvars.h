@@ -715,14 +715,6 @@ extern struct global_data_all_processes
     double AlphaMin;		/*!< Minimum of allowed viscosity parameter */
 #endif
 
-#if defined(HEALPIX)
-    //change this to read in the Parameterfile
-    int Nside;
-#define NSIDE2NPIX(nside)  (12*nside*nside)
-    float *healpixmap;
-    double Minmass,Maxmass;
-#endif
-
 #ifdef BLACK_HOLES
     double TimeNextBlackHoleCheck;
     double TimeBetBlackHoleSearch;
