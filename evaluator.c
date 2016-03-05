@@ -119,6 +119,11 @@ static void real_ev(Evaluator * ev) {
 #pragma omp atomic
     ev->Nnodesinlist += lv.Nnodesinlist;
 }
+static int cmpint(const void * c1, const void * c2) {
+    const int* i1=c1;
+    const int* i2=c2;
+    return i1 - i2;
+}
 int * ev_get_queue(Evaluator * ev, int * len) {
     int i;
     int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
@@ -133,6 +138,13 @@ int * ev_get_queue(Evaluator * ev, int * len) {
         {
             if(!ev->ev_isactive(i)) continue;
             queue[k++] = i;
+        }
+        /* check the uniqueness of ActiveParticle list. */
+        qsort(queue, k, sizeof(int), cmpint);
+        for(i = 0; i < k - 1; i ++) {
+            if(queue[i] == queue[i+1]) {
+                endrun(8829);
+            }
         }
     }
     *len = k;
