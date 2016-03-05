@@ -214,12 +214,6 @@ struct unbind_data
 };
 
 
-#ifdef FIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
-extern MPI_Status mpistat;
-#undef MPI_STATUS_IGNORE
-#define MPI_STATUS_IGNORE &mpistat
-#endif
-
 #define HAS(val, flag) ((flag & (val)) == (flag))
 #ifdef BLACK_HOLES
 enum bhfeedbackmethod {

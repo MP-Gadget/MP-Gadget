@@ -26,10 +26,6 @@ int MPI_Sizelimited_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype
 #define MPI_Sendrecv MPI_Sizelimited_Sendrecv
 #endif
 
-#ifdef ASSIGN_NEW_IDS
-void assign_unique_ids(void);
-#endif
-
 int compare_IDs(const void *a, const void *b);
 
 int drift_particle_full(int i, int time1, int blocking);

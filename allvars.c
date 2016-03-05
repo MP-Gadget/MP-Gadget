@@ -19,10 +19,6 @@
 
 MyDouble boxSize, boxHalf, inverse_boxSize;
 
-#ifdef FIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
-MPI_Status mpistat;
-#endif
-
 /*********************************************************/
 /*  Global variables                                     */
 /*********************************************************/

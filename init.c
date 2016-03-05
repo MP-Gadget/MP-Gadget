@@ -243,10 +243,6 @@ void init(void)
     }
 #endif
 
-#ifdef ASSIGN_NEW_IDS
-    assign_unique_ids();
-#endif
-
 #ifndef NOTEST_FOR_IDUNIQUENESS
     test_id_uniqueness();
 #endif
@@ -514,29 +510,6 @@ void setup_smoothinglengths(void)
 
 }
 
-
-void assign_unique_ids(void)
-{
-    int i, *numpartlist;
-    MyIDType idfirst;
-
-    numpartlist = (int *)mymalloc("numpartlist", NTask * sizeof(int));
-
-    MPI_Allgather(&NumPart, 1, MPI_INT, numpartlist, 1, MPI_INT, MPI_COMM_WORLD);
-
-    idfirst = 1;
-
-    for(i = 0; i < ThisTask; i++)
-        idfirst += numpartlist[i];
-
-    for(i = 0; i < NumPart; i++)
-    {
-        P[i].ID = idfirst;
-        idfirst++;
-    }
-
-    myfree(numpartlist);
-}
 
 
 static void radix_id(const void * data, void * radix, void * arg) {
