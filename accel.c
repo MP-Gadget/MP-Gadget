@@ -77,10 +77,6 @@ void compute_accelerations(int mode)
 
         density();		/* computes density, and pressure */
 
-#if defined(SNIA_HEATING)
-        snIa_heating();
-#endif
-
         /***** update smoothing lengths in tree *****/
         force_update_hmax();
 

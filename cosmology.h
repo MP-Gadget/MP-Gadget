@@ -42,13 +42,6 @@
 #define OMEGAK (1-All.Omega0 - All.OmegaLambda)
 
 /*Hubble function at scale factor a, in dimensions of All.Hubble*/
-static inline double hubble_function(double a)
-{
-  double hubble_a;
-  /*Note OMEGAR is defined to be 0 if INCLUDE_RADIATION is not on*/
-  hubble_a = All.Omega0 / (a * a * a) + OMEGAK / (a * a) + OMEGAR/(a*a*a*a) + All.OmegaLambda;
-  hubble_a = All.Hubble * sqrt(hubble_a);
-  return (hubble_a);
-}
+double hubble_function(double a);
 
 #endif

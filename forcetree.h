@@ -50,15 +50,6 @@ void force_flag_localnodes(void);
 void *gravity_primary_loop(void *p);
 void *gravity_secondary_loop(void *p);
 
-
-int force_treeevaluate(int target, int mode, 
-        struct gravitydata_in * input,
-        struct gravitydata_out * output,
-        LocalEvaluator * lv, void * unused);
-int force_treeev_ewald_correction(int target, int mode, 
-        struct gravitydata_in * input,
-        struct gravitydata_out * output,
-        LocalEvaluator * lv, void * unused);
 int force_treeev_shortrange(int target, int mode, 
         struct gravitydata_in * input,
         struct gravitydata_out * output,
@@ -130,7 +121,6 @@ void   ngb_treesearch_notsee(int no);
 
 int ngb_treefind_fof_primary(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
 			    int *nexport, int *nsend_local);
-
 
 enum NgbTreeFindSymmetric {
     NGB_TREEFIND_SYMMETRIC,

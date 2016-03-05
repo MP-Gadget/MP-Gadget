@@ -16,7 +16,6 @@
  */
 
 
-
 /* this is the internal code that looks for particles in the ngb tree from
  * searchcenter upto hsml. if symmetric is NGB_TREE_FIND_SYMMETRIC, then upto
  * max(P[i].Hsml, hsml). 
@@ -162,14 +161,6 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
 }
 
 
-/*! Allocates memory for the neighbour list buffer.
-*/
-void ngb_init(void)
-{
-
-}
-
-
 /*! This function constructs the neighbour tree. To this end, we actually need
  *  to construct the gravitational tree, because we use it now for the
  *  neighbour search.
@@ -193,5 +184,4 @@ void ngb_treebuild(void)
     if(ThisTask == 0)
         printf("Ngb-Tree contruction finished \n");
 }
-
 

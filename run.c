@@ -45,20 +45,13 @@ void run(void)
 #endif
 
 
-        compute_accelerations(0);	/* compute accelerations for 
-                                     * the particles that are to be advanced  
+        compute_accelerations(0);	/* compute accelerations for
+                                     * the particles that are to be advanced
                                      */
-
-#ifdef SINKS
-        do_sinks();
-#endif
 
         /* check whether we want a full energy statistics */
         if((All.Time - All.TimeLastStatistics) >= All.TimeBetStatistics)
         {
-#ifdef COMPUTE_POTENTIAL_ENERGY
-            compute_potential();
-#endif
             energy_statistics();	/* compute and output energy statistics */
 
             All.TimeLastStatistics += All.TimeBetStatistics;
@@ -81,7 +74,6 @@ void run(void)
         report_memory_usage("RUN");
     }
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
-
     restart(0);
 
     savepositions(All.SnapshotFileCount++, 0);
@@ -129,7 +121,7 @@ static int human_interaction() {
             }
             free(line);
             int changed = 0;
-            if(NumFilesPerSnapshot > 0 && 
+            if(NumFilesPerSnapshot > 0 &&
                 NumFilesPerSnapshot != All.NumFilesPerSnapshot) {
                 All.NumFilesPerSnapshot = NumFilesPerSnapshot;
                 changed = 1;
@@ -143,7 +135,7 @@ static int human_interaction() {
                     changed = 1;
                 }
             }
-            if(NumFilesPerPIG > 0 && 
+            if(NumFilesPerPIG > 0 &&
                 NumFilesPerPIG != All.NumFilesPerPIG) {
                 All.NumFilesPerPIG = NumFilesPerPIG;
                 changed = 1;
@@ -433,9 +425,7 @@ int find_next_outputtime(int ti_curr)
             printf("TimeBetSnapshot > 1.0 required for your simulation.\n");
             endrun(13123);
         }
-
-        time = All.TimeBegin * All.TimeBetSnapshot;
-
+        time = All.TimeOfFirstSnapshot;
         iter = 0;
 
         while(time < All.TimeBegin)
@@ -529,7 +519,7 @@ void every_timestep_stuff(void)
     if(ThisTask == 0)
     {
         char buf[1024];
-        
+
         char extra[1024] = {0};
 
         if(All.PM_Ti_endstep == All.Ti_Current)
@@ -539,7 +529,7 @@ void every_timestep_stuff(void)
         sprintf(buf, "\nBegin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
                     All.NumCurrentTiStep, All.Time, z,
                     GlobNumForceUpdate,
-                    All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep), 
+                    All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                     extra);
 
         fprintf(FdInfo, "%s", buf);
@@ -557,7 +547,7 @@ void every_timestep_stuff(void)
                         TimeBinActive[i] ? 'X' : ' ',
                         i,
                         (tot_count[i] - tot_count_sph[i]),
-                        tot_count_sph[i], 
+                        tot_count_sph[i],
                         i > 0 ? (1 << i) * All.Timebase_interval : 0.0);
                 if(TimeBinActive[i])
                 {
@@ -568,7 +558,7 @@ void every_timestep_stuff(void)
         printf("               -----------------------------------\n");
         printf("Total:%014ld %014ld    Sum:%014ld\n",
             (tot - tot_sph),
-            (tot_sph), 
+            (tot_sph),
             (tot));
 
     }

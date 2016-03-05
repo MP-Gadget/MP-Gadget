@@ -93,7 +93,7 @@ int main(int argc, char **argv)
 
 \n
 
-\section install Compilation 
+\section install Compilation
 
 GADGET-2 needs the following non-standard libraries for compilation:
 
@@ -112,7 +112,7 @@ GADGET-2 needs the following non-standard libraries for compilation:
 
 Note that PFFT needs to be compiled with parallel support enabled.
 This can be achieved by passing the option <b>--enable-mpi</b> to the
-configure script. 
+configure script.
 
 Note that if any of the above libraries is not installed in standard
 locations on your system, the \ref Gadget-Makefile "Makefile" provided
@@ -192,7 +192,7 @@ Pure SPH simulations can also be run in periodic boxes whose
 x-dimension is an integer multiple of the dimensions in the y- and
 z-directions. This can be useful for hydrodynamic test calculations,
 e.g. shock tubes in 3D.
- 
+
 Many aspects of these new features are controlled with compile-time
 options in the makefile rather than by the parameterfile. This was
 done in order to allow the generation of highly optimised binaries by
@@ -259,16 +259,6 @@ clean</b>, which will erase all object files, followed by <b>make</b>.
 
 \section secmake2 Options that affect SPH
 
-- \b NOFIXEDMASSINKERNEL \n If set, the number of SPH particles in the
-   kernel is kept constant instead of the mass contained in the
-   kernel.
-
-- \b NOGRADHSML \n If activated, an SPH equation of motion without
-   \f$\nabla h\f$-correction factors is used.  Note, for the default
-   `entropy'-formulation of SPH (Springel and Hernquist, 2002, MNRAS,
-   333, 649), the switches <b>NOFIXEDMASSINKERNEL</b> and
-   <b>NOGRADHSML</b> should <em>not</em> be set.
-
 - \b NOVISCOSITYLIMITER \n If this is set, there is no explicit upper
    limit on the viscosity.  In the default version, this limiter will
    try to protect against possible particle `reflections', which may
@@ -278,15 +268,6 @@ clean</b>, which will erase all object files, followed by <b>make</b>.
 
 \section secmake3 Options for the numerical algorithms
 
-- \b PETAPM \n This enables the TreePM method, i.e. the long-range
-   force is computed with a PM-algorithm, and the short range force
-   with the tree. The parameter has to be set to the size of the mesh
-   that should be used, e.g.~64, 96, 128, etc. The mesh dimensions
-   need not necessarily be a power of two, but the FFT is fastest for
-   such a choice.  Note: If the simulation is not in a periodic box,
-   then a FFT method for vacuum boundaries is employed, using a mesh
-   with dimension twice that specified by <b>PETAPM</b>.
-
 - \b NOTREERND \n If this is not set, the tree construction will
    succeed even when there are a few particles at identical
    locations. This is done by `rerouting' particles once the node-size
@@ -295,56 +276,11 @@ clean</b>, which will erase all object files, followed by <b>make</b>.
    construction will always fail if there are particles at extremely
    close or identical coordinates.
 
-- \b NOSTOP_WHEN_BELOW_MINTIMESTEP \n If this is
-   activated, the code will not terminate when the timestep falls
-   below the value of \b MinSizeTimestep specified in the
-   parameterfile. This is useful for runs where one wants to enforce a
-   constant timestep for all particles. This can be done by activating
-   this option, and by setting \b MinSizeTimestep} and \b
-   MaxSizeTimestep to an equal value.
-
-
-- \b NOPMSTEPADJUSTMENT \n When this is set, the long-range timestep
-   for the PM force computation is always determined by \b
-   MaxSizeTimeStep.  Otherwise, it is set to the minimum of \b
-   MaxSizeTimeStep and the timestep obtained for the maximum
-   long-range force with an effective softening scale equal to the PM
-   smoothing-scale.
-
-
 \section secmake4 Architecture specific options
 
 - \b T3E \n The code assumes that \b sizeof(int)=4 holds. A few
    machines (like Cray T3E) have \b sizeof(int)=8. In this case, set
    the T3E flag.
-
- 
-\section secmake5 Input options
-
-- \b MOREPARAMS \n Activate this to allow a set of additional
-   parameters in the parameterfile which control the star formation
-   and feedback sector. This option must be activated when star
-   formation is switched on.
-
-
-\section secmake6 Output options
-
-- \b OUTPUTPOTENTIAL \n This will force the code to compute
-   gravitational potentials for all particles each time a snapshot
-   file is generated. These values are then included in the snapshot
-   files. Note that the computation of the values of the potential
-   costs additional time.
-
-- \b OUTPUTACCELERATION \n This will include the physical acceleration
-   of each particle in snapshot files.
-
-- \b OUTPUTCHANGEOFENTROPY \n This will include the rate of change of
-   entropy of gas particles in snapshot files.
-
-
-- \b OUTPUTTIMESTEP \n This will include the timesteps actually taken
-   by each particle in the snapshot files.
-
 
 \section secmake7 Miscellaneous options
 
@@ -355,17 +291,5 @@ clean</b>, which will erase all object files, followed by <b>make</b>.
 - \b WALLCLOCK \n If set, a wallclock timer is used by the code to
    measure internal time consumption (see cpu-log file).  Otherwise, a
    timer that measures consumed processor ticks is used.
-
-- \b FORCETEST=0.01 \n This can be set to check the force accuracy of
-   the code, and is only included as a debugging option. The option
-   needs to be set to a number between 0 and 1 (e.g. 0.01), which
-   specifies the fraction of randomly chosen particles for which at
-   each timestep forces by direct summation are computed. The normal
-   tree-forces and the `correct' direct summation forces are then
-   collected in a file \b forcetest.txt for later inspection. Note
-   that the simulation itself is unaffected by this option, but it
-   will of course run much(!)  slower, particularly if <b>
-   FORCETEST*NumPart*NumPart</b> \f$>>\f$ \b NumPart. Note: Particle IDs
-   must be set to numbers \f$>=1\f$ for this option to work.
 
 */

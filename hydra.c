@@ -46,28 +46,13 @@ struct hydrodata_in
     int Timestep;
 
 #ifdef PARTICLE_DEBUG
-    MyIDType I->ID;			/*!< particle identifier */
+    MyIDType ID;			/*!< particle identifier */
 #endif
 
 #ifdef TIME_DEP_ART_VISC
-    MyFloat I->alpha;
+    MyFloat alpha;
 #endif
 
-#if defined(NAVIERSTOKES)
-    MyFloat I->Entropy;
-#endif
-
-
-
-#ifdef NAVIERSTOKES
-    MyFloat I->stressoffdiag[3];
-    MyFloat I->stressdiag[3];
-    MyFloat I->shear_viscosity;
-#endif
-
-#ifdef NAVIERSTOKES_BULK
-    MyFloat I->divvel;
-#endif
 
 #ifdef EOS_DEGENERATE
     MyFloat dpdr;
@@ -79,11 +64,7 @@ struct hydrodata_out
 {
     MyDouble Acc[3];
     MyDouble DtEntropy;
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-    MyFloat MinViscousDt;
-#else
     MyFloat MaxSignalVel;
-#endif
 
 #ifdef HYDRO_COST_FACTOR
     int Ninteractions;
@@ -91,8 +72,8 @@ struct hydrodata_out
 };
 
 
-static int hydro_evaluate(int target, int mode, 
-        struct hydrodata_in * I, 
+static int hydro_evaluate(int target, int mode,
+        struct hydrodata_in * I,
         struct hydrodata_out * O,
         LocalEvaluator * lv, int * ngblist);
 static int hydro_isactive(int n);
@@ -131,19 +112,6 @@ void hydro_force(void)
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait;
 
-#ifdef NAVIERSTOKES
-    double fac;
-#endif
-
-#if defined(HEALPIX)
-    double r_new, t[3];
-    long ipix;
-    int count = 0;
-    int count2 = 0;
-    int total_count = 0;
-    double ded_heal_fac = 0;
-#endif
-
     walltime_measure("/Misc");
 
 #ifdef WAKEUP
@@ -171,35 +139,13 @@ void hydro_force(void)
 
     /* do final operations on results */
 
-    int Nactive; 
+    int Nactive;
     int * queue = ev_get_queue(&ev, &Nactive);
-#pragma omp parallel for if(Nactive > 64) 
+#pragma omp parallel for if(Nactive > 64)
     for(i = 0; i < Nactive; i++)
         hydro_post_process(queue[i]);
 
     myfree(queue);
-
-#if defined(HEALPIX)
-    MPI_Allreduce(&count, &total_count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    count = 0;
-    MPI_Allreduce(&count2, &count, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    if(total_count > 0)
-    {
-        if(ThisTask == 0)
-            printf(" hey %i (%i) particles where freeezed and limit is %f \n", total_count, count,
-                    (float) All.TotN_sph / 1000.0);
-        if(total_count * 1000.0 > All.TotN_sph)	/*//for normal resolution ~100 */
-        {
-            if(ThisTask == 0)
-                printf(" Next calculation of Healpix\n");
-            healpix_halo_cond(All.healpixmap);
-
-        }
-        total_count = 0;
-        count2 = 0;
-        fflush(stdout);
-    }
-#endif
 
     /* collect some timing information */
 
@@ -247,45 +193,21 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
 #else
     soundspeed_i = sqrt(SPHP(place).dpdr);
 #endif
-#ifndef NAVIERSTOKES
     input->F1 = fabs(SPHP(place).DivVel) /
-        (fabs(SPHP(place).DivVel) + SPHP(place).r.CurlVel +
+        (fabs(SPHP(place).DivVel) + SPHP(place).CurlVel +
          0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
-#else
-    input->F1 = fabs(SPHP(place).DivVel) /
-        (fabs(SPHP(place).DivVel) + SPHP(place).u.s.CurlVel +
-         0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
-#endif
 
 #else
     input->F1 = SPHP(place).DivVel;
 #endif
 
-#if defined(NAVIERSTOKES)
-    input->I->Entropy = SPHP(place).Entropy;
-#endif
-
-
 #ifdef TIME_DEP_ART_VISC
-    input->I->alpha = SPHP(place).alpha;
+    input->alpha = SPHP(place).alpha;
 #endif
 
 
 #ifdef PARTICLE_DEBUG
-    input->I->ID = P[place].ID;
-#endif
-
-#ifdef NAVIERSTOKES
-    for(k = 0; k < 3; k++)
-    {
-        input->I->stressdiag[k] = SPHP(i).u.s.StressDiag[k];
-        input->I->stressoffdiag[k] = SPHP(i).u.s.StressOffDiag[k];
-    }
-    input->I->shear_viscosity = get_shear_viscosity(i);
-
-#ifdef NAVIERSTOKES_BULK
-    input->I->divvel = SPHP(i).u.s.DivVel;
-#endif
+    input->ID = P[place].ID;
 #endif
 
 }
@@ -305,13 +227,8 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
     P[place].GravCost += HYDRO_COST_FACTOR * All.cf.a * result->Ninteractions;
 #endif
 
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-    if(mode == 0 || SPHP(place).MinViscousDt > result->MinViscousDt)
-        SPHP(place).MinViscousDt = result->MinViscousDt;
-#else
     if(mode == 0 || SPHP(place).MaxSignalVel < result->MaxSignalVel)
         SPHP(place).MaxSignalVel = result->MaxSignalVel;
-#endif
 
 }
 
@@ -320,13 +237,13 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
  *  particle is specified which may either be local, or reside in the
  *  communication buffer.
  */
-static int hydro_evaluate(int target, int mode, 
-        struct hydrodata_in * I, 
+static int hydro_evaluate(int target, int mode,
+        struct hydrodata_in * I,
         struct hydrodata_out * O,
         LocalEvaluator * lv, int * ngblist)
 {
     int startnode, numngb, listindex = 0;
-    int j, n; 
+    int j, n;
 
     int ninteractions = 0;
     int nnodesinlist = 0;
@@ -365,11 +282,7 @@ static int hydro_evaluate(int target, int mode,
     p_over_rho2_i = I->Pressure / (I->Density * I->Density);
 #endif
 
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-    O->MinViscousDt = 1.0e32;
-#else
     O->MaxSignalVel = soundspeed_i;
-#endif
 
 
     /* Now start the actual SPH computation for this particle */
@@ -379,7 +292,7 @@ static int hydro_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb =
-                ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode, 
+                ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
                         mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1); /* gas only 1 << 0 */
 
             if(numngb < 0)
@@ -442,10 +355,8 @@ static int hydro_evaluate(int target, int mode,
                     double vsig = soundspeed_i + soundspeed_j;
 
 
-#ifndef ALTERNATIVE_VISCOUS_TIMESTEP
                     if(vsig > O->MaxSignalVel)
                         O->MaxSignalVel = vsig;
-#endif
 
                     double visc = 0;
 
@@ -462,24 +373,13 @@ static int hydro_evaluate(int target, int mode,
                         vsig -= 3 * mu_ij;
 
 
-#ifndef ALTERNATIVE_VISCOUS_TIMESTEP
                         if(vsig > O->MaxSignalVel)
                             O->MaxSignalVel = vsig;
-#endif
 
-#ifndef NAVIERSTOKES
                         double f2 =
-                            fabs(SPHP(j).DivVel) / (fabs(SPHP(j).DivVel) + SPHP(j).r.CurlVel +
+                            fabs(SPHP(j).DivVel) / (fabs(SPHP(j).DivVel) + SPHP(j).CurlVel +
                                     0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
-#else
-                        double f2 =
-                            fabs(SPHP(j).DivVel) / (fabs(SPHP(j).DivVel) + SPHP(j).u.s.CurlVel +
-                                    0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
-#endif
 
-#ifdef NO_SHEAR_VISCOSITY_LIMITER
-                        I->F1 = f2 = 1;
-#endif
 #ifdef TIME_DEP_ART_VISC
                         double BulkVisc_ij = 0.5 * (I->alpha + SPHP(j).alpha);
 #else
@@ -511,18 +411,6 @@ static int hydro_evaluate(int target, int mode,
 
                         /* .... end artificial viscosity evaluation */
                         /* now make sure that viscous acceleration is not too large */
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-                        if(visc > 0)
-                        {
-                            dt = fac_vsic_fix * vdotr2 /
-                                (0.5 * (I->Mass + P[j].Mass) * (dwk_i + dwk_j) * r * visc);
-
-                            dt /= All.cf.hubble;
-
-                            if(dt < O->MinViscousDt)
-                                O->MinViscousDt = dt;
-                        }
-#endif
 
 #ifndef NOVISCOSITYLIMITER
                         double dt =
@@ -569,7 +457,7 @@ static int hydro_evaluate(int target, int mode,
                     }
 #else
                     /* Formulation derived from the Lagrangian */
-                    double hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *I->DhsmlDensityFactor * dwk_i 
+                    double hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *I->DhsmlDensityFactor * dwk_i
                             + p_over_rho2_j * SPHP(j).h.DhsmlDensityFactor * dwk_j) / r;
 #endif
 #else
@@ -606,138 +494,6 @@ static int hydro_evaluate(int target, int mode,
                     O->DtEntropy += (0.5 * hfc * vdotr2);
 #endif
 #endif
-
-
-#ifdef NAVIERSTOKES
-                    double faci = I->Mass * I->shear_viscosity / (I->Density * rho) * dwk_i / r;
-                    double facj = P[j].Mass * get_shear_viscosity(j) /
-                        (SPHP(j).Density * SPHP(j).Density) * dwk_j / r;
-
-#ifndef NAVIERSTOKES_CONSTANT
-                    faci *= pow((I->Entropy * pow(I->Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
-                    facj *= pow((SPHP(j).I->Entropy * pow(SPHP(j).Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);	/*multiplied by E^5/2 */
-#endif
-
-#ifdef NAVIERSTOKES_BULK
-                    double facbi = I->Mass * All.NavierStokes_BulkViscosity / (I->Density * rho) * dwk_i / r;
-                    double facbj = P[j].Mass * All.NavierStokes_BulkViscosity /
-                        (SPHP(j).Density * SPHP(j).Density) * dwk_j / r;
-#endif
-
-#ifdef WINDS
-                    if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
-                        if(P[j].Type == 0)
-                            if(SPHP(j).DelayTime > 0)	/* No visc for wind particles */
-                            {
-                                faci = facj = 0;
-#ifdef NAVIERSTOKES_BULK
-                                facbi = facbj = 0;
-#endif
-                            }
-                    }
-#endif
-
-#ifdef VISCOSITY_SATURATION
-                    double IonMeanFreePath_i = All.IonMeanFreePath * pow((I->Entropy * pow(I->Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / rho;	/* u^2/rho */
-
-                    double IonMeanFreePath_j = All.IonMeanFreePath * pow((SPHP(j).I->Entropy * pow(SPHP(j).Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.0) / SPHP(j).Density;	/* u^2/I->Density */
-
-                    double VelLengthScale_i = 0;
-                    double VelLengthScale_j = 0;
-                    for(k = 0; k < 3; k++)
-                    {
-                        if(fabs(I->stressdiag[k]) > 0)
-                        {
-                            VelLengthScale_i = 2 * soundspeed_i / fabs(I->stressdiag[k]);
-
-                            if(VelLengthScale_i < IonMeanFreePath_i && VelLengthScale_i > 0)
-                            {
-                                I->stressdiag[k] = stressdiag[k] * (VelLengthScale_i / IonMeanFreePath_i);
-
-                            }
-                        }
-                        if(fabs(SPHP(j).u.s.StressDiag[k]) > 0)
-                        {
-                            VelLengthScale_j = 2 * soundspeed_j / fabs(SPHP(j).u.s.StressDiag[k]);
-
-                            if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
-                            {
-                                SPHP(j).u.s.StressDiag[k] = SPHP(j).u.s.StressDiag[k] *
-                                    (VelLengthScale_j / IonMeanFreePath_j);
-
-                            }
-                        }
-                        if(fabs(I->stressoffdiag[k]) > 0)
-                        {
-                            VelLengthScale_i = 2 * soundspeed_i / fabs(I->stressoffdiag[k]);
-
-                            if(VelLengthScale_i < IonMeanFreePath_i && VelLengthScale_i > 0)
-                            {
-                                I->stressoffdiag[k] =
-                                    I->stressoffdiag[k] * (VelLengthScale_i / IonMeanFreePath_i);
-                            }
-                        }
-                        if(fabs(SPHP(j).u.s.StressOffDiag[k]) > 0)
-                        {
-                            VelLengthScale_j = 2 * soundspeed_j / fabs(SPHP(j).u.s.StressOffDiag[k]);
-
-                            if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
-                            {
-                                SPHP(j).u.s.StressOffDiag[k] = SPHP(j).u.s.StressOffDiag[k] *
-                                    (VelLengthScale_j / IonMeanFreePath_j);
-                            }
-                        }
-                    }
-#endif
-
-                    /* Acceleration due to the shear viscosity */
-                    O->Acc[0] += faci * (I->stressdiag[0] * dx + I->stressoffdiag[0] * dy + stressoffdiag[1] * dz)
-                        + facj * (SPHP(j).u.s.StressDiag[0] * dx + SPHP(j).u.s.StressOffDiag[0] * dy +
-                                SPHP(j).u.s.StressOffDiag[1] * dz);
-
-                    O->Acc[1] += faci * (I->stressoffdiag[0] * dx + I->stressdiag[1] * dy + stressoffdiag[2] * dz)
-                        + facj * (SPHP(j).u.s.StressOffDiag[0] * dx + SPHP(j).u.s.StressDiag[1] * dy +
-                                SPHP(j).u.s.StressOffDiag[2] * dz);
-
-                    O->Acc[2] += faci * (I->stressoffdiag[1] * dx + stressoffdiag[2] * dy + I->stressdiag[2] * dz)
-                        + facj * (SPHP(j).u.s.StressOffDiag[1] * dx + SPHP(j).u.s.StressOffDiag[2] * dy +
-                                SPHP(j).u.s.StressDiag[2] * dz);
-
-                    /*Acceleration due to the bulk viscosity */
-#ifdef NAVIERSTOKES_BULK
-#ifdef VISCOSITY_SATURATION
-                    VelLengthScale_i = 0;
-                    VelLengthScale_j = 0;
-
-                    if(fabs(I->divvel) > 0)
-                    {
-                        VelLengthScale_i = 3 * soundspeed_i / fabs(I->divvel);
-
-                        if(VelLengthScale_i < IonMeanFreePath_i && VelLengthScale_i > 0)
-                        {
-                            I->divvel = divvel * (VelLengthScale_i / IonMeanFreePath_i);
-                        }
-                    }
-
-                    if(fabs(SPHP(j).u.s.a4.DivVel) > 0)
-                    {
-                        VelLengthScale_j = 3 * soundspeed_j / fabs(SPHP(j).u.s.a4.DivVel);
-
-                        if(VelLengthScale_j < IonMeanFreePath_j && VelLengthScale_j > 0)
-                        {
-                            SPHP(j).u.s.a4.DivVel = SPHP(j).u.s.a4.DivVel *
-                                (VelLengthScale_j / IonMeanFreePath_j);
-
-                        }
-                    }
-#endif
-
-
-                    O->Acc[0] += facbi * I->divvel * dx + facbj * SPHP(j).u.s.a4.DivVel * dx;
-                    O->Acc[1] += facbi * I->divvel * dy + facbj * SPHP(j).u.s.a4.DivVel * dy;
-                    O->Acc[2] += facbi * I->divvel * dz + facbj * SPHP(j).u.s.a4.DivVel * dz;
-#endif
-#endif /* end NAVIERSTOKES */
 
 #ifdef WAKEUP
 #error This needs to be prtected by a lock
@@ -798,58 +554,6 @@ static void hydro_post_process(int i) {
         SPHP(i).DtEntropy *= All.UnitEnergy_in_cgs / All.UnitTime_in_s;
 #endif
 
-#ifdef NAVIERSTOKES
-        /* sigma_ab * sigma_ab */
-        double fac = 0;
-        for(k = 0; k < 3; k++)
-        {
-            fac += SPHP(i).u.s.StressDiag[k] * SPHP(i).u.s.StressDiag[k] +
-                2 * SPHP(i).u.s.StressOffDiag[k] * SPHP(i).u.s.StressOffDiag[k];
-        }
-
-#ifndef NAVIERSTOKES_CONSTANT	/*entropy increase due to the shear viscosity */
-#ifdef NS_TIMESTEP
-        SPHP(i).ViscEntropyChange = 0.5 * GAMMA_MINUS1 /
-            (All.cf.hubble_a2 * pow(SPHP(i).Density, GAMMA_MINUS1)) *
-            get_shear_viscosity(i) / SPHP(i).Density * fac *
-            pow((SPHP(i).I->Entropy * pow(SPHP(i).Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);
-
-        SPHP(i).DtEntropy += SPHP(i).ViscEntropyChange;
-#else
-        SPHP(i).e.DtEntropy += 0.5 * GAMMA_MINUS1 /
-            (All.cf.hubble_a2 * pow(SPHP(i).Density, GAMMA_MINUS1)) *
-            get_shear_viscosity(i) / SPHP(i).Density * fac *
-            pow((SPHP(i).I->Entropy * pow(SPHP(i).Density * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1), 2.5);
-#endif
-
-#else
-        SPHP(i).e.DtEntropy += 0.5 * GAMMA_MINUS1 /
-            (All.cf.hubble_a2 * pow(SPHP(i).Density, GAMMA_MINUS1)) *
-            get_shear_viscosity(i) / SPHP(i).Density * fac;
-
-#ifdef NS_TIMESTEP
-        SPHP(i).ViscEntropyChange = 0.5 * GAMMA_MINUS1 /
-            (All.cf.hubble_a2 * pow(SPHP(i).Density, GAMMA_MINUS1)) *
-            get_shear_viscosity(i) / SPHP(i).Density * fac;
-#endif
-
-#endif
-
-#ifdef NAVIERSTOKES_BULK	/*entropy increase due to the bulk viscosity */
-        SPHP(i).e.DtEntropy += GAMMA_MINUS1 /
-            (All.cf.hubble_a2 * pow(SPHP(i).Density, GAMMA_MINUS1)) *
-            All.NavierStokes_BulkViscosity / SPHP(i).Density * pow(SPHP(i).u.s.a4.DivVel, 2);
-
-#ifdef NS_TIMESTEP
-        SPHP(i).ViscEntropyChange = GAMMA_MINUS1 /
-            (All.cf.hubble_a2 * pow(SPHP(i).Density, GAMMA_MINUS1)) *
-            All.NavierStokes_BulkViscosity / SPHP(i).Density * pow(SPHP(i).u.s.a4.DivVel, 2);
-#endif
-
-#endif
-
-#endif /* these entropy increases directly follow from the general heat transfer equation */
-
 
 #ifdef WINDS
         /* if we have winds, we decouple particles briefly if delaytime>0 */
@@ -875,43 +579,14 @@ static void hydro_post_process(int i) {
         }
 #endif
 
-#if defined(HEALPIX)
-        r_new = 0;
-        ded_heal_fac = 1.;
-        for(k = 0; k < 3; k++)
-        {
-            t[k] = P[i].Pos[k] - SysState.CenterOfMassComp[0][k];
-            r_new = r_new + t[k] * t[k];
-        }
-        r_new = sqrt(r_new);
-        vec2pix_nest((long) All.Nside, t, &ipix);
-        if(r_new > All.healpixmap[ipix] * HEALPIX)
-        {
-            SPHP(i).e.DtEntropy = 0;
-            for(k = 0; k < 3; k++)
-            {
-                SPHP(i).HydroAccel[k] = 0;
-                SPHP(i).VelPred[k] = 0.0;
-                P[i].Vel[k] = 0.0;
-            }
-            ded_heal_fac = 2.;
-            SPHP(i).DivVel = 0.0;
-            count++;
-            if(r_new > All.healpixmap[ipix] * HEALPIX * 1.5)
-            {
-                count2++;
-            }
-        }
-#endif
-
 #ifdef TIME_DEP_ART_VISC
 #if !defined(EOS_DEGENERATE)
         double cs_h = sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).Density) / P[i].Hsml;
 #else
         double cs_h = sqrt(SPHP(i).dpdr) / P[i].Hsml;
 #endif
-        double f = fabs(SPHP(i).DivVel) / (fabs(SPHP(i).DivVel) + SPHP(i).r.CurlVel + 0.0001 * cs_h / fac_mu);
-        SPHP(i).Dtalpha = -(SPHP(i).I->alpha - All.AlphaMin) * All.DecayTime *
+        double f = fabs(SPHP(i).DivVel) / (fabs(SPHP(i).DivVel) + SPHP(i).CurlVel + 0.0001 * cs_h / fac_mu);
+        SPHP(i).Dtalpha = -(SPHP(i).alpha - All.AlphaMin) * All.DecayTime *
             0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
             + f * All.ViscSource * DMAX(0.0, -SPHP(i).DivVel);
         SPHP(i).Dtalpha /= All.cf.hubble_a2;
@@ -922,9 +597,6 @@ static void hydro_post_process(int i) {
         {
             int k;
             SPHP(i).e.DtEntropy = 0;
-#ifdef NS_TIMESTEP
-            SPHP(i).ViscEntropyChange = 0;
-#endif
 
             for(k = 0; k < 3; k++)
                 SPHP(i).HydroAccel[k] = 0;

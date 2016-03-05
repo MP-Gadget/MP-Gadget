@@ -14,6 +14,7 @@
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
  */
+void test_id_uniqueness(void);
 
 
 /*! This function reads the initial conditions, and allocates storage for the
@@ -48,7 +49,7 @@ void init(void)
 
     if(RestartFlag >= 2 && RestartSnapNum >= 0)  {
         petaio_read_snapshot(RestartSnapNum);
-    } else 
+    } else
     if(RestartFlag == 0) {
         petaio_read_ic();
     } else {
@@ -83,12 +84,6 @@ void init(void)
             All.SnapshotFileCount = RestartSnapNum + 1;
     }
 
-#ifdef OUTPUTLINEOFSIGHT
-    All.Ti_nextlineofsight = (int) (log(All.TimeFirstLineOfSight / All.TimeBegin) / All.Timebase_interval);
-    if(RestartFlag == 2)
-        endrun(78787);
-#endif
-
     All.TotNumOfForces = 0;
     All.NumForcesSinceLastDomainDecomp = 0;
 
@@ -110,11 +105,6 @@ void init(void)
         for(j = 0; j < 3; j++) {
             P[i].GravAccel[j] = 0;
         }
-
-#ifdef KEEP_DM_HSML_AS_GUESS
-        if(RestartFlag != 1)
-            P[i].DM_Hsml = -1;
-#endif
 
         for(j = 0; j < 3; j++)
             P[i].GravPM[j] = 0;
@@ -253,10 +243,6 @@ void init(void)
     }
 #endif
 
-#ifdef ASSIGN_NEW_IDS
-    assign_unique_ids();
-#endif
-
 #ifndef NOTEST_FOR_IDUNIQUENESS
     test_id_uniqueness();
 #endif
@@ -284,48 +270,6 @@ void init(void)
 #ifdef START_WITH_EXTRA_NGBDEV
     All.MaxNumNgbDeviation = MaxNumNgbDeviationMerk;
 #endif
-
-#if defined(HEALPIX)
-
-    compute_global_quantities_of_system();
-
-    //this should be readed in the parameterfile
-    All.Nside = 32;
-    //
-    if(ThisTask == 0)
-        printf(" First calculation of Healpix %i with %i \n", All.Nside, NSIDE2NPIX(All.Nside));
-    // initialize the healpix array (just in case)
-    All.healpixmap = (float *) malloc(NSIDE2NPIX(All.Nside) * sizeof(float));
-    for(i = 0; i < NSIDE2NPIX(All.Nside); i++)
-        All.healpixmap[i] = 0;
-
-    double Minmass, Maxmass;
-
-    All.Maxmass = 0.0;
-    Minmass = 1E10;
-    for(i = 0; i < NumPart; i++)
-    {
-        if(P[i].Type == 1)
-        {
-            if(P[i].Mass != 0.0)
-                Minmass = P[i].Mass < Minmass ? P[i].Mass : Minmass;
-            Maxmass = P[i].Mass > Maxmass ? P[i].Mass : Maxmass;
-        }
-    }
-    All.Minmass = Maxmass;
-
-    if(ThisTask == 0)
-        printf("Pasamos masas: %f // %f \n", Maxmass, Minmass);
-
-    MPI_Allreduce(&Maxmass, &All.Maxmass, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&Minmass, &All.Minmass, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-
-    if(ThisTask == 0)
-        printf("Pasamos masas x 2: %f // %f \n", All.Maxmass, All.Minmass);
-
-    healpix_halo_cond(All.healpixmap);
-
-#endif /* final of general HEALPIX */
 
     /* at this point, the entropy variable actually contains the
      * internal energy, read in from the initial conditions file.
@@ -436,8 +380,8 @@ void setup_smoothinglengths(void)
             /* quick hack to adjust for the baryon fraction
              * only this fraction of mass is of that type.
              * this won't work for non-dm non baryon;
-             * ideally each node shall have separate count of 
-             * ptypes of each type. 
+             * ideally each node shall have separate count of
+             * ptypes of each type.
              *
              * Eventually the iteration will fix this. */
             double massfactor;
@@ -460,7 +404,7 @@ void setup_smoothinglengths(void)
 #ifndef TWODIMS
 #ifndef ONEDIM
             P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass), 
+                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass),
                         1.0 / 3) * Nodes[no].len;
 #else
             P[i].Hsml = All.DesNumNgb * (P[i].Mass / (massfactor * Nodes[no].u.d.mass)) * Nodes[no].len;
@@ -501,7 +445,7 @@ void setup_smoothinglengths(void)
         double a3;
         a3 = All.Time * All.Time * All.Time;
 
-        /* initialization of the entropy variable is a little trickier in this version of SPH, 
+        /* initialization of the entropy variable is a little trickier in this version of SPH,
            since we need to make sure it 'talks to' the density appropriately */
 
         if (ThisTask == 0) {
@@ -513,7 +457,7 @@ void setup_smoothinglengths(void)
         double * olddensity = (double *)mymalloc("olddensity ", N_sph * sizeof(double));
         for(j=0;j<100;j++)
         {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
-#pragma omp parallel for 
+#pragma omp parallel for
             for(i = 0; i < N_sph; i++)
             {
                 double entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
@@ -532,7 +476,7 @@ void setup_smoothinglengths(void)
                     double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
                     if(value > mybadness) mybadness = value;
                 }
-#pragma omp critical 
+#pragma omp critical
                 {
                     if(mybadness > badness) {
                         badness = mybadness;
@@ -541,7 +485,7 @@ void setup_smoothinglengths(void)
             }
             MPI_Allreduce(MPI_IN_PLACE, &badness, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 
-            if(ThisTask == 0) 
+            if(ThisTask == 0)
                 printf("iteration %03d, max relative difference = %g \n", j, badness);
 
             if(badness < 1e-3) break;
@@ -554,7 +498,7 @@ void setup_smoothinglengths(void)
         }
     }
 
-    /* snapshot already has Entropy and EgyWtDensity; 
+    /* snapshot already has Entropy and EgyWtDensity;
      * hope it is read in correctly. (need a test
      * on this!) */
     /* regardless we initalize EntVarPred. This may be unnecessary*/
@@ -566,29 +510,6 @@ void setup_smoothinglengths(void)
 
 }
 
-
-void assign_unique_ids(void)
-{
-    int i, *numpartlist;
-    MyIDType idfirst;
-
-    numpartlist = (int *)mymalloc("numpartlist", NTask * sizeof(int));
-
-    MPI_Allgather(&NumPart, 1, MPI_INT, numpartlist, 1, MPI_INT, MPI_COMM_WORLD);
-
-    idfirst = 1;
-
-    for(i = 0; i < ThisTask; i++)
-        idfirst += numpartlist[i];
-
-    for(i = 0; i < NumPart; i++)
-    {
-        P[i].ID = idfirst;
-        idfirst++;
-    }
-
-    myfree(numpartlist);
-}
 
 
 static void radix_id(const void * data, void * radix, void * arg) {
@@ -652,15 +573,4 @@ void test_id_uniqueness(void)
         printf("success.  took=%g sec\n", timediff(t0, t1));
         fflush(stdout);
     }
-}
-
-int compare_IDs(const void *a, const void *b)
-{
-    if(*((MyIDType *) a) < *((MyIDType *) b))
-        return -1;
-
-    if(*((MyIDType *) a) > *((MyIDType *) b))
-        return +1;
-
-    return 0;
 }

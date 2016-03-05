@@ -40,11 +40,7 @@ struct densdata_out
     MyDouble Rho;
     MyDouble DhsmlDensity;
     MyDouble Ngb;
-#ifndef NAVIERSTOKES
     MyDouble Div, Rot[3];
-#else
-    MyFloat DV[3][3];
-#endif
 
 #ifdef BLACK_HOLES
     MyDouble SmoothedEntOrPressure;
@@ -60,9 +56,6 @@ struct densdata_out
     MyFloat DensityStd;
 #endif
 
-#ifdef EULERPOTENTIALS
-    MyFloat dEulerA[3], dEulerB[3];
-#endif
 #ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
 #endif
@@ -105,7 +98,7 @@ void density(void)
     MyFloat *Left, *Right;
 
     Evaluator ev = {0};
-   
+
     ev.ev_label = "DENSITY";
     ev.ev_evaluate = (ev_ev_func) density_evaluate;
     ev.ev_isactive = density_isactive;
@@ -135,14 +128,14 @@ void density(void)
     int Nactive;
     int * queue;
 
-    /* this has to be done before get_queue so that 
+    /* this has to be done before get_queue so that
      * all particles are return for the first loop over all active particles.
      * */
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
         P[i].DensityIterationDone = 0;
     }
-    
+
     /* the queue has every particle. Later on after some iterations are done
      * Nactive will decrease -- the queue would be shorter.*/
     queue = ev_get_queue(&ev, &Nactive);
@@ -171,7 +164,7 @@ void density(void)
         tstart = second();
 
         queue = ev_get_queue(&ev, &Nactive);
-        
+
         npleft = 0;
 #pragma omp parallel for if(Nactive > 32)
         for(i = 0; i < Nactive; i++) {
@@ -216,7 +209,7 @@ void density(void)
                         fflush(stdout);
                     }
                 }
-            
+
             }
             */
 
@@ -260,7 +253,7 @@ double density_decide_hsearch(int targettype, double h) {
 #ifdef BLACK_HOLES
     if(targettype == 5 && All.BlackHoleFeedbackRadius > 0) {
         /* BlackHoleFeedbackRadius is in comoving.
-         * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys 
+         * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys
          * just like how it was done for grav smoothing.
          * */
         double rds;
@@ -316,7 +309,7 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
     EV_REDUCE(P[place].n.dNumNgb, remote->Ngb);
 
     if(remote->ID != P[place].ID) {
-        BREAKPOINT; 
+        BREAKPOINT;
     }
 #ifdef HYDRO_COST_FACTOR
     /* these will be added */
@@ -332,19 +325,10 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
         EV_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
 #endif
 
-#ifndef NAVIERSTOKES
         EV_REDUCE(SPHP(place).DivVel, remote->Div);
-        EV_REDUCE(SPHP(place).r.Rot[0], remote->Rot[0]);
-        EV_REDUCE(SPHP(place).r.Rot[1], remote->Rot[1]);
-        EV_REDUCE(SPHP(place).r.Rot[2], remote->Rot[2]);
-#else
-        for(k = 0; k < 3; k++)
-        {
-            EV_REDUCE(SPHP(place).u.DV[k][0], remote->DV[k][0]);
-            EV_REDUCE(SPHP(place).u.DV[k][1], remote->DV[k][1]);
-            EV_REDUCE(SPHP(place).u.DV[k][2], remote->DV[k][2]);
-        }
-#endif
+        EV_REDUCE(SPHP(place).Rot[0], remote->Rot[0]);
+        EV_REDUCE(SPHP(place).Rot[1], remote->Rot[1]);
+        EV_REDUCE(SPHP(place).Rot[2], remote->Rot[2]);
 
 #ifdef VOLUME_CORRECTION
         EV_REDUCE(SPHP(place).DensityStd, remote->DensityStd);
@@ -357,11 +341,6 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 #endif
 
     }
-
-#ifdef SNIA_HEATING
-    if(P[place].Type == 4)
-        EV_REDUCE(P[place].DensAroundStar, remote->Rho);
-#endif
 
 #ifdef BLACK_HOLES
     if(P[place].Type == 5)
@@ -381,9 +360,9 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
  *  target particle may either be local, or reside in the communication
  *  buffer.
  */
-static int density_evaluate(int target, int mode, 
-        struct densdata_in * I, 
-        struct densdata_out * O, 
+static int density_evaluate(int target, int mode,
+        struct densdata_in * I,
+        struct densdata_out * O,
         LocalEvaluator * lv, int * ngblist)
 {
     int n;
@@ -422,7 +401,7 @@ static int density_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb_inbox =
-                ngb_treefind_threads(I->Pos, hsearch, target, &startnode, 
+                ngb_treefind_threads(I->Pos, hsearch, target, &startnode,
                         mode, lv, ngblist, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
 
             if(numngb_inbox < 0)
@@ -518,23 +497,11 @@ static int density_evaluate(int target, int mode,
                         double dvy = I->Vel[1] - SPHP(j).VelPred[1];
                         double dvz = I->Vel[2] - SPHP(j).VelPred[2];
 
-#ifndef NAVIERSTOKES
                         O->Div += (-fac * (dx * dvx + dy * dvy + dz * dvz));
 
                         O->Rot[0] += (fac * (dz * dvy - dy * dvz));
                         O->Rot[1] += (fac * (dx * dvz - dz * dvx));
                         O->Rot[2] += (fac * (dy * dvx - dx * dvy));
-#else
-                        O->DV[0][0] -= fac * dx * dvx;
-                        O->DV[0][1] -= fac * dx * dvy;
-                        O->DV[0][2] -= fac * dx * dvz;
-                        O->DV[1][0] -= fac * dy * dvx;
-                        O->DV[1][1] -= fac * dy * dvy;
-                        O->DV[1][2] -= fac * dy * dvz;
-                        O->DV[2][0] -= fac * dz * dvx;
-                        O->DV[2][1] -= fac * dz * dvy;
-                        O->DV[2][2] -= fac * dz * dvz;
-#endif
                     }
                 }
 #ifdef BLACK_HOLES
@@ -556,7 +523,7 @@ static int density_evaluate(int target, int mode,
                         GetParticleUVBG(j, &uvbg);
 #pragma omp critical (_abundance_)
                         AbundanceRatios(DMAX(All.MinEgySpec,
-                                    SPHP(j).Entropy / GAMMA_MINUS1 
+                                    SPHP(j).Entropy / GAMMA_MINUS1
                                     * pow(SPHP(j).EOMDensity * All.cf.a3inv,
                                         GAMMA_MINUS1)),
                                 SPHP(j).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
@@ -573,7 +540,7 @@ static int density_evaluate(int target, int mode,
                         }
                         if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
                             double u = r * bh_feedback_kernel.Hinv;
-                            O->FeedbackWeightSum += (mass_j * 
+                            O->FeedbackWeightSum += (mass_j *
                                   density_kernel_wk(&bh_feedback_kernel, u)
                                    );
                         } else {
@@ -622,11 +589,6 @@ static int density_isactive(int n)
         printf("TimeBin negative!\n use DensityIterationDone flag");
         endrun(99999);
     }
-#ifdef SNIA_HEATING
-    if(P[n].Type == 4)
-        return 1;
-#endif
-
 #ifdef BLACK_HOLES
     if(P[n].Type == 5)
         return 1;
@@ -660,44 +622,17 @@ static void density_post_process(int i) {
                 SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
                 SPHP(i).EgyWtDensity /= SPHP(i).EntVarPred;
             } else {
-                SPHP(i).DhsmlEgyDensityFactor=0; 
-                SPHP(i).EntVarPred=0; 
+                SPHP(i).DhsmlEgyDensityFactor=0;
+                SPHP(i).EntVarPred=0;
                 SPHP(i).EgyWtDensity=0;
             }
 #endif
 
-#ifndef NAVIERSTOKES
-            SPHP(i).r.CurlVel = sqrt(SPHP(i).r.Rot[0] * SPHP(i).r.Rot[0] +
-                    SPHP(i).r.Rot[1] * SPHP(i).r.Rot[1] +
-                    SPHP(i).r.Rot[2] * SPHP(i).r.Rot[2]) / SPHP(i).Density;
+            SPHP(i).CurlVel = sqrt(SPHP(i).Rot[0] * SPHP(i).Rot[0] +
+                    SPHP(i).Rot[1] * SPHP(i).Rot[1] +
+                    SPHP(i).Rot[2] * SPHP(i).Rot[2]) / SPHP(i).Density;
 
             SPHP(i).DivVel /= SPHP(i).Density;
-#else
-            for(k = 0; k < 3; k++)
-            {
-                O->DV[k][0] = SPHP(i).u.DV[k][0] / SPHP(i).Density;
-                O->DV[k][1] = SPHP(i).u.DV[k][1] / SPHP(i).Density;
-                O->DV[k][2] = SPHP(i).u.DV[k][2] / SPHP(i).Density;
-            }
-            SPHP(i).u.s.DivVel = O->DV[0][0] + O->DV[1][1] + O->DV[2][2];
-
-            SPHP(i).u.s.StressDiag[0] = 2 * O->DV[0][0] - 2.0 / 3 * SPHP(i).u.s.DivVel;
-            SPHP(i).u.s.StressDiag[1] = 2 * O->DV[1][1] - 2.0 / 3 * SPHP(i).u.s.DivVel;
-            SPHP(i).u.s.StressDiag[2] = 2 * O->DV[2][2] - 2.0 / 3 * SPHP(i).u.s.DivVel;
-
-            SPHP(i).u.s.StressOffDiag[0] = O->DV[0][1] + O->DV[1][0];	/* xy */
-            SPHP(i).u.s.StressOffDiag[1] = O->DV[0][2] + O->DV[2][0];	/* xz */
-            SPHP(i).u.s.StressOffDiag[2] = O->DV[1][2] + O->DV[2][1];	/* yz */
-
-#ifdef NAVIERSTOKES_BULK
-            SPHP(i).u.s.StressBulk = All.NavierStokes_BulkViscosity * SPHP(i).u.s.DivVel;
-#endif
-            double rotx = O->DV[1][2] - O->DV[2][1];
-            double roty = O->DV[2][0] - O->DV[0][2];
-            double rotz = O->DV[0][1] - O->DV[1][0];
-            SPHP(i).u.s.CurlVel = sqrt(rotx * rotx + roty * roty + rotz * rotz);
-#endif
-
 
         }
 
@@ -793,7 +728,7 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
         /* need to redo this particle */
         if(P[i].DensityIterationDone) {
             /* should have been 0*/
-            endrun(999993); 
+            endrun(999993);
         }
 
         if(Left[i] > 0 && Right[i] > 0)
@@ -877,11 +812,4 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
     }
 
 }
-
-#ifdef NAVIERSTOKES
-double get_shear_viscosity(int i)
-{
-    return All.NavierStokes_ShearViscosity;
-}
-#endif
 

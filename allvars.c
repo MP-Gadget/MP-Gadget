@@ -19,10 +19,6 @@
 
 MyDouble boxSize, boxHalf, inverse_boxSize;
 
-#ifdef FIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
-MPI_Status mpistat;
-#endif
-
 /*********************************************************/
 /*  Global variables                                     */
 /*********************************************************/
@@ -92,10 +88,6 @@ int GlobFlag;
 int NumPart;			/*!< total number of particles on the LOCAL processor */
 int N_sph;			/*!< number of gas particles on the LOCAL processor  */
 int N_bh;			/*!< number of bh particles on the LOCAL processor  */
-
-#ifdef SINKS
-int NumSinks;
-#endif
 
 int64_t Ntype[6];		/*!< total number of particles of each type */
 int NtypeLocal[6];		/*!< local number of particles of each type */

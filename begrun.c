@@ -112,12 +112,12 @@ void begrun(void)
     {
         all = All;		/* save global variables. (will be read from restart file) */
 
-        restart(RestartFlag);	/* ... read restart file. Note: This also resets 
-                                   all variables in the struct `All'. 
+        restart(RestartFlag);	/* ... read restart file. Note: This also resets
+                                   all variables in the struct `All'.
                                    However, during the run, some variables in the parameter
-                                   file are allowed to be changed, if desired. These need to 
+                                   file are allowed to be changed, if desired. These need to
                                    copied in the way below.
-Note:  All.PartAllocFactor is treated in restart() separately.  
+Note:  All.PartAllocFactor is treated in restart() separately.
 */
 
 #ifdef _OPENMP
@@ -265,72 +265,6 @@ void set_units(void)
 #if defined(SFR)
     set_units_sfr();
 #endif
-
-
-#define cm (All.HubbleParam/All.UnitLength_in_cm)
-#define g  (All.HubbleParam/All.UnitMass_in_g)
-#define s  (All.HubbleParam/All.UnitTime_in_s)
-#define erg (g*cm*cm/(s*s))
-#define keV (1.602e-9*erg)
-#define deg 1.0
-#define m_p (PROTONMASS * g)
-#define k_B (BOLTZMANN * erg / deg)
-
-#ifdef NAVIERSTOKES
-    /* Braginskii-Spitzer shear viscosity parametrization */
-    /* mu = 0.406 * m_p^0.5 * (k_b* T)^(5/2) / e^4 / logLambda  [g/cm/s] */
-    /* eta = frac * mu */
-
-    meanweight = 4.0 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* assuming full ionization */
-
-#ifdef NAVIERSTOKES_CONSTANT
-    All.NavierStokes_ShearViscosity = All.FractionSpitzerViscosity * 0.406 * pow(PROTONMASS, 0.5) * pow(BOLTZMANN * All.ShearViscosityTemperature, 5. / 2.) / pow(ELECTRONCHARGE, 4) / LOG_LAMBDA;	/*in cgs units */
-
-    if(ThisTask == 0)
-        printf("Constant shear viscosity in cgs units: eta = %g\n", All.NavierStokes_ShearViscosity);
-
-    All.NavierStokes_ShearViscosity *= All.UnitTime_in_s * All.UnitLength_in_cm / All.UnitMass_in_g / All.HubbleParam;	/* in internal code units */
-
-    if(ThisTask == 0)
-        printf("Constant shear viscosity in internal code units: eta = %g\n", All.NavierStokes_ShearViscosity);
-
-#else
-    All.NavierStokes_ShearViscosity = All.FractionSpitzerViscosity * 0.406 * pow(PROTONMASS, 0.5) * pow((meanweight * PROTONMASS * GAMMA_MINUS1), 5. / 2.) / pow(ELECTRONCHARGE, 4) / LOG_LAMBDA;	/*in cgs units */
-    /*T = mu*m_p*(gamma-1)/k_b * E * UnitEnergy/UnitMass */
-
-    All.NavierStokes_ShearViscosity *= pow((All.UnitEnergy_in_cgs / All.UnitMass_in_g), 5. / 2.);	/* now energy can be multiplied later in the internal code units */
-    All.NavierStokes_ShearViscosity *= All.UnitTime_in_s * All.UnitLength_in_cm / All.UnitMass_in_g / All.HubbleParam;	/* in internal code units */
-
-    if(ThisTask == 0)
-        printf("Variable shear viscosity in internal code units: eta = %g\n", All.NavierStokes_ShearViscosity);
-
-#endif
-
-#ifdef NAVIERSTOKES_BULK
-    if(ThisTask == 0)
-        printf("Costant bulk viscosity in internal code units: zeta = %g\n", All.NavierStokes_BulkViscosity);
-#endif
-
-#ifdef VISCOSITY_SATURATION
-    /* calculate ion mean free path assuming complete ionization: 
-       ion mean free path for hydrogen is similar to that of helium, 
-       thus we calculate only for hydrogen */
-    /* l_i = 3^(3/2)*(k*T)^2 / (4*\pi^(1/2)*ni*(Z*e)^4*lnL) */
-
-    All.IonMeanFreePath = pow(3.0, 1.5) / (4.0 * sqrt(M_PI) * pow(ELECTRONCHARGE, 4) * LOG_LAMBDA);
-
-    All.IonMeanFreePath *= pow(meanweight * PROTONMASS * GAMMA_MINUS1, 2) * pow((All.UnitEnergy_in_cgs / All.UnitMass_in_g), 2);	/*kT -> u */
-
-    All.IonMeanFreePath /= (HYDROGEN_MASSFRAC / PROTONMASS) *
-        (All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam);
-    /* n_H = rho * Hfr / mp *//* now is cgs units *///changed / to * in front of the unitdensity
-
-    All.IonMeanFreePath *= All.HubbleParam / All.UnitLength_in_cm;
-    /* in internal code units */
-#endif
-
-#endif
-
 }
 
 
@@ -482,7 +416,7 @@ static int parse_multichoice(struct multichoice * table, char * strchoices) {
         }
         if(p->name == NULL) {
             /* error occured !*/
-            return 0; 
+            return 0;
         }
     }
     if(value == 0) {
@@ -515,7 +449,7 @@ struct multichoice BlackHoleFeedbackMethodChoices [] = {
     {"spline", BH_FEEDBACK_SPLINE},
     {NULL, BH_FEEDBACK_SPLINE | BH_FEEDBACK_MASS},
 };
-#endif 
+#endif
 #ifdef SFR
 struct multichoice StarformationCriterionChoices [] = {
     {"density", SFR_CRITERION_DENSITY},
@@ -749,7 +683,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "MaxRMSDisplacementFac");
         addr[nt] = &All.MaxRMSDisplacementFac;
         id[nt++] = REAL;
-
         strcpy(tag[nt], "ArtBulkViscConst");
         addr[nt] = &All.ArtBulkViscConst;
         id[nt++] = REAL;
@@ -895,44 +828,10 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.MinGasTemp;
         id[nt++] = REAL;
 
-#ifdef OUTPUTLINEOFSIGHT
-        strcpy(tag[nt], "TimeFirstLineOfSight");
-        addr[nt] = &All.TimeFirstLineOfSight;
-        id[nt++] = REAL;
-#endif
-
-
 #if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
         strcpy(tag[nt], "ReferenceGasMass");
         addr[nt] = &All.ReferenceGasMass;
         id[nt++] = REAL;
-#endif
-
-#ifdef NAVIERSTOKES
-        strcpy(tag[nt], "FractionSpitzerViscosity");
-        addr[nt] = &All.FractionSpitzerViscosity;
-        id[nt++] = REAL;
-#endif
-
-#ifdef NAVIERSTOKES_CONSTANT
-        strcpy(tag[nt], "ShearViscosityTemperature");
-        addr[nt] = &All.ShearViscosityTemperature;
-        id[nt++] = REAL;
-#endif
-
-#ifdef NAVIERSTOKES_BULK
-        strcpy(tag[nt], "NavierStokes_BulkViscosity");
-        addr[nt] = &All.NavierStokes_BulkViscosity;
-        id[nt++] = REAL;
-#endif
-
-#ifdef FOF
-        strcpy(tag[nt], "FOFHaloLinkingLength");
-        addr[nt] = &All.FOFHaloLinkingLength;
-        id[nt++] = REAL;
-        strcpy(tag[nt], "FOFHaloMinLength");
-        addr[nt] = &All.FOFHaloMinLength;
-        id[nt++] = INT;
 #endif
 
 #ifdef BLACK_HOLES
@@ -989,7 +888,7 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.StarformationCriterion;
         choices[nt] = StarformationCriterionChoices;
         id[nt++] = MULTICHOICE;
-          
+
         strcpy(tag[nt], "CritOverDensity");
         addr[nt] = &All.CritOverDensity;
         id[nt++] = REAL;
@@ -1049,12 +948,6 @@ void read_parameter_file(char *fname)
         id[nt++] = REAL;
 #endif
 
-#if defined(SNIA_HEATING)
-        strcpy(tag[nt], "SnIaHeatingRate");
-        addr[nt] = &All.SnIaHeatingRate;
-        id[nt++] = REAL;
-#endif
-
 #ifdef SOFTEREQS
         strcpy(tag[nt], "FactorForSofterEQS");
         addr[nt] = &All.FactorForSofterEQS;
@@ -1083,24 +976,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "EosSpecies");
         addr[nt] = All.EosSpecies;
         id[nt++] = STRING;
-#endif
-
-#ifdef SINKS
-        strcpy(tag[nt], "SinkHsml");
-        addr[nt] = &All.SinkHsml;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "SinkDensThresh");
-        addr[nt] = &All.SinkDensThresh;
-        id[nt++] = REAL;
-#endif
-
-#ifdef GENERATE_GAS_IN_ICS
-#ifdef GENERATE_GAS_TG
-        strcpy(tag[nt], "GenGasRefFac");
-        addr[nt] = &All.GenGasRefFac;
-        id[nt++] = INT;
-#endif
 #endif
 
         if((fd = fopen(fname, "r")))
@@ -1162,7 +1037,7 @@ void read_parameter_file(char *fname)
                                     char * parsed = NULL;
                                     if(value == 0) {
                                         parsed = format_multichoice(choices[j], -1);
-                                        fprintf(stdout, 
+                                        fprintf(stdout,
                                                 "Error in file %s:   Tag '%s' possible choices are: %s.\n",
                                                 fname, buf1, parsed);
                                         errorFlag = 1;
@@ -1213,10 +1088,10 @@ void read_parameter_file(char *fname)
                 for(i = 0; i < density_kernel_type_end(); i++) {
                     printf("%d %s\n", i, density_kernel_name(i));
                 }
-                errorFlag = 1; 
+                errorFlag = 1;
             }
             printf("The Density Kernel type is %d (%s)\n", All.DensityKernelType, density_kernel_name(All.DensityKernelType));
-            All.DesNumNgb = density_kernel_desnumngb(All.DensityKernelType, 
+            All.DesNumNgb = density_kernel_desnumngb(All.DensityKernelType,
                     All.DensityResolutionEta);
             printf("The Density resolution is %g * mean separation, or %d neighbours\n",
                     All.DensityResolutionEta, All.DesNumNgb);
@@ -1227,12 +1102,12 @@ void read_parameter_file(char *fname)
                 FILE * fd = fopen(fn, "w");
                 double support = density_kernel_support(k);
                 density_kernel_t kernel;
-                density_kernel_init_with_type(&kernel, k, support); 
+                density_kernel_init_with_type(&kernel, k, support);
                 double max = 1000;
                 for(i = 0 ; i < max; i ++) {
                     double u = i / max;
                     double q = i / max * support;
-                    fprintf(fd, "%g %g %g \n", 
+                    fprintf(fd, "%g %g %g \n",
                            q,
                            density_kernel_wk(&kernel, u),
                            density_kernel_dwk(&kernel, u)
@@ -1302,7 +1177,7 @@ void read_parameter_file(char *fname)
         if(HAS(All.StarformationCriterion, SFR_CRITERION_SELFGRAVITY)) {
             printf("error: enable SPH_GRAD_RHO to use selfgravity in sfr \n");
             endrun(0);
-        } 
+        }
 #endif
 
 #endif
@@ -1316,17 +1191,6 @@ void read_parameter_file(char *fname)
         }
         endrun(0);
     }
-
-#if defined(LONG_X) ||  defined(LONG_Y) || defined(LONG_Z)
-#ifndef NOGRAVITY
-    if(ThisTask == 0)
-    {
-        printf("Code was compiled with LONG_X/Y/Z, but not with NOGRAVITY.\n");
-        printf("Stretched periodic boxes are not implemented for gravity yet.\n");
-    }
-    endrun(0);
-#endif
-#endif
 
 #ifdef SFR
 
