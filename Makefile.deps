@@ -14,7 +14,7 @@ OBJS  =  \
 	 cooling.o ngb.o openmpsort.o \
 	 system.o allocate.o density.o sizelimited_sendrecv.o  \
 	 evaluator.o \
-	 gravtree.o hydra.o  driftfac.o darkenergy.o \
+	 gravtree.o hydra.o  driftfac.o \
 	 gravpm.o \
 	 forcetree.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
