@@ -40,12 +40,6 @@ int RestartFlag;		/*!< taken from command line used to start code. 0 is normal s
 				   marks a restart from a snapshot file. */
 int RestartSnapNum;
 
-int *Exportflag;		/*!< Buffer used for flagging whether a particle needs to be exported to another process */
-int *Exportnodecount;
-int *Exportindex;
-
-int *Send_offset, *Send_count, *Recv_count, *Recv_offset, *Sendcount;
-
 int FirstActiveParticle;
 int *NextActiveParticle;
 

@@ -6,12 +6,7 @@
 
 #include "allvars.h"
 #include "proto.h"
-
-
-
-
-
-
+#include "evaluator.h"
 
 /* This routine allocates memory for
  * particle storage, both the collisionless and the SPH particles.
@@ -21,19 +16,7 @@
 void allocate_memory(void)
 {
     size_t bytes;
-
-    int NTaskTimesThreads;
-
-    NTaskTimesThreads = All.NumThreads * NTask;
-
-    Exportflag = (int *) mymalloc("Exportflag", NTaskTimesThreads * sizeof(int));
-    Exportindex = (int *) mymalloc("Exportindex", NTaskTimesThreads * sizeof(int));
-    Exportnodecount = (int *) mymalloc("Exportnodecount", NTaskTimesThreads * sizeof(int));
-
-    Send_count = (int *) mymalloc("Send_count", sizeof(int) * NTask);
-    Send_offset = (int *) mymalloc("Send_offset", sizeof(int) * NTask);
-    Recv_count = (int *) mymalloc("Recv_count", sizeof(int) * NTask);
-    Recv_offset = (int *) mymalloc("Recv_offset", sizeof(int) * NTask);
+    Evaluator_allocate_memory();
 
     NextActiveParticle = (int *) mymalloc("NextActiveParticle", bytes = All.MaxPart * sizeof(int));
 

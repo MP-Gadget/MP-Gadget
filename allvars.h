@@ -296,12 +296,6 @@ extern int RestartFlag;		/*!< taken from command line used to start code. 0 is n
                               marks a restart from a snapshot file. */
 extern int RestartSnapNum;
 
-extern int *Exportflag;	        /*!< Buffer used for flagging whether a particle needs to be exported to another process */
-extern int *Exportnodecount;
-extern int *Exportindex;
-
-extern int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
-
 extern size_t AllocatedBytes;
 extern size_t HighMarkBytes;
 extern size_t FreeBytes;

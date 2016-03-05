@@ -1,6 +1,9 @@
 #ifndef _EVALUATOR_H_
 #define _EVALUATOR_H_
 
+extern int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
+void Evaluator_allocate_memory(void);
+
 struct _Evaluator;
 typedef struct _LocalEvaluator {
     struct _Evaluator * ev;

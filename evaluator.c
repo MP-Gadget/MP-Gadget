@@ -1,3 +1,4 @@
+#include <mpi.h>
 #include <string.h>
 #include <stdlib.h>
 #include "allvars.h"
@@ -5,6 +6,11 @@
 #include "evaluator.h"
 #include "tags.h"
 #include "openmpsort.h"
+
+static int *Exportflag;	        /*!< Buffer used for flagging whether a particle needs to be exported to another process */
+static int *Exportnodecount;
+static int *Exportindex;
+int *Send_offset, *Send_count, *Recv_count, *Recv_offset, *Sendcount;
 
 struct data_nodelist
 {
@@ -27,6 +33,25 @@ static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int 
         printf("ev->PrimaryTasks[0] = %d %d (%d) %s:%d\n", ev->PrimaryTasks[0].top_node, ev->PrimaryTasks[0].place, ev->PQueueEnd, __FILE__, __LINE__); \
     }
 static Evaluator * GDB_current_ev = NULL;
+
+
+/*This routine allocates buffers to store the number of particles that shall be exchanged between MPI tasks.*/
+void Evaluator_allocate_memory(void)
+{
+    int NTaskTimesThreads;
+
+    NTaskTimesThreads = All.NumThreads * NTask;
+
+    Exportflag = (int *) mymalloc("Exportflag", NTaskTimesThreads * sizeof(int));
+    Exportindex = (int *) mymalloc("Exportindex", NTaskTimesThreads * sizeof(int));
+    Exportnodecount = (int *) mymalloc("Exportnodecount", NTaskTimesThreads * sizeof(int));
+
+    Send_count = (int *) mymalloc("Send_count", sizeof(int) * NTask);
+    Send_offset = (int *) mymalloc("Send_offset", sizeof(int) * NTask);
+    Recv_count = (int *) mymalloc("Recv_count", sizeof(int) * NTask);
+    Recv_offset = (int *) mymalloc("Recv_offset", sizeof(int) * NTask);
+}
+
 
 
 void ev_init_thread(Evaluator * ev, LocalEvaluator * lv) {
