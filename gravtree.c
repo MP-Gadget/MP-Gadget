@@ -21,11 +21,11 @@
  *  short-range part.
  */
 
-/* According to upstream P-GADGET3 
- * correct workcount slows it down and yields little benefits in load balancing 
+/* According to upstream P-GADGET3
+ * correct workcount slows it down and yields little benefits in load balancing
  * */
-#define LOCK_WORKCOUNT 
-#define UNLOCK_WORKCOUNT 
+#define LOCK_WORKCOUNT
+#define UNLOCK_WORKCOUNT
 
 int NextParticle;
 
@@ -98,7 +98,7 @@ void gravity_tree(void)
         ev_run(&ev[Ewald_iter]);
         iter += ev[Ewald_iter].Niterations;
         n_exported += ev[Ewald_iter].Nexport_sum;
-        N_nodesinlist += ev[Ewald_iter].Nnodesinlist; 
+        N_nodesinlist += ev[Ewald_iter].Nnodesinlist;
     } /* Ewald_iter */
 
     Ewaldcount = ev[1].Ninteractions;
@@ -222,21 +222,8 @@ void gravity_tree(void)
 
 void gravtree_copy(int place, struct gravitydata_in * input) {
     int k;
-#ifdef GRAVITY_CENTROID
-    if(P[place].Type == 0)
-    {
-        for(k = 0; k < 3; k++)
-            input->Pos[k] = SPHP(place).Center[k];
-    }
-    else
-    {
-        for(k = 0; k < 3; k++)
-            input->Pos[k] = P[place].Pos[k];
-    }
-#else
     for(k = 0; k < 3; k++)
         input->Pos[k] = P[place].Pos[k];
-#endif
 
 #if defined(UNEQUALSOFTENINGS)
     input->Type = P[place].Type;

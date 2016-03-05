@@ -238,19 +238,19 @@ enum bhfeedbackmethod {
      BH_FEEDBACK_OPTTHIN  = 0x20,
 };
 #endif
-/* 
- * additional sfr criterion in addition to density threshold 
+/*
+ * additional sfr criterion in addition to density threshold
  * All.StarformationCriterion */
 enum starformationcriterion {
     SFR_CRITERION_DENSITY = 1,
-    SFR_CRITERION_MOLECULAR_H2 = 3, /* 2 + 1 */ 
+    SFR_CRITERION_MOLECULAR_H2 = 3, /* 2 + 1 */
     SFR_CRITERION_SELFGRAVITY = 5,  /* 4 + 1 */
     /* below are additional flags in SELFGRAVITY */
     SFR_CRITERION_CONVERGENT_FLOW = 13, /* 8 + 4 + 1 */
     SFR_CRITERION_CONTINUOUS_CUTOFF= 21, /* 16 + 4 + 1 */
 };
 
-/* 
+/*
  * wind models SH03, VS08 and OFJT10
  * All.WindModel */
 enum windmodel {
@@ -458,7 +458,7 @@ extern struct global_data_all_processes
     int NumWritersPerSnapshot;	/*!< maximum number of files that may be written simultaneously when
                                       writing/reading restart-files, or when writing snapshot files */
 
-    int NumWritersPerPIG;	
+    int NumWritersPerPIG;
     double BufferSize;		/*!< size of communication buffer in MB */
     int BunchSize;     	        /*!< number of particles fitting into the buffer in the parallel tree algorithm  */
 
@@ -564,12 +564,12 @@ extern struct global_data_all_processes
            TimeMax;			/*!< marks the point of time until the simulation is to be evolved */
 
     struct {
-        double a; 
-        double a3inv; 
-        double a2inv; 
-        double fac_egy; 
-        double hubble; 
-        double hubble_a2; 
+        double a;
+        double a3inv;
+        double a2inv;
+        double fac_egy;
+        double hubble;
+        double hubble_a2;
     } cf;
 
     /* variables for organizing discrete timeline */
@@ -912,7 +912,7 @@ extern struct sph_particle_data
     MyFloat DensityOld;
     MyFloat DensityStd;
 #endif
-    
+
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */
     MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
@@ -953,7 +953,7 @@ extern struct sph_particle_data
     short int wakeup;             /*!< flag to wake up particle */
 #endif
 
-#ifdef SPH_GRAD_RHO 
+#ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
 #endif
 } *SphP;				/*!< holds SPH particle data on local processor */
@@ -1094,9 +1094,6 @@ extern struct NODE
 extern struct extNODE
 {
     MyDouble dp[3];
-#ifdef GRAVITY_CENTROID
-    int suns[8];
-#endif
     MyFloat vs[3];
     MyFloat vmax;
     MyFloat divVmax;

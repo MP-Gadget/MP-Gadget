@@ -484,11 +484,7 @@ void force_update_node_recursive(int no, int sib, int father)
     if(no >= All.MaxPart && no < All.MaxPart + MaxNodes)	/* internal node */
     {
         for(j = 0; j < 8; j++)
-#ifdef GRAVITY_CENTROID
-            suns[j] = Extnodes[no].suns[j] = Nodes[no].u.suns[j];
-#else
         suns[j] = Nodes[no].u.suns[j];	/* this "backup" is necessary because the nextnode entry will overwrite one element (union!) */
-#endif
         if(last >= 0)
         {
             if(last >= All.MaxPart)
@@ -615,24 +611,9 @@ void force_update_node_recursive(int no, int sib, int father)
                     pa = &P[p];
 
                     mass += (pa->Mass);
-#ifdef GRAVITY_CENTROID
-                    if(P[p].Type == 0)
-                    {
-                        s[0] += (pa->Mass * SPHP(p).Center[0]);
-                        s[1] += (pa->Mass * SPHP(p).Center[1]);
-                        s[2] += (pa->Mass * SPHP(p).Center[2]);
-                    }
-                    else
-                    {
-                        s[0] += (pa->Mass * pa->Pos[0]);
-                        s[1] += (pa->Mass * pa->Pos[1]);
-                        s[2] += (pa->Mass * pa->Pos[2]);
-                    }
-#else
                     s[0] += (pa->Mass * pa->Pos[0]);
                     s[1] += (pa->Mass * pa->Pos[1]);
                     s[2] += (pa->Mass * pa->Pos[2]);
-#endif
                     vs[0] += (pa->Mass * pa->Vel[0]);
                     vs[1] += (pa->Mass * pa->Vel[1]);
                     vs[2] += (pa->Mass * pa->Vel[2]);
@@ -864,111 +845,6 @@ void force_exchange_pseudodata(void)
 
     myfree(DomainMoment);
 }
-
-
-
-#ifdef GRAVITY_CENTROID
-void force_update_node_center_of_mass_recursive(int no, int sib, int father)
-{
-    int j, jj, p, pp, nextsib, suns[8], count_particles;
-
-    //   int k, multiple_flag;
-    //   MyFloat hmax, vmax, v, divVmax;
-    MyFloat s[3], mass;
-
-    //   MyFloat vs[3];
-    struct particle_data *pa;
-
-
-    if(no >= All.MaxPart && no < All.MaxPart + MaxNodes)	/* internal node */
-    {
-        for(j = 0; j < 8; j++)
-            suns[j] = Extnodes[no].suns[j];	/* this "backup" is necessary because the nextnode entry will */
-
-        mass = 0;
-        s[0] = 0;
-        s[1] = 0;
-        s[2] = 0;
-
-        for(j = 0; j < 8; j++)
-        {
-            if((p = suns[j]) >= 0)
-            {
-                /* check if we have a sibling on the same level */
-                for(jj = j + 1; jj < 8; jj++)
-                    if((pp = suns[jj]) >= 0)
-                        break;
-
-                if(jj < 8)	/* yes, we do */
-                    nextsib = pp;
-                else
-                    nextsib = sib;
-
-                force_update_node_center_of_mass_recursive(p, nextsib, no);
-
-                if(p >= All.MaxPart)	/* an internal node or pseudo particle */
-                {
-                    if(p >= All.MaxPart + MaxNodes)	/* a pseudo particle */
-                    {
-                        /* nothing to be done here because the mass of the
-                         * pseudo-particle is still zero. This will be changed
-                         * later.
-                         */
-                    }
-                    else
-                    {
-                        mass += (Nodes[p].u.d.mass);
-                        s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
-                        s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
-                        s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
-
-
-                    }
-                }
-                else		/* a particle */
-                {
-                    count_particles++;
-
-                    pa = &P[p];
-
-                    mass += (pa->Mass);
-
-                    if(P[p].Type == 0)
-                    {
-                        s[0] += (pa->Mass * SPHP(p).Center[0]);
-                        s[1] += (pa->Mass * SPHP(p).Center[1]);
-                        s[2] += (pa->Mass * SPHP(p).Center[2]);
-                    }
-                    else
-                    {
-                        s[0] += (pa->Mass * pa->Pos[0]);
-                        s[1] += (pa->Mass * pa->Pos[1]);
-                        s[2] += (pa->Mass * pa->Pos[2]);
-                    }
-                }
-            }
-        }
-
-
-        if(mass)
-        {
-            s[0] /= mass;
-            s[1] /= mass;
-            s[2] /= mass;
-        }
-        else
-        {
-            s[0] = Nodes[no].center[0];
-            s[1] = Nodes[no].center[1];
-            s[2] = Nodes[no].center[2];
-        }
-
-        Nodes[no].u.d.s[0] = s[0];
-        Nodes[no].u.d.s[1] = s[1];
-        Nodes[no].u.d.s[2] = s[2];
-    }
-}
-#endif
 
 
 /*! This function updates the top-level tree after the multipole moments of
@@ -1648,26 +1524,9 @@ int force_treeevaluate(int target, int mode,
 
                 drift_particle(no, All.Ti_Current);
 
-#ifdef GRAVITY_CENTROID
-                if(P[no].Type == 0)
-                {
-                    dx = SPHP(no).Center[0] - pos_x;
-                    dy = SPHP(no).Center[1] - pos_y;
-                    dz = SPHP(no).Center[2] - pos_z;
-
-                }
-                else
-                {
-                    dx = P[no].Pos[0] - pos_x;
-                    dy = P[no].Pos[1] - pos_y;
-                    dz = P[no].Pos[2] - pos_z;
-                }
-#else
                 dx = P[no].Pos[0] - pos_x;
                 dy = P[no].Pos[1] - pos_y;
                 dz = P[no].Pos[2] - pos_z;
-#endif
-
                 mass = P[no].Mass;
             }
             else
