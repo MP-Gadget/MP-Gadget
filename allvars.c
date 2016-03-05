@@ -142,14 +142,3 @@ struct bh_particle_data * BhP;	/*!< holds BH particle data on local processor */
 */
 struct state_of_system SysState, SysStateAtStart, SysStateAtEnd;
 
-
-/* Various structures for communication during the gravity computation.
- */
-
-/*! Header for the standard file format.
- */
-struct io_header header;	/*!< holds header for snapshot files */
-
-
-
-

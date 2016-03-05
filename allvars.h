@@ -143,15 +143,6 @@
 #define FOF_SECONDARY_LINK_TYPES 0
 #endif
 
-
-/* some flags for the field "flag_ic_info" in the file header */
-#define FLAG_ZELDOVICH_ICS     1
-#define FLAG_SECOND_ORDER_ICS  2
-#define FLAG_EVOLVED_ZELDOVICH 3
-#define FLAG_EVOLVED_2LPT      4
-#define FLAG_NORMALICS_2LPT    5
-
-
 #ifndef ASMTH
 /*! ASMTH gives the scale of the short-range/long-range force split in units of FFT-mesh cells */
 #define ASMTH 1.25
@@ -832,52 +823,6 @@ extern struct state_of_system
            EnergyIntComp[6], EnergyTotComp[6], MomentumComp[6][4], AngMomentumComp[6][4], CenterOfMassComp[6][4];
 }
 SysState, SysStateAtStart, SysStateAtEnd;
-
-
-/*! Header for the standard file format.
-*/
-extern struct io_header
-{
-    int npart[6];			/*!< number of particles of each type in this file */
-    double mass[6];		/*!< mass of particles of each type. If 0, then the masses are explicitly
-                          stored in the mass-block of the snapshot file, otherwise they are omitted */
-    double time;			/*!< time of snapshot file */
-    double redshift;		/*!< redshift of snapshot file */
-    int flag_sfr;			/*!< flags whether the simulation was including star formation */
-    int flag_feedback;		/*!< flags whether feedback was included (obsolete) */
-    unsigned int npartTotal[6];	/*!< total number of particles of each type in this snapshot. This can be
-                                  different from npart if one is dealing with a multi-file snapshot. */
-    int flag_cooling;		/*!< flags whether cooling was included  */
-    int num_files;		/*!< number of files in multi-file snapshot */
-    double BoxSize;		/*!< box-size of simulation in case periodic boundaries were used */
-    double Omega0;		/*!< matter density in units of critical density */
-    double OmegaLambda;		/*!< cosmological constant parameter */
-    double HubbleParam;		/*!< Hubble parameter in units of 100 km/sec/Mpc */
-    int flag_stellarage;		/*!< flags whether the file contains formation times of star particles */
-    int flag_metals;		/*!< flags whether the file contains metallicity values for gas and star
-                              particles */
-    unsigned int npartTotalHighWord[6];	/*!< High word of the total number of particles of each type */
-    int flag_entropy_instead_u;	/*!< flags that IC-file contains entropy instead of u */
-    int flag_doubleprecision;	/*!< flags that snapshot contains double-precision instead of single precision */
-
-    int flag_ic_info;             /*!< flag to inform whether IC files are generated with ordinary Zeldovich approximation,
-                                    or whether they ocontains 2nd order lagrangian perturbation theory initial conditions.
-                                    For snapshots files, the value informs whether the simulation was evolved from
-                                    Zeldoch or 2lpt ICs. Encoding is as follows:
-                                    FLAG_ZELDOVICH_ICS     (1)   - IC file based on Zeldovich
-                                    FLAG_SECOND_ORDER_ICS  (2)   - Special IC-file containing 2lpt masses
-                                    FLAG_EVOLVED_ZELDOVICH (3)   - snapshot evolved from Zeldovich ICs
-                                    FLAG_EVOLVED_2LPT      (4)   - snapshot evolved from 2lpt ICs
-                                    FLAG_NORMALICS_2LPT    (5)   - standard gadget file format with 2lpt ICs
-                                    All other values, including 0 are interpreted as "don't know" for backwards compatability.
-                                    */
-    float lpt_scalingfactor;      /*!< scaling factor for 2lpt initial conditions */
-
-    char flag_pressure_entropy;
-    char numdims;
-    char densitykerneltype;
-    char fill[45];		/*!< fills to 256 Bytes */
-} header;				/*!< holds header for snapshot files */
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG

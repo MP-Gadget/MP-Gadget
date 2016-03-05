@@ -99,17 +99,8 @@ void gravity_tree(void)
 
     Ewaldcount = ev[1].Ninteractions;
 
-    if(header.flag_ic_info == FLAG_SECOND_ORDER_ICS)
-    {
-        if(!(All.Ti_Current == 0 && RestartFlag == 0))
-            if(All.TypeOfOpeningCriterion == 1)
-                All.ErrTolTheta = 0;	/* This will switch to the relative opening criterion for the following force computations */
-    }
-    else
-    {
-        if(All.TypeOfOpeningCriterion == 1)
-            All.ErrTolTheta = 0;	/* This will switch to the relative opening criterion for the following force computations */
-    }
+    if(All.TypeOfOpeningCriterion == 1)
+        All.ErrTolTheta = 0;	/* This will switch to the relative opening criterion for the following force computations */
 
 
     Costtotal = 0;
@@ -246,15 +237,12 @@ static void gravtree_post_process(int i)
 {
     int j;
 
-    if(! (header.flag_ic_info == FLAG_SECOND_ORDER_ICS && All.Ti_Current == 0 && RestartFlag == 0)) {
-        /* to prevent that we overwrite OldAcc in the first evaluation for 2lpt ICs */
-        double ax, ay, az;
-        ax = P[i].GravAccel[0] + P[i].GravPM[0] / All.G;
-        ay = P[i].GravAccel[1] + P[i].GravPM[1] / All.G;
-        az = P[i].GravAccel[2] + P[i].GravPM[2] / All.G;
+    double ax, ay, az;
+    ax = P[i].GravAccel[0] + P[i].GravPM[0] / All.G;
+    ay = P[i].GravAccel[1] + P[i].GravPM[1] / All.G;
+    az = P[i].GravAccel[2] + P[i].GravPM[2] / All.G;
 
-        P[i].OldAcc = sqrt(ax * ax + ay * ay + az * az);
-    }
+    P[i].OldAcc = sqrt(ax * ax + ay * ay + az * az);
     for(j = 0; j < 3; j++)
         P[i].GravAccel[j] *= All.G;
 
