@@ -91,10 +91,6 @@ void begrun(void)
     if(RestartFlag != 3 && RestartFlag != 4)
         long_range_init();
 
-#ifdef EOS_DEGENERATE
-    eos_init(All.EosTable, All.EosSpecies);
-#endif
-
     All.TimeLastRestartFile = 0;
 
     if(RestartFlag == 0 || RestartFlag == 2 || RestartFlag == 3 || RestartFlag == 4 || RestartFlag == 5)
@@ -151,11 +147,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         strcpy(All.CpuFile, all.CpuFile);
         strcpy(All.TimingsFile, all.TimingsFile);
         strcpy(All.SnapshotFileBase, all.SnapshotFileBase);
-
-#ifdef EOS_DEGENERATE
-        strcpy(All.EosTable, all.EosTable);
-        strcpy(All.EosSpecies, all.EosSpecies);
-#endif
 
         if(All.TimeMax != all.TimeMax)
             readjust_timebase(All.TimeMax, all.TimeMax);
@@ -948,16 +939,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "FactorForSofterEQS");
         addr[nt] = &All.FactorForSofterEQS;
         id[nt++] = REAL;
-#endif
-
-#ifdef EOS_DEGENERATE
-        strcpy(tag[nt], "EosTable");
-        addr[nt] = All.EosTable;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "EosSpecies");
-        addr[nt] = All.EosSpecies;
-        id[nt++] = STRING;
 #endif
 
         if((fd = fopen(fname, "r")))

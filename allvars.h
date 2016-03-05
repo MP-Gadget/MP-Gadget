@@ -700,11 +700,6 @@ extern struct global_data_all_processes
     int FOFHaloMinLength;
 #endif
 
-#ifdef EOS_DEGENERATE
-    char EosTable[100];
-    char EosSpecies[100];
-#endif
-
 }
 All;
 #ifdef _OPENMP
@@ -861,14 +856,6 @@ extern struct sph_particle_data
 #ifdef WINDS
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
-#endif
-
-#ifdef EOS_DEGENERATE
-    MyFloat u;                            /* internal energy density */
-    MyFloat temp;                         /* temperature */
-    MyFloat dpdr;							/* derivative of pressure with respect to density at constant entropy */
-    MyFloat xnuc[EOS_NSPECIES];           /* nuclear mass fractions */
-    MyFloat dxnuc[EOS_NSPECIES];          /* change of nuclear mass fractions */
 #endif
 
 #ifdef WAKEUP

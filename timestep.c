@@ -476,11 +476,7 @@ void advance_and_find_timesteps(void)
             {
                 P[i].Vel[k] += SPHP(i).HydroAccel[k] * dt_hydrokick;
             }
-#if !defined(EOS_DEGENERATE)
             SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
-#else
-            SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr * All.UnitTime_in_s;
-#endif
 
             n++;
         }
@@ -552,11 +548,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
            hence temperature decreases by more than a factor 0.5 */
 
         if(SPHP(i).DtEntropy * dt_entr > -0.5 * SPHP(i).Entropy)
-#if !defined(EOS_DEGENERATE)
             SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
-#else
-        SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr * All.UnitTime_in_s;
-#endif
         else
             SPHP(i).Entropy *= 0.5;
 

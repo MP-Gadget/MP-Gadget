@@ -221,15 +221,6 @@ void long_range_force(void);
 
 void readjust_timebase(double TimeMax_old, double TimeMax_new);
 
-#ifdef EOS_DEGENERATE
-extern int eos_init();
-extern void eos_deinit();
-extern int eos_calc_egiven( double rho, double *xnuc, double e, double *temp, double *p, double *dpdr );
-extern int eos_calc_tgiven( double rho, double *xnuc, double temp, double *e, double *dedt );
-extern int eos_calc_egiven_v( double rho, double *xnuc, double *dxnuc, double fac, double e, double dedt, double *temp, double *p, double *dpdr );
-extern int eos_calc_tgiven_v( double rho, double *xnuc, double *dxnuc, double fac, double temp, double *e, double *dedt );
-#endif
-
 #ifdef LIGHTCONE
 void lightcone_init();
 void lightcone_cross(int p, double oldpos[3]);
