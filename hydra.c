@@ -428,9 +428,6 @@ static int hydro_evaluate(int target, int mode,
                             fabs(SPHP(j).DivVel) / (fabs(SPHP(j).DivVel) + SPHP(j).CurlVel +
                                     0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 
-#ifdef NO_SHEAR_VISCOSITY_LIMITER
-                        I->F1 = f2 = 1;
-#endif
 #ifdef TIME_DEP_ART_VISC
                         double BulkVisc_ij = 0.5 * (I->alpha + SPHP(j).alpha);
 #else

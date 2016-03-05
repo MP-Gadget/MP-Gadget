@@ -119,7 +119,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #--------------------------------------- SPH viscosity options
 #OPT	+=  -DCONVENTIONAL_VISCOSITY     # enables the old viscosity
 #OPT	+=  -DTIME_DEP_ART_VISC          # Enables time dependend viscosity
-#OPT	+=  -DNO_SHEAR_VISCOSITY_LIMITER # Turns of the shear viscosity supression
 #OPT	+=  -DHIGH_ART_VISC_START        # Start with high rather than low viscosity
 #OPT	+=  -DALTVISCOSITY               # enables alternative viscosity based on div(v)
 
