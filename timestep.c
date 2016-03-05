@@ -708,14 +708,6 @@ int get_timestep(int p,		/*!< particle index */
 
         if(dt_courant < dt)
             dt = dt_courant;
-
-#ifdef MYFALSE
-        dt_viscous = All.CourantFac * SPHP(p).MaxViscStep / All.cf.hubble;	/* to convert dloga to physical dt */
-
-        if(dt_viscous < dt)
-            dt = dt_viscous;
-#endif
-
     }
 
 #ifdef BLACK_HOLES
