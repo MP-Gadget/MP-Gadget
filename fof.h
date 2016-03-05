@@ -20,7 +20,7 @@ void fof_exchange_group_data(void);
 void fof_finish_group_properties(void);
 
 
-extern int Ngroups, TotNgroups;
+extern uint64_t Ngroups, TotNgroups;
 extern int64_t TotNids;
 
 extern struct group_properties

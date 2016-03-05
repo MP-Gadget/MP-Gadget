@@ -23,7 +23,7 @@
 
 void fof_save_particles(int num);
 
-int Ngroups, TotNgroups;
+uint64_t Ngroups, TotNgroups;
 int64_t TotNids;
 
 struct group_properties *Group;
@@ -225,7 +225,7 @@ void fof_fof(int num)
         printf("compiling local group data and catalogue took = %g sec\n", timediff(t0, t1));
 
 
-    MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
     sumup_large_ints(1, &Nids, &TotNids);
 
     if(TotNgroups > 0)

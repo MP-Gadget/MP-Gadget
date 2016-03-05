@@ -15,7 +15,7 @@
 #include "fof.h"
 #ifdef FOF
 /* from FoF*/
-extern int Ngroups, TotNgroups;
+extern uint64_t Ngroups, TotNgroups;
 extern struct group_properties *Group;
 
 static void fof_write_header(BigFile * bf);
