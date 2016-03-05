@@ -53,6 +53,17 @@ void mymalloc_init(void);
 void dump_memory_table(void);
 void report_detailed_memory_usage_of_largest_task(const char *label, const char *func, const char *file, int line);
 
+#define  mymalloc(x, y)            mymalloc_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
+#define  mymalloc_movable(x, y, z) mymalloc_movable_fullinfo(x, y, z, __FUNCTION__, __FILE__, __LINE__)
+
+#define  myrealloc(x, y)           myrealloc_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
+#define  myrealloc_movable(x, y)   myrealloc_movable_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
+
+#define  myfree(x)                 (myfree_fullinfo(x, __FUNCTION__, __FILE__, __LINE__), x = NULL)
+#define  myfree_movable(x)         (myfree_movable_fullinfo(x, __FUNCTION__, __FILE__, __LINE__), x = NULL)
+
+#define  report_memory_usage(x) report_detailed_memory_usage_of_largest_task(x, __FUNCTION__, __FILE__, __LINE__)
+
 void blackhole_accretion(void);
 void blackhole_make_one(int index);
 
