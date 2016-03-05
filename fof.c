@@ -30,15 +30,14 @@ struct group_properties *Group;
 
 
 
-static struct fofdata_in
+struct fofdata_in
 {
     int NodeList[NODELISTLENGTH];
     MyDouble Pos[3];
     MyFloat Hsml;
     MyIDType MinID;
     MyIDType MinIDTask;
-}
-*FoFDataIn, *FoFDataGet;
+};
 
 struct fofdata_out
 {
@@ -79,7 +78,6 @@ static int NgroupsExt, Nids;
 
 
 static MyIDType *Head, *Len, *Next, *Tail, *MinID, *MinIDTask;
-static char *NonlocalFlag;
 
 
 static float *fof_nearest_distance;
@@ -153,16 +151,6 @@ void fof_fof(int num)
 
     walltime_measure("/FOF/Build");
     myfree(d);
-
-
-    for(i = 0; i < NumPart; i++)
-    {
-        Head[i] = Tail[i] = i;
-        Len[i] = 1;
-        Next[i] = -1;
-        MinID[i] = P[i].ID;
-        MinIDTask[i] = ThisTask;
-    }
 
 
     t0 = second();
@@ -332,16 +320,35 @@ void fof_fof(int num)
 }
 
 
+static void fof_find_copy(int place, struct fofdata_in * I) {
+    I->Pos[0] = P[place].Pos[0];
+    I->Pos[1] = P[place].Pos[1];
+    I->Pos[2] = P[place].Pos[2];
+    I->MinID = MinID[Head[place]];
+    I->MinIDTask = MinIDTask[Head[place]];
+}
+
+static char *MarkedFlag, *ChangedFlag;
+static void * fof_find_ngblist() {
+    int threadid = omp_get_thread_num();
+    return Ngblist + threadid * NumPart;
+}
+
+MyIDType *MinIDOld;
+
+static int fof_find_isactive(int n) {
+    return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && ChangedFlag[n];
+}
+
+static int fof_find_evaluate(int target, int mode, 
+        struct fofdata_in * I, struct fofdata_out * O,
+        LocalEvaluator * lv, int *ngblist);
 
 void fof_find_groups(void)
 {
-    int i, j, ndone_flag, link_count, dummy, nprocessed;
-    int ndone, ngrp, recvTask, place, nexport, nimport, link_across;
-    int npart, marked;
-    int64_t totmarked, totnpart;
-    int64_t link_across_tot, ntot;
-    MyIDType *MinIDOld;
-    char *FoFDataOut, *FoFDataResult, *MarkedFlag, *ChangedFlag;
+    int i;
+    int64_t link_across;
+    int64_t link_across_tot;
     double t0, t1;
 
     if(ThisTask == 0)
@@ -350,62 +357,36 @@ void fof_find_groups(void)
         fflush(stdout);
     }
 
+    Evaluator ev = {0};
+    ev.ev_label = "FOF_FIND_GROUPS";
+    ev.ev_evaluate = (ev_ev_func) fof_find_evaluate;
+    ev.ev_isactive = fof_find_isactive;
+    ev.ev_alloc = fof_find_ngblist;
+    ev.ev_copy = (ev_copy_func) fof_find_copy;
+    ev.ev_reduce = NULL;
+    ev.UseNodeList = 1;
+    ev.UseAllParticles = 1;
+    ev.ev_datain_elsize = sizeof(struct fofdata_in);
+    ev.ev_dataout_elsize = 1;
 
     /* allocate buffers to arrange communication */
 
-    Ngblist = (int *) mymalloc("Ngblist", NumPart * sizeof(int));
+    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
-    All.BunchSize =
-        (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + sizeof(struct data_nodelist) +
-                    2 * sizeof(struct fofdata_in)));
-    DataIndexTable =
-        (struct data_index *) mymalloc("DataIndexTable", All.BunchSize * sizeof(struct data_index));
-    DataNodeList =
-        (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
-
-    NonlocalFlag = (char *) mymalloc("NonlocalFlag", NumPart * sizeof(char));
     MarkedFlag = (char *) mymalloc("MarkedFlag", NumPart * sizeof(char));
     ChangedFlag = (char *) mymalloc("ChangedFlag", NumPart * sizeof(char));
     MinIDOld = (MyIDType *) mymalloc("MinIDOld", NumPart * sizeof(MyIDType));
 
     t0 = second();
 
-    /* first, link only among local particles */
-    for(i = 0, marked = 0, npart = 0; i < NumPart; i++)
-    {
-        if(((1 << P[i].Type) & (FOF_PRIMARY_LINK_TYPES)))
-        {
-            fof_find_dmparticles_evaluate(i, -1, &dummy, &dummy);
-
-            npart++;
-
-            if(NonlocalFlag[i])
-                marked++;
-        }
-    }
-
-
-    sumup_large_ints(1, &marked, &totmarked);
-    sumup_large_ints(1, &npart, &totnpart);
-
-    t1 = second();
-
-
-    if(ThisTask == 0)
-    {
-        printf
-            ("links on local processor done (took %g sec).\nMarked=%d%09d out of the %d%09d primaries which are linked\n",
-             timediff(t0, t1),
-             (int) (totmarked / 1000000000), (int) (totmarked % 1000000000),
-             (int) (totnpart / 1000000000), (int) (totnpart % 1000000000));
-
-        printf("\nlinking across processors (presently allocated=%g MB) \n",
-                AllocatedBytes / (1024.0 * 1024.0));
-        fflush(stdout);
-    }
-
     for(i = 0; i < NumPart; i++)
     {
+        Head[i] = Tail[i] = i;
+        Len[i] = 1;
+        Next[i] = -1;
+        MinID[i] = P[i].ID;
+        MinIDTask[i] = ThisTask;
+
         MinIDOld[i] = MinID[Head[i]];
         MarkedFlag[i] = 1;
     }
@@ -420,183 +401,33 @@ void fof_find_groups(void)
             MarkedFlag[i] = 0;
         }
 
-        i = 0;			/* begin with this index */
-        link_across = 0;
-        nprocessed = 0;
-
-        do
-        {
-            for(j = 0; j < NTask; j++)
-            {
-                Send_count[j] = 0;
-                Exportflag[j] = -1;
-            }
-
-            /* do local particles and prepare export list */
-            for(nexport = 0; i < NumPart; i++)
-            {
-                if(((1 << P[i].Type) & (FOF_PRIMARY_LINK_TYPES)))
-                {
-                    if(NonlocalFlag[i] && ChangedFlag[i])
-                    {
-                        if(fof_find_dmparticles_evaluate(i, 0, &nexport, Send_count) < 0)
-                            break;
-
-                        nprocessed++;
-                    }
-                }
-            }
-
-#ifdef MYSORT
-            mysort_dataindex(DataIndexTable, nexport, sizeof(struct data_index), data_index_compare);
-#else
-            qsort(DataIndexTable, nexport, sizeof(struct data_index), data_index_compare);
-#endif
-
-            MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
-
-            for(j = 0, nimport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
-            {
-                nimport += Recv_count[j];
-
-                if(j > 0)
-                {
-                    Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
-                    Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
-                }
-            }
-
-            FoFDataGet = (struct fofdata_in *) mymalloc("FoFDataGet", nimport * sizeof(struct fofdata_in));
-            FoFDataIn = (struct fofdata_in *) mymalloc("FoFDataIn", nexport * sizeof(struct fofdata_in));
-
-
-            /* prepare particle data for export */
-            for(j = 0; j < nexport; j++)
-            {
-                place = DataIndexTable[j].Index;
-
-                FoFDataIn[j].Pos[0] = P[place].Pos[0];
-                FoFDataIn[j].Pos[1] = P[place].Pos[1];
-                FoFDataIn[j].Pos[2] = P[place].Pos[2];
-                FoFDataIn[j].MinID = MinID[Head[place]];
-                FoFDataIn[j].MinIDTask = MinIDTask[Head[place]];
-
-                memcpy(FoFDataIn[j].NodeList,
-                        DataNodeList[DataIndexTable[j].IndexGet].NodeList, NODELISTLENGTH * sizeof(int));
-            }
-
-            /* exchange particle data */
-            for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-            {
-                recvTask = ThisTask ^ ngrp;
-
-                if(recvTask < NTask)
-                {
-                    if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-                    {
-                        /* get the particles */
-                        MPI_Sendrecv(&FoFDataIn[Send_offset[recvTask]],
-                                Send_count[recvTask] * sizeof(struct fofdata_in), MPI_BYTE,
-                                recvTask, TAG_DENS_A,
-                                &FoFDataGet[Recv_offset[recvTask]],
-                                Recv_count[recvTask] * sizeof(struct fofdata_in), MPI_BYTE,
-                                recvTask, TAG_DENS_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    }
-                }
-            }
-
-            myfree(FoFDataIn);
-            FoFDataResult = (char *) mymalloc("FoFDataResult", nimport * sizeof(char));
-            FoFDataOut = (char *) mymalloc("FoFDataOut", nexport * sizeof(char));
-
-            /* now do the particles that were sent to us */
-
-            for(j = 0; j < nimport; j++)
-            {
-                link_count = fof_find_dmparticles_evaluate(j, 1, &dummy, &dummy);
-                link_across += link_count;
-                if(link_count)
-                    FoFDataResult[j] = 1;
-                else
-                    FoFDataResult[j] = 0;
-            }
-
-            /* exchange data */
-            for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-            {
-                recvTask = ThisTask ^ ngrp;
-
-                if(recvTask < NTask)
-                {
-                    if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-                    {
-                        /* get the particles */
-                        MPI_Sendrecv(&FoFDataResult[Recv_offset[recvTask]],
-                                Recv_count[recvTask] * sizeof(char),
-                                MPI_BYTE, recvTask, TAG_DENS_B,
-                                &FoFDataOut[Send_offset[recvTask]],
-                                Send_count[recvTask] * sizeof(char),
-                                MPI_BYTE, recvTask, TAG_DENS_B, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                    }
-                }
-            }
-
-            /* need to mark the particle if it induced a link */
-            for(j = 0; j < nexport; j++)
-            {
-                place = DataIndexTable[j].Index;
-                if(FoFDataOut[j])
-                    MarkedFlag[place] = 1;
-            }
-
-            myfree(FoFDataOut);
-            myfree(FoFDataResult);
-            myfree(FoFDataGet);
-
-            if(i >= NumPart)
-                ndone_flag = 1;
-            else
-                ndone_flag = 0;
-
-            MPI_Allreduce(&ndone_flag, &ndone, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-        }
-        while(ndone < NTask);
-
-
-        sumup_large_ints(1, &link_across, &link_across_tot);
-        sumup_large_ints(1, &nprocessed, &ntot);
+        ev_run(&ev);
 
         t1 = second();
 
+        /* let's check out which particles have changed their MinID */
+        link_across = 0;
+        for(i = 0; i < NumPart; i++) {
+            if(MinID[Head[i]] != MinIDOld[i]) {
+                MarkedFlag[i] = 1;
+                link_across += 1;
+            } else {
+                MarkedFlag[i] = 0;
+            }
+            MinIDOld[i] = MinID[Head[i]];
+        }
+        MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
         if(ThisTask == 0)
         {
-            printf("have done %d%09d cross links (processed %d%09d, took %g sec)\n",
-                    (int) (link_across_tot / 1000000000), (int) (link_across_tot % 1000000000),
-                    (int) (ntot / 1000000000), (int) (ntot % 1000000000), timediff(t0, t1));
-            fflush(stdout);
+            printf("Linked %ld particles\n", link_across_tot);
         }
-
-
-        /* let's check out which particles have changed their MinID */
-        for(i = 0; i < NumPart; i++)
-            if(NonlocalFlag[i])
-            {
-                if(MinID[Head[i]] != MinIDOld[i])
-                    MarkedFlag[i] = 1;
-
-                MinIDOld[i] = MinID[Head[i]];
-            }
-
     }
     while(link_across_tot > 0);
 
     myfree(MinIDOld);
     myfree(ChangedFlag);
     myfree(MarkedFlag);
-    myfree(NonlocalFlag);
 
-    myfree(DataNodeList);
-    myfree(DataIndexTable);
     myfree(Ngblist);
 
     if(ThisTask == 0)
@@ -607,80 +438,61 @@ void fof_find_groups(void)
 }
 
 
-int fof_find_dmparticles_evaluate(int target, int mode, int *nexport, int *nsend_local)
-{
+static int fof_find_evaluate(int target, int mode, 
+        struct fofdata_in * I, struct fofdata_out * O,
+        LocalEvaluator * lv, int *ngblist) {
     int j, n, links, p, s, ss, listindex = 0;
     int startnode, numngb_inbox;
     MyDouble *pos;
 
     links = 0;
 
-    if(mode == 0 || mode == -1)
-        pos = P[target].Pos;
-    else
-        pos = FoFDataGet[target].Pos;
-
-    if(mode == 0 || mode == -1)
-    {
-        startnode = All.MaxPart;	/* root node */
-    }
-    else
-    {
-        startnode = FoFDataGet[target].NodeList[0];
-        startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-    }
+    startnode = I->NodeList[0];
+    listindex ++;
+    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
     while(startnode >= 0)
     {
         while(startnode >= 0)
         {
-            if(mode == -1)
-                *nexport = 0;
-
-            numngb_inbox = ngb_treefind_fof_primary(pos, LinkL, target, &startnode, mode, nexport, nsend_local);
+            numngb_inbox = ngb_treefind_threads(I->Pos, LinkL, target, &startnode, mode, 
+                    lv, ngblist, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)
                 return -1;
 
-            if(mode == -1)
-            {
-                if(*nexport == 0)
-                    NonlocalFlag[target] = 0;
-                else
-                    NonlocalFlag[target] = 1;
-            }
-
             for(n = 0; n < numngb_inbox; n++)
             {
-                j = Ngblist[n];
-
-                if(mode == 0 || mode == -1)
-                {
+                j = ngblist[n];
+                if(mode == 0) {
+                    /* Local FOF */
+#pragma omp critical
                     if(Head[target] != Head[j])	/* only if not yet linked */
                     {
-
-                        if(mode == 0)
-                            endrun(87654);
-
                         if(Len[Head[target]] > Len[Head[j]])	/* p group is longer */
                         {
-                            p = target;
-                            s = j;
+                            p = target; s = j;
+                        } else {
+                            p = j; s = target;
                         }
-                        else
-                        {
-                            p = j;
-                            s = target;
+
+                        if(Tail[Head[p]] >= NumPart) {
+                            abort();
+                        }
+                        if(Head[p] >= NumPart) {
+                            abort();
                         }
                         Next[Tail[Head[p]]] = Head[s];
-
                         Tail[Head[p]] = Tail[Head[s]];
-
                         Len[Head[p]] += Len[Head[s]];
 
                         ss = Head[s];
-                        do
+                        do {
+                            if(ss >= NumPart) {
+                                abort();
+                            }
                             Head[ss] = Head[p];
+                        }
                         while((ss = Next[ss]) >= 0);
 
                         if(MinID[Head[s]] < MinID[Head[p]])
@@ -689,32 +501,32 @@ int fof_find_dmparticles_evaluate(int target, int mode, int *nexport, int *nsend
                             MinIDTask[Head[p]] = MinIDTask[Head[s]];
                         }
                     }
-                }
-                else		/* mode is 1 */
+                } else		/* mode is 1, target is a ghost */
                 {
-                    if(MinID[Head[j]] > FoFDataGet[target].MinID)
+                    if(Head[j] >= NumPart) {
+                        abort();
+                    }
+                    if(MinID[Head[j]] > I->MinID)
                     {
-                        MinID[Head[j]] = FoFDataGet[target].MinID;
-                        MinIDTask[Head[j]] = FoFDataGet[target].MinIDTask;
+                        MinID[Head[j]] = I->MinID;
+                        MinIDTask[Head[j]] = I->MinIDTask;
                         links++;
                     }
                 }
             }
         }
 
-        if(mode == 1)
+        if(listindex < NODELISTLENGTH)
         {
-            listindex++;
-            if(listindex < NODELISTLENGTH)
-            {
-                startnode = FoFDataGet[target].NodeList[listindex];
-                if(startnode >= 0)
-                    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+            startnode = I->NodeList[listindex];
+            if(startnode >= 0) {
+                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+                listindex++;
             }
         }
     }
 
-    return links;
+    return 0;
 }
 
 
@@ -1307,6 +1119,7 @@ static void fof_nearest_reduce(int place, struct fofdata_out * O, int mode) {
 static int fof_nearest_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv, int *ngblist);
+
 void fof_find_nearest_dmparticle(void)
 {
     int i, n, iter;
