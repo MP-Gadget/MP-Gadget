@@ -1897,19 +1897,6 @@ int domain_recursively_combine_topTree(int start, int ncpu)
     return errflag;
 }
 
-#ifdef ALT_QSORT
-#define KEY_TYPE struct peano_hilbert_data
-#define KEY_BASE_TYPE peanokey
-#define KEY_GETVAL(pk) ((pk)->key)
-#define KEY_COPY(pk1,pk2)       \
-{                               \
-    (pk2)->key = (pk1)->key;      \
-    (pk2)->index = (pk1)->index;  \
-}
-#define QSORT qsort_domain
-#include "myqsort.h"
-#endif
-
 /*! This function constructs the global top-level tree node that is used
  *  for the domain decomposition. This is done by considering the string of
  *  Peano-Hilbert keys for all particles, which is recursively chopped off

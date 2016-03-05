@@ -21,7 +21,7 @@ OBJS  =  \
 	 densitykernel.o interp.o lightcone.o walltime.o
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
-	 fof.h myqsort.h cosmology.h \
+	 fof.h cosmology.h \
 	 petaio.h \
 	 Makefile 
 
