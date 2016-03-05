@@ -87,13 +87,6 @@
 
 #define  NODELISTLENGTH      8
 
-typedef uint64_t peanokey;
-
-
-#define  BITS_PER_DIMENSION 21	/* for Peano-Hilbert order. Note: Maximum is 10 to fit in 32-bit integer ! */
-#define  PEANOCELLS (((peanokey)1)<<(3*BITS_PER_DIMENSION))
-
-
 #define  terminate(x) {char buf[1000]; sprintf(buf, "code termination on task=%d, function '%s()', file '%s', line %d: '%s'\n", ThisTask, __FUNCTION__, __FILE__, __LINE__, x); printf(buf); fflush(stdout); MPI_Abort(MPI_COMM_WORLD, 1); exit(0);}
 
 #ifndef  GAMMA
@@ -319,30 +312,6 @@ extern int Stars_converted;	/*!< current number of star particles in gas particl
 
 
 extern double TimeOfLastTreeConstruction;	/*!< holds what it says */
-
-extern double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
-extern int *DomainStartList, *DomainEndList;
-
-extern double *DomainWork;
-extern int *DomainCount;
-extern int *DomainCountSph;
-extern int *DomainTask;
-extern int *DomainNodeIndex;
-extern int *DomainList, DomainNumChanged;
-
-extern struct topnode_data
-{
-    peanokey Size;
-    peanokey StartKey;
-    int64_t Count;
-    MyFloat GravCost;
-    int Daughter;
-    int Pstart;
-    int Blocks;
-    int Leaf;
-} *TopNodes;
-
-extern int NTopnodes, NTopleaves;
 
 extern double RndTable[RNDTABLE];
 
@@ -844,11 +813,6 @@ extern struct sph_particle_data
 
 #define SPHP(i) SphP[i]
 #define BHP(i) BhP[P[i].PI]
-
-#define KEY(i) peano_hilbert_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac), \
-        (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac), \
-        (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), \
-        BITS_PER_DIMENSION)
 
 /* global state of system
 */

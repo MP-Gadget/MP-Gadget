@@ -33,6 +33,22 @@
 
 #define REDUC_FAC      0.98
 
+double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
+int *DomainStartList, *DomainEndList;
+
+
+
+double *DomainWork;
+int *DomainCount;
+int *DomainCountSph;
+int *DomainTask;
+int *DomainNodeIndex;
+int *DomainList, DomainNumChanged;
+
+struct topnode_data *TopNodes;
+
+int NTopnodes, NTopleaves;
+
 
 /*! toGo[task*NTask + partner] gives the number of particles in task 'task'
  *  that have to go to task 'partner'

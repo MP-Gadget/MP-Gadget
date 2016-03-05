@@ -40,10 +40,8 @@ double get_random_number(MyIDType id);
 void set_random_numbers(void);
 
 int data_index_compare(const void *a, const void *b);
-int peano_compare_key(const void *a, const void *b);
 
 void mysort_dataindex(void *b, size_t n, size_t s, int (*cmp) (const void *, const void *));
-void mysort_peano(void *b, size_t n, size_t s, int (*cmp) (const void *, const void *));
 
 size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE * stream);
 size_t my_fread(void *ptr, size_t size, size_t nmemb, FILE * stream);
@@ -53,11 +51,6 @@ double density_decide_hsearch(int targettype, double h);
 size_t sizemax(size_t a, size_t b);
 
 void reconstruct_timebins(void);
-
-void init_peano_map(void);
-peanokey peano_hilbert_key(int x, int y, int z, int bits);
-peanokey peano_and_morton_key(int x, int y, int z, int bits, peanokey *morton);
-peanokey morton_key(int x, int y, int z, int bits);
 
 void catch_abort(int sig);
 void catch_fatal(int sig);

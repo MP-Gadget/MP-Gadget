@@ -89,22 +89,6 @@ int Stars_converted;		/*!< current number of star particles in gas particle bloc
 
 double TimeOfLastTreeConstruction;	/*!< holds what it says */
 
-double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
-int *DomainStartList, *DomainEndList;
-
-
-
-double *DomainWork;
-int *DomainCount;
-int *DomainCountSph;
-int *DomainTask;
-int *DomainNodeIndex;
-int *DomainList, DomainNumChanged;
-
-struct topnode_data *TopNodes;
-
-int NTopnodes, NTopleaves;
-
 
 double RndTable[RNDTABLE];
 
