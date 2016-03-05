@@ -503,19 +503,12 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
     double minentropy;
     double dt_entr, dt_gravkick, dt_hydrokick, dt_gravkick2, dt_hydrokick2, dt_entr2;
 
-#ifdef MAX_GAS_VEL
-    double vv,velfac;
-#endif
-
     dt_entr = (tend - tstart) * All.Timebase_interval;
     dt_entr2 = (tend - tcurrent) * All.Timebase_interval;
     dt_gravkick = get_gravkick_factor(tstart, tend);
     dt_hydrokick = get_hydrokick_factor(tstart, tend);
     dt_gravkick2 = get_gravkick_factor(tcurrent, tend);
     dt_hydrokick2 = get_hydrokick_factor(tcurrent, tend);
-#ifdef MAX_GAS_VEL
-    velfac = 1 / sqrt(1 / (All.Time * All.Time * All.Time));
-#endif
 
     /* do the kick */
 
@@ -540,7 +533,8 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
         }
 
 #ifdef MAX_GAS_VEL
-        vv=0;
+        const double velfac = 1 / sqrt(1 / (All.Time * All.Time * All.Time));
+        double vv=0;
         for(j=0; j < 3; j++)
             vv += P[i].Vel[j] * P[i].Vel[j];
         vv = sqrt(vv);
