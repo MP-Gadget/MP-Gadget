@@ -217,7 +217,6 @@ void cooling_and_starformation(void)
     /* now lets make winds. this has to be after NumPart is updated */
     if(!HAS(All.WindModel, WINDS_SUBGRID)) {
         int i;
-        Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
         Evaluator ev = {0};
 
@@ -293,7 +292,6 @@ void cooling_and_starformation(void)
 
         ev_run(&ev);
         myfree(Wind);
-        myfree(Ngblist);
     }
     walltime_measure("/Cooling/Wind");
 #endif

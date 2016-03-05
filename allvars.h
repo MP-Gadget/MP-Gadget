@@ -345,11 +345,6 @@ extern int Stars_converted;	/*!< current number of star particles in gas particl
 
 extern double TimeOfLastTreeConstruction;	/*!< holds what it says */
 
-extern int *Ngblist;		/*!< Buffer to hold indices of neighbours retrieved by the neighbour search
-                              routines */
-
-extern double *R2ngblist;
-
 extern double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
 extern int *DomainStartList, *DomainEndList;
 

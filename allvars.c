@@ -102,10 +102,6 @@ int Stars_converted;		/*!< current number of star particles in gas particle bloc
 
 double TimeOfLastTreeConstruction;	/*!< holds what it says */
 
-int *Ngblist;			/*!< Buffer to hold indices of neighbours retrieved by the neighbour search
-				   routines */
-double *R2ngblist;
-
 double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
 int *DomainStartList, *DomainEndList;
 
