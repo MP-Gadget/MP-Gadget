@@ -624,10 +624,6 @@ int get_timestep(int p,		/*!< particle index */
 #ifdef BLACK_HOLES
     double dt_accr;
     double dt_limiter;
-
-#ifdef UNIFIED_FEEDBACK
-    double meddington = 0;
-#endif
 #endif
 
     if(flag <= 0)
