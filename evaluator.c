@@ -5,6 +5,16 @@
 #include "evaluator.h"
 #include "tags.h"
 
+struct data_nodelist
+{
+    int NodeList[NODELISTLENGTH];
+}
+*DataNodeList;
+
+struct data_index *DataIndexTable;	/*!< the particles to be exported are grouped
+					   by task-number. This table allows the
+					   results to be disentangled again and to be
+					   assigned to the correct particle */
 
 static void ev_init_thread(Evaluator * ev, LocalEvaluator * lv);
 static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int length);

@@ -895,26 +895,6 @@ extern struct state_of_system
 SysState, SysStateAtStart, SysStateAtEnd;
 
 
-/* Various structures for communication during the gravity computation.
-*/
-
-extern struct data_index
-{
-    int Task;
-    int Index;
-    int IndexGet;
-}
-*DataIndexTable;		/*!< the particles to be exported are grouped
-                          by task-number. This table allows the
-                          results to be disentangled again and to be
-                          assigned to the correct particle */
-
-extern struct data_nodelist
-{
-    int NodeList[NODELISTLENGTH];
-}
-*DataNodeList;
-
 /*! Header for the standard file format.
 */
 extern struct io_header

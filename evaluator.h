@@ -72,6 +72,17 @@ typedef struct _Evaluator {
     int *currentEnd;
 } Evaluator;
 
+/*!< the particles to be exported are grouped
+by task-number. This table allows the
+results to be disentangled again and to be
+assigned to the correct particle */
+struct data_index
+{
+    int Task;
+    int Index;
+    int IndexGet;
+};
+
 void ev_run(Evaluator * ev);
 void ev_begin(Evaluator * ev);
 void ev_finish(Evaluator * ev);

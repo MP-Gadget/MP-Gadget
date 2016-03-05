@@ -175,14 +175,6 @@ struct state_of_system SysState, SysStateAtStart, SysStateAtEnd;
 /* Various structures for communication during the gravity computation.
  */
 
-struct data_index *DataIndexTable;	/*!< the particles to be exported are grouped
-					   by task-number. This table allows the
-					   results to be disentangled again and to be
-					   assigned to the correct particle */
-
-struct data_nodelist *DataNodeList;
-
-
 /*! Header for the standard file format.
  */
 struct io_header header;	/*!< holds header for snapshot files */
