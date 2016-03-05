@@ -1,0 +1,31 @@
+language: c
+
+env:
+    global:
+        - NUMPY_VERSION=1.8 
+        - OMP_NUM_THREADS=1
+
+cache:
+    - directories:
+        - ${TRAVIS_BUILD_DIR}/depends/install
+        - ${TRAVIS_BUILD_DIR}/depends/download
+        - ${TRAVIS_BUILD_DIR}/depends/src
+
+addons:
+    apt:
+        packages:
+            - libopenmpi-dev
+            - openmpi-bin
+            - libgsl0-dev
+            - python-numpy
+            - python-matplotlib
+
+install:
+    - cp Options.mk.travis Options.mk
+    - make
+
+script:
+    - pushd runs
+    - sh run.sh
+    - popd 
+after_success: 
