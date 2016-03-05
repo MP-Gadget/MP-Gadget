@@ -8,6 +8,7 @@
 #include "openmpsort.h"
 #include "mymalloc.h"
 #include "domain.h"
+#include "forcetree.h"
 
 static int *Exportflag;	        /*!< Buffer used for flagging whether a particle needs to be exported to another process */
 static int *Exportnodecount;

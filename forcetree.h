@@ -2,6 +2,68 @@
 #define FORCETREE_H
 #include "evaluator.h"
 
+/*
+ * Variables for Tree
+ * ------------------
+ */
+
+/*Used in restart.c*/
+extern struct NODE
+{
+#ifdef OPENMP_USE_SPINLOCK
+    pthread_spinlock_t SpinLock;
+#endif
+
+    MyFloat len;			/*!< sidelength of treenode */
+    MyFloat center[3];		/*!< geometrical center of node */
+
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    MyFloat maxsoft;		/*!< hold the maximum gravitational softening of particle in the
+                              node if the ADAPTIVE_GRAVSOFT_FORGAS option is selected */
+#endif
+    union
+    {
+        int suns[8];		/*!< temporary pointers to daughter nodes */
+        struct
+        {
+            MyFloat s[3];		/*!< center of mass of node */
+            MyFloat mass;		/*!< mass of node */
+            unsigned int bitflags;	/*!< flags certain node properties */
+            int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
+            int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
+            int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
+        }
+        d;
+    }
+    u;
+    int Ti_current;
+}
+*Nodes_base,			/*!< points to the actual memory allocted for the nodes */
+    *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
+                      gives the first allocated node */
+
+/*Used in restart.c*/
+extern struct extNODE
+{
+    MyDouble dp[3];
+    MyFloat vs[3];
+    MyFloat vmax;
+    MyFloat divVmax;
+    MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
+    int Ti_lastkicked;
+    int Flag;
+}
+*Extnodes, *Extnodes_base;
+
+
+extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
+/*Used in restart.c*/
+extern int Numnodestree;	/*!< number of (internal) nodes in each tree */
+
+/*Used in domain.c*/
+extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
+extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
+
 #define BITFLAG_TOPLEVEL                   0
 #define BITFLAG_DEPENDS_ON_LOCAL_MASS      1
 #define BITFLAG_MAX_SOFTENING_TYPE         2	/* bits 2-4 */
