@@ -62,7 +62,6 @@ void gravity_tree(void)
 
     ev[0].ev_label = "FORCETREE_SHORTRANGE";
     ev[0].ev_evaluate = (ev_ev_func) force_treeev_shortrange;
-    ev[0].ev_alloc = NULL;
     ev[0].ev_isactive = gravtree_isactive;
     ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
     ev[0].UseNodeList = 1;

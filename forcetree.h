@@ -128,7 +128,7 @@ enum NgbTreeFindSymmetric {
 };
 
 int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-		       int mode, LocalEvaluator * lv, int *ngblist, enum NgbTreeFindSymmetric symmetric, int ptypemask);
+		       int mode, LocalEvaluator * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask);
 
 #endif
 

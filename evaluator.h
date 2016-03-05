@@ -9,13 +9,13 @@ typedef struct _LocalEvaluator {
     int *exportindex;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
+    int * ngblist;
 } LocalEvaluator;
 
 typedef int (*ev_ev_func) (const int target, const int mode, 
-        void * input, void * output, LocalEvaluator * lv, void * extradata);
+        void * input, void * output, LocalEvaluator * lv);
 
 typedef int (*ev_isactive_func) (const int i);
-typedef void * (*ev_alloc_func) ();
 
 typedef void (*ev_copy_func)(const int j, void * data_in);
 /* mode == 0 is to set the initial local value
@@ -31,10 +31,11 @@ struct ev_task {
 typedef struct _Evaluator {
     ev_ev_func ev_evaluate;
     ev_isactive_func ev_isactive;
-    ev_alloc_func ev_alloc;
     ev_copy_func ev_copy;
     ev_reduce_func ev_reduce;
     char * ev_label;  /* name of the evaluator (used in printing messages) */
+
+    int * ngblist;
 
     char * dataget;
     char * dataresult;

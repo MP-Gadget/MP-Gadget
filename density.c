@@ -62,8 +62,7 @@ struct densdata_out
 };
 
 static int density_isactive(int n);
-static int density_evaluate(int target, int mode, struct densdata_in * I, struct densdata_out * O, LocalEvaluator * lv, int * ngblist);
-static void * density_alloc_ngblist();
+static int density_evaluate(int target, int mode, struct densdata_in * I, struct densdata_out * O, LocalEvaluator * lv);
 static void density_post_process(int i);
 static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
 
@@ -102,7 +101,6 @@ void density(void)
     ev.ev_label = "DENSITY";
     ev.ev_evaluate = (ev_ev_func) density_evaluate;
     ev.ev_isactive = density_isactive;
-    ev.ev_alloc = density_alloc_ngblist;
     ev.ev_copy = (ev_copy_func) density_copy;
     ev.ev_reduce = (ev_reduce_func) density_reduce;
     ev.UseNodeList = 1;
@@ -119,8 +117,6 @@ void density(void)
     double tstart, tend;
 
     walltime_measure("/Misc");
-
-    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
     Left = (MyFloat *) mymalloc("Left", NumPart * sizeof(MyFloat));
     Right = (MyFloat *) mymalloc("Right", NumPart * sizeof(MyFloat));
@@ -232,7 +228,6 @@ void density(void)
 
     myfree(Right);
     myfree(Left);
-    myfree(Ngblist);
 
 
     /* collect some timing information */
@@ -363,7 +358,7 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 static int density_evaluate(int target, int mode,
         struct densdata_in * I,
         struct densdata_out * O,
-        LocalEvaluator * lv, int * ngblist)
+        LocalEvaluator * lv)
 {
     int n;
 
@@ -402,7 +397,7 @@ static int density_evaluate(int target, int mode,
         {
             numngb_inbox =
                 ngb_treefind_threads(I->Pos, hsearch, target, &startnode,
-                        mode, lv, ngblist, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
+                        mode, lv, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
 
             if(numngb_inbox < 0)
                 return numngb_inbox;
@@ -410,7 +405,7 @@ static int density_evaluate(int target, int mode,
             for(n = 0; n < numngb_inbox; n++)
             {
                 ninteractions++;
-                int j = ngblist[n];
+                int j = lv->ngblist[n];
 #ifdef WINDS
                 if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
                     if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
@@ -574,11 +569,6 @@ static int density_evaluate(int target, int mode,
     lv->Nnodesinlist += nnodesinlist;
 
     return 0;
-}
-
-static void * density_alloc_ngblist() {
-    int threadid = omp_get_thread_num();
-    return Ngblist + threadid * NumPart;
 }
 
 static int density_isactive(int n)

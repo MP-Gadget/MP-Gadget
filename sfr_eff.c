@@ -80,17 +80,16 @@ static struct winddata {
 
 
 static int sfr_wind_isactive(int target);
-static void * sfr_wind_alloc_ngblist();
 static void sfr_wind_reduce_weight(int place, struct winddata_out * remote, int mode);
 static void sfr_wind_copy(int place, struct winddata_in * input);
 static int sfr_wind_ev_weight(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
-        LocalEvaluator * lv, int * ngblist);
+        LocalEvaluator * lv);
 static int sfr_wind_evaluate(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
-        LocalEvaluator * lv, int * ngblist);
+        LocalEvaluator * lv);
 
 #endif
 /*
@@ -224,7 +223,6 @@ void cooling_and_starformation(void)
 
         ev.ev_label = "SFR_WIND";
         ev.ev_isactive = sfr_wind_isactive;
-        ev.ev_alloc = sfr_wind_alloc_ngblist;
         ev.ev_copy = (ev_copy_func) sfr_wind_copy;
         ev.ev_reduce = (ev_reduce_func) sfr_wind_reduce_weight;
         ev.UseNodeList = 1;
@@ -421,11 +419,6 @@ static int sfr_wind_isactive(int target) {
     return 0;
 }
 
-static void * sfr_wind_alloc_ngblist() {
-    int threadid = omp_get_thread_num();
-    return Ngblist + threadid * NumPart;
-}
-
 static void sfr_wind_reduce_weight(int place, struct winddata_out * O, int mode) {
     EV_REDUCE(Wind[place].TotalWeight, O->TotalWeight);
     int k;
@@ -461,7 +454,7 @@ static void sfr_wind_copy(int place, struct winddata_in * input) {
 static int sfr_wind_ev_weight(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
-        LocalEvaluator * lv, int * ngblist) {
+        LocalEvaluator * lv) {
     /* this evaluator walks the tree and sums the total mass of surrounding gas
      * particles as described in VS08. */
     int startnode, numngb, k, n, listindex = 0;
@@ -479,14 +472,14 @@ static int sfr_wind_ev_weight(int target, int mode,
         while(startnode >= 0)
         {
             numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode,
-                    mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1 + 2);
+                    mode, lv, NGB_TREEFIND_SYMMETRIC, 1 + 2);
 
             if(numngb < 0)
                 return numngb;
 
             for(n = 0; n < numngb; n++)
             {
-                int j = ngblist[n];
+                int j = lv->ngblist[n];
 
                 double dx = I->Pos[0] - P[j].Pos[0];
                 double dy = I->Pos[1] - P[j].Pos[1];
@@ -542,7 +535,7 @@ static int sfr_wind_ev_weight(int target, int mode,
 static int sfr_wind_evaluate(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
-        LocalEvaluator * lv, int * ngblist) {
+        LocalEvaluator * lv) {
 
     /* this evaluator walks the tree and blows wind. */
 
@@ -560,17 +553,17 @@ static int sfr_wind_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
-                    mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1);
+                    mode, lv, NGB_TREEFIND_SYMMETRIC, 1);
 
             if(numngb < 0)
                 return numngb;
 
             for(n = 0; n < numngb;
-                    (unlock_particle_if_not(ngblist[n], I->ID), n++)
+                    (unlock_particle_if_not(lv->ngblist[n], I->ID), n++)
                     )
             {
-                lock_particle_if_not(ngblist[n], I->ID);
-                int j = ngblist[n];
+                lock_particle_if_not(lv->ngblist[n], I->ID);
+                int j = lv->ngblist[n];
                 /* skip wind particles */
                 if(SPHP(j).DelayTime > 0) continue;
 

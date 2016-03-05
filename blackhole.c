@@ -92,7 +92,6 @@ struct swallowdata_out
 #endif
 };
 
-static void * blackhole_alloc_ngblist();
 static void blackhole_accretion_evaluate(int n);
 static void blackhole_postprocess(int n);
 
@@ -103,7 +102,7 @@ static void blackhole_feedback_copy(int place, struct feedbackdata_in * I);
 static int blackhole_feedback_evaluate(int target, int mode,
         struct feedbackdata_in * I,
         struct feedbackdata_out * O,
-        LocalEvaluator * lv, int * ngblist);
+        LocalEvaluator * lv);
 
 static int blackhole_swallow_isactive(int n);
 static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote, int mode);
@@ -112,7 +111,7 @@ static void blackhole_swallow_copy(int place, struct swallowdata_in * I);
 static int blackhole_swallow_evaluate(int target, int mode,
         struct swallowdata_in * I,
         struct swallowdata_out * O,
-        LocalEvaluator * lv, int * ngblist);
+        LocalEvaluator * lv);
 
 #define BHPOTVALUEINIT 1.0e30
 
@@ -144,7 +143,6 @@ void blackhole_accretion(void)
     fbev.ev_label = "BH_FEEDBACK";
     fbev.ev_evaluate = (ev_ev_func) blackhole_feedback_evaluate;
     fbev.ev_isactive = blackhole_feedback_isactive;
-    fbev.ev_alloc = blackhole_alloc_ngblist;
     fbev.ev_copy = (ev_copy_func) blackhole_feedback_copy;
     fbev.ev_reduce = (ev_reduce_func) blackhole_feedback_reduce;
     fbev.UseNodeList = 1;
@@ -155,7 +153,6 @@ void blackhole_accretion(void)
     swev.ev_label = "BH_SWALLOW";
     swev.ev_evaluate = (ev_ev_func) blackhole_swallow_evaluate;
     swev.ev_isactive = blackhole_swallow_isactive;
-    swev.ev_alloc = blackhole_alloc_ngblist;
     swev.ev_copy = (ev_copy_func) blackhole_swallow_copy;
     swev.ev_reduce = (ev_reduce_func) blackhole_swallow_reduce;
     swev.UseNodeList = 1;
@@ -193,11 +190,6 @@ void blackhole_accretion(void)
 
     N_sph_swallowed = N_BH_swallowed = 0;
 
-
-    /* allocate buffers to arrange communication */
-
-    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
-
     /* Let's first spread the feedback energy,
      * and determine which particles may be swalled by whom */
 
@@ -207,7 +199,6 @@ void blackhole_accretion(void)
 #if defined(BH_SWALLOWGAS) || defined(BH_MERGER)
     ev_run(&swev);
 #endif
-    myfree(Ngblist);
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -370,7 +361,7 @@ static void blackhole_postprocess(int n) {
 static int blackhole_feedback_evaluate(int target, int mode,
         struct feedbackdata_in * I,
         struct feedbackdata_out * O,
-        LocalEvaluator * lv, int * ngblist)
+        LocalEvaluator * lv)
 {
 
     int startnode, numngb, k, n, listindex = 0;
@@ -408,18 +399,18 @@ static int blackhole_feedback_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode, mode, lv,
-                    ngblist, NGB_TREEFIND_ASYMMETRIC, ptypemask);
+                    NGB_TREEFIND_ASYMMETRIC, ptypemask);
 
             if(numngb < 0)
                 return numngb;
 
             for(n = 0;
                 n < numngb;
-                (unlock_particle_if_not(ngblist[n], I->ID), n++)
+                (unlock_particle_if_not(lv->ngblist[n], I->ID), n++)
                 )
             {
-                lock_particle_if_not(ngblist[n], I->ID);
-                int j = ngblist[n];
+                lock_particle_if_not(lv->ngblist[n], I->ID);
+                int j = lv->ngblist[n];
 
                 if(P[j].Mass < 0) continue;
 
@@ -580,7 +571,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
 int blackhole_swallow_evaluate(int target, int mode,
         struct swallowdata_in * I,
         struct swallowdata_out * O,
-        LocalEvaluator * lv, int * ngblist)
+        LocalEvaluator * lv)
 {
     int startnode, numngb, k, n, listindex = 0;
 
@@ -600,17 +591,17 @@ int blackhole_swallow_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
-                    mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, ptypemask);
+                    mode, lv, NGB_TREEFIND_SYMMETRIC, ptypemask);
 
             if(numngb < 0)
                 return numngb;
 
             for(n = 0; n < numngb;
-                 (unlock_particle_if_not(ngblist[n], I->ID), n++)
+                 (unlock_particle_if_not(lv->ngblist[n], I->ID), n++)
                  )
             {
-                lock_particle_if_not(ngblist[n], I->ID);
-                int j = ngblist[n];
+                lock_particle_if_not(lv->ngblist[n], I->ID);
+                int j = lv->ngblist[n];
                 if(P[j].SwallowID != I->ID) continue;
 #ifdef BH_MERGER
                 if(P[j].Type == 5)	/* we have a black hole merger */
@@ -685,10 +676,7 @@ int blackhole_swallow_evaluate(int target, int mode,
 static int blackhole_feedback_isactive(int n) {
     return (P[n].Type == 5) && (P[n].Mass > 0);
 }
-static void * blackhole_alloc_ngblist() {
-    int threadid = omp_get_thread_num();
-    return Ngblist + threadid * NumPart;
-}
+
 static void blackhole_feedback_reduce(int place, struct feedbackdata_out * remote, int mode) {
     int k;
 #ifdef BH_REPOSITION_ON_POTMIN

@@ -22,6 +22,7 @@ void ev_init_thread(Evaluator * ev, LocalEvaluator * lv) {
     int thread_id = omp_get_thread_num();
     int j;
     lv->ev = ev;
+    lv->ngblist = thread_id * NumPart + ev->ngblist;
     lv->exportflag = Exportflag + thread_id * NTask;
     lv->exportnodecount = Exportnodecount + thread_id * NTask;
     lv->exportindex = Exportindex + thread_id * NTask;
@@ -50,6 +51,7 @@ void ev_begin(Evaluator * ev) {
     fill_task_queue(ev, ev->PrimaryTasks, ev->PQueue, ev->PQueueEnd);
     ev->currentIndex = mymalloc("currentIndexPerThread", sizeof(int) * All.NumThreads);
     ev->currentEnd = mymalloc("currentEndPerThread", sizeof(int) * All.NumThreads);
+    ev->ngblist = mymalloc("Ngblist", sizeof(int) * All.NumThreads * NumPart);
 
     int i;
     for(i = 0; i < All.NumThreads; i ++) {
@@ -58,6 +60,7 @@ void ev_begin(Evaluator * ev) {
     }
 }
 void ev_finish(Evaluator * ev) {
+    myfree(ev->ngblist);
     myfree(ev->currentEnd);
     myfree(ev->currentIndex);
     myfree(ev->PrimaryTasks);
@@ -72,8 +75,6 @@ static void real_ev(Evaluator * ev) {
     int tid = omp_get_thread_num();
     int i;
     LocalEvaluator lv ;
-    void * extradata = NULL;
-    if(ev->ev_alloc) extradata = ev->ev_alloc();
 
     ev_init_thread(ev, &lv);
 
@@ -102,7 +103,7 @@ static void real_ev(Evaluator * ev) {
         ((int*) input)[1] = -1; /* terminate immediately */
         
         memset(output, 0, ev->ev_dataout_elsize);
-        rt = ev->ev_evaluate(i, 0, input, output, &lv, extradata);
+        rt = ev->ev_evaluate(i, 0, input, output, &lv);
         if(rt < 0) {
             P[i].Evaluated = 0;
             break;		/* export buffer has filled up, redo this particle */
@@ -254,9 +255,7 @@ void ev_secondary(Evaluator * ev) {
     {
         int j;
         LocalEvaluator lv;
-        void  * extradata = NULL;
-        if(ev->ev_alloc)
-            extradata = ev->ev_alloc();
+
         ev_init_thread(ev, &lv);
 #pragma omp for
         for(j = 0; j < ev->Nimport; j++) {
@@ -267,7 +266,7 @@ void ev_secondary(Evaluator * ev) {
                 ((int*) input)[0] = All.MaxPart; /* root node */
                 ((int*) input)[1] = -1; /* terminate immediately */
             }
-            ev->ev_evaluate(j, 1, input, output, &lv, extradata);
+            ev->ev_evaluate(j, 1, input, output, &lv);
         }
 #pragma omp atomic
         ev->Ninteractions += lv.Ninteractions;

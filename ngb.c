@@ -32,8 +32,7 @@
  *  calling routine.
  */
 int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-        int mode, LocalEvaluator * lv,
-        int *ngblist, enum NgbTreeFindSymmetric symmetric, int ptypemask)
+        int mode, LocalEvaluator * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask)
 {
     int no, p, numngb;
     MyDouble dist, dx, dy, dz;
@@ -77,7 +76,7 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
             if(dx * dx + dy * dy + dz * dz > dist * dist)
                 continue;
 
-            ngblist[numngb++] = p;	
+            lv->ngblist[numngb++] = p;	
             /* Note: unlike in previous versions of the code, the buffer 
                                        can hold up to all particles */
         }

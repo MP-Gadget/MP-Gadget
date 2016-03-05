@@ -329,10 +329,6 @@ static void fof_find_copy(int place, struct fofdata_in * I) {
 }
 
 static char *MarkedFlag, *ChangedFlag;
-static void * fof_find_ngblist() {
-    int threadid = omp_get_thread_num();
-    return Ngblist + threadid * NumPart;
-}
 
 MyIDType *MinIDOld;
 
@@ -342,7 +338,7 @@ static int fof_find_isactive(int n) {
 
 static int fof_find_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
-        LocalEvaluator * lv, int *ngblist);
+        LocalEvaluator * lv);
 
 void fof_find_groups(void)
 {
@@ -361,7 +357,6 @@ void fof_find_groups(void)
     ev.ev_label = "FOF_FIND_GROUPS";
     ev.ev_evaluate = (ev_ev_func) fof_find_evaluate;
     ev.ev_isactive = fof_find_isactive;
-    ev.ev_alloc = fof_find_ngblist;
     ev.ev_copy = (ev_copy_func) fof_find_copy;
     ev.ev_reduce = NULL;
     ev.UseNodeList = 1;
@@ -370,8 +365,6 @@ void fof_find_groups(void)
     ev.ev_dataout_elsize = 1;
 
     /* allocate buffers to arrange communication */
-
-    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
     MarkedFlag = (char *) mymalloc("MarkedFlag", NumPart * sizeof(char));
     ChangedFlag = (char *) mymalloc("ChangedFlag", NumPart * sizeof(char));
@@ -428,8 +421,6 @@ void fof_find_groups(void)
     myfree(ChangedFlag);
     myfree(MarkedFlag);
 
-    myfree(Ngblist);
-
     if(ThisTask == 0)
     {
         printf("Local groups found.\n\n");
@@ -440,7 +431,7 @@ void fof_find_groups(void)
 
 static int fof_find_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
-        LocalEvaluator * lv, int *ngblist) {
+        LocalEvaluator * lv) {
     int j, n, links, p, s, ss, listindex = 0;
     int startnode, numngb_inbox;
     MyDouble *pos;
@@ -456,14 +447,14 @@ static int fof_find_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb_inbox = ngb_treefind_threads(I->Pos, LinkL, target, &startnode, mode, 
-                    lv, ngblist, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
+                    lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)
                 return -1;
 
             for(n = 0; n < numngb_inbox; n++)
             {
-                j = ngblist[n];
+                j = lv->ngblist[n];
                 if(mode == 0) {
                     /* Local FOF */
 #pragma omp critical
@@ -1101,10 +1092,6 @@ static void fof_nearest_copy(int place, struct fofdata_in * I) {
     }
     I->Hsml = fof_nearest_hsml[place];
 }
-static void * fof_nearest_ngblist() {
-    int threadid = omp_get_thread_num();
-    return Ngblist + threadid * NumPart;
-}
 static int fof_nearest_isactive(int n) {
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
@@ -1118,7 +1105,7 @@ static void fof_nearest_reduce(int place, struct fofdata_out * O, int mode) {
 }
 static int fof_nearest_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
-        LocalEvaluator * lv, int *ngblist);
+        LocalEvaluator * lv);
 
 void fof_find_nearest_dmparticle(void)
 {
@@ -1128,7 +1115,6 @@ void fof_find_nearest_dmparticle(void)
     ev.ev_label = "FOF_FIND_NEAREST";
     ev.ev_evaluate = (ev_ev_func) fof_nearest_evaluate;
     ev.ev_isactive = fof_nearest_isactive;
-    ev.ev_alloc = fof_nearest_ngblist;
     ev.ev_copy = (ev_copy_func) fof_nearest_copy;
     ev.ev_reduce = (ev_reduce_func) fof_nearest_reduce;
     ev.UseNodeList = 1;
@@ -1161,8 +1147,6 @@ void fof_find_nearest_dmparticle(void)
     }
 
     /* allocate buffers to arrange communication */
-
-    Ngblist = (int *) mymalloc("Ngblist", NumPart * sizeof(int) * All.NumThreads);
 
     iter = 0;
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
@@ -1232,8 +1216,6 @@ void fof_find_nearest_dmparticle(void)
     }
     while(ntot > 0);
 
-    myfree(Ngblist);
-
     myfree(fof_nearest_hsml);
     myfree(fof_nearest_distance);
 
@@ -1246,7 +1228,7 @@ void fof_find_nearest_dmparticle(void)
 
 static int fof_nearest_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
-        LocalEvaluator * lv, int *ngblist)
+        LocalEvaluator * lv)
 {
     int j, n, index, listindex = 0;
     int startnode, numngb_inbox;
@@ -1265,14 +1247,14 @@ static int fof_nearest_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb_inbox = ngb_treefind_threads(I->Pos, h, target, &startnode, mode, 
-                    lv, ngblist, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
+                    lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)
                 return -1;
 
             for(n = 0; n < numngb_inbox; n++)
             {
-                j = ngblist[n];
+                j = lv->ngblist[n];
                 double dx, dy, dz, r2;
                 dx = I->Pos[0] - P[j].Pos[0];
                 dy = I->Pos[1] - P[j].Pos[1];

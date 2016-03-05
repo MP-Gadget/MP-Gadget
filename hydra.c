@@ -75,9 +75,8 @@ struct hydrodata_out
 static int hydro_evaluate(int target, int mode,
         struct hydrodata_in * I,
         struct hydrodata_out * O,
-        LocalEvaluator * lv, int * ngblist);
+        LocalEvaluator * lv);
 static int hydro_isactive(int n);
-static void * hydro_alloc_ngblist();
 static void hydro_post_process(int i);
 
 
@@ -97,7 +96,6 @@ void hydro_force(void)
     ev.ev_label = "HYDRO";
     ev.ev_evaluate = (ev_ev_func) hydro_evaluate;
     ev.ev_isactive = hydro_isactive;
-    ev.ev_alloc = hydro_alloc_ngblist;
     ev.ev_copy = (ev_copy_func) hydro_copy;
     ev.ev_reduce = (ev_reduce_func) hydro_reduce;
 #ifdef DONOTUSENODELIST
@@ -128,13 +126,9 @@ void hydro_force(void)
 
     /* allocate buffers to arrange communication */
 
-    Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
-
     walltime_measure("/SPH/Hydro/Init");
 
     ev_run(&ev);
-
-    myfree(Ngblist);
 
 
     /* do final operations on results */
@@ -240,7 +234,7 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
 static int hydro_evaluate(int target, int mode,
         struct hydrodata_in * I,
         struct hydrodata_out * O,
-        LocalEvaluator * lv, int * ngblist)
+        LocalEvaluator * lv)
 {
     int startnode, numngb, listindex = 0;
     int j, n;
@@ -293,14 +287,14 @@ static int hydro_evaluate(int target, int mode,
         {
             numngb =
                 ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
-                        mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1); /* gas only 1 << 0 */
+                        mode, lv, NGB_TREEFIND_SYMMETRIC, 1); /* gas only 1 << 0 */
 
             if(numngb < 0)
                 return numngb;
 
             for(n = 0; n < numngb; n++)
             {
-                j = ngblist[n];
+                j = lv->ngblist[n];
 
                 ninteractions++;
 
@@ -529,10 +523,6 @@ static int hydro_evaluate(int target, int mode,
     return 0;
 }
 
-static void * hydro_alloc_ngblist() {
-    int threadid = omp_get_thread_num();
-    return Ngblist + threadid * NumPart;
-}
 static int hydro_isactive(int i) {
     return P[i].Type == 0;
 }
