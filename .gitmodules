@@ -1,9 +1,9 @@
 [submodule "bigfile"]
-	path = bigfile
+	path = depends/bigfile
 	url = https://github.com/rainwoodman/bigfile
 [submodule "radixsort"]
-	path = mpsort
+	path = depends/mpsort
 	url = https://github.com/rainwoodman/MP-sort
 [submodule "pfft-python"]
-	path = pfft-python
+	path = depends/pfft-python
 	url = https://github.com/rainwoodman/pfft-python

@@ -1,5 +1,19 @@
-EXEC   = P-Gadget3 GENIC/N-GenIC
-all: $(EXEC)
+# vim: set ft=make:
+
+EXEC = P-Gadget3 GENIC/N-GenIC
+
+CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(VPATH)/depends/include -DH5_USE_16_API
+
+BUNDLEDLIBS = -lmpsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft -lfftw3_mpi -lfftw3_threads -lfftw3 
+LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -L$(VPATH)/depends/lib $(BUNDLEDLIBS)
+
+
+all: depends $(EXEC)
+
+.PHONY: depends
+
+depends:
+	cd $(VPATH)/depends; make
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 
@@ -25,12 +39,7 @@ INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
 	 petaio.h \
 	 Makefile 
 
-CFLAGS = -I. $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -Idepends/include -DH5_USE_16_API
-
-BUNDLEDLIBS = -lmpsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft -lfftw3_mpi -lfftw3_threads -lfftw3 
-LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -Ldepends/lib $(BUNDLEDLIBS)
-
-P-Gadget3: $(OBJS) depends
+P-Gadget3: $(OBJS)
 	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
 
 ICOBJS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
@@ -40,32 +49,15 @@ ICOBJS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
 		GENIC/save2.o  \
 		GENIC/walltime.o
 
-GENIC/N-GenIC: $(ICOBJS) depends
+GENIC/N-GenIC: $(ICOBJS)
 	mkdir -p GENIC
 	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
 config.h: Makefile
 	echo "const char * COMPILETIMESETTINGS = \"$(OPTIMIZE) $(OPT)\";" > $@
 
-depends: depends/mpsort depends/bigfile depends/fftw3 depends/pfft
-depends/mpsort:
-	cd $(VPATH)/mpsort; \
-	make install PREFIX=$(PWD)/depends/ CC=$(CC) CFLAGS="$(OPTIMIZE)"
-	touch $@
-depends/bigfile:
-	cd $(VPATH)/bigfile/src; \
-	make install PREFIX=$(PWD)/depends/ CC=$(CC) MPICC=$(CC) CFLAGS="$(OPTIMIZE)"
-	touch $@
-
-depends/fftw3:
-	CC="$(CC)" MPICC="$(CC)" CFLAGS="$(OPTIMIZE)" sh $(VPATH)/pfft-python/depends/install_fftw.sh $(PWD)/depends/
-	touch $@
-depends/pfft: depends/fftw3
-	CC="$(CC)" CFLAGS="$(OPTIMIZE) -I $(PWD)/depends/include -L$(PWD)/depends/lib" sh $(VPATH)/pfft-python/depends/install_pfft.sh $(PWD)/depends/
-	touch $@
-
-$(OBJS): $(INCL) config.h depends
-$(ICOBJS): $(INCL) config.h depends
+$(OBJS): $(INCL) config.h 
+$(ICOBJS): $(INCL) config.h 
 
 .c.o: $(INCL)
 	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<

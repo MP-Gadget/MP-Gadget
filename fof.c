@@ -12,7 +12,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
-#include "mpsort/mpsort.h"
+#include "mpsort.h"
 
 /*! \file fof.c
  *  \brief parallel FoF group finder

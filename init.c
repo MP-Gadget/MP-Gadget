@@ -9,7 +9,7 @@
 
 #include "petaio.h"
 #include "domain.h"
-#include "mpsort/mpsort.h"
+#include "mpsort.h"
 
 static void test_id_uniqueness(void);
 

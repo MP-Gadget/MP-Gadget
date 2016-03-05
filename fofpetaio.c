@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "bigfile-mpi.h"
-#include "mpsort/mpsort.h"
+#include "mpsort.h"
 
 #include "allvars.h"
 #include "proto.h"
