@@ -52,16 +52,6 @@ double hydrokick_integ(double a, void *param)
   return 1 / (h * pow(a, 3 * GAMMA_MINUS1) * a);
 }
 
-double growthfactor_integ(double a, void *param)
-{
-  double s;
-
-  s = hubble_function(a) / All.Hubble * sqrt(a * a * a);
-
-  return pow(sqrt(a) / s, 3);
-}
-
-
 void init_drift_table(void)
 {
 #define WORKSIZE 100000

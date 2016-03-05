@@ -27,8 +27,8 @@ static void byten(void *x, size_t n, int modus);
  * you can tell the program to restrict the number of files
  * that are simultaneously written to NumFilesWrittenInParallel.
  *
- * If modus>0  the restart()-routine reads, 
- * if modus==0 it writes a restart file. 
+ * If modus>0  the restart()-routine reads,
+ * if modus==0 it writes a restart file.
  */
 void restart(int modus)
 {
@@ -332,28 +332,11 @@ void restart(int modus)
 
         MPI_Barrier(MPI_COMM_WORLD);
     }
-#if defined(HEALPIX)
-
-    //this should be readed in the parameterfile
-
-    if(modus)
-    {
-        All.Nside = 32;
-        //
-        if(ThisTask == 0)
-            printf(" Restart calculation of Healpix %i with %i \n", All.Nside, NSIDE2NPIX(All.Nside));
-        // initialize the healpix array (just in case)
-        All.healpixmap = (float *) malloc(NSIDE2NPIX(All.Nside) * sizeof(float));
-        for(i = 0; i < NSIDE2NPIX(All.Nside); i++)
-            All.healpixmap[i] = 0;
-        healpix_halo_cond(All.healpixmap);
-    }
-#endif
 }
 
 
 
-/* reads/writes n bytes 
+/* reads/writes n bytes
 */
 void byten(void *x, size_t n, int modus)
 {
@@ -364,7 +347,7 @@ void byten(void *x, size_t n, int modus)
 }
 
 
-/* reads/writes one int 
+/* reads/writes one int
 */
 void in(int *x, int modus)
 {

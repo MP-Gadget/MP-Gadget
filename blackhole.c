@@ -21,7 +21,7 @@ struct blackhole_event {
     enum {
         BHEVENT_ACCRETION = 0,
         BHEVENT_SCATTER = 1,
-        BHEVENT_SWALLOW = 2, 
+        BHEVENT_SWALLOW = 2,
     } type;
     double time;
     MyIDType ID;
@@ -100,18 +100,18 @@ static int blackhole_feedback_isactive(int n);
 static void blackhole_feedback_reduce(int place, struct feedbackdata_out * remote, int mode);
 static void blackhole_feedback_copy(int place, struct feedbackdata_in * I);
 
-static int blackhole_feedback_evaluate(int target, int mode, 
-        struct feedbackdata_in * I, 
-        struct feedbackdata_out * O, 
+static int blackhole_feedback_evaluate(int target, int mode,
+        struct feedbackdata_in * I,
+        struct feedbackdata_out * O,
         LocalEvaluator * lv, int * ngblist);
 
 static int blackhole_swallow_isactive(int n);
 static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote, int mode);
 static void blackhole_swallow_copy(int place, struct swallowdata_in * I);
 
-static int blackhole_swallow_evaluate(int target, int mode, 
-        struct swallowdata_in * I, 
-        struct swallowdata_out * O, 
+static int blackhole_swallow_evaluate(int target, int mode,
+        struct swallowdata_in * I,
+        struct swallowdata_out * O,
         LocalEvaluator * lv, int * ngblist);
 
 #define BHPOTVALUEINIT 1.0e30
@@ -125,7 +125,7 @@ static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
     cs = sqrt(GAMMA * entropy_or_pressure / rho);
 
 #else
-    cs = sqrt(GAMMA * entropy_or_pressure * 
+    cs = sqrt(GAMMA * entropy_or_pressure *
             pow(rho, GAMMA_MINUS1));
 #endif
     cs *= pow(All.Time, -1.5 * GAMMA_MINUS1);
@@ -135,9 +135,7 @@ static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
 
 void blackhole_accretion(void)
 {
-    int i, j, k, n, bin;
-    int ndone_flag, ndone;
-    int ngrp, sendTask, recvTask, place, nexport, nimport, dummy;
+    int i, n, bin;
     int Ntot_gas_swallowed, Ntot_BH_swallowed;
 
     walltime_measure("/Misc");
@@ -200,7 +198,7 @@ void blackhole_accretion(void)
 
     Ngblist = (int *) mymalloc("Ngblist", All.NumThreads * NumPart * sizeof(int));
 
-    /* Let's first spread the feedback energy, 
+    /* Let's first spread the feedback energy,
      * and determine which particles may be swalled by whom */
 
     ev_run(&fbev);
@@ -341,11 +339,11 @@ static void blackhole_accretion_evaluate(int n) {
 }
 
 static void blackhole_postprocess(int n) {
-    int k;
 #ifdef BH_ACCRETION
     if(BHP(n).accreted_Mass > 0)
     {
 #ifndef BH_REPOSITION_ON_POTMIN
+        int k;
         for(k = 0; k < 3; k++)
             P[n].Vel[k] =
                 (P[n].Vel[k] * P[n].Mass + BHP(n).accreted_momentum[k]) /
@@ -369,9 +367,9 @@ static void blackhole_postprocess(int n) {
 #endif
 }
 
-static int blackhole_feedback_evaluate(int target, int mode, 
-        struct feedbackdata_in * I, 
-        struct feedbackdata_out * O, 
+static int blackhole_feedback_evaluate(int target, int mode,
+        struct feedbackdata_in * I,
+        struct feedbackdata_out * O,
         LocalEvaluator * lv, int * ngblist)
 {
 
@@ -415,8 +413,8 @@ static int blackhole_feedback_evaluate(int target, int mode,
             if(numngb < 0)
                 return numngb;
 
-            for(n = 0; 
-                n < numngb; 
+            for(n = 0;
+                n < numngb;
                 (unlock_particle_if_not(ngblist[n], I->ID), n++)
                 )
             {
@@ -426,7 +424,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
                 if(P[j].Mass < 0) continue;
 
                 if(P[j].Type != 5) {
-                    if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin) 
+                    if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin)
                         O->BH_TimeBinLimit = P[j].TimeBin;
                 }
                 double dx = I->Pos[0] - P[j].Pos[0];
@@ -546,7 +544,6 @@ static int blackhole_feedback_evaluate(int target, int mode,
                             wk = density_kernel_wk(&bh_feedback_kernel, u);
                         else
                         wk = 1.0;
-#ifndef UNIFIED_FEEDBACK
                         double energy = All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt *
                             pow(C / All.UnitVelocity_in_cm_per_s, 2);
 
@@ -555,22 +552,6 @@ static int blackhole_feedback_evaluate(int target, int mode,
                             SPHP(j).Injected_BH_Energy += (energy * mass_j * wk / I->FeedbackWeightSum);
                         }
 
-#else
-                        double meddington = (4 * M_PI * GRAVITY * C *
-                                PROTONMASS / (0.1 * C * C * THOMPSON)) * I->BH_Mass *
-                            All.UnitTime_in_s;
-
-                        if(I->Mdot > All.RadioThreshold * meddington)
-                        {
-                            double energy =
-                                All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt * pow(C /
-                                        All.UnitVelocity_in_cm_per_s,
-                                        2);
-                            if(I->FeedbackWeightSum> 0) {
-                                SPHP(j).Injected_BH_Energy += (energy * mass_j * wk / I->FeedbackWeightSum);
-                            }
-                        }
-#endif
                     }
 #endif
                 }
@@ -591,14 +572,14 @@ static int blackhole_feedback_evaluate(int target, int mode,
 }
 
 
-/** 
- * perform blackhole swallow / merger; 
+/**
+ * perform blackhole swallow / merger;
  * ran only if BH_MERGER or BH_SWALLOWGAS
  * is defined
  */
-int blackhole_swallow_evaluate(int target, int mode, 
-        struct swallowdata_in * I, 
-        struct swallowdata_out * O, 
+int blackhole_swallow_evaluate(int target, int mode,
+        struct swallowdata_in * I,
+        struct swallowdata_out * O,
         LocalEvaluator * lv, int * ngblist)
 {
     int startnode, numngb, k, n, listindex = 0;
@@ -618,13 +599,13 @@ int blackhole_swallow_evaluate(int target, int mode,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode, 
+            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
                     mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, ptypemask);
 
             if(numngb < 0)
                 return numngb;
 
-            for(n = 0; n < numngb; 
+            for(n = 0; n < numngb;
                  (unlock_particle_if_not(ngblist[n], I->ID), n++)
                  )
             {
@@ -685,7 +666,7 @@ int blackhole_swallow_evaluate(int target, int mode,
 #pragma omp atomic
                     N_sph_swallowed++;
                 }
-#endif 
+#endif
             }
         }
         if(listindex < NODELISTLENGTH)
@@ -720,8 +701,8 @@ static void blackhole_feedback_reduce(int place, struct feedbackdata_out * remot
         }
     }
 #endif
-    if (mode == 0 || 
-            BHP(place).TimeBinLimit < 0 || 
+    if (mode == 0 ||
+            BHP(place).TimeBinLimit < 0 ||
             BHP(place).TimeBinLimit > remote->BH_TimeBinLimit) {
         BHP(place).TimeBinLimit = remote->BH_TimeBinLimit;
     }

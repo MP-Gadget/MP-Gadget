@@ -21,11 +21,11 @@
  *  short-range part.
  */
 
-/* According to upstream P-GADGET3 
- * correct workcount slows it down and yields little benefits in load balancing 
+/* According to upstream P-GADGET3
+ * correct workcount slows it down and yields little benefits in load balancing
  * */
-#define LOCK_WORKCOUNT 
-#define UNLOCK_WORKCOUNT 
+#define LOCK_WORKCOUNT
+#define UNLOCK_WORKCOUNT
 
 int NextParticle;
 
@@ -38,102 +38,7 @@ int Ewald_iter;			/* global in file scope, for simplicity */
 static int gravtree_isactive(int i);
 void gravtree_copy(int place, struct gravitydata_in * input) ;
 void gravtree_reduce(int place, struct gravitydata_out * result, int mode);
-void gravtree_reduce_ewald(int place, struct gravitydata_out * result, int mode);
 static void gravtree_post_process(int i);
-
-#ifdef REINIT_AT_TURNAROUND_CMS
-void calculate_centre_of_mass(void)
-{
-    int i, iter = 0;
-    double cms_mass_local = 0.0, cms_x_local = 0.0, cms_y_local = 0.0, cms_z_local = 0.0, cms_N_local = 0.0;
-    double cms_mass_global = 0.0, cms_x_global = 0.0, cms_y_global = 0.0, cms_z_global = 0.0, cms_N_global =
-        Ntype[1] * 1.0;
-    double r_part, max_r_local = 0.0, max_r_global = 0.0;
-
-    /* get maximum radius */
-    for(i = 0; i < NumPart; i++)
-    {
-        r_part = sqrt((P[i].Pos[0] - cms_x_global) * (P[i].Pos[0] - cms_x_global) +
-                (P[i].Pos[1] - cms_y_global) * (P[i].Pos[1] - cms_y_global) +
-                (P[i].Pos[2] - cms_z_global) * (P[i].Pos[2] - cms_z_global));
-        if(r_part > max_r_local)
-            max_r_local = r_part;
-    }
-
-    MPI_Allreduce(&max_r_local, &max_r_global, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-
-    if(ThisTask == 0)
-    {
-        printf("REINIT_AT_TURNAROUND_CMS: max_r=%g\n", max_r_global);
-        fflush(stdout);
-    }
-
-
-    while((cms_N_global > 1000.0) || (cms_N_global > 0.1 * Ntype[1]))
-    {
-        /* reset local numbers */
-        cms_x_local = 0.0;
-        cms_y_local = 0.0;
-        cms_z_local = 0.0;
-        cms_mass_local = 0.0;
-        cms_N_local = 0.0;
-
-
-        /* get local centre of mass contributions */
-        for(i = 0; i < NumPart; i++)
-        {
-            r_part = sqrt((P[i].Pos[0] - cms_x_global) * (P[i].Pos[0] - cms_x_global) +
-                    (P[i].Pos[1] - cms_y_global) * (P[i].Pos[1] - cms_y_global) +
-                    (P[i].Pos[2] - cms_z_global) * (P[i].Pos[2] - cms_z_global));
-
-
-
-            if(r_part < max_r_global * pow(REINIT_AT_TURNAROUND_CMS, iter))
-            {
-                cms_x_local += P[i].Mass * P[i].Pos[0];
-                cms_y_local += P[i].Mass * P[i].Pos[1];
-                cms_z_local += P[i].Mass * P[i].Pos[2];
-                cms_mass_local += P[i].Mass;
-                cms_N_local += 1.0;
-            }
-        }
-
-        /* collect data and sum up */
-        MPI_Allreduce(&cms_mass_local, &cms_mass_global, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&cms_x_local, &cms_x_global, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&cms_y_local, &cms_y_global, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&cms_z_local, &cms_z_global, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        MPI_Allreduce(&cms_N_local, &cms_N_global, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-        cms_x_global /= cms_mass_global;
-        cms_y_global /= cms_mass_global;
-        cms_z_global /= cms_mass_global;
-
-        if(ThisTask == 0)
-        {
-            printf("REINIT_AT_TURNAROUND_CMS: cms_N=%g  iter=%d  R=%g\n", cms_N_global, iter,
-                    max_r_global * pow(REINIT_AT_TURNAROUND_CMS, iter));
-            printf("REINIT_AT_TURNAROUND_CMS: r_cms=(%g,%g,%g)\n", cms_x_global, cms_y_global, cms_z_global);
-            fflush(stdout);
-        }
-
-        iter++;
-    }
-
-
-    All.cms_x = cms_x_global;
-    All.cms_y = cms_y_global;
-    All.cms_z = cms_z_global;
-
-    if(ThisTask == 0)
-    {
-        printf("REINIT_AT_TURNAROUND_CMS: time=%g r_cms=(%g,%g,%g) mass=%g r_TA=%g\n",
-                All.Time, All.cms_x, All.cms_y, All.cms_z, cms_mass_global, All.CurrentTurnaroundRadius);
-        fflush(stdout);
-    }
-
-}
-#endif
 
 /*! This function computes the gravitational forces for all active particles.
  *  If needed, a new tree is constructed, otherwise the dynamically updated
@@ -150,11 +55,6 @@ void gravity_tree(void)
     double sum_costtotal, ewaldtot;
     double maxt, sumt, maxt1, sumt1, maxt2, sumt2, sumcommall, sumwaitall;
     double plb, plb_max;
-
-#ifdef FIXEDTIMEINFIRSTPHASE
-    int counter;
-    double min_time_first_phase, min_time_first_phase_glob;
-#endif
 
     int Ewald_max;
 
@@ -192,7 +92,7 @@ void gravity_tree(void)
         ev_run(&ev[Ewald_iter]);
         iter += ev[Ewald_iter].Niterations;
         n_exported += ev[Ewald_iter].Nexport_sum;
-        N_nodesinlist += ev[Ewald_iter].Nnodesinlist; 
+        N_nodesinlist += ev[Ewald_iter].Nnodesinlist;
     } /* Ewald_iter */
 
     Ewaldcount = ev[1].Ninteractions;
@@ -277,15 +177,6 @@ void gravity_tree(void)
     timeall = walltime_measure(WALLTIME_IGNORE);
     walltime_add("/Tree/Misc", timeall - (timetree + timewait + timecomm));
 
-#ifdef FIXEDTIMEINFIRSTPHASE
-    MPI_Reduce(&min_time_first_phase, &min_time_first_phase_glob, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0)
-    {
-        printf("FIXEDTIMEINFIRSTPHASE=%g  min_time_first_phase_glob=%g\n",
-                FIXEDTIMEINFIRSTPHASE, min_time_first_phase_glob);
-    }
-#endif
-
     if(ThisTask == 0)
     {
         fprintf(FdTimings, "Step= %d  t= %g  dt= %g \n", All.NumCurrentTiStep, All.Time, All.TimeStep);
@@ -316,21 +207,8 @@ void gravity_tree(void)
 
 void gravtree_copy(int place, struct gravitydata_in * input) {
     int k;
-#ifdef GRAVITY_CENTROID
-    if(P[place].Type == 0)
-    {
-        for(k = 0; k < 3; k++)
-            input->Pos[k] = SPHP(place).Center[k];
-    }
-    else
-    {
-        for(k = 0; k < 3; k++)
-            input->Pos[k] = P[place].Pos[k];
-    }
-#else
     for(k = 0; k < 3; k++)
         input->Pos[k] = P[place].Pos[k];
-#endif
 
 #if defined(UNEQUALSOFTENINGS)
     input->Type = P[place].Type;
@@ -351,13 +229,6 @@ void gravtree_reduce(int place, struct gravitydata_out * result, int mode) {
 
     REDUCE(P[place].GravCost, result->Ninteractions);
     REDUCE(P[place].Potential, result->Potential);
-}
-void gravtree_reduce_ewald(int place, struct gravitydata_out * result, int mode) {
-    int k;
-    for(k = 0; k < 3; k++)
-        P[place].GravAccel[k] += result->Acc[k];
-
-    P[place].GravCost += result->Ninteractions;
 }
 
 static int gravtree_isactive(int i) {
@@ -434,9 +305,6 @@ void set_softenings(void)
         All.SofteningTable[5] = All.SofteningBndryMaxPhys / All.Time;
     else
         All.SofteningTable[5] = All.SofteningBndry;
-#ifdef SINKS
-    All.SofteningTable[5] = All.SinkHsml / All.Time * All.HubbleParam;
-#endif
 
     for(i = 0; i < 6; i++)
         All.ForceSoftening[i] = 2.8 * All.SofteningTable[i];

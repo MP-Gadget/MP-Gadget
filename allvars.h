@@ -43,14 +43,6 @@
 
 #include "walltime.h"
 
-#ifdef MPISENDRECV_CHECKSUM
-#define MPI_Sendrecv MPI_Check_Sendrecv
-#endif
-
-#ifdef MPISENDRECV_SIZELIMIT
-#define MPI_Sendrecv MPI_Sizelimited_Sendrecv
-#endif
-
 #include "tags.h"
 #include "assert.h"
 
@@ -152,9 +144,6 @@ typedef uint64_t peanokey;
 #define  OSCILLATOR_STRENGTH       0.41615
 #define  OSCILLATOR_STRENGTH_HeII  0.41615
 
-#ifdef NAVIERSTOKES
-#define  LOG_LAMBDA      37.8	/* logarithmic Coulomb factor */
-#endif
 #define  SEC_PER_MEGAYEAR   3.155e13
 #define  SEC_PER_YEAR       3.155e7
 
@@ -225,12 +214,6 @@ struct unbind_data
 };
 
 
-#ifdef FIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
-extern MPI_Status mpistat;
-#undef MPI_STATUS_IGNORE
-#define MPI_STATUS_IGNORE &mpistat
-#endif
-
 #define HAS(val, flag) ((flag & (val)) == (flag))
 #ifdef BLACK_HOLES
 enum bhfeedbackmethod {
@@ -241,19 +224,19 @@ enum bhfeedbackmethod {
      BH_FEEDBACK_OPTTHIN  = 0x20,
 };
 #endif
-/* 
- * additional sfr criterion in addition to density threshold 
+/*
+ * additional sfr criterion in addition to density threshold
  * All.StarformationCriterion */
 enum starformationcriterion {
     SFR_CRITERION_DENSITY = 1,
-    SFR_CRITERION_MOLECULAR_H2 = 3, /* 2 + 1 */ 
+    SFR_CRITERION_MOLECULAR_H2 = 3, /* 2 + 1 */
     SFR_CRITERION_SELFGRAVITY = 5,  /* 4 + 1 */
     /* below are additional flags in SELFGRAVITY */
     SFR_CRITERION_CONVERGENT_FLOW = 13, /* 8 + 4 + 1 */
     SFR_CRITERION_CONTINUOUS_CUTOFF= 21, /* 16 + 4 + 1 */
 };
 
-/* 
+/*
  * wind models SH03, VS08 and OFJT10
  * All.WindModel */
 enum windmodel {
@@ -358,10 +341,6 @@ extern int NumPart;		/*!< number of particles on the LOCAL processor */
 extern int N_sph;		/*!< number of gas particles on the LOCAL processor  */
 extern int N_bh;		/*!< number of bh particles on the LOCAL processor  */
 
-#ifdef SINKS
-extern int NumSinks;
-#endif
-
 extern int64_t Ntype[6];	/*!< total number of particles of each type */
 extern int NtypeLocal[6];	/*!< local number of particles of each type */
 
@@ -461,7 +440,7 @@ extern struct global_data_all_processes
     int NumWritersPerSnapshot;	/*!< maximum number of files that may be written simultaneously when
                                       writing/reading restart-files, or when writing snapshot files */
 
-    int NumWritersPerPIG;	
+    int NumWritersPerPIG;
     double BufferSize;		/*!< size of communication buffer in MB */
     int BunchSize;     	        /*!< number of particles fitting into the buffer in the parallel tree algorithm  */
 
@@ -486,7 +465,6 @@ extern struct global_data_all_processes
 #ifdef START_WITH_EXTRA_NGBDEV
     double MaxNumNgbDeviationStart;    /*!< Maximum allowed deviation neighbour number to start with*/
 #endif
-
     double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
     double InitGasU;		/*!< the same, but converted to thermal energy per unit mass */
@@ -567,12 +545,12 @@ extern struct global_data_all_processes
            TimeMax;			/*!< marks the point of time until the simulation is to be evolved */
 
     struct {
-        double a; 
-        double a3inv; 
-        double a2inv; 
-        double fac_egy; 
-        double hubble; 
-        double hubble_a2; 
+        double a;
+        double a3inv;
+        double a2inv;
+        double fac_egy;
+        double hubble;
+        double hubble_a2;
     } cf;
 
     /* variables for organizing discrete timeline */
@@ -588,9 +566,6 @@ extern struct global_data_all_processes
     double TotalMeshSize[2];
 
     int Ti_nextlineofsight;
-#ifdef OUTPUTLINEOFSIGHT
-    double TimeFirstLineOfSight;
-#endif
 
     /* variables that keep track of cumulative CPU consumption */
 
@@ -692,17 +667,6 @@ extern struct global_data_all_processes
     double ReferenceGasMass;
 #endif
 
-#if defined(SIM_ADAPTIVE_SOFT) || defined(REINIT_AT_TURNAROUND)
-    double CurrentTurnaroundRadius;
-    double InitialTurnaroundRadius;
-    double SIM_epsilon;
-    double cms_x, cms_y, cms_z;
-#endif
-
-#ifdef ADAPTIVE_FORCE_ACC
-    double ErrTolForceAccParam;
-#endif
-
 #ifdef SFR		/* star formation and feedback sector */
     double CritOverDensity;
     double CritPhysDensity;
@@ -729,24 +693,12 @@ extern struct global_data_all_processes
     double WindSpeedFactor;
 #endif
 
-#if defined(SNIA_HEATING)
-    double SnIaHeatingRate;
-#endif
-
 #ifdef TIME_DEP_ART_VISC
     double ViscSource0;		/*!< Given sourceterm in viscosity evolution */
     double DecayLength;		/*!< Number of h for the viscosity decay */
     double ViscSource;		/*!< Reduced sourceterm in viscosity evolution */
     double DecayTime;		/*!< Calculated decaytimescale */
     double AlphaMin;		/*!< Minimum of allowed viscosity parameter */
-#endif
-
-#if defined(HEALPIX)
-    //change this to read in the Parameterfile
-    int Nside;
-#define NSIDE2NPIX(nside)  (12*nside*nside)
-    float *healpixmap;
-    double Minmass,Maxmass;
 #endif
 
 #ifdef BLACK_HOLES
@@ -765,39 +717,11 @@ extern struct global_data_all_processes
 #ifdef FOF
     double massDMpart;
 #endif
-#ifdef MODIFIEDBONDI
-    double BlackHoleRefDensity;
-    double BlackHoleRefSoundspeed;
-#endif
-#endif
-
-#ifdef NAVIERSTOKES
-    double NavierStokes_ShearViscosity;
-    double FractionSpitzerViscosity;
-    double ShearViscosityTemperature;
-#endif
-#ifdef NAVIERSTOKES_BULK
-    double NavierStokes_BulkViscosity;
-#endif
-#ifdef VISCOSITY_SATURATION
-    double IonMeanFreePath;
 #endif
 
 #ifdef EOS_DEGENERATE
     char EosTable[100];
     char EosSpecies[100];
-#endif
-
-#ifdef SINKS
-    int TotNumSinks;
-    double SinkHsml;
-    double SinkDensThresh;
-#endif
-
-#ifdef GENERATE_GAS_IN_ICS
-#ifdef GENERATE_GAS_TG
-    int GenGasRefFac;
-#endif
 #endif
 
 }
@@ -891,20 +815,10 @@ extern struct particle_data
         MyDouble dNumNgb;
     } n;
 
-#ifdef SNIA_HEATING
-    MyFloat DensAroundStar;
-#endif
-
 #ifdef FOF
     int64_t GrNr;
     int origintask;
     int targettask;
-#endif
-
-#ifdef SHELL_CODE
-    MyDouble radius;
-    MyDouble enclosed_mass;
-    MyDouble dMdr;
 #endif
 
     float GravCost;		/*!< weight factor used for balancing the work-load */
@@ -937,42 +851,19 @@ extern struct sph_particle_data
     MyDouble Entropy;		/*!< current value of entropy (actually entropic function) of particle */
     MyFloat  Pressure;		/*!< current pressure */
     MyFloat  VelPred[3];		/*!< predicted SPH particle velocity at the current time */
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-    MyFloat MinViscousDt;
-#else
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
-#endif
 #ifdef VOLUME_CORRECTION
     MyFloat DensityOld;
     MyFloat DensityStd;
 #endif
-    
+
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */
     MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
     MyFloat       DhsmlDensityFactor;	/*!< correction factor needed in entropy formulation of SPH */
     MyFloat       DivVel;		/*!< local velocity divergence */
-#ifndef NAVIERSTOKES
-    union {
-        MyFloat CurlVel;     	        /*!< local velocity curl */
-        MyFloat       Rot[3];		/*!< local velocity curl */
-    } r;
-#else
-    union
-    {
-        MyFloat DV[3][3];
-        struct
-        {
-            MyFloat DivVel;
-            MyFloat CurlVel;
-            MyFloat StressDiag[3];
-            MyFloat StressOffDiag[3];
-#ifdef NAVIERSTOKES_BULK
-            MyFloat StressBulk;
-#endif
-        } s;
-    } u;
-#endif
+    MyFloat       CurlVel;     	        /*!< local velocity curl */
+    MyFloat       Rot[3];		/*!< local velocity curl */
 
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
     MyFloat       Injected_BH_Energy;
@@ -994,10 +885,6 @@ extern struct sph_particle_data
 #ifdef TIME_DEP_ART_VISC
     MyFloat alpha, Dtalpha;
 #endif
-#ifdef NS_TIMESTEP
-    MyFloat ViscEntropyChange;
-#endif
-
 #ifdef EOS_DEGENERATE
     MyFloat u;                            /* internal energy density */
     MyFloat temp;                         /* temperature */
@@ -1010,7 +897,7 @@ extern struct sph_particle_data
     short int wakeup;             /*!< flag to wake up particle */
 #endif
 
-#ifdef SPH_GRAD_RHO 
+#ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
 #endif
 } *SphP;				/*!< holds SPH particle data on local processor */
@@ -1151,9 +1038,6 @@ extern struct NODE
 extern struct extNODE
 {
     MyDouble dp[3];
-#ifdef GRAVITY_CENTROID
-    int suns[8];
-#endif
     MyFloat vs[3];
     MyFloat vmax;
     MyFloat divVmax;

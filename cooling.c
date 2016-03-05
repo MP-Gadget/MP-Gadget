@@ -208,102 +208,6 @@ double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg, double *ne_g
 }
 
 
-/* returns new internal energy per unit mass. 
- * Arguments are passed in code units, density is proper density.
- */
-double DoInstabilityCooling(double m_old, double u, double rho, double dt, double fac, struct UVBG * uvbg, double *ne_guess, double Z)
-{
-    double m, dm;
-    double m_lower, m_upper;
-    double ratefact;
-    double LambdaNet;
-    int iter = 0;
-
-    if(fac <= 0)			/* the hot phase is actually colder than the cold reservoir! */
-    {
-        return 0.01 * m_old;
-    }
-
-    rho *= All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam;	/* convert to physical cgs units */
-    u *= All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
-    dt *= All.UnitTime_in_s / All.HubbleParam;
-    fac *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
-
-    double nHcgs = XH * rho / PROTONMASS;	/* hydrogen number dens in cgs units */
-    ratefact = nHcgs * nHcgs / rho * fac;
-
-    m = m_old;
-    m_lower = m;
-    m_upper = m;
-
-    LambdaNet = CoolingRateFromU(u, nHcgs, uvbg, ne_guess, Z);
-
-    /* bracketing */
-
-    if(m - m_old - m * m / m_old * ratefact * LambdaNet * dt < 0)	/* heating */
-    {
-        m_upper *= sqrt(1.1);
-        m_lower /= sqrt(1.1);
-        while(m_upper - m_old -
-            m_upper * m_upper / m_old * ratefact * CoolingRateFromU(u, nHcgs * m_upper / m_old,
-                    uvbg, ne_guess, Z) * dt < 0)
-                    {
-                        m_upper *= 1.1;
-                        m_lower *= 1.1;
-                    }
-    }
-
-    if(m - m_old - m_old * ratefact * LambdaNet * dt > 0)
-    {
-        m_lower /= sqrt(1.1);
-        m_upper *= sqrt(1.1);
-        while(m_lower - m_old -
-            m_lower * m_lower / m_old * ratefact * CoolingRateFromU(u, nHcgs * m_lower / m_old,
-                    uvbg, ne_guess, Z) * dt > 0)
-                    {
-                        m_upper /= 1.1;
-                        m_lower /= 1.1;
-                    }
-    }
-
-    do
-    {
-        m = 0.5 * (m_lower + m_upper);
-
-        LambdaNet = CoolingRateFromU(u, nHcgs * m / m_old, uvbg, ne_guess, Z);
-
-        if(m - m_old - m * m / m_old * ratefact * LambdaNet * dt > 0)
-        {
-            m_upper = m;
-        }
-        else
-        {
-            m_lower = m;
-        }
-
-        dm = m_upper - m_lower;
-
-        iter++;
-
-        if(iter >= (MAXITER - 10))
-            printf("m= %g\n", m);
-    }
-    while(fabs(dm / m) > 1.0e-6 && iter < MAXITER);
-
-    if(iter >= MAXITER)
-    {
-        printf("failed to converge in DoCooling()\n");
-        endrun(11);
-    }
-
-    return m;
-}
-
-
-
-
-
-
 
 
 void cool_test(void)
@@ -634,22 +538,6 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
 
 
 
-
-
-double LogTemp(double u, double ne)	/* ne= electron density in terms of hydrogen density */
-{
-    double T;
-
-    if(u < ethmin)
-        u = ethmin;
-
-    T = log10(GAMMA_MINUS1 * u * mhboltz * (1 + 4 * yhelium) / (1 + ne + yhelium));
-
-    return T;
-}
-
-
-
 static void InitUVF(void);
 void InitCoolMemory(void)
 {
@@ -940,11 +828,7 @@ void ReadIonizeParams(char *fname)
 
 void IonizeParams(void)
 {
-
     IonizeParamsTable();
-    /*
-       IonizeParamsFunction();
-       */
 }
 
 
@@ -993,89 +877,6 @@ void SetZeroIonization(void)
 {
     memset(&GlobalUVBG, 0, sizeof(GlobalUVBG));
 }
-
-
-void IonizeParamsFunction(void)
-{
-    int i, nint;
-    double a0, planck, ev, e0_H, e0_He, e0_Hep;
-    double gint, eint, t, tinv, fac, eps;
-    double at, beta, s;
-    double pi;
-
-#define UVALPHA         1.0
-    double redshift;
-
-    memset(&GlobalUVBG, 0, sizeof(GlobalUVBG));
-
-    redshift = 1 / All.Time - 1;
-
-    if(redshift >= 6)
-        GlobalUVBG.J_UV = 0.;
-    else
-    {
-        if(redshift >= 3)
-            GlobalUVBG.J_UV = 4e-22 / (1 + redshift);
-        else
-        {
-            if(redshift >= 2)
-                GlobalUVBG.J_UV = 1e-22;
-            else
-                GlobalUVBG.J_UV = 1.e-22 * pow(3.0 / (1 + redshift), -3.0);
-        }
-    }
-
-    if(GlobalUVBG.J_UV == 0)
-        return;
-
-
-    a0 = 6.30e-18;
-    planck = 6.6262e-27;
-    ev = 1.6022e-12;
-    e0_H = 13.6058 * ev;
-    e0_He = 24.59 * ev;
-    e0_Hep = 54.4232 * ev;
-
-    gint = 0.0;
-    eint = 0.0;
-    nint = 5000;
-    at = 1. / ((double) nint);
-
-    for(i = 1; i <= nint; i++)
-    {
-        t = (double) i;
-        t = (t - 0.5) * at;
-        tinv = 1. / t;
-        eps = sqrt(tinv - 1.);
-        fac = exp(4. - 4. * atan(eps) / eps) / (1. - exp(-2. * M_PI / eps)) * pow(t, UVALPHA + 3.);
-        gint += fac * at;
-        eint += fac * (tinv - 1.) * at;
-    }
-
-    GlobalUVBG.gJH0 = a0 * gint / planck;
-    GlobalUVBG.epsH0 = a0 * eint * (e0_H / planck);
-    GlobalUVBG.gJHep = GlobalUVBG.gJH0 * pow(e0_H / e0_Hep, UVALPHA) / 4.0;
-    GlobalUVBG.epsHep = GlobalUVBG.epsH0 * pow((e0_H / e0_Hep), UVALPHA - 1.) / 4.0;
-
-    at = 7.83e-18;
-    beta = 1.66;
-    s = 2.05;
-
-    GlobalUVBG.gJHe0 = (at / planck) * pow((e0_H / e0_He), UVALPHA) *
-        (beta / (UVALPHA + s) + (1. - beta) / (UVALPHA + s + 1));
-    GlobalUVBG.epsHe0 = (e0_He / planck) * at * pow(e0_H / e0_He, UVALPHA) *
-        (beta / (UVALPHA + s - 1) + (1 - 2 * beta) / (UVALPHA + s) - (1 - beta) / (UVALPHA + s + 1));
-
-    pi = M_PI;
-    GlobalUVBG.gJH0 *= 4. * pi * GlobalUVBG.J_UV;
-    GlobalUVBG.gJHep *= 4. * pi * GlobalUVBG.J_UV;
-    GlobalUVBG.gJHe0 *= 4. * pi * GlobalUVBG.J_UV;
-    GlobalUVBG.epsH0 *= 4. * pi * GlobalUVBG.J_UV;
-    GlobalUVBG.epsHep *= 4. * pi * GlobalUVBG.J_UV;
-    GlobalUVBG.epsHe0 *= 4. * pi * GlobalUVBG.J_UV;
-
-}
-
 
 void InitCool(void)
 {

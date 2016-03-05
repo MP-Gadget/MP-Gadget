@@ -7,12 +7,12 @@
 #include "proto.h"
 #include "cosmology.h"
 
-/*! \file timestep.c 
+/*! \file timestep.c
  *  \brief routines for 'kicking' particles in
  *  momentum space and assigning new timesteps
  */
 
-static double fac2, fac3; 
+static double fac2, fac3;
 static double dt_displacement = 0;
 
 static double dt_gravkickA, dt_gravkickB;
@@ -465,7 +465,7 @@ void advance_and_find_timesteps(void)
                 + get_hydrokick_factor(time0, time1_new) / 2;
 
             /* This may now work in comoving runs */
-            /* WARNING: this velocity correction is inconsistent, 
+            /* WARNING: this velocity correction is inconsistent,
              * as the position of the particle was calculated with a "wrong" velocity before  */
             for(k = 0; k < 3; k++)
             {
@@ -503,19 +503,12 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
     double minentropy;
     double dt_entr, dt_gravkick, dt_hydrokick, dt_gravkick2, dt_hydrokick2, dt_entr2;
 
-#ifdef MAX_GAS_VEL
-    double vv,velfac;
-#endif
-
     dt_entr = (tend - tstart) * All.Timebase_interval;
     dt_entr2 = (tend - tcurrent) * All.Timebase_interval;
     dt_gravkick = get_gravkick_factor(tstart, tend);
     dt_hydrokick = get_hydrokick_factor(tstart, tend);
     dt_gravkick2 = get_gravkick_factor(tcurrent, tend);
     dt_hydrokick2 = get_hydrokick_factor(tcurrent, tend);
-#ifdef MAX_GAS_VEL
-    velfac = 1 / sqrt(1 / (All.Time * All.Time * All.Time));
-#endif
 
     /* do the kick */
 
@@ -540,7 +533,8 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
         }
 
 #ifdef MAX_GAS_VEL
-        vv=0;
+        const double velfac = 1 / sqrt(1 / (All.Time * All.Time * All.Time));
+        double vv=0;
         for(j=0; j < 3; j++)
             vv += P[i].Vel[j] * P[i].Vel[j];
         vv = sqrt(vv);
@@ -624,14 +618,6 @@ int get_timestep(int p,		/*!< particle index */
 #ifdef BLACK_HOLES
     double dt_accr;
     double dt_limiter;
-
-#ifdef UNIFIED_FEEDBACK
-    double meddington = 0;
-#endif
-#endif
-
-#ifdef NS_TIMESTEP
-    double dt_NS = 0;
 #endif
 
     if(flag <= 0)
@@ -698,38 +684,9 @@ int get_timestep(int p,		/*!< particle index */
 
     if(P[p].Type == 0)
     {
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-        double csnd = sqrt(GAMMA * SPHP(p).Pressure / SPHP(p).EOMDensity);
-
-
-        dt_courant = All.CourantFac * All.Time * DMAX(P[p].Hsml, All.SofteningTable[0]) / (fac3 * csnd);
-
-        if(dt_courant > 2 * All.CourantFac * SPHP(p).MinViscousDt)
-            dt_courant = 2 * All.CourantFac * SPHP(p).MinViscousDt;
-#else
         dt_courant = 2 * All.CourantFac * All.Time * P[p].Hsml / (fac3 * SPHP(p).MaxSignalVel);
-#endif
-
         if(dt_courant < dt)
             dt = dt_courant;
-
-#ifdef MYFALSE
-        dt_viscous = All.CourantFac * SPHP(p).MaxViscStep / All.cf.hubble;	/* to convert dloga to physical dt */
-
-        if(dt_viscous < dt)
-            dt = dt_viscous;
-#endif
-
-#ifdef NS_TIMESTEP
-        if(fabs(SPHP(p).ViscEntropyChange))
-        {
-            dt_NS = VISC_TIMESTEP_PARAMETER * SPHP(p).Entropy / SPHP(p).ViscEntropyChange / All.cf.hubble;
-
-            if(dt_NS < dt)
-                dt = dt_NS;
-        }
-#endif
-
     }
 
 #ifdef BLACK_HOLES
@@ -757,7 +714,7 @@ int get_timestep(int p,		/*!< particle index */
     dt = All.MaxSizeTimestep;
 #endif
 
-    
+
 
     if(dt >= All.MaxSizeTimestep)
         dt = All.MaxSizeTimestep;
