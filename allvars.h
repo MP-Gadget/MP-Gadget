@@ -203,14 +203,6 @@ typedef uint64_t peanokey;
 
 #define MAXITER 400
 
-#ifndef LINKLENGTH
-#define LINKLENGTH 0.2
-#endif
-
-#ifndef FOF_GROUP_MIN_LEN
-#define FOF_GROUP_MIN_LEN 32
-#endif
-
 #define MINRESTFAC 0.05
 
 
@@ -748,7 +740,6 @@ extern struct global_data_all_processes
     float *healpixmap;
     double Minmass,Maxmass;
 #endif
-
 #ifdef BLACK_HOLES
     double TimeNextBlackHoleCheck;
     double TimeBetBlackHoleSearch;
@@ -762,13 +753,17 @@ extern struct global_data_all_processes
     double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
     double BlackHoleMaxAccretionRadius;
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
+#endif
+
 #ifdef FOF
     double massDMpart;
+    double FOFHaloLinkingLength;
+    int FOFHaloMinLength;
 #endif
+
 #ifdef MODIFIEDBONDI
     double BlackHoleRefDensity;
     double BlackHoleRefSoundspeed;
-#endif
 #endif
 
 #ifdef NAVIERSTOKES

@@ -48,7 +48,6 @@ OPT	+=  -DFOF_PRIMARY_LINK_TYPES=2           # 2^type for the primary dark matte
 OPT	+=  -DFOF_SECONDARY_LINK_TYPES=1+16+32	 # 2^type for the types linked to nearest primaries
 #OPT    +=  -DDENSITY_SPLIT_BY_TYPE=1+2+16+32    # 2^type for whch the densities should be calculated seperately  
 OPT 	+=  -DFOF_GROUP_MIN_LEN=32               # default is 32
-##OPT	+=  -DLINKLENGTH=0.16                    # Linkinglength for FoF (default=0.2)
 #OPT	+=  -DSO_VEL_DISPERSIONS                 # computes velocity dispersions for as part of FOF SO-properties
 
 #--------------------------------------- SFR/feedback model

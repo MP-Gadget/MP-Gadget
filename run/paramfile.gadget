@@ -33,11 +33,8 @@ TimeLimitCPU     43000 %= 8 hours
 ICFormat                 1
 SnapFormat               3
 CompressionLevel         4
-ComovingIntegrationOn    1
-
 TypeOfTimestepCriterion  0
 OutputListOn             1 
-PeriodicBoundariesOn     1
 
 %  Characteristics of run
 
@@ -74,17 +71,14 @@ CourantFac             0.15
 MaxSizeTimestep       0.1
 MinSizeTimestep       0.05
 
-
+FOFHaloLinkingLength 0.2
+FOFHaloMinLength     32
 
 % Tree algorithm, force accuracy, domain update frequency
 
 ErrTolTheta            0.5            
 TypeOfOpeningCriterion 1
 ErrTolForceAcc         0.005
-
-%Subfind params
-%DesLinkNgb           20
-%ErrTolThetaSubfind   0.5
 
 TreeDomainUpdateFrequency    0.025  
 

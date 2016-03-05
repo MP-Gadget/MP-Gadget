@@ -117,7 +117,7 @@ void fof_fof(int num)
 
     rhodm = (All.Omega0 - All.OmegaBaryon) * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
 
-    LinkL = LINKLENGTH * pow(masstot / ndmtot / rhodm, 1.0 / 3);
+    LinkL = All.FOFHaloLinkingLength * pow(masstot / ndmtot / rhodm, 1.0 / 3);
 
     if(ThisTask == 0)
     {
@@ -242,7 +242,7 @@ void fof_fof(int num)
 
     if(ThisTask == 0)
     {
-        printf("\nTotal number of groups with at least %d particles: %d\n", FOF_GROUP_MIN_LEN, TotNgroups);
+        printf("\nTotal number of groups with at least %d particles: %d\n", All.FOFHaloMinLength, TotNgroups);
         if(TotNgroups > 0)
         {
             printf("Largest group has %d particles.\n", largestgroup);
@@ -885,7 +885,7 @@ void fof_compile_catalogue(void)
     /* eliminate all groups that are too small, and count local groups */
     for(i = 0, Ngroups = 0, Nids = 0; i < NgroupsExt; i++)
     {
-        if(FOF_GList[i].LocCount + FOF_GList[i].ExtCount < FOF_GROUP_MIN_LEN)
+        if(FOF_GList[i].LocCount + FOF_GList[i].ExtCount < All.FOFHaloMinLength)
         {
             FOF_GList[i] = FOF_GList[NgroupsExt - 1];
             NgroupsExt--;
@@ -1361,17 +1361,7 @@ void fof_find_nearest_dmparticle(void)
 
     do 
     {
-        ev_begin(&ev);
-
-        do
-        {
-            ev_primary(&ev);
-            ev_get_remote(&ev, TAG_DENS_A);
-            ev_secondary(&ev);
-            ev_reduce_result(&ev, TAG_DENS_B);
-        }
-        while(ev_ndone(&ev) < NTask);
-        ev_finish(&ev);
+        ev_run(&ev);
 
         int Nactive;
         int * queue = ev_get_queue(&ev, &Nactive);

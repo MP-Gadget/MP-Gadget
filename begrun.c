@@ -926,6 +926,15 @@ void read_parameter_file(char *fname)
         id[nt++] = REAL;
 #endif
 
+#ifdef FOF
+        strcpy(tag[nt], "FOFHaloLinkingLength");
+        addr[nt] = &All.FOFHaloLinkingLength;
+        id[nt++] = REAL;
+        strcpy(tag[nt], "FOFHaloMinLength");
+        addr[nt] = &All.FOFHaloMinLength;
+        id[nt++] = INT;
+#endif
+
 #ifdef BLACK_HOLES
         strcpy(tag[nt], "TimeBetBlackHoleSearch");
         addr[nt] = &All.TimeBetBlackHoleSearch;
