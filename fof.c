@@ -230,7 +230,7 @@ void fof_fof(int num)
 
     if(ThisTask == 0)
     {
-        printf("\nTotal number of groups with at least %d particles: %d\n", All.FOFHaloMinLength, TotNgroups);
+        printf("\nTotal number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
         if(TotNgroups > 0)
         {
             printf("Largest group has %d particles.\n", largestgroup);
@@ -434,7 +434,6 @@ static int fof_find_evaluate(int target, int mode,
         LocalEvaluator * lv) {
     int j, n, links, p, s, ss, listindex = 0;
     int startnode, numngb_inbox;
-    MyDouble *pos;
 
     links = 0;
 
