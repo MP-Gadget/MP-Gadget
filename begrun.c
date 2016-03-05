@@ -84,11 +84,6 @@ void begrun(void)
     boxHalf = 0.5 * All.BoxSize;
     inverse_boxSize = 1. / boxSize;
 
-#ifdef TIME_DEP_ART_VISC
-    All.ViscSource = All.ViscSource0 / log((GAMMA + 1) / (GAMMA - 1));
-    All.DecayTime = 1 / All.DecayLength * sqrt((GAMMA - 1) / 2 * GAMMA);
-#endif
-
     random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
     gsl_rng_set(random_generator, 42);	/* start-up seed */
@@ -147,14 +142,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         All.OutputListLength = all.OutputListLength;
         memcpy(All.OutputListTimes, all.OutputListTimes, sizeof(double) * All.OutputListLength);
         memcpy(All.OutputListFlag, all.OutputListFlag, sizeof(char) * All.OutputListLength);
-
-#ifdef TIME_DEP_ART_VISC
-        All.ViscSource = all.ViscSource;
-        All.ViscSource0 = all.ViscSource0;
-        All.DecayTime = all.DecayTime;
-        All.DecayLength = all.DecayLength;
-        All.AlphaMin = all.AlphaMin;
-#endif
 
         strcpy(All.OutputListFilename, all.OutputListFilename);
         strcpy(All.OutputDir, all.OutputDir);
@@ -960,20 +947,6 @@ void read_parameter_file(char *fname)
 #ifdef SOFTEREQS
         strcpy(tag[nt], "FactorForSofterEQS");
         addr[nt] = &All.FactorForSofterEQS;
-        id[nt++] = REAL;
-#endif
-
-#ifdef TIME_DEP_ART_VISC
-        strcpy(tag[nt], "ViscositySourceScaling");
-        addr[nt] = &All.ViscSource0;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "ViscosityDecayLength");
-        addr[nt] = &All.DecayLength;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "ViscosityAlphaMin");
-        addr[nt] = &All.AlphaMin;
         id[nt++] = REAL;
 #endif
 

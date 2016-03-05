@@ -46,10 +46,6 @@ struct hydrodata_in
     MyIDType ID;			/*!< particle identifier */
 #endif
 
-#ifdef TIME_DEP_ART_VISC
-    MyFloat alpha;
-#endif
-
 
 #ifdef EOS_DEGENERATE
     MyFloat dpdr;
@@ -186,10 +182,6 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
 
 #else
     input->F1 = SPHP(place).DivVel;
-#endif
-
-#ifdef TIME_DEP_ART_VISC
-    input->alpha = SPHP(place).alpha;
 #endif
 
 
@@ -367,11 +359,7 @@ static int hydro_evaluate(int target, int mode,
                             fabs(SPHP(j).DivVel) / (fabs(SPHP(j).DivVel) + SPHP(j).CurlVel +
                                     0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 
-#ifdef TIME_DEP_ART_VISC
-                        double BulkVisc_ij = 0.5 * (I->alpha + SPHP(j).alpha);
-#else
                         double BulkVisc_ij = All.ArtBulkViscConst;
-#endif
 
 #ifndef CONVENTIONAL_VISCOSITY
                         visc = 0.25 * BulkVisc_ij * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
@@ -560,19 +548,6 @@ static void hydro_post_process(int i) {
 #endif
             }
         }
-#endif
-
-#ifdef TIME_DEP_ART_VISC
-#if !defined(EOS_DEGENERATE)
-        double cs_h = sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).Density) / P[i].Hsml;
-#else
-        double cs_h = sqrt(SPHP(i).dpdr) / P[i].Hsml;
-#endif
-        double f = fabs(SPHP(i).DivVel) / (fabs(SPHP(i).DivVel) + SPHP(i).CurlVel + 0.0001 * cs_h / fac_mu);
-        SPHP(i).Dtalpha = -(SPHP(i).alpha - All.AlphaMin) * All.DecayTime *
-            0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
-            + f * All.ViscSource * DMAX(0.0, -SPHP(i).DivVel);
-        SPHP(i).Dtalpha /= All.cf.hubble_a2;
 #endif
 
 #ifdef SPH_BND_PARTICLES

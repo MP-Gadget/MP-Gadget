@@ -679,14 +679,6 @@ extern struct global_data_all_processes
     double WindSpeedFactor;
 #endif
 
-#ifdef TIME_DEP_ART_VISC
-    double ViscSource0;		/*!< Given sourceterm in viscosity evolution */
-    double DecayLength;		/*!< Number of h for the viscosity decay */
-    double ViscSource;		/*!< Reduced sourceterm in viscosity evolution */
-    double DecayTime;		/*!< Calculated decaytimescale */
-    double AlphaMin;		/*!< Minimum of allowed viscosity parameter */
-#endif
-
 #ifdef BLACK_HOLES
     double TimeNextBlackHoleCheck;
     double TimeBetBlackHoleSearch;
@@ -871,9 +863,6 @@ extern struct sph_particle_data
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
 #endif
 
-#ifdef TIME_DEP_ART_VISC
-    MyFloat alpha, Dtalpha;
-#endif
 #ifdef EOS_DEGENERATE
     MyFloat u;                            /* internal energy density */
     MyFloat temp;                         /* temperature */

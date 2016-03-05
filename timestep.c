@@ -549,12 +549,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
             }
 #endif
 
-#ifdef TIME_DEP_ART_VISC
-        SPHP(i).alpha += SPHP(i).Dtalpha * dt_entr;
-        SPHP(i).alpha = DMIN(SPHP(i).alpha, All.ArtBulkViscConst);
-        if(SPHP(i).alpha < All.AlphaMin)
-            SPHP(i).alpha = All.AlphaMin;
-#endif
         /* In case of cooling, we prevent that the entropy (and
            hence temperature decreases by more than a factor 0.5 */
 

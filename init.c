@@ -186,26 +186,6 @@ void init(void)
         SPHP(i).Sfr = 0;
 #endif
 
-#ifdef TIME_DEP_ART_VISC
-#ifdef HIGH_ART_VISC_START
-        if(HIGH_ART_VISC_START == 0)
-            SPHP(i).alpha = All.ArtBulkViscConst;
-        if(HIGH_ART_VISC_START > 0)
-            if(P[i].Pos[0] > HIGH_ART_VISC_START)
-                SPHP(i).alpha = All.ArtBulkViscConst;
-            else
-                SPHP(i).alpha = All.AlphaMin;
-        if(HIGH_ART_VISC_START < 0)
-            if(P[i].Pos[0] < -HIGH_ART_VISC_START)
-                SPHP(i).alpha = All.ArtBulkViscConst;
-            else
-                SPHP(i).alpha = All.AlphaMin;
-#else
-        SPHP(i).alpha = All.AlphaMin;
-#endif
-        SPHP(i).Dtalpha = 0.0;
-#endif
-
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
         SPHP(i).Injected_BH_Energy = 0;
 #endif
