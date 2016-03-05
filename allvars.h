@@ -686,10 +686,6 @@ extern struct global_data_all_processes
     double ReferenceGasMass;
 #endif
 
-#ifdef ADAPTIVE_FORCE_ACC
-    double ErrTolForceAccParam;
-#endif
-
 #ifdef SFR		/* star formation and feedback sector */
     double CritOverDensity;
     double CritPhysDensity;

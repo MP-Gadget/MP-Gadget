@@ -57,11 +57,6 @@ void gravity_tree(void)
     double maxt, sumt, maxt1, sumt1, maxt2, sumt2, sumcommall, sumwaitall;
     double plb, plb_max;
 
-#ifdef FIXEDTIMEINFIRSTPHASE
-    int counter;
-    double min_time_first_phase, min_time_first_phase_glob;
-#endif
-
     int Ewald_max;
 
     Evaluator ev[2] = {0};
@@ -182,15 +177,6 @@ void gravity_tree(void)
 
     timeall = walltime_measure(WALLTIME_IGNORE);
     walltime_add("/Tree/Misc", timeall - (timetree + timewait + timecomm));
-
-#ifdef FIXEDTIMEINFIRSTPHASE
-    MPI_Reduce(&min_time_first_phase, &min_time_first_phase_glob, 1, MPI_DOUBLE, MPI_MIN, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0)
-    {
-        printf("FIXEDTIMEINFIRSTPHASE=%g  min_time_first_phase_glob=%g\n",
-                FIXEDTIMEINFIRSTPHASE, min_time_first_phase_glob);
-    }
-#endif
 
     if(ThisTask == 0)
     {

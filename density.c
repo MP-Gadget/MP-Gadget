@@ -56,9 +56,6 @@ struct densdata_out
     MyFloat DensityStd;
 #endif
 
-#ifdef EULERPOTENTIALS
-    MyFloat dEulerA[3], dEulerB[3];
-#endif
 #ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
 #endif

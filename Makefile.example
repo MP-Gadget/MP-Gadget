@@ -79,7 +79,6 @@ OPT	+=  -DINCLUDE_RADIATION		# Add radiation density to backround evolution. Onl
 OPT	+=  -DNOTEST_FOR_IDUNIQUENESS
 #OPT	+=  -DSNIA_HEATING
 #OPT    +=  -DRADIAL_TREE                   #make tree forces exact radial (only implemented in tree, not TreePM)
-#OPT	+=  -DFIXEDTIMEINFIRSTPHASE=1000.0
 OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
 OPT	+=  -DFIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
 #OPT	+=  -DMPISENDRECV_SIZELIMIT=100
