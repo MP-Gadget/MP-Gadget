@@ -3,17 +3,6 @@
 
 #include "allvars.h"
 
-int fof_compare_FOF_PList_MinID(const void *a, const void *b);
-int fof_compare_FOF_GList_MinID(const void *a, const void *b);
-int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b);
-int fof_compare_Group_MinIDTask(const void *a, const void *b);
-int fof_compare_Group_MinID(const void *a, const void *b);
-
-void fof_compute_group_properties(int gr, int start, int len);
-void fof_exchange_group_data(void);
-void fof_finish_group_properties(void);
-
-
 extern uint64_t Ngroups, TotNgroups;
 extern int64_t TotNids;
 

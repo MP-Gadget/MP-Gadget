@@ -21,14 +21,47 @@
 #ifdef FOF
 #include "fof.h"
 
-void fof_save_particles(int num);
+static double fof_periodic(double x)
+{
+    if(x >= 0.5 * All.BoxSize)
+        x -= All.BoxSize;
+    if(x < -0.5 * All.BoxSize)
+        x += All.BoxSize;
+    return x;
+}
+
+
+static double fof_periodic_wrap(double x)
+{
+    while(x >= All.BoxSize)
+        x -= All.BoxSize;
+    while(x < 0)
+        x += All.BoxSize;
+    return x;
+}
+
+static void fof_find_nearest_dmparticle(void);
+static int fof_compare_FOF_PList_MinID(const void *a, const void *b);
+static int fof_compare_FOF_GList_MinID(const void *a, const void *b);
+static int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b);
+static int fof_compare_Group_MinIDTask(const void *a, const void *b);
+static int fof_compare_Group_MinID(const void *a, const void *b);
+
+static void fof_compute_group_properties(int gr, int start, int len);
+static void fof_exchange_group_data(void);
+static void fof_finish_group_properties(void);
+static void fof_compile_catalogue(void);
+
+void fof_find_groups(void);
+extern void fof_save_particles(int num);
+extern void fof_save_groups(int num);
+
+static void fof_make_black_holes(void);
 
 uint64_t Ngroups, TotNgroups;
 int64_t TotNids;
 
 struct group_properties *Group;
-
-
 
 struct fofdata_in
 {
@@ -521,7 +554,7 @@ static int fof_find_evaluate(int target, int mode,
 
 
 
-void fof_compile_catalogue(void)
+static void fof_compile_catalogue(void)
 {
     int i, j, start, nimport, ngrp, recvTask;
     struct fof_group_list *get_FOF_GList;
@@ -709,7 +742,7 @@ void fof_compile_catalogue(void)
 
 
 
-void fof_compute_group_properties(int gr, int start, int len)
+static void fof_compute_group_properties(int gr, int start, int len)
 {
     int j, k, index;
     double xyz[3];
@@ -788,7 +821,7 @@ void fof_compute_group_properties(int gr, int start, int len)
 }
 
 
-void fof_exchange_group_data(void)
+static void fof_exchange_group_data(void)
 {
     struct group_properties *get_Group;
     int i, j, ngrp, recvTask, nimport, start;
@@ -890,7 +923,7 @@ void fof_exchange_group_data(void)
     myfree(get_Group);
 }
 
-void fof_finish_group_properties(void)
+static void fof_finish_group_properties(void)
 {
     double cm[3];
     int i, j, ngr;
@@ -1106,7 +1139,7 @@ static int fof_nearest_evaluate(int target, int mode,
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv);
 
-void fof_find_nearest_dmparticle(void)
+static void fof_find_nearest_dmparticle(void)
 {
     int i, n, iter;
     int64_t ntot;
@@ -1300,7 +1333,7 @@ static int fof_nearest_evaluate(int target, int mode,
 
 #ifdef BLACK_HOLES
 
-void fof_make_black_holes(void)
+static void fof_make_black_holes(void)
 {
     int i, j, n, ntot;
     int nexport, nimport, recvTask, level;
@@ -1399,27 +1432,7 @@ void fof_make_black_holes(void)
 
 #endif
 
-
-double fof_periodic(double x)
-{
-    if(x >= 0.5 * All.BoxSize)
-        x -= All.BoxSize;
-    if(x < -0.5 * All.BoxSize)
-        x += All.BoxSize;
-    return x;
-}
-
-
-double fof_periodic_wrap(double x)
-{
-    while(x >= All.BoxSize)
-        x -= All.BoxSize;
-    while(x < 0)
-        x += All.BoxSize;
-    return x;
-}
-
-int fof_compare_FOF_PList_MinID(const void *a, const void *b)
+static int fof_compare_FOF_PList_MinID(const void *a, const void *b)
 {
     if(((struct fof_particle_list *) a)->MinID < ((struct fof_particle_list *) b)->MinID)
         return -1;
@@ -1430,7 +1443,7 @@ int fof_compare_FOF_PList_MinID(const void *a, const void *b)
     return 0;
 }
 
-int fof_compare_FOF_GList_MinID(const void *a, const void *b)
+static int fof_compare_FOF_GList_MinID(const void *a, const void *b)
 
 {
     if(((struct fof_group_list *) a)->MinID < ((struct fof_group_list *) b)->MinID)
@@ -1442,7 +1455,7 @@ int fof_compare_FOF_GList_MinID(const void *a, const void *b)
     return 0;
 }
 
-int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b)
+static int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b)
 {
     if(((struct fof_group_list *) a)->MinIDTask < ((struct fof_group_list *) b)->MinIDTask)
         return -1;
@@ -1469,7 +1482,7 @@ static void fof_radix_FOF_GList_ExtCountMinID(const void * a, void * radix, void
 }
 
 
-int fof_compare_Group_MinID(const void *a, const void *b)
+static int fof_compare_Group_MinID(const void *a, const void *b)
 {
     if(((struct group_properties *) a)->MinID < ((struct group_properties *) b)->MinID)
         return -1;
@@ -1487,7 +1500,7 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
 }
 
 
-int fof_compare_Group_MinIDTask(const void *a, const void *b)
+static int fof_compare_Group_MinIDTask(const void *a, const void *b)
 {
     if(((struct group_properties *) a)->MinIDTask < ((struct group_properties *) b)->MinIDTask)
         return -1;
