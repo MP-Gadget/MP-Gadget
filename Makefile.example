@@ -86,7 +86,6 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 #OPT	+=  -DVOLUME_CORRECTION=1.75
 
 #--------------------------------------- Time integration options
-#OPT	+=  -DALTERNATIVE_VISCOUS_TIMESTEP
 #OPT	+=  -DNOWINDTIMESTEPPING            # Disable wind reducing timestep (not recommended)
 #OPT	+=  -DFORCE_EQUAL_TIMESTEPS
 

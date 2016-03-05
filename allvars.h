@@ -851,11 +851,7 @@ extern struct sph_particle_data
     MyDouble Entropy;		/*!< current value of entropy (actually entropic function) of particle */
     MyFloat  Pressure;		/*!< current pressure */
     MyFloat  VelPred[3];		/*!< predicted SPH particle velocity at the current time */
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-    MyFloat MinViscousDt;
-#else
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
-#endif
 #ifdef VOLUME_CORRECTION
     MyFloat DensityOld;
     MyFloat DensityStd;

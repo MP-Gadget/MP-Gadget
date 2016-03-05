@@ -684,18 +684,7 @@ int get_timestep(int p,		/*!< particle index */
 
     if(P[p].Type == 0)
     {
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-        double csnd = sqrt(GAMMA * SPHP(p).Pressure / SPHP(p).EOMDensity);
-
-
-        dt_courant = All.CourantFac * All.Time * DMAX(P[p].Hsml, All.SofteningTable[0]) / (fac3 * csnd);
-
-        if(dt_courant > 2 * All.CourantFac * SPHP(p).MinViscousDt)
-            dt_courant = 2 * All.CourantFac * SPHP(p).MinViscousDt;
-#else
         dt_courant = 2 * All.CourantFac * All.Time * P[p].Hsml / (fac3 * SPHP(p).MaxSignalVel);
-#endif
-
         if(dt_courant < dt)
             dt = dt_courant;
     }

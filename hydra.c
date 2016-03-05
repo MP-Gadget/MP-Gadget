@@ -64,11 +64,7 @@ struct hydrodata_out
 {
     MyDouble Acc[3];
     MyDouble DtEntropy;
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-    MyFloat MinViscousDt;
-#else
     MyFloat MaxSignalVel;
-#endif
 
 #ifdef HYDRO_COST_FACTOR
     int Ninteractions;
@@ -231,13 +227,8 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
     P[place].GravCost += HYDRO_COST_FACTOR * All.cf.a * result->Ninteractions;
 #endif
 
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-    if(mode == 0 || SPHP(place).MinViscousDt > result->MinViscousDt)
-        SPHP(place).MinViscousDt = result->MinViscousDt;
-#else
     if(mode == 0 || SPHP(place).MaxSignalVel < result->MaxSignalVel)
         SPHP(place).MaxSignalVel = result->MaxSignalVel;
-#endif
 
 }
 
@@ -291,11 +282,7 @@ static int hydro_evaluate(int target, int mode,
     p_over_rho2_i = I->Pressure / (I->Density * I->Density);
 #endif
 
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-    O->MinViscousDt = 1.0e32;
-#else
     O->MaxSignalVel = soundspeed_i;
-#endif
 
 
     /* Now start the actual SPH computation for this particle */
@@ -368,10 +355,8 @@ static int hydro_evaluate(int target, int mode,
                     double vsig = soundspeed_i + soundspeed_j;
 
 
-#ifndef ALTERNATIVE_VISCOUS_TIMESTEP
                     if(vsig > O->MaxSignalVel)
                         O->MaxSignalVel = vsig;
-#endif
 
                     double visc = 0;
 
@@ -388,10 +373,8 @@ static int hydro_evaluate(int target, int mode,
                         vsig -= 3 * mu_ij;
 
 
-#ifndef ALTERNATIVE_VISCOUS_TIMESTEP
                         if(vsig > O->MaxSignalVel)
                             O->MaxSignalVel = vsig;
-#endif
 
                         double f2 =
                             fabs(SPHP(j).DivVel) / (fabs(SPHP(j).DivVel) + SPHP(j).CurlVel +
@@ -428,18 +411,6 @@ static int hydro_evaluate(int target, int mode,
 
                         /* .... end artificial viscosity evaluation */
                         /* now make sure that viscous acceleration is not too large */
-#ifdef ALTERNATIVE_VISCOUS_TIMESTEP
-                        if(visc > 0)
-                        {
-                            dt = fac_vsic_fix * vdotr2 /
-                                (0.5 * (I->Mass + P[j].Mass) * (dwk_i + dwk_j) * r * visc);
-
-                            dt /= All.cf.hubble;
-
-                            if(dt < O->MinViscousDt)
-                                O->MinViscousDt = dt;
-                        }
-#endif
 
 #ifndef NOVISCOSITYLIMITER
                         double dt =
