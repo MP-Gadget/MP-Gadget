@@ -192,24 +192,6 @@ include $(VPATH)/Makefile.deps
 #                   Note: If the simulation is not in a periodic box, then a FFT
 #                   method for vacuum boundaries is employed, using a mesh with
 #                   dimension twice that specified by PMGRID.
-#     - PLACEHIGHRESREGION: If this option is set (will only work together
-#                   with PMGRID), then the long range force is computed in two
-#                   stages: One Fourier-grid is used to cover the whole simulation
-#                   volume, allowing the computation of the large-scale force.
-#                   A second Fourier mesh is placed on the region occupied by
-#                   "high-resolution" particles, allowing the computation of an
-#                   intermediate scale force. Finally, the force on very small
-#                   scales is supplemented by the tree. This procedure can be useful
-#                   for "zoom-simulations", where the majority of particles (the
-#                   high-res particles) are occupying only a small fraction of the
-#                   volume. To activate this option, the parameter needs to be set
-#                   to an integer that encodes the particle types that represent the
-#                   high-res particles in the form of a bit mask. For example, if
-#                   types 0, 1, and 4 form the high-res particles, set the parameter
-#                   to PLACEHIGHRESREGION=1+2+16. The spatial region covered by the
-#                   high-res grid is determined automatically from the initial
-#                   conditions. Note: If a periodic box is used, the high-res zone
-#                   may not intersect the box boundaries.
 #     - ENLARGEREGION: The spatial region covered by the high-res zone has a fixed
 #                   size during the simulation, which initially is set to the
 #                   smallest region that encompasses all high-res particles. Normally, the

@@ -45,8 +45,6 @@ int MPI_Sizelimited_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype
 
 void calculate_power_spectra(int num, int64_t *ntot_type_all);
 
-int pmforce_is_particle_high_res(int type, MyFloat *pos);
-
 void compare_partitions(void);
 void assign_unique_ids(void);
 int permut_data_compare(const void *a, const void *b);

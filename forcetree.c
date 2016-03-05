@@ -1800,14 +1800,6 @@ int force_treeev_shortrange(int target, int mode,
     if(ptype == 0)
         soft = input->Soft;
 #endif
-#ifdef PLACEHIGHRESREGION
-    if(pmforce_is_particle_high_res(ptype, input->Pos))
-    {
-        rcut = All.Rcut[1];
-        asmth = All.Asmth[1];
-    }
-#endif
-
     rcut2 = rcut * rcut;
 
     asmthfac = 0.5 / asmth * (NTAB / 3.0);
