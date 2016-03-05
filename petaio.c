@@ -259,11 +259,6 @@ void petaio_read_ic() {
         }
     }
 
-#ifdef EOS_DEGENERATE
-    for(i = 0; i < N_sph; i++)
-        SPHP(i).u = 0;
-#endif
-
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         int k;

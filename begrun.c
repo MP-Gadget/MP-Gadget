@@ -84,21 +84,12 @@ void begrun(void)
     boxHalf = 0.5 * All.BoxSize;
     inverse_boxSize = 1. / boxSize;
 
-#ifdef TIME_DEP_ART_VISC
-    All.ViscSource = All.ViscSource0 / log((GAMMA + 1) / (GAMMA - 1));
-    All.DecayTime = 1 / All.DecayLength * sqrt((GAMMA - 1) / 2 * GAMMA);
-#endif
-
     random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
     gsl_rng_set(random_generator, 42);	/* start-up seed */
 
     if(RestartFlag != 3 && RestartFlag != 4)
         long_range_init();
-
-#ifdef EOS_DEGENERATE
-    eos_init(All.EosTable, All.EosSpecies);
-#endif
 
     All.TimeLastRestartFile = 0;
 
@@ -148,14 +139,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         memcpy(All.OutputListTimes, all.OutputListTimes, sizeof(double) * All.OutputListLength);
         memcpy(All.OutputListFlag, all.OutputListFlag, sizeof(char) * All.OutputListLength);
 
-#ifdef TIME_DEP_ART_VISC
-        All.ViscSource = all.ViscSource;
-        All.ViscSource0 = all.ViscSource0;
-        All.DecayTime = all.DecayTime;
-        All.DecayLength = all.DecayLength;
-        All.AlphaMin = all.AlphaMin;
-#endif
-
         strcpy(All.OutputListFilename, all.OutputListFilename);
         strcpy(All.OutputDir, all.OutputDir);
         strcpy(All.RestartFile, all.RestartFile);
@@ -164,11 +147,6 @@ Note:  All.PartAllocFactor is treated in restart() separately.
         strcpy(All.CpuFile, all.CpuFile);
         strcpy(All.TimingsFile, all.TimingsFile);
         strcpy(All.SnapshotFileBase, all.SnapshotFileBase);
-
-#ifdef EOS_DEGENERATE
-        strcpy(All.EosTable, all.EosTable);
-        strcpy(All.EosSpecies, all.EosSpecies);
-#endif
 
         if(All.TimeMax != all.TimeMax)
             readjust_timebase(All.TimeMax, all.TimeMax);
@@ -961,30 +939,6 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "FactorForSofterEQS");
         addr[nt] = &All.FactorForSofterEQS;
         id[nt++] = REAL;
-#endif
-
-#ifdef TIME_DEP_ART_VISC
-        strcpy(tag[nt], "ViscositySourceScaling");
-        addr[nt] = &All.ViscSource0;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "ViscosityDecayLength");
-        addr[nt] = &All.DecayLength;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "ViscosityAlphaMin");
-        addr[nt] = &All.AlphaMin;
-        id[nt++] = REAL;
-#endif
-
-#ifdef EOS_DEGENERATE
-        strcpy(tag[nt], "EosTable");
-        addr[nt] = All.EosTable;
-        id[nt++] = STRING;
-
-        strcpy(tag[nt], "EosSpecies");
-        addr[nt] = All.EosSpecies;
-        id[nt++] = STRING;
 #endif
 
         if((fd = fopen(fname, "r")))

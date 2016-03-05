@@ -239,8 +239,9 @@ static int gravtree_isactive(int i) {
     return isactive;
 }
 
-static void gravtree_post_process(int i) {
-    int j, k;
+static void gravtree_post_process(int i)
+{
+    int j;
 
     if(! (header.flag_ic_info == FLAG_SECOND_ORDER_ICS && All.Ti_Current == 0 && RestartFlag == 0)) {
         /* to prevent that we overwrite OldAcc in the first evaluation for 2lpt ICs */

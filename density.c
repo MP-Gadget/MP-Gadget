@@ -591,7 +591,6 @@ static int density_isactive(int n)
 }
 
 static void density_post_process(int i) {
-    int dt_step;
     if(P[i].Type == 0)
     {
         if(SPHP(i).Density > 0)
@@ -626,63 +625,30 @@ static void density_post_process(int i) {
 
         }
 
-#ifndef WAKEUP
-        dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
+#ifdef DENSITY_INDEPENDENT_SPH
+    SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
 #else
-        dt_step = P[i].dt_step;
-#endif
-
-        int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
-#ifndef EOS_DEGENERATE
-    #ifndef SOFTEREQS
-        #ifndef TRADITIONAL_SPH_FORMULATION
-            #ifdef DENSITY_INDEPENDENT_SPH
-        SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
-            #else
-        SPHP(i).Pressure =
-            (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
-            #endif // DENSITY_INDEPENDENT_SPH
-
-        #else
-        SPHP(i).Pressure =
-            GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * SPHP(i).Density;
-        #endif // TRADITIONAL_SPH_FORMULATION
-
+    #ifndef WAKEUP
+        int dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
     #else
-        #ifdef TRADITIONAL_SPH_FORMULATION
-            #error tranditional sph incompatible with softereqs
-        #endif
-        #ifdef DENSITY_INDEPENDENT_SPH
-            #error pressure entropy incompatible with softereqs
-        /* use an intermediate EQS, between isothermal and the full multiphase model */
-        if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
-            SPHP(i).Pressure = All.FactorForSofterEQS *
-                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA) +
-                (1 -
-                 All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
-        else
-            SPHP(i).Pressure =
-                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
-        #else
-        /* use an intermediate EQS, between isothermal and the full multiphase model */
-        if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh)
-            SPHP(i).Pressure = All.FactorForSofterEQS *
-                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA) +
-                (1 -
-                 All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
-        else
-            SPHP(i).Pressure =
-                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
-        #endif // DENSITY_INDEPENDENT_SPH
-    #endif // SOFTEREQS
-#else
-        /* call tabulated eos with physical units */
-        eos_calc_egiven_v(SPHP(i).Density * All.UnitDensity_in_cgs, SPHP(i).xnuc,
-                SPHP(i).dxnuc, dt_entr * All.UnitTime_in_s, SPHP(i).Entropy,
-                SPHP(i).e.DtEntropy, &SPHP(i).temp, &SPHP(i).Pressure, &SPHP(i).dpdr);
-        SPHP(i).Pressure /= All.UnitPressure_in_cgs;
-#endif
-
+        int dt_step = P[i].dt_step;
+    #endif //WAKEUP
+    int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
+    #ifdef TRADITIONAL_SPH_FORMULATION
+        SPHP(i).Pressure =
+            GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * SPHP(i).Density;
+    #else
+        SPHP(i).Pressure =
+            (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
+    #endif // TRADITIONAL_SPH_FORMULATION
+#endif // DENSITY_INDEPENDENT_SPH
+#ifdef SOFTEREQS
+    /* use an intermediate EQS, between isothermal and the full multiphase model */
+    if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh) {
+        SPHP(i).Pressure = All.FactorForSofterEQS * SPHP(i).Pressure +
+            (1 - All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
+    }
+#endif //SOFTEREQS
     }
 
 #ifdef BLACK_HOLES

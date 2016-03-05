@@ -25,7 +25,6 @@ static void test_id_uniqueness(void);
 void init(void)
 {
     int i, j;
-    double a3, atime;
 
 #ifdef START_WITH_EXTRA_NGBDEV
     double MaxNumNgbDeviationMerk;
@@ -69,8 +68,6 @@ void init(void)
 
     All.Timebase_interval = (log(All.TimeMax) - log(All.TimeBegin)) / TIMEBASE;
     All.Ti_Current = 0;
-    a3 = All.Time * All.Time * All.Time;
-    atime = All.Time;
 
     set_softenings();
 
@@ -186,26 +183,6 @@ void init(void)
         SPHP(i).Sfr = 0;
 #endif
 
-#ifdef TIME_DEP_ART_VISC
-#ifdef HIGH_ART_VISC_START
-        if(HIGH_ART_VISC_START == 0)
-            SPHP(i).alpha = All.ArtBulkViscConst;
-        if(HIGH_ART_VISC_START > 0)
-            if(P[i].Pos[0] > HIGH_ART_VISC_START)
-                SPHP(i).alpha = All.ArtBulkViscConst;
-            else
-                SPHP(i).alpha = All.AlphaMin;
-        if(HIGH_ART_VISC_START < 0)
-            if(P[i].Pos[0] < -HIGH_ART_VISC_START)
-                SPHP(i).alpha = All.ArtBulkViscConst;
-            else
-                SPHP(i).alpha = All.AlphaMin;
-#else
-        SPHP(i).alpha = All.AlphaMin;
-#endif
-        SPHP(i).Dtalpha = 0.0;
-#endif
-
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
         SPHP(i).Injected_BH_Energy = 0;
 #endif
@@ -280,29 +257,13 @@ void init(void)
          * IC it is 0. */
         if(header.flag_entropy_instead_u == 0)
         {
-#ifndef EOS_DEGENERATE
-
-#if !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
 /* for DENSITY_INDEPENDENT_SPH, this is done already. */
-
+#if !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
+            double a3 = All.Time * All.Time * All.Time;
             if(ThisTask == 0 && i == 0)
                 printf("Converting u -> entropy !\n");
 
             SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).Density / a3, GAMMA_MINUS1);
-#endif
-
-#else
-            for(j = 0; j < EOS_NSPECIES; j++)
-            {
-                SPHP(i).dxnuc[j] = 0;
-            }
-
-            SPHP(i).Entropy *= All.UnitEnergy_in_cgs;
-            /* call eos with physical units, energy and entropy are always stored in physical units */
-            SPHP(i).temp = 1.0;
-            eos_calc_egiven_v(SPHP(i).Density * All.UnitDensity_in_cgs, SPHP(i).xnuc, SPHP(i).dxnuc,
-                    0, SPHP(i).Entropy, 0, &SPHP(i).temp, &SPHP(i).Pressure, &SPHP(i).dpdr);
-            SPHP(i).Pressure /= All.UnitPressure_in_cgs;
 #endif
         }
 

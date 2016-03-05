@@ -230,7 +230,7 @@ void fof_fof(int num)
 
     if(ThisTask == 0)
     {
-        printf("\nTotal number of groups with at least %d particles: %d\n", All.FOFHaloMinLength, TotNgroups);
+        printf("\nTotal number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
         if(TotNgroups > 0)
         {
             printf("Largest group has %d particles.\n", largestgroup);
@@ -434,7 +434,6 @@ static int fof_find_evaluate(int target, int mode,
         LocalEvaluator * lv) {
     int j, n, links, p, s, ss, listindex = 0;
     int startnode, numngb_inbox;
-    MyDouble *pos;
 
     links = 0;
 
@@ -1420,12 +1419,6 @@ double fof_periodic_wrap(double x)
     return x;
 }
 
-void fof_radix_FOF_PList_MinID(const void * a, void * radix, void * arg) {
-    uint64_t * u = (uint64_t *) radix;
-    struct fof_particle_list * f = (struct fof_particle_list *) a;
-    u[0] = f->MinID;
-}
-
 int fof_compare_FOF_PList_MinID(const void *a, const void *b)
 {
     if(((struct fof_particle_list *) a)->MinID < ((struct fof_particle_list *) b)->MinID)
@@ -1437,11 +1430,6 @@ int fof_compare_FOF_PList_MinID(const void *a, const void *b)
     return 0;
 }
 
-void fof_radix_FOF_GList_MinID(const void * a, void * radix, void * arg) {
-    uint64_t * u = (uint64_t *) radix;
-    struct fof_group_list * f = (struct fof_group_list *) a;
-    u[0] = f->MinID;
-}
 int fof_compare_FOF_GList_MinID(const void *a, const void *b)
 
 {
@@ -1454,11 +1442,6 @@ int fof_compare_FOF_GList_MinID(const void *a, const void *b)
     return 0;
 }
 
-void fof_radix_FOF_GList_MinIDTask(const void * a, void * radix, void * arg) {
-    uint64_t * u = (uint64_t *) radix;
-    struct fof_group_list * f = (struct fof_group_list *) a;
-    u[0] = f->MinIDTask;
-}
 int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b)
 {
     if(((struct fof_group_list *) a)->MinIDTask < ((struct fof_group_list *) b)->MinIDTask)
@@ -1478,59 +1461,11 @@ static void fof_radix_FOF_GList_LocCountTaskDiffMinID(const void * a, void * rad
     u[2] = UINT64_MAX - f->LocCount;
 }
 
-int fof_compare_FOF_GList_LocCountTaskDiffMinID(const void *a, const void *b)
-{
-    if(((struct fof_group_list *) a)->LocCount > ((struct fof_group_list *) b)->LocCount)
-        return -1;
-
-    if(((struct fof_group_list *) a)->LocCount < ((struct fof_group_list *) b)->LocCount)
-        return +1;
-
-    if(((struct fof_group_list *) a)->MinID < ((struct fof_group_list *) b)->MinID)
-        return -1;
-
-    if(((struct fof_group_list *) a)->MinID > ((struct fof_group_list *) b)->MinID)
-        return +1;
-
-    if(labs(((struct fof_group_list *) a)->ExtCount - ((struct fof_group_list *) a)->MinIDTask) <
-            labs(((struct fof_group_list *) b)->ExtCount - ((struct fof_group_list *) b)->MinIDTask))
-        return -1;
-
-    if(labs(((struct fof_group_list *) a)->ExtCount - ((struct fof_group_list *) a)->MinIDTask) >
-            labs(((struct fof_group_list *) b)->ExtCount - ((struct fof_group_list *) b)->MinIDTask))
-        return +1;
-
-    return 0;
-}
-
 static void fof_radix_FOF_GList_ExtCountMinID(const void * a, void * radix, void * arg) {
     uint64_t * u = (uint64_t *) radix;
     struct fof_group_list * f = (struct fof_group_list *) a;
     u[0] = f->MinID;
     u[1] = f->ExtCount;
-}
-
-int fof_compare_FOF_GList_ExtCountMinID(const void *a, const void *b)
-{
-    if(((struct fof_group_list *) a)->ExtCount < ((struct fof_group_list *) b)->ExtCount)
-        return -1;
-
-    if(((struct fof_group_list *) a)->ExtCount > ((struct fof_group_list *) b)->ExtCount)
-        return +1;
-
-    if(((struct fof_group_list *) a)->MinID < ((struct fof_group_list *) b)->MinID)
-        return -1;
-
-    if(((struct fof_group_list *) a)->MinID > ((struct fof_group_list *) b)->MinID)
-        return +1;
-
-    return 0;
-}
-
-void fof_radix_Group_MinID(const void * a, void * radix, void * arg) {
-    uint64_t * u = (uint64_t *) radix;
-    struct group_properties * f = (struct group_properties*) a;
-    u[0] = f->MinID;
 }
 
 
@@ -1552,89 +1487,12 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
 }
 
 
-int fof_compare_Group_GrNr(const void *a, const void *b)
-{
-    if(((struct group_properties *) a)->GrNr < ((struct group_properties *) b)->GrNr)
-        return -1;
-
-    if(((struct group_properties *) a)->GrNr > ((struct group_properties *) b)->GrNr)
-        return +1;
-
-    return 0;
-}
-
-void fof_radix_Group_MinIDTask(const void * a, void * radix, void * arg) {
-    uint64_t * u = (uint64_t *) radix;
-    struct group_properties * f = (struct group_properties *) a;
-    u[0] = f->MinIDTask;
-}
-
 int fof_compare_Group_MinIDTask(const void *a, const void *b)
 {
     if(((struct group_properties *) a)->MinIDTask < ((struct group_properties *) b)->MinIDTask)
         return -1;
 
     if(((struct group_properties *) a)->MinIDTask > ((struct group_properties *) b)->MinIDTask)
-        return +1;
-
-    return 0;
-}
-
-void fof_radix_Group_MinIDTask_MinID(const void * a, void * radix, void * arg) {
-    uint64_t * u = (uint64_t *) radix;
-    struct group_properties * f = (struct group_properties *) a;
-    u[0] = f->MinID;
-    u[1] = f->MinIDTask;
-}
-
-int fof_compare_Group_MinIDTask_MinID(const void *a, const void *b)
-{
-    if(((struct group_properties *) a)->MinIDTask < ((struct group_properties *) b)->MinIDTask)
-        return -1;
-
-    if(((struct group_properties *) a)->MinIDTask > ((struct group_properties *) b)->MinIDTask)
-        return +1;
-
-    if(((struct group_properties *) a)->MinID < ((struct group_properties *) b)->MinID)
-        return -1;
-
-    if(((struct group_properties *) a)->MinID > ((struct group_properties *) b)->MinID)
-        return +1;
-
-    return 0;
-}
-
-void fof_radix_Group_Len(const void * a, void * radix, void * arg) {
-    uint64_t * u = (uint64_t *) radix;
-    struct group_properties * f = (struct group_properties *) a;
-    u[0] = UINT64_MAX - f->Len;
-}
-
-int fof_compare_Group_Len(const void *a, const void *b)
-{
-    if(((struct group_properties *) a)->Len > ((struct group_properties *) b)->Len)
-        return -1;
-
-    if(((struct group_properties *) a)->Len < ((struct group_properties *) b)->Len)
-        return +1;
-
-    return 0;
-}
-
-
-/* unused */
-int fof_compare_ID_list_GrNrID(const void *a, const void *b)
-{
-    if(((struct id_list *) a)->GrNr < ((struct id_list *) b)->GrNr)
-        return -1;
-
-    if(((struct id_list *) a)->GrNr > ((struct id_list *) b)->GrNr)
-        return +1;
-
-    if(((struct id_list *) a)->ID < ((struct id_list *) b)->ID)
-        return -1;
-
-    if(((struct id_list *) a)->ID > ((struct id_list *) b)->ID)
         return +1;
 
     return 0;

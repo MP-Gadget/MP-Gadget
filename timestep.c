@@ -51,7 +51,6 @@ void advance_and_find_timesteps(void)
 #endif
 #ifdef WAKEUP
     int n, k, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global, max_time_bin_active;
-    int dt_step;
 
     int time0, time1_old, time1_new;
     double dt_entr;
@@ -476,11 +475,7 @@ void advance_and_find_timesteps(void)
             {
                 P[i].Vel[k] += SPHP(i).HydroAccel[k] * dt_hydrokick;
             }
-#if !defined(EOS_DEGENERATE)
             SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
-#else
-            SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr * All.UnitTime_in_s;
-#endif
 
             n++;
         }
@@ -501,10 +496,9 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
     int j;
     MyFloat dv[3];
     double minentropy;
-    double dt_entr, dt_gravkick, dt_hydrokick, dt_gravkick2, dt_hydrokick2, dt_entr2;
+    double dt_entr, dt_gravkick, dt_hydrokick, dt_gravkick2, dt_hydrokick2;
 
     dt_entr = (tend - tstart) * All.Timebase_interval;
-    dt_entr2 = (tend - tcurrent) * All.Timebase_interval;
     dt_gravkick = get_gravkick_factor(tstart, tend);
     dt_hydrokick = get_hydrokick_factor(tstart, tend);
     dt_gravkick2 = get_gravkick_factor(tcurrent, tend);
@@ -549,21 +543,11 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
             }
 #endif
 
-#ifdef TIME_DEP_ART_VISC
-        SPHP(i).alpha += SPHP(i).Dtalpha * dt_entr;
-        SPHP(i).alpha = DMIN(SPHP(i).alpha, All.ArtBulkViscConst);
-        if(SPHP(i).alpha < All.AlphaMin)
-            SPHP(i).alpha = All.AlphaMin;
-#endif
         /* In case of cooling, we prevent that the entropy (and
            hence temperature decreases by more than a factor 0.5 */
 
         if(SPHP(i).DtEntropy * dt_entr > -0.5 * SPHP(i).Entropy)
-#if !defined(EOS_DEGENERATE)
             SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
-#else
-        SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr * All.UnitTime_in_s;
-#endif
         else
             SPHP(i).Entropy *= 0.5;
 

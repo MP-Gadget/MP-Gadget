@@ -87,17 +87,12 @@ OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very differe
 
 #--------------------------------------- SPH viscosity options
 #OPT	+=  -DCONVENTIONAL_VISCOSITY     # enables the old viscosity
-#OPT	+=  -DTIME_DEP_ART_VISC          # Enables time dependend viscosity
-#OPT	+=  -DHIGH_ART_VISC_START        # Start with high rather than low viscosity
 #OPT	+=  -DALTVISCOSITY               # enables alternative viscosity based on div(v)
 
 #--------------------------------------- Glass making/ 2nd-order initial conditions
 #OPT	+=  -DMAKEGLASS
 
 #--------------------------------------- degenerate equation of state
-#OPT	+=  -DEOS_DEGENERATE
-#OPT	+=  -DEOS_COULOMB_CORRECTIONS
-#OPT	+=  -DEOS_NSPECIES=3
 #OPT	+=  -DWAKEUP=4.1           /* allows 2 timestep bins within kernel */
 
 #--------------------------------------- Select target Computer

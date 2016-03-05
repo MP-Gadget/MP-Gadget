@@ -2,15 +2,6 @@
 #define FORCETREE_H
 #include "evaluator.h"
 
-#ifndef INLINE_FUNC
-#ifdef INLINE
-#define INLINE_FUNC inline
-#else
-#define INLINE_FUNC
-#endif
-#endif
-
-
 #define BITFLAG_TOPLEVEL                   0
 #define BITFLAG_DEPENDS_ON_LOCAL_MASS      1
 #define BITFLAG_MAX_SOFTENING_TYPE         2	/* bits 2-4 */
@@ -106,8 +97,6 @@ void   force_update_size_of_parent_node(int no);
 
 void   dump_particles(void);
 
-MyFloat  INLINE_FUNC ngb_periodic(MyFloat x);
-MyFloat  INLINE_FUNC ngb_periodic_longbox(MyFloat x);
 MyFloat  ngb_select_closest(int k, int n, MyFloat *arr, int *ind);
 void   ngb_treeallocate(int npart);
 void   ngb_treebuild(void);

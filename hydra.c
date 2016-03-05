@@ -46,15 +46,6 @@ struct hydrodata_in
     MyIDType ID;			/*!< particle identifier */
 #endif
 
-#ifdef TIME_DEP_ART_VISC
-    MyFloat alpha;
-#endif
-
-
-#ifdef EOS_DEGENERATE
-    MyFloat dpdr;
-#endif
-
 };
 
 struct hydrodata_out
@@ -164,32 +155,20 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
     input->EntVarPred = SPHP(place).EntVarPred;
     input->DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 #else
-    input->DhsmlDensityFactor = SPHP(place).h.DhsmlDensityFactor;
+    input->DhsmlDensityFactor = SPHP(place).DhsmlDensityFactor;
 #endif
 
     input->Pressure = SPHP(place).Pressure;
     input->Timestep = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0);
-#ifdef EOS_DEGENERATE
-    input->dpdr = SPHP(place).dpdr;
-#endif
-
     /* calculation of F1 */
 #ifndef ALTVISCOSITY
-#ifndef EOS_DEGENERATE
     soundspeed_i = sqrt(GAMMA * SPHP(place).Pressure / SPHP(place).EOMDensity);
-#else
-    soundspeed_i = sqrt(SPHP(place).dpdr);
-#endif
     input->F1 = fabs(SPHP(place).DivVel) /
         (fabs(SPHP(place).DivVel) + SPHP(place).CurlVel +
          0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
 
 #else
     input->F1 = SPHP(place).DivVel;
-#endif
-
-#ifdef TIME_DEP_ART_VISC
-    input->alpha = SPHP(place).alpha;
 #endif
 
 
@@ -244,14 +223,10 @@ static int hydro_evaluate(int target, int mode,
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
-#ifndef EOS_DEGENERATE
 #ifdef DENSITY_INDEPENDENT_SPH
     soundspeed_i = sqrt(GAMMA * I->Pressure / I->EgyRho);
 #else
     soundspeed_i = sqrt(GAMMA * I->Pressure / I->Density);
-#endif
-#else
-    soundspeed_i = sqrt(I->dpdr);
 #endif
 
     /* initialize variables before SPH loop is started */
@@ -319,14 +294,10 @@ static int hydro_evaluate(int target, int mode,
                     double r = sqrt(r2);
                     p_over_rho2_j = SPHP(j).Pressure / (SPHP(j).EOMDensity * SPHP(j).EOMDensity);
 
-#ifndef EOS_DEGENERATE
 #ifdef DENSITY_INDEPENDENT_SPH
                     soundspeed_j = sqrt(GAMMA * SPHP(j).Pressure / SPHP(j).EOMDensity);
 #else
                     soundspeed_j = sqrt(GAMMA * p_over_rho2_j * SPHP(j).Density);
-#endif
-#else
-                    soundspeed_j = sqrt(SPHP(j).dpdr);
 #endif
 
                     double dvx = I->Vel[0] - SPHP(j).VelPred[0];
@@ -367,11 +338,7 @@ static int hydro_evaluate(int target, int mode,
                             fabs(SPHP(j).DivVel) / (fabs(SPHP(j).DivVel) + SPHP(j).CurlVel +
                                     0.0001 * soundspeed_j / fac_mu / P[j].Hsml);
 
-#ifdef TIME_DEP_ART_VISC
-                        double BulkVisc_ij = 0.5 * (I->alpha + SPHP(j).alpha);
-#else
                         double BulkVisc_ij = All.ArtBulkViscConst;
-#endif
 
 #ifndef CONVENTIONAL_VISCOSITY
                         visc = 0.25 * BulkVisc_ij * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
@@ -445,7 +412,7 @@ static int hydro_evaluate(int target, int mode,
 #else
                     /* Formulation derived from the Lagrangian */
                     double hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *I->DhsmlDensityFactor * dwk_i
-                            + p_over_rho2_j * SPHP(j).h.DhsmlDensityFactor * dwk_j) / r;
+                            + p_over_rho2_j * SPHP(j).DhsmlDensityFactor * dwk_j) / r;
 #endif
 #else
                     double hfc = hfc_visc +
@@ -471,15 +438,10 @@ static int hydro_evaluate(int target, int mode,
                     O->Acc[2] += (-hfc * dz);
 #endif
 
-#if !defined(EOS_DEGENERATE) && !defined(TRADITIONAL_SPH_FORMULATION)
+#ifndef TRADITIONAL_SPH_FORMULATION
                     O->DtEntropy += (0.5 * hfc_visc * vdotr2);
 #else
-
-#ifdef TRADITIONAL_SPH_FORMULATION
                     O->DtEntropy += (0.5 * (hfc_visc + hfc_egy) * vdotr2);
-#else
-                    O->DtEntropy += (0.5 * hfc * vdotr2);
-#endif
 #endif
 
 #ifdef WAKEUP
@@ -525,18 +487,10 @@ static void hydro_post_process(int i) {
     {
         int k;
 
-#ifndef EOS_DEGENERATE
-
 #ifndef TRADITIONAL_SPH_FORMULATION
         /* Translate energy change rate into entropy change rate */
         SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
 #endif
-
-#else
-        /* DtEntropy stores the energy change rate in internal units */
-        SPHP(i).DtEntropy *= All.UnitEnergy_in_cgs / All.UnitTime_in_s;
-#endif
-
 
 #ifdef WINDS
         /* if we have winds, we decouple particles briefly if delaytime>0 */
@@ -561,19 +515,5 @@ static void hydro_post_process(int i) {
             }
         }
 #endif
-
-#ifdef TIME_DEP_ART_VISC
-#if !defined(EOS_DEGENERATE)
-        double cs_h = sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).Density) / P[i].Hsml;
-#else
-        double cs_h = sqrt(SPHP(i).dpdr) / P[i].Hsml;
-#endif
-        double f = fabs(SPHP(i).DivVel) / (fabs(SPHP(i).DivVel) + SPHP(i).CurlVel + 0.0001 * cs_h / fac_mu);
-        SPHP(i).Dtalpha = -(SPHP(i).alpha - All.AlphaMin) * All.DecayTime *
-            0.5 * SPHP(i).MaxSignalVel / (P[i].Hsml * fac_mu)
-            + f * All.ViscSource * DMAX(0.0, -SPHP(i).DivVel);
-        SPHP(i).Dtalpha /= All.cf.hubble_a2;
-#endif
-
     }
 }

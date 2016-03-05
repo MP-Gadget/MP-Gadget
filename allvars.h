@@ -679,14 +679,6 @@ extern struct global_data_all_processes
     double WindSpeedFactor;
 #endif
 
-#ifdef TIME_DEP_ART_VISC
-    double ViscSource0;		/*!< Given sourceterm in viscosity evolution */
-    double DecayLength;		/*!< Number of h for the viscosity decay */
-    double ViscSource;		/*!< Reduced sourceterm in viscosity evolution */
-    double DecayTime;		/*!< Calculated decaytimescale */
-    double AlphaMin;		/*!< Minimum of allowed viscosity parameter */
-#endif
-
 #ifdef BLACK_HOLES
     double TimeNextBlackHoleCheck;
     double TimeBetBlackHoleSearch;
@@ -706,11 +698,6 @@ extern struct global_data_all_processes
     double massDMpart;
     double FOFHaloLinkingLength;
     int FOFHaloMinLength;
-#endif
-
-#ifdef EOS_DEGENERATE
-    char EosTable[100];
-    char EosSpecies[100];
 #endif
 
 }
@@ -834,7 +821,7 @@ extern struct sph_particle_data
     MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
 #define EOMDensity EgyWtDensity
 #else
-#define EOMDensity d.Density
+#define EOMDensity Density
 #endif
 
     MyDouble Entropy;		/*!< current value of entropy (actually entropic function) of particle */
@@ -869,17 +856,6 @@ extern struct sph_particle_data
 #ifdef WINDS
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
-#endif
-
-#ifdef TIME_DEP_ART_VISC
-    MyFloat alpha, Dtalpha;
-#endif
-#ifdef EOS_DEGENERATE
-    MyFloat u;                            /* internal energy density */
-    MyFloat temp;                         /* temperature */
-    MyFloat dpdr;							/* derivative of pressure with respect to density at constant entropy */
-    MyFloat xnuc[EOS_NSPECIES];           /* nuclear mass fractions */
-    MyFloat dxnuc[EOS_NSPECIES];          /* change of nuclear mass fractions */
 #endif
 
 #ifdef WAKEUP
