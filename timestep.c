@@ -51,7 +51,6 @@ void advance_and_find_timesteps(void)
 #endif
 #ifdef WAKEUP
     int n, k, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global, max_time_bin_active;
-    int dt_step;
 
     int time0, time1_old, time1_new;
     double dt_entr;
