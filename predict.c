@@ -216,8 +216,6 @@ static void real_drift_particle(int i, int time1)
     lightcone_cross(i, oldpos);
 #endif
 
-
-#ifndef HPM
     if(P[i].Type == 0)
     {
         for(j = 0; j < 3; j++)
@@ -249,20 +247,17 @@ static void real_drift_particle(int i, int time1)
 #endif
         dt_entr = (time1 - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
 
-#ifndef SOFTEREQS
-    #ifndef TRADITIONAL_SPH_FORMULATION
-        #ifdef DENSITY_INDEPENDENT_SPH
-    SPHP(i).EgyWtDensity *= exp(-SPHP(i).DivVel * dt_drift);
-    SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr, 1/GAMMA);
-        #endif
-    SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).EOMDensity, GAMMA);
-    #else
-    SPHP(i).Pressure = GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * SPHP(i).d.Density;
+#ifndef TRADITIONAL_SPH_FORMULATION
+    #ifdef DENSITY_INDEPENDENT_SPH
+        SPHP(i).EgyWtDensity *= exp(-SPHP(i).DivVel * dt_drift);
+        SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr, 1/GAMMA);
     #endif
+    SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).EOMDensity, GAMMA);
+#else
+    SPHP(i).Pressure = GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * SPHP(i).d.Density;
 #endif
 
     }
-#endif /* end of HPM */
 
     P[i].Ti_current = time1;
 }
