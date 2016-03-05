@@ -829,13 +829,6 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.MinGasTemp;
         id[nt++] = REAL;
 
-#ifdef OUTPUTLINEOFSIGHT
-        strcpy(tag[nt], "TimeFirstLineOfSight");
-        addr[nt] = &All.TimeFirstLineOfSight;
-        id[nt++] = REAL;
-#endif
-
-
 #if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
         strcpy(tag[nt], "ReferenceGasMass");
         addr[nt] = &All.ReferenceGasMass;

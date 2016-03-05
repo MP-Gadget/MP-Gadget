@@ -585,9 +585,6 @@ extern struct global_data_all_processes
     double TotalMeshSize[2];
 
     int Ti_nextlineofsight;
-#ifdef OUTPUTLINEOFSIGHT
-    double TimeFirstLineOfSight;
-#endif
 
     /* variables that keep track of cumulative CPU consumption */
 

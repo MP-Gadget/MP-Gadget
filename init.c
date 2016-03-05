@@ -83,12 +83,6 @@ void init(void)
             All.SnapshotFileCount = RestartSnapNum + 1;
     }
 
-#ifdef OUTPUTLINEOFSIGHT
-    All.Ti_nextlineofsight = (int) (log(All.TimeFirstLineOfSight / All.TimeBegin) / All.Timebase_interval);
-    if(RestartFlag == 2)
-        endrun(78787);
-#endif
-
     All.TotNumOfForces = 0;
     All.NumForcesSinceLastDomainDecomp = 0;
 
