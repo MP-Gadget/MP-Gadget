@@ -483,7 +483,6 @@ extern struct global_data_all_processes
 #ifdef START_WITH_EXTRA_NGBDEV
     double MaxNumNgbDeviationStart;    /*!< Maximum allowed deviation neighbour number to start with*/
 #endif
-
     double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
     double InitGasU;		/*!< the same, but converted to thermal energy per unit mass */
@@ -747,10 +746,6 @@ extern struct global_data_all_processes
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
 #ifdef FOF
     double massDMpart;
-#endif
-#ifdef MODIFIEDBONDI
-    double BlackHoleRefDensity;
-    double BlackHoleRefSoundspeed;
 #endif
 #endif
 

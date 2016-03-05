@@ -140,7 +140,7 @@ void cooling_and_starformation(void)
 #endif
 
         /* check whether conditions for star formation are fulfilled.
-         *  
+         *
          * f=1  normal cooling
          * f=0  star formation
          */
@@ -408,8 +408,8 @@ static int get_sfr_condition(int i) {
 #ifdef WINDS
 static int sfr_wind_isactive(int target) {
     if(P[target].Type == 4) {
-        /* 
-         * protect beginning of time. StellarAge starts at 0. 
+        /*
+         * protect beginning of time. StellarAge starts at 0.
          * */
 #ifndef STELLARAGE
 #error Need STELLARAGE
@@ -463,7 +463,7 @@ static int sfr_wind_ev_weight(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
         LocalEvaluator * lv, int * ngblist) {
-    /* this evaluator walks the tree and sums the total mass of surrounding gas 
+    /* this evaluator walks the tree and sums the total mass of surrounding gas
      * particles as described in VS08. */
     int startnode, numngb, k, n, listindex = 0;
     startnode = I->NodeList[0];
@@ -479,7 +479,7 @@ static int sfr_wind_ev_weight(int target, int mode,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode, 
+            numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode,
                     mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1 + 2);
 
             if(numngb < 0)
@@ -517,7 +517,7 @@ static int sfr_wind_ev_weight(int target, int mode,
                         O->V2sum += vel * vel;
                     }
                 }
-                
+
             }
             /*
             printf("ThisTask = %d %ld ngb=%d NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
@@ -560,13 +560,13 @@ static int sfr_wind_evaluate(int target, int mode,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode, 
+            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
                     mode, lv, ngblist, NGB_TREEFIND_SYMMETRIC, 1);
 
             if(numngb < 0)
                 return numngb;
 
-            for(n = 0; n < numngb; 
+            for(n = 0; n < numngb;
                     (unlock_particle_if_not(ngblist[n], I->ID), n++)
                     )
             {
@@ -658,9 +658,9 @@ static int make_particle_wind(int i, double v, double vmean[3]) {
         for(j = 0; j < 3; j++)
             dir[j] /= norm;
 
-        fprintf(FdSfrDetails, 
+        fprintf(FdSfrDetails,
              "Wind T %g %lu M %g P %g %g %g V %g VC %g %g %g D %g %g %g\n",
-                All.Time, P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], 
+                All.Time, P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],
                 v / All.cf.a, vmean[0], vmean[1], vmean[2], dir[0], dir[1], dir[2]);
 
         for(j = 0; j < 3; j++)
@@ -676,7 +676,7 @@ static int make_particle_wind(int i, double v, double vmean[3]) {
 
 static int make_particle_star(int i) {
     fprintf(FdSfrDetails, "Star T %g %lu M %g RHOP %g P %g %g %g\n",
-            All.Time, P[i].ID, P[i].Mass, SPHP(i).Density * All.cf.a3inv, 
+            All.Time, P[i].ID, P[i].Mass, SPHP(i).Density * All.cf.a3inv,
             P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
     /* here we spawn a new star particle */
@@ -775,13 +775,13 @@ static void starformation(int i) {
 
     /* amount of stars expect to form */
 
-    double sm = rateOfSF * dtime;	
+    double sm = rateOfSF * dtime;
 
     double p = sm / P[i].Mass;
 
     sum_sm += P[i].Mass * (1 - exp(-p));
 
-    /* convert to Solar per Year but is this damn variable otherwise used 
+    /* convert to Solar per Year but is this damn variable otherwise used
      * at all? */
     SPHP(i).Sfr = rateOfSF *
         (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
@@ -845,7 +845,7 @@ static double get_starformation_rate_full(int i, double dtime, double * ne_new, 
     if(flag == 1) {
         /* this shall not happen but let's put in some safe
          * numbers in case the code run wary!
-         * 
+         *
          * the only case trelax and egyeff are
          * required is in starformation(i)
          * */
@@ -859,7 +859,7 @@ static double get_starformation_rate_full(int i, double dtime, double * ne_new, 
     }
 
     tsfr = sqrt(All.PhysDensThresh / (SPHP(i).Density * All.cf.a3inv)) * All.MaxSfrTimescale;
-    /* 
+    /*
      * gadget-p doesn't have this cap.
      * without the cap sm can be bigger than cloudmass.
     */
@@ -996,12 +996,6 @@ void init_clouds(void)
         while(neff > 4.0 / 3);
 
         thresholdStarburst = dens;
-
-#ifdef MODIFIEDBONDI
-        All.BlackHoleRefDensity = thresholdStarburst;
-        All.BlackHoleRefSoundspeed = sqrt(GAMMA * GAMMA_MINUS1 * egyeff);
-#endif
-
 
         if(ThisTask == 0)
         {
@@ -1253,7 +1247,7 @@ static double get_sfr_factor_due_to_h2(int i) {
 }
 static double get_sfr_factor_due_to_selfgravity(int i) {
 #ifdef SPH_GRAD_RHO
-    double divv = SPHP(i).DivVel * All.cf.a2inv; 
+    double divv = SPHP(i).DivVel * All.cf.a2inv;
 
     divv += 3.0*All.cf.hubble_a2; // hubble-flow correction
 
@@ -1261,7 +1255,7 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
         if( divv>=0 ) return 0; // restrict to convergent flows (optional) //
     }
 
-    double dv2abs = (divv*divv 
+    double dv2abs = (divv*divv
             + (SPHP(i).CurlVel*All.cf.a2inv)
             * (SPHP(i).CurlVel*All.cf.a2inv)
            ); // all in physical units
@@ -1269,19 +1263,19 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
 
     double y = 1.0;
 
-    if((alpha_vir < 1.0) 
+    if((alpha_vir < 1.0)
     || (SPHP(i).Density * All.cf.a3inv > 100. * All.PhysDensThresh)
     )  {
         y = 66.7;
     } else {
         y = 0.1;
     }
-    // PFH: note the latter flag is an arbitrary choice currently set 
+    // PFH: note the latter flag is an arbitrary choice currently set
     // -by hand- to prevent runaway densities from this prescription! //
 
     if (HAS(All.StarformationCriterion, SFR_CRITERION_CONTINUOUS_CUTOFF)) {
         // continuous cutoff w alpha_vir instead of sharp (optional) //
-        y *= 1.0/(1.0 + alpha_vir); 
+        y *= 1.0/(1.0 + alpha_vir);
     }
     return y;
 #else
