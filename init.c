@@ -25,7 +25,6 @@ void test_id_uniqueness(void);
 void init(void)
 {
     int i, j;
-    double a3, atime;
 
 #ifdef START_WITH_EXTRA_NGBDEV
     double MaxNumNgbDeviationMerk;
@@ -69,8 +68,6 @@ void init(void)
 
     All.Timebase_interval = (log(All.TimeMax) - log(All.TimeBegin)) / TIMEBASE;
     All.Ti_Current = 0;
-    a3 = All.Time * All.Time * All.Time;
-    atime = All.Time;
 
     set_softenings();
 
@@ -263,8 +260,9 @@ void init(void)
          * IC it is 0. */
         if(header.flag_entropy_instead_u == 0)
         {
-#if !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
 /* for DENSITY_INDEPENDENT_SPH, this is done already. */
+#if !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
+            double a3 = All.Time * All.Time * All.Time;
             if(ThisTask == 0 && i == 0)
                 printf("Converting u -> entropy !\n");
 
