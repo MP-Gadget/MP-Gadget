@@ -49,10 +49,6 @@ void run(void)
                                      * the particles that are to be advanced
                                      */
 
-#ifdef SINKS
-        do_sinks();
-#endif
-
         /* check whether we want a full energy statistics */
         if((All.Time - All.TimeLastStatistics) >= All.TimeBetStatistics)
         {

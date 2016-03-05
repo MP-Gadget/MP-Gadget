@@ -355,10 +355,6 @@ extern int NumPart;		/*!< number of particles on the LOCAL processor */
 extern int N_sph;		/*!< number of gas particles on the LOCAL processor  */
 extern int N_bh;		/*!< number of bh particles on the LOCAL processor  */
 
-#ifdef SINKS
-extern int NumSinks;
-#endif
-
 extern int64_t Ntype[6];	/*!< total number of particles of each type */
 extern int NtypeLocal[6];	/*!< local number of particles of each type */
 
@@ -748,12 +744,6 @@ extern struct global_data_all_processes
 #ifdef EOS_DEGENERATE
     char EosTable[100];
     char EosSpecies[100];
-#endif
-
-#ifdef SINKS
-    int TotNumSinks;
-    double SinkHsml;
-    double SinkDensThresh;
 #endif
 
 }

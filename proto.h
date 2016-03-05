@@ -396,10 +396,6 @@ void pm_setup_nonperiodic_kernel(void);
 
 void find_block(char *label,FILE *fd);
 
-#ifdef SINKS
-void do_sinks(void);
-#endif
-
 #ifdef EOS_DEGENERATE
 extern int eos_init();
 extern void eos_deinit();

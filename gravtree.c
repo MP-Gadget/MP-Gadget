@@ -313,9 +313,6 @@ void set_softenings(void)
         All.SofteningTable[5] = All.SofteningBndryMaxPhys / All.Time;
     else
         All.SofteningTable[5] = All.SofteningBndry;
-#ifdef SINKS
-    All.SofteningTable[5] = All.SinkHsml / All.Time * All.HubbleParam;
-#endif
 
     for(i = 0; i < 6; i++)
         All.ForceSoftening[i] = 2.8 * All.SofteningTable[i];

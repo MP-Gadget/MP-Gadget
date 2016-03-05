@@ -978,16 +978,6 @@ void read_parameter_file(char *fname)
         id[nt++] = STRING;
 #endif
 
-#ifdef SINKS
-        strcpy(tag[nt], "SinkHsml");
-        addr[nt] = &All.SinkHsml;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "SinkDensThresh");
-        addr[nt] = &All.SinkDensThresh;
-        id[nt++] = REAL;
-#endif
-
         if((fd = fopen(fname, "r")))
         {
             sprintf(buf, "%s%s", fname, "-usedvalues");
