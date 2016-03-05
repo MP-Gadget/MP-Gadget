@@ -826,7 +826,7 @@ extern struct sph_particle_data
     MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
 #define EOMDensity EgyWtDensity
 #else
-#define EOMDensity d.Density
+#define EOMDensity Density
 #endif
 
     MyDouble Entropy;		/*!< current value of entropy (actually entropic function) of particle */

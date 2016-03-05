@@ -160,7 +160,7 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
     input->EntVarPred = SPHP(place).EntVarPred;
     input->DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 #else
-    input->DhsmlDensityFactor = SPHP(place).h.DhsmlDensityFactor;
+    input->DhsmlDensityFactor = SPHP(place).DhsmlDensityFactor;
 #endif
 
     input->Pressure = SPHP(place).Pressure;
@@ -433,7 +433,7 @@ static int hydro_evaluate(int target, int mode,
 #else
                     /* Formulation derived from the Lagrangian */
                     double hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *I->DhsmlDensityFactor * dwk_i
-                            + p_over_rho2_j * SPHP(j).h.DhsmlDensityFactor * dwk_j) / r;
+                            + p_over_rho2_j * SPHP(j).DhsmlDensityFactor * dwk_j) / r;
 #endif
 #else
                     double hfc = hfc_visc +

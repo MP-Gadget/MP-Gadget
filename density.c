@@ -644,7 +644,7 @@ static void density_post_process(int i) {
         /* use an intermediate EQS, between isothermal and the full multiphase model */
         if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh) {
             SPHP(i).Pressure = All.FactorForSofterEQS *
-                (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA) +
+                (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA) +
                 (1 - All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
         }
         else
@@ -652,13 +652,13 @@ static void density_post_process(int i) {
         {
         #ifdef TRADITIONAL_SPH_FORMULATION
             SPHP(i).Pressure =
-                GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * SPHP(i).Density;
+                GAMMA_MINUS1 * (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * SPHP(i).Density;
         #else
             #ifdef DENSITY_INDEPENDENT_SPH
                 SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
             #else
                 SPHP(i).Pressure =
-                    (SPHP(i).Entropy + SPHP(i).e.DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
+                    (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
             #endif // DENSITY_INDEPENDENT_SPH
         #endif // TRADITIONAL_SPH_FORMULATION
         }
@@ -666,7 +666,7 @@ static void density_post_process(int i) {
         /* call tabulated eos with physical units */
         eos_calc_egiven_v(SPHP(i).Density * All.UnitDensity_in_cgs, SPHP(i).xnuc,
                 SPHP(i).dxnuc, dt_entr * All.UnitTime_in_s, SPHP(i).Entropy,
-                SPHP(i).e.DtEntropy, &SPHP(i).temp, &SPHP(i).Pressure, &SPHP(i).dpdr);
+                SPHP(i).DtEntropy, &SPHP(i).temp, &SPHP(i).Pressure, &SPHP(i).dpdr);
         SPHP(i).Pressure /= All.UnitPressure_in_cgs;
 #endif
 
