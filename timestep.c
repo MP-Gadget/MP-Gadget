@@ -762,13 +762,11 @@ int get_timestep(int p,		/*!< particle index */
     if(dt >= All.MaxSizeTimestep)
         dt = All.MaxSizeTimestep;
 
-    if(dt < All.MinSizeTimestep)
-        dt = All.MinSizeTimestep;
-
-
     if(dt >= dt_displacement)
         dt = dt_displacement;
 
+    if(dt < All.MinSizeTimestep)
+        dt = All.MinSizeTimestep;
 
     ti_step = (int) (dt / All.Timebase_interval);
 
