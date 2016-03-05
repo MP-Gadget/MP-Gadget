@@ -135,9 +135,7 @@ static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
 
 void blackhole_accretion(void)
 {
-    int i, j, k, n, bin;
-    int ndone_flag, ndone;
-    int ngrp, sendTask, recvTask, place, nexport, nimport, dummy;
+    int i, n, bin;
     int Ntot_gas_swallowed, Ntot_BH_swallowed;
 
     walltime_measure("/Misc");
@@ -341,11 +339,11 @@ static void blackhole_accretion_evaluate(int n) {
 }
 
 static void blackhole_postprocess(int n) {
-    int k;
 #ifdef BH_ACCRETION
     if(BHP(n).accreted_Mass > 0)
     {
 #ifndef BH_REPOSITION_ON_POTMIN
+        int k;
         for(k = 0; k < 3; k++)
             P[n].Vel[k] =
                 (P[n].Vel[k] * P[n].Mass + BHP(n).accreted_momentum[k]) /
