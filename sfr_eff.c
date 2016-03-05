@@ -8,6 +8,7 @@
 #include "forcetree.h"
 #include "cooling.h"
 #include "domain.h"
+#include "mymalloc.h"
 
 #ifdef METALS
 #define METALLICITY(i) (P[(i)].Metallicity)

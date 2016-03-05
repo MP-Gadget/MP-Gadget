@@ -1,7 +1,6 @@
 #ifndef PROTO_H
 #define PROTO_H
 
-#include "mymalloc.h"
 void report_VmRSS(void);
 
 #ifdef MPISENDRECV_CHECKSUM

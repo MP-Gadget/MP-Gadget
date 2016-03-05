@@ -6,6 +6,7 @@
 #include "evaluator.h"
 #include "tags.h"
 #include "openmpsort.h"
+#include "mymalloc.h"
 
 static int *Exportflag;	        /*!< Buffer used for flagging whether a particle needs to be exported to another process */
 static int *Exportnodecount;

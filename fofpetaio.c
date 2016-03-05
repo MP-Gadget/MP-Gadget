@@ -13,6 +13,7 @@
 #include "petaio.h"
 #include "domain.h"
 #include "fof.h"
+#include "mymalloc.h"
 #ifdef FOF
 /* from FoF*/
 extern uint64_t Ngroups, TotNgroups;

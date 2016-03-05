@@ -7,6 +7,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
+#include "mymalloc.h"
 
 #include <gsl/gsl_heapsort.h>
 

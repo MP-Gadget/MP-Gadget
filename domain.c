@@ -10,6 +10,7 @@
 #include "proto.h"
 #include "domain.h"
 #include "forcetree.h"
+#include "mymalloc.h"
 
 
 /*! \file domain.c

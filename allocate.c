@@ -7,6 +7,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "evaluator.h"
+#include "mymalloc.h"
 
 /* This routine allocates memory for
  * particle storage, both the collisionless and the SPH particles.

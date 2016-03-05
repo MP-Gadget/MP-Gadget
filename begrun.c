@@ -15,6 +15,7 @@
 #include "cosmology.h"
 #include "cooling.h"
 #include "petaio.h"
+#include "mymalloc.h"
 
 #include "config.h"
 

@@ -9,6 +9,7 @@
 #include "proto.h"
 #include "domain.h"
 #include "forcetree.h"
+#include "mymalloc.h"
 
 /*! \file forcetree.c
  *  \brief gravitational tree and code for Ewald correction

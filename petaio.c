@@ -11,6 +11,7 @@
 #include "cooling.h"
 
 #include "petaio.h"
+#include "mymalloc.h"
 #ifdef FOF
     /*Defined in fofpetaio.c and only used here*/
     void fof_register_io_blocks();

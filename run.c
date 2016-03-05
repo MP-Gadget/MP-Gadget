@@ -9,6 +9,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "cooling.h"
+#include "mymalloc.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop

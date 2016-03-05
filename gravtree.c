@@ -10,6 +10,7 @@
 #include "proto.h"
 #include "forcetree.h"
 #include "evaluator.h"
+#include "mymalloc.h"
 
 /*! \file gravtree.c
  *  \brief main driver routines for gravitational (short-range) force computation

@@ -11,6 +11,7 @@
 #include "densitykernel.h"
 #include "proto.h"
 #include "evaluator.h"
+#include "mymalloc.h"
 
 extern int NextParticle;
 

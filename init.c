@@ -12,6 +12,7 @@
 #include "petaio.h"
 #include "domain.h"
 #include "mpsort.h"
+#include "mymalloc.h"
 
 static void test_id_uniqueness(void);
 
