@@ -283,7 +283,6 @@ void cooling_and_starformation(void)
             int n = queue[i];
             double vdisp = Wind[n].V2sum / Wind[n].Ngb;
             int k;
-            double v1sum = 0;
             for(k = 0; k < 3; k ++) {
                 Wind[n].Vmean[k] = Wind[n].V1sum[k] / Wind[n].Ngb;
                 vdisp -= Wind[n].Vmean[k] * Wind[n].Vmean[k];
@@ -547,7 +546,7 @@ static int sfr_wind_evaluate(int target, int mode,
 
     /* this evaluator walks the tree and blows wind. */
 
-    int startnode, numngb, k, n, listindex = 0;
+    int startnode, numngb, n, listindex = 0;
     startnode = I->NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
