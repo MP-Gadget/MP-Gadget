@@ -1166,4 +1166,7 @@ extern int Numnodestree;	/*!< number of (internal) nodes in each tree */
 extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
 extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 
+#define MPI_UINT64 MPI_UNSIGNED_LONG
+#define MPI_INT64 MPI_LONG
+
 #endif
