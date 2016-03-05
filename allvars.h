@@ -153,7 +153,6 @@ typedef uint64_t peanokey;
 #endif
 
 
-
 #ifndef FOF_PRIMARY_LINK_TYPES
 #define FOF_PRIMARY_LINK_TYPES 2
 #endif
