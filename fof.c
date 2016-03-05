@@ -412,7 +412,7 @@ void fof_find_groups(void)
         MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
         if(ThisTask == 0)
         {
-            printf("Linked %ld particles\n", link_across_tot);
+            printf("Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
         }
     }
     while(link_across_tot > 0);

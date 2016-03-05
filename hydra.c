@@ -25,11 +25,8 @@
  */
 struct hydrodata_in
 {
-#ifndef DONOTUSENODELIST
     int NodeList[NODELISTLENGTH];
-#else
-    int NodeList[2]; /* At least 2 elements are needed to drive the evaluator */
-#endif
+
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyRho;
     MyFloat EntVarPred;
@@ -98,11 +95,7 @@ void hydro_force(void)
     ev.ev_isactive = hydro_isactive;
     ev.ev_copy = (ev_copy_func) hydro_copy;
     ev.ev_reduce = (ev_reduce_func) hydro_reduce;
-#ifdef DONOTUSENODELIST
     ev.UseNodeList = 0;
-#else
-    ev.UseNodeList = 1;
-#endif
     ev.ev_datain_elsize = sizeof(struct hydrodata_in);
     ev.ev_dataout_elsize = sizeof(struct hydrodata_out);
 
