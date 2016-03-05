@@ -112,12 +112,12 @@ void begrun(void)
     {
         all = All;		/* save global variables. (will be read from restart file) */
 
-        restart(RestartFlag);	/* ... read restart file. Note: This also resets 
-                                   all variables in the struct `All'. 
+        restart(RestartFlag);	/* ... read restart file. Note: This also resets
+                                   all variables in the struct `All'.
                                    However, during the run, some variables in the parameter
-                                   file are allowed to be changed, if desired. These need to 
+                                   file are allowed to be changed, if desired. These need to
                                    copied in the way below.
-Note:  All.PartAllocFactor is treated in restart() separately.  
+Note:  All.PartAllocFactor is treated in restart() separately.
 */
 
 #ifdef _OPENMP
@@ -416,7 +416,7 @@ static int parse_multichoice(struct multichoice * table, char * strchoices) {
         }
         if(p->name == NULL) {
             /* error occured !*/
-            return 0; 
+            return 0;
         }
     }
     if(value == 0) {
@@ -449,7 +449,7 @@ struct multichoice BlackHoleFeedbackMethodChoices [] = {
     {"spline", BH_FEEDBACK_SPLINE},
     {NULL, BH_FEEDBACK_SPLINE | BH_FEEDBACK_MASS},
 };
-#endif 
+#endif
 #ifdef SFR
 struct multichoice StarformationCriterionChoices [] = {
     {"density", SFR_CRITERION_DENSITY},
@@ -896,7 +896,7 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.StarformationCriterion;
         choices[nt] = StarformationCriterionChoices;
         id[nt++] = MULTICHOICE;
-          
+
         strcpy(tag[nt], "CritOverDensity");
         addr[nt] = &All.CritOverDensity;
         id[nt++] = REAL;
@@ -1061,7 +1061,7 @@ void read_parameter_file(char *fname)
                                     char * parsed = NULL;
                                     if(value == 0) {
                                         parsed = format_multichoice(choices[j], -1);
-                                        fprintf(stdout, 
+                                        fprintf(stdout,
                                                 "Error in file %s:   Tag '%s' possible choices are: %s.\n",
                                                 fname, buf1, parsed);
                                         errorFlag = 1;
@@ -1112,10 +1112,10 @@ void read_parameter_file(char *fname)
                 for(i = 0; i < density_kernel_type_end(); i++) {
                     printf("%d %s\n", i, density_kernel_name(i));
                 }
-                errorFlag = 1; 
+                errorFlag = 1;
             }
             printf("The Density Kernel type is %d (%s)\n", All.DensityKernelType, density_kernel_name(All.DensityKernelType));
-            All.DesNumNgb = density_kernel_desnumngb(All.DensityKernelType, 
+            All.DesNumNgb = density_kernel_desnumngb(All.DensityKernelType,
                     All.DensityResolutionEta);
             printf("The Density resolution is %g * mean separation, or %d neighbours\n",
                     All.DensityResolutionEta, All.DesNumNgb);
@@ -1126,12 +1126,12 @@ void read_parameter_file(char *fname)
                 FILE * fd = fopen(fn, "w");
                 double support = density_kernel_support(k);
                 density_kernel_t kernel;
-                density_kernel_init_with_type(&kernel, k, support); 
+                density_kernel_init_with_type(&kernel, k, support);
                 double max = 1000;
                 for(i = 0 ; i < max; i ++) {
                     double u = i / max;
                     double q = i / max * support;
-                    fprintf(fd, "%g %g %g \n", 
+                    fprintf(fd, "%g %g %g \n",
                            q,
                            density_kernel_wk(&kernel, u),
                            density_kernel_dwk(&kernel, u)
@@ -1201,7 +1201,7 @@ void read_parameter_file(char *fname)
         if(HAS(All.StarformationCriterion, SFR_CRITERION_SELFGRAVITY)) {
             printf("error: enable SPH_GRAD_RHO to use selfgravity in sfr \n");
             endrun(0);
-        } 
+        }
 #endif
 
 #endif
@@ -1215,17 +1215,6 @@ void read_parameter_file(char *fname)
         }
         endrun(0);
     }
-
-#if defined(LONG_X) ||  defined(LONG_Y) || defined(LONG_Z)
-#ifndef NOGRAVITY
-    if(ThisTask == 0)
-    {
-        printf("Code was compiled with LONG_X/Y/Z, but not with NOGRAVITY.\n");
-        printf("Stretched periodic boxes are not implemented for gravity yet.\n");
-    }
-    endrun(0);
-#endif
-#endif
 
 #ifdef SFR
 

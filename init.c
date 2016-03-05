@@ -48,7 +48,7 @@ void init(void)
 
     if(RestartFlag >= 2 && RestartSnapNum >= 0)  {
         petaio_read_snapshot(RestartSnapNum);
-    } else 
+    } else
     if(RestartFlag == 0) {
         petaio_read_ic();
     } else {
@@ -110,11 +110,6 @@ void init(void)
         for(j = 0; j < 3; j++) {
             P[i].GravAccel[j] = 0;
         }
-
-#ifdef KEEP_DM_HSML_AS_GUESS
-        if(RestartFlag != 1)
-            P[i].DM_Hsml = -1;
-#endif
 
         for(j = 0; j < 3; j++)
             P[i].GravPM[j] = 0;
@@ -436,8 +431,8 @@ void setup_smoothinglengths(void)
             /* quick hack to adjust for the baryon fraction
              * only this fraction of mass is of that type.
              * this won't work for non-dm non baryon;
-             * ideally each node shall have separate count of 
-             * ptypes of each type. 
+             * ideally each node shall have separate count of
+             * ptypes of each type.
              *
              * Eventually the iteration will fix this. */
             double massfactor;
@@ -460,7 +455,7 @@ void setup_smoothinglengths(void)
 #ifndef TWODIMS
 #ifndef ONEDIM
             P[i].Hsml =
-                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass), 
+                pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass),
                         1.0 / 3) * Nodes[no].len;
 #else
             P[i].Hsml = All.DesNumNgb * (P[i].Mass / (massfactor * Nodes[no].u.d.mass)) * Nodes[no].len;
@@ -501,7 +496,7 @@ void setup_smoothinglengths(void)
         double a3;
         a3 = All.Time * All.Time * All.Time;
 
-        /* initialization of the entropy variable is a little trickier in this version of SPH, 
+        /* initialization of the entropy variable is a little trickier in this version of SPH,
            since we need to make sure it 'talks to' the density appropriately */
 
         if (ThisTask == 0) {
@@ -513,7 +508,7 @@ void setup_smoothinglengths(void)
         double * olddensity = (double *)mymalloc("olddensity ", N_sph * sizeof(double));
         for(j=0;j<100;j++)
         {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
-#pragma omp parallel for 
+#pragma omp parallel for
             for(i = 0; i < N_sph; i++)
             {
                 double entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
@@ -532,7 +527,7 @@ void setup_smoothinglengths(void)
                     double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
                     if(value > mybadness) mybadness = value;
                 }
-#pragma omp critical 
+#pragma omp critical
                 {
                     if(mybadness > badness) {
                         badness = mybadness;
@@ -541,7 +536,7 @@ void setup_smoothinglengths(void)
             }
             MPI_Allreduce(MPI_IN_PLACE, &badness, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 
-            if(ThisTask == 0) 
+            if(ThisTask == 0)
                 printf("iteration %03d, max relative difference = %g \n", j, badness);
 
             if(badness < 1e-3) break;
@@ -554,7 +549,7 @@ void setup_smoothinglengths(void)
         }
     }
 
-    /* snapshot already has Entropy and EgyWtDensity; 
+    /* snapshot already has Entropy and EgyWtDensity;
      * hope it is read in correctly. (need a test
      * on this!) */
     /* regardless we initalize EntVarPred. This may be unnecessary*/

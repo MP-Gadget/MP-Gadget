@@ -142,7 +142,7 @@ int drift_particle_full(int i, int time1, int blocking) {
 #pragma omp atomic
             BlockedParticleDrifts ++;
         }
-        pthread_spin_unlock(&P[i].SpinLock); 
+        pthread_spin_unlock(&P[i].SpinLock);
         return 0;
     } else {
         if(blocking) {
@@ -155,7 +155,7 @@ int drift_particle_full(int i, int time1, int blocking) {
 
 #else
     /* do not use SpinLock */
-#pragma omp critical (_driftparticle_) 
+#pragma omp critical (_driftparticle_)
     {
         if(P[i].Ti_current != time1) {
             real_drift_particle(i, time1);
@@ -306,16 +306,6 @@ void do_box_wrapping(void)
     int j;
     for(j = 0; j < 3; j++)
         boxsize[j] = All.BoxSize;
-
-#ifdef LONG_X
-    boxsize[0] *= LONG_X;
-#endif
-#ifdef LONG_Y
-    boxsize[1] *= LONG_Y;
-#endif
-#ifdef LONG_Z
-    boxsize[2] *= LONG_Z;
-#endif
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {

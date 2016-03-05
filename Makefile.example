@@ -94,9 +94,6 @@ OPT	+=  -DFIX_PATHSCALE_MPI_STATUS_IGNORE_BUG
 #OPT	+=  -DCOMPUTE_POTENTIAL_ENERGY
 #OPT	+=  -DASSIGN_NEW_IDS
 OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very different from collisionless particles, this can helps to avoid problems in the domain decomposition -- increase All.MaxPartSph
-#OPT	+=  -DLONG_X=140
-#OPT	+=  -DLONG_Y=1
-#OPT	+=  -DLONG_Z=1
 #OPT	+=  -DTWODIMS
 #OPT	+=  -DONEDIM
 #OPT	+=  -DSPH_BND_PARTICLES
