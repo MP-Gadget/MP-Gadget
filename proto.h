@@ -239,7 +239,6 @@ void check_omega(void);
 void close_outputfiles(void);
 void compute_accelerations(int mode);
 void compute_global_quantities_of_system(void);
-void compute_potential(void);
 void construct_timetree(void);
 void cooling_and_starformation(void);
 void cooling_only(void);
@@ -345,7 +344,7 @@ static inline int atomic_add_and_fetch(int * ptr, int value) {
     int k;
 #if _OPENMP >= 201107
 #pragma omp atomic capture
-    { 
+    {
       (*ptr)+=value;
       k = (*ptr);
     }
@@ -354,7 +353,7 @@ static inline int atomic_add_and_fetch(int * ptr, int value) {
     k = __sync_add_and_fetch(ptr, value);
 #else /* non spinlock */
 #pragma omp critical
-    { 
+    {
       (*ptr)+=value;
       k = (*ptr);
     }
@@ -397,10 +396,6 @@ double enclosed_mass(double R);
 void pm_setup_nonperiodic_kernel(void);
 
 
-#ifdef AUTO_SWAP_ENDIAN_READIC
-void swap_Nbyte(char *data, int n, int m);
-void swap_header(void);
-#endif
 void find_block(char *label,FILE *fd);
 
 #ifdef SINKS
@@ -416,10 +411,10 @@ extern int eos_calc_egiven_v( double rho, double *xnuc, double *dxnuc, double fa
 extern int eos_calc_tgiven_v( double rho, double *xnuc, double *dxnuc, double fac, double temp, double *e, double *dedt );
 #endif
 
-#if defined(HEALPIX) 
+#if defined(HEALPIX)
 
 void mk_xy2pix(int *x2pix, int *y2pix);
-void vec2pix_nest( const long nside, double *vec, long *ipix); 
+void vec2pix_nest( const long nside, double *vec, long *ipix);
 void healpix_halo_cond(float *res);
 
 #endif
