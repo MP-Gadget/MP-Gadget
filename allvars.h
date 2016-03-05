@@ -43,14 +43,6 @@
 
 #include "walltime.h"
 
-#ifdef MPISENDRECV_CHECKSUM
-#define MPI_Sendrecv MPI_Check_Sendrecv
-#endif
-
-#ifdef MPISENDRECV_SIZELIMIT
-#define MPI_Sendrecv MPI_Sizelimited_Sendrecv
-#endif
-
 #include "tags.h"
 #include "assert.h"
 

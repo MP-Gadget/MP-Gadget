@@ -14,6 +14,7 @@
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
  */
+void test_id_uniqueness(void);
 
 
 /*! This function reads the initial conditions, and allocates storage for the
