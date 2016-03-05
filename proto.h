@@ -26,8 +26,6 @@ int MPI_Sizelimited_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype
 #define MPI_Sendrecv MPI_Sizelimited_Sendrecv
 #endif
 
-int compare_IDs(const void *a, const void *b);
-
 int drift_particle_full(int i, int time1, int blocking);
 void drift_particle(int i, int time1);
 void lock_particle_if_not(int i, MyIDType id);
@@ -213,7 +211,6 @@ double get_hydrokick_factor(int time0, int time1);
 double get_gravkick_factor(int time0, int time1);
 double drift_integ(double a, void *param);
 double gravkick_integ(double a, void *param);
-double growthfactor_integ(double a, void *param);
 double hydrokick_integ(double a, void *param);
 void init_drift_table(void);
 double get_drift_factor(int time0, int time1);

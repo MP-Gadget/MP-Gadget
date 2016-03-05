@@ -574,14 +574,3 @@ void test_id_uniqueness(void)
         fflush(stdout);
     }
 }
-
-int compare_IDs(const void *a, const void *b)
-{
-    if(*((MyIDType *) a) < *((MyIDType *) b))
-        return -1;
-
-    if(*((MyIDType *) a) > *((MyIDType *) b))
-        return +1;
-
-    return 0;
-}

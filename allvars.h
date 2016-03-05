@@ -862,7 +862,7 @@ extern struct sph_particle_data
     MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
     MyFloat       DhsmlDensityFactor;	/*!< correction factor needed in entropy formulation of SPH */
     MyFloat       DivVel;		/*!< local velocity divergence */
-    MyFloat CurlVel;     	        /*!< local velocity curl */
+    MyFloat       CurlVel;     	        /*!< local velocity curl */
     MyFloat       Rot[3];		/*!< local velocity curl */
 
 #if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)

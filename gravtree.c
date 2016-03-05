@@ -38,7 +38,6 @@ int Ewald_iter;			/* global in file scope, for simplicity */
 static int gravtree_isactive(int i);
 void gravtree_copy(int place, struct gravitydata_in * input) ;
 void gravtree_reduce(int place, struct gravitydata_out * result, int mode);
-void gravtree_reduce_ewald(int place, struct gravitydata_out * result, int mode);
 static void gravtree_post_process(int i);
 
 /*! This function computes the gravitational forces for all active particles.
@@ -230,13 +229,6 @@ void gravtree_reduce(int place, struct gravitydata_out * result, int mode) {
 
     REDUCE(P[place].GravCost, result->Ninteractions);
     REDUCE(P[place].Potential, result->Potential);
-}
-void gravtree_reduce_ewald(int place, struct gravitydata_out * result, int mode) {
-    int k;
-    for(k = 0; k < 3; k++)
-        P[place].GravAccel[k] += result->Acc[k];
-
-    P[place].GravCost += result->Ninteractions;
 }
 
 static int gravtree_isactive(int i) {

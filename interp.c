@@ -62,9 +62,6 @@ static ptrdiff_t linearindex(ptrdiff_t * strides, int * xi, int Ndim) {
     return rt;
 }
 
-ptrdiff_t interp_index(Interp * obj, int * xi) {
-    return linearindex(obj->strides, xi, obj->Ndim);
-}
 /* status:
  * 0 if interplation is good on that axis
  * -1 below

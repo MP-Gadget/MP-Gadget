@@ -17,9 +17,6 @@ void interp_init(Interp * obj, int Ndim, int * dims);
 /* set the upper and lower limit of dimension d */
 void interp_init_dim(Interp * obj, int d, double Min, double Max);
 
-/* returns the index to the y value on the table at xi */
-ptrdiff_t interp_index(Interp * obj, int * xi);
-
 /* interpolate the table at point x; 
  * status: array of length dimension,
  * will be -1 if below lower bound
