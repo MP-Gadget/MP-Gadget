@@ -8,6 +8,7 @@
 #include "bigfile-mpi.h"
 #include "allvars.h"
 #include "proto.h"
+#include "cooling.h"
 
 #include "petaio.h"
 #ifdef FOF

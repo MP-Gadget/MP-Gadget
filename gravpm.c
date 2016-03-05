@@ -9,6 +9,7 @@
 #include <math.h>
 #include "allvars.h"
 #include "proto.h"
+#include "forcetree.h"
 #include "petapm.h"
 
 static int pm_mark_region_for_node(int startno, int rid);

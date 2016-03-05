@@ -5,6 +5,7 @@
 #include <math.h>
 #include "allvars.h"
 #include "proto.h"
+#include "forcetree.h"
 #include "cosmology.h"
 
 /*! \file timestep.c

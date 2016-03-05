@@ -8,6 +8,7 @@
 #include <sys/sem.h>
 #include "allvars.h"
 #include "proto.h"
+#include "forcetree.h"
 #include "evaluator.h"
 
 /*! \file gravtree.c

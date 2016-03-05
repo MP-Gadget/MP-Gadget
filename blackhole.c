@@ -8,6 +8,7 @@
 #include "allvars.h"
 #include "densitykernel.h"
 #include "proto.h"
+#include "forcetree.h"
 #include "evaluator.h"
 #include "domain.h"
 

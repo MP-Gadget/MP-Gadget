@@ -4,6 +4,7 @@
 #include "proto.h"
 #include "evaluator.h"
 #include "tags.h"
+#include "openmpsort.h"
 
 struct data_nodelist
 {

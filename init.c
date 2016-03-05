@@ -6,6 +6,8 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "cooling.h"
+#include "forcetree.h"
 
 #include "petaio.h"
 #include "domain.h"

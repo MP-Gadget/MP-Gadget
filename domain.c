@@ -9,6 +9,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
+#include "forcetree.h"
 
 
 /*! \file domain.c

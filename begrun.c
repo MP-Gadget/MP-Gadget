@@ -13,6 +13,7 @@
 #include "densitykernel.h"
 #include "proto.h"
 #include "cosmology.h"
+#include "cooling.h"
 #include "petaio.h"
 
 #include "config.h"

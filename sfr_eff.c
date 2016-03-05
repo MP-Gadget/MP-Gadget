@@ -6,6 +6,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "forcetree.h"
+#include "cooling.h"
 #include "domain.h"
 
 #ifdef METALS

@@ -6,6 +6,8 @@
 #include <time.h>
 
 #include "allvars.h"
+#include "evaluator.h"
+#include "forcetree.h"
 #include "proto.h"
 
 /*! \file ngb.c

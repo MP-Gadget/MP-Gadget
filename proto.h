@@ -1,16 +1,7 @@
-
-#ifndef ALLVARS_H
-#include "allvars.h"
-#endif
-#include "forcetree.h"
-#include "cooling.h"
-#include "openmpsort.h"
+#ifndef PROTO_H
+#define PROTO_H
 
 void report_VmRSS(void);
-
-#ifdef MPISENDRECV_CHECKSUM
-#endif
-
 
 #ifdef MPISENDRECV_CHECKSUM
 int MPI_Check_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
@@ -237,3 +228,4 @@ void lightcone_init();
 void lightcone_cross(int p, double oldpos[3]);
 void lightcone_set_time(double a);
 #endif
+#endif //PROTO_H

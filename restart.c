@@ -14,6 +14,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
+#include "forcetree.h"
 
 static FILE *fd;
 

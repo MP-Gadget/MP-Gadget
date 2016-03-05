@@ -11,6 +11,7 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "forcetree.h"
 #include "domain.h"
 #include "mpsort.h"
 
