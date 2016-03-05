@@ -63,3 +63,16 @@ There are two example runs in run/.
     run.sh : simulation with gas
     run-dm.sh : simulation without gas (dm only)
 
+== IO Format ==
+
+The snapshot is in bigfile format. For data analysis in Python, use
+
+```
+   pip install bigfile
+```
+
+Refer to https://github.com/rainwoodman/bigfile for usage.
+
+Otherwise directly open the blocks with Fortran or C, noting the data-type
+information and attributes in header and attrs files (in plain text)
+
