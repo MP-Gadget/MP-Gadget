@@ -64,11 +64,6 @@ int fof_find_dmparticles_evaluate(int target, int mode, int *nexport, int *nsend
 
 void fof_compute_group_properties(int gr, int start, int len);
 
-
-int ngb_treefind_fof_nearest(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
-			     int *nexport, int *nsend_local);
-
-
 void fof_fof(int num);
 void fof_find_groups(void);
 void fof_exchange_id_lists(void);
