@@ -9,7 +9,9 @@
 #include <math.h>
 #include "allvars.h"
 #include "proto.h"
+#include "forcetree.h"
 #include "petapm.h"
+#include "domain.h"
 
 static int pm_mark_region_for_node(int startno, int rid);
 static void convert_node_to_region(PetaPMRegion * r);

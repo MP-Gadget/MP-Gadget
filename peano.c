@@ -7,6 +7,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
+#include "mymalloc.h"
 
 #include <gsl/gsl_heapsort.h>
 
@@ -40,11 +41,7 @@ void peano_hilbert_order(void)
 	  mp[i].key = KEY(i);
 	}
 
-#ifdef MYSORT
-      mysort_peano(mp, N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
-#else
       qsort_openmp(mp, N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
-#endif
 
       for(i = 0; i < N_sph; i++)
 	Id[mp[i].index] = i;
@@ -71,11 +68,7 @@ void peano_hilbert_order(void)
 	  mp[i].key = KEY(i);
 	}
 
-#ifdef MYSORT
-      mysort_peano(mp + N_sph, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
-#else
       qsort_openmp(mp + N_sph, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
-#endif
 
       for(i = N_sph; i < NumPart; i++)
 	Id[mp[i].index] = i;
@@ -339,52 +332,3 @@ peanokey peano_and_morton_key(int x, int y, int z, int bits, peanokey * morton_k
   return key;
 }
 
-static void msort_peano_with_tmp(struct peano_hilbert_data *b, size_t n, struct peano_hilbert_data *t)
-{
-  struct peano_hilbert_data *tmp;
-  struct peano_hilbert_data *b1, *b2;
-  size_t n1, n2;
-
-  if(n <= 1)
-    return;
-
-  n1 = n / 2;
-  n2 = n - n1;
-  b1 = b;
-  b2 = b + n1;
-
-  msort_peano_with_tmp(b1, n1, t);
-  msort_peano_with_tmp(b2, n2, t);
-
-  tmp = t;
-
-  while(n1 > 0 && n2 > 0)
-    {
-      if(b1->key <= b2->key)
-	{
-	  --n1;
-	  *tmp++ = *b1++;
-	}
-      else
-	{
-	  --n2;
-	  *tmp++ = *b2++;
-	}
-    }
-
-  if(n1 > 0)
-    memcpy(tmp, b1, n1 * sizeof(struct peano_hilbert_data));
-  memcpy(b, t, (n - n2) * sizeof(struct peano_hilbert_data));
-}
-
-void mysort_peano(void *b, size_t n, size_t s, int (*cmp) (const void *, const void *))
-{
-  const size_t size = n * s;
-
-  struct peano_hilbert_data *tmp =
-    (struct peano_hilbert_data *) mymalloc("struct peano_hilbert_data *tmp", size);
-
-  msort_peano_with_tmp((struct peano_hilbert_data *) b, n, tmp);
-
-  myfree(tmp);
-}

@@ -14,6 +14,7 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "mymalloc.h"
 
 
 
@@ -138,15 +139,7 @@ void set_random_numbers(void)
  */
 double second(void)
 {
-#ifdef WALLCLOCK
   return MPI_Wtime();
-#else
-  return ((double) clock()) / CLOCKS_PER_SEC;
-#endif
-
-  /* note: on AIX and presumably many other 32bit systems, 
-   * clock() has only a resolution of 10ms=0.01sec 
-   */
 }
 
 /* returns the time difference between two measurements 

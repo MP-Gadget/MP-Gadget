@@ -6,7 +6,10 @@
 #include <time.h>
 
 #include "allvars.h"
+#include "evaluator.h"
+#include "forcetree.h"
 #include "proto.h"
+#include "domain.h"
 
 /*! \file ngb.c
  *  \brief neighbour search by means of the tree

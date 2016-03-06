@@ -1,6 +1,9 @@
 #ifndef _EVALUATOR_H_
 #define _EVALUATOR_H_
 
+extern int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
+void Evaluator_allocate_memory(void);
+
 struct _Evaluator;
 typedef struct _LocalEvaluator {
     struct _Evaluator * ev;
@@ -71,6 +74,17 @@ typedef struct _Evaluator {
     int *currentIndex;
     int *currentEnd;
 } Evaluator;
+
+/*!< the particles to be exported are grouped
+by task-number. This table allows the
+results to be disentangled again and to be
+assigned to the correct particle */
+struct data_index
+{
+    int Task;
+    int Index;
+    int IndexGet;
+};
 
 void ev_run(Evaluator * ev);
 void ev_begin(Evaluator * ev);

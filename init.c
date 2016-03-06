@@ -6,10 +6,14 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "cooling.h"
+#include "forcetree.h"
 
 #include "petaio.h"
 #include "domain.h"
 #include "mpsort.h"
+#include "mymalloc.h"
+#include "fof.h"
 
 static void test_id_uniqueness(void);
 
@@ -114,8 +118,7 @@ void init(void)
         P[i].Generation = 0;
         P[i].TimeBin = 0;
 
-        if(header.flag_ic_info != FLAG_SECOND_ORDER_ICS)
-            P[i].OldAcc = 0;	/* Do not zero in 2lpt case as masses are stored here */
+        P[i].OldAcc = 0;
 
         P[i].GravCost = 1;
 
@@ -255,7 +258,7 @@ void init(void)
         /* PETAIO:
          * NON IC, this flag is 1
          * IC it is 0. */
-        if(header.flag_entropy_instead_u == 0)
+        if(flag_entropy_instead_u == 0)
         {
 /* for DENSITY_INDEPENDENT_SPH, this is done already. */
 #if !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
@@ -392,7 +395,7 @@ void setup_smoothinglengths(void)
 
 #ifdef DENSITY_INDEPENDENT_SPH
     /* for clean IC with U input only, we need to iterate to find entrpoy */
-    if(RestartFlag == 0 && header.flag_entropy_instead_u == 0)
+    if(RestartFlag == 0 && flag_entropy_instead_u == 0)
     {
         for(i = 0; i < N_sph; i++)
         {

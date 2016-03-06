@@ -1,16 +1,7 @@
-
-#ifndef ALLVARS_H
-#include "allvars.h"
-#endif
-#include "forcetree.h"
-#include "cooling.h"
-#include "openmpsort.h"
+#ifndef PROTO_H
+#define PROTO_H
 
 void report_VmRSS(void);
-
-#ifdef MPISENDRECV_CHECKSUM
-#endif
-
 
 #ifdef MPISENDRECV_CHECKSUM
 int MPI_Check_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
@@ -40,47 +31,17 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent);
 
 void x86_fix(void) ;
 
-void *mymalloc_fullinfo(const char *varname, size_t n, const char *func, const char *file, int linenr);
-void *mymalloc_movable_fullinfo(void *ptr, const char *varname, size_t n, const char *func, const char *file, int line);
-
-void *myrealloc_fullinfo(void *p, size_t n, const char *func, const char *file, int line);
-void *myrealloc_movable_fullinfo(void *p, size_t n, const char *func, const char *file, int line);
-
-void myfree_fullinfo(void *p, const char *func, const char *file, int line);
-void myfree_movable_fullinfo(void *p, const char *func, const char *file, int line);
-
-void mymalloc_init(void);
-void dump_memory_table(void);
-void report_detailed_memory_usage_of_largest_task(const char *label, const char *func, const char *file, int line);
-
 void blackhole_accretion(void);
 void blackhole_make_one(int index);
 
 int  blackhole_compare_key(const void *a, const void *b);
 
-int fof_find_dmparticles_evaluate(int target, int mode, int *nexport, int *nsend_local);
-
-void fof_compute_group_properties(int gr, int start, int len);
-
-void fof_fof(int num);
-void fof_find_groups(void);
-void fof_exchange_id_lists(void);
-void fof_compile_catalogue(void);
-void fof_save_groups(int num);
-double fof_periodic(double x);
-double fof_periodic_wrap(double x);
-void fof_find_nearest_dmparticle(void);
-
-void fof_make_black_holes(void);
-
 double get_random_number(MyIDType id);
 void set_random_numbers(void);
 
 int data_index_compare(const void *a, const void *b);
-int peano_compare_key(const void *a, const void *b);
 
 void mysort_dataindex(void *b, size_t n, size_t s, int (*cmp) (const void *, const void *));
-void mysort_peano(void *b, size_t n, size_t s, int (*cmp) (const void *, const void *));
 
 size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE * stream);
 size_t my_fread(void *ptr, size_t size, size_t nmemb, FILE * stream);
@@ -90,11 +51,6 @@ double density_decide_hsearch(int targettype, double h);
 size_t sizemax(size_t a, size_t b);
 
 void reconstruct_timebins(void);
-
-void init_peano_map(void);
-peanokey peano_hilbert_key(int x, int y, int z, int bits);
-peanokey peano_and_morton_key(int x, int y, int z, int bits, peanokey *morton);
-peanokey morton_key(int x, int y, int z, int bits);
 
 void catch_abort(int sig);
 void catch_fatal(int sig);
@@ -121,7 +77,6 @@ void cooling_only(void);
 void density(void);
 void do_box_wrapping(void);
 void domain_Decomposition(void);
-void endrun(int);
 void energy_statistics(void);
 
 void every_timestep_stuff(void);
@@ -226,3 +181,4 @@ void lightcone_init();
 void lightcone_cross(int p, double oldpos[3]);
 void lightcone_set_time(double a);
 #endif
+#endif //PROTO_H

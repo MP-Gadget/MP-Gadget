@@ -12,6 +12,7 @@
 #include "proto.h"
 #include "petaio.h"
 #include "domain.h"
+#include "fof.h"
 
 /*! \file io.c
  *  \brief Output of a snapshot file to disk.

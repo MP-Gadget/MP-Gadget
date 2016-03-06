@@ -1,9 +1,28 @@
 #ifndef DOMAIN_H
 #define DOMAIN_H
 
-#ifndef ALLVARS_H
-#include "allvars.h"
-#endif
+#include "peano.h"
+
+/*Several of these variables are used externally only in restart.c*/
+extern double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
+extern int *DomainStartList, *DomainEndList;
+extern int *DomainTask;
+extern int *DomainNodeIndex;
+extern int *DomainList, DomainNumChanged;
+
+extern struct topnode_data
+{
+    peanokey Size;
+    peanokey StartKey;
+    int64_t Count;
+    MyFloat GravCost;
+    int Daughter;
+    int Pstart;
+    int Blocks;
+    int Leaf;
+} *TopNodes;
+
+extern int NTopnodes, NTopleaves;
 
 
 void domain_garbage_collection_bh();

@@ -10,6 +10,8 @@
 #include "evaluator.h"
 #include "proto.h"
 #include "densitykernel.h"
+#include "forcetree.h"
+#include "mymalloc.h"
 
 #ifndef DEBUG
 #define NDEBUG

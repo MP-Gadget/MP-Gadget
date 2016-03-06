@@ -5,7 +5,10 @@
 #include <math.h>
 #include "allvars.h"
 #include "proto.h"
+#include "forcetree.h"
 #include "cosmology.h"
+#include "mymalloc.h"
+#include "domain.h"
 
 /*! \file timestep.c
  *  \brief routines for 'kicking' particles in

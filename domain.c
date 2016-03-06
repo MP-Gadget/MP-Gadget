@@ -9,6 +9,8 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
+#include "forcetree.h"
+#include "mymalloc.h"
 
 
 /*! \file domain.c
@@ -30,6 +32,22 @@
 
 
 #define REDUC_FAC      0.98
+
+double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
+int *DomainStartList, *DomainEndList;
+
+
+
+double *DomainWork;
+int *DomainCount;
+int *DomainCountSph;
+int *DomainTask;
+int *DomainNodeIndex;
+int *DomainList, DomainNumChanged;
+
+struct topnode_data *TopNodes;
+
+int NTopnodes, NTopleaves;
 
 
 /*! toGo[task*NTask + partner] gives the number of particles in task 'task'
@@ -1923,11 +1941,7 @@ int domain_determineTopTree(void)
     }
 
     walltime_measure("/Domain/DetermineTopTree/Misc");
-#ifdef MYSORT
-    mysort_domain(mp, NumPart, sizeof(struct peano_hilbert_data));
-#else
     qsort(mp, NumPart, sizeof(struct peano_hilbert_data), domain_compare_key);
-#endif
     
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
@@ -2356,59 +2370,6 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
     }
     else
         endrun(89);
-}
-
-
-
-static void msort_domain_with_tmp(struct peano_hilbert_data *b, size_t n, struct peano_hilbert_data *t)
-{
-    struct peano_hilbert_data *tmp;
-    struct peano_hilbert_data *b1, *b2;
-    size_t n1, n2;
-
-    if(n <= 1)
-        return;
-
-    n1 = n / 2;
-    n2 = n - n1;
-    b1 = b;
-    b2 = b + n1;
-
-    msort_domain_with_tmp(b1, n1, t);
-    msort_domain_with_tmp(b2, n2, t);
-
-    tmp = t;
-
-    while(n1 > 0 && n2 > 0)
-    {
-        if(b1->key <= b2->key)
-        {
-            --n1;
-            *tmp++ = *b1++;
-        }
-        else
-        {
-            --n2;
-            *tmp++ = *b2++;
-        }
-    }
-
-    if(n1 > 0)
-        memcpy(tmp, b1, n1 * sizeof(struct peano_hilbert_data));
-
-    memcpy(b, t, (n - n2) * sizeof(struct peano_hilbert_data));
-}
-
-void mysort_domain(void *b, size_t n, size_t s)
-{
-    const size_t size = n * s;
-    struct peano_hilbert_data *tmp;
-
-    tmp = (struct peano_hilbert_data *) mymalloc("tmp", size);
-
-    msort_domain_with_tmp((struct peano_hilbert_data *) b, n, tmp);
-
-    myfree(tmp);
 }
 
 #if defined(SFR) || defined(BLACK_HOLES)

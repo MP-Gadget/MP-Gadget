@@ -3,6 +3,11 @@
 
 #include "bigfile.h"
 
+        /* PETAIO:
+         * NON IC, this flag is 1
+         * IC it is 0. */
+extern int flag_entropy_instead_u;
+
 typedef void (*property_getter) (int i, void * result);
 typedef void (*property_setter) (int i, void * target);
 typedef int (*petaio_selection) (int i);
