@@ -2,5 +2,7 @@
 .*.swp
 P-Gadget3
 config.h
-depends/
 GENIC/N-GenIC
+depends/bin
+depends/lib
+depents/share
