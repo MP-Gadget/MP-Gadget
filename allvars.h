@@ -87,25 +87,7 @@
 
 #define  NODELISTLENGTH      8
 
-typedef uint64_t peanokey;
-
-
-#define  BITS_PER_DIMENSION 21	/* for Peano-Hilbert order. Note: Maximum is 10 to fit in 32-bit integer ! */
-#define  PEANOCELLS (((peanokey)1)<<(3*BITS_PER_DIMENSION))
-
-
 #define  terminate(x) {char buf[1000]; sprintf(buf, "code termination on task=%d, function '%s()', file '%s', line %d: '%s'\n", ThisTask, __FUNCTION__, __FILE__, __LINE__, x); printf(buf); fflush(stdout); MPI_Abort(MPI_COMM_WORLD, 1); exit(0);}
-
-#define  mymalloc(x, y)            mymalloc_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
-#define  mymalloc_movable(x, y, z) mymalloc_movable_fullinfo(x, y, z, __FUNCTION__, __FILE__, __LINE__)
-
-#define  myrealloc(x, y)           myrealloc_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
-#define  myrealloc_movable(x, y)   myrealloc_movable_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
-
-#define  myfree(x)                 (myfree_fullinfo(x, __FUNCTION__, __FILE__, __LINE__), x = NULL)
-#define  myfree_movable(x)         (myfree_movable_fullinfo(x, __FUNCTION__, __FILE__, __LINE__), x = NULL)
-
-#define  report_memory_usage(x) report_detailed_memory_usage_of_largest_task(x, __FUNCTION__, __FILE__, __LINE__)
 
 #ifndef  GAMMA
 #define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
@@ -160,15 +142,6 @@ typedef uint64_t peanokey;
 #ifndef FOF_SECONDARY_LINK_TYPES
 #define FOF_SECONDARY_LINK_TYPES 0
 #endif
-
-
-/* some flags for the field "flag_ic_info" in the file header */
-#define FLAG_ZELDOVICH_ICS     1
-#define FLAG_SECOND_ORDER_ICS  2
-#define FLAG_EVOLVED_ZELDOVICH 3
-#define FLAG_EVOLVED_2LPT      4
-#define FLAG_NORMALICS_2LPT    5
-
 
 #ifndef ASMTH
 /*! ASMTH gives the scale of the short-range/long-range force split in units of FFT-mesh cells */
@@ -307,21 +280,7 @@ extern int RestartFlag;		/*!< taken from command line used to start code. 0 is n
                               marks a restart from a snapshot file. */
 extern int RestartSnapNum;
 
-extern int *Exportflag;	        /*!< Buffer used for flagging whether a particle needs to be exported to another process */
-extern int *Exportnodecount;
-extern int *Exportindex;
-
-extern int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
-
-extern size_t AllocatedBytes;
-extern size_t HighMarkBytes;
-extern size_t FreeBytes;
-
 extern int Flag_FullStep;	/*!< Flag used to signal that the current step involves all particles */
-
-extern size_t HighMark_run,  HighMark_domain, HighMark_gravtree, HighMark_pmperiodic,
-       HighMark_pmnonperiodic,  HighMark_sphdensity, HighMark_sphhydro;
-
 
 extern int GlobFlag;
 
@@ -344,30 +303,6 @@ extern int Stars_converted;	/*!< current number of star particles in gas particl
 
 
 extern double TimeOfLastTreeConstruction;	/*!< holds what it says */
-
-extern double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
-extern int *DomainStartList, *DomainEndList;
-
-extern double *DomainWork;
-extern int *DomainCount;
-extern int *DomainCountSph;
-extern int *DomainTask;
-extern int *DomainNodeIndex;
-extern int *DomainList, DomainNumChanged;
-
-extern struct topnode_data
-{
-    peanokey Size;
-    peanokey StartKey;
-    int64_t Count;
-    MyFloat GravCost;
-    int Daughter;
-    int Pstart;
-    int Blocks;
-    int Leaf;
-} *TopNodes;
-
-extern int NTopnodes, NTopleaves;
 
 extern double RndTable[RNDTABLE];
 
@@ -870,11 +805,6 @@ extern struct sph_particle_data
 #define SPHP(i) SphP[i]
 #define BHP(i) BhP[P[i].PI]
 
-#define KEY(i) peano_hilbert_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac), \
-        (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac), \
-        (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), \
-        BITS_PER_DIMENSION)
-
 /* global state of system
 */
 extern struct state_of_system
@@ -894,133 +824,8 @@ extern struct state_of_system
 }
 SysState, SysStateAtStart, SysStateAtEnd;
 
-
-/* Various structures for communication during the gravity computation.
-*/
-
-extern struct data_index
-{
-    int Task;
-    int Index;
-    int IndexGet;
-}
-*DataIndexTable;		/*!< the particles to be exported are grouped
-                          by task-number. This table allows the
-                          results to be disentangled again and to be
-                          assigned to the correct particle */
-
-extern struct data_nodelist
-{
-    int NodeList[NODELISTLENGTH];
-}
-*DataNodeList;
-
-/*! Header for the standard file format.
-*/
-extern struct io_header
-{
-    int npart[6];			/*!< number of particles of each type in this file */
-    double mass[6];		/*!< mass of particles of each type. If 0, then the masses are explicitly
-                          stored in the mass-block of the snapshot file, otherwise they are omitted */
-    double time;			/*!< time of snapshot file */
-    double redshift;		/*!< redshift of snapshot file */
-    int flag_sfr;			/*!< flags whether the simulation was including star formation */
-    int flag_feedback;		/*!< flags whether feedback was included (obsolete) */
-    unsigned int npartTotal[6];	/*!< total number of particles of each type in this snapshot. This can be
-                                  different from npart if one is dealing with a multi-file snapshot. */
-    int flag_cooling;		/*!< flags whether cooling was included  */
-    int num_files;		/*!< number of files in multi-file snapshot */
-    double BoxSize;		/*!< box-size of simulation in case periodic boundaries were used */
-    double Omega0;		/*!< matter density in units of critical density */
-    double OmegaLambda;		/*!< cosmological constant parameter */
-    double HubbleParam;		/*!< Hubble parameter in units of 100 km/sec/Mpc */
-    int flag_stellarage;		/*!< flags whether the file contains formation times of star particles */
-    int flag_metals;		/*!< flags whether the file contains metallicity values for gas and star
-                              particles */
-    unsigned int npartTotalHighWord[6];	/*!< High word of the total number of particles of each type */
-    int flag_entropy_instead_u;	/*!< flags that IC-file contains entropy instead of u */
-    int flag_doubleprecision;	/*!< flags that snapshot contains double-precision instead of single precision */
-
-    int flag_ic_info;             /*!< flag to inform whether IC files are generated with ordinary Zeldovich approximation,
-                                    or whether they ocontains 2nd order lagrangian perturbation theory initial conditions.
-                                    For snapshots files, the value informs whether the simulation was evolved from
-                                    Zeldoch or 2lpt ICs. Encoding is as follows:
-                                    FLAG_ZELDOVICH_ICS     (1)   - IC file based on Zeldovich
-                                    FLAG_SECOND_ORDER_ICS  (2)   - Special IC-file containing 2lpt masses
-                                    FLAG_EVOLVED_ZELDOVICH (3)   - snapshot evolved from Zeldovich ICs
-                                    FLAG_EVOLVED_2LPT      (4)   - snapshot evolved from 2lpt ICs
-                                    FLAG_NORMALICS_2LPT    (5)   - standard gadget file format with 2lpt ICs
-                                    All other values, including 0 are interpreted as "don't know" for backwards compatability.
-                                    */
-    float lpt_scalingfactor;      /*!< scaling factor for 2lpt initial conditions */
-
-    char flag_pressure_entropy;
-    char numdims;
-    char densitykerneltype;
-    char fill[45];		/*!< fills to 256 Bytes */
-} header;				/*!< holds header for snapshot files */
-
-/*
- * Variables for Tree
- * ------------------
- */
-
-extern struct NODE
-{
-#ifdef OPENMP_USE_SPINLOCK
-    pthread_spinlock_t SpinLock;
-#endif
-
-    MyFloat len;			/*!< sidelength of treenode */
-    MyFloat center[3];		/*!< geometrical center of node */
-
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    MyFloat maxsoft;		/*!< hold the maximum gravitational softening of particle in the
-                              node if the ADAPTIVE_GRAVSOFT_FORGAS option is selected */
-#endif
-    union
-    {
-        int suns[8];		/*!< temporary pointers to daughter nodes */
-        struct
-        {
-            MyFloat s[3];		/*!< center of mass of node */
-            MyFloat mass;		/*!< mass of node */
-            unsigned int bitflags;	/*!< flags certain node properties */
-            int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
-            int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
-            int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
-        }
-        d;
-    }
-    u;
-    int Ti_current;
-}
-*Nodes_base,			/*!< points to the actual memory allocted for the nodes */
-    *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
-                      gives the first allocated node */
-
-
-extern struct extNODE
-{
-    MyDouble dp[3];
-    MyFloat vs[3];
-    MyFloat vmax;
-    MyFloat divVmax;
-    MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
-    int Ti_lastkicked;
-    int Flag;
-}
-*Extnodes, *Extnodes_base;
-
-
-extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
-extern int Numnodestree;	/*!< number of (internal) nodes in each tree */
-
-
-extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
-extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
-
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
 
+void endrun(int);
 #endif

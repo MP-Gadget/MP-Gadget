@@ -5,8 +5,8 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 
+#include "mymalloc.h"
 #include "allvars.h"
-#include "proto.h"
 
 #define MAXBLOCKS 500
 #define MAXCHARS  16
@@ -24,6 +24,10 @@ static char VarName[MAXBLOCKS][MAXCHARS] = {0};
 static char FunctionName[MAXBLOCKS][MAXCHARS] = {0};
 static char FileName[MAXBLOCKS][MAXCHARS] = {0};
 static int LineNumber[MAXBLOCKS] = {0};
+
+size_t AllocatedBytes;
+size_t HighMarkBytes;
+size_t FreeBytes;
 
 static void strncpy_basename(char * target, const char * name, int nchars) {
     int i = 0;

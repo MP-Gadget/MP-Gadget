@@ -1,6 +1,8 @@
 #ifndef FOF_H
 #define FOF_H
 
+#ifdef FOF
+
 #include "allvars.h"
 
 extern uint64_t Ngroups, TotNgroups;
@@ -30,5 +32,7 @@ extern struct group_properties
 #endif
 
 } *Group;
+
+#endif
 
 #endif

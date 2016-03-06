@@ -8,8 +8,10 @@
 #include "bigfile-mpi.h"
 #include "allvars.h"
 #include "proto.h"
+#include "cooling.h"
 
 #include "petaio.h"
+#include "mymalloc.h"
 #ifdef FOF
     /*Defined in fofpetaio.c and only used here*/
     void fof_register_io_blocks();
@@ -23,6 +25,7 @@
  *
  */
 
+int flag_entropy_instead_u;
 struct IOTable IOTable = {0};
 
 static void petaio_write_header(BigFile * bf);
@@ -202,11 +205,10 @@ void petaio_read_snapshot(int num) {
     char fname[4096];
     sprintf(fname, "%s/PART_%03d", All.OutputDir, num);
 
-    memset(&header, 0, sizeof(header));
     /* 
      * we always save the Entropy, notify init.c not to mess with the entorpy
      * */
-    header.flag_entropy_instead_u = 1;
+    flag_entropy_instead_u = 1;
     petaio_read_internal(fname, 0);
 }
 
@@ -216,13 +218,12 @@ void petaio_read_snapshot(int num) {
  * */
 void petaio_read_ic() {
     int i;
-    memset(&header, 0, sizeof(header));
     /* 
      *  IC doesn't have entropy or energy; always use the
      *  InitTemp in paramfile, then use init.c to convert to
      *  entropy.
      * */
-    header.flag_entropy_instead_u = 0;
+    flag_entropy_instead_u = 0;
     petaio_read_internal(All.InitCondFile, 1);
 
     /* touch up the mass -- IC files save mass in header */

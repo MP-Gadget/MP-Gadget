@@ -10,6 +10,7 @@
 
 #include "cooling.h"
 #include "interp.h"
+#include "mymalloc.h"
 
 #ifdef COOLING
 

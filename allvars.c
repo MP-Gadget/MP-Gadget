@@ -40,12 +40,6 @@ int RestartFlag;		/*!< taken from command line used to start code. 0 is normal s
 				   marks a restart from a snapshot file. */
 int RestartSnapNum;
 
-int *Exportflag;		/*!< Buffer used for flagging whether a particle needs to be exported to another process */
-int *Exportnodecount;
-int *Exportindex;
-
-int *Send_offset, *Send_count, *Recv_count, *Recv_offset, *Sendcount;
-
 int FirstActiveParticle;
 int *NextActiveParticle;
 
@@ -57,9 +51,6 @@ int FirstInTimeBin[TIMEBINS];
 int LastInTimeBin[TIMEBINS];
 int *NextInTimeBin;
 int *PrevInTimeBin;
-
-size_t HighMark_run, HighMark_domain, HighMark_gravtree,
-  HighMark_pmperiodic, HighMark_pmnonperiodic, HighMark_sphdensity, HighMark_sphhydro;
 
 #ifdef SFR
 double TimeBinSfr[TIMEBINS];
@@ -74,10 +65,6 @@ double TimeBin_GAS_Injection[TIMEBINS];
 #endif
 
 char DumpFlag = 1;
-
-size_t AllocatedBytes;
-size_t HighMarkBytes;
-size_t FreeBytes;
 
 int Flag_FullStep;		/*!< Flag used to signal that the current step involves all particles */
 
@@ -101,22 +88,6 @@ int Stars_converted;		/*!< current number of star particles in gas particle bloc
 
 
 double TimeOfLastTreeConstruction;	/*!< holds what it says */
-
-double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
-int *DomainStartList, *DomainEndList;
-
-
-
-double *DomainWork;
-int *DomainCount;
-int *DomainCountSph;
-int *DomainTask;
-int *DomainNodeIndex;
-int *DomainList, DomainNumChanged;
-
-struct topnode_data *TopNodes;
-
-int NTopnodes, NTopleaves;
 
 
 double RndTable[RNDTABLE];
@@ -171,42 +142,3 @@ struct bh_particle_data * BhP;	/*!< holds BH particle data on local processor */
 */
 struct state_of_system SysState, SysStateAtStart, SysStateAtEnd;
 
-
-/* Various structures for communication during the gravity computation.
- */
-
-struct data_index *DataIndexTable;	/*!< the particles to be exported are grouped
-					   by task-number. This table allows the
-					   results to be disentangled again and to be
-					   assigned to the correct particle */
-
-struct data_nodelist *DataNodeList;
-
-
-/*! Header for the standard file format.
- */
-struct io_header header;	/*!< holds header for snapshot files */
-
-
-
-
-
-/*
- * Variables for Tree
- * ------------------
- */
-
-struct NODE *Nodes_base,	/*!< points to the actual memory allocted for the nodes */
- *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
-				   gives the first allocated node */
-
-
-struct extNODE *Extnodes, *Extnodes_base;
-
-
-int MaxNodes;			/*!< maximum allowed number of internal nodes */
-int Numnodestree;		/*!< number of (internal) nodes in each tree */
-
-
-int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
-int *Father;			/*!< gives parent node in tree (Prenodes array) */

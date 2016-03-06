@@ -6,9 +6,12 @@
 #include <gsl/gsl_math.h>
 
 #include "allvars.h"
+#include "cooling.h"
+#include "forcetree.h"
 #include "densitykernel.h"
 #include "proto.h"
 #include "evaluator.h"
+#include "mymalloc.h"
 
 extern int NextParticle;
 

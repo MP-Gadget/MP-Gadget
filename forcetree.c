@@ -8,6 +8,8 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
+#include "forcetree.h"
+#include "mymalloc.h"
 
 /*! \file forcetree.c
  *  \brief gravitational tree and code for Ewald correction
@@ -22,7 +24,22 @@
  *  reconstruct the tree every timestep.
  */
 
-/*! auxialiary variable used to set-up non-recursive walk */
+struct NODE *Nodes_base,	/*!< points to the actual memory allocted for the nodes */
+ *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
+				   gives the first allocated node */
+
+
+struct extNODE *Extnodes, *Extnodes_base;
+
+
+int MaxNodes;			/*!< maximum allowed number of internal nodes */
+int Numnodestree;		/*!< number of (internal) nodes in each tree */
+
+
+int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
+int *Father;			/*!< gives parent node in tree (Prenodes array) */
+
+/*! auxiliary variable used to set-up non-recursive walk */
 static int last;
 
 
