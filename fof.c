@@ -111,8 +111,16 @@ static struct id_list
 static double LinkL;
 static int NgroupsExt, Nids;
 
+static struct FOFP {
+    int head;
+    int len;
+    int next;
+} * FOFP;
+#define HEAD(i) FOFP[i].head
+#define NEXT(i) FOFP[i].next
+#define LEN(i) FOFP[HEAD(i)].len
 
-static MyIDType *Head, *Len, *Next, *Tail, *MinID, *MinIDTask;
+static MyIDType *MinID, *MinIDTask;
 
 
 static float *fof_nearest_distance;
@@ -165,10 +173,7 @@ void fof_fof(int num)
 
     MinID = (MyIDType *) FOF_PList;
     MinIDTask = MinID + NumPart;
-    Head = MinIDTask + NumPart;
-    Len = (MyIDType *) mymalloc("Len", NumPart * sizeof(MyIDType));
-    Next = (MyIDType *) mymalloc("Next", NumPart * sizeof(MyIDType));
-    Tail = (MyIDType *) mymalloc("Tail", NumPart * sizeof(MyIDType));
+    FOFP = (struct FOFP *) mymalloc("FOF_Links", NumPart * sizeof(struct FOFP));
 
     if(ThisTask == 0)
         printf("Tree construction.\n");
@@ -211,33 +216,14 @@ void fof_fof(int num)
 
     for(i = 0; i < NumPart; i++)
     {
-        Next[i] = MinID[Head[i]];
-        Tail[i] = MinIDTask[Head[i]];
-
-        if(Tail[i] >= NTask)	/* it appears that the Intel C 9.1 on Itanium2 produces incorrect code if
-                                   this if-statemet is omitted. Apparently, the compiler then joins the two loops,
-                                   but this is here not permitted because storage for FOF_PList actually overlaps
-                                   (on purpose) with MinID/MinIDTask/Head */
-        {
-            printf("oh no: ThisTask=%d i=%d Head[i]=%d  NumPart=%d MinIDTask[Head[i]]=%d\n",
-                    ThisTask, i, (int) Head[i], NumPart, (int) MinIDTask[Head[i]]);
-            fflush(stdout);
-            endrun(8812);
-        }
-    }
-
-    for(i = 0; i < NumPart; i++)
-    {
-        FOF_PList[i].MinID = Next[i];
-        FOF_PList[i].MinIDTask = Tail[i];
+        FOF_PList[i].MinID = MinID[HEAD(i)];
+        FOF_PList[i].MinIDTask = MinIDTask[HEAD(i)];
         FOF_PList[i].Pindex = i;
     }
 
     force_treefree();
 
-    myfree(Tail);
-    myfree(Next);
-    myfree(Len);
+    myfree(FOFP);
 
     FOF_GList = (struct fof_group_list *) mymalloc("FOF_GList", sizeof(struct fof_group_list) * NumPart);
 
@@ -359,8 +345,8 @@ static void fof_find_copy(int place, struct fofdata_in * I) {
     I->Pos[0] = P[place].Pos[0];
     I->Pos[1] = P[place].Pos[1];
     I->Pos[2] = P[place].Pos[2];
-    I->MinID = MinID[Head[place]];
-    I->MinIDTask = MinIDTask[Head[place]];
+    I->MinID = MinID[HEAD(place)];
+    I->MinIDTask = MinIDTask[HEAD(place)];
 }
 
 static char *MarkedFlag, *ChangedFlag;
@@ -409,13 +395,13 @@ void fof_find_groups(void)
 
     for(i = 0; i < NumPart; i++)
     {
-        Head[i] = Tail[i] = i;
-        Len[i] = 1;
-        Next[i] = -1;
+        HEAD(i) = i;
+        LEN(i) = 1;
+        NEXT(i) = -1;
         MinID[i] = P[i].ID;
         MinIDTask[i] = ThisTask;
 
-        MinIDOld[i] = MinID[Head[i]];
+        MinIDOld[i] = MinID[HEAD(i)];
         MarkedFlag[i] = 1;
     }
 
@@ -436,13 +422,13 @@ void fof_find_groups(void)
         /* let's check out which particles have changed their MinID */
         link_across = 0;
         for(i = 0; i < NumPart; i++) {
-            if(MinID[Head[i]] != MinIDOld[i]) {
+            if(MinID[HEAD(i)] != MinIDOld[i]) {
                 MarkedFlag[i] = 1;
                 link_across += 1;
             } else {
                 MarkedFlag[i] = 0;
             }
-            MinIDOld[i] = MinID[Head[i]];
+            MinIDOld[i] = MinID[HEAD(i)];
         }
         MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
         if(ThisTask == 0)
@@ -463,14 +449,46 @@ void fof_find_groups(void)
     }
 }
 
+static void fofp_merge(int target, int j)
+{
+    /* must be in a critical section! */
+    if(HEAD(target) == HEAD(j))	
+        return;
+    int p, s;
+    int ss, oldnext, last;
+
+    /* only if not yet linked */
+    if(LEN(target) > LEN(j))	/* p group is longer */
+    {
+        p = target; s = j;
+    } else {
+        p = j; s = target;
+    }
+
+    ss = HEAD(s);
+    oldnext = NEXT(p);
+    NEXT(p) = ss;
+    last = -1;
+    do {
+        HEAD(ss) = HEAD(p);
+        last = ss;
+    } while((ss = NEXT(ss)) >= 0);
+
+    NEXT(last) = oldnext;
+
+    if(MinID[HEAD(s)] < MinID[HEAD(p)])
+    {
+        MinID[HEAD(p)] = MinID[HEAD(s)];
+        MinIDTask[HEAD(p)] = MinIDTask[HEAD(s)];
+    }
+}
 
 static int fof_find_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv) {
-    int j, n, links, p, s, ss, listindex = 0;
+    int listindex = 0;
     int startnode, numngb_inbox;
-
-    links = 0;
+    
 
     startnode = I->NodeList[0];
     listindex ++;
@@ -485,57 +503,23 @@ static int fof_find_evaluate(int target, int mode,
 
             if(numngb_inbox < 0)
                 return -1;
-
+            int n;
             for(n = 0; n < numngb_inbox; n++)
             {
-                j = lv->ngblist[n];
+                int j = lv->ngblist[n];
                 if(mode == 0) {
                     /* Local FOF */
+                    if(HEAD(target) != HEAD(j)) {
 #pragma omp critical
-                    if(Head[target] != Head[j])	/* only if not yet linked */
-                    {
-                        if(Len[Head[target]] > Len[Head[j]])	/* p group is longer */
-                        {
-                            p = target; s = j;
-                        } else {
-                            p = j; s = target;
-                        }
-
-                        if(Tail[Head[p]] >= NumPart) {
-                            abort();
-                        }
-                        if(Head[p] >= NumPart) {
-                            abort();
-                        }
-                        Next[Tail[Head[p]]] = Head[s];
-                        Tail[Head[p]] = Tail[Head[s]];
-                        Len[Head[p]] += Len[Head[s]];
-
-                        ss = Head[s];
-                        do {
-                            if(ss >= NumPart) {
-                                abort();
-                            }
-                            Head[ss] = Head[p];
-                        }
-                        while((ss = Next[ss]) >= 0);
-
-                        if(MinID[Head[s]] < MinID[Head[p]])
-                        {
-                            MinID[Head[p]] = MinID[Head[s]];
-                            MinIDTask[Head[p]] = MinIDTask[Head[s]];
-                        }
+                        fofp_merge(target, j);
                     }
                 } else		/* mode is 1, target is a ghost */
                 {
-                    if(Head[j] >= NumPart) {
-                        abort();
-                    }
-                    if(MinID[Head[j]] > I->MinID)
+#pragma omp critical
+                    if(MinID[HEAD(j)] > I->MinID)
                     {
-                        MinID[Head[j]] = I->MinID;
-                        MinIDTask[Head[j]] = I->MinIDTask;
-                        links++;
+                        MinID[HEAD(j)] = I->MinID;
+                        MinIDTask[HEAD(j)] = I->MinIDTask;
                     }
                 }
             }
@@ -553,8 +537,6 @@ static int fof_find_evaluate(int target, int mode,
 
     return 0;
 }
-
-
 
 static void fof_compile_catalogue(void)
 {
@@ -1321,8 +1303,8 @@ static int fof_nearest_evaluate(int target, int mode,
     if(index >= 0)
     {
         O->Distance = sqrt(r2max);
-        O->MinID = MinID[Head[index]];
-        O->MinIDTask = MinIDTask[Head[index]];
+        O->MinID = MinID[HEAD(index)];
+        O->MinIDTask = MinIDTask[HEAD(index)];
     }
     else {
         O->Distance = 2.0e30;
