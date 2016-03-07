@@ -16,5 +16,16 @@ assert_array_equal(gasc,
 assert_array_equal(gas1, 
     numpy.arange(1, len(d1) + 1).repeat(d1['LengthByType'][:, 0]))
 
+d1.sort(order='LengthByType')
+dc.sort(order='LengthByType')
+d1 = d1[::-1]
+dc = dc[::-1]
 bad = (dc['LengthByType'] != d1['LengthByType']).any(axis=-1)
-print dc[bad]
+print '----- good -----'
+for i in range(5):
+    print dc[i], d1[i]
+print '----- end good ----'
+print '----- bad -----'
+for i in bad.nonzero()[0]:
+    print dc[i], d1[i]
+print '----- end bad ----'
