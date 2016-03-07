@@ -120,7 +120,8 @@ static struct FOFP {
 #define NEXT(i) FOFP[i].next
 #define LEN(i) FOFP[HEAD(i)].len
 
-static MyIDType *MinID, *MinIDTask;
+static MyIDType *MinID;
+static int *MinIDTask;
 
 
 static float *fof_nearest_distance;
@@ -168,11 +169,11 @@ void fof_fof(int num)
     }
 
     FOF_PList =
-        (struct fof_particle_list *) mymalloc("FOF_PList", NumPart *
-                sizemax(sizeof(struct fof_particle_list), 3 * sizeof(MyIDType)));
+        (struct fof_particle_list *) mymalloc("FOF_PList", NumPart * sizeof(struct fof_particle_list));
 
-    MinID = (MyIDType *) FOF_PList;
-    MinIDTask = MinID + NumPart;
+    MinID = (MyIDType*) mymalloc("MinID", NumPart * sizeof(MyIDType));
+    MinIDTask = (int*) mymalloc("MinIDTask", NumPart * sizeof(int));
+
     FOFP = (struct FOFP *) mymalloc("FOF_Links", NumPart * sizeof(struct FOFP));
 
     if(ThisTask == 0)
@@ -324,6 +325,8 @@ void fof_fof(int num)
     myfree(Group);
 
     myfree(FOF_GList);
+    myfree(MinIDTask);
+    myfree(MinID);
     myfree(FOF_PList);
 
     if(ThisTask == 0)
