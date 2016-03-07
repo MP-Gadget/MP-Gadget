@@ -921,7 +921,6 @@ void fof_save_groups(int num)
 
     t0 = second();
 
-    /* assign group numbers (at this point, both Group and FOF_GList are sorted by MinID) */
     for(i = 0; i < NgroupsExt; i++)
     {
         FOF_GList[i].OriginalTask = ThisTask;	/* original task */
@@ -930,11 +929,17 @@ void fof_save_groups(int num)
     mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list),
             fof_radix_FOF_GList_TotalCountTaskDiffMinID, 24, NULL, MPI_COMM_WORLD);
 
+    /* assign group numbers 
+     * at this point, both FOF_GList are is sorted by length,
+     * and the every time OriginalTask == MinIDTask, a list of ghost groups is stored.
+     * they shall get the same GrNr.
+     * */
     ngr = 0;
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(FOF_GList[i].OriginalTask != FOF_GList[i].MinIDTask) continue;
-        ngr++;
+        if(FOF_GList[i].OriginalTask == FOF_GList[i].MinIDTask) {
+            ngr++;
+        }
         FOF_GList[i].GrNr = ngr;
     }
 
