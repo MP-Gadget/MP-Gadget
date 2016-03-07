@@ -96,6 +96,7 @@ static struct fof_group_list
     int LocCount;
     int ExtCount;
     int GrNr;
+    int OriginalTask;
 }
 *FOF_GList;
 
@@ -921,7 +922,7 @@ static void fof_finish_group_properties(void)
 
 static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg);
 static void fof_radix_FOF_GList_LocCountTaskDiffMinID(const void * a, void * radix, void * arg);
-static void fof_radix_FOF_GList_ExtCountMinID(const void * a, void * radix, void * arg);
+static void fof_radix_FOF_GList_OriginalTaskMinID(const void * a, void * radix, void * arg);
 
 void fof_save_groups(int num)
 {
@@ -942,7 +943,7 @@ void fof_save_groups(int num)
     for(i = 0; i < NgroupsExt; i++)
     {
         FOF_GList[i].LocCount += FOF_GList[i].ExtCount;	/* total length */
-        FOF_GList[i].ExtCount = ThisTask;	/* original task */
+        FOF_GList[i].OriginalTask = ThisTask;	/* original task */
     }
 
     mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list),
@@ -951,7 +952,7 @@ void fof_save_groups(int num)
     ngr = 0;
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(FOF_GList[i].ExtCount == FOF_GList[i].MinIDTask)
+        if(FOF_GList[i].OriginalTask == FOF_GList[i].MinIDTask)
             ngr++;
 
         FOF_GList[i].GrNr = ngr;
@@ -969,7 +970,7 @@ void fof_save_groups(int num)
 
     /* bring the group list back into the original order */
     mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), 
-            fof_radix_FOF_GList_ExtCountMinID, 16, NULL, MPI_COMM_WORLD);
+            fof_radix_FOF_GList_OriginalTaskMinID, 16, NULL, MPI_COMM_WORLD);
 
     for(i = 0; i < NumPart; i++)
         P[i].GrNr = -1;	/* will mark particles that are not in any group */
@@ -1387,16 +1388,16 @@ static int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b)
 static void fof_radix_FOF_GList_LocCountTaskDiffMinID(const void * a, void * radix, void * arg) {
     uint64_t * u = (uint64_t *) radix;
     struct fof_group_list * f = (struct fof_group_list *) a;
-    u[0] = labs(f->ExtCount - f->MinIDTask);
+    u[0] = labs(f->OriginalTask - f->MinIDTask);
     u[1] = f->MinID;
     u[2] = UINT64_MAX - f->LocCount;
 }
 
-static void fof_radix_FOF_GList_ExtCountMinID(const void * a, void * radix, void * arg) {
+static void fof_radix_FOF_GList_OriginalTaskMinID(const void * a, void * radix, void * arg) {
     uint64_t * u = (uint64_t *) radix;
     struct fof_group_list * f = (struct fof_group_list *) a;
     u[0] = f->MinID;
-    u[1] = f->ExtCount;
+    u[1] = f->OriginalTask;
 }
 
 
