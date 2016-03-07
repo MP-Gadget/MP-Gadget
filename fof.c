@@ -99,14 +99,6 @@ static struct fof_group_list
 }
 *FOF_GList;
 
-static struct id_list
-{
-    MyIDType ID;
-    unsigned int GrNr;
-}
-*ID_list;
-
-
 static double LinkL;
 static int NgroupsExt, Nids;
 
@@ -933,10 +925,11 @@ static void fof_radix_FOF_GList_ExtCountMinID(const void * a, void * radix, void
 
 void fof_save_groups(int num)
 {
-    int i, j, start, lenloc, ngr, totlen;
+    int i, j, start, lenloc; 
+    int64_t ngr;
+    int64_t * ngra;
     int64_t totNids;
     double t0, t1;
-
     if(ThisTask == 0)
     {
         printf("start global sorting of group catalogues\n");
@@ -955,7 +948,8 @@ void fof_save_groups(int num)
     mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list),
             fof_radix_FOF_GList_LocCountTaskDiffMinID, 24, NULL, MPI_COMM_WORLD);
 
-    for(i = 0, ngr = 0; i < NgroupsExt; i++)
+    ngr = 0;
+    for(i = 0; i < NgroupsExt; i++)
     {
         if(FOF_GList[i].ExtCount == FOF_GList[i].MinIDTask)
             ngr++;
@@ -963,66 +957,19 @@ void fof_save_groups(int num)
         FOF_GList[i].GrNr = ngr;
     }
 
-    MPI_Allgather(&ngr, 1, MPI_INT, Send_count, 1, MPI_INT, MPI_COMM_WORLD);
-    for(j = 1, Send_offset[0] = 0; j < NTask; j++)
-        Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
+    ngra = alloca(sizeof(ngra[0]) * NTask);
+    MPI_Allgather(&ngr, 1, MPI_INT64, ngra, 1, MPI_INT64, MPI_COMM_WORLD);
+
+    int64_t groffset = 0;
+    for(j = 0; j < ThisTask; j++)
+        groffset += ngra[j];
 
     for(i = 0; i < NgroupsExt; i++)
-        FOF_GList[i].GrNr += Send_offset[ThisTask];
-
-
-    MPI_Allreduce(&ngr, &i, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    if(i != TotNgroups)
-    {
-        printf("i=%d\n", i);
-        endrun(123123);
-    }
+        FOF_GList[i].GrNr += groffset;
 
     /* bring the group list back into the original order */
-      mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), 
+    mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), 
             fof_radix_FOF_GList_ExtCountMinID, 16, NULL, MPI_COMM_WORLD);
-
-    /* Assign the group numbers to the group properties array */
-    for(i = 0, start = 0; i < Ngroups; i++)
-    {
-        while(FOF_GList[start].MinID < Group[i].MinID)
-        {
-            start++;
-            if(start >= NgroupsExt)
-                endrun(7297890);
-        }
-        Group[i].GrNr = FOF_GList[start].GrNr;
-    }
-
-    /* sort the groups according to group-number */
-    mpsort_mpi(Group, Ngroups, sizeof(struct group_properties), 
-            fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
-
-    /* fill in the offset-values */
-    for(i = 0, totlen = 0; i < Ngroups; i++)
-    {
-        if(i > 0)
-            Group[i].Offset = Group[i - 1].Offset + Group[i - 1].Len;
-        else
-            Group[i].Offset = 0;
-        totlen += Group[i].Len;
-    }
-
-    MPI_Allgather(&totlen, 1, MPI_INT, Send_count, 1, MPI_INT, MPI_COMM_WORLD);
-    ptrdiff_t *uoffset = mymalloc("uoffset", NTask * sizeof(ptrdiff_t));
-
-    for(j = 1, uoffset[0] = 0; j < NTask; j++)
-        uoffset[j] = uoffset[j - 1] + Send_count[j - 1];
-
-    for(i = 0; i < Ngroups; i++)
-        Group[i].Offset += uoffset[ThisTask];
-
-    myfree(uoffset);
-
-    /* prepare list of ids with assigned group numbers */
-
-    ID_list = mymalloc("ID_list", sizeof(struct id_list) * NumPart);
 
     for(i = 0; i < NumPart; i++)
         P[i].GrNr = -1;	/* will mark particles that are not in any group */
@@ -1042,8 +989,6 @@ void fof_save_groups(int num)
         for(lenloc = 0; start + lenloc < NumPart;)
             if(HaloLabel[start + lenloc].MinID == FOF_GList[i].MinID)
             {
-                ID_list[Nids].GrNr = FOF_GList[i].GrNr;
-                ID_list[Nids].ID = P[HaloLabel[start + lenloc].Pindex].ID;
                 P[HaloLabel[start + lenloc].Pindex].GrNr = FOF_GList[i].GrNr;
                 Nids++;
                 lenloc++;
@@ -1056,18 +1001,28 @@ void fof_save_groups(int num)
 
     sumup_large_ints(1, &Nids, &totNids);
 
-    MPI_Allgather(&Nids, 1, MPI_INT, Send_count, 1, MPI_INT, MPI_COMM_WORLD);
-    for(j = 1, Send_offset[0] = 0; j < NTask; j++)
-        Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
-
-
     if(totNids != TotNids)
     {
         printf("Task=%d Nids=%d totNids=%d TotNids=%d\n", ThisTask, Nids, (int) totNids, (int) TotNids);
         endrun(12);
     }
-    
-    myfree(ID_list);
+
+
+    /* Assign the group numbers to the group properties array */
+    for(i = 0, start = 0; i < Ngroups; i++)
+    {
+        while(FOF_GList[start].MinID < Group[i].MinID)
+        {
+            start++;
+            if(start >= NgroupsExt)
+                endrun(7297890);
+        }
+        Group[i].GrNr = FOF_GList[start].GrNr;
+    }
+
+    /* sort the groups according to group-number */
+    mpsort_mpi(Group, Ngroups, sizeof(struct group_properties), 
+            fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
 
     fof_save_particles(num);
 
