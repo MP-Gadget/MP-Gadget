@@ -110,8 +110,8 @@ static struct id_list
 static double LinkL;
 static int NgroupsExt, Nids;
 
-static float *fof_nearest_distance;
-static float *fof_nearest_hsml;
+static float *fof_secondary_distance;
+static float *fof_secondary_hsml;
 
 
 void fof_fof(int num)
@@ -324,7 +324,7 @@ static struct LinkList {
 #define NEXT(i) LinkList[i].next
 #define LEN(i) LinkList[HEAD(i)].len
 
-static void fof_find_copy(int place, struct fofdata_in * I) {
+static void fof_primary_copy(int place, struct fofdata_in * I) {
     I->Pos[0] = P[place].Pos[0];
     I->Pos[1] = P[place].Pos[1];
     I->Pos[2] = P[place].Pos[2];
@@ -333,11 +333,11 @@ static void fof_find_copy(int place, struct fofdata_in * I) {
     I->MinIDTask = HaloLabel[head].MinIDTask;
 }
 
-static int fof_find_isactive(int n) {
+static int fof_primary_isactive(int n) {
     return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && LinkList[n].marked;
 }
 
-static int fof_find_evaluate(int target, int mode, 
+static int fof_primary_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv);
 
@@ -356,9 +356,9 @@ void fof_label_primary(void)
 
     Evaluator ev = {0};
     ev.ev_label = "FOF_FIND_GROUPS";
-    ev.ev_evaluate = (ev_ev_func) fof_find_evaluate;
-    ev.ev_isactive = fof_find_isactive;
-    ev.ev_copy = (ev_copy_func) fof_find_copy;
+    ev.ev_evaluate = (ev_ev_func) fof_primary_evaluate;
+    ev.ev_isactive = fof_primary_isactive;
+    ev.ev_copy = (ev_copy_func) fof_primary_copy;
     ev.ev_reduce = NULL;
     ev.UseNodeList = 1;
     ev.UseAllParticles = 1;
@@ -462,7 +462,7 @@ static void fofp_merge(int target, int j)
     }
 }
 
-static int fof_find_evaluate(int target, int mode, 
+static int fof_primary_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv) {
     int listindex = 0;
@@ -1080,25 +1080,25 @@ void fof_save_groups(int num)
     }
 }
 
-static void fof_nearest_copy(int place, struct fofdata_in * I) {
+static void fof_secondary_copy(int place, struct fofdata_in * I) {
     int k;
     for (k = 0; k < 3; k ++) {
         I->Pos[k] = P[place].Pos[k];
     }
-    I->Hsml = fof_nearest_hsml[place];
+    I->Hsml = fof_secondary_hsml[place];
 }
-static int fof_nearest_isactive(int n) {
+static int fof_secondary_isactive(int n) {
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
-static void fof_nearest_reduce(int place, struct fofdata_out * O, int mode) {
-    if(O->Distance < fof_nearest_distance[place])
+static void fof_secondary_reduce(int place, struct fofdata_out * O, int mode) {
+    if(O->Distance < fof_secondary_distance[place])
     {
-        fof_nearest_distance[place] = O->Distance;
+        fof_secondary_distance[place] = O->Distance;
         HaloLabel[place].MinID = O->MinID;
         HaloLabel[place].MinIDTask = O->MinIDTask;
     }
 }
-static int fof_nearest_evaluate(int target, int mode, 
+static int fof_secondary_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv);
 
@@ -1108,10 +1108,10 @@ static void fof_label_secondary(void)
     int64_t ntot;
     Evaluator ev = {0};
     ev.ev_label = "FOF_FIND_NEAREST";
-    ev.ev_evaluate = (ev_ev_func) fof_nearest_evaluate;
-    ev.ev_isactive = fof_nearest_isactive;
-    ev.ev_copy = (ev_copy_func) fof_nearest_copy;
-    ev.ev_reduce = (ev_reduce_func) fof_nearest_reduce;
+    ev.ev_evaluate = (ev_ev_func) fof_secondary_evaluate;
+    ev.ev_isactive = fof_secondary_isactive;
+    ev.ev_copy = (ev_copy_func) fof_secondary_copy;
+    ev.ev_reduce = (ev_reduce_func) fof_secondary_reduce;
     ev.UseNodeList = 1;
     ev.UseAllParticles = 1;
     ev.ev_datain_elsize = sizeof(struct fofdata_in);
@@ -1124,19 +1124,19 @@ static void fof_label_secondary(void)
         fflush(stdout);
     }
 
-    fof_nearest_distance = (float *) mymalloc("fof_nearest_distance", sizeof(float) * NumPart);
-    fof_nearest_hsml = (float *) mymalloc("fof_nearest_hsml", sizeof(float) * NumPart);
+    fof_secondary_distance = (float *) mymalloc("fof_secondary_distance", sizeof(float) * NumPart);
+    fof_secondary_hsml = (float *) mymalloc("fof_secondary_hsml", sizeof(float) * NumPart);
 
     for(n = 0; n < NumPart; n++)
     {
         if(((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)))
         {
-            fof_nearest_distance[n] = 1.0e30;
+            fof_secondary_distance[n] = 1.0e30;
             if(P[n].Type == 0) {
                 /* use gas sml as a hint (faster convergence than 0.1 LinkL at high-z */
-                fof_nearest_hsml[n] = 0.5 * P[n].Hsml;
+                fof_secondary_hsml[n] = 0.5 * P[n].Hsml;
             } else {
-                fof_nearest_hsml[n] = 0.1 * LinkL;
+                fof_secondary_hsml[n] = 0.1 * LinkL;
             }
         }
     }
@@ -1168,24 +1168,24 @@ static void fof_label_secondary(void)
         {
             int p = queue[i];
             count ++;
-            if(fof_nearest_distance[p] > 1.0e29)
+            if(fof_secondary_distance[p] > 1.0e29)
             {
-                if(fof_nearest_hsml[p] < 4 * LinkL)  /* we only search out to a maximum distance */
+                if(fof_secondary_hsml[p] < 4 * LinkL)  /* we only search out to a maximum distance */
                 {
                     /* need to redo this particle */
                     npleft++;
-                    fof_nearest_hsml[p] *= 2.0;
+                    fof_secondary_hsml[p] *= 2.0;
 /*
                     if(iter >= MAXITER - 10)
                     {
                         printf("i=%d task=%d ID=%llu Hsml=%g  pos=(%g|%g|%g)\n",
-                                p, ThisTask, P[p].ID, fof_nearest_hsml[p],
+                                p, ThisTask, P[p].ID, fof_secondary_hsml[p],
                                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
                         fflush(stdout);
                     }
 */
                 } else {
-                    fof_nearest_distance[p] = 0;  /* we not continue to search for this particle */
+                    fof_secondary_distance[p] = 0;  /* we not continue to search for this particle */
                 }
             }
         }
@@ -1211,8 +1211,8 @@ static void fof_label_secondary(void)
     }
     while(ntot > 0);
 
-    myfree(fof_nearest_hsml);
-    myfree(fof_nearest_distance);
+    myfree(fof_secondary_hsml);
+    myfree(fof_secondary_distance);
 
     if(ThisTask == 0)
     {
@@ -1221,7 +1221,7 @@ static void fof_label_secondary(void)
     }
 }
 
-static int fof_nearest_evaluate(int target, int mode, 
+static int fof_secondary_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv)
 {
