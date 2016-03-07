@@ -286,6 +286,56 @@ void report_VmRSS(void)
     }
 }
 
+int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) 
+/* sdispls, recvcnts rdispls can be NULL */
+{
+    int ThisTask;
+    int NTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    MPI_Comm_size(comm, &NTask);
+    int i;
+    int nn = 0;
+    for(i = 0; i < NTask; i ++) {
+        if(sendcnts[i] > 0) {
+            nn ++;
+        }
+    }
+    int dense = nn < NTask * 0.2;
+    int tot_dense = 0;
+    MPI_Allreduce(&dense, &tot_dense, 1, MPI_INT, MPI_SUM, comm);
+    if(recvcnts == NULL) {
+        recvcnts = alloca(sizeof(int) * NTask);
+        MPI_Alltoall(sendcnts, 1, MPI_INT,
+                     recvcnts, 1, MPI_INT, comm);
+    }
+    if(sdispls == NULL) {
+        sdispls = alloca(sizeof(int) * NTask);
+        sdispls[0] = 0;
+        for (i = 1; i < NTask; i++) {
+            sdispls[i] = sdispls[i - 1] + sendcnts[i - 1];
+        }
+    }
+    if(rdispls == NULL) {
+        rdispls = alloca(sizeof(int) * NTask);
+        rdispls[0] = 0;
+        for (i = 1; i < NTask; i++) {
+            rdispls[i] = rdispls[i - 1] + recvcnts[i - 1];
+        }
+    }
+    if(tot_dense != 0) {
+        return MPI_Alltoallv(sendbuf, sendcnts, sdispls, 
+                    sendtype, recvbuf, 
+                    recvcnts, rdispls, recvtype, comm);
+    } else {
+        return MPI_Alltoallv_sparse(sendbuf, sendcnts, sdispls, 
+                    sendtype, recvbuf, 
+                    recvcnts, rdispls, recvtype, comm);
+
+    }
+}
+
 int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) {
