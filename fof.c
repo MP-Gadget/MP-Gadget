@@ -109,7 +109,7 @@ static float *fof_secondary_hsml;
 
 void fof_fof(int num)
 {
-    int i, ndm, start, lenloc, largestgroup, n;
+    int i, ndm, start, lenloc, n;
     double mass, masstot, rhodm, t0, t1;
     struct unbind_data *d;
     int64_t ndmtot;
@@ -192,46 +192,17 @@ void fof_fof(int num)
 
     force_treefree();
 
-    FOF_GList = (struct fof_group_list *) mymalloc("FOF_GList", sizeof(struct fof_group_list) * NumPart);
-
     t0 = second();
     fof_compile_catalogue();
     t1 = second();
     if(ThisTask == 0)
         printf("compiling local group data and catalogue took = %g sec\n", timediff(t0, t1));
 
-    MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
-    sumup_large_ints(1, &Nids, &TotNids);
-
-    if(TotNgroups > 0)
-    {
-        int largestloc = 0;
-
-        for(i = 0; i < NgroupsExt; i++)
-            if(FOF_GList[i].LocCount + FOF_GList[i].ExtCount > largestloc)
-                largestloc = FOF_GList[i].LocCount + FOF_GList[i].ExtCount;
-        MPI_Allreduce(&largestloc, &largestgroup, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    }
-    else
-        largestgroup = 0;
-
-    if(ThisTask == 0)
-    {
-        printf("\nTotal number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
-        if(TotNgroups > 0)
-        {
-            printf("Largest group has %d particles.\n", largestgroup);
-            printf("Total number of particles in groups: %d%09d\n\n",
-                    (int) (TotNids / 1000000000), (int) (TotNids % 1000000000));
-        }
-    }
     walltime_measure("/FOF/Compile");
 
     t0 = second();
 
-    Group =
-        (struct group_properties *) mymalloc("Group", sizeof(struct group_properties) *
-                IMAX(NgroupsExt, TotNgroups / NTask + 1));
+    Group = (struct group_properties *) mymalloc("Group", sizeof(struct group_properties) * NgroupsExt);
 
     if(ThisTask == 0)
     {
@@ -518,44 +489,29 @@ static void fof_compile_catalogue(void)
     /* sort according to MinID */
     qsort(HaloLabel, NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
 
+    NgroupsExt = 0;
+    for(i = 0; i < NumPart; i ++) {
+        if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) NgroupsExt ++;
+    }
+
+    FOF_GList = (struct fof_group_list *) mymalloc("FOF_GList", sizeof(struct fof_group_list) * NgroupsExt);
+
+    int next = 0;
     for(i = 0; i < NumPart; i++)
     {
-        FOF_GList[i].MinID = HaloLabel[i].MinID;
-        FOF_GList[i].MinIDTask = HaloLabel[i].MinIDTask;
-        if(FOF_GList[i].MinIDTask == ThisTask)
-        {
-            FOF_GList[i].LocCount = 1;
-            FOF_GList[i].ExtCount = 0;
+        int item = next;
+        if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) {
+            FOF_GList[item].MinID = HaloLabel[i].MinID;
+            FOF_GList[item].MinIDTask = HaloLabel[i].MinIDTask;
+            item ++;
         }
-        else
-        {
-            FOF_GList[i].LocCount = 0;
-            FOF_GList[i].ExtCount = 1;
-        }
-    }
-
-    /* eliminate duplicates in FOF_GList with respect to MinID */
-
-    if(NumPart)
-        NgroupsExt = 1;
-    else
-        NgroupsExt = 0;
-
-    for(i = 1, start = 0; i < NumPart; i++)
-    {
-        if(FOF_GList[i].MinID == FOF_GList[start].MinID)
-        {
-            FOF_GList[start].LocCount += FOF_GList[i].LocCount;
-            FOF_GList[start].ExtCount += FOF_GList[i].ExtCount;
-        }
-        else
-        {
-            start = NgroupsExt;
-            FOF_GList[start] = FOF_GList[i];
-            NgroupsExt++;
+        if(FOF_GList[item].MinIDTask == ThisTask) {
+            FOF_GList[item].LocCount += 1;
+        } else {
+            FOF_GList[item].ExtCount += 1;
         }
     }
-
+    if(next != NgroupsExt) abort();
 
     /* sort the remaining ones according to task */
     qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinIDTask);
@@ -694,6 +650,32 @@ static void fof_compile_catalogue(void)
 
     /* sort the group list according to MinID */
     qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinID);
+
+    MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
+    sumup_large_ints(1, &Nids, &TotNids);
+    int largestgroup;
+    if(TotNgroups > 0)
+    {
+        int largestloc = 0;
+
+        for(i = 0; i < NgroupsExt; i++)
+            if(FOF_GList[i].LocCount + FOF_GList[i].ExtCount > largestloc)
+                largestloc = FOF_GList[i].LocCount + FOF_GList[i].ExtCount;
+        MPI_Allreduce(&largestloc, &largestgroup, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    }
+    else
+        largestgroup = 0;
+
+    if(ThisTask == 0)
+    {
+        printf("\nTotal number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
+        if(TotNgroups > 0)
+        {
+            printf("Largest group has %d particles.\n", largestgroup);
+            printf("Total number of particles in groups: %d%09d\n\n",
+                    (int) (TotNids / 1000000000), (int) (TotNids % 1000000000));
+        }
+    }
 }
 
 
