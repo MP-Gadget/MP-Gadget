@@ -495,18 +495,23 @@ static void fof_compile_catalogue(void)
         if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) NgroupsExt ++;
     }
 
+    printf("NgroupsExt = %d NumPart = %d\n", NgroupsExt, NumPart);
     FOF_GList = (struct fof_group_list *) mymalloc("FOF_GList", sizeof(struct fof_group_list) * NgroupsExt);
 
+    memset(FOF_GList, 0, sizeof(FOF_GList[0]) * NgroupsExt);
+
     int next = 0;
+    int item = -1;
+
     for(i = 0; i < NumPart; i++)
     {
-        int item = next;
         if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) {
+            item = next;
             FOF_GList[item].MinID = HaloLabel[i].MinID;
             FOF_GList[item].MinIDTask = HaloLabel[i].MinIDTask;
-            item ++;
+            next ++;
         }
-        if(FOF_GList[item].MinIDTask == ThisTask) {
+        if(HaloLabel[i].MinIDTask == ThisTask) {
             FOF_GList[item].LocCount += 1;
         } else {
             FOF_GList[item].ExtCount += 1;
