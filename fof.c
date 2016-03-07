@@ -52,6 +52,7 @@ static void fof_compute_group_properties(int gr, int start, int len);
 static void fof_exchange_group_data(void);
 static void fof_finish_group_properties(void);
 static void fof_compile_catalogue(void);
+static void fof_assign_grnr();
 
 void fof_label_primary(void);
 extern void fof_save_particles(int num);
@@ -651,6 +652,8 @@ static void fof_compile_catalogue(void)
     /* sort the group list according to MinID */
     qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinID);
 
+    fof_assign_grnr();
+
     MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
     sumup_large_ints(1, &Nids, &TotNids);
     int largestgroup;
@@ -677,8 +680,6 @@ static void fof_compile_catalogue(void)
         }
     }
 }
-
-
 
 static void fof_compute_group_properties(int gr, int start, int len)
 {
@@ -906,20 +907,10 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg);
 static void fof_radix_FOF_GList_TotalCountTaskDiffMinID(const void * a, void * radix, void * arg);
 static void fof_radix_FOF_GList_OriginalTaskMinID(const void * a, void * radix, void * arg);
 
-void fof_save_groups(int num)
+static void fof_assign_grnr() 
 {
-    int i, j, start, lenloc; 
-    int64_t ngr;
-    int64_t * ngra;
-    int64_t totNids;
-    double t0, t1;
-    if(ThisTask == 0)
-    {
-        printf("start global sorting of group catalogues\n");
-        fflush(stdout);
-    }
-
-    t0 = second();
+    int i, j;
+    int ngr;
 
     for(i = 0; i < NgroupsExt; i++)
     {
@@ -943,6 +934,7 @@ void fof_save_groups(int num)
         FOF_GList[i].GrNr = ngr;
     }
 
+    int64_t * ngra;
     ngra = alloca(sizeof(ngra[0]) * NTask);
     MPI_Allgather(&ngr, 1, MPI_INT64, ngra, 1, MPI_INT64, MPI_COMM_WORLD);
 
@@ -956,6 +948,23 @@ void fof_save_groups(int num)
     /* bring the group list back into the original order */
     mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), 
             fof_radix_FOF_GList_OriginalTaskMinID, 16, NULL, MPI_COMM_WORLD);
+}
+
+
+void fof_save_groups(int num)
+{
+    int i, j, start, lenloc; 
+    int64_t ngr;
+    int64_t totNids;
+    double t0, t1;
+    if(ThisTask == 0)
+    {
+        printf("start global sorting of group catalogues\n");
+        fflush(stdout);
+    }
+
+    t0 = second();
+
 
     for(i = 0; i < NumPart; i++)
         P[i].GrNr = -1;	/* will mark particles that are not in any group */
