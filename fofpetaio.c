@@ -30,6 +30,14 @@ static int fof_cmp_argind(const void *p1, const void * p2) {
     const int * i2 = p2;
     return (P[*i1].GrNr > P[*i2].GrNr) - (P[*i1].GrNr < P[*i2].GrNr);
 }
+
+static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg);
+static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct group_properties * f = (struct group_properties*) a;
+    u[0] = f->GrNr;
+}
+
 void fof_save_particles(int num) {
     char fname[4096];
     sprintf(fname, "%s/PIG_%03d", All.OutputDir, num);
@@ -37,6 +45,11 @@ void fof_save_particles(int num) {
         printf("saving particle in group into %s\n", fname);
         fflush(stdout);
     }
+
+    /* sort the groups according to group-number */
+    mpsort_mpi(Group, Ngroups, sizeof(struct group_properties), 
+            fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
+
     walltime_measure("/FOF/IO/Misc");
     fof_distribute_particles();
     walltime_measure("/FOF/IO/Distribute");

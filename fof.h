@@ -10,7 +10,8 @@ extern int64_t TotNids;
 
 extern struct group_properties
 {
-  int Len;
+  int OriginalTask;
+  int Length;
   MyIDType MinID;
   MyIDType MinIDTask;
   int GrNr;
