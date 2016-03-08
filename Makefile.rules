@@ -32,7 +32,7 @@ ICOBJECTS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
 		 openmpsort.o \
 		 GENIC/zeldovich.o \
 		GENIC/save2.o  \
-		GENIC/walltime.o
+		walltime.o
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
 	 fof.h cosmology.h \
