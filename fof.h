@@ -28,9 +28,9 @@ extern struct group_properties
   double BH_Mass;
   double BH_Mdot;
   double MaxDens;
-  int index_maxdens, task_maxdens;
 #endif
-
+  int seed_index; 
+  int seed_task;
 } *Group;
 
 #endif

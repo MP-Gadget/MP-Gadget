@@ -54,7 +54,7 @@ void fof_label_primary(void);
 extern void fof_save_particles(int num);
 extern void fof_save_groups(int num);
 
-static void fof_make_black_holes(void);
+static void fof_seed(void);
 
 uint64_t Ngroups, TotNgroups;
 int64_t TotNids;
@@ -92,6 +92,7 @@ static int NgroupsExt;
 static float *fof_secondary_distance;
 static float *fof_secondary_hsml;
 
+static MPI_Datatype MPI_TYPE_GROUP;
 
 void fof_fof(int num)
 {
@@ -100,6 +101,8 @@ void fof_fof(int num)
     struct unbind_data *d;
     int64_t ndmtot;
 
+    MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE_GROUP);
+    MPI_Type_commit(&MPI_TYPE_GROUP);
 
     if(ThisTask == 0)
     {
@@ -202,10 +205,8 @@ void fof_fof(int num)
     if(ThisTask == 0)
         printf("computation of group properties took = %g sec\n", timediff(t0, t1));
 
-#ifdef BLACK_HOLES
     if(num < 0)
-        fof_make_black_holes();
-#endif
+        fof_seed();
 
     walltime_measure("/FOF/Misc");
 
@@ -230,6 +231,8 @@ void fof_fof(int num)
 
     walltime_measure("/FOF/MISC");
     force_treebuild_simple();
+
+    MPI_Type_free(&MPI_TYPE_GROUP);
 }
 
 static struct LinkList {
@@ -457,8 +460,8 @@ static void add_group_to_group(struct group_properties * gdst, struct group_prop
     if(gsrc->MaxDens > gdst->MaxDens)
     {
         gdst->MaxDens = gsrc->MaxDens;
-        gdst->index_maxdens = gsrc->index_maxdens;
-        gdst->task_maxdens = gsrc->task_maxdens;
+        gdst->seed_index = gsrc->seed_index;
+        gdst->seed_task = gsrc->seed_task;
     }
 #endif
 
@@ -483,13 +486,13 @@ static void add_particle_to_group(struct group_properties * gdst, int i) {
 
     if(gdst->Length == 0) {
         gdst->Mass = 0;
+        gdst->seed_index = gdst->seed_task = -1;
     #ifdef SFR
         gdst->Sfr = 0;
     #endif
     #ifdef BLACK_HOLES
         gdst->BH_Mass = 0;
         gdst->BH_Mdot = 0;
-        gdst->index_maxdens = gdst->task_maxdens = -1;
         gdst->MaxDens = 0;
     #endif
 
@@ -533,8 +536,8 @@ static void add_particle_to_group(struct group_properties * gdst, int i) {
             if(SPHP(index).Density > gdst->MaxDens)
             {
                 gdst->MaxDens = SPHP(index).Density;
-                gdst->index_maxdens = index;
-                gdst->task_maxdens = ThisTask;
+                gdst->seed_index = index;
+                gdst->seed_task = ThisTask;
             }
     }
 #endif
@@ -608,12 +611,8 @@ static void fof_compile_catalogue(void)
     GhostGroup = (struct group_properties *) 
             mymalloc("GhostGroup", nimport * sizeof(struct group_properties));
 
-    MPI_Datatype MPI_TYPE;
-    MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE);
-    MPI_Type_commit(&MPI_TYPE);
-
-    MPI_Alltoallv_smart(&Group[Nlocal], Send_count, NULL, MPI_TYPE, 
-                        GhostGroup, Recv_count, NULL, MPI_TYPE, MPI_COMM_WORLD);
+    MPI_Alltoallv_smart(&Group[Nlocal], Send_count, NULL, MPI_TYPE_GROUP, 
+                        GhostGroup, Recv_count, NULL, MPI_TYPE_GROUP, MPI_COMM_WORLD);
         
     /* record the original ordering of GhostGroup with a MinIDTask sort */
     for(i = 0; i < nimport; i++)
@@ -652,8 +651,8 @@ static void fof_compile_catalogue(void)
     for(i = 0; i < nimport; i++)
         GhostGroup[i].MinIDTask = ThisTask;
 
-    MPI_Alltoallv_smart(GhostGroup, Recv_count, NULL, MPI_TYPE, 
-                        &Group[Nlocal], Send_count, NULL, MPI_TYPE, MPI_COMM_WORLD);
+    MPI_Alltoallv_smart(GhostGroup, Recv_count, NULL, MPI_TYPE_GROUP, 
+                        &Group[Nlocal], Send_count, NULL, MPI_TYPE_GROUP, MPI_COMM_WORLD);
 
     myfree(GhostGroup);
 
@@ -716,8 +715,6 @@ static void fof_compile_catalogue(void)
                     (int) (TotNids / 1000000000), (int) (TotNids % 1000000000));
         }
     }
-
-    MPI_Type_free(&MPI_TYPE);
 
 }
 
@@ -1069,90 +1066,73 @@ static int fof_secondary_evaluate(int target, int mode,
     return 0;
 }
 
+/* 
+ * Deal with seeding of particles At each FOF stage,
+ * if seed_index is >= 0,  then that particle on seed_task
+ * will be converted to a seed.
+ *
+ * */
+static int cmp_seed_task(const void * c1, const void * c2) {
+    const struct group_properties * g1 = c1;
+    const struct group_properties * g2 = c2;
 
+    return g1->seed_task - g2->seed_task;
+}
+static void fof_seed_make_one(struct group_properties * g);
 
-
-#ifdef BLACK_HOLES
-
-static void fof_make_black_holes(void)
+static void fof_seed(void)
 {
     int i, j, n, ntot;
-    int nexport, nimport, recvTask, level;
-    int *import_indices, *export_indices;
-    double massDMpart;
 
-    if(All.MassTable[1] > 0)
-        massDMpart = All.MassTable[1];
-    else {
-        endrun(991234569); /* deprecate massDMpart in paramfile*/
-    }
+    int * Send_count = alloca(sizeof(int) * NTask);
+    int * Recv_count = alloca(sizeof(int) * NTask);
 
     for(n = 0; n < NTask; n++)
         Send_count[n] = 0;
 
+    char * Marked = mymalloc("SeedMark", Ngroups);
+    
+    int Nexport = 0;
     for(i = 0; i < Ngroups; i++)
     {
-        if(Group[i].LenType[1] * massDMpart >=
-                (All.Omega0 - All.OmegaBaryon) / All.Omega0 * All.MinFoFMassForNewSeed)
-            if(Group[i].LenType[5] == 0)
-            {
-                if(Group[i].index_maxdens >= 0)
-                    Send_count[Group[i].task_maxdens]++;
-            }
+        Marked[i] = 
+            (Group[i].Mass >= All.MinFoFMassForNewSeed)
+        &&  (Group[i].LenType[5] == 0)
+        &&  (Group[i].seed_index >= 0);
+
+        if(Marked[i]) Nexport ++;
+    }
+    struct group_properties * ExportGroups = mymalloc("Export", sizeof(Group[0]) * Nexport);
+    j = 0;
+    for(i = 0; i < Ngroups; i ++) {
+        if(Marked[i]) {
+            ExportGroups[j] = Group[i];
+            j++;
+        }
+    }
+    qsort(ExportGroups, Nexport, sizeof(ExportGroups[0]), cmp_seed_task);
+
+    for(i = 0; i < Nexport; i++) {
+        Send_count[ExportGroups[i].seed_task]++;
     }
 
     MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
 
-    for(j = 0, nimport = nexport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
-    {
-        nexport += Send_count[j];
-        nimport += Recv_count[j];
+    int Nimport = 0;
 
-        if(j > 0)
-        {
-            Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
-            Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
-        }
+    for(j = 0;  j < NTask; j++)
+    {
+        Nimport += Recv_count[j];
     }
 
-    import_indices = mymalloc("import_indices", nimport * sizeof(int));
-    export_indices = mymalloc("export_indices", nexport * sizeof(int));
+    struct group_properties * ImportGroups = (struct group_properties*) 
+            mymalloc("ImportGroups", Nimport * sizeof(struct group_properties));
 
-    for(n = 0; n < NTask; n++)
-        Send_count[n] = 0;
+    MPI_Alltoallv_smart(ExportGroups, Send_count, NULL, MPI_TYPE_GROUP, 
+                        ImportGroups, Recv_count, NULL, MPI_TYPE_GROUP,
+                        MPI_COMM_WORLD);
 
-    for(i = 0; i < Ngroups; i++)
-    {
-        if(Group[i].LenType[1] * massDMpart >=
-                (All.Omega0 - All.OmegaBaryon) / All.Omega0 * All.MinFoFMassForNewSeed)
-            if(Group[i].LenType[5] == 0)
-            {
-                if(Group[i].index_maxdens >= 0)
-                    export_indices[Send_offset[Group[i].task_maxdens] +
-                        Send_count[Group[i].task_maxdens]++] = Group[i].index_maxdens;
-            }
-    }
-
-    memcpy(&import_indices[Recv_offset[ThisTask]], &export_indices[Send_offset[ThisTask]],
-            Send_count[ThisTask] * sizeof(int));
-
-    for(level = 1; level < (1 << PTask); level++)
-    {
-        recvTask = ThisTask ^ level;
-
-        if(recvTask < NTask) {
-            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)  {
-                MPI_Sendrecv(&export_indices[Send_offset[recvTask]],
-                        Send_count[recvTask] * sizeof(int),
-                        MPI_BYTE, recvTask, TAG_FOF_E,
-                        &import_indices[Recv_offset[recvTask]],
-                        Recv_count[recvTask] * sizeof(int),
-                        MPI_BYTE, recvTask, TAG_FOF_E, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-    }
-
-    MPI_Allreduce(&nimport, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&Nimport, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(ThisTask == 0)
     {
@@ -1160,18 +1140,25 @@ static void fof_make_black_holes(void)
         fflush(stdout);
     }
 
-    for(n = 0; n < nimport; n++)
+    for(n = 0; n < Nimport; n++)
     {
-        blackhole_make_one(import_indices[n]);
+        fof_seed_make_one(&ImportGroups[n]);
     }
 
-    myfree(export_indices);
-    myfree(import_indices);
+    myfree(ImportGroups);
+    myfree(ExportGroups);
+    myfree(Marked);
 }
 
-
-
+static void fof_seed_make_one(struct group_properties * g) {
+    if(g->seed_task != ThisTask) {
+        endrun(7771);
+    }
+    int index = g->seed_index;
+#ifdef BLACK_HOLES
+    blackhole_make_one(index);
 #endif
+}
 
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b)
 {
