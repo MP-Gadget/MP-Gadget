@@ -10,7 +10,7 @@
 #include "mymalloc.h"
 
 #include <gsl/gsl_heapsort.h>
-#include "openmpsort.h"
+
 
 
 

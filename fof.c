@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <gsl/gsl_math.h>
 #include <inttypes.h>
+
 #include "allvars.h"
 #include "proto.h"
 #include "forcetree.h"
@@ -22,44 +23,14 @@
 #ifdef FOF
 #include "fof.h"
 
-static double fof_periodic(double x)
-{
-    if(x >= 0.5 * All.BoxSize)
-        x -= All.BoxSize;
-    if(x < -0.5 * All.BoxSize)
-        x += All.BoxSize;
-    return x;
-}
-
-
-static double fof_periodic_wrap(double x)
-{
-    while(x >= All.BoxSize)
-        x -= All.BoxSize;
-    while(x < 0)
-        x += All.BoxSize;
-    return x;
-}
-
-static void fof_label_secondary(void);
-static int fof_compare_HaloLabel_MinID(const void *a, const void *b);
-static int fof_compare_Group_MinIDTask(const void *a, const void *b);
-static int fof_compare_Group_MinID(const void *a, const void *b);
-
-static void fof_finish_group_properties(void);
-static void fof_compile_catalogue(void);
-static void fof_assign_grnr();
-
-void fof_label_primary(void);
-extern void fof_save_particles(int num);
-extern void fof_save_groups(int num);
-
-static void fof_make_black_holes(void);
+void fof_save_particles(int num);
 
 uint64_t Ngroups, TotNgroups;
 int64_t TotNids;
 
 struct group_properties *Group;
+
+
 
 struct fofdata_in
 {
@@ -84,18 +55,40 @@ static struct fof_particle_list
     MyIDType MinIDTask;
     int Pindex;
 }
-*HaloLabel;
+*FOF_PList;
+
+static struct fof_group_list
+{
+    MyIDType MinID;
+    MyIDType MinIDTask;
+    int LocCount;
+    int ExtCount;
+    int GrNr;
+}
+*FOF_GList;
+
+static struct id_list
+{
+    MyIDType ID;
+    unsigned int GrNr;
+}
+*ID_list;
+
 
 static double LinkL;
-static int NgroupsExt;
+static int NgroupsExt, Nids;
 
-static float *fof_secondary_distance;
-static float *fof_secondary_hsml;
+
+static MyIDType *Head, *Len, *Next, *Tail, *MinID, *MinIDTask;
+
+
+static float *fof_nearest_distance;
+static float *fof_nearest_hsml;
 
 
 void fof_fof(int num)
 {
-    int i, ndm, start, lenloc, n;
+    int i, ndm, start, lenloc, largestgroup, n;
     double mass, masstot, rhodm, t0, t1;
     struct unbind_data *d;
     int64_t ndmtot;
@@ -133,17 +126,22 @@ void fof_fof(int num)
         fflush(stdout);
     }
 
-    HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", NumPart * sizeof(struct fof_particle_list));
+    FOF_PList =
+        (struct fof_particle_list *) mymalloc("FOF_PList", NumPart *
+                sizemax(sizeof(struct fof_particle_list), 3 * sizeof(MyIDType)));
 
-    /* HaloLabel stores the MinID and MinIDTask of particles, this pair serves as a halo label. */
-    for(i = 0; i < NumPart; i++) {
-        HaloLabel[i].Pindex = i;
-    }
+    MinID = (MyIDType *) FOF_PList;
+    MinIDTask = MinID + NumPart;
+    Head = MinIDTask + NumPart;
+    Len = (MyIDType *) mymalloc("Len", NumPart * sizeof(MyIDType));
+    Next = (MyIDType *) mymalloc("Next", NumPart * sizeof(MyIDType));
+    Tail = (MyIDType *) mymalloc("Tail", NumPart * sizeof(MyIDType));
 
     if(ThisTask == 0)
         printf("Tree construction.\n");
 
     force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
+
 
     /* build index list of particles of selected primary species */
     d = (struct unbind_data *) mymalloc("d", NumPart * sizeof(struct unbind_data));
@@ -157,36 +155,98 @@ void fof_fof(int num)
     myfree(d);
 
 
-    /* Fill FOFP_List of primary */
     t0 = second();
-    fof_label_primary();
-    t1 = second();
 
+    fof_find_groups();
+
+    t1 = second();
     if(ThisTask == 0)
         printf("group finding took = %g sec\n", timediff(t0, t1));
-    walltime_measure("/FOF/Primary");
+    walltime_measure("/FOF/FindGroups");
 
-    /* Fill FOFP_List of secondary */
     t0 = second();
-    fof_label_secondary();
-    walltime_measure("/FOF/Secondary");
-    t1 = second();
 
+    fof_find_nearest_dmparticle();
+    walltime_measure("/FOF/NearestDM");
+
+    t1 = second();
     if(ThisTask == 0)
         printf("attaching gas and star particles to nearest dm particles took = %g sec\n", timediff(t0, t1));
 
 
+    t0 = second();
+
+    for(i = 0; i < NumPart; i++)
+    {
+        Next[i] = MinID[Head[i]];
+        Tail[i] = MinIDTask[Head[i]];
+
+        if(Tail[i] >= NTask)	/* it appears that the Intel C 9.1 on Itanium2 produces incorrect code if
+                                   this if-statemet is omitted. Apparently, the compiler then joins the two loops,
+                                   but this is here not permitted because storage for FOF_PList actually overlaps
+                                   (on purpose) with MinID/MinIDTask/Head */
+        {
+            printf("oh no: ThisTask=%d i=%d Head[i]=%d  NumPart=%d MinIDTask[Head[i]]=%d\n",
+                    ThisTask, i, (int) Head[i], NumPart, (int) MinIDTask[Head[i]]);
+            fflush(stdout);
+            endrun(8812);
+        }
+    }
+
+    for(i = 0; i < NumPart; i++)
+    {
+        FOF_PList[i].MinID = Next[i];
+        FOF_PList[i].MinIDTask = Tail[i];
+        FOF_PList[i].Pindex = i;
+    }
+
     force_treefree();
 
-    t0 = second();
+    myfree(Tail);
+    myfree(Next);
+    myfree(Len);
+
+    FOF_GList = (struct fof_group_list *) mymalloc("FOF_GList", sizeof(struct fof_group_list) * NumPart);
+
     fof_compile_catalogue();
+
     t1 = second();
     if(ThisTask == 0)
         printf("compiling local group data and catalogue took = %g sec\n", timediff(t0, t1));
 
+
+    MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
+    sumup_large_ints(1, &Nids, &TotNids);
+
+    if(TotNgroups > 0)
+    {
+        int largestloc = 0;
+
+        for(i = 0; i < NgroupsExt; i++)
+            if(FOF_GList[i].LocCount + FOF_GList[i].ExtCount > largestloc)
+                largestloc = FOF_GList[i].LocCount + FOF_GList[i].ExtCount;
+        MPI_Allreduce(&largestloc, &largestgroup, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    }
+    else
+        largestgroup = 0;
+
+    if(ThisTask == 0)
+    {
+        printf("\nTotal number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
+        if(TotNgroups > 0)
+        {
+            printf("Largest group has %d particles.\n", largestgroup);
+            printf("Total number of particles in groups: %d%09d\n\n",
+                    (int) (TotNids / 1000000000), (int) (TotNids % 1000000000));
+        }
+    }
     walltime_measure("/FOF/Compile");
 
     t0 = second();
+
+    Group =
+        (struct group_properties *) mymalloc("Group", sizeof(struct group_properties) *
+                IMAX(NgroupsExt, TotNgroups / NTask + 1));
 
     if(ThisTask == 0)
     {
@@ -194,6 +254,34 @@ void fof_fof(int num)
                 AllocatedBytes / (1024.0 * 1024.0));
         fflush(stdout);
     }
+
+    for(i = 0, start = 0; i < NgroupsExt; i++)
+    {
+        while(FOF_PList[start].MinID < FOF_GList[i].MinID)
+        {
+            start++;
+            if(start > NumPart)
+                endrun(78);
+        }
+
+        if(FOF_PList[start].MinID != FOF_GList[i].MinID)
+            endrun(123);
+
+        for(lenloc = 0; start + lenloc < NumPart;)
+            if(FOF_PList[start + lenloc].MinID == FOF_GList[i].MinID)
+                lenloc++;
+            else
+                break;
+
+        Group[i].MinID = FOF_GList[i].MinID;
+        Group[i].MinIDTask = FOF_GList[i].MinIDTask;
+
+        fof_compute_group_properties(i, start, lenloc);
+
+        start += lenloc;
+    }
+
+    fof_exchange_group_data();
 
     fof_finish_group_properties();
 
@@ -216,7 +304,8 @@ void fof_fof(int num)
 
     myfree(Group);
 
-    myfree(HaloLabel);
+    myfree(FOF_GList);
+    myfree(FOF_PList);
 
     if(ThisTask == 0)
     {
@@ -232,35 +321,28 @@ void fof_fof(int num)
     force_treebuild_simple();
 }
 
-static struct LinkList {
-    MyIDType MinIDOld;
-    int head;
-    int len;
-    int next;
-    char marked;
-} * LinkList;
-#define HEAD(i) LinkList[i].head
-#define NEXT(i) LinkList[i].next
-#define LEN(i) LinkList[HEAD(i)].len
 
-static void fof_primary_copy(int place, struct fofdata_in * I) {
+static void fof_find_copy(int place, struct fofdata_in * I) {
     I->Pos[0] = P[place].Pos[0];
     I->Pos[1] = P[place].Pos[1];
     I->Pos[2] = P[place].Pos[2];
-    int head = HEAD(place);
-    I->MinID = HaloLabel[head].MinID;
-    I->MinIDTask = HaloLabel[head].MinIDTask;
+    I->MinID = MinID[Head[place]];
+    I->MinIDTask = MinIDTask[Head[place]];
 }
 
-static int fof_primary_isactive(int n) {
-    return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && LinkList[n].marked;
+static char *MarkedFlag, *ChangedFlag;
+
+MyIDType *MinIDOld;
+
+static int fof_find_isactive(int n) {
+    return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && ChangedFlag[n];
 }
 
-static int fof_primary_evaluate(int target, int mode, 
+static int fof_find_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv);
 
-void fof_label_primary(void)
+void fof_find_groups(void)
 {
     int i;
     int64_t link_across;
@@ -275,54 +357,59 @@ void fof_label_primary(void)
 
     Evaluator ev = {0};
     ev.ev_label = "FOF_FIND_GROUPS";
-    ev.ev_evaluate = (ev_ev_func) fof_primary_evaluate;
-    ev.ev_isactive = fof_primary_isactive;
-    ev.ev_copy = (ev_copy_func) fof_primary_copy;
+    ev.ev_evaluate = (ev_ev_func) fof_find_evaluate;
+    ev.ev_isactive = fof_find_isactive;
+    ev.ev_copy = (ev_copy_func) fof_find_copy;
     ev.ev_reduce = NULL;
     ev.UseNodeList = 1;
     ev.UseAllParticles = 1;
     ev.ev_datain_elsize = sizeof(struct fofdata_in);
     ev.ev_dataout_elsize = 1;
 
-    LinkList = (struct LinkList *) mymalloc("FOF_Links", NumPart * sizeof(struct LinkList));
     /* allocate buffers to arrange communication */
+
+    MarkedFlag = (char *) mymalloc("MarkedFlag", NumPart * sizeof(char));
+    ChangedFlag = (char *) mymalloc("ChangedFlag", NumPart * sizeof(char));
+    MinIDOld = (MyIDType *) mymalloc("MinIDOld", NumPart * sizeof(MyIDType));
 
     t0 = second();
 
     for(i = 0; i < NumPart; i++)
     {
-        HEAD(i) = i;
-        LEN(i) = 1;
-        NEXT(i) = -1;
-        LinkList[i].MinIDOld = P[i].ID;
-        LinkList[i].marked = 1;
+        Head[i] = Tail[i] = i;
+        Len[i] = 1;
+        Next[i] = -1;
+        MinID[i] = P[i].ID;
+        MinIDTask[i] = ThisTask;
 
-        HaloLabel[i].MinID = P[i].ID;
-        HaloLabel[i].MinIDTask = ThisTask;
+        MinIDOld[i] = MinID[Head[i]];
+        MarkedFlag[i] = 1;
     }
 
     do
     {
         t0 = second();
 
+        for(i = 0; i < NumPart; i++)
+        {
+            ChangedFlag[i] = MarkedFlag[i];
+            MarkedFlag[i] = 0;
+        }
+
         ev_run(&ev);
 
         t1 = second();
 
-        /* let's check out which particles have changed their MinID,
-         * mark them for next round. */
+        /* let's check out which particles have changed their MinID */
         link_across = 0;
-#pragma omp parallel for
         for(i = 0; i < NumPart; i++) {
-            MyIDType newMinID = HaloLabel[HEAD(i)].MinID;
-            if(newMinID != LinkList[i].MinIDOld) {
-                LinkList[i].marked = 1;
-#pragma omp atomic
+            if(MinID[Head[i]] != MinIDOld[i]) {
+                MarkedFlag[i] = 1;
                 link_across += 1;
             } else {
-                LinkList[i].marked = 0;
+                MarkedFlag[i] = 0;
             }
-            LinkList[i].MinIDOld = newMinID;
+            MinIDOld[i] = MinID[Head[i]];
         }
         MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
         if(ThisTask == 0)
@@ -332,61 +419,25 @@ void fof_label_primary(void)
     }
     while(link_across_tot > 0);
 
-    /* Update MinID of all linked (primary-linked) particles */
-    for(i = 0; i < NumPart; i++)
-    {
-        HaloLabel[i].MinID = HaloLabel[HEAD(i)].MinID;
-        HaloLabel[i].MinIDTask = HaloLabel[HEAD(i)].MinIDTask;
-    }
+    myfree(MinIDOld);
+    myfree(ChangedFlag);
+    myfree(MarkedFlag);
 
     if(ThisTask == 0)
     {
         printf("Local groups found.\n\n");
         fflush(stdout);
     }
-    myfree(LinkList);
 }
 
-static void fofp_merge(int target, int j)
-{
-    /* must be in a critical section! */
-    if(HEAD(target) == HEAD(j))	
-        return;
-    int p, s;
-    int ss, oldnext, last;
 
-    /* only if not yet linked */
-    if(LEN(target) > LEN(j))	/* p group is longer */
-    {
-        p = target; s = j;
-    } else {
-        p = j; s = target;
-    }
-
-    ss = HEAD(s);
-    oldnext = NEXT(p);
-    NEXT(p) = ss;
-    last = -1;
-    do {
-        HEAD(ss) = HEAD(p);
-        last = ss;
-    } while((ss = NEXT(ss)) >= 0);
-
-    NEXT(last) = oldnext;
-
-    if(HaloLabel[HEAD(s)].MinID < HaloLabel[HEAD(p)].MinID)
-    {
-        HaloLabel[HEAD(p)].MinID = HaloLabel[HEAD(s)].MinID;
-        HaloLabel[HEAD(p)].MinIDTask = HaloLabel[HEAD(s)].MinIDTask;
-    }
-}
-
-static int fof_primary_evaluate(int target, int mode, 
+static int fof_find_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv) {
-    int listindex = 0;
+    int j, n, links, p, s, ss, listindex = 0;
     int startnode, numngb_inbox;
-    
+
+    links = 0;
 
     startnode = I->NodeList[0];
     listindex ++;
@@ -401,23 +452,57 @@ static int fof_primary_evaluate(int target, int mode,
 
             if(numngb_inbox < 0)
                 return -1;
-            int n;
+
             for(n = 0; n < numngb_inbox; n++)
             {
-                int j = lv->ngblist[n];
+                j = lv->ngblist[n];
                 if(mode == 0) {
                     /* Local FOF */
-                    if(HEAD(target) != HEAD(j)) {
 #pragma omp critical
-                        fofp_merge(target, j);
+                    if(Head[target] != Head[j])	/* only if not yet linked */
+                    {
+                        if(Len[Head[target]] > Len[Head[j]])	/* p group is longer */
+                        {
+                            p = target; s = j;
+                        } else {
+                            p = j; s = target;
+                        }
+
+                        if(Tail[Head[p]] >= NumPart) {
+                            abort();
+                        }
+                        if(Head[p] >= NumPart) {
+                            abort();
+                        }
+                        Next[Tail[Head[p]]] = Head[s];
+                        Tail[Head[p]] = Tail[Head[s]];
+                        Len[Head[p]] += Len[Head[s]];
+
+                        ss = Head[s];
+                        do {
+                            if(ss >= NumPart) {
+                                abort();
+                            }
+                            Head[ss] = Head[p];
+                        }
+                        while((ss = Next[ss]) >= 0);
+
+                        if(MinID[Head[s]] < MinID[Head[p]])
+                        {
+                            MinID[Head[p]] = MinID[Head[s]];
+                            MinIDTask[Head[p]] = MinIDTask[Head[s]];
+                        }
                     }
                 } else		/* mode is 1, target is a ghost */
                 {
-#pragma omp critical
-                    if(HaloLabel[HEAD(j)].MinID > I->MinID)
+                    if(Head[j] >= NumPart) {
+                        abort();
+                    }
+                    if(MinID[Head[j]] > I->MinID)
                     {
-                        HaloLabel[HEAD(j)].MinID = I->MinID;
-                        HaloLabel[HEAD(j)].MinIDTask = I->MinIDTask;
+                        MinID[Head[j]] = I->MinID;
+                        MinIDTask[Head[j]] = I->MinIDTask;
+                        links++;
                     }
                 }
             }
@@ -436,295 +521,398 @@ static int fof_primary_evaluate(int target, int mode,
     return 0;
 }
 
-static void add_group_to_group(struct group_properties * gdst, struct group_properties * gsrc) {
-    int j;
-    double xyz[3];
-    gdst->Length += gsrc->Length;
-    gdst->Mass += gsrc->Mass;
-
-    for(j = 0; j < 6; j++)
-    {
-        gdst->LenType[j] += gsrc->LenType[j];
-        gdst->MassType[j] += gsrc->MassType[j];
-    }
-
-#ifdef SFR
-    gdst->Sfr += gsrc->Sfr;
-#endif
-#ifdef BLACK_HOLES
-    gdst->BH_Mdot += gsrc->BH_Mdot;
-    gdst->BH_Mass += gsrc->BH_Mass;
-    if(gsrc->MaxDens > gdst->MaxDens)
-    {
-        gdst->MaxDens = gsrc->MaxDens;
-        gdst->index_maxdens = gsrc->index_maxdens;
-        gdst->task_maxdens = gsrc->task_maxdens;
-    }
-#endif
-
-    for(j = 0; j < 3; j++)
-    {
-        xyz[j] = gsrc->CM[j] / gsrc->Mass + gsrc->FirstPos[j];
-
-        xyz[j] = fof_periodic(xyz[j] - gdst->FirstPos[j]);
-
-        gdst->CM[j] += gsrc->Mass * xyz[j];
-        gdst->Vel[j] += gsrc->Vel[j];
-    }
-
-}
-static void add_particle_to_group(struct group_properties * gdst, int i) {
-
-    /* My local number of particles contributing to the full catalogue. */
-    int j, k;
-    double xyz[3];
-
-    int index = HaloLabel[i].Pindex;
-
-    if(gdst->Length == 0) {
-        gdst->Mass = 0;
-    #ifdef SFR
-        gdst->Sfr = 0;
-    #endif
-    #ifdef BLACK_HOLES
-        gdst->BH_Mass = 0;
-        gdst->BH_Mdot = 0;
-        gdst->index_maxdens = gdst->task_maxdens = -1;
-        gdst->MaxDens = 0;
-    #endif
-
-        for(k = 0; k < 3; k++)
-        {
-            gdst->CM[k] = 0;
-            gdst->Vel[k] = 0;
-            gdst->FirstPos[k] = P[index].Pos[k];
-        }
-
-        for(k = 0; k < 6; k++)
-        {
-            gdst->LenType[k] = 0;
-            gdst->MassType[k] = 0;
-        }
-    }
-
-    gdst->Length ++;
-    gdst->Mass += P[index].Mass;
-    gdst->LenType[P[index].Type]++;
-    gdst->MassType[P[index].Type] += P[index].Mass;
 
 
-#ifdef SFR
-    if(P[index].Type == 0) {
-        gdst->Sfr += get_starformation_rate(index);
-    }
-#endif
-#ifdef BLACK_HOLES
-    if(P[index].Type == 5)
-    {
-        gdst->BH_Mdot += BHP(index).Mdot;
-        gdst->BH_Mass += BHP(index).Mass;
-    }
-    if(P[index].Type == 0)
-    {
-#ifdef WINDS
-        /* make bh in non wind gas on bh wind*/
-        if(SPHP(index).DelayTime <= 0)
-#endif
-            if(SPHP(index).Density > gdst->MaxDens)
-            {
-                gdst->MaxDens = SPHP(index).Density;
-                gdst->index_maxdens = index;
-                gdst->task_maxdens = ThisTask;
-            }
-    }
-#endif
-
-    for(j = 0; j < 3; j++)
-    {
-        xyz[j] = P[index].Pos[j];
-
-        xyz[j] = fof_periodic(xyz[j] - gdst->FirstPos[j]);
-
-        gdst->CM[j] += P[index].Mass * xyz[j];
-        gdst->Vel[j] += P[index].Mass * P[index].Vel[j];
-    }
-}
-
-static void fof_compile_catalogue(void)
+void fof_compile_catalogue(void)
 {
-    int i, j, start;
-    struct group_properties * GhostGroup;
+    int i, j, start, nimport, ngrp, recvTask;
+    struct fof_group_list *get_FOF_GList;
 
     /* sort according to MinID */
-    qsort(HaloLabel, NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
-
-    NgroupsExt = 0;
-    for(i = 0; i < NumPart; i ++) {
-        if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) NgroupsExt ++;
-    }
-
-    printf("NgroupsExt = %d NumPart = %d\n", NgroupsExt, NumPart);
-
-    Group = (struct group_properties *) mymalloc("Group", sizeof(struct group_properties) * NgroupsExt);
-
-    memset(Group, 0, sizeof(Group[0]) * NgroupsExt);
-
-    int next = 0;
-    int item = -1;
+    qsort(FOF_PList, NumPart, sizeof(struct fof_particle_list), fof_compare_FOF_PList_MinID);
 
     for(i = 0; i < NumPart; i++)
     {
-        if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) {
-            item = next;
-            Group[item].MinID = HaloLabel[i].MinID;
-            Group[item].MinIDTask = HaloLabel[i].MinIDTask;
-            next ++;
+        FOF_GList[i].MinID = FOF_PList[i].MinID;
+        FOF_GList[i].MinIDTask = FOF_PList[i].MinIDTask;
+        if(FOF_GList[i].MinIDTask == ThisTask)
+        {
+            FOF_GList[i].LocCount = 1;
+            FOF_GList[i].ExtCount = 0;
         }
-        add_particle_to_group(&Group[item], i);
+        else
+        {
+            FOF_GList[i].LocCount = 0;
+            FOF_GList[i].ExtCount = 1;
+        }
     }
-    if(next != NgroupsExt) abort();
 
-    /* local groups will be moved to the beginning, we skip them with offset */
-    qsort(Group, NgroupsExt, sizeof(struct group_properties), fof_compare_Group_MinIDTask);
+    /* eliminate duplicates in FOF_GList with respect to MinID */
 
-    int * Send_count = alloca(sizeof(int) * NTask);
-    int * Recv_count = alloca(sizeof(int) * NTask);
+    if(NumPart)
+        NgroupsExt = 1;
+    else
+        NgroupsExt = 0;
+
+    for(i = 1, start = 0; i < NumPart; i++)
+    {
+        if(FOF_GList[i].MinID == FOF_GList[start].MinID)
+        {
+            FOF_GList[start].LocCount += FOF_GList[i].LocCount;
+            FOF_GList[start].ExtCount += FOF_GList[i].ExtCount;
+        }
+        else
+        {
+            start = NgroupsExt;
+            FOF_GList[start] = FOF_GList[i];
+            NgroupsExt++;
+        }
+    }
+
+
+    /* sort the remaining ones according to task */
+    qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinIDTask);
 
     /* count how many we have of each task */
-    memset(Send_count, 0, sizeof(int) * NTask);
+    for(i = 0; i < NTask; i++)
+        Send_count[i] = 0;
     for(i = 0; i < NgroupsExt; i++)
-        Send_count[Group[i].MinIDTask]++;
+        Send_count[FOF_GList[i].MinIDTask]++;
 
-    /* Skip local groups, receive ghosts from others */
-    int Nlocal = Send_count[ThisTask];
-    Send_count[ThisTask] = 0;
-     
     MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
 
-    int nimport = 0;
-    for(i = 0; i < NTask; i ++) {
-        nimport += Recv_count[i];
+    for(j = 0, nimport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
+    {
+        if(j == ThisTask)		/* we will not exchange the ones that are local */
+            Recv_count[j] = 0;
+        nimport += Recv_count[j];
+
+        if(j > 0)
+        {
+            Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
+            Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
+        }
     }
-    GhostGroup = (struct group_properties *) 
-            mymalloc("GhostGroup", nimport * sizeof(struct group_properties));
 
-    MPI_Datatype MPI_TYPE;
-    MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE);
-    MPI_Type_commit(&MPI_TYPE);
+    get_FOF_GList =
+        (struct fof_group_list *) mymalloc("get_FOF_GList", nimport * sizeof(struct fof_group_list));
 
-    MPI_Alltoallv_smart(&Group[Nlocal], Send_count, NULL, MPI_TYPE, 
-                        GhostGroup, Recv_count, NULL, MPI_TYPE, MPI_COMM_WORLD);
-        
-    /* record the original ordering of GhostGroup with a MinIDTask sort */
+    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
+    {
+        recvTask = ThisTask ^ ngrp;
+
+        if(recvTask < NTask)
+        {
+            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
+            {
+                /* get the group info */
+                MPI_Sendrecv(&FOF_GList[Send_offset[recvTask]],
+                        Send_count[recvTask] * sizeof(struct fof_group_list), MPI_BYTE,
+                        recvTask, TAG_DENS_A,
+                        &get_FOF_GList[Recv_offset[recvTask]],
+                        Recv_count[recvTask] * sizeof(struct fof_group_list), MPI_BYTE,
+                        recvTask, TAG_DENS_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+        }
+    }
+
     for(i = 0; i < nimport; i++)
-        GhostGroup[i].MinIDTask = i;
+        get_FOF_GList[i].MinIDTask = i;
+
 
     /* sort the groups according to MinID */
-    qsort(Group, Nlocal, sizeof(struct group_properties), fof_compare_Group_MinID);
-    qsort(GhostGroup, nimport, sizeof(struct group_properties), fof_compare_Group_MinID);
+    qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinID);
+    qsort(get_FOF_GList, nimport, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinID);
 
     /* merge the imported ones with the local ones */
     for(i = 0, start = 0; i < nimport; i++)
     {
-        while(Group[start].MinID < GhostGroup[i].MinID)
+        while(FOF_GList[start].MinID < get_FOF_GList[i].MinID)
         {
             start++;
-            if(start >= Nlocal)
+            if(start >= NgroupsExt)
                 endrun(7973);
         }
-        add_group_to_group(&Group[start], &GhostGroup[i]); 
+
+        if(get_FOF_GList[i].LocCount != 0)
+            endrun(123);
+
+        if(FOF_GList[start].MinIDTask != ThisTask)
+            endrun(124);
+
+        FOF_GList[start].ExtCount += get_FOF_GList[i].ExtCount;
     }
 
-    /* copy the group attributes back into the list, to inform the others */
+    /* copy the size information back into the list, to inform the others */
     for(i = 0, start = 0; i < nimport; i++)
     {
-        while(Group[start].MinID < GhostGroup[i].MinID)
+        while(FOF_GList[start].MinID < get_FOF_GList[i].MinID)
+        {
             start++;
+            if(start >= NgroupsExt)
+                endrun(797831);
+        }
 
-        int oldMinIDTask = GhostGroup[i].MinIDTask;
-        GhostGroup[i] = Group[start];
-        GhostGroup[i].MinIDTask = oldMinIDTask;
+        get_FOF_GList[i].ExtCount = FOF_GList[start].ExtCount;
+        get_FOF_GList[i].LocCount = FOF_GList[start].LocCount;
     }
 
-    /* reset the ordering of imported list, such that it can be properly returned */
-    qsort(GhostGroup, nimport, sizeof(struct group_properties), fof_compare_Group_MinIDTask);
+    /* sort the imported/exported list according to MinIDTask */
+    qsort(get_FOF_GList, nimport, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinIDTask);
+    qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinIDTask);
+
 
     for(i = 0; i < nimport; i++)
-        GhostGroup[i].MinIDTask = ThisTask;
+        get_FOF_GList[i].MinIDTask = ThisTask;
 
-    MPI_Alltoallv_smart(GhostGroup, Recv_count, NULL, MPI_TYPE, 
-                        &Group[Nlocal], Send_count, NULL, MPI_TYPE, MPI_COMM_WORLD);
-
-    myfree(GhostGroup);
-
-    /* At this point, each Group entry has the reduced attribute of the full group */
-    /* Now it's time to apply FOFHaloMinLength cut */
-
-    /* sort the group list according to MinID 
-     * FIXME: this is likely not needed assign_grnr will redo the sorting */
-    qsort(Group, NgroupsExt, sizeof(struct group_properties), fof_compare_Group_MinID);
-
-    /* eliminate all groups that are too small */
-    for(i = 0; i < NgroupsExt; i++)
+    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
     {
-        if(Group[i].Length < All.FOFHaloMinLength)
+        recvTask = ThisTask ^ ngrp;
+
+        if(recvTask < NTask)
         {
-            Group[i] = Group[NgroupsExt - 1];
+            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
+            {
+                /* get the group info */
+                MPI_Sendrecv(&get_FOF_GList[Recv_offset[recvTask]],
+                        Recv_count[recvTask] * sizeof(struct fof_group_list), MPI_BYTE,
+                        recvTask, TAG_DENS_A,
+                        &FOF_GList[Send_offset[recvTask]],
+                        Send_count[recvTask] * sizeof(struct fof_group_list), MPI_BYTE,
+                        recvTask, TAG_DENS_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+        }
+    }
+
+    myfree(get_FOF_GList);
+
+    /* eliminate all groups that are too small, and count local groups */
+    for(i = 0, Ngroups = 0, Nids = 0; i < NgroupsExt; i++)
+    {
+        if(FOF_GList[i].LocCount + FOF_GList[i].ExtCount < All.FOFHaloMinLength)
+        {
+            FOF_GList[i] = FOF_GList[NgroupsExt - 1];
             NgroupsExt--;
             i--;
         }
-    }
-
-    /* count Groups and number of particles hosted by me */
-    Ngroups = 0;
-    int64_t Nids = 0;
-    for(i = 0; i < NgroupsExt; i ++) {
-        if(Group[i].MinIDTask == ThisTask)
+        else
         {
-            Ngroups++;
-            Nids += Group[i].Length;
+            if(FOF_GList[i].MinIDTask == ThisTask)
+            {
+                Ngroups++;
+                Nids += FOF_GList[i].LocCount + FOF_GList[i].ExtCount;
+            }
         }
     }
 
-    /* Assign grnr for groups and particles */
-    fof_assign_grnr();
-
-    MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-
-    /* report some statictics */
-    int largestgroup;
-    if(TotNgroups > 0)
-    {
-        int largestloc = 0;
-
-        for(i = 0; i < NgroupsExt; i++)
-            if(Group[i].Length > largestloc)
-                largestloc = Group[i].Length;
-        MPI_Allreduce(&largestloc, &largestgroup, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    }
-    else
-        largestgroup = 0;
-
-    if(ThisTask == 0)
-    {
-        printf("\nTotal number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
-        if(TotNgroups > 0)
-        {
-            printf("Largest group has %d particles.\n", largestgroup);
-            printf("Total number of particles in groups: %d%09d\n\n",
-                    (int) (TotNids / 1000000000), (int) (TotNids % 1000000000));
-        }
-    }
-
-    MPI_Type_free(&MPI_TYPE);
-
+    /* sort the group list according to MinID */
+    qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinID);
 }
 
-static void fof_finish_group_properties(void)
+
+
+void fof_compute_group_properties(int gr, int start, int len)
+{
+    int j, k, index;
+    double xyz[3];
+
+    Group[gr].Len = 0;
+    Group[gr].Mass = 0;
+#ifdef SFR
+    Group[gr].Sfr = 0;
+#endif
+#ifdef BLACK_HOLES
+    Group[gr].BH_Mass = 0;
+    Group[gr].BH_Mdot = 0;
+    Group[gr].index_maxdens = Group[gr].task_maxdens = -1;
+    Group[gr].MaxDens = 0;
+#endif
+
+    for(k = 0; k < 3; k++)
+    {
+        Group[gr].CM[k] = 0;
+        Group[gr].Vel[k] = 0;
+        Group[gr].FirstPos[k] = P[FOF_PList[start].Pindex].Pos[k];
+    }
+
+    for(k = 0; k < 6; k++)
+    {
+        Group[gr].LenType[k] = 0;
+        Group[gr].MassType[k] = 0;
+    }
+
+    for(k = 0; k < len; k++)
+    {
+        index = FOF_PList[start + k].Pindex;
+
+        Group[gr].Len++;
+        Group[gr].Mass += P[index].Mass;
+        Group[gr].LenType[P[index].Type]++;
+        Group[gr].MassType[P[index].Type] += P[index].Mass;
+
+
+#ifdef SFR
+        if(P[index].Type == 0) {
+            Group[gr].Sfr += get_starformation_rate(index);
+        }
+#endif
+#ifdef BLACK_HOLES
+        if(P[index].Type == 5)
+        {
+            Group[gr].BH_Mdot += BHP(index).Mdot;
+            Group[gr].BH_Mass += BHP(index).Mass;
+        }
+        if(P[index].Type == 0)
+        {
+#ifdef WINDS
+            /* make bh in non wind gas on bh wind*/
+            if(SPHP(index).DelayTime <= 0)
+#endif
+                if(SPHP(index).Density > Group[gr].MaxDens)
+                {
+                    Group[gr].MaxDens = SPHP(index).Density;
+                    Group[gr].index_maxdens = index;
+                    Group[gr].task_maxdens = ThisTask;
+                }
+        }
+#endif
+
+        for(j = 0; j < 3; j++)
+        {
+            xyz[j] = P[index].Pos[j];
+
+            xyz[j] = fof_periodic(xyz[j] - Group[gr].FirstPos[j]);
+
+            Group[gr].CM[j] += P[index].Mass * xyz[j];
+            Group[gr].Vel[j] += P[index].Mass * P[index].Vel[j];
+        }
+    }
+}
+
+
+void fof_exchange_group_data(void)
+{
+    struct group_properties *get_Group;
+    int i, j, ngrp, recvTask, nimport, start;
+    double xyz[3];
+
+    /* sort the groups according to task */
+    qsort(Group, NgroupsExt, sizeof(struct group_properties), fof_compare_Group_MinIDTask);
+
+    /* count how many we have of each task */
+    for(i = 0; i < NTask; i++)
+        Send_count[i] = 0;
+    for(i = 0; i < NgroupsExt; i++)
+        Send_count[FOF_GList[i].MinIDTask]++;
+
+    MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
+
+    for(j = 0, nimport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
+    {
+        if(j == ThisTask)		/* we will not exchange the ones that are local */
+            Recv_count[j] = 0;
+        nimport += Recv_count[j];
+
+        if(j > 0)
+        {
+            Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
+            Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
+        }
+    }
+
+    get_Group = (struct group_properties *) mymalloc("get_Group", sizeof(struct group_properties) * nimport);
+
+    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
+    {
+        recvTask = ThisTask ^ ngrp;
+
+        if(recvTask < NTask)
+        {
+            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
+            {
+                /* get the group data */
+                MPI_Sendrecv(&Group[Send_offset[recvTask]],
+                        Send_count[recvTask] * sizeof(struct group_properties), MPI_BYTE,
+                        recvTask, TAG_DENS_A,
+                        &get_Group[Recv_offset[recvTask]],
+                        Recv_count[recvTask] * sizeof(struct group_properties), MPI_BYTE,
+                        recvTask, TAG_DENS_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            }
+        }
+    }
+
+    /* sort the groups again according to MinID */
+    qsort(Group, NgroupsExt, sizeof(struct group_properties), fof_compare_Group_MinID);
+    qsort(get_Group, nimport, sizeof(struct group_properties), fof_compare_Group_MinID);
+
+    /* now add in the partial imported group data to the main ones */
+    for(i = 0, start = 0; i < nimport; i++)
+    {
+        while(Group[start].MinID < get_Group[i].MinID)
+        {
+            start++;
+            if(start >= NgroupsExt)
+                endrun(797890);
+        }
+
+        Group[start].Len += get_Group[i].Len;
+        Group[start].Mass += get_Group[i].Mass;
+
+        for(j = 0; j < 6; j++)
+        {
+            Group[start].LenType[j] += get_Group[i].LenType[j];
+            Group[start].MassType[j] += get_Group[i].MassType[j];
+        }
+
+#ifdef SFR
+        Group[start].Sfr += get_Group[i].Sfr;
+#endif
+#ifdef BLACK_HOLES
+        Group[start].BH_Mdot += get_Group[i].BH_Mdot;
+        Group[start].BH_Mass += get_Group[i].BH_Mass;
+        if(get_Group[i].MaxDens > Group[start].MaxDens)
+        {
+            Group[start].MaxDens = get_Group[i].MaxDens;
+            Group[start].index_maxdens = get_Group[i].index_maxdens;
+            Group[start].task_maxdens = get_Group[i].task_maxdens;
+        }
+#endif
+
+        for(j = 0; j < 3; j++)
+        {
+            xyz[j] = get_Group[i].CM[j] / get_Group[i].Mass + get_Group[i].FirstPos[j];
+
+            xyz[j] = fof_periodic(xyz[j] - Group[start].FirstPos[j]);
+
+            Group[start].CM[j] += get_Group[i].Mass * xyz[j];
+            Group[start].Vel[j] += get_Group[i].Vel[j];
+        }
+    }
+
+    myfree(get_Group);
+}
+
+void fof_finish_group_properties(void)
 {
     double cm[3];
     int i, j, ngr;
+
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        if(Group[i].MinIDTask == ThisTask)
+        {
+            for(j = 0; j < 3; j++)
+            {
+                Group[i].Vel[j] /= Group[i].Mass;
+
+                cm[j] = Group[i].CM[j] / Group[i].Mass;
+
+                cm[j] = fof_periodic_wrap(cm[j] + Group[i].FirstPos[j]);
+
+                Group[i].CM[j] = cm[j];
+            }
+        }
+    }
 
     /* eliminate the non-local groups */
     for(i = 0, ngr = NgroupsExt; i < ngr; i++)
@@ -737,21 +925,6 @@ static void fof_finish_group_properties(void)
         }
     }
 
-
-    for(i = 0; i < ngr; i++)
-    {
-        for(j = 0; j < 3; j++)
-        {
-            Group[i].Vel[j] /= Group[i].Mass;
-
-            cm[j] = Group[i].CM[j] / Group[i].Mass;
-
-            cm[j] = fof_periodic_wrap(cm[j] + Group[i].FirstPos[j]);
-
-            Group[i].CM[j] = cm[j];
-        }
-    }
-
     if(ngr != Ngroups)
         endrun(876889);
 
@@ -760,85 +933,16 @@ static void fof_finish_group_properties(void)
 
 
 
-static void fof_radix_Group_TotalCountTaskDiffMinID(const void * a, void * radix, void * arg);
-static void fof_radix_Group_OriginalTaskMinID(const void * a, void * radix, void * arg);
-
-static void fof_assign_grnr() 
-{
-    int i, j;
-    int ngr;
-
-    for(i = 0; i < NgroupsExt; i++)
-    {
-        Group[i].OriginalTask = ThisTask;	/* original task */
-    }
-
-    mpsort_mpi(Group, NgroupsExt, sizeof(struct group_properties),
-            fof_radix_Group_TotalCountTaskDiffMinID, 24, NULL, MPI_COMM_WORLD);
-
-    /* assign group numbers 
-     * at this point, both Group are is sorted by length,
-     * and the every time OriginalTask == MinIDTask, a list of ghost groups is stored.
-     * they shall get the same GrNr.
-     * */
-    ngr = 0;
-    for(i = 0; i < NgroupsExt; i++)
-    {
-        if(Group[i].OriginalTask == Group[i].MinIDTask) {
-            ngr++;
-        }
-        Group[i].GrNr = ngr;
-    }
-
-    int64_t * ngra;
-    ngra = alloca(sizeof(ngra[0]) * NTask);
-    MPI_Allgather(&ngr, 1, MPI_INT64, ngra, 1, MPI_INT64, MPI_COMM_WORLD);
-
-    /* shift to the global grnr. */
-    int64_t groffset = 0;
-    for(j = 0; j < ThisTask; j++)
-        groffset += ngra[j];
-    for(i = 0; i < NgroupsExt; i++)
-        Group[i].GrNr += groffset;
-
-    /* bring the group list back into the original order */
-    mpsort_mpi(Group, NgroupsExt, sizeof(struct group_properties), 
-            fof_radix_Group_OriginalTaskMinID, 16, NULL, MPI_COMM_WORLD);
-
-    for(i = 0; i < NumPart; i++)
-        P[i].GrNr = -1;	/* will mark particles that are not in any group */
-
-    int start;
-    for(i = 0, start = 0; i < NgroupsExt; i++)
-    {
-        while(HaloLabel[start].MinID < Group[i].MinID)
-        {
-            start++;
-            if(start > NumPart)
-                endrun(78);
-        }
-
-        if(HaloLabel[start].MinID != Group[i].MinID)
-            endrun(1313);
-        int lenloc; 
-        /* FIXME: This is twisted Volker-C rewrite it in plain C */
-        for(lenloc = 0; start + lenloc < NumPart;)
-            if(HaloLabel[start + lenloc].MinID == Group[i].MinID)
-            {
-                P[HaloLabel[start + lenloc].Pindex].GrNr = Group[i].GrNr;
-                lenloc++;
-            }
-            else
-                break;
-
-        start += lenloc;
-    }
-}
-
+static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg);
+static void fof_radix_FOF_GList_LocCountTaskDiffMinID(const void * a, void * radix, void * arg);
+static void fof_radix_FOF_GList_ExtCountMinID(const void * a, void * radix, void * arg);
 
 void fof_save_groups(int num)
 {
+    int i, j, start, lenloc, ngr, totlen;
+    int64_t totNids;
     double t0, t1;
+
     if(ThisTask == 0)
     {
         printf("start global sorting of group catalogues\n");
@@ -846,6 +950,130 @@ void fof_save_groups(int num)
     }
 
     t0 = second();
+
+    /* assign group numbers (at this point, both Group and FOF_GList are sorted by MinID) */
+    for(i = 0; i < NgroupsExt; i++)
+    {
+        FOF_GList[i].LocCount += FOF_GList[i].ExtCount;	/* total length */
+        FOF_GList[i].ExtCount = ThisTask;	/* original task */
+    }
+
+    mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list),
+            fof_radix_FOF_GList_LocCountTaskDiffMinID, 24, NULL, MPI_COMM_WORLD);
+
+    for(i = 0, ngr = 0; i < NgroupsExt; i++)
+    {
+        if(FOF_GList[i].ExtCount == FOF_GList[i].MinIDTask)
+            ngr++;
+
+        FOF_GList[i].GrNr = ngr;
+    }
+
+    MPI_Allgather(&ngr, 1, MPI_INT, Send_count, 1, MPI_INT, MPI_COMM_WORLD);
+    for(j = 1, Send_offset[0] = 0; j < NTask; j++)
+        Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
+
+    for(i = 0; i < NgroupsExt; i++)
+        FOF_GList[i].GrNr += Send_offset[ThisTask];
+
+
+    MPI_Allreduce(&ngr, &i, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    if(i != TotNgroups)
+    {
+        printf("i=%d\n", i);
+        endrun(123123);
+    }
+
+    /* bring the group list back into the original order */
+      mpsort_mpi(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), 
+            fof_radix_FOF_GList_ExtCountMinID, 16, NULL, MPI_COMM_WORLD);
+
+    /* Assign the group numbers to the group properties array */
+    for(i = 0, start = 0; i < Ngroups; i++)
+    {
+        while(FOF_GList[start].MinID < Group[i].MinID)
+        {
+            start++;
+            if(start >= NgroupsExt)
+                endrun(7297890);
+        }
+        Group[i].GrNr = FOF_GList[start].GrNr;
+    }
+
+    /* sort the groups according to group-number */
+    mpsort_mpi(Group, Ngroups, sizeof(struct group_properties), 
+            fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
+
+    /* fill in the offset-values */
+    for(i = 0, totlen = 0; i < Ngroups; i++)
+    {
+        if(i > 0)
+            Group[i].Offset = Group[i - 1].Offset + Group[i - 1].Len;
+        else
+            Group[i].Offset = 0;
+        totlen += Group[i].Len;
+    }
+
+    MPI_Allgather(&totlen, 1, MPI_INT, Send_count, 1, MPI_INT, MPI_COMM_WORLD);
+    ptrdiff_t *uoffset = mymalloc("uoffset", NTask * sizeof(ptrdiff_t));
+
+    for(j = 1, uoffset[0] = 0; j < NTask; j++)
+        uoffset[j] = uoffset[j - 1] + Send_count[j - 1];
+
+    for(i = 0; i < Ngroups; i++)
+        Group[i].Offset += uoffset[ThisTask];
+
+    myfree(uoffset);
+
+    /* prepare list of ids with assigned group numbers */
+
+    ID_list = mymalloc("ID_list", sizeof(struct id_list) * NumPart);
+
+    for(i = 0; i < NumPart; i++)
+        P[i].GrNr = -1;	/* will mark particles that are not in any group */
+
+    for(i = 0, start = 0, Nids = 0; i < NgroupsExt; i++)
+    {
+        while(FOF_PList[start].MinID < FOF_GList[i].MinID)
+        {
+            start++;
+            if(start > NumPart)
+                endrun(78);
+        }
+
+        if(FOF_PList[start].MinID != FOF_GList[i].MinID)
+            endrun(1313);
+
+        for(lenloc = 0; start + lenloc < NumPart;)
+            if(FOF_PList[start + lenloc].MinID == FOF_GList[i].MinID)
+            {
+                ID_list[Nids].GrNr = FOF_GList[i].GrNr;
+                ID_list[Nids].ID = P[FOF_PList[start + lenloc].Pindex].ID;
+                P[FOF_PList[start + lenloc].Pindex].GrNr = FOF_GList[i].GrNr;
+                Nids++;
+                lenloc++;
+            }
+            else
+                break;
+
+        start += lenloc;
+    }
+
+    sumup_large_ints(1, &Nids, &totNids);
+
+    MPI_Allgather(&Nids, 1, MPI_INT, Send_count, 1, MPI_INT, MPI_COMM_WORLD);
+    for(j = 1, Send_offset[0] = 0; j < NTask; j++)
+        Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
+
+
+    if(totNids != TotNids)
+    {
+        printf("Task=%d Nids=%d totNids=%d TotNids=%d\n", ThisTask, Nids, (int) totNids, (int) TotNids);
+        endrun(12);
+    }
+    
+    myfree(ID_list);
 
     fof_save_particles(num);
 
@@ -858,38 +1086,38 @@ void fof_save_groups(int num)
     }
 }
 
-static void fof_secondary_copy(int place, struct fofdata_in * I) {
+static void fof_nearest_copy(int place, struct fofdata_in * I) {
     int k;
     for (k = 0; k < 3; k ++) {
         I->Pos[k] = P[place].Pos[k];
     }
-    I->Hsml = fof_secondary_hsml[place];
+    I->Hsml = fof_nearest_hsml[place];
 }
-static int fof_secondary_isactive(int n) {
+static int fof_nearest_isactive(int n) {
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
-static void fof_secondary_reduce(int place, struct fofdata_out * O, int mode) {
-    if(O->Distance < fof_secondary_distance[place])
+static void fof_nearest_reduce(int place, struct fofdata_out * O, int mode) {
+    if(O->Distance < fof_nearest_distance[place])
     {
-        fof_secondary_distance[place] = O->Distance;
-        HaloLabel[place].MinID = O->MinID;
-        HaloLabel[place].MinIDTask = O->MinIDTask;
+        fof_nearest_distance[place] = O->Distance;
+        MinID[place] = O->MinID;
+        MinIDTask[place] = O->MinIDTask;
     }
 }
-static int fof_secondary_evaluate(int target, int mode, 
+static int fof_nearest_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv);
 
-static void fof_label_secondary(void)
+void fof_find_nearest_dmparticle(void)
 {
     int i, n, iter;
     int64_t ntot;
     Evaluator ev = {0};
     ev.ev_label = "FOF_FIND_NEAREST";
-    ev.ev_evaluate = (ev_ev_func) fof_secondary_evaluate;
-    ev.ev_isactive = fof_secondary_isactive;
-    ev.ev_copy = (ev_copy_func) fof_secondary_copy;
-    ev.ev_reduce = (ev_reduce_func) fof_secondary_reduce;
+    ev.ev_evaluate = (ev_ev_func) fof_nearest_evaluate;
+    ev.ev_isactive = fof_nearest_isactive;
+    ev.ev_copy = (ev_copy_func) fof_nearest_copy;
+    ev.ev_reduce = (ev_reduce_func) fof_nearest_reduce;
     ev.UseNodeList = 1;
     ev.UseAllParticles = 1;
     ev.ev_datain_elsize = sizeof(struct fofdata_in);
@@ -902,19 +1130,19 @@ static void fof_label_secondary(void)
         fflush(stdout);
     }
 
-    fof_secondary_distance = (float *) mymalloc("fof_secondary_distance", sizeof(float) * NumPart);
-    fof_secondary_hsml = (float *) mymalloc("fof_secondary_hsml", sizeof(float) * NumPart);
+    fof_nearest_distance = (float *) mymalloc("fof_nearest_distance", sizeof(float) * NumPart);
+    fof_nearest_hsml = (float *) mymalloc("fof_nearest_hsml", sizeof(float) * NumPart);
 
     for(n = 0; n < NumPart; n++)
     {
         if(((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)))
         {
-            fof_secondary_distance[n] = 1.0e30;
+            fof_nearest_distance[n] = 1.0e30;
             if(P[n].Type == 0) {
                 /* use gas sml as a hint (faster convergence than 0.1 LinkL at high-z */
-                fof_secondary_hsml[n] = 0.5 * P[n].Hsml;
+                fof_nearest_hsml[n] = 0.5 * P[n].Hsml;
             } else {
-                fof_secondary_hsml[n] = 0.1 * LinkL;
+                fof_nearest_hsml[n] = 0.1 * LinkL;
             }
         }
     }
@@ -946,24 +1174,24 @@ static void fof_label_secondary(void)
         {
             int p = queue[i];
             count ++;
-            if(fof_secondary_distance[p] > 1.0e29)
+            if(fof_nearest_distance[p] > 1.0e29)
             {
-                if(fof_secondary_hsml[p] < 4 * LinkL)  /* we only search out to a maximum distance */
+                if(fof_nearest_hsml[p] < 4 * LinkL)  /* we only search out to a maximum distance */
                 {
                     /* need to redo this particle */
                     npleft++;
-                    fof_secondary_hsml[p] *= 2.0;
+                    fof_nearest_hsml[p] *= 2.0;
 /*
                     if(iter >= MAXITER - 10)
                     {
                         printf("i=%d task=%d ID=%llu Hsml=%g  pos=(%g|%g|%g)\n",
-                                p, ThisTask, P[p].ID, fof_secondary_hsml[p],
+                                p, ThisTask, P[p].ID, fof_nearest_hsml[p],
                                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
                         fflush(stdout);
                     }
 */
                 } else {
-                    fof_secondary_distance[p] = 0;  /* we not continue to search for this particle */
+                    fof_nearest_distance[p] = 0;  /* we not continue to search for this particle */
                 }
             }
         }
@@ -989,8 +1217,8 @@ static void fof_label_secondary(void)
     }
     while(ntot > 0);
 
-    myfree(fof_secondary_hsml);
-    myfree(fof_secondary_distance);
+    myfree(fof_nearest_hsml);
+    myfree(fof_nearest_distance);
 
     if(ThisTask == 0)
     {
@@ -999,7 +1227,7 @@ static void fof_label_secondary(void)
     }
 }
 
-static int fof_secondary_evaluate(int target, int mode, 
+static int fof_nearest_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
         LocalEvaluator * lv)
 {
@@ -1060,8 +1288,8 @@ static int fof_secondary_evaluate(int target, int mode,
     if(index >= 0)
     {
         O->Distance = sqrt(r2max);
-        O->MinID = HaloLabel[index].MinID;
-        O->MinIDTask = HaloLabel[index].MinIDTask;
+        O->MinID = MinID[Head[index]];
+        O->MinIDTask = MinIDTask[Head[index]];
     }
     else {
         O->Distance = 2.0e30;
@@ -1074,7 +1302,7 @@ static int fof_secondary_evaluate(int target, int mode,
 
 #ifdef BLACK_HOLES
 
-static void fof_make_black_holes(void)
+void fof_make_black_holes(void)
 {
     int i, j, n, ntot;
     int nexport, nimport, recvTask, level;
@@ -1173,7 +1401,27 @@ static void fof_make_black_holes(void)
 
 #endif
 
-static int fof_compare_HaloLabel_MinID(const void *a, const void *b)
+
+double fof_periodic(double x)
+{
+    if(x >= 0.5 * All.BoxSize)
+        x -= All.BoxSize;
+    if(x < -0.5 * All.BoxSize)
+        x += All.BoxSize;
+    return x;
+}
+
+
+double fof_periodic_wrap(double x)
+{
+    while(x >= All.BoxSize)
+        x -= All.BoxSize;
+    while(x < 0)
+        x += All.BoxSize;
+    return x;
+}
+
+int fof_compare_FOF_PList_MinID(const void *a, const void *b)
 {
     if(((struct fof_particle_list *) a)->MinID < ((struct fof_particle_list *) b)->MinID)
         return -1;
@@ -1184,8 +1432,46 @@ static int fof_compare_HaloLabel_MinID(const void *a, const void *b)
     return 0;
 }
 
-static int fof_compare_Group_MinID(const void *a, const void *b)
+int fof_compare_FOF_GList_MinID(const void *a, const void *b)
 
+{
+    if(((struct fof_group_list *) a)->MinID < ((struct fof_group_list *) b)->MinID)
+        return -1;
+
+    if(((struct fof_group_list *) a)->MinID > ((struct fof_group_list *) b)->MinID)
+        return +1;
+
+    return 0;
+}
+
+int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b)
+{
+    if(((struct fof_group_list *) a)->MinIDTask < ((struct fof_group_list *) b)->MinIDTask)
+        return -1;
+
+    if(((struct fof_group_list *) a)->MinIDTask > ((struct fof_group_list *) b)->MinIDTask)
+        return +1;
+
+    return 0;
+}
+
+static void fof_radix_FOF_GList_LocCountTaskDiffMinID(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct fof_group_list * f = (struct fof_group_list *) a;
+    u[0] = labs(f->ExtCount - f->MinIDTask);
+    u[1] = f->MinID;
+    u[2] = UINT64_MAX - f->LocCount;
+}
+
+static void fof_radix_FOF_GList_ExtCountMinID(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct fof_group_list * f = (struct fof_group_list *) a;
+    u[0] = f->MinID;
+    u[1] = f->ExtCount;
+}
+
+
+int fof_compare_Group_MinID(const void *a, const void *b)
 {
     if(((struct group_properties *) a)->MinID < ((struct group_properties *) b)->MinID)
         return -1;
@@ -1196,34 +1482,22 @@ static int fof_compare_Group_MinID(const void *a, const void *b)
     return 0;
 }
 
-static int fof_compare_Group_MinIDTask(const void *a, const void *b)
+static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
+    uint64_t * u = (uint64_t *) radix;
+    struct group_properties * f = (struct group_properties*) a;
+    u[0] = f->GrNr;
+}
+
+
+int fof_compare_Group_MinIDTask(const void *a, const void *b)
 {
-    const struct group_properties * p1 = a;
-    const struct group_properties * p2 = b;
-    int t1 = p1->MinIDTask;
-    int t2 = p2->MinIDTask;
-    if(t1 == ThisTask) t1 = -1;
-    if(t2 == ThisTask) t2 = -1;
+    if(((struct group_properties *) a)->MinIDTask < ((struct group_properties *) b)->MinIDTask)
+        return -1;
 
-    if(t1 < t2) return -1;
-    if(t1 > t2) return +1;
+    if(((struct group_properties *) a)->MinIDTask > ((struct group_properties *) b)->MinIDTask)
+        return +1;
+
     return 0;
-
-}
-
-static void fof_radix_Group_TotalCountTaskDiffMinID(const void * a, void * radix, void * arg) {
-    uint64_t * u = (uint64_t *) radix;
-    struct group_properties * f = (struct group_properties *) a;
-    u[0] = labs(f->OriginalTask - f->MinIDTask);
-    u[1] = f->MinID;
-    u[2] = UINT64_MAX - (f->Length);
-}
-
-static void fof_radix_Group_OriginalTaskMinID(const void * a, void * radix, void * arg) {
-    uint64_t * u = (uint64_t *) radix;
-    struct group_properties * f = (struct group_properties *) a;
-    u[0] = f->MinID;
-    u[1] = f->OriginalTask;
 }
 
 #endif /* of FOF */
