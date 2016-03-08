@@ -768,4 +768,6 @@ void blackhole_make_one(int index) {
     BHP(child).CountProgs = 1;
 #endif
 }
+
+
 #endif

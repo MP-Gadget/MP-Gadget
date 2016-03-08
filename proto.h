@@ -107,11 +107,16 @@ double second(void);
 void set_softenings(void);
 void set_units(void);
 void setup_smoothinglengths(void);
+void fof_fof(int num);
 
 void sumup_large_ints(int n, int *src, int64_t *res);
 void sumup_longs(int n, int64_t *src, int64_t *res);
 int64_t count_to_offset(int64_t countLocal);
 int64_t count_sum(int64_t countLocal);
+
+int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
 
 int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,

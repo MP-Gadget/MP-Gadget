@@ -630,7 +630,6 @@ extern struct global_data_all_processes
 #endif
 
 #ifdef FOF
-    double massDMpart;
     double FOFHaloLinkingLength;
     int FOFHaloMinLength;
 #endif
