@@ -87,7 +87,7 @@ static struct fof_particle_list
 *HaloLabel;
 
 static double LinkL;
-static int NgroupsExt, Nids;
+static int NgroupsExt;
 
 static float *fof_secondary_distance;
 static float *fof_secondary_hsml;
@@ -553,7 +553,7 @@ static void add_particle_to_group(struct group_properties * gdst, int i) {
 static void fof_compile_catalogue(void)
 {
     int i, j, start;
-    struct group_properties * get_Group;
+    struct group_properties * GhostGroup;
 
     /* sort according to MinID */
     qsort(HaloLabel, NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
@@ -595,7 +595,7 @@ static void fof_compile_catalogue(void)
     for(i = 0; i < NgroupsExt; i++)
         Send_count[Group[i].MinIDTask]++;
 
-    /* Skip */
+    /* Skip local groups, receive ghosts from others */
     int Nlocal = Send_count[ThisTask];
     Send_count[ThisTask] = 0;
      
@@ -605,63 +605,67 @@ static void fof_compile_catalogue(void)
     for(i = 0; i < NTask; i ++) {
         nimport += Recv_count[i];
     }
-    get_Group = (struct group_properties *) 
-            mymalloc("get_Group", nimport * sizeof(struct group_properties));
+    GhostGroup = (struct group_properties *) 
+            mymalloc("GhostGroup", nimport * sizeof(struct group_properties));
 
     MPI_Datatype MPI_TYPE;
     MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE);
     MPI_Type_commit(&MPI_TYPE);
 
     MPI_Alltoallv_smart(&Group[Nlocal], Send_count, NULL, MPI_TYPE, 
-                        get_Group, Recv_count, NULL, MPI_TYPE, MPI_COMM_WORLD);
+                        GhostGroup, Recv_count, NULL, MPI_TYPE, MPI_COMM_WORLD);
         
-    /* record the original ordering of get_Group with a MinIDTask sort */
+    /* record the original ordering of GhostGroup with a MinIDTask sort */
     for(i = 0; i < nimport; i++)
-        get_Group[i].MinIDTask = i;
+        GhostGroup[i].MinIDTask = i;
 
     /* sort the groups according to MinID */
     qsort(Group, Nlocal, sizeof(struct group_properties), fof_compare_Group_MinID);
-    qsort(get_Group, nimport, sizeof(struct group_properties), fof_compare_Group_MinID);
+    qsort(GhostGroup, nimport, sizeof(struct group_properties), fof_compare_Group_MinID);
 
     /* merge the imported ones with the local ones */
     for(i = 0, start = 0; i < nimport; i++)
     {
-        while(Group[start].MinID < get_Group[i].MinID)
+        while(Group[start].MinID < GhostGroup[i].MinID)
         {
             start++;
             if(start >= Nlocal)
                 endrun(7973);
         }
-        add_group_to_group(&Group[start], &get_Group[i]); 
+        add_group_to_group(&Group[start], &GhostGroup[i]); 
     }
 
-    /* copy the size information back into the list, to inform the others */
+    /* copy the group attributes back into the list, to inform the others */
     for(i = 0, start = 0; i < nimport; i++)
     {
-        while(Group[start].MinID < get_Group[i].MinID)
+        while(Group[start].MinID < GhostGroup[i].MinID)
             start++;
 
-        int oldMinIDTask = get_Group[i].MinIDTask;
-        get_Group[i] = Group[start];
-        get_Group[i].MinIDTask = oldMinIDTask;
+        int oldMinIDTask = GhostGroup[i].MinIDTask;
+        GhostGroup[i] = Group[start];
+        GhostGroup[i].MinIDTask = oldMinIDTask;
     }
 
-    /* rest the ordering of imported list */
-    qsort(get_Group, nimport, sizeof(struct group_properties), fof_compare_Group_MinIDTask);
+    /* reset the ordering of imported list, such that it can be properly returned */
+    qsort(GhostGroup, nimport, sizeof(struct group_properties), fof_compare_Group_MinIDTask);
 
     for(i = 0; i < nimport; i++)
-        get_Group[i].MinIDTask = ThisTask;
+        GhostGroup[i].MinIDTask = ThisTask;
 
-    MPI_Alltoallv_smart(get_Group, Recv_count, NULL, MPI_TYPE, 
+    MPI_Alltoallv_smart(GhostGroup, Recv_count, NULL, MPI_TYPE, 
                         &Group[Nlocal], Send_count, NULL, MPI_TYPE, MPI_COMM_WORLD);
 
-    myfree(get_Group);
+    myfree(GhostGroup);
 
-    /* sort the group list according to MinID */
+    /* At this point, each Group entry has the reduced attribute of the full group */
+    /* Now it's time to apply FOFHaloMinLength cut */
+
+    /* sort the group list according to MinID 
+     * FIXME: this is likely not needed assign_grnr will redo the sorting */
     qsort(Group, NgroupsExt, sizeof(struct group_properties), fof_compare_Group_MinID);
 
     /* eliminate all groups that are too small */
-    for(i = 0, Ngroups = 0, Nids = 0; i < NgroupsExt; i++)
+    for(i = 0; i < NgroupsExt; i++)
     {
         if(Group[i].Length < All.FOFHaloMinLength)
         {
@@ -670,9 +674,10 @@ static void fof_compile_catalogue(void)
             i--;
         }
     }
-    /* count local groups */
+
+    /* count Groups and number of particles hosted by me */
     Ngroups = 0;
-    Nids = 0;
+    int64_t Nids = 0;
     for(i = 0; i < NgroupsExt; i ++) {
         if(Group[i].MinIDTask == ThisTask)
         {
@@ -681,10 +686,13 @@ static void fof_compile_catalogue(void)
         }
     }
 
+    /* Assign grnr for groups and particles */
     fof_assign_grnr();
 
     MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
-    sumup_large_ints(1, &Nids, &TotNids);
+    MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    /* report some statictics */
     int largestgroup;
     if(TotNgroups > 0)
     {
