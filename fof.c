@@ -94,8 +94,7 @@ static struct fof_group_list
 {
     MyIDType MinID;
     MyIDType MinIDTask;
-    int LocCount;
-    int ExtCount;
+    int Length;
     int GrNr;
     int OriginalTask;
 }
@@ -484,7 +483,7 @@ static int fof_primary_evaluate(int target, int mode,
 
 static void fof_compile_catalogue(void)
 {
-    int i, j, start, nimport, ngrp, recvTask;
+    int i, j, start;
     struct fof_group_list *get_FOF_GList;
 
     /* sort according to MinID */
@@ -511,63 +510,43 @@ static void fof_compile_catalogue(void)
             FOF_GList[item].MinIDTask = HaloLabel[i].MinIDTask;
             next ++;
         }
-        if(HaloLabel[i].MinIDTask == ThisTask) {
-            FOF_GList[item].LocCount += 1;
-        } else {
-            FOF_GList[item].ExtCount += 1;
-        }
+        FOF_GList[item].Length += 1;
     }
     if(next != NgroupsExt) abort();
 
-    /* sort the remaining ones according to task */
+    /* local groups will be moved to the beginning, we skip them with offset */
     qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinIDTask);
 
+    int * Send_count = alloca(sizeof(int) * NTask);
+    int * Recv_count = alloca(sizeof(int) * NTask);
+
     /* count how many we have of each task */
-    for(i = 0; i < NTask; i++)
-        Send_count[i] = 0;
+    memset(Send_count, 0, sizeof(int) * NTask);
     for(i = 0; i < NgroupsExt; i++)
         Send_count[FOF_GList[i].MinIDTask]++;
 
+    /* Skip */
+    int Nlocal = Send_count[ThisTask];
+    Send_count[ThisTask] = 0;
+     
     MPI_Alltoall(Send_count, 1, MPI_INT, Recv_count, 1, MPI_INT, MPI_COMM_WORLD);
 
-    for(j = 0, nimport = 0, Recv_offset[0] = 0, Send_offset[0] = 0; j < NTask; j++)
-    {
-        if(j == ThisTask)		/* we will not exchange the ones that are local */
-            Recv_count[j] = 0;
-        nimport += Recv_count[j];
-
-        if(j > 0)
-        {
-            Send_offset[j] = Send_offset[j - 1] + Send_count[j - 1];
-            Recv_offset[j] = Recv_offset[j - 1] + Recv_count[j - 1];
-        }
+    int nimport = 0;
+    for(i = 0; i < NTask; i ++) {
+        nimport += Recv_count[i];
     }
+    get_FOF_GList = (struct fof_group_list *) 
+            mymalloc("get_FOF_GList", nimport * sizeof(struct fof_group_list));
 
-    get_FOF_GList =
-        (struct fof_group_list *) mymalloc("get_FOF_GList", nimport * sizeof(struct fof_group_list));
+    MPI_Datatype MPI_TYPE;
+    MPI_Type_contiguous(sizeof(FOF_GList[0]), MPI_BYTE, &MPI_TYPE);
+    MPI_Type_commit(&MPI_TYPE);
 
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        recvTask = ThisTask ^ ngrp;
-
-        if(recvTask < NTask)
-        {
-            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-            {
-                /* get the group info */
-                MPI_Sendrecv(&FOF_GList[Send_offset[recvTask]],
-                        Send_count[recvTask] * sizeof(struct fof_group_list), MPI_BYTE,
-                        recvTask, TAG_DENS_A,
-                        &get_FOF_GList[Recv_offset[recvTask]],
-                        Recv_count[recvTask] * sizeof(struct fof_group_list), MPI_BYTE,
-                        recvTask, TAG_DENS_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-    }
-
+    MPI_Alltoallv_smart(&FOF_GList[Nlocal], Send_count, NULL, MPI_TYPE, 
+                        get_FOF_GList, Recv_count, NULL, MPI_TYPE, MPI_COMM_WORLD);
+        
     for(i = 0; i < nimport; i++)
         get_FOF_GList[i].MinIDTask = i;
-
 
     /* sort the groups according to MinID */
     qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinID);
@@ -583,13 +562,10 @@ static void fof_compile_catalogue(void)
                 endrun(7973);
         }
 
-        if(get_FOF_GList[i].LocCount != 0)
-            endrun(123);
-
         if(FOF_GList[start].MinIDTask != ThisTask)
             endrun(124);
 
-        FOF_GList[start].ExtCount += get_FOF_GList[i].ExtCount;
+        FOF_GList[start].Length += get_FOF_GList[i].Length;
     }
 
     /* copy the size information back into the list, to inform the others */
@@ -602,8 +578,7 @@ static void fof_compile_catalogue(void)
                 endrun(797831);
         }
 
-        get_FOF_GList[i].ExtCount = FOF_GList[start].ExtCount;
-        get_FOF_GList[i].LocCount = FOF_GList[start].LocCount;
+        get_FOF_GList[i].Length = FOF_GList[start].Length;
     }
 
     /* sort the imported/exported list according to MinIDTask */
@@ -614,46 +589,30 @@ static void fof_compile_catalogue(void)
     for(i = 0; i < nimport; i++)
         get_FOF_GList[i].MinIDTask = ThisTask;
 
-    for(ngrp = 1; ngrp < (1 << PTask); ngrp++)
-    {
-        recvTask = ThisTask ^ ngrp;
-
-        if(recvTask < NTask)
-        {
-            if(Send_count[recvTask] > 0 || Recv_count[recvTask] > 0)
-            {
-                /* get the group info */
-                MPI_Sendrecv(&get_FOF_GList[Recv_offset[recvTask]],
-                        Recv_count[recvTask] * sizeof(struct fof_group_list), MPI_BYTE,
-                        recvTask, TAG_DENS_A,
-                        &FOF_GList[Send_offset[recvTask]],
-                        Send_count[recvTask] * sizeof(struct fof_group_list), MPI_BYTE,
-                        recvTask, TAG_DENS_A, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-            }
-        }
-    }
+    MPI_Alltoallv_smart(get_FOF_GList, Recv_count, NULL, MPI_TYPE, 
+                        &FOF_GList[Nlocal], Send_count, NULL, MPI_TYPE, MPI_COMM_WORLD);
 
     myfree(get_FOF_GList);
 
     /* eliminate all groups that are too small, and count local groups */
     for(i = 0, Ngroups = 0, Nids = 0; i < NgroupsExt; i++)
     {
-        if(FOF_GList[i].LocCount + FOF_GList[i].ExtCount < All.FOFHaloMinLength)
+        if(FOF_GList[i].Length < All.FOFHaloMinLength)
         {
             FOF_GList[i] = FOF_GList[NgroupsExt - 1];
             NgroupsExt--;
             i--;
         }
-        else
+    }
+    Ngroups = 0;
+    Nids = 0;
+    for(i = 0; i < NgroupsExt; i ++) {
+        if(FOF_GList[i].MinIDTask == ThisTask)
         {
-            if(FOF_GList[i].MinIDTask == ThisTask)
-            {
-                Ngroups++;
-                Nids += FOF_GList[i].LocCount + FOF_GList[i].ExtCount;
-            }
+            Ngroups++;
+            Nids += FOF_GList[i].Length;
         }
     }
-
     /* sort the group list according to MinID */
     qsort(FOF_GList, NgroupsExt, sizeof(struct fof_group_list), fof_compare_FOF_GList_MinID);
 
@@ -667,8 +626,8 @@ static void fof_compile_catalogue(void)
         int largestloc = 0;
 
         for(i = 0; i < NgroupsExt; i++)
-            if(FOF_GList[i].LocCount + FOF_GList[i].ExtCount > largestloc)
-                largestloc = FOF_GList[i].LocCount + FOF_GList[i].ExtCount;
+            if(FOF_GList[i].Length > largestloc)
+                largestloc = FOF_GList[i].Length;
         MPI_Allreduce(&largestloc, &largestgroup, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
     }
     else
@@ -684,6 +643,9 @@ static void fof_compile_catalogue(void)
                     (int) (TotNids / 1000000000), (int) (TotNids % 1000000000));
         }
     }
+
+    MPI_Type_free(&MPI_TYPE);
+
 }
 
 static void fof_compute_group_properties(int gr, int start, int len)
@@ -1375,13 +1337,17 @@ static int fof_compare_FOF_GList_MinID(const void *a, const void *b)
 
 static int fof_compare_FOF_GList_MinIDTask(const void *a, const void *b)
 {
-    if(((struct fof_group_list *) a)->MinIDTask < ((struct fof_group_list *) b)->MinIDTask)
-        return -1;
+    const struct fof_group_list * p1 = a;
+    const struct fof_group_list * p2 = b;
+    int t1 = p1->MinIDTask;
+    int t2 = p2->MinIDTask;
+    if(t1 == ThisTask) t1 = -1;
+    if(t2 == ThisTask) t2 = -1;
 
-    if(((struct fof_group_list *) a)->MinIDTask > ((struct fof_group_list *) b)->MinIDTask)
-        return +1;
-
+    if(t1 < t2) return -1;
+    if(t1 > t2) return +1;
     return 0;
+
 }
 
 static void fof_radix_FOF_GList_TotalCountTaskDiffMinID(const void * a, void * radix, void * arg) {
@@ -1389,7 +1355,7 @@ static void fof_radix_FOF_GList_TotalCountTaskDiffMinID(const void * a, void * r
     struct fof_group_list * f = (struct fof_group_list *) a;
     u[0] = labs(f->OriginalTask - f->MinIDTask);
     u[1] = f->MinID;
-    u[2] = UINT64_MAX - (f->LocCount + f->ExtCount);
+    u[2] = UINT64_MAX - (f->Length);
 }
 
 static void fof_radix_FOF_GList_OriginalTaskMinID(const void * a, void * radix, void * arg) {

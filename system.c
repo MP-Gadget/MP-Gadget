@@ -289,7 +289,12 @@ void report_VmRSS(void)
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) 
-/* sdispls, recvcnts rdispls can be NULL */
+/* 
+ * sdispls, recvcnts rdispls can be NULL,
+ *
+ * if recvbuf is NULL, returns total number of item required to hold the
+ * data.
+ * */
 {
     int ThisTask;
     int NTask;
@@ -302,13 +307,17 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
             nn ++;
         }
     }
-    int dense = nn < NTask * 0.2;
-    int tot_dense = 0;
-    MPI_Allreduce(&dense, &tot_dense, 1, MPI_INT, MPI_SUM, comm);
     if(recvcnts == NULL) {
         recvcnts = alloca(sizeof(int) * NTask);
         MPI_Alltoall(sendcnts, 1, MPI_INT,
                      recvcnts, 1, MPI_INT, comm);
+    }
+    if(recvbuf == NULL) {
+        int totalrecv = 0;
+        for(i = 0; i < NTask; i ++) {
+            totalrecv += recvcnts[i];
+        }
+        return totalrecv;
     }
     if(sdispls == NULL) {
         sdispls = alloca(sizeof(int) * NTask);
@@ -324,6 +333,11 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
             rdispls[i] = rdispls[i - 1] + recvcnts[i - 1];
         }
     }
+
+    int dense = nn < NTask * 0.2;
+    int tot_dense = 0;
+    MPI_Allreduce(&dense, &tot_dense, 1, MPI_INT, MPI_SUM, comm);
+
     if(tot_dense != 0) {
         return MPI_Alltoallv(sendbuf, sendcnts, sdispls, 
                     sendtype, recvbuf, 
