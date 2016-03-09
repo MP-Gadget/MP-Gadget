@@ -100,20 +100,10 @@ BufferSize            100          % in MByte
 TopNodeAllocFactor    0.20
 MaxMemSizePerCore            1200        % per MPI task, in MB
 
-
-% System of units
-
- 
-UnitLength_in_cm         3.085678e21        ;  1.0 kpc
-UnitMass_in_g            1.989e43           ;  1.0e10 solar masses
-UnitVelocity_in_cm_per_s 1e5                ;  1 km/sec
-GravityConstantInternal  0
-
-
-
 % Softening lengths
 
 MinGasHsmlFractional 0.01
+MaxGasVel   3e5
 
 SofteningGas       50
 SofteningHalo      50

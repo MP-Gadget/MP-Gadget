@@ -206,13 +206,15 @@ void set_units(void)
 {
     double meanweight;
 
+    All.UnitVelocity_in_cm_per_s = 1e5; /* 1 km/sec */
+    All.UnitLength_in_cm = 3.085678e21; /* 1.0 Kpc /h */
+    All.UnitMass_in_g = 1.989e43;       /* 1e10 Msun/h*/
+
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
     All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
 
-    if(All.GravityConstantInternal == 0)
-        All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
-    else
-        All.G = All.GravityConstantInternal;
+    All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
+
     All.UnitDensity_in_cgs = All.UnitMass_in_g / pow(All.UnitLength_in_cm, 3);
     All.UnitPressure_in_cgs = All.UnitMass_in_g / All.UnitLength_in_cm / pow(All.UnitTime_in_s, 2);
     All.UnitCoolingRate_in_cgs = All.UnitPressure_in_cgs / All.UnitTime_in_s;
@@ -477,6 +479,7 @@ void read_parameter_file(char *fname)
     int errorFlag = 0;
 
     All.StarformationOn = 0;	/* defaults */
+    All.MaxGasVel = 3e5; /* speed of light */
 
     if(sizeof(int64_t) != 8)
     {
@@ -616,18 +619,6 @@ void read_parameter_file(char *fname)
         addr[nt] = &All.TimeBetSnapshot;
         id[nt++] = REAL;
 
-        strcpy(tag[nt], "UnitVelocity_in_cm_per_s");
-        addr[nt] = &All.UnitVelocity_in_cm_per_s;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "UnitLength_in_cm");
-        addr[nt] = &All.UnitLength_in_cm;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "UnitMass_in_g");
-        addr[nt] = &All.UnitMass_in_g;
-        id[nt++] = REAL;
-
         strcpy(tag[nt], "TreeDomainUpdateFrequency");
         addr[nt] = &All.TreeDomainUpdateFrequency;
         id[nt++] = REAL;
@@ -650,6 +641,10 @@ void read_parameter_file(char *fname)
 
         strcpy(tag[nt], "MinGasHsmlFractional");
         addr[nt] = &All.MinGasHsmlFractional;
+        id[nt++] = REAL;
+
+        strcpy(tag[nt], "MaxGasVel");
+        addr[nt] = &All.MaxGasVel;
         id[nt++] = REAL;
 
         strcpy(tag[nt], "MaxSizeTimestep");
@@ -794,10 +789,6 @@ void read_parameter_file(char *fname)
 
         strcpy(tag[nt], "TopNodeAllocFactor");
         addr[nt] = &All.TopNodeAllocFactor;
-        id[nt++] = REAL;
-
-        strcpy(tag[nt], "GravityConstantInternal");
-        addr[nt] = &All.GravityConstantInternal;
         id[nt++] = REAL;
 
         strcpy(tag[nt], "InitGasTemp");

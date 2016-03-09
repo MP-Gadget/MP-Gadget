@@ -529,22 +529,20 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
             SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
         }
 
-#ifdef MAX_GAS_VEL
-        const double velfac = 1 / sqrt(1 / (All.Time * All.Time * All.Time));
+        const double velfac = sqrt(All.cf.a3inv);
         double vv=0;
         for(j=0; j < 3; j++)
             vv += P[i].Vel[j] * P[i].Vel[j];
         vv = sqrt(vv);
-        if(vv > MAX_GAS_VEL * velfac)
+        if(vv > All.MaxGasVel * velfac)
             for(j=0;j < 3; j++)
             {
-                P[i].Vel[j] *= MAX_GAS_VEL * velfac / vv;
+                P[i].Vel[j] *= All.MaxGasVel * velfac / vv;
                 SPHP(i).VelPred[j] =
                     P[i].Vel[j] - dt_gravkick2 * P[i].GravAccel[j] - dt_hydrokick2 * SPHP(i).HydroAccel[j];
 
                 SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
             }
-#endif
 
         /* In case of cooling, we prevent that the entropy (and
            hence temperature decreases by more than a factor 0.5 */

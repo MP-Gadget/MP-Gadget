@@ -515,6 +515,7 @@ extern struct global_data_all_processes
                                       particle mass and the cosmological parameters). This parameter specifies
                                       this fraction. */
 
+    double MaxGasVel; /* Limit on Gas velocity */
     int MaxMemSizePerCore;
 
     double CourantFac;		/*!< SPH-Courant factor */
