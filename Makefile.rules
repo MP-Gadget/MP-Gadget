@@ -25,7 +25,8 @@ OBJECTS  =  \
 	 gravpm.o \
 	 forcetree.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
-	 densitykernel.o interp.o lightcone.o walltime.o
+	 densitykernel.o interp.o lightcone.o walltime.o \
+	 cppexample.o
 
 ICOBJECTS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
 		 petapm.o \
@@ -67,6 +68,9 @@ $(ICOBJS): $(INCL) $(DESTDIR)/config.h
 
 $(DESTDIR)/%.o: %.c $(INCL)
 	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
+
+$(DESTDIR)/%.o: %.cpp $(INCL)
+	@echo Compiling $<; $(CXX) -c -o $@ $(CFLAGS) $<
 
 clean:
 	rm -f $(OBJS) $(EXEC) $(ICOBJS)
