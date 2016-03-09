@@ -1,6 +1,6 @@
 include ../Options.mk
 
-LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a lib/libpfft.a
+LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a lib/libpfft.a lib/liblua.a
 depends: $(LIBRARIES)
 
 lib/libmpsort-mpi.a:
@@ -14,7 +14,9 @@ lib/libbigfile-mpi.a:
 lib/libpfft.a:
 	MPICC="$(CC)" CFLAGS="$(OPTIMIZE) -I $(PWD)/include -L$(PWD)/lib" \
         sh $(PWD)/pfft-python/depends/install_pfft.sh $(PWD)/
-
+lib/liblua.a:
+	cd lua/; \
+	CC=$(CC) make linux install INSTALL_TOP=$(PWD)
 clean:
 	rm -rf $(LIBRARIES)
 
