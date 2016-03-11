@@ -18,36 +18,6 @@
 
 #ifdef BLACK_HOLES
 
-struct blackhole_event {
-    enum {
-        BHEVENT_ACCRETION = 0,
-        BHEVENT_SCATTER = 1,
-        BHEVENT_SWALLOW = 2,
-    } type;
-    double time;
-    MyIDType ID;
-    union {
-        struct blackhole_accretion_event {
-            /* for ACCRETION*/
-            double pos[3];
-            float bhmass;
-            float bhmdot;
-            float rho_proper;
-            float soundspeed;
-            float bhvel;
-            float gasvel[3];
-            float hsml;
-        } a;
-        struct blackhole_swallow_event { /* for SCATTER and SWALLOW */
-            MyIDType ID_swallow;
-            float bhmass_before;
-            float bhmass_swallow;
-            float vrel;   /* unused for SWALLOW */
-            float soundspeed; /* unused for SWALLOW */
-        } s;
-    };
-};
-
 struct feedbackdata_in
 {
     int NodeList[NODELISTLENGTH];
@@ -266,9 +236,6 @@ void blackhole_accretion(void)
         fflush(FdBlackHoles);
     }
 
-
-    fflush(FdBlackHolesDetails);
-
     walltime_measure("/BH");
 }
 
@@ -307,23 +274,6 @@ static void blackhole_accretion_evaluate(int n) {
 #endif
     BHP(n).Mdot = mdot;
 
-    if(BHP(n).Mass > 0)
-    {
-        struct blackhole_event event;
-        event.type = BHEVENT_ACCRETION;
-        event.time = All.Time;
-        event.ID = P[n].ID;
-        event.a.bhmass = BHP(n).Mass;
-        event.a.bhmdot = mdot;
-        event.a.rho_proper = rho_proper;
-        event.a.soundspeed = soundspeed;
-        event.a.bhvel = bhvel;
-        event.a.pos[0] = P[n].Pos[0];
-        event.a.pos[1] = P[n].Pos[1];
-        event.a.pos[2] = P[n].Pos[2];
-        event.a.hsml = P[n].Hsml;
-        fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
-    }
     double dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
 
     BHP(n).Mass += BHP(n).Mdot * dt;
@@ -470,20 +420,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
 
                         vrel = sqrt(vrel) / All.cf.a;
 
-                        if(vrel > 0.5 * I->Csnd)
-                        {
-                            struct blackhole_event event;
-                            event.type = BHEVENT_SCATTER;
-                            event.time = All.Time;
-                            event.ID = I->ID;
-                            event.s.ID_swallow = P[j].ID;
-                            event.s.bhmass_before = I->BH_Mass;
-                            event.s.bhmass_swallow = BHP(j).Mass;
-                            event.s.vrel = vrel;
-                            event.s.soundspeed = I->Csnd;
-                            fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
-                        }
-                        else
+                        if(vrel <= 0.5 * I->Csnd)
                         {
                             if(P[j].SwallowID < I->ID && P[j].ID < I->ID)
                                 P[j].SwallowID = I->ID;
@@ -607,15 +544,6 @@ int blackhole_swallow_evaluate(int target, int mode,
 #ifdef BH_MERGER
                 if(P[j].Type == 5)	/* we have a black hole merger */
                 {
-                    struct blackhole_event event;
-                    event.type = BHEVENT_SWALLOW;
-                    event.time = All.Time;
-                    event.ID = I->ID;
-                    event.s.ID_swallow = P[j].ID;
-                    event.s.bhmass_before = I->BH_Mass;
-                    event.s.bhmass_swallow = BHP(j).Mass;
-                    fwrite(&event, sizeof(event), 1, FdBlackHolesDetails);
-
                     O->Mass += (P[j].Mass);
                     O->BH_Mass += (BHP(j).Mass);
                     for(k = 0; k < 3; k++)

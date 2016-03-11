@@ -650,11 +650,6 @@ static int make_particle_wind(int i, double v, double vmean[3]) {
         for(j = 0; j < 3; j++)
             dir[j] /= norm;
 
-        fprintf(FdSfrDetails,
-             "Wind T %g %lu M %g P %g %g %g V %g VC %g %g %g D %g %g %g\n",
-                All.Time, P[i].ID, P[i].Mass, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2],
-                v / All.cf.a, vmean[0], vmean[1], vmean[2], dir[0], dir[1], dir[2]);
-
         for(j = 0; j < 3; j++)
         {
             P[i].Vel[j] += v * dir[j];
@@ -667,9 +662,6 @@ static int make_particle_wind(int i, double v, double vmean[3]) {
 #endif
 
 static int make_particle_star(int i) {
-    fprintf(FdSfrDetails, "Star T %g %lu M %g RHOP %g P %g %g %g\n",
-            All.Time, P[i].ID, P[i].Mass, SPHP(i).Density * All.cf.a3inv,
-            P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
 
     /* here we spawn a new star particle */
     double mass_of_star =  All.MassTable[0] / GENERATIONS;

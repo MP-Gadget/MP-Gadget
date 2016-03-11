@@ -280,25 +280,6 @@ void open_outputfiles(void)
     sprintf(dumpdir, "%sdumpdir-%d%s/", All.OutputDir, (int)(ThisTask / chunk), postfix);
     mkdir(dumpdir, 02755);
 
-#ifdef BLACK_HOLES
-    /* Note: This is done by everyone */
-    sprintf(buf, "%sblackhole_details_%d.raw", dumpdir, ThisTask);
-    if(!(FdBlackHolesDetails = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-#ifdef SFR
-    /* Note: This is done by everyone */
-    sprintf(buf, "%ssfr_details_%d.txt", dumpdir, ThisTask);
-    if(!(FdSfrDetails = fopen(buf, mode)))
-    {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
-    }
-#endif
-
     if(ThisTask != 0)		/* only the root processors writes to the log files */
         return;
 
@@ -359,9 +340,6 @@ void open_outputfiles(void)
 */
 void close_outputfiles(void)
 {
-#ifdef BLACK_HOLES
-    fclose(FdBlackHolesDetails);	/* needs to be done by everyone */
-#endif
 
     if(ThisTask != 0)		/* only the root processors writes to the log files */
         return;

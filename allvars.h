@@ -319,12 +319,10 @@ extern FILE *FdInfo,		/*!< file handle for info.txt log-file. */
 
 #ifdef SFR
 extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
-extern FILE *FdSfrDetails;
 #endif
 
 #ifdef BLACK_HOLES
 extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
-extern FILE *FdBlackHolesDetails;
 #endif
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
