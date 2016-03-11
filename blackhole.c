@@ -36,11 +36,10 @@ struct feedbackdata_in
 
 struct feedbackdata_out
 {
-#ifdef BH_REPOSITION_ON_POTMIN
     MyFloat BH_MinPotPos[3];
     MyFloat BH_MinPotVel[3];
     MyFloat BH_MinPot;
-#endif
+
     short int BH_TimeBinLimit;
 };
 
@@ -58,9 +57,7 @@ struct swallowdata_out
     MyDouble Mass;
     MyDouble BH_Mass;
     MyDouble AccretedMomentum[3];
-#ifdef BH_COUNTPROGS
     int BH_CountProgs;
-#endif
 };
 
 static void blackhole_accretion_evaluate(int n);
@@ -141,12 +138,17 @@ void blackhole_accretion(void)
     int Nactive;
     int * queue = ev_get_queue(&fbev, &Nactive);
 
-#ifdef BH_ACCRETION
     for(i = 0; i < Nactive; i ++) {
         int n = queue[i];
+
         blackhole_accretion_evaluate(n);
+
+        int j;
+        for(j = 0; j < 3; j++) {
+            BHP(n).MinPotPos[j] = P[n].Pos[j];
+            BHP(n).MinPotVel[j] = P[n].Vel[j];
+        }
     }
-#endif
 
     /* Now let's invoke the functions that stochasticall swallow gas
      * and deal with black hole mergers.
@@ -167,9 +169,7 @@ void blackhole_accretion(void)
     ev_run(&fbev);
 
     /* Now do the swallowing of particles */
-#if defined(BH_SWALLOWGAS) || defined(BH_MERGER)
     ev_run(&swev);
-#endif
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -243,13 +243,9 @@ static void blackhole_accretion_evaluate(int n) {
     double mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
 
     double rho = BHP(n).Density;
-#ifdef BH_USE_GASVEL_IN_BONDI
     double bhvel = sqrt(pow(P[n].Vel[0] - BHP(n).SurroundingGasVel[0], 2) +
             pow(P[n].Vel[1] - BHP(n).SurroundingGasVel[1], 2) +
             pow(P[n].Vel[2] - BHP(n).SurroundingGasVel[2], 2));
-#else
-    double bhvel = 0;
-#endif
 
     bhvel /= All.cf.a;
     double rho_proper = rho * All.cf.a3inv;
@@ -268,10 +264,10 @@ static void blackhole_accretion_evaluate(int n) {
     else
         mdot = 0;
 
-#ifdef BH_ENFORCE_EDDINGTON_LIMIT
-    if(mdot > All.BlackHoleEddingtonFactor * meddington)
+    if(All.BlackHoleEddingtonFactor > 0.0 && 
+        mdot > All.BlackHoleEddingtonFactor * meddington) {
         mdot = All.BlackHoleEddingtonFactor * meddington;
-#endif
+    }
     BHP(n).Mdot = mdot;
 
     double dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
@@ -281,16 +277,8 @@ static void blackhole_accretion_evaluate(int n) {
 }
 
 static void blackhole_postprocess(int n) {
-#ifdef BH_ACCRETION
     if(BHP(n).accreted_Mass > 0)
     {
-#ifndef BH_REPOSITION_ON_POTMIN
-        int k;
-        for(k = 0; k < 3; k++)
-            P[n].Vel[k] =
-                (P[n].Vel[k] * P[n].Mass + BHP(n).accreted_momentum[k]) /
-                (P[n].Mass + BHP(n).accreted_Mass);
-#endif
         P[n].Mass += BHP(n).accreted_Mass;
         BHP(n).Mass += BHP(n).accreted_BHMass;
         BHP(n).accreted_Mass = 0;
@@ -306,7 +294,6 @@ static void blackhole_postprocess(int n) {
 #pragma omp atomic
         TimeBin_BH_Medd[bin] += BHP(n).Mdot / BHP(n).Mass;
     }
-#endif
 }
 
 static int blackhole_feedback_evaluate(int target, int mode,
@@ -319,16 +306,10 @@ static int blackhole_feedback_evaluate(int target, int mode,
     double hsearch;
 
     int ptypemask = 0;
-#ifndef BH_REPOSITION_ON_POTMIN
-    ptypemask = 1 + (1 << 5);
-#else
     ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
-#endif
 
     O->BH_TimeBinLimit = -1;
-#ifdef BH_REPOSITION_ON_POTMIN
     O->BH_MinPot = BHPOTVALUEINIT;
-#endif
 
     startnode = I->NodeList[0];
     listindex ++;
@@ -379,7 +360,6 @@ static int blackhole_feedback_evaluate(int target, int mode,
 
                 double r2 = dx * dx + dy * dy + dz * dz;
 
-#ifdef BH_REPOSITION_ON_POTMIN
                 /* if this option is switched on, we may also encounter dark matter particles or stars */
                 if(r2 < kernel.HH)
                 {
@@ -406,8 +386,6 @@ static int blackhole_feedback_evaluate(int target, int mode,
                         }
                     }
                 }
-#endif
-#ifdef BH_MERGER
                 if(P[j].Type == 5 && r2 < kernel.HH)	/* we have a black hole merger */
                 {
                     if(I->ID != P[j].ID)
@@ -427,13 +405,11 @@ static int blackhole_feedback_evaluate(int target, int mode,
                         }
                     }
                 }
-#endif
                 if(P[j].Type == 0) {
 #ifdef WINDS
                     /* BH does not accrete wind */
                     if(SPHP(j).DelayTime > 0) continue;
 #endif
-#ifdef BH_SWALLOWGAS
                     if(r2 < kernel.HH) {
                         /* here we have a gas particle */
 
@@ -456,9 +432,8 @@ static int blackhole_feedback_evaluate(int target, int mode,
                                 P[j].SwallowID = I->ID;
                         }
                     }
-#endif
 
-#ifdef BH_THERMALFEEDBACK
+
                     if(r2 < bh_feedback_kernel.HH && P[j].Mass > 0) {
                         double r = sqrt(r2);
                         double u = r * bh_feedback_kernel.Hinv;
@@ -482,7 +457,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
                         }
 
                     }
-#endif
+
                 }
             }
         }
@@ -503,8 +478,6 @@ static int blackhole_feedback_evaluate(int target, int mode,
 
 /**
  * perform blackhole swallow / merger;
- * ran only if BH_MERGER or BH_SWALLOWGAS
- * is defined
  */
 int blackhole_swallow_evaluate(int target, int mode,
         struct swallowdata_in * I,
@@ -514,11 +487,7 @@ int blackhole_swallow_evaluate(int target, int mode,
     int startnode, numngb, k, n, listindex = 0;
 
     int ptypemask = 0;
-#ifndef BH_REPOSITION_ON_POTMIN
-    ptypemask = 1 + (1 << 5);
-#else
     ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
-#endif
 
     startnode = I->NodeList[0];
     listindex ++;
@@ -541,7 +510,7 @@ int blackhole_swallow_evaluate(int target, int mode,
                 lock_particle_if_not(lv->ngblist[n], I->ID);
                 int j = lv->ngblist[n];
                 if(P[j].SwallowID != I->ID) continue;
-#ifdef BH_MERGER
+
                 if(P[j].Type == 5)	/* we have a black hole merger */
                 {
                     O->Mass += (P[j].Mass);
@@ -549,9 +518,7 @@ int blackhole_swallow_evaluate(int target, int mode,
                     for(k = 0; k < 3; k++)
                         O->AccretedMomentum[k] += (P[j].Mass * P[j].Vel[k]);
 
-#ifdef BH_COUNTPROGS
                     O->BH_CountProgs += BHP(j).CountProgs;
-#endif
 
                     int bin = P[j].TimeBin;
 #pragma omp atomic
@@ -572,9 +539,7 @@ int blackhole_swallow_evaluate(int target, int mode,
 #pragma omp atomic
                     N_BH_swallowed++;
                 }
-#endif
 
-#ifdef BH_SWALLOWGAS
                 if(P[j].Type == 0)
                 {
                     O->Mass += (P[j].Mass);
@@ -586,7 +551,6 @@ int blackhole_swallow_evaluate(int target, int mode,
 #pragma omp atomic
                     N_sph_swallowed++;
                 }
-#endif
             }
         }
         if(listindex < NODELISTLENGTH)
@@ -608,16 +572,15 @@ static int blackhole_feedback_isactive(int n) {
 
 static void blackhole_feedback_reduce(int place, struct feedbackdata_out * remote, int mode) {
     int k;
-#ifdef BH_REPOSITION_ON_POTMIN
     if(mode == 0 || BHP(place).MinPot > remote->BH_MinPot)
     {
         BHP(place).MinPot = remote->BH_MinPot;
         for(k = 0; k < 3; k++) {
+            /* Movement occurs in predict.c */
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
             BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
         }
     }
-#endif
     if (mode == 0 ||
             BHP(place).TimeBinLimit < 0 ||
             BHP(place).TimeBinLimit > remote->BH_TimeBinLimit) {
@@ -670,9 +633,7 @@ static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote,
     for(k = 0; k < 3; k++) {
         EV_REDUCE(BHP(place).accreted_momentum[k], remote->AccretedMomentum[k]);
     }
-#ifdef BH_COUNTPROGS
     EV_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
-#endif
 }
 
 void blackhole_make_one(int index) {
@@ -692,9 +653,7 @@ void blackhole_make_one(int index) {
     BHP(child).Mdot = 0;
     BHP(child).MinPot = BHPOTVALUEINIT;
 
-#ifdef BH_COUNTPROGS
     BHP(child).CountProgs = 1;
-#endif
 }
 
 

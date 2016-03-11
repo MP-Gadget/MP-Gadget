@@ -659,12 +659,8 @@ static void GTStarFormationRate(int i, float * out) {
 #endif
 #ifdef BLACK_HOLES
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
-#ifdef BH_ACCRETION
 SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
-#endif
-#ifdef BH_COUNTPROGS
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
-#endif
 #endif
 #ifdef FOF
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
@@ -742,12 +738,8 @@ static void register_io_blocks() {
     /* Blackhole */
     IO_REG(BlackholeMass,          "f8", 1, 5);
     IO_REG(StarFormationTime, "f4", 1, 5);
-#ifdef BH_ACCRETION
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
-#endif
-#ifdef BH_COUNTPROGS
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
-#endif
 #endif
 #ifdef FOF
     fof_register_io_blocks();

@@ -316,7 +316,7 @@ static void cooling_direct(int i) {
             (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
             GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
-#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
+#ifdef BLACK_HOLES
     if(SPHP(i).Injected_BH_Energy)
     {
         if(P[i].Mass == 0)
@@ -703,7 +703,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     double egycurrent =
         SPHP(i).Entropy * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
 
-#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
+#ifdef BLACK_HOLES
     if(SPHP(i).Injected_BH_Energy > 0)
     {
         struct UVBG uvbg;

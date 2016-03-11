@@ -200,17 +200,13 @@ static void real_drift_particle(int i, int time1)
     for(j = 0; j < 3; j++) {
         P[i].Pos[j] += P[i].Vel[j] * dt_drift;
     }
-#ifdef BH_REPOSITION_ON_POTMIN
-#define BHPOTVALUEINIT 1.0e30
     if(P[i].Type == 5) {
         int k;
-        if(BHP(i).MinPot < 0.5 * BHPOTVALUEINIT)
-            for(k = 0; k < 3; k++) {
-                P[i].Pos[k] = BHP(i).MinPotPos[k];
-                P[i].Vel[k] = BHP(i).MinPotVel[k];
-            }
+        for(k = 0; k < 3; k++) {
+            P[i].Pos[k] = BHP(i).MinPotPos[k];
+            P[i].Vel[k] = BHP(i).MinPotVel[k];
+        }
     }
-#endif
 
 #ifdef LIGHTCONE
     lightcone_cross(i, oldpos);

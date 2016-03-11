@@ -739,7 +739,7 @@ int get_timestep(int p,		/*!< particle index */
             printf("sfr = %g\n" , SPHP(p).Sfr);
         }
 #endif
-#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
+#ifdef BLACK_HOLES
         if(P[p].Type == 0) {
             printf("injected_energy = %g\n" , SPHP(p).Injected_BH_Energy);
         }
