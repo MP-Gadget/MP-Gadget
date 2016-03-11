@@ -8,30 +8,35 @@
 extern uint64_t Ngroups, TotNgroups;
 extern int64_t TotNids;
 
-extern struct group_properties
-{
+struct BaseGroup {
   int OriginalTask;
   int Length;
   MyIDType MinID;
   MyIDType MinIDTask;
   int GrNr;
-  int LenType[6];
-  double MassType[6];
-  double Mass;
-  double CM[3];
-  double Vel[3];
-  MyDouble FirstPos[3];
+};
+
+extern struct Group 
+{
+    struct BaseGroup base; 
+    int Length;
+    int LenType[6];
+    double MassType[6];
+    double Mass;
+    double CM[3];
+    double Vel[3];
+    MyDouble FirstPos[3];
 #ifdef SFR
-  double Sfr;
+    double Sfr;
 #endif
 #ifdef BLACK_HOLES
-  double BH_Mass;
-  double BH_Mdot;
-  double MaxDens;
+    double BH_Mass;
+    double BH_Mdot;
+    double MaxDens;
 #endif
-  int seed_index; 
-  int seed_task;
-} *Group;
+    int seed_index; 
+    int seed_task;
+} * Group;
 
 #endif
 

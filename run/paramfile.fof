@@ -70,7 +70,7 @@ CourantFac             0.15
 
 MaxSizeTimestep       0.1
 MinSizeTimestep       0.05
-
+MaxGasVel 3e5
 FOFHaloLinkingLength 0.2
 FOFHaloMinLength     32
 

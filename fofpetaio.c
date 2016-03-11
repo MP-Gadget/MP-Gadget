@@ -14,10 +14,8 @@
 #include "domain.h"
 #include "fof.h"
 #include "mymalloc.h"
+
 #ifdef FOF
-/* from FoF*/
-extern uint64_t Ngroups, TotNgroups;
-extern struct group_properties *Group;
 
 static void fof_write_header(BigFile * bf);
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent);
@@ -34,7 +32,7 @@ static int fof_cmp_argind(const void *p1, const void * p2) {
 static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg);
 static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     uint64_t * u = (uint64_t *) radix;
-    struct group_properties * f = (struct group_properties*) a;
+    struct BaseGroup * f = (struct BaseGroup*) a;
     u[0] = f->GrNr;
 }
 
@@ -47,7 +45,7 @@ void fof_save_particles(int num) {
     }
 
     /* sort the groups according to group-number */
-    mpsort_mpi(Group, Ngroups, sizeof(struct group_properties), 
+    mpsort_mpi(Group, Ngroups, sizeof(struct Group), 
             fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
 
     walltime_measure("/FOF/IO/Misc");
@@ -284,7 +282,7 @@ static void fof_write_header(BigFile * bf) {
     big_block_mpi_close(&bh, MPI_COMM_WORLD);
 }
 
-SIMPLE_PROPERTY(GroupID, Group[i].GrNr, uint32_t, 1)
+SIMPLE_PROPERTY(GroupID, Group[i].base.GrNr, uint32_t, 1)
 SIMPLE_PROPERTY(MassCenterPosition, Group[i].CM[0], double, 3)
 SIMPLE_PROPERTY(MassCenterVelocity, Group[i].Vel[0], float, 3)
 SIMPLE_PROPERTY(Mass, Group[i].Mass, float, 1)
