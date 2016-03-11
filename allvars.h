@@ -626,6 +626,7 @@ extern struct global_data_all_processes
     double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
     double BlackHoleMaxAccretionRadius;
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
+    int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
 #endif
 
 #ifdef FOF
@@ -651,7 +652,8 @@ struct bh_particle_data {
     MyFloat Mdot;
     MyFloat FeedbackWeightSum;
     MyFloat Density;
-    MyFloat EntOrPressure;
+    MyFloat Entropy;
+    MyFloat Pressure;
 #ifdef BH_USE_GASVEL_IN_BONDI
     MyFloat SurroundingGasVel[3];
 #endif

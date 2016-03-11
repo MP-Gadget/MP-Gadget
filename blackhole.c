@@ -88,16 +88,16 @@ static int blackhole_swallow_evaluate(int target, int mode,
 
 static int N_sph_swallowed, N_BH_swallowed;
 
-static double blackhole_soundspeed(double entropy_or_pressure, double rho) {
+static double blackhole_soundspeed(double entropy, double pressure, double rho) {
     /* rho is comoving !*/
     double cs;
-#ifdef BH_CSND_FROM_PRESSURE
-    cs = sqrt(GAMMA * entropy_or_pressure / rho);
+    if (All.BlackHoleSoundSpeedFromPressure) {
+        cs = sqrt(GAMMA * pressure / rho);
+    } else {
+        cs = sqrt(GAMMA * entropy *
+                pow(rho, GAMMA_MINUS1));
+    }
 
-#else
-    cs = sqrt(GAMMA * entropy_or_pressure *
-            pow(rho, GAMMA_MINUS1));
-#endif
     cs *= pow(All.Time, -1.5 * GAMMA_MINUS1);
 
     return cs;
@@ -254,7 +254,7 @@ static void blackhole_accretion_evaluate(int n) {
     bhvel /= All.cf.a;
     double rho_proper = rho * All.cf.a3inv;
 
-    double soundspeed = blackhole_soundspeed(BHP(n).EntOrPressure, rho);
+    double soundspeed = blackhole_soundspeed(BHP(n).Entropy, BHP(n).Pressure, rho);
 
     /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
     double meddington = (4 * M_PI * GRAVITY * C * PROTONMASS / (0.1 * C * C * THOMPSON)) * BHP(n).Mass
@@ -639,9 +639,9 @@ static void blackhole_feedback_copy(int place, struct feedbackdata_in * I) {
     I->Density = BHP(place).Density;
     I->FeedbackWeightSum = BHP(place).FeedbackWeightSum;
     I->Mdot = BHP(place).Mdot;
-    I->Csnd =
-        blackhole_soundspeed(
-                BHP(place).EntOrPressure,
+    I->Csnd = blackhole_soundspeed(
+                BHP(place).Entropy,
+                BHP(place).Pressure,
                 BHP(place).Density);
     I->Dt =
         (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;

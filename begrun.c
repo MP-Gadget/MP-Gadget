@@ -359,8 +359,6 @@ void close_outputfiles(void)
 
 }
 
-
-
 struct multichoice { char * name; int value; } ;
 static int parse_multichoice(struct multichoice * table, char * strchoices) {
     int value = 0;
@@ -793,6 +791,8 @@ void read_parameter_file(char *fname)
 #endif
 
 #ifdef BLACK_HOLES
+        All.BlackHoleSoundSpeedFromPressure = 0;
+
         strcpy(tag[nt], "TimeBetBlackHoleSearch");
         addr[nt] = &All.TimeBetBlackHoleSearch;
         id[nt++] = REAL;

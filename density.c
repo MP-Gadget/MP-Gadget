@@ -46,7 +46,8 @@ struct densdata_out
     MyDouble Div, Rot[3];
 
 #ifdef BLACK_HOLES
-    MyDouble SmoothedEntOrPressure;
+    MyDouble SmoothedEntropy;
+    MyDouble SmoothedPressure;
     MyDouble FeedbackWeightSum;
     MyDouble GasVel[3];
 #endif
@@ -345,7 +346,8 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
     {
         EV_REDUCE(BHP(place).Density, remote->Rho);
         EV_REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
-        EV_REDUCE(BHP(place).EntOrPressure, remote->SmoothedEntOrPressure);
+        EV_REDUCE(BHP(place).Entropy, remote->SmoothedEntropy);
+        EV_REDUCE(BHP(place).Pressure, remote->SmoothedPressure);
 #ifdef BH_USE_GASVEL_IN_BONDI
         EV_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
         EV_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
@@ -467,11 +469,8 @@ static int density_evaluate(int target, int mode,
 
 
 #ifdef BLACK_HOLES
-#ifdef BH_CSND_FROM_PRESSURE
-                    O->SmoothedEntOrPressure += (mass_j * wk * SPHP(j).Pressure);
-#else
-                    O->SmoothedEntOrPressure += (mass_j * wk * SPHP(j).Entropy);
-#endif
+                    O->SmoothedPressure += (mass_j * wk * SPHP(j).Pressure);
+                    O->SmoothedEntropy += (mass_j * wk * SPHP(j).Entropy);
                     O->GasVel[0] += (mass_j * wk * SPHP(j).VelPred[0]);
                     O->GasVel[1] += (mass_j * wk * SPHP(j).VelPred[1]);
                     O->GasVel[2] += (mass_j * wk * SPHP(j).VelPred[2]);
@@ -659,7 +658,8 @@ static void density_post_process(int i) {
     {
         if(BHP(i).Density > 0)
         {
-            BHP(i).EntOrPressure /= BHP(i).Density;
+            BHP(i).Entropy /= BHP(i).Density;
+            BHP(i).Pressure /= BHP(i).Density;
 #ifdef BH_USE_GASVEL_IN_BONDI
             BHP(i).SurroundingGasVel[0] /= BHP(i).Density;
             BHP(i).SurroundingGasVel[1] /= BHP(i).Density;
