@@ -207,7 +207,6 @@ int force_treebuild_single(int npart, struct unbind_data *mp)
         {
             no = TopNodes[no].Daughter + (key - TopNodes[no].StartKey) / (TopNodes[no].Size / 8);
             shift -= 3;
-            rep++;
         }
 
         no = TopNodes[no].Leaf;
@@ -244,6 +243,7 @@ int force_treebuild_single(int npart, struct unbind_data *mp)
 
                     if(subnode >= 8)
                         subnode = 7;
+                    rep++;
                 }
 #endif
 
@@ -255,7 +255,6 @@ int force_treebuild_single(int npart, struct unbind_data *mp)
                 {
                     parent = th;
                     th = nn;
-                    rep++;
                 }
                 else
                 {
@@ -328,6 +327,7 @@ int force_treebuild_single(int npart, struct unbind_data *mp)
 
                     if(subnode >= 8)
                         subnode = 7;
+                    rep++;
                 }
 #endif
                 nfreep->u.suns[subnode] = th;
@@ -350,6 +350,7 @@ int force_treebuild_single(int npart, struct unbind_data *mp)
                         printf
                             ("task %d: looks like a serious problem for particle %d, stopping with particle dump.\n",
                              ThisTask, i);
+                        savepositions(999999, 0);
                         endrun(1);
                     }
                     else
