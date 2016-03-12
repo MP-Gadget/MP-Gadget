@@ -281,12 +281,10 @@ extern int GlobFlag;
 extern char DumpFlag;
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
-/* the below numbers are inexact unless rearrange_particle_sequence is called */
-extern int N_sph;		/*!< number of gas particles on the LOCAL processor  */
-extern int N_bh;		/*!< number of bh particles on the LOCAL processor  */
 
-extern int64_t Ntype[6];	/*!< total number of particles of each type */
-extern int NtypeLocal[6];	/*!< local number of particles of each type */
+/* the below numbers are inexact unless rearrange_particle_sequence is called */
+extern int N_sph;		/*!< number of used items in SphP */
+extern int N_bh;		/*!< number of used items in BhP */
 
 extern gsl_rng *random_generator;	/*!< the random number generator used */
 

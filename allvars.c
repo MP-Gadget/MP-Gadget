@@ -72,9 +72,6 @@ int NumPart;			/*!< total number of particles on the LOCAL processor */
 int N_sph;			/*!< number of gas particles on the LOCAL processor  */
 int N_bh;			/*!< number of bh particles on the LOCAL processor  */
 
-int64_t Ntype[6];		/*!< total number of particles of each type */
-int NtypeLocal[6];		/*!< local number of particles of each type */
-
 gsl_rng *random_generator;	/*!< the random number generator used */
 
 

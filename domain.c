@@ -358,6 +358,9 @@ double domain_particle_costfactor(int i)
 int domain_decompose(void)
 {
 
+    int64_t Ntype[6];		/*!< total number of particles of each type */
+    int NtypeLocal[6];		/*!< local number of particles of each type */
+
     int i, status;
     int64_t sumload;
     int maxload;
