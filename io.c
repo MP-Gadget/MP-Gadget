@@ -30,11 +30,9 @@ void savepositions(int num, int reason)
 {
     walltime_measure("/Misc");
 
-#if defined(SFR) || defined(BLACK_HOLES)
     rearrange_particle_sequence();
     /* ensures that new tree will be constructed */
     All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);
-#endif
 
     walltime_measure("/Snapshot/Misc");
     petaio_save_snapshot(num);
@@ -63,44 +61,3 @@ void savepositions(int num, int reason)
 
     }
 }
-
-size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE * stream)
-{
-    size_t nwritten;
-
-    if(size * nmemb > 0)
-    {
-        if((nwritten = fwrite(ptr, size, nmemb, stream)) != nmemb)
-        {
-            printf("I/O error (fwrite) on task=%d has occured: %s\n", ThisTask, strerror(errno));
-            fflush(stdout);
-            endrun(777);
-        }
-    }
-    else
-        nwritten = 0;
-
-    return nwritten;
-}
-
-size_t my_fread(void *ptr, size_t size, size_t nmemb, FILE * stream)
-{
-    size_t nread;
-
-    if(size * nmemb == 0)
-        return 0;
-
-    if((nread = fread(ptr, size, nmemb, stream)) != nmemb)
-    {
-        if(feof(stream))
-            printf("I/O error (fread) on task=%d has occured: end of file\n", ThisTask);
-        else
-            printf("I/O error (fread) on task=%d has occured: %s\n", ThisTask, strerror(errno));
-        fflush(stdout);
-        endrun(778);
-    }
-    return nread;
-}
-
-                
-
