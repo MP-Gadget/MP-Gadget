@@ -478,7 +478,7 @@ void force_insert_pseudo_particles(void)
  *  decomposition, while Bit 1 signals whether the top-level node is
  *  dependent on local mass.
  *
- *  If UNEQUALSOFTENINGS is set, bits 2-4 give the particle type with
+ *  bits 2-4 give the particle type with
  *  the maximum softening among the particles in the node, and bit 5
  *  flags whether the node contains any particles with lower softening
  *  than that.
@@ -490,12 +490,10 @@ void force_update_node_recursive(int no, int sib, int father)
     MyFloat s[3], vs[3], mass;
     struct particle_data *pa;
 
-#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
     int maxsofttype, current_maxsofttype, diffsoftflag;
 #else
     MyFloat maxsoft;
-#endif
 #endif
 
     if(no >= All.MaxPart && no < All.MaxPart + MaxNodes)	/* internal node */
@@ -529,13 +527,11 @@ void force_update_node_recursive(int no, int sib, int father)
         divVmax = 0;
         count_particles = 0;
 
-#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
         maxsofttype = 7;
         diffsoftflag = 0;
 #else
         maxsoft = 0;
-#endif
 #endif
 
         for(j = 0; j < 8; j++)
@@ -590,7 +586,6 @@ void force_update_node_recursive(int no, int sib, int father)
                         if(Extnodes[p].divVmax > divVmax)
                             divVmax = Extnodes[p].divVmax;
 
-#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
                         diffsoftflag |= maskout_different_softening_flag(Nodes[p].u.d.bitflags);
 
@@ -617,7 +612,6 @@ void force_update_node_recursive(int no, int sib, int father)
 #else
                         if(Nodes[p].maxsoft > maxsoft)
                             maxsoft = Nodes[p].maxsoft;
-#endif
 #endif
                     }
                 }
@@ -648,7 +642,6 @@ void force_update_node_recursive(int no, int sib, int father)
                         if((v = fabs(pa->Vel[k])) > vmax)
                             vmax = v;
 
-#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
                     if(maxsofttype == 7)
                         maxsofttype = pa->Type;
@@ -676,7 +669,6 @@ void force_update_node_recursive(int no, int sib, int father)
                         if(All.ForceSoftening[pa->Type] > maxsoft)
                             maxsoft = All.ForceSoftening[pa->Type];
                     }
-#endif
 #endif
                 }
             }
@@ -728,12 +720,10 @@ void force_update_node_recursive(int no, int sib, int father)
 
         Nodes[no].u.d.bitflags = multiple_flag;
 
-#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
         Nodes[no].u.d.bitflags |= diffsoftflag + (maxsofttype << BITFLAG_MAX_SOFTENING_TYPE);
 #else
         Nodes[no].maxsoft = maxsoft;
-#endif
 #endif
         Nodes[no].u.d.sibling = sib;
         Nodes[no].u.d.father = father;
@@ -873,12 +863,10 @@ void force_treeupdate_pseudos(int no)
     MyFloat hmax, vmax, divVmax;
     MyFloat s[3], vs[3], mass;
 
-#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
     int maxsofttype, diffsoftflag, current_maxsofttype;
 #else
     MyFloat maxsoft;
-#endif
 #endif
 
     mass = 0;
@@ -892,13 +880,11 @@ void force_treeupdate_pseudos(int no)
     vmax = 0;
     divVmax = 0;
     count_particles = 0;
-#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
     maxsofttype = 7;
     diffsoftflag = 0;
 #else
     maxsoft = 0;
-#endif
 #endif
 
     p = Nodes[no].u.d.nextnode;
@@ -934,7 +920,6 @@ void force_treeupdate_pseudos(int no)
                     count_particles++;
             }
 
-#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
             diffsoftflag |= maskout_different_softening_flag(Nodes[p].u.d.bitflags);
 
@@ -960,7 +945,6 @@ void force_treeupdate_pseudos(int no)
 #else
             if(Nodes[p].maxsoft > maxsoft)
                 maxsoft = Nodes[p].maxsoft;
-#endif
 #endif
         }
         else
@@ -1012,12 +996,10 @@ void force_treeupdate_pseudos(int no)
 
     Nodes[no].u.d.bitflags |= multiple_flag;
 
-#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
     Nodes[no].u.d.bitflags |= diffsoftflag + (maxsofttype << BITFLAG_MAX_SOFTENING_TYPE);
 #else
     Nodes[no].maxsoft = maxsoft;
-#endif
 #endif
 }
 
@@ -1518,11 +1500,8 @@ int force_treeev_shortrange(int target, int mode,
     pos_x = input->Pos[0];
     pos_y = input->Pos[1];
     pos_z = input->Pos[2];
-#if defined(UNEQUALSOFTENINGS)
     ptype = input->Type;
-#else
-    ptype = P[0].Type;
-#endif
+
     aold = All.ErrTolForceAcc * input->OldAcc;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     if(ptype == 0)
@@ -1531,12 +1510,6 @@ int force_treeev_shortrange(int target, int mode,
     rcut2 = rcut * rcut;
 
     asmthfac = 0.5 / asmth * (NTAB / 3.0);
-
-#ifndef UNEQUALSOFTENINGS
-    h = All.ForceSoftening[ptype];
-    h_inv = 1.0 / h;
-    h3_inv = h_inv * h_inv * h_inv;
-#endif
 
     while(no >= 0)
     {
@@ -1558,7 +1531,7 @@ int force_treeev_shortrange(int target, int mode,
                 r2 = dx * dx + dy * dy + dz * dz;
 
                 mass = P[no].Mass;
-#ifdef UNEQUALSOFTENINGS
+
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
                 if(ptype == 0)
                     h = soft;
@@ -1579,7 +1552,6 @@ int force_treeev_shortrange(int target, int mode,
                 h = All.ForceSoftening[ptype];
                 if(h < All.ForceSoftening[P[no].Type])
                     h = All.ForceSoftening[P[no].Type];
-#endif
 #endif
                 no = Nextnode[no];
             }
@@ -1688,7 +1660,6 @@ int force_treeev_shortrange(int target, int mode,
                     }
                 }
 
-#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
                 h = All.ForceSoftening[ptype];
                 if(h < All.ForceSoftening[extract_max_softening_type(nop->u.d.bitflags)])
@@ -1720,7 +1691,6 @@ int force_treeev_shortrange(int target, int mode,
                     }
                 }
 #endif
-#endif
                 no = nop->u.d.sibling;	/* ok, node can be used */
 
             }
@@ -1734,10 +1704,8 @@ int force_treeev_shortrange(int target, int mode,
             }
             else
             {
-#ifdef UNEQUALSOFTENINGS
                 h_inv = 1.0 / h;
                 h3_inv = h_inv * h_inv * h_inv;
-#endif
                 u = r * h_inv;
                 if(u < 0.5)
                     fac = mass * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));

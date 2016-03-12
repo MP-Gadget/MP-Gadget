@@ -203,12 +203,10 @@ void gravtree_copy(int place, struct gravitydata_in * input) {
     for(k = 0; k < 3; k++)
         input->Pos[k] = P[place].Pos[k];
 
-#if defined(UNEQUALSOFTENINGS)
     input->Type = P[place].Type;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     if(P[place].Type == 0)
         input->Soft = P[place].Hsml;
-#endif
 #endif
     input->OldAcc = P[place].OldAcc;
 

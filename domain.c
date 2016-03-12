@@ -428,30 +428,6 @@ int domain_decompose(void)
     MPI_Allgather(&cadj_SpeedFac, 1, MPI_DOUBLE, list_speedfac, 1, MPI_DOUBLE, MPI_COMM_WORLD);
 #endif
 
-#ifndef UNEQUALSOFTENINGS
-    for(i = 0; i < 6; i++)
-        if(Ntype[i] > 0)
-            break;
-
-    int j;
-
-    for(j = i + 1; j < 6; j++)
-    {
-        if(Ntype[j] > 0)
-            if(All.SofteningTable[j] != All.SofteningTable[i])
-            {
-                if(ThisTask == 0)
-                {
-                    fprintf(stdout, "Code was not compiled with UNEQUALSOFTENINGS, but some of the\n");
-                    fprintf(stdout, "softening lengths are unequal nevertheless.\n");
-                    fprintf(stdout, "This is not allowed.\n");
-                }
-                endrun(0);
-            }
-    }
-#endif
-
-
     /* determine global dimensions of domain grid */
     domain_findExtent();
 
