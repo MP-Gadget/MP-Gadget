@@ -15,8 +15,6 @@
 #include "mymalloc.h"
 #include "fof.h"
 
-static void test_id_uniqueness(void);
-
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
  */
@@ -469,68 +467,4 @@ void setup_smoothinglengths(void)
     density();
 #endif
 
-}
-
-
-
-static void radix_id(const void * data, void * radix, void * arg) {
-    ((uint64_t *) radix)[0] = ((MyIDType*) data)[0];
-}
-
-static void test_id_uniqueness(void)
-{
-    int i;
-    double t0, t1;
-    MyIDType *ids, *ids_first;
-
-    if(ThisTask == 0)
-    {
-        printf("Testing ID uniqueness...\n");
-        fflush(stdout);
-    }
-
-    if(NumPart == 0)
-    {
-        printf("need at least one particle per cpu\n");
-        endrun(8);
-    }
-
-    t0 = second();
-
-    ids = (MyIDType *) mymalloc("ids", NumPart * sizeof(MyIDType));
-    ids_first = (MyIDType *) mymalloc("ids_first", NTask * sizeof(MyIDType));
-
-    for(i = 0; i < NumPart; i++)
-        ids[i] = P[i].ID;
-
-    mpsort_mpi(ids, NumPart, sizeof(MyIDType), radix_id, 8, NULL, MPI_COMM_WORLD);
-
-    for(i = 1; i < NumPart; i++)
-        if(ids[i] == ids[i - 1])
-        {
-            printf("non-unique ID=%d%09d found on task=%d (i=%d NumPart=%d)\n",
-                    (int) (ids[i] / 1000000000), (int) (ids[i] % 1000000000), ThisTask, i, NumPart);
-
-            endrun(12);
-        }
-
-    MPI_Allgather(&ids[0], sizeof(MyIDType), MPI_BYTE, ids_first, sizeof(MyIDType), MPI_BYTE, MPI_COMM_WORLD);
-
-    if(ThisTask < NTask - 1)
-        if(ids[NumPart - 1] == ids_first[ThisTask + 1])
-        {
-            printf("non-unique ID=%d found on task=%d\n", (int) ids[NumPart - 1], ThisTask);
-            endrun(13);
-        }
-
-    myfree(ids_first);
-    myfree(ids);
-
-    t1 = second();
-
-    if(ThisTask == 0)
-    {
-        printf("success.  took=%g sec\n", timediff(t0, t1));
-        fflush(stdout);
-    }
 }
