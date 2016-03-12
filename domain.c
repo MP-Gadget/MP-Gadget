@@ -993,6 +993,7 @@ int domain_fork_particle(int parent) {
     /* change the child ID according to the generation. */
     P[child] = P[parent];
     P[child].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
+
     /* the PIndex still points to the old PIndex */
     P[child].Mass = 0;
 
@@ -2160,7 +2161,7 @@ void rearrange_particle_sequence(void)
 #ifdef SFR
     for(i = 0; i < N_sph; i++) {
         while(P[i].Type != 0) {
-            /* remove this particle, because
+            /* remove this particle from SphP, because
              * it is no longer a SPH
              * */
             psave = P[i];
@@ -2169,6 +2170,7 @@ void rearrange_particle_sequence(void)
             P[j] = psave;
             flag = 1;
             i --;
+            N_sph --;
         }
     }
 #endif
