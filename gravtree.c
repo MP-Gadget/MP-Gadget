@@ -30,8 +30,6 @@
 #define LOCK_WORKCOUNT
 #define UNLOCK_WORKCOUNT
 
-int NextParticle;
-
 double Ewaldcount, Costtotal;
 int64_t N_nodesinlist;
 

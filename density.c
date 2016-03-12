@@ -13,8 +13,6 @@
 #include "evaluator.h"
 #include "mymalloc.h"
 
-extern int NextParticle;
-
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
 struct densdata_in
