@@ -4,11 +4,14 @@
 #include "allvars.h"
 #include "proto.h"
 #include "evaluator.h"
-#include "tags.h"
+
 #include "openmpsort.h"
 #include "mymalloc.h"
 #include "domain.h"
 #include "forcetree.h"
+
+#define TAG_EVALUATE_A (9999)
+#define TAG_EVALUATE_B (10000)
 
 static int *Exportflag;	        /*!< Buffer used for flagging whether a particle needs to be exported to another process */
 static int *Exportnodecount;

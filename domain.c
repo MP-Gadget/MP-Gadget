@@ -12,6 +12,8 @@
 #include "forcetree.h"
 #include "mymalloc.h"
 
+#define TAG_GRAV_A        18
+#define TAG_GRAV_B        19
 
 /*! \file domain.c
  *  \brief code for domain decomposition

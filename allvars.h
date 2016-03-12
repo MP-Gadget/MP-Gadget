@@ -43,7 +43,6 @@
 
 #include "walltime.h"
 
-#include "tags.h"
 #include "assert.h"
 
 
