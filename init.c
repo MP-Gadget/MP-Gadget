@@ -186,7 +186,7 @@ void init(void)
         SPHP(i).Sfr = 0;
 #endif
 
-#ifdef BH_THERMALFEEDBACK
+#ifdef BLACK_HOLES
         SPHP(i).Injected_BH_Energy = 0;
 #endif
     }
