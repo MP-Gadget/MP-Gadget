@@ -518,6 +518,7 @@ void every_timestep_stuff(void)
     sumup_large_ints(1, &NumPart, &All.TotNumPart);
     sumup_large_ints(1, &N_sph, &All.TotN_sph);
     sumup_large_ints(1, &N_bh, &All.TotN_bh);
+    sumup_large_ints(1, &N_star, &All.TotN_star);
 
     if(ThisTask == 0)
     {
@@ -540,8 +541,8 @@ void every_timestep_stuff(void)
 
         fflush(FdInfo);
 
-        printf("TotNumPart: %014ld SPH %014ld BH %014ld\n",
-                All.TotNumPart, All.TotN_sph, All.TotN_bh);
+        printf("TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
+                All.TotNumPart, All.TotN_sph, All.TotN_bh, All.TotN_star);
         printf("Occupied timebins: non-sph         sph       dt\n");
         for(i = TIMEBINS - 1, tot = tot_sph = 0; i >= 0; i--)
             if(tot_count_sph[i] > 0 || tot_count[i] > 0)

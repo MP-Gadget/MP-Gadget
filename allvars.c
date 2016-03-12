@@ -71,6 +71,7 @@ int GlobFlag;
 int NumPart;			/*!< total number of particles on the LOCAL processor */
 int N_sph;			/*!< number of gas particles on the LOCAL processor  */
 int N_bh;			/*!< number of bh particles on the LOCAL processor  */
+int N_star;
 
 gsl_rng *random_generator;	/*!< the random number generator used */
 

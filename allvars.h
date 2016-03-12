@@ -285,6 +285,7 @@ extern int NumPart;		/*!< number of particles on the LOCAL processor */
 /* the below numbers are inexact unless rearrange_particle_sequence is called */
 extern int N_sph;		/*!< number of used items in SphP */
 extern int N_bh;		/*!< number of used items in BhP */
+extern int N_star;   
 
 extern gsl_rng *random_generator;	/*!< the random number generator used */
 
@@ -321,6 +322,7 @@ extern struct global_data_all_processes
     int64_t TotNumPart;		/*!<  total particle numbers (global value) */
     int64_t TotN_sph;		/*!<  total gas particle number (global value) */
     int64_t TotN_bh;
+    int64_t TotN_star;
 
 #ifdef NEUTRINOS
     int64_t TotNumNeutrinos;

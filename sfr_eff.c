@@ -663,7 +663,7 @@ static int make_particle_star(int i) {
     {
         /* here we turn the gas particle itself into a star */
         stars_converted++;
-
+        N_star++;
         sum_mass_stars += P[i].Mass;
 
         P[i].Type = 4;
@@ -678,6 +678,7 @@ static int make_particle_star(int i) {
     {
         int child = domain_fork_particle(i);
 
+        N_star++;
         /* set ptype */
         P[child].Type = 4;
         P[child].Mass = mass_of_star;
@@ -773,9 +774,11 @@ static void starformation(int i) {
     }
 
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
-
-#ifdef ENDLESSSTARS
+#ifdef QUICK_LYALPHA
     prob = 2.0;
+#endif
+#ifdef ENDLESSSTARS
+    prob = 0.6;
 #endif
     if(get_random_number(P[i].ID + 1) < prob)	{
         make_particle_star(i);
