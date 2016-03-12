@@ -207,10 +207,6 @@ void advance_and_find_timesteps(void)
             if(P[i].Type == 0)
             {
                 TimeBinCountSph[binold]--;
-#ifdef SFR
-                TimeBinSfr[binold] -= SPHP(i).Sfr;
-                TimeBinSfr[bin] += SPHP(i).Sfr;
-#endif
             }
 
             prev = PrevInTimeBin[i];

@@ -109,11 +109,6 @@ void cooling_and_starformation(void)
 
     walltime_measure("/Misc");
 
-    for(bin = 0; bin < TIMEBINS; bin++) {
-        if(!TimeBinActive[bin]) continue;
-        TimeBinSfr[bin] = 0;
-    }
-
     stars_spawned = stars_converted = 0;
     sum_sm = sum_mass_stars = 0;
 
@@ -186,12 +181,9 @@ void cooling_and_starformation(void)
         /* Note: New tree construction can be avoided because of  `force_add_star_to_tree()' */
     }
 
-    double sfrrate = 0, totsfrrate;
-    for(bin = 0; bin < TIMEBINS; bin++)
-        if(TimeBinCount[bin])
-            sfrrate += TimeBinSfr[bin];
+    double totsfrrate;
 
-    MPI_Allreduce(&sfrrate, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&Local_GAS_sfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     double total_sum_mass_stars, total_sm;
 
@@ -676,7 +668,7 @@ static int make_particle_star(int i) {
 
         P[i].Type = 4;
         TimeBinCountSph[P[i].TimeBin]--;
-        TimeBinSfr[P[i].TimeBin] -= SPHP(i).Sfr;
+        Local_GAS_sfr -= SPHP(i).Sfr;
 
 #ifdef STELLARAGE
         P[i].StellarAge = All.Time;
@@ -759,12 +751,15 @@ static void starformation(int i) {
 
     sum_sm += P[i].Mass * (1 - exp(-p));
 
+/* This is not thread safe. */
+    Local_GAS_sfr -= SPHP(i).Sfr;
+
     /* convert to Solar per Year but is this damn variable otherwise used
      * at all? */
     SPHP(i).Sfr = rateOfSF *
         (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
-    TimeBinSfr[P[i].TimeBin] += SPHP(i).Sfr;
+    Local_GAS_sfr += SPHP(i).Sfr;
 
 #ifdef METALS
     double w = get_random_number(P[i].ID);

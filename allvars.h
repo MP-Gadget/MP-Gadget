@@ -253,7 +253,7 @@ extern int *NextInTimeBin;
 extern int *PrevInTimeBin;
 
 #ifdef SFR
-extern double TimeBinSfr[TIMEBINS];
+extern double Local_GAS_sfr;
 #endif
 
 #ifdef BLACK_HOLES

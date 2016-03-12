@@ -50,7 +50,7 @@ int *NextInTimeBin;
 int *PrevInTimeBin;
 
 #ifdef SFR
-double TimeBinSfr[TIMEBINS];
+double Local_GAS_sfr;
 #endif
 
 #ifdef BLACK_HOLES
