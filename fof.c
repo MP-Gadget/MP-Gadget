@@ -229,7 +229,7 @@ void fof_fof(int num)
     }
 
     myfree(Group);
-
+    myfree(BaseGroup);
     myfree(HaloLabel);
 
     if(ThisTask == 0)
@@ -638,7 +638,7 @@ static void fof_compile_base(void)
     }
 
     /* update global attributes */
-    fof_reduce_groups(BaseGroup, NgroupsExt, sizeof(BaseGroup), fof_reduce_base_group);
+    fof_reduce_groups(BaseGroup, NgroupsExt, sizeof(BaseGroup[0]), fof_reduce_base_group);
 
     /* eliminate all groups that are too small */
     for(i = 0; i < NgroupsExt; i++)
@@ -679,12 +679,12 @@ static void fof_compile_catalogue(void)
             if(HaloLabel[start].MinID != Group[i].base.MinID) {
                 break;
             }
-            add_particle_to_group(&Group[start], HaloLabel[i].Pindex);
+            add_particle_to_group(&Group[i], HaloLabel[start].Pindex);
         }
     }
 
     /* collect global properties */
-    fof_reduce_groups(Group, NgroupsExt, sizeof(Group), fof_reduce_group);
+    fof_reduce_groups(Group, NgroupsExt, sizeof(Group[0]), fof_reduce_group);
 
     /* count Groups and number of particles hosted by me */
     Ngroups = 0;
@@ -907,30 +907,19 @@ static void fof_assign_grnr()
     for(i = 0; i < NumPart; i++)
         P[i].GrNr = -1;	/* will mark particles that are not in any group */
 
-    int start;
-    for(i = 0, start = 0; i < NgroupsExt; i++)
+    int start = 0;
+    for(i = 0; i < NgroupsExt; i++)
     {
-        while(HaloLabel[start].MinID < BaseGroup[i].MinID)
-        {
-            start++;
-            if(start > NumPart)
-                endrun(78);
+        for(;start < NumPart; start++) {
+            if (HaloLabel[start].MinID >= BaseGroup[i].MinID) 
+                break;
         }
 
-        if(HaloLabel[start].MinID != BaseGroup[i].MinID)
-            endrun(1313);
-        int lenloc; 
-        /* FIXME: This is twisted Volker-C rewrite it in plain C */
-        for(lenloc = 0; start + lenloc < NumPart;)
-            if(HaloLabel[start + lenloc].MinID == BaseGroup[i].MinID)
-            {
-                P[HaloLabel[start + lenloc].Pindex].GrNr = BaseGroup[i].GrNr;
-                lenloc++;
-            }
-            else
+        for(;start < NumPart; start++) {
+            if (HaloLabel[start].MinID != BaseGroup[i].MinID) 
                 break;
-
-        start += lenloc;
+            P[HaloLabel[start].Pindex].GrNr = BaseGroup[i].GrNr;
+        }
     }
 }
 

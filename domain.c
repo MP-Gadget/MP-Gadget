@@ -765,6 +765,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
         {
             P[n] = P[N_sph - 1];
             P[N_sph - 1] = P[NumPart - 1];
+            /* Because SphP doesn't use PI */
             SPHP(n) = SPHP(N_sph - 1);
 
             NumPart--;
