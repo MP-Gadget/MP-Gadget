@@ -54,11 +54,10 @@ double TimeBinSfr[TIMEBINS];
 #endif
 
 #ifdef BLACK_HOLES
-double TimeBin_BH_mass[TIMEBINS];
-double TimeBin_BH_dynamicalmass[TIMEBINS];
-double TimeBin_BH_Mdot[TIMEBINS];
-double TimeBin_BH_Medd[TIMEBINS];
-double TimeBin_GAS_Injection[TIMEBINS];
+double Local_BH_mass;
+double Local_BH_dynamicalmass;
+double Local_BH_Mdot;
+double Local_BH_Medd;
 #endif
 
 char DumpFlag = 1;

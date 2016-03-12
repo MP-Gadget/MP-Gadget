@@ -257,11 +257,10 @@ extern double TimeBinSfr[TIMEBINS];
 #endif
 
 #ifdef BLACK_HOLES
-extern double TimeBin_BH_mass[TIMEBINS];
-extern double TimeBin_BH_dynamicalmass[TIMEBINS];
-extern double TimeBin_BH_Mdot[TIMEBINS];
-extern double TimeBin_BH_Medd[TIMEBINS];
-extern double TimeBin_GAS_Injection[TIMEBINS];
+extern double Local_BH_mass;
+extern double Local_BH_dynamicalmass;
+extern double Local_BH_Mdot;
+extern double Local_BH_Medd;
 #endif
 
 extern int ThisTask;		/*!< the number of the local processor  */

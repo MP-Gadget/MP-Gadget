@@ -141,6 +141,13 @@ void blackhole_accretion(void)
     for(i = 0; i < Nactive; i ++) {
         int n = queue[i];
 
+        Local_BH_mass -= BHP(n).Mass;
+        Local_BH_dynamicalmass -= P[n].Mass;
+        Local_BH_Mdot -= BHP(n).Mdot;
+        if(BHP(n).Mass > 0) {
+            Local_BH_Medd -= BHP(n).Mdot / BHP(n).Mass;
+        }
+
         blackhole_accretion_evaluate(n);
 
         int j;
@@ -182,44 +189,27 @@ void blackhole_accretion(void)
     }
 
 
-
-    for(n = 0; n < TIMEBINS; n++)
-    {
-        if(TimeBinActive[n])
-        {
-            TimeBin_BH_mass[n] = 0;
-            TimeBin_BH_dynamicalmass[n] = 0;
-            TimeBin_BH_Mdot[n] = 0;
-            TimeBin_BH_Medd[n] = 0;
-        }
-    }
-
     for(i = 0; i < Nactive; i++) {
         int n = queue[i];
         blackhole_postprocess(n);
+
+        Local_BH_mass += BHP(n).Mass;
+        Local_BH_dynamicalmass += P[n].Mass;
+        Local_BH_Mdot += BHP(n).Mdot;
+        if(BHP(n).Mass > 0) {
+            Local_BH_Medd += BHP(n).Mdot / BHP(n).Mass;
+        }
     }
 
     myfree(queue);
 
     double total_mass_real, total_mdoteddington;
     double total_mass_holes, total_mdot;
-    double mdot = 0;
-    double mass_holes = 0;
-    double mass_real = 0;
-    double medd = 0;
-    for(bin = 0; bin < TIMEBINS; bin++)
-        if(TimeBinCount[bin])
-        {
-            mass_holes += TimeBin_BH_mass[bin];
-            mass_real += TimeBin_BH_dynamicalmass[bin];
-            mdot += TimeBin_BH_Mdot[bin];
-            medd += TimeBin_BH_Medd[bin];
-        }
 
-    MPI_Reduce(&mass_holes, &total_mass_holes, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&mass_real, &total_mass_real, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&mdot, &total_mdot, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&medd, &total_mdoteddington, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&Local_BH_mass, &total_mass_holes, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&Local_BH_dynamicalmass, &total_mass_real, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&Local_BH_Mdot, &total_mdot, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Reduce(&Local_BH_Medd, &total_mdoteddington, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
     if(ThisTask == 0)
     {
@@ -282,17 +272,6 @@ static void blackhole_postprocess(int n) {
         P[n].Mass += BHP(n).accreted_Mass;
         BHP(n).Mass += BHP(n).accreted_BHMass;
         BHP(n).accreted_Mass = 0;
-    }
-    int bin = P[n].TimeBin;
-#pragma omp atomic
-    TimeBin_BH_mass[bin] += BHP(n).Mass;
-#pragma omp atomic
-    TimeBin_BH_dynamicalmass[bin] += P[n].Mass;
-#pragma omp atomic
-    TimeBin_BH_Mdot[bin] += BHP(n).Mdot;
-    if(BHP(n).Mass > 0) {
-#pragma omp atomic
-        TimeBin_BH_Medd[bin] += BHP(n).Mdot / BHP(n).Mass;
     }
 }
 
@@ -515,21 +494,17 @@ int blackhole_swallow_evaluate(int target, int mode,
                 {
                     O->Mass += (P[j].Mass);
                     O->BH_Mass += (BHP(j).Mass);
+
                     for(k = 0; k < 3; k++)
                         O->AccretedMomentum[k] += (P[j].Mass * P[j].Vel[k]);
 
                     O->BH_CountProgs += BHP(j).CountProgs;
 
-                    int bin = P[j].TimeBin;
-#pragma omp atomic
-                    TimeBin_BH_mass[bin] -= BHP(j).Mass;
-#pragma omp atomic
-                    TimeBin_BH_dynamicalmass[bin] -= P[j].Mass;
-#pragma omp atomic
-                    TimeBin_BH_Mdot[bin] -= BHP(j).Mdot;
+                    Local_BH_mass -= BHP(j).Mass;
+                    Local_BH_dynamicalmass -= P[j].Mass;
+                    Local_BH_Mdot -= BHP(j).Mdot;
                     if(BHP(j).Mass > 0) {
-#pragma omp atomic
-                        TimeBin_BH_Medd[bin] -= BHP(j).Mdot / BHP(j).Mass;
+                        Local_BH_Medd -= BHP(j).Mdot / BHP(j).Mass;
                     }
 
                     P[j].Mass = 0;

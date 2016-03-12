@@ -213,22 +213,6 @@ void advance_and_find_timesteps(void)
 #endif
             }
 
-#ifdef BLACK_HOLES
-            if(P[i].Type == 5)
-            {
-                TimeBin_BH_mass[binold] -= BHP(i).Mass;
-                TimeBin_BH_dynamicalmass[binold] -= P[i].Mass;
-                TimeBin_BH_Mdot[binold] -= BHP(i).Mdot;
-                if(BHP(i).Mass > 0)
-                    TimeBin_BH_Medd[binold] -= BHP(i).Mdot / BHP(i).Mass;
-                TimeBin_BH_mass[bin] += BHP(i).Mass;
-                TimeBin_BH_dynamicalmass[bin] += P[i].Mass;
-                TimeBin_BH_Mdot[bin] += BHP(i).Mdot;
-                if(BHP(i).Mass > 0)
-                    TimeBin_BH_Medd[bin] += BHP(i).Mdot / BHP(i).Mass;
-            }
-#endif
-
             prev = PrevInTimeBin[i];
             next = NextInTimeBin[i];
 
