@@ -500,10 +500,14 @@ int blackhole_swallow_evaluate(int target, int mode,
 
                     O->BH_CountProgs += BHP(j).CountProgs;
 
+#pragma omp atomic
                     Local_BH_mass -= BHP(j).Mass;
+#pragma omp atomic
                     Local_BH_dynamicalmass -= P[j].Mass;
+#pragma omp atomic
                     Local_BH_Mdot -= BHP(j).Mdot;
                     if(BHP(j).Mass > 0) {
+#pragma omp atomic
                         Local_BH_Medd -= BHP(j).Mdot / BHP(j).Mass;
                     }
 
