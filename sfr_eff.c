@@ -142,14 +142,14 @@ void cooling_and_starformation(void)
          */
         flag = get_sfr_condition(i);
 
-#if !defined(NOISMPRESSURE) && !defined(QUICK_LYALPHA)
-        /* normal implicit isochoric cooling */
-        if(flag == 1) {
-            cooling_direct(i);
-        }
-#else
+#ifdef NOISMPRESSURE
         /* always do direct cooling in these cases */
         cooling_direct(i);
+#else
+        /* normal implicit isochoric cooling */
+        if(flag == 1 || All.QuickLymanAlphaProbability > 0) {
+            cooling_direct(i);
+        }
 #endif
 #ifdef ENDLESSSTARS
         flag = 0;
@@ -378,19 +378,20 @@ static int get_sfr_condition(int i) {
         flag = 1;		/* only normal cooling for particles in the wind */
 #endif
 
-#ifdef QUICK_LYALPHA
-    double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
-    double unew = DMAX(All.MinEgySpec,
-            (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
-            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+    if(All.QuickLymanAlphaProbability > 0) {
+        double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+        double unew = DMAX(All.MinEgySpec,
+                (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
+                GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
-    double temp = u_to_temp_fac * unew;
+        double temp = u_to_temp_fac * unew;
 
-    if(SPHP(i).Density > All.OverDensThresh && temp < 1.0e5)
-        flag = 0;
-    else
-        flag = 1;
-#endif
+        if(SPHP(i).Density > All.OverDensThresh && temp < 1.0e5)
+            flag = 0;
+        else
+            flag = 1;
+    }
+
     return flag;
 }
 
@@ -774,12 +775,10 @@ static void starformation(int i) {
     }
 
     double prob = P[i].Mass / mass_of_star * (1 - exp(-p));
-#ifdef QUICK_LYALPHA
-    prob = 2.0;
-#endif
-#ifdef ENDLESSSTARS
-    prob = 0.6;
-#endif
+
+    if(All.QuickLymanAlphaProbability > 0.0) {
+        prob = All.QuickLymanAlphaProbability;
+    }
     if(get_random_number(P[i].ID + 1) < prob)	{
         make_particle_star(i);
     }

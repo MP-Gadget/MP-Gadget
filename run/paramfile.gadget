@@ -133,16 +133,17 @@ MinFoFMassForNewSeed       5
 TimeBetBlackHoleSearch     1.03
 BlackHoleMaxAccretionRadius 999999 %
 
-%----------------------BH Stuff-------------------------
+%----------------------SFR Stuff-------------------------
 
 CritPhysDensity     0       %  critical physical density for star formation in
-
                             %  hydrogen number density in cm^(-3)
+
+CritOverDensity      57.7   %  overdensity threshold value
+
+QuickLymanAlphaProbability  0 % Set to 1.0 to turn dense gas directly into stars.
 
 MaxSfrTimescale     1.5     % in internal time units
 
-
-CritOverDensity      57.7    %  overdensity threshold value
 
 TempSupernova        1.0e8   %  in Kelvin
 

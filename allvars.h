@@ -591,6 +591,7 @@ extern struct global_data_all_processes
     double WindFreeTravelLength;
     double WindFreeTravelDensFac;
     double FactorForSofterEQS;
+    double QuickLymanAlphaProbability;
 
     /* used in VS08 and SH03*/
     double WindEfficiency;

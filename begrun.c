@@ -845,6 +845,10 @@ void read_parameter_file(char *fname)
         strcpy(tag[nt], "WindFreeTravelDensFac");
         addr[nt] = &All.WindFreeTravelDensFac;
         id[nt++] = REAL;
+
+        strcpy(tag[nt], "QuickLymanAlphaProbability");
+        addr[nt] = &All.QuickLymanAlphaProbability;
+        id[nt++] = REAL;
 #endif
 
 #ifdef SOFTEREQS
