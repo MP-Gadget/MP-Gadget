@@ -670,7 +670,6 @@ static int make_particle_star(int i) {
     if(P[i].Mass < 1.1 * mass_of_star)
     {
         /* here we turn the gas particle itself into a star */
-        Stars_converted++;
         stars_converted++;
 
         sum_mass_stars += P[i].Mass;

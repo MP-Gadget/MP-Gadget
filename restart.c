@@ -196,10 +196,6 @@ void restart(int modus)
             byten(gsl_rng_state(random_generator), gsl_rng_size(random_generator), modus);
 
             /* now store relevant data for tree */
-#ifdef SFR
-            in(&Stars_converted, modus);
-#endif
-
 
 #if !defined(NO_TREEDATA_IN_RESTART)
             /* now store relevant data for tree */

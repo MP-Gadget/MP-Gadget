@@ -9,7 +9,6 @@
 void reconstruct_timebins(void)
 {
     int i, n, prev, bin;
-    int64_t glob_sum1, glob_sum2;
 
     for(bin = 0; bin < TIMEBINS; bin++)
     {

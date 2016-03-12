@@ -2378,27 +2378,18 @@ void rearrange_particle_sequence(void)
     struct particle_data psave;
 
 #ifdef SFR
-    if(Stars_converted)
-    {
-        N_sph -= Stars_converted;
-        Stars_converted = 0;
-
-        for(i = 0; i < N_sph; i++)
-            if(P[i].Type != 0)
-            {
-                for(j = N_sph; j < NumPart; j++)
-                    if(P[j].Type == 0)
-                        break;
-
-                if(j >= NumPart)
-                    endrun(181170);
-
-                psave = P[i];
-                P[i] = P[j];
-                SPHP(i) = SPHP(j);
-                P[j] = psave;
-            }
-        flag = 1;
+    for(i = 0; i < N_sph; i++) {
+        while(P[i].Type != 0) {
+            /* remove this particle, because
+             * it is no longer a SPH
+             * */
+            psave = P[i];
+            P[i] = P[N_sph - 1];
+            SPHP(i) = SPHP(N_sph - 1);
+            P[j] = psave;
+            flag = 1;
+            i --;
+        }
     }
 #endif
 

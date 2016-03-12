@@ -293,12 +293,6 @@ extern int NtypeLocal[6];	/*!< local number of particles of each type */
 
 extern gsl_rng *random_generator;	/*!< the random number generator used */
 
-
-#ifdef SFR
-extern int Stars_converted;	/*!< current number of star particles in gas particle block */
-#endif
-
-
 extern double TimeOfLastTreeConstruction;	/*!< holds what it says */
 
 extern double RndTable[RNDTABLE];
