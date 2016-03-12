@@ -350,7 +350,6 @@ int force_treebuild_single(int npart, struct unbind_data *mp)
                         printf
                             ("task %d: looks like a serious problem for particle %d, stopping with particle dump.\n",
                              ThisTask, i);
-                        dump_particles();
                         endrun(1);
                     }
                     else
@@ -436,7 +435,6 @@ void force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z
                                 "MaxTopNodes=%d NTopnodes=%d NTopleaves=%d nodecount=%d\n",
                                 ThisTask, MaxNodes, MaxTopNodes, NTopnodes, NTopleaves, *nodecount);
                         printf("in create empty nodes\n");
-                        dump_particles();
                         endrun(11);
                     }
 
@@ -1856,29 +1854,4 @@ void force_treefree(void)
         tree_allocated_flag = 0;
     }
 }
-
-/*! This function dumps some of the basic particle data to a file. In case
- *  the tree construction fails, it is called just before the run
- *  terminates with an error message. Examination of the generated file may
- *  then give clues to what caused the problem.
- */
-void dump_particles(void)
-{
-    FILE *fd;
-    char buffer[200];
-    int i;
-
-    sprintf(buffer, "particles%d.dat", ThisTask);
-    fd = fopen(buffer, "w");
-    my_fwrite(&NumPart, 1, sizeof(int), fd);
-    for(i = 0; i < NumPart; i++)
-        my_fwrite(&P[i].Pos[0], 3, sizeof(MyFloat), fd);
-    for(i = 0; i < NumPart; i++)
-        my_fwrite(&P[i].Vel[0], 3, sizeof(MyFloat), fd);
-    for(i = 0; i < NumPart; i++)
-        my_fwrite(&P[i].ID, 1, sizeof(int), fd);
-    fclose(fd);
-}
-
-
 
