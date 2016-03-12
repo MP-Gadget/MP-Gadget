@@ -631,6 +631,14 @@ void blackhole_make_one(int index) {
     BHP(child).Mass = All.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
     BHP(child).MinPot = BHPOTVALUEINIT;
+    /* It is important to initialize MinPotPos to the current position of 
+     * a BH to avoid drifting to unknown locations (0,0,0) immediately 
+     * after the BH is created. */
+    int j;
+    for(j = 0; j < 3; j++) {
+        BHP(child).MinPotPos[j] = P[child].Pos[j];
+        BHP(child).MinPotVel[j] = P[child].Vel[j];
+    }
 
     BHP(child).CountProgs = 1;
 }
