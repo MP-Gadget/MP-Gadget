@@ -10,10 +10,11 @@ extern int64_t TotNids;
 
 struct BaseGroup {
   int OriginalTask;
+  int OriginalIndex;
   int Length;
-  MyIDType MinID;
-  MyIDType MinIDTask;
   int GrNr;
+  MyIDType MinID;
+  int MinIDTask;
 };
 
 extern struct Group 
