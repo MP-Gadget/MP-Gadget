@@ -186,7 +186,7 @@ void init(void)
         SPHP(i).Sfr = 0;
 #endif
 
-#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
+#ifdef BH_THERMALFEEDBACK
         SPHP(i).Injected_BH_Energy = 0;
 #endif
     }

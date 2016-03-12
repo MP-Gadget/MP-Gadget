@@ -645,30 +645,24 @@ extern size_t TotalNodeDrifts;
 struct bh_particle_data {
     int ReverseLink; /* used at GC for reverse link to P */
     MyIDType ID; /* for data consistency check, same as particle ID */
-#ifdef BH_COUNTPROGS
     int CountProgs;
-#endif
+
     MyFloat Mass;
     MyFloat Mdot;
     MyFloat FeedbackWeightSum;
     MyFloat Density;
     MyFloat Entropy;
     MyFloat Pressure;
-#ifdef BH_USE_GASVEL_IN_BONDI
     MyFloat SurroundingGasVel[3];
-#endif
+
     MyFloat accreted_Mass;
     MyFloat accreted_BHMass;
     MyFloat accreted_momentum[3];
-#ifdef BH_REPOSITION_ON_POTMIN
+
     MyFloat MinPotPos[3];
     MyFloat MinPotVel[3];
     MyFloat MinPot;
-#endif
-#ifdef BH_KINETICFEEDBACK
-    MyFloat ActiveTime;
-    MyFloat ActiveEnergy;
-#endif
+
     short int TimeBinLimit;
 } * BhP;
 
@@ -776,7 +770,7 @@ extern struct sph_particle_data
     MyFloat       CurlVel;     	        /*!< local velocity curl */
     MyFloat       Rot[3];		/*!< local velocity curl */
 
-#if defined(BH_THERMALFEEDBACK) || defined(BH_KINETICFEEDBACK)
+#ifdef BLACK_HOLES
     MyFloat       Injected_BH_Energy;
 #endif
 

@@ -348,11 +348,10 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
         EV_REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
         EV_REDUCE(BHP(place).Entropy, remote->SmoothedEntropy);
         EV_REDUCE(BHP(place).Pressure, remote->SmoothedPressure);
-#ifdef BH_USE_GASVEL_IN_BONDI
+
         EV_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
         EV_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
         EV_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
-#endif
     }
 #endif
 }
@@ -660,11 +659,10 @@ static void density_post_process(int i) {
         {
             BHP(i).Entropy /= BHP(i).Density;
             BHP(i).Pressure /= BHP(i).Density;
-#ifdef BH_USE_GASVEL_IN_BONDI
+
             BHP(i).SurroundingGasVel[0] /= BHP(i).Density;
             BHP(i).SurroundingGasVel[1] /= BHP(i).Density;
             BHP(i).SurroundingGasVel[2] /= BHP(i).Density;
-#endif
         }
     }
 #endif

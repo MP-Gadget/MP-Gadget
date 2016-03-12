@@ -48,14 +48,8 @@ OPT	+=  -DWINDS
 
 #-------------------------------------- AGN stuff
 OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
-OPT	+=  -DBH_ACCRETION # Bondi-Hoyle style accretion model
-OPT	+=  -DBH_ENFORCE_EDDINGTON_LIMIT # put a hard limit on the maximum accretion rate
 OPT	+=  -DBH_THERMALFEEDBACK      # couple a fraction of the BH luminosity into surrounding gas
-OPT	+=  -DBH_SWALLOWGAS              # Enables stochastic accretion of gas particles consistent with growth rate of hole
-OPT	+=  -DBH_MERGER # Enables blackhole mergers.
-OPT	+=  -DBH_COUNTPROGS	      # carries a counter for each BH that gives the total number of seeds that merged into it
 OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding gas velocity is used in addition to the sounds speed in the Bondi rate 
-OPT	+=  -DBH_REPOSITION_ON_POTMIN    # repositions hole on potential minimum (required )
 
 #-------------------------------------------- Things for special behaviour
 OPT	+=  -DINCLUDE_RADIATION		# Add radiation density to backround evolution. Only affects the Hubble flow.
