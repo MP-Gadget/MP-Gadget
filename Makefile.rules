@@ -16,7 +16,7 @@ OBJECTS  =  \
 	 domain.o allvars.o main.o \
 	 blackhole.o \
 	 run.o predict.o begrun.o endrun.o global.o \
-	 timestep.o init.o restart.o io.o sfr_eff.o \
+	 timestep.o init.o io.o sfr_eff.o \
 	 accel.o \
 	 cooling.o ngb.o openmpsort.o \
 	 system.o allocate.o density.o sizelimited_sendrecv.o  \

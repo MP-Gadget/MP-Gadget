@@ -36,8 +36,6 @@
  */
 void begrun(void)
 {
-    struct global_data_all_processes all;
-
     if(ThisTask == 0)
     {
         /*    printf("\nThis is P-Gadget, version `%s', svn-revision `%s'.\n", GADGETVERSION, svn_version()); */
@@ -48,6 +46,11 @@ void begrun(void)
         printf("\nSize of particle structure       %td  [bytes]\n",sizeof(struct particle_data));
         printf("\nSize of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
         printf("\nSize of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
+
+        if(RestartFlag == 1) {
+            fprintf(stderr, "Restarting from restart file is no longer supported. Use a snapshot instead.\n");
+            abort();
+        }
     }
 
 #if defined(X86FIX) && defined(SOFTDOUBLEDOUBLE)
@@ -95,72 +98,10 @@ void begrun(void)
 
     All.TimeLastRestartFile = 0;
 
-    if(RestartFlag == 0 || RestartFlag == 2 || RestartFlag == 3 || RestartFlag == 4 || RestartFlag == 5)
-    {
-        set_random_numbers();
 
-        init();			/* ... read in initial model */
-    }
-    else
-    {
-        all = All;		/* save global variables. (will be read from restart file) */
+    set_random_numbers();
 
-        restart(RestartFlag);	/* ... read restart file. Note: This also resets
-                                   all variables in the struct `All'.
-                                   However, during the run, some variables in the parameter
-                                   file are allowed to be changed, if desired. These need to
-                                   copied in the way below.
-Note:  All.PartAllocFactor is treated in restart() separately.
-*/
-
-#ifdef _OPENMP
-        /* thus we will used the new NumThreads of this run */
-        All.NumThreads = all.NumThreads;
-#endif
-        All.MinSizeTimestep = all.MinSizeTimestep;
-        All.MaxSizeTimestep = all.MaxSizeTimestep;
-        All.BufferSize = all.BufferSize;
-        All.TimeLimitCPU = all.TimeLimitCPU;
-        All.TimeBetSnapshot = all.TimeBetSnapshot;
-        All.TimeBetStatistics = all.TimeBetStatistics;
-        All.CpuTimeBetRestartFile = all.CpuTimeBetRestartFile;
-        All.ErrTolIntAccuracy = all.ErrTolIntAccuracy;
-        All.MinGasHsmlFractional = all.MinGasHsmlFractional;
-        All.MaxRMSDisplacementFac = all.MaxRMSDisplacementFac;
-
-        All.ErrTolForceAcc = all.ErrTolForceAcc;
-        All.TypeOfTimestepCriterion = all.TypeOfTimestepCriterion;
-        All.TypeOfOpeningCriterion = all.TypeOfOpeningCriterion;
-        All.NumWritersPerSnapshot = all.NumWritersPerSnapshot;
-        All.TreeDomainUpdateFrequency = all.TreeDomainUpdateFrequency;
-
-        All.OutputListOn = all.OutputListOn;
-        All.CourantFac = all.CourantFac;
-
-        All.OutputListLength = all.OutputListLength;
-        memcpy(All.OutputListTimes, all.OutputListTimes, sizeof(double) * All.OutputListLength);
-        memcpy(All.OutputListFlag, all.OutputListFlag, sizeof(char) * All.OutputListLength);
-
-        strcpy(All.OutputListFilename, all.OutputListFilename);
-        strcpy(All.OutputDir, all.OutputDir);
-        strcpy(All.RestartFile, all.RestartFile);
-        strcpy(All.EnergyFile, all.EnergyFile);
-        strcpy(All.InfoFile, all.InfoFile);
-        strcpy(All.CpuFile, all.CpuFile);
-        strcpy(All.TimingsFile, all.TimingsFile);
-        strcpy(All.SnapshotFileBase, all.SnapshotFileBase);
-
-        if(All.TimeMax != all.TimeMax)
-            readjust_timebase(All.TimeMax, all.TimeMax);
-
-#ifdef NO_TREEDATA_IN_RESTART
-        /* if this is not activated, the tree was stored in the restart-files,
-           which also allocated the storage for it already */
-
-        /* ensures that domain reconstruction will be done and new tree will be constructed */
-        All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TotNumPart * All.TreeDomainUpdateFrequency);
-#endif
-    }
+    init();			/* ... read in initial model */
 
     open_outputfiles();
 

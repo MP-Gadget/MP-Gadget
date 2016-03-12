@@ -76,7 +76,6 @@ void run(void)
         report_memory_usage("RUN");
     }
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
-    restart(0);
 
     savepositions(All.SnapshotFileCount++, 0);
 
