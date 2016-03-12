@@ -44,6 +44,7 @@ static double fof_periodic_wrap(double x)
 static void fof_label_secondary(void);
 static int fof_compare_HaloLabel_MinID(const void *a, const void *b);
 static int fof_compare_Group_MinIDTask(const void *a, const void *b);
+static int fof_compare_Group_OriginalIndex(const void *a, const void *b);
 static int fof_compare_Group_MinID(const void *a, const void *b);
 static void fof_reduce_groups(
     void * groups, 
@@ -786,10 +787,15 @@ static void fof_reduce_groups(
     }
 
     images = mymalloc("images", nimport * elsize);
-    ghosts = (char*) groups + elsize * Nmine;
+    ghosts = ((char*) groups) + elsize * Nmine;
 
     MPI_Alltoallv_smart(ghosts, Send_count, NULL, dtype, 
                         images, Recv_count, NULL, dtype, MPI_COMM_WORLD);
+
+    for(i = 0; i < nimport; i++) {
+        struct BaseGroup * gi = (struct BaseGroup*) ((char*) images + i * elsize);
+        gi->OriginalIndex = i;
+    }
         
     /* sort the groups according to MinID */
     qsort(groups, Nmine, elsize, fof_compare_Group_MinID);
@@ -799,15 +805,15 @@ static void fof_reduce_groups(
     start = 0;
     for(i = 0; i < Nmine; i++) {
         for(;start < nimport; start++) {
-            struct BaseGroup * prime = (struct BaseGroup*) ((char*) groups + start * elsize);
-            struct BaseGroup * image = (struct BaseGroup*) ((char*) images + i * elsize);
+            struct BaseGroup * prime = (struct BaseGroup*) ((char*) groups + i * elsize);
+            struct BaseGroup * image = (struct BaseGroup*) ((char*) images + start  * elsize);
             if(image->MinID >= prime->MinID) {
                 break;
             }
         }
         for(;start < nimport; start++) {
-            struct BaseGroup * prime = (struct BaseGroup*) ((char*) groups + start * elsize);
-            struct BaseGroup * image = (struct BaseGroup*) ((char*) images + i * elsize);
+            struct BaseGroup * prime = (struct BaseGroup*) ((char*) groups + i * elsize);
+            struct BaseGroup * image = (struct BaseGroup*) ((char*) images + start * elsize);
             if(image->MinID != prime->MinID) {
                 break;
             }
@@ -820,36 +826,50 @@ static void fof_reduce_groups(
     for(i = 0; i < Nmine; i++)
     {
         for(;start < nimport; start++) {
-            struct BaseGroup * prime = (struct BaseGroup*) ((char*) groups + start * elsize);
-            struct BaseGroup * image = (struct BaseGroup*) ((char*) images + i * elsize);
+            struct BaseGroup * prime = (struct BaseGroup*) ((char*) groups + i * elsize);
+            struct BaseGroup * image = (struct BaseGroup*) ((char*) images + start * elsize);
             if(image->MinID >= prime->MinID) {
                 break;
             }
         }
         for(;start < nimport; start++) {
-            struct BaseGroup * prime = (struct BaseGroup*) ((char*) groups + start * elsize);
-            struct BaseGroup * image = (struct BaseGroup*) ((char*) images + i * elsize);
+            struct BaseGroup * prime = (struct BaseGroup*) ((char*) groups + i * elsize);
+            struct BaseGroup * image = (struct BaseGroup*) ((char*) images + start * elsize);
             if(image->MinID != prime->MinID) {
                 break;
             }
-            /* FIXME: remember MinIDTask is reused to record the original index, thus we need
-             * to preserve it */
-            int save = image->MinIDTask;
+            int save = image->OriginalIndex;
             memcpy(image, prime, elsize);
-            image->MinIDTask = save;
+            image->OriginalIndex = save;
         } 
     }
 
     /* reset the ordering of imported list, such that it can be properly returned */
-    qsort(images, nimport, elsize, fof_compare_Group_MinIDTask);
+    qsort(images, nimport, elsize, fof_compare_Group_OriginalIndex);
 
     for(i = 0; i < nimport; i++) {
         struct BaseGroup * gi = (struct BaseGroup*) ((char*) images + i * elsize);
-        gi->MinIDTask = ThisTask;
+        if(gi->MinIDTask != ThisTask) {
+            abort();
+        }
     }
+    void * ghosts2 = mymalloc("TMP", NgroupsExt * elsize);
+
     MPI_Alltoallv_smart(images, Recv_count, NULL, dtype, 
-                        ghosts, Send_count, NULL, dtype, 
+                        ghosts2, Send_count, NULL, dtype, 
                         MPI_COMM_WORLD);
+    for(i = 0; i < NgroupsExt - Nmine; i ++) {
+        struct BaseGroup * g1 = (struct BaseGroup*) ((char*) ghosts + i * elsize);
+        struct BaseGroup * g2 = (struct BaseGroup*) ((char*) ghosts2 + i* elsize);
+        if(g1->MinID != g2->MinID) {
+            abort();
+        }
+        if(g1->MinIDTask != g2->MinIDTask) {
+            abort();
+        }
+    }
+    memcpy(ghosts, ghosts2, elsize * (NgroupsExt - Nmine));
+    myfree(ghosts2);
 
     myfree(images);
 
@@ -1287,6 +1307,12 @@ static int fof_compare_Group_MinIDTask(const void *a, const void *b)
     if(t1 > t2) return +1;
     return 0;
 
+}
+
+static int fof_compare_Group_OriginalIndex(const void *a, const void *b)
+
+{
+    return ((struct BaseGroup *) a)->OriginalIndex - ((struct BaseGroup *) b)->OriginalIndex;
 }
 
 static void fof_radix_Group_TotalCountTaskDiffMinID(const void * a, void * radix, void * arg) {
