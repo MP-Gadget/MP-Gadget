@@ -34,8 +34,6 @@ int main(int argc, char **argv)
   fftw_mpi_init();
   fftw_plan_with_nthreads(omp_get_max_threads());
 
-  for(PTask = 0; NTask > (1 << PTask); PTask++);
-
   if(argc < 2)
     {
       if(ThisTask == 0)

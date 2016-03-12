@@ -27,7 +27,6 @@ MyDouble boxSize, boxHalf, inverse_boxSize;
 
 int ThisTask;			/*!< the number of the local processor  */
 int NTask;			/*!< number of processors */
-int PTask;			/*!< note: NTask = 2^PTask */
 
 int64_t GlobNumForceUpdate;
 

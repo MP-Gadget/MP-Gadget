@@ -266,7 +266,6 @@ extern double TimeBin_GAS_Injection[TIMEBINS];
 
 extern int ThisTask;		/*!< the number of the local processor  */
 extern int NTask;		/*!< number of processors */
-extern int PTask;		/*!< note: NTask = 2^PTask */
 
 extern int64_t GlobNumForceUpdate;
 
