@@ -29,9 +29,7 @@ int ThisTask;			/*!< the number of the local processor  */
 int NTask;			/*!< number of processors */
 int PTask;			/*!< note: NTask = 2^PTask */
 
-int NumForceUpdate;		/*!< number of active particles on local processor in current timestep  */
 int64_t GlobNumForceUpdate;
-int NumSphUpdate;		/*!< number of active SPH particles on local processor in current timestep  */
 
 int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for domain decomposition */
 

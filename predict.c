@@ -83,30 +83,6 @@ void reconstruct_timebins(void)
     if(prev >= 0)
         NextActiveParticle[prev] = -1;
 
-    sumup_large_ints(1, &NumForceUpdate, &glob_sum1);
-
-    for(i = FirstActiveParticle, NumForceUpdate = 0; i >= 0; i = NextActiveParticle[i])
-    {
-        NumForceUpdate++;
-        if(i >= NumPart)
-        {
-            printf("Bummer i=%d\n", i);
-            endrun(12);
-        }
-
-    }
-
-    sumup_large_ints(1, &NumForceUpdate, &glob_sum2);
-
-    if(ThisTask == 0)
-    {
-        printf("sum1=%d%9d sum2=%d%9d\n",
-                (int) (glob_sum1 / 1000000000), (int) (glob_sum1 % 1000000000),
-                (int) (glob_sum2 / 1000000000), (int) (glob_sum2 % 1000000000));
-    }
-
-    if(glob_sum1 != glob_sum2 && All.NumCurrentTiStep > 0)
-        endrun(121);
 }
 
 static void real_drift_particle(int i, int time1);

@@ -264,6 +264,8 @@ void find_next_sync_point_and_drift(void)
 
 
     /* mark the bins that will be active */
+    int NumForceUpdate;
+
     for(n = 1, TimeBinActive[0] = 1, NumForceUpdate = TimeBinCount[0]; n < TIMEBINS; n++)
     {
         dt_bin = (1 << n);
@@ -312,8 +314,8 @@ void find_next_sync_point_and_drift(void)
 
     walltime_measure("/Misc");
     /* drift the active particles, others will be drifted on the fly if needed */
-
-    for(i = FirstActiveParticle, NumForceUpdate = 0; i >= 0; i = NextActiveParticle[i])
+    NumForceUpdate = 0;
+    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
         drift_particle(i, All.Ti_Current);
 

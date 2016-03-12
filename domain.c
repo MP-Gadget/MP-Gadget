@@ -1028,8 +1028,6 @@ int domain_fork_particle(int parent) {
 
     /* increase NumForceUpdate only if this particle was
      * active */
-    if(TimeBinActive[P[child].TimeBin])
-        NumForceUpdate++;
 
     /*! When a new additional star particle is created, we can put it into the
      *  tree at the position of the spawning gas particle. This is possible
@@ -2379,10 +2377,6 @@ void rearrange_particle_sequence(void)
     int i, j, flag = 0, flag_sum;
     struct particle_data psave;
 
-#ifdef BLACK_HOLES
-    int count_elim, count_gaselim, tot_elim, tot_gaselim;
-#endif
-
 #ifdef SFR
     if(Stars_converted)
     {
@@ -2409,6 +2403,8 @@ void rearrange_particle_sequence(void)
 #endif
 
 #ifdef BLACK_HOLES
+    int count_elim, count_gaselim, tot_elim, tot_gaselim;
+
     count_elim = 0;
     count_gaselim = 0;
 
@@ -2416,9 +2412,6 @@ void rearrange_particle_sequence(void)
         if(P[i].Mass == 0)
         {
             TimeBinCount[P[i].TimeBin]--;
-
-            if(TimeBinActive[P[i].TimeBin])
-                NumForceUpdate--;
 
             if(P[i].Type == 0)
             {

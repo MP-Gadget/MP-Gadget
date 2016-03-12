@@ -268,10 +268,7 @@ extern int ThisTask;		/*!< the number of the local processor  */
 extern int NTask;		/*!< number of processors */
 extern int PTask;		/*!< note: NTask = 2^PTask */
 
-extern int NumForceUpdate;	/*!< number of active particles on local processor in current timestep  */
 extern int64_t GlobNumForceUpdate;
-
-extern int NumSphUpdate;	/*!< number of active SPH particles on local processor in current timestep  */
 
 extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tree used for domain decomposition */
 
