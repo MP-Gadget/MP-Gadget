@@ -2156,21 +2156,20 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
 #if defined(SFR) || defined(BLACK_HOLES)
 void rearrange_particle_sequence(void)
 {
-    int i, j, flag = 0, flag_sum;
-    struct particle_data psave;
+    int i, flag = 0; 
 
 #ifdef SFR
     for(i = 0; i < N_sph; i++) {
-        while(P[i].Type != 0) {
+        while(P[i].Type != 0 && N_sph - 1 > i) {
             /* remove this particle from SphP, because
              * it is no longer a SPH
              * */
+            struct particle_data psave;
             psave = P[i];
             P[i] = P[N_sph - 1];
             SPHP(i) = SPHP(N_sph - 1);
-            P[j] = psave;
+            P[N_sph - 1] = psave;
             flag = 1;
-            i --;
             N_sph --;
         }
     }
