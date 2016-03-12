@@ -81,11 +81,9 @@ struct gravitydata_in
 {
     int NodeList[NODELISTLENGTH];
     MyFloat Pos[3];
-#if defined(UNEQUALSOFTENINGS)
     int Type;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     MyFloat Soft;
-#endif
 #endif
     MyFloat OldAcc;
 } ;
