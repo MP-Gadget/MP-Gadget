@@ -140,9 +140,7 @@ void domain_Decomposition(void)
         force_treefree();
         domain_free();
 
-#if defined(SFR) || defined(BLACK_HOLES)
         rearrange_particle_sequence();
-#endif
 
         do_box_wrapping();	/* map the particles back onto the box */
 
@@ -2153,7 +2151,6 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
         endrun(89);
 }
 
-#if defined(SFR) || defined(BLACK_HOLES)
 void rearrange_particle_sequence(void)
 {
     int i, flag = 0; 
@@ -2232,9 +2229,6 @@ void rearrange_particle_sequence(void)
         reconstruct_timebins();
 
 }
-#endif
-
-
 
 static void radix_id(const void * data, void * radix, void * arg) {
     ((uint64_t *) radix)[0] = ((MyIDType*) data)[0];

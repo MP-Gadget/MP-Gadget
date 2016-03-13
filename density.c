@@ -278,7 +278,7 @@ static void density_copy(int place, struct densdata_in * I) {
 
     I->Type = P[place].Type;
 
-#if defined(BLACK_HOLES)
+#ifdef BLACK_HOLES
     if(P[place].Type != 0)
     {
         I->Vel[0] = 0;
