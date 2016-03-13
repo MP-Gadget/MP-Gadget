@@ -658,28 +658,25 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 {
     int count_togo = 0, count_togo_sph = 0, count_togo_bh = 0, 
         count_get = 0, count_get_sph = 0, count_get_bh = 0;
-    int *count, *count_sph, *count_bh,
-        *offset, *offset_sph, *offset_bh;
-    int *count_recv, *count_recv_sph, *count_recv_bh,
-        *offset_recv, *offset_recv_sph, *offset_recv_bh;
+
     int i, n, target;
     struct particle_data *partBuf;
     struct sph_particle_data *sphBuf;
     struct bh_particle_data *bhBuf;
 
-    count = (int *) mymalloc("count", NTask * sizeof(int));
-    count_sph = (int *) mymalloc("count_sph", NTask * sizeof(int));
-    count_bh = (int *) mymalloc("count_bh", NTask * sizeof(int));
-    offset = (int *) mymalloc("offset", NTask * sizeof(int));
-    offset_sph = (int *) mymalloc("offset_sph", NTask * sizeof(int));
-    offset_bh = (int *) mymalloc("offset_bh", NTask * sizeof(int));
+    int * count = (int *) alloca(NTask * sizeof(int));
+    int * count_sph = (int *) alloca(NTask * sizeof(int));
+    int * count_bh = (int *) alloca(NTask * sizeof(int));
+    int * offset = (int *) alloca(NTask * sizeof(int));
+    int * offset_sph = (int *) alloca(NTask * sizeof(int));
+    int * offset_bh = (int *) alloca(NTask * sizeof(int));
 
-    count_recv = (int *) mymalloc("count_recv", NTask * sizeof(int));
-    count_recv_sph = (int *) mymalloc("count_recv_sph", NTask * sizeof(int));
-    count_recv_bh = (int *) mymalloc("count_recv_bh", NTask * sizeof(int));
-    offset_recv = (int *) mymalloc("offset_recv", NTask * sizeof(int));
-    offset_recv_sph = (int *) mymalloc("offset_recv_sph", NTask * sizeof(int));
-    offset_recv_bh = (int *) mymalloc("offset_recv_bh", NTask * sizeof(int));
+    int * count_recv = (int *) alloca(NTask * sizeof(int));
+    int * count_recv_sph = (int *) alloca(NTask * sizeof(int));
+    int * count_recv_bh = (int *) alloca(NTask * sizeof(int));
+    int * offset_recv = (int *) alloca(NTask * sizeof(int));
+    int * offset_recv_sph = (int *) alloca(NTask * sizeof(int));
+    int * offset_recv_bh = (int *) alloca(NTask * sizeof(int));
 
     for(i = 1, offset_sph[0] = 0; i < NTask; i++)
         offset_sph[i] = offset_sph[i - 1] + toGoSph[i - 1];
@@ -847,19 +844,6 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     myfree(bhBuf);
     myfree(sphBuf);
     myfree(partBuf);
-    myfree(offset_recv_bh);
-    myfree(offset_recv_sph);
-    myfree(offset_recv);
-    myfree(count_recv_bh);
-    myfree(count_recv_sph);
-    myfree(count_recv);
-
-    myfree(offset_bh);
-    myfree(offset_sph);
-    myfree(offset);
-    myfree(count_bh);
-    myfree(count_sph);
-    myfree(count);
 
     if(ThisTask == 0) {
         fprintf(stderr, "checking ID consistency after exchange\n");
@@ -1253,13 +1237,9 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
     int n, ret, retsum;
     size_t package;
 
-    int *list_NumPart;
-    int *list_N_sph;
-    int *list_N_bh;
-
-    list_NumPart = (int *) alloca(sizeof(int) * NTask);
-    list_N_sph = (int *) alloca(sizeof(int) * NTask);
-    list_N_bh = (int *) alloca(sizeof(int) * NTask);
+    int * list_NumPart = (int *) alloca(sizeof(int) * NTask);
+    int * list_N_sph = (int *) alloca(sizeof(int) * NTask);
+    int * list_N_bh = (int *) alloca(sizeof(int) * NTask);
 
     for(n = 0; n < NTask; n++)
     {
