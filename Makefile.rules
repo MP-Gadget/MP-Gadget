@@ -49,7 +49,7 @@ all: depends $(EXEC)
 .PHONY: depends
 
 depends:
-	cd $(VPATH)/depends; make
+	cd depends; make
 
 
 $(DESTDIR)/P-Gadget3: $(OBJS)
