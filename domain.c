@@ -197,7 +197,17 @@ void domain_Decomposition(void)
 
             report_memory_usage("DOMAIN");
 
+            if(ThisTask == 0) {
+                printf("Testing ID Uniqueness before domain decompose\n");
+                fflush(stdout);
+            }
+            test_id_uniqueness();
             ret = domain_decompose();
+            if(ThisTask == 0) {
+                printf("Testing ID Uniqueness after domain decompose\n");
+                fflush(stdout);
+            }
+            test_id_uniqueness();
 
             /* copy what we need for the topnodes */
             for(i = 0; i < NTopnodes; i++)
