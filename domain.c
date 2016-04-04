@@ -2147,10 +2147,12 @@ void rearrange_particle_sequence(void)
 
 #ifdef SFR
     for(i = 0; i < N_sph; i++) {
-        while(P[i].Type != 0 && N_sph - 1 > i) {
+        while(P[i].Type != 0 && i < N_sph) {
             /* remove this particle from SphP, because
              * it is no longer a SPH
              * */
+            /* note that when i == N-sph - 1 this doesn't really do any
+             * thing. no harm done */
             struct particle_data psave;
             psave = P[i];
             P[i] = P[N_sph - 1];
