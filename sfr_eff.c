@@ -142,15 +142,10 @@ void cooling_and_starformation(void)
          */
         flag = get_sfr_condition(i);
 
-#ifdef NOISMPRESSURE
-        /* always do direct cooling in these cases */
-        cooling_direct(i);
-#else
         /* normal implicit isochoric cooling */
         if(flag == 1 || All.QuickLymanAlphaProbability > 0) {
             cooling_direct(i);
         }
-#endif
 #ifdef ENDLESSSTARS
         flag = 0;
 #endif
@@ -721,7 +716,6 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     }
 #endif
 
-#if !defined(NOISMPRESSURE)
     SPHP(i).Entropy =
         (egyeff +
          (egycurrent -
@@ -729,7 +723,6 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
         pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
 
     SPHP(i).DtEntropy = 0;
-#endif
 
 }
 
