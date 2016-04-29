@@ -251,10 +251,6 @@ extern int LastInTimeBin[TIMEBINS];
 extern int *NextInTimeBin;
 extern int *PrevInTimeBin;
 
-#ifdef SFR
-extern double Local_GAS_sfr;
-#endif
-
 #ifdef BLACK_HOLES
 extern double Local_BH_mass;
 extern double Local_BH_dynamicalmass;
@@ -723,7 +719,7 @@ extern struct particle_data
 *P;				/*!< holds particle data on local processor */
 
 
-/* the following struture holds data that is stored for each SPH particle in addition to the collisionless
+/* the following structure holds data that is stored for each SPH particle in addition to the collisionless
  * variables.
  */
 extern struct sph_particle_data

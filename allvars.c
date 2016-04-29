@@ -49,10 +49,6 @@ int LastInTimeBin[TIMEBINS];
 int *NextInTimeBin;
 int *PrevInTimeBin;
 
-#ifdef SFR
-double Local_GAS_sfr;
-#endif
-
 #ifdef BLACK_HOLES
 double Local_BH_mass;
 double Local_BH_dynamicalmass;
