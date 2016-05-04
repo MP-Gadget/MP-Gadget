@@ -606,7 +606,7 @@ static int sfr_wind_evaluate(int target, int mode,
 
 static int make_particle_wind(int i, double v, double vmean[3]) {
     /* v and vmean are in internal units (km/s *a ), not km/s !*/
-    /* returns 0 if particle i is converteed to wind. */
+    /* returns 0 if particle i is converted to wind. */
     int j;
     /* ok, make the particle go into the wind */
     double dir[3];
