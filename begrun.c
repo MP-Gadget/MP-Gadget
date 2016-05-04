@@ -438,10 +438,13 @@ void read_parameter_file(char *fname)
 {
     if(ThisTask == 0) {
         ParameterSet * ps = parameter_set_new();
-
+#ifdef BLACK_HOLES
         param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
+#endif
         param_set_action(ps, "DensityKernelType", DensityKernelTypeAction, NULL);
+#ifdef SFR
         param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
+#endif
         param_set_action(ps, "OutputListFilename", OutputListFilenameAction, NULL);
 
         char * content = fread_all(fname);

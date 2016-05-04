@@ -609,7 +609,6 @@ extern struct global_data_all_processes
     double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
     double SeedBlackHoleMass;	/*!< Seed black hole mass */
-    double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
     double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
     double BlackHoleMaxAccretionRadius;
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
@@ -617,6 +616,7 @@ extern struct global_data_all_processes
 #endif
 
 #ifdef FOF
+    double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
     double FOFHaloLinkingLength;
     int FOFHaloMinLength;
 #endif
