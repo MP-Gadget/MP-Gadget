@@ -689,8 +689,8 @@ static int make_particle_star(int i) {
     return 0;
 }
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
-    double egycurrent =
-        SPHP(i).Entropy * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    const double densityfac = pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    double egycurrent = SPHP(i).Entropy *  densityfac;
 
 #ifdef BLACK_HOLES
     if(SPHP(i).Injected_BH_Energy > 0)
@@ -717,11 +717,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     }
 #endif
 
-    SPHP(i).Entropy =
-        (egyeff +
-         (egycurrent -
-          egyeff) * exp(-dtime / trelax)) * GAMMA_MINUS1 /
-        pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
+    SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
 
     SPHP(i).DtEntropy = 0;
 
