@@ -657,7 +657,7 @@ static int make_particle_star(int i) {
     double mass_of_star =  All.MassTable[0] / GENERATIONS;
 
     /* ok, make a star */
-    if(P[i].Mass < 1.1 * mass_of_star)
+    if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
     {
         /* here we turn the gas particle itself into a star */
         stars_converted++;
