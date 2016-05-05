@@ -236,12 +236,8 @@ static int hydro_evaluate(int target, int mode,
     O->Acc[0] = O->Acc[1] = O->Acc[2] = O->DtEntropy = 0;
     density_kernel_init(&kernel_i, I->Hsml);
 
-#ifndef TRADITIONAL_SPH_FORMULATION
 #ifdef DENSITY_INDEPENDENT_SPH
     p_over_rho2_i = I->Pressure / (I->EgyRho * I->EgyRho);
-#else
-    p_over_rho2_i = I->Pressure / (I->Density * I->Density);
-#endif
 #else
     p_over_rho2_i = I->Pressure / (I->Density * I->Density);
 #endif
@@ -383,8 +379,6 @@ static int hydro_evaluate(int target, int mode,
 #endif
                     }
                     double hfc_visc = 0.5 * P[j].Mass * visc * (dwk_i + dwk_j) / r;
-#ifndef TRADITIONAL_SPH_FORMULATION
-
 #ifdef DENSITY_INDEPENDENT_SPH
                     double hfc = hfc_visc;
                     /* leading-order term */
@@ -416,13 +410,6 @@ static int hydro_evaluate(int target, int mode,
                     double hfc = hfc_visc + P[j].Mass * (p_over_rho2_i *I->DhsmlDensityFactor * dwk_i
                             + p_over_rho2_j * SPHP(j).DhsmlDensityFactor * dwk_j) / r;
 #endif
-#else
-                    double hfc = hfc_visc +
-                        0.5 * P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i + p_over_rho2_j);
-
-                    /* hfc_egy = 0.5 * P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i + p_over_rho2_j); */
-                    double hfc_egy = P[j].Mass * (dwk_i + dwk_j) / r * (p_over_rho2_i);
-#endif
 
 #ifdef WINDS
                     if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
@@ -440,11 +427,7 @@ static int hydro_evaluate(int target, int mode,
                     O->Acc[2] += (-hfc * dz);
 #endif
 
-#ifndef TRADITIONAL_SPH_FORMULATION
                     O->DtEntropy += (0.5 * hfc_visc * vdotr2);
-#else
-                    O->DtEntropy += (0.5 * (hfc_visc + hfc_egy) * vdotr2);
-#endif
 
 #ifdef WAKEUP
 #error This needs to be prtected by a lock
@@ -489,10 +472,8 @@ static void hydro_post_process(int i) {
     {
         int k;
 
-#ifndef TRADITIONAL_SPH_FORMULATION
         /* Translate energy change rate into entropy change rate */
         SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
-#endif
 
 #ifdef WINDS
         /* if we have winds, we decouple particles briefly if delaytime>0 */

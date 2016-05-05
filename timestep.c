@@ -533,11 +533,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
 
         if(All.MinEgySpec)
         {
-#ifndef TRADITIONAL_SPH_FORMULATION
             minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
-#else
-            minentropy = All.MinEgySpec;
-#endif
             if(SPHP(i).Entropy < minentropy)
             {
                 SPHP(i).Entropy = minentropy;
