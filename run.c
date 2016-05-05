@@ -394,78 +394,30 @@ int find_next_outputtime(int ti_curr)
     ti_next = -1;
 
 
-    if(All.OutputListOn)
+    for(i = 0; i < All.OutputListLength; i++)
     {
-        for(i = 0; i < All.OutputListLength; i++)
-        {
-            time = All.OutputListTimes[i];
+        time = All.OutputListTimes[i];
 
-            if(time >= All.TimeBegin && time <= All.TimeMax)
-            {
-                ti = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
-
-                if(ti >= ti_curr)
-                {
-                    if(ti_next == -1)
-                    {
-                        ti_next = ti;
-                        DumpFlag = All.OutputListFlag[i];
-                    }
-
-                    if(ti_next > ti)
-                    {
-                        ti_next = ti;
-                        DumpFlag = All.OutputListFlag[i];
-                    }
-                }
-            }
-        }
-    }
-    else
-    {
-        if(All.TimeBetSnapshot <= 1.0)
-        {
-            printf("TimeBetSnapshot > 1.0 required for your simulation.\n");
-            endrun(13123);
-        }
-        time = All.TimeOfFirstSnapshot;
-        iter = 0;
-
-        while(time < All.TimeBegin)
-        {
-            time *= All.TimeBetSnapshot;
-
-            iter++;
-
-            if(iter > 1000000)
-            {
-                printf("Can't determine next output time.\n");
-                endrun(110);
-            }
-        }
-
-        while(time <= All.TimeMax)
+        if(time >= All.TimeBegin && time <= All.TimeMax)
         {
             ti = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
 
             if(ti >= ti_curr)
             {
-                ti_next = ti;
-                break;
-            }
+                if(ti_next == -1)
+                {
+                    ti_next = ti;
+                    DumpFlag = All.OutputListFlag[i];
+                }
 
-            time *= All.TimeBetSnapshot;
-
-            iter++;
-
-            if(iter > 1000000)
-            {
-                printf("Can't determine next output time.\n");
-                endrun(111);
+                if(ti_next > ti)
+                {
+                    ti_next = ti;
+                    DumpFlag = All.OutputListFlag[i];
+                }
             }
         }
     }
-
 
     if(ti_next == -1)
     {
