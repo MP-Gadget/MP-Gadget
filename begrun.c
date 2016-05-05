@@ -465,7 +465,8 @@ void read_parameter_file(char *fname)
         All.HubbleParam = param_get_double(ps, "HubbleParam");
         All.BoxSize = param_get_double(ps, "BoxSize");
 
-        All.OverDecompositionFactor = param_get_int(ps, "OverDecompositionFactor");
+        All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
+        printf("------------- %d ----------- \n", All.DomainOverDecompositionFactor);
         All.MaxMemSizePerCore = param_get_int(ps, "MaxMemSizePerCore");
         All.TimeOfFirstSnapshot = param_get_double(ps, "TimeOfFirstSnapshot");
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");

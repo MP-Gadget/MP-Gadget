@@ -777,9 +777,9 @@ void force_exchange_pseudodata(void)
 
     DomainMoment = (struct DomainNODE *) mymalloc("DomainMoment", NTopleaves * sizeof(struct DomainNODE));
 
-    for(m = 0; m < All.OverDecompositionFactor; m++)
-        for(i = DomainStartList[ThisTask * All.OverDecompositionFactor + m];
-                i <= DomainEndList[ThisTask * All.OverDecompositionFactor + m]; i++)
+    for(m = 0; m < All.DomainOverDecompositionFactor; m++)
+        for(i = DomainStartList[ThisTask * All.DomainOverDecompositionFactor + m];
+                i <= DomainEndList[ThisTask * All.DomainOverDecompositionFactor + m]; i++)
         {
             no = DomainNodeIndex[i];
 
@@ -805,17 +805,17 @@ void force_exchange_pseudodata(void)
     recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
     recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);
 
-    for(m = 0; m < All.OverDecompositionFactor; m++)
+    for(m = 0; m < All.DomainOverDecompositionFactor; m++)
     {
         for(recvTask = 0; recvTask < NTask; recvTask++)
         {
             recvcounts[recvTask] =
-                (DomainEndList[recvTask * All.OverDecompositionFactor + m] - DomainStartList[recvTask * All.OverDecompositionFactor + m] +
+                (DomainEndList[recvTask * All.DomainOverDecompositionFactor + m] - DomainStartList[recvTask * All.DomainOverDecompositionFactor + m] +
                  1) * sizeof(struct DomainNODE);
-            recvoffset[recvTask] = DomainStartList[recvTask * All.OverDecompositionFactor + m] * sizeof(struct DomainNODE);
+            recvoffset[recvTask] = DomainStartList[recvTask * All.DomainOverDecompositionFactor + m] * sizeof(struct DomainNODE);
         }
 
-        MPI_Allgatherv(&DomainMoment[DomainStartList[ThisTask * All.OverDecompositionFactor + m]], recvcounts[ThisTask],
+        MPI_Allgatherv(&DomainMoment[DomainStartList[ThisTask * All.DomainOverDecompositionFactor + m]], recvcounts[ThisTask],
                 MPI_BYTE, &DomainMoment[0], recvcounts, recvoffset, MPI_BYTE, MPI_COMM_WORLD);
     }
 
@@ -825,8 +825,8 @@ void force_exchange_pseudodata(void)
 
     for(ta = 0; ta < NTask; ta++)
         if(ta != ThisTask)
-            for(m = 0; m < All.OverDecompositionFactor; m++)
-                for(i = DomainStartList[ta * All.OverDecompositionFactor + m]; i <= DomainEndList[ta * All.OverDecompositionFactor + m]; i++)
+            for(m = 0; m < All.DomainOverDecompositionFactor; m++)
+                for(i = DomainStartList[ta * All.DomainOverDecompositionFactor + m]; i <= DomainEndList[ta * All.DomainOverDecompositionFactor + m]; i++)
                 {
                     no = DomainNodeIndex[i];
 
@@ -1043,9 +1043,9 @@ void force_flag_localnodes(void)
 
     /* mark top-level nodes that contain local particles */
 
-    for(m = 0; m < All.OverDecompositionFactor; m++)
-        for(i = DomainStartList[ThisTask * All.OverDecompositionFactor + m];
-                i <= DomainEndList[ThisTask * All.OverDecompositionFactor + m]; i++)
+    for(m = 0; m < All.DomainOverDecompositionFactor; m++)
+        for(i = DomainStartList[ThisTask * All.DomainOverDecompositionFactor + m];
+                i <= DomainEndList[ThisTask * All.DomainOverDecompositionFactor + m]; i++)
         {
             no = DomainNodeIndex[i];
 

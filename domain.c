@@ -291,10 +291,10 @@ void domain_allocate(void)
 
     MaxTopNodes = (int) (All.TopNodeAllocFactor * All.MaxPart + 1);
 
-    DomainStartList = (int *) mymalloc("DomainStartList", bytes = (NTask * All.OverDecompositionFactor * sizeof(int)));
+    DomainStartList = (int *) mymalloc("DomainStartList", bytes = (NTask * All.DomainOverDecompositionFactor * sizeof(int)));
     all_bytes += bytes;
 
-    DomainEndList = (int *) mymalloc("DomainEndList", bytes = (NTask * All.OverDecompositionFactor * sizeof(int)));
+    DomainEndList = (int *) mymalloc("DomainEndList", bytes = (NTask * All.DomainOverDecompositionFactor * sizeof(int)));
     all_bytes += bytes;
 
     TopNodes = (struct topnode_data *) mymalloc("TopNodes", bytes =
@@ -450,7 +450,7 @@ int domain_decompose(void)
     if(domain_determineTopTree())
         return 1;
     /* find the split of the domain grid */
-    domain_findSplit_work_balanced(All.OverDecompositionFactor * NTask, NTopleaves);
+    domain_findSplit_work_balanced(All.DomainOverDecompositionFactor * NTask, NTopleaves);
 
     walltime_measure("/Domain/Decompose/findworksplit");
 
@@ -467,7 +467,7 @@ int domain_decompose(void)
             printf
                 ("Note: the domain decomposition is suboptimum because the ceiling for memory-imbalance is reached\n");
 
-        domain_findSplit_load_balanced(All.OverDecompositionFactor * NTask, NTopleaves);
+        domain_findSplit_load_balanced(All.DomainOverDecompositionFactor * NTask, NTopleaves);
 
         walltime_measure("/Domain/Decompose/findloadsplit");
         domain_assign_load_or_work_balanced(0);
@@ -620,8 +620,8 @@ int domain_check_memory_bound(void)
         load = sphload = 0;
         work = 0;
 
-        for(m = 0; m < All.OverDecompositionFactor; m++)
-            for(i = DomainStartList[ta * All.OverDecompositionFactor + m]; i <= DomainEndList[ta * All.OverDecompositionFactor + m]; i++)
+        for(m = 0; m < All.DomainOverDecompositionFactor; m++)
+            for(i = DomainStartList[ta * All.DomainOverDecompositionFactor + m]; i <= DomainEndList[ta * All.DomainOverDecompositionFactor + m]; i++)
             {
                 load += domainCount[i];
                 sphload += domainCountSph[i];
@@ -1110,17 +1110,17 @@ void domain_assign_load_or_work_balanced(int mode)
 
     domainAssign =
         (struct domain_segments_data *) mymalloc("domainAssign",
-                All.OverDecompositionFactor * NTask * sizeof(struct domain_segments_data));
+                All.DomainOverDecompositionFactor * NTask * sizeof(struct domain_segments_data));
     domain =
         (struct domain_loadorigin_data *) mymalloc("domain",
-                All.OverDecompositionFactor * NTask *
+                All.DomainOverDecompositionFactor * NTask *
                 sizeof(struct domain_loadorigin_data));
-    target = (int *) mymalloc("target", All.OverDecompositionFactor * NTask * sizeof(int));
+    target = (int *) mymalloc("target", All.DomainOverDecompositionFactor * NTask * sizeof(int));
 
-    for(n = 0; n < All.OverDecompositionFactor * NTask; n++)
+    for(n = 0; n < All.DomainOverDecompositionFactor * NTask; n++)
         domainAssign[n].task = n;
 
-    ndomains = All.OverDecompositionFactor * NTask;
+    ndomains = All.DomainOverDecompositionFactor * NTask;
 
     while(ndomains > NTask)
     {
@@ -1130,7 +1130,7 @@ void domain_assign_load_or_work_balanced(int mode)
             domain[i].origin = i;
         }
 
-        for(n = 0; n < All.OverDecompositionFactor * NTask; n++)
+        for(n = 0; n < All.DomainOverDecompositionFactor * NTask; n++)
         {
             for(i = DomainStartList[n]; i <= DomainEndList[n]; i++)
                 if(mode == 1)
@@ -1147,21 +1147,21 @@ void domain_assign_load_or_work_balanced(int mode)
             target[domain[ndomains - 1 - i].origin] = i;
         }
 
-        for(n = 0; n < All.OverDecompositionFactor * NTask; n++)
+        for(n = 0; n < All.DomainOverDecompositionFactor * NTask; n++)
             domainAssign[n].task = target[domainAssign[n].task];
 
         ndomains /= 2;
     }
 
-    for(n = 0; n < All.OverDecompositionFactor * NTask; n++)
+    for(n = 0; n < All.DomainOverDecompositionFactor * NTask; n++)
     {
         domainAssign[n].start = DomainStartList[n];
         domainAssign[n].end = DomainEndList[n];
     }
 
-    qsort(domainAssign, All.OverDecompositionFactor * NTask, sizeof(struct domain_segments_data), domain_sort_segments);
+    qsort(domainAssign, All.DomainOverDecompositionFactor * NTask, sizeof(struct domain_segments_data), domain_sort_segments);
 
-    for(n = 0; n < All.OverDecompositionFactor * NTask; n++)
+    for(n = 0; n < All.DomainOverDecompositionFactor * NTask; n++)
     {
         DomainStartList[n] = domainAssign[n].start;
         DomainEndList[n] = domainAssign[n].end;
@@ -1784,8 +1784,8 @@ int domain_determineTopTree(void)
     topNodes[0].Count = count;
     topNodes[0].Cost = gravcost;
 
-    costlimit = totgravcost / (TOPNODEFACTOR * All.OverDecompositionFactor * NTask);
-    countlimit = totpartcount / (TOPNODEFACTOR * All.OverDecompositionFactor * NTask);
+    costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
+    countlimit = totpartcount / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
     errflag = domain_check_for_local_refine(0, countlimit, costlimit);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
@@ -1885,7 +1885,7 @@ int domain_determineTopTree(void)
     domain_sumCost();
     walltime_measure("/Domain/DetermineTopTree/Sumcost");
 
-    if(NTopleaves < All.OverDecompositionFactor * NTask)
+    if(NTopleaves < All.DomainOverDecompositionFactor * NTask)
         endrun(112);
 
     return 0;

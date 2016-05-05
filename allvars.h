@@ -410,7 +410,7 @@ extern struct global_data_all_processes
     double BoxSize;		/*!< Boxsize in case periodic boundary conditions are used */
 
     /* Code options */
-    int OverDecompositionFactor; /* Number of sub-domains per processor. */
+    int DomainOverDecompositionFactor; /* Number of sub-domains per processor. */
 
     int ResubmitOn;		/*!< flags that automatic resubmission of job to queue system is enabled */
     int TypeOfOpeningCriterion;	/*!< determines tree cell-opening criterion: 0 for Barnes-Hut, 1 for relative

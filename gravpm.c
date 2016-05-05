@@ -290,7 +290,7 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
 #if PETAPM_ORDER == 3
 static double super_lanzcos_diff_kernel_3(double w) {
 /* order N = 3*/
-    return 1. / 594 * 
+    return 1. / 594 *
        (126 * sin(w) + 193 * sin(2 * w) + 142 * sin (3 * w) - 86 * sin(4 * w));
 }
 #endif

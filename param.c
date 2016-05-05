@@ -343,7 +343,7 @@ parameter_set_new()
     param_declare_double(ps, "TimeMax", 0, 1.0, "");
     param_declare_double(ps, "TimeLimitCPU", 1, 0, "");
 
-    param_declare_int   (ps, "OverDecompositionFactor", 0, 1, "Number of sub domains on a MPI rank");
+    param_declare_int   (ps, "DomainOverDecompositionFactor", 0, 1, "Number of sub domains on a MPI rank");
     param_declare_double(ps, "TreeDomainUpdateFrequency", 0, 0.025, "");
     param_declare_double(ps, "ErrTolTheta", 0, 0.5, "");
     param_declare_int(ps,    "TypeOfOpeningCriterion", 0, 1, "");
