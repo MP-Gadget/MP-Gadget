@@ -25,7 +25,6 @@
  *
  */
 
-int flag_entropy_instead_u;
 struct IOTable IOTable = {0};
 
 static void petaio_write_header(BigFile * bf);
@@ -207,9 +206,8 @@ void petaio_read_snapshot(int num) {
     sprintf(fname, "%s/PART_%03d", All.OutputDir, num);
 
     /* 
-     * we always save the Entropy, notify init.c not to mess with the entorpy
+     * we always save the Entropy, notify init.c not to mess with the entropy
      * */
-    flag_entropy_instead_u = 1;
     petaio_read_internal(fname, 0);
 }
 
@@ -224,7 +222,6 @@ void petaio_read_ic() {
      *  InitTemp in paramfile, then use init.c to convert to
      *  entropy.
      * */
-    flag_entropy_instead_u = 0;
     petaio_read_internal(All.InitCondFile, 1);
 
     /* touch up the mass -- IC files save mass in header */
@@ -350,6 +347,7 @@ static void petaio_read_header(BigFile * bf) {
     All.TotN_sph = npartTotal[0];
     All.TotN_bh = npartTotal[5];
     All.TotN_star = npartTotal[4];
+    All.TotN_neutrinos = npartTotal[2];
     if(ThisTask == 0) {
         printf("Total number of particles: %018ld\n", All.TotNumPart);
         printf("Total number of gas particles: %018ld\n", All.TotN_sph);
@@ -648,7 +646,7 @@ SIMPLE_GETTER(GTPressure, SPHP(i).Pressure, float, 1)
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #endif
 #ifdef SFR
-#ifdef STELLARAGE
+#ifdef WINDS
 SIMPLE_PROPERTY(StarFormationTime, P[i].StellarAge, float, 1)
 #endif
 #ifdef METALS
@@ -729,7 +727,7 @@ static void register_io_blocks() {
     /* SF */
 #ifdef SFR
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
-#ifdef STELLARAGE
+#ifdef WINDS
     IO_REG(StarFormationTime, "f4", 1, 4);
 #endif
 #ifdef METALS

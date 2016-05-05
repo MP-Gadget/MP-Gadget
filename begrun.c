@@ -175,8 +175,7 @@ void set_units(void)
         printf("UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);
         printf("UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
         printf("UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
-        printf("Radiation density Omega_R = %g\n",OMEGAR);
-
+        printf("Radiation density Omega_R = %g\n",All.RadiationOn*(OMEGAG+(!All.TotN_neutrinos)*OMEGANOMASSNU));
         printf("\n");
     }
 
@@ -382,7 +381,6 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
         All.OutputListTimes[count] = atof(token);
 /*         printf("Output at: %g\n", All.OutputListTimes[count]); */
     }
-    free(outputlist);
     free(strtmp);
 
     qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
@@ -438,9 +436,6 @@ void read_parameter_file(char *fname)
         printf("----------------------------------------------\n");
 
         All.NumThreads = omp_get_max_threads();
-        All.ICFormat = 1;
-        All.SnapFormat = 3;
-        All.CompressionLevel = 4;
 
     /* Start reading the values */
         param_get_string2(ps, "InitCondFile", All.InitCondFile);
@@ -496,6 +491,9 @@ void read_parameter_file(char *fname)
         All.NumWritersPerPIG = param_get_int(ps, "NumWritersPerPIG");
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
+        All.RadiationOn = param_get_int(ps, "RadiationOn");
+        All.FastParticleType = param_get_int(ps, "FastParticleType");
+        All.NoTreeType = param_get_int(ps, "NoTreeType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.TypeOfTimestepCriterion = param_get_int(ps, "TypeOfTimestepCriterion");
         All.TypeOfOpeningCriterion = param_get_int(ps, "TypeOfOpeningCriterion");

@@ -55,7 +55,7 @@ void init(void)
         petaio_read_ic();
     } else {
         if(ThisTask == 0) {
-            fprintf(stderr, "RestartFlag and SnapNum comination is unknown");
+            fprintf(stderr, "RestartFlag and SnapNum combination is unknown");
         }
         abort();
     }
@@ -101,45 +101,12 @@ void init(void)
 
     for(i = 0; i < NumPart; i++)	/*  start-up initialization */
     {
-        for(j = 0; j < 3; j++) {
-            P[i].GravAccel[j] = 0;
-        }
-
-        for(j = 0; j < 3; j++)
-            P[i].GravPM[j] = 0;
-
-        P[i].Ti_begstep = 0;
-        P[i].Ti_current = 0;
-        P[i].DensityIterationDone = 0;
-        P[i].OnAnotherDomain = 0;
-        P[i].WillExport = 0;
-
-        P[i].TimeBin = 0;
-
-        P[i].OldAcc = 0;
-
         P[i].GravCost = 1;
 
-        if(RestartFlag < 3)
-            P[i].Potential = 0;
-
-#ifdef STELLARAGE
-        if(RestartFlag == 0)
-            P[i].StellarAge = 0;
-#endif
-        if(RestartFlag == 0)
-            P[i].Generation = 0;
-
-#ifdef METALS
-        if(RestartFlag == 0)
-            P[i].Metallicity = 0;
-#endif
-
 #ifdef BLACK_HOLES
-        if(P[i].Type == 5)
+        if(RestartFlag == 0 && P[i].Type == 5 )
         {
-            if(RestartFlag == 0)
-                BHP(i).Mass = All.SeedBlackHoleMass;
+            BHP(i).Mass = All.SeedBlackHoleMass;
         }
 #endif
     }
@@ -163,9 +130,6 @@ void init(void)
 
         if(RestartFlag == 0)
         {
-#ifndef READ_HSML
-            P[i].Hsml = 0;
-#endif
             SPHP(i).Density = -1;
 #ifdef DENSITY_INDEPENDENT_SPH
             SPHP(i).EgyWtDensity = -1;
@@ -189,43 +153,20 @@ void init(void)
 #ifdef BLACK_HOLES
         SPHP(i).Injected_BH_Energy = 0;
 #endif
-    }
-
 #ifdef TWODIMS
-    for(i = 0; i < NumPart; i++)
-    {
-        P[i].Pos[2] = 0;
-        P[i].Vel[2] = 0;
-
-        P[i].GravAccel[2] = 0;
-
-        if(P[i].Type == 0)
-        {
-            SPHP(i).VelPred[2] = 0;
-            SPHP(i).HydroAccel[2] = 0;
-        }
-    }
+        SPHP(i).VelPred[2] = 0;
+        SPHP(i).HydroAccel[2] = 0;
 #endif
-
 #ifdef ONEDIM
-    for(i = 0; i < NumPart; i++)
-    {
-        P[i].Pos[1] = P[i].Pos[2] = 0;
-        P[i].Vel[1] = P[i].Vel[2] = 0;
-
-        P[i].GravAccel[1] = P[i].GravAccel[2] = 0;
-
-        if(P[i].Type == 0)
-        {
-            SPHP(i).VelPred[1] = SPHP(i).VelPred[2] = 0;
-            SPHP(i).HydroAccel[1] =SPHP(i).HydroAccel[2] = 0;
-        }
-    }
+        SPHP(i).VelPred[1] = SPHP(i).VelPred[2] = 0;
+        SPHP(i).HydroAccel[1] =SPHP(i).HydroAccel[2] = 0;
 #endif
+    }
+
 
     test_id_uniqueness();
 
-    Flag_FullStep = 1;		/* to ensure that Peano-Hilber order is done */
+    Flag_FullStep = 1;		/* to ensure that Peano-Hilbert order is done */
 
     domain_Decomposition();	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -247,34 +188,6 @@ void init(void)
 #ifdef START_WITH_EXTRA_NGBDEV
     All.MaxNumNgbDeviation = MaxNumNgbDeviationMerk;
 #endif
-
-    /* at this point, the entropy variable actually contains the
-     * internal energy, read in from the initial conditions file.
-     * Once the density has been computed, we can convert to entropy.
-     */
-
-    for(i = 0; i < N_sph; i++)	/* initialize sph_properties */
-    {
-        /* PETAIO:
-         * NON IC, this flag is 1
-         * IC it is 0. */
-        if(flag_entropy_instead_u == 0)
-        {
-/* for DENSITY_INDEPENDENT_SPH, this is done already. */
-#if !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
-            double a3 = All.Time * All.Time * All.Time;
-            if(ThisTask == 0 && i == 0)
-                printf("Converting u -> entropy !\n");
-
-            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).Density / a3, GAMMA_MINUS1);
-#endif
-        }
-
-        SPHP(i).DtEntropy = 0;
-
-        SPHP(i).DivVel = 0;
-
-    }
 
     if(RestartFlag == 3)
     {
@@ -361,7 +274,6 @@ void setup_smoothinglengths(void)
                 no = p;
             }
 
-#ifndef READ_HSML
 #ifndef TWODIMS
 #ifndef ONEDIM
             P[i].Hsml =
@@ -376,7 +288,6 @@ void setup_smoothinglengths(void)
 #endif
             if(All.SofteningTable[0] != 0 && P[i].Hsml > 500.0 * All.SofteningTable[0])
                 P[i].Hsml = All.SofteningTable[0];
-#endif
         }
     }
 
@@ -393,24 +304,22 @@ void setup_smoothinglengths(void)
 
     density();
 
-#ifdef DENSITY_INDEPENDENT_SPH
     /* for clean IC with U input only, we need to iterate to find entrpoy */
-    if(RestartFlag == 0 && flag_entropy_instead_u == 0)
+    if(RestartFlag == 0)
     {
+        const double a3 = All.Time * All.Time * All.Time;
+#ifdef DENSITY_INDEPENDENT_SPH
         for(i = 0; i < N_sph; i++)
         {
             /* start the iteration from mass density */
             SPHP(i).EgyWtDensity = SPHP(i).Density;
         }
 
-        double a3;
-        a3 = All.Time * All.Time * All.Time;
 
         /* initialization of the entropy variable is a little trickier in this version of SPH,
            since we need to make sure it 'talks to' the density appropriately */
-
         if (ThisTask == 0) {
-            printf("Converint u -> entropy, with density split sph\n");
+            printf("Converting u -> entropy, with density split sph\n");
         }
 
         int j;
@@ -452,13 +361,15 @@ void setup_smoothinglengths(void)
             if(badness < 1e-3) break;
         }
         myfree(olddensity);
+#endif //DENSITY_INDEPENDENT_SPH
 #pragma omp parallel for
         for(i = 0; i < N_sph; i++) {
             /* EgyWtDensity stabilized, now we convert from energy to entropy*/
-            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity/a3 , GAMMA_MINUS1);
+            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
         }
     }
 
+#ifdef DENSITY_INDEPENDENT_SPH
     /* snapshot already has Entropy and EgyWtDensity;
      * hope it is read in correctly. (need a test
      * on this!) */
@@ -467,6 +378,5 @@ void setup_smoothinglengths(void)
         SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
     }
     density();
-#endif
-
+#endif //DENSITY_INDEPENDENT_SPH
 }

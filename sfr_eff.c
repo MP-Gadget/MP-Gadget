@@ -220,7 +220,7 @@ void cooling_and_starformation(void)
     walltime_measure("/Cooling/StarFormation");
 #ifdef WINDS
     /* now lets make winds. this has to be after NumPart is updated */
-    if(!HAS(All.WindModel, WINDS_SUBGRID)) {
+    if(!HAS(All.WindModel, WINDS_SUBGRID) && All.WindModel != WINDS_NONE) {
         int i;
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
         Evaluator ev = {0};
@@ -412,10 +412,6 @@ static int sfr_wind_isactive(int target) {
         /*
          * protect beginning of time. StellarAge starts at 0.
          * */
-#ifndef STELLARAGE
-#error Need STELLARAGE
-        /* stellar age needed to tell if the star particle is recently generated */
-#endif
         if(All.Time > 0 && P[target].StellarAge == All.Time) {
              return 1;
         }
@@ -681,7 +677,7 @@ static int make_particle_star(int i) {
         P[i].Type = 4;
         TimeBinCountSph[P[i].TimeBin]--;
 
-#ifdef STELLARAGE
+#ifdef WINDS
         P[i].StellarAge = All.Time;
 #endif
     }
@@ -695,7 +691,7 @@ static int make_particle_star(int i) {
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
         sum_mass_stars += P[child].Mass;
-#ifdef STELLARAGE
+#ifdef WINDS
         P[child].StellarAge = All.Time;
 #endif
         stars_spawned++;
@@ -1167,7 +1163,7 @@ void set_units_sfr(void)
                 printf("Windspeed: %g\n", All.WindSpeed);
     } else {
         All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
-        if(ThisTask == 0)
+        if(ThisTask == 0 && All.WindModel != WINDS_NONE)
                 printf("Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
 
     }

@@ -42,7 +42,6 @@ OPT	+=  -DCOOLING
 OPT	+=  -DSFR
 #OPT	+=  -DSOFTEREQS
 OPT	+=  -DMETALS
-OPT	+=  -DSTELLARAGE
 OPT	+=  -DWINDS
 #OPT	+=  -DQUICK_LYALPHA
 #OPT	+=  -DISOTROPICWINDS
@@ -60,7 +59,6 @@ OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding g
 OPT	+=  -DBH_REPOSITION_ON_POTMIN    # repositions hole on potential minimum (required )
 
 #-------------------------------------------- Things for special behaviour
-OPT	+=  -DINCLUDE_RADIATION		# Add radiation density to backround evolution. Only affects the Hubble flow.
 #OPT	+=  -DTRADITIONAL_SPH_FORMULATION
 OPT	+=  -DNOTEST_FOR_IDUNIQUENESS
 OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV

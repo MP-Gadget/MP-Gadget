@@ -199,6 +199,7 @@ enum StarformationCriterion {
  * wind models SH03, VS08 and OFJT10
  * All.WindModel */
 enum WindModel {
+    WINDS_NONE = 0,
     WINDS_SUBGRID = 1,
     WINDS_DECOUPLE_SPH = 2,
     WINDS_USE_HALO = 4,
@@ -320,10 +321,7 @@ extern struct global_data_all_processes
     int64_t TotN_sph;		/*!<  total gas particle number (global value) */
     int64_t TotN_bh;
     int64_t TotN_star;
-
-#ifdef NEUTRINOS
-    int64_t TotNumNeutrinos;
-#endif
+    int64_t TotN_neutrinos;
 
     int NumThreads;     /* number of threads used to simulate OpenMP tls */
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
@@ -332,10 +330,6 @@ extern struct global_data_all_processes
                           processor. */
     int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on one
                           processor. */
-
-    int ICFormat;			/*!< selects different versions of IC file-format */
-
-    int SnapFormat;		/*!< selects different versions of snapshot file-formats */
 
     int DoDynamicUpdate;
 
@@ -419,7 +413,6 @@ extern struct global_data_all_processes
     /* Code options */
     int DomainOverDecompositionFactor; /* Number of sub-domains per processor. */
 
-    int ResubmitOn;		/*!< flags that automatic resubmission of job to queue system is enabled */
     int TypeOfOpeningCriterion;	/*!< determines tree cell-opening criterion: 0 for Barnes-Hut, 1 for relative
                                   criterion */
     int TypeOfTimestepCriterion;	/*!< gives type of timestep criterion (only 0 supported right now - unlike
@@ -429,7 +422,9 @@ extern struct global_data_all_processes
     enum StarformationCriterion StarformationCriterion;		/*!< flags that star formation is enabled */
     enum WindModel WindModel;		/*!< flags that star formation is enabled */
 
-    int CompressionLevel;
+    int RadiationOn; /*!< flags whether to include the radiation density in the background*/
+    int NoTreeType; /*!< flags a particle species to exclude from tree forces*/
+    int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     /* parameters determining output frequency */
 
     int SnapshotFileCount;	/*!< number of snapshot that is written next */
@@ -689,8 +684,8 @@ extern struct particle_data
                               criterion */
     MyFloat PM_Potential;
 
-#ifdef STELLARAGE
-    MyFloat StellarAge;		/*!< formation time of star particle */
+#ifdef WINDS
+    MyFloat StellarAge;		/*!< formation time of star particle: needed to tell when wind is active. */
 #endif
 #ifdef METALS
     MyFloat Metallicity;		/*!< metallicity of gas or star particle */

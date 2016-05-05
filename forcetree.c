@@ -185,10 +185,9 @@ int force_treebuild_single(int npart, struct unbind_data *mp)
         else
             i = k;
 
-#ifdef NEUTRINOS
-        if(P[i].Type == 2)
+        /*We sometimes want to disable the tree for hot particles*/
+        if(P[i].Type == All.NoTreeType)
             continue;
-#endif
 
         rep = 0;
 
@@ -1158,10 +1157,9 @@ void force_kick_node(int i, MyFloat * dv)
     int j, no;
     MyFloat dp[3], v, vmax;
 
-#ifdef NEUTRINOS
-    if(P[i].Type == 2)
+    /*We sometimes want to disable the tree for hot particles*/
+    if(P[i].Type == All.NoTreeType)
         return;
-#endif
 
     for(j = 0; j < 3; j++)
     {

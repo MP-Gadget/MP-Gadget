@@ -206,6 +206,7 @@ param_declare(ParameterSet * ps, char * name, int type, int required, char * hel
     ps->p[free].type = type;
     ps->p[free].index = free;
     ps->p[free].defvalue.nil = 1;
+    ps->p[free].action = NULL;
     ps->p[free].defvalue.s = NULL;
     if(help)
         ps->p[free].help = strdup(help);
@@ -387,6 +388,7 @@ ParameterSet *
 parameter_set_new()
 {
     ParameterSet * ps = malloc(sizeof(ParameterSet));
+    ps->size = 0;
     param_declare_string(ps, "InitCondFile", 1, NULL, "Path to the Initial Condition File");
     param_declare_string(ps, "OutputDir",    1, NULL, "Prefix to the output files");
     param_declare_string(ps, "TreeCoolFile", 1, NULL, "Path to the Cooling Table");
@@ -451,6 +453,9 @@ parameter_set_new()
 
     param_declare_int(ps, "CoolingOn", 1, 0, "");
     param_declare_int(ps, "StarformationOn", 1, 0, "");
+    param_declare_int(ps, "RadiationOn", 0, 0, "Include radiation density in the background evolution.");
+    param_declare_int(ps, "FastParticleType", 0, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
+    param_declare_int(ps, "NoTreeType", 0, 2, "Particles of this type will not produce tree forces. Default neutrinos.");
 
     param_declare_double(ps, "SofteningHalo", 1, 0, "");
     param_declare_double(ps, "SofteningDisk", 1, 0, "");
@@ -480,7 +485,7 @@ parameter_set_new()
     param_declare_double(ps, "FOFHaloLinkingLength", 1, 0, "");
     param_declare_int(ps, "FOFHaloMinLength", 0, 32, "");
     param_declare_double(ps, "MinFoFMassForNewSeed", 0, 5e2, "Minimal Mass for seeding tracer particles ");
-    param_declare_double(ps, "TimeBetweenSeedingSearch", 1, 0, "Time Between Seeding Attemps");
+    param_declare_double(ps, "TimeBetweenSeedingSearch", 0, 1e5, "Time Between Seeding Attempts: default to a a large value, meaning never.");
 #endif
 
 #ifdef BLACK_HOLES
@@ -525,7 +530,7 @@ parameter_set_new()
         {"vs08", WINDS_FIXED_EFFICIENCY},
         {"ofjt10", WINDS_USE_HALO | WINDS_DECOUPLE_SPH},
         {"isotropic", WINDS_ISOTROPIC },
-        {"nowind", 0},
+        {"nowind", WINDS_NONE},
         {NULL, WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY},
     };
 

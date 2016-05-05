@@ -5,7 +5,6 @@ OutputDir          debug-lya
 TreeCoolFile       ../etc/TREECOOL_fg_june11
 MetalCoolFile      ../etc/cooling_metal_UVB.hdf5
 OutputList         0.1,0.2,0.2222222,0.25,0.2857,0.33333
-UVFluctuationFile  @UNIFORM
 
 EnergyFile         energy.txt
 InfoFile           info.txt
@@ -30,11 +29,7 @@ TimeLimitCPU     43000 %= 8 hours
 % Code options
 
 
-ICFormat                 1
-SnapFormat               3
-CompressionLevel         4
 TypeOfTimestepCriterion  0
-OutputListOn             1 
 
 %  Characteristics of run
 
@@ -49,12 +44,10 @@ BoxSize               32000.0
 
 CoolingOn             1
 StarformationOn       1
+RadiationOn           1
 StarformationCriterion  density
 
 % Output frequency
-
-TimeBetSnapshot        0
-TimeOfFirstSnapshot    0
 
 CpuTimeBetRestartFile  9000.0
 TimeBetStatistics         0.1
@@ -84,7 +77,7 @@ TreeDomainUpdateFrequency    0.025
 
 
 %  Further parameters of SPH
-DensityKernelType      1    % 0 is Cubic spline
+DensityKernelType      quintic
 DensityContrastLimit   100   % max contrast for hydro force calculation
 DensityResolutionEta   1.0  % for Cubic spline 1.0 = 33
 MaxNumNgbDeviation     2
@@ -137,3 +130,4 @@ TempClouds           1000.0   %  in Kelvin
 FactorSN             0.1
 FactorEVP            1000.0
 
+WindModel            nowind
