@@ -554,7 +554,7 @@ extern struct global_data_all_processes
     char UVFluctuationFile[100];
 
     /*! table with desired output times */
-    double *OutputListTimes;
+    double OutputListTimes[8192];
     int OutputListLength;		/*!< number of times stored in table of desired output times */
 
 

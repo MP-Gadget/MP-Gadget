@@ -384,10 +384,14 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
     for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
     {}
 /*     printf("Found %d times in output list.\n", count); */
+
     /*Allocate enough memory*/
     All.OutputListLength = count;
-    /*Memory manager is not yet initialised here*/
-    All.OutputListTimes = (double *) malloc(sizeof(double)*All.OutputListLength);
+    if(All.OutputListLength > sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0])) {
+        printf("Too many entries (%d) in the OutputList, need to recompile the code. (change All.OutputListTimes in allvars.h \n", 
+            All.OutputListLength);
+        return 1;
+    }
     /*Now read in the values*/
     for(count=0,token=strtok(outputlist,","); count < All.OutputListLength && token; count++, token=strtok(NULL,","))
     {
@@ -398,7 +402,7 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
     free(strtmp);
 
     qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
-    return 1;
+    return 0;
 }
 
 static char *
