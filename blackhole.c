@@ -294,8 +294,8 @@ static int blackhole_feedback_evaluate(int target, int mode,
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
-    density_kernel_t kernel;
-    density_kernel_t bh_feedback_kernel;
+    DensityKernel kernel;
+    DensityKernel bh_feedback_kernel;
     hsearch = density_decide_hsearch(5, I->Hsml);
 
     density_kernel_init(&kernel, I->Hsml);

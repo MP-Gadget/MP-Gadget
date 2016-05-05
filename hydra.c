@@ -218,8 +218,8 @@ static int hydro_evaluate(int target, int mode,
 
     double p_over_rho2_i, p_over_rho2_j, soundspeed_i, soundspeed_j;
 
-    density_kernel_t kernel_i;
-    density_kernel_t kernel_j;
+    DensityKernel kernel_i;
+    DensityKernel kernel_j;
 
     startnode = I->NodeList[0];
     listindex ++;

@@ -372,9 +372,9 @@ static int density_evaluate(int target, int mode,
     int ninteractions = 0;
     int nnodesinlist = 0;
 
-    density_kernel_t kernel;
+    DensityKernel kernel;
 #ifdef BLACK_HOLES
-    density_kernel_t bh_feedback_kernel;
+    DensityKernel bh_feedback_kernel;
 #endif
 
     startnode = I->NodeList[0];

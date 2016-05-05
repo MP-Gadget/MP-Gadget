@@ -175,7 +175,7 @@ struct unbind_data
 
 #define HAS(val, flag) ((flag & (val)) == (flag))
 #ifdef BLACK_HOLES
-enum bhfeedbackmethod {
+enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_TOPHAT   = 0x2,
      BH_FEEDBACK_SPLINE   = 0x4,
      BH_FEEDBACK_MASS     = 0x8,
@@ -186,7 +186,7 @@ enum bhfeedbackmethod {
 /*
  * additional sfr criterion in addition to density threshold
  * All.StarformationCriterion */
-enum starformationcriterion {
+enum StarformationCriterion {
     SFR_CRITERION_DENSITY = 1,
     SFR_CRITERION_MOLECULAR_H2 = 3, /* 2 + 1 */
     SFR_CRITERION_SELFGRAVITY = 5,  /* 4 + 1 */
@@ -198,11 +198,17 @@ enum starformationcriterion {
 /*
  * wind models SH03, VS08 and OFJT10
  * All.WindModel */
-enum windmodel {
+enum WindModel {
     WINDS_SUBGRID = 1,
     WINDS_DECOUPLE_SPH = 2,
     WINDS_USE_HALO = 4,
     WINDS_FIXED_EFFICIENCY = 8,
+};
+
+enum DensityKernelType {
+    DENSITY_KERNEL_CUBIC_SPLINE = 1,
+    DENSITY_KERNEL_QUINTIC_SPLINE = 2,
+    DENSITY_KERNEL_QUARTIC_SPLINE = 4,
 };
 
 
@@ -419,8 +425,8 @@ extern struct global_data_all_processes
                                       gadget-1.1) */
     int CoolingOn;		/*!< flags that cooling is enabled */
     int StarformationOn;		/*!< flags that star formation is enabled */
-    enum starformationcriterion StarformationCriterion;		/*!< flags that star formation is enabled */
-    enum windmodel WindModel;		/*!< flags that star formation is enabled */
+    enum StarformationCriterion StarformationCriterion;		/*!< flags that star formation is enabled */
+    enum WindModel WindModel;		/*!< flags that star formation is enabled */
 
     int CompressionLevel;
     /* parameters determining output frequency */
@@ -512,7 +518,7 @@ extern struct global_data_all_processes
            MinGasHsml;			/*!< minimum allowed SPH smoothing length */
 
 
-    int DensityKernelType;  /* 0 for Cubic Spline,  (recmd NumNgb = 33)
+    enum DensityKernelType DensityKernelType;  /* 0 for Cubic Spline,  (recmd NumNgb = 33)
                                1 for Quintic spline (recmd  NumNgb = 97)
                              */
     double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
@@ -595,7 +601,7 @@ extern struct global_data_all_processes
     double TimeBetBlackHoleSearch;
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
-    enum bhfeedbackmethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
+    enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
     double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
     double SeedBlackHoleMass;	/*!< Seed black hole mass */

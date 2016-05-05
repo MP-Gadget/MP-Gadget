@@ -5,13 +5,6 @@ OutputDir          debug
 TreeCoolFile       ../etc/TREECOOL_fg_june11
 MetalCoolFile      ../etc/cooling_metal_UVB.hdf5
 OutputList         0.1,0.2,0.299,0.3,0.33333
-
-EnergyFile         energy.txt
-InfoFile           info.txt
-TimingsFile        timings.txt
-CpuFile            cpu.txt
-
-RestartFile        restart
 SnapshotFileBase   snapshot
 
 NumFilesPerSnapshot	  1
@@ -51,30 +44,15 @@ TimeBetStatistics         0.1
 
 
 % Accuracy of time integration
-
-ErrTolIntAccuracy      0.02 
-
-MaxRMSDisplacementFac  0.2
-
-CourantFac             0.15     
-
 MaxSizeTimestep       0.1
 MinSizeTimestep       0.05
 
 FOFHaloLinkingLength 0.2
 FOFHaloMinLength     32
 
-% Tree algorithm, force accuracy, domain update frequency
-
-ErrTolTheta            0.5            
-TypeOfOpeningCriterion 1
-ErrTolForceAcc         0.005
-
-TreeDomainUpdateFrequency    0.025  
-
-
 %  Further parameters of SPH
-DensityKernelType      1    % 0 is Cubic spline
+DensityKernelType      quintic
+
 DensityContrastLimit   100   % max contrast for hydro force calculation
 DensityResolutionEta   1.0  % for Cubic spline 1.0 = 33
 MaxNumNgbDeviation     2
@@ -87,25 +65,22 @@ MinGasTemp             5.0
 
 PartAllocFactor       2.0
 BufferSize            100          % in MByte
-TopNodeAllocFactor    0.20
-MaxMemSizePerCore            1200        % per MPI task, in MB
 
 % Softening lengths
 
 MinGasHsmlFractional 0.01
-MaxGasVel   3e5
 
 SofteningGas       50
 SofteningHalo      50
 SofteningDisk      0
-SofteningBulge     0           
+SofteningBulge     0
 SofteningStars     50
 SofteningBndry     50             %This is BH
 
 SofteningGasMaxPhys       50
 SofteningHaloMaxPhys      50
 SofteningDiskMaxPhys      0
-SofteningBulgeMaxPhys     0           
+SofteningBulgeMaxPhys     0
 SofteningStarsMaxPhys     50
 SofteningBndryMaxPhys     50      %This is BH
 

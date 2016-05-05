@@ -468,7 +468,7 @@ static int sfr_wind_ev_weight(int target, int mode,
 
     double hsearch = DMAX(I->Hsml, I->DMRadius);
     /*
-    density_kernel_t kernel;
+    DensityKernel kernel;
     density_kernel_init(&kernel, I->Hsml);
     */
     while(startnode >= 0)
@@ -549,7 +549,7 @@ static int sfr_wind_evaluate(int target, int mode,
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
     /*
-    density_kernel_t kernel;
+    DensityKernel kernel;
     density_kernel_init(&kernel, I->Hsml);
     */
     while(startnode >= 0)

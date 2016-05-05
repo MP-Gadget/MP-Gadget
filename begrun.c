@@ -318,22 +318,6 @@ BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
 }
 #endif
 
-static int
-DensityKernelTypeAction(ParameterSet * ps, char * name, void * data)
-{
-    int v = param_get_int(ps, name);
-
-    if(v >= density_kernel_type_end()) {
-        printf("Error. DensityKernelType can be\n");
-        int i;
-        for(i = 0; i < density_kernel_type_end(); i++) {
-            printf("%d %s\n", i, density_kernel_name(i));
-        }
-        return 1;
-    }
-    return 0;
-}
-
 #ifdef SFR
 static int
 StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
@@ -436,7 +420,6 @@ void read_parameter_file(char *fname)
 #ifdef BLACK_HOLES
         param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
 #endif
-        param_set_action(ps, "DensityKernelType", DensityKernelTypeAction, NULL);
 #ifdef SFR
         param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
 #endif
@@ -473,7 +456,7 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "RestartFile", All.RestartFile);
         param_get_string2(ps, "OutputList", All.OutputList);
 
-        All.DensityKernelType = param_get_int(ps, "DensityKernelType");
+        All.DensityKernelType = param_get_enum(ps, "DensityKernelType");
 
         All.Omega0 = param_get_double(ps, "Omega0");
         All.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
@@ -544,6 +527,7 @@ void read_parameter_file(char *fname)
     #ifdef FOF
         All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
         All.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
+        All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
     #endif
 
     #ifdef BLACK_HOLES
@@ -553,7 +537,6 @@ void read_parameter_file(char *fname)
         All.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
         All.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
         All.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
-        All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
 
         All.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
 
@@ -598,9 +581,10 @@ void read_parameter_file(char *fname)
         All.FactorForSofterEQS = param_get_double(ps, "FactorForSofterEQS");
     #endif
 
-        printf("The Density Kernel type is %s\n", density_kernel_name(All.DensityKernelType));
-        All.DesNumNgb = density_kernel_desnumngb(All.DensityKernelType,
-                All.DensityResolutionEta);
+        DensityKernel kernel;
+        density_kernel_init(&kernel, 1.0);
+        printf("The Density Kernel type is %s\n", kernel.name);
+        All.DesNumNgb = density_kernel_desnumngb(&kernel, All.DensityResolutionEta);
         printf("The Density resolution is %g * mean separation, or %d neighbours\n",
                 All.DensityResolutionEta, All.DesNumNgb);
 

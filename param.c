@@ -387,7 +387,14 @@ parameter_set_new()
     param_declare_string(ps, "TreeCoolFile", 1, NULL, "Path to the Cooling Table");
     param_declare_string(ps, "MetalCoolFile", 0, "", "Path to the Metal Cooling Table. Refer to cooling.c");
     param_declare_string(ps, "UVFluctuationFile", 0, "", "Path to the UVFluctation Table. Refer to cooling.c.");
-    param_declare_int(ps,    "DensityKernelType", 1, 0, "");
+
+    static ParameterEnum DensityKernelTypeEnum [] = {
+        {"cubic", DENSITY_KERNEL_CUBIC_SPLINE},
+        {"quintic", DENSITY_KERNEL_QUINTIC_SPLINE},
+        {"quartic", DENSITY_KERNEL_QUARTIC_SPLINE},
+        {NULL, DENSITY_KERNEL_QUARTIC_SPLINE},
+    } ;
+    param_declare_enum(ps,    "DensityKernelType", DensityKernelTypeEnum, 1, 0, "");
     param_declare_string(ps, "SnapshotFileBase", 1, NULL, "");
     param_declare_string(ps, "EnergyFile", 0, "energy.txt", "");
     param_declare_string(ps, "CpuFile", 0, "cpu.txt", "");
@@ -453,9 +460,9 @@ parameter_set_new()
     param_declare_double(ps, "SofteningStarsMaxPhys", 1, 0, "");
     param_declare_double(ps, "SofteningBndryMaxPhys", 1, 0, "");
 
-    param_declare_double(ps, "BufferSize", 1, 0, "");
+    param_declare_double(ps, "BufferSize", 0, 100, "");
     param_declare_double(ps, "PartAllocFactor", 1, 0, "");
-    param_declare_double(ps, "TopNodeAllocFactor", 1, 0, "");
+    param_declare_double(ps, "TopNodeAllocFactor", 0, 0.5, "");
 
     param_declare_double(ps, "InitGasTemp", 1, 0, "");
     param_declare_double(ps, "MinGasTemp", 1, 0, "");
@@ -467,6 +474,7 @@ parameter_set_new()
 #ifdef FOF
     param_declare_double(ps, "FOFHaloLinkingLength", 1, 0, "");
     param_declare_int(ps, "FOFHaloMinLength", 0, 32, "");
+    param_declare_double(ps, "MinFoFMassForNewSeed", 0, 5e2, " Minimal Mass for seeding tracer particles ");
 #endif
 
 #ifdef BLACK_HOLES
@@ -474,7 +482,6 @@ parameter_set_new()
     param_declare_double(ps, "BlackHoleAccretionFactor", 0, 100, "");
     param_declare_double(ps, "BlackHoleEddingtonFactor", 0, 3, "");
     param_declare_double(ps, "SeedBlackHoleMass", 1, 0, "");
-    param_declare_double(ps, "MinFoFMassForNewSeed", 0, 5e-5, "");
 
     param_declare_double(ps, "BlackHoleNgbFactor", 0, 2, "");
 
