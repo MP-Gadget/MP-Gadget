@@ -426,7 +426,6 @@ extern struct global_data_all_processes
                                   criterion */
     int TypeOfTimestepCriterion;	/*!< gives type of timestep criterion (only 0 supported right now - unlike
                                       gadget-1.1) */
-    int OutputListOn;		/*!< flags that output times are listed in a specified file */
     int CoolingOn;		/*!< flags that cooling is enabled */
     int StarformationOn;		/*!< flags that star formation is enabled */
     enum starformationcriterion StarformationCriterion;		/*!< flags that star formation is enabled */
@@ -436,8 +435,7 @@ extern struct global_data_all_processes
     /* parameters determining output frequency */
 
     int SnapshotFileCount;	/*!< number of snapshot that is written next */
-    double TimeBetSnapshot,	/*!< simulation time interval between snapshot files */
-           TimeOfFirstSnapshot,	/*!< simulation time of first snapshot files */
+    double TimeOfFirstSnapshot,	/*!< simulation time of first snapshot files */
            CpuTimeBetRestartFile,	/*!< cpu-time between regularly generated restart files */
            TimeLastRestartFile,	/*!< cpu-time when last restart-file was written */
            TimeBetStatistics,		/*!< simulation time interval between computations of energy statistics */
