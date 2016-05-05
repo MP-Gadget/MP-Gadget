@@ -598,8 +598,6 @@ extern struct global_data_all_processes
 #endif
 
 #ifdef BLACK_HOLES
-    double TimeNextBlackHoleCheck;
-    double TimeBetweenSeedingSearch;
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
     enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
@@ -616,6 +614,8 @@ extern struct global_data_all_processes
     double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
     double FOFHaloLinkingLength;
     int FOFHaloMinLength;
+    double TimeNextSeedingCheck;
+    double TimeBetweenSeedingSearch;
 #endif
 
 }

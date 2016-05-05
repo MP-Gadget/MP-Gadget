@@ -97,11 +97,11 @@ void compute_accelerations(int mode)
 #endif
 #ifdef FOF
         /* this will find new black hole seed halos */
-        if(All.Time >= All.TimeNextBlackHoleCheck)
+        if(All.Time >= All.TimeNextSeedingCheck)
         {
             fof_fof(-1);
 
-            All.TimeNextBlackHoleCheck *= All.TimeBetweenSeedingSearch;
+            All.TimeNextSeedingCheck *= All.TimeBetweenSeedingSearch;
         }
 #endif
 

@@ -96,7 +96,7 @@ void init(void)
 
     All.TimeLastStatistics = All.TimeBegin - All.TimeBetStatistics;
 #ifdef BLACK_HOLES
-    All.TimeNextBlackHoleCheck = All.TimeBegin;
+    All.TimeNextSeedingCheck = All.TimeBegin;
 #endif
 
     for(i = 0; i < NumPart; i++)	/*  start-up initialization */
