@@ -4,7 +4,7 @@ InitCondFile  	   /u/sciteam/yfeng1/scratch/BWSim-PFFT/IC/IC
 OutputDir          /u/sciteam/yfeng1/scratch/BWSim-PFFT/output-81000-again
 TreeCoolFile       /u/sciteam/yfeng1/BWSim-PFFT/etc/TREECOOL_fg_june11
 MetalCoolFile      /u/sciteam/yfeng1/BWSim-PFFT/etc/cooling_metal_UVB.hdf5
-OutputListFilename /u/sciteam/yfeng1/BWSim-PFFT/etc/output-production.txt
+OutputList 0.1,0.2,0.299,0.3,0.33333
 UVFluctuationFile  /u/sciteam/yfeng1/BWSim-PFFT/etc/BlueTidesUVFluctuation.hdf5
 %UVFluctuationFile  UNIFORM
 

@@ -387,34 +387,20 @@ int ShouldWeDoDynamicUpdate(void)
  */
 int find_next_outputtime(int ti_curr)
 {
-    int i, ti, ti_next, iter = 0;
-    double next, time;
-
-    DumpFlag = 1;
-    ti_next = -1;
-
+    int i, ti_next=-1;
 
     for(i = 0; i < All.OutputListLength; i++)
     {
-        time = All.OutputListTimes[i];
+        const double time = All.OutputListTimes[i];
 
         if(time >= All.TimeBegin && time <= All.TimeMax)
         {
-            ti = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
+            const int ti = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
 
             if(ti >= ti_curr)
             {
-                if(ti_next == -1)
-                {
-                    ti_next = ti;
-                    DumpFlag = All.OutputListFlag[i];
-                }
-
-                if(ti_next > ti)
-                {
-                    ti_next = ti;
-                    DumpFlag = All.OutputListFlag[i];
-                }
+                ti_next = ti;
+                break;
             }
         }
     }
@@ -428,10 +414,10 @@ int find_next_outputtime(int ti_curr)
     }
     else
     {
-        next = All.TimeBegin * exp(ti_next * All.Timebase_interval);
+        const double next = All.TimeBegin * exp(ti_next * All.Timebase_interval);
 
         if(ThisTask == 0)
-            printf("\nSetting next time for snapshot file to Time_next= %g  (DumpFlag=%d)\n\n", next, DumpFlag);
+            printf("\nSetting next time for snapshot file to Time_next= %g \n", next);
 
     }
 

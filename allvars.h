@@ -278,8 +278,6 @@ extern int Flag_FullStep;	/*!< Flag used to signal that the current step involve
 
 extern int GlobFlag;
 
-extern char DumpFlag;
-
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
 
 /* the below numbers are inexact unless rearrange_particle_sequence is called */
@@ -558,13 +556,12 @@ extern struct global_data_all_processes
          SnapshotFileBase[100],
          EnergyFile[100],
          CpuFile[100],
-         InfoFile[100], TimingsFile[100], RestartFile[100], ResubmitCommand[100], OutputListFilename[100];
+         InfoFile[100], TimingsFile[100], RestartFile[100], ResubmitCommand[100], OutputList[100];
 
     char UVFluctuationFile[100];
 
     /*! table with desired output times */
-    double OutputListTimes[MAXLEN_OUTPUTLIST];
-    char OutputListFlag[MAXLEN_OUTPUTLIST];
+    double *OutputListTimes;
     int OutputListLength;		/*!< number of times stored in table of desired output times */
 
 
