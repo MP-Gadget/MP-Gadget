@@ -175,8 +175,7 @@ void set_units(void)
         printf("UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);
         printf("UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
         printf("UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
-        printf("Radiation density Omega_R = %g\n",OMEGAR);
-
+        printf("Radiation density Omega_R = %g\n",All.RadiationOn*(OMEGAG+(!All.TotN_neutrinos)*OMEGANOMASSNU));
         printf("\n");
     }
 
@@ -497,6 +496,8 @@ void read_parameter_file(char *fname)
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.RadiationOn = param_get_int(ps, "RadiationOn");
+        All.FastParticleType = param_get_int(ps, "FastParticleType");
+        All.NoTreeType = param_get_int(ps, "NoTreeType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.TypeOfTimestepCriterion = param_get_int(ps, "TypeOfTimestepCriterion");
         All.TypeOfOpeningCriterion = param_get_int(ps, "TypeOfOpeningCriterion");

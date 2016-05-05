@@ -321,10 +321,7 @@ extern struct global_data_all_processes
     int64_t TotN_sph;		/*!<  total gas particle number (global value) */
     int64_t TotN_bh;
     int64_t TotN_star;
-
-#ifdef NEUTRINOS
-    int64_t TotNumNeutrinos;
-#endif
+    int64_t TotN_neutrinos;
 
     int NumThreads;     /* number of threads used to simulate OpenMP tls */
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
@@ -431,6 +428,8 @@ extern struct global_data_all_processes
     enum WindModel WindModel;		/*!< flags that star formation is enabled */
 
     int RadiationOn; /*!< flags whether to include the radiation density in the background*/
+    int NoTreeType; /*!< flags a particle species to exclude from tree forces*/
+    int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     int CompressionLevel;
     /* parameters determining output frequency */
 

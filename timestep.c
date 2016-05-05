@@ -817,9 +817,7 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
                         type, dmean, asmth, min_mass[type], All.Time, sqrt(v_sum[type] / count_sum[type]), dt);
 
 
-#ifdef NEUTRINOS
-            if(type != 2)	/* don't constrain the step to the neutrinos */
-#endif
+            if(type != All.FastParticleType)	/* don't constrain the step to the neutrinos */
                 if(dt < dt_displacement)
                     dt_displacement = dt;
         }
