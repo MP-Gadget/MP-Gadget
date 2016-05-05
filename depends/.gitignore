@@ -1,0 +1,8 @@
+bin/
+include/
+lib/
+lua/
+man/
+share/
+tmp-pfft*/
+
