@@ -55,7 +55,7 @@ void init(void)
         petaio_read_ic();
     } else {
         if(ThisTask == 0) {
-            fprintf(stderr, "RestartFlag and SnapNum comination is unknown");
+            fprintf(stderr, "RestartFlag and SnapNum combination is unknown");
         }
         abort();
     }
@@ -163,9 +163,7 @@ void init(void)
 
         if(RestartFlag == 0)
         {
-#ifndef READ_HSML
             P[i].Hsml = 0;
-#endif
             SPHP(i).Density = -1;
 #ifdef DENSITY_INDEPENDENT_SPH
             SPHP(i).EgyWtDensity = -1;
@@ -361,7 +359,6 @@ void setup_smoothinglengths(void)
                 no = p;
             }
 
-#ifndef READ_HSML
 #ifndef TWODIMS
 #ifndef ONEDIM
             P[i].Hsml =
@@ -376,7 +373,6 @@ void setup_smoothinglengths(void)
 #endif
             if(All.SofteningTable[0] != 0 && P[i].Hsml > 500.0 * All.SofteningTable[0])
                 P[i].Hsml = All.SofteningTable[0];
-#endif
         }
     }
 
