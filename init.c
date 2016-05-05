@@ -101,45 +101,12 @@ void init(void)
 
     for(i = 0; i < NumPart; i++)	/*  start-up initialization */
     {
-        for(j = 0; j < 3; j++) {
-            P[i].GravAccel[j] = 0;
-        }
-
-        for(j = 0; j < 3; j++)
-            P[i].GravPM[j] = 0;
-
-        P[i].Ti_begstep = 0;
-        P[i].Ti_current = 0;
-        P[i].DensityIterationDone = 0;
-        P[i].OnAnotherDomain = 0;
-        P[i].WillExport = 0;
-
-        P[i].TimeBin = 0;
-
-        P[i].OldAcc = 0;
-
         P[i].GravCost = 1;
 
-        if(RestartFlag < 3)
-            P[i].Potential = 0;
-
-#ifdef WINDS
-        if(RestartFlag == 0)
-            P[i].StellarAge = 0;
-#endif
-        if(RestartFlag == 0)
-            P[i].Generation = 0;
-
-#ifdef METALS
-        if(RestartFlag == 0)
-            P[i].Metallicity = 0;
-#endif
-
 #ifdef BLACK_HOLES
-        if(P[i].Type == 5)
+        if(RestartFlag == 0 && P[i].Type == 5 )
         {
-            if(RestartFlag == 0)
-                BHP(i).Mass = All.SeedBlackHoleMass;
+            BHP(i).Mass = All.SeedBlackHoleMass;
         }
 #endif
     }
@@ -163,7 +130,6 @@ void init(void)
 
         if(RestartFlag == 0)
         {
-            P[i].Hsml = 0;
             SPHP(i).Density = -1;
 #ifdef DENSITY_INDEPENDENT_SPH
             SPHP(i).EgyWtDensity = -1;
@@ -187,39 +153,16 @@ void init(void)
 #ifdef BLACK_HOLES
         SPHP(i).Injected_BH_Energy = 0;
 #endif
-    }
-
 #ifdef TWODIMS
-    for(i = 0; i < NumPart; i++)
-    {
-        P[i].Pos[2] = 0;
-        P[i].Vel[2] = 0;
-
-        P[i].GravAccel[2] = 0;
-
-        if(P[i].Type == 0)
-        {
-            SPHP(i).VelPred[2] = 0;
-            SPHP(i).HydroAccel[2] = 0;
-        }
-    }
+        SPHP(i).VelPred[2] = 0;
+        SPHP(i).HydroAccel[2] = 0;
 #endif
-
 #ifdef ONEDIM
-    for(i = 0; i < NumPart; i++)
-    {
-        P[i].Pos[1] = P[i].Pos[2] = 0;
-        P[i].Vel[1] = P[i].Vel[2] = 0;
-
-        P[i].GravAccel[1] = P[i].GravAccel[2] = 0;
-
-        if(P[i].Type == 0)
-        {
-            SPHP(i).VelPred[1] = SPHP(i).VelPred[2] = 0;
-            SPHP(i).HydroAccel[1] =SPHP(i).HydroAccel[2] = 0;
-        }
-    }
+        SPHP(i).VelPred[1] = SPHP(i).VelPred[2] = 0;
+        SPHP(i).HydroAccel[1] =SPHP(i).HydroAccel[2] = 0;
 #endif
+    }
+
 
     test_id_uniqueness();
 
