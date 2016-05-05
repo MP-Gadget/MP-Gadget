@@ -203,6 +203,7 @@ enum WindModel {
     WINDS_DECOUPLE_SPH = 2,
     WINDS_USE_HALO = 4,
     WINDS_FIXED_EFFICIENCY = 8,
+    WINDS_ISOTROPIC = 16,
 };
 
 enum DensityKernelType {
@@ -598,7 +599,7 @@ extern struct global_data_all_processes
 
 #ifdef BLACK_HOLES
     double TimeNextBlackHoleCheck;
-    double TimeBetBlackHoleSearch;
+    double TimeBetweenSeedingSearch;
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
     enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/

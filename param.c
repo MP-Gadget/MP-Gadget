@@ -37,13 +37,18 @@ static char * format_enum(ParameterEnum * table, int value) {
     char buffer[2048];
     ParameterEnum * p;
     char * c = buffer;
+    int first = 1;
     for(p = table; p->name && p->name[0]; p++) {
         if((value & p->value) == p->value) {
+            if(!first) {
+                *(c++) = ' ';
+                *(c++) = '|';
+                *(c++) = ' ';
+            }
+            first = 0;
             strcpy(c, p->name);
             c += strlen(p->name);
-            c[0] = '&';
-            c++;
-            c[0] = 0;
+            *c = 0;
             value -= p->value;
         }
     }
@@ -474,18 +479,18 @@ parameter_set_new()
 #ifdef FOF
     param_declare_double(ps, "FOFHaloLinkingLength", 1, 0, "");
     param_declare_int(ps, "FOFHaloMinLength", 0, 32, "");
-    param_declare_double(ps, "MinFoFMassForNewSeed", 0, 5e2, " Minimal Mass for seeding tracer particles ");
+    param_declare_double(ps, "MinFoFMassForNewSeed", 0, 5e2, "Minimal Mass for seeding tracer particles ");
+    param_declare_double(ps, "TimeBetweenSeedingSearch", 1, 0, "Time Between Seeding Attemps");
 #endif
 
 #ifdef BLACK_HOLES
-    param_declare_double(ps, "TimeBetBlackHoleSearch", 1, 0, "");
     param_declare_double(ps, "BlackHoleAccretionFactor", 0, 100, "");
     param_declare_double(ps, "BlackHoleEddingtonFactor", 0, 3, "");
     param_declare_double(ps, "SeedBlackHoleMass", 1, 0, "");
 
     param_declare_double(ps, "BlackHoleNgbFactor", 0, 2, "");
 
-    param_declare_double(ps, "BlackHoleMaxAccretionRadius", 0, 0, "");
+    param_declare_double(ps, "BlackHoleMaxAccretionRadius", 0, 99999., "");
     param_declare_double(ps, "BlackHoleFeedbackFactor", 0, 0.05, "");
     param_declare_double(ps, "BlackHoleFeedbackRadius", 1, 0, "");
 
@@ -519,6 +524,8 @@ parameter_set_new()
         {"sh03", WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY} ,
         {"vs08", WINDS_FIXED_EFFICIENCY},
         {"ofjt10", WINDS_USE_HALO | WINDS_DECOUPLE_SPH},
+        {"isotropic", WINDS_ISOTROPIC },
+        {"nowind", 0},
         {NULL, WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY},
     };
 

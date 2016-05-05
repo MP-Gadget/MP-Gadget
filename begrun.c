@@ -533,7 +533,7 @@ void read_parameter_file(char *fname)
     #ifdef BLACK_HOLES
         All.BlackHoleSoundSpeedFromPressure = 0;
 
-        All.TimeBetBlackHoleSearch = param_get_double(ps, "TimeBetBlackHoleSearch");
+        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
         All.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
         All.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
         All.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
