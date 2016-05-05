@@ -114,10 +114,12 @@ static int sfr_wind_evaluate(int target, int mode,
  */
 
 
+static int sfr_cooling_isactive(int target) {
+    return P[target].Type == 0;
+}
 void cooling_and_starformation(void)
     /* cooling routine when star formation is enabled */
 {
-    int i, bin, flag;
     u_to_temp_fac = (4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC))) * PROTONMASS / BOLTZMANN * GAMMA_MINUS1
         * All.UnitEnergy_in_cgs / All.UnitMass_in_g;
 
@@ -126,9 +128,22 @@ void cooling_and_starformation(void)
     stars_spawned = stars_converted = 0;
     sum_sm = sum_mass_stars = 0;
 
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+    Evaluator ev = {0};
+
+    /* Only used to list all active particles for the parallel loop */
+    /* no tree walking and no need to export / copy particles. */
+    ev.ev_label = "SFR_COOL";
+    ev.ev_isactive = sfr_cooling_isactive;
+
+    int Nactive = 0;
+    int * queue = ev_get_queue(&ev, &Nactive);
+    int n;
+
+#pragma omp parallel for
+    for(n = 0; n < Nactive; n ++)
     {
-        if(P[i].Type != 0) continue;
+        int i = queue[n];
+        int flag;
 #ifdef WINDS
         if(SPHP(i).DelayTime > 0) {
             double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
@@ -167,8 +182,9 @@ void cooling_and_starformation(void)
             /* active star formation */
             starformation(i);
         }
-    }				/* end of main loop over active particles */
+    } /*end of main loop over active particles */
 
+    myfree(queue);
 
     int tot_spawned, tot_converted;
     MPI_Allreduce(&stars_spawned, &tot_spawned, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -191,7 +207,9 @@ void cooling_and_starformation(void)
     }
 
     double totsfrrate, localsfr=0;
-    for(i = 0; i< N_sph; i++)
+    int i;
+    #pragma parallel for reduction(+, localsfr)
+    for(i = 0; i < N_sph; i++)
         localsfr += SPHP(i).Sfr;
 
     MPI_Allreduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -775,6 +793,7 @@ static void starformation(int i) {
         prob = All.QuickLymanAlphaProbability;
     }
     if(get_random_number(P[i].ID + 1) < prob)	{
+#pragma omp critical (_sfr_)
         make_particle_star(i);
     }
 
