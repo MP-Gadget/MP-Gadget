@@ -92,46 +92,52 @@ static int param_emit(ParameterSet * ps, char * start, int size)
 {
     /* parse a line */
     char * buf = alloca(size + 1);
-    char * buf1 = alloca(size + 1);
-    char * buf2 = alloca(size + 1);
-    char * buf3 = alloca(size + 1);
-
+    static char blanks[] = " \t\r\n";
+    static char comments[] =  "%#";
     strncpy(buf, start, size);
     buf[size] = 0;
     if (size == 0) return 0;
 
     /* blank lines are OK */
-    int i;
-    for(i = 0; i < strlen(buf); i ++) {
-        if(!strchr(" \t\r\n", buf[i])) {
-            break;
-        }
-    }
-    if(i == strlen(buf)) {
-        return 0;
-    }
+    char * name = NULL;
+    char * value = NULL;
+    char * ptr = buf;
 
-    int n = sscanf(buf, "%s%s%s", buf1, buf2, buf3);
-    if (n == 0) {
+    /* parse name */
+    while(*ptr && strchr(blanks, *ptr)) ptr++;
+    if (*ptr == 0 || strchr(comments, *ptr)) {
+        /* This line is fully comment */
         return 0;
     }
-    if (buf1[0] == '%') return 0;
-    if (buf1[0] == '#') return 0;
-    if (n < 2) {
-        printf("Line `%s` is malformed\n", buf);
+    name = ptr;
+    while(*ptr && !strchr(blanks, *ptr)) ptr++;
+    *ptr = 0;
+    ptr++;
+
+    /* parse value */
+    while(*ptr && strchr(blanks, *ptr)) ptr++;
+
+    if (*ptr == 0 || strchr(comments, *ptr)) {
+        /* This line is malformed, must have a value! */
+        strncpy(buf, start, size);
+        printf("Line `%s` is malformed.\n", buf);
         return 1;
     }
+    value = ptr;
+    while(*ptr && !strchr(comments, *ptr)) ptr++;
+    *ptr = 0;
+    ptr++;
+
     /* now this line is important */
-    ParameterSchema * p = param_get_schema(ps, buf1);
+    ParameterSchema * p = param_get_schema(ps, name);
     if(!p) {
-        /* Ignore unknown parameters */
-        printf("Parameter `%s` is unknown.\n", buf1);
+        printf("Parameter `%s` is unknown.\n", name);
         return 1;
     }
-    param_set_from_string(ps, buf1, buf2);
+    param_set_from_string(ps, name, value);
     if(p->action) {
-        printf("Triggering Action on `%s`\n", buf1);
-        return p->action(ps, buf1, p->action_data);
+        printf("Triggering Action on `%s`\n", name);
+        return p->action(ps, name, p->action_data);
     }
     return 0;
 }
