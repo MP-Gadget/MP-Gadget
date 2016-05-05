@@ -480,7 +480,7 @@ parameter_set_new()
     param_declare_double(ps, "FOFHaloLinkingLength", 1, 0, "");
     param_declare_int(ps, "FOFHaloMinLength", 0, 32, "");
     param_declare_double(ps, "MinFoFMassForNewSeed", 0, 5e2, "Minimal Mass for seeding tracer particles ");
-    param_declare_double(ps, "TimeBetweenSeedingSearch", 1, 0, "Time Between Seeding Attemps");
+    param_declare_double(ps, "TimeBetweenSeedingSearch", 0, 1e5, "Time Between Seeding Attempts: default to a a large value, meaning never.");
 #endif
 
 #ifdef BLACK_HOLES
