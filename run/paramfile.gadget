@@ -5,7 +5,6 @@ OutputDir          debug
 TreeCoolFile       ../etc/TREECOOL_fg_june11
 MetalCoolFile      ../etc/cooling_metal_UVB.hdf5
 OutputList         0.1,0.2,0.299,0.3,0.33333
-UVFluctuationFile  @UNIFORM
 
 EnergyFile         energy.txt
 InfoFile           info.txt

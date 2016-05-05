@@ -172,6 +172,7 @@ int param_parse (ParameterSet * ps, char * content)
 {
     int i;
     /* copy over the default values */
+    /* we may want to do ths in get_xxxx, and check for nil. */
     for(i = 0; i < ps->size; i ++) {
         ps->value[ps->p[i].index] = ps->p[i].defvalue;
     }
@@ -230,8 +231,15 @@ param_declare_string(ParameterSet * ps, char * name, int required, char * defval
 {
     ParameterSchema * p = param_declare(ps, name, STRING, required, help);
     if(!required) {
-        p->defvalue.s = strdup(defvalue);
-        p->defvalue.nil = 0;
+        if(defvalue != NULL) {
+            p->defvalue.s = strdup(defvalue);
+            p->defvalue.nil = 0;
+        } else {
+            /* The handling of nil is not consistent yet! Only string can be non-required and have nil value.
+             * blame bad function signature (noway to define nil for int and double. */
+            p->defvalue.s = NULL;
+            p->defvalue.nil = 1;
+        }
     }
 }
 void
@@ -377,8 +385,8 @@ parameter_set_new()
     param_declare_string(ps, "InitCondFile", 1, NULL, "Path to the Initial Condition File");
     param_declare_string(ps, "OutputDir",    1, NULL, "Prefix to the output files");
     param_declare_string(ps, "TreeCoolFile", 1, NULL, "Path to the Cooling Table");
-    param_declare_string(ps, "MetalCoolFile", 1, NULL, "Path to the Metal Cooling Table");
-    param_declare_string(ps, "UVFluctuationFile", 1, NULL, "Path to ");
+    param_declare_string(ps, "MetalCoolFile", 0, "", "Path to the Metal Cooling Table. Refer to cooling.c");
+    param_declare_string(ps, "UVFluctuationFile", 0, "", "Path to the UVFluctation Table. Refer to cooling.c.");
     param_declare_int(ps,    "DensityKernelType", 1, 0, "");
     param_declare_string(ps, "SnapshotFileBase", 1, NULL, "");
     param_declare_string(ps, "EnergyFile", 0, "energy.txt", "");

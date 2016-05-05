@@ -912,7 +912,7 @@ void InitCool(void)
      *
      * */
             /* let's see if the Metal Cool File is magic NoMetal */ 
-    if(!strcmp(All.MetalCoolFile, "NoMetal")) {
+    if(strlen(All.MetalCoolFile) == 0) {
         CoolingNoMetal = 1;
     } else {
         CoolingNoMetal = 0;
@@ -926,7 +926,7 @@ void InitCool(void)
 
 static void InitMetalCooling() {
     int size;
-    //This is never used
+    //This is never used if All.MetalCoolFile == ""
     double * tabbedmet = h5readdouble(All.MetalCoolFile, "MetallicityInSolar_bins", &size);
 
     if(ThisTask == 0 && (size != 1 || tabbedmet[0] != 0.0)) {
@@ -986,10 +986,7 @@ static void InitUVF(void) {
      * too big. (400x400x400 is around 400 MBytes)
      *
      * */
-    if(!strcmp(All.UVFluctuationFile, "UNIFORM")
-    ||        
-    !strcmp(All.UVFluctuationFile, "@UNIFORM")
-     ) {
+    if(strlen(All.UVFluctuationFile) == 0) {
         if(ThisTask == 0)
             printf("Using UNIFORM UV BG from %s\n", All.TreeCoolFile);
         UVF.disabled = 1;
