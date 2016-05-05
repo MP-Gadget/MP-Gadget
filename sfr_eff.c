@@ -1,3 +1,17 @@
+/***
+ * Multi-Phase star formaiton
+ *
+ * The algorithm here is based on Springel Hernequist 2003, and Okamoto 2010.
+ *
+ * The source code originally came from sfr_eff.c in Gadget-3. This version has
+ * been heavily rewritten to add support for new wind models, new star formation
+ * criterions, and more importantly, use use the new tree walker routines.
+ *
+ * I (Yu Feng) feel it is appropriate to release this file with a free license,
+ * because the implementation here has diverged from the original code by too far.
+ *
+ * */
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>

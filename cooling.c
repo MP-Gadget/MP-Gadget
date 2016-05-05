@@ -1,3 +1,22 @@
+/**************
+ * This file is based on the Gadget-3 cooling.c.
+ *
+ * The routines for the atomic rates are identical. 
+ *
+ * Otherwise, this version by Yu Feng:
+ *  - implements additional support for fluctuating UV.
+ *  - is heavily refactored to make it reentrance friendly.
+ *
+ * There is no public version of original cooling.c freely available.
+ *
+ * Only reference is 2004 version by Brian O'Shea in ENZO repo,
+ * which contains a deferred freedom claimer depending on the action
+ * of Volker Springel.
+ *
+ * The LICENSE of this file is therefore still in limbo.
+ *
+ ************** */
+
 #include <mpi.h>
 #include <stdio.h>
 #include <stdlib.h>
