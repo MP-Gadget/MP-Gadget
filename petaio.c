@@ -25,7 +25,6 @@
  *
  */
 
-int flag_entropy_instead_u;
 struct IOTable IOTable = {0};
 
 static void petaio_write_header(BigFile * bf);
@@ -207,9 +206,8 @@ void petaio_read_snapshot(int num) {
     sprintf(fname, "%s/PART_%03d", All.OutputDir, num);
 
     /* 
-     * we always save the Entropy, notify init.c not to mess with the entorpy
+     * we always save the Entropy, notify init.c not to mess with the entropy
      * */
-    flag_entropy_instead_u = 1;
     petaio_read_internal(fname, 0);
 }
 
@@ -224,7 +222,6 @@ void petaio_read_ic() {
      *  InitTemp in paramfile, then use init.c to convert to
      *  entropy.
      * */
-    flag_entropy_instead_u = 0;
     petaio_read_internal(All.InitCondFile, 1);
 
     /* touch up the mass -- IC files save mass in header */

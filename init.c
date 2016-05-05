@@ -223,7 +223,7 @@ void init(void)
 
     test_id_uniqueness();
 
-    Flag_FullStep = 1;		/* to ensure that Peano-Hilber order is done */
+    Flag_FullStep = 1;		/* to ensure that Peano-Hilbert order is done */
 
     domain_Decomposition();	/* do initial domain decomposition (gives equal numbers of particles) */
 
@@ -245,34 +245,6 @@ void init(void)
 #ifdef START_WITH_EXTRA_NGBDEV
     All.MaxNumNgbDeviation = MaxNumNgbDeviationMerk;
 #endif
-
-    /* at this point, the entropy variable actually contains the
-     * internal energy, read in from the initial conditions file.
-     * Once the density has been computed, we can convert to entropy.
-     */
-
-    for(i = 0; i < N_sph; i++)	/* initialize sph_properties */
-    {
-        /* PETAIO:
-         * NON IC, this flag is 1
-         * IC it is 0. */
-        if(flag_entropy_instead_u == 0)
-        {
-/* for DENSITY_INDEPENDENT_SPH, this is done already. */
-#if !defined(TRADITIONAL_SPH_FORMULATION) && !defined(DENSITY_INDEPENDENT_SPH)
-            double a3 = All.Time * All.Time * All.Time;
-            if(ThisTask == 0 && i == 0)
-                printf("Converting u -> entropy !\n");
-
-            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).Density / a3, GAMMA_MINUS1);
-#endif
-        }
-
-        SPHP(i).DtEntropy = 0;
-
-        SPHP(i).DivVel = 0;
-
-    }
 
     if(RestartFlag == 3)
     {
@@ -389,24 +361,22 @@ void setup_smoothinglengths(void)
 
     density();
 
-#ifdef DENSITY_INDEPENDENT_SPH
     /* for clean IC with U input only, we need to iterate to find entrpoy */
-    if(RestartFlag == 0 && flag_entropy_instead_u == 0)
+    if(RestartFlag == 0)
     {
+        const double a3 = All.Time * All.Time * All.Time;
+#ifdef DENSITY_INDEPENDENT_SPH
         for(i = 0; i < N_sph; i++)
         {
             /* start the iteration from mass density */
             SPHP(i).EgyWtDensity = SPHP(i).Density;
         }
 
-        double a3;
-        a3 = All.Time * All.Time * All.Time;
 
         /* initialization of the entropy variable is a little trickier in this version of SPH,
            since we need to make sure it 'talks to' the density appropriately */
-
         if (ThisTask == 0) {
-            printf("Converint u -> entropy, with density split sph\n");
+            printf("Converting u -> entropy, with density split sph\n");
         }
 
         int j;
@@ -448,13 +418,15 @@ void setup_smoothinglengths(void)
             if(badness < 1e-3) break;
         }
         myfree(olddensity);
+#endif //DENSITY_INDEPENDENT_SPH
 #pragma omp parallel for
         for(i = 0; i < N_sph; i++) {
             /* EgyWtDensity stabilized, now we convert from energy to entropy*/
-            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity/a3 , GAMMA_MINUS1);
+            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
         }
     }
 
+#ifdef DENSITY_INDEPENDENT_SPH
     /* snapshot already has Entropy and EgyWtDensity;
      * hope it is read in correctly. (need a test
      * on this!) */
@@ -463,6 +435,5 @@ void setup_smoothinglengths(void)
         SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
     }
     density();
-#endif
-
+#endif //DENSITY_INDEPENDENT_SPH
 }
