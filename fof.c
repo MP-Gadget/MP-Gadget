@@ -885,7 +885,7 @@ static void fof_radix_Group_OriginalTaskMinID(const void * a, void * radix, void
 static void fof_assign_grnr()
 {
     int i, j;
-    int ngr;
+    int64_t ngr;
 
     for(i = 0; i < NgroupsExt; i++)
     {
