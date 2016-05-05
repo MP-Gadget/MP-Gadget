@@ -123,7 +123,7 @@ void init(void)
         if(RestartFlag < 3)
             P[i].Potential = 0;
 
-#ifdef STELLARAGE
+#ifdef WINDS
         if(RestartFlag == 0)
             P[i].StellarAge = 0;
 #endif

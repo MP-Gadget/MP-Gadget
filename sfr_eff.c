@@ -412,10 +412,6 @@ static int sfr_wind_isactive(int target) {
         /*
          * protect beginning of time. StellarAge starts at 0.
          * */
-#ifndef STELLARAGE
-#error Need STELLARAGE
-        /* stellar age needed to tell if the star particle is recently generated */
-#endif
         if(All.Time > 0 && P[target].StellarAge == All.Time) {
              return 1;
         }
@@ -681,7 +677,7 @@ static int make_particle_star(int i) {
         P[i].Type = 4;
         TimeBinCountSph[P[i].TimeBin]--;
 
-#ifdef STELLARAGE
+#ifdef WINDS
         P[i].StellarAge = All.Time;
 #endif
     }
@@ -695,7 +691,7 @@ static int make_particle_star(int i) {
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
         sum_mass_stars += P[child].Mass;
-#ifdef STELLARAGE
+#ifdef WINDS
         P[child].StellarAge = All.Time;
 #endif
         stars_spawned++;

@@ -645,7 +645,7 @@ SIMPLE_GETTER(GTPressure, SPHP(i).Pressure, float, 1)
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #endif
 #ifdef SFR
-#ifdef STELLARAGE
+#ifdef WINDS
 SIMPLE_PROPERTY(StarFormationTime, P[i].StellarAge, float, 1)
 #endif
 #ifdef METALS
@@ -726,7 +726,7 @@ static void register_io_blocks() {
     /* SF */
 #ifdef SFR
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
-#ifdef STELLARAGE
+#ifdef WINDS
     IO_REG(StarFormationTime, "f4", 1, 4);
 #endif
 #ifdef METALS

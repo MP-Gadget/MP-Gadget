@@ -233,9 +233,6 @@ clean</b>, which will erase all object files, followed by <b>make</b>.
    and stars. Note that cooling by metal-lines is not yet included in
    the code.
 
-- \b STELLARAGE \n This stores the formation times of each star
-   particle, and includes this information in snapshot files.
-
 - \b WINDS \n This activates galactic winds. Requires star formation.
 
 - \b ISOTROPICWINDS \n This makes the wind isotropic. If not set, the

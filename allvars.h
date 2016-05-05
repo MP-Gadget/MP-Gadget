@@ -690,8 +690,8 @@ extern struct particle_data
                               criterion */
     MyFloat PM_Potential;
 
-#ifdef STELLARAGE
-    MyFloat StellarAge;		/*!< formation time of star particle */
+#ifdef WINDS
+    MyFloat StellarAge;		/*!< formation time of star particle: needed to tell when wind is active. */
 #endif
 #ifdef METALS
     MyFloat Metallicity;		/*!< metallicity of gas or star particle */
