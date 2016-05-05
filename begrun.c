@@ -381,7 +381,6 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
         All.OutputListTimes[count] = atof(token);
 /*         printf("Output at: %g\n", All.OutputListTimes[count]); */
     }
-    free(outputlist);
     free(strtmp);
 
     qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);

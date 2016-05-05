@@ -206,6 +206,7 @@ param_declare(ParameterSet * ps, char * name, int type, int required, char * hel
     ps->p[free].type = type;
     ps->p[free].index = free;
     ps->p[free].defvalue.nil = 1;
+    ps->p[free].action = NULL;
     ps->p[free].defvalue.s = NULL;
     if(help)
         ps->p[free].help = strdup(help);
@@ -387,6 +388,7 @@ ParameterSet *
 parameter_set_new()
 {
     ParameterSet * ps = malloc(sizeof(ParameterSet));
+    ps->size = 0;
     param_declare_string(ps, "InitCondFile", 1, NULL, "Path to the Initial Condition File");
     param_declare_string(ps, "OutputDir",    1, NULL, "Prefix to the output files");
     param_declare_string(ps, "TreeCoolFile", 1, NULL, "Path to the Cooling Table");
