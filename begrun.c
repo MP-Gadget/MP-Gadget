@@ -302,22 +302,23 @@ void close_outputfiles(void)
 }
 
 #ifdef BLACK_HOLES
-static void 
+static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
 {
     int v = param_get_enum(ps, name);
     if(HAS(v, BH_FEEDBACK_TOPHAT) == HAS(v, BH_FEEDBACK_SPLINE)) {
         printf("error BlackHoleFeedbackMethod contains either tophat or spline, but both\n");
-        endrun(0);
+        return 1;
     }
     if(HAS(v, BH_FEEDBACK_MASS) ==  HAS(v, BH_FEEDBACK_VOLUME)) {
         printf("error BlackHoleFeedbackMethod contains either volume or mass, but both\n");
-        endrun(0);
+        return 1;
     }
+    return 0;
 }
 #endif
 
-static void
+static int
 DensityKernelTypeAction(ParameterSet * ps, char * name, void * data)
 {
     int v = param_get_int(ps, name);
@@ -328,29 +329,31 @@ DensityKernelTypeAction(ParameterSet * ps, char * name, void * data)
         for(i = 0; i < density_kernel_type_end(); i++) {
             printf("%d %s\n", i, density_kernel_name(i));
         }
-        endrun(111);
+        return 1;
     }
+    return 0;
 }
 
 #ifdef SFR
-static void
+static int
 StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
 {
     int v = param_get_enum(ps, name);
     if(!HAS(v, SFR_CRITERION_DENSITY)) {
         printf("error: At least use SFR_CRITERION_DENSITY\n");
-        endrun(0);
+        return 1;
     }
 #if ! defined SPH_GRAD_RHO || ! defined METALS
     if(HAS(v, SFR_CRITERION_MOLECULAR_H2)) {
         printf("error: enable SPH_GRAD_RHO to use h2 criterion in sfr \n");
-        endrun(0);
+        return 1;
     }
     if(HAS(v, SFR_CRITERION_SELFGRAVITY)) {
         printf("error: enable SPH_GRAD_RHO to use selfgravity in sfr \n");
-        endrun(0);
+        return 1;
     }
 #endif
+    return 0;
 }
 #endif
 
@@ -369,7 +372,7 @@ int cmp_double(const void * a, const void * b)
  *  This function could be repurposed for reading generic arrays in future.
  */
 
-static void
+static int
 OutputListAction(ParameterSet * ps, char * name, void * data)
 {
     char * outputlist = param_get_string(ps, name);
@@ -395,6 +398,7 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
     free(strtmp);
 
     qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
+    return 1;
 }
 
 static char *
@@ -435,8 +439,16 @@ void read_parameter_file(char *fname)
         param_set_action(ps, "OutputList", OutputListAction, NULL);
 
         char * content = fread_all(fname);
-        param_parse(ps, content);
+        if(0 != param_parse(ps, content)) {
+            endrun(9999);
+        }
+        if(0 != param_validate(ps)) {
+            endrun(9998);
+        }
         free(content);
+        printf("----------- Running with Parameters ----------\n");
+        param_dump(ps, stdout);
+        printf("----------------------------------------------\n");
 
         All.NumThreads = omp_get_max_threads();
         All.ICFormat = 1;
@@ -468,7 +480,6 @@ void read_parameter_file(char *fname)
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
         printf("------------- %d ----------- \n", All.DomainOverDecompositionFactor);
         All.MaxMemSizePerCore = param_get_int(ps, "MaxMemSizePerCore");
-        All.TimeOfFirstSnapshot = param_get_double(ps, "TimeOfFirstSnapshot");
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
         All.TimeBetStatistics = param_get_double(ps, "TimeBetStatistics");
         All.TimeBegin = param_get_double(ps, "TimeBegin");

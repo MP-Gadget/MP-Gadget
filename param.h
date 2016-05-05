@@ -1,11 +1,11 @@
 
 typedef struct ParameterEnum {
-    char name[128];
+    char * name;
     int value;
 } ParameterEnum;
 
 typedef struct ParameterSet ParameterSet;
-typedef void (*ParameterAction)(ParameterSet * ps, char * name, void * userdata);
+typedef int (*ParameterAction)(ParameterSet * ps, char * name, void * userdata);
 
 void
 param_declare_int(ParameterSet * ps, char * name, int required, int defvalue, char * help);
@@ -21,6 +21,9 @@ param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, in
 
 void
 param_set_action(ParameterSet * ps, char * name, ParameterAction action, void * userdata);
+
+int
+param_is_nil(ParameterSet * ps, char * name);
 
 double
 param_get_double(ParameterSet * ps, char * name);
@@ -42,7 +45,9 @@ param_format_value(ParameterSet * ps, char * name);
 void
 param_set_from_string(ParameterSet * ps, char * name, char * value);
 
-void param_parse (ParameterSet * ps, char * content);
+int param_parse (ParameterSet * ps, char * content);
+int param_validate(ParameterSet * ps); /* 0 for good, 1 for bad; prints messages. */
+void param_dump(ParameterSet * ps, FILE * stream);
 
 ParameterSet *
 parameter_set_new();

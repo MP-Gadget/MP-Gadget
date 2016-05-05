@@ -14,12 +14,9 @@ static int parse_enum(ParameterEnum * table, char * strchoices) {
     ParameterEnum * p = table;
     char * delim = ",;&| \t";
     char * token;
-    printf("choices %s\n", strchoices);
 
     for(token = strtok(strchoices, delim); token ; token = strtok(NULL, delim)) {
-        printf("token %s\n", token);
         for(p = table; p->name; p++) {
-            printf("testing %s\n", p->name);
             if(strcasecmp(token, p->name) == 0) {
                 value |= p->value;
                 break;
@@ -40,13 +37,14 @@ static char * format_enum(ParameterEnum * table, int value) {
     char buffer[2048];
     ParameterEnum * p;
     char * c = buffer;
-    for(p = table; p->name; p++) {
-        if(value & p->value == p->value) {
+    for(p = table; p->name && p->name[0]; p++) {
+        if((value & p->value) == p->value) {
             strcpy(c, p->name);
             c += strlen(p->name);
             c[0] = '&';
             c++;
             c[0] = 0;
+            value -= p->value;
         }
     }
     return strdup(buffer);
@@ -90,7 +88,7 @@ static ParameterSchema * param_get_schema(ParameterSet * ps, char * name)
 }
 
 
-static void param_emit(ParameterSet * ps, char * start, int size)
+static int param_emit(ParameterSet * ps, char * start, int size)
 {
     /* parse a line */
     char * buf = alloca(size + 1);
@@ -100,36 +98,83 @@ static void param_emit(ParameterSet * ps, char * start, int size)
 
     strncpy(buf, start, size);
     buf[size] = 0;
-    if (size == 0) return;
-    if (sscanf(buf, "%s%s%s", buf1, buf2, buf3) < 2) return;
-    if (buf1[0] == '%') return;
-    if (buf1[0] == '#') return;
+    if (size == 0) return 0;
+
+    /* blank lines are OK */
+    int i;
+    for(i = 0; i < strlen(buf); i ++) {
+        if(!strchr(" \t\r\n", buf[i])) {
+            break;
+        }
+    }
+    if(i == strlen(buf)) {
+        return 0;
+    }
+
+    int n = sscanf(buf, "%s%s%s", buf1, buf2, buf3);
+    if (n == 0) {
+        return 0;
+    }
+    if (buf1[0] == '%') return 0;
+    if (buf1[0] == '#') return 0;
+    if (n < 2) {
+        printf("Line `%s` is malformed\n", buf);
+        return 1;
+    }
     /* now this line is important */
     ParameterSchema * p = param_get_schema(ps, buf1);
     if(!p) {
         /* Ignore unknown parameters */
-        return;
+        printf("Parameter `%s` is unknown.\n", buf1);
+        return 1;
     }
     param_set_from_string(ps, buf1, buf2);
-    printf("%s = %s\n", buf1, buf2);
     if(p->action) {
-        p->action(ps, buf1, p->action_data);
+        printf("Triggering Action on `%s`\n", buf1);
+        return p->action(ps, buf1, p->action_data);
     }
+    return 0;
+}
+int param_validate(ParameterSet * ps)
+{
+    int i;
+    int flag = 0;
+    /* copy over the default values */
+    for(i = 0; i < ps->size; i ++) {
+        ParameterSchema * p = &ps->p[i];
+        if(p->required && ps->value[p->index].nil) {
+            printf("Parameter `%s` is required, but not set.\n", p->name);
+            flag = 1;
+        }
+    }
+    return flag;
 }
 
-void param_parse (ParameterSet * ps, char * content)
+void param_dump(ParameterSet * ps, FILE * stream)
+{
+    int i;
+    for(i = 0; i < ps->size; i ++) {
+        ParameterSchema * p = &ps->p[i];
+        char * v = param_format_value(ps, p->name);
+        fprintf(stream, "%-31s %s\n", p->name, v);
+        free(v);
+    }
+    fflush(stream);
+}
+
+int param_parse (ParameterSet * ps, char * content)
 {
     int i;
     /* copy over the default values */
     for(i = 0; i < ps->size; i ++) {
-        ps->value[i] = ps->p[i].defvalue;
+        ps->value[ps->p[i].index] = ps->p[i].defvalue;
     }
     char * p = content;
     char * p1 = content; /* begining of a line */
-
+    int flag = 0;
     while(1) {
         if(*p == '\n' || *p == 0) {
-            param_emit(ps, p1, p - p1);
+            flag |= param_emit(ps, p1, p - p1);
             if(*p == 0) break;
             p++;
             p1 = p;
@@ -137,6 +182,7 @@ void param_parse (ParameterSet * ps, char * content)
             p++;
         }
     }
+    return flag;
 }
 
 static ParameterSchema * 
@@ -202,6 +248,13 @@ param_set_action(ParameterSet * ps, char * name, ParameterAction action, void * 
     p->action_data = userdata;
 }
 
+int
+param_is_nil(ParameterSet * ps, char * name)
+{
+    ParameterSchema * p = param_get_schema(ps, name);
+    return ps->value[p->index].nil;
+}
+
 double
 param_get_double(ParameterSet * ps, char * name)
 {
@@ -248,15 +301,15 @@ param_format_value(ParameterSet * ps, char * name)
         {
             int i = ps->value[p->index].i;
             char buf[128];
-            sprintf(buf, "%d", &i);
+            sprintf(buf, "%d", i);
             return strdup(buf);
         }
         break;
         case DOUBLE:
         {
-            int d = ps->value[p->index].d;
+            double d = ps->value[p->index].d;
             char buf[128];
-            sprintf(buf, "%g", &d);
+            sprintf(buf, "%g", d);
             return strdup(buf);
         }
         break;
@@ -336,7 +389,6 @@ parameter_set_new()
     param_declare_double(ps, "BoxSize", 1, 32000, "");
 
     param_declare_int(ps,    "MaxMemSizePerCore", 0, 1200, "");
-    param_declare_double(ps, "TimeOfFirstSnapshot", 0, 0, "");
     param_declare_double(ps, "CpuTimeBetRestartFile", 1, 0, "");
     param_declare_double(ps, "TimeBetStatistics", 0, 0.1, "");
     param_declare_double(ps, "TimeBegin", 1, 0, "");
