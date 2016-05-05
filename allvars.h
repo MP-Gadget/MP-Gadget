@@ -430,6 +430,7 @@ extern struct global_data_all_processes
     enum StarformationCriterion StarformationCriterion;		/*!< flags that star formation is enabled */
     enum WindModel WindModel;		/*!< flags that star formation is enabled */
 
+    int RadiationOn; /*!< flags whether to include the radiation density in the background*/
     int CompressionLevel;
     /* parameters determining output frequency */
 

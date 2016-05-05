@@ -496,6 +496,7 @@ void read_parameter_file(char *fname)
         All.NumWritersPerPIG = param_get_int(ps, "NumWritersPerPIG");
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
+        All.RadiationOn = param_get_int(ps, "RadiationOn");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.TypeOfTimestepCriterion = param_get_int(ps, "TypeOfTimestepCriterion");
         All.TypeOfOpeningCriterion = param_get_int(ps, "TypeOfOpeningCriterion");

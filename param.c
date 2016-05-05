@@ -451,6 +451,7 @@ parameter_set_new()
 
     param_declare_int(ps, "CoolingOn", 1, 0, "");
     param_declare_int(ps, "StarformationOn", 1, 0, "");
+    param_declare_int(ps, "RadiationOn", 0, 0, "Include radiation density in the background evolution.");
 
     param_declare_double(ps, "SofteningHalo", 1, 0, "");
     param_declare_double(ps, "SofteningDisk", 1, 0, "");

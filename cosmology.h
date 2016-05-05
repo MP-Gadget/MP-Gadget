@@ -11,8 +11,6 @@
  * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
  * making h0 (very) slightly larger than specified.
  */
-#ifdef INCLUDE_RADIATION
-
 #define  T_CMB0      2.7255	/* present-day CMB temperature, from Fixsen 2009. */
 /*Stefan-Boltzmann constant in cgs units*/
 #define STEFAN_BOLTZMANN 5.670373e-5
@@ -32,10 +30,6 @@
     #define OMEGANU (OMEGAG*7/8.*pow(TNU/T_CMB0,4)*3)
     /*With massless neutrinos only, add the neutrinos to the radiation*/
     #define OMEGAR (OMEGAG+OMEGANU)
-#endif
-#else
-        /*Default is no radiation*/
-        #define OMEGAR 0.
 #endif
 
 /* For convenience define OMEGAK*/
