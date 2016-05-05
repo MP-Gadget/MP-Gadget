@@ -414,12 +414,17 @@ static char *
 fread_all(char * filename)
 {
     FILE * fp = fopen(filename, "r");
+    if(!fp){
+        printf("Could not open parameter file '%s' for reading\n",filename);
+        endrun(1);
+    }
     fseek(fp, 0, SEEK_END);
     int size = ftell(fp);
     char * r = malloc(size + 1);
     fseek(fp, 0, SEEK_SET);
     fread(r, 1, size, fp);
     r[size] = 0;
+    fclose(fp);
     return r;
 }
 
