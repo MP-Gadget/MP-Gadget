@@ -515,13 +515,11 @@ static int density_evaluate(int target, int mode,
                         double ne = SPHP(j).Ne;
                         struct UVBG uvbg;
                         GetParticleUVBG(j, &uvbg);
-#pragma omp critical (_abundance_)
                         AbundanceRatios(DMAX(All.MinEgySpec,
                                     SPHP(j).Entropy / GAMMA_MINUS1
                                     * pow(SPHP(j).EOMDensity * All.cf.a3inv,
                                         GAMMA_MINUS1)),
                                 SPHP(j).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
-#else
                         double nh0 = 1.0;
 #endif
                         if(r2 > 0)
