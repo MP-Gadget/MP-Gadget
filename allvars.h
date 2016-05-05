@@ -331,10 +331,6 @@ extern struct global_data_all_processes
     int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on one
                           processor. */
 
-    int ICFormat;			/*!< selects different versions of IC file-format */
-
-    int SnapFormat;		/*!< selects different versions of snapshot file-formats */
-
     int DoDynamicUpdate;
 
     int NumFilesPerSnapshot;	/*!< number of files in multi-file snapshot dumps */
@@ -417,7 +413,6 @@ extern struct global_data_all_processes
     /* Code options */
     int DomainOverDecompositionFactor; /* Number of sub-domains per processor. */
 
-    int ResubmitOn;		/*!< flags that automatic resubmission of job to queue system is enabled */
     int TypeOfOpeningCriterion;	/*!< determines tree cell-opening criterion: 0 for Barnes-Hut, 1 for relative
                                   criterion */
     int TypeOfTimestepCriterion;	/*!< gives type of timestep criterion (only 0 supported right now - unlike
@@ -430,7 +425,6 @@ extern struct global_data_all_processes
     int RadiationOn; /*!< flags whether to include the radiation density in the background*/
     int NoTreeType; /*!< flags a particle species to exclude from tree forces*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
-    int CompressionLevel;
     /* parameters determining output frequency */
 
     int SnapshotFileCount;	/*!< number of snapshot that is written next */

@@ -437,9 +437,6 @@ void read_parameter_file(char *fname)
         printf("----------------------------------------------\n");
 
         All.NumThreads = omp_get_max_threads();
-        All.ICFormat = 1;
-        All.SnapFormat = 3;
-        All.CompressionLevel = 4;
 
     /* Start reading the values */
         param_get_string2(ps, "InitCondFile", All.InitCondFile);
