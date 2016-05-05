@@ -220,7 +220,7 @@ void cooling_and_starformation(void)
     walltime_measure("/Cooling/StarFormation");
 #ifdef WINDS
     /* now lets make winds. this has to be after NumPart is updated */
-    if(!HAS(All.WindModel, WINDS_SUBGRID)) {
+    if(!HAS(All.WindModel, WINDS_SUBGRID) && All.WindModel != WINDS_NONE) {
         int i;
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
         Evaluator ev = {0};
@@ -1167,7 +1167,7 @@ void set_units_sfr(void)
                 printf("Windspeed: %g\n", All.WindSpeed);
     } else {
         All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
-        if(ThisTask == 0)
+        if(ThisTask == 0 && All.WindModel != WINDS_NONE)
                 printf("Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
 
     }

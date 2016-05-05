@@ -199,6 +199,7 @@ enum StarformationCriterion {
  * wind models SH03, VS08 and OFJT10
  * All.WindModel */
 enum WindModel {
+    WINDS_NONE = 0,
     WINDS_SUBGRID = 1,
     WINDS_DECOUPLE_SPH = 2,
     WINDS_USE_HALO = 4,

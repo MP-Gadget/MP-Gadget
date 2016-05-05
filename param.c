@@ -525,7 +525,7 @@ parameter_set_new()
         {"vs08", WINDS_FIXED_EFFICIENCY},
         {"ofjt10", WINDS_USE_HALO | WINDS_DECOUPLE_SPH},
         {"isotropic", WINDS_ISOTROPIC },
-        {"nowind", 0},
+        {"nowind", WINDS_NONE},
         {NULL, WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY},
     };
 
