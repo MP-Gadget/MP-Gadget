@@ -142,15 +142,10 @@ void cooling_and_starformation(void)
          */
         flag = get_sfr_condition(i);
 
-#ifdef NOISMPRESSURE
-        /* always do direct cooling in these cases */
-        cooling_direct(i);
-#else
         /* normal implicit isochoric cooling */
         if(flag == 1 || All.QuickLymanAlphaProbability > 0) {
             cooling_direct(i);
         }
-#endif
 #ifdef ENDLESSSTARS
         flag = 0;
 #endif
@@ -181,9 +176,11 @@ void cooling_and_starformation(void)
         /* Note: New tree construction can be avoided because of  `force_add_star_to_tree()' */
     }
 
-    double totsfrrate;
+    double totsfrrate, localsfr=0;
+    for(i = 0; i< N_sph; i++)
+        localsfr += SPHP(i).Sfr;
 
-    MPI_Allreduce(&Local_GAS_sfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     double total_sum_mass_stars, total_sm;
 
@@ -609,7 +606,7 @@ static int sfr_wind_evaluate(int target, int mode,
 
 static int make_particle_wind(int i, double v, double vmean[3]) {
     /* v and vmean are in internal units (km/s *a ), not km/s !*/
-    /* returns 0 if particle i is converteed to wind. */
+    /* returns 0 if particle i is converted to wind. */
     int j;
     /* ok, make the particle go into the wind */
     double dir[3];
@@ -660,7 +657,7 @@ static int make_particle_star(int i) {
     double mass_of_star =  All.MassTable[0] / GENERATIONS;
 
     /* ok, make a star */
-    if(P[i].Mass < 1.1 * mass_of_star)
+    if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
     {
         /* here we turn the gas particle itself into a star */
         stars_converted++;
@@ -669,7 +666,6 @@ static int make_particle_star(int i) {
 
         P[i].Type = 4;
         TimeBinCountSph[P[i].TimeBin]--;
-        Local_GAS_sfr -= SPHP(i).Sfr;
 
 #ifdef STELLARAGE
         P[i].StellarAge = All.Time;
@@ -693,8 +689,8 @@ static int make_particle_star(int i) {
     return 0;
 }
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
-    double egycurrent =
-        SPHP(i).Entropy * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    const double densityfac = pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
+    double egycurrent = SPHP(i).Entropy *  densityfac;
 
 #ifdef BLACK_HOLES
     if(SPHP(i).Injected_BH_Energy > 0)
@@ -721,15 +717,9 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     }
 #endif
 
-#if !defined(NOISMPRESSURE)
-    SPHP(i).Entropy =
-        (egyeff +
-         (egycurrent -
-          egyeff) * exp(-dtime / trelax)) * GAMMA_MINUS1 /
-        pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
+    SPHP(i).Entropy =  (egyeff + (egycurrent - egyeff) * exp(-dtime / trelax)) /densityfac;
 
     SPHP(i).DtEntropy = 0;
-#endif
 
 }
 
@@ -753,15 +743,10 @@ static void starformation(int i) {
 
     sum_sm += P[i].Mass * (1 - exp(-p));
 
-/* This is not thread safe. */
-    Local_GAS_sfr -= SPHP(i).Sfr;
-
     /* convert to Solar per Year but is this damn variable otherwise used
      * at all? */
     SPHP(i).Sfr = rateOfSF *
         (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
-
-    Local_GAS_sfr += SPHP(i).Sfr;
 
 #ifdef METALS
     double w = get_random_number(P[i].ID);

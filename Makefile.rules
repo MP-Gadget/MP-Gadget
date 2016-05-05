@@ -52,12 +52,13 @@ all: depends $(EXEC)
 depends:
 	cd depends; make
 
+$(DESTDIR)/GENIC:
+	mkdir -p $@
 
 $(DESTDIR)/P-Gadget3: $(OBJS)
 	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
 
-$(DESTDIR)/GENIC/N-GenIC: $(ICOBJS)
-	mkdir -p `dirname $@`
+$(DESTDIR)/GENIC/N-GenIC: $(DESTDIR)/GENIC $(ICOBJS)
 	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
 $(DESTDIR)/config.h: Makefile

@@ -327,7 +327,7 @@ parameter_set_new()
     param_declare_string(ps, "InfoFile", 0, "info.txt", "");
     param_declare_string(ps, "TimingsFile", 0, "timings.txt", "");
     param_declare_string(ps, "RestartFile", 0, "restart", "");
-    param_declare_string(ps, "OutputListFilename", 1, NULL, "");
+    param_declare_string(ps, "OutputList", 1, NULL, "List of output times");
 
     param_declare_double(ps, "Omega0", 1, 0.2814, "");
     param_declare_double(ps, "OmegaBaryon", 1, 0.0464, "");

@@ -251,10 +251,6 @@ extern int LastInTimeBin[TIMEBINS];
 extern int *NextInTimeBin;
 extern int *PrevInTimeBin;
 
-#ifdef SFR
-extern double Local_GAS_sfr;
-#endif
-
 #ifdef BLACK_HOLES
 extern double Local_BH_mass;
 extern double Local_BH_dynamicalmass;
@@ -277,8 +273,6 @@ extern int RestartSnapNum;
 extern int Flag_FullStep;	/*!< Flag used to signal that the current step involves all particles */
 
 extern int GlobFlag;
-
-extern char DumpFlag;
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
 
@@ -558,13 +552,12 @@ extern struct global_data_all_processes
          SnapshotFileBase[100],
          EnergyFile[100],
          CpuFile[100],
-         InfoFile[100], TimingsFile[100], RestartFile[100], ResubmitCommand[100], OutputListFilename[100];
+         InfoFile[100], TimingsFile[100], RestartFile[100], ResubmitCommand[100], OutputList[100];
 
     char UVFluctuationFile[100];
 
     /*! table with desired output times */
-    double OutputListTimes[MAXLEN_OUTPUTLIST];
-    char OutputListFlag[MAXLEN_OUTPUTLIST];
+    double *OutputListTimes;
     int OutputListLength;		/*!< number of times stored in table of desired output times */
 
 
@@ -609,7 +602,6 @@ extern struct global_data_all_processes
     double BlackHoleFeedbackRadius;	/*!< Radius the thermal feedback is fed comoving*/
     double BlackHoleFeedbackRadiusMaxPhys;	/*!< Radius the thermal cap */
     double SeedBlackHoleMass;	/*!< Seed black hole mass */
-    double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
     double BlackHoleNgbFactor;	/*!< Factor by which the normal SPH neighbour should be increased/decreased */
     double BlackHoleMaxAccretionRadius;
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
@@ -617,6 +609,7 @@ extern struct global_data_all_processes
 #endif
 
 #ifdef FOF
+    double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
     double FOFHaloLinkingLength;
     int FOFHaloMinLength;
 #endif
@@ -726,7 +719,7 @@ extern struct particle_data
 *P;				/*!< holds particle data on local processor */
 
 
-/* the following struture holds data that is stored for each SPH particle in addition to the collisionless
+/* the following structure holds data that is stored for each SPH particle in addition to the collisionless
  * variables.
  */
 extern struct sph_particle_data

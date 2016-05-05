@@ -965,7 +965,7 @@ int domain_fork_particle(int parent) {
      *
      * Its mass and ptype can be then adjusted. (watchout detached BH /SPH
      * data!)
-     * It's PIndex still points to the old Pindex!
+     * Its PIndex still points to the old Pindex!
      * */
 
     if(NumPart >= All.MaxPart)

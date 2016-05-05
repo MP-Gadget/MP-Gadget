@@ -354,72 +354,64 @@ StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
 }
 #endif
 
-/*! this fucking function reads a table with a list of desired output times. The table
- *  does not have to be ordered in any way, but may not contain more than
- *  MAXLEN_OUTPUTLIST entries.
+int cmp_double(const void * a, const void * b)
+{
+    return ( *(double*)a - *(double*)b );
+}
+
+/*! This function parses a string containing a comma-separated list of variables,
+ *  each of which is interpreted as a double.
+ *  The purpose is to read an array of output times into the code.
+ *  So specifying the output list now looks like:
+ *  OutputList  0.1,0.3,0.5,1.0
  *
- *  It needs to be rewriten.
+ *  We sort the input after reading it, so that the initial list need not be sorted.
+ *  This function could be repurposed for reading generic arrays in future.
  */
 
 static void
-OutputListFilenameAction(ParameterSet * ps, char * name, void * data)
+OutputListAction(ParameterSet * ps, char * name, void * data)
 {
-    char * fname = param_get_string(ps, name);
+    char * outputlist = param_get_string(ps, name);
+    char * strtmp=strdup(outputlist);
+    char * token;
+    int count;
 
-    FILE *fd;
-    int count, flag;
-    char buf[512];
-
-    if(!(fd = fopen(fname, "r")))
+    /*First parse the string to get the number of outputs*/
+    for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
+    {}
+/*     printf("Found %d times in output list.\n", count); */
+    /*Allocate enough memory*/
+    All.OutputListLength = count;
+    /*Memory manager is not yet initialised here*/
+    All.OutputListTimes = (double *) malloc(sizeof(double)*All.OutputListLength);
+    /*Now read in the values*/
+    for(count=0,token=strtok(outputlist,","); count < All.OutputListLength && token; count++, token=strtok(NULL,","))
     {
-        printf("can't read output list in file '%s'\n", fname);
-        endrun(111);
+        All.OutputListTimes[count] = atof(token);
+/*         printf("Output at: %g\n", All.OutputListTimes[count]); */
     }
+    free(outputlist);
+    free(strtmp);
 
-    All.OutputListLength = 0;
-
-    while(1)
-    {
-        if(fgets(buf, 500, fd) != buf)
-            break;
-
-        count = sscanf(buf, " %lg %d ", &All.OutputListTimes[All.OutputListLength], &flag);
-
-        if(count == 1)
-            flag = 1;
-
-        if(count == 1 || count == 2)
-        {
-            if(All.OutputListLength >= MAXLEN_OUTPUTLIST)
-            {
-                if(ThisTask == 0)
-                    printf("\ntoo many entries in output-list. You should increase MAXLEN_OUTPUTLIST=%d.\n",
-                            (int) MAXLEN_OUTPUTLIST);
-                endrun(13);
-            }
-
-            All.OutputListFlag[All.OutputListLength] = flag;
-            All.OutputListLength++;
-        }
-    }
-
-    fclose(fd);
-
-    printf("\nfound %d times in output-list.\n", All.OutputListLength);
-
-    free(fname);
+    qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
 }
 
 static char *
 fread_all(char * filename)
 {
     FILE * fp = fopen(filename, "r");
+    if(!fp){
+        printf("Could not open parameter file '%s' for reading\n",filename);
+        endrun(1);
+    }
     fseek(fp, 0, SEEK_END);
     int size = ftell(fp);
     char * r = malloc(size + 1);
     fseek(fp, 0, SEEK_SET);
     fread(r, 1, size, fp);
     r[size] = 0;
+    fclose(fp);
     return r;
 }
 
@@ -433,11 +425,14 @@ void read_parameter_file(char *fname)
 {
     if(ThisTask == 0) {
         ParameterSet * ps = parameter_set_new();
-
+#ifdef BLACK_HOLES
         param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
+#endif
         param_set_action(ps, "DensityKernelType", DensityKernelTypeAction, NULL);
+#ifdef SFR
         param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
-        param_set_action(ps, "OutputListFilename", OutputListFilenameAction, NULL);
+#endif
+        param_set_action(ps, "OutputList", OutputListAction, NULL);
 
         char * content = fread_all(fname);
         param_parse(ps, content);
@@ -460,7 +455,7 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "InfoFile", All.InfoFile);
         param_get_string2(ps, "TimingsFile", All.TimingsFile);
         param_get_string2(ps, "RestartFile", All.RestartFile);
-        param_get_string2(ps, "OutputListFilename", All.OutputListFilename);
+        param_get_string2(ps, "OutputList", All.OutputList);
 
         All.DensityKernelType = param_get_int(ps, "DensityKernelType");
 

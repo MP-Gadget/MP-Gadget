@@ -49,10 +49,6 @@ int LastInTimeBin[TIMEBINS];
 int *NextInTimeBin;
 int *PrevInTimeBin;
 
-#ifdef SFR
-double Local_GAS_sfr;
-#endif
-
 #ifdef BLACK_HOLES
 double Local_BH_mass;
 double Local_BH_dynamicalmass;
@@ -60,10 +56,7 @@ double Local_BH_Mdot;
 double Local_BH_Medd;
 #endif
 
-char DumpFlag = 1;
-
 int Flag_FullStep;		/*!< Flag used to signal that the current step involves all particles */
-
 
 int GlobFlag;
 

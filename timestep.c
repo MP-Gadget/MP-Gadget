@@ -261,7 +261,6 @@ void advance_and_find_timesteps(void)
     if(badstepsizecount_global) {
         if (ThisTask == 0)
             printf("bad timestep spotted terminating and saving snapshot as %d\n", All.SnapshotFileCount);
-        DumpFlag = 1;
         All.NumCurrentTiStep = 0;
         savepositions(999999, 0);
         MPI_Barrier(MPI_COMM_WORLD);

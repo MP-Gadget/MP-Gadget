@@ -16,9 +16,6 @@ void reconstruct_timebins(void)
         TimeBinCountSph[bin] = 0;
         FirstInTimeBin[bin] = -1;
         LastInTimeBin[bin] = -1;
-#ifdef SFR
-        Local_GAS_sfr = 0;
-#endif
 #ifdef BLACK_HOLES
         Local_BH_mass = 0;
         Local_BH_dynamicalmass = 0;
@@ -47,10 +44,6 @@ void reconstruct_timebins(void)
         if(P[i].Type == 0)
             TimeBinCountSph[bin]++;
 
-#ifdef SFR
-        if(P[i].Type == 0)
-            Local_GAS_sfr += SPHP(i).Sfr;
-#endif
 #if BLACK_HOLES
         if(P[i].Type == 5)
         {

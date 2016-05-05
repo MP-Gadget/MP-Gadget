@@ -113,7 +113,7 @@ void init(void)
         P[i].DensityIterationDone = 0;
         P[i].OnAnotherDomain = 0;
         P[i].WillExport = 0;
-        P[i].Generation = 0;
+
         P[i].TimeBin = 0;
 
         P[i].OldAcc = 0;
@@ -127,6 +127,8 @@ void init(void)
         if(RestartFlag == 0)
             P[i].StellarAge = 0;
 #endif
+        if(RestartFlag == 0)
+            P[i].Generation = 0;
 
 #ifdef METALS
         if(RestartFlag == 0)
