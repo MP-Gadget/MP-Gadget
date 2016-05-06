@@ -40,12 +40,6 @@ void init(void)
             endrun(0, "Need to give the snapshot number if FOF is selected for output\n");
     }
 
-    if(RestartFlag == 4 && RestartSnapNum < 0)
-    {
-        if(ThisTask == 0)
-            endrun(0, "Need to give the snapshot number if snapshot should be converted\n");
-    }
-
     if(RestartFlag >= 2 && RestartSnapNum >= 0)  {
         petaio_read_snapshot(RestartSnapNum);
     } else

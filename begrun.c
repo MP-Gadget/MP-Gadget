@@ -48,10 +48,6 @@ void begrun(void)
         printf("\nSize of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
         printf("\nSize of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
 
-        if(RestartFlag == 1) {
-            fprintf(stderr, "Restarting from restart file is no longer supported. Use a snapshot instead.\n");
-            abort();
-        }
     }
 
 #if defined(X86FIX) && defined(SOFTDOUBLEDOUBLE)
