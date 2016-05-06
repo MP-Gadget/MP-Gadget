@@ -1,8 +1,6 @@
 #ifndef PROTO_H
 #define PROTO_H
 
-void report_VmRSS(void);
-
 #ifdef MPISENDRECV_CHECKSUM
 int MPI_Check_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
                        int dest, int sendtag, void *recvbufreal, int recvcount,

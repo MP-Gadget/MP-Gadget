@@ -255,37 +255,6 @@ size_t sizemax(size_t a, size_t b)
     return a;
 }
 
-
-void report_VmRSS(void)
-{
-  pid_t my_pid;
-  FILE *fd;
-  char buf[1024];
-
-  my_pid = getpid();
-
-  sprintf(buf, "/proc/%d/status", my_pid);
-
-  if((fd = fopen(buf, "r")))
-    {
-      while(1)
-	{
-	  if(fgets(buf, 500, fd) != buf)
-	    break;
-
-	  if(strncmp(buf, "VmRSS", 5) == 0)
-	    {
-	      printf("ThisTask=%d: %s", ThisTask, buf);
-	    }
-	  if(strncmp(buf, "VmSize", 6) == 0)
-	    {
-	      printf("ThisTask=%d: %s", ThisTask, buf);
-	    }
-	}
-      fclose(fd);
-    }
-}
-
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) 
