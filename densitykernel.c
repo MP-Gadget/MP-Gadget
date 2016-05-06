@@ -138,7 +138,7 @@ density_kernel_volume(DensityKernel * kernel)
 void
 density_kernel_init(DensityKernel * kernel, double H)
 {
-    int t;
+    int t = -1;
     if(All.DensityKernelType == DENSITY_KERNEL_CUBIC_SPLINE) {
         t = 0;
     } else
