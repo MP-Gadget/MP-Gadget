@@ -93,7 +93,7 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
                         no = Nextnode[no - MaxNodes];
                         continue;
                     } else {
-                        endrun(12312);
+                        endrun(12312, "using node list but fell into mode 1. Why shall fail in this case?");
                     }
                 }
                 if(target >= 0)	/* if no target is given, export will not occur */

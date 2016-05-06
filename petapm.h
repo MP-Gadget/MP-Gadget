@@ -35,7 +35,7 @@ typedef struct {
     int NumPart;
 } PetaPMParticleStruct;
 
-void petapm_init(double BoxSize, int _Nmesh);
+void petapm_init(double BoxSize, int _Nmesh, int Nthreads);
 void petapm_region_init_strides(PetaPMRegion * region);
 
 void petapm_force(petapm_prepare_func prepare, 

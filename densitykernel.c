@@ -148,8 +148,7 @@ density_kernel_init(DensityKernel * kernel, double H)
     if(All.DensityKernelType == DENSITY_KERNEL_QUARTIC_SPLINE) {
         t = 2;
     } else {
-        printf("Density Kernel type is unknown\n");
-        endrun(3222);
+        endrun(1, "Density Kernel type is unknown\n");
     }
     density_kernel_init_with_type(kernel, t, H);
 }

@@ -24,7 +24,7 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k);
 static void setup_grid();
 
 void initialize_ffts(void) {
-    petapm_init(Box, Nmesh);
+    petapm_init(Box, Nmesh, 1);
     setup_grid();
 }
 

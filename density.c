@@ -220,9 +220,7 @@ void density(void)
 
             if(iter > MAXITER)
             {
-                printf("failed to converge in neighbour iteration in density()\n");
-                fflush(stdout);
-                endrun(1155);
+                endrun(1155, "failed to converge in neighbour iteration in density()\n");
             }
         }
     }
@@ -574,8 +572,7 @@ static int density_isactive(int n)
     if(P[n].DensityIterationDone) return 0;
 
     if(P[n].TimeBin < 0) {
-        printf("TimeBin negative!\n use DensityIterationDone flag");
-        endrun(99999);
+        endrun(9999, "TimeBin negative!\n use DensityIterationDone flag");
     }
 #ifdef BLACK_HOLES
     if(P[n].Type == 5)
@@ -676,7 +673,7 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
         /* need to redo this particle */
         if(P[i].DensityIterationDone) {
             /* should have been 0*/
-            endrun(999993);
+            endrun(999993, "Already has DensityIterationDone set, bad memory intialization.");
         }
 
         if(Left[i] > 0 && Right[i] > 0)
@@ -705,7 +702,7 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
         else
         {
             if(Right[i] == 0 && Left[i] == 0)
-                endrun(8188);	/* can't occur */
+                endrun(8188, "Cannot occur. Check for memory corruption.");	/* can't occur */
 
             if(Right[i] == 0 && Left[i] > 0)
             {

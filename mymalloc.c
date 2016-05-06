@@ -56,8 +56,7 @@ void mymalloc_init(void)
     /* extra space for aligning Base */
     if(!(Base = malloc(n + ALIGNMENT)))
     {
-        printf("Failed to allocate memory for `Base' (%d Mbytes).\n", All.MaxMemSizePerCore * All.NumThreads);
-        endrun(122);
+        endrun(122, "Failed to allocate memory for `Base' (%d Mbytes).\n", All.MaxMemSizePerCore * All.NumThreads);
     }
     Base = (char*) align_size((size_t) Base);
 #else
@@ -90,7 +89,7 @@ void report_detailed_memory_usage_of_largest_task(const char *label,
     }
     if(i == 1024) {
         //"need more label space;"
-        endrun(33214);
+        endrun(33214, "out of label space");
     }
     OldHighMarkBytes = &highmarks[i];
     sizelist = (size_t *) mymalloc("sizelist", NTask * sizeof(size_t));
@@ -164,18 +163,16 @@ void *mymalloc_fullinfo(const char *varname, size_t n, const char *func, const c
 
     if(Nblocks >= MAXBLOCKS)
     {
-        printf("Task=%d: No blocks left in mymalloc_fullinfo() at %s()/%s/line %d. MAXBLOCKS=%d\n", ThisTask,
+        endrun(813, "Task=%d: No blocks left in mymalloc_fullinfo() at %s()/%s/line %d. MAXBLOCKS=%d\n", ThisTask,
                 func, file, line, MAXBLOCKS);
-        endrun(813);
     }
 
     if(n > FreeBytes)
     {
         dump_memory_table();
-        printf
-            ("\nTask=%d: Not enough memory in mymalloc_fullinfo() to allocate %g MB for variable '%s' at %s()/%s/line %d (FreeBytes=%g MB).\n",
+        endrun
+            (812, "\nTask=%d: Not enough memory in mymalloc_fullinfo() to allocate %g MB for variable '%s' at %s()/%s/line %d (FreeBytes=%g MB).\n",
              ThisTask, n / (1024.0 * 1024.0), varname, func, file, line, FreeBytes / (1024.0 * 1024.0));
-        endrun(812);
     }
     Table[Nblocks] = Base + (TotBytes - FreeBytes);
     FreeBytes -= n;
@@ -206,15 +203,13 @@ void myfree_fullinfo(void *p, const char *func, const char *file, int line)
     return;
 #endif
     if(Nblocks == 0)
-        endrun(76878);
+        endrun(76878, "too may frees");
 
     if(p != Table[Nblocks - 1])
     {
         dump_memory_table();
-        printf("Task=%d: Wrong call of myfree() at %s()/%s/line %d: not the last allocated block!\n", ThisTask,
+        endrun(814, "Task=%d: Wrong call of myfree() at %s()/%s/line %d: not the last allocated block!\n", ThisTask,
                 func, file, line);
-        fflush(stdout);
-        endrun(814);
     }
 
     Nblocks -= 1;
@@ -229,15 +224,13 @@ void *myrealloc_fullinfo(void *p, size_t n, const char *func, const char *file, 
 #endif
     n = align_size(n);
     if(Nblocks == 0)
-        endrun(76879);
+        endrun(76879, "too many frees.");
 
     if(p != Table[Nblocks - 1])
     {
         dump_memory_table();
-        printf("Task=%d: Wrong call of myrealloc() at %s()/%s/line %d - not the last allocated block!\n",
+        endrun(815, "Task=%d: Wrong call of myrealloc() at %s()/%s/line %d - not the last allocated block!\n",
                 ThisTask, func, file, line);
-        fflush(stdout);
-        endrun(815);
     }
 
     AllocatedBytes -= BlockSize[Nblocks - 1];
@@ -246,11 +239,9 @@ void *myrealloc_fullinfo(void *p, size_t n, const char *func, const char *file, 
     if(n > FreeBytes)
     {
         dump_memory_table();
-        printf
-            ("Task=%d: Not enough memory in myremalloc(n=%g MB) at %s()/%s/line %d. previous=%g FreeBytes=%g MB\n",
+        endrun(812, "Task=%d: Not enough memory in myremalloc(n=%g MB) at %s()/%s/line %d. previous=%g FreeBytes=%g MB\n",
              ThisTask, n / (1024.0 * 1024.0), func, file, line, BlockSize[Nblocks - 1] / (1024.0 * 1024.0),
              FreeBytes / (1024.0 * 1024.0));
-        endrun(812);
     }
     Table[Nblocks - 1] = Base + (TotBytes - FreeBytes);
     FreeBytes -= n;

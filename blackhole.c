@@ -616,7 +616,8 @@ static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote,
 }
 
 void blackhole_make_one(int index) {
-    if(P[index].Type != 0) endrun(7772);
+    if(P[index].Type != 0) 
+        endrun(7772, "Only Gas turns into blackholes, what's wrong?");
 
     int child = domain_fork_particle(index);
 

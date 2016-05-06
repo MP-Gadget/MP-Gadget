@@ -37,15 +37,13 @@ void init(void)
     if(RestartFlag == 3 && RestartSnapNum < 0)
     {
         if(ThisTask == 0)
-            printf("Need to give the snapshot number if FOF is selected for output\n");
-        endrun(0);
+            endrun(0, "Need to give the snapshot number if FOF is selected for output\n");
     }
 
     if(RestartFlag == 4 && RestartSnapNum < 0)
     {
         if(ThisTask == 0)
-            printf("Need to give the snapshot number if snapshot should be converted\n");
-        endrun(0);
+            endrun(0, "Need to give the snapshot number if snapshot should be converted\n");
     }
 
     if(RestartFlag >= 2 && RestartSnapNum >= 0)  {
@@ -55,9 +53,8 @@ void init(void)
         petaio_read_ic();
     } else {
         if(ThisTask == 0) {
-            fprintf(stderr, "RestartFlag and SnapNum combination is unknown");
+            endrun(0, "RestartFlag and SnapNum combination is unknown");
         }
-        abort();
     }
 
     /* this ensures the initial BhP array is consistent */
@@ -188,15 +185,6 @@ void init(void)
 #ifdef START_WITH_EXTRA_NGBDEV
     All.MaxNumNgbDeviation = MaxNumNgbDeviationMerk;
 #endif
-
-    if(RestartFlag == 3)
-    {
-#ifdef FOF
-        fof_fof(RestartSnapNum);
-#endif
-        endrun(0);
-    }
-
 }
 
 
@@ -224,11 +212,9 @@ void check_omega(void)
             printf
                 ("The mass content accounts only for Omega=%g,\nbut you specified Omega=%g in the parameterfile.\n",
                  omega, All.Omega0);
-            printf("\nI better stop.\n");
 
-            fflush(stdout);
+            endrun(1, "I better stop");
         }
-        endrun(1);
     }
 }
 

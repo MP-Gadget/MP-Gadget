@@ -185,7 +185,7 @@ int * ev_get_queue(Evaluator * ev, int * len) {
         qsort(queue, k, sizeof(int), cmpint);
         for(i = 0; i < k - 1; i ++) {
             if(queue[i] == queue[i+1]) {
-                endrun(8829);
+                endrun(8829, "There are duplicated active particles.");
             }
         }
     }
@@ -246,8 +246,7 @@ int ev_primary(Evaluator * ev) {
     }
 
     if(ev->Nexport == 0 && ev->BufferFullFlag) {
-        /* buffer too small for even one particle (many nodes there can be)*/
-        endrun(1231245);
+        endrun(1231245, "Buffer too small for even one particle. For example, there are too many nodes");
     }
 
     /* 

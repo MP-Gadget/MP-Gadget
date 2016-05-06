@@ -191,9 +191,7 @@ void advance_and_find_timesteps(void)
 
         if((TIMEBASE - All.Ti_Current) < ti_step)	/* check that we don't run beyond the end */
         {
-            fprintf(stderr, "\n @ /* should not happen */ \n");
-            endrun(888);		/* should not happen */
-            fprintf(stderr, "\n @ /* should not happen */ \n");
+            endrun(888, "\n @ /* should not happen */ \n");
             ti_step = TIMEBASE - All.Ti_Current;
             ti_min = TIMEBASE;
             while(ti_min > ti_step)
@@ -264,7 +262,7 @@ void advance_and_find_timesteps(void)
         All.NumCurrentTiStep = 0;
         savepositions(999999, 0);
         MPI_Barrier(MPI_COMM_WORLD);
-        endrun(1231134);
+        endrun(1231134, "Ending due to bad timestep");
     }
     if(All.DoDynamicUpdate)
     {
@@ -635,9 +633,7 @@ int get_timestep(int p,		/*!< particle index */
             break;
 
         default:
-            fprintf(stderr, "\n !!!2@@@!!! \n");
-            endrun(888);
-            fprintf(stderr, "\n !!!2@@@!!! \n");
+            endrun(888, "\n !!!2@@@!!! \n");
             break;
     }
 
@@ -720,7 +716,6 @@ int get_timestep(int p,		/*!< particle index */
         }
 #endif
         fflush(stdout);
-        //endrun(818);
     }
 
     return ti_step;

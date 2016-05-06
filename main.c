@@ -7,12 +7,8 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 
-#include <fftw3-mpi.h>
-
 #include "allvars.h"
 #include "proto.h"
-
-
 
 /*! \file main.c
  *  \brief start of the program
@@ -26,51 +22,53 @@
  */
 int main(int argc, char **argv)
 {
-  MPI_Init(&argc, &argv);
-  MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-  MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    MPI_Init(&argc, &argv);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
-  fftw_init_threads();
-  fftw_mpi_init();
-  fftw_plan_with_nthreads(omp_get_max_threads());
-
-  if(argc < 2)
+    if(argc < 2)
     {
-      if(ThisTask == 0)
-	{
-	  printf("Parameters are missing.\n");
-	  printf("Call with <ParameterFile> [<RestartFlag>] [<RestartSnapNum>]\n");
-	  printf("\n");
-	  printf("   RestartFlag    Action\n");
-	  printf("       0          Read iniial conditions and start simulation\n");
-	  printf("       1          Read restart files and resume simulation\n");
-	  printf("       2          Restart from specified snapshot dump and continue simulation\n");
-	  printf("       3          Run FOF if enabled\n");
-	  printf("       4          Convert snapshot file to different format\n");
-	  printf("\n");
-	}
-      endrun(0);
+        if(ThisTask == 0)
+        {
+            printf("Parameters are missing.\n");
+            printf("Call with <ParameterFile> [<RestartFlag>] [<RestartSnapNum>]\n");
+            printf("\n");
+            printf("   RestartFlag    Action\n");
+            printf("       0          Read iniial conditions and start simulation\n");
+            printf("       1          Read restart files and resume simulation\n");
+            printf("       2          Restart from specified snapshot dump and continue simulation\n");
+            printf("       3          Run FOF if enabled\n");
+            printf("       4          Convert snapshot file to different format\n");
+            printf("\n");
+        }
+        goto byebye;
     }
 
-  strcpy(ParameterFile, argv[1]);
+    strcpy(ParameterFile, argv[1]);
 
-  if(argc >= 3)
-    RestartFlag = atoi(argv[2]);
-  else
-    RestartFlag = 0;
+    if(argc >= 3)
+        RestartFlag = atoi(argv[2]);
+    else
+        RestartFlag = 0;
 
-  if(argc >= 4)
-    RestartSnapNum = atoi(argv[3]);
-  else
-    RestartSnapNum = -1;
+    if(argc >= 4)
+        RestartSnapNum = atoi(argv[3]);
+    else
+        RestartSnapNum = -1;
 
-  begrun();			/* set-up run  */
+    begrun();			/* set-up run  */
 
-  run();			/* main simulation loop */
+    if(RestartFlag == 3) {
+#ifdef FOF
+        fof_fof(RestartSnapNum);
+#endif
+    } else {
+        run();			/* main simulation loop */
+    }
+byebye:
+    MPI_Finalize();		/* clean up & finalize MPI */
 
-  MPI_Finalize();		/* clean up & finalize MPI */
-
-  return 0;
+    return 0;
 }
 
 

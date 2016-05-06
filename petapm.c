@@ -23,7 +23,7 @@
 struct Layout {
     int NpExport;
     int NpImport;
-    int * NpSend;   
+    int * NpSend;
     int * NpRecv;
     int * DpSend;
     int * DpRecv;
@@ -115,13 +115,15 @@ int *petapm_get_thistask2d() {
 int *petapm_get_ntask2d() {
     return NTask2d;
 }
-void petapm_init(double BoxSize, int _Nmesh) {
+void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
 
     /* define the global long / short range force cut */
     Nmesh = _Nmesh;
     CellSize = BoxSize / Nmesh;
 
     pfft_init();
+
+    pfft_plan_with_nthreads(Nthreads);
 
     ptrdiff_t n[3] = {Nmesh, Nmesh, Nmesh};
     ptrdiff_t np[2];

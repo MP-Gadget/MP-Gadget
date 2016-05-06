@@ -104,6 +104,9 @@ void begrun(void)
 
     init();			/* ... read in initial model */
 
+    if(RestartFlag >= 3) {
+        return;
+    }
     open_outputfiles();
 
     reconstruct_timebins();
@@ -227,37 +230,32 @@ void open_outputfiles(void)
     sprintf(buf, "%s%s%s", All.OutputDir, All.CpuFile, postfix);
     if(!(FdCPU = fopen(buf, mode)))
     {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
+        endrun(1, "error in opening file '%s'\n", buf);
     }
 
     sprintf(buf, "%s%s%s", All.OutputDir, All.InfoFile, postfix);
     if(!(FdInfo = fopen(buf, mode)))
     {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
+        endrun(1, "error in opening file '%s'\n", buf);
     }
 
     sprintf(buf, "%s%s%s", All.OutputDir, All.EnergyFile, postfix);
     if(!(FdEnergy = fopen(buf, mode)))
     {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
+        endrun(1, "error in opening file '%s'\n", buf);
     }
 
     sprintf(buf, "%s%s%s", All.OutputDir, All.TimingsFile, postfix);
     if(!(FdTimings = fopen(buf, mode)))
     {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
+        endrun(1, "error in opening file '%s'\n", buf);
     }
 
 #ifdef SFR
     sprintf(buf, "%s%s%s", All.OutputDir, "sfr.txt", postfix);
     if(!(FdSfr = fopen(buf, mode)))
     {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
+        endrun(1, "error in opening file '%s'\n", buf);
     }
 #endif
 
@@ -265,8 +263,7 @@ void open_outputfiles(void)
     sprintf(buf, "%s%s%s", All.OutputDir, "blackholes.txt", postfix);
     if(!(FdBlackHoles = fopen(buf, mode)))
     {
-        printf("error in opening file '%s'\n", buf);
-        endrun(1);
+        endrun(1, "error in opening file '%s'\n", buf);
     }
 #endif
 
@@ -392,8 +389,7 @@ fread_all(char * filename)
 {
     FILE * fp = fopen(filename, "r");
     if(!fp){
-        printf("Could not open parameter file '%s' for reading\n",filename);
-        endrun(1);
+        endrun(1, "Could not open parameter file '%s' for reading\n",filename);
     }
     fseek(fp, 0, SEEK_END);
     int size = ftell(fp);
@@ -425,10 +421,10 @@ void read_parameter_file(char *fname)
 
         char * content = fread_all(fname);
         if(0 != param_parse(ps, content)) {
-            endrun(9999);
+            endrun(9999, "Parsing failed.");
         }
         if(0 != param_validate(ps)) {
-            endrun(9998);
+            endrun(9998, "Validation failed.");
         }
         free(content);
         printf("----------- Running with Parameters ----------\n");
@@ -595,10 +591,8 @@ void read_parameter_file(char *fname)
     {
         if(ThisTask == 0)
         {
-            printf("The specified timestep criterion\n");
-            printf("is not valid\n");
+            endrun(0, "The specified timestep criterion is not valid\n");
         }
-        endrun(0);
     }
 
 #ifdef SFR
@@ -614,18 +608,17 @@ void read_parameter_file(char *fname)
     {
         if(ThisTask == 0)
         {
-            printf("You try to use the code with star formation enabled,\n");
-            printf("but you did not switch on cooling.\nThis mode is not supported.\n");
+            endrun(0, "You try to use the code with star formation enabled,\n"
+                      "but you did not switch on cooling.\nThis mode is not supported.\n");
         }
-        endrun(0);
     }
 #else
     if(All.StarformationOn == 1)
     {
         if(ThisTask == 0)
         {
-            printf("Code was compiled with star formation switched off.\n");
-            printf("You must set `StarformationOn=0', or recompile the code.\n");
+            endrun(0, "Code was compiled with star formation switched off.\n"
+                      "You must set `StarformationOn=0', or recompile the code.\n");
         }
         All.StarformationOn = 0;
     }
@@ -649,76 +642,10 @@ void read_parameter_file(char *fname)
 #ifndef SFR
     if(ThisTask == 0)
     {
-        printf("Code was compiled with METALS, but not with SFR.\n");
-        printf("This is not allowed.\n");
+        endrun(0, "Code was compiled with METALS, but not with SFR.\n"
+                  "This is not allowed.\n");
     }
-    endrun(0);
 #endif
 #endif
 
-}
-
-
-/*! If a restart from restart-files is carried out where the TimeMax variable
- * is increased, then the integer timeline needs to be adjusted. The approach
- * taken here is to reduce the resolution of the integer timeline by factors
- * of 2 until the new final time can be reached within TIMEBASE.
- */
-void readjust_timebase(double TimeMax_old, double TimeMax_new)
-{
-    int i;
-    int64_t ti_end;
-
-    if(sizeof(int64_t) != 8)
-    {
-        if(ThisTask == 0)
-            printf("\nType 'int64_t' is not 64 bit on this platform\n\n");
-        endrun(555);
-    }
-
-    if(ThisTask == 0)
-    {
-        printf("\nAll.TimeMax has been changed in the parameterfile\n");
-        printf("Need to adjust integer timeline\n\n\n");
-    }
-
-    if(TimeMax_new < TimeMax_old)
-    {
-        if(ThisTask == 0)
-            printf("\nIt is not allowed to reduce All.TimeMax\n\n");
-        endrun(556);
-    }
-
-    ti_end = (int64_t) (log(TimeMax_new / All.TimeBegin) / All.Timebase_interval);
-
-    while(ti_end > TIMEBASE)
-    {
-        All.Timebase_interval *= 2.0;
-
-        ti_end /= 2;
-        All.Ti_Current /= 2;
-
-        All.PM_Ti_begstep /= 2;
-        All.PM_Ti_endstep /= 2;
-
-        for(i = 0; i < NumPart; i++)
-        {
-            P[i].Ti_begstep /= 2;
-            P[i].Ti_current /= 2;
-
-            if(P[i].TimeBin > 0)
-            {
-                P[i].TimeBin--;
-                if(P[i].TimeBin <= 0)
-                {
-                    printf("Error in readjust_timebase(). Minimum Timebin for particle %d reached.\n", i);
-                    endrun(8765);
-                }
-            }
-        }
-
-        All.Ti_nextlineofsight /= 2;
-    }
-
-    All.TimeMax = TimeMax_new;
 }

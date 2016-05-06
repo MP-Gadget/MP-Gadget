@@ -514,13 +514,12 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
         MPI_Barrier(GROUP);
         if(i != ThisKey) continue;
         if(0 != big_block_seek(&bb, &ptr, offset)) {
-            fprintf(stderr, "Failed to seek: %s\n", big_file_get_error_message());
+            endrun(12345, "Failed to seek: %s\n", big_file_get_error_message());
             abort();
         }
         //printf("Task = %d, writing at %td\n", ThisTask, offsetLocal);
         if(0 != big_block_read(&bb, &ptr, array)) {
-            fprintf(stderr, "Failed to readform  block, ThisTask = %d: %s\n", ThisTask, big_file_get_error_message());
-            endrun(12345);
+            endrun(12345, "Failed to readform  block: %s\n", big_file_get_error_message());
         }
     }
 
@@ -574,13 +573,11 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int Num
         MPI_Barrier(GROUP);
         if(i != ThisKey) continue;
         if(0 != big_block_seek(&bb, &ptr, offset)) {
-            fprintf(stderr, "Failed to seek:%s\n", big_file_get_error_message());
-            endrun(124455);
+            endrun(124455, "Failed to seek:%s\n", big_file_get_error_message());
         }
         //printf("Task = %d, writing at %td\n", ThisTask, offsetLocal);
         if(0 != big_block_write(&bb, &ptr, array)) {
-            fprintf(stderr, "Failed to write, ThisTask=%d:%s\n", ThisTask, big_file_get_error_message());
-            endrun(124455);
+            endrun(124455, "Failed to write :%s\n", big_file_get_error_message());
         }
     }
 
@@ -590,10 +587,9 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int Num
 
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
         if(ThisTask == 0) {
-            fprintf(stderr, "Failed to close block at %s:%s\n", blockname,
+            endrun(12345, "Failed to close block at %s:%s\n", blockname,
                     big_file_get_error_message());
         }
-        abort();
     }
     MPI_Comm_free(&GROUP);
 }

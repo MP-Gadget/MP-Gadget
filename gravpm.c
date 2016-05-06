@@ -36,7 +36,7 @@ static PetaPMFunctions functions [] =
 static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 
 void gravpm_init_periodic() {
-    petapm_init(All.BoxSize, All.Nmesh);
+    petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
 }
 void gravpm_force() {
     PetaPMParticleStruct pstruct = {

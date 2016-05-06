@@ -177,8 +177,6 @@ double measure_time(void);
 void long_range_init(void);
 void long_range_force(void);
 
-void readjust_timebase(double TimeMax_old, double TimeMax_new);
-
 #ifdef LIGHTCONE
 void lightcone_init();
 void lightcone_cross(int p, double oldpos[3]);

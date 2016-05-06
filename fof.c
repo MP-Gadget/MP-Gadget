@@ -698,7 +698,7 @@ static void fof_compile_catalogue(void)
 
         if(Group[i].base.Length != Group[i].Length) {
             /* These two shall be consistent */
-            endrun(3333);
+            endrun(3333, "Group base Length mismatch with Group Length");
         }
     }
 
@@ -1088,9 +1088,8 @@ static void fof_label_secondary(void)
             iter++;
             if(iter > MAXITER)
             {
-                printf("failed to converge in fof-nearest\n");
                 fflush(stdout);
-                endrun(1159);
+                endrun(1159, "Failed to converge in fof-nearest");
             }
         }
         myfree(queue);
@@ -1263,7 +1262,7 @@ static void fof_seed(void)
 
 static void fof_seed_make_one(struct Group * g) {
     if(g->seed_task != ThisTask) {
-        endrun(7771);
+        endrun(7771, "Seed does not belong to the right task");
     }
     int index = g->seed_index;
 #ifdef BLACK_HOLES

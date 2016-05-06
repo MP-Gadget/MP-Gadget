@@ -243,9 +243,7 @@ void domain_Decomposition(void)
                 if(All.TopNodeAllocFactor > 1000)
                 {
                     if(ThisTask == 0)
-                        printf("something seems to be going seriously wrong here. Stopping.\n");
-                    fflush(stdout);
-                    endrun(781);
+                        endrun(781, "something seems to be going seriously wrong here. Stopping.\n");
                 }
             }
         }
@@ -330,7 +328,7 @@ void domain_free_trick(void)
         domain_allocated_flag = 0;
     }
     else
-        endrun(131231);
+        endrun(131231, "domain free trick called at wrong time");
 }
 
 void domain_allocate_trick(void)
@@ -475,8 +473,7 @@ int domain_decompose(void)
         if(status != 0)
         {
             if(ThisTask == 0)
-                printf("No domain decomposition that stays within memory bounds is possible.\n");
-            endrun(0);
+                endrun(0, "No domain decomposition that stays within memory bounds is possible.\n");
         }
     }
 
@@ -524,8 +521,7 @@ void checklock() {
 #ifdef OPENMP_USE_SPINLOCK
     for(j = 0; j < All.MaxPart; j++) {
         if(0 == P[j].SpinLock) {
-            printf("lock failed %d, %d\n", j, P[j].SpinLock);
-            endrun(12312314); 
+            endrun(1, "lock failed %d, %d\n", j, P[j].SpinLock);
         }
     }
 #endif
@@ -568,8 +564,7 @@ void domain_exchange(int (*layoutfunc)(int p)) {
 
         if(exchange_limit <= 0)
         {
-            printf("task=%d: exchange_limit=%d\n", ThisTask, (int) exchange_limit);
-            endrun(1223);
+            endrun(1, "exchange_limit=%d < 0\n", (int) exchange_limit);
         }
 
         /* determine for each cpu how many particles have to be shifted to other cpus */
@@ -827,8 +822,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
             j++;
         }
         if(j != count_recv_bh[target] + offset_recv_bh[target]) {
-            printf("communitate bh consitency\n");
-            endrun(99999);
+            endrun(1, "communitate bh consitency\n");
         }
     }
 
@@ -838,22 +832,18 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
     if(NumPart > All.MaxPart)
     {
-        printf("Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
-        endrun(787878);
+        endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
     }
 
     if(N_sph > All.MaxPartSph)
-        endrun(787879);
+        endrun(787878, "Task=%d N_sph=%d All.MaxPartSph=%d\n", ThisTask, N_sph, All.MaxPartSph);
     if(N_bh > All.MaxPartBh)
-        endrun(787879);
+        endrun(787878, "Task=%d N_bh=%d All.MaxPartBh=%d\n", ThisTask, N_bh, All.MaxPartBh);
 
     myfree(bhBuf);
     myfree(sphBuf);
     myfree(partBuf);
 
-    if(ThisTask == 0) {
-        fprintf(stderr, "checking ID consistency after exchange\n");
-    }
     MPI_Barrier(MPI_COMM_WORLD);
 
     domain_garbage_collection_bh();
@@ -893,12 +883,10 @@ void domain_garbage_collection_bh() {
         if(P[i].Type != 5) continue;
         BhP[P[i].PI].ReverseLink = i;
         if(P[i].PI >= N_bh) {
-            printf("bh PI consistency failed1\n");
-            endrun(99999); 
+            endrun(1, "bh PI consistency failed1\n");
         }
         if(BhP[P[i].PI].ID != P[i].ID) {
-            printf("bh id consistency failed1\n");
-            endrun(99999); 
+            endrun(1, "bh id consistency failed1\n");
         }
     }
 
@@ -925,19 +913,16 @@ void domain_garbage_collection_bh() {
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type != 5) continue;
         if(P[i].PI >= N_bh) {
-            printf("bh PI consistency failed2\n");
-            endrun(99999); 
+            endrun(1, "bh PI consistency failed2\n");
         }
         if(BhP[P[i].PI].ID != P[i].ID) {
-            printf("bh id consistency failed2\n");
-            endrun(99999); 
+            endrun(1, "bh id consistency failed2\n");
         }
 #pragma omp atomic
         j ++;
     }
     if(j != N_bh) {
-            printf("bh count failed2, j=%d, N_bh=%d\n", j, N_bh);
-            endrun(99999); 
+        endrun(1, "bh count failed2, j=%d, N_bh=%d\n", j, N_bh);
     }
 
 ex_nobh:
@@ -966,11 +951,9 @@ int domain_fork_particle(int parent) {
 
     if(NumPart >= All.MaxPart)
     {
-        printf
-            ("On Task=%d with NumPart=%d we try to spawn. Sorry, no space left...(All.MaxPart=%d)\n",
-             ThisTask, NumPart, All.MaxPart);
-        fflush(stdout);
-        endrun(8888);
+        endrun(8888,
+                "On Task=%d with NumPart=%d we try to spawn. Sorry, no space left...(All.MaxPart=%d)\n",
+                ThisTask, NumPart, All.MaxPart);
     }
     int child = atomic_fetch_and_add(&NumPart, 1);
     
@@ -1256,7 +1239,7 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
 
     package = (sizeof(struct particle_data) + sizeof(struct sph_particle_data) + sizeof(peanokey));
     if(package >= nlimit)
-        endrun(212);
+        endrun(212, "Package is too large, no free memory.");
 
 
     for(n = 0; n < NumPart; n++)
@@ -1456,7 +1439,7 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
                     printf("flagsum = %d\n", flagsum);
                     fflush(stdout);
                     if(flagsum > 100)
-                        endrun(1013);
+                        endrun(1013, "flagsum is too big, what does this mean?");
                 }
             }
             while(flag);
@@ -1882,7 +1865,7 @@ int domain_determineTopTree(void)
     walltime_measure("/Domain/DetermineTopTree/Sumcost");
 
     if(NTopleaves < All.DomainOverDecompositionFactor * NTask)
-        endrun(112);
+        endrun(112, "Number of Topleaves is less than required over decomposition");
 
     return 0;
 }
@@ -2108,7 +2091,7 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
                 NTopnodes += 8;
             }
             else
-                endrun(88);
+                endrun(88, "Too many Topnodes");
         }
 
         sub = treeA[noA].Daughter + (treeB[noB].StartKey - treeA[noA].StartKey) / (treeA[noA].Size >> 3);
@@ -2134,7 +2117,7 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
         }
     }
     else
-        endrun(89);
+        endrun(89, "The tree is corrupted, cannot merge them. What is the invariance here?");
 }
 
 void rearrange_particle_sequence(void)
@@ -2236,8 +2219,7 @@ void test_id_uniqueness(void)
 
     if(NumPart == 0)
     {
-        printf("need at least one particle per cpu\n");
-        endrun(8);
+        endrun(8, "need at least one particle per cpu\n");
     }
 
     t0 = second();
@@ -2253,10 +2235,9 @@ void test_id_uniqueness(void)
     for(i = 1; i < NumPart; i++)
         if(ids[i] == ids[i - 1])
         {
-            printf("non-unique ID=%d%09d found on task=%d (i=%d NumPart=%d)\n",
+            endrun(12, "non-unique ID=%d%09d found on task=%d (i=%d NumPart=%d)\n",
                     (int) (ids[i] / 1000000000), (int) (ids[i] % 1000000000), ThisTask, i, NumPart);
 
-            endrun(12);
         }
 
     MPI_Allgather(&ids[0], sizeof(MyIDType), MPI_BYTE, ids_first, sizeof(MyIDType), MPI_BYTE, MPI_COMM_WORLD);
@@ -2264,8 +2245,7 @@ void test_id_uniqueness(void)
     if(ThisTask < NTask - 1)
         if(ids[NumPart - 1] == ids_first[ThisTask + 1])
         {
-            printf("non-unique ID=%d found on task=%d\n", (int) ids[NumPart - 1], ThisTask);
-            endrun(13);
+            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[NumPart - 1], ThisTask);
         }
 
     myfree(ids_first);

@@ -114,7 +114,7 @@ int drift_particle_full(int i, int time1, int blocking) {
         return 0;
     } else {
         if(blocking) {
-            endrun(99999);
+            endrun(99999, "This shall not happen. Why?");
             return -1;
         } else {
             return -1;
@@ -147,8 +147,7 @@ static void real_drift_particle(int i, int time1)
 
     if(time1 < time0)
     {
-        printf("i=%d time0=%d time1=%d\n", i, time0, time1);
-        endrun(12);
+        endrun(12, "i=%d time0=%d time1=%d\n", i, time0, time1);
     }
 
     if(time1 == time0)

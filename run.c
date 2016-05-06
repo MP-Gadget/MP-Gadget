@@ -324,8 +324,7 @@ void find_next_sync_point_and_drift(void)
     sumup_large_ints(1, &NumForceUpdate, &numforces2);
     if(GlobNumForceUpdate != numforces2)
     {
-        printf("terrible\n");
-        endrun(2);
+        endrun(2, "terrible; this needs to be understood.");
     }
 
     walltime_measure("/Drift");

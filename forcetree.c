@@ -348,7 +348,7 @@ int force_treebuild_single(int npart, struct unbind_data *mp)
                             ("task %d: looks like a serious problem for particle %d, stopping with particle dump.\n",
                              ThisTask, i);
                         savepositions(999999, 0);
-                        endrun(1);
+                        endrun(1, "serious problem occured, snapshot saved.");
                     }
                     else
                     {
@@ -433,7 +433,7 @@ void force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z
                                 "MaxTopNodes=%d NTopnodes=%d NTopleaves=%d nodecount=%d\n",
                                 ThisTask, MaxNodes, MaxTopNodes, NTopnodes, NTopleaves, *nodecount);
                         printf("in create empty nodes\n");
-                        endrun(11);
+                        endrun(11, "Too many nodes");
                     }
 
                     force_create_empty_nodes(*nextfree - 1, TopNodes[topnode].Daughter + sub,
@@ -944,7 +944,7 @@ void force_treeupdate_pseudos(int no)
 #endif
         }
         else
-            endrun(6767);		/* may not happen */
+            endrun(6767, "may not happen");		/* may not happen */
 
         p = Nodes[p].u.d.sibling;
     }
@@ -1049,7 +1049,7 @@ void force_flag_localnodes(void)
             no = DomainNodeIndex[i];
 
             if(DomainTask[i] != ThisTask)
-                endrun(131231231);
+                endrun(131231231, "DomainTask struct is corrupted");
 
             while(no >= 0)
             {
@@ -1093,7 +1093,7 @@ int force_drift_node_full(int no, int time1, int blocking) {
         return 0;
     } else {
         if(blocking) {
-            endrun(99999);
+            endrun(99999, "shall not happend");
         }
         return -1;
     }
@@ -1776,17 +1776,15 @@ void force_treeallocate(int maxnodes, int maxpart)
     MaxNodes = maxnodes;
     if(!(Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE))))
     {
-        printf("failed to allocate memory for %d tree-nodes (%g MB).\n", MaxNodes, bytes / (1024.0 * 1024.0));
-        endrun(3);
+        endrun(3, "failed to allocate memory for %d tree-nodes (%g MB).\n", MaxNodes, bytes / (1024.0 * 1024.0));
     }
     allbytes += bytes;
     if(!
             (Extnodes_base =
              (struct extNODE *) mymalloc("Extnodes_base", bytes = (MaxNodes + 1) * sizeof(struct extNODE))))
     {
-        printf("failed to allocate memory for %d tree-extnodes (%g MB).\n",
+        endrun(3, "failed to allocate memory for %d tree-extnodes (%g MB).\n",
                 MaxNodes, bytes / (1024.0 * 1024.0));
-        endrun(3);
     }
 #ifdef OPENMP_USE_SPINLOCK
     {

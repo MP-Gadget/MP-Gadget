@@ -100,8 +100,7 @@ void lightcone_init() {
         fd_lightcone = fopen(buf, "a");
     }
     if(fd_lightcone == NULL) {
-        printf("failed to open %s\n", buf);
-        endrun(1231414);
+        endrun(1, "failed to open %s\n", buf);
     }
     HorizonDistanceRef = lightcone_get_horizon(1 / (1 + ReferenceRedshift));
     printf("lightcone reference redshift = %g distance = %g\n",
@@ -149,7 +148,7 @@ static void update_replicas(double a) {
             Reps[Nreplica][2] = rz * All.BoxSize;
             Nreplica ++;
             if(Nreplica > 1000) {
-                endrun(951234);
+                endrun(951234, "too many replica");
             }
         }
         rz ++;

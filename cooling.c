@@ -184,8 +184,7 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
 
     if(iter >= MAXITER)
     {
-        printf("failed to converge in DoCooling()\n");
-        endrun(10);
+        endrun(10, "failed to converge in DoCooling()\n");
     }
 
     u *= All.UnitDensity_in_cgs / All.UnitPressure_in_cgs;	/* to internal units */
@@ -288,8 +287,7 @@ static double convert_u_to_temp(double u, double nHcgs, struct UVBG * uvbg, stru
 
     if(iter >= MAXITER)
         {
-            printf("failed to converge in convert_u_to_temp()\n");
-            endrun(12);
+            endrun(12, "failed to converge in convert_u_to_temp()\n");
         }
 
     return temp;
@@ -401,8 +399,7 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * u
 
     if(niter >= MAXITER)
     {
-        printf("no convergence reached in find_abundances_and_rates()\n");
-        endrun(13);
+        endrun(13, "no convergence reached in find_abundances_and_rates()\n");
     }
 
     r->bH0 = flow * BetaH0[j] + fhi * BetaH0[j + 1];
@@ -819,8 +816,7 @@ void ReadIonizeParams(char *fname)
 
     if(!(fdcool = fopen(fname, "r")))
     {
-        printf(" Cannot read ionization table in file `%s'\n", fname);
-        endrun(456);
+        endrun(456, " Cannot read ionization table in file `%s'\n", fname);
     }
 
     for(i = 0; i < TABLESIZE; i++)
@@ -930,8 +926,7 @@ static void InitMetalCooling() {
     double * tabbedmet = h5readdouble(All.MetalCoolFile, "MetallicityInSolar_bins", &size);
 
     if(ThisTask == 0 && (size != 1 || tabbedmet[0] != 0.0)) {
-        fprintf(stderr, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
-        endrun(124214);
+        endrun(123, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
     }
     free(tabbedmet);
     
@@ -1022,8 +1017,7 @@ static void InitUVF(void) {
     free(data);
 
     if(UVF.Table[0] < 0.01 || UVF.Table[0] > 100.0) {
-        fprintf(stderr, "UV Flucutaiton doesn't seem right\n");
-        endrun(21314);
+        endrun(123, "UV Flucutaiton doesn't seem right\n");
     }
 
     int dims[] = {Nside, Nside, Nside};
