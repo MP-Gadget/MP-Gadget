@@ -16,7 +16,6 @@
 #ifndef DEBUG
 #define NDEBUG
 #endif
-#include <assert.h>
 
 /*! \file hydra.c
  *  \brief Computation of SPH forces and rate of entropy generation
