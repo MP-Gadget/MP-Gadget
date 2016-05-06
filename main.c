@@ -9,6 +9,7 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "config.h"
 
 /*! \file main.c
  *  \brief start of the program
@@ -42,7 +43,24 @@ int main(int argc, char **argv)
         goto byebye;
     }
 
-    strcpy(ParameterFile, argv[1]);
+    if(ThisTask == 0)
+    {
+        /*    printf("\nThis is P-Gadget, version `%s', svn-revision `%s'.\n", GADGETVERSION, svn_version()); */
+        printf("\nThis is MP-Gadget, version %s.\n", GADGETVERSION);
+        printf("\nRunning on %d MPIs .\n", NTask);
+        printf("\nRunning on %d Threads.\n", omp_get_max_threads());
+        printf("\nCode was compiled with settings:\n %s\n", COMPILETIMESETTINGS);
+        printf("\nSize of particle structure       %td  [bytes]\n",sizeof(struct particle_data));
+        printf("\nSize of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
+        printf("\nSize of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
+
+    }
+
+#if defined(X86FIX) && defined(SOFTDOUBLEDOUBLE)
+    x86_fix();			/* disable 80bit treatment of internal FPU registers in favour of proper IEEE 64bit double precision arithmetic */
+#endif
+
+    read_parameter_file(argv[1]);	/* ... read in parameters for this run */
 
     if(argc >= 3)
         RestartFlag = atoi(argv[2]);

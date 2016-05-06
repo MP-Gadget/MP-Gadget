@@ -18,8 +18,6 @@
 #include "petaio.h"
 #include "mymalloc.h"
 
-#include "config.h"
-
 /*! \file begrun.c
  *  \brief initial set-up of a simulation run
  *
@@ -37,24 +35,6 @@
  */
 void begrun(void)
 {
-    if(ThisTask == 0)
-    {
-        /*    printf("\nThis is P-Gadget, version `%s', svn-revision `%s'.\n", GADGETVERSION, svn_version()); */
-        printf("\nThis is P-Gadget, version %s.\n", GADGETVERSION);
-        printf("\nRunning on %d MPIs .\n", NTask);
-        printf("\nRunning on %d Threads.\n", omp_get_max_threads());
-        printf("\nCode was compiled with settings:\n %s\n", COMPILETIMESETTINGS);
-        printf("\nSize of particle structure       %td  [bytes]\n",sizeof(struct particle_data));
-        printf("\nSize of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
-        printf("\nSize of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
-
-    }
-
-#if defined(X86FIX) && defined(SOFTDOUBLEDOUBLE)
-    x86_fix();			/* disable 80bit treatment of internal FPU registers in favour of proper IEEE 64bit double precision arithmetic */
-#endif
-
-    read_parameter_file(ParameterFile);	/* ... read in parameters for this run */
 
     mymalloc_init();
     walltime_init(&All.CT);

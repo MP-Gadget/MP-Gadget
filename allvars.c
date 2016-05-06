@@ -77,8 +77,6 @@ double RndTable[RNDTABLE];
 /* variables for input/output , usually only used on process 0 */
 
 
-char ParameterFile[100];	/*!< file name of parameterfile used for starting the simulation */
-
 FILE *FdInfo,			/*!< file handle for info.txt log-file. */
  *FdEnergy,			/*!< file handle for energy.txt log-file. */
  *FdTimings,			/*!< file handle for timings.txt log-file. */

@@ -52,7 +52,7 @@
 #define NEAREST(x) (((x)>boxHalf)?((x)-boxSize):(((x)<-boxHalf)?((x)+boxSize):(x)))
 
 
-#define  GADGETVERSION   "3.0"	/*!< code version string */
+#define  GADGETVERSION   "5.0"	/*!< code version string */
 
 #ifndef  GENERATIONS
 #define  GENERATIONS     2	/*!< Number of star particles that may be created per gas particle */
@@ -294,8 +294,6 @@ extern double RndTable[RNDTABLE];
 
 /* variables for input/output , usually only used on process 0 */
 
-
-extern char ParameterFile[100];	/*!< file name of parameterfile used for starting the simulation */
 
 extern FILE *FdInfo,		/*!< file handle for info.txt log-file. */
        *FdEnergy,			/*!< file handle for energy.txt log-file. */

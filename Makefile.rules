@@ -1,7 +1,7 @@
 # vim: set ft=make:
 DESTDIR ?= .
 
-TARGETS = P-Gadget3 GENIC/N-GenIC
+TARGETS = MP-Gadget GENIC/MP-GenIC
 
 CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(PWD)/depends/include -DH5_USE_16_API
 
@@ -55,15 +55,19 @@ depends:
 $(DESTDIR)/GENIC:
 	mkdir -p $@
 
-$(DESTDIR)/P-Gadget3: $(OBJS)
+$(DESTDIR)/MP-Gadget: $(OBJS)
 	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
 
-$(DESTDIR)/GENIC/N-GenIC: $(DESTDIR)/GENIC $(ICOBJS)
+$(DESTDIR)/GENIC/MP-GenIC: $(DESTDIR)/GENIC $(ICOBJS)
 	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
 $(DESTDIR)/config.h: Makefile
 	mkdir -p `dirname $@`
-	echo "const char * COMPILETIMESETTINGS = \"$(OPTIMIZE) $(OPT)\";" > $@
+	echo 'const char * COMPILETIMESETTINGS = "" ' > $@
+	echo "\"$(OPTIMIZE)\n\"" >> $@
+	for i in $(OPT); do echo "\"$$i\n\""; done >> $@
+	echo ';' >> $@
+
 
 $(OBJS): $(INCL) $(DESTDIR)/config.h 
 $(ICOBJS): $(INCL) $(DESTDIR)/config.h 
