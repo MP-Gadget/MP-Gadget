@@ -123,7 +123,11 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
 
     pfft_init();
 
+#ifdef _OPENMP
     pfft_plan_with_nthreads(Nthreads);
+#else
+    #warning without OpenMP the FFTs will be single threaded!
+#endif
 
     ptrdiff_t n[3] = {Nmesh, Nmesh, Nmesh};
     ptrdiff_t np[2];
