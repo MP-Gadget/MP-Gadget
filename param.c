@@ -411,6 +411,8 @@ parameter_set_new()
     param_declare_string(ps, "OutputList", 1, NULL, "List of output times");
 
     param_declare_double(ps, "Omega0", 1, 0.2814, "");
+    param_declare_double(ps, "CMBTemperature", 0, 2.7255,
+            "Present-day CMB temperature in Kelvin, default from Fixsen 2009; affects background if RadiationOn is set.");
     param_declare_double(ps, "OmegaBaryon", 1, 0.0464, "");
     param_declare_double(ps, "OmegaLambda", 1, 0.7186, "");
     param_declare_double(ps, "HubbleParam", 1, 0.697, "");

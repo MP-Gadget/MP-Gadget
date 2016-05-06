@@ -38,6 +38,7 @@ BoxSize               32000.0
 CoolingOn             1
 StarformationOn       1
 StarformationCriterion  density,h2
+RadiationOn           1
 
 CpuTimeBetRestartFile  9000.0
 TimeBetStatistics         0.1

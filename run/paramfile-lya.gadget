@@ -6,11 +6,6 @@ TreeCoolFile       ../etc/TREECOOL_fg_june11
 MetalCoolFile      ../etc/cooling_metal_UVB.hdf5
 OutputList         0.1,0.2,0.2222222,0.25,0.2857,0.33333
 
-EnergyFile         energy.txt
-InfoFile           info.txt
-TimingsFile        timings.txt
-CpuFile            cpu.txt
-
 RestartFile        restart
 SnapshotFileBase   snapshot
 

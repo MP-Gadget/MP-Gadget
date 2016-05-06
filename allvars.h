@@ -107,6 +107,8 @@
 #define  RAD_CONST   7.565e-15
 #define  AVOGADRO    6.0222e23
 #define  BOLTZMANN   1.38066e-16
+/*Stefan-Boltzmann constant in cgs units*/
+#define  STEFAN_BOLTZMANN 5.670373e-5
 #define  GAS_CONST   8.31425e7
 #define  C           2.9979e10
 #define  PLANCK      6.6262e-27
@@ -398,10 +400,16 @@ extern struct global_data_all_processes
                                       constant G. */
            G;				/*!< Gravity-constant in internal units */
     double UnitDensity_in_Gev_per_cm3; /*!< factor to convert internal density unit to GeV/c^2 / cm^3 */
+
     /* Cosmology */
 
     double Hubble;		/*!< Hubble-constant in internal units */
+
+    double CMBTemperature;
     double Omega0,		/*!< matter density in units of the critical density (at z=0) */
+           OmegaG, /* Photon density, derived from T_CMB0 */
+           OmegaK, /* Curvature density, derived from Omega0 and OmegaLambda */
+           OmegaNu, /* Neutrino density, derived from T_CMB0, useful only if there are no massive neutrino particles */
            OmegaLambda,		/*!< vaccum energy density relative to crictical density (at z=0) */
            OmegaBaryon,		/*!< baryon density in units of the critical density (at z=0) */
            HubbleParam;		/*!< little `h', i.e. Hubble constant in units of 100 km/s/Mpc.  Only needed to get absolute
