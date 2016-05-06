@@ -710,10 +710,6 @@ extern struct particle_data
     int Ti_begstep;		/*!< marks start of current timestep of particle on integer timeline */
     int Ti_current;		/*!< current time of the particle */
 
-#ifdef WAKEUP
-    int dt_step;
-#endif
-
 }
 *P;				/*!< holds particle data on local processor */
 
@@ -764,10 +760,6 @@ extern struct sph_particle_data
 #ifdef WINDS
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
-#endif
-
-#ifdef WAKEUP
-    short int wakeup;             /*!< flag to wake up particle */
 #endif
 
 #ifdef SPH_GRAD_RHO

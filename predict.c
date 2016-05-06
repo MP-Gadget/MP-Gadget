@@ -203,11 +203,7 @@ static void real_drift_particle(int i, int time1)
         if(P[i].Hsml < All.MinGasHsml)
             P[i].Hsml = All.MinGasHsml;
 
-#ifndef WAKEUP
         dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
-#else
-        dt_step = P[i].dt_step;
-#endif
         dt_entr = (time1 - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
 
 #ifdef DENSITY_INDEPENDENT_SPH

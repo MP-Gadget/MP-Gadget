@@ -52,14 +52,6 @@ void advance_and_find_timesteps(void)
 #ifdef MAKEGLASS
     double disp, dispmax, globmax, dmean, fac, disp2sum, globdisp2sum;
 #endif
-#ifdef WAKEUP
-    int n, k, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global, max_time_bin_active;
-
-    int time0, time1_old, time1_new;
-    double dt_entr;
-
-    int64_t ntot;
-#endif
 
     walltime_measure("/Misc");
 
@@ -238,19 +230,12 @@ void advance_and_find_timesteps(void)
             P[i].TimeBin = bin;
         }
 
-#ifndef WAKEUP
         ti_step_old = binold ? (1 << binold) : 0;
-#else
-        ti_step_old = P[i].dt_step;
-#endif
 
         tstart = P[i].Ti_begstep + ti_step_old / 2;	/* midpoint of old step */
         tend = P[i].Ti_begstep + ti_step_old + ti_step / 2;	/* midpoint of new step */
 
         P[i].Ti_begstep += ti_step_old;
-#ifdef WAKEUP
-        P[i].dt_step = ti_step;
-#endif
 
         do_the_kick(i, tstart, tend, P[i].Ti_begstep);
     }
@@ -306,11 +291,7 @@ void advance_and_find_timesteps(void)
 
             if(P[i].Type == 0)
             {
-#ifndef WAKEUP
                 dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
-#else
-                dt_step = P[i].dt_step;
-#endif
 
                 dt_gravkickA = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
                     get_gravkick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
@@ -324,147 +305,6 @@ void advance_and_find_timesteps(void)
             }
         }
     }
-
-#ifdef WAKEUP
-    /* find the next kick time */
-    for(n = 0, ti_next_kick = TIMEBASE; n < TIMEBINS; n++)
-    {
-        if(TimeBinCount[n])
-        {
-            if(n > 0)
-            {
-                dt_bin = (1 << n);
-                ti_next_for_bin = (All.Ti_Current / dt_bin) * dt_bin + dt_bin;	/* next kick time for this timebin */
-            }
-            else
-            {
-                dt_bin = 0;
-                ti_next_for_bin = All.Ti_Current;
-            }
-
-            if(ti_next_for_bin < ti_next_kick)
-                ti_next_kick = ti_next_for_bin;
-        }
-    }
-
-    MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-    if(ThisTask == 0)
-        printf("predicting next timestep: %g\n", (ti_next_kick_global - All.Ti_Current) * All.Timebase_interval);
-
-    max_time_bin_active = 0;
-    /* get the highest bin, that is active next time */
-    for(n = 0; n < TIMEBINS; n++)
-    {
-        dt_bin = (1 << n);
-
-        if((ti_next_kick_global % dt_bin) == 0)
-            max_time_bin_active = n;
-    }
-
-    /* move the particle on the highest bin, that is active in the next timestep and that is lower than its last timebin */
-    bin = 0;
-    for(n = 0; n < TIMEBINS; n++)
-    {
-        if(TimeBinCount[n] > 0)
-        {
-            bin = n;
-            break;
-        }
-    }
-    n = 0;
-
-    for(i = 0; i < NumPart; i++)
-    {
-        if(P[i].Type != 0)
-            continue;
-
-        if(!SPHP(i).wakeup)
-            continue;
-
-        binold = P[i].TimeBin;
-        if(TimeBinActive[binold])
-            continue;
-
-        bin = max_time_bin_active < binold ? max_time_bin_active : binold;
-
-        if(bin != binold)
-        {
-            TimeBinCount[binold]--;
-            if(P[i].Type == 0)
-                TimeBinCountSph[binold]--;
-
-            prev = PrevInTimeBin[i];
-            next = NextInTimeBin[i];
-
-            if(FirstInTimeBin[binold] == i)
-                FirstInTimeBin[binold] = next;
-            if(LastInTimeBin[binold] == i)
-                LastInTimeBin[binold] = prev;
-            if(prev >= 0)
-                NextInTimeBin[prev] = next;
-            if(next >= 0)
-                PrevInTimeBin[next] = prev;
-
-            if(TimeBinCount[bin] > 0)
-            {
-                PrevInTimeBin[i] = LastInTimeBin[bin];
-                NextInTimeBin[LastInTimeBin[bin]] = i;
-                NextInTimeBin[i] = -1;
-                LastInTimeBin[bin] = i;
-            }
-            else
-            {
-                FirstInTimeBin[bin] = LastInTimeBin[bin] = i;
-                PrevInTimeBin[i] = NextInTimeBin[i] = -1;
-            }
-            TimeBinCount[bin]++;
-            if(P[i].Type == 0)
-                TimeBinCountSph[bin]++;
-
-            P[i].TimeBin = bin;
-
-            if(TimeBinActive[bin])
-                NumForceUpdate++;
-
-            /* correct quantities predicted for a longer timestep */
-            ti_step_old = P[i].dt_step;
-            dt_step = ti_next_kick_global - P[i].Ti_begstep;
-            P[i].dt_step = dt_step;
-
-            time0 = P[i].Ti_begstep;
-            time1_old = P[i].Ti_begstep + ti_step_old;
-            time1_new = P[i].Ti_begstep + dt_step;
-
-            dt_entr = dt_gravkick = dt_hydrokick = (-(time1_old - time0) / 2
-                    + (time1_new - time0) / 2) * All.Timebase_interval;
-            dt_gravkick = -get_gravkick_factor(time0, time1_old) / 2
-                + get_gravkick_factor(time0, time1_new) / 2;
-            dt_hydrokick = -get_hydrokick_factor(time0, time1_old) / 2
-                + get_hydrokick_factor(time0, time1_new) / 2;
-
-            /* This may now work in comoving runs */
-            /* WARNING: this velocity correction is inconsistent,
-             * as the position of the particle was calculated with a "wrong" velocity before  */
-            for(k = 0; k < 3; k++)
-            {
-                P[i].Vel[k] += P[i].GravAccel[k] * dt_gravkick;
-            }
-
-            for(k = 0; k < 3; k++)
-            {
-                P[i].Vel[k] += SPHP(i).HydroAccel[k] * dt_hydrokick;
-            }
-            SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
-
-            n++;
-        }
-    }
-
-    sumup_large_ints(1, &n, &ntot);
-    if(ThisTask == 0)
-        printf("%d%09d particles woken up.\n", (int) (ntot / 1000000000), (int) (ntot % 1000000000));
-#endif
 
     walltime_measure("/Timeline");
 }
@@ -541,11 +381,8 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
 
         /* In case the timestep increases in the new step, we
            make sure that we do not 'overcool'. */
-#ifndef WAKEUP
         dt_entr = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) / 2 * All.Timebase_interval;
-#else
-        dt_entr = P[i].dt_step / 2 * All.Timebase_interval;
-#endif
+
         if(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr < 0.5 * SPHP(i).Entropy)
             SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr;
     }

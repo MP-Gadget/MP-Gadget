@@ -98,15 +98,6 @@ void hydro_force(void)
 
     walltime_measure("/Misc");
 
-#ifdef WAKEUP
-#pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
-    {
-        if(P[i].Type == 0)
-            SPHP(i).wakeup = 0;
-    }
-#endif
-
     fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
     fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
 
@@ -429,13 +420,6 @@ static int hydro_evaluate(int target, int mode,
 
                     O->DtEntropy += (0.5 * hfc_visc * vdotr2);
 
-#ifdef WAKEUP
-#error This needs to be prtected by a lock
-                    if(vsig > WAKEUP * SPHP(j).MaxSignalVel)
-                    {
-                        SPHP(j).wakeup = 1;
-                    }
-#endif
                 }
             }
         }

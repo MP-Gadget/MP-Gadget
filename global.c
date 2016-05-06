@@ -41,11 +41,7 @@ void compute_global_quantities_of_system(void)
 
       sys.EnergyPotComp[P[i].Type] += 0.5 * P[i].Mass * P[i].Potential / a1;
 
-#ifndef WAKEUP
       dt_step = P[i].TimeBin ? (1 << P[i].TimeBin) : 0;
-#else
-      dt_step = P[i].dt_step;
-#endif
 
 	  dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
 	  dt_gravkick = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
