@@ -7,8 +7,13 @@
  * been heavily rewritten to add support for new wind models, new star formation
  * criterions, and more importantly, use use the new tree walker routines.
  *
- * I (Yu Feng) feel it is appropriate to release this file with a free license,
+ * I (Yu Feng) feel it is appropriate to release most of this file with a free license,
  * because the implementation here has diverged from the original code by too far.
+ *
+ * The largest remaining concern are a few functions there were obtained from Gadget-P. 
+ * They are for * self-gravity starformation condition and H2.
+ * Eventhough they have been heavily rewritten, the core math is the same.
+ * the license is still murky. Do not use them unless Phil Hopkins has agreed.
  *
  * */
 
@@ -1188,7 +1193,14 @@ void set_units_sfr(void)
     }
 
 }
-
+/********************
+ *
+ * The follow functions are from Desika and Gadget-P.
+ * We really are mostly concerned about H2 here.
+ *
+ * You may need a license to run with these modess.
+ 
+ * */
 #if defined SPH_GRAD_RHO && defined METALS
 static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)
 {
@@ -1234,6 +1246,7 @@ static double get_sfr_factor_due_to_h2(int i) {
     return 1.0;
 #endif
 }
+
 static double get_sfr_factor_due_to_selfgravity(int i) {
 #ifdef SPH_GRAD_RHO
     double divv = SPHP(i).DivVel * All.cf.a2inv;
