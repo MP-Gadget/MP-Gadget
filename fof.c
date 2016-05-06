@@ -132,7 +132,7 @@ void fof_fof(int num)
     sumup_large_ints(1, &ndm, &ndmtot);
     MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-    rhodm = (All.Omega0 - All.OmegaBaryon) * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
+    rhodm = (All.OmegaCDM) * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
 
     LinkL = All.FOFHaloLinkingLength * pow(masstot / ndmtot / rhodm, 1.0 / 3);
 
