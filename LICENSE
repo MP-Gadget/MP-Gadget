@@ -1,0 +1,15 @@
+LICENSE
+-------
+
+By default files are released in GPLv3.
+
+Many files were released as Gadget-2 in GPL.
+Those are not part of Gadget-2 are released in GPLv3 (or BSD?)
+
+Files with license issues are cooling.c and sfr_eff.c which
+originated from files in P-Gadget. The algorithms are 13+ years old and
+it is unclear if the original authors are still interested in keeping them
+private. Please refer to header of each file for a discussion.
+
+- Yu Feng <rainwoodman@gmail.com>
+
