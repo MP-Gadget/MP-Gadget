@@ -129,7 +129,7 @@ static inline int atomic_fetch_and_add(int * ptr, int value) {
       (*ptr)+=value;
     }
 #else
-#ifdef OPENMP_USE_SPINLOCK
+#if defined(OPENMP_USE_SPINLOCK) && !defined(__INTEL_COMPILER)
     k = __sync_fetch_and_add(ptr, value);
 #else /* non spinlock*/
 #pragma omp critical
