@@ -623,9 +623,10 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
                     pow(min_mass[type] / (All.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
                             1.0 / 3);
             else
+                /* FIXME: @sbird watch out for this for neutrinos */
                 dmean =
                     pow(min_mass[type] /
-                            ((All.Omega0 - All.OmegaBaryon) * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
+                            ((All.OmegaCDM) * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
                             1.0 / 3);
 
 #ifdef BLACK_HOLES

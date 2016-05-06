@@ -407,6 +407,7 @@ extern struct global_data_all_processes
 
     double CMBTemperature;
     double Omega0,		/*!< matter density in units of the critical density (at z=0) */
+           OmegaCDM, /* CDM density, derived from Omega0 and OmegaBaryon */
            OmegaG, /* Photon density, derived from T_CMB0 */
            OmegaK, /* Curvature density, derived from Omega0 and OmegaLambda */
            OmegaNu, /* Neutrino density, derived from T_CMB0, useful only if there are no massive neutrino particles */

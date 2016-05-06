@@ -173,6 +173,7 @@ void set_units(void)
      * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
      */
 
+    All.OmegaCDM = All.Omega0 - All.OmegaBaryon;
     All.OmegaK = 1.0 - All.Omega0 - All.OmegaLambda;
 
     /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
