@@ -164,31 +164,6 @@ double timediff(double t0, double t1)
   return dt;
 }
 
-
-
-
-#ifdef X86FIX
-
-#define _FPU_SETCW(x) asm volatile ("fldcw %0": :"m" (x));
-#define _FPU_GETCW(x) asm volatile ("fnstcw %0":"=m" (x));
-#define _FPU_EXTENDED 0x0300
-#define _FPU_DOUBLE   0x0200
-
-void x86_fix(void)
-{
-  unsigned short dummy, new_cw;
-  unsigned short *old_cw;
-
-  old_cw = &dummy;
-
-  _FPU_GETCW(*old_cw);
-  new_cw = (*old_cw & ~_FPU_EXTENDED) | _FPU_DOUBLE;
-  _FPU_SETCW(new_cw);
-}
-
-#endif
-
-
 void sumup_large_ints(int n, int *src, int64_t *res)
 {
   int i, j, *numlist;
