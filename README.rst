@@ -1,10 +1,31 @@
-MP-Gadget3
-==========
+MP-Gadget
+=========
 
-Massvively parallel version of P-Gadget3.
+Massively Parallel Cosmological SPH Simulation Software - MP-Gadget.
 
 Description
 -----------
+
+This version of Gadget is derived from main P-Gadget / Gadget-2.
+
+The infrastructure is heavily reworked. As a summary:
+
+- A better PM solver for long range force with Pencil FFT.
+- A better Tree solver with faster threading and less redundant code.
+- A better Domain decomposition that scales to half a million cores.
+- A easier to use IO module with a Python binding.
+- A more intuitive parameter file parser with schema and docstrings.
+- A cleaner code base with less conditional compilation flags.
+
+Physics models:
+
+- Pressure Entropy SPH and Density Entropy SPH
+- Radiation background in the expansion
+- Generic tracer particle seeding
+- Various wind feedback and blackhole feedback models
+- Various star formation criteria (need a License from Phil Hopkins before enabling)
+- Primordial and metal cooling
+- Fluctuating UV background
 
 Installation
 ------------
@@ -26,8 +47,8 @@ usually can be loaded with
 
     module load hdf5 gsl
 
-    env |grep HDF
-    env |grep GSL
+    env | grep HDF
+    env | grep GSL
 
 Copy Options.mk.example to Options.mk
 
@@ -62,11 +83,11 @@ In the end, we will have 2 binaries:
 
 .. code::
 
-    ls build/P-Gadget3 build/GENIC/N-GenIC
+    ls build/MP-Gadget build/GENIC/MP-GenIC
 
-1. P-Gadget3 is the main simulation program.
+1. MP-Gadget is the main simulation program.
 
-2. N-GenIC is the initial condition generator.
+2. MP-GenIC is the initial condition generator.
 
 Usage
 -----
@@ -74,6 +95,15 @@ There are two example runs in run/.
 
     run.sh : simulation with gas
     run-dm.sh : simulation without gas (dm only)
+
+OpenMP Complication
+-------------------
+
+When OpenMP is switched from on to off or off to on,
+all of the dependencies needs to be recompiled.
+This can be achived by removing all files in depends/lib.
+
+Otherwise symbols related to OpenMP in PFFT may be missing.
 
 IO Format
 ---------
@@ -88,4 +118,11 @@ Refer to https://github.com/rainwoodman/bigfile for usage.
 
 Otherwise directly open the blocks with Fortran or C, noting the data-type
 information and attributes in header and attrs files (in plain text)
+
+Citation
+--------
+
+A code paper will be nice.
+We need to obtain a DOI for direct citation of the software.
+
 
