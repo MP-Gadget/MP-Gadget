@@ -174,7 +174,7 @@ void set_units(void)
     /* For massless neutrinos,
      * rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff,
      * but we absorbed N_eff into T_nu above. */
-    All.OmegaNu = All.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
+    All.OmegaNu0 = All.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
 
     if(ThisTask == 0)
     {
@@ -186,13 +186,13 @@ void set_units(void)
         printf("UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
         printf("UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
         printf("Photon density OmegaG = %g\n",All.OmegaG);
-        printf("Neutrino density OmegaNu = %g\n",All.OmegaNu);
+        printf("Massless Neutrino density OmegaNu0 = %g\n",All.OmegaNu0);
         printf("Curvature density OmegaK = %g\n",All.OmegaK);
         if(All.RadiationOn) {
             /* note that this value is inaccurate if there is massive neutrino. */
             printf("Radiation is enabled in Hubble(a). \n"
-                   "Spacetime is approximately flat: Omega-1 = %g\n",
-                All.OmegaG + All.OmegaNu + All.OmegaK + All.Omega0 + All.OmegaLambda - 1);
+                   "Following CAMB convention: Omega_Tot - 1 = %g\n",
+                All.OmegaG + All.OmegaNu0 + All.OmegaK + All.Omega0 + All.OmegaLambda - 1);
         }
         printf("\n");
     }

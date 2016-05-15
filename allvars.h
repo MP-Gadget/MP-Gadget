@@ -408,7 +408,7 @@ extern struct global_data_all_processes
            OmegaCDM, /* CDM density, derived from Omega0 and OmegaBaryon */
            OmegaG, /* Photon density, derived from T_CMB0 */
            OmegaK, /* Curvature density, derived from Omega0 and OmegaLambda */
-           OmegaNu, /* Neutrino density, derived from T_CMB0, useful only if there are no massive neutrino particles */
+           OmegaNu0, /* Massless Neutrino density, derived from T_CMB0, useful only if there are no massive neutrino particles */
            OmegaLambda,		/*!< vaccum energy density relative to crictical density (at z=0) */
            OmegaBaryon,		/*!< baryon density in units of the critical density (at z=0) */
            HubbleParam;		/*!< little `h', i.e. Hubble constant in units of 100 km/s/Mpc.  Only needed to get absolute

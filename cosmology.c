@@ -20,7 +20,7 @@ double hubble_function(double a)
         hubble_a += All.OmegaG / (a * a * a * a);
         /* massless neutrinos are added only if there is no (massive) neutrino particle.*/
         if(!All.TotN_neutrinos)
-            hubble_a += All.OmegaNu / (a * a * a * a);
+            hubble_a += All.OmegaNu0 / (a * a * a * a);
     }
 
     /* Now finish it up. */
