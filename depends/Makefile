@@ -1,19 +1,22 @@
 include ../Options.mk
 
-LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a lib/libpfft.a
+LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a lib/libpfft_omp.a
 depends: $(LIBRARIES)
 
 lib/libmpsort-mpi.a:
+	mkdir -p lib; \
 	cd mpsort; \
 	make install PREFIX=$(PWD) CC=$(CC) CFLAGS="$(OPTIMIZE)"
 
 lib/libbigfile-mpi.a:
+	mkdir -p lib; \
 	cd bigfile/src; \
 	make install PREFIX=$(PWD) CC=$(CC) MPICC=$(CC) CFLAGS="$(OPTIMIZE)"
 
-lib/libpfft.a:
-	MPICC="$(CC)" CFLAGS="$(OPTIMIZE) -I $(PWD)/include -L$(PWD)/lib" \
-        sh $(PWD)/pfft-python/depends/install_pfft.sh $(PWD)/
+lib/libpfft_omp.a:
+	mkdir -p lib; \
+	MPICC="$(CC)" CFLAGS="-O3 -I $(PWD)/include -L$(PWD)/lib" \
+        sh $(PWD)/install_pfft.sh $(PWD)/
 
 clean:
 	rm -rf $(LIBRARIES)

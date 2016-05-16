@@ -4,6 +4,3 @@
 [submodule "radixsort"]
 	path = depends/mpsort
 	url = https://github.com/rainwoodman/MP-sort
-[submodule "pfft-python"]
-	path = depends/pfft-python
-	url = https://github.com/rainwoodman/pfft-python
