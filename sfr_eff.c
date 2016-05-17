@@ -213,7 +213,7 @@ void cooling_and_starformation(void)
 
     double totsfrrate, localsfr=0;
     int i;
-    #pragma parallel for reduction(+, localsfr)
+    #pragma omp parallel for reduction(+: localsfr)
     for(i = 0; i < N_sph; i++)
         localsfr += SPHP(i).Sfr;
 

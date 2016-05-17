@@ -1732,9 +1732,8 @@ loop_continue:
  */
 int domain_determineTopTree(void)
 {
-    int i, count, j, sub, ngrp;
-    int recvTask, sendTask, ntopnodes_import, errflag, errsum;
-    struct local_topnode_data *topNodes_import, *topNodes_temp;
+    int i, count, j, sub;
+    int errflag, errsum;
     double costlimit, countlimit;
 
     mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);

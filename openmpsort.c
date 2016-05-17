@@ -78,37 +78,30 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
 #endif
 #pragma omp barrier
             /* only group leaders work */
-            if(key != 0) {
-                goto cont;    
-            }
-            int nextT;
-            if(color % 2 == 0) {
-                nextT = tid + sep;
+            if(key == 0 && color % 2 == 0) {
+                int nextT = tid + sep;
                 /*merge with next guy */
-            } else {
-                goto cont;
-            }
-            /* only even leaders arrives to this point*/
-            if(nextT >= Nt) {
-                /* no next guy, copy directly.*/
-                merge(Abase[tid], Anmemb[tid], NULL, 0, Atmp[tid], size, compar);
-            }  else {
-#if 0                
-                printf("%d + %d merging with %td/%td:%td %td/%td:%td\n", tid, nextT,
-                        ((char*)Abase[tid] - (char*) base) / size,
-                        ((char*)Abase[tid] - (char*) tmp) / size,
-                        Anmemb[tid], 
-                        ((char*)Abase[nextT] - (char*) base) / size,
-                        ((char*)Abase[nextT] - (char*) tmp) / size,
-                        Anmemb[nextT]);
+                /* only even leaders arrives to this point*/
+                if(nextT >= Nt) {
+                    /* no next guy, copy directly.*/
+                    merge(Abase[tid], Anmemb[tid], NULL, 0, Atmp[tid], size, compar);
+                }  else {
+#if 0                    
+                    printf("%d + %d merging with %td/%td:%td %td/%td:%td\n", tid, nextT,
+                            ((char*)Abase[tid] - (char*) base) / size,
+                            ((char*)Abase[tid] - (char*) tmp) / size,
+                            Anmemb[tid], 
+                            ((char*)Abase[nextT] - (char*) base) / size,
+                            ((char*)Abase[nextT] - (char*) tmp) / size,
+                            Anmemb[nextT]);
 #endif
-                merge(Abase[tid], Anmemb[tid], Abase[nextT], Anmemb[nextT], Atmp[tid], size, compar);
-                /* merge two lists */
-                Anmemb[tid] = Anmemb[tid] + Anmemb[nextT];
-                Anmemb[nextT] = 0;
+                    merge(Abase[tid], Anmemb[tid], Abase[nextT], Anmemb[nextT], Atmp[tid], size, compar);
+                    /* merge two lists */
+                    Anmemb[tid] = Anmemb[tid] + Anmemb[nextT];
+                    Anmemb[nextT] = 0;
+                }
             }
 
-cont:
             /* now swap Abase and Atmp for next merge */
 #pragma omp barrier
             if(tid == 0) {

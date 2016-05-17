@@ -453,17 +453,15 @@ static int hydro_isactive(int i) {
 static void hydro_post_process(int i) {
     if(P[i].Type == 0)
     {
-        int k;
-
         /* Translate energy change rate into entropy change rate */
         SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
 
 #ifdef WINDS
         /* if we have winds, we decouple particles briefly if delaytime>0 */
-
         if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
             if(SPHP(i).DelayTime > 0)
             {
+                int k;
                 for(k = 0; k < 3; k++)
                     SPHP(i).HydroAccel[k] = 0;
 
