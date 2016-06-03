@@ -53,9 +53,6 @@ CourantFac             0.15
 MaxSizeTimestep       0.1
 MinSizeTimestep       0.05
 
-FOFHaloLinkingLength 0.2
-FOFHaloMinLength     32
-
 % Tree algorithm, force accuracy, domain update frequency
 
 ErrTolTheta            0.5            
