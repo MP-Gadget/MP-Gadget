@@ -7,7 +7,7 @@ OPTIMIZE1=`echo "$*" | sed -s 's;enable-sse2;enable-sse;'`
 echo "Optimization for double" ${OPTIMIZE}
 echo "Optimization for single" ${OPTIMIZE1}
 
-PFFT_VERSION=1.0.8-alpha1-fftw3
+PFFT_VERSION=1.0.8-alpha2-fftw3
 TMP="tmp-pfft-$PFFT_VERSION"
 LOGFILE="build.log"
 
