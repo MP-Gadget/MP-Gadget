@@ -25,7 +25,7 @@ cd $TMP
 mkdir -p double;cd double
 
 ../pfft-${PFFT_VERSION}/configure --prefix=$PREFIX --disable-shared --enable-static --enable-openmp \
---disable-fortran --disable-doc --enable-mpi ${OPTIMIZE} &&
+--disable-fortran --disable-dependency-tracking --disable-doc --enable-mpi ${OPTIMIZE} &&
 make -j 4   &&
 make install && echo "PFFT_DONE"
 ) 2>&1 > ${LOGFILE}.double
@@ -37,7 +37,7 @@ fi
 (
 mkdir -p single;cd single
 ../pfft-${PFFT_VERSION}/configure --prefix=$PREFIX --enable-single --disable-shared --enable-static --enable-openmp \
---disable-fortran --disable-doc --enable-mpi $2 ${OPTIMIZE1} &&
+--disable-fortran --disable-dependency-tracking --disable-doc --enable-mpi $2 ${OPTIMIZE1} &&
 make -j 4  &&
 make install && echo "PFFT_DONE"
 ) 2>&1 > ${LOGFILE}.single
