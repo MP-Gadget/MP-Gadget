@@ -18,7 +18,7 @@ lib/libbigfile-mpi.a:
 lib/libpfft_omp.a:
 	mkdir -p lib; \
 	mkdir -p include; \
-	MPICC="$(CC)" CFLAGS="-O3 -I $(PWD)/include -L$(PWD)/lib" \
+	MPICC="$(CC)" CC="$(CC)" CFLAGS="-O3 -I $(PWD)/include -L$(PWD)/lib" \
         sh $(PWD)/install_pfft.sh $(PWD)/
 
 clean:
