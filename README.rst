@@ -37,8 +37,8 @@ First time users:
     git clone https://github.com/rainwoodman/MP-Gadget3
 
     cd MP-Gadget3
-    git submodule init
-    git submodule update
+
+    bash bootstrap.sh
 
 We will need hdf5 and gsl. They are quite standard libraries.
 usually can be loaded with 
