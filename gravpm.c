@@ -13,6 +13,14 @@
 #include "petapm.h"
 #include "domain.h"
 
+static struct {
+    double * k;
+    double * P;
+    double * Nmodes;
+    size_t size;
+    double Norm;
+} PowerSpectrum;
+
 static int pm_mark_region_for_node(int startno, int rid);
 static void convert_node_to_region(PetaPMRegion * r);
 
@@ -37,6 +45,10 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 
 void gravpm_init_periodic() {
     petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
+    PowerSpectrum.size = All.Nmesh / 2;
+    PowerSpectrum.k = malloc(sizeof(double) * All.Nmesh / 2);
+    PowerSpectrum.P = malloc(sizeof(double) * All.Nmesh / 2);
+    PowerSpectrum.Nmodes = malloc(sizeof(double) * All.Nmesh / 2);
 }
 void gravpm_force() {
     PetaPMParticleStruct pstruct = {
@@ -47,12 +59,47 @@ void gravpm_force() {
         (char*) &P[0].RegionInd - (char*) P,
         NumPart,
     };
+
+    memset(PowerSpectrum.k, 0, sizeof(double) * PowerSpectrum.size);
+    memset(PowerSpectrum.P, 0, sizeof(double) * PowerSpectrum.size);
+    memset(PowerSpectrum.Nmodes, 0, sizeof(double) * PowerSpectrum.size);
+    PowerSpectrum.Norm = 0;
     /* 
      * we apply potential transfer immediately after the R2C transform,
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
     petapm_force(_prepare, potential_transfer, functions, &pstruct, NULL);
+
+    MPI_Allreduce(MPI_IN_PLACE, &PowerSpectrum.Norm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum.k, PowerSpectrum.size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum.P, PowerSpectrum.size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum.Nmodes, PowerSpectrum.size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    int i;
+    for(i = 0; i < PowerSpectrum.size; i ++) {
+        if(PowerSpectrum.Nmodes[i] == 0) continue;
+        PowerSpectrum.P[i] /= PowerSpectrum.Nmodes[i];
+        PowerSpectrum.P[i] /= PowerSpectrum.Norm;
+        PowerSpectrum.k[i] /= PowerSpectrum.Nmodes[i];
+        /* Mpc/h units */
+        PowerSpectrum.k[i] *= 2 * M_PI / (All.BoxSize / 1000);
+        PowerSpectrum.P[i] *= pow(All.BoxSize / 1000., 3.0);
+ 
+    }
+    if(ThisTask == 0) {
+        char fname[1024];
+        sprintf(fname, "%s/powerspectrum-%0.4f.txt", All.OutputDir, All.Time);
+        printf("Writing Power Spectrum to %s\n", fname);
+        FILE * fp = fopen(fname, "w");
+        fprintf(fp, "# in Mpc/h Units \n");
+        fprintf(fp, "# D1 = %g \n", All.cf.D1);
+        fprintf(fp, "# k P N P(z=0)\n");
+        for(i = 0; i < PowerSpectrum.size; i ++) {
+            fprintf(fp, "%g %g %g %g\n", PowerSpectrum.k[i], PowerSpectrum.P[i], PowerSpectrum.Nmodes[i],
+                        PowerSpectrum.P[i] / (All.cf.D1 * All.cf.D1));
+        }
+        fclose(fp);
+    }
 }
 
 static double pot_factor;
@@ -252,12 +299,6 @@ static double sinc_unnormed(double x) {
 }
 
 static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
-    if(k2 == 0) {
-        /* remote zero mode corresponding to the mean */
-        value[0][0] = 0.0;
-        value[0][1] = 0.0;
-        return;
-    } 
     double asmth2 = (2 * M_PI) * All.Asmth[0] / All.BoxSize;
     asmth2 *= asmth2;
     double f = 1.0;
@@ -281,8 +322,29 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
      * I don't understand the second yet!
      * */
     double fac = pot_factor * smth * f * f;
+
+    /* Measure power spectrum */
+    int kint = floor(sqrt(k2));
+    if(kint >= 0 && kint < PowerSpectrum.size) {
+        int w;
+        double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
+        if(kpos[2] == 0) w = 1;
+        else w = 2;
+        if(k2 == 0) PowerSpectrum.Norm += m;
+        PowerSpectrum.P[kint] += w * m;
+        PowerSpectrum.Nmodes[kint] += w;
+        PowerSpectrum.k[kint] += w * kint;
+    }
+
     value[0][0] *= fac;
     value[0][1] *= fac;
+
+    if(k2 == 0) {
+        /* remove zero mode corresponding to the mean */
+        value[0][0] = 0.0;
+        value[0][1] = 0.0;
+        return;
+    }
 }
 
 /* the transfer functions for force in fourier space applied to potential */
