@@ -9,7 +9,7 @@ Ngrid            64 % number of particles per grid direction.
 Nsample          64 % k space sampling upper limit
  
 
-Box             32000.0   % Periodic box size of simulation
+Box             4000   % Periodic box size of simulation
 
 
 

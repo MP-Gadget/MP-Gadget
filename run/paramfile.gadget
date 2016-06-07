@@ -4,7 +4,7 @@ InitCondFile  	   debug/IC
 OutputDir          debug
 TreeCoolFile       ../etc/TREECOOL_fg_june11
 MetalCoolFile      ../etc/cooling_metal_UVB.hdf5
-OutputList         0.1,0.2,0.299,0.3,0.33333
+OutputList         0.1,0.2,0.299,0.3,0.33333,0.4,0.5
 SnapshotFileBase   snapshot
 
 NumFilesPerSnapshot	  1
@@ -33,7 +33,7 @@ Omega0           0.2814      % Total matter density  (at z=0)
 OmegaLambda      0.7186      % Cosmological constant (at z=0)
 OmegaBaryon      0.0464     % Baryon density        (at z=0)
 HubbleParam      0.697      % Hubble paramater (may be used for power spec parameterization)
-BoxSize               32000.0
+BoxSize               4000.0
 
 CoolingOn             1
 StarformationOn       1
@@ -41,12 +41,10 @@ StarformationCriterion  density,h2
 RadiationOn           1
 
 CpuTimeBetRestartFile  9000.0
-TimeBetStatistics         0.1
-
 
 % Accuracy of time integration
 MaxSizeTimestep       0.1
-MinSizeTimestep       0.05
+MinSizeTimestep       0.00
 
 FOFHaloLinkingLength 0.2
 FOFHaloMinLength     32

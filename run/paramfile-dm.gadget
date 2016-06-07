@@ -41,12 +41,10 @@ StarformationCriterion  density,h2
 RadiationOn           0
 
 CpuTimeBetRestartFile  9000.0
-TimeBetStatistics         0.1
-
 
 % Accuracy of time integration
 MaxSizeTimestep       0.1
-MinSizeTimestep       0.05
+MinSizeTimestep       0.01
 
 FOFHaloLinkingLength 0.2
 FOFHaloMinLength     32

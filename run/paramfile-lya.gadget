@@ -45,7 +45,6 @@ StarformationCriterion  density
 % Output frequency
 
 CpuTimeBetRestartFile  9000.0
-TimeBetStatistics         0.1
 
 
 % Accuracy of time integration
