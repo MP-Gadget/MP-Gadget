@@ -421,7 +421,7 @@ parameter_set_new()
 
     param_declare_int(ps,    "MaxMemSizePerCore", 0, 1200, "");
     param_declare_double(ps, "CpuTimeBetRestartFile", 1, 0, "");
-    param_declare_double(ps, "TimeBetStatistics", 0, 0.1, "");
+
     param_declare_double(ps, "TimeBegin", 1, 0, "");
     param_declare_double(ps, "TimeMax", 0, 1.0, "");
     param_declare_double(ps, "TimeLimitCPU", 1, 0, "");

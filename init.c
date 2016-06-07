@@ -85,7 +85,6 @@ void init(void)
 
     check_omega();
 
-    All.TimeLastStatistics = All.TimeBegin - All.TimeBetStatistics;
 #ifdef BLACK_HOLES
     All.TimeNextSeedingCheck = All.TimeBegin;
 #endif
@@ -288,6 +287,22 @@ void setup_smoothinglengths(void)
     if(RestartFlag == 0)
     {
         const double a3 = All.Time * All.Time * All.Time;
+
+        double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.InitGasTemp;
+        u_init *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;	/* unit conversion */
+
+        double molecular_weight;
+        if(All.InitGasTemp > 1.0e4)	/* assuming FULL ionization */
+            molecular_weight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
+        else				/* assuming NEUTRAL GAS */
+            molecular_weight = 4 / (1 + 3 * HYDROGEN_MASSFRAC);
+
+        u_init /= molecular_weight;
+
+        for(i = 0; i < N_sph; i++) {
+            SPHP(i).Entropy = u_init;
+        }
+
 #ifdef DENSITY_INDEPENDENT_SPH
         for(i = 0; i < N_sph; i++)
         {

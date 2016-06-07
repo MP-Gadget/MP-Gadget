@@ -474,7 +474,7 @@ void read_parameter_file(char *fname)
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
         All.MaxMemSizePerCore = param_get_int(ps, "MaxMemSizePerCore");
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
-        All.TimeBetStatistics = param_get_double(ps, "TimeBetStatistics");
+
         All.TimeBegin = param_get_double(ps, "TimeBegin");
         All.TimeMax = param_get_double(ps, "TimeMax");
         All.TreeDomainUpdateFrequency = param_get_double(ps, "TreeDomainUpdateFrequency");

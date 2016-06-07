@@ -230,34 +230,6 @@ void petaio_read_ic() {
         P[i].Mass = All.MassTable[P[i].Type];
     }
 
-    double u_init = (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.InitGasTemp;
-    u_init *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;	/* unit conversion */
-
-    double molecular_weight;
-    if(All.InitGasTemp > 1.0e4)	/* assuming FULL ionization */
-        molecular_weight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));
-    else				/* assuming NEUTRAL GAS */
-        molecular_weight = 4 / (1 + 3 * HYDROGEN_MASSFRAC);
-
-    u_init /= molecular_weight;
-
-    All.InitGasU = u_init;
-
-    for(i = 0; i < N_sph; i++)
-        SPHP(i).Entropy = 0;
-
-    if(All.InitGasTemp > 0)
-    {
-        for(i = 0; i < N_sph; i++)
-        {
-            if(SPHP(i).Entropy == 0)
-                SPHP(i).Entropy = All.InitGasU;
-
-            /* Note: the coversion to entropy will be done in the function init(),
-               after the densities have been computed */
-        }
-    }
-
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         int k;

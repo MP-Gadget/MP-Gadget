@@ -77,7 +77,7 @@ struct {
 } MC;
 
 static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * uvbg, struct abundance * y, struct rates * r);
-static double convert_u_to_temp(double u, double nHcgs, struct UVBG * uvbg, struct abundance * y);
+static double solve_equilibrium_temp(double u, double nHcgs, struct UVBG * uvbg, struct abundance * y);
 static double * h5readdouble(char * filename, char * dataset, int * Nread);
 
 double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, double *nelec);
@@ -242,15 +242,14 @@ void cool_test(void)
     struct abundance y;
     y.ne = nein;
     double nHcgs = rhoin * XH / PROTONMASS;
-    printf("%g\n", convert_u_to_temp(uin, nHcgs, &GlobalUVBG, &y));
+    printf("%g\n", solve_equilibrium_temp(uin, nHcgs, &GlobalUVBG, &y));
 }
-
 
 /* this function determines the electron fraction, and hence the mean 
  * molecular weight. With it arrives at a self-consistent temperature.
  * Element abundances and the rates for the emission are also computed
  */
-static double convert_u_to_temp(double u, double nHcgs, struct UVBG * uvbg, struct abundance * y)
+static double solve_equilibrium_temp(double u, double nHcgs, struct UVBG * uvbg, struct abundance * y)
 {
     double temp, temp_old, temp_new, max = 0, ne_old;
     double mu;
@@ -287,7 +286,7 @@ static double convert_u_to_temp(double u, double nHcgs, struct UVBG * uvbg, stru
 
     if(iter >= MAXITER)
         {
-            endrun(12, "failed to converge in convert_u_to_temp()\n");
+            endrun(12, "failed to converge in solve_equilibrium_temp()\n");
         }
 
     return temp;
@@ -419,7 +418,7 @@ double CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_g
     struct abundance y;
 
     y.ne = *ne_guess;
-    temp = convert_u_to_temp(u, nHcgs, uvbg, &y);
+    temp = solve_equilibrium_temp(u, nHcgs, uvbg, &y);
     *ne_guess = y.ne;
     double logT = log10(temp);
     double redshift = 1 / All.Time -  1.;
@@ -445,7 +444,7 @@ double AbundanceRatios(double u, double rho, struct UVBG * uvbg, double *ne_gues
 
     double nHcgs = rho / PROTONMASS * XH;
     y.ne = *ne_guess;
-    temp = convert_u_to_temp(u, nHcgs, uvbg, &y);
+    temp = solve_equilibrium_temp(u, nHcgs, uvbg, &y);
     *ne_guess = y.ne;
 
     *nH0_pointer = y.nH0;
@@ -454,8 +453,16 @@ double AbundanceRatios(double u, double rho, struct UVBG * uvbg, double *ne_gues
     return temp;
 }
 
+double ConvertInternalEnergy2Temperature(double u, double ne)
+{
+    double mu;
+    double temp;
+    mu = (1 + 4 * yhelium) / (1 + yhelium + ne);
 
-
+    u *= All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
+    temp = GAMMA_MINUS1 / BOLTZMANN * u * PROTONMASS * mu;
+    return temp;
+}
 
 extern FILE *fd;
 

@@ -364,8 +364,8 @@ extern struct global_data_all_processes
     double MaxNumNgbDeviationStart;    /*!< Maximum allowed deviation neighbour number to start with*/
 #endif
     double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
+
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
-    double InitGasU;		/*!< the same, but converted to thermal energy per unit mass */
     double MinGasTemp;		/*!< may be used to set a floor for the gas temperature */
     double MinEgySpec;		/*!< the minimum allowed temperature expressed as energy per unit mass */
 
@@ -398,7 +398,6 @@ extern struct global_data_all_processes
                                       constant G. */
            G;				/*!< Gravity-constant in internal units */
     double UnitDensity_in_Gev_per_cm3; /*!< factor to convert internal density unit to GeV/c^2 / cm^3 */
-
     /* Cosmology */
 
     double Hubble;		/*!< Hubble-constant in internal units */
@@ -437,9 +436,8 @@ extern struct global_data_all_processes
     int SnapshotFileCount;	/*!< number of snapshot that is written next */
     double TimeOfFirstSnapshot,	/*!< simulation time of first snapshot files */
            CpuTimeBetRestartFile,	/*!< cpu-time between regularly generated restart files */
-           TimeLastRestartFile,	/*!< cpu-time when last restart-file was written */
-           TimeBetStatistics,		/*!< simulation time interval between computations of energy statistics */
-           TimeLastStatistics;		/*!< simulation time when the energy statistics was computed the last time */
+           TimeLastRestartFile;  	/*!< cpu-time when last restart-file was written */
+
     int NumCurrentTiStep;		/*!< counts the number of system steps taken up to this point */
 
     /* Current time of the simulation, global step, and end of simulation */
@@ -466,6 +464,7 @@ extern struct global_data_all_processes
     int Ti_nextoutput;		/*!< next output time on integer timeline */
 
     int Nmesh;
+
     int PM_Ti_endstep, PM_Ti_begstep;
     double Asmth[2], Rcut[2];
     double Corner[2][3], UpperCorner[2][3], Xmintot[2][3], Xmaxtot[2][3];
@@ -782,18 +781,26 @@ extern struct sph_particle_data
 */
 extern struct state_of_system
 {
-    double Mass,
-           EnergyKin,
-           EnergyPot,
-           EnergyInt,
-           EnergyTot,
-           Momentum[4],
-           AngMomentum[4],
-           CenterOfMass[4],
-           MassComp[6],
-           EnergyKinComp[6],
-           EnergyPotComp[6],
-           EnergyIntComp[6], EnergyTotComp[6], MomentumComp[6][4], AngMomentumComp[6][4], CenterOfMassComp[6][4];
+    double Mass;
+    double EnergyKin;
+    double EnergyPot;
+    double EnergyInt;
+    double EnergyTot;
+
+    double Momentum[4];
+    double AngMomentum[4];
+    double CenterOfMass[4];
+    double MassComp[6];
+    /* Only Gas is used */
+    double TemperatureComp[6];
+
+    double EnergyKinComp[6];
+    double EnergyPotComp[6];
+    double EnergyIntComp[6];
+    double EnergyTotComp[6];
+    double MomentumComp[6][4];
+    double AngMomentumComp[6][4];
+    double CenterOfMassComp[6][4];
 }
 SysState, SysStateAtStart, SysStateAtEnd;
 

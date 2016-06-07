@@ -122,6 +122,7 @@ static int sfr_wind_evaluate(int target, int mode,
 static int sfr_cooling_isactive(int target) {
     return P[target].Type == 0;
 }
+
 void cooling_and_starformation(void)
     /* cooling routine when star formation is enabled */
 {
@@ -721,6 +722,7 @@ static int make_particle_star(int i) {
     }
     return 0;
 }
+
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
     const double densityfac = pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1) / GAMMA_MINUS1;
     double egycurrent = SPHP(i).Entropy *  densityfac;

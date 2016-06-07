@@ -15,6 +15,7 @@ void GetGlobalUVBG(struct UVBG * uvbg);
 double AbundanceRatios(double u, double rho, struct UVBG * uvbg, double *ne_guess, double *nH0_pointer, double *nHeII_pointer);
 double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg,  double *ne_guess, double Z);
 double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z);
+double ConvertInternalEnergy2Temperature(double u, double ne);
 
 void   InitCool(void);
 void   IonizeParams(void);

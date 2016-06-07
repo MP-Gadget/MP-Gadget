@@ -52,11 +52,9 @@ void run(void)
                                      */
 
         /* check whether we want a full energy statistics */
-        if((All.Time - All.TimeLastStatistics) >= All.TimeBetStatistics)
+        if(Flag_FullStep)
         {
             energy_statistics();	/* compute and output energy statistics */
-
-            All.TimeLastStatistics += All.TimeBetStatistics;
         }
 
         advance_and_find_timesteps();	/* 'kick' active particles in
@@ -554,9 +552,12 @@ void energy_statistics(void)
 
     if(ThisTask == 0)
     {
+        printf("Time %g Mean Temperature of Gas %g\n",
+                All.Time, SysState.TemperatureComp[0]);
+
         fprintf(FdEnergy,
-                "%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
-                All.Time, SysState.EnergyInt, SysState.EnergyPot, SysState.EnergyKin, SysState.EnergyIntComp[0],
+                "%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
+                All.Time, SysState.TemperatureComp[0], SysState.EnergyInt, SysState.EnergyPot, SysState.EnergyKin, SysState.EnergyIntComp[0],
                 SysState.EnergyPotComp[0], SysState.EnergyKinComp[0], SysState.EnergyIntComp[1],
                 SysState.EnergyPotComp[1], SysState.EnergyKinComp[1], SysState.EnergyIntComp[2],
                 SysState.EnergyPotComp[2], SysState.EnergyKinComp[2], SysState.EnergyIntComp[3],
