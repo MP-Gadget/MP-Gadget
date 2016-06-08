@@ -809,13 +809,16 @@ void force_exchange_pseudodata(void)
         for(recvTask = 0; recvTask < NTask; recvTask++)
         {
             recvcounts[recvTask] =
-                (DomainEndList[recvTask * All.DomainOverDecompositionFactor + m] - DomainStartList[recvTask * All.DomainOverDecompositionFactor + m] +
-                 1) * sizeof(struct DomainNODE);
+                (DomainEndList[recvTask * All.DomainOverDecompositionFactor + m]
+               - DomainStartList[recvTask * All.DomainOverDecompositionFactor + m] +
+                 1)
+             * sizeof(struct DomainNODE);
             recvoffset[recvTask] = DomainStartList[recvTask * All.DomainOverDecompositionFactor + m] * sizeof(struct DomainNODE);
         }
 
-        MPI_Allgatherv(&DomainMoment[DomainStartList[ThisTask * All.DomainOverDecompositionFactor + m]], recvcounts[ThisTask],
-                MPI_BYTE, &DomainMoment[0], recvcounts, recvoffset, MPI_BYTE, MPI_COMM_WORLD);
+        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
+                &DomainMoment[0], recvcounts, recvoffset,
+                MPI_BYTE, MPI_COMM_WORLD);
     }
 
     myfree(recvoffset);

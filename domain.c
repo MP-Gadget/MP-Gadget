@@ -182,6 +182,7 @@ void domain_Decomposition(void)
             topNodes = (struct local_topnode_data *) mymalloc("topNodes", bytes =
                     (MaxTopNodes *
                      sizeof(struct local_topnode_data)));
+            memset(topNodes, 0, sizeof(topNodes[0]) * MaxTopNodes);
             all_bytes += bytes;
 
             if(ThisTask == 0)
