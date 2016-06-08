@@ -775,6 +775,7 @@ void force_exchange_pseudodata(void)
 
 
     DomainMoment = (struct DomainNODE *) mymalloc("DomainMoment", NTopleaves * sizeof(struct DomainNODE));
+    memset(&DomainMoment[0], 0, sizeof(DomainMoment[0]) * NTopleaves);
 
     for(m = 0; m < All.DomainOverDecompositionFactor; m++)
         for(i = DomainStartList[ThisTask * All.DomainOverDecompositionFactor + m];
