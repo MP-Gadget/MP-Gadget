@@ -9,6 +9,7 @@
 #include "mymalloc.h"
 #include "domain.h"
 #include "forcetree.h"
+#include "endrun.h"
 
 #define TAG_EVALUATE_A (9999)
 #define TAG_EVALUATE_B (10000)

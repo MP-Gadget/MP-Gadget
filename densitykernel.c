@@ -1,6 +1,7 @@
 #include <math.h>
 #include "allvars.h"
 #include "densitykernel.h"
+#include "endrun.h"
 
 /**
  *

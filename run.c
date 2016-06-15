@@ -10,6 +10,7 @@
 #include "proto.h"
 #include "cooling.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop

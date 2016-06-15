@@ -7,6 +7,7 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "endrun.h"
 
 #ifdef MPISENDRECV_SIZELIMIT
 

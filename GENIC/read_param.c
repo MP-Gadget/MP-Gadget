@@ -41,6 +41,10 @@ void read_parameterfile(char *fname)
   addr[nt] = &Omega;
   id[nt++] = FLOAT;
 
+  strcpy(tag[nt], "MaxMemoryPerCore");
+  addr[nt] = &MaxMemoryPerCore;
+  id[nt++] = FLOAT;
+
   strcpy(tag[nt], "OmegaLambda");
   addr[nt] = &OmegaLambda;
   id[nt++] = FLOAT;

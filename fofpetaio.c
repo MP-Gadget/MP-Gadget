@@ -14,6 +14,7 @@
 #include "domain.h"
 #include "fof.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 #ifdef FOF
 

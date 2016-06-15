@@ -12,6 +12,7 @@
 #include "proto.h"
 #include "evaluator.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */

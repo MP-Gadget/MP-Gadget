@@ -10,6 +10,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "config.h"
+#include "endrun.h"
 
 /*! \file main.c
  *  \brief start of the program

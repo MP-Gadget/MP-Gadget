@@ -14,6 +14,7 @@
 #include "domain.h"
 #include "mpsort.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 /*! \file fof.c
  *  \brief parallel FoF group finder

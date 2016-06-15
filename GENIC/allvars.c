@@ -27,6 +27,7 @@ int ProduceGas;
 int Seed;
 
 int NumPart;
+double MaxMemoryPerCore;
 
 struct part_data *P;
 

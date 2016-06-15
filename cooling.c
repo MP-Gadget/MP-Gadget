@@ -30,6 +30,7 @@
 #include "cooling.h"
 #include "interp.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 #ifdef COOLING
 

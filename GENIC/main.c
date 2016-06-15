@@ -7,6 +7,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "walltime.h"
+#include "mymalloc.h"
 
 static struct ClockTable CT;
 
@@ -16,7 +17,6 @@ int main(int argc, char **argv)
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
   MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
-  walltime_init(&CT);
   if(argc < 2)
     {
       if(ThisTask == 0)
@@ -30,6 +30,9 @@ int main(int argc, char **argv)
 
   /* fixme: make this a mpi bcast */
   read_parameterfile(argv[1]);
+
+  walltime_init(&CT);
+  mymalloc_init(MaxMemoryPerCore * 1024 * 1024);
 
   set_units();
 

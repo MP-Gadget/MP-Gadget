@@ -4,6 +4,7 @@
 #include <stdarg.h>
 
 #include "allvars.h"
+#include "endrun.h"
 
 /*  This function aborts the simulations. If a single processors
  *  wants an immediate termination,  the function needs to be 

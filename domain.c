@@ -12,6 +12,7 @@
 #include "forcetree.h"
 #include "mymalloc.h"
 #include "mpsort.h"
+#include "endrun.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19

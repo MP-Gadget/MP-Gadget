@@ -10,6 +10,7 @@
 #include "forcetree.h"
 #include "proto.h"
 #include "domain.h"
+#include "endrun.h"
 
 /*! \file ngb.c
  *  \brief neighbour search by means of the tree

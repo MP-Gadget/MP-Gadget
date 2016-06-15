@@ -6,7 +6,7 @@
 #include <gsl/gsl_math.h>
 
 #include "mymalloc.h"
-#include "allvars.h"
+#include "endrun.h"
 
 #define MAXBLOCKS 500
 #define MAXCHARS  16
@@ -24,6 +24,8 @@ static char VarName[MAXBLOCKS][MAXCHARS] = {0};
 static char FunctionName[MAXBLOCKS][MAXCHARS] = {0};
 static char FileName[MAXBLOCKS][MAXCHARS] = {0};
 static int LineNumber[MAXBLOCKS] = {0};
+static int ThisTask;
+static int NTask;
 
 size_t AllocatedBytes;
 size_t HighMarkBytes;
@@ -45,18 +47,20 @@ static size_t align_size(size_t n) {
     return ((size_t) ((n + ALIGNMENT - 1) / ALIGNMENT)) * ALIGNMENT;
 }
 
-void mymalloc_init(void)
+void mymalloc_init(size_t limit)
 {
     size_t n;
 
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     /* n is aligned*/
-    n = align_size(All.MaxMemSizePerCore * All.NumThreads * ((size_t) 1024 * 1024));
+    n = align_size(limit) + ALIGNMENT;
 
 #ifndef VALGRIND
     /* extra space for aligning Base */
-    if(!(Base = malloc(n + ALIGNMENT)))
+    if(!(Base = malloc(n)))
     {
-        endrun(122, "Failed to allocate memory for `Base' (%d Mbytes).\n", All.MaxMemSizePerCore * All.NumThreads);
+        endrun(122, "Failed to allocate memory for `Base' (%d Mbytes).\n", n / (1024. * 1024));
     }
     Base = (char*) align_size((size_t) Base);
 #else

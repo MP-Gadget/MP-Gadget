@@ -7,15 +7,8 @@
 
 #include "petapm.h"
 #include "openmpsort.h"
-
-#ifndef mymalloc
-#define mymalloc(a, b) malloc(b)
-#define myfree(a) free(a)
-#define report_memory_usage(a)   {;}
-#endif
-#ifndef walltime_measure
-#define walltime_measure(a)  {;}
-#endif
+#include "mymalloc.h"
+#include "walltime.h"
 
 /* a layout is the communication object, represent 
  * pencil / cells exchanged  */

@@ -806,6 +806,4 @@ SysState, SysStateAtStart, SysStateAtEnd;
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
-
-void endrun(int, const char * fmt, ...);
 #endif

@@ -8,6 +8,7 @@
 #include "forcetree.h"
 #include "cosmology.h"
 #include "mymalloc.h"
+#include "endrun.h"
 #include "domain.h"
 
 /*! \file timestep.c

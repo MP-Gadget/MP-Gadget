@@ -77,6 +77,7 @@ extern struct glassfile_header
 extern int      Nglass;
 extern int      WhichSpectrum;
 
+extern double MaxMemoryPerCore;
 
 extern FILE     *FdTmp, *FdTmpInput;
 

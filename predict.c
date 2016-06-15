@@ -6,6 +6,8 @@
 #include <gsl/gsl_math.h>
 #include "allvars.h"
 #include "proto.h"
+#include "endrun.h"
+
 void reconstruct_timebins(void)
 {
     int i, n, prev, bin;

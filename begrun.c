@@ -17,6 +17,7 @@
 #include "cooling.h"
 #include "petaio.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 /*! \file begrun.c
  *  \brief initial set-up of a simulation run
@@ -36,7 +37,10 @@
 void begrun(void)
 {
 
-    mymalloc_init();
+    /* n is aligned*/
+    size_t n = All.MaxMemSizePerCore * All.NumThreads * ((size_t) 1024 * 1024);
+
+    mymalloc_init(n);
     walltime_init(&All.CT);
     petaio_init();
 
