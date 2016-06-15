@@ -224,6 +224,7 @@ static int pm_mark_region_for_node(int startno, int rid) {
                 }
                 l = l * 2;
                 if (l > Nodes[startno].len) {
+                    printf("enlarging node size from %g to %g, dueto particle of type %d\n", Nodes[startno].len, l, P[p].Type);
                     Nodes[startno].len = l;
                 }
             }
