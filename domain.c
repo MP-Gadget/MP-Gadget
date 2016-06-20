@@ -848,7 +848,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    domain_garbage_collection_bh();
+    domain_garbage_collection();
     walltime_measure("/Domain/exchange/finalize");
 }
 static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
@@ -863,7 +863,7 @@ static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
 
 }
 
-void domain_garbage_collection_bh() {
+void domain_garbage_collection() {
 
     /* gc the bh */
     int i, j;
@@ -873,22 +873,21 @@ void domain_garbage_collection_bh() {
 
     MPI_Reduce(&N_bh, &total0, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    /* no need to gc if there is no bh to begin with*/
-    if (N_bh == 0) goto ex_nobh;
-
 #pragma omp parallel for
     for(i = 0; i < All.MaxPartBh; i++) {
         BhP[i].ReverseLink = -1;
     }
+
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
-        if(P[i].Type != 5) continue;
-        BhP[P[i].PI].ReverseLink = i;
-        if(P[i].PI >= N_bh) {
-            endrun(1, "bh PI consistency failed1\n");
-        }
-        if(BhP[P[i].PI].ID != P[i].ID) {
-            endrun(1, "bh id consistency failed1\n");
+        if(P[i].Type == 5) {
+            BhP[P[i].PI].ReverseLink = i;
+            if(P[i].PI >= N_bh) {
+                endrun(1, "bh PI consistency failed2, old_N_bh = %d\n");
+            }
+            if(BhP[P[i].PI].ID != P[i].ID) {
+                endrun(1, "bh id consistency failed1\n");
+            }
         }
     }
 
@@ -927,11 +926,37 @@ void domain_garbage_collection_bh() {
         endrun(1, "bh count failed2, j=%d, N_bh=%d\n", j, N_bh);
     }
 
-ex_nobh:
     MPI_Reduce(&N_bh, &total, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     if(ThisTask == 0 && total != total0) {
         printf("After BH garbage collection, before = %d after= %d\n", total0, total);
     }
+
+    N_bh = 0;
+    N_star = 0;
+    N_sph = 0;
+    N_dm = 0;
+
+#pragma omp parallel for reduction(+:N_bh, N_star, N_sph, N_dm)
+    for(i = 0; i < NumPart; i++) {
+        if(P[i].Type == 0) {
+            N_sph ++;
+        }
+        if(P[i].Type == 1) {
+            N_dm ++;
+        }
+        if(P[i].Type == 4) {
+            N_star ++;
+        }
+        if(P[i].Type == 5) {
+            N_bh ++;
+        }
+    }
+
+    sumup_large_ints(1, &NumPart, &All.TotNumPart);
+    sumup_large_ints(1, &N_dm, &All.TotN_dm);
+    sumup_large_ints(1, &N_sph, &All.TotN_sph);
+    sumup_large_ints(1, &N_bh, &All.TotN_bh);
+    sumup_large_ints(1, &N_star, &All.TotN_star);
 }
 
 int domain_fork_particle(int parent) {

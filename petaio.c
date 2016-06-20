@@ -129,6 +129,7 @@ void petaio_read_internal(char * fname, int ic) {
     N_sph = npartLocal[0];
     N_bh = npartLocal[5];
     N_star = npartLocal[4];
+    N_dm = npartLocal[1];
 
     /* check */
     if(N_sph > All.MaxPartSph) {
@@ -323,6 +324,7 @@ static void petaio_read_header(BigFile * bf) {
     All.TotN_sph = npartTotal[0];
     All.TotN_bh = npartTotal[5];
     All.TotN_star = npartTotal[4];
+    All.TotN_dm = npartTotal[1];
     All.TotN_neutrinos = npartTotal[2];
     if(ThisTask == 0) {
         printf("Total number of particles: %018ld\n", All.TotNumPart);

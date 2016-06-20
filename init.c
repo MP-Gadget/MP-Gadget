@@ -53,9 +53,10 @@ void init(void)
     }
 
     /* this ensures the initial BhP array is consistent */
-    domain_garbage_collection_bh();
+    domain_garbage_collection();
 
     set_global_time(All.TimeBegin);
+
 #ifdef COOLING
     IonizeParams();
 #endif
@@ -63,6 +64,9 @@ void init(void)
     All.Timebase_interval = (log(All.TimeMax) - log(All.TimeBegin)) / TIMEBASE;
     All.Ti_Current = 0;
 
+#ifdef FOF
+    fof_init();
+#endif
     set_softenings();
 
     All.NumCurrentTiStep = 0;	/* setup some counters */

@@ -5,6 +5,9 @@
 
 #include "allvars.h"
 
+void fof_init();
+void fof_fof(int num);
+
 extern uint64_t Ngroups, TotNgroups;
 extern int64_t TotNids;
 

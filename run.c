@@ -452,6 +452,7 @@ void every_timestep_stuff(void)
      * */
 
     sumup_large_ints(1, &NumPart, &All.TotNumPart);
+    sumup_large_ints(1, &N_dm, &All.TotN_dm);
     sumup_large_ints(1, &N_sph, &All.TotN_sph);
     sumup_large_ints(1, &N_bh, &All.TotN_bh);
     sumup_large_ints(1, &N_star, &All.TotN_star);

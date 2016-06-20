@@ -25,7 +25,7 @@ extern struct topnode_data
 extern int NTopnodes, NTopleaves;
 
 
-void domain_garbage_collection_bh();
+void domain_garbage_collection();
 int domain_fork_particle();
 void domain_findSplit_work_balanced(int ncpu, int ndomain);
 void domain_findSplit_load_balanced(int ncpu, int ndomain);

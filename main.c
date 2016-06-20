@@ -11,6 +11,7 @@
 #include "proto.h"
 #include "config.h"
 #include "endrun.h"
+#include "fof.h"
 
 /*! \file main.c
  *  \brief start of the program

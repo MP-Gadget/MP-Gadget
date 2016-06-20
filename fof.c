@@ -23,6 +23,17 @@
 #ifdef FOF
 #include "fof.h"
 
+/* Never change the primary link it is always DM. */
+#define FOF_PRIMARY_LINK_TYPES 2
+
+/* FIXME: convert this to a parameter */
+#define FOF_SECONDARY_LINK_TYPES (1+16+32)    // 2^type for the types linked to nearest primaries
+
+void fof_init()
+{
+    All.FOFHaloComovingLinkingLength = All.FOFHaloLinkingLength * All.BoxSize / pow(All.TotN_dm, 1.0 / 3);
+}
+
 static double fof_periodic(double x)
 {
     if(x >= 0.5 * All.BoxSize)
@@ -95,8 +106,6 @@ static struct fof_particle_list
 }
 *HaloLabel;
 
-static double LinkL;
-
 static float *fof_secondary_distance;
 static float *fof_secondary_hsml;
 
@@ -123,23 +132,9 @@ void fof_fof(int num)
 
     domain_Decomposition();
 
-    for(i = 0, ndm = 0, mass = 0; i < NumPart; i++) {
-        if(((1 << P[i].Type) & (FOF_PRIMARY_LINK_TYPES)))
-        {
-            ndm++;
-            mass += P[i].Mass;
-        }
-    }
-    sumup_large_ints(1, &ndm, &ndmtot);
-    MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    rhodm = (All.OmegaCDM) * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
-
-    LinkL = All.FOFHaloLinkingLength * pow(masstot / ndmtot / rhodm, 1.0 / 3);
-
     if(ThisTask == 0)
     {
-        printf("\nComoving linking length: %g    ", LinkL);
+        printf("\nComoving linking length: %g    ", All.FOFHaloComovingLinkingLength);
         printf("(presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
         fflush(stdout);
     }
@@ -414,7 +409,7 @@ static int fof_primary_evaluate(int target, int mode,
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_threads(I->Pos, LinkL, target, &startnode, mode, 
+            numngb_inbox = ngb_treefind_threads(I->Pos, All.FOFHaloComovingLinkingLength, target, &startnode, mode, 
                     lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)
@@ -1020,10 +1015,10 @@ static void fof_label_secondary(void)
         {
             fof_secondary_distance[n] = 1.0e30;
             if(P[n].Type == 0) {
-                /* use gas sml as a hint (faster convergence than 0.1 LinkL at high-z */
+                /* use gas sml as a hint (faster convergence than 0.1 All.FOFHaloComovingLinkingLength at high-z */
                 fof_secondary_hsml[n] = 0.5 * P[n].Hsml;
             } else {
-                fof_secondary_hsml[n] = 0.1 * LinkL;
+                fof_secondary_hsml[n] = 0.1 * All.FOFHaloComovingLinkingLength;
             }
         }
     }
@@ -1057,7 +1052,7 @@ static void fof_label_secondary(void)
             count ++;
             if(fof_secondary_distance[p] > 1.0e29)
             {
-                if(fof_secondary_hsml[p] < 4 * LinkL)  /* we only search out to a maximum distance */
+                if(fof_secondary_hsml[p] < 4 * All.FOFHaloComovingLinkingLength)  /* we only search out to a maximum distance */
                 {
                     /* need to redo this particle */
                     npleft++;

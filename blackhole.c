@@ -156,6 +156,7 @@ void blackhole_accretion(void)
             BHP(n).MinPotPos[j] = P[n].Pos[j];
             BHP(n).MinPotVel[j] = P[n].Vel[j];
         }
+        BHP(n).MinPot = P[n].Potential;
     }
 
     /* Now let's invoke the functions that stochasticall swallow gas
@@ -341,7 +342,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
                 double r2 = dx * dx + dy * dy + dz * dz;
 
                 /* if this option is switched on, we may also encounter dark matter particles or stars */
-                if(r2 < kernel.HH)
+                if(r2 < kernel.HH && r2 < All.FOFHaloComovingLinkingLength)
                 {
                     if(P[j].Potential < O->BH_MinPot)
                     {
@@ -632,7 +633,7 @@ void blackhole_make_one(int index) {
     BHP(child).ID = P[child].ID;
     BHP(child).Mass = All.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
-    BHP(child).MinPot = BHPOTVALUEINIT;
+
     /* It is important to initialize MinPotPos to the current position of 
      * a BH to avoid drifting to unknown locations (0,0,0) immediately 
      * after the BH is created. */
@@ -642,6 +643,7 @@ void blackhole_make_one(int index) {
         BHP(child).MinPotVel[j] = P[child].Vel[j];
     }
 
+    BHP(child).MinPot = P[child].Potential;
     BHP(child).CountProgs = 1;
 }
 

@@ -132,13 +132,6 @@
 #endif
 
 
-#ifndef FOF_PRIMARY_LINK_TYPES
-#define FOF_PRIMARY_LINK_TYPES 2
-#endif
-
-#ifndef FOF_SECONDARY_LINK_TYPES
-#define FOF_SECONDARY_LINK_TYPES 0
-#endif
 
 #ifndef ASMTH
 /*! ASMTH gives the scale of the short-range/long-range force split in units of FFT-mesh cells */
@@ -282,10 +275,12 @@ extern int GlobFlag;
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
 
-/* the below numbers are inexact unless rearrange_particle_sequence is called */
-extern int N_sph;		/*!< number of used items in SphP */
-extern int N_bh;		/*!< number of used items in BhP */
-extern int N_star;   
+/* Local number of particles; this shall be made into an array */
+extern int NumPart;
+extern int N_dm;
+extern int N_sph;
+extern int N_bh;
+extern int N_star;
 
 extern gsl_rng *random_generator;	/*!< the random number generator used */
 
@@ -317,8 +312,9 @@ extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
  */
 extern struct global_data_all_processes
 {
-    int64_t TotNumPart;		/*!<  total particle numbers (global value) */
-    int64_t TotN_sph;		/*!<  total gas particle number (global value) */
+    int64_t TotNumPart;
+    int64_t TotN_sph;
+    int64_t TotN_dm;
     int64_t TotN_bh;
     int64_t TotN_star;
     int64_t TotN_neutrinos;
@@ -613,8 +609,9 @@ extern struct global_data_all_processes
 #endif
 
 #ifdef FOF
-    double MinFoFMassForNewSeed;	/*!< Halo mass required before new seed is put in */
-    double FOFHaloLinkingLength;
+    double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
+    double FOFHaloLinkingLength;    
+    double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
     double TimeNextSeedingCheck;
     double TimeBetweenSeedingSearch;

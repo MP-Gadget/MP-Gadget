@@ -61,9 +61,11 @@ int Flag_FullStep;		/*!< Flag used to signal that the current step involves all 
 int GlobFlag;
 
 
-int NumPart;			/*!< total number of particles on the LOCAL processor */
-int N_sph;			/*!< number of gas particles on the LOCAL processor  */
-int N_bh;			/*!< number of bh particles on the LOCAL processor  */
+/* Local number of particles; this shall be made into an array */
+int NumPart;
+int N_dm;
+int N_sph;
+int N_bh;
 int N_star;
 
 gsl_rng *random_generator;	/*!< the random number generator used */
