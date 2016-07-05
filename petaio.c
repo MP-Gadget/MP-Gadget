@@ -93,7 +93,7 @@ static void petaio_save_internal(char * fname) {
             fflush(stdout);
         }
         petaio_build_buffer(&array, &IOTable.ent[i], NULL, 0);
-        petaio_save_block(&bf, blockname, &array, All.NumFilesPerSnapshot, All.NumWritersPerSnapshot);
+        petaio_save_block(&bf, blockname, &array, All.NumPartPerFile, All.NumWriters);
         petaio_destroy_buffer(&array);
     }
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)){
@@ -461,102 +461,58 @@ void petaio_destroy_buffer(BigArray * array) {
 
 /* read a block from disk, spread the values to memory with setters  */
 void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
-    MPI_Comm GROUP;
-    int GroupSize;
-    int ThisColor;
-    int ThisKey;
-    /* Split the wolrd into writer groups */
-    ThisColor = ThisTask * All.NumWritersPerSnapshot/ NTask;
-    MPI_Comm_split(MPI_COMM_WORLD, ThisColor, 0, &GROUP);
-    MPI_Comm_rank(GROUP, &ThisKey);
-    MPI_Comm_size(GROUP, &GroupSize);
-
-    BigBlock bb = {0};
-    int i;
+    BigBlock bb;
     BigBlockPtr ptr;
+    int i;
 
     int64_t offset = count_to_offset(array->dims[0]);
 
     /* open the block */
     if(0 != big_file_mpi_open_block(bf, &bb, blockname, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "Failed to open block at %s:%s\n", blockname,
-                    big_file_get_error_message());
-        }
-        abort();
+        endrun(12345, "Failed to open block at %s:%s\n", blockname,
+                big_file_get_error_message());
     }
     
+    if(0 != big_block_seek(&bb, &ptr, 0)) {
+        endrun(12345, "Failed to seek: %s\n", big_file_get_error_message());
+    }
 
-    /* read the buffers one by one in each writer group */
-    for(i = 0; i < GroupSize; i ++) {
-        MPI_Barrier(GROUP);
-        if(i != ThisKey) continue;
-        if(0 != big_block_seek(&bb, &ptr, offset)) {
-            endrun(12345, "Failed to seek: %s\n", big_file_get_error_message());
-            abort();
-        }
-        //printf("Task = %d, writing at %td\n", ThisTask, offsetLocal);
-        if(0 != big_block_read(&bb, &ptr, array)) {
-            endrun(12345, "Failed to readform  block: %s\n", big_file_get_error_message());
-        }
+    if(0 != big_block_mpi_read(&bb, &ptr, array, All.NumWriters, MPI_COMM_WORLD)) {
+        endrun(12345, "Failed to read form  block: %s\n", big_file_get_error_message());
     }
 
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "Failed to close block at %s:%s\n", blockname,
+        endrun(12345, "Failed to close block at %s:%s\n", blockname,
                     big_file_get_error_message());
-        }
-        abort();
     }
-    MPI_Comm_free(&GROUP);
 }
 
 /* save a block to disk */
-void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int NumFiles, int NumWriters) {
+void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, size_t ppfile, int NumWriters) {
 
-    MPI_Comm GROUP;
-    int GroupSize;
-    int ThisColor;
-    int ThisKey;
-    /* Split the wolrd into writer groups */
-    ThisColor = ThisTask * NumWriters / NTask;
-    MPI_Comm_split(MPI_COMM_WORLD, ThisColor, 0, &GROUP);
-    MPI_Comm_rank(GROUP, &ThisKey);
-    MPI_Comm_size(GROUP, &GroupSize);
-
-    BigBlock bb = {0};
-    int i;
+    BigBlock bb;
     BigBlockPtr ptr;
+    int i;
 
     int64_t offset = count_to_offset(array->dims[0]);
     size_t size = count_sum(array->dims[0]);
+    int NumFiles = (size + ppfile - 1) / ppfile;
 
     if(ThisTask == 0) {
         printf("Will write %td particles to %d Files\n", size, NumFiles);
     }
-    /* skip the 0 size blocks */
-    if(size == 0) return;
+
     /* create the block */
     /* dims[1] is the number of members per item */
     if(0 != big_file_mpi_create_block(bf, &bb, blockname, array->dtype, array->dims[1], NumFiles, size, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "Failed to create block at %s:%s\n", blockname,
+        endrun(124455, "Failed to create block at %s:%s\n", blockname,
                     big_file_get_error_message());
-        }
-        abort();
     }
-    
-    /* write the buffers one by one in each writer group */
-    for(i = 0; i < GroupSize; i ++) {
-        MPI_Barrier(GROUP);
-        if(i != ThisKey) continue;
-        if(0 != big_block_seek(&bb, &ptr, offset)) {
-            endrun(124455, "Failed to seek:%s\n", big_file_get_error_message());
-        }
-        //printf("Task = %d, writing at %td\n", ThisTask, offsetLocal);
-        if(0 != big_block_write(&bb, &ptr, array)) {
-            endrun(124455, "Failed to write :%s\n", big_file_get_error_message());
-        }
+    if(0 != big_block_seek(&bb, &ptr, 0)) {
+        endrun(124455, "Failed to seek:%s\n", big_file_get_error_message());
+    }
+    if(0 != big_block_mpi_write(&bb, &ptr, array, NumWriters, MPI_COMM_WORLD)) {
+        endrun(124455, "Failed to write :%s\n", big_file_get_error_message());
     }
 
     if(ThisTask == 0) {
@@ -564,12 +520,9 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, int Num
     }
 
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            endrun(12345, "Failed to close block at %s:%s\n", blockname,
-                    big_file_get_error_message());
-        }
+        endrun(12345, "Failed to close block at %s:%s\n", blockname,
+                big_file_get_error_message());
     }
-    MPI_Comm_free(&GROUP);
 }
 
 /* 

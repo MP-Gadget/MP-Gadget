@@ -500,10 +500,8 @@ void read_parameter_file(char *fname)
         All.DensityContrastLimit = param_get_double(ps, "DensityContrastLimit");
         All.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
 
-        All.NumFilesPerSnapshot = param_get_int(ps, "NumFilesPerSnapshot");
-        All.NumWritersPerSnapshot = param_get_int(ps, "NumWritersPerSnapshot");
-        All.NumFilesPerPIG = param_get_int(ps, "NumFilesPerPIG");
-        All.NumWritersPerPIG = param_get_int(ps, "NumWritersPerPIG");
+        All.NumPartPerFile = param_get_int(ps, "NumPartPerFile");
+        All.NumWriters = param_get_int(ps, "NumWriters");
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.RadiationOn = param_get_int(ps, "RadiationOn");
@@ -642,20 +640,6 @@ void read_parameter_file(char *fname)
         All.StarformationOn = 0;
     }
 #endif
-
-
-
-
-
-    if(All.NumWritersPerSnapshot > NTask)
-    {
-       All.NumWritersPerSnapshot = NTask;
-    }
-    if(All.NumWritersPerPIG > NTask)
-    {
-       All.NumWritersPerPIG = NTask;
-    }
-
 
 #ifdef METALS
 #ifndef SFR

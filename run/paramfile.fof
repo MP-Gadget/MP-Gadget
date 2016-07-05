@@ -14,11 +14,6 @@ CpuFile            cpu.txt
 RestartFile        restart
 SnapshotFileBase   snapshot
 
-NumFilesPerSnapshot	  1
-NumWritersPerSnapshot 1
-NumFilesPerPIG       1
-NumWritersPerPIG     1
-
 Nmesh 128
 
 % CPU time -limit

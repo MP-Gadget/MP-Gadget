@@ -329,12 +329,9 @@ extern struct global_data_all_processes
 
     int DoDynamicUpdate;
 
-    int NumFilesPerSnapshot;	/*!< number of files in multi-file snapshot dumps */
-    int NumFilesPerPIG;	/*!< number of files in multi-file snapshot dumps */
-    int NumWritersPerSnapshot;	/*!< maximum number of files that may be written simultaneously when
-                                      writing/reading restart-files, or when writing snapshot files */
+    int NumPartPerFile;   /* Number of particles per physical file */
+    int NumWriters;  /*Number of concurrent writers */
 
-    int NumWritersPerPIG;
     double BufferSize;		/*!< size of communication buffer in MB */
     int BunchSize;     	        /*!< number of particles fitting into the buffer in the parallel tree algorithm  */
 

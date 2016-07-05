@@ -102,65 +102,22 @@ static int human_interaction() {
         FILE * fd;
         if((fd = fopen(ioctlfname, "r"))) {
              /* there is an ioctl file, parse it and update
-              * All.NumFilesPerSnapshot
-              * All.NumFilesPerPIG
-              * All.NumWritersPerSnapshot
-              * All.NumWritersPerPig
+              * All.NumPartPerFile
+              * All.NumWriters
               */
             size_t n = 0;
             char * line = NULL;
-            int NumFilesPerSnapshot = -1;
-            int NumFilesPerPIG = -1;
-            int NumWritersPerSnapshot = -1;
-            int NumWritersPerPIG = -1;
             while(-1 != getline(&line, &n, fd)) {
-                sscanf(line, "NumFilesPerSnapshot %d", &NumFilesPerSnapshot);
-                sscanf(line, "NumWritersPerPIG %d", &NumWritersPerPIG);
-                sscanf(line, "NumFilesPerPIG %d", &NumFilesPerPIG);
-                sscanf(line, "NumWritersPerSnapshot %d", &NumWritersPerSnapshot);
+                sscanf(line, "NumPartPerFile %d", &All.NumPartPerFile);
+                sscanf(line, "NumWriters %d", &All.NumWriters);
             }
             free(line);
-            int changed = 0;
-            if(NumFilesPerSnapshot > 0 &&
-                NumFilesPerSnapshot != All.NumFilesPerSnapshot) {
-                All.NumFilesPerSnapshot = NumFilesPerSnapshot;
-                changed = 1;
-            }
-            if(NumWritersPerSnapshot > 0) {
-                if(All.NumWritersPerSnapshot > NTask) {
-                    All.NumWritersPerSnapshot = NTask;
-                }
-                if(NumWritersPerSnapshot != All.NumWritersPerSnapshot) {
-                    All.NumWritersPerSnapshot = NumWritersPerSnapshot;
-                    changed = 1;
-                }
-            }
-            if(NumFilesPerPIG > 0 &&
-                NumFilesPerPIG != All.NumFilesPerPIG) {
-                All.NumFilesPerPIG = NumFilesPerPIG;
-                changed = 1;
-            }
-            if(NumWritersPerPIG > 0) {
-                if(All.NumWritersPerPIG > NTask) {
-                    All.NumWritersPerPIG = NTask;
-                }
-                if(NumWritersPerPIG != All.NumWritersPerPIG) {
-                    All.NumWritersPerPIG = NumWritersPerPIG;
-                    changed = 1;
-                }
-            }
-            if(changed) {
-                printf("New IO parameter recieved from %s:\n"
-                       "NumFilesPerSnapshot %d\n"
-                       "NumFilesPerPIG      %d\n"
-                       "NumWritersPerSnapshot %d\n"
-                       "NumWritersPerPIG     %d\n",
-                    ioctlfname,
-                    All.NumFilesPerSnapshot,
-                    All.NumFilesPerPIG,
-                    All.NumWritersPerSnapshot,
-                    All.NumWritersPerPIG);
-            }
+            printf("New IO parameter recieved from %s:\n"
+                   "NumPartPerfile %d\n"
+                   "NumWriters %d\n",
+                ioctlfname,
+                All.NumPartPerFile,
+                All.NumWriters);
             fclose(fd);
         }
         /* Is the stop-file present? If yes, interrupt the run. */

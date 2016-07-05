@@ -449,10 +449,8 @@ parameter_set_new()
     param_declare_double(ps, "DensityContrastLimit", 0, 100, "Max contrast for hydro force calculation");
     param_declare_double(ps, "MaxNumNgbDeviation", 0, 2, "");
 
-    param_declare_int(ps, "NumFilesPerSnapshot", 1, 0, "");
-    param_declare_int(ps, "NumWritersPerSnapshot", 1, 0, "");
-    param_declare_int(ps, "NumFilesPerPIG", 1, 0, "");
-    param_declare_int(ps, "NumWritersPerPIG", 1, 0, "");
+    param_declare_int(ps, "NumPartPerFile", 0, 1024 * 1024 * 128, "number of particles per file");
+    param_declare_int(ps, "NumWriters", 0, 0, "Number of concurrent writer processes. 0 implies Number of Tasks ");
 
     param_declare_int(ps, "CoolingOn", 1, 0, "");
     param_declare_int(ps, "StarformationOn", 1, 0, "");

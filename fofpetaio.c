@@ -114,7 +114,7 @@ void fof_save_particles(int num) {
             printf("Writing Block %s\n", blockname);
             fflush(stdout);
         }
-        petaio_save_block(&bf, blockname, &array, All.NumFilesPerPIG, All.NumWritersPerPIG);
+        petaio_save_block(&bf, blockname, &array, All.NumPartPerFile, All.NumWriters);
         petaio_destroy_buffer(&array);
     }
 
