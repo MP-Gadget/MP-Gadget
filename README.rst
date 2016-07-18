@@ -6,7 +6,8 @@ Massively Parallel Cosmological SPH Simulation Software - MP-Gadget.
 Description
 -----------
 
-This version of Gadget is derived from main P-Gadget / Gadget-2.
+This version of Gadget is derived from main P-Gadget / Gadget-2. It is the source code
+used to run the BlueTides simulation (http://bluetides-project.org).
 
 The infrastructure is heavily reworked. As a summary:
 
@@ -34,9 +35,9 @@ First time users:
 
 .. code:: bash
 
-    git clone https://github.com/rainwoodman/MP-Gadget3
+    git clone https://github.com/bluetides-project/MP-Gadget
 
-    cd MP-Gadget3
+    cd MP-Gadget
 
     bash bootstrap.sh
 
@@ -119,10 +120,34 @@ Refer to https://github.com/rainwoodman/bigfile for usage.
 Otherwise directly open the blocks with Fortran or C, noting the data-type
 information and attributes in header and attrs files (in plain text)
 
+Contributors
+------------
+
+Gadget-2 was authored by Volker Springel.
+The original P-GADGET3 was maintained by Volker Springel
+
+MP-Gadget is maintained by Yu Feng.
+
+Contributors to MP-Gadget include:
+
+Simeon Bird, Nicholas Battaglia, Nishikanta Khandai
+
 Citation
 --------
 
 A code paper will be nice.
 We need to obtain a DOI for direct citation of the software.
 
+Licence Issue
+-------------
 
+Most files are licensed under GPLv2+.
+
+Except two files of questionable licences:
+sfr_eff.c and cooling.c.
+
+Please refer to the source files for details.
+
+The source code is put in public domain for reference.
+To enable features in sfr_eff.c and cooling.c for scientific runs,
+consent from the original authors of these files shall be obtained.
