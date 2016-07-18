@@ -135,7 +135,8 @@ Simeon Bird, Nicholas Battaglia, Nishikanta Khandai
 Citation
 --------
 
-A code paper will be nice.
+Please cite 'Feng et al 2016 in prep'. A short paper will be written soon.
+
 We need to obtain a DOI for direct citation of the software.
 
 Licence Issue
