@@ -7,13 +7,13 @@ lib/libmpsort-mpi.a:
 	mkdir -p lib; \
 	mkdir -p include; \
 	cd mpsort; \
-	make install PREFIX=$(PWD) CC=$(CC) MPICC=$(CC) CFLAGS="$(OPTIMIZE)"
+	make install PREFIX=$(PWD) CC="$(CC)" MPICC="$(CC)" CFLAGS="$(OPTIMIZE)"
 
 lib/libbigfile-mpi.a:
 	mkdir -p lib; \
 	mkdir -p include; \
 	cd bigfile/src; \
-	make install PREFIX=$(PWD) CC=$(CC) MPICC=$(CC) CFLAGS="$(OPTIMIZE)"
+	make install PREFIX=$(PWD) CC="$(CC)" MPICC="$(CC)" CFLAGS="$(OPTIMIZE)"
 
 lib/libpfft_omp.a:
 	mkdir -p lib; \
