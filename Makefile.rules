@@ -6,7 +6,7 @@ TARGETS = MP-Gadget GENIC/MP-GenIC
 CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(PWD)/depends/include -DH5_USE_16_API
 
 BUNDLEDLIBS = -lmpsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft_omp -lfftw3_mpi -lfftw3_omp -lfftw3
-LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -L$(PWD)/depends/lib $(BUNDLEDLIBS)
+LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -L$(PWD)/depends/lib $(BUNDLEDLIBS) -lstdc++
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 
