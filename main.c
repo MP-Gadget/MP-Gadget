@@ -9,6 +9,7 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "param.h"
 #include "config.h"
 #include "endrun.h"
 #include "fof.h"

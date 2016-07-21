@@ -95,7 +95,6 @@ void integrate_sfr(void);
 void open_outputfiles(void);
 void peano_hilbert_order(void);
 int read_outputlist(char *fname);
-void read_parameter_file(char *fname);
 void reorder_gas(void);
 void reorder_particles(void);
 void restart(int mod);
