@@ -1169,7 +1169,7 @@ void set_units_sfr(void)
     double meanweight;
 
     All.OverDensThresh =
-        All.CritOverDensity * All.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
+        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
 
     All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
 
@@ -1237,7 +1237,7 @@ static double get_sfr_factor_due_to_h2(int i) {
     tau_fmol = ev_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
     tau_fmol *= (0.1 + zoverzsun);
     if(tau_fmol>0) {
-        tau_fmol *= 434.78*All.UnitDensity_in_cgs*All.HubbleParam*All.UnitLength_in_cm;
+        tau_fmol *= 434.78*All.UnitDensity_in_cgs*All.CP.HubbleParam*All.UnitLength_in_cm;
         double y = 0.756*(1+3.1*pow(zoverzsun,0.365));
         y = log(1+0.6*y+0.01*y*y)/(0.6*tau_fmol);
         y = 1-0.75*y/(1+0.25*y);

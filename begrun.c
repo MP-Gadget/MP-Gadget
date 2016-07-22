@@ -149,37 +149,6 @@ void set_units(void)
 
     All.Hubble = HUBBLE * All.UnitTime_in_s;
 
-    /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
-     * A note on normalisation (as of 08/02/2012):
-     * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
-     * calculating Omega_K in the code and specifying Omega_Lambda and Omega_Matter in the paramfile.
-     * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
-     * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
-     */
-
-    All.OmegaCDM = All.Omega0 - All.OmegaBaryon;
-    All.OmegaK = 1.0 - All.Omega0 - All.OmegaLambda;
-
-    /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
-
-    All.OmegaG = 4 * STEFAN_BOLTZMANN
-                  * pow(All.CMBTemperature, 4)
-                  * (8 * M_PI * GRAVITY)
-                  / (3*C*C*C*HUBBLE*HUBBLE)
-                  / (All.HubbleParam*All.HubbleParam);
-
-    /* Neutrino + antineutrino background temperature as a ratio to T_CMB0
-     * Note there is a slight correction from 4/11
-     * due to the neutrinos being slightly coupled at e+- annihilation.
-     * See Mangano et al 2005 (hep-ph/0506164)
-     * The correction is (3.046/3)^(1/4), for N_eff = 3.046 */
-    double TNu0_TCMB0 = pow(4/11., 1/3.) * 1.00328;
-
-    /* For massless neutrinos,
-     * rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff,
-     * but we absorbed N_eff into T_nu above. */
-    All.OmegaNu0 = All.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
-
     if(ThisTask == 0)
     {
         printf("\nHubble (internal units) = %g\n", All.Hubble);
@@ -189,14 +158,14 @@ void set_units(void)
         printf("UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);
         printf("UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
         printf("UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
-        printf("Photon density OmegaG = %g\n",All.OmegaG);
-        printf("Massless Neutrino density OmegaNu0 = %g\n",All.OmegaNu0);
-        printf("Curvature density OmegaK = %g\n",All.OmegaK);
-        if(All.RadiationOn) {
+        printf("Photon density OmegaG = %g\n",All.CP.OmegaG);
+        printf("Massless Neutrino density OmegaNu0 = %g\n",All.CP.OmegaNu0);
+        printf("Curvature density OmegaK = %g\n",All.CP.OmegaK);
+        if(All.CP.RadiationOn) {
             /* note that this value is inaccurate if there is massive neutrino. */
             printf("Radiation is enabled in Hubble(a). \n"
                    "Following CAMB convention: Omega_Tot - 1 = %g\n",
-                All.OmegaG + All.OmegaNu0 + All.OmegaK + All.Omega0 + All.OmegaLambda - 1);
+                All.CP.OmegaG + All.CP.OmegaNu0 + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda - 1);
         }
         printf("\n");
     }

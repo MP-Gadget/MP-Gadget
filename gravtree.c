@@ -247,7 +247,7 @@ static void gravtree_post_process(int i)
     P[i].Potential += P[i].Mass / All.SofteningTable[P[i].Type];
 
     P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) *
-        pow(All.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G), 1.0 / 3);
+        pow(All.CP.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G), 1.0 / 3);
 
     P[i].Potential *= All.G;
 

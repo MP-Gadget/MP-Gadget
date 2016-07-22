@@ -41,6 +41,7 @@
 #define omp_get_thread_num()  (0)
 #endif
 
+#include "cosmology.h"
 #include "walltime.h"
 
 #include "assert.h"
@@ -392,20 +393,9 @@ extern struct global_data_all_processes
            G;				/*!< Gravity-constant in internal units */
     double UnitDensity_in_Gev_per_cm3; /*!< factor to convert internal density unit to GeV/c^2 / cm^3 */
     /* Cosmology */
+    Cosmology CP;
 
-    double Hubble;		/*!< Hubble-constant in internal units */
-
-    double CMBTemperature;
-    double Omega0,		/*!< matter density in units of the critical density (at z=0) */
-           OmegaCDM, /* CDM density, derived from Omega0 and OmegaBaryon */
-           OmegaG, /* Photon density, derived from T_CMB0 */
-           OmegaK, /* Curvature density, derived from Omega0 and OmegaLambda */
-           OmegaNu0, /* Massless Neutrino density, derived from T_CMB0, useful only if there are no massive neutrino particles */
-           OmegaLambda,		/*!< vaccum energy density relative to crictical density (at z=0) */
-           OmegaBaryon,		/*!< baryon density in units of the critical density (at z=0) */
-           HubbleParam;		/*!< little `h', i.e. Hubble constant in units of 100 km/s/Mpc.  Only needed to get absolute
-                             * physical values for cooling physics
-                             */
+    double Hubble; /*!< Hubble-constant in internal units */
 
     double BoxSize;		/*!< Boxsize in case periodic boundary conditions are used */
 
@@ -421,7 +411,6 @@ extern struct global_data_all_processes
     enum StarformationCriterion StarformationCriterion;		/*!< flags that star formation is enabled */
     enum WindModel WindModel;		/*!< flags that star formation is enabled */
 
-    int RadiationOn; /*!< flags whether to include the radiation density in the background*/
     int NoTreeType; /*!< flags a particle species to exclude from tree forces*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     /* parameters determining output frequency */

@@ -121,9 +121,9 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
     double LambdaNet;
     int iter = 0;
 
-    rho *= All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam;	/* convert to physical cgs units */
+    rho *= All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;	/* convert to physical cgs units */
     u_old *= All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
-    dt *= All.UnitTime_in_s / All.HubbleParam;
+    dt *= All.UnitTime_in_s / All.CP.HubbleParam;
 
     double nHcgs = XH * rho / PROTONMASS;	/* hydrogen number dens in cgs units */
     ratefact = nHcgs * nHcgs / rho;
@@ -204,7 +204,7 @@ double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg, double *ne_g
     double ratefact;
     double LambdaNet, coolingtime;
 
-    rho *= All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam;	/* convert to physical cgs units */
+    rho *= All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;	/* convert to physical cgs units */
     u_old *= All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
 
 
@@ -222,7 +222,7 @@ double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg, double *ne_g
 
     coolingtime = u_old / (-ratefact * LambdaNet);
 
-    coolingtime *= All.HubbleParam / All.UnitTime_in_s;
+    coolingtime *= All.CP.HubbleParam / All.UnitTime_in_s;
 
     return coolingtime;
 }
@@ -440,7 +440,7 @@ double AbundanceRatios(double u, double rho, struct UVBG * uvbg, double *ne_gues
     double temp;
     struct abundance y;
 
-    rho *= All.UnitDensity_in_cgs * All.HubbleParam * All.HubbleParam;	/* convert to physical cgs units */
+    rho *= All.UnitDensity_in_cgs * All.CP.HubbleParam * All.CP.HubbleParam;	/* convert to physical cgs units */
     u *= All.UnitPressure_in_cgs / All.UnitDensity_in_cgs;
 
     double nHcgs = rho / PROTONMASS * XH;

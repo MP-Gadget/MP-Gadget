@@ -277,11 +277,11 @@ static void fof_write_header(BigFile * bf) {
     big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6);
     big_block_set_attr(&bh, "Time", &All.Time, "f8", 1);
     big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1);
-    big_block_set_attr(&bh, "OmegaLambda", &All.OmegaLambda, "f8", 1);
-    big_block_set_attr(&bh, "Omega0", &All.Omega0, "f8", 1);
-    big_block_set_attr(&bh, "HubbleParam", &All.HubbleParam, "f8", 1);
-    big_block_set_attr(&bh, "CMBTemperature", &All.CMBTemperature, "f8", 1);
-    big_block_set_attr(&bh, "OmegaBaryon", &All.OmegaBaryon, "f8", 1);
+    big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1);
+    big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1);
+    big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1);
+    big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1);
+    big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1);
     big_block_mpi_close(&bh, MPI_COMM_WORLD);
 }
 

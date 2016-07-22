@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include "paramset.h"
+#include <string.h>
+#include "utils-string.h"
 
 #define INT 1
 #define DOUBLE 3
@@ -54,7 +55,7 @@ static char * format_enum(ParameterEnum * table, int value) {
             value -= p->value;
         }
     }
-    return strdup(buffer);
+    return fastpm_strdup(buffer);
 }
 
 typedef struct ParameterValue {
@@ -175,23 +176,6 @@ void param_dump(ParameterSet * ps, FILE * stream)
     fflush(stream);
 }
 
-static char *
-fread_all(const char * filename)
-{
-    FILE * fp = fopen(filename, "r");
-    if(!fp){
-        return NULL;
-    }
-    fseek(fp, 0, SEEK_END);
-    int size = ftell(fp);
-    char * r = malloc(size + 1);
-    fseek(fp, 0, SEEK_SET);
-    fread(r, 1, size, fp);
-    r[size] = 0;
-    fclose(fp);
-    return r;
-}
-
 int param_parse (ParameterSet * ps, char * content)
 {
     int i;
@@ -218,7 +202,7 @@ int param_parse (ParameterSet * ps, char * content)
 
 int param_parse_file (ParameterSet * ps, const char * filename)
 {
-    char * content = fread_all(filename);
+    char * content = fastpm_file_get_content(filename);
     if(content == NULL) {
         return -1;
     }
@@ -241,7 +225,7 @@ param_declare(ParameterSet * ps, char * name, int type, int required, char * hel
     ps->p[free].action = NULL;
     ps->p[free].defvalue.s = NULL;
     if(help)
-        ps->p[free].help = strdup(help);
+        ps->p[free].help = fastpm_strdup(help);
     ps->size ++;
     return &ps->p[free];
 }
@@ -270,7 +254,7 @@ param_declare_string(ParameterSet * ps, char * name, int required, char * defval
     ParameterSchema * p = param_declare(ps, name, STRING, required, help);
     if(!required) {
         if(defvalue != NULL) {
-            p->defvalue.s = strdup(defvalue);
+            p->defvalue.s = fastpm_strdup(defvalue);
             p->defvalue.nil = 0;
         } else {
             /* The handling of nil is not consistent yet! Only string can be non-required and have nil value.
@@ -346,7 +330,7 @@ param_format_value(ParameterSet * ps, char * name)
 {
     ParameterSchema * p = param_get_schema(ps, name);
     if(ps->value[p->index].nil) {
-        return strdup("NIL");
+        return fastpm_strdup("NIL");
     }
     switch(p->type) {
         case INT:
@@ -354,7 +338,7 @@ param_format_value(ParameterSet * ps, char * name)
             int i = ps->value[p->index].i;
             char buf[128];
             snprintf(buf, 128, "%d", i);
-            return strdup(buf);
+            return fastpm_strdup(buf);
         }
         break;
         case DOUBLE:
@@ -362,12 +346,12 @@ param_format_value(ParameterSet * ps, char * name)
             double d = ps->value[p->index].d;
             char buf[128];
             snprintf(buf, 128, "%g", d);
-            return strdup(buf);
+            return fastpm_strdup(buf);
         }
         break;
         case STRING:
         {
-            return strdup(ps->value[p->index].s);
+            return fastpm_strdup(ps->value[p->index].s);
         }
         break;
         case ENUM:
@@ -402,13 +386,13 @@ param_set_from_string(ParameterSet * ps, char * name, char * value)
         break;
         case STRING:
         {
-            ps->value[p->index].s = strdup(value);
+            ps->value[p->index].s = fastpm_strdup(value);
             ps->value[p->index].nil = 0;
         }
         break;
         case ENUM:
         {
-            char * v = strdup(value);
+            char * v = fastpm_strdup(value);
             ps->value[p->index].i = parse_enum(p->enumtable, v);
             free(v);
             ps->value[p->index].nil = 0;

@@ -623,19 +623,19 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
         {
             if(type == 0 || (type == 4 && All.StarformationOn))
                 dmean =
-                    pow(min_mass[type] / (All.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
+                    pow(min_mass[type] / (All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
                             1.0 / 3);
             else
                 /* FIXME: @sbird watch out for this for neutrinos */
                 dmean =
                     pow(min_mass[type] /
-                            ((All.OmegaCDM) * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
+                            ((All.CP.OmegaCDM) * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
                             1.0 / 3);
 
 #ifdef BLACK_HOLES
             if(type == 5)
                 dmean =
-                    pow(min_mass[type] / (All.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
+                    pow(min_mass[type] / (All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
                             1.0 / 3);
 #endif
             dt = All.MaxRMSDisplacementFac * hfac * dmean / sqrt(v_sum[type] / count_sum[type]);
