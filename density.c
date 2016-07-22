@@ -110,7 +110,7 @@ void density(void)
     ev.ev_datain_elsize = sizeof(struct densdata_in);
     ev.ev_dataout_elsize = sizeof(struct densdata_out);
 
-    int i, npleft, iter = 0;
+    int i, iter = 0;
 
     int64_t ntot = 0;
 
@@ -164,7 +164,7 @@ void density(void)
 
         queue = ev_get_queue(&ev, &Nactive);
 
-        npleft = 0;
+        int npleft = 0;
 #pragma omp parallel for if(Nactive > 32)
         for(i = 0; i < Nactive; i++) {
             int p = queue[i];
@@ -214,8 +214,7 @@ void density(void)
 
             if(iter > 0 && ThisTask == 0)
             {
-                printf("ngb iteration %d: need to repeat for %d%09d particles.\n", iter,
-                        (int) (ntot / 1000000000), (int) (ntot % 1000000000));
+                printf("ngb iteration %d: need to repeat for %ld particles.\n", iter, ntot);
                 fflush(stdout);
             }
 

@@ -13,7 +13,7 @@ OPTIONS = $(OPTIMIZE) $(OPT)
 OBJECTS  =  \
 	 gdbtools.o \
 	 fof.o fofpetaio.o petaio.o \
-	 param.o \
+	 param.o paramset.o \
 	 domain.o allvars.o main.o \
 	 blackhole.o \
 	 run.o predict.o begrun.o endrun.o global.o \
