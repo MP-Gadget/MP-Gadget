@@ -7,8 +7,8 @@
 #include <pfft.h>
 
 #include "petapm.h"
-#include "allvars.h"
-#include "proto.h"
+#include "genic-allvars.h"
+#include "genic-proto.h"
 #include "walltime.h"
 
 #define MESH2K(i) petapm_mesh_to_k(i)

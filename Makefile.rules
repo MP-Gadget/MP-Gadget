@@ -1,7 +1,7 @@
 # vim: set ft=make:
 DESTDIR ?= .
 
-TARGETS = MP-Gadget GENIC/MP-GenIC
+TARGETS = MP-Gadget MP-GenIC
 
 CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(PWD)/depends/include -DH5_USE_16_API
 
@@ -29,13 +29,13 @@ OBJECTS  =  \
 	 densitykernel.o interp.o lightcone.o walltime.o \
 	 cppexample.o
 
-ICOBJECTS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
+ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
 		 petapm.o \
         paramset.o \
         utils-string.o \
 		 openmpsort.o \
-		 GENIC/zeldovich.o \
-		GENIC/save2.o  \
+		genic-zeldovich.o \
+		genic-save.o  \
 		walltime.o \
         mymalloc.o \
         endrun.o \
@@ -56,13 +56,10 @@ all: depends $(EXEC)
 depends:
 	cd depends; make
 
-$(DESTDIR)/GENIC:
-	mkdir -p $@
-
 $(DESTDIR)/MP-Gadget: $(OBJS)
 	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
 
-$(DESTDIR)/GENIC/MP-GenIC: $(DESTDIR)/GENIC $(ICOBJS)
+$(DESTDIR)/MP-GenIC: $(ICOBJS)
 	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
 $(DESTDIR)/config.h: Makefile

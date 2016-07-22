@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <mpi.h>
-#include "allvars.h"
-#include "proto.h"
+#include "genic-allvars.h"
+#include "genic-proto.h"
 #include "endrun.h"
 #include "paramset.h"
 

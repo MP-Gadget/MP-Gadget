@@ -3,8 +3,8 @@
 #include <math.h>
 #include <mpi.h>
 #include <gsl/gsl_integration.h>
-#include "allvars.h"
-#include "proto.h"
+#include "genic-allvars.h"
+#include "genic-proto.h"
 #include "endrun.h"
 
 
