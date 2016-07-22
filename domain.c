@@ -147,11 +147,7 @@ void domain_Decomposition(void)
 
         All.NumForcesSinceLastDomainDecomp = 0;
 
-        if(ThisTask == 0)
-        {
-            printf("domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
-            fflush(stdout);
-        }
+        message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
         t0 = second();
 
@@ -186,23 +182,15 @@ void domain_Decomposition(void)
             memset(topNodes, 0, sizeof(topNodes[0]) * MaxTopNodes);
             all_bytes += bytes;
 
-            if(ThisTask == 0)
-            {
-                printf
-                    ("use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
+            message(0, "use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
                      all_bytes / (1024.0 * 1024.0), AllocatedBytes / (1024.0 * 1024.0));
-                fflush(stdout);
-            }
 
             maxLoad = (int) (All.MaxPart * REDUC_FAC);
             maxLoadsph = (int) (All.MaxPartSph * REDUC_FAC);
 
             report_memory_usage("DOMAIN");
 #ifdef DEBUG
-            if(ThisTask == 0) {
-                printf("Testing ID Uniqueness before domain decompose\n");
-                fflush(stdout);
-            }
+            message(0, "Testing ID Uniqueness before domain decompose\n");
             test_id_uniqueness();
 #endif
             ret = domain_decompose();
@@ -231,16 +219,11 @@ void domain_Decomposition(void)
             if(retsum)
             {
                 domain_free();
-                if(ThisTask == 0)
-                    printf("Increasing TopNodeAllocFactor=%g  ", All.TopNodeAllocFactor);
+                message(0, "Increasing TopNodeAllocFactor=%g  ", All.TopNodeAllocFactor);
 
                 All.TopNodeAllocFactor *= 1.3;
 
-                if(ThisTask == 0)
-                {
-                    printf("new value=%g\n", All.TopNodeAllocFactor);
-                    fflush(stdout);
-                }
+                message(0, "new value=%g\n", All.TopNodeAllocFactor);
 
                 if(All.TopNodeAllocFactor > 1000)
                 {
@@ -253,11 +236,7 @@ void domain_Decomposition(void)
 
         t1 = second();
 
-        if(ThisTask == 0)
-        {
-            printf("domain decomposition done. (took %g sec)\n", timediff(t0, t1));
-            fflush(stdout);
-        }
+        message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
 
 #ifdef PEANOHILBERT
         peano_hilbert_order();
@@ -270,8 +249,7 @@ void domain_Decomposition(void)
         TopNodes = (struct topnode_data *) myrealloc(TopNodes, bytes =
                 (NTopnodes * sizeof(struct topnode_data) +
                  NTopnodes * sizeof(int)));
-        if(ThisTask == 0)
-            printf("Freed %g MByte in top-level domain structure\n",
+        message(0, "Freed %g MByte in top-level domain structure\n",
                     (MaxTopNodes - NTopnodes) * sizeof(struct topnode_data) / (1024.0 * 1024.0));
 
         DomainTask = (int *) (TopNodes + NTopnodes);
@@ -300,8 +278,7 @@ void domain_allocate(void)
 
     DomainTask = (int *) (TopNodes + MaxTopNodes);
 
-    if(ThisTask == 0)
-        printf("Allocated %g MByte for top-level domain structure\n", all_bytes / (1024.0 * 1024.0));
+    message(0, "Allocated %g MByte for top-level domain structure\n", all_bytes / (1024.0 * 1024.0));
 
     domain_allocated_flag = 1;
 }
@@ -459,9 +436,7 @@ int domain_decompose(void)
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
     {
-        if(ThisTask == 0)
-            printf
-                ("Note: the domain decomposition is suboptimum because the ceiling for memory-imbalance is reached\n");
+        message(0, "Note: the domain decomposition is suboptimum because the ceiling for memory-imbalance is reached\n");
 
         domain_findSplit_load_balanced(All.DomainOverDecompositionFactor * NTask, NTopleaves);
 
@@ -474,44 +449,40 @@ int domain_decompose(void)
 
         if(status != 0)
         {
-            if(ThisTask == 0)
-                endrun(0, "No domain decomposition that stays within memory bounds is possible.\n");
+            endrun(0, "No domain decomposition that stays within memory bounds is possible.\n");
         }
     }
 
 
-    if(ThisTask == 0)
+    sumload = maxload = 0;
+    sumwork = sumcpu = sumcost = maxwork = 0;
+    for(i = 0; i < NTask; i++)
     {
-        sumload = maxload = 0;
-        sumwork = sumcpu = sumcost = maxwork = 0;
-        for(i = 0; i < NTask; i++)
-        {
-            sumload += list_load[i];
-            sumwork += list_speedfac[i] * list_work[i];
-            sumcpu += list_cadj_cpu[i];
-            sumcost += list_cadj_cost[i];
+        sumload += list_load[i];
+        sumwork += list_speedfac[i] * list_work[i];
+        sumcpu += list_cadj_cpu[i];
+        sumcost += list_cadj_cost[i];
 
-            if(list_load[i] > maxload)
-                maxload = list_load[i];
+        if(list_load[i] > maxload)
+            maxload = list_load[i];
 
-            if(list_speedfac[i] * list_work[i] > maxwork)
-                maxwork = list_speedfac[i] * list_work[i];
-        }
+        if(list_speedfac[i] * list_work[i] > maxwork)
+            maxwork = list_speedfac[i] * list_work[i];
+    }
 
-        printf("work-load balance=%g   memory-balance=%g\n",
-                maxwork / (sumwork / NTask), maxload / (((double) sumload) / NTask));
+    message(0, "work-load balance=%g   memory-balance=%g\n",
+            maxwork / (sumwork / NTask), maxload / (((double) sumload) / NTask));
 
 #ifdef VERBOSE
-        printf("Speedfac:\n");
-        for(i = 0; i < NTask; i++)
-        {
-            printf("Speedfac [%3d]  speedfac=%8.4f  work=%8.4f   load=%8.4f   cpu=%8.4f   cost=%8.4f \n", i,
-                    list_speedfac[i], list_speedfac[i] * list_work[i] / (sumwork / NTask),
-                    list_load[i] / (((double) sumload) / NTask), list_cadj_cpu[i] / (sumcpu / NTask),
-                    list_cadj_cost[i] / (sumcost / NTask));
-        }
-#endif
+    message(0, "Speedfac:\n");
+    for(i = 0; i < NTask; i++)
+    {
+        message(0, "Speedfac [%3d]  speedfac=%8.4f  work=%8.4f   load=%8.4f   cpu=%8.4f   cost=%8.4f \n", i,
+                list_speedfac[i], list_speedfac[i] * list_work[i] / (sumwork / NTask),
+                list_load[i] / (((double) sumload) / NTask), list_cadj_cpu[i] / (sumcpu / NTask),
+                list_cadj_cost[i] / (sumcost / NTask));
     }
+#endif
 
     walltime_measure("/Domain/Decompose/Misc");
     domain_exchange(domain_layoutfunc);
@@ -578,12 +549,8 @@ void domain_exchange(int (*layoutfunc)(int p)) {
 
         sumup_longs(1, &sumtogo, &sumtogo);
 
-        if(ThisTask == 0)
-        {
-            printf("iter=%d exchange of %d%09d particles\n", iter,
-                    (int) (sumtogo / 1000000000), (int) (sumtogo % 1000000000));
-            fflush(stdout);
-        }
+        message(0, "iter=%d exchange of %d%09d particles\n", iter,
+                (int) (sumtogo / 1000000000), (int) (sumtogo % 1000000000));
 
         domain_exchange_once(layoutfunc);
         iter++;
@@ -634,22 +601,16 @@ int domain_check_memory_bound(void)
 
     if(max_load > maxLoad)
     {
-        if(ThisTask == 0)
-        {
-            printf("desired memory imbalance=%g  (limit=%d, needed=%d)\n",
+        message(0, "desired memory imbalance=%g  (limit=%d, needed=%d)\n",
                     (max_load * All.PartAllocFactor) / maxLoad, maxLoad, max_load);
-        }
 
         return 1;
     }
 
     if(max_sphload > maxLoadsph)
     {
-        if(ThisTask == 0)
-        {
-            printf("desired memory imbalance=%g  (SPH) (limit=%d, needed=%d)\n",
+        message(0, "desired memory imbalance=%g  (SPH) (limit=%d, needed=%d)\n",
                     (max_sphload * All.PartAllocFactor) / maxLoadsph, maxLoadsph, max_sphload);
-        }
 
         return 1;
     }
@@ -871,7 +832,7 @@ void domain_garbage_collection() {
 
     int total0 = 0;
 
-    MPI_Reduce(&N_bh, &total0, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
+    MPI_Allreduce(&N_bh, &total0, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
 #pragma omp parallel for
     for(i = 0; i < All.MaxPartBh; i++) {
@@ -926,9 +887,9 @@ void domain_garbage_collection() {
         endrun(1, "bh count failed2, j=%d, N_bh=%d\n", j, N_bh);
     }
 
-    MPI_Reduce(&N_bh, &total, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0 && total != total0) {
-        printf("After BH garbage collection, before = %d after= %d\n", total0, total);
+    MPI_Allreduce(&N_bh, &total, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    if(total != total0) {
+        message(0, "After BH garbage collection, before = %d after= %d\n", total0, total);
     }
 
     N_bh = 0;
@@ -1352,17 +1313,12 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
                     MPI_Bcast(&count_toget_bh, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     if((ntoomany = list_N_sph[ta] + count_toget_sph - count_togo_sph - All.MaxPartSph) > 0)
                     {
-                        if(ThisTask == 0)
-                        {
-                            printf
-                                ("exchange needs to be modified because I can't receive %d SPH-particles on task=%d\n",
+                        message (0, "exchange needs to be modified because I can't receive %d SPH-particles on task=%d\n",
                                  ntoomany, ta);
-                            if(flagsum > 25)
-                                printf("list_N_sph[ta=%d]=%d  count_toget_sph=%d count_togo_sph=%d\n",
+                        if(flagsum > 25) {
+                            message(0, "list_N_sph[ta=%d]=%d  count_toget_sph=%d count_togo_sph=%d\n",
                                         ta, list_N_sph[ta], count_toget_sph, count_togo_sph);
-                            fflush(stdout);
                         }
-
                         flag = 1;
                         i = flagsum % NTask;
                         while(ntoomany)
@@ -1388,16 +1344,11 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
                     }
                     if((ntoomany = list_N_bh[ta] + count_toget_bh - count_togo_bh - All.MaxPartBh) > 0)
                     {
-                        if(ThisTask == 0)
-                        {
-                            printf
-                                ("exchange needs to be modified because I can't receive %d BH-particles on task=%d\n",
-                                 ntoomany, ta);
-                            if(flagsum > 25)
-                                printf("list_N_bh[ta=%d]=%d  count_toget_bh=%d count_togo_bh=%d\n",
-                                        ta, list_N_bh[ta], count_toget_bh, count_togo_bh);
-                            fflush(stdout);
-                        }
+                        message(0, "exchange needs to be modified because I can't receive %d BH-particles on task=%d\n",
+                                ntoomany, ta);
+                        if(flagsum > 25)
+                            message(0, "list_N_bh[ta=%d]=%d  count_toget_bh=%d count_togo_bh=%d\n",
+                                    ta, list_N_bh[ta], count_toget_bh, count_togo_bh);
 
                         flag = 1;
                         i = flagsum % NTask;
@@ -1425,16 +1376,11 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
 
                     if((ntoomany = list_NumPart[ta] + count_toget - count_togo - All.MaxPart) > 0)
                     {
-                        if(ThisTask == 0)
-                        {
-                            printf
-                                ("exchange needs to be modified because I can't receive %d particles on task=%d\n",
-                                 ntoomany, ta);
-                            if(flagsum > 25)
-                                printf("list_NumPart[ta=%d]=%d  count_toget=%d count_togo=%d\n",
-                                        ta, list_NumPart[ta], count_toget, count_togo);
-                            fflush(stdout);
-                        }
+                        message (0, "exchange needs to be modified because I can't receive %d particles on task=%d\n",
+                             ntoomany, ta);
+                        if(flagsum > 25)
+                            message(0, "list_NumPart[ta=%d]=%d  count_toget=%d count_togo=%d\n",
+                                    ta, list_NumPart[ta], count_toget, count_togo);
 
                         flag = 1;
                         i = flagsum % NTask;
@@ -1461,13 +1407,9 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
                 }
                 flagsum += flag;
 
-                if(ThisTask == 0)
-                {
-                    printf("flagsum = %d\n", flagsum);
-                    fflush(stdout);
-                    if(flagsum > 100)
-                        endrun(1013, "flagsum is too big, what does this mean?");
-                }
+                message(0, "flagsum = %d\n", flagsum);
+                if(flagsum > 100)
+                    endrun(1013, "flagsum is too big, what does this mean?");
             }
             while(flag);
 
@@ -1715,8 +1657,7 @@ int domain_nonrecursively_combine_topTree() {
                     errorflag = 1;
                 } else {
                     if(ntopnodes_import < 0) {
-                        fprintf(stderr, "severe domain error using a unintended rank \n");
-                        abort();
+                        endrun(1, "severe domain error using a unintended rank \n");
                     }
                     if(ntopnodes_import > 0 ) {
                         domain_insertnode(topNodes, topNodes_import, 0, 0);
@@ -1800,12 +1741,8 @@ int domain_determineTopTree(void)
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     if(errsum)
     {
-        if(ThisTask == 0)
-            printf
-                ("We are out of Topnodes. We'll try to repeat with a higher value than All.TopNodeAllocFactor=%g\n",
+        message(0, "We are out of Topnodes. We'll try to repeat with a higher value than All.TopNodeAllocFactor=%g\n",
                  All.TopNodeAllocFactor);
-        fflush(stdout);
-
         return errsum;
     }
 
@@ -1835,8 +1772,7 @@ int domain_determineTopTree(void)
 
     if(errsum)
     {
-        if(ThisTask == 0)
-            printf("can't combine trees due to lack of storage. Will try again.\n");
+        message(0, "can't combine trees due to lack of storage. Will try again.\n");
         return errsum;
     }
 
@@ -1844,8 +1780,7 @@ int domain_determineTopTree(void)
 
 
 #ifndef DENSITY_INDEPENDENT_SPH_DEBUG
-    if(ThisTask == 0)
-        printf("Before=%d\n", NTopnodes);
+    message(0, "Before=%d\n", NTopnodes);
 
     for(i = 0, errflag = 0; i < NTopnodes; i++)
     {
@@ -1882,8 +1817,7 @@ int domain_determineTopTree(void)
     if(errsum)
         return errsum;
 
-    if(ThisTask == 0)
-        printf("After=%d\n", NTopnodes);
+    message(0, "After=%d\n", NTopnodes);
 #endif
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
     /* count toplevel leaves */
@@ -1912,8 +1846,7 @@ void domain_sumCost(void)
     NTopleaves = 0;
     domain_walktoptree(0);
 
-    if(ThisTask == 0)
-        printf("NTopleaves= %d  NTopnodes=%d (space for %d)\n", NTopleaves, NTopnodes, MaxTopNodes);
+    message(0, "NTopleaves= %d  NTopnodes=%d (space for %d)\n", NTopleaves, NTopnodes, MaxTopNodes);
 
 #pragma omp parallel private(n, i)
     {
@@ -2209,12 +2142,8 @@ void rearrange_particle_sequence(void)
     if(count_elim)
         flag = 1;
 
-    if(ThisTask == 0)
-    {
-        printf("Blackholes: Eliminated %d gas particles and merged away %d black holes.\n",
+    message(0, "Blackholes: Eliminated %d gas particles and merged away %d black holes.\n",
                 tot_gaselim, tot_elim - tot_gaselim);
-        fflush(stdout);
-    }
 
 #endif
     int flag_sum;
@@ -2237,11 +2166,7 @@ void test_id_uniqueness(void)
     double t0, t1;
     MyIDType *ids, *ids_first;
 
-    if(ThisTask == 0)
-    {
-        printf("Testing ID uniqueness...\n");
-        fflush(stdout);
-    }
+    message(0, "Testing ID uniqueness...\n");
 
     if(NumPart == 0)
     {
@@ -2279,9 +2204,5 @@ void test_id_uniqueness(void)
 
     t1 = second();
 
-    if(ThisTask == 0)
-    {
-        printf("success.  took=%g sec\n", timediff(t0, t1));
-        fflush(stdout);
-    }
+    message(0, "success.  took=%g sec\n", timediff(t0, t1));
 }

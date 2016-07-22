@@ -11,6 +11,7 @@
 
 #include <gsl/gsl_heapsort.h>
 #include "openmpsort.h"
+#include "endrun.h"
 
 
 
@@ -27,8 +28,7 @@ void peano_hilbert_order(void)
 {
   int i;
 
-  if(ThisTask == 0)
-    printf("begin Peano-Hilbert order...\n");
+  message(0, "begin Peano-Hilbert order...\n");
 
   if(N_sph)
     {
@@ -81,8 +81,7 @@ void peano_hilbert_order(void)
       myfree(mp);
     }
 
-  if(ThisTask == 0)
-    printf("Peano-Hilbert done.\n");
+    message(0, "Peano-Hilbert done.\n");
 }
 
 

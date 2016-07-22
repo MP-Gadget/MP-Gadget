@@ -28,6 +28,7 @@
 #include "cooling.h"
 #include "domain.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 #ifdef METALS
 #define METALLICITY(i) (P[(i)].Metallicity)
@@ -198,12 +199,8 @@ void cooling_and_starformation(void)
 
     if(tot_spawned > 0 || tot_converted > 0)
     {
-        if(ThisTask == 0)
-        {
-            printf("SFR: spawned %d stars, converted %d gas particles into stars\n",
+        message(0, "SFR: spawned %d stars, converted %d gas particles into stars\n",
                     tot_spawned, tot_converted);
-            fflush(stdout);
-        }
 
 //        All.TotN_sph -= tot_converted;
 
@@ -301,9 +298,7 @@ void cooling_and_starformation(void)
             int64_t totalleft = 0;
             sumup_large_ints(1, &npleft, &totalleft);
             done = totalleft == 0;
-            if(ThisTask == 0) {
-                printf("Star DM iteration Total left = %ld\n", totalleft);
-            }
+            message(0, "Star DM iteration Total left = %ld\n", totalleft);
         }
         for(i = 0; i < Nqueue; i ++) {
             int n = queue[i];
@@ -452,7 +447,7 @@ static void sfr_wind_reduce_weight(int place, struct winddata_out * O, int mode)
     EV_REDUCE(Wind[place].V2sum, O->V2sum);
     EV_REDUCE(Wind[place].Ngb, O->Ngb);
     /*
-    printf("Reduce ID=%ld, NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
+    message(1, "Reduce ID=%ld, NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
             P[place].ID, O->Ngb, O->TotalWeight, O->V2sum,
             O->V1sum[0], O->V1sum[1], O->V1sum[2]);
             */
@@ -536,7 +531,7 @@ static int sfr_wind_ev_weight(int target, int mode,
 
             }
             /*
-            printf("ThisTask = %d %ld ngb=%d NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
+            message(1, "ThisTask = %d %ld ngb=%d NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
             ThisTask, I->ID, numngb, O->Ngb, O->TotalWeight, O->V2sum,
             O->V1sum[0], O->V1sum[1], O->V1sum[2]);
             */
@@ -943,14 +938,11 @@ void init_clouds(void)
                             All.FactorSN) * All.EgySpecCold) /
                         (All.MaxSfrTimescale * coolrate);
 
-        if(ThisTask == 0)
-        {
-            printf("\nA0= %g  \n", A0);
-            printf("Computed: PhysDensThresh= %g  (int units)         %g h^2 cm^-3\n", All.PhysDensThresh,
-                    All.PhysDensThresh / (PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs));
-            printf("EXPECTED FRACTION OF COLD GAS AT THRESHOLD = %g\n\n", x);
-            printf("tcool=%g dens=%g egyhot=%g\n", tcool, dens, egyhot);
-        }
+        message(0, "\nA0= %g  \n", A0);
+        message(0, "Computed: PhysDensThresh= %g  (int units)         %g h^2 cm^-3\n", All.PhysDensThresh,
+                All.PhysDensThresh / (PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs));
+        message(0, "EXPECTED FRACTION OF COLD GAS AT THRESHOLD = %g\n\n", x);
+        message(0, "tcool=%g dens=%g egyhot=%g\n", tcool, dens, egyhot);
 
         dens = All.PhysDensThresh * 10;
 
@@ -993,25 +985,16 @@ void init_clouds(void)
 
         thresholdStarburst = dens;
 
-        if(ThisTask == 0)
-        {
-            printf("Run-away sets in for dens=%g\n", thresholdStarburst);
-            printf("Dynamic range for quiescent star formation= %g\n", thresholdStarburst / All.PhysDensThresh);
-            fflush(stdout);
-        }
+        message(0, "Run-away sets in for dens=%g\n", thresholdStarburst);
+        message(0, "Dynamic range for quiescent star formation= %g\n", thresholdStarburst / All.PhysDensThresh);
 
         integrate_sfr();
 
-        if(ThisTask == 0)
-        {
-            sigma = 10.0 / All.Hubble * 1.0e-10 / pow(1.0e-3, 2);
+        sigma = 10.0 / All.Hubble * 1.0e-10 / pow(1.0e-3, 2);
 
-            printf("Isotherm sheet central density: %g   z0=%g\n",
-                    M_PI * All.G * sigma * sigma / (2 * GAMMA_MINUS1) / u4,
-                    GAMMA_MINUS1 * u4 / (2 * M_PI * All.G * sigma));
-            fflush(stdout);
-
-        }
+        message(0, "Isotherm sheet central density: %g   z0=%g\n",
+                M_PI * All.G * sigma * sigma / (2 * GAMMA_MINUS1) / u4,
+                GAMMA_MINUS1 * u4 / (2 * M_PI * All.G * sigma));
 
         set_global_time(All.TimeBegin);
         IonizeParams();
@@ -1163,38 +1146,6 @@ void integrate_sfr(void)
         fclose(fd);
 }
 
-void set_units_sfr(void)
-{
-
-    double meanweight;
-
-    All.OverDensThresh =
-        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
-
-    All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
-
-    meanweight = 4 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */
-
-    All.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempClouds;
-    All.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
-
-    meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
-
-    All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
-    All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
-
-    if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
-        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
-        if(ThisTask == 0)
-                printf("Windspeed: %g\n", All.WindSpeed);
-    } else {
-        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
-        if(ThisTask == 0 && All.WindModel != WINDS_NONE)
-                printf("Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
-
-    }
-
-}
 /********************
  *
  * The follow functions are from Desika and Gadget-P.

@@ -6,12 +6,10 @@
 #include "allvars.h"
 #include "endrun.h"
 
-/*  This function aborts the simulations. If a single processors
- *  wants an immediate termination,  the function needs to be 
- *  called with ierr>0. A bunch of MPI-error messages will also
- *  appear in this case.
- *  For ierr=0, MPI is gracefully cleaned up, but this requires
- *  that all processors call endrun().
+/*  This function aborts the simulation.
+ *
+ *  if ierr > 0, the error is uncollective.
+ *  if ierr <= 0, the error is 'collective',  only the root rank prints the error.
  */
 
 void endrun(int ierr, const char * fmt, ...)
@@ -21,8 +19,42 @@ void endrun(int ierr, const char * fmt, ...)
     va_start(va, fmt);
     vsprintf(buf, fmt, va);
     va_end(va);
-    printf("Task %d: Error (%d) %s\n", ThisTask, ierr, buf);
-    fflush(stdout);
-    BREAKPOINT;
-    MPI_Abort(MPI_COMM_WORLD, ierr);
+    if(ierr > 0) {
+        printf("Task %d: Error (%d) %s\n", ThisTask, ierr, buf);
+        fflush(stdout);
+        BREAKPOINT;
+        MPI_Abort(MPI_COMM_WORLD, ierr);
+    } else {
+        if(ThisTask == 0) {
+            printf("Collective Error (%d) %s\n", ierr, buf);
+            fflush(stdout);
+        }
+        BREAKPOINT;
+        MPI_Abort(MPI_COMM_WORLD, ierr);
+    }
+}
+
+/*  This function writes a message.
+ *
+ *  if ierr > 0, the message is uncollective.
+ *  if ierr <= 0, the message is 'collective', only the root rank prints the message. A barrier is applied.
+ */
+
+void message(int ierr, const char * fmt, ...)
+{
+    va_list va;
+    char buf[4096];
+    va_start(va, fmt);
+    vsprintf(buf, fmt, va);
+    va_end(va);
+    if(ierr > 0) {
+        printf("Task %d: %s", ThisTask, buf);
+        fflush(stdout);
+    } else {
+        MPI_Barrier(MPI_COMM_WORLD);
+        if(ThisTask == 0) {
+            printf("%s", buf);
+            fflush(stdout);
+        }
+    }
 }

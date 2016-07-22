@@ -16,9 +16,6 @@
 #include "allvars.h"
 
 
-
-MyDouble boxSize, boxHalf, inverse_boxSize;
-
 /*********************************************************/
 /*  Global variables                                     */
 /*********************************************************/

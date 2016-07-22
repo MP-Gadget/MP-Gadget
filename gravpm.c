@@ -12,6 +12,7 @@
 #include "forcetree.h"
 #include "petapm.h"
 #include "domain.h"
+#include "endrun.h"
 
 static struct {
     double * k;
@@ -89,7 +90,7 @@ void gravpm_force() {
     if(ThisTask == 0) {
         char fname[1024];
         sprintf(fname, "%s/powerspectrum-%0.4f.txt", All.OutputDir, All.Time);
-        printf("Writing Power Spectrum to %s\n", fname);
+        message(1, "Writing Power Spectrum to %s\n", fname);
         FILE * fp = fopen(fname, "w");
         fprintf(fp, "# in Mpc/h Units \n");
         fprintf(fp, "# D1 = %g \n", All.cf.D1);
@@ -163,9 +164,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     *Nregions = r;
     int maxNregions;
     MPI_Reduce(&r, &maxNregions, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0) {
-        printf("max number of regions is %d\n", maxNregions);
-    }
+    message(0, "max number of regions is %d\n", maxNregions);
 
     /* now lets mark particles to their hosting region */
     int numpart = 0;
@@ -176,8 +175,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     }
     /* All particles shall have been processed just once. Otherwise we die */
     if(numpart != NumPart) {
-        fprintf(stderr, "numpart = %d\n", numpart);
-        abort();
+        endrun(1, "numpart = %d\n", numpart);
     }
     for(r =0; r < *Nregions; r++) {
         convert_node_to_region(&regions[r]);
@@ -224,7 +222,7 @@ static int pm_mark_region_for_node(int startno, int rid) {
                 }
                 l = l * 2;
                 if (l > Nodes[startno].len) {
-                    printf("enlarging node size from %g to %g, dueto particle of type %d at %g %g %g id=%ld\n",
+                    message(1, "enlarging node size from %g to %g, dueto particle of type %d at %g %g %g id=%ld\n",
                         Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
                     Nodes[startno].len = l;
                 }

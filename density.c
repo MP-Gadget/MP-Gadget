@@ -173,11 +173,9 @@ void density(void)
             density_check_neighbours(p, Left, Right);
             if(iter >= MAXITER - 10)
             {
-                printf
-                    ("i=%d task=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+                 message(1, "i=%d task=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
                      queue[p], ThisTask, P[p].ID, P[p].Hsml, Left[p], Right[p],
                      (float) P[p].n.NumNgb, Right[p] - Left[p], P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
-                fflush(stdout);
             }
 
             if(!P[p].DensityIterationDone) {
@@ -201,21 +199,18 @@ void density(void)
                 for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
                 {
                     if(density_isactive(i) && !P[i].DensityIterationDone) {
-                        printf
-                            ("i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+                        message
+                            (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
                              i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, Left[i], Right[i],
                              (float) P[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-                        fflush(stdout);
                     }
                 }
 
             }
             */
 
-            if(iter > 0 && ThisTask == 0)
-            {
-                printf("ngb iteration %d: need to repeat for %ld particles.\n", iter, ntot);
-                fflush(stdout);
+            if(iter > 0) {
+                message(0, "ngb iteration %d: need to repeat for %ld particles.\n", iter, ntot);
             }
 
             if(iter > MAXITER)

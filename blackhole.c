@@ -128,11 +128,7 @@ void blackhole_accretion(void)
     swev.ev_datain_elsize = sizeof(struct swallowdata_in);
     swev.ev_dataout_elsize = sizeof(struct swallowdata_out);
 
-    if(ThisTask == 0)
-    {
-        printf("Beginning black-hole accretion\n");
-        fflush(stdout);
-    }
+    message(0, "Beginning black-hole accretion\n");
 
 
     /* Let's first compute the Mdot values */
@@ -163,11 +159,7 @@ void blackhole_accretion(void)
      * and deal with black hole mergers.
      */
 
-    if(ThisTask == 0)
-    {
-        printf("Start swallowing of gas particles and black holes\n");
-        fflush(stdout);
-    }
+    message(0, "Start swallowing of gas particles and black holes\n");
 
 
     N_sph_swallowed = N_BH_swallowed = 0;
@@ -183,12 +175,8 @@ void blackhole_accretion(void)
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    if(ThisTask == 0)
-    {
-        printf("Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
+    message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
                 Ntot_gas_swallowed, Ntot_BH_swallowed);
-        fflush(stdout);
-    }
 
 
     for(i = 0; i < Nactive; i++) {

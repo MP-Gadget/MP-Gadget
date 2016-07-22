@@ -9,6 +9,7 @@
 #include "openmpsort.h"
 #include "mymalloc.h"
 #include "walltime.h"
+#include "endrun.h"
 
 /* a layout is the communication object, represent 
  * pencil / cells exchanged  */
@@ -145,12 +146,9 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
     np[0] = i;
     np[1] = NTask / i;
 
-    if(ThisTask == 0) {
-        printf("Using 2D Task mesh %td x %td \n", np[0], np[1]);
-    }
+    message(0, "Using 2D Task mesh %td x %td \n", np[0], np[1]);
     if( pfft_create_procmesh_2d(MPI_COMM_WORLD, np[0], np[1], &comm_cart_2d) ){
-        fprintf(stderr, "Error: This test file only works with %td processes.\n", np[0]*np[1]);
-        abort();
+        endrun(0, "Error: This test file only works with %td processes.\n", np[0]*np[1]);
     }
 
     int periods_unused[2];
@@ -204,7 +202,7 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
     /* now lets fill up the mesh2task arrays */
 
 #if 0
-    printf("ThisTask = %d (%td %td %td) - (%td %td %td)\n", ThisTask, 
+    message(1, "ThisTask = %d (%td %td %td) - (%td %td %td)\n", ThisTask, 
             real_space_region.offset[0], 
             real_space_region.offset[1], 
             real_space_region.offset[2],
@@ -225,10 +223,8 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
         /* FIXME: this is very inefficient */
         MPI_Allreduce(tmp, Mesh2Task[k], Nmesh, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
         /*
-        if(ThisTask == 0) {
-            for(i = 0; i < Nmesh; i ++) {
-                printf("Mesh2Task[%d][%d] == %d\n", k, i, Mesh2Task[k][i]);
-            }
+        for(i = 0; i < Nmesh; i ++) {
+            message(0, "Mesh2Task[%d][%d] == %d\n", k, i, Mesh2Task[k][i]);
         }
         */
     }
@@ -437,12 +433,10 @@ static void layout_prepare (struct Layout * L) {
 
     /* some checks */
     if(L->DpSend[NTask - 1] + L->NpSend[NTask -1] != L->NpExport) {
-        fprintf(stderr, "NpExport = %d\n", L->NpExport);
-        abort();
+        endrun(1, "NpExport = %d\n", L->NpExport);
     }
     if(L->DcSend[NTask - 1] + L->NcSend[NTask -1] != L->NcExport) {
-        fprintf(stderr, "NcExport = %d\n", L->NcExport);
-        abort();
+        endrun(1, "NcExport = %d\n", L->NcExport);
     }
     int64_t totNpAlloc = reduce_int64(NpAlloc);
     int64_t totNpExport = reduce_int64(L->NpExport);
@@ -451,19 +445,15 @@ static void layout_prepare (struct Layout * L) {
     int64_t totNcImport = reduce_int64(L->NcImport);
 
     if(totNpExport != totNpImport) {
-        fprintf(stderr, "totNpExport = %ld\n", totNpExport);
-        abort();
+        endrun(1, "totNpExport = %ld\n", totNpExport);
     }
     if(totNcExport != totNcImport) {
-        fprintf(stderr, "totNcExport = %ld\n", totNcExport);
-        abort();
+        endrun(1, "totNcExport = %ld\n", totNcExport);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
     /* exchange the pencils */
-    if(ThisTask == 0) {
-        printf("PetaPM:  %010ld/%010ld Pencils and %010ld Cells\n", totNpExport, totNpAlloc, totNcExport);
-    }
+    message(0, "PetaPM:  %010ld/%010ld Pencils and %010ld Cells\n", totNpExport, totNpAlloc, totNcExport);
     L->PencilRecv = mymalloc("PencilRecv", L->NpImport * sizeof(struct Pencil));
     memset(L->PencilRecv, 0xfc, L->NpImport * sizeof(struct Pencil));
     layout_exchange_pencils(L);
@@ -601,9 +591,7 @@ static void layout_build_and_exchange_cells_to_pfft(struct Layout * L) {
     double totmassImport;
     MPI_Allreduce(&massExport, &totmassExport, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&massImport, &totmassImport, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    if(ThisTask == 0) {
-        printf("totmassExport = %g totmassImport = %g\n", totmassExport, totmassImport);
-    }
+    message(0, "totmassExport = %g totmassImport = %g\n", totmassExport, totmassImport);
 #endif
 
     layout_iterate_cells(L, to_pfft);
@@ -663,8 +651,7 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter) {
             ix -= real_space_region.offset[k];
             if(ix >= real_space_region.size[k]) {
                 /* seroius problem assmpution about pfft layout was wrong*/
-                fprintf(stderr, "check here: original ix = %d\n", p->offset[k]);
-                abort();
+                endrun(1, "check here: original ix = %d\n", p->offset[k]);
             }
             linear0 += ix * real_space_region.strides[k];
         }
@@ -737,14 +724,12 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
         }
         if(iCell[k] >= region->size[k] - 1) {
             /* seriously?! particles are supposed to be contained in cells */
-            fprintf(stderr, "particle out of cell better stop %d %td\n", iCell[k], region->size[k]);
-            abort(); 
+            endrun(1, "particle out of cell better stop %d %td\n", iCell[k], region->size[k]);
         }
         if(iCell[k] < 0) {
-            fprintf(stderr, "particle out of cell better stop (negative) %d %g %g %g region: %td %td\n", iCell[k], 
+            endrun(1, "particle out of cell better stop (negative) %d %g %g %g region: %td %td\n", iCell[k], 
                 Pos[0], Pos[1], Pos[2],
                 region->offset[k], region->size[k]);
-            abort();
         }
     }
 
@@ -761,8 +746,7 @@ static void pm_iterate_one(int i, pm_iterator iterator) {
                 /* offset == 0*/ (1 - Res[k]);
         }
         if(linear >= region->totalsize) {
-            fprintf(stderr, "particle linear index out of cell better stop\n");
-            abort();
+            endrun(1, "particle linear index out of cell better stop\n");
         }
         iterator(i, &region->buffer[linear], weight);
     }
@@ -854,9 +838,7 @@ static void verify_density_field() {
     double totmass_CIC = 0;
     MPI_Allreduce(&mass_CIC, &totmass_CIC, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
-    if(ThisTask == 0) {
-        printf("total Region mass = %g CIC mass = %g Particle mass = %g\n", totmass_Region, totmass_CIC, totmass_Part);
-    }
+    message(0, "total Region mass = %g CIC mass = %g Particle mass = %g\n", totmass_Region, totmass_CIC, totmass_Part);
 }
 
 static void pm_apply_transfer_function(PetaPMRegion * region, 
@@ -879,8 +861,7 @@ static void pm_apply_transfer_function(PetaPMRegion * region,
             pos[k] += region->offset[k];
             /* check */
             if(pos[k] >= Nmesh) {
-                fprintf(stderr, "position diden't make sense\n");
-                abort();
+                endrun(1, "position diden't make sense\n");
             }
             kpos[k] = Mesh2K[pos[k]];
             /* Watch out the cast */

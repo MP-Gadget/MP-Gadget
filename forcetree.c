@@ -61,8 +61,7 @@ void force_treebuild_simple() {
     /* the tree is used in grav dens, hydro, bh and sfr */
     force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
-    if(ThisTask == 0)
-        printf("Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+    message(0, "Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
     walltime_measure("/Misc");
 
@@ -72,8 +71,7 @@ void force_treebuild_simple() {
 
     walltime_measure("/Tree/Build");
 
-    if(ThisTask == 0)
-        printf("Tree construction done.\n");
+    message(0, "Tree construction done.\n");
 
 }
 
@@ -93,13 +91,11 @@ int force_treebuild(int npart, struct unbind_data *mp)
         {
             force_treefree();
 
-            if(ThisTask == 0)
-                printf("Increasing TreeAllocFactor=%g", All.TreeAllocFactor);
+            message(0, "Increasing TreeAllocFactor=%g", All.TreeAllocFactor);
 
             All.TreeAllocFactor *= 1.15;
 
-            if(ThisTask == 0)
-                printf("new value=%g\n", All.TreeAllocFactor);
+            message(0, "new value=%g\n", All.TreeAllocFactor);
 
             force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
         }
@@ -340,14 +336,12 @@ int force_treebuild_single(int npart, struct unbind_data *mp)
 
                 if((numnodes) >= MaxNodes)
                 {
-                    printf("task %d: maximum number %d of tree-nodes reached for particle %d.\n", ThisTask,
+                    message(1, "maximum number %d of tree-nodes reached for particle %d.\n",
                             MaxNodes, i);
 
                     if(All.TreeAllocFactor > 5.0)
                     {
-                        printf
-                            ("task %d: looks like a serious problem for particle %d, stopping with particle dump.\n",
-                             ThisTask, i);
+                        message(1, "looks like a serious problem for particle %d, stopping with particle dump.\n", i);
                         savepositions(999999, 0);
                         endrun(1, "serious problem occured, snapshot saved.");
                     }
@@ -430,11 +424,9 @@ void force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z
 
                     if((*nodecount) >= MaxNodes || (*nodecount) >= MaxTopNodes)
                     {
-                        printf("task %d: maximum number MaxNodes=%d of tree-nodes reached."
+                        endrun(11, "maximum number MaxNodes=%d of tree-nodes reached."
                                 "MaxTopNodes=%d NTopnodes=%d NTopleaves=%d nodecount=%d\n",
-                                ThisTask, MaxNodes, MaxTopNodes, NTopnodes, NTopleaves, *nodecount);
-                        printf("in create empty nodes\n");
-                        endrun(11, "Too many nodes");
+                                MaxNodes, MaxTopNodes, NTopnodes, NTopleaves, *nodecount);
                     }
 
                     force_create_empty_nodes(*nextfree - 1, TopNodes[topnode].Daughter + sub,
@@ -1126,9 +1118,8 @@ static void real_force_drift_node(int no, int time1)
     {
         if(Extnodes[no].Ti_lastkicked != Nodes[no].Ti_current)
         {
-            printf("Task=%d Extnodes[no].Ti_lastkicked=%d  Nodes[no].Ti_current=%d\n",
-                    ThisTask, Extnodes[no].Ti_lastkicked, Nodes[no].Ti_current);
-            terminate("inconsistency in drift node");
+            endrun(1, "inconsistency in drift node: Extnodes[no].Ti_lastkicked=%d  Nodes[no].Ti_current=%d\n",
+                       Extnodes[no].Ti_lastkicked, Nodes[no].Ti_current);
         }
 
         if(Nodes[no].u.d.mass)
@@ -1250,10 +1241,7 @@ void force_finish_kick_nodes(void)
         }
     }
 
-    if(ThisTask == 0)
-    {
-        printf("I exchange kick momenta for %d top-level nodes out of %d\n", totDomainNumChanged, NTopleaves);
-    }
+    message(0, "I exchange kick momenta for %d top-level nodes out of %d\n", totDomainNumChanged, NTopleaves);
 
     domainDp_all = (MyDouble *) mymalloc("domainDp_all", totDomainNumChanged * 3 * sizeof(MyDouble));
     domainVmax_all = (MyFloat *) mymalloc("domainVmax_all", totDomainNumChanged * sizeof(MyFloat));
@@ -1398,8 +1386,7 @@ void force_update_hmax(void)
         }
     }
 
-    if(ThisTask == 0)
-        printf("Hmax exchange: %d topleaves out of %d\n", totDomainNumChanged, NTopleaves);
+    message(0, "Hmax exchange: %d topleaves out of %d\n", totDomainNumChanged, NTopleaves);
 
     domainHmax_all = (MyFloat *) mymalloc("domainHmax_all", totDomainNumChanged * 2 * sizeof(MyFloat));
     domainList_all = (int *) mymalloc("domainList_all", totDomainNumChanged * sizeof(int));
@@ -1808,23 +1795,19 @@ void force_treeallocate(int maxnodes, int maxpart)
     Extnodes = Extnodes_base - All.MaxPart;
     if(!(Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopnodes) * sizeof(int))))
     {
-        printf("Failed to allocate %d spaces for 'Nextnode' array (%g MB)\n",
+        endrun(1, "Failed to allocate %d spaces for 'Nextnode' array (%g MB)\n",
                 maxpart + NTopnodes, bytes / (1024.0 * 1024.0));
-        exit(0);
     }
     allbytes += bytes;
     if(!(Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int))))
     {
-        printf("Failed to allocate %d spaces for 'Father' array (%g MB)\n", maxpart, bytes / (1024.0 * 1024.0));
-        exit(0);
+        endrun(1, "Failed to allocate %d spaces for 'Father' array (%g MB)\n", maxpart, bytes / (1024.0 * 1024.0));
     }
     allbytes += bytes;
     if(first_flag == 0)
     {
         first_flag = 1;
-        if(ThisTask == 0)
-            printf
-                ("\nAllocated %g MByte for BH-tree, and %g Mbyte for top-leaves.  (presently allocted %g MB)\n\n",
+        message(0, "\nAllocated %g MByte for BH-tree, and %g Mbyte for top-leaves.  (presently allocted %g MB)\n\n",
                  allbytes / (1024.0 * 1024.0), allbytes_topleaves / (1024.0 * 1024.0),
                  AllocatedBytes / (1024.0 * 1024.0));
         tabfac = NTAB / 3.0;

@@ -12,6 +12,7 @@
 #include "evaluator.h"
 #include "mymalloc.h"
 #include "domain.h"
+#include "endrun.h"
 
 /*! \file gravtree.c
  *  \brief main driver routines for gravitational (short-range) force computation
@@ -81,8 +82,7 @@ void gravity_tree(void)
     set_softenings();
 
     /* allocate buffers to arrange communication */
-    if(ThisTask == 0)
-        printf("Begin tree force.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+    message(0, "Begin tree force.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
     walltime_measure("/Misc");
 
@@ -117,8 +117,7 @@ void gravity_tree(void)
     }
     myfree(queue);
 
-    if(ThisTask == 0)
-        printf("tree is done.\n");
+    message(0, "tree is done.\n");
 
     /* This code is removed for now gravity_static_potential(); */
 

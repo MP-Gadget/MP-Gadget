@@ -13,6 +13,7 @@
 #include "petaio.h"
 #include "domain.h"
 #include "fof.h"
+#include "endrun.h"
 
 /*! \file io.c
  *  \brief Output of a snapshot file to disk.
@@ -41,13 +42,11 @@ void savepositions(int num, int reason)
 #ifdef FOF
     /* regular snapshot, do fof and write it out */
     if(reason == 0) {
-        if(ThisTask == 0)
-            printf("\ncomputing group catalogue...\n");
+        message(0, "computing group catalogue...\n");
 
         fof_fof(num);
 
-        if(ThisTask == 0)
-            printf("done with group catalogue.\n");
+        message(0, "done with group catalogue.\n");
     }
     walltime_measure("/Snapshot/WriteFOF");
 #endif

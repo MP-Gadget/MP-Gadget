@@ -61,8 +61,6 @@ void move_particles(int time1);
 void find_next_sync_point_and_drift(void);
 void find_dt_displacement_constraint(double hfac);
 
-void set_units_sfr(void);
-
 void allocate_memory(void);
 void begrun(void);
 void check_omega(void);
@@ -102,7 +100,6 @@ void run(void);
 void savepositions(int num, int reason);
 double second(void);
 void set_softenings(void);
-void set_units(void);
 void setup_smoothinglengths(void);
 
 void sumup_large_ints(int n, int *src, int64_t *res);

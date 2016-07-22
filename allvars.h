@@ -47,10 +47,7 @@
 #include "assert.h"
 
 
-#define NEAREST_X(x) (((x)>boxHalf_X)?((x)-boxSize_X):(((x)<-boxHalf_X)?((x)+boxSize_X):(x)))
-#define NEAREST_Y(y) (((y)>boxHalf_Y)?((y)-boxSize_Y):(((y)<-boxHalf_Y)?((y)+boxSize_Y):(y)))
-#define NEAREST_Z(z) (((z)>boxHalf_Z)?((z)-boxSize_Z):(((z)<-boxHalf_Z)?((z)+boxSize_Z):(z)))
-#define NEAREST(x) (((x)>boxHalf)?((x)-boxSize):(((x)<-boxHalf)?((x)+boxSize):(x)))
+#define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
 
 
 #define  GADGETVERSION   "5.0"	/*!< code version string */
@@ -227,8 +224,6 @@ static inline int IMIN(int a, int b) {
     return b;
 }
 
-extern MyDouble boxSize, boxHalf, inverse_boxSize;
-
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 #define FACT2 0.86602540        /* FACT2 = 0.5 * sqrt(3) */
 
@@ -397,7 +392,7 @@ extern struct global_data_all_processes
 
     double Hubble; /*!< Hubble-constant in internal units */
 
-    double BoxSize;		/*!< Boxsize in case periodic boundary conditions are used */
+    double BoxSize;   /* Boxsize in case periodic boundary conditions are used */
 
     /* Code options */
     int DomainOverDecompositionFactor; /* Number of sub-domains per processor. */

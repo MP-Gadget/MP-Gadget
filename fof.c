@@ -121,23 +121,15 @@ void fof_fof(int num)
     MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE_GROUP);
     MPI_Type_commit(&MPI_TYPE_GROUP);
 
-    if(ThisTask == 0)
-    {
-        printf("\nBegin to compute FoF group catalogues...  (presently allocated=%g MB)\n",
-                AllocatedBytes / (1024.0 * 1024.0));
-        fflush(stdout);
-    }
+    message(0, "\nBegin to compute FoF group catalogues...  (presently allocated=%g MB)\n",
+            AllocatedBytes / (1024.0 * 1024.0));
 
     walltime_measure("/Misc");
 
     domain_Decomposition();
 
-    if(ThisTask == 0)
-    {
-        printf("\nComoving linking length: %g    ", All.FOFHaloComovingLinkingLength);
-        printf("(presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
-        fflush(stdout);
-    }
+    message(0, "\nComoving linking length: %g    ", All.FOFHaloComovingLinkingLength);
+    message(0, "(presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
     HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", NumPart * sizeof(struct fof_particle_list));
 
@@ -146,8 +138,7 @@ void fof_fof(int num)
         HaloLabel[i].Pindex = i;
     }
 
-    if(ThisTask == 0)
-        printf("Tree construction.\n");
+    message(0, "Tree construction.\n");
 
     force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
@@ -168,8 +159,7 @@ void fof_fof(int num)
     fof_label_primary();
     t1 = second();
 
-    if(ThisTask == 0)
-        printf("group finding took = %g sec\n", timediff(t0, t1));
+    message(0, "group finding took = %g sec\n", timediff(t0, t1));
     walltime_measure("/FOF/Primary");
 
     /* Fill FOFP_List of secondary */
@@ -178,8 +168,7 @@ void fof_fof(int num)
     walltime_measure("/FOF/Secondary");
     t1 = second();
 
-    if(ThisTask == 0)
-        printf("attaching gas and star particles to nearest dm particles took = %g sec\n", timediff(t0, t1));
+    message(0, "attaching gas and star particles to nearest dm particles took = %g sec\n", timediff(t0, t1));
 
 
     force_treefree();
@@ -196,24 +185,20 @@ void fof_fof(int num)
     fof_compile_catalogue();
 
     t1 = second();
-    if(ThisTask == 0)
-        printf("compiling local group data and catalogue took = %g sec\n", timediff(t0, t1));
+
+    message(0, "compiling local group data and catalogue took = %g sec\n", timediff(t0, t1));
 
     walltime_measure("/FOF/Compile");
 
     t0 = second();
 
-    if(ThisTask == 0)
-    {
-        printf("group properties are now allocated.. (presently allocated=%g MB)\n",
-                AllocatedBytes / (1024.0 * 1024.0));
-        fflush(stdout);
-    }
+    message(0, "group properties are now allocated.. (presently allocated=%g MB)\n",
+            AllocatedBytes / (1024.0 * 1024.0));
 
     walltime_measure("/FOF/Prop");
     t1 = second();
-    if(ThisTask == 0)
-        printf("computation of group properties took = %g sec\n", timediff(t0, t1));
+
+    message(0, "computation of group properties took = %g sec\n", timediff(t0, t1));
 
     if(num < 0)
         fof_seed();
@@ -229,12 +214,8 @@ void fof_fof(int num)
     myfree(BaseGroup);
     myfree(HaloLabel);
 
-    if(ThisTask == 0)
-    {
-        printf("Finished computing FoF groups.  (presently allocated=%g MB)\n\n",
-                AllocatedBytes / (1024.0 * 1024.0));
-        fflush(stdout);
-    }
+    message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n\n",
+            AllocatedBytes / (1024.0 * 1024.0));
 
 
     domain_Decomposition();
@@ -280,11 +261,7 @@ void fof_label_primary(void)
     int64_t link_across_tot;
     double t0, t1;
 
-    if(ThisTask == 0)
-    {
-        printf("\nStart linking particles (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
-        fflush(stdout);
-    }
+    message(0, "\nStart linking particles (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
     Evaluator ev = {0};
     ev.ev_label = "FOF_FIND_GROUPS";
@@ -338,10 +315,7 @@ void fof_label_primary(void)
             LinkList[i].MinIDOld = newMinID;
         }
         MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
-        if(ThisTask == 0)
-        {
-            printf("Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
-        }
+        message(0, "Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
     }
     while(link_across_tot > 0);
 
@@ -352,11 +326,7 @@ void fof_label_primary(void)
         HaloLabel[i].MinIDTask = HaloLabel[HEAD(i)].MinIDTask;
     }
 
-    if(ThisTask == 0)
-    {
-        printf("Local groups found.\n\n");
-        fflush(stdout);
-    }
+    message(0, "Local groups found.\n\n");
     myfree(LinkList);
 }
 
@@ -717,15 +687,12 @@ static void fof_compile_catalogue(void)
     else
         largestgroup = 0;
 
-    if(ThisTask == 0)
+    message(0, "\nTotal number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
+    if(TotNgroups > 0)
     {
-        printf("\nTotal number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
-        if(TotNgroups > 0)
-        {
-            printf("Largest group has %d particles.\n", largestgroup);
-            printf("Total number of particles in groups: %d%09d\n\n",
-                    (int) (TotNids / 1000000000), (int) (TotNids % 1000000000));
-        }
+        message(0, "Largest group has %d particles.\n", largestgroup);
+        message(0, "Total number of particles in groups: %d%09d\n\n",
+                (int) (TotNids / 1000000000), (int) (TotNids % 1000000000));
     }
 }
 
@@ -943,11 +910,8 @@ static void fof_assign_grnr()
 void fof_save_groups(int num)
 {
     double t0, t1;
-    if(ThisTask == 0)
-    {
-        printf("start global sorting of group catalogues\n");
-        fflush(stdout);
-    }
+
+    message(0, "start global sorting of group catalogues\n");
 
     t0 = second();
 
@@ -955,11 +919,7 @@ void fof_save_groups(int num)
 
     t1 = second();
 
-    if(ThisTask == 0)
-    {
-        printf("Group catalogues saved. took = %g sec\n", timediff(t0, t1));
-        fflush(stdout);
-    }
+    message(0, "Group catalogues saved. took = %g sec\n", timediff(t0, t1));
 }
 
 static void fof_secondary_copy(int place, struct fofdata_in * I) {
@@ -999,12 +959,8 @@ static void fof_label_secondary(void)
     ev.ev_datain_elsize = sizeof(struct fofdata_in);
     ev.ev_dataout_elsize = sizeof(struct fofdata_out);
 
-    if(ThisTask == 0)
-    {
-        printf("Start finding nearest dm-particle (presently allocated=%g MB)\n",
-                AllocatedBytes / (1024.0 * 1024.0));
-        fflush(stdout);
-    }
+    message(0, "Start finding nearest dm-particle (presently allocated=%g MB)\n",
+            AllocatedBytes / (1024.0 * 1024.0));
 
     fof_secondary_distance = (float *) mymalloc("fof_secondary_distance", sizeof(float) * NumPart);
     fof_secondary_hsml = (float *) mymalloc("fof_secondary_hsml", sizeof(float) * NumPart);
@@ -1027,11 +983,8 @@ static void fof_label_secondary(void)
 
     iter = 0;
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
-    if(ThisTask == 0)
-    {
-        printf("fof-nearest iteration started\n");
-        fflush(stdout);
-    }
+
+    message(0, "fof-nearest iteration started\n");
 
     do 
     {
@@ -1060,10 +1013,9 @@ static void fof_label_secondary(void)
 /*
                     if(iter >= MAXITER - 10)
                     {
-                        printf("i=%d task=%d ID=%llu Hsml=%g  pos=(%g|%g|%g)\n",
+                        endrun(1, "i=%d task=%d ID=%llu Hsml=%g  pos=(%g|%g|%g)\n",
                                 p, ThisTask, P[p].ID, fof_secondary_hsml[p],
                                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
-                        fflush(stdout);
                     }
 */
                 } else {
@@ -1073,18 +1025,15 @@ static void fof_label_secondary(void)
         }
         sumup_large_ints(1, &npleft, &ntot);
         sumup_large_ints(1, &count, &counttot);
-        if(ThisTask == 0)
-        {
-            printf("fof-nearest iteration %d: need to repeat for %010ld /%010ld particles.\n", iter, ntot, counttot);
-            fflush(stdout);
-        }
+
+        message(0, "fof-nearest iteration %d: need to repeat for %010ld /%010ld particles.\n", iter, ntot, counttot);
+
         if(ntot < 0) abort();
         if(ntot > 0)
         {
             iter++;
             if(iter > MAXITER)
             {
-                fflush(stdout);
                 endrun(1159, "Failed to converge in fof-nearest");
             }
         }
@@ -1095,11 +1044,7 @@ static void fof_label_secondary(void)
     myfree(fof_secondary_hsml);
     myfree(fof_secondary_distance);
 
-    if(ThisTask == 0)
-    {
-        printf("done finding nearest dm-particle\n");
-        fflush(stdout);
-    }
+    message(0, "done finding nearest dm-particle\n");
 }
 
 static int fof_secondary_evaluate(int target, int mode, 
@@ -1240,11 +1185,7 @@ static void fof_seed(void)
 
     MPI_Allreduce(&Nimport, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-    if(ThisTask == 0)
-    {
-        printf("\nMaking %d new black hole particles\n\n", ntot);
-        fflush(stdout);
-    }
+    message(0, "\nMaking %d new black hole particles\n\n", ntot);
 
     for(n = 0; n < Nimport; n++)
     {

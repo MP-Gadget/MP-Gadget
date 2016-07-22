@@ -325,8 +325,7 @@ int ShouldWeDoDynamicUpdate(void)
 
     sumup_large_ints(1, &num, &numforces);
 
-    if(ThisTask == 0)
-        printf("I'm guessing %d%09d particles to be active in the next step\n",
+    message(0, "I'm guessing %d%09d particles to be active in the next step\n",
                 (int) (numforces / 1000000000), (int) (numforces % 1000000000));
 
     if((All.NumForcesSinceLastDomainDecomp + numforces) >= All.TreeDomainUpdateFrequency * All.TotNumPart)
@@ -364,15 +363,13 @@ int find_next_outputtime(int ti_curr)
     {
         ti_next = 2 * TIMEBASE;	/* this will prevent any further output */
 
-        if(ThisTask == 0)
-            printf("\nThere is no valid time for a further snapshot file.\n");
+        message(0, "There is no valid time for a further snapshot file.\n");
     }
     else
     {
         const double next = All.TimeBegin * exp(ti_next * All.Timebase_interval);
 
-        if(ThisTask == 0)
-            printf("\nSetting next time for snapshot file to Time_next= %g \n", next);
+        message(0, "Setting next time for snapshot file to Time_next= %g \n", next);
 
     }
 
@@ -509,11 +506,11 @@ void energy_statistics(void)
 {
     compute_global_quantities_of_system();
 
-    if(ThisTask == 0)
-    {
-        printf("Time %g Mean Temperature of Gas %g\n",
+    message(0, "Time %g Mean Temperature of Gas %g\n",
                 All.Time, SysState.TemperatureComp[0]);
 
+    if(ThisTask == 0)
+    {
         fprintf(FdEnergy,
                 "%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
                 All.Time, SysState.TemperatureComp[0], SysState.EnergyInt, SysState.EnergyPot, SysState.EnergyKin, SysState.EnergyIntComp[0],

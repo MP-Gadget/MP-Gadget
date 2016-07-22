@@ -9,6 +9,7 @@
 #include "proto.h"
 #include "forcetree.h"
 #include "fof.h"
+#include "endrun.h"
 
 /*! \file accel.c
  *  \brief driver routines to carry out force computation
@@ -29,11 +30,7 @@ void compute_accelerations(int mode)
 {
     int TreeReconstructFlag = 0;
 
-    if(ThisTask == 0)
-    {
-        printf("Start force computation...\n");
-        fflush(stdout);
-    }
+    message(0, "Start force computation...\n");
 
     walltime_measure("/Misc");
 
@@ -71,11 +68,7 @@ void compute_accelerations(int mode)
     if(All.TotN_sph > 0)
     {
         /***** density *****/
-        if(ThisTask == 0)
-        {
-            printf("Start density computation...\n");
-            fflush(stdout);
-        }
+        message(0, "Start density computation...\n");
 
         density();		/* computes density, and pressure */
 
@@ -83,11 +76,7 @@ void compute_accelerations(int mode)
         force_update_hmax();
 
         /***** hydro forces *****/
-        if(ThisTask == 0)
-        {
-            printf("Start hydro-force computation...\n");
-            fflush(stdout);
-        }
+        message(0, "Start hydro-force computation...\n");
 
         hydro_force();		/* adds hydrodynamical accelerations  and computes du/dt  */
 
@@ -117,9 +106,5 @@ void compute_accelerations(int mode)
 #endif /*ends COOLING */
 
     }
-    if(ThisTask == 0)
-    {
-        printf("force computation done.\n");
-        fflush(stdout);
-    }
+    message(0, "force computation done.\n");
 }

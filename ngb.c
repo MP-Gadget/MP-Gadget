@@ -170,8 +170,7 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
  */
 void ngb_treebuild(void)
 {
-    if(ThisTask == 0)
-        printf("Begin Ngb-tree construction.\n");
+    message(0, "Begin Ngb-tree construction.\n");
 
     force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
@@ -184,7 +183,6 @@ void ngb_treebuild(void)
 #endif
     walltime_measure("/Tree/Build");
 
-    if(ThisTask == 0)
-        printf("Ngb-Tree contruction finished \n");
+    message(0, "Ngb-Tree contruction finished \n");
 }
 

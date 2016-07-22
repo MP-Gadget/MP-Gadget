@@ -5,6 +5,7 @@
 #include "allvars.h"
 #include "endrun.h"
 #include "paramset.h"
+#include "densitykernel.h"
 
 #ifdef BLACK_HOLES
 static int
@@ -12,11 +13,11 @@ BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
 {
     int v = param_get_enum(ps, name);
     if(HAS(v, BH_FEEDBACK_TOPHAT) == HAS(v, BH_FEEDBACK_SPLINE)) {
-        printf("error BlackHoleFeedbackMethod contains either tophat or spline, but both\n");
+        message(1, "error BlackHoleFeedbackMethod contains either tophat or spline, but both\n");
         return 1;
     }
     if(HAS(v, BH_FEEDBACK_MASS) ==  HAS(v, BH_FEEDBACK_VOLUME)) {
-        printf("error BlackHoleFeedbackMethod contains either volume or mass, but both\n");
+        message(1, "error BlackHoleFeedbackMethod contains either volume or mass, but both\n");
         return 1;
     }
     return 0;
@@ -29,16 +30,16 @@ StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
 {
     int v = param_get_enum(ps, name);
     if(!HAS(v, SFR_CRITERION_DENSITY)) {
-        printf("error: At least use SFR_CRITERION_DENSITY\n");
+        message(1, "error: At least use SFR_CRITERION_DENSITY\n");
         return 1;
     }
 #if ! defined SPH_GRAD_RHO || ! defined METALS
     if(HAS(v, SFR_CRITERION_MOLECULAR_H2)) {
-        printf("error: enable SPH_GRAD_RHO to use h2 criterion in sfr \n");
+        message(1, "error: enable SPH_GRAD_RHO to use h2 criterion in sfr \n");
         return 1;
     }
     if(HAS(v, SFR_CRITERION_SELFGRAVITY)) {
-        printf("error: enable SPH_GRAD_RHO to use selfgravity in sfr \n");
+        message(1, "error: enable SPH_GRAD_RHO to use selfgravity in sfr \n");
         return 1;
     }
 #endif
@@ -72,12 +73,12 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
     /*First parse the string to get the number of outputs*/
     for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
     {}
-/*     printf("Found %d times in output list.\n", count); */
+/*     message(1, "Found %d times in output list.\n", count); */
 
     /*Allocate enough memory*/
     All.OutputListLength = count;
     if(All.OutputListLength > sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0])) {
-        printf("Too many entries (%d) in the OutputList, need to recompile the code. (change All.OutputListTimes in allvars.h \n", 
+        message(1, "Too many entries (%d) in the OutputList, need to recompile the code. (change All.OutputListTimes in allvars.h \n", 
             All.OutputListLength);
         return 1;
     }
@@ -85,7 +86,7 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
     for(count=0,token=strtok(outputlist,","); count < All.OutputListLength && token; count++, token=strtok(NULL,","))
     {
         All.OutputListTimes[count] = atof(token);
-/*         printf("Output at: %g\n", All.OutputListTimes[count]); */
+/*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
     }
     free(strtmp);
 
@@ -93,6 +94,7 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
     return 0;
 }
 
+static void set_units();
 
 static ParameterSet *
 create_gadget_parameter_set()
@@ -295,18 +297,19 @@ create_gadget_parameter_set()
 void read_parameter_file(char *fname)
 {
     if(ThisTask == 0) {
+
         ParameterSet * ps = create_gadget_parameter_set();
 
         if(0 != param_parse_file(ps, fname)) {
-            endrun(9999, "Parsing %s failed.", fname);
+            endrun(1, "Parsing %s failed.", fname);
         }
         if(0 != param_validate(ps)) {
-            endrun(9998, "Validation of %s failed.", fname);
+            endrun(1, "Validation of %s failed.", fname);
         }
 
-        printf("----------- Running with Parameters ----------\n");
+        message(1, "----------- Running with Parameters ----------\n");
         param_dump(ps, stdout);
-        printf("----------------------------------------------\n");
+        message(1, "----------------------------------------------\n");
 
         All.NumThreads = omp_get_max_threads();
 
@@ -451,57 +454,77 @@ void read_parameter_file(char *fname)
     #endif
 
         parameter_set_free(ps);
+
+        if(All.TypeOfTimestepCriterion >= 3)
+        {
+            endrun(1, "The specified timestep criterion is not valid\n");
+        }
+
+    #ifdef SFR
+
+        if(All.StarformationOn == 0)
+        {
+            message(1, "StarformationOn is disabled!\n");
+        }
+        if(All.CoolingOn == 0)
+        {
+            endrun(1, "You try to use the code with star formation enabled,\n"
+                      "but you did not switch on cooling.\nThis mode is not supported.\n");
+        }
+    #else
+        if(All.StarformationOn == 1)
+        {
+            endrun(1, "Code was compiled with star formation switched off.\n"
+                      "You must set `StarformationOn=0', or recompile the code.\n");
+            All.StarformationOn = 0;
+        }
+    #endif
+
+    #ifdef METALS
+    #ifndef SFR
+        endrun(1, "Code was compiled with METALS, but not with SFR.\n"
+                  "This is not allowed.\n");
+    #endif
+    #endif
+
+        DensityKernel kernel;
+        density_kernel_init(&kernel, 1.0);
+        All.DesNumNgb = density_kernel_desnumngb(&kernel, All.DensityResolutionEta);
+
+        message(1, "The Density Kernel type is %s\n", kernel.name);
+        message(1, "The Density resolution is %g * mean separation, or %d neighbours\n",
+                    All.DensityResolutionEta, All.DesNumNgb);
+
+        set_units();
+
+        message(1, "\nHubble (internal units) = %g\n", All.Hubble);
+        message(1, "G (internal units) = %g\n", All.G);
+        message(1, "UnitMass_in_g = %g \n", All.UnitMass_in_g);
+        message(1, "UnitTime_in_s = %g \n", All.UnitTime_in_s);
+        message(1, "UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);
+        message(1, "UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
+        message(1, "UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
+        message(1, "Photon density OmegaG = %g\n",All.CP.OmegaG);
+        message(1, "Massless Neutrino density OmegaNu0 = %g\n",All.CP.OmegaNu0);
+        message(1, "Curvature density OmegaK = %g\n",All.CP.OmegaK);
+        if(All.CP.RadiationOn) {
+            /* note that this value is inaccurate if there is massive neutrino. */
+            message(1, "Radiation is enabled in Hubble(a). \n"
+                   "Following CAMB convention: Omega_Tot - 1 = %g\n",
+                All.CP.OmegaG + All.CP.OmegaNu0 + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda - 1);
+        }
+        message(1, "\n");
+
     }
 
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
+}
 
-    if(All.TypeOfTimestepCriterion >= 3)
-    {
-        if(ThisTask == 0)
-        {
-            endrun(0, "The specified timestep criterion is not valid\n");
-        }
-    }
-
-#ifdef SFR
-
-    if(All.StarformationOn == 0)
-    {
-        if(ThisTask == 0)
-        {
-            printf("StarformationOn is disabled!\n");
-        }
-    }
-    if(All.CoolingOn == 0)
-    {
-        if(ThisTask == 0)
-        {
-            endrun(0, "You try to use the code with star formation enabled,\n"
-                      "but you did not switch on cooling.\nThis mode is not supported.\n");
-        }
-    }
-#else
-    if(All.StarformationOn == 1)
-    {
-        if(ThisTask == 0)
-        {
-            endrun(0, "Code was compiled with star formation switched off.\n"
-                      "You must set `StarformationOn=0', or recompile the code.\n");
-        }
-        All.StarformationOn = 0;
-    }
-#endif
-
-#ifdef METALS
-#ifndef SFR
-    if(ThisTask == 0)
-    {
-        endrun(0, "Code was compiled with METALS, but not with SFR.\n"
-                  "This is not allowed.\n");
-    }
-#endif
-#endif
-
+/*! Computes conversion factors between internal code units and the
+ *  cgs-system.
+ */
+static void set_units(void)
+{
     /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
      * A note on normalisation (as of 08/02/2012):
      * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
@@ -533,5 +556,54 @@ void read_parameter_file(char *fname)
      * but we absorbed N_eff into T_nu above. */
     All.CP.OmegaNu0 = All.CP.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
 
+    double meanweight;
 
+    All.UnitVelocity_in_cm_per_s = 1e5; /* 1 km/sec */
+    All.UnitLength_in_cm = 3.085678e21; /* 1.0 Kpc /h */
+    All.UnitMass_in_g = 1.989e43;       /* 1e10 Msun/h*/
+
+    All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
+    All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
+
+    All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
+
+    All.UnitDensity_in_cgs = All.UnitMass_in_g / pow(All.UnitLength_in_cm, 3);
+    All.UnitPressure_in_cgs = All.UnitMass_in_g / All.UnitLength_in_cm / pow(All.UnitTime_in_s, 2);
+    All.UnitCoolingRate_in_cgs = All.UnitPressure_in_cgs / All.UnitTime_in_s;
+    All.UnitEnergy_in_cgs = All.UnitMass_in_g * pow(All.UnitLength_in_cm, 2) / pow(All.UnitTime_in_s, 2);
+
+    /* convert some physical input parameters to internal units */
+
+    All.Hubble = HUBBLE * All.UnitTime_in_s;
+
+    meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */
+
+    All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.MinGasTemp;
+    All.MinEgySpec *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+#ifdef SFR
+
+    All.OverDensThresh =
+        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
+
+    All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
+
+    All.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempClouds;
+    All.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+    meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
+
+    All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
+    All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+    if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
+        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
+        message(1, "Windspeed: %g\n", All.WindSpeed);
+    } else {
+        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
+        if(All.WindModel != WINDS_NONE)
+            message(1, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
+    }
+
+#endif
 }

@@ -40,10 +40,7 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
 void fof_save_particles(int num) {
     char fname[4096];
     sprintf(fname, "%s/PIG_%03d", All.OutputDir, num);
-    if(ThisTask == 0) {
-        printf("saving particle in group into %s\n", fname);
-        fflush(stdout);
-    }
+    message(0, "saving particle in group into %s\n", fname);
 
     /* sort the groups according to group-number */
     mpsort_mpi(Group, Ngroups, sizeof(struct Group), 
@@ -66,33 +63,21 @@ void fof_save_particles(int num) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     int NumPIGMax, NumPIGMin;
-    MPI_Reduce(&NumPIG, &NumPIGMax, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&NumPIG, &NumPIGMin, 1, MPI_INT, MPI_MIN, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0) {
-        printf("NumPIGmin=%d NumPIGmax=%d\n", NumPIGMin, NumPIGMax);
-    }
+    MPI_Allreduce(&NumPIG, &NumPIGMax, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    MPI_Allreduce(&NumPIG, &NumPIGMin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+    message(0, "NumPIGmin=%d NumPIGmax=%d\n", NumPIGMin, NumPIGMax);
 
     qsort(argind, NumPIG, sizeof(int), fof_cmp_argind);
     walltime_measure("/FOF/IO/argind");
     MPI_Barrier(MPI_COMM_WORLD);
-    if(ThisTask == 0) {
-        printf("argind sorted\n");
-    }
+    message(0, "argind sorted\n");
 
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "Failed to open IC from %s\n", fname);
-        }
-        abort();
+        endrun(0, "Failed to open IC from %s\n", fname);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
-    if(ThisTask == 0) {
-        printf("Task 0 : File created!\n");
-    }
-
-
     fof_write_header(&bf); 
 
     for(i = 0; i < IOTable.used; i ++) {
@@ -110,10 +95,8 @@ void fof_save_particles(int num) {
         } else {
             abort();
         }
-        if(ThisTask == 0) {
-            printf("Writing Block %s\n", blockname);
-            fflush(stdout);
-        }
+        message(0, "Writing Block %s\n", blockname);
+
         petaio_save_block(&bf, blockname, &array, All.NumPartPerFile, All.NumWriters);
         petaio_destroy_buffer(&array);
     }
@@ -184,9 +167,8 @@ static void fof_distribute_particles() {
         pi[j].sortKey = P[i].GrNr;
         NpigLocal ++;
     }
-    MPI_Reduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0)
-        printf("GrNrMax before exchange is %d\n", GrNrMaxGlobal);
+    MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    message(0, "GrNrMax before exchange is %d\n", GrNrMaxGlobal);
     /* sort pi to decide targetTask */
     mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex), 
             fof_radix_sortkey, 8, NULL, MPI_COMM_WORLD);
@@ -228,9 +210,8 @@ static void fof_distribute_particles() {
         if(P[i].GrNr < 0) continue;
         if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
     }
-    MPI_Reduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0)
-        printf("GrNrMax after exchange is %d\n", GrNrMaxGlobal);
+    MPI_Allreduce(&GrNrMax, &GrNrMaxGlobal, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    message(0, "GrNrMax after exchange is %d\n", GrNrMaxGlobal);
 
 }
 static void fof_return_particles() {
@@ -254,8 +235,7 @@ static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {
 static void fof_write_header(BigFile * bf) {
     BigBlock bh = {0};
     if(0 != big_file_mpi_create_block(bf, &bh, "header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
-        fprintf(stderr, "Failed to create header\n");
-        abort();
+        endrun(0, "Failed to create header\n");
     }
     int i;
     int k;

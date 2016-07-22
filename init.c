@@ -204,15 +204,8 @@ void check_omega(void)
 
     if(fabs(omega - All.CP.Omega0) > 1.0e-3)
     {
-        if(ThisTask == 0)
-        {
-            printf("\n\nI've found something odd!\n");
-            printf
-                ("The mass content accounts only for Omega=%g,\nbut you specified Omega=%g in the parameterfile.\n",
-                 omega, All.CP.Omega0);
-
-            endrun(1, "I better stop");
-        }
+        endrun(0, "The mass content accounts only for Omega=%g,\nbut you specified Omega=%g in the parameterfile.\n",
+                omega, All.CP.Omega0);
     }
 }
 
@@ -258,18 +251,9 @@ void setup_smoothinglengths(void)
                 no = p;
             }
 
-#ifndef TWODIMS
-#ifndef ONEDIM
             P[i].Hsml =
                 pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass),
                         1.0 / 3) * Nodes[no].len;
-#else
-            P[i].Hsml = All.DesNumNgb * (P[i].Mass / (massfactor * Nodes[no].u.d.mass)) * Nodes[no].len;
-#endif
-#else
-            P[i].Hsml =
-                pow(1.0 / (M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass), 1.0 / 2) * Nodes[no].len;
-#endif
             if(All.SofteningTable[0] != 0 && P[i].Hsml > 500.0 * All.SofteningTable[0])
                 P[i].Hsml = All.SofteningTable[0];
         }
@@ -318,9 +302,7 @@ void setup_smoothinglengths(void)
 
         /* initialization of the entropy variable is a little trickier in this version of SPH,
            since we need to make sure it 'talks to' the density appropriately */
-        if (ThisTask == 0) {
-            printf("Converting u -> entropy, with density split sph\n");
-        }
+        message(0, "Converting u -> entropy, with density split sph\n");
 
         int j;
         double badness;
@@ -355,8 +337,7 @@ void setup_smoothinglengths(void)
             }
             MPI_Allreduce(MPI_IN_PLACE, &badness, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 
-            if(ThisTask == 0)
-                printf("iteration %03d, max relative difference = %g \n", j, badness);
+            message(0, "iteration %03d, max relative difference = %g \n", j, badness);
 
             if(badness < 1e-3) break;
         }

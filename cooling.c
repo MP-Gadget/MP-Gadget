@@ -179,7 +179,7 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
         iter++;
 
         if(iter >= (MAXITER - 10))
-            printf("u= %g\n", u);
+            message(1, "u= %g\n", u);
     }
     while(fabs(du / u) > 1.0e-6 && iter < MAXITER);
 
@@ -243,7 +243,7 @@ void cool_test(void)
     struct abundance y;
     y.ne = nein;
     double nHcgs = rhoin * XH / PROTONMASS;
-    printf("%g\n", solve_equilibrium_temp(uin, nHcgs, &GlobalUVBG, &y));
+    message(0, "%g\n", solve_equilibrium_temp(uin, nHcgs, &GlobalUVBG, &y));
 }
 
 /* this function determines the electron fraction, and hence the mean 
@@ -281,7 +281,7 @@ static double solve_equilibrium_temp(double u, double nHcgs, struct UVBG * uvbg,
         iter++;
 
         if(iter > (MAXITER - 10))
-                printf("-> temp= %g ne=%g\n", temp, y->ne);
+            message(1, "-> temp= %g ne=%g\n", temp, y->ne);
     }
     while(fabs(temp - temp_old) > 1.0e-3 * temp && iter < MAXITER);
 
@@ -393,7 +393,7 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * u
             break;
 
         if(niter > (MAXITER - 10))
-            printf("ne= %g  niter=%d\n", y->ne, niter);
+            message(1, "ne= %g  niter=%d\n", y->ne, niter);
     }
     while(niter < MAXITER);
 
@@ -546,17 +546,6 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
 
         Lambda = LambdaFF + LambdaCmptn;
     }
-
-    /*      
-            printf("Lambda= %g\n", Lambda);
-
-            fprintf(fd,"%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n", pow(10, logT),Lambda,
-            LambdaExcH0, LambdaExcHep, 
-            LambdaIonH0, LambdaIonHe0, LambdaIonHep,
-            LambdaRecHp, LambdaRecHep, LambdaRecHepp, LambdaRecHepd,
-            LambdaFF, LambdaCmptn, Heat,
-            ne, nHp, nHep, nHepp);
-            */
 
     return (Heat - Lambda);
 }
@@ -845,8 +834,7 @@ void ReadIonizeParams(char *fname)
         else
             break;
 
-    if(ThisTask == 0)
-        printf("\n\nread ionization table with %d entries in file `%s'.\n\n", nheattab, fname);
+    message(0, "Read ionization table with %d entries in file `%s'.", nheattab, fname);
 }
 
 
@@ -990,13 +978,11 @@ static void InitUVF(void) {
      *
      * */
     if(strlen(All.UVFluctuationFile) == 0) {
-        if(ThisTask == 0)
-            printf("Using UNIFORM UV BG from %s\n", All.TreeCoolFile);
+        message(0, "Using UNIFORM UV BG from %s\n", All.TreeCoolFile);
         UVF.disabled = 1;
         return;
     } else {
-        if(ThisTask == 0)
-            printf("Using NON-UNIFORM UV BG from %s and %s\n", All.TreeCoolFile, All.UVFluctuationFile);
+        message(0, "Using NON-UNIFORM UV BG from %s and %s\n", All.TreeCoolFile, All.UVFluctuationFile);
         UVF.disabled = 0;
     }
     int size;
