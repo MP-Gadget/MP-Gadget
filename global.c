@@ -16,7 +16,7 @@
  */
 void compute_global_quantities_of_system(void)
 {
-    int i, j, n, dt_step;
+    int i, j, dt_step;
     struct state_of_system sys;
     double a1, a2, a3;
 

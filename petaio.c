@@ -463,9 +463,6 @@ void petaio_destroy_buffer(BigArray * array) {
 void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
     BigBlock bb;
     BigBlockPtr ptr;
-    int i;
-
-    int64_t offset = count_to_offset(array->dims[0]);
 
     /* open the block */
     if(0 != big_file_mpi_open_block(bf, &bb, blockname, MPI_COMM_WORLD)) {
@@ -492,9 +489,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, size_t 
 
     BigBlock bb;
     BigBlockPtr ptr;
-    int i;
 
-    int64_t offset = count_to_offset(array->dims[0]);
     size_t size = count_sum(array->dims[0]);
     int NumFiles = (size + ppfile - 1) / ppfile;
 
