@@ -6,6 +6,8 @@
 #include <mpi.h>
 #include "allvars.h"
 #include "proto.h"
+#include "endrun.h"
+#include "paramset.h"
 
 void set_units(void)		/* ... set some units */
 {
@@ -16,223 +18,97 @@ void set_units(void)		/* ... set some units */
 }
 
 
+static ParameterSet *
+create_parameters()
+{
+    ParameterSet * ps = parameter_set_new();
 
+    param_declare_string(ps, "FileWithInputSpectrum", 1, 0, "");
+    param_declare_string(ps, "OutputDir", 1, 0, "");
+    param_declare_string(ps, "FileBase", 1, 0, "");
+
+    param_declare_double(ps, "MaxMemoryPerCore", 0, 1300., "");
+    param_declare_double(ps, "Omega", 1, 0, "");
+    param_declare_double(ps, "OmegaLambda", 1, 0, "");
+    param_declare_double(ps, "OmegaBaryon", 1, 0, "");
+    param_declare_int(ps,    "ProduceGas", 1, 0, "");
+    param_declare_double(ps, "OmegaDM_2ndSpecies", 1, 0, "");
+    param_declare_double(ps, "HubbleParam", 1, 0, "");
+    param_declare_double(ps, "ShapeGamma", 1, 0, "");
+    param_declare_double(ps, "Sigma8", 1, 0, "");
+    param_declare_double(ps, "PrimordialIndex", 1, 0, "");
+    param_declare_double(ps, "Box", 1, 0, "");
+    param_declare_double(ps, "Redshift", 1, 0, "");
+    param_declare_int(ps, "Nmesh", 1, 0, "");
+    param_declare_int(ps, "Nsample", 1, 0, "");
+    param_declare_int(ps, "Ngrid", 1, 0, "");
+    param_declare_int(ps, "Seed", 1, 0, "");
+    param_declare_int(ps, "SphereMode", 1, 0, "");
+    param_declare_int(ps, "WhichSpectrum", 1, 0, ""); 
+    param_declare_double(ps, "UnitVelocity_in_cm_per_s", 1, 0, "");
+    param_declare_double(ps, "UnitLength_in_cm", 1, 0, ""); 
+    param_declare_double(ps, "UnitMass_in_g", 1, 0, "");
+    param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", 1, 0, "");
+    param_declare_int(ps, "WDM_On", 1, 0, "");
+    param_declare_int(ps, "WDM_Vtherm_On", 1, 0, "");
+    param_declare_double(ps, "WDM_PartMass_in_kev", 1, 0, "");
+
+    param_declare_int(ps, "NumPartPerFile", 0, 1024 * 1024 * 128, "");
+    param_declare_int(ps, "NumWriters", 0, 0, "");
+
+    return ps;
+}
 void read_parameterfile(char *fname)
 {
-#define FLOAT 1
-#define STRING 2
-#define INT 3
-#define MAXTAGS 300
 
-  Ngrid = 0;
-  FILE *fd;
-  char buf[200], buf1[200], buf2[200], buf3[200];
-  int i, j, nt;
-  int id[MAXTAGS];
-  void *addr[MAXTAGS];
-  char tag[MAXTAGS][50];
-  int errorFlag = 0;
+    /* read parameter file on all processes for simplicty */
 
-  /* read parameter file on all processes for simplicty */
+    ParameterSet * ps = create_parameters();
 
-  nt = 0;
-
-  strcpy(tag[nt], "Omega");
-  addr[nt] = &Omega;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "MaxMemoryPerCore");
-  addr[nt] = &MaxMemoryPerCore;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "OmegaLambda");
-  addr[nt] = &OmegaLambda;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "OmegaBaryon");
-  addr[nt] = &OmegaBaryon;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "ProduceGas");
-  addr[nt] = &ProduceGas;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "OmegaDM_2ndSpecies");
-  addr[nt] = &OmegaDM_2ndSpecies;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "HubbleParam");
-  addr[nt] = &HubbleParam;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "ShapeGamma");
-  addr[nt] = &ShapeGamma;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "Sigma8");
-  addr[nt] = &Sigma8;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "PrimordialIndex");
-  addr[nt] = &PrimordialIndex;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "Box");
-  addr[nt] = &Box;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "Redshift");
-  addr[nt] = &Redshift;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "Nmesh");
-  addr[nt] = &Nmesh;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "Nsample");
-  addr[nt] = &Nsample;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "Ngrid");
-  addr[nt] = &Ngrid;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "FileWithInputSpectrum");
-  addr[nt] = FileWithInputSpectrum;
-  id[nt++] = STRING;
-
-  strcpy(tag[nt], "Seed");
-  addr[nt] = &Seed;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "SphereMode");
-  addr[nt] = &SphereMode;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "NumFilesWrittenInParallel");
-  addr[nt] = &NumFilesWrittenInParallel;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "NumFiles");
-  addr[nt] = &NumFiles;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "OutputDir");
-  addr[nt] = OutputDir;
-  id[nt++] = STRING;
-
-  strcpy(tag[nt], "FileBase");
-  addr[nt] = FileBase;
-  id[nt++] = STRING;
-
-  strcpy(tag[nt], "WhichSpectrum");
-  addr[nt] = &WhichSpectrum;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "UnitVelocity_in_cm_per_s");
-  addr[nt] = &UnitVelocity_in_cm_per_s;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "UnitLength_in_cm");
-  addr[nt] = &UnitLength_in_cm;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "UnitMass_in_g");
-  addr[nt] = &UnitMass_in_g;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "InputSpectrum_UnitLength_in_cm");
-  addr[nt] = &InputSpectrum_UnitLength_in_cm;
-  id[nt++] = FLOAT;
-
-  strcpy(tag[nt], "WDM_On");
-  addr[nt] = &WDM_On;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "WDM_Vtherm_On");
-  addr[nt] = &WDM_Vtherm_On;
-  id[nt++] = INT;
-
-  strcpy(tag[nt], "WDM_PartMass_in_kev");
-  addr[nt] = &WDM_PartMass_in_kev;
-  id[nt++] = FLOAT;
-
-  if((fd = fopen(fname, "r")))
-    {
-      while(!feof(fd))
-	{
-	  buf[0] = 0;
-	  fgets(buf, 200, fd);
-
-	  if(sscanf(buf, "%s%s%s", buf1, buf2, buf3) < 2)
-	    continue;
-
-	  if(buf1[0] == '%')
-	    continue;
-
-	  for(i = 0, j = -1; i < nt; i++)
-	    if(strcmp(buf1, tag[i]) == 0)
-	      {
-		j = i;
-		tag[i][0] = 0;
-		break;
-	      }
-
-	  if(j >= 0)
-	    {
-	      switch (id[j])
-		{
-		case FLOAT:
-		  *((double *) addr[j]) = atof(buf2);
-		  break;
-		case STRING:
-		  strcpy(addr[j], buf2);
-		  break;
-		case INT:
-		  *((int *) addr[j]) = atoi(buf2);
-		  break;
-		}
-	    }
-	  else
-	    {
-	      if(ThisTask == 0)
-		fprintf(stdout, "Error in file %s:   Tag '%s' not allowed or multiple defined.\n", fname,
-			buf1);
-	      errorFlag = 1;
-	    }
-	}
-      fclose(fd);
-
+    if(0 != param_parse_file(ps, fname)) {
+        endrun(0, "Parsing %s failed.", fname);
     }
-  else
-    {
-      if(ThisTask == 0)
-	fprintf(stdout, "Parameter file %s not found.\n", fname);
-      errorFlag = 1;
+    if(0 != param_validate(ps)) {
+        endrun(0, "Validation of %s failed.", fname);
     }
 
+    message(0, "----------- Running with Parameters ----------\n");
+    param_dump(ps, stdout);
+    message(0, "----------------------------------------------\n");
+    
+    Omega = param_get_double(ps, "Omega"); 
+    MaxMemoryPerCore = param_get_double(ps, "MaxMemoryPerCore"); 
+    OmegaLambda = param_get_double(ps, "OmegaLambda"); 
+    OmegaBaryon = param_get_double(ps, "OmegaBaryon"); 
+    ProduceGas = param_get_int(ps, "ProduceGas"); 
+    OmegaDM_2ndSpecies = param_get_double(ps, "OmegaDM_2ndSpecies"); 
+    HubbleParam = param_get_double(ps, "HubbleParam"); 
+    ShapeGamma = param_get_double(ps, "ShapeGamma"); 
+    Sigma8 = param_get_double(ps, "Sigma8"); 
+    PrimordialIndex = param_get_double(ps, "PrimordialIndex"); 
+    Box = param_get_double(ps, "Box"); 
+    Redshift = param_get_double(ps, "Redshift"); 
+    Nmesh = param_get_int(ps, "Nmesh"); 
+    Nsample = param_get_int(ps, "Nsample"); 
+    Ngrid = param_get_int(ps, "Ngrid"); 
+    FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum"); 
+    Seed = param_get_int(ps, "Seed"); 
+    SphereMode = param_get_int(ps, "SphereMode"); 
+    OutputDir = param_get_string(ps, "OutputDir"); 
+    FileBase = param_get_string(ps, "FileBase"); 
+    WhichSpectrum = param_get_int(ps, "WhichSpectrum"); 
+    UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s"); 
+    UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
+    UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+    InputSpectrum_UnitLength_in_cm = param_get_double(ps, "InputSpectrum_UnitLength_in_cm");
+    WDM_On = param_get_int(ps, "WDM_On"); 
+    WDM_Vtherm_On = param_get_int(ps, "WDM_Vtherm_On"); 
+    WDM_PartMass_in_kev = param_get_double(ps, "WDM_PartMass_in_kev"); 
 
-  for(i = 0; i < nt; i++)
-    {
-      if(*tag[i])
-	{
-	  if(ThisTask == 0)
-	    fprintf(stdout, "Error. I miss a value for tag '%s' in parameter file '%s'.\n", tag[i], fname);
-	  errorFlag = 1;
-	}
+    NumPartPerFile = param_get_int(ps, "NumPartPerFile");
+    NumWriters = param_get_int(ps, "NumWriters");
+
+    if(Ngrid == 0) {
+        Ngrid = Nmesh;
     }
-
-  if(errorFlag)
-    {
-      MPI_Finalize();
-      exit(0);
-    }
-
-  if(Ngrid == 0) {
-      Ngrid = Nmesh;
-  }
-#undef FLOAT
-#undef STRING
-#undef INT
-#undef MAXTAGS
 }

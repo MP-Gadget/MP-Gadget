@@ -23,9 +23,13 @@ static void readout_force_z(int i, double * mesh, double weight);
 static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k);
 static void setup_grid();
 
+static double Dplus;
+
 void initialize_ffts(void) {
     petapm_init(Box, Nmesh, 1);
     setup_grid();
+
+    Dplus = GrowthFactor(InitTime, 1.0);
 }
 
 uint64_t ijk_to_id(int i, int j, int k) {

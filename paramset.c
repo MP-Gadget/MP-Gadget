@@ -170,7 +170,7 @@ void param_dump(ParameterSet * ps, FILE * stream)
     for(i = 0; i < ps->size; i ++) {
         ParameterSchema * p = &ps->p[i];
         char * v = param_format_value(ps, p->name);
-        fprintf(stream, "%-31s %s\n", p->name, v);
+        fprintf(stream, "%-31s %s%%\n", p->name, v);
         free(v);
     }
     fflush(stream);
@@ -386,7 +386,14 @@ param_set_from_string(ParameterSet * ps, char * name, char * value)
         break;
         case STRING:
         {
+            while(*value == ' ') value ++;
             ps->value[p->index].s = fastpm_strdup(value);
+            char * a = ps->value[p->index].s;
+            a += strlen(a) - 1;
+            while(*a == ' ') {
+                *a = 0;
+                a--;
+            }
             ps->value[p->index].nil = 0;
         }
         break;

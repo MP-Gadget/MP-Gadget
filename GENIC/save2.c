@@ -6,66 +6,32 @@
 #include <mpi.h>
 #include "allvars.h"
 #include "proto.h"
+#include "endrun.h"
 #include "bigfile-mpi.h"
 
 #include "walltime.h"
-    
-static int ThisColor;
-static int ThisKey;
-MPI_Comm GROUP;
-static int GroupSize;
 
-int64_t NumPartOffset;
-int64_t * NumPartPerFileList;
 static void saveblock(BigFile * bf, void * baseptr, char * name, char * dtype, int items_per_particle);
 void saveheader(BigFile * bf);
 int64_t TotNumPart;
-
+int NumFiles;
 void write_particle_data(void) {
 
     int64_t numpart_64 = NumPart;
     MPI_Allreduce(&numpart_64, &TotNumPart, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-    NumPartPerFileList = alloca(sizeof(int64_t) * NumFiles);
-    {
-        int i;
-        for(i = 0; i < NumFiles; i ++) {
-            NumPartPerFileList[i] = ((i + 1) * TotNumPart / NumFiles - i * TotNumPart / NumFiles);
-        }
-    }
 
-    if(NumFilesWrittenInParallel > NTask) {
-        NumFilesWrittenInParallel = NTask;
-    }
+    NumFiles = (TotNumPart + NumPartPerFile - 1) / NumPartPerFile;
+
     char buf[4096];
-    ThisColor = ThisTask * NumFilesWrittenInParallel / NTask;
-    MPI_Comm_split(MPI_COMM_WORLD, ThisColor, 0, &GROUP);
-    MPI_Comm_rank(GROUP, &ThisKey);
-    MPI_Comm_size(GROUP, &GroupSize);
 
     walltime_measure("/Misc");
-    {
-        int i;    
-        int NumPartList[NTask];
-        int64_t NumPartOffsetList[NTask];
-        MPI_Gather(&NumPart, 1, MPI_INT, NumPartList, 1, MPI_INT, 0, MPI_COMM_WORLD);
-        if(ThisTask == 0) {
-            NumPartOffsetList[0] = 0;
-            for(i = 1; i < NTask; i ++) {
-                NumPartOffsetList[i] = NumPartOffsetList[i - 1] + NumPartList[i - 1];
-            }
-        }
-        MPI_Scatter(NumPartOffsetList, 1, MPI_LONG, &NumPartOffset, 1, MPI_LONG, 0, MPI_COMM_WORLD);
-    }
 
     sprintf(buf, "%s/%s", OutputDir, FileBase);
 
     BigFile bf;
 
     if(0 != big_file_mpi_create(&bf, buf, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "%s\n", big_file_get_error_message());
-            abort();
-        } 
+        endrun(0, "%s\n", big_file_get_error_message());
     }
 
     saveheader(&bf);
@@ -80,7 +46,6 @@ void write_particle_data(void) {
             int k;
             for(k = 0; k < 3; k ++) {
                 P[i].Pos[k] = periodic_wrap(P[i].Pos[k] + shift_gas);
-                
             }
         }
         /* Write Gas */
@@ -120,32 +85,19 @@ static void saveblock(BigFile * bf, void * baseptr, char * name, char * dtype, i
 
     int i;
     if(0 != big_file_mpi_create_block(bf, &block, name, dtype, dims[1], NumFiles, TotNumPart, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "%s:%s\n", big_file_get_error_message(), name);
-            abort();
-        } 
+        endrun(0, "%s:%s\n", big_file_get_error_message(), name);
     }
 
-    for(i = 0; i < GroupSize; i ++) {
-        MPI_Barrier(GROUP);
-        if(i != ThisKey) continue;
-        if(0 != big_block_seek(&block, &ptr, NumPartOffset)) {
-            fprintf(stderr, "Task = %d, failed seeking at %td: %s\n", ThisTask, NumPartOffset, 
-                    big_file_get_error_message());
-            abort();
-        }
-        if(0 != big_block_write(&block, &ptr, &array)) {
-            fprintf(stderr, "Task = %d, failed writing at %td: %s\n", ThisTask, NumPartOffset, 
-                    big_file_get_error_message());
-            abort();
-
-        }
+    if(0 != big_block_seek(&block, &ptr, 0)) {
+        endrun(0, "Failed to seek:%s\n", big_file_get_error_message());
     }
+
+    if(0 != big_block_mpi_write(&block, &ptr, &array, NumWriters, MPI_COMM_WORLD)) {
+        endrun(0, "Failed to write :%s\n", big_file_get_error_message());
+    }
+
     if(0 != big_block_mpi_close(&block, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "%s:%s\n", big_file_get_error_message(), name);
-            abort();
-        } 
+        endrun(0, "%s:%s\n", big_file_get_error_message(), name);
     }
 
 }
@@ -153,13 +105,10 @@ static void saveblock(BigFile * bf, void * baseptr, char * name, char * dtype, i
 void saveheader(BigFile * bf) {
     BigBlock bheader;
     if(0 != big_file_mpi_create_block(bf, &bheader, "header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "failed to create block %s:%s", "header",
-                    big_file_get_error_message());
-            abort(); 
-        }
+        endrun(0, "failed to create block %s:%s", "header",
+                big_file_get_error_message());
     }
-    
+
     int64_t totnumpart[6] = {0};
     double mass[6] = {0};
     totnumpart[1] = TotNumPart;
@@ -181,30 +130,13 @@ void saveheader(BigFile * bf) {
             (big_block_set_attr(&bheader, "OmegaB", &OmegaBaryon, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaL", &OmegaLambda, "f8", 1)) ||
             (big_block_set_attr(&bheader, "HubbleParam", &HubbleParam, "f8", 1));
-    if(rt && ThisTask == 0) {
-        fprintf(stderr, "failed to create attr %s", 
+    if(rt) {
+        endrun(0, "failed to create attr %s", 
                 big_file_get_error_message());
-        abort(); 
     }
 
     if(0 != big_block_mpi_close(&bheader, MPI_COMM_WORLD)) {
-        if(ThisTask == 0) {
-            fprintf(stderr, "failed to close block %s:%s", "header",
+        endrun(0, "failed to close block %s:%s", "header",
                     big_file_get_error_message());
-            abort(); 
-        }
     }
-}
-
-size_t my_fread(void *ptr, size_t size, size_t nmemb, FILE * stream)
-{
-  size_t nread;
-
-  if((nread = fread(ptr, size, nmemb, stream)) != nmemb)
-    {
-      printf("I/O error (fread) on task=%d has occured.\n", ThisTask);
-      fflush(stdout);
-      FatalError(778);
-    }
-  return nread;
 }

@@ -5,6 +5,7 @@
 #include <gsl/gsl_integration.h>
 #include "allvars.h"
 #include "proto.h"
+#include "endrun.h"
 
 
 static double R8;
@@ -101,8 +102,7 @@ void read_power_table(void)
     if(ThisTask == 0) {
         if(!(fd = fopen(buf, "r")))
         {
-            printf("can't read input spectrum in file '%s' on task %d\n", buf, ThisTask);
-            FatalError(17);
+            endrun(1, "can't read input spectrum in file '%s' on task %d\n", buf, ThisTask);
         }
 
         NPowerTable = 0;
@@ -117,8 +117,7 @@ void read_power_table(void)
 
         fclose(fd);
 
-        printf("found %d pairs of values in input spectrum table\n", NPowerTable);
-        fflush(stdout);
+        message(1, "found %d pairs of values in input spectrum table\n", NPowerTable);
     }
     MPI_Bcast(&NPowerTable, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
@@ -130,8 +129,7 @@ void read_power_table(void)
 
         if(!(fd = fopen(buf, "r")))
         {
-            printf("can't read input spectrum in file '%s' on task %d\n", buf, ThisTask);
-            FatalError(18);
+            endrun(1, "can't read input spectrum in file '%s' on task %d\n", buf, ThisTask);
         }
 
         i = 0;
@@ -207,7 +205,6 @@ void initialize_powerspectrum(void)
   if(ThisTask == 0 && WhichSpectrum == 1)
     printf("Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n\n", Sigma8, Norm);
 
-  Dplus = GrowthFactor(InitTime, 1.0);
 }
 
 double PowerSpec_Tabulated(double k)
@@ -226,31 +223,6 @@ double PowerSpec_Tabulated(double k)
   if(logk < PowerTable[0].logk || logk > PowerTable[NPowerTable - 1].logk)
     return 0;
 
-  /*  
-  binlow = 0;
-  binhigh = NPowerTable - 1;
-
-  while(binhigh - binlow > 1)
-    {
-      binmid = (binhigh + binlow) / 2;
-      if(logk < PowerTable[binmid].logk)
-	binhigh = binmid;
-      else
-	binlow = binmid;
-    }
-
-  dlogk = PowerTable[binhigh].logk - PowerTable[binlow].logk;
-
-  if(dlogk == 0)
-    FatalError(777);
-
-
-  u = (logk - PowerTable[binlow].logk) / dlogk;
-
-  logD = (1 - u) * PowerTable[binlow].logD + u * PowerTable[binhigh].logD;
-  */
-
-
 
   dlogk_PowerTable = PowerTable[1].logk-PowerTable[0].logk;
   mydlogk = logk - PowerTable[0].logk;
@@ -260,7 +232,7 @@ double PowerSpec_Tabulated(double k)
   dlogk = PowerTable[mybinhigh].logk - PowerTable[mybinlow].logk;
 
   if(dlogk == 0)
-    FatalError(777);
+    endrun(1, "dlogk is 0");
 
   u = (logk - PowerTable[mybinlow].logk) / dlogk;
 

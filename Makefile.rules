@@ -31,6 +31,8 @@ OBJECTS  =  \
 
 ICOBJECTS   = GENIC/main.o GENIC/power.o GENIC/allvars.o GENIC/read_param.o \
 		 petapm.o \
+        paramset.o \
+        utils-string.o \
 		 openmpsort.o \
 		 GENIC/zeldovich.o \
 		GENIC/save2.o  \

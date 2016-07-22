@@ -51,10 +51,6 @@ PrimordialIndex  0.971      % may be used to tilt the primordial index
 Seed             181170    %  seed for IC-generator
 
 
-NumFilesWrittenInParallel 1 % limits the number of files that are
-                             % written in parallel when outputting
-NumFiles         1 
-
 UnitLength_in_cm          3.085678e21   % defines length unit of output (in cm/h) 
 UnitMass_in_g             1.989e43      % defines mass unit of output (in g/cm)
 UnitVelocity_in_cm_per_s  1e5           % defines velocity unit of output (in cm/sec)

@@ -70,16 +70,6 @@ int main(int argc, char **argv)
 }
 
 
-
-
-int FatalError(int errnum)
-{
-  printf("FatalError called with number=%d\n", errnum);
-  fflush(stdout);
-  MPI_Abort(MPI_COMM_WORLD, errnum);
-  exit(0);
-}
-
 double periodic_wrap(double x)
 {
   while(x >= Box)
