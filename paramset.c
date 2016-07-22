@@ -7,6 +7,7 @@
 #define DOUBLE 3
 #define STRING 5
 #define ENUM 10
+#define NAMESIZE 128
 
 static int parse_enum(ParameterEnum * table, char * strchoices) {
     int value = 0;
@@ -48,6 +49,8 @@ static char * format_enum(ParameterEnum * table, int value) {
             strcpy(c, p->name);
             c += strlen(p->name);
             *c = 0;
+            if (c - buffer >=2048-1)
+                break;
             value -= p->value;
         }
     }
@@ -63,7 +66,7 @@ typedef struct ParameterValue {
 
 typedef struct ParameterSchema {
     int index;
-    char name[128];
+    char name[NAMESIZE];
     int type;
     ParameterValue defvalue;
     char * help;
@@ -228,7 +231,9 @@ static ParameterSchema *
 param_declare(ParameterSet * ps, char * name, int type, int required, char * help)
 {
     int free = ps->size;
-    strcpy(ps->p[free].name, name);
+    strncpy(ps->p[free].name, name, NAMESIZE);
+    //Make sure null terminated
+    ps->p[free].name[NAMESIZE-1] = '\0';
     ps->p[free].required = required;
     ps->p[free].type = type;
     ps->p[free].index = free;
@@ -348,7 +353,7 @@ param_format_value(ParameterSet * ps, char * name)
         {
             int i = ps->value[p->index].i;
             char buf[128];
-            sprintf(buf, "%d", i);
+            snprintf(buf, 128, "%d", i);
             return strdup(buf);
         }
         break;
@@ -356,7 +361,7 @@ param_format_value(ParameterSet * ps, char * name)
         {
             double d = ps->value[p->index].d;
             char buf[128];
-            sprintf(buf, "%g", d);
+            snprintf(buf, 128, "%g", d);
             return strdup(buf);
         }
         break;
