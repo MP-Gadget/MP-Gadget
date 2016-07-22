@@ -8,11 +8,11 @@ Nmesh            128  % This is the size of the FFT grid used to
 Ngrid            64 % number of partic per grid direction.
  
 Nsample          128
-Box             512000.0   % Periodic box size of simulation
+BoxSize          512000.0   % Periodic box size of simulation
 
 
 
-Omega            0.2814      % Total matter density  (at z=0)
+Omega0            0.2814      % Total matter density  (at z=0)
 OmegaLambda      0.7186      % Cosmological constant (at z=0)
 OmegaBaryon      0.0464     % Baryon density        (at z=0)
 ProduceGas       0         % 0 is dm only. 1 is gas
