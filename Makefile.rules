@@ -64,11 +64,7 @@ $(DESTDIR)/MP-GenIC: $(ICOBJS)
 
 $(DESTDIR)/config.h: Makefile
 	mkdir -p `dirname $@`
-	echo 'const char * COMPILETIMESETTINGS = "" ' > $@
-	echo -E \" $(OPTIMIZE) \\""n \" >> $@
-	for i in $(OPT); do echo \" $$i \\""n \"; done >> $@
-	echo ';' >> $@
-	cat $@
+	OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
 
 $(OBJS): $(INCL) $(DESTDIR)/config.h 
 $(ICOBJS): $(INCL) $(DESTDIR)/config.h 
