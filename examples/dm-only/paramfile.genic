@@ -37,7 +37,7 @@ WhichSpectrum    2         % "1" selects Eisenstein & Hu spectrum,
                            % otherwise, Efstathiou parametrization is used
 
 
-FileWithInputSpectrum   powerspectrum-wmap9.txt  % filename of tabulated input
+FileWithInputSpectrum   ../powerspectrum-wmap9.txt  % filename of tabulated input
                                                                    % spectrum (if used)
 InputSpectrum_UnitLength_in_cm  3.085678e24                     % defines length unit of tabulated
                                                                    % input spectrum in cm/h. 
