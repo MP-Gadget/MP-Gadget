@@ -9,6 +9,7 @@ cache:
         - ${TRAVIS_BUILD_DIR}/depends/install
         - ${TRAVIS_BUILD_DIR}/depends/download
         - ${TRAVIS_BUILD_DIR}/depends/src
+        - ${TRAVIS_BUILD_DIR}/depends/lib
 
 addons:
     apt:
