@@ -7,6 +7,7 @@ env:
 cache:
     - directories:
         - ${TRAVIS_BUILD_DIR}/depends/install
+        - ${TRAVIS_BUILD_DIR}/depends/include
         - ${TRAVIS_BUILD_DIR}/depends/download
         - ${TRAVIS_BUILD_DIR}/depends/src
         - ${TRAVIS_BUILD_DIR}/depends/lib
