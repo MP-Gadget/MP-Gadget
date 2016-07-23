@@ -159,3 +159,11 @@ Please refer to the source files for details.
 The source code is put in public domain for reference.
 To enable features in sfr_eff.c and cooling.c for scientific runs,
 consent from the original authors of these files shall be obtained.
+
+Status
+------
+
+The public branch is
+
+.. image:: https://travis-ci.org/bluetides-project/MP-Gadget.svg?branch=public
+       :target: https://travis-ci.org/bluetides-project/MP-Gadget
