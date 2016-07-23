@@ -2,7 +2,6 @@ language: c
 
 env:
     global:
-        - NUMPY_VERSION=1.8 
         - OMP_NUM_THREADS=1
 
 cache:
@@ -25,7 +24,6 @@ install:
     - make
 
 script:
-    - pushd runs
+    - pushd examples/dm-only
     - sh run.sh
-    - popd 
-after_success: 
+
