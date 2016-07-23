@@ -21,7 +21,6 @@ addons:
 install:
     - sh bootstrap.sh
     - cp Options.mk.travis Options.mk
-    - make build/config.h
     - make
 
 script:
