@@ -16,10 +16,10 @@ addons:
             - libopenmpi-dev
             - openmpi-bin
             - libgsl0-dev
-            - python-numpy
-            - python-matplotlib
+            - libhdf5-dev
 
 install:
+    - sh bootstrap.sh
     - cp Options.mk.travis Options.mk
     - make
 
