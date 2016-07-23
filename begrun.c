@@ -121,7 +121,6 @@ void open_outputfiles(void)
 {
     char mode[2];
     char * buf;
-    char * dumpdir;
     char * postfix;
 
     if(RestartFlag == 0 || RestartFlag == 2)
@@ -139,10 +138,6 @@ void open_outputfiles(void)
     int chunk = 10;
     if (NTask > 100) chunk = 100;
     if (NTask > 1000) chunk = 1000;
-
-    dumpdir = fastpm_strdup_printf("%sdumpdir-%d%s/", All.OutputDir, (int)(ThisTask / chunk), postfix);
-    mkdir(dumpdir, 02755);
-    free(dumpdir);
 
     if(ThisTask != 0) {
         /* only the root processors writes to the log files */
