@@ -73,7 +73,9 @@ void read_parameterfile(char *fname)
     }
 
     message(0, "----------- Running with Parameters ----------\n");
-    param_dump(ps, stdout);
+    if(ThisTask == 0)
+        param_dump(ps, stdout);
+
     message(0, "----------------------------------------------\n");
     
     Omega = param_get_double(ps, "Omega0");
