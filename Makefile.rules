@@ -68,7 +68,7 @@ $(DESTDIR)/config.h: Makefile
 	echo "\"$(OPTIMIZE)\n\"" >> $@
 	for i in $(OPT); do echo "\"$$i\n\""; done >> $@
 	echo ';' >> $@
-
+	cat $@
 
 $(OBJS): $(INCL) $(DESTDIR)/config.h 
 $(ICOBJS): $(INCL) $(DESTDIR)/config.h 
