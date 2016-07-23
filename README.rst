@@ -46,6 +46,8 @@ usually can be loaded with
 
 .. code:: bash
 
+    # On cray use cray-hdf5
+
     module load hdf5 gsl
 
     env | grep HDF
@@ -84,7 +86,7 @@ In the end, we will have 2 binaries:
 
 .. code::
 
-    ls build/MP-Gadget build/GENIC/MP-GenIC
+    ls build/MP-Gadget build/MP-GenIC
 
 1. MP-Gadget is the main simulation program.
 
@@ -92,10 +94,13 @@ In the end, we will have 2 binaries:
 
 Usage
 -----
-There are two example runs in run/. 
 
-    run.sh : simulation with gas
-    run-dm.sh : simulation without gas (dm only)
+Find examples in examples/.
+
+- dm-only : Dark Matter only
+- lya : Lyman Alpha only (needs special compilcation flags)
+- hydro : hydro
+- small : hydro with low resolution
 
 OpenMP Complication
 -------------------
@@ -105,6 +110,8 @@ all of the dependencies needs to be recompiled.
 This can be achived by removing all files in depends/lib.
 
 Otherwise symbols related to OpenMP in PFFT may be missing.
+
+Always enable OpenMP.
 
 IO Format
 ---------
