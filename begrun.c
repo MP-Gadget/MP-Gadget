@@ -145,35 +145,35 @@ void open_outputfiles(void)
         return;
     }
 
-    buf = fastpm_strdup_printf("%s%s%s", All.OutputDir, All.CpuFile, postfix);
+    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.CpuFile, postfix);
     if(!(FdCPU = fopen(buf, mode)))
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
 
-    buf = fastpm_strdup_printf("%s%s%s", All.OutputDir, All.InfoFile, postfix);
+    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.InfoFile, postfix);
     if(!(FdInfo = fopen(buf, mode)))
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
 
-    buf = fastpm_strdup_printf("%s%s%s", All.OutputDir, All.EnergyFile, postfix);
+    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.EnergyFile, postfix);
     if(!(FdEnergy = fopen(buf, mode)))
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
 
-    buf = fastpm_strdup_printf("%s%s%s", All.OutputDir, All.TimingsFile, postfix);
+    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.TimingsFile, postfix);
     if(!(FdTimings = fopen(buf, mode)))
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
 
 #ifdef SFR
-    buf = fastpm_strdup_printf("%s%s%s", All.OutputDir, "sfr.txt", postfix);
+    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "sfr.txt", postfix);
     if(!(FdSfr = fopen(buf, mode)))
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
 #endif
 
 #ifdef BLACK_HOLES
-    buf = fastpm_strdup_printf("%s%s%s", All.OutputDir, "blackholes.txt", postfix);
+    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "blackholes.txt", postfix);
     if(!(FdBlackHoles = fopen(buf, mode)))
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
