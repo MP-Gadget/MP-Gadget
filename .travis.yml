@@ -23,9 +23,8 @@ install:
     - sh bootstrap.sh
     - cp Options.mk.travis Options.mk
     - make depends
-#    - make
+    - make
 
 script:
 #    - pushd examples/dm-only
 #    - sh run.sh
-
