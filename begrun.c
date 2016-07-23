@@ -51,7 +51,6 @@ void begrun(void)
 #endif
 
 #ifdef COOLING
-    set_global_time(All.TimeBegin);
     InitCool();
 #endif
 

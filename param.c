@@ -103,7 +103,7 @@ create_gadget_parameter_set()
 
     param_declare_string(ps, "InitCondFile", 1, NULL, "Path to the Initial Condition File");
     param_declare_string(ps, "OutputDir",    1, NULL, "Prefix to the output files");
-    param_declare_string(ps, "TreeCoolFile", 1, NULL, "Path to the Cooling Table");
+    param_declare_string(ps, "TreeCoolFile", 0, "", "Path to the Cooling Table");
     param_declare_string(ps, "MetalCoolFile", 0, "", "Path to the Metal Cooling Table. Refer to cooling.c");
     param_declare_string(ps, "UVFluctuationFile", 0, "", "Path to the UVFluctation Table. Refer to cooling.c.");
 
@@ -465,11 +465,12 @@ void read_parameter_file(char *fname)
         if(All.StarformationOn == 0)
         {
             message(1, "StarformationOn is disabled!\n");
-        }
-        if(All.CoolingOn == 0)
-        {
-            endrun(1, "You try to use the code with star formation enabled,\n"
-                      "but you did not switch on cooling.\nThis mode is not supported.\n");
+        } else {
+            if(All.CoolingOn == 0)
+            {
+                endrun(1, "You try to use the code with star formation enabled,\n"
+                          "but you did not switch on cooling.\nThis mode is not supported.\n");
+            }
         }
     #else
         if(All.StarformationOn == 1)

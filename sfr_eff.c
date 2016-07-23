@@ -896,6 +896,8 @@ static double get_starformation_rate_full(int i, double dtime, double * ne_new, 
 
 void init_clouds(void)
 {
+    if(!All.StarformationOn) return;
+
     double A0, dens, tcool, ne, coolrate, egyhot, x, u4, meanweight;
     double tsfr, y, peff, fac, neff, egyeff, factorEVP, sigma, thresholdStarburst;
 

@@ -95,6 +95,8 @@ static double yhelium;
 
 
 static int CoolingNoMetal;
+static int CoolingNoPrimordial;
+
 
 static double mhboltz;		/* hydrogen mass over Boltzmann constant */
 static double ethmin;		/* minimum internal energy for neutral gas */
@@ -115,6 +117,8 @@ struct UVBG GlobalUVBG = {0};
  */
 double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double *ne_guess, double Z)
 {
+    if(CoolingNoPrimordial) return 0;
+
     double u, du;
     double u_lower, u_upper;
     double ratefact;
@@ -200,6 +204,8 @@ double DoCooling(double u_old, double rho, double dt, struct UVBG * uvbg, double
  */
 double GetCoolingTime(double u_old, double rho, struct UVBG * uvbg, double *ne_guess, double Z)
 {
+    if(CoolingNoPrimordial) return 0;
+
     double u;
     double ratefact;
     double LambdaNet, coolingtime;
@@ -415,6 +421,8 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * u
  */
 double CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_guess, double Z)
 {
+    if(CoolingNoPrimordial) return 0;
+
     double temp;
     struct abundance y;
 
@@ -437,6 +445,8 @@ double CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_g
  */
 double AbundanceRatios(double u, double rho, struct UVBG * uvbg, double *ne_guess, double *nH0_pointer, double *nHeII_pointer)
 {
+    if(CoolingNoPrimordial) return 0;
+
     double temp;
     struct abundance y;
 
@@ -456,6 +466,8 @@ double AbundanceRatios(double u, double rho, struct UVBG * uvbg, double *ne_gues
 
 double ConvertInternalEnergy2Temperature(double u, double ne)
 {
+    if(CoolingNoPrimordial) return 0;
+
     double mu;
     double temp;
     mu = (1 + 4 * yhelium) / (1 + yhelium + ne);
@@ -840,6 +852,7 @@ void ReadIonizeParams(char *fname)
 
 void IonizeParams(void)
 {
+    if(CoolingNoPrimordial) return;
     IonizeParamsTable();
 }
 
@@ -892,10 +905,21 @@ void SetZeroIonization(void)
 
 void InitCool(void)
 {
+    if(!All.CoolingOn) {
+        CoolingNoPrimordial = 1;
+        CoolingNoMetal = 1;
+        return;
+    }
+
     InitCoolMemory();
     MakeCoolingTable();
-
-    ReadIonizeParams(All.TreeCoolFile);
+    if(strlen(All.TreeCoolFile) == 0) {
+        CoolingNoPrimordial = 1;
+        message(0, "No TreeCool file is provided. Cooling is broken. OK for DM only runs. \n");
+    } else {
+        CoolingNoPrimordial = 0;
+        ReadIonizeParams(All.TreeCoolFile);
+    }
     /* now initialize the metal cooling table from cloudy; we got this file
      * from vogelsberger's Arepo simulations; it is supposed to be 
      * cloudy + UVB - H and He; look so.
@@ -908,7 +932,7 @@ void InitCool(void)
         CoolingNoMetal = 1;
     } else {
         CoolingNoMetal = 0;
-        InitMetalCooling();    
+        InitMetalCooling();
     }
 
     set_global_time(All.TimeBegin);
