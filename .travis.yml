@@ -21,9 +21,10 @@ addons:
 install:
     - sh bootstrap.sh
     - cp Options.mk.travis Options.mk
-    - make
+    - make depends
+#    - make
 
 script:
-    - pushd examples/dm-only
-    - sh run.sh
+#    - pushd examples/dm-only
+#    - sh run.sh
 
