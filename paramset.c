@@ -170,7 +170,7 @@ void param_dump(ParameterSet * ps, FILE * stream)
     for(i = 0; i < ps->size; i ++) {
         ParameterSchema * p = &ps->p[i];
         char * v = param_format_value(ps, p->name);
-        fprintf(stream, "%-31s %s%%\n", p->name, v);
+        fprintf(stream, "%-31s %-20s # %s\n", p->name, v, p->help);
         free(v);
     }
     fflush(stream);
