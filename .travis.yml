@@ -27,6 +27,6 @@ install:
     - make
 
 script:
-    - pushd examples/dm-only
+    - pushd examples/travis
     - sh run.sh
     - popd
