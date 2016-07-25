@@ -94,7 +94,7 @@ FunctionOfK * function_of_k_new_from_string(const char * string, int logscale)
     FunctionOfK * fk = NULL;
     char ** list = fastpm_strsplit(string, "\n");
     char ** line;
-    ptrdiff_t i;
+    int i;
     int pass = 0;
     /* two pass parsing, first pass for counting */
     /* second pass for assignment */
