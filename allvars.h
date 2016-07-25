@@ -727,16 +727,14 @@ extern struct sph_particle_data
     MyFloat       DivVel;		/*!< local velocity divergence */
     MyFloat       CurlVel;     	        /*!< local velocity curl */
     MyFloat       Rot[3];		/*!< local velocity curl */
+    MyFloat Ne;  /*!< electron fraction, expressed as local electron number
+                   density normalized to the hydrogen number density. Gives
+                   indirectly ionization state and mean molecular weight. */
 
 #ifdef BLACK_HOLES
     MyFloat       Injected_BH_Energy;
 #endif
 
-#ifdef COOLING
-    MyFloat Ne;  /*!< electron fraction, expressed as local electron number
-                   density normalized to the hydrogen number density. Gives
-                   indirectly ionization state and mean molecular weight. */
-#endif
 #ifdef SFR
     MyFloat Sfr;
 #endif

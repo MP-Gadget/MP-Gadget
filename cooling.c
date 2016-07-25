@@ -32,8 +32,6 @@
 #include "mymalloc.h"
 #include "endrun.h"
 
-#ifdef COOLING
-
 #define NCOOLTAB  2000
 
 #define SMALLNUM 1.0e-60
@@ -1063,8 +1061,8 @@ static double GetReionizedFraction(double time) {
     if(status[0] > 0) return 1.0;
     return fraction;
 }
-#endif
 
+#endif
 
 /* 
  * returns the spatial dependent UVBG if UV fluctuation is enabled. 
@@ -1092,4 +1090,3 @@ void GetParticleUVBG(int i, struct UVBG * uvbg) {
 void GetGlobalUVBG(struct UVBG * uvbg) {
     memcpy(uvbg, &GlobalUVBG, sizeof(struct UVBG));
 }
-#endif

@@ -95,13 +95,12 @@ void compute_accelerations(int mode)
 #endif
 
 
-#ifdef COOLING	/**** radiative cooling and star formation *****/
+/**** radiative cooling and star formation *****/
 #ifdef SFR
         cooling_and_starformation();
 #else
         cooling_only();
 #endif
-#endif /*ends COOLING */
 
     }
     message(0, "force computation done.\n");

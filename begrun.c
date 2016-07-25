@@ -50,9 +50,7 @@ void begrun(void)
     enable_core_dumps_and_fpu_exceptions();
 #endif
 
-#ifdef COOLING
     InitCool();
-#endif
 
 #if defined(SFR)
     init_clouds();

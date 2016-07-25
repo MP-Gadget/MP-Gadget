@@ -36,7 +36,6 @@
 #define METALLICITY(i) (0.)
 #endif
 
-#ifdef COOLING
 static void cooling_direct(int i);
 #ifdef SFR
 static double u_to_temp_fac; /* assuming very hot !*/
@@ -413,9 +412,6 @@ static void cooling_direct(int i) {
         }
     }
 }
-
-#endif /* closing of COOLING-conditional */
-
 
 #if defined(SFR)
 
@@ -1275,5 +1271,5 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
 #endif
 }
 
-#endif /* closes COOLING */
+#endif
 

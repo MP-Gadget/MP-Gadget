@@ -503,7 +503,6 @@ static int density_evaluate(int target, int mode,
                     double mass_j;
                     if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
                         double nh0 = 1.0;
-#ifdef COOLING
                         double nHeII = 0;
                         double ne = SPHP(j).Ne;
                         struct UVBG uvbg;
@@ -513,7 +512,6 @@ static int density_evaluate(int target, int mode,
                                     * pow(SPHP(j).EOMDensity * All.cf.a3inv,
                                         GAMMA_MINUS1)),
                                 SPHP(j).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
-#endif
                         if(r2 > 0)
                             O->FeedbackWeightSum += (P[j].Mass * nh0) / r2;
                     } else {

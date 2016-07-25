@@ -57,9 +57,7 @@ void init(void)
 
     set_global_time(All.TimeBegin);
 
-#ifdef COOLING
     IonizeParams();
-#endif
 
     All.Timebase_interval = (log(All.TimeMax) - log(All.TimeBegin)) / TIMEBASE;
     All.Ti_Current = 0;
@@ -133,9 +131,7 @@ void init(void)
 #ifdef VOLUME_CORRECTION
             SPHP(i).DensityOld = 1;
 #endif
-#ifdef COOLING
             SPHP(i).Ne = 1.0;
-#endif
             SPHP(i).DivVel = 0;
         }
 #ifdef WINDS
