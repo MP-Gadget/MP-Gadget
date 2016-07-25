@@ -134,11 +134,6 @@ void open_outputfiles(void)
         postfix = fastpm_strdup_printf("%s", "");
     }
 
-    /* create spliced dirs */
-    int chunk = 10;
-    if (NTask > 100) chunk = 100;
-    if (NTask > 1000) chunk = 1000;
-
     if(ThisTask != 0) {
         /* only the root processors writes to the log files */
         free(postfix);
