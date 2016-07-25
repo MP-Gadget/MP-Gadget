@@ -37,6 +37,8 @@
 #endif
 
 #ifdef COOLING
+static void cooling_direct(int i);
+#ifdef SFR
 static double u_to_temp_fac; /* assuming very hot !*/
 
 /* these guys really shall be local to cooling_and_starformation, but
@@ -48,11 +50,7 @@ static double sum_sm;
 static double sum_mass_stars;
 
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
-static void cooling_direct(int i);
-#ifdef WINDS
-static int make_particle_wind(int i, double v, double vmean[3]);
-#endif
-#ifdef SFR
+
 static int get_sfr_condition(int i);
 static int make_particle_star(int i);
 static void starformation(int i);
@@ -60,7 +58,6 @@ static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff);
 #endif
-
 
 #ifdef WINDS
 struct winddata_in {
@@ -100,6 +97,7 @@ static struct winddata {
     int Ngb;
 } * Wind;
 
+static int make_particle_wind(int i, double v, double vmean[3]);
 
 static int sfr_wind_isactive(int target);
 static void sfr_wind_reduce_weight(int place, struct winddata_out * remote, int mode);
@@ -119,11 +117,12 @@ static int sfr_wind_evaluate(int target, int mode,
  * the effective multi-phase model.
  */
 
-
 static int sfr_cooling_isactive(int target) {
     return P[target].Type == 0;
 }
 
+
+#ifdef SFR
 void cooling_and_starformation(void)
     /* cooling routine when star formation is enabled */
 {
@@ -321,6 +320,40 @@ void cooling_and_starformation(void)
 #endif
 }
 
+#else //No SFR
+
+/* cooling routine when star formation is disabled */
+void cooling_only(void)
+{
+    if(!All.CoolingOn) return;
+    walltime_measure("/Misc");
+
+    Evaluator ev = {0};
+
+    /* Only used to list all active particles for the parallel loop */
+    /* no tree walking and no need to export / copy particles. */
+    ev.ev_label = "SFR_COOL";
+    ev.ev_isactive = sfr_cooling_isactive;
+
+    int Nactive = 0;
+    int * queue = ev_get_queue(&ev, &Nactive);
+    int n;
+
+#pragma omp parallel for
+    for(n = 0; n < Nactive; n ++)
+    {
+        int i = queue[n];
+        /* normal implicit isochoric cooling */
+        cooling_direct(i);
+    }
+
+    myfree(queue);
+
+    walltime_measure("/Cooling/StarFormation");
+}
+
+#endif
+
 static void cooling_direct(int i) {
 
     double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
@@ -330,7 +363,9 @@ static void cooling_direct(int i) {
 
     dtime = dt / All.cf.hubble;
 
+#ifdef SFR
     SPHP(i).Sfr = 0;
+#endif
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
