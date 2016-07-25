@@ -121,14 +121,14 @@ void fof_fof(int num)
     MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE_GROUP);
     MPI_Type_commit(&MPI_TYPE_GROUP);
 
-    message(0, "\nBegin to compute FoF group catalogues...  (presently allocated=%g MB)\n",
+    message(0, "Begin to compute FoF group catalogues...  (presently allocated=%g MB)\n",
             AllocatedBytes / (1024.0 * 1024.0));
 
     walltime_measure("/Misc");
 
     domain_Decomposition();
 
-    message(0, "\nComoving linking length: %g    ", All.FOFHaloComovingLinkingLength);
+    message(0, "Comoving linking length: %g    ", All.FOFHaloComovingLinkingLength);
     message(0, "(presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
     HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", NumPart * sizeof(struct fof_particle_list));
@@ -214,7 +214,7 @@ void fof_fof(int num)
     myfree(BaseGroup);
     myfree(HaloLabel);
 
-    message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n\n",
+    message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",
             AllocatedBytes / (1024.0 * 1024.0));
 
 
@@ -261,7 +261,7 @@ void fof_label_primary(void)
     int64_t link_across_tot;
     double t0, t1;
 
-    message(0, "\nStart linking particles (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+    message(0, "Start linking particles (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
     Evaluator ev = {0};
     ev.ev_label = "FOF_FIND_GROUPS";
@@ -326,7 +326,7 @@ void fof_label_primary(void)
         HaloLabel[i].MinIDTask = HaloLabel[HEAD(i)].MinIDTask;
     }
 
-    message(0, "Local groups found.\n\n");
+    message(0, "Local groups found.\n");
     myfree(LinkList);
 }
 
@@ -687,12 +687,11 @@ static void fof_compile_catalogue(void)
     else
         largestgroup = 0;
 
-    message(0, "\nTotal number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
+    message(0, "Total number of groups with at least %d particles: %ld\n", All.FOFHaloMinLength, TotNgroups);
     if(TotNgroups > 0)
     {
         message(0, "Largest group has %d particles.\n", largestgroup);
-        message(0, "Total number of particles in groups: %d%09d\n\n",
-                (int) (TotNids / 1000000000), (int) (TotNids % 1000000000));
+        message(0, "Total number of particles in groups: %012ld\n", TotNids);
     }
 }
 
@@ -1185,7 +1184,7 @@ static void fof_seed(void)
 
     MPI_Allreduce(&Nimport, &ntot, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-    message(0, "\nMaking %d new black hole particles\n\n", ntot);
+    message(0, "Making %d new black hole particles.\n", ntot);
 
     for(n = 0; n < Nimport; n++)
     {

@@ -846,7 +846,7 @@ void ReadIonizeParams(char *fname)
         else
             break;
 
-    message(0, "Read ionization table with %d entries in file `%s'.", nheattab, fname);
+    message(0, "Read ionization table with %d entries in file `%s'.\n", nheattab, fname);
 }
 
 

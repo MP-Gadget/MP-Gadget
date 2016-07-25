@@ -42,18 +42,22 @@ void endrun(int ierr, const char * fmt, ...)
 
 void message(int ierr, const char * fmt, ...)
 {
+    static double start = -1;
+    if(start < 0) start = MPI_Wtime();
+
     va_list va;
     char buf[4096];
     va_start(va, fmt);
     vsprintf(buf, fmt, va);
     va_end(va);
+    /* FIXME: deal with \n in the buf. */
     if(ierr > 0) {
-        printf("Task %d: %s", ThisTask, buf);
+        printf("[ %09.2f ] Task %d: %s", MPI_Wtime() - start, ThisTask, buf);
         fflush(stdout);
     } else {
         MPI_Barrier(MPI_COMM_WORLD);
         if(ThisTask == 0) {
-            printf("%s", buf);
+            printf("[ %09.2f ] %s", MPI_Wtime() - start, buf);
             fflush(stdout);
         }
     }

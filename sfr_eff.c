@@ -940,10 +940,10 @@ void init_clouds(void)
                             All.FactorSN) * All.EgySpecCold) /
                         (All.MaxSfrTimescale * coolrate);
 
-        message(0, "\nA0= %g  \n", A0);
+        message(0, "A0= %g  \n", A0);
         message(0, "Computed: PhysDensThresh= %g  (int units)         %g h^2 cm^-3\n", All.PhysDensThresh,
                 All.PhysDensThresh / (PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs));
-        message(0, "EXPECTED FRACTION OF COLD GAS AT THRESHOLD = %g\n\n", x);
+        message(0, "EXPECTED FRACTION OF COLD GAS AT THRESHOLD = %g\n", x);
         message(0, "tcool=%g dens=%g egyhot=%g\n", tcool, dens, egyhot);
 
         dens = All.PhysDensThresh * 10;

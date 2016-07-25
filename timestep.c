@@ -100,12 +100,8 @@ void advance_and_find_timesteps(void)
     else
         fac = 1.0;
 
-    if(ThisTask == 0)
-    {
-        printf("\nglass-making:  dmean= %g  global disp-maximum= %g  rms= %g\n\n",
+    message(0, "glass-making:  dmean= %g  global disp-maximum= %g  rms= %g\n\n",
                 dmean, globmax, sqrt(globdisp2sum / All.TotNumPart));
-        fflush(stdout);
-    }
 
     for(i = 0, dispmax = 0; i < NumPart; i++)
     {
@@ -130,8 +126,7 @@ void advance_and_find_timesteps(void)
         GlobFlag++;
         DomainNumChanged = 0;
         DomainList = (int *) mymalloc("DomainList", NTopleaves * sizeof(int));
-        if(ThisTask == 0)
-            printf("kicks will prepare for dynamic update of tree\n");
+        message(0, "kicks will prepare for dynamic update of tree\n");
     }
 
 #ifdef FORCE_EQUAL_TIMESTEPS
@@ -165,7 +160,7 @@ void advance_and_find_timesteps(void)
 
         bin = get_timestep_bin(ti_step);
         if(bin == -1) {
-            printf("time-step of integer size 1 not allowed, id = %lu, debugging info follows. %d\n", P[i].ID, ti_step);
+            message(1, "time-step of integer size 1 not allowed, id = %lu, debugging info follows. %d\n", P[i].ID, ti_step);
             badstepsizecount++;
         }
         binold = P[i].TimeBin;
@@ -245,12 +240,11 @@ void advance_and_find_timesteps(void)
     MPI_Allreduce(&badstepsizecount, &badstepsizecount_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(badstepsizecount_global) {
-        if (ThisTask == 0)
-            printf("bad timestep spotted terminating and saving snapshot as %d\n", All.SnapshotFileCount);
+        message(0, "bad timestep spotted terminating and saving snapshot as %d\n", All.SnapshotFileCount);
         All.NumCurrentTiStep = 0;
         savepositions(999999, 0);
         MPI_Barrier(MPI_COMM_WORLD);
-        endrun(1231134, "Ending due to bad timestep");
+        endrun(0, "Ending due to bad timestep");
     }
     if(All.DoDynamicUpdate)
     {
@@ -525,7 +519,7 @@ int get_timestep(int p,		/*!< particle index */
 
     if(!(ti_step > 1 && ti_step < TIMEBASE))
     {
-        printf("\nError: A timestep of size zero was assigned on the integer timeline!\n"
+        message(1, "Error: A timestep of size zero was assigned on the integer timeline!\n"
                 "We better stop.\n"
                 "Task=%d type %d Part-ID=%lu dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
                 ThisTask, P[p].Type, (MyIDType)P[p].ID, dt, dt_courant, dt_viscous, dt_displacement,
@@ -535,27 +529,26 @@ int get_timestep(int p,		/*!< particle index */
                 sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac) * All.cf.hubble, All.ErrTolIntAccuracy
               );
 
-        printf("pm_force=(%g|%g|%g)\n", P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]);
+        message(1, "pm_force=(%g|%g|%g)\n", P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]);
 
         if(P[p].Type == 0)
-            printf("hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1],
+            message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1],
                     SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].n.NumNgb);
 #ifdef DENSITY_INDEPENDENT_SPH
         if(P[p].Type == 0)
-            printf("egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, SPHP(p).EntVarPred,
+            message(1, "egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, SPHP(p).EntVarPred,
                     SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy, SPHP(p).Pressure);
 #endif
 #ifdef SFR
         if(P[p].Type == 0) {
-            printf("sfr = %g\n" , SPHP(p).Sfr);
+            message(1, "sfr = %g\n" , SPHP(p).Sfr);
         }
 #endif
 #ifdef BLACK_HOLES
         if(P[p].Type == 0) {
-            printf("injected_energy = %g\n" , SPHP(p).Injected_BH_Energy);
+            message(1, "injected_energy = %g\n" , SPHP(p).Injected_BH_Energy);
         }
 #endif
-        fflush(stdout);
     }
 
     return ti_step;
@@ -644,9 +637,8 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
             if(asmth < dmean)
                 dt = All.MaxRMSDisplacementFac * hfac * asmth / sqrt(v_sum[type] / count_sum[type]);
 
-            if(ThisTask == 0)
-                printf("type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dlogmax=%g\n",
-                        type, dmean, asmth, min_mass[type], All.Time, sqrt(v_sum[type] / count_sum[type]), dt);
+            message(0, "type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dlogmax=%g\n",
+                    type, dmean, asmth, min_mass[type], All.Time, sqrt(v_sum[type] / count_sum[type]), dt);
 
 
             if(type != All.FastParticleType)	/* don't constrain the step to the neutrinos */
@@ -655,8 +647,7 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
         }
     }
 
-    if(ThisTask == 0)
-        printf("displacement time constraint: %g  (%g)\n", dt_displacement, All.MaxSizeTimestep);
+    message(0, "displacement time constraint: %g  (%g)\n", dt_displacement, All.MaxSizeTimestep);
 }
 
 int get_timestep_bin(int ti_step)

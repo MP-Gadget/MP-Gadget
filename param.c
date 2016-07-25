@@ -498,7 +498,7 @@ void read_parameter_file(char *fname)
 
         set_units();
 
-        message(1, "\nHubble (internal units) = %g\n", All.Hubble);
+        message(1, "Hubble (internal units) = %g\n", All.Hubble);
         message(1, "G (internal units) = %g\n", All.G);
         message(1, "UnitMass_in_g = %g \n", All.UnitMass_in_g);
         message(1, "UnitTime_in_s = %g \n", All.UnitTime_in_s);
@@ -510,7 +510,7 @@ void read_parameter_file(char *fname)
         message(1, "Curvature density OmegaK = %g\n",All.CP.OmegaK);
         if(All.CP.RadiationOn) {
             /* note that this value is inaccurate if there is massive neutrino. */
-            message(1, "Radiation is enabled in Hubble(a). \n"
+            message(1, "Radiation is enabled in Hubble(a). "
                    "Following CAMB convention: Omega_Tot - 1 = %g\n",
                 All.CP.OmegaG + All.CP.OmegaNu0 + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda - 1);
         }

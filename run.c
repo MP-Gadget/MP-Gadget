@@ -325,8 +325,7 @@ int ShouldWeDoDynamicUpdate(void)
 
     sumup_large_ints(1, &num, &numforces);
 
-    message(0, "I'm guessing %d%09d particles to be active in the next step\n",
-                (int) (numforces / 1000000000), (int) (numforces % 1000000000));
+    message(0, "I'm guessing %013d particles to be active in the next step\n", numforces);
 
     if((All.NumForcesSinceLastDomainDecomp + numforces) >= All.TreeDomainUpdateFrequency * All.TotNumPart)
         return 0;
@@ -379,8 +378,7 @@ int find_next_outputtime(int ti_curr)
 
 
 
-/*! This routine writes one line for every timestep to two log-files.
- * In FdInfo, we just list the timesteps that have been done, while in
+/*! This routine writes one line for every timestep.
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
@@ -411,52 +409,43 @@ void every_timestep_stuff(void)
     sumup_large_ints(1, &N_bh, &All.TotN_bh);
     sumup_large_ints(1, &N_star, &All.TotN_star);
 
-    if(ThisTask == 0)
-    {
-        char buf[1024];
 
-        char extra[1024] = {0};
+    char extra[1024] = {0};
 
-        if(All.PM_Ti_endstep == All.Ti_Current)
-            strcat(extra, "PM-Step");
+    if(All.PM_Ti_endstep == All.Ti_Current)
+        strcat(extra, "PM-Step");
 
-        z = 1.0 / (All.Time) - 1;
-        sprintf(buf, "\nBegin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                    All.NumCurrentTiStep, All.Time, z,
-                    GlobNumForceUpdate,
-                    All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
-                    extra);
+    z = 1.0 / (All.Time) - 1;
+    message(0, "Begin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
+                All.NumCurrentTiStep, All.Time, z,
+                GlobNumForceUpdate,
+                All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
+                extra);
 
-        fprintf(FdInfo, "%s", buf);
-        printf("%s", buf);
-
-        fflush(FdInfo);
-
-        printf("TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
+    message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
                 All.TotNumPart, All.TotN_sph, All.TotN_bh, All.TotN_star);
-        printf("Occupied timebins: non-sph         sph       dt\n");
-        for(i = TIMEBINS - 1, tot = tot_sph = 0; i >= 0; i--)
-            if(tot_count_sph[i] > 0 || tot_count[i] > 0)
+    message(0, "Occupied timebins: non-sph         sph       dt\n");
+    for(i = TIMEBINS - 1, tot = tot_sph = 0; i >= 0; i--)
+        if(tot_count_sph[i] > 0 || tot_count[i] > 0)
+        {
+            message(0, " %c  bin=%2d     %014ld %014ld   %6g\n",
+                    TimeBinActive[i] ? 'X' : ' ',
+                    i,
+                    (tot_count[i] - tot_count_sph[i]),
+                    tot_count_sph[i],
+                    i > 0 ? (1 << i) * All.Timebase_interval : 0.0);
+            if(TimeBinActive[i])
             {
-                printf(" %c  bin=%2d     %014ld %014ld   %6g\n",
-                        TimeBinActive[i] ? 'X' : ' ',
-                        i,
-                        (tot_count[i] - tot_count_sph[i]),
-                        tot_count_sph[i],
-                        i > 0 ? (1 << i) * All.Timebase_interval : 0.0);
-                if(TimeBinActive[i])
-                {
-                    tot += tot_count[i];
-                    tot_sph += tot_count_sph[i];
-                }
+                tot += tot_count[i];
+                tot_sph += tot_count_sph[i];
             }
-        printf("               -----------------------------------\n");
-        printf("Total:%014ld %014ld    Sum:%014ld\n",
-            (tot - tot_sph),
-            (tot_sph),
-            (tot));
+        }
+    message(0, "               -----------------------------------\n");
+    message(0, "Total:%014ld %014ld    Sum:%014ld\n",
+        (tot - tot_sph),
+        (tot_sph),
+        (tot));
 
-    }
 
     set_random_numbers();
 }

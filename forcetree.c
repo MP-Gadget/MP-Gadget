@@ -1807,7 +1807,7 @@ void force_treeallocate(int maxnodes, int maxpart)
     if(first_flag == 0)
     {
         first_flag = 1;
-        message(0, "\nAllocated %g MByte for BH-tree, and %g Mbyte for top-leaves.  (presently allocted %g MB)\n\n",
+        message(0, "Allocated %g MByte for BH-tree, and %g Mbyte for top-leaves.  (presently allocted %g MB)\n",
                  allbytes / (1024.0 * 1024.0), allbytes_topleaves / (1024.0 * 1024.0),
                  AllocatedBytes / (1024.0 * 1024.0));
         tabfac = NTAB / 3.0;

@@ -150,11 +150,6 @@ void open_outputfiles(void)
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
 
-    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.InfoFile, postfix);
-    if(!(FdInfo = fopen(buf, mode)))
-        endrun(1, "error in opening file '%s'\n", buf);
-    free(buf);
-
     buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.EnergyFile, postfix);
     if(!(FdEnergy = fopen(buf, mode)))
         endrun(1, "error in opening file '%s'\n", buf);
@@ -193,7 +188,6 @@ void close_outputfiles(void)
         return;
 
     fclose(FdCPU);
-    fclose(FdInfo);
     fclose(FdEnergy);
     fclose(FdTimings);
 

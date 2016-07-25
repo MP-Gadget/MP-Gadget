@@ -170,9 +170,8 @@ void gravity_tree(void)
     if(ThisTask == 0)
     {
         fprintf(FdTimings, "Step= %d  t= %g  dt= %g \n", All.NumCurrentTiStep, All.Time, All.TimeStep);
-        fprintf(FdTimings, "Nf= %d%09d  total-Nf= %d%09d  ex-frac= %g (%g) iter= %d\n",
-                (int) (GlobNumForceUpdate / 1000000000), (int) (GlobNumForceUpdate % 1000000000),
-                (int) (All.TotNumOfForces / 1000000000), (int) (All.TotNumOfForces % 1000000000),
+        fprintf(FdTimings, "Nf= %013d  total-Nf= %013d  ex-frac= %g (%g) iter= %d\n",
+                GlobNumForceUpdate, All.TotNumOfForces,
                 n_exported / ((double) GlobNumForceUpdate), N_nodesinlist / ((double) n_exported + 1.0e-10),
                 iter);
         /* note: on Linux, the 8-byte integer could be printed with the format identifier "%qd", but doesn't work on AIX */
