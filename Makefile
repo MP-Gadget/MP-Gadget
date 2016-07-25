@@ -1,7 +1,7 @@
 # MP-Gadget Makefile
-
+CONFIG = Options.mk
 # Customization; see Options.mk.example
-include Options.mk
+include $(CONFIG)
 
 # Main Rules
 include Makefile.rules
