@@ -31,7 +31,6 @@ OPT	+=  -DTOPNODEFACTOR=5.0
 
 
 #--------------------------------------- Things that are always recommended
-OPT	+=  -DPEANOHILBERT
 #OPT	+=  -DCPUSPEEDADJUSTMENT
 #OPT	+=  -DHYDRO_COST_FACTOR=1000
 

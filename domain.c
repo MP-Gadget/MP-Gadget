@@ -238,11 +238,9 @@ void domain_Decomposition(void)
 
         message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
 
-#ifdef PEANOHILBERT
         peano_hilbert_order();
 
         walltime_measure("/Domain/Peano");
-#endif
 
         memmove(TopNodes + NTopnodes, DomainTask, NTopnodes * sizeof(int));
 
