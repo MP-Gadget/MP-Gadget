@@ -1,70 +1,70 @@
-OutputDir        output    % Directory for output
-FileBase         IC              % Base-filename of output files
+OutputDir = output    # Directory for output
+FileBase = IC              # Base-filename of output files
 
-Nmesh            32 % This is the size of the FFT grid used to 
-                            % compute the displacement field. One
-                            % should have Nmesh >= Nsample.
+Nmesh = 32 # This is the size of the FFT grid used to 
+                            # compute the displacement field. One
+                            # should have Nmesh >= Nsample.
 
-Ngrid            32 % number of partic per grid direction.
+Ngrid = 32 # number of partic per grid direction.
  
-Nsample          32
-BoxSize          128000.0   % Periodic box size of simulation
+Nsample = 32
+BoxSize = 128000.0   # Periodic box size of simulation
 
 
 
-Omega0            0.2814      % Total matter density  (at z=0)
-OmegaLambda      0.7186      % Cosmological constant (at z=0)
-OmegaBaryon      0.0464     % Baryon density        (at z=0)
-ProduceGas       0         % 0 is dm only. 1 is gas
-OmegaDM_2ndSpecies 0       % Omega for a second dark matter species (at z=0)
-HubbleParam      0.697      % Hubble paramater (may be used for power spec parameterization)
+Omega0 = 0.2814      # Total matter density  (at z=0)
+OmegaLambda = 0.7186      # Cosmological constant (at z=0)
+OmegaBaryon = 0.0464     # Baryon density        (at z=0)
+ProduceGas = 0         # 0 is dm only. 1 is gas
+OmegaDM_2ndSpecies 0 = # Omega for a second dark matter species (at z=0)
+HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
 
-Redshift         9        % Starting redshift
+Redshift = 9        # Starting redshift
 
-Sigma8           0.810      % power spectrum normalization
+Sigma8 = 0.810      # power spectrum normalization
 
 
 
-SphereMode       1         % if "1" only modes with |k| < k_Nyquist are
-                           % used (i.e. a sphere in k-space), otherwise modes with
-                           % |k_x|,|k_y|,|k_z| < k_Nyquist are used
-                           % (i.e. a cube in k-space)
+SphereMode = 1         # if "1" only modes with |k| < k_Nyquist are
+                           # used (i.e. a sphere in k-space), otherwise modes with
+                           # |k_x|,|k_y|,|k_z| < k_Nyquist are used
+                           # (i.e. a cube in k-space)
           
 
-WhichSpectrum    2         % "1" selects Eisenstein & Hu spectrum,
-		                   % "2" selects a tabulated power spectrum in
-                           % the file 'FileWithInputSpectrum'
-                           % otherwise, Efstathiou parametrization is used
+WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
+		                   # "2" selects a tabulated power spectrum in
+                           # the file 'FileWithInputSpectrum'
+                           # otherwise, Efstathiou parametrization is used
 
 
-FileWithInputSpectrum   ../powerspectrum-wmap9.txt  % filename of tabulated input
-                                                                   % spectrum (if used)
-InputSpectrum_UnitLength_in_cm  3.085678e24                     % defines length unit of tabulated
-                                                                   % input spectrum in cm/h. 
-                                                % Note: This can be chosen different from UnitLength_in_cm
+FileWithInputSpectrum = ../powerspectrum-wmap9.txt  # filename of tabulated input
+                                                                   # spectrum (if used)
+InputSpectrum_UnitLength_in_cm = 3.085678e24                     # defines length unit of tabulated
+                                                                   # input spectrum in cm/h. 
+                                                # Note: This can be chosen different from UnitLength_in_cm
     
 
-ShapeGamma       0.201     % only needed for Efstathiou power spectrum 
-PrimordialIndex  0.971      % may be used to tilt the primordial index
+ShapeGamma = 0.201     # only needed for Efstathiou power spectrum 
+PrimordialIndex = 0.971      # may be used to tilt the primordial index
 
 		  
-Seed             181170    %  seed for IC-generator
+Seed = 181170    #  seed for IC-generator
 
 
-UnitLength_in_cm          3.085678e21   % defines length unit of output (in cm/h) 
-UnitMass_in_g             1.989e43      % defines mass unit of output (in g/cm)
-UnitVelocity_in_cm_per_s  1e5           % defines velocity unit of output (in cm/sec)
+UnitLength_in_cm = 3.085678e21   # defines length unit of output (in cm/h) 
+UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)
+UnitVelocity_in_cm_per_s = 1e5           # defines velocity unit of output (in cm/sec)
 
 
 
-WDM_On               0      % Putting a '1' here will enable a WDM small-scale
-                            % smoothing of the power spectrum
+WDM_On = 0      # Putting a '1' here will enable a WDM small-scale
+                            # smoothing of the power spectrum
 
-WDM_Vtherm_On        0      % If set to '1', the (warm) dark matter particles will
-                            % receive an additional random thermal velocity
-                            % corresponding to their particle mass
+WDM_Vtherm_On = 0      # If set to '1', the (warm) dark matter particles will
+                            # receive an additional random thermal velocity
+                            # corresponding to their particle mass
 
-WDM_PartMass_in_kev  10.0   % This is the particle mass in keV of the WDM particle
+WDM_PartMass_in_kev = 10.0   # This is the particle mass in keV of the WDM particle
 
 
 
