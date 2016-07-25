@@ -83,7 +83,6 @@ static void saveblock(BigFile * bf, void * baseptr, char * name, char * dtype, i
     strides[0] = sizeof(P[0]);
     big_array_init(&array, baseptr, dtype, 2, dims, strides);
 
-    int i;
     if(0 != big_file_mpi_create_block(bf, &block, name, dtype, dims[1], NumFiles, TotNumPart, MPI_COMM_WORLD)) {
         endrun(0, "%s:%s\n", big_file_get_error_message(), name);
     }

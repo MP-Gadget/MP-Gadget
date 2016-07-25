@@ -170,7 +170,7 @@ void gravity_tree(void)
     if(ThisTask == 0)
     {
         fprintf(FdTimings, "Step= %d  t= %g  dt= %g \n", All.NumCurrentTiStep, All.Time, All.TimeStep);
-        fprintf(FdTimings, "Nf= %013d  total-Nf= %013d  ex-frac= %g (%g) iter= %d\n",
+        fprintf(FdTimings, "Nf= %013ld  total-Nf= %013ld  ex-frac= %g (%g) iter= %d\n",
                 GlobNumForceUpdate, All.TotNumOfForces,
                 n_exported / ((double) GlobNumForceUpdate), N_nodesinlist / ((double) n_exported + 1.0e-10),
                 iter);

@@ -100,7 +100,7 @@ static int param_emit(ParameterSet * ps, char * start, int size)
 {
     /* parse a line */
     char * buf = alloca(size + 1);
-    static char blanks[] = " \t\r\n";
+    static char blanks[] = " \t\r\n=";
     static char comments[] =  "%#";
     strncpy(buf, start, size);
     buf[size] = 0;
