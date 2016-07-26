@@ -31,6 +31,8 @@ extern struct Group
     double CM[3];
     double Vel[3];
 
+    double Imom[3][3];
+
 #ifdef SFR
     double Sfr;
 #endif
