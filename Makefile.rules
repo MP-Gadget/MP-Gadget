@@ -62,9 +62,9 @@ $(DESTDIR)/MP-Gadget: $(OBJS)
 $(DESTDIR)/MP-GenIC: $(ICOBJS)
 	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
-$(DESTDIR)/config.h: Makefile
+$(DESTDIR)/config.h: Makefile $(CONFIG)
 	mkdir -p `dirname $@`
-	OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
+	CC="$(CC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
 
 $(OBJS): $(INCL) $(DESTDIR)/config.h 
 $(ICOBJS): $(INCL) $(DESTDIR)/config.h 
