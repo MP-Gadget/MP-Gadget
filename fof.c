@@ -459,11 +459,27 @@ static void fof_reduce_group(void * pdst, void * psrc) {
     {
         gdst->CM[d1] += gsrc->CM[d1];
         gdst->Vel[d1] += gsrc->Vel[d1];
+        gdst->Jmom[d1] += gsrc->Jmom[d1];
         for(d2 = 0; d2 < 3; d2 ++) {
             gdst->Imom[d1][d2] += gsrc->Imom[d1][d2];
         }
     }
 
+}
+static void crossproduct(double v1[3], double v2[3], double out[3])
+{
+    static int D2[3] = {1, 2, 0};
+    static int D3[3] = {2, 0, 1};
+
+    int d1, d2, d3;
+
+    for(d1 = 0; d1 < 3; d1++)
+    {
+        d2 = D2[d1];
+        d3 = D3[d1];
+
+        out[d1] = (v1[d2] * v2[d3] -  v2[d2] * v1[d3]);
+    }
 }
 static void add_particle_to_group(struct Group * gdst, int i) {
 
@@ -512,17 +528,23 @@ static void add_particle_to_group(struct Group * gdst, int i) {
     int d1, d2;
     double xyz[3];
     double rel[3];
+    double vel[3];
+    double jmom[3];
+
     for(d1 = 0; d1 < 3; d1++)
     {
         double first = gdst->base.FirstPos[d1];
         rel[d1] = fof_periodic(P[index].Pos[d1] - first) ;
         xyz[d1] = rel[d1] + first;
+        vel[d1] = P[index].Vel[d1];
     }
 
-    for(d1 = 0; d1 < 3; d1++) {
+    crossproduct(rel, vel, jmom);
 
+    for(d1 = 0; d1 < 3; d1++) {
         gdst->CM[d1] += P[index].Mass * xyz[d1];
-        gdst->Vel[d1] += P[index].Mass * P[index].Vel[d1];
+        gdst->Vel[d1] += P[index].Mass * vel[d1];
+        gdst->Jmom[d1] += P[index].Mass * jmom[d1];
 
         for(d2 = 0; d2 < 3; d2++) {
             gdst->Imom[d1][d2] += P[index].Mass * rel[d1] * rel[d2];
@@ -539,20 +561,26 @@ static void fof_finish_group_properties(void)
         int d1, d2;
         double cm[3];
         double rel[3];
-        double rmag2 = 0;
+        double jcm[3];
+        double vcm[3];
+
         struct Group * gdst = &Group[i];
         for(d1 = 0; d1 < 3; d1++)
         {
             gdst->Vel[d1] /= gdst->Mass;
-
+            vcm[d1] = gdst->Vel[d1];
             cm[d1] = gdst->CM[d1] / gdst->Mass;
 
             rel[d1] = fof_periodic(cm[d1] - gdst->base.FirstPos[d1]);
-            rmag2 += rel[d1] * rel[d1];
 
             cm[d1] = fof_periodic_wrap(cm[d1]);
             gdst->CM[d1] = cm[d1];
 
+        }
+        crossproduct(rel, vcm, jcm);
+
+        for(d1 = 0; d1 < 3; d1 ++) {
+            gdst->Jmom[d1] -= jcm[d1] * gdst->Mass;
         }
 
         for(d1 = 0; d1 < 3; d1 ++) {
