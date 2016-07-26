@@ -8,7 +8,7 @@ Nmesh = 128  # This is the size of the FFT grid used to
 Ngrid = 64 # number of partic per grid direction.
  
 Nsample = 128
-BoxSize = 512000.0   # Periodic box size of simulation
+BoxSize = 32000.0   # Periodic box size of simulation
 
 
 
