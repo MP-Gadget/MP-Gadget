@@ -1,5 +1,5 @@
 # MP-Gadget Makefile
-CONFIG = Options.mk
+CONFIG = Options.mk.Scinet
 # Customization; see Options.mk.example
 include $(CONFIG)
 
