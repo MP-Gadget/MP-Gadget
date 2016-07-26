@@ -42,8 +42,7 @@ ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
 	 fof.h cosmology.h \
-	 petaio.h \
-	 Makefile 
+	 petaio.h $(DESTDIR)/config.h
 
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)
@@ -65,9 +64,6 @@ $(DESTDIR)/MP-GenIC: $(ICOBJS)
 $(DESTDIR)/config.h: Makefile $(CONFIG)
 	mkdir -p `dirname $@`
 	CC="$(CC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
-
-$(OBJS): $(INCL) $(DESTDIR)/config.h 
-$(ICOBJS): $(INCL) $(DESTDIR)/config.h 
 
 $(DESTDIR)/%.o: %.c $(INCL)
 	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
