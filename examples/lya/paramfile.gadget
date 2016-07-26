@@ -1,119 +1,119 @@
-%  Relevant files
+#  Relevant files
 
-InitCondFile  	   output/IC
-OutputDir          output
-TreeCoolFile       ../TREECOOL_fg_june11
-MetalCoolFile      ../cooling_metal_UVB.hdf5
-OutputList         0.1,0.2,0.2222222,0.25,0.2857,0.33333
+InitCondFile = output/IC
+OutputDir = output
+TreeCoolFile = ../TREECOOL_fg_june11
+MetalCoolFile = ../cooling_metal_UVB.hdf5
+OutputList = 0.1,0.2,0.2222222,0.25,0.2857,0.33333
 
-RestartFile        restart
-SnapshotFileBase   snapshot
+RestartFile = restart
+SnapshotFileBase = snapshot
 
-Nmesh 128
+Nmesh = 128
 
-% CPU time -limit
+# CPU time -limit
 	
-TimeLimitCPU     43000 %= 8 hours
+TimeLimitCPU = 43000 #= 8 hours
 
 
-% Code options
+# Code options
 
 
-TypeOfTimestepCriterion  0
+TypeOfTimestepCriterion = 0
 
-%  Characteristics of run
+#  Characteristics of run
 
-TimeBegin           0.1
-TimeMax	            0.33333
+TimeBegin = 0.1
+TimeMax = 0.33333
 
-Omega0           0.2814      % Total matter density  (at z=0)
-OmegaLambda      0.7186      % Cosmological constant (at z=0)
-OmegaBaryon      0.0464     % Baryon density        (at z=0)
-HubbleParam      0.697      % Hubble paramater (may be used for power spec parameterization)
-BoxSize               32000.0
+Omega0 = 0.2814      # Total matter density  (at z=0)
+OmegaLambda = 0.7186      # Cosmological constant (at z=0)
+OmegaBaryon = 0.0464     # Baryon density        (at z=0)
+HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
+BoxSize = 32000.0
 
-CoolingOn             1
-StarformationOn       1
-RadiationOn           1
-StarformationCriterion  density
+CoolingOn = 1
+StarformationOn = 1
+RadiationOn = 1
+StarformationCriterion = density
 
-% Output frequency
+# Output frequency
 
-CpuTimeBetRestartFile  9000.0
-
-
-% Accuracy of time integration
-
-ErrTolIntAccuracy      0.02 
-
-MaxRMSDisplacementFac  0.2
-
-CourantFac             0.15     
-
-MaxSizeTimestep       0.1
-MinSizeTimestep       0.05
-
-% Tree algorithm, force accuracy, domain update frequency
-
-ErrTolTheta            0.5            
-TypeOfOpeningCriterion 1
-ErrTolForceAcc         0.005
-
-TreeDomainUpdateFrequency    0.025  
+CpuTimeBetRestartFile = 9000.0
 
 
-%  Further parameters of SPH
-DensityKernelType      quintic
-DensityContrastLimit   100   % max contrast for hydro force calculation
-DensityResolutionEta   1.0  % for Cubic spline 1.0 = 33
-MaxNumNgbDeviation     2
-ArtBulkViscConst       0.75
-InitGasTemp            580.0        % always ignored if set to 0 
-MinGasTemp             5.0    
+# Accuracy of time integration
+
+ErrTolIntAccuracy = 0.02 
+
+MaxRMSDisplacementFac = 0.2
+
+CourantFac = 0.15     
+
+MaxSizeTimestep = 0.1
+MinSizeTimestep = 0.05
+
+# Tree algorithm, force accuracy, domain update frequency
+
+ErrTolTheta = 0.5            
+TypeOfOpeningCriterion = 1
+ErrTolForceAcc = 0.005
+
+TreeDomainUpdateFrequency = 0.025  
 
 
-% Memory allocation
-
-PartAllocFactor       2.0
-BufferSize            100          % in MByte
-TopNodeAllocFactor    0.20
-MaxMemSizePerCore            1200        % per MPI task, in MB
-
-% Softening lengths
-
-MinGasHsmlFractional 0.01
-MaxGasVel   3e5
-
-SofteningGas       50
-SofteningHalo      50
-SofteningDisk      0
-SofteningBulge     0           
-SofteningStars     50
-SofteningBndry     50             %This is BH
-
-SofteningGasMaxPhys       50
-SofteningHaloMaxPhys      50
-SofteningDiskMaxPhys      0
-SofteningBulgeMaxPhys     0           
-SofteningStarsMaxPhys     50
-SofteningBndryMaxPhys     50      %This is BH
-
-%----------------------SFR Stuff-------------------------
-
-CritPhysDensity     0       %  critical physical density for star formation in
-                            %  hydrogen number density in cm^(-3)
-
-CritOverDensity      57.7   %  overdensity threshold value
-
-QuickLymanAlphaProbability  1 % Set to 1.0 to turn dense gas directly into stars.
-
-MaxSfrTimescale     1.5     % in internal time units
+#  Further parameters of SPH
+DensityKernelType = quintic
+DensityContrastLimit = 100   # max contrast for hydro force calculation
+DensityResolutionEta = 1.0  # for Cubic spline 1.0 = 33
+MaxNumNgbDeviation = 2
+ArtBulkViscConst = 0.75
+InitGasTemp = 580.0        # always ignored if set to 0 
+MinGasTemp = 5.0    
 
 
-TempSupernova        1.0e8   %  in Kelvin
+# Memory allocation
 
-TempClouds           1000.0   %  in Kelvin
-FactorSN             0.1
-FactorEVP            1000.0
+PartAllocFactor = 2.0
+BufferSize = 100          # in MByte
+TopNodeAllocFactor = 0.20
+MaxMemSizePerCore = 1200        # per MPI task, in MB
 
-WindModel            nowind
+# Softening lengths
+
+MinGasHsmlFractional = 0.01
+MaxGasVel = 3e5
+
+SofteningGas = 50
+SofteningHalo = 50
+SofteningDisk = 0
+SofteningBulge = 0           
+SofteningStars = 50
+SofteningBndry = 50             #This is BH
+
+SofteningGasMaxPhys = 50
+SofteningHaloMaxPhys = 50
+SofteningDiskMaxPhys = 0
+SofteningBulgeMaxPhys = 0           
+SofteningStarsMaxPhys = 50
+SofteningBndryMaxPhys = 50      #This is BH
+
+#----------------------SFR Stuff-------------------------
+
+CritPhysDensity = 0       #  critical physical density for star formation in
+#  hydrogen number density in cm^(-3)
+
+CritOverDensity = 57.7   #  overdensity threshold value
+
+QuickLymanAlphaProbability = 1 # Set to 1.0 to turn dense gas directly into stars.
+
+MaxSfrTimescale = 1.5     # in internal time units
+
+
+TempSupernova = 1.0e8   #  in Kelvin
+
+TempClouds = 1000.0   #  in Kelvin
+FactorSN = 0.1
+FactorEVP = 1000.0
+
+WindModel = nowind

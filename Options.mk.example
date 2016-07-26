@@ -34,7 +34,6 @@ OPT	+=  -DFOF                                # enable FoF output
 
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
-OPT	+=  -DCOOLING
 OPT	+=  -DSFR
 #OPT	+=  -DSOFTEREQS
 OPT	+=  -DMETALS

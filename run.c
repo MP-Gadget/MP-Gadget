@@ -43,10 +43,7 @@ void run(void)
         }
         every_timestep_stuff();	/* write some info to log-files */
 
-#ifdef COOLING
         IonizeParams();		/* set UV background for the current time */
-#endif
-
 
         compute_accelerations(0);	/* compute accelerations for
                                      * the particles that are to be advanced

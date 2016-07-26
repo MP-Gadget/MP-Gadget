@@ -54,11 +54,7 @@ static inline double cube(double A)
 
 static inline double IonizationGrade(SphParticle * Particle)
 {
-#ifdef COOLING
   return (1 + HYDROGEN_MASSFRAC) / (2 * HYDROGEN_MASSFRAC);	/* always return full ionization */
-#else
-  return 1.0;
-#endif
 }
 
 

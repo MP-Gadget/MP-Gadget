@@ -32,7 +32,7 @@ void petaio_save_restart();
 void petaio_read_snapshot(int num);
 void petaio_read_ic();
 /* 
- * Decalres a io block with name (literal, not a string) 
+ * Declares a io block with name (literal, not a string) 
  * 
  * will use GT ## name and PT ## name for getter and putter.
  * these functions shall be declared in the module IO_REG is called.

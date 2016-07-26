@@ -34,7 +34,6 @@ OPT	+=  -DFOF_SECONDARY_LINK_TYPES=1+16+32	 # 2^type for the types linked to nea
 
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
-OPT	+=  -DCOOLING
 OPT	+=  -DSFR
 #OPT	+=  -DSOFTEREQS
 OPT	+=  -DMETALS
