@@ -423,6 +423,7 @@ static void fof_reduce_base_group(void * pdst, void * psrc) {
     struct BaseGroup * gdst = pdst;
     struct BaseGroup * gsrc = psrc;
     gdst->Length += gsrc->Length;
+    /* preserve the dst FirstPos so all other base group gets the same FirstPos */
 }
 
 static void fof_reduce_group(void * pdst, void * psrc) {
@@ -455,11 +456,7 @@ static void fof_reduce_group(void * pdst, void * psrc) {
 
     for(j = 0; j < 3; j++)
     {
-        xyz[j] = gsrc->CM[j] / gsrc->Mass + gsrc->FirstPos[j];
-
-        xyz[j] = fof_periodic(xyz[j] - gdst->FirstPos[j]);
-
-        gdst->CM[j] += gsrc->Mass * xyz[j];
+        gdst->CM[j] += gsrc->CM[j];
         gdst->Vel[j] += gsrc->Vel[j];
     }
 
@@ -486,7 +483,6 @@ static void add_particle_to_group(struct Group * gdst, int i) {
         {
             gdst->CM[k] = 0;
             gdst->Vel[k] = 0;
-            gdst->FirstPos[k] = P[index].Pos[k];
         }
 
         for(k = 0; k < 6; k++)
@@ -530,9 +526,8 @@ static void add_particle_to_group(struct Group * gdst, int i) {
 
     for(j = 0; j < 3; j++)
     {
-        xyz[j] = P[index].Pos[j];
-
-        xyz[j] = fof_periodic(xyz[j] - gdst->FirstPos[j]);
+        double first = gdst->base.FirstPos[j];
+        xyz[j] = fof_periodic(P[index].Pos[j] - first) + first;
 
         gdst->CM[j] += P[index].Mass * xyz[j];
         gdst->Vel[j] += P[index].Mass * P[index].Vel[j];
@@ -552,7 +547,7 @@ static void fof_finish_group_properties(void)
 
             cm[j] = Group[i].CM[j] / Group[i].Mass;
 
-            cm[j] = fof_periodic_wrap(cm[j] + Group[i].FirstPos[j]);
+            cm[j] = fof_periodic_wrap(cm[j]);
 
             Group[i].CM[j] = cm[j];
         }
@@ -582,6 +577,10 @@ static void fof_compile_base(void)
         if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) {
             BaseGroup[start].MinID = HaloLabel[i].MinID;
             BaseGroup[start].MinIDTask = HaloLabel[i].MinIDTask;
+            int d;
+            for(d = 0; d < 3; d ++) {
+                BaseGroup[start].FirstPos[d] = P[i].Pos[d];
+            }
             start ++;
         }
     }

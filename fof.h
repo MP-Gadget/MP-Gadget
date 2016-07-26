@@ -12,12 +12,13 @@ extern uint64_t Ngroups, TotNgroups;
 extern int64_t TotNids;
 
 struct BaseGroup {
-  int OriginalTask;
-  int OriginalIndex;
-  int Length;
-  int GrNr;
-  MyIDType MinID;
-  int MinIDTask;
+    int OriginalTask;
+    int OriginalIndex;
+    int Length;
+    int GrNr;
+    MyIDType MinID;
+    int MinIDTask;
+    float FirstPos[3];
 };
 
 extern struct Group 
@@ -29,7 +30,7 @@ extern struct Group
     double Mass;
     double CM[3];
     double Vel[3];
-    MyDouble FirstPos[3];
+
 #ifdef SFR
     double Sfr;
 #endif
