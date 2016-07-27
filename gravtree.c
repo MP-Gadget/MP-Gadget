@@ -27,15 +27,9 @@
 
 /* According to upstream P-GADGET3
  * correct workcount slows it down and yields little benefits in load balancing
+ *
+ * YF: anything we shall do about this?
  * */
-#define LOCK_WORKCOUNT
-#define UNLOCK_WORKCOUNT
-
-double Ewaldcount, Costtotal;
-int64_t N_nodesinlist;
-
-
-int Ewald_iter;			/* global in file scope, for simplicity */
 
 static int gravtree_isactive(int i);
 void gravtree_copy(int place, struct gravitydata_in * input) ;
@@ -49,6 +43,9 @@ static void gravtree_post_process(int i);
  */
 void gravity_tree(void)
 {
+    double Ewaldcount, Costtotal;
+    int64_t N_nodesinlist;
+
     int64_t n_exported = 0;
     int i, maxnumnodes, iter = 0;
     double timeall = 0, timetree1 = 0, timetree2 = 0;
@@ -59,6 +56,7 @@ void gravity_tree(void)
     double plb, plb_max;
 
     int Ewald_max;
+    int Ewald_iter;			/* global in file scope, for simplicity */
 
     Evaluator ev[2] = {0};
 
