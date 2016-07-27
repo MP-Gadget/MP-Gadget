@@ -55,7 +55,7 @@ void gravity_tree(void)
     double maxt, sumt, maxt1, sumt1, maxt2, sumt2, sumcommall, sumwaitall;
     double plb, plb_max;
 
-    Evaluator ev[1] = {0};
+    TreeWalk ev[1] = {0};
 
     ev[0].ev_label = "FORCETREE_SHORTRANGE";
     ev[0].ev_evaluate = (ev_ev_func) force_treeev_shortrange;

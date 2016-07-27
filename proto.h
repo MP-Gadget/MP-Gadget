@@ -75,7 +75,6 @@ void gravity_tree(void);
 void hydro_force(void);
 void init(void);
 void init_clouds(void);
-void integrate_sfr(void);
 void open_outputfiles(void);
 void peano_hilbert_order(void);
 int read_outputlist(char *fname);

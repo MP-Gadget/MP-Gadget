@@ -65,7 +65,7 @@ struct densdata_out
 };
 
 static int density_isactive(int n);
-static int density_evaluate(int target, int mode, struct densdata_in * I, struct densdata_out * O, LocalEvaluator * lv);
+static int density_evaluate(int target, int mode, struct densdata_in * I, struct densdata_out * O, LocalTreeWalk * lv);
 static void density_post_process(int i);
 static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
 
@@ -99,7 +99,7 @@ void density(void)
 {
     MyFloat *Left, *Right;
 
-    Evaluator ev = {0};
+    TreeWalk ev = {0};
 
     ev.ev_label = "DENSITY";
     ev.ev_evaluate = (ev_ev_func) density_evaluate;
@@ -353,7 +353,7 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 static int density_evaluate(int target, int mode,
         struct densdata_in * I,
         struct densdata_out * O,
-        LocalEvaluator * lv)
+        LocalTreeWalk * lv)
 {
     int n;
 

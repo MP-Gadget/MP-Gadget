@@ -2,21 +2,21 @@
 #define _EVALUATOR_H_
 
 extern int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
-void Evaluator_allocate_memory(void);
+void TreeWalk_allocate_memory(void);
 
-struct _Evaluator;
-typedef struct _LocalEvaluator {
-    struct _Evaluator * ev;
+struct _TreeWalk;
+typedef struct _LocalTreeWalk {
+    struct _TreeWalk * ev;
     int *exportflag;
     int *exportnodecount;
     int *exportindex;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
     int * ngblist;
-} LocalEvaluator;
+} LocalTreeWalk;
 
 typedef int (*ev_ev_func) (const int target, const int mode, 
-        void * input, void * output, LocalEvaluator * lv);
+        void * input, void * output, LocalTreeWalk * lv);
 
 typedef int (*ev_isactive_func) (const int i);
 
@@ -31,7 +31,7 @@ struct ev_task {
 } ;
 
 
-typedef struct _Evaluator {
+typedef struct _TreeWalk {
     ev_ev_func ev_evaluate;
     ev_isactive_func ev_isactive;
     ev_copy_func ev_copy;
@@ -73,7 +73,7 @@ typedef struct _Evaluator {
     /* per worker thread*/
     int *currentIndex;
     int *currentEnd;
-} Evaluator;
+} TreeWalk;
 
 /*!< the particles to be exported are grouped
 by task-number. This table allows the
@@ -86,18 +86,18 @@ struct data_index
     int IndexGet;
 };
 
-void ev_run(Evaluator * ev);
-void ev_begin(Evaluator * ev);
-void ev_finish(Evaluator * ev);
-int ev_primary(Evaluator * ev); 
-void ev_get_remote(Evaluator * ev, int tag);
-void ev_secondary(Evaluator * ev);
-void ev_reduce_result(Evaluator * ev, int tag);
-int * ev_get_queue(Evaluator * ev, int * len);
+void ev_run(TreeWalk * ev);
+void ev_begin(TreeWalk * ev);
+void ev_finish(TreeWalk * ev);
+int ev_primary(TreeWalk * ev); 
+void ev_get_remote(TreeWalk * ev, int tag);
+void ev_secondary(TreeWalk * ev);
+void ev_reduce_result(TreeWalk * ev, int tag);
+int * ev_get_queue(TreeWalk * ev, int * len);
 
 /*returns -1 if the buffer is full */
-int ev_export_particle(LocalEvaluator * lv, int target, int no);
+int ev_export_particle(LocalTreeWalk * lv, int target, int no);
 
-int ev_ndone(Evaluator * ev);
+int ev_ndone(TreeWalk * ev);
 #define EV_REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
 #endif

@@ -36,7 +36,7 @@
  *  calling routine.
  */
 int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-        int mode, LocalEvaluator * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask)
+        int mode, LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask)
 {
     int no, p, numngb;
     MyDouble dist, dx, dy, dz;
