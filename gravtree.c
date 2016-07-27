@@ -108,14 +108,14 @@ void gravity_tree(void)
     TreeWalk tw[1] = {0};
 
     tw[0].ev_label = "FORCETREE_SHORTRANGE";
-    tw[0].ev_visit = (TreeWalkVisitFunction) force_treeev_shortrange;
-    tw[0].ev_isactive = gravtree_isactive;
-    tw[0].ev_reduce = (TreeWalkReduceResultFunction) gravtree_reduce;
+    tw[0].visit = (TreeWalkVisitFunction) force_treeev_shortrange;
+    tw[0].isactive = gravtree_isactive;
+    tw[0].reduce = (TreeWalkReduceResultFunction) gravtree_reduce;
     tw[0].UseNodeList = 1;
 
     tw[0].query_type_elsize = sizeof(TreeWalkQueryGravity);
     tw[0].result_type_elsize = sizeof(TreeWalkResultGravity);
-    tw[0].ev_copy = (TreeWalkFillQueryFunction) gravtree_copy;
+    tw[0].fill = (TreeWalkFillQueryFunction) gravtree_copy;
 
     walltime_measure("/Misc");
 

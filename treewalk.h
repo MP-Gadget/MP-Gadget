@@ -43,10 +43,10 @@ typedef struct _TreeWalk {
     /* name of the evaluator (used in printing messages) */
     char * ev_label;
 
-    TreeWalkVisitFunction ev_visit;
-    TreeWalkIsActiveFunction ev_isactive;
-    TreeWalkFillQueryFunction ev_copy;
-    TreeWalkReduceResultFunction ev_reduce;
+    TreeWalkVisitFunction visit;
+    TreeWalkIsActiveFunction isactive;
+    TreeWalkFillQueryFunction fill;
+    TreeWalkReduceResultFunction reduce;
 
     int * ngblist;
 

@@ -261,10 +261,10 @@ void fof_label_primary(void)
 
     TreeWalk tw = {0};
     tw.ev_label = "FOF_FIND_GROUPS";
-    tw.ev_visit = (TreeWalkVisitFunction) fof_primary_visit;
-    tw.ev_isactive = fof_primary_isactive;
-    tw.ev_copy = (TreeWalkFillQueryFunction) fof_primary_copy;
-    tw.ev_reduce = NULL;
+    tw.visit = (TreeWalkVisitFunction) fof_primary_visit;
+    tw.isactive = fof_primary_isactive;
+    tw.fill = (TreeWalkFillQueryFunction) fof_primary_copy;
+    tw.reduce = NULL;
     tw.UseNodeList = 1;
     tw.UseAllParticles = 1;
     tw.query_type_elsize = sizeof(TreeWalkQueryFOF);
@@ -939,10 +939,10 @@ static void fof_label_secondary(void)
     int64_t ntot;
     TreeWalk tw = {0};
     tw.ev_label = "FOF_FIND_NEAREST";
-    tw.ev_visit = (TreeWalkVisitFunction) fof_secondary_visit;
-    tw.ev_isactive = fof_secondary_isactive;
-    tw.ev_copy = (TreeWalkFillQueryFunction) fof_secondary_copy;
-    tw.ev_reduce = (TreeWalkReduceResultFunction) fof_secondary_reduce;
+    tw.visit = (TreeWalkVisitFunction) fof_secondary_visit;
+    tw.isactive = fof_secondary_isactive;
+    tw.fill = (TreeWalkFillQueryFunction) fof_secondary_copy;
+    tw.reduce = (TreeWalkReduceResultFunction) fof_secondary_reduce;
     tw.UseNodeList = 1;
     tw.UseAllParticles = 1;
     tw.query_type_elsize = sizeof(TreeWalkQueryFOF);

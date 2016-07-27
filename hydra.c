@@ -80,10 +80,10 @@ void hydro_force(void)
     TreeWalk tw = {0};
 
     tw.ev_label = "HYDRO";
-    tw.ev_visit = (TreeWalkVisitFunction) hydro_visit;
-    tw.ev_isactive = hydro_isactive;
-    tw.ev_copy = (TreeWalkFillQueryFunction) hydro_copy;
-    tw.ev_reduce = (TreeWalkReduceResultFunction) hydro_reduce;
+    tw.visit = (TreeWalkVisitFunction) hydro_visit;
+    tw.isactive = hydro_isactive;
+    tw.fill = (TreeWalkFillQueryFunction) hydro_copy;
+    tw.reduce = (TreeWalkReduceResultFunction) hydro_reduce;
     tw.UseNodeList = 0;
     tw.query_type_elsize = sizeof(TreeWalkQueryHydro);
     tw.result_type_elsize = sizeof(TreeWalkResultHydro);

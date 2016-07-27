@@ -53,7 +53,7 @@ static void ev_finish(TreeWalk * tw);
 static int ev_primary(TreeWalk * tw); 
 static void ev_get_remote(TreeWalk * tw, int tag);
 static void ev_secondary(TreeWalk * tw);
-static void ev_reduce_result(TreeWalk * tw, int tag);
+static void reduce_result(TreeWalk * tw, int tag);
 static int ev_ndone(TreeWalk * tw);
 
 
@@ -188,7 +188,7 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
         query->NodeList[1] = -1; /* terminate immediately */
     }
 
-    tw->ev_copy(i, query);
+    tw->fill(i, query);
 };
 
 static void
@@ -201,8 +201,8 @@ treewalk_init_result(TreeWalk * tw, TreeWalkResultBase * result, TreeWalkQueryBa
 static void
 treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum TreeWalkReduceMode mode)
 {
-    if(tw->ev_reduce != NULL)
-        tw->ev_reduce(i, result, mode);
+    if(tw->reduce != NULL)
+        tw->reduce(i, result, mode);
 }
 
 static void real_ev(TreeWalk * tw) {
@@ -229,7 +229,7 @@ static void real_ev(TreeWalk * tw) {
         if(P[i].Evaluated) {
             BREAKPOINT; 
         }
-        if(!tw->ev_isactive(i)) {
+        if(!tw->isactive(i)) {
             BREAKPOINT;
         }
         int rt;
@@ -237,7 +237,7 @@ static void real_ev(TreeWalk * tw) {
         treewalk_init_query(tw, input, i, NULL);
         treewalk_init_result(tw, output, input);
 
-        rt = tw->ev_visit(i, input, output, lv);
+        rt = tw->visit(i, input, output, lv);
 
         if(rt < 0) {
             P[i].Evaluated = 0;
@@ -265,13 +265,13 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
     int k = 0;
     if(tw->UseAllParticles) {
         for(i = 0; i < NumPart; i++) {
-            if(!tw->ev_isactive(i)) continue;
+            if(!tw->isactive(i)) continue;
             queue[k++] = i;
         }
     } else {
         for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
         {
-            if(!tw->ev_isactive(i)) continue;
+            if(!tw->isactive(i)) continue;
             queue[k++] = i;
         }
         /* check the uniqueness of ActiveParticle list. */
@@ -416,7 +416,7 @@ static void ev_secondary(TreeWalk * tw)
                 if(input->NodeList[0] != All.MaxPart) abort(); /* root node */
                 if(input->NodeList[1] != -1) abort(); /* terminate immediately */
             }
-            tw->ev_visit(j, input, output, lv);
+            tw->visit(j, input, output, lv);
         }
 #pragma omp atomic
         tw->Ninteractions += lv->Ninteractions;
@@ -492,7 +492,7 @@ void treewalk_run(TreeWalk * tw) {
         /* now do the particles that were sent to us */
         ev_secondary(tw);
         /* import the result to local particles */
-        ev_reduce_result(tw, TAG_EVALUATE_B);
+        reduce_result(tw, TAG_EVALUATE_B);
         tw->Niterations ++;
         tw->Nexport_sum += tw->Nexport;
     } while(ev_ndone(tw) < NTask);
@@ -570,7 +570,7 @@ int data_index_compare_by_index(const void *a, const void *b)
     return 0;
 }
 
-static void ev_reduce_result(TreeWalk * tw, int tag)
+static void reduce_result(TreeWalk * tw, int tag)
 {
 
     int j;
@@ -605,7 +605,7 @@ static void ev_reduce_result(TreeWalk * tw, int tag)
     if(tw->Nexport > 0)
         UniqueOff[++Nunique] = tw->Nexport;
 
-    if(tw->ev_reduce != NULL) {
+    if(tw->reduce != NULL) {
 #pragma omp parallel for private(j) if(Nunique > 16)
         for(j = 0; j < Nunique; j++)
         {

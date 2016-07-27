@@ -138,7 +138,7 @@ void cooling_and_starformation(void)
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
     tw.ev_label = "SFR_COOL";
-    tw.ev_isactive = sfr_cooling_isactive;
+    tw.isactive = sfr_cooling_isactive;
 
     int Nactive = 0;
     int * queue = treewalk_get_queue(&tw, &Nactive);
@@ -245,15 +245,15 @@ void cooling_and_starformation(void)
         TreeWalk tw = {0};
 
         tw.ev_label = "SFR_WIND";
-        tw.ev_isactive = sfr_wind_isactive;
-        tw.ev_copy = (TreeWalkFillQueryFunction) sfr_wind_copy;
-        tw.ev_reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
+        tw.isactive = sfr_wind_isactive;
+        tw.fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
+        tw.reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
         tw.UseNodeList = 1;
         tw.query_type_elsize = sizeof(TreeWalkQueryWind);
         tw.result_type_elsize = sizeof(TreeWalkResultWind);
 
         /* sum the total weight of surrounding gas */
-        tw.ev_visit = (TreeWalkVisitFunction) sfr_wind_ev_weight;
+        tw.visit = (TreeWalkVisitFunction) sfr_wind_ev_weight;
         int Nqueue;
         int * queue = treewalk_get_queue(&tw, &Nqueue);
         for(i = 0; i < Nqueue; i ++) {
@@ -309,8 +309,8 @@ void cooling_and_starformation(void)
             Wind[n].Vdisp = sqrt(vdisp / 3);
         }
         myfree(queue);
-        tw.ev_visit = (TreeWalkVisitFunction) sfr_wind_visit;
-        tw.ev_reduce = NULL;
+        tw.visit = (TreeWalkVisitFunction) sfr_wind_visit;
+        tw.reduce = NULL;
 
         treewalk_run(&tw);
         myfree(Wind);
@@ -332,7 +332,7 @@ void cooling_only(void)
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
     tw.ev_label = "SFR_COOL";
-    tw.ev_isactive = sfr_cooling_isactive;
+    tw.isactive = sfr_cooling_isactive;
 
     int Nactive = 0;
     int * queue = treewalk_get_queue(&tw, &Nactive);

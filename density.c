@@ -108,10 +108,10 @@ void density(void)
     TreeWalk tw = {0};
 
     tw.ev_label = "DENSITY";
-    tw.ev_visit = (TreeWalkVisitFunction) density_visit;
-    tw.ev_isactive = density_isactive;
-    tw.ev_copy = (TreeWalkFillQueryFunction) density_copy;
-    tw.ev_reduce = (TreeWalkReduceResultFunction) density_reduce;
+    tw.visit = (TreeWalkVisitFunction) density_visit;
+    tw.isactive = density_isactive;
+    tw.fill = (TreeWalkFillQueryFunction) density_copy;
+    tw.reduce = (TreeWalkReduceResultFunction) density_reduce;
     tw.UseNodeList = 1;
     tw.query_type_elsize = sizeof(TreeWalkQueryDensity);
     tw.result_type_elsize = sizeof(TreeWalkResultDensity);

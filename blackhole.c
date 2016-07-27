@@ -106,20 +106,20 @@ void blackhole_accretion(void)
     TreeWalk fbev = {0};
 
     fbev.ev_label = "BH_FEEDBACK";
-    fbev.ev_visit = (TreeWalkVisitFunction) blackhole_feedback_visit;
-    fbev.ev_isactive = blackhole_feedback_isactive;
-    fbev.ev_copy = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
-    fbev.ev_reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
+    fbev.visit = (TreeWalkVisitFunction) blackhole_feedback_visit;
+    fbev.isactive = blackhole_feedback_isactive;
+    fbev.fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
+    fbev.reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
     fbev.UseNodeList = 1;
     fbev.query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
     fbev.result_type_elsize = sizeof(TreeWalkResultBHFeedback);
 
     TreeWalk swev = {0};
     swev.ev_label = "BH_SWALLOW";
-    swev.ev_visit = (TreeWalkVisitFunction) blackhole_swallow_visit;
-    swev.ev_isactive = blackhole_swallow_isactive;
-    swev.ev_copy = (TreeWalkFillQueryFunction) blackhole_swallow_copy;
-    swev.ev_reduce = (TreeWalkReduceResultFunction) blackhole_swallow_reduce;
+    swev.visit = (TreeWalkVisitFunction) blackhole_swallow_visit;
+    swev.isactive = blackhole_swallow_isactive;
+    swev.fill = (TreeWalkFillQueryFunction) blackhole_swallow_copy;
+    swev.reduce = (TreeWalkReduceResultFunction) blackhole_swallow_reduce;
     swev.UseNodeList = 1;
     swev.query_type_elsize = sizeof(TreeWalkQuerySwallow);
     swev.result_type_elsize = sizeof(TreeWalkResultSwallow);
