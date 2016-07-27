@@ -17,15 +17,26 @@
 static int *Exportflag;	        /*!< Buffer used for flagging whether a particle needs to be exported to another process */
 static int *Exportnodecount;
 static int *Exportindex;
-int *Send_offset, *Send_count, *Recv_count, *Recv_offset, *Sendcount;
+static int *Send_offset, *Send_count, *Recv_count, *Recv_offset, *Sendcount;
 
-struct data_nodelist
+static struct data_nodelist
 {
     int NodeList[NODELISTLENGTH];
 }
 *DataNodeList;
 
-struct data_index *DataIndexTable;	/*!< the particles to be exported are grouped
+/*!< the particles to be exported are grouped
+by task-number. This table allows the
+results to be disentangled again and to be
+assigned to the correct particle */
+struct data_index
+{
+    int Task;
+    int Index;
+    int IndexGet;
+};
+
+static struct data_index *DataIndexTable;	/*!< the particles to be exported are grouped
 					   by task-number. This table allows the
 					   results to be disentangled again and to be
 					   assigned to the correct particle */
@@ -39,6 +50,35 @@ static void ev_get_remote(TreeWalk * ev, int tag);
 static void ev_secondary(TreeWalk * ev);
 static void ev_reduce_result(TreeWalk * ev, int tag);
 static int ev_ndone(TreeWalk * ev);
+
+
+/*! This function is used as a comparison kernel in a sort routine. It is
+ *  used to group particles in the communication buffer that are going to
+ *  be sent to the same CPU.
+ */
+static int data_index_compare(const void *a, const void *b)
+{
+    if(((struct data_index *) a)->Task < (((struct data_index *) b)->Task))
+        return -1;
+
+    if(((struct data_index *) a)->Task > (((struct data_index *) b)->Task))
+        return +1;
+
+    if(((struct data_index *) a)->Index < (((struct data_index *) b)->Index))
+        return -1;
+
+    if(((struct data_index *) a)->Index > (((struct data_index *) b)->Index))
+        return +1;
+
+    if(((struct data_index *) a)->IndexGet < (((struct data_index *) b)->IndexGet))
+        return -1;
+
+    if(((struct data_index *) a)->IndexGet > (((struct data_index *) b)->IndexGet))
+        return +1;
+
+    return 0;
+}
+
 
 /*
  * for debugging

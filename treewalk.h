@@ -1,7 +1,6 @@
 #ifndef _EVALUATOR_H_
 #define _EVALUATOR_H_
 
-extern int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
 void TreeWalk_allocate_memory(void);
 
 struct _TreeWalk;
@@ -78,17 +77,6 @@ typedef struct _TreeWalk {
     int *currentIndex;
     int *currentEnd;
 } TreeWalk;
-
-/*!< the particles to be exported are grouped
-by task-number. This table allows the
-results to be disentangled again and to be
-assigned to the correct particle */
-struct data_index
-{
-    int Task;
-    int Index;
-    int IndexGet;
-};
 
 void ev_run(TreeWalk * ev);
 int * ev_get_queue(TreeWalk * ev, int * len);
