@@ -1449,7 +1449,7 @@ void force_update_hmax(void)
  *  memory-access panelty (which reduces cache performance) incurred by the
  *  table.
  */
-int force_treeev_shortrange(int target, int mode,
+int force_treeev_shortrange(int target,
         struct gravitydata_in * input,
         struct gravitydata_out * output,
         LocalTreeWalk * lv, void * unused)
@@ -1546,7 +1546,7 @@ int force_treeev_shortrange(int target, int mode,
             {
                 if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
                 {
-                    if(mode == 0)
+                    if(lv->mode == 0)
                     {
                         if(-1 == ev_export_particle(lv, target, no))
                             return -1;
@@ -1557,7 +1557,7 @@ int force_treeev_shortrange(int target, int mode,
 
                 nop = &Nodes[no];
 
-                if(mode == 1)
+                if(lv->mode == 1)
                 {
                     if(nop->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
                     {

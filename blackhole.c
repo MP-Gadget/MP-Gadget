@@ -68,7 +68,7 @@ static int blackhole_feedback_isactive(int n);
 static void blackhole_feedback_reduce(int place, struct feedbackdata_out * remote, int mode);
 static void blackhole_feedback_copy(int place, struct feedbackdata_in * I);
 
-static int blackhole_feedback_evaluate(int target, int mode,
+static int blackhole_feedback_evaluate(int target,
         struct feedbackdata_in * I,
         struct feedbackdata_out * O,
         LocalTreeWalk * lv);
@@ -77,7 +77,7 @@ static int blackhole_swallow_isactive(int n);
 static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote, int mode);
 static void blackhole_swallow_copy(int place, struct swallowdata_in * I);
 
-static int blackhole_swallow_evaluate(int target, int mode,
+static int blackhole_swallow_evaluate(int target,
         struct swallowdata_in * I,
         struct swallowdata_out * O,
         LocalTreeWalk * lv);
@@ -265,7 +265,7 @@ static void blackhole_postprocess(int n) {
     }
 }
 
-static int blackhole_feedback_evaluate(int target, int mode,
+static int blackhole_feedback_evaluate(int target,
         struct feedbackdata_in * I,
         struct feedbackdata_out * O,
         LocalTreeWalk * lv)
@@ -299,7 +299,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode, mode, lv,
+            numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode, lv,
                     NGB_TREEFIND_ASYMMETRIC, ptypemask);
 
             if(numngb < 0)
@@ -448,7 +448,7 @@ static int blackhole_feedback_evaluate(int target, int mode,
 /**
  * perform blackhole swallow / merger;
  */
-int blackhole_swallow_evaluate(int target, int mode,
+int blackhole_swallow_evaluate(int target,
         struct swallowdata_in * I,
         struct swallowdata_out * O,
         LocalTreeWalk * lv)
@@ -467,7 +467,7 @@ int blackhole_swallow_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
-                    mode, lv, NGB_TREEFIND_SYMMETRIC, ptypemask);
+                    lv, NGB_TREEFIND_SYMMETRIC, ptypemask);
 
             if(numngb < 0)
                 return numngb;

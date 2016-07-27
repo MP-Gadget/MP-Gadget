@@ -65,7 +65,7 @@ struct densdata_out
 };
 
 static int density_isactive(int n);
-static int density_evaluate(int target, int mode, struct densdata_in * I, struct densdata_out * O, LocalTreeWalk * lv);
+static int density_evaluate(int target, struct densdata_in * I, struct densdata_out * O, LocalTreeWalk * lv);
 static void density_post_process(int i);
 static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
 
@@ -350,7 +350,7 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
  *  target particle may either be local, or reside in the communication
  *  buffer.
  */
-static int density_evaluate(int target, int mode,
+static int density_evaluate(int target,
         struct densdata_in * I,
         struct densdata_out * O,
         LocalTreeWalk * lv)
@@ -392,7 +392,7 @@ static int density_evaluate(int target, int mode,
         {
             numngb_inbox =
                 ngb_treefind_threads(I->Pos, hsearch, target, &startnode,
-                        mode, lv, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
+                        lv, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
 
             if(numngb_inbox < 0)
                 return numngb_inbox;

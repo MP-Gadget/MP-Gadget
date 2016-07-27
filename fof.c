@@ -250,7 +250,7 @@ static int fof_primary_isactive(int n) {
     return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && LinkList[n].marked;
 }
 
-static int fof_primary_evaluate(int target, int mode, 
+static int fof_primary_evaluate(int target,
         struct fofdata_in * I, struct fofdata_out * O,
         LocalTreeWalk * lv);
 
@@ -364,7 +364,7 @@ static void fofp_merge(int target, int j)
     }
 }
 
-static int fof_primary_evaluate(int target, int mode, 
+static int fof_primary_evaluate(int target,
         struct fofdata_in * I, struct fofdata_out * O,
         LocalTreeWalk * lv) {
     int listindex = 0;
@@ -379,7 +379,7 @@ static int fof_primary_evaluate(int target, int mode,
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_threads(I->Pos, All.FOFHaloComovingLinkingLength, target, &startnode, mode, 
+            numngb_inbox = ngb_treefind_threads(I->Pos, All.FOFHaloComovingLinkingLength, target, &startnode,
                     lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)
@@ -388,7 +388,7 @@ static int fof_primary_evaluate(int target, int mode,
             for(n = 0; n < numngb_inbox; n++)
             {
                 int j = lv->ngblist[n];
-                if(mode == 0) {
+                if(lv->mode == 0) {
                     /* Local FOF */
                     if(HEAD(target) != HEAD(j)) {
 #pragma omp critical
@@ -938,7 +938,7 @@ static void fof_secondary_reduce(int place, struct fofdata_out * O, int mode) {
         HaloLabel[place].MinIDTask = O->MinIDTask;
     }
 }
-static int fof_secondary_evaluate(int target, int mode, 
+static int fof_secondary_evaluate(int target,
         struct fofdata_in * I, struct fofdata_out * O,
         LocalTreeWalk * lv);
 
@@ -1045,7 +1045,7 @@ static void fof_label_secondary(void)
     message(0, "done finding nearest dm-particle\n");
 }
 
-static int fof_secondary_evaluate(int target, int mode, 
+static int fof_secondary_evaluate(int target,
         struct fofdata_in * I, struct fofdata_out * O,
         LocalTreeWalk * lv)
 {
@@ -1065,7 +1065,7 @@ static int fof_secondary_evaluate(int target, int mode,
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_threads(I->Pos, h, target, &startnode, mode, 
+            numngb_inbox = ngb_treefind_threads(I->Pos, h, target, &startnode,
                     lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)

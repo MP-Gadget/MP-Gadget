@@ -98,22 +98,15 @@ struct gravitydata_out
 
 void force_flag_localnodes(void);
 
-void *gravity_primary_loop(void *p);
-void *gravity_secondary_loop(void *p);
-
-int force_treeev_shortrange(int target, int mode, 
+int force_treeev_shortrange(int target,
         struct gravitydata_in * input,
         struct gravitydata_out * output,
         LocalTreeWalk * lv, void * unused);
 
 
-int force_treeev_potential(int target, int type, int *nexport, int *nsend_local);
-int force_treeev_potential_shortrange(int target, int mode, int *nexport, int *nsend_local);
-
-
 void force_drift_node(int no, int time1);
 int force_drift_node_full(int no, int time1, int blocking);
-     
+
 void force_tree_discardpartials(void);
 void force_treeupdate_pseudos(int);
 void force_update_pseudoparticles(void);
@@ -168,16 +161,13 @@ void   ngb_treesearch_pairs(int);
 void   ngb_update_nodes(void);
 void   ngb_treesearch_notsee(int no);
 
-int ngb_treefind_fof_primary(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
-			    int *nexport, int *nsend_local);
-
 enum NgbTreeFindSymmetric {
     NGB_TREEFIND_SYMMETRIC,
     NGB_TREEFIND_ASYMMETRIC,
 };
 
 int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-		       int mode, LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask);
+		       LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask);
 
 #endif
 

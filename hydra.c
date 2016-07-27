@@ -61,7 +61,7 @@ struct hydrodata_out
 };
 
 
-static int hydro_evaluate(int target, int mode,
+static int hydro_evaluate(int target,
         struct hydrodata_in * I,
         struct hydrodata_out * O,
         LocalTreeWalk * lv);
@@ -195,7 +195,7 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
  *  particle is specified which may either be local, or reside in the
  *  communication buffer.
  */
-static int hydro_evaluate(int target, int mode,
+static int hydro_evaluate(int target,
         struct hydrodata_in * I,
         struct hydrodata_out * O,
         LocalTreeWalk * lv)
@@ -243,7 +243,7 @@ static int hydro_evaluate(int target, int mode,
         {
             numngb =
                 ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
-                        mode, lv, NGB_TREEFIND_SYMMETRIC, 1); /* gas only 1 << 0 */
+                        lv, NGB_TREEFIND_SYMMETRIC, 1); /* gas only 1 << 0 */
 
             if(numngb < 0)
                 return numngb;

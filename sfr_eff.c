@@ -101,11 +101,11 @@ static int make_particle_wind(int i, double v, double vmean[3]);
 static int sfr_wind_isactive(int target);
 static void sfr_wind_reduce_weight(int place, struct winddata_out * remote, int mode);
 static void sfr_wind_copy(int place, struct winddata_in * input);
-static int sfr_wind_ev_weight(int target, int mode,
+static int sfr_wind_ev_weight(int target,
         struct winddata_in * I,
         struct winddata_out * O,
         LocalTreeWalk * lv);
-static int sfr_wind_evaluate(int target, int mode,
+static int sfr_wind_evaluate(int target,
         struct winddata_in * I,
         struct winddata_out * O,
         LocalTreeWalk * lv);
@@ -501,7 +501,7 @@ static void sfr_wind_copy(int place, struct winddata_in * input) {
         input->Vmean[k] = Wind[place].Vmean[k];
 }
 
-static int sfr_wind_ev_weight(int target, int mode,
+static int sfr_wind_ev_weight(int target,
         struct winddata_in * I,
         struct winddata_out * O,
         LocalTreeWalk * lv) {
@@ -522,7 +522,7 @@ static int sfr_wind_ev_weight(int target, int mode,
         while(startnode >= 0)
         {
             numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode,
-                    mode, lv, NGB_TREEFIND_SYMMETRIC, 1 + 2);
+                    lv, NGB_TREEFIND_SYMMETRIC, 1 + 2);
 
             if(numngb < 0)
                 return numngb;
@@ -582,7 +582,7 @@ static int sfr_wind_ev_weight(int target, int mode,
 
 
 }
-static int sfr_wind_evaluate(int target, int mode,
+static int sfr_wind_evaluate(int target,
         struct winddata_in * I,
         struct winddata_out * O,
         LocalTreeWalk * lv) {
@@ -603,7 +603,7 @@ static int sfr_wind_evaluate(int target, int mode,
         while(startnode >= 0)
         {
             numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
-                    mode, lv, NGB_TREEFIND_SYMMETRIC, 1);
+                    lv, NGB_TREEFIND_SYMMETRIC, 1);
 
             if(numngb < 0)
                 return numngb;

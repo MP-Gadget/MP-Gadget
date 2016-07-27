@@ -61,7 +61,9 @@ void TreeWalk_allocate_memory(void)
 
 
 
-void ev_init_thread(TreeWalk * ev, LocalTreeWalk * lv) {
+static void
+ev_init_thread(TreeWalk * ev, LocalTreeWalk * lv)
+{
     int thread_id = omp_get_thread_num();
     int j;
     lv->ev = ev;
@@ -117,9 +119,10 @@ int data_index_compare(const void *a, const void *b);
 static void real_ev(TreeWalk * ev) {
     int tid = omp_get_thread_num();
     int i;
-    LocalTreeWalk lv ;
+    LocalTreeWalk lv[1];
 
-    ev_init_thread(ev, &lv);
+    ev_init_thread(ev, lv);
+    lv->mode = 0;
 
     /* Note: exportflag is local to each thread */
     int k;
@@ -146,7 +149,7 @@ static void real_ev(TreeWalk * ev) {
         ((int*) input)[1] = -1; /* terminate immediately */
         
         memset(output, 0, ev->ev_dataout_elsize);
-        rt = ev->ev_evaluate(i, 0, input, output, &lv);
+        rt = ev->ev_evaluate(i, input, output, lv);
         if(rt < 0) {
             P[i].Evaluated = 0;
             break;		/* export buffer has filled up, redo this particle */
@@ -158,9 +161,9 @@ static void real_ev(TreeWalk * ev) {
     }
     ev->currentIndex[tid] = k;
 #pragma omp atomic
-    ev->Ninteractions += lv.Ninteractions;
+    ev->Ninteractions += lv->Ninteractions;
 #pragma omp atomic
-    ev->Nnodesinlist += lv.Nnodesinlist;
+    ev->Nnodesinlist += lv->Nnodesinlist;
 }
 static int cmpint(const void * c1, const void * c2) {
     const int* i1=c1;
@@ -308,9 +311,10 @@ void ev_secondary(TreeWalk * ev) {
 #pragma omp parallel 
     {
         int j;
-        LocalTreeWalk lv;
+        LocalTreeWalk lv[1];
 
-        ev_init_thread(ev, &lv);
+        ev_init_thread(ev, lv);
+        lv->mode = 1;
 #pragma omp for
         for(j = 0; j < ev->Nimport; j++) {
             void * input = ev->dataget + j * ev->ev_datain_elsize;
@@ -320,12 +324,12 @@ void ev_secondary(TreeWalk * ev) {
                 ((int*) input)[0] = All.MaxPart; /* root node */
                 ((int*) input)[1] = -1; /* terminate immediately */
             }
-            ev->ev_evaluate(j, 1, input, output, &lv);
+            ev->ev_evaluate(j, input, output, lv);
         }
 #pragma omp atomic
-        ev->Ninteractions += lv.Ninteractions;
+        ev->Ninteractions += lv->Ninteractions;
 #pragma omp atomic
-        ev->Nnodesinlist += lv.Nnodesinlist;
+        ev->Nnodesinlist += lv->Nnodesinlist;
     }
     tend = second();
     ev->timecomp2 += timediff(tstart, tend);

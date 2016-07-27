@@ -36,7 +36,7 @@
  *  calling routine.
  */
 int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-        int mode, LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask)
+        LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask)
 {
     int no, p, numngb;
     MyDouble dist, dx, dy, dz;
@@ -88,7 +88,7 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
         {
             if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
             {
-                if(mode == 1)
+                if(lv->mode == 1)
                 {
                     if(donotusenodelist) {
                         no = Nextnode[no - MaxNodes];
@@ -110,7 +110,7 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
 
             current = &Nodes[no];
 
-            if(mode == 1)
+            if(lv->mode == 1)
             {
                 if (!donotusenodelist) {
                     if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */

@@ -7,6 +7,9 @@ void TreeWalk_allocate_memory(void);
 struct _TreeWalk;
 typedef struct _LocalTreeWalk {
     struct _TreeWalk * ev;
+
+    int mode; /* 0 for Primary, 1 for Secondary */
+
     int *exportflag;
     int *exportnodecount;
     int *exportindex;
@@ -15,7 +18,7 @@ typedef struct _LocalTreeWalk {
     int * ngblist;
 } LocalTreeWalk;
 
-typedef int (*ev_ev_func) (const int target, const int mode, 
+typedef int (*ev_ev_func) (const int target,
         void * input, void * output, LocalTreeWalk * lv);
 
 typedef int (*ev_isactive_func) (const int i);
@@ -44,11 +47,11 @@ typedef struct _TreeWalk {
     char * dataresult;
 
     int UseNodeList;
-    int UseAllParticles; /* if 1 use all particles 
+    int UseAllParticles; /* if 1 use all particles
                              if 0 use active particles */
     size_t ev_datain_elsize;
     size_t ev_dataout_elsize;
-    
+
     /* performance metrics */
     double timewait1;
     double timewait2;
@@ -62,6 +65,7 @@ typedef struct _TreeWalk {
     int64_t Niterations;
 
     /* internal flags*/
+
     int Nexport;
     int Nimport;
     int BufferFullFlag;
