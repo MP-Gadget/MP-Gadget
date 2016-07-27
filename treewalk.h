@@ -22,6 +22,7 @@ typedef struct {
     struct _TreeWalk * tw;
 
     int mode; /* 0 for Primary, 1 for Secondary */
+    int target; /* defined only for primary (mode == 0) */
 
     int *exportflag;
     int *exportnodecount;
@@ -31,13 +32,12 @@ typedef struct {
     int * ngblist;
 } LocalTreeWalk;
 
-typedef int (*TreeWalkVisitFunction) (const int target,
-        TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
+typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
 
 typedef int (*TreeWalkIsActiveFunction) (const int i);
 
-typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * data_in);
-typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * data_result, const enum TreeWalkReduceMode mode);
+typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query);
+typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode);
 
 typedef struct _TreeWalk {
     /* name of the evaluator (used in printing messages) */

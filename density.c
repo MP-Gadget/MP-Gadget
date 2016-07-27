@@ -71,7 +71,7 @@ typedef struct {
 } TreeWalkResultDensity;
 
 static int density_isactive(int n);
-static int density_visit(int target, TreeWalkQueryDensity * I, TreeWalkResultDensity * O, LocalTreeWalk * lv);
+static int density_visit(TreeWalkQueryDensity * I, TreeWalkResultDensity * O, LocalTreeWalk * lv);
 static void density_post_process(int i);
 static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
 
@@ -354,28 +354,28 @@ static void density_interact(
         struct densinteraction * d,
         TreeWalkQueryDensity * I,
         TreeWalkResultDensity * O,
-        int i, int j, LocalTreeWalk * lv)
+        int other, LocalTreeWalk * lv)
 {
 #ifdef WINDS
     if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
-        if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
+        if(SPHP(other).DelayTime > 0)	/* partner is a wind particle */
             if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
                 return;
     }
 #endif
 #ifdef BLACK_HOLES
-    if(P[j].Mass == 0)
+    if(P[other].Mass == 0)
         return;
 #ifdef WINDS
         /* blackhole doesn't accrete from wind, regardlies coupled or
          * not */
-    if(I->Type == 5 && SPHP(j).DelayTime > 0)	/* partner is a wind particle */
+    if(I->Type == 5 && SPHP(other).DelayTime > 0)	/* partner is a wind particle */
         return;
 #endif
 #endif
-    double dx = I->base.Pos[0] - P[j].Pos[0];
-    double dy = I->base.Pos[1] - P[j].Pos[1];
-    double dz = I->base.Pos[2] - P[j].Pos[2];
+    double dx = I->base.Pos[0] - P[other].Pos[0];
+    double dy = I->base.Pos[1] - P[other].Pos[1];
+    double dz = I->base.Pos[2] - P[other].Pos[2];
 
     dx = NEAREST(dx);
     dy = NEAREST(dy);
@@ -392,10 +392,10 @@ static void density_interact(
         double wk = density_kernel_wk(&d->kernel, u);
         double dwk = density_kernel_dwk(&d->kernel, u);
 
-        double mass_j = P[j].Mass;
+        double mass_j = P[other].Mass;
 
 #ifdef VOLUME_CORRECTION
-        O->Rho += (mass_j * wk * pow(I->DensityOld / SPHP(j).DensityOld, VOLUME_CORRECTION));
+        O->Rho += (mass_j * wk * pow(I->DensityOld / SPHP(other).DensityOld, VOLUME_CORRECTION));
         O->DensityStd += (mass_j * wk);
 #else
         O->Rho += (mass_j * wk);
@@ -407,17 +407,17 @@ static void density_interact(
         O->DhsmlDensity += mass_j * density_kernel_dW(&d->kernel, u, wk, dwk);
 
 #ifdef DENSITY_INDEPENDENT_SPH
-        O->EgyRho += mass_j * SPHP(j).EntVarPred * wk;
-        O->DhsmlEgyDensity += mass_j * SPHP(j).EntVarPred * density_kernel_dW(&d->kernel, u, wk, dwk);
+        O->EgyRho += mass_j * SPHP(other).EntVarPred * wk;
+        O->DhsmlEgyDensity += mass_j * SPHP(other).EntVarPred * density_kernel_dW(&d->kernel, u, wk, dwk);
 #endif
 
 
 #ifdef BLACK_HOLES
-        O->SmoothedPressure += (mass_j * wk * SPHP(j).Pressure);
-        O->SmoothedEntropy += (mass_j * wk * SPHP(j).Entropy);
-        O->GasVel[0] += (mass_j * wk * SPHP(j).VelPred[0]);
-        O->GasVel[1] += (mass_j * wk * SPHP(j).VelPred[1]);
-        O->GasVel[2] += (mass_j * wk * SPHP(j).VelPred[2]);
+        O->SmoothedPressure += (mass_j * wk * SPHP(other).Pressure);
+        O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
+        O->GasVel[0] += (mass_j * wk * SPHP(other).VelPred[0]);
+        O->GasVel[1] += (mass_j * wk * SPHP(other).VelPred[1]);
+        O->GasVel[2] += (mass_j * wk * SPHP(other).VelPred[2]);
 #endif
 
 #ifdef SPH_GRAD_RHO
@@ -434,9 +434,9 @@ static void density_interact(
         {
             double fac = mass_j * dwk / r;
 
-            double dvx = I->Vel[0] - SPHP(j).VelPred[0];
-            double dvy = I->Vel[1] - SPHP(j).VelPred[1];
-            double dvz = I->Vel[2] - SPHP(j).VelPred[2];
+            double dvx = I->Vel[0] - SPHP(other).VelPred[0];
+            double dvy = I->Vel[1] - SPHP(other).VelPred[1];
+            double dvz = I->Vel[2] - SPHP(other).VelPred[2];
 
             O->Div += (-fac * (dx * dvx + dy * dvy + dz * dvz));
 
@@ -451,28 +451,28 @@ static void density_interact(
 #ifdef WINDS
         /* blackhole doesn't accrete from wind, regardlies coupled or
          * not */
-        if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
+        if(SPHP(other).DelayTime > 0)	/* partner is a wind particle */
             return;
 #endif
         double mass_j;
         if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
             double nh0 = 1.0;
             double nHeII = 0;
-            double ne = SPHP(j).Ne;
+            double ne = SPHP(other).Ne;
             struct UVBG uvbg;
-            GetParticleUVBG(j, &uvbg);
+            GetParticleUVBG(other, &uvbg);
             AbundanceRatios(DMAX(All.MinEgySpec,
-                        SPHP(j).Entropy / GAMMA_MINUS1
-                        * pow(SPHP(j).EOMDensity * All.cf.a3inv,
+                        SPHP(other).Entropy / GAMMA_MINUS1
+                        * pow(SPHP(other).EOMDensity * All.cf.a3inv,
                             GAMMA_MINUS1)),
-                    SPHP(j).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
+                    SPHP(other).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
             if(r2 > 0)
-                O->FeedbackWeightSum += (P[j].Mass * nh0) / r2;
+                O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
         } else {
             if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
-                mass_j = P[j].Mass;
+                mass_j = P[other].Mass;
             } else {
-                mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
+                mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
             }
             if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
                 double u = r * d->bh_feedback_kernel.Hinv;
@@ -487,10 +487,9 @@ static void density_interact(
 #endif
 }
 
-static int density_visit(int target,
-        TreeWalkQueryDensity * I,
-        TreeWalkResultDensity * O,
-        LocalTreeWalk * lv)
+static int density_visit(TreeWalkQueryDensity * I,
+            TreeWalkResultDensity * O,
+            LocalTreeWalk * lv)
 {
     int n;
 
@@ -521,7 +520,7 @@ static int density_visit(int target,
         while(startnode >= 0)
         {
             numngb_inbox =
-                ngb_treefind_threads(I->base.Pos, hsearch, target, &startnode,
+                ngb_treefind_threads(I->base.Pos, hsearch, lv->target, &startnode,
                         lv, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
 
             if(numngb_inbox < 0)
@@ -531,7 +530,7 @@ static int density_visit(int target,
             {
                 ninteractions++;
                 int j = lv->ngblist[n];
-                density_interact(di, I, O, target, j, lv);
+                density_interact(di, I, O, j, lv);
             }
         }
         /* now check next node in the node list */

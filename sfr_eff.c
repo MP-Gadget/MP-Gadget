@@ -101,11 +101,11 @@ static int make_particle_wind(int i, double v, double vmean[3]);
 static int sfr_wind_isactive(int target);
 static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode);
 static void sfr_wind_copy(int place, TreeWalkQueryWind * input);
-static int sfr_wind_ev_weight(int target,
+static int sfr_wind_ev_weight(
         TreeWalkQueryWind * I,
         TreeWalkResultWind * O,
         LocalTreeWalk * lv);
-static int sfr_wind_visit(int target,
+static int sfr_wind_visit(
         TreeWalkQueryWind * I,
         TreeWalkResultWind * O,
         LocalTreeWalk * lv);
@@ -499,8 +499,7 @@ static void sfr_wind_copy(int place, TreeWalkQueryWind * input) {
         input->Vmean[k] = Wind[place].Vmean[k];
 }
 
-static int sfr_wind_ev_weight(int target,
-        TreeWalkQueryWind * I,
+static int sfr_wind_ev_weight(TreeWalkQueryWind * I,
         TreeWalkResultWind * O,
         LocalTreeWalk * lv) {
     /* this evaluator walks the tree and sums the total mass of surrounding gas
@@ -519,7 +518,7 @@ static int sfr_wind_ev_weight(int target,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->base.Pos, hsearch, target, &startnode,
+            numngb = ngb_treefind_threads(I->base.Pos, hsearch, lv->target, &startnode,
                     lv, NGB_TREEFIND_SYMMETRIC, 1 + 2);
 
             if(numngb < 0)
@@ -580,8 +579,7 @@ static int sfr_wind_ev_weight(int target,
 
 
 }
-static int sfr_wind_visit(int target,
-        TreeWalkQueryWind * I,
+static int sfr_wind_visit(TreeWalkQueryWind * I,
         TreeWalkResultWind * O,
         LocalTreeWalk * lv) {
 
@@ -600,7 +598,7 @@ static int sfr_wind_visit(int target,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->base.Pos, I->Hsml, target, &startnode,
+            numngb = ngb_treefind_threads(I->base.Pos, I->Hsml, lv->target, &startnode,
                     lv, NGB_TREEFIND_SYMMETRIC, 1);
 
             if(numngb < 0)

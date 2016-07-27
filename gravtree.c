@@ -59,8 +59,7 @@ typedef struct
 } TreeWalkResultGravity;
 
 
-int force_treeev_shortrange(const int target,
-        TreeWalkQueryGravity * input,
+int force_treeev_shortrange(TreeWalkQueryGravity * input,
         TreeWalkResultGravity * output,
         LocalTreeWalk * lv);
 
@@ -340,8 +339,7 @@ void set_softenings(void)
  *  memory-access panelty (which reduces cache performance) incurred by the
  *  table.
  */
-int force_treeev_shortrange(int target,
-        TreeWalkQueryGravity * input,
+int force_treeev_shortrange(TreeWalkQueryGravity * input,
         TreeWalkResultGravity * output,
         LocalTreeWalk * lv)
 {
@@ -439,7 +437,7 @@ int force_treeev_shortrange(int target,
                 {
                     if(lv->mode == 0)
                     {
-                        if(-1 == ev_export_particle(lv, target, no))
+                        if(-1 == ev_export_particle(lv, lv->target, no))
                             return -1;
                     }
                     no = Nextnode[no - MaxNodes];

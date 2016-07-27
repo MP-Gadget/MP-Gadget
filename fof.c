@@ -246,8 +246,7 @@ static int fof_primary_isactive(int n) {
     return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && LinkList[n].marked;
 }
 
-static int fof_primary_visit(int target,
-        TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
+static int fof_primary_visit(TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
         LocalTreeWalk * lv);
 
 void fof_label_primary(void)
@@ -360,8 +359,7 @@ static void fofp_merge(int target, int j)
     }
 }
 
-static int fof_primary_visit(int target,
-        TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
+static int fof_primary_visit(TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
         LocalTreeWalk * lv) {
     int listindex = 0;
     int startnode, numngb_inbox;
@@ -374,7 +372,7 @@ static int fof_primary_visit(int target,
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_threads(I->base.Pos, All.FOFHaloComovingLinkingLength, target, &startnode,
+            numngb_inbox = ngb_treefind_threads(I->base.Pos, All.FOFHaloComovingLinkingLength, lv->target, &startnode,
                     lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)
@@ -385,9 +383,9 @@ static int fof_primary_visit(int target,
                 int j = lv->ngblist[n];
                 if(lv->mode == 0) {
                     /* Local FOF */
-                    if(HEAD(target) != HEAD(j)) {
+                    if(HEAD(lv->target) != HEAD(j)) {
 #pragma omp critical
-                        fofp_merge(target, j);
+                        fofp_merge(lv->target, j);
                     }
                 } else		/* mode is 1, target is a ghost */
                 {
@@ -929,8 +927,7 @@ static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalk
         HaloLabel[place].MinIDTask = O->MinIDTask;
     }
 }
-static int fof_secondary_visit(int target,
-        TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
+static int fof_secondary_visit(TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
         LocalTreeWalk * lv);
 
 static void fof_label_secondary(void)
@@ -1036,8 +1033,7 @@ static void fof_label_secondary(void)
     message(0, "done finding nearest dm-particle\n");
 }
 
-static int fof_secondary_visit(int target,
-        TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
+static int fof_secondary_visit(TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
         LocalTreeWalk * lv)
 {
     int j, n, index, listindex = 0;
@@ -1056,7 +1052,7 @@ static int fof_secondary_visit(int target,
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_threads(I->base.Pos, h, target, &startnode,
+            numngb_inbox = ngb_treefind_threads(I->base.Pos, h, lv->target, &startnode,
                     lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)

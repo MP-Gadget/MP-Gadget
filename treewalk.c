@@ -227,7 +227,7 @@ static void real_ev(TreeWalk * tw) {
         i = tw->PrimaryTasks[k].place;
 
         if(P[i].Evaluated) {
-            BREAKPOINT; 
+            BREAKPOINT;
         }
         if(!tw->isactive(i)) {
             BREAKPOINT;
@@ -237,7 +237,8 @@ static void real_ev(TreeWalk * tw) {
         treewalk_init_query(tw, input, i, NULL);
         treewalk_init_result(tw, output, input);
 
-        rt = tw->visit(i, input, output, lv);
+        lv->target = i;
+        rt = tw->visit(input, output, lv);
 
         if(rt < 0) {
             P[i].Evaluated = 0;
@@ -416,7 +417,8 @@ static void ev_secondary(TreeWalk * tw)
                 if(input->NodeList[0] != All.MaxPart) abort(); /* root node */
                 if(input->NodeList[1] != -1) abort(); /* terminate immediately */
             }
-            tw->visit(j, input, output, lv);
+            lv->target = -1;
+            tw->visit(input, output, lv);
         }
 #pragma omp atomic
         tw->Ninteractions += lv->Ninteractions;

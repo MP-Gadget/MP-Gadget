@@ -58,10 +58,10 @@ typedef struct {
 } TreeWalkResultHydro;
 
 
-static int hydro_visit(int target,
-        TreeWalkQueryHydro * I,
+static int hydro_visit(TreeWalkQueryHydro * I,
         TreeWalkResultHydro * O,
         LocalTreeWalk * lv);
+
 static int hydro_isactive(int n);
 static void hydro_post_process(int i);
 
@@ -190,10 +190,9 @@ static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkR
  *  particle is specified which may either be local, or reside in the
  *  communication buffer.
  */
-static int hydro_visit(int target,
-        TreeWalkQueryHydro * I,
-        TreeWalkResultHydro * O,
-        LocalTreeWalk * lv)
+static int hydro_visit(TreeWalkQueryHydro * I,
+            TreeWalkResultHydro * O,
+            LocalTreeWalk * lv)
 {
     int startnode, numngb, listindex = 0;
     int j, n;
@@ -237,7 +236,7 @@ static int hydro_visit(int target,
         while(startnode >= 0)
         {
             numngb =
-                ngb_treefind_threads(I->base.Pos, I->Hsml, target, &startnode,
+                ngb_treefind_threads(I->base.Pos, I->Hsml, lv->target, &startnode,
                         lv, NGB_TREEFIND_SYMMETRIC, 1); /* gas only 1 << 0 */
 
             if(numngb < 0)
