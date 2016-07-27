@@ -172,6 +172,14 @@ void open_outputfiles(void)
     free(buf);
 #endif
 
+#ifdef GAL_PART
+    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "galaxies.txt", postfix);
+    fastpm_path_ensure_dirname(buf);
+    if(!(FdGals = fopen(buf, mode)))
+        endrun(1, "error in opening file '%s'\n", buf);
+    free(buf);
+#endif
+
 }
 
 
@@ -196,6 +204,11 @@ void close_outputfiles(void)
 #ifdef BLACK_HOLES
     fclose(FdBlackHoles);
 #endif
+
+#ifdef GAL_PART
+    fclose(FdGals);
+#endif
+
 }
 
 

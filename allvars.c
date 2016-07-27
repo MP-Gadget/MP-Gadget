@@ -88,12 +88,10 @@ FILE *FdSfrDetails;
 
 #ifdef BLACK_HOLES
 FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
-FILE *FdBlackHolesDetails;
 #endif
 
 #ifdef GAL_PART
 FILE *FdGals;           /*!< file handle for Galaxies.txt log-file. */
-FILE *FdGalsDetails;
 #endif
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
