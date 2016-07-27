@@ -99,7 +99,7 @@ static struct winddata {
 static int make_particle_wind(int i, double v, double vmean[3]);
 
 static int sfr_wind_isactive(int target);
-static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, int mode);
+static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode);
 static void sfr_wind_copy(int place, TreeWalkQueryWind * input);
 static int sfr_wind_ev_weight(int target,
         TreeWalkQueryWind * I,
@@ -141,7 +141,7 @@ void cooling_and_starformation(void)
     ev.ev_isactive = sfr_cooling_isactive;
 
     int Nactive = 0;
-    int * queue = ev_get_queue(&ev, &Nactive);
+    int * queue = treewalk_get_queue(&ev, &Nactive);
     int n;
 
 #pragma omp parallel for
@@ -255,7 +255,7 @@ void cooling_and_starformation(void)
         /* sum the total weight of surrounding gas */
         ev.ev_evaluate = (ev_ev_func) sfr_wind_ev_weight;
         int Nqueue;
-        int * queue = ev_get_queue(&ev, &Nqueue);
+        int * queue = treewalk_get_queue(&ev, &Nqueue);
         for(i = 0; i < Nqueue; i ++) {
             int n = queue[i];
             P[n].DensityIterationDone = 0;
@@ -266,7 +266,7 @@ void cooling_and_starformation(void)
         int npleft = Nqueue;
         int done = 0;
         while(!done) {
-            ev_run(&ev);
+            treewalk_run(&ev);
             for(i = 0; i < Nqueue; i ++) {
                 int n = queue[i];
                 if (P[n].DensityIterationDone) continue;
@@ -312,7 +312,7 @@ void cooling_and_starformation(void)
         ev.ev_evaluate = (ev_ev_func) sfr_wind_evaluate;
         ev.ev_reduce = NULL;
 
-        ev_run(&ev);
+        treewalk_run(&ev);
         myfree(Wind);
     }
     walltime_measure("/Cooling/Wind");
@@ -335,7 +335,7 @@ void cooling_only(void)
     ev.ev_isactive = sfr_cooling_isactive;
 
     int Nactive = 0;
-    int * queue = ev_get_queue(&ev, &Nactive);
+    int * queue = treewalk_get_queue(&ev, &Nactive);
     int n;
 
 #pragma omp parallel for
@@ -469,14 +469,14 @@ static int sfr_wind_isactive(int target) {
     return 0;
 }
 
-static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, int mode) {
-    EV_REDUCE(Wind[place].TotalWeight, O->TotalWeight);
+static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMode mode) {
+    TREEWALK_REDUCE(Wind[place].TotalWeight, O->TotalWeight);
     int k;
     for(k = 0; k < 3; k ++) {
-        EV_REDUCE(Wind[place].V1sum[k], O->V1sum[k]);
+        TREEWALK_REDUCE(Wind[place].V1sum[k], O->V1sum[k]);
     }
-    EV_REDUCE(Wind[place].V2sum, O->V2sum);
-    EV_REDUCE(Wind[place].Ngb, O->Ngb);
+    TREEWALK_REDUCE(Wind[place].V2sum, O->V2sum);
+    TREEWALK_REDUCE(Wind[place].Ngb, O->Ngb);
     /*
     message(1, "Reduce ID=%ld, NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
             P[place].ID, O->Ngb, O->TotalWeight, O->V2sum,

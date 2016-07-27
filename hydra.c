@@ -67,7 +67,7 @@ static void hydro_post_process(int i);
 
 
 static void hydro_copy(int place, TreeWalkQueryHydro * input);
-static void hydro_reduce(int place, TreeWalkResultHydro * result, int mode);
+static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode);
 
 static double fac_mu, fac_vsic_fix;
 
@@ -101,13 +101,13 @@ void hydro_force(void)
 
     walltime_measure("/SPH/Hydro/Init");
 
-    ev_run(&ev);
+    treewalk_run(&ev);
 
 
     /* do final operations on results */
 
     int Nactive;
-    int * queue = ev_get_queue(&ev, &Nactive);
+    int * queue = treewalk_get_queue(&ev, &Nactive);
 #pragma omp parallel for if(Nactive > 64)
     for(i = 0; i < Nactive; i++)
         hydro_post_process(queue[i]);
@@ -166,22 +166,21 @@ static void hydro_copy(int place, TreeWalkQueryHydro * input) {
 
 }
 
-static void hydro_reduce(int place, TreeWalkResultHydro * result, int mode) {
-#define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
+static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode) {
     int k;
 
     for(k = 0; k < 3; k++)
     {
-        REDUCE(SPHP(place).HydroAccel[k], result->Acc[k]);
+        TREEWALK_REDUCE(SPHP(place).HydroAccel[k], result->Acc[k]);
     }
 
-    REDUCE(SPHP(place).DtEntropy, result->DtEntropy);
+    TREEWALK_REDUCE(SPHP(place).DtEntropy, result->DtEntropy);
 
 #ifdef HYDRO_COST_FACTOR
     P[place].GravCost += HYDRO_COST_FACTOR * All.cf.a * result->Ninteractions;
 #endif
 
-    if(mode == 0 || SPHP(place).MaxSignalVel < result->MaxSignalVel)
+    if(mode == TREEWALK_PRIMARY || SPHP(place).MaxSignalVel < result->MaxSignalVel)
         SPHP(place).MaxSignalVel = result->MaxSignalVel;
 
 }

@@ -268,7 +268,7 @@ void fof_label_primary(void)
     ev.UseNodeList = 1;
     ev.UseAllParticles = 1;
     ev.query_type_elsize = sizeof(TreeWalkQueryFOF);
-    ev.result_type_elsize = 1;
+    ev.result_type_elsize = sizeof(TreeWalkResultFOF);
 
     LinkList = (struct LinkList *) mymalloc("FOF_Links", NumPart * sizeof(struct LinkList));
     /* allocate buffers to arrange communication */
@@ -291,7 +291,7 @@ void fof_label_primary(void)
     {
         t0 = second();
 
-        ev_run(&ev);
+        treewalk_run(&ev);
 
         t1 = second();
 
@@ -921,7 +921,7 @@ static void fof_secondary_copy(int place, TreeWalkQueryFOF * I) {
 static int fof_secondary_isactive(int n) {
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
-static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, int mode) {
+static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode) {
     if(O->Distance < fof_secondary_distance[place])
     {
         fof_secondary_distance[place] = O->Distance;
@@ -977,10 +977,10 @@ static void fof_label_secondary(void)
 
     do 
     {
-        ev_run(&ev);
+        treewalk_run(&ev);
 
         int Nactive;
-        int * queue = ev_get_queue(&ev, &Nactive);
+        int * queue = treewalk_get_queue(&ev, &Nactive);
 
         /* do final operations on results */
         int npleft = 0;

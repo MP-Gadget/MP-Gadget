@@ -143,7 +143,7 @@ static void ev_begin(TreeWalk * ev)
 
     ev->PQueueSize = 0;
 
-    ev->PQueue = ev_get_queue(ev, &ev->PQueueSize);
+    ev->PQueue = treewalk_get_queue(ev, &ev->PQueueSize);
     ev->PrimaryTasks = (struct ev_task *) mymalloc("PrimaryTasks", sizeof(struct ev_task) * ev->PQueueSize);
 
     fill_task_queue(ev, ev->PrimaryTasks, ev->PQueue, ev->PQueueSize);
@@ -170,6 +170,40 @@ static void ev_finish(TreeWalk * ev)
 }
 
 int data_index_compare(const void *a, const void *b);
+
+static void
+treewalk_init_query(TreeWalk * ev, TreeWalkQueryBase * query, int i, int * NodeList)
+{
+    query->ID = P[i].ID;
+
+    int d;
+    for(d = 0; d < 3; d ++) {
+        query->Pos[d] = P[i].Pos[d];
+    }
+
+    if(NodeList) {
+        memcpy(query->NodeList, NodeList, sizeof(int) * NODELISTLENGTH);
+    } else {
+        query->NodeList[0] = All.MaxPart; /* root node */
+        query->NodeList[1] = -1; /* terminate immediately */
+    }
+
+    ev->ev_copy(i, query);
+};
+
+static void
+treewalk_init_result(TreeWalk * ev, TreeWalkResultBase * result, TreeWalkQueryBase * query)
+{
+    memset(result, 0, ev->result_type_elsize);
+    result->ID = query->ID;
+}
+
+static void
+treewalk_reduce_result(TreeWalk * ev, TreeWalkResultBase * result, int i, enum TreeWalkReduceMode mode)
+{
+    if(ev->ev_reduce != NULL)
+        ev->ev_reduce(i, result, mode);
+}
 
 static void real_ev(TreeWalk * ev) {
     int tid = omp_get_thread_num();
@@ -200,29 +234,17 @@ static void real_ev(TreeWalk * ev) {
         }
         int rt;
         /* Primary never uses node list */
-        input->ID = P[i].ID;
+        treewalk_init_query(ev, input, i, NULL);
+        treewalk_init_result(ev, output, input);
 
-        int d;
-        for(d = 0; d < 3; d ++) {
-            input->Pos[d] = P[i].Pos[d];
-        }
-
-        input->NodeList[0] = All.MaxPart; /* root node */
-        input->NodeList[1] = -1; /* terminate immediately */
-
-        ev->ev_copy(i, input);
-
-        memset(output, 0, ev->result_type_elsize);
         rt = ev->ev_evaluate(i, input, output, lv);
-        output->ID = input->ID;
 
         if(rt < 0) {
             P[i].Evaluated = 0;
             break;		/* export buffer has filled up, redo this particle */
         } else {
             P[i].Evaluated = 1;
-            if(ev->ev_reduce != NULL)
-                ev->ev_reduce(i, output, 0);
+            treewalk_reduce_result(ev, output, i, TREEWALK_PRIMARY);
         }
     }
     ev->currentIndex[tid] = k;
@@ -237,7 +259,7 @@ static int cmpint(const void * c1, const void * c2) {
     const int* i2=c2;
     return i1 - i2;
 }
-int * ev_get_queue(TreeWalk * ev, int * len) {
+int * treewalk_get_queue(TreeWalk * ev, int * len) {
     int i;
     int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
     int k = 0;
@@ -389,11 +411,10 @@ static void ev_secondary(TreeWalk * ev)
         for(j = 0; j < ev->Nimport; j++) {
             TreeWalkQueryBase * input = (TreeWalkQueryBase*) (ev->dataget + j * ev->query_type_elsize);
             TreeWalkResultBase * output = (TreeWalkResultBase*)(ev->dataresult + j * ev->result_type_elsize);
-            memset(output, 0, ev->result_type_elsize);
-            output->ID = input->ID;
+            treewalk_init_result(ev, output, input);
             if(!ev->UseNodeList) {
-                input->NodeList[0] = All.MaxPart; /* root node */
-                input->NodeList[1] = -1; /* terminate immediately */
+                if(input->NodeList[0] != All.MaxPart) abort(); /* root node */
+                if(input->NodeList[1] != -1) abort(); /* terminate immediately */
             }
             ev->ev_evaluate(j, input, output, lv);
         }
@@ -458,7 +479,7 @@ int ev_export_particle(LocalTreeWalk * lv, int target, int no) {
     return 0;
 }
 
-void ev_run(TreeWalk * ev) {
+void treewalk_run(TreeWalk * ev) {
     /* run the evaluator */
     GDB_current_ev = ev;
     ev_begin(ev);
@@ -515,15 +536,11 @@ static void ev_get_remote(TreeWalk * ev, int tag)
     {
         int place = DataIndexTable[j].Index;
         TreeWalkQueryBase * input = (TreeWalkQueryBase*) (sendbuf + j * ev->query_type_elsize);
+        int * nodelist = NULL;
         if(ev->UseNodeList) {
-            int * nl = DataNodeList[DataIndexTable[j].IndexGet].NodeList;
-            memcpy(input->NodeList, nl, sizeof(int) * NODELISTLENGTH);
+            nodelist = DataNodeList[DataIndexTable[j].IndexGet].NodeList;
         }
-        int d;
-        for(d = 0; d < 3; d ++)
-            input->Pos[d] = P[place].Pos[d];
-        input->ID = P[place].ID;
-        ev->ev_copy(place, input);
+        treewalk_init_query(ev, input, place, nodelist);
     }
     tend = second();
     ev->timecomp1 += timediff(tstart, tend);
@@ -599,7 +616,7 @@ static void ev_reduce_result(TreeWalk * ev, int tag)
             for(k = start; k < end; k++) {
                 int get = DataIndexTable[k].IndexGet;
                 TreeWalkResultBase * output = (TreeWalkResultBase*) (recvbuf + ev->result_type_elsize * get);
-                ev->ev_reduce(place, output, 1);
+                treewalk_reduce_result(ev, output, place, TREEWALK_GHOSTS);
             }
         }
     }

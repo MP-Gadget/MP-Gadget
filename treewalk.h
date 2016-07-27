@@ -1,6 +1,10 @@
 #ifndef _EVALUATOR_H_
 #define _EVALUATOR_H_
 
+enum TreeWalkReduceMode {
+    TREEWALK_PRIMARY,
+    TREEWALK_GHOSTS,
+};
 void TreeWalk_allocate_memory(void);
 struct _TreeWalk;
 
@@ -33,9 +37,7 @@ typedef int (*ev_ev_func) (const int target,
 typedef int (*ev_isactive_func) (const int i);
 
 typedef void (*ev_copy_func)(const int j, TreeWalkQueryBase * data_in);
-/* mode == 0 is to set the initial local value
- * mode == 1 is to reduce the remote results */
-typedef void (*ev_reduce_func)(const int j, TreeWalkResultBase * data_result, const int mode);
+typedef void (*ev_reduce_func)(const int j, TreeWalkResultBase * data_result, const enum TreeWalkReduceMode mode);
 
 typedef struct _TreeWalk {
     ev_ev_func ev_evaluate;
@@ -83,11 +85,11 @@ typedef struct _TreeWalk {
     int *currentEnd;
 } TreeWalk;
 
-void ev_run(TreeWalk * ev);
-int * ev_get_queue(TreeWalk * ev, int * len);
+void treewalk_run(TreeWalk * ev);
+int * treewalk_get_queue(TreeWalk * ev, int * len);
 
 /*returns -1 if the buffer is full */
 int ev_export_particle(LocalTreeWalk * lv, int target, int no);
 
-#define EV_REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
+#define TREEWALK_REDUCE(A, B) (A) = (mode==TREEWALK_PRIMARY)?(B):((A) + (B))
 #endif

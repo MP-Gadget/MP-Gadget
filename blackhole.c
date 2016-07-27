@@ -61,7 +61,7 @@ static void blackhole_accretion_evaluate(int n);
 static void blackhole_postprocess(int n);
 
 static int blackhole_feedback_isactive(int n);
-static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, int mode);
+static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode);
 static void blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I);
 
 static int blackhole_feedback_evaluate(int target,
@@ -70,7 +70,7 @@ static int blackhole_feedback_evaluate(int target,
         LocalTreeWalk * lv);
 
 static int blackhole_swallow_isactive(int n);
-static void blackhole_swallow_reduce(int place, TreeWalkResultSwallow * remote, int mode);
+static void blackhole_swallow_reduce(int place, TreeWalkResultSwallow * remote, enum TreeWalkReduceMode mode);
 static void blackhole_swallow_copy(int place, TreeWalkQuerySwallow * I);
 
 static int blackhole_swallow_evaluate(int target,
@@ -129,7 +129,7 @@ void blackhole_accretion(void)
 
     /* Let's first compute the Mdot values */
     int Nactive;
-    int * queue = ev_get_queue(&fbev, &Nactive);
+    int * queue = treewalk_get_queue(&fbev, &Nactive);
 
     for(i = 0; i < Nactive; i ++) {
         int n = queue[i];
@@ -163,10 +163,10 @@ void blackhole_accretion(void)
     /* Let's first spread the feedback energy,
      * and determine which particles may be swalled by whom */
 
-    ev_run(&fbev);
+    treewalk_run(&fbev);
 
     /* Now do the swallowing of particles */
-    ev_run(&swev);
+    treewalk_run(&swev);
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -535,7 +535,7 @@ static int blackhole_feedback_isactive(int n) {
     return (P[n].Type == 5) && (P[n].Mass > 0);
 }
 
-static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, int mode) {
+static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode) {
     int k;
     if(mode == 0 || BHP(place).MinPot > remote->BH_MinPot)
     {
@@ -583,16 +583,15 @@ static void blackhole_swallow_copy(int place, TreeWalkQuerySwallow * I) {
     I->ID = P[place].ID;
 }
 
-static void blackhole_swallow_reduce(int place, TreeWalkResultSwallow * remote, int mode) {
+static void blackhole_swallow_reduce(int place, TreeWalkResultSwallow * remote, enum TreeWalkReduceMode mode) {
     int k;
 
-#define EV_REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
-    EV_REDUCE(BHP(place).accreted_Mass, remote->Mass);
-    EV_REDUCE(BHP(place).accreted_BHMass, remote->BH_Mass);
+    TREEWALK_REDUCE(BHP(place).accreted_Mass, remote->Mass);
+    TREEWALK_REDUCE(BHP(place).accreted_BHMass, remote->BH_Mass);
     for(k = 0; k < 3; k++) {
-        EV_REDUCE(BHP(place).accreted_momentum[k], remote->AccretedMomentum[k]);
+        TREEWALK_REDUCE(BHP(place).accreted_momentum[k], remote->AccretedMomentum[k]);
     }
-    EV_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
+    TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
 }
 
 void blackhole_make_one(int index) {

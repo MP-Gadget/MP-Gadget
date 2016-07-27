@@ -83,7 +83,7 @@ static void fill_ntab()
 
 static int gravtree_isactive(int i);
 void gravtree_copy(int place, TreeWalkQueryGravity * input) ;
-void gravtree_reduce(int place, TreeWalkResultGravity * result, int mode);
+void gravtree_reduce(int place, TreeWalkResultGravity * result, enum TreeWalkReduceMode mode);
 static void gravtree_post_process(int i);
 
 /*! This function computes the gravitational forces for all active particles.
@@ -129,7 +129,7 @@ void gravity_tree(void)
 
     walltime_measure("/Misc");
 
-    ev_run(&ev[0]);
+    treewalk_run(&ev[0]);
     iter += ev[0].Niterations;
     n_exported += ev[0].Nexport_sum;
     N_nodesinlist += ev[0].Nnodesinlist;
@@ -145,7 +145,7 @@ void gravity_tree(void)
 
     int Nactive;
     /* doesn't matter which ev to use, they have the same ev_active*/
-    int * queue = ev_get_queue(&ev[0], &Nactive);
+    int * queue = treewalk_get_queue(&ev[0], &Nactive);
 #pragma omp parallel for if(Nactive > 32)
     for(i = 0; i < Nactive; i++) {
         gravtree_post_process(queue[i]);
@@ -242,14 +242,13 @@ void gravtree_copy(int place, TreeWalkQueryGravity * input) {
 
 }
 
-void gravtree_reduce(int place, TreeWalkResultGravity * result, int mode) {
-#define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
+void gravtree_reduce(int place, TreeWalkResultGravity * result, enum TreeWalkReduceMode mode) {
     int k;
     for(k = 0; k < 3; k++)
-        REDUCE(P[place].GravAccel[k], result->Acc[k]);
+        TREEWALK_REDUCE(P[place].GravAccel[k], result->Acc[k]);
 
-    REDUCE(P[place].GravCost, result->Ninteractions);
-    REDUCE(P[place].Potential, result->Potential);
+    TREEWALK_REDUCE(P[place].GravCost, result->Ninteractions);
+    TREEWALK_REDUCE(P[place].Potential, result->Potential);
 }
 
 static int gravtree_isactive(int i) {

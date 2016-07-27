@@ -76,7 +76,7 @@ static void density_post_process(int i);
 static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
 
 
-static void density_reduce(int place, TreeWalkResultDensity * remote, int mode);
+static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode);
 static void density_copy(int place, TreeWalkQueryDensity * I);
 
 /*! \file density.c
@@ -143,7 +143,7 @@ void density(void)
 
     /* the queue has every particle. Later on after some iterations are done
      * Nactive will decrease -- the queue would be shorter.*/
-    queue = ev_get_queue(&ev, &Nactive);
+    queue = treewalk_get_queue(&ev, &Nactive);
 #pragma omp parallel for if(Nactive > 32)
     for(i = 0; i < Nactive; i ++) {
         int p = queue[i];
@@ -163,12 +163,12 @@ void density(void)
     do
     {
 
-        ev_run(&ev);
+        treewalk_run(&ev);
 
         /* do final operations on results */
         tstart = second();
 
-        queue = ev_get_queue(&ev, &Nactive);
+        queue = treewalk_get_queue(&ev, &Nactive);
 
         int npleft = 0;
 #pragma omp parallel for if(Nactive > 32)
@@ -297,8 +297,8 @@ static void density_copy(int place, TreeWalkQueryDensity * I) {
 
 }
 
-static void density_reduce(int place, TreeWalkResultDensity * remote, int mode) {
-    EV_REDUCE(P[place].n.dNumNgb, remote->Ngb);
+static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode) {
+    TREEWALK_REDUCE(P[place].n.dNumNgb, remote->Ngb);
 
 #ifdef HYDRO_COST_FACTOR
     /* these will be added */
@@ -307,26 +307,26 @@ static void density_reduce(int place, TreeWalkResultDensity * remote, int mode) 
 
     if(P[place].Type == 0)
     {
-        EV_REDUCE(SPHP(place).Density, remote->Rho);
-        EV_REDUCE(SPHP(place).DhsmlDensityFactor, remote->DhsmlDensity);
+        TREEWALK_REDUCE(SPHP(place).Density, remote->Rho);
+        TREEWALK_REDUCE(SPHP(place).DhsmlDensityFactor, remote->DhsmlDensity);
 #ifdef DENSITY_INDEPENDENT_SPH
-        EV_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
-        EV_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
+        TREEWALK_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
+        TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
 #endif
 
-        EV_REDUCE(SPHP(place).DivVel, remote->Div);
-        EV_REDUCE(SPHP(place).Rot[0], remote->Rot[0]);
-        EV_REDUCE(SPHP(place).Rot[1], remote->Rot[1]);
-        EV_REDUCE(SPHP(place).Rot[2], remote->Rot[2]);
+        TREEWALK_REDUCE(SPHP(place).DivVel, remote->Div);
+        TREEWALK_REDUCE(SPHP(place).Rot[0], remote->Rot[0]);
+        TREEWALK_REDUCE(SPHP(place).Rot[1], remote->Rot[1]);
+        TREEWALK_REDUCE(SPHP(place).Rot[2], remote->Rot[2]);
 
 #ifdef VOLUME_CORRECTION
-        EV_REDUCE(SPHP(place).DensityStd, remote->DensityStd);
+        TREEWALK_REDUCE(SPHP(place).DensityStd, remote->DensityStd);
 #endif
 
 #ifdef SPH_GRAD_RHO
-        EV_REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
-        EV_REDUCE(SPHP(place).GradRho[1], remote->GradRho[1]);
-        EV_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
+        TREEWALK_REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
+        TREEWALK_REDUCE(SPHP(place).GradRho[1], remote->GradRho[1]);
+        TREEWALK_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
 #endif
 
     }
@@ -334,14 +334,14 @@ static void density_reduce(int place, TreeWalkResultDensity * remote, int mode) 
 #ifdef BLACK_HOLES
     if(P[place].Type == 5)
     {
-        EV_REDUCE(BHP(place).Density, remote->Rho);
-        EV_REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
-        EV_REDUCE(BHP(place).Entropy, remote->SmoothedEntropy);
-        EV_REDUCE(BHP(place).Pressure, remote->SmoothedPressure);
+        TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
+        TREEWALK_REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
+        TREEWALK_REDUCE(BHP(place).Entropy, remote->SmoothedEntropy);
+        TREEWALK_REDUCE(BHP(place).Pressure, remote->SmoothedPressure);
 
-        EV_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
-        EV_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
-        EV_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
+        TREEWALK_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
+        TREEWALK_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
+        TREEWALK_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
     }
 #endif
 }
