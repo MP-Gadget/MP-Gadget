@@ -16,6 +16,14 @@
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
+struct densinteraction {
+    DensityKernel kernel;
+    double kernel_volume;
+
+#ifdef BLACK_HOLES
+    DensityKernel bh_feedback_kernel;
+#endif
+};
 struct densdata_in
 {
     int NodeList[NODELISTLENGTH];
@@ -350,6 +358,144 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
  *  target particle may either be local, or reside in the communication
  *  buffer.
  */
+
+static void density_interact(
+        struct densinteraction * d,
+        struct densdata_in * I,
+        struct densdata_out * O,
+        int i, int j, LocalTreeWalk * lv)
+{
+#ifdef WINDS
+    if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
+        if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
+            if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
+                return;
+    }
+#endif
+#ifdef BLACK_HOLES
+    if(P[j].Mass == 0)
+        return;
+#ifdef WINDS
+        /* blackhole doesn't accrete from wind, regardlies coupled or
+         * not */
+    if(I->Type == 5 && SPHP(j).DelayTime > 0)	/* partner is a wind particle */
+        return;
+#endif
+#endif
+    double dx = I->Pos[0] - P[j].Pos[0];
+    double dy = I->Pos[1] - P[j].Pos[1];
+    double dz = I->Pos[2] - P[j].Pos[2];
+
+    dx = NEAREST(dx);
+    dy = NEAREST(dy);
+    dz = NEAREST(dz);
+
+    double r2 = dx * dx + dy * dy + dz * dz;
+
+    double r = sqrt(r2);
+
+    if(r2 < d->kernel.HH)
+    {
+
+        double u = r * d->kernel.Hinv;
+        double wk = density_kernel_wk(&d->kernel, u);
+        double dwk = density_kernel_dwk(&d->kernel, u);
+
+        double mass_j = P[j].Mass;
+
+#ifdef VOLUME_CORRECTION
+        O->Rho += (mass_j * wk * pow(I->DensityOld / SPHP(j).DensityOld, VOLUME_CORRECTION));
+        O->DensityStd += (mass_j * wk);
+#else
+        O->Rho += (mass_j * wk);
+#endif
+        O->Ngb += wk * d->kernel_volume;
+
+        /* Hinv is here becuase O->DhsmlDensity is drho / dH.
+         * nothing to worry here */
+        O->DhsmlDensity += mass_j * density_kernel_dW(&d->kernel, u, wk, dwk);
+
+#ifdef DENSITY_INDEPENDENT_SPH
+        O->EgyRho += mass_j * SPHP(j).EntVarPred * wk;
+        O->DhsmlEgyDensity += mass_j * SPHP(j).EntVarPred * density_kernel_dW(&d->kernel, u, wk, dwk);
+#endif
+
+
+#ifdef BLACK_HOLES
+        O->SmoothedPressure += (mass_j * wk * SPHP(j).Pressure);
+        O->SmoothedEntropy += (mass_j * wk * SPHP(j).Entropy);
+        O->GasVel[0] += (mass_j * wk * SPHP(j).VelPred[0]);
+        O->GasVel[1] += (mass_j * wk * SPHP(j).VelPred[1]);
+        O->GasVel[2] += (mass_j * wk * SPHP(j).VelPred[2]);
+#endif
+
+#ifdef SPH_GRAD_RHO
+        if(r > 0)
+        {
+            O->GradRho[0] += mass_j * dwk * dx / r;
+            O->GradRho[1] += mass_j * dwk * dy / r;
+            O->GradRho[2] += mass_j * dwk * dz / r;
+        }
+#endif
+
+
+        if(r > 0)
+        {
+            double fac = mass_j * dwk / r;
+
+            double dvx = I->Vel[0] - SPHP(j).VelPred[0];
+            double dvy = I->Vel[1] - SPHP(j).VelPred[1];
+            double dvz = I->Vel[2] - SPHP(j).VelPred[2];
+
+            O->Div += (-fac * (dx * dvx + dy * dvy + dz * dvz));
+
+            O->Rot[0] += (fac * (dz * dvy - dy * dvz));
+            O->Rot[1] += (fac * (dx * dvz - dz * dvx));
+            O->Rot[2] += (fac * (dy * dvx - dx * dvy));
+        }
+    }
+#ifdef BLACK_HOLES
+    if(I->Type == 5 && r2 < d->bh_feedback_kernel.HH)
+    {
+#ifdef WINDS
+        /* blackhole doesn't accrete from wind, regardlies coupled or
+         * not */
+        if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
+            return;
+#endif
+        double mass_j;
+        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
+            double nh0 = 1.0;
+            double nHeII = 0;
+            double ne = SPHP(j).Ne;
+            struct UVBG uvbg;
+            GetParticleUVBG(j, &uvbg);
+            AbundanceRatios(DMAX(All.MinEgySpec,
+                        SPHP(j).Entropy / GAMMA_MINUS1
+                        * pow(SPHP(j).EOMDensity * All.cf.a3inv,
+                            GAMMA_MINUS1)),
+                    SPHP(j).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
+            if(r2 > 0)
+                O->FeedbackWeightSum += (P[j].Mass * nh0) / r2;
+        } else {
+            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
+                mass_j = P[j].Mass;
+            } else {
+                mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
+            }
+            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
+                double u = r * d->bh_feedback_kernel.Hinv;
+                O->FeedbackWeightSum += (mass_j *
+                      density_kernel_wk(&d->bh_feedback_kernel, u)
+                       );
+            } else {
+                O->FeedbackWeightSum += (mass_j);
+            }
+        }
+    }
+#endif
+}
+
 static int density_evaluate(int target,
         struct densdata_in * I,
         struct densdata_out * O,
@@ -357,34 +503,27 @@ static int density_evaluate(int target,
 {
     int n;
 
-    int startnode, numngb, numngb_inbox, listindex = 0;
+    int startnode, numngb_inbox, listindex = 0;
 
     double h;
     double hsearch;
+    struct densinteraction di[1];
 
-    int ninteractions = 0;
-    int nnodesinlist = 0;
+    h = I->Hsml;
+    hsearch = density_decide_hsearch(I->Type, h);
 
-    DensityKernel kernel;
+    density_kernel_init(&di->kernel, h);
+    di->kernel_volume = density_kernel_volume(&di->kernel);
+
 #ifdef BLACK_HOLES
-    DensityKernel bh_feedback_kernel;
+    density_kernel_init(&di->bh_feedback_kernel, hsearch);
 #endif
 
     startnode = I->NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-
-    h = I->Hsml;
-    hsearch = density_decide_hsearch(I->Type, h);
-
-    density_kernel_init(&kernel, h);
-    double kernel_volume = density_kernel_volume(&kernel);
-
-#ifdef BLACK_HOLES
-    density_kernel_init(&bh_feedback_kernel, hsearch);
-#endif
-
-    numngb = 0;
+    int ninteractions = 0;
+    int nnodesinlist = 0;
 
     while(startnode >= 0)
     {
@@ -401,136 +540,7 @@ static int density_evaluate(int target,
             {
                 ninteractions++;
                 int j = lv->ngblist[n];
-#ifdef WINDS
-                if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
-                    if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
-                        if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
-                            continue;
-                }
-#endif
-#ifdef BLACK_HOLES
-                if(P[j].Mass == 0)
-                    continue;
-#ifdef WINDS
-                    /* blackhole doesn't accrete from wind, regardlies coupled or
-                     * not */
-                if(I->Type == 5 && SPHP(j).DelayTime > 0)	/* partner is a wind particle */
-                            continue;
-#endif
-#endif
-                double dx = I->Pos[0] - P[j].Pos[0];
-                double dy = I->Pos[1] - P[j].Pos[1];
-                double dz = I->Pos[2] - P[j].Pos[2];
-
-                dx = NEAREST(dx);
-                dy = NEAREST(dy);
-                dz = NEAREST(dz);
-
-                double r2 = dx * dx + dy * dy + dz * dz;
-
-                double r = sqrt(r2);
-
-                if(r2 < kernel.HH)
-                {
-
-                    double u = r * kernel.Hinv;
-                    double wk = density_kernel_wk(&kernel, u);
-                    double dwk = density_kernel_dwk(&kernel, u);
-
-                    double mass_j = P[j].Mass;
-
-                    numngb++;
-#ifdef VOLUME_CORRECTION
-                    O->Rho += (mass_j * wk * pow(I->DensityOld / SPHP(j).DensityOld, VOLUME_CORRECTION));
-                    O->DensityStd += (mass_j * wk);
-#else
-                    O->Rho += (mass_j * wk);
-#endif
-                    O->Ngb += wk * kernel_volume;
-
-                    /* Hinv is here becuase O->DhsmlDensity is drho / dH.
-                     * nothing to worry here */
-                    O->DhsmlDensity += mass_j * density_kernel_dW(&kernel, u, wk, dwk);
-
-#ifdef DENSITY_INDEPENDENT_SPH
-                    O->EgyRho += mass_j * SPHP(j).EntVarPred * wk;
-                    O->DhsmlEgyDensity += mass_j * SPHP(j).EntVarPred * density_kernel_dW(&kernel, u, wk, dwk);
-#endif
-
-
-#ifdef BLACK_HOLES
-                    O->SmoothedPressure += (mass_j * wk * SPHP(j).Pressure);
-                    O->SmoothedEntropy += (mass_j * wk * SPHP(j).Entropy);
-                    O->GasVel[0] += (mass_j * wk * SPHP(j).VelPred[0]);
-                    O->GasVel[1] += (mass_j * wk * SPHP(j).VelPred[1]);
-                    O->GasVel[2] += (mass_j * wk * SPHP(j).VelPred[2]);
-#endif
-
-#ifdef SPH_GRAD_RHO
-                    if(r > 0)
-                    {
-                        O->GradRho[0] += mass_j * dwk * dx / r;
-                        O->GradRho[1] += mass_j * dwk * dy / r;
-                        O->GradRho[2] += mass_j * dwk * dz / r;
-                    }
-#endif
-
-
-                    if(r > 0)
-                    {
-                        double fac = mass_j * dwk / r;
-
-                        double dvx = I->Vel[0] - SPHP(j).VelPred[0];
-                        double dvy = I->Vel[1] - SPHP(j).VelPred[1];
-                        double dvz = I->Vel[2] - SPHP(j).VelPred[2];
-
-                        O->Div += (-fac * (dx * dvx + dy * dvy + dz * dvz));
-
-                        O->Rot[0] += (fac * (dz * dvy - dy * dvz));
-                        O->Rot[1] += (fac * (dx * dvz - dz * dvx));
-                        O->Rot[2] += (fac * (dy * dvx - dx * dvy));
-                    }
-                }
-#ifdef BLACK_HOLES
-                if(I->Type == 5 && r2 < bh_feedback_kernel.HH)
-                {
-#ifdef WINDS
-                    /* blackhole doesn't accrete from wind, regardlies coupled or
-                     * not */
-                    if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
-                            continue;
-#endif
-                    double mass_j;
-                    if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
-                        double nh0 = 1.0;
-                        double nHeII = 0;
-                        double ne = SPHP(j).Ne;
-                        struct UVBG uvbg;
-                        GetParticleUVBG(j, &uvbg);
-                        AbundanceRatios(DMAX(All.MinEgySpec,
-                                    SPHP(j).Entropy / GAMMA_MINUS1
-                                    * pow(SPHP(j).EOMDensity * All.cf.a3inv,
-                                        GAMMA_MINUS1)),
-                                SPHP(j).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
-                        if(r2 > 0)
-                            O->FeedbackWeightSum += (P[j].Mass * nh0) / r2;
-                    } else {
-                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
-                            mass_j = P[j].Mass;
-                        } else {
-                            mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
-                        }
-                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
-                            double u = r * bh_feedback_kernel.Hinv;
-                            O->FeedbackWeightSum += (mass_j *
-                                  density_kernel_wk(&bh_feedback_kernel, u)
-                                   );
-                        } else {
-                            O->FeedbackWeightSum += (mass_j);
-                        }
-                    }
-                }
-#endif
+                density_interact(di, I, O, target, j, lv);
             }
         }
         /* now check next node in the node list */
@@ -544,6 +554,8 @@ static int density_evaluate(int target,
             }
         }
     }
+    lv->Ninteractions += ninteractions;
+    lv->Nnodesinlist += nnodesinlist;
 
     /* Now collect the result at the right place */
 
@@ -552,8 +564,6 @@ static int density_evaluate(int target,
 #ifdef HYDRO_COST_FACTOR
     O->Ninteractions = ninteractions;
 #endif
-    lv->Ninteractions += ninteractions;
-    lv->Nnodesinlist += nnodesinlist;
 
     return 0;
 }
