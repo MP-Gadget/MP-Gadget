@@ -55,23 +55,17 @@ void gravity_tree(void)
     double maxt, sumt, maxt1, sumt1, maxt2, sumt2, sumcommall, sumwaitall;
     double plb, plb_max;
 
-    int Ewald_max;
-    int Ewald_iter;			/* global in file scope, for simplicity */
-
-    Evaluator ev[2] = {0};
+    Evaluator ev[1] = {0};
 
     ev[0].ev_label = "FORCETREE_SHORTRANGE";
     ev[0].ev_evaluate = (ev_ev_func) force_treeev_shortrange;
     ev[0].ev_isactive = gravtree_isactive;
     ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
     ev[0].UseNodeList = 1;
-    Ewald_max = 0;
 
-    for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++) {
-        ev[Ewald_iter].ev_datain_elsize = sizeof(struct gravitydata_in);
-        ev[Ewald_iter].ev_dataout_elsize = sizeof(struct gravitydata_out);
-        ev[Ewald_iter].ev_copy = (ev_copy_func) gravtree_copy;
-    }
+    ev[0].ev_datain_elsize = sizeof(struct gravitydata_in);
+    ev[0].ev_dataout_elsize = sizeof(struct gravitydata_out);
+    ev[0].ev_copy = (ev_copy_func) gravtree_copy;
 
     walltime_measure("/Misc");
 
@@ -84,16 +78,12 @@ void gravity_tree(void)
 
     walltime_measure("/Misc");
 
-    for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++)
-    {
+    ev_run(&ev[0]);
+    iter += ev[0].Niterations;
+    n_exported += ev[0].Nexport_sum;
+    N_nodesinlist += ev[0].Nnodesinlist;
 
-        ev_run(&ev[Ewald_iter]);
-        iter += ev[Ewald_iter].Niterations;
-        n_exported += ev[Ewald_iter].Nexport_sum;
-        N_nodesinlist += ev[Ewald_iter].Nnodesinlist;
-    } /* Ewald_iter */
-
-    Ewaldcount = ev[1].Ninteractions;
+    Ewaldcount = ev[0].Ninteractions;
 
     if(All.TypeOfOpeningCriterion == 1)
         All.ErrTolTheta = 0;	/* This will switch to the relative opening criterion for the following force computations */
@@ -123,14 +113,13 @@ void gravity_tree(void)
 
 
     /*  gather some diagnostic information */
-    for(Ewald_iter = 0; Ewald_iter <= Ewald_max; Ewald_iter++) {
-        timetree1 += ev[Ewald_iter].timecomp1;
-        timetree2 += ev[Ewald_iter].timecomp2;
-        timewait1 += ev[Ewald_iter].timewait1;
-        timewait2 += ev[Ewald_iter].timewait2;
-        timecommsumm1 += ev[Ewald_iter].timecommsumm1 ;
-        timecommsumm2 += ev[Ewald_iter].timecommsumm2;
-    }
+    timetree1 += ev[0].timecomp1;
+    timetree2 += ev[0].timecomp2;
+    timewait1 += ev[0].timewait1;
+    timewait2 += ev[0].timewait2;
+    timecommsumm1 += ev[0].timecommsumm1 ;
+    timecommsumm2 += ev[0].timecommsumm2;
+
     timetree = timetree1 + timetree2;
     timewait = timewait1 + timewait2;
     timecomm= timecommsumm1 + timecommsumm2;
