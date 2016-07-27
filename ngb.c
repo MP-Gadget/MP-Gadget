@@ -6,7 +6,7 @@
 #include <time.h>
 
 #include "allvars.h"
-#include "evaluator.h"
+#include "treewalk.h"
 #include "forcetree.h"
 #include "proto.h"
 #include "domain.h"

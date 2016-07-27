@@ -21,7 +21,7 @@ OBJECTS  =  \
 	 accel.o \
 	 cooling.o ngb.o openmpsort.o \
 	 system.o allocate.o density.o \
-	 evaluator.o cosmology.o \
+	 treewalk.o cosmology.o \
 	 gravtree.o hydra.o  driftfac.o \
 	 gravpm.o \
 	 forcetree.o peano.o \
@@ -40,7 +40,7 @@ ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
         mymalloc.o \
         endrun.o \
 
-INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
+INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h \
 	 petaio.h $(DESTDIR)/config.h
 

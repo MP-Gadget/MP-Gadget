@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "allvars.h"
 #include "proto.h"
-#include "evaluator.h"
+#include "treewalk.h"
 
 #include "openmpsort.h"
 #include "mymalloc.h"

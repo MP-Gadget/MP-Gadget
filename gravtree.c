@@ -9,7 +9,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "forcetree.h"
-#include "evaluator.h"
+#include "treewalk.h"
 #include "mymalloc.h"
 #include "domain.h"
 #include "endrun.h"
