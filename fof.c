@@ -252,7 +252,7 @@ static int fof_primary_isactive(int n) {
 
 static int fof_primary_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
-        LocalEvaluator * lv);
+        LocalTreeWalk * lv);
 
 void fof_label_primary(void)
 {
@@ -263,7 +263,7 @@ void fof_label_primary(void)
 
     message(0, "Start linking particles (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
-    Evaluator ev = {0};
+    TreeWalk ev = {0};
     ev.ev_label = "FOF_FIND_GROUPS";
     ev.ev_evaluate = (ev_ev_func) fof_primary_evaluate;
     ev.ev_isactive = fof_primary_isactive;
@@ -366,7 +366,7 @@ static void fofp_merge(int target, int j)
 
 static int fof_primary_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
-        LocalEvaluator * lv) {
+        LocalTreeWalk * lv) {
     int listindex = 0;
     int startnode, numngb_inbox;
     
@@ -940,13 +940,13 @@ static void fof_secondary_reduce(int place, struct fofdata_out * O, int mode) {
 }
 static int fof_secondary_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
-        LocalEvaluator * lv);
+        LocalTreeWalk * lv);
 
 static void fof_label_secondary(void)
 {
     int i, n, iter;
     int64_t ntot;
-    Evaluator ev = {0};
+    TreeWalk ev = {0};
     ev.ev_label = "FOF_FIND_NEAREST";
     ev.ev_evaluate = (ev_ev_func) fof_secondary_evaluate;
     ev.ev_isactive = fof_secondary_isactive;
@@ -1047,7 +1047,7 @@ static void fof_label_secondary(void)
 
 static int fof_secondary_evaluate(int target, int mode, 
         struct fofdata_in * I, struct fofdata_out * O,
-        LocalEvaluator * lv)
+        LocalTreeWalk * lv)
 {
     int j, n, index, listindex = 0;
     int startnode, numngb_inbox;

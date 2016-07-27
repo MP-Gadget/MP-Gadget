@@ -64,7 +64,7 @@ struct hydrodata_out
 static int hydro_evaluate(int target, int mode,
         struct hydrodata_in * I,
         struct hydrodata_out * O,
-        LocalEvaluator * lv);
+        LocalTreeWalk * lv);
 static int hydro_isactive(int n);
 static void hydro_post_process(int i);
 
@@ -80,7 +80,7 @@ static double fac_mu, fac_vsic_fix;
  */
 void hydro_force(void)
 {
-    Evaluator ev = {0};
+    TreeWalk ev = {0};
 
     ev.ev_label = "HYDRO";
     ev.ev_evaluate = (ev_ev_func) hydro_evaluate;
@@ -198,7 +198,7 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
 static int hydro_evaluate(int target, int mode,
         struct hydrodata_in * I,
         struct hydrodata_out * O,
-        LocalEvaluator * lv)
+        LocalTreeWalk * lv)
 {
     int startnode, numngb, listindex = 0;
     int j, n;

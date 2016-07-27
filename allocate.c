@@ -18,7 +18,7 @@
 void allocate_memory(void)
 {
     size_t bytes;
-    Evaluator_allocate_memory();
+    TreeWalk_allocate_memory();
 
     NextActiveParticle = (int *) mymalloc("NextActiveParticle", bytes = All.MaxPart * sizeof(int));
 

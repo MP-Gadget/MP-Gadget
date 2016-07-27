@@ -1452,7 +1452,7 @@ void force_update_hmax(void)
 int force_treeev_shortrange(int target, int mode,
         struct gravitydata_in * input,
         struct gravitydata_out * output,
-        LocalEvaluator * lv, void * unused)
+        LocalTreeWalk * lv, void * unused)
 {
     struct NODE *nop = 0;
     int no, ptype, tabindex, listindex = 0;

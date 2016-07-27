@@ -30,8 +30,8 @@ struct data_index *DataIndexTable;	/*!< the particles to be exported are grouped
 					   results to be disentangled again and to be
 					   assigned to the correct particle */
 
-static void ev_init_thread(Evaluator * ev, LocalEvaluator * lv);
-static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int length);
+static void ev_init_thread(TreeWalk * ev, LocalTreeWalk * lv);
+static void fill_task_queue (TreeWalk * ev, struct ev_task * tq, int * pq, int length);
 
 /*
  * for debugging
@@ -39,29 +39,29 @@ static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int 
 #define WATCH { \
         printf("ev->PrimaryTasks[0] = %d %d (%d) %s:%d\n", ev->PrimaryTasks[0].top_node, ev->PrimaryTasks[0].place, ev->PQueueEnd, __FILE__, __LINE__); \
     }
-static Evaluator * GDB_current_ev = NULL;
+static TreeWalk * GDB_current_ev = NULL;
 
 
 /*This routine allocates buffers to store the number of particles that shall be exchanged between MPI tasks.*/
-void Evaluator_allocate_memory(void)
+void TreeWalk_allocate_memory(void)
 {
     int NTaskTimesThreads;
 
     NTaskTimesThreads = All.NumThreads * NTask;
 
-    Exportflag = (int *) mymalloc("Exportflag", NTaskTimesThreads * sizeof(int));
-    Exportindex = (int *) mymalloc("Exportindex", NTaskTimesThreads * sizeof(int));
-    Exportnodecount = (int *) mymalloc("Exportnodecount", NTaskTimesThreads * sizeof(int));
+    Exportflag = (int *) malloc(NTaskTimesThreads * sizeof(int));
+    Exportindex = (int *) malloc(NTaskTimesThreads * sizeof(int));
+    Exportnodecount = (int *) malloc(NTaskTimesThreads * sizeof(int));
 
-    Send_count = (int *) mymalloc("Send_count", sizeof(int) * NTask);
-    Send_offset = (int *) mymalloc("Send_offset", sizeof(int) * NTask);
-    Recv_count = (int *) mymalloc("Recv_count", sizeof(int) * NTask);
-    Recv_offset = (int *) mymalloc("Recv_offset", sizeof(int) * NTask);
+    Send_count = (int *) malloc(sizeof(int) * NTask);
+    Send_offset = (int *) malloc(sizeof(int) * NTask);
+    Recv_count = (int *) malloc(sizeof(int) * NTask);
+    Recv_offset = (int *) malloc(sizeof(int) * NTask);
 }
 
 
 
-void ev_init_thread(Evaluator * ev, LocalEvaluator * lv) {
+void ev_init_thread(TreeWalk * ev, LocalTreeWalk * lv) {
     int thread_id = omp_get_thread_num();
     int j;
     lv->ev = ev;
@@ -75,7 +75,7 @@ void ev_init_thread(Evaluator * ev, LocalEvaluator * lv) {
         lv->exportflag[j] = -1;
 }
 
-void ev_begin(Evaluator * ev) {
+void ev_begin(TreeWalk * ev) {
     All.BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + 
                     sizeof(struct data_nodelist) + ev->ev_datain_elsize + ev->ev_dataout_elsize));
@@ -102,7 +102,7 @@ void ev_begin(Evaluator * ev) {
         ev->currentEnd[i] = ((size_t) i + 1) * ev->PQueueEnd / All.NumThreads;
     }
 }
-void ev_finish(Evaluator * ev) {
+void ev_finish(TreeWalk * ev) {
     myfree(ev->ngblist);
     myfree(ev->currentEnd);
     myfree(ev->currentIndex);
@@ -114,10 +114,10 @@ void ev_finish(Evaluator * ev) {
 
 int data_index_compare(const void *a, const void *b);
 
-static void real_ev(Evaluator * ev) {
+static void real_ev(TreeWalk * ev) {
     int tid = omp_get_thread_num();
     int i;
-    LocalEvaluator lv ;
+    LocalTreeWalk lv ;
 
     ev_init_thread(ev, &lv);
 
@@ -167,7 +167,7 @@ static int cmpint(const void * c1, const void * c2) {
     const int* i2=c2;
     return i1 - i2;
 }
-int * ev_get_queue(Evaluator * ev, int * len) {
+int * ev_get_queue(TreeWalk * ev, int * len) {
     int i;
     int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
     int k = 0;
@@ -195,7 +195,7 @@ int * ev_get_queue(Evaluator * ev, int * len) {
 }
 
 /* returns number of exports */
-int ev_primary(Evaluator * ev) {
+int ev_primary(TreeWalk * ev) {
     double tstart, tend;
     ev->BufferFullFlag = 0;
     ev->Nexport = 0;
@@ -280,7 +280,7 @@ int ev_primary(Evaluator * ev) {
     return ev->Nexport;
 }
 
-int ev_ndone(Evaluator * ev) {
+int ev_ndone(TreeWalk * ev) {
     int ndone;
     double tstart, tend;
     tstart = second();
@@ -299,7 +299,7 @@ int ev_ndone(Evaluator * ev) {
 
 }
 
-void ev_secondary(Evaluator * ev) {
+void ev_secondary(TreeWalk * ev) {
     double tstart, tend;
 
     tstart = second();
@@ -308,7 +308,7 @@ void ev_secondary(Evaluator * ev) {
 #pragma omp parallel 
     {
         int j;
-        LocalEvaluator lv;
+        LocalTreeWalk lv;
 
         ev_init_thread(ev, &lv);
 #pragma omp for
@@ -336,11 +336,11 @@ void ev_secondary(Evaluator * ev) {
  * This can also be called from a nonthreaded code
  *
  * */
-int ev_export_particle(LocalEvaluator * lv, int target, int no) {
+int ev_export_particle(LocalTreeWalk * lv, int target, int no) {
     int *exportflag = lv->exportflag;
     int *exportnodecount = lv->exportnodecount;
     int *exportindex = lv->exportindex; 
-    Evaluator * ev = lv->ev;
+    TreeWalk * ev = lv->ev;
     int task;
 
     if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
@@ -383,7 +383,7 @@ int ev_export_particle(LocalEvaluator * lv, int target, int no) {
     return 0;
 }
 
-void ev_run(Evaluator * ev) {
+void ev_run(TreeWalk * ev) {
     /* run the evaluator */
     GDB_current_ev = ev;
     ev_begin(ev);
@@ -422,7 +422,7 @@ static void ev_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int tag, 
 }
 
 /* returns the remote particles */
-void ev_get_remote(Evaluator * ev, int tag) {
+void ev_get_remote(TreeWalk * ev, int tag) {
     int j;
     double tstart, tend;
 
@@ -472,7 +472,7 @@ int data_index_compare_by_index(const void *a, const void *b)
 
     return 0;
 }
-void ev_reduce_result(Evaluator * ev, int tag) {
+void ev_reduce_result(TreeWalk * ev, int tag) {
 
     int j;
     double tstart, tend;
@@ -537,7 +537,7 @@ static int ev_task_cmp_by_top_node(const void * p1, const void * p2) {
 }
 #endif
 
-static void fill_task_queue (Evaluator * ev, struct ev_task * tq, int * pq, int length) {
+static void fill_task_queue (TreeWalk * ev, struct ev_task * tq, int * pq, int length) {
     int i;
 #pragma omp parallel for if(length > 1024)
     for(i = 0; i < length; i++) {

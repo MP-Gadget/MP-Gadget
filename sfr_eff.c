@@ -104,11 +104,11 @@ static void sfr_wind_copy(int place, struct winddata_in * input);
 static int sfr_wind_ev_weight(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
-        LocalEvaluator * lv);
+        LocalTreeWalk * lv);
 static int sfr_wind_evaluate(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
-        LocalEvaluator * lv);
+        LocalTreeWalk * lv);
 
 #endif
 /*
@@ -133,7 +133,7 @@ void cooling_and_starformation(void)
     stars_spawned = stars_converted = 0;
     sum_sm = sum_mass_stars = 0;
 
-    Evaluator ev = {0};
+    TreeWalk ev = {0};
 
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
@@ -242,7 +242,7 @@ void cooling_and_starformation(void)
     if(!HAS(All.WindModel, WINDS_SUBGRID) && All.WindModel != WINDS_NONE) {
         int i;
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
-        Evaluator ev = {0};
+        TreeWalk ev = {0};
 
         ev.ev_label = "SFR_WIND";
         ev.ev_isactive = sfr_wind_isactive;
@@ -327,7 +327,7 @@ void cooling_only(void)
     if(!All.CoolingOn) return;
     walltime_measure("/Misc");
 
-    Evaluator ev = {0};
+    TreeWalk ev = {0};
 
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
@@ -504,7 +504,7 @@ static void sfr_wind_copy(int place, struct winddata_in * input) {
 static int sfr_wind_ev_weight(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
-        LocalEvaluator * lv) {
+        LocalTreeWalk * lv) {
     /* this evaluator walks the tree and sums the total mass of surrounding gas
      * particles as described in VS08. */
     int startnode, numngb, k, n, listindex = 0;
@@ -585,7 +585,7 @@ static int sfr_wind_ev_weight(int target, int mode,
 static int sfr_wind_evaluate(int target, int mode,
         struct winddata_in * I,
         struct winddata_out * O,
-        LocalEvaluator * lv) {
+        LocalTreeWalk * lv) {
 
     /* this evaluator walks the tree and blows wind. */
 
