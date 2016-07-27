@@ -46,7 +46,7 @@ int LastInTimeBin[TIMEBINS];
 int *NextInTimeBin;
 int *PrevInTimeBin;
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
 double Local_BH_mass;
 double Local_BH_dynamicalmass;
 double Local_BH_Mdot;
@@ -89,6 +89,11 @@ FILE *FdSfrDetails;
 #ifdef BLACK_HOLES
 FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
 FILE *FdBlackHolesDetails;
+#endif
+
+#ifdef GAL_PART
+FILE *FdGals;           /*!< file handle for Galaxies.txt log-file. */
+FILE *FdGalsDetails;
 #endif
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the

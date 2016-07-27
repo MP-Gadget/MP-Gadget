@@ -174,6 +174,16 @@ enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_OPTTHIN  = 0x20,
 };
 #endif
+#ifdef GAL_PART
+enum galfeedbackmethod {
+     GAL_FEEDBACK_TOPHAT   = 0x2,
+     GAL_FEEDBACK_SPLINE   = 0x4,
+     GAL_FEEDBACK_MASS     = 0x8,
+     GAL_FEEDBACK_VOLUME   = 0x10,
+     GAL_FEEDBACK_OPTTHIN  = 0x20,
+};
+#endif
+
 /*
  * additional sfr criterion in addition to density threshold
  * All.StarformationCriterion */
@@ -244,7 +254,7 @@ extern int LastInTimeBin[TIMEBINS];
 extern int *NextInTimeBin;
 extern int *PrevInTimeBin;
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
 extern double Local_BH_mass;
 extern double Local_BH_dynamicalmass;
 extern double Local_BH_Mdot;
@@ -297,6 +307,10 @@ extern FILE *FdSfr;		/*!< file handle for sfr.txt log-file. */
 
 #ifdef BLACK_HOLES
 extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
+#endif
+
+#ifdef GAL_PART
+extern FILE *FdGals;           /*!< file handle for Galaxies.txt log-file. */
 #endif
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
@@ -587,6 +601,19 @@ extern struct global_data_all_processes
     int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
 #endif
 
+#ifdef GAL_PART
+  double BlackHoleAccretionFactor;    /*!< Fraction of BH bondi accretion rate */
+  double BlackHoleFeedbackFactor;     /*!< Fraction of the black luminosity feed into thermal feedback */
+  enum galFeedbackMethod BlackHoleFeedbackMethod;       /*!< method of the feedback*/
+  double BlackHoleFeedbackRadius;     /*!< Radius the thermal feedback is fed comoving*/
+  double BlackHoleFeedbackRadiusMaxPhys;      /*!< Radius the thermal cap */
+  double SeedBlackHoleMass;   /*!< Seed black hole mass */
+  double BlackHoleNgbFactor;  /*!< Factor by which the normal SPH neighbour should be increased/decreased */
+  double BlackHoleMaxAccretionRadius;
+  double BlackHoleEddingtonFactor;    /*! Factor above Eddington */
+  int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
+#endif
+
 #ifdef FOF
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
     double FOFHaloLinkingLength;    
@@ -731,7 +758,7 @@ extern struct sph_particle_data
                    density normalized to the hydrogen number density. Gives
                    indirectly ionization state and mean molecular weight. */
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || (GAL_PART)
     MyFloat       Injected_BH_Energy;
 #endif
 
