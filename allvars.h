@@ -758,7 +758,7 @@ extern struct sph_particle_data
                    density normalized to the hydrogen number density. Gives
                    indirectly ionization state and mean molecular weight. */
 
-#if defined(BLACK_HOLES) || (GAL_PART)
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     MyFloat       Injected_BH_Energy;
 #endif
 

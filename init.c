@@ -88,7 +88,7 @@ void init(void)
 
     check_omega();
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     All.TimeNextSeedingCheck = All.TimeBegin;
 #endif
 
@@ -96,7 +96,7 @@ void init(void)
     {
         P[i].GravCost = 1;
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
         if(RestartFlag == 0 && P[i].Type == 5 )
         {
             BHP(i).Mass = All.SeedBlackHoleMass;
@@ -141,7 +141,7 @@ void init(void)
         SPHP(i).Sfr = 0;
 #endif
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
         SPHP(i).Injected_BH_Energy = 0;
 #endif
 #ifdef TWODIMS
@@ -255,7 +255,7 @@ void setup_smoothinglengths(void)
         }
     }
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(RestartFlag == 0 || RestartFlag == 2)
     {
         for(i = 0; i < NumPart; i++)

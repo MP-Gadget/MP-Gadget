@@ -207,7 +207,7 @@ void gravtree_reduce(int place, struct gravitydata_out * result, int mode) {
 
 static int gravtree_isactive(int i) {
     int isactive = 1;
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     /* blackhole has not gravity, they move along to pot minimium */
     isactive = isactive && (P[i].Type != 5);
 #endif
