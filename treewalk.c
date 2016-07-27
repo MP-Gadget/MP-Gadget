@@ -32,6 +32,13 @@ struct data_index *DataIndexTable;	/*!< the particles to be exported are grouped
 
 static void ev_init_thread(TreeWalk * ev, LocalTreeWalk * lv);
 static void fill_task_queue (TreeWalk * ev, struct ev_task * tq, int * pq, int length);
+static void ev_begin(TreeWalk * ev);
+static void ev_finish(TreeWalk * ev);
+static int ev_primary(TreeWalk * ev); 
+static void ev_get_remote(TreeWalk * ev, int tag);
+static void ev_secondary(TreeWalk * ev);
+static void ev_reduce_result(TreeWalk * ev, int tag);
+static int ev_ndone(TreeWalk * ev);
 
 /*
  * for debugging
@@ -77,7 +84,8 @@ ev_init_thread(TreeWalk * ev, LocalTreeWalk * lv)
         lv->exportflag[j] = -1;
 }
 
-void ev_begin(TreeWalk * ev) {
+static void ev_begin(TreeWalk * ev)
+{
     All.BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + 
                     sizeof(struct data_nodelist) + ev->ev_datain_elsize + ev->ev_dataout_elsize));
@@ -104,7 +112,9 @@ void ev_begin(TreeWalk * ev) {
         ev->currentEnd[i] = ((size_t) i + 1) * ev->PQueueEnd / All.NumThreads;
     }
 }
-void ev_finish(TreeWalk * ev) {
+
+static void ev_finish(TreeWalk * ev)
+{
     myfree(ev->ngblist);
     myfree(ev->currentEnd);
     myfree(ev->currentIndex);
@@ -198,7 +208,8 @@ int * ev_get_queue(TreeWalk * ev, int * len) {
 }
 
 /* returns number of exports */
-int ev_primary(TreeWalk * ev) {
+static int ev_primary(TreeWalk * ev)
+{
     double tstart, tend;
     ev->BufferFullFlag = 0;
     ev->Nexport = 0;
@@ -283,7 +294,8 @@ int ev_primary(TreeWalk * ev) {
     return ev->Nexport;
 }
 
-int ev_ndone(TreeWalk * ev) {
+static int ev_ndone(TreeWalk * ev)
+{
     int ndone;
     double tstart, tend;
     tstart = second();
@@ -302,7 +314,8 @@ int ev_ndone(TreeWalk * ev) {
 
 }
 
-void ev_secondary(TreeWalk * ev) {
+static void ev_secondary(TreeWalk * ev)
+{
     double tstart, tend;
 
     tstart = second();
@@ -426,7 +439,8 @@ static void ev_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int tag, 
 }
 
 /* returns the remote particles */
-void ev_get_remote(TreeWalk * ev, int tag) {
+static void ev_get_remote(TreeWalk * ev, int tag)
+{
     int j;
     double tstart, tend;
 
@@ -476,7 +490,9 @@ int data_index_compare_by_index(const void *a, const void *b)
 
     return 0;
 }
-void ev_reduce_result(TreeWalk * ev, int tag) {
+
+static void ev_reduce_result(TreeWalk * ev, int tag)
+{
 
     int j;
     double tstart, tend;

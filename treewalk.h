@@ -91,17 +91,10 @@ struct data_index
 };
 
 void ev_run(TreeWalk * ev);
-void ev_begin(TreeWalk * ev);
-void ev_finish(TreeWalk * ev);
-int ev_primary(TreeWalk * ev); 
-void ev_get_remote(TreeWalk * ev, int tag);
-void ev_secondary(TreeWalk * ev);
-void ev_reduce_result(TreeWalk * ev, int tag);
 int * ev_get_queue(TreeWalk * ev, int * len);
 
 /*returns -1 if the buffer is full */
 int ev_export_particle(LocalTreeWalk * lv, int target, int no);
 
-int ev_ndone(TreeWalk * ev);
 #define EV_REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
 #endif
