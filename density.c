@@ -28,8 +28,6 @@ struct densinteraction {
 typedef struct
 {
     TreeWalkQueryBase base;
-    MyIDType ID;
-    MyDouble Pos[3];
     MyFloat Vel[3];
     MyFloat Hsml;
 #ifdef VOLUME_CORRECTION
@@ -43,7 +41,6 @@ typedef struct
 
 typedef struct {
     TreeWalkResultBase base;
-    MyIDType ID;
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyRho;
     MyFloat DhsmlEgyDensity;
@@ -272,10 +269,6 @@ double density_decide_hsearch(int targettype, double h) {
 }
 
 static void density_copy(int place, TreeWalkQueryDensity * I) {
-    I->ID = P[place].ID;
-    I->Pos[0] = P[place].Pos[0];
-    I->Pos[1] = P[place].Pos[1];
-    I->Pos[2] = P[place].Pos[2];
     I->Hsml = P[place].Hsml;
 
     I->Type = P[place].Type;
@@ -307,9 +300,6 @@ static void density_copy(int place, TreeWalkQueryDensity * I) {
 static void density_reduce(int place, TreeWalkResultDensity * remote, int mode) {
     EV_REDUCE(P[place].n.dNumNgb, remote->Ngb);
 
-    if(remote->ID != P[place].ID) {
-        BREAKPOINT;
-    }
 #ifdef HYDRO_COST_FACTOR
     /* these will be added */
     P[place].GravCost += HYDRO_COST_FACTOR * All.cf.a * remote->Ninteractions;
@@ -383,9 +373,9 @@ static void density_interact(
         return;
 #endif
 #endif
-    double dx = I->Pos[0] - P[j].Pos[0];
-    double dy = I->Pos[1] - P[j].Pos[1];
-    double dz = I->Pos[2] - P[j].Pos[2];
+    double dx = I->base.Pos[0] - P[j].Pos[0];
+    double dy = I->base.Pos[1] - P[j].Pos[1];
+    double dz = I->base.Pos[2] - P[j].Pos[2];
 
     dx = NEAREST(dx);
     dy = NEAREST(dy);
@@ -531,7 +521,7 @@ static int density_evaluate(int target,
         while(startnode >= 0)
         {
             numngb_inbox =
-                ngb_treefind_threads(I->Pos, hsearch, target, &startnode,
+                ngb_treefind_threads(I->base.Pos, hsearch, target, &startnode,
                         lv, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
 
             if(numngb_inbox < 0)
@@ -560,7 +550,6 @@ static int density_evaluate(int target,
 
     /* Now collect the result at the right place */
 
-    O->ID = I->ID;
     /* some performance measures not currently used */
 #ifdef HYDRO_COST_FACTOR
     O->Ninteractions = ninteractions;

@@ -200,13 +200,22 @@ static void real_ev(TreeWalk * ev) {
         }
         int rt;
         /* Primary never uses node list */
+        input->ID = P[i].ID;
+
+        int d;
+        for(d = 0; d < 3; d ++) {
+            input->Pos[d] = P[i].Pos[d];
+        }
+
         input->NodeList[0] = All.MaxPart; /* root node */
         input->NodeList[1] = -1; /* terminate immediately */
 
         ev->ev_copy(i, input);
-        memset(output, 0, ev->result_type_elsize);
 
+        memset(output, 0, ev->result_type_elsize);
         rt = ev->ev_evaluate(i, input, output, lv);
+        output->ID = input->ID;
+
         if(rt < 0) {
             P[i].Evaluated = 0;
             break;		/* export buffer has filled up, redo this particle */
@@ -381,6 +390,7 @@ static void ev_secondary(TreeWalk * ev)
             TreeWalkQueryBase * input = (TreeWalkQueryBase*) (ev->dataget + j * ev->query_type_elsize);
             TreeWalkResultBase * output = (TreeWalkResultBase*)(ev->dataresult + j * ev->result_type_elsize);
             memset(output, 0, ev->result_type_elsize);
+            output->ID = input->ID;
             if(!ev->UseNodeList) {
                 input->NodeList[0] = All.MaxPart; /* root node */
                 input->NodeList[1] = -1; /* terminate immediately */
@@ -509,6 +519,10 @@ static void ev_get_remote(TreeWalk * ev, int tag)
             int * nl = DataNodeList[DataIndexTable[j].IndexGet].NodeList;
             memcpy(input->NodeList, nl, sizeof(int) * NODELISTLENGTH);
         }
+        int d;
+        for(d = 0; d < 3; d ++)
+            input->Pos[d] = P[place].Pos[d];
+        input->ID = P[place].ID;
         ev->ev_copy(place, input);
     }
     tend = second();

@@ -31,7 +31,6 @@ typedef struct {
     MyFloat EntVarPred;
 #endif
 
-    MyDouble Pos[3];
     MyFloat Vel[3];
     MyFloat Hsml;
     MyFloat Mass;
@@ -134,7 +133,6 @@ static void hydro_copy(int place, TreeWalkQueryHydro * input) {
     double soundspeed_i;
     for(k = 0; k < 3; k++)
     {
-        input->Pos[k] = P[place].Pos[k];
         input->Vel[k] = SPHP(place).VelPred[k];
     }
     input->Hsml = P[place].Hsml;
@@ -240,7 +238,7 @@ static int hydro_evaluate(int target,
         while(startnode >= 0)
         {
             numngb =
-                ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
+                ngb_treefind_threads(I->base.Pos, I->Hsml, target, &startnode,
                         lv, NGB_TREEFIND_SYMMETRIC, 1); /* gas only 1 << 0 */
 
             if(numngb < 0)
@@ -266,9 +264,9 @@ static int hydro_evaluate(int target,
                 }
 #endif
 #endif
-                double dx = I->Pos[0] - P[j].Pos[0];
-                double dy = I->Pos[1] - P[j].Pos[1];
-                double dz = I->Pos[2] - P[j].Pos[2];
+                double dx = I->base.Pos[0] - P[j].Pos[0];
+                double dy = I->base.Pos[1] - P[j].Pos[1];
+                double dz = I->base.Pos[2] - P[j].Pos[2];
 
                 dx = NEAREST(dx);
                 dy = NEAREST(dy);

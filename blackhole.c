@@ -21,7 +21,6 @@
 
 typedef struct {
     TreeWalkQueryBase base;
-    MyDouble Pos[3];
     MyFloat Density;
     MyFloat FeedbackWeightSum;
     MyFloat Mdot;
@@ -45,7 +44,6 @@ typedef struct {
 
 typedef struct {
     TreeWalkQueryBase base;
-    MyDouble Pos[3];
     MyFloat Hsml;
     MyFloat BH_Mass;
     MyIDType ID;
@@ -297,7 +295,7 @@ static int blackhole_feedback_evaluate(int target,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode, lv,
+            numngb = ngb_treefind_threads(I->base.Pos, hsearch, target, &startnode, lv,
                     NGB_TREEFIND_ASYMMETRIC, ptypemask);
 
             if(numngb < 0)
@@ -317,9 +315,9 @@ static int blackhole_feedback_evaluate(int target,
                     if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin)
                         O->BH_TimeBinLimit = P[j].TimeBin;
                 }
-                double dx = I->Pos[0] - P[j].Pos[0];
-                double dy = I->Pos[1] - P[j].Pos[1];
-                double dz = I->Pos[2] - P[j].Pos[2];
+                double dx = I->base.Pos[0] - P[j].Pos[0];
+                double dy = I->base.Pos[1] - P[j].Pos[1];
+                double dz = I->base.Pos[2] - P[j].Pos[2];
 
                 dx = NEAREST(dx);
                 dy = NEAREST(dy);
@@ -464,7 +462,7 @@ int blackhole_swallow_evaluate(int target,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
+            numngb = ngb_treefind_threads(I->base.Pos, I->Hsml, target, &startnode,
                     lv, NGB_TREEFIND_SYMMETRIC, ptypemask);
 
             if(numngb < 0)
@@ -559,7 +557,6 @@ static void blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I) {
     int k;
     for(k = 0; k < 3; k++)
     {
-        I->Pos[k] = P[place].Pos[k];
         I->Vel[k] = P[place].Vel[k];
     }
 
@@ -581,11 +578,6 @@ static int blackhole_swallow_isactive(int n) {
     return (P[n].Type == 5) && (P[n].SwallowID == 0);
 }
 static void blackhole_swallow_copy(int place, TreeWalkQuerySwallow * I) {
-    int k;
-    for(k = 0; k < 3; k++)
-    {
-        I->Pos[k] = P[place].Pos[k];
-    }
     I->Hsml = P[place].Hsml;
     I->BH_Mass = BHP(place).Mass;
     I->ID = P[place].ID;

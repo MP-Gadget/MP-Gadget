@@ -7,8 +7,7 @@ struct _TreeWalk;
 typedef struct {
     MyIDType ID;
     int NodeList[NODELISTLENGTH];
-    double center[3];
-    float search_radius;
+    double Pos[3];
 } TreeWalkQueryBase;
 
 typedef struct {

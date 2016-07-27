@@ -43,7 +43,6 @@ static int first_flag = 0;
 typedef struct
 {
     TreeWalkQueryBase base;
-    MyFloat Pos[3];
     int Type;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     MyFloat Soft;
@@ -234,10 +233,6 @@ void gravity_tree(void)
 }
 
 void gravtree_copy(int place, TreeWalkQueryGravity * input) {
-    int k;
-    for(k = 0; k < 3; k++)
-        input->Pos[k] = P[place].Pos[k];
-
     input->Type = P[place].Type;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     if(P[place].Type == 0)
@@ -381,9 +376,9 @@ int force_treeev_shortrange(int target,
     listindex ++;
     no = Nodes[no].u.d.nextnode;	/* open it */
 
-    pos_x = input->Pos[0];
-    pos_y = input->Pos[1];
-    pos_z = input->Pos[2];
+    pos_x = input->base.Pos[0];
+    pos_y = input->base.Pos[1];
+    pos_z = input->base.Pos[2];
     ptype = input->Type;
 
     aold = All.ErrTolForceAcc * input->OldAcc;

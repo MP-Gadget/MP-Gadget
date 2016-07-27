@@ -64,14 +64,12 @@ typedef struct {
     int NodeList[NODELISTLENGTH];
     double Sfr;
     double Dt;
-    double Pos[3];
     double Mass;
     double Hsml;
     double TotalWeight;
     double DMRadius;
     double Vdisp;
     double Vmean[3];
-    MyIDType ID;
 } TreeWalkQueryWind;
 
 typedef struct {
@@ -489,16 +487,14 @@ static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, int mode) 
 static void sfr_wind_copy(int place, TreeWalkQueryWind * input) {
     double dt = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
     input->Dt = dt;
-    int k;
-    for (k = 0; k < 3; k ++)
-        input->Pos[k] = P[place].Pos[k];
     input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;
     input->TotalWeight = Wind[place].TotalWeight;
-    input->ID = P[place].ID;
 
     input->DMRadius = Wind[place].DMRadius;
     input->Vdisp = Wind[place].Vdisp;
+
+    int k;
     for (k = 0; k < 3; k ++)
         input->Vmean[k] = Wind[place].Vmean[k];
 }
@@ -523,7 +519,7 @@ static int sfr_wind_ev_weight(int target,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode,
+            numngb = ngb_treefind_threads(I->base.Pos, hsearch, target, &startnode,
                     lv, NGB_TREEFIND_SYMMETRIC, 1 + 2);
 
             if(numngb < 0)
@@ -533,9 +529,9 @@ static int sfr_wind_ev_weight(int target,
             {
                 int j = lv->ngblist[n];
 
-                double dx = I->Pos[0] - P[j].Pos[0];
-                double dy = I->Pos[1] - P[j].Pos[1];
-                double dz = I->Pos[2] - P[j].Pos[2];
+                double dx = I->base.Pos[0] - P[j].Pos[0];
+                double dy = I->base.Pos[1] - P[j].Pos[1];
+                double dz = I->base.Pos[2] - P[j].Pos[2];
 
                 dx = NEAREST(dx);
                 dy = NEAREST(dy);
@@ -604,24 +600,24 @@ static int sfr_wind_evaluate(int target,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
+            numngb = ngb_treefind_threads(I->base.Pos, I->Hsml, target, &startnode,
                     lv, NGB_TREEFIND_SYMMETRIC, 1);
 
             if(numngb < 0)
                 return numngb;
 
             for(n = 0; n < numngb;
-                    (unlock_particle_if_not(lv->ngblist[n], I->ID), n++)
+                    (unlock_particle_if_not(lv->ngblist[n], I->base.ID), n++)
                     )
             {
-                lock_particle_if_not(lv->ngblist[n], I->ID);
+                lock_particle_if_not(lv->ngblist[n], I->base.ID);
                 int j = lv->ngblist[n];
                 /* skip wind particles */
                 if(SPHP(j).DelayTime > 0) continue;
 
-                double dx = I->Pos[0] - P[j].Pos[0];
-                double dy = I->Pos[1] - P[j].Pos[1];
-                double dz = I->Pos[2] - P[j].Pos[2];
+                double dx = I->base.Pos[0] - P[j].Pos[0];
+                double dy = I->base.Pos[1] - P[j].Pos[1];
+                double dz = I->base.Pos[2] - P[j].Pos[2];
 
                 dx = NEAREST(dx);
                 dy = NEAREST(dy);
@@ -645,7 +641,7 @@ static int sfr_wind_evaluate(int target,
                 //double wk = density_kernel_wk(&kernel, r);
                 double wk = 1.0;
                 double p = windeff * wk * I->Mass / I->TotalWeight;
-                double random = get_random_number(I->ID + P[j].ID);
+                double random = get_random_number(I->base.ID + P[j].ID);
                 if (random < p) {
                     make_particle_wind(j, v, I->Vmean);
                 }

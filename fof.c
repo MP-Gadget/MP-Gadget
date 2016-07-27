@@ -84,7 +84,6 @@ struct BaseGroup *BaseGroup;
 
 typedef struct {
     TreeWalkQueryBase base;
-    MyDouble Pos[3];
     MyFloat Hsml;
     MyIDType MinID;
     MyIDType MinIDTask;
@@ -238,9 +237,6 @@ static struct LinkList {
 #define LEN(i) LinkList[HEAD(i)].len
 
 static void fof_primary_copy(int place, TreeWalkQueryFOF * I) {
-    I->Pos[0] = P[place].Pos[0];
-    I->Pos[1] = P[place].Pos[1];
-    I->Pos[2] = P[place].Pos[2];
     int head = HEAD(place);
     I->MinID = HaloLabel[head].MinID;
     I->MinIDTask = HaloLabel[head].MinIDTask;
@@ -378,7 +374,7 @@ static int fof_primary_evaluate(int target,
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_threads(I->Pos, All.FOFHaloComovingLinkingLength, target, &startnode,
+            numngb_inbox = ngb_treefind_threads(I->base.Pos, All.FOFHaloComovingLinkingLength, target, &startnode,
                     lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)
@@ -920,10 +916,6 @@ void fof_save_groups(int num)
 }
 
 static void fof_secondary_copy(int place, TreeWalkQueryFOF * I) {
-    int k;
-    for (k = 0; k < 3; k ++) {
-        I->Pos[k] = P[place].Pos[k];
-    }
     I->Hsml = fof_secondary_hsml[place];
 }
 static int fof_secondary_isactive(int n) {
@@ -1064,7 +1056,7 @@ static int fof_secondary_evaluate(int target,
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_threads(I->Pos, h, target, &startnode,
+            numngb_inbox = ngb_treefind_threads(I->base.Pos, h, target, &startnode,
                     lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)
@@ -1074,9 +1066,9 @@ static int fof_secondary_evaluate(int target,
             {
                 j = lv->ngblist[n];
                 double dx, dy, dz, r2;
-                dx = I->Pos[0] - P[j].Pos[0];
-                dy = I->Pos[1] - P[j].Pos[1];
-                dz = I->Pos[2] - P[j].Pos[2];
+                dx = I->base.Pos[0] - P[j].Pos[0];
+                dy = I->base.Pos[1] - P[j].Pos[1];
+                dz = I->base.Pos[2] - P[j].Pos[2];
 
                 dx = NEAREST(dx);
                 dy = NEAREST(dy);
