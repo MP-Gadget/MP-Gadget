@@ -2099,7 +2099,7 @@ void rearrange_particle_sequence(void)
     }
 #endif
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || (GAL_PART)
     int count_elim, count_gaselim, tot_elim, tot_gaselim;
 
     count_elim = 0;
@@ -2139,7 +2139,7 @@ void rearrange_particle_sequence(void)
     if(count_elim)
         flag = 1;
 
-    message(0, "Blackholes: Eliminated %d gas particles and merged away %d black holes.\n",
+    message(0, "Blackholes/Galaxies: Eliminated %d gas particles and merged away %d black holes/galaxies.\n",
                 tot_gaselim, tot_elim - tot_gaselim);
 
 #endif
