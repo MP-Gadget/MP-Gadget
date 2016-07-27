@@ -126,15 +126,15 @@ ev_init_thread(TreeWalk * ev, LocalTreeWalk * lv)
 
 static void ev_begin(TreeWalk * ev)
 {
-    All.BunchSize =
+    ev->BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + 
                     sizeof(struct data_nodelist) + ev->ev_datain_elsize + ev->ev_dataout_elsize));
     DataIndexTable =
-        (struct data_index *) mymalloc("DataIndexTable", All.BunchSize * sizeof(struct data_index));
+        (struct data_index *) mymalloc("DataIndexTable", ev->BunchSize * sizeof(struct data_index));
     DataNodeList =
-        (struct data_nodelist *) mymalloc("DataNodeList", All.BunchSize * sizeof(struct data_nodelist));
+        (struct data_nodelist *) mymalloc("DataNodeList", ev->BunchSize * sizeof(struct data_nodelist));
 
-    memset(DataNodeList, -1, sizeof(struct data_nodelist) * All.BunchSize);
+    memset(DataNodeList, -1, sizeof(struct data_nodelist) * ev->BunchSize);
 
     ev->PQueueEnd = 0;
 
@@ -257,8 +257,8 @@ static int ev_primary(TreeWalk * ev)
     int i;
     tstart = second();
 
- #pragma omp parallel for if(All.BunchSize > 1024) 
-    for(i = 0; i < All.BunchSize; i ++) {
+ #pragma omp parallel for if(ev->BunchSize > 1024) 
+    for(i = 0; i < ev->BunchSize; i ++) {
         DataIndexTable[i].Task = NTask;
         /*entries with NTask is not filled with particles, and will be
          * sorted to the end */
@@ -272,8 +272,8 @@ static int ev_primary(TreeWalk * ev)
     /* Nexport may go off too much after BunchSize 
      * as we don't protect it from over adding in _export_particle
      * */
-    if(ev->Nexport > All.BunchSize)
-        ev->Nexport = All.BunchSize;
+    if(ev->Nexport > ev->BunchSize)
+        ev->Nexport = ev->BunchSize;
 
     tend = second();
     ev->timecomp1 += timediff(tstart, tend);
@@ -410,13 +410,13 @@ int ev_export_particle(LocalTreeWalk * lv, int target, int no) {
     {
         int nexp;
 
-        if(ev->Nexport < All.BunchSize) {
+        if(ev->Nexport < ev->BunchSize) {
             nexp = atomic_fetch_and_add(&ev->Nexport, 1);
         } else {
-            nexp = All.BunchSize;
+            nexp = ev->BunchSize;
         }
 
-        if(nexp >= All.BunchSize) {
+        if(nexp >= ev->BunchSize) {
             /* out if buffer space. Need to discard work for this particle and interrupt */
             ev->BufferFullFlag = 1;
 #pragma omp flush
@@ -619,3 +619,5 @@ static void fill_task_queue (TreeWalk * ev, struct ev_task * tq, int * pq, int l
     }
     // qsort(tq, length, sizeof(struct ev_task), ev_task_cmp_by_top_node);
 }
+
+

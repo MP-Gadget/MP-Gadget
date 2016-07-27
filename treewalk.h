@@ -4,6 +4,7 @@
 void TreeWalk_allocate_memory(void);
 
 struct _TreeWalk;
+
 typedef struct _LocalTreeWalk {
     struct _TreeWalk * ev;
 
@@ -68,6 +69,7 @@ typedef struct _TreeWalk {
     int Nexport;
     int Nimport;
     int BufferFullFlag;
+    int BunchSize;
 
     struct ev_task * PrimaryTasks;
     int * PQueue;

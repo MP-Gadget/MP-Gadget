@@ -327,8 +327,6 @@ extern struct global_data_all_processes
     int NumWriters;  /*Number of concurrent writers */
 
     double BufferSize;		/*!< size of communication buffer in MB */
-    int BunchSize;     	        /*!< number of particles fitting into the buffer in the parallel tree algorithm  */
-
 
     double PartAllocFactor;	/*!< in order to maintain work-load balance, the particle load will usually
                               NOT be balanced.  Each processor allocates memory for PartAllocFactor times
