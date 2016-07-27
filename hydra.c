@@ -58,7 +58,7 @@ typedef struct {
 } TreeWalkResultHydro;
 
 
-static int hydro_evaluate(int target,
+static int hydro_visit(int target,
         TreeWalkQueryHydro * I,
         TreeWalkResultHydro * O,
         LocalTreeWalk * lv);
@@ -77,16 +77,16 @@ static double fac_mu, fac_vsic_fix;
  */
 void hydro_force(void)
 {
-    TreeWalk ev = {0};
+    TreeWalk tw = {0};
 
-    ev.ev_label = "HYDRO";
-    ev.ev_evaluate = (ev_ev_func) hydro_evaluate;
-    ev.ev_isactive = hydro_isactive;
-    ev.ev_copy = (ev_copy_func) hydro_copy;
-    ev.ev_reduce = (ev_reduce_func) hydro_reduce;
-    ev.UseNodeList = 0;
-    ev.query_type_elsize = sizeof(TreeWalkQueryHydro);
-    ev.result_type_elsize = sizeof(TreeWalkResultHydro);
+    tw.ev_label = "HYDRO";
+    tw.ev_visit = (TreeWalkVisitFunction) hydro_visit;
+    tw.ev_isactive = hydro_isactive;
+    tw.ev_copy = (TreeWalkFillQueryFunction) hydro_copy;
+    tw.ev_reduce = (TreeWalkReduceResultFunction) hydro_reduce;
+    tw.UseNodeList = 0;
+    tw.query_type_elsize = sizeof(TreeWalkQueryHydro);
+    tw.result_type_elsize = sizeof(TreeWalkResultHydro);
 
     int i;
     double timeall = 0, timenetwork = 0;
@@ -101,13 +101,13 @@ void hydro_force(void)
 
     walltime_measure("/SPH/Hydro/Init");
 
-    treewalk_run(&ev);
+    treewalk_run(&tw);
 
 
     /* do final operations on results */
 
     int Nactive;
-    int * queue = treewalk_get_queue(&ev, &Nactive);
+    int * queue = treewalk_get_queue(&tw, &Nactive);
 #pragma omp parallel for if(Nactive > 64)
     for(i = 0; i < Nactive; i++)
         hydro_post_process(queue[i]);
@@ -118,9 +118,9 @@ void hydro_force(void)
 
     timeall += walltime_measure(WALLTIME_IGNORE);
 
-    timecomp = ev.timecomp1 + ev.timecomp2;
-    timewait = ev.timewait1 + ev.timewait2;
-    timecomm = ev.timecommsumm1 + ev.timecommsumm2;
+    timecomp = tw.timecomp1 + tw.timecomp2;
+    timewait = tw.timewait1 + tw.timewait2;
+    timecomm = tw.timecommsumm1 + tw.timecommsumm2;
 
     walltime_add("/SPH/Hydro/Compute", timecomp);
     walltime_add("/SPH/Hydro/Wait", timewait);
@@ -190,7 +190,7 @@ static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkR
  *  particle is specified which may either be local, or reside in the
  *  communication buffer.
  */
-static int hydro_evaluate(int target,
+static int hydro_visit(int target,
         TreeWalkQueryHydro * I,
         TreeWalkResultHydro * O,
         LocalTreeWalk * lv)

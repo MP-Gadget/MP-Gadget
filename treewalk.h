@@ -19,7 +19,7 @@ typedef struct {
 } TreeWalkResultBase;
 
 typedef struct {
-    struct _TreeWalk * ev;
+    struct _TreeWalk * tw;
 
     int mode; /* 0 for Primary, 1 for Secondary */
 
@@ -31,20 +31,22 @@ typedef struct {
     int * ngblist;
 } LocalTreeWalk;
 
-typedef int (*ev_ev_func) (const int target,
+typedef int (*TreeWalkVisitFunction) (const int target,
         TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
 
-typedef int (*ev_isactive_func) (const int i);
+typedef int (*TreeWalkIsActiveFunction) (const int i);
 
-typedef void (*ev_copy_func)(const int j, TreeWalkQueryBase * data_in);
-typedef void (*ev_reduce_func)(const int j, TreeWalkResultBase * data_result, const enum TreeWalkReduceMode mode);
+typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * data_in);
+typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * data_result, const enum TreeWalkReduceMode mode);
 
 typedef struct _TreeWalk {
-    ev_ev_func ev_evaluate;
-    ev_isactive_func ev_isactive;
-    ev_copy_func ev_copy;
-    ev_reduce_func ev_reduce;
-    char * ev_label;  /* name of the evaluator (used in printing messages) */
+    /* name of the evaluator (used in printing messages) */
+    char * ev_label;
+
+    TreeWalkVisitFunction ev_visit;
+    TreeWalkIsActiveFunction ev_isactive;
+    TreeWalkFillQueryFunction ev_copy;
+    TreeWalkReduceResultFunction ev_reduce;
 
     int * ngblist;
 
@@ -85,8 +87,8 @@ typedef struct _TreeWalk {
     int *currentEnd;
 } TreeWalk;
 
-void treewalk_run(TreeWalk * ev);
-int * treewalk_get_queue(TreeWalk * ev, int * len);
+void treewalk_run(TreeWalk * tw);
+int * treewalk_get_queue(TreeWalk * tw, int * len);
 
 /*returns -1 if the buffer is full */
 int ev_export_particle(LocalTreeWalk * lv, int target, int no);

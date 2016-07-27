@@ -105,17 +105,17 @@ void gravity_tree(void)
     double maxt, sumt, maxt1, sumt1, maxt2, sumt2, sumcommall, sumwaitall;
     double plb, plb_max;
 
-    TreeWalk ev[1] = {0};
+    TreeWalk tw[1] = {0};
 
-    ev[0].ev_label = "FORCETREE_SHORTRANGE";
-    ev[0].ev_evaluate = (ev_ev_func) force_treeev_shortrange;
-    ev[0].ev_isactive = gravtree_isactive;
-    ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
-    ev[0].UseNodeList = 1;
+    tw[0].ev_label = "FORCETREE_SHORTRANGE";
+    tw[0].ev_visit = (TreeWalkVisitFunction) force_treeev_shortrange;
+    tw[0].ev_isactive = gravtree_isactive;
+    tw[0].ev_reduce = (TreeWalkReduceResultFunction) gravtree_reduce;
+    tw[0].UseNodeList = 1;
 
-    ev[0].query_type_elsize = sizeof(TreeWalkQueryGravity);
-    ev[0].result_type_elsize = sizeof(TreeWalkResultGravity);
-    ev[0].ev_copy = (ev_copy_func) gravtree_copy;
+    tw[0].query_type_elsize = sizeof(TreeWalkQueryGravity);
+    tw[0].result_type_elsize = sizeof(TreeWalkResultGravity);
+    tw[0].ev_copy = (TreeWalkFillQueryFunction) gravtree_copy;
 
     walltime_measure("/Misc");
 
@@ -129,12 +129,12 @@ void gravity_tree(void)
 
     walltime_measure("/Misc");
 
-    treewalk_run(&ev[0]);
-    iter += ev[0].Niterations;
-    n_exported += ev[0].Nexport_sum;
-    N_nodesinlist += ev[0].Nnodesinlist;
+    treewalk_run(&tw[0]);
+    iter += tw[0].Niterations;
+    n_exported += tw[0].Nexport_sum;
+    N_nodesinlist += tw[0].Nnodesinlist;
 
-    Ewaldcount = ev[0].Ninteractions;
+    Ewaldcount = tw[0].Ninteractions;
 
     if(All.TypeOfOpeningCriterion == 1)
         All.ErrTolTheta = 0;	/* This will switch to the relative opening criterion for the following force computations */
@@ -144,12 +144,12 @@ void gravity_tree(void)
     /* now add things for comoving integration */
 
     int Nactive;
-    /* doesn't matter which ev to use, they have the same ev_active*/
-    int * queue = treewalk_get_queue(&ev[0], &Nactive);
+    /* doesn't matter which tw to use, they have the same ev_active*/
+    int * queue = treewalk_get_queue(&tw[0], &Nactive);
 #pragma omp parallel for if(Nactive > 32)
     for(i = 0; i < Nactive; i++) {
         gravtree_post_process(queue[i]);
-        /* this shall agree with sum of Ninteractions in all ev[..] need to
+        /* this shall agree with sum of Ninteractions in all tw[..] need to
          * check it*/
 #pragma omp atomic
         Costtotal += P[i].GravCost;
@@ -164,12 +164,12 @@ void gravity_tree(void)
 
 
     /*  gather some diagnostic information */
-    timetree1 += ev[0].timecomp1;
-    timetree2 += ev[0].timecomp2;
-    timewait1 += ev[0].timewait1;
-    timewait2 += ev[0].timewait2;
-    timecommsumm1 += ev[0].timecommsumm1 ;
-    timecommsumm2 += ev[0].timecommsumm2;
+    timetree1 += tw[0].timecomp1;
+    timetree2 += tw[0].timecomp2;
+    timewait1 += tw[0].timewait1;
+    timewait2 += tw[0].timewait2;
+    timecommsumm1 += tw[0].timecommsumm1 ;
+    timecommsumm2 += tw[0].timecommsumm2;
 
     timetree = timetree1 + timetree2;
     timewait = timewait1 + timewait2;

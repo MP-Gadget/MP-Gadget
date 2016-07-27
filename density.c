@@ -71,7 +71,7 @@ typedef struct {
 } TreeWalkResultDensity;
 
 static int density_isactive(int n);
-static int density_evaluate(int target, TreeWalkQueryDensity * I, TreeWalkResultDensity * O, LocalTreeWalk * lv);
+static int density_visit(int target, TreeWalkQueryDensity * I, TreeWalkResultDensity * O, LocalTreeWalk * lv);
 static void density_post_process(int i);
 static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
 
@@ -105,16 +105,16 @@ void density(void)
 {
     MyFloat *Left, *Right;
 
-    TreeWalk ev = {0};
+    TreeWalk tw = {0};
 
-    ev.ev_label = "DENSITY";
-    ev.ev_evaluate = (ev_ev_func) density_evaluate;
-    ev.ev_isactive = density_isactive;
-    ev.ev_copy = (ev_copy_func) density_copy;
-    ev.ev_reduce = (ev_reduce_func) density_reduce;
-    ev.UseNodeList = 1;
-    ev.query_type_elsize = sizeof(TreeWalkQueryDensity);
-    ev.result_type_elsize = sizeof(TreeWalkResultDensity);
+    tw.ev_label = "DENSITY";
+    tw.ev_visit = (TreeWalkVisitFunction) density_visit;
+    tw.ev_isactive = density_isactive;
+    tw.ev_copy = (TreeWalkFillQueryFunction) density_copy;
+    tw.ev_reduce = (TreeWalkReduceResultFunction) density_reduce;
+    tw.UseNodeList = 1;
+    tw.query_type_elsize = sizeof(TreeWalkQueryDensity);
+    tw.result_type_elsize = sizeof(TreeWalkResultDensity);
 
     int i, iter = 0;
 
@@ -143,7 +143,7 @@ void density(void)
 
     /* the queue has every particle. Later on after some iterations are done
      * Nactive will decrease -- the queue would be shorter.*/
-    queue = treewalk_get_queue(&ev, &Nactive);
+    queue = treewalk_get_queue(&tw, &Nactive);
 #pragma omp parallel for if(Nactive > 32)
     for(i = 0; i < Nactive; i ++) {
         int p = queue[i];
@@ -163,12 +163,12 @@ void density(void)
     do
     {
 
-        treewalk_run(&ev);
+        treewalk_run(&tw);
 
         /* do final operations on results */
         tstart = second();
 
-        queue = treewalk_get_queue(&ev, &Nactive);
+        queue = treewalk_get_queue(&tw, &Nactive);
 
         int npleft = 0;
 #pragma omp parallel for if(Nactive > 32)
@@ -235,9 +235,9 @@ void density(void)
 
     timeall = walltime_measure(WALLTIME_IGNORE);
 
-    timecomp = timecomp3 + ev.timecomp1 + ev.timecomp2;
-    timewait = ev.timewait1 + ev.timewait2;
-    timecomm = ev.timecommsumm1 + ev.timecommsumm2;
+    timecomp = timecomp3 + tw.timecomp1 + tw.timecomp2;
+    timewait = tw.timewait1 + tw.timewait2;
+    timecomm = tw.timecommsumm1 + tw.timecommsumm2;
 
     walltime_add("/SPH/Density/Compute", timecomp);
     walltime_add("/SPH/Density/Wait", timewait);
@@ -487,7 +487,7 @@ static void density_interact(
 #endif
 }
 
-static int density_evaluate(int target,
+static int density_visit(int target,
         TreeWalkQueryDensity * I,
         TreeWalkResultDensity * O,
         LocalTreeWalk * lv)

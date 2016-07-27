@@ -25,7 +25,7 @@
  * max(P[i].Hsml, hsml). 
  *
  * the particle at target are marked for export. 
- * nodes are exported too if ev->UseNodeList is True.
+ * nodes are exported too if tw->UseNodeList is True.
  *
  * ptypemask is the sum of 1 << type of particle types that are returned. 
  *
@@ -44,7 +44,7 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
 
     /* for now always blocking */
     int blocking = 1;
-    int donotusenodelist = ! lv->ev->UseNodeList;
+    int donotusenodelist = ! lv->tw->UseNodeList;
     numngb = 0;
 
     no = *startnode;

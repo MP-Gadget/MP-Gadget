@@ -57,14 +57,14 @@ typedef struct {
     int BH_CountProgs;
 } TreeWalkResultSwallow;
 
-static void blackhole_accretion_evaluate(int n);
+static void blackhole_accretion_visit(int n);
 static void blackhole_postprocess(int n);
 
 static int blackhole_feedback_isactive(int n);
 static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode);
 static void blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I);
 
-static int blackhole_feedback_evaluate(int target,
+static int blackhole_feedback_visit(int target,
         TreeWalkQueryBHFeedback * I,
         TreeWalkResultBHFeedback * O,
         LocalTreeWalk * lv);
@@ -73,7 +73,7 @@ static int blackhole_swallow_isactive(int n);
 static void blackhole_swallow_reduce(int place, TreeWalkResultSwallow * remote, enum TreeWalkReduceMode mode);
 static void blackhole_swallow_copy(int place, TreeWalkQuerySwallow * I);
 
-static int blackhole_swallow_evaluate(int target,
+static int blackhole_swallow_visit(int target,
         TreeWalkQuerySwallow * I,
         TreeWalkResultSwallow * O,
         LocalTreeWalk * lv);
@@ -106,20 +106,20 @@ void blackhole_accretion(void)
     TreeWalk fbev = {0};
 
     fbev.ev_label = "BH_FEEDBACK";
-    fbev.ev_evaluate = (ev_ev_func) blackhole_feedback_evaluate;
+    fbev.ev_visit = (TreeWalkVisitFunction) blackhole_feedback_visit;
     fbev.ev_isactive = blackhole_feedback_isactive;
-    fbev.ev_copy = (ev_copy_func) blackhole_feedback_copy;
-    fbev.ev_reduce = (ev_reduce_func) blackhole_feedback_reduce;
+    fbev.ev_copy = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
+    fbev.ev_reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
     fbev.UseNodeList = 1;
     fbev.query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
     fbev.result_type_elsize = sizeof(TreeWalkResultBHFeedback);
 
     TreeWalk swev = {0};
     swev.ev_label = "BH_SWALLOW";
-    swev.ev_evaluate = (ev_ev_func) blackhole_swallow_evaluate;
+    swev.ev_visit = (TreeWalkVisitFunction) blackhole_swallow_visit;
     swev.ev_isactive = blackhole_swallow_isactive;
-    swev.ev_copy = (ev_copy_func) blackhole_swallow_copy;
-    swev.ev_reduce = (ev_reduce_func) blackhole_swallow_reduce;
+    swev.ev_copy = (TreeWalkFillQueryFunction) blackhole_swallow_copy;
+    swev.ev_reduce = (TreeWalkReduceResultFunction) blackhole_swallow_reduce;
     swev.UseNodeList = 1;
     swev.query_type_elsize = sizeof(TreeWalkQuerySwallow);
     swev.result_type_elsize = sizeof(TreeWalkResultSwallow);
@@ -141,7 +141,7 @@ void blackhole_accretion(void)
             Local_BH_Medd -= BHP(n).Mdot / BHP(n).Mass;
         }
 
-        blackhole_accretion_evaluate(n);
+        blackhole_accretion_visit(n);
 
         int j;
         for(j = 0; j < 3; j++) {
@@ -215,7 +215,7 @@ void blackhole_accretion(void)
     walltime_measure("/BH");
 }
 
-static void blackhole_accretion_evaluate(int n) {
+static void blackhole_accretion_visit(int n) {
     double mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
 
     double rho = BHP(n).Density;
@@ -261,7 +261,7 @@ static void blackhole_postprocess(int n) {
     }
 }
 
-static int blackhole_feedback_evaluate(int target,
+static int blackhole_feedback_visit(int target,
         TreeWalkQueryBHFeedback * I,
         TreeWalkResultBHFeedback * O,
         LocalTreeWalk * lv)
@@ -444,7 +444,7 @@ static int blackhole_feedback_evaluate(int target,
 /**
  * perform blackhole swallow / merger;
  */
-int blackhole_swallow_evaluate(int target,
+int blackhole_swallow_visit(int target,
         TreeWalkQuerySwallow * I,
         TreeWalkResultSwallow * O,
         LocalTreeWalk * lv)

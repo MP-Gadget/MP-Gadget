@@ -105,7 +105,7 @@ static int sfr_wind_ev_weight(int target,
         TreeWalkQueryWind * I,
         TreeWalkResultWind * O,
         LocalTreeWalk * lv);
-static int sfr_wind_evaluate(int target,
+static int sfr_wind_visit(int target,
         TreeWalkQueryWind * I,
         TreeWalkResultWind * O,
         LocalTreeWalk * lv);
@@ -133,15 +133,15 @@ void cooling_and_starformation(void)
     stars_spawned = stars_converted = 0;
     sum_sm = sum_mass_stars = 0;
 
-    TreeWalk ev = {0};
+    TreeWalk tw = {0};
 
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
-    ev.ev_label = "SFR_COOL";
-    ev.ev_isactive = sfr_cooling_isactive;
+    tw.ev_label = "SFR_COOL";
+    tw.ev_isactive = sfr_cooling_isactive;
 
     int Nactive = 0;
-    int * queue = treewalk_get_queue(&ev, &Nactive);
+    int * queue = treewalk_get_queue(&tw, &Nactive);
     int n;
 
 #pragma omp parallel for
@@ -242,20 +242,20 @@ void cooling_and_starformation(void)
     if(!HAS(All.WindModel, WINDS_SUBGRID) && All.WindModel != WINDS_NONE) {
         int i;
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
-        TreeWalk ev = {0};
+        TreeWalk tw = {0};
 
-        ev.ev_label = "SFR_WIND";
-        ev.ev_isactive = sfr_wind_isactive;
-        ev.ev_copy = (ev_copy_func) sfr_wind_copy;
-        ev.ev_reduce = (ev_reduce_func) sfr_wind_reduce_weight;
-        ev.UseNodeList = 1;
-        ev.query_type_elsize = sizeof(TreeWalkQueryWind);
-        ev.result_type_elsize = sizeof(TreeWalkResultWind);
+        tw.ev_label = "SFR_WIND";
+        tw.ev_isactive = sfr_wind_isactive;
+        tw.ev_copy = (TreeWalkFillQueryFunction) sfr_wind_copy;
+        tw.ev_reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
+        tw.UseNodeList = 1;
+        tw.query_type_elsize = sizeof(TreeWalkQueryWind);
+        tw.result_type_elsize = sizeof(TreeWalkResultWind);
 
         /* sum the total weight of surrounding gas */
-        ev.ev_evaluate = (ev_ev_func) sfr_wind_ev_weight;
+        tw.ev_visit = (TreeWalkVisitFunction) sfr_wind_ev_weight;
         int Nqueue;
-        int * queue = treewalk_get_queue(&ev, &Nqueue);
+        int * queue = treewalk_get_queue(&tw, &Nqueue);
         for(i = 0; i < Nqueue; i ++) {
             int n = queue[i];
             P[n].DensityIterationDone = 0;
@@ -266,7 +266,7 @@ void cooling_and_starformation(void)
         int npleft = Nqueue;
         int done = 0;
         while(!done) {
-            treewalk_run(&ev);
+            treewalk_run(&tw);
             for(i = 0; i < Nqueue; i ++) {
                 int n = queue[i];
                 if (P[n].DensityIterationDone) continue;
@@ -309,10 +309,10 @@ void cooling_and_starformation(void)
             Wind[n].Vdisp = sqrt(vdisp / 3);
         }
         myfree(queue);
-        ev.ev_evaluate = (ev_ev_func) sfr_wind_evaluate;
-        ev.ev_reduce = NULL;
+        tw.ev_visit = (TreeWalkVisitFunction) sfr_wind_visit;
+        tw.ev_reduce = NULL;
 
-        treewalk_run(&ev);
+        treewalk_run(&tw);
         myfree(Wind);
     }
     walltime_measure("/Cooling/Wind");
@@ -327,15 +327,15 @@ void cooling_only(void)
     if(!All.CoolingOn) return;
     walltime_measure("/Misc");
 
-    TreeWalk ev = {0};
+    TreeWalk tw = {0};
 
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
-    ev.ev_label = "SFR_COOL";
-    ev.ev_isactive = sfr_cooling_isactive;
+    tw.ev_label = "SFR_COOL";
+    tw.ev_isactive = sfr_cooling_isactive;
 
     int Nactive = 0;
-    int * queue = treewalk_get_queue(&ev, &Nactive);
+    int * queue = treewalk_get_queue(&tw, &Nactive);
     int n;
 
 #pragma omp parallel for
@@ -580,7 +580,7 @@ static int sfr_wind_ev_weight(int target,
 
 
 }
-static int sfr_wind_evaluate(int target,
+static int sfr_wind_visit(int target,
         TreeWalkQueryWind * I,
         TreeWalkResultWind * O,
         LocalTreeWalk * lv) {
