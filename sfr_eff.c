@@ -59,7 +59,8 @@ static double get_starformation_rate_full(int i, double dtime, double * ne_new, 
 #endif
 
 #ifdef WINDS
-struct winddata_in {
+typedef struct {
+    TreeWalkQueryBase base;
     int NodeList[NODELISTLENGTH];
     double Sfr;
     double Dt;
@@ -71,14 +72,15 @@ struct winddata_in {
     double Vdisp;
     double Vmean[3];
     MyIDType ID;
-};
+} TreeWalkQueryWind;
 
-struct winddata_out {
+typedef struct {
+    TreeWalkResultBase base;
     double TotalWeight;
     double V1sum[3];
     double V2sum;
     int Ngb;
-};
+} TreeWalkResultWind;
 
 static struct winddata {
     double DMRadius;
@@ -99,15 +101,15 @@ static struct winddata {
 static int make_particle_wind(int i, double v, double vmean[3]);
 
 static int sfr_wind_isactive(int target);
-static void sfr_wind_reduce_weight(int place, struct winddata_out * remote, int mode);
-static void sfr_wind_copy(int place, struct winddata_in * input);
+static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, int mode);
+static void sfr_wind_copy(int place, TreeWalkQueryWind * input);
 static int sfr_wind_ev_weight(int target,
-        struct winddata_in * I,
-        struct winddata_out * O,
+        TreeWalkQueryWind * I,
+        TreeWalkResultWind * O,
         LocalTreeWalk * lv);
 static int sfr_wind_evaluate(int target,
-        struct winddata_in * I,
-        struct winddata_out * O,
+        TreeWalkQueryWind * I,
+        TreeWalkResultWind * O,
         LocalTreeWalk * lv);
 
 #endif
@@ -249,8 +251,8 @@ void cooling_and_starformation(void)
         ev.ev_copy = (ev_copy_func) sfr_wind_copy;
         ev.ev_reduce = (ev_reduce_func) sfr_wind_reduce_weight;
         ev.UseNodeList = 1;
-        ev.ev_datain_elsize = sizeof(struct winddata_in);
-        ev.ev_dataout_elsize = sizeof(struct winddata_out);
+        ev.query_type_elsize = sizeof(TreeWalkQueryWind);
+        ev.result_type_elsize = sizeof(TreeWalkResultWind);
 
         /* sum the total weight of surrounding gas */
         ev.ev_evaluate = (ev_ev_func) sfr_wind_ev_weight;
@@ -469,7 +471,7 @@ static int sfr_wind_isactive(int target) {
     return 0;
 }
 
-static void sfr_wind_reduce_weight(int place, struct winddata_out * O, int mode) {
+static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, int mode) {
     EV_REDUCE(Wind[place].TotalWeight, O->TotalWeight);
     int k;
     for(k = 0; k < 3; k ++) {
@@ -484,7 +486,7 @@ static void sfr_wind_reduce_weight(int place, struct winddata_out * O, int mode)
             */
 }
 
-static void sfr_wind_copy(int place, struct winddata_in * input) {
+static void sfr_wind_copy(int place, TreeWalkQueryWind * input) {
     double dt = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
     input->Dt = dt;
     int k;
@@ -502,8 +504,8 @@ static void sfr_wind_copy(int place, struct winddata_in * input) {
 }
 
 static int sfr_wind_ev_weight(int target,
-        struct winddata_in * I,
-        struct winddata_out * O,
+        TreeWalkQueryWind * I,
+        TreeWalkResultWind * O,
         LocalTreeWalk * lv) {
     /* this evaluator walks the tree and sums the total mass of surrounding gas
      * particles as described in VS08. */
@@ -583,8 +585,8 @@ static int sfr_wind_ev_weight(int target,
 
 }
 static int sfr_wind_evaluate(int target,
-        struct winddata_in * I,
-        struct winddata_out * O,
+        TreeWalkQueryWind * I,
+        TreeWalkResultWind * O,
         LocalTreeWalk * lv) {
 
     /* this evaluator walks the tree and blows wind. */

@@ -24,10 +24,8 @@
  *  computed, and where the rate of change of entropy due to the shock heating
  *  (via artificial viscosity) is computed.
  */
-struct hydrodata_in
-{
-    int NodeList[NODELISTLENGTH];
-
+typedef struct {
+    TreeWalkQueryBase base;
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyRho;
     MyFloat EntVarPred;
@@ -47,10 +45,10 @@ struct hydrodata_in
     MyIDType ID;			/*!< particle identifier */
 #endif
 
-};
+} TreeWalkQueryHydro;
 
-struct hydrodata_out
-{
+typedef struct {
+    TreeWalkResultBase base;
     MyDouble Acc[3];
     MyDouble DtEntropy;
     MyFloat MaxSignalVel;
@@ -58,19 +56,19 @@ struct hydrodata_out
 #ifdef HYDRO_COST_FACTOR
     int Ninteractions;
 #endif
-};
+} TreeWalkResultHydro;
 
 
 static int hydro_evaluate(int target,
-        struct hydrodata_in * I,
-        struct hydrodata_out * O,
+        TreeWalkQueryHydro * I,
+        TreeWalkResultHydro * O,
         LocalTreeWalk * lv);
 static int hydro_isactive(int n);
 static void hydro_post_process(int i);
 
 
-static void hydro_copy(int place, struct hydrodata_in * input);
-static void hydro_reduce(int place, struct hydrodata_out * result, int mode);
+static void hydro_copy(int place, TreeWalkQueryHydro * input);
+static void hydro_reduce(int place, TreeWalkResultHydro * result, int mode);
 
 static double fac_mu, fac_vsic_fix;
 
@@ -88,8 +86,8 @@ void hydro_force(void)
     ev.ev_copy = (ev_copy_func) hydro_copy;
     ev.ev_reduce = (ev_reduce_func) hydro_reduce;
     ev.UseNodeList = 0;
-    ev.ev_datain_elsize = sizeof(struct hydrodata_in);
-    ev.ev_dataout_elsize = sizeof(struct hydrodata_out);
+    ev.query_type_elsize = sizeof(TreeWalkQueryHydro);
+    ev.result_type_elsize = sizeof(TreeWalkResultHydro);
 
     int i;
     double timeall = 0, timenetwork = 0;
@@ -131,7 +129,7 @@ void hydro_force(void)
     walltime_add("/SPH/Hydro/Misc", timeall - (timecomp + timewait + timecomm + timenetwork));
 }
 
-static void hydro_copy(int place, struct hydrodata_in * input) {
+static void hydro_copy(int place, TreeWalkQueryHydro * input) {
     int k;
     double soundspeed_i;
     for(k = 0; k < 3; k++)
@@ -170,7 +168,7 @@ static void hydro_copy(int place, struct hydrodata_in * input) {
 
 }
 
-static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
+static void hydro_reduce(int place, TreeWalkResultHydro * result, int mode) {
 #define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
     int k;
 
@@ -196,8 +194,8 @@ static void hydro_reduce(int place, struct hydrodata_out * result, int mode) {
  *  communication buffer.
  */
 static int hydro_evaluate(int target,
-        struct hydrodata_in * I,
-        struct hydrodata_out * O,
+        TreeWalkQueryHydro * I,
+        TreeWalkResultHydro * O,
         LocalTreeWalk * lv)
 {
     int startnode, numngb, listindex = 0;
@@ -211,7 +209,7 @@ static int hydro_evaluate(int target,
     DensityKernel kernel_i;
     DensityKernel kernel_j;
 
-    startnode = I->NodeList[0];
+    startnode = I->base.NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
@@ -425,7 +423,7 @@ static int hydro_evaluate(int target,
 
         if(listindex < NODELISTLENGTH)
         {
-            startnode = I->NodeList[listindex];
+            startnode = I->base.NodeList[listindex];
             if(startnode >= 0) {
                 startnode = Nodes[startnode].u.d.nextnode;	/* open it */
                 listindex++;

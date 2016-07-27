@@ -77,32 +77,7 @@ extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 #define maskout_different_softening_flag(x) (x & (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE))
 #define extract_max_softening_type(x) ((x >> BITFLAG_MAX_SOFTENING_TYPE) & 7)
 
-struct gravitydata_in
-{
-    int NodeList[NODELISTLENGTH];
-    MyFloat Pos[3];
-    int Type;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    MyFloat Soft;
-#endif
-    MyFloat OldAcc;
-} ;
-
-struct gravitydata_out
-{
-    MyDouble Acc[3];
-    MyDouble Potential;
-    int Ninteractions;
-};
-
-
 void force_flag_localnodes(void);
-
-int force_treeev_shortrange(int target,
-        struct gravitydata_in * input,
-        struct gravitydata_out * output,
-        LocalTreeWalk * lv, void * unused);
-
 
 void force_drift_node(int no, int time1);
 int force_drift_node_full(int no, int time1, int blocking);

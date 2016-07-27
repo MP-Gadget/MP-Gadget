@@ -24,9 +24,10 @@ struct densinteraction {
     DensityKernel bh_feedback_kernel;
 #endif
 };
-struct densdata_in
+
+typedef struct
 {
-    int NodeList[NODELISTLENGTH];
+    TreeWalkQueryBase base;
     MyIDType ID;
     MyDouble Pos[3];
     MyFloat Vel[3];
@@ -38,10 +39,10 @@ struct densdata_in
     MyFloat DelayTime;
 #endif
     int Type;
-};
+} TreeWalkQueryDensity;
 
-struct densdata_out
-{
+typedef struct {
+    TreeWalkResultBase base;
     MyIDType ID;
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyRho;
@@ -70,16 +71,16 @@ struct densdata_out
 #ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
 #endif
-};
+} TreeWalkResultDensity;
 
 static int density_isactive(int n);
-static int density_evaluate(int target, struct densdata_in * I, struct densdata_out * O, LocalTreeWalk * lv);
+static int density_evaluate(int target, TreeWalkQueryDensity * I, TreeWalkResultDensity * O, LocalTreeWalk * lv);
 static void density_post_process(int i);
 static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
 
 
-static void density_reduce(int place, struct densdata_out * remote, int mode);
-static void density_copy(int place, struct densdata_in * I);
+static void density_reduce(int place, TreeWalkResultDensity * remote, int mode);
+static void density_copy(int place, TreeWalkQueryDensity * I);
 
 /*! \file density.c
  *  \brief SPH density computation and smoothing length determination
@@ -115,8 +116,8 @@ void density(void)
     ev.ev_copy = (ev_copy_func) density_copy;
     ev.ev_reduce = (ev_reduce_func) density_reduce;
     ev.UseNodeList = 1;
-    ev.ev_datain_elsize = sizeof(struct densdata_in);
-    ev.ev_dataout_elsize = sizeof(struct densdata_out);
+    ev.query_type_elsize = sizeof(TreeWalkQueryDensity);
+    ev.result_type_elsize = sizeof(TreeWalkResultDensity);
 
     int i, iter = 0;
 
@@ -270,7 +271,7 @@ double density_decide_hsearch(int targettype, double h) {
 
 }
 
-static void density_copy(int place, struct densdata_in * I) {
+static void density_copy(int place, TreeWalkQueryDensity * I) {
     I->ID = P[place].ID;
     I->Pos[0] = P[place].Pos[0];
     I->Pos[1] = P[place].Pos[1];
@@ -303,7 +304,7 @@ static void density_copy(int place, struct densdata_in * I) {
 
 }
 
-static void density_reduce(int place, struct densdata_out * remote, int mode) {
+static void density_reduce(int place, TreeWalkResultDensity * remote, int mode) {
     EV_REDUCE(P[place].n.dNumNgb, remote->Ngb);
 
     if(remote->ID != P[place].ID) {
@@ -361,8 +362,8 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 
 static void density_interact(
         struct densinteraction * d,
-        struct densdata_in * I,
-        struct densdata_out * O,
+        TreeWalkQueryDensity * I,
+        TreeWalkResultDensity * O,
         int i, int j, LocalTreeWalk * lv)
 {
 #ifdef WINDS
@@ -497,8 +498,8 @@ static void density_interact(
 }
 
 static int density_evaluate(int target,
-        struct densdata_in * I,
-        struct densdata_out * O,
+        TreeWalkQueryDensity * I,
+        TreeWalkResultDensity * O,
         LocalTreeWalk * lv)
 {
     int n;
@@ -519,7 +520,7 @@ static int density_evaluate(int target,
     density_kernel_init(&di->bh_feedback_kernel, hsearch);
 #endif
 
-    startnode = I->NodeList[0];
+    startnode = I->base.NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
     int ninteractions = 0;
@@ -546,7 +547,7 @@ static int density_evaluate(int target,
         /* now check next node in the node list */
         if(listindex < NODELISTLENGTH)
         {
-            startnode = I->NodeList[listindex];
+            startnode = I->base.NodeList[listindex];
             if(startnode >= 0) {
                 startnode = Nodes[startnode].u.d.nextnode;	/* open it */
                 listindex++;

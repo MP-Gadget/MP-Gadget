@@ -19,9 +19,8 @@
 
 #ifdef BLACK_HOLES
 
-struct feedbackdata_in
-{
-    int NodeList[NODELISTLENGTH];
+typedef struct {
+    TreeWalkQueryBase base;
     MyDouble Pos[3];
     MyFloat Density;
     MyFloat FeedbackWeightSum;
@@ -33,53 +32,52 @@ struct feedbackdata_in
     MyFloat Vel[3];
     MyFloat Csnd;
     MyIDType ID;
-};
+} TreeWalkQueryBHFeedback;
 
-struct feedbackdata_out
-{
+typedef struct {
+    TreeWalkResultBase base;
     MyFloat BH_MinPotPos[3];
     MyFloat BH_MinPotVel[3];
     MyFloat BH_MinPot;
 
     short int BH_TimeBinLimit;
-};
+} TreeWalkResultBHFeedback;
 
-struct swallowdata_in
-{
-    int NodeList[NODELISTLENGTH];
+typedef struct {
+    TreeWalkQueryBase base;
     MyDouble Pos[3];
     MyFloat Hsml;
     MyFloat BH_Mass;
     MyIDType ID;
-};
+} TreeWalkQuerySwallow;
 
-struct swallowdata_out
-{
+typedef struct {
+    TreeWalkResultBase base;
     MyDouble Mass;
     MyDouble BH_Mass;
     MyDouble AccretedMomentum[3];
     int BH_CountProgs;
-};
+} TreeWalkResultSwallow;
 
 static void blackhole_accretion_evaluate(int n);
 static void blackhole_postprocess(int n);
 
 static int blackhole_feedback_isactive(int n);
-static void blackhole_feedback_reduce(int place, struct feedbackdata_out * remote, int mode);
-static void blackhole_feedback_copy(int place, struct feedbackdata_in * I);
+static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, int mode);
+static void blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I);
 
 static int blackhole_feedback_evaluate(int target,
-        struct feedbackdata_in * I,
-        struct feedbackdata_out * O,
+        TreeWalkQueryBHFeedback * I,
+        TreeWalkResultBHFeedback * O,
         LocalTreeWalk * lv);
 
 static int blackhole_swallow_isactive(int n);
-static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote, int mode);
-static void blackhole_swallow_copy(int place, struct swallowdata_in * I);
+static void blackhole_swallow_reduce(int place, TreeWalkResultSwallow * remote, int mode);
+static void blackhole_swallow_copy(int place, TreeWalkQuerySwallow * I);
 
 static int blackhole_swallow_evaluate(int target,
-        struct swallowdata_in * I,
-        struct swallowdata_out * O,
+        TreeWalkQuerySwallow * I,
+        TreeWalkResultSwallow * O,
         LocalTreeWalk * lv);
 
 #define BHPOTVALUEINIT 1.0e30
@@ -115,8 +113,8 @@ void blackhole_accretion(void)
     fbev.ev_copy = (ev_copy_func) blackhole_feedback_copy;
     fbev.ev_reduce = (ev_reduce_func) blackhole_feedback_reduce;
     fbev.UseNodeList = 1;
-    fbev.ev_datain_elsize = sizeof(struct feedbackdata_in);
-    fbev.ev_dataout_elsize = sizeof(struct feedbackdata_out);
+    fbev.query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
+    fbev.result_type_elsize = sizeof(TreeWalkResultBHFeedback);
 
     TreeWalk swev = {0};
     swev.ev_label = "BH_SWALLOW";
@@ -125,8 +123,8 @@ void blackhole_accretion(void)
     swev.ev_copy = (ev_copy_func) blackhole_swallow_copy;
     swev.ev_reduce = (ev_reduce_func) blackhole_swallow_reduce;
     swev.UseNodeList = 1;
-    swev.ev_datain_elsize = sizeof(struct swallowdata_in);
-    swev.ev_dataout_elsize = sizeof(struct swallowdata_out);
+    swev.query_type_elsize = sizeof(TreeWalkQuerySwallow);
+    swev.result_type_elsize = sizeof(TreeWalkResultSwallow);
 
     message(0, "Beginning black-hole accretion\n");
 
@@ -266,8 +264,8 @@ static void blackhole_postprocess(int n) {
 }
 
 static int blackhole_feedback_evaluate(int target,
-        struct feedbackdata_in * I,
-        struct feedbackdata_out * O,
+        TreeWalkQueryBHFeedback * I,
+        TreeWalkResultBHFeedback * O,
         LocalTreeWalk * lv)
 {
 
@@ -280,7 +278,7 @@ static int blackhole_feedback_evaluate(int target,
     O->BH_TimeBinLimit = -1;
     O->BH_MinPot = BHPOTVALUEINIT;
 
-    startnode = I->NodeList[0];
+    startnode = I->base.NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
@@ -433,7 +431,7 @@ static int blackhole_feedback_evaluate(int target,
 
         if(listindex < NODELISTLENGTH)
         {
-            startnode = I->NodeList[listindex];
+            startnode = I->base.NodeList[listindex];
             if(startnode >= 0) {
                 startnode = Nodes[startnode].u.d.nextnode;	/* open it */
                 listindex ++;
@@ -449,8 +447,8 @@ static int blackhole_feedback_evaluate(int target,
  * perform blackhole swallow / merger;
  */
 int blackhole_swallow_evaluate(int target,
-        struct swallowdata_in * I,
-        struct swallowdata_out * O,
+        TreeWalkQuerySwallow * I,
+        TreeWalkResultSwallow * O,
         LocalTreeWalk * lv)
 {
     int startnode, numngb, k, n, listindex = 0;
@@ -458,7 +456,7 @@ int blackhole_swallow_evaluate(int target,
     int ptypemask = 0;
     ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
 
-    startnode = I->NodeList[0];
+    startnode = I->base.NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
@@ -524,7 +522,7 @@ int blackhole_swallow_evaluate(int target,
         }
         if(listindex < NODELISTLENGTH)
         {
-            startnode = I->NodeList[listindex];
+            startnode = I->base.NodeList[listindex];
             if(startnode >= 0) {
                 startnode = Nodes[startnode].u.d.nextnode;	/* open it */
                 listindex++;
@@ -539,7 +537,7 @@ static int blackhole_feedback_isactive(int n) {
     return (P[n].Type == 5) && (P[n].Mass > 0);
 }
 
-static void blackhole_feedback_reduce(int place, struct feedbackdata_out * remote, int mode) {
+static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, int mode) {
     int k;
     if(mode == 0 || BHP(place).MinPot > remote->BH_MinPot)
     {
@@ -557,7 +555,7 @@ static void blackhole_feedback_reduce(int place, struct feedbackdata_out * remot
     }
 }
 
-static void blackhole_feedback_copy(int place, struct feedbackdata_in * I) {
+static void blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I) {
     int k;
     for(k = 0; k < 3; k++)
     {
@@ -582,7 +580,7 @@ static void blackhole_feedback_copy(int place, struct feedbackdata_in * I) {
 static int blackhole_swallow_isactive(int n) {
     return (P[n].Type == 5) && (P[n].SwallowID == 0);
 }
-static void blackhole_swallow_copy(int place, struct swallowdata_in * I) {
+static void blackhole_swallow_copy(int place, TreeWalkQuerySwallow * I) {
     int k;
     for(k = 0; k < 3; k++)
     {
@@ -593,7 +591,7 @@ static void blackhole_swallow_copy(int place, struct swallowdata_in * I) {
     I->ID = P[place].ID;
 }
 
-static void blackhole_swallow_reduce(int place, struct swallowdata_out * remote, int mode) {
+static void blackhole_swallow_reduce(int place, TreeWalkResultSwallow * remote, int mode) {
     int k;
 
 #define EV_REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))

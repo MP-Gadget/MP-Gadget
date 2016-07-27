@@ -14,6 +14,15 @@
 #include "domain.h"
 #include "endrun.h"
 
+/*! length of lock-up table for short-range force kernel in TreePM algorithm */
+#define NTAB 1000
+/*! variables for short-range lookup table */
+static float shortrange_table[NTAB], shortrange_table_potential[NTAB], shortrange_table_tidal[NTAB];
+
+/*! toggles after first tree-memory allocation, has only influence on log-files */
+static int first_flag = 0;
+
+
 /*! \file gravtree.c
  *  \brief main driver routines for gravitational (short-range) force computation
  *
@@ -31,9 +40,51 @@
  * YF: anything we shall do about this?
  * */
 
+typedef struct
+{
+    TreeWalkQueryBase base;
+    MyFloat Pos[3];
+    int Type;
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    MyFloat Soft;
+#endif
+    MyFloat OldAcc;
+} TreeWalkQueryGravity;
+
+typedef struct
+{
+    TreeWalkResultBase base;
+    MyDouble Acc[3];
+    MyDouble Potential;
+    int Ninteractions;
+} TreeWalkResultGravity;
+
+
+int force_treeev_shortrange(const int target,
+        TreeWalkQueryGravity * input,
+        TreeWalkResultGravity * output,
+        LocalTreeWalk * lv);
+
+static void fill_ntab()
+{
+    if(first_flag == 0)
+    {
+        first_flag = 1;
+        int i;
+        for(i = 0; i < NTAB; i++)
+        {
+            double u = 3.0 / NTAB * (i + 0.5);
+            shortrange_table[i] = erfc(u) + 2.0 * u / sqrt(M_PI) * exp(-u * u);
+            shortrange_table_potential[i] = erfc(u);
+            shortrange_table_tidal[i] = 4.0 * u * u * u / sqrt(M_PI) * exp(-u * u);
+        }
+    }
+
+}
+
 static int gravtree_isactive(int i);
-void gravtree_copy(int place, struct gravitydata_in * input) ;
-void gravtree_reduce(int place, struct gravitydata_out * result, int mode);
+void gravtree_copy(int place, TreeWalkQueryGravity * input) ;
+void gravtree_reduce(int place, TreeWalkResultGravity * result, int mode);
 static void gravtree_post_process(int i);
 
 /*! This function computes the gravitational forces for all active particles.
@@ -63,13 +114,14 @@ void gravity_tree(void)
     ev[0].ev_reduce = (ev_reduce_func) gravtree_reduce;
     ev[0].UseNodeList = 1;
 
-    ev[0].ev_datain_elsize = sizeof(struct gravitydata_in);
-    ev[0].ev_dataout_elsize = sizeof(struct gravitydata_out);
+    ev[0].query_type_elsize = sizeof(TreeWalkQueryGravity);
+    ev[0].result_type_elsize = sizeof(TreeWalkResultGravity);
     ev[0].ev_copy = (ev_copy_func) gravtree_copy;
 
     walltime_measure("/Misc");
 
     /* set new softening lengths */
+    fill_ntab();
 
     set_softenings();
 
@@ -181,7 +233,7 @@ void gravity_tree(void)
     walltime_measure("/Tree/Timing");
 }
 
-void gravtree_copy(int place, struct gravitydata_in * input) {
+void gravtree_copy(int place, TreeWalkQueryGravity * input) {
     int k;
     for(k = 0; k < 3; k++)
         input->Pos[k] = P[place].Pos[k];
@@ -195,7 +247,7 @@ void gravtree_copy(int place, struct gravitydata_in * input) {
 
 }
 
-void gravtree_reduce(int place, struct gravitydata_out * result, int mode) {
+void gravtree_reduce(int place, TreeWalkResultGravity * result, int mode) {
 #define REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
     int k;
     for(k = 0; k < 3; k++)
@@ -283,3 +335,315 @@ void set_softenings(void)
 
     All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[0];
 }
+
+/*! In the TreePM algorithm, the tree is walked only locally around the
+ *  target coordinate.  Tree nodes that fall outside a box of half
+ *  side-length Rcut= RCUT*ASMTH*MeshSize can be discarded. The short-range
+ *  potential is modified by a complementary error function, multiplied
+ *  with the Newtonian form. The resulting short-range suppression compared
+ *  to the Newtonian force is tabulated, because looking up from this table
+ *  is faster than recomputing the corresponding factor, despite the
+ *  memory-access panelty (which reduces cache performance) incurred by the
+ *  table.
+ */
+int force_treeev_shortrange(int target,
+        TreeWalkQueryGravity * input,
+        TreeWalkResultGravity * output,
+        LocalTreeWalk * lv)
+{
+    struct NODE *nop = 0;
+    int no, ptype, tabindex, listindex = 0;
+    int nnodesinlist = 0, ninteractions = 0;
+    double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
+    double pos_x, pos_y, pos_z, aold;
+    double eff_dist;
+    double rcut, asmth, asmthfac, rcut2, dist;
+    MyDouble acc_x, acc_y, acc_z;
+
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    double soft = 0;
+#endif
+    double wp, facpot;
+    MyDouble pot;
+
+    pot = 0;
+
+    acc_x = 0;
+    acc_y = 0;
+    acc_z = 0;
+    ninteractions = 0;
+    nnodesinlist = 0;
+
+    rcut = All.Rcut[0];
+    asmth = All.Asmth[0];
+
+    no = input->base.NodeList[0];
+    listindex ++;
+    no = Nodes[no].u.d.nextnode;	/* open it */
+
+    pos_x = input->Pos[0];
+    pos_y = input->Pos[1];
+    pos_z = input->Pos[2];
+    ptype = input->Type;
+
+    aold = All.ErrTolForceAcc * input->OldAcc;
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    if(ptype == 0)
+        soft = input->Soft;
+#endif
+    rcut2 = rcut * rcut;
+
+    asmthfac = 0.5 / asmth * (NTAB / 3.0);
+
+    while(no >= 0)
+    {
+        while(no >= 0)
+        {
+            if(no < All.MaxPart)
+            {
+                /* the index of the node is the index of the particle */
+                drift_particle(no, All.Ti_Current);
+
+                dx = P[no].Pos[0] - pos_x;
+                dy = P[no].Pos[1] - pos_y;
+                dz = P[no].Pos[2] - pos_z;
+
+                dx = NEAREST(dx);
+                dy = NEAREST(dy);
+                dz = NEAREST(dz);
+
+                r2 = dx * dx + dy * dy + dz * dz;
+
+                mass = P[no].Mass;
+
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+                if(ptype == 0)
+                    h = soft;
+                else
+                    h = All.ForceSoftening[ptype];
+
+                if(P[no].Type == 0)
+                {
+                    if(h < P[no].Hsml)
+                        h = P[no].Hsml;
+                }
+                else
+                {
+                    if(h < All.ForceSoftening[P[no].Type])
+                        h = All.ForceSoftening[P[no].Type];
+                }
+#else
+                h = All.ForceSoftening[ptype];
+                if(h < All.ForceSoftening[P[no].Type])
+                    h = All.ForceSoftening[P[no].Type];
+#endif
+                no = Nextnode[no];
+            }
+            else			/* we have an  internal node */
+            {
+                if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+                {
+                    if(lv->mode == 0)
+                    {
+                        if(-1 == ev_export_particle(lv, target, no))
+                            return -1;
+                    }
+                    no = Nextnode[no - MaxNodes];
+                    continue;
+                }
+
+                nop = &Nodes[no];
+
+                if(lv->mode == 1)
+                {
+                    if(nop->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                    {
+                        no = -1;
+                        continue;
+                    }
+                }
+
+                if(!(nop->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
+                {
+                    /* open cell */
+                    no = nop->u.d.nextnode;
+                    continue;
+                }
+
+                force_drift_node(no, All.Ti_Current);
+
+                mass = nop->u.d.mass;
+
+                dx = nop->u.d.s[0] - pos_x;
+                dy = nop->u.d.s[1] - pos_y;
+                dz = nop->u.d.s[2] - pos_z;
+
+                dx = NEAREST(dx);
+                dy = NEAREST(dy);
+                dz = NEAREST(dz);
+                r2 = dx * dx + dy * dy + dz * dz;
+
+                if(r2 > rcut2)
+                {
+                    /* check whether we can stop walking along this branch */
+                    eff_dist = rcut + 0.5 * nop->len;
+                    dist = NEAREST(nop->center[0] - pos_x);
+
+                    if(dist < -eff_dist || dist > eff_dist)
+                    {
+                        no = nop->u.d.sibling;
+                        continue;
+                    }
+                    dist = NEAREST(nop->center[1] - pos_y);
+
+                    if(dist < -eff_dist || dist > eff_dist)
+                    {
+                        no = nop->u.d.sibling;
+                        continue;
+                    }
+                    dist = NEAREST(nop->center[2] - pos_z);
+
+                    if(dist < -eff_dist || dist > eff_dist)
+                    {
+                        no = nop->u.d.sibling;
+                        continue;
+                    }
+                }
+
+
+                if(All.ErrTolTheta)	/* check Barnes-Hut opening criterion */
+                {
+                    if(nop->len * nop->len > r2 * All.ErrTolTheta * All.ErrTolTheta)
+                    {
+                        /* open cell */
+                        no = nop->u.d.nextnode;
+                        continue;
+                    }
+                }
+                else		/* check relative opening criterion */
+                {
+                    if(mass * nop->len * nop->len > r2 * r2 * aold)
+                    {
+                        /* open cell */
+                        no = nop->u.d.nextnode;
+                        continue;
+                    }
+
+                    /* check in addition whether we lie inside the cell */
+
+                    if(fabs(nop->center[0] - pos_x) < 0.60 * nop->len)
+                    {
+                        if(fabs(nop->center[1] - pos_y) < 0.60 * nop->len)
+                        {
+                            if(fabs(nop->center[2] - pos_z) < 0.60 * nop->len)
+                            {
+                                no = nop->u.d.nextnode;
+                                continue;
+                            }
+                        }
+                    }
+                }
+
+#ifndef ADAPTIVE_GRAVSOFT_FORGAS
+                h = All.ForceSoftening[ptype];
+                if(h < All.ForceSoftening[extract_max_softening_type(nop->u.d.bitflags)])
+                {
+                    h = All.ForceSoftening[extract_max_softening_type(nop->u.d.bitflags)];
+                    if(r2 < h * h)
+                    {
+                        if(maskout_different_softening_flag(nop->u.d.bitflags))	/* bit-5 signals that there are particles of different softening in the node */
+                        {
+                            no = nop->u.d.nextnode;
+
+                            continue;
+                        }
+                    }
+                }
+#else
+                if(ptype == 0)
+                    h = soft;
+                else
+                    h = All.ForceSoftening[ptype];
+
+                if(h < nop->maxsoft)
+                {
+                    h = nop->maxsoft;
+                    if(r2 < h * h)
+                    {
+                        no = nop->u.d.nextnode;
+                        continue;
+                    }
+                }
+#endif
+                no = nop->u.d.sibling;	/* ok, node can be used */
+
+            }
+
+            r = sqrt(r2);
+
+            if(r >= h)
+            {
+                fac = mass / (r2 * r);
+                facpot = -mass / r;
+            }
+            else
+            {
+                h_inv = 1.0 / h;
+                h3_inv = h_inv * h_inv * h_inv;
+                u = r * h_inv;
+                if(u < 0.5)
+                    fac = mass * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
+                else
+                    fac =
+                        mass * h3_inv * (21.333333333333 - 48.0 * u +
+                                38.4 * u * u - 10.666666666667 * u * u * u - 0.066666666667 / (u * u * u));
+                if(u < 0.5)
+                    wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
+                else
+                    wp =
+                        -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
+                                u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
+
+                facpot = mass * h_inv * wp;
+
+            }
+
+            tabindex = (int) (asmthfac * r);
+
+            if(tabindex < NTAB)
+            {
+                fac *= shortrange_table[tabindex];
+
+                acc_x += (dx * fac);
+                acc_y += (dy * fac);
+                acc_z += (dz * fac);
+                pot += (facpot * shortrange_table_potential[tabindex]);
+                ninteractions++;
+            }
+
+        }
+
+        if(listindex < NODELISTLENGTH)
+        {
+            no = input->base.NodeList[listindex];
+            if(no >= 0)
+            {
+                no = Nodes[no].u.d.nextnode;	/* open it */
+                nnodesinlist++;
+                listindex++;
+            }
+        }
+    }
+
+        output->Acc[0] = acc_x;
+        output->Acc[1] = acc_y;
+        output->Acc[2] = acc_z;
+        output->Ninteractions = ninteractions;
+        output->Potential = pot;
+
+    lv->Ninteractions = ninteractions;
+    lv->Nnodesinlist = nnodesinlist;
+    return ninteractions;
+}
+
+

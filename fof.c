@@ -15,6 +15,7 @@
 #include "mpsort.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "treewalk.h"
 
 /*! \file fof.c
  *  \brief parallel FoF group finder
@@ -81,21 +82,20 @@ int64_t TotNids;
 struct Group *Group;
 struct BaseGroup *BaseGroup;
 
-struct fofdata_in
-{
-    int NodeList[NODELISTLENGTH];
+typedef struct {
+    TreeWalkQueryBase base;
     MyDouble Pos[3];
     MyFloat Hsml;
     MyIDType MinID;
     MyIDType MinIDTask;
-};
+} TreeWalkQueryFOF;
 
-struct fofdata_out
-{
+typedef struct {
+    TreeWalkResultBase base;
     MyFloat Distance;
     MyIDType MinID;
     MyIDType MinIDTask;
-};
+} TreeWalkResultFOF;
 
 
 static struct fof_particle_list
@@ -237,7 +237,7 @@ static struct LinkList {
 #define NEXT(i) LinkList[i].next
 #define LEN(i) LinkList[HEAD(i)].len
 
-static void fof_primary_copy(int place, struct fofdata_in * I) {
+static void fof_primary_copy(int place, TreeWalkQueryFOF * I) {
     I->Pos[0] = P[place].Pos[0];
     I->Pos[1] = P[place].Pos[1];
     I->Pos[2] = P[place].Pos[2];
@@ -251,7 +251,7 @@ static int fof_primary_isactive(int n) {
 }
 
 static int fof_primary_evaluate(int target,
-        struct fofdata_in * I, struct fofdata_out * O,
+        TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
         LocalTreeWalk * lv);
 
 void fof_label_primary(void)
@@ -271,8 +271,8 @@ void fof_label_primary(void)
     ev.ev_reduce = NULL;
     ev.UseNodeList = 1;
     ev.UseAllParticles = 1;
-    ev.ev_datain_elsize = sizeof(struct fofdata_in);
-    ev.ev_dataout_elsize = 1;
+    ev.query_type_elsize = sizeof(TreeWalkQueryFOF);
+    ev.result_type_elsize = 1;
 
     LinkList = (struct LinkList *) mymalloc("FOF_Links", NumPart * sizeof(struct LinkList));
     /* allocate buffers to arrange communication */
@@ -365,13 +365,12 @@ static void fofp_merge(int target, int j)
 }
 
 static int fof_primary_evaluate(int target,
-        struct fofdata_in * I, struct fofdata_out * O,
+        TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
         LocalTreeWalk * lv) {
     int listindex = 0;
     int startnode, numngb_inbox;
-    
 
-    startnode = I->NodeList[0];
+    startnode = I->base.NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
@@ -408,7 +407,7 @@ static int fof_primary_evaluate(int target,
 
         if(listindex < NODELISTLENGTH)
         {
-            startnode = I->NodeList[listindex];
+            startnode = I->base.NodeList[listindex];
             if(startnode >= 0) {
                 startnode = Nodes[startnode].u.d.nextnode;	/* open it */
                 listindex++;
@@ -920,7 +919,7 @@ void fof_save_groups(int num)
     message(0, "Group catalogues saved. took = %g sec\n", timediff(t0, t1));
 }
 
-static void fof_secondary_copy(int place, struct fofdata_in * I) {
+static void fof_secondary_copy(int place, TreeWalkQueryFOF * I) {
     int k;
     for (k = 0; k < 3; k ++) {
         I->Pos[k] = P[place].Pos[k];
@@ -930,7 +929,7 @@ static void fof_secondary_copy(int place, struct fofdata_in * I) {
 static int fof_secondary_isactive(int n) {
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
-static void fof_secondary_reduce(int place, struct fofdata_out * O, int mode) {
+static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, int mode) {
     if(O->Distance < fof_secondary_distance[place])
     {
         fof_secondary_distance[place] = O->Distance;
@@ -939,7 +938,7 @@ static void fof_secondary_reduce(int place, struct fofdata_out * O, int mode) {
     }
 }
 static int fof_secondary_evaluate(int target,
-        struct fofdata_in * I, struct fofdata_out * O,
+        TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
         LocalTreeWalk * lv);
 
 static void fof_label_secondary(void)
@@ -954,8 +953,8 @@ static void fof_label_secondary(void)
     ev.ev_reduce = (ev_reduce_func) fof_secondary_reduce;
     ev.UseNodeList = 1;
     ev.UseAllParticles = 1;
-    ev.ev_datain_elsize = sizeof(struct fofdata_in);
-    ev.ev_dataout_elsize = sizeof(struct fofdata_out);
+    ev.query_type_elsize = sizeof(TreeWalkQueryFOF);
+    ev.result_type_elsize = sizeof(TreeWalkResultFOF);
 
     message(0, "Start finding nearest dm-particle (presently allocated=%g MB)\n",
             AllocatedBytes / (1024.0 * 1024.0));
@@ -1046,14 +1045,14 @@ static void fof_label_secondary(void)
 }
 
 static int fof_secondary_evaluate(int target,
-        struct fofdata_in * I, struct fofdata_out * O,
+        TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
         LocalTreeWalk * lv)
 {
     int j, n, index, listindex = 0;
     int startnode, numngb_inbox;
     double h, r2max;
 
-    startnode = I->NodeList[0];
+    startnode = I->base.NodeList[0];
     listindex ++;
     startnode = Nodes[startnode].u.d.nextnode;	/* open it */
 
@@ -1094,7 +1093,7 @@ static int fof_secondary_evaluate(int target,
 
         if(listindex < NODELISTLENGTH)
         {
-            startnode = I->NodeList[listindex];
+            startnode = I->base.NodeList[listindex];
             if(startnode >= 0) {
                 startnode = Nodes[startnode].u.d.nextnode;	/* open it */
                 listindex ++;
