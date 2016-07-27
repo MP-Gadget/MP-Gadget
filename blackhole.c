@@ -9,7 +9,7 @@
 #include "densitykernel.h"
 #include "proto.h"
 #include "forcetree.h"
-#include "evaluator.h"
+#include "treewalk.h"
 #include "domain.h"
 #include "mymalloc.h"
 #include "endrun.h"

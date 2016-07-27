@@ -20,8 +20,8 @@ OBJECTS  =  \
 	 timestep.o init.o io.o sfr_eff.o \
 	 accel.o \
 	 cooling.o ngb.o openmpsort.o \
-	 system.o allocate.o density.o sizelimited_sendrecv.o  \
-	 evaluator.o cosmology.o \
+	 system.o allocate.o density.o \
+	 treewalk.o cosmology.o \
 	 gravtree.o hydra.o  driftfac.o \
 	 gravpm.o \
 	 forcetree.o peano.o \
@@ -40,10 +40,9 @@ ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
         mymalloc.o \
         endrun.o \
 
-INCL   = allvars.h proto.h forcetree.h cooling.h domain.h evaluator.h \
+INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h \
-	 petaio.h \
-	 Makefile 
+	 petaio.h $(DESTDIR)/config.h
 
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)
@@ -62,12 +61,9 @@ $(DESTDIR)/MP-Gadget: $(OBJS)
 $(DESTDIR)/MP-GenIC: $(ICOBJS)
 	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
-$(DESTDIR)/config.h: Makefile
+$(DESTDIR)/config.h: Makefile $(CONFIG)
 	mkdir -p `dirname $@`
-	OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
-
-$(OBJS): $(INCL) $(DESTDIR)/config.h 
-$(ICOBJS): $(INCL) $(DESTDIR)/config.h 
+	CC="$(CC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
 
 $(DESTDIR)/%.o: %.c $(INCL)
 	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<

@@ -36,8 +36,6 @@ OPT	+=  -DTOPNODEFACTOR=5.0
 
 #---------------------------------------- On the fly FOF groupfinder 
 OPT	+=  -DFOF                                # enable FoF output
-OPT	+=  -DFOF_PRIMARY_LINK_TYPES=2           # 2^type for the primary dark matter type
-OPT	+=  -DFOF_SECONDARY_LINK_TYPES=1+16+32	 # 2^type for the types linked to nearest primaries
 
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)

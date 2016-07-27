@@ -37,9 +37,6 @@ void long_range_force(void)
 
     }
 
-#ifdef NOGRAVITY
-  return;
-#endif
   gravpm_force();
 }
 

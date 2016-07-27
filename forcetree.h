@@ -1,6 +1,6 @@
 #ifndef FORCETREE_H
 #define FORCETREE_H
-#include "evaluator.h"
+#include "treewalk.h"
 
 /*
  * Variables for Tree
