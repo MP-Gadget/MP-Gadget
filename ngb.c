@@ -35,7 +35,7 @@
  *  returned, i.e. the reduction to a sphere still needs to be done in the
  *  calling routine.
  */
-int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
+int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int *startnode,
         LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask)
 {
     int no, p, numngb;
@@ -97,9 +97,9 @@ int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int
                         endrun(12312, "using node list but fell into mode 1. Why shall fail in this case?");
                     }
                 }
-                if(target >= 0)	/* if no target is given, export will not occur */
+                if(lv->target >= 0)	/* if no target is given, export will not occur */
                 {
-                    if(-1 == ev_export_particle(lv, target, no))
+                    if(-1 == ev_export_particle(lv, lv->target, no))
                         return -1;
                 }
 

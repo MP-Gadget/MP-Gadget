@@ -292,7 +292,7 @@ static int blackhole_feedback_visit(TreeWalkQueryBHFeedback * I,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->base.Pos, hsearch, lv->target, &startnode, lv,
+            numngb = ngb_treefind_threads(I->base.Pos, hsearch, &startnode, lv,
                     NGB_TREEFIND_ASYMMETRIC, ptypemask);
 
             if(numngb < 0)
@@ -458,7 +458,7 @@ int blackhole_swallow_visit(TreeWalkQuerySwallow * I,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->base.Pos, I->Hsml, lv->target, &startnode,
+            numngb = ngb_treefind_threads(I->base.Pos, I->Hsml, &startnode,
                     lv, NGB_TREEFIND_SYMMETRIC, ptypemask);
 
             if(numngb < 0)

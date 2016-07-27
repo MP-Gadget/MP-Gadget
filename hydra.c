@@ -236,7 +236,7 @@ static int hydro_visit(TreeWalkQueryHydro * I,
         while(startnode >= 0)
         {
             numngb =
-                ngb_treefind_threads(I->base.Pos, I->Hsml, lv->target, &startnode,
+                ngb_treefind_threads(I->base.Pos, I->Hsml, &startnode,
                         lv, NGB_TREEFIND_SYMMETRIC, 1); /* gas only 1 << 0 */
 
             if(numngb < 0)

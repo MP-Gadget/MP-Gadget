@@ -520,7 +520,7 @@ static int density_visit(TreeWalkQueryDensity * I,
         while(startnode >= 0)
         {
             numngb_inbox =
-                ngb_treefind_threads(I->base.Pos, hsearch, lv->target, &startnode,
+                ngb_treefind_threads(I->base.Pos, hsearch, &startnode,
                         lv, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
 
             if(numngb_inbox < 0)

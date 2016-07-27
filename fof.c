@@ -372,7 +372,7 @@ static int fof_primary_visit(TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_threads(I->base.Pos, All.FOFHaloComovingLinkingLength, lv->target, &startnode,
+            numngb_inbox = ngb_treefind_threads(I->base.Pos, All.FOFHaloComovingLinkingLength, &startnode,
                     lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)
@@ -1052,7 +1052,7 @@ static int fof_secondary_visit(TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_threads(I->base.Pos, h, lv->target, &startnode,
+            numngb_inbox = ngb_treefind_threads(I->base.Pos, h, &startnode,
                     lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
 
             if(numngb_inbox < 0)

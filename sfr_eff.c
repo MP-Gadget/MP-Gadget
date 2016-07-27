@@ -518,7 +518,7 @@ static int sfr_wind_ev_weight(TreeWalkQueryWind * I,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->base.Pos, hsearch, lv->target, &startnode,
+            numngb = ngb_treefind_threads(I->base.Pos, hsearch, &startnode,
                     lv, NGB_TREEFIND_SYMMETRIC, 1 + 2);
 
             if(numngb < 0)
@@ -598,7 +598,7 @@ static int sfr_wind_visit(TreeWalkQueryWind * I,
     {
         while(startnode >= 0)
         {
-            numngb = ngb_treefind_threads(I->base.Pos, I->Hsml, lv->target, &startnode,
+            numngb = ngb_treefind_threads(I->base.Pos, I->Hsml, &startnode,
                     lv, NGB_TREEFIND_SYMMETRIC, 1);
 
             if(numngb < 0)
