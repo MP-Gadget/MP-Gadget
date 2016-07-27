@@ -1,20 +1,6 @@
 #ifndef PROTO_H
 #define PROTO_H
 
-#ifdef MPISENDRECV_CHECKSUM
-int MPI_Check_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
-                       int dest, int sendtag, void *recvbufreal, int recvcount,
-                       MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Status * status);
-#define MPI_Sendrecv MPI_Check_Sendrecv
-#endif
-
-#ifdef MPISENDRECV_SIZELIMIT
-int MPI_Sizelimited_Sendrecv(void *sendbuf, int sendcount, MPI_Datatype sendtype,
-			     int dest, int sendtag, void *recvbuf, int recvcount,
-			     MPI_Datatype recvtype, int source, int recvtag, MPI_Comm comm, MPI_Status * status);
-#define MPI_Sendrecv MPI_Sizelimited_Sendrecv
-#endif
-
 int drift_particle_full(int i, int time1, int blocking);
 void drift_particle(int i, int time1);
 void lock_particle_if_not(int i, MyIDType id);
