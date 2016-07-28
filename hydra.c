@@ -414,6 +414,10 @@ static int hydro_visit(TreeWalkQueryHydro * I,
                     O->DtEntropy += (0.5 * hfc_visc * vdotr2);
 
                 }
+#ifdef HYDRO_COST_FACTOR
+                O->Ninteractions++;
+#endif
+
             }
         }
 
@@ -427,11 +431,6 @@ static int hydro_visit(TreeWalkQueryHydro * I,
             }
         }
     }
-
-    /* Now collect the result at the right place */
-#ifdef HYDRO_COST_FACTOR
-        O->Ninteractions = ninteractions;
-#endif
 
     /* some performance measures not currently used */
     lv->Ninteractions += ninteractions;

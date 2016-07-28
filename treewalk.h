@@ -19,6 +19,14 @@ typedef struct {
 } TreeWalkResultBase;
 
 typedef struct {
+    int symmetry;
+    int mask;
+    double Hsml;
+
+    int other;
+} TreeWalkNgbIterBase;
+
+typedef struct {
     struct _TreeWalk * tw;
 
     int mode; /* 0 for Primary, 1 for Secondary */
@@ -34,6 +42,8 @@ typedef struct {
 
 typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
 
+typedef int (*TreeWalkNgbIterFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, TreeWalkNgbIterBase * iter, LocalTreeWalk * lv);
+
 typedef int (*TreeWalkIsActiveFunction) (const int i);
 
 typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query);
@@ -47,6 +57,7 @@ typedef struct _TreeWalk {
     TreeWalkIsActiveFunction isactive;
     TreeWalkFillQueryFunction fill;
     TreeWalkReduceResultFunction reduce;
+    TreeWalkNgbIterFunction ngbiter;
 
     int * ngblist;
 
@@ -58,6 +69,7 @@ typedef struct _TreeWalk {
                              if 0 use active particles */
     size_t query_type_elsize;
     size_t result_type_elsize;
+    size_t ngbiter_type_elsize;
 
     /* performance metrics */
     double timewait1;
@@ -89,6 +101,9 @@ typedef struct _TreeWalk {
 
 void treewalk_run(TreeWalk * tw);
 int * treewalk_get_queue(TreeWalk * tw, int * len);
+int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
+            TreeWalkResultBase * O,
+            LocalTreeWalk * lv);
 
 /*returns -1 if the buffer is full */
 int ev_export_particle(LocalTreeWalk * lv, int target, int no);

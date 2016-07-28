@@ -485,6 +485,11 @@ static void density_interact(
         }
     }
 #endif
+
+    /* some performance measures not currently used */
+#ifdef HYDRO_COST_FACTOR
+    O->Ninteractions ++;
+#endif
 }
 
 static int density_visit(TreeWalkQueryDensity * I,

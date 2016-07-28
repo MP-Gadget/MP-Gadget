@@ -662,4 +662,58 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
     // qsort(tq, length, sizeof(struct ev_task), ev_task_cmp_by_top_node);
 }
 
+int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
+            TreeWalkResultBase * O,
+            LocalTreeWalk * lv)
+{
+    int n;
+
+    int startnode, numngb_inbox, listindex = 0;
+
+    TreeWalkNgbIterBase * iter = alloca(lv->tw->ngbiter_type_elsize);
+    /* Initialize the iter */
+    lv->tw->ngbiter(I, NULL, iter, lv);
+
+    startnode = I->NodeList[0];
+    listindex ++;
+    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+    int ninteractions = 0;
+    int nnodesinlist = 0;
+
+    while(startnode >= 0)
+    {
+        while(startnode >= 0)
+        {
+            numngb_inbox =
+                ngb_treefind_threads(I->Pos, iter->Hsml, &startnode,
+                        lv, iter->symmetry, iter->mask);
+
+            if(numngb_inbox < 0)
+                return numngb_inbox;
+
+            for(n = 0; n < numngb_inbox; n++)
+            {
+                ninteractions++;
+                int j = lv->ngblist[n];
+
+                iter->other = j;
+                lv->tw->ngbiter(I, O, iter, lv);
+            }
+        }
+        /* now check next node in the node list */
+        if(listindex < NODELISTLENGTH)
+        {
+            startnode = I->NodeList[listindex];
+            if(startnode >= 0) {
+                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+                listindex++;
+                nnodesinlist ++;
+            }
+        }
+    }
+
+    lv->Ninteractions += ninteractions;
+    lv->Nnodesinlist += nnodesinlist;
+    return 0;
+}
 
