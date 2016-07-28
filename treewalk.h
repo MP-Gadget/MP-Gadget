@@ -1,6 +1,11 @@
 #ifndef _EVALUATOR_H_
 #define _EVALUATOR_H_
 
+enum NgbTreeFindSymmetric {
+    NGB_TREEFIND_SYMMETRIC,
+    NGB_TREEFIND_ASYMMETRIC,
+};
+
 enum TreeWalkReduceMode {
     TREEWALK_PRIMARY,
     TREEWALK_GHOSTS,
@@ -19,7 +24,7 @@ typedef struct {
 } TreeWalkResultBase;
 
 typedef struct {
-    int symmetry;
+    enum NgbTreeFindSymmetric symmetric;
     int mask;
     double Hsml;
 
@@ -107,6 +112,10 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
 /*returns -1 if the buffer is full */
 int ev_export_particle(LocalTreeWalk * lv, int target, int no);
+
+int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int *startnode,
+              LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask);
+
 
 #define TREEWALK_REDUCE(A, B) (A) = (mode==TREEWALK_PRIMARY)?(B):((A) + (B))
 #endif

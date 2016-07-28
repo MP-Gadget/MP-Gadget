@@ -125,24 +125,7 @@ void   force_update_size_of_parent_node(int no);
 
 void   dump_particles(void);
 
-MyFloat  ngb_select_closest(int k, int n, MyFloat *arr, int *ind);
-void   ngb_treeallocate(int npart);
 void   ngb_treebuild(void);
-
-
-void   ngb_treefree(void);
-void   ngb_treesearch(int);
-void   ngb_treesearch_pairs(int);
-void   ngb_update_nodes(void);
-void   ngb_treesearch_notsee(int no);
-
-enum NgbTreeFindSymmetric {
-    NGB_TREEFIND_SYMMETRIC,
-    NGB_TREEFIND_ASYMMETRIC,
-};
-
-int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int *startnode,
-		       LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask);
 
 #endif
 

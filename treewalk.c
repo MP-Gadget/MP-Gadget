@@ -11,15 +11,12 @@
 #include "forcetree.h"
 #include "endrun.h"
 
-#define TAG_EVALUATE_A (9999)
-#define TAG_EVALUATE_B (10000)
 struct ev_task {
     int top_node;
     int place;
 } ;
 
-
-static int *Exportflag;	        /*!< Buffer used for flagging whether a particle needs to be exported to another process */
+static int *Exportflag;    /*!< Buffer used for flagging whether a particle needs to be exported to another process */
 static int *Exportnodecount;
 static int *Exportindex;
 static int *Send_offset, *Send_count, *Recv_count, *Recv_offset, *Sendcount;
@@ -50,10 +47,10 @@ static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
 static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int length);
 static void ev_begin(TreeWalk * tw);
 static void ev_finish(TreeWalk * tw);
-static int ev_primary(TreeWalk * tw); 
-static void ev_get_remote(TreeWalk * tw, int tag);
+static int ev_primary(TreeWalk * tw);
+static void ev_get_remote(TreeWalk * tw);
 static void ev_secondary(TreeWalk * tw);
-static void reduce_result(TreeWalk * tw, int tag);
+static void ev_reduce_result(TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
 
 
@@ -489,19 +486,22 @@ void treewalk_run(TreeWalk * tw) {
     {
         ev_primary(tw); /* do local particles and prepare export list */
         /* exchange particle data */
-        ev_get_remote(tw, TAG_EVALUATE_A);
+        ev_get_remote(tw);
         report_memory_usage(tw->ev_label);
         /* now do the particles that were sent to us */
         ev_secondary(tw);
+
         /* import the result to local particles */
-        reduce_result(tw, TAG_EVALUATE_B);
+        ev_reduce_result(tw);
+
         tw->Niterations ++;
         tw->Nexport_sum += tw->Nexport;
     } while(ev_ndone(tw) < NTask);
     ev_finish(tw);
 }
 
-static void ev_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int tag, int import) {
+static void
+ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, int import) {
     /* if import is 1, import the results from neigbhours */
     MPI_Datatype type;
     MPI_Type_contiguous(elsize, MPI_BYTE, &type);
@@ -520,7 +520,7 @@ static void ev_im_or_ex(void * sendbuf, void * recvbuf, size_t elsize, int tag, 
 }
 
 /* returns the remote particles */
-static void ev_get_remote(TreeWalk * tw, int tag)
+static void ev_get_remote(TreeWalk * tw)
 {
     int j;
     double tstart, tend;
@@ -548,14 +548,14 @@ static void ev_get_remote(TreeWalk * tw, int tag)
     tw->timecomp1 += timediff(tstart, tend);
 
     tstart = second();
-    ev_im_or_ex(sendbuf, recvbuf, tw->query_type_elsize, tag, 0);
+    ev_communicate(sendbuf, recvbuf, tw->query_type_elsize, 0);
     tend = second();
     tw->timecommsumm1 += timediff(tstart, tend);
     myfree(sendbuf);
     tw->dataget = recvbuf;
 }
 
-int data_index_compare_by_index(const void *a, const void *b)
+static int data_index_compare_by_index(const void *a, const void *b)
 {
     if(((struct data_index *) a)->Index < (((struct data_index *) b)->Index))
         return -1;
@@ -572,7 +572,7 @@ int data_index_compare_by_index(const void *a, const void *b)
     return 0;
 }
 
-static void reduce_result(TreeWalk * tw, int tag)
+static void ev_reduce_result(TreeWalk * tw)
 {
 
     int j;
@@ -583,7 +583,7 @@ static void reduce_result(TreeWalk * tw, int tag)
                 tw->Nexport * tw->result_type_elsize);
 
     tstart = second();
-    ev_im_or_ex(sendbuf, recvbuf, tw->result_type_elsize, tag, 1);
+    ev_communicate(sendbuf, recvbuf, tw->result_type_elsize, 1);
     tend = second();
     tw->timecommsumm2 += timediff(tstart, tend);
 
@@ -686,7 +686,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
         {
             numngb_inbox =
                 ngb_treefind_threads(I->Pos, iter->Hsml, &startnode,
-                        lv, iter->symmetry, iter->mask);
+                        lv, iter->symmetric, iter->mask);
 
             if(numngb_inbox < 0)
                 return numngb_inbox;

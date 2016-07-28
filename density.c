@@ -16,14 +16,14 @@
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
-struct densinteraction {
+typedef struct {
+    TreeWalkNgbIterBase base;
     DensityKernel kernel;
     double kernel_volume;
-
 #ifdef BLACK_HOLES
     DensityKernel bh_feedback_kernel;
 #endif
-};
+} TreeWalkNgbIterDensity;
 
 typedef struct
 {
@@ -70,8 +70,14 @@ typedef struct {
 #endif
 } TreeWalkResultDensity;
 
+static void
+density_ngbiter(
+        TreeWalkQueryDensity * I,
+        TreeWalkResultDensity * O,
+        TreeWalkNgbIterDensity * iter,
+        LocalTreeWalk * lv);
+
 static int density_isactive(int n);
-static int density_visit(TreeWalkQueryDensity * I, TreeWalkResultDensity * O, LocalTreeWalk * lv);
 static void density_post_process(int i);
 static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
 
@@ -108,7 +114,10 @@ void density(void)
     TreeWalk tw = {0};
 
     tw.ev_label = "DENSITY";
-    tw.visit = (TreeWalkVisitFunction) density_visit;
+    tw.visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw.ngbiter_type_elsize = sizeof(TreeWalkNgbIterDensity);
+    tw.ngbiter = (TreeWalkNgbIterFunction) density_ngbiter;
+
     tw.isactive = density_isactive;
     tw.fill = (TreeWalkFillQueryFunction) density_copy;
     tw.reduce = (TreeWalkReduceResultFunction) density_reduce;
@@ -350,12 +359,31 @@ static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeW
  *  buffer.
  */
 
-static void density_interact(
-        struct densinteraction * d,
+static void
+density_ngbiter(
         TreeWalkQueryDensity * I,
         TreeWalkResultDensity * O,
-        int other, LocalTreeWalk * lv)
+        TreeWalkNgbIterDensity * iter,
+        LocalTreeWalk * lv)
 {
+    if(O == NULL) {
+        double h;
+        double hsearch;
+        h = I->Hsml;
+        hsearch = density_decide_hsearch(I->Type, h);
+
+        density_kernel_init(&iter->kernel, h);
+        iter->kernel_volume = density_kernel_volume(&iter->kernel);
+    #ifdef BLACK_HOLES
+        density_kernel_init(&iter->bh_feedback_kernel, hsearch);
+    #endif
+
+        iter->base.Hsml = hsearch;
+        iter->base.mask = 1; /* gas only */
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        return;
+    }
+    int other = iter->base.other;
 #ifdef WINDS
     if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
         if(SPHP(other).DelayTime > 0)	/* partner is a wind particle */
@@ -385,12 +413,12 @@ static void density_interact(
 
     double r = sqrt(r2);
 
-    if(r2 < d->kernel.HH)
+    if(r2 < iter->kernel.HH)
     {
 
-        double u = r * d->kernel.Hinv;
-        double wk = density_kernel_wk(&d->kernel, u);
-        double dwk = density_kernel_dwk(&d->kernel, u);
+        double u = r * iter->kernel.Hinv;
+        double wk = density_kernel_wk(&iter->kernel, u);
+        double dwk = density_kernel_dwk(&iter->kernel, u);
 
         double mass_j = P[other].Mass;
 
@@ -400,15 +428,15 @@ static void density_interact(
 #else
         O->Rho += (mass_j * wk);
 #endif
-        O->Ngb += wk * d->kernel_volume;
+        O->Ngb += wk * iter->kernel_volume;
 
         /* Hinv is here becuase O->DhsmlDensity is drho / dH.
          * nothing to worry here */
-        O->DhsmlDensity += mass_j * density_kernel_dW(&d->kernel, u, wk, dwk);
+        O->DhsmlDensity += mass_j * density_kernel_dW(&iter->kernel, u, wk, dwk);
 
 #ifdef DENSITY_INDEPENDENT_SPH
         O->EgyRho += mass_j * SPHP(other).EntVarPred * wk;
-        O->DhsmlEgyDensity += mass_j * SPHP(other).EntVarPred * density_kernel_dW(&d->kernel, u, wk, dwk);
+        O->DhsmlEgyDensity += mass_j * SPHP(other).EntVarPred * density_kernel_dW(&iter->kernel, u, wk, dwk);
 #endif
 
 
@@ -446,7 +474,7 @@ static void density_interact(
         }
     }
 #ifdef BLACK_HOLES
-    if(I->Type == 5 && r2 < d->bh_feedback_kernel.HH)
+    if(I->Type == 5 && r2 < iter->bh_feedback_kernel.HH)
     {
 #ifdef WINDS
         /* blackhole doesn't accrete from wind, regardlies coupled or
@@ -475,9 +503,9 @@ static void density_interact(
                 mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
             }
             if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
-                double u = r * d->bh_feedback_kernel.Hinv;
+                double u = r * iter->bh_feedback_kernel.Hinv;
                 O->FeedbackWeightSum += (mass_j *
-                      density_kernel_wk(&d->bh_feedback_kernel, u)
+                      density_kernel_wk(&iter->bh_feedback_kernel, u)
                        );
             } else {
                 O->FeedbackWeightSum += (mass_j);
@@ -490,76 +518,6 @@ static void density_interact(
 #ifdef HYDRO_COST_FACTOR
     O->Ninteractions ++;
 #endif
-}
-
-static int density_visit(TreeWalkQueryDensity * I,
-            TreeWalkResultDensity * O,
-            LocalTreeWalk * lv)
-{
-    int n;
-
-    int startnode, numngb_inbox, listindex = 0;
-
-    double h;
-    double hsearch;
-    struct densinteraction di[1];
-
-    h = I->Hsml;
-    hsearch = density_decide_hsearch(I->Type, h);
-
-    density_kernel_init(&di->kernel, h);
-    di->kernel_volume = density_kernel_volume(&di->kernel);
-
-#ifdef BLACK_HOLES
-    density_kernel_init(&di->bh_feedback_kernel, hsearch);
-#endif
-
-    startnode = I->base.NodeList[0];
-    listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-    int ninteractions = 0;
-    int nnodesinlist = 0;
-
-    while(startnode >= 0)
-    {
-        while(startnode >= 0)
-        {
-            numngb_inbox =
-                ngb_treefind_threads(I->base.Pos, hsearch, &startnode,
-                        lv, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
-
-            if(numngb_inbox < 0)
-                return numngb_inbox;
-
-            for(n = 0; n < numngb_inbox; n++)
-            {
-                ninteractions++;
-                int j = lv->ngblist[n];
-                density_interact(di, I, O, j, lv);
-            }
-        }
-        /* now check next node in the node list */
-        if(listindex < NODELISTLENGTH)
-        {
-            startnode = I->base.NodeList[listindex];
-            if(startnode >= 0) {
-                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-                listindex++;
-                nnodesinlist ++;
-            }
-        }
-    }
-    lv->Ninteractions += ninteractions;
-    lv->Nnodesinlist += nnodesinlist;
-
-    /* Now collect the result at the right place */
-
-    /* some performance measures not currently used */
-#ifdef HYDRO_COST_FACTOR
-    O->Ninteractions = ninteractions;
-#endif
-
-    return 0;
 }
 
 static int density_isactive(int n)
