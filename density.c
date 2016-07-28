@@ -569,19 +569,19 @@ static void density_post_process(int i) {
         }
 
 #ifdef DENSITY_INDEPENDENT_SPH
-    SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
+        SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
 #else
-    int dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
-    int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
-    SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
+        int dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
+        int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
+        SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
 #endif // DENSITY_INDEPENDENT_SPH
 
 #ifdef SOFTEREQS
-    /* use an intermediate EQS, between isothermal and the full multiphase model */
-    if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh) {
-        SPHP(i).Pressure = All.FactorForSofterEQS * SPHP(i).Pressure +
-            (1 - All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
-    }
+        /* use an intermediate EQS, between isothermal and the full multiphase model */
+        if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh) {
+            SPHP(i).Pressure = All.FactorForSofterEQS * SPHP(i).Pressure +
+                (1 - All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
+        }
 #endif //SOFTEREQS
     }
 
