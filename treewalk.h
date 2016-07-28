@@ -27,7 +27,9 @@ typedef struct {
     enum NgbTreeFindSymmetric symmetric;
     int mask;
     double Hsml;
-
+    double dist[3];
+    double r2;
+    double r;
     int other;
 } TreeWalkNgbIterBase;
 

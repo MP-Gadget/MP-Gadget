@@ -697,6 +697,13 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
                 int j = lv->ngblist[n];
 
                 iter->other = j;
+                iter->r2 = 0;
+                int d;
+                for(d = 0; d < 3; d ++) {
+                    iter->dist[d] = NEAREST(I->Pos[d] - P[j].Pos[d]);
+                    iter->r2 += iter->dist[d] * iter->dist[d];
+                }
+                iter->r = sqrt(iter->r2);
                 lv->tw->ngbiter(I, O, iter, lv);
             }
         }

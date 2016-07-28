@@ -384,6 +384,10 @@ density_ngbiter(
         return;
     }
     int other = iter->base.other;
+    double r = iter->base.r;
+    double r2 = iter->base.r2;
+    double * dist = iter->base.dist;
+
 #ifdef WINDS
     if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
         if(SPHP(other).DelayTime > 0)	/* partner is a wind particle */
@@ -401,17 +405,6 @@ density_ngbiter(
         return;
 #endif
 #endif
-    double dx = I->base.Pos[0] - P[other].Pos[0];
-    double dy = I->base.Pos[1] - P[other].Pos[1];
-    double dz = I->base.Pos[2] - P[other].Pos[2];
-
-    dx = NEAREST(dx);
-    dy = NEAREST(dy);
-    dz = NEAREST(dz);
-
-    double r2 = dx * dx + dy * dy + dz * dz;
-
-    double r = sqrt(r2);
 
     if(r2 < iter->kernel.HH)
     {
@@ -451,26 +444,28 @@ density_ngbiter(
 #ifdef SPH_GRAD_RHO
         if(r > 0)
         {
-            O->GradRho[0] += mass_j * dwk * dx / r;
-            O->GradRho[1] += mass_j * dwk * dy / r;
-            O->GradRho[2] += mass_j * dwk * dz / r;
+            int d;
+            for (d = 0; d < 3; d ++) {
+                O->GradRho[d] += mass_j * dwk * dist[d] / r;
+            }
         }
 #endif
-
 
         if(r > 0)
         {
             double fac = mass_j * dwk / r;
+            double dv[3];
+            double rot[3];
+            int d;
+            for(d = 0; d < 3; d ++) {
+                dv[d] = I->Vel[d] - SPHP(other).VelPred[d];
+            }
+            O->Div += -fac * dotproduct(dist, dv);
 
-            double dvx = I->Vel[0] - SPHP(other).VelPred[0];
-            double dvy = I->Vel[1] - SPHP(other).VelPred[1];
-            double dvz = I->Vel[2] - SPHP(other).VelPred[2];
-
-            O->Div += (-fac * (dx * dvx + dy * dvy + dz * dvz));
-
-            O->Rot[0] += (fac * (dz * dvy - dy * dvz));
-            O->Rot[1] += (fac * (dx * dvz - dz * dvx));
-            O->Rot[2] += (fac * (dy * dvx - dx * dvy));
+            crossproduct(dv, dist, rot);
+            for(d = 0; d < 3; d ++) {
+                O->Rot[d] += fac * rot[d];
+            }
         }
     }
 #ifdef BLACK_HOLES
