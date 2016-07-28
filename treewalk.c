@@ -671,8 +671,10 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     int startnode, numngb_inbox, listindex = 0;
 
     TreeWalkNgbIterBase * iter = alloca(lv->tw->ngbiter_type_elsize);
-    /* Initialize the iter */
-    lv->tw->ngbiter(I, NULL, iter, lv);
+
+    /* Kick-start the iteration with other == -1 */
+    iter->other = -1;
+    lv->tw->ngbiter(I, O, iter, lv);
 
     startnode = I->NodeList[0];
     listindex ++;

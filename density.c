@@ -366,7 +366,7 @@ density_ngbiter(
         TreeWalkNgbIterDensity * iter,
         LocalTreeWalk * lv)
 {
-    if(O == NULL) {
+    if(iter->base.other == -1) {
         double h;
         double hsearch;
         h = I->Hsml;
