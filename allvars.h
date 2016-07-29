@@ -49,9 +49,6 @@
 
 #define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
 
-
-#define  GADGETVERSION   "5.0"	/*!< code version string */
-
 #ifndef  GENERATIONS
 #define  GENERATIONS     2	/*!< Number of star particles that may be created per gas particle */
 #endif
