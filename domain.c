@@ -1194,6 +1194,16 @@ void domain_findSplit_load_balanced(int ncpu, int ndomain)
 
 
 
+static inline int domain_leafnodefunc(int n) {
+    int no=0;
+    peanokey key = KEY(n);
+    while(topNodes[no].Daughter >= 0)
+        no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size / 8);
+
+    no = topNodes[no].Leaf;
+    return no;
+}
+
 /*! This function determines how many particles that are currently stored
  *  on the local CPU have to be moved off according to the domain
  *  decomposition.
@@ -1203,12 +1213,7 @@ void domain_findSplit_load_balanced(int ncpu, int ndomain)
  *
  */
 static int domain_layoutfunc(int n) {
-    int no=0;
-    peanokey key = KEY(n);
-    while(topNodes[no].Daughter >= 0)
-        no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size / 8);
-
-    no = topNodes[no].Leaf;
+    int no = domain_leafnodefunc(n);
     return DomainTask[no];
 }
 
@@ -1860,12 +1865,7 @@ void domain_sumCost(void)
 #pragma omp for
         for(n = 0; n < NumPart; n++)
         {
-            int no = 0;
-            peanokey key = KEY(n);
-            while(topNodes[no].Daughter >= 0)
-                no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
-
-            no = topNodes[no].Leaf;
+            int no = domain_leafnodefunc(n);
 
             mylocal_domainWork[no] += (float) domain_particle_costfactor(n);
 
