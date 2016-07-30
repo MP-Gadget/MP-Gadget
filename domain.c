@@ -770,19 +770,19 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
                 BhP, count_recv_bh, offset_recv_bh, MPI_TYPE_BHPARTICLE,
                 MPI_COMM_WORLD);
     walltime_measure("/Domain/exchange/alltoall");
-                
-    for(target = 0; target < NTask; target++) {
-        int i, j;
-        for(i = offset_recv[target], 
-                j = offset_recv_bh[target]; 
-                i < offset_recv[target] + count_recv[target]; 
-                i++) {
-            if(P[i].Type != 5) continue;
-            P[i].PI = j;
-            j++;
-        }
-        if(j != count_recv_bh[target] + offset_recv_bh[target]) {
-            endrun(1, "communitate bh consitency\n");
+
+    if(count_get_bh > 0) {
+        for(target = 0; target < NTask; target++) {
+            int i, j;
+            for(i = offset_recv[target], j = offset_recv_bh[target];
+                i < offset_recv[target] + count_recv[target]; i++) {
+                if(P[i].Type != 5) continue;
+                P[i].PI = j;
+                j++;
+            }
+            if(j != count_recv_bh[target] + offset_recv_bh[target]) {
+                endrun(1, "communication bh inconsistency\n");
+            }
         }
     }
 
@@ -821,8 +821,7 @@ static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
 
 }
 
-void domain_garbage_collection() {
-
+void domain_bh_garbage_collection() {
     /* gc the bh */
     int i, j;
     int total = 0;
@@ -888,7 +887,15 @@ void domain_garbage_collection() {
     if(total != total0) {
         message(0, "After BH garbage collection, before = %d after= %d\n", total0, total);
     }
+}
 
+void domain_garbage_collection() {
+    int i;
+    /*Make sure the BHs are consistent, if we have any*/
+    if(N_bh > 0)
+        domain_bh_garbage_collection();
+
+    /*Now ensure that the particle numbers are consistent*/
     N_bh = 0;
     N_star = 0;
     N_sph = 0;
