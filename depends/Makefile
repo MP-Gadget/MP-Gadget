@@ -18,7 +18,8 @@ lib/libbigfile-mpi.a: bigfile/src/bigfile-mpi.c
 lib/libpfft_omp.a:
 	mkdir -p lib; \
 	mkdir -p include; \
-	MPICC="$(CC)" CC="$(CC)" CFLAGS="-O3 -I $(PWD)/include -L$(PWD)/lib" \
+	#Using -ipo causes icc to crash.
+	MPICC="$(CC)" CC="$(CC)" CFLAGS="$(filter-out -ipo,$(OPTIMIZE)) -I $(PWD)/include -L$(PWD)/lib" \
         sh $(PWD)/install_pfft.sh $(PWD)/
 
 clean:
