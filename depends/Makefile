@@ -1,4 +1,5 @@
-include ../Options.mk
+CONFIG = ../Options.mk
+include ../Makefile.defaults
 
 LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a lib/libpfft_omp.a
 depends: $(LIBRARIES)
