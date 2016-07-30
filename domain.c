@@ -1199,12 +1199,11 @@ void domain_findSplit_load_balanced(int ncpu, int ndomain)
  *  decomposition.
  *
  *  layoutfunc decides the target Task of particle p (used by
- *  subfind_distribute.
+ *  subfind_distribute).
  *
  */
 static int domain_layoutfunc(int n) {
-    int no;
-    no = 0;
+    int no=0;
     peanokey key = KEY(n);
     while(topNodes[no].Daughter >= 0)
         no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size / 8);
@@ -1236,7 +1235,7 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
 
     for(n = 0; n < NumPart; n++)
     {
-        if(package >= nlimit) continue;
+        if(package >= nlimit) break;
         if(!P[n].OnAnotherDomain) continue;
 
         int target = layoutfunc(n);
