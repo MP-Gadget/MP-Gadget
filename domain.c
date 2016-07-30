@@ -1697,18 +1697,15 @@ loop_continue:
  */
 int domain_determineTopTree(void)
 {
-    int i, count, j, sub;
+    int i, j, sub;
     int errflag, errsum;
     double costlimit, countlimit;
 
     mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
 
-    count = 0;
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-#pragma omp atomic
-        count ++;
         mp[i].key = KEY(i);
         mp[i].index = i;
     }
@@ -1724,7 +1721,7 @@ int domain_determineTopTree(void)
     topNodes[0].Size = PEANOCELLS;
     topNodes[0].StartKey = 0;
     topNodes[0].PIndex = 0;
-    topNodes[0].Count = count;
+    topNodes[0].Count = NumPart;
     topNodes[0].Cost = gravcost;
 
     costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
