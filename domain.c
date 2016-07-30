@@ -1834,35 +1834,28 @@ int domain_determineTopTree(void)
 
 void domain_sumCost(void)
 {
-    int i, n;
-    float *local_domainWork;
-    int *local_domainCount;
-    int *local_domainCountSph;
+    int i;
+    float * local_domainWork = (float *) mymalloc("local_domainWork", All.NumThreads * NTopnodes * sizeof(float));
+    int * local_domainCount = (int *) mymalloc("local_domainCount", All.NumThreads * NTopnodes * sizeof(int));
+    int * local_domainCountSph = (int *) mymalloc("local_domainCountSph", All.NumThreads * NTopnodes * sizeof(int));
 
-    local_domainWork = (float *) mymalloc("local_domainWork", All.NumThreads * NTopnodes * sizeof(float));
-    local_domainCount = (int *) mymalloc("local_domainCount", All.NumThreads * NTopnodes * sizeof(int));
-    local_domainCountSph = (int *) mymalloc("local_domainCountSph", All.NumThreads * NTopnodes * sizeof(int));
+    memset(local_domainWork, 0, All.NumThreads * NTopnodes * sizeof(float));
+    memset(local_domainCount, 0, All.NumThreads * NTopnodes * sizeof(float));
+    memset(local_domainCountSph, 0, All.NumThreads * NTopnodes * sizeof(float));
 
     NTopleaves = 0;
     domain_walktoptree(0);
 
     message(0, "NTopleaves= %d  NTopnodes=%d (space for %d)\n", NTopleaves, NTopnodes, MaxTopNodes);
 
-#pragma omp parallel private(n, i)
+#pragma omp parallel
     {
         int tid = omp_get_thread_num();
+        int n;
 
         float * mylocal_domainWork = local_domainWork + tid * NTopleaves;
         int * mylocal_domainCount = local_domainCount + tid * NTopleaves;
         int * mylocal_domainCountSph = local_domainCountSph + tid * NTopleaves;
-
-        for(i = 0; i < NTopleaves; i++)
-        {
-            mylocal_domainWork[i] = 0;
-            mylocal_domainCount[i] = 0;
-            mylocal_domainCountSph[i] = 0;
-        }
-
 
 #pragma omp for
         for(n = 0; n < NumPart; n++)
