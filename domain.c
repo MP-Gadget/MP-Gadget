@@ -410,8 +410,14 @@ int domain_decompose(void)
 
     walltime_measure("/Domain/Decompose/FindExtent");
 
+    /*Make an array of peano keys so we don't have to recompute them inside the domain*/
+    #pragma omp parallel for
+    for(i=0; i<NumPart; i++)
+        P[i].Key = KEY(i);
+
     if(domain_determineTopTree())
         return 1;
+
     /* find the split of the domain grid */
     domain_findSplit_work_balanced(All.DomainOverDecompositionFactor * NTask, NTopleaves);
 
@@ -1181,17 +1187,11 @@ void domain_findSplit_load_balanced(int ncpu, int ndomain)
 }
 
 
-
-
-
-
-
-static inline int domain_leafnodefunc(int n) {
+/*This function determines the leaf node for the given particle number.*/
+static inline int domain_leafnodefunc(const peanokey key) {
     int no=0;
-    peanokey key = KEY(n);
     while(topNodes[no].Daughter >= 0)
         no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size / 8);
-
     no = topNodes[no].Leaf;
     return no;
 }
@@ -1205,7 +1205,8 @@ static inline int domain_leafnodefunc(int n) {
  *
  */
 static int domain_layoutfunc(int n) {
-    int no = domain_leafnodefunc(n);
+    peanokey key = P[n].Key;
+    int no = domain_leafnodefunc(key);
     return DomainTask[no];
 }
 
@@ -1713,7 +1714,7 @@ int domain_determineTopTree(void)
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-        mp[i].key = KEY(i);
+        mp[i].key = P[i].Key;
         mp[i].index = i;
     }
 
@@ -1861,7 +1862,7 @@ void domain_sumCost(void)
 #pragma omp for
         for(n = 0; n < NumPart; n++)
         {
-            int no = domain_leafnodefunc(n);
+            int no = domain_leafnodefunc(P[n].Key);
 
             mylocal_domainWork[no] += (float) domain_particle_costfactor(n);
 

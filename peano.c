@@ -31,7 +31,7 @@ void peano_hilbert_order(void)
       for(i = 0; i < N_sph; i++)
 	  {
 	    mp[i].index = i;
-	    mp[i].key = KEY(i);
+	    mp[i].key = P[i].Key;
 	  }
 
       qsort_openmp(mp, N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
@@ -56,7 +56,7 @@ void peano_hilbert_order(void)
       for(i = 0; i < NumPart-N_sph; i++)
 	  {
 	    mp[i].index = i+N_sph;
-	    mp[i].key = KEY(i+N_sph);
+	    mp[i].key = P[i+N_sph].Key;
 	  }
 
       qsort_openmp(mp, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);

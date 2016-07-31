@@ -45,6 +45,7 @@
 #include "walltime.h"
 
 #include "assert.h"
+#include "peano.h"
 
 
 #define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
@@ -636,8 +637,13 @@ extern struct particle_data
 
     int RegionInd; /* which region the particle belongs to */
 
+
     MyDouble Pos[3];   /*!< particle position at its current time */
     MyDouble Mass;     /*!< particle mass */
+    /* The peano key is a hash of the position used in the domain decomposition.
+     * It is slow to generate so we store it here.*/
+    peanokey Key;
+
     struct {
         unsigned int Evaluated :1;
         unsigned int DensityIterationDone :1;
