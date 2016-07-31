@@ -13,6 +13,7 @@
 #include "mymalloc.h"
 #include "mpsort.h"
 #include "endrun.h"
+#include "openmpsort.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19
@@ -1522,18 +1523,6 @@ void domain_walktoptree(int no)
 }
 
 
-int domain_compare_key(const void *a, const void *b)
-{
-    if(((struct peano_hilbert_data *) a)->key < (((struct peano_hilbert_data *) b)->key))
-        return -1;
-
-    if(((struct peano_hilbert_data *) a)->key > (((struct peano_hilbert_data *) b)->key))
-        return +1;
-
-    return 0;
-}
-
-
 int domain_check_for_local_refine(int i, double countlimit, double costlimit)
 {
     int j, p, sub, flag = 0;
@@ -1722,7 +1711,7 @@ int domain_determineTopTree(void)
     }
 
     walltime_measure("/Domain/DetermineTopTree/Misc");
-    qsort(mp, NumPart, sizeof(struct peano_hilbert_data), domain_compare_key);
+    qsort_openmp(mp, NumPart, sizeof(struct peano_hilbert_data), peano_compare_key);
     
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
