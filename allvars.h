@@ -652,7 +652,9 @@ extern struct particle_data
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
     MyIDType ID;
+#ifdef BLACK_HOLES
     MyIDType SwallowID; /* who will swallow this particle */
+#endif
     MyDouble Vel[3];   /*!< particle velocity at its current time */
     MyFloat       GravAccel[3];		/*!< particle acceleration due to gravity */
 

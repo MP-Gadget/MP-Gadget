@@ -1513,80 +1513,96 @@ void domain_walktoptree(int no)
     }
 }
 
-
+/* Refine the local oct-tree, recursively adding costs and particles until
+ * either we have chopped off all the peano-hilbert keys and thus have no more
+ * refinement to do, or we run out of topNodes.
+ * If 1 is returned on any processor we will return to domain_Decomposition,
+ * allocate 30% more topNodes, and try again.
+ * */
 int domain_check_for_local_refine(const int i, const double countlimit, const double costlimit, const struct peano_hilbert_data * mp)
 {
-    int j, p, sub, flag = 0;
+    int j, p;
 
-#ifdef DENSITY_INDEPENDENT_SPH_DEBUG
-    costlimit = -1;
-    countlimit = -1;
+    /*If there are only 8 particles within this node, we are done refining.*/
+    if(topNodes[i].Size < 8)
+        return 0;
+
+    /* We need to do refinement if we are over the countlimit, or the cost limit, or
+     * (if we have a parent) we have more than 80% of the parent's particles or costs.*/
+#ifndef DENSITY_INDEPENDENT_SPH_DEBUG
+    /*If we are above the cost limits we definitely need to refine.*/
+    if(topNodes[i].Count <= countlimit && topNodes[i].Cost <=costlimit)
 #endif
-    if(topNodes[i].Parent >= 0)
+        /* If we were below them but we have a parent and somehow got all of its particles, we still
+         * need to refine. But if none of these things are true we can return, our work complete. */
+        if(topNodes[i].Parent < 0 || (topNodes[i].Count <= 0.8 * topNodes[topNodes[i].Parent].Count &&
+                topNodes[i].Cost <= 0.8 * topNodes[topNodes[i].Parent].Cost))
+            return 0;
+
+    /* If we want to refine but there is no space for another topNode on this processor,
+     * we ran out of top nodes and must get more.*/
+    if((NTopnodes + 8) > MaxTopNodes)
+        return 1;
+
+    /*Make a new topnode section attached to this node*/
+    topNodes[i].Daughter = NTopnodes;
+    NTopnodes += 8;
+
+    /* Initialise this topnode with new sub nodes*/
+    for(j = 0; j < 8; j++)
     {
-        if(topNodes[i].Count > 0.8 * topNodes[topNodes[i].Parent].Count ||
-                topNodes[i].Cost > 0.8 * topNodes[topNodes[i].Parent].Cost)
-            flag = 1;
+        const int sub = topNodes[i].Daughter + j;
+        /* The new sub nodes have this node as parent
+         * and no daughters.*/
+        topNodes[sub].Daughter = -1;
+        topNodes[sub].Parent = i;
+        /* Shorten the peano key by a factor 8, reflecting the oct-tree level.*/
+        topNodes[sub].Size = (topNodes[i].Size >> 3);
+        /* This is the region of peanospace covered by this node.*/
+        topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
+        /* We will compute the cost and initialise the first particle in the node below.
+         * This PIndex value is never used*/
+        topNodes[sub].PIndex = topNodes[i].PIndex;
+        topNodes[sub].Count = 0;
+        topNodes[sub].Cost = 0;
     }
 
-    if((topNodes[i].Count > countlimit || topNodes[i].Cost > costlimit || flag == 1) && topNodes[i].Size >= 8)
+    /* Loop over all particles in this node so that the costs of the daughter nodes are correct*/
+    for(p = topNodes[i].PIndex, j = 0; p < topNodes[i].PIndex + topNodes[i].Count; p++)
     {
-        if(topNodes[i].Size >= 8)
-        {
-            if((NTopnodes + 8) <= MaxTopNodes)
+        const int sub = topNodes[i].Daughter;
+
+        /* This identifies which subnode this particle belongs to.
+         * Once this particle has passed the StartKey of the next daughter node,
+         * we increment the node the particle is added to and set the PIndex.*/
+        if(j < 7)
+            while(topNodes[sub + j + 1].StartKey <= mp[p].key)
             {
-                topNodes[i].Daughter = NTopnodes;
-
-                for(j = 0; j < 8; j++)
-                {
-                    sub = topNodes[i].Daughter + j;
-                    topNodes[sub].Daughter = -1;
-                    topNodes[sub].Parent = i;
-                    topNodes[sub].Size = (topNodes[i].Size >> 3);
-                    topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
-                    topNodes[sub].PIndex = topNodes[i].PIndex;
-                    topNodes[sub].Count = 0;
-                    topNodes[sub].Cost = 0;
-
-                }
-
-                NTopnodes += 8;
-
-                sub = topNodes[i].Daughter;
-
-                for(p = topNodes[i].PIndex, j = 0; p < topNodes[i].PIndex + topNodes[i].Count; p++)
-                {
-                    if(j < 7)
-                        while(mp[p].key >= topNodes[sub + 1].StartKey)
-                        {
-                            j++;
-                            sub++;
-                            topNodes[sub].PIndex = p;
-                            if(j >= 7)
-                                break;
-                        }
-
-                    topNodes[sub].Cost += domain_particle_costfactor(mp[p].index);
-                    topNodes[sub].Count++;
-                }
-
-                for(j = 0; j < 8; j++)
-                {
-                    sub = topNodes[i].Daughter + j;
-
-#ifdef DENSITY_INDEPENDENT_SPH_DEBUG
-                    if(topNodes[sub].Count > All.TotNumPart / 
-                            (TOPNODEFACTOR * NTask * NTask))
-#endif
-                        if(domain_check_for_local_refine(sub, countlimit, costlimit, mp))
-                            return 1;
-                }
+                topNodes[sub + j + 1].PIndex = p;
+                j++;
+                if(j >= 7)
+                    break;
             }
-            else
-                return 1;
-        }
+
+        /*Now we have identified the subnode for this particle, add it to the cost and count*/
+        topNodes[sub+j].Cost += domain_particle_costfactor(mp[p].index);
+        topNodes[sub+j].Count++;
     }
 
+    /*Check and refine the new daughter nodes*/
+    for(j = 0; j < 8; j++)
+    {
+        const int sub = topNodes[i].Daughter + j;
+
+#ifdef DENSITY_INDEPENDENT_SPH_DEBUG
+        if(topNodes[sub].Count > All.TotNumPart /
+                (TOPNODEFACTOR * NTask * NTask))
+#endif
+            /* Refine each sub node. If we could not refine the node as needed,
+             * we are out of node space and need more.*/
+            if(domain_check_for_local_refine(sub, countlimit, costlimit, mp))
+                return 1;
+    }
     return 0;
 }
 
