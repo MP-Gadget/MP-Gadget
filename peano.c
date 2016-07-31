@@ -13,13 +13,6 @@
 #include "openmpsort.h"
 #include "endrun.h"
 
-
-struct peano_hilbert_data
-{
-  peanokey key;
-  int index;
-};
-
 void reorder_gas(int * Id, const int nelem);
 void reorder_particles(int * Id, const int nelem);
 

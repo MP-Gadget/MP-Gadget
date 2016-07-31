@@ -53,7 +53,7 @@ int domain_topsplit(int node, peanokey startkey);
 int domain_topsplit_local(int node, peanokey startkey, int mode);
 int domain_topsplit_special(void);
 int domain_compare_key(const void *a, const void *b);
-int domain_check_for_local_refine(int i, double countlimit, double costlimit);
+int domain_check_for_local_refine(const int i, const double countlimit, const double costlimit, const struct peano_hilbert_data * mp);
 void domain_free_trick(void);
 void domain_allocate_trick(void);
 int domain_recursively_combine_topTree(int start, int ncpu);

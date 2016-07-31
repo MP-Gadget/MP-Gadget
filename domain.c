@@ -80,15 +80,6 @@ static struct local_topnode_data
 }
 *topNodes;			/*!< points to the root node of the top-level tree */
 
-static struct peano_hilbert_data
-{
-    peanokey key;
-    int index;
-}
-*mp;
-
-
-
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA,
         int noB);
@@ -1523,7 +1514,7 @@ void domain_walktoptree(int no)
 }
 
 
-int domain_check_for_local_refine(int i, double countlimit, double costlimit)
+int domain_check_for_local_refine(const int i, const double countlimit, const double costlimit, const struct peano_hilbert_data * mp)
 {
     int j, p, sub, flag = 0;
 
@@ -1587,7 +1578,7 @@ int domain_check_for_local_refine(int i, double countlimit, double costlimit)
                     if(topNodes[sub].Count > All.TotNumPart / 
                             (TOPNODEFACTOR * NTask * NTask))
 #endif
-                        if(domain_check_for_local_refine(sub, countlimit, costlimit))
+                        if(domain_check_for_local_refine(sub, countlimit, costlimit, mp))
                             return 1;
                 }
             }
@@ -1701,9 +1692,9 @@ int domain_determineTopTree(void)
     int errflag, errsum;
     double costlimit, countlimit;
 
-    mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
+    struct peano_hilbert_data * mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
 
-#pragma omp parallel for
+    #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
         mp[i].key = KEY(i);
@@ -1727,7 +1718,7 @@ int domain_determineTopTree(void)
     costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
     countlimit = totpartcount / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
-    errflag = domain_check_for_local_refine(0, countlimit, costlimit);
+    errflag = domain_check_for_local_refine(0, countlimit, costlimit, mp);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     myfree(mp);
