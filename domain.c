@@ -1226,7 +1226,7 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
         toGoBh[n] = 0;
     }
 
-    package = (sizeof(struct particle_data) + sizeof(struct sph_particle_data) + sizeof(peanokey));
+    package = (sizeof(struct particle_data) + sizeof(struct sph_particle_data) + sizeof(struct bh_particle_data));
     if(package >= nlimit)
         endrun(212, "Package is too large, no free memory.");
 
