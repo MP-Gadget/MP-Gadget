@@ -78,8 +78,6 @@ void init_clouds(void);
 void open_outputfiles(void);
 void peano_hilbert_order(void);
 int read_outputlist(char *fname);
-void reorder_gas(void);
-void reorder_particles(void);
 void restart(int mod);
 void run(void);
 void savepositions(int num, int reason);
