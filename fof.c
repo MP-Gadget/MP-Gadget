@@ -96,6 +96,9 @@ typedef struct {
     MyIDType MinIDTask;
 } TreeWalkResultFOF;
 
+typedef struct {
+    TreeWalkNgbIterBase base;
+} TreeWalkNgbIterFOF;
 
 static struct fof_particle_list
 {
@@ -246,7 +249,10 @@ static int fof_primary_isactive(int n) {
     return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && LinkList[n].marked;
 }
 
-static int fof_primary_visit(TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
+static void
+fof_primary_ngbiter(TreeWalkQueryFOF * I,
+        TreeWalkResultFOF * O,
+        TreeWalkNgbIterFOF * iter,
         LocalTreeWalk * lv);
 
 void fof_label_primary(void)
@@ -260,7 +266,10 @@ void fof_label_primary(void)
 
     TreeWalk tw[1] = {0};
     tw->ev_label = "FOF_FIND_GROUPS";
-    tw->visit = (TreeWalkVisitFunction) fof_primary_visit;
+    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw->ngbiter = (TreeWalkNgbIterFunction) fof_primary_ngbiter;
+    tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterFOF);
+
     tw->isactive = fof_primary_isactive;
     tw->fill = (TreeWalkFillQueryFunction) fof_primary_copy;
     tw->reduce = NULL;
@@ -359,57 +368,36 @@ static void fofp_merge(int target, int j)
     }
 }
 
-static int fof_primary_visit(TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
-        LocalTreeWalk * lv) {
-    int listindex = 0;
-    int startnode, numngb_inbox;
+static void
+fof_primary_ngbiter(TreeWalkQueryFOF * I,
+        TreeWalkResultFOF * O,
+        TreeWalkNgbIterFOF * iter,
+        LocalTreeWalk * lv)
+{
+    if(iter->base.other == -1) {
+        iter->base.Hsml = All.FOFHaloComovingLinkingLength;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        iter->base.mask = FOF_PRIMARY_LINK_TYPES;
+        return;
+    }
+    int other = iter->base.other;
 
-    startnode = I->base.NodeList[0];
-    listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-
-    while(startnode >= 0)
+#pragma omp critical (_fofp_merge_)
     {
-        while(startnode >= 0)
-        {
-            numngb_inbox = ngb_treefind_threads(I->base.Pos, All.FOFHaloComovingLinkingLength, &startnode,
-                    lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
-
-            if(numngb_inbox < 0)
-                return -1;
-            int n;
-            for(n = 0; n < numngb_inbox; n++)
-            {
-                int j = lv->ngblist[n];
-                if(lv->mode == 0) {
-                    /* Local FOF */
-                    if(HEAD(lv->target) != HEAD(j)) {
-#pragma omp critical
-                        fofp_merge(lv->target, j);
-                    }
-                } else		/* mode is 1, target is a ghost */
-                {
-#pragma omp critical
-                    if(HaloLabel[HEAD(j)].MinID > I->MinID)
-                    {
-                        HaloLabel[HEAD(j)].MinID = I->MinID;
-                        HaloLabel[HEAD(j)].MinIDTask = I->MinIDTask;
-                    }
-                }
+        if(lv->mode == 0) {
+            /* Local FOF */
+            if(HEAD(lv->target) != HEAD(other)) {
+                fofp_merge(lv->target, other);
             }
-        }
-
-        if(listindex < NODELISTLENGTH)
+        } else /* mode is 1, target is a ghost */
         {
-            startnode = I->base.NodeList[listindex];
-            if(startnode >= 0) {
-                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-                listindex++;
+            if(HaloLabel[HEAD(other)].MinID > I->MinID)
+            {
+                HaloLabel[HEAD(other)].MinID = I->MinID;
+                HaloLabel[HEAD(other)].MinIDTask = I->MinIDTask;
             }
         }
     }
-
-    return 0;
 }
 
 static void fof_reduce_base_group(void * pdst, void * psrc) {
@@ -927,7 +915,10 @@ static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalk
         HaloLabel[place].MinIDTask = O->MinIDTask;
     }
 }
-static int fof_secondary_visit(TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
+static void
+fof_secondary_ngbiter(TreeWalkQueryFOF * I,
+        TreeWalkResultFOF * O,
+        TreeWalkNgbIterFOF * iter,
         LocalTreeWalk * lv);
 
 static void fof_label_secondary(void)
@@ -936,7 +927,9 @@ static void fof_label_secondary(void)
     int64_t ntot;
     TreeWalk tw[1] = {0};
     tw->ev_label = "FOF_FIND_NEAREST";
-    tw->visit = (TreeWalkVisitFunction) fof_secondary_visit;
+    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw->ngbiter = (TreeWalkNgbIterFunction) fof_secondary_ngbiter;
+    tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterFOF);
     tw->isactive = fof_secondary_isactive;
     tw->fill = (TreeWalkFillQueryFunction) fof_secondary_copy;
     tw->reduce = (TreeWalkReduceResultFunction) fof_secondary_reduce;
@@ -1033,73 +1026,27 @@ static void fof_label_secondary(void)
     message(0, "done finding nearest dm-particle\n");
 }
 
-static int fof_secondary_visit(TreeWalkQueryFOF * I, TreeWalkResultFOF * O,
+static void
+fof_secondary_ngbiter( TreeWalkQueryFOF * I,
+        TreeWalkResultFOF * O,
+        TreeWalkNgbIterFOF * iter,
         LocalTreeWalk * lv)
 {
-    int j, n, index, listindex = 0;
-    int startnode, numngb_inbox;
-    double h, r2max;
-
-    startnode = I->base.NodeList[0];
-    listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-
-    index = -1;
-    h = I->Hsml;
-    r2max = 1.0e30;
-
-    while(startnode >= 0)
+    if(iter->base.other == -1) {
+        O->Distance = 1.0e30;
+        iter->base.Hsml = I->Hsml;
+        iter->base.mask = FOF_PRIMARY_LINK_TYPES;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        return;
+    }
+    int other = iter->base.other;
+    double r = iter->base.r;
+    if(r < O->Distance && r < I->Hsml)
     {
-        while(startnode >= 0)
-        {
-            numngb_inbox = ngb_treefind_threads(I->base.Pos, h, &startnode,
-                    lv, NGB_TREEFIND_ASYMMETRIC, FOF_PRIMARY_LINK_TYPES);
-
-            if(numngb_inbox < 0)
-                return -1;
-
-            for(n = 0; n < numngb_inbox; n++)
-            {
-                j = lv->ngblist[n];
-                double dx, dy, dz, r2;
-                dx = I->base.Pos[0] - P[j].Pos[0];
-                dy = I->base.Pos[1] - P[j].Pos[1];
-                dz = I->base.Pos[2] - P[j].Pos[2];
-
-                dx = NEAREST(dx);
-                dy = NEAREST(dy);
-                dz = NEAREST(dz);
-
-                r2 = dx * dx + dy * dy + dz * dz;
-                if(r2 < r2max && r2 < h * h)
-                {
-                    index = j;
-                    r2max = r2;
-                }
-            }
-        }
-
-        if(listindex < NODELISTLENGTH)
-        {
-            startnode = I->base.NodeList[listindex];
-            if(startnode >= 0) {
-                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-                listindex ++;
-            }
-        }
+        O->Distance = r;
+        O->MinID = HaloLabel[other].MinID;
+        O->MinIDTask = HaloLabel[other].MinIDTask;
     }
-
-
-    if(index >= 0)
-    {
-        O->Distance = sqrt(r2max);
-        O->MinID = HaloLabel[index].MinID;
-        O->MinIDTask = HaloLabel[index].MinIDTask;
-    }
-    else {
-        O->Distance = 2.0e30;
-    }
-    return 0;
 }
 
 /* 
