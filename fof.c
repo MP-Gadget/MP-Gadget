@@ -113,10 +113,9 @@ static MPI_Datatype MPI_TYPE_GROUP;
 
 void fof_fof(int num)
 {
-    int i, ndm, start, lenloc, n;
-    double mass, masstot, rhodm, t0, t1;
+    int i, n;
+    double t0, t1;
     struct unbind_data *d;
-    int64_t ndmtot;
 
     MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE_GROUP);
     MPI_Type_commit(&MPI_TYPE_GROUP);
@@ -430,7 +429,6 @@ static void fof_reduce_group(void * pdst, void * psrc) {
     struct Group * gdst = pdst;
     struct Group * gsrc = psrc;
     int j;
-    double xyz[3];
     gdst->Length += gsrc->Length;
     gdst->Mass += gsrc->Mass;
 
@@ -670,7 +668,7 @@ static void fof_compile_base(void)
 
 static void fof_compile_catalogue(void)
 {
-    int i, j, start;
+    int i, start;
     Group = (struct Group *) mymalloc("Group", sizeof(struct Group) * NgroupsExt);
     memset(Group, 0, sizeof(Group[0]) * NgroupsExt);
 
@@ -1247,8 +1245,8 @@ static void fof_seed_make_one(struct Group * g) {
     if(g->seed_task != ThisTask) {
         endrun(7771, "Seed does not belong to the right task");
     }
-    int index = g->seed_index;
 #ifdef BLACK_HOLES
+    int index = g->seed_index;
     blackhole_make_one(index);
 #endif
 }
