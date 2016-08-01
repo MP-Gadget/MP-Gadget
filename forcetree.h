@@ -125,8 +125,6 @@ void   force_update_size_of_parent_node(int no);
 
 void   dump_particles(void);
 
-void   ngb_treebuild(void);
-
 #endif
 
 

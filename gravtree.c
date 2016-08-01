@@ -437,7 +437,7 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
                 {
                     if(lv->mode == 0)
                     {
-                        if(-1 == ev_export_particle(lv, lv->target, no))
+                        if(-1 == treewalk_export_particle(lv, no))
                             return -1;
                     }
                     no = Nextnode[no - MaxNodes];

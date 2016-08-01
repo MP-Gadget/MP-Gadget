@@ -113,11 +113,6 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             LocalTreeWalk * lv);
 
 /*returns -1 if the buffer is full */
-int ev_export_particle(LocalTreeWalk * lv, int target, int no);
-
-int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int *startnode,
-              LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask);
-
-
+int treewalk_export_particle(LocalTreeWalk * lv, int no);
 #define TREEWALK_REDUCE(A, B) (A) = (mode==TREEWALK_PRIMARY)?(B):((A) + (B))
 #endif
