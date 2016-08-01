@@ -163,8 +163,7 @@ void init(void)
 
     set_softenings();
 
-    /* will build tree */
-    ngb_treebuild();
+    force_treebuild_simple();
 
     All.Ti_Current = 0;
 
