@@ -31,6 +31,9 @@ extern struct Group
     double CM[3];
     double Vel[3];
 
+    double Imom[3][3]; /* sum M r_j r_k */
+    double Jmom[3]; /* sum M R_i x V_i  */
+
 #ifdef SFR
     double Sfr;
 #endif

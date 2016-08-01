@@ -42,12 +42,12 @@ ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h \
-	 petaio.h $(DESTDIR)/config.h
+	 petaio.h
 
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)
 ICOBJS = $(ICOBJECTS:%=$(DESTDIR)/%)
-
+FILES = $(shell git ls-files)
 all: depends $(EXEC)
 
 .PHONY: depends
@@ -61,11 +61,14 @@ $(DESTDIR)/MP-Gadget: $(OBJS)
 $(DESTDIR)/MP-GenIC: $(ICOBJS)
 	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
-$(DESTDIR)/config.h: Makefile $(CONFIG)
+$(DESTDIR)/config.h: Makefile $(CONFIG) $(FILES)
 	mkdir -p `dirname $@`
 	CC="$(CC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
 
 $(DESTDIR)/%.o: %.c $(INCL)
+	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
+
+$(DESTDIR)/main.o: main.c $(INCL) $(DESTDIR)/config.h
 	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
 
 $(DESTDIR)/%.o: %.cpp $(INCL)

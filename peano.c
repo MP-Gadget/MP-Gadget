@@ -13,16 +13,8 @@
 #include "openmpsort.h"
 #include "endrun.h"
 
-
-
-static struct peano_hilbert_data
-{
-  peanokey key;
-  int index;
-}
- *mp;
-
-static int *Id;
+void reorder_gas(int * Id, const int nelem);
+void reorder_particles(int * Id, const int nelem);
 
 void peano_hilbert_order(void)
 {
@@ -32,53 +24,52 @@ void peano_hilbert_order(void)
 
   if(N_sph)
     {
-      mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * N_sph);
-      Id = (int *) mymalloc("Id", sizeof(int) * N_sph);
+      int * Id = (int *) mymalloc("Id", sizeof(int) * N_sph);
+      struct peano_hilbert_data * mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * N_sph);
 
+      #pragma omp parallel for
       for(i = 0; i < N_sph; i++)
-	{
-	  mp[i].index = i;
-	  mp[i].key = KEY(i);
-	}
+	  {
+	    mp[i].index = i;
+	    mp[i].key = P[i].Key;
+	  }
 
       qsort_openmp(mp, N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
 
+      #pragma omp parallel for
       for(i = 0; i < N_sph; i++)
-	Id[mp[i].index] = i;
+	    Id[mp[i].index] = i;
 
-      reorder_gas();
-
-      myfree(Id);
       myfree(mp);
+      reorder_gas(Id, N_sph);
+      myfree(Id);
     }
 
 
   if(NumPart - N_sph > 0)
     {
-      mp =
+      int * Id = (int *) mymalloc("Id", sizeof(int) * (NumPart - N_sph));
+      struct peano_hilbert_data * mp =
 	(struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * (NumPart - N_sph));
-      mp -= (N_sph);
 
-      Id = (int *) mymalloc("Id", sizeof(int) * (NumPart - N_sph));
-      Id -= (N_sph);
+      #pragma omp parallel for
+      for(i = 0; i < NumPart-N_sph; i++)
+	  {
+	    mp[i].index = i+N_sph;
+	    mp[i].key = P[i+N_sph].Key;
+	  }
 
-      for(i = N_sph; i < NumPart; i++)
-	{
-	  mp[i].index = i;
-	  mp[i].key = KEY(i);
-	}
+      qsort_openmp(mp, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
 
-      qsort_openmp(mp + N_sph, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
+      #pragma omp parallel for
+      for(i = 0; i < NumPart-N_sph; i++)
+	    Id[mp[i].index] = i+N_sph;
 
-      for(i = N_sph; i < NumPart; i++)
-	Id[mp[i].index] = i;
-
-      reorder_particles();
-
-      Id += N_sph;
-      myfree(Id);
-      mp += N_sph;
       myfree(mp);
+
+      reorder_particles(Id, NumPart-N_sph);
+
+      myfree(Id);
     }
 
     message(0, "Peano-Hilbert done.\n");
@@ -96,81 +87,52 @@ int peano_compare_key(const void *a, const void *b)
   return 0;
 }
 
-void reorder_gas(void)
+void reorder_gas(int * Id, const int nelem)
 {
   int i;
-  struct particle_data Psave, Psource;
-  struct sph_particle_data SphPsave, SphPsource;
-  int idsource, idsave, dest;
-
-  for(i = 0; i < N_sph; i++)
+  for(i = 0; i < nelem; i++)
     {
-      if(Id[i] != i)
-	{
-	  Psource = P[i];
-	  SphPsource = SPHP(i);
-
-	  idsource = Id[i];
-	  dest = Id[i];
-
-	  do
-	    {
-	      Psave = P[dest];
-	      SphPsave = SPHP(dest);
-	      idsave = Id[dest];
-
-	      P[dest] = Psource;
-	      SPHP(dest) = SphPsource;
-	      Id[dest] = idsource;
-
-	      if(dest == i)
-		break;
-
-	      Psource = Psave;
-	      SphPsource = SphPsave;
-	      idsource = idsave;
-
-	      dest = idsource;
-	    }
-	  while(1);
-	}
+      while(Id[i] != i)
+      {
+          /* Store the data at the place where we will move i
+           * into a temp*/
+          int oldId = Id[Id[i]];
+          struct particle_data oldP = P[Id[i]];
+          struct sph_particle_data oldSphP = SPHP(Id[i]);
+          /* Now copy i into its new location, 
+           * making sure to update the index*/
+          P[Id[i]] = P[i];
+          SPHP(Id[i]) = SPHP(i);
+          Id[Id[i]] = Id[i];
+          /*Now copy the temp back into location i.*/
+          P[i] = oldP;
+          SPHP(i) = oldSphP;
+          Id[i] = oldId;
+	  }
     }
 }
 
 
-void reorder_particles(void)
+void reorder_particles(int * Id, const int nelem)
 {
   int i;
-  struct particle_data Psave, Psource;
-  int idsource, idsave, dest;
-
-  for(i = N_sph; i < NumPart; i++)
-    {
-      if(Id[i] != i)
-	{
-	  Psource = P[i];
-	  idsource = Id[i];
-
-	  dest = Id[i];
-
-	  do
-	    {
-	      Psave = P[dest];
-	      idsave = Id[dest];
-
-	      P[dest] = Psource;
-	      Id[dest] = idsource;
-	      if(dest == i)
-		break;
-
-	      Psource = Psave;
-	      idsource = idsave;
-
-	      dest = idsource;
-	    }
-	  while(1);
-	}
-    }
+  for(i = 0; i < nelem; i++)
+  {
+      while(Id[i] != i)
+      {
+          /* Store the data at the place where we will move i
+           * into a temp*/
+          int oldId = Id[Id[i]];
+          struct particle_data oldP = P[Id[i]];
+          /* Now copy i into its new location, 
+           * making sure to update the index*/
+          P[Id[i]] = P[i];
+          Id[Id[i]] = Id[i];
+          /*Now copy the temp back into location i.*/
+          P[i] = oldP;
+          Id[i] = oldId;
+	  }
+  }
 }
 
 

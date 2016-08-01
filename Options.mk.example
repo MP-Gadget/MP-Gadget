@@ -1,15 +1,16 @@
 # off-tree build into $(DESTDIR)
 DESTDIR  = build/
 
-CC       =   mpicc
+#Uncomment below to specify default options
+#CC       =   mpicc
 #
 # For GCC add -mpc64 if IEEE 64bit FP is desired.
-OPTIMIZE =  -fopenmp -O0 -g
+#OPTIMIZE =  -fopenmp -O0 -g
 
-HDF_INCL = 
-HDF_LIBS = -lhdf5
-GSL_INCL = 
-GSL_LIBS = -lgsl -lgslcblas
+#HDF_INCL =
+#HDF_LIBS = -lhdf5
+#GSL_INCL =
+#GSL_LIBS = -lgsl -lgslcblas
 #
 #--------------------------------------- Basic operation mode of code
 OPT += -DDENSITY_INDEPENDENT_SPH
