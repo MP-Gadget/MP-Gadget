@@ -43,6 +43,12 @@ typedef struct {
 } TreeWalkResultBHFeedback;
 
 typedef struct {
+    TreeWalkNgbIterBase base;
+    DensityKernel kernel;
+    DensityKernel bh_feedback_kernel;
+} TreeWalkNgbIterBHFeedback;
+
+typedef struct {
     TreeWalkQueryBase base;
     MyFloat Hsml;
     MyFloat BH_Mass;
@@ -57,23 +63,44 @@ typedef struct {
     int BH_CountProgs;
 } TreeWalkResultSwallow;
 
+typedef struct {
+    TreeWalkNgbIterBase base;
+} TreeWalkNgbIterSwallow;
+
+/* accretion routines */
 static void blackhole_accretion_visit(int n);
 static void blackhole_postprocess(int n);
 
-static int blackhole_feedback_isactive(int n);
-static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode);
-static void blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I);
+/* feedback routines. currently also performs the drifting(move it to gravtree / force tree?) */
+static int
+blackhole_feedback_isactive(int n);
 
-static int blackhole_feedback_visit(TreeWalkQueryBHFeedback * I,
+static void
+blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode);
+
+static void
+blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I);
+
+static void
+blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         TreeWalkResultBHFeedback * O,
+        TreeWalkNgbIterBHFeedback * iter,
         LocalTreeWalk * lv);
 
-static int blackhole_swallow_isactive(int n);
-static void blackhole_swallow_reduce(int place, TreeWalkResultSwallow * remote, enum TreeWalkReduceMode mode);
-static void blackhole_swallow_copy(int place, TreeWalkQuerySwallow * I);
+/* swallow routines */
+static int
+blackhole_swallow_isactive(int n);
 
-static int blackhole_swallow_visit(TreeWalkQuerySwallow * I,
+static void
+blackhole_swallow_reduce(int place, TreeWalkResultSwallow * remote, enum TreeWalkReduceMode mode);
+
+static void
+blackhole_swallow_copy(int place, TreeWalkQuerySwallow * I);
+
+static void
+blackhole_swallow_ngbiter(TreeWalkQuerySwallow * I,
         TreeWalkResultSwallow * O,
+        TreeWalkNgbIterSwallow * iter,
         LocalTreeWalk * lv);
 
 #define BHPOTVALUEINIT 1.0e30
@@ -101,33 +128,37 @@ void blackhole_accretion(void)
     int Ntot_gas_swallowed, Ntot_BH_swallowed;
 
     walltime_measure("/Misc");
-    TreeWalk fbev = {0};
+    TreeWalk fbev[1];
 
-    fbev.ev_label = "BH_FEEDBACK";
-    fbev.visit = (TreeWalkVisitFunction) blackhole_feedback_visit;
-    fbev.isactive = blackhole_feedback_isactive;
-    fbev.fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
-    fbev.reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
-    fbev.UseNodeList = 1;
-    fbev.query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
-    fbev.result_type_elsize = sizeof(TreeWalkResultBHFeedback);
+    fbev->ev_label = "BH_FEEDBACK";
+    fbev->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    fbev->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHFeedback);
+    fbev->ngbiter = (TreeWalkNgbIterFunction) blackhole_feedback_ngbiter;
+    fbev->isactive = blackhole_feedback_isactive;
+    fbev->fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
+    fbev->reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
+    fbev->UseNodeList = 1;
+    fbev->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
+    fbev->result_type_elsize = sizeof(TreeWalkResultBHFeedback);
 
-    TreeWalk swev = {0};
-    swev.ev_label = "BH_SWALLOW";
-    swev.visit = (TreeWalkVisitFunction) blackhole_swallow_visit;
-    swev.isactive = blackhole_swallow_isactive;
-    swev.fill = (TreeWalkFillQueryFunction) blackhole_swallow_copy;
-    swev.reduce = (TreeWalkReduceResultFunction) blackhole_swallow_reduce;
-    swev.UseNodeList = 1;
-    swev.query_type_elsize = sizeof(TreeWalkQuerySwallow);
-    swev.result_type_elsize = sizeof(TreeWalkResultSwallow);
+    TreeWalk swev[1];
+    swev->ev_label = "BH_SWALLOW";
+    swev->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    swev->ngbiter_type_elsize = sizeof(TreeWalkNgbIterSwallow);
+    swev->ngbiter = (TreeWalkNgbIterFunction) blackhole_swallow_ngbiter;
+    swev->isactive = blackhole_swallow_isactive;
+    swev->fill = (TreeWalkFillQueryFunction) blackhole_swallow_copy;
+    swev->reduce = (TreeWalkReduceResultFunction) blackhole_swallow_reduce;
+    swev->UseNodeList = 1;
+    swev->query_type_elsize = sizeof(TreeWalkQuerySwallow);
+    swev->result_type_elsize = sizeof(TreeWalkResultSwallow);
 
     message(0, "Beginning black-hole accretion\n");
 
 
     /* Let's first compute the Mdot values */
     int Nactive;
-    int * queue = treewalk_get_queue(&fbev, &Nactive);
+    int * queue = treewalk_get_queue(fbev, &Nactive);
 
     for(i = 0; i < Nactive; i ++) {
         int n = queue[i];
@@ -161,10 +192,10 @@ void blackhole_accretion(void)
     /* Let's first spread the feedback energy,
      * and determine which particles may be swalled by whom */
 
-    treewalk_run(&fbev);
+    treewalk_run(fbev);
 
     /* Now do the swallowing of particles */
-    treewalk_run(&swev);
+    treewalk_run(swev);
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -259,272 +290,224 @@ static void blackhole_postprocess(int n) {
     }
 }
 
-static int blackhole_feedback_visit(TreeWalkQueryBHFeedback * I,
+static void
+blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         TreeWalkResultBHFeedback * O,
+        TreeWalkNgbIterBHFeedback * iter,
         LocalTreeWalk * lv)
 {
 
-    int startnode, numngb, k, n, listindex = 0;
-    double hsearch;
+    if(iter->base.other == -1) {
+        O->BH_TimeBinLimit = -1;
+        O->BH_MinPot = BHPOTVALUEINIT;
+        double hsearch;
+        hsearch = density_decide_hsearch(5, I->Hsml);
 
-    int ptypemask = 0;
-    ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
+        iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
+        iter->base.Hsml = hsearch;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
 
-    O->BH_TimeBinLimit = -1;
-    O->BH_MinPot = BHPOTVALUEINIT;
+        density_kernel_init(&iter->kernel, I->Hsml);
+        density_kernel_init(&iter->bh_feedback_kernel, hsearch);
+        return;
+    }
 
-    startnode = I->base.NodeList[0];
-    listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+    int other = iter->base.other;
+    double r = iter->base.r;
+    double r2 = iter->base.r2;
+    double * dist = iter->base.dist;
 
-    DensityKernel kernel;
-    DensityKernel bh_feedback_kernel;
-    hsearch = density_decide_hsearch(5, I->Hsml);
+    if(P[other].Mass < 0) return;
 
-    density_kernel_init(&kernel, I->Hsml);
-    density_kernel_init(&bh_feedback_kernel, hsearch);
+    if(P[other].Type != 5) {
+        if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[other].TimeBin)
+            O->BH_TimeBinLimit = P[other].TimeBin;
+    }
 
-    /* initialize variables before SPH loop is started */
-
-    /* Now start the actual SPH computation for this particle */
-
-    while(startnode >= 0)
+    /* Drifting the blackhole towards minimum. This shall be refactored to some sink.c etc */
+    if(r2 < iter->kernel.HH && r2 < All.FOFHaloComovingLinkingLength)
     {
-        while(startnode >= 0)
+        if(P[other].Potential < O->BH_MinPot)
         {
-            numngb = ngb_treefind_threads(I->base.Pos, hsearch, &startnode, lv,
-                    NGB_TREEFIND_ASYMMETRIC, ptypemask);
-
-            if(numngb < 0)
-                return numngb;
-
-            for(n = 0;
-                n < numngb;
-                (unlock_particle_if_not(lv->ngblist[n], I->ID), n++)
-                )
+            if(P[other].Type == 0 || P[other].Type == 1 || P[other].Type == 4 || P[other].Type == 5)
             {
-                lock_particle_if_not(lv->ngblist[n], I->ID);
-                int j = lv->ngblist[n];
+                /* FIXME: compute peculier velocities between two objects; this shall be a function */
+                int d;
+                double vrel[3];
+                for(d = 0; d < 3; d++)
+                    vrel[d] = (P[other].Vel[d] - I->Vel[d]);
 
-                if(P[j].Mass < 0) continue;
+                double vpec = sqrt(dotproduct(vrel, vrel)) / All.cf.a;
 
-                if(P[j].Type != 5) {
-                    if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[j].TimeBin)
-                        O->BH_TimeBinLimit = P[j].TimeBin;
-                }
-                double dx = I->base.Pos[0] - P[j].Pos[0];
-                double dy = I->base.Pos[1] - P[j].Pos[1];
-                double dz = I->base.Pos[2] - P[j].Pos[2];
-
-                dx = NEAREST(dx);
-                dy = NEAREST(dy);
-                dz = NEAREST(dz);
-
-                double r2 = dx * dx + dy * dy + dz * dz;
-
-                /* if this option is switched on, we may also encounter dark matter particles or stars */
-                if(r2 < kernel.HH && r2 < All.FOFHaloComovingLinkingLength)
+                if(vpec <= 0.25 * I->Csnd)
                 {
-                    if(P[j].Potential < O->BH_MinPot)
-                    {
-                        if(P[j].Type == 0 || P[j].Type == 1 || P[j].Type == 4 || P[j].Type == 5)
-                        {
-                            /* compute relative velocities */
-
-                            double vrel = 0;
-                            for(k = 0, vrel = 0; k < 3; k++)
-                                vrel += (P[j].Vel[k] - I->Vel[k]) * (P[j].Vel[k] - I->Vel[k]);
-
-                            vrel = sqrt(vrel) / All.cf.a;
-
-                            if(vrel <= 0.25 * I->Csnd)
-                            {
-                                O->BH_MinPot = P[j].Potential;
-                                for(k = 0; k < 3; k++) {
-                                    O->BH_MinPotPos[k] = P[j].Pos[k];
-                                    O->BH_MinPotVel[k] = P[j].Vel[k];
-                                }
-                            }
-                        }
+                    O->BH_MinPot = P[other].Potential;
+                    for(d = 0; d < 3; d++) {
+                        O->BH_MinPotPos[d] = P[other].Pos[d];
+                        O->BH_MinPotVel[d] = P[other].Vel[d];
                     }
                 }
-                if(P[j].Type == 5 && r2 < kernel.HH)	/* we have a black hole merger */
-                {
-                    if(I->ID != P[j].ID)
-                    {
-                        /* compute relative velocity of BHs */
-
-                        double vrel = 0;
-                        for(k = 0, vrel = 0; k < 3; k++)
-                            vrel += (P[j].Vel[k] - I->Vel[k]) * (P[j].Vel[k] - I->Vel[k]);
-
-                        vrel = sqrt(vrel) / All.cf.a;
-
-                        if(vrel <= 0.5 * I->Csnd)
-                        {
-                            if(P[j].SwallowID < I->ID && P[j].ID < I->ID)
-                                P[j].SwallowID = I->ID;
-                        }
-                    }
-                }
-                if(P[j].Type == 0) {
-#ifdef WINDS
-                    /* BH does not accrete wind */
-                    if(SPHP(j).DelayTime > 0) continue;
-#endif
-                    if(r2 < kernel.HH) {
-                        /* here we have a gas particle */
-
-                        double r = sqrt(r2);
-                        double u = r * kernel.Hinv;
-                        double wk = density_kernel_wk(&kernel, u);
-                        /* compute accretion probability */
-                        double p, w;
-
-                        if((I->BH_Mass - I->Mass) > 0 && I->Density > 0)
-                            p = (I->BH_Mass - I->Mass) * wk / I->Density;
-                        else
-                            p = 0;
-
-                        /* compute random number, uniform in [0,1] */
-                        w = get_random_number(P[j].ID);
-                        if(w < p)
-                        {
-                            if(P[j].SwallowID < I->ID)
-                                P[j].SwallowID = I->ID;
-                        }
-                    }
-
-
-                    if(r2 < bh_feedback_kernel.HH && P[j].Mass > 0) {
-                        double r = sqrt(r2);
-                        double u = r * bh_feedback_kernel.Hinv;
-                        double wk;
-                        double mass_j;
-                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
-                            mass_j = P[j].Mass;
-                        } else {
-                            mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
-                        }
-                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
-                            wk = density_kernel_wk(&bh_feedback_kernel, u);
-                        else
-                        wk = 1.0;
-                        double energy = All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt *
-                            pow(C / All.UnitVelocity_in_cm_per_s, 2);
-
-                        if(I->FeedbackWeightSum > 0)
-                        {
-                            SPHP(j).Injected_BH_Energy += (energy * mass_j * wk / I->FeedbackWeightSum);
-                        }
-
-                    }
-
-                }
-            }
-        }
-
-        if(listindex < NODELISTLENGTH)
-        {
-            startnode = I->base.NodeList[listindex];
-            if(startnode >= 0) {
-                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-                listindex ++;
             }
         }
     }
 
-    return 0;
+    /* Accretion / merger doesn't do self iteraction */
+    if(P[other].ID == I->ID) return;
+
+    if(P[other].Type == 5 && r2 < iter->kernel.HH)	/* we have a black hole merger */
+    {
+        /* compute relative velocity of BHs */
+
+        lock_particle(other);
+        int d;
+        double vrel[3];
+        for(d = 0; d < 3; d++)
+            vrel[d] = (P[other].Vel[d] - I->Vel[d]);
+
+        double vpec = sqrt(dotproduct(vrel, vrel)) / All.cf.a;
+
+        if(vpec <= 0.5 * I->Csnd)
+        {
+            if(P[other].SwallowID < I->ID && P[other].ID < I->ID)
+                P[other].SwallowID = I->ID;
+        }
+        unlock_particle(other);
+    }
+
+    if(P[other].Type == 0) {
+#ifdef WINDS
+        /* BH does not accrete wind */
+        if(SPHP(other).DelayTime > 0) return;
+#endif
+        if(r2 < iter->kernel.HH) {
+            /* here we have a gas particle */
+
+            lock_particle(other);
+
+            double r = sqrt(r2);
+            double u = r * iter->kernel.Hinv;
+            double wk = density_kernel_wk(&iter->kernel, u);
+            /* compute accretion probability */
+            double p, w;
+
+            if((I->BH_Mass - I->Mass) > 0 && I->Density > 0)
+                p = (I->BH_Mass - I->Mass) * wk / I->Density;
+            else
+                p = 0;
+
+            /* compute random number, uniform in [0,1] */
+            w = get_random_number(P[other].ID);
+            if(w < p)
+            {
+                if(P[other].SwallowID < I->ID)
+                    P[other].SwallowID = I->ID;
+            }
+            unlock_particle(other);
+        }
+
+        if(r2 < iter->bh_feedback_kernel.HH && P[other].Mass > 0) {
+            double r = sqrt(r2);
+            double u = r * iter->bh_feedback_kernel.Hinv;
+            double wk;
+            double mass_j;
+
+            lock_particle(other);
+
+            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
+                mass_j = P[other].Mass;
+            } else {
+                mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
+            }
+            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE))
+                wk = density_kernel_wk(&iter->bh_feedback_kernel, u);
+            else
+            wk = 1.0;
+            double energy = All.BlackHoleFeedbackFactor * 0.1 * I->Mdot * I->Dt *
+                pow(C / All.UnitVelocity_in_cm_per_s, 2);
+
+            if(I->FeedbackWeightSum > 0)
+            {
+                SPHP(other).Injected_BH_Energy += (energy * mass_j * wk / I->FeedbackWeightSum);
+            }
+
+            unlock_particle(other);
+        }
+    }
 }
 
 
 /**
  * perform blackhole swallow / merger;
  */
-int blackhole_swallow_visit(TreeWalkQuerySwallow * I,
+static void
+blackhole_swallow_ngbiter(TreeWalkQuerySwallow * I,
         TreeWalkResultSwallow * O,
+        TreeWalkNgbIterSwallow * iter,
         LocalTreeWalk * lv)
 {
-    int startnode, numngb, k, n, listindex = 0;
 
-    int ptypemask = 0;
-    ptypemask = 1 + 2 + 4 + 8 + 16 + 32;
-
-    startnode = I->base.NodeList[0];
-    listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-
-    while(startnode >= 0)
-    {
-        while(startnode >= 0)
-        {
-            numngb = ngb_treefind_threads(I->base.Pos, I->Hsml, &startnode,
-                    lv, NGB_TREEFIND_SYMMETRIC, ptypemask);
-
-            if(numngb < 0)
-                return numngb;
-
-            for(n = 0; n < numngb;
-                 (unlock_particle_if_not(lv->ngblist[n], I->ID), n++)
-                 )
-            {
-                lock_particle_if_not(lv->ngblist[n], I->ID);
-                int j = lv->ngblist[n];
-                if(P[j].SwallowID != I->ID) continue;
-
-                if(P[j].Type == 5)	/* we have a black hole merger */
-                {
-                    O->Mass += (P[j].Mass);
-                    O->BH_Mass += (BHP(j).Mass);
-
-                    for(k = 0; k < 3; k++)
-                        O->AccretedMomentum[k] += (P[j].Mass * P[j].Vel[k]);
-
-                    O->BH_CountProgs += BHP(j).CountProgs;
-
-#pragma omp atomic
-                    Local_BH_mass -= BHP(j).Mass;
-#pragma omp atomic
-                    Local_BH_dynamicalmass -= P[j].Mass;
-#pragma omp atomic
-                    Local_BH_Mdot -= BHP(j).Mdot;
-                    if(BHP(j).Mass > 0) {
-#pragma omp atomic
-                        Local_BH_Medd -= BHP(j).Mdot / BHP(j).Mass;
-                    }
-
-                    P[j].Mass = 0;
-                    BHP(j).Mass = 0;
-                    BHP(j).Mdot = 0;
-
-#pragma omp atomic
-                    N_BH_swallowed++;
-                }
-
-                if(P[j].Type == 0)
-                {
-                    O->Mass += (P[j].Mass);
-
-                    for(k = 0; k < 3; k++)
-                        O->AccretedMomentum[k] += (P[j].Mass * P[j].Vel[k]);
-
-                    P[j].Mass = 0;
-#pragma omp atomic
-                    N_sph_swallowed++;
-                }
-            }
-        }
-        if(listindex < NODELISTLENGTH)
-        {
-            startnode = I->base.NodeList[listindex];
-            if(startnode >= 0) {
-                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-                listindex++;
-            }
-        }
+    if(iter->base.other == -1) {
+        iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
+        iter->base.Hsml = I->Hsml;
+        iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
+        return;
     }
 
-    return 0;
+    int other = iter->base.other;
+
+    /* Exclude self interaction */
+
+    if(P[other].SwallowID != I->ID) return;
+    if(P[other].ID == I->ID) return;
+    if(P[other].Type == 5)	/* we have a black hole merger */
+    {
+        lock_particle(other);
+        O->Mass += (P[other].Mass);
+        O->BH_Mass += (BHP(other).Mass);
+
+        int d;
+        for(d = 0; d < 3; d++)
+            O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
+
+        O->BH_CountProgs += BHP(other).CountProgs;
+
+#pragma omp atomic
+        Local_BH_mass -= BHP(other).Mass;
+#pragma omp atomic
+        Local_BH_dynamicalmass -= P[other].Mass;
+#pragma omp atomic
+        Local_BH_Mdot -= BHP(other).Mdot;
+        if(BHP(other).Mass > 0) {
+#pragma omp atomic
+            Local_BH_Medd -= BHP(other).Mdot / BHP(other).Mass;
+        }
+
+        P[other].Mass = 0;
+        BHP(other).Mass = 0;
+        BHP(other).Mdot = 0;
+
+#pragma omp atomic
+        N_BH_swallowed++;
+
+        unlock_particle(other);
+    }
+
+    /* Swallow a gas */
+    if(P[other].Type == 0)
+    {
+        lock_particle(other);
+
+        O->Mass += (P[other].Mass);
+
+        int d;
+        for(d = 0; d < 3; d++)
+            O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
+
+        P[other].Mass = 0;
+#pragma omp atomic
+        N_sph_swallowed++;
+        unlock_particle(other);
+    }
 }
 
 static int blackhole_feedback_isactive(int n) {

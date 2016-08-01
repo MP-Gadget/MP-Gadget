@@ -84,8 +84,14 @@ void lock_particle_if_not(int i, MyIDType id) {
     if(P[i].ID == id) return;
     pthread_spin_lock(&P[i].SpinLock);
 }
+void lock_particle(int i) {
+    pthread_spin_lock(&P[i].SpinLock);
+}
 void unlock_particle_if_not(int i, MyIDType id) {
     if(P[i].ID == id) return;
+    pthread_spin_unlock(&P[i].SpinLock);
+}
+void unlock_particle(int i) {
     pthread_spin_unlock(&P[i].SpinLock);
 }
 void drift_particle(int i, int time1) {
