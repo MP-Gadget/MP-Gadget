@@ -741,7 +741,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         int *startnode,
         LocalTreeWalk * lv)
 {
-    int no, p, numngb;
+    int no, numngb;
     MyDouble dist, dx, dy, dz;
     struct NODE *current;
 
@@ -756,18 +756,18 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     {
         if(no < All.MaxPart)  /* single particle */
         {
-            p = no;
+            int other = no;
             no = Nextnode[no];
 
-            if(!((1<<P[p].Type) & iter->mask))
+            if(!((1<<P[other].Type) & iter->mask))
                 continue;
 
-            if(drift_particle_full(p, All.Ti_Current, blocking) < 0) {
+            if(drift_particle_full(other, All.Ti_Current, blocking) < 0) {
                 return -2;
             }
 
             if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-                dist = DMAX(P[p].Hsml, iter->Hsml);
+                dist = DMAX(P[other].Hsml, iter->Hsml);
             } else {
                 dist = iter->Hsml;
             }
@@ -775,7 +775,8 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             int d;
             double h2 = dist * dist;
             for(d = 0; d < 3; d ++) {
-                iter->dist[d] = NEAREST(P[p].Pos[d] - I->Pos[d]);
+                /* the distance vector points to 'other' */
+                iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d]);
                 r2 += iter->dist[d] * iter->dist[d];
                 if(r2 > h2) break;
             }
@@ -784,7 +785,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             /* update the iter and call the iteration function*/
             iter->r2 = r2;
             iter->r = sqrt(r2);
-            iter->other = p;
+            iter->other = other;
             lv->tw->ngbiter(I, O, iter, lv);
             numngb ++;
         }
