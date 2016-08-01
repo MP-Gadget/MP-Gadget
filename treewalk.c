@@ -54,8 +54,8 @@ static void ev_reduce_result(TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
 
 static int
-ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int *startnode,
-        LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask);
+ngb_treefind_threads(MyDouble searchcenter[3], TreeWalkNgbIterBase * iter, int *startnode,
+        LocalTreeWalk * lv);
 
 
 /*! This function is used as a comparison kernel in a sort routine. It is
@@ -694,9 +694,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     {
         while(startnode >= 0)
         {
-            numngb_inbox =
-                ngb_treefind_threads(I->Pos, iter->Hsml, &startnode,
-                        lv, iter->symmetric, iter->mask);
+            numngb_inbox = ngb_treefind_threads(I->Pos, iter, &startnode, lv);
 
             if(numngb_inbox < 0)
                 return numngb_inbox;
@@ -750,8 +748,8 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
  *  calling routine.
  */
 static int
-ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int *startnode,
-        LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask)
+ngb_treefind_threads(MyDouble searchcenter[3], TreeWalkNgbIterBase * iter, int *startnode,
+        LocalTreeWalk * lv)
 {
     int no, p, numngb;
     MyDouble dist, dx, dy, dz;
@@ -771,17 +769,17 @@ ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int *startnode,
             p = no;
             no = Nextnode[no];
 
-            if(!((1<<P[p].Type) & ptypemask))
+            if(!((1<<P[p].Type) & iter->mask))
                 continue;
 
             if(drift_particle_full(p, All.Ti_Current, blocking) < 0) {
                 return -2;
             }
 
-            if(symmetric == NGB_TREEFIND_SYMMETRIC) {
-                dist = DMAX(P[p].Hsml, hsml);
+            if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
+                dist = DMAX(P[p].Hsml, iter->Hsml);
             } else {
-                dist = hsml;
+                dist = iter->Hsml;
             }
             dx = NEAREST(P[p].Pos[0] - searchcenter[0]);
             if(dx > dist)
@@ -795,7 +793,7 @@ ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int *startnode,
             if(dx * dx + dy * dy + dz * dz > dist * dist)
                 continue;
 
-            lv->ngblist[numngb++] = p;	
+            lv->ngblist[numngb++] = p;
             /* Note: unlike in previous versions of the code, the buffer 
                                        can hold up to all particles */
         }
@@ -849,10 +847,10 @@ ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int *startnode,
                 }
             }
 
-            if(symmetric == NGB_TREEFIND_SYMMETRIC) {
-                dist = DMAX(Extnodes[no].hmax, hsml) + 0.5 * current->len;
+            if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
+                dist = DMAX(Extnodes[no].hmax, iter->Hsml) + 0.5 * current->len;
             } else {
-                dist = hsml + 0.5 * current->len;;
+                dist = iter->Hsml + 0.5 * current->len;;
             }
             no = current->u.d.sibling;	/* in case the node can be discarded */
 
