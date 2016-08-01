@@ -86,18 +86,18 @@ static double fac_mu, fac_vsic_fix;
  */
 void hydro_force(void)
 {
-    TreeWalk tw = {0};
+    TreeWalk tw[1] = {0};
 
-    tw.ev_label = "HYDRO";
-    tw.visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
-    tw.ngbiter = (TreeWalkNgbIterFunction) hydro_ngbiter;
-    tw.ngbiter_type_elsize = sizeof(TreeWalkNgbIterHydro);
-    tw.isactive = hydro_isactive;
-    tw.fill = (TreeWalkFillQueryFunction) hydro_copy;
-    tw.reduce = (TreeWalkReduceResultFunction) hydro_reduce;
-    tw.UseNodeList = 0;
-    tw.query_type_elsize = sizeof(TreeWalkQueryHydro);
-    tw.result_type_elsize = sizeof(TreeWalkResultHydro);
+    tw->ev_label = "HYDRO";
+    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw->ngbiter = (TreeWalkNgbIterFunction) hydro_ngbiter;
+    tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterHydro);
+    tw->isactive = hydro_isactive;
+    tw->fill = (TreeWalkFillQueryFunction) hydro_copy;
+    tw->reduce = (TreeWalkReduceResultFunction) hydro_reduce;
+    tw->UseNodeList = 0;
+    tw->query_type_elsize = sizeof(TreeWalkQueryHydro);
+    tw->result_type_elsize = sizeof(TreeWalkResultHydro);
 
     int i;
     double timeall = 0, timenetwork = 0;
@@ -112,13 +112,12 @@ void hydro_force(void)
 
     walltime_measure("/SPH/Hydro/Init");
 
-    treewalk_run(&tw);
-
+    treewalk_run(tw);
 
     /* do final operations on results */
 
     int Nactive;
-    int * queue = treewalk_get_queue(&tw, &Nactive);
+    int * queue = treewalk_get_queue(tw, &Nactive);
 #pragma omp parallel for if(Nactive > 64)
     for(i = 0; i < Nactive; i++)
         hydro_post_process(queue[i]);
@@ -129,9 +128,9 @@ void hydro_force(void)
 
     timeall += walltime_measure(WALLTIME_IGNORE);
 
-    timecomp = tw.timecomp1 + tw.timecomp2;
-    timewait = tw.timewait1 + tw.timewait2;
-    timecomm = tw.timecommsumm1 + tw.timecommsumm2;
+    timecomp = tw->timecomp1 + tw->timecomp2;
+    timewait = tw->timewait1 + tw->timewait2;
+    timecomm = tw->timecommsumm1 + tw->timecommsumm2;
 
     walltime_add("/SPH/Hydro/Compute", timecomp);
     walltime_add("/SPH/Hydro/Wait", timewait);

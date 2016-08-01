@@ -111,19 +111,19 @@ void density(void)
 {
     MyFloat *Left, *Right;
 
-    TreeWalk tw = {0};
+    TreeWalk tw[1] = {0};
 
-    tw.ev_label = "DENSITY";
-    tw.visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
-    tw.ngbiter_type_elsize = sizeof(TreeWalkNgbIterDensity);
-    tw.ngbiter = (TreeWalkNgbIterFunction) density_ngbiter;
+    tw->ev_label = "DENSITY";
+    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterDensity);
+    tw->ngbiter = (TreeWalkNgbIterFunction) density_ngbiter;
 
-    tw.isactive = density_isactive;
-    tw.fill = (TreeWalkFillQueryFunction) density_copy;
-    tw.reduce = (TreeWalkReduceResultFunction) density_reduce;
-    tw.UseNodeList = 1;
-    tw.query_type_elsize = sizeof(TreeWalkQueryDensity);
-    tw.result_type_elsize = sizeof(TreeWalkResultDensity);
+    tw->isactive = density_isactive;
+    tw->fill = (TreeWalkFillQueryFunction) density_copy;
+    tw->reduce = (TreeWalkReduceResultFunction) density_reduce;
+    tw->UseNodeList = 1;
+    tw->query_type_elsize = sizeof(TreeWalkQueryDensity);
+    tw->result_type_elsize = sizeof(TreeWalkResultDensity);
 
     int i, iter = 0;
 
@@ -152,7 +152,7 @@ void density(void)
 
     /* the queue has every particle. Later on after some iterations are done
      * Nactive will decrease -- the queue would be shorter.*/
-    queue = treewalk_get_queue(&tw, &Nactive);
+    queue = treewalk_get_queue(tw, &Nactive);
 #pragma omp parallel for if(Nactive > 32)
     for(i = 0; i < Nactive; i ++) {
         int p = queue[i];
@@ -172,12 +172,12 @@ void density(void)
     do
     {
 
-        treewalk_run(&tw);
+        treewalk_run(tw);
 
         /* do final operations on results */
         tstart = second();
 
-        queue = treewalk_get_queue(&tw, &Nactive);
+        queue = treewalk_get_queue(tw, &Nactive);
 
         int npleft = 0;
 #pragma omp parallel for if(Nactive > 32)
@@ -244,9 +244,9 @@ void density(void)
 
     timeall = walltime_measure(WALLTIME_IGNORE);
 
-    timecomp = timecomp3 + tw.timecomp1 + tw.timecomp2;
-    timewait = tw.timewait1 + tw.timewait2;
-    timecomm = tw.timecommsumm1 + tw.timecommsumm2;
+    timecomp = timecomp3 + tw->timecomp1 + tw->timecomp2;
+    timewait = tw->timewait1 + tw->timewait2;
+    timecomm = tw->timecommsumm1 + tw->timecommsumm2;
 
     walltime_add("/SPH/Density/Compute", timecomp);
     walltime_add("/SPH/Density/Wait", timewait);
