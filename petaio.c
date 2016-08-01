@@ -19,7 +19,6 @@
     void fof_register_io_blocks();
 #endif
 
-
 /************
  *
  * The IO api , intented to replace io.c and read_ic.c
@@ -225,6 +224,10 @@ void petaio_read_ic() {
 }
 
 
+/*Defined in config.h and pulled in via main.c*/
+extern const char * COMPILETIMESETTINGS;
+extern const char * GADGETVERSION;
+
 /* write a header block */
 static void petaio_write_header(BigFile * bf) {
     BigBlock bh = {0};
@@ -254,6 +257,11 @@ static void petaio_write_header(BigFile * bf) {
     (0 != big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "UnitLength_in_cm", &All.UnitLength_in_cm, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "UnitMass_in_g", &All.UnitMass_in_g, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "UnitVelocity_in_cm_per_s", &All.UnitVelocity_in_cm_per_s, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "CodeVersion", GADGETVERSION, "S1", strlen(GADGETVERSION))) ||
+    (0 != big_block_set_attr(&bh, "CompileSettings", COMPILETIMESETTINGS, "S1", strlen(COMPILETIMESETTINGS))) ||
     (0 != big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1)) ) {
         endrun(0, "Failed to write attributes %s\n",
                     big_file_get_error_message());

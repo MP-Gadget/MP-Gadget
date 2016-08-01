@@ -770,19 +770,19 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
                 BhP, count_recv_bh, offset_recv_bh, MPI_TYPE_BHPARTICLE,
                 MPI_COMM_WORLD);
     walltime_measure("/Domain/exchange/alltoall");
-                
-    for(target = 0; target < NTask; target++) {
-        int i, j;
-        for(i = offset_recv[target], 
-                j = offset_recv_bh[target]; 
-                i < offset_recv[target] + count_recv[target]; 
-                i++) {
-            if(P[i].Type != 5) continue;
-            P[i].PI = j;
-            j++;
-        }
-        if(j != count_recv_bh[target] + offset_recv_bh[target]) {
-            endrun(1, "communitate bh consitency\n");
+
+    if(count_get_bh > 0) {
+        for(target = 0; target < NTask; target++) {
+            int i, j;
+            for(i = offset_recv[target], j = offset_recv_bh[target];
+                i < offset_recv[target] + count_recv[target]; i++) {
+                if(P[i].Type != 5) continue;
+                P[i].PI = j;
+                j++;
+            }
+            if(j != count_recv_bh[target] + offset_recv_bh[target]) {
+                endrun(1, "communication bh inconsistency\n");
+            }
         }
     }
 
@@ -821,8 +821,7 @@ static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
 
 }
 
-void domain_garbage_collection() {
-
+void domain_bh_garbage_collection() {
     /* gc the bh */
     int i, j;
     int total = 0;
@@ -888,7 +887,15 @@ void domain_garbage_collection() {
     if(total != total0) {
         message(0, "After BH garbage collection, before = %d after= %d\n", total0, total);
     }
+}
 
+void domain_garbage_collection() {
+    int i;
+    /*Make sure the BHs are consistent, if we have any*/
+    if(N_bh > 0)
+        domain_bh_garbage_collection();
+
+    /*Now ensure that the particle numbers are consistent*/
     N_bh = 0;
     N_star = 0;
     N_sph = 0;
@@ -1187,22 +1194,26 @@ void domain_findSplit_load_balanced(int ncpu, int ndomain)
 
 
 
-/*! This function determines how many particles that are currently stored
- *  on the local CPU have to be moved off according to the domain
- *  decomposition.
- *
- *  layoutfunc decides the target Task of particle p (used by
- *  subfind_distribute.
- *
- */
-static int domain_layoutfunc(int n) {
-    int no;
-    no = 0;
+static inline int domain_leafnodefunc(int n) {
+    int no=0;
     peanokey key = KEY(n);
     while(topNodes[no].Daughter >= 0)
         no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size / 8);
 
     no = topNodes[no].Leaf;
+    return no;
+}
+
+/*! This function determines how many particles that are currently stored
+ *  on the local CPU have to be moved off according to the domain
+ *  decomposition.
+ *
+ *  layoutfunc decides the target Task of particle p (used by
+ *  subfind_distribute).
+ *
+ */
+static int domain_layoutfunc(int n) {
+    int no = domain_leafnodefunc(n);
     return DomainTask[no];
 }
 
@@ -1229,7 +1240,7 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
 
     for(n = 0; n < NumPart; n++)
     {
-        if(package >= nlimit) continue;
+        if(package >= nlimit) break;
         if(!P[n].OnAnotherDomain) continue;
 
         int target = layoutfunc(n);
@@ -1697,18 +1708,15 @@ loop_continue:
  */
 int domain_determineTopTree(void)
 {
-    int i, count, j, sub;
+    int i, j, sub;
     int errflag, errsum;
     double costlimit, countlimit;
 
     mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
 
-    count = 0;
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-#pragma omp atomic
-        count ++;
         mp[i].key = KEY(i);
         mp[i].index = i;
     }
@@ -1724,7 +1732,7 @@ int domain_determineTopTree(void)
     topNodes[0].Size = PEANOCELLS;
     topNodes[0].StartKey = 0;
     topNodes[0].PIndex = 0;
-    topNodes[0].Count = count;
+    topNodes[0].Count = NumPart;
     topNodes[0].Cost = gravcost;
 
     costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
@@ -1831,45 +1839,33 @@ int domain_determineTopTree(void)
 
 void domain_sumCost(void)
 {
-    int i, n;
-    float *local_domainWork;
-    int *local_domainCount;
-    int *local_domainCountSph;
+    int i;
+    float * local_domainWork = (float *) mymalloc("local_domainWork", All.NumThreads * NTopnodes * sizeof(float));
+    int * local_domainCount = (int *) mymalloc("local_domainCount", All.NumThreads * NTopnodes * sizeof(int));
+    int * local_domainCountSph = (int *) mymalloc("local_domainCountSph", All.NumThreads * NTopnodes * sizeof(int));
 
-    local_domainWork = (float *) mymalloc("local_domainWork", All.NumThreads * NTopnodes * sizeof(float));
-    local_domainCount = (int *) mymalloc("local_domainCount", All.NumThreads * NTopnodes * sizeof(int));
-    local_domainCountSph = (int *) mymalloc("local_domainCountSph", All.NumThreads * NTopnodes * sizeof(int));
+    memset(local_domainWork, 0, All.NumThreads * NTopnodes * sizeof(float));
+    memset(local_domainCount, 0, All.NumThreads * NTopnodes * sizeof(float));
+    memset(local_domainCountSph, 0, All.NumThreads * NTopnodes * sizeof(float));
 
     NTopleaves = 0;
     domain_walktoptree(0);
 
     message(0, "NTopleaves= %d  NTopnodes=%d (space for %d)\n", NTopleaves, NTopnodes, MaxTopNodes);
 
-#pragma omp parallel private(n, i)
+#pragma omp parallel
     {
         int tid = omp_get_thread_num();
+        int n;
 
         float * mylocal_domainWork = local_domainWork + tid * NTopleaves;
         int * mylocal_domainCount = local_domainCount + tid * NTopleaves;
         int * mylocal_domainCountSph = local_domainCountSph + tid * NTopleaves;
 
-        for(i = 0; i < NTopleaves; i++)
-        {
-            mylocal_domainWork[i] = 0;
-            mylocal_domainCount[i] = 0;
-            mylocal_domainCountSph[i] = 0;
-        }
-
-
 #pragma omp for
         for(n = 0; n < NumPart; n++)
         {
-            int no = 0;
-            peanokey key = KEY(n);
-            while(topNodes[no].Daughter >= 0)
-                no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
-
-            no = topNodes[no].Leaf;
+            int no = domain_leafnodefunc(n);
 
             mylocal_domainWork[no] += (float) domain_particle_costfactor(n);
 

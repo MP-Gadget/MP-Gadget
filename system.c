@@ -332,9 +332,12 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
                 recvtype, target, 101934, comm, &requests[n_requests++]);
     }
 
-    MPI_Barrier(comm);	/* not really necessary, but this will guarantee that all receives are
-                                       posted before the sends, which helps the stability of MPI on 
-                                       bluegene, and perhaps some mpich1-clusters */
+    MPI_Barrier(comm);
+    /* not really necessary, but this will guarantee that all receives are
+       posted before the sends, which helps the stability of MPI on
+       bluegene, and perhaps some mpich1-clusters */
+    /* Note 08/2016: Even on modern hardware this barrier leads to a slight speedup.
+     * Probably because it allows the code to hit a fast path transfer.*/
 
     for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
     {
