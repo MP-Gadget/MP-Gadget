@@ -44,7 +44,6 @@ typedef struct {
     int *exportindex;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
-    int * ngblist;
 } LocalTreeWalk;
 
 typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
@@ -65,8 +64,6 @@ typedef struct _TreeWalk {
     TreeWalkFillQueryFunction fill;
     TreeWalkReduceResultFunction reduce;
     TreeWalkNgbIterFunction ngbiter;
-
-    int * ngblist;
 
     char * dataget;
     char * dataresult;

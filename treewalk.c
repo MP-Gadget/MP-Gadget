@@ -54,7 +54,10 @@ static void ev_reduce_result(TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
 
 static int
-ngb_treefind_threads(MyDouble searchcenter[3], TreeWalkNgbIterBase * iter, int *startnode,
+ngb_treefind_threads(TreeWalkQueryBase * I,
+        TreeWalkResultBase * O,
+        TreeWalkNgbIterBase * iter,
+        int *startnode,
         LocalTreeWalk * lv);
 
 
@@ -120,7 +123,6 @@ ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv)
     int thread_id = omp_get_thread_num();
     int j;
     lv->tw = tw;
-    lv->ngblist = thread_id * NumPart + tw->ngblist;
     lv->exportflag = Exportflag + thread_id * NTask;
     lv->exportnodecount = Exportnodecount + thread_id * NTask;
     lv->exportindex = Exportindex + thread_id * NTask;
@@ -150,7 +152,6 @@ static void ev_begin(TreeWalk * tw)
     fill_task_queue(tw, tw->PrimaryTasks, tw->PQueue, tw->PQueueSize);
     tw->currentIndex = mymalloc("currentIndexPerThread", sizeof(int) * All.NumThreads);
     tw->currentEnd = mymalloc("currentEndPerThread", sizeof(int) * All.NumThreads);
-    tw->ngblist = mymalloc("Ngblist", sizeof(int) * All.NumThreads * NumPart);
 
     int i;
     for(i = 0; i < All.NumThreads; i ++) {
@@ -161,7 +162,6 @@ static void ev_begin(TreeWalk * tw)
 
 static void ev_finish(TreeWalk * tw)
 {
-    myfree(tw->ngblist);
     myfree(tw->currentEnd);
     myfree(tw->currentIndex);
     myfree(tw->PrimaryTasks);
@@ -694,27 +694,14 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     {
         while(startnode >= 0)
         {
-            numngb_inbox = ngb_treefind_threads(I->Pos, iter, &startnode, lv);
+            int numngb = ngb_treefind_threads(I, O, iter, &startnode, lv);
 
-            if(numngb_inbox < 0)
-                return numngb_inbox;
+            /* Export buffer is full end prematurally */
+            if(numngb < 0) return numngb;
 
-            for(n = 0; n < numngb_inbox; n++)
-            {
-                ninteractions++;
-                int j = lv->ngblist[n];
-
-                iter->other = j;
-                iter->r2 = 0;
-                int d;
-                for(d = 0; d < 3; d ++) {
-                    iter->dist[d] = NEAREST(I->Pos[d] - P[j].Pos[d]);
-                    iter->r2 += iter->dist[d] * iter->dist[d];
-                }
-                iter->r = sqrt(iter->r2);
-                lv->tw->ngbiter(I, O, iter, lv);
-            }
+            ninteractions += numngb;
         }
+
         /* now check next node in the node list */
         if(listindex < NODELISTLENGTH)
         {
@@ -748,7 +735,10 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
  *  calling routine.
  */
 static int
-ngb_treefind_threads(MyDouble searchcenter[3], TreeWalkNgbIterBase * iter, int *startnode,
+ngb_treefind_threads(TreeWalkQueryBase * I,
+        TreeWalkResultBase * O,
+        TreeWalkNgbIterBase * iter,
+        int *startnode,
         LocalTreeWalk * lv)
 {
     int no, p, numngb;
@@ -764,7 +754,7 @@ ngb_treefind_threads(MyDouble searchcenter[3], TreeWalkNgbIterBase * iter, int *
 
     while(no >= 0)
     {
-        if(no < All.MaxPart)	/* single particle */
+        if(no < All.MaxPart)  /* single particle */
         {
             p = no;
             no = Nextnode[no];
@@ -781,25 +771,26 @@ ngb_treefind_threads(MyDouble searchcenter[3], TreeWalkNgbIterBase * iter, int *
             } else {
                 dist = iter->Hsml;
             }
-            dx = NEAREST(P[p].Pos[0] - searchcenter[0]);
-            if(dx > dist)
-                continue;
-            dy = NEAREST(P[p].Pos[1] - searchcenter[1]);
-            if(dy > dist)
-                continue;
-            dz = NEAREST(P[p].Pos[2] - searchcenter[2]);
-            if(dz > dist)
-                continue;
-            if(dx * dx + dy * dy + dz * dz > dist * dist)
-                continue;
+            double r2 = 0;
+            int d;
+            double h2 = dist * dist;
+            for(d = 0; d < 3; d ++) {
+                iter->dist[d] = NEAREST(P[p].Pos[d] - I->Pos[d]);
+                r2 += iter->dist[d] * iter->dist[d];
+                if(r2 > h2) break;
+            }
+            if(r2 > h2) continue;
 
-            lv->ngblist[numngb++] = p;
-            /* Note: unlike in previous versions of the code, the buffer 
-                                       can hold up to all particles */
+            /* update the iter and call the iteration function*/
+            iter->r2 = r2;
+            iter->r = sqrt(r2);
+            iter->other = p;
+            lv->tw->ngbiter(I, O, iter, lv);
+            numngb ++;
         }
         else
         {
-            if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+            if(no >= All.MaxPart + MaxNodes)  /* pseudo particle */
             {
                 if(lv->mode == 1)
                 {
@@ -850,25 +841,28 @@ ngb_treefind_threads(MyDouble searchcenter[3], TreeWalkNgbIterBase * iter, int *
             if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
                 dist = DMAX(Extnodes[no].hmax, iter->Hsml) + 0.5 * current->len;
             } else {
-                dist = iter->Hsml + 0.5 * current->len;;
+                dist = iter->Hsml + 0.5 * current->len;
             }
             no = current->u.d.sibling;	/* in case the node can be discarded */
 
-            dx = NEAREST(current->center[0] - searchcenter[0]);
-            if(dx > dist)
-                continue;
-            dy = NEAREST(current->center[1] - searchcenter[1]);
-            if(dy > dist)
-                continue;
-            dz = NEAREST(current->center[2] - searchcenter[2]);
-            if(dz > dist)
-                continue;
+            double r2 = 0;
+            double dx = 0;
+            /* do each direction */
+            int d;
+            for(d = 0; d < 3; d ++) {
+                dx = NEAREST(current->center[d] - I->Pos[d]);
+                if(dx > dist) break;
+                r2 += dx * dx;
+            }
+            if(dx > dist) continue;
+
             /* now test against the minimal sphere enclosing everything */
             dist += FACT1 * current->len;
-            if(dx * dx + dy * dy + dz * dz > dist * dist)
+
+            if(r2 > dist * dist)
                 continue;
 
-            no = current->u.d.nextnode;	/* ok, we need to open the node */
+            no = current->u.d.nextnode; /* ok, we need to open the node */
         }
     }
 
