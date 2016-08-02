@@ -40,10 +40,6 @@ typedef struct {
     MyFloat DhsmlDensityFactor;
     int Timestep;
 
-#ifdef PARTICLE_DEBUG
-    MyIDType ID;			/*!< particle identifier */
-#endif
-
 } TreeWalkQueryHydro;
 
 typedef struct {
@@ -155,11 +151,6 @@ static void hydro_copy(int place, TreeWalkQueryHydro * input) {
 
 #else
     input->F1 = SPHP(place).DivVel;
-#endif
-
-
-#ifdef PARTICLE_DEBUG
-    input->ID = P[place].ID;
 #endif
 
 }
