@@ -177,7 +177,7 @@ void density(void)
                     message
                         (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
                          i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, Left[i], Right[i],
-                         (float) P[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+                         (float) P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
                 }
             }
 
@@ -239,7 +239,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I) {
 }
 
 static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode) {
-    TREEWALK_REDUCE(P[place].n.dNumNgb, remote->Ngb);
+    TREEWALK_REDUCE(P[place].NumNgb, remote->Ngb);
 
 #ifdef HYDRO_COST_FACTOR
     /* these will be added */
@@ -463,8 +463,8 @@ void density_check_neighbours (int i) {
         desnumngb = All.DesNumNgb * All.BlackHoleNgbFactor;
 #endif
 
-    if(P[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
-            (P[i].n.NumNgb > (desnumngb + All.MaxNumNgbDeviation)
+    if(P[i].NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
+            (P[i].NumNgb > (desnumngb + All.MaxNumNgbDeviation)
              && P[i].Hsml > (1.01 * All.MinGasHsml)))
     {
         /* need to redo this particle */
@@ -481,7 +481,7 @@ void density_check_neighbours (int i) {
                 return;
             }
 
-        if(P[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation))
+        if(P[i].NumNgb < (desnumngb - All.MaxNumNgbDeviation))
             Left[i] = DMAX(P[i].Hsml, Left[i]);
         else
         {
@@ -503,10 +503,10 @@ void density_check_neighbours (int i) {
 
             if(Right[i] == 0 && Left[i] > 0)
             {
-                if(P[i].Type == 0 && fabs(P[i].n.NumNgb - desnumngb) < 0.5 * desnumngb)
+                if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
-                    double fac = 1 - (P[i].n.NumNgb -
-                            desnumngb) / (NUMDIMS * P[i].n.NumNgb) *
+                    double fac = 1 - (P[i].NumNgb -
+                            desnumngb) / (NUMDIMS * P[i].NumNgb) *
                         SPHP(i).DhsmlDensityFactor;
 
                     if(fac < 1.26)
@@ -520,10 +520,10 @@ void density_check_neighbours (int i) {
 
             if(Right[i] > 0 && Left[i] == 0)
             {
-                if(P[i].Type == 0 && fabs(P[i].n.NumNgb - desnumngb) < 0.5 * desnumngb)
+                if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
-                    double fac = 1 - (P[i].n.NumNgb -
-                            desnumngb) / (NUMDIMS * P[i].n.NumNgb) *
+                    double fac = 1 - (P[i].NumNgb -
+                            desnumngb) / (NUMDIMS * P[i].NumNgb) *
                         SPHP(i).DhsmlDensityFactor;
 
                     if(fac > 1 / 1.26)
@@ -557,7 +557,7 @@ void density_check_neighbours (int i) {
     {
          message(1, "i=%d task=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
              i, ThisTask, P[i].ID, P[i].Hsml, Left[i], Right[i],
-             (float) P[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+             (float) P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
     }
 
     if(!P[i].DensityIterationDone) {

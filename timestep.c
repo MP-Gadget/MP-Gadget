@@ -528,7 +528,7 @@ int get_timestep(int p,		/*!< particle index */
 
         if(P[p].Type == 0)
             message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1],
-                    SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].n.NumNgb);
+                    SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb);
 #ifdef DENSITY_INDEPENDENT_SPH
         if(P[p].Type == 0)
             message(1, "egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, SPHP(p).EntVarPred,

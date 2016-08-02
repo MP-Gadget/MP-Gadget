@@ -678,11 +678,7 @@ extern struct particle_data
 
     MyFloat Hsml;
 
-    union
-    {
-        MyFloat       NumNgb;
-        MyDouble dNumNgb;
-    } n;
+    MyFloat       NumNgb;
 
 #ifdef FOF
     int64_t GrNr;
