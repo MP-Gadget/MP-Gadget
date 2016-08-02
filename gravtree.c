@@ -83,7 +83,7 @@ static void fill_ntab()
 static int gravtree_isactive(int i);
 void gravtree_copy(int place, TreeWalkQueryGravity * input) ;
 void gravtree_reduce(int place, TreeWalkResultGravity * result, enum TreeWalkReduceMode mode);
-static void gravtree_post_process(int i);
+static void gravtree_postprocess(int i);
 
 /*! This function computes the gravitational forces for all active particles.
  *  If needed, a new tree is constructed, otherwise the dynamically updated
@@ -92,29 +92,21 @@ static void gravtree_post_process(int i);
  */
 void gravity_tree(void)
 {
-    double Ewaldcount, Costtotal;
-    int64_t N_nodesinlist;
-
-    int64_t n_exported = 0;
-    int i, maxnumnodes, iter = 0;
     double timeall = 0, timetree1 = 0, timetree2 = 0;
     double timetree, timewait, timecomm;
-    double timecommsumm1 = 0, timecommsumm2 = 0, timewait1 = 0, timewait2 = 0;
-    double sum_costtotal, ewaldtot;
-    double maxt, sumt, maxt1, sumt1, maxt2, sumt2, sumcommall, sumwaitall;
-    double plb, plb_max;
 
     TreeWalk tw[1] = {0};
 
-    tw[0].ev_label = "FORCETREE_SHORTRANGE";
-    tw[0].visit = (TreeWalkVisitFunction) force_treeev_shortrange;
-    tw[0].isactive = gravtree_isactive;
-    tw[0].reduce = (TreeWalkReduceResultFunction) gravtree_reduce;
-    tw[0].UseNodeList = 1;
+    tw->ev_label = "FORCETREE_SHORTRANGE";
+    tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
+    tw->isactive = gravtree_isactive;
+    tw->reduce = (TreeWalkReduceResultFunction) gravtree_reduce;
+    tw->postprocess = (TreeWalkProcessFunction) gravtree_postprocess;
+    tw->UseNodeList = 1;
 
-    tw[0].query_type_elsize = sizeof(TreeWalkQueryGravity);
-    tw[0].result_type_elsize = sizeof(TreeWalkResultGravity);
-    tw[0].fill = (TreeWalkFillQueryFunction) gravtree_copy;
+    tw->query_type_elsize = sizeof(TreeWalkQueryGravity);
+    tw->result_type_elsize = sizeof(TreeWalkResultGravity);
+    tw->fill = (TreeWalkFillQueryFunction) gravtree_copy;
 
     walltime_measure("/Misc");
 
@@ -128,107 +120,39 @@ void gravity_tree(void)
 
     walltime_measure("/Misc");
 
-    treewalk_run(&tw[0]);
-    iter += tw[0].Niterations;
-    n_exported += tw[0].Nexport_sum;
-    N_nodesinlist += tw[0].Nnodesinlist;
+    treewalk_run(tw);
 
-    Ewaldcount = tw[0].Ninteractions;
-
-    if(All.TypeOfOpeningCriterion == 1)
-        All.ErrTolTheta = 0;	/* This will switch to the relative opening criterion for the following force computations */
-
-
-    Costtotal = 0;
-    /* now add things for comoving integration */
-
-    int Nactive;
-    /* doesn't matter which tw to use, they have the same ev_active*/
-    int * queue = treewalk_get_queue(&tw[0], &Nactive);
-#pragma omp parallel for if(Nactive > 32)
-    for(i = 0; i < Nactive; i++) {
-        gravtree_post_process(queue[i]);
-        /* this shall agree with sum of Ninteractions in all tw[..] need to
-         * check it*/
-#pragma omp atomic
-        Costtotal += P[i].GravCost;
+    if(All.TypeOfOpeningCriterion == 1) {
+        /* This will switch to the relative opening criterion for the following force computations */
+        All.ErrTolTheta = 0;
     }
-    myfree(queue);
+
+    /* now add things for comoving integration */
 
     message(0, "tree is done.\n");
 
-    /* This code is removed for now gravity_static_potential(); */
-
     /* Now the force computation is finished */
 
-
     /*  gather some diagnostic information */
-    timetree1 += tw[0].timecomp1;
-    timetree2 += tw[0].timecomp2;
-    timewait1 += tw[0].timewait1;
-    timewait2 += tw[0].timewait2;
-    timecommsumm1 += tw[0].timecommsumm1 ;
-    timecommsumm2 += tw[0].timecommsumm2;
 
-    timetree = timetree1 + timetree2;
-    timewait = timewait1 + timewait2;
-    timecomm= timecommsumm1 + timecommsumm2;
-
-    MPI_Reduce(&timetree, &sumt, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&timetree, &maxt, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&timetree1, &sumt1, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&timetree1, &maxt1, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&timetree2, &sumt2, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&timetree2, &maxt2, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&timewait, &sumwaitall, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&timecomm, &sumcommall, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&Costtotal, &sum_costtotal, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&Ewaldcount, &ewaldtot, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-
-    sumup_longs(1, &n_exported, &n_exported);
-    sumup_longs(1, &N_nodesinlist, &N_nodesinlist);
+    timetree = tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
+    timewait = tw->timewait1 + tw->timewait2;
+    timecomm= tw->timecommsumm1 + tw->timecommsumm2;
 
     All.TotNumOfForces += GlobNumForceUpdate;
 
-    plb = (NumPart / ((double) All.TotNumPart)) * NTask;
-    MPI_Reduce(&plb, &plb_max, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&Numnodestree, &maxnumnodes, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
-
-    walltime_add("/Tree/Walk1", timetree1);
-    walltime_add("/Tree/Walk2", timetree2);
-    walltime_add("/Tree/Send", timecommsumm1);
-    walltime_add("/Tree/Recv", timecommsumm2);
-    walltime_add("/Tree/Wait1", timewait1);
-    walltime_add("/Tree/Wait2", timewait2);
+    walltime_add("/Tree/Walk1", tw->timecomp1);
+    walltime_add("/Tree/Walk2", tw->timecomp2);
+    walltime_add("/Tree/PostProcess", tw->timecomp3);
+    walltime_add("/Tree/Send", tw->timecommsumm1);
+    walltime_add("/Tree/Recv", tw->timecommsumm2);
+    walltime_add("/Tree/Wait1", tw->timewait1);
+    walltime_add("/Tree/Wait2", tw->timewait2);
 
     timeall = walltime_measure(WALLTIME_IGNORE);
+
     walltime_add("/Tree/Misc", timeall - (timetree + timewait + timecomm));
 
-    if(ThisTask == 0)
-    {
-        fprintf(FdTimings, "Step= %d  t= %g  dt= %g \n", All.NumCurrentTiStep, All.Time, All.TimeStep);
-        fprintf(FdTimings, "Nf= %013ld  total-Nf= %013ld  ex-frac= %g (%g) iter= %d\n",
-                GlobNumForceUpdate, All.TotNumOfForces,
-                n_exported / ((double) GlobNumForceUpdate), N_nodesinlist / ((double) n_exported + 1.0e-10),
-                iter);
-        /* note: on Linux, the 8-byte integer could be printed with the format identifier "%qd", but doesn't work on AIX */
-
-        fprintf(FdTimings, "work-load balance: %g (%g %g) rel1to2=%g   max=%g avg=%g\n",
-                maxt / (1.0e-6 + sumt / NTask), maxt1 / (1.0e-6 + sumt1 / NTask),
-                maxt2 / (1.0e-6 + sumt2 / NTask), sumt1 / (1.0e-6 + sumt1 + sumt2), maxt, sumt / NTask);
-        fprintf(FdTimings, "particle-load balance: %g\n", plb_max);
-        fprintf(FdTimings, "max. nodes: %d, filled: %g\n", maxnumnodes,
-                maxnumnodes / (All.TreeAllocFactor * All.MaxPart + NTopnodes));
-        fprintf(FdTimings, "part/sec=%g | %g  ia/part=%g (%g)\n", GlobNumForceUpdate / (sumt + 1.0e-20),
-                GlobNumForceUpdate / (1.0e-6 + maxt * NTask),
-                ((double) (sum_costtotal)) / (1.0e-20 + GlobNumForceUpdate),
-                ((double) ewaldtot) / (1.0e-20 + GlobNumForceUpdate));
-        fprintf(FdTimings, "\n");
-
-        fflush(FdTimings);
-    }
-
-    walltime_measure("/Tree/Timing");
 }
 
 void gravtree_copy(int place, TreeWalkQueryGravity * input) {
@@ -259,7 +183,7 @@ static int gravtree_isactive(int i) {
     return isactive;
 }
 
-static void gravtree_post_process(int i)
+static void gravtree_postprocess(int i)
 {
     int j;
 
