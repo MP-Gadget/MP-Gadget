@@ -354,9 +354,18 @@ static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeW
     }
 #endif
 }
-/*! This function represents the core of the SPH density computation. The
- *  target particle may either be local, or reside in the communication
- *  buffer.
+
+/******
+ *
+ *  This function represents the core of the SPH density computation.
+ *
+ *  The neighbours of the particle in the Query are enumerated, and results
+ *  are stored into the Result object.
+ *
+ *  Upon start-up we initialize the iterator with the density kernels used in
+ *  the computation. The assumption is the density kernels are slow to
+ *  initialize.
+ *
  */
 
 static void

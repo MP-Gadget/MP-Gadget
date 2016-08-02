@@ -670,6 +670,22 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
     // qsort(tq, length, sizeof(struct ev_task), ev_task_cmp_by_top_node);
 }
 
+/**********
+ *
+ * This particular TreeWalkVisitFunction that uses the nbgiter memeber of
+ * The TreeWalk object to iterate over the neighbours of a Query.
+ *
+ * All Pairwise interactions are implemented this way.
+ *
+ * Note: Short range gravity is not based on pair enumeration.
+ * We may want to port it over and see if gravtree.c receives any speed up.
+ *
+ * Required fields in TreeWalk: ngbiter, ngbiter_type_elsize.
+ *
+ * Before the iteration starts, ngbiter is called with iter->base.other == -1.
+ * The callback function shall initialize the interator with Hsml, mask, and symmetric.
+ *
+ *****/
 int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             TreeWalkResultBase * O,
             LocalTreeWalk * lv)
@@ -684,7 +700,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
     startnode = I->NodeList[0];
     listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+    startnode = Nodes[startnode].u.d.nextnode;  /* open it */
     int ninteractions = 0;
     int nnodesinlist = 0;
 
@@ -717,21 +733,19 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     return 0;
 }
 
-/* this is the internal code that looks for particles in the ngb tree from
- * searchcenter upto hsml. if symmetric is NGB_TREE_FIND_SYMMETRIC, then upto
- * max(P[i].Hsml, hsml). 
+/*****
+ * This is the internal code that looks for particles in the ngb tree from
+ * searchcenter upto hsml. if iter->symmetric is NGB_TREE_FIND_SYMMETRIC, then upto
+ * max(P[other].Hsml, iter->Hsml).
  *
- * the particle at target are marked for export. 
- * nodes are exported too if tw->UseNodeList is True.
+ * Particle that intersects with other domains are marked for export.
+ * The hosting nodes are exported as well, if tw->UseNodeList is True.
  *
- * ptypemask is the sum of 1 << type of particle types that are returned. 
+ * For all 'other' particle within the neighbourhood and are local on this processor,
+ * this function calls the ngbiter member of the TreeWalk object.
+ * iter->base.other, iter->base.dist iter->base.r2, iter->base.r, are properly initialized.
  *
  * */
-/*! This function returns neighbours with distance <= hsml and returns them in
- *  Ngblist. Actually, particles in a box of half side length hsml are
- *  returned, i.e. the reduction to a sphere still needs to be done in the
- *  calling routine.
- */
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
         TreeWalkResultBase * O,
