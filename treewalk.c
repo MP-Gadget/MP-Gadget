@@ -740,14 +740,16 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         int startnode,
         LocalTreeWalk * lv)
 {
-    int no, numngb;
-    MyDouble dist;
+    int no;
+    double dist;
     struct NODE *current;
 
     /* for now always blocking */
     int blocking = 1;
     int donotusenodelist = ! lv->tw->UseNodeList;
-    numngb = 0;
+    int numngb = 0;
+    int numcand = 0;
+    int * ngblist = alloca(sizeof(int) * NumPart);
 
     no = startnode;
 
@@ -765,28 +767,8 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 return -2;
             }
 
-            if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-                dist = DMAX(P[other].Hsml, iter->Hsml);
-            } else {
-                dist = iter->Hsml;
-            }
-            double r2 = 0;
-            int d;
-            double h2 = dist * dist;
-            for(d = 0; d < 3; d ++) {
-                /* the distance vector points to 'other' */
-                iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d]);
-                r2 += iter->dist[d] * iter->dist[d];
-                if(r2 > h2) break;
-            }
-            if(r2 > h2) continue;
-
-            /* update the iter and call the iteration function*/
-            iter->r2 = r2;
-            iter->r = sqrt(r2);
-            iter->other = other;
-            lv->tw->ngbiter(I, O, iter, lv);
-            numngb ++;
+            ngblist[numcand] = other;
+            numcand ++;
         }
         else
         {
@@ -819,7 +801,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 if (!donotusenodelist) {
                     if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
                     {
-                        return numngb;
+                        break;
                     }
                 }
             }
@@ -865,6 +847,34 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         }
     }
 
+    /* If we are here, export is succesful. Work on the this particle -- first
+     * filter out all of the candidates that are actually outside. */
+    for(numngb = 0; numngb < numcand; numngb ++) {
+        int other = ngblist[numngb];
+
+        if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
+            dist = DMAX(P[other].Hsml, iter->Hsml);
+        } else {
+            dist = iter->Hsml;
+        }
+
+        double r2 = 0;
+        int d;
+        double h2 = dist * dist;
+        for(d = 0; d < 3; d ++) {
+            /* the distance vector points to 'other' */
+            iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d]);
+            r2 += iter->dist[d] * iter->dist[d];
+            if(r2 > h2) break;
+        }
+        if(r2 > h2) continue;
+
+        /* update the iter and call the iteration function*/
+        iter->r2 = r2;
+        iter->r = sqrt(r2);
+        iter->other = other;
+        lv->tw->ngbiter(I, O, iter, lv);
+    }
     return numngb;
 }
 
