@@ -1438,10 +1438,8 @@ void force_update_hmax(void)
  */
 void force_treeallocate(int maxnodes, int maxpart)
 {
-    int i;
     size_t bytes;
     double allbytes = 0, allbytes_topleaves = 0;
-    double u;
 
     tree_allocated_flag = 1;
     DomainNodeIndex = (int *) mymalloc("DomainNodeIndex", bytes = NTopleaves * sizeof(int));

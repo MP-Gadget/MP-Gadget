@@ -19,7 +19,7 @@ struct ev_task {
 static int *Exportflag;    /*!< Buffer used for flagging whether a particle needs to be exported to another process */
 static int *Exportnodecount;
 static int *Exportindex;
-static int *Send_offset, *Send_count, *Recv_count, *Recv_offset, *Sendcount;
+static int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
 
 static struct data_nodelist
 {
@@ -674,9 +674,7 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             TreeWalkResultBase * O,
             LocalTreeWalk * lv)
 {
-    int n;
-
-    int startnode, numngb_inbox, listindex = 0;
+    int startnode, listindex = 0;
 
     TreeWalkNgbIterBase * iter = alloca(lv->tw->ngbiter_type_elsize);
 
@@ -742,7 +740,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         LocalTreeWalk * lv)
 {
     int no, numngb;
-    MyDouble dist, dx, dy, dz;
+    MyDouble dist;
     struct NODE *current;
 
     /* for now always blocking */
