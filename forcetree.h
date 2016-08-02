@@ -65,10 +65,10 @@ extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
 extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 
 #define BITFLAG_TOPLEVEL                   0
-#define BITFLAG_DEPENDS_ON_LOCAL_MASS      1
-#define BITFLAG_MAX_SOFTENING_TYPE         2	/* bits 2-4 */
+#define BITFLAG_DEPENDS_ON_LOCAL_MASS      1  /* Intersects with local mass */
+#define BITFLAG_MAX_SOFTENING_TYPE         2  /* bits 2-4 */
 #define BITFLAG_MIXED_SOFTENINGS_IN_NODE   5
-#define BITFLAG_INTERNAL_TOPLEVEL          6
+#define BITFLAG_INTERNAL_TOPLEVEL          6  /* INTERNAL tree nodes and toplevel*/
 #define BITFLAG_MULTIPLEPARTICLES          7
 #define BITFLAG_NODEHASBEENKICKED          8
 #define BITFLAG_INSIDE_LINKINGLENGTH       9
