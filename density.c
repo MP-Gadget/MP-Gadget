@@ -158,9 +158,6 @@ void density(void)
         int p = queue[i];
         Left[p] = 0;
         Right[p] = 0;
-#ifdef BLACK_HOLES
-        P[p].SwallowID = 0;
-#endif
     }
     myfree(queue);
 
@@ -403,11 +400,13 @@ density_ngbiter(
 
 
 #ifdef BLACK_HOLES
-        O->SmoothedPressure += (mass_j * wk * SPHP(other).Pressure);
-        O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
-        O->GasVel[0] += (mass_j * wk * SPHP(other).VelPred[0]);
-        O->GasVel[1] += (mass_j * wk * SPHP(other).VelPred[1]);
-        O->GasVel[2] += (mass_j * wk * SPHP(other).VelPred[2]);
+        if(I->Type == 5) {
+            O->SmoothedPressure += (mass_j * wk * SPHP(other).Pressure);
+            O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
+            O->GasVel[0] += (mass_j * wk * SPHP(other).VelPred[0]);
+            O->GasVel[1] += (mass_j * wk * SPHP(other).VelPred[1]);
+            O->GasVel[2] += (mass_j * wk * SPHP(other).VelPred[2]);
+        }
 #endif
 
 #ifdef SPH_GRAD_RHO

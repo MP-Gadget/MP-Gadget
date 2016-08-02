@@ -281,6 +281,7 @@ static void blackhole_accretion_visit(int n) {
 
     BHP(n).Mass += BHP(n).Mdot * dt;
 
+    P[n].SwallowID = 0;
 }
 
 static void blackhole_postprocess(int n) {
