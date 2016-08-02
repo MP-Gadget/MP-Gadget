@@ -118,7 +118,6 @@ create_gadget_parameter_set()
     param_declare_string(ps, "EnergyFile", 0, "energy.txt", "");
     param_declare_string(ps, "CpuFile", 0, "cpu.txt", "");
     param_declare_string(ps, "InfoFile", 0, "info.txt", "");
-    param_declare_string(ps, "TimingsFile", 0, "timings.txt", "");
     param_declare_string(ps, "RestartFile", 0, "restart", "");
     param_declare_string(ps, "OutputList", 1, NULL, "List of output times");
 

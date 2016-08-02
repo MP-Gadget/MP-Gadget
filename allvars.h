@@ -286,7 +286,6 @@ extern double RndTable[RNDTABLE];
 
 extern FILE *FdInfo,		/*!< file handle for info.txt log-file. */
        *FdEnergy,			/*!< file handle for energy.txt log-file. */
-       *FdTimings,			/*!< file handle for timings.txt log-file. */
        *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
 #ifdef SFR
