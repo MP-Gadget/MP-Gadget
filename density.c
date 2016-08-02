@@ -20,9 +20,6 @@ typedef struct {
     TreeWalkNgbIterBase base;
     DensityKernel kernel;
     double kernel_volume;
-#ifdef BLACK_HOLES
-    DensityKernel bh_feedback_kernel;
-#endif
 } TreeWalkNgbIterDensity;
 
 typedef struct
@@ -53,7 +50,6 @@ typedef struct {
 #ifdef BLACK_HOLES
     MyDouble SmoothedEntropy;
     MyDouble SmoothedPressure;
-    MyDouble FeedbackWeightSum;
     MyDouble GasVel[3];
 #endif
 
@@ -314,7 +310,6 @@ static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeW
     if(P[place].Type == 5)
     {
         TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
-        TREEWALK_REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
         TREEWALK_REDUCE(BHP(place).Entropy, remote->SmoothedEntropy);
         TREEWALK_REDUCE(BHP(place).Pressure, remote->SmoothedPressure);
 
@@ -349,15 +344,10 @@ density_ngbiter(
         double h;
         double hsearch;
         h = I->Hsml;
-        hsearch = density_decide_hsearch(I->Type, h);
-
         density_kernel_init(&iter->kernel, h);
         iter->kernel_volume = density_kernel_volume(&iter->kernel);
-    #ifdef BLACK_HOLES
-        density_kernel_init(&iter->bh_feedback_kernel, hsearch);
-    #endif
 
-        iter->base.Hsml = hsearch;
+        iter->base.Hsml = h;
         iter->base.mask = 1; /* gas only */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         return;
@@ -447,46 +437,6 @@ density_ngbiter(
             }
         }
     }
-#ifdef BLACK_HOLES
-    if(I->Type == 5 && r2 < iter->bh_feedback_kernel.HH)
-    {
-#ifdef WINDS
-        /* blackhole doesn't accrete from wind, regardlies coupled or
-         * not */
-        if(SPHP(other).DelayTime > 0)	/* partner is a wind particle */
-            return;
-#endif
-        double mass_j;
-        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
-            double nh0 = 1.0;
-            double nHeII = 0;
-            double ne = SPHP(other).Ne;
-            struct UVBG uvbg;
-            GetParticleUVBG(other, &uvbg);
-            AbundanceRatios(DMAX(All.MinEgySpec,
-                        SPHP(other).Entropy / GAMMA_MINUS1
-                        * pow(SPHP(other).EOMDensity * All.cf.a3inv,
-                            GAMMA_MINUS1)),
-                    SPHP(other).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
-            if(r2 > 0)
-                O->FeedbackWeightSum += (P[other].Mass * nh0) / r2;
-        } else {
-            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
-                mass_j = P[other].Mass;
-            } else {
-                mass_j = P[other].Hsml * P[other].Hsml * P[other].Hsml;
-            }
-            if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
-                double u = r * iter->bh_feedback_kernel.Hinv;
-                O->FeedbackWeightSum += (mass_j *
-                      density_kernel_wk(&iter->bh_feedback_kernel, u)
-                       );
-            } else {
-                O->FeedbackWeightSum += (mass_j);
-            }
-        }
-    }
-#endif
 
     /* some performance measures not currently used */
 #ifdef HYDRO_COST_FACTOR
