@@ -39,6 +39,11 @@ typedef struct {
 
     short int BH_TimeBinLimit;
     double FeedbackWeightSum;
+
+    double Rho;
+    double SmoothedEntropy;
+    double SmoothedPressure;
+    double GasVel[3];
 } TreeWalkResultBHAccretion;
 
 typedef struct {
@@ -106,6 +111,9 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         TreeWalkResultBHFeedback * O,
         TreeWalkNgbIterBHFeedback * iter,
         LocalTreeWalk * lv);
+
+static double
+decide_hsearch(double h);
 
 #define BHPOTVALUEINIT 1.0e30
 
@@ -235,40 +243,49 @@ void blackhole(void)
     walltime_measure("/BH");
 }
 
-static void blackhole_accretion_postprocess(int n) {
+static void blackhole_accretion_postprocess(int i) {
+    if(BHP(i).Density > 0)
+    {
+        BHP(i).Entropy /= BHP(i).Density;
+        BHP(i).Pressure /= BHP(i).Density;
+
+        BHP(i).SurroundingGasVel[0] /= BHP(i).Density;
+        BHP(i).SurroundingGasVel[1] /= BHP(i).Density;
+        BHP(i).SurroundingGasVel[2] /= BHP(i).Density;
+    }
     double mdot = 0;		/* if no accretion model is enabled, we have mdot=0 */
 
-    double rho = BHP(n).Density;
-    double bhvel = sqrt(pow(P[n].Vel[0] - BHP(n).SurroundingGasVel[0], 2) +
-            pow(P[n].Vel[1] - BHP(n).SurroundingGasVel[1], 2) +
-            pow(P[n].Vel[2] - BHP(n).SurroundingGasVel[2], 2));
+    double rho = BHP(i).Density;
+    double bhvel = sqrt(pow(P[i].Vel[0] - BHP(i).SurroundingGasVel[0], 2) +
+            pow(P[i].Vel[1] - BHP(i).SurroundingGasVel[1], 2) +
+            pow(P[i].Vel[2] - BHP(i).SurroundingGasVel[2], 2));
 
     bhvel /= All.cf.a;
     double rho_proper = rho * All.cf.a3inv;
 
-    double soundspeed = blackhole_soundspeed(BHP(n).Entropy, BHP(n).Pressure, rho);
+    double soundspeed = blackhole_soundspeed(BHP(i).Entropy, BHP(i).Pressure, rho);
 
     /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
-    double meddington = (4 * M_PI * GRAVITY * C * PROTONMASS / (0.1 * C * C * THOMPSON)) * BHP(n).Mass
+    double meddington = (4 * M_PI * GRAVITY * C * PROTONMASS / (0.1 * C * C * THOMPSON)) * BHP(i).Mass
         * All.UnitTime_in_s;
 
     double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
 
     if(norm > 0)
         mdot = 4. * M_PI * All.BlackHoleAccretionFactor * All.G * All.G *
-            BHP(n).Mass * BHP(n).Mass * rho_proper / norm;
+            BHP(i).Mass * BHP(i).Mass * rho_proper / norm;
     else
         mdot = 0;
 
-    if(All.BlackHoleEddingtonFactor > 0.0 && 
+    if(All.BlackHoleEddingtonFactor > 0.0 &&
         mdot > All.BlackHoleEddingtonFactor * meddington) {
         mdot = All.BlackHoleEddingtonFactor * meddington;
     }
-    BHP(n).Mdot = mdot;
+    BHP(i).Mdot = mdot;
 
-    double dt = (P[n].TimeBin ? (1 << P[n].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
+    double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
 
-    BHP(n).Mass += BHP(n).Mdot * dt;
+    BHP(i).Mass += BHP(i).Mdot * dt;
 }
 
 static void
@@ -305,7 +322,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         O->BH_TimeBinLimit = -1;
         O->BH_MinPot = BHPOTVALUEINIT;
         double hsearch;
-        hsearch = density_decide_hsearch(5, I->Hsml);
+        hsearch = decide_hsearch(I->Hsml);
 
         iter->base.mask = 1 + 2 + 4 + 8 + 16 + 32;
         iter->base.Hsml = hsearch;
@@ -385,13 +402,23 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
     if(P[other].Type == 0) {
         if(r2 < iter->accretion_kernel.HH) {
-            /* here we have a gas particle; check for swallowing */
-
-            lock_particle(other);
-
             double r = sqrt(r2);
             double u = r * iter->accretion_kernel.Hinv;
             double wk = density_kernel_wk(&iter->accretion_kernel, u);
+            double mass_j = P[other].Mass;
+
+            /* FIXME: volume correction doesn't work on BH yet. */
+            O->Rho += (mass_j * wk);
+
+            O->SmoothedPressure += (mass_j * wk * SPHP(other).Pressure);
+            O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
+            O->GasVel[0] += (mass_j * wk * SPHP(other).VelPred[0]);
+            O->GasVel[1] += (mass_j * wk * SPHP(other).VelPred[1]);
+            O->GasVel[2] += (mass_j * wk * SPHP(other).VelPred[2]);
+
+            /* here we have a gas particle; check for swallowing */
+
+            lock_particle(other);
             /* compute accretion probability */
             double p, w;
 
@@ -459,7 +486,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     if(iter->base.other == -1) {
         double hsearch;
-        hsearch = density_decide_hsearch(5, I->Hsml);
+        hsearch = decide_hsearch(I->Hsml);
 
         iter->base.mask = 1 + 32;
         iter->base.Hsml = hsearch;
@@ -585,7 +612,14 @@ static void blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * re
         BHP(place).TimeBinLimit = remote->BH_TimeBinLimit;
     }
 
+    TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
     TREEWALK_REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
+    TREEWALK_REDUCE(BHP(place).Entropy, remote->SmoothedEntropy);
+    TREEWALK_REDUCE(BHP(place).Pressure, remote->SmoothedPressure);
+
+    TREEWALK_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
+    TREEWALK_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
+    TREEWALK_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
 }
 
 static void blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I) {
@@ -661,6 +695,26 @@ void blackhole_make_one(int index) {
 
     BHP(child).MinPot = P[child].Potential;
     BHP(child).CountProgs = 1;
+}
+
+static double
+decide_hsearch(double h)
+{
+    if(All.BlackHoleFeedbackRadius > 0) {
+        /* BlackHoleFeedbackRadius is in comoving.
+         * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys
+         * just like how it was done for grav smoothing.
+         * */
+        double rds;
+        rds = All.BlackHoleFeedbackRadiusMaxPhys / All.cf.a;
+
+        if(rds > All.BlackHoleFeedbackRadius) {
+            rds = All.BlackHoleFeedbackRadius;
+        }
+        return rds;
+    } else {
+        return h;
+    }
 }
 
 

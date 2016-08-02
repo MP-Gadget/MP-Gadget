@@ -47,12 +47,6 @@ typedef struct {
     MyDouble Ngb;
     MyDouble Div, Rot[3];
 
-#ifdef BLACK_HOLES
-    MyDouble SmoothedEntropy;
-    MyDouble SmoothedPressure;
-    MyDouble GasVel[3];
-#endif
-
 #ifdef HYDRO_COST_FACTOR
     int Ninteractions;
 #endif
@@ -217,29 +211,6 @@ void density(void)
     walltime_add("/SPH/Density/Misc", timeall - (timecomp + timewait + timecomm));
 }
 
-double density_decide_hsearch(int targettype, double h) {
-#ifdef BLACK_HOLES
-    if(targettype == 5 && All.BlackHoleFeedbackRadius > 0) {
-        /* BlackHoleFeedbackRadius is in comoving.
-         * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys
-         * just like how it was done for grav smoothing.
-         * */
-        double rds;
-        rds = All.BlackHoleFeedbackRadiusMaxPhys / All.cf.a;
-
-        if(rds > All.BlackHoleFeedbackRadius) {
-            rds = All.BlackHoleFeedbackRadius;
-        }
-        return rds;
-    } else {
-        return h;
-    }
-#else
-    return h;
-#endif
-
-}
-
 static void density_copy(int place, TreeWalkQueryDensity * I) {
     I->Hsml = P[place].Hsml;
 
@@ -303,18 +274,6 @@ static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeW
 
     }
 
-#ifdef BLACK_HOLES
-    if(P[place].Type == 5)
-    {
-        TREEWALK_REDUCE(BHP(place).Density, remote->Rho);
-        TREEWALK_REDUCE(BHP(place).Entropy, remote->SmoothedEntropy);
-        TREEWALK_REDUCE(BHP(place).Pressure, remote->SmoothedPressure);
-
-        TREEWALK_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
-        TREEWALK_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
-        TREEWALK_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
-    }
-#endif
 }
 
 /******
@@ -361,16 +320,9 @@ density_ngbiter(
                 return;
     }
 #endif
-#ifdef BLACK_HOLES
+
     if(P[other].Mass == 0)
         return;
-#ifdef WINDS
-        /* blackhole doesn't accrete from wind, regardlies coupled or
-         * not */
-    if(I->Type == 5 && SPHP(other).DelayTime > 0)	/* partner is a wind particle */
-        return;
-#endif
-#endif
 
     if(r2 < iter->kernel.HH)
     {
@@ -396,17 +348,6 @@ density_ngbiter(
 #ifdef DENSITY_INDEPENDENT_SPH
         O->EgyRho += mass_j * SPHP(other).EntVarPred * wk;
         O->DhsmlEgyDensity += mass_j * SPHP(other).EntVarPred * density_kernel_dW(&iter->kernel, u, wk, dwk);
-#endif
-
-
-#ifdef BLACK_HOLES
-        if(I->Type == 5) {
-            O->SmoothedPressure += (mass_j * wk * SPHP(other).Pressure);
-            O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
-            O->GasVel[0] += (mass_j * wk * SPHP(other).VelPred[0]);
-            O->GasVel[1] += (mass_j * wk * SPHP(other).VelPred[1]);
-            O->GasVel[2] += (mass_j * wk * SPHP(other).VelPred[2]);
-        }
 #endif
 
 #ifdef SPH_GRAD_RHO
@@ -450,10 +391,6 @@ static int density_isactive(int n)
     if(P[n].TimeBin < 0) {
         endrun(9999, "TimeBin negative!\n use DensityIterationDone flag");
     }
-#ifdef BLACK_HOLES
-    if(P[n].Type == 5)
-        return 1;
-#endif
 
     if(P[n].Type == 0)
         return 1;
@@ -513,20 +450,6 @@ static void density_postprocess(int i) {
 #endif //SOFTEREQS
     }
 
-#ifdef BLACK_HOLES
-    if(P[i].Type == 5)
-    {
-        if(BHP(i).Density > 0)
-        {
-            BHP(i).Entropy /= BHP(i).Density;
-            BHP(i).Pressure /= BHP(i).Density;
-
-            BHP(i).SurroundingGasVel[0] /= BHP(i).Density;
-            BHP(i).SurroundingGasVel[1] /= BHP(i).Density;
-            BHP(i).SurroundingGasVel[2] /= BHP(i).Density;
-        }
-    }
-#endif
     /* This is slightly more complicated so we put it in a different function */
     /* FIXME: It may make sense to have a seperate tree walk that calculates Hsml only. */
     density_check_neighbours(i);
