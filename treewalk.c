@@ -57,7 +57,7 @@ static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
         TreeWalkResultBase * O,
         TreeWalkNgbIterBase * iter,
-        int *startnode,
+        int startnode, 
         LocalTreeWalk * lv);
 
 
@@ -243,7 +243,7 @@ static void real_ev(TreeWalk * tw) {
 
         if(rt < 0) {
             P[i].Evaluated = 0;
-            break;		/* export buffer has filled up, redo this particle */
+            break; /* export buffer has filled up, redo this particle */
         } else {
             P[i].Evaluated = 1;
             treewalk_reduce_result(tw, output, i, TREEWALK_PRIMARY);
@@ -446,7 +446,8 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     TreeWalk * tw = lv->tw;
     int task;
 
-    if(exportflag[task = DomainTask[no - (All.MaxPart + MaxNodes)]] != target)
+    task = DomainTask[no - (All.MaxPart + MaxNodes)];
+    if(exportflag[task] != target)
     {
         exportflag[task] = target;
         exportnodecount[task] = NODELISTLENGTH;
@@ -463,7 +464,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
         }
 
         if(nexp >= tw->BunchSize) {
-            /* out if buffer space. Need to discard work for this particle and interrupt */
+            /* out of buffer space. Need to discard work for this particle and interrupt */
             tw->BufferFullFlag = 1;
 #pragma omp flush
             return -1;
@@ -690,7 +691,6 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             TreeWalkResultBase * O,
             LocalTreeWalk * lv)
 {
-    int startnode, listindex = 0;
 
     TreeWalkNgbIterBase * iter = alloca(lv->tw->ngbiter_type_elsize);
 
@@ -698,38 +698,25 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     iter->other = -1;
     lv->tw->ngbiter(I, O, iter, lv);
 
-    startnode = I->NodeList[0];
-    listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;  /* open it */
     int ninteractions = 0;
     int nnodesinlist = 0;
 
-    while(startnode >= 0)
+    int inode = 0;
+
+    for(inode = 0; inode < NODELISTLENGTH && I->NodeList[inode] >= 0; inode++)
     {
-        while(startnode >= 0)
-        {
-            int numngb = ngb_treefind_threads(I, O, iter, &startnode, lv);
+        int startnode = Nodes[I->NodeList[inode]].u.d.nextnode;  /* open it */
 
-            /* Export buffer is full end prematurally */
-            if(numngb < 0) return numngb;
+        int numngb = ngb_treefind_threads(I, O, iter, startnode, lv);
 
-            ninteractions += numngb;
-        }
+        /* Export buffer is full end prematurally */
+        if(numngb < 0) return numngb;
 
-        /* now check next node in the node list */
-        if(listindex < NODELISTLENGTH)
-        {
-            startnode = I->NodeList[listindex];
-            if(startnode >= 0) {
-                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-                listindex++;
-                nnodesinlist ++;
-            }
-        }
+        ninteractions += numngb;
     }
 
     lv->Ninteractions += ninteractions;
-    lv->Nnodesinlist += nnodesinlist;
+    lv->Nnodesinlist += inode;
     return 0;
 }
 
@@ -750,7 +737,7 @@ static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
         TreeWalkResultBase * O,
         TreeWalkNgbIterBase * iter,
-        int *startnode,
+        int startnode,
         LocalTreeWalk * lv)
 {
     int no, numngb;
@@ -762,7 +749,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     int donotusenodelist = ! lv->tw->UseNodeList;
     numngb = 0;
 
-    no = *startnode;
+    no = startnode;
 
     while(no >= 0)
     {
@@ -832,7 +819,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 if (!donotusenodelist) {
                     if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
                     {
-                        *startnode = -1;
                         return numngb;
                     }
                 }
@@ -879,7 +865,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
         }
     }
 
-    *startnode = -1;
     return numngb;
 }
 
