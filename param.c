@@ -322,7 +322,6 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "EnergyFile", All.EnergyFile);
         param_get_string2(ps, "CpuFile", All.CpuFile);
         param_get_string2(ps, "InfoFile", All.InfoFile);
-        param_get_string2(ps, "TimingsFile", All.TimingsFile);
         param_get_string2(ps, "RestartFile", All.RestartFile);
         param_get_string2(ps, "OutputList", All.OutputList);
 
