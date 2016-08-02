@@ -47,9 +47,7 @@ typedef struct {
     MyDouble Ngb;
     MyDouble Div, Rot[3];
 
-#ifdef HYDRO_COST_FACTOR
     int Ninteractions;
-#endif
 
 #ifdef VOLUME_CORRECTION
     MyFloat DensityStd;
@@ -241,10 +239,8 @@ static void density_copy(int place, TreeWalkQueryDensity * I) {
 static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode) {
     TREEWALK_REDUCE(P[place].NumNgb, remote->Ngb);
 
-#ifdef HYDRO_COST_FACTOR
     /* these will be added */
-    P[place].GravCost += HYDRO_COST_FACTOR * All.cf.a * remote->Ninteractions;
-#endif
+    P[place].GravCost += All.HydroCostFactor * All.cf.a * remote->Ninteractions;
 
     if(P[place].Type == 0)
     {
@@ -377,9 +373,7 @@ density_ngbiter(
     }
 
     /* some performance measures not currently used */
-#ifdef HYDRO_COST_FACTOR
     O->Ninteractions ++;
-#endif
 }
 
 static int density_isactive(int n)

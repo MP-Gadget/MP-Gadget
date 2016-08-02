@@ -51,10 +51,7 @@ typedef struct {
     MyDouble Acc[3];
     MyDouble DtEntropy;
     MyFloat MaxSignalVel;
-
-#ifdef HYDRO_COST_FACTOR
     int Ninteractions;
-#endif
 } TreeWalkResultHydro;
 
 typedef struct {
@@ -177,9 +174,7 @@ static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkR
 
     TREEWALK_REDUCE(SPHP(place).DtEntropy, result->DtEntropy);
 
-#ifdef HYDRO_COST_FACTOR
-    P[place].GravCost += HYDRO_COST_FACTOR * All.cf.a * result->Ninteractions;
-#endif
+    P[place].GravCost += All.HydroCostFactor * All.cf.a * result->Ninteractions;
 
     if(mode == TREEWALK_PRIMARY || SPHP(place).MaxSignalVel < result->MaxSignalVel)
         SPHP(place).MaxSignalVel = result->MaxSignalVel;
@@ -388,10 +383,7 @@ hydro_ngbiter(
         O->DtEntropy += (0.5 * hfc_visc * vdotr2);
 
     }
-#ifdef HYDRO_COST_FACTOR
     O->Ninteractions++;
-#endif
-
 }
 
 static int hydro_isactive(int i) {

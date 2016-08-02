@@ -495,7 +495,7 @@ extern struct global_data_all_processes
                                1 for Quintic spline (recmd  NumNgb = 97)
                              */
     double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
-
+    double HydroCostFactor; /* cost factor for hydro in load balancing. */
     double SofteningGas,		/*!< for type 0 */
            SofteningHalo,		/*!< for type 1 */
            SofteningDisk,		/*!< for type 2 */

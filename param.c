@@ -158,6 +158,7 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "DensityContrastLimit", 0, 100, "Max contrast for hydro force calculation");
     param_declare_double(ps, "MaxNumNgbDeviation", 0, 2, "");
+    param_declare_double(ps, "HydroCostFactor", 0, 1, "Cost factor of hydro calculation, default to 1.");
 
     param_declare_int(ps, "NumPartPerFile", 0, 1024 * 1024 * 128, "number of particles per file");
     param_declare_int(ps, "NumWriters", 0, 0, "Number of concurrent writer processes. 0 implies Number of Tasks ");
@@ -356,7 +357,7 @@ void read_parameter_file(char *fname)
         All.ArtBulkViscConst = param_get_double(ps, "ArtBulkViscConst");
         All.CourantFac = param_get_double(ps, "CourantFac");
         All.DensityResolutionEta = param_get_double(ps, "DensityResolutionEta");
-
+        All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
         All.DensityContrastLimit = param_get_double(ps, "DensityContrastLimit");
         All.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
 
