@@ -17,7 +17,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent);
 
 void x86_fix(void) ;
 
-void blackhole_accretion(void);
+void blackhole(void);
 void blackhole_make_one(int index);
 
 int  blackhole_compare_key(const void *a, const void *b);
