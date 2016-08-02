@@ -52,6 +52,7 @@ typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultB
 typedef int (*TreeWalkNgbIterFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, TreeWalkNgbIterBase * iter, LocalTreeWalk * lv);
 
 typedef int (*TreeWalkIsActiveFunction) (const int i);
+typedef int (*TreeWalkProcessFunction) (const int i);
 
 typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query);
 typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode);
@@ -65,6 +66,7 @@ typedef struct _TreeWalk {
     TreeWalkFillQueryFunction fill;
     TreeWalkReduceResultFunction reduce;
     TreeWalkNgbIterFunction ngbiter;
+    TreeWalkProcessFunction postprocess;
 
     char * dataget;
     char * dataresult;

@@ -66,7 +66,7 @@ typedef struct {
 } TreeWalkNgbIterHydro;
 
 static int hydro_isactive(int n);
-static void hydro_post_process(int i);
+static void hydro_postprocess(int i);
 
 
 static void hydro_ngbiter(
@@ -95,6 +95,7 @@ void hydro_force(void)
     tw->isactive = hydro_isactive;
     tw->fill = (TreeWalkFillQueryFunction) hydro_copy;
     tw->reduce = (TreeWalkReduceResultFunction) hydro_reduce;
+    tw->postprocess = (TreeWalkProcessFunction) hydro_postprocess;
     tw->UseNodeList = 0;
     tw->query_type_elsize = sizeof(TreeWalkQueryHydro);
     tw->result_type_elsize = sizeof(TreeWalkResultHydro);
@@ -113,16 +114,6 @@ void hydro_force(void)
     walltime_measure("/SPH/Hydro/Init");
 
     treewalk_run(tw);
-
-    /* do final operations on results */
-
-    int Nactive;
-    int * queue = treewalk_get_queue(tw, &Nactive);
-#pragma omp parallel for if(Nactive > 64)
-    for(i = 0; i < Nactive; i++)
-        hydro_post_process(queue[i]);
-
-    myfree(queue);
 
     /* collect some timing information */
 
@@ -410,7 +401,7 @@ static int hydro_isactive(int i) {
     return P[i].Type == 0;
 }
 
-static void hydro_post_process(int i) {
+static void hydro_postprocess(int i) {
     if(P[i].Type == 0)
     {
         /* Translate energy change rate into entropy change rate */
