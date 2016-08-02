@@ -16,6 +16,7 @@ struct ev_task {
     int place;
 } ;
 
+static int *Ngblist;
 static int *Exportflag;    /*!< Buffer used for flagging whether a particle needs to be exported to another process */
 static int *Exportnodecount;
 static int *Exportindex;
@@ -128,12 +129,14 @@ ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv)
     lv->exportindex = Exportindex + thread_id * NTask;
     lv->Ninteractions = 0;
     lv->Nnodesinlist = 0;
+    lv->ngblist = Ngblist + thread_id * NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
 
 static void ev_begin(TreeWalk * tw)
 {
+    Ngblist = (int*) mymalloc("Ngblist", NumPart * All.NumThreads * sizeof(int));
     tw->BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + 
                     sizeof(struct data_nodelist) + tw->query_type_elsize + tw->result_type_elsize));
@@ -168,6 +171,7 @@ static void ev_finish(TreeWalk * tw)
     myfree(tw->PQueue);
     myfree(DataNodeList);
     myfree(DataIndexTable);
+    myfree(Ngblist);
 }
 
 int data_index_compare(const void *a, const void *b);
@@ -749,7 +753,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     int donotusenodelist = ! lv->tw->UseNodeList;
     int numngb = 0;
     int numcand = 0;
-    int * ngblist = alloca(sizeof(int) * NumPart);
 
     no = startnode;
 
@@ -767,7 +770,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
                 return -2;
             }
 
-            ngblist[numcand] = other;
+            lv->ngblist[numcand] = other;
             numcand ++;
         }
         else
@@ -850,7 +853,7 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     /* If we are here, export is succesful. Work on the this particle -- first
      * filter out all of the candidates that are actually outside. */
     for(numngb = 0; numngb < numcand; numngb ++) {
-        int other = ngblist[numngb];
+        int other = lv->ngblist[numngb];
 
         if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
             dist = DMAX(P[other].Hsml, iter->Hsml);

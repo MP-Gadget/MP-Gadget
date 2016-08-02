@@ -42,6 +42,7 @@ typedef struct {
     int *exportflag;
     int *exportnodecount;
     int *exportindex;
+    int * ngblist;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
 } LocalTreeWalk;
