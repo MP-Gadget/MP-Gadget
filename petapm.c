@@ -109,7 +109,7 @@ int *petapm_get_thistask2d() {
 int *petapm_get_ntask2d() {
     return NTask2d;
 }
-void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
+void petapm_init(double BoxSize, int _Nmesh, int Nthreads, int MeasureFFT) {
 
     /* define the global long / short range force cut */
     Nmesh = _Nmesh;
@@ -190,12 +190,13 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
 
     pm_alloc();
 
+    int measureflag = MeasureFFT ? PFFT_MEASURE : PFFT_ESTIMATE;
     plan_forw = pfft_plan_dft_r2c_3d(
         n, real, rho_k, comm_cart_2d, PFFT_FORWARD, 
-        PFFT_TRANSPOSED_OUT | PFFT_ESTIMATE | PFFT_DESTROY_INPUT);    
+        PFFT_TRANSPOSED_OUT | measureflag | PFFT_DESTROY_INPUT);
     plan_back = pfft_plan_dft_c2r_3d(
         n, complx, real, comm_cart_2d, PFFT_BACKWARD, 
-        PFFT_TRANSPOSED_IN | PFFT_ESTIMATE | PFFT_DESTROY_INPUT);    
+        PFFT_TRANSPOSED_IN | measureflag | PFFT_DESTROY_INPUT);
 
     pm_free();
 
