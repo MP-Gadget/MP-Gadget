@@ -449,10 +449,9 @@ static int get_sfr_condition(int i) {
     if(SPHP(i).Density < All.OverDensThresh)
         flag = 1;
 
-#ifdef BLACK_HOLES
+    /* massless particles never form stars! */
     if(P[i].Mass == 0)
         flag = 1;
-#endif
 
 #ifdef WINDS
     if(SPHP(i).DelayTime > 0)

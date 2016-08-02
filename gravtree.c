@@ -176,10 +176,8 @@ void gravtree_reduce(int place, TreeWalkResultGravity * result, enum TreeWalkRed
 
 static int gravtree_isactive(int i) {
     int isactive = 1;
-#ifdef BLACK_HOLES
-    /* blackhole has not gravity, they move along to pot minimium */
+    /* tracer particles (5) has no gravity, they move along to pot minimium */
     isactive = isactive && (P[i].Type != 5);
-#endif
     return isactive;
 }
 

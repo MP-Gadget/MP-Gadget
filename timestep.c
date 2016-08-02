@@ -407,11 +407,6 @@ int get_timestep(int p,		/*!< particle index */
     int ti_step;
     double dt_viscous = 0;
 
-#ifdef BLACK_HOLES
-    double dt_accr;
-    double dt_limiter;
-#endif
-
     if(flag <= 0)
     {
         ax = All.cf.a2inv * P[p].GravAccel[0];
@@ -484,12 +479,12 @@ int get_timestep(int p,		/*!< particle index */
     {
         if(BHP(p).Mdot > 0 && BHP(p).Mass > 0)
         {
-            dt_accr = 0.25 * BHP(p).Mass / BHP(p).Mdot;
+            double dt_accr = 0.25 * BHP(p).Mass / BHP(p).Mdot;
             if(dt_accr < dt)
                 dt = dt_accr;
         }
         if(BHP(p).TimeBinLimit > 0) {
-            dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
+            double dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
             if (dt_limiter < dt) dt = dt_limiter;
         }
     }

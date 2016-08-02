@@ -228,9 +228,8 @@ hydro_ngbiter(
     double r2 = iter->base.r2;
     double * dist = iter->base.dist;
     double r = iter->base.r;
-#ifdef BLACK_HOLES
+
     if(P[other].Mass == 0) return;
-#endif
 
 #ifdef WINDS
 #ifdef NOWINDTIMESTEPPING
@@ -332,9 +331,7 @@ hydro_ngbiter(
                         (P[other].TimeBin ? (1 << P[other].TimeBin) : 0)) * All.Timebase_interval;
             if(dt > 0 && (dwk_i + dwk_j) < 0)
             {
-#ifdef BLACK_HOLES
                 if((I->Mass + P[other].Mass) > 0)
-#endif
                     visc = DMIN(visc, 0.5 * fac_vsic_fix * vdotr2 /
                             (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dt));
             }
