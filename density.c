@@ -216,15 +216,13 @@ static void density_copy(int place, TreeWalkQueryDensity * I) {
 
     I->Type = P[place].Type;
 
-#ifdef BLACK_HOLES
     if(P[place].Type != 0)
     {
-        I->Vel[0] = 0;
-        I->Vel[1] = 0;
-        I->Vel[2] = 0;
+        I->Vel[0] = P[place].Vel[0];
+        I->Vel[1] = P[place].Vel[1];
+        I->Vel[2] = P[place].Vel[2];
     }
     else
-#endif
     {
         I->Vel[0] = SPHP(place).VelPred[0];
         I->Vel[1] = SPHP(place).VelPred[1];
@@ -392,7 +390,7 @@ static int density_isactive(int n)
         endrun(9999, "TimeBin negative!\n use DensityIterationDone flag");
     }
 
-    if(P[n].Type == 0)
+    if(P[n].Type == 0 || P[n].Type == 5)
         return 1;
 
     return 0;
