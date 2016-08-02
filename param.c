@@ -168,6 +168,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "RadiationOn", 0, 0, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", 0, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
     param_declare_int(ps, "NoTreeType", 0, 2, "Particles of this type will not produce tree forces. Default neutrinos.");
+    param_declare_int(ps, "MeasureFFT", 0, 0, "If enabled, will plan the FFT with FFT_MEASURE. Useful if more than 1000 FFTs will be done in a single submission.");
 
     param_declare_double(ps, "SofteningHalo", 1, 0, "");
     param_declare_double(ps, "SofteningDisk", 1, 0, "");
@@ -368,6 +369,7 @@ void read_parameter_file(char *fname)
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.NoTreeType = param_get_int(ps, "NoTreeType");
+        All.MeasureFFT = param_get_int(ps, "MeasureFFT");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.TypeOfTimestepCriterion = param_get_int(ps, "TypeOfTimestepCriterion");
         All.TypeOfOpeningCriterion = param_get_int(ps, "TypeOfOpeningCriterion");

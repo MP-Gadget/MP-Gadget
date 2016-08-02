@@ -405,6 +405,7 @@ extern struct global_data_all_processes
     int NoTreeType; /*!< flags a particle species to exclude from tree forces*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     /* parameters determining output frequency */
+    int MeasureFFT; /*Flag determining whether PFFT is planned with PFFT_MEASURE or PFFT_ESTIMATE*/
 
     int SnapshotFileCount;	/*!< number of snapshot that is written next */
     double TimeOfFirstSnapshot,	/*!< simulation time of first snapshot files */

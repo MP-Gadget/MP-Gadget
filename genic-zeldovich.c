@@ -26,7 +26,7 @@ static void setup_grid();
 static double Dplus;
 
 void initialize_ffts(void) {
-    petapm_init(Box, Nmesh, 1);
+    petapm_init(Box, Nmesh, 1, 0);
     setup_grid();
 
     Dplus = GrowthFactor(InitTime, 1.0);

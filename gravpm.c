@@ -45,7 +45,7 @@ static PetaPMFunctions functions [] =
 static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 
 void gravpm_init_periodic() {
-    petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
+    petapm_init(All.BoxSize, All.Nmesh, All.NumThreads, All.MeasureFFT);
     PowerSpectrum.size = All.Nmesh / 2;
     PowerSpectrum.k = malloc(sizeof(double) * All.Nmesh / 2);
     PowerSpectrum.P = malloc(sizeof(double) * All.Nmesh / 2);
