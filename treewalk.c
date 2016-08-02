@@ -511,6 +511,10 @@ void treewalk_run(TreeWalk * tw) {
         tw->Nexport_sum += tw->Nexport;
     } while(ev_ndone(tw) < NTask);
 
+    double tstart, tend;
+
+    tstart = second();
+
     if(tw->postprocess) {
         int i;
         #pragma omp parallel for if(tw->PQueueSize > 64)
@@ -518,6 +522,8 @@ void treewalk_run(TreeWalk * tw) {
             tw->postprocess(tw->PQueue[i]);
         }
     }
+    tend = second();
+    tw->timecomp3 = timediff(tstart, tend);
     ev_finish(tw);
 }
 

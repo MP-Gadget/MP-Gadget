@@ -83,6 +83,7 @@ typedef struct _TreeWalk {
     double timewait2;
     double timecomp1;
     double timecomp2;
+    double timecomp3;
     double timecommsumm1;
     double timecommsumm2;
     int64_t Ninteractions;

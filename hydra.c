@@ -119,7 +119,7 @@ void hydro_force(void)
 
     timeall += walltime_measure(WALLTIME_IGNORE);
 
-    timecomp = tw->timecomp1 + tw->timecomp2;
+    timecomp = tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
     timewait = tw->timewait1 + tw->timewait2;
     timecomm = tw->timecommsumm1 + tw->timecommsumm2;
 

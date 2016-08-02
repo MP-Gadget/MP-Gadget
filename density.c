@@ -70,6 +70,10 @@ typedef struct {
 #endif
 } TreeWalkResultDensity;
 
+static double *Left, *Right;
+static int NIteration;
+static int NPLeft;
+
 static void
 density_ngbiter(
         TreeWalkQueryDensity * I,
@@ -78,8 +82,8 @@ density_ngbiter(
         LocalTreeWalk * lv);
 
 static int density_isactive(int n);
-static void density_post_process(int i);
-static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
+static void density_postprocess(int i);
+static void density_check_neighbours(int i);
 
 
 static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode);
@@ -109,8 +113,6 @@ static void density_copy(int place, TreeWalkQueryDensity * I);
 
 void density(void)
 {
-    MyFloat *Left, *Right;
-
     TreeWalk tw[1] = {0};
 
     tw->ev_label = "DENSITY";
@@ -121,12 +123,12 @@ void density(void)
     tw->isactive = density_isactive;
     tw->fill = (TreeWalkFillQueryFunction) density_copy;
     tw->reduce = (TreeWalkReduceResultFunction) density_reduce;
+    tw->postprocess = (TreeWalkProcessFunction) density_postprocess;
     tw->UseNodeList = 1;
     tw->query_type_elsize = sizeof(TreeWalkQueryDensity);
     tw->result_type_elsize = sizeof(TreeWalkResultDensity);
 
-    int i, iter = 0;
-
+    int i;
     int64_t ntot = 0;
 
     double timeall = 0;
@@ -136,8 +138,10 @@ void density(void)
 
     walltime_measure("/Misc");
 
-    Left = (MyFloat *) mymalloc("Left", NumPart * sizeof(MyFloat));
-    Right = (MyFloat *) mymalloc("Right", NumPart * sizeof(MyFloat));
+    Left = (double *) mymalloc("Left", NumPart * sizeof(double));
+    Right = (double *) mymalloc("Right", NumPart * sizeof(double));
+
+    NIteration = 0;
 
     int Nactive;
     int * queue;
@@ -169,72 +173,38 @@ void density(void)
     walltime_measure("/SPH/Density/Init");
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
-    do
-    {
+    do {
+        NPLeft = 0;
 
         treewalk_run(tw);
+        sumup_large_ints(1, &NPLeft, &ntot);
 
-        /* do final operations on results */
-        tstart = second();
+        if(ntot == 0) break;
 
-        queue = treewalk_get_queue(tw, &Nactive);
-
-        int npleft = 0;
-#pragma omp parallel for if(Nactive > 32)
-        for(i = 0; i < Nactive; i++) {
-            int p = queue[i];
-            density_post_process(p);
-            /* will notify by setting DensityIterationDone */
-            density_check_neighbours(p, Left, Right);
-            if(iter >= MAXITER - 10)
+        NIteration ++;
+        /*
+        if(ntot < 1 ) {
+            for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
             {
-                 message(1, "i=%d task=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-                     queue[p], ThisTask, P[p].ID, P[p].Hsml, Left[p], Right[p],
-                     (float) P[p].n.NumNgb, Right[p] - Left[p], P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
-            }
-
-            if(!P[p].DensityIterationDone) {
-#pragma omp atomic
-                npleft ++;
-            }
-        }
-
-        myfree(queue);
-        tend = second();
-        timecomp3 += timediff(tstart, tend);
-
-        sumup_large_ints(1, &npleft, &ntot);
-
-        if(ntot > 0)
-        {
-            iter++;
-
-            /*
-            if(ntot < 1 ) {
-                for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-                {
-                    if(density_isactive(i) && !P[i].DensityIterationDone) {
-                        message
-                            (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-                             i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, Left[i], Right[i],
-                             (float) P[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-                    }
+                if(density_isactive(i) && !P[i].DensityIterationDone) {
+                    message
+                        (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+                         i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, Left[i], Right[i],
+                         (float) P[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
                 }
-
-            }
-            */
-
-            if(iter > 0) {
-                message(0, "ngb iteration %d: need to repeat for %ld particles.\n", iter, ntot);
             }
 
-            if(iter > MAXITER)
-            {
-                endrun(1155, "failed to converge in neighbour iteration in density()\n");
-            }
         }
-    }
-    while(ntot > 0);
+        */
+
+        if(NIteration > 0) {
+            message(0, "ngb iteration %d: need to repeat for %ld particles.\n", NIteration, ntot);
+        }
+
+        if(NIteration > MAXITER) {
+            endrun(1155, "failed to converge in neighbour iteration in density()\n");
+        }
+    } while(1);
 
     myfree(Right);
     myfree(Left);
@@ -244,7 +214,7 @@ void density(void)
 
     timeall = walltime_measure(WALLTIME_IGNORE);
 
-    timecomp = timecomp3 + tw->timecomp1 + tw->timecomp2;
+    timecomp = tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
     timewait = tw->timewait1 + tw->timewait2;
     timecomm = tw->timecommsumm1 + tw->timecommsumm2;
 
@@ -542,7 +512,7 @@ static int density_isactive(int n)
     return 0;
 }
 
-static void density_post_process(int i) {
+static void density_postprocess(int i) {
     if(P[i].Type == 0)
     {
         if(SPHP(i).Density > 0)
@@ -608,9 +578,12 @@ static void density_post_process(int i) {
         }
     }
 #endif
+    /* This is slightly more complicated so we put it in a different function */
+    /* FIXME: It may make sense to have a seperate tree walk that calculates Hsml only. */
+    density_check_neighbours(i);
 }
 
-void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
+void density_check_neighbours (int i) {
     /* now check whether we had enough neighbours */
 
     double desnumngb = All.DesNumNgb;
@@ -710,5 +683,16 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
         P[i].DensityIterationDone = 1;
     }
 
+    if(NIteration >= MAXITER - 10)
+    {
+         message(1, "i=%d task=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+             i, ThisTask, P[i].ID, P[i].Hsml, Left[i], Right[i],
+             (float) P[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+    }
+
+    if(!P[i].DensityIterationDone) {
+#pragma omp atomic
+        NPLeft ++;
+    }
 }
 
