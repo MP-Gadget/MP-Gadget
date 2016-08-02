@@ -231,8 +231,8 @@ extern const char * GADGETVERSION;
 /* write a header block */
 static void petaio_write_header(BigFile * bf) {
     BigBlock bh = {0};
-    if(0 != big_file_mpi_create_block(bf, &bh, "header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
-        endrun(0, "Failed to create block at %s:%s\n", "header",
+    if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
+        endrun(0, "Failed to create block at %s:%s\n", "Header",
                 big_file_get_error_message());
     }
     int i;
@@ -275,8 +275,8 @@ static void petaio_write_header(BigFile * bf) {
 
 static void petaio_read_header(BigFile * bf) {
     BigBlock bh = {0};
-    if(0 != big_file_mpi_open_block(bf, &bh, "header", MPI_COMM_WORLD)) {
-        endrun(0, "Failed to create block at %s:%s\n", "header",
+    if(0 != big_file_mpi_open_block(bf, &bh, "Header", MPI_COMM_WORLD)) {
+        endrun(0, "Failed to create block at %s:%s\n", "Header",
                     big_file_get_error_message());
     }
     double Time;

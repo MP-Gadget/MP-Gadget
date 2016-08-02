@@ -103,8 +103,8 @@ static void saveblock(BigFile * bf, void * baseptr, char * name, char * dtype, i
 
 void saveheader(BigFile * bf) {
     BigBlock bheader;
-    if(0 != big_file_mpi_create_block(bf, &bheader, "header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
-        endrun(0, "failed to create block %s:%s", "header",
+    if(0 != big_file_mpi_create_block(bf, &bheader, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
+        endrun(0, "failed to create block %s:%s", "Header",
                 big_file_get_error_message());
     }
 
@@ -135,7 +135,7 @@ void saveheader(BigFile * bf) {
     }
 
     if(0 != big_block_mpi_close(&bheader, MPI_COMM_WORLD)) {
-        endrun(0, "failed to close block %s:%s", "header",
+        endrun(0, "failed to close block %s:%s", "Header",
                     big_file_get_error_message());
     }
 }
