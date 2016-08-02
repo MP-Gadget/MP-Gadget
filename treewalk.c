@@ -711,10 +711,48 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     {
         int startnode = Nodes[I->NodeList[inode]].u.d.nextnode;  /* open it */
 
-        int numngb = ngb_treefind_threads(I, O, iter, startnode, lv);
-
+        int numcand = ngb_treefind_threads(I, O, iter, startnode, lv);
         /* Export buffer is full end prematurally */
-        if(numngb < 0) return numngb;
+        if(numcand < 0) return numcand;
+
+        /* If we are here, export is succesful. Work on the this particle -- first
+         * filter out all of the candidates that are actually outside. */
+        int numngb;
+
+        for(numngb = 0; numngb < numcand; numngb ++) {
+            int other = lv->ngblist[numngb];
+
+            if(!((1<<P[other].Type) & iter->mask))
+                continue;
+
+            drift_particle(other, All.Ti_Current);
+
+            double dist;
+
+            if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
+                dist = DMAX(P[other].Hsml, iter->Hsml);
+            } else {
+                dist = iter->Hsml;
+            }
+
+            double r2 = 0;
+            int d;
+            double h2 = dist * dist;
+            for(d = 0; d < 3; d ++) {
+                /* the distance vector points to 'other' */
+                iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d]);
+                r2 += iter->dist[d] * iter->dist[d];
+                if(r2 > h2) break;
+            }
+            if(r2 > h2) continue;
+
+            /* update the iter and call the iteration function*/
+            iter->r2 = r2;
+            iter->r = sqrt(r2);
+            iter->other = other;
+
+            lv->tw->ngbiter(I, O, iter, lv);
+        }
 
         ninteractions += numngb;
     }
@@ -724,6 +762,41 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
     return 0;
 }
 
+/**
+ * Cull a node.
+ *
+ * Returns 1 if the node shall be opened;
+ * Returns 0 if the node has no business with this query.
+ */
+static int
+cull_node(TreeWalkQueryBase * I, TreeWalkNgbIterBase * iter, int no)
+{
+    struct NODE * current = &Nodes[no];
+
+    double dist;
+    if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
+        dist = DMAX(Extnodes[no].hmax, iter->Hsml) + 0.5 * current->len;
+    } else {
+        dist = iter->Hsml + 0.5 * current->len;
+    }
+
+    double r2 = 0;
+    double dx = 0;
+    /* do each direction */
+    int d;
+    for(d = 0; d < 3; d ++) {
+        dx = NEAREST(current->center[d] - I->Pos[d]);
+        if(dx > dist) return 0;
+        r2 += dx * dx;
+    }
+    /* now test against the minimal sphere enclosing everything */
+    dist += FACT1 * current->len;
+
+    if(r2 > dist * dist) {
+        return 0;
+    }
+    return 1;
+}
 /*****
  * This is the internal code that looks for particles in the ngb tree from
  * searchcenter upto hsml. if iter->symmetric is NGB_TREE_FIND_SYMMETRIC, then upto
@@ -748,136 +821,67 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
     double dist;
     struct NODE *current;
 
-    /* for now always blocking */
-    int blocking = 1;
-    int donotusenodelist = ! lv->tw->UseNodeList;
-    int numngb = 0;
     int numcand = 0;
 
     no = startnode;
 
     while(no >= 0)
     {
-        if(no < All.MaxPart)  /* single particle */
-        {
-            int other = no;
+        if(no < All.MaxPart)  /* single particle */ {
+            lv->ngblist[numcand++] = no;
             no = Nextnode[no];
-
-            if(!((1<<P[other].Type) & iter->mask))
-                continue;
-
-            if(drift_particle_full(other, All.Ti_Current, blocking) < 0) {
-                return -2;
-            }
-
-            lv->ngblist[numcand] = other;
-            numcand ++;
+            continue;
         }
-        else
-        {
-            if(no >= All.MaxPart + MaxNodes)  /* pseudo particle */
-            {
-                if(lv->mode == 1)
-                {
-                    if(donotusenodelist) {
-                        no = Nextnode[no - MaxNodes];
-                        continue;
-                    } else {
-                        endrun(12312, "using node list but fell into mode 1. Why shall fail in this case?");
-                    }
-                }
-                if(lv->target >= 0)	/* if no target is given, export will not occur */
-                {
-                    if(-1 == treewalk_export_particle(lv, no))
-                        return -1;
-                }
-
-                no = Nextnode[no - MaxNodes];
-                continue;
-
-            }
-
-            current = &Nodes[no];
-
-            if(lv->mode == 1)
-            {
-                if (!donotusenodelist) {
-                    if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
-                    {
-                        break;
-                    }
-                }
-            }
-
-            if(force_drift_node_full(no, All.Ti_Current, blocking) < 0) {
-                return -2;
-            }
-
-            if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
-            {
-                if(current->u.d.mass)	/* open cell */
-                {
-                    no = current->u.d.nextnode;
+        if(no >= All.MaxPart + MaxNodes) {
+            /* pseudo particle */
+            if(lv->mode == 1) {
+                if(!lv->tw->UseNodeList) {
+                    no = Nextnode[no - MaxNodes];
                     continue;
+                } else {
+                    endrun(12312, "Touching outside of my domain from a node list of a ghost. This shall not happen.");
+                }
+            } else {
+                if(-1 == treewalk_export_particle(lv, no))
+                    return -1;
+            }
+
+            no = Nextnode[no - MaxNodes];
+            continue;
+        }
+
+        /* An actuall node with struct NODE */
+        force_drift_node(no, All.Ti_Current);
+
+        current = &Nodes[no];
+
+        if(lv->mode == 1) {
+            if (lv->tw->UseNodeList) {
+                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL)) {
+                    /* we reached a top-level node again, which means that we are done with the branch */
+                    break;
                 }
             }
-
-            if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-                dist = DMAX(Extnodes[no].hmax, iter->Hsml) + 0.5 * current->len;
-            } else {
-                dist = iter->Hsml + 0.5 * current->len;
-            }
-            no = current->u.d.sibling;	/* in case the node can be discarded */
-
-            double r2 = 0;
-            double dx = 0;
-            /* do each direction */
-            int d;
-            for(d = 0; d < 3; d ++) {
-                dx = NEAREST(current->center[d] - I->Pos[d]);
-                if(dx > dist) break;
-                r2 += dx * dx;
-            }
-            if(dx > dist) continue;
-
-            /* now test against the minimal sphere enclosing everything */
-            dist += FACT1 * current->len;
-
-            if(r2 > dist * dist)
-                continue;
-
-            no = current->u.d.nextnode; /* ok, we need to open the node */
         }
+
+        if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES))) {
+            /* open cell to check the only particle inside */
+            no = current->u.d.nextnode;
+            continue;
+        }
+
+        /* Cull the node */
+        if(0 == cull_node(I, iter, no)) {
+            /* in case the node can be discarded */
+            no = current->u.d.sibling;
+            continue;
+        }
+
+        /* ok, we need to open the node */
+        no = current->u.d.nextnode;
+        continue;
     }
 
-    /* If we are here, export is succesful. Work on the this particle -- first
-     * filter out all of the candidates that are actually outside. */
-    for(numngb = 0; numngb < numcand; numngb ++) {
-        int other = lv->ngblist[numngb];
-
-        if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-            dist = DMAX(P[other].Hsml, iter->Hsml);
-        } else {
-            dist = iter->Hsml;
-        }
-
-        double r2 = 0;
-        int d;
-        double h2 = dist * dist;
-        for(d = 0; d < 3; d ++) {
-            /* the distance vector points to 'other' */
-            iter->dist[d] = NEAREST(I->Pos[d] - P[other].Pos[d]);
-            r2 += iter->dist[d] * iter->dist[d];
-            if(r2 > h2) break;
-        }
-        if(r2 > h2) continue;
-
-        /* update the iter and call the iteration function*/
-        iter->r2 = r2;
-        iter->r = sqrt(r2);
-        iter->other = other;
-        lv->tw->ngbiter(I, O, iter, lv);
-    }
-    return numngb;
+    return numcand;
 }
 
