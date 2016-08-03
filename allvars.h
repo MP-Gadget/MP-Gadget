@@ -659,6 +659,8 @@ extern struct particle_data
     MyFloat GravAccel[3];  /* particle acceleration due to short-range gravity */
 
     MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
+    MyFloat OldAcc;			/* magnitude of old gravitational force. Used in relative opening
+                              criterion, only used by gravtree cross time steps */
 
     MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree is called. */
     MyFloat PM_Potential;  /* Only used by PM. useless after pm */
@@ -672,29 +674,30 @@ extern struct particle_data
 
     MyFloat Hsml;
 
-/* the following variables are transients */
+    union {
+        /* the following variables are transients.
+         * FIXME: move them into the corresponding modules! Is it possible? */
 
-    MyFloat OldAcc;			/* magnitude of old gravitational force. Used in relative opening
-                              criterion, only used in gravtree.c */
-
-    MyFloat NumNgb; /* Number of neighbours; only used in density.c */
-
-#ifdef FOF
-    int64_t GrNr;   /* used by fof.c which calls domain.c */
-    int origintask;
-    int targettask;
-#endif
+        MyFloat NumNgb; /* Number of neighbours; only used in density.c */
 
 #ifdef BLACK_HOLES
-    MyIDType SwallowID; /* who will swallow this particle, used only in blackhole.c */
+        MyIDType SwallowID; /* who will swallow this particle, used only in blackhole.c */
 #endif
 
-    int RegionInd; /* which region the particle belongs to; only by petapm.c */
+        int RegionInd; /* which region the particle belongs to; only by petapm.c */
 
-    /* The peano key is a hash of the position used in the domain decomposition.
-     * It is slow to generate so we store it here.*/
+        /* The peano key is a hash of the position used in the domain decomposition.
+         * It is slow to generate so we store it here.*/
+        peanokey Key; /* only by domain.c */
+#ifdef FOF
+        struct {
+            int64_t GrNr;   /* used by fof.c which calls domain_exchange that doesn't uses peanokey */
+            int origintask;
+            int targettask;
+        };
+#endif
 
-    peanokey Key; /* only by domain.c */
+    };
 
 }
 *P;				/*!< holds particle data on local processor */
