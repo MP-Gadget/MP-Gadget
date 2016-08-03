@@ -321,6 +321,11 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     if(iter->base.other == -1) {
         O->BH_TimeBinLimit = -1;
         O->BH_MinPot = BHPOTVALUEINIT;
+        int d;
+        for(d = 0; d < 3; d++) {
+            O->BH_MinPotPos[d] = I->base.Pos[d];
+            O->BH_MinPotVel[d] = I->Vel[d];
+        }
         double hsearch;
         hsearch = decide_hsearch(I->Hsml);
 
