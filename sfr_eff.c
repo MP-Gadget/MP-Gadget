@@ -711,7 +711,7 @@ static int make_particle_star(int i) {
         stars_spawned++;
     }
 
-    P[newstar].StellarAge = All.Time;
+    P[newstar].StarFormationTime = All.Time;
 #ifdef WINDS
     P[newstar].DensityIterationDone = 0;
 #endif
