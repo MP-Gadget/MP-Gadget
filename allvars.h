@@ -632,15 +632,14 @@ extern struct particle_data
     pthread_spinlock_t SpinLock;
 #endif
 
-    int RegionInd; /* which region the particle belongs to */
+    float GravCost;		/*!< weight factor used for balancing the work-load */
+
+    int Ti_begstep;		/*!< marks start of current timestep of particle on integer timeline */
+    int Ti_current;		/*!< current time of the particle */
 
 
     MyDouble Pos[3];   /*!< particle position at its current time */
     MyDouble Mass;     /*!< particle mass */
-    /* The peano key is a hash of the position used in the domain decomposition.
-     * It is slow to generate so we store it here.*/
-    peanokey Key;
-
     struct {
         unsigned int Evaluated :1;
         unsigned int DensityIterationDone :1;
@@ -655,19 +654,14 @@ extern struct particle_data
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
     MyIDType ID;
-#ifdef BLACK_HOLES
-    MyIDType SwallowID; /* who will swallow this particle */
-#endif
-    MyDouble Vel[3];   /*!< particle velocity at its current time */
-    MyFloat       GravAccel[3];		/*!< particle acceleration due to gravity */
 
-    MyFloat GravPM[3];		/*!< particle acceleration due to long-range PM gravity force */
+    MyDouble Vel[3];   /* particle velocity at its current time */
+    MyFloat GravAccel[3];  /* particle acceleration due to short-range gravity */
 
-    MyFloat       Potential;		/*!< gravitational potential */
+    MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
 
-    MyFloat OldAcc;			/*!< magnitude of old gravitational force. Used in relative opening
-                              criterion */
-    MyFloat PM_Potential;
+    MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree is called. */
+    MyFloat PM_Potential;  /* Only used by PM. useless after pm */
 
 #ifdef WINDS
     MyFloat StellarAge;		/*!< formation time of star particle: needed to tell when wind is active. */
@@ -678,18 +672,29 @@ extern struct particle_data
 
     MyFloat Hsml;
 
-    MyFloat       NumNgb;
+/* the following variables are transients */
+
+    MyFloat OldAcc;			/* magnitude of old gravitational force. Used in relative opening
+                              criterion, only used in gravtree.c */
+
+    MyFloat NumNgb; /* Number of neighbours; only used in density.c */
 
 #ifdef FOF
-    int64_t GrNr;
+    int64_t GrNr;   /* used by fof.c which calls domain.c */
     int origintask;
     int targettask;
 #endif
 
-    float GravCost;		/*!< weight factor used for balancing the work-load */
+#ifdef BLACK_HOLES
+    MyIDType SwallowID; /* who will swallow this particle, used only in blackhole.c */
+#endif
 
-    int Ti_begstep;		/*!< marks start of current timestep of particle on integer timeline */
-    int Ti_current;		/*!< current time of the particle */
+    int RegionInd; /* which region the particle belongs to; only by petapm.c */
+
+    /* The peano key is a hash of the position used in the domain decomposition.
+     * It is slow to generate so we store it here.*/
+
+    peanokey Key; /* only by domain.c */
 
 }
 *P;				/*!< holds particle data on local processor */
