@@ -650,6 +650,9 @@ extern struct particle_data
         signed char TimeBin;
         /* second byte ends */
         unsigned char Generation; /* How many particles it has spawned*/
+#ifdef WINDS
+        unsigned int IsNewParticle:1; /* whether it is created this step */
+#endif
     };
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/

@@ -177,8 +177,11 @@ sfr_wind_weight_postprocess(int i)
         NPLeft ++;
     }
 }
-
-
+static void
+sfr_wind_feedback_postprocess(int i)
+{
+    P[i].IsNewParticle = 0;
+}
 #endif
 
 void cooling_and_starformation(void)
@@ -324,6 +327,7 @@ void cooling_and_starformation(void)
             Wind[n].DMRadius = 2 * P[n].Hsml;
             Wind[n].Left = 0;
             Wind[n].Right = -1;
+            P[n].DensityIterationDone = 0;
         }
         myfree(queue);
 
@@ -339,7 +343,7 @@ void cooling_and_starformation(void)
         }
 
         tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
-        tw->postprocess = NULL;
+        tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_postprocess;
         tw->reduce = NULL;
 
         treewalk_run(tw);
@@ -488,7 +492,7 @@ static int get_sfr_condition(int i) {
 #ifdef WINDS
 static int sfr_wind_isactive(int target) {
     if(P[target].Type == 4) {
-        if(!P[target].DensityIterationDone) {
+        if(P[target].IsNewParticle) {
              return 1;
         }
     }
@@ -710,7 +714,7 @@ static int make_particle_star(int i) {
 
     P[newstar].StarFormationTime = All.Time;
 #ifdef WINDS
-    P[newstar].DensityIterationDone = 0;
+    P[newstar].IsNewParticle = 1;
 #endif
     return 0;
 }
