@@ -488,7 +488,7 @@ static int get_sfr_condition(int i) {
 #ifdef WINDS
 static int sfr_wind_isactive(int target) {
     if(P[target].Type == 4) {
-        if(P[target].DensityIterationDone) {
+        if(!P[target].DensityIterationDone) {
              return 1;
         }
     }
