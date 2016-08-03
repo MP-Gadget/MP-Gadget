@@ -37,13 +37,13 @@ typedef struct {
     MyFloat BH_MinPotVel[3];
     MyFloat BH_MinPot;
 
-    short int BH_TimeBinLimit;
-    double FeedbackWeightSum;
+    int BH_TimeBinLimit;
+    MyFloat FeedbackWeightSum;
 
-    double Rho;
-    double SmoothedEntropy;
-    double SmoothedPressure;
-    double GasVel[3];
+    MyFloat Rho;
+    MyFloat SmoothedEntropy;
+    MyFloat SmoothedPressure;
+    MyFloat GasVel[3];
 } TreeWalkResultBHAccretion;
 
 typedef struct {
@@ -57,15 +57,15 @@ typedef struct {
     MyFloat Hsml;
     MyFloat BH_Mass;
     MyIDType ID;
-    double FeedbackEnergy;
-    double FeedbackWeightSum;
+    MyFloat FeedbackEnergy;
+    MyFloat FeedbackWeightSum;
 } TreeWalkQueryBHFeedback;
 
 typedef struct {
     TreeWalkResultBase base;
-    MyDouble Mass;
-    MyDouble BH_Mass;
-    MyDouble AccretedMomentum[3];
+    MyFloat Mass;
+    MyFloat BH_Mass;
+    MyFloat AccretedMomentum[3];
     int BH_CountProgs;
 } TreeWalkResultBHFeedback;
 

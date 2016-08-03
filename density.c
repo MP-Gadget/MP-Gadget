@@ -42,10 +42,11 @@ typedef struct {
     MyFloat EgyRho;
     MyFloat DhsmlEgyDensity;
 #endif
-    MyDouble Rho;
-    MyDouble DhsmlDensity;
-    MyDouble Ngb;
-    MyDouble Div, Rot[3];
+    MyFloat Rho;
+    MyFloat DhsmlDensity;
+    MyFloat Ngb;
+    MyFloat Div;
+    MyFloat Rot[3];
 
     int Ninteractions;
 

@@ -53,8 +53,8 @@ typedef struct
 typedef struct
 {
     TreeWalkResultBase base;
-    MyDouble Acc[3];
-    MyDouble Potential;
+    MyFloat Acc[3];
+    MyFloat Potential;
     int Ninteractions;
 } TreeWalkResultGravity;
 

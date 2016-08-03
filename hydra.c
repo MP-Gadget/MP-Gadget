@@ -44,8 +44,8 @@ typedef struct {
 
 typedef struct {
     TreeWalkResultBase base;
-    MyDouble Acc[3];
-    MyDouble DtEntropy;
+    MyFloat Acc[3];
+    MyFloat DtEntropy;
     MyFloat MaxSignalVel;
     int Ninteractions;
 } TreeWalkResultHydro;
