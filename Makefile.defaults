@@ -1,25 +1,26 @@
 # MP-Gadget Makefile
 CONFIG ?= Options.mk
 
-include $(CONFIG)
-
 #Set reasonable defaults
 # off-tree build into $(DESTDIR)
 DESTDIR  ?= build
 #$CC is set by default.
 ifeq ($(CC),$(findstring cc,$(CC)))
-CC       = mpicc
+MPICC       = mpicc
 endif
 ifeq ($(CXX),$(findstring g++,$(CXX)))
-CXX		 = mpic++
+MPICXX		 = mpic++
 endif
+
+include $(CONFIG)
+
 HDF_INCL ?= 
 HDF_LIBS ?= -lhdf5
 GSL_INCL ?= 
 GSL_LIBS ?= $(filter-out -lm,$(shell pkg-config --libs gsl))
 
 #Optimised defaults for compile flags
-CVER=$(shell $(CC) --version)
+CVER=$(shell $(MPICC) --version)
 ifeq ($(CVER),$(findstring icc,$(CVER)))
 OPTIMIZE ?=  -fopenmp -O3 -ipo -g -Wall -xHost -no-prec-div -fp-model fast
 else

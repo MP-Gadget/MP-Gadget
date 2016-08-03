@@ -56,20 +56,20 @@ depends:
 	cd depends; make
 
 $(DESTDIR)/MP-Gadget: $(OBJS)
-	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
+	$(MPICC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
 
 $(DESTDIR)/MP-GenIC: $(ICOBJS)
-	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
+	$(MPICC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
 $(DESTDIR)/config.h: Makefile $(CONFIG) $(FILES)
 	mkdir -p `dirname $@`
-	CC="$(CC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
+	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
 
 $(DESTDIR)/%.o: %.c $(INCL)
-	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
+	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<
 
 $(DESTDIR)/main.o: main.c $(INCL) $(DESTDIR)/config.h
-	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
+	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<
 
 $(DESTDIR)/%.o: %.cpp $(INCL)
 	@echo Compiling $<; $(CXX) -c -o $@ $(CFLAGS) $<

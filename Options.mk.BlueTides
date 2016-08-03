@@ -5,11 +5,12 @@
 # off-tree build into $(DESTDIR)
 DESTDIR  = build/
 
-CC       = cc -h gnu -h omp
+#CC       = cc -h gnu -h omp
+MPICC       = cc
 #
 # For GCC add -mpc64 if IEEE 64bit FP is desired.
-#OPTIMIZE =  -static -fopenmp -O3 -Ofast -g
-OPTIMIZE =  -g -static -h aggress -h flex_mp=default -h negmsgs -O3
+OPTIMIZE =  -static -fopenmp -O3 -Ofast -g
+#OPTIMIZE =  -g -static -h aggress -h flex_mp=default -h negmsgs -O3
 
 HDF_INCL = 
 HDF_LIBS = -lhdf5
