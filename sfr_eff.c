@@ -598,8 +598,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     /* skip wind particles */
     if(SPHP(other).DelayTime > 0) return;
 
-    if(r2 > I->Hsml) return;
-
     double windeff;
     double v;
     if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
@@ -613,7 +611,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", All.WindModel);
     }
 
-    //double r = sqrt(r2);
     //double wk = density_kernel_wk(&kernel, r);
 
     /* now drive some wind */
