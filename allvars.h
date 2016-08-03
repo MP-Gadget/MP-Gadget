@@ -674,15 +674,16 @@ extern struct particle_data
 
     MyFloat Hsml;
 
+#ifdef BLACK_HOLES
+    /* SwallowID is not reset in blackhole.c thus cannot be in a union */
+    MyIDType SwallowID; /* who will swallow this particle, used only in blackhole.c */
+#endif
+
     union {
         /* the following variables are transients.
          * FIXME: move them into the corresponding modules! Is it possible? */
 
         MyFloat NumNgb; /* Number of neighbours; only used in density.c */
-
-#ifdef BLACK_HOLES
-        MyIDType SwallowID; /* who will swallow this particle, used only in blackhole.c */
-#endif
 
         int RegionInd; /* which region the particle belongs to; only by petapm.c */
 
