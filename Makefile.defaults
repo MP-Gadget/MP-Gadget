@@ -14,6 +14,9 @@ endif
 
 include $(CONFIG)
 
+LOW_PRECISION ?= double
+HIGH_PRECISION ?= double
+
 HDF_INCL ?= 
 HDF_LIBS ?= -lhdf5
 GSL_INCL ?= 

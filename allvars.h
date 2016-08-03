@@ -153,8 +153,8 @@
 
 typedef uint64_t MyIDType;
 
-typedef float  MyFloat;
-typedef double MyDouble;
+typedef LOW_PRECISION MyFloat;
+typedef HIGH_PRECISION MyDouble;
 
 struct unbind_data
 {
