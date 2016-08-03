@@ -18,7 +18,7 @@ void reconstruct_timebins(void)
         TimeBinCountSph[bin] = 0;
         FirstInTimeBin[bin] = -1;
         LastInTimeBin[bin] = -1;
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
         Local_BH_mass = 0;
         Local_BH_dynamicalmass = 0;
         Local_BH_Mdot = 0;
@@ -54,6 +54,15 @@ void reconstruct_timebins(void)
             Local_BH_Mdot += BHP(i).Mdot;
             Local_BH_Medd += BHP(i).Mdot / BHP(i).Mass;
         }
+#endif
+#if GAL_PART
+        if(P[i].Type == 5)
+	  {
+            TimeBin_BH_mass[bin] += BHP(i).Mass;
+            TimeBin_BH_dynamicalmass[bin] += P[i].Mass;
+            TimeBin_BH_Mdot[bin] += BHP(i).Sfr;
+            TimeBin_BH_Medd[bin] += BHP(i).Sfr / BHP(i).Mass;
+	  }
 #endif
     }
 

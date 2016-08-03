@@ -541,7 +541,7 @@ static void GTStarFormationRate(int i, float * out) {
         * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
 }
 #endif
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
@@ -613,7 +613,7 @@ static void register_io_blocks() {
     IO_REG(Metallicity,       "f4", 1, 4);
 #endif /* METALS */
 #endif /* SFR */
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     /* Blackhole */
     IO_REG(BlackholeMass,          "f8", 1, 5);
     IO_REG(StarFormationTime, "f4", 1, 5);

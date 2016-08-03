@@ -372,7 +372,7 @@ static void cooling_direct(int i) {
             (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
             GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(SPHP(i).Injected_BH_Energy)
     {
         if(P[i].Mass == 0)
@@ -429,7 +429,7 @@ static int get_sfr_condition(int i) {
     if(SPHP(i).Density < All.OverDensThresh)
         flag = 1;
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(P[i].Mass == 0)
         flag = 1;
 #endif

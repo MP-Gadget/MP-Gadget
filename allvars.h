@@ -650,6 +650,10 @@ struct bh_particle_data {
     MyFloat MinPotVel[3];
     MyFloat MinPot;
 
+#ifdef GAL_PART
+    MyFloat Sfr;
+#endif
+
     short int TimeBinLimit;
 } * BhP;
 
