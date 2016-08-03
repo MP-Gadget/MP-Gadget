@@ -11,6 +11,14 @@ void fof_fof(int num);
 extern uint64_t Ngroups, TotNgroups;
 extern int64_t TotNids;
 
+#ifdef GAL_PART
+struct group_particle_host {
+  int index;
+  int task;
+  double Value;
+};
+#endif
+
 struct BaseGroup {
     int OriginalTask;
     int OriginalIndex;
@@ -41,6 +49,13 @@ extern struct Group
     double BH_Mass;
     double BH_Mdot;
     double MaxDens;
+#endif
+#ifdef GAL_PART
+  double BH_Mass;
+  double Gal_SFR;
+  double AngularMomentum[3];
+  struct group_particle_host DenseGas;
+  struct group_particle_host CentralGalaxy;
 #endif
     int seed_index; 
     int seed_task;

@@ -652,6 +652,11 @@ struct bh_particle_data {
 
 #ifdef GAL_PART
     MyFloat Sfr;
+    MyFloat DiskMassGas;
+    MyFloat Mass_v_old;
+    MyFloat DiskMassStar;
+    MyFloat GasDiskAccretionRate;
+    int IsCentral;
 #endif
 
     short int TimeBinLimit;
@@ -689,7 +694,7 @@ extern struct particle_data
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
     MyIDType ID;
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     MyIDType SwallowID; /* who will swallow this particle */
 #endif
     MyDouble Vel[3];   /*!< particle velocity at its current time */
