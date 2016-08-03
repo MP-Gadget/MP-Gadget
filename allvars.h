@@ -665,9 +665,8 @@ extern struct particle_data
     MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree is called. */
     MyFloat PM_Potential;  /* Only used by PM. useless after pm */
 
-#ifdef WINDS
     MyFloat StellarAge;		/*!< formation time of star particle: needed to tell when wind is active. */
-#endif
+
 #ifdef METALS
     MyFloat Metallicity;		/*!< metallicity of gas or star particle */
 #endif				/* closes METALS */

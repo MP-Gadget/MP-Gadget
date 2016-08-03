@@ -137,6 +137,50 @@ sfr_cooling_isactive(int target) {
 
 
 #ifdef SFR
+
+#ifdef WINDS
+static int NPLeft;
+static void
+sfr_wind_weight_postprocess(int i)
+{
+    int diff = Wind[i].Ngb - 40;
+    if(diff < -2) {
+        /* too few */
+        Wind[i].Left = Wind[i].DMRadius;
+    } else if(diff > 2) {
+        /* too many */
+        Wind[i].Right = Wind[i].DMRadius;
+    } else {
+        P[i].DensityIterationDone = 1;
+    }
+    if(Wind[i].Right >= 0) {
+        /* if Ngb hasn't converged to 40, see if DMRadius converged*/
+        if(Wind[i].Right - Wind[i].Left < 1e-2) {
+            P[i].DensityIterationDone = 1;
+        } else {
+            Wind[i].DMRadius = 0.5 * (Wind[i].Left + Wind[i].Right);
+        }
+    } else {
+        Wind[i].DMRadius *= 1.3;
+    }
+
+    if(P[i].DensityIterationDone) {
+        double vdisp = Wind[i].V2sum / Wind[i].Ngb;
+        int d;
+        for(d = 0; d < 3; d ++) {
+            Wind[i].Vmean[d] = Wind[i].V1sum[d] / Wind[i].Ngb;
+            vdisp -= Wind[i].Vmean[d] * Wind[i].Vmean[d];
+        }
+        Wind[i].Vdisp = sqrt(vdisp / 3);
+    } else {
+#pragma omp atomic
+        NPLeft ++;
+    }
+}
+
+
+#endif
+
 void cooling_and_starformation(void)
     /* cooling routine when star formation is enabled */
 {
@@ -271,65 +315,31 @@ void cooling_and_starformation(void)
         tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
         tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterWind);
         tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_weight_ngbiter;
+        tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
 
         int Nqueue;
         int * queue = treewalk_get_queue(tw, &Nqueue);
         for(i = 0; i < Nqueue; i ++) {
             int n = queue[i];
-            P[n].DensityIterationDone = 0;
             Wind[n].DMRadius = 2 * P[n].Hsml;
             Wind[n].Left = 0;
             Wind[n].Right = -1;
         }
-
-        int npleft = Nqueue;
-        int done = 0;
-        while(!done) {
-            treewalk_run(tw);
-            for(i = 0; i < Nqueue; i ++) {
-                int n = queue[i];
-                if (P[n].DensityIterationDone) continue;
-                int diff = Wind[n].Ngb - 40;
-                if(diff < -2) {
-                    /* too few */
-                    Wind[n].Left = Wind[n].DMRadius;
-                } else if(diff > 2) {
-                    /* too many */
-                    Wind[n].Right = Wind[n].DMRadius;
-                } else {
-                    P[n].DensityIterationDone = 1;
-                    npleft --;
-                }
-                if(Wind[n].Right >= 0) {
-                    /* if Ngb hasn't converged to 40, see if DMRadius converged*/
-                    if(Wind[n].Right - Wind[n].Left < 1e-2) {
-                        P[n].DensityIterationDone = 1;
-                        npleft --;
-                    } else {
-                        Wind[n].DMRadius = 0.5 * (Wind[n].Left + Wind[n].Right);
-                    }
-                } else {
-                    Wind[n].DMRadius *= 1.3;
-                }
-            }
-            int64_t totalleft = 0;
-            sumup_large_ints(1, &npleft, &totalleft);
-            done = totalleft == 0;
-            message(0, "Star DM iteration Total left = %ld\n", totalleft);
-        }
-        for(i = 0; i < Nqueue; i ++) {
-            int n = queue[i];
-            double vdisp = Wind[n].V2sum / Wind[n].Ngb;
-            int k;
-            for(k = 0; k < 3; k ++) {
-                Wind[n].Vmean[k] = Wind[n].V1sum[k] / Wind[n].Ngb;
-                vdisp -= Wind[n].Vmean[k] * Wind[n].Vmean[k];
-            }
-            Wind[n].Vdisp = sqrt(vdisp / 3);
-        }
         myfree(queue);
 
+        int done = 0;
+        while(!done) {
+            NPLeft = 0;
+            treewalk_run(tw);
+
+            int64_t totalleft = 0;
+            sumup_large_ints(1, &NPLeft, &totalleft);
+            message(0, "Star DM iteration Total left = %ld\n", totalleft);
+            done = totalleft == 0;
+        }
+
         tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
+        tw->postprocess = NULL;
         tw->reduce = NULL;
 
         treewalk_run(tw);
@@ -478,10 +488,7 @@ static int get_sfr_condition(int i) {
 #ifdef WINDS
 static int sfr_wind_isactive(int target) {
     if(P[target].Type == 4) {
-        /*
-         * protect beginning of time. StellarAge starts at 0.
-         * */
-        if(All.Time > 0 && P[target].StellarAge == All.Time) {
+        if(P[target].DensityIterationDone) {
              return 1;
         }
     }
@@ -673,7 +680,7 @@ static int make_particle_star(int i) {
 
     /* here we spawn a new star particle */
     double mass_of_star =  All.MassTable[0] / GENERATIONS;
-
+    int newstar = 0;
     /* ok, make a star */
     if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
     {
@@ -685,9 +692,7 @@ static int make_particle_star(int i) {
         P[i].Type = 4;
         TimeBinCountSph[P[i].TimeBin]--;
 
-#ifdef WINDS
-        P[i].StellarAge = All.Time;
-#endif
+        newstar = i;
     }
     else
     {
@@ -700,11 +705,16 @@ static int make_particle_star(int i) {
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
         sum_mass_stars += P[child].Mass;
-#ifdef WINDS
-        P[child].StellarAge = All.Time;
-#endif
+
+        newstar = child;
+
         stars_spawned++;
     }
+
+    P[newstar].StellarAge = All.Time;
+#ifdef WINDS
+    P[newstar].DensityIterationDone = 0;
+#endif
     return 0;
 }
 

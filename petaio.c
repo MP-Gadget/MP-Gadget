@@ -529,9 +529,7 @@ SIMPLE_GETTER(GTPressure, SPHP(i).Pressure, float, 1)
 #endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #ifdef SFR
-#ifdef WINDS
 SIMPLE_PROPERTY(StarFormationTime, P[i].StellarAge, float, 1)
-#endif
 #ifdef METALS
 SIMPLE_PROPERTY(Metallicity, P[i].Metallicity, float, 1)
 #endif

@@ -93,10 +93,10 @@ TimeBetweenSeedingSearch = 1.03
 
 #----------------------SFR Stuff-------------------------
 
-CritPhysDensity = 0       #  critical physical density for star formation in
+CritPhysDensity = 0.01       #  critical physical density for star formation in
 #hydrogen number density in cm^(-3)
 
-CritOverDensity = 57.7   #  overdensity threshold value
+CritOverDensity = 5.77   #  overdensity threshold value Reduced by 1/10 to boost SFR.
 
 QuickLymanAlphaProbability = 0 # Set to 1.0 to turn dense gas directly into stars.
 
