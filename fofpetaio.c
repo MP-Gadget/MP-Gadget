@@ -234,7 +234,7 @@ static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {
 
 static void fof_write_header(BigFile * bf) {
     BigBlock bh = {0};
-    if(0 != big_file_mpi_create_block(bf, &bh, "header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
+    if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create header\n");
     }
     int i;
@@ -267,6 +267,8 @@ static void fof_write_header(BigFile * bf) {
 
 SIMPLE_PROPERTY(GroupID, Group[i].base.GrNr, uint32_t, 1)
 SIMPLE_PROPERTY(MassCenterPosition, Group[i].CM[0], double, 3)
+SIMPLE_PROPERTY(Imom, Group[i].Imom[0][0], float, 9)
+SIMPLE_PROPERTY(Jmom, Group[i].Jmom[0], float, 3)
 SIMPLE_PROPERTY(MassCenterVelocity, Group[i].Vel[0], float, 3)
 SIMPLE_PROPERTY(Mass, Group[i].Mass, float, 1)
 SIMPLE_PROPERTY(MassByType, Group[i].MassType[0], float, 6)
@@ -283,6 +285,8 @@ void fof_register_io_blocks() {
     IO_REG(GroupID, "u4", 1, PTYPE_FOF_GROUP);
     IO_REG(Mass, "f4", 1, PTYPE_FOF_GROUP);
     IO_REG(MassCenterPosition, "f8", 3, PTYPE_FOF_GROUP);
+    IO_REG(Imom, "f4", 9, PTYPE_FOF_GROUP);
+    IO_REG(Jmom, "f4", 3, PTYPE_FOF_GROUP);
     IO_REG(MassCenterVelocity, "f4", 3, PTYPE_FOF_GROUP);
     IO_REG(LengthByType, "u4", 6, PTYPE_FOF_GROUP);
     IO_REG(MassByType, "f4", 6, PTYPE_FOF_GROUP);

@@ -113,10 +113,9 @@ static MPI_Datatype MPI_TYPE_GROUP;
 
 void fof_fof(int num)
 {
-    int i, ndm, start, lenloc, n;
-    double mass, masstot, rhodm, t0, t1;
+    int i, n;
+    double t0, t1;
     struct unbind_data *d;
-    int64_t ndmtot;
 
     MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE_GROUP);
     MPI_Type_commit(&MPI_TYPE_GROUP);
@@ -430,7 +429,6 @@ static void fof_reduce_group(void * pdst, void * psrc) {
     struct Group * gdst = pdst;
     struct Group * gsrc = psrc;
     int j;
-    double xyz[3];
     gdst->Length += gsrc->Length;
     gdst->Mass += gsrc->Mass;
 
@@ -454,42 +452,43 @@ static void fof_reduce_group(void * pdst, void * psrc) {
     }
 #endif
 
-    for(j = 0; j < 3; j++)
+    int d1, d2;
+    for(d1 = 0; d1 < 3; d1++)
     {
-        gdst->CM[j] += gsrc->CM[j];
-        gdst->Vel[j] += gsrc->Vel[j];
+        gdst->CM[d1] += gsrc->CM[d1];
+        gdst->Vel[d1] += gsrc->Vel[d1];
+        gdst->Jmom[d1] += gsrc->Jmom[d1];
+        for(d2 = 0; d2 < 3; d2 ++) {
+            gdst->Imom[d1][d2] += gsrc->Imom[d1][d2];
+        }
     }
 
+}
+static void crossproduct(double v1[3], double v2[3], double out[3])
+{
+    static int D2[3] = {1, 2, 0};
+    static int D3[3] = {2, 0, 1};
+
+    int d1, d2, d3;
+
+    for(d1 = 0; d1 < 3; d1++)
+    {
+        d2 = D2[d1];
+        d3 = D3[d1];
+
+        out[d1] = (v1[d2] * v2[d3] -  v2[d2] * v1[d3]);
+    }
 }
 static void add_particle_to_group(struct Group * gdst, int i) {
 
     /* My local number of particles contributing to the full catalogue. */
     int j, k;
-    double xyz[3];
     int index = i;
     if(gdst->Length == 0) {
-        gdst->Mass = 0;
+        struct BaseGroup base = gdst->base;
+        memset(gdst, 0, sizeof(gdst[0]));
+        gdst->base = base;
         gdst->seed_index = gdst->seed_task = -1;
-    #ifdef SFR
-        gdst->Sfr = 0;
-    #endif
-    #ifdef BLACK_HOLES
-        gdst->BH_Mass = 0;
-        gdst->BH_Mdot = 0;
-        gdst->MaxDens = 0;
-    #endif
-
-        for(k = 0; k < 3; k++)
-        {
-            gdst->CM[k] = 0;
-            gdst->Vel[k] = 0;
-        }
-
-        for(k = 0; k < 6; k++)
-        {
-            gdst->LenType[k] = 0;
-            gdst->MassType[k] = 0;
-        }
     }
 
     gdst->Length ++;
@@ -524,32 +523,79 @@ static void add_particle_to_group(struct Group * gdst, int i) {
     }
 #endif
 
-    for(j = 0; j < 3; j++)
-    {
-        double first = gdst->base.FirstPos[j];
-        xyz[j] = fof_periodic(P[index].Pos[j] - first) + first;
+    int d1, d2;
+    double xyz[3];
+    double rel[3];
+    double vel[3];
+    double jmom[3];
 
-        gdst->CM[j] += P[index].Mass * xyz[j];
-        gdst->Vel[j] += P[index].Mass * P[index].Vel[j];
+    for(d1 = 0; d1 < 3; d1++)
+    {
+        double first = gdst->base.FirstPos[d1];
+        rel[d1] = fof_periodic(P[index].Pos[d1] - first) ;
+        xyz[d1] = rel[d1] + first;
+        vel[d1] = P[index].Vel[d1];
+    }
+
+    crossproduct(rel, vel, jmom);
+
+    for(d1 = 0; d1 < 3; d1++) {
+        gdst->CM[d1] += P[index].Mass * xyz[d1];
+        gdst->Vel[d1] += P[index].Mass * vel[d1];
+        gdst->Jmom[d1] += P[index].Mass * jmom[d1];
+
+        for(d2 = 0; d2 < 3; d2++) {
+            gdst->Imom[d1][d2] += P[index].Mass * rel[d1] * rel[d2];
+        }
     }
 }
 
 static void fof_finish_group_properties(void)
 {
-    double cm[3];
-    int i, j;
+    int i;
 
     for(i = 0; i < Ngroups; i++)
     {
-        for(j = 0; j < 3; j++)
+        int d1, d2;
+        double cm[3];
+        double rel[3];
+        double jcm[3];
+        double vcm[3];
+
+        struct Group * gdst = &Group[i];
+        for(d1 = 0; d1 < 3; d1++)
         {
-            Group[i].Vel[j] /= Group[i].Mass;
+            gdst->Vel[d1] /= gdst->Mass;
+            vcm[d1] = gdst->Vel[d1];
+            cm[d1] = gdst->CM[d1] / gdst->Mass;
 
-            cm[j] = Group[i].CM[j] / Group[i].Mass;
+            rel[d1] = fof_periodic(cm[d1] - gdst->base.FirstPos[d1]);
 
-            cm[j] = fof_periodic_wrap(cm[j]);
+            cm[d1] = fof_periodic_wrap(cm[d1]);
+            gdst->CM[d1] = cm[d1];
 
-            Group[i].CM[j] = cm[j];
+        }
+        crossproduct(rel, vcm, jcm);
+
+        for(d1 = 0; d1 < 3; d1 ++) {
+            gdst->Jmom[d1] -= jcm[d1] * gdst->Mass;
+        }
+
+        for(d1 = 0; d1 < 3; d1 ++) {
+            for(d2 = 0; d2 < 3; d2++) {
+                /* Parallel Axis theorem:
+                 * https://en.wikipedia.org/wiki/Parallel_axis_theorem ;
+                 * J was relative to FirstPos, I is relative to CM.
+                 *
+                 * Note that our definition of Imom follows the astronomy one,
+                 *
+                 * I_ij = sum x_i x_j (where x_i x_j is relative displacement)
+                 * */
+
+                double diff = rel[d1] * rel[d2];
+
+                gdst->Imom[d1][d2] -= gdst->Mass * diff;
+            }
         }
     }
 
@@ -622,7 +668,7 @@ static void fof_compile_base(void)
 
 static void fof_compile_catalogue(void)
 {
-    int i, j, start;
+    int i, start;
     Group = (struct Group *) mymalloc("Group", sizeof(struct Group) * NgroupsExt);
     memset(Group, 0, sizeof(Group[0]) * NgroupsExt);
 
@@ -1199,8 +1245,8 @@ static void fof_seed_make_one(struct Group * g) {
     if(g->seed_task != ThisTask) {
         endrun(7771, "Seed does not belong to the right task");
     }
-    int index = g->seed_index;
 #ifdef BLACK_HOLES
+    int index = g->seed_index;
     blackhole_make_one(index);
 #endif
 }

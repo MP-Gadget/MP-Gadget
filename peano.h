@@ -3,6 +3,12 @@
 
 typedef uint64_t peanokey;
 
+struct peano_hilbert_data
+{
+  peanokey key;
+  int index;
+};
+
 #define  BITS_PER_DIMENSION 21	/* for Peano-Hilbert order. Note: Maximum is 10 to fit in 32-bit integer ! */
 #define  PEANOCELLS (((peanokey)1)<<(3*BITS_PER_DIMENSION))
 

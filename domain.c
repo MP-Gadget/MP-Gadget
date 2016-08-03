@@ -13,6 +13,7 @@
 #include "mymalloc.h"
 #include "mpsort.h"
 #include "endrun.h"
+#include "openmpsort.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19
@@ -78,15 +79,6 @@ static struct local_topnode_data
     int PIndex;			/*!< first particle in node  used only in top-level tree build (this file)*/
 }
 *topNodes;			/*!< points to the root node of the top-level tree */
-
-static struct peano_hilbert_data
-{
-    peanokey key;
-    int index;
-}
-*mp;
-
-
 
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA,
@@ -418,8 +410,14 @@ int domain_decompose(void)
 
     walltime_measure("/Domain/Decompose/FindExtent");
 
+    /*Make an array of peano keys so we don't have to recompute them inside the domain*/
+    #pragma omp parallel for
+    for(i=0; i<NumPart; i++)
+        P[i].Key = KEY(i);
+
     if(domain_determineTopTree())
         return 1;
+
     /* find the split of the domain grid */
     domain_findSplit_work_balanced(All.DomainOverDecompositionFactor * NTask, NTopleaves);
 
@@ -770,19 +768,19 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
                 BhP, count_recv_bh, offset_recv_bh, MPI_TYPE_BHPARTICLE,
                 MPI_COMM_WORLD);
     walltime_measure("/Domain/exchange/alltoall");
-                
-    for(target = 0; target < NTask; target++) {
-        int i, j;
-        for(i = offset_recv[target], 
-                j = offset_recv_bh[target]; 
-                i < offset_recv[target] + count_recv[target]; 
-                i++) {
-            if(P[i].Type != 5) continue;
-            P[i].PI = j;
-            j++;
-        }
-        if(j != count_recv_bh[target] + offset_recv_bh[target]) {
-            endrun(1, "communitate bh consitency\n");
+
+    if(count_get_bh > 0) {
+        for(target = 0; target < NTask; target++) {
+            int i, j;
+            for(i = offset_recv[target], j = offset_recv_bh[target];
+                i < offset_recv[target] + count_recv[target]; i++) {
+                if(P[i].Type != 5) continue;
+                P[i].PI = j;
+                j++;
+            }
+            if(j != count_recv_bh[target] + offset_recv_bh[target]) {
+                endrun(1, "communication bh inconsistency\n");
+            }
         }
     }
 
@@ -821,8 +819,7 @@ static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
 
 }
 
-void domain_garbage_collection() {
-
+void domain_bh_garbage_collection() {
     /* gc the bh */
     int i, j;
     int total = 0;
@@ -888,7 +885,15 @@ void domain_garbage_collection() {
     if(total != total0) {
         message(0, "After BH garbage collection, before = %d after= %d\n", total0, total);
     }
+}
 
+void domain_garbage_collection() {
+    int i;
+    /*Make sure the BHs are consistent, if we have any*/
+    if(N_bh > 0)
+        domain_bh_garbage_collection();
+
+    /*Now ensure that the particle numbers are consistent*/
     N_bh = 0;
     N_star = 0;
     N_sph = 0;
@@ -1182,27 +1187,26 @@ void domain_findSplit_load_balanced(int ncpu, int ndomain)
 }
 
 
-
-
-
-
+/*This function determines the leaf node for the given particle number.*/
+static inline int domain_leafnodefunc(const peanokey key) {
+    int no=0;
+    while(topNodes[no].Daughter >= 0)
+        no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size / 8);
+    no = topNodes[no].Leaf;
+    return no;
+}
 
 /*! This function determines how many particles that are currently stored
  *  on the local CPU have to be moved off according to the domain
  *  decomposition.
  *
  *  layoutfunc decides the target Task of particle p (used by
- *  subfind_distribute.
+ *  subfind_distribute).
  *
  */
 static int domain_layoutfunc(int n) {
-    int no;
-    no = 0;
-    peanokey key = KEY(n);
-    while(topNodes[no].Daughter >= 0)
-        no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size / 8);
-
-    no = topNodes[no].Leaf;
+    peanokey key = P[n].Key;
+    int no = domain_leafnodefunc(key);
     return DomainTask[no];
 }
 
@@ -1222,14 +1226,14 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
         toGoBh[n] = 0;
     }
 
-    package = (sizeof(struct particle_data) + sizeof(struct sph_particle_data) + sizeof(peanokey));
+    package = (sizeof(struct particle_data) + sizeof(struct sph_particle_data) + sizeof(struct bh_particle_data));
     if(package >= nlimit)
         endrun(212, "Package is too large, no free memory.");
 
 
     for(n = 0; n < NumPart; n++)
     {
-        if(package >= nlimit) continue;
+        if(package >= nlimit) break;
         if(!P[n].OnAnotherDomain) continue;
 
         int target = layoutfunc(n);
@@ -1510,92 +1514,96 @@ void domain_walktoptree(int no)
     }
 }
 
-
-int domain_compare_key(const void *a, const void *b)
+/* Refine the local oct-tree, recursively adding costs and particles until
+ * either we have chopped off all the peano-hilbert keys and thus have no more
+ * refinement to do, or we run out of topNodes.
+ * If 1 is returned on any processor we will return to domain_Decomposition,
+ * allocate 30% more topNodes, and try again.
+ * */
+int domain_check_for_local_refine(const int i, const double countlimit, const double costlimit, const struct peano_hilbert_data * mp)
 {
-    if(((struct peano_hilbert_data *) a)->key < (((struct peano_hilbert_data *) b)->key))
-        return -1;
+    int j, p;
 
-    if(((struct peano_hilbert_data *) a)->key > (((struct peano_hilbert_data *) b)->key))
-        return +1;
+    /*If there are only 8 particles within this node, we are done refining.*/
+    if(topNodes[i].Size < 8)
+        return 0;
 
-    return 0;
-}
-
-
-int domain_check_for_local_refine(int i, double countlimit, double costlimit)
-{
-    int j, p, sub, flag = 0;
-
-#ifdef DENSITY_INDEPENDENT_SPH_DEBUG
-    costlimit = -1;
-    countlimit = -1;
+    /* We need to do refinement if we are over the countlimit, or the cost limit, or
+     * (if we have a parent) we have more than 80% of the parent's particles or costs.*/
+#ifndef DENSITY_INDEPENDENT_SPH_DEBUG
+    /*If we are above the cost limits we definitely need to refine.*/
+    if(topNodes[i].Count <= countlimit && topNodes[i].Cost <=costlimit)
 #endif
-    if(topNodes[i].Parent >= 0)
+        /* If we were below them but we have a parent and somehow got all of its particles, we still
+         * need to refine. But if none of these things are true we can return, our work complete. */
+        if(topNodes[i].Parent < 0 || (topNodes[i].Count <= 0.8 * topNodes[topNodes[i].Parent].Count &&
+                topNodes[i].Cost <= 0.8 * topNodes[topNodes[i].Parent].Cost))
+            return 0;
+
+    /* If we want to refine but there is no space for another topNode on this processor,
+     * we ran out of top nodes and must get more.*/
+    if((NTopnodes + 8) > MaxTopNodes)
+        return 1;
+
+    /*Make a new topnode section attached to this node*/
+    topNodes[i].Daughter = NTopnodes;
+    NTopnodes += 8;
+
+    /* Initialise this topnode with new sub nodes*/
+    for(j = 0; j < 8; j++)
     {
-        if(topNodes[i].Count > 0.8 * topNodes[topNodes[i].Parent].Count ||
-                topNodes[i].Cost > 0.8 * topNodes[topNodes[i].Parent].Cost)
-            flag = 1;
+        const int sub = topNodes[i].Daughter + j;
+        /* The new sub nodes have this node as parent
+         * and no daughters.*/
+        topNodes[sub].Daughter = -1;
+        topNodes[sub].Parent = i;
+        /* Shorten the peano key by a factor 8, reflecting the oct-tree level.*/
+        topNodes[sub].Size = (topNodes[i].Size >> 3);
+        /* This is the region of peanospace covered by this node.*/
+        topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
+        /* We will compute the cost and initialise the first particle in the node below.
+         * This PIndex value is never used*/
+        topNodes[sub].PIndex = topNodes[i].PIndex;
+        topNodes[sub].Count = 0;
+        topNodes[sub].Cost = 0;
     }
 
-    if((topNodes[i].Count > countlimit || topNodes[i].Cost > costlimit || flag == 1) && topNodes[i].Size >= 8)
+    /* Loop over all particles in this node so that the costs of the daughter nodes are correct*/
+    for(p = topNodes[i].PIndex, j = 0; p < topNodes[i].PIndex + topNodes[i].Count; p++)
     {
-        if(topNodes[i].Size >= 8)
-        {
-            if((NTopnodes + 8) <= MaxTopNodes)
+        const int sub = topNodes[i].Daughter;
+
+        /* This identifies which subnode this particle belongs to.
+         * Once this particle has passed the StartKey of the next daughter node,
+         * we increment the node the particle is added to and set the PIndex.*/
+        if(j < 7)
+            while(topNodes[sub + j + 1].StartKey <= mp[p].key)
             {
-                topNodes[i].Daughter = NTopnodes;
-
-                for(j = 0; j < 8; j++)
-                {
-                    sub = topNodes[i].Daughter + j;
-                    topNodes[sub].Daughter = -1;
-                    topNodes[sub].Parent = i;
-                    topNodes[sub].Size = (topNodes[i].Size >> 3);
-                    topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
-                    topNodes[sub].PIndex = topNodes[i].PIndex;
-                    topNodes[sub].Count = 0;
-                    topNodes[sub].Cost = 0;
-
-                }
-
-                NTopnodes += 8;
-
-                sub = topNodes[i].Daughter;
-
-                for(p = topNodes[i].PIndex, j = 0; p < topNodes[i].PIndex + topNodes[i].Count; p++)
-                {
-                    if(j < 7)
-                        while(mp[p].key >= topNodes[sub + 1].StartKey)
-                        {
-                            j++;
-                            sub++;
-                            topNodes[sub].PIndex = p;
-                            if(j >= 7)
-                                break;
-                        }
-
-                    topNodes[sub].Cost += domain_particle_costfactor(mp[p].index);
-                    topNodes[sub].Count++;
-                }
-
-                for(j = 0; j < 8; j++)
-                {
-                    sub = topNodes[i].Daughter + j;
-
-#ifdef DENSITY_INDEPENDENT_SPH_DEBUG
-                    if(topNodes[sub].Count > All.TotNumPart / 
-                            (TOPNODEFACTOR * NTask * NTask))
-#endif
-                        if(domain_check_for_local_refine(sub, countlimit, costlimit))
-                            return 1;
-                }
+                topNodes[sub + j + 1].PIndex = p;
+                j++;
+                if(j >= 7)
+                    break;
             }
-            else
-                return 1;
-        }
+
+        /*Now we have identified the subnode for this particle, add it to the cost and count*/
+        topNodes[sub+j].Cost += domain_particle_costfactor(mp[p].index);
+        topNodes[sub+j].Count++;
     }
 
+    /*Check and refine the new daughter nodes*/
+    for(j = 0; j < 8; j++)
+    {
+        const int sub = topNodes[i].Daughter + j;
+
+#ifdef DENSITY_INDEPENDENT_SPH_DEBUG
+        if(topNodes[sub].Count > All.TotNumPart /
+                (TOPNODEFACTOR * NTask * NTask))
+#endif
+            /* Refine each sub node. If we could not refine the node as needed,
+             * we are out of node space and need more.*/
+            if(domain_check_for_local_refine(sub, countlimit, costlimit, mp))
+                return 1;
+    }
     return 0;
 }
 
@@ -1697,24 +1705,21 @@ loop_continue:
  */
 int domain_determineTopTree(void)
 {
-    int i, count, j, sub;
+    int i, j, sub;
     int errflag, errsum;
     double costlimit, countlimit;
 
-    mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
+    struct peano_hilbert_data * mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
 
-    count = 0;
-#pragma omp parallel for
+    #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-#pragma omp atomic
-        count ++;
-        mp[i].key = KEY(i);
+        mp[i].key = P[i].Key;
         mp[i].index = i;
     }
 
     walltime_measure("/Domain/DetermineTopTree/Misc");
-    qsort(mp, NumPart, sizeof(struct peano_hilbert_data), domain_compare_key);
+    qsort_openmp(mp, NumPart, sizeof(struct peano_hilbert_data), peano_compare_key);
     
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
@@ -1724,13 +1729,13 @@ int domain_determineTopTree(void)
     topNodes[0].Size = PEANOCELLS;
     topNodes[0].StartKey = 0;
     topNodes[0].PIndex = 0;
-    topNodes[0].Count = count;
+    topNodes[0].Count = NumPart;
     topNodes[0].Cost = gravcost;
 
     costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
     countlimit = totpartcount / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
-    errflag = domain_check_for_local_refine(0, countlimit, costlimit);
+    errflag = domain_check_for_local_refine(0, countlimit, costlimit, mp);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     myfree(mp);
@@ -1831,45 +1836,33 @@ int domain_determineTopTree(void)
 
 void domain_sumCost(void)
 {
-    int i, n;
-    float *local_domainWork;
-    int *local_domainCount;
-    int *local_domainCountSph;
+    int i;
+    float * local_domainWork = (float *) mymalloc("local_domainWork", All.NumThreads * NTopnodes * sizeof(float));
+    int * local_domainCount = (int *) mymalloc("local_domainCount", All.NumThreads * NTopnodes * sizeof(int));
+    int * local_domainCountSph = (int *) mymalloc("local_domainCountSph", All.NumThreads * NTopnodes * sizeof(int));
 
-    local_domainWork = (float *) mymalloc("local_domainWork", All.NumThreads * NTopnodes * sizeof(float));
-    local_domainCount = (int *) mymalloc("local_domainCount", All.NumThreads * NTopnodes * sizeof(int));
-    local_domainCountSph = (int *) mymalloc("local_domainCountSph", All.NumThreads * NTopnodes * sizeof(int));
+    memset(local_domainWork, 0, All.NumThreads * NTopnodes * sizeof(float));
+    memset(local_domainCount, 0, All.NumThreads * NTopnodes * sizeof(float));
+    memset(local_domainCountSph, 0, All.NumThreads * NTopnodes * sizeof(float));
 
     NTopleaves = 0;
     domain_walktoptree(0);
 
     message(0, "NTopleaves= %d  NTopnodes=%d (space for %d)\n", NTopleaves, NTopnodes, MaxTopNodes);
 
-#pragma omp parallel private(n, i)
+#pragma omp parallel
     {
         int tid = omp_get_thread_num();
+        int n;
 
         float * mylocal_domainWork = local_domainWork + tid * NTopleaves;
         int * mylocal_domainCount = local_domainCount + tid * NTopleaves;
         int * mylocal_domainCountSph = local_domainCountSph + tid * NTopleaves;
 
-        for(i = 0; i < NTopleaves; i++)
-        {
-            mylocal_domainWork[i] = 0;
-            mylocal_domainCount[i] = 0;
-            mylocal_domainCountSph[i] = 0;
-        }
-
-
 #pragma omp for
         for(n = 0; n < NumPart; n++)
         {
-            int no = 0;
-            peanokey key = KEY(n);
-            while(topNodes[no].Daughter >= 0)
-                no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size >> 3);
-
-            no = topNodes[no].Leaf;
+            int no = domain_leafnodefunc(P[n].Key);
 
             mylocal_domainWork[no] += (float) domain_particle_costfactor(n);
 
