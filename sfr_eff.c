@@ -55,7 +55,7 @@ static int make_particle_star(int i);
 static void starformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
-static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff);
+static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 #endif
 
 #ifdef WINDS
@@ -814,7 +814,7 @@ double get_starformation_rate(int i) {
     return get_starformation_rate_full(i, 0, NULL, NULL, NULL);
 }
 
-static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff) {
+static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff) {
     double rateOfSF;
     int flag;
     double tsfr;

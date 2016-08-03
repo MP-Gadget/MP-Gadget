@@ -153,8 +153,8 @@
 
 typedef uint64_t MyIDType;
 
-typedef double  MyFloat;
-typedef double  MyDouble;
+typedef float  MyFloat;
+typedef double MyDouble;
 
 struct unbind_data
 {
@@ -616,7 +616,7 @@ struct bh_particle_data {
     MyFloat accreted_BHMass;
     MyFloat accreted_momentum[3];
 
-    MyFloat MinPotPos[3];
+    double  MinPotPos[3];
     MyFloat MinPotVel[3];
     MyFloat MinPot;
 
@@ -638,8 +638,8 @@ extern struct particle_data
     int Ti_current;		/*!< current time of the particle */
 
 
-    MyDouble Pos[3];   /*!< particle position at its current time */
-    MyDouble Mass;     /*!< particle mass */
+    double Pos[3];   /*!< particle position at its current time */
+    float Mass;     /*!< particle mass */
     struct {
         unsigned int Evaluated :1;
         unsigned int DensityIterationDone :1;
@@ -655,7 +655,7 @@ extern struct particle_data
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
     MyIDType ID;
 
-    MyDouble Vel[3];   /* particle velocity at its current time */
+    MyFloat Vel[3];   /* particle velocity at its current time */
     MyFloat GravAccel[3];  /* particle acceleration due to short-range gravity */
 
     MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
@@ -717,9 +717,9 @@ extern struct sph_particle_data
 #define EOMDensity Density
 #endif
 
-    MyDouble Entropy;		/*!< current value of entropy (actually entropic function) of particle */
-    MyFloat  Pressure;		/*!< current pressure */
-    MyFloat  VelPred[3];		/*!< predicted SPH particle velocity at the current time */
+    MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
+    MyFloat Pressure;		/*!< current pressure */
+    MyFloat VelPred[3];		/*!< predicted SPH particle velocity at the current time */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
 #ifdef VOLUME_CORRECTION
     MyFloat DensityOld;
