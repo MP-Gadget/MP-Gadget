@@ -653,6 +653,9 @@ extern struct particle_data
 #ifdef WINDS
         unsigned int IsNewParticle:1; /* whether it is created this step */
 #endif
+#ifdef BLACK_HOLES
+        unsigned int Swallowed : 1; /* whether it is being swallowed */
+#endif
     };
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/

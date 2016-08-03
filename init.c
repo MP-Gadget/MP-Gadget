@@ -97,7 +97,7 @@ void init(void)
         P[i].GravCost = 1;
 
 #ifdef BLACK_HOLES
-        P[i].SwallowID = -1;
+        P[i].Swallowed = 0;
         if(RestartFlag == 0 && P[i].Type == 5 )
         {
             BHP(i).Mass = All.SeedBlackHoleMass;
