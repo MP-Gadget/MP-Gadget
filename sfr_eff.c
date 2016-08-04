@@ -501,7 +501,7 @@ static int get_sfr_condition(int i) {
 #ifdef WINDS
 static int sfr_wind_weight_isactive(int target) {
     if(P[target].Type == 4) {
-        if(!P[target].DensityIterationDone) {
+        if(P[target].IsNewParticle && !P[target].DensityIterationDone) {
              return 1;
         }
     }
