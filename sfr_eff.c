@@ -310,7 +310,6 @@ void cooling_and_starformation(void)
         TreeWalk tw[1] = {0};
 
         tw->ev_label = "SFR_WIND";
-        tw->isactive = sfr_wind_weight_isactive;
         tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
         tw->reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
         tw->UseNodeList = 1;
@@ -323,6 +322,9 @@ void cooling_and_starformation(void)
         tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_weight_ngbiter;
         tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
 
+        /* First obtain the wind queue, and set DensityIterationDone for weighting */
+        tw->isactive = (TreeWalkIsActiveFunction) sfr_wind_feedback_isactive;
+
         int Nqueue;
         int * queue = treewalk_get_queue(tw, &Nqueue);
         for(i = 0; i < Nqueue; i ++) {
@@ -333,6 +335,8 @@ void cooling_and_starformation(void)
             P[n].DensityIterationDone = 0;
         }
         myfree(queue);
+
+        tw->isactive = sfr_wind_weight_isactive;
 
         int done = 0;
         while(!done) {
@@ -345,6 +349,7 @@ void cooling_and_starformation(void)
             done = totalleft == 0;
         }
 
+        /* Then run feedback */
         tw->isactive = (TreeWalkIsActiveFunction) sfr_wind_feedback_isactive;
         tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
         tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_postprocess;
