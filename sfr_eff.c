@@ -104,7 +104,10 @@ static int
 make_particle_wind(int i, double v, double vmean[3]);
 
 static int
-sfr_wind_isactive(int target);
+sfr_wind_weight_isactive(int target);
+
+static int
+sfr_wind_feedback_isactive(int target);
 
 static void
 sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode);
@@ -307,7 +310,7 @@ void cooling_and_starformation(void)
         TreeWalk tw[1] = {0};
 
         tw->ev_label = "SFR_WIND";
-        tw->isactive = sfr_wind_isactive;
+        tw->isactive = sfr_wind_weight_isactive;
         tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
         tw->reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
         tw->UseNodeList = 1;
@@ -342,6 +345,7 @@ void cooling_and_starformation(void)
             done = totalleft == 0;
         }
 
+        tw->isactive = (TreeWalkIsActiveFunction) sfr_wind_feedback_isactive;
         tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
         tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_postprocess;
         tw->reduce = NULL;
@@ -490,7 +494,16 @@ static int get_sfr_condition(int i) {
 }
 
 #ifdef WINDS
-static int sfr_wind_isactive(int target) {
+static int sfr_wind_weight_isactive(int target) {
+    if(P[target].Type == 4) {
+        if(!P[target].DensityIterationDone) {
+             return 1;
+        }
+    }
+    return 0;
+}
+
+static int sfr_wind_feedback_isactive(int target) {
     if(P[target].Type == 4) {
         if(P[target].IsNewParticle) {
              return 1;
