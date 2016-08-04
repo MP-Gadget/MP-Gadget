@@ -101,7 +101,7 @@ static struct winddata {
 } * Wind;
 
 static int
-make_particle_wind(int i, double v, double vmean[3]);
+make_particle_wind(MyIDType ID, int i, double v, double vmean[3]);
 
 static int
 sfr_wind_weight_isactive(int target);
@@ -560,7 +560,7 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
         double hsearch = DMAX(I->Hsml, I->DMRadius);
         iter->base.Hsml = hsearch;
         iter->base.mask = 1 + 2; /* gas and dm */
-        iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         return;
     }
 
@@ -572,6 +572,7 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
         if(r > I->Hsml) return;
         /* Ignore wind particles */
         if(SPHP(other).DelayTime > 0) return;
+        /* NOTE: think twice if we want a symmetric tree walk when wk is used. */
         //double wk = density_kernel_wk(&kernel, r);
         double wk = 1.0;
         O->TotalWeight += wk * P[other].Mass;
@@ -582,7 +583,7 @@ sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
         O->Ngb ++;
         int d;
         for(d = 0; d < 3; d ++) {
-            /* Add hubble flow; FIXME: this shall be a function */
+            /* Add hubble flow; FIXME: this shall be a function, and the direction looks wrong too. */
             double vel = P[other].Vel[d] + All.cf.hubble * All.cf.a * All.cf.a * dist[d];
             O->V1sum[d] += vel;
             O->V2sum += vel * vel;
@@ -607,7 +608,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 
     if(iter->base.other == -1) {
         iter->base.mask = 1;
-        iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         iter->base.Hsml = I->Hsml;
         return;
     }
@@ -619,6 +620,10 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     if(P[other].ID == I->base.ID) return;
     /* skip wind particles */
     if(SPHP(other).DelayTime > 0) return;
+
+    /* this is radius cut is redundant because the tree walk is asymmetric
+     * we may want to use fancier weighting that requires symmetric in the future. */
+    if(r > I->Hsml) return;
 
     double windeff;
     double v;
@@ -642,15 +647,16 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double p = windeff * wk * I->Mass / I->TotalWeight;
     double random = get_random_number(I->base.ID + P[other].ID);
     if (random < p) {
-        make_particle_wind(other, v, I->Vmean);
+        make_particle_wind(I->base.ID, other, v, I->Vmean);
     }
     unlock_particle(other);
 
 }
 
-static int make_particle_wind(int i, double v, double vmean[3]) {
+static int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
     /* v and vmean are in internal units (km/s *a ), not km/s !*/
     /* returns 0 if particle i is converted to wind. */
+    message(1, "%ld Making ID=%ld (%g %g %g) to wind with v= %g\n", ID, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], v);
     int j;
     /* ok, make the particle go into the wind */
     double dir[3];
@@ -830,7 +836,7 @@ static void starformation(int i) {
             double prob = 1 - exp(-pw);
             double zero[3] = {0, 0, 0};
             if(get_random_number(P[i].ID + 2) < prob)
-                make_particle_wind(i, All.WindSpeed * All.cf.a, zero);
+                make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
 #endif
     }
