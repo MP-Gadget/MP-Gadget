@@ -57,7 +57,9 @@ static int pos_get_target(const int pos[2]);
 
 static int64_t reduce_int64(int64_t input);
 /* for debuggin */
+#ifdef DEBUG
 static void verify_density_field();
+#endif
 
 /* These varibles are initialized by petapm_init*/
 static PetaPMRegion real_space_region, fourier_space_region;
@@ -290,7 +292,7 @@ void petapm_force_init(
 
     layout_build_and_exchange_cells_to_pfft(&layout);
     walltime_measure("/PMgrav/comm");
-#if 1
+#ifdef DEBUG
     verify_density_field();
 #endif
     walltime_measure("/PMgrav/Misc");
@@ -811,6 +813,7 @@ static void pm_free() {
     myfree(complx);
     myfree(real);
 }
+#ifdef DEBUG
 static void verify_density_field() {
     int i;
     /* verify the density field */
@@ -840,6 +843,7 @@ static void verify_density_field() {
 
     message(0, "total Region mass = %g CIC mass = %g Particle mass = %g\n", totmass_Region, totmass_CIC, totmass_Part);
 }
+#endif
 
 static void pm_apply_transfer_function(PetaPMRegion * region, 
         pfft_complex * src, 
@@ -861,7 +865,7 @@ static void pm_apply_transfer_function(PetaPMRegion * region,
             pos[k] += region->offset[k];
             /* check */
             if(pos[k] >= Nmesh) {
-                endrun(1, "position diden't make sense\n");
+                endrun(1, "position didn't make sense\n");
             }
             kpos[k] = Mesh2K[pos[k]];
             /* Watch out the cast */
