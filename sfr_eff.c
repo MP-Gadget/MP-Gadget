@@ -656,7 +656,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 static int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
     /* v and vmean are in internal units (km/s *a ), not km/s !*/
     /* returns 0 if particle i is converted to wind. */
-    message(1, "%ld Making ID=%ld (%g %g %g) to wind with v= %g\n", ID, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], v);
+    // message(1, "%ld Making ID=%ld (%g %g %g) to wind with v= %g\n", ID, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], v);
     int j;
     /* ok, make the particle go into the wind */
     double dir[3];
