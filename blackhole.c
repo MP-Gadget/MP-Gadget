@@ -345,15 +345,15 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
     if(P[other].Mass < 0) return;
 
-#ifdef WINDS
-     /* BH does not accrete wind */
-    if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
-#endif
-
     if(P[other].Type != 5) {
         if (O->BH_TimeBinLimit <= 0 || O->BH_TimeBinLimit >= P[other].TimeBin)
             O->BH_TimeBinLimit = P[other].TimeBin;
     }
+
+#ifdef WINDS
+     /* BH does not accrete wind */
+    if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
+#endif
 
     /* Drifting the blackhole towards minimum. This shall be refactored to some sink.c etc */
     if(r2 < iter->accretion_kernel.HH && r2 < All.FOFHaloComovingLinkingLength)
