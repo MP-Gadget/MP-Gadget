@@ -18,7 +18,7 @@
 static struct _powerspectrum {
     double * k;
     double * P;
-    double * Nmodes;
+    int64_t * Nmodes;
     size_t size;
     double Norm;
 } PowerSpectrum;
@@ -29,7 +29,7 @@ void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum)
     PowerSpectrum->size = All.Nmesh;
     PowerSpectrum->k = mymalloc("Powerspectrum", 2*sizeof(double) * All.Nmesh * All.NumThreads );
     PowerSpectrum->P = PowerSpectrum-> k+All.Nmesh * All.NumThreads;
-    PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(double) * All.Nmesh * All.NumThreads );
+    PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(int64_t) * All.Nmesh * All.NumThreads );
 }
 
 /*Zero memory for the power spectrum*/
@@ -88,7 +88,7 @@ void powerspectrum_save(struct _powerspectrum * PowerSpectrum)
         fprintf(fp, "# D1 = %g \n", All.cf.D1);
         fprintf(fp, "# k P N P(z=0)\n");
         for(i = 0; i < PowerSpectrum->size; i ++) {
-            fprintf(fp, "%g %g %g %g\n", PowerSpectrum->k[i], PowerSpectrum->P[i], PowerSpectrum->Nmodes[i],
+            fprintf(fp, "%g %g %ld %g\n", PowerSpectrum->k[i], PowerSpectrum->P[i], PowerSpectrum->Nmodes[i],
                         PowerSpectrum->P[i] / (All.cf.D1 * All.cf.D1));
         }
         fclose(fp);
