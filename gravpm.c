@@ -257,12 +257,10 @@ static int pm_mark_region_for_node(int startno, int rid) {
                 if (l > 0.5 * All.BoxSize) {
                     l -= All.BoxSize;
                 }
-                if (l < 0) {
-                    l = - l;
-                }
-                l = l * 2;
+                l = fabs(l * 2);
                 if (l > Nodes[startno].len) {
-                    message(1, "enlarging node size from %g to %g, dueto particle of type %d at %g %g %g id=%ld\n",
+                    if(l > Nodes[startno].len * (1+ 1e-7))
+                    message(1, "enlarging node size from %g to %g, due to particle of type %d at %g %g %g id=%ld\n",
                         Nodes[startno].len, l, P[p].Type, P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].ID);
                     Nodes[startno].len = l;
                 }
