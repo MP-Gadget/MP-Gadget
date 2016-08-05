@@ -24,6 +24,24 @@ BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
 }
 #endif
 
+#ifdef GAL_PART
+static int
+GalFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
+{
+  int v = param_get_enum(ps, name);
+  if(HAS(v, GAL_FEEDBACK_TOPHAT) == HAS(v, GAL_FEEDBACK_SPLINE)) {
+    message(1, "error GalaxyFeedbackMethod contains either tophat or spline, but both\n");
+    return 1;
+  }
+  if(HAS(v, GAL_FEEDBACK_MASS) ==  HAS(v, GAL_FEEDBACK_VOLUME)) {
+    message(1, "error GalaxyFeedbackMethod contains either volume or mass, but both\n");
+    return 1;
+  }
+  return 0;
+}
+#endif
+
+
 #ifdef SFR
 static int
 StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
@@ -223,6 +241,30 @@ create_gadget_parameter_set()
     param_declare_enum(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodEnum, 1, 0, "");
 #endif
 
+#ifdef GAL_PART
+    param_declare_double(ps, "BlackHoleAccretionFactor", 0, 100, "");
+    param_declare_double(ps, "BlackHoleEddingtonFactor", 0, 3, "");
+    param_declare_double(ps, "SeedBlackHoleMass", 1, 0, "");
+
+    param_declare_double(ps, "BlackHoleNgbFactor", 0, 2, "");
+
+    param_declare_double(ps, "BlackHoleMaxAccretionRadius", 0, 99999., "");
+    param_declare_double(ps, "BlackHoleFeedbackFactor", 0, 0.05, "");
+    param_declare_double(ps, "BlackHoleFeedbackRadius", 1, 0, "");
+
+    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", 1, 0, "");
+
+    static ParameterEnum GalaxyFeedbackMethodEnum [] = {
+      {"mass", GAL_FEEDBACK_MASS},
+      {"volume", GAL_FEEDBACK_VOLUME},
+      {"tophat", GAL_FEEDBACK_TOPHAT},
+      {"spline", GAL_FEEDBACK_SPLINE},
+      {NULL, GAL_FEEDBACK_SPLINE | GAL_FEEDBACK_MASS},
+    };
+    param_declare_enum(ps, "GalaxyFeedbackMethod", GalaxyFeedbackMethodEnum, 1, 0, "");
+#endif
+
+
 #ifdef SFR
     static ParameterEnum StarformationCriterionEnum [] = {
         {"density", SFR_CRITERION_DENSITY},
@@ -280,6 +322,11 @@ create_gadget_parameter_set()
 #ifdef BLACK_HOLES
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
 #endif
+
+#ifdef GAL_PART
+    param_set_action(ps, "GalaxyFeedbackMethod", GalaxyFeedbackMethodAction, NULL);
+#endif
+
 #ifdef SFR
     param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
 #endif
@@ -419,6 +466,26 @@ void read_parameter_file(char *fname)
         All.BlackHoleFeedbackRadiusMaxPhys = param_get_double(ps, "BlackHoleFeedbackRadiusMaxPhys");
 
         All.BlackHoleFeedbackMethod = param_get_enum(ps, "BlackHoleFeedbackMethod");
+
+    #endif
+
+    #ifdef GAL_PART
+        All.BlackHoleSoundSpeedFromPressure = 0;
+
+	All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
+        All.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
+        All.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
+        All.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
+
+        All.BlackHoleNgbFactor = param_get_double(ps, "BlackHoleNgbFactor");
+
+        All.BlackHoleMaxAccretionRadius = param_get_double(ps, "BlackHoleMaxAccretionRadius");
+        All.BlackHoleFeedbackFactor = param_get_double(ps, "BlackHoleFeedbackFactor");
+	All.BlackHoleFeedbackRadius = param_get_double(ps, "BlackHoleFeedbackRadius");
+
+        All.BlackHoleFeedbackRadiusMaxPhys = param_get_double(ps, "BlackHoleFeedbackRadiusMaxPhys");
+
+        All.GalaxyFeedbackMethod = param_get_enum(ps, "GalaxyFeedbackMethod");
 
     #endif
 

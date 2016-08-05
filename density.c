@@ -44,7 +44,7 @@ struct densdata_out
     MyDouble Ngb;
     MyDouble Div, Rot[3];
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     MyDouble SmoothedEntropy;
     MyDouble SmoothedPressure;
     MyDouble FeedbackWeightSum;
@@ -143,7 +143,7 @@ void density(void)
         int p = queue[i];
         Left[p] = 0;
         Right[p] = 0;
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
         P[p].SwallowID = 0;
 #endif
     }
@@ -240,7 +240,7 @@ void density(void)
 }
 
 double density_decide_hsearch(int targettype, double h) {
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(targettype == 5 && All.BlackHoleFeedbackRadius > 0) {
         /* BlackHoleFeedbackRadius is in comoving.
          * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys
@@ -271,7 +271,7 @@ static void density_copy(int place, struct densdata_in * I) {
 
     I->Type = P[place].Type;
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(P[place].Type != 0)
     {
         I->Vel[0] = 0;
@@ -332,7 +332,7 @@ static void density_reduce(int place, struct densdata_out * remote, int mode) {
 
     }
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(P[place].Type == 5)
     {
         EV_REDUCE(BHP(place).Density, remote->Rho);
@@ -366,7 +366,7 @@ static int density_evaluate(int target, int mode,
     int nnodesinlist = 0;
 
     DensityKernel kernel;
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     DensityKernel bh_feedback_kernel;
 #endif
 
@@ -380,7 +380,7 @@ static int density_evaluate(int target, int mode,
     density_kernel_init(&kernel, h);
     double kernel_volume = density_kernel_volume(&kernel);
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     density_kernel_init(&bh_feedback_kernel, hsearch);
 #endif
 
@@ -408,7 +408,7 @@ static int density_evaluate(int target, int mode,
                             continue;
                 }
 #endif
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
                 if(P[j].Mass == 0)
                     continue;
 #ifdef WINDS
@@ -458,7 +458,7 @@ static int density_evaluate(int target, int mode,
 #endif
 
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
                     O->SmoothedPressure += (mass_j * wk * SPHP(j).Pressure);
                     O->SmoothedEntropy += (mass_j * wk * SPHP(j).Entropy);
                     O->GasVel[0] += (mass_j * wk * SPHP(j).VelPred[0]);
@@ -531,6 +531,46 @@ static int density_evaluate(int target, int mode,
                     }
                 }
 #endif
+#ifdef GAL_PART
+                if(I->Type == 5 && r2 < bh_feedback_kernel.HH)
+		  {
+#ifdef WINDS
+                    /* blackhole doesn't accrete from wind, regardlies coupled or                                       
+                     * not */
+                    if(SPHP(j).DelayTime > 0)   /* partner is a wind particle */
+		      continue;
+#endif
+                    double mass_j;
+                    if(HAS(All.GalaxyFeedbackMethod, GAL_FEEDBACK_OPTTHIN)) {
+		      double nh0 = 1.0;
+		      double nHeII = 0;
+		      double ne = SPHP(j).Ne;
+		      struct UVBG uvbg;
+		      GetParticleUVBG(j, &uvbg);
+		      AbundanceRatios(DMAX(All.MinEgySpec,
+					   SPHP(j).Entropy / GAMMA_MINUS1
+					   * pow(SPHP(j).EOMDensity * All.cf.a3inv,
+						 GAMMA_MINUS1)),
+				      SPHP(j).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
+		      if(r2 > 0)
+			O->FeedbackWeightSum += (P[j].Mass * nh0) / r2;
+                    } else {
+		      if(HAS(All.GalaxyFeedbackMethod, GAL_FEEDBACK_MASS)) {
+			mass_j = P[j].Mass;
+		      } else {
+			mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
+		      }
+		      if(HAS(All.GalaxyFeedbackMethod, GAL_FEEDBACK_SPLINE)) {
+			double u = r * bh_feedback_kernel.Hinv;
+			O->FeedbackWeightSum += (mass_j *
+						 density_kernel_wk(&bh_feedback_kernel, u)
+						 );
+		      } else {
+			O->FeedbackWeightSum += (mass_j);
+		      }
+                    }
+		  }
+#endif
             }
         }
         /* now check next node in the node list */
@@ -565,7 +605,7 @@ static int density_isactive(int n)
     if(P[n].TimeBin < 0) {
         endrun(9999, "TimeBin negative!\n use DensityIterationDone flag");
     }
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(P[n].Type == 5)
         return 1;
 #endif
@@ -628,7 +668,7 @@ static void density_post_process(int i) {
 #endif //SOFTEREQS
     }
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(P[i].Type == 5)
     {
         if(BHP(i).Density > 0)
@@ -649,7 +689,7 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
 
     double desnumngb = All.DesNumNgb;
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
     if(P[i].Type == 5)
         desnumngb = All.DesNumNgb * All.BlackHoleNgbFactor;
 #endif
@@ -730,7 +770,7 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
         if(P[i].Hsml < All.MinGasHsml)
             P[i].Hsml = All.MinGasHsml;
 
-#ifdef BLACK_HOLES
+#if defined(BLACK_HOLES) || defined(GAL_PART)
         if(P[i].Type == 5)
             if(Left[i] > All.BlackHoleMaxAccretionRadius)
             {

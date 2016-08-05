@@ -602,7 +602,7 @@ extern struct global_data_all_processes
 #ifdef GAL_PART
   double BlackHoleAccretionFactor;    /*!< Fraction of BH bondi accretion rate */
   double BlackHoleFeedbackFactor;     /*!< Fraction of the black luminosity feed into thermal feedback */
-  enum galFeedbackMethod BlackHoleFeedbackMethod;       /*!< method of the feedback*/
+  enum galfeedbackMethod GalaxyFeedbackMethod;       /*!< method of the feedback*/
   double BlackHoleFeedbackRadius;     /*!< Radius the thermal feedback is fed comoving*/
   double BlackHoleFeedbackRadiusMaxPhys;      /*!< Radius the thermal cap */
   double SeedBlackHoleMass;   /*!< Seed black hole mass */
