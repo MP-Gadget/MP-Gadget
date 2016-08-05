@@ -17,7 +17,7 @@ void x86_fix(void) ;
 
 void blackhole_accretion(void);
 void blackhole_make_one(int index);
-
+void gal_make_one(int index);
 int  blackhole_compare_key(const void *a, const void *b);
 
 double get_random_number(MyIDType id);
