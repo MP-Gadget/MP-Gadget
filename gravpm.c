@@ -14,13 +14,87 @@
 #include "domain.h"
 #include "endrun.h"
 
-static struct {
+static struct _powerspectrum {
     double * k;
     double * P;
     double * Nmodes;
     size_t size;
     double Norm;
 } PowerSpectrum;
+
+/*Allocate memory for the power spectrum*/
+void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum)
+{
+    PowerSpectrum->size = All.Nmesh;
+    PowerSpectrum->k = malloc(sizeof(double) * All.Nmesh * All.NumThreads );
+    PowerSpectrum->P = malloc(sizeof(double) * All.Nmesh * All.NumThreads );
+    PowerSpectrum->Nmodes = malloc(sizeof(double) * All.Nmesh * All.NumThreads );
+}
+
+/*Zero memory for the power spectrum*/
+void powerspectrum_zero(struct _powerspectrum * PowerSpectrum)
+{
+    memset(PowerSpectrum->k, 0, sizeof(double) * PowerSpectrum->size * All.NumThreads);
+    memset(PowerSpectrum->P, 0, sizeof(double) * PowerSpectrum->size * All.NumThreads);
+    memset(PowerSpectrum->Nmodes, 0, sizeof(double) * PowerSpectrum->size * All.NumThreads);
+    PowerSpectrum->Norm = 0;
+}
+
+/* Sum the different modes on each thread and processor together to get a power spectrum,
+ * and fix the units.*/
+void powerspectrum_sum(struct _powerspectrum * PowerSpectrum)
+{
+    /*Sum power spectrum thread-local storage*/
+    int i,j;
+    for(i = 0; i < PowerSpectrum->size; i ++) {
+        for(j = 1; j < All.NumThreads; j++) {
+            PowerSpectrum->P[i] += PowerSpectrum->P[i+ PowerSpectrum->size*j];
+            PowerSpectrum->k[i] += PowerSpectrum->Nmodes[i+ PowerSpectrum->size*j];
+            PowerSpectrum->Nmodes[i] += PowerSpectrum->Nmodes[i +PowerSpectrum->size*j];
+        }
+    }
+
+    /*Now sum power spectrum MPI storage*/
+    MPI_Allreduce(MPI_IN_PLACE, &(PowerSpectrum->Norm), 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->k, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->P, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
+    /*Now fix power spectrum units*/
+    for(i = 0; i < PowerSpectrum->size; i ++) {
+        if(PowerSpectrum->Nmodes[i] == 0) continue;
+        PowerSpectrum->P[i] /= PowerSpectrum->Nmodes[i];
+        PowerSpectrum->P[i] /= PowerSpectrum->Norm;
+        PowerSpectrum->k[i] /= PowerSpectrum->Nmodes[i];
+        /* Mpc/h units */
+        PowerSpectrum->k[i] *= 2 * M_PI / (All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 );
+        PowerSpectrum->P[i] *= pow(All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 , 3.0);
+ 
+    }
+}
+
+/*Save the power spectrum to a file*/
+void powerspectrum_save(struct _powerspectrum * PowerSpectrum)
+{
+    /*Now save the power spectrum*/
+    if(ThisTask == 0) {
+        int i;
+        char fname[1024];
+        sprintf(fname, "%s/powerspectrum-%0.4f.txt", All.OutputDir, All.Time);
+        message(1, "Writing Power Spectrum to %s\n", fname);
+        FILE * fp = fopen(fname, "w");
+        fprintf(fp, "# in Mpc/h Units \n");
+        fprintf(fp, "# D1 = %g \n", All.cf.D1);
+        fprintf(fp, "# k P N P(z=0)\n");
+        for(i = 0; i < PowerSpectrum->size; i ++) {
+            fprintf(fp, "%g %g %g %g\n", PowerSpectrum->k[i], PowerSpectrum->P[i], PowerSpectrum->Nmodes[i],
+                        PowerSpectrum->P[i] / (All.cf.D1 * All.cf.D1));
+        }
+        fclose(fp);
+    }
+}
+
+/*End of power spectrum related functions*/
 
 static int pm_mark_region_for_node(int startno, int rid);
 static void convert_node_to_region(PetaPMRegion * r);
@@ -46,10 +120,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 
 void gravpm_init_periodic() {
     petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
-    PowerSpectrum.size = All.Nmesh / 2;
-    PowerSpectrum.k = malloc(sizeof(double) * All.Nmesh / 2);
-    PowerSpectrum.P = malloc(sizeof(double) * All.Nmesh / 2);
-    PowerSpectrum.Nmodes = malloc(sizeof(double) * All.Nmesh / 2);
+    powerspectrum_alloc(&PowerSpectrum);
 }
 void gravpm_force() {
     PetaPMParticleStruct pstruct = {
@@ -61,46 +132,15 @@ void gravpm_force() {
         NumPart,
     };
 
-    memset(PowerSpectrum.k, 0, sizeof(double) * PowerSpectrum.size);
-    memset(PowerSpectrum.P, 0, sizeof(double) * PowerSpectrum.size);
-    memset(PowerSpectrum.Nmodes, 0, sizeof(double) * PowerSpectrum.size);
-    PowerSpectrum.Norm = 0;
+    powerspectrum_zero(&PowerSpectrum);
     /* 
      * we apply potential transfer immediately after the R2C transform,
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
     petapm_force(_prepare, potential_transfer, functions, &pstruct, NULL);
-
-    MPI_Allreduce(MPI_IN_PLACE, &PowerSpectrum.Norm, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum.k, PowerSpectrum.size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum.P, PowerSpectrum.size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum.Nmodes, PowerSpectrum.size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    int i;
-    for(i = 0; i < PowerSpectrum.size; i ++) {
-        if(PowerSpectrum.Nmodes[i] == 0) continue;
-        PowerSpectrum.P[i] /= PowerSpectrum.Nmodes[i];
-        PowerSpectrum.P[i] /= PowerSpectrum.Norm;
-        PowerSpectrum.k[i] /= PowerSpectrum.Nmodes[i];
-        /* Mpc/h units */
-        PowerSpectrum.k[i] *= 2 * M_PI / (All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 );
-        PowerSpectrum.P[i] *= pow(All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 , 3.0);
- 
-    }
-    if(ThisTask == 0) {
-        char fname[1024];
-        sprintf(fname, "%s/powerspectrum-%0.4f.txt", All.OutputDir, All.Time);
-        message(1, "Writing Power Spectrum to %s\n", fname);
-        FILE * fp = fopen(fname, "w");
-        fprintf(fp, "# in Mpc/h Units \n");
-        fprintf(fp, "# D1 = %g \n", All.cf.D1);
-        fprintf(fp, "# k P N P(z=0)\n");
-        for(i = 0; i < PowerSpectrum.size; i ++) {
-            fprintf(fp, "%g %g %g %g\n", PowerSpectrum.k[i], PowerSpectrum.P[i], PowerSpectrum.Nmodes[i],
-                        PowerSpectrum.P[i] / (All.cf.D1 * All.cf.D1));
-        }
-        fclose(fp);
-    }
+    powerspectrum_sum(&PowerSpectrum);
+    powerspectrum_save(&PowerSpectrum);
 }
 
 static double pot_factor;
@@ -111,7 +151,6 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     /* fac is - 4pi G     (L / 2pi) **2 / L ** 3 
      *        Gravity       k2            DFT (dk **3, but )
      * */
-
     pot_factor = - All.G / (M_PI * All.BoxSize);	/* to get potential */
 
 
@@ -342,10 +381,12 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
         const double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
         if(kpos[2] == 0 || kpos[2] == All.Nmesh/2) w = 1;
         else w = 2;
+        /*Make sure we use thread-local memory to avoid racing.*/
+        const int index = kint + omp_get_thread_num() * PowerSpectrum.size;
         /*Multiply P(k) by inverse window function*/
-        PowerSpectrum.P[kint] += w * m * f;
-        PowerSpectrum.Nmodes[kint] += w;
-        PowerSpectrum.k[kint] += w * keff;
+        PowerSpectrum.P[index] += w * m * f;
+        PowerSpectrum.Nmodes[index] += w;
+        PowerSpectrum.k[index] += w * keff;
     }
 
     value[0][0] *= fac;
