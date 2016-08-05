@@ -69,7 +69,6 @@ MPI_Comm comm_cart_2d;
 static int ThisTask2d[2];
 static int NTask2d[2];
 static int * (Mesh2Task[2]); /* conversion from real space mesh to task2d,  */
-static int * Mesh2K; /* convertion fourier mesh to integer frequency (or K)  */
 static MPI_Datatype MPI_PENCIL;
 static double CellSize;
 static int Nmesh;
@@ -102,8 +101,9 @@ PetaPMRegion * petapm_get_real_region() {
 pfft_complex * petapm_get_rho_k() {
     return rho_k;
 }
-int petapm_mesh_to_k(int i) {
-    return Mesh2K[i];
+inline int petapm_mesh_to_k(int i) {
+    /*Return the position of this point on the Fourier mesh*/
+    return i<=Nmesh/2 ? i : (i-Nmesh);
 }
 int *petapm_get_thistask2d() {
     return ThisTask2d;
@@ -131,7 +131,6 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
     /* The following memory will never be freed */
     Mesh2Task[0] = malloc(sizeof(int) * Nmesh);
     Mesh2Task[1] = malloc(sizeof(int) * Nmesh);
-    Mesh2K = malloc(sizeof(int) * Nmesh);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
@@ -230,16 +229,6 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
         }
         */
     }
-    /* as well as the mesh2k array, we save the 2PI factor as done in
-     * pm_periodic */
-    for(i = 0; i < Nmesh; i ++) {
-        if(i <= Nmesh / 2)
-            Mesh2K[i] = i;
-        else
-            Mesh2K[i] = i - Nmesh;
-    }
-
-
 }
 
 /* 
@@ -867,7 +856,7 @@ static void pm_apply_transfer_function(PetaPMRegion * region,
             if(pos[k] >= Nmesh) {
                 endrun(1, "position didn't make sense\n");
             }
-            kpos[k] = Mesh2K[pos[k]];
+            kpos[k] = petapm_mesh_to_k(pos[k]);
             /* Watch out the cast */
             k2 += ((int64_t)kpos[k]) * kpos[k];
         }
