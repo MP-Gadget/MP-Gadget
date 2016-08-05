@@ -83,8 +83,8 @@ void gravpm_force() {
         PowerSpectrum.P[i] /= PowerSpectrum.Norm;
         PowerSpectrum.k[i] /= PowerSpectrum.Nmodes[i];
         /* Mpc/h units */
-        PowerSpectrum.k[i] *= 2 * M_PI / (All.BoxSize / 1000);
-        PowerSpectrum.P[i] *= pow(All.BoxSize / 1000., 3.0);
+        PowerSpectrum.k[i] *= 2 * M_PI / (All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 );
+        PowerSpectrum.P[i] *= pow(All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 , 3.0);
  
     }
     if(ThisTask == 0) {
@@ -299,10 +299,19 @@ static double sinc_unnormed(double x) {
 }
 
 static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
+
+    if(k2 == 0) {
+        /* Remove zero mode corresponding to the mean, after saving it as the normalisation factor.*/
+        PowerSpectrum.Norm = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
+        value[0][0] = 0.0;
+        value[0][1] = 0.0;
+        return;
+    }
+
     double asmth2 = (2 * M_PI) * All.Asmth[0] / All.BoxSize;
     asmth2 *= asmth2;
     double f = 1.0;
-    double smth = exp(-k2 * asmth2) / k2;
+    const double smth = exp(-k2 * asmth2) / k2;
     /* the CIC deconvolution kernel is
      *
      * sinc_unnormed(k_x L / 2 All.Nmesh) ** 2
@@ -321,30 +330,27 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
      * second decovolution is correcting readout 
      * I don't understand the second yet!
      * */
-    double fac = pot_factor * smth * f * f;
+    const double fac = pot_factor * smth * f * f;
 
-    /* Measure power spectrum */
+    /* Measure power spectrum: we don't want the zero mode.
+     * Some modes with k_z = 0 or N/2 have weight 1, the rest have weight 2.
+     * This is because of the symmetry of the real fft. */
     int kint = floor(sqrt(k2));
     if(kint >= 0 && kint < PowerSpectrum.size) {
         int w;
-        double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
-        if(kpos[2] == 0) w = 1;
+        const double keff = sqrt(kpos[0]*kpos[0]+kpos[1]*kpos[1]+kpos[2]*kpos[2]);
+        const double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
+        if(kpos[2] == 0 || kpos[2] == All.Nmesh/2) w = 1;
         else w = 2;
-        if(k2 == 0) PowerSpectrum.Norm += m;
-        PowerSpectrum.P[kint] += w * m;
+        /*Multiply P(k) by inverse window function*/
+        PowerSpectrum.P[kint] += w * m * f;
         PowerSpectrum.Nmodes[kint] += w;
-        PowerSpectrum.k[kint] += w * kint;
+        PowerSpectrum.k[kint] += w * keff;
     }
 
     value[0][0] *= fac;
     value[0][1] *= fac;
 
-    if(k2 == 0) {
-        /* remove zero mode corresponding to the mean */
-        value[0][0] = 0.0;
-        value[0][1] = 0.0;
-        return;
-    }
 }
 
 /* the transfer functions for force in fourier space applied to potential */
