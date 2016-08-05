@@ -13,6 +13,7 @@
 #include "petapm.h"
 #include "domain.h"
 #include "endrun.h"
+#include "mymalloc.h"
 
 static struct _powerspectrum {
     double * k;
@@ -26,9 +27,9 @@ static struct _powerspectrum {
 void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum)
 {
     PowerSpectrum->size = All.Nmesh;
-    PowerSpectrum->k = malloc(sizeof(double) * All.Nmesh * All.NumThreads );
-    PowerSpectrum->P = malloc(sizeof(double) * All.Nmesh * All.NumThreads );
-    PowerSpectrum->Nmodes = malloc(sizeof(double) * All.Nmesh * All.NumThreads );
+    PowerSpectrum->k = mymalloc("Powerspectrum", 2*sizeof(double) * All.Nmesh * All.NumThreads );
+    PowerSpectrum->P = PowerSpectrum-> k+All.Nmesh * All.NumThreads;
+    PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(double) * All.Nmesh * All.NumThreads );
 }
 
 /*Zero memory for the power spectrum*/
