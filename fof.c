@@ -451,7 +451,20 @@ static void fof_reduce_group(void * pdst, void * psrc) {
         gdst->seed_task = gsrc->seed_task;
     }
 #endif
-
+#ifdef GAL_PART
+    gdst->Gal_SFR += gsrc->Gal_SFR;
+    gdst->BH_Mass += gsrc->BH_Mass;
+    if(gsrc->MaxDens > gdst->MaxDens)
+      {
+        gdst->MaxDens = gsrc->MaxDens;
+        gdst->seed_index = gsrc->seed_index;
+        gdst->seed_task = gsrc->seed_task;
+      }
+    gdst->DenseGas.index = gsrc->DenseGas.index;
+    gdst->DenseGas.task = gsrc->DenseGas.task;
+    gdst->DenseGas.Value = gsrc->DenseGas.Value;
+    gdst->CentralGalaxy = gsrc->DenseGas;
+#endif
     int d1, d2;
     for(d1 = 0; d1 < 3; d1++)
     {
@@ -522,6 +535,28 @@ static void add_particle_to_group(struct Group * gdst, int i) {
             }
     }
 #endif
+#ifdef GAL_PART
+    if(P[index].Type == 5)
+      {
+        gdst->GAL_SFR += BHP(index).SFR;
+        gdst->BH_Mass += BHP(index).Mass;
+      }
+    if(P[index].Type == 0)
+      {
+#ifdef WINDS
+        /* make bh in non wind gas on bh wind*/
+        if(SPHP(index).DelayTime <= 0)
+#endif
+	  if(SPHP(index).Density > gdst->MaxDens)
+            {
+	      gdst->MaxDens = SPHP(index).Density;
+	      gdst->seed_index = index;
+	      gdst->seed_task = ThisTask;
+            }
+      }
+#endif
+
+
 
     int d1, d2;
     double xyz[3];
