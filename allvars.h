@@ -359,6 +359,7 @@ extern struct global_data_all_processes
     int64_t TotNumOfForces;	/*!< counts total number of force computations  */
 
     int64_t NumForcesSinceLastDomainDecomp;	/*!< count particle updates since last domain decomposition */
+    int DomainReportSpeedfac; /*!< Report extra information in domain decomposition, for profiling*/
 
     /* some variable for dynamic work-load adjustment based on CPU measurements */
 
