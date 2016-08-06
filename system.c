@@ -154,11 +154,7 @@ double timediff(double t0, double t1)
 
   if(dt < 0)			/* overflow has occured (for systems with 32bit tick counter) */
     {
-#ifdef WALLCLOCK
-      dt = 0;
-#else
       dt = t1 + pow(2, 32) / CLOCKS_PER_SEC - t0;
-#endif
     }
 
   return dt;

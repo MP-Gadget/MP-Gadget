@@ -57,7 +57,9 @@ static int pos_get_target(const int pos[2]);
 
 static int64_t reduce_int64(int64_t input);
 /* for debuggin */
+#ifdef DEBUG
 static void verify_density_field();
+#endif
 
 /* These varibles are initialized by petapm_init*/
 static PetaPMRegion real_space_region, fourier_space_region;
@@ -67,7 +69,6 @@ MPI_Comm comm_cart_2d;
 static int ThisTask2d[2];
 static int NTask2d[2];
 static int * (Mesh2Task[2]); /* conversion from real space mesh to task2d,  */
-static int * Mesh2K; /* convertion fourier mesh to integer frequency (or K)  */
 static MPI_Datatype MPI_PENCIL;
 static double CellSize;
 static int Nmesh;
@@ -101,7 +102,8 @@ pfft_complex * petapm_get_rho_k() {
     return rho_k;
 }
 int petapm_mesh_to_k(int i) {
-    return Mesh2K[i];
+    /*Return the position of this point on the Fourier mesh*/
+    return i<=Nmesh/2 ? i : (i-Nmesh);
 }
 int *petapm_get_thistask2d() {
     return ThisTask2d;
@@ -129,7 +131,6 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
     /* The following memory will never be freed */
     Mesh2Task[0] = malloc(sizeof(int) * Nmesh);
     Mesh2Task[1] = malloc(sizeof(int) * Nmesh);
-    Mesh2K = malloc(sizeof(int) * Nmesh);
 
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
@@ -228,16 +229,6 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
         }
         */
     }
-    /* as well as the mesh2k array, we save the 2PI factor as done in
-     * pm_periodic */
-    for(i = 0; i < Nmesh; i ++) {
-        if(i <= Nmesh / 2)
-            Mesh2K[i] = i;
-        else
-            Mesh2K[i] = i - Nmesh;
-    }
-
-
 }
 
 /* 
@@ -290,7 +281,7 @@ void petapm_force_init(
 
     layout_build_and_exchange_cells_to_pfft(&layout);
     walltime_measure("/PMgrav/comm");
-#if 1
+#ifdef DEBUG
     verify_density_field();
 #endif
     walltime_measure("/PMgrav/Misc");
@@ -811,6 +802,7 @@ static void pm_free() {
     myfree(complx);
     myfree(real);
 }
+#ifdef DEBUG
 static void verify_density_field() {
     int i;
     /* verify the density field */
@@ -840,6 +832,7 @@ static void verify_density_field() {
 
     message(0, "total Region mass = %g CIC mass = %g Particle mass = %g\n", totmass_Region, totmass_CIC, totmass_Part);
 }
+#endif
 
 static void pm_apply_transfer_function(PetaPMRegion * region, 
         pfft_complex * src, 
@@ -861,9 +854,9 @@ static void pm_apply_transfer_function(PetaPMRegion * region,
             pos[k] += region->offset[k];
             /* check */
             if(pos[k] >= Nmesh) {
-                endrun(1, "position diden't make sense\n");
+                endrun(1, "position didn't make sense\n");
             }
-            kpos[k] = Mesh2K[pos[k]];
+            kpos[k] = petapm_mesh_to_k(pos[k]);
             /* Watch out the cast */
             k2 += ((int64_t)kpos[k]) * kpos[k];
         }

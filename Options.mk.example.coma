@@ -22,7 +22,6 @@ OPT	+=  -DTOPNODEFACTOR=5.0
 
 
 #--------------------------------------- Things that are always recommended
-OPT	+=  -DWALLCLOCK
 OPT	+=  -DMYSORT
 #OPT	+=  -DCPUSPEEDADJUSTMENT
 #OPT	+=  -DHYDRO_COST_FACTOR=1000

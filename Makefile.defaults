@@ -23,8 +23,9 @@ GSL_INCL ?=
 GSL_LIBS ?= $(filter-out -lm,$(shell pkg-config --libs gsl))
 
 #Optimised defaults for compile flags
-CVER=$(shell $(MPICC) --version)
-ifeq ($(CVER),$(findstring icc,$(CVER)))
+CVER=$(shell $(CC) --version)
+ifeq (icc,$(findstring icc,$(CVER)))
+
 OPTIMIZE ?=  -fopenmp -O3 -ipo -g -Wall -xHost -no-prec-div -fp-model fast
 else
 OPTIMIZE ?=  -fopenmp -O3 -flto -g -Wall -ffast-math -march=native

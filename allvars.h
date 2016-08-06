@@ -342,9 +342,6 @@ extern struct global_data_all_processes
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
     double DensityResolutionEta;		/*!< SPH resolution eta. See Price 2011. eq 12*/
     double MaxNumNgbDeviation;	/*!< Maximum allowed deviation neighbour number */
-#ifdef START_WITH_EXTRA_NGBDEV
-    double MaxNumNgbDeviationStart;    /*!< Maximum allowed deviation neighbour number to start with*/
-#endif
     double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
 
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
@@ -356,6 +353,7 @@ extern struct global_data_all_processes
     int64_t TotNumOfForces;	/*!< counts total number of force computations  */
 
     int64_t NumForcesSinceLastDomainDecomp;	/*!< count particle updates since last domain decomposition */
+    int DomainReportSpeedfac; /*!< Report extra information in domain decomposition, for profiling*/
 
     /* some variable for dynamic work-load adjustment based on CPU measurements */
 
