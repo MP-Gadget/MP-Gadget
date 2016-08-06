@@ -84,7 +84,7 @@ void init(void)
 
     check_omega();
 
-#ifdef BLACK_HOLES
+#ifdef FOF
     All.TimeNextSeedingCheck = All.TimeBegin;
 #endif
 

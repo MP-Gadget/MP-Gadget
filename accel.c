@@ -89,7 +89,6 @@ void compute_accelerations(int mode)
         if(All.Time >= All.TimeNextSeedingCheck)
         {
             fof_fof(-1);
-
             All.TimeNextSeedingCheck *= All.TimeBetweenSeedingSearch;
         }
 #endif

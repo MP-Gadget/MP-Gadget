@@ -402,12 +402,12 @@ void read_parameter_file(char *fname)
         All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
         All.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
+        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
     #endif
 
     #ifdef BLACK_HOLES
         All.BlackHoleSoundSpeedFromPressure = 0;
 
-        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
         All.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
         All.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
         All.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");
