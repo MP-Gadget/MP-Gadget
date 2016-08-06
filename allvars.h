@@ -345,9 +345,6 @@ extern struct global_data_all_processes
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
     double DensityResolutionEta;		/*!< SPH resolution eta. See Price 2011. eq 12*/
     double MaxNumNgbDeviation;	/*!< Maximum allowed deviation neighbour number */
-#ifdef START_WITH_EXTRA_NGBDEV
-    double MaxNumNgbDeviationStart;    /*!< Maximum allowed deviation neighbour number to start with*/
-#endif
     double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
 
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
