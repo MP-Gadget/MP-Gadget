@@ -583,14 +583,13 @@ extern struct global_data_all_processes
     int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
 #endif
 
-#ifdef FOF
+    int FOFOn; /*Flag that doing FOF for snapshot outputs is on*/
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
     double FOFHaloLinkingLength;    
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
-    double TimeNextSeedingCheck;
-    double TimeBetweenSeedingSearch;
-#endif
+    double TimeNextSeedingCheck;  /*Time for the next seed check.*/
+    double TimeBetweenSeedingSearch; /*Factor to multiply TimeBegin by to find the next seeding check.*/
 
 }
 All;
@@ -685,11 +684,9 @@ extern struct particle_data
         MyDouble dNumNgb;
     } n;
 
-#ifdef FOF
     int64_t GrNr;
     int origintask;
     int targettask;
-#endif
 
     float GravCost;		/*!< weight factor used for balancing the work-load */
 

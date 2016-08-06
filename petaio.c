@@ -14,10 +14,8 @@
 #include "mymalloc.h"
 #include "endrun.h"
 
-#ifdef FOF
-    /*Defined in fofpetaio.c and only used here*/
-    void fof_register_io_blocks();
-#endif
+/*Defined in fofpetaio.c and only used here*/
+void fof_register_io_blocks();
 
 /************
  *
@@ -546,9 +544,8 @@ SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
 #endif
-#ifdef FOF
+/*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
-#endif
 static void GTNeutralHydrogenFraction(int i, float * out) {
     double ne, nh0, nHeII;
     ne = SPHP(i).Ne;
@@ -582,9 +579,8 @@ static void register_io_blocks() {
         IO_REG(ID,       "u8", 1, i);
         IO_REG(Generation,       "u1", 1, i);
         IO_REG(Potential, "f4", 1, i);
-#ifdef FOF
-        IO_REG_WRONLY(GroupID, "u4", 1, i);
-#endif
+        if(All.FOFOn)
+            IO_REG_WRONLY(GroupID, "u4", 1, i);
     }
 
     /* Bare Bone SPH*/
@@ -620,8 +616,7 @@ static void register_io_blocks() {
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
 #endif
-#ifdef FOF
-    fof_register_io_blocks();
-#endif
+    if(All.FOFOn)
+        fof_register_io_blocks();
 }
 

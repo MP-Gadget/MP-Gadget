@@ -58,9 +58,7 @@ void init(void)
     All.Timebase_interval = (log(All.TimeMax) - log(All.TimeBegin)) / TIMEBASE;
     All.Ti_Current = 0;
 
-#ifdef FOF
     fof_init();
-#endif
     set_softenings();
 
     All.NumCurrentTiStep = 0;	/* setup some counters */
@@ -83,10 +81,6 @@ void init(void)
     All.Cadj_Cpu = 1.0e-3;
 
     check_omega();
-
-#ifdef FOF
-    All.TimeNextSeedingCheck = All.TimeBegin;
-#endif
 
     for(i = 0; i < NumPart; i++)	/*  start-up initialization */
     {
