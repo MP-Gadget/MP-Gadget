@@ -101,7 +101,7 @@ PetaPMRegion * petapm_get_real_region() {
 pfft_complex * petapm_get_rho_k() {
     return rho_k;
 }
-inline int petapm_mesh_to_k(int i) {
+int petapm_mesh_to_k(int i) {
     /*Return the position of this point on the Fourier mesh*/
     return i<=Nmesh/2 ? i : (i-Nmesh);
 }
