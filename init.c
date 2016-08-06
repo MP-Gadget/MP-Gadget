@@ -29,10 +29,6 @@ void init(void)
 {
     int i, j;
 
-#ifdef START_WITH_EXTRA_NGBDEV
-    double MaxNumNgbDeviationMerk;
-#endif
-
     set_global_time(All.TimeBegin);
 
     if(RestartFlag == 3 && RestartSnapNum < 0)
@@ -168,17 +164,9 @@ void init(void)
 
     All.Ti_Current = 0;
 
-#ifdef START_WITH_EXTRA_NGBDEV
-    MaxNumNgbDeviationMerk = All.MaxNumNgbDeviation;
-    All.MaxNumNgbDeviation = All.MaxNumNgbDeviationStart;
-#endif
-
     if(RestartFlag != 3)
         setup_smoothinglengths();
 
-#ifdef START_WITH_EXTRA_NGBDEV
-    All.MaxNumNgbDeviation = MaxNumNgbDeviationMerk;
-#endif
 }
 
 
