@@ -194,7 +194,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "ReferenceGasMass", 1, 0, "");
 #endif
 
-    param_declare_double(ps, "FOFOn", 1, 0, "Enable Friends-of-Friends halo finder.");
+    param_declare_int(ps, "FOFOn", 1, 0, "Enable Friends-of-Friends halo finder.");
     param_declare_double(ps, "FOFHaloLinkingLength", 0, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", 0, 32, "");
     param_declare_double(ps, "MinFoFMassForNewSeed", 0, 5e2, "Minimal Mass for seeding tracer particles ");
