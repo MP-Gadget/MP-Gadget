@@ -356,7 +356,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 #endif
 
     /* Drifting the blackhole towards minimum. This shall be refactored to some sink.c etc */
-    if(r2 < iter->accretion_kernel.HH && r2 < All.FOFHaloComovingLinkingLength)
+    if(r2 < iter->accretion_kernel.HH && r < All.FOFHaloComovingLinkingLength)
     {
         if(P[other].Potential < O->BH_MinPot)
         {
@@ -417,7 +417,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
     if(P[other].Type == 0) {
         if(r2 < iter->accretion_kernel.HH) {
-            double r = sqrt(r2);
             double u = r * iter->accretion_kernel.Hinv;
             double wk = density_kernel_wk(&iter->accretion_kernel, u);
             double mass_j = P[other].Mass;
@@ -523,6 +522,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     int other = iter->base.other;
     double r2 = iter->base.r2;
+    double r = iter->base.r;
     /* Exclude self interaction */
 
     if(P[other].ID == I->ID) return;
@@ -570,7 +570,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     /* Dump feedback energy */
     if(P[other].Type == 0) {
         if(r2 < iter->feedback_kernel.HH && P[other].Mass > 0) {
-            double r = sqrt(r2);
             double u = r * iter->feedback_kernel.Hinv;
             double wk;
             double mass_j;
