@@ -34,9 +34,6 @@ OPT	+=  -DTOPNODEFACTOR=5.0
 #OPT	+=  -DCPUSPEEDADJUSTMENT
 #OPT	+=  -DHYDRO_COST_FACTOR=1000
 
-#---------------------------------------- On the fly FOF groupfinder 
-OPT	+=  -DFOF                                # enable FoF output
-
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
 OPT	+=  -DSFR
