@@ -613,7 +613,7 @@ static void register_io_blocks() {
 #endif /* SFR */
 #ifdef BLACK_HOLES
     /* Blackhole */
-    IO_REG(BlackholeMass,          "f8", 1, 5);
+    IO_REG(BlackholeMass,          "f4", 1, 5);
     IO_REG(StarFormationTime, "f4", 1, 5);
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
