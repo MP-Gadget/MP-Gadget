@@ -156,6 +156,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TimeLimitCPU", 1, 0, "");
 
     param_declare_int   (ps, "DomainOverDecompositionFactor", 0, 1, "Number of sub domains on a MPI rank");
+    param_declare_int(ps, "DomainReportSpeedfac", 0, 0, "Print speed factors in Domain, for profiling.");
     param_declare_double(ps, "TreeDomainUpdateFrequency", 0, 0.025, "");
     param_declare_double(ps, "ErrTolTheta", 0, 0.5, "");
     param_declare_int(ps,    "TypeOfOpeningCriterion", 0, 1, "");
@@ -211,12 +212,11 @@ create_gadget_parameter_set()
     param_declare_double(ps, "ReferenceGasMass", 1, 0, "");
 #endif
 
-#ifdef FOF
-    param_declare_double(ps, "FOFHaloLinkingLength", 1, 0, "");
+    param_declare_int(ps, "FOFOn", 1, 0, "Enable Friends-of-Friends halo finder.");
+    param_declare_double(ps, "FOFHaloLinkingLength", 0, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", 0, 32, "");
     param_declare_double(ps, "MinFoFMassForNewSeed", 0, 5e2, "Minimal Mass for seeding tracer particles ");
     param_declare_double(ps, "TimeBetweenSeedingSearch", 0, 1e5, "Time Between Seeding Attempts: default to a a large value, meaning never.");
-#endif
 
 #ifdef BLACK_HOLES
     param_declare_double(ps, "BlackHoleAccretionFactor", 0, 100, "");
@@ -385,6 +385,7 @@ void read_parameter_file(char *fname)
         All.BoxSize = param_get_double(ps, "BoxSize");
 
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
+        All.DomainReportSpeedfac = param_get_int(ps, "DomainReportSpeedfac");
         All.MaxMemSizePerCore = param_get_int(ps, "MaxMemSizePerCore");
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
 
@@ -443,16 +444,15 @@ void read_parameter_file(char *fname)
         All.ReferenceGasMass = param_get_double(ps, "ReferenceGasMass");
     #endif
 
-    #ifdef FOF
+        All.FOFOn = param_get_int(ps, "FOFOn");
         All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
         All.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
-    #endif
+        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
 
     #ifdef BLACK_HOLES
         All.BlackHoleSoundSpeedFromPressure = 0;
 
-        All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
         All.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
         All.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
         All.SeedBlackHoleMass = param_get_double(ps, "SeedBlackHoleMass");

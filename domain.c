@@ -469,16 +469,16 @@ int domain_decompose(void)
     message(0, "work-load balance=%g   memory-balance=%g\n",
             maxwork / (sumwork / NTask), maxload / (((double) sumload) / NTask));
 
-#ifdef VERBOSE
-    message(0, "Speedfac:\n");
-    for(i = 0; i < NTask; i++)
-    {
-        message(0, "Speedfac [%3d]  speedfac=%8.4f  work=%8.4f   load=%8.4f   cpu=%8.4f   cost=%8.4f \n", i,
-                list_speedfac[i], list_speedfac[i] * list_work[i] / (sumwork / NTask),
-                list_load[i] / (((double) sumload) / NTask), list_cadj_cpu[i] / (sumcpu / NTask),
-                list_cadj_cost[i] / (sumcost / NTask));
+    if(All.DomainReportSpeedfac) {
+        message(0, "Speedfac:\n");
+        for(i = 0; i < NTask; i++)
+        {
+            message(0, "Speedfac [%3d]  speedfac=%8.4f  work=%8.4f   load=%8.4f   cpu=%8.4f   cost=%8.4f \n", i,
+                    list_speedfac[i], list_speedfac[i] * list_work[i] / (sumwork / NTask),
+                    list_load[i] / (((double) sumload) / NTask), list_cadj_cpu[i] / (sumcpu / NTask),
+                    list_cadj_cost[i] / (sumcost / NTask));
+        }
     }
-#endif
 
     walltime_measure("/Domain/Decompose/Misc");
     domain_exchange(domain_layoutfunc);
@@ -828,6 +828,9 @@ void domain_bh_garbage_collection() {
 
     MPI_Allreduce(&N_bh, &total0, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
+    /* If there are no blackholes, there cannot be any garbage. bail. */
+    if(total0 == 0) return;
+
 #pragma omp parallel for
     for(i = 0; i < All.MaxPartBh; i++) {
         BhP[i].ReverseLink = -1;
@@ -890,8 +893,7 @@ void domain_bh_garbage_collection() {
 void domain_garbage_collection() {
     int i;
     /*Make sure the BHs are consistent, if we have any*/
-    if(N_bh > 0)
-        domain_bh_garbage_collection();
+    domain_bh_garbage_collection();
 
     /*Now ensure that the particle numbers are consistent*/
     N_bh = 0;

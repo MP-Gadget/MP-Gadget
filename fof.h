@@ -1,8 +1,6 @@
 #ifndef FOF_H
 #define FOF_H
 
-#ifdef FOF
-
 #include "allvars.h"
 
 void fof_init();
@@ -59,7 +57,5 @@ extern struct Group
     int seed_index; 
     int seed_task;
 } * Group;
-
-#endif
 
 #endif

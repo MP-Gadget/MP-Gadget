@@ -29,10 +29,6 @@ void init(void)
 {
     int i, j;
 
-#ifdef START_WITH_EXTRA_NGBDEV
-    double MaxNumNgbDeviationMerk;
-#endif
-
     set_global_time(All.TimeBegin);
 
     if(RestartFlag == 3 && RestartSnapNum < 0)
@@ -62,9 +58,7 @@ void init(void)
     All.Timebase_interval = (log(All.TimeMax) - log(All.TimeBegin)) / TIMEBASE;
     All.Ti_Current = 0;
 
-#ifdef FOF
     fof_init();
-#endif
     set_softenings();
 
     All.NumCurrentTiStep = 0;	/* setup some counters */
@@ -87,10 +81,6 @@ void init(void)
     All.Cadj_Cpu = 1.0e-3;
 
     check_omega();
-
-#if defined(BLACK_HOLES) || defined(GAL_PART)
-    All.TimeNextSeedingCheck = All.TimeBegin;
-#endif
 
     for(i = 0; i < NumPart; i++)	/*  start-up initialization */
     {
@@ -168,17 +158,9 @@ void init(void)
 
     All.Ti_Current = 0;
 
-#ifdef START_WITH_EXTRA_NGBDEV
-    MaxNumNgbDeviationMerk = All.MaxNumNgbDeviation;
-    All.MaxNumNgbDeviation = All.MaxNumNgbDeviationStart;
-#endif
-
     if(RestartFlag != 3)
         setup_smoothinglengths();
 
-#ifdef START_WITH_EXTRA_NGBDEV
-    All.MaxNumNgbDeviation = MaxNumNgbDeviationMerk;
-#endif
 }
 
 

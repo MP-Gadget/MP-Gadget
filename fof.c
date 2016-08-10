@@ -20,7 +20,6 @@
  *  \brief parallel FoF group finder
  */
 
-#ifdef FOF
 #include "fof.h"
 
 /* Never change the primary link it is always DM. */
@@ -32,6 +31,7 @@
 void fof_init()
 {
     All.FOFHaloComovingLinkingLength = All.FOFHaloLinkingLength * All.BoxSize / pow(All.TotN_dm, 1.0 / 3);
+    All.TimeNextSeedingCheck = All.TimeBegin;
 }
 
 static double fof_periodic(double x)
@@ -1344,5 +1344,3 @@ static void fof_radix_Group_OriginalTaskMinID(const void * a, void * radix, void
     u[0] = f->MinID;
     u[1] = f->OriginalTask;
 }
-
-#endif /* of FOF */

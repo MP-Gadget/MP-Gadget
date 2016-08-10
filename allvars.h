@@ -359,9 +359,6 @@ extern struct global_data_all_processes
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
     double DensityResolutionEta;		/*!< SPH resolution eta. See Price 2011. eq 12*/
     double MaxNumNgbDeviation;	/*!< Maximum allowed deviation neighbour number */
-#ifdef START_WITH_EXTRA_NGBDEV
-    double MaxNumNgbDeviationStart;    /*!< Maximum allowed deviation neighbour number to start with*/
-#endif
     double ArtBulkViscConst;	/*!< Sets the parameter \f$\alpha\f$ of the artificial viscosity */
 
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
@@ -373,6 +370,7 @@ extern struct global_data_all_processes
     int64_t TotNumOfForces;	/*!< counts total number of force computations  */
 
     int64_t NumForcesSinceLastDomainDecomp;	/*!< count particle updates since last domain decomposition */
+    int DomainReportSpeedfac; /*!< Report extra information in domain decomposition, for profiling*/
 
     /* some variable for dynamic work-load adjustment based on CPU measurements */
 
@@ -598,28 +596,26 @@ extern struct global_data_all_processes
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
     int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
 #endif
-
 #ifdef GAL_PART
-  double BlackHoleAccretionFactor;    /*!< Fraction of BH bondi accretion rate */
-  double BlackHoleFeedbackFactor;     /*!< Fraction of the black luminosity feed into thermal feedback */
-  enum galfeedbackMethod GalaxyFeedbackMethod;       /*!< method of the feedback*/
-  double BlackHoleFeedbackRadius;     /*!< Radius the thermal feedback is fed comoving*/
-  double BlackHoleFeedbackRadiusMaxPhys;      /*!< Radius the thermal cap */
-  double SeedBlackHoleMass;   /*!< Seed black hole mass */
-  double BlackHoleNgbFactor;  /*!< Factor by which the normal SPH neighbour should be increased/decreased */
-  double BlackHoleMaxAccretionRadius;
-  double BlackHoleEddingtonFactor;    /*! Factor above Eddington */
-  int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
+    double BlackHoleAccretionFactor;    /*!< Fraction of BH bondi accretion rate */
+    double BlackHoleFeedbackFactor;     /*!< Fraction of the black luminosity feed into thermal feedback */
+    enum galfeedbackMethod GalaxyFeedbackMethod;       /*!< method of the feedback*/
+    double BlackHoleFeedbackRadius;     /*!< Radius the thermal feedback is fed comoving*/
+    double BlackHoleFeedbackRadiusMaxPhys;      /*!< Radius the thermal cap */
+    double SeedBlackHoleMass;   /*!< Seed black hole mass */
+    double BlackHoleNgbFactor;  /*!< Factor by which the normal SPH neighbour should be increased/decreased */
+    double BlackHoleMaxAccretionRadius;
+    double BlackHoleEddingtonFactor;    /*! Factor above Eddington */
+    int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
 #endif
 
-#ifdef FOF
+    int FOFOn; /*Flag that doing FOF for snapshot outputs is on*/
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
     double FOFHaloLinkingLength;    
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
-    double TimeNextSeedingCheck;
-    double TimeBetweenSeedingSearch;
-#endif
+    double TimeNextSeedingCheck;  /*Time for the next seed check.*/
+    double TimeBetweenSeedingSearch; /*Factor to multiply TimeBegin by to find the next seeding check.*/
 
 }
 All;
@@ -723,11 +719,9 @@ extern struct particle_data
         MyDouble dNumNgb;
     } n;
 
-#ifdef FOF
     int64_t GrNr;
     int origintask;
     int targettask;
-#endif
 
     float GravCost;		/*!< weight factor used for balancing the work-load */
 
