@@ -583,7 +583,7 @@ extern struct global_data_all_processes
     int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
 #endif
 
-    int FOFOn; /*Flag that doing FOF for snapshot outputs is on*/
+    int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
     double FOFHaloLinkingLength;    
     double FOFHaloComovingLinkingLength; /* in code units */
