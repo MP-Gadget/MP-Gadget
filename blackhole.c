@@ -356,7 +356,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 #endif
 
     /* Drifting the blackhole towards minimum. This shall be refactored to some sink.c etc */
-    if(r2 < iter->accretion_kernel.HH && r < All.FOFHaloComovingLinkingLength)
+    if(r2 < iter->accretion_kernel.HH) // && r < All.FOFHaloComovingLinkingLength)
     {
         if(P[other].Potential < O->BH_MinPot)
         {
