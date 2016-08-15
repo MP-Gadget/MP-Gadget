@@ -616,8 +616,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     double r2 = iter->base.r2;
     double r = iter->base.r;
 
-    /* exclude self interaction */
-    if(P[other].ID == I->base.ID) return;
     /* skip wind particles */
     if(SPHP(other).DelayTime > 0) return;
 
@@ -640,8 +638,10 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 
     //double wk = density_kernel_wk(&kernel, r);
 
-    /* now drive some wind */
-    lock_particle(other);
+    /* in this case the particle is already locked by the tree walker */
+    /* we may want to add another lock to avoid this. */
+    if(P[other].ID != I->base.ID)
+        lock_particle(other);
 
     double wk = 1.0;
     double p = windeff * wk * I->Mass / I->TotalWeight;
@@ -649,7 +649,9 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
     if (random < p) {
         make_particle_wind(I->base.ID, other, v, I->Vmean);
     }
-    unlock_particle(other);
+
+    if(P[other].ID != I->base.ID)
+        unlock_particle(other);
 
 }
 
