@@ -424,24 +424,24 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
     }
     int other = iter->base.other;
 
-//#pragma omp critical (_fofp_merge_)
+#pragma omp critical (_fofp_merge_)
     {
         if(lv->mode == 0) {
             /* Local FOF */
-            if(lv->target <= other) return;
-            // printf("locked merge %d %d by %d\n", lv->target, other, omp_get_thread_num());
-            fofp_merge(lv->target, other);
+            if(lv->target <= other) {
+                // printf("locked merge %d %d by %d\n", lv->target, other, omp_get_thread_num());
+                fofp_merge(lv->target, other);
+            }
         } else /* mode is 1, target is a ghost */
         {
-            
-            printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
+//            printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
             lock_particle(other);
             if(HaloLabel[HEAD(other)].MinID > I->MinID)
             {
                 HaloLabel[HEAD(other)].MinID = I->MinID;
                 HaloLabel[HEAD(other)].MinIDTask = I->MinIDTask;
             }
-            printf("unlocking %d by %d in ngbiter\n", other, omp_get_thread_num());
+//            printf("unlocking %d by %d in ngbiter\n", other, omp_get_thread_num());
             unlock_particle(other);
         }
     }
