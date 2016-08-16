@@ -1,6 +1,9 @@
 # vim: set ft=make:
 DESTDIR ?= .
 
+LOW_PRECISION ?= double
+HIGH_PRECISION ?= double
+
 TARGETS = MP-Gadget MP-GenIC
 
 CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(PWD)/depends/include -DH5_USE_16_API

@@ -28,7 +28,7 @@
 
 /* FIXME: convert this to a parameter */
 #define FOF_SECONDARY_LINK_TYPES (1+16+32)    // 2^type for the types linked to nearest primaries
-
+#define LARGE 1e29
 void fof_init()
 {
     All.FOFHaloComovingLinkingLength = All.FOFHaloLinkingLength * All.BoxSize / pow(All.TotN_dm, 1.0 / 3);
@@ -1028,7 +1028,7 @@ static void fof_label_secondary(void)
     {
         if(((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)))
         {
-            fof_secondary_distance[n] = 1.0e30;
+            fof_secondary_distance[n] = LARGE;
             if(P[n].Type == 0) {
                 /* use gas sml as a hint (faster convergence than 0.1 All.FOFHaloComovingLinkingLength at high-z */
                 fof_secondary_hsml[n] = 0.5 * P[n].Hsml;
@@ -1062,7 +1062,7 @@ static void fof_label_secondary(void)
         {
             int p = queue[i];
             count ++;
-            if(fof_secondary_distance[p] > 1.0e29)
+            if(fof_secondary_distance[p] > 0.5 * LARGE)
             {
                 if(fof_secondary_hsml[p] < 4 * All.FOFHaloComovingLinkingLength)  /* we only search out to a maximum distance */
                 {
@@ -1113,7 +1113,7 @@ fof_secondary_ngbiter( TreeWalkQueryFOF * I,
         LocalTreeWalk * lv)
 {
     if(iter->base.other == -1) {
-        O->Distance = 1.0e30;
+        O->Distance = LARGE;
         iter->base.Hsml = I->Hsml;
         iter->base.mask = FOF_PRIMARY_LINK_TYPES;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;

@@ -115,7 +115,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 static double
 decide_hsearch(double h);
 
-#define BHPOTVALUEINIT 1.0e30
+#define BHPOTVALUEINIT 1.0e29
 
 static int N_sph_swallowed, N_BH_swallowed;
 
