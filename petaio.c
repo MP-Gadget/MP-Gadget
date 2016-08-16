@@ -579,7 +579,7 @@ static void register_io_blocks() {
         IO_REG(ID,       "u8", 1, i);
         IO_REG(Generation,       "u1", 1, i);
         IO_REG(Potential, "f4", 1, i);
-        if(All.FOFOn)
+        if(All.SnapshotWithFOF)
             IO_REG_WRONLY(GroupID, "u4", 1, i);
     }
 
@@ -616,7 +616,7 @@ static void register_io_blocks() {
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
 #endif
-    if(All.FOFOn)
+    if(All.SnapshotWithFOF)
         fof_register_io_blocks();
 }
 

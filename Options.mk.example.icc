@@ -5,15 +5,12 @@ DESTDIR  = build/
 CC       =   mpicc
 CXX      = mpic++
 #
-# For GCC add -mpc64 if IEEE 64bit FP is desired.
-OPTIMIZE =  -fopenmp -O3 -flto -g -Wall -ffast-math -march=native
-
-HDF_INCL =
-HDF_LIBS = -lhdf5
+# Optimized defaults for icc
+OPTIMIZE =  -fopenmp -O3 -ipo -g -Wall -xHost -no-prec-div -fp-model fast
 GSL_INCL = $(shell pkg-config --cflags gsl)
-GSL_LIBS = $(shell pkg-config --libs gsl)
+#We don't want to add -lm here on icc
+GSL_LIBS = $(filter-out -lm,$(shell pkg-config --libs gsl))
 
-#
 #--------------------------------------- Basic operation mode of code
 OPT += -DDENSITY_INDEPENDENT_SPH
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development

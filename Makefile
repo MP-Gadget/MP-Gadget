@@ -1,5 +1,7 @@
 # Customization; see Options.mk.example
-include Makefile.defaults
+CONFIG ?= Options.mk
+
+include $(CONFIG)
 
 # Main Rules
 include Makefile.rules

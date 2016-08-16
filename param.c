@@ -194,7 +194,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "ReferenceGasMass", 1, 0, "");
 #endif
 
-    param_declare_int(ps, "FOFOn", 1, 0, "Enable Friends-of-Friends halo finder.");
+    param_declare_int(ps, "SnapshotWithFOF", 1, 0, "Enable Friends-of-Friends halo finder.");
     param_declare_double(ps, "FOFHaloLinkingLength", 0, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", 0, 32, "");
     param_declare_double(ps, "MinFoFMassForNewSeed", 0, 5e2, "Minimal Mass for seeding tracer particles ");
@@ -397,7 +397,7 @@ void read_parameter_file(char *fname)
         All.ReferenceGasMass = param_get_double(ps, "ReferenceGasMass");
     #endif
 
-        All.FOFOn = param_get_int(ps, "FOFOn");
+        All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
         All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
         All.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
