@@ -227,16 +227,54 @@ void fof_fof(int num)
     MPI_Type_free(&MPI_TYPE_GROUP);
 }
 
-static struct LinkList {
-    MyIDType MinIDOld;
-    int head;
-    int len;
-    int next;
-    char marked;
-} * LinkList;
-#define HEAD(i) LinkList[i].head
-#define NEXT(i) LinkList[i].next
-#define LEN(i) LinkList[HEAD(i)].len
+static MyIDType * FOFOldMinID;
+static char * FOFPrimaryActive;
+static int * FOFHead;
+
+static int HEADl(int stop, int i) {
+    int r;
+    if (i == stop) {
+        return -1;
+    }
+//    printf("locking %d by %d in HEADl stop = %d\n", i, omp_get_thread_num(), stop);
+    lock_particle(i);
+//    printf("locked %d by %d in HEADl, next = %d\n", i, omp_get_thread_num(), FOFHead[i]);
+
+    if(FOFHead[i] == i) {
+        /* return locked */
+        return i;
+    }
+    /* this is not the root, keep going, but unlock first, since even if the root is modified by
+     * another thread, what we get here is on the path, */
+    int next = FOFHead[i];
+    unlock_particle(i);
+//    printf("unlocking %d by %d in HEADl\n", i, omp_get_thread_num());
+    r = HEADl(stop, next);
+    return r;
+}
+static void update_root(int i, int r)
+{
+    while(FOFHead[i] != i) {
+        int t = FOFHead[i];
+        FOFHead[i]= r;
+        i = t;
+    }
+}
+
+static int HEAD(int i) {
+    /* accelerate with a splay: see https://arxiv.org/abs/1607.03224 */
+    int r;
+    r = i;
+    while(FOFHead[r] != r) {
+        r = FOFHead[r];
+    }
+    while(FOFHead[i] != i) {
+        int t = FOFHead[i];
+        FOFHead[i]= r;
+        i = t;
+    }
+    return r;
+}
 
 static void fof_primary_copy(int place, TreeWalkQueryFOF * I) {
     int head = HEAD(place);
@@ -245,7 +283,7 @@ static void fof_primary_copy(int place, TreeWalkQueryFOF * I) {
 }
 
 static int fof_primary_isactive(int n) {
-    return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && LinkList[n].marked;
+    return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && FOFPrimaryActive[n];
 }
 
 static void
@@ -277,18 +315,19 @@ void fof_label_primary(void)
     tw->query_type_elsize = sizeof(TreeWalkQueryFOF);
     tw->result_type_elsize = sizeof(TreeWalkResultFOF);
 
-    LinkList = (struct LinkList *) mymalloc("FOF_Links", NumPart * sizeof(struct LinkList));
+    FOFHead = (int*) mymalloc("FOF_Links", NumPart * sizeof(int));
+    FOFPrimaryActive = (char*) mymalloc("FOFActive", NumPart * sizeof(char));
+    FOFOldMinID = (MyIDType *) mymalloc("FOFActive", NumPart * sizeof(MyIDType));
+
     /* allocate buffers to arrange communication */
 
     t0 = second();
 
     for(i = 0; i < NumPart; i++)
     {
-        HEAD(i) = i;
-        LEN(i) = 1;
-        NEXT(i) = -1;
-        LinkList[i].MinIDOld = P[i].ID;
-        LinkList[i].marked = 1;
+        FOFHead[i] = i;
+        FOFOldMinID[i]= P[i].ID;
+        FOFPrimaryActive[i] = 1;
 
         HaloLabel[i].MinID = P[i].ID;
         HaloLabel[i].MinIDTask = ThisTask;
@@ -308,14 +347,14 @@ void fof_label_primary(void)
 #pragma omp parallel for
         for(i = 0; i < NumPart; i++) {
             MyIDType newMinID = HaloLabel[HEAD(i)].MinID;
-            if(newMinID != LinkList[i].MinIDOld) {
-                LinkList[i].marked = 1;
+            if(newMinID != FOFOldMinID[i]) {
+                FOFPrimaryActive[i] = 1;
 #pragma omp atomic
                 link_across += 1;
             } else {
-                LinkList[i].marked = 0;
+                FOFPrimaryActive[i] = 0;
             }
-            LinkList[i].MinIDOld = newMinID;
+            FOFOldMinID[i] = newMinID;
         }
         MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
         message(0, "Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
@@ -330,41 +369,45 @@ void fof_label_primary(void)
     }
 
     message(0, "Local groups found.\n");
-    myfree(LinkList);
+
+    myfree(FOFOldMinID);
+    myfree(FOFPrimaryActive);
+    myfree(FOFHead);
 }
 
-static void fofp_merge(int target, int j)
+static void fofp_merge(int target, int other)
 {
-    /* must be in a critical section! */
-    if(HEAD(target) == HEAD(j))	
+    /* this will lock h1 */
+    int h1 = HEADl(-1, target);
+    /* stop looking if we find h1 along the path (because it is already owned by us) */
+    int h2 = HEADl(h1, other);
+
+    if(h2 == -1) {
+        /* h1 is along the path of h2, already merged **/
+        //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
+        update_root(target, h1);
+        update_root(other, h1);
+        unlock_particle(h1);
         return;
-    int p, s;
-    int ss, oldnext, last;
-
-    /* only if not yet linked */
-    if(LEN(target) > LEN(j))	/* p group is longer */
-    {
-        p = target; s = j;
-    } else {
-        p = j; s = target;
     }
 
-    ss = HEAD(s);
-    oldnext = NEXT(p);
-    NEXT(p) = ss;
-    last = -1;
-    do {
-        HEAD(ss) = HEAD(p);
-        last = ss;
-    } while((ss = NEXT(ss)) >= 0);
+    /* h2 as a sub-tree of h1 */
+    FOFHead[h2] = h1;
 
-    NEXT(last) = oldnext;
-
-    if(HaloLabel[HEAD(s)].MinID < HaloLabel[HEAD(p)].MinID)
+    /* update MinID of h1 */
+    if(HaloLabel[h1].MinID > HaloLabel[h2].MinID)
     {
-        HaloLabel[HEAD(p)].MinID = HaloLabel[HEAD(s)].MinID;
-        HaloLabel[HEAD(p)].MinIDTask = HaloLabel[HEAD(s)].MinIDTask;
+        HaloLabel[h1].MinID = HaloLabel[h2].MinID;
+        HaloLabel[h1].MinIDTask = HaloLabel[h2].MinIDTask;
     }
+    //printf("unlocking %d by %d in merge\n", h2, omp_get_thread_num());
+    unlock_particle(h2);
+
+    update_root(target, h1);
+    update_root(other, h1);
+
+    //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
+    unlock_particle(h1);
 }
 
 static void
@@ -381,20 +424,25 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
     }
     int other = iter->base.other;
 
-#pragma omp critical (_fofp_merge_)
+//#pragma omp critical (_fofp_merge_)
     {
         if(lv->mode == 0) {
             /* Local FOF */
-            if(HEAD(lv->target) != HEAD(other)) {
-                fofp_merge(lv->target, other);
-            }
+            if(lv->target <= other) return;
+            // printf("locked merge %d %d by %d\n", lv->target, other, omp_get_thread_num());
+            fofp_merge(lv->target, other);
         } else /* mode is 1, target is a ghost */
         {
+            
+            printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
+            lock_particle(other);
             if(HaloLabel[HEAD(other)].MinID > I->MinID)
             {
                 HaloLabel[HEAD(other)].MinID = I->MinID;
                 HaloLabel[HEAD(other)].MinIDTask = I->MinIDTask;
             }
+            printf("unlocking %d by %d in ngbiter\n", other, omp_get_thread_num());
+            unlock_particle(other);
         }
     }
 }
