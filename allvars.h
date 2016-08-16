@@ -580,14 +580,13 @@ extern struct global_data_all_processes
     int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
 #endif
 
-#ifdef FOF
+    int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
     double FOFHaloLinkingLength;    
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
-    double TimeNextSeedingCheck;
-    double TimeBetweenSeedingSearch;
-#endif
+    double TimeNextSeedingCheck;  /*Time for the next seed check.*/
+    double TimeBetweenSeedingSearch; /*Factor to multiply TimeBegin by to find the next seeding check.*/
 
 }
 All;
@@ -693,14 +692,11 @@ extern struct particle_data
         /* The peano key is a hash of the position used in the domain decomposition.
          * It is slow to generate so we store it here.*/
         peanokey Key; /* only by domain.c */
-#ifdef FOF
         struct {
             int64_t GrNr;   /* used by fof.c which calls domain_exchange that doesn't uses peanokey */
             int origintask;
             int targettask;
         };
-#endif
-
     };
 
 }

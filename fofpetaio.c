@@ -16,8 +16,6 @@
 #include "mymalloc.h"
 #include "endrun.h"
 
-#ifdef FOF
-
 static void fof_write_header(BigFile * bf);
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent);
 
@@ -302,4 +300,3 @@ void fof_register_io_blocks() {
     IO_REG(BlackholeAccretionRate, "f4", 1, PTYPE_FOF_GROUP);
 #endif
 }
-#endif

@@ -17,7 +17,6 @@ OPT	+= -DUNEQUALSOFTENINGS
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 
 #--------------------------------------- Multi-Domain and Top-Level Tree options
-OPT	+=  -DMULTIPLEDOMAINS=32
 OPT	+=  -DTOPNODEFACTOR=5.0
 
 
@@ -26,36 +25,16 @@ OPT	+=  -DMYSORT
 #OPT	+=  -DCPUSPEEDADJUSTMENT
 #OPT	+=  -DHYDRO_COST_FACTOR=1000
 
-#---------------------------------------- On the fly FOF groupfinder 
-OPT	+=  -DFOF                                # enable FoF output
-OPT	+=  -DFOF_PRIMARY_LINK_TYPES=2           # 2^type for the primary dark matter type
-OPT	+=  -DFOF_SECONDARY_LINK_TYPES=1+16+32	 # 2^type for the types linked to nearest primaries
-
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
 OPT	+=  -DSFR
 #OPT	+=  -DSOFTEREQS
 OPT	+=  -DMETALS
-OPT	+=  -DSTELLARAGE
 OPT	+=  -DWINDS
-#OPT	+=  -DQUICK_LYALPHA
 #OPT	+=  -DISOTROPICWINDS
-
 
 #-------------------------------------- AGN stuff
 OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
-OPT	+=  -DBH_ACCRETION # Bondi-Hoyle style accretion model
-OPT	+=  -DBH_ENFORCE_EDDINGTON_LIMIT # put a hard limit on the maximum accretion rate
-OPT	+=  -DBH_THERMALFEEDBACK      # couple a fraction of the BH luminosity into surrounding gas
-OPT	+=  -DBH_SWALLOWGAS              # Enables stochastic accretion of gas particles consistent with growth rate of hole
-OPT	+=  -DBH_MERGER # Enables blackhole mergers.
-OPT	+=  -DBH_COUNTPROGS	      # carries a counter for each BH that gives the total number of seeds that merged into it
-OPT	+=  -DBH_USE_GASVEL_IN_BONDI  # only when this is enabled, the surrounding gas velocity is used in addition to the sounds speed in the Bondi rate 
-OPT	+=  -DBH_REPOSITION_ON_POTMIN    # repositions hole on potential minimum (required )
-
 #-------------------------------------------- Things for special behaviour
-OPT	+=  -DINCLUDE_RADIATION		# Add radiation density to backround evolution. Only affects the Hubble flow.
-#OPT	+=  -DTRADITIONAL_SPH_FORMULATION
-OPT	+=  -DNOTEST_FOR_IDUNIQUENESS
 OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
 OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very different from collisionless particles, this can helps to avoid problems in the domain decomposition -- increase All.MaxPartSph

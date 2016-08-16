@@ -78,9 +78,7 @@ int main(int argc, char **argv)
     begrun();			/* set-up run  */
 
     if(RestartFlag == 3) {
-#ifdef FOF
         fof_fof(RestartSnapNum);
-#endif
     } else {
         run();			/* main simulation loop */
     }

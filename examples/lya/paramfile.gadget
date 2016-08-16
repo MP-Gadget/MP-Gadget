@@ -117,3 +117,5 @@ FactorSN = 0.1
 FactorEVP = 1000.0
 
 WindModel = nowind
+
+SnapshotWithFOF = 0

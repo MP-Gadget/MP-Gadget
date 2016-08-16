@@ -39,17 +39,15 @@ void savepositions(int num, int reason)
     petaio_save_snapshot(num);
     walltime_measure("/Snapshot/Write");
 
-#ifdef FOF
     /* regular snapshot, do fof and write it out */
-    if(reason == 0) {
+    if(All.SnapshotWithFOF && reason == 0) {
         message(0, "computing group catalogue...\n");
 
         fof_fof(num);
 
         message(0, "done with group catalogue.\n");
+        walltime_measure("/Snapshot/WriteFOF");
     }
-    walltime_measure("/Snapshot/WriteFOF");
-#endif
 
     if(ThisTask == 0) {
         char buf[1024];

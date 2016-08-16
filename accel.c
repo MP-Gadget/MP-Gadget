@@ -84,15 +84,12 @@ void compute_accelerations(int mode)
         /***** black hole accretion and feedback *****/
         blackhole();
 #endif
-#ifdef FOF
         /* this will find new black hole seed halos */
         if(All.Time >= All.TimeNextSeedingCheck)
         {
             fof_fof(-1);
-
             All.TimeNextSeedingCheck *= All.TimeBetweenSeedingSearch;
         }
-#endif
 
 
 /**** radiative cooling and star formation *****/
