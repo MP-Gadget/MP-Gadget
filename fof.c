@@ -592,7 +592,7 @@ static void fof_compile_base(void)
             BaseGroup[start].MinIDTask = HaloLabel[i].MinIDTask;
             int d;
             for(d = 0; d < 3; d ++) {
-                BaseGroup[start].FirstPos[d] = P[i].Pos[d];
+                BaseGroup[start].FirstPos[d] = P[HaloLabel[i].Pindex].Pos[d];
             }
             start ++;
         }
