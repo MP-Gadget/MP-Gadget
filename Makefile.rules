@@ -62,7 +62,7 @@ depends:
 	cd depends; make
 
 builddir:
-	mkdir -p builddir
+	mkdir -p $(DESTDIR)
 
 $(DESTDIR)/MP-Gadget: $(OBJS)
 	$(MPICC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
