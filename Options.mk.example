@@ -7,6 +7,7 @@ MPICC       =   mpicc
 MPICXX       =   mpic++
 
 #
+#
 # For GCC add -mpc64 if IEEE 64bit FP is desired.
 OPTIMIZE =  -fopenmp -O3 -flto -g -Wall -ffast-math -march=native
 

@@ -368,4 +368,4 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
     MPI_Barrier(comm);
 
     return 0;
-} 
+}

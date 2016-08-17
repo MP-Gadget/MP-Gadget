@@ -118,7 +118,6 @@ create_gadget_parameter_set()
     param_declare_string(ps, "EnergyFile", 0, "energy.txt", "");
     param_declare_string(ps, "CpuFile", 0, "cpu.txt", "");
     param_declare_string(ps, "InfoFile", 0, "info.txt", "");
-    param_declare_string(ps, "TimingsFile", 0, "timings.txt", "");
     param_declare_string(ps, "RestartFile", 0, "restart", "");
     param_declare_string(ps, "OutputList", 1, NULL, "List of output times");
 
@@ -160,6 +159,7 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "DensityContrastLimit", 0, 100, "Max contrast for hydro force calculation");
     param_declare_double(ps, "MaxNumNgbDeviation", 0, 2, "");
+    param_declare_double(ps, "HydroCostFactor", 0, 1, "Cost factor of hydro calculation, default to 1.");
 
     param_declare_int(ps, "NumPartPerFile", 0, 1024 * 1024 * 128, "number of particles per file");
     param_declare_int(ps, "NumWriters", 0, 0, "Number of concurrent writer processes. 0 implies Number of Tasks ");
@@ -323,7 +323,6 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "EnergyFile", All.EnergyFile);
         param_get_string2(ps, "CpuFile", All.CpuFile);
         param_get_string2(ps, "InfoFile", All.InfoFile);
-        param_get_string2(ps, "TimingsFile", All.TimingsFile);
         param_get_string2(ps, "RestartFile", All.RestartFile);
         param_get_string2(ps, "OutputList", All.OutputList);
 
@@ -359,7 +358,7 @@ void read_parameter_file(char *fname)
         All.ArtBulkViscConst = param_get_double(ps, "ArtBulkViscConst");
         All.CourantFac = param_get_double(ps, "CourantFac");
         All.DensityResolutionEta = param_get_double(ps, "DensityResolutionEta");
-
+        All.HydroCostFactor = param_get_double(ps, "HydroCostFactor");
         All.DensityContrastLimit = param_get_double(ps, "DensityContrastLimit");
         All.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
 

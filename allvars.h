@@ -153,8 +153,8 @@
 
 typedef uint64_t MyIDType;
 
-typedef double  MyFloat;
-typedef double  MyDouble;
+typedef LOW_PRECISION MyFloat;
+typedef HIGH_PRECISION MyDouble;
 
 struct unbind_data
 {
@@ -286,7 +286,6 @@ extern double RndTable[RNDTABLE];
 
 extern FILE *FdInfo,		/*!< file handle for info.txt log-file. */
        *FdEnergy,			/*!< file handle for energy.txt log-file. */
-       *FdTimings,			/*!< file handle for timings.txt log-file. */
        *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
 #ifdef SFR
@@ -325,8 +324,6 @@ extern struct global_data_all_processes
     int NumWriters;  /*Number of concurrent writers */
 
     double BufferSize;		/*!< size of communication buffer in MB */
-    int BunchSize;     	        /*!< number of particles fitting into the buffer in the parallel tree algorithm  */
-
 
     double PartAllocFactor;	/*!< in order to maintain work-load balance, the particle load will usually
                               NOT be balanced.  Each processor allocates memory for PartAllocFactor times
@@ -496,7 +493,7 @@ extern struct global_data_all_processes
                                1 for Quintic spline (recmd  NumNgb = 97)
                              */
     double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
-
+    double HydroCostFactor; /* cost factor for hydro in load balancing. */
     double SofteningGas,		/*!< for type 0 */
            SofteningHalo,		/*!< for type 1 */
            SofteningDisk,		/*!< for type 2 */
@@ -529,7 +526,7 @@ extern struct global_data_all_processes
          SnapshotFileBase[100],
          EnergyFile[100],
          CpuFile[100],
-         InfoFile[100], TimingsFile[100], RestartFile[100], ResubmitCommand[100], OutputList[100];
+         InfoFile[100], RestartFile[100], ResubmitCommand[100], OutputList[100];
 
     char UVFluctuationFile[100];
 
@@ -616,7 +613,7 @@ struct bh_particle_data {
     MyFloat accreted_BHMass;
     MyFloat accreted_momentum[3];
 
-    MyFloat MinPotPos[3];
+    double  MinPotPos[3];
     MyFloat MinPotVel[3];
     MyFloat MinPot;
 
@@ -632,15 +629,14 @@ extern struct particle_data
     pthread_spinlock_t SpinLock;
 #endif
 
-    int RegionInd; /* which region the particle belongs to */
+    float GravCost;		/*!< weight factor used for balancing the work-load */
+
+    int Ti_begstep;		/*!< marks start of current timestep of particle on integer timeline */
+    int Ti_current;		/*!< current time of the particle */
 
 
-    MyDouble Pos[3];   /*!< particle position at its current time */
-    MyDouble Mass;     /*!< particle mass */
-    /* The peano key is a hash of the position used in the domain decomposition.
-     * It is slow to generate so we store it here.*/
-    peanokey Key;
-
+    double Pos[3];   /*!< particle position at its current time */
+    float Mass;     /*!< particle mass */
     struct {
         unsigned int Evaluated :1;
         unsigned int DensityIterationDone :1;
@@ -651,47 +647,57 @@ extern struct particle_data
         signed char TimeBin;
         /* second byte ends */
         unsigned char Generation; /* How many particles it has spawned*/
+#ifdef WINDS
+        unsigned int IsNewParticle:1; /* whether it is created this step */
+#endif
+#ifdef BLACK_HOLES
+        unsigned int Swallowed : 1; /* whether it is being swallowed */
+#endif
     };
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
     MyIDType ID;
-#ifdef BLACK_HOLES
-    MyIDType SwallowID; /* who will swallow this particle */
-#endif
-    MyDouble Vel[3];   /*!< particle velocity at its current time */
-    MyFloat       GravAccel[3];		/*!< particle acceleration due to gravity */
 
-    MyFloat GravPM[3];		/*!< particle acceleration due to long-range PM gravity force */
+    MyFloat Vel[3];   /* particle velocity at its current time */
+    MyFloat GravAccel[3];  /* particle acceleration due to short-range gravity */
 
-    MyFloat       Potential;		/*!< gravitational potential */
+    MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
+    MyFloat OldAcc;			/* magnitude of old gravitational force. Used in relative opening
+                              criterion, only used by gravtree cross time steps */
 
-    MyFloat OldAcc;			/*!< magnitude of old gravitational force. Used in relative opening
-                              criterion */
-    MyFloat PM_Potential;
+    MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree is called. */
+    MyFloat PM_Potential;  /* Only used by PM. useless after pm */
 
-#ifdef WINDS
-    MyFloat StellarAge;		/*!< formation time of star particle: needed to tell when wind is active. */
-#endif
+    MyFloat StarFormationTime;		/*!< formation time of star particle: needed to tell when wind is active. */
+
 #ifdef METALS
     MyFloat Metallicity;		/*!< metallicity of gas or star particle */
 #endif				/* closes METALS */
 
     MyFloat Hsml;
 
-    union
-    {
-        MyFloat       NumNgb;
-        MyDouble dNumNgb;
-    } n;
+#ifdef BLACK_HOLES
+    /* SwallowID is not reset in blackhole.c thus cannot be in a union */
+    MyIDType SwallowID; /* who will swallow this particle, used only in blackhole.c */
+#endif
 
-    int64_t GrNr;
-    int origintask;
-    int targettask;
+    union {
+        /* the following variables are transients.
+         * FIXME: move them into the corresponding modules! Is it possible? */
 
-    float GravCost;		/*!< weight factor used for balancing the work-load */
+        MyFloat NumNgb; /* Number of neighbours; only used in density.c */
 
-    int Ti_begstep;		/*!< marks start of current timestep of particle on integer timeline */
-    int Ti_current;		/*!< current time of the particle */
+        int RegionInd; /* which region the particle belongs to; only by petapm.c */
+
+        /* The peano key is a hash of the position used in the domain decomposition.
+         * It is slow to generate so we store it here.*/
+        peanokey Key; /* only by domain.c */
+        struct {
+            int64_t GrNr;   /* used by fof.c which calls domain_exchange that doesn't uses peanokey */
+            int origintask;
+            int targettask;
+        };
+    };
 
 }
 *P;				/*!< holds particle data on local processor */
@@ -711,9 +717,9 @@ extern struct sph_particle_data
 #define EOMDensity Density
 #endif
 
-    MyDouble Entropy;		/*!< current value of entropy (actually entropic function) of particle */
-    MyFloat  Pressure;		/*!< current pressure */
-    MyFloat  VelPred[3];		/*!< predicted SPH particle velocity at the current time */
+    MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
+    MyFloat Pressure;		/*!< current pressure */
+    MyFloat VelPred[3];		/*!< predicted SPH particle velocity at the current time */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
 #ifdef VOLUME_CORRECTION
     MyFloat DensityOld;
@@ -780,4 +786,32 @@ SysState, SysStateAtStart, SysStateAtEnd;
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
+
+static inline double
+dotproduct(double v1[3], double v2[2])
+{
+    double r =0;
+    int d;
+    for(d = 0; d < 3; d ++) {
+        r += v1[d] * v2[d];
+    }
+    return r;
+}
+
+static inline void crossproduct(double v1[3], double v2[3], double out[3])
+{
+    static int D2[3] = {1, 2, 0};
+    static int D3[3] = {2, 0, 1};
+
+    int d1, d2, d3;
+
+    for(d1 = 0; d1 < 3; d1++)
+    {
+        d2 = D2[d1];
+        d3 = D3[d1];
+
+        out[d1] = (v1[d2] * v2[d3] -  v2[d2] * v1[d3]);
+    }
+}
+
 #endif

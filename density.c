@@ -16,11 +16,15 @@
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */
-struct densdata_in
+typedef struct {
+    TreeWalkNgbIterBase base;
+    DensityKernel kernel;
+    double kernel_volume;
+} TreeWalkNgbIterDensity;
+
+typedef struct
 {
-    int NodeList[NODELISTLENGTH];
-    MyIDType ID;
-    MyDouble Pos[3];
+    TreeWalkQueryBase base;
     MyFloat Vel[3];
     MyFloat Hsml;
 #ifdef VOLUME_CORRECTION
@@ -30,30 +34,21 @@ struct densdata_in
     MyFloat DelayTime;
 #endif
     int Type;
-};
+} TreeWalkQueryDensity;
 
-struct densdata_out
-{
-    MyIDType ID;
+typedef struct {
+    TreeWalkResultBase base;
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyRho;
     MyFloat DhsmlEgyDensity;
 #endif
-    MyDouble Rho;
-    MyDouble DhsmlDensity;
-    MyDouble Ngb;
-    MyDouble Div, Rot[3];
+    MyFloat Rho;
+    MyFloat DhsmlDensity;
+    MyFloat Ngb;
+    MyFloat Div;
+    MyFloat Rot[3];
 
-#ifdef BLACK_HOLES
-    MyDouble SmoothedEntropy;
-    MyDouble SmoothedPressure;
-    MyDouble FeedbackWeightSum;
-    MyDouble GasVel[3];
-#endif
-
-#ifdef HYDRO_COST_FACTOR
     int Ninteractions;
-#endif
 
 #ifdef VOLUME_CORRECTION
     MyFloat DensityStd;
@@ -62,16 +57,26 @@ struct densdata_out
 #ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
 #endif
-};
+} TreeWalkResultDensity;
+
+static double *Left, *Right;
+static int NIteration;
+static int NPLeft;
+
+static void
+density_ngbiter(
+        TreeWalkQueryDensity * I,
+        TreeWalkResultDensity * O,
+        TreeWalkNgbIterDensity * iter,
+        LocalTreeWalk * lv);
 
 static int density_isactive(int n);
-static int density_evaluate(int target, int mode, struct densdata_in * I, struct densdata_out * O, LocalTreeWalk * lv);
-static void density_post_process(int i);
-static void density_check_neighbours(int i, MyFloat * Left, MyFloat * Right);
+static void density_postprocess(int i);
+static void density_check_neighbours(int i);
 
 
-static void density_reduce(int place, struct densdata_out * remote, int mode);
-static void density_copy(int place, struct densdata_in * I);
+static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode);
+static void density_copy(int place, TreeWalkQueryDensity * I);
 
 /*! \file density.c
  *  \brief SPH density computation and smoothing length determination
@@ -97,21 +102,22 @@ static void density_copy(int place, struct densdata_in * I);
 
 void density(void)
 {
-    MyFloat *Left, *Right;
+    TreeWalk tw[1] = {0};
 
-    TreeWalk ev = {0};
+    tw->ev_label = "DENSITY";
+    tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+    tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterDensity);
+    tw->ngbiter = (TreeWalkNgbIterFunction) density_ngbiter;
 
-    ev.ev_label = "DENSITY";
-    ev.ev_evaluate = (ev_ev_func) density_evaluate;
-    ev.ev_isactive = density_isactive;
-    ev.ev_copy = (ev_copy_func) density_copy;
-    ev.ev_reduce = (ev_reduce_func) density_reduce;
-    ev.UseNodeList = 1;
-    ev.ev_datain_elsize = sizeof(struct densdata_in);
-    ev.ev_dataout_elsize = sizeof(struct densdata_out);
+    tw->isactive = density_isactive;
+    tw->fill = (TreeWalkFillQueryFunction) density_copy;
+    tw->reduce = (TreeWalkReduceResultFunction) density_reduce;
+    tw->postprocess = (TreeWalkProcessFunction) density_postprocess;
+    tw->UseNodeList = 1;
+    tw->query_type_elsize = sizeof(TreeWalkQueryDensity);
+    tw->result_type_elsize = sizeof(TreeWalkResultDensity);
 
-    int i, iter = 0;
-
+    int i;
     int64_t ntot = 0;
 
     double timeall = 0;
@@ -121,8 +127,10 @@ void density(void)
 
     walltime_measure("/Misc");
 
-    Left = (MyFloat *) mymalloc("Left", NumPart * sizeof(MyFloat));
-    Right = (MyFloat *) mymalloc("Right", NumPart * sizeof(MyFloat));
+    Left = (double *) mymalloc("Left", NumPart * sizeof(double));
+    Right = (double *) mymalloc("Right", NumPart * sizeof(double));
+
+    NIteration = 0;
 
     int Nactive;
     int * queue;
@@ -137,15 +145,12 @@ void density(void)
 
     /* the queue has every particle. Later on after some iterations are done
      * Nactive will decrease -- the queue would be shorter.*/
-    queue = ev_get_queue(&ev, &Nactive);
+    queue = treewalk_get_queue(tw, &Nactive);
 #pragma omp parallel for if(Nactive > 32)
     for(i = 0; i < Nactive; i ++) {
         int p = queue[i];
         Left[p] = 0;
         Right[p] = 0;
-#ifdef BLACK_HOLES
-        P[p].SwallowID = 0;
-#endif
     }
     myfree(queue);
 
@@ -154,72 +159,38 @@ void density(void)
     walltime_measure("/SPH/Density/Init");
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
-    do
-    {
+    do {
+        NPLeft = 0;
 
-        ev_run(&ev);
+        treewalk_run(tw);
+        sumup_large_ints(1, &NPLeft, &ntot);
 
-        /* do final operations on results */
-        tstart = second();
+        if(ntot == 0) break;
 
-        queue = ev_get_queue(&ev, &Nactive);
-
-        int npleft = 0;
-#pragma omp parallel for if(Nactive > 32)
-        for(i = 0; i < Nactive; i++) {
-            int p = queue[i];
-            density_post_process(p);
-            /* will notify by setting DensityIterationDone */
-            density_check_neighbours(p, Left, Right);
-            if(iter >= MAXITER - 10)
+        NIteration ++;
+        /*
+        if(ntot < 1 ) {
+            for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
             {
-                 message(1, "i=%d task=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-                     queue[p], ThisTask, P[p].ID, P[p].Hsml, Left[p], Right[p],
-                     (float) P[p].n.NumNgb, Right[p] - Left[p], P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
-            }
-
-            if(!P[p].DensityIterationDone) {
-#pragma omp atomic
-                npleft ++;
-            }
-        }
-
-        myfree(queue);
-        tend = second();
-        timecomp3 += timediff(tstart, tend);
-
-        sumup_large_ints(1, &npleft, &ntot);
-
-        if(ntot > 0)
-        {
-            iter++;
-
-            /*
-            if(ntot < 1 ) {
-                for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-                {
-                    if(density_isactive(i) && !P[i].DensityIterationDone) {
-                        message
-                            (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
-                             i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, Left[i], Right[i],
-                             (float) P[i].n.NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-                    }
+                if(density_isactive(i) && !P[i].DensityIterationDone) {
+                    message
+                        (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+                         i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, Left[i], Right[i],
+                         (float) P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
                 }
-
-            }
-            */
-
-            if(iter > 0) {
-                message(0, "ngb iteration %d: need to repeat for %ld particles.\n", iter, ntot);
             }
 
-            if(iter > MAXITER)
-            {
-                endrun(1155, "failed to converge in neighbour iteration in density()\n");
-            }
         }
-    }
-    while(ntot > 0);
+        */
+
+        if(NIteration > 0) {
+            message(0, "ngb iteration %d: need to repeat for %ld particles.\n", NIteration, ntot);
+        }
+
+        if(NIteration > MAXITER) {
+            endrun(1155, "failed to converge in neighbour iteration in density()\n");
+        }
+    } while(1);
 
     myfree(Right);
     myfree(Left);
@@ -229,9 +200,9 @@ void density(void)
 
     timeall = walltime_measure(WALLTIME_IGNORE);
 
-    timecomp = timecomp3 + ev.timecomp1 + ev.timecomp2;
-    timewait = ev.timewait1 + ev.timewait2;
-    timecomm = ev.timecommsumm1 + ev.timecommsumm2;
+    timecomp = tw->timecomp3 + tw->timecomp1 + tw->timecomp2;
+    timewait = tw->timewait1 + tw->timewait2;
+    timecomm = tw->timecommsumm1 + tw->timecommsumm2;
 
     walltime_add("/SPH/Density/Compute", timecomp);
     walltime_add("/SPH/Density/Wait", timewait);
@@ -239,47 +210,18 @@ void density(void)
     walltime_add("/SPH/Density/Misc", timeall - (timecomp + timewait + timecomm));
 }
 
-double density_decide_hsearch(int targettype, double h) {
-#ifdef BLACK_HOLES
-    if(targettype == 5 && All.BlackHoleFeedbackRadius > 0) {
-        /* BlackHoleFeedbackRadius is in comoving.
-         * The Phys radius is capped by BlackHoleFeedbackRadiusMaxPhys
-         * just like how it was done for grav smoothing.
-         * */
-        double rds;
-        rds = All.BlackHoleFeedbackRadiusMaxPhys / All.cf.a;
-
-        if(rds > All.BlackHoleFeedbackRadius) {
-            rds = All.BlackHoleFeedbackRadius;
-        }
-        return rds;
-    } else {
-        return h;
-    }
-#else
-    return h;
-#endif
-
-}
-
-static void density_copy(int place, struct densdata_in * I) {
-    I->ID = P[place].ID;
-    I->Pos[0] = P[place].Pos[0];
-    I->Pos[1] = P[place].Pos[1];
-    I->Pos[2] = P[place].Pos[2];
+static void density_copy(int place, TreeWalkQueryDensity * I) {
     I->Hsml = P[place].Hsml;
 
     I->Type = P[place].Type;
 
-#ifdef BLACK_HOLES
     if(P[place].Type != 0)
     {
-        I->Vel[0] = 0;
-        I->Vel[1] = 0;
-        I->Vel[2] = 0;
+        I->Vel[0] = P[place].Vel[0];
+        I->Vel[1] = P[place].Vel[1];
+        I->Vel[2] = P[place].Vel[2];
     }
     else
-#endif
     {
         I->Vel[0] = SPHP(place).VelPred[0];
         I->Vel[1] = SPHP(place).VelPred[1];
@@ -295,267 +237,144 @@ static void density_copy(int place, struct densdata_in * I) {
 
 }
 
-static void density_reduce(int place, struct densdata_out * remote, int mode) {
-    EV_REDUCE(P[place].n.dNumNgb, remote->Ngb);
+static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode) {
+    TREEWALK_REDUCE(P[place].NumNgb, remote->Ngb);
 
-    if(remote->ID != P[place].ID) {
-        BREAKPOINT;
-    }
-#ifdef HYDRO_COST_FACTOR
     /* these will be added */
-    P[place].GravCost += HYDRO_COST_FACTOR * All.cf.a * remote->Ninteractions;
-#endif
+    P[place].GravCost += All.HydroCostFactor * All.cf.a * remote->Ninteractions;
 
     if(P[place].Type == 0)
     {
-        EV_REDUCE(SPHP(place).Density, remote->Rho);
-        EV_REDUCE(SPHP(place).DhsmlDensityFactor, remote->DhsmlDensity);
+        TREEWALK_REDUCE(SPHP(place).Density, remote->Rho);
+        TREEWALK_REDUCE(SPHP(place).DhsmlDensityFactor, remote->DhsmlDensity);
 #ifdef DENSITY_INDEPENDENT_SPH
-        EV_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
-        EV_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
+        TREEWALK_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
+        TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
 #endif
 
-        EV_REDUCE(SPHP(place).DivVel, remote->Div);
-        EV_REDUCE(SPHP(place).Rot[0], remote->Rot[0]);
-        EV_REDUCE(SPHP(place).Rot[1], remote->Rot[1]);
-        EV_REDUCE(SPHP(place).Rot[2], remote->Rot[2]);
+        TREEWALK_REDUCE(SPHP(place).DivVel, remote->Div);
+        TREEWALK_REDUCE(SPHP(place).Rot[0], remote->Rot[0]);
+        TREEWALK_REDUCE(SPHP(place).Rot[1], remote->Rot[1]);
+        TREEWALK_REDUCE(SPHP(place).Rot[2], remote->Rot[2]);
 
 #ifdef VOLUME_CORRECTION
-        EV_REDUCE(SPHP(place).DensityStd, remote->DensityStd);
+        TREEWALK_REDUCE(SPHP(place).DensityStd, remote->DensityStd);
 #endif
 
 #ifdef SPH_GRAD_RHO
-        EV_REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
-        EV_REDUCE(SPHP(place).GradRho[1], remote->GradRho[1]);
-        EV_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
+        TREEWALK_REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
+        TREEWALK_REDUCE(SPHP(place).GradRho[1], remote->GradRho[1]);
+        TREEWALK_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
 #endif
 
     }
 
-#ifdef BLACK_HOLES
-    if(P[place].Type == 5)
-    {
-        EV_REDUCE(BHP(place).Density, remote->Rho);
-        EV_REDUCE(BHP(place).FeedbackWeightSum, remote->FeedbackWeightSum);
-        EV_REDUCE(BHP(place).Entropy, remote->SmoothedEntropy);
-        EV_REDUCE(BHP(place).Pressure, remote->SmoothedPressure);
-
-        EV_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
-        EV_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
-        EV_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
-    }
-#endif
 }
-/*! This function represents the core of the SPH density computation. The
- *  target particle may either be local, or reside in the communication
- *  buffer.
+
+/******
+ *
+ *  This function represents the core of the SPH density computation.
+ *
+ *  The neighbours of the particle in the Query are enumerated, and results
+ *  are stored into the Result object.
+ *
+ *  Upon start-up we initialize the iterator with the density kernels used in
+ *  the computation. The assumption is the density kernels are slow to
+ *  initialize.
+ *
  */
-static int density_evaluate(int target, int mode,
-        struct densdata_in * I,
-        struct densdata_out * O,
+
+static void
+density_ngbiter(
+        TreeWalkQueryDensity * I,
+        TreeWalkResultDensity * O,
+        TreeWalkNgbIterDensity * iter,
         LocalTreeWalk * lv)
 {
-    int n;
+    if(iter->base.other == -1) {
+        double h;
+        double hsearch;
+        h = I->Hsml;
+        density_kernel_init(&iter->kernel, h);
+        iter->kernel_volume = density_kernel_volume(&iter->kernel);
 
-    int startnode, numngb, numngb_inbox, listindex = 0;
+        iter->base.Hsml = h;
+        iter->base.mask = 1; /* gas only */
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        return;
+    }
+    int other = iter->base.other;
+    double r = iter->base.r;
+    double r2 = iter->base.r2;
+    double * dist = iter->base.dist;
 
-    double h;
-    double hsearch;
-
-    int ninteractions = 0;
-    int nnodesinlist = 0;
-
-    DensityKernel kernel;
-#ifdef BLACK_HOLES
-    DensityKernel bh_feedback_kernel;
+#ifdef WINDS
+    if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
+        if(SPHP(other).DelayTime > 0)	/* partner is a wind particle */
+            if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
+                return;
+    }
 #endif
 
-    startnode = I->NodeList[0];
-    listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+    if(P[other].Mass == 0)
+        return;
 
-    h = I->Hsml;
-    hsearch = density_decide_hsearch(I->Type, h);
-
-    density_kernel_init(&kernel, h);
-    double kernel_volume = density_kernel_volume(&kernel);
-
-#ifdef BLACK_HOLES
-    density_kernel_init(&bh_feedback_kernel, hsearch);
-#endif
-
-    numngb = 0;
-
-    while(startnode >= 0)
+    if(r2 < iter->kernel.HH)
     {
-        while(startnode >= 0)
-        {
-            numngb_inbox =
-                ngb_treefind_threads(I->Pos, hsearch, target, &startnode,
-                        mode, lv, NGB_TREEFIND_ASYMMETRIC, 1); /* gas only 1<<0 */
 
-            if(numngb_inbox < 0)
-                return numngb_inbox;
+        double u = r * iter->kernel.Hinv;
+        double wk = density_kernel_wk(&iter->kernel, u);
+        double dwk = density_kernel_dwk(&iter->kernel, u);
 
-            for(n = 0; n < numngb_inbox; n++)
-            {
-                ninteractions++;
-                int j = lv->ngblist[n];
-#ifdef WINDS
-                if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
-                    if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
-                        if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
-                            continue;
-                }
-#endif
-#ifdef BLACK_HOLES
-                if(P[j].Mass == 0)
-                    continue;
-#ifdef WINDS
-                    /* blackhole doesn't accrete from wind, regardlies coupled or
-                     * not */
-                if(I->Type == 5 && SPHP(j).DelayTime > 0)	/* partner is a wind particle */
-                            continue;
-#endif
-#endif
-                double dx = I->Pos[0] - P[j].Pos[0];
-                double dy = I->Pos[1] - P[j].Pos[1];
-                double dz = I->Pos[2] - P[j].Pos[2];
+        double mass_j = P[other].Mass;
 
-                dx = NEAREST(dx);
-                dy = NEAREST(dy);
-                dz = NEAREST(dz);
-
-                double r2 = dx * dx + dy * dy + dz * dz;
-
-                double r = sqrt(r2);
-
-                if(r2 < kernel.HH)
-                {
-
-                    double u = r * kernel.Hinv;
-                    double wk = density_kernel_wk(&kernel, u);
-                    double dwk = density_kernel_dwk(&kernel, u);
-
-                    double mass_j = P[j].Mass;
-
-                    numngb++;
 #ifdef VOLUME_CORRECTION
-                    O->Rho += (mass_j * wk * pow(I->DensityOld / SPHP(j).DensityOld, VOLUME_CORRECTION));
-                    O->DensityStd += (mass_j * wk);
+        O->Rho += (mass_j * wk * pow(I->DensityOld / SPHP(other).DensityOld, VOLUME_CORRECTION));
+        O->DensityStd += (mass_j * wk);
 #else
-                    O->Rho += (mass_j * wk);
+        O->Rho += (mass_j * wk);
 #endif
-                    O->Ngb += wk * kernel_volume;
+        O->Ngb += wk * iter->kernel_volume;
 
-                    /* Hinv is here becuase O->DhsmlDensity is drho / dH.
-                     * nothing to worry here */
-                    O->DhsmlDensity += mass_j * density_kernel_dW(&kernel, u, wk, dwk);
+        /* Hinv is here becuase O->DhsmlDensity is drho / dH.
+         * nothing to worry here */
+        O->DhsmlDensity += mass_j * density_kernel_dW(&iter->kernel, u, wk, dwk);
 
 #ifdef DENSITY_INDEPENDENT_SPH
-                    O->EgyRho += mass_j * SPHP(j).EntVarPred * wk;
-                    O->DhsmlEgyDensity += mass_j * SPHP(j).EntVarPred * density_kernel_dW(&kernel, u, wk, dwk);
-#endif
-
-
-#ifdef BLACK_HOLES
-                    O->SmoothedPressure += (mass_j * wk * SPHP(j).Pressure);
-                    O->SmoothedEntropy += (mass_j * wk * SPHP(j).Entropy);
-                    O->GasVel[0] += (mass_j * wk * SPHP(j).VelPred[0]);
-                    O->GasVel[1] += (mass_j * wk * SPHP(j).VelPred[1]);
-                    O->GasVel[2] += (mass_j * wk * SPHP(j).VelPred[2]);
+        O->EgyRho += mass_j * SPHP(other).EntVarPred * wk;
+        O->DhsmlEgyDensity += mass_j * SPHP(other).EntVarPred * density_kernel_dW(&iter->kernel, u, wk, dwk);
 #endif
 
 #ifdef SPH_GRAD_RHO
-                    if(r > 0)
-                    {
-                        O->GradRho[0] += mass_j * dwk * dx / r;
-                        O->GradRho[1] += mass_j * dwk * dy / r;
-                        O->GradRho[2] += mass_j * dwk * dz / r;
-                    }
-#endif
-
-
-                    if(r > 0)
-                    {
-                        double fac = mass_j * dwk / r;
-
-                        double dvx = I->Vel[0] - SPHP(j).VelPred[0];
-                        double dvy = I->Vel[1] - SPHP(j).VelPred[1];
-                        double dvz = I->Vel[2] - SPHP(j).VelPred[2];
-
-                        O->Div += (-fac * (dx * dvx + dy * dvy + dz * dvz));
-
-                        O->Rot[0] += (fac * (dz * dvy - dy * dvz));
-                        O->Rot[1] += (fac * (dx * dvz - dz * dvx));
-                        O->Rot[2] += (fac * (dy * dvx - dx * dvy));
-                    }
-                }
-#ifdef BLACK_HOLES
-                if(I->Type == 5 && r2 < bh_feedback_kernel.HH)
-                {
-#ifdef WINDS
-                    /* blackhole doesn't accrete from wind, regardlies coupled or
-                     * not */
-                    if(SPHP(j).DelayTime > 0)	/* partner is a wind particle */
-                            continue;
-#endif
-                    double mass_j;
-                    if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_OPTTHIN)) {
-                        double nh0 = 1.0;
-                        double nHeII = 0;
-                        double ne = SPHP(j).Ne;
-                        struct UVBG uvbg;
-                        GetParticleUVBG(j, &uvbg);
-                        AbundanceRatios(DMAX(All.MinEgySpec,
-                                    SPHP(j).Entropy / GAMMA_MINUS1
-                                    * pow(SPHP(j).EOMDensity * All.cf.a3inv,
-                                        GAMMA_MINUS1)),
-                                SPHP(j).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
-                        if(r2 > 0)
-                            O->FeedbackWeightSum += (P[j].Mass * nh0) / r2;
-                    } else {
-                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_MASS)) {
-                            mass_j = P[j].Mass;
-                        } else {
-                            mass_j = P[j].Hsml * P[j].Hsml * P[j].Hsml;
-                        }
-                        if(HAS(All.BlackHoleFeedbackMethod, BH_FEEDBACK_SPLINE)) {
-                            double u = r * bh_feedback_kernel.Hinv;
-                            O->FeedbackWeightSum += (mass_j *
-                                  density_kernel_wk(&bh_feedback_kernel, u)
-                                   );
-                        } else {
-                            O->FeedbackWeightSum += (mass_j);
-                        }
-                    }
-                }
-#endif
+        if(r > 0)
+        {
+            int d;
+            for (d = 0; d < 3; d ++) {
+                O->GradRho[d] += mass_j * dwk * dist[d] / r;
             }
         }
-        /* now check next node in the node list */
-        if(listindex < NODELISTLENGTH)
+#endif
+
+        if(r > 0)
         {
-            startnode = I->NodeList[listindex];
-            if(startnode >= 0) {
-                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-                listindex++;
-                nnodesinlist ++;
+            double fac = mass_j * dwk / r;
+            double dv[3];
+            double rot[3];
+            int d;
+            for(d = 0; d < 3; d ++) {
+                dv[d] = I->Vel[d] - SPHP(other).VelPred[d];
+            }
+            O->Div += -fac * dotproduct(dist, dv);
+
+            crossproduct(dv, dist, rot);
+            for(d = 0; d < 3; d ++) {
+                O->Rot[d] += fac * rot[d];
             }
         }
     }
 
-    /* Now collect the result at the right place */
-
-    O->ID = I->ID;
     /* some performance measures not currently used */
-#ifdef HYDRO_COST_FACTOR
-    O->Ninteractions = ninteractions;
-#endif
-    lv->Ninteractions += ninteractions;
-    lv->Nnodesinlist += nnodesinlist;
-
-    return 0;
+    O->Ninteractions ++;
 }
 
 static int density_isactive(int n)
@@ -565,18 +384,14 @@ static int density_isactive(int n)
     if(P[n].TimeBin < 0) {
         endrun(9999, "TimeBin negative!\n use DensityIterationDone flag");
     }
-#ifdef BLACK_HOLES
-    if(P[n].Type == 5)
-        return 1;
-#endif
 
-    if(P[n].Type == 0)
+    if(P[n].Type == 0 || P[n].Type == 5)
         return 1;
 
     return 0;
 }
 
-static void density_post_process(int i) {
+static void density_postprocess(int i) {
     if(P[i].Type == 0)
     {
         if(SPHP(i).Density > 0)
@@ -612,39 +427,28 @@ static void density_post_process(int i) {
         }
 
 #ifdef DENSITY_INDEPENDENT_SPH
-    SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
+        SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
 #else
-    int dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
-    int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
-    SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
+        int dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
+        int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
+        SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
 #endif // DENSITY_INDEPENDENT_SPH
 
 #ifdef SOFTEREQS
-    /* use an intermediate EQS, between isothermal and the full multiphase model */
-    if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh) {
-        SPHP(i).Pressure = All.FactorForSofterEQS * SPHP(i).Pressure +
-            (1 - All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
-    }
+        /* use an intermediate EQS, between isothermal and the full multiphase model */
+        if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh) {
+            SPHP(i).Pressure = All.FactorForSofterEQS * SPHP(i).Pressure +
+                (1 - All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
+        }
 #endif //SOFTEREQS
     }
 
-#ifdef BLACK_HOLES
-    if(P[i].Type == 5)
-    {
-        if(BHP(i).Density > 0)
-        {
-            BHP(i).Entropy /= BHP(i).Density;
-            BHP(i).Pressure /= BHP(i).Density;
-
-            BHP(i).SurroundingGasVel[0] /= BHP(i).Density;
-            BHP(i).SurroundingGasVel[1] /= BHP(i).Density;
-            BHP(i).SurroundingGasVel[2] /= BHP(i).Density;
-        }
-    }
-#endif
+    /* This is slightly more complicated so we put it in a different function */
+    /* FIXME: It may make sense to have a seperate tree walk that calculates Hsml only. */
+    density_check_neighbours(i);
 }
 
-void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
+void density_check_neighbours (int i) {
     /* now check whether we had enough neighbours */
 
     double desnumngb = All.DesNumNgb;
@@ -654,8 +458,8 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
         desnumngb = All.DesNumNgb * All.BlackHoleNgbFactor;
 #endif
 
-    if(P[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
-            (P[i].n.NumNgb > (desnumngb + All.MaxNumNgbDeviation)
+    if(P[i].NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
+            (P[i].NumNgb > (desnumngb + All.MaxNumNgbDeviation)
              && P[i].Hsml > (1.01 * All.MinGasHsml)))
     {
         /* need to redo this particle */
@@ -672,7 +476,7 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
                 return;
             }
 
-        if(P[i].n.NumNgb < (desnumngb - All.MaxNumNgbDeviation))
+        if(P[i].NumNgb < (desnumngb - All.MaxNumNgbDeviation))
             Left[i] = DMAX(P[i].Hsml, Left[i]);
         else
         {
@@ -694,10 +498,10 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
 
             if(Right[i] == 0 && Left[i] > 0)
             {
-                if(P[i].Type == 0 && fabs(P[i].n.NumNgb - desnumngb) < 0.5 * desnumngb)
+                if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
-                    double fac = 1 - (P[i].n.NumNgb -
-                            desnumngb) / (NUMDIMS * P[i].n.NumNgb) *
+                    double fac = 1 - (P[i].NumNgb -
+                            desnumngb) / (NUMDIMS * P[i].NumNgb) *
                         SPHP(i).DhsmlDensityFactor;
 
                     if(fac < 1.26)
@@ -711,10 +515,10 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
 
             if(Right[i] > 0 && Left[i] == 0)
             {
-                if(P[i].Type == 0 && fabs(P[i].n.NumNgb - desnumngb) < 0.5 * desnumngb)
+                if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
                 {
-                    double fac = 1 - (P[i].n.NumNgb -
-                            desnumngb) / (NUMDIMS * P[i].n.NumNgb) *
+                    double fac = 1 - (P[i].NumNgb -
+                            desnumngb) / (NUMDIMS * P[i].NumNgb) *
                         SPHP(i).DhsmlDensityFactor;
 
                     if(fac > 1 / 1.26)
@@ -744,5 +548,16 @@ void density_check_neighbours (int i, MyFloat * Left, MyFloat * Right) {
         P[i].DensityIterationDone = 1;
     }
 
+    if(NIteration >= MAXITER - 10)
+    {
+         message(1, "i=%d task=%d ID=%lu Hsml=%g Left=%g Right=%g Ngbs=%g Right-Left=%g\n   pos=(%g|%g|%g)\n",
+             i, ThisTask, P[i].ID, P[i].Hsml, Left[i], Right[i],
+             (float) P[i].NumNgb, Right[i] - Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+    }
+
+    if(!P[i].DensityIterationDone) {
+#pragma omp atomic
+        NPLeft ++;
+    }
 }
 

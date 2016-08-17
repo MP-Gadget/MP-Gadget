@@ -5,6 +5,8 @@ int drift_particle_full(int i, int time1, int blocking);
 void drift_particle(int i, int time1);
 void lock_particle_if_not(int i, MyIDType id);
 void unlock_particle_if_not(int i, MyIDType id);
+void lock_particle(int i);
+void unlock_particle(int i);
 
 int ShouldWeDoDynamicUpdate(void);
 
@@ -15,20 +17,13 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent);
 
 void x86_fix(void) ;
 
-void blackhole_accretion(void);
+void blackhole(void);
 void blackhole_make_one(int index);
 
 int  blackhole_compare_key(const void *a, const void *b);
 
 double get_random_number(MyIDType id);
 void set_random_numbers(void);
-
-int data_index_compare(const void *a, const void *b);
-
-void mysort_dataindex(void *b, size_t n, size_t s, int (*cmp) (const void *, const void *));
-
-size_t my_fwrite(void *ptr, size_t size, size_t nmemb, FILE * stream);
-size_t my_fread(void *ptr, size_t size, size_t nmemb, FILE * stream);
 
 double density_decide_hsearch(int targettype, double h);
 

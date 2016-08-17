@@ -1,59 +1,89 @@
 #ifndef _EVALUATOR_H_
 #define _EVALUATOR_H_
 
-extern int *Send_offset, *Send_count, *Recv_count, *Recv_offset;
-void TreeWalk_allocate_memory(void);
+enum NgbTreeFindSymmetric {
+    NGB_TREEFIND_SYMMETRIC,
+    NGB_TREEFIND_ASYMMETRIC,
+};
 
+enum TreeWalkReduceMode {
+    TREEWALK_PRIMARY,
+    TREEWALK_GHOSTS,
+};
+void TreeWalk_allocate_memory(void);
 struct _TreeWalk;
-typedef struct _LocalTreeWalk {
-    struct _TreeWalk * ev;
+
+typedef struct {
+    MyIDType ID;
+    int NodeList[NODELISTLENGTH];
+    double Pos[3];
+} TreeWalkQueryBase;
+
+typedef struct {
+    MyIDType ID;
+} TreeWalkResultBase;
+
+typedef struct {
+    enum NgbTreeFindSymmetric symmetric;
+    int mask;
+    double Hsml;
+    double dist[3];
+    double r2;
+    double r;
+    int other;
+} TreeWalkNgbIterBase;
+
+typedef struct {
+    struct _TreeWalk * tw;
+
+    int mode; /* 0 for Primary, 1 for Secondary */
+    int target; /* defined only for primary (mode == 0) */
+
     int *exportflag;
     int *exportnodecount;
     int *exportindex;
+    int * ngblist;
     int64_t Ninteractions;
     int64_t Nnodesinlist;
-    int * ngblist;
 } LocalTreeWalk;
 
-typedef int (*ev_ev_func) (const int target, const int mode, 
-        void * input, void * output, LocalTreeWalk * lv);
+typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, LocalTreeWalk * lv);
 
-typedef int (*ev_isactive_func) (const int i);
+typedef int (*TreeWalkNgbIterFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, TreeWalkNgbIterBase * iter, LocalTreeWalk * lv);
 
-typedef void (*ev_copy_func)(const int j, void * data_in);
-/* mode == 0 is to set the initial local value
- * mode == 1 is to reduce the remote results */
-typedef void (*ev_reduce_func)(const int j, void * data_result, const int mode);
+typedef int (*TreeWalkIsActiveFunction) (const int i);
+typedef int (*TreeWalkProcessFunction) (const int i);
 
-struct ev_task {
-    int top_node;
-    int place; 
-} ;
-
+typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query);
+typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode);
 
 typedef struct _TreeWalk {
-    ev_ev_func ev_evaluate;
-    ev_isactive_func ev_isactive;
-    ev_copy_func ev_copy;
-    ev_reduce_func ev_reduce;
-    char * ev_label;  /* name of the evaluator (used in printing messages) */
+    /* name of the evaluator (used in printing messages) */
+    char * ev_label;
 
-    int * ngblist;
+    TreeWalkVisitFunction visit;
+    TreeWalkIsActiveFunction isactive;
+    TreeWalkFillQueryFunction fill;
+    TreeWalkReduceResultFunction reduce;
+    TreeWalkNgbIterFunction ngbiter;
+    TreeWalkProcessFunction postprocess;
 
     char * dataget;
     char * dataresult;
 
     int UseNodeList;
-    int UseAllParticles; /* if 1 use all particles 
+    int UseAllParticles; /* if 1 use all particles
                              if 0 use active particles */
-    size_t ev_datain_elsize;
-    size_t ev_dataout_elsize;
-    
+    size_t query_type_elsize;
+    size_t result_type_elsize;
+    size_t ngbiter_type_elsize;
+
     /* performance metrics */
     double timewait1;
     double timewait2;
     double timecomp1;
     double timecomp2;
+    double timecomp3;
     double timecommsumm1;
     double timecommsumm2;
     int64_t Ninteractions;
@@ -62,42 +92,28 @@ typedef struct _TreeWalk {
     int64_t Niterations;
 
     /* internal flags*/
+
     int Nexport;
     int Nimport;
     int BufferFullFlag;
+    int BunchSize;
 
     struct ev_task * PrimaryTasks;
     int * PQueue;
-    int PQueueEnd;
+    int PQueueSize;
 
     /* per worker thread*/
     int *currentIndex;
     int *currentEnd;
 } TreeWalk;
 
-/*!< the particles to be exported are grouped
-by task-number. This table allows the
-results to be disentangled again and to be
-assigned to the correct particle */
-struct data_index
-{
-    int Task;
-    int Index;
-    int IndexGet;
-};
-
-void ev_run(TreeWalk * ev);
-void ev_begin(TreeWalk * ev);
-void ev_finish(TreeWalk * ev);
-int ev_primary(TreeWalk * ev); 
-void ev_get_remote(TreeWalk * ev, int tag);
-void ev_secondary(TreeWalk * ev);
-void ev_reduce_result(TreeWalk * ev, int tag);
-int * ev_get_queue(TreeWalk * ev, int * len);
+void treewalk_run(TreeWalk * tw);
+int * treewalk_get_queue(TreeWalk * tw, int * len);
+int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
+            TreeWalkResultBase * O,
+            LocalTreeWalk * lv);
 
 /*returns -1 if the buffer is full */
-int ev_export_particle(LocalTreeWalk * lv, int target, int no);
-
-int ev_ndone(TreeWalk * ev);
-#define EV_REDUCE(A, B) (A) = (mode==0)?(B):((A) + (B))
+int treewalk_export_particle(LocalTreeWalk * lv, int no);
+#define TREEWALK_REDUCE(A, B) (A) = (mode==TREEWALK_PRIMARY)?(B):((A) + (B))
 #endif

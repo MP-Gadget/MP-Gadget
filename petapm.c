@@ -89,7 +89,7 @@ static int Nregions = 0;
 
 static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
 #define POS(i) ((double*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_pos]))
-#define MASS(i) ((double*) (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_mass]))
+#define MASS(i) ((float*) (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_mass]))
 #define REGION(i) ((int*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_regionind]))
 
 PetaPMRegion * petapm_get_fourier_region() {
@@ -193,10 +193,10 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
 
     plan_forw = pfft_plan_dft_r2c_3d(
         n, real, rho_k, comm_cart_2d, PFFT_FORWARD, 
-        PFFT_TRANSPOSED_OUT | PFFT_ESTIMATE | PFFT_DESTROY_INPUT);    
+        PFFT_TRANSPOSED_OUT | PFFT_ESTIMATE | PFFT_TUNE | PFFT_DESTROY_INPUT);
     plan_back = pfft_plan_dft_c2r_3d(
         n, complx, real, comm_cart_2d, PFFT_BACKWARD, 
-        PFFT_TRANSPOSED_IN | PFFT_ESTIMATE | PFFT_DESTROY_INPUT);    
+        PFFT_TRANSPOSED_IN | PFFT_ESTIMATE | PFFT_TUNE | PFFT_DESTROY_INPUT);
 
     pm_free();
 
@@ -809,8 +809,8 @@ static void verify_density_field() {
     double mass_Part = 0;
 #pragma omp parallel for reduction(+: mass_Part)
     for(i = 0; i < CPS->NumPart; i ++) {
-        double * Mass = MASS(i);
-        mass_Part += Mass[0];
+        double Mass = *MASS(i);
+        mass_Part += Mass;
     }
     double totmass_Part = 0;
     MPI_Allreduce(&mass_Part, &totmass_Part, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -879,9 +879,9 @@ static void pm_apply_transfer_function(PetaPMRegion * region,
  * functions iterating over particle / mesh pairs
  ***************/
 static void put_particle_to_mesh(int i, double * mesh, double weight) {
-    double * Mass = MASS(i);
+    double Mass = *MASS(i);
 #pragma omp atomic
-    mesh[0] += weight * Mass[0];
+    mesh[0] += weight * Mass;
 }
 static int64_t reduce_int64(int64_t input) {
     int64_t result = 0;

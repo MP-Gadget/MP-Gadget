@@ -150,12 +150,6 @@ void open_outputfiles(void)
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
 
-    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.TimingsFile, postfix);
-    fastpm_path_ensure_dirname(buf);
-    if(!(FdTimings = fopen(buf, mode)))
-        endrun(1, "error in opening file '%s'\n", buf);
-    free(buf);
-
 #ifdef SFR
     buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "sfr.txt", postfix);
     fastpm_path_ensure_dirname(buf);
@@ -187,7 +181,6 @@ void close_outputfiles(void)
 
     fclose(FdCPU);
     fclose(FdEnergy);
-    fclose(FdTimings);
 
 #ifdef SFR
     fclose(FdSfr);

@@ -87,6 +87,7 @@ void init(void)
         P[i].GravCost = 1;
 
 #ifdef BLACK_HOLES
+        P[i].Swallowed = 0;
         if(RestartFlag == 0 && P[i].Type == 5 )
         {
             BHP(i).Mass = All.SeedBlackHoleMass;
@@ -153,8 +154,7 @@ void init(void)
 
     set_softenings();
 
-    /* will build tree */
-    ngb_treebuild();
+    force_treebuild_simple();
 
     All.Ti_Current = 0;
 
