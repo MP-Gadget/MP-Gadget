@@ -2,6 +2,8 @@
 DESTDIR  = build/
 
 MPICC       =   mpicc
+MPICXX       =   mpicxx
+
 OPTIMIZE =  -fopenmp -O0 -g
 HDF_INCL = 
 HDF_LIBS = -lhdf5

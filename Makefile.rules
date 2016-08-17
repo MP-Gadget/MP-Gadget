@@ -53,12 +53,16 @@ EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)
 ICOBJS = $(ICOBJECTS:%=$(DESTDIR)/%)
 FILES = $(shell git ls-files)
-all: depends $(EXEC)
 
-.PHONY: depends
+all: depends builddir $(EXEC)
+
+.PHONY: depends builddir
 
 depends:
 	cd depends; make
+
+builddir:
+	mkdir -p builddir
 
 $(DESTDIR)/MP-Gadget: $(OBJS)
 	$(MPICC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
