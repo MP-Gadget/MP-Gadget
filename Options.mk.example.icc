@@ -7,6 +7,9 @@ CXX      = mpic++
 #
 # Optimized defaults for icc
 OPTIMIZE =  -fopenmp -O3 -ipo -g -Wall -xHost -no-prec-div -fp-model fast
+
+HDF_INCL =
+HDF_LIBS = -lhdf5
 GSL_INCL = $(shell pkg-config --cflags gsl)
 #We don't want to add -lm here on icc
 GSL_LIBS = $(filter-out -lm,$(shell pkg-config --libs gsl))
