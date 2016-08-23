@@ -81,7 +81,7 @@ $(DESTDIR)/main.o: main.c $(INCL) $(DESTDIR)/config.h
 	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<
 
 $(DESTDIR)/%.o: %.cpp $(INCL)
-	@echo Compiling $<; $(CXX) -c -o $@ $(CFLAGS) $<
+	@echo Compiling $<; $(MPICXX) -c -o $@ $(CFLAGS) $<
 
 clean:
 	rm -f $(OBJS) $(EXEC) $(ICOBJS)

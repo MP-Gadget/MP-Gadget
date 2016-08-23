@@ -2,8 +2,8 @@
 DESTDIR  = build/
 
 #Uncomment below to specify default options
-CC       =   mpicc
-CXX      = mpic++
+MPICC       =   mpicc
+MPICXX      = mpic++
 #
 # Optimized defaults for icc
 OPTIMIZE =  -fopenmp -O3 -ipo -g -Wall -xHost -no-prec-div -fp-model fast
