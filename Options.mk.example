@@ -2,15 +2,20 @@
 DESTDIR  = build/
 
 #Uncomment below to specify default options
-#CC       =   mpicc
+
+MPICC       =   mpicc
+MPICXX       =   mpic++
+
+#
 #
 # For GCC add -mpc64 if IEEE 64bit FP is desired.
-#OPTIMIZE =  -fopenmp -O0 -g
+OPTIMIZE =  -fopenmp -O3 -flto -g -Wall -ffast-math -march=native
 
-#HDF_INCL =
-#HDF_LIBS = -lhdf5
-#GSL_INCL =
-#GSL_LIBS = -lgsl -lgslcblas
+HDF_INCL =
+HDF_LIBS = -lhdf5
+GSL_INCL = $(shell pkg-config --cflags gsl)
+GSL_LIBS = $(shell pkg-config --libs gsl)
+
 #
 #--------------------------------------- Basic operation mode of code
 OPT += -DDENSITY_INDEPENDENT_SPH

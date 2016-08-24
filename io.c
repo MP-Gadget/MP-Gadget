@@ -40,7 +40,7 @@ void savepositions(int num, int reason)
     walltime_measure("/Snapshot/Write");
 
     /* regular snapshot, do fof and write it out */
-    if(All.FOFOn && reason == 0) {
+    if(All.SnapshotWithFOF && reason == 0) {
         message(0, "computing group catalogue...\n");
 
         fof_fof(num);

@@ -264,6 +264,8 @@ static void fof_write_header(BigFile * bf) {
 }
 
 SIMPLE_PROPERTY(GroupID, Group[i].base.GrNr, uint32_t, 1)
+SIMPLE_PROPERTY(MinID, Group[i].base.MinID, uint64_t, 1)
+SIMPLE_PROPERTY(FirstPos, Group[i].base.FirstPos[0], float, 3)
 SIMPLE_PROPERTY(MassCenterPosition, Group[i].CM[0], double, 3)
 SIMPLE_PROPERTY(Imom, Group[i].Imom[0][0], float, 9)
 SIMPLE_PROPERTY(Jmom, Group[i].Jmom[0], float, 3)
@@ -283,6 +285,8 @@ void fof_register_io_blocks() {
     IO_REG(GroupID, "u4", 1, PTYPE_FOF_GROUP);
     IO_REG(Mass, "f4", 1, PTYPE_FOF_GROUP);
     IO_REG(MassCenterPosition, "f8", 3, PTYPE_FOF_GROUP);
+    IO_REG(FirstPos, "f4", 3, PTYPE_FOF_GROUP);
+    IO_REG(MinID, "u8", 1, PTYPE_FOF_GROUP);
     IO_REG(Imom, "f4", 9, PTYPE_FOF_GROUP);
     IO_REG(Jmom, "f4", 3, PTYPE_FOF_GROUP);
     IO_REG(MassCenterVelocity, "f4", 3, PTYPE_FOF_GROUP);

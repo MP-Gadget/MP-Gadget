@@ -55,30 +55,34 @@ static int make_particle_star(int i);
 static void starformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
-static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff);
+static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 #endif
 
 #ifdef WINDS
-struct winddata_in {
+typedef struct {
+    TreeWalkQueryBase base;
     int NodeList[NODELISTLENGTH];
     double Sfr;
     double Dt;
-    double Pos[3];
     double Mass;
     double Hsml;
     double TotalWeight;
     double DMRadius;
     double Vdisp;
     double Vmean[3];
-    MyIDType ID;
-};
+} TreeWalkQueryWind;
 
-struct winddata_out {
+typedef struct {
+    TreeWalkResultBase base;
     double TotalWeight;
     double V1sum[3];
     double V2sum;
     int Ngb;
-};
+} TreeWalkResultWind;
+
+typedef struct {
+    TreeWalkNgbIterBase base;
+} TreeWalkNgbIterWind;
 
 static struct winddata {
     double DMRadius;
@@ -96,18 +100,31 @@ static struct winddata {
     int Ngb;
 } * Wind;
 
-static int make_particle_wind(int i, double v, double vmean[3]);
+static int
+make_particle_wind(MyIDType ID, int i, double v, double vmean[3]);
 
-static int sfr_wind_isactive(int target);
-static void sfr_wind_reduce_weight(int place, struct winddata_out * remote, int mode);
-static void sfr_wind_copy(int place, struct winddata_in * input);
-static int sfr_wind_ev_weight(int target, int mode,
-        struct winddata_in * I,
-        struct winddata_out * O,
+static int
+sfr_wind_weight_isactive(int target);
+
+static int
+sfr_wind_feedback_isactive(int target);
+
+static void
+sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode);
+
+static void
+sfr_wind_copy(int place, TreeWalkQueryWind * input);
+
+static void
+sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
+        TreeWalkResultWind * O,
+        TreeWalkNgbIterWind * iter,
         LocalTreeWalk * lv);
-static int sfr_wind_evaluate(int target, int mode,
-        struct winddata_in * I,
-        struct winddata_out * O,
+
+static void
+sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
+        TreeWalkResultWind * O,
+        TreeWalkNgbIterWind * iter,
         LocalTreeWalk * lv);
 
 #endif
@@ -116,12 +133,60 @@ static int sfr_wind_evaluate(int target, int mode,
  * the effective multi-phase model.
  */
 
-static int sfr_cooling_isactive(int target) {
+static int
+sfr_cooling_isactive(int target) {
     return P[target].Type == 0;
 }
 
 
 #ifdef SFR
+
+#ifdef WINDS
+static int NPLeft;
+static void
+sfr_wind_weight_postprocess(int i)
+{
+    int diff = Wind[i].Ngb - 40;
+    if(diff < -2) {
+        /* too few */
+        Wind[i].Left = Wind[i].DMRadius;
+    } else if(diff > 2) {
+        /* too many */
+        Wind[i].Right = Wind[i].DMRadius;
+    } else {
+        P[i].DensityIterationDone = 1;
+    }
+    if(Wind[i].Right >= 0) {
+        /* if Ngb hasn't converged to 40, see if DMRadius converged*/
+        if(Wind[i].Right - Wind[i].Left < 1e-2) {
+            P[i].DensityIterationDone = 1;
+        } else {
+            Wind[i].DMRadius = 0.5 * (Wind[i].Left + Wind[i].Right);
+        }
+    } else {
+        Wind[i].DMRadius *= 1.3;
+    }
+
+    if(P[i].DensityIterationDone) {
+        double vdisp = Wind[i].V2sum / Wind[i].Ngb;
+        int d;
+        for(d = 0; d < 3; d ++) {
+            Wind[i].Vmean[d] = Wind[i].V1sum[d] / Wind[i].Ngb;
+            vdisp -= Wind[i].Vmean[d] * Wind[i].Vmean[d];
+        }
+        Wind[i].Vdisp = sqrt(vdisp / 3);
+    } else {
+#pragma omp atomic
+        NPLeft ++;
+    }
+}
+static void
+sfr_wind_feedback_postprocess(int i)
+{
+    P[i].IsNewParticle = 0;
+}
+#endif
+
 void cooling_and_starformation(void)
     /* cooling routine when star formation is enabled */
 {
@@ -133,15 +198,15 @@ void cooling_and_starformation(void)
     stars_spawned = stars_converted = 0;
     sum_sm = sum_mass_stars = 0;
 
-    TreeWalk ev = {0};
+    TreeWalk tw[1] = {0};
 
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
-    ev.ev_label = "SFR_COOL";
-    ev.ev_isactive = sfr_cooling_isactive;
+    tw->ev_label = "SFR_COOL";
+    tw->isactive = sfr_cooling_isactive;
 
     int Nactive = 0;
-    int * queue = ev_get_queue(&ev, &Nactive);
+    int * queue = treewalk_get_queue(tw, &Nactive);
     int n;
 
 #pragma omp parallel for
@@ -242,77 +307,55 @@ void cooling_and_starformation(void)
     if(!HAS(All.WindModel, WINDS_SUBGRID) && All.WindModel != WINDS_NONE) {
         int i;
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
-        TreeWalk ev = {0};
+        TreeWalk tw[1] = {0};
 
-        ev.ev_label = "SFR_WIND";
-        ev.ev_isactive = sfr_wind_isactive;
-        ev.ev_copy = (ev_copy_func) sfr_wind_copy;
-        ev.ev_reduce = (ev_reduce_func) sfr_wind_reduce_weight;
-        ev.UseNodeList = 1;
-        ev.ev_datain_elsize = sizeof(struct winddata_in);
-        ev.ev_dataout_elsize = sizeof(struct winddata_out);
+        tw->ev_label = "SFR_WIND";
+        tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
+        tw->reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
+        tw->UseNodeList = 1;
+        tw->query_type_elsize = sizeof(TreeWalkQueryWind);
+        tw->result_type_elsize = sizeof(TreeWalkResultWind);
 
         /* sum the total weight of surrounding gas */
-        ev.ev_evaluate = (ev_ev_func) sfr_wind_ev_weight;
+        tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
+        tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterWind);
+        tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_weight_ngbiter;
+        tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
+
+        /* First obtain the wind queue, and set DensityIterationDone for weighting */
+        tw->isactive = (TreeWalkIsActiveFunction) sfr_wind_feedback_isactive;
+
         int Nqueue;
-        int * queue = ev_get_queue(&ev, &Nqueue);
+        int * queue = treewalk_get_queue(tw, &Nqueue);
         for(i = 0; i < Nqueue; i ++) {
             int n = queue[i];
-            P[n].DensityIterationDone = 0;
             Wind[n].DMRadius = 2 * P[n].Hsml;
             Wind[n].Left = 0;
             Wind[n].Right = -1;
-        }
-        int npleft = Nqueue;
-        int done = 0;
-        while(!done) {
-            ev_run(&ev);
-            for(i = 0; i < Nqueue; i ++) {
-                int n = queue[i];
-                if (P[n].DensityIterationDone) continue;
-                int diff = Wind[n].Ngb - 40;
-                if(diff < -2) {
-                    /* too few */
-                    Wind[n].Left = Wind[n].DMRadius;
-                } else if(diff > 2) {
-                    /* too many */
-                    Wind[n].Right = Wind[n].DMRadius;
-                } else {
-                    P[n].DensityIterationDone = 1;
-                    npleft --;
-                }
-                if(Wind[n].Right >= 0) {
-                    /* if Ngb hasn't converged to 40, see if DMRadius converged*/
-                    if(Wind[n].Right - Wind[n].Left < 1e-2) {
-                        P[n].DensityIterationDone = 1;
-                        npleft --;
-                    } else {
-                        Wind[n].DMRadius = 0.5 * (Wind[n].Left + Wind[n].Right);
-                    }
-                } else {
-                    Wind[n].DMRadius *= 1.3;
-                }
-            }
-            int64_t totalleft = 0;
-            sumup_large_ints(1, &npleft, &totalleft);
-            done = totalleft == 0;
-            message(0, "Star DM iteration Total left = %ld\n", totalleft);
-        }
-        for(i = 0; i < Nqueue; i ++) {
-            int n = queue[i];
-            double vdisp = Wind[n].V2sum / Wind[n].Ngb;
-            int k;
-            for(k = 0; k < 3; k ++) {
-                Wind[n].Vmean[k] = Wind[n].V1sum[k] / Wind[n].Ngb;
-                vdisp -= Wind[n].Vmean[k] * Wind[n].Vmean[k];
-            }
-            Wind[n].Vdisp = sqrt(vdisp / 3);
+            P[n].DensityIterationDone = 0;
         }
         myfree(queue);
-        ev.ev_evaluate = (ev_ev_func) sfr_wind_evaluate;
-        ev.ev_reduce = NULL;
 
-        ev_run(&ev);
+        tw->isactive = sfr_wind_weight_isactive;
+
+        int done = 0;
+        while(!done) {
+            NPLeft = 0;
+            treewalk_run(tw);
+
+            int64_t totalleft = 0;
+            sumup_large_ints(1, &NPLeft, &totalleft);
+            message(0, "Star DM iteration Total left = %ld\n", totalleft);
+            done = totalleft == 0;
+        }
+
+        /* Then run feedback */
+        tw->isactive = (TreeWalkIsActiveFunction) sfr_wind_feedback_isactive;
+        tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
+        tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_postprocess;
+        tw->reduce = NULL;
+
+        treewalk_run(tw);
         myfree(Wind);
     }
     walltime_measure("/Cooling/Wind");
@@ -327,15 +370,15 @@ void cooling_only(void)
     if(!All.CoolingOn) return;
     walltime_measure("/Misc");
 
-    TreeWalk ev = {0};
+    TreeWalk tw = {0};
 
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
-    ev.ev_label = "SFR_COOL";
-    ev.ev_isactive = sfr_cooling_isactive;
+    tw.ev_label = "SFR_COOL";
+    tw.isactive = sfr_cooling_isactive;
 
     int Nactive = 0;
-    int * queue = ev_get_queue(&ev, &Nactive);
+    int * queue = treewalk_get_queue(&tw, &Nactive);
     int n;
 
 #pragma omp parallel for
@@ -429,10 +472,9 @@ static int get_sfr_condition(int i) {
     if(SPHP(i).Density < All.OverDensThresh)
         flag = 1;
 
-#if defined(BLACK_HOLES) || defined(GAL_PART)
+    /* massless particles never form stars! */
     if(P[i].Mass == 0)
         flag = 1;
-#endif
 
 #ifdef WINDS
     if(SPHP(i).DelayTime > 0)
@@ -457,26 +499,32 @@ static int get_sfr_condition(int i) {
 }
 
 #ifdef WINDS
-static int sfr_wind_isactive(int target) {
+static int sfr_wind_weight_isactive(int target) {
     if(P[target].Type == 4) {
-        /*
-         * protect beginning of time. StellarAge starts at 0.
-         * */
-        if(All.Time > 0 && P[target].StellarAge == All.Time) {
+        if(P[target].IsNewParticle && !P[target].DensityIterationDone) {
              return 1;
         }
     }
     return 0;
 }
 
-static void sfr_wind_reduce_weight(int place, struct winddata_out * O, int mode) {
-    EV_REDUCE(Wind[place].TotalWeight, O->TotalWeight);
+static int sfr_wind_feedback_isactive(int target) {
+    if(P[target].Type == 4) {
+        if(P[target].IsNewParticle) {
+             return 1;
+        }
+    }
+    return 0;
+}
+
+static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMode mode) {
+    TREEWALK_REDUCE(Wind[place].TotalWeight, O->TotalWeight);
     int k;
     for(k = 0; k < 3; k ++) {
-        EV_REDUCE(Wind[place].V1sum[k], O->V1sum[k]);
+        TREEWALK_REDUCE(Wind[place].V1sum[k], O->V1sum[k]);
     }
-    EV_REDUCE(Wind[place].V2sum, O->V2sum);
-    EV_REDUCE(Wind[place].Ngb, O->Ngb);
+    TREEWALK_REDUCE(Wind[place].V2sum, O->V2sum);
+    TREEWALK_REDUCE(Wind[place].Ngb, O->Ngb);
     /*
     message(1, "Reduce ID=%ld, NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
             P[place].ID, O->Ngb, O->TotalWeight, O->V2sum,
@@ -484,189 +532,133 @@ static void sfr_wind_reduce_weight(int place, struct winddata_out * O, int mode)
             */
 }
 
-static void sfr_wind_copy(int place, struct winddata_in * input) {
+static void sfr_wind_copy(int place, TreeWalkQueryWind * input) {
     double dt = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
     input->Dt = dt;
-    int k;
-    for (k = 0; k < 3; k ++)
-        input->Pos[k] = P[place].Pos[k];
     input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;
     input->TotalWeight = Wind[place].TotalWeight;
-    input->ID = P[place].ID;
 
     input->DMRadius = Wind[place].DMRadius;
     input->Vdisp = Wind[place].Vdisp;
+
+    int k;
     for (k = 0; k < 3; k ++)
         input->Vmean[k] = Wind[place].Vmean[k];
 }
 
-static int sfr_wind_ev_weight(int target, int mode,
-        struct winddata_in * I,
-        struct winddata_out * O,
-        LocalTreeWalk * lv) {
+static void
+sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
+        TreeWalkResultWind * O,
+        TreeWalkNgbIterWind * iter,
+        LocalTreeWalk * lv)
+{
     /* this evaluator walks the tree and sums the total mass of surrounding gas
      * particles as described in VS08. */
-    int startnode, numngb, k, n, listindex = 0;
-    startnode = I->NodeList[0];
-    listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+    /* it also calculates the DM dispersion of the nearest 40 DM paritlces */
+    if(iter->base.other == -1) {
+        double hsearch = DMAX(I->Hsml, I->DMRadius);
+        iter->base.Hsml = hsearch;
+        iter->base.mask = 1 + 2; /* gas and dm */
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        return;
+    }
 
-    double hsearch = DMAX(I->Hsml, I->DMRadius);
-    /*
-    DensityKernel kernel;
-    density_kernel_init(&kernel, I->Hsml);
-    */
-    while(startnode >= 0)
-    {
-        while(startnode >= 0)
-        {
-            numngb = ngb_treefind_threads(I->Pos, hsearch, target, &startnode,
-                    mode, lv, NGB_TREEFIND_SYMMETRIC, 1 + 2);
+    int other = iter->base.other;
+    double r = iter->base.r;
+    double * dist = iter->base.dist;
 
-            if(numngb < 0)
-                return numngb;
+    if(P[other].Type == 0) {
+        if(r > I->Hsml) return;
+        /* Ignore wind particles */
+        if(SPHP(other).DelayTime > 0) return;
+        /* NOTE: think twice if we want a symmetric tree walk when wk is used. */
+        //double wk = density_kernel_wk(&kernel, r);
+        double wk = 1.0;
+        O->TotalWeight += wk * P[other].Mass;
+    }
 
-            for(n = 0; n < numngb; n++)
-            {
-                int j = lv->ngblist[n];
-
-                double dx = I->Pos[0] - P[j].Pos[0];
-                double dy = I->Pos[1] - P[j].Pos[1];
-                double dz = I->Pos[2] - P[j].Pos[2];
-
-                dx = NEAREST(dx);
-                dy = NEAREST(dy);
-                dz = NEAREST(dz);
-                double r2 = dx * dx + dy * dy + dz * dz;
-
-                if(P[j].Type == 0) {
-                    if(r2 > I->Hsml * I->Hsml) continue;
-                    /* Ignore wind particles */
-                    if(SPHP(j).DelayTime > 0) continue;
-                    //double r = sqrt(r2);
-                    //double wk = density_kernel_wk(&kernel, r);
-                    double wk = 1.0;
-                    O->TotalWeight += wk * P[j].Mass;
-                }
-                if(P[j].Type == 1) {
-                    if(r2 > I->DMRadius * I->DMRadius) continue;
-                    O->Ngb ++;
-                    double d[3] = {dx, dy, dz};
-                    for(k = 0; k < 3; k ++) {
-                        double vel = P[j].Vel[k] + All.cf.hubble * All.cf.a * All.cf.a * d[k];
-                        O->V1sum[k] += vel;
-                        O->V2sum += vel * vel;
-                    }
-                }
-
-            }
-            /*
-            message(1, "ThisTask = %d %ld ngb=%d NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
-            ThisTask, I->ID, numngb, O->Ngb, O->TotalWeight, O->V2sum,
-            O->V1sum[0], O->V1sum[1], O->V1sum[2]);
-            */
-        }
-        if(listindex < NODELISTLENGTH)
-        {
-            startnode = I->NodeList[listindex];
-            if(startnode >= 0) {
-                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-                listindex++;
-            }
+    if(P[other].Type == 1) {
+        if(r > I->DMRadius) return;
+        O->Ngb ++;
+        int d;
+        for(d = 0; d < 3; d ++) {
+            /* Add hubble flow; FIXME: this shall be a function, and the direction looks wrong too. */
+            double vel = P[other].Vel[d] + All.cf.hubble * All.cf.a * All.cf.a * dist[d];
+            O->V1sum[d] += vel;
+            O->V2sum += vel * vel;
         }
     }
 
-
-    return 0;
-
-
+    /*
+    message(1, "ThisTask = %d %ld ngb=%d NGB=%d TotalWeight=%g V2sum=%g V1sum=%g %g %g\n",
+    ThisTask, I->ID, numngb, O->Ngb, O->TotalWeight, O->V2sum,
+    O->V1sum[0], O->V1sum[1], O->V1sum[2]);
+    */
 }
-static int sfr_wind_evaluate(int target, int mode,
-        struct winddata_in * I,
-        struct winddata_out * O,
-        LocalTreeWalk * lv) {
+
+static void
+sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
+        TreeWalkResultWind * O,
+        TreeWalkNgbIterWind * iter,
+        LocalTreeWalk * lv)
+{
 
     /* this evaluator walks the tree and blows wind. */
 
-    int startnode, numngb, n, listindex = 0;
-    startnode = I->NodeList[0];
-    listindex ++;
-    startnode = Nodes[startnode].u.d.nextnode;	/* open it */
+    if(iter->base.other == -1) {
+        iter->base.mask = 1;
+        iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
+        iter->base.Hsml = I->Hsml;
+        return;
+    }
+    int other = iter->base.other;
+    double r2 = iter->base.r2;
+    double r = iter->base.r;
 
-    /*
-    DensityKernel kernel;
-    density_kernel_init(&kernel, I->Hsml);
-    */
-    while(startnode >= 0)
-    {
-        while(startnode >= 0)
-        {
-            numngb = ngb_treefind_threads(I->Pos, I->Hsml, target, &startnode,
-                    mode, lv, NGB_TREEFIND_SYMMETRIC, 1);
+    /* skip wind particles */
+    if(SPHP(other).DelayTime > 0) return;
 
-            if(numngb < 0)
-                return numngb;
+    /* this is radius cut is redundant because the tree walk is asymmetric
+     * we may want to use fancier weighting that requires symmetric in the future. */
+    if(r > I->Hsml) return;
 
-            for(n = 0; n < numngb;
-                    (unlock_particle_if_not(lv->ngblist[n], I->ID), n++)
-                    )
-            {
-                lock_particle_if_not(lv->ngblist[n], I->ID);
-                int j = lv->ngblist[n];
-                /* skip wind particles */
-                if(SPHP(j).DelayTime > 0) continue;
-
-                double dx = I->Pos[0] - P[j].Pos[0];
-                double dy = I->Pos[1] - P[j].Pos[1];
-                double dz = I->Pos[2] - P[j].Pos[2];
-
-                dx = NEAREST(dx);
-                dy = NEAREST(dy);
-                dz = NEAREST(dz);
-                double r2 = dx * dx + dy * dy + dz * dz;
-                if(r2 > I->Hsml * I->Hsml) continue;
-
-                double windeff;
-                double v;
-                if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
-                    windeff = All.WindEfficiency;
-                    v = All.WindSpeed * All.cf.a;
-                } else if(HAS(All.WindModel, WINDS_USE_HALO)) {
-                    windeff = 1.0 / (I->Vdisp / All.cf.a / All.WindSigma0);
-                    windeff *= windeff;
-                    v = All.WindSpeedFactor * I->Vdisp;
-                } else {
-                    abort();
-                }
-                //double r = sqrt(r2);
-                //double wk = density_kernel_wk(&kernel, r);
-                double wk = 1.0;
-                double p = windeff * wk * I->Mass / I->TotalWeight;
-                double random = get_random_number(I->ID + P[j].ID);
-                if (random < p) {
-                    make_particle_wind(j, v, I->Vmean);
-                }
-            }
-        }
-        if(listindex < NODELISTLENGTH)
-        {
-            startnode = I->NodeList[listindex];
-            if(startnode >= 0) {
-                startnode = Nodes[startnode].u.d.nextnode;	/* open it */
-                listindex++;
-            }
-        }
+    double windeff;
+    double v;
+    if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
+        windeff = All.WindEfficiency;
+        v = All.WindSpeed * All.cf.a;
+    } else if(HAS(All.WindModel, WINDS_USE_HALO)) {
+        windeff = 1.0 / (I->Vdisp / All.cf.a / All.WindSigma0);
+        windeff *= windeff;
+        v = All.WindSpeedFactor * I->Vdisp;
+    } else {
+        endrun(1, "WindModel = 0x%X is strange. This shall not happen.\n", All.WindModel);
     }
 
-    return 0;
+    //double wk = density_kernel_wk(&kernel, r);
 
+    /* in this case the particle is already locked by the tree walker */
+    /* we may want to add another lock to avoid this. */
+    if(P[other].ID != I->base.ID)
+        lock_particle(other);
+
+    double wk = 1.0;
+    double p = windeff * wk * I->Mass / I->TotalWeight;
+    double random = get_random_number(I->base.ID + P[other].ID);
+    if (random < p) {
+        make_particle_wind(I->base.ID, other, v, I->Vmean);
+    }
+
+    if(P[other].ID != I->base.ID)
+        unlock_particle(other);
 
 }
 
-static int make_particle_wind(int i, double v, double vmean[3]) {
+static int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
     /* v and vmean are in internal units (km/s *a ), not km/s !*/
     /* returns 0 if particle i is converted to wind. */
+    // message(1, "%ld Making ID=%ld (%g %g %g) to wind with v= %g\n", ID, P[i].ID, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2], v);
     int j;
     /* ok, make the particle go into the wind */
     double dir[3];
@@ -715,7 +707,7 @@ static int make_particle_star(int i) {
 
     /* here we spawn a new star particle */
     double mass_of_star =  All.MassTable[0] / GENERATIONS;
-
+    int newstar = 0;
     /* ok, make a star */
     if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
     {
@@ -727,12 +719,11 @@ static int make_particle_star(int i) {
         P[i].Type = 4;
         TimeBinCountSph[P[i].TimeBin]--;
 
-#ifdef WINDS
-        P[i].StellarAge = All.Time;
-#endif
+        newstar = i;
     }
     else
     {
+        /* FIXME: sorry this is not thread safe */
         int child = domain_fork_particle(i);
 
         N_star++;
@@ -741,11 +732,16 @@ static int make_particle_star(int i) {
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
         sum_mass_stars += P[child].Mass;
-#ifdef WINDS
-        P[child].StellarAge = All.Time;
-#endif
+
+        newstar = child;
+
         stars_spawned++;
     }
+
+    P[newstar].StarFormationTime = All.Time;
+#ifdef WINDS
+    P[newstar].IsNewParticle = 1;
+#endif
     return 0;
 }
 
@@ -825,7 +821,7 @@ static void starformation(int i) {
     if(All.QuickLymanAlphaProbability > 0.0) {
         prob = All.QuickLymanAlphaProbability;
     }
-    if(get_random_number(P[i].ID + 1) < prob)	{
+    if(get_random_number(P[i].ID + 1) < prob) {
 #pragma omp critical (_sfr_)
         make_particle_star(i);
     }
@@ -842,7 +838,7 @@ static void starformation(int i) {
             double prob = 1 - exp(-pw);
             double zero[3] = {0, 0, 0};
             if(get_random_number(P[i].ID + 2) < prob)
-                make_particle_wind(i, All.WindSpeed * All.cf.a, zero);
+                make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
 #endif
     }
@@ -855,7 +851,7 @@ double get_starformation_rate(int i) {
     return get_starformation_rate_full(i, 0, NULL, NULL, NULL);
 }
 
-static double get_starformation_rate_full(int i, double dtime, double * ne_new, double * trelax, double * egyeff) {
+static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff) {
     double rateOfSF;
     int flag;
     double tsfr;

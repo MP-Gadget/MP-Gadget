@@ -65,10 +65,10 @@ extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
 extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 
 #define BITFLAG_TOPLEVEL                   0
-#define BITFLAG_DEPENDS_ON_LOCAL_MASS      1
-#define BITFLAG_MAX_SOFTENING_TYPE         2	/* bits 2-4 */
+#define BITFLAG_DEPENDS_ON_LOCAL_MASS      1  /* Intersects with local mass */
+#define BITFLAG_MAX_SOFTENING_TYPE         2  /* bits 2-4 */
 #define BITFLAG_MIXED_SOFTENINGS_IN_NODE   5
-#define BITFLAG_INTERNAL_TOPLEVEL          6
+#define BITFLAG_INTERNAL_TOPLEVEL          6  /* INTERNAL tree nodes and toplevel*/
 #define BITFLAG_MULTIPLEPARTICLES          7
 #define BITFLAG_NODEHASBEENKICKED          8
 #define BITFLAG_INSIDE_LINKINGLENGTH       9
@@ -77,43 +77,11 @@ extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 #define maskout_different_softening_flag(x) (x & (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE))
 #define extract_max_softening_type(x) ((x >> BITFLAG_MAX_SOFTENING_TYPE) & 7)
 
-struct gravitydata_in
-{
-    int NodeList[NODELISTLENGTH];
-    MyFloat Pos[3];
-    int Type;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    MyFloat Soft;
-#endif
-    MyFloat OldAcc;
-} ;
-
-struct gravitydata_out
-{
-    MyDouble Acc[3];
-    MyDouble Potential;
-    int Ninteractions;
-};
-
-
 void force_flag_localnodes(void);
-
-void *gravity_primary_loop(void *p);
-void *gravity_secondary_loop(void *p);
-
-int force_treeev_shortrange(int target, int mode, 
-        struct gravitydata_in * input,
-        struct gravitydata_out * output,
-        LocalTreeWalk * lv, void * unused);
-
-
-int force_treeev_potential(int target, int type, int *nexport, int *nsend_local);
-int force_treeev_potential_shortrange(int target, int mode, int *nexport, int *nsend_local);
-
 
 void force_drift_node(int no, int time1);
 int force_drift_node_full(int no, int time1, int blocking);
-     
+
 void force_tree_discardpartials(void);
 void force_treeupdate_pseudos(int);
 void force_update_pseudoparticles(void);
@@ -156,28 +124,6 @@ void   force_update_node_recursive(int no, int sib, int father);
 void   force_update_size_of_parent_node(int no);
 
 void   dump_particles(void);
-
-MyFloat  ngb_select_closest(int k, int n, MyFloat *arr, int *ind);
-void   ngb_treeallocate(int npart);
-void   ngb_treebuild(void);
-
-
-void   ngb_treefree(void);
-void   ngb_treesearch(int);
-void   ngb_treesearch_pairs(int);
-void   ngb_update_nodes(void);
-void   ngb_treesearch_notsee(int no);
-
-int ngb_treefind_fof_primary(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode, int mode,
-			    int *nexport, int *nsend_local);
-
-enum NgbTreeFindSymmetric {
-    NGB_TREEFIND_SYMMETRIC,
-    NGB_TREEFIND_ASYMMETRIC,
-};
-
-int ngb_treefind_threads(MyDouble searchcenter[3], MyFloat hsml, int target, int *startnode,
-		       int mode, LocalTreeWalk * lv, enum NgbTreeFindSymmetric symmetric, int ptypemask);
 
 #endif
 

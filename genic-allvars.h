@@ -35,7 +35,7 @@ extern struct part_data
   float Vel[3];
   float Density;
   uint64_t ID;
-  double Mass;
+  float Mass;
   int RegionInd;
 } *P;
 

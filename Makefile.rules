@@ -1,9 +1,14 @@
 # vim: set ft=make:
 DESTDIR ?= .
 
+LOW_PRECISION ?= double
+HIGH_PRECISION ?= double
+
 TARGETS = MP-Gadget MP-GenIC
 
 CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(PWD)/depends/include -DH5_USE_16_API
+CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
+CFLAGS += "-DHIGH_PRECISION=$(HIGH_PRECISION)"
 
 BUNDLEDLIBS = -lmpsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft_omp -lfftw3_mpi -lfftw3_omp -lfftw3
 LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -L$(PWD)/depends/lib $(BUNDLEDLIBS) -lstdc++
@@ -19,7 +24,7 @@ OBJECTS  =  \
 	 run.o predict.o begrun.o endrun.o global.o \
 	 timestep.o init.o io.o sfr_eff.o \
 	 accel.o \
-	 cooling.o ngb.o openmpsort.o \
+	 cooling.o openmpsort.o \
 	 system.o allocate.o density.o \
 	 treewalk.o cosmology.o \
 	 gravtree.o hydra.o  driftfac.o \
@@ -48,28 +53,32 @@ EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)
 ICOBJS = $(ICOBJECTS:%=$(DESTDIR)/%)
 FILES = $(shell git ls-files)
-all: depends $(EXEC)
 
-.PHONY: depends
+all: depends builddir $(EXEC)
+
+.PHONY: depends builddir
 
 depends:
 	cd depends; make
 
+builddir:
+	mkdir -p $(DESTDIR)
+
 $(DESTDIR)/MP-Gadget: $(OBJS)
-	$(CC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
+	$(MPICC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
 
 $(DESTDIR)/MP-GenIC: $(ICOBJS)
-	$(CC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
+	$(MPICC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
 $(DESTDIR)/config.h: Makefile $(CONFIG) $(FILES)
 	mkdir -p `dirname $@`
-	CC="$(CC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
+	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
 
 $(DESTDIR)/%.o: %.c $(INCL)
-	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
+	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<
 
 $(DESTDIR)/main.o: main.c $(INCL) $(DESTDIR)/config.h
-	@echo Compiling $<; $(CC) -c -o $@ $(CFLAGS) $<
+	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<
 
 $(DESTDIR)/%.o: %.cpp $(INCL)
 	@echo Compiling $<; $(CXX) -c -o $@ $(CFLAGS) $<

@@ -1,7 +1,9 @@
 # off-tree build into $(DESTDIR)
 DESTDIR  = build/
 
-CC       =   mpicc
+MPICC       =   mpicc
+MPICXX       =   mpicxx
+
 OPTIMIZE =  -fopenmp -O0 -g
 HDF_INCL = 
 HDF_LIBS = -lhdf5

@@ -407,11 +407,6 @@ int get_timestep(int p,		/*!< particle index */
     int ti_step;
     double dt_viscous = 0;
 
-#if defined(BLACK_HOLES) || defined(GAL_PART)
-    double dt_accr;
-    double dt_limiter;
-#endif
-
     if(flag <= 0)
     {
         ax = All.cf.a2inv * P[p].GravAccel[0];
@@ -484,12 +479,12 @@ int get_timestep(int p,		/*!< particle index */
     {
         if(BHP(p).Mdot > 0 && BHP(p).Mass > 0)
         {
-            dt_accr = 0.25 * BHP(p).Mass / BHP(p).Mdot;
+            double dt_accr = 0.25 * BHP(p).Mass / BHP(p).Mdot;
             if(dt_accr < dt)
                 dt = dt_accr;
         }
         if(BHP(p).TimeBinLimit > 0) {
-            dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
+            double dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
             if (dt_limiter < dt) dt = dt_limiter;
         }
     }
@@ -500,12 +495,12 @@ int get_timestep(int p,		/*!< particle index */
       {
         if(BHP(p).Sfr > 0 && BHP(p).Mass > 0)
 	  {
-            dt_accr = 0.25 * BHP(p).Mass / BHP(p).Sfr;
+            double dt_accr = 0.25 * BHP(p).Mass / BHP(p).Sfr;
             if(dt_accr < dt)
 	      dt = dt_accr;
 	  }
 	if(BHP(p).TimeBinLimit > 0) {
-	  dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
+	  double dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
 	  if (dt_limiter < dt) dt = dt_limiter;
         }
       }
@@ -549,7 +544,7 @@ int get_timestep(int p,		/*!< particle index */
 
         if(P[p].Type == 0)
             message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1],
-                    SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].n.NumNgb);
+                    SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb);
 #ifdef DENSITY_INDEPENDENT_SPH
         if(P[p].Type == 0)
             message(1, "egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, SPHP(p).EntVarPred,

@@ -50,9 +50,8 @@ static char * format_enum(ParameterEnum * table, int value) {
             strcpy(c, p->name);
             c += strlen(p->name);
             *c = 0;
-            if (c - buffer >=2048-1)
+            if (c - buffer >= 2048-1)
                 break;
-            value -= p->value;
         }
     }
     return fastpm_strdup(buffer);
