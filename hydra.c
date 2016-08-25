@@ -93,7 +93,6 @@ void hydro_force(void)
     tw->query_type_elsize = sizeof(TreeWalkQueryHydro);
     tw->result_type_elsize = sizeof(TreeWalkResultHydro);
 
-    int i;
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait;
 

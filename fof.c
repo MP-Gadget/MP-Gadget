@@ -497,8 +497,7 @@ static void fof_reduce_group(void * pdst, void * psrc) {
 static void add_particle_to_group(struct Group * gdst, int i) {
 
     /* My local number of particles contributing to the full catalogue. */
-    int j, k;
-    int index = i;
+    const int index = i;
     if(gdst->Length == 0) {
         struct BaseGroup base = gdst->base;
         memset(gdst, 0, sizeof(gdst[0]));

@@ -607,7 +607,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         return;
     }
     int other = iter->base.other;
-    double r2 = iter->base.r2;
     double r = iter->base.r;
 
     /* skip wind particles */
