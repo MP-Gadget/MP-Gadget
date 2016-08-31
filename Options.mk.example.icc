@@ -6,7 +6,7 @@ MPICC       =   mpicc
 MPICXX      = mpic++
 #
 # Optimized defaults for icc
-OPTIMIZE =  -fopenmp -O3 -ipo -g -Wall -xHost -no-prec-div -fp-model fast
+OPTIMIZE =  -fopenmp -O3 -ipo -g -Wall -xHost -no-prec-div -fp-model fast -wd11021
 
 HDF_INCL =
 HDF_LIBS = -lhdf5
