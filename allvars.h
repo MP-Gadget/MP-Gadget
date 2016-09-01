@@ -789,7 +789,7 @@ SysState, SysStateAtStart, SysStateAtEnd;
 #define MPI_INT64 MPI_LONG
 
 static inline double
-dotproduct(double v1[3], double v2[2])
+dotproduct(double v1[3], double v2[3])
 {
     double r =0;
     int d;
