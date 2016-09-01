@@ -527,7 +527,7 @@ extern struct global_data_all_processes
          SnapshotFileBase[100],
          EnergyFile[100],
          CpuFile[100],
-         InfoFile[100], RestartFile[100], ResubmitCommand[100], OutputList[100];
+         InfoFile[100], ResubmitCommand[100], OutputList[100];
 
     char UVFluctuationFile[100];
 

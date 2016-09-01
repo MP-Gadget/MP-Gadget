@@ -6,7 +6,6 @@ TreeCoolFile = ../TREECOOL_fg_june11
 MetalCoolFile = ../cooling_metal_UVB.hdf5
 OutputList = 0.1,0.2,0.2222222,0.25,0.2857,0.33333
 
-RestartFile = restart
 SnapshotFileBase = snapshot
 
 Nmesh = 128
