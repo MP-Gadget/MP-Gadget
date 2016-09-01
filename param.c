@@ -165,6 +165,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "NumWriters", 0, 0, "Number of concurrent writer processes. 0 implies Number of Tasks ");
 
     param_declare_int(ps, "CoolingOn", 1, 0, "");
+    param_declare_int(ps, "HydroOn", 0, 0, "");
     param_declare_int(ps, "StarformationOn", 1, 0, "");
     param_declare_int(ps, "RadiationOn", 0, 0, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", 0, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
@@ -366,6 +367,7 @@ void read_parameter_file(char *fname)
         All.NumWriters = param_get_int(ps, "NumWriters");
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
+        All.HydroOn = param_get_int(ps, "HydroOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.NoTreeType = param_get_int(ps, "NoTreeType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");

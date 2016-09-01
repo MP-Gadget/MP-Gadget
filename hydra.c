@@ -79,6 +79,8 @@ static double fac_mu, fac_vsic_fix;
  */
 void hydro_force(void)
 {
+    if(!All.HydroOn)
+        return;
     TreeWalk tw[1] = {0};
 
     tw->ev_label = "HYDRO";
