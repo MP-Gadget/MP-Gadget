@@ -394,6 +394,7 @@ extern struct global_data_all_processes
                                       gadget-1.1) */
     int CoolingOn;		/*!< flags that cooling is enabled */
     int HydroOn;		/*!< flags that hydro force is enabled */
+    int BlackHoleOn;		/*!< flags that hydro force is enabled */
     int StarformationOn;		/*!< flags that star formation is enabled */
     enum StarformationCriterion StarformationCriterion;		/*!< flags that star formation is enabled */
     enum WindModel WindModel;		/*!< flags that star formation is enabled */

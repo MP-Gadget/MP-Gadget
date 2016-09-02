@@ -164,7 +164,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "NumWriters", 0, 0, "Number of concurrent writer processes. 0 implies Number of Tasks ");
 
     param_declare_int(ps, "CoolingOn", 1, 0, "");
-    param_declare_int(ps, "HydroOn", 0, 0, "");
+    param_declare_int(ps, "HydroOn", 1, 1, "");
     param_declare_int(ps, "StarformationOn", 1, 0, "");
     param_declare_int(ps, "RadiationOn", 0, 0, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", 0, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
@@ -201,6 +201,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TimeBetweenSeedingSearch", 0, 1e5, "Time Between Seeding Attempts: default to a a large value, meaning never.");
 
 #ifdef BLACK_HOLES
+    param_declare_int(ps, "BlackHoleOn", 1, 1, "Enable Blackhole ");
     param_declare_double(ps, "BlackHoleAccretionFactor", 0, 100, "");
     param_declare_double(ps, "BlackHoleEddingtonFactor", 0, 3, "");
     param_declare_double(ps, "SeedBlackHoleMass", 1, 0, "");
@@ -404,6 +405,7 @@ void read_parameter_file(char *fname)
 
     #ifdef BLACK_HOLES
         All.BlackHoleSoundSpeedFromPressure = 0;
+        All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
 
         All.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
         All.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
