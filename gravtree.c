@@ -92,7 +92,7 @@ static void gravtree_postprocess(int i);
  */
 void gravity_tree(void)
 {
-    double timeall = 0, timetree1 = 0, timetree2 = 0;
+    double timeall = 0;
     double timetree, timewait, timecomm;
 
     TreeWalk tw[1] = {0};

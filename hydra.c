@@ -79,6 +79,8 @@ static double fac_mu, fac_vsic_fix;
  */
 void hydro_force(void)
 {
+    if(!All.HydroOn)
+        return;
     TreeWalk tw[1] = {0};
 
     tw->ev_label = "HYDRO";
@@ -93,7 +95,6 @@ void hydro_force(void)
     tw->query_type_elsize = sizeof(TreeWalkQueryHydro);
     tw->result_type_elsize = sizeof(TreeWalkResultHydro);
 
-    int i;
     double timeall = 0, timenetwork = 0;
     double timecomp, timecomm, timewait;
 

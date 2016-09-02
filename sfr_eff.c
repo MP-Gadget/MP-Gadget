@@ -215,22 +215,16 @@ void cooling_and_starformation(void)
         int i = queue[n];
         int flag;
 #ifdef WINDS
-        if(SPHP(i).DelayTime > 0) {
-            double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
-                /*  the actual time-step */
-
-            double dtime;
-
-            dtime = dt / All.cf.hubble;
-
-            SPHP(i).DelayTime -= dtime;
-        }
-
-        if(SPHP(i).DelayTime > 0) {
-            if(SPHP(i).Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh)
+        /*Remove a wind particle from the delay mode if the (physical) density has dropped sufficiently.*/
+        if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh) {
                 SPHP(i).DelayTime = 0;
-        } else {
-            SPHP(i).DelayTime = 0;
+        }
+        /*Reduce the time until the particle can form stars again by the current timestep*/
+        if(SPHP(i).DelayTime > 0) {
+            const double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+            /*  the actual time-step */
+            const double dtime = dt / All.cf.hubble;
+            SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
         }
 #endif
 
@@ -613,7 +607,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         return;
     }
     int other = iter->base.other;
-    double r2 = iter->base.r2;
     double r = iter->base.r;
 
     /* skip wind particles */

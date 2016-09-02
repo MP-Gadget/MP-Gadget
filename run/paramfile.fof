@@ -11,7 +11,6 @@ InfoFile           info.txt
 TimingsFile        timings.txt
 CpuFile            cpu.txt
 
-RestartFile        restart
 SnapshotFileBase   snapshot
 
 Nmesh 128
