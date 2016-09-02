@@ -383,7 +383,8 @@ static void fofp_merge(int target, int other)
     int h2 = HEADl(h1, other);
 
     if(h2 == -1) {
-        /* h1 is along the path of h2, already merged **/
+        /* h1 is along the path of h2, already merged.  **/
+        /* h1 must be the root of other and target both */
         //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
         update_root(target, h1);
         update_root(other, h1);
