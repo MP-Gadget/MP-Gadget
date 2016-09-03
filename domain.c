@@ -545,7 +545,7 @@ void domain_exchange(int (*layoutfunc)(int p)) {
 
         sumup_longs(1, &sumtogo, &sumtogo);
 
-        message(0, "iter=%d exchange of %013d particles\n", iter, sumtogo);
+        message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
         domain_exchange_once(layoutfunc);
         iter++;
