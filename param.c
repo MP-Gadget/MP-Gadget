@@ -161,7 +161,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "HydroCostFactor", 0, 1, "Cost factor of hydro calculation, default to 1.");
 
     param_declare_int(ps, "NumPartPerFile", 0, 1024 * 1024 * 128, "number of particles per file");
-    param_declare_int(ps, "NumWriters", 0, 0, "Number of concurrent writer processes. 0 implies Number of Tasks ");
+    param_declare_int(ps, "NumWriters", 0, NTask, "Number of concurrent writer processes. 0 implies Number of Tasks ");
 
     param_declare_int(ps, "CoolingOn", 1, 0, "");
     param_declare_int(ps, "HydroOn", 1, 1, "");

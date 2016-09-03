@@ -462,7 +462,10 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, size_t 
     int NumFiles = (size + ppfile - 1) / ppfile;
 
     message(0, "Will write %td particles to %d Files\n", size, NumFiles);
-
+    if(NumWriters > NumFiles * 4) {
+        NumWriters = NumFiles * 4;
+        message(0, "Throttling NumWriters to %d.\n", NumWriters);
+    }
     /* create the block */
     /* dims[1] is the number of members per item */
     if(0 != big_file_mpi_create_block(bf, &bb, blockname, array->dtype, array->dims[1], NumFiles, size, MPI_COMM_WORLD)) {
