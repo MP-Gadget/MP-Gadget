@@ -2178,7 +2178,7 @@ void test_id_uniqueness(void)
     for(i = 1; i < NumPart; i++)
         if(ids[i] == ids[i - 1])
         {
-            endrun(12, "non-unique ID=%013d found on task=%d (i=%d NumPart=%d)\n",
+            endrun(12, "non-unique ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
                     ids[i], ThisTask, i, NumPart);
 
         }
