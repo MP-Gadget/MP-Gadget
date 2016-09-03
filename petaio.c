@@ -98,6 +98,8 @@ void petaio_read_internal(char * fname, int ic) {
     int ptype;
     int i;
     BigFile bf = {0};
+    message(0, "Reading snapshot %s\n", fname);
+
     if(0 != big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
         endrun(0, "Failed to open snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
