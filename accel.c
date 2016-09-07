@@ -54,7 +54,6 @@ void compute_accelerations(int mode)
         force_treebuild_simple();
     }
 
-#ifndef ONLY_PM
     gravity_tree();		/* computes gravity accel. */
 
     if(All.TypeOfOpeningCriterion == 1 && All.Ti_Current == 0)
@@ -62,7 +61,6 @@ void compute_accelerations(int mode)
                              * to allow usage of relative opening
                              * criterion for consistent accuracy.
                              */
-#endif
 
 
     if(All.TotN_sph > 0)

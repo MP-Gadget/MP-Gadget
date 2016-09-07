@@ -406,6 +406,9 @@ int get_timestep(int p,		/*!< particle index */
     double dt = 0, dt_courant = 0;
     int ti_step;
     double dt_viscous = 0;
+    /*Set to max timestep allowed if the tree is off*/
+    if(!All.TreeGravOn)
+        return All.MaxSizeTimestep / All.Timebase_interval;
 
     if(flag <= 0)
     {
@@ -494,12 +497,6 @@ int get_timestep(int p,		/*!< particle index */
        All.cf.hubble=1.
        */
     dt *= All.cf.hubble;
-
-#ifdef ONLY_PM
-    dt = All.MaxSizeTimestep;
-#endif
-
-
 
     if(dt >= All.MaxSizeTimestep)
         dt = All.MaxSizeTimestep;
