@@ -49,14 +49,17 @@ INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h \
 	 petaio.h
 
+TESTED =
+
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)
+TESTBIN = $(TESTED:%=$(DESTDIR)/%_test)
 ICOBJS = $(ICOBJECTS:%=$(DESTDIR)/%)
 FILES = $(shell git ls-files)
 
 all: depends builddir $(EXEC)
 
-.PHONY: depends builddir
+.PHONY: depends builddir test all
 
 depends:
 	cd depends; make
@@ -85,3 +88,11 @@ $(DESTDIR)/%.o: %.cpp $(INCL)
 
 clean:
 	rm -f $(OBJS) $(EXEC) $(ICOBJS)
+
+test: $(TESTBIN)
+	for tt in $^ ; do ./$$tt ; done
+
+$(DESTDIR)/run_%_test: $(DESTDIR)/%_test
+
+$(DESTDIR)/%_test: test/%_test.c %.o
+	$(MPICC) $(OPTIMIZE) $^ -o $@ -lcmocka
