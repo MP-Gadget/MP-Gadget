@@ -279,10 +279,6 @@ create_gadget_parameter_set()
 
 #endif
 
-#ifdef SOFTEREQS
-    param_declare_double(ps, "FactorForSofterEQS", 1, 0, "");
-#endif
-
 #ifdef BLACK_HOLES
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
 #endif
@@ -457,10 +453,6 @@ void read_parameter_file(char *fname)
 
         All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
 
-    #endif
-
-    #ifdef SOFTEREQS
-        All.FactorForSofterEQS = param_get_double(ps, "FactorForSofterEQS");
     #endif
 
         parameter_set_free(ps);
