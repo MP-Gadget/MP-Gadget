@@ -41,7 +41,7 @@ void interp_init(Interp * obj, int Ndim, int * dims) {
     obj->fsize = fsize;
 }
 
-/* set up an interplation dimension.
+/* set up an interpolation dimension.
  * Max is inclusive. aka if dims[d] == 2, Min = 0, Max = 1
  * then the steps are 0, 1.
  * 
@@ -172,68 +172,3 @@ void interp_destroy(Interp * obj) {
     free(obj->data);
 }
 
-#ifdef TESTINTERP
-int main(int argc, char * argv[]) {
-    Interp ip;
-    int dims[] = {3, 3};
-    double ydata[3][3];
-    interp_init(&ip, 2, dims);
-    interp_init_dim(&ip, 0, 0, 2.0);
-    interp_init_dim(&ip, 1, 0, 2.0);
-    {
-        int i, j;
-
-        for(i = 0; i < 3; i++) {
-            for(j = 0; j < 3; j++) {
-                int xi[] = {i, j};
-                ydata[i][j] = fabs((1. - j) * (1. - i));
-                printf("%g ", ydata[i][j]);
-            }
-            printf("\n");
-        }
-    }
-
-    {
-        printf("\n");
-        double i, j;
-        int status[2];
-        for(i = -0.4; i <= 3.0; i += 0.4) {
-            for(j = -0.4; j <= 3.0; j += 0.4) {
-                double x[] = {i, j};
-                double y = interp_eval(&ip, x, (double*) ydata, status);
-                double yp = interp_eval_periodic (&ip, x, (double*) ydata);
-                printf("%3.2f/%3.2f ", y, yp);
-            }
-            printf("\n");
-        }
-    } 
-    {
-        int i, j;
-
-        for(i = 0; i < 3; i++) {
-            for(j = 0; j < 3; j++) {
-                int xi[] = {i, j};
-                ydata[i][j] = i + j;
-                printf("%g ", ydata[i][j]);
-            }
-            printf("\n");
-        }
-    }
-
-    {
-        printf("\n");
-        double i, j;
-        int status[2];
-        for(i = -0.4; i <= 3.0; i += 0.4) {
-            for(j = -0.4; j <= 3.0; j += 0.4) {
-                double x[] = {i, j};
-                double y = interp_eval(&ip, x, (double*) ydata, status);
-                double yp = interp_eval_periodic (&ip, x, (double*) ydata);
-                printf("%3.2f/%3.2f ", y, yp);
-            }
-            printf("\n");
-        }
-    } 
-    return 0;
-}
-#endif
