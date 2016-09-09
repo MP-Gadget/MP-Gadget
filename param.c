@@ -164,6 +164,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "NumWriters", 0, NTask, "Number of concurrent writer processes. 0 implies Number of Tasks ");
     param_declare_int(ps, "EnableAggregatedIO", 0, 0, "Use the Aggregated IO policy for small data set (Experimental).");
 
+    param_declare_int(ps, "MakeGlassFile", 0, 0, "Enable to reverse the direction of gravity, only apply the PM force, and thus make a glass file.");
     param_declare_int(ps, "CoolingOn", 1, 0, "Enables cooling");
     param_declare_double(ps, "UVRedshiftThreshold", 0, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
 
@@ -370,6 +371,7 @@ void read_parameter_file(char *fname)
         All.NumWriters = param_get_int(ps, "NumWriters");
         All.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
 
+        All.MakeGlassFile = param_get_int(ps, "MakeGlassFile");
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
         All.HydroOn = param_get_int(ps, "HydroOn");
