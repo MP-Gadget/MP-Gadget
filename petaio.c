@@ -37,7 +37,7 @@ static int64_t npartLocal[6];
 
 void petaio_init() {
     /* Smaller files will do aggregareted IO.*/
-    big_file_mpi_set_aggregated_threshold(1024 * 1024 * 512);
+    big_file_mpi_set_aggregated_threshold(1024 * 1024 * 8);
     register_io_blocks();
 }
 
