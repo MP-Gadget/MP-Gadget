@@ -37,7 +37,13 @@ static int64_t npartLocal[6];
 
 void petaio_init() {
     /* Smaller files will do aggregareted IO.*/
-    big_file_mpi_set_aggregated_threshold(1024 * 1024 * 8);
+    if(All.EnableAggregatedIO) {
+        message(0, "Aggregated IO is enabled\n");
+        big_file_mpi_set_aggregated_threshold(1024 * 1024 * 8);
+    } else {
+        message(0, "Aggregated IO is disabled.\n");
+        big_file_mpi_set_aggregated_threshold(0);
+    }
     register_io_blocks();
 }
 
@@ -461,13 +467,20 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, size_t 
     BigBlockPtr ptr;
 
     size_t size = count_sum(array->dims[0]);
-    int NumFiles = (size + ppfile - 1) / ppfile;
+    int NumFiles;
+
+    if(All.EnableAggregatedIO) {
+        NumFiles = (size + ppfile - 1) / ppfile;
+        if(NumWriters > NumFiles * 4) {
+            NumWriters = NumFiles * 4;
+            message(0, "Throttling NumWriters to %d.\n", NumWriters);
+        }
+    } else {
+        NumFiles = NumWriters;
+        message(0, "Throttling NumFiles to %d.\n", NumFiles);
+    }
 
     message(0, "Will write %td particles to %d Files\n", size, NumFiles);
-    if(NumWriters > NumFiles * 4) {
-        NumWriters = NumFiles * 4;
-        message(0, "Throttling NumWriters to %d.\n", NumWriters);
-    }
     /* create the block */
     /* dims[1] is the number of members per item */
     if(0 != big_file_mpi_create_block(bf, &bb, blockname, array->dtype, array->dims[1], NumFiles, size, MPI_COMM_WORLD)) {

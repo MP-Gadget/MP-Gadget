@@ -162,6 +162,7 @@ create_gadget_parameter_set()
 
     param_declare_int(ps, "NumPartPerFile", 0, 1024 * 1024 * 128, "number of particles per file");
     param_declare_int(ps, "NumWriters", 0, NTask, "Number of concurrent writer processes. 0 implies Number of Tasks ");
+    param_declare_int(ps, "EnableAggregatedIO", 0, 0, "Use the Aggregated IO policy for small data set (Experimental).");
 
     param_declare_int(ps, "CoolingOn", 1, 0, "");
     param_declare_int(ps, "HydroOn", 1, 1, "");
@@ -364,6 +365,7 @@ void read_parameter_file(char *fname)
 
         All.NumPartPerFile = param_get_int(ps, "NumPartPerFile");
         All.NumWriters = param_get_int(ps, "NumWriters");
+        All.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.HydroOn = param_get_int(ps, "HydroOn");

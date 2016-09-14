@@ -322,6 +322,7 @@ extern struct global_data_all_processes
 
     int NumPartPerFile;   /* Number of particles per physical file */
     int NumWriters;  /*Number of concurrent writers */
+    int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
 
     double BufferSize;		/*!< size of communication buffer in MB */
 
