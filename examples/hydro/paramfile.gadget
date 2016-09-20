@@ -31,6 +31,8 @@ BoxSize = 4000.0
 
 CoolingOn = 1
 StarformationOn = 1
+BlackHoleOn = 1
+HydroOn = 1
 StarformationCriterion = density,h2
 RadiationOn = 1
 
