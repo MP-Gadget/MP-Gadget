@@ -51,7 +51,7 @@
 #define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
 
 #ifndef  GENERATIONS
-#define  GENERATIONS     2	/*!< Number of star particles that may be created per gas particle */
+#define  GENERATIONS     4	/*!< Number of star particles that may be created per gas particle */
 #endif
 
 #define  TIMEBINS         29
