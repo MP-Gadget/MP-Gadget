@@ -700,6 +700,10 @@ static int make_particle_star(int i) {
 
     /* here we spawn a new star particle */
     double mass_of_star =  All.MassTable[0] / GENERATIONS;
+    if(mass_of_star > P[i].Mass) {
+        /* if some mass has been stolen by BH, e.g */
+        mass_of_star = P[i].Mass;
+    }
     int newstar = 0;
     /* ok, make a star */
     if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
@@ -776,7 +780,10 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 static void starformation(int i) {
 
     double mass_of_star = All.MassTable[0] / GENERATIONS;
-
+    if(mass_of_star > P[i].Mass) {
+        /* if some mass has been stolen by BH, e.g */
+        mass_of_star = P[i].Mass;
+    }
     double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
         /*  the actual time-step */
 
