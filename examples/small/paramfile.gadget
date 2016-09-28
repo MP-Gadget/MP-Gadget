@@ -34,6 +34,8 @@ CoolingOn = 1
 StarformationOn = 1
 StarformationCriterion = density,h2
 RadiationOn = 1
+HydroOn = 1
+BlackHoleOn = 1
 
 CpuTimeBetRestartFile = 9000.0
 
