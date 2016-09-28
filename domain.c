@@ -545,7 +545,7 @@ void domain_exchange(int (*layoutfunc)(int p)) {
 
         sumup_longs(1, &sumtogo, &sumtogo);
 
-        message(0, "iter=%d exchange of %013d particles\n", iter, sumtogo);
+        message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
         domain_exchange_once(layoutfunc);
         iter++;
@@ -2178,7 +2178,7 @@ void test_id_uniqueness(void)
     for(i = 1; i < NumPart; i++)
         if(ids[i] == ids[i - 1])
         {
-            endrun(12, "non-unique ID=%013d found on task=%d (i=%d NumPart=%d)\n",
+            endrun(12, "non-unique ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
                     ids[i], ThisTask, i, NumPart);
 
         }

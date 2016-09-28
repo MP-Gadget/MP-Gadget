@@ -121,9 +121,7 @@ void density(void)
     int64_t ntot = 0;
 
     double timeall = 0;
-    double timecomp, timecomp3 = 0, timecomm, timewait;
-
-    double tstart, tend;
+    double timecomp, timecomm, timewait;
 
     walltime_measure("/Misc");
 
@@ -292,9 +290,7 @@ density_ngbiter(
         LocalTreeWalk * lv)
 {
     if(iter->base.other == -1) {
-        double h;
-        double hsearch;
-        h = I->Hsml;
+        const double h = I->Hsml;
         density_kernel_init(&iter->kernel, h);
         iter->kernel_volume = density_kernel_volume(&iter->kernel);
 

@@ -322,7 +322,7 @@ int ShouldWeDoDynamicUpdate(void)
 
     sumup_large_ints(1, &num, &numforces);
 
-    message(0, "I'm guessing %013d particles to be active in the next step\n", numforces);
+    message(0, "I'm guessing %013ld particles to be active in the next step\n", numforces);
 
     if((All.NumForcesSinceLastDomainDecomp + numforces) >= All.TreeDomainUpdateFrequency * All.TotNumPart)
         return 0;

@@ -51,7 +51,7 @@
 #define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
 
 #ifndef  GENERATIONS
-#define  GENERATIONS     2	/*!< Number of star particles that may be created per gas particle */
+#define  GENERATIONS     4	/*!< Number of star particles that may be created per gas particle */
 #endif
 
 #define  TIMEBINS         29
@@ -336,6 +336,7 @@ extern struct global_data_all_processes
 
     int NumPartPerFile;   /* Number of particles per physical file */
     int NumWriters;  /*Number of concurrent writers */
+    int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
 
     double BufferSize;		/*!< size of communication buffer in MB */
 
@@ -407,6 +408,8 @@ extern struct global_data_all_processes
     int TypeOfTimestepCriterion;	/*!< gives type of timestep criterion (only 0 supported right now - unlike
                                       gadget-1.1) */
     int CoolingOn;		/*!< flags that cooling is enabled */
+    int HydroOn;		/*!< flags that hydro force is enabled */
+    int BlackHoleOn;		/*!< flags that hydro force is enabled */
     int StarformationOn;		/*!< flags that star formation is enabled */
     enum StarformationCriterion StarformationCriterion;		/*!< flags that star formation is enabled */
     enum WindModel WindModel;		/*!< flags that star formation is enabled */
@@ -540,7 +543,7 @@ extern struct global_data_all_processes
          SnapshotFileBase[100],
          EnergyFile[100],
          CpuFile[100],
-         InfoFile[100], RestartFile[100], ResubmitCommand[100], OutputList[100];
+         InfoFile[100], ResubmitCommand[100], OutputList[100];
 
     char UVFluctuationFile[100];
 
@@ -823,7 +826,7 @@ SysState, SysStateAtStart, SysStateAtEnd;
 #define MPI_INT64 MPI_LONG
 
 static inline double
-dotproduct(double v1[3], double v2[2])
+dotproduct(double v1[3], double v2[3])
 {
     double r =0;
     int d;

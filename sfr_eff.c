@@ -56,6 +56,7 @@ static void starformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
+static double find_star_mass(int i);
 #endif
 
 #ifdef WINDS
@@ -215,22 +216,16 @@ void cooling_and_starformation(void)
         int i = queue[n];
         int flag;
 #ifdef WINDS
-        if(SPHP(i).DelayTime > 0) {
-            double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
-                /*  the actual time-step */
-
-            double dtime;
-
-            dtime = dt / All.cf.hubble;
-
-            SPHP(i).DelayTime -= dtime;
-        }
-
-        if(SPHP(i).DelayTime > 0) {
-            if(SPHP(i).Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh)
+        /*Remove a wind particle from the delay mode if the (physical) density has dropped sufficiently.*/
+        if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh) {
                 SPHP(i).DelayTime = 0;
-        } else {
-            SPHP(i).DelayTime = 0;
+        }
+        /*Reduce the time until the particle can form stars again by the current timestep*/
+        if(SPHP(i).DelayTime > 0) {
+            const double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+            /*  the actual time-step */
+            const double dtime = dt / All.cf.hubble;
+            SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
         }
 #endif
 
@@ -613,7 +608,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         return;
     }
     int other = iter->base.other;
-    double r2 = iter->base.r2;
     double r = iter->base.r;
 
     /* skip wind particles */
@@ -704,9 +698,9 @@ static int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
 #endif
 
 static int make_particle_star(int i) {
+    double mass_of_star = find_star_mass(i);
 
     /* here we spawn a new star particle */
-    double mass_of_star =  All.MassTable[0] / GENERATIONS;
     int newstar = 0;
     /* ok, make a star */
     if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
@@ -782,7 +776,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 
 static void starformation(int i) {
 
-    double mass_of_star = All.MassTable[0] / GENERATIONS;
+    double mass_of_star = find_star_mass(i);
 
     double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
         /*  the actual time-step */
@@ -1118,6 +1112,20 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
 #else
     return 1.0;
 #endif
+}
+static double
+find_star_mass(int i)
+{
+    double mass_of_star =  All.MassTable[0] / GENERATIONS;
+    if(mass_of_star > P[i].Mass) {
+        /* if some mass has been stolen by BH, e.g */
+        mass_of_star = P[i].Mass;
+    }
+    /* if we are the last particle */
+    if(fabs(mass_of_star - P[i].Mass) / mass_of_star < 0.5) {
+        mass_of_star = P[i].Mass;
+    }
+    return mass_of_star;
 }
 
 #endif

@@ -36,6 +36,14 @@ static int64_t npartTotal[6];
 static int64_t npartLocal[6];
 
 void petaio_init() {
+    /* Smaller files will do aggregareted IO.*/
+    if(All.EnableAggregatedIO) {
+        message(0, "Aggregated IO is enabled\n");
+        big_file_mpi_set_aggregated_threshold(1024 * 1024 * 8);
+    } else {
+        message(0, "Aggregated IO is disabled.\n");
+        big_file_mpi_set_aggregated_threshold(0);
+    }
     register_io_blocks();
 }
 
@@ -96,6 +104,8 @@ void petaio_read_internal(char * fname, int ic) {
     int ptype;
     int i;
     BigFile bf = {0};
+    message(0, "Reading snapshot %s\n", fname);
+
     if(0 != big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
         endrun(0, "Failed to open snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
@@ -260,6 +270,7 @@ static void petaio_write_header(BigFile * bf) {
     (0 != big_block_set_attr(&bh, "UnitVelocity_in_cm_per_s", &All.UnitVelocity_in_cm_per_s, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "CodeVersion", GADGETVERSION, "S1", strlen(GADGETVERSION))) ||
     (0 != big_block_set_attr(&bh, "CompileSettings", COMPILETIMESETTINGS, "S1", strlen(COMPILETIMESETTINGS))) ||
+    (0 != big_block_set_attr(&bh, "DensityKernel", &All.DensityKernelType, "u8", 1)) ||
     (0 != big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1)) ) {
         endrun(0, "Failed to write attributes %s\n",
                     big_file_get_error_message());
@@ -456,10 +467,20 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, size_t 
     BigBlockPtr ptr;
 
     size_t size = count_sum(array->dims[0]);
-    int NumFiles = (size + ppfile - 1) / ppfile;
+    int NumFiles;
+
+    if(All.EnableAggregatedIO) {
+        NumFiles = (size + ppfile - 1) / ppfile;
+        if(NumWriters > NumFiles * 4) {
+            NumWriters = NumFiles * 4;
+            message(0, "Throttling NumWriters to %d.\n", NumWriters);
+        }
+    } else {
+        NumFiles = NumWriters;
+        message(0, "Throttling NumFiles to %d.\n", NumFiles);
+    }
 
     message(0, "Will write %td particles to %d Files\n", size, NumFiles);
-
     /* create the block */
     /* dims[1] is the number of members per item */
     if(0 != big_file_mpi_create_block(bf, &bb, blockname, array->dtype, array->dims[1], NumFiles, size, MPI_COMM_WORLD)) {
