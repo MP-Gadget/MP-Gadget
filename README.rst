@@ -36,7 +36,7 @@ First time users:
 .. code:: bash
 
     git clone https://github.com/bluetides-project/MP-Gadget
-    # or git clone https://github.com/rainwoodman/MP-Gadget3-private 
+    # or git clone https://github.com/rainwoodman/MP-Gadget-private 
     cd MP-Gadget
 
     bash bootstrap.sh
