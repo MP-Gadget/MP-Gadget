@@ -24,8 +24,7 @@ lib/libpfft_omp.a:
         sh $(PWD)/install_pfft.sh $(PWD)/
 
 clean:
-	cd mpsort; make clean
-	cd bigfile/src; make clean
-	cd rm -rf bigfile; make clean
 	rm -rf $(LIBRARIES)
+	cd bigfile/src; make clean
+	cd mpsort; make clean
 
