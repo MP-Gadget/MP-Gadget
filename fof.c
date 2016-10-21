@@ -187,16 +187,19 @@ void fof_fof(int num)
     if(num >= 0)
     {
         fof_save_groups(num);
-
-        /* need to rebuild the tree because particle order has changed. */
-        force_treefree();
-        peano_hilbert_order();
-        force_treebuild_simple();
     }
 
     myfree(Group);
     myfree(BaseGroup);
     myfree(HaloLabel);
+
+    if(num >= 0)
+    {
+        /* need to rebuild the tree because particle order has changed. */
+        force_treefree();
+        peano_hilbert_order();
+        force_treebuild_simple();
+    }
 
     message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",
             AllocatedBytes / (1024.0 * 1024.0));
