@@ -1,4 +1,5 @@
 MPICC       =   mpiicc
+MPICXX      =   mpiCC
 OPTIMIZE =  -openmp -O0 -g
 HDF_INCL = 
 HDF_LIBS = -lhdf5 -lz
