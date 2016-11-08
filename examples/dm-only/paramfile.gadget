@@ -2,7 +2,7 @@
 
 InitCondFile = output/IC
 OutputDir = output
-OutputList = 0.1,0.2,0.299,0.3,0.33333
+OutputList = 0.1,0.15, 0.2, 0.299,0.3,0.33333
 SnapshotFileBase = snapshot
 
 Nmesh 128
@@ -32,6 +32,8 @@ CoolingOn = 0
 StarformationOn = 0
 StarformationCriterion  density,h2
 RadiationOn = 0
+HydroOn = 0
+BlackHoleOn = 0
 
 CpuTimeBetRestartFile  9000.0
 
