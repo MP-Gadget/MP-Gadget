@@ -7,6 +7,7 @@ DESTDIR  = build/
 
 #CC       = cc -h gnu -h omp
 MPICC       = cc
+MPICXX      = CC
 #
 # For GCC add -mpc64 if IEEE 64bit FP is desired.
 OPTIMIZE =  -static -fopenmp -O3 -Ofast -g
