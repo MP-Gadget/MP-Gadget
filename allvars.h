@@ -585,6 +585,7 @@ extern struct global_data_all_processes
     double TimeNextSeedingCheck;  /*Time for the next seed check.*/
     double TimeBetweenSeedingSearch; /*Factor to multiply TimeBegin by to find the next seeding check.*/
 
+    int RestartFromBlueTidesPhaseI; /* Snapshot file is BlueTides Phases1, which lacks some attributes. */
 }
 All;
 #ifdef _OPENMP
