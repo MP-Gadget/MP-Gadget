@@ -197,7 +197,9 @@ void fof_fof(int num)
     {
         /* need to rebuild the tree because particle order has changed. */
         force_treefree();
-        peano_hilbert_order();
+        /* I am not sure why we need a full domain decomposition here. But simple peano reorder will produce
+         * a tree that misses a few particles and crash PM. */
+        domain_Decomposition();  
         force_treebuild_simple();
     }
 
