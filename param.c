@@ -201,6 +201,7 @@ create_gadget_parameter_set()
 #if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
     param_declare_double(ps, "ReferenceGasMass", REQUIRED, 0, "");
 #endif
+    param_declare_int(ps, "RestartFromBlueTidesPhaseI", 0, 0, "The Restart snapshot is BlueTidesPhaseI, some fields are missing. ");
 
     param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
@@ -330,6 +331,7 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "InfoFile", All.InfoFile);
         param_get_string2(ps, "OutputList", All.OutputList);
 
+        All.RestartFromBlueTidesPhaseI = param_get_int(ps, "RestartFromBlueTidesPhaseI");
         All.DensityKernelType = param_get_enum(ps, "DensityKernelType");
         All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
         All.CP.RadiationOn = param_get_int(ps, "RadiationOn");
