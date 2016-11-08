@@ -177,6 +177,8 @@ void petaio_read_internal(char * fname, int ic) {
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
+        message(0, "Reading Block %s\n", blockname);
+
         petaio_alloc_buffer(&array, &IOTable.ent[i], npartLocal[ptype]);
         petaio_read_block(&bf, blockname, &array);
         petaio_readout_buffer(&array, &IOTable.ent[i]);
@@ -609,7 +611,11 @@ static void register_io_blocks() {
         IO_REG(Velocity, "f4", 3, i);
         IO_REG(Mass,     "f4", 1, i);
         IO_REG(ID,       "u8", 1, i);
-        IO_REG(Generation,       "u1", 1, i);
+        if(All.RestartFromBlueTidesPhaseI) {
+            IO_REG_WRONLY(Generation,       "u1", 1, i);
+        } else {
+            IO_REG(Generation,       "u1", 1, i);
+        }
         IO_REG(Potential, "f4", 1, i);
         if(All.SnapshotWithFOF)
             IO_REG_WRONLY(GroupID, "u4", 1, i);
@@ -619,7 +625,11 @@ static void register_io_blocks() {
     IO_REG(SmoothingLength,  "f4", 1, 0);
     IO_REG(Density,          "f4", 1, 0);
 #ifdef DENSITY_INDEPENDENT_SPH
-    IO_REG(EgyWtDensity,          "f4", 1, 0);
+    if(All.RestartFromBlueTidesPhaseI) {
+        IO_REG_WRONLY(EgyWtDensity,          "f4", 1, 0);
+    } else {
+        IO_REG(EgyWtDensity,          "f4", 1, 0);
+    }
     IO_REG(Entropy,          "f4", 1, 0);
     IO_REG_WRONLY(Pressure,         "f4", 1, 0);
 #endif
@@ -644,7 +654,11 @@ static void register_io_blocks() {
 #ifdef BLACK_HOLES
     /* Blackhole */
     IO_REG(BlackholeMass,          "f4", 1, 5);
-    IO_REG(StarFormationTime, "f4", 1, 5);
+    if(All.RestartFromBlueTidesPhaseI) {
+        IO_REG_WRONLY(StarFormationTime, "f4", 1, 5);
+    } else{
+        IO_REG(StarFormationTime, "f4", 1, 5);
+    }
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
 #endif
