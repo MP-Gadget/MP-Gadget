@@ -696,7 +696,8 @@ extern struct particle_data
          * It is slow to generate so we store it here.*/
         peanokey Key; /* only by domain.c */
         struct {
-            int64_t GrNr;   /* used by fof.c which calls domain_exchange that doesn't uses peanokey */
+            /* used by fof.c which calls domain_exchange that doesn't uses peanokey */
+            int64_t GrNr; 
             int origintask;
             int targettask;
         };
