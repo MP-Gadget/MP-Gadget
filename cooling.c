@@ -1069,8 +1069,14 @@ static double GetReionizedFraction(double time) {
  *
  * */
 void GetParticleUVBG(int i, struct UVBG * uvbg) {
-    /* directly use the TREECOOL table if UVF is disabled */
+    double z = 1 / All.Time - 1;
+    if(All.UVRedshiftThreshold >= 0.0 && z > All.UVRedshiftThreshold) {
+        /* if a threshold is set, disable UV bg above that redshift */
+        memset(uvbg, 0, sizeof(struct UVBG));
+        return;
+    }
     if(UVF.disabled) {
+        /* directly use the TREECOOL table if UVF is disabled */
         memcpy(uvbg, &GlobalUVBG, sizeof(struct UVBG));
         return;
     }
@@ -1080,7 +1086,6 @@ void GetParticleUVBG(int i, struct UVBG * uvbg) {
         pos[k] = P[i].Pos[k];
     }
     double zreion = interp_eval_periodic(&UVF.interp, pos, UVF.Table);
-    double z = 1 / All.Time - 1;
     if(zreion < z) {
         memset(uvbg, 0, sizeof(struct UVBG));
     } else {

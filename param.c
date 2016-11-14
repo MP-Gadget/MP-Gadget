@@ -165,6 +165,8 @@ create_gadget_parameter_set()
     param_declare_int(ps, "EnableAggregatedIO", 0, 0, "Use the Aggregated IO policy for small data set (Experimental).");
 
     param_declare_int(ps, "CoolingOn", 1, 0, "");
+    param_declare_double(ps, "UVRedshiftThreshold", 1, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
+
     param_declare_int(ps, "HydroOn", 1, 1, "");
     param_declare_int(ps, "StarformationOn", 1, 0, "");
     param_declare_int(ps, "RadiationOn", 0, 0, "Include radiation density in the background evolution.");
@@ -368,6 +370,7 @@ void read_parameter_file(char *fname)
         All.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
 
         All.CoolingOn = param_get_int(ps, "CoolingOn");
+        All.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
         All.HydroOn = param_get_int(ps, "HydroOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.NoTreeType = param_get_int(ps, "NoTreeType");
