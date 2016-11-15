@@ -617,8 +617,8 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
      * we may want to use fancier weighting that requires symmetric in the future. */
     if(r > I->Hsml) return;
 
-    double windeff;
-    double v;
+    double windeff=0;
+    double v=0;
     if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
         windeff = All.WindEfficiency;
         v = All.WindSpeed * All.cf.a;
