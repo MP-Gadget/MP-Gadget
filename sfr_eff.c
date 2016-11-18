@@ -1068,7 +1068,8 @@ static double get_sfr_factor_due_to_h2(int i) {
         double y = 0.756*(1+3.1*pow(zoverzsun,0.365));
         y = log(1+0.6*y+0.01*y*y)/(0.6*tau_fmol);
         y = 1-0.75*y/(1+0.25*y);
-        if(y<0) y=0; if(y>1) y=1;
+        if(y<0) y=0;
+        if(y>1) y=1;
         return y;
 
     } // if(tau_fmol>0)
