@@ -22,11 +22,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
-#include <hdf5.h>
 
 #include "allvars.h"
 #include "proto.h"
-
+#include "bigfile.h"
 #include "cooling.h"
 #include "interp.h"
 #include "mymalloc.h"
@@ -774,32 +773,30 @@ static double * h5readdouble(char * filename, char * dataset, int * Nread) {
     void * buffer;
     int N;
     if(ThisTask == 0) {
-        hid_t hfile = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
-        hid_t dset = H5Dopen2(hfile, dataset, H5P_DEFAULT);
-        hid_t dspace = H5Dget_space(dset);
-        int ndims = H5Sget_simple_extent_ndims(dspace);
-        hsize_t dims[10];
-        H5Sget_simple_extent_dims(dspace, dims, NULL);
-        N = 1;
-        int i;
-        for(i = 0; i < ndims; i ++) {
-            N *= dims[i];
+        BigFile bf[1];
+        big_file_open(bf, filename);
+        BigBlock bb[1];
+        if(0 != big_file_open_block(bf, bb, dataset)) {
+            endrun(-1, "Cannot open %s %s\n", filename, dataset);
         }
-        H5Sclose(dspace);
 
+        N = bb->size;
         MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-        buffer = malloc(N * sizeof(double));
+        BigArray array[1];
 
-        H5Dread(dset, H5T_NATIVE_DOUBLE, H5S_ALL, H5S_ALL, H5P_DEFAULT, buffer);
-        H5Dclose(dset);
-        H5Fclose(hfile);
+        big_block_read_simple(bb, 0, N, array, "f8");
+        /* steal the buffer */
+        buffer = array->data;
+        big_block_close(bb);
+        big_file_close(bf);
     } else {
         MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
         buffer = malloc(N * sizeof(double));
     }
 
     MPI_Bcast(buffer, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+
     *Nread = N;
     return buffer;
 }
@@ -984,7 +981,7 @@ static struct {
 } UVF;
 
 static void InitUVF(void) {
-    /* The UV fluctation file is an hdf5 with these tables:
+    /* The UV fluctation file is a bigfile with these tables:
      * ReionizedFraction: values of the reionized fraction as function of
      * redshift.
      * Redshift_Bins: uniform redshifts of the reionized fraction values 
