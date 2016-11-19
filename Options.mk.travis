@@ -5,8 +5,6 @@ MPICC       =   mpicc
 MPICXX       =   mpicxx
 
 OPTIMIZE =  -fopenmp -O0 -g
-HDF_INCL = 
-HDF_LIBS = -lhdf5
 GSL_INCL = 
 GSL_LIBS = -lgsl -lgslcblas
 #

@@ -6,12 +6,12 @@ HIGH_PRECISION ?= double
 
 TARGETS = MP-Gadget MP-GenIC
 
-CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) $(HDF5_INCL) -I$(PWD)/depends/include -DH5_USE_16_API
+CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) -I$(PWD)/depends/include
 CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
 CFLAGS += "-DHIGH_PRECISION=$(HIGH_PRECISION)"
 
 BUNDLEDLIBS = -lmpsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft_omp -lfftw3_mpi -lfftw3_omp -lfftw3
-LIBS   = -lm $(HDF_LIBS) $(GSL_LIBS) -L$(PWD)/depends/lib $(BUNDLEDLIBS) -lstdc++
+LIBS   = -lm $(GSL_LIBS) -L$(PWD)/depends/lib $(BUNDLEDLIBS) -lstdc++
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 

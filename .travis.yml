@@ -18,7 +18,6 @@ addons:
             - libopenmpi-dev
             - openmpi-bin
             - libgsl0-dev
-            - libhdf5-serial-dev
 
 install:
     - sh bootstrap.sh
