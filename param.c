@@ -7,6 +7,11 @@
 #include "paramset.h"
 #include "densitykernel.h"
 
+/* Optional parameters are passed the flag 0 and required parameters 1.
+ * These macros are just to document the semantic meaning of these flags. */
+#define OPTIONAL 0
+#define REQUIRED 1
+
 #ifdef BLACK_HOLES
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
@@ -101,11 +106,11 @@ create_gadget_parameter_set()
 {
     ParameterSet * ps = parameter_set_new();
 
-    param_declare_string(ps, "InitCondFile", 1, NULL, "Path to the Initial Condition File");
-    param_declare_string(ps, "OutputDir",    1, NULL, "Prefix to the output files");
-    param_declare_string(ps, "TreeCoolFile", 0, "", "Path to the Cooling Table");
-    param_declare_string(ps, "MetalCoolFile", 0, "", "Path to the Metal Cooling Table. Refer to cooling.c");
-    param_declare_string(ps, "UVFluctuationFile", 0, "", "Path to the UVFluctation Table. Refer to cooling.c.");
+    param_declare_string(ps, "InitCondFile", REQUIRED, NULL, "Path to the Initial Condition File");
+    param_declare_string(ps, "OutputDir",    REQUIRED, NULL, "Prefix to the output files");
+    param_declare_string(ps, "TreeCoolFile", OPTIONAL, "", "Path to the Cooling Table");
+    param_declare_string(ps, "MetalCoolFile", OPTIONAL, "", "Path to the Metal Cooling Table. Refer to cooling.c");
+    param_declare_string(ps, "UVFluctuationFile", OPTIONAL, "", "Path to the UVFluctation Table. Refer to cooling.c.");
 
     static ParameterEnum DensityKernelTypeEnum [] = {
         {"cubic", DENSITY_KERNEL_CUBIC_SPLINE},
@@ -113,109 +118,112 @@ create_gadget_parameter_set()
         {"quartic", DENSITY_KERNEL_QUARTIC_SPLINE},
         {NULL, DENSITY_KERNEL_QUARTIC_SPLINE},
     } ;
-    param_declare_enum(ps,    "DensityKernelType", DensityKernelTypeEnum, 1, 0, "");
-    param_declare_string(ps, "SnapshotFileBase", 1, NULL, "");
-    param_declare_string(ps, "EnergyFile", 0, "energy.txt", "");
-    param_declare_string(ps, "CpuFile", 0, "cpu.txt", "");
-    param_declare_string(ps, "InfoFile", 0, "info.txt", "");
-    param_declare_string(ps, "OutputList", 1, NULL, "List of output times");
+    param_declare_enum(ps,    "DensityKernelType", DensityKernelTypeEnum, REQUIRED, 0, "");
+    param_declare_string(ps, "SnapshotFileBase", REQUIRED, NULL, "");
+    param_declare_string(ps, "EnergyFile", OPTIONAL, "energy.txt", "");
+    param_declare_string(ps, "CpuFile", OPTIONAL, "cpu.txt", "");
+    param_declare_string(ps, "InfoFile", OPTIONAL, "info.txt", "");
+    param_declare_string(ps, "OutputList", REQUIRED, NULL, "List of output times");
 
-    param_declare_double(ps, "Omega0", 1, 0.2814, "");
-    param_declare_double(ps, "CMBTemperature", 0, 2.7255,
+    param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "");
+    param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255,
             "Present-day CMB temperature in Kelvin, default from Fixsen 2009; affects background if RadiationOn is set.");
-    param_declare_double(ps, "OmegaBaryon", 1, 0.0464, "");
-    param_declare_double(ps, "OmegaLambda", 1, 0.7186, "");
-    param_declare_double(ps, "HubbleParam", 1, 0.697, "");
-    param_declare_double(ps, "BoxSize", 1, 32000, "");
+    param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "");
+    param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "");
+    param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "");
+    param_declare_double(ps, "BoxSize", REQUIRED, 32000, "");
 
-    param_declare_int(ps,    "MaxMemSizePerCore", 0, 1200, "");
-    param_declare_double(ps, "CpuTimeBetRestartFile", 1, 0, "");
+    param_declare_int(ps,    "MaxMemSizePerCore", OPTIONAL, 1200, "");
+    param_declare_double(ps, "CpuTimeBetRestartFile", REQUIRED, 0, "");
 
-    param_declare_double(ps, "TimeBegin", 1, 0, "");
-    param_declare_double(ps, "TimeMax", 0, 1.0, "");
-    param_declare_double(ps, "TimeLimitCPU", 1, 0, "");
+    param_declare_double(ps, "TimeBegin", REQUIRED, 0, "");
+    param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "");
+    param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "");
 
-    param_declare_int   (ps, "DomainOverDecompositionFactor", 0, 1, "Number of sub domains on a MPI rank");
-    param_declare_int(ps, "DomainReportSpeedfac", 0, 0, "Print speed factors in Domain, for profiling.");
-    param_declare_double(ps, "TreeDomainUpdateFrequency", 0, 0.025, "");
-    param_declare_double(ps, "ErrTolTheta", 0, 0.5, "");
-    param_declare_int(ps,    "TypeOfOpeningCriterion", 0, 1, "");
-    param_declare_double(ps, "ErrTolIntAccuracy", 0, 0.02, "");
-    param_declare_double(ps, "ErrTolForceAcc", 0, 0.005, "");
-    param_declare_int(ps,    "Nmesh", 1, 0, "");
+    param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 1, "Number of sub domains on a MPI rank");
+    param_declare_int(ps, "DomainReportSpeedfac", OPTIONAL, 0, "Print speed factors in Domain, for profiling.");
+    param_declare_double(ps, "TreeDomainUpdateFrequency", OPTIONAL, 0.025, "");
+    param_declare_double(ps, "ErrTolTheta", OPTIONAL, 0.5, "");
+    param_declare_int(ps,    "TypeOfOpeningCriterion", OPTIONAL, 1, "");
+    param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "");
+    param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "");
+    param_declare_int(ps,    "Nmesh", REQUIRED, 0, "");
 
-    param_declare_double(ps, "MinGasHsmlFractional", 0, 0, "");
-    param_declare_double(ps, "MaxGasVel", 0, 3e5, "");
+    param_declare_double(ps, "MinGasHsmlFractional", OPTIONAL, 0, "");
+    param_declare_double(ps, "MaxGasVel", OPTIONAL, 3e5, "");
 
-    param_declare_int(ps,    "TypeOfTimestepCriterion", 0, 0, "Magic numbers!");
-    param_declare_double(ps, "MaxSizeTimestep", 0, 0.1, "");
-    param_declare_double(ps, "MinSizeTimestep", 0, 0, "");
+    param_declare_int(ps,    "TypeOfTimestepCriterion", OPTIONAL, 0, "Magic numbers!");
+    param_declare_double(ps, "MaxSizeTimestep", OPTIONAL, 0.1, "");
+    param_declare_double(ps, "MinSizeTimestep", OPTIONAL, 0, "");
 
-    param_declare_double(ps, "MaxRMSDisplacementFac", 0, 0.2, "");
-    param_declare_double(ps, "ArtBulkViscConst", 0, 0.75, "");
-    param_declare_double(ps, "CourantFac", 0, 0.15, "");
-    param_declare_double(ps, "DensityResolutionEta", 0, 1.0, "Resolution eta factor (See Price 2008) 1 = 33 for Cubic Spline");
+    param_declare_double(ps, "MaxRMSDisplacementFac", OPTIONAL, 0.2, "");
+    param_declare_double(ps, "ArtBulkViscConst", OPTIONAL, 0.75, "");
+    param_declare_double(ps, "CourantFac", OPTIONAL, 0.15, "");
+    param_declare_double(ps, "DensityResolutionEta", OPTIONAL, 1.0, "Resolution eta factor (See Price 2008) 1 = 33 for Cubic Spline");
 
-    param_declare_double(ps, "DensityContrastLimit", 0, 100, "Max contrast for hydro force calculation");
-    param_declare_double(ps, "MaxNumNgbDeviation", 0, 2, "");
-    param_declare_double(ps, "HydroCostFactor", 0, 1, "Cost factor of hydro calculation, default to 1.");
+    param_declare_double(ps, "DensityContrastLimit", OPTIONAL, 100, "Max contrast for hydro force calculation");
+    param_declare_double(ps, "MaxNumNgbDeviation", OPTIONAL, 2, "");
+    param_declare_double(ps, "HydroCostFactor", OPTIONAL, 1, "Cost factor of hydro calculation, default to 1.");
 
-    param_declare_int(ps, "NumPartPerFile", 0, 1024 * 1024 * 128, "number of particles per file");
-    param_declare_int(ps, "NumWriters", 0, NTask, "Number of concurrent writer processes. 0 implies Number of Tasks ");
-    param_declare_int(ps, "EnableAggregatedIO", 0, 0, "Use the Aggregated IO policy for small data set (Experimental).");
+    param_declare_int(ps, "NumPartPerFile", OPTIONAL, 1024 * 1024 * 128, "number of particles per file");
+    param_declare_int(ps, "NumWriters", OPTIONAL, NTask, "Number of concurrent writer processes. 0 implies Number of Tasks ");
+    param_declare_int(ps, "EnableAggregatedIO", OPTIONAL, 0, "Use the Aggregated IO policy for small data set (Experimental).");
 
-    param_declare_int(ps, "CoolingOn", 1, 0, "");
-    param_declare_double(ps, "UVRedshiftThreshold", 0, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
+    param_declare_int(ps, "MakeGlassFile", OPTIONAL, 0, "Enable to reverse the direction of gravity, only apply the PM force, and thus make a glass file.");
+    param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
+    param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
 
-    param_declare_int(ps, "HydroOn", 1, 1, "");
-    param_declare_int(ps, "StarformationOn", 1, 0, "");
-    param_declare_int(ps, "RadiationOn", 0, 0, "Include radiation density in the background evolution.");
-    param_declare_int(ps, "FastParticleType", 0, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
-    param_declare_int(ps, "NoTreeType", 0, 2, "Particles of this type will not produce tree forces. Default neutrinos.");
+    param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
+    param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
+    param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");
+    param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
+    param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
+    param_declare_int(ps, "NoTreeType", OPTIONAL, 2, "Particles of this type will not produce tree forces. Default neutrinos.");
 
-    param_declare_double(ps, "SofteningHalo", 1, 0, "");
-    param_declare_double(ps, "SofteningDisk", 1, 0, "");
-    param_declare_double(ps, "SofteningBulge", 1, 0, "");
-    param_declare_double(ps, "SofteningGas", 1, 0, "");
-    param_declare_double(ps, "SofteningStars", 1, 0, "");
-    param_declare_double(ps, "SofteningBndry", 1, 0, "");
-    param_declare_double(ps, "SofteningHaloMaxPhys", 1, 0, "");
-    param_declare_double(ps, "SofteningDiskMaxPhys", 1, 0, "");
-    param_declare_double(ps, "SofteningBulgeMaxPhys", 1, 0, "");
-    param_declare_double(ps, "SofteningGasMaxPhys", 1, 0, "");
-    param_declare_double(ps, "SofteningStarsMaxPhys", 1, 0, "");
-    param_declare_double(ps, "SofteningBndryMaxPhys", 1, 0, "");
+    param_declare_double(ps, "SofteningHalo", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningDisk", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningBulge", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningGas", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningStars", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningBndry", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningHaloMaxPhys", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningDiskMaxPhys", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningBulgeMaxPhys", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningGasMaxPhys", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningStarsMaxPhys", REQUIRED, 0, "");
+    param_declare_double(ps, "SofteningBndryMaxPhys", REQUIRED, 0, "");
 
-    param_declare_double(ps, "BufferSize", 0, 100, "");
-    param_declare_double(ps, "PartAllocFactor", 1, 0, "");
-    param_declare_double(ps, "TopNodeAllocFactor", 0, 0.5, "");
+    param_declare_double(ps, "BufferSize", OPTIONAL, 100, "");
+    param_declare_double(ps, "PartAllocFactor", REQUIRED, 0, "");
+    param_declare_double(ps, "TopNodeAllocFactor", OPTIONAL, 0.5, "");
 
-    param_declare_double(ps, "InitGasTemp", 1, 0, "");
-    param_declare_double(ps, "MinGasTemp", 1, 0, "");
+    param_declare_double(ps, "InitGasTemp", REQUIRED, 0, "");
+    param_declare_double(ps, "MinGasTemp", REQUIRED, 0, "");
+>>>>>>> Use descriptive macros for declaring parameters optional or required
 
 #if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
-    param_declare_double(ps, "ReferenceGasMass", 1, 0, "");
+    param_declare_double(ps, "ReferenceGasMass", REQUIRED, 0, "");
 #endif
 
-    param_declare_int(ps, "SnapshotWithFOF", 1, 0, "Enable Friends-of-Friends halo finder.");
-    param_declare_double(ps, "FOFHaloLinkingLength", 0, 0.2, "Linking length for Friends of Friends halos.");
-    param_declare_int(ps, "FOFHaloMinLength", 0, 32, "");
-    param_declare_double(ps, "MinFoFMassForNewSeed", 0, 5e2, "Minimal Mass for seeding tracer particles ");
-    param_declare_double(ps, "TimeBetweenSeedingSearch", 0, 1e5, "Time Between Seeding Attempts: default to a a large value, meaning never.");
+    param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");
+    param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
+    param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "");
+    param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 5e2, "Minimal Mass for seeding tracer particles ");
+    param_declare_double(ps, "TimeBetweenSeedingSearch", OPTIONAL, 1e5, "Time Between Seeding Attempts: default to a a large value, meaning never.");
 
 #ifdef BLACK_HOLES
-    param_declare_int(ps, "BlackHoleOn", 1, 1, "Enable Blackhole ");
-    param_declare_double(ps, "BlackHoleAccretionFactor", 0, 100, "");
-    param_declare_double(ps, "BlackHoleEddingtonFactor", 0, 3, "");
-    param_declare_double(ps, "SeedBlackHoleMass", 1, 0, "");
+    param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Enable Blackhole ");
+    param_declare_double(ps, "BlackHoleAccretionFactor", OPTIONAL, 100, "");
+    param_declare_double(ps, "BlackHoleEddingtonFactor", OPTIONAL, 3, "");
+    param_declare_double(ps, "SeedBlackHoleMass", REQUIRED, 0, "");
 
-    param_declare_double(ps, "BlackHoleNgbFactor", 0, 2, "");
+    param_declare_double(ps, "BlackHoleNgbFactor", OPTIONAL, 2, "");
 
-    param_declare_double(ps, "BlackHoleMaxAccretionRadius", 0, 99999., "");
-    param_declare_double(ps, "BlackHoleFeedbackFactor", 0, 0.05, "");
-    param_declare_double(ps, "BlackHoleFeedbackRadius", 1, 0, "");
+    param_declare_double(ps, "BlackHoleMaxAccretionRadius", OPTIONAL, 99999., "");
+    param_declare_double(ps, "BlackHoleFeedbackFactor", OPTIONAL, 0.05, "");
+    param_declare_double(ps, "BlackHoleFeedbackRadius", REQUIRED, 0, "");
 
-    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", 1, 0, "");
+    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", REQUIRED, 0, "");
 
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
@@ -224,7 +232,7 @@ create_gadget_parameter_set()
         {"spline", BH_FEEDBACK_SPLINE},
         {NULL, BH_FEEDBACK_SPLINE | BH_FEEDBACK_MASS},
     };
-    param_declare_enum(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodEnum, 1, 0, "");
+    param_declare_enum(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodEnum, REQUIRED, 0, "");
 #endif
 
 #ifdef SFR
@@ -250,35 +258,31 @@ create_gadget_parameter_set()
         {NULL, WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY},
     };
 
-    param_declare_enum(ps, "StarformationCriterion", StarformationCriterionEnum, 1, 0, "");
+    param_declare_enum(ps, "StarformationCriterion", StarformationCriterionEnum, REQUIRED, 0, "");
 
-    param_declare_double(ps, "CritOverDensity", 0, 57.7, "");
-    param_declare_double(ps, "CritPhysDensity", 0, 0, "");
+    param_declare_double(ps, "CritOverDensity", OPTIONAL, 57.7, "");
+    param_declare_double(ps, "CritPhysDensity", OPTIONAL, 0, "");
 
-    param_declare_double(ps, "FactorSN", 0, 0.1, "");
-    param_declare_double(ps, "FactorEVP", 0, 1000, "");
-    param_declare_double(ps, "TempSupernova", 0, 1e8, "");
-    param_declare_double(ps, "TempClouds", 0, 1000, "");
-    param_declare_double(ps, "MaxSfrTimescale", 0, 1.5, "");
-    param_declare_enum(ps, "WindModel", WindModelEnum, 1, 0, "");
+    param_declare_double(ps, "FactorSN", OPTIONAL, 0.1, "");
+    param_declare_double(ps, "FactorEVP", OPTIONAL, 1000, "");
+    param_declare_double(ps, "TempSupernova", OPTIONAL, 1e8, "");
+    param_declare_double(ps, "TempClouds", OPTIONAL, 1000, "");
+    param_declare_double(ps, "MaxSfrTimescale", OPTIONAL, 1.5, "");
+    param_declare_enum(ps, "WindModel", WindModelEnum, REQUIRED, 0, "");
 
     /* The following two are for VS08 and SH03*/
-    param_declare_double(ps, "WindEfficiency", 0, 2.0, "");
-    param_declare_double(ps, "WindEnergyFraction", 0, 1.0, "");
+    param_declare_double(ps, "WindEfficiency", OPTIONAL, 2.0, "");
+    param_declare_double(ps, "WindEnergyFraction", OPTIONAL, 1.0, "");
 
     /* The following two are for OFJT10*/
-    param_declare_double(ps, "WindSigma0", 0, 353, "");
-    param_declare_double(ps, "WindSpeedFactor", 0, 3.7, "");
+    param_declare_double(ps, "WindSigma0", OPTIONAL, 353, "");
+    param_declare_double(ps, "WindSpeedFactor", OPTIONAL, 3.7, "");
 
-    param_declare_double(ps, "WindFreeTravelLength", 0, 20, "");
-    param_declare_double(ps, "WindFreeTravelDensFac", 0, 0., "");
+    param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "");
+    param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0., "");
 
-    param_declare_double(ps, "QuickLymanAlphaProbability", 0, 0, "");
+    param_declare_double(ps, "QuickLymanAlphaProbability", OPTIONAL, 0, "");
 
-#endif
-
-#ifdef SOFTEREQS
-    param_declare_double(ps, "FactorForSofterEQS", 1, 0, "");
 #endif
 
 #ifdef BLACK_HOLES
@@ -369,9 +373,11 @@ void read_parameter_file(char *fname)
         All.NumWriters = param_get_int(ps, "NumWriters");
         All.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
 
+        All.MakeGlassFile = param_get_int(ps, "MakeGlassFile");
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
         All.HydroOn = param_get_int(ps, "HydroOn");
+        All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.NoTreeType = param_get_int(ps, "NoTreeType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
@@ -453,10 +459,6 @@ void read_parameter_file(char *fname)
 
         All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
 
-    #endif
-
-    #ifdef SOFTEREQS
-        All.FactorForSofterEQS = param_get_double(ps, "FactorForSofterEQS");
     #endif
 
         parameter_set_free(ps);

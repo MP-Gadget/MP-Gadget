@@ -36,10 +36,8 @@ OPT	+=  -DTOPNODEFACTOR=5.0
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
 OPT	+=  -DSFR
-#OPT	+=  -DSOFTEREQS
 OPT	+=  -DMETALS
 OPT	+=  -DWINDS
-#OPT	+=  -DISOTROPICWINDS
 
 
 #-------------------------------------- AGN stuff

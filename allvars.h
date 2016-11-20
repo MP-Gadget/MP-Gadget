@@ -396,11 +396,13 @@ extern struct global_data_all_processes
     int CoolingOn;		/*!< flags that cooling is enabled */
     double UVRedshiftThreshold;		/* Initial redshift of UV background. */
     int HydroOn;		/*!< flags that hydro force is enabled */
-    int BlackHoleOn;		/*!< flags that hydro force is enabled */
+    int TreeGravOn;          /*!< flags that tree gravity force is enabled*/
+    int BlackHoleOn;		/*!< flags that black holes are enabled */
     int StarformationOn;		/*!< flags that star formation is enabled */
     enum StarformationCriterion StarformationCriterion;		/*!< flags that star formation is enabled */
     enum WindModel WindModel;		/*!< flags that star formation is enabled */
 
+    int MakeGlassFile; /*!< flags that gravity is reversed and we are making a glass file*/
     int NoTreeType; /*!< flags a particle species to exclude from tree forces*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     /* parameters determining output frequency */

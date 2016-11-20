@@ -94,6 +94,8 @@ void gravity_tree(void)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
+    if(!All.TreeGravOn)
+        return;
 
     TreeWalk tw[1] = {0};
 

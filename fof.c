@@ -115,9 +115,8 @@ static MPI_Datatype MPI_TYPE_GROUP;
 
 void fof_fof(int num)
 {
-    int i, n;
+    int i;
     double t0, t1;
-    struct unbind_data *d;
 
     MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE_GROUP);
     MPI_Type_commit(&MPI_TYPE_GROUP);

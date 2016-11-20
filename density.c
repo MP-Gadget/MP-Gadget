@@ -429,14 +429,6 @@ static void density_postprocess(int i) {
         int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
         SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
 #endif // DENSITY_INDEPENDENT_SPH
-
-#ifdef SOFTEREQS
-        /* use an intermediate EQS, between isothermal and the full multiphase model */
-        if(SPHP(i).Density * All.cf.a3inv >= All.PhysDensThresh) {
-            SPHP(i).Pressure = All.FactorForSofterEQS * SPHP(i).Pressure +
-                (1 - All.FactorForSofterEQS) * All.cf.fac_egy * GAMMA_MINUS1 * SPHP(i).Density * All.InitGasU;
-        }
-#endif //SOFTEREQS
     }
 
     /* This is slightly more complicated so we put it in a different function */
