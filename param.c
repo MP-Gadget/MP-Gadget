@@ -199,7 +199,6 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "InitGasTemp", REQUIRED, 0, "");
     param_declare_double(ps, "MinGasTemp", REQUIRED, 0, "");
->>>>>>> Use descriptive macros for declaring parameters optional or required
 
 #if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
     param_declare_double(ps, "ReferenceGasMass", REQUIRED, 0, "");
