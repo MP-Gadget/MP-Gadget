@@ -21,6 +21,8 @@ static double dt_displacement = 0;
 
 static double dt_gravkickA, dt_gravkickB;
 
+void reverse_and_apply_gravity();
+
 void set_global_time(double newtime) {
     All.Time = newtime;
 
@@ -52,10 +54,6 @@ void advance_and_find_timesteps(void)
     int j, dt_step;
     double dt_gravkick, dt_hydrokick;
 
-#ifdef MAKEGLASS
-    double disp, dispmax, globmax, dmean, fac, disp2sum, globdisp2sum;
-#endif
-
     walltime_measure("/Misc");
 
     fac2 = 1 / pow(All.Time, 3 * GAMMA - 2);
@@ -67,55 +65,8 @@ void advance_and_find_timesteps(void)
     dt_gravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
             get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
 
-#ifdef MAKEGLASS
-    for(i = 0, dispmax = 0, disp2sum = 0; i < NumPart; i++)
-    {
-        for(j = 0; j < 3; j++)
-        {
-            P[i].GravAccel[j] *= -1;
-
-            P[i].GravPM[j] *= -1;
-            P[i].GravAccel[j] += P[i].GravPM[j];
-            P[i].GravPM[j] = 0;
-        }
-
-        disp = sqrt(P[i].GravAccel[0] * P[i].GravAccel[0] +
-                P[i].GravAccel[1] * P[i].GravAccel[1] + P[i].GravAccel[2] * P[i].GravAccel[2]);
-
-        disp *= 2.0 / (3 * All.Hubble * All.Hubble);
-
-        disp2sum += disp * disp;
-
-        if(disp > dispmax)
-            dispmax = disp;
-    }
-
-    MPI_Allreduce(&dispmax, &globmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&disp2sum, &globdisp2sum, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    dmean = pow(P[0].Mass / (All.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)), 1.0 / 3);
-
-    if(globmax > dmean)
-        fac = dmean / globmax;
-    else
-        fac = 1.0;
-
-    message(0, "glass-making:  dmean= %g  global disp-maximum= %g  rms= %g\n\n",
-                dmean, globmax, sqrt(globdisp2sum / All.TotNumPart));
-
-    for(i = 0, dispmax = 0; i < NumPart; i++)
-    {
-        for(j = 0; j < 3; j++)
-        {
-            P[i].Vel[j] = 0;
-            P[i].Pos[j] += fac * P[i].GravAccel[j] * 2.0 / (3 * All.Hubble * All.Hubble);
-            P[i].GravAccel[j] = 0;
-        }
-    }
-#endif
-
-
-
+    if(All.MakeGlassFile)
+        reverse_and_apply_gravity();
 
     All.DoDynamicUpdate = ShouldWeDoDynamicUpdate();
 
@@ -406,6 +357,9 @@ int get_timestep(int p,		/*!< particle index */
     double dt = 0, dt_courant = 0;
     int ti_step;
     double dt_viscous = 0;
+    /*Set to max timestep allowed if the tree is off*/
+    if(!All.TreeGravOn)
+        return All.MaxSizeTimestep / All.Timebase_interval;
 
     if(flag <= 0)
     {
@@ -510,12 +464,6 @@ int get_timestep(int p,		/*!< particle index */
        All.cf.hubble=1.
        */
     dt *= All.cf.hubble;
-
-#ifdef ONLY_PM
-    dt = All.MaxSizeTimestep;
-#endif
-
-
 
     if(dt >= All.MaxSizeTimestep)
         dt = All.MaxSizeTimestep;
@@ -680,4 +628,53 @@ int get_timestep_bin(int ti_step)
     }
 
     return bin;
+}
+
+/* This function reverse the direction of the gravitational force.
+ * This is only useful for making Lagrangian glass files*/
+void reverse_and_apply_gravity()
+{
+    double dispmax=0, globmax;
+    int i;
+    for(i = 0; i < NumPart; i++)
+    {
+        int j;
+        /*Reverse the direction of acceleration*/
+        for(j = 0; j < 3; j++)
+        {
+            P[i].GravAccel[j] *= -1;
+            P[i].GravAccel[j] -= P[i].GravPM[j];
+            P[i].GravPM[j] = 0;
+        }
+
+        double disp = sqrt(P[i].GravAccel[0] * P[i].GravAccel[0] +
+                P[i].GravAccel[1] * P[i].GravAccel[1] + P[i].GravAccel[2] * P[i].GravAccel[2]);
+
+        disp *= 2.0 / (3 * All.Hubble * All.Hubble);
+
+        if(disp > dispmax)
+            dispmax = disp;
+    }
+
+    MPI_Allreduce(&dispmax, &globmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+
+    double dmean = pow(P[0].Mass / (All.CP.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)), 1.0 / 3);
+
+    const double fac = DMIN(1.0, dmean / globmax);
+
+    message(0, "Glass-making: dmean= %g  global disp-maximum= %g\n", dmean, globmax);
+
+    /* Move the actual particles according to the (reversed) gravitational force.
+     * Not sure why this is here rather than in the main code.*/
+    for(i = 0; i < NumPart; i++)
+    {
+        int j;
+        for(j = 0; j < 3; j++)
+        {
+            P[i].Vel[j] = 0;
+            P[i].Pos[j] += fac * P[i].GravAccel[j] * 2.0 / (3 * All.Hubble * All.Hubble);
+            P[i].GravAccel[j] = 0;
+        }
+    }
+
 }

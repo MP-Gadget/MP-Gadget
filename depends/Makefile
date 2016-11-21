@@ -25,4 +25,6 @@ lib/libpfft_omp.a:
 
 clean:
 	rm -rf $(LIBRARIES)
+	cd bigfile/src; make clean
+	cd mpsort; make clean
 

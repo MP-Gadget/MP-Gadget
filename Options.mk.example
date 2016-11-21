@@ -9,10 +9,8 @@ MPICXX       =   mpic++
 #
 #
 # For GCC add -mpc64 if IEEE 64bit FP is desired.
-OPTIMIZE =  -fopenmp -O3 -flto -g -Wall -ffast-math -march=native
+OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math -march=native
 
-HDF_INCL =
-HDF_LIBS = -lhdf5
 GSL_INCL = $(shell pkg-config --cflags gsl)
 GSL_LIBS = $(shell pkg-config --libs gsl)
 
@@ -38,10 +36,8 @@ OPT	+=  -DTOPNODEFACTOR=5.0
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
 OPT	+=  -DSFR
-#OPT	+=  -DSOFTEREQS
 OPT	+=  -DMETALS
 OPT	+=  -DWINDS
-#OPT	+=  -DISOTROPICWINDS
 
 
 #-------------------------------------- AGN stuff

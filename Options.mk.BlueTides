@@ -12,8 +12,6 @@ MPICC       = cc
 OPTIMIZE =  -static -fopenmp -O3 -Ofast -g
 #OPTIMIZE =  -g -static -h aggress -h flex_mp=default -h negmsgs -O3
 
-HDF_INCL = 
-HDF_LIBS = -lhdf5
 GSL_INCL = -I$(GSL_DIR)/include
 GSL_LIBS = -L$(GSL_DIR)/lib -lgsl -lgslcblas
 #
@@ -38,10 +36,8 @@ OPT	+=  -DTOPNODEFACTOR=5.0
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
 OPT	+=  -DSFR
-#OPT	+=  -DSOFTEREQS
 OPT	+=  -DMETALS
 OPT	+=  -DWINDS
-#OPT	+=  -DISOTROPICWINDS
 
 
 #-------------------------------------- AGN stuff

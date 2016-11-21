@@ -115,9 +115,8 @@ static MPI_Datatype MPI_TYPE_GROUP;
 
 void fof_fof(int num)
 {
-    int i, n;
+    int i;
     double t0, t1;
-    struct unbind_data *d;
 
     MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE_GROUP);
     MPI_Type_commit(&MPI_TYPE_GROUP);
@@ -126,8 +125,6 @@ void fof_fof(int num)
             AllocatedBytes / (1024.0 * 1024.0));
 
     walltime_measure("/Misc");
-
-    domain_Decomposition();
 
     message(0, "Comoving linking length: %g    ", All.FOFHaloComovingLinkingLength);
     message(0, "(presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
@@ -138,23 +135,6 @@ void fof_fof(int num)
     for(i = 0; i < NumPart; i++) {
         HaloLabel[i].Pindex = i;
     }
-
-    message(0, "Tree construction.\n");
-
-    force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
-
-    /* build index list of particles of selected primary species */
-    d = (struct unbind_data *) mymalloc("d", NumPart * sizeof(struct unbind_data));
-    for(i = 0, n = 0; i < NumPart; i++)
-        if(((1 << P[i].Type) & (FOF_PRIMARY_LINK_TYPES)))
-            d[n++].index = i;
-
-    force_treebuild(n, d);
-
-    walltime_measure("/FOF/Build");
-    myfree(d);
-
-
     /* Fill FOFP_List of primary */
     t0 = second();
     fof_label_primary();
@@ -170,9 +150,6 @@ void fof_fof(int num)
     t1 = second();
 
     message(0, "attaching gas and star particles to nearest dm particles took = %g sec\n", timediff(t0, t1));
-
-
-    force_treefree();
 
     /* sort HaloLabel according to MinID, because we need that for compiling catalogues */
     qsort(HaloLabel, NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
@@ -215,14 +192,20 @@ void fof_fof(int num)
     myfree(BaseGroup);
     myfree(HaloLabel);
 
+    if(num >= 0)
+    {
+        /* need to rebuild the tree because particle order has changed. */
+        force_treefree();
+        /* I am not sure why we need a full domain decomposition here. But simple peano reorder will produce
+         * a tree that misses a few particles and crash PM. */
+        domain_Decomposition();  
+        force_treebuild_simple();
+    }
+
     message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",
             AllocatedBytes / (1024.0 * 1024.0));
 
-
-    domain_Decomposition();
-
     walltime_measure("/FOF/MISC");
-    force_treebuild_simple();
 
     MPI_Type_free(&MPI_TYPE_GROUP);
 }

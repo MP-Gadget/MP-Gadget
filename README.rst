@@ -36,22 +36,22 @@ First time users:
 .. code:: bash
 
     git clone https://github.com/bluetides-project/MP-Gadget
-
+    # or git clone https://github.com/rainwoodman/MP-Gadget-private 
     cd MP-Gadget
 
     bash bootstrap.sh
 
-We will need hdf5 and gsl. They are quite standard libraries.
-usually can be loaded with 
+We will need gsl. On HPC systems with the modules command, 
+usually it can be loaded with 
 
 .. code:: bash
 
-    # On cray use cray-hdf5
+    module load gsl
 
-    module load hdf5 gsl
+    env | grep GSL  # check if GSL path is reasonable
 
-    env | grep HDF
-    env | grep GSL
+On a common PC/Linux system, refer to your package vendor how to
+install gsl and gsl-devel.
 
 Copy Options.mk.example to Options.mk
 
@@ -61,7 +61,7 @@ Copy Options.mk.example to Options.mk
 
 Edit Options.mk
 
-1. Set HDF / GSL flags according to the environment variables.
+1. Set GSL flags according to the environment variables.
    On coma, use Options.mk.example.coma.
 
 2. Tweak the compilation options for 'features'. 

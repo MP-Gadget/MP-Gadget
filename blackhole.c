@@ -138,7 +138,7 @@ static double blackhole_soundspeed(double entropy, double pressure, double rho) 
 void blackhole(void)
 {
     if(!All.BlackHoleOn) return;
-    int i, n, bin;
+    int i;
     int Ntot_gas_swallowed, Ntot_BH_swallowed;
 
     walltime_measure("/Misc");
@@ -350,7 +350,6 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
     int other = iter->base.other;
     double r = iter->base.r;
     double r2 = iter->base.r2;
-    double * dist = iter->base.dist;
 
     if(P[other].Mass < 0) return;
 
