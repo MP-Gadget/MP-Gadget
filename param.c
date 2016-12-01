@@ -282,7 +282,12 @@ create_gadget_parameter_set()
     param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "");
     param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0., "");
 
+    /*These parameters are Lyman alpha forest specific*/
     param_declare_double(ps, "QuickLymanAlphaProbability", OPTIONAL, 0, "");
+    param_declare_int(ps, "HeliumHeatOn", OPTIONAL, 0, "");
+    param_declare_double(ps, "HeliumHeatThresh", OPTIONAL, 10, "");
+    param_declare_double(ps, "HeliumHeatAmp", OPTIONAL, 1, "");
+    param_declare_double(ps, "HeliumHeatExp", OPTIONAL, 0, "");
 
 #endif
 
@@ -461,6 +466,10 @@ void read_parameter_file(char *fname)
         All.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
 
         All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
+        All.HeliumHeatOn = param_get_int(ps, "HeliumHeatOn");
+        All.HeliumHeatThresh = param_get_double(ps, "HeliumHeatThresh");
+        All.HeliumHeatAmp = param_get_double(ps, "HeliumHeatAmp");
+        All.HeliumHeatExp = param_get_double(ps, "HeliumHeatExp");
 
     #endif
 

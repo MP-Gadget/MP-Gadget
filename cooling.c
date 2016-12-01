@@ -109,6 +109,24 @@ static double *GammaeH0, *GammaeHe0, *GammaeHep;
 
 struct UVBG GlobalUVBG = {0};
 
+/* This function modifies the photoheating rates by
+ * a density dependent factor.
+ * This is a hack to attempt to account for helium reionisation,
+ * especially for the Lyman alpha forest.
+ * It is not a good model for helium reionisation, and needs to be replaced!
+ * Takes hydrogen number density in cgs units.
+ */
+double he_reion_factor(double nHcgs)
+{
+  const double rhoc = 3.0 * pow(All.CP.HubbleParam*HUBBLE,2.0) /(8.0*M_PI*GRAVITY);
+  const double rho = PROTONMASS * nHcgs / XH;
+  const double overden = rho/(All.CP.OmegaBaryon * rhoc * pow(All.Time,-3.0));
+  if (overden >= All.HeliumHeatThresh)
+      return All.HeliumHeatAmp*pow(All.HeliumHeatThresh, All.HeliumHeatExp);
+  else
+      return All.HeliumHeatAmp*pow(overden, All.HeliumHeatExp);
+}
+
 /* returns new internal energy per unit mass. 
  * Arguments are passed in code units, density is proper density.
  */
@@ -527,8 +545,11 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
         Lambda += LambdaCmptn;
 
         Heat = 0;
+        double hefac=1.;
+        if(All.HeliumHeatOn)
+            hefac = he_reion_factor(nHcgs);
         if(uvbg->J_UV != 0)
-            Heat += (y.nH0 * uvbg->epsH0 + y.nHe0 * uvbg->epsHe0 + y.nHep * uvbg->epsHep) / nHcgs;
+            Heat += hefac * (y.nH0 * uvbg->epsH0 + y.nHe0 * uvbg->epsHe0 + y.nHep * uvbg->epsHep) / nHcgs;
 
     }
     else				/* here we're outside of tabulated rates, T>Tmax K */
@@ -558,8 +579,6 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
 
     return (Heat - Lambda);
 }
-
-
 
 static void InitUVF(void);
 void InitCoolMemory(void)

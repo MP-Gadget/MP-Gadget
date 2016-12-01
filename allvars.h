@@ -555,8 +555,6 @@ extern struct global_data_all_processes
     double WindFreeTravelLength;
     double WindFreeTravelDensFac;
     double FactorForSofterEQS;
-    double QuickLymanAlphaProbability;
-
     /* used in VS08 and SH03*/
     double WindEfficiency;
     double WindSpeed;
@@ -565,6 +563,13 @@ extern struct global_data_all_processes
     double WindSigma0;
     double WindSpeedFactor;
 #endif
+    /*Lyman alpha forest specific parameters*/
+    double QuickLymanAlphaProbability;
+    int HeliumHeatOn;
+    double HeliumHeatThresh;
+    double HeliumHeatAmp;
+    double HeliumHeatExp;
+
 
 #ifdef BLACK_HOLES
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
