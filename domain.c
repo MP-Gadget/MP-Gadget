@@ -63,8 +63,6 @@ static int *toGet, *toGetSph, *toGetBh;
 static int *list_load;
 static int *list_loadsph;
 static double *list_work;
-static double *list_cadj_cpu;
-static double *list_cadj_cost;
 
 static struct local_topnode_data
 {
@@ -148,10 +146,6 @@ void domain_Decomposition(void)
 
             all_bytes = 0;
 
-            list_cadj_cpu = (double *) mymalloc("list_cadj_cpu", bytes = (sizeof(double) * NTask));
-            all_bytes += bytes;
-            list_cadj_cost = (double *) mymalloc("list_cadj_cost", bytes = (sizeof(double) * NTask));
-            all_bytes += bytes;
             list_load = (int *) mymalloc("list_load", bytes = (sizeof(int) * NTask));
             all_bytes += bytes;
             list_loadsph = (int *) mymalloc("list_loadsph", bytes = (sizeof(int) * NTask));
@@ -200,8 +194,6 @@ void domain_Decomposition(void)
             myfree(list_work);
             myfree(list_loadsph);
             myfree(list_load);
-            myfree(list_cadj_cost);
-            myfree(list_cadj_cpu);
 
             MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
             if(retsum)
@@ -332,7 +324,7 @@ int domain_decompose(void)
     int i, status;
     int64_t sumload;
     int maxload;
-    double sumwork, sumcpu, sumcost, maxwork;
+    double sumwork, maxwork;
 
 
     walltime_measure("/Domain/Decompose/Misc");
@@ -365,7 +357,6 @@ int domain_decompose(void)
             }
         }
     }
-    All.Cadj_Cost += gravcost;
     /* because Ntype[] is of type `int64_t', we cannot do a simple
      * MPI_Allreduce() to sum the total particle numbers 
      */
@@ -374,14 +365,7 @@ int domain_decompose(void)
     for(i = 0, totpartcount = 0; i < 6; i++)
         totpartcount += Ntype[i];
 
-
     MPI_Allreduce(&gravcost, &totgravcost, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    All.Cadj_Cpu *= 0.9;
-    All.Cadj_Cost *= 0.9;
-
-    MPI_Allgather(&All.Cadj_Cpu, 1, MPI_DOUBLE, list_cadj_cpu, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-    MPI_Allgather(&All.Cadj_Cost, 1, MPI_DOUBLE, list_cadj_cost, 1, MPI_DOUBLE, MPI_COMM_WORLD);
 
     /* determine global dimensions of domain grid */
     domain_findExtent();
@@ -429,13 +413,11 @@ int domain_decompose(void)
 
 
     sumload = maxload = 0;
-    sumwork = sumcpu = sumcost = maxwork = 0;
+    sumwork = maxwork = 0;
     for(i = 0; i < NTask; i++)
     {
         sumload += list_load[i];
         sumwork += list_work[i];
-        sumcpu += list_cadj_cpu[i];
-        sumcost += list_cadj_cost[i];
 
         if(list_load[i] > maxload)
             maxload = list_load[i];
@@ -448,13 +430,11 @@ int domain_decompose(void)
             maxwork / (sumwork / NTask), maxload / (((double) sumload) / NTask));
 
     if(All.DomainReportSpeedfac) {
-        message(0, "Speedfac:\n");
+        message(0, "Work breakdown:\n");
         for(i = 0; i < NTask; i++)
         {
-            message(0, "Task [%3d]  work=%8.4f   load=%8.4f   cpu=%8.4f   cost=%8.4f \n", i,
-                    list_work[i] / (sumwork / NTask),
-                    list_load[i] / (((double) sumload) / NTask), list_cadj_cpu[i] / (sumcpu / NTask),
-                    list_cadj_cost[i] / (sumcost / NTask));
+            message(0, "Work on Task: [%3d]  work=%8.4f   load=%8.4f \n", i,
+                    list_work[i] / (sumwork / NTask), list_load[i] / (((double) sumload) / NTask));
         }
     }
 
