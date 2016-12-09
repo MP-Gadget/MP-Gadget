@@ -9,6 +9,7 @@
 #include "system.h"
 #include "densitykernel.h"
 #include "timebinmgr.h"
+#include "kspace-neutrinos/interface_common.h"
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */
@@ -292,8 +293,20 @@ create_gadget_parameter_set()
     param_declare_double(ps, "HeliumHeatThresh", OPTIONAL, 10, "Overdensity above which heating is density-independent.");
     param_declare_double(ps, "HeliumHeatAmp", OPTIONAL, 1, "Density-independent heat boost. Changes mean temperature.");
     param_declare_double(ps, "HeliumHeatExp", OPTIONAL, 0, "Density dependent heat boost (exponent). Changes gamma.");
-
     /*End of star formation parameters*/
+
+    /*Parameters for the massive neutrino model*/
+    param_declare_int(ps, "MassiveNuLinRespOn", REQUIRED, 0, "Enables linear response massive neutrinos of 1209.0461. Make sure you enable radiation too.");
+    param_declare_int(ps, "HybridNeutrinosOn", OPTIONAL, 0, "Enables hybrid massive neutrinos, where some density is followed analytically, and some with particles. Requires MassivenuLinRespOn");
+    param_declare_string(ps, "LinearTransferFunction", REQUIRED, NULL, "File containing linear transfer function in CAMB format. Used for massive neutrinos.");
+    param_declare_double(ps, "TimeTransfer", REQUIRED, 0, "Scale factor at which the CAMB transfer functions were generated.");
+    param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", OPTIONAL, 3.085678e24, "Units of the CAMB transfer function in cm. By default Mpc.");
+    param_declare_double(ps, "MNue", OPTIONAL, 0, "First neutrino mass in eV.");
+    param_declare_double(ps, "MNum", OPTIONAL, 0, "Second neutrino mass in eV.");
+    param_declare_double(ps, "MNut", OPTIONAL, 0, "Third neutrino mass in eV.");
+    param_declare_double(ps, "Vcrit", OPTIONAL, 500., "For hybrid neutrinos: Critical velocity (in km/s) in the Fermi-Dirac distribution below which the neutrinos are particles in the ICs.");
+    param_declare_double(ps, "NuPartTime", OPTIONAL, 0.3333333, "Scale factor at which to turn on hybrid neutrino particles.");
+    /*End parameters for the massive neutrino model*/
 
 #ifdef BLACK_HOLES
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
@@ -467,6 +480,20 @@ void read_parameter_file(char *fname)
         All.HeliumHeatExp = param_get_double(ps, "HeliumHeatExp");
 
     #endif
+        /*Massive neutrino parameters*/
+        All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
+        kspace_params.hybrid_neutrinos_on = param_get_int(ps, "HybridNeutrinosOn");
+        param_get_string2(ps, "LinearTransferFunction", kspace_params.KspaceTransferFunction);
+        kspace_params.TimeTransfer = param_get_double(ps, "TimeTransfer");
+        kspace_params.InputSpectrum_UnitLength_in_cm = param_get_double(ps, "InputSpectrum_UnitLength_in_cm");
+        kspace_params.MNu[0] = param_get_double(ps, "MNue");
+        kspace_params.MNu[1] = param_get_double(ps, "MNum");
+        kspace_params.MNu[2] = param_get_double(ps, "MNut");
+        kspace_params.vcrit = param_get_double(ps, "Vcrit");
+        kspace_params.nu_crit_time = param_get_double(ps, "NuPartTime");
+        if(All.MassiveNuLinRespOn && !All.CP.RadiationOn)
+            endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
+        /*End massive neutrino parameters*/
 
         parameter_set_free(ps);
 
@@ -517,4 +544,3 @@ void read_parameter_file(char *fname)
 
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
-

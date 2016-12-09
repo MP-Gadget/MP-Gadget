@@ -288,6 +288,8 @@ extern struct global_data_all_processes
     int BlackHoleOn;  /* if black holes are enabled */
     int StarformationOn;  /* if star formation is enabled */
     int WindOn; /* if Wind is enabled */
+    int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
+                                 response code of Ali-Haimoud & Bird 2013.*/
 
     enum StarformationCriterion StarformationCriterion;  /*!< flags that star formation is enabled */
     enum WindModel WindModel;  /*!< flags that star formation is enabled */

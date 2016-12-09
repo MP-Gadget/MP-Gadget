@@ -13,6 +13,11 @@
 #include "cosmology.h"
 #include "stub.h"
 
+double OmegaNu(double a)
+{
+    return 0;
+}
+
 void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H0)
 {
     CP->CMBTemperature = 2.7255;

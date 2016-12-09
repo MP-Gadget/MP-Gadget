@@ -1,6 +1,7 @@
 #include <math.h>
 #include "cosmology.h"
 #include "endrun.h"
+#include "kspace-neutrinos/interface_common.h"
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_odeiv2.h>
@@ -64,8 +65,9 @@ double hubble_function(double a)
         /* massless neutrinos are added only if there is no (massive) neutrino particle.*/
         if(CP->MasslessNeutrinosOn)
             hubble_a += CP->OmegaNu0 / (a * a * a * a);
+        else
+            hubble_a += OmegaNu(a)- OmegaNu(1) / (a * a * a);
     }
-
     /* Now finish it up. */
     hubble_a = CP->Hubble * sqrt(hubble_a);
     return (hubble_a);

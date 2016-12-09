@@ -21,6 +21,7 @@
 #include "endrun.h"
 #include "utils-string.h"
 #include "system.h"
+#include "kspace-neutrinos/interface_common.h"
 
 /*! \file begrun.c
  *  \brief initial set-up of a simulation run
@@ -55,7 +56,16 @@ void begrun(int RestartSnapNum)
     write_pid_file(All.OutputDir);
     enable_core_dumps_and_fpu_exceptions();
 #endif
-
+    /*Initialise OmegaNu now we have a memory manager*/
+    InitOmegaNu(All.CP.HubbleParam, All.CP.CMBTemperature,MPI_COMM_WORLD);
+    /*Initialise the kspace neutrino code if it is enabled.
+     * This needs to be done *before* the first call to hubble_function.
+     * Mpc units are used to match power spectrum code.*/
+    if(All.MassiveNuLinRespOn) {
+        char fname[4096];
+        sprintf(fname, "%s/PART_%03d", All.OutputDir, RestartSnapNum);
+        allocate_kspace_memory(All.Nmesh, ThisTask, All.BoxSize, All.UnitTime_in_s, 3.085678e24, All.CP.Omega0, fname, All.TimeMax, MPI_COMM_WORLD);
+    }
     InitCool();
 
 #if defined(SFR)
@@ -172,7 +182,7 @@ set_units(void)
 
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
     /*Include massless neutrinos only if we do not have massive neutrino particles*/
-    All.CP.MasslessNeutrinosOn = (All.NTotalInit[2] == 0);
+    All.CP.MasslessNeutrinosOn = (All.NTotalInit[2] == 0) && !All.MassiveNuLinRespOn;
     init_cosmology(&All.CP);
 
     meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */
@@ -215,7 +225,8 @@ set_units(void)
     message(0, "UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
     message(0, "UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
     message(0, "Photon density OmegaG = %g\n",All.CP.OmegaG);
-    message(0, "Massless Neutrino density OmegaNu0 = %g\n",All.CP.OmegaNu0);
+    if(!All.MassiveNuLinRespOn)
+        message(0, "Massless Neutrino density OmegaNu0 = %g\n",All.CP.OmegaNu0);
     message(0, "Curvature density OmegaK = %g\n",All.CP.OmegaK);
     if(All.CP.RadiationOn) {
         /* note that this value is inaccurate if there is massive neutrino. */
