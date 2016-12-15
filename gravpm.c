@@ -32,6 +32,8 @@ static PetaPMFunctions functions [] =
     {NULL, NULL, NULL},
 };
 
+static PetaPMGlobalFunctions global_functions = {NULL, NULL, potential_transfer};
+
 static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 
 void gravpm_init_periodic() {
@@ -63,7 +65,7 @@ void gravpm_force(void) {
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
-    petapm_force(_prepare, potential_transfer, functions, &pstruct, NULL);
+    petapm_force(_prepare, &global_functions, functions, &pstruct, NULL);
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     /*Now save the power spectrum*/
     if(ThisTask == 0)
