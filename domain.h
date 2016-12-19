@@ -34,7 +34,7 @@ int domain_sort_segments(const void *a, const void *b);
 void domain_assign_load_or_work_balanced(int mode);
 void domain_allocate(void);
 void domain_Decomposition(void);
-int domain_check_memory_bound(void);
+int domain_check_memory_bound(const int print_details);
 int domain_compare_key(const void *a, const void *b);
 int domain_compare_key(const void *a, const void *b);
 int domain_compare_toplist(const void *a, const void *b);

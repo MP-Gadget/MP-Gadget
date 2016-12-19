@@ -451,8 +451,6 @@ void every_timestep_stuff(void)
 
 void write_cpu_log(void)
 {
-    All.Cadj_Cpu += walltime_get_time("/Tree/Walk1") + walltime_get_time("/Tree/Walk2");
-
     int64_t totBlockedPD = -1, totBlockedND = -1;
     int64_t totTotalPD = -1, totTotalND = -1;
 

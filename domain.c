@@ -60,12 +60,6 @@ int NTopnodes, NTopleaves;
  */
 static int *toGo, *toGoSph, *toGoBh;
 static int *toGet, *toGetSph, *toGetBh;
-static int *list_load;
-static int *list_loadsph;
-static double *list_work;
-static double *list_speedfac;
-static double *list_cadj_cpu;
-static double *list_cadj_cost;
 
 static struct local_topnode_data
 {
@@ -88,7 +82,6 @@ static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t c
 static int domain_layoutfunc(int n);
 static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p));
 static void domain_exchange_once(int (*layoutfunc)(int p) );
-
 
 static float *domainWork;	/*!< a table that gives the total "work" due to the particles stored by each processor */
 static int *domainCount;	/*!< a table that gives the total number of particles held by each processor */
@@ -149,18 +142,6 @@ void domain_Decomposition(void)
 
             all_bytes = 0;
 
-            list_cadj_cpu = (double *) mymalloc("list_cadj_cpu", bytes = (sizeof(double) * NTask));
-            all_bytes += bytes;
-            list_cadj_cost = (double *) mymalloc("list_cadj_cost", bytes = (sizeof(double) * NTask));
-            all_bytes += bytes;
-            list_load = (int *) mymalloc("list_load", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            list_loadsph = (int *) mymalloc("list_loadsph", bytes = (sizeof(int) * NTask));
-            all_bytes += bytes;
-            list_work = (double *) mymalloc("list_work", bytes = (sizeof(double) * NTask));
-            all_bytes += bytes;
-            list_speedfac = (double *) mymalloc("list_speedfac", bytes = (sizeof(double) * NTask));
-            all_bytes += bytes;
             domainWork = (float *) mymalloc("domainWork", bytes = (MaxTopNodes * sizeof(float)));
             all_bytes += bytes;
             domainCount = (int *) mymalloc("domainCount", bytes = (MaxTopNodes * sizeof(int)));
@@ -200,12 +181,6 @@ void domain_Decomposition(void)
             myfree(domainCountSph);
             myfree(domainCount);
             myfree(domainWork);
-            myfree(list_speedfac);
-            myfree(list_work);
-            myfree(list_loadsph);
-            myfree(list_load);
-            myfree(list_cadj_cost);
-            myfree(list_cadj_cpu);
 
             MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
             if(retsum)
@@ -334,9 +309,6 @@ int domain_decompose(void)
     int NtypeLocal[6];		/*!< local number of particles of each type */
 
     int i, status;
-    int64_t sumload;
-    int maxload;
-    double sumwork, sumcpu, sumcost, maxwork, cadj_SpeedFac;
 
 
     walltime_measure("/Domain/Decompose/Misc");
@@ -369,7 +341,6 @@ int domain_decompose(void)
             }
         }
     }
-    All.Cadj_Cost += gravcost;
     /* because Ntype[] is of type `int64_t', we cannot do a simple
      * MPI_Allreduce() to sum the total particle numbers 
      */
@@ -378,32 +349,7 @@ int domain_decompose(void)
     for(i = 0, totpartcount = 0; i < 6; i++)
         totpartcount += Ntype[i];
 
-
     MPI_Allreduce(&gravcost, &totgravcost, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    All.Cadj_Cpu *= 0.9;
-    All.Cadj_Cost *= 0.9;
-
-    MPI_Allgather(&All.Cadj_Cpu, 1, MPI_DOUBLE, list_cadj_cpu, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-    MPI_Allgather(&All.Cadj_Cost, 1, MPI_DOUBLE, list_cadj_cost, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-
-#ifdef CPUSPEEDADJUSTMENT
-    MPI_Allreduce(&All.Cadj_Cost, &min_load, 1, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    if(min_load > 0)
-    {
-        cadj_SpeedFac = All.Cadj_Cpu / All.Cadj_Cost;
-
-        MPI_Allreduce(&cadj_SpeedFac, &sum_speedfac, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-        cadj_SpeedFac /= (sum_speedfac / NTask);
-    }
-    else
-        cadj_SpeedFac = 1;
-
-    MPI_Allgather(&cadj_SpeedFac, 1, MPI_DOUBLE, list_speedfac, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-#else
-    cadj_SpeedFac = 1;
-    MPI_Allgather(&cadj_SpeedFac, 1, MPI_DOUBLE, list_speedfac, 1, MPI_DOUBLE, MPI_COMM_WORLD);
-#endif
 
     /* determine global dimensions of domain grid */
     domain_findExtent();
@@ -427,7 +373,7 @@ int domain_decompose(void)
 
     walltime_measure("/Domain/Decompose/assignbalance");
 
-    status = domain_check_memory_bound();
+    status = domain_check_memory_bound(0);
     walltime_measure("/Domain/Decompose/memorybound");
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
@@ -440,43 +386,12 @@ int domain_decompose(void)
         domain_assign_load_or_work_balanced(0);
         walltime_measure("/Domain/Decompose/assignbalance");
 
-        status = domain_check_memory_bound();
+        status = domain_check_memory_bound(1);
         walltime_measure("/Domain/Decompose/memorybound");
 
         if(status != 0)
         {
             endrun(0, "No domain decomposition that stays within memory bounds is possible.\n");
-        }
-    }
-
-
-    sumload = maxload = 0;
-    sumwork = sumcpu = sumcost = maxwork = 0;
-    for(i = 0; i < NTask; i++)
-    {
-        sumload += list_load[i];
-        sumwork += list_speedfac[i] * list_work[i];
-        sumcpu += list_cadj_cpu[i];
-        sumcost += list_cadj_cost[i];
-
-        if(list_load[i] > maxload)
-            maxload = list_load[i];
-
-        if(list_speedfac[i] * list_work[i] > maxwork)
-            maxwork = list_speedfac[i] * list_work[i];
-    }
-
-    message(0, "work-load balance=%g   memory-balance=%g\n",
-            maxwork / (sumwork / NTask), maxload / (((double) sumload) / NTask));
-
-    if(All.DomainReportSpeedfac) {
-        message(0, "Speedfac:\n");
-        for(i = 0; i < NTask; i++)
-        {
-            message(0, "Speedfac [%3d]  speedfac=%8.4f  work=%8.4f   load=%8.4f   cpu=%8.4f   cost=%8.4f \n", i,
-                    list_speedfac[i], list_speedfac[i] * list_work[i] / (sumwork / NTask),
-                    list_load[i] / (((double) sumload) / NTask), list_cadj_cpu[i] / (sumcpu / NTask),
-                    list_cadj_cost[i] / (sumcost / NTask));
         }
     }
 
@@ -561,14 +476,17 @@ void domain_exchange(int (*layoutfunc)(int p)) {
 
 }
 
-
-int domain_check_memory_bound(void)
+int domain_check_memory_bound(const int print_details)
 {
     int ta, m, i;
     int load, sphload, max_load, max_sphload;
-    double work;
+    int64_t sumload,sumsphload;
+    double work, max_work, sumwork;
+    /*Only used if print_details is true*/
+    int list_load[NTask], list_loadsph[NTask];
+    double list_work[NTask];
 
-    max_load = max_sphload = 0;
+    max_work = max_load = max_sphload = sumload = sumsphload = sumwork = 0;
 
     for(ta = 0; ta < NTask; ta++)
     {
@@ -583,16 +501,35 @@ int domain_check_memory_bound(void)
                 work += domainWork[i];
             }
 
-        list_load[ta] = load;
-        list_loadsph[ta] = sphload;
-        list_work[ta] = work;
+        if(print_details) {
+            list_load[ta] = load;
+            list_loadsph[ta] = sphload;
+            list_work[ta] = work;
+        }
+
+        sumwork += work;
+        sumload += load;
+        sumsphload += sphload;
 
         if(load > max_load)
             max_load = load;
         if(sphload > max_sphload)
             max_sphload = sphload;
+        if(work > max_work)
+            max_work = work;
     }
 
+    message(0, "Largest deviations from average: work=%g particle load=%g sph particle load=%g\n",
+            max_work / (sumwork / NTask), max_load / (((double) sumload) / NTask), max_sphload/(((double) sumsphload)/NTask));
+
+    if(print_details) {
+        message(0, "Balance breakdown:\n");
+        for(i = 0; i < NTask; i++)
+        {
+            message(0, "Task: [%3d]  work=%8.4f  particle load=%8.4f sph particle load=%8.4f \n", i,
+               list_work[i] / (sumwork / NTask), list_load[i] / (((double) sumload) / NTask), list_loadsph[i]/(((double) sumsphload) /NTask));
+        }
+    }
 
     if(max_load > maxLoad)
     {
@@ -1015,7 +952,7 @@ void domain_findSplit_work_balanced(int ncpu, int ndomain)
         work = 0;
         end = start;
 
-        work += domainWork[end] / list_speedfac[i % NTask];
+        work += domainWork[end];
 
         while((work + work_before < workavg + workavg_before) || (i == ncpu - 1 && end < ndomain - 1))
         {
@@ -1024,7 +961,7 @@ void domain_findSplit_work_balanced(int ncpu, int ndomain)
             else
                 break;
 
-            work += domainWork[end] / list_speedfac[i % NTask];
+            work += domainWork[end];
         }
 
         DomainStartList[i] = start;

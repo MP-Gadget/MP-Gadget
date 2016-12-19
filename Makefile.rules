@@ -6,12 +6,12 @@ HIGH_PRECISION ?= double
 
 TARGETS = MP-Gadget MP-GenIC
 
-CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) -I$(PWD)/depends/include
+CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) -I$(CURDIR)/depends/include
 CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
 CFLAGS += "-DHIGH_PRECISION=$(HIGH_PRECISION)"
 
 BUNDLEDLIBS = -lmpsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft_omp -lfftw3_mpi -lfftw3_omp -lfftw3
-LIBS   = -lm $(GSL_LIBS) -L$(PWD)/depends/lib $(BUNDLEDLIBS) -lstdc++
+LIBS   = -lm $(GSL_LIBS) -Ldepends/lib $(BUNDLEDLIBS) -lstdc++
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 
@@ -28,7 +28,7 @@ OBJECTS  =  \
 	 system.o allocate.o density.o \
 	 treewalk.o cosmology.o \
 	 gravtree.o hydra.o  driftfac.o \
-	 gravpm.o \
+	 gravpm.o powerspectrum.o \
 	 forcetree.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o \
@@ -46,10 +46,10 @@ ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
         endrun.o \
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
-	 fof.h cosmology.h \
+	 fof.h cosmology.h powerspectrum.h \
 	 petaio.h
 
-TESTED = interp
+TESTED = interp powerspectrum
 
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)
@@ -94,5 +94,5 @@ test: $(TESTBIN)
 
 $(DESTDIR)/run_%_test: $(DESTDIR)/%_test
 
-$(DESTDIR)/%_test: test/%_test.c %.o
-	$(MPICC) $(OPTIMIZE) $^ -o $@ -lcmocka
+$(DESTDIR)/%_test: test/%_test.c $(DESTDIR)/%.o
+	$(MPICC) $(CFLAGS) $(LIBS) $^ -o $@ -lcmocka

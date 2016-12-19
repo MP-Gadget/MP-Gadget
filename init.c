@@ -76,10 +76,6 @@ void init(void)
 
     All.TreeAllocFactor = 0.7;
 
-
-    All.Cadj_Cost = 1.0e-30;
-    All.Cadj_Cpu = 1.0e-3;
-
     check_omega();
 
     for(i = 0; i < NumPart; i++)	/*  start-up initialization */

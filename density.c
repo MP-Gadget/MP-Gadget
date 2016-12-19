@@ -332,7 +332,7 @@ density_ngbiter(
 #endif
         O->Ngb += wk * iter->kernel_volume;
 
-        /* Hinv is here becuase O->DhsmlDensity is drho / dH.
+        /* Hinv is here because O->DhsmlDensity is drho / dH.
          * nothing to worry here */
         O->DhsmlDensity += mass_j * density_kernel_dW(&iter->kernel, u, wk, dwk);
 
