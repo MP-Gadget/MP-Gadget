@@ -38,7 +38,7 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
     for(i = 0; i < PowerSpectrum->size; i ++) {
         for(j = 1; j < PowerSpectrum->nalloc/PowerSpectrum->size; j++) {
             PowerSpectrum->P[i] += PowerSpectrum->P[i+ PowerSpectrum->size*j];
-            PowerSpectrum->k[i] += PowerSpectrum->Nmodes[i+ PowerSpectrum->size*j];
+            PowerSpectrum->k[i] += PowerSpectrum->k[i+ PowerSpectrum->size*j];
             PowerSpectrum->Nmodes[i] += PowerSpectrum->Nmodes[i +PowerSpectrum->size*j];
         }
     }
