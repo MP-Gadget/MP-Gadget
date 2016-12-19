@@ -94,5 +94,5 @@ test: $(TESTBIN)
 
 $(DESTDIR)/run_%_test: $(DESTDIR)/%_test
 
-$(DESTDIR)/%_test: test/%_test.c %.o
-	$(MPICC) $(OPTIMIZE) $^ -o $@ -lcmocka
+$(DESTDIR)/%_test: test/%_test.c $(DESTDIR)/%.o
+	$(MPICC) $(CFLAGS) $(LIBS) $^ -o $@ -lcmocka
