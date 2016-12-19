@@ -20,35 +20,38 @@ static struct _powerspectrum {
     double * P;
     int64_t * Nmodes;
     size_t size;
+    size_t nalloc;
     double Norm;
 } PowerSpectrum;
 
 /*Allocate memory for the power spectrum*/
-void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum)
+void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins, const int nthreads)
 {
-    PowerSpectrum->size = All.Nmesh;
-    PowerSpectrum->k = mymalloc("Powerspectrum", 2*sizeof(double) * All.Nmesh * All.NumThreads );
-    PowerSpectrum->P = PowerSpectrum-> k+All.Nmesh * All.NumThreads;
-    PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(int64_t) * All.Nmesh * All.NumThreads );
+    PowerSpectrum->size = nbins;
+    const int nalloc = nbins*nthreads;
+    PowerSpectrum->nalloc = nalloc;
+    PowerSpectrum->k = mymalloc("Powerspectrum", 2*sizeof(double) * nalloc);
+    PowerSpectrum->P = PowerSpectrum-> k+nalloc;
+    PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(int64_t) * nalloc);
 }
 
 /*Zero memory for the power spectrum*/
 void powerspectrum_zero(struct _powerspectrum * PowerSpectrum)
 {
-    memset(PowerSpectrum->k, 0, sizeof(double) * PowerSpectrum->size * All.NumThreads);
-    memset(PowerSpectrum->P, 0, sizeof(double) * PowerSpectrum->size * All.NumThreads);
-    memset(PowerSpectrum->Nmodes, 0, sizeof(double) * PowerSpectrum->size * All.NumThreads);
+    memset(PowerSpectrum->k, 0, sizeof(double) * PowerSpectrum->nalloc);
+    memset(PowerSpectrum->P, 0, sizeof(double) * PowerSpectrum->nalloc);
+    memset(PowerSpectrum->Nmodes, 0, sizeof(double) * PowerSpectrum->nalloc);
     PowerSpectrum->Norm = 0;
 }
 
 /* Sum the different modes on each thread and processor together to get a power spectrum,
  * and fix the units.*/
-void powerspectrum_sum(struct _powerspectrum * PowerSpectrum)
+void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSize_in_cm)
 {
     /*Sum power spectrum thread-local storage*/
     int i,j;
     for(i = 0; i < PowerSpectrum->size; i ++) {
-        for(j = 1; j < All.NumThreads; j++) {
+        for(j = 1; j < PowerSpectrum->nalloc/PowerSpectrum->size; j++) {
             PowerSpectrum->P[i] += PowerSpectrum->P[i+ PowerSpectrum->size*j];
             PowerSpectrum->k[i] += PowerSpectrum->Nmodes[i+ PowerSpectrum->size*j];
             PowerSpectrum->Nmodes[i] += PowerSpectrum->Nmodes[i +PowerSpectrum->size*j];
@@ -68,9 +71,8 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum)
         PowerSpectrum->P[i] /= PowerSpectrum->Norm;
         PowerSpectrum->k[i] /= PowerSpectrum->Nmodes[i];
         /* Mpc/h units */
-        PowerSpectrum->k[i] *= 2 * M_PI / (All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 );
-        PowerSpectrum->P[i] *= pow(All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 , 3.0);
-
+        PowerSpectrum->k[i] *= 2 * M_PI / (BoxSize_in_cm / 3.085678e24 );
+        PowerSpectrum->P[i] *= pow(BoxSize_in_cm / 3.085678e24 , 3.0);
     }
 }
 
@@ -121,7 +123,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 
 void gravpm_init_periodic() {
     petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
-    powerspectrum_alloc(&PowerSpectrum);
+    powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads);
 }
 void gravpm_force() {
     PetaPMParticleStruct pstruct = {
@@ -140,7 +142,7 @@ void gravpm_force() {
      * not the density.
      * */
     petapm_force(_prepare, potential_transfer, functions, &pstruct, NULL);
-    powerspectrum_sum(&PowerSpectrum);
+    powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     powerspectrum_save(&PowerSpectrum);
 }
 
