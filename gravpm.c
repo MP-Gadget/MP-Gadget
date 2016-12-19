@@ -70,7 +70,7 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum)
         /* Mpc/h units */
         PowerSpectrum->k[i] *= 2 * M_PI / (All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 );
         PowerSpectrum->P[i] *= pow(All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 , 3.0);
- 
+
     }
 }
 
@@ -134,7 +134,7 @@ void gravpm_force() {
     };
 
     powerspectrum_zero(&PowerSpectrum);
-    /* 
+    /*
      * we apply potential transfer immediately after the R2C transform,
      * Therefore the force transfer functions are based on the potential,
      * not the density.
@@ -149,21 +149,21 @@ static double pot_factor;
 static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     All.Asmth[0] = ASMTH * All.BoxSize / All.Nmesh;
     All.Rcut[0] = RCUT * All.Asmth[0];
-    /* fac is - 4pi G     (L / 2pi) **2 / L ** 3 
+    /* fac is - 4pi G     (L / 2pi) **2 / L ** 3
      *        Gravity       k2            DFT (dk **3, but )
      * */
     pot_factor = - All.G / (M_PI * All.BoxSize);	/* to get potential */
 
 
-    /* 
+    /*
      *
      * walks down the tree, identify nodes that contains local mass and
      * are sufficiently large in volume.
      *
      * for each nodes, a mesh region is created.
-     * the particles in a node are linked to their hosting region 
+     * the particles in a node are linked to their hosting region
      * (each particle belongs
-     * to exactly one region even though it may be covered by two) 
+     * to exactly one region even though it may be covered by two)
      *
      * */
     int no;
@@ -185,7 +185,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
         if(
             /* node is large */
            (Nodes[no].len <= All.BoxSize / All.Nmesh * 24)
-           ||  
+           ||
             /* node is a top leaf */
             (
             !(Nodes[no].u.d.bitflags & (1 << BITFLAG_INTERNAL_TOPLEVEL))
@@ -196,7 +196,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
             /* do not open */
             no = Nodes[no].u.d.sibling;
             continue;
-        } 
+        }
         /* open */
         no = Nodes[no].u.d.nextnode;
     }
@@ -238,9 +238,9 @@ static int pm_mark_region_for_node(int startno, int rid) {
             no = Nextnode[no];
             drift_particle(p, All.Ti_Current);
             P[p].RegionInd = rid;
-            /* 
+            /*
              *
-             * Enlarge the startno so that it encloses all particles 
+             * Enlarge the startno so that it encloses all particles
              * this happens if a BH particle is relocated to a PotMin
              * out-side the (enlarged )drifted node.
              * because the POTMIN relocation is unphysical, this can
@@ -296,7 +296,7 @@ static void convert_node_to_region(PetaPMRegion * r) {
     int no = r->no;
 #if 0
     printf("task = %d no = %d len = %g hmax = %g center = %g %g %g\n",
-            ThisTask, no, Nodes[no].len, Extnodes[no].hmax, 
+            ThisTask, no, Nodes[no].len, Extnodes[no].hmax,
             Nodes[no].center[0],
             Nodes[no].center[1],
             Nodes[no].center[2]);
@@ -316,11 +316,11 @@ static void convert_node_to_region(PetaPMRegion * r) {
 }
 
 /********************
- * transfer functions for 
+ * transfer functions for
  *
  * potential from mass in cell
  *
- * and 
+ * and
  *
  * force from potential
  *
@@ -363,9 +363,9 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
         tmp = sinc_unnormed(tmp);
         f *= 1. / (tmp * tmp);
     }
-    /* 
+    /*
      * first decovolution is CIC in par->mesh
-     * second decovolution is correcting readout 
+     * second decovolution is correcting readout
      * I don't understand the second yet!
      * */
     const double fac = pot_factor * smth * f * f;
@@ -411,8 +411,8 @@ static double super_lanzcos_diff_kernel_2(double w) {
 #if PETAPM_ORDER == 1
 static double super_lanzcos_diff_kernel_1(double w) {
 /* order N = 1 */
-/* 
- * This is the same as GADGET-2 but in fourier space: 
+/*
+ * This is the same as GADGET-2 but in fourier space:
  * see gadget-2 paper and Hamming's book.
  * c1 = 2 / 3, c2 = 1 / 12
  * */
@@ -429,15 +429,15 @@ static double diff_kernel(double w) {
 #if PETAPM_ORDER == 3
         return super_lanzcos_diff_kernel_3(w);
 #endif
-#if PETAPM_ORDER > 3 
+#if PETAPM_ORDER > 3
 #error PETAPM_ORDER too high.
 #endif
 }
 static void force_transfer(int k, pfft_complex * value) {
     double tmp0;
     double tmp1;
-    /* 
-     * negative sign is from force_x = - Del_x pot 
+    /*
+     * negative sign is from force_x = - Del_x pot
      *
      * filter is   i K(w)
      * */
