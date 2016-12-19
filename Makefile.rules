@@ -28,7 +28,7 @@ OBJECTS  =  \
 	 system.o allocate.o density.o \
 	 treewalk.o cosmology.o \
 	 gravtree.o hydra.o  driftfac.o \
-	 gravpm.o \
+	 gravpm.o powerspectrum.o \
 	 forcetree.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o \
@@ -46,7 +46,7 @@ ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
         endrun.o \
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
-	 fof.h cosmology.h \
+	 fof.h cosmology.h powerspectrum.h \
 	 petaio.h
 
 TESTED = interp
