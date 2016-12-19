@@ -49,7 +49,7 @@ INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h powerspectrum.h \
 	 petaio.h
 
-TESTED = interp
+TESTED = interp powerspectrum
 
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)
