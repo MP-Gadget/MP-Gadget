@@ -59,7 +59,7 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum)
     MPI_Allreduce(MPI_IN_PLACE, &(PowerSpectrum->Norm), 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->k, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->P, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_LONG_LONG_INT, MPI_SUM, MPI_COMM_WORLD);
 
     /*Now fix power spectrum units*/
     for(i = 0; i < PowerSpectrum->size; i ++) {
