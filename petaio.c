@@ -479,6 +479,10 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, size_t 
         NumFiles = NumWriters;
         message(0, "Throttling NumFiles to %d.\n", NumFiles);
     }
+    /*Do not write empty files*/
+    if(size == 0) {
+        NumFiles = 0;
+    }
 
     message(0, "Will write %td particles to %d Files\n", size, NumFiles);
     /* create the block */
