@@ -841,7 +841,7 @@ void ReadIonizeParams(char *fname)
         else
             break;
 
-    message(0, "Read ionization table with %d entries in file `%s'.\n", nheattab, fname);
+    message(0, "Read ionization table for z=%g - %g, with %d rows in file `%s'.\n", pow(10,inlogz[0])-1,pow(10,inlogz[nheattab-1])-1,nheattab, fname);
 }
 
 
