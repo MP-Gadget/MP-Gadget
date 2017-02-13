@@ -69,6 +69,8 @@ void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * Outp
         sprintf(fname, "%s/powerspectrum-%0.4f.txt", OutputDir, Time);
         message(1, "Writing Power Spectrum to %s\n", fname);
         FILE * fp = fopen(fname, "w");
+	if(!fp)
+		endrun("Could not open %s for writing\n",fname);
         fprintf(fp, "# in Mpc/h Units \n");
         fprintf(fp, "# D1 = %g \n", D1);
         fprintf(fp, "# k P N P(z=0)\n");
