@@ -799,6 +799,7 @@ cull_node(TreeWalkQueryBase * I, TreeWalkNgbIterBase * iter, int no)
     for(d = 0; d < 3; d ++) {
         dx = NEAREST(current->center[d] - I->Pos[d]);
         if(dx > dist) return 0;
+        if(dx < -dist) return 0;
         r2 += dx * dx;
     }
     /* now test against the minimal sphere enclosing everything */
