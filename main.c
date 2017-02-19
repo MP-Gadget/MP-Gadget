@@ -38,9 +38,9 @@ int main(int argc, char **argv)
             printf("Call with <ParameterFile> [<RestartFlag>] [<RestartSnapNum>]\n");
             printf("\n");
             printf("   RestartFlag    Action\n");
-            printf("       0          Read iniial conditions and start simulation\n");
-            printf("       2          Restart from specified snapshot dump and continue simulation\n");
+            printf("       2          Restart from specified snapshot (-1 for Initial Condition) and continue simulation\n");
             printf("       3          Run FOF if enabled\n");
+            printf("       99         Run Tests. \n");
             printf("\n");
         }
         goto byebye;
@@ -61,6 +61,8 @@ int main(int argc, char **argv)
 
     read_parameter_file(argv[1]);	/* ... read in parameters for this run */
 
+    int RestartFlag, RestartSnapNum;
+
     if(argc >= 3)
         RestartFlag = atoi(argv[2]);
     else
@@ -71,16 +73,32 @@ int main(int argc, char **argv)
     else
         RestartSnapNum = -1;
 
+    if(RestartFlag == 0) {
+        message(1, "Restart flag of 0 is deprecated. Use 2.\n");
+        RestartFlag = 2;
+        RestartSnapNum = -1;
+    }
     if(RestartFlag == 1) {
         endrun(1, "Restarting from restart file is no longer supported. Use a snapshot instead.\n");
     }
 
-    begrun();			/* set-up run  */
+    if(RestartFlag == 3 && RestartSnapNum < 0) {
+        endrun(1, "Need to give the snapshot number if FOF is selected for output\n");
+    }
 
-    if(RestartFlag == 3) {
-        fof_fof(RestartSnapNum);
-    } else {
-        run();			/* main simulation loop */
+    switch(RestartFlag) {
+        case 3:
+            begrun(3, RestartSnapNum); 
+            fof_fof(RestartSnapNum);
+            break;
+        case 99:
+            begrun(2, RestartSnapNum);
+            runtests();
+            break;
+        default:
+            begrun(2, RestartSnapNum);
+            run();			/* main simulation loop */
+            break;
     }
 byebye:
     MPI_Finalize();		/* clean up & finalize MPI */

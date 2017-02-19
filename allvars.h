@@ -256,11 +256,6 @@ extern int64_t GlobNumForceUpdate;
 
 extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tree used for domain decomposition */
 
-extern int RestartFlag;		/*!< taken from command line used to start code. 0 is normal start-up from
-                              initial conditions, 1 is resuming a run from a set of restart files, while 2
-                              marks a restart from a snapshot file. */
-extern int RestartSnapNum;
-
 extern int Flag_FullStep;	/*!< Flag used to signal that the current step involves all particles */
 
 extern int GlobFlag;

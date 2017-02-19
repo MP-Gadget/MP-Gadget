@@ -96,11 +96,8 @@ void lightcone_init(double timeBegin)
     sprintf(buf, "%s/lightcone/%03d/", All.OutputDir, (int)(ThisTask / chunk));
     mkdir(buf, 02755);
     sprintf(buf, "%s/lightcone/%03d/lightcone-%05d.raw", All.OutputDir, (int)(ThisTask / chunk), ThisTask);
-    if(RestartFlag == 0) {
-        fd_lightcone = fopen(buf, "w");
-    } else {
-        fd_lightcone = fopen(buf, "a");
-    }
+
+    fd_lightcone = fopen(buf, "a+");
     if(fd_lightcone == NULL) {
         endrun(1, "failed to open %s\n", buf);
     }
