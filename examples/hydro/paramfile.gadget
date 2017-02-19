@@ -20,7 +20,6 @@ TypeOfTimestepCriterion = 0
 
 #  Characteristics of run
 
-TimeBegin = 0.1
 TimeMax = 1.00000
 
 Omega0 = 0.2814      # Total matter density  (at z=0)
