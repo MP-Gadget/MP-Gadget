@@ -69,14 +69,16 @@ void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * Outp
         sprintf(fname, "%s/powerspectrum-%0.4f.txt", OutputDir, Time);
         message(1, "Writing Power Spectrum to %s\n", fname);
         FILE * fp = fopen(fname, "w");
-	if(!fp)
-		endrun("Could not open %s for writing\n",fname);
-        fprintf(fp, "# in Mpc/h Units \n");
-        fprintf(fp, "# D1 = %g \n", D1);
-        fprintf(fp, "# k P N P(z=0)\n");
-        for(i = 0; i < PowerSpectrum->size; i ++) {
-            fprintf(fp, "%g %g %ld %g\n", PowerSpectrum->k[i], PowerSpectrum->P[i], PowerSpectrum->Nmodes[i],
-                        PowerSpectrum->P[i] / (D1 * D1));
+        if(!fp)
+            message(1, "Could not open %s for writing\n", fname);
+        else {
+            fprintf(fp, "# in Mpc/h Units \n");
+            fprintf(fp, "# D1 = %g \n", D1);
+            fprintf(fp, "# k P N P(z=0)\n");
+            for(i = 0; i < PowerSpectrum->size; i ++) {
+                fprintf(fp, "%g %g %ld %g\n", PowerSpectrum->k[i], PowerSpectrum->P[i], PowerSpectrum->Nmodes[i],
+                            PowerSpectrum->P[i] / (D1 * D1));
+            }
+            fclose(fp);
         }
-        fclose(fp);
 }
