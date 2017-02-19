@@ -49,7 +49,6 @@ void init(int RestartSnapNum)
     check_omega();
 
     fof_init();
-    set_softenings();
 
     All.NumCurrentTiStep = 0;	/* setup some counters */
     All.SnapshotFileCount = 0;
@@ -127,8 +126,6 @@ void init(int RestartSnapNum)
     Flag_FullStep = 1;		/* to ensure that Peano-Hilbert order is done */
 
     domain_Decomposition();	/* do initial domain decomposition (gives equal numbers of particles) */
-
-    set_softenings();
 
     force_treebuild_simple();
 

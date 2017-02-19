@@ -1,29 +1,4 @@
 
-/*! length of lock-up table for short-range force kernel in TreePM algorithm */
-#define NTAB 1000
-/*! variables for short-range lookup table */
-static float shortrange_table[NTAB], shortrange_table_potential[NTAB], shortrange_table_tidal[NTAB];
-
-/*! toggles after first tree-memory allocation, has only influence on log-files */
-static int first_flag = 0;
-
-static void fill_ntab()
-{
-    if(first_flag == 0)
-    {
-        first_flag = 1;
-        int i;
-        for(i = 0; i < NTAB; i++)
-        {
-            double u = 3.0 / NTAB * (i + 0.5);
-            shortrange_table[i] = erfc(u) + 2.0 * u / sqrt(M_PI) * exp(-u * u);
-            shortrange_table_potential[i] = erfc(u);
-            shortrange_table_tidal[i] = 4.0 * u * u * u / sqrt(M_PI) * exp(-u * u);
-        }
-    }
-
-}
-
 typedef struct {
     TreeWalkNgbIterBase base;
 } TreeWalkNgbIterGravShort;

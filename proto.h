@@ -149,6 +149,7 @@ double measure_time(void);
 
 void long_range_init(void);
 void long_range_force(void);
+int grav_apply_short_range_window(double r, double * fac, double * facpot);
 
 #ifdef LIGHTCONE
 void lightcone_init(double timeBegin);

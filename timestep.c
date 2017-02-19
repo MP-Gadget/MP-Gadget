@@ -40,6 +40,7 @@ void set_global_time(double newtime) {
 #ifdef COOL
     IonizeParams();
 #endif
+    set_softenings();
 }
 
 /*! This function advances the system in momentum space, i. it does apply the 'kick' operation after the

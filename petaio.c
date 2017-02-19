@@ -339,6 +339,7 @@ static void petaio_read_header(BigFile * bf) {
     /* at most 10% of SPH can form BH*/
     All.MaxPartBh = (int) (0.1 * All.MaxPartSph);	
 
+    /* Important to set the global time here because it affects the GT functions. */
     set_global_time(Time);
 }
 

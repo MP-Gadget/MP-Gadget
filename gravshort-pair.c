@@ -24,10 +24,6 @@ grav_short_pair_ngbiter(
 
 void grav_short_pair(void)
 {
-    fill_ntab();
-
-    set_softenings();
-
     TreeWalk tw[1] = {0};
 
     tw->ev_label = "GRAV_SHORT";
@@ -70,8 +66,6 @@ grav_short_pair_ngbiter(
     double r2 = iter->base.r2;
     double * dist = iter->base.dist;
 
-    double asmth = All.Asmth[0];
-
     if(P[other].Mass == 0)
         return;
 
@@ -82,11 +76,11 @@ grav_short_pair_ngbiter(
     if(h < All.ForceSoftening[P[other].Type])
         h = All.ForceSoftening[P[other].Type];
 
-    double fac, facpot;
+    double fac, pot;
 
     if(r >= h) {
         fac = mass / (r2 * r);
-        facpot = -mass / r;
+        pot = -mass / r;
     } else {
         double h_inv = 1.0 / h;
         double h3_inv = h_inv * h_inv * h_inv;
@@ -105,22 +99,15 @@ grav_short_pair_ngbiter(
                 -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
                         u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
 
-        facpot = mass * h_inv * wp;
+        pot = mass * h_inv * wp;
     }
 
-    double asmthfac = 0.5 / asmth * (NTAB / 3.0);
-
-    int tabindex = (int) (asmthfac * r);
-
-    if(tabindex < NTAB)
-    {
-        fac *= shortrange_table[tabindex];
-
+    if (grav_apply_short_range_window(r, &fac, &pot) == 0) {
         int d;
         for(d = 0; d < 3; d ++)
             O->Acc[d] += - dist[d] * fac;
 
-        O->Potential += (facpot * shortrange_table_potential[tabindex]);
+        O->Potential += pot;
         O->Ninteractions ++;
     }
 }
