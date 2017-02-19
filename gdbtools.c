@@ -45,3 +45,24 @@ char * GDB_particle_by_timebin(int bin) {
     return buf;
 }
 
+char * GDB_format_particle(int i) {
+    static char buf[4096];
+    char * p = buf;
+    int n = 4096;
+
+#define add(fmt, ...) \
+        snprintf(p, n - 1, fmt, __VA_ARGS__ ); \
+        p = buf + strlen(buf); \
+        n = 4096 - strlen(buf)
+
+    add("P[%d]: ", i);
+    add("ID : %ld ", P[i].ID);
+    add("Generation: %d ", (int) P[i].Generation);
+    add("Mass : %g ", P[i].Mass);
+    add("Pos: %g %g %g ", P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+    add("Vel: %g %g %g ", P[i].Vel[0], P[i].Vel[1], P[i].Vel[2]);
+    add("GravAccel: %g %g %g ", P[i].GravAccel[0], P[i].GravAccel[1], P[i].GravAccel[2]);
+    add("GravPM: %g %g %g ", P[i].GravPM[0], P[i].GravPM[1], P[i].GravPM[2]);
+    return buf;
+}
+
