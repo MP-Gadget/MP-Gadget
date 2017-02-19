@@ -938,7 +938,6 @@ void init_clouds(void)
 
         /* to be guaranteed to get z=0 rate */
         set_global_time(1.0);
-        IonizeParams();
 
         ne = 1.0;
 
@@ -1017,8 +1016,6 @@ void init_clouds(void)
                 M_PI * All.G * sigma * sigma / (2 * GAMMA_MINUS1) / u4,
                 GAMMA_MINUS1 * u4 / (2 * M_PI * All.G * sigma));
 
-        set_global_time(All.TimeBegin);
-        IonizeParams();
     }
 }
 

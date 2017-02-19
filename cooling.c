@@ -427,7 +427,7 @@ double CoolingRateFromU(double u, double nHcgs, struct UVBG * uvbg, double *ne_g
     temp = solve_equilibrium_temp(u, nHcgs, uvbg, &y);
     *ne_guess = y.ne;
     double logT = log10(temp);
-    double redshift = 1 / All.Time -  1.;
+    double redshift = 1 / All.cf.a -  1.;
     double LambdaNet = PrimordialCoolingRate(logT, nHcgs, uvbg, ne_guess);
     if(! CoolingNoMetal) {
         double lognH = log10(nHcgs);
@@ -521,7 +521,7 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
 
         Lambda = LambdaExc + LambdaIon + LambdaRec + LambdaFF;
 
-        redshift = 1 / All.Time - 1;
+        redshift = 1 / All.cf.a - 1;
         double LambdaCmptn = 5.65e-36 * y.ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
 
         Lambda += LambdaCmptn;
@@ -549,7 +549,7 @@ double PrimordialCoolingRate(double logT, double nHcgs, struct UVBG * uvbg, doub
         LambdaFF =
             1.42e-27 * sqrt(T) * (1.1 + 0.34 * exp(-(5.5 - logT) * (5.5 - logT) / 3)) * (y.nHp + 4 * y.nHepp) * y.ne;
 
-        redshift = 1 / All.Time - 1;
+        redshift = 1 / All.cf.a - 1;
         /* add inverse Compton cooling off the microwave background */
         LambdaCmptn = 5.65e-36 * y.ne * (T - 2.73 * (1. + redshift)) * pow(1. + redshift, 4.) / nHcgs;
 
@@ -859,7 +859,7 @@ static void IonizeParamsTable(void)
     double logz, dzlow, dzhi;
     double redshift;
 
-    redshift = 1 / All.Time - 1;
+    redshift = 1 / All.cf.a - 1;
 
     logz = log10(redshift + 1.0);
     ilow = 0;
@@ -900,6 +900,7 @@ void SetZeroIonization(void)
 
 void InitCool(void)
 {
+    /* The table will be initialized to z=0 */
     if(!All.CoolingOn) {
         CoolingNoPrimordial = 1;
         CoolingNoMetal = 1;
@@ -930,8 +931,6 @@ void InitCool(void)
         InitMetalCooling();
     }
 
-    set_global_time(All.TimeBegin);
-    IonizeParams();
     InitUVF();
 }
 
@@ -1066,7 +1065,7 @@ static double GetReionizedFraction(double time) {
  *
  * */
 void GetParticleUVBG(int i, struct UVBG * uvbg) {
-    double z = 1 / All.Time - 1;
+    double z = 1 / All.cf.a - 1;
     if(All.UVRedshiftThreshold >= 0.0 && z > All.UVRedshiftThreshold) {
         /* if a threshold is set, disable UV bg above that redshift */
         memset(uvbg, 0, sizeof(struct UVBG));

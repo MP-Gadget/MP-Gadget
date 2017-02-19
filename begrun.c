@@ -56,10 +56,6 @@ void begrun(void)
     init_clouds();
 #endif
 
-#ifdef LIGHTCONE
-    lightcone_init();
-#endif
-
     random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
     gsl_rng_set(random_generator, 42);	/* start-up seed */
@@ -69,14 +65,24 @@ void begrun(void)
 
     All.TimeLastRestartFile = 0;
 
-
     set_random_numbers();
 
     init();			/* ... read in initial model */
 
+    /* All.Time is initialized after init*/
+    /* Decide TimeBegin */
+    All.TimeBegin = All.Time;
+
     if(RestartFlag >= 3) {
         return;
     }
+
+#ifdef LIGHTCONE
+    lightcone_init(All.Time);
+#endif
+
+    init_drift_table(All.Time, All.TimeMax);
+
     open_outputfiles();
 
     reconstruct_timebins();
@@ -98,9 +104,6 @@ void begrun(void)
         }
     }
 #endif
-
-
-    init_drift_table();
 
     if(RestartFlag == 2)
         All.Ti_nextoutput = find_next_outputtime(All.Ti_Current + 100);

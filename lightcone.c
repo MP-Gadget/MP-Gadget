@@ -82,9 +82,10 @@ static void lightcone_init_entry(int i) {
 //    printf("a = %g z = %g Dc = %g\n", a, z, result);
 }
 
-void lightcone_init() {
+void lightcone_init(double timeBegin)
+{
     int i;
-    dloga = (0.0 - log(All.TimeBegin)) / (NENTRY - 1);
+    dloga = (0.0 - log(timeBegin)) / (NENTRY - 1);
     for(i = 0; i < NENTRY; i ++) {
         lightcone_init_entry(i);
     };

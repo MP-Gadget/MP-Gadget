@@ -31,7 +31,8 @@ OBJECTS  =  \
 	 gravpm.o powerspectrum.o \
 	 forcetree.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
-	 densitykernel.o interp.o lightcone.o walltime.o \
+	 densitykernel.o interp.o lightcone.o walltime.o\
+	 runtests.o \
 	 cppexample.o
 
 ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \

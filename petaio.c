@@ -226,9 +226,8 @@ void petaio_read_ic() {
         int k;
         /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
         for(k = 0; k < 3; k++)
-            P[i].Vel[k] *= sqrt(All.TimeBegin) * All.TimeBegin;
+            P[i].Vel[k] *= sqrt(All.cf.a) * All.cf.a;
     }
-
 }
 
 
@@ -315,11 +314,6 @@ static void petaio_read_header(BigFile * bf) {
     message(0, "Total number of star particles: %018ld\n", All.TotN_star);
     message(0, "Total number of bh particles: %018ld\n", All.TotN_bh);
 
-    if(RestartFlag >= 2) {
-        All.TimeBegin = Time;
-        set_global_time(All.TimeBegin);
-    }
-
     if(fabs(BoxSize - All.BoxSize) / All.BoxSize > 1e-6) {
         endrun(0, "BoxSize mismatch %g, snapfile has %g\n", All.BoxSize, BoxSize);
     }
@@ -345,6 +339,7 @@ static void petaio_read_header(BigFile * bf) {
     /* at most 10% of SPH can form BH*/
     All.MaxPartBh = (int) (0.1 * All.MaxPartSph);	
 
+    set_global_time(Time);
 }
 
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal) {

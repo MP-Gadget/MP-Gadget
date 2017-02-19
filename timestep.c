@@ -37,6 +37,9 @@ void set_global_time(double newtime) {
 #ifdef LIGHTCONE
     lightcone_set_time(All.cf.a);
 #endif
+#ifdef COOL
+    IonizeParams();
+#endif
 }
 
 /*! This function advances the system in momentum space, i. it does apply the 'kick' operation after the

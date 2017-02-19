@@ -143,7 +143,7 @@ double get_gravkick_factor(int time0, int time1);
 double drift_integ(double a, void *param);
 double gravkick_integ(double a, void *param);
 double hydrokick_integ(double a, void *param);
-void init_drift_table(void);
+void init_drift_table(double timeBegin, double timeMax);
 double get_drift_factor(int time0, int time1);
 double measure_time(void);
 
@@ -151,7 +151,7 @@ void long_range_init(void);
 void long_range_force(void);
 
 #ifdef LIGHTCONE
-void lightcone_init();
+void lightcone_init(double timeBegin);
 void lightcone_cross(int p, double oldpos[3]);
 void lightcone_set_time(double a);
 #endif

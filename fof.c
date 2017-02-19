@@ -32,7 +32,7 @@
 void fof_init()
 {
     All.FOFHaloComovingLinkingLength = All.FOFHaloLinkingLength * All.BoxSize / pow(All.TotN_dm, 1.0 / 3);
-    All.TimeNextSeedingCheck = All.TimeBegin;
+    All.TimeNextSeedingCheck = All.Time;
 }
 
 static double fof_periodic(double x)

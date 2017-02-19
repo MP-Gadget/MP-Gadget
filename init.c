@@ -29,34 +29,21 @@ void init(void)
 {
     int i, j;
 
-    set_global_time(All.TimeBegin);
-
-    if(RestartFlag == 3 && RestartSnapNum < 0)
-    {
-        if(ThisTask == 0)
-            endrun(0, "Need to give the snapshot number if FOF is selected for output\n");
-    }
-
-    if(RestartFlag >= 2 && RestartSnapNum >= 0)  {
-        petaio_read_snapshot(RestartSnapNum);
-    } else
-    if(RestartFlag == 0) {
-        petaio_read_ic();
-    } else {
-        if(ThisTask == 0) {
-            endrun(0, "RestartFlag and SnapNum combination is unknown");
-        }
+    switch(RestartFlag) {
+        case 2:
+            petaio_read_snapshot(RestartSnapNum);
+            break;
+        case 0:
+            petaio_read_ic();
+            break;
     }
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();
 
-    set_global_time(All.TimeBegin);
+    test_id_uniqueness();
 
-    IonizeParams();
-
-    All.Timebase_interval = (log(All.TimeMax) - log(All.TimeBegin)) / TIMEBASE;
-    All.Ti_Current = 0;
+    check_omega();
 
     fof_init();
     set_softenings();
@@ -75,8 +62,6 @@ void init(void)
     All.NumForcesSinceLastDomainDecomp = 0;
 
     All.TreeAllocFactor = 0.7;
-
-    check_omega();
 
     for(i = 0; i < NumPart; i++)	/*  start-up initialization */
     {
@@ -141,8 +126,6 @@ void init(void)
 #endif
     }
 
-
-    test_id_uniqueness();
 
     Flag_FullStep = 1;		/* to ensure that Peano-Hilbert order is done */
 
