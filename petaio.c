@@ -4,6 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include <string.h>
+#include <stdarg.h>
 
 #include "bigfile-mpi.h"
 #include "allvars.h"
@@ -49,9 +50,16 @@ void petaio_init() {
 
 /* save a snapshot file */
 static void petaio_save_internal(char * fname);
-void petaio_save_snapshot(int num) {
+
+void
+petaio_save_snapshot(const char *fmt, ...)
+{
+    va_list va;
+    va_start(va, fmt);
+
     char fname[4096];
-    sprintf(fname, "%s/PART_%03d", All.OutputDir, num);
+    vsprintf(fname, fmt, va);
+    va_end(va);
     message(0, "saving snapshot into %s\n", fname);
 
     petaio_save_internal(fname);
@@ -88,8 +96,6 @@ static void petaio_save_internal(char * fname) {
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-        message(0, "Writing Block %s\n", blockname);
-
         petaio_build_buffer(&array, &IOTable.ent[i], NULL, 0);
         petaio_save_block(&bf, blockname, &array, All.NumPartPerFile, All.NumWriters);
         petaio_destroy_buffer(&array);
@@ -473,14 +479,15 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, size_t 
         }
     } else {
         NumFiles = NumWriters;
-        message(0, "Throttling NumFiles to %d.\n", NumFiles);
     }
     /*Do not write empty files*/
     if(size == 0) {
         NumFiles = 0;
     }
 
-    message(0, "Will write %td particles to %d Files\n", size, NumFiles);
+    if(size > 0) {
+        message(0, "Will write %td particles to %d Files\n", size, NumFiles);
+    }
     /* create the block */
     /* dims[1] is the number of members per item */
     if(0 != big_file_mpi_create_block(bf, &bb, blockname, array->dtype, array->dims[1], NumFiles, size, MPI_COMM_WORLD)) {
@@ -494,7 +501,8 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, size_t 
         endrun(0, "Failed to write :%s\n", big_file_get_error_message());
     }
 
-    message(0, "Done writing %td particles to %d Files\n", size, NumFiles);
+    if(size > 0)
+        message(0, "Done writing %td particles to %d Files\n", size, NumFiles);
 
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
         endrun(0, "Failed to close block at %s:%s\n", blockname,
