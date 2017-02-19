@@ -102,6 +102,8 @@ static void density_copy(int place, TreeWalkQueryDensity * I);
 
 void density(void)
 {
+    if(!All.DensityOn)
+	return;
     TreeWalk tw[1] = {0};
 
     tw->ev_label = "DENSITY";

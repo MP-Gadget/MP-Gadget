@@ -175,6 +175,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
 
     param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
+    param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
     param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
@@ -378,6 +379,7 @@ void read_parameter_file(char *fname)
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
         All.HydroOn = param_get_int(ps, "HydroOn");
+        All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.NoTreeType = param_get_int(ps, "NoTreeType");
