@@ -17,6 +17,7 @@
 char * GDB_format_particle(int i);
 
 SIMPLE_PROPERTY(GravAccel, P[i].GravAccel[0], float, 3)
+SIMPLE_PROPERTY(GravPM, P[i].GravPM[0], float, 3)
 SIMPLE_PROPERTY(OldAcc, P[i].OldAcc, float, 1)
 
 void runtests()
@@ -25,10 +26,11 @@ void runtests()
     int ptype;
     for(ptype = 0; ptype < 6; ptype++) {
         IO_REG(GravAccel,       "f4", 3, ptype);
+        IO_REG(GravPM,       "f4", 3, ptype);
         IO_REG(OldAcc,       "f4", 1, ptype);
     }
     
-    // long_range_force();
+    long_range_force();
     domain_Decomposition();	/* do domain decomposition */
     force_treebuild_simple();
 
