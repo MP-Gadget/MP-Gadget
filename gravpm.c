@@ -69,8 +69,6 @@ void gravpm_force() {
 static double pot_factor;
 
 static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
-    All.Asmth[0] = ASMTH * All.BoxSize / All.Nmesh;
-    All.Rcut[0] = RCUT * All.Asmth[0];
     /* fac is - 4pi G     (L / 2pi) **2 / L ** 3
      *        Gravity       k2            DFT (dk **3, but )
      * */

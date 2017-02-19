@@ -20,7 +20,9 @@ void  gravpm_force();
  */
 void long_range_init(void)
 {
-  gravpm_init_periodic();
+    All.Asmth[0] = ASMTH * All.BoxSize / All.Nmesh;
+    All.Rcut[0] = RCUT * All.Asmth[0];
+    gravpm_init_periodic();
 }
 
 
