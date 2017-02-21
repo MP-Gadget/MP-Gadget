@@ -27,7 +27,13 @@ void compute_global_quantities_of_system(void)
 
     memset(&sys, 0, sizeof(sys));
 
-    #pragma omp parallel for
+/* FIXME: disable the omp loop. BlueWaters team suspected 
+ * this loop triggers rowhammerring and kills the computing nodes,
+ * when compiled by gcc. disabling this loop allows the code to 
+ * run for more than 2 hours when 20K nodes are used.
+ * 
+ *    #pragma omp parallel for */
+
     for(i = 0; i < NumPart; i++)
     {
         int j;
