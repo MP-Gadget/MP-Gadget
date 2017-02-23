@@ -70,16 +70,14 @@ void init(int RestartSnapNum)
             BHP(i).Mass = All.SeedBlackHoleMass;
         }
 #endif
-        if(RestartFlag == 2) {
-            if(All.RestartFromBlueTidesPhaseI) {
-                P[i].Generation = 0;
-                uint64_t g = ((P[i].ID >> 56L));
-                /* shift old generation numbers to 48 bit to preserve uniqueness*/
-                P[i].ID = (P[i].ID & 0x00ffffffffffffffL) + (g << 48L);
-                /* consistency */
-                if(P[i].Type == 5) {
-                    BhP[P[i].PI].ID = P[i].ID;
-                }
+        if(All.RestartFromBlueTidesPhaseI) {
+            P[i].Generation = 0;
+            uint64_t g = ((P[i].ID >> 56L));
+            /* shift old generation numbers to 48 bit to preserve uniqueness*/
+            P[i].ID = (P[i].ID & 0x00ffffffffffffffL) + (g << 48L);
+            /* consistency */
+            if(P[i].Type == 5) {
+                BhP[P[i].PI].ID = P[i].ID;
             }
         }
     }
