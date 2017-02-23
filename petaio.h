@@ -27,7 +27,7 @@ void petaio_destroy_buffer(BigArray * array);
 void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, size_t ppfile, int NumWriters);
 void petaio_read_block(BigFile * bf, char * blockname, BigArray * array);
 
-void petaio_save_snapshot(int num);
+void petaio_save_snapshot(const char * fmt, ...);
 void petaio_save_restart();
 void petaio_read_snapshot(int num);
 void petaio_read_ic();

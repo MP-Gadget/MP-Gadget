@@ -43,7 +43,7 @@ void find_next_sync_point_and_drift(void);
 void find_dt_displacement_constraint(double hfac);
 
 void allocate_memory(void);
-void begrun(void);
+void begrun(int RestartFlag, int RestartSnapNum);
 void check_omega(void);
 void close_outputfiles(void);
 void compute_accelerations(int mode);
@@ -66,19 +66,19 @@ int get_timestep(int p, double *a, int flag);
 int get_timestep_bin(int ti_step);
 
 double get_starformation_rate(int i);
-void gravity_tree(void);
+void grav_short_tree(void);
+void grav_short_pair(void);
 void hydro_force(void);
-void init(void);
+void init(int RestartSnapNum);
 void init_clouds(void);
-void open_outputfiles(void);
 void peano_hilbert_order(void);
 int read_outputlist(char *fname);
 void restart(int mod);
 void run(void);
+void runtests(void);
 void savepositions(int num, int reason);
 double second(void);
 void set_softenings(void);
-void setup_smoothinglengths(void);
 
 void sumup_large_ints(int n, int *src, int64_t *res);
 void sumup_longs(int n, int64_t *src, int64_t *res);
@@ -143,15 +143,16 @@ double get_gravkick_factor(int time0, int time1);
 double drift_integ(double a, void *param);
 double gravkick_integ(double a, void *param);
 double hydrokick_integ(double a, void *param);
-void init_drift_table(void);
+void init_drift_table(double timeBegin, double timeMax);
 double get_drift_factor(int time0, int time1);
 double measure_time(void);
 
 void long_range_init(void);
 void long_range_force(void);
+int grav_apply_short_range_window(double r, double * fac, double * facpot);
 
 #ifdef LIGHTCONE
-void lightcone_init();
+void lightcone_init(double timeBegin);
 void lightcone_cross(int p, double oldpos[3]);
 void lightcone_set_time(double a);
 #endif

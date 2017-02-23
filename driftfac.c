@@ -52,8 +52,12 @@ double hydrokick_integ(double a, void *param)
   return 1 / (h * pow(a, 3 * GAMMA_MINUS1) * a);
 }
 
-void init_drift_table(void)
+void init_drift_table(double timeBegin, double timeMax)
 {
+
+    All.Timebase_interval = (log(timeMax) - log(timeBegin)) / TIMEBASE;
+    All.Ti_Current = 0;
+
 #define WORKSIZE 100000
   int i;
   double result, abserr;
@@ -61,8 +65,8 @@ void init_drift_table(void)
   gsl_function F;
   gsl_integration_workspace *workspace;
 
-  logTimeBegin = log(All.TimeBegin);
-  logTimeMax = log(All.TimeMax);
+  logTimeBegin = log(timeBegin);
+  logTimeMax = log(timeMax);
 
   workspace = gsl_integration_workspace_alloc(WORKSIZE);
 

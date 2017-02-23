@@ -14,14 +14,7 @@
 #include "domain.h"
 #include "endrun.h"
 
-/*! length of lock-up table for short-range force kernel in TreePM algorithm */
-#define NTAB 1000
-/*! variables for short-range lookup table */
-static float shortrange_table[NTAB], shortrange_table_potential[NTAB], shortrange_table_tidal[NTAB];
-
-/*! toggles after first tree-memory allocation, has only influence on log-files */
-static int first_flag = 0;
-
+#include "gravshort.h"
 
 /*! \file gravtree.c
  *  \brief main driver routines for gravitational (short-range) force computation
@@ -40,82 +33,60 @@ static int first_flag = 0;
  * YF: anything we shall do about this?
  * */
 
-typedef struct
+/* intentially duplicated from those in longrange.c */
+/* length of lock-up table for short-range force kernel in TreePM algorithm */
+#define NTAB 1000
+/* variables for short-range lookup table */
+static float shortrange_table[NTAB], shortrange_table_potential[NTAB], shortrange_table_tidal[NTAB];
+
+static void
+fill_ntab()
 {
-    TreeWalkQueryBase base;
-    int Type;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    MyFloat Soft;
-#endif
-    MyFloat OldAcc;
-} TreeWalkQueryGravity;
-
-typedef struct
-{
-    TreeWalkResultBase base;
-    MyFloat Acc[3];
-    MyFloat Potential;
-    int Ninteractions;
-} TreeWalkResultGravity;
-
-
-int force_treeev_shortrange(TreeWalkQueryGravity * input,
-        TreeWalkResultGravity * output,
-        LocalTreeWalk * lv);
-
-static void fill_ntab()
-{
-    if(first_flag == 0)
+    int i;
+    for(i = 0; i < NTAB; i++)
     {
-        first_flag = 1;
-        int i;
-        for(i = 0; i < NTAB; i++)
-        {
-            double u = 3.0 / NTAB * (i + 0.5);
-            shortrange_table[i] = erfc(u) + 2.0 * u / sqrt(M_PI) * exp(-u * u);
-            shortrange_table_potential[i] = erfc(u);
-            shortrange_table_tidal[i] = 4.0 * u * u * u / sqrt(M_PI) * exp(-u * u);
-        }
+        double u = 3.0 / NTAB * (i + 0.5);
+        shortrange_table[i] = erfc(u) + 2.0 * u / sqrt(M_PI) * exp(-u * u);
+        shortrange_table_potential[i] = erfc(u);
+        shortrange_table_tidal[i] = 4.0 * u * u * u / sqrt(M_PI) * exp(-u * u);
     }
-
 }
 
-static int gravtree_isactive(int i);
-void gravtree_copy(int place, TreeWalkQueryGravity * input) ;
-void gravtree_reduce(int place, TreeWalkResultGravity * result, enum TreeWalkReduceMode mode);
-static void gravtree_postprocess(int i);
+static int force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
+        TreeWalkResultGravShort * output,
+        LocalTreeWalk * lv);
+
 
 /*! This function computes the gravitational forces for all active particles.
  *  If needed, a new tree is constructed, otherwise the dynamically updated
  *  tree is used.  Particles are only exported to other processors when really
  *  needed, thereby allowing a good use of the communication buffer.
  */
-void gravity_tree(void)
+void grav_short_tree_old(void)
 {
     double timeall = 0;
     double timetree, timewait, timecomm;
+
+    fill_ntab();
+
+    set_softenings();
     if(!All.TreeGravOn)
         return;
 
     TreeWalk tw[1] = {0};
 
     tw->ev_label = "FORCETREE_SHORTRANGE";
-    tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
-    tw->isactive = gravtree_isactive;
-    tw->reduce = (TreeWalkReduceResultFunction) gravtree_reduce;
-    tw->postprocess = (TreeWalkProcessFunction) gravtree_postprocess;
+    tw->visit = (TreeWalkVisitFunction) force_treeevaluate_shortrange;
+    tw->isactive = grav_short_isactive;
+    tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
+    tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
     tw->UseNodeList = 1;
 
-    tw->query_type_elsize = sizeof(TreeWalkQueryGravity);
-    tw->result_type_elsize = sizeof(TreeWalkResultGravity);
-    tw->fill = (TreeWalkFillQueryFunction) gravtree_copy;
+    tw->query_type_elsize = sizeof(TreeWalkQueryGravShort);
+    tw->result_type_elsize = sizeof(TreeWalkResultGravShort);
+    tw->fill = (TreeWalkFillQueryFunction) grav_short_copy;
 
     walltime_measure("/Misc");
-
-    /* set new softening lengths */
-    fill_ntab();
-
-    set_softenings();
 
     /* allocate buffers to arrange communication */
     message(0, "Begin tree force.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
@@ -157,101 +128,6 @@ void gravity_tree(void)
 
 }
 
-void gravtree_copy(int place, TreeWalkQueryGravity * input) {
-    input->Type = P[place].Type;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    if(P[place].Type == 0)
-        input->Soft = P[place].Hsml;
-#endif
-    input->OldAcc = P[place].OldAcc;
-
-}
-
-void gravtree_reduce(int place, TreeWalkResultGravity * result, enum TreeWalkReduceMode mode) {
-    int k;
-    for(k = 0; k < 3; k++)
-        TREEWALK_REDUCE(P[place].GravAccel[k], result->Acc[k]);
-
-    TREEWALK_REDUCE(P[place].GravCost, result->Ninteractions);
-    TREEWALK_REDUCE(P[place].Potential, result->Potential);
-}
-
-static int gravtree_isactive(int i) {
-    int isactive = 1;
-    /* tracer particles (5) has no gravity, they move along to pot minimium */
-    isactive = isactive && (P[i].Type != 5);
-    return isactive;
-}
-
-static void gravtree_postprocess(int i)
-{
-    int j;
-
-    double ax, ay, az;
-    ax = P[i].GravAccel[0] + P[i].GravPM[0] / All.G;
-    ay = P[i].GravAccel[1] + P[i].GravPM[1] / All.G;
-    az = P[i].GravAccel[2] + P[i].GravPM[2] / All.G;
-
-    P[i].OldAcc = sqrt(ax * ax + ay * ay + az * az);
-    for(j = 0; j < 3; j++)
-        P[i].GravAccel[j] *= All.G;
-
-    /* calculate the potential */
-    /* remove self-potential */
-    P[i].Potential += P[i].Mass / All.SofteningTable[P[i].Type];
-
-    P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) *
-        pow(All.CP.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G), 1.0 / 3);
-
-    P[i].Potential *= All.G;
-
-    P[i].Potential += P[i].PM_Potential;	/* add in long-range potential */
-
-}
-
-/*! This function sets the (comoving) softening length of all particle
- *  types in the table All.SofteningTable[...].  We check that the physical
- *  softening length is bounded by the Softening-MaxPhys values.
- */
-void set_softenings(void)
-{
-    int i;
-
-    if(All.SofteningGas * All.Time > All.SofteningGasMaxPhys)
-        All.SofteningTable[0] = All.SofteningGasMaxPhys / All.Time;
-    else
-        All.SofteningTable[0] = All.SofteningGas;
-
-    if(All.SofteningHalo * All.Time > All.SofteningHaloMaxPhys)
-        All.SofteningTable[1] = All.SofteningHaloMaxPhys / All.Time;
-    else
-        All.SofteningTable[1] = All.SofteningHalo;
-
-    if(All.SofteningDisk * All.Time > All.SofteningDiskMaxPhys)
-        All.SofteningTable[2] = All.SofteningDiskMaxPhys / All.Time;
-    else
-        All.SofteningTable[2] = All.SofteningDisk;
-
-    if(All.SofteningBulge * All.Time > All.SofteningBulgeMaxPhys)
-        All.SofteningTable[3] = All.SofteningBulgeMaxPhys / All.Time;
-    else
-        All.SofteningTable[3] = All.SofteningBulge;
-
-    if(All.SofteningStars * All.Time > All.SofteningStarsMaxPhys)
-        All.SofteningTable[4] = All.SofteningStarsMaxPhys / All.Time;
-    else
-        All.SofteningTable[4] = All.SofteningStars;
-
-    if(All.SofteningBndry * All.Time > All.SofteningBndryMaxPhys)
-        All.SofteningTable[5] = All.SofteningBndryMaxPhys / All.Time;
-    else
-        All.SofteningTable[5] = All.SofteningBndry;
-
-    for(i = 0; i < 6; i++)
-        All.ForceSoftening[i] = 2.8 * All.SofteningTable[i];
-
-    All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[0];
-}
 
 /*! In the TreePM algorithm, the tree is walked only locally around the
  *  target coordinate.  Tree nodes that fall outside a box of half
@@ -263,26 +139,56 @@ void set_softenings(void)
  *  memory-access panelty (which reduces cache performance) incurred by the
  *  table.
  */
-int force_treeev_shortrange(TreeWalkQueryGravity * input,
-        TreeWalkResultGravity * output,
+#define PERIODIC
+#define EVALPOTENTIAL
+#define UNEQUALSOFTENINGS
+
+static int
+force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
+        TreeWalkResultGravShort * output,
         LocalTreeWalk * lv)
 {
     struct NODE *nop = 0;
-    int no, ptype, tabindex, listindex = 0;
+    int no, ptype, nexp, tabindex, task, listindex = 0;
     int nnodesinlist = 0, ninteractions = 0;
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
     double pos_x, pos_y, pos_z, aold;
     double eff_dist;
     double rcut, asmth, asmthfac, rcut2, dist;
-    MyDouble acc_x, acc_y, acc_z;
+    double acc_x, acc_y, acc_z;
 
+#ifdef DISTORTIONTENSORPS
+    int i1, i2;
+    double fac2, h5_inv;
+    double fac_tidal;
+    MyDouble tidal_tensorps[3][3];
+#endif
+
+#ifdef SCALARFIELD
+    double dx_dm = 0, dy_dm = 0, dz_dm = 0, mass_dm = 0;
+#endif
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     double soft = 0;
 #endif
+#ifdef EVALPOTENTIAL
     double wp, facpot;
-    MyDouble pot;
+    double pot;
 
     pot = 0;
+#endif
+#ifdef PERIODIC
+    double boxsize, boxhalf;
+
+    boxsize = All.BoxSize;
+    boxhalf = 0.5 * All.BoxSize;
+#endif
+
+#ifdef DISTORTIONTENSORPS
+    for(i1 = 0; i1 < 3; i1++)
+        for(i2 = 0; i2 < 3; i2++)
+            tidal_tensorps[i1][i2] = 0.0;
+#endif
+
 
     acc_x = 0;
     acc_y = 0;
@@ -300,16 +206,36 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
     pos_x = input->base.Pos[0];
     pos_y = input->base.Pos[1];
     pos_z = input->base.Pos[2];
+#if defined(UNEQUALSOFTENINGS) || defined(SCALARFIELD)
     ptype = input->Type;
-
+#else
+    ptype = P[0].Type;
+#endif
     aold = All.ErrTolForceAcc * input->OldAcc;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     if(ptype == 0)
         soft = input->Soft;
 #endif
+#ifdef PLACEHIGHRESREGION
+    if(pmforce_is_particle_high_res(ptype, input->Pos))
+    {
+        rcut = All.Rcut[1];
+        asmth = All.Asmth[1];
+    }
+#endif
+
     rcut2 = rcut * rcut;
 
     asmthfac = 0.5 / asmth * (NTAB / 3.0);
+
+#ifndef UNEQUALSOFTENINGS
+    h = All.ForceSoftening[ptype];
+    h_inv = 1.0 / h;
+    h3_inv = h_inv * h_inv * h_inv;
+#ifdef DISTORTIONTENSORPS
+    h5_inv = h_inv * h_inv * h_inv * h_inv * h_inv;
+#endif
+#endif
 
     while(no >= 0)
     {
@@ -323,15 +249,32 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
                 dx = P[no].Pos[0] - pos_x;
                 dy = P[no].Pos[1] - pos_y;
                 dz = P[no].Pos[2] - pos_z;
-
+#ifdef PERIODIC
                 dx = NEAREST(dx);
                 dy = NEAREST(dy);
                 dz = NEAREST(dz);
-
+#endif
                 r2 = dx * dx + dy * dy + dz * dz;
 
                 mass = P[no].Mass;
-
+#ifdef SCALARFIELD
+                if(ptype != 0)	/* we have a dark matter particle as target */
+                {
+                    if(P[no].Type == 1)
+                    {
+                        dx_dm = dx;
+                        dy_dm = dy;
+                        dz_dm = dz;
+                        mass_dm = mass;
+                    }
+                    else
+                    {
+                        mass_dm = 0;
+                        dx_dm = dy_dm = dz_dm = 0;
+                    }
+                }
+#endif
+#ifdef UNEQUALSOFTENINGS
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
                 if(ptype == 0)
                     h = soft;
@@ -352,6 +295,7 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
                 h = All.ForceSoftening[ptype];
                 if(h < All.ForceSoftening[P[no].Type])
                     h = All.ForceSoftening[P[no].Type];
+#endif
 #endif
                 no = Nextnode[no];
             }
@@ -394,31 +338,57 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
                 dy = nop->u.d.s[1] - pos_y;
                 dz = nop->u.d.s[2] - pos_z;
 
+#ifdef SCALARFIELD
+                if(ptype != 0)	/* we have a dark matter particle as target */
+                {
+                    dx_dm = nop->s_dm[0] - pos_x;
+                    dy_dm = nop->s_dm[1] - pos_y;
+                    dz_dm = nop->s_dm[2] - pos_z;
+                    mass_dm = nop->mass_dm;
+                }
+                else
+                {
+                    mass_dm = 0;
+                    dx_dm = dy_dm = dz_dm = 0;
+                }
+#endif
+
+#ifdef PERIODIC
                 dx = NEAREST(dx);
                 dy = NEAREST(dy);
                 dz = NEAREST(dz);
+#endif
                 r2 = dx * dx + dy * dy + dz * dz;
 
                 if(r2 > rcut2)
                 {
                     /* check whether we can stop walking along this branch */
                     eff_dist = rcut + 0.5 * nop->len;
+#ifdef PERIODIC
                     dist = NEAREST(nop->center[0] - pos_x);
-
+#else
+                    dist = nop->center[0] - pos_x;
+#endif
                     if(dist < -eff_dist || dist > eff_dist)
                     {
                         no = nop->u.d.sibling;
                         continue;
                     }
+#ifdef PERIODIC
                     dist = NEAREST(nop->center[1] - pos_y);
-
+#else
+                    dist = nop->center[1] - pos_y;
+#endif
                     if(dist < -eff_dist || dist > eff_dist)
                     {
                         no = nop->u.d.sibling;
                         continue;
                     }
+#ifdef PERIODIC
                     dist = NEAREST(nop->center[2] - pos_z);
-
+#else
+                    dist = nop->center[2] - pos_z;
+#endif
                     if(dist < -eff_dist || dist > eff_dist)
                     {
                         no = nop->u.d.sibling;
@@ -460,6 +430,7 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
                     }
                 }
 
+#ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
                 h = All.ForceSoftening[ptype];
                 if(h < All.ForceSoftening[extract_max_softening_type(nop->u.d.bitflags)])
@@ -491,6 +462,7 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
                     }
                 }
 #endif
+#endif
                 no = nop->u.d.sibling;	/* ok, node can be used */
 
             }
@@ -500,12 +472,23 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
             if(r >= h)
             {
                 fac = mass / (r2 * r);
+#ifdef DISTORTIONTENSORPS
+                /* second derivative of potential needs this factor */
+                fac2 = 3.0 * mass / (r2 * r2 * r);
+#endif
+#ifdef EVALPOTENTIAL
                 facpot = -mass / r;
+#endif
             }
             else
             {
+#ifdef UNEQUALSOFTENINGS
                 h_inv = 1.0 / h;
                 h3_inv = h_inv * h_inv * h_inv;
+#ifdef DISTORTIONTENSORPS
+                h5_inv = h_inv * h_inv * h_inv * h_inv * h_inv;
+#endif
+#endif
                 u = r * h_inv;
                 if(u < 0.5)
                     fac = mass * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
@@ -513,6 +496,7 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
                     fac =
                         mass * h3_inv * (21.333333333333 - 48.0 * u +
                                 38.4 * u * u - 10.666666666667 * u * u * u - 0.066666666667 / (u * u * u));
+#ifdef EVALPOTENTIAL
                 if(u < 0.5)
                     wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
                 else
@@ -521,6 +505,15 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
                                 u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
 
                 facpot = mass * h_inv * wp;
+#endif
+#ifdef DISTORTIONTENSORPS
+                /*second derivates needed -> calculate them from softend potential,
+                  (see Gadget 1 paper and there g2 function). SIGN?! */
+                if(u < 0.5)
+                    fac2 = mass * h5_inv * (76.8 - 96.0 * u);
+                else
+                    fac2 = mass * h5_inv * (-0.2 / (u * u * u * u * u) + 48.0 / u - 76.8 + 32.0 * u);
+#endif
 
             }
 
@@ -528,15 +521,88 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
 
             if(tabindex < NTAB)
             {
+#ifdef DISTORTIONTENSORPS
+                /* save original fac without shortrange_table facor (needed for tidal field calculation) */
+                fac_tidal = fac;
+#endif
                 fac *= shortrange_table[tabindex];
 
                 acc_x += (dx * fac);
                 acc_y += (dy * fac);
                 acc_z += (dz * fac);
+#ifdef DISTORTIONTENSORPS
+                /*
+                   tidal_tensorps[][] = Matrix of second derivatives of grav. potential, symmetric:
+                   |Txx Txy Txz|   |tidal_tensorps[0][0] tidal_tensorps[0][1] tidal_tensorps[0][2]|
+                   |Tyx Tyy Tyz| = |tidal_tensorps[1][0] tidal_tensorps[1][1] tidal_tensorps[1][2]| 
+                   |Tzx Tzy Tzz|   |tidal_tensorps[2][0] tidal_tensorps[2][1] tidal_tensorps[2][2]|
+                   */
+
+                tidal_tensorps[0][0] += ((-fac_tidal + dx * dx * fac2) * shortrange_table[tabindex]) +
+                    dx * dx * fac2 / 3.0 * shortrange_table_tidal[tabindex];
+                tidal_tensorps[0][1] += ((dx * dy * fac2) * shortrange_table[tabindex]) +
+                    dx * dy * fac2 / 3.0 * shortrange_table_tidal[tabindex];
+                tidal_tensorps[0][2] += ((dx * dz * fac2) * shortrange_table[tabindex]) +
+                    dx * dz * fac2 / 3.0 * shortrange_table_tidal[tabindex];
+                tidal_tensorps[1][1] += ((-fac_tidal + dy * dy * fac2) * shortrange_table[tabindex]) +
+                    dy * dy * fac2 / 3.0 * shortrange_table_tidal[tabindex];
+                tidal_tensorps[1][2] += ((dy * dz * fac2) * shortrange_table[tabindex]) +
+                    dy * dz * fac2 / 3.0 * shortrange_table_tidal[tabindex];
+                tidal_tensorps[2][2] += ((-fac_tidal + dz * dz * fac2) * shortrange_table[tabindex]) +
+                    dz * dz * fac2 / 3.0 * shortrange_table_tidal[tabindex];
+                tidal_tensorps[1][0] = tidal_tensorps[0][1];
+                tidal_tensorps[2][0] = tidal_tensorps[0][2];
+                tidal_tensorps[2][1] = tidal_tensorps[1][2];
+#endif
+#ifdef EVALPOTENTIAL
                 pot += (facpot * shortrange_table_potential[tabindex]);
+#endif
                 ninteractions++;
             }
 
+
+#ifdef SCALARFIELD
+            if(ptype != 0)	/* we have a dark matter particle as target */
+            {
+#ifdef PERIODIC
+                dx_dm = NEAREST(dx_dm);
+                dy_dm = NEAREST(dy_dm);
+                dz_dm = NEAREST(dz_dm);
+#endif
+                r2 = dx_dm * dx_dm + dy_dm * dy_dm + dz_dm * dz_dm;
+                r = sqrt(r2);
+                if(r >= h)
+                    fac = mass_dm / (r2 * r);
+                else
+                {
+#ifdef UNEQUALSOFTENINGS
+                    h_inv = 1.0 / h;
+                    h3_inv = h_inv * h_inv * h_inv;
+#endif
+                    u = r * h_inv;
+                    if(u < 0.5)
+                        fac = mass_dm * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
+                    else
+                        fac =
+                            mass_dm * h3_inv * (21.333333333333 - 48.0 * u +
+                                    38.4 * u * u - 10.666666666667 * u * u * u -
+                                    0.066666666667 / (u * u * u));
+                }
+
+                /* assemble force with strength, screening length, and target charge.  */
+
+                fac *=
+                    All.ScalarBeta * (1 + r / All.ScalarScreeningLength) * exp(-r / All.ScalarScreeningLength);
+                tabindex = (int) (asmthfac * r);
+                if(tabindex < NTAB)
+                {
+                    fac *= shortrange_table[tabindex];
+                    acc_x += FLT(dx_dm * fac);
+                    acc_y += FLT(dy_dm * fac);
+                    acc_z += FLT(dz_dm * fac);
+                }
+            }
+#endif
         }
 
         if(listindex < NODELISTLENGTH)
@@ -555,11 +621,16 @@ int force_treeev_shortrange(TreeWalkQueryGravity * input,
         output->Acc[1] = acc_y;
         output->Acc[2] = acc_z;
         output->Ninteractions = ninteractions;
+#ifdef EVALPOTENTIAL
         output->Potential = pot;
+#endif
+#ifdef DISTORTIONTENSORPS
+        for(i1 = 0; i1 < 3; i1++)
+            for(i2 = 0; i2 < 3; i2++)
+                output->tidal_tensorps[i1][i2] = tidal_tensorps[i1][i2];
+#endif
 
     lv->Ninteractions = ninteractions;
     lv->Nnodesinlist = nnodesinlist;
     return ninteractions;
 }
-
-

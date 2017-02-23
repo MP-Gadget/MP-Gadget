@@ -54,10 +54,10 @@ void compute_accelerations(int mode)
         force_treebuild_simple();
     }
 
-    gravity_tree();		/* computes gravity accel. */
+    grav_short_tree();		/* computes gravity accel. */
 
     if(All.TypeOfOpeningCriterion == 1 && All.Ti_Current == 0)
-        gravity_tree();		/* For the first timestep, we redo it
+        grav_short_tree();		/* For the first timestep, we redo it
                              * to allow usage of relative opening
                              * criterion for consistent accuracy.
                              */

@@ -20,63 +20,44 @@
  *  \brief code for initialisation of a simulation from initial conditions
  */
 
+static void
+setup_smoothinglengths(int RestartSnapNum);
+
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
  *  intial domain decomposition is performed. If SPH particles are present,
  *  the inial SPH smoothing lengths are determined.
  */
-void init(void)
+void init(int RestartSnapNum)
 {
     int i, j;
 
-    set_global_time(All.TimeBegin);
-
-    if(RestartFlag == 3 && RestartSnapNum < 0)
-    {
-        if(ThisTask == 0)
-            endrun(0, "Need to give the snapshot number if FOF is selected for output\n");
-    }
-
-    if(RestartFlag >= 2 && RestartSnapNum >= 0)  {
-        petaio_read_snapshot(RestartSnapNum);
-    } else
-    if(RestartFlag == 0) {
-        petaio_read_ic();
-    } else {
-        if(ThisTask == 0) {
-            endrun(0, "RestartFlag and SnapNum combination is unknown");
-        }
+    switch(RestartSnapNum) {
+        case -1:
+            petaio_read_ic();
+            break;
+        default:
+            petaio_read_snapshot(RestartSnapNum);
+            break;
     }
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();
 
-    set_global_time(All.TimeBegin);
+    test_id_uniqueness();
 
-    IonizeParams();
-
-    All.Timebase_interval = (log(All.TimeMax) - log(All.TimeBegin)) / TIMEBASE;
-    All.Ti_Current = 0;
+    check_omega();
 
     fof_init();
-    set_softenings();
 
     All.NumCurrentTiStep = 0;	/* setup some counters */
     All.SnapshotFileCount = 0;
-    if(RestartFlag == 2)
-    {
-        if(RestartSnapNum < 0)
-            All.SnapshotFileCount = atoi(All.InitCondFile + strlen(All.InitCondFile) - 3) + 1;
-        else
-            All.SnapshotFileCount = RestartSnapNum + 1;
-    }
+    All.SnapshotFileCount = RestartSnapNum + 1;
 
     All.TotNumOfForces = 0;
     All.NumForcesSinceLastDomainDecomp = 0;
 
     All.TreeAllocFactor = 0.7;
-
-    check_omega();
 
     for(i = 0; i < NumPart; i++)	/*  start-up initialization */
     {
@@ -84,7 +65,7 @@ void init(void)
 
 #ifdef BLACK_HOLES
         P[i].Swallowed = 0;
-        if(RestartFlag == 0 && P[i].Type == 5 )
+        if(RestartSnapNum == -1 && P[i].Type == 5 )
         {
             BHP(i).Mass = All.SeedBlackHoleMass;
         }
@@ -108,7 +89,7 @@ void init(void)
 
         SPHP(i).DtEntropy = 0;
 
-        if(RestartFlag == 0)
+        if(RestartSnapNum == -1)
         {
             SPHP(i).Density = -1;
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -142,20 +123,15 @@ void init(void)
     }
 
 
-    test_id_uniqueness();
-
     Flag_FullStep = 1;		/* to ensure that Peano-Hilbert order is done */
 
     domain_Decomposition();	/* do initial domain decomposition (gives equal numbers of particles) */
-
-    set_softenings();
 
     force_treebuild_simple();
 
     All.Ti_Current = 0;
 
-    if(RestartFlag != 3)
-        setup_smoothinglengths();
+    setup_smoothinglengths(RestartSnapNum);
 
 }
 
@@ -191,11 +167,12 @@ void check_omega(void)
  *  of the smoothing length is provided to the function density(), which will
  *  then iterate if needed to find the right smoothing length.
  */
-void setup_smoothinglengths(void)
+static void
+setup_smoothinglengths(int RestartSnapNum)
 {
     int i;
 
-    if(RestartFlag == 0)
+    if(RestartSnapNum == -1)
     {
 #pragma omp parallel for
         for(i = 0; i < NumPart; i++)
@@ -234,20 +211,17 @@ void setup_smoothinglengths(void)
     }
 
 #ifdef BLACK_HOLES
-    if(RestartFlag == 0 || RestartFlag == 2)
-    {
-        for(i = 0; i < NumPart; i++)
-            if(P[i].Type == 5) {
-                P[i].Hsml = All.SofteningTable[5];
-                BHP(i).TimeBinLimit = -1;
-            }
-    }
+    for(i = 0; i < NumPart; i++)
+        if(P[i].Type == 5) {
+            P[i].Hsml = All.SofteningTable[5];
+            BHP(i).TimeBinLimit = -1;
+        }
 #endif
 
     density();
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
-    if(RestartFlag == 0)
+    if(RestartSnapNum == -1)
     {
         const double a3 = All.Time * All.Time * All.Time;
 

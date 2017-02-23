@@ -86,10 +86,7 @@ void write_pid_file(void)
 
   sprintf(buf, "%s%s", All.OutputDir, "PIDs.txt");
 
-  if(RestartFlag == 0)
-    strcpy(mode, "w");
-  else
-    strcpy(mode, "a");
+  strcpy(mode, "a+");
 
   for(i = 0; i < NTask; i++)
     {

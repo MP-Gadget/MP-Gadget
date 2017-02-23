@@ -36,7 +36,9 @@ void savepositions(int num, int reason)
     All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);
 
     walltime_measure("/Snapshot/Misc");
-    petaio_save_snapshot(num);
+
+    petaio_save_snapshot("%s/PART_%03d", All.OutputDir, num);
+
     walltime_measure("/Snapshot/Write");
 
     /* regular snapshot, do fof and write it out */

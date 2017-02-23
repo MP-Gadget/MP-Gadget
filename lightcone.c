@@ -82,9 +82,10 @@ static void lightcone_init_entry(int i) {
 //    printf("a = %g z = %g Dc = %g\n", a, z, result);
 }
 
-void lightcone_init() {
+void lightcone_init(double timeBegin)
+{
     int i;
-    dloga = (0.0 - log(All.TimeBegin)) / (NENTRY - 1);
+    dloga = (0.0 - log(timeBegin)) / (NENTRY - 1);
     for(i = 0; i < NENTRY; i ++) {
         lightcone_init_entry(i);
     };
@@ -95,11 +96,8 @@ void lightcone_init() {
     sprintf(buf, "%s/lightcone/%03d/", All.OutputDir, (int)(ThisTask / chunk));
     mkdir(buf, 02755);
     sprintf(buf, "%s/lightcone/%03d/lightcone-%05d.raw", All.OutputDir, (int)(ThisTask / chunk), ThisTask);
-    if(RestartFlag == 0) {
-        fd_lightcone = fopen(buf, "w");
-    } else {
-        fd_lightcone = fopen(buf, "a");
-    }
+
+    fd_lightcone = fopen(buf, "a+");
     if(fd_lightcone == NULL) {
         endrun(1, "failed to open %s\n", buf);
     }

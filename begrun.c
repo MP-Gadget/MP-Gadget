@@ -30,12 +30,15 @@
  */
 
 
+static void
+open_outputfiles(int RestartsnapNum);
+
 
 /*! This function performs the initial set-up of the simulation. First, the
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-void begrun(void)
+void begrun(int BeginFlag, int RestartSnapNum)
 {
 
     /* n is aligned*/
@@ -56,28 +59,34 @@ void begrun(void)
     init_clouds();
 #endif
 
-#ifdef LIGHTCONE
-    lightcone_init();
-#endif
-
     random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
     gsl_rng_set(random_generator, 42);	/* start-up seed */
 
-    if(RestartFlag != 3 && RestartFlag != 4)
+    if(BeginFlag == 2)
         long_range_init();
 
     All.TimeLastRestartFile = 0;
 
-
     set_random_numbers();
 
-    init();			/* ... read in initial model */
+    init(RestartSnapNum);			/* ... read in initial model */
 
-    if(RestartFlag >= 3) {
+    /* All.Time is initialized after init*/
+    /* Decide TimeBegin */
+    All.TimeBegin = All.Time;
+
+    if(BeginFlag >= 3) {
         return;
     }
-    open_outputfiles();
+
+#ifdef LIGHTCONE
+    lightcone_init(All.Time);
+#endif
+
+    init_drift_table(All.Time, All.TimeMax);
+
+    open_outputfiles(RestartSnapNum);
 
     reconstruct_timebins();
 
@@ -99,10 +108,7 @@ void begrun(void)
     }
 #endif
 
-
-    init_drift_table();
-
-    if(RestartFlag == 2)
+    if(BeginFlag == 2)
         All.Ti_nextoutput = find_next_outputtime(All.Ti_Current + 100);
     else
         All.Ti_nextoutput = find_next_outputtime(All.Ti_Current);
@@ -115,18 +121,16 @@ void begrun(void)
  *   performance of the simulstion. On restart from restart-files
  *   (start-option 1), the code will append to these files.
  */
-void open_outputfiles(void)
+static void
+open_outputfiles(int RestartSnapNum)
 {
     char mode[2];
     char * buf;
     char * postfix;
 
-    if(RestartFlag == 0 || RestartFlag == 2)
-        strcpy(mode, "w");
-    else
-        strcpy(mode, "a");
+    strcpy(mode, "a+");
 
-    if(RestartFlag == 2) {
+    if(RestartSnapNum != -1) {
         postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
     } else {
         postfix = fastpm_strdup_printf("%s", "");

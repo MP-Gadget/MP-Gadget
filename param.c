@@ -136,7 +136,6 @@ create_gadget_parameter_set()
     param_declare_int(ps,    "MaxMemSizePerCore", OPTIONAL, 1200, "");
     param_declare_double(ps, "CpuTimeBetRestartFile", REQUIRED, 0, "");
 
-    param_declare_double(ps, "TimeBegin", REQUIRED, 0, "");
     param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "");
     param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "");
 
@@ -345,7 +344,7 @@ void read_parameter_file(char *fname)
         All.MaxMemSizePerCore = param_get_int(ps, "MaxMemSizePerCore");
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
 
-        All.TimeBegin = param_get_double(ps, "TimeBegin");
+        All.TimeBegin = -1.0; /* no longer need TimeBegin; always use IC or snapshot */
         All.TimeMax = param_get_double(ps, "TimeMax");
         All.TreeDomainUpdateFrequency = param_get_double(ps, "TreeDomainUpdateFrequency");
         All.ErrTolTheta = param_get_double(ps, "ErrTolTheta");
