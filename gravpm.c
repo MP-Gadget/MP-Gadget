@@ -63,7 +63,7 @@ void gravpm_force() {
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     /*Now save the power spectrum*/
     if(ThisTask == 0)
-        powerspectrum_save(&PowerSpectrum, All.OutputDir, All.Time, All.cf.D1);
+        powerspectrum_save(&PowerSpectrum, All.OutputDir, All.Time, GrowthFactor(All.Time));
 }
 
 static double pot_factor;

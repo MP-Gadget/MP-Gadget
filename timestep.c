@@ -32,7 +32,6 @@ void set_global_time(double newtime) {
     All.cf.fac_egy = pow(All.Time, 3 * GAMMA_MINUS1);
     All.cf.hubble = hubble_function(All.Time);
     All.cf.hubble_a2 = All.Time * All.Time * hubble_function(All.Time);
-    All.cf.D1 = GrowthFactor(All.cf.a);
 
 #ifdef LIGHTCONE
     lightcone_set_time(All.cf.a);
