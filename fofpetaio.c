@@ -95,7 +95,7 @@ void fof_save_particles(int num) {
         }
         message(0, "Writing Block %s\n", blockname);
 
-        petaio_save_block(&bf, blockname, &array, All.NumPartPerFile, All.NumWriters);
+        petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
 

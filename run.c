@@ -103,16 +103,16 @@ static int human_interaction() {
             size_t n = 0;
             char * line = NULL;
             while(-1 != getline(&line, &n, fd)) {
-                sscanf(line, "NumPartPerFile %d", &All.NumPartPerFile);
-                sscanf(line, "NumWriters %d", &All.NumWriters);
+                sscanf(line, "BytesPerFile %d", &All.IO.BytesPerFile);
+                sscanf(line, "NumWriters %d", &All.IO.NumWriters);
             }
             free(line);
             printf("New IO parameter recieved from %s:\n"
                    "NumPartPerfile %d\n"
                    "NumWriters %d\n",
                 ioctlfname,
-                All.NumPartPerFile,
-                All.NumWriters);
+                All.IO.BytesPerFile,
+                All.IO.NumWriters);
             fclose(fd);
         }
         /* Is the stop-file present? If yes, interrupt the run. */
@@ -129,6 +129,13 @@ static int human_interaction() {
             printf("reaching time-limit. stopping.\n");
             stopflag = 2;
         }
+
+        if((All.CT.ElapsedTime - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile) {
+            All.TimeLastRestartFile = All.CT.ElapsedTime;
+            printf("time to write a snapshot for restarting\n");
+            stopflag = 3;
+        }
+
         if((fd = fopen(restartfname, "r")))
         {
             printf("human controlled snapshot.\n");
@@ -136,14 +143,12 @@ static int human_interaction() {
             stopflag = 3;
             unlink(restartfname);
         }
-        if((All.CT.ElapsedTime - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile) {
-            All.TimeLastRestartFile = All.CT.ElapsedTime;
-            printf("time to write a snapshot for restarting\n");
-            stopflag = 3;
-        }
     }
 
+    MPI_Bcast(&All.IO, sizeof(All.IO), MPI_BYTE, 0, MPI_COMM_WORLD);
+
     MPI_Bcast(&stopflag, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&All.TimeLastRestartFile, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     return stopflag;
 }

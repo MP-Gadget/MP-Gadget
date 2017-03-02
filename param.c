@@ -163,9 +163,12 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MaxNumNgbDeviation", OPTIONAL, 2, "");
     param_declare_double(ps, "HydroCostFactor", OPTIONAL, 1, "Cost factor of hydro calculation, default to 1.");
 
-    param_declare_int(ps, "NumPartPerFile", OPTIONAL, 1024 * 1024 * 128, "number of particles per file");
-    param_declare_int(ps, "NumWriters", OPTIONAL, NTask, "Number of concurrent writer processes. 0 implies Number of Tasks ");
+    param_declare_int(ps, "BytesPerFile", OPTIONAL, 1024 * 1024 * 1024, "number of bytes per file");
+    param_declare_int(ps, "NumWriters", OPTIONAL, NTask, "Max number of concurrent writer processes. 0 implies Number of Tasks; we use 4 times number of files or this. ");
+    param_declare_int(ps, "WritersPerFile", OPTIONAL, 8, "Number of Writer groups assigned to a file; total number of writers is capped by NumWriters.");
+
     param_declare_int(ps, "EnableAggregatedIO", OPTIONAL, 0, "Use the Aggregated IO policy for small data set (Experimental).");
+    param_declare_int(ps, "AggregatedIOThreshold", OPTIONAL, 1024 * 1024 * 256, "Max number of bytes on a writer before reverting to throttled IO.");
 
     param_declare_int(ps, "MakeGlassFile", OPTIONAL, 0, "Enable to reverse the direction of gravity, only apply the PM force, and thus make a glass file.");
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
@@ -365,9 +368,11 @@ void read_parameter_file(char *fname)
         All.DensityContrastLimit = param_get_double(ps, "DensityContrastLimit");
         All.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
 
-        All.NumPartPerFile = param_get_int(ps, "NumPartPerFile");
-        All.NumWriters = param_get_int(ps, "NumWriters");
-        All.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
+        All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
+        All.IO.NumWriters = param_get_int(ps, "NumWriters");
+        All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
+        All.IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");
+        All.IO.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
 
         All.MakeGlassFile = param_get_int(ps, "MakeGlassFile");
         All.CoolingOn = param_get_int(ps, "CoolingOn");

@@ -38,9 +38,9 @@ static int64_t npartLocal[6];
 
 void petaio_init() {
     /* Smaller files will do aggregareted IO.*/
-    if(All.EnableAggregatedIO) {
+    if(All.IO.EnableAggregatedIO) {
         message(0, "Aggregated IO is enabled\n");
-        big_file_mpi_set_aggregated_threshold(1024 * 1024 * 8);
+        big_file_mpi_set_aggregated_threshold(All.IO.AggregatedIOThreshold);
     } else {
         message(0, "Aggregated IO is disabled.\n");
         big_file_mpi_set_aggregated_threshold(0);
@@ -97,7 +97,7 @@ static void petaio_save_internal(char * fname) {
         }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
         petaio_build_buffer(&array, &IOTable.ent[i], NULL, 0);
-        petaio_save_block(&bf, blockname, &array, All.NumPartPerFile, All.NumWriters);
+        petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)){
@@ -452,7 +452,7 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
         endrun(0, "Failed to seek: %s\n", big_file_get_error_message());
     }
 
-    if(0 != big_block_mpi_read(&bb, &ptr, array, All.NumWriters, MPI_COMM_WORLD)) {
+    if(0 != big_block_mpi_read(&bb, &ptr, array, All.IO.NumWriters, MPI_COMM_WORLD)) {
         endrun(0, "Failed to read form  block: %s\n", big_file_get_error_message());
     }
 
@@ -463,18 +463,23 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
 }
 
 /* save a block to disk */
-void petaio_save_block(BigFile * bf, char * blockname, BigArray * array, size_t ppfile, int NumWriters) {
+void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
+{
 
     BigBlock bb;
     BigBlockPtr ptr;
 
+    int elsize = dtype_itemsize(array->dtype);
+
+    int NumWriters = All.IO.NumWriters;
+
     size_t size = count_sum(array->dims[0]);
     int NumFiles;
 
-    if(All.EnableAggregatedIO) {
-        NumFiles = (size + ppfile - 1) / ppfile;
-        if(NumWriters > NumFiles * 4) {
-            NumWriters = NumFiles * 4;
+    if(All.IO.EnableAggregatedIO) {
+        NumFiles = (size * elsize + All.IO.BytesPerFile - 1) / All.IO.BytesPerFile;
+        if(NumWriters > NumFiles * All.IO.WritersPerFile) {
+            NumWriters = NumFiles * All.IO.WritersPerFile;
             message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
     } else {
