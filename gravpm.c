@@ -256,15 +256,36 @@ static double sinc_unnormed(double x) {
     }
 }
 
-static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
+/* Compute the power spectrum of the fourier transformed grid in value.
+ * Store it in the PowerSpectrum structure */
+void powerspectrum_compute(const int64_t k2, const int kpos[3], pfft_complex * const value, const double invwindow) {
 
     if(k2 == 0) {
-        /* Remove zero mode corresponding to the mean, after saving it as the normalisation factor.*/
+        /* Save zero mode corresponding to the mean as the normalisation factor.*/
         PowerSpectrum.Norm = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
-        value[0][0] = 0.0;
-        value[0][1] = 0.0;
         return;
     }
+    /* Measure power spectrum: we don't want the zero mode.
+     * Some modes with k_z = 0 or N/2 have weight 1, the rest have weight 2.
+     * This is because of the symmetry of the real fft. */
+    int kint = floor(sqrt(k2));
+    if(kint >= 0 && kint < PowerSpectrum.size) {
+        int w;
+        const double keff = sqrt(kpos[0]*kpos[0]+kpos[1]*kpos[1]+kpos[2]*kpos[2]);
+        const double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
+        if(kpos[2] == 0 || kpos[2] == All.Nmesh/2) w = 1;
+        else w = 2;
+        /*Make sure we use thread-local memory to avoid racing.*/
+        const int index = kint + omp_get_thread_num() * PowerSpectrum.size;
+        /*Multiply P(k) by inverse window function*/
+        PowerSpectrum.P[index] += w * m * invwindow * invwindow;
+        PowerSpectrum.Nmodes[index] += w;
+        PowerSpectrum.k[index] += w * keff;
+    }
+
+}
+
+static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
 
     const double asmth2 = pow((2 * M_PI) * ASMTH / All.Nmesh,2);
     double f = 1.0;
@@ -289,27 +310,17 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
      * */
     const double fac = pot_factor * smth * f * f;
 
-    /* Measure power spectrum: we don't want the zero mode.
-     * Some modes with k_z = 0 or N/2 have weight 1, the rest have weight 2.
-     * This is because of the symmetry of the real fft. */
-    int kint = floor(sqrt(k2));
-    if(kint >= 0 && kint < PowerSpectrum.size) {
-        int w;
-        const double keff = sqrt(kpos[0]*kpos[0]+kpos[1]*kpos[1]+kpos[2]*kpos[2]);
-        const double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
-        if(kpos[2] == 0 || kpos[2] == All.Nmesh/2) w = 1;
-        else w = 2;
-        /*Make sure we use thread-local memory to avoid racing.*/
-        const int index = kint + omp_get_thread_num() * PowerSpectrum.size;
-        /*Multiply P(k) by inverse window function*/
-        PowerSpectrum.P[index] += w * m * f;
-        PowerSpectrum.Nmodes[index] += w;
-        PowerSpectrum.k[index] += w * keff;
+    /*Compute the power spectrum*/
+    powerspectrum_compute(k2, kpos, value, f);
+    if(k2 == 0) {
+        /* Remove zero mode corresponding to the mean.*/
+        value[0][0] = 0.0;
+        value[0][1] = 0.0;
+        return;
     }
 
     value[0][0] *= fac;
     value[0][1] *= fac;
-
 }
 
 /* the transfer functions for force in fourier space applied to potential */
