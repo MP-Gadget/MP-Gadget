@@ -8,14 +8,22 @@
 #include "domain.h"
 #include "endrun.h"
 #include "mymalloc.h"
+#include "kspace-neutrinos/interface_common.h"
 
 /*Global variable to store power spectrum*/
 struct _powerspectrum PowerSpectrum;
+
+/* Structure which holds pointers to the stored
+ * neutrino power spectrum*/
+_delta_pow nu_pow;
+void powerspectrum_nu_save(struct _delta_pow *nu_pow, const char * OutputDir, const double Time);
 
 static int pm_mark_region_for_node(int startno, int rid);
 static void convert_node_to_region(PetaPMRegion * r);
 
 static void potential_transfer(int64_t k2, int kpos[3], pfft_complex * value);
+static void readout_power_spectrum(int64_t k2, int kpos[3], pfft_complex * value);
+static void compute_neutrino_power(void);
 static void force_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void force_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void force_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
@@ -39,6 +47,11 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 void gravpm_init_periodic() {
     petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
     powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads);
+    /*Enable neutrino related analysis if massive neutrinos are disabled*/
+    if(All.MassiveNuLinRespOn) {
+        global_functions.global_readout = readout_power_spectrum;
+        global_functions.global_analysis = compute_neutrino_power;
+    }
 }
 
 /* Computes the gravitational force on the PM grid
@@ -70,6 +83,8 @@ void gravpm_force(void) {
     /*Now save the power spectrum*/
     if(ThisTask == 0)
         powerspectrum_save(&PowerSpectrum, All.OutputDir, All.Time, GrowthFactor(All.Time, 1.0));
+    if(ThisTask == 0 && All.MassiveNuLinRespOn)
+        powerspectrum_nu_save(&nu_pow, All.OutputDir, All.Time);
     walltime_measure("/LongRange");
     /*Rebuild the force tree we freed in _prepare to save memory*/
     force_tree_rebuild();
@@ -267,6 +282,39 @@ static double sinc_unnormed(double x) {
     }
 }
 
+/* Compute neutrino power spectrum.
+ * This should happen after the CFT is computed,
+ * and after powerspectrum_compute() has been called,
+ * but before potential_transfer is called.*/
+static void compute_neutrino_power() {
+    if(!All.MassiveNuLinRespOn)
+        return;
+    /*Note the power spectrum is now in Mpc units*/
+    powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
+    nu_pow = compute_neutrino_power_from_cdm(All.Time, PowerSpectrum.k, PowerSpectrum.P, PowerSpectrum.Nmodes, PowerSpectrum.size, MPI_COMM_WORLD);
+    /*Zero power spectrum, which is stored with the neutrinos*/
+    powerspectrum_zero(&PowerSpectrum);
+}
+
+void powerspectrum_nu_save(struct _delta_pow *nu_pow, const char * OutputDir, const double Time)
+{
+    int i;
+    char fname[1024];
+    /* Now save the neutrino power spectrum*/
+    snprintf(fname, 1024,"%s/powerspectrum-nu-%0.4f.txt", OutputDir, Time);
+    FILE * fp = fopen(fname, "w");
+    fprintf(fp, "# in Mpc/h Units \n");
+    fprintf(fp, "# (k P_nu(k))\n");
+    fprintf(fp, "# a= %g\n", Time);
+    fprintf(fp, "# nk = %d\n", nu_pow->nbins);
+    for(i = 0; i < nu_pow->nbins; i++){
+        fprintf(fp, "%g %g\n", exp(nu_pow->logkk[i]), pow(nu_pow->delta_nu_curr[i],2));
+    }
+    fclose(fp);
+    /*Clean up the neutrino memory now we saved the power spectrum.*/
+    free_d_pow(nu_pow);
+}
+
 /* Compute the power spectrum of the fourier transformed grid in value.
  * Store it in the PowerSpectrum structure */
 void powerspectrum_compute(const int64_t k2, const int kpos[3], pfft_complex * const value, const double invwindow) {
@@ -301,6 +349,25 @@ void powerspectrum_compute(const int64_t k2, const int kpos[3], pfft_complex * c
 
 }
 
+/*Just read the power spectrum, without changing the input value.*/
+static void readout_power_spectrum(int64_t k2, int kpos[3], pfft_complex *value) {
+    double f = 1.0;
+    /* the CIC deconvolution kernel is
+     *
+     * sinc_unnormed(k_x L / 2 All.Nmesh) ** 2
+     *
+     * k_x = kpos * 2pi / L
+     *
+     * */
+    int k;
+    for(k = 0; k < 3; k ++) {
+        double tmp = (kpos[k] * M_PI) / All.Nmesh;
+        tmp = sinc_unnormed(tmp);
+        f *= 1. / (tmp * tmp);
+    }
+    powerspectrum_compute(k2, kpos, value, f);
+}
+
 static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
 
     const double asmth2 = pow((2 * M_PI) * All.Asmth / All.Nmesh,2);
@@ -326,9 +393,30 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
      * */
     const double fac = pot_factor * smth * f * f;
 
+    /*Add neutrino power if desired*/
+    if(All.MassiveNuLinRespOn && k2 > 0) {
+        /*Change the units of k to match those of logkk*/
+        double logk2 = log(sqrt(k2) * 2 * M_PI / (All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 ));
+        /* Note get_neutrino_powerspec returns Omega_nu / (Omega0 -OmegaNu) * delta_nu / P_cdm^1/2, which is dimensionless.
+         * So below is: M_cdm * delta_cdm (1 + Omega_nu/(Omega0-OmegaNu) (delta_nu / delta_cdm))
+         *            = M_cdm * (delta_cdm (Omega0 - OmegaNu)/Omega0 + Omega_nu/Omega0 delta_nu) * Omega0 / (Omega0-OmegaNu)
+         *            = M_cdm * Omega0 / (Omega0-OmegaNu) * (delta_cdm (1 - f_nu)  + f_nu delta_nu) )
+         *            = M_cdm * Omega0 / (Omega0-OmegaNu) * delta_t
+         *            = (M_cdm + M_nu) * delta_t
+         * This is correct for the forces, and gives the right power spectrum,
+         * once we multiply PowerSpectrum.Norm by (Omega0 / (Omega0 - OmegaNu))**2 */
+        const double nufac = 1 + get_dnudcdm_powerspec(&nu_pow, logk2);
+        value[0][0] *= nufac;
+        value[0][1] *= nufac;
+    }
+
     /*Compute the power spectrum*/
     powerspectrum_compute(k2, kpos, value, f);
     if(k2 == 0) {
+        if(All.MassiveNuLinRespOn) {
+            const double MtotbyMcdm = All.CP.Omega0/(All.CP.Omega0 - pow(All.Time,3)*OmegaNu_nopart(All.Time));
+            PowerSpectrum.Norm *= MtotbyMcdm*MtotbyMcdm;
+        }
         /* Remove zero mode corresponding to the mean.*/
         value[0][0] = 0.0;
         value[0][1] = 0.0;
