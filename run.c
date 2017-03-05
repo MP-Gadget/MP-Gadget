@@ -21,23 +21,38 @@
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-static int human_interaction();
-int stopflag = 0;
+enum ActionType {
+    NO_ACTION = 0,
+    STOP = 1,
+    TIMEOUT = 2,
+    AUTO_CHECKPOINT = 3,
+    CHECKPOINT = 4,
+    TERMINATE = 5,
+    IOCTL = 6,
+};
+static enum ActionType human_interaction();
+static void find_next_sync_point_and_drift(int with_fof);
+static void update_IO_params(const char * ioctlfname);
+
+
 void run(void)
 {
+    enum ActionType action = NO_ACTION;
+
     walltime_measure("/Misc");
 
-    write_cpu_log();		/* produce some CPU usage info */
+    write_cpu_log(); /* produce some CPU usage info */
 
-    do				/* main loop */
+    do /* main loop */
     {
 
-        find_next_sync_point_and_drift();	/* find next synchronization point and drift particles to this time.
-                                             * If needed, this function will also write an output file
-                                             * at the desired time.
-                                             */
+        /* find next synchronization point and drift particles to this time.
+         * If needed, this function will also write an output file
+         * at the desired time.
+         */
+        find_next_sync_point_and_drift(action == NO_ACTION);
 
-        if(stopflag == 1 || stopflag == 2) {
+        if(action == STOP || action == TIMEOUT) {
             /* OK snapshot file is written, lets quit */
             return;
         }
@@ -62,16 +77,48 @@ void run(void)
 
         All.NumCurrentTiStep++;
 
-        stopflag = human_interaction();
-        if(stopflag != 0) {
-            All.Ti_nextoutput = All.Ti_Current;
-            /* next loop will write a new snapshot file */
-        }
         report_memory_usage("RUN");
+
+        action = human_interaction();
+        switch(action) {
+            case STOP:
+                message(0, "humman controlled stop with checkpoint.\n");
+                All.Ti_nextoutput = All.Ti_Current;
+                /* next loop will write a new snapshot file; break is for switch */
+                break;
+            case TIMEOUT:
+                message(0, "stopping due to TimeLimitCPU.\n");
+                All.Ti_nextoutput = All.Ti_Current;
+                /* next loop will write a new snapshot file */
+                break;
+
+            case AUTO_CHECKPOINT:
+                message(0, "auto checkpoint due to TimeBetSnapshot.\n");
+                All.Ti_nextoutput = All.Ti_Current;
+                /* next loop will write a new snapshot file */
+                break;
+
+            case CHECKPOINT:
+                message(0, "human controlled checkpoint.\n");
+                All.Ti_nextoutput = All.Ti_Current;
+                /* next loop will write a new snapshot file */
+                break;
+
+            case TERMINATE:
+                message(0, "human controlled termination.\n");
+                /* no snapshot, at termination, directly end the loop */
+                return;
+
+            case IOCTL:
+                break;
+
+            case NO_ACTION:
+                break;
+
+        }
+
     }
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
-
-    savepositions(All.SnapshotFileCount++, 0);
 
     /* write a last snapshot
      * file at final time (will
@@ -79,78 +126,97 @@ void run(void)
      * All.TimeMax is increased
      * and the run is continued)
      */
+    savepositions(All.SnapshotFileCount++, 1);
+
 }
-static int human_interaction() {
+
+static void
+update_IO_params(const char * ioctlfname)
+{
+    if(ThisTask == 0) {
+        FILE * fd = fopen(ioctlfname, "r");
+         /* there is an ioctl file, parse it and update
+          * All.NumPartPerFile
+          * All.NumWriters
+          */
+        size_t n = 0;
+        char * line = NULL;
+        while(-1 != getline(&line, &n, fd)) {
+            sscanf(line, "BytesPerFile %d", &All.IO.BytesPerFile);
+            sscanf(line, "NumWriters %d", &All.IO.NumWriters);
+        }
+        free(line);
+        fclose(fd);
+    }
+
+    MPI_Bcast(&All.IO, sizeof(All.IO), MPI_BYTE, 0, MPI_COMM_WORLD);
+    message(0, "New IO parameter recieved from %s:"
+               "NumPartPerfile %d"
+               "NumWriters %d\n",
+            ioctlfname,
+            All.IO.BytesPerFile,
+            All.IO.NumWriters);
+}
+
+static enum ActionType
+human_interaction()
+{
         /* Check whether we need to interrupt the run */
-    int stopflag = 0;
-    char stopfname[4096], contfname[4096];
+    enum ActionType action = NO_ACTION;
+    char stopfname[4096], termfname[4096];
     char restartfname[4096];
     char ioctlfname[4096];
 
     sprintf(stopfname, "%s/stop", All.OutputDir);
-    sprintf(restartfname, "%s/restart", All.OutputDir);
-    sprintf(contfname, "%s/cont", All.OutputDir);
+    sprintf(restartfname, "%s/checkpoint", All.OutputDir);
+    sprintf(termfname, "%s/terminate", All.OutputDir);
     sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
 
     if(ThisTask == 0)
     {
         FILE * fd;
         if((fd = fopen(ioctlfname, "r"))) {
-             /* there is an ioctl file, parse it and update
-              * All.NumPartPerFile
-              * All.NumWriters
-              */
-            size_t n = 0;
-            char * line = NULL;
-            while(-1 != getline(&line, &n, fd)) {
-                sscanf(line, "BytesPerFile %d", &All.IO.BytesPerFile);
-                sscanf(line, "NumWriters %d", &All.IO.NumWriters);
-            }
-            free(line);
-            printf("New IO parameter recieved from %s:\n"
-                   "NumPartPerfile %d\n"
-                   "NumWriters %d\n",
-                ioctlfname,
-                All.IO.BytesPerFile,
-                All.IO.NumWriters);
+            action = IOCTL;
+            update_IO_params(ioctlfname);
             fclose(fd);
         }
         /* Is the stop-file present? If yes, interrupt the run. */
         if((fd = fopen(stopfname, "r")))
         {
-            printf("human controlled stopping.\n");
+            action = STOP;
             fclose(fd);
-            stopflag = 1;
             unlink(stopfname);
+        }
+        /* Is the stop-file present? If yes, interrupt the run. */
+        if((fd = fopen(termfname, "r")))
+        {
+            action = TERMINATE;
+            fclose(fd);
+            unlink(termfname);
         }
 
         /* are we running out of CPU-time ? If yes, interrupt run. */
         if(All.CT.ElapsedTime > 0.85 * All.TimeLimitCPU) {
-            printf("reaching time-limit. stopping.\n");
-            stopflag = 2;
+            action = TIMEOUT;
         }
 
         if((All.CT.ElapsedTime - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile) {
+            action = AUTO_CHECKPOINT;
             All.TimeLastRestartFile = All.CT.ElapsedTime;
-            printf("time to write a snapshot for restarting\n");
-            stopflag = 3;
         }
 
         if((fd = fopen(restartfname, "r")))
         {
-            printf("human controlled snapshot.\n");
+            action = CHECKPOINT;
             fclose(fd);
-            stopflag = 3;
             unlink(restartfname);
         }
     }
 
-    MPI_Bcast(&All.IO, sizeof(All.IO), MPI_BYTE, 0, MPI_COMM_WORLD);
-
-    MPI_Bcast(&stopflag, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&action, sizeof(action), MPI_BYTE, 0, MPI_COMM_WORLD);
     MPI_Bcast(&All.TimeLastRestartFile, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
-    return stopflag;
+    return action;
 }
 
 /*! This function finds the next synchronization point of the system
@@ -160,7 +226,7 @@ static int human_interaction() {
  * function will drift to this moment, generate an output, and then
  * resume the drift.
  */
-void find_next_sync_point_and_drift(void)
+void find_next_sync_point_and_drift(int with_fof)
 {
     int n, i, prev, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
     int64_t numforces2;
@@ -202,7 +268,7 @@ void find_next_sync_point_and_drift(void)
 
         move_particles(All.Ti_nextoutput);
 
-        savepositions(All.SnapshotFileCount++, stopflag);	/* write snapshot file */
+        savepositions(All.SnapshotFileCount++, with_fof);	/* write snapshot file */
 
         All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);
     }

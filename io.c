@@ -25,9 +25,8 @@
  * which are written simultaneously. Each file contains data from a group of
  * processors of size roughly NTask/NumFilesPerSnapshot.
  */
-/* reason == 0 regular snapshot, do fof and write it out */
-/* reason != 0 checkpoints, do not run fof */
-void savepositions(int num, int reason)
+/* with_fof != 0 regular snapshot, do fof and write it out */
+void savepositions(int num, int with_fof)
 {
     walltime_measure("/Misc");
 
@@ -42,7 +41,7 @@ void savepositions(int num, int reason)
     walltime_measure("/Snapshot/Write");
 
     /* regular snapshot, do fof and write it out */
-    if(All.SnapshotWithFOF && reason == 0) {
+    if(All.SnapshotWithFOF && with_fof != 0) {
         message(0, "computing group catalogue...\n");
 
         fof_fof(num);

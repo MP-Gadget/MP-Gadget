@@ -39,7 +39,6 @@ void write_pid_file(void);
 
 void move_particles(int time1);
 
-void find_next_sync_point_and_drift(void);
 void find_dt_displacement_constraint(double hfac);
 
 void allocate_memory(void);
