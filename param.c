@@ -283,11 +283,14 @@ create_gadget_parameter_set()
     param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0., "");
 
     /*These parameters are Lyman alpha forest specific*/
-    param_declare_double(ps, "QuickLymanAlphaProbability", OPTIONAL, 0, "");
-    param_declare_int(ps, "HeliumHeatOn", OPTIONAL, 0, "");
-    param_declare_double(ps, "HeliumHeatThresh", OPTIONAL, 10, "");
-    param_declare_double(ps, "HeliumHeatAmp", OPTIONAL, 1, "");
-    param_declare_double(ps, "HeliumHeatExp", OPTIONAL, 0, "");
+    param_declare_double(ps, "QuickLymanAlphaProbability", OPTIONAL, 0, "Probability gas is turned directly into stars, irrespective of pressure. One is equivalent to quick lyman alpha star formation.");
+    /* Enable model for helium reionisation which adds extra photo-heating to under-dense gas.
+     * Extra heating has the form: H = Amp * (rho / rho_c(z=0))^Exp
+     * but is density-independent when rho / rho_c > Thresh. */
+    param_declare_int(ps, "HeliumHeatOn", OPTIONAL, 0, "Change photo-heating rate to model helium reionisation on underdense gas.");
+    param_declare_double(ps, "HeliumHeatThresh", OPTIONAL, 10, "Overdensity above which heating is density-independent.");
+    param_declare_double(ps, "HeliumHeatAmp", OPTIONAL, 1, "Density-independent heat boost. Changes mean temperature.");
+    param_declare_double(ps, "HeliumHeatExp", OPTIONAL, 0, "Density dependent heat boost (exponent). Changes gamma.");
 
 #endif
 
