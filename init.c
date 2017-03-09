@@ -41,6 +41,11 @@ void init(int RestartSnapNum)
             break;
     }
 
+    if(All.RestartFromBlueTidesPhaseI) {
+        /* BlueTidesI didn't have MassTable of gas set. */
+        All.MassTable[0] = All.MassTable[1] * (All.CP.OmegaBaryon) / (All.CP.Omega0 - All.CP.OmegaBaryon);
+    }
+
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();
 
