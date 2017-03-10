@@ -90,6 +90,11 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
     /*Now read in the values*/
     for(count=0,token=strtok(outputlist,","); count < All.OutputListLength && token; count++, token=strtok(NULL,","))
     {
+        /* Skip a leading quote if one exists.
+         * Extra characters are ignored by atof, so
+         * no need to skip matching char.*/
+        if(token[0] == '"')
+            token+=1;
         All.OutputListTimes[count] = atof(token);
 /*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
     }
