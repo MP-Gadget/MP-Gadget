@@ -62,9 +62,7 @@ void begrun(int RestartSnapNum)
      * This needs to be done *before* the first call to hubble_function.
      * Mpc units are used to match power spectrum code.*/
     if(All.MassiveNuLinRespOn) {
-        char fname[4096];
-        sprintf(fname, "%s/PART_%03d", All.OutputDir, RestartSnapNum);
-        allocate_kspace_memory(All.Nmesh, ThisTask, All.BoxSize, All.UnitTime_in_s, 3.085678e24, All.CP.Omega0, fname, All.TimeMax, MPI_COMM_WORLD);
+        allocate_kspace_memory(All.Nmesh, ThisTask, All.BoxSize, All.UnitTime_in_s, 3.085678e24, All.CP.Omega0, NULL, All.TimeMax, MPI_COMM_WORLD);
     }
     InitCool();
 
