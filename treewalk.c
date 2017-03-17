@@ -493,6 +493,10 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
 
 void treewalk_run(TreeWalk * tw) {
     /* run the evaluator */
+    if(!force_tree_allocated()) {
+        endrun(0, "Tree has been freed before this treewalk.");
+    }
+
     GDB_current_ev = tw;
     ev_begin(tw);
     do

@@ -111,6 +111,8 @@ void   force_treeallocate(int maxnodes, int maxpart);
 int    force_treebuild(int npart, struct unbind_data *mp);
 int    force_treebuild_single(int npart, struct unbind_data *mp);
 
+int force_tree_allocated();
+
 void force_treebuild_simple();
 
 int    force_treeev_direct(int target, int mode);

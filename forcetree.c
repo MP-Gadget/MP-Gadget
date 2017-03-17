@@ -47,7 +47,12 @@ static int last;
 
 static int tree_allocated_flag = 0;
 
+int
+force_tree_allocated()
+{
+    return tree_allocated_flag;
 
+}
 void force_treebuild_simple() {
     /* construct tree if needed */
     /* the tree is used in grav dens, hydro, bh and sfr */
