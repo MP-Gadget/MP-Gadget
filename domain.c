@@ -119,108 +119,109 @@ void domain_Decomposition(void)
         MPI_Type_commit(&MPI_TYPE_SPHPARTICLE);
     }
 
-        walltime_measure("/Misc");
+    walltime_measure("/Misc");
 
-        move_particles(All.Ti_Current);
+    move_particles(All.Ti_Current);
 
-        force_tree_free();
-        rearrange_particle_sequence();
+    if(force_tree_allocated()) force_tree_free();
 
-        domain_free();
+    rearrange_particle_sequence();
 
-        do_box_wrapping();	/* map the particles back onto the box */
+    domain_free();
 
-        All.NumForcesSinceLastDomainDecomp = 0;
+    do_box_wrapping();	/* map the particles back onto the box */
 
-        message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+    All.NumForcesSinceLastDomainDecomp = 0;
 
-        t0 = second();
+    message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
-        do
-        {
-            domain_allocate();
+    t0 = second();
 
-            all_bytes = 0;
+    do
+    {
+        domain_allocate();
 
-            domainWork = (float *) mymalloc("domainWork", bytes = (MaxTopNodes * sizeof(float)));
-            all_bytes += bytes;
-            domainCount = (int *) mymalloc("domainCount", bytes = (MaxTopNodes * sizeof(int)));
-            all_bytes += bytes;
-            domainCountSph = (int *) mymalloc("domainCountSph", bytes = (MaxTopNodes * sizeof(int)));
-            all_bytes += bytes;
+        all_bytes = 0;
 
-            topNodes = (struct local_topnode_data *) mymalloc("topNodes", bytes =
-                    (MaxTopNodes *
-                     sizeof(struct local_topnode_data)));
-            memset(topNodes, 0, sizeof(topNodes[0]) * MaxTopNodes);
-            all_bytes += bytes;
+        domainWork = (float *) mymalloc("domainWork", bytes = (MaxTopNodes * sizeof(float)));
+        all_bytes += bytes;
+        domainCount = (int *) mymalloc("domainCount", bytes = (MaxTopNodes * sizeof(int)));
+        all_bytes += bytes;
+        domainCountSph = (int *) mymalloc("domainCountSph", bytes = (MaxTopNodes * sizeof(int)));
+        all_bytes += bytes;
 
-            message(0, "use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
-                     all_bytes / (1024.0 * 1024.0), AllocatedBytes / (1024.0 * 1024.0));
+        topNodes = (struct local_topnode_data *) mymalloc("topNodes", bytes =
+                (MaxTopNodes *
+                 sizeof(struct local_topnode_data)));
+        memset(topNodes, 0, sizeof(topNodes[0]) * MaxTopNodes);
+        all_bytes += bytes;
 
-            maxLoad = (int) (All.MaxPart * REDUC_FAC);
-            maxLoadsph = (int) (All.MaxPartSph * REDUC_FAC);
+        message(0, "use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
+                 all_bytes / (1024.0 * 1024.0), AllocatedBytes / (1024.0 * 1024.0));
 
-            report_memory_usage("DOMAIN");
+        maxLoad = (int) (All.MaxPart * REDUC_FAC);
+        maxLoadsph = (int) (All.MaxPartSph * REDUC_FAC);
+
+        report_memory_usage("DOMAIN");
 #ifdef DEBUG
-            message(0, "Testing ID Uniqueness before domain decompose\n");
-            test_id_uniqueness();
+        message(0, "Testing ID Uniqueness before domain decompose\n");
+        test_id_uniqueness();
 #endif
-            ret = domain_decompose();
+        ret = domain_decompose();
 
-            /* copy what we need for the topnodes */
-            for(i = 0; i < NTopnodes; i++)
+        /* copy what we need for the topnodes */
+        for(i = 0; i < NTopnodes; i++)
+        {
+            TopNodes[i].StartKey = topNodes[i].StartKey;
+            TopNodes[i].Size = topNodes[i].Size;
+            TopNodes[i].Daughter = topNodes[i].Daughter;
+            TopNodes[i].Leaf = topNodes[i].Leaf;
+        }
+
+        myfree(topNodes);
+        myfree(domainCountSph);
+        myfree(domainCount);
+        myfree(domainWork);
+
+        MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+        if(retsum)
+        {
+            domain_free();
+            message(0, "Increasing TopNodeAllocFactor=%g  ", All.TopNodeAllocFactor);
+
+            All.TopNodeAllocFactor *= 1.3;
+
+            message(0, "new value=%g\n", All.TopNodeAllocFactor);
+
+            if(All.TopNodeAllocFactor > 1000)
             {
-                TopNodes[i].StartKey = topNodes[i].StartKey;
-                TopNodes[i].Size = topNodes[i].Size;
-                TopNodes[i].Daughter = topNodes[i].Daughter;
-                TopNodes[i].Leaf = topNodes[i].Leaf;
-            }
-
-            myfree(topNodes);
-            myfree(domainCountSph);
-            myfree(domainCount);
-            myfree(domainWork);
-
-            MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-            if(retsum)
-            {
-                domain_free();
-                message(0, "Increasing TopNodeAllocFactor=%g  ", All.TopNodeAllocFactor);
-
-                All.TopNodeAllocFactor *= 1.3;
-
-                message(0, "new value=%g\n", All.TopNodeAllocFactor);
-
-                if(All.TopNodeAllocFactor > 1000)
-                {
-                    if(ThisTask == 0)
-                        endrun(781, "something seems to be going seriously wrong here. Stopping.\n");
-                }
+                if(ThisTask == 0)
+                    endrun(781, "something seems to be going seriously wrong here. Stopping.\n");
             }
         }
-        while(retsum);
+    }
+    while(retsum);
 
-        t1 = second();
+    t1 = second();
 
-        message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
+    message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
 
-        peano_hilbert_order();
+    peano_hilbert_order();
 
-        walltime_measure("/Domain/Peano");
+    walltime_measure("/Domain/Peano");
 
-        memmove(TopNodes + NTopnodes, DomainTask, NTopnodes * sizeof(int));
+    memmove(TopNodes + NTopnodes, DomainTask, NTopnodes * sizeof(int));
 
-        TopNodes = (struct topnode_data *) myrealloc(TopNodes, bytes =
-                (NTopnodes * sizeof(struct topnode_data) +
-                 NTopnodes * sizeof(int)));
-        message(0, "Freed %g MByte in top-level domain structure\n",
-                    (MaxTopNodes - NTopnodes) * sizeof(struct topnode_data) / (1024.0 * 1024.0));
+    TopNodes = (struct topnode_data *) myrealloc(TopNodes, bytes =
+            (NTopnodes * sizeof(struct topnode_data) +
+             NTopnodes * sizeof(int)));
+    message(0, "Freed %g MByte in top-level domain structure\n",
+                (MaxTopNodes - NTopnodes) * sizeof(struct topnode_data) / (1024.0 * 1024.0));
 
-        DomainTask = (int *) (TopNodes + NTopnodes);
+    DomainTask = (int *) (TopNodes + NTopnodes);
 
-        reconstruct_timebins();
-        walltime_measure("/Domain/Misc");
+    reconstruct_timebins();
+    walltime_measure("/Domain/Misc");
 }
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
