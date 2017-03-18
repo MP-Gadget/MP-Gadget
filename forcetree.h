@@ -77,54 +77,18 @@ extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 #define maskout_different_softening_flag(x) (x & (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE))
 #define extract_max_softening_type(x) ((x >> BITFLAG_MAX_SOFTENING_TYPE) & 7)
 
-void force_flag_localnodes(void);
-
 void force_drift_node(int no, int time1);
 int force_drift_node_full(int no, int time1, int blocking);
 
-void force_tree_discardpartials(void);
-void force_treeupdate_pseudos(int);
-void force_update_pseudoparticles(void);
-
 void force_kick_node(int i, MyFloat *dv);
-
-void force_dynamic_update(void);
-void force_dynamic_update_node(int no, int mode, MyFloat *minbound, MyFloat *maxbound);
-
-void force_update_hmax(void);
-void force_update_hmax_of_node(int no, int mode);
-
-void force_finish_kick_nodes(void);
-
-void force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z, int *nodecount, int *nextfree);
-
-void force_exchange_pseudodata(void);
-
-void force_insert_pseudo_particles(void);
-
-void   force_costevaluate(void);
-int    force_getcost_single(void);
-int    force_getcost_quadru(void);
-void   force_resetcost(void);
-void   force_setupnonrecursive(int no);
-void   force_treeallocate(int maxnodes, int maxpart);  
-int    force_treebuild(int npart, struct unbind_data *mp);
-int    force_treebuild_single(int npart, struct unbind_data *mp);
 
 int force_tree_allocated();
 
-void force_treebuild_simple();
+void force_update_hmax(void);
+void force_tree_rebuild();
+void force_finish_kick_nodes(void);
 
-int    force_treeev_direct(int target, int mode);
-
-
-void   force_treefree(void);
-void   force_update_node(int no, int flag);
-
-void   force_update_node_recursive(int no, int sib, int father);
-
-void   force_update_size_of_parent_node(int no);
-
+void   force_tree_free(void);
 void   dump_particles(void);
 
 #endif

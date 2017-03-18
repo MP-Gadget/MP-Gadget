@@ -194,12 +194,10 @@ void fof_fof(int num)
 
     if(num >= 0)
     {
-        /* need to rebuild the tree because particle order has changed. */
-        force_treefree();
         /* I am not sure why we need a full domain decomposition here. But simple peano reorder will produce
          * a tree that misses a few particles and crash PM. */
         domain_Decomposition();  
-        force_treebuild_simple();
+        force_tree_rebuild();
     }
 
     message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",

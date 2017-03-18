@@ -32,7 +32,7 @@ void runtests()
     
     long_range_force();
     domain_Decomposition();	/* do domain decomposition */
-    force_treebuild_simple();
+    force_tree_rebuild();
 
     grav_short_pair();
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));

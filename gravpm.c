@@ -140,7 +140,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     for(r =0; r < *Nregions; r++) {
         convert_node_to_region(&regions[r]);
     }
-    force_treefree();
+    if(force_tree_allocated()) force_tree_free();
     walltime_measure("/PMgrav/Regions");
     return regions;
 }

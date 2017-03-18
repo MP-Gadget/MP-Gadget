@@ -44,27 +44,59 @@ int *Father;			/*!< gives parent node in tree (Prenodes array) */
 static int last;
 
 
-
 static int tree_allocated_flag = 0;
+
+
+static int
+force_tree_build(int npart, struct unbind_data *mp);
+static int
+force_tree_build_single(int npart, struct unbind_data *mp);
+static void
+force_treeallocate(int maxnodes, int maxpart);
+
+static void
+force_update_hmax_of_node(int no, int mode);
+
+static void
+force_flag_localnodes(void);
+
+static void
+force_treeupdate_pseudos(int);
+
+static void
+force_update_node_recursive(int no, int sib, int father);
+
+static void
+force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z, int *nodecount, int *nextfree);
+
+static void
+force_exchange_pseudodata(void);
+
+static void
+force_insert_pseudo_particles(void);
 
 int
 force_tree_allocated()
 {
     return tree_allocated_flag;
-
 }
-void force_treebuild_simple() {
+
+void
+force_tree_rebuild()
+{
+    message(0, "Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+
+    if(force_tree_allocated()) {
+        force_tree_free();
+        rearrange_particle_sequence();
+    }
     /* construct tree if needed */
     /* the tree is used in grav dens, hydro, bh and sfr */
     force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
 
-    message(0, "Tree construction.  (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
-
     walltime_measure("/Misc");
 
-    rearrange_particle_sequence();
-
-    force_treebuild(NumPart, NULL);
+    force_tree_build(NumPart, NULL);
 
     walltime_measure("/Tree/Build");
 
@@ -75,18 +107,18 @@ void force_treebuild_simple() {
 /*! This function is a driver routine for constructing the gravitational
  *  oct-tree, which is done by calling a small number of other functions.
  */
-int force_treebuild(int npart, struct unbind_data *mp)
+int force_tree_build(int npart, struct unbind_data *mp)
 {
     int flag;
 
     do
     {
-        Numnodestree = force_treebuild_single(npart, mp);
+        Numnodestree = force_tree_build_single(npart, mp);
 
         MPI_Allreduce(&Numnodestree, &flag, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         if(flag == -1)
         {
-            force_treefree();
+            force_tree_free();
 
             message(0, "Increasing TreeAllocFactor=%g", All.TreeAllocFactor);
 
@@ -129,7 +161,7 @@ int force_treebuild(int npart, struct unbind_data *mp)
  *  size of the nodes also for gravity would result, which would reduce
  *  cache utilization slightly.
  */
-int force_treebuild_single(int npart, struct unbind_data *mp)
+int force_tree_build_single(int npart, struct unbind_data *mp)
 {
     int i, j, k, subnode = 0, shift, parent, numnodes, rep;
     int nfree, th, nn, no;
@@ -998,7 +1030,8 @@ void force_treeupdate_pseudos(int no)
 /*! This function flags nodes in the top-level tree that are dependent on
  *  local particle data.
  */
-void force_flag_localnodes(void)
+static void
+force_flag_localnodes(void)
 {
     int no, i, m;
 
@@ -1498,16 +1531,13 @@ void force_treeallocate(int maxnodes, int maxpart)
 /*! This function frees the memory allocated for the tree, i.e. it frees
  *  the space allocated by the function force_treeallocate().
  */
-void force_treefree(void)
+void force_tree_free(void)
 {
-    if(tree_allocated_flag)
-    {
-        myfree(Father);
-        myfree(Nextnode);
-        myfree(Extnodes_base);
-        myfree(Nodes_base);
-        myfree(DomainNodeIndex);
-        tree_allocated_flag = 0;
-    }
+    myfree(Father);
+    myfree(Nextnode);
+    myfree(Extnodes_base);
+    myfree(Nodes_base);
+    myfree(DomainNodeIndex);
+    tree_allocated_flag = 0;
 }
 

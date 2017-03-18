@@ -50,9 +50,7 @@ void compute_accelerations(int mode)
         TreeReconstructFlag = 1;
     }
 
-    if(TreeReconstructFlag) {
-        force_treebuild_simple();
-    }
+    force_tree_rebuild();
 
     grav_short_tree();		/* computes gravity accel. */
 

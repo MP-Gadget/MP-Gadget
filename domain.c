@@ -123,10 +123,10 @@ void domain_Decomposition(void)
 
         move_particles(All.Ti_Current);
 
-        force_treefree();
-        domain_free();
-
+        force_tree_free();
         rearrange_particle_sequence();
+
+        domain_free();
 
         do_box_wrapping();	/* map the particles back onto the box */
 
