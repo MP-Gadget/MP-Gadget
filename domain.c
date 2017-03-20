@@ -2002,6 +2002,8 @@ domain_garbage_collection(void)
     tree_invalid |= domain_sph_garbage_collection();
     tree_invalid |= domain_all_garbage_collection();
 
+    MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
     /*Now ensure that the particle numbers are consistent*/
     N_bh = 0;
     N_star = 0;
@@ -2030,7 +2032,6 @@ domain_garbage_collection(void)
     sumup_large_ints(1, &N_bh, &All.TotN_bh);
     sumup_large_ints(1, &N_star, &All.TotN_star);
 
-    MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     return tree_invalid;
 }
 
@@ -2097,12 +2098,13 @@ domain_all_garbage_collection()
             count_elim++;
         }
 
+    if(count_elim)
+        tree_invalid = 1;
+
     MPI_Allreduce(&count_elim, &tot_elim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&count_gaselim, &tot_gaselim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-    if(count_elim)
-        tree_invalid = 1;
-    message(0, "Blackholes: Eliminated %d gas particles and merged away %d black holes.\n",
+    message(0, "Garbage collection: Eliminated %d gas particles and merged away %d other particles.\n",
                 tot_gaselim, tot_elim - tot_gaselim);
     return tree_invalid;
 }
