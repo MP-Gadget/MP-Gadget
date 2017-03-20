@@ -97,6 +97,13 @@ static MPI_Datatype MPI_TYPE_PARTICLE = 0;
 static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
 static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
 
+static int
+domain_all_garbage_collection();
+static int
+domain_sph_garbage_collection();
+static int
+domain_bh_garbage_collection();
+
 /*! This is the main routine for the domain decomposition.  It acts as a
  *  driver routine that allocates various temporary buffers, maps the
  *  particles back onto the periodic box if needed, and then does the
@@ -125,7 +132,7 @@ void domain_Decomposition(void)
 
     if(force_tree_allocated()) force_tree_free();
 
-    rearrange_particle_sequence();
+    domain_garbage_collection();
 
     domain_free();
 
@@ -464,6 +471,7 @@ void domain_exchange(int (*layoutfunc)(int p)) {
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
         domain_exchange_once(layoutfunc);
+        domain_garbage_collection();
         iter++;
     }
     while(ret > 0);
@@ -742,7 +750,6 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    domain_garbage_collection();
     walltime_measure("/Domain/exchange/finalize");
 }
 static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
@@ -757,7 +764,9 @@ static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
 
 }
 
-void domain_bh_garbage_collection() {
+static int
+domain_bh_garbage_collection()
+{
     /* gc the bh */
     int i, j;
     int total = 0;
@@ -767,7 +776,7 @@ void domain_bh_garbage_collection() {
     MPI_Allreduce(&N_bh, &total0, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     /* If there are no blackholes, there cannot be any garbage. bail. */
-    if(total0 == 0) return;
+    if(total0 == 0) return 0;
 
 #pragma omp parallel for
     for(i = 0; i < All.MaxPartBh; i++) {
@@ -826,40 +835,8 @@ void domain_bh_garbage_collection() {
     if(total != total0) {
         message(0, "After BH garbage collection, before = %d after= %d\n", total0, total);
     }
-}
-
-void domain_garbage_collection() {
-    int i;
-    /*Make sure the BHs are consistent, if we have any*/
-    domain_bh_garbage_collection();
-
-    /*Now ensure that the particle numbers are consistent*/
-    N_bh = 0;
-    N_star = 0;
-    N_sph = 0;
-    N_dm = 0;
-
-#pragma omp parallel for reduction(+:N_bh, N_star, N_sph, N_dm)
-    for(i = 0; i < NumPart; i++) {
-        if(P[i].Type == 0) {
-            N_sph ++;
-        }
-        if(P[i].Type == 1) {
-            N_dm ++;
-        }
-        if(P[i].Type == 4) {
-            N_star ++;
-        }
-        if(P[i].Type == 5) {
-            N_bh ++;
-        }
-    }
-
-    sumup_large_ints(1, &NumPart, &All.TotNumPart);
-    sumup_large_ints(1, &N_dm, &All.TotN_dm);
-    sumup_large_ints(1, &N_sph, &All.TotN_sph);
-    sumup_large_ints(1, &N_bh, &All.TotN_bh);
-    sumup_large_ints(1, &N_star, &All.TotN_star);
+    /* bh gc never invalidates the tree */
+    return 0;
 }
 
 int domain_fork_particle(int parent) {
@@ -2009,10 +1986,59 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
         endrun(89, "The tree is corrupted, cannot merge them. What is the invariance here?");
 }
 
-void rearrange_particle_sequence(void)
-{
-    int i, flag = 0; 
 
+/* remove mass = 0 particles, holes in sph chunk and holes in bh buffer;
+ * returns 1 if tree / timebin is invalid */
+int
+domain_garbage_collection(void)
+{
+    int i;
+
+    /*Make sure the BHs are consistent, if we have any; bh gc doesn't affect tree's consistency */
+    domain_bh_garbage_collection();
+    int tree_invalid = 0;
+
+    /* tree is invalid if sph is reordered or mass = 0 particle is removed */
+    tree_invalid |= domain_sph_garbage_collection();
+    tree_invalid |= domain_all_garbage_collection();
+
+    /*Now ensure that the particle numbers are consistent*/
+    N_bh = 0;
+    N_star = 0;
+    N_sph = 0;
+    N_dm = 0;
+
+#pragma omp parallel for reduction(+:N_bh, N_star, N_sph, N_dm)
+    for(i = 0; i < NumPart; i++) {
+        if(P[i].Type == 0) {
+            N_sph ++;
+        }
+        if(P[i].Type == 1) {
+            N_dm ++;
+        }
+        if(P[i].Type == 4) {
+            N_star ++;
+        }
+        if(P[i].Type == 5) {
+            N_bh ++;
+        }
+    }
+
+    sumup_large_ints(1, &NumPart, &All.TotNumPart);
+    sumup_large_ints(1, &N_dm, &All.TotN_dm);
+    sumup_large_ints(1, &N_sph, &All.TotN_sph);
+    sumup_large_ints(1, &N_bh, &All.TotN_bh);
+    sumup_large_ints(1, &N_star, &All.TotN_star);
+
+    MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    return tree_invalid;
+}
+
+static int
+domain_sph_garbage_collection()
+{
+    int i;
+    int tree_invalid = 0;
 #ifdef SFR
     for(i = 0; i < N_sph; i++) {
         while(P[i].Type != 0 && i < N_sph) {
@@ -2026,13 +2052,18 @@ void rearrange_particle_sequence(void)
             P[i] = P[N_sph - 1];
             SPHP(i) = SPHP(N_sph - 1);
             P[N_sph - 1] = psave;
-            flag = 1;
+            tree_invalid = 1;
             N_sph --;
         }
     }
 #endif
+    return tree_invalid;
+}
 
-#ifdef BLACK_HOLES
+static int
+domain_all_garbage_collection()
+{
+    int i, tree_invalid = 0; 
     int count_elim, count_gaselim, tot_elim, tot_gaselim;
 
     count_elim = 0;
@@ -2070,20 +2101,10 @@ void rearrange_particle_sequence(void)
     MPI_Allreduce(&count_gaselim, &tot_gaselim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(count_elim)
-        flag = 1;
-
+        tree_invalid = 1;
     message(0, "Blackholes: Eliminated %d gas particles and merged away %d black holes.\n",
                 tot_gaselim, tot_elim - tot_gaselim);
-
-#endif
-    int flag_sum;
-
-    MPI_Allreduce(&flag, &flag_sum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-
-    if(flag_sum)
-        reconstruct_timebins();
-
+    return tree_invalid;
 }
 
 static void radix_id(const void * data, void * radix, void * arg) {

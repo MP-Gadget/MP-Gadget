@@ -12,6 +12,7 @@
 #include "proto.h"
 #include "petaio.h"
 #include "domain.h"
+#include "forcetree.h"
 #include "fof.h"
 #include "endrun.h"
 
@@ -30,7 +31,11 @@ void savepositions(int num, int with_fof)
 {
     walltime_measure("/Misc");
 
-    rearrange_particle_sequence();
+    if(domain_garbage_collection() != 0) {
+        force_tree_rebuild();
+        reconstruct_timebins();
+    }
+
     /* ensures that new tree will be constructed */
     All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);
 

@@ -37,8 +37,8 @@ void compute_accelerations(int mode)
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
         long_range_force();
-        TreeReconstructFlag = 1;
         walltime_measure("/LongRange");
+        force_tree_rebuild();
     }
 
     /* Check whether it is really time for a new domain decomposition */
@@ -47,10 +47,9 @@ void compute_accelerations(int mode)
     {
 
         domain_Decomposition();	/* do domain decomposition */
-        TreeReconstructFlag = 1;
+        force_tree_rebuild();
     }
 
-    force_tree_rebuild();
 
     grav_short_tree();		/* computes gravity accel. */
 

@@ -262,7 +262,7 @@ void cooling_and_starformation(void)
 
 //        All.TotN_sph -= tot_converted;
 
-        /* Note: N_sph is only reduced once rearrange_particle_sequence is called */
+        /* Note: N_sph is only reduced once domain_garbage_collection is called */
 
         /* Note: New tree construction can be avoided because of  `force_add_star_to_tree()' */
     }

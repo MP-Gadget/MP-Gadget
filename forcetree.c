@@ -88,7 +88,6 @@ force_tree_rebuild()
 
     if(force_tree_allocated()) {
         force_tree_free();
-        rearrange_particle_sequence();
     }
     /* construct tree if needed */
     /* the tree is used in grav dens, hydro, bh and sfr */
