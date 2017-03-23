@@ -3,7 +3,7 @@
 InitCondFile = output/IC
 OutputDir = output
 TreeCoolFile = ../TREECOOL_fg_june11
-OutputList = 0.1,0.2,0.299,0.3,0.33333,0.4,0.5
+OutputList = 0.1,0.11, 0.15, 0.2,0.299,0.3,0.33333,0.4,0.5
 SnapshotFileBase = snapshot
 
 Nmesh = 128
@@ -39,11 +39,11 @@ CpuTimeBetRestartFile = 9000.0
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1
-MinSizeTimestep = 0.01
+MinSizeTimestep = 0.00
 
 SnapshotWithFOF = 1
 FOFHaloLinkingLength = 0.2
-FOFHaloMinLength = 8
+FOFHaloMinLength = 32
 
 #  Further parameters of SPH
 DensityKernelType = quintic
@@ -89,7 +89,7 @@ BlackHoleAccretionFactor = 100.0
 BlackHoleNgbFactor = 2.0
 BlackHoleEddingtonFactor = 3.0
 
-MinFoFMassForNewSeed = 0.001
+MinFoFMassForNewSeed = 1
 TimeBetweenSeedingSearch 1.03
 
 #----------------------SFR Stuff-------------------------

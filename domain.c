@@ -100,7 +100,7 @@ static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
 static int
 domain_all_garbage_collection();
 static int
-domain_sph_garbage_collection();
+domain_sph_garbage_collection_reclaim();
 static int
 domain_bh_garbage_collection();
 
@@ -301,7 +301,7 @@ double domain_particle_costfactor(int i)
 }
 
 static void
-domain_count_particles(int64_t NLocal[6])
+domain_count_particles()
 {
     int i;
     for(i = 0; i < 6; i++)
@@ -323,6 +323,7 @@ domain_count_particles(int64_t NLocal[6])
             }
         }
     }
+    domain_refresh_totals();
 }
 /*! This function carries out the actual domain decomposition for all
  *  particle types. It will try to balance the work-load for each domain,
@@ -475,7 +476,10 @@ void domain_exchange(int (*layoutfunc)(int p)) {
     myfree(toGoBh);
     myfree(toGoSph);
     myfree(toGo);
-
+    /* Watch out: domain exchange changes the local number of particles.
+     * though the slots has been taken care of in exchange_once, the
+     * particle number counts are not updated. */
+    domain_count_particles();
 }
 
 int domain_check_memory_bound(const int print_details)
@@ -760,13 +764,18 @@ static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
 static int
 domain_bh_garbage_collection()
 {
+    /*
+     *  BhP is a lifted structure. 
+     *  changing BH slots doesn't affect tree's consistency;
+     *  this function always return 0. */
+
     /* gc the bh */
     int i, j;
-    int total = 0;
+    int64_t total = 0;
 
-    int total0 = 0;
+    int64_t total0 = 0;
 
-    MPI_Allreduce(&N_bh_slots, &total0, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    sumup_large_ints(1, &N_bh_slots, &total0);
 
     /* If there are no blackholes, there cannot be any garbage. bail. */
     if(total0 == 0) return 0;
@@ -796,7 +805,6 @@ domain_bh_garbage_collection()
     while(N_bh_slots > 0 && BhP[N_bh_slots - 1].ReverseLink == -1) {
         N_bh_slots --;
     }
-    message(1, "N_bh_slots reduced to %d\n", N_bh_slots);
     /* Now update the link in BhP */
     for(i = 0; i < N_bh_slots; i ++) {
         P[BhP[i].ReverseLink].PI = i;
@@ -824,9 +832,10 @@ domain_bh_garbage_collection()
         endrun(1, "bh count failed2, j=%d, N_bh=%d\n", j, N_bh_slots);
     }
 
-    MPI_Allreduce(&N_bh_slots, &total, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    sumup_large_ints(1, &N_bh_slots, &total);
+
     if(total != total0) {
-        message(0, "After BH garbage collection, before = %d after= %d\n", total0, total);
+        message(0, "GC: Reducing number of BH slots from %ld to %ld\n", total0, total);
     }
     /* bh gc never invalidates the tree */
     return 0;
@@ -1989,17 +1998,19 @@ domain_garbage_collection(void)
 
     int tree_invalid = 0;
 
-    /* tree is invalid if sph is reordered or mass = 0 particle is removed */
-    tree_invalid |= domain_sph_garbage_collection();
+    /* tree is invalidated of the sequence on P is reordered; */
+    /* TODO: in principle we can track this change and modify the tree nodes;
+     * But doing so requires cleaning up the TimeBin link lists, and the tree
+     * link lists first. likely worth it, since GC happens only in domain decompose
+     * and snapshot IO, both take far more time than rebuilding the tree. */
+    tree_invalid |= domain_sph_garbage_collection_reclaim();
     tree_invalid |= domain_all_garbage_collection();
-
-    /*Make sure the BHs are consistent, if we have any; bh gc doesn't affect tree's consistency */
-    domain_bh_garbage_collection();
+    tree_invalid |= domain_bh_garbage_collection();
 
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-    domain_count_particles(NLocal);
-    //message(1, "GC: NumPart %d N_dm %d N_sph %d N_bh %d N_star %d\n", NumPart, NLocal[1], NLocal[0], NLocal[5], NLocal[4]);
+    domain_count_particles();
+
     return tree_invalid;
 }
 
@@ -2019,10 +2030,13 @@ domain_refresh_totals()
 }
 
 static int
-domain_sph_garbage_collection()
+domain_sph_garbage_collection_reclaim()
 {
     int i;
     int tree_invalid = 0;
+
+    int64_t total0, total;
+    sumup_large_ints(1, &N_sph_slots, &total0);
 
 #ifdef SFR
     for(i = 0; i < N_sph_slots; i++) {
@@ -2042,6 +2056,10 @@ domain_sph_garbage_collection()
         }
     }
 #endif
+    sumup_large_ints(1, &N_sph_slots, &total);
+    if(total != total0) {
+        message(0, "GC: Reclaiming SPH slots from %ld to %ld\n", total0, total);
+    }
     return tree_invalid;
 }
 
@@ -2050,6 +2068,11 @@ domain_all_garbage_collection()
 {
     int i, tree_invalid = 0; 
     int count_elim, count_gaselim, tot_elim, tot_gaselim;
+    int64_t total0, total;
+    int64_t total0_gas, total_gas;
+
+    sumup_large_ints(1, &N_sph_slots, &total0_gas);
+    sumup_large_ints(1, &NumPart, &total0);
 
     count_elim = 0;
     count_gaselim = 0;
@@ -2082,14 +2105,17 @@ domain_all_garbage_collection()
             count_elim++;
         }
 
-    if(count_elim)
+    sumup_large_ints(1, &N_sph_slots, &total_gas);
+    sumup_large_ints(1, &NumPart, &total);
+
+    if(total_gas != total0_gas) {
+        message(0, "GC : Reducing SPH slots from %ld to %ld\n", total0_gas, total_gas);
+    }
+
+    if(total != total0) {
+        message(0, "GC : Reducing Particle slots from %ld to %ld\n", total0, total);
         tree_invalid = 1;
-
-    MPI_Allreduce(&count_elim, &tot_elim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(&count_gaselim, &tot_gaselim, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    message(0, "Garbage collection: Eliminated %d gas particles and merged away %d other particles.\n",
-                tot_gaselim, tot_elim - tot_gaselim);
+    }
     return tree_invalid;
 }
 
