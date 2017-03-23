@@ -362,15 +362,22 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
 /* build an IO buffer for block, based on selection
  * only check P[ selection[i]]
 */
-void petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int NumSelection) {
+void
+petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int NumSelection)
+{
+    if(NLocal[ent->ptype] == 0) {
+        /* Fast code path if there are no such particles */
+        petaio_alloc_buffer(array, ent, 0);
+        return;
+    }
 
-/* This didn't work with CRAY:
- * always has NLocal = 0
- * after the loop if openmp is used;
- * but I can't reproduce this with a striped version
- * of code. need to investigate.
- * #pragma omp parallel for reduction(+: NLocal)
- */
+    /* This didn't work with CRAY:
+     * always has NLocal = 0
+     * after the loop if openmp is used;
+     * but I can't reproduce this with a striped version
+     * of code. need to investigate.
+     * #pragma omp parallel for reduction(+: NLocal)
+     */
     int npartThread[All.NumThreads];
     int offsetThread[All.NumThreads];
 #pragma omp parallel
