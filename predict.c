@@ -181,7 +181,7 @@ static void real_drift_particle(int i, int time1)
         for(k = 0; k < 3; k++) {
             double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k]);
             if(dx > 0.1 * All.BoxSize) {
-                endrun(1, "Drifing blackhole from %g %g %g to %g %g %g id = %ld\n",
+                endrun(1, "Drifting blackhole very far, from %g %g %g to %g %g %g id = %ld. Likely due to the time step is too sparse.\n",
                     P[i].Pos[0],
                     P[i].Pos[1],
                     P[i].Pos[2],

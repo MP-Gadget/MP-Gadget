@@ -36,9 +36,6 @@ void savepositions(int num, int with_fof)
         reconstruct_timebins();
     }
 
-    /* ensures that new tree will be constructed */
-    All.NumForcesSinceLastDomainDecomp = (int64_t) (1 + All.TreeDomainUpdateFrequency * All.TotNumPart);
-
     walltime_measure("/Snapshot/Misc");
 
     petaio_save_snapshot("%s/PART_%03d", All.OutputDir, num);

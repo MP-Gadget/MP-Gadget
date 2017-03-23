@@ -262,12 +262,16 @@ extern int GlobFlag;
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
 
-/* Local number of particles; this shall be made into an array */
 extern int NumPart;
-extern int N_dm;
-extern int N_sph;
-extern int N_bh;
-extern int N_star;
+
+/* Local number of particles; this is accurate after a GC */
+extern int64_t NLocal[6];
+extern int64_t NTotal[6];
+extern int64_t TotNumPart;
+
+/* Number of used BHP slots */
+extern int N_bh_slots;
+extern int N_sph_slots;
 
 extern gsl_rng *random_generator;	/*!< the random number generator used */
 
@@ -298,13 +302,7 @@ extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
  */
 extern struct global_data_all_processes
 {
-    int64_t TotNumPart;
-    int64_t TotN_sph;
-    int64_t TotN_dm;
-    int64_t TotN_bh;
-    int64_t TotN_star;
-    int64_t TotN_neutrinos;
-
+    int64_t TotNumPartInit; /* The initial total number of particles; we probably want to get rid of all references to this. */
     int NumThreads;     /* number of threads used to simulate OpenMP tls */
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
                               processor. */

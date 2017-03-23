@@ -60,10 +60,11 @@ int GlobFlag;
 
 /* Local number of particles; this shall be made into an array */
 int NumPart;
-int N_dm;
-int N_sph;
-int N_bh;
-int N_star;
+int64_t NLocal[6];
+int64_t NTotal[6];
+int64_t TotNumPart;
+int N_bh_slots;
+int N_sph_slots;
 
 gsl_rng *random_generator;	/*!< the random number generator used */
 

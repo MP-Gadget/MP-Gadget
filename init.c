@@ -44,7 +44,7 @@ void init(int RestartSnapNum)
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();
 
-    test_id_uniqueness();
+    domain_test_id_uniqueness();
 
     check_omega();
 
@@ -79,8 +79,9 @@ void init(int RestartSnapNum)
 
     All.PM_Ti_endstep = All.PM_Ti_begstep = 0;
 
-    for(i = 0; i < N_sph; i++)	/* initialize sph_properties */
+    for(i = 0; i < NumPart; i++)	/* initialize sph_properties */
     {
+        if(P[i].Type != 0) continue;
         for(j = 0; j < 3; j++)
         {
             SPHP(i).VelPred[j] = P[i].Vel[j];
@@ -236,13 +237,14 @@ setup_smoothinglengths(int RestartSnapNum)
 
         u_init /= molecular_weight;
 
-        for(i = 0; i < N_sph; i++) {
-            SPHP(i).Entropy = u_init;
+        for(i = 0; i < NumPart; i++) {
+            if(P[i].Type == 0) SPHP(i).Entropy = u_init;
         }
 
 #ifdef DENSITY_INDEPENDENT_SPH
-        for(i = 0; i < N_sph; i++)
+        for(i = 0; i < NumPart; i++)
         {
+            if(P[i].Type == 0)
             /* start the iteration from mass density */
             SPHP(i).EgyWtDensity = SPHP(i).Density;
         }
@@ -254,15 +256,17 @@ setup_smoothinglengths(int RestartSnapNum)
 
         int j;
         double badness;
-        double * olddensity = (double *)mymalloc("olddensity ", N_sph * sizeof(double));
+        double * olddensity = (double *)mymalloc("olddensity ", NumPart * sizeof(double));
         for(j=0;j<100;j++)
         {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
 #pragma omp parallel for
-            for(i = 0; i < N_sph; i++)
+            for(i = 0; i < NumPart; i++)
             {
-                double entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
-                SPHP(i).EntVarPred = pow(entropy, 1/GAMMA);
-                olddensity[i] = SPHP(i).EgyWtDensity;
+                if(P[i].Type == 0) {
+                    double entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
+                    SPHP(i).EntVarPred = pow(entropy, 1/GAMMA);
+                    olddensity[i] = SPHP(i).EgyWtDensity;
+                }
             }
             density();
             badness = 0;
@@ -271,10 +275,12 @@ setup_smoothinglengths(int RestartSnapNum)
             {
                 double mybadness = 0;
 #pragma omp for
-                for(i = 0; i < N_sph; i++) {
-                    if(!(SPHP(i).EgyWtDensity > 0)) continue;
-                    double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
-                    if(value > mybadness) mybadness = value;
+                for(i = 0; i < NumPart; i++) {
+                    if(P[i].Type == 0) {
+                        if(!(SPHP(i).EgyWtDensity > 0)) continue;
+                        double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
+                        if(value > mybadness) mybadness = value;
+                    }
                 }
 #pragma omp critical
                 {
@@ -292,9 +298,11 @@ setup_smoothinglengths(int RestartSnapNum)
         myfree(olddensity);
 #endif //DENSITY_INDEPENDENT_SPH
 #pragma omp parallel for
-        for(i = 0; i < N_sph; i++) {
-            /* EgyWtDensity stabilized, now we convert from energy to entropy*/
-            SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
+        for(i = 0; i < NumPart; i++) {
+            if(P[i].Type == 0) {
+                /* EgyWtDensity stabilized, now we convert from energy to entropy*/
+                SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
+            }
         }
     }
 
@@ -303,8 +311,10 @@ setup_smoothinglengths(int RestartSnapNum)
      * hope it is read in correctly. (need a test
      * on this!) */
     /* regardless we initalize EntVarPred. This may be unnecessary*/
-    for(i = 0; i < N_sph; i++) {
-        SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
+    for(i = 0; i < NumPart; i++) {
+        if(P[i].Type == 0) {
+            SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
+        }
     }
     density();
 #endif //DENSITY_INDEPENDENT_SPH

@@ -42,7 +42,7 @@ void compute_accelerations(int mode)
     }
 
     /* Check whether it is really time for a new domain decomposition */
-    if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPart * All.TreeDomainUpdateFrequency
+    if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPartInit * All.TreeDomainUpdateFrequency
             || All.DoDynamicUpdate == 0)
     {
 
@@ -60,7 +60,7 @@ void compute_accelerations(int mode)
                              */
 
 
-    if(All.TotN_sph > 0)
+    if(NTotal[0] > 0)
     {
         /***** density *****/
         message(0, "Start density computation...\n");

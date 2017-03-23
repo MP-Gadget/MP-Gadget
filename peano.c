@@ -32,16 +32,16 @@ void peano_hilbert_order(void)
         mp[i].key = P[i].Key;
     }
     /* sort SPH and reset seperately because PIndex of SPH doesn't work yet */
-    qsort(mp, N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
-    qsort_openmp(mp + N_sph, NumPart - N_sph, sizeof(struct peano_hilbert_data), peano_compare_key);
+    qsort(mp, N_sph_slots, sizeof(struct peano_hilbert_data), peano_compare_key);
+    qsort_openmp(mp + N_sph_slots, NumPart - N_sph_slots, sizeof(struct peano_hilbert_data), peano_compare_key);
 
     //      #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
         Id[mp[i].index] = i;
 
-    reorder_gas(Id, 0, N_sph);
+    reorder_gas(Id, 0, N_sph_slots);
 
-    reorder_particles(Id, N_sph, NumPart);
+    reorder_particles(Id, N_sph_slots, NumPart);
 
     myfree(mp);
     myfree(Id);

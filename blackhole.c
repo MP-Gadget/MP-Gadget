@@ -215,6 +215,9 @@ void blackhole(void)
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
+    NLocal[0] -= N_sph_swallowed;
+    NLocal[5] -= N_BH_swallowed;
+
     message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
                 Ntot_gas_swallowed, Ntot_BH_swallowed);
 
@@ -237,7 +240,7 @@ void blackhole(void)
                     (0.1 * C * C * THOMPSON)) * All.UnitTime_in_s);
 
         fprintf(FdBlackHoles, "%g %td %g %g %g %g %g\n",
-                All.Time, All.TotN_bh, total_mass_holes, total_mdot, mdot_in_msun_per_year,
+                All.Time, NTotal[5], total_mass_holes, total_mdot, mdot_in_msun_per_year,
                 total_mass_real, total_mdoteddington);
         fflush(FdBlackHoles);
     }
@@ -705,7 +708,8 @@ void blackhole_make_one(int index) {
 
     int child = domain_fork_particle(index);
 
-    P[child].PI = atomic_fetch_and_add(&N_bh, 1);
+    NLocal[5] ++;
+    P[child].PI = atomic_fetch_and_add(&N_bh_slots, 1);
     P[child].Type = 5;	/* make it a black hole particle */
 
     P[child].StarFormationTime = All.Time;

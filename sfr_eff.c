@@ -260,8 +260,6 @@ void cooling_and_starformation(void)
         message(0, "SFR: spawned %d stars, converted %d gas particles into stars\n",
                     tot_spawned, tot_converted);
 
-//        All.TotN_sph -= tot_converted;
-
         /* Note: N_sph is only reduced once domain_garbage_collection is called */
 
         /* Note: New tree construction can be avoided because of  `force_add_star_to_tree()' */
@@ -270,8 +268,9 @@ void cooling_and_starformation(void)
     double totsfrrate, localsfr=0;
     int i;
     #pragma omp parallel for reduction(+: localsfr)
-    for(i = 0; i < N_sph; i++)
-        localsfr += SPHP(i).Sfr;
+    for(i = 0; i < NumPart; i++)
+        if(P[i].Type == 0)
+            localsfr += SPHP(i).Sfr;
 
     MPI_Allreduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
@@ -707,8 +706,9 @@ static int make_particle_star(int i) {
     {
         /* here we turn the gas particle itself into a star */
         stars_converted++;
-        N_star++;
         sum_mass_stars += P[i].Mass;
+        NLocal[0] --;
+        NLocal[4] ++;
 
         P[i].Type = 4;
         TimeBinCountSph[P[i].TimeBin]--;
@@ -720,13 +720,12 @@ static int make_particle_star(int i) {
         /* FIXME: sorry this is not thread safe */
         int child = domain_fork_particle(i);
 
-        N_star++;
         /* set ptype */
         P[child].Type = 4;
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
         sum_mass_stars += P[child].Mass;
-
+        NLocal[4] ++;
         newstar = child;
 
         stars_spawned++;

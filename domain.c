@@ -292,9 +292,6 @@ void domain_allocate_trick(void)
     DomainStartList = save_DomainStartList;
 }
 
-
-
-
 double domain_particle_costfactor(int i)
 {
     if(P[i].TimeBin)
@@ -303,7 +300,30 @@ double domain_particle_costfactor(int i)
         return (1.0 + P[i].GravCost) / TIMEBASE;
 }
 
+static void
+domain_count_particles(int64_t NLocal[6])
+{
+    int i;
+    for(i = 0; i < 6; i++)
+        NLocal[i] = 0;
 
+#pragma omp parallel private(i)
+    {
+        int NLocalThread[6] = {0};
+#pragma omp for
+        for(i = 0; i < NumPart; i++)
+        {
+            NLocalThread[P[i].Type]++;
+        }
+#pragma omp critical 
+        {
+/* avoid omp reduction for now: Craycc doesn't always do it right */
+            for(i = 0; i < 6; i ++) {
+                NLocal[i] += NLocalThread[i];
+            }
+        }
+    }
+}
 /*! This function carries out the actual domain decomposition for all
  *  particle types. It will try to balance the work-load for each domain,
  *  as estimated based on the P[i]-GravCost values.  The decomposition will
@@ -313,9 +333,6 @@ double domain_particle_costfactor(int i)
 int domain_decompose(void)
 {
 
-    int64_t Ntype[6];		/*!< total number of particles of each type */
-    int NtypeLocal[6];		/*!< local number of particles of each type */
-
     int i, status;
 
 
@@ -324,38 +341,15 @@ int domain_decompose(void)
     double min_load, sum_speedfac;
 #endif
 
-    for(i = 0; i < 6; i++)
-        NtypeLocal[i] = 0;
-
     gravcost = 0;
-#pragma omp parallel private(i)
+#pragma omp parallel for reduction(+: gravcost)
+    for(i = 0; i < NumPart; i++)
     {
-        int NtypeLocalThread[6] = {0};
-        double mygravcost = 0;
-#pragma omp for
-        for(i = 0; i < NumPart; i++)
-        {
-            NtypeLocalThread[P[i].Type]++;
-            double costfac = domain_particle_costfactor(i);
-
-            mygravcost += costfac;
-        }
-#pragma omp critical 
-        {
-/* avoid omp reduction for now: Craycc doesn't always do it right */
-            gravcost += mygravcost;
-            for(i = 0; i < 6; i ++) {
-                NtypeLocal[i] += NtypeLocalThread[i];
-            }
-        }
+        double costfac = domain_particle_costfactor(i);
+        gravcost += costfac;
     }
-    /* because Ntype[] is of type `int64_t', we cannot do a simple
-     * MPI_Allreduce() to sum the total particle numbers 
-     */
-    sumup_large_ints(6, NtypeLocal, Ntype);
 
-    for(i = 0, totpartcount = 0; i < 6; i++)
-        totpartcount += Ntype[i];
+    totpartcount = TotNumPart;
 
     MPI_Allreduce(&gravcost, &totgravcost, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
@@ -471,7 +465,6 @@ void domain_exchange(int (*layoutfunc)(int p)) {
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
         domain_exchange_once(layoutfunc);
-        domain_garbage_collection();
         iter++;
     }
     while(ret > 0);
@@ -645,13 +638,13 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
         if(P[n].Type == 0)
         {
-            P[n] = P[N_sph - 1];
-            P[N_sph - 1] = P[NumPart - 1];
+            P[n] = P[N_sph_slots - 1];
+            P[N_sph_slots - 1] = P[NumPart - 1];
             /* Because SphP doesn't use PI */
-            SPHP(n) = SPHP(N_sph - 1);
+            SPHP(n) = SPHP(N_sph_slots - 1);
 
             NumPart--;
-            N_sph--;
+            N_sph_slots--;
             n--;
         }
         else
@@ -674,7 +667,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
 
     if(count_get_sph)
     {
-        memmove(P + N_sph + count_get_sph, P + N_sph, (NumPart - N_sph) * sizeof(struct particle_data));
+        memmove(P + N_sph_slots + count_get_sph, P + N_sph_slots, (NumPart - N_sph_slots) * sizeof(struct particle_data));
     }
 
     for(i = 0; i < NTask; i++)
@@ -684,10 +677,10 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
         count_recv[i] = toGet[i] - toGetSph[i];
     }
 
-    for(i = 1, offset_recv_sph[0] = N_sph; i < NTask; i++)
+    for(i = 1, offset_recv_sph[0] = N_sph_slots; i < NTask; i++)
         offset_recv_sph[i] = offset_recv_sph[i - 1] + count_recv_sph[i - 1];
 
-    for(i = 1, offset_recv_bh[0] = N_bh; i < NTask; i++)
+    for(i = 1, offset_recv_bh[0] = N_bh_slots; i < NTask; i++)
         offset_recv_bh[i] = offset_recv_bh[i - 1] + count_recv_bh[i - 1];
 
     offset_recv[0] = NumPart + count_get_sph;
@@ -731,18 +724,18 @@ static void domain_exchange_once(int (*layoutfunc)(int p))
     }
 
     NumPart += count_get;
-    N_sph += count_get_sph;
-    N_bh += count_get_bh;
+    N_sph_slots += count_get_sph;
+    N_bh_slots += count_get_bh;
 
     if(NumPart > All.MaxPart)
     {
         endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
     }
 
-    if(N_sph > All.MaxPartSph)
-        endrun(787878, "Task=%d N_sph=%d All.MaxPartSph=%d\n", ThisTask, N_sph, All.MaxPartSph);
-    if(N_bh > All.MaxPartBh)
-        endrun(787878, "Task=%d N_bh=%d All.MaxPartBh=%d\n", ThisTask, N_bh, All.MaxPartBh);
+    if(N_sph_slots > All.MaxPartSph)
+        endrun(787878, "Task=%d N_sph=%d All.MaxPartSph=%d\n", ThisTask, N_sph_slots, All.MaxPartSph);
+    if(N_bh_slots > All.MaxPartBh)
+        endrun(787878, "Task=%d N_bh=%d All.MaxPartBh=%d\n", ThisTask, N_bh_slots, All.MaxPartBh);
 
     myfree(bhBuf);
     myfree(sphBuf);
@@ -773,7 +766,7 @@ domain_bh_garbage_collection()
 
     int total0 = 0;
 
-    MPI_Allreduce(&N_bh, &total0, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&N_bh_slots, &total0, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     /* If there are no blackholes, there cannot be any garbage. bail. */
     if(total0 == 0) return 0;
@@ -787,8 +780,8 @@ domain_bh_garbage_collection()
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type == 5) {
             BhP[P[i].PI].ReverseLink = i;
-            if(P[i].PI >= N_bh) {
-                endrun(1, "bh PI consistency failed2, old_N_bh = %d\n");
+            if(P[i].PI >= N_bh_slots) {
+                endrun(1, "bh PI consistency failed2, N_bh_slots = %d, N_bh = %d, PI=%d\n", N_bh_slots, NLocal[5], P[i].PI);
             }
             if(BhP[P[i].PI].ID != P[i].ID) {
                 endrun(1, "bh id consistency failed1\n");
@@ -798,19 +791,19 @@ domain_bh_garbage_collection()
 
     /* put unused guys to the end, and sort the used ones
      * by their location in the P array */
-    qsort(BhP, N_bh, sizeof(BhP[0]), bh_cmp_reverse_link);
+    qsort(BhP, N_bh_slots, sizeof(BhP[0]), bh_cmp_reverse_link);
 
-    while(N_bh > 0 && BhP[N_bh - 1].ReverseLink == -1) {
-        N_bh --;
+    while(N_bh_slots > 0 && BhP[N_bh_slots - 1].ReverseLink == -1) {
+        N_bh_slots --;
     }
-
+    message(1, "N_bh_slots reduced to %d\n", N_bh_slots);
     /* Now update the link in BhP */
-    for(i = 0; i < N_bh; i ++) {
+    for(i = 0; i < N_bh_slots; i ++) {
         P[BhP[i].ReverseLink].PI = i;
     }
 
     /* Now invalidate ReverseLink */
-    for(i = 0; i < N_bh; i ++) {
+    for(i = 0; i < N_bh_slots; i ++) {
         BhP[i].ReverseLink = -1;
     }
 
@@ -818,7 +811,7 @@ domain_bh_garbage_collection()
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type != 5) continue;
-        if(P[i].PI >= N_bh) {
+        if(P[i].PI >= N_bh_slots) {
             endrun(1, "bh PI consistency failed2\n");
         }
         if(BhP[P[i].PI].ID != P[i].ID) {
@@ -827,11 +820,11 @@ domain_bh_garbage_collection()
 #pragma omp atomic
         j ++;
     }
-    if(j != N_bh) {
-        endrun(1, "bh count failed2, j=%d, N_bh=%d\n", j, N_bh);
+    if(j != N_bh_slots) {
+        endrun(1, "bh count failed2, j=%d, N_bh=%d\n", j, N_bh_slots);
     }
 
-    MPI_Allreduce(&N_bh, &total, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&N_bh_slots, &total, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     if(total != total0) {
         message(0, "After BH garbage collection, before = %d after= %d\n", total0, total);
     }
@@ -1192,8 +1185,8 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
            constraint. */
 
         MPI_Allgather(&NumPart, 1, MPI_INT, list_NumPart, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_bh, 1, MPI_INT, list_N_bh, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_sph, 1, MPI_INT, list_N_sph, 1, MPI_INT, MPI_COMM_WORLD);
+        MPI_Allgather(&N_bh_slots, 1, MPI_INT, list_N_bh, 1, MPI_INT, MPI_COMM_WORLD);
+        MPI_Allgather(&N_sph_slots, 1, MPI_INT, list_N_sph, 1, MPI_INT, MPI_COMM_WORLD);
 
         int flag, flagsum, ntoomany, ta, i;
         int count_togo, count_toget, count_togo_bh, count_toget_bh, count_togo_sph, count_toget_sph;
@@ -1513,7 +1506,7 @@ int domain_check_for_local_refine(const int i, const double countlimit, const do
         const int sub = topNodes[i].Daughter + j;
 
 #ifdef DENSITY_INDEPENDENT_SPH_DEBUG
-        if(topNodes[sub].Count > All.TotNumPart /
+        if(topNodes[sub].Count > All.TotNumPartInit /
                 (TOPNODEFACTOR * NTask * NTask))
 #endif
             /* Refine each sub node. If we could not refine the node as needed,
@@ -1994,45 +1987,35 @@ domain_garbage_collection(void)
 {
     int i;
 
-    /*Make sure the BHs are consistent, if we have any; bh gc doesn't affect tree's consistency */
-    domain_bh_garbage_collection();
     int tree_invalid = 0;
 
     /* tree is invalid if sph is reordered or mass = 0 particle is removed */
     tree_invalid |= domain_sph_garbage_collection();
     tree_invalid |= domain_all_garbage_collection();
 
+    /*Make sure the BHs are consistent, if we have any; bh gc doesn't affect tree's consistency */
+    domain_bh_garbage_collection();
+
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-    /*Now ensure that the particle numbers are consistent*/
-    N_bh = 0;
-    N_star = 0;
-    N_sph = 0;
-    N_dm = 0;
-
-#pragma omp parallel for reduction(+:N_bh, N_star, N_sph, N_dm)
-    for(i = 0; i < NumPart; i++) {
-        if(P[i].Type == 0) {
-            N_sph ++;
-        }
-        if(P[i].Type == 1) {
-            N_dm ++;
-        }
-        if(P[i].Type == 4) {
-            N_star ++;
-        }
-        if(P[i].Type == 5) {
-            N_bh ++;
-        }
-    }
-
-    sumup_large_ints(1, &NumPart, &All.TotNumPart);
-    sumup_large_ints(1, &N_dm, &All.TotN_dm);
-    sumup_large_ints(1, &N_sph, &All.TotN_sph);
-    sumup_large_ints(1, &N_bh, &All.TotN_bh);
-    sumup_large_ints(1, &N_star, &All.TotN_star);
-
+    domain_count_particles(NLocal);
+    message(1, "GC: NumPart %d N_dm %d N_sph %d N_bh %d N_star %d\n", NumPart, NLocal[1], NLocal[0], NLocal[5], NLocal[4]);
     return tree_invalid;
+}
+
+void
+domain_refresh_totals()
+{
+    int ptype;
+    /* because NTotal[] is of type `int64_t', we cannot do a simple
+     * MPI_Allreduce() to sum the total particle numbers 
+     */
+    MPI_Allreduce(NLocal, NTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+
+    TotNumPart = 0;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        TotNumPart += NTotal[ptype];
+    }
 }
 
 static int
@@ -2040,9 +2023,10 @@ domain_sph_garbage_collection()
 {
     int i;
     int tree_invalid = 0;
+
 #ifdef SFR
-    for(i = 0; i < N_sph; i++) {
-        while(P[i].Type != 0 && i < N_sph) {
+    for(i = 0; i < N_sph_slots; i++) {
+        while(P[i].Type != 0 && i < N_sph_slots) {
             /* remove this particle from SphP, because
              * it is no longer a SPH
              * */
@@ -2050,11 +2034,11 @@ domain_sph_garbage_collection()
              * thing. no harm done */
             struct particle_data psave;
             psave = P[i];
-            P[i] = P[N_sph - 1];
-            SPHP(i) = SPHP(N_sph - 1);
-            P[N_sph - 1] = psave;
+            P[i] = P[N_sph_slots - 1];
+            SPHP(i) = SPHP(N_sph_slots - 1);
+            P[N_sph_slots - 1] = psave;
             tree_invalid = 1;
-            N_sph --;
+            N_sph_slots --;
         }
     }
 #endif
@@ -2079,12 +2063,12 @@ domain_all_garbage_collection()
             {
                 TimeBinCountSph[P[i].TimeBin]--;
 
-                P[i] = P[N_sph - 1];
-                SPHP(i) = SPHP(N_sph - 1);
+                P[i] = P[N_sph_slots - 1];
+                SPHP(i) = SPHP(N_sph_slots - 1);
 
-                P[N_sph - 1] = P[NumPart - 1];
+                P[N_sph_slots - 1] = P[NumPart - 1];
 
-                N_sph--;
+                N_sph_slots--;
 
                 count_gaselim++;
             } else
@@ -2113,7 +2097,8 @@ static void radix_id(const void * data, void * radix, void * arg) {
     ((uint64_t *) radix)[0] = ((MyIDType*) data)[0];
 }
 
-void test_id_uniqueness(void)
+void
+domain_test_id_uniqueness(void)
 {
     int i;
     double t0, t1;

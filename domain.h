@@ -60,7 +60,9 @@ void domain_walktoptree(int no);
 void mysort_domain(void *b, size_t n, size_t s);
 
 int domain_garbage_collection(void);
-void test_id_uniqueness(void);
+
+void domain_test_id_uniqueness();
+void domain_refresh_totals();
 
 
 #endif

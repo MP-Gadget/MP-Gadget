@@ -8,6 +8,7 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "domain.h"
 #include "cooling.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -302,7 +303,7 @@ void find_next_sync_point_and_drift(int with_fof)
 
     sumup_large_ints(1, &NumForceUpdate, &GlobNumForceUpdate);
 
-    if(GlobNumForceUpdate >= All.TotNumPart)
+    if(GlobNumForceUpdate >= TotNumPart)
         Flag_FullStep = 1;
     else
         Flag_FullStep = 0;
@@ -393,7 +394,7 @@ int ShouldWeDoDynamicUpdate(void)
 
     message(0, "I'm guessing %013ld particles to be active in the next step\n", numforces);
 
-    if((All.NumForcesSinceLastDomainDecomp + numforces) >= All.TreeDomainUpdateFrequency * All.TotNumPart)
+    if((All.NumForcesSinceLastDomainDecomp + numforces) >= All.TreeDomainUpdateFrequency * TotNumPart)
         return 0;
     else
         return 1;
@@ -456,6 +457,8 @@ void every_timestep_stuff(void)
     int64_t tot_count[TIMEBINS];
     int64_t tot_count_sph[TIMEBINS];
 
+    domain_refresh_totals();
+
     sumup_large_ints(TIMEBINS, TimeBinCount, tot_count);
     sumup_large_ints(TIMEBINS, TimeBinCountSph, tot_count_sph);
 
@@ -468,13 +471,6 @@ void every_timestep_stuff(void)
      * we shall just say they we sync these variables right after gravity
      * calculation in every timestep.
      * */
-
-    sumup_large_ints(1, &NumPart, &All.TotNumPart);
-    sumup_large_ints(1, &N_dm, &All.TotN_dm);
-    sumup_large_ints(1, &N_sph, &All.TotN_sph);
-    sumup_large_ints(1, &N_bh, &All.TotN_bh);
-    sumup_large_ints(1, &N_star, &All.TotN_star);
-
 
     char extra[1024] = {0};
 
@@ -489,7 +485,7 @@ void every_timestep_stuff(void)
                 extra);
 
     message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
-                All.TotNumPart, All.TotN_sph, All.TotN_bh, All.TotN_star);
+                TotNumPart, NTotal[0], NTotal[5], NTotal[4]);
     message(0, "Occupied timebins: non-sph         sph       dt\n");
     for(i = TIMEBINS - 1, tot = tot_sph = 0; i >= 0; i--)
         if(tot_count_sph[i] > 0 || tot_count[i] > 0)
@@ -511,7 +507,6 @@ void every_timestep_stuff(void)
         (tot - tot_sph),
         (tot_sph),
         (tot));
-
 
     set_random_numbers();
 }

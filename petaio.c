@@ -33,9 +33,6 @@ static void petaio_read_header(BigFile * bf);
 static void register_io_blocks();
 
 /* these are only used in reading in */
-static int64_t npartTotal[6];
-static int64_t npartLocal[6];
-
 void petaio_init() {
     /* Smaller files will do aggregareted IO.*/
     if(All.IO.EnableAggregatedIO) {
@@ -120,40 +117,17 @@ void petaio_read_internal(char * fname, int ic) {
 
     allocate_memory();
 
-    for(ptype = 0; ptype < 6; ptype ++) {
-        ptrdiff_t offset = ThisTask * npartTotal[ptype] / NTask;
-        ptrdiff_t num = (ThisTask + 1) * npartTotal[ptype] / NTask - offset;
-        npartLocal[ptype] = num;
-        NumPart += num;
-    }
-    N_sph = npartLocal[0];
-    N_bh = npartLocal[5];
-    N_star = npartLocal[4];
-    N_dm = npartLocal[1];
-
-    /* check */
-    if(N_sph > All.MaxPartSph) {
-        endrun(1, "Overwhelmed by sph: %d > %d\n", N_sph, All.MaxPartSph);
-    }
-    if(N_bh > All.MaxPartBh) {
-        endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh, All.MaxPartBh);
-    }
-    if(NumPart >= All.MaxPart) {
-        endrun(1, "Overwhelmed by part: %d > %d\n", N_bh, All.MaxPart);
-    }
-
-
     /* set up the memory topology */
     int offset = 0;
     for(ptype = 0; ptype < 6; ptype ++) {
 #pragma omp parallel for
-        for(i = 0; i < npartLocal[ptype]; i++)
+        for(i = 0; i < NLocal[ptype]; i++)
         {
             int j = offset + i;
             P[j].Type = ptype;
             P[j].PI = i;
         }
-        offset += npartLocal[ptype];
+        offset += NLocal[ptype];
     }
 
     for(i = 0; i < IOTable.used; i ++) {
@@ -164,7 +138,7 @@ void petaio_read_internal(char * fname, int ic) {
         if(!(ptype < 6 && ptype >= 0)) {
             continue;
         }
-        if(npartTotal[ptype] == 0) continue;
+        if(NTotal[ptype] == 0) continue;
         if(ic) {
             /* for IC read in only three blocks */
             if( strcmp(IOTable.ent[i].name, "Position") &&
@@ -177,7 +151,7 @@ void petaio_read_internal(char * fname, int ic) {
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-        petaio_alloc_buffer(&array, &IOTable.ent[i], npartLocal[ptype]);
+        petaio_alloc_buffer(&array, &IOTable.ent[i], NLocal[ptype]);
         petaio_read_block(&bf, blockname, &array);
         petaio_readout_buffer(&array, &IOTable.ent[i]);
         petaio_destroy_buffer(&array);
@@ -250,19 +224,9 @@ static void petaio_write_header(BigFile * bf) {
     }
     int i;
     int k;
-    int64_t npartLocal[6];
-    int64_t npartTotal[6];
 
-    for (k = 0; k < 6; k ++) {
-        npartLocal[k] = 0;
-    }
-    for (i = 0; i < NumPart; i ++) {
-        npartLocal[P[i].Type] ++;
-    }
-
-    MPI_Allreduce(npartLocal, npartTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
     if( 
-    (0 != big_block_set_attr(&bh, "TotNumPart", npartTotal, "u8", 6)) ||
+    (0 != big_block_set_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
     (0 != big_block_set_attr(&bh, "Time", &All.Time, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
@@ -295,9 +259,9 @@ static void petaio_read_header(BigFile * bf) {
     }
     double Time;
     double BoxSize;
-    int k;
+    int ptype;
     if(
-    (0 != big_block_get_attr(&bh, "TotNumPart", npartTotal, "u8", 6)) ||
+    (0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
     (0 != big_block_get_attr(&bh, "Time", &Time, "f8", 1)) ||
     (0 != big_block_get_attr(&bh, "BoxSize", &BoxSize, "f8", 1))) {
@@ -305,20 +269,16 @@ static void petaio_read_header(BigFile * bf) {
                     big_file_get_error_message());
     }
 
-    All.TotNumPart = 0;
-    for(k = 0; k < 6; k ++) {
-        All.TotNumPart += npartTotal[k];
+    int64_t TotNumPart = 0;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        TotNumPart += NTotal[ptype];
     }
-    All.TotN_sph = npartTotal[0];
-    All.TotN_bh = npartTotal[5];
-    All.TotN_star = npartTotal[4];
-    All.TotN_dm = npartTotal[1];
-    All.TotN_neutrinos = npartTotal[2];
 
-    message(0, "Total number of particles: %018ld\n", All.TotNumPart);
-    message(0, "Total number of gas particles: %018ld\n", All.TotN_sph);
-    message(0, "Total number of star particles: %018ld\n", All.TotN_star);
-    message(0, "Total number of bh particles: %018ld\n", All.TotN_bh);
+    message(0, "Total number of particles: %018ld\n", TotNumPart);
+    message(0, "Total number of gas particles: %018ld\n", NTotal[0]);
+    message(0, "Total number of neutrino particles: %018ld\n", NTotal[2]);
+    message(0, "Total number of star particles: %018ld\n", NTotal[4]);
+    message(0, "Total number of bh particles: %018ld\n", NTotal[5]);
 
     if(fabs(BoxSize - All.BoxSize) / All.BoxSize > 1e-6) {
         endrun(0, "BoxSize mismatch %g, snapfile has %g\n", All.BoxSize, BoxSize);
@@ -334,27 +294,52 @@ static void petaio_read_header(BigFile * bf) {
                     big_file_get_error_message());
     }
     /* sets the maximum number of particles that may reside on a processor */
-    All.MaxPart = (int) (All.PartAllocFactor * (All.TotNumPart / NTask));	
-    All.MaxPartSph = (int) (All.PartAllocFactor * (All.TotN_sph / NTask));	
+    All.TotNumPartInit = TotNumPart;
+    All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);	
+    All.MaxPartSph = (int) (All.PartAllocFactor * NTotal[0] / NTask);	
 
 #ifdef INHOMOG_GASDISTR_HINT
-    if(All.TotN_sph > 0) {
+    if(NTotal[0] > 0) {
         All.MaxPartSph = All.MaxPart;
     }
 #endif
     /* at most 10% of SPH can form BH*/
     All.MaxPartBh = (int) (0.1 * All.MaxPartSph);	
 
+    for(ptype = 0; ptype < 6; ptype ++) {
+        int64_t start = ThisTask * NTotal[ptype] / NTask;
+        int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
+        NLocal[ptype] = end - start;
+        NumPart += end - start;
+    }
+    N_sph_slots = NLocal[0];
+    N_bh_slots = NLocal[5];
+
+    /* check */
+    if(N_sph_slots > All.MaxPartSph) {
+        endrun(1, "Overwhelmed by sph: %d > %d\n", N_sph_slots, All.MaxPartSph);
+    }
+
+    if(N_bh_slots > All.MaxPartBh) {
+        endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);
+    }
+
+    if(NumPart >= All.MaxPart) {
+        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
+    }
+
+
+
     /* Important to set the global time here because it affects the GT functions. */
     set_global_time(Time);
 }
 
-void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal) {
+void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize) {
     size_t dims[2];
     ptrdiff_t strides[2];
     int elsize = dtype_itemsize(ent->dtype);
 
-    dims[0] = npartLocal;
+    dims[0] = localsize;
     dims[1] = ent->items;
     strides[1] = elsize;
     strides[0] = elsize * ent->items;
@@ -380,11 +365,11 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
 void petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int NumSelection) {
 
 /* This didn't work with CRAY:
- * always has npartLocal = 0
+ * always has NLocal = 0
  * after the loop if openmp is used;
  * but I can't reproduce this with a striped version
  * of code. need to investigate.
- * #pragma omp parallel for reduction(+: npartLocal)
+ * #pragma omp parallel for reduction(+: NLocal)
  */
     int npartThread[All.NumThreads];
     int offsetThread[All.NumThreads];
@@ -396,7 +381,7 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, 
         if(NT > All.NumThreads) abort();
         int start = (selection?((size_t) NumSelection):((size_t)NumPart)) * tid / NT;
         int end = (selection?((size_t) NumSelection):((size_t)NumPart)) * (tid + 1) / NT;
-        int npartLocal = 0;
+        int localsize = 0;
         npartThread[tid] = 0;
         for(i = start; i < end; i ++) {
             int j = selection?selection[i]:i;
@@ -409,16 +394,16 @@ void petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, 
             offsetThread[i] = offsetThread[i - 1] + npartThread[i - 1];
         }
         for(i = 0; i < NT; i ++) {
-            npartLocal += npartThread[i];
+            localsize += npartThread[i];
         }
 #pragma omp master 
         {
         /* don't forget to free buffer after its done*/
-            petaio_alloc_buffer(array, ent, npartLocal);
+            petaio_alloc_buffer(array, ent, localsize);
         }
 #pragma omp barrier
 #if 0
-        printf("Thread = %d offset=%d count=%d start=%d end=%d %d\n", tid, offsetThread[tid], npartThread[tid], start, end, npartLocal);
+        printf("Thread = %d offset=%d count=%d start=%d end=%d %d\n", tid, offsetThread[tid], npartThread[tid], start, end, localsize);
 #endif
         /* fill the buffer */
         char * p = array->data;

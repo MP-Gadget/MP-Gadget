@@ -18,7 +18,7 @@ double hubble_function(double a)
     if(All.CP.RadiationOn) {
         hubble_a += All.CP.OmegaG / (a * a * a * a);
         /* massless neutrinos are added only if there is no (massive) neutrino particle.*/
-        if(!All.TotN_neutrinos)
+        if(!NTotal[2])
             hubble_a += All.CP.OmegaNu0 / (a * a * a * a);
     }
 
