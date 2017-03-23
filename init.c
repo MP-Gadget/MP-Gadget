@@ -238,7 +238,7 @@ setup_smoothinglengths(int RestartSnapNum)
 
 #ifdef DENSITY_INDEPENDENT_SPH
     if(All.RestartFromBlueTidesPhaseI) {
-        for(i = 0; i < N_sph; i++)
+        for(i = 0; i < NumPart; i++) if (P[i].Type == 0)
         {
             /* start the iteration from mass density */
             SPHP(i).EgyWtDensity = SPHP(i).Density;
