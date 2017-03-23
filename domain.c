@@ -1999,7 +1999,7 @@ domain_garbage_collection(void)
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     domain_count_particles(NLocal);
-    message(1, "GC: NumPart %d N_dm %d N_sph %d N_bh %d N_star %d\n", NumPart, NLocal[1], NLocal[0], NLocal[5], NLocal[4]);
+    //message(1, "GC: NumPart %d N_dm %d N_sph %d N_bh %d N_star %d\n", NumPart, NLocal[1], NLocal[0], NLocal[5], NLocal[4]);
     return tree_invalid;
 }
 
