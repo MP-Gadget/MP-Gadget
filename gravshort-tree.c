@@ -119,7 +119,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         LocalTreeWalk * lv)
 {
     struct NODE *nop = 0;
-    int no, ptype, tabindex, listindex = 0;
+    int no, ptype, listindex = 0;
     int nnodesinlist = 0, ninteractions = 0;
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
     double pos_x, pos_y, pos_z, aold;

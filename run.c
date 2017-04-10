@@ -143,7 +143,7 @@ update_IO_params(const char * ioctlfname)
         size_t n = 0;
         char * line = NULL;
         while(-1 != getline(&line, &n, fd)) {
-            sscanf(line, "BytesPerFile %d", &All.IO.BytesPerFile);
+            sscanf(line, "BytesPerFile %lu", &All.IO.BytesPerFile);
             sscanf(line, "NumWriters %d", &All.IO.NumWriters);
         }
         free(line);

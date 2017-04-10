@@ -14,6 +14,8 @@
 #include "endrun.h"
 #include "petaio.h"
 
+void grav_short_tree_old(void);
+
 char * GDB_format_particle(int i);
 
 SIMPLE_PROPERTY(GravAccel, P[i].GravAccel[0], float, 3)
