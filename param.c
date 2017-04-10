@@ -185,7 +185,6 @@ create_gadget_parameter_set()
     param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
-    param_declare_int(ps, "NoTreeType", OPTIONAL, 2, "Particles of this type will not produce tree forces. Default neutrinos.");
 
     param_declare_double(ps, "SofteningHalo", REQUIRED, 0, "");
     param_declare_double(ps, "SofteningDisk", REQUIRED, 0, "");
@@ -391,7 +390,6 @@ void read_parameter_file(char *fname)
         All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
-        All.NoTreeType = param_get_int(ps, "NoTreeType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.TypeOfOpeningCriterion = param_get_int(ps, "TypeOfOpeningCriterion");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");

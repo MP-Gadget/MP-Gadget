@@ -210,10 +210,6 @@ int force_tree_build_single(int npart, struct unbind_data *mp)
         else
             i = k;
 
-        /*We sometimes want to disable the tree for hot particles*/
-        if(P[i].Type == All.NoTreeType)
-            continue;
-
         rep = 0;
 
         key = peano_and_morton_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac),
@@ -1181,10 +1177,6 @@ void force_kick_node(int i, MyFloat * dv)
 {
     int j, no;
     MyFloat dp[3], v, vmax;
-
-    /*We sometimes want to disable the tree for hot particles*/
-    if(P[i].Type == All.NoTreeType)
-        return;
 
     for(j = 0; j < 3; j++)
     {
