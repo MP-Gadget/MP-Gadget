@@ -7,6 +7,7 @@
 #include "proto.h"
 #include "forcetree.h"
 #include "cosmology.h"
+#include "cooling.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "domain.h"
@@ -37,9 +38,7 @@ void set_global_time(double newtime) {
 #ifdef LIGHTCONE
     lightcone_set_time(All.cf.a);
 #endif
-#ifdef COOL
     IonizeParams();
-#endif
     set_softenings();
 }
 
