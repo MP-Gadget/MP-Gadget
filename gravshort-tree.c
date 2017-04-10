@@ -111,7 +111,7 @@ void grav_short_tree(void)
  *  with the Newtonian form. The resulting short-range suppression compared
  *  to the Newtonian force is tabulated, because looking up from this table
  *  is faster than recomputing the corresponding factor, despite the
- *  memory-access panelty (which reduces cache performance) incurred by the
+ *  memory-access penalty (which reduces cache performance) incurred by the
  *  table.
  */
 int force_treeev_shortrange(TreeWalkQueryGravShort * input,

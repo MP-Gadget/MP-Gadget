@@ -135,7 +135,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     }
     /* All particles shall have been processed just once. Otherwise we die */
     if(numpart != NumPart) {
-        endrun(1, "numpart = %d\n", numpart);
+        endrun(1, "Processed only %d particles out of %d\n", numpart, NumPart);
     }
     for(r =0; r < *Nregions; r++) {
         convert_node_to_region(&regions[r]);
