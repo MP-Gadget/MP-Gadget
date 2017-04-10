@@ -155,7 +155,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MinGasHsmlFractional", OPTIONAL, 0, "");
     param_declare_double(ps, "MaxGasVel", OPTIONAL, 3e5, "");
 
-    param_declare_int(ps,    "TypeOfTimestepCriterion", OPTIONAL, 0, "Magic numbers!");
+    param_declare_int(ps,    "TypeOfTimestepCriterion", OPTIONAL, 0, "Compatibility only. Has no effect");
     param_declare_double(ps, "MaxSizeTimestep", OPTIONAL, 0.1, "");
     param_declare_double(ps, "MinSizeTimestep", OPTIONAL, 0, "");
 
@@ -393,7 +393,6 @@ void read_parameter_file(char *fname)
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.NoTreeType = param_get_int(ps, "NoTreeType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
-        All.TypeOfTimestepCriterion = param_get_int(ps, "TypeOfTimestepCriterion");
         All.TypeOfOpeningCriterion = param_get_int(ps, "TypeOfOpeningCriterion");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.SofteningHalo = param_get_double(ps, "SofteningHalo");
@@ -474,11 +473,6 @@ void read_parameter_file(char *fname)
     #endif
 
         parameter_set_free(ps);
-
-        if(All.TypeOfTimestepCriterion >= 3)
-        {
-            endrun(1, "The specified timestep criterion is not valid\n");
-        }
 
     #ifdef SFR
 

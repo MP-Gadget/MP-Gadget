@@ -382,8 +382,6 @@ extern struct global_data_all_processes
 
     int TypeOfOpeningCriterion;	/*!< determines tree cell-opening criterion: 0 for Barnes-Hut, 1 for relative
                                   criterion */
-    int TypeOfTimestepCriterion;	/*!< gives type of timestep criterion (only 0 supported right now - unlike
-                                      gadget-1.1) */
     int CoolingOn;		/*!< flags that cooling is enabled */
     double UVRedshiftThreshold;		/* Initial redshift of UV background. */
     int HydroOn;		/*!< flags that hydro force is enabled */

@@ -390,32 +390,21 @@ int get_timestep(int p,		/*!< particle index */
     if(ac == 0)
         ac = 1.0e-30;
 
-
-    switch (All.TypeOfTimestepCriterion)
+    if(flag > 0)
     {
-        case 0:
-            if(flag > 0)
-            {
-                dt = flag * All.Timebase_interval;
+        dt = flag * All.Timebase_interval;
 
-                dt /= All.cf.hubble;	/* convert dloga to physical timestep  */
+        dt /= All.cf.hubble;	/* convert dloga to physical timestep  */
 
-                ac = 2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / (dt * dt);
-                *aphys = ac;
-                return flag;
-            }
-            dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac);
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-            if(P[p].Type == 0)
-                dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * P[p].Hsml / 2.8 / ac);
-#endif
-            break;
-
-        default:
-            endrun(888, "\n !!!2@@@!!! \n");
-            break;
+        ac = 2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / (dt * dt);
+        *aphys = ac;
+        return flag;
     }
-
+    dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac);
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    if(P[p].Type == 0)
+        dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * P[p].Hsml / 2.8 / ac);
+#endif
 
     if(P[p].Type == 0)
     {
