@@ -406,15 +406,8 @@ int get_timestep(int p,		/*!< particle index */
             }
             dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac);
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS_HSML
             if(P[p].Type == 0)
                 dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * P[p].Hsml / 2.8 / ac);
-#else
-            if(P[p].Type == 0)
-                dt =
-                    sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] *
-                            pow(P[p].Mass / All.ReferenceGasMass, 1.0 / 3) / ac);
-#endif
 #endif
             break;
 

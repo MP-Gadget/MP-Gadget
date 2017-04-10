@@ -207,10 +207,6 @@ create_gadget_parameter_set()
     param_declare_double(ps, "InitGasTemp", REQUIRED, 0, "");
     param_declare_double(ps, "MinGasTemp", REQUIRED, 0, "");
 
-#if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
-    param_declare_double(ps, "ReferenceGasMass", REQUIRED, 0, "");
-#endif
-
     param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "");
@@ -419,10 +415,6 @@ void read_parameter_file(char *fname)
 
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
         All.MinGasTemp = param_get_double(ps, "MinGasTemp");
-
-    #if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
-        All.ReferenceGasMass = param_get_double(ps, "ReferenceGasMass");
-    #endif
 
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
         All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");

@@ -532,11 +532,6 @@ extern struct global_data_all_processes
     int OutputListLength;		/*!< number of times stored in table of desired output times */
 
 
-
-#if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
-    double ReferenceGasMass;
-#endif
-
 #ifdef SFR		/* star formation and feedback sector */
     double CritOverDensity;
     double CritPhysDensity;
