@@ -9,6 +9,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
+#include "forcetree.h"
 #include "cooling.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -223,7 +224,7 @@ human_interaction()
 /*! This function finds the next synchronization point of the system
  * (i.e. the earliest point of time any of the particles needs a force
  * computation), and drifts the system to this point of time.  If the
- * system dirfts over the desired time of a snapshot file, the
+ * system drifts over the desired time of a snapshot file, the
  * function will drift to this moment, generate an output, and then
  * resume the drift.
  */
@@ -269,6 +270,14 @@ void find_next_sync_point_and_drift(int with_fof)
 
         move_particles(All.Ti_nextoutput);
 
+        /* If we need to rebuild the tree, do it before
+         * doing a FoF; if the particles have
+         * moved a long way, performance will be degraded.*/
+        if(with_fof && All.NumForcesSinceLastDomainDecomp >= All.TotNumPartInit * All.TreeDomainUpdateFrequency)
+        {
+            domain_Decomposition();
+            force_tree_rebuild();
+        }
         /*Write matter power spectrum*/
         gravpm_force(1);
         force_tree_rebuild();
