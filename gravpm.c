@@ -78,7 +78,6 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
      * */
     pot_factor = - All.G / (M_PI * All.BoxSize);	/* to get potential */
 
-
     /*
      *
      * walks down the tree, identify nodes that contains local mass and
@@ -90,15 +89,16 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
      * to exactly one region even though it may be covered by two)
      *
      * */
-    int no;
     /* In worst case, each topleave becomes a region: thus
      * NTopleaves is sufficient */
     PetaPMRegion * regions = malloc(sizeof(PetaPMRegion) * NTopleaves);
 
     int r = 0;
 
-    no = All.MaxPart; /* start with the root */
+    int no = All.MaxPart; /* start with the root */
     while(no >= 0) {
+        /* This does nothing, because we synced particles in gravpm_force
+         * but leave it here just in case*/
         force_drift_node(no, All.Ti_Current);
 
         if(!(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))) {
