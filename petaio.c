@@ -222,8 +222,6 @@ static void petaio_write_header(BigFile * bf) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
                 big_file_get_error_message());
     }
-    int i;
-    int k;
 
     if( 
     (0 != big_block_set_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||

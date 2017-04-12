@@ -55,9 +55,6 @@ static void
 force_treeallocate(int maxnodes, int maxpart);
 
 static void
-force_update_hmax_of_node(int no, int mode);
-
-static void
 force_flag_localnodes(void);
 
 static void
