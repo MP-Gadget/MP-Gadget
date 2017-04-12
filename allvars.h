@@ -387,6 +387,7 @@ extern struct global_data_all_processes
     int CoolingOn;		/*!< flags that cooling is enabled */
     double UVRedshiftThreshold;		/* Initial redshift of UV background. */
     int HydroOn;		/*!< flags that hydro force is enabled */
+    int DensityOn;		/*!< flags that SPH density computation is enabled */
     int TreeGravOn;          /*!< flags that tree gravity force is enabled*/
     int BlackHoleOn;		/*!< flags that black holes are enabled */
     int StarformationOn;		/*!< flags that star formation is enabled */
@@ -419,7 +420,6 @@ extern struct global_data_all_processes
         double fac_egy;
         double hubble;
         double hubble_a2;
-        double D1;
     } cf;
 
     /* variables for organizing discrete timeline */
@@ -553,8 +553,6 @@ extern struct global_data_all_processes
     double WindFreeTravelLength;
     double WindFreeTravelDensFac;
     double FactorForSofterEQS;
-    double QuickLymanAlphaProbability;
-
     /* used in VS08 and SH03*/
     double WindEfficiency;
     double WindSpeed;
@@ -563,6 +561,13 @@ extern struct global_data_all_processes
     double WindSigma0;
     double WindSpeedFactor;
 #endif
+    /*Lyman alpha forest specific parameters*/
+    double QuickLymanAlphaProbability;
+    int HeliumHeatOn;
+    double HeliumHeatThresh;
+    double HeliumHeatAmp;
+    double HeliumHeatExp;
+
 
 #ifdef BLACK_HOLES
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */

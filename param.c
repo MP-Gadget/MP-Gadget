@@ -175,6 +175,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
 
     param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
+    param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
     param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
@@ -281,7 +282,15 @@ create_gadget_parameter_set()
     param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "");
     param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0., "");
 
-    param_declare_double(ps, "QuickLymanAlphaProbability", OPTIONAL, 0, "");
+    /*These parameters are Lyman alpha forest specific*/
+    param_declare_double(ps, "QuickLymanAlphaProbability", OPTIONAL, 0, "Probability gas is turned directly into stars, irrespective of pressure. One is equivalent to quick lyman alpha star formation.");
+    /* Enable model for helium reionisation which adds extra photo-heating to under-dense gas.
+     * Extra heating has the form: H = Amp * (rho / rho_c(z=0))^Exp
+     * but is density-independent when rho / rho_c > Thresh. */
+    param_declare_int(ps, "HeliumHeatOn", OPTIONAL, 0, "Change photo-heating rate to model helium reionisation on underdense gas.");
+    param_declare_double(ps, "HeliumHeatThresh", OPTIONAL, 10, "Overdensity above which heating is density-independent.");
+    param_declare_double(ps, "HeliumHeatAmp", OPTIONAL, 1, "Density-independent heat boost. Changes mean temperature.");
+    param_declare_double(ps, "HeliumHeatExp", OPTIONAL, 0, "Density dependent heat boost (exponent). Changes gamma.");
 
 #endif
 
@@ -378,6 +387,7 @@ void read_parameter_file(char *fname)
         All.CoolingOn = param_get_int(ps, "CoolingOn");
         All.UVRedshiftThreshold = param_get_double(ps, "UVRedshiftThreshold");
         All.HydroOn = param_get_int(ps, "HydroOn");
+        All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.NoTreeType = param_get_int(ps, "NoTreeType");
@@ -459,6 +469,10 @@ void read_parameter_file(char *fname)
         All.WindFreeTravelDensFac = param_get_double(ps, "WindFreeTravelDensFac");
 
         All.QuickLymanAlphaProbability = param_get_double(ps, "QuickLymanAlphaProbability");
+        All.HeliumHeatOn = param_get_int(ps, "HeliumHeatOn");
+        All.HeliumHeatThresh = param_get_double(ps, "HeliumHeatThresh");
+        All.HeliumHeatAmp = param_get_double(ps, "HeliumHeatAmp");
+        All.HeliumHeatExp = param_get_double(ps, "HeliumHeatExp");
 
     #endif
 
