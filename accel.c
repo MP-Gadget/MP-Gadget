@@ -28,8 +28,6 @@
  */
 void compute_accelerations(int mode)
 {
-    int TreeReconstructFlag = 0;
-
     message(0, "Start force computation...\n");
 
     walltime_measure("/Misc");

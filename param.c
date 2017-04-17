@@ -90,6 +90,11 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
     /*Now read in the values*/
     for(count=0,token=strtok(outputlist,","); count < All.OutputListLength && token; count++, token=strtok(NULL,","))
     {
+        /* Skip a leading quote if one exists.
+         * Extra characters are ignored by atof, so
+         * no need to skip matching char.*/
+        if(token[0] == '"')
+            token+=1;
         All.OutputListTimes[count] = atof(token);
 /*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
     }
@@ -150,7 +155,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MinGasHsmlFractional", OPTIONAL, 0, "");
     param_declare_double(ps, "MaxGasVel", OPTIONAL, 3e5, "");
 
-    param_declare_int(ps,    "TypeOfTimestepCriterion", OPTIONAL, 0, "Magic numbers!");
+    param_declare_int(ps,    "TypeOfTimestepCriterion", OPTIONAL, 0, "Compatibility only. Has no effect");
     param_declare_double(ps, "MaxSizeTimestep", OPTIONAL, 0.1, "");
     param_declare_double(ps, "MinSizeTimestep", OPTIONAL, 0, "");
 
@@ -180,7 +185,6 @@ create_gadget_parameter_set()
     param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
-    param_declare_int(ps, "NoTreeType", OPTIONAL, 2, "Particles of this type will not produce tree forces. Default neutrinos.");
 
     param_declare_double(ps, "SofteningHalo", REQUIRED, 0, "");
     param_declare_double(ps, "SofteningDisk", REQUIRED, 0, "");
@@ -201,10 +205,6 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "InitGasTemp", REQUIRED, 0, "");
     param_declare_double(ps, "MinGasTemp", REQUIRED, 0, "");
-
-#if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
-    param_declare_double(ps, "ReferenceGasMass", REQUIRED, 0, "");
-#endif
 
     param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
@@ -390,9 +390,7 @@ void read_parameter_file(char *fname)
         All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
-        All.NoTreeType = param_get_int(ps, "NoTreeType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
-        All.TypeOfTimestepCriterion = param_get_int(ps, "TypeOfTimestepCriterion");
         All.TypeOfOpeningCriterion = param_get_int(ps, "TypeOfOpeningCriterion");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.SofteningHalo = param_get_double(ps, "SofteningHalo");
@@ -414,10 +412,6 @@ void read_parameter_file(char *fname)
 
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
         All.MinGasTemp = param_get_double(ps, "MinGasTemp");
-
-    #if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
-        All.ReferenceGasMass = param_get_double(ps, "ReferenceGasMass");
-    #endif
 
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
         All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
@@ -477,11 +471,6 @@ void read_parameter_file(char *fname)
     #endif
 
         parameter_set_free(ps);
-
-        if(All.TypeOfTimestepCriterion >= 3)
-        {
-            endrun(1, "The specified timestep criterion is not valid\n");
-        }
 
     #ifdef SFR
 

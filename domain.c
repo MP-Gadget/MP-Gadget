@@ -1994,8 +1994,6 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
 int
 domain_garbage_collection(void)
 {
-    int i;
-
     int tree_invalid = 0;
 
     /* tree is invalidated of the sequence on P is reordered; */
@@ -2032,13 +2030,13 @@ domain_refresh_totals()
 static int
 domain_sph_garbage_collection_reclaim()
 {
-    int i;
     int tree_invalid = 0;
 
     int64_t total0, total;
     sumup_large_ints(1, &N_sph_slots, &total0);
 
 #ifdef SFR
+    int i;
     for(i = 0; i < N_sph_slots; i++) {
         while(P[i].Type != 0 && i < N_sph_slots) {
             /* remove this particle from SphP, because
@@ -2067,7 +2065,7 @@ static int
 domain_all_garbage_collection()
 {
     int i, tree_invalid = 0; 
-    int count_elim, count_gaselim, tot_elim, tot_gaselim;
+    int count_elim, count_gaselim;
     int64_t total0, total;
     int64_t total0_gas, total_gas;
 

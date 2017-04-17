@@ -55,9 +55,6 @@ static void
 force_treeallocate(int maxnodes, int maxpart);
 
 static void
-force_update_hmax_of_node(int no, int mode);
-
-static void
 force_flag_localnodes(void);
 
 static void
@@ -209,10 +206,6 @@ int force_tree_build_single(int npart, struct unbind_data *mp)
             i = mp[k].index;
         else
             i = k;
-
-        /*We sometimes want to disable the tree for hot particles*/
-        if(P[i].Type == All.NoTreeType)
-            continue;
 
         rep = 0;
 
@@ -1181,10 +1174,6 @@ void force_kick_node(int i, MyFloat * dv)
 {
     int j, no;
     MyFloat dp[3], v, vmax;
-
-    /*We sometimes want to disable the tree for hot particles*/
-    if(P[i].Type == All.NoTreeType)
-        return;
 
     for(j = 0; j < 3; j++)
     {

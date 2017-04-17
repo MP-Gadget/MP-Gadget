@@ -382,8 +382,6 @@ extern struct global_data_all_processes
 
     int TypeOfOpeningCriterion;	/*!< determines tree cell-opening criterion: 0 for Barnes-Hut, 1 for relative
                                   criterion */
-    int TypeOfTimestepCriterion;	/*!< gives type of timestep criterion (only 0 supported right now - unlike
-                                      gadget-1.1) */
     int CoolingOn;		/*!< flags that cooling is enabled */
     double UVRedshiftThreshold;		/* Initial redshift of UV background. */
     int HydroOn;		/*!< flags that hydro force is enabled */
@@ -395,7 +393,6 @@ extern struct global_data_all_processes
     enum WindModel WindModel;		/*!< flags that star formation is enabled */
 
     int MakeGlassFile; /*!< flags that gravity is reversed and we are making a glass file*/
-    int NoTreeType; /*!< flags a particle species to exclude from tree forces*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/
     /* parameters determining output frequency */
 
@@ -531,11 +528,6 @@ extern struct global_data_all_processes
     double OutputListTimes[8192];
     int OutputListLength;		/*!< number of times stored in table of desired output times */
 
-
-
-#if defined(ADAPTIVE_GRAVSOFT_FORGAS) && !defined(ADAPTIVE_GRAVSOFT_FORGAS_HSML)
-    double ReferenceGasMass;
-#endif
 
 #ifdef SFR		/* star formation and feedback sector */
     double CritOverDensity;

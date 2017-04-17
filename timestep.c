@@ -7,6 +7,7 @@
 #include "proto.h"
 #include "forcetree.h"
 #include "cosmology.h"
+#include "cooling.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "domain.h"
@@ -36,9 +37,7 @@ void set_global_time(double newtime) {
 #ifdef LIGHTCONE
     lightcone_set_time(All.cf.a);
 #endif
-#ifdef COOL
     IonizeParams();
-#endif
     set_softenings();
 }
 
@@ -390,39 +389,21 @@ int get_timestep(int p,		/*!< particle index */
     if(ac == 0)
         ac = 1.0e-30;
 
-
-    switch (All.TypeOfTimestepCriterion)
+    if(flag > 0)
     {
-        case 0:
-            if(flag > 0)
-            {
-                dt = flag * All.Timebase_interval;
+        dt = flag * All.Timebase_interval;
 
-                dt /= All.cf.hubble;	/* convert dloga to physical timestep  */
+        dt /= All.cf.hubble;	/* convert dloga to physical timestep  */
 
-                ac = 2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / (dt * dt);
-                *aphys = ac;
-                return flag;
-            }
-            dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac);
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS_HSML
-            if(P[p].Type == 0)
-                dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * P[p].Hsml / 2.8 / ac);
-#else
-            if(P[p].Type == 0)
-                dt =
-                    sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] *
-                            pow(P[p].Mass / All.ReferenceGasMass, 1.0 / 3) / ac);
-#endif
-#endif
-            break;
-
-        default:
-            endrun(888, "\n !!!2@@@!!! \n");
-            break;
+        ac = 2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / (dt * dt);
+        *aphys = ac;
+        return flag;
     }
-
+    dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac);
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    if(P[p].Type == 0)
+        dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * P[p].Hsml / 2.8 / ac);
+#endif
 
     if(P[p].Type == 0)
     {

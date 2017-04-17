@@ -178,8 +178,10 @@ setup_smoothinglengths(int RestartSnapNum)
 #pragma omp parallel for
         for(i = 0; i < NumPart; i++)
         {
-            int no, p;
-            no = Father[i];
+            int no = Father[i];
+            /* Don't need smoothing lengths for DM particles*/
+            if(P[i].Type != 0 && P[i].Type != 4 && P[i].Type != 5)
+                continue;
             /* quick hack to adjust for the baryon fraction
              * only this fraction of mass is of that type.
              * this won't work for non-dm non baryon;
@@ -195,7 +197,7 @@ setup_smoothinglengths(int RestartSnapNum)
             }
             while(10 * All.DesNumNgb * P[i].Mass > massfactor * Nodes[no].u.d.mass)
             {
-                p = Nodes[no].u.d.father;
+                int p = Nodes[no].u.d.father;
 
                 if(p < 0)
                     break;
