@@ -323,11 +323,11 @@ void petapm_force_c2r(
         walltime_measure("/PMgrav/readout");
     }
 
-    layout_finish(&layout);
     walltime_measure("/PMgrav/Misc");
 
 }
 void petapm_force_finish() {
+    layout_finish(&layout);
     pm_free();
     free(regions);
     regions = NULL;
@@ -341,7 +341,8 @@ void petapm_force(petapm_prepare_func prepare,
         void * userdata) {
     petapm_force_init(prepare, pstruct, userdata);
     petapm_force_r2c(global_transfer);
-    petapm_force_c2r(functions);
+    if(functions)
+        petapm_force_c2r(functions);
     petapm_force_finish();
 }
     

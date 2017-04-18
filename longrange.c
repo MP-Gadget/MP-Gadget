@@ -13,7 +13,7 @@
 
 /*Defined in gravpm.c and only used here*/
 void  gravpm_init_periodic();
-void  gravpm_force();
+void  gravpm_force(int noforce);
 
 static void fill_ntab();
 
@@ -40,7 +40,7 @@ void long_range_force(void)
 
     }
 
-  gravpm_force();
+  gravpm_force(0);
 }
 
 /*! This function sets the (comoving) softening length of all particle

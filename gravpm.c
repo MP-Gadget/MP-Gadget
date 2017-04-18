@@ -43,7 +43,11 @@ void gravpm_init_periodic() {
     petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
     powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads);
 }
-void gravpm_force() {
+
+/* If noforce is zero, computes the gravitational force on the PM grid
+ * and saves the total matter power spectrum.
+ * If noforce != 0, just saves the total matter power spectrum.*/
+void gravpm_force(int noforce) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
@@ -54,12 +58,16 @@ void gravpm_force() {
     };
 
     powerspectrum_zero(&PowerSpectrum);
+    /*If we don't want the force, just pass NULL for the force readout functions*/
+    PetaPMFunctions * funcptr = functions;
+    if(noforce)
+        funcptr = NULL;
     /*
      * we apply potential transfer immediately after the R2C transform,
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
-    petapm_force(_prepare, potential_transfer, functions, &pstruct, NULL);
+    petapm_force(_prepare, potential_transfer, funcptr, &pstruct, NULL);
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     /*Now save the power spectrum*/
     if(ThisTask == 0)

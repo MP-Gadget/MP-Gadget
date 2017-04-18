@@ -35,6 +35,9 @@ static enum ActionType human_interaction();
 static void find_next_sync_point_and_drift(int with_fof);
 static void update_IO_params(const char * ioctlfname);
 
+/*Defined in gravpm.c*/
+void  gravpm_force(int noforce);
+
 
 void run(void)
 {
@@ -268,6 +271,10 @@ void find_next_sync_point_and_drift(int with_fof)
         set_global_time(nexttime);
 
         move_particles(All.Ti_nextoutput);
+
+        /*Write matter power spectrum*/
+        gravpm_force(1);
+        force_tree_rebuild();
 
         savepositions(All.SnapshotFileCount++, with_fof);	/* write snapshot file */
 
