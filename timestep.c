@@ -494,8 +494,6 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
     int count[6];
     int64_t count_sum[6];
     double v[6], v_sum[6], mim[6], min_mass[6];
-    double dt, dmean, asmth = 0;
-
     dt_displacement = All.MaxSizeTimestep;
 
     for(type = 0; type < 6; type++)
@@ -541,36 +539,32 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
     {
         if(count_sum[type] > 0)
         {
-            if(type == 0 || (type == 4 && All.StarformationOn))
-                dmean =
-                    pow(min_mass[type] / (All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
-                            1.0 / 3);
-            else
-                /* FIXME: @sbird watch out for this for neutrinos */
-                dmean =
-                    pow(min_mass[type] /
-                            ((All.CP.OmegaCDM) * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
-                            1.0 / 3);
-
+            double omega, dmean, dt;
+            const double asmth = ASMTH * All.BoxSize / All.Nmesh;
+            if(type == 0 || (type == 4 && All.StarformationOn)
 #ifdef BLACK_HOLES
-            if(type == 5)
-                dmean =
-                    pow(min_mass[type] / (All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)),
-                            1.0 / 3);
+                || (type == 5)
 #endif
-            dt = All.MaxRMSDisplacementFac * hfac * dmean / sqrt(v_sum[type] / count_sum[type]);
+                ) {
+                omega = All.CP.OmegaBaryon;
+            }
+            /* Neutrinos are counted here as CDM. They should be counted separately!
+             * In practice usually FastParticleType == 2
+             * so this doesn't matter. Also the neutrinos
+             * are either Way Too Fast, or basically CDM anyway. */
+            else {
+                omega = All.CP.OmegaCDM;
+            }
+            /* "Avg. radius" of smallest particle: (min_mass/total_mass)^1/3 */
+            dmean = pow(min_mass[type] / (omega * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)), 1.0 / 3);
 
-            asmth = ASMTH * All.BoxSize / All.Nmesh;
-            if(asmth < dmean)
-                dt = All.MaxRMSDisplacementFac * hfac * asmth / sqrt(v_sum[type] / count_sum[type]);
-
+            dt = All.MaxRMSDisplacementFac * hfac * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
             message(0, "type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dlogmax=%g\n",
                     type, dmean, asmth, min_mass[type], All.Time, sqrt(v_sum[type] / count_sum[type]), dt);
 
-
-            if(type != All.FastParticleType)	/* don't constrain the step to the neutrinos */
-                if(dt < dt_displacement)
-                    dt_displacement = dt;
+            /* don't constrain the step to the neutrinos */
+            if(type != All.FastParticleType && dt < dt_displacement)
+                dt_displacement = dt;
         }
     }
 
