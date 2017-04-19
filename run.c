@@ -86,7 +86,7 @@ void run(void)
         action = human_interaction();
         switch(action) {
             case STOP:
-                message(0, "humman controlled stop with checkpoint.\n");
+                message(0, "human controlled stop with checkpoint.\n");
                 All.Ti_nextoutput = All.Ti_Current;
                 /* next loop will write a new snapshot file; break is for switch */
                 break;
@@ -125,11 +125,7 @@ void run(void)
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
 
     /* write a last snapshot
-     * file at final time (will
-     * be overwritten if
-     * All.TimeMax is increased
-     * and the run is continued)
-     */
+     * file at final time */
     savepositions(All.SnapshotFileCount++, 1);
 
 }
