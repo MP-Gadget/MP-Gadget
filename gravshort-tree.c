@@ -141,7 +141,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     ninteractions = 0;
     nnodesinlist = 0;
 
-    rcut = All.Rcut[0];
+    rcut = RCUT * ASMTH * All.BoxSize / All.Nmesh;
 
     no = input->base.NodeList[0];
     listindex ++;

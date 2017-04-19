@@ -22,8 +22,6 @@ static void fill_ntab();
  */
 void long_range_init(void)
 {
-    All.Asmth[0] = ASMTH * All.BoxSize / All.Nmesh;
-    All.Rcut[0] = RCUT * All.Asmth[0];
     fill_ntab();
     gravpm_init_periodic();
 }
@@ -111,8 +109,8 @@ fill_ntab()
 int
 grav_apply_short_range_window(double r, double * fac, double * pot)
 {
-    double asmth = All.Asmth[0];
-    double asmthfac = 0.5 / asmth * (NTAB / 3.0);
+    const double asmth = ASMTH * All.BoxSize / All.Nmesh;
+    const double asmthfac = 0.5 / asmth * (NTAB / 3.0);
     int tabindex = (int) (asmthfac * r);
     if(tabindex < NTAB)
     {

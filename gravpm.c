@@ -266,8 +266,7 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
         return;
     }
 
-    double asmth2 = (2 * M_PI) * All.Asmth[0] / All.BoxSize;
-    asmth2 *= asmth2;
+    const double asmth2 = pow((2 * M_PI) * ASMTH / All.Nmesh,2);
     double f = 1.0;
     const double smth = exp(-k2 * asmth2) / k2;
     /* the CIC deconvolution kernel is

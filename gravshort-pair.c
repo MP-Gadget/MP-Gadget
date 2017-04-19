@@ -55,7 +55,7 @@ grav_short_pair_ngbiter(
         LocalTreeWalk * lv)
 {
     if(iter->base.other == -1) {
-        iter->base.Hsml = All.Rcut[0];
+        iter->base.Hsml = RCUT * ASMTH * All.BoxSize / All.Nmesh;
         iter->base.mask = 0xff; /* all particles */
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
         return;

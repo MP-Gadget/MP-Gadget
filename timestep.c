@@ -560,7 +560,7 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
 #endif
             dt = All.MaxRMSDisplacementFac * hfac * dmean / sqrt(v_sum[type] / count_sum[type]);
 
-            asmth = All.Asmth[0];
+            asmth = ASMTH * All.BoxSize / All.Nmesh;
             if(asmth < dmean)
                 dt = All.MaxRMSDisplacementFac * hfac * asmth / sqrt(v_sum[type] / count_sum[type]);
 

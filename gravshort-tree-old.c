@@ -154,7 +154,9 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
     double pos_x, pos_y, pos_z, aold;
     double eff_dist;
-    double rcut, asmth, asmthfac, rcut2, dist;
+    const double asmth = ASMTH * All.BoxSize / All.Nmesh;
+    const double rcut = RCUT * asmth;
+    double asmthfac, rcut2, dist;
     double acc_x, acc_y, acc_z;
 
 #ifdef DISTORTIONTENSORPS
@@ -190,9 +192,6 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
     ninteractions = 0;
     nnodesinlist = 0;
 
-    rcut = All.Rcut[0];
-    asmth = All.Asmth[0];
-
     no = input->base.NodeList[0];
     listindex ++;
     no = Nodes[no].u.d.nextnode;	/* open it */
@@ -209,13 +208,6 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     if(ptype == 0)
         soft = input->Soft;
-#endif
-#ifdef PLACEHIGHRESREGION
-    if(pmforce_is_particle_high_res(ptype, input->Pos))
-    {
-        rcut = All.Rcut[1];
-        asmth = All.Asmth[1];
-    }
 #endif
 
     rcut2 = rcut * rcut;
