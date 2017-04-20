@@ -17,12 +17,12 @@
  *  momentum space and assigning new timesteps
  */
 
-static double fac2, fac3;
-static double dt_displacement = 0;
-
-static double dt_gravkickA, dt_gravkickB;
-
 void reverse_and_apply_gravity();
+int get_timestep(int p, double dt_max);
+int get_timestep_bin(int ti_step);
+double find_dt_displacement_constraint();
+void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkick);
+
 
 void set_global_time(double newtime) {
     All.Time = newtime;
@@ -48,8 +48,9 @@ void set_global_time(double newtime) {
  */
 void advance_and_find_timesteps(void)
 {
+    /*Note static! Persists across calls!*/
+    static double dt_displacement = 0;
     int i, ti_step, ti_step_old, ti_min, tend, tstart, bin, binold, prev, next;
-    double aphys;
     int badstepsizecount = 0;
     int badstepsizecount_global = 0;
 
@@ -58,13 +59,10 @@ void advance_and_find_timesteps(void)
 
     walltime_measure("/Misc");
 
-    fac2 = 1 / pow(All.Time, 3 * GAMMA - 2);
-    fac3 = pow(All.Time, 3 * (1 - GAMMA) / 2.0);
-
     if(Flag_FullStep || dt_displacement == 0)
-        find_dt_displacement_constraint(All.cf.hubble * All.cf.a * All.cf.a);
+        dt_displacement = find_dt_displacement_constraint();
 
-    dt_gravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
+    double dt_gravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
             get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
 
     if(All.MakeGlassFile)
@@ -85,7 +83,7 @@ void advance_and_find_timesteps(void)
 #ifdef FORCE_EQUAL_TIMESTEPS
     for(i = FirstActiveParticle, ti_min = TIMEBASE; i >= 0; i = NextActiveParticle[i])
     {
-        ti_step = get_timestep(i, &aphys, 0);
+        ti_step = get_timestep(i,dt_displacement);
 
         if(ti_step < ti_min)
             ti_min = ti_step;
@@ -102,7 +100,7 @@ void advance_and_find_timesteps(void)
 #ifdef FORCE_EQUAL_TIMESTEPS
         ti_step = ti_min_glob;
 #else
-        ti_step = get_timestep(i, &aphys, 0);
+        ti_step = get_timestep(i,dt_displacement);
 #endif
 
         /* make it a power 2 subdivision */
@@ -188,7 +186,7 @@ void advance_and_find_timesteps(void)
 
         P[i].Ti_begstep += ti_step_old;
 
-        do_the_kick(i, tstart, tend, P[i].Ti_begstep);
+        do_the_kick(i, tstart, tend, P[i].Ti_begstep,dt_gravkickB);
     }
     MPI_Allreduce(&badstepsizecount, &badstepsizecount_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -243,7 +241,7 @@ void advance_and_find_timesteps(void)
             {
                 dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
 
-                dt_gravkickA = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
+                double dt_gravkickA = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
                     get_gravkick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
                 dt_hydrokick = get_hydrokick_factor(P[i].Ti_begstep, All.Ti_Current) -
                     get_hydrokick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
@@ -261,7 +259,7 @@ void advance_and_find_timesteps(void)
 
 
 
-void do_the_kick(int i, int tstart, int tend, int tcurrent)
+void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkickB)
 {
     int j;
     MyFloat dv[3];
@@ -344,30 +342,24 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent)
 
 
 /*! This function normally (for flag==0) returns the maximum allowed timestep of a particle, expressed in
- *  terms of the integer mapping that is used to represent the total simulated timespan. The physical
- *  acceleration is returned in aphys. The latter is used in conjunction with the PSEUDOSYMMETRIC integration
- *  option, which also makes of the second function of get_timestep. When it is called with a finite timestep
- *  for flag, it returns the physical acceleration that would lead to this timestep, assuming timestep
- *  criterion 0.
- */
-int get_timestep(int p,		/*!< particle index */
-        double *aphys,	/*!< acceleration (physical units) */
-        int flag	/*!< either 0 for normal operation, or finite timestep to get corresponding
-                      aphys */ )
+ *  terms of the integer mapping that is used to represent the total simulated timespan.  */
+int get_timestep(const int p		/*!< particle index */, const double dt_max /*!<maximal timestep*/)
 {
-    double ax, ay, az, ac;
+    double ac = 0;
     double dt = 0, dt_courant = 0;
     int ti_step;
-    double dt_viscous = 0;
+    /*Give a useful message if we are broken*/
+    if(dt_max == 0)
+        endrun(0,"Maximal timestep is zero for particle p=%d\n",p);
     /*Set to max timestep allowed if the tree is off*/
     if(!All.TreeGravOn)
-        return All.MaxSizeTimestep / All.Timebase_interval;
+        return dt_max / All.Timebase_interval;
 
-    if(flag <= 0)
+    /*Compute physical acceleration*/
     {
-        ax = All.cf.a2inv * P[p].GravAccel[0];
-        ay = All.cf.a2inv * P[p].GravAccel[1];
-        az = All.cf.a2inv * P[p].GravAccel[2];
+        double ax = All.cf.a2inv * P[p].GravAccel[0];
+        double ay = All.cf.a2inv * P[p].GravAccel[1];
+        double az = All.cf.a2inv * P[p].GravAccel[2];
 
         ax += All.cf.a2inv * P[p].GravPM[0];
         ay += All.cf.a2inv * P[p].GravPM[1];
@@ -375,30 +367,18 @@ int get_timestep(int p,		/*!< particle index */
 
         if(P[p].Type == 0)
         {
+            const double fac2 = 1 / pow(All.Time, 3 * GAMMA - 2);
             ax += fac2 * SPHP(p).HydroAccel[0];
             ay += fac2 * SPHP(p).HydroAccel[1];
             az += fac2 * SPHP(p).HydroAccel[2];
         }
 
         ac = sqrt(ax * ax + ay * ay + az * az);	/* this is now the physical acceleration */
-        *aphys = ac;
     }
-    else
-        ac = *aphys;
 
     if(ac == 0)
         ac = 1.0e-30;
 
-    if(flag > 0)
-    {
-        dt = flag * All.Timebase_interval;
-
-        dt /= All.cf.hubble;	/* convert dloga to physical timestep  */
-
-        ac = 2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / (dt * dt);
-        *aphys = ac;
-        return flag;
-    }
     dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac);
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     if(P[p].Type == 0)
@@ -407,6 +387,7 @@ int get_timestep(int p,		/*!< particle index */
 
     if(P[p].Type == 0)
     {
+        const double fac3 = pow(All.Time, 3 * (1 - GAMMA) / 2.0);
         dt_courant = 2 * All.CourantFac * All.Time * P[p].Hsml / (fac3 * SPHP(p).MaxSignalVel);
         if(dt_courant < dt)
             dt = dt_courant;
@@ -433,11 +414,8 @@ int get_timestep(int p,		/*!< particle index */
        */
     dt *= All.cf.hubble;
 
-    if(dt >= All.MaxSizeTimestep)
-        dt = All.MaxSizeTimestep;
-
-    if(dt >= dt_displacement)
-        dt = dt_displacement;
+    if(dt >= dt_max)
+        dt = dt_max;
 
     if(dt < All.MinSizeTimestep)
         dt = All.MinSizeTimestep;
@@ -448,8 +426,8 @@ int get_timestep(int p,		/*!< particle index */
     {
         message(1, "Error: A timestep of size zero was assigned on the integer timeline!\n"
                 "We better stop.\n"
-                "Task=%d type %d Part-ID=%lu dt=%g dtc=%g dtv=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
-                ThisTask, P[p].Type, (MyIDType)P[p].ID, dt, dt_courant, dt_viscous, dt_displacement,
+                "Task=%d type %d Part-ID=%lu dt=%g dtc=%g dtdis=%g tibase=%g ti_step=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
+                ThisTask, P[p].Type, (MyIDType)P[p].ID, dt, dt_courant, dt_max,
                 All.Timebase_interval, ti_step, ac,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].GravAccel[0], P[p].GravAccel[1],
                 P[p].GravAccel[2],
@@ -488,13 +466,13 @@ int get_timestep(int p,		/*!< particle index */
  *  the latter is estimated using the assigned particle masses, separately for each particle type. If comoving
  *  integration is not used, the function imposes no constraint on the timestep.
  */
-void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
+double find_dt_displacement_constraint()
 {
     int i, type;
     int count[6];
     int64_t count_sum[6];
     double v[6], v_sum[6], mim[6], min_mass[6];
-    dt_displacement = All.MaxSizeTimestep;
+    double dt_disp = All.MaxSizeTimestep;
 
     for(type = 0; type < 6; type++)
     {
@@ -558,17 +536,18 @@ void find_dt_displacement_constraint(double hfac /*!<  should be  a^2*H(a)  */ )
             /* "Avg. radius" of smallest particle: (min_mass/total_mass)^1/3 */
             dmean = pow(min_mass[type] / (omega * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)), 1.0 / 3);
 
-            dt = All.MaxRMSDisplacementFac * hfac * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
+            dt = All.MaxRMSDisplacementFac * All.cf.hubble * All.cf.a * All.cf.a * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
             message(0, "type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dlogmax=%g\n",
                     type, dmean, asmth, min_mass[type], All.Time, sqrt(v_sum[type] / count_sum[type]), dt);
 
             /* don't constrain the step to the neutrinos */
-            if(type != All.FastParticleType && dt < dt_displacement)
-                dt_displacement = dt;
+            if(type != All.FastParticleType && dt < dt_disp)
+                dt_disp = dt;
         }
     }
 
-    message(0, "displacement time constraint: %g  (%g)\n", dt_displacement, All.MaxSizeTimestep);
+    message(0, "displacement time constraint: %g  (%g)\n", dt_disp, All.MaxSizeTimestep);
+    return dt_disp;
 }
 
 int get_timestep_bin(int ti_step)
