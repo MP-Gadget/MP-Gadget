@@ -641,7 +641,7 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter) {
             while(ix >= Nmesh) ix -= Nmesh;
             ix -= real_space_region.offset[k];
             if(ix >= real_space_region.size[k]) {
-                /* seroius problem assmpution about pfft layout was wrong*/
+                /* serious problem assumption about pfft layout was wrong*/
                 endrun(1, "check here: original ix = %d\n", p->offset[k]);
             }
             linear0 += ix * real_space_region.strides[k];

@@ -25,7 +25,7 @@
  *  reconstruct the tree every timestep.
  */
 
-struct NODE *Nodes_base,	/*!< points to the actual memory allocted for the nodes */
+struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the nodes */
  *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
 				   gives the first allocated node */
 
@@ -1510,7 +1510,7 @@ void force_treeallocate(int maxnodes, int maxpart)
     }
     allbytes += bytes;
 
-    message(0, "Allocated %g MByte for BH-tree, and %g Mbyte for top-leaves.  (presently allocted %g MB)\n",
+    message(0, "Allocated %g MByte for BH-tree, and %g Mbyte for top-leaves.  (presently allocated %g MB)\n",
              allbytes / (1024.0 * 1024.0), allbytes_topleaves / (1024.0 * 1024.0),
              AllocatedBytes / (1024.0 * 1024.0));
 }
