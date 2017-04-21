@@ -317,6 +317,7 @@ extern struct global_data_all_processes
         size_t BytesPerFile;   /* Number of bytes per physical file; this decides how many files bigfile creates each block */
         int WritersPerFile;    /* Number of concurrent writers per file; this decides number of writers */
         int NumWriters;        /* Number of concurrent writers, this caps number of writers */
+        int MinNumWriters;        /* Min Number of concurrent writers, this caps number of writers */
         int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
         size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
     } IO;

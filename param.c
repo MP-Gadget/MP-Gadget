@@ -169,7 +169,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "HydroCostFactor", OPTIONAL, 1, "Cost factor of hydro calculation, default to 1.");
 
     param_declare_int(ps, "BytesPerFile", OPTIONAL, 1024 * 1024 * 1024, "number of bytes per file");
-    param_declare_int(ps, "NumWriters", OPTIONAL, NTask, "Max number of concurrent writer processes. 0 implies Number of Tasks; we use 4 times number of files or this. ");
+    param_declare_int(ps, "NumWriters", OPTIONAL, NTask, "Max number of concurrent writer processes. 0 implies Number of Tasks; ");
+    param_declare_int(ps, "MinNumWriters", OPTIONAL, 1, "Min number of concurrent writer processes. We increase number of Files to avoid too few writers. ");
     param_declare_int(ps, "WritersPerFile", OPTIONAL, 8, "Number of Writer groups assigned to a file; total number of writers is capped by NumWriters.");
 
     param_declare_int(ps, "EnableAggregatedIO", OPTIONAL, 0, "Use the Aggregated IO policy for small data set (Experimental).");
@@ -379,6 +380,7 @@ void read_parameter_file(char *fname)
 
         All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
         All.IO.NumWriters = param_get_int(ps, "NumWriters");
+        All.IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
         All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
         All.IO.AggregatedIOThreshold = param_get_int(ps, "AggregatedIOThreshold");
         All.IO.EnableAggregatedIO = param_get_int(ps, "EnableAggregatedIO");
