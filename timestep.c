@@ -14,6 +14,7 @@
 #include "endrun.h"
 #include "system.h"
 #include "timestep.h"
+#include "kspace-neutrinos/interface_common.h"
 
 /*! \file timestep.c
  *  \brief routines for 'kicking' particles in
@@ -570,11 +571,11 @@ get_long_range_timestep_dloga()
                 ) {
                 omega = All.CP.OmegaBaryon;
             }
-            /* Neutrinos are counted here as CDM. They should be counted separately!
-             * In practice usually FastParticleType == 2
-             * so this doesn't matter. Also the neutrinos
-             * are either Way Too Fast, or basically CDM anyway. */
-            else {
+            /* In practice usually FastParticleType == 2
+             * so this doesn't matter. */
+            else if (type == 2) {
+                omega = OmegaNu(1);
+            } else {
                 omega = All.CP.OmegaCDM;
             }
             /* "Avg. radius" of smallest particle: (min_mass/total_mass)^1/3 */
