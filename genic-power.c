@@ -336,7 +336,7 @@ double sigma2_int(double k, void * params)
     return 0;
 
   w = 3 * (sin(kr) / kr3 - cos(kr) / kr2);
-  x = 4 * PI * k * k * w * w * PowerSpec(k);
+  x = 4 * PI / (2 * PI * 2 * PI * 2 * PI) * k * k * w * w * PowerSpec(k);
 
   return x;
 

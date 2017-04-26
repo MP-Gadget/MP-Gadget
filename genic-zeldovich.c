@@ -203,7 +203,7 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
     }
     gsl_rng_free(random_generator_seed);
 
-    double fac = pow(2 * PI / Box, 1.5);
+    double fac = pow(1.0 / Box, 1.5);
     for(i = region->offset[2]; i < region->offset[2] + region->size[2]; i ++) {
         gsl_rng * random_generator0 = gsl_rng_alloc(gsl_rng_ranlxd1);
         gsl_rng * random_generator1 = gsl_rng_alloc(gsl_rng_ranlxd1);
