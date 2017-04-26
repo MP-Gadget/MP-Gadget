@@ -137,6 +137,11 @@ void read_power_table(void)
         {
             if(fscanf(fd, " %lg %lg ", &k, &p) == 2)
             {
+                if (!InputInLog10) {
+                    k = log10(k);
+                    p = log10(p);
+                }
+
                 k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
                 PowerTable[i].logk = k;
 
@@ -170,41 +175,45 @@ int compare_logk(const void *a, const void *b)
 
 void initialize_powerspectrum(void)
 {
-  double res;
+    double res;
 
-  InitTime = 1 / (1 + Redshift);
+    InitTime = 1 / (1 + Redshift);
 
-  AA = 6.4 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-  BB = 3.0 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-  CC = 1.7 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-  nu = 1.13;
+    AA = 6.4 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
+    BB = 3.0 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
+    CC = 1.7 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
+    nu = 1.13;
 
-  R8 = 8 * (3.085678e24 / UnitLength_in_cm);	/* 8 Mpc/h */
+    R8 = 8 * (3.085678e24 / UnitLength_in_cm);	/* 8 Mpc/h */
 
-  if(WhichSpectrum == 2)
-    read_power_table();
+    if(WhichSpectrum == 2)
+        read_power_table();
 
 #ifdef DIFFERENT_TRANSFER_FUNC
-  Type = 1;
+    Type = 1;
 #endif
 
-  Norm = 1.0;
-  res = TopHatSigma2(R8);
+    Norm = 1.0;
+    res = TopHatSigma2(R8);
 
-  if(ThisTask == 0 && WhichSpectrum == 2)
-    printf("\nNormalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
+    if(Sigma8 > 0) {
+        if(ThisTask == 0 && WhichSpectrum == 2)
+            printf("\nNormalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
 
-  if(ThisTask == 0 && WhichSpectrum == 1)
-    printf("\nNormalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
+        if(ThisTask == 0 && WhichSpectrum == 1)
+            printf("\nNormalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
 
-  Norm = Sigma8 * Sigma8 / res;
+        Norm = Sigma8 * Sigma8 / res;
 
-  if(ThisTask == 0 && WhichSpectrum == 2)
-    printf("Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n\n", Sigma8, Norm);
+        if(ThisTask == 0 && WhichSpectrum == 2)
+            printf("Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n\n", Sigma8, Norm);
 
-  if(ThisTask == 0 && WhichSpectrum == 1)
-    printf("Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n\n", Sigma8, Norm);
-
+        if(ThisTask == 0 && WhichSpectrum == 1)
+            printf("Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n\n", Sigma8, Norm);
+    } else {
+        if(ThisTask == 0 && WhichSpectrum == 1)
+            printf("Normalization is Sigma8=%g   (Normfac=%g)\n\n", res, Norm);
+    }
 }
 
 double PowerSpec_Tabulated(double k)

@@ -21,7 +21,7 @@ extern int      Nmesh, Nsample, Ngrid;
 extern int      SphereMode;
 
 extern char   *  FileWithInputSpectrum;
-
+extern int     InputInLog10;
 extern double   Box;
 extern int   ProduceGas;
 extern int Seed;

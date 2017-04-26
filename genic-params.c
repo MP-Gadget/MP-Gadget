@@ -35,7 +35,7 @@ create_parameters()
     param_declare_double(ps, "OmegaDM_2ndSpecies", 1, 0, "");
     param_declare_double(ps, "HubbleParam", 1, 0, "");
     param_declare_double(ps, "ShapeGamma", 1, 0, "");
-    param_declare_double(ps, "Sigma8", 1, 0, "");
+    param_declare_double(ps, "Sigma8", 1, 0, "Renoramlize Sigma8 to this number if positive");
     param_declare_double(ps, "PrimordialIndex", 1, 0, "Ignored for tabulated input.");
     param_declare_double(ps, "BoxSize", 1, 0, "");
     param_declare_double(ps, "Redshift", 1, 0, "");
@@ -48,6 +48,7 @@ create_parameters()
     param_declare_double(ps, "UnitVelocity_in_cm_per_s", 1, 0, "");
     param_declare_double(ps, "UnitLength_in_cm", 1, 0, ""); 
     param_declare_double(ps, "UnitMass_in_g", 1, 0, "");
+    param_declare_double(ps, "InputInLog10", 1, 1, "Input is Log10 of the k, p");
     param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", 1, 0, "");
     param_declare_int(ps, "WDM_On", 1, 0, "");
     param_declare_int(ps, "WDM_Vtherm_On", 1, 0, "");
@@ -87,6 +88,7 @@ void read_parameterfile(char *fname)
     HubbleParam = param_get_double(ps, "HubbleParam");
     ShapeGamma = param_get_double(ps, "ShapeGamma");
     Sigma8 = param_get_double(ps, "Sigma8");
+    InputInLog10 = param_get_double(ps, "InputInLog10");
     PrimordialIndex = param_get_double(ps, "PrimordialIndex");
     Box = param_get_double(ps, "BoxSize");
     Redshift = param_get_double(ps, "Redshift");
