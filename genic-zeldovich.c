@@ -151,6 +151,7 @@ void displacement_fields() {
 
     if(MimicFastPMIO) {
         /* already for peculiar velocity */
+        message(0, "Producing Peculliar Velocity in the output.\n");
     } else {
         vel_prefac /= sqrt(InitTime);	/* converts to Gadget velocity */
     }
