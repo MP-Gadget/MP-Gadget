@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <stdarg.h>
 
-#include "allvars.h"
 #include "endrun.h"
 
 static double _timestart = -1;
@@ -15,6 +14,8 @@ static double _timestart = -1;
 
 void endrun(int ierr, const char * fmt, ...)
 {
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     if(_timestart < 0) _timestart = MPI_Wtime();
 
     va_list va;
@@ -43,6 +44,9 @@ void endrun(int ierr, const char * fmt, ...)
 
 void message(int ierr, const char * fmt, ...)
 {
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+
     if(_timestart < 0) _timestart = MPI_Wtime();
 
     va_list va;
