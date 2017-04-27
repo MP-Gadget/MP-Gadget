@@ -196,23 +196,14 @@ void initialize_powerspectrum(void)
     Norm = 1.0;
     res = TopHatSigma2(R8);
 
-    if(Sigma8 > 0) {
-        if(ThisTask == 0 && WhichSpectrum == 2)
-            printf("\nNormalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
+    message(0, "Normalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
 
-        if(ThisTask == 0 && WhichSpectrum == 1)
-            printf("\nNormalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
+    if(Sigma8 > 0) {
+        message(0, "Normalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
 
         Norm = Sigma8 * Sigma8 / res;
 
-        if(ThisTask == 0 && WhichSpectrum == 2)
-            printf("Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n\n", Sigma8, Norm);
-
-        if(ThisTask == 0 && WhichSpectrum == 1)
-            printf("Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n\n", Sigma8, Norm);
-    } else {
-        if(ThisTask == 0 && WhichSpectrum == 1)
-            printf("Normalization is Sigma8=%g   (Normfac=%g)\n\n", res, Norm);
+        message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n", Sigma8, Norm);
     }
 }
 

@@ -19,6 +19,7 @@ extern double MaxMemoryPerCore;
 extern int      Nmesh, Nsample, Ngrid;
 
 extern int      SphereMode;
+extern int MimicFastPMIO;
 
 extern char   *  FileWithInputSpectrum;
 extern int     InputInLog10;

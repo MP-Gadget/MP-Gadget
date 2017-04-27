@@ -8,6 +8,7 @@
 #include "genic-proto.h"
 #include "walltime.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 static struct ClockTable CT;
 
@@ -55,12 +56,9 @@ int main(int argc, char **argv)
 
   walltime_summary(0, MPI_COMM_WORLD);
   walltime_report(stdout, 0, MPI_COMM_WORLD);
-  if(ThisTask == 0)
-    {
-      printf("\nIC's generated.\n\n");
-      printf("Initial scale factor = %g\n", InitTime);
-      printf("\n");
-    }
+
+      message(0, "IC's generated.\n");
+      message(0, "Initial scale factor = %g\n", InitTime);
 
   MPI_Barrier(MPI_COMM_WORLD);
   print_spec();

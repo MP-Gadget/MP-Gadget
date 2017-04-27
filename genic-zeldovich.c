@@ -10,6 +10,7 @@
 #include "genic-allvars.h"
 #include "genic-proto.h"
 #include "walltime.h"
+#include "endrun.h"
 
 #define MESH2K(i) petapm_mesh_to_k(i)
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);
@@ -141,19 +142,20 @@ void displacement_fields() {
     }
     double maxdispall;
     MPI_Reduce(&maxdisp, &maxdispall, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    if(ThisTask == 0) {
-        printf("max disp = %g in units of cell sep %g \n", maxdispall, maxdispall / (Box / Nmesh) );
-    }
+    message(0, "max disp = %g in units of cell sep %g \n", maxdispall, maxdispall / (Box / Nmesh) );
 
     double hubble_a =
         Hubble * sqrt(Omega / pow(InitTime, 3) + (1 - Omega - OmegaLambda) / pow(InitTime, 2) + OmegaLambda);
 
     double vel_prefac = InitTime * hubble_a * F_Omega(InitTime);
 
-    vel_prefac /= sqrt(InitTime);	/* converts to Gadget velocity */
+    if(MimicFastPMIO) {
+        /* already for peculiar velocity */
+    } else {
+        vel_prefac /= sqrt(InitTime);	/* converts to Gadget velocity */
+    }
+    message(0, "vel_prefac= %g  hubble_a=%g fom=%g \n", vel_prefac, hubble_a, F_Omega(InitTime));
 
-    if(ThisTask == 0)
-        printf("vel_prefac= %g  hubble_a=%g fom=%g \n", vel_prefac, hubble_a, F_Omega(InitTime));
     for(i = 0; i < NumPart; i++)
     {
         int k;

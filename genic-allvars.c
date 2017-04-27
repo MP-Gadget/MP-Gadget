@@ -14,7 +14,7 @@ int InputInLog10;
 double Box;
 int ProduceGas;
 int Seed;
-
+int MimicFastPMIO;
 int NumPart;
 double MaxMemoryPerCore;
 

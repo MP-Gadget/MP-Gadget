@@ -209,6 +209,7 @@ petaio_read_snapshot(int num)
          *  entropy.
          * */
         petaio_read_internal(fname, 1);
+
         int i;
         /* touch up the mass -- IC files save mass in header */
         for(i = 0; i < NumPart; i++)
@@ -216,12 +217,17 @@ petaio_read_snapshot(int num)
             P[i].Mass = All.MassTable[P[i].Type];
         }
 
-        #pragma omp parallel for
-        for(i = 0; i < NumPart; i++) {
-            int k;
-            /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
-            for(k = 0; k < 3; k++)
-                P[i].Vel[k] *= sqrt(All.cf.a) * All.cf.a;
+        if (!All.IO.MimicFastPMIO ) {
+
+            /* fixing the unit of velocity from Legacy GenIC IC */
+            #pragma omp parallel for
+            for(i = 0; i < NumPart; i++) {
+                int k;
+                /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
+                for(k = 0; k < 3; k++)
+                    P[i].Vel[k] *= sqrt(All.cf.a) * All.cf.a;
+            }
+
         }
     } else {
         fname = fastpm_strdup_printf("%s/PART_%03d", All.OutputDir, num);
