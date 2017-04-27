@@ -246,12 +246,20 @@ static void petaio_write_header(BigFile * bf) {
                 big_file_get_error_message());
     }
 
+    /* conversion from peculiar velocity to RSD */
+    double RSD = 1.0 / (All.cf.a * All.cf.hubble);
+
+    if(!All.IO.MimicFastPMIO) {
+        RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
+    }
+
     if( 
     (0 != big_block_set_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
     (0 != big_block_set_attr(&bh, "Time", &All.Time, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1)) ||
@@ -587,7 +595,33 @@ void io_register_io_block(char * name,
 }
 
 SIMPLE_PROPERTY(Position, P[i].Pos[0], double, 3)
-SIMPLE_PROPERTY(Velocity, P[i].Vel[0], float, 3)
+static void GTVelocity(int i, float * out) {
+    /* Convert to Peculiar Velocity if MimicFastPMIO is set */
+    double fac;
+    if (All.IO.MimicFastPMIO) {
+        fac = 1.0 / All.cf.a;
+    } else {
+        fac = 1.0;
+    }
+
+    int d;
+    for(d = 0; d < 3; d ++) {
+        out[d] = fac * P[i].Vel[d];
+    }
+}
+static void STVelocity(int i, float * out) {
+    double fac;
+    if (All.IO.MimicFastPMIO) {
+        fac = All.cf.a;
+    } else {
+        fac = 1.0;
+    }
+
+    int d;
+    for(d = 0; d < 3; d ++) {
+        P[i].Vel[d] = out[d] * fac;
+    }
+}
 SIMPLE_PROPERTY(Mass, P[i].Mass, float, 1)
 SIMPLE_PROPERTY(ID, P[i].ID, uint64_t, 1)
 SIMPLE_PROPERTY(Generation, P[i].Generation, unsigned char, 1)
