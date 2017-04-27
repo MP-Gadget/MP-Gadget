@@ -32,14 +32,7 @@ void init(int RestartSnapNum)
 {
     int i, j;
 
-    switch(RestartSnapNum) {
-        case -1:
-            petaio_read_ic();
-            break;
-        default:
-            petaio_read_snapshot(RestartSnapNum);
-            break;
-    }
+    petaio_read_snapshot(RestartSnapNum);
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();

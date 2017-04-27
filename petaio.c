@@ -13,6 +13,7 @@
 
 #include "petaio.h"
 #include "mymalloc.h"
+#include "utils-string.h"
 #include "endrun.h"
 
 /*Defined in fofpetaio.c and only used here*/
@@ -28,7 +29,7 @@ void fof_register_io_blocks();
 struct IOTable IOTable = {0};
 
 static void petaio_write_header(BigFile * bf);
-static void petaio_read_header(BigFile * bf);
+static void petaio_read_header_internal(BigFile * bf);
 
 static void register_io_blocks();
 
@@ -113,7 +114,6 @@ void petaio_read_internal(char * fname, int ic) {
         endrun(0, "Failed to open snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
-    petaio_read_header(&bf); 
 
     allocate_memory();
 
@@ -170,44 +170,67 @@ void petaio_read_internal(char * fname, int ic) {
         }
     }
 }
+void
+petaio_read_header(int num)
+{
+    BigFile bf = {0};
 
+    char * fname;
+    if(num == -1) {
+        fname = fastpm_strdup_printf("%s", All.InitCondFile);
+    } else {
+        fname = fastpm_strdup_printf("%s/PART_%03d", All.OutputDir, num);
+    }
+    message(0, "Probing Header of snapshot file: %s\n", fname);
 
-void petaio_read_snapshot(int num) {
-    char fname[4096];
-    sprintf(fname, "%s/PART_%03d", All.OutputDir, num);
+    if(0 != big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
+        endrun(0, "Failed to open snapshot at %s:%s\n", fname,
+                    big_file_get_error_message());
+    }
 
-    /* 
-     * we always save the Entropy, notify init.c not to mess with the entropy
-     * */
-    petaio_read_internal(fname, 0);
+    petaio_read_header_internal(&bf);
+
+    if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)) {
+        endrun(0, "Failed to close snapshot at %s:%s\n", fname,
+                    big_file_get_error_message());
+    }
+    free(fname);
 }
 
-/* Notice that IC follows the Gadget-1/2 unit, but snapshots use
- * internal units. Old code converts at init.c; we now convert 
- * here in read_ic.
- * */
-void petaio_read_ic() {
-    int i;
-    /* 
-     *  IC doesn't have entropy or energy; always use the
-     *  InitTemp in paramfile, then use init.c to convert to
-     *  entropy.
-     * */
-    petaio_read_internal(All.InitCondFile, 1);
+void
+petaio_read_snapshot(int num)
+{
+    char * fname;
+    if(num == -1) {
+        fname = fastpm_strdup_printf("%s", All.InitCondFile);
+        /* 
+         *  IC doesn't have entropy or energy; always use the
+         *  InitTemp in paramfile, then use init.c to convert to
+         *  entropy.
+         * */
+        petaio_read_internal(fname, 1);
+        int i;
+        /* touch up the mass -- IC files save mass in header */
+        for(i = 0; i < NumPart; i++)
+        {
+            P[i].Mass = All.MassTable[P[i].Type];
+        }
 
-    /* touch up the mass -- IC files save mass in header */
-    for(i = 0; i < NumPart; i++)
-    {
-        P[i].Mass = All.MassTable[P[i].Type];
+        #pragma omp parallel for
+        for(i = 0; i < NumPart; i++) {
+            int k;
+            /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
+            for(k = 0; k < 3; k++)
+                P[i].Vel[k] *= sqrt(All.cf.a) * All.cf.a;
+        }
+    } else {
+        fname = fastpm_strdup_printf("%s/PART_%03d", All.OutputDir, num);
+        /*
+         * we always save the Entropy, init.c will not mess with the entropy
+         * */
+        petaio_read_internal(fname, 0);
     }
-
-#pragma omp parallel for
-    for(i = 0; i < NumPart; i++) {
-        int k;
-        /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
-        for(k = 0; k < 3; k++)
-            P[i].Vel[k] *= sqrt(All.cf.a) * All.cf.a;
-    }
+    free(fname);
 }
 
 
@@ -248,8 +271,17 @@ static void petaio_write_header(BigFile * bf) {
                     big_file_get_error_message());
     }
 }
-
-static void petaio_read_header(BigFile * bf) {
+static double
+_get_attr_double(BigBlock * bh, char * name, double def)
+{
+    double foo;
+    if(0 != big_block_get_attr(bh, name, &foo, "f8", 1)) {
+        foo = def;
+    }
+    return foo;
+}
+static void
+petaio_read_header_internal(BigFile * bf) {
     BigBlock bh = {0};
     if(0 != big_file_mpi_open_block(bf, &bh, "Header", MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
@@ -261,11 +293,28 @@ static void petaio_read_header(BigFile * bf) {
     if(
     (0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
-    (0 != big_block_get_attr(&bh, "Time", &Time, "f8", 1)) ||
-    (0 != big_block_get_attr(&bh, "BoxSize", &BoxSize, "f8", 1))) {
+    (0 != big_block_get_attr(&bh, "Time", &Time, "f8", 1))
+    ) {
         endrun(0, "Failed to read attr: %s\n",
                     big_file_get_error_message());
     }
+
+    if (All.BoxSize <= 0) {
+        All.BoxSize = _get_attr_double(&bh, "BoxSize", 0);
+    } else {
+        if(fabs(All.BoxSize - _get_attr_double(&bh, "BoxSize", 0)) / All.BoxSize > 1e-5) {
+            endrun(0, "BoxSize mismatch, ParamFile has %g, Snapshot has %g\n", All.BoxSize, _get_attr_double(&bh, "BoxSize", 0));
+        }
+    }
+    /* fall back to traditional MP-Gadget Units if not given in the snapshot file. */
+    All.UnitVelocity_in_cm_per_s = _get_attr_double(&bh, "UnitVelocity_in_cm_per_s", 1e5); /* 1 km/sec */
+
+    if (All.IO.MimicFastPMIO) {
+        All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e24); /* 1.0 Mpc /h */
+    } else {
+        All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
+    }
+    All.UnitMass_in_g = _get_attr_double(&bh, "UnitMass_in_g", 1.989e43); /* 1e10 Msun/h */
 
     int64_t TotNumPart = 0;
     for(ptype = 0; ptype < 6; ptype ++) {
@@ -278,9 +327,6 @@ static void petaio_read_header(BigFile * bf) {
     message(0, "Total number of star particles: %018ld\n", NTotal[4]);
     message(0, "Total number of bh particles: %018ld\n", NTotal[5]);
 
-    if(fabs(BoxSize - All.BoxSize) / All.BoxSize > 1e-6) {
-        endrun(0, "BoxSize mismatch %g, snapfile has %g\n", All.BoxSize, BoxSize);
-    }
     /*FIXME: check others as well */
     /*
     big_block_get_attr(&bh, "OmegaLambda", &All.OmegaLambda, "f8", 1);
