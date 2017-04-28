@@ -287,6 +287,7 @@ set_units(void)
 
     message(0, "Hubble (internal units) = %g\n", All.Hubble);
     message(0, "G (internal units) = %g\n", All.G);
+    message(0, "UnitLengh_in_cm = %g \n", All.UnitLength_in_cm);
     message(0, "UnitMass_in_g = %g \n", All.UnitMass_in_g);
     message(0, "UnitTime_in_s = %g \n", All.UnitTime_in_s);
     message(0, "UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);

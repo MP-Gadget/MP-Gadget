@@ -314,14 +314,8 @@ petaio_read_header_internal(BigFile * bf) {
     }
 
     All.TimeInit = Time;
+    All.BoxSize = _get_attr_double(&bh, "BoxSize", 0);
 
-    if (All.BoxSize <= 0) {
-        All.BoxSize = _get_attr_double(&bh, "BoxSize", 0);
-    } else {
-        if(fabs(All.BoxSize - _get_attr_double(&bh, "BoxSize", 0)) / All.BoxSize > 1e-5) {
-            endrun(0, "BoxSize mismatch, ParamFile has %g, Snapshot has %g\n", All.BoxSize, _get_attr_double(&bh, "BoxSize", 0));
-        }
-    }
     /* fall back to traditional MP-Gadget Units if not given in the snapshot file. */
     All.UnitVelocity_in_cm_per_s = _get_attr_double(&bh, "UnitVelocity_in_cm_per_s", 1e5); /* 1 km/sec */
 

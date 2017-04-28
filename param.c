@@ -135,7 +135,6 @@ create_gadget_parameter_set()
     param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "");
     param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "");
     param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "");
-    param_declare_double(ps, "BoxSize", OPTIONAL, 0, "BoxSize, default is to read from the snapshot file. ");
 
     param_declare_int(ps,    "MaxMemSizePerNode", OPTIONAL, 0.8 * get_physmem_bytes() / (1024 * 1024), "Preallocate this much memory MB per computing node/ host. Default is 80\% of total physical mem per node. ");
     param_declare_double(ps, "CpuTimeBetRestartFile", REQUIRED, 0, "");
@@ -351,8 +350,6 @@ void read_parameter_file(char *fname)
         All.CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
         All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
-
-        All.BoxSize = param_get_double(ps, "BoxSize");
 
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
         All.MaxMemSizePerNode = param_get_int(ps, "MaxMemSizePerNode");
