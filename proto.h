@@ -15,8 +15,6 @@ void write_cpu_log(void);
 void do_the_kick(int i, int tstart, int tend, int tcurrent);
 
 
-void x86_fix(void) ;
-
 void blackhole(void);
 void blackhole_make_one(int index);
 
@@ -155,4 +153,5 @@ void lightcone_init(double timeBegin);
 void lightcone_cross(int p, double oldpos[3]);
 void lightcone_set_time(double a);
 #endif
+
 #endif //PROTO_H

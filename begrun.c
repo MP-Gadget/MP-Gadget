@@ -19,6 +19,7 @@
 #include "mymalloc.h"
 #include "endrun.h"
 #include "utils-string.h"
+#include "system.h"
 
 /*! \file begrun.c
  *  \brief initial set-up of a simulation run
@@ -41,9 +42,8 @@ open_outputfiles(int RestartsnapNum);
 void begrun(int BeginFlag, int RestartSnapNum)
 {
 
-    /* n is aligned*/
-    size_t n = All.MaxMemSizePerCore * All.NumThreads * ((size_t) 1024 * 1024);
-
+    int Nhost = cluster_get_num_hosts();
+    size_t n = 1.0 * All.MaxMemSizePerNode * (1.0 * Nhost / NTask) * 1024 * 1024;
     mymalloc_init(n);
     walltime_init(&All.CT);
     petaio_init();

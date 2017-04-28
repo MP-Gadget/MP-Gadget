@@ -5,6 +5,7 @@
 #include "allvars.h"
 #include "endrun.h"
 #include "paramset.h"
+#include "system.h"
 #include "densitykernel.h"
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
@@ -138,7 +139,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "");
     param_declare_double(ps, "BoxSize", REQUIRED, 32000, "");
 
-    param_declare_int(ps,    "MaxMemSizePerCore", OPTIONAL, 1200, "");
+    param_declare_int(ps,    "MaxMemSizePerNode", OPTIONAL, 0.8 * get_physmem_bytes() / (1024 * 1024), "Preallocate this much memory MB per computing node/ host. Default is 80\% of total physical mem per node. ");
     param_declare_double(ps, "CpuTimeBetRestartFile", REQUIRED, 0, "");
 
     param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "");
@@ -354,7 +355,7 @@ void read_parameter_file(char *fname)
         All.BoxSize = param_get_double(ps, "BoxSize");
 
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
-        All.MaxMemSizePerCore = param_get_int(ps, "MaxMemSizePerCore");
+        All.MaxMemSizePerNode = param_get_int(ps, "MaxMemSizePerNode");
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
 
         All.TimeBegin = -1.0; /* no longer need TimeBegin; always use IC or snapshot */

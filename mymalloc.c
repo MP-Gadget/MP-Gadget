@@ -53,14 +53,17 @@ void mymalloc_init(size_t limit)
 
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+
     /* n is aligned*/
     n = align_size(limit) + ALIGNMENT;
+
+    message(0, "Researving %g MB of memory per rank\n", 1.0 * n / (1024. * 1024));
 
 #ifndef VALGRIND
     /* extra space for aligning Base */
     if(!(Base = malloc(n)))
     {
-        endrun(122, "Failed to allocate memory for `Base' (%d Mbytes).\n", n / (1024. * 1024));
+        endrun(122, "Failed to allocate memory for `Base' (%g Mbytes).\n", n / (1024. * 1024));
     }
     Base = (char*) align_size((size_t) Base);
 #else

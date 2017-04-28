@@ -366,3 +366,87 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
 
     return 0;
 }
+
+int
+cluster_get_hostid()
+{
+    /* Find a unique hostid for the computing rank. */
+    char hostname[1024];
+    int i;
+    gethostname(hostname, 1024);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    int l = strlen(hostname) + 4;
+    int ml = 0;
+    int NTask;
+    int ThisTask;
+    char * buffer;
+    int * nid;
+    MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    MPI_Allreduce(&l, &ml, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    
+    buffer = malloc(ml * NTask);
+    nid = malloc(sizeof(int) * NTask);
+    MPI_Allgather(hostname, ml, MPI_BYTE, buffer, ml, MPI_BYTE, MPI_COMM_WORLD);
+
+    typedef int(*compar_fn)(const void *, const void *);
+    qsort(buffer, NTask, ml, (compar_fn) strcmp);
+    
+    nid[0] = 0;
+    for(i = 1; i < NTask; i ++) {
+        if(strcmp(buffer + i * ml, buffer + (i - 1) *ml)) {
+            nid[i] = nid[i - 1] + 1;
+        } else {
+            nid[i] = nid[i - 1];
+        }
+    }
+    for(i = 0; i < NTask; i ++) {
+        if(!strcmp(hostname, buffer + i * ml)) {
+            break;
+        }
+    }
+    int rt = nid[i];
+    free(buffer);
+    free(nid);
+    MPI_Barrier(MPI_COMM_WORLD);
+    return rt;
+}
+
+int
+cluster_get_num_hosts()
+{
+    /* return the number of hosts */
+    int id = cluster_get_hostid();
+    int maxid;
+    MPI_Allreduce(&id, &maxid, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    return maxid + 1;
+}
+
+double
+get_physmem_bytes()
+{
+#if defined _SC_PHYS_PAGES && defined _SC_PAGESIZE
+    { /* This works on linux-gnu, solaris2 and cygwin.  */
+        double pages = sysconf (_SC_PHYS_PAGES);
+        double pagesize = sysconf (_SC_PAGESIZE);
+        if (0 <= pages && 0 <= pagesize)
+            return pages * pagesize;
+    }
+#endif
+
+#if defined HW_PHYSMEM
+    { /* This works on *bsd and darwin.  */
+        unsigned int physmem;
+        size_t len = sizeof physmem;
+        static int mib[2] = { CTL_HW, HW_PHYSMEM };
+
+        if (sysctl (mib, ARRAY_SIZE (mib), &physmem, &len, NULL, 0) == 0
+                && len == sizeof (physmem))
+            return (double) physmem;
+    }
+#endif
+    return 64 * 1024 * 1024;
+}
+
