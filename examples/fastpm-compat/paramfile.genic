@@ -21,7 +21,6 @@ MimicFastPMIO = 1
 
 
 FileWithInputSpectrum = planck_camb_56106182_matterpower_z0.dat  # filename of tabulated input
-InputInLog10 = 0
 InputSpectrum_UnitLength_in_cm = 3.085678e24 # defines length unit of tabulated
 
 Seed = 181170    #  seed for IC-generator
