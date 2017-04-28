@@ -65,6 +65,9 @@ void begrun(int BeginFlag, int RestartSnapNum)
     init_clouds();
 #endif
 
+    /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
+    set_global_time(All.TimeBegin);
+
     random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
     gsl_rng_set(random_generator, 42);	/* start-up seed */
@@ -77,10 +80,6 @@ void begrun(int BeginFlag, int RestartSnapNum)
     set_random_numbers();
 
     init(RestartSnapNum);			/* ... read in initial model */
-
-    /* All.Time is initialized after init*/
-    /* Decide TimeBegin */
-    All.TimeBegin = All.Time;
 
     if(BeginFlag >= 3) {
         return;

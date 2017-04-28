@@ -313,6 +313,8 @@ petaio_read_header_internal(BigFile * bf) {
                     big_file_get_error_message());
     }
 
+    All.TimeBegin = Time;
+
     if (All.BoxSize <= 0) {
         All.BoxSize = _get_attr_double(&bh, "BoxSize", 0);
     } else {
@@ -385,11 +387,6 @@ petaio_read_header_internal(BigFile * bf) {
     if(NumPart >= All.MaxPart) {
         endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
     }
-
-
-
-    /* Important to set the global time here because it affects the GT functions. */
-    set_global_time(Time);
 }
 
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize) {
