@@ -358,7 +358,6 @@ void read_parameter_file(char *fname)
         All.MaxMemSizePerNode = param_get_int(ps, "MaxMemSizePerNode");
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
 
-        All.TimeBegin = -1.0; /* no longer need TimeBegin; always use IC or snapshot */
         All.TimeMax = param_get_double(ps, "TimeMax");
         All.TreeDomainUpdateFrequency = param_get_double(ps, "TreeDomainUpdateFrequency");
         All.ErrTolTheta = param_get_double(ps, "ErrTolTheta");

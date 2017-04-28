@@ -52,7 +52,6 @@ create_parameters()
     param_declare_double(ps, "UnitVelocity_in_cm_per_s", REQUIRED, 0, "");
     param_declare_double(ps, "UnitLength_in_cm", REQUIRED, 0, ""); 
     param_declare_double(ps, "UnitMass_in_g", REQUIRED, 0, "");
-    param_declare_double(ps, "InputInLog10", OPTIONAL, 1, "Input is Log10 of the k, p if True");
     param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", REQUIRED, 0, "");
     param_declare_int(ps, "WDM_On", REQUIRED, 0, "");
     param_declare_int(ps, "WDM_Vtherm_On", REQUIRED, 0, "");
@@ -93,7 +92,6 @@ void read_parameterfile(char *fname)
     MimicFastPMIO = param_get_int(ps, "MimicFastPMIO");
     ShapeGamma = param_get_double(ps, "ShapeGamma");
     Sigma8 = param_get_double(ps, "Sigma8");
-    InputInLog10 = param_get_double(ps, "InputInLog10");
     PrimordialIndex = param_get_double(ps, "PrimordialIndex");
     Box = param_get_double(ps, "BoxSize");
     Redshift = param_get_double(ps, "Redshift");

@@ -9,7 +9,6 @@ int Nmesh, Nsample, Ngrid;
 
 
 char * FileWithInputSpectrum;
-int InputInLog10;
 
 double Box;
 int ProduceGas;

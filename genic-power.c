@@ -96,6 +96,7 @@ void read_power_table(void)
     char buf[500];
     double k, p;
 
+    int InputInLog10 = 0;
 
     strcpy(buf, FileWithInputSpectrum);
 
@@ -108,9 +109,13 @@ void read_power_table(void)
         NPowerTable = 0;
         do
         {
-            if(fscanf(fd, " %lg %lg ", &k, &p) == 2)
+            if(fscanf(fd, " %lg %lg ", &k, &p) == 2) {
+                if(k < 0 && ! InputInLog10) {
+                    message(1, "some input k is negative, guessing the file is in log10 units\n");
+                    InputInLog10 = 1;
+                }
                 NPowerTable++;
-            else
+            } else
                 break;
         }
         while(1);

@@ -22,7 +22,6 @@ extern int      SphereMode;
 extern int MimicFastPMIO;
 
 extern char   *  FileWithInputSpectrum;
-extern int     InputInLog10;
 extern double   Box;
 extern int   ProduceGas;
 extern int Seed;
