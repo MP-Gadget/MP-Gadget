@@ -263,7 +263,7 @@ void find_next_sync_point_and_drift(int with_fof)
 
         double nexttime;
 
-        nexttime = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
+        nexttime = All.TimeInit * exp(All.Ti_Current * All.Timebase_interval);
 
         set_global_time(nexttime);
 
@@ -278,7 +278,7 @@ void find_next_sync_point_and_drift(int with_fof)
 
     double nexttime;
 
-    nexttime = All.TimeBegin * exp(All.Ti_Current * All.Timebase_interval);
+    nexttime = All.TimeInit * exp(All.Ti_Current * All.Timebase_interval);
 
     set_global_time(nexttime);
 
@@ -413,9 +413,9 @@ int find_next_outputtime(int ti_curr)
     {
         const double time = All.OutputListTimes[i];
 
-        if(time >= All.TimeBegin && time <= All.TimeMax)
+        if(time >= All.TimeInit && time <= All.TimeMax)
         {
-            const int ti = (int) (log(time / All.TimeBegin) / All.Timebase_interval);
+            const int ti = (int) (log(time / All.TimeInit) / All.Timebase_interval);
 
             if(ti >= ti_curr)
             {
@@ -433,7 +433,7 @@ int find_next_outputtime(int ti_curr)
     }
     else
     {
-        const double next = All.TimeBegin * exp(ti_next * All.Timebase_interval);
+        const double next = All.TimeInit * exp(ti_next * All.Timebase_interval);
 
         message(0, "Setting next time for snapshot file to Time_next= %g \n", next);
 

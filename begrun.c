@@ -66,7 +66,7 @@ void begrun(int BeginFlag, int RestartSnapNum)
 #endif
 
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
-    set_global_time(All.TimeBegin);
+    set_global_time(All.TimeInit);
 
     random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 

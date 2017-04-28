@@ -36,7 +36,7 @@ create_parameters()
     param_declare_double(ps, "OmegaBaryon", REQUIRED, 0, "");
     param_declare_int(ps,    "ProduceGas", REQUIRED, 0, "");
     param_declare_double(ps, "OmegaDM_2ndSpecies", REQUIRED, 0, "");
-    param_declare_int(ps, "MimicFastPMIO", OPTIONAL, 0, "Write a IC similiar to a FastPM output");
+    param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Write a IC similiar to a FastPM output");
     param_declare_double(ps, "HubbleParam", REQUIRED, 0, "");
     param_declare_double(ps, "ShapeGamma", OPTIONAL, 0.201, "");
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renoramlize Sigma8 to this number if positive");
@@ -89,7 +89,7 @@ void read_parameterfile(char *fname)
     ProduceGas = param_get_int(ps, "ProduceGas");
     OmegaDM_2ndSpecies = param_get_double(ps, "OmegaDM_2ndSpecies");
     HubbleParam = param_get_double(ps, "HubbleParam");
-    MimicFastPMIO = param_get_int(ps, "MimicFastPMIO");
+    UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
     ShapeGamma = param_get_double(ps, "ShapeGamma");
     Sigma8 = param_get_double(ps, "Sigma8");
     PrimordialIndex = param_get_double(ps, "PrimordialIndex");

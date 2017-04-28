@@ -149,7 +149,7 @@ void displacement_fields() {
 
     double vel_prefac = InitTime * hubble_a * F_Omega(InitTime);
 
-    if(MimicFastPMIO) {
+    if(UsePeculiarVelocity) {
         /* already for peculiar velocity */
         message(0, "Producing Peculliar Velocity in the output.\n");
     } else {

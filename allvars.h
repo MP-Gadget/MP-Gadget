@@ -303,6 +303,8 @@ extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
 extern struct global_data_all_processes
 {
     int64_t TotNumPartInit; /* The initial total number of particles; we probably want to get rid of all references to this. */
+    double TimeInit;		/* time of initial conditions of the simulation */
+
     int NumThreads;     /* number of threads used to simulate OpenMP tls */
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
                               processor. */
@@ -320,7 +322,7 @@ extern struct global_data_all_processes
         int MinNumWriters;        /* Min Number of concurrent writers, this caps number of writers */
         int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
         size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
-        int MimicFastPMIO;
+        int UsePeculiarVelocity;
     } IO;
 
     double BufferSize;		/*!< size of communication buffer in MB */
@@ -408,7 +410,6 @@ extern struct global_data_all_processes
     /* Current time of the simulation, global step, and end of simulation */
 
     double Time,			/*!< current time of the simulation */
-           TimeBegin,			/*!< time of initial conditions of the simulation */
            TimeStep,			/*!< difference between current times of previous and current timestep */
            TimeMax;			/*!< marks the point of time until the simulation is to be evolved */
 
@@ -582,7 +583,7 @@ extern struct global_data_all_processes
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
     double TimeNextSeedingCheck;  /*Time for the next seed check.*/
-    double TimeBetweenSeedingSearch; /*Factor to multiply TimeBegin by to find the next seeding check.*/
+    double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 
 }
 All;

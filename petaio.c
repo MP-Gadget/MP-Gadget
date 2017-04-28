@@ -217,7 +217,7 @@ petaio_read_snapshot(int num)
             P[i].Mass = All.MassTable[P[i].Type];
         }
 
-        if (!All.IO.MimicFastPMIO ) {
+        if (!All.IO.UsePeculiarVelocity ) {
 
             /* fixing the unit of velocity from Legacy GenIC IC */
             #pragma omp parallel for
@@ -255,7 +255,7 @@ static void petaio_write_header(BigFile * bf) {
     /* conversion from peculiar velocity to RSD */
     double RSD = 1.0 / (All.cf.a * All.cf.hubble);
 
-    if(!All.IO.MimicFastPMIO) {
+    if(!All.IO.UsePeculiarVelocity) {
         RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
     }
 
@@ -313,7 +313,7 @@ petaio_read_header_internal(BigFile * bf) {
                     big_file_get_error_message());
     }
 
-    All.TimeBegin = Time;
+    All.TimeInit = Time;
 
     if (All.BoxSize <= 0) {
         All.BoxSize = _get_attr_double(&bh, "BoxSize", 0);
@@ -325,11 +325,7 @@ petaio_read_header_internal(BigFile * bf) {
     /* fall back to traditional MP-Gadget Units if not given in the snapshot file. */
     All.UnitVelocity_in_cm_per_s = _get_attr_double(&bh, "UnitVelocity_in_cm_per_s", 1e5); /* 1 km/sec */
 
-    if (All.IO.MimicFastPMIO) {
-        All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e24); /* 1.0 Mpc /h */
-    } else {
-        All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
-    }
+    All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
     All.UnitMass_in_g = _get_attr_double(&bh, "UnitMass_in_g", 1.989e43); /* 1e10 Msun/h */
 
     int64_t TotNumPart = 0;
@@ -599,9 +595,9 @@ void io_register_io_block(char * name,
 
 SIMPLE_PROPERTY(Position, P[i].Pos[0], double, 3)
 static void GTVelocity(int i, float * out) {
-    /* Convert to Peculiar Velocity if MimicFastPMIO is set */
+    /* Convert to Peculiar Velocity if UsePeculiarVelocity is set */
     double fac;
-    if (All.IO.MimicFastPMIO) {
+    if (All.IO.UsePeculiarVelocity) {
         fac = 1.0 / All.cf.a;
     } else {
         fac = 1.0;
@@ -614,7 +610,7 @@ static void GTVelocity(int i, float * out) {
 }
 static void STVelocity(int i, float * out) {
     double fac;
-    if (All.IO.MimicFastPMIO) {
+    if (All.IO.UsePeculiarVelocity) {
         fac = All.cf.a;
     } else {
         fac = 1.0;

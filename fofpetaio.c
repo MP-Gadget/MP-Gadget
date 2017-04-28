@@ -272,7 +272,7 @@ SIMPLE_PROPERTY(Imom, Group[i].Imom[0][0], float, 9)
 SIMPLE_PROPERTY(Jmom, Group[i].Jmom[0], float, 3)
 static void GTMassCenterVelocity(int i, float * out) {
     double fac;
-    if (All.IO.MimicFastPMIO) {
+    if (All.IO.UsePeculiarVelocity) {
         fac = 1.0 / All.cf.a;
     } else {
         fac = 1.0;
