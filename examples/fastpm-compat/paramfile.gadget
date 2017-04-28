@@ -5,7 +5,7 @@ OutputDir = output
 OutputList = 0.1,0.15, 0.2, 0.299,0.3,0.33333
 SnapshotFileBase = snapshot
 
-MimicFastPMIO = 1
+UsePeculiarVelocity = 1
 
 Nmesh 128
 

@@ -17,7 +17,7 @@ HubbleParam = 0.6774 # Hubble paramater (may be used for power spec parameteriza
 
 Redshift = 9        # Starting redshift
 
-MimicFastPMIO = 1
+UsePeculiarVelocity = 1
 
 
 FileWithInputSpectrum = planck_camb_56106182_matterpower_z0.dat  # filename of tabulated input
