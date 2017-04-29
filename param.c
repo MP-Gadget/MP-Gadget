@@ -187,19 +187,6 @@ create_gadget_parameter_set()
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
 
-    param_declare_double(ps, "SofteningHalo", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningDisk", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningBulge", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningGas", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningStars", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningBndry", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningHaloMaxPhys", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningDiskMaxPhys", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningBulgeMaxPhys", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningGasMaxPhys", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningStarsMaxPhys", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningBndryMaxPhys", REQUIRED, 0, "");
-
     param_declare_double(ps, "BufferSize", OPTIONAL, 100, "");
     param_declare_double(ps, "PartAllocFactor", REQUIRED, 0, "");
     param_declare_double(ps, "TopNodeAllocFactor", OPTIONAL, 0.5, "");
@@ -393,18 +380,6 @@ void read_parameter_file(char *fname)
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.TypeOfOpeningCriterion = param_get_int(ps, "TypeOfOpeningCriterion");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
-        All.SofteningHalo = param_get_double(ps, "SofteningHalo");
-        All.SofteningDisk = param_get_double(ps, "SofteningDisk");
-        All.SofteningBulge = param_get_double(ps, "SofteningBulge");
-        All.SofteningGas = param_get_double(ps, "SofteningGas");
-        All.SofteningStars = param_get_double(ps, "SofteningStars");
-        All.SofteningBndry = param_get_double(ps, "SofteningBndry");
-        All.SofteningHaloMaxPhys= param_get_double(ps, "SofteningHaloMaxPhys");
-        All.SofteningDiskMaxPhys= param_get_double(ps, "SofteningDiskMaxPhys");
-        All.SofteningBulgeMaxPhys= param_get_double(ps, "SofteningBulgeMaxPhys");
-        All.SofteningGasMaxPhys= param_get_double(ps, "SofteningGasMaxPhys");
-        All.SofteningStarsMaxPhys= param_get_double(ps, "SofteningStarsMaxPhys");
-        All.SofteningBndryMaxPhys= param_get_double(ps, "SofteningBndryMaxPhys");
 
         All.BufferSize = param_get_double(ps, "BufferSize");
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");

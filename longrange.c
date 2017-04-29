@@ -52,40 +52,12 @@ void long_range_force(void)
 void set_softenings(void)
 {
     int i;
+    double RelativeSoftening = 1.0 / 32;
 
-    if(All.SofteningGas * All.Time > All.SofteningGasMaxPhys)
-        All.SofteningTable[0] = All.SofteningGasMaxPhys / All.Time;
-    else
-        All.SofteningTable[0] = All.SofteningGas;
-
-    if(All.SofteningHalo * All.Time > All.SofteningHaloMaxPhys)
-        All.SofteningTable[1] = All.SofteningHaloMaxPhys / All.Time;
-    else
-        All.SofteningTable[1] = All.SofteningHalo;
-
-    if(All.SofteningDisk * All.Time > All.SofteningDiskMaxPhys)
-        All.SofteningTable[2] = All.SofteningDiskMaxPhys / All.Time;
-    else
-        All.SofteningTable[2] = All.SofteningDisk;
-
-    if(All.SofteningBulge * All.Time > All.SofteningBulgeMaxPhys)
-        All.SofteningTable[3] = All.SofteningBulgeMaxPhys / All.Time;
-    else
-        All.SofteningTable[3] = All.SofteningBulge;
-
-    if(All.SofteningStars * All.Time > All.SofteningStarsMaxPhys)
-        All.SofteningTable[4] = All.SofteningStarsMaxPhys / All.Time;
-    else
-        All.SofteningTable[4] = All.SofteningStars;
-
-    if(All.SofteningBndry * All.Time > All.SofteningBndryMaxPhys)
-        All.SofteningTable[5] = All.SofteningBndryMaxPhys / All.Time;
-    else
-        All.SofteningTable[5] = All.SofteningBndry;
-
-    for(i = 0; i < 6; i++)
+    for(i = 0; i < 6; i++) {
+        All.SofteningTable[i] = RelativeSoftening * All.MeanSeparation[i];
         All.ForceSoftening[i] = 2.8 * All.SofteningTable[i];
-
+    }
     All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[0];
 }
 
