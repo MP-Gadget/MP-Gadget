@@ -261,6 +261,7 @@ static void petaio_write_header(BigFile * bf) {
 
     if( 
     (0 != big_block_set_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
+    (0 != big_block_set_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
     (0 != big_block_set_attr(&bh, "Time", &All.Time, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
@@ -307,6 +308,7 @@ petaio_read_header_internal(BigFile * bf) {
     if(
     (0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
+    (0 != big_block_get_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
     (0 != big_block_get_attr(&bh, "Time", &Time, "f8", 1))
     ) {
         endrun(0, "Failed to read attr: %s\n",
@@ -314,24 +316,38 @@ petaio_read_header_internal(BigFile * bf) {
     }
 
     All.TimeInit = Time;
-    All.BoxSize = _get_attr_double(&bh, "BoxSize", 0);
-
     /* fall back to traditional MP-Gadget Units if not given in the snapshot file. */
     All.UnitVelocity_in_cm_per_s = _get_attr_double(&bh, "UnitVelocity_in_cm_per_s", 1e5); /* 1 km/sec */
-
     All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
     All.UnitMass_in_g = _get_attr_double(&bh, "UnitMass_in_g", 1.989e43); /* 1e10 Msun/h */
 
+    if(0 != big_block_get_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) {
+        int ptype;
+        for(ptype = 0; ptype < 6; ptype ++) {
+            All.NTotalInit[ptype] = NTotal[ptype];
+        }
+    }
+
     int64_t TotNumPart = 0;
+    All.TotNumPartInit = 0;
     for(ptype = 0; ptype < 6; ptype ++) {
         TotNumPart += NTotal[ptype];
+        All.TotNumPartInit += All.NTotalInit[ptype];
+        if(All.NTotalInit[ptype] > 0) {
+            All.MeanSeparation[ptype] = All.BoxSize / pow(All.NTotalInit[ptype], 1.0 / 3);
+        } else {
+            All.MeanSeparation[ptype] = 0;
+        }
     }
 
     message(0, "Total number of particles: %018ld\n", TotNumPart);
-    message(0, "Total number of gas particles: %018ld\n", NTotal[0]);
-    message(0, "Total number of neutrino particles: %018ld\n", NTotal[2]);
-    message(0, "Total number of star particles: %018ld\n", NTotal[4]);
-    message(0, "Total number of bh particles: %018ld\n", NTotal[5]);
+
+    const char * PARTICLE_TYPE_NAMES [] = {"Gas", "DarkMatter", "Neutrino", "Unknown", "Star", "BlackHole"};
+
+    for(ptype = 0; ptype < 6; ptype ++) {
+        message(0, "% 11s: Total: %018ld Init: %018ld Mean-Sep %g \n",
+                PARTICLE_TYPE_NAMES[ptype], NTotal[ptype], All.NTotalInit[ptype], All.MeanSeparation[ptype]);
+    }
 
     /*FIXME: check others as well */
     /*
@@ -344,7 +360,6 @@ petaio_read_header_internal(BigFile * bf) {
                     big_file_get_error_message());
     }
     /* sets the maximum number of particles that may reside on a processor */
-    All.TotNumPartInit = TotNumPart;
     All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);	
     All.MaxPartSph = (int) (All.PartAllocFactor * NTotal[0] / NTask);	
 

@@ -304,6 +304,7 @@ extern struct global_data_all_processes
 {
 /* THe following variables are set by petaio_read_header */
     int64_t TotNumPartInit; /* The initial total number of particles; we probably want to get rid of all references to this. */
+    int64_t NTotalInit[6]; /* The initial number of total particles in the IC. */
     double TimeInit;		/* time of initial conditions of the simulation */
     double BoxSize;   /* Boxsize in case periodic boundary conditions are used */
     double MassTable[6]; /* Initial mass of particles */
@@ -511,7 +512,7 @@ extern struct global_data_all_processes
 
     double SofteningTable[6];	/*!< current (comoving) gravitational softening lengths for each particle type */
     double ForceSoftening[6];	/*!< the same, but multiplied by a factor 2.8 - at that scale the force is Newtonian */
-
+    double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
 
     /* some filenames */
     char InitCondFile[100],
