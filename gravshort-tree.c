@@ -13,6 +13,7 @@
 #include "mymalloc.h"
 #include "timestep.h"
 #include "endrun.h"
+#include "kspace-neutrinos/interface_common.h"
 
 #include "gravshort.h"
 
@@ -146,6 +147,13 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             {
                 /* the index of the node is the index of the particle */
                 drift_particle(no, All.Ti_Current);
+
+                /*Hybrid particle neutrinos do not gravitate at early times*/
+                if(All.MassiveNuLinRespOn && P[no].Type == All.FastParticleType && !particle_nu_active(All.Time))
+                {
+                    no = Nextnode[no];
+                    continue;
+                }
 
                 dx = NEAREST(P[no].Pos[0] - pos_x);
                 dy = NEAREST(P[no].Pos[1] - pos_y);
