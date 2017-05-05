@@ -37,6 +37,7 @@ typedef struct {
     size_t offset_pos;
     size_t offset_mass;
     size_t offset_regionind;
+    int (*active) (int i);
     int NumPart;
 } PetaPMParticleStruct;
 

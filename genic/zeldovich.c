@@ -131,6 +131,7 @@ void displacement_fields(int Type) {
         ((char*) &P[0].Pos[0]) - (char*) P,
         ((char*) &P[0].Mass) - (char*) P,
         ((char*) &P[0].RegionInd) - (char*) P,
+        NULL,
         NumPart,
     };
     petapm_force_init(

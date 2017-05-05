@@ -21,6 +21,7 @@ void powerspectrum_nu_save(struct _delta_pow *nu_pow, const char * OutputDir, co
 static int pm_mark_region_for_node(int startno, int rid);
 static void convert_node_to_region(PetaPMRegion * r);
 
+static int hybrid_nu_gravpm_is_active(int i);
 static void potential_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void readout_power_spectrum(int64_t k2, int kpos[3], pfft_complex * value);
 static void compute_neutrino_power(void);
@@ -63,6 +64,7 @@ void gravpm_force(void) {
         (char*) &P[0].Pos[0]  - (char*) P,
         (char*) &P[0].Mass  - (char*) P,
         (char*) &P[0].RegionInd - (char*) P,
+        (kspace_params.hybrid_neutrinos_on ? &hybrid_nu_gravpm_is_active : NULL),
         NumPart,
     };
 
@@ -438,6 +440,15 @@ static double diff_kernel(double w) {
  * */
     return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
 }
+
+/*This function decides if a particle is actively gravitating; tracers are not.*/
+static int hybrid_nu_gravpm_is_active(int i) {
+    if (!particle_nu_active(All.Time) && (P[i].Type == All.FastParticleType))
+        return 0;
+    else
+        return 1;
+}
+
 static void force_transfer(int k, pfft_complex * value) {
     double tmp0;
     double tmp1;

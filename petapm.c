@@ -91,6 +91,7 @@ static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the 
 #define POS(i) ((double*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_pos]))
 #define MASS(i) ((float*) (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_mass]))
 #define REGION(i) ((int*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_regionind]))
+#define INACTIVE(i) (CPS->active && !CPS->active(i))
 
 PetaPMRegion * petapm_get_fourier_region() {
     return &fourier_space_region;
@@ -889,6 +890,8 @@ static void pm_apply_transfer_function(PetaPMRegion * region,
  ***************/
 static void put_particle_to_mesh(int i, double * mesh, double weight) {
     double Mass = *MASS(i);
+    if(INACTIVE(i))
+        return;
 #pragma omp atomic
     mesh[0] += weight * Mass;
 }
