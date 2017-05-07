@@ -470,19 +470,9 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
     size_t size = count_sum(array->dims[0]);
     int NumFiles;
 
-    if(All.IO.EnableAggregatedIO) {
-        NumFiles = (size * elsize + All.IO.BytesPerFile - 1) / All.IO.BytesPerFile;
-        if(NumWriters > NumFiles * All.IO.WritersPerFile) {
-            NumWriters = NumFiles * All.IO.WritersPerFile;
-            message(0, "Throttling NumWriters to %d.\n", NumWriters);
-        }
-        if(NumWriters < All.IO.MinNumWriters) {
-            NumFiles = (NumWriters + All.IO.WritersPerFile - 1) / All.IO.WritersPerFile ;
-            message(0, "Throttling NumWriters to %d.\n", NumWriters);
-        }
-    } else {
-        NumFiles = NumWriters;
-    }
+    /* Ignore others but only use NumWriters. One file per writer, as simple as that. */
+    NumFiles = NumWriters;
+
     /*Do not write empty files*/
     if(size == 0) {
         NumFiles = 0;
