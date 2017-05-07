@@ -276,11 +276,16 @@ void powerspectrum_compute(const int64_t k2, const int kpos[3], pfft_complex * c
     /* Measure power spectrum: we don't want the zero mode.
      * Some modes with k_z = 0 or N/2 have weight 1, the rest have weight 2.
      * This is because of the symmetry of the real fft. */
-    int kint = floor(sqrt(k2));
-    if(kint >= 0 && kint < PowerSpectrum.size) {
+    if(k2 > 0) {
+        /*How many bins per unit (log) interval in k?*/
+        const double binsperunit=(PowerSpectrum.size-1)/log(sqrt(3)*All.Nmesh/2.0);
+        int kint=floor(binsperunit*log(k2)/2.);
         int w;
         const double keff = sqrt(kpos[0]*kpos[0]+kpos[1]*kpos[1]+kpos[2]*kpos[2]);
         const double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
+        /*Make sure we do not overflow (although this should never happen)*/
+        if(kint >= PowerSpectrum.size)
+            return;
         if(kpos[2] == 0 || kpos[2] == All.Nmesh/2) w = 1;
         else w = 2;
         /*Make sure we use thread-local memory to avoid racing.*/
