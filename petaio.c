@@ -473,6 +473,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
             message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
         if(NumWriters < All.IO.MinNumWriters) {
+            NumWriters = All.IO.MinNumWriters;
             NumFiles = (NumWriters + All.IO.WritersPerFile - 1) / All.IO.WritersPerFile ;
             message(0, "Throttling NumWriters to %d.\n", NumWriters);
         }
