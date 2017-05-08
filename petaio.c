@@ -471,7 +471,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
     int NumFiles;
 
     /* Ignore others but only use NumWriters. One file per writer, as simple as that. */
-    NumFiles = NumWriters;
+    NumFiles = NumWriters / All.IO.WritersPerFile;
 
     /*Do not write empty files*/
     if(size == 0) {
