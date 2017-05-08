@@ -496,6 +496,19 @@ extern struct global_data_all_processes
                              */
     double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
+    double SofteningGas,		/*!< for type 0 */
+           SofteningHalo,		/*!< for type 1 */
+           SofteningDisk,		/*!< for type 2 */
+           SofteningBulge,		/*!< for type 3 */
+           SofteningStars,		/*!< for type 4 */
+           SofteningBndry;		/*!< for type 5 */
+
+    double SofteningGasMaxPhys,	/*!< for type 0 */
+           SofteningHaloMaxPhys,	/*!< for type 1 */
+           SofteningDiskMaxPhys,	/*!< for type 2 */
+           SofteningBulgeMaxPhys,	/*!< for type 3 */
+           SofteningStarsMaxPhys,	/*!< for type 4 */
+           SofteningBndryMaxPhys;	/*!< for type 5 */
 
     double SofteningTable[6];	/*!< current (comoving) gravitational softening lengths for each particle type */
     double ForceSoftening[6];	/*!< the same, but multiplied by a factor 2.8 - at that scale the force is Newtonian */
