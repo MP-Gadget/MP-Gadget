@@ -11,7 +11,7 @@
 #include "cosmology.h"
 
 
-static double logTimeBegin;
+static double logTimeInit;
 static double logTimeMax;
 
 /*! table for the cosmological drift factors */
@@ -65,7 +65,7 @@ void init_drift_table(double timeBegin, double timeMax)
   gsl_function F;
   gsl_integration_workspace *workspace;
 
-  logTimeBegin = log(timeBegin);
+  logTimeInit = log(timeBegin);
   logTimeMax = log(timeMax);
 
   workspace = gsl_integration_workspace_alloc(WORKSIZE);
@@ -73,22 +73,22 @@ void init_drift_table(double timeBegin, double timeMax)
   for(i = 0; i < DRIFT_TABLE_LENGTH; i++)
     {
       F.function = &drift_integ;
-      gsl_integration_qag(&F, exp(logTimeBegin),
-			  exp(logTimeBegin + ((logTimeMax - logTimeBegin) / DRIFT_TABLE_LENGTH) * (i + 1)), 0,
+      gsl_integration_qag(&F, exp(logTimeInit),
+			  exp(logTimeInit + ((logTimeMax - logTimeInit) / DRIFT_TABLE_LENGTH) * (i + 1)), 0,
 			  1.0e-8, WORKSIZE, GSL_INTEG_GAUSS41, workspace, &result, &abserr);
       DriftTable[i] = result;
 
 
       F.function = &gravkick_integ;
-      gsl_integration_qag(&F, exp(logTimeBegin),
-			  exp(logTimeBegin + ((logTimeMax - logTimeBegin) / DRIFT_TABLE_LENGTH) * (i + 1)), 0,
+      gsl_integration_qag(&F, exp(logTimeInit),
+			  exp(logTimeInit + ((logTimeMax - logTimeInit) / DRIFT_TABLE_LENGTH) * (i + 1)), 0,
 			  1.0e-8, WORKSIZE, GSL_INTEG_GAUSS41, workspace, &result, &abserr);
       GravKickTable[i] = result;
 
 
       F.function = &hydrokick_integ;
-      gsl_integration_qag(&F, exp(logTimeBegin),
-			  exp(logTimeBegin + ((logTimeMax - logTimeBegin) / DRIFT_TABLE_LENGTH) * (i + 1)), 0,
+      gsl_integration_qag(&F, exp(logTimeInit),
+			  exp(logTimeInit + ((logTimeMax - logTimeInit) / DRIFT_TABLE_LENGTH) * (i + 1)), 0,
 			  1.0e-8, WORKSIZE, GSL_INTEG_GAUSS41, workspace, &result, &abserr);
       HydroKickTable[i] = result;
 
@@ -116,11 +116,11 @@ double get_drift_factor(int time0, int time1)
 
   /* note: will only be called for cosmological integration */
 
-  a1 = logTimeBegin + time0 * All.Timebase_interval;
-  a2 = logTimeBegin + time1 * All.Timebase_interval;
+  a1 = logTimeInit + time0 * All.Timebase_interval;
+  a2 = logTimeInit + time1 * All.Timebase_interval;
 
-  if(logTimeMax > logTimeBegin)
-    u1 = (a1 - logTimeBegin) / (logTimeMax - logTimeBegin) * DRIFT_TABLE_LENGTH;
+  if(logTimeMax > logTimeInit)
+    u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
   else
     u1 = 0;
   i1 = (int) u1;
@@ -132,8 +132,8 @@ double get_drift_factor(int time0, int time1)
   else
     df1 = DriftTable[i1 - 1] + (DriftTable[i1] - DriftTable[i1 - 1]) * (u1 - i1);
 
-  if(logTimeMax > logTimeBegin)
-    u2 = (a2 - logTimeBegin) / (logTimeMax - logTimeBegin) * DRIFT_TABLE_LENGTH;
+  if(logTimeMax > logTimeInit)
+    u2 = (a2 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
   else
     u2 = 0;
   i2 = (int) u2;
@@ -165,11 +165,11 @@ double get_gravkick_factor(int time0, int time1)
 
   /* note: will only be called for cosmological integration */
 
-  a1 = logTimeBegin + time0 * All.Timebase_interval;
-  a2 = logTimeBegin + time1 * All.Timebase_interval;
+  a1 = logTimeInit + time0 * All.Timebase_interval;
+  a2 = logTimeInit + time1 * All.Timebase_interval;
 
-  if(logTimeMax > logTimeBegin)
-    u1 = (a1 - logTimeBegin) / (logTimeMax - logTimeBegin) * DRIFT_TABLE_LENGTH;
+  if(logTimeMax > logTimeInit)
+    u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
   else
     u1 = 0;
   i1 = (int) u1;
@@ -181,8 +181,8 @@ double get_gravkick_factor(int time0, int time1)
   else
     df1 = GravKickTable[i1 - 1] + (GravKickTable[i1] - GravKickTable[i1 - 1]) * (u1 - i1);
 
-  if(logTimeMax > logTimeBegin)
-    u2 = (a2 - logTimeBegin) / (logTimeMax - logTimeBegin) * DRIFT_TABLE_LENGTH;
+  if(logTimeMax > logTimeInit)
+    u2 = (a2 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
   else
     u2 = 0;
   i2 = (int) u2;
@@ -213,11 +213,11 @@ double get_hydrokick_factor(int time0, int time1)
 
   /* note: will only be called for cosmological integration */
 
-  a1 = logTimeBegin + time0 * All.Timebase_interval;
-  a2 = logTimeBegin + time1 * All.Timebase_interval;
+  a1 = logTimeInit + time0 * All.Timebase_interval;
+  a2 = logTimeInit + time1 * All.Timebase_interval;
 
-  if(logTimeMax > logTimeBegin)
-    u1 = (a1 - logTimeBegin) / (logTimeMax - logTimeBegin) * DRIFT_TABLE_LENGTH;
+  if(logTimeMax > logTimeInit)
+    u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
   else
     u1 = 0;
   i1 = (int) u1;
@@ -229,8 +229,8 @@ double get_hydrokick_factor(int time0, int time1)
   else
     df1 = HydroKickTable[i1 - 1] + (HydroKickTable[i1] - HydroKickTable[i1 - 1]) * (u1 - i1);
 
-  if(logTimeMax > logTimeBegin)
-    u2 = (a2 - logTimeBegin) / (logTimeMax - logTimeBegin) * DRIFT_TABLE_LENGTH;
+  if(logTimeMax > logTimeInit)
+    u2 = (a2 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
   else
     u2 = 0;
   i2 = (int) u2;

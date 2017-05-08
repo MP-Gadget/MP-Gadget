@@ -302,8 +302,17 @@ extern FILE *FdBlackHoles;	/*!< file handle for blackholes.txt log-file. */
  */
 extern struct global_data_all_processes
 {
+/* THe following variables are set by petaio_read_header */
     int64_t TotNumPartInit; /* The initial total number of particles; we probably want to get rid of all references to this. */
-    int NumThreads;     /* number of threads used to simulate OpenMP tls */
+    int64_t NTotalInit[6]; /* The initial number of total particles in the IC. */
+    double TimeInit;		/* time of initial conditions of the simulation */
+    double BoxSize;   /* Boxsize in case periodic boundary conditions are used */
+    double MassTable[6]; /* Initial mass of particles */
+    double UnitMass_in_g;		/*!< factor to convert internal mass unit to grams/h */
+    double UnitVelocity_in_cm_per_s;	/*!< factor to convert intqernal velocity unit to cm/sec */
+    double UnitLength_in_cm;		/*!< factor to convert internal length unit to cm/h */
+
+
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
                               processor. */
     int MaxPartSph;		/*!< This gives the maxmimum number of SPH particles that can be stored on one
@@ -311,6 +320,9 @@ extern struct global_data_all_processes
     int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on one
                           processor. */
 
+/* end of read_header parameters */
+
+    int NumThreads;     /* number of threads used to simulate OpenMP tls */
     int DoDynamicUpdate;
 
     struct {
@@ -320,6 +332,7 @@ extern struct global_data_all_processes
         int MinNumWriters;        /* Min Number of concurrent writers, this caps number of writers */
         int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
         size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
+        int UsePeculiarVelocity;
     } IO;
 
     double BufferSize;		/*!< size of communication buffer in MB */
@@ -356,9 +369,6 @@ extern struct global_data_all_processes
     /* system of units  */
 
     double UnitTime_in_s,		/*!< factor to convert internal time unit to seconds/h */
-           UnitMass_in_g,		/*!< factor to convert internal mass unit to grams/h */
-           UnitVelocity_in_cm_per_s,	/*!< factor to convert intqernal velocity unit to cm/sec */
-           UnitLength_in_cm,		/*!< factor to convert internal length unit to cm/h */
            UnitPressure_in_cgs,	/*!< factor to convert internal pressure unit to cgs units (little 'h' still
                                   around!) */
            UnitDensity_in_cgs,		/*!< factor to convert internal length unit to g/cm^3*h^2 */
@@ -375,8 +385,6 @@ extern struct global_data_all_processes
     Cosmology CP;
 
     double Hubble; /*!< Hubble-constant in internal units */
-
-    double BoxSize;   /* Boxsize in case periodic boundary conditions are used */
 
     /* Code options */
     int DomainOverDecompositionFactor; /* Number of sub-domains per processor. */
@@ -407,7 +415,6 @@ extern struct global_data_all_processes
     /* Current time of the simulation, global step, and end of simulation */
 
     double Time,			/*!< current time of the simulation */
-           TimeBegin,			/*!< time of initial conditions of the simulation */
            TimeStep,			/*!< difference between current times of previous and current timestep */
            TimeMax;			/*!< marks the point of time until the simulation is to be evolved */
 
@@ -505,13 +512,7 @@ extern struct global_data_all_processes
 
     double SofteningTable[6];	/*!< current (comoving) gravitational softening lengths for each particle type */
     double ForceSoftening[6];	/*!< the same, but multiplied by a factor 2.8 - at that scale the force is Newtonian */
-
-
-    /*! If particle masses are all equal for one type, the corresponding entry in MassTable is set to this
-     *  value, * allowing the size of the snapshot files to be reduced
-     */
-    double MassTable[6];
-
+    double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
 
     /* some filenames */
     char InitCondFile[100],
@@ -581,7 +582,7 @@ extern struct global_data_all_processes
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
     double TimeNextSeedingCheck;  /*Time for the next seed check.*/
-    double TimeBetweenSeedingSearch; /*Factor to multiply TimeBegin by to find the next seeding check.*/
+    double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 
 }
 All;

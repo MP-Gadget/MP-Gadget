@@ -19,9 +19,9 @@ extern double MaxMemoryPerCore;
 extern int      Nmesh, Nsample, Ngrid;
 
 extern int      SphereMode;
+extern int UsePeculiarVelocity;
 
 extern char   *  FileWithInputSpectrum;
-
 extern double   Box;
 extern int   ProduceGas;
 extern int Seed;

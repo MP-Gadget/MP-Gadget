@@ -34,6 +34,8 @@
 static void
 open_outputfiles(int RestartsnapNum);
 
+static void set_units();
+
 
 /*! This function performs the initial set-up of the simulation. First, the
  *  parameterfile is set, then routines for setting units, reading
@@ -48,6 +50,10 @@ void begrun(int BeginFlag, int RestartSnapNum)
     walltime_init(&All.CT);
     petaio_init();
 
+    petaio_read_header(RestartSnapNum);
+
+    set_units();
+
 #ifdef DEBUG
     write_pid_file();
     enable_core_dumps_and_fpu_exceptions();
@@ -58,6 +64,9 @@ void begrun(int BeginFlag, int RestartSnapNum)
 #if defined(SFR)
     init_clouds();
 #endif
+
+    /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
+    set_global_time(All.TimeInit);
 
     random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
@@ -71,10 +80,6 @@ void begrun(int BeginFlag, int RestartSnapNum)
     set_random_numbers();
 
     init(RestartSnapNum);			/* ... read in initial model */
-
-    /* All.Time is initialized after init*/
-    /* Decide TimeBegin */
-    All.TimeBegin = All.Time;
 
     if(BeginFlag >= 3) {
         return;
@@ -196,3 +201,106 @@ void close_outputfiles(void)
 }
 
 
+/*! Computes conversion factors between internal code units and the
+ *  cgs-system.
+ */
+static void
+set_units(void)
+{
+    /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
+     * A note on normalisation (as of 08/02/2012):
+     * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
+     * calculating Omega_K in the code and specifying Omega_Lambda and Omega_Matter in the paramfile.
+     * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
+     * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
+     */
+
+    All.CP.OmegaCDM = All.CP.Omega0 - All.CP.OmegaBaryon;
+    All.CP.OmegaK = 1.0 - All.CP.Omega0 - All.CP.OmegaLambda;
+
+    /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
+
+    All.CP.OmegaG = 4 * STEFAN_BOLTZMANN
+                  * pow(All.CP.CMBTemperature, 4)
+                  * (8 * M_PI * GRAVITY)
+                  / (3*C*C*C*HUBBLE*HUBBLE)
+                  / (All.CP.HubbleParam*All.CP.HubbleParam);
+
+    /* Neutrino + antineutrino background temperature as a ratio to T_CMB0
+     * Note there is a slight correction from 4/11
+     * due to the neutrinos being slightly coupled at e+- annihilation.
+     * See Mangano et al 2005 (hep-ph/0506164)
+     * The correction is (3.046/3)^(1/4), for N_eff = 3.046 */
+    double TNu0_TCMB0 = pow(4/11., 1/3.) * 1.00328;
+
+    /* For massless neutrinos,
+     * rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff,
+     * but we absorbed N_eff into T_nu above. */
+    All.CP.OmegaNu0 = All.CP.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
+
+    double meanweight;
+
+    All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
+    All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
+
+    All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
+
+    All.UnitDensity_in_cgs = All.UnitMass_in_g / pow(All.UnitLength_in_cm, 3);
+    All.UnitPressure_in_cgs = All.UnitMass_in_g / All.UnitLength_in_cm / pow(All.UnitTime_in_s, 2);
+    All.UnitCoolingRate_in_cgs = All.UnitPressure_in_cgs / All.UnitTime_in_s;
+    All.UnitEnergy_in_cgs = All.UnitMass_in_g * pow(All.UnitLength_in_cm, 2) / pow(All.UnitTime_in_s, 2);
+
+    /* convert some physical input parameters to internal units */
+
+    All.Hubble = HUBBLE * All.UnitTime_in_s;
+
+    meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */
+
+    All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.MinGasTemp;
+    All.MinEgySpec *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+#ifdef SFR
+
+    All.OverDensThresh =
+        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
+
+    All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
+
+    All.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempClouds;
+    All.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+    meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
+
+    All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
+    All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+
+    if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
+        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
+        message(1, "Windspeed: %g\n", All.WindSpeed);
+    } else {
+        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
+        if(All.WindModel != WINDS_NONE)
+            message(1, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
+    }
+
+#endif
+
+    message(0, "Hubble (internal units) = %g\n", All.Hubble);
+    message(0, "G (internal units) = %g\n", All.G);
+    message(0, "UnitLengh_in_cm = %g \n", All.UnitLength_in_cm);
+    message(0, "UnitMass_in_g = %g \n", All.UnitMass_in_g);
+    message(0, "UnitTime_in_s = %g \n", All.UnitTime_in_s);
+    message(0, "UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);
+    message(0, "UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
+    message(0, "UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
+    message(0, "Photon density OmegaG = %g\n",All.CP.OmegaG);
+    message(0, "Massless Neutrino density OmegaNu0 = %g\n",All.CP.OmegaNu0);
+    message(0, "Curvature density OmegaK = %g\n",All.CP.OmegaK);
+    if(All.CP.RadiationOn) {
+        /* note that this value is inaccurate if there is massive neutrino. */
+        message(0, "Radiation is enabled in Hubble(a). "
+               "Following CAMB convention: Omega_Tot - 1 = %g\n",
+            All.CP.OmegaG + All.CP.OmegaNu0 + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda - 1);
+    }
+    message(0, "\n");
+}

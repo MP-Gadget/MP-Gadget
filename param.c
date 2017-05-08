@@ -105,8 +105,6 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
     return 0;
 }
 
-static void set_units();
-
 static ParameterSet *
 create_gadget_parameter_set()
 {
@@ -137,7 +135,6 @@ create_gadget_parameter_set()
     param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "");
     param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "");
     param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "");
-    param_declare_double(ps, "BoxSize", REQUIRED, 32000, "");
 
     param_declare_int(ps,    "MaxMemSizePerNode", OPTIONAL, 0.8 * get_physmem_bytes() / (1024 * 1024), "Preallocate this much memory MB per computing node/ host. Default is 80\% of total physical mem per node. ");
     param_declare_double(ps, "CpuTimeBetRestartFile", REQUIRED, 0, "");
@@ -180,6 +177,8 @@ create_gadget_parameter_set()
     param_declare_int(ps, "MakeGlassFile", OPTIONAL, 0, "Enable to reverse the direction of gravity, only apply the PM force, and thus make a glass file.");
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
+
+    param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Mimic the Input and outputs of FastPM. Use peculiar velocity in IO, and Mpc/h units by default.");
 
     param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
     param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
@@ -352,13 +351,10 @@ void read_parameter_file(char *fname)
         All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
-        All.BoxSize = param_get_double(ps, "BoxSize");
-
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
         All.MaxMemSizePerNode = param_get_int(ps, "MaxMemSizePerNode");
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
 
-        All.TimeBegin = -1.0; /* no longer need TimeBegin; always use IC or snapshot */
         All.TimeMax = param_get_double(ps, "TimeMax");
         All.TreeDomainUpdateFrequency = param_get_double(ps, "TreeDomainUpdateFrequency");
         All.ErrTolTheta = param_get_double(ps, "ErrTolTheta");
@@ -380,6 +376,7 @@ void read_parameter_file(char *fname)
         All.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
 
         All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
+        All.IO.UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
         All.IO.NumWriters = param_get_int(ps, "NumWriters");
         All.IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
         All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
@@ -511,115 +508,8 @@ void read_parameter_file(char *fname)
         message(1, "The Density resolution is %g * mean separation, or %d neighbours\n",
                     All.DensityResolutionEta, All.DesNumNgb);
 
-        set_units();
-
-        message(1, "Hubble (internal units) = %g\n", All.Hubble);
-        message(1, "G (internal units) = %g\n", All.G);
-        message(1, "UnitMass_in_g = %g \n", All.UnitMass_in_g);
-        message(1, "UnitTime_in_s = %g \n", All.UnitTime_in_s);
-        message(1, "UnitVelocity_in_cm_per_s = %g \n", All.UnitVelocity_in_cm_per_s);
-        message(1, "UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
-        message(1, "UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
-        message(1, "Photon density OmegaG = %g\n",All.CP.OmegaG);
-        message(1, "Massless Neutrino density OmegaNu0 = %g\n",All.CP.OmegaNu0);
-        message(1, "Curvature density OmegaK = %g\n",All.CP.OmegaK);
-        if(All.CP.RadiationOn) {
-            /* note that this value is inaccurate if there is massive neutrino. */
-            message(1, "Radiation is enabled in Hubble(a). "
-                   "Following CAMB convention: Omega_Tot - 1 = %g\n",
-                All.CP.OmegaG + All.CP.OmegaNu0 + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda - 1);
-        }
-        message(1, "\n");
-
     }
 
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
 
-/*! Computes conversion factors between internal code units and the
- *  cgs-system.
- */
-static void set_units(void)
-{
-    /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
-     * A note on normalisation (as of 08/02/2012):
-     * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
-     * calculating Omega_K in the code and specifying Omega_Lambda and Omega_Matter in the paramfile.
-     * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
-     * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
-     */
-
-    All.CP.OmegaCDM = All.CP.Omega0 - All.CP.OmegaBaryon;
-    All.CP.OmegaK = 1.0 - All.CP.Omega0 - All.CP.OmegaLambda;
-
-    /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
-
-    All.CP.OmegaG = 4 * STEFAN_BOLTZMANN
-                  * pow(All.CP.CMBTemperature, 4)
-                  * (8 * M_PI * GRAVITY)
-                  / (3*C*C*C*HUBBLE*HUBBLE)
-                  / (All.CP.HubbleParam*All.CP.HubbleParam);
-
-    /* Neutrino + antineutrino background temperature as a ratio to T_CMB0
-     * Note there is a slight correction from 4/11
-     * due to the neutrinos being slightly coupled at e+- annihilation.
-     * See Mangano et al 2005 (hep-ph/0506164)
-     * The correction is (3.046/3)^(1/4), for N_eff = 3.046 */
-    double TNu0_TCMB0 = pow(4/11., 1/3.) * 1.00328;
-
-    /* For massless neutrinos,
-     * rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff,
-     * but we absorbed N_eff into T_nu above. */
-    All.CP.OmegaNu0 = All.CP.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
-
-    double meanweight;
-
-    All.UnitVelocity_in_cm_per_s = 1e5; /* 1 km/sec */
-    All.UnitLength_in_cm = 3.085678e21; /* 1.0 Kpc /h */
-    All.UnitMass_in_g = 1.989e43;       /* 1e10 Msun/h*/
-
-    All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
-    All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
-
-    All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
-
-    All.UnitDensity_in_cgs = All.UnitMass_in_g / pow(All.UnitLength_in_cm, 3);
-    All.UnitPressure_in_cgs = All.UnitMass_in_g / All.UnitLength_in_cm / pow(All.UnitTime_in_s, 2);
-    All.UnitCoolingRate_in_cgs = All.UnitPressure_in_cgs / All.UnitTime_in_s;
-    All.UnitEnergy_in_cgs = All.UnitMass_in_g * pow(All.UnitLength_in_cm, 2) / pow(All.UnitTime_in_s, 2);
-
-    /* convert some physical input parameters to internal units */
-
-    All.Hubble = HUBBLE * All.UnitTime_in_s;
-
-    meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */
-
-    All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.MinGasTemp;
-    All.MinEgySpec *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
-
-#ifdef SFR
-
-    All.OverDensThresh =
-        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
-
-    All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
-
-    All.EgySpecCold = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempClouds;
-    All.EgySpecCold *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
-
-    meanweight = 4 / (8 - 5 * (1 - HYDROGEN_MASSFRAC));	/* note: assuming FULL ionization */
-
-    All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
-    All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
-
-    if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
-        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
-        message(1, "Windspeed: %g\n", All.WindSpeed);
-    } else {
-        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
-        if(All.WindModel != WINDS_NONE)
-            message(1, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
-    }
-
-#endif
-}

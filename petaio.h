@@ -30,7 +30,7 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array);
 void petaio_save_snapshot(const char * fmt, ...);
 void petaio_save_restart();
 void petaio_read_snapshot(int num);
-void petaio_read_ic();
+void petaio_read_header(int num);
 /* 
  * Declares a io block with name (literal, not a string) 
  * 

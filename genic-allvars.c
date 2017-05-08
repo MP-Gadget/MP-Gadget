@@ -13,7 +13,7 @@ char * FileWithInputSpectrum;
 double Box;
 int ProduceGas;
 int Seed;
-
+int UsePeculiarVelocity;
 int NumPart;
 double MaxMemoryPerCore;
 

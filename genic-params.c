@@ -9,6 +9,9 @@
 #include "endrun.h"
 #include "paramset.h"
 
+#define OPTIONAL 0
+#define REQUIRED 1
+
 void set_units(void)		/* ... set some units */
 {
   UnitTime_in_s = UnitLength_in_cm / UnitVelocity_in_cm_per_s;
@@ -23,38 +26,39 @@ create_parameters()
 {
     ParameterSet * ps = parameter_set_new();
 
-    param_declare_string(ps, "FileWithInputSpectrum", 1, 0, "");
-    param_declare_string(ps, "OutputDir", 1, 0, "");
-    param_declare_string(ps, "FileBase", 1, 0, "");
+    param_declare_string(ps, "FileWithInputSpectrum", REQUIRED, 0, "");
+    param_declare_string(ps, "OutputDir", REQUIRED, 0, "");
+    param_declare_string(ps, "FileBase", REQUIRED, 0, "");
 
-    param_declare_double(ps, "MaxMemoryPerCore", 0, 1300., "");
-    param_declare_double(ps, "Omega0", 1, 0, "");
-    param_declare_double(ps, "OmegaLambda", 1, 0, "");
-    param_declare_double(ps, "OmegaBaryon", 1, 0, "");
-    param_declare_int(ps,    "ProduceGas", 1, 0, "");
-    param_declare_double(ps, "OmegaDM_2ndSpecies", 1, 0, "");
-    param_declare_double(ps, "HubbleParam", 1, 0, "");
-    param_declare_double(ps, "ShapeGamma", 1, 0, "");
-    param_declare_double(ps, "Sigma8", 1, 0, "");
-    param_declare_double(ps, "PrimordialIndex", 1, 0, "Ignored for tabulated input.");
-    param_declare_double(ps, "BoxSize", 1, 0, "");
-    param_declare_double(ps, "Redshift", 1, 0, "");
-    param_declare_int(ps, "Nmesh", 1, 0, "");
-    param_declare_int(ps, "Nsample", 1, 0, "");
-    param_declare_int(ps, "Ngrid", 1, 0, "");
-    param_declare_int(ps, "Seed", 1, 0, "");
-    param_declare_int(ps, "SphereMode", 1, 0, "");
-    param_declare_int(ps, "WhichSpectrum", 1, 0, ""); 
-    param_declare_double(ps, "UnitVelocity_in_cm_per_s", 1, 0, "");
-    param_declare_double(ps, "UnitLength_in_cm", 1, 0, ""); 
-    param_declare_double(ps, "UnitMass_in_g", 1, 0, "");
-    param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", 1, 0, "");
-    param_declare_int(ps, "WDM_On", 1, 0, "");
-    param_declare_int(ps, "WDM_Vtherm_On", 1, 0, "");
-    param_declare_double(ps, "WDM_PartMass_in_kev", 1, 0, "");
+    param_declare_double(ps, "MaxMemoryPerCore", OPTIONAL, 1300., "");
+    param_declare_double(ps, "Omega0", REQUIRED, 0, "");
+    param_declare_double(ps, "OmegaLambda", REQUIRED, 0, "");
+    param_declare_double(ps, "OmegaBaryon", REQUIRED, 0, "");
+    param_declare_int(ps,    "ProduceGas", REQUIRED, 0, "");
+    param_declare_double(ps, "OmegaDM_2ndSpecies", REQUIRED, 0, "");
+    param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Write a IC similiar to a FastPM output");
+    param_declare_double(ps, "HubbleParam", REQUIRED, 0, "");
+    param_declare_double(ps, "ShapeGamma", OPTIONAL, 0.201, "");
+    param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renoramlize Sigma8 to this number if positive");
+    param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
+    param_declare_double(ps, "BoxSize", REQUIRED, 0, "");
+    param_declare_double(ps, "Redshift", REQUIRED, 0, "");
+    param_declare_int(ps, "Nmesh", REQUIRED, 0, "");
+    param_declare_int(ps, "Nsample", REQUIRED, 0, "");
+    param_declare_int(ps, "Ngrid", REQUIRED, 0, "");
+    param_declare_int(ps, "Seed", REQUIRED, 0, "");
+    param_declare_int(ps, "SphereMode", OPTIONAL, 1, " if 1 only modes with |k| < k_Nyquist are used. otherwise all modes are filled. ");
+    param_declare_int(ps, "WhichSpectrum", OPTIONAL, 2, "Type of spectrum, 2 for file "); 
+    param_declare_double(ps, "UnitVelocity_in_cm_per_s", REQUIRED, 0, "");
+    param_declare_double(ps, "UnitLength_in_cm", REQUIRED, 0, ""); 
+    param_declare_double(ps, "UnitMass_in_g", REQUIRED, 0, "");
+    param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", REQUIRED, 0, "");
+    param_declare_int(ps, "WDM_On", REQUIRED, 0, "");
+    param_declare_int(ps, "WDM_Vtherm_On", REQUIRED, 0, "");
+    param_declare_double(ps, "WDM_PartMass_in_kev", REQUIRED, 0, "");
 
-    param_declare_int(ps, "NumPartPerFile", 0, 1024 * 1024 * 128, "");
-    param_declare_int(ps, "NumWriters", 0, 0, "");
+    param_declare_int(ps, "NumPartPerFile", OPTIONAL, 1024 * 1024 * 128, "");
+    param_declare_int(ps, "NumWriters", OPTIONAL, 0, "");
 
     return ps;
 }
@@ -85,6 +89,7 @@ void read_parameterfile(char *fname)
     ProduceGas = param_get_int(ps, "ProduceGas");
     OmegaDM_2ndSpecies = param_get_double(ps, "OmegaDM_2ndSpecies");
     HubbleParam = param_get_double(ps, "HubbleParam");
+    UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
     ShapeGamma = param_get_double(ps, "ShapeGamma");
     Sigma8 = param_get_double(ps, "Sigma8");
     PrimordialIndex = param_get_double(ps, "PrimordialIndex");

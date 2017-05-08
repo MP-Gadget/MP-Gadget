@@ -268,8 +268,21 @@ SIMPLE_PROPERTY(MinID, Group[i].base.MinID, uint64_t, 1)
 SIMPLE_PROPERTY(FirstPos, Group[i].base.FirstPos[0], float, 3)
 SIMPLE_PROPERTY(MassCenterPosition, Group[i].CM[0], double, 3)
 SIMPLE_PROPERTY(Imom, Group[i].Imom[0][0], float, 9)
+/* FIXME: set Jmom to use peculiar velocity */
 SIMPLE_PROPERTY(Jmom, Group[i].Jmom[0], float, 3)
-SIMPLE_PROPERTY(MassCenterVelocity, Group[i].Vel[0], float, 3)
+static void GTMassCenterVelocity(int i, float * out) {
+    double fac;
+    if (All.IO.UsePeculiarVelocity) {
+        fac = 1.0 / All.cf.a;
+    } else {
+        fac = 1.0;
+    }
+
+    int d;
+    for(d = 0; d < 3; d ++) {
+        out[d] = fac * Group[i].Vel[d];
+    }
+}
 SIMPLE_PROPERTY(Mass, Group[i].Mass, float, 1)
 SIMPLE_PROPERTY(MassByType, Group[i].MassType[0], float, 6)
 SIMPLE_PROPERTY(LengthByType, Group[i].LenType[0], uint32_t , 6)
@@ -289,7 +302,7 @@ void fof_register_io_blocks() {
     IO_REG(MinID, "u8", 1, PTYPE_FOF_GROUP);
     IO_REG(Imom, "f4", 9, PTYPE_FOF_GROUP);
     IO_REG(Jmom, "f4", 3, PTYPE_FOF_GROUP);
-    IO_REG(MassCenterVelocity, "f4", 3, PTYPE_FOF_GROUP);
+    IO_REG_WRONLY(MassCenterVelocity, "f4", 3, PTYPE_FOF_GROUP);
     IO_REG(LengthByType, "u4", 6, PTYPE_FOF_GROUP);
     IO_REG(MassByType, "f4", 6, PTYPE_FOF_GROUP);
 #ifdef SFR

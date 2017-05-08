@@ -31,7 +31,7 @@
 #define LARGE 1e29
 void fof_init()
 {
-    All.FOFHaloComovingLinkingLength = All.FOFHaloLinkingLength * All.BoxSize / pow(NTotal[1], 1.0 / 3);
+    All.FOFHaloComovingLinkingLength = All.FOFHaloLinkingLength * All.MeanSeparation[1];
     All.TimeNextSeedingCheck = All.Time;
 }
 
