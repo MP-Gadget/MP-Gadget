@@ -12,6 +12,7 @@
 #include "cooling.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "forcetree.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
