@@ -1,6 +1,5 @@
 #ifndef PETAPM_ORDER
 #define PETAPM_ORDER 1
-#warning Using low resolution force differentiation kernel. Consider using -DPETAPM_ORDER=3
 #endif
 #include <mpi.h>
 #include <stdlib.h>
