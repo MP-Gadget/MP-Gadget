@@ -296,7 +296,7 @@ void powerspectrum_compute(const int64_t k2, const int kpos[3], pfft_complex * c
 
 static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
 
-    const double asmth2 = pow((2 * M_PI) * ASMTH / All.Nmesh,2);
+    const double asmth2 = pow((2 * M_PI) * All.Asmth / All.Nmesh,2);
     double f = 1.0;
     const double smth = exp(-k2 * asmth2) / k2;
     /* the CIC deconvolution kernel is

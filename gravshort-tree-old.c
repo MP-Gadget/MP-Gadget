@@ -154,7 +154,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
     double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
     double pos_x, pos_y, pos_z, aold;
     double eff_dist;
-    const double asmth = ASMTH * All.BoxSize / All.Nmesh;
+    const double asmth = All.Asmth * All.BoxSize / All.Nmesh;
     const double rcut = RCUT * asmth;
     double asmthfac, rcut2, dist;
     double acc_x, acc_y, acc_z;

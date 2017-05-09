@@ -109,7 +109,7 @@ fill_ntab()
 int
 grav_apply_short_range_window(double r, double * fac, double * pot)
 {
-    const double asmth = ASMTH * All.BoxSize / All.Nmesh;
+    const double asmth = All.Asmth * All.BoxSize / All.Nmesh;
     const double asmthfac = 0.5 / asmth * (NTAB / 3.0);
     int tabindex = (int) (asmthfac * r);
     if(tabindex < NTAB)

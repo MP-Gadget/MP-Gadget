@@ -518,7 +518,7 @@ double find_dt_displacement_constraint()
         if(count_sum[type] > 0)
         {
             double omega, dmean, dt;
-            const double asmth = ASMTH * All.BoxSize / All.Nmesh;
+            const double asmth = All.Asmth * All.BoxSize / All.Nmesh;
             if(type == 0 || (type == 4 && All.StarformationOn)
 #ifdef BLACK_HOLES
                 || (type == 5)

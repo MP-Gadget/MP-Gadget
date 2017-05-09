@@ -125,12 +125,6 @@
 #define NUMCRPOP 1
 #endif
 
-
-
-#ifndef ASMTH
-/*! ASMTH gives the scale of the short-range/long-range force split in units of FFT-mesh cells */
-#define ASMTH 1.25
-#endif
 #ifndef RCUT
 /*! RCUT gives the maximum distance (in units of the scale used for the force split) out to which short-range
  * forces are evaluated in the short-range tree walk.
@@ -444,6 +438,8 @@ extern struct global_data_all_processes
     double ErrTolTheta;		/*!< BH tree opening angle */
     double ErrTolForceAcc;	/*!< parameter for relative opening criterion in tree walk */
 
+    /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
+    double Asmth;
 
     /* adjusts accuracy of time-integration */
 
