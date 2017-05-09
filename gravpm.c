@@ -1,6 +1,3 @@
-#ifndef PETAPM_ORDER
-#define PETAPM_ORDER 1
-#endif
 #include <mpi.h>
 #include <stdlib.h>
 #include <math.h>
@@ -337,21 +334,7 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
 
 /* the transfer functions for force in fourier space applied to potential */
 /* super lanzcos in CH6 P 122 Digital Filters by Richard W. Hamming */
-#if PETAPM_ORDER == 3
-static double super_lanzcos_diff_kernel_3(double w) {
-/* order N = 3*/
-    return 1. / 594 *
-       (126 * sin(w) + 193 * sin(2 * w) + 142 * sin (3 * w) - 86 * sin(4 * w));
-}
-#endif
-#if PETAPM_ORDER == 2
-static double super_lanzcos_diff_kernel_2(double w) {
-/* order N = 2*/
-    return 1 / 126. * (58 * sin(w) + 67 * sin (2 * w) - 22 * sin(3 * w));
-}
-#endif
-#if PETAPM_ORDER == 1
-static double super_lanzcos_diff_kernel_1(double w) {
+static double diff_kernel(double w) {
 /* order N = 1 */
 /*
  * This is the same as GADGET-2 but in fourier space:
@@ -359,21 +342,6 @@ static double super_lanzcos_diff_kernel_1(double w) {
  * c1 = 2 / 3, c2 = 1 / 12
  * */
     return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
-}
-#endif
-static double diff_kernel(double w) {
-#if PETAPM_ORDER == 1
-        return super_lanzcos_diff_kernel_1(w);
-#endif
-#if PETAPM_ORDER == 2
-        return super_lanzcos_diff_kernel_2(w);
-#endif
-#if PETAPM_ORDER == 3
-        return super_lanzcos_diff_kernel_3(w);
-#endif
-#if PETAPM_ORDER > 3
-#error PETAPM_ORDER too high.
-#endif
 }
 static void force_transfer(int k, pfft_complex * value) {
     double tmp0;
