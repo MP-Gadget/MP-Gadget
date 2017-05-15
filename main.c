@@ -66,7 +66,7 @@ int main(int argc, char **argv)
     if(argc >= 3)
         RestartFlag = atoi(argv[2]);
     else
-        RestartFlag = 0;
+        RestartFlag = 2;
 
     if(argc >= 4)
         RestartSnapNum = atoi(argv[3]);

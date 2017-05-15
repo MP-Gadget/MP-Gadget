@@ -11,7 +11,7 @@ CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
 CFLAGS += "-DHIGH_PRECISION=$(HIGH_PRECISION)"
 
 BUNDLEDLIBS = -lmpsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft_omp -lfftw3_mpi -lfftw3_omp -lfftw3
-LIBS   = -lm $(GSL_LIBS) -Ldepends/lib $(BUNDLEDLIBS) -lstdc++
+LIBS   = -lm $(GSL_LIBS) -Ldepends/lib $(BUNDLEDLIBS)
 
 OPTIONS = $(OPTIMIZE) $(OPT)
 
@@ -33,7 +33,6 @@ OBJECTS  =  \
 	 petapm.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o\
 	 runtests.o \
-	 cppexample.o
 
 ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
 		 petapm.o \

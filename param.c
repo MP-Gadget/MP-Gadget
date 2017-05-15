@@ -148,6 +148,7 @@ create_gadget_parameter_set()
     param_declare_int(ps,    "TypeOfOpeningCriterion", OPTIONAL, 1, "");
     param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "");
     param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "");
+    param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells. Gadget-2 paper says larger values may be more accurate.");
     param_declare_int(ps,    "Nmesh", REQUIRED, 0, "");
 
     param_declare_double(ps, "MinGasHsmlFractional", OPTIONAL, 0, "");
@@ -360,6 +361,7 @@ void read_parameter_file(char *fname)
         All.ErrTolTheta = param_get_double(ps, "ErrTolTheta");
         All.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
         All.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
+        All.Asmth = param_get_double(ps, "Asmth");
         All.Nmesh = param_get_int(ps, "Nmesh");
 
         All.MinGasHsmlFractional = param_get_double(ps, "MinGasHsmlFractional");

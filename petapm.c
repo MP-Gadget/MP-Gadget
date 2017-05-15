@@ -323,11 +323,11 @@ void petapm_force_c2r(
         walltime_measure("/PMgrav/readout");
     }
 
-    layout_finish(&layout);
     walltime_measure("/PMgrav/Misc");
 
 }
 void petapm_force_finish() {
+    layout_finish(&layout);
     pm_free();
     free(regions);
     regions = NULL;
@@ -341,7 +341,8 @@ void petapm_force(petapm_prepare_func prepare,
         void * userdata) {
     petapm_force_init(prepare, pstruct, userdata);
     petapm_force_r2c(global_transfer);
-    petapm_force_c2r(functions);
+    if(functions)
+        petapm_force_c2r(functions);
     petapm_force_finish();
 }
     
@@ -641,7 +642,7 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter) {
             while(ix >= Nmesh) ix -= Nmesh;
             ix -= real_space_region.offset[k];
             if(ix >= real_space_region.size[k]) {
-                /* seroius problem assmpution about pfft layout was wrong*/
+                /* serious problem assumption about pfft layout was wrong*/
                 endrun(1, "check here: original ix = %d\n", p->offset[k]);
             }
             linear0 += ix * real_space_region.strides[k];

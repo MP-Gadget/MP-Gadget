@@ -12,6 +12,7 @@
 #include "cooling.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "forcetree.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -34,6 +35,9 @@ enum ActionType {
 static enum ActionType human_interaction();
 static void find_next_sync_point_and_drift(int with_fof);
 static void update_IO_params(const char * ioctlfname);
+
+/*Defined in gravpm.c*/
+void  gravpm_force(int noforce);
 
 
 void run(void)
@@ -83,7 +87,7 @@ void run(void)
         action = human_interaction();
         switch(action) {
             case STOP:
-                message(0, "humman controlled stop with checkpoint.\n");
+                message(0, "human controlled stop with checkpoint.\n");
                 All.Ti_nextoutput = All.Ti_Current;
                 /* next loop will write a new snapshot file; break is for switch */
                 break;
@@ -122,11 +126,7 @@ void run(void)
     while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
 
     /* write a last snapshot
-     * file at final time (will
-     * be overwritten if
-     * All.TimeMax is increased
-     * and the run is continued)
-     */
+     * file at final time */
     savepositions(All.SnapshotFileCount++, 1);
 
 }
@@ -268,6 +268,10 @@ void find_next_sync_point_and_drift(int with_fof)
         set_global_time(nexttime);
 
         move_particles(All.Ti_nextoutput);
+
+        /*Write matter power spectrum*/
+        gravpm_force(1);
+        force_tree_rebuild();
 
         savepositions(All.SnapshotFileCount++, with_fof);	/* write snapshot file */
 

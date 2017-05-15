@@ -1,7 +1,3 @@
-#ifndef PETAPM_ORDER
-#define PETAPM_ORDER 1
-#warning Using low resolution force differentiation kernel. Consider using -DPETAPM_ORDER=3
-#endif
 #include <mpi.h>
 #include <stdlib.h>
 #include <math.h>
@@ -43,7 +39,11 @@ void gravpm_init_periodic() {
     petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
     powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads);
 }
-void gravpm_force() {
+
+/* If noforce is zero, computes the gravitational force on the PM grid
+ * and saves the total matter power spectrum.
+ * If noforce != 0, just saves the total matter power spectrum.*/
+void gravpm_force(int noforce) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
@@ -54,12 +54,16 @@ void gravpm_force() {
     };
 
     powerspectrum_zero(&PowerSpectrum);
+    /*If we don't want the force, just pass NULL for the force readout functions*/
+    PetaPMFunctions * funcptr = functions;
+    if(noforce)
+        funcptr = NULL;
     /*
      * we apply potential transfer immediately after the R2C transform,
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
-    petapm_force(_prepare, potential_transfer, functions, &pstruct, NULL);
+    petapm_force(_prepare, potential_transfer, funcptr, &pstruct, NULL);
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     /*Now save the power spectrum*/
     if(ThisTask == 0)
@@ -256,18 +260,43 @@ static double sinc_unnormed(double x) {
     }
 }
 
-static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
+/* Compute the power spectrum of the fourier transformed grid in value.
+ * Store it in the PowerSpectrum structure */
+void powerspectrum_compute(const int64_t k2, const int kpos[3], pfft_complex * const value, const double invwindow) {
 
     if(k2 == 0) {
-        /* Remove zero mode corresponding to the mean, after saving it as the normalisation factor.*/
+        /* Save zero mode corresponding to the mean as the normalisation factor.*/
         PowerSpectrum.Norm = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
-        value[0][0] = 0.0;
-        value[0][1] = 0.0;
         return;
     }
+    /* Measure power spectrum: we don't want the zero mode.
+     * Some modes with k_z = 0 or N/2 have weight 1, the rest have weight 2.
+     * This is because of the symmetry of the real fft. */
+    if(k2 > 0) {
+        /*How many bins per unit (log) interval in k?*/
+        const double binsperunit=(PowerSpectrum.size-1)/log(sqrt(3)*All.Nmesh/2.0);
+        int kint=floor(binsperunit*log(k2)/2.);
+        int w;
+        const double keff = sqrt(kpos[0]*kpos[0]+kpos[1]*kpos[1]+kpos[2]*kpos[2]);
+        const double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
+        /*Make sure we do not overflow (although this should never happen)*/
+        if(kint >= PowerSpectrum.size)
+            return;
+        if(kpos[2] == 0 || kpos[2] == All.Nmesh/2) w = 1;
+        else w = 2;
+        /*Make sure we use thread-local memory to avoid racing.*/
+        const int index = kint + omp_get_thread_num() * PowerSpectrum.size;
+        /*Multiply P(k) by inverse window function*/
+        PowerSpectrum.P[index] += w * m * invwindow * invwindow;
+        PowerSpectrum.Nmodes[index] += w;
+        PowerSpectrum.k[index] += w * keff;
+    }
 
-    double asmth2 = (2 * M_PI) * All.Asmth[0] / All.BoxSize;
-    asmth2 *= asmth2;
+}
+
+static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
+
+    const double asmth2 = pow((2 * M_PI) * All.Asmth / All.Nmesh,2);
     double f = 1.0;
     const double smth = exp(-k2 * asmth2) / k2;
     /* the CIC deconvolution kernel is
@@ -290,46 +319,22 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
      * */
     const double fac = pot_factor * smth * f * f;
 
-    /* Measure power spectrum: we don't want the zero mode.
-     * Some modes with k_z = 0 or N/2 have weight 1, the rest have weight 2.
-     * This is because of the symmetry of the real fft. */
-    int kint = floor(sqrt(k2));
-    if(kint >= 0 && kint < PowerSpectrum.size) {
-        int w;
-        const double keff = sqrt(kpos[0]*kpos[0]+kpos[1]*kpos[1]+kpos[2]*kpos[2]);
-        const double m = (value[0][0] * value[0][0] + value[0][1] * value[0][1]);
-        if(kpos[2] == 0 || kpos[2] == All.Nmesh/2) w = 1;
-        else w = 2;
-        /*Make sure we use thread-local memory to avoid racing.*/
-        const int index = kint + omp_get_thread_num() * PowerSpectrum.size;
-        /*Multiply P(k) by inverse window function*/
-        PowerSpectrum.P[index] += w * m * f;
-        PowerSpectrum.Nmodes[index] += w;
-        PowerSpectrum.k[index] += w * keff;
+    /*Compute the power spectrum*/
+    powerspectrum_compute(k2, kpos, value, f);
+    if(k2 == 0) {
+        /* Remove zero mode corresponding to the mean.*/
+        value[0][0] = 0.0;
+        value[0][1] = 0.0;
+        return;
     }
 
     value[0][0] *= fac;
     value[0][1] *= fac;
-
 }
 
 /* the transfer functions for force in fourier space applied to potential */
 /* super lanzcos in CH6 P 122 Digital Filters by Richard W. Hamming */
-#if PETAPM_ORDER == 3
-static double super_lanzcos_diff_kernel_3(double w) {
-/* order N = 3*/
-    return 1. / 594 *
-       (126 * sin(w) + 193 * sin(2 * w) + 142 * sin (3 * w) - 86 * sin(4 * w));
-}
-#endif
-#if PETAPM_ORDER == 2
-static double super_lanzcos_diff_kernel_2(double w) {
-/* order N = 2*/
-    return 1 / 126. * (58 * sin(w) + 67 * sin (2 * w) - 22 * sin(3 * w));
-}
-#endif
-#if PETAPM_ORDER == 1
-static double super_lanzcos_diff_kernel_1(double w) {
+static double diff_kernel(double w) {
 /* order N = 1 */
 /*
  * This is the same as GADGET-2 but in fourier space:
@@ -337,21 +342,6 @@ static double super_lanzcos_diff_kernel_1(double w) {
  * c1 = 2 / 3, c2 = 1 / 12
  * */
     return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
-}
-#endif
-static double diff_kernel(double w) {
-#if PETAPM_ORDER == 1
-        return super_lanzcos_diff_kernel_1(w);
-#endif
-#if PETAPM_ORDER == 2
-        return super_lanzcos_diff_kernel_2(w);
-#endif
-#if PETAPM_ORDER == 3
-        return super_lanzcos_diff_kernel_3(w);
-#endif
-#if PETAPM_ORDER > 3
-#error PETAPM_ORDER too high.
-#endif
 }
 static void force_transfer(int k, pfft_complex * value) {
     double tmp0;

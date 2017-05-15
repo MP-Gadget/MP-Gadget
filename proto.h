@@ -12,8 +12,6 @@ int ShouldWeDoDynamicUpdate(void);
 
 void write_cpu_log(void);
 
-void do_the_kick(int i, int tstart, int tend, int tcurrent);
-
 
 void blackhole(void);
 void blackhole_make_one(int index);
@@ -37,8 +35,6 @@ void write_pid_file(void);
 
 void move_particles(int time1);
 
-void find_dt_displacement_constraint(double hfac);
-
 void allocate_memory(void);
 void begrun(int RestartFlag, int RestartSnapNum);
 void check_omega(void);
@@ -59,8 +55,6 @@ int find_next_outputtime(int time);
 void free_memory(void);
 void set_global_time(double newtime);
 void advance_and_find_timesteps(void);
-int get_timestep(int p, double *a, int flag);
-int get_timestep_bin(int ti_step);
 
 double get_starformation_rate(int i);
 void grav_short_tree(void);

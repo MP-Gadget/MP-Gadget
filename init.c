@@ -26,7 +26,7 @@ setup_smoothinglengths(int RestartSnapNum);
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
  *  intial domain decomposition is performed. If SPH particles are present,
- *  the inial SPH smoothing lengths are determined.
+ *  the initial SPH smoothing lengths are determined.
  */
 void init(int RestartSnapNum)
 {
