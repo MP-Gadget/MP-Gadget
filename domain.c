@@ -338,9 +338,6 @@ int domain_decompose(void)
 
 
     walltime_measure("/Domain/Decompose/Misc");
-#ifdef CPUSPEEDADJUSTMENT
-    double min_load, sum_speedfac;
-#endif
 
     gravcost = 0;
 #pragma omp parallel for reduction(+: gravcost)
