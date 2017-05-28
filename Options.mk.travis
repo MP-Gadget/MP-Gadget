@@ -11,7 +11,6 @@ GSL_LIBS = -lgsl -lgslcblas
 #--------------------------------------- Basic operation mode of code
 OPT += -DDENSITY_INDEPENDENT_SPH
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
-OPT += -DPETAPM_ORDER=1  # order of finite differentiation kernel 1 is same as gadget
 
 # flags shall that always be there they need to be cleaned up
 OPT += -DOPENMP_USE_SPINLOCK
@@ -19,11 +18,6 @@ OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & 
 
 #--------------------------------------- Multi-Domain and Top-Level Tree options
 OPT	+=  -DTOPNODEFACTOR=5.0
-
-
-#--------------------------------------- Things that are always recommended
-#OPT	+=  -DCPUSPEEDADJUSTMENT
-#OPT	+=  -DHYDRO_COST_FACTOR=1000
 
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)

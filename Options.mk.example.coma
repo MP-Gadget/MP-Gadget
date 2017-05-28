@@ -17,12 +17,6 @@ OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & 
 #--------------------------------------- Multi-Domain and Top-Level Tree options
 OPT	+=  -DTOPNODEFACTOR=5.0
 
-
-#--------------------------------------- Things that are always recommended
-OPT	+=  -DMYSORT
-#OPT	+=  -DCPUSPEEDADJUSTMENT
-#OPT	+=  -DHYDRO_COST_FACTOR=1000
-
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
 OPT	+=  -DSFR
