@@ -570,8 +570,6 @@ All;
 #ifdef _OPENMP
 extern size_t BlockedParticleDrifts;
 extern size_t TotalParticleDrifts;
-extern size_t BlockedNodeDrifts;
-extern size_t TotalNodeDrifts;
 #endif
 struct bh_particle_data {
     int ReverseLink; /* used at GC for reverse link to P */

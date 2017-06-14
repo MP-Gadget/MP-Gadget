@@ -459,14 +459,12 @@ void every_timestep_stuff(int NumForce)
 
 void write_cpu_log(void)
 {
-    int64_t totBlockedPD = -1, totBlockedND = -1;
-    int64_t totTotalPD = -1, totTotalND = -1;
+    int64_t totBlockedPD = -1;
+    int64_t totTotalPD = -1;
 
 #ifdef _OPENMP
     MPI_Reduce(&BlockedParticleDrifts, &totBlockedPD, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&BlockedNodeDrifts, &totBlockedND, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&TotalParticleDrifts, &totTotalPD, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&TotalNodeDrifts, &totTotalND, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
 #endif
 
     walltime_summary(0, MPI_COMM_WORLD);
@@ -476,8 +474,8 @@ void write_cpu_log(void)
 
         fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", All.NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
 #ifdef _OPENMP
-        fprintf(FdCPU, "Blocked Drifts (Particle Node): %ld %ld\n", totBlockedPD, totBlockedND);
-        fprintf(FdCPU, "Total Drifts (Particle Node): %ld %ld\n", totTotalPD, totTotalND);
+        fprintf(FdCPU, "Blocked Particle Drifts: %ld\n", totBlockedPD);
+        fprintf(FdCPU, "Total Particle Drifts: %ld\n", totTotalPD);
 #endif
         fflush(FdCPU);
     }
