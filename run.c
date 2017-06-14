@@ -34,12 +34,9 @@ enum ActionType {
     IOCTL = 6,
 };
 static enum ActionType human_interaction();
-static void find_next_sync_point_and_drift(int with_fof);
+static int find_next_sync_point_and_drift(int with_fof);
 static void update_IO_params(const char * ioctlfname);
-
-/*Timestep force counter*/
-static int64_t GlobNumForceUpdate=0;
-
+static void every_timestep_stuff(int NumForces);
 
 /*Defined in gravpm.c*/
 void  gravpm_force(int noforce);
@@ -60,13 +57,13 @@ void run(void)
          * If needed, this function will also write an output file
          * at the desired time.
          */
-        find_next_sync_point_and_drift(action == NO_ACTION);
+        int NumForces = find_next_sync_point_and_drift(action == NO_ACTION);
 
         if(action == STOP || action == TIMEOUT) {
             /* OK snapshot file is written, lets quit */
             return;
         }
-        every_timestep_stuff();	/* write some info to log-files */
+        every_timestep_stuff(NumForces);	/* write some info to log-files */
 
         compute_accelerations(0);	/* compute accelerations for
                                      * the particles that are to be advanced
@@ -227,10 +224,9 @@ human_interaction()
  * function will drift to this moment, generate an output, and then
  * resume the drift.
  */
-void find_next_sync_point_and_drift(int with_fof)
+int find_next_sync_point_and_drift(int with_fof)
 {
     int n, i, prev, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
-    int64_t numforces2;
     double timeold;
 
     timeold = All.Time;
@@ -295,9 +291,9 @@ void find_next_sync_point_and_drift(int with_fof)
 
 
     /* mark the bins that will be active */
-    int NumForceUpdate;
+    int NumForceUpdate = TimeBinCount[0];
 
-    for(n = 1, TimeBinActive[0] = 1, NumForceUpdate = TimeBinCount[0]; n < TIMEBINS; n++)
+    for(n = 1, TimeBinActive[0] = 1; n < TIMEBINS; n++)
     {
         dt_bin = (1 << n);
 
@@ -309,9 +305,6 @@ void find_next_sync_point_and_drift(int with_fof)
         else
             TimeBinActive[n] = 0;
     }
-
-    sumup_large_ints(1, &NumForceUpdate, &GlobNumForceUpdate);
-    All.TotNumOfForces += GlobNumForceUpdate;
 
     FirstActiveParticle = -1;
 
@@ -338,21 +331,20 @@ void find_next_sync_point_and_drift(int with_fof)
 
     walltime_measure("/Misc");
     /* drift the active particles, others will be drifted on the fly if needed */
-    NumForceUpdate = 0;
+    int NumForceActive = 0;
     for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
     {
         drift_particle(i, All.Ti_Current);
-
-        NumForceUpdate++;
+        NumForceActive++;
     }
 
-    sumup_large_ints(1, &NumForceUpdate, &numforces2);
-    if(GlobNumForceUpdate != numforces2)
+    if(NumForceActive != NumForceUpdate)
     {
-        endrun(2, "terrible; this needs to be understood.");
+        endrun(2, "N_part active: %d != N_part Updated: %d\n",NumForceActive, NumForceUpdate);
     }
 
     walltime_measure("/Drift");
+    return NumForceUpdate;
 }
 
 /*! this function returns the next output time that is equal or larger to
@@ -402,18 +394,20 @@ int find_next_outputtime(int ti_curr)
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-void every_timestep_stuff(void)
+void every_timestep_stuff(int NumForce)
 {
     double z;
     int i;
     int64_t tot, tot_sph;
     int64_t tot_count[TIMEBINS];
     int64_t tot_count_sph[TIMEBINS];
+    int64_t tot_num_force;
 
     domain_refresh_totals();
 
     sumup_large_ints(TIMEBINS, TimeBinCount, tot_count);
     sumup_large_ints(TIMEBINS, TimeBinCountSph, tot_count_sph);
+    sumup_large_ints(1, &NumForce, &tot_num_force);
 
     /* let's update Tot counts in one place tot variables;
      * at this point there can still be holes in SphP
@@ -432,8 +426,7 @@ void every_timestep_stuff(void)
 
     z = 1.0 / (All.Time) - 1;
     message(0, "Begin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                All.NumCurrentTiStep, All.Time, z,
-                GlobNumForceUpdate,
+                All.NumCurrentTiStep, All.Time, z, tot_num_force,
                 All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                 extra);
 

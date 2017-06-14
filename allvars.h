@@ -350,10 +350,6 @@ extern struct global_data_all_processes
     double MinGasTemp;		/*!< may be used to set a floor for the gas temperature */
     double MinEgySpec;		/*!< the minimum allowed temperature expressed as energy per unit mass */
 
-    /* some force counters  */
-
-    int64_t TotNumOfForces;	/*!< counts total number of force computations  */
-
     /* system of units  */
 
     double UnitTime_in_s,		/*!< factor to convert internal time unit to seconds/h */

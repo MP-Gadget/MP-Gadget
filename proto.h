@@ -46,8 +46,6 @@ void do_box_wrapping(void);
 void domain_Decomposition(void);
 void energy_statistics(void);
 
-void every_timestep_stuff(void);
-
 int find_next_outputtime(int time);
 void free_memory(void);
 void set_global_time(double newtime);
