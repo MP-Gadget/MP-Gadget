@@ -674,7 +674,6 @@ void force_update_node_recursive(int no, int sib, int father)
         }
 
 
-        Nodes[no].Ti_current = All.Ti_Current;
         Nodes[no].u.d.mass = mass;
         Nodes[no].u.d.s[0] = s[0];
         Nodes[no].u.d.s[1] = s[1];
@@ -1153,18 +1152,6 @@ void force_treeallocate(int maxnodes, int maxpart)
         endrun(3, "failed to allocate memory for %d tree-extnodes (%g MB).\n",
                 MaxNodes, bytes / (1024.0 * 1024.0));
     }
-#ifdef OPENMP_USE_SPINLOCK
-    {
-        int i;
-        for (i = 0; i < MaxNodes + 1; i ++) {
-            /* Maybe we can directly set these guys to one
-             *
-             * at least with the glibc spinlock implementation.
-             * */
-            pthread_spin_init(&Nodes_base[i].SpinLock, 0);
-        }
-    }
-#endif
     allbytes += bytes;
     Nodes = Nodes_base - All.MaxPart;
     Extnodes = Extnodes_base - All.MaxPart;

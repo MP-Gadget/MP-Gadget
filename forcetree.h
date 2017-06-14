@@ -10,10 +10,6 @@
 /*Used in treewalk.c*/
 extern struct NODE
 {
-#ifdef OPENMP_USE_SPINLOCK
-    pthread_spinlock_t SpinLock;
-#endif
-
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
 
@@ -36,7 +32,6 @@ extern struct NODE
         d;
     }
     u;
-    int Ti_current;
 }
 *Nodes_base,			/*!< points to the actual memory allocated for the nodes */
     *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
