@@ -30,8 +30,6 @@ struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the node
 				   gives the first allocated node */
 
 
-struct extNODE *Extnodes, *Extnodes_base;
-
 int MaxNodes;			/*!< maximum allowed number of internal nodes */
 int Numnodestree;		/*!< number of (internal) nodes in each tree */
 
@@ -149,13 +147,7 @@ int force_tree_build(int npart, struct unbind_data *mp)
  *  with values 'All.MaxPart + MaxNodes' and larger indicate "pseudo
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
- *  particle must be exported to that CPU. The 'Extnodes' structure
- *  parallels that of 'Nodes'. Its information is only needed for the SPH
- *  part of the computation. (The data is split onto these two structures
- *  as a tuning measure.  If it is merged into 'Nodes' a somewhat bigger
- *  size of the nodes also for gravity would result, which would reduce
- *  cache utilization slightly.
- */
+ *  particle must be exported to that CPU. */
 int force_tree_build_single(int npart, struct unbind_data *mp)
 {
     int i, j, k, subnode = 0, shift, parent, numnodes, rep;
@@ -578,8 +570,8 @@ void force_update_node_recursive(int no, int sib, int father)
                                 count_particles++;
                         }
 
-                        if(Extnodes[p].hmax > hmax)
-                            hmax = Extnodes[p].hmax;
+                        if(Nodes[p].hmax > hmax)
+                            hmax = Nodes[p].hmax;
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
                         diffsoftflag |= maskout_different_softening_flag(Nodes[p].u.d.bitflags);
@@ -678,7 +670,7 @@ void force_update_node_recursive(int no, int sib, int father)
         Nodes[no].u.d.s[1] = s[1];
         Nodes[no].u.d.s[2] = s[2];
 
-        Extnodes[no].hmax = hmax;
+        Nodes[no].hmax = hmax;
 
         if(count_particles > 1)	/* this flags that the node represents more than one particle */
             multiple_flag = (1 << BITFLAG_MULTIPLEPARTICLES);
@@ -756,7 +748,7 @@ void force_exchange_pseudodata(void)
             DomainMoment[i].s[1] = Nodes[no].u.d.s[1];
             DomainMoment[i].s[2] = Nodes[no].u.d.s[2];
             DomainMoment[i].mass = Nodes[no].u.d.mass;
-            DomainMoment[i].hmax = Extnodes[no].hmax;
+            DomainMoment[i].hmax = Nodes[no].hmax;
             DomainMoment[i].bitflags = Nodes[no].u.d.bitflags;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
             DomainMoment[i].maxsoft = Nodes[no].maxsoft;
@@ -800,7 +792,7 @@ void force_exchange_pseudodata(void)
                     Nodes[no].u.d.s[1] = DomainMoment[i].s[1];
                     Nodes[no].u.d.s[2] = DomainMoment[i].s[2];
                     Nodes[no].u.d.mass = DomainMoment[i].mass;
-                    Extnodes[no].hmax = DomainMoment[i].hmax;
+                    Nodes[no].hmax = DomainMoment[i].hmax;
                     Nodes[no].u.d.bitflags =
                         (Nodes[no].u.d.bitflags & (~BITFLAG_MASK)) | (DomainMoment[i].bitflags & BITFLAG_MASK);
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
@@ -854,8 +846,8 @@ void force_treeupdate_pseudos(int no)
             s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
             s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
 
-            if(Extnodes[p].hmax > hmax)
-                hmax = Extnodes[p].hmax;
+            if(Nodes[p].hmax > hmax)
+                hmax = Nodes[p].hmax;
 
             if(Nodes[p].u.d.mass > 0)
             {
@@ -917,7 +909,7 @@ void force_treeupdate_pseudos(int no)
     Nodes[no].u.d.s[2] = s[2];
     Nodes[no].u.d.mass = mass;
 
-    Extnodes[no].hmax = hmax;
+    Nodes[no].hmax = hmax;
 
     if(count_particles > 1)
         multiple_flag = (1 << BITFLAG_MULTIPLEPARTICLES);
@@ -1027,10 +1019,10 @@ void force_update_hmax(void)
 
             while(no >= 0)
             {
-                if(P[i].Hsml > Extnodes[no].hmax)
+                if(P[i].Hsml > Nodes[no].hmax)
                 {
-                    if(P[i].Hsml > Extnodes[no].hmax)
-                        Extnodes[no].hmax = P[i].Hsml;
+                    if(P[i].Hsml > Nodes[no].hmax)
+                        Nodes[no].hmax = P[i].Hsml;
 
                     if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node */
                     {
@@ -1055,7 +1047,7 @@ void force_update_hmax(void)
 
     for(i = 0; i < DomainNumChanged; i++)
     {
-        domainHmax_loc[2 * i] = Extnodes[DomainList[i]].hmax;
+        domainHmax_loc[2 * i] = Nodes[DomainList[i]].hmax;
     }
 
 
@@ -1095,9 +1087,9 @@ void force_update_hmax(void)
 
         while(no >= 0)
         {
-            if(domainHmax_all[2 * i] > Extnodes[no].hmax)
+            if(domainHmax_all[2 * i] > Nodes[no].hmax)
             {
-                    Extnodes[no].hmax = domainHmax_all[2 * i];
+                    Nodes[no].hmax = domainHmax_all[2 * i];
             }
             else
                 break;
@@ -1137,16 +1129,8 @@ void force_treeallocate(int maxnodes, int maxpart)
         endrun(3, "failed to allocate memory for %d tree-nodes (%g MB).\n", MaxNodes, bytes / (1024.0 * 1024.0));
     }
     allbytes += bytes;
-    if(!
-            (Extnodes_base =
-             (struct extNODE *) mymalloc("Extnodes_base", bytes = (MaxNodes + 1) * sizeof(struct extNODE))))
-    {
-        endrun(3, "failed to allocate memory for %d tree-extnodes (%g MB).\n",
-                MaxNodes, bytes / (1024.0 * 1024.0));
-    }
     allbytes += bytes;
     Nodes = Nodes_base - All.MaxPart;
-    Extnodes = Extnodes_base - All.MaxPart;
     if(!(Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopnodes) * sizeof(int))))
     {
         endrun(1, "Failed to allocate %d spaces for 'Nextnode' array (%g MB)\n",
@@ -1172,7 +1156,6 @@ void force_tree_free(void)
 {
     myfree(Father);
     myfree(Nextnode);
-    myfree(Extnodes_base);
     myfree(Nodes_base);
     myfree(DomainNodeIndex);
     tree_allocated_flag = 0;

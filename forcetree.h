@@ -17,6 +17,7 @@ extern struct NODE
     MyFloat maxsoft;		/*!< hold the maximum gravitational softening of particle in the
                               node if the ADAPTIVE_GRAVSOFT_FORGAS option is selected */
 #endif
+    MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
     union
     {
         int suns[8];		/*!< temporary pointers to daughter nodes */
@@ -36,14 +37,6 @@ extern struct NODE
 *Nodes_base,			/*!< points to the actual memory allocated for the nodes */
     *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
                       gives the first allocated node */
-
-/*Structure for information on tree nodes on other processors. Used in forcetree.c and treewalk.c*/
-extern struct extNODE
-{
-    MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
-}
-*Extnodes, *Extnodes_base;
-
 
 extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
 

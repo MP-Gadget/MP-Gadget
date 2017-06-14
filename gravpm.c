@@ -217,7 +217,7 @@ static void convert_node_to_region(PetaPMRegion * r) {
     int no = r->no;
 #if 0
     printf("task = %d no = %d len = %g hmax = %g center = %g %g %g\n",
-            ThisTask, no, Nodes[no].len, Extnodes[no].hmax,
+            ThisTask, no, Nodes[no].len, Nodes[no].hmax,
             Nodes[no].center[0],
             Nodes[no].center[1],
             Nodes[no].center[2]);
@@ -233,7 +233,7 @@ static void convert_node_to_region(PetaPMRegion * r) {
     petapm_region_init_strides(r);
 
     r->len  = Nodes[no].len;
-    r->hmax = Extnodes[no].hmax;
+    r->hmax = Nodes[no].hmax;
 }
 
 /********************

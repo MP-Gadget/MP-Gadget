@@ -791,7 +791,7 @@ cull_node(TreeWalkQueryBase * I, TreeWalkNgbIterBase * iter, int no)
 
     double dist;
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-        dist = DMAX(Extnodes[no].hmax, iter->Hsml) + 0.5 * current->len;
+        dist = DMAX(Nodes[no].hmax, iter->Hsml) + 0.5 * current->len;
     } else {
         dist = iter->Hsml + 0.5 * current->len;
     }
