@@ -312,7 +312,6 @@ extern struct global_data_all_processes
 /* end of read_header parameters */
 
     int NumThreads;     /* number of threads used to simulate OpenMP tls */
-    int DoDynamicUpdate;
 
     struct {
         size_t BytesPerFile;   /* Number of bytes per physical file; this decides how many files bigfile creates each block */

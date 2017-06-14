@@ -62,17 +62,7 @@ void advance_and_find_timesteps(void)
     if(All.MakeGlassFile)
         reverse_and_apply_gravity();
 
-    All.DoDynamicUpdate = 0;
-
     /* Now assign new timesteps and kick */
-
-    if(All.DoDynamicUpdate)
-    {
-        GlobFlag++;
-        DomainNumChanged = 0;
-        DomainList = (int *) mymalloc("DomainList", NTopleaves * sizeof(int));
-        message(0, "kicks will prepare for dynamic update of tree\n");
-    }
 
 #ifdef FORCE_EQUAL_TIMESTEPS
     for(i = FirstActiveParticle, ti_min = TIMEBASE; i >= 0; i = NextActiveParticle[i])
@@ -110,7 +100,7 @@ void advance_and_find_timesteps(void)
         }
         binold = P[i].TimeBin;
 
-        if(bin > binold)		/* timestep wants to increase */
+            if(bin > binold)		/* timestep wants to increase */
         {
             while(TimeBinActive[bin] == 0 && bin > binold)	/* make sure the new step is synchronized */
                 bin--;
@@ -191,17 +181,10 @@ void advance_and_find_timesteps(void)
         MPI_Barrier(MPI_COMM_WORLD);
         endrun(0, "Ending due to bad timestep");
     }
-    if(All.DoDynamicUpdate)
-    {
-        force_finish_kick_nodes();
-        myfree(DomainList);
-    }
 
 
     if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
     {
-        All.DoDynamicUpdate = 0;
-
         ti_step = TIMEBASE;
         while(ti_step > (All.MaxTimeStepDisplacement / All.Timebase_interval))
             ti_step >>= 1;
@@ -329,8 +312,6 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkickB)
             SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr;
     }
 
-    if(All.DoDynamicUpdate)
-        force_kick_node(i, dv);
 }
 
 
