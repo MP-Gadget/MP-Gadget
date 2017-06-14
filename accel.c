@@ -42,6 +42,8 @@ void compute_accelerations(int mode)
     {
         long_range_force();
         walltime_measure("/LongRange");
+        /* This is needed because of the call to force_tree_free inside gravpm_force.
+         * That in turn is needed because the PM code may move particles to different regions.*/;
         force_tree_rebuild();
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
