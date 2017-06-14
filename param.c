@@ -127,7 +127,6 @@ create_gadget_parameter_set()
     param_declare_string(ps, "EnergyFile", OPTIONAL, "energy.txt", "");
     param_declare_int(ps,    "OutputEnergyDebug", OPTIONAL, 0,"Should we output energy statistics to energy.txt");
     param_declare_string(ps, "CpuFile", OPTIONAL, "cpu.txt", "");
-    param_declare_string(ps, "InfoFile", OPTIONAL, "info.txt", "");
     param_declare_string(ps, "OutputList", REQUIRED, NULL, "List of output times");
 
     param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "");
@@ -342,7 +341,6 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "EnergyFile", All.EnergyFile);
         All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
         param_get_string2(ps, "CpuFile", All.CpuFile);
-        param_get_string2(ps, "InfoFile", All.InfoFile);
         param_get_string2(ps, "OutputList", All.OutputList);
 
         All.DensityKernelType = param_get_enum(ps, "DensityKernelType");
