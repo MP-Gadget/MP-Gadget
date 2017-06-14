@@ -1082,45 +1082,6 @@ force_flag_localnodes(void)
         }
 }
 
-static void real_force_drift_node(int no, int time1)
-{
-    int j;
-    double dt_drift, dt_drift_hmax, fac;
-    if(time1 == Nodes[no].Ti_current) return;
-
-    if(Nodes[no].u.d.bitflags & (1 << BITFLAG_NODEHASBEENKICKED))
-    {
-        if(Extnodes[no].Ti_lastkicked != Nodes[no].Ti_current)
-        {
-            endrun(1, "inconsistency in drift node: Extnodes[no].Ti_lastkicked=%d  Nodes[no].Ti_current=%d\n",
-                       Extnodes[no].Ti_lastkicked, Nodes[no].Ti_current);
-        }
-
-        if(Nodes[no].u.d.mass)
-            fac = 1 / Nodes[no].u.d.mass;
-        else
-            fac = 0;
-
-        for(j = 0; j < 3; j++)
-        {
-            Extnodes[no].vs[j] += fac * (Extnodes[no].dp[j]);
-            Extnodes[no].dp[j] = 0;
-        }
-        Nodes[no].u.d.bitflags &= (~(1 << BITFLAG_NODEHASBEENKICKED));
-    }
-
-    dt_drift_hmax = get_drift_factor(Nodes[no].Ti_current, time1);
-    dt_drift = dt_drift_hmax;
-
-    for(j = 0; j < 3; j++)
-        Nodes[no].u.d.s[j] += Extnodes[no].vs[j] * dt_drift;
-    Nodes[no].len += 2 * Extnodes[no].vmax * dt_drift;
-
-    //  Extnodes[no].hmax *= exp(0.333333333333 * Extnodes[no].divVmax * dt_drift_hmax);
-
-    Nodes[no].Ti_current = time1;
-}
-
 /*! This function updates the hmax-values in tree nodes that hold SPH
  *  particles. These values are needed to find all neighbors in the
  *  hydro-force computation.  Since the Hsml-values are potentially changed
@@ -1148,8 +1109,6 @@ void force_update_hmax(void)
 
             while(no >= 0)
             {
-                real_force_drift_node(no, All.Ti_Current);
-
                 if(P[i].Hsml > Extnodes[no].hmax || SPHP(i).DivVel > Extnodes[no].divVmax)
                 {
                     if(P[i].Hsml > Extnodes[no].hmax)
@@ -1226,8 +1185,6 @@ void force_update_hmax(void)
 
         while(no >= 0)
         {
-            real_force_drift_node(no, All.Ti_Current);
-
             if(domainHmax_all[2 * i] > Extnodes[no].hmax || domainHmax_all[2 * i + 1] > Extnodes[no].divVmax)
             {
                 if(domainHmax_all[2 * i] > Extnodes[no].hmax)
