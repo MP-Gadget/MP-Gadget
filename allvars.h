@@ -246,8 +246,6 @@ extern double Local_BH_Medd;
 extern int ThisTask;		/*!< the number of the local processor  */
 extern int NTask;		/*!< number of processors */
 
-extern int64_t GlobNumForceUpdate;
-
 extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tree used for domain decomposition */
 
 extern int Flag_FullStep;	/*!< Flag used to signal that the current step involves all particles */

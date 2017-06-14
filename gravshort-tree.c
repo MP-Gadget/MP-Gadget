@@ -88,8 +88,6 @@ void grav_short_tree(void)
     timewait = tw->timewait1 + tw->timewait2;
     timecomm= tw->timecommsumm1 + tw->timecommsumm2;
 
-    All.TotNumOfForces += GlobNumForceUpdate;
-
     walltime_add("/Tree/Walk1", tw->timecomp1);
     walltime_add("/Tree/Walk2", tw->timecomp2);
     walltime_add("/Tree/PostProcess", tw->timecomp3);

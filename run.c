@@ -37,6 +37,10 @@ static enum ActionType human_interaction();
 static void find_next_sync_point_and_drift(int with_fof);
 static void update_IO_params(const char * ioctlfname);
 
+/*Timestep force counter*/
+static int64_t GlobNumForceUpdate=0;
+
+
 /*Defined in gravpm.c*/
 void  gravpm_force(int noforce);
 
@@ -312,6 +316,7 @@ void find_next_sync_point_and_drift(int with_fof)
     }
 
     sumup_large_ints(1, &NumForceUpdate, &GlobNumForceUpdate);
+    All.TotNumOfForces += GlobNumForceUpdate;
 
     if(GlobNumForceUpdate >= TotNumPart)
         Flag_FullStep = 1;
