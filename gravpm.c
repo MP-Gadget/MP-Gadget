@@ -97,9 +97,6 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
 
     int no = All.MaxPart; /* start with the root */
     while(no >= 0) {
-        /* This does nothing, because we synced particles in gravpm_force
-         * but leave it here just in case*/
-        force_drift_node(no, All.Ti_Current);
 
         if(!(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))) {
             /* node doesn't contain particles on this process, do not open */
