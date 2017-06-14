@@ -313,9 +313,6 @@ void find_next_sync_point_and_drift(int with_fof)
     sumup_large_ints(1, &NumForceUpdate, &GlobNumForceUpdate);
     All.TotNumOfForces += GlobNumForceUpdate;
 
-    if(GlobNumForceUpdate >= TotNumPart)
-        All.MaxTimeStepDisplacement = 0;
-
     FirstActiveParticle = -1;
 
     for(n = 0, prev = -1; n < TIMEBINS; n++)

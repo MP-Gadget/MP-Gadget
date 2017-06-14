@@ -46,6 +46,8 @@ void compute_accelerations(int mode)
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
             energy_statistics();
+        /*Update the displacement timestep*/
+        All.MaxTimeStepDisplacement = find_dt_displacement_constraint();
     }
 
     grav_short_tree();		/* computes gravity accel. */

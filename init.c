@@ -48,7 +48,7 @@ void init(int RestartSnapNum)
     All.SnapshotFileCount = RestartSnapNum + 1;
 
     All.TotNumOfForces = 0;
-    All.MaxTimeStepDisplacement = 0;
+    All.MaxTimeStepDisplacement = find_dt_displacement_constraint();
 
     All.TreeAllocFactor = 0.7;
 

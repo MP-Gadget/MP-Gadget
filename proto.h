@@ -52,6 +52,7 @@ int find_next_outputtime(int time);
 void free_memory(void);
 void set_global_time(double newtime);
 void advance_and_find_timesteps(void);
+double find_dt_displacement_constraint(void);
 
 double get_starformation_rate(int i);
 void grav_short_tree(void);

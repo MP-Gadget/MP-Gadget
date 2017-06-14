@@ -20,7 +20,6 @@
 void reverse_and_apply_gravity();
 int get_timestep(int p, double dt_max);
 int get_timestep_bin(int ti_step);
-double find_dt_displacement_constraint();
 void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkick);
 
 
@@ -56,9 +55,6 @@ void advance_and_find_timesteps(void)
     double dt_gravkick, dt_hydrokick;
 
     walltime_measure("/Misc");
-
-    if(All.MaxTimeStepDisplacement == 0)
-        All.MaxTimeStepDisplacement = find_dt_displacement_constraint();
 
     double dt_gravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
             get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
