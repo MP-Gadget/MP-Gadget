@@ -115,7 +115,3 @@ struct particle_data *P;	/*!< holds particle data on local processor */
 struct sph_particle_data * SphP;	/*!< holds SPH particle data on local processor */
 struct bh_particle_data * BhP;	/*!< holds BH particle data on local processor */
 
-/* global state of system
-*/
-struct state_of_system SysState, SysStateAtStart, SysStateAtEnd;
-

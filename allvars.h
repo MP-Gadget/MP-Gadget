@@ -739,33 +739,6 @@ extern struct sph_particle_data
 #define SPHP(i) SphP[i]
 #define BHP(i) BhP[P[i].PI]
 
-/* global state of system
-*/
-extern struct state_of_system
-{
-    double Mass;
-    double EnergyKin;
-    double EnergyPot;
-    double EnergyInt;
-    double EnergyTot;
-
-    double Momentum[4];
-    double AngMomentum[4];
-    double CenterOfMass[4];
-    double MassComp[6];
-    /* Only Gas is used */
-    double TemperatureComp[6];
-
-    double EnergyKinComp[6];
-    double EnergyPotComp[6];
-    double EnergyIntComp[6];
-    double EnergyTotComp[6];
-    double MomentumComp[6][4];
-    double AngMomentumComp[6][4];
-    double CenterOfMassComp[6][4];
-}
-SysState, SysStateAtStart, SysStateAtEnd;
-
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
 

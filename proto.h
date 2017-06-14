@@ -38,7 +38,6 @@ void begrun(int RestartFlag, int RestartSnapNum);
 void check_omega(void);
 void close_outputfiles(void);
 void compute_accelerations(int mode);
-void compute_global_quantities_of_system(void);
 void construct_timetree(void);
 void cooling_and_starformation(void);
 void cooling_only(void);
