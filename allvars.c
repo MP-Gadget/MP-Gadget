@@ -51,9 +51,6 @@ double Local_BH_Mdot;
 double Local_BH_Medd;
 #endif
 
-int GlobFlag;
-
-
 /* Local number of particles; this shall be made into an array */
 int NumPart;
 int64_t NLocal[6];

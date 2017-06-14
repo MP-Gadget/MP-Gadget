@@ -48,7 +48,6 @@ int *DomainCount;
 int *DomainCountSph;
 int *DomainTask;
 int *DomainNodeIndex;
-int *DomainList, DomainNumChanged;
 
 struct topnode_data *TopNodes;
 

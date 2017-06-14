@@ -33,6 +33,8 @@ struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the node
 struct extNODE *Extnodes, *Extnodes_base;
 
 
+int GlobFlag = 0;
+
 int MaxNodes;			/*!< maximum allowed number of internal nodes */
 int Numnodestree;		/*!< number of (internal) nodes in each tree */
 
@@ -1017,6 +1019,7 @@ void force_update_hmax(void)
     int *domainList_all;
     int *counts, *offset_list, *offset_hmax;
     MyFloat *domainHmax_loc, *domainHmax_all;
+    int *DomainList, DomainNumChanged;
 
     walltime_measure("/Misc");
     GlobFlag++;
