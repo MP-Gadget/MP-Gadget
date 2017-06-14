@@ -495,9 +495,9 @@ void force_insert_pseudo_particles(void)
  */
 void force_update_node_recursive(int no, int sib, int father)
 {
-    int j, jj, k, p, pp, nextsib, suns[8], count_particles, multiple_flag;
-    MyFloat hmax, vmax, v, divVmax;
-    MyFloat s[3], vs[3], mass;
+    int j, jj, p, pp, nextsib, suns[8], count_particles, multiple_flag;
+    MyFloat hmax;
+    MyFloat s[3], mass;
     struct particle_data *pa;
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
@@ -529,12 +529,7 @@ void force_update_node_recursive(int no, int sib, int father)
         s[0] = 0;
         s[1] = 0;
         s[2] = 0;
-        vs[0] = 0;
-        vs[1] = 0;
-        vs[2] = 0;
         hmax = 0;
-        vmax = 0;
-        divVmax = 0;
         count_particles = 0;
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
@@ -575,9 +570,6 @@ void force_update_node_recursive(int no, int sib, int father)
                         s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
                         s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
                         s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
-                        vs[0] += (Nodes[p].u.d.mass * Extnodes[p].vs[0]);
-                        vs[1] += (Nodes[p].u.d.mass * Extnodes[p].vs[1]);
-                        vs[2] += (Nodes[p].u.d.mass * Extnodes[p].vs[2]);
 
                         if(Nodes[p].u.d.mass > 0)
                         {
@@ -589,12 +581,6 @@ void force_update_node_recursive(int no, int sib, int father)
 
                         if(Extnodes[p].hmax > hmax)
                             hmax = Extnodes[p].hmax;
-
-                        if(Extnodes[p].vmax > vmax)
-                            vmax = Extnodes[p].vmax;
-
-                        if(Extnodes[p].divVmax > divVmax)
-                            divVmax = Extnodes[p].divVmax;
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
                         diffsoftflag |= maskout_different_softening_flag(Nodes[p].u.d.bitflags);
@@ -635,23 +621,12 @@ void force_update_node_recursive(int no, int sib, int father)
                     s[0] += (pa->Mass * pa->Pos[0]);
                     s[1] += (pa->Mass * pa->Pos[1]);
                     s[2] += (pa->Mass * pa->Pos[2]);
-                    vs[0] += (pa->Mass * pa->Vel[0]);
-                    vs[1] += (pa->Mass * pa->Vel[1]);
-                    vs[2] += (pa->Mass * pa->Vel[2]);
 
                     if(pa->Type == 0)
                     {
                         if(P[p].Hsml > hmax)
                             hmax = P[p].Hsml;
-
-                        if(SPHP(p).DivVel > divVmax)
-                            divVmax = SPHP(p).DivVel;
                     }
-
-                    for(k = 0; k < 3; k++)
-                        if((v = fabs(pa->Vel[k])) > vmax)
-                            vmax = v;
-
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
                     if(maxsofttype == 7)
                         maxsofttype = pa->Type;
@@ -690,18 +665,12 @@ void force_update_node_recursive(int no, int sib, int father)
             s[0] /= mass;
             s[1] /= mass;
             s[2] /= mass;
-            vs[0] /= mass;
-            vs[1] /= mass;
-            vs[2] /= mass;
         }
         else
         {
             s[0] = Nodes[no].center[0];
             s[1] = Nodes[no].center[1];
             s[2] = Nodes[no].center[2];
-            vs[0] = 0;
-            vs[1] = 0;
-            vs[2] = 0;
         }
 
 
@@ -711,17 +680,8 @@ void force_update_node_recursive(int no, int sib, int father)
         Nodes[no].u.d.s[1] = s[1];
         Nodes[no].u.d.s[2] = s[2];
 
-        Extnodes[no].Ti_lastkicked = All.Ti_Current;
         Extnodes[no].Flag = GlobFlag;
-        Extnodes[no].vs[0] = vs[0];
-        Extnodes[no].vs[1] = vs[1];
-        Extnodes[no].vs[2] = vs[2];
         Extnodes[no].hmax = hmax;
-        Extnodes[no].vmax = vmax;
-        Extnodes[no].divVmax = divVmax;
-        Extnodes[no].dp[0] = 0;
-        Extnodes[no].dp[1] = 0;
-        Extnodes[no].dp[2] = 0;
 
         if(count_particles > 1)	/* this flags that the node represents more than one particle */
             multiple_flag = (1 << BITFLAG_MULTIPLEPARTICLES);
@@ -774,11 +734,8 @@ void force_exchange_pseudodata(void)
     struct DomainNODE
     {
         MyFloat s[3];
-        MyFloat vs[3];
         MyFloat mass;
         MyFloat hmax;
-        MyFloat vmax;
-        MyFloat divVmax;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
         MyFloat maxsoft;
 #endif
@@ -801,13 +758,8 @@ void force_exchange_pseudodata(void)
             DomainMoment[i].s[0] = Nodes[no].u.d.s[0];
             DomainMoment[i].s[1] = Nodes[no].u.d.s[1];
             DomainMoment[i].s[2] = Nodes[no].u.d.s[2];
-            DomainMoment[i].vs[0] = Extnodes[no].vs[0];
-            DomainMoment[i].vs[1] = Extnodes[no].vs[1];
-            DomainMoment[i].vs[2] = Extnodes[no].vs[2];
             DomainMoment[i].mass = Nodes[no].u.d.mass;
             DomainMoment[i].hmax = Extnodes[no].hmax;
-            DomainMoment[i].vmax = Extnodes[no].vmax;
-            DomainMoment[i].divVmax = Extnodes[no].divVmax;
             DomainMoment[i].bitflags = Nodes[no].u.d.bitflags;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
             DomainMoment[i].maxsoft = Nodes[no].maxsoft;
@@ -850,13 +802,8 @@ void force_exchange_pseudodata(void)
                     Nodes[no].u.d.s[0] = DomainMoment[i].s[0];
                     Nodes[no].u.d.s[1] = DomainMoment[i].s[1];
                     Nodes[no].u.d.s[2] = DomainMoment[i].s[2];
-                    Extnodes[no].vs[0] = DomainMoment[i].vs[0];
-                    Extnodes[no].vs[1] = DomainMoment[i].vs[1];
-                    Extnodes[no].vs[2] = DomainMoment[i].vs[2];
                     Nodes[no].u.d.mass = DomainMoment[i].mass;
                     Extnodes[no].hmax = DomainMoment[i].hmax;
-                    Extnodes[no].vmax = DomainMoment[i].vmax;
-                    Extnodes[no].divVmax = DomainMoment[i].divVmax;
                     Nodes[no].u.d.bitflags =
                         (Nodes[no].u.d.bitflags & (~BITFLAG_MASK)) | (DomainMoment[i].bitflags & BITFLAG_MASK);
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
@@ -874,8 +821,8 @@ void force_exchange_pseudodata(void)
 void force_treeupdate_pseudos(int no)
 {
     int j, p, count_particles, multiple_flag;
-    MyFloat hmax, vmax, divVmax;
-    MyFloat s[3], vs[3], mass;
+    MyFloat hmax;
+    MyFloat s[3], mass;
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
     int maxsofttype, diffsoftflag, current_maxsofttype;
@@ -887,12 +834,7 @@ void force_treeupdate_pseudos(int no)
     s[0] = 0;
     s[1] = 0;
     s[2] = 0;
-    vs[0] = 0;
-    vs[1] = 0;
-    vs[2] = 0;
     hmax = 0;
-    vmax = 0;
-    divVmax = 0;
     count_particles = 0;
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
     maxsofttype = 7;
@@ -915,16 +857,8 @@ void force_treeupdate_pseudos(int no)
             s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
             s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
 
-            vs[0] += (Nodes[p].u.d.mass * Extnodes[p].vs[0]);
-            vs[1] += (Nodes[p].u.d.mass * Extnodes[p].vs[1]);
-            vs[2] += (Nodes[p].u.d.mass * Extnodes[p].vs[2]);
-
             if(Extnodes[p].hmax > hmax)
                 hmax = Extnodes[p].hmax;
-            if(Extnodes[p].vmax > vmax)
-                vmax = Extnodes[p].vmax;
-            if(Extnodes[p].divVmax > divVmax)
-                divVmax = Extnodes[p].divVmax;
 
             if(Nodes[p].u.d.mass > 0)
             {
@@ -972,32 +906,21 @@ void force_treeupdate_pseudos(int no)
         s[0] /= mass;
         s[1] /= mass;
         s[2] /= mass;
-        vs[0] /= mass;
-        vs[1] /= mass;
-        vs[2] /= mass;
     }
     else
     {
         s[0] = Nodes[no].center[0];
         s[1] = Nodes[no].center[1];
         s[2] = Nodes[no].center[2];
-        vs[0] = 0;
-        vs[1] = 0;
-        vs[2] = 0;
     }
 
 
     Nodes[no].u.d.s[0] = s[0];
     Nodes[no].u.d.s[1] = s[1];
     Nodes[no].u.d.s[2] = s[2];
-    Extnodes[no].vs[0] = vs[0];
-    Extnodes[no].vs[1] = vs[1];
-    Extnodes[no].vs[2] = vs[2];
     Nodes[no].u.d.mass = mass;
 
     Extnodes[no].hmax = hmax;
-    Extnodes[no].vmax = vmax;
-    Extnodes[no].divVmax = divVmax;
 
     Extnodes[no].Flag = GlobFlag;
 
@@ -1085,7 +1008,7 @@ force_flag_localnodes(void)
 /*! This function updates the hmax-values in tree nodes that hold SPH
  *  particles. These values are needed to find all neighbors in the
  *  hydro-force computation.  Since the Hsml-values are potentially changed
- *  in the SPH-denity computation, force_update_hmax() should be carried
+ *  in the SPH-density computation, force_update_hmax() should be carried
  *  out just before the hydrodynamical SPH forces are computed, i.e. after
  *  density().
  */
@@ -1109,13 +1032,10 @@ void force_update_hmax(void)
 
             while(no >= 0)
             {
-                if(P[i].Hsml > Extnodes[no].hmax || SPHP(i).DivVel > Extnodes[no].divVmax)
+                if(P[i].Hsml > Extnodes[no].hmax)
                 {
                     if(P[i].Hsml > Extnodes[no].hmax)
                         Extnodes[no].hmax = P[i].Hsml;
-
-                    if(SPHP(i).DivVel > Extnodes[no].divVmax)
-                        Extnodes[no].divVmax = SPHP(i).DivVel;
 
                     if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node */
                     {
@@ -1145,7 +1065,6 @@ void force_update_hmax(void)
     for(i = 0; i < DomainNumChanged; i++)
     {
         domainHmax_loc[2 * i] = Extnodes[DomainList[i]].hmax;
-        domainHmax_loc[2 * i + 1] = Extnodes[DomainList[i]].divVmax;
     }
 
 
@@ -1185,13 +1104,9 @@ void force_update_hmax(void)
 
         while(no >= 0)
         {
-            if(domainHmax_all[2 * i] > Extnodes[no].hmax || domainHmax_all[2 * i + 1] > Extnodes[no].divVmax)
+            if(domainHmax_all[2 * i] > Extnodes[no].hmax)
             {
-                if(domainHmax_all[2 * i] > Extnodes[no].hmax)
                     Extnodes[no].hmax = domainHmax_all[2 * i];
-
-                if(domainHmax_all[2 * i + 1] > Extnodes[no].divVmax)
-                    Extnodes[no].divVmax = domainHmax_all[2 * i + 1];
             }
             else
                 break;

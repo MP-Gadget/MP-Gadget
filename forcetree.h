@@ -45,12 +45,7 @@ extern struct NODE
 /*Structure for information on tree nodes on other processors. Used in forcetree.c and treewalk.c*/
 extern struct extNODE
 {
-    MyDouble dp[3];
-    MyFloat vs[3];
-    MyFloat vmax;
-    MyFloat divVmax;
     MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
-    int Ti_lastkicked;
     int Flag;
 }
 *Extnodes, *Extnodes_base;
@@ -68,7 +63,6 @@ extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 #define BITFLAG_MIXED_SOFTENINGS_IN_NODE   5
 #define BITFLAG_INTERNAL_TOPLEVEL          6  /* INTERNAL tree nodes and toplevel*/
 #define BITFLAG_MULTIPLEPARTICLES          7
-#define BITFLAG_NODEHASBEENKICKED          8
 #define BITFLAG_INSIDE_LINKINGLENGTH       9
 
 #define BITFLAG_MASK  ((1 << BITFLAG_MULTIPLEPARTICLES) + (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE) + (7 << BITFLAG_MAX_SOFTENING_TYPE))
