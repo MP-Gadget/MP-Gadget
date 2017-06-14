@@ -866,9 +866,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             continue;
         }
 
-        /* An actuall node with struct NODE */
-        force_drift_node(no, All.Ti_Current);
-
         current = &Nodes[no];
 
         if(lv->mode == 1) {
