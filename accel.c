@@ -32,23 +32,16 @@ void compute_accelerations(int mode)
 
     walltime_measure("/Misc");
 
+    /* Before computing forces, do a full domain decomposition
+     * and rebuild the tree, so we have synced all particles
+     * to current positions, and the tree nodes have the same positions.
+     * Future drifts are now null-ops.*/
+    domain_Decomposition();
+    force_tree_rebuild();
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
-        /* Before doing PM, do a full domain decomposition
-         * and rebuild the tree, so we have synced all particles
-         * to current positions, and the tree nodes have the same positions.
-         * Future drifts are now null-ops.*/
-        domain_Decomposition();
-        force_tree_rebuild();
         long_range_force();
         walltime_measure("/LongRange");
-        force_tree_rebuild();
-    }
-    /* Check whether it is really time for a new domain decomposition */
-    else if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPartInit * All.TreeDomainUpdateFrequency
-            || All.DoDynamicUpdate == 0)
-    {
-        domain_Decomposition();	/* do domain decomposition */
         force_tree_rebuild();
     }
 

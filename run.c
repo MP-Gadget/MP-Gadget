@@ -270,14 +270,11 @@ void find_next_sync_point_and_drift(int with_fof)
 
         move_particles(All.Ti_nextoutput);
 
-        /* If we need to rebuild the tree, do it before
-         * doing a FoF; if the particles have
+        /* Do domain decomp and rebuild tree before doing
+         * power spectrum or FoF; if the particles have
          * moved a long way, performance will be degraded.*/
-        if(with_fof && All.NumForcesSinceLastDomainDecomp >= All.TotNumPartInit * All.TreeDomainUpdateFrequency)
-        {
-            domain_Decomposition();
-            force_tree_rebuild();
-        }
+        domain_Decomposition();
+        force_tree_rebuild();
         /*Write matter power spectrum*/
         gravpm_force(1);
         force_tree_rebuild();
