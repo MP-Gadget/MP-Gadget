@@ -203,7 +203,6 @@ static int pm_mark_region_for_node(int startno, int rid) {
             {
                 break;
             }
-            force_drift_node(no, All.Ti_Current);
 
             no = Nodes[no].u.d.nextnode;	/* ok, we need to open the node */
         }
