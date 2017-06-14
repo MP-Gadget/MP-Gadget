@@ -273,8 +273,7 @@ extern double RndTable[RNDTABLE];
 /* variables for input/output , usually only used on process 0 */
 
 
-extern FILE *FdInfo,		/*!< file handle for info.txt log-file. */
-       *FdEnergy,			/*!< file handle for energy.txt log-file. */
+extern FILE *FdEnergy,			/*!< file handle for energy.txt log-file. */
        *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
 #ifdef SFR
