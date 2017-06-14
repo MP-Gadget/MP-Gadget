@@ -263,8 +263,6 @@ int find_next_sync_point_and_drift(int with_fof)
 
         set_global_time(nexttime);
 
-        move_particles(All.Ti_nextoutput);
-
         /* Do domain decomp and rebuild tree before doing
          * power spectrum or FoF; if the particles have
          * moved a long way, performance will be degraded.*/
