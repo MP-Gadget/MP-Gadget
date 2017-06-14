@@ -68,7 +68,7 @@ void advance_and_find_timesteps(void)
     if(All.MakeGlassFile)
         reverse_and_apply_gravity();
 
-    All.DoDynamicUpdate = ShouldWeDoDynamicUpdate();
+    All.DoDynamicUpdate = 0;
 
     /* Now assign new timesteps and kick */
 

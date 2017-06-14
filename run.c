@@ -363,55 +363,6 @@ void find_next_sync_point_and_drift(int with_fof)
     walltime_measure("/Drift");
 }
 
-int ShouldWeDoDynamicUpdate(void)
-{
-    int n, num, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
-    int64_t numforces;
-
-
-    /* find the next kick time */
-    for(n = 0, ti_next_kick = TIMEBASE; n < TIMEBINS; n++)
-    {
-        if(TimeBinCount[n])
-        {
-            if(n > 0)
-            {
-                dt_bin = (1 << n);
-                ti_next_for_bin = (All.Ti_Current / dt_bin) * dt_bin + dt_bin;	/* next kick time for this timebin */
-            }
-            else
-            {
-                ti_next_for_bin = All.Ti_Current;
-            }
-
-            if(ti_next_for_bin < ti_next_kick)
-                ti_next_kick = ti_next_for_bin;
-        }
-    }
-
-    MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-    /* count the particles that will be active */
-    for(n = 1, num = TimeBinCount[0]; n < TIMEBINS; n++)
-    {
-        dt_bin = (1 << n);
-
-        if((ti_next_kick_global % dt_bin) == 0)
-            num += TimeBinCount[n];
-    }
-
-    sumup_large_ints(1, &num, &numforces);
-
-    message(0, "I'm guessing %013ld particles to be active in the next step\n", numforces);
-
-    if((All.NumForcesSinceLastDomainDecomp + numforces) >= All.TreeDomainUpdateFrequency * TotNumPart)
-        return 0;
-    else
-        return 1;
-}
-
-
-
 /*! this function returns the next output time that is equal or larger to
  *  ti_curr
  */

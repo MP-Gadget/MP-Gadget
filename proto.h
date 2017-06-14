@@ -8,8 +8,6 @@ void unlock_particle_if_not(int i, MyIDType id);
 void lock_particle(int i);
 void unlock_particle(int i);
 
-int ShouldWeDoDynamicUpdate(void);
-
 void write_cpu_log(void);
 
 
