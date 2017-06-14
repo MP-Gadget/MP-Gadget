@@ -5,7 +5,6 @@
 #include <math.h>
 #include "allvars.h"
 #include "proto.h"
-#include "forcetree.h"
 #include "cosmology.h"
 #include "cooling.h"
 #include "mymalloc.h"

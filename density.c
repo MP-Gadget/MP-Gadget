@@ -7,7 +7,6 @@
 
 #include "allvars.h"
 #include "cooling.h"
-#include "forcetree.h"
 #include "densitykernel.h"
 #include "proto.h"
 #include "treewalk.h"
