@@ -43,6 +43,9 @@ void compute_accelerations(int mode)
         long_range_force();
         walltime_measure("/LongRange");
         force_tree_rebuild();
+        /* compute and output energy statistics if desired. */
+        if(All.OutputEnergyDebug)
+            energy_statistics();
     }
 
     grav_short_tree();		/* computes gravity accel. */

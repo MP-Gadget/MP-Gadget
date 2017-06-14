@@ -72,11 +72,6 @@ void run(void)
                                      * the particles that are to be advanced
                                      */
 
-        /* check whether we want a full energy statistics */
-        if(Flag_FullStep)
-        {
-            energy_statistics();	/* compute and output energy statistics */
-        }
 
         advance_and_find_timesteps();	/* 'kick' active particles in
                                          * momentum space and compute new

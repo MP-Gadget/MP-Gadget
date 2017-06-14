@@ -509,6 +509,9 @@ extern struct global_data_all_processes
          CpuFile[100],
          InfoFile[100], ResubmitCommand[100], OutputList[100];
 
+    /*Should we store the energy to EnergyFile on PM timesteps.*/
+    int OutputEnergyDebug;
+
     char UVFluctuationFile[100];
 
     /*! table with desired output times */

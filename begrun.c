@@ -151,11 +151,13 @@ open_outputfiles(int RestartSnapNum)
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
 
-    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.EnergyFile, postfix);
-    fastpm_path_ensure_dirname(buf);
-    if(!(FdEnergy = fopen(buf, mode)))
-        endrun(1, "error in opening file '%s'\n", buf);
-    free(buf);
+    if(All.OutputEnergyDebug) {
+        buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.EnergyFile, postfix);
+        fastpm_path_ensure_dirname(buf);
+        if(!(FdEnergy = fopen(buf, mode)))
+            endrun(1, "error in opening file '%s'\n", buf);
+        free(buf);
+    }
 
 #ifdef SFR
     buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "sfr.txt", postfix);
@@ -187,7 +189,8 @@ void close_outputfiles(void)
         return;
 
     fclose(FdCPU);
-    fclose(FdEnergy);
+    if(All.OutputEnergyDebug)
+        fclose(FdEnergy);
 
 #ifdef SFR
     fclose(FdSfr);
