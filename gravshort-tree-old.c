@@ -314,8 +314,6 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
                     continue;
                 }
 
-                force_drift_node(no, All.Ti_Current);
-
                 mass = nop->u.d.mass;
 
                 dx = nop->u.d.s[0] - pos_x;
