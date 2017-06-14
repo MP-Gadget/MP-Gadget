@@ -358,8 +358,6 @@ extern struct global_data_all_processes
 
     int64_t TotNumOfForces;	/*!< counts total number of force computations  */
 
-    int64_t NumForcesSinceLastDomainDecomp;	/*!< count particle updates since last domain decomposition */
-
     /* system of units  */
 
     double UnitTime_in_s,		/*!< factor to convert internal time unit to seconds/h */
@@ -468,12 +466,6 @@ extern struct global_data_all_processes
     int MaxMemSizePerNode;
 
     double CourantFac;		/*!< SPH-Courant factor */
-
-
-    /* frequency of tree reconstruction/domain decomposition */
-
-
-    double TreeDomainUpdateFrequency;	/*!< controls frequency of domain decompositions  */
 
 
     /* gravitational and hydrodynamical softening lengths (given in terms of an `equivalent' Plummer softening

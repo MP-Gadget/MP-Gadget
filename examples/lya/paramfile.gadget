@@ -58,9 +58,6 @@ ErrTolTheta = 0.5
 TypeOfOpeningCriterion = 1
 ErrTolForceAcc = 0.005
 
-TreeDomainUpdateFrequency = 0.025  
-
-
 #  Further parameters of SPH
 DensityKernelType = quintic
 DensityContrastLimit = 100   # max contrast for hydro force calculation

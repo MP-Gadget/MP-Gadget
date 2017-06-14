@@ -138,8 +138,6 @@ void domain_Decomposition(void)
 
     do_box_wrapping();	/* map the particles back onto the box */
 
-    All.NumForcesSinceLastDomainDecomp = 0;
-
     message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
     t0 = second();

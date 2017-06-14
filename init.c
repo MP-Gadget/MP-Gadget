@@ -48,7 +48,6 @@ void init(int RestartSnapNum)
     All.SnapshotFileCount = RestartSnapNum + 1;
 
     All.TotNumOfForces = 0;
-    All.NumForcesSinceLastDomainDecomp = 0;
 
     All.TreeAllocFactor = 0.7;
 

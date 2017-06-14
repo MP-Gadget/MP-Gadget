@@ -318,9 +318,6 @@ void find_next_sync_point_and_drift(int with_fof)
     else
         Flag_FullStep = 0;
 
-    All.NumForcesSinceLastDomainDecomp += GlobNumForceUpdate;
-
-
     FirstActiveParticle = -1;
 
     for(n = 0, prev = -1; n < TIMEBINS; n++)
