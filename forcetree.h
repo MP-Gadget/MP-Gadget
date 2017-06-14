@@ -7,7 +7,7 @@
  * ------------------
  */
 
-/*Used in restart.c*/
+/*Used in treewalk.c*/
 extern struct NODE
 {
 #ifdef OPENMP_USE_SPINLOCK
@@ -42,7 +42,7 @@ extern struct NODE
     *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
                       gives the first allocated node */
 
-/*Used in restart.c*/
+/*Structure for information on tree nodes on other processors. Used in forcetree.c and treewalk.c*/
 extern struct extNODE
 {
     MyDouble dp[3];
@@ -57,8 +57,6 @@ extern struct extNODE
 
 
 extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
-/*Used in restart.c*/
-extern int Numnodestree;	/*!< number of (internal) nodes in each tree */
 
 /*Used in domain.c*/
 extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
@@ -77,16 +75,10 @@ extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 #define maskout_different_softening_flag(x) (x & (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE))
 #define extract_max_softening_type(x) ((x >> BITFLAG_MAX_SOFTENING_TYPE) & 7)
 
-void force_drift_node(int no, int time1);
-int force_drift_node_full(int no, int time1, int blocking);
-
-void force_kick_node(int i, MyFloat *dv);
-
 int force_tree_allocated();
 
 void force_update_hmax(void);
 void force_tree_rebuild();
-void force_finish_kick_nodes(void);
 
 void   force_tree_free(void);
 void   dump_particles(void);
