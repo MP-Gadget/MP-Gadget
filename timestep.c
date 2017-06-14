@@ -48,8 +48,6 @@ void set_global_time(double newtime) {
  */
 void advance_and_find_timesteps(void)
 {
-    /*Note static! Persists across calls!*/
-    static double dt_displacement = 0;
     int i, ti_step, ti_step_old, ti_min, tend, tstart, bin, binold, prev, next;
     int badstepsizecount = 0;
     int badstepsizecount_global = 0;
@@ -59,8 +57,8 @@ void advance_and_find_timesteps(void)
 
     walltime_measure("/Misc");
 
-    if(Flag_FullStep || dt_displacement == 0)
-        dt_displacement = find_dt_displacement_constraint();
+    if(All.MaxTimeStepDisplacement == 0)
+        All.MaxTimeStepDisplacement = find_dt_displacement_constraint();
 
     double dt_gravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
             get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
@@ -83,7 +81,7 @@ void advance_and_find_timesteps(void)
 #ifdef FORCE_EQUAL_TIMESTEPS
     for(i = FirstActiveParticle, ti_min = TIMEBASE; i >= 0; i = NextActiveParticle[i])
     {
-        ti_step = get_timestep(i,dt_displacement);
+        ti_step = get_timestep(i,All.MaxTimeStepDisplacement);
 
         if(ti_step < ti_min)
             ti_min = ti_step;
@@ -100,7 +98,7 @@ void advance_and_find_timesteps(void)
 #ifdef FORCE_EQUAL_TIMESTEPS
         ti_step = ti_min_glob;
 #else
-        ti_step = get_timestep(i,dt_displacement);
+        ti_step = get_timestep(i,All.MaxTimeStepDisplacement);
 #endif
 
         /* make it a power 2 subdivision */
@@ -209,7 +207,7 @@ void advance_and_find_timesteps(void)
         All.DoDynamicUpdate = 0;
 
         ti_step = TIMEBASE;
-        while(ti_step > (dt_displacement / All.Timebase_interval))
+        while(ti_step > (All.MaxTimeStepDisplacement / All.Timebase_interval))
             ti_step >>= 1;
 
         if(ti_step > (All.PM_Ti_endstep - All.PM_Ti_begstep))	/* PM-timestep wants to increase */

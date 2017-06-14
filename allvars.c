@@ -51,8 +51,6 @@ double Local_BH_Mdot;
 double Local_BH_Medd;
 #endif
 
-int Flag_FullStep;		/*!< Flag used to signal that the current step involves all particles */
-
 int GlobFlag;
 
 

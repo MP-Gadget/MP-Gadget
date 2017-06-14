@@ -248,8 +248,6 @@ extern int NTask;		/*!< number of processors */
 
 extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tree used for domain decomposition */
 
-extern int Flag_FullStep;	/*!< Flag used to signal that the current step involves all particles */
-
 extern int GlobFlag;
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
@@ -422,6 +420,7 @@ extern struct global_data_all_processes
     double Timebase_interval;	/*!< factor to convert from floating point time interval to integer timeline */
     int Ti_Current;		/*!< current time on integer timeline */
     int Ti_nextoutput;		/*!< next output time on integer timeline */
+    double MaxTimeStepDisplacement; /*!< Maximum timestep from global displacements*/
 
     int Nmesh;
 

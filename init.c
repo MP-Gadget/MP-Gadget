@@ -48,6 +48,7 @@ void init(int RestartSnapNum)
     All.SnapshotFileCount = RestartSnapNum + 1;
 
     All.TotNumOfForces = 0;
+    All.MaxTimeStepDisplacement = 0;
 
     All.TreeAllocFactor = 0.7;
 
@@ -115,8 +116,6 @@ void init(int RestartSnapNum)
 #endif
     }
 
-
-    Flag_FullStep = 1;		/* to ensure that Peano-Hilbert order is done */
 
     domain_Decomposition();	/* do initial domain decomposition (gives equal numbers of particles) */
 

@@ -314,9 +314,7 @@ void find_next_sync_point_and_drift(int with_fof)
     All.TotNumOfForces += GlobNumForceUpdate;
 
     if(GlobNumForceUpdate >= TotNumPart)
-        Flag_FullStep = 1;
-    else
-        Flag_FullStep = 0;
+        All.MaxTimeStepDisplacement = 0;
 
     FirstActiveParticle = -1;
 
