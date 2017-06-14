@@ -41,7 +41,6 @@ extern struct NODE
 extern struct extNODE
 {
     MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
-    int Flag;
 }
 *Extnodes, *Extnodes_base;
 

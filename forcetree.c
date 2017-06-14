@@ -32,9 +32,6 @@ struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the node
 
 struct extNODE *Extnodes, *Extnodes_base;
 
-
-int GlobFlag = 0;
-
 int MaxNodes;			/*!< maximum allowed number of internal nodes */
 int Numnodestree;		/*!< number of (internal) nodes in each tree */
 
@@ -681,7 +678,6 @@ void force_update_node_recursive(int no, int sib, int father)
         Nodes[no].u.d.s[1] = s[1];
         Nodes[no].u.d.s[2] = s[2];
 
-        Extnodes[no].Flag = GlobFlag;
         Extnodes[no].hmax = hmax;
 
         if(count_particles > 1)	/* this flags that the node represents more than one particle */
@@ -923,8 +919,6 @@ void force_treeupdate_pseudos(int no)
 
     Extnodes[no].hmax = hmax;
 
-    Extnodes[no].Flag = GlobFlag;
-
     if(count_particles > 1)
         multiple_flag = (1 << BITFLAG_MULTIPLEPARTICLES);
     else
@@ -1022,7 +1016,6 @@ void force_update_hmax(void)
     int *DomainList, DomainNumChanged;
 
     walltime_measure("/Misc");
-    GlobFlag++;
 
     DomainNumChanged = 0;
     DomainList = (int *) mymalloc("DomainList", NTopleaves * sizeof(int));
@@ -1041,11 +1034,7 @@ void force_update_hmax(void)
 
                     if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node */
                     {
-                        if(Extnodes[no].Flag != GlobFlag)
-                        {
-                            Extnodes[no].Flag = GlobFlag;
-                            DomainList[DomainNumChanged++] = no;
-                        }
+                        DomainList[DomainNumChanged++] = no;
                         break;
                     }
                 }
