@@ -143,7 +143,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "");
 
     param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 1, "Number of sub domains on a MPI rank");
-    param_declare_double(ps, "TreeDomainUpdateFrequency", OPTIONAL, 0.025, "");
+    param_declare_double(ps, "TreeDomainUpdateFrequency", OPTIONAL, 0.00, "");
     param_declare_double(ps, "ErrTolTheta", OPTIONAL, 0.5, "");
     param_declare_int(ps,    "TypeOfOpeningCriterion", OPTIONAL, 1, "");
     param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "");
