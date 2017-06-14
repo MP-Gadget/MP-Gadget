@@ -303,7 +303,6 @@ petaio_read_header_internal(BigFile * bf) {
                     big_file_get_error_message());
     }
     double Time;
-    double BoxSize;
     int ptype;
     if(
     (0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||

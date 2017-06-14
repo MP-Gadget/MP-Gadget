@@ -129,11 +129,9 @@ void begrun(int BeginFlag, int RestartSnapNum)
 static void
 open_outputfiles(int RestartSnapNum)
 {
-    char mode[2];
+    const char mode[3]="a+";
     char * buf;
     char * postfix;
-
-    strcpy(mode, "a+");
 
     if(RestartSnapNum != -1) {
         postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
