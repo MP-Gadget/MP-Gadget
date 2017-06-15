@@ -77,6 +77,7 @@ static struct local_topnode_data
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA,
         int noB);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
+int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp);
 
 static int domain_layoutfunc(int n);
 static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p));
@@ -1433,7 +1434,7 @@ void domain_walktoptree(int no)
  * If 1 is returned on any processor we will return to domain_Decomposition,
  * allocate 30% more topNodes, and try again.
  * */
-int domain_check_for_local_refine(const int i, const double countlimit, const double costlimit, const struct peano_hilbert_data * mp)
+int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp)
 {
     int j, p;
 
@@ -1441,17 +1442,13 @@ int domain_check_for_local_refine(const int i, const double countlimit, const do
     if(topNodes[i].Size < 8)
         return 0;
 
-    /* We need to do refinement if we are over the countlimit, or the cost limit, or
-     * (if we have a parent) we have more than 80% of the parent's particles or costs.*/
-#ifndef DENSITY_INDEPENDENT_SPH_DEBUG
-    /*If we are above the cost limits we definitely need to refine.*/
-    if(topNodes[i].Count <= countlimit && topNodes[i].Cost <=costlimit)
-#endif
-        /* If we were below them but we have a parent and somehow got all of its particles, we still
-         * need to refine. But if none of these things are true we can return, our work complete. */
-        if(topNodes[i].Parent < 0 || (topNodes[i].Count <= 0.8 * topNodes[topNodes[i].Parent].Count &&
-                topNodes[i].Cost <= 0.8 * topNodes[topNodes[i].Parent].Cost))
-            return 0;
+    /* We need to do refinement if (if we have a parent) we have more than 80%
+     * of the parent's particles or costs.*/
+    /* If we were below them but we have a parent and somehow got all of its particles, we still
+     * need to refine. But if none of these things are true we can return, our work complete. */
+    if(topNodes[i].Parent < 0 || (topNodes[i].Count <= 0.8 * topNodes[topNodes[i].Parent].Count &&
+            topNodes[i].Cost <= 0.8 * topNodes[topNodes[i].Parent].Cost))
+        return 0;
 
     /* If we want to refine but there is no space for another topNode on this processor,
      * we ran out of top nodes and must get more.*/
@@ -1507,15 +1504,10 @@ int domain_check_for_local_refine(const int i, const double countlimit, const do
     for(j = 0; j < 8; j++)
     {
         const int sub = topNodes[i].Daughter + j;
-
-#ifdef DENSITY_INDEPENDENT_SPH_DEBUG
-        if(topNodes[sub].Count > All.TotNumPartInit /
-                (TOPNODEFACTOR * NTask * NTask))
-#endif
-            /* Refine each sub node. If we could not refine the node as needed,
-             * we are out of node space and need more.*/
-            if(domain_check_for_local_refine(sub, countlimit, costlimit, mp))
-                return 1;
+        /* Refine each sub node. If we could not refine the node as needed,
+         * we are out of node space and need more.*/
+        if(domain_check_for_local_refine(sub, mp))
+            return 1;
     }
     return 0;
 }
@@ -1648,7 +1640,7 @@ int domain_determineTopTree(void)
     costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
     countlimit = totpartcount / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
-    errflag = domain_check_for_local_refine(0, countlimit, costlimit, mp);
+    errflag = domain_check_for_local_refine(0, mp);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     myfree(mp);
@@ -1693,8 +1685,6 @@ int domain_determineTopTree(void)
 
     /* now let's see whether we should still append more nodes, based on the estimated cumulative cost/count in each cell */
 
-
-#ifndef DENSITY_INDEPENDENT_SPH_DEBUG
     message(0, "Before=%d\n", NTopnodes);
 
     for(i = 0, errflag = 0; i < NTopnodes; i++)
@@ -1733,7 +1723,6 @@ int domain_determineTopTree(void)
         return errsum;
 
     message(0, "After=%d\n", NTopnodes);
-#endif
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
     /* count toplevel leaves */
     domain_sumCost();
