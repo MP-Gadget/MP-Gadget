@@ -506,6 +506,8 @@ int domain_check_memory_bound(const int print_details)
             max_work = work;
     }
 
+    /*Avoid nan on division*/
+    sumsphload = sumsphload ? sumsphload : 1;
     message(0, "Largest deviations from average: work=%g particle load=%g sph particle load=%g\n",
             max_work / (sumwork / NTask), max_load / (((double) sumload) / NTask), max_sphload/(((double) sumsphload)/NTask));
 
