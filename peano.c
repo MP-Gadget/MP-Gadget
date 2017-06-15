@@ -241,29 +241,16 @@ peanokey peano_hilbert_key(int x, int y, int z, int bits)
 }
 
 
-
-peanokey peano_and_morton_key(int x, int y, int z, int bits, peanokey * morton_key)
+peanokey morton_key(int x, int y, int z, int bits)
 {
     int mask;
-    unsigned char rotation = 0;
-    peanokey key = 0;
     peanokey morton = 0;
-
 
     for(mask = 1 << (bits - 1); mask > 0; mask >>= 1)
     {
-        unsigned char pix = ((x & mask) ? 4 : 0) | ((y & mask) ? 2 : 0) | ((z & mask) ? 1 : 0);
-
-        key <<= 3;
-        key |= subpix3[rotation][pix];
-        rotation = rottable3[rotation][pix];
-
         morton <<= 3;
         morton += ((z & mask) ? 4 : 0) + ((y & mask) ? 2 : 0) + ((x & mask) ? 1 : 0);
     }
-
-    *morton_key = morton;
-
-    return key;
+    return morton;
 }
 

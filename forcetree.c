@@ -202,10 +202,10 @@ int force_tree_build_single(int npart)
     {
         peanokey morton, key;
 
-        key = peano_and_morton_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac),
+        key = KEY(i);
+        morton = morton_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac),
                 (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac),
-                (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), BITS_PER_DIMENSION,
-                &morton);
+                (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), BITS_PER_DIMENSION);
         morton_list[i] = morton;
 
         int shift = 3 * (BITS_PER_DIMENSION - 1);

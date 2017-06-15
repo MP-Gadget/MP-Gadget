@@ -21,7 +21,6 @@ void mysort_peano(void *b, size_t n, size_t s, int (*cmp) (const void *, const v
 
 void init_peano_map(void);
 peanokey peano_hilbert_key(int x, int y, int z, int bits);
-peanokey peano_and_morton_key(int x, int y, int z, int bits, peanokey *morton);
 peanokey morton_key(int x, int y, int z, int bits);
 
 int peano_compare_key(const void *a, const void *b);
