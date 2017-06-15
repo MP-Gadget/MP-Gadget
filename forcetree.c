@@ -1003,7 +1003,7 @@ void force_update_hmax(void)
 {
     int i, no, ta, totDomainNumChanged;
     int *domainList_all;
-    int *counts, *offset_list, *offset_hmax;
+    int *counts, *offset_list;
     MyFloat *domainHmax_loc, *domainHmax_all;
     int *DomainList, DomainNumChanged;
 
@@ -1041,7 +1041,6 @@ void force_update_hmax(void)
 
     counts = (int *) mymalloc("counts", sizeof(int) * NTask);
     offset_list = (int *) mymalloc("offset_list", sizeof(int) * NTask);
-    offset_hmax = (int *) mymalloc("offset_hmax", sizeof(int) * NTask);
 
     domainHmax_loc = (MyFloat *) mymalloc("domainHmax_loc", DomainNumChanged * sizeof(MyFloat));
 
@@ -1053,13 +1052,12 @@ void force_update_hmax(void)
 
     MPI_Allgather(&DomainNumChanged, 1, MPI_INT, counts, 1, MPI_INT, MPI_COMM_WORLD);
 
-    for(ta = 0, totDomainNumChanged = 0, offset_list[0] = 0, offset_hmax[0] = 0; ta < NTask; ta++)
+    for(ta = 0, totDomainNumChanged = 0, offset_list[0] = 0; ta < NTask; ta++)
     {
         totDomainNumChanged += counts[ta];
         if(ta > 0)
         {
             offset_list[ta] = offset_list[ta - 1] + counts[ta - 1];
-            offset_hmax[ta] = offset_hmax[ta - 1] + counts[ta - 1] * sizeof(MyFloat);
         }
     }
 
@@ -1071,11 +1069,13 @@ void force_update_hmax(void)
     MPI_Allgatherv(DomainList, DomainNumChanged, MPI_INT,
             domainList_all, counts, offset_list, MPI_INT, MPI_COMM_WORLD);
 
-    for(ta = 0; ta < NTask; ta++)
+    for(ta = 0; ta < NTask; ta++) {
         counts[ta] *= sizeof(MyFloat);
+        offset_list[ta] *= sizeof(MyFloat);
+    }
 
     MPI_Allgatherv(domainHmax_loc, DomainNumChanged * sizeof(MyFloat), MPI_BYTE,
-            domainHmax_all, counts, offset_hmax, MPI_BYTE, MPI_COMM_WORLD);
+            domainHmax_all, counts, offset_list, MPI_BYTE, MPI_COMM_WORLD);
 
 
     for(i = 0; i < totDomainNumChanged; i++)
@@ -1102,7 +1102,6 @@ void force_update_hmax(void)
     myfree(domainList_all);
     myfree(domainHmax_all);
     myfree(domainHmax_loc);
-    myfree(offset_hmax);
     myfree(offset_list);
     myfree(counts);
     myfree(DomainList);
