@@ -36,4 +36,3 @@ OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
 
 #-------------------------------------------- Things for special behaviour
 OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
-OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very different from collisionless particles, this can helps to avoid problems in the domain decomposition -- increase All.MaxPartSph

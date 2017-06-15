@@ -362,11 +362,9 @@ petaio_read_header_internal(BigFile * bf) {
     All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);	
     All.MaxPartSph = (int) (All.PartAllocFactor * NTotal[0] / NTask);	
 
-#ifdef INHOMOG_GASDISTR_HINT
-    if(NTotal[0] > 0) {
+    if(NTotal[0] > 0 && All.IncreaseMaxSph) {
         All.MaxPartSph = All.MaxPart;
     }
-#endif
     /* at most 10% of SPH can form BH*/
     All.MaxPartBh = (int) (0.1 * All.MaxPartSph);	
 
