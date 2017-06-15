@@ -9,7 +9,6 @@ typedef struct Region {
     /* below are used mostly for investigation */
     double center[3];
     double len;
-    double hmax;
     int numpart;
     int no; /* node number for debugging */
 } PetaPMRegion;

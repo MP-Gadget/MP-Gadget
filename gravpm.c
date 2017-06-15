@@ -233,7 +233,6 @@ static void convert_node_to_region(PetaPMRegion * r) {
     petapm_region_init_strides(r);
 
     r->len  = Nodes[no].len;
-    r->hmax = Nodes[no].hmax;
 }
 
 /********************
