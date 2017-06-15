@@ -44,10 +44,8 @@ static int last;
 static int tree_allocated_flag = 0;
 
 
-static int
-force_tree_build(int npart, struct unbind_data *mp);
-static int
-force_tree_build_single(int npart, struct unbind_data *mp);
+static int force_tree_build(int npart);
+static int force_tree_build_single(int npart);
 static void
 force_treeallocate(int maxnodes, int maxpart);
 
@@ -89,7 +87,7 @@ force_tree_rebuild()
 
     walltime_measure("/Misc");
 
-    force_tree_build(NumPart, NULL);
+    force_tree_build(NumPart);
 
     walltime_measure("/Tree/Build");
 
@@ -100,13 +98,13 @@ force_tree_rebuild()
 /*! This function is a driver routine for constructing the gravitational
  *  oct-tree, which is done by calling a small number of other functions.
  */
-int force_tree_build(int npart, struct unbind_data *mp)
+int force_tree_build(int npart)
 {
     int flag;
 
     do
     {
-        Numnodestree = force_tree_build_single(npart, mp);
+        Numnodestree = force_tree_build_single(npart);
 
         MPI_Allreduce(&Numnodestree, &flag, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         if(flag == -1)
@@ -146,24 +144,20 @@ int force_tree_build(int npart, struct unbind_data *mp)
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
-int force_tree_build_single(int npart, struct unbind_data *mp)
+int force_tree_build_single(int npart)
 {
-    int i, j, k, subnode = 0, shift, parent, numnodes, rep;
-    int nfree, th, nn, no;
-    struct NODE *nfreep;
-    MyFloat lenhalf;
-    peanokey key, morton, th_key, *morton_list;
-
+    int i, subnode = 0, parent, numnodes;
+    peanokey *morton_list;
 
     /* create an empty root node  */
-    nfree = All.MaxPart;		/* index of first free node */
-    nfreep = &Nodes[nfree];	/* select first node */
+    int nfree = All.MaxPart;		/* index of first free node */
+    struct NODE *nfreep = &Nodes[nfree];	/* select first node */
 
     nfreep->len = DomainLen;
-    for(j = 0; j < 3; j++)
-        nfreep->center[j] = DomainCenter[j];
-    for(j = 0; j < 8; j++)
-        nfreep->u.suns[j] = -1;
+    for(i = 0; i < 3; i++)
+        nfreep->center[i] = DomainCenter[i];
+    for(i = 0; i < 8; i++)
+        nfreep->u.suns[i] = -1;
 
 
     numnodes = 1;
@@ -189,14 +183,10 @@ int force_tree_build_single(int npart, struct unbind_data *mp)
     morton_list = (peanokey *) mymalloc("morton_list", NumPart * sizeof(peanokey));
 
     /* now we insert all particles */
-    for(k = 0; k < npart; k++)
+    for(i = 0; i < npart; i++)
     {
-        if(mp)
-            i = mp[k].index;
-        else
-            i = k;
-
-        rep = 0;
+        int rep = 0;
+        peanokey morton, key;
 
         key = peano_and_morton_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac),
                 (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac),
@@ -204,9 +194,9 @@ int force_tree_build_single(int npart, struct unbind_data *mp)
                 &morton);
         morton_list[i] = morton;
 
-        shift = 3 * (BITS_PER_DIMENSION - 1);
+        int shift = 3 * (BITS_PER_DIMENSION - 1);
 
-        no = 0;
+        int no = 0;
         while(TopNodes[no].Daughter >= 0)
         {
             no = TopNodes[no].Daughter + (key - TopNodes[no].StartKey) / (TopNodes[no].Size / 8);
@@ -214,7 +204,7 @@ int force_tree_build_single(int npart, struct unbind_data *mp)
         }
 
         no = TopNodes[no].Leaf;
-        th = DomainNodeIndex[no];
+        int th = DomainNodeIndex[no];
 
         while(1)
         {
@@ -251,7 +241,7 @@ int force_tree_build_single(int npart, struct unbind_data *mp)
                 }
 #endif
 
-                nn = Nodes[th].u.suns[subnode];
+                int nn = Nodes[th].u.suns[subnode];
 
                 shift -= 3;
 
@@ -274,10 +264,11 @@ int force_tree_build_single(int npart, struct unbind_data *mp)
                 /* We try to insert into a leaf with a single particle.  Need
                  * to generate a new internal node at this point.
                  */
+                const MyFloat lenhalf = 0.25 * Nodes[parent].len;
+                int j;
                 Nodes[parent].u.suns[subnode] = nfree;
 
                 nfreep->len = 0.5 * Nodes[parent].len;
-                lenhalf = 0.25 * Nodes[parent].len;
 
                 if(subnode & 1)
                     nfreep->center[0] = Nodes[parent].center[0] + lenhalf;
@@ -294,18 +285,12 @@ int force_tree_build_single(int npart, struct unbind_data *mp)
                 else
                     nfreep->center[2] = Nodes[parent].center[2] - lenhalf;
 
-                nfreep->u.suns[0] = -1;
-                nfreep->u.suns[1] = -1;
-                nfreep->u.suns[2] = -1;
-                nfreep->u.suns[3] = -1;
-                nfreep->u.suns[4] = -1;
-                nfreep->u.suns[5] = -1;
-                nfreep->u.suns[6] = -1;
-                nfreep->u.suns[7] = -1;
+                for(j = 0; j < 8; j++)
+                    nfreep->u.suns[j] = -1;
 
                 if(shift >= 0)
                 {
-                    th_key = morton_list[th];
+                    peanokey th_key = morton_list[th];
                     subnode = ((th_key >> shift) & 7);
                 }
                 else
@@ -337,23 +322,19 @@ int force_tree_build_single(int npart, struct unbind_data *mp)
                 nfreep->u.suns[subnode] = th;
 
                 th = nfree;	/* resume trying to insert the new particle at
-                             * the newly created internal node
-                             */
-
+                             * the newly created internal node */
                 numnodes++;
                 nfree++;
                 nfreep++;
 
                 if((numnodes) >= MaxNodes)
                 {
-                    message(1, "maximum number %d of tree-nodes reached for particle %d.\n",
-                            MaxNodes, i);
-
+                    message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i);
                     if(All.TreeAllocFactor > 5.0)
                     {
-                        message(1, "looks like a serious problem for particle %d, stopping with particle dump.\n", i);
+                        message(1, "An excessively large number of tree nodes were required for particle %d, stopping with particle dump.\n", i);
                         savepositions(999999, 0);
-                        endrun(1, "serious problem occured, snapshot saved.");
+                        endrun(1, "Too many tree nodes, snapshot saved.");
                     }
                     else
                     {

@@ -150,12 +150,6 @@ typedef uint64_t MyIDType;
 typedef LOW_PRECISION MyFloat;
 typedef HIGH_PRECISION MyDouble;
 
-struct unbind_data
-{
-    int index;
-};
-
-
 #define HAS(val, flag) ((flag & (val)) == (flag))
 #ifdef BLACK_HOLES
 enum BlackHoleFeedbackMethod {
