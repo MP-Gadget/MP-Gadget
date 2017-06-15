@@ -191,37 +191,26 @@ int get_subnode(const struct NODE * node, const int nodepos, const int p_i, cons
  *  particle must be exported to that CPU. */
 int force_tree_build_single(int npart)
 {
-    int i, subnode = 0, numnodes;
+    int i;
+    int nfree = All.MaxPart;		/* index of first free node */
 
     /* create an empty root node  */
-    int nfree = All.MaxPart;		/* index of first free node */
-    struct NODE *nfreep = &Nodes[nfree];	/* select first node */
+    {
+        struct NODE *nfreep = &Nodes[nfree];	/* select first node */
 
-    nfreep->len = DomainLen;
-    for(i = 0; i < 3; i++)
-        nfreep->center[i] = DomainCenter[i];
-    for(i = 0; i < 8; i++)
-        nfreep->u.suns[i] = -1;
-
-
-    numnodes = 1;
-    nfreep++;
-    nfree++;
-
-    /* create a set of empty nodes corresponding to the top-level domain
-     * grid. We need to generate these nodes first to make sure that we have a
-     * complete top-level tree which allows the easy insertion of the
-     * pseudo-particles at the right place
-     */
-
-    force_create_empty_nodes(All.MaxPart, 0, 1, 0, 0, 0, &numnodes, &nfree);
-
-    /* if a high-resolution region in a global tree is used, we need to generate
-     * an additional set empty nodes to make sure that we have a complete
-     * top-level tree for the high-resolution inset
-     */
-
-    nfreep = &Nodes[nfree];
+        nfreep->len = DomainLen;
+        for(i = 0; i < 3; i++)
+            nfreep->center[i] = DomainCenter[i];
+        for(i = 0; i < 8; i++)
+            nfreep->u.suns[i] = -1;
+        nfree++;
+        /* create a set of empty nodes corresponding to the top-level domain
+         * grid. We need to generate these nodes first to make sure that we have a
+         * complete top-level tree which allows the easy insertion of the
+         * pseudo-particles in the right place */
+        int numnodes = 1;
+        force_create_empty_nodes(All.MaxPart, 0, 1, 0, 0, 0, &numnodes, &nfree);
+    }
 
     /* now we insert all particles */
     for(i = 0; i < npart; i++)
@@ -239,6 +228,7 @@ int force_tree_build_single(int npart)
         no = TopNodes[no].Leaf;
         int th = DomainNodeIndex[no];
         int parent = -1;			/* note: will not be used below before it is changed */
+        int subnode = 0;
 
         while(1)
         {
@@ -269,9 +259,19 @@ int force_tree_build_single(int npart)
                 /* We try to insert into a leaf with a single particle.  Need
                  * to generate a new internal node at this point.
                  */
-                const MyFloat lenhalf = 0.25 * Nodes[parent].len;
+                /*Get node index to insert and mark it taken*/
+                const int ninsert = nfree++;
+                if(nfree >= All.MaxPart + MaxNodes)
+                {
+                    message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i);
+                    return -1;
+                }
+                struct NODE *nfreep = &Nodes[ninsert];	/* select desired node */
                 int j;
-                Nodes[parent].u.suns[subnode] = nfree;
+                const MyFloat lenhalf = 0.25 * Nodes[parent].len;
+
+                /*Mark this node in the parent*/
+                Nodes[parent].u.suns[subnode] = ninsert;
 
                 nfreep->len = 0.5 * Nodes[parent].len;
 
@@ -288,17 +288,8 @@ int force_tree_build_single(int npart)
 
                 nfreep->u.suns[subnode] = th;
 
-                th = nfree;	/* resume trying to insert the new particle at
+                th = ninsert;	/* resume trying to insert the new particle at
                              * the newly created internal node */
-                numnodes++;
-                nfree++;
-                nfreep++;
-
-                if((numnodes) >= MaxNodes)
-                {
-                    message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i);
-                    return -1;
-                }
             }
         }
     }
@@ -322,7 +313,7 @@ int force_tree_build_single(int npart)
     else
         Nextnode[last] = -1;
 
-    return numnodes;
+    return nfree - All.MaxPart;
 }
 
 
