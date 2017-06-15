@@ -131,7 +131,22 @@ int force_tree_build(int npart)
     return Numnodestree;
 }
 
-
+/*Check for particles at identical positions*/
+inline int rand_tree_subnode(double len, int node, int i, int subnode)
+{
+#ifndef NOTREERND
+    if(len < 1.0e-3 * All.ForceSoftening[P[i].Type])
+    {
+        /* seems like we're dealing with particles at identical (or extremely close)
+         * locations. Randomize subnode index to allow tree construction. Note: Multipole moments
+         * of tree are still correct, but this will only happen well below gravitational softening
+         * length-scale anyway.
+         */
+        return (int) (7.99 * get_random_number(P[i].ID+node));
+    }
+#endif
+    return subnode;
+}
 
 /*! Constructs the gravitational oct-tree.
  *
@@ -185,7 +200,6 @@ int force_tree_build_single(int npart)
     /* now we insert all particles */
     for(i = 0; i < npart; i++)
     {
-        int rep = 0;
         peanokey morton, key;
 
         key = peano_and_morton_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac),
@@ -225,21 +239,7 @@ int force_tree_build_single(int npart)
                         subnode += 4;
                 }
 
-#ifndef NOTREERND
-                if(Nodes[th].len < 1.0e-3 * All.ForceSoftening[P[i].Type])
-                {
-                    /* seems like we're dealing with particles at identical (or extremely close)
-                     * locations. Randomize subnode index to allow tree construction. Note: Multipole moments
-                     * of tree are still correct, but this will only happen well below gravitational softening
-                     * length-scale anyway.
-                     */
-                    subnode = (int) (8.0 * get_random_number((P[i].ID + rep) % (RNDTABLE + (rep & 3))));
-
-                    if(subnode >= 8)
-                        subnode = 7;
-                    rep++;
-                }
-#endif
+                subnode = rand_tree_subnode(Nodes[th].len, th, i, subnode);
 
                 int nn = Nodes[th].u.suns[subnode];
 
@@ -304,21 +304,8 @@ int force_tree_build_single(int npart)
                         subnode += 4;
                 }
 
-#ifndef NOTREERND
-                if(nfreep->len < 1.0e-3 * All.ForceSoftening[P[th].Type])
-                {
-                    /* seems like we're dealing with particles at identical (or extremely close)
-                     * locations. Randomize subnode index to allow tree construction. Note: Multipole moments
-                     * of tree are still correct, but this will only happen well below gravitational softening
-                     * length-scale anyway.
-                     */
-                    subnode = (int) (8.0 * get_random_number((P[th].ID + rep) % (RNDTABLE + (rep & 3))));
+                subnode = rand_tree_subnode(nfreep->len, parent, th, subnode);
 
-                    if(subnode >= 8)
-                        subnode = 7;
-                    rep++;
-                }
-#endif
                 nfreep->u.suns[subnode] = th;
 
                 th = nfree;	/* resume trying to insert the new particle at
