@@ -1043,11 +1043,11 @@ void force_update_hmax(void)
     offset_list = (int *) mymalloc("offset_list", sizeof(int) * NTask);
     offset_hmax = (int *) mymalloc("offset_hmax", sizeof(int) * NTask);
 
-    domainHmax_loc = (MyFloat *) mymalloc("domainHmax_loc", DomainNumChanged * 2 * sizeof(MyFloat));
+    domainHmax_loc = (MyFloat *) mymalloc("domainHmax_loc", DomainNumChanged * sizeof(MyFloat));
 
     for(i = 0; i < DomainNumChanged; i++)
     {
-        domainHmax_loc[2 * i] = Nodes[DomainList[i]].hmax;
+        domainHmax_loc[i] = Nodes[DomainList[i]].hmax;
     }
 
 
@@ -1059,22 +1059,22 @@ void force_update_hmax(void)
         if(ta > 0)
         {
             offset_list[ta] = offset_list[ta - 1] + counts[ta - 1];
-            offset_hmax[ta] = offset_hmax[ta - 1] + counts[ta - 1] * 2 * sizeof(MyFloat);
+            offset_hmax[ta] = offset_hmax[ta - 1] + counts[ta - 1] * sizeof(MyFloat);
         }
     }
 
     message(0, "Hmax exchange: %d topleaves out of %d\n", totDomainNumChanged, NTopleaves);
 
-    domainHmax_all = (MyFloat *) mymalloc("domainHmax_all", totDomainNumChanged * 2 * sizeof(MyFloat));
+    domainHmax_all = (MyFloat *) mymalloc("domainHmax_all", totDomainNumChanged * sizeof(MyFloat));
     domainList_all = (int *) mymalloc("domainList_all", totDomainNumChanged * sizeof(int));
 
     MPI_Allgatherv(DomainList, DomainNumChanged, MPI_INT,
             domainList_all, counts, offset_list, MPI_INT, MPI_COMM_WORLD);
 
     for(ta = 0; ta < NTask; ta++)
-        counts[ta] *= 2 * sizeof(MyFloat);
+        counts[ta] *= sizeof(MyFloat);
 
-    MPI_Allgatherv(domainHmax_loc, 2 * DomainNumChanged * sizeof(MyFloat), MPI_BYTE,
+    MPI_Allgatherv(domainHmax_loc, DomainNumChanged * sizeof(MyFloat), MPI_BYTE,
             domainHmax_all, counts, offset_hmax, MPI_BYTE, MPI_COMM_WORLD);
 
 
@@ -1087,9 +1087,9 @@ void force_update_hmax(void)
 
         while(no >= 0)
         {
-            if(domainHmax_all[2 * i] > Nodes[no].hmax)
+            if(domainHmax_all[i] > Nodes[no].hmax)
             {
-                    Nodes[no].hmax = domainHmax_all[2 * i];
+                    Nodes[no].hmax = domainHmax_all[i];
             }
             else
                 break;
