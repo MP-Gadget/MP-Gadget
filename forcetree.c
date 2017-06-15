@@ -131,18 +131,43 @@ int force_tree_build(int npart)
     return Numnodestree;
 }
 
-/*Check for particles at identical positions*/
-inline int rand_tree_subnode(double len, int node, int i, int subnode)
+/* Get the subnode for a given particle and parent node.
+ * This splits a parent node into 8 subregions depending on the particle position.
+ * node is the parent node to split, p_i is the index of the particle we
+ * are currently inserting, and shift denotes the level of the
+ * tree we are currently at.
+ * Returns a value between 0 and 7. If particles are very close,
+ * the tree subnode is randomised.
+ * */
+int get_subnode(const struct NODE * node, const int nodepos, const int p_i, const int shift)
 {
+    int subnode=0;
+    if(shift >= 0)
+    {
+        const peanokey morton = MORTON(p_i);
+        /* Shift morton key to the right by shift bits,
+         * cutting the key at the correct tree level*/
+        subnode = ((morton >> shift) & 7);
+    }
+    else
+    {
+        if(P[p_i].Pos[0] > node->center[0])
+            subnode += 1;
+        if(P[p_i].Pos[1] > node->center[1])
+            subnode += 2;
+        if(P[p_i].Pos[2] > node->center[2])
+            subnode += 4;
+    }
+
 #ifndef NOTREERND
-    if(len < 1.0e-3 * All.ForceSoftening[P[i].Type])
+    if(node->len < 1.0e-3 * All.ForceSoftening[P[p_i].Type])
     {
         /* seems like we're dealing with particles at identical (or extremely close)
          * locations. Randomize subnode index to allow tree construction. Note: Multipole moments
          * of tree are still correct, but this will only happen well below gravitational softening
          * length-scale anyway.
          */
-        return (int) (7.99 * get_random_number(P[i].ID+node));
+        return (int) (7.99 * get_random_number(P[p_i].ID+nodepos));
     }
 #endif
     return subnode;
@@ -161,7 +186,7 @@ inline int rand_tree_subnode(double len, int node, int i, int subnode)
  *  particle must be exported to that CPU. */
 int force_tree_build_single(int npart)
 {
-    int i, subnode = 0, parent, numnodes;
+    int i, subnode = 0, numnodes;
 
     /* create an empty root node  */
     int nfree = All.MaxPart;		/* index of first free node */
@@ -192,7 +217,6 @@ int force_tree_build_single(int npart)
      */
 
     nfreep = &Nodes[nfree];
-    parent = -1;			/* note: will not be used below before it is changed */
 
     /* now we insert all particles */
     for(i = 0; i < npart; i++)
@@ -209,28 +233,13 @@ int force_tree_build_single(int npart)
 
         no = TopNodes[no].Leaf;
         int th = DomainNodeIndex[no];
+        int parent = -1;			/* note: will not be used below before it is changed */
 
         while(1)
         {
             if(th >= All.MaxPart)	/* we are dealing with an internal node */
             {
-                if(shift >= 0)
-                {
-                    const peanokey morton = MORTON(i);
-                    subnode = ((morton >> shift) & 7);
-                }
-                else
-                {
-                    subnode = 0;
-                    if(P[i].Pos[0] > Nodes[th].center[0])
-                        subnode += 1;
-                    if(P[i].Pos[1] > Nodes[th].center[1])
-                        subnode += 2;
-                    if(P[i].Pos[2] > Nodes[th].center[2])
-                        subnode += 4;
-                }
-
-                subnode = rand_tree_subnode(Nodes[th].len, th, i, subnode);
+                subnode = get_subnode(&Nodes[th], th, i, shift);
 
                 int nn = Nodes[th].u.suns[subnode];
 
@@ -279,23 +288,7 @@ int force_tree_build_single(int npart)
                 for(j = 0; j < 8; j++)
                     nfreep->u.suns[j] = -1;
 
-                if(shift >= 0)
-                {
-                    const peanokey morton = MORTON(th);
-                    subnode = ((morton >> shift) & 7);
-                }
-                else
-                {
-                    subnode = 0;
-                    if(P[th].Pos[0] > nfreep->center[0])
-                        subnode += 1;
-                    if(P[th].Pos[1] > nfreep->center[1])
-                        subnode += 2;
-                    if(P[th].Pos[2] > nfreep->center[2])
-                        subnode += 4;
-                }
-
-                subnode = rand_tree_subnode(nfreep->len, parent, th, subnode);
+                subnode = get_subnode(nfreep, parent, th, shift);
 
                 nfreep->u.suns[subnode] = th;
 
