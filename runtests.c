@@ -13,6 +13,7 @@
 #include "mymalloc.h"
 #include "endrun.h"
 #include "petaio.h"
+#include "domain.h"
 
 void grav_short_tree_old(void);
 

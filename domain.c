@@ -8,12 +8,12 @@
 
 #include "allvars.h"
 #include "proto.h"
-#include "domain.h"
 #include "forcetree.h"
 #include "mymalloc.h"
 #include "mpsort.h"
 #include "endrun.h"
 #include "openmpsort.h"
+#include "domain.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19
@@ -73,6 +73,17 @@ static struct local_topnode_data
 }
 *topNodes;			/*!< points to the root node of the top-level tree */
 
+
+static void domain_findSplit_work_balanced(int ncpu, int ndomain);
+static void domain_findSplit_load_balanced(int ncpu, int ndomain);
+static void domain_assign_load_or_work_balanced(int mode);
+static void domain_allocate(void);
+static int domain_check_memory_bound(const int print_details);
+static int domain_decompose(void);
+static int domain_determineTopTree(void);
+static void domain_findExtent(void);
+static void domain_free(void);
+static void domain_sumCost(void);
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA,
         int noB);
@@ -263,31 +274,6 @@ void domain_free(void)
         myfree(DomainStartList);
         domain_allocated_flag = 0;
     }
-}
-
-static struct topnode_data *save_TopNodes;
-static int *save_DomainStartList, *save_DomainEndList;
-
-void domain_free_trick(void)
-{
-    if(domain_allocated_flag)
-    {
-        save_TopNodes = TopNodes;
-        save_DomainEndList = DomainEndList;
-        save_DomainStartList = DomainStartList;
-        domain_allocated_flag = 0;
-    }
-    else
-        endrun(131231, "domain free trick called at wrong time");
-}
-
-void domain_allocate_trick(void)
-{
-    domain_allocated_flag = 1;
-
-    TopNodes = save_TopNodes;
-    DomainEndList = save_DomainEndList;
-    DomainStartList = save_DomainStartList;
 }
 
 double domain_particle_costfactor(int i)

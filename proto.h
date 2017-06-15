@@ -43,7 +43,6 @@ void cooling_and_starformation(void);
 void cooling_only(void);
 void density(void);
 void do_box_wrapping(void);
-void domain_Decomposition(void);
 void energy_statistics(void);
 
 int find_next_outputtime(int time);

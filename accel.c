@@ -8,6 +8,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "forcetree.h"
+#include "domain.h"
 #include "fof.h"
 #include "endrun.h"
 
