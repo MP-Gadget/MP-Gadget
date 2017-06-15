@@ -73,7 +73,7 @@
 #endif
 
 #ifndef  TOPNODEFACTOR
-#define  TOPNODEFACTOR       2.5
+#define  TOPNODEFACTOR       5.0
 #endif
 
 #define  NODELISTLENGTH      8

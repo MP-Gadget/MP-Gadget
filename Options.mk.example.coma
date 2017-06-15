@@ -14,9 +14,6 @@ OPT += -DPETAPM_ORDER=1  # order of finite differentiation kernel 1 is same as g
 OPT += -DOPENMP_USE_SPINLOCK
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 
-#--------------------------------------- Multi-Domain and Top-Level Tree options
-OPT	+=  -DTOPNODEFACTOR=5.0
-
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
 OPT	+=  -DSFR
