@@ -213,11 +213,15 @@ int force_tree_build_single(int npart)
     }
 
     /* now we insert all particles */
+    #pragma omp parallel for
     for(i = 0; i < npart; i++)
     {
         int shift = 3 * (BITS_PER_DIMENSION - 1);
 
         int no = 0;
+        /*Can't break from openmp for*/
+        if(nfree >= All.MaxPart + MaxNodes)
+            continue;
         while(TopNodes[no].Daughter >= 0)
         {
             const peanokey key = P[i].Key;
@@ -234,9 +238,12 @@ int force_tree_build_single(int npart)
         {
             if(th >= All.MaxPart)	/* we are dealing with an internal node */
             {
+                int nn;
                 subnode = get_subnode(&Nodes[th], th, i, shift);
 
-                int nn = Nodes[th].u.suns[subnode];
+                /*Protect this access as we will be changing the value in the same loop.*/
+                #pragma omp atomic read
+                nn = Nodes[th].u.suns[subnode];
 
                 shift -= 3;
 
@@ -250,6 +257,8 @@ int force_tree_build_single(int npart)
                     /* here we have found an empty slot where we can attach
                      * the new particle as a leaf.
                      */
+                    /*Protect write modification to Node*/
+                    #pragma omp atomic write
                     Nodes[th].u.suns[subnode] = i;
                     break;	/* done for this particle */
                 }
@@ -260,18 +269,15 @@ int force_tree_build_single(int npart)
                  * to generate a new internal node at this point.
                  */
                 /*Get node index to insert and mark it taken*/
-                const int ninsert = nfree++;
-                if(nfree >= All.MaxPart + MaxNodes)
+                const int ninsert = atomic_fetch_and_add(&nfree, 1);
+                if(ninsert >= All.MaxPart + MaxNodes)
                 {
                     message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i);
-                    return -1;
+                    break;
                 }
                 struct NODE *nfreep = &Nodes[ninsert];	/* select desired node */
                 int j;
                 const MyFloat lenhalf = 0.25 * Nodes[parent].len;
-
-                /*Mark this node in the parent*/
-                Nodes[parent].u.suns[subnode] = ninsert;
 
                 nfreep->len = 0.5 * Nodes[parent].len;
 
@@ -284,14 +290,25 @@ int force_tree_build_single(int npart)
                 for(j = 0; j < 8; j++)
                     nfreep->u.suns[j] = -1;
 
+                int parent_subnode = subnode;
                 subnode = get_subnode(nfreep, parent, th, shift);
 
                 nfreep->u.suns[subnode] = th;
 
                 th = ninsert;	/* resume trying to insert the new particle at
                              * the newly created internal node */
+
+                /* Mark this node in the parent: this goes last
+                 * so that we don't access the child before it is constructed.
+                 * Protect write modification to Node*/
+                #pragma omp atomic write
+                Nodes[parent].u.suns[parent_subnode] = ninsert;
             }
         }
+    }
+    if(nfree >= All.MaxPart + MaxNodes)
+    {
+        return -1;
     }
 
     /* insert the pseudo particles that represent the mass distribution of other domains */
