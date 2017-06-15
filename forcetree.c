@@ -270,21 +270,12 @@ int force_tree_build_single(int npart)
 
                 nfreep->len = 0.5 * Nodes[parent].len;
 
-                if(subnode & 1)
-                    nfreep->center[0] = Nodes[parent].center[0] + lenhalf;
-                else
-                    nfreep->center[0] = Nodes[parent].center[0] - lenhalf;
-
-                if(subnode & 2)
-                    nfreep->center[1] = Nodes[parent].center[1] + lenhalf;
-                else
-                    nfreep->center[1] = Nodes[parent].center[1] - lenhalf;
-
-                if(subnode & 4)
-                    nfreep->center[2] = Nodes[parent].center[2] + lenhalf;
-                else
-                    nfreep->center[2] = Nodes[parent].center[2] - lenhalf;
-
+                for(j = 0; j < 3; j++) {
+                    /* Detect which quadrant we are in by testing the bits of subnode:
+                     * if (subnode & [1,2,4]) is true we add lenhalf, otherwise subtract lenhalf*/
+                    const int sign = (subnode & (1 << j)) ? 1 : -1;
+                    nfreep->center[j] = Nodes[parent].center[j] + sign*lenhalf;
+                }
                 for(j = 0; j < 8; j++)
                     nfreep->u.suns[j] = -1;
 
