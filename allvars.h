@@ -263,8 +263,6 @@ extern int N_sph_slots;
 
 extern gsl_rng *random_generator;	/*!< the random number generator used */
 
-extern double TimeOfLastTreeConstruction;	/*!< holds what it says */
-
 extern double RndTable[RNDTABLE];
 
 

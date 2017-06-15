@@ -130,8 +130,6 @@ int force_tree_build(int npart, struct unbind_data *mp)
 
     force_treeupdate_pseudos(All.MaxPart);
 
-    TimeOfLastTreeConstruction = All.Time;
-
     return Numnodestree;
 }
 
