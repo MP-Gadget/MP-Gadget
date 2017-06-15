@@ -757,7 +757,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
         if(egycurrent > egyeff)
         {
             double ne = SPHP(i).Ne;
-            double tcool = GetCoolingTime(egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, P[i].Metallicity);
+            double tcool = GetCoolingTime(egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, METALLICITY(i));
 
             if(tcool < trelax && tcool > 0)
                 trelax = tcool;
