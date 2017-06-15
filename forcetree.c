@@ -111,11 +111,16 @@ int force_tree_build(int npart)
         {
             force_tree_free();
 
-            message(0, "Increasing TreeAllocFactor=%g", All.TreeAllocFactor);
+            message(0, "Increasing TreeAllocFactor=%g to %g", All.TreeAllocFactor, All.TreeAllocFactor*1.15);
 
             All.TreeAllocFactor *= 1.15;
 
-            message(0, "new value=%g\n", All.TreeAllocFactor);
+            if(All.TreeAllocFactor > 5.0)
+            {
+                message(1, "An excessively large number of tree nodes were required, stopping with particle dump.\n");
+                savepositions(999999, 0);
+                endrun(1, "Too many tree nodes, snapshot saved.");
+            }
 
             force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
         }
@@ -292,16 +297,7 @@ int force_tree_build_single(int npart)
                 if((numnodes) >= MaxNodes)
                 {
                     message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i);
-                    if(All.TreeAllocFactor > 5.0)
-                    {
-                        message(1, "An excessively large number of tree nodes were required for particle %d, stopping with particle dump.\n", i);
-                        savepositions(999999, 0);
-                        endrun(1, "Too many tree nodes, snapshot saved.");
-                    }
-                    else
-                    {
-                        return -1;
-                    }
+                    return -1;
                 }
             }
         }
