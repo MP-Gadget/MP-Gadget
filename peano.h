@@ -17,6 +17,11 @@ struct peano_hilbert_data
         (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), \
         BITS_PER_DIMENSION)
 
+#define MORTON(i) morton_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac), \
+        (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac), \
+        (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), \
+        BITS_PER_DIMENSION)
+
 void mysort_peano(void *b, size_t n, size_t s, int (*cmp) (const void *, const void *));
 
 void init_peano_map(void);

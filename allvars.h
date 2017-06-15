@@ -657,7 +657,7 @@ extern struct particle_data
 
         /* The peano key is a hash of the position used in the domain decomposition.
          * It is slow to generate so we store it here.*/
-        peanokey Key; /* only by domain.c */
+        peanokey Key; /* only by domain.c and forcetre.c */
         struct {
             /* used by fof.c which calls domain_exchange that doesn't uses peanokey */
             int64_t GrNr; 

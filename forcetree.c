@@ -162,7 +162,6 @@ inline int rand_tree_subnode(double len, int node, int i, int subnode)
 int force_tree_build_single(int npart)
 {
     int i, subnode = 0, parent, numnodes;
-    peanokey *morton_list;
 
     /* create an empty root node  */
     int nfree = All.MaxPart;		/* index of first free node */
@@ -195,24 +194,15 @@ int force_tree_build_single(int npart)
     nfreep = &Nodes[nfree];
     parent = -1;			/* note: will not be used below before it is changed */
 
-    morton_list = (peanokey *) mymalloc("morton_list", NumPart * sizeof(peanokey));
-
     /* now we insert all particles */
     for(i = 0; i < npart; i++)
     {
-        peanokey morton, key;
-
-        key = KEY(i);
-        morton = morton_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac),
-                (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac),
-                (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), BITS_PER_DIMENSION);
-        morton_list[i] = morton;
-
         int shift = 3 * (BITS_PER_DIMENSION - 1);
 
         int no = 0;
         while(TopNodes[no].Daughter >= 0)
         {
+            const peanokey key = P[i].Key;
             no = TopNodes[no].Daughter + (key - TopNodes[no].StartKey) / (TopNodes[no].Size / 8);
             shift -= 3;
         }
@@ -226,6 +216,7 @@ int force_tree_build_single(int npart)
             {
                 if(shift >= 0)
                 {
+                    const peanokey morton = MORTON(i);
                     subnode = ((morton >> shift) & 7);
                 }
                 else
@@ -290,8 +281,8 @@ int force_tree_build_single(int npart)
 
                 if(shift >= 0)
                 {
-                    peanokey th_key = morton_list[th];
-                    subnode = ((th_key >> shift) & 7);
+                    const peanokey morton = MORTON(th);
+                    subnode = ((morton >> shift) & 7);
                 }
                 else
                 {
@@ -325,16 +316,12 @@ int force_tree_build_single(int npart)
                     }
                     else
                     {
-                        myfree(morton_list);
                         return -1;
                     }
                 }
             }
         }
     }
-
-    myfree(morton_list);
-
 
     /* insert the pseudo particles that represent the mass distribution of other domains */
     force_insert_pseudo_particles();
