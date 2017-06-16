@@ -60,8 +60,8 @@ void advance_and_find_timesteps(void)
     /* Now assign new timesteps and kick */
 
 #ifdef FORCE_EQUAL_TIMESTEPS
-    int ti_min;
-    for(pa = 0, ti_min = TIMEBASE; pa < NumActiveParticle; pa++)
+    int ti_min=TIMEBASE;
+    for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
         int ti_step = get_timestep(i,All.MaxTimeStepDisplacement);
@@ -92,14 +92,16 @@ void advance_and_find_timesteps(void)
 
         int bin = get_timestep_bin(ti_step);
         if(bin == -1) {
-            message(1, "time-step of integer size 1 not allowed, id = %lu, debugging info follows. %d\n", P[i].ID, ti_step);
+            message(1, "Time-step of integer size 1 not allowed, id = %lu, debugging info follows. %d\n", P[i].ID, ti_step);
             badstepsizecount++;
         }
         int binold = P[i].TimeBin;
 
         if(bin > binold)		/* timestep wants to increase */
         {
-            while(TimeBinActive[bin] == 0 && bin > binold)	/* make sure the new step is synchronized */
+            /* make sure the new step is currently active,
+             * so that particles do not miss a step */
+            while(TimeBinActive[bin] == 0 && bin > binold)
                 bin--;
 
             ti_step = bin ? (1 << bin) : 0;
@@ -113,24 +115,14 @@ void advance_and_find_timesteps(void)
 
         if((TIMEBASE - All.Ti_Current) < ti_step)	/* check that we don't run beyond the end */
         {
-            endrun(888, "\n @ /* should not happen */ \n");
-            ti_step = TIMEBASE - All.Ti_Current;
-            ti_min = TIMEBASE;
-            while(ti_min > ti_step)
-                ti_min >>= 1;
-            ti_step = ti_min;
+            endrun(888, "Integer timeline ran past the end of the bins: %d - %d  < %d\n",TIMEBASE, All.Ti_Current, ti_step);
         }
 
+        /*This moves particles between time bins*/
         if(bin != binold)
         {
             const int prev = PrevInTimeBin[i];
             const int next = NextInTimeBin[i];
-            TimeBinCount[binold]--;
-            if(P[i].Type == 0)
-            {
-                TimeBinCountSph[binold]--;
-            }
-
 
             if(FirstInTimeBin[binold] == i)
                 FirstInTimeBin[binold] = next;
@@ -153,9 +145,20 @@ void advance_and_find_timesteps(void)
                 FirstInTimeBin[bin] = LastInTimeBin[bin] = i;
                 PrevInTimeBin[i] = NextInTimeBin[i] = -1;
             }
-            TimeBinCount[bin]++;
+            /*Update time bin counts*/
+            #pragma omp atomic
+            TimeBinCount[binold]--;
             if(P[i].Type == 0)
+            {
+                #pragma omp atomic
+                TimeBinCountSph[binold]--;
+            }
+            #pragma omp atomic
+            TimeBinCount[bin]++;
+            if(P[i].Type == 0) {
+                #pragma omp atomic
                 TimeBinCountSph[bin]++;
+            }
 
             P[i].TimeBin = bin;
         }
@@ -167,6 +170,7 @@ void advance_and_find_timesteps(void)
 
         P[i].Ti_begstep += ti_step_old;
 
+        /*This only changes particle i, so is thread-safe.*/
         do_the_kick(i, tstart, tend, P[i].Ti_begstep,dt_gravkickB);
     }
 
@@ -175,7 +179,7 @@ void advance_and_find_timesteps(void)
     MPI_Allreduce(&badstepsizecount, &badstepsizecount_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(badstepsizecount_global) {
-        message(0, "bad timestep spotted terminating and saving snapshot as %d\n", All.SnapshotFileCount);
+        message(0, "bad timestep spotted: terminating and saving snapshot.\n");
         All.NumCurrentTiStep = 0;
         savepositions(999999, 0);
         endrun(0, "Ending due to bad timestep");
@@ -243,87 +247,89 @@ void advance_long_range_kick(void)
 
 void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkickB)
 {
+    double dt_entr = (tend - tstart) * All.Timebase_interval;
+    const double dt_gravkick = get_gravkick_factor(tstart, tend);
+    const double dt_hydrokick = get_hydrokick_factor(tstart, tend);
+    const double dt_gravkick2 = get_gravkick_factor(tcurrent, tend);
+    const double dt_hydrokick2 = get_hydrokick_factor(tcurrent, tend);
     int j;
-    MyFloat dv[3];
-    double minentropy;
-    double dt_entr, dt_gravkick, dt_hydrokick, dt_gravkick2, dt_hydrokick2;
-
-    dt_entr = (tend - tstart) * All.Timebase_interval;
-    dt_gravkick = get_gravkick_factor(tstart, tend);
-    dt_hydrokick = get_hydrokick_factor(tstart, tend);
-    dt_gravkick2 = get_gravkick_factor(tcurrent, tend);
-    dt_hydrokick2 = get_hydrokick_factor(tcurrent, tend);
 
     /* do the kick */
 
     for(j = 0; j < 3; j++)
     {
-        dv[j] = P[i].GravAccel[j] * dt_gravkick;
-        P[i].Vel[j] += dv[j];
+        P[i].Vel[j] += P[i].GravAccel[j] * dt_gravkick;
     }
 
-    if(P[i].Type == 0)		/* SPH stuff */
-    {
-        for(j = 0; j < 3; j++)
-        {
-            //        SPHP(i).HydroAccel[0] = 0.0;
-            dv[j] += SPHP(i).HydroAccel[j] * dt_hydrokick;
-            P[i].Vel[j] += SPHP(i).HydroAccel[j] * dt_hydrokick;
+    if(P[i].Type != 0)
+        return;
 
+    /* Add kick from hydro and SPH stuff */
+    for(j = 0; j < 3; j++)
+    {
+        P[i].Vel[j] += SPHP(i).HydroAccel[j] * dt_hydrokick;
+
+        SPHP(i).VelPred[j] =
+            P[i].Vel[j] - dt_gravkick2 * P[i].GravAccel[j] - dt_hydrokick2 * SPHP(i).HydroAccel[j];
+
+        SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
+    }
+
+    /* Code here imposes a hard limit (default to speed of light)
+     * on the gas velocity. Then a limit on the change in entropy
+     * FIXME: This should probably not be needed!*/
+    const double velfac = sqrt(All.cf.a3inv);
+    double vv=0;
+    for(j=0; j < 3; j++)
+        vv += P[i].Vel[j] * P[i].Vel[j];
+    vv = sqrt(vv);
+    if(vv > All.MaxGasVel * velfac)
+        for(j=0;j < 3; j++)
+        {
+            P[i].Vel[j] *= All.MaxGasVel * velfac / vv;
             SPHP(i).VelPred[j] =
                 P[i].Vel[j] - dt_gravkick2 * P[i].GravAccel[j] - dt_hydrokick2 * SPHP(i).HydroAccel[j];
 
             SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
         }
 
-        const double velfac = sqrt(All.cf.a3inv);
-        double vv=0;
-        for(j=0; j < 3; j++)
-            vv += P[i].Vel[j] * P[i].Vel[j];
-        vv = sqrt(vv);
-        if(vv > All.MaxGasVel * velfac)
-            for(j=0;j < 3; j++)
-            {
-                P[i].Vel[j] *= All.MaxGasVel * velfac / vv;
-                SPHP(i).VelPred[j] =
-                    P[i].Vel[j] - dt_gravkick2 * P[i].GravAccel[j] - dt_hydrokick2 * SPHP(i).HydroAccel[j];
+    /* In case of cooling, we prevent that the entropy (and
+       hence temperature) decreases by more than a factor 0.5.
+       FIXME: Why is this and the last thing here? Should not be needed. */
 
-                SPHP(i).VelPred[j] += P[i].GravPM[j] * dt_gravkickB;
-            }
+    if(SPHP(i).DtEntropy * dt_entr > -0.5 * SPHP(i).Entropy)
+        SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
+    else
+        SPHP(i).Entropy *= 0.5;
 
-        /* In case of cooling, we prevent that the entropy (and
-           hence temperature decreases by more than a factor 0.5 */
-
-        if(SPHP(i).DtEntropy * dt_entr > -0.5 * SPHP(i).Entropy)
-            SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
-        else
-            SPHP(i).Entropy *= 0.5;
-
-        if(All.MinEgySpec)
+    /* Implement an entropy floor*/
+    if(All.MinEgySpec)
+    {
+        const double minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
+        if(SPHP(i).Entropy < minentropy)
         {
-            minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
-            if(SPHP(i).Entropy < minentropy)
-            {
-                SPHP(i).Entropy = minentropy;
-                SPHP(i).DtEntropy = 0;
-            }
+            SPHP(i).Entropy = minentropy;
+            SPHP(i).DtEntropy = 0;
         }
-
-        /* In case the timestep increases in the new step, we
-           make sure that we do not 'overcool'. */
-        dt_entr = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) / 2 * All.Timebase_interval;
-
-        if(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr < 0.5 * SPHP(i).Entropy)
-            SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr;
     }
+
+    /* In case the timestep increases in the new step, we
+       make sure that we do not 'overcool'. */
+    dt_entr = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) / 2 * All.Timebase_interval;
+
+    if(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr < 0.5 * SPHP(i).Entropy)
+        SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr;
 
 }
 
 
 
 /*! This function normally (for flag==0) returns the maximum allowed timestep of a particle, expressed in
- *  terms of the integer mapping that is used to represent the total simulated timespan.  */
-int get_timestep(const int p		/*!< particle index */, const double dt_max /*!<maximal timestep*/)
+ *  terms of the integer mapping that is used to represent the total simulated timespan.
+ *  Arguments:
+ *  p -> particle index
+ *  dt_max -> maximal timestep.  */
+int get_timestep(const int p, const double dt_max)
 {
     double ac = 0;
     double dt = 0, dt_courant = 0;
@@ -532,23 +538,23 @@ double find_dt_displacement_constraint()
 
 int get_timestep_bin(int ti_step)
 {
-    int bin = -1;
+   int bin = -1;
 
-    if(ti_step == 0)
-        return 0;
+   if(ti_step == 0)
+       return 0;
 
-    if(ti_step == 1)
-    {
-        return -1;
-    }
+   if(ti_step == 1)
+   {
+       return -1;
+   }
 
-    while(ti_step)
-    {
-        bin++;
-        ti_step >>= 1;
-    }
+   while(ti_step)
+   {
+       bin++;
+       ti_step >>= 1;
+   }
 
-    return bin;
+   return bin;
 }
 
 /* This function reverse the direction of the gravitational force.

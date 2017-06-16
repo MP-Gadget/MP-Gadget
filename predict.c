@@ -8,6 +8,8 @@
 #include "proto.h"
 #include "endrun.h"
 
+/* This function sets up the list of currently active particles.
+ * Called in run.c and predict.c*/
 void setup_active_particle()
 {
     int n;

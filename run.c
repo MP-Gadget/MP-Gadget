@@ -225,7 +225,7 @@ human_interaction()
  */
 int find_next_sync_point_and_drift(int with_fof)
 {
-    int n, i, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
+    int n, i, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
     double timeold;
 
     timeold = All.Time;
@@ -237,7 +237,7 @@ int find_next_sync_point_and_drift(int with_fof)
         {
             if(n > 0)
             {
-                dt_bin = (1 << n);
+                const int dt_bin = (1 << n);
                 ti_next_for_bin = (All.Ti_Current / dt_bin) * dt_bin + dt_bin;	/* next kick time for this timebin */
             }
             else
@@ -292,7 +292,7 @@ int find_next_sync_point_and_drift(int with_fof)
 
     for(n = 1, TimeBinActive[0] = 1; n < TIMEBINS; n++)
     {
-        dt_bin = (1 << n);
+        int dt_bin = (1 << n);
 
         if((ti_next_kick_global % dt_bin) == 0)
         {
@@ -313,7 +313,6 @@ int find_next_sync_point_and_drift(int with_fof)
         const int p_i = ActiveParticle[i];
         drift_particle(p_i, All.Ti_Current);
     }
-    /*End new code*/
 
     if(NumActiveParticle != NumForceUpdate)
     {
