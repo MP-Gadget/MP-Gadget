@@ -236,6 +236,7 @@ int force_tree_build_single(int npart)
 
         while(1)
         {
+            /*Note this branch will always run first: the first node encountered is always internal*/
             if(th >= All.MaxPart)	/* we are dealing with an internal node */
             {
                 int nn;
@@ -263,6 +264,11 @@ int force_tree_build_single(int npart)
                     break;	/* done for this particle */
                 }
             }
+            /*When we get to this branch we always have an internal node in parent,
+             * with an empty (negative) subnode in subnode.
+             * We create a new node with empty subnodes at the end of the array, and
+             * then we use it to fill the empty subnode in the parent.
+             * Then we loop back to the earlier branch to add the particle.*/
             else
             {
                 /* We try to insert into a leaf with a single particle.  Need
@@ -276,6 +282,7 @@ int force_tree_build_single(int npart)
                     break;
                 }
                 struct NODE *nfreep = &Nodes[ninsert];	/* select desired node */
+                const int parent_subnode = subnode;
                 int j;
                 const MyFloat lenhalf = 0.25 * Nodes[parent].len;
 
@@ -284,13 +291,12 @@ int force_tree_build_single(int npart)
                 for(j = 0; j < 3; j++) {
                     /* Detect which quadrant we are in by testing the bits of subnode:
                      * if (subnode & [1,2,4]) is true we add lenhalf, otherwise subtract lenhalf*/
-                    const int sign = (subnode & (1 << j)) ? 1 : -1;
+                    const int sign = (parent_subnode & (1 << j)) ? 1 : -1;
                     nfreep->center[j] = Nodes[parent].center[j] + sign*lenhalf;
                 }
                 for(j = 0; j < 8; j++)
                     nfreep->u.suns[j] = -1;
 
-                int parent_subnode = subnode;
                 subnode = get_subnode(nfreep, parent, th, shift);
 
                 nfreep->u.suns[subnode] = th;
