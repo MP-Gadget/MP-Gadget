@@ -24,6 +24,7 @@ double density_decide_hsearch(int targettype, double h);
 size_t sizemax(size_t a, size_t b);
 
 void reconstruct_timebins(void);
+void setup_active_particle(void);
 
 void catch_abort(int sig);
 void catch_fatal(int sig);

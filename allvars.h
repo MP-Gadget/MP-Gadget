@@ -218,8 +218,10 @@ static inline int IMIN(int a, int b) {
 /*********************************************************/
 
 
-extern int FirstActiveParticle;
-extern int *NextActiveParticle;
+/*Flat array containing all active particles:
+set in run.c: find_next_sync_point_and_drift*/
+extern int NumActiveParticle;
+extern int *ActiveParticle;
 
 extern int TimeBinCount[TIMEBINS];
 extern int TimeBinCountSph[TIMEBINS];

@@ -46,11 +46,11 @@ void set_global_time(double newtime) {
  */
 void advance_and_find_timesteps(void)
 {
-    int i, ti_step, ti_step_old, ti_min, tend, tstart, bin, binold, prev, next;
+    int pa, ti_step, ti_step_old, ti_min, tend, tstart, bin, binold, prev, next;
     int badstepsizecount = 0;
     int badstepsizecount_global = 0;
 
-    int j, dt_step;
+    int dt_step;
     double dt_gravkick, dt_hydrokick;
 
     walltime_measure("/Misc");
@@ -64,8 +64,9 @@ void advance_and_find_timesteps(void)
     /* Now assign new timesteps and kick */
 
 #ifdef FORCE_EQUAL_TIMESTEPS
-    for(i = FirstActiveParticle, ti_min = TIMEBASE; i >= 0; i = NextActiveParticle[i])
+    for(pa = 0, ti_min = TIMEBASE; pa < NumActiveParticle; pa++)
     {
+        const int i = ActiveParticle[pa];
         ti_step = get_timestep(i,All.MaxTimeStepDisplacement);
 
         if(ti_step < ti_min)
@@ -78,8 +79,9 @@ void advance_and_find_timesteps(void)
 #endif
 
     badstepsizecount = 0;
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+    for(pa = 0; pa < NumActiveParticle; pa++)
     {
+        const int i = ActiveParticle[pa];
 #ifdef FORCE_EQUAL_TIMESTEPS
         ti_step = ti_min_glob;
 #else
@@ -184,6 +186,7 @@ void advance_and_find_timesteps(void)
 
     if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
     {
+        int i;
         ti_step = TIMEBASE;
         while(ti_step > (All.MaxTimeStepDisplacement / All.Timebase_interval))
             ti_step >>= 1;
@@ -210,6 +213,7 @@ void advance_and_find_timesteps(void)
 
         for(i = 0; i < NumPart; i++)
         {
+            int j;
             for(j = 0; j < 3; j++)	/* do the kick */
                 P[i].Vel[j] += P[i].GravPM[j] * dt_gravkick;
 

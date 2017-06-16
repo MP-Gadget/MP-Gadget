@@ -137,9 +137,11 @@ void density(void)
     /* this has to be done before get_queue so that
      * all particles are return for the first loop over all active particles.
      * */
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+    #pragma omp parallel for
+    for(i = 0; i < NumActiveParticle; i++)
     {
-        P[i].DensityIterationDone = 0;
+        const int p_i = ActiveParticle[i];
+        P[p_i].DensityIterationDone = 0;
     }
 
     /* the queue has every particle. Later on after some iterations are done
@@ -169,7 +171,7 @@ void density(void)
         NIteration ++;
         /*
         if(ntot < 1 ) {
-            for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+            foreach(ActiveParticle)
             {
                 if(density_isactive(i) && !P[i].DensityIterationDone) {
                     message

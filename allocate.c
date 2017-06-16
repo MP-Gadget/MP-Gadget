@@ -20,7 +20,7 @@ void allocate_memory(void)
     size_t bytes;
     TreeWalk_allocate_memory();
 
-    NextActiveParticle = (int *) mymalloc("NextActiveParticle", bytes = All.MaxPart * sizeof(int));
+    ActiveParticle = (int *) mymalloc("ActiveParticle", bytes = All.MaxPart * sizeof(int));
 
     NextInTimeBin = (int *) mymalloc("NextInTimeBin", bytes = All.MaxPart * sizeof(int));
 

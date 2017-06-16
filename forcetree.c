@@ -948,7 +948,7 @@ force_flag_localnodes(void)
  */
 void force_update_hmax(void)
 {
-    int i, no, ta, totDomainNumChanged;
+    int i, ta, totDomainNumChanged;
     int *domainList_all;
     int *counts, *offset_list;
     MyFloat *domainHmax_loc, *domainHmax_all;
@@ -959,30 +959,31 @@ void force_update_hmax(void)
     DomainNumChanged = 0;
     DomainList = (int *) mymalloc("DomainList", NTopleaves * sizeof(int));
 
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
-        if(P[i].Type == 0)
+    for(i = 0; i < NumActiveParticle; i++)
+    {
+        const int p_i = ActiveParticle[i];
+        if(P[p_i].Type != 0)
+            continue;
+        int no = Father[p_i];
+
+        while(no >= 0)
         {
-            no = Father[i];
-
-            while(no >= 0)
+            if(P[p_i].Hsml > Nodes[no].hmax)
             {
-                if(P[i].Hsml > Nodes[no].hmax)
+                Nodes[no].hmax = P[p_i].Hsml;
+
+                if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node */
                 {
-                    if(P[i].Hsml > Nodes[no].hmax)
-                        Nodes[no].hmax = P[i].Hsml;
-
-                    if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node */
-                    {
-                        DomainList[DomainNumChanged++] = no;
-                        break;
-                    }
-                }
-                else
+                    DomainList[DomainNumChanged++] = no;
                     break;
-
-                no = Nodes[no].u.d.father;
+                }
             }
+            else
+                break;
+
+            no = Nodes[no].u.d.father;
         }
+    }
 
     /* share the hmax-data of the pseudo-particles accross CPUs */
 
@@ -1027,7 +1028,7 @@ void force_update_hmax(void)
 
     for(i = 0; i < totDomainNumChanged; i++)
     {
-        no = domainList_all[i];
+        int no = domainList_all[i];
 
         if(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))	/* to avoid that the hmax is updated twice */
             no = Nodes[no].u.d.father;

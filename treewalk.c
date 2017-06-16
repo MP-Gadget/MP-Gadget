@@ -266,19 +266,27 @@ static int cmpint(const void * c1, const void * c2) {
     return i1 - i2;
 }
 int * treewalk_get_queue(TreeWalk * tw, int * len) {
-    int i;
     int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
     int k = 0;
     if(tw->UseAllParticles) {
+        int i;
+        #pragma omp parallel for
         for(i = 0; i < NumPart; i++) {
-            if(!tw->isactive(i)) continue;
-            queue[k++] = i;
+            if(!tw->isactive(i))
+                continue;
+            const int lock = atomic_fetch_and_add(&k, 1);
+            queue[lock] = i;
         }
     } else {
-        for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+        int i;
+        #pragma omp parallel for
+        for(i=0; i < NumActiveParticle; i++)
         {
-            if(!tw->isactive(i)) continue;
-            queue[k++] = i;
+            const int p_i = ActiveParticle[i];
+            if(!tw->isactive(p_i))
+               continue;
+            const int lock = atomic_fetch_and_add(&k, 1);
+            queue[lock] = p_i;
         }
         /* check the uniqueness of ActiveParticle list. */
         qsort(queue, k, sizeof(int), cmpint);

@@ -847,10 +847,11 @@ int domain_fork_particle(int parent) {
                 "On Task=%d with NumPart=%d we try to spawn. Sorry, no space left...(All.MaxPart=%d)\n",
                 ThisTask, NumPart, All.MaxPart);
     }
+    /*This is all racy if ActiveParticle or P is accessed from another thread*/
     int child = atomic_fetch_and_add(&NumPart, 1);
-    
-    NextActiveParticle[child] = FirstActiveParticle;
-    FirstActiveParticle = child;
+    /*Update the active particle list*/
+    int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
+    ActiveParticle[childactive] = child;
 
     P[parent].Generation ++;
     uint64_t g = P[parent].Generation;

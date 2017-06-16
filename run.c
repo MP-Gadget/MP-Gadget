@@ -225,7 +225,7 @@ human_interaction()
  */
 int find_next_sync_point_and_drift(int with_fof)
 {
-    int n, i, prev, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
+    int n, i, dt_bin, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
     double timeold;
 
     timeold = All.Time;
@@ -303,41 +303,21 @@ int find_next_sync_point_and_drift(int with_fof)
             TimeBinActive[n] = 0;
     }
 
-    FirstActiveParticle = -1;
-
-    for(n = 0, prev = -1; n < TIMEBINS; n++)
-    {
-        if(TimeBinActive[n])
-        {
-            for(i = FirstInTimeBin[n]; i >= 0; i = NextInTimeBin[i])
-            {
-                if(prev == -1)
-                    FirstActiveParticle = i;
-
-                if(prev >= 0)
-                    NextActiveParticle[prev] = i;
-
-                prev = i;
-            }
-        }
-    }
-
-    if(prev >= 0)
-        NextActiveParticle[prev] = -1;
-
-
+    /*Set up the active particle list*/
+    setup_active_particle();
     walltime_measure("/Misc");
     /* drift the active particles, others will be drifted on the fly if needed */
-    int NumForceActive = 0;
-    for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+    #pragma omp parallel for
+    for(i = 0; i < NumActiveParticle; i++)
     {
-        drift_particle(i, All.Ti_Current);
-        NumForceActive++;
+        const int p_i = ActiveParticle[i];
+        drift_particle(p_i, All.Ti_Current);
     }
+    /*End new code*/
 
-    if(NumForceActive != NumForceUpdate)
+    if(NumActiveParticle != NumForceUpdate)
     {
-        endrun(2, "N_part active: %d != N_part Updated: %d\n",NumForceActive, NumForceUpdate);
+        endrun(2, "N_part active: %d != N_part Updated: %d\n",NumActiveParticle, NumForceUpdate);
     }
 
     walltime_measure("/Drift");

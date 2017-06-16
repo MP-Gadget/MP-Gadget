@@ -32,8 +32,9 @@ int RestartFlag;		/*!< taken from command line used to start code. 0 is normal s
 				   marks a restart from a snapshot file. */
 int RestartSnapNum;
 
-int FirstActiveParticle;
-int *NextActiveParticle;
+/*Flat array containing all active particles*/
+int NumActiveParticle;
+int *ActiveParticle;
 
 int TimeBinCount[TIMEBINS];
 int TimeBinCountSph[TIMEBINS];

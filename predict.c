@@ -8,9 +8,28 @@
 #include "proto.h"
 #include "endrun.h"
 
+void setup_active_particle()
+{
+    int n;
+    /*Set up the active particle list*/
+    NumActiveParticle = 0;
+    for(n = 0; n < TIMEBINS; n++)
+    {
+        if(TimeBinActive[n])
+        {
+            int i;
+            for(i = FirstInTimeBin[n]; i >= 0; i = NextInTimeBin[i])
+            {
+                ActiveParticle[NumActiveParticle] = i;
+                NumActiveParticle++;
+            }
+        }
+    }
+}
+
 void reconstruct_timebins(void)
 {
-    int i, n, prev, bin;
+    int i, bin;
 
     for(bin = 0; bin < TIMEBINS; bin++)
     {
@@ -57,26 +76,8 @@ void reconstruct_timebins(void)
 #endif
     }
 
-    FirstActiveParticle = -1;
-
-    for(n = 0, prev = -1; n < TIMEBINS; n++)
-    {
-        if(TimeBinActive[n])
-            for(i = FirstInTimeBin[n]; i >= 0; i = NextInTimeBin[i])
-            {
-                if(prev == -1)
-                    FirstActiveParticle = i;
-
-                if(prev >= 0)
-                    NextActiveParticle[prev] = i;
-
-                prev = i;
-            }
-    }
-
-    if(prev >= 0)
-        NextActiveParticle[prev] = -1;
-
+    /*Set up the active particle list*/
+    setup_active_particle();
 }
 
 static void real_drift_particle(int i, int time1);
