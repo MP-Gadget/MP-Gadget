@@ -68,10 +68,8 @@ void init(int RestartSnapNum)
 #endif
     }
 
-    for(i = 0; i < TIMEBINS; i++)
-        TimeBinActive[i] = 1;
-
     reconstruct_timebins();
+    find_active_timebins(0);
 
     All.PM_Ti_endstep = All.PM_Ti_begstep = 0;
 

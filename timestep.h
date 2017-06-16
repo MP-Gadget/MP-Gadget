@@ -8,12 +8,6 @@ extern int *ActiveParticle;
 
 extern int TimeBinCount[TIMEBINS];
 extern int TimeBinCountSph[TIMEBINS];
-extern int TimeBinActive[TIMEBINS];
-
-extern int FirstInTimeBin[TIMEBINS];
-extern int LastInTimeBin[TIMEBINS];
-extern int *NextInTimeBin;
-extern int *PrevInTimeBin;
 
 void timestep_allocate_memory(int MaxPart);
 int find_active_timebins(int next_kick);
