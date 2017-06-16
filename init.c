@@ -33,6 +33,9 @@ void init(int RestartSnapNum)
 {
     int i, j;
 
+    /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
+    set_global_time(All.TimeInit);
+
     petaio_read_snapshot(RestartSnapNum);
 
     /* this ensures the initial BhP array is consistent */
