@@ -16,12 +16,40 @@
  *  momentum space and assigning new timesteps
  */
 
+
+/*Flat array containing all active particles*/
+int NumActiveParticle;
+int *ActiveParticle;
+
+int TimeBinCount[TIMEBINS];
+int TimeBinCountSph[TIMEBINS];
+int TimeBinActive[TIMEBINS];
+
+int FirstInTimeBin[TIMEBINS];
+int LastInTimeBin[TIMEBINS];
+int *NextInTimeBin;
+int *PrevInTimeBin;
+
+void timestep_allocate_memory(int MaxPart)
+{
+    ActiveParticle = (int *) mymalloc("ActiveParticle", MaxPart * sizeof(int));
+
+    NextInTimeBin = (int *) mymalloc("NextInTimeBin", MaxPart * sizeof(int));
+
+    PrevInTimeBin = (int *) mymalloc("PrevInTimeBin", MaxPart * sizeof(int));
+}
+
 static void reverse_and_apply_gravity();
 static int get_timestep(int p, double dt_max);
 static int get_timestep_bin(int ti_step);
 static void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkick);
 static void advance_long_range_kick(void);
 static void setup_active_particle(void);
+
+
+int is_timebin_active(int i) {
+    return TimeBinActive[i];
+}
 
 void set_global_time(double newtime) {
     All.Time = newtime;
@@ -679,6 +707,7 @@ void reconstruct_timebins(void)
     /*Set up the active particle list*/
     setup_active_particle();
 }
+
 
 /* mark the bins that will be active before the next kick*/
 int find_active_timebins(int next_kick)

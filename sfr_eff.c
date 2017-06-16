@@ -29,6 +29,7 @@
 #include "domain.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "timestep.h"
 
 #ifdef METALS
 #define METALLICITY(i) (P[(i)].Metallicity)

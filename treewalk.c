@@ -10,6 +10,7 @@
 #include "domain.h"
 #include "forcetree.h"
 #include "endrun.h"
+#include "timestep.h"
 
 struct ev_task {
     int top_node;

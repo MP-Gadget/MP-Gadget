@@ -32,19 +32,6 @@ int RestartFlag;		/*!< taken from command line used to start code. 0 is normal s
 				   marks a restart from a snapshot file. */
 int RestartSnapNum;
 
-/*Flat array containing all active particles*/
-int NumActiveParticle;
-int *ActiveParticle;
-
-int TimeBinCount[TIMEBINS];
-int TimeBinCountSph[TIMEBINS];
-int TimeBinActive[TIMEBINS];
-
-int FirstInTimeBin[TIMEBINS];
-int LastInTimeBin[TIMEBINS];
-int *NextInTimeBin;
-int *PrevInTimeBin;
-
 #ifdef BLACK_HOLES
 double Local_BH_mass;
 double Local_BH_dynamicalmass;

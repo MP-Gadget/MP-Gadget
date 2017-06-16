@@ -12,6 +12,7 @@
 #include "treewalk.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "timestep.h"
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */

@@ -9,6 +9,7 @@
 #include "treewalk.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "timestep.h"
 
 /* This routine allocates memory for
  * particle storage, both the collisionless and the SPH particles.
@@ -19,12 +20,7 @@ void allocate_memory(void)
 {
     size_t bytes;
     TreeWalk_allocate_memory();
-
-    ActiveParticle = (int *) mymalloc("ActiveParticle", bytes = All.MaxPart * sizeof(int));
-
-    NextInTimeBin = (int *) mymalloc("NextInTimeBin", bytes = All.MaxPart * sizeof(int));
-
-    PrevInTimeBin = (int *) mymalloc("PrevInTimeBin", bytes = All.MaxPart * sizeof(int));
+    timestep_allocate_memory(All.MaxPart);
 
     P = (struct particle_data *) mymalloc("P", bytes = All.MaxPart * sizeof(struct particle_data));
 

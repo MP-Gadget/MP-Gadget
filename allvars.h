@@ -218,20 +218,6 @@ static inline int IMIN(int a, int b) {
 /*********************************************************/
 
 
-/*Flat array containing all active particles:
-set in run.c: find_next_sync_point_and_drift*/
-extern int NumActiveParticle;
-extern int *ActiveParticle;
-
-extern int TimeBinCount[TIMEBINS];
-extern int TimeBinCountSph[TIMEBINS];
-extern int TimeBinActive[TIMEBINS];
-
-extern int FirstInTimeBin[TIMEBINS];
-extern int LastInTimeBin[TIMEBINS];
-extern int *NextInTimeBin;
-extern int *PrevInTimeBin;
-
 #ifdef BLACK_HOLES
 extern double Local_BH_mass;
 extern double Local_BH_dynamicalmass;

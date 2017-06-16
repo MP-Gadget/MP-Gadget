@@ -46,7 +46,7 @@ ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
         endrun.o \
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
-	 fof.h cosmology.h powerspectrum.h \
+	 fof.h cosmology.h powerspectrum.h timestep.h \
 	 petaio.h
 
 TESTED = interp powerspectrum

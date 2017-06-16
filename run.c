@@ -397,12 +397,12 @@ void every_timestep_stuff(int NumForce)
         if(tot_count_sph[i] > 0 || tot_count[i] > 0)
         {
             message(0, " %c  bin=%2d     %014ld %014ld   %6g\n",
-                    TimeBinActive[i] ? 'X' : ' ',
+                    is_timebin_active(i) ? 'X' : ' ',
                     i,
                     (tot_count[i] - tot_count_sph[i]),
                     tot_count_sph[i],
                     i > 0 ? (1 << i) * All.Timebase_interval : 0.0);
-            if(TimeBinActive[i])
+            if(is_timebin_active(i))
             {
                 tot += tot_count[i];
                 tot_sph += tot_count_sph[i];
