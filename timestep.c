@@ -16,10 +16,11 @@
  *  momentum space and assigning new timesteps
  */
 
-void reverse_and_apply_gravity();
-int get_timestep(int p, double dt_max);
-int get_timestep_bin(int ti_step);
-void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkick);
+static void reverse_and_apply_gravity();
+static int get_timestep(int p, double dt_max);
+static int get_timestep_bin(int ti_step);
+static void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkick);
+static void advance_long_range_kick(void);
 
 
 void set_global_time(double newtime) {
@@ -46,16 +47,11 @@ void set_global_time(double newtime) {
  */
 void advance_and_find_timesteps(void)
 {
-    int pa, ti_step, ti_step_old, ti_min, tend, tstart, bin, binold, prev, next;
-    int badstepsizecount = 0;
-    int badstepsizecount_global = 0;
-
-    int dt_step;
-    double dt_gravkick, dt_hydrokick;
+    int pa;
 
     walltime_measure("/Misc");
 
-    double dt_gravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
+    const double dt_gravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
             get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
 
     if(All.MakeGlassFile)
@@ -64,10 +60,11 @@ void advance_and_find_timesteps(void)
     /* Now assign new timesteps and kick */
 
 #ifdef FORCE_EQUAL_TIMESTEPS
+    int ti_min;
     for(pa = 0, ti_min = TIMEBASE; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
-        ti_step = get_timestep(i,All.MaxTimeStepDisplacement);
+        int ti_step = get_timestep(i,All.MaxTimeStepDisplacement);
 
         if(ti_step < ti_min)
             ti_min = ti_step;
@@ -78,30 +75,29 @@ void advance_and_find_timesteps(void)
     MPI_Allreduce(&ti_min, &ti_min_glob, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 #endif
 
-    badstepsizecount = 0;
+    int badstepsizecount = 0;
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
 #ifdef FORCE_EQUAL_TIMESTEPS
-        ti_step = ti_min_glob;
+        int ti_step = ti_min_glob;
 #else
-        ti_step = get_timestep(i,All.MaxTimeStepDisplacement);
+        int ti_step = get_timestep(i,All.MaxTimeStepDisplacement);
 #endif
-
         /* make it a power 2 subdivision */
-        ti_min = TIMEBASE;
+        int ti_min = TIMEBASE;
         while(ti_min > ti_step)
             ti_min >>= 1;
         ti_step = ti_min;
 
-        bin = get_timestep_bin(ti_step);
+        int bin = get_timestep_bin(ti_step);
         if(bin == -1) {
             message(1, "time-step of integer size 1 not allowed, id = %lu, debugging info follows. %d\n", P[i].ID, ti_step);
             badstepsizecount++;
         }
-        binold = P[i].TimeBin;
+        int binold = P[i].TimeBin;
 
-            if(bin > binold)		/* timestep wants to increase */
+        if(bin > binold)		/* timestep wants to increase */
         {
             while(TimeBinActive[bin] == 0 && bin > binold)	/* make sure the new step is synchronized */
                 bin--;
@@ -127,14 +123,14 @@ void advance_and_find_timesteps(void)
 
         if(bin != binold)
         {
+            const int prev = PrevInTimeBin[i];
+            const int next = NextInTimeBin[i];
             TimeBinCount[binold]--;
             if(P[i].Type == 0)
             {
                 TimeBinCountSph[binold]--;
             }
 
-            prev = PrevInTimeBin[i];
-            next = NextInTimeBin[i];
 
             if(FirstInTimeBin[binold] == i)
                 FirstInTimeBin[binold] = next;
@@ -164,80 +160,86 @@ void advance_and_find_timesteps(void)
             P[i].TimeBin = bin;
         }
 
-        ti_step_old = binold ? (1 << binold) : 0;
+        int ti_step_old = binold ? (1 << binold) : 0;
 
-        tstart = P[i].Ti_begstep + ti_step_old / 2;	/* midpoint of old step */
-        tend = P[i].Ti_begstep + ti_step_old + ti_step / 2;	/* midpoint of new step */
+        int tstart = P[i].Ti_begstep + ti_step_old / 2;	/* midpoint of old step */
+        int tend = P[i].Ti_begstep + ti_step_old + ti_step / 2;	/* midpoint of new step */
 
         P[i].Ti_begstep += ti_step_old;
 
         do_the_kick(i, tstart, tend, P[i].Ti_begstep,dt_gravkickB);
     }
+
+    /*Check whether any particles had a bad timestep*/
+    int badstepsizecount_global=0;
     MPI_Allreduce(&badstepsizecount, &badstepsizecount_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(badstepsizecount_global) {
         message(0, "bad timestep spotted terminating and saving snapshot as %d\n", All.SnapshotFileCount);
         All.NumCurrentTiStep = 0;
         savepositions(999999, 0);
-        MPI_Barrier(MPI_COMM_WORLD);
         endrun(0, "Ending due to bad timestep");
     }
 
 
     if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
     {
-        int i;
-        ti_step = TIMEBASE;
-        while(ti_step > (All.MaxTimeStepDisplacement / All.Timebase_interval))
-            ti_step >>= 1;
-
-        if(ti_step > (All.PM_Ti_endstep - All.PM_Ti_begstep))	/* PM-timestep wants to increase */
-        {
-            /* we only increase if an integer number of steps will bring us to the end */
-            if(((TIMEBASE - All.PM_Ti_endstep) % ti_step) > 0)
-                ti_step = All.PM_Ti_endstep - All.PM_Ti_begstep;	/* leave at old step */
-        }
-
-        if(All.Ti_Current == TIMEBASE)	/* we here finish the last timestep. */
-            ti_step = 0;
-
-        tstart = (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2;
-        tend = All.PM_Ti_endstep + ti_step / 2;
-
-        dt_gravkick = get_gravkick_factor(tstart, tend);
-
-        All.PM_Ti_begstep = All.PM_Ti_endstep;
-        All.PM_Ti_endstep = All.PM_Ti_begstep + ti_step;
-
-        dt_gravkickB = -get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
-
-        for(i = 0; i < NumPart; i++)
-        {
-            int j;
-            for(j = 0; j < 3; j++)	/* do the kick */
-                P[i].Vel[j] += P[i].GravPM[j] * dt_gravkick;
-
-            if(P[i].Type == 0)
-            {
-                dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
-
-                double dt_gravkickA = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
-                    get_gravkick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
-                dt_hydrokick = get_hydrokick_factor(P[i].Ti_begstep, All.Ti_Current) -
-                    get_hydrokick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
-
-                for(j = 0; j < 3; j++)
-                    SPHP(i).VelPred[j] = P[i].Vel[j]
-                        + P[i].GravAccel[j] * dt_gravkickA
-                        + SPHP(i).HydroAccel[j] * dt_hydrokick + P[i].GravPM[j] * dt_gravkickB;
-            }
-        }
+        advance_long_range_kick();
     }
 
     walltime_measure("/Timeline");
 }
 
+/*Advance a long-range timestep and do the desired kick*/
+void advance_long_range_kick(void)
+{
+    int i;
+    int ti_step = TIMEBASE;
+    while(ti_step > (All.MaxTimeStepDisplacement / All.Timebase_interval))
+        ti_step >>= 1;
 
+    if(ti_step > (All.PM_Ti_endstep - All.PM_Ti_begstep))	/* PM-timestep wants to increase */
+    {
+        /* we only increase if an integer number of steps will bring us to the end */
+        if(((TIMEBASE - All.PM_Ti_endstep) % ti_step) > 0)
+            ti_step = All.PM_Ti_endstep - All.PM_Ti_begstep;	/* leave at old step */
+    }
+
+    if(All.Ti_Current == TIMEBASE)	/* we here finish the last timestep. */
+        ti_step = 0;
+
+    const int tstart = (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2;
+    const int tend = All.PM_Ti_endstep + ti_step / 2;
+
+    const double dt_gravkick = get_gravkick_factor(tstart, tend);
+
+    All.PM_Ti_begstep = All.PM_Ti_endstep;
+    All.PM_Ti_endstep = All.PM_Ti_begstep + ti_step;
+
+    const double dt_gravkickB = -get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
+
+    for(i = 0; i < NumPart; i++)
+    {
+        int j;
+        for(j = 0; j < 3; j++)	/* do the kick */
+            P[i].Vel[j] += P[i].GravPM[j] * dt_gravkick;
+
+        if(P[i].Type == 0)
+        {
+            const int dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
+
+            const double dt_gravkickA = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
+                get_gravkick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
+            const double dt_hydrokick = get_hydrokick_factor(P[i].Ti_begstep, All.Ti_Current) -
+                get_hydrokick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
+
+            for(j = 0; j < 3; j++)
+                SPHP(i).VelPred[j] = P[i].Vel[j]
+                    + P[i].GravAccel[j] * dt_gravkickA
+                    + SPHP(i).HydroAccel[j] * dt_hydrokick + P[i].GravPM[j] * dt_gravkickB;
+        }
+    }
+}
 
 void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkickB)
 {
