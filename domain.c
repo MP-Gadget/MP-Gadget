@@ -864,15 +864,7 @@ int domain_fork_particle(int parent) {
     P[child].Mass = 0;
 
     /* FIXME: these are not thread safe !!not !!*/
-    TimeBinCount[P[child].TimeBin]++;
-
-    PrevInTimeBin[child] = parent;
-    NextInTimeBin[child] = NextInTimeBin[parent];
-    if(NextInTimeBin[parent] >= 0)
-        PrevInTimeBin[NextInTimeBin[parent]] = child;
-    NextInTimeBin[parent] = child;
-    if(LastInTimeBin[P[parent].TimeBin] == parent)
-        LastInTimeBin[P[parent].TimeBin] = child;
+    timebin_add_particle_to_active(parent, child, P[child].TimeBin);
 
     /* increase NumForceUpdate only if this particle was
      * active */

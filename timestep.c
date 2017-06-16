@@ -565,6 +565,19 @@ double find_dt_displacement_constraint()
     return dt_disp;
 }
 
+/*Update the timebin linked lists when a new particle is forked*/
+void timebin_add_particle_to_active(int parent, int child, int timebin)
+{
+    TimeBinCount[timebin]++;
+    PrevInTimeBin[child] = parent;
+    NextInTimeBin[child] = NextInTimeBin[parent];
+    if(NextInTimeBin[parent] >= 0)
+        PrevInTimeBin[NextInTimeBin[parent]] = child;
+    NextInTimeBin[parent] = child;
+    if(LastInTimeBin[P[parent].TimeBin] == parent)
+        LastInTimeBin[P[parent].TimeBin] = child;
+}
+
 int get_timestep_bin(int ti_step)
 {
    int bin = -1;
