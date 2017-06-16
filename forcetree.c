@@ -1072,23 +1072,14 @@ void force_treeallocate(int maxnodes, int maxpart)
     DomainNodeIndex = (int *) mymalloc("DomainNodeIndex", bytes = NTopleaves * sizeof(int));
     allbytes_topleaves += bytes;
     MaxNodes = maxnodes;
-    if(!(Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE))))
-    {
-        endrun(3, "failed to allocate memory for %d tree-nodes (%g MB).\n", MaxNodes, bytes / (1024.0 * 1024.0));
-    }
+    message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
+    Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE));
     allbytes += bytes;
     allbytes += bytes;
     Nodes = Nodes_base - All.MaxPart;
-    if(!(Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopnodes) * sizeof(int))))
-    {
-        endrun(1, "Failed to allocate %d spaces for 'Nextnode' array (%g MB)\n",
-                maxpart + NTopnodes, bytes / (1024.0 * 1024.0));
-    }
+    Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopnodes) * sizeof(int));
     allbytes += bytes;
-    if(!(Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int))))
-    {
-        endrun(1, "Failed to allocate %d spaces for 'Father' array (%g MB)\n", maxpart, bytes / (1024.0 * 1024.0));
-    }
+    Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
 
     message(0, "Allocated %g MByte for BH-tree, and %g Mbyte for top-leaves.  (presently allocated %g MB)\n",
