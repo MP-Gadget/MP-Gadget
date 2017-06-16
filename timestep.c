@@ -21,7 +21,7 @@ static int get_timestep(int p, double dt_max);
 static int get_timestep_bin(int ti_step);
 static void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkick);
 static void advance_long_range_kick(void);
-
+static void setup_active_particle(void);
 
 void set_global_time(double newtime) {
     All.Time = newtime;
@@ -604,4 +604,102 @@ void reverse_and_apply_gravity()
         }
     }
 
+}
+
+/* This function sets up the list of currently active particles.
+ * Called in run.c */
+void setup_active_particle()
+{
+    int n;
+    /*Set up the active particle list*/
+    NumActiveParticle = 0;
+    for(n = 0; n < TIMEBINS; n++)
+    {
+        if(TimeBinActive[n])
+        {
+            int i;
+            for(i = FirstInTimeBin[n]; i >= 0; i = NextInTimeBin[i])
+            {
+                ActiveParticle[NumActiveParticle] = i;
+                NumActiveParticle++;
+            }
+        }
+    }
+}
+
+void reconstruct_timebins(void)
+{
+    int i, bin;
+
+    for(bin = 0; bin < TIMEBINS; bin++)
+    {
+        TimeBinCount[bin] = 0;
+        TimeBinCountSph[bin] = 0;
+        FirstInTimeBin[bin] = -1;
+        LastInTimeBin[bin] = -1;
+#ifdef BLACK_HOLES
+        Local_BH_mass = 0;
+        Local_BH_dynamicalmass = 0;
+        Local_BH_Mdot = 0;
+        Local_BH_Medd = 0;
+#endif
+    }
+
+    for(i = 0; i < NumPart; i++)
+    {
+        int bin = P[i].TimeBin;
+
+        if(TimeBinCount[bin] > 0)
+        {
+            PrevInTimeBin[i] = LastInTimeBin[bin];
+            NextInTimeBin[i] = -1;
+            NextInTimeBin[LastInTimeBin[bin]] = i;
+            LastInTimeBin[bin] = i;
+        }
+        else
+        {
+            FirstInTimeBin[bin] = LastInTimeBin[bin] = i;
+            PrevInTimeBin[i] = NextInTimeBin[i] = -1;
+        }
+        TimeBinCount[bin]++;
+        if(P[i].Type == 0)
+            TimeBinCountSph[bin]++;
+
+#if BLACK_HOLES
+        if(P[i].Type == 5)
+        {
+            Local_BH_mass += BHP(i).Mass;
+            Local_BH_dynamicalmass += P[i].Mass;
+            Local_BH_Mdot += BHP(i).Mdot;
+            Local_BH_Medd += BHP(i).Mdot / BHP(i).Mass;
+        }
+#endif
+    }
+
+    /*Set up the active particle list*/
+    setup_active_particle();
+}
+
+/* mark the bins that will be active before the next kick*/
+int find_active_timebins(int next_kick)
+{
+    int n;
+    int NumForceUpdate = TimeBinCount[0];
+
+    for(n = 1, TimeBinActive[0] = 1; n < TIMEBINS; n++)
+    {
+        int dt_bin = (1 << n);
+
+        if((next_kick % dt_bin) == 0)
+        {
+            TimeBinActive[n] = 1;
+            NumForceUpdate += TimeBinCount[n];
+        }
+        else
+            TimeBinActive[n] = 0;
+    }
+
+    /*Set up the active particle list*/
+    setup_active_particle();
+    return NumForceUpdate;
 }

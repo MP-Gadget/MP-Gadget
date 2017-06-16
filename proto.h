@@ -23,9 +23,6 @@ double density_decide_hsearch(int targettype, double h);
 
 size_t sizemax(size_t a, size_t b);
 
-void reconstruct_timebins(void);
-void setup_active_particle(void);
-
 void catch_abort(int sig);
 void catch_fatal(int sig);
 void terminate_processes(void);
@@ -48,9 +45,6 @@ void energy_statistics(void);
 
 int find_next_outputtime(int time);
 void free_memory(void);
-void set_global_time(double newtime);
-void advance_and_find_timesteps(void);
-double find_dt_displacement_constraint(void);
 
 double get_starformation_rate(int i);
 void grav_short_tree(void);

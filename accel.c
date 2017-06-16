@@ -11,6 +11,7 @@
 #include "domain.h"
 #include "fof.h"
 #include "endrun.h"
+#include "timestep.h"
 
 /*! \file accel.c
  *  \brief driver routines to carry out force computation

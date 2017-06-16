@@ -20,6 +20,7 @@
 #include "endrun.h"
 #include "utils-string.h"
 #include "system.h"
+#include "timestep.h"
 
 /*! \file begrun.c
  *  \brief initial set-up of a simulation run

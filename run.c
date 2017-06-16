@@ -13,6 +13,7 @@
 #include "cooling.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "timestep.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -287,24 +288,7 @@ int find_next_sync_point_and_drift(int with_fof)
     All.TimeStep = All.Time - timeold;
 
 
-    /* mark the bins that will be active */
-    int NumForceUpdate = TimeBinCount[0];
-
-    for(n = 1, TimeBinActive[0] = 1; n < TIMEBINS; n++)
-    {
-        int dt_bin = (1 << n);
-
-        if((ti_next_kick_global % dt_bin) == 0)
-        {
-            TimeBinActive[n] = 1;
-            NumForceUpdate += TimeBinCount[n];
-        }
-        else
-            TimeBinActive[n] = 0;
-    }
-
-    /*Set up the active particle list*/
-    setup_active_particle();
+    int NumForceUpdate = find_active_timebins(ti_next_kick_global);
     walltime_measure("/Misc");
     /* drift the active particles, others will be drifted on the fly if needed */
     #pragma omp parallel for

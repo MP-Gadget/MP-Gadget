@@ -15,6 +15,7 @@
 #include "forcetree.h"
 #include "fof.h"
 #include "endrun.h"
+#include "timestep.h"
 
 /*! \file io.c
  *  \brief Output of a snapshot file to disk.

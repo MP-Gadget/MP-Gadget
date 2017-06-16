@@ -15,6 +15,7 @@
 #include "mymalloc.h"
 #include "fof.h"
 #include "endrun.h"
+#include "timestep.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions

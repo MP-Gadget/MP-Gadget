@@ -14,6 +14,7 @@
 #include "endrun.h"
 #include "openmpsort.h"
 #include "domain.h"
+#include "timestep.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19
