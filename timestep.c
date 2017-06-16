@@ -104,6 +104,7 @@ void advance_and_find_timesteps(void)
 #endif
 
     int badstepsizecount = 0;
+    #pragma omp parallel for
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
@@ -149,6 +150,9 @@ void advance_and_find_timesteps(void)
         /*This moves particles between time bins*/
         if(bin != binold)
         {
+            /*Critical section so we can safely update the timebin linked lists*/
+            #pragma omp critical (_timebin_change)
+            {
             const int prev = PrevInTimeBin[i];
             const int next = NextInTimeBin[i];
 
@@ -174,21 +178,18 @@ void advance_and_find_timesteps(void)
                 PrevInTimeBin[i] = NextInTimeBin[i] = -1;
             }
             /*Update time bin counts*/
-            #pragma omp atomic
             TimeBinCount[binold]--;
             if(P[i].Type == 0)
             {
-                #pragma omp atomic
                 TimeBinCountSph[binold]--;
             }
-            #pragma omp atomic
             TimeBinCount[bin]++;
             if(P[i].Type == 0) {
-                #pragma omp atomic
                 TimeBinCountSph[bin]++;
             }
 
             P[i].TimeBin = bin;
+            }
         }
 
         int ti_step_old = binold ? (1 << binold) : 0;
