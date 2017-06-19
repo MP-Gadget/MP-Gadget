@@ -44,7 +44,6 @@ static int last;
 
 static int tree_allocated_flag = 0;
 
-
 static int force_tree_build(int npart);
 static int force_tree_build_single(int npart);
 static void
@@ -214,105 +213,123 @@ int force_tree_build_single(int npart)
     }
 
     /* now we insert all particles */
+#ifdef OPENMP_USE_SPINLOCK
+    /*Initialise some spinlocks*/
+    pthread_spinlock_t * SpinLocks = mymalloc("NodeSpinlocks",MaxNodes*sizeof(pthread_spinlock_t));
+    for(i=0; i<nfree - All.MaxPart; i++) {
+            pthread_spin_init(&SpinLocks[i], 0);
+    }
+
     #pragma omp parallel for
+#endif
     for(i = 0; i < npart; i++)
     {
         int shift = 3 * (BITS_PER_DIMENSION - 1);
 
-        int no = 0;
+        int this = 0;
         /*Can't break from openmp for*/
         if(nfree >= All.MaxPart + MaxNodes)
             continue;
-        while(TopNodes[no].Daughter >= 0)
+        /*First walk the topnodes*/
+        while(TopNodes[this].Daughter >= 0)
         {
             const peanokey key = P[i].Key;
-            no = TopNodes[no].Daughter + (key - TopNodes[no].StartKey) / (TopNodes[no].Size / 8);
+            this = TopNodes[this].Daughter + (key - TopNodes[this].StartKey) / (TopNodes[this].Size / 8);
             shift -= 3;
         }
 
-        no = TopNodes[no].Leaf;
-        int th = DomainNodeIndex[no];
-        int parent = -1;			/* note: will not be used below before it is changed */
-        int subnode = 0;
+        this = TopNodes[this].Leaf;
+        this = DomainNodeIndex[this];
 
+        /*Now walk the main tree*/
         while(1)
         {
-            /*Note this branch will always run first: the first node encountered is always internal*/
-            if(th >= All.MaxPart)	/* we are dealing with an internal node */
-            {
-                int nn;
-                subnode = get_subnode(&Nodes[th], th, i, shift);
+            /*We will always start with an internal node: find the desired subnode.*/
+            const int subnode = get_subnode(&Nodes[this], this, i, shift);
 
-                /*Protect this access as we will be changing the value in the same loop.*/
-                #pragma omp atomic read
-                nn = Nodes[th].u.suns[subnode];
+            shift -= 3;
 
-                shift -= 3;
+#ifdef OPENMP_USE_SPINLOCK
+            /*Lock this node*/
+            pthread_spin_lock(&SpinLocks[this-All.MaxPart]);
+#endif
+            const int child = Nodes[this].u.suns[subnode];
 
-                if(nn >= 0)	/* ok, something is in the daughter slot already, need to continue */
-                {
-                    parent = th;
-                    th = nn;
-                }
-                else
-                {
-                    /* here we have found an empty slot where we can attach
-                     * the new particle as a leaf.
-                     */
-                    /*Protect write modification to Node*/
-                    #pragma omp atomic write
-                    Nodes[th].u.suns[subnode] = i;
-                    break;	/* done for this particle */
-                }
+            /* We found an empty slot on this node,
+             * so attach this particle and move to the next one*/
+            if(child < 0) {
+                Nodes[this].u.suns[subnode] = i;
+#ifdef OPENMP_USE_SPINLOCK
+                /*Unlock the node*/
+                pthread_spin_unlock(&SpinLocks[this-All.MaxPart]);
+#endif
+                break;	/* done for this particle */
             }
-            /*When we get to this branch we always have an internal node in parent,
-             * with an empty (negative) subnode in subnode.
-             * We create a new node with empty subnodes at the end of the array, and
-             * then we use it to fill the empty subnode in the parent.
-             * Then we loop back to the earlier branch to add the particle.*/
-            else
-            {
-                /* We try to insert into a leaf with a single particle.  Need
-                 * to generate a new internal node at this point.
-                 */
-                /*Get node index to insert and mark it taken*/
-                const int ninsert = atomic_fetch_and_add(&nfree, 1);
-                if(ninsert >= All.MaxPart + MaxNodes)
-                {
-                    message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i);
-                    break;
-                }
-                struct NODE *nfreep = &Nodes[ninsert];	/* select desired node */
-                const int parent_subnode = subnode;
-                int j;
-                const MyFloat lenhalf = 0.25 * Nodes[parent].len;
-
-                nfreep->len = 0.5 * Nodes[parent].len;
-
-                for(j = 0; j < 3; j++) {
-                    /* Detect which quadrant we are in by testing the bits of subnode:
-                     * if (subnode & [1,2,4]) is true we add lenhalf, otherwise subtract lenhalf*/
-                    const int sign = (parent_subnode & (1 << j)) ? 1 : -1;
-                    nfreep->center[j] = Nodes[parent].center[j] + sign*lenhalf;
-                }
-                for(j = 0; j < 8; j++)
-                    nfreep->u.suns[j] = -1;
-
-                subnode = get_subnode(nfreep, parent, th, shift);
-
-                nfreep->u.suns[subnode] = th;
-
-                th = ninsert;	/* resume trying to insert the new particle at
-                             * the newly created internal node */
-
-                /* Mark this node in the parent: this goes last
-                 * so that we don't access the child before it is constructed.
-                 * Protect write modification to Node*/
-                #pragma omp atomic write
-                Nodes[parent].u.suns[parent_subnode] = ninsert;
+            /* ok, something is in the daughter slot already. What is it? */
+            /* If we found an internal node keep walking*/
+            if(child >= All.MaxPart) {
+#ifdef OPENMP_USE_SPINLOCK
+                /*Unlock this node: we found an internal node, which will not change.*/
+                pthread_spin_unlock(&SpinLocks[this-All.MaxPart]);
+#endif
+                this = child;
+                continue;
             }
+            /*When we get here we have reached a leaf of the tree. We have an internal node in th,
+             * with a full (positive) subnode in subnode, containing a real particle in nn.
+             * We create a new internal node with empty subnodes at the end of the array, and
+             * use it to replace the particle in the parent's subnode.
+             * Then we loop back in the hopes that we can add the particle we are currently working on
+             * to the new node.*/
+            /*Atomically add an extra node*/
+            const int ninsert = atomic_fetch_and_add(&nfree, 1);
+            /*If we already have too many nodes, exit loop.*/
+            if(ninsert >= All.MaxPart + MaxNodes-1)
+            {
+                message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i);
+                break;
+            }
+            struct NODE *nfreep = &Nodes[ninsert];	/* select desired node */
+            int j;
+            const MyFloat lenhalf = 0.25 * Nodes[this].len;
+
+            nfreep->len = 0.5 * Nodes[this].len;
+
+            for(j = 0; j < 3; j++) {
+                /* Detect which quadrant we are in by testing the bits of subnode:
+                 * if (subnode & [1,2,4]) is true we add lenhalf, otherwise subtract lenhalf*/
+                const int sign = (subnode & (1 << j)) ? 1 : -1;
+                nfreep->center[j] = Nodes[this].center[j] + sign*lenhalf;
+            }
+            for(j = 0; j < 8; j++)
+                nfreep->u.suns[j] = -1;
+
+            /*Re-add the particle to the new internal node*/
+            const int child_subnode = get_subnode(nfreep, this, child, shift);
+
+            nfreep->u.suns[child_subnode] = child;
+
+            /* Mark this node in the parent: this goes last
+             * so that we don't access the child before it is constructed.*/
+            Nodes[this].u.suns[subnode] = ninsert;
+
+            /* We are now done adding data to this node,
+             * so we can move the SpinLock to the child.*/
+#ifdef OPENMP_USE_SPINLOCK
+            /*Initialise the SpinLock off*/
+            pthread_spin_init(&SpinLocks[ninsert-All.MaxPart], 0);
+            /*Unlock the parent*/
+            pthread_spin_unlock(&SpinLocks[this-All.MaxPart]);
+#endif
+            /*Resume the tree build with the newly created internal node*/
+            this = ninsert;
         }
     }
+#ifdef OPENMP_USE_SPINLOCK
+    /*Avoid a warning about discarding volatile*/
+    int * ss = (int *) SpinLocks;
+    myfree(ss);
+#endif
     if(nfree >= All.MaxPart + MaxNodes)
     {
         return -1;
