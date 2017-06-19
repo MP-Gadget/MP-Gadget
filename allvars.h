@@ -76,8 +76,6 @@
 #define  TOPNODEFACTOR       5.0
 #endif
 
-#define  NODELISTLENGTH      8
-
 #ifndef  GAMMA
 #define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
 #endif

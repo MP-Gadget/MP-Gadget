@@ -1,6 +1,11 @@
 #ifndef _EVALUATOR_H_
 #define _EVALUATOR_H_
 
+#include <stdint.h>
+#include "allvars.h"
+
+#define  NODELISTLENGTH      8
+
 enum NgbTreeFindSymmetric {
     NGB_TREEFIND_SYMMETRIC,
     NGB_TREEFIND_ASYMMETRIC,
