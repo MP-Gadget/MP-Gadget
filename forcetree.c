@@ -178,6 +178,10 @@ int get_subnode(const struct NODE * node, const int nodepos, const int p_i, cons
     return subnode;
 }
 
+/* Size of the free Node thread cache.
+ * 100 was found to be optimal for an Intel skylake with 4 threads.*/
+#define NODECACHE_SIZE 100
+
 /*! Constructs the gravitational oct-tree.
  *
  *  The index convention for accessing tree nodes is the following: the
@@ -213,6 +217,14 @@ int force_tree_build_single(int npart)
         force_create_empty_nodes(All.MaxPart, 0, 1, 0, 0, 0, &numnodes, &nfree);
     }
 
+    /* This implements a small thread-local free Node cache.
+     * The cache ensures that Nodes from the same (or close) particles
+     * are created close to each other on the Node list and thus
+     * helps cache locality. In my tests without this list the
+     * reduction in cache performance destroyed the benefit of
+     * parallelizing this loop!*/
+    int nfree_thread=nfree;
+    int numfree_thread=0;
     /* now we insert all particles */
 #ifdef OPENMP_USE_SPINLOCK
     /*Initialise some spinlocks*/
@@ -221,7 +233,7 @@ int force_tree_build_single(int npart)
             pthread_spin_init(&SpinLocks[i], 0);
     }
 
-    #pragma omp parallel for
+    #pragma omp parallel for firstprivate(nfree_thread, numfree_thread)
 #endif
     for(i = 0; i < npart; i++)
     {
@@ -229,7 +241,7 @@ int force_tree_build_single(int npart)
 
         int this = 0;
         /*Can't break from openmp for*/
-        if(nfree >= All.MaxPart + MaxNodes)
+        if(nfree_thread >= All.MaxPart + MaxNodes-1)
             continue;
         /*First walk the topnodes*/
         while(TopNodes[this].Daughter >= 0)
@@ -283,9 +295,14 @@ int force_tree_build_single(int npart)
              * Then we loop back in the hopes that we can add the particle we are currently working on
              * to the new node.*/
             /*Atomically add an extra node*/
-            const int ninsert = atomic_fetch_and_add(&nfree, 1);
+            if(numfree_thread == 0){
+                nfree_thread = atomic_fetch_and_add(&nfree, NODECACHE_SIZE);
+                numfree_thread = NODECACHE_SIZE;
+            }
+            const int ninsert = nfree_thread++;
+            numfree_thread--;
             /*If we already have too many nodes, exit loop.*/
-            if(ninsert >= All.MaxPart + MaxNodes-1)
+            if(nfree_thread >= All.MaxPart + MaxNodes)
             {
                 message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i);
                 break;
@@ -1119,4 +1136,3 @@ void force_tree_free(void)
     myfree(DomainNodeIndex);
     tree_allocated_flag = 0;
 }
-
