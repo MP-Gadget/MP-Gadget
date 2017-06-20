@@ -203,6 +203,7 @@ int force_tree_build_single(int npart)
             nfreep->center[i] = DomainCenter[i];
         for(i = 0; i < 8; i++)
             nfreep->u.suns[i] = -1;
+        nfreep->hmax = 0;
         nfree++;
         /* create a set of empty nodes corresponding to the top-level domain
          * grid. We need to generate these nodes first to make sure that we have a
@@ -303,6 +304,7 @@ int force_tree_build_single(int npart)
             }
             for(j = 0; j < 8; j++)
                 nfreep->u.suns[j] = -1;
+            nfreep->hmax = 0;
 
             /*Re-add the particle to the new internal node*/
             const int child_subnode = get_subnode(nfreep, this, child, shift);
@@ -392,6 +394,7 @@ void force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z
 
                     for(n = 0; n < 8; n++)
                         Nodes[*nextfree].u.suns[n] = -1;
+                    Nodes[*nextfree].hmax = 0;
 
                     if(TopNodes[TopNodes[topnode].Daughter + sub].Daughter == -1)
                         DomainNodeIndex[TopNodes[TopNodes[topnode].Daughter + sub].Leaf] = *nextfree;
