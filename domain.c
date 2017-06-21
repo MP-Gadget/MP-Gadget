@@ -1474,7 +1474,8 @@ int domain_check_for_local_refine(const int i, const struct peano_hilbert_data *
     return 0;
 }
 
-int domain_nonrecursively_combine_topTree() {
+int domain_nonrecursively_combine_topTree()
+{
     /* 
      * combine topTree non recursively, this uses MPI_Bcast within a group.
      * it shall be quite a bit faster (~ x2) than the old recursive scheme.

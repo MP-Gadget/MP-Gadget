@@ -10,14 +10,12 @@ extern int *DomainTask;
 
 extern struct topnode_data
 {
-    peanokey Size;
-    peanokey StartKey;
-    int64_t Count;
+    peanokey Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
+    peanokey StartKey;		/*!< first Peano-Hilbert key in top-level node */
+    int64_t Count;		/*!< counts the number of particles in this top-level node */
     MyFloat GravCost;
-    int Daughter;
-    int Pstart;
-    int Blocks;
-    int Leaf;
+    int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
+    int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
 } *TopNodes;
 
 extern int NTopnodes, NTopleaves;
