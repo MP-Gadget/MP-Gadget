@@ -1441,7 +1441,7 @@ int domain_check_for_local_refine(const int i, const struct peano_hilbert_data *
     }
 
     /* Loop over all particles in this node so that the costs of the daughter nodes are correct*/
-    for(p = topNodes[i].PIndex, j = 0; p < topNodes[i].PIndex + topNodes[i].Count; p++)
+    for(p = 0, j = 0; p < topNodes[i].Count; p++)
     {
         const int sub = topNodes[i].Daughter;
 
@@ -1449,7 +1449,7 @@ int domain_check_for_local_refine(const int i, const struct peano_hilbert_data *
          * Once this particle has passed the StartKey of the next daughter node,
          * we increment the node the particle is added to and set the PIndex.*/
         if(j < 7)
-            while(topNodes[sub + j + 1].StartKey <= mp[p].key)
+            while(topNodes[sub + j + 1].StartKey <= mp[p + topNodes[i].PIndex].key)
             {
                 topNodes[sub + j + 1].PIndex = p;
                 j++;
@@ -1458,7 +1458,7 @@ int domain_check_for_local_refine(const int i, const struct peano_hilbert_data *
             }
 
         /*Now we have identified the subnode for this particle, add it to the cost and count*/
-        topNodes[sub+j].Cost += domain_particle_costfactor(mp[p].index);
+        topNodes[sub+j].Cost += domain_particle_costfactor(mp[p + topNodes[i].PIndex].index);
         topNodes[sub+j].Count++;
     }
 
