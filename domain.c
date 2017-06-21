@@ -103,8 +103,6 @@ static int domain_allocated_flag = 0;
 
 static int maxLoad, maxLoadsph;
 
-static double totgravcost, totpartcount, gravcost;
-
 static MPI_Datatype MPI_TYPE_PARTICLE = 0;
 static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
 static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
@@ -323,18 +321,6 @@ int domain_decompose(void)
 
 
     walltime_measure("/Domain/Decompose/Misc");
-
-    gravcost = 0;
-#pragma omp parallel for reduction(+: gravcost)
-    for(i = 0; i < NumPart; i++)
-    {
-        double costfac = domain_particle_costfactor(i);
-        gravcost += costfac;
-    }
-
-    totpartcount = TotNumPart;
-
-    MPI_Allreduce(&gravcost, &totgravcost, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     /* determine global dimensions of domain grid */
     domain_findExtent();
@@ -1610,6 +1596,16 @@ int domain_determineTopTree(void)
     
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
+    double totgravcost, gravcost = 0;
+#pragma omp parallel for reduction(+: gravcost)
+    for(i = 0; i < NumPart; i++)
+    {
+        double costfac = domain_particle_costfactor(i);
+        gravcost += costfac;
+    }
+
+    MPI_Allreduce(&gravcost, &totgravcost, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+
     NTopnodes = 1;
     topNodes[0].Daughter = -1;
     topNodes[0].Parent = -1;
@@ -1620,7 +1616,7 @@ int domain_determineTopTree(void)
     topNodes[0].Cost = gravcost;
 
     costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
-    countlimit = totpartcount / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
+    countlimit = TotNumPart / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
     errflag = domain_check_for_local_refine(0, mp);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
