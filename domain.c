@@ -48,12 +48,6 @@ struct topnode_data *TopNodes;
 int NTopnodes, NTopleaves;
 
 
-/*! toGo[task*NTask + partner] gives the number of particles in task 'task'
- *  that have to go to task 'partner'
- */
-static int *toGo, *toGoSph, *toGoBh;
-static int *toGet, *toGetSph, *toGetBh;
-
 static struct local_topnode_data
 {
     peanokey Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
@@ -85,8 +79,8 @@ static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t c
 int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp);
 
 static int domain_layoutfunc(int n);
-static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p));
-static void domain_exchange_once(int (*layoutfunc)(int p) );
+static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh);
+static void domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh);
 
 static int domain_allocated_flag = 0;
 
@@ -384,13 +378,16 @@ void checklock() {
 void domain_exchange(int (*layoutfunc)(int p)) {
     int i;
     int64_t sumtogo;
+    /*! toGo[task*NTask + partner] gives the number of particles in task 'task'
+     *  that have to go to task 'partner'
+     */
     /* flag the particles that need to be exported */
-    toGo = (int *) mymalloc("toGo", (sizeof(int) * NTask));
-    toGoSph = (int *) mymalloc("toGoSph", (sizeof(int) * NTask));
-    toGoBh = (int *) mymalloc("toGoBh", (sizeof(int) * NTask));
-    toGet = (int *) mymalloc("toGet", (sizeof(int) * NTask));
-    toGetSph = (int *) mymalloc("toGetSph", (sizeof(int) * NTask));
-    toGetBh = (int *) mymalloc("toGetBh", (sizeof(int) * NTask));
+    int * toGo = (int *) mymalloc("toGo", (sizeof(int) * NTask));
+    int * toGoSph = (int *) mymalloc("toGoSph", (sizeof(int) * NTask));
+    int * toGoBh = (int *) mymalloc("toGoBh", (sizeof(int) * NTask));
+    int * toGet = (int *) mymalloc("toGet", (sizeof(int) * NTask));
+    int * toGetSph = (int *) mymalloc("toGetSph", (sizeof(int) * NTask));
+    int * toGetBh = (int *) mymalloc("toGetBh", (sizeof(int) * NTask));
 
 
 #pragma omp parallel for
@@ -417,7 +414,7 @@ void domain_exchange(int (*layoutfunc)(int p)) {
         }
 
         /* determine for each cpu how many particles have to be shifted to other cpus */
-        ret = domain_countToGo(exchange_limit, layoutfunc);
+        ret = domain_countToGo(exchange_limit, layoutfunc, toGo, toGoSph, toGoBh,toGet, toGetSph, toGetBh);
         walltime_measure("/Domain/exchange/togo");
 
         for(i = 0, sumtogo = 0; i < NTask; i++)
@@ -427,7 +424,7 @@ void domain_exchange(int (*layoutfunc)(int p)) {
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
-        domain_exchange_once(layoutfunc);
+        domain_exchange_once(layoutfunc, toGo, toGoSph, toGoBh,toGet, toGetSph, toGetBh);
         iter++;
     }
     while(ret > 0);
@@ -520,7 +517,7 @@ int domain_check_memory_bound(const int print_details, float *domainWork, int *d
     return 0;
 }
 
-static void domain_exchange_once(int (*layoutfunc)(int p))
+static void domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh)
 {
     int count_togo = 0, count_togo_sph = 0, count_togo_bh = 0, 
         count_get = 0, count_get_sph = 0, count_get_bh = 0;
@@ -1086,7 +1083,8 @@ static int domain_layoutfunc(int n) {
     return DomainTask[no];
 }
 
-static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
+/*This function populates the toGo and toGet arrays*/
+static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh)
 {
     int n, ret, retsum;
     size_t package;
