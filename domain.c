@@ -64,11 +64,11 @@ static void domain_findSplit_work_balanced(int ncpu, int ndomain, float *domainW
 static void domain_findSplit_load_balanced(int ncpu, int ndomain, int *domainCount);
 static void domain_assign_balanced(float* domainWork, int* domainCount);
 static void domain_allocate(void);
-int domain_check_memory_bound(const int print_details, float *domainWork, int *domainCount, int *domainCountSph);
+int domain_check_memory_bound(const int print_details, float *domainWork, int *domainCount);
 static int domain_decompose(void);
 static int domain_determineTopTree(void);
 static void domain_free(void);
-static void domain_sumCost(float *domainWork, int *domainCount, int *domainCountSph);
+static void domain_sumCost(float *domainWork, int *domainCount);
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA,
         int noB);
@@ -268,9 +268,6 @@ int domain_decompose(void)
     /*!< a table that gives the total number of particles held by each processor */
     int * domainCount = (int *) mymalloc("domainCount", bytes = (MaxTopNodes * sizeof(int)));
     all_bytes += bytes;
-    /*!< a table that gives the total number of SPH particles held by each processor */
-    int *domainCountSph = (int *) mymalloc("domainCountSph", bytes = (MaxTopNodes * sizeof(int)));
-    all_bytes += bytes;
 
     topNodes = (struct local_topnode_data *) mymalloc("topNodes", bytes =
             (MaxTopNodes *
@@ -293,7 +290,7 @@ int domain_decompose(void)
     if(domain_determineTopTree())
         return 1;
     /* count toplevel leaves */
-    domain_sumCost(domainWork, domainCount, domainCountSph);
+    domain_sumCost(domainWork, domainCount);
     walltime_measure("/Domain/DetermineTopTree/Sumcost");
 
     if(NTopleaves < All.DomainOverDecompositionFactor * NTask)
@@ -309,7 +306,7 @@ int domain_decompose(void)
 
     walltime_measure("/Domain/Decompose/assignbalance");
 
-    status = domain_check_memory_bound(0,domainWork,domainCount,domainCountSph);
+    status = domain_check_memory_bound(0,domainWork,domainCount);
     walltime_measure("/Domain/Decompose/memorybound");
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
@@ -322,7 +319,7 @@ int domain_decompose(void)
         domain_assign_balanced(NULL, domainCount);
         walltime_measure("/Domain/Decompose/assignbalance");
 
-        status = domain_check_memory_bound(1,domainWork,domainCount,domainCountSph);
+        status = domain_check_memory_bound(1,domainWork,domainCount);
         walltime_measure("/Domain/Decompose/memorybound");
 
         if(status != 0)
@@ -344,7 +341,6 @@ int domain_decompose(void)
     }
 
     myfree(topNodes);
-    myfree(domainCountSph);
     myfree(domainCount);
     myfree(domainWork);
 
@@ -433,14 +429,14 @@ void domain_exchange(int (*layoutfunc)(int p)) {
     domain_count_particles();
 }
 
-int domain_check_memory_bound(const int print_details, float *domainWork, int *domainCount, int *domainCountSph)
+int domain_check_memory_bound(const int print_details, float *domainWork, int *domainCount)
 {
     int ta, m, i;
-    int load, sphload, max_load;
+    int load, max_load;
     int64_t sumload;
     double work, max_work, sumwork;
     /*Only used if print_details is true*/
-    int list_load[NTask], list_loadsph[NTask];
+    int list_load[NTask];
     double list_work[NTask];
 
     max_work = max_load = sumload = sumwork = 0;
@@ -1678,16 +1674,14 @@ int domain_determineTopTree(void)
 
 
 
-void domain_sumCost(float *domainWork, int *domainCount, int *domainCountSph)
+void domain_sumCost(float *domainWork, int *domainCount)
 {
     int i;
     float * local_domainWork = (float *) mymalloc("local_domainWork", All.NumThreads * NTopnodes * sizeof(float));
     int * local_domainCount = (int *) mymalloc("local_domainCount", All.NumThreads * NTopnodes * sizeof(int));
-    int * local_domainCountSph = (int *) mymalloc("local_domainCountSph", All.NumThreads * NTopnodes * sizeof(int));
 
     memset(local_domainWork, 0, All.NumThreads * NTopnodes * sizeof(float));
     memset(local_domainCount, 0, All.NumThreads * NTopnodes * sizeof(float));
-    memset(local_domainCountSph, 0, All.NumThreads * NTopnodes * sizeof(float));
 
     NTopleaves = 0;
     domain_walktoptree(0);
@@ -1701,7 +1695,6 @@ void domain_sumCost(float *domainWork, int *domainCount, int *domainCountSph)
 
         float * mylocal_domainWork = local_domainWork + tid * NTopleaves;
         int * mylocal_domainCount = local_domainCount + tid * NTopleaves;
-        int * mylocal_domainCountSph = local_domainCountSph + tid * NTopleaves;
 
         #pragma omp for
         for(n = 0; n < NumPart; n++)
@@ -1711,10 +1704,6 @@ void domain_sumCost(float *domainWork, int *domainCount, int *domainCountSph)
             mylocal_domainWork[no] += domain_particle_costfactor(n);
 
             mylocal_domainCount[no] += 1;
-
-            if(P[n].Type == 0) {
-                mylocal_domainCountSph[no] += 1;
-            }
         }
     }
 
@@ -1725,14 +1714,11 @@ void domain_sumCost(float *domainWork, int *domainCount, int *domainCountSph)
         for(tid = 1; tid < All.NumThreads; tid++) {
             local_domainWork[i] += local_domainWork[i + tid * NTopleaves];
             local_domainCount[i] += local_domainCount[i + tid * NTopleaves];
-            local_domainCountSph[i] += local_domainCountSph[i + tid * NTopleaves];
         }
     }
 
     MPI_Allreduce(local_domainWork, domainWork, NTopleaves, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(local_domainCount, domainCount, NTopleaves, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(local_domainCountSph, domainCountSph, NTopleaves, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    myfree(local_domainCountSph);
     myfree(local_domainCount);
     myfree(local_domainWork);
 }
