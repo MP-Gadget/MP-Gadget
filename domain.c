@@ -51,11 +51,12 @@ static struct local_topnode_data
     peanokey Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
     peanokey StartKey;		/*!< first Peano-Hilbert key in top-level node */
     int64_t Count;		/*!< counts the number of particles in this top-level node */
-    double Cost;
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
+    /*Below members are only used in this file*/
     int Parent;
     int PIndex;			/*!< first particle in node  used only in top-level tree build (this file)*/
+    double Cost;
 }
 *topNodes;			/*!< points to the root node of the top-level tree */
 
