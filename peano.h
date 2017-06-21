@@ -12,14 +12,16 @@ struct peano_hilbert_data
 #define  BITS_PER_DIMENSION 21	/* for Peano-Hilbert order. Note: Maximum is 10 to fit in 32-bit integer ! */
 #define  PEANOCELLS (((peanokey)1)<<(3*BITS_PER_DIMENSION))
 
-#define KEY(i) peano_hilbert_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac), \
-        (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac), \
-        (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), \
+#define DomainFac(len) ( 1.0 / (len) * (((peanokey) 1) << (BITS_PER_DIMENSION)))
+
+#define KEY(i) peano_hilbert_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac(DomainLen)), \
+        (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac(DomainLen)), \
+        (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac(DomainLen)), \
         BITS_PER_DIMENSION)
 
-#define MORTON(i) morton_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac), \
-        (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac), \
-        (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac), \
+#define MORTON(i) morton_key((int) ((P[i].Pos[0] - DomainCorner[0]) * DomainFac(DomainLen)), \
+        (int) ((P[i].Pos[1] - DomainCorner[1]) * DomainFac(DomainLen)), \
+        (int) ((P[i].Pos[2] - DomainCorner[2]) * DomainFac(DomainLen)), \
         BITS_PER_DIMENSION)
 
 void mysort_peano(void *b, size_t n, size_t s, int (*cmp) (const void *, const void *));

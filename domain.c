@@ -37,18 +37,11 @@
  */
 
 
-#define REDUC_FAC      0.98
-
-double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
+double DomainCorner[3], DomainCenter[3], DomainLen;
+/*Only used in forcetree.c*/
 int *DomainStartList, *DomainEndList;
 
-
-
-double *DomainWork;
-int *DomainCount;
-int *DomainCountSph;
 int *DomainTask;
-int *DomainNodeIndex;
 
 struct topnode_data *TopNodes;
 
@@ -100,8 +93,6 @@ static int *domainCount;	/*!< a table that gives the total number of particles h
 static int *domainCountSph;	/*!< a table that gives the total number of SPH particles held by each processor */
 
 static int domain_allocated_flag = 0;
-
-static int maxLoad, maxLoadsph;
 
 static MPI_Datatype MPI_TYPE_PARTICLE = 0;
 static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
@@ -173,9 +164,6 @@ void domain_Decomposition(void)
 
         message(0, "use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
                  all_bytes / (1024.0 * 1024.0), AllocatedBytes / (1024.0 * 1024.0));
-
-        maxLoad = (int) (All.MaxPart * REDUC_FAC);
-        maxLoadsph = (int) (All.MaxPartSph * REDUC_FAC);
 
         report_memory_usage("DOMAIN");
 #ifdef DEBUG
@@ -507,18 +495,18 @@ int domain_check_memory_bound(const int print_details)
         }
     }
 
-    if(max_load > maxLoad)
+    if(max_load > All.MaxPart)
     {
         message(0, "desired memory imbalance=%g  (limit=%d, needed=%d)\n",
-                    (max_load * All.PartAllocFactor) / maxLoad, maxLoad, max_load);
+                    (max_load * All.PartAllocFactor) / All.MaxPart, All.MaxPart, max_load);
 
         return 1;
     }
 
-    if(max_sphload > maxLoadsph)
+    if(max_sphload > All.MaxPartSph)
     {
         message(0, "desired memory imbalance=%g  (SPH) (limit=%d, needed=%d)\n",
-                    (max_sphload * All.PartAllocFactor) / maxLoadsph, maxLoadsph, max_sphload);
+                    (max_sphload * All.PartAllocFactor) / All.MaxPartSph, All.MaxPartSph, max_sphload);
 
         return 1;
     }
@@ -1778,7 +1766,6 @@ void domain_sumCost(void)
 */
 void domain_findExtent(void)
 {
-    int i;
     double len, xmin[3], xmax[3], xmin_glob[3], xmax_glob[3];
 
     /* determine local extension */
@@ -1789,17 +1776,17 @@ void domain_findExtent(void)
         xmax[j] = -MAX_REAL_NUMBER;
     }
 
-#pragma omp parallel private(i)
+#pragma omp parallel
     {
         double xminT[3], xmaxT[3];
-        int j;
+        int j,i;
         for(j = 0; j < 3; j++)
         {
             xminT[j] = MAX_REAL_NUMBER;
             xmaxT[j] = -MAX_REAL_NUMBER;
         }
 
-#pragma omp for
+        #pragma omp parallel for
         for(i = 0; i < NumPart; i++)
         {
             int j;
@@ -1841,7 +1828,6 @@ void domain_findExtent(void)
     }
 
     DomainLen = len;
-    DomainFac = 1.0 / len * (((peanokey) 1) << (BITS_PER_DIMENSION));
 }
 
 

@@ -37,6 +37,7 @@ int Numnodestree;		/*!< number of (internal) nodes in each tree */
 
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
 int *Father;			/*!< gives parent node in tree (Prenodes array) */
+int *DomainNodeIndex;   /*!< Gives domain index of a node*/
 
 /*! auxiliary variable used to set-up non-recursive walk */
 static int last;

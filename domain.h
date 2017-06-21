@@ -7,7 +7,6 @@
 extern double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
 extern int *DomainStartList, *DomainEndList;
 extern int *DomainTask;
-extern int *DomainNodeIndex;
 
 extern struct topnode_data
 {
