@@ -4,7 +4,6 @@
 #include "peano.h"
 
 /*Several of these variables are used externally only in restart.c*/
-extern double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
 extern int *DomainStartList, *DomainEndList;
 extern int *DomainTask;
 

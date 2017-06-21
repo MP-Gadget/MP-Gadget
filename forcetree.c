@@ -203,9 +203,9 @@ int force_tree_build_single(int npart)
     {
         struct NODE *nfreep = &Nodes[nfree];	/* select first node */
 
-        nfreep->len = DomainLen;
+        nfreep->len = All.BoxSize*1.001;
         for(i = 0; i < 3; i++)
-            nfreep->center[i] = DomainCenter[i];
+            nfreep->center[i] = All.BoxSize/2.;
         for(i = 0; i < 8; i++)
             nfreep->u.suns[i] = -1;
         nfreep->hmax = 0;

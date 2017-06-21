@@ -36,8 +36,6 @@
  *  communication.
  */
 
-
-double DomainCorner[3], DomainCenter[3], DomainLen;
 /*Only used in forcetree.c*/
 int *DomainStartList, *DomainEndList;
 
@@ -69,7 +67,6 @@ static void domain_allocate(void);
 int domain_check_memory_bound(const int print_details, float *domainWork, int *domainCount, int *domainCountSph);
 static int domain_decompose(void);
 static int domain_determineTopTree(void);
-static void domain_findExtent(void);
 static void domain_free(void);
 static void domain_sumCost(float *domainWork, int *domainCount, int *domainCountSph);
 
@@ -287,11 +284,6 @@ int domain_decompose(void)
     report_memory_usage("DOMAIN");
 
     walltime_measure("/Domain/Decompose/Misc");
-
-    /* determine global dimensions of domain grid */
-    domain_findExtent();
-
-    walltime_measure("/Domain/Decompose/FindExtent");
 
     /*Make an array of peano keys so we don't have to recompute them inside the domain*/
     #pragma omp parallel for
@@ -1759,78 +1751,6 @@ void domain_sumCost(float *domainWork, int *domainCount, int *domainCountSph)
     myfree(local_domainCount);
     myfree(local_domainWork);
 }
-
-
-/*! This routine finds the extent of the global domain grid.
-*/
-void domain_findExtent(void)
-{
-    double len, xmin[3], xmax[3], xmin_glob[3], xmax_glob[3];
-
-    /* determine local extension */
-    int j;
-    for(j = 0; j < 3; j++)
-    {
-        xmin[j] = MAX_REAL_NUMBER;
-        xmax[j] = -MAX_REAL_NUMBER;
-    }
-
-#pragma omp parallel
-    {
-        double xminT[3], xmaxT[3];
-        int j,i;
-        for(j = 0; j < 3; j++)
-        {
-            xminT[j] = MAX_REAL_NUMBER;
-            xmaxT[j] = -MAX_REAL_NUMBER;
-        }
-
-        #pragma omp parallel for
-        for(i = 0; i < NumPart; i++)
-        {
-            int j;
-            for(j = 0; j < 3; j++)
-            {
-                if(xminT[j] > P[i].Pos[j])
-                    xminT[j] = P[i].Pos[j];
-
-                if(xmaxT[j] < P[i].Pos[j])
-                    xmaxT[j] = P[i].Pos[j];
-            }
-        }
-#pragma omp critical 
-        {
-            for(j = 0; j < 3; j++) {
-                if(xmin[j] > xminT[j]) 
-                    xmin[j] = xminT[j]; 
-                if(xmax[j] < xmaxT[j]) 
-                    xmax[j] = xmaxT[j]; 
-            
-            } 
-        }
-    }
-
-    MPI_Allreduce(xmin, xmin_glob, 3, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(xmax, xmax_glob, 3, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-
-    len = 0;
-    for(j = 0; j < 3; j++)
-        if(xmax_glob[j] - xmin_glob[j] > len)
-            len = xmax_glob[j] - xmin_glob[j];
-
-    len *= 1.001;
-
-    for(j = 0; j < 3; j++)
-    {
-        DomainCenter[j] = 0.5 * (xmin_glob[j] + xmax_glob[j]);
-        DomainCorner[j] = 0.5 * (xmin_glob[j] + xmax_glob[j]) - 0.5 * len;
-    }
-
-    DomainLen = len;
-}
-
-
-
 
 void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost)
 {
