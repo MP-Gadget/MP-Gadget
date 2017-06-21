@@ -280,8 +280,6 @@ extern struct global_data_all_processes
 
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
                               processor. */
-    int MaxPartSph;		/*!< This gives the maxmimum number of SPH particles that can be stored on one
-                          processor. */
     int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on one
                           processor. */
 
@@ -304,7 +302,6 @@ extern struct global_data_all_processes
     double PartAllocFactor;	/*!< in order to maintain work-load balance, the particle load will usually
                               NOT be balanced.  Each processor allocates memory for PartAllocFactor times
                               the average number of particles to allow for that */
-    int IncreaseMaxSph; /*!< If this is true, MaxPartSph will be set to MaxPart*/
 
     double TreeAllocFactor;	/*!< Each processor allocates a number of nodes which is TreeAllocFactor times
                               the maximum(!) number of particles.  Note: A typical local tree for N

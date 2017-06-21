@@ -436,57 +436,50 @@ void domain_exchange(int (*layoutfunc)(int p)) {
 int domain_check_memory_bound(const int print_details, float *domainWork, int *domainCount, int *domainCountSph)
 {
     int ta, m, i;
-    int load, sphload, max_load, max_sphload;
-    int64_t sumload,sumsphload;
+    int load, sphload, max_load;
+    int64_t sumload;
     double work, max_work, sumwork;
     /*Only used if print_details is true*/
     int list_load[NTask], list_loadsph[NTask];
     double list_work[NTask];
 
-    max_work = max_load = max_sphload = sumload = sumsphload = sumwork = 0;
+    max_work = max_load = sumload = sumwork = 0;
 
     for(ta = 0; ta < NTask; ta++)
     {
-        load = sphload = 0;
+        load = 0;
         work = 0;
 
         for(m = 0; m < All.DomainOverDecompositionFactor; m++)
             for(i = DomainStartList[ta * All.DomainOverDecompositionFactor + m]; i <= DomainEndList[ta * All.DomainOverDecompositionFactor + m]; i++)
             {
                 load += domainCount[i];
-                sphload += domainCountSph[i];
                 work += domainWork[i];
             }
 
         if(print_details) {
             list_load[ta] = load;
-            list_loadsph[ta] = sphload;
             list_work[ta] = work;
         }
 
         sumwork += work;
         sumload += load;
-        sumsphload += sphload;
 
         if(load > max_load)
             max_load = load;
-        if(sphload > max_sphload)
-            max_sphload = sphload;
         if(work > max_work)
             max_work = work;
     }
 
-    /*Avoid nan on division*/
-    sumsphload = sumsphload ? sumsphload : 1;
-    message(0, "Largest deviations from average: work=%g particle load=%g sph particle load=%g\n",
-            max_work / (sumwork / NTask), max_load / (((double) sumload) / NTask), max_sphload/(((double) sumsphload)/NTask));
+    message(0, "Largest deviations from average: work=%g particle load=%g\n",
+            max_work / (sumwork / NTask), max_load / (((double) sumload) / NTask));
 
     if(print_details) {
         message(0, "Balance breakdown:\n");
         for(i = 0; i < NTask; i++)
         {
-            message(0, "Task: [%3d]  work=%8.4f  particle load=%8.4f sph particle load=%8.4f \n", i,
-               list_work[i] / (sumwork / NTask), list_load[i] / (((double) sumload) / NTask), list_loadsph[i]/(((double) sumsphload) /NTask));
+            message(0, "Task: [%3d]  work=%8.4f  particle load=%8.4f\n", i,
+               list_work[i] / (sumwork / NTask), list_load[i] / (((double) sumload) / NTask));
         }
     }
 
@@ -494,14 +487,6 @@ int domain_check_memory_bound(const int print_details, float *domainWork, int *d
     {
         message(0, "desired memory imbalance=%g  (limit=%d, needed=%d)\n",
                     (max_load * All.PartAllocFactor) / All.MaxPart, All.MaxPart, max_load);
-
-        return 1;
-    }
-
-    if(max_sphload > All.MaxPartSph)
-    {
-        message(0, "desired memory imbalance=%g  (SPH) (limit=%d, needed=%d)\n",
-                    (max_sphload * All.PartAllocFactor) / All.MaxPartSph, All.MaxPartSph, max_sphload);
 
         return 1;
     }
@@ -689,8 +674,8 @@ static void domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGo
         endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
     }
 
-    if(N_sph_slots > All.MaxPartSph)
-        endrun(787878, "Task=%d N_sph=%d All.MaxPartSph=%d\n", ThisTask, N_sph_slots, All.MaxPartSph);
+    if(N_sph_slots > All.MaxPart)
+        endrun(787878, "Task=%d N_sph=%d All.MaxPart=%d\n", ThisTask, N_sph_slots, All.MaxPart);
     if(N_bh_slots > All.MaxPartBh)
         endrun(787878, "Task=%d N_bh=%d All.MaxPartBh=%d\n", ThisTask, N_bh_slots, All.MaxPartBh);
 
@@ -1178,7 +1163,7 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toG
                     MPI_Bcast(&count_toget_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     MPI_Bcast(&count_togo_bh, 1, MPI_INT, ta, MPI_COMM_WORLD);
                     MPI_Bcast(&count_toget_bh, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    if((ntoomany = list_N_sph[ta] + count_toget_sph - count_togo_sph - All.MaxPartSph) > 0)
+                    if((ntoomany = list_N_sph[ta] + count_toget_sph - count_togo_sph - All.MaxPart) > 0)
                     {
                         message (0, "exchange needs to be modified because I can't receive %d SPH-particles on task=%d\n",
                                  ntoomany, ta);

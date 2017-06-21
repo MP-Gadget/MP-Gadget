@@ -360,13 +360,8 @@ petaio_read_header_internal(BigFile * bf) {
     }
     /* sets the maximum number of particles that may reside on a processor */
     All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);	
-    All.MaxPartSph = (int) (All.PartAllocFactor * NTotal[0] / NTask);	
-
-    if(NTotal[0] > 0 && All.IncreaseMaxSph) {
-        All.MaxPartSph = All.MaxPart;
-    }
-    /* at most 10% of SPH can form BH*/
-    All.MaxPartBh = (int) (0.1 * All.MaxPartSph);	
+    /* at most 10% of particles can form BH*/
+    All.MaxPartBh = (int) (0.1 * All.MaxPart);
 
     for(ptype = 0; ptype < 6; ptype ++) {
         int64_t start = ThisTask * NTotal[ptype] / NTask;
@@ -376,11 +371,6 @@ petaio_read_header_internal(BigFile * bf) {
     }
     N_sph_slots = NLocal[0];
     N_bh_slots = NLocal[5];
-
-    /* check */
-    if(N_sph_slots > All.MaxPartSph) {
-        endrun(1, "Overwhelmed by sph: %d > %d\n", N_sph_slots, All.MaxPartSph);
-    }
 
     if(N_bh_slots > All.MaxPartBh) {
         endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);

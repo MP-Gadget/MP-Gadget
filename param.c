@@ -202,7 +202,6 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "BufferSize", OPTIONAL, 100, "");
     param_declare_double(ps, "PartAllocFactor", REQUIRED, 0, "");
-    param_declare_int(ps, "IncreaseMaxSph", OPTIONAL, 1, "Increase the number of SPH particles allowed on one processor. Helps if the gas distribution differs from the CDM distribution.");
     param_declare_double(ps, "TopNodeAllocFactor", OPTIONAL, 0.5, "");
 
     param_declare_double(ps, "InitGasTemp", REQUIRED, 0, "");
@@ -409,7 +408,6 @@ void read_parameter_file(char *fname)
 
         All.BufferSize = param_get_double(ps, "BufferSize");
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");
-        All.IncreaseMaxSph = param_get_int(ps, "IncreaseMaxSph");
         All.TopNodeAllocFactor = param_get_double(ps, "TopNodeAllocFactor");
 
         All.InitGasTemp = param_get_double(ps, "InitGasTemp");
