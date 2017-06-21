@@ -841,46 +841,6 @@ int domain_fork_particle(int parent) {
 }
 
 
-void domain_findSplit_work_balanced(int ncpu, int ndomain,float *domainWork)
-{
-    int i, start, end;
-    double work, workavg, work_before, workavg_before;
-
-    for(i = 0, work = 0; i < ndomain; i++)
-        work += domainWork[i];
-
-    workavg = work / ncpu;
-
-    work_before = workavg_before = 0;
-
-    start = 0;
-
-    for(i = 0; i < ncpu; i++)
-    {
-        work = 0;
-        end = start;
-
-        work += domainWork[end];
-
-        while((work + work_before < workavg + workavg_before) || (i == ncpu - 1 && end < ndomain - 1))
-        {
-            if((ndomain - end) > (ncpu - i))
-                end++;
-            else
-                break;
-
-            work += domainWork[end];
-        }
-
-        DomainStartList[i] = start;
-        DomainEndList[i] = end;
-
-        work_before += work;
-        workavg_before += workavg;
-        start = end + 1;
-    }
-}
-
 
 static struct domain_loadorigin_data
 {
@@ -992,6 +952,46 @@ void domain_assign_balanced(float *domainWork, int *domainCount)
 }
 
 
+/* These next two functions are identical except for the type of the thing summed.*/
+void domain_findSplit_work_balanced(int ncpu, int ndomain, float *domainWork)
+{
+    int i, start, end;
+    double work, workavg, work_before, workavg_before;
+
+    for(i = 0, work = 0; i < ndomain; i++)
+        work += domainWork[i];
+
+    workavg = work / ncpu;
+
+    work_before = workavg_before = 0;
+
+    start = 0;
+
+    for(i = 0; i < ncpu; i++)
+    {
+        work = 0;
+        end = start;
+
+        work += domainWork[end];
+
+        while((work + work_before < workavg + workavg_before) || (i == ncpu - 1 && end < ndomain - 1))
+        {
+            if((ndomain - end) > (ncpu - i))
+                end++;
+            else
+                break;
+
+            work += domainWork[end];
+        }
+
+        DomainStartList[i] = start;
+        DomainEndList[i] = end;
+
+        work_before += work;
+        workavg_before += workavg;
+        start = end + 1;
+    }
+}
 
 void domain_findSplit_load_balanced(int ncpu, int ndomain, int *domainCount)
 {
