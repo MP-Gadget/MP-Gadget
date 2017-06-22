@@ -293,8 +293,12 @@ int domain_decompose(void)
     for(i=0; i<NumPart; i++)
         P[i].Key = KEY(i);
 
-    if(domain_determineTopTree())
+    if(domain_determineTopTree()) {
+        myfree(topNodes);
+        myfree(domainCount);
+        myfree(domainWork);
         return 1;
+    }
     /* count toplevel leaves */
     domain_sumCost(domainWork, domainCount);
     walltime_measure("/Domain/DetermineTopTree/Sumcost");
