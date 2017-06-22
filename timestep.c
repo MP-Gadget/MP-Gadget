@@ -9,7 +9,6 @@
 #include "cooling.h"
 #include "mymalloc.h"
 #include "endrun.h"
-#include "domain.h"
 #include "system.h"
 
 /*! \file timestep.c
@@ -180,12 +179,10 @@ void advance_and_find_timesteps(void)
             }
             /*Update time bin counts*/
             TimeBinCount[binold]--;
+            TimeBinCount[bin]++;
             if(P[i].Type == 0)
             {
                 TimeBinCountSph[binold]--;
-            }
-            TimeBinCount[bin]++;
-            if(P[i].Type == 0) {
                 TimeBinCountSph[bin]++;
             }
 

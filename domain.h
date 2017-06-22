@@ -3,7 +3,8 @@
 
 #include "peano.h"
 
-/*Several of these variables are used externally only in restart.c*/
+/*These variables are used externally in forcetree.c.
+ * DomainTask is also used in treewalk and NTopleaves is used in gravpm.c*/
 extern int *DomainStartList, *DomainEndList;
 extern int *DomainTask;
 
@@ -17,10 +18,6 @@ extern struct topnode_data
 
 extern int NTopnodes, NTopleaves;
 
-void domain_exchange(int (*layoutfunc)(int p));
-void domain_refresh_totals();
-int domain_garbage_collection(void);
 void domain_test_id_uniqueness();
 void domain_Decomposition(void);
-int domain_fork_particle();
 #endif

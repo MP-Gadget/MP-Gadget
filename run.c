@@ -15,6 +15,7 @@
 #include "endrun.h"
 #include "timestep.h"
 #include "system.h"
+#include "exchange.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -447,5 +448,3 @@ void write_cpu_log(void)
         fflush(FdCPU);
     }
 }
-
-

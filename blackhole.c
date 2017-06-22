@@ -9,7 +9,7 @@
 #include "cooling.h"
 #include "densitykernel.h"
 #include "treewalk.h"
-#include "domain.h"
+#include "garbage.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "system.h"

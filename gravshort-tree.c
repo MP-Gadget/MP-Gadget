@@ -11,7 +11,6 @@
 #include "forcetree.h"
 #include "treewalk.h"
 #include "mymalloc.h"
-#include "domain.h"
 #include "endrun.h"
 
 #include "gravshort.h"

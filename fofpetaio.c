@@ -11,7 +11,7 @@
 #include "allvars.h"
 #include "proto.h"
 #include "petaio.h"
-#include "domain.h"
+#include "exchange.h"
 #include "fof.h"
 #include "mymalloc.h"
 #include "endrun.h"

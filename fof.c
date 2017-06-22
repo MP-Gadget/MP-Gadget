@@ -12,6 +12,7 @@
 #include "proto.h"
 #include "forcetree.h"
 #include "domain.h"
+#include "exchange.h"
 #include "mpsort.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -133,6 +134,7 @@ void fof_fof(int num)
     HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", NumPart * sizeof(struct fof_particle_list));
 
     /* HaloLabel stores the MinID and MinIDTask of particles, this pair serves as a halo label. */
+    #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         HaloLabel[i].Pindex = i;
     }

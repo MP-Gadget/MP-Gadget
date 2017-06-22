@@ -19,7 +19,7 @@ OBJECTS  =  \
 	 gdbtools.o \
 	 fof.o fofpetaio.o petaio.o \
 	 param.o paramset.o utils-string.o \
-	 domain.o allvars.o main.o \
+	 domain.o exchange.o garbage.o allvars.o main.o \
 	 blackhole.o \
 	 run.o predict.o begrun.o endrun.o global.o \
 	 timestep.o init.o io.o sfr_eff.o \

@@ -26,7 +26,7 @@
 #include "proto.h"
 #include "treewalk.h"
 #include "cooling.h"
-#include "domain.h"
+#include "garbage.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "timestep.h"

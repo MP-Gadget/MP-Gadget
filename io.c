@@ -8,10 +8,8 @@
 #include <sys/types.h>
 
 #include "allvars.h"
-#include "densitykernel.h"
-#include "proto.h"
 #include "petaio.h"
-#include "domain.h"
+#include "garbage.h"
 #include "forcetree.h"
 #include "fof.h"
 #include "endrun.h"
