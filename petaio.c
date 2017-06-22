@@ -9,6 +9,7 @@
 #include "bigfile-mpi.h"
 #include "allvars.h"
 #include "proto.h"
+#include "system.h"
 #include "cooling.h"
 
 #include "petaio.h"

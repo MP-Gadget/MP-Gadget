@@ -14,6 +14,7 @@
 #include "mymalloc.h"
 #include "endrun.h"
 #include "timestep.h"
+#include "system.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop

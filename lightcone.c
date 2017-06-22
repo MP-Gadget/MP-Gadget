@@ -12,6 +12,7 @@
 #include "proto.h"
 #include "cosmology.h"
 #include "endrun.h"
+#include "system.h"
 
 #define NENTRY 4096
 static double tab_loga[NENTRY];

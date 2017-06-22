@@ -1,6 +1,9 @@
 #ifndef PEANO_H
 #define PEANO_H
 
+#include <stddef.h>
+#include <stdint.h>
+
 typedef uint64_t peanokey;
 
 struct peano_hilbert_data

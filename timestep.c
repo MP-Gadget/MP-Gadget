@@ -10,6 +10,7 @@
 #include "mymalloc.h"
 #include "endrun.h"
 #include "domain.h"
+#include "system.h"
 
 /*! \file timestep.c
  *  \brief routines for 'kicking' particles in

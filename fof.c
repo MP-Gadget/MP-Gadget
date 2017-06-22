@@ -16,6 +16,7 @@
 #include "mymalloc.h"
 #include "endrun.h"
 #include "treewalk.h"
+#include "system.h"
 
 /*! \file fof.c
  *  \brief parallel FoF group finder

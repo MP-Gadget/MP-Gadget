@@ -13,7 +13,7 @@
 
 
 #include "allvars.h"
-#include "proto.h"
+#include "system.h"
 #include "mymalloc.h"
 
 

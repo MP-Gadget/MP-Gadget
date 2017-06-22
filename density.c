@@ -8,11 +8,11 @@
 #include "allvars.h"
 #include "cooling.h"
 #include "densitykernel.h"
-#include "proto.h"
 #include "treewalk.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "timestep.h"
+#include "system.h"
 
 /*! Structure for communication during the density computation. Holds data that is sent to other processors.
 */

@@ -16,18 +16,7 @@ void blackhole_make_one(int index);
 
 int  blackhole_compare_key(const void *a, const void *b);
 
-double get_random_number(MyIDType id);
-void set_random_numbers(void);
-
 double density_decide_hsearch(int targettype, double h);
-
-size_t sizemax(size_t a, size_t b);
-
-void catch_abort(int sig);
-void catch_fatal(int sig);
-void terminate_processes(void);
-void enable_core_dumps_and_fpu_exceptions(void);
-void write_pid_file(void);
 
 void move_particles(int time1);
 
@@ -58,21 +47,7 @@ void restart(int mod);
 void run(void);
 void runtests(void);
 void savepositions(int num, int reason);
-double second(void);
 void set_softenings(void);
-
-void sumup_large_ints(int n, int *src, int64_t *res);
-void sumup_longs(int n, int64_t *src, int64_t *res);
-int64_t count_to_offset(int64_t countLocal);
-int64_t count_sum(int64_t countLocal);
-
-int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
-        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
-        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
-
-int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
-        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
-        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
 
 static inline int atomic_fetch_and_add(int * ptr, int value) {
     int k;
@@ -116,8 +91,6 @@ static inline int atomic_add_and_fetch(int * ptr, int value) {
 #endif
     return k;
 }
-
-double timediff(double t0, double t1);
 
 double get_hydrokick_factor(int time0, int time1);
 double get_gravkick_factor(int time0, int time1);
