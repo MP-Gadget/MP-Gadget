@@ -113,7 +113,7 @@ int force_tree_build(int npart)
         {
             force_tree_free();
 
-            message(0, "Increasing TreeAllocFactor=%g to %g", All.TreeAllocFactor, All.TreeAllocFactor*1.15);
+            message(0, "Maximum number of treenodes reached. TreeAllocFactor from %g to %g\n", All.TreeAllocFactor, All.TreeAllocFactor*1.15);
 
             All.TreeAllocFactor *= 1.15;
 
@@ -306,7 +306,7 @@ int force_tree_build_single(int npart)
             /*If we already have too many nodes, exit loop.*/
             if(nfree_thread >= All.MaxPart + MaxNodes)
             {
-                message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i);
+/*                 message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i); */
                 break;
             }
             struct NODE *nfreep = &Nodes[ninsert];	/* select desired node */
