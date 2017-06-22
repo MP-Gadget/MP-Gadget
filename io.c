@@ -9,11 +9,8 @@
 
 #include "allvars.h"
 #include "petaio.h"
-#include "garbage.h"
-#include "forcetree.h"
 #include "fof.h"
 #include "endrun.h"
-#include "timestep.h"
 
 /*! \file io.c
  *  \brief Output of a snapshot file to disk.
@@ -30,13 +27,6 @@ void savepositions(int num, int with_fof)
 {
     walltime_measure("/Misc");
 
-    if(domain_garbage_collection() != 0) {
-        force_tree_rebuild();
-        reconstruct_timebins();
-    }
-
-    walltime_measure("/Snapshot/Misc");
-
     petaio_save_snapshot("%s/PART_%03d", All.OutputDir, num);
 
     walltime_measure("/Snapshot/Write");
@@ -51,6 +41,7 @@ void savepositions(int num, int with_fof)
         walltime_measure("/Snapshot/WriteFOF");
     }
 
+    walltime_measure("/Domain/Misc");
     if(ThisTask == 0) {
         char buf[1024];
         sprintf(buf, "%s/LastSnapshotNum.txt", All.OutputDir);
