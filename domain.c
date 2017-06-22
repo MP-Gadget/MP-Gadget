@@ -165,6 +165,52 @@ void domain_Decomposition(void)
     force_tree_rebuild();
 }
 
+/* This is a cut-down version of the domain decomposition that leaves the
+ * domain grid intact, but exchanges the particles*/
+void domain_Decomposition_short(void)
+{
+    int i;
+
+    walltime_measure("/Misc");
+
+    move_particles(All.Ti_Current);
+
+    /* We rebuild the tree every timestep in order to
+     * make sure it is consistent.
+     * May as well free it here.*/
+    if(force_tree_allocated()) force_tree_free();
+
+    /*In case something happened during the timestep*/
+    domain_garbage_collection();
+
+    /*This is expensive: maybe try to avoid it*/
+    domain_count_particles();
+
+    do_box_wrapping();	/* map the particles back onto the box */
+
+    /* Make an array of peano keys so we don't have to
+     * recompute them during layout and force tree build.*/
+    #pragma omp parallel for
+    for(i=0; i<NumPart; i++)
+        P[i].Key = KEY(i);
+
+    /*TODO: We should probably check we can satisfy memory constraints here,
+     * but that is expensive. Maybe check during exchange (or after exchange)
+     * and if not true bail to a full domain_Decomp.*/
+    walltime_measure("/Domain/Decompose/Misc");
+
+    domain_exchange(domain_layoutfunc);
+
+    peano_hilbert_order();
+    walltime_measure("/Domain/Peano");
+
+    /* Do I need to do this? Kind of pointless
+     * to have a cache if it is rebuilt every timestep.*/
+    reconstruct_timebins();
+    walltime_measure("/Domain/Misc");
+    force_tree_rebuild();
+}
+
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
 void domain_allocate(void)
 {
