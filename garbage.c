@@ -4,8 +4,6 @@
 #include "system.h"
 #include "endrun.h"
 #include "forcetree.h"
-/*For domain_count_particles*/
-#include "exchange.h"
 
 static int
 domain_all_garbage_collection();
@@ -91,9 +89,6 @@ domain_garbage_collection(void)
     tree_invalid |= domain_bh_garbage_collection();
 
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    /*This is expensive: maybe try to avoid it*/
-    domain_count_particles();
 
     return tree_invalid;
 }

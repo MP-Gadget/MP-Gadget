@@ -102,6 +102,10 @@ void domain_Decomposition(void)
 
     domain_garbage_collection();
 
+    /*This is expensive: maybe try to avoid it*/
+    domain_count_particles();
+
+
     domain_free();
 
     do_box_wrapping();	/* map the particles back onto the box */
