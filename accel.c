@@ -39,14 +39,9 @@ void compute_accelerations(int mode)
      * to current positions, and the tree nodes have the same positions.
      * Future drifts are now null-ops.*/
     domain_Decomposition();
-    force_tree_rebuild();
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
         long_range_force();
-        walltime_measure("/LongRange");
-        /* This is needed because of the call to force_tree_free inside gravpm_force.
-         * That in turn is needed because the PM code may move particles to different regions.*/;
-        force_tree_rebuild();
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
             energy_statistics();

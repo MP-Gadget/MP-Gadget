@@ -121,12 +121,9 @@ void init(int RestartSnapNum)
 
     domain_Decomposition();	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    force_tree_rebuild();
-
     All.Ti_Current = 0;
 
     setup_smoothinglengths(RestartSnapNum);
-
 }
 
 

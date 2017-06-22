@@ -10,7 +10,6 @@
 #include <inttypes.h>
 #include "allvars.h"
 #include "proto.h"
-#include "forcetree.h"
 #include "domain.h"
 #include "exchange.h"
 #include "mpsort.h"
@@ -197,10 +196,11 @@ void fof_fof(int num)
 
     if(num >= 0)
     {
-        /* I am not sure why we need a full domain decomposition here. But simple peano reorder will produce
-         * a tree that misses a few particles and crash PM. */
+        /* I am not sure why we need a full domain decomposition here. 
+         * But simple peano reorder will produce
+         * a tree that misses a few particles and crash PM. 
+         * TODO: Probably just need an exchange, not full domain.*/
         domain_Decomposition();  
-        force_tree_rebuild();
     }
 
     message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",

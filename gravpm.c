@@ -68,6 +68,9 @@ void gravpm_force(int noforce) {
     /*Now save the power spectrum*/
     if(ThisTask == 0)
         powerspectrum_save(&PowerSpectrum, All.OutputDir, All.Time, GrowthFactor(All.Time));
+    walltime_measure("/LongRange");
+    /*Rebuild the force tree we freed in _prepare to save memory*/
+    force_tree_rebuild();
 }
 
 static double pot_factor;

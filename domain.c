@@ -158,6 +158,7 @@ void domain_Decomposition(void)
 
     reconstruct_timebins();
     walltime_measure("/Domain/Misc");
+    force_tree_rebuild();
 }
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */

@@ -9,7 +9,6 @@
 #include "allvars.h"
 #include "proto.h"
 #include "domain.h"
-#include "forcetree.h"
 #include "cooling.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -269,11 +268,9 @@ int find_next_sync_point_and_drift(int with_fof)
          * power spectrum or FoF; if the particles have
          * moved a long way, performance will be degraded.*/
         domain_Decomposition();
-        force_tree_rebuild();
         /*Write matter power spectrum*/
         gravpm_force(1);
-        force_tree_rebuild();
-
+        /*Save snapshot*/
         savepositions(All.SnapshotFileCount++, with_fof);	/* write snapshot file */
 
         All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);
