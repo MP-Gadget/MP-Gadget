@@ -102,10 +102,6 @@ void domain_Decomposition(void)
 
     domain_garbage_collection();
 
-    /*This is expensive: maybe try to avoid it*/
-    domain_count_particles();
-
-
     domain_free();
 
     do_box_wrapping();	/* map the particles back onto the box */
@@ -182,9 +178,6 @@ void domain_Decomposition_short(void)
 
     /*In case something happened during the timestep*/
     domain_garbage_collection();
-
-    /*This is expensive: maybe try to avoid it*/
-    domain_count_particles();
 
     do_box_wrapping();	/* map the particles back onto the box */
 
@@ -873,6 +866,10 @@ int domain_determineTopTree(void)
     topNodes[0].Cost = gravcost;
 
     costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
+    /*We need TotNumPart to be up to date*/
+    int64_t NumPart_long = NumPart;
+    MPI_Allreduce(&NumPart_long, &TotNumPart, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+
     countlimit = TotNumPart / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
     errflag = domain_check_for_local_refine(0, mp);
