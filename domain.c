@@ -48,20 +48,19 @@ struct topnode_data *TopNodes;
 
 int NTopnodes, NTopleaves;
 
-
-static struct local_topnode_data
+struct local_topnode_data
 {
+    /*These members are copied into topnode_data*/
     peanokey Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
     peanokey StartKey;		/*!< first Peano-Hilbert key in top-level node */
-    int64_t Count;		/*!< counts the number of particles in this top-level node */
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
     /*Below members are only used in this file*/
     int Parent;
     int PIndex;			/*!< first particle in node  used only in top-level tree build (this file)*/
+    int64_t Count;		/*!< counts the number of particles in this top-level node */
     double Cost;
-}
-*topNodes;			/*!< points to the root node of the top-level tree */
+};
 
 
 static void domain_findSplit_work_balanced(int ncpu, int ndomain, float *domainWork);
@@ -70,14 +69,13 @@ static void domain_assign_balanced(float* domainWork, int* domainCount);
 static void domain_allocate(void);
 int domain_check_memory_bound(const int print_details, float *domainWork, int *domainCount);
 static int domain_decompose(void);
-static int domain_determineTopTree(void);
+int domain_determineTopTree(struct local_topnode_data * topNodes);
 static void domain_free(void);
 static void domain_sumCost(float *domainWork, int *domainCount);
 
-static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA,
-        int noB);
+void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
-int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp);
+int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp, struct local_topnode_data * topNodes);
 
 static int domain_layoutfunc(int n);
 
@@ -267,10 +265,9 @@ int domain_decompose(void)
     /*!< a table that gives the total number of particles held by each processor */
     int * domainCount = (int *) mymalloc("domainCount", bytes = (MaxTopNodes * sizeof(int)));
     all_bytes += bytes;
-
-    topNodes = (struct local_topnode_data *) mymalloc("topNodes", bytes =
-            (MaxTopNodes *
-             sizeof(struct local_topnode_data)));
+	/*!< points to the root node of the top-level tree */
+    struct local_topnode_data *topNodes = (struct local_topnode_data *) mymalloc("topNodes", bytes =
+            (MaxTopNodes * sizeof(struct local_topnode_data)));
     memset(topNodes, 0, sizeof(topNodes[0]) * MaxTopNodes);
     all_bytes += bytes;
 
@@ -286,12 +283,23 @@ int domain_decompose(void)
     for(i=0; i<NumPart; i++)
         P[i].Key = KEY(i);
 
-    if(domain_determineTopTree()) {
+    if(domain_determineTopTree(topNodes)) {
         myfree(topNodes);
         myfree(domainCount);
         myfree(domainWork);
         return 1;
     }
+
+    /* copy what we need for the topnodes */
+    for(i = 0; i < NTopnodes; i++)
+    {
+        TopNodes[i].StartKey = topNodes[i].StartKey;
+        TopNodes[i].Size = topNodes[i].Size;
+        TopNodes[i].Daughter = topNodes[i].Daughter;
+        TopNodes[i].Leaf = topNodes[i].Leaf;
+    }
+
+    myfree(topNodes);
     /* count toplevel leaves */
     domain_sumCost(domainWork, domainCount);
     walltime_measure("/Domain/DetermineTopTree/Sumcost");
@@ -334,16 +342,6 @@ int domain_decompose(void)
     walltime_measure("/Domain/Decompose/Misc");
     domain_exchange(domain_layoutfunc);
 
-    /* copy what we need for the topnodes */
-    for(i = 0; i < NTopnodes; i++)
-    {
-        TopNodes[i].StartKey = topNodes[i].StartKey;
-        TopNodes[i].Size = topNodes[i].Size;
-        TopNodes[i].Daughter = topNodes[i].Daughter;
-        TopNodes[i].Leaf = topNodes[i].Leaf;
-    }
-
-    myfree(topNodes);
     myfree(domainCount);
     myfree(domainWork);
 
@@ -605,9 +603,9 @@ void domain_findSplit_load_balanced(int ncpu, int ndomain, int *domainCount)
 /*This function determines the leaf node for the given particle number.*/
 static inline int domain_leafnodefunc(const peanokey key) {
     int no=0;
-    while(topNodes[no].Daughter >= 0)
-        no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size / 8);
-    no = topNodes[no].Leaf;
+    while(TopNodes[no].Daughter >= 0)
+        no = TopNodes[no].Daughter + (key - TopNodes[no].StartKey) / (TopNodes[no].Size / 8);
+    no = TopNodes[no].Leaf;
     return no;
 }
 
@@ -633,15 +631,15 @@ void domain_walktoptree(int no)
 {
     int i;
 
-    if(topNodes[no].Daughter == -1)
+    if(TopNodes[no].Daughter == -1)
     {
-        topNodes[no].Leaf = NTopleaves;
+        TopNodes[no].Leaf = NTopleaves;
         NTopleaves++;
     }
     else
     {
         for(i = 0; i < 8; i++)
-            domain_walktoptree(topNodes[no].Daughter + i);
+            domain_walktoptree(TopNodes[no].Daughter + i);
     }
 }
 
@@ -651,7 +649,7 @@ void domain_walktoptree(int no)
  * If 1 is returned on any processor we will return to domain_Decomposition,
  * allocate 30% more topNodes, and try again.
  * */
-int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp)
+int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp, struct local_topnode_data * topNodes)
 {
     int j, p;
 
@@ -723,13 +721,13 @@ int domain_check_for_local_refine(const int i, const struct peano_hilbert_data *
         const int sub = topNodes[i].Daughter + j;
         /* Refine each sub node. If we could not refine the node as needed,
          * we are out of node space and need more.*/
-        if(domain_check_for_local_refine(sub, mp))
+        if(domain_check_for_local_refine(sub, mp, topNodes))
             return 1;
     }
     return 0;
 }
 
-int domain_nonrecursively_combine_topTree()
+int domain_nonrecursively_combine_topTree(struct local_topnode_data * topNodes)
 {
     /* 
      * combine topTree non recursively, this uses MPI_Bcast within a group.
@@ -788,7 +786,7 @@ int domain_nonrecursively_combine_topTree()
                         endrun(1, "severe domain error using a unintended rank \n");
                     }
                     if(ntopnodes_import > 0 ) {
-                        domain_insertnode(topNodes, topNodes_import, 0, 0);
+                        domain_insertnode(topNodes, topNodes_import, 0, 0, topNodes);
                     } 
                 }
                 myfree(topNodes_import);
@@ -826,7 +824,7 @@ loop_continue:
  *  in pieces of eight segments until each segment holds at most a certain
  *  number of particles.
  */
-int domain_determineTopTree(void)
+int domain_determineTopTree(struct local_topnode_data * topNodes)
 {
     int i, j, sub;
     int errflag, errsum;
@@ -872,7 +870,7 @@ int domain_determineTopTree(void)
 
     countlimit = TotNumPart / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
-    errflag = domain_check_for_local_refine(0, mp);
+    errflag = domain_check_for_local_refine(0, mp, topNodes);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     myfree(mp);
@@ -889,7 +887,7 @@ int domain_determineTopTree(void)
     /* we now need to exchange tree parts and combine them as needed */
 
     
-    errflag = domain_nonrecursively_combine_topTree();
+    errflag = domain_nonrecursively_combine_topTree(topNodes);
 
     walltime_measure("/Domain/DetermineTopTree/Combine");
 #if 0
@@ -1039,7 +1037,7 @@ void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, d
 }
 
 
-void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB)
+void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes)
 {
     int j, sub;
     int64_t count, countA, countB;
@@ -1074,6 +1072,8 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
                     }
 
                     sub = treeA[noA].Daughter + j;
+                    /* This is the only use of the global resource in this function,
+                     * and adds a node to the toplevel tree.*/
                     topNodes[sub].Size = (treeA[noA].Size >> 3);
                     topNodes[sub].Count = count;
                     topNodes[sub].Cost = cost;
@@ -1088,7 +1088,7 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
         }
 
         sub = treeA[noA].Daughter + (treeB[noB].StartKey - treeA[noA].StartKey) / (treeA[noA].Size >> 3);
-        domain_insertnode(treeA, treeB, sub, noB);
+        domain_insertnode(treeA, treeB, sub, noB, topNodes);
     }
     else if(treeB[noB].Size == treeA[noA].Size)
     {
@@ -1100,7 +1100,7 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
             for(j = 0; j < 8; j++)
             {
                 sub = treeB[noB].Daughter + j;
-                domain_insertnode(treeA, treeB, noA, sub);
+                domain_insertnode(treeA, treeB, noA, sub,topNodes);
             }
         }
         else
