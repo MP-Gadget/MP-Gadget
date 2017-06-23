@@ -19,6 +19,8 @@ static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
 static void domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh);
 static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh);
 
+static void domain_count_particles();
+static void domain_refresh_totals();
 
 void domain_exchange(int (*layoutfunc)(int p)) {
     int i;

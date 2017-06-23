@@ -14,7 +14,6 @@
 #include "endrun.h"
 #include "timestep.h"
 #include "system.h"
-#include "exchange.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -361,8 +360,6 @@ void every_timestep_stuff(int NumForce)
     int64_t tot_count[TIMEBINS];
     int64_t tot_count_sph[TIMEBINS];
     int64_t tot_num_force;
-
-    domain_refresh_totals();
 
     sumup_large_ints(TIMEBINS, TimeBinCount, tot_count);
     sumup_large_ints(TIMEBINS, TimeBinCountSph, tot_count_sph);
