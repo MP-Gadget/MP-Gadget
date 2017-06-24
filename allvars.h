@@ -115,11 +115,6 @@
 #define  SEC_PER_MEGAYEAR   3.155e13
 #define  SEC_PER_YEAR       3.155e7
 
-/*Determines the maximum size of arrays related to the number of CR populations */
-#ifndef NUMCRPOP   /*!< Number of CR populations pressent in parameter file */
-#define NUMCRPOP 1
-#endif
-
 #ifndef RCUT
 /*! RCUT gives the maximum distance (in units of the scale used for the force split) out to which short-range
  * forces are evaluated in the short-range tree walk.
@@ -127,18 +122,9 @@
 #define RCUT  4.5
 #endif
 
-#define COND_TIMESTEP_PARAMETER 0.25
-#define VISC_TIMESTEP_PARAMETER 0.25
-
-#define MAXLEN_OUTPUTLIST 12000	/*!< maxmimum number of entries in output list */
-
 #define DRIFT_TABLE_LENGTH  1000	/*!< length of the lookup table used to hold the drift and kick factors */
 
-
 #define MAXITER 400
-
-#define MINRESTFAC 0.05
-
 
 typedef uint64_t MyIDType;
 
