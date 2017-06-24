@@ -50,9 +50,6 @@ int domain_fork_particle(int parent) {
     /* the PIndex still points to the old PIndex */
     P[child].Mass = 0;
 
-    /* FIXME: these are not thread safe !!not !!*/
-    timebin_add_particle_to_active(parent, child, P[child].TimeBin);
-
     /*! When a new additional star particle is created, we can put it into the
      *  tree at the position of the spawning gas particle. This is possible
      *  because the Nextnode[] array essentially describes the full tree walk as a

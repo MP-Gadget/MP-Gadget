@@ -16,7 +16,5 @@ void set_global_time(double newtime);
 void advance_and_find_timesteps(void);
 double find_dt_displacement_constraint(void);
 int is_timebin_active(int i);
-/*Update the timebin linked lists when a new particle is forked*/
-void timebin_add_particle_to_active(int parent, int child, int timebin);
 
 #endif

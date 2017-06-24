@@ -56,10 +56,15 @@ void init(int RestartSnapNum)
 
     All.TreeAllocFactor = 0.7;
 
-    for(i = 0; i < NumPart; i++)	/*  start-up initialization */
+    find_active_timebins(0);
+    reconstruct_timebins();
+
+    All.PM_Ti_endstep = All.PM_Ti_begstep = 0;
+
+    #pragma omp parallel for
+    for(i = 0; i < NumPart; i++)	/* initialize sph_properties */
     {
         P[i].GravCost = 1;
-
 #ifdef BLACK_HOLES
         P[i].Swallowed = 0;
         if(RestartSnapNum == -1 && P[i].Type == 5 )
@@ -67,15 +72,6 @@ void init(int RestartSnapNum)
             BHP(i).Mass = All.SeedBlackHoleMass;
         }
 #endif
-    }
-
-    reconstruct_timebins();
-    find_active_timebins(0);
-
-    All.PM_Ti_endstep = All.PM_Ti_begstep = 0;
-
-    for(i = 0; i < NumPart; i++)	/* initialize sph_properties */
-    {
         if(P[i].Type != 0) continue;
         for(j = 0; j < 3; j++)
         {

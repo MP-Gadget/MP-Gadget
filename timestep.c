@@ -25,18 +25,9 @@ int TimeBinCount[TIMEBINS];
 int TimeBinCountSph[TIMEBINS];
 int TimeBinActive[TIMEBINS];
 
-int FirstInTimeBin[TIMEBINS];
-int LastInTimeBin[TIMEBINS];
-int *NextInTimeBin;
-int *PrevInTimeBin;
-
 void timestep_allocate_memory(int MaxPart)
 {
     ActiveParticle = (int *) mymalloc("ActiveParticle", MaxPart * sizeof(int));
-
-    NextInTimeBin = (int *) mymalloc("NextInTimeBin", MaxPart * sizeof(int));
-
-    PrevInTimeBin = (int *) mymalloc("PrevInTimeBin", MaxPart * sizeof(int));
 }
 
 static void reverse_and_apply_gravity();
@@ -44,8 +35,6 @@ static int get_timestep(int p, double dt_max);
 static int get_timestep_bin(int ti_step);
 static void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkick);
 static void advance_long_range_kick(void);
-static void setup_active_particle(void);
-
 
 int is_timebin_active(int i) {
     return TimeBinActive[i];
@@ -89,6 +78,7 @@ void advance_and_find_timesteps(void)
 
 #ifdef FORCE_EQUAL_TIMESTEPS
     int ti_min=TIMEBASE;
+    #pragma omp parallel for
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
@@ -147,47 +137,21 @@ void advance_and_find_timesteps(void)
             endrun(888, "Integer timeline ran past the end of the bins: %d - %d  < %d\n",TIMEBASE, All.Ti_Current, ti_step);
         }
 
-        /*This moves particles between time bins*/
+        /* This moves particles between time bins:
+         * active particles always remain active
+         * until reconstruct_timebins is called
+         * (during domain, on new timestep).*/
         if(bin != binold)
         {
-            /*Critical section so we can safely update the timebin linked lists*/
-            #pragma omp critical (_timebin_change)
-            {
-            const int prev = PrevInTimeBin[i];
-            const int next = NextInTimeBin[i];
-
-            if(FirstInTimeBin[binold] == i)
-                FirstInTimeBin[binold] = next;
-            if(LastInTimeBin[binold] == i)
-                LastInTimeBin[binold] = prev;
-            if(prev >= 0)
-                NextInTimeBin[prev] = next;
-            if(next >= 0)
-                PrevInTimeBin[next] = prev;
-
-            if(TimeBinCount[bin] > 0)
-            {
-                PrevInTimeBin[i] = LastInTimeBin[bin];
-                NextInTimeBin[LastInTimeBin[bin]] = i;
-                NextInTimeBin[i] = -1;
-                LastInTimeBin[bin] = i;
-            }
-            else
-            {
-                FirstInTimeBin[bin] = LastInTimeBin[bin] = i;
-                PrevInTimeBin[i] = NextInTimeBin[i] = -1;
-            }
             /*Update time bin counts*/
-            TimeBinCount[binold]--;
-            TimeBinCount[bin]++;
+            atomic_fetch_and_add(&TimeBinCount[binold],-1);
+            atomic_fetch_and_add(&TimeBinCount[bin],1);
             if(P[i].Type == 0)
             {
-                TimeBinCountSph[binold]--;
-                TimeBinCountSph[bin]++;
+                atomic_fetch_and_add(&TimeBinCountSph[binold],-1);
+                atomic_fetch_and_add(&TimeBinCountSph[bin],1);
             }
-
             P[i].TimeBin = bin;
-            }
         }
 
         int ti_step_old = binold ? (1 << binold) : 0;
@@ -563,19 +527,6 @@ double find_dt_displacement_constraint()
     return dt_disp;
 }
 
-/*Update the timebin linked lists when a new particle is forked*/
-void timebin_add_particle_to_active(int parent, int child, int timebin)
-{
-    TimeBinCount[timebin]++;
-    PrevInTimeBin[child] = parent;
-    NextInTimeBin[child] = NextInTimeBin[parent];
-    if(NextInTimeBin[parent] >= 0)
-        PrevInTimeBin[NextInTimeBin[parent]] = child;
-    NextInTimeBin[parent] = child;
-    if(LastInTimeBin[P[parent].TimeBin] == parent)
-        LastInTimeBin[P[parent].TimeBin] = child;
-}
-
 int get_timestep_bin(int ti_step)
 {
    int bin = -1;
@@ -646,27 +597,6 @@ void reverse_and_apply_gravity()
 
 }
 
-/* This function sets up the list of currently active particles.
- * Called in run.c */
-void setup_active_particle()
-{
-    int n;
-    /*Set up the active particle list*/
-    NumActiveParticle = 0;
-    for(n = 0; n < TIMEBINS; n++)
-    {
-        if(TimeBinActive[n])
-        {
-            int i;
-            for(i = FirstInTimeBin[n]; i >= 0; i = NextInTimeBin[i])
-            {
-                ActiveParticle[NumActiveParticle] = i;
-                NumActiveParticle++;
-            }
-        }
-    }
-}
-
 void reconstruct_timebins(void)
 {
     int i, bin;
@@ -675,8 +605,6 @@ void reconstruct_timebins(void)
     {
         TimeBinCount[bin] = 0;
         TimeBinCountSph[bin] = 0;
-        FirstInTimeBin[bin] = -1;
-        LastInTimeBin[bin] = -1;
 #ifdef BLACK_HOLES
         Local_BH_mass = 0;
         Local_BH_dynamicalmass = 0;
@@ -685,21 +613,16 @@ void reconstruct_timebins(void)
 #endif
     }
 
+    NumActiveParticle = 0;
+
     for(i = 0; i < NumPart; i++)
     {
         int bin = P[i].TimeBin;
 
-        if(TimeBinCount[bin] > 0)
+        if(TimeBinActive[bin])
         {
-            PrevInTimeBin[i] = LastInTimeBin[bin];
-            NextInTimeBin[i] = -1;
-            NextInTimeBin[LastInTimeBin[bin]] = i;
-            LastInTimeBin[bin] = i;
-        }
-        else
-        {
-            FirstInTimeBin[bin] = LastInTimeBin[bin] = i;
-            PrevInTimeBin[i] = NextInTimeBin[i] = -1;
+            ActiveParticle[NumActiveParticle] = i;
+            NumActiveParticle++;
         }
         TimeBinCount[bin]++;
         if(P[i].Type == 0)
@@ -716,8 +639,6 @@ void reconstruct_timebins(void)
 #endif
     }
 
-    /*Set up the active particle list*/
-    setup_active_particle();
 }
 
 
@@ -739,8 +660,5 @@ int find_active_timebins(int next_kick)
         else
             TimeBinActive[n] = 0;
     }
-
-    /*Set up the active particle list*/
-    setup_active_particle();
     return NumForceUpdate;
 }
