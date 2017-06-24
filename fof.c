@@ -18,6 +18,7 @@
 #include "endrun.h"
 #include "treewalk.h"
 #include "system.h"
+#include "densitykernel.h"
 
 /*! \file fof.c
  *  \brief parallel FoF group finder

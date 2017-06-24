@@ -25,7 +25,6 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_integration.h>
-#include <gsl/gsl_spline.h>
 #include <gsl/gsl_errno.h>
 
 #include <signal.h>
@@ -217,8 +216,6 @@ extern int ThisTask;		/*!< the number of the local processor  */
 extern int NTask;		/*!< number of processors */
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
-
-extern int NumPart;
 
 /* Local number of particles; this is accurate after a GC */
 extern int64_t NLocal[6];
@@ -694,32 +691,5 @@ extern struct sph_particle_data
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
-
-static inline double
-dotproduct(double v1[3], double v2[3])
-{
-    double r =0;
-    int d;
-    for(d = 0; d < 3; d ++) {
-        r += v1[d] * v2[d];
-    }
-    return r;
-}
-
-static inline void crossproduct(double v1[3], double v2[3], double out[3])
-{
-    static int D2[3] = {1, 2, 0};
-    static int D3[3] = {2, 0, 1};
-
-    int d1, d2, d3;
-
-    for(d1 = 0; d1 < 3; d1++)
-    {
-        d2 = D2[d1];
-        d3 = D3[d1];
-
-        out[d1] = (v1[d2] * v2[d3] -  v2[d2] * v1[d3]);
-    }
-}
 
 #endif

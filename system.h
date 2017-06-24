@@ -74,5 +74,4 @@ static inline int atomic_add_and_fetch(int * ptr, int value) {
     return k;
 }
 
-
 #endif
