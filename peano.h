@@ -33,5 +33,6 @@ void init_peano_map(void);
 peanokey peano_hilbert_key(int x, int y, int z, int bits);
 peanokey morton_key(int x, int y, int z, int bits);
 
+void peano_hilbert_order(void);
 int peano_compare_key(const void *a, const void *b);
 #endif

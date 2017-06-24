@@ -5,6 +5,7 @@
 #include "proto.h"
 #include "forcetree.h"
 #include "petapm.h"
+#include "predict.h"
 #include "powerspectrum.h"
 #include "domain.h"
 #include "endrun.h"

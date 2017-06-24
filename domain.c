@@ -7,7 +7,7 @@
 
 
 #include "allvars.h"
-#include "proto.h"
+#include "predict.h"
 #include "forcetree.h"
 #include "mymalloc.h"
 #include "mpsort.h"
@@ -67,15 +67,17 @@ static void domain_findSplit_work_balanced(int ncpu, int ndomain, float *domainW
 static void domain_findSplit_load_balanced(int ncpu, int ndomain, int *domainCount);
 static void domain_assign_balanced(float* domainWork, int* domainCount);
 static void domain_allocate(void);
-int domain_check_memory_bound(const int print_details, float *domainWork, int *domainCount);
+static int domain_check_memory_bound(const int print_details, float *domainWork, int *domainCount);
 static int domain_decompose(void);
-int domain_determineTopTree(struct local_topnode_data * topNodes);
+static int domain_determineTopTree(struct local_topnode_data * topNodes);
 static void domain_free(void);
 static void domain_sumCost(float *domainWork, int *domainCount);
 
-void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes);
+static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
-int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp, struct local_topnode_data * topNodes);
+static int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp, struct local_topnode_data * topNodes);
+
+static void do_box_wrapping(const double boxsize);
 
 static int domain_layoutfunc(int n);
 
@@ -103,7 +105,7 @@ void domain_Decomposition(void)
 
     domain_free();
 
-    do_box_wrapping();	/* map the particles back onto the box */
+    do_box_wrapping(All.BoxSize);	/* map the particles back onto the box */
 
     message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
@@ -178,7 +180,7 @@ void domain_Decomposition_short(void)
     /*In case something happened during the timestep*/
     domain_garbage_collection();
 
-    do_box_wrapping();	/* map the particles back onto the box */
+    do_box_wrapping(All.BoxSize);	/* map the particles back onto the box */
 
     /* Make an array of peano keys so we don't have to
      * recompute them during layout and force tree build.*/
@@ -1163,4 +1165,27 @@ domain_test_id_uniqueness(void)
     t1 = second();
 
     message(0, "success.  took=%g sec\n", timediff(t0, t1));
+}
+
+/*! This function makes sure that all particle coordinates (Pos) are
+ *  periodically mapped onto the interval [0, BoxSize].  After this function
+ *  has been called, a new domain decomposition should be done, which will
+ *  also force a new tree construction.
+ */
+void do_box_wrapping(const double boxsize)
+{
+    int i;
+
+#pragma omp parallel for
+    for(i = 0; i < NumPart; i++) {
+        int k;
+        for(k = 0; k < 3; k++)
+        {
+            while(P[i].Pos[k] < 0)
+                P[i].Pos[k] += boxsize;
+
+            while(P[i].Pos[k] >= boxsize)
+                P[i].Pos[k] -= boxsize;
+        }
+    }
 }

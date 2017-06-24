@@ -5,7 +5,8 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 #include "allvars.h"
-#include "proto.h"
+#include "predict.h"
+#include "driftfac.h"
 #include "endrun.h"
 
 
@@ -165,8 +166,6 @@ static void real_drift_particle(int i, int time1)
     P[i].Ti_current = time1;
 }
 
-
-
 void move_particles(int time1)
 {
     int i;
@@ -178,36 +177,3 @@ void move_particles(int time1)
 
     walltime_measure("/Drift");
 }
-
-
-
-/*! This function makes sure that all particle coordinates (Pos) are
- *  periodically mapped onto the interval [0, BoxSize].  After this function
- *  has been called, a new domain decomposition should be done, which will
- *  also force a new tree construction.
- */
-void do_box_wrapping(void)
-{
-    int i;
-    double boxsize[3];
-
-    int j;
-    for(j = 0; j < 3; j++)
-        boxsize[j] = All.BoxSize;
-
-#pragma omp parallel for
-    for(i = 0; i < NumPart; i++) {
-        int k;
-        for(k = 0; k < 3; k++)
-        {
-            while(P[i].Pos[k] < 0)
-                P[i].Pos[k] += boxsize[k];
-
-            while(P[i].Pos[k] >= boxsize[k])
-                P[i].Pos[k] -= boxsize[k];
-        }
-    }
-}
-
-
-

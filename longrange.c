@@ -5,7 +5,6 @@
 #include <math.h>
 
 #include "allvars.h"
-#include "proto.h"
 /*! \file longrange.c
  *  \brief driver routines for computation of long-range gravitational PM force
  */

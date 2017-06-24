@@ -77,3 +77,4 @@ grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkRedu
     TREEWALK_REDUCE(P[place].Potential, result->Potential);
 }
 
+int grav_apply_short_range_window(double r, double * fac, double * facpot);

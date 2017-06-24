@@ -10,6 +10,7 @@
 #include <inttypes.h>
 #include "allvars.h"
 #include "proto.h"
+#include "predict.h"
 #include "domain.h"
 #include "mpsort.h"
 #include "mymalloc.h"

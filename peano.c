@@ -5,15 +5,14 @@
 #include <math.h>
 
 #include "allvars.h"
-#include "proto.h"
 #include "mymalloc.h"
 
 #include <gsl/gsl_heapsort.h>
 #include "openmpsort.h"
 #include "endrun.h"
 
-void reorder_gas(int * Id, const int start, const int end);
-void reorder_particles(int * Id, const int start, const int end);
+static void reorder_gas(int * Id, const int start, const int end);
+static void reorder_particles(int * Id, const int start, const int end);
 
 void peano_hilbert_order(void)
 {

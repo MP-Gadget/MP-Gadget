@@ -7,7 +7,7 @@
 #include <gsl/gsl_integration.h>
 
 #include "allvars.h"
-#include "proto.h"
+#include "driftfac.h"
 #include "cosmology.h"
 
 

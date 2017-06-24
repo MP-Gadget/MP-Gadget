@@ -16,6 +16,7 @@
 #include "domain.h"
 
 void grav_short_tree_old(void);
+void grav_short_pair(void);
 
 char * GDB_format_particle(int i);
 

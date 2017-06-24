@@ -2,9 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include "allvars.h"
-#include "proto.h"
 #include "treewalk.h"
-
+#include "predict.h"
 #include "openmpsort.h"
 #include "mymalloc.h"
 #include "domain.h"

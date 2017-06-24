@@ -12,6 +12,7 @@
 #include "allvars.h"
 #include "param.h"
 #include "densitykernel.h"
+#include "driftfac.h"
 #include "proto.h"
 #include "cosmology.h"
 #include "cooling.h"

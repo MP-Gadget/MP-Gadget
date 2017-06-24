@@ -5,6 +5,7 @@
 #include <math.h>
 #include "allvars.h"
 #include "proto.h"
+#include "driftfac.h"
 #include "cosmology.h"
 #include "cooling.h"
 #include "mymalloc.h"

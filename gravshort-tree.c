@@ -7,7 +7,7 @@
 #include <sys/ipc.h>
 #include <sys/sem.h>
 #include "allvars.h"
-#include "proto.h"
+#include "predict.h"
 #include "forcetree.h"
 #include "treewalk.h"
 #include "mymalloc.h"

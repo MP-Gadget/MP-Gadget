@@ -37,6 +37,8 @@ static enum ActionType human_interaction();
 static int find_next_sync_point(int with_fof);
 static void update_IO_params(const char * ioctlfname);
 static void every_timestep_stuff(int NumForces);
+static void write_cpu_log(void);
+
 
 /*Defined in gravpm.c*/
 void  gravpm_force(int noforce);

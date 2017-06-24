@@ -22,6 +22,8 @@
  *  \brief code for initialisation of a simulation from initial conditions
  */
 
+static void check_omega(void);
+
 static void
 setup_smoothinglengths(int RestartSnapNum);
 

@@ -23,7 +23,7 @@
 #include <string.h>
 #include <math.h>
 #include "allvars.h"
-#include "proto.h"
+#include "predict.h"
 #include "treewalk.h"
 #include "cooling.h"
 #include "garbage.h"
