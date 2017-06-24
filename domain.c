@@ -94,6 +94,7 @@ void domain_Decomposition(void)
 
     walltime_measure("/Misc");
 
+    /*This drifts all the particles*/
     move_particles(All.Ti_Current);
 
     if(force_tree_allocated()) force_tree_free();
@@ -185,20 +186,19 @@ void domain_Decomposition_short(void)
     for(i=0; i<NumPart; i++)
         P[i].Key = KEY(i);
 
+    walltime_measure("/Domain/Short/Misc");
     /*TODO: We should probably check we can satisfy memory constraints here,
      * but that is expensive. Maybe check during exchange (or after exchange)
      * and if not true bail to a full domain_Decomp.*/
-    walltime_measure("/Domain/Decompose/Misc");
 
     domain_exchange(domain_layoutfunc);
 
     peano_hilbert_order();
-    walltime_measure("/Domain/Peano");
+    walltime_measure("/Domain/Short/Peano");
 
-    /* Do I need to do this? Kind of pointless
-     * to have a cache if it is rebuilt every timestep.*/
+    /* Rebuild active particle list and timebin counts:
+     * peano order has changed.*/
     reconstruct_timebins();
-    walltime_measure("/Domain/Misc");
     force_tree_rebuild();
 }
 
