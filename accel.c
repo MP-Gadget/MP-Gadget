@@ -34,19 +34,24 @@ void compute_accelerations(int mode)
 
     walltime_measure("/Misc");
 
-    /* Before computing forces, do a full domain decomposition
-     * and rebuild the tree, so we have synced all particles
-     * to current positions, and the tree nodes have the same positions.
-     * Future drifts are now null-ops.*/
-    domain_Decomposition();
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
+        /* Before computing forces, do a full domain decomposition
+         * and rebuild the tree, so we have synced all particles
+         * to current positions, and the tree nodes have the same positions.
+         * Future drifts are now null-ops.*/
+        domain_Decomposition();
         long_range_force();
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
             energy_statistics();
         /*Update the displacement timestep*/
         All.MaxTimeStepDisplacement = find_dt_displacement_constraint();
+    }
+    else {
+        /* If it is not a PM step, do a shorter version
+         * of the domain decomp which just moves and exchanges particles.*/
+        domain_Decomposition_short();
     }
 
     grav_short_tree();		/* computes gravity accel. */

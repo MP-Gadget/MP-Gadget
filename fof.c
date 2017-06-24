@@ -195,11 +195,10 @@ void fof_fof(int num)
 
     if(num >= 0)
     {
-        /* I am not sure why we need a full domain decomposition here. 
+        /* I am not sure why we need a domain decomposition here.
          * But simple peano reorder will produce
-         * a tree that misses a few particles and crash PM. 
-         * TODO: Probably just need an exchange, not full domain.*/
-        domain_Decomposition();  
+         * a tree that misses a few particles and crash PM. */
+        domain_Decomposition_short();
     }
 
     message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",

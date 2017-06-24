@@ -266,7 +266,7 @@ int find_next_sync_point_and_drift(int with_fof)
         /* Do domain decomp and rebuild tree before doing
          * power spectrum or FoF; if the particles have
          * moved a long way, performance will be degraded.*/
-        domain_Decomposition();
+        domain_Decomposition_short();
         /*Write matter power spectrum*/
         gravpm_force(1);
         /*Save snapshot*/
