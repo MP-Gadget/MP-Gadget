@@ -597,14 +597,14 @@ void reverse_and_apply_gravity()
 
 }
 
-void reconstruct_timebins(void)
+void rebuild_activelist(void)
 {
-    int i, bin;
+    int i;
 
-    for(bin = 0; bin < TIMEBINS; bin++)
+    for(i = 0; i < TIMEBINS; i++)
     {
-        TimeBinCount[bin] = 0;
-        TimeBinCountSph[bin] = 0;
+        TimeBinCount[i] = 0;
+        TimeBinCountSph[i] = 0;
     }
 
     NumActiveParticle = 0;
@@ -622,7 +622,6 @@ void reconstruct_timebins(void)
         if(P[i].Type == 0)
             TimeBinCountSph[bin]++;
     }
-
 }
 
 

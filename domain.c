@@ -155,7 +155,7 @@ void domain_Decomposition(void)
 
     DomainTask = (int *) (TopNodes + NTopnodes);
 
-    reconstruct_timebins();
+    rebuild_activelist();
     walltime_measure("/Domain/Misc");
     force_tree_rebuild();
 }
@@ -198,7 +198,7 @@ void domain_Decomposition_short(void)
 
     /* Rebuild active particle list and timebin counts:
      * peano order has changed.*/
-    reconstruct_timebins();
+    rebuild_activelist();
     force_tree_rebuild();
 }
 
