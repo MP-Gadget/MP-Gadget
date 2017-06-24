@@ -17,6 +17,8 @@
 #include "mymalloc.h"
 
 
+#define  RNDTABLE 8192
+
 
 #ifdef DEBUG
 #include <fenv.h>
@@ -109,6 +111,8 @@ void write_pid_file(void)
 }
 #endif
 
+
+double RndTable[RNDTABLE];
 
 /*
 double get_random_number(unsigned int id)

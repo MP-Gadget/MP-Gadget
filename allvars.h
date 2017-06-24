@@ -89,8 +89,6 @@
 #define  MAX_REAL_NUMBER  1e37
 #define  MIN_REAL_NUMBER  1e-37
 
-#define  RNDTABLE 8192
-
 /* ... often used physical constants (cgs units) */
 
 #define  GRAVITY     6.672e-8
@@ -234,9 +232,6 @@ extern int N_bh_slots;
 extern int N_sph_slots;
 
 extern gsl_rng *random_generator;	/*!< the random number generator used */
-
-extern double RndTable[RNDTABLE];
-
 
 /* variables for input/output , usually only used on process 0 */
 

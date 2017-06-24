@@ -42,9 +42,6 @@ int N_sph_slots;
 
 gsl_rng *random_generator;	/*!< the random number generator used */
 
-
-double RndTable[RNDTABLE];
-
 /* variables for input/output , usually only used on process 0 */
 
 
