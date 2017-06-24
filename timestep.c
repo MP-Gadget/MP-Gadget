@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include "allvars.h"
-#include "proto.h"
+/* #include "proto.h" */
 #include "driftfac.h"
 #include "cosmology.h"
 #include "cooling.h"
@@ -41,6 +41,50 @@ int is_timebin_active(int i) {
     return TimeBinActive[i];
 }
 
+/*! This function sets the (comoving) softening length of all particle
+ *  types in the table All.SofteningTable[...].  We check that the physical
+ *  softening length is bounded by the Softening-MaxPhys values.
+ */
+void set_softenings(const double time)
+{
+    int i;
+
+    if(All.SofteningGas * time > All.SofteningGasMaxPhys)
+        All.SofteningTable[0] = All.SofteningGasMaxPhys / time;
+    else
+        All.SofteningTable[0] = All.SofteningGas;
+
+    if(All.SofteningHalo * time > All.SofteningHaloMaxPhys)
+        All.SofteningTable[1] = All.SofteningHaloMaxPhys / time;
+    else
+        All.SofteningTable[1] = All.SofteningHalo;
+
+    if(All.SofteningDisk * time > All.SofteningDiskMaxPhys)
+        All.SofteningTable[2] = All.SofteningDiskMaxPhys / time;
+    else
+        All.SofteningTable[2] = All.SofteningDisk;
+
+    if(All.SofteningBulge * time > All.SofteningBulgeMaxPhys)
+        All.SofteningTable[3] = All.SofteningBulgeMaxPhys / time;
+    else
+        All.SofteningTable[3] = All.SofteningBulge;
+
+    if(All.SofteningStars * time > All.SofteningStarsMaxPhys)
+        All.SofteningTable[4] = All.SofteningStarsMaxPhys / time;
+    else
+        All.SofteningTable[4] = All.SofteningStars;
+
+    if(All.SofteningBndry * time > All.SofteningBndryMaxPhys)
+        All.SofteningTable[5] = All.SofteningBndryMaxPhys / time;
+    else
+        All.SofteningTable[5] = All.SofteningBndry;
+
+    for(i = 0; i < 6; i++)
+        All.ForceSoftening[i] = 2.8 * All.SofteningTable[i];
+
+    All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[0];
+}
+
 void set_global_time(double newtime) {
     All.Time = newtime;
 
@@ -55,7 +99,7 @@ void set_global_time(double newtime) {
     lightcone_set_time(All.cf.a);
 #endif
     IonizeParams();
-    set_softenings();
+    set_softenings(newtime);
 }
 
 /*! This function advances the system in momentum space, i. it does apply the 'kick' operation after the

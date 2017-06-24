@@ -17,6 +17,7 @@
 
 #include "gravshort.h"
 
+void set_softenings(void);
 /*! \file gravtree.c
  *  \brief main driver routines for gravitational (short-range) force computation
  *

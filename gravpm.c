@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include "allvars.h"
-#include "proto.h"
 #include "forcetree.h"
 #include "petapm.h"
 #include "predict.h"

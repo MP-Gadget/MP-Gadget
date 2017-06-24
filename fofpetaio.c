@@ -9,7 +9,6 @@
 #include "mpsort.h"
 
 #include "allvars.h"
-#include "proto.h"
 #include "petaio.h"
 #include "exchange.h"
 #include "fof.h"

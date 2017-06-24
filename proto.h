@@ -16,7 +16,6 @@ void run(void);
 void runtests(void);
 void savepositions(int num, int reason);
 
-void set_softenings(void);
 void long_range_init(void);
 void long_range_force(void);
 

@@ -8,7 +8,6 @@
 #include "allvars.h"
 #include "cooling.h"
 #include "densitykernel.h"
-#include "proto.h"
 #include "treewalk.h"
 #include "mymalloc.h"
 #include "endrun.h"
