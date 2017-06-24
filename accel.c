@@ -7,6 +7,8 @@
 
 #include "allvars.h"
 #include "proto.h"
+#include "sfr_eff.h"
+#include "blackhole.h"
 #include "forcetree.h"
 #include "domain.h"
 #include "fof.h"

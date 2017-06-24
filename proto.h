@@ -1,17 +1,9 @@
 #ifndef PROTO_H
 #define PROTO_H
 
-void blackhole(void);
-void blackhole_make_one(int index);
-
 void allocate_memory(void);
 void begrun(int RestartFlag, int RestartSnapNum);
 void compute_accelerations(int mode);
-
-void init_clouds(void);
-void cooling_and_starformation(void);
-void cooling_only(void);
-double get_starformation_rate(int i);
 
 void density(void);
 void energy_statistics(void);

@@ -9,7 +9,8 @@
 #include <gsl/gsl_math.h>
 #include <inttypes.h>
 #include "allvars.h"
-#include "proto.h"
+#include "sfr_eff.h"
+#include "blackhole.h"
 #include "predict.h"
 #include "domain.h"
 #include "mpsort.h"

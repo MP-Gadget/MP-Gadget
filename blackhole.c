@@ -14,6 +14,7 @@
 #include "endrun.h"
 #include "system.h"
 #include "fof.h"
+#include "blackhole.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
  */

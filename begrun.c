@@ -14,6 +14,7 @@
 #include "densitykernel.h"
 #include "driftfac.h"
 #include "proto.h"
+#include "sfr_eff.h"
 #include "cosmology.h"
 #include "cooling.h"
 #include "petaio.h"
