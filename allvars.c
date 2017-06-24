@@ -25,8 +25,6 @@
 int ThisTask;			/*!< the number of the local processor  */
 int NTask;			/*!< number of processors */
 
-int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for domain decomposition */
-
 int RestartFlag;		/*!< taken from command line used to start code. 0 is normal start-up from
 				   initial conditions, 1 is resuming a run from a set of restart files, while 2
 				   marks a restart from a snapshot file. */

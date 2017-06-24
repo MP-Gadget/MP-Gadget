@@ -15,6 +15,8 @@ extern struct topnode_data
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
 } *TopNodes;
+extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tree used for domain decomposition */
+
 
 extern int NTopnodes, NTopleaves;
 

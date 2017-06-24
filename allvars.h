@@ -216,8 +216,6 @@ static inline int IMIN(int a, int b) {
 extern int ThisTask;		/*!< the number of the local processor  */
 extern int NTask;		/*!< number of processors */
 
-extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tree used for domain decomposition */
-
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
 
 extern int NumPart;

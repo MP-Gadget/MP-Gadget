@@ -46,6 +46,8 @@ int *DomainTask;
 
 struct topnode_data *TopNodes;
 
+int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for domain decomposition */
+
 int NTopnodes, NTopleaves;
 
 struct local_topnode_data
