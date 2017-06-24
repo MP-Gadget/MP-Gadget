@@ -4,7 +4,7 @@
 #include <string.h>
 #include <math.h>
 #include "allvars.h"
-/* #include "proto.h" */
+#include "proto.h"
 #include "driftfac.h"
 #include "cosmology.h"
 #include "cooling.h"

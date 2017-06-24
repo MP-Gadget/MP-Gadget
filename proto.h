@@ -17,7 +17,9 @@ void runtests(void);
 void savepositions(int num, int reason);
 
 void long_range_init(void);
-void long_range_force(void);
+/*Defined in gravpm.c*/
+void  gravpm_force(int noforce);
+
 
 #ifdef LIGHTCONE
 void lightcone_init(double timeBegin);

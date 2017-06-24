@@ -44,9 +44,6 @@ static void every_timestep_stuff(int NumForces);
 static void write_cpu_log(void);
 
 
-/*Defined in gravpm.c*/
-void  gravpm_force(int noforce);
-
 
 void run(void)
 {
@@ -360,7 +357,7 @@ void compute_accelerations(void)
          * to current positions, and the tree nodes have the same positions.
          * Future drifts are now null-ops.*/
         domain_Decomposition();
-        long_range_force();
+        gravpm_force(0);
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
             energy_statistics();

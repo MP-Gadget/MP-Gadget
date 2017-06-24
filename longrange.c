@@ -12,7 +12,6 @@
 
 /*Defined in gravpm.c and only used here*/
 void  gravpm_init_periodic();
-void  gravpm_force(int noforce);
 
 static void fill_ntab();
 
@@ -23,23 +22,6 @@ void long_range_init(void)
 {
     fill_ntab();
     gravpm_init_periodic();
-}
-
-
-/*! This function computes the long-range PM force for all particles.
- */
-void long_range_force(void)
-{
-  int i;
-
-  for(i = 0; i < NumPart; i++)
-    {
-      P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
-      P[i].PM_Potential = 0;
-
-    }
-
-  gravpm_force(0);
 }
 
 /*! length of lock-up table for short-range force kernel in TreePM algorithm */

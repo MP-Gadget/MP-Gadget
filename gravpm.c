@@ -58,6 +58,14 @@ void gravpm_force(int noforce) {
     PetaPMFunctions * funcptr = functions;
     if(noforce)
         funcptr = NULL;
+    else {
+        int i;
+        #pragma omp parallel for
+        for(i = 0; i < NumPart; i++)
+        {
+            P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = P[i].PM_Potential = 0;
+        }
+    }
     /*
      * we apply potential transfer immediately after the R2C transform,
      * Therefore the force transfer functions are based on the potential,
