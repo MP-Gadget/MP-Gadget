@@ -12,9 +12,12 @@
 #include "garbage.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "predict.h"
 #include "system.h"
 #include "fof.h"
 #include "blackhole.h"
+#include "forcetree.h"
+#include "sfr_eff.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
  */
@@ -217,7 +220,10 @@ void blackhole(void)
     double total_mass_real, total_mdoteddington;
     double total_mass_holes, total_mdot;
 
-    double Local_BH_mass = Local_BH_dynamicalmass = Local_BH_Mdot = Local_BH_Medd = 0;
+    double Local_BH_mass = 0;
+    double Local_BH_dynamicalmass = 0;
+    double Local_BH_Mdot = 0;
+    double Local_BH_Medd = 0;
     /* Compute total mass of black holes
      * present by summing contents of black hole array*/
     for(i = 0; i < N_bh_slots; i ++)
