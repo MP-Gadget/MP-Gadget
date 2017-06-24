@@ -3,7 +3,6 @@
 
 void allocate_memory(void);
 void begrun(int RestartFlag, int RestartSnapNum);
-void compute_accelerations(int mode);
 
 void density(void);
 void energy_statistics(void);

@@ -23,7 +23,6 @@ OBJECTS  =  \
 	 blackhole.o \
 	 run.o predict.o begrun.o endrun.o global.o \
 	 timestep.o init.o io.o sfr_eff.o \
-	 accel.o \
 	 cooling.o openmpsort.o \
 	 system.o allocate.o density.o \
 	 treewalk.o cosmology.o \

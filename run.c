@@ -14,6 +14,9 @@
 #include "endrun.h"
 #include "timestep.h"
 #include "system.h"
+#include "forcetree.h"
+#include "blackhole.h"
+#include "sfr_eff.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -35,6 +38,7 @@ enum ActionType {
 };
 static enum ActionType human_interaction();
 static int find_next_sync_point(int with_fof);
+static void compute_accelerations(void);
 static void update_IO_params(const char * ioctlfname);
 static void every_timestep_stuff(int NumForces);
 static void write_cpu_log(void);
@@ -67,7 +71,7 @@ void run(void)
         }
         every_timestep_stuff(NumForces);	/* write some info to log-files */
 
-        compute_accelerations(0);	/* compute accelerations for
+        compute_accelerations();	/* compute accelerations for
                                      * the particles that are to be advanced
                                      */
 
@@ -333,7 +337,81 @@ int find_next_outputtime(int ti_curr)
     return ti_next;
 }
 
+/*! This routine computes the accelerations for all active particles.  First, the gravitational forces are
+ * computed. This also reconstructs the tree, if needed, otherwise the drift/kick operations have updated the
+ * tree to make it fullu usable at the current time.
+ *
+ * If gas particles are presented, the `interior' of the local domain is determined. This region is guaranteed
+ * to contain only particles local to the processor. This information will be used to reduce communication in
+ * the hydro part.  The density for active SPH particles is computed next. If the number of neighbours should
+ * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
+ * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
+ */
+void compute_accelerations(void)
+{
+    message(0, "Start force computation...\n");
 
+    walltime_measure("/Misc");
+
+    if(All.PM_Ti_endstep == All.Ti_Current)
+    {
+        /* Before computing forces, do a full domain decomposition
+         * and rebuild the tree, so we have synced all particles
+         * to current positions, and the tree nodes have the same positions.
+         * Future drifts are now null-ops.*/
+        domain_Decomposition();
+        long_range_force();
+        /* compute and output energy statistics if desired. */
+        if(All.OutputEnergyDebug)
+            energy_statistics();
+        /*Update the displacement timestep*/
+        All.MaxTimeStepDisplacement = find_dt_displacement_constraint();
+    }
+    else {
+        /* If it is not a PM step, do a shorter version
+         * of the domain decomp which just moves and exchanges particles.*/
+        domain_Decomposition_short();
+    }
+
+    grav_short_tree();		/* computes gravity accel. */
+
+    if(All.TypeOfOpeningCriterion == 1 && All.Ti_Current == 0)
+        grav_short_tree();		/* For the first timestep, we redo it
+                             * to allow usage of relative opening
+                             * criterion for consistent accuracy.
+                             */
+
+
+    if(NTotal[0] > 0)
+    {
+        /***** density *****/
+        message(0, "Start density computation...\n");
+
+        density();		/* computes density, and pressure */
+
+        /***** update smoothing lengths in tree *****/
+        force_update_hmax();
+
+        /***** hydro forces *****/
+        message(0, "Start hydro-force computation...\n");
+
+        hydro_force();		/* adds hydrodynamical accelerations  and computes du/dt  */
+
+#ifdef BLACK_HOLES
+        /***** black hole accretion and feedback *****/
+        blackhole();
+#endif
+
+/**** radiative cooling and star formation *****/
+#ifdef SFR
+        cooling_and_starformation();
+#else
+        cooling_only();
+#endif
+
+    }
+    message(0, "force computation done.\n");
+}
 
 
 /*! This routine writes one line for every timestep.
