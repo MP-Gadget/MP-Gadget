@@ -215,14 +215,6 @@ static inline int IMIN(int a, int b) {
 /*  Global variables                                     */
 /*********************************************************/
 
-
-#ifdef BLACK_HOLES
-extern double Local_BH_mass;
-extern double Local_BH_dynamicalmass;
-extern double Local_BH_Mdot;
-extern double Local_BH_Medd;
-#endif
-
 extern int ThisTask;		/*!< the number of the local processor  */
 extern int NTask;		/*!< number of processors */
 

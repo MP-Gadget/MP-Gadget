@@ -32,13 +32,6 @@ int RestartFlag;		/*!< taken from command line used to start code. 0 is normal s
 				   marks a restart from a snapshot file. */
 int RestartSnapNum;
 
-#ifdef BLACK_HOLES
-double Local_BH_mass;
-double Local_BH_dynamicalmass;
-double Local_BH_Mdot;
-double Local_BH_Medd;
-#endif
-
 /* Local number of particles; this shall be made into an array */
 int NumPart;
 int64_t NLocal[6];

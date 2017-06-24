@@ -177,14 +177,6 @@ void blackhole(void)
 
     for(i = 0; i < Nactive; i ++) {
         int n = queue[i];
-
-        Local_BH_mass -= BHP(n).Mass;
-        Local_BH_dynamicalmass -= P[n].Mass;
-        Local_BH_Mdot -= BHP(n).Mdot;
-        if(BHP(n).Mass > 0) {
-            Local_BH_Medd -= BHP(n).Mdot / BHP(n).Mass;
-        }
-
         int j;
         for(j = 0; j < 3; j++) {
             BHP(n).MinPotPos[j] = P[n].Pos[j];
@@ -223,6 +215,17 @@ void blackhole(void)
 
     double total_mass_real, total_mdoteddington;
     double total_mass_holes, total_mdot;
+
+    double Local_BH_mass = Local_BH_dynamicalmass = Local_BH_Mdot = Local_BH_Medd = 0;
+    /* Compute total mass of black holes
+     * present by summing contents of black hole array*/
+    for(i = 0; i < N_bh_slots; i ++)
+    {
+        Local_BH_mass += BhP[i].Mass;
+        Local_BH_Mdot += BhP[i].Mdot;
+        Local_BH_Medd += BhP[i].Mdot/BhP[i].Mass;
+        Local_BH_dynamicalmass += P[BhP[i].ReverseLink].Mass;
+    }
 
     MPI_Reduce(&Local_BH_mass, &total_mass_holes, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&Local_BH_dynamicalmass, &total_mass_real, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -307,18 +310,6 @@ blackhole_feedback_postprocess(int n)
         P[n].Mass += BHP(n).accreted_Mass;
         BHP(n).Mass += BHP(n).accreted_BHMass;
         BHP(n).accreted_Mass = 0;
-    }
-
-#pragma omp atomic
-    Local_BH_mass += BHP(n).Mass;
-#pragma omp atomic
-    Local_BH_dynamicalmass += P[n].Mass;
-#pragma omp atomic
-    Local_BH_Mdot += BHP(n).Mdot;
-
-    if(BHP(n).Mass > 0) {
-    #pragma omp atomic
-            Local_BH_Medd += BHP(n).Mdot / BHP(n).Mass;
     }
 }
 
@@ -555,17 +546,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
             O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
 
         O->BH_CountProgs += BHP(other).CountProgs;
-
-#pragma omp atomic
-        Local_BH_mass -= BHP(other).Mass;
-#pragma omp atomic
-        Local_BH_dynamicalmass -= P[other].Mass;
-#pragma omp atomic
-        Local_BH_Mdot -= BHP(other).Mdot;
-        if(BHP(other).Mass > 0) {
-#pragma omp atomic
-            Local_BH_Medd -= BHP(other).Mdot / BHP(other).Mass;
-        }
 
         P[other].Mass = 0;
         BHP(other).Mass = 0;

@@ -605,12 +605,6 @@ void reconstruct_timebins(void)
     {
         TimeBinCount[bin] = 0;
         TimeBinCountSph[bin] = 0;
-#ifdef BLACK_HOLES
-        Local_BH_mass = 0;
-        Local_BH_dynamicalmass = 0;
-        Local_BH_Mdot = 0;
-        Local_BH_Medd = 0;
-#endif
     }
 
     NumActiveParticle = 0;
@@ -627,16 +621,6 @@ void reconstruct_timebins(void)
         TimeBinCount[bin]++;
         if(P[i].Type == 0)
             TimeBinCountSph[bin]++;
-
-#if BLACK_HOLES
-        if(P[i].Type == 5)
-        {
-            Local_BH_mass += BHP(i).Mass;
-            Local_BH_dynamicalmass += P[i].Mass;
-            Local_BH_Mdot += BHP(i).Mdot;
-            Local_BH_Medd += BHP(i).Mdot / BHP(i).Mass;
-        }
-#endif
     }
 
 }
