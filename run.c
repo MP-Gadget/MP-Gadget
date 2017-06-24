@@ -34,7 +34,7 @@ enum ActionType {
     IOCTL = 6,
 };
 static enum ActionType human_interaction();
-static int find_next_sync_point_and_drift(int with_fof);
+static int find_next_sync_point(int with_fof);
 static void update_IO_params(const char * ioctlfname);
 static void every_timestep_stuff(int NumForces);
 
@@ -57,7 +57,7 @@ void run(void)
          * If needed, this function will also write an output file
          * at the desired time.
          */
-        int NumForces = find_next_sync_point_and_drift(action == NO_ACTION);
+        int NumForces = find_next_sync_point(action == NO_ACTION);
 
         if(action == STOP || action == TIMEOUT) {
             /* OK snapshot file is written, lets quit */
@@ -224,9 +224,9 @@ human_interaction()
  * function will drift to this moment, generate an output, and then
  * resume the drift.
  */
-int find_next_sync_point_and_drift(int with_fof)
+int find_next_sync_point(int with_fof)
 {
-    int n, i, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
+    int n, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
     double timeold;
 
     timeold = All.Time;
@@ -285,23 +285,9 @@ int find_next_sync_point_and_drift(int with_fof)
 
     All.TimeStep = All.Time - timeold;
 
-
     int NumForceUpdate = find_active_timebins(ti_next_kick_global);
     walltime_measure("/Misc");
-    /* drift the active particles, others will be drifted on the fly if needed */
-    #pragma omp parallel for
-    for(i = 0; i < NumActiveParticle; i++)
-    {
-        const int p_i = ActiveParticle[i];
-        drift_particle(p_i, All.Ti_Current);
-    }
 
-    if(NumActiveParticle != NumForceUpdate)
-    {
-        endrun(2, "N_part active: %d != N_part Updated: %d\n",NumActiveParticle, NumForceUpdate);
-    }
-
-    walltime_measure("/Drift");
     return NumForceUpdate;
 }
 
