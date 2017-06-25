@@ -37,12 +37,11 @@ enum ActionType {
     IOCTL = 6,
 };
 static enum ActionType human_interaction();
-static int find_next_sync_point(int with_fof);
+static int find_next_sync_point(int ti_nextoutput);
 static void compute_accelerations(void);
 static void update_IO_params(const char * ioctlfname);
 static void every_timestep_stuff(int NumForces);
 static void write_cpu_log(void);
-
 
 
 void run(void)
@@ -55,30 +54,40 @@ void run(void)
 
     do /* main loop */
     {
-
-        /* find next synchronization point and drift particles to this time.
+        /* find next synchronization point and the timebins active during this timestep.
          * If needed, this function will also write an output file
          * at the desired time.
          */
-        int NumForces = find_next_sync_point(action == NO_ACTION);
+        int NumForces = find_next_sync_point(All.Ti_nextoutput);
 
-        if(action == STOP || action == TIMEOUT) {
-            /* OK snapshot file is written, lets quit */
-            return;
-        }
         every_timestep_stuff(NumForces);	/* write some info to log-files */
 
         compute_accelerations();	/* compute accelerations for
                                      * the particles that are to be advanced
                                      */
 
-
         advance_and_find_timesteps();	/* 'kick' active particles in
                                          * momentum space and compute new
                                          * timesteps for them
                                          */
 
+        /*If this timestep is after the last snapshot time, write a snapshot.
+         * No need to do a domain decomposition as we already did one since
+         * the last move in compute_accelerations().
+         * This is after advance_and_find_timesteps so the acceleration
+         * is included in the kick.*/
+        if(All.Ti_Current >= All.Ti_nextoutput)
+        {
+            /*Save snapshot*/
+            savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
+            All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);
+        }
         write_cpu_log();		/* produce some CPU usage info */
+
+        if(action == STOP || action == TIMEOUT) {
+            /* OK snapshot file is written, lets quit */
+            return;
+        }
 
         All.NumCurrentTiStep++;
 
@@ -119,16 +128,10 @@ void run(void)
 
             case NO_ACTION:
                 break;
-
         }
 
     }
-    while(All.Ti_Current < TIMEBASE && All.Time <= All.TimeMax);
-
-    /* write a last snapshot
-     * file at final time */
-    savepositions(All.SnapshotFileCount++, 1);
-
+    while(All.Ti_Current < TIMEBASE);
 }
 
 static void
@@ -227,62 +230,41 @@ human_interaction()
  * function will drift to this moment, generate an output, and then
  * resume the drift.
  */
-int find_next_sync_point(int with_fof)
+int find_next_sync_point(int ti_nextoutput)
 {
-    int n, ti_next_for_bin, ti_next_kick, ti_next_kick_global;
-    double timeold;
-
-    timeold = All.Time;
+    int n, ti_next_kick_global;
+    int ti_next_kick = TIMEBASE;
+    const double timeold = All.Time;
+    /*This repopulates all timebins on the first timestep*/
+    if(TimeBinCount[0])
+        ti_next_kick = All.Ti_Current;
 
     /* find the next kick time */
-    for(n = 0, ti_next_kick = TIMEBASE; n < TIMEBINS; n++)
+    for(n = 1; n < TIMEBINS; n++)
     {
-        if(TimeBinCount[n])
-        {
-            if(n > 0)
-            {
-                const int dt_bin = (1 << n);
-                ti_next_for_bin = (All.Ti_Current / dt_bin) * dt_bin + dt_bin;	/* next kick time for this timebin */
-            }
-            else
-            {
-                ti_next_for_bin = All.Ti_Current;
-            }
-
-            if(ti_next_for_bin < ti_next_kick)
-                ti_next_kick = ti_next_for_bin;
-        }
+        if(!TimeBinCount[n])
+            continue;
+	    /* next kick time for this timebin */
+        const int dt_bin = (1 << n);
+        const int ti_next_for_bin = (All.Ti_Current / dt_bin) * dt_bin + dt_bin;
+        if(ti_next_for_bin < ti_next_kick)
+            ti_next_kick = ti_next_for_bin;
     }
+    /* If a snapshot should be output in the next timestep,
+     * set the sync point to the desired snapshot output time.
+     * This ensures snapshots happen at exactly the desired redshift.*/
+    if(ti_nextoutput >= All.Ti_Current && ti_nextoutput < ti_next_kick)
+        ti_next_kick = ti_nextoutput;
+    /*Make sure we do not go past the next PM step*/
+    if(All.PM_Ti_endstep < ti_next_kick)
+        ti_next_kick = All.PM_Ti_endstep;
 
+    /*All processors sync timesteps*/
     MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
-    while(ti_next_kick_global >= All.Ti_nextoutput && All.Ti_nextoutput >= 0)
-    {
-        All.Ti_Current = All.Ti_nextoutput;
-
-        double nexttime;
-
-        nexttime = All.TimeInit * exp(All.Ti_Current * All.Timebase_interval);
-
-        set_global_time(nexttime);
-
-        /* Do domain decomp and rebuild tree before doing
-         * power spectrum or FoF; if the particles have
-         * moved a long way, performance will be degraded.*/
-        domain_Decomposition_short();
-        /*Write matter power spectrum*/
-        gravpm_force(1);
-        /*Save snapshot*/
-        savepositions(All.SnapshotFileCount++, with_fof);	/* write snapshot file */
-
-        All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);
-    }
-
     All.Ti_Current = ti_next_kick_global;
-
-    double nexttime;
-
-    nexttime = All.TimeInit * exp(All.Ti_Current * All.Timebase_interval);
+    /*Convert back to floating point time*/
+    double nexttime = All.TimeInit * exp(All.Ti_Current * All.Timebase_interval);
 
     set_global_time(nexttime);
 
@@ -316,21 +298,13 @@ int find_next_outputtime(int ti_curr)
             }
         }
     }
-
     if(ti_next == -1)
     {
-        ti_next = 2 * TIMEBASE;	/* this will prevent any further output */
-
-        message(0, "There is no valid time for a further snapshot file.\n");
+        /* Next output is at TimeMax*/
+        ti_next = TIMEBASE;
     }
-    else
-    {
-        const double next = All.TimeInit * exp(ti_next * All.Timebase_interval);
-
-        message(0, "Setting next time for snapshot file to Time_next= %g \n", next);
-
-    }
-
+    const double next = All.TimeInit * exp(ti_next * All.Timebase_interval);
+    message(0, "Setting next time for snapshot file to Time_next= %g \n", next);
     return ti_next;
 }
 

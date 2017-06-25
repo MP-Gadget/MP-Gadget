@@ -230,7 +230,7 @@ void advance_and_find_timesteps(void)
     walltime_measure("/Timeline");
 }
 
-/*Advance a long-range timestep and do the desired kick*/
+/*Advance a long-range timestep and do the desired kick.*/
 void advance_long_range_kick(void)
 {
     int i;
@@ -238,11 +238,18 @@ void advance_long_range_kick(void)
     while(ti_step > (All.MaxTimeStepDisplacement / All.Timebase_interval))
         ti_step >>= 1;
 
+    /* Make sure that we finish the PM step before the next output.
+     * This is important for best restart accuracy: it ensures that
+     * when GravPM and GravAccel are reset to zero, their effect
+     * has already been included.*/
     if(ti_step > (All.PM_Ti_endstep - All.PM_Ti_begstep))	/* PM-timestep wants to increase */
     {
         /* we only increase if an integer number of steps will bring us to the end */
         if(((TIMEBASE - All.PM_Ti_endstep) % ti_step) > 0)
             ti_step = All.PM_Ti_endstep - All.PM_Ti_begstep;	/* leave at old step */
+    }
+    if(All.Ti_nextoutput > All.PM_Ti_endstep && ti_step + All.PM_Ti_endstep > All.Ti_nextoutput) {
+        ti_step = All.Ti_nextoutput - All.PM_Ti_endstep;
     }
 
     if(All.Ti_Current == TIMEBASE)	/* we here finish the last timestep. */
@@ -258,6 +265,7 @@ void advance_long_range_kick(void)
 
     const double dt_gravkickB = -get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
 
+    #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
         int j;
