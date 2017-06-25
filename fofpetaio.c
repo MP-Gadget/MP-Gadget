@@ -197,8 +197,8 @@ static void fof_distribute_particles() {
         P[index].targettask = pi[i].targetTask;
     }
 
-    domain_exchange(fof_sorted_layout);
-
+    if(domain_exchange(fof_sorted_layout))
+        endrun(1930,"Could not exchange particles\n");
     myfree(pi);
     /* sort SPH and Others independently */
 
@@ -212,7 +212,8 @@ static void fof_distribute_particles() {
 
 }
 static void fof_return_particles() {
-    domain_exchange(fof_origin_layout);
+    if(domain_exchange(fof_origin_layout))
+        endrun(1931,"Could not exchange particles\n");
 }
 
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {

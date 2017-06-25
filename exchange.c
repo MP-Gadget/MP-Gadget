@@ -16,15 +16,16 @@ static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static void domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh);
+static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh);
 static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh);
 
 static void domain_count_particles();
 static void domain_refresh_totals();
 
-void domain_exchange(int (*layoutfunc)(int p)) {
+int domain_exchange(int (*layoutfunc)(int p)) {
     int i;
     int64_t sumtogo;
+    int failure = 0;
     /* register the mpi types used in communication if not yet. */
     if (MPI_TYPE_PARTICLE == 0) {
         MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
@@ -81,7 +82,9 @@ void domain_exchange(int (*layoutfunc)(int p)) {
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
-        domain_exchange_once(layoutfunc, toGo, toGoSph, toGoBh,toGet, toGetSph, toGetBh);
+        failure = domain_exchange_once(layoutfunc, toGo, toGoSph, toGoBh,toGet, toGetSph, toGetBh);
+        if(failure)
+            break;
         iter++;
     }
     while(ret > 0);
@@ -96,9 +99,11 @@ void domain_exchange(int (*layoutfunc)(int p)) {
      * though the slots has been taken care of in exchange_once, the
      * particle number counts are not updated. */
     domain_count_particles();
+
+    return failure;
 }
 
-static void domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh)
+static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh)
 {
     int count_togo = 0, count_togo_sph = 0, count_togo_bh = 0, 
         count_get = 0, count_get_sph = 0, count_get_bh = 0;
@@ -143,6 +148,24 @@ static void domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGo
         count_get_sph += toGetSph[i];
         count_get_bh += toGetBh[i];
     }
+    int bad_exh=0, bad_exh_s=0;
+
+    /*Check whether the domain exchange will succeed. If not, bail*/
+    if(NumPart + count_get - count_togo> All.MaxPart){
+        message(1,"Too many particles for exchange: NumPart=%d All.MaxPart=%d\n", NumPart + count_get, All.MaxPart);
+        bad_exh += 1;
+    }
+    if(N_sph_slots + count_get_sph - count_togo_sph > All.MaxPart) {
+        message(1,"Too many SPH for exchange: N_sph=%d All.MaxPart=%d\n", N_sph_slots + count_get_sph, All.MaxPart);
+        bad_exh += 1;
+    }
+    if(N_bh_slots + count_get_bh - count_togo_bh > All.MaxPartBh) {
+        message(1, "Too many BH for exchange: N_bh=%d All.MaxPartBh=%d\n", N_bh_slots + count_get_bh, All.MaxPartBh);
+        bad_exh += 1;
+    }
+    MPI_Allreduce(&bad_exh, &bad_exh_s, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    if(bad_exh_s)
+        return bad_exh_s;
 
     partBuf = (struct particle_data *) mymalloc("partBuf", count_togo * sizeof(struct particle_data));
     sphBuf = (struct sph_particle_data *) mymalloc("sphBuf", count_togo_sph * sizeof(struct sph_particle_data));
@@ -290,6 +313,7 @@ static void domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGo
     MPI_Barrier(MPI_COMM_WORLD);
 
     walltime_measure("/Domain/exchange/finalize");
+    return 0;
 }
 
 

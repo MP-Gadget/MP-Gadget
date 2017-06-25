@@ -191,11 +191,13 @@ void domain_Decomposition_short(void)
         P[i].Key = KEY(i);
 
     walltime_measure("/Domain/Short/Misc");
-    /*TODO: We should probably check we can satisfy memory constraints here,
-     * but that is expensive. Maybe check during exchange (or after exchange)
-     * and if not true bail to a full domain_Decomp.*/
-
-    domain_exchange(domain_layoutfunc);
+    /* Try a domain exchange.
+     * If we have no memory for the particles,
+     * bail and do a full domain*/
+    if(domain_exchange(domain_layoutfunc)) {
+        domain_Decomposition();
+        return;
+    }
 
     peano_hilbert_order();
     walltime_measure("/Domain/Short/Peano");
@@ -344,7 +346,8 @@ int domain_decompose(void)
     }
 
     walltime_measure("/Domain/Decompose/Misc");
-    domain_exchange(domain_layoutfunc);
+    if(domain_exchange(domain_layoutfunc))
+        endrun(1929,"Could not exchange particles\n");
 
     myfree(domainCount);
     myfree(domainWork);
