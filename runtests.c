@@ -34,7 +34,7 @@ void runtests()
         IO_REG(OldAcc,       "f4", 1, ptype);
     }
     
-    gravpm_force(0);
+    gravpm_force();
     domain_Decomposition();	/* do domain decomposition */
 
     grav_short_pair();

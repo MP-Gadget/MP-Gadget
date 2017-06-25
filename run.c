@@ -331,7 +331,7 @@ void compute_accelerations(void)
          * to current positions, and the tree nodes have the same positions.
          * Future drifts are now null-ops.*/
         domain_Decomposition();
-        gravpm_force(0);
+        gravpm_force();
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
             energy_statistics();
