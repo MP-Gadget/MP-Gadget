@@ -98,24 +98,30 @@ void run(void)
             case STOP:
                 message(0, "human controlled stop with checkpoint.\n");
                 All.Ti_nextoutput = All.Ti_Current;
+                /* Note there is an error involved in doing this:
+                 * part of the SPH VelPred array is computed using
+                 * the length of a PM step, and will have been
+                 * slightly incorrect for this timestep. But we want a stop NOW.*/
+                All.PM_Ti_endstep = All.Ti_Current;
                 /* next loop will write a new snapshot file; break is for switch */
                 break;
             case TIMEOUT:
                 message(0, "stopping due to TimeLimitCPU.\n");
                 All.Ti_nextoutput = All.Ti_Current;
+                All.PM_Ti_endstep = All.Ti_Current;
                 /* next loop will write a new snapshot file */
                 break;
 
             case AUTO_CHECKPOINT:
                 message(0, "auto checkpoint due to TimeBetSnapshot.\n");
-                All.Ti_nextoutput = All.Ti_Current;
-                /* next loop will write a new snapshot file */
+                All.Ti_nextoutput = All.PM_Ti_endstep;
+                /* will write a new snapshot file next time the PM step finishes*/
                 break;
 
             case CHECKPOINT:
                 message(0, "human controlled checkpoint.\n");
-                All.Ti_nextoutput = All.Ti_Current;
-                /* next loop will write a new snapshot file */
+                All.Ti_nextoutput = All.PM_Ti_endstep;
+                /* will write a new snapshot file next time the PM step finishes*/
                 break;
 
             case TERMINATE:
