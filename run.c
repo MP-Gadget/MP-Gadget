@@ -261,14 +261,6 @@ int find_next_sync_point(int ti_nextoutput)
         if(ti_next_for_bin < ti_next_kick)
             ti_next_kick = ti_next_for_bin;
     }
-    /* If a snapshot should be output in the next timestep,
-     * set the sync point to the desired snapshot output time.
-     * This ensures snapshots happen at exactly the desired redshift.*/
-    if(ti_nextoutput >= All.Ti_Current && ti_nextoutput < ti_next_kick)
-        ti_next_kick = ti_nextoutput;
-    /*Make sure we do not go past the next PM step*/
-    if(All.PM_Ti_endstep < ti_next_kick)
-        ti_next_kick = All.PM_Ti_endstep;
 
     /*All processors sync timesteps*/
     MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);

@@ -11,6 +11,7 @@
 #include "mymalloc.h"
 #include "endrun.h"
 #include "system.h"
+#include "timestep.h"
 
 /*! \file timestep.c
  *  \brief routines for 'kicking' particles in
@@ -32,10 +33,10 @@ void timestep_allocate_memory(int MaxPart)
 }
 
 static void reverse_and_apply_gravity();
-static int get_timestep(int p, double dt_max);
+static int get_timestep(int p, int dt_max);
 static int get_timestep_bin(int ti_step);
 static void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkick);
-static void advance_long_range_kick(double PM_Timestep);
+static void advance_long_range_kick(int PM_Timestep);
 
 int is_timebin_active(int i) {
     return TimeBinActive[i];
@@ -231,20 +232,14 @@ void advance_and_find_timesteps(void)
 }
 
 /*Advance a long-range timestep and do the desired kick.*/
-void advance_long_range_kick(double PM_Timestep)
+void advance_long_range_kick(int PM_Timestep)
 {
     int i;
     int ti_step = TIMEBASE;
-    while(ti_step > (PM_Timestep / All.Timebase_interval))
+    while(ti_step > PM_Timestep)
         ti_step >>= 1;
-
-    /* Make sure that we finish the PM step before the next output.
-     * This is important for best restart accuracy: it ensures that
-     * when GravPM and GravAccel are reset to zero, their effect
-     * has already been included.*/
-    if(All.Ti_nextoutput > All.PM_Ti_endstep && ti_step + All.PM_Ti_endstep > All.Ti_nextoutput) {
-        ti_step = All.Ti_nextoutput - All.PM_Ti_endstep;
-    }
+    /*Make it a little larger so it will go through the output time.*/
+    ti_step <<=1;
 
     if(All.Ti_Current == TIMEBASE)	/* we here finish the last timestep. */
         ti_step = 0;
@@ -367,7 +362,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkickB)
  *  Arguments:
  *  p -> particle index
  *  dt_max -> maximal timestep.  */
-int get_timestep(const int p, const double dt_max)
+int get_timestep(const int p, const int dt_max)
 {
     double ac = 0;
     double dt = 0, dt_courant = 0;
@@ -377,7 +372,7 @@ int get_timestep(const int p, const double dt_max)
         endrun(0,"Maximal timestep is zero for particle p=%d\n",p);
     /*Set to max timestep allowed if the tree is off*/
     if(!All.TreeGravOn)
-        return dt_max / All.Timebase_interval;
+        return dt_max;
 
     /*Compute physical acceleration*/
     {
@@ -438,13 +433,14 @@ int get_timestep(const int p, const double dt_max)
        */
     dt *= All.cf.hubble;
 
-    if(dt >= dt_max)
-        dt = dt_max;
-
     if(dt < All.MinSizeTimestep)
         dt = All.MinSizeTimestep;
 
     ti_step = (int) (dt / All.Timebase_interval);
+
+    if(ti_step > dt_max)
+        ti_step = dt_max;
+
 
     if(!(ti_step > 1 && ti_step < TIMEBASE))
     {
@@ -484,15 +480,15 @@ int get_timestep(const int p, const double dt_max)
 }
 
 
-/*! This function computes an upper limit ('dt_displacement') to the global timestep of the system based on
+/*! This function computes the PM timestep of the system based on
  *  the rms velocities of particles. For cosmological simulations, the criterion used is that the rms
- *  displacement should be at most a fraction MaxRMSDisplacementFac of the mean particle separation. Note that
- *  the latter is estimated using the assigned particle masses, separately for each particle type. If comoving
- *  integration is not used, the function imposes no constraint on the timestep.
+ *  displacement should be at most a fraction MaxRMSDisplacementFac of the mean particle separation. 
+ *  Note that the latter is estimated using the assigned particle masses, separately for each particle type.
  */
-double find_dt_displacement_constraint()
+int find_dt_displacement_constraint()
 {
     int i, type;
+    int ti_step;
     int count[6];
     int64_t count_sum[6];
     double v[6], v_sum[6], mim[6], min_mass[6];
@@ -570,8 +566,19 @@ double find_dt_displacement_constraint()
         }
     }
 
-    message(0, "displacement time constraint: %g  (%g)\n", dt_disp, All.MaxSizeTimestep);
-    return dt_disp;
+    ti_step = dt_disp / All.Timebase_interval;
+    /* Make sure that we finish the PM step before the next output.
+     * This is important for best restart accuracy: it ensures that
+     * when GravPM and GravAccel are reset to zero, their effect
+     * has already been included.*/
+    if(All.Ti_nextoutput > All.PM_Ti_endstep) {
+        /*If the next PM step finishes after or just before the next snapshot output, extend it a little*/
+        if(1.1*ti_step + All.PM_Ti_endstep > All.Ti_nextoutput) {
+            ti_step = All.Ti_nextoutput - All.PM_Ti_endstep;
+        }
+    }
+    message(0, "Maximal PM timestep: %g  (%g)\n", ti_step*All.Timebase_interval, All.MaxSizeTimestep);
+    return ti_step;
 }
 
 int get_timestep_bin(int ti_step)
