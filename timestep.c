@@ -242,12 +242,6 @@ void advance_long_range_kick(double PM_Timestep)
      * This is important for best restart accuracy: it ensures that
      * when GravPM and GravAccel are reset to zero, their effect
      * has already been included.*/
-    if(ti_step > (All.PM_Ti_endstep - All.PM_Ti_begstep))	/* PM-timestep wants to increase */
-    {
-        /* we only increase if an integer number of steps will bring us to the end */
-        if(((TIMEBASE - All.PM_Ti_endstep) % ti_step) > 0)
-            ti_step = All.PM_Ti_endstep - All.PM_Ti_begstep;	/* leave at old step */
-    }
     if(All.Ti_nextoutput > All.PM_Ti_endstep && ti_step + All.PM_Ti_endstep > All.Ti_nextoutput) {
         ti_step = All.Ti_nextoutput - All.PM_Ti_endstep;
     }
