@@ -35,7 +35,7 @@ static void reverse_and_apply_gravity();
 static int get_timestep(int p, double dt_max);
 static int get_timestep_bin(int ti_step);
 static void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkick);
-static void advance_long_range_kick(void);
+static void advance_long_range_kick(double PM_Timestep);
 
 int is_timebin_active(int i) {
     return TimeBinActive[i];
@@ -224,18 +224,18 @@ void advance_and_find_timesteps(void)
 
     if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
     {
-        advance_long_range_kick();
+        advance_long_range_kick(All.MaxTimeStepDisplacement);
     }
 
     walltime_measure("/Timeline");
 }
 
 /*Advance a long-range timestep and do the desired kick.*/
-void advance_long_range_kick(void)
+void advance_long_range_kick(double PM_Timestep)
 {
     int i;
     int ti_step = TIMEBASE;
-    while(ti_step > (All.MaxTimeStepDisplacement / All.Timebase_interval))
+    while(ti_step > (PM_Timestep / All.Timebase_interval))
         ti_step >>= 1;
 
     /* Make sure that we finish the PM step before the next output.
