@@ -121,7 +121,6 @@ void advance_and_find_timesteps(void)
         reverse_and_apply_gravity();
 
     /* Now assign new timesteps and kick */
-
 #ifdef FORCE_EQUAL_TIMESTEPS
     int ti_min=TIMEBASE;
     #pragma omp parallel for
@@ -156,8 +155,8 @@ void advance_and_find_timesteps(void)
         ti_step = ti_min;
 
         int bin = get_timestep_bin(ti_step);
-        if(bin == -1) {
-            message(1, "Time-step of integer size 1 not allowed, id = %lu, debugging info follows. %d\n", P[i].ID, ti_step);
+        if(bin < 1) {
+            message(1, "Time-step of integer size %d not allowed, id = %lu, debugging info follows. %d\n", ti_step, P[i].ID);
             badstepsizecount++;
         }
         int binold = P[i].TimeBin;
@@ -369,7 +368,7 @@ int get_timestep(const int p, const int dt_max)
     int ti_step;
     /*Give a useful message if we are broken*/
     if(dt_max == 0)
-        endrun(0,"Maximal timestep is zero for particle p=%d\n",p);
+        return 0;
     /*Set to max timestep allowed if the tree is off*/
     if(!All.TreeGravOn)
         return dt_max;
