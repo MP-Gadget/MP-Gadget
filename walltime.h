@@ -50,5 +50,8 @@ struct ClockTable {
     int Nchildren[512];
     double ElapsedTime;
     double StepTime;
+    /*These are used for estimating when to timeout*/
+    double IOTime;
+    double PMStepTime;
 };
 void walltime_init(struct ClockTable * table);

@@ -175,6 +175,11 @@ human_interaction()
     sprintf(restartfname, "%s/checkpoint", All.OutputDir);
     sprintf(termfname, "%s/terminate", All.OutputDir);
     sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
+    /*Last IO time*/
+    int iotime = 0.02*All.TimeLimitCPU;
+    int nwritten = All.SnapshotFileCount - All.InitSnapshotCount;
+    if(nwritten > 0)
+        iotime = walltime_get("/Snapshot/Write",CLOCK_ACCU_MAX)/nwritten;
 
     if(ThisTask == 0)
     {
@@ -191,7 +196,7 @@ human_interaction()
             fclose(fd);
             unlink(stopfname);
         }
-        /* Is the stop-file present? If yes, interrupt the run. */
+        /* Is the terminate-file present? If yes, interrupt the run. */
         if((fd = fopen(termfname, "r")))
         {
             action = TERMINATE;
@@ -200,7 +205,7 @@ human_interaction()
         }
 
         /* are we running out of CPU-time ? If yes, interrupt run. */
-        if(All.CT.ElapsedTime > 0.85 * All.TimeLimitCPU) {
+        if(All.CT.ElapsedTime + 4*(iotime+All.CT.StepTime) > All.TimeLimitCPU) {
             action = TIMEOUT;
         }
 

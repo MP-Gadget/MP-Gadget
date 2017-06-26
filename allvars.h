@@ -330,6 +330,7 @@ extern struct global_data_all_processes
     /* parameters determining output frequency */
 
     int SnapshotFileCount;	/*!< number of snapshot that is written next */
+    int InitSnapshotCount;  /*!< Number of first snapshot written this run*/
     double TimeOfFirstSnapshot,	/*!< simulation time of first snapshot files */
            CpuTimeBetRestartFile,	/*!< cpu-time between regularly generated restart files */
            TimeLastRestartFile;  	/*!< cpu-time when last restart-file was written */

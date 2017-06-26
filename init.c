@@ -53,6 +53,7 @@ void init(int RestartSnapNum)
     All.NumCurrentTiStep = 0;	/* setup some counters */
     All.SnapshotFileCount = 0;
     All.SnapshotFileCount = RestartSnapNum + 1;
+    All.InitSnapshotCount = RestartSnapNum + 1;
 
     All.MaxTimeStepDisplacement = find_dt_displacement_constraint();
 
