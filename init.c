@@ -55,6 +55,8 @@ void init(int RestartSnapNum)
     All.SnapshotFileCount = RestartSnapNum + 1;
     All.InitSnapshotCount = RestartSnapNum + 1;
 
+    All.Timebase_interval = (log(All.TimeMax) - log(All.Time)) / TIMEBASE;
+
     All.MaxTimeStepDisplacement = find_dt_displacement_constraint();
 
     All.TreeAllocFactor = 0.7;
