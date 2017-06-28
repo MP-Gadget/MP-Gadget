@@ -182,10 +182,11 @@ human_interaction()
     sprintf(termfname, "%s/terminate", All.OutputDir);
     sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
     /*Last IO time*/
-    int iotime = 0.02*All.TimeLimitCPU;
+    double iotime = 0.02*All.TimeLimitCPU;
     int nwritten = All.SnapshotFileCount - All.InitSnapshotCount;
     if(nwritten > 0)
         iotime = walltime_get("/Snapshot/Write",CLOCK_ACCU_MAX)/nwritten;
+    double EstimatedTimeToPMEnd = All.CT.StepTime*NumPart/NumActiveParticle;
 
     if(ThisTask == 0)
     {
@@ -211,7 +212,7 @@ human_interaction()
         }
 
         /* are we running out of CPU-time ? If yes, interrupt run. */
-        if(All.CT.ElapsedTime + 4*(iotime+All.CT.StepTime) > All.TimeLimitCPU) {
+        if(All.CT.ElapsedTime + 4*(iotime+EstimatedTimeToPMEnd) > All.TimeLimitCPU) {
             action = TIMEOUT;
         }
 
