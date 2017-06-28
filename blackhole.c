@@ -18,6 +18,7 @@
 #include "blackhole.h"
 #include "forcetree.h"
 #include "sfr_eff.h"
+#include "timestep.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
  */
@@ -304,7 +305,7 @@ static void blackhole_accretion_postprocess(int i) {
     }
     BHP(i).Mdot = mdot;
 
-    double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
+    double dt = get_dtime(P[i].TimeBin) / All.cf.hubble;
 
     BHP(i).Mass += BHP(i).Mdot * dt;
 }
@@ -670,8 +671,7 @@ static void blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I) {
     I->ID = P[i].ID;
     I->FeedbackWeightSum = BHP(i).FeedbackWeightSum;
 
-    double dt =
-        (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
+    double dt = get_dtime(P[i].TimeBin) / All.cf.hubble;
 
     I->FeedbackEnergy = All.BlackHoleFeedbackFactor * 0.1 * BHP(i).Mdot * dt *
                 pow(C / All.UnitVelocity_in_cm_per_s, 2);

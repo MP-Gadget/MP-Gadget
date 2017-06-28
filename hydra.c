@@ -10,6 +10,7 @@
 #include "treewalk.h"
 #include "densitykernel.h"
 #include "mymalloc.h"
+#include "timestep.h"
 
 #ifndef DEBUG
 #define NDEBUG
@@ -312,8 +313,7 @@ hydro_ngbiter(
 
 #ifndef NOVISCOSITYLIMITER
             double dt =
-                2 * IMAX(I->Timestep,
-                        (P[other].TimeBin ? (1 << P[other].TimeBin) : 0)) * All.Timebase_interval;
+                2 * IMAX(I->Timestep,get_dtime(P[other].TimeBin));
             if(dt > 0 && (dwk_i + dwk_j) < 0)
             {
                 if((I->Mass + P[other].Mass) > 0)

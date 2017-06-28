@@ -225,7 +225,7 @@ void cooling_and_starformation(void)
         }
         /*Reduce the time until the particle can form stars again by the current timestep*/
         if(SPHP(i).DelayTime > 0) {
-            const double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+            const double dt = get_dtime(P[i].TimeBin);
             /*  the actual time-step */
             const double dtime = dt / All.cf.hubble;
             SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
@@ -395,7 +395,7 @@ void cooling_only(void)
 
 static void cooling_direct(int i) {
 
-    double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+    double dt = get_dtime(P[i].TimeBin);
         /*  the actual time-step */
 
     double dtime;
@@ -479,7 +479,7 @@ static int get_sfr_condition(int i) {
 #endif
 
     if(All.QuickLymanAlphaProbability > 0) {
-        double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+        double dt = get_dtime(P[i].TimeBin);
         double unew = DMAX(All.MinEgySpec,
                 (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
                 GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
@@ -530,7 +530,7 @@ static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeW
 }
 
 static void sfr_wind_copy(int place, TreeWalkQueryWind * input) {
-    double dt = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0) * All.Timebase_interval / All.cf.hubble;
+    double dt = get_dtime(P[place].TimeBin) / All.cf.hubble;
     input->Dt = dt;
     input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;
@@ -780,7 +780,7 @@ static void starformation(int i) {
 
     double mass_of_star = find_star_mass(i);
 
-    double dt = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) * All.Timebase_interval;
+    double dt = get_dtime(P[i].TimeBin);
         /*  the actual time-step */
 
     double dtime = dt / All.cf.hubble;

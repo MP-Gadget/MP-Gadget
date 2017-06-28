@@ -347,7 +347,7 @@ void do_the_kick(int i, int tstart, int tend, int tcurrent, double dt_gravkickB)
 
     /* In case the timestep increases in the new step, we
        make sure that we do not 'overcool'. */
-    dt_entr = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0) / 2 * All.Timebase_interval;
+    dt_entr = get_dtime(P[i].TimeBin) / 2;
 
     if(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr < 0.5 * SPHP(i).Entropy)
         SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr;
@@ -421,7 +421,7 @@ int get_timestep(const int p, const int dt_max)
                 dt = dt_accr;
         }
         if(BHP(p).TimeBinLimit > 0) {
-            double dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
+            double dt_limiter = get_dtime(BHP(p).TimeBinLimit)/All.cf.hubble;
             if (dt_limiter < dt) dt = dt_limiter;
         }
     }

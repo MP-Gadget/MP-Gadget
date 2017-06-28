@@ -438,7 +438,7 @@ void every_timestep_stuff(int NumForce)
                     i,
                     (tot_count[i] - tot_count_sph[i]),
                     tot_count_sph[i],
-                    i > 0 ? (1 << i) * All.Timebase_interval : 0.0);
+                    get_dtime(i));
             if(is_timebin_active(i))
             {
                 tot += tot_count[i];

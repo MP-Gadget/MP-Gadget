@@ -1,6 +1,7 @@
 #ifndef TIMESTEP_H
 #define TIMESTEP_H
 
+#include "allvars.h"
 /*Flat array containing all active particles:
 set in run.c: find_next_sync_point_and_drift*/
 extern int NumActiveParticle;
@@ -17,4 +18,8 @@ void advance_and_find_timesteps(void);
 int find_dt_displacement_constraint(void);
 int is_timebin_active(int i);
 
+inline double get_dtime(int timebin)
+{
+    return (timebin ? (1 << timebin) : 0 ) * All.Timebase_interval;
+}
 #endif
