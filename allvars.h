@@ -122,8 +122,6 @@
 #define RCUT  4.5
 #endif
 
-#define DRIFT_TABLE_LENGTH  1000	/*!< length of the lookup table used to hold the drift and kick factors */
-
 #define MAXITER 400
 
 typedef uint64_t MyIDType;

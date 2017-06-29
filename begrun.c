@@ -88,7 +88,8 @@ void begrun(int BeginFlag, int RestartSnapNum)
     lightcone_init(All.Time);
 #endif
 
-    init_drift_table(All.Time, All.TimeMax);
+    All.Ti_Current = 0;
+    init_drift_table(All.Time, All.TimeMax, TIMEBASE);
 
     open_outputfiles(RestartSnapNum);
 

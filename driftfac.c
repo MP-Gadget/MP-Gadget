@@ -6,13 +6,17 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_integration.h>
 
-#include "allvars.h"
 #include "driftfac.h"
 #include "cosmology.h"
+#include "endrun.h"
 
+
+#define  GAMMA_MINUS1  (2.0/3.0)
+#define DRIFT_TABLE_LENGTH  1000	/*!< length of the lookup table used to hold the drift and kick factors */
 
 static double logTimeInit;
 static double logTimeMax;
+static double logDTime;
 
 /*! table for the cosmological drift factors */
 static double DriftTable[DRIFT_TABLE_LENGTH];
@@ -52,11 +56,9 @@ double hydrokick_integ(double a, void *param)
   return 1 / (h * pow(a, 3 * GAMMA_MINUS1) * a);
 }
 
-void init_drift_table(double timeBegin, double timeMax)
+void init_drift_table(double timeBegin, double timeMax, int timebase)
 {
-
-    All.Timebase_interval = (log(timeMax) - log(timeBegin)) / TIMEBASE;
-    All.Ti_Current = 0;
+    logDTime = (log(timeMax) - log(timeBegin)) / timebase;
 
 #define WORKSIZE 100000
   int i;
@@ -68,7 +70,9 @@ void init_drift_table(double timeBegin, double timeMax)
   logTimeInit = log(timeBegin);
   logTimeMax = log(timeMax);
   if(logTimeMax <=logTimeInit)
-      endrun(1,"Error: Invalid drift table range: (%d %d)\n", logTimeInit, logTimeMax);
+      endrun(1,"Error: Invalid drift table range: (%d->%d)\n", timeBegin, timeMax);
+  if(timebase <= 0)
+      endrun(1,"Error: Invalid timebase: %d\n", timebase);
 
   workspace = gsl_integration_workspace_alloc(WORKSIZE);
 
@@ -102,7 +106,7 @@ void init_drift_table(double timeBegin, double timeMax)
  * Pointer argument gives the full floating point value for interpolation.*/
 int find_bin_number(int time0, double *rem)
 {
-  double a1 = logTimeInit + time0 * All.Timebase_interval;
+  double a1 = logTimeInit + time0 * logDTime;
   double u1;
   int i1;
   u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
