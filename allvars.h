@@ -356,14 +356,9 @@ extern struct global_data_all_processes
     int Ti_Current;		/*!< current time on integer timeline */
     int Ti_nextoutput;		/*!< next output time on integer timeline */
     int MaxTimeStepDisplacement; /*!< Maximum (PM) integer timestep from global displacements*/
+    int PM_Ti_endstep, PM_Ti_begstep;
 
     int Nmesh;
-
-    int PM_Ti_endstep, PM_Ti_begstep;
-    double Corner[2][3], UpperCorner[2][3], Xmintot[2][3], Xmaxtot[2][3];
-    double TotalMeshSize[2];
-
-    int Ti_nextlineofsight;
 
     /* variables that keep track of cumulative CPU consumption */
 
