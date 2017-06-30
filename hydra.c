@@ -70,8 +70,6 @@ static void hydro_ngbiter(
 static void hydro_copy(int place, TreeWalkQueryHydro * input);
 static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode);
 
-static double fac_mu, fac_vsic_fix;
-
 /*! This function is the driver routine for the calculation of hydrodynamical
  *  force and rate of change of entropy due to shock heating for all active
  *  particles .
@@ -99,9 +97,6 @@ void hydro_force(void)
 
     walltime_measure("/Misc");
 
-    fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
-    fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
-
     /* allocate buffers to arrange communication */
 
     walltime_measure("/SPH/Hydro/Init");
@@ -125,6 +120,7 @@ void hydro_force(void)
 static void hydro_copy(int place, TreeWalkQueryHydro * input) {
     int k;
     double soundspeed_i;
+    const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
     for(k = 0; k < 3; k++)
     {
         input->Vel[k] = SPHP(place).VelPred[k];
@@ -267,6 +263,7 @@ hydro_ngbiter(
         {
 #ifndef ALTVISCOSITY
             /*See Gadget-2 paper: eq. 13*/
+            const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
             double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
             vsig -= 3 * mu_ij;
 
@@ -307,9 +304,11 @@ hydro_ngbiter(
                 2 * IMAX(I->Timestep, get_dloga_for_bin(P[other].TimeBin));
             if(dloga > 0 && (dwk_i + dwk_j) < 0)
             {
-                if((I->Mass + P[other].Mass) > 0)
+                if((I->Mass + P[other].Mass) > 0) {
+                    double fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
                     visc = DMIN(visc, 0.5 * fac_vsic_fix * vdotr2 /
                             (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dloga));
+                }
             }
 #endif
         }
@@ -392,6 +391,7 @@ static void hydro_postprocess(int i) {
                 SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).Density);
 #else
                 double windspeed = All.WindSpeed * All.cf.a;
+                const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
                 windspeed *= fac_mu;
                 double hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
                         (SPHP(i).Density * All.cf.a3inv), (1. / 3.));
