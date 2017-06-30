@@ -18,7 +18,7 @@ void advance_and_find_timesteps(void);
 int find_dt_displacement_constraint(void);
 int is_timebin_active(int i);
 
-inline double get_dtime(int timebin)
+static inline double get_dtime(int timebin)
 {
     return (timebin ? (1 << timebin) : 0 ) * All.Timebase_interval;
 }
