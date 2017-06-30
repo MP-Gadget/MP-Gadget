@@ -128,7 +128,7 @@ void advance_and_find_timesteps(void)
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
-        int dti = get_timestep(i, All.MaxTimeStepDisplacement);
+        int dti = get_timestep(i, All.MaxTiStepDisplacement);
 
         if(dti < ti_min)
             ti_min = dti;
@@ -147,7 +147,7 @@ void advance_and_find_timesteps(void)
 #ifdef FORCE_EQUAL_TIMESTEPS
         int dti = ti_min_glob;
 #else
-        int dti = get_timestep(i, All.MaxTimeStepDisplacement);
+        int dti = get_timestep(i, All.MaxTiStepDisplacement);
 #endif
         /* make it a power 2 subdivision */
         int ti_min = TIMEBASE;
@@ -225,7 +225,7 @@ void advance_and_find_timesteps(void)
 
     if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
     {
-        advance_long_range_kick(All.MaxTimeStepDisplacement);
+        advance_long_range_kick(All.MaxTiStepDisplacement);
     }
 
     walltime_measure("/Timeline");
@@ -484,10 +484,10 @@ int get_timestep(const int p, const int dti_max)
  *  displacement should be at most a fraction MaxRMSDisplacementFac of the mean particle separation. 
  *  Note that the latter is estimated using the assigned particle masses, separately for each particle type.
  */
-int find_dt_displacement_constraint()
+double
+find_dloga_displacement_constraint()
 {
     int i, type;
-    int dti;
     int count[6];
     int64_t count_sum[6];
     double v[6], v_sum[6], mim[6], min_mass[6];
@@ -564,8 +564,15 @@ int find_dt_displacement_constraint()
                 dloga = dloga1;
         }
     }
+    return dloga;
+}
 
-    dti = dloga / All.Timebase_interval;
+/* backward compatibility with the old loop. */
+int find_dti_displacement_constraint()
+{
+    double dloga = find_dloga_displacement_constraint();
+
+    int dti = dloga / All.Timebase_interval;
     /* Make sure that we finish the PM step before the next output.
      * This is important for best restart accuracy: it ensures that
      * when GravPM and GravAccel are reset to zero, their effect

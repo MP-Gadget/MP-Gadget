@@ -340,7 +340,7 @@ void compute_accelerations(void)
         if(All.OutputEnergyDebug)
             energy_statistics();
         /*Update the displacement timestep*/
-        All.MaxTimeStepDisplacement = find_dt_displacement_constraint();
+        All.MaxTiStepDisplacement = find_dti_displacement_constraint();
     }
     else {
         /* If it is not a PM step, do a shorter version

@@ -57,7 +57,7 @@ void init(int RestartSnapNum)
 
     All.Timebase_interval = (log(All.TimeMax) - log(All.Time)) / TIMEBASE;
 
-    All.MaxTimeStepDisplacement = find_dt_displacement_constraint();
+    All.MaxTiStepDisplacement = find_dti_displacement_constraint();
 
     All.TreeAllocFactor = 0.7;
 

@@ -355,7 +355,7 @@ extern struct global_data_all_processes
     double Timebase_interval;	/*!< factor to convert from floating point time interval to integer timeline */
     int Ti_Current;		/*!< current time on integer timeline */
     int Ti_nextoutput;		/*!< next output time on integer timeline */
-    int MaxTimeStepDisplacement; /*!< Maximum (PM) integer timestep from global displacements*/
+    int MaxTiStepDisplacement; /*!< Maximum (PM) integer timestep from global displacements*/
     int PM_Ti_endstep, PM_Ti_begstep;
 
     int Nmesh;
