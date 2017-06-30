@@ -312,13 +312,14 @@ hydro_ngbiter(
             /* now make sure that viscous acceleration is not too large */
 
 #ifndef NOVISCOSITYLIMITER
-            double dt =
-                2 * IMAX(I->Timestep,get_dtime(P[other].TimeBin));
-            if(dt > 0 && (dwk_i + dwk_j) < 0)
+            /*XXX: why is this dloga ?*/
+            double dloga =
+                2 * IMAX(I->Timestep, get_dloga_for_bin(P[other].TimeBin));
+            if(dloga > 0 && (dwk_i + dwk_j) < 0)
             {
                 if((I->Mass + P[other].Mass) > 0)
                     visc = DMIN(visc, 0.5 * fac_vsic_fix * vdotr2 /
-                            (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dt));
+                            (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dloga));
             }
 #endif
         }

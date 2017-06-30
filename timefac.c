@@ -104,9 +104,9 @@ void init_drift_table(double timeBegin, double timeMax, int timebase)
 
 /*Find which bin in the table we are looking up.
  * Pointer argument gives the full floating point value for interpolation.*/
-int find_bin_number(int time0, double *rem)
+int find_bin_number(int ti0, double *rem)
 {
-  double a1 = logTimeInit + time0 * logDTime;
+  double a1 = logTimeInit + ti0 * logDTime;
   double u1;
   int i1;
   u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
@@ -122,99 +122,99 @@ int find_bin_number(int time0, double *rem)
 
 
 /*! This function integrates the cosmological prefactor for a drift
- *   step between time0 and time1. The value returned is
+ *   step between ti0 and ti1. The value returned is
  *  \f[ \int_{a_0}^{a_1} \frac{{\rm d}a}{H(a)}
  *  \f]
  *  
  *  A lookup-table is used for reasons of speed. 
  */
-static int df_last_time0 = -1, df_last_time1 = -1;
+static int df_last_ti0 = -1, df_last_ti1 = -1;
 static double df_last_value;
-#pragma omp threadprivate(df_last_time0, df_last_time1, df_last_value)
-double get_drift_factor(int time0, int time1)
+#pragma omp threadprivate(df_last_ti0, df_last_ti1, df_last_value)
+double get_drift_factor(int ti0, int ti1)
 {
   double df1, df2, u1, u2;
   int i1, i2;
-  if(time0 == df_last_time0 && time1 == df_last_time1)
+  if(ti0 == df_last_ti0 && ti1 == df_last_ti1)
     return df_last_value;
 
   /* note: will only be called for cosmological integration */
 
-  i1 = find_bin_number(time0, &u1);
+  i1 = find_bin_number(ti0, &u1);
   if(i1 <= 1)
     df1 = u1 * DriftTable[0];
   else
     df1 = DriftTable[i1 - 1] + (DriftTable[i1] - DriftTable[i1 - 1]) * (u1 - i1);
 
-  i2 = find_bin_number(time1, &u2);
+  i2 = find_bin_number(ti1, &u2);
   if(i2 <= 1)
     df2 = u2 * DriftTable[0];
   else
     df2 = DriftTable[i2 - 1] + (DriftTable[i2] - DriftTable[i2 - 1]) * (u2 - i2);
 
-  df_last_time0 = time0;
-  df_last_time1 = time1;
+  df_last_ti0 = ti0;
+  df_last_ti1 = ti1;
 
   return df_last_value = (df2 - df1);
 }
 
-static int gk_last_time0 = -1, gk_last_time1 = -1;
+static int gk_last_ti0 = -1, gk_last_ti1 = -1;
 static double gk_last_value;
-#pragma omp threadprivate(gk_last_time0, gk_last_time1, gk_last_value)
-double get_gravkick_factor(int time0, int time1)
+#pragma omp threadprivate(gk_last_ti0, gk_last_ti1, gk_last_value)
+double get_gravkick_factor(int ti0, int ti1)
 {
   double df1, df2, u1, u2;
   int i1, i2;
 
-  if(time0 == gk_last_time0 && time1 == gk_last_time1)
+  if(ti0 == gk_last_ti0 && ti1 == gk_last_ti1)
     return gk_last_value;
 
   /* note: will only be called for cosmological integration */
-  i1 = find_bin_number(time0, &u1);
+  i1 = find_bin_number(ti0, &u1);
   if(i1 <= 1)
     df1 = u1 * GravKickTable[0];
   else
     df1 = GravKickTable[i1 - 1] + (GravKickTable[i1] - GravKickTable[i1 - 1]) * (u1 - i1);
 
-  i2 = find_bin_number(time1, &u2);
+  i2 = find_bin_number(ti1, &u2);
   if(i2 <= 1)
     df2 = u2 * GravKickTable[0];
   else
     df2 = GravKickTable[i2 - 1] + (GravKickTable[i2] - GravKickTable[i2 - 1]) * (u2 - i2);
 
-  gk_last_time0 = time0;
-  gk_last_time1 = time1;
+  gk_last_ti0 = ti0;
+  gk_last_ti1 = ti1;
 
   return gk_last_value = (df2 - df1);
 }
 
-static int hk_last_time0 = -1, hk_last_time1 = -1;
+static int hk_last_ti0 = -1, hk_last_ti1 = -1;
 static double hk_last_value;
-#pragma omp threadprivate(hk_last_time0, hk_last_time1, hk_last_value)
-double get_hydrokick_factor(int time0, int time1)
+#pragma omp threadprivate(hk_last_ti0, hk_last_ti1, hk_last_value)
+double get_hydrokick_factor(int ti0, int ti1)
 {
   double df1, df2,u1,u2;
   int i1, i2;
 
-  if(time0 == hk_last_time0 && time1 == hk_last_time1)
+  if(ti0 == hk_last_ti0 && ti1 == hk_last_ti1)
     return hk_last_value;
 
   /* note: will only be called for cosmological integration */
 
-  i1 = find_bin_number(time0, &u1);
+  i1 = find_bin_number(ti0, &u1);
   if(i1 <= 1)
     df1 = u1 * HydroKickTable[0];
   else
     df1 = HydroKickTable[i1 - 1] + (HydroKickTable[i1] - HydroKickTable[i1 - 1]) * (u1 - i1);
 
-  i2 = find_bin_number(time1, &u2);
+  i2 = find_bin_number(ti1, &u2);
   if(i2 <= 1)
     df2 = u2 * HydroKickTable[0];
   else
     df2 = HydroKickTable[i2 - 1] + (HydroKickTable[i2] - HydroKickTable[i2 - 1]) * (u2 - i2);
 
-  hk_last_time0 = time0;
-  hk_last_time1 = time1;
+  hk_last_ti0 = ti0;
+  hk_last_ti1 = ti1;
 
   return hk_last_value = (df2 - df1);
 }

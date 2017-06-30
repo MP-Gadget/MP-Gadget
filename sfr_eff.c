@@ -225,9 +225,9 @@ void cooling_and_starformation(void)
         }
         /*Reduce the time until the particle can form stars again by the current timestep*/
         if(SPHP(i).DelayTime > 0) {
-            const double dt = get_dtime(P[i].TimeBin);
-            /*  the actual time-step */
-            const double dtime = dt / All.cf.hubble;
+            const double dloga = get_dloga_for_bin(P[i].TimeBin);
+            /*  the proper time duration of the step */
+            const double dtime = dloga / All.cf.hubble;
             SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
         }
 #endif
@@ -395,12 +395,9 @@ void cooling_only(void)
 
 static void cooling_direct(int i) {
 
-    double dt = get_dtime(P[i].TimeBin);
-        /*  the actual time-step */
-
-    double dtime;
-
-    dtime = dt / All.cf.hubble;
+    /*  the actual time-step */
+    double dloga = get_dloga_for_bin(P[i].TimeBin);
+    double dtime = dloga / All.cf.hubble;
 
 #ifdef SFR
     SPHP(i).Sfr = 0;
@@ -409,7 +406,7 @@ static void cooling_direct(int i) {
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
     double unew = DMAX(All.MinEgySpec,
-            (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
+            (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
             GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
 #ifdef BLACK_HOLES
@@ -440,15 +437,15 @@ static void cooling_direct(int i) {
     {
         /* note: the adiabatic rate has been already added in ! */
 
-        if(dt > 0)
+        if(dloga > 0)
         {
 
             SPHP(i).DtEntropy = (unew * GAMMA_MINUS1 /
                     pow(SPHP(i).EOMDensity * All.cf.a3inv,
-                        GAMMA_MINUS1) - SPHP(i).Entropy) / dt;
+                        GAMMA_MINUS1) - SPHP(i).Entropy) / dloga;
 
-            if(SPHP(i).DtEntropy < -0.5 * SPHP(i).Entropy / dt)
-                SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt;
+            if(SPHP(i).DtEntropy < -0.5 * SPHP(i).Entropy / dloga)
+                SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dloga;
         }
     }
 }
@@ -479,9 +476,9 @@ static int get_sfr_condition(int i) {
 #endif
 
     if(All.QuickLymanAlphaProbability > 0) {
-        double dt = get_dtime(P[i].TimeBin);
+        double dloga = get_dloga_for_bin(P[i].TimeBin);
         double unew = DMAX(All.MinEgySpec,
-                (SPHP(i).Entropy + SPHP(i).DtEntropy * dt) /
+                (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
                 GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
         double temp = u_to_temp_fac * unew;
@@ -530,8 +527,8 @@ static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeW
 }
 
 static void sfr_wind_copy(int place, TreeWalkQueryWind * input) {
-    double dt = get_dtime(P[place].TimeBin) / All.cf.hubble;
-    input->Dt = dt;
+    double dtime = get_dloga_for_bin(P[place].TimeBin) / All.cf.hubble;
+    input->Dt = dtime;
     input->Mass = P[place].Mass;
     input->Hsml = P[place].Hsml;
     input->TotalWeight = Wind[place].TotalWeight;
@@ -780,10 +777,9 @@ static void starformation(int i) {
 
     double mass_of_star = find_star_mass(i);
 
-    double dt = get_dtime(P[i].TimeBin);
-        /*  the actual time-step */
-
-    double dtime = dt / All.cf.hubble;
+    /*  the proper time-step */
+    double dloga = get_dloga_for_bin(P[i].TimeBin);
+    double dtime = dloga / All.cf.hubble;
 
     double egyeff, trelax;
     double rateOfSF = get_starformation_rate_full(i, dtime, &SPHP(i).Ne, &trelax, &egyeff);
@@ -806,9 +802,9 @@ static void starformation(int i) {
     P[i].Metallicity += w * METAL_YIELD * (1 - exp(-p));
 #endif
 
-    if(dt > 0 && P[i].TimeBin)
+    if(dloga > 0 && P[i].TimeBin)
     {
-      	/* upon start-up, we need to protect against dt==0 */
+      	/* upon start-up, we need to protect against dloga ==0 */
         cooling_relaxed(i, egyeff, dtime, trelax);
     }
 

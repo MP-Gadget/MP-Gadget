@@ -438,7 +438,7 @@ void every_timestep_stuff(int NumForce)
                     i,
                     (tot_count[i] - tot_count_sph[i]),
                     tot_count_sph[i],
-                    get_dtime(i));
+                    get_dloga_for_bin(i));
             if(is_timebin_active(i))
             {
                 tot += tot_count[i];

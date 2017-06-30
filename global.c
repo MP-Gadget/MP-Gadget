@@ -43,7 +43,7 @@ struct state_of_system
  */
 struct state_of_system compute_global_quantities_of_system(void)
 {
-    int i, j, dt_step;
+    int i, j, dti;
     struct state_of_system sys;
     struct state_of_system SysState;
     double a1, a2, a3;
@@ -59,39 +59,39 @@ struct state_of_system compute_global_quantities_of_system(void)
     {
         int j;
         double entr = 0, egyspec, vel[3];
-        double dt_gravkick, dt_hydrokick;
+        double Fgravkick, Fhydrokick;
 
         sys.MassComp[P[i].Type] += P[i].Mass;
 
         sys.EnergyPotComp[P[i].Type] += 0.5 * P[i].Mass * P[i].Potential / a1;
 
-        dt_step = P[i].TimeBin ? (1 << P[i].TimeBin) : 0;
+        dti = P[i].TimeBin ? (1 << P[i].TimeBin) : 0;
 
-        dt_gravkick = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
-            get_gravkick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
-        dt_hydrokick = get_hydrokick_factor(P[i].Ti_begstep, All.Ti_Current) -
-            get_hydrokick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
+        Fgravkick = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
+            get_gravkick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dti / 2);
+        Fhydrokick = get_hydrokick_factor(P[i].Ti_begstep, All.Ti_Current) -
+            get_hydrokick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dti / 2);
 
         for(j = 0; j < 3; j++)
         {
-            vel[j] = P[i].Vel[j] + P[i].GravAccel[j] * dt_gravkick;
+            vel[j] = P[i].Vel[j] + P[i].GravAccel[j] * Fgravkick;
             if(P[i].Type == 0)
-                vel[j] += SPHP(i).HydroAccel[j] * dt_hydrokick;
+                vel[j] += SPHP(i).HydroAccel[j] * Fhydrokick;
         }
 
-        dt_gravkick = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
+        Fgravkick = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
             get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
 
         for(j = 0; j < 3; j++)
-            vel[j] += P[i].GravPM[j] * dt_gravkick;
+            vel[j] += P[i].GravPM[j] * Fgravkick;
 
         sys.EnergyKinComp[P[i].Type] +=
             0.5 * P[i].Mass * (vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]) / a2;
 
         if(P[i].Type == 0)
         {
-            double dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
-            entr = SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr;
+            double Fentr = (All.Ti_Current - (P[i].Ti_begstep + dti / 2)) * All.Timebase_interval;
+            entr = SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr;
             egyspec = entr / (GAMMA_MINUS1) * pow(SPHP(i).EOMDensity / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;
             sys.TemperatureComp[0] += P[i].Mass * ConvertInternalEnergy2Temperature(egyspec, SPHP(i).Ne);

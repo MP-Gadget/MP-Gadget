@@ -10,7 +10,7 @@
 #include "endrun.h"
 
 
-static void real_drift_particle(int i, int time1);
+static void real_drift_particle(int i, int ti1);
 void lock_particle_if_not(int i, MyIDType id) {
     if(P[i].ID == id) return;
     pthread_spin_lock(&P[i].SpinLock);
@@ -25,11 +25,11 @@ void unlock_particle_if_not(int i, MyIDType id) {
 void unlock_particle(int i) {
     pthread_spin_unlock(&P[i].SpinLock);
 }
-void drift_particle(int i, int time1) {
-    drift_particle_full(i, time1, 1);
+void drift_particle(int i, int ti1) {
+    drift_particle_full(i, ti1, 1);
 }
-int drift_particle_full(int i, int time1, int blocking) {
-    if(P[i].Ti_current == time1) return 0 ;
+int drift_particle_full(int i, int ti1, int blocking) {
+    if(P[i].Ti_current == ti1) return 0 ;
 
 #pragma omp atomic
     TotalParticleDrifts ++;
@@ -42,8 +42,8 @@ int drift_particle_full(int i, int time1, int blocking) {
         lockstate = pthread_spin_trylock(&P[i].SpinLock);
     }
     if(0 == lockstate) {
-        if(P[i].Ti_current != time1) {
-            real_drift_particle(i, time1);
+        if(P[i].Ti_current != ti1) {
+            real_drift_particle(i, ti1);
 #pragma omp flush
         } else {
 #pragma omp atomic
@@ -64,8 +64,8 @@ int drift_particle_full(int i, int time1, int blocking) {
     /* do not use SpinLock */
 #pragma omp critical (_driftparticle_)
     {
-        if(P[i].Ti_current != time1) {
-            real_drift_particle(i, time1);
+        if(P[i].Ti_current != ti1) {
+            real_drift_particle(i, ti1);
         } else {
             BlockedParticleDrifts ++;
         }
@@ -74,27 +74,27 @@ int drift_particle_full(int i, int time1, int blocking) {
 #endif
 }
 
-static void real_drift_particle(int i, int time1)
+static void real_drift_particle(int i, int ti1)
 {
-    int j, time0, dt_step;
-    double dt_drift, dt_gravkick, dt_hydrokick, dt_entr;
+    int j, ti0, dti;
+    double ddrift, Fgravkick, Fhydrokick, Fentr;
 
-    if(P[i].Ti_current == time1) return;
+    if(P[i].Ti_current == ti1) return;
 
 
-    time0 = P[i].Ti_current;
+    ti0 = P[i].Ti_current;
 
-    if(time1 < time0)
+    if(ti1 < ti0)
     {
-        endrun(12, "i=%d time0=%d time1=%d\n", i, time0, time1);
+        endrun(12, "i=%d ti0=%d ti1=%d\n", i, ti0, ti1);
     }
 
-    if(time1 == time0)
+    if(ti1 == ti0)
         return;
 
-    dt_drift = get_drift_factor(time0, time1);
-    dt_gravkick = get_gravkick_factor(time0, time1);
-    dt_hydrokick = get_hydrokick_factor(time0, time1);
+    ddrift = get_drift_factor(ti0, ti1);
+    Fgravkick = get_gravkick_factor(ti0, ti1);
+    Fhydrokick = get_hydrokick_factor(ti0, ti1);
 
 #ifdef LIGHTCONE
     double oldpos[3];
@@ -104,7 +104,7 @@ static void real_drift_particle(int i, int time1)
 #endif
 
     for(j = 0; j < 3; j++) {
-        P[i].Pos[j] += P[i].Vel[j] * dt_drift;
+        P[i].Pos[j] += P[i].Vel[j] * ddrift;
     }
     if(P[i].Type == 5) {
         int k;
@@ -133,12 +133,12 @@ static void real_drift_particle(int i, int time1)
     {
         for(j = 0; j < 3; j++)
             SPHP(i).VelPred[j] +=
-                (P[i].GravAccel[j] + P[i].GravPM[j]) * dt_gravkick + SPHP(i).HydroAccel[j] * dt_hydrokick;
+                (P[i].GravAccel[j] + P[i].GravPM[j]) * Fgravkick + SPHP(i).HydroAccel[j] * Fhydrokick;
 
-        SPHP(i).Density *= exp(-SPHP(i).DivVel * dt_drift);
-        //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * dt_drift);
+        SPHP(i).Density *= exp(-SPHP(i).DivVel * ddrift);
+        //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added
-        double fac = exp(0.333333333333 * SPHP(i).DivVel * dt_drift);
+        double fac = exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         if(fac > 1.25)
             fac = 1.25;
         P[i].Hsml *= fac;
@@ -152,28 +152,28 @@ static void real_drift_particle(int i, int time1)
         if(P[i].Hsml < All.MinGasHsml)
             P[i].Hsml = All.MinGasHsml;
 
-        dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
-        dt_entr = (time1 - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
+        dti = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
+        Fentr = (ti1 - (P[i].Ti_begstep + dti / 2)) * All.Timebase_interval;
 
 #ifdef DENSITY_INDEPENDENT_SPH
-    SPHP(i).EgyWtDensity *= exp(-SPHP(i).DivVel * dt_drift);
-    SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr, 1/GAMMA);
+        SPHP(i).EgyWtDensity *= exp(-SPHP(i).DivVel * ddrift);
+        SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
 #endif
-    SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).EOMDensity, GAMMA);
+        SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
 
     }
 
-    P[i].Ti_current = time1;
+    P[i].Ti_current = ti1;
 }
 
-void move_particles(int time1)
+void move_particles(int ti1)
 {
     int i;
     walltime_measure("/Misc");
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
-        real_drift_particle(i, time1);
+        real_drift_particle(i, ti1);
 
     walltime_measure("/Drift");
 }
