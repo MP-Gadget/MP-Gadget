@@ -266,13 +266,8 @@ hydro_ngbiter(
         if(vdotr2 < 0)	/* ... artificial viscosity visc is 0 by default*/
         {
 #ifndef ALTVISCOSITY
-#ifndef CONVENTIONAL_VISCOSITY
+            /*See Gadget-2 paper: eq. 13*/
             double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
-#else
-            double c_ij = 0.5 * (iter->soundspeed_i + soundspeed_j);
-            double h_ij = 0.5 * (I->Hsml + P[other].Hsml);
-            double mu_ij = fac_mu * h_ij * vdotr2 / (r2 + 0.0001 * h_ij * h_ij);
-#endif
             vsig -= 3 * mu_ij;
 
 
@@ -285,13 +280,8 @@ hydro_ngbiter(
 
             double BulkVisc_ij = All.ArtBulkViscConst;
 
-#ifndef CONVENTIONAL_VISCOSITY
+            /*Gadget-2 paper, eq. 14*/
             visc = 0.25 * BulkVisc_ij * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
-#else
-            visc =
-                (-BulkVisc_ij * mu_ij * c_ij + 2 * BulkVisc_ij * mu_ij * mu_ij) /
-                rho_ij * (I->F1 + f2) * 0.5;
-#endif
 
 #else /* start of ALTVISCOSITY block */
             double mu_i;
