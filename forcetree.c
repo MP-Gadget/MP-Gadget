@@ -40,10 +40,6 @@ int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
 int *Father;			/*!< gives parent node in tree (Prenodes array) */
 int *DomainNodeIndex;   /*!< Gives domain index of a node*/
 
-/*! auxiliary variable used to set-up non-recursive walk */
-static int last;
-
-
 static int tree_allocated_flag = 0;
 
 static int force_tree_build(int npart);
@@ -57,8 +53,8 @@ force_flag_localnodes(void);
 static void
 force_treeupdate_pseudos(int);
 
-static void
-force_update_node_recursive(int no, int sib, int father);
+static int
+force_update_node_recursive(int no, int sib, int father, int tail);
 
 static void
 force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z, int *nodecount, int *nextfree);
@@ -361,19 +357,19 @@ int force_tree_build_single(int npart)
 
 
     /* now compute the multipole moments recursively */
-    last = -1;
+    int tail;
 
-    force_update_node_recursive(All.MaxPart, -1, -1);
+    tail = force_update_node_recursive(All.MaxPart, -1, -1, -1);
 
-    if(last >= All.MaxPart)
+    if(tail >= All.MaxPart)
     {
-        if(last >= All.MaxPart + MaxNodes)	/* a pseudo-particle */
-            Nextnode[last - MaxNodes] = -1;
+        if(tail >= All.MaxPart + MaxNodes)	/* a pseudo-particle */
+            Nextnode[tail - MaxNodes] = -1;
         else
-            Nodes[last].u.d.nextnode = -1;
+            Nodes[tail].u.d.nextnode = -1;
     }
     else
-        Nextnode[last] = -1;
+        Nextnode[tail] = -1;
 
     return nfree - All.MaxPart;
 }
@@ -470,8 +466,13 @@ void force_insert_pseudo_particles(void)
  *  the maximum softening among the particles in the node, and bit 5
  *  flags whether the node contains any particles with lower softening
  *  than that.
+ *
+ *  The function also builds the NextNode linked list. The return value
+ *  and argument tail is the current tail of the NextNode linked list.
  */
-void force_update_node_recursive(int no, int sib, int father)
+
+static int
+force_update_node_recursive(int no, int sib, int father, int tail)
 {
     int j, jj, p, pp, nextsib, suns[8], count_particles, multiple_flag;
     MyFloat hmax;
@@ -488,20 +489,20 @@ void force_update_node_recursive(int no, int sib, int father)
     {
         for(j = 0; j < 8; j++)
         suns[j] = Nodes[no].u.suns[j];	/* this "backup" is necessary because the nextnode entry will overwrite one element (union!) */
-        if(last >= 0)
+        if(tail >= 0)
         {
-            if(last >= All.MaxPart)
+            if(tail >= All.MaxPart)
             {
-                if(last >= All.MaxPart + MaxNodes)	/* a pseudo-particle */
-                    Nextnode[last - MaxNodes] = no;
+                if(tail >= All.MaxPart + MaxNodes)	/* a pseudo-particle */
+                    Nextnode[tail - MaxNodes] = no;
                 else
-                    Nodes[last].u.d.nextnode = no;
+                    Nodes[tail].u.d.nextnode = no;
             }
             else
-                Nextnode[last] = no;
+                Nextnode[tail] = no;
         }
 
-        last = no;
+        tail = no;
 
         mass = 0;
         s[0] = 0;
@@ -531,7 +532,7 @@ void force_update_node_recursive(int no, int sib, int father)
                 else
                     nextsib = sib;
 
-                force_update_node_recursive(p, nextsib, no);
+                tail = force_update_node_recursive(p, nextsib, no, tail);
 
                 if(p >= All.MaxPart)	/* an internal node or pseudo particle */
                 {
@@ -676,24 +677,26 @@ void force_update_node_recursive(int no, int sib, int father)
     }
     else				/* single particle or pseudo particle */
     {
-        if(last >= 0)
+        if(tail >= 0)
         {
-            if(last >= All.MaxPart)
+            if(tail >= All.MaxPart)
             {
-                if(last >= All.MaxPart + MaxNodes)	/* a pseudo-particle */
-                    Nextnode[last - MaxNodes] = no;
+                if(tail >= All.MaxPart + MaxNodes)	/* a pseudo-particle */
+                    Nextnode[tail - MaxNodes] = no;
                 else
-                    Nodes[last].u.d.nextnode = no;
+                    Nodes[tail].u.d.nextnode = no;
             }
             else
-                Nextnode[last] = no;
+                Nextnode[tail] = no;
         }
 
-        last = no;
+        tail = no;
 
         if(no < All.MaxPart)	/* only set it for single particles */
             Father[no] = father;
     }
+
+    return tail;
 }
 
 
