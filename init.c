@@ -92,9 +92,6 @@ void init(int RestartSnapNum)
             SPHP(i).EgyWtDensity = -1;
             SPHP(i).EntVarPred = -1;
 #endif
-#ifdef VOLUME_CORRECTION
-            SPHP(i).DensityOld = 1;
-#endif
             SPHP(i).Ne = 1.0;
             SPHP(i).DivVel = 0;
         }

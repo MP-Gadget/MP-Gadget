@@ -27,9 +27,6 @@ typedef struct
     TreeWalkQueryBase base;
     MyFloat Vel[3];
     MyFloat Hsml;
-#ifdef VOLUME_CORRECTION
-    MyFloat DensityOld;
-#endif
 #ifdef WINDS
     MyFloat DelayTime;
 #endif
@@ -50,9 +47,6 @@ typedef struct {
 
     int Ninteractions;
 
-#ifdef VOLUME_CORRECTION
-    MyFloat DensityStd;
-#endif
 
 #ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
@@ -229,9 +223,6 @@ static void density_copy(int place, TreeWalkQueryDensity * I) {
         I->Vel[1] = SPHP(place).VelPred[1];
         I->Vel[2] = SPHP(place).VelPred[2];
     }
-#ifdef VOLUME_CORRECTION
-    I->DensityOld = SPHP(place).DensityOld;
-#endif
 
 #ifdef WINDS
     I->DelayTime = SPHP(place).DelayTime;
@@ -258,10 +249,6 @@ static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeW
         TREEWALK_REDUCE(SPHP(place).Rot[0], remote->Rot[0]);
         TREEWALK_REDUCE(SPHP(place).Rot[1], remote->Rot[1]);
         TREEWALK_REDUCE(SPHP(place).Rot[2], remote->Rot[2]);
-
-#ifdef VOLUME_CORRECTION
-        TREEWALK_REDUCE(SPHP(place).DensityStd, remote->DensityStd);
-#endif
 
 #ifdef SPH_GRAD_RHO
         TREEWALK_REDUCE(SPHP(place).GradRho[0], remote->GradRho[0]);
@@ -328,12 +315,7 @@ density_ngbiter(
 
         double mass_j = P[other].Mass;
 
-#ifdef VOLUME_CORRECTION
-        O->Rho += (mass_j * wk * pow(I->DensityOld / SPHP(other).DensityOld, VOLUME_CORRECTION));
-        O->DensityStd += (mass_j * wk);
-#else
         O->Rho += (mass_j * wk);
-#endif
         O->Ngb += wk * iter->kernel_volume;
 
         /* Hinv is here because O->DhsmlDensity is drho / dH.
@@ -396,9 +378,6 @@ static void density_postprocess(int i) {
     {
         if(SPHP(i).Density > 0)
         {
-#ifdef VOLUME_CORRECTION
-            SPHP(i).DensityOld = SPHP(i).DensityStd;
-#endif
             SPHP(i).DhsmlDensityFactor *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
             if(SPHP(i).DhsmlDensityFactor > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
                 SPHP(i).DhsmlDensityFactor = 1 / (1 + SPHP(i).DhsmlDensityFactor);

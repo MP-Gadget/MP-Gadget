@@ -633,11 +633,6 @@ extern struct sph_particle_data
     MyFloat Pressure;		/*!< current pressure */
     MyFloat VelPred[3];		/*!< predicted SPH particle velocity at the current time */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
-#ifdef VOLUME_CORRECTION
-    MyFloat DensityOld;
-    MyFloat DensityStd;
-#endif
-
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */
     MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
