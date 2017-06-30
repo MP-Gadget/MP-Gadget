@@ -12,7 +12,7 @@
 #include "allvars.h"
 #include "param.h"
 #include "densitykernel.h"
-#include "driftfac.h"
+#include "timefac.h"
 #include "proto.h"
 #include "sfr_eff.h"
 #include "cosmology.h"

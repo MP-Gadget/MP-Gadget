@@ -6,7 +6,7 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_integration.h>
 
-#include "driftfac.h"
+#include "timefac.h"
 #include "cosmology.h"
 #include "endrun.h"
 

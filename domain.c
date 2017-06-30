@@ -7,7 +7,7 @@
 
 
 #include "allvars.h"
-#include "predict.h"
+#include "drift.h"
 #include "forcetree.h"
 #include "mymalloc.h"
 #include "mpsort.h"

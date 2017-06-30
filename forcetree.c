@@ -37,7 +37,7 @@ int Numnodestree;		/*!< number of (internal) nodes in each tree */
 
 
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
-int *Father;			/*!< gives parent node in tree (Prenodes array) */
+int *Father;			/*!< gives parent node in tree (nodes array) */
 int *DomainNodeIndex;   /*!< Gives domain index of a node*/
 
 static int tree_allocated_flag = 0;

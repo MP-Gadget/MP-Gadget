@@ -21,12 +21,12 @@ OBJECTS  =  \
 	 param.o paramset.o utils-string.o \
 	 domain.o exchange.o garbage.o allvars.o main.o \
 	 blackhole.o \
-	 run.o predict.o begrun.o endrun.o global.o \
+	 run.o drift.o begrun.o endrun.o global.o \
 	 timestep.o init.o io.o sfr_eff.o \
 	 cooling.o openmpsort.o \
 	 system.o allocate.o density.o \
 	 treewalk.o cosmology.o \
-	 gravshort-tree.o gravshort-tree-old.o gravshort-pair.o hydra.o  driftfac.o \
+	 gravshort-tree.o gravshort-tree-old.o gravshort-pair.o hydra.o  timefac.o \
 	 gravpm.o powerspectrum.o \
 	 forcetree.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
@@ -45,7 +45,7 @@ ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
         endrun.o \
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
-	 fof.h cosmology.h powerspectrum.h timestep.h sfr_eff.h predict.h driftfac.h \
+	 fof.h cosmology.h powerspectrum.h timestep.h sfr_eff.h drift.h timefac.h \
 	 petaio.h blackhole.h
 
 TESTED = interp powerspectrum

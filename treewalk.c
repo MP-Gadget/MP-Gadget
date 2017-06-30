@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include "allvars.h"
 #include "treewalk.h"
-#include "predict.h"
+#include "drift.h"
 #include "openmpsort.h"
 #include "mymalloc.h"
 #include "domain.h"

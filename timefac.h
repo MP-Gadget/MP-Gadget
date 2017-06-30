@@ -1,5 +1,5 @@
-#ifndef __DRIFTFAC_H
-#define __DRIFTFAC_H
+#ifndef __TIMEFAC_H
+#define __TIMEFAC_H
 
 void init_drift_table(double timeBegin, double timeMax, int timebase);
 double get_hydrokick_factor(int time0, int time1);

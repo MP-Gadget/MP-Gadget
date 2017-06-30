@@ -11,7 +11,7 @@
 #include "allvars.h"
 #include "sfr_eff.h"
 #include "blackhole.h"
-#include "predict.h"
+#include "drift.h"
 #include "domain.h"
 #include "mpsort.h"
 #include "mymalloc.h"

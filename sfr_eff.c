@@ -24,7 +24,7 @@
 #include <math.h>
 #include "allvars.h"
 #include "sfr_eff.h"
-#include "predict.h"
+#include "drift.h"
 #include "treewalk.h"
 #include "cooling.h"
 #include "garbage.h"

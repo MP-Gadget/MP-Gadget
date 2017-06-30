@@ -5,8 +5,8 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 #include "allvars.h"
-#include "predict.h"
-#include "driftfac.h"
+#include "drift.h"
+#include "timefac.h"
 #include "endrun.h"
 
 

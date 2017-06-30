@@ -12,7 +12,7 @@
 #include "garbage.h"
 #include "mymalloc.h"
 #include "endrun.h"
-#include "predict.h"
+#include "drift.h"
 #include "system.h"
 #include "fof.h"
 #include "blackhole.h"

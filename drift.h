@@ -1,5 +1,5 @@
-#ifndef __PREDICT_H
-#define __PREDICT_H
+#ifndef __DRIFT_H
+#define __DRIFT_H
 
 int drift_particle_full(int i, int time1, int blocking);
 void drift_particle(int i, int time1);

@@ -5,7 +5,7 @@
 #include <math.h>
 
 #include "allvars.h"
-#include "driftfac.h"
+#include "timefac.h"
 #include "cooling.h"
 #include "endrun.h"
 
