@@ -139,16 +139,10 @@ static void hydro_copy(int place, TreeWalkQueryHydro * input) {
     input->Pressure = SPHP(place).Pressure;
     input->Timestep = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0);
     /* calculation of F1 */
-#ifndef ALTVISCOSITY
     soundspeed_i = sqrt(GAMMA * SPHP(place).Pressure / SPHP(place).EOMDensity);
     input->F1 = fabs(SPHP(place).DivVel) /
         (fabs(SPHP(place).DivVel) + SPHP(place).CurlVel +
          0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
-
-#else
-    input->F1 = SPHP(place).DivVel;
-#endif
-
 }
 
 static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode) {
@@ -261,7 +255,6 @@ hydro_ngbiter(
 
         if(vdotr2 < 0)	/* ... artificial viscosity visc is 0 by default*/
         {
-#ifndef ALTVISCOSITY
             /*See Gadget-2 paper: eq. 13*/
             const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
             double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
@@ -279,22 +272,6 @@ hydro_ngbiter(
 
             /*Gadget-2 paper, eq. 14*/
             visc = 0.25 * BulkVisc_ij * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
-
-#else /* start of ALTVISCOSITY block */
-            double mu_i;
-            if(I->F1 < 0)
-                mu_i = I->Hsml * fabs(I->F1);	/* f1 hold here the velocity divergence of particle i */
-            else
-                mu_i = 0;
-            if(SPHP(other).DivVel < 0)
-                mu_j = P[other].Hsml * fabs(SPHP(other).DivVel);
-            else
-                mu_j = 0;
-            visc = All.ArtBulkViscConst * ((iter->soundspeed_i + mu_i) * mu_i / I->Density +
-                    (soundspeed_j + mu_j) * mu_j / SPHP(other).Density);
-#endif /* end of ALTVISCOSITY block */
-
-
             /* .... end artificial viscosity evaluation */
             /* now make sure that viscous acceleration is not too large */
 
