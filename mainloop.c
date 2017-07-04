@@ -233,15 +233,32 @@ compute_step_sizes(GadgetMainLoop * loop, int minbin)
 }
 
 static void
-compute_accelerations(int fg, bitmask_t bg)
+compute_accelerations(GadgetMainLoop * loop, int fg, bitmask_t bg)
 {
-    hydro_run(fg, bg);
+    legacy_interface_set_activelist(loop, TIMEBINMASK(fg));
 
-    gravtree_run(fg, bg);
+    hydro(bg);
 
-    sfrcool_run(fg, bg);
+    gravtree(bg);
 
-    blackholes_run(fg, bg);
+    sfrcool(bg);
+
+    blackholes(bg);
+}
+
+static void
+liface_build_activelist(GadgetMainLoop * loop, binmask_t binmask)
+{
+    /* this calls density and rebuild_activelist from timestep.c*/
+    int bin;
+    for(bin = 0; bin < loop->NTimeBin; bin ++) {
+        if(BINMASK(bin) & binmask) {
+            TimeBinActive[bin] = 1;
+        } else { 
+            TimeBinActive[bin] = 0;
+        }
+    }
+    rebuild_activelist();
 }
 
 static void
@@ -250,17 +267,22 @@ kdk(GadgetMainLoop * loop, int slow, int fast)
     int dti = loop->TiBase >> slow;
     int hdti = loop->TiBase >> fast;
 
-    density_run(TIMEBINMASK(slow) | TIMEBINMASK(fast));
 
-    short_range_kick(fast, TIMEBINMASK(slow), hdti);
-    short_range_kick(slow, TIMEBINMASK(fast) | TIMEBINMASK(slow), hdti);
+    binmask_t binmask = (TIMEBINMASK(slow) | TIMEBINMASK(fast);
 
-    drift(slow, dti);
+    legacy_interface_set_activelist(loop, binmask);
+    density();
 
-    density_run(TIMEBINMASK(slow) | TIMEBINMASK(fast));
+    short_range_kick(loop, fast, TIMEBINMASK(slow), hdti);
+    short_range_kick(loop, slow, TIMEBINMASK(fast) | TIMEBINMASK(slow), hdti);
 
-    short_range_kick(fast, TIMEBINMASK(slow), hdti);
-    short_range_kick(slow, TIMEBINMASK(fast) | TIMEBINMASK(slow), hdti);
+    drift(loop, slow, dti);
+
+    legacy_interface_set_activelist(loop, binmask);
+    density();
+
+    short_range_kick(loop, fast, TIMEBINMASK(slow), hdti);
+    short_range_kick(loop, slow, TIMEBINMASK(fast) | TIMEBINMASK(slow), hdti);
 }
 
 static void
@@ -273,7 +295,7 @@ short_range_kick(GadgetMainLoop * loop, int fg, binmask_t bg, int dti)
     gravK = grav_get_kick_factor(loga0, dloga);
     entrK = entr_get_kick_factor(loga0, dloga);
 
-    compute_accelerations(fg, bg)
+    compute_accelerations(loop, fg, bg)
 
     int i = -1;
 
