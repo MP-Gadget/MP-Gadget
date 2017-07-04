@@ -296,6 +296,16 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
                 endrun(8829, "There are duplicated active particles.");
             }
         }
+    } else if (tw->type == LEGACY_ACTIVE) {
+        int i;
+        #pragma omp parallel for
+        for(i = 0; i < NumPart; i++) {
+            if(!P[i].TimeBin & tw->fgmask) continue;
+            if(!tw->isactive(i, tw))
+                continue;
+            const int lock = atomic_fetch_and_add(&k, 1);
+            queue[lock] = i;
+        }
     }
     *len = k;
     return queue;
