@@ -194,7 +194,7 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
         query->NodeList[1] = -1; /* terminate immediately */
     }
 
-    tw->fill(i, query);
+    tw->fill(i, query, tw);
 };
 
 static void
@@ -208,7 +208,7 @@ static void
 treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum TreeWalkReduceMode mode)
 {
     if(tw->reduce != NULL)
-        tw->reduce(i, result, mode);
+        tw->reduce(i, result, mode, tw);
 }
 
 static void real_ev(TreeWalk * tw) {
@@ -235,7 +235,7 @@ static void real_ev(TreeWalk * tw) {
         if(P[i].Evaluated) {
             BREAKPOINT;
         }
-        if(!tw->isactive(i)) {
+        if(!tw->isactive(i, tw)) {
             BREAKPOINT;
         }
         int rt;
@@ -273,7 +273,7 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
         int i;
         #pragma omp parallel for
         for(i = 0; i < NumPart; i++) {
-            if(!tw->isactive(i))
+            if(!tw->isactive(i, tw))
                 continue;
             const int lock = atomic_fetch_and_add(&k, 1);
             queue[lock] = i;
@@ -284,7 +284,7 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
         for(i=0; i < NumActiveParticle; i++)
         {
             const int p_i = ActiveParticle[i];
-            if(!tw->isactive(p_i))
+            if(!tw->isactive(p_i, tw))
                continue;
             const int lock = atomic_fetch_and_add(&k, 1);
             queue[lock] = p_i;
@@ -532,7 +532,7 @@ void treewalk_run(TreeWalk * tw) {
         int i;
         #pragma omp parallel for if(tw->PQueueSize > 64)
         for(i = 0; i < tw->PQueueSize; i ++) {
-            tw->postprocess(tw->PQueue[i]);
+            tw->postprocess(tw->PQueue[i], tw);
         }
     }
     tend = second();

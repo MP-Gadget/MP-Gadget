@@ -108,16 +108,16 @@ static int
 make_particle_wind(MyIDType ID, int i, double v, double vmean[3]);
 
 static int
-sfr_wind_weight_isactive(int target);
+sfr_wind_weight_isactive(int target, TreeWalk * tw);
 
 static int
-sfr_wind_feedback_isactive(int target);
+sfr_wind_feedback_isactive(int target, TreeWalk * tw);
 
 static void
-sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode);
+sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 
 static void
-sfr_wind_copy(int place, TreeWalkQueryWind * input);
+sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw);
 
 static void
 sfr_wind_weight_ngbiter(TreeWalkQueryWind * I,
@@ -138,7 +138,8 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
  */
 
 static int
-sfr_cooling_isactive(int target) {
+sfr_cooling_isactive(int target, TreeWalk * tw)
+{
     return P[target].Type == 0;
 }
 
@@ -493,7 +494,9 @@ static int get_sfr_condition(int i) {
 }
 
 #ifdef WINDS
-static int sfr_wind_weight_isactive(int target) {
+static int
+sfr_wind_weight_isactive(int target, TreeWalk * tw)
+{
     if(P[target].Type == 4) {
         if(P[target].IsNewParticle && !P[target].DensityIterationDone) {
              return 1;
@@ -502,7 +505,9 @@ static int sfr_wind_weight_isactive(int target) {
     return 0;
 }
 
-static int sfr_wind_feedback_isactive(int target) {
+static int
+sfr_wind_feedback_isactive(int target, TreeWalk * tw)
+{
     if(P[target].Type == 4) {
         if(P[target].IsNewParticle) {
              return 1;
@@ -511,7 +516,9 @@ static int sfr_wind_feedback_isactive(int target) {
     return 0;
 }
 
-static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMode mode) {
+static void
+sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
     TREEWALK_REDUCE(Wind[place].TotalWeight, O->TotalWeight);
     int k;
     for(k = 0; k < 3; k ++) {
@@ -526,7 +533,9 @@ static void sfr_wind_reduce_weight(int place, TreeWalkResultWind * O, enum TreeW
             */
 }
 
-static void sfr_wind_copy(int place, TreeWalkQueryWind * input) {
+static void
+sfr_wind_copy(int place, TreeWalkQueryWind * input, TreeWalk * tw)
+{
     double dtime = get_dloga_for_bin(P[place].TimeBin) / All.cf.hubble;
     input->Dt = dtime;
     input->Mass = P[place].Mass;

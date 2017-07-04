@@ -261,13 +261,13 @@ static int HEAD(int i) {
     return r;
 }
 
-static void fof_primary_copy(int place, TreeWalkQueryFOF * I) {
+static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
     int head = HEAD(place);
     I->MinID = HaloLabel[head].MinID;
     I->MinIDTask = HaloLabel[head].MinIDTask;
 }
 
-static int fof_primary_isactive(int n) {
+static int fof_primary_isactive(int n, TreeWalk * tw) {
     return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && FOFPrimaryActive[n];
 }
 
@@ -966,13 +966,13 @@ void fof_save_groups(int num)
     message(0, "Group catalogues saved. took = %g sec\n", timediff(t0, t1));
 }
 
-static void fof_secondary_copy(int place, TreeWalkQueryFOF * I) {
+static void fof_secondary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
     I->Hsml = fof_secondary_hsml[place];
 }
-static int fof_secondary_isactive(int n) {
+static int fof_secondary_isactive(int n, TreeWalk * tw) {
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
-static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode) {
+static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {
     if(O->Distance < fof_secondary_distance[place])
     {
         fof_secondary_distance[place] = O->Distance;

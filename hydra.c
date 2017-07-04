@@ -57,18 +57,25 @@ typedef struct {
     DensityKernel kernel_i;
 } TreeWalkNgbIterHydro;
 
-static int hydro_isactive(int n);
-static void hydro_postprocess(int i);
+static int
+hydro_isactive(int n, TreeWalk * tw);
 
+static void
+hydro_postprocess(int i, TreeWalk * tw);
 
-static void hydro_ngbiter(
+static void
+hydro_ngbiter(
     TreeWalkQueryHydro * I,
     TreeWalkResultHydro * O,
     TreeWalkNgbIterHydro * iter,
     LocalTreeWalk * lv
    );
-static void hydro_copy(int place, TreeWalkQueryHydro * input);
-static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode);
+
+static void
+hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw);
+
+static void
+hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode, TreeWalk * tw);
 
 /*! This function is the driver routine for the calculation of hydrodynamical
  *  force and rate of change of entropy due to shock heating for all active
@@ -117,7 +124,9 @@ void hydro_force(void)
     walltime_add("/SPH/Hydro/Misc", timeall - (timecomp + timewait + timecomm + timenetwork));
 }
 
-static void hydro_copy(int place, TreeWalkQueryHydro * input) {
+static void
+hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
+{
     int k;
     double soundspeed_i;
     const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
@@ -145,7 +154,9 @@ static void hydro_copy(int place, TreeWalkQueryHydro * input) {
          0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
 }
 
-static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode) {
+static void
+hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
     int k;
 
     for(k = 0; k < 3; k++)
@@ -343,11 +354,15 @@ hydro_ngbiter(
     O->Ninteractions++;
 }
 
-static int hydro_isactive(int i) {
+static int
+hydro_isactive(int i, TreeWalk * tw)
+{
     return P[i].Type == 0;
 }
 
-static void hydro_postprocess(int i) {
+static void
+hydro_postprocess(int i, TreeWalk * tw)
+{
     if(P[i].Type == 0)
     {
         /* Translate energy change rate into entropy change rate */

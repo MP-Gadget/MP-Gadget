@@ -64,13 +64,13 @@ density_ngbiter(
         TreeWalkNgbIterDensity * iter,
         LocalTreeWalk * lv);
 
-static int density_isactive(int n);
-static void density_postprocess(int i);
-static void density_check_neighbours(int i);
+static int density_isactive(int n, TreeWalk * tw);
+static void density_postprocess(int i, TreeWalk * tw);
+static void density_check_neighbours(int i, TreeWalk * tw);
 
 
-static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode);
-static void density_copy(int place, TreeWalkQueryDensity * I);
+static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
+static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
 
 /*! \file density.c
  *  \brief SPH density computation and smoothing length determination
@@ -206,7 +206,9 @@ void density(void)
     walltime_add("/SPH/Density/Misc", timeall - (timecomp + timewait + timecomm));
 }
 
-static void density_copy(int place, TreeWalkQueryDensity * I) {
+static void
+density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
+{
     I->Hsml = P[place].Hsml;
 
     I->Type = P[place].Type;
@@ -230,7 +232,9 @@ static void density_copy(int place, TreeWalkQueryDensity * I) {
 
 }
 
-static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode) {
+static void
+density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
     TREEWALK_REDUCE(P[place].NumNgb, remote->Ngb);
 
     /* these will be added */
@@ -359,7 +363,8 @@ density_ngbiter(
     O->Ninteractions ++;
 }
 
-static int density_isactive(int n)
+static int
+density_isactive(int n, TreeWalk * tw)
 {
     if(P[n].DensityIterationDone) return 0;
 
@@ -373,7 +378,9 @@ static int density_isactive(int n)
     return 0;
 }
 
-static void density_postprocess(int i) {
+static void
+density_postprocess(int i, TreeWalk * tw)
+{
     if(P[i].Type == 0)
     {
         if(SPHP(i).Density > 0)
@@ -416,10 +423,10 @@ static void density_postprocess(int i) {
 
     /* This is slightly more complicated so we put it in a different function */
     /* FIXME: It may make sense to have a seperate tree walk that calculates Hsml only. */
-    density_check_neighbours(i);
+    density_check_neighbours(i, tw);
 }
 
-void density_check_neighbours (int i) {
+void density_check_neighbours (int i, TreeWalk * tw) {
     /* now check whether we had enough neighbours */
 
     double desnumngb = All.DesNumNgb;

@@ -81,16 +81,16 @@ typedef struct {
 
 /* accretion routines */
 static void
-blackhole_accretion_postprocess(int n);
+blackhole_accretion_postprocess(int n, TreeWalk * tw);
 /* feedback routines. currently also performs the drifting(move it to gravtree / force tree?) */
 static int
-blackhole_accretion_isactive(int n);
+blackhole_accretion_isactive(int n, TreeWalk * tw);
 
 static void
-blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode);
+blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 
 static void
-blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I);
+blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw);
 
 static void
 blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
@@ -100,16 +100,16 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
 
 /* swallow routines */
 static void
-blackhole_feedback_postprocess(int n);
+blackhole_feedback_postprocess(int n, TreeWalk * tw);
 
 static int
-blackhole_feedback_isactive(int n);
+blackhole_feedback_isactive(int n, TreeWalk * tw);
 
 static void
-blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode);
+blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 
 static void
-blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I);
+blackhole_feedback_copy(int place, TreeWalkQueryBHFeedback * I, TreeWalk * tw);
 
 static void
 blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
@@ -265,7 +265,9 @@ void blackhole(void)
     walltime_measure("/BH");
 }
 
-static void blackhole_accretion_postprocess(int i) {
+static void
+blackhole_accretion_postprocess(int i, TreeWalk * tw)
+{
     if(BHP(i).Density > 0)
     {
         BHP(i).Entropy /= BHP(i).Density;
@@ -311,7 +313,7 @@ static void blackhole_accretion_postprocess(int i) {
 }
 
 static void
-blackhole_feedback_postprocess(int n)
+blackhole_feedback_postprocess(int n, TreeWalk * tw)
 {
     if(BHP(n).accreted_Mass > 0)
     {
@@ -613,11 +615,15 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     }
 }
 
-static int blackhole_accretion_isactive(int n) {
+static int
+blackhole_accretion_isactive(int n, TreeWalk * tw)
+{
     return (P[n].Type == 5) && (P[n].Mass > 0);
 }
 
-static void blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode) {
+static void
+blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
     int k;
     if(mode == 0 || BHP(place).MinPot > remote->BH_MinPot)
     {
@@ -644,7 +650,9 @@ static void blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * re
     TREEWALK_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
 }
 
-static void blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I) {
+static void
+blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
+{
     int k;
     for(k = 0; k < 3; k++)
     {
@@ -661,11 +669,16 @@ static void blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I) {
                 BHP(place).Density);
     I->ID = P[place].ID;
 }
-static int blackhole_feedback_isactive(int n) {
+
+static int
+blackhole_feedback_isactive(int n, TreeWalk * tw)
+{
     return (P[n].Type == 5) && (!P[n].Swallowed);
 }
 
-static void blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I) {
+static void
+blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
+{
     I->Hsml = P[i].Hsml;
     I->BH_Mass = BHP(i).Mass;
     I->ID = P[i].ID;
@@ -677,7 +690,9 @@ static void blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I) {
                 pow(C / All.UnitVelocity_in_cm_per_s, 2);
 }
 
-static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode) {
+static void
+blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
     int k;
 
     TREEWALK_REDUCE(BHP(place).accreted_Mass, remote->Mass);

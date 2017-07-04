@@ -16,7 +16,8 @@ enum TreeWalkReduceMode {
     TREEWALK_GHOSTS,
 };
 void TreeWalk_allocate_memory(void);
-struct _TreeWalk;
+
+typedef struct TreeWalk TreeWalk;
 
 typedef struct {
     MyIDType ID;
@@ -39,7 +40,7 @@ typedef struct {
 } TreeWalkNgbIterBase;
 
 typedef struct {
-    struct _TreeWalk * tw;
+    TreeWalk * tw;
 
     int mode; /* 0 for Primary, 1 for Secondary */
     int target; /* defined only for primary (mode == 0) */
@@ -56,13 +57,15 @@ typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultB
 
 typedef int (*TreeWalkNgbIterFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, TreeWalkNgbIterBase * iter, LocalTreeWalk * lv);
 
-typedef int (*TreeWalkIsActiveFunction) (const int i);
-typedef int (*TreeWalkProcessFunction) (const int i);
+typedef int (*TreeWalkIsActiveFunction) (const int i, TreeWalk * tw);
+typedef int (*TreeWalkProcessFunction) (const int i, TreeWalk * tw);
 
-typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query);
-typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode);
+typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query, TreeWalk * tw);
+typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode, TreeWalk * tw);
 
-typedef struct _TreeWalk {
+struct TreeWalk {
+    void * userdata;
+
     /* name of the evaluator (used in printing messages) */
     char * ev_label;
 
@@ -110,7 +113,8 @@ typedef struct _TreeWalk {
     /* per worker thread*/
     int *currentIndex;
     int *currentEnd;
-} TreeWalk;
+
+};
 
 void treewalk_run(TreeWalk * tw);
 int * treewalk_get_queue(TreeWalk * tw, int * len);

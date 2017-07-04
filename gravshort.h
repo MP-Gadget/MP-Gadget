@@ -21,7 +21,7 @@ typedef struct {
 } TreeWalkResultGravShort;
 
 static int
-grav_short_isactive(int i)
+grav_short_isactive(int i, TreeWalk * tw)
 {
     int isactive = 1;
     /* tracer particles (5) has no gravity, they move along to pot minimium */
@@ -30,7 +30,7 @@ grav_short_isactive(int i)
 }
 
 static void
-grav_short_postprocess(int i)
+grav_short_postprocess(int i, TreeWalk * tw)
 {
     int j;
 
@@ -57,7 +57,8 @@ grav_short_postprocess(int i)
 }
 
 static void
-grav_short_copy(int place, TreeWalkQueryGravShort * input) {
+grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
+{
     input->Type = P[place].Type;
 
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
@@ -68,7 +69,8 @@ grav_short_copy(int place, TreeWalkQueryGravShort * input) {
 
 }
 static void
-grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkReduceMode mode) {
+grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
     int k;
     for(k = 0; k < 3; k++)
         TREEWALK_REDUCE(P[place].GravAccel[k], result->Acc[k]);
