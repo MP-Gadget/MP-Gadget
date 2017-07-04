@@ -33,7 +33,7 @@ void timestep_allocate_memory(int MaxPart)
 }
 
 static void reverse_and_apply_gravity();
-static int get_timestep(int p, int dti_max);
+static int get_timestep_ti(int p, int dti_max);
 static int get_timestep_bin(int dti);
 static void do_the_kick(int i, int tistart, int tiend, int ticurrent, double Fgravkick);
 static void advance_long_range_kick(int PM_Timestep);
@@ -128,7 +128,7 @@ void advance_and_find_timesteps(void)
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
-        int dti = get_timestep(i, All.MaxTiStepDisplacement);
+        int dti = get_timestep_ti(i, All.MaxTiStepDisplacement);
 
         if(dti < ti_min)
             ti_min = dti;
@@ -147,7 +147,7 @@ void advance_and_find_timesteps(void)
 #ifdef FORCE_EQUAL_TIMESTEPS
         int dti = ti_min_glob;
 #else
-        int dti = get_timestep(i, All.MaxTiStepDisplacement);
+        int dti = get_timestep_ti(i, All.MaxTiStepDisplacement);
 #endif
         /* make it a power 2 subdivision */
         int ti_min = TIMEBASE;
@@ -357,23 +357,11 @@ void do_the_kick(int i, int tistart, int tiend, int ticurrent, double FgravkickB
 
 
 
-/*! This function normally (for flag==0) returns the maximum allowed timestep of a particle, expressed in
- *  terms of the integer mapping that is used to represent the total simulated timespan.
- *  Arguments:
- *  p -> particle index
- *  dti_max -> maximal timestep.  */
-int get_timestep(const int p, const int dti_max)
+double
+get_timestep_dloga(const int p)
 {
     double ac = 0;
     double dt = 0, dt_courant = 0;
-    int dti;
-    /*Give a useful message if we are broken*/
-    if(dti_max == 0)
-        return 0;
-
-    /*Set to max timestep allowed if the tree is off*/
-    if(!All.TreeGravOn)
-        return dti_max;
 
     /*Compute physical acceleration*/
     {
@@ -432,6 +420,28 @@ int get_timestep(const int p, const int dti_max)
     /* d a / a = dt * H */
     double dloga = dt * All.cf.hubble;
 
+    return dloga;
+}
+
+/*! This function normally (for flag==0) returns the maximum allowed timestep of a particle, expressed in
+ *  terms of the integer mapping that is used to represent the total simulated timespan.
+ *  Arguments:
+ *  p -> particle index
+ *  dti_max -> maximal timestep.  */
+static int
+get_timestep_ti(const int p, const int dti_max)
+{
+    int dti;
+    /*Give a useful message if we are broken*/
+    if(dti_max == 0)
+        return 0;
+
+    /*Set to max timestep allowed if the tree is off*/
+    if(!All.TreeGravOn)
+        return dti_max;
+
+    double dloga = get_timestep_dloga(p);
+
     if(dloga < All.MinSizeTimestep)
         dloga = All.MinSizeTimestep;
 
@@ -440,17 +450,19 @@ int get_timestep(const int p, const int dti_max)
     if(dti > dti_max)
         dti = dti_max;
 
-
+    /*
+    sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac) * All.cf.hubble,
+    */
     if(!(dti > 1 && dti < TIMEBASE))
     {
         message(1, "Error: A timestep of size zero was assigned on the integer timeline!\n"
                 "We better stop.\n"
-                "Task=%d type %d Part-ID=%lu dt=%g dtc=%g dtdis=%g tibase=%g dti=%d ac=%g xyz=(%g|%g|%g) tree=(%g|%g|%g), dt0=%g, ErrTolIntAccuracy=%g\n\n",
-                ThisTask, P[p].Type, (MyIDType)P[p].ID, dt, dt_courant, dti_max,
-                All.Timebase_interval, dti, ac,
+                "Task=%d type %d Part-ID=%lu dloga=%g, dtmax=%g tibase=%g dti=%d xyz=(%g|%g|%g) tree=(%g|%g|%g), ErrTolIntAccuracy=%g\n\n",
+                ThisTask, P[p].Type, (MyIDType)P[p].ID, dloga, dti_max,
+                All.Timebase_interval, dti, 
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].GravAccel[0], P[p].GravAccel[1],
                 P[p].GravAccel[2],
-                sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac) * All.cf.hubble, All.ErrTolIntAccuracy
+                All.ErrTolIntAccuracy
               );
 
         message(1, "pm_force=(%g|%g|%g)\n", P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]);
