@@ -124,6 +124,10 @@
 
 #define MAXITER 400
 
+typedef uint32_t binmask_t;
+#define BINMASK_ALL ((uint32_t) (-1))
+#define BINMASK(i) (1u << i)
+
 typedef uint64_t MyIDType;
 
 typedef LOW_PRECISION MyFloat;
