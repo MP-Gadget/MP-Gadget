@@ -126,7 +126,7 @@ void density(void)
 
     NIteration = 0;
 
-    int Nactive;
+    int queuesize;
     int * queue;
 
     /* this has to be done before get_queue so that
@@ -140,10 +140,10 @@ void density(void)
     }
 
     /* the queue has every particle. Later on after some iterations are done
-     * Nactive will decrease -- the queue would be shorter.*/
-    queue = treewalk_get_queue(tw, &Nactive);
-#pragma omp parallel for if(Nactive > 32)
-    for(i = 0; i < Nactive; i ++) {
+     * queuesize will decrease -- the queue would be shorter.*/
+    queue = treewalk_get_queue(tw, &queuesize);
+#pragma omp parallel for if(queuesize> 32)
+    for(i = 0; i < queuesize; i ++) {
         int p = queue[i];
         Left[p] = 0;
         Right[p] = 0;

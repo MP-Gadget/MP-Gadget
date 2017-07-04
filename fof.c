@@ -1034,8 +1034,8 @@ static void fof_label_secondary(void)
     {
         treewalk_run(tw);
 
-        int Nactive;
-        int * queue = treewalk_get_queue(tw, &Nactive);
+        int queuesize;
+        int * queue = treewalk_get_queue(tw, &queuesize);
 
         /* do final operations on results */
         int npleft = 0;
@@ -1043,7 +1043,7 @@ static void fof_label_secondary(void)
         int64_t counttot = 0;
 /* CRAY cc doesn't do this one right */
 //#pragma omp parallel for reduction(+: npleft)
-        for(i = 0; i < Nactive; i++)
+        for(i = 0; i < queuesize; i++)
         {
             int p = queue[i];
             count ++;

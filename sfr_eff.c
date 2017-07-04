@@ -210,12 +210,12 @@ void cooling_and_starformation(void)
     tw->ev_label = "SFR_COOL";
     tw->isactive = sfr_cooling_isactive;
 
-    int Nactive = 0;
-    int * queue = treewalk_get_queue(tw, &Nactive);
+    int queuesize = 0;
+    int * queue = treewalk_get_queue(tw, &queuesize);
     int n;
 
 #pragma omp parallel for
-    for(n = 0; n < Nactive; n ++)
+    for(n = 0; n < queuesize; n ++)
     {
         int i = queue[n];
         int flag;
@@ -375,12 +375,12 @@ void cooling_only(void)
     tw.ev_label = "SFR_COOL";
     tw.isactive = sfr_cooling_isactive;
 
-    int Nactive = 0;
-    int * queue = treewalk_get_queue(&tw, &Nactive);
+    int queuesize = 0;
+    int * queue = treewalk_get_queue(&tw, &queuesize);
     int n;
 
 #pragma omp parallel for
-    for(n = 0; n < Nactive; n ++)
+    for(n = 0; n < queuesize; n ++)
     {
         int i = queue[n];
         /* normal implicit isochoric cooling */

@@ -177,10 +177,10 @@ void blackhole(void)
 
 
     /* Let's first compute the Mdot values */
-    int Nactive;
-    int * queue = treewalk_get_queue(tw_accretion, &Nactive);
+    int queuesize;
+    int * queue = treewalk_get_queue(tw_accretion, &queuesize);
 
-    for(i = 0; i < Nactive; i ++) {
+    for(i = 0; i < queuesize; i ++) {
         int n = queue[i];
         int j;
         for(j = 0; j < 3; j++) {
