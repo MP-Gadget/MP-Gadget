@@ -63,11 +63,22 @@ typedef int (*TreeWalkProcessFunction) (const int i, TreeWalk * tw);
 typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query, TreeWalk * tw);
 typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode, TreeWalk * tw);
 
+enum TreeWalkType {
+    LEGACY_ACTIVE = 0,
+    LEGACY_ALL,
+    SPLIT,
+};
+
 struct TreeWalk {
     void * userdata;
 
     /* name of the evaluator (used in printing messages) */
     char * ev_label;
+
+    enum TreeWalkType type;
+
+    int fgmask; /* if set, the bins to compute force for */
+    int bgmask; /* if set, the bins to compute force from */
 
     TreeWalkVisitFunction visit;
     TreeWalkIsInteractingFunction isinteracting;
@@ -80,8 +91,6 @@ struct TreeWalk {
     char * dataresult;
 
     int UseNodeList;
-    int UseAllParticles; /* if 1 use all particles
-                             if 0 use active particles */
     size_t query_type_elsize;
     size_t result_type_elsize;
     size_t ngbiter_type_elsize;

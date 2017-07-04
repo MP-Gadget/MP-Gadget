@@ -269,7 +269,7 @@ static int cmpint(const void * c1, const void * c2) {
 int * treewalk_get_queue(TreeWalk * tw, int * len) {
     int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
     int k = 0;
-    if(tw->UseAllParticles) {
+    if(tw->type == LEGACY_ALL) {
         int i;
         #pragma omp parallel for
         for(i = 0; i < NumPart; i++) {
@@ -278,7 +278,7 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
             const int lock = atomic_fetch_and_add(&k, 1);
             queue[lock] = i;
         }
-    } else {
+    } else if (tw->type == LEGACY_ACTIVE) {
         int i;
         #pragma omp parallel for
         for(i=0; i < NumActiveParticle; i++)
