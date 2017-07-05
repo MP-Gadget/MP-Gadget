@@ -71,7 +71,7 @@ int drift_particle_full(int i, int ti1, int blocking) {
 static void real_drift_particle(int i, int ti1)
 {
     int j, ti0, dti;
-    double ddrift, Fgravkick, Fhydrokick, Fentr;
+    double ddrift;
 
     if(P[i].Ti_drift == ti1) return;
 
@@ -87,8 +87,6 @@ static void real_drift_particle(int i, int ti1)
         return;
 
     ddrift = get_drift_factor(ti0, ti1);
-    Fgravkick = get_gravkick_factor(ti0, ti1);
-    Fhydrokick = get_hydrokick_factor(ti0, ti1);
 
 #ifdef LIGHTCONE
     double oldpos[3];
@@ -125,11 +123,10 @@ static void real_drift_particle(int i, int ti1)
 
     if(P[i].Type == 0)
     {
-        for(j = 0; j < 3; j++)
-            SPHP(i).VelPred[j] +=
-                (P[i].GravAccel[j] + P[i].GravPM[j]) * Fgravkick + SPHP(i).HydroAccel[j] * Fhydrokick;
-
         SPHP(i).Density *= exp(-SPHP(i).DivVel * ddrift);
+#ifdef DENSITY_INDEPENDENT_SPH
+        SPHP(i).EgyWtDensity *= exp(-SPHP(i).DivVel * ddrift);
+#endif
         //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added
         double fac = exp(0.333333333333 * SPHP(i).DivVel * ddrift);
@@ -145,12 +142,26 @@ static void real_drift_particle(int i, int ti1)
 
         if(P[i].Hsml < All.MinGasHsml)
             P[i].Hsml = All.MinGasHsml;
+    }
+
+    /* from this point it is predict */
+
+    double Fgravkick, Fhydrokick, Fentr;
+
+    Fgravkick = get_gravkick_factor(ti0, ti1);
+    Fhydrokick = get_hydrokick_factor(ti0, ti1);
+
+    if(P[i].Type == 0) {
+
+        for(j = 0; j < 3; j++)
+            SPHP(i).VelPred[j] +=
+                (P[i].GravAccel[j] + P[i].GravPM[j]) * Fgravkick + SPHP(i).HydroAccel[j] * Fhydrokick;
+
 
         dti = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
         Fentr = (ti1 - (P[i].Ti_begstep + dti / 2)) * All.Timebase_interval;
 
 #ifdef DENSITY_INDEPENDENT_SPH
-        SPHP(i).EgyWtDensity *= exp(-SPHP(i).DivVel * ddrift);
         SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
 #endif
         SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
