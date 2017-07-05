@@ -23,7 +23,7 @@ void drift_particle(int i, int ti1) {
     drift_particle_full(i, ti1, 1);
 }
 int drift_particle_full(int i, int ti1, int blocking) {
-    if(P[i].Ti_current == ti1) return 0 ;
+    if(P[i].Ti_drift == ti1) return 0 ;
 
 #pragma omp atomic
     TotalParticleDrifts ++;
@@ -36,7 +36,7 @@ int drift_particle_full(int i, int ti1, int blocking) {
         lockstate = pthread_spin_trylock(&P[i].SpinLock);
     }
     if(0 == lockstate) {
-        if(P[i].Ti_current != ti1) {
+        if(P[i].Ti_drift != ti1) {
             real_drift_particle(i, ti1);
 #pragma omp flush
         } else {
@@ -58,7 +58,7 @@ int drift_particle_full(int i, int ti1, int blocking) {
     /* do not use SpinLock */
 #pragma omp critical (_driftparticle_)
     {
-        if(P[i].Ti_current != ti1) {
+        if(P[i].Ti_drift != ti1) {
             real_drift_particle(i, ti1);
         } else {
             BlockedParticleDrifts ++;
@@ -73,10 +73,10 @@ static void real_drift_particle(int i, int ti1)
     int j, ti0, dti;
     double ddrift, Fgravkick, Fhydrokick, Fentr;
 
-    if(P[i].Ti_current == ti1) return;
+    if(P[i].Ti_drift == ti1) return;
 
 
-    ti0 = P[i].Ti_current;
+    ti0 = P[i].Ti_drift;
 
     if(ti1 < ti0)
     {
@@ -157,7 +157,7 @@ static void real_drift_particle(int i, int ti1)
 
     }
 
-    P[i].Ti_current = ti1;
+    P[i].Ti_drift = ti1;
 }
 
 void move_particles(int ti1)

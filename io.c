@@ -46,7 +46,7 @@ void savepositions(int num, int with_fof)
         char buf[1024];
         sprintf(buf, "%s/LastSnapshotNum.txt", All.OutputDir);
         FILE * fd = fopen(buf, "a");
-        fprintf(fd, "Time %g Redshift %g Ti_current %d Snapnumber %03d\n", All.Time, 1 / All.Time - 1, All.Ti_Current, num);
+        fprintf(fd, "Time %g Redshift %g Ti_drift %d Snapnumber %03d\n", All.Time, 1 / All.Time - 1, All.Ti_Current, num);
         fclose(fd);
 
     }
