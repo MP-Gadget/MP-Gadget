@@ -11,7 +11,6 @@
 #include "openmpsort.h"
 #include "endrun.h"
 
-static void reorder_gas(int * Id, const int start, const int end);
 static void reorder_particles(int * Id, const int start, const int end);
 
 void peano_hilbert_order(void)
@@ -30,16 +29,13 @@ void peano_hilbert_order(void)
         mp[i].key = P[i].Key;
     }
     /* sort SPH and reset seperately because PIndex of SPH doesn't work yet */
-    qsort(mp, N_sph_slots, sizeof(struct peano_hilbert_data), peano_compare_key);
-    qsort_openmp(mp + N_sph_slots, NumPart - N_sph_slots, sizeof(struct peano_hilbert_data), peano_compare_key);
+    qsort(mp, NumPart, sizeof(struct peano_hilbert_data), peano_compare_key);
 
     //      #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
         Id[mp[i].index] = i;
 
-    reorder_gas(Id, 0, N_sph_slots);
-
-    reorder_particles(Id, N_sph_slots, NumPart);
+    reorder_particles(Id, 0, NumPart);
 
     myfree(mp);
     myfree(Id);
@@ -58,32 +54,6 @@ int peano_compare_key(const void *a, const void *b)
 
     return 0;
 }
-
-void reorder_gas(int * Id, const int start, const int end)
-{
-    int i;
-    for(i = start; i < end; i++)
-    {
-        while(Id[i] != i)
-        {
-            /* Store the data at the place where we will move i
-             * into a temp*/
-            int oldId = Id[Id[i]];
-            struct particle_data oldP = P[Id[i]];
-            struct sph_particle_data oldSphP = SPHP(Id[i]);
-            /* Now copy i into its new location, 
-             * making sure to update the index*/
-            P[Id[i]] = P[i];
-            SPHP(Id[i]) = SPHP(i);
-            Id[Id[i]] = Id[i];
-            /*Now copy the temp back into location i.*/
-            P[i] = oldP;
-            SPHP(i) = oldSphP;
-            Id[i] = oldId;
-        }
-    }
-}
-
 
 void reorder_particles(int * Id, const int start, const int end)
 {

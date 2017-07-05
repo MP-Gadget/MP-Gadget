@@ -402,13 +402,15 @@ void every_timestep_stuff(int NumForce)
 {
     double z;
     int i;
-    int64_t tot, tot_sph;
-    int64_t tot_count[TIMEBINS];
-    int64_t tot_count_sph[TIMEBINS];
-    int64_t tot_num_force;
+    int64_t tot = 0, tot_type[6] = {0};
+    int64_t tot_count[TIMEBINS] = {0};
+    int64_t tot_count_type[6][TIMEBINS] = {0};
+    int64_t tot_num_force = 0;
 
     sumup_large_ints(TIMEBINS, TimeBinCount, tot_count);
-    sumup_large_ints(TIMEBINS, TimeBinCountSph, tot_count_sph);
+    for(i = 0; i < 6; i ++) {
+        sumup_large_ints(TIMEBINS, TimeBinCountType[i], tot_count_type[i]);
+    }
     sumup_large_ints(1, &NumForce, &tot_num_force);
 
     /* let's update Tot counts in one place tot variables;
@@ -434,27 +436,33 @@ void every_timestep_stuff(int NumForce)
 
     message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
                 TotNumPart, NTotal[0], NTotal[5], NTotal[4]);
-    message(0, "Occupied timebins: non-sph         sph       dt\n");
-    for(i = TIMEBINS - 1, tot = tot_sph = 0; i >= 0; i--)
-        if(tot_count_sph[i] > 0 || tot_count[i] > 0)
+    message(0,     "Occupied:   % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);
+
+    for(i = TIMEBINS - 1;  i >= 0; i--) {
+        if(tot_count[i] == 0) continue;
+        message(0, " %c bin=%2d % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld %6g\n",
+                is_timebin_active(i) ? 'X' : ' ',
+                i,
+                tot_count_type[0][i],
+                tot_count_type[1][i],
+                tot_count_type[2][i],
+                tot_count_type[3][i],
+                tot_count_type[4][i],
+                tot_count_type[5][i],
+                get_dloga_for_bin(i));
+
+        if(is_timebin_active(i))
         {
-            message(0, " %c  bin=%2d     %014ld %014ld   %6g\n",
-                    is_timebin_active(i) ? 'X' : ' ',
-                    i,
-                    (tot_count[i] - tot_count_sph[i]),
-                    tot_count_sph[i],
-                    get_dloga_for_bin(i));
-            if(is_timebin_active(i))
-            {
-                tot += tot_count[i];
-                tot_sph += tot_count_sph[i];
+            tot += tot_count[i];
+            int ptype;
+            for(ptype = 0; ptype < 6; ptype ++) {
+                tot_type[ptype] += tot_count_type[ptype][i];
             }
         }
-    message(0, "               -----------------------------------\n");
-    message(0, "Total:%014ld %014ld    Sum:%014ld\n",
-        (tot - tot_sph),
-        (tot_sph),
-        (tot));
+    }
+    message(0,     "               -----------------------------------\n");
+    message(0,     "Total:  % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld\n",
+        tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot);
 
     set_random_numbers();
 }

@@ -7,10 +7,10 @@
 
 static int
 domain_all_garbage_collection();
+
 static int
-domain_sph_garbage_collection_reclaim();
-static int
-domain_bh_garbage_collection();
+domain_garbage_collection_slots(int ptype,
+    void * storage, int elsize, int * N_slots, int MaxSlots);
 
 int domain_fork_particle(int parent) {
     /* this will fork a zero mass particle at the given location of parent.
@@ -81,9 +81,9 @@ domain_garbage_collection(void)
      * But doing so requires cleaning up the TimeBin link lists, and the tree
      * link lists first. likely worth it, since GC happens only in domain decompose
      * and snapshot IO, both take far more time than rebuilding the tree. */
-    tree_invalid |= domain_sph_garbage_collection_reclaim();
     tree_invalid |= domain_all_garbage_collection();
-    tree_invalid |= domain_bh_garbage_collection();
+    tree_invalid |= domain_garbage_collection_slots(5, BhP, sizeof(BhP[0]), &N_bh_slots, All.MaxPartBh);
+    tree_invalid |= domain_garbage_collection_slots(0, SphP, sizeof(SphP[0]), &N_sph_slots, All.MaxPart);
 
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -91,74 +91,24 @@ domain_garbage_collection(void)
 }
 
 static int
-domain_sph_garbage_collection_reclaim()
-{
-    int tree_invalid = 0;
-
-    int64_t total0, total;
-    sumup_large_ints(1, &N_sph_slots, &total0);
-
-#ifdef SFR
-    int i;
-    for(i = 0; i < N_sph_slots; i++) {
-        while(P[i].Type != 0 && i < N_sph_slots) {
-            /* remove this particle from SphP, because
-             * it is no longer a SPH
-             * */
-            /* note that when i == N-sph - 1 this doesn't really do any
-             * thing. no harm done */
-            struct particle_data psave;
-            psave = P[i];
-            P[i] = P[N_sph_slots - 1];
-            SPHP(i) = SPHP(N_sph_slots - 1);
-            P[N_sph_slots - 1] = psave;
-            tree_invalid = 1;
-            N_sph_slots --;
-        }
-    }
-#endif
-    sumup_large_ints(1, &N_sph_slots, &total);
-    if(total != total0) {
-        message(0, "GC: Reclaiming SPH slots from %ld to %ld\n", total0, total);
-    }
-    return tree_invalid;
-}
-
-static int
 domain_all_garbage_collection()
 {
     int i, tree_invalid = 0; 
-    int count_elim, count_gaselim;
+    int count_elim;
     int64_t total0, total;
-    int64_t total0_gas, total_gas;
 
-    sumup_large_ints(1, &N_sph_slots, &total0_gas);
     sumup_large_ints(1, &NumPart, &total0);
 
     count_elim = 0;
-    count_gaselim = 0;
 
     for(i = 0; i < NumPart; i++)
         if(P[i].Mass == 0)
         {
             TimeBinCount[P[i].TimeBin]--;
 
-            if(P[i].Type == 0)
-            {
-                TimeBinCountSph[P[i].TimeBin]--;
+            TimeBinCountType[P[i].Type][P[i].TimeBin]--;
 
-                P[i] = P[N_sph_slots - 1];
-                SPHP(i) = SPHP(N_sph_slots - 1);
-
-                P[N_sph_slots - 1] = P[NumPart - 1];
-
-                N_sph_slots--;
-
-                count_gaselim++;
-            } else
-            {
-                P[i] = P[NumPart - 1];
-            }
+            P[i] = P[NumPart - 1];
 
             NumPart--;
             i--;
@@ -166,12 +116,7 @@ domain_all_garbage_collection()
             count_elim++;
         }
 
-    sumup_large_ints(1, &N_sph_slots, &total_gas);
     sumup_large_ints(1, &NumPart, &total);
-
-    if(total_gas != total0_gas) {
-        message(0, "GC : Reducing SPH slots from %ld to %ld\n", total0_gas, total_gas);
-    }
 
     if(total != total0) {
         message(0, "GC : Reducing Particle slots from %ld to %ld\n", total0, total);
@@ -180,9 +125,9 @@ domain_all_garbage_collection()
     return tree_invalid;
 }
 
-static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
-    const struct bh_particle_data * b1 = (struct bh_particle_data *) b1in;
-    const struct bh_particle_data * b2 = (struct bh_particle_data *) b2in;
+static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
+    const struct particle_data_ext * b1 = (struct particle_data_ext *) b1in;
+    const struct particle_data_ext * b2 = (struct particle_data_ext *) b2in;
     if(b1->ReverseLink == -1 && b2->ReverseLink == -1) {
         return 0;
     }
@@ -193,8 +138,10 @@ static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
 }
 
 static int
-domain_bh_garbage_collection()
+domain_garbage_collection_slots(int ptype,
+    void * storage, int elsize, int * N_slots, int MaxSlots)
 {
+#define SLOT(i) ((struct particle_data_ext *) (((char*) storage) + elsize * (i)))
     /*
      *  BhP is a lifted structure. 
      *  changing BH slots doesn't affect tree's consistency;
@@ -206,69 +153,69 @@ domain_bh_garbage_collection()
 
     int64_t total0 = 0;
 
-    sumup_large_ints(1, &N_bh_slots, &total0);
+    sumup_large_ints(1, N_slots, &total0);
 
     /* If there are no blackholes, there cannot be any garbage. bail. */
     if(total0 == 0) return 0;
 
 #pragma omp parallel for
-    for(i = 0; i < All.MaxPartBh; i++) {
-        BhP[i].ReverseLink = -1;
+    for(i = 0; i < MaxSlots; i++) {
+        SLOT(i)->ReverseLink = -1;
     }
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
-        if(P[i].Type == 5) {
-            BhP[P[i].PI].ReverseLink = i;
-            if(P[i].PI >= N_bh_slots) {
-                endrun(1, "bh PI consistency failed2, N_bh_slots = %d, N_bh = %d, PI=%d\n", N_bh_slots, NLocal[5], P[i].PI);
+        if(P[i].Type == ptype) {
+            SLOT(P[i].PI)->ReverseLink = i;
+            if(P[i].PI >= *N_slots) {
+                endrun(1, "slot PI consistency failed2, N_bh_slots = %d, N_bh = %d, PI=%d\n", *N_slots, NLocal[5], P[i].PI);
             }
-            if(BhP[P[i].PI].ID != P[i].ID) {
-                endrun(1, "bh id consistency failed1\n");
+            if(SLOT(P[i].PI)->ID != P[i].ID) {
+                endrun(1, "slot id consistency failed1\n");
             }
         }
     }
 
     /* put unused guys to the end, and sort the used ones
      * by their location in the P array */
-    qsort(BhP, N_bh_slots, sizeof(BhP[0]), bh_cmp_reverse_link);
+    qsort(storage, *N_slots, elsize, slot_cmp_reverse_link);
 
-    while(N_bh_slots > 0 && BhP[N_bh_slots - 1].ReverseLink == -1) {
-        N_bh_slots --;
+    while(*N_slots > 0 && SLOT(*N_slots - 1)->ReverseLink == -1) {
+        (*N_slots) --;
     }
     /* Now update the link in BhP */
-    for(i = 0; i < N_bh_slots; i ++) {
-        P[BhP[i].ReverseLink].PI = i;
+    for(i = 0; i < *N_slots; i ++) {
+        P[SLOT(i)->ReverseLink].PI = i;
     }
 
     /* Now invalidate ReverseLink */
-    for(i = 0; i < N_bh_slots; i ++) {
-        BhP[i].ReverseLink = -1;
+    for(i = 0; i < *N_slots; i ++) {
+        SLOT(i)->ReverseLink = -1;
     }
 
     j = 0;
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
-        if(P[i].Type != 5) continue;
-        if(P[i].PI >= N_bh_slots) {
-            endrun(1, "bh PI consistency failed2\n");
+        if(P[i].Type != ptype) continue;
+        if(P[i].PI >= *N_slots) {
+            endrun(1, "slot PI consistency failed2\n");
         }
-        if(BhP[P[i].PI].ID != P[i].ID) {
-            endrun(1, "bh id consistency failed2\n");
+        if(SLOT(P[i].PI)->ID != P[i].ID) {
+            endrun(1, "slot id consistency failed2\n");
         }
 #pragma omp atomic
         j ++;
     }
-    if(j != N_bh_slots) {
-        endrun(1, "bh count failed2, j=%d, N_bh=%d\n", j, N_bh_slots);
+    if(j != *N_slots) {
+        endrun(1, "slot count failed2, j=%d, N_bh=%d\n", j, *N_slots);
     }
 
-    sumup_large_ints(1, &N_bh_slots, &total);
+    sumup_large_ints(1, N_slots, &total);
 
     if(total != total0) {
-        message(0, "GC: Reducing number of BH slots from %ld to %ld\n", total0, total);
+        message(0, "GC: Reducing number of %d slots from %ld to %ld\n", ptype, total0, total);
     }
-    /* bh gc never invalidates the tree */
+    /* slot gc never invalidates the tree */
     return 0;
 }
 

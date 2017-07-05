@@ -507,30 +507,6 @@ All;
 extern size_t BlockedParticleDrifts;
 extern size_t TotalParticleDrifts;
 #endif
-struct bh_particle_data {
-    int ReverseLink; /* used at GC for reverse link to P */
-    MyIDType ID; /* for data consistency check, same as particle ID */
-    int CountProgs;
-
-    MyFloat Mass;
-    MyFloat Mdot;
-    MyFloat FeedbackWeightSum;
-    MyFloat Density;
-    MyFloat Entropy;
-    MyFloat Pressure;
-    MyFloat SurroundingGasVel[3];
-
-    MyFloat accreted_Mass;
-    MyFloat accreted_BHMass;
-    MyFloat accreted_momentum[3];
-
-    double  MinPotPos[3];
-    MyFloat MinPotVel[3];
-    MyFloat MinPot;
-
-    short int TimeBinLimit;
-} * BhP;
-
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
  */
@@ -614,12 +590,42 @@ extern struct particle_data
 }
 *P;				/*!< holds particle data on local processor */
 
+struct particle_data_ext {
+    int ReverseLink; /* used at GC for reverse link to P */
+    MyIDType ID; /* for data consistency check, same as particle ID */
+};
+struct bh_particle_data {
+    struct particle_data_ext base;
+
+    int CountProgs;
+
+    MyFloat Mass;
+    MyFloat Mdot;
+    MyFloat FeedbackWeightSum;
+    MyFloat Density;
+    MyFloat Entropy;
+    MyFloat Pressure;
+    MyFloat SurroundingGasVel[3];
+
+    MyFloat accreted_Mass;
+    MyFloat accreted_BHMass;
+    MyFloat accreted_momentum[3];
+
+    double  MinPotPos[3];
+    MyFloat MinPotVel[3];
+    MyFloat MinPot;
+
+    short int TimeBinLimit;
+} * BhP;
+
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
  * variables.
  */
 extern struct sph_particle_data
 {
+    struct particle_data_ext base;
+
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
     MyFloat EntVarPred;             /*!< predicted entropy variable */
@@ -661,7 +667,7 @@ extern struct sph_particle_data
 #endif
 } *SphP;				/*!< holds SPH particle data on local processor */
 
-#define SPHP(i) SphP[i]
+#define SPHP(i) SphP[P[i].PI]
 #define BHP(i) BhP[P[i].PI]
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG

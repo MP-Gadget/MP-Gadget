@@ -24,7 +24,7 @@ int NumActiveParticle;
 int *ActiveParticle;
 
 int TimeBinCount[TIMEBINS];
-int TimeBinCountSph[TIMEBINS];
+int TimeBinCountType[6][TIMEBINS];
 int TimeBinActive[TIMEBINS];
 
 void timestep_allocate_memory(int MaxPart)
@@ -192,11 +192,10 @@ void advance_and_find_timesteps(void)
             /*Update time bin counts*/
             atomic_fetch_and_add(&TimeBinCount[binold],-1);
             atomic_fetch_and_add(&TimeBinCount[bin],1);
-            if(P[i].Type == 0)
-            {
-                atomic_fetch_and_add(&TimeBinCountSph[binold],-1);
-                atomic_fetch_and_add(&TimeBinCountSph[bin],1);
-            }
+
+            atomic_fetch_and_add(&TimeBinCountType[P[i].Type][binold],-1);
+            atomic_fetch_and_add(&TimeBinCountType[P[i].Type][bin],1);
+
             P[i].TimeBin = bin;
         }
 
@@ -676,7 +675,9 @@ void rebuild_activelist(void)
     for(i = 0; i < TIMEBINS; i++)
     {
         TimeBinCount[i] = 0;
-        TimeBinCountSph[i] = 0;
+        int ptype;
+        for(ptype = 0; ptype < 6; ptype ++)
+            TimeBinCountType[ptype][i] = 0;
     }
 
     NumActiveParticle = 0;
@@ -691,8 +692,7 @@ void rebuild_activelist(void)
             NumActiveParticle++;
         }
         TimeBinCount[bin]++;
-        if(P[i].Type == 0)
-            TimeBinCountSph[bin]++;
+        TimeBinCountType[P[i].Type][bin]++;
     }
 }
 

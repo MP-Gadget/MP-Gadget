@@ -168,7 +168,10 @@ void petaio_read_internal(char * fname, int ic) {
     for(i = 0; i < NumPart; i++)
     {
         if(P[i].Type == 5) {
-            BhP[P[i].PI].ID = P[i].ID;
+            BhP[P[i].PI].base.ID = P[i].ID;
+        }
+        if(P[i].Type == 0) {
+            SphP[P[i].PI].base.ID = P[i].ID;
         }
     }
 }

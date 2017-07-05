@@ -720,7 +720,9 @@ static int make_particle_star(int i) {
         NLocal[4] ++;
 
         P[i].Type = 4;
-        TimeBinCountSph[P[i].TimeBin]--;
+
+        TimeBinCountType[0][P[i].TimeBin]--;
+        TimeBinCountType[4][P[i].TimeBin]++;
 
         newstar = i;
     }
@@ -737,6 +739,7 @@ static int make_particle_star(int i) {
         NLocal[4] ++;
         newstar = child;
 
+        TimeBinCountType[4][P[i].TimeBin]++;
         stars_spawned++;
     }
 

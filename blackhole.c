@@ -232,7 +232,8 @@ void blackhole(void)
         Local_BH_mass += BhP[i].Mass;
         Local_BH_Mdot += BhP[i].Mdot;
         Local_BH_Medd += BhP[i].Mdot/BhP[i].Mass;
-        Local_BH_dynamicalmass += P[BhP[i].ReverseLink].Mass;
+        /* FIXME : this is broken. ReverseLink is always -1 get rid of this metric?*/
+        // Local_BH_dynamicalmass += P[BhP[i].ReverseLink].Mass;
     }
 
     MPI_Reduce(&Local_BH_mass, &total_mass_holes, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -716,7 +717,7 @@ void blackhole_make_one(int index) {
     P[child].StarFormationTime = All.Time;
     P[child].Mass = All.SeedBlackHoleMass;
     P[index].Mass -= All.SeedBlackHoleMass;
-    BHP(child).ID = P[child].ID;
+    BHP(child).base.ID = P[child].ID;
     BHP(child).Mass = All.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
 
