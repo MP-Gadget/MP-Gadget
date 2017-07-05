@@ -4,7 +4,6 @@
 #include "allvars.h"
 #include "forcetree.h"
 #include "petapm.h"
-#include "drift.h"
 #include "powerspectrum.h"
 #include "domain.h"
 #include "endrun.h"
