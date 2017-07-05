@@ -162,7 +162,11 @@ static int pm_mark_region_for_node(int startno, int rid) {
         {
             p = no;
             no = Nextnode[no];
-            drift_particle(p, All.Ti_Current);
+            /* when we are in PM, all particles must have been synced. */
+            if (P[p].Ti_current != All.Ti_Current) {
+                abort();
+            }
+
             P[p].RegionInd = rid;
             /*
              *
