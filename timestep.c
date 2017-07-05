@@ -301,10 +301,6 @@ void do_the_kick(int i, int tistart, int tiend, int ticurrent, double FgravkickB
     {
         P[i].Vel[j] += SPHP(i).HydroAccel[j] * Fhydrokick;
 
-        SPHP(i).VelPred[j] =
-            P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j] - Fhydrokick2 * SPHP(i).HydroAccel[j];
-
-        SPHP(i).VelPred[j] += P[i].GravPM[j] * FgravkickB;
     }
 
     /* Code here imposes a hard limit (default to speed of light)
@@ -315,24 +311,22 @@ void do_the_kick(int i, int tistart, int tiend, int ticurrent, double FgravkickB
     for(j=0; j < 3; j++)
         vv += P[i].Vel[j] * P[i].Vel[j];
     vv = sqrt(vv);
-    if(vv > All.MaxGasVel * velfac)
+
+    if(vv > All.MaxGasVel * velfac) {
         for(j=0;j < 3; j++)
         {
             P[i].Vel[j] *= All.MaxGasVel * velfac / vv;
-            SPHP(i).VelPred[j] =
-                P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j] - Fhydrokick2 * SPHP(i).HydroAccel[j];
-
-            SPHP(i).VelPred[j] += P[i].GravPM[j] * FgravkickB;
         }
+    }
 
     /* In case of cooling, we prevent that the entropy (and
        hence temperature) decreases by more than a factor 0.5.
        FIXME: Why is this and the last thing here? Should not be needed. */
 
-    if(SPHP(i).DtEntropy * dt_entr > -0.5 * SPHP(i).Entropy)
-        SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
-    else
+    if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
         SPHP(i).Entropy *= 0.5;
+    else
+        SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
 
     /* Implement an entropy floor*/
     if(All.MinEgySpec)
@@ -346,15 +340,22 @@ void do_the_kick(int i, int tistart, int tiend, int ticurrent, double FgravkickB
     }
 
     /* In case the timestep increases in the new step, we
-       make sure that we do not 'overcool'. */
-    dt_entr = get_dloga_for_bin(P[i].TimeBin) / 2;
+       make sure that we do not 'overcool' by bounding the entropy rate of next step */
+    double dt_entr_next = get_dloga_for_bin(P[i].TimeBin) / 2;
 
-    if(SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr < 0.5 * SPHP(i).Entropy)
-        SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr;
+    if(SPHP(i).DtEntropy * dt_entr_next < - 0.5 * SPHP(i).Entropy)
+        SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr_next;
 
+
+    /* this updates the prediction of Vel. 
+     * FIXME: What about prediction fo Entropy?*/
+    for(j = 0; j < 3; j++) {
+        SPHP(i).VelPred[j] =
+            P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j] - Fhydrokick2 * SPHP(i).HydroAccel[j];
+
+        SPHP(i).VelPred[j] += P[i].GravPM[j] * FgravkickB;
+    }
 }
-
-
 
 double
 get_timestep_dloga(const int p)
