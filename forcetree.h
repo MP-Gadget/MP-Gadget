@@ -65,6 +65,15 @@ void force_tree_rebuild();
 void   force_tree_free(void);
 void   dump_particles(void);
 
+int
+force_get_prev_node(int no);
+
+int
+force_get_next_node(int no);
+
+int
+force_set_next_node(int no, int next);
+
 #endif
 
 

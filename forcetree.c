@@ -361,15 +361,7 @@ int force_tree_build_single(int npart)
 
     tail = force_update_node_recursive(All.MaxPart, -1, -1, -1);
 
-    if(tail >= All.MaxPart)
-    {
-        if(tail >= All.MaxPart + MaxNodes)	/* a pseudo-particle */
-            Nextnode[tail - MaxNodes] = -1;
-        else
-            Nodes[tail].u.d.nextnode = -1;
-    }
-    else
-        Nextnode[tail] = -1;
+    force_set_next_node(tail, -1);
 
     return nfree - All.MaxPart;
 }
@@ -451,7 +443,61 @@ void force_insert_pseudo_particles(void)
     }
 }
 
+int
+force_get_next_node(int no)
+{
+    if(no >= All.MaxPart && no < All.MaxPart + MaxNodes) {
+        /* internal node */
+        return Nodes[no].u.d.nextnode;
+    }
+    if(no < All.MaxPart) {
+        /* Particle */
+        return Nextnode[no];
+    }
+    else { //if(no >= All.MaxPart + MaxNodes) {
+        /* Pseudo Particle */
+        return Nextnode[no - MaxNodes];
+    }
+}
 
+int
+force_set_next_node(int no, int next)
+{
+    if(no < 0) return next;
+    if(no >= All.MaxPart && no < All.MaxPart + MaxNodes) {
+        /* internal node */
+        Nodes[no].u.d.nextnode = next;
+    }
+    if(no < All.MaxPart) {
+        /* Particle */
+        Nextnode[no] = next;
+    }
+    if(no >= All.MaxPart + MaxNodes) {
+        /* Pseudo Particle */
+        Nextnode[no - MaxNodes] = next;
+    }
+
+    return next;
+}
+
+int
+force_get_prev_node(int no)
+{
+    if(no < All.MaxPart) {
+        /* Particle */
+        int t = Father[no];
+        int next = force_get_next_node(t);
+        while(next != no) {
+            t = next;
+            next = force_get_next_node(t);
+        }
+        return t;
+    } else {
+        /* not implemented yet */
+        endrun(1, "get_prev_node on non particles is not implemented yet\n");
+        return 0;
+    }
+}
 /*! this routine determines the multipole moments for a given internal node
  *  and all its subnodes using a recursive computation.  The result is
  *  stored in the Nodes[] structure in the sequence of this tree-walk.
@@ -489,20 +535,8 @@ force_update_node_recursive(int no, int sib, int father, int tail)
     {
         for(j = 0; j < 8; j++)
         suns[j] = Nodes[no].u.suns[j];	/* this "backup" is necessary because the nextnode entry will overwrite one element (union!) */
-        if(tail >= 0)
-        {
-            if(tail >= All.MaxPart)
-            {
-                if(tail >= All.MaxPart + MaxNodes)	/* a pseudo-particle */
-                    Nextnode[tail - MaxNodes] = no;
-                else
-                    Nodes[tail].u.d.nextnode = no;
-            }
-            else
-                Nextnode[tail] = no;
-        }
 
-        tail = no;
+        tail = force_set_next_node(tail, no);
 
         mass = 0;
         s[0] = 0;
@@ -677,20 +711,7 @@ force_update_node_recursive(int no, int sib, int father, int tail)
     }
     else				/* single particle or pseudo particle */
     {
-        if(tail >= 0)
-        {
-            if(tail >= All.MaxPart)
-            {
-                if(tail >= All.MaxPart + MaxNodes)	/* a pseudo-particle */
-                    Nextnode[tail - MaxNodes] = no;
-                else
-                    Nodes[tail].u.d.nextnode = no;
-            }
-            else
-                Nextnode[tail] = no;
-        }
-
-        tail = no;
+        tail = force_set_next_node(tail, no);
 
         if(no < All.MaxPart)	/* only set it for single particles */
             Father[no] = father;
