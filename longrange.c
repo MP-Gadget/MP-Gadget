@@ -33,16 +33,16 @@ void long_range_init(void)
  */
 void long_range_force(void)
 {
-  int i;
+    int i;
 
-  for(i = 0; i < NumPart; i++)
+    for(i = 0; i < NumPart; i++)
     {
-      P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
-      P[i].PM_Potential = 0;
+        P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
+        P[i].PM_Potential = 0;
 
     }
 
-  gravpm_force();
+    gravpm_force();
 }
 
 /*! This function sets the (comoving) softening length of all particle

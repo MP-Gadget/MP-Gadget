@@ -36,20 +36,23 @@ void compute_accelerations(int mode)
 
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
-        long_range_force();
-        walltime_measure("/LongRange");
-        force_tree_rebuild();
-    }
-
-    /* Check whether it is really time for a new domain decomposition */
-    if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPartInit * All.TreeDomainUpdateFrequency
-            || All.DoDynamicUpdate == 0)
-    {
-
         domain_Decomposition();	/* do domain decomposition */
         force_tree_rebuild();
-    }
 
+        long_range_force();
+        walltime_measure("/LongRange");
+
+        force_tree_rebuild();
+    } else {
+        /* Check whether it is really time for a new domain decomposition */
+        if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPartInit * All.TreeDomainUpdateFrequency
+                || All.DoDynamicUpdate == 0)
+        {
+
+            domain_Decomposition();	/* do domain decomposition */
+            force_tree_rebuild();
+        }
+    }
 
     grav_short_tree();		/* computes gravity accel. */
 
