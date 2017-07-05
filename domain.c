@@ -193,7 +193,7 @@ void domain_maintain(void)
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(domain_exchange(domain_layoutfunc)) {
+    if(domain_exchange(domain_layoutfunc, EXCHANGE_FULL)) {
         domain_decompose_full();
         return;
     }
@@ -308,7 +308,7 @@ decompose(void)
     domain_balance();
 
     walltime_measure("/Domain/Decompose/Balance");
-    if(domain_exchange(domain_layoutfunc))
+    if(domain_exchange(domain_layoutfunc, EXCHANGE_FULL))
         endrun(1929,"Could not exchange particles\n");
 
     return 0;
@@ -351,8 +351,14 @@ domain_balance(void)
         }
     }
 
+    walltime_measure("/Domain/Decompose/Misc");
+
+    if(domain_exchange(domain_layoutfunc, EXCHANGE_FULL))
+        endrun(1929,"Could not exchange particles\n");
+
     myfree(TopLeafCount);
     myfree(TopLeafWork);
+
 }
 
 static int

@@ -13,6 +13,9 @@ extern struct NODE
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
 
+    morton_t morton; /* shifting morton by (shift + 3) is zero if particle is in the node */
+    int shift; /* shifting morton & 7 will give the child position. */
+
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
     MyFloat maxsoft;		/*!< hold the maximum gravitational softening of particle in the
                               node if the ADAPTIVE_GRAVSOFT_FORGAS option is selected */
@@ -65,13 +68,22 @@ void   force_tree_free(void);
 void   dump_particles(void);
 
 int
+force_find_enclosing_node(int i);
+
+int
 force_get_prev_node(int no);
 
 int
 force_get_next_node(int no);
 
+void
+force_remove_node(int no);
+
 int
 force_set_next_node(int no, int next);
+
+void
+force_insert_particle(int i);
 
 #endif
 

@@ -6,6 +6,8 @@
 #include "endrun.h"
 #include "system.h"
 #include "exchange.h"
+#include "forcetree.h"
+#include "timestep.h"
 
 static MPI_Datatype MPI_TYPE_PARTICLE = 0;
 static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
@@ -16,13 +18,13 @@ static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh);
+static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh, enum ExchangeType exchange_type);
 static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh);
 
 static void domain_count_particles();
 static void domain_refresh_totals();
 
-int domain_exchange(int (*layoutfunc)(int p)) {
+int domain_exchange(int (*layoutfunc)(int p), enum ExchangeType exchange_type) {
     int i;
     int64_t sumtogo;
     int failure = 0;
@@ -82,7 +84,7 @@ int domain_exchange(int (*layoutfunc)(int p)) {
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
-        failure = domain_exchange_once(layoutfunc, toGo, toGoSph, toGoBh,toGet, toGetSph, toGetBh);
+        failure = domain_exchange_once(layoutfunc, toGo, toGoSph, toGoBh,toGet, toGetSph, toGetBh, exchange_type);
         if(failure)
             break;
         iter++;
@@ -103,8 +105,15 @@ int domain_exchange(int (*layoutfunc)(int p)) {
     return failure;
 }
 
-static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh)
+static int
+domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh, enum ExchangeType exchange_type)
 {
+    if (exchange_type == EXCHANGE_INCREMENTAL) {
+        if(!force_tree_allocated()) {
+            endrun(0, "Force tree must be allocated to run an incremental domain exchange\n");
+        }
+    }
+
     int count_togo = 0, count_togo_sph = 0, count_togo_bh = 0, 
         count_get = 0, count_get_sph = 0, count_get_bh = 0;
 
@@ -202,10 +211,18 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
         partBuf[offset[target] + count[target]] = P[i];
         count[target]++;
 
-        /* remove this particle from local storage */
-        P[i] = P[NumPart - 1];
-        NumPart--;
-        i--;
+        if (exchange_type == EXCHANGE_INCREMENTAL) {
+            /* mark the particle for removal in GC; TODO : remove it from the tree */
+            P[i].Mass = 0;
+            force_remove_node(i);
+            TimeBinCountType[P[i].Type][P[i].TimeBin] --;
+            TimeBinCount[P[i].TimeBin] --;
+        } else {
+            /* remove this particle from local storage */
+            P[i] = P[NumPart - 1];
+            NumPart --;
+            i--;
+        }
     }
     walltime_measure("/Domain/exchange/makebuf");
 
@@ -295,6 +312,12 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
         }
     }
 
+    if(exchange_type == EXCHANGE_INCREMENTAL) {
+        for(i = NumPart - count_get; i < NumPart; i++) {
+            force_insert_particle(i);
+        }
+        message(0, "Added %d particles to the force tree, Numpart = %d\n", count_get, NumPart);
+    }
     myfree(bhBuf);
     myfree(sphBuf);
     myfree(partBuf);
