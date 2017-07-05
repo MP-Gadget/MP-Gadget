@@ -296,7 +296,7 @@ void fof_label_primary(void)
     tw->fill = (TreeWalkFillQueryFunction) fof_primary_copy;
     tw->reduce = NULL;
     tw->UseNodeList = 1;
-    tw->type = LEGACY_ALL;
+    tw->type = TREEWALK_ALL;
     tw->query_type_elsize = sizeof(TreeWalkQueryFOF);
     tw->result_type_elsize = sizeof(TreeWalkResultFOF);
 
@@ -999,7 +999,7 @@ static void fof_label_secondary(void)
     tw->fill = (TreeWalkFillQueryFunction) fof_secondary_copy;
     tw->reduce = (TreeWalkReduceResultFunction) fof_secondary_reduce;
     tw->UseNodeList = 1;
-    tw->type = LEGACY_ALL;
+    tw->type = TREEWALK_ALL;
     tw->query_type_elsize = sizeof(TreeWalkQueryFOF);
     tw->result_type_elsize = sizeof(TreeWalkResultFOF);
 

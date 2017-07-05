@@ -64,9 +64,9 @@ typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query
 typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode, TreeWalk * tw);
 
 enum TreeWalkType {
-    LEGACY_ACTIVE = 0,
-    LEGACY_ALL,
-    SPLIT,
+    TREEWALK_ACTIVE = 0,
+    TREEWALK_ALL,
+    TREEWALK_SPLIT,
 };
 
 struct TreeWalk {
@@ -77,8 +77,7 @@ struct TreeWalk {
 
     enum TreeWalkType type;
 
-    int fgmask; /* if set, the bins to compute force for */
-    int bgmask; /* if set, the bins to compute force from */
+    binmask_t bgmask; /* if set, the bins to compute force from; used if TreeWalkType is SPLIT */
 
     TreeWalkVisitFunction visit;
     TreeWalkIsInteractingFunction isinteracting;

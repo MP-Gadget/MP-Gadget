@@ -269,7 +269,7 @@ static int cmpint(const void * c1, const void * c2) {
 int * treewalk_get_queue(TreeWalk * tw, int * len) {
     int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
     int k = 0;
-    if(tw->type == LEGACY_ALL) {
+    if(tw->type == TREEWALK_ALL) {
         int i;
         #pragma omp parallel for
         for(i = 0; i < NumPart; i++) {
@@ -278,7 +278,7 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
             const int lock = atomic_fetch_and_add(&k, 1);
             queue[lock] = i;
         }
-    } else if (tw->type == LEGACY_ACTIVE) {
+    } else if (tw->type == TREEWALK_ACTIVE || tw->type == TREEWALK_SPLIT) {
         int i;
         #pragma omp parallel for
         for(i=0; i < NumActiveParticle; i++)
@@ -295,16 +295,6 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
             if(queue[i] == queue[i+1]) {
                 endrun(8829, "There are duplicated active particles.");
             }
-        }
-    } else if (tw->type == LEGACY_ACTIVE) {
-        int i;
-        #pragma omp parallel for
-        for(i = 0; i < NumPart; i++) {
-            if(!P[i].TimeBin & tw->fgmask) continue;
-            if(!tw->isactive(i, tw))
-                continue;
-            const int lock = atomic_fetch_and_add(&k, 1);
-            queue[lock] = i;
         }
     }
     *len = k;
@@ -757,10 +747,16 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
         for(numngb = 0; numngb < numcand; numngb ++) {
             int other = lv->ngblist[numngb];
 
+            /* must be the correct type */
             if(!((1<<P[other].Type) & iter->mask))
                 continue;
 
-            drift_particle(other, All.Ti_Current);
+            /* must be the correct time bin */
+            if(lv->tw->type == TREEWALK_SPLIT && !(BINMASK(P[other].TimeBin) & lv->tw->bgmask))
+                continue;
+
+            if(lv->tw->type != TREEWALK_SPLIT) /* FIXME: get rid of this entirely */
+                drift_particle(other, All.Ti_Current);
 
             double dist;
 
