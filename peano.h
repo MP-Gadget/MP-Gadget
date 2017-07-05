@@ -17,14 +17,14 @@ struct peano_hilbert_data
 
 #define DomainFac(len) ( 1.0 / (len) * (((peanokey) 1) << (BITS_PER_DIMENSION)))
 
-#define KEY(i) peano_hilbert_key((int) ((P[i].Pos[0] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
-        (int) ((P[i].Pos[1] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
-        (int) ((P[i].Pos[2] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
+#define KEY(Pos) peano_hilbert_key((int) ((Pos[0] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
+        (int) ((Pos[1] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
+        (int) ((Pos[2] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
         BITS_PER_DIMENSION)
 
-#define MORTON(i) morton_key((int) ((P[i].Pos[0] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
-        (int) ((P[i].Pos[1] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
-        (int) ((P[i].Pos[2] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
+#define MORTON(Pos) morton_key((int) ((Pos[0] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
+        (int) ((Pos[1] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
+        (int) ((Pos[2] + All.BoxSize/2000) * DomainFac(All.BoxSize*1.001)), \
         BITS_PER_DIMENSION)
 
 void mysort_peano(void *b, size_t n, size_t s, int (*cmp) (const void *, const void *));

@@ -188,7 +188,7 @@ void domain_Decomposition_short(void)
      * recompute them during layout and force tree build.*/
     #pragma omp parallel for
     for(i=0; i<NumPart; i++)
-        P[i].Key = KEY(i);
+        P[i].Key = KEY(P[i].Pos);
 
     walltime_measure("/Domain/Short/Misc");
     /* Try a domain exchange.
@@ -287,7 +287,7 @@ int domain_decompose(void)
     /*Make an array of peano keys so we don't have to recompute them inside the domain*/
     #pragma omp parallel for
     for(i=0; i<NumPart; i++)
-        P[i].Key = KEY(i);
+        P[i].Key = KEY(P[i].Pos);
 
     if(domain_determineTopTree(topNodes)) {
         myfree(topNodes);

@@ -147,7 +147,7 @@ int get_subnode(const struct NODE * node, const int nodepos, const int p_i, cons
     int subnode=0;
     if(shift >= 0)
     {
-        const peanokey morton = MORTON(p_i);
+        const peanokey morton = MORTON(P[p_i].Pos);
         /* Shift morton key to the right by shift bits,
          * cutting the key at the correct tree level*/
         subnode = ((morton >> shift) & 7);
