@@ -108,7 +108,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
     int count_togo = 0, count_togo_sph = 0, count_togo_bh = 0, 
         count_get = 0, count_get_sph = 0, count_get_bh = 0;
 
-    int i, n, target;
+    int i, target;
     struct particle_data *partBuf;
     struct sph_particle_data *sphBuf;
     struct bh_particle_data *bhBuf;
@@ -175,36 +175,36 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
         count[i] = count_sph[i] = count_bh[i] = 0;
 
     /*FIXME: make this omp ! */
-    for(n = 0; n < NumPart; n++)
+    for(i = 0; i < NumPart; i++)
     {
-        if(!(P[n].OnAnotherDomain && P[n].WillExport)) continue;
+        if(!(P[i].OnAnotherDomain && P[i].WillExport)) continue;
         /* preparing for export */
-        P[n].OnAnotherDomain = 0;
-        P[n].WillExport = 0;
-        target = layoutfunc(n);
+        P[i].OnAnotherDomain = 0;
+        P[i].WillExport = 0;
+        target = layoutfunc(i);
 
-        if(P[n].Type == 0)
+        if(P[i].Type == 0)
         {
-            sphBuf[offset_sph[target] + count_sph[target]] = SPHP(n);
+            sphBuf[offset_sph[target] + count_sph[target]] = SPHP(i);
             /* Set PI to the comm buffer of this rank rather than the slot*/
-            P[n].PI = count_sph[target];
+            P[i].PI = count_sph[target];
             count_sph[target]++;
         } else
-        if(P[n].Type == 5)
+        if(P[i].Type == 5)
         {
-            bhBuf[offset_bh[target] + count_bh[target]] = BhP[P[n].PI];
+            bhBuf[offset_bh[target] + count_bh[target]] = BHP(i);
             /* Set PI to the comm buffer of this rank rather than the slot*/
-            P[n].PI = count_bh[target];
+            P[i].PI = count_bh[target];
             count_bh[target]++;
         }
 
-        partBuf[offset[target] + count[target]] = P[n];
+        partBuf[offset[target] + count[target]] = P[i];
         count[target]++;
 
         /* remove this particle from local storage */
-        P[n] = P[NumPart - 1];
+        P[i] = P[NumPart - 1];
         NumPart--;
-        n--;
+        i--;
     }
     walltime_measure("/Domain/exchange/makebuf");
 
