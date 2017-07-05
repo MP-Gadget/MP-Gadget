@@ -63,7 +63,7 @@ void init(int RestartSnapNum)
 
     find_active_timebins(0);
 
-    All.PM_Ti_endstep = All.PM_Ti_begstep = 0;
+    All.PM_Ti_endstep = All.PM_Ti_begstep = All.PM_Ti_kick = 0;
 
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)	/* initialize sph_properties */

@@ -248,6 +248,11 @@ void advance_long_range_kick(int PM_Timestep)
     All.PM_Ti_begstep = All.PM_Ti_endstep;
     All.PM_Ti_endstep = All.PM_Ti_begstep + dti;
 
+    if(All.PM_Ti_kick != tstart) {
+        endrun(0, "PM kick time stamp mismatched\n");
+    }
+
+    All.PM_Ti_kick = tend;
 
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
@@ -255,22 +260,6 @@ void advance_long_range_kick(int PM_Timestep)
         int j;
         for(j = 0; j < 3; j++)	/* do the kick */
             P[i].Vel[j] += P[i].GravPM[j] * Fgravkick;
-
-        const double FgravkickB = -get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
-        if(P[i].Type == 0)
-        {
-            const int dti = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
-
-            const double FgravkickA = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
-                get_gravkick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dti / 2);
-            const double Fhydrokick = get_hydrokick_factor(P[i].Ti_begstep, All.Ti_Current) -
-                get_hydrokick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dti / 2);
-
-            for(j = 0; j < 3; j++)
-                SPHP(i).VelPred[j] = P[i].Vel[j]
-                    + P[i].GravAccel[j] * FgravkickA
-                    + SPHP(i).HydroAccel[j] * Fhydrokick + P[i].GravPM[j] * FgravkickB;
-        }
     }
 }
 
@@ -349,24 +338,34 @@ void do_the_kick(int i, int tistart, int tiend, int ticurrent)
 
     /* this updates the prediction of Vel. 
      * FIXME: What about prediction fo Entropy?*/
+    real_predict_particle(i, ticurrent);
+}
 
-    const double Fgravkick2 = get_gravkick_factor(ticurrent, tiend);
-    const double Fhydrokick2 = get_hydrokick_factor(ticurrent, tiend);
+void
+real_predict_particle(int i, int ti)
+{
+    if (ti != P[i].Ti_drift) {
+        endrun(1, "predict mismatched expected time stamp (not the current drift time stamp of the particle)\n");
+    }
+    const double Fgravkick2 = get_gravkick_factor(ti, P[i].Ti_kick);
+    const double Fhydrokick2 = get_hydrokick_factor(ti, P[i].Ti_kick);
 
-    const double FgravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
-            get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
+    const double FgravkickB = get_gravkick_factor(ti, All.PM_Ti_kick);
+
+    const double Fentr = (ti - P[i].Ti_kick) * All.Timebase_interval;
 
     if (P[i].Type == 0) {
+        int j;
         for(j = 0; j < 3; j++) {
-            SPHP(i).VelPred[j] =
-                P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j] - Fhydrokick2 * SPHP(i).HydroAccel[j];
+            SPHP(i).VelPred[j] = P[i].Vel[j]
+                - Fgravkick2 * P[i].GravAccel[j] - Fhydrokick2 * SPHP(i).HydroAccel[j];
 
-            SPHP(i).VelPred[j] += P[i].GravPM[j] * FgravkickB;
+            SPHP(i).VelPred[j] -= P[i].GravPM[j] * FgravkickB;
 
-    #ifdef DENSITY_INDEPENDENT_SPH
-            SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1/GAMMA);
+#ifdef DENSITY_INDEPENDENT_SPH
+            SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
     #endif
-            SPHP(i).Pressure = SPHP(i).Entropy * pow(SPHP(i).EOMDensity, GAMMA);
+            SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
         }
     }
 }

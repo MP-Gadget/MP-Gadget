@@ -23,4 +23,8 @@ static inline double get_dloga_for_bin(int timebin)
 {
     return (timebin ? (1 << timebin) : 0 ) * All.Timebase_interval;
 }
+
+void
+real_predict_particle(int i, int ti);
+
 #endif
