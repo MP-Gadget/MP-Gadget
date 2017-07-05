@@ -120,6 +120,8 @@ void init(int RestartSnapNum)
 
     All.Ti_Current = 0;
 
+    rebuild_activelist();
+
     setup_smoothinglengths(RestartSnapNum);
 }
 
