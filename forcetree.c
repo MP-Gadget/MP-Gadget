@@ -1023,6 +1023,11 @@ void force_update_hmax(void)
     DomainNumChanged = 0;
     DomainList = (int *) mymalloc("DomainList", NTopleaves * sizeof(int));
 
+    char * DomainNodeChanged = (char *) mymalloc("DomainNodeChanged", MaxNodes * sizeof(char));
+    for(i = All.MaxPart; i < All.MaxPart + MaxNodes; i ++) {
+        DomainNodeChanged[i - All.MaxPart] = 0;
+    }
+
     for(i = 0; i < NumActiveParticle; i++)
     {
         const int p_i = ActiveParticle[i];
@@ -1038,7 +1043,10 @@ void force_update_hmax(void)
 
                 if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node */
                 {
-                    DomainList[DomainNumChanged++] = no;
+                    if (! DomainNodeChanged[no - All.MaxPart]) {
+                        DomainNodeChanged[no - All.MaxPart] = 1;
+                        DomainList[DomainNumChanged++] = no;
+                    }
                     break;
                 }
             }
@@ -1116,6 +1124,7 @@ void force_update_hmax(void)
     myfree(domainHmax_loc);
     myfree(offset_list);
     myfree(counts);
+    myfree(DomainNodeChanged);
     myfree(DomainList);
 
     walltime_measure("/Tree/HmaxUpdate");
