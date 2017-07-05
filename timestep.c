@@ -35,7 +35,7 @@ void timestep_allocate_memory(int MaxPart)
 static void reverse_and_apply_gravity();
 static int get_timestep_ti(int p, int dti_max);
 static int get_timestep_bin(int dti);
-static void do_the_kick(int i, int tistart, int tiend, int ticurrent, double Fgravkick);
+static void do_the_kick(int i, int tistart, int tiend, int ticurrent);
 static void advance_long_range_kick(int PM_Timestep);
 
 int is_timebin_active(int i) {
@@ -115,9 +115,6 @@ void advance_and_find_timesteps(void)
     walltime_measure("/Misc");
 
     /* FgravkickB is (now - PM0) - (PMhalf - PM0) = now - PMhalf*/
-    const double FgravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
-            get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
-
     if(All.MakeGlassFile)
         reverse_and_apply_gravity();
 
@@ -207,7 +204,7 @@ void advance_and_find_timesteps(void)
         P[i].Ti_begstep += dti_old;
 
         /*This only changes particle i, so is thread-safe.*/
-        do_the_kick(i, tistart, tiend, P[i].Ti_begstep, FgravkickB);
+        do_the_kick(i, tistart, tiend, P[i].Ti_begstep);
     }
 
     /*Check whether any particles had a bad timestep*/
@@ -251,7 +248,6 @@ void advance_long_range_kick(int PM_Timestep)
     All.PM_Ti_begstep = All.PM_Ti_endstep;
     All.PM_Ti_endstep = All.PM_Ti_begstep + dti;
 
-    const double FgravkickB = -get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
 
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
@@ -260,6 +256,7 @@ void advance_long_range_kick(int PM_Timestep)
         for(j = 0; j < 3; j++)	/* do the kick */
             P[i].Vel[j] += P[i].GravPM[j] * Fgravkick;
 
+        const double FgravkickB = -get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
         if(P[i].Type == 0)
         {
             const int dti = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
@@ -277,14 +274,18 @@ void advance_long_range_kick(int PM_Timestep)
     }
 }
 
-void do_the_kick(int i, int tistart, int tiend, int ticurrent, double FgravkickB)
+void do_the_kick(int i, int tistart, int tiend, int ticurrent)
 {
     double dt_entr = (tiend - tistart) * All.Timebase_interval; /* XXX: the kick factor of entropy is dlog a? */
+
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
     const double Fhydrokick = get_hydrokick_factor(tistart, tiend);
-    const double Fgravkick2 = get_gravkick_factor(ticurrent, tiend);
-    const double Fhydrokick2 = get_hydrokick_factor(ticurrent, tiend);
+
     int j;
+
+    if(P[i].Ti_kick != tistart) {
+        endrun(1, "Ti kick mismatch\n");
+    }
 
     /* do the kick */
 
@@ -293,67 +294,80 @@ void do_the_kick(int i, int tistart, int tiend, int ticurrent, double FgravkickB
         P[i].Vel[j] += P[i].GravAccel[j] * Fgravkick;
     }
 
-    if(P[i].Type != 0)
-        return;
+    P[i].Ti_kick = tiend;
 
-    /* Add kick from hydro and SPH stuff */
-    for(j = 0; j < 3; j++)
-    {
-        P[i].Vel[j] += SPHP(i).HydroAccel[j] * Fhydrokick;
+    if(P[i].Type == 0) {
 
-    }
-
-    /* Code here imposes a hard limit (default to speed of light)
-     * on the gas velocity. Then a limit on the change in entropy
-     * FIXME: This should probably not be needed!*/
-    const double velfac = sqrt(All.cf.a3inv);
-    double vv=0;
-    for(j=0; j < 3; j++)
-        vv += P[i].Vel[j] * P[i].Vel[j];
-    vv = sqrt(vv);
-
-    if(vv > All.MaxGasVel * velfac) {
-        for(j=0;j < 3; j++)
-        {
-            P[i].Vel[j] *= All.MaxGasVel * velfac / vv;
+        /* Add kick from hydro and SPH stuff */
+        for(j = 0; j < 3; j++) {
+            P[i].Vel[j] += SPHP(i).HydroAccel[j] * Fhydrokick;
         }
-    }
 
-    /* In case of cooling, we prevent that the entropy (and
-       hence temperature) decreases by more than a factor 0.5.
-       FIXME: Why is this and the last thing here? Should not be needed. */
+        /* Code here imposes a hard limit (default to speed of light)
+         * on the gas velocity. Then a limit on the change in entropy
+         * FIXME: This should probably not be needed!*/
+        const double velfac = sqrt(All.cf.a3inv);
+        double vv=0;
+        for(j=0; j < 3; j++)
+            vv += P[i].Vel[j] * P[i].Vel[j];
+        vv = sqrt(vv);
 
-    if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
-        SPHP(i).Entropy *= 0.5;
-    else
-        SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
-
-    /* Implement an entropy floor*/
-    if(All.MinEgySpec)
-    {
-        const double minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
-        if(SPHP(i).Entropy < minentropy)
-        {
-            SPHP(i).Entropy = minentropy;
-            SPHP(i).DtEntropy = 0;
+        if(vv > All.MaxGasVel * velfac) {
+            for(j=0;j < 3; j++)
+            {
+                P[i].Vel[j] *= All.MaxGasVel * velfac / vv;
+            }
         }
+
+        /* In case of cooling, we prevent that the entropy (and
+           hence temperature) decreases by more than a factor 0.5.
+           FIXME: Why is this and the last thing here? Should not be needed. */
+
+        if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
+            SPHP(i).Entropy *= 0.5;
+        else
+            SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
+
+        /* Implement an entropy floor*/
+        if(All.MinEgySpec)
+        {
+            const double minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
+            if(SPHP(i).Entropy < minentropy)
+            {
+                SPHP(i).Entropy = minentropy;
+                SPHP(i).DtEntropy = 0;
+            }
+        }
+
+        /* In case the timestep increases in the new step, we
+           make sure that we do not 'overcool' by bounding the entropy rate of next step */
+        double dt_entr_next = get_dloga_for_bin(P[i].TimeBin) / 2;
+
+        if(SPHP(i).DtEntropy * dt_entr_next < - 0.5 * SPHP(i).Entropy)
+            SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr_next;
     }
-
-    /* In case the timestep increases in the new step, we
-       make sure that we do not 'overcool' by bounding the entropy rate of next step */
-    double dt_entr_next = get_dloga_for_bin(P[i].TimeBin) / 2;
-
-    if(SPHP(i).DtEntropy * dt_entr_next < - 0.5 * SPHP(i).Entropy)
-        SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr_next;
-
 
     /* this updates the prediction of Vel. 
      * FIXME: What about prediction fo Entropy?*/
-    for(j = 0; j < 3; j++) {
-        SPHP(i).VelPred[j] =
-            P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j] - Fhydrokick2 * SPHP(i).HydroAccel[j];
 
-        SPHP(i).VelPred[j] += P[i].GravPM[j] * FgravkickB;
+    const double Fgravkick2 = get_gravkick_factor(ticurrent, tiend);
+    const double Fhydrokick2 = get_hydrokick_factor(ticurrent, tiend);
+
+    const double FgravkickB = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
+            get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
+
+    if (P[i].Type == 0) {
+        for(j = 0; j < 3; j++) {
+            SPHP(i).VelPred[j] =
+                P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j] - Fhydrokick2 * SPHP(i).HydroAccel[j];
+
+            SPHP(i).VelPred[j] += P[i].GravPM[j] * FgravkickB;
+
+    #ifdef DENSITY_INDEPENDENT_SPH
+            SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1/GAMMA);
+    #endif
+            SPHP(i).Pressure = SPHP(i).Entropy * pow(SPHP(i).EOMDensity, GAMMA);
+        }
     }
 }
 
