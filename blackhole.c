@@ -84,7 +84,7 @@ static void
 blackhole_accretion_postprocess(int n, TreeWalk * tw);
 /* feedback routines. currently also performs the drifting(move it to gravtree / force tree?) */
 static int
-blackhole_accretion_isactive(int n, TreeWalk * tw);
+blackhole_accretion_isinteracting(int n, TreeWalk * tw);
 
 static void
 blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
@@ -103,7 +103,7 @@ static void
 blackhole_feedback_postprocess(int n, TreeWalk * tw);
 
 static int
-blackhole_feedback_isactive(int n, TreeWalk * tw);
+blackhole_feedback_isinteracting(int n, TreeWalk * tw);
 
 static void
 blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
@@ -152,7 +152,7 @@ void blackhole(void)
     tw_accretion->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_accretion->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHAccretion);
     tw_accretion->ngbiter = (TreeWalkNgbIterFunction) blackhole_accretion_ngbiter;
-    tw_accretion->isactive = blackhole_accretion_isactive;
+    tw_accretion->isinteracting = blackhole_accretion_isinteracting;
     tw_accretion->postprocess = (TreeWalkProcessFunction) blackhole_accretion_postprocess;
     tw_accretion->fill = (TreeWalkFillQueryFunction) blackhole_accretion_copy;
     tw_accretion->reduce = (TreeWalkReduceResultFunction) blackhole_accretion_reduce;
@@ -165,7 +165,7 @@ void blackhole(void)
     tw_feedback->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_feedback->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHFeedback);
     tw_feedback->ngbiter = (TreeWalkNgbIterFunction) blackhole_feedback_ngbiter;
-    tw_feedback->isactive = blackhole_feedback_isactive;
+    tw_feedback->isinteracting = blackhole_feedback_isinteracting;
     tw_feedback->fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
     tw_feedback->postprocess = (TreeWalkProcessFunction) blackhole_feedback_postprocess;
     tw_feedback->reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
@@ -616,7 +616,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 }
 
 static int
-blackhole_accretion_isactive(int n, TreeWalk * tw)
+blackhole_accretion_isinteracting(int n, TreeWalk * tw)
 {
     return (P[n].Type == 5) && (P[n].Mass > 0);
 }
@@ -671,7 +671,7 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
 }
 
 static int
-blackhole_feedback_isactive(int n, TreeWalk * tw)
+blackhole_feedback_isinteracting(int n, TreeWalk * tw)
 {
     return (P[n].Type == 5) && (!P[n].Swallowed);
 }

@@ -235,7 +235,7 @@ static void real_ev(TreeWalk * tw) {
         if(P[i].Evaluated) {
             BREAKPOINT;
         }
-        if(!tw->isactive(i, tw)) {
+        if(!tw->isinteracting(i, tw)) {
             BREAKPOINT;
         }
         int rt;
@@ -273,7 +273,7 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
         int i;
         #pragma omp parallel for
         for(i = 0; i < NumPart; i++) {
-            if(!tw->isactive(i, tw))
+            if(!tw->isinteracting(i, tw))
                 continue;
             const int lock = atomic_fetch_and_add(&k, 1);
             queue[lock] = i;
@@ -284,7 +284,7 @@ int * treewalk_get_queue(TreeWalk * tw, int * len) {
         for(i=0; i < NumActiveParticle; i++)
         {
             const int p_i = ActiveParticle[i];
-            if(!tw->isactive(p_i, tw))
+            if(!tw->isinteracting(p_i, tw))
                continue;
             const int lock = atomic_fetch_and_add(&k, 1);
             queue[lock] = p_i;

@@ -108,10 +108,10 @@ static int
 make_particle_wind(MyIDType ID, int i, double v, double vmean[3]);
 
 static int
-sfr_wind_weight_isactive(int target, TreeWalk * tw);
+sfr_wind_weight_isinteracting(int target, TreeWalk * tw);
 
 static int
-sfr_wind_feedback_isactive(int target, TreeWalk * tw);
+sfr_wind_feedback_isinteracting(int target, TreeWalk * tw);
 
 static void
 sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
@@ -138,7 +138,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
  */
 
 static int
-sfr_cooling_isactive(int target, TreeWalk * tw)
+sfr_cooling_isinteracting(int target, TreeWalk * tw)
 {
     return P[target].Type == 0;
 }
@@ -208,7 +208,7 @@ void cooling_and_starformation(void)
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
     tw->ev_label = "SFR_COOL";
-    tw->isactive = sfr_cooling_isactive;
+    tw->isinteracting = sfr_cooling_isinteracting;
 
     int queuesize = 0;
     int * queue = treewalk_get_queue(tw, &queuesize);
@@ -321,7 +321,7 @@ void cooling_and_starformation(void)
         tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
 
         /* First obtain the wind queue, and set DensityIterationDone for weighting */
-        tw->isactive = (TreeWalkIsActiveFunction) sfr_wind_feedback_isactive;
+        tw->isinteracting = (TreeWalkIsInteractingFunction) sfr_wind_feedback_isinteracting;
 
         int Nqueue;
         int * queue = treewalk_get_queue(tw, &Nqueue);
@@ -334,7 +334,7 @@ void cooling_and_starformation(void)
         }
         myfree(queue);
 
-        tw->isactive = sfr_wind_weight_isactive;
+        tw->isinteracting = sfr_wind_weight_isinteracting;
 
         int done = 0;
         while(!done) {
@@ -348,7 +348,7 @@ void cooling_and_starformation(void)
         }
 
         /* Then run feedback */
-        tw->isactive = (TreeWalkIsActiveFunction) sfr_wind_feedback_isactive;
+        tw->isinteracting = (TreeWalkIsInteractingFunction) sfr_wind_feedback_isinteracting;
         tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
         tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_postprocess;
         tw->reduce = NULL;
@@ -373,7 +373,7 @@ void cooling_only(void)
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
     tw.ev_label = "SFR_COOL";
-    tw.isactive = sfr_cooling_isactive;
+    tw.isinteracting = sfr_cooling_isinteracting;
 
     int queuesize = 0;
     int * queue = treewalk_get_queue(&tw, &queuesize);
@@ -495,7 +495,7 @@ static int get_sfr_condition(int i) {
 
 #ifdef WINDS
 static int
-sfr_wind_weight_isactive(int target, TreeWalk * tw)
+sfr_wind_weight_isinteracting(int target, TreeWalk * tw)
 {
     if(P[target].Type == 4) {
         if(P[target].IsNewParticle && !P[target].DensityIterationDone) {
@@ -506,7 +506,7 @@ sfr_wind_weight_isactive(int target, TreeWalk * tw)
 }
 
 static int
-sfr_wind_feedback_isactive(int target, TreeWalk * tw)
+sfr_wind_feedback_isinteracting(int target, TreeWalk * tw)
 {
     if(P[target].Type == 4) {
         if(P[target].IsNewParticle) {
