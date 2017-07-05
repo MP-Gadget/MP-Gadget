@@ -62,10 +62,12 @@ void run(void)
 
         every_timestep_stuff(NumForces);	/* write some info to log-files */
 
+        /* force */
         compute_accelerations();	/* compute accelerations for
                                      * the particles that are to be advanced
                                      */
 
+        /* kick */
         advance_and_find_timesteps();	/* 'kick' active particles in
                                          * momentum space and compute new
                                          * timesteps for them
