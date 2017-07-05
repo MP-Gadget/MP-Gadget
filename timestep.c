@@ -42,6 +42,17 @@ int is_timebin_active(int i) {
     return TimeBinActive[i];
 }
 
+void set_timebin_active(binmask_t binmask) {
+    int bin;
+    for(bin = 0; bin < TIMEBINS; bin ++) {
+        if(BINMASK(bin) & binmask) {
+            TimeBinActive[bin] = 1;
+        } else {
+            TimeBinActive[bin] = 0;
+        }
+    }
+}
+
 /*! This function sets the (comoving) softening length of all particle
  *  types in the table All.SofteningTable[...].  We check that the physical
  *  softening length is bounded by the Softening-MaxPhys values.
