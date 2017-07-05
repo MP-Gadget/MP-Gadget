@@ -149,9 +149,13 @@ void blackhole(void)
     int i;
     int Ntot_gas_swallowed, Ntot_BH_swallowed;
 
+    /* Blackhole Feedbacks are not conserving momentum, thus there is no need to
+     * use a split tree walk. We simply deposit the feedback to the neighbours when
+     * ever the BH is active. */
+
     walltime_measure("/Misc");
     TreeWalk tw_accretion[1] = {0};
-
+    tw_accretion->type = TREEWALK_ACTIVE;
     tw_accretion->ev_label = "BH_ACCRETION";
     tw_accretion->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_accretion->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHAccretion);
@@ -165,6 +169,7 @@ void blackhole(void)
     tw_accretion->result_type_elsize = sizeof(TreeWalkResultBHAccretion);
 
     TreeWalk tw_feedback[1] = {0};
+    tw_feedback->type = TREEWALK_ACTIVE;
     tw_feedback->ev_label = "BH_FEEDBACK";
     tw_feedback->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_feedback->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHFeedback);

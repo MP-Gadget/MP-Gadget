@@ -376,7 +376,6 @@ void compute_accelerations(void)
                              * criterion for consistent accuracy.
                              */
 
-
     if(NTotal[0] > 0)
     {
         /***** density *****/
@@ -390,7 +389,7 @@ void compute_accelerations(void)
         /***** hydro forces *****/
         message(0, "Start hydro-force computation...\n");
 
-        hydro_force();		/* adds hydrodynamical accelerations  and computes du/dt  */
+        hydro_force(BINMASK_ALL);		/* adds hydrodynamical accelerations  and computes du/dt  */
 
 #ifdef BLACK_HOLES
         /***** black hole accretion and feedback *****/

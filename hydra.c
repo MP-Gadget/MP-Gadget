@@ -81,11 +81,15 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
  *  force and rate of change of entropy due to shock heating for all active
  *  particles .
  */
-void hydro_force(void)
+void hydro_force(binmask_t bgmask)
 {
     if(!All.HydroOn)
         return;
     TreeWalk tw[1] = {0};
+
+    /* FIXME: disabled before new stepping is in. */
+    //tw->type = TREEWALK_SPLIT;
+    //tw->bgmask = bgmask;
 
     tw->ev_label = "HYDRO";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;

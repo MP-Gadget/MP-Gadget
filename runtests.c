@@ -16,7 +16,6 @@
 #include "domain.h"
 
 void grav_short_tree_old(void);
-void grav_short_pair(void);
 
 char * GDB_format_particle(int i);
 
@@ -37,7 +36,7 @@ void runtests()
     gravpm_force();
     domain_decompose_full();	/* do domain decomposition */
 
-    grav_short_pair();
+    grav_short_pair(BINMASK_ALL);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
     petaio_save_snapshot("%s/PART-pairs-%03d-mpi", All.OutputDir, NTask);
 

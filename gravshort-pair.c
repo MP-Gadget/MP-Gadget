@@ -21,11 +21,14 @@ grav_short_pair_ngbiter(
         TreeWalkNgbIterGravShort * iter,
         LocalTreeWalk * lv);
 
-void grav_short_pair(void)
+void grav_short_pair(binmask_t bgmask)
 {
     TreeWalk tw[1] = {0};
 
     message(0, "Starting pair-wise short range gravity...\n");
+    /* FIXME: disabled before new stepping is in. */
+    //tw->type = TREEWALK_SPLIT;
+    //tw->bgmask = bgmask;
 
     tw->ev_label = "GRAV_SHORT";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;

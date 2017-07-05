@@ -8,7 +8,10 @@ void density(void);
 void energy_statistics(void);
 
 void grav_short_tree(void);
-void hydro_force(void);
+
+void hydro_force(binmask_t bgmask);
+void grav_short_pair(binmask_t bgmask);
+
 void init(int RestartSnapNum);
 void run(void);
 void runtests(void);

@@ -312,6 +312,8 @@ void cooling_and_starformation(void)
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
         TreeWalk tw[1] = {0};
 
+        tw->type = TREEWALK_ACTIVE;
+
         tw->ev_label = "SFR_WIND";
         tw->fill = (TreeWalkFillQueryFunction) sfr_wind_copy;
         tw->reduce = (TreeWalkReduceResultFunction) sfr_wind_reduce_weight;
@@ -378,6 +380,7 @@ void cooling_only(void)
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
 
+    tw->type = TREEWALK_ACTIVE;
     tw->visit = NULL; /* no tree walk */
     tw->ev_label = "SFR_COOL";
     tw->haswork = sfr_cooling_haswork;
