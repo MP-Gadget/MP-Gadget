@@ -74,10 +74,11 @@ static int domain_decompose(void);
 static int domain_determineTopTree(struct local_topnode_data * topNodes);
 static void domain_free(void);
 static void domain_sumCost(float *domainWork, int *domainCount);
+static void peano_hilbert_order(void);
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
-static int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp, struct local_topnode_data * topNodes);
+static int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes);
 
 static void do_box_wrapping(const double boxsize);
 
@@ -656,7 +657,7 @@ void domain_walktoptree(int no)
  * If 1 is returned on any processor we will return to domain_Decomposition,
  * allocate 30% more topNodes, and try again.
  * */
-int domain_check_for_local_refine(const int i, const struct peano_hilbert_data * mp, struct local_topnode_data * topNodes)
+int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes)
 {
     int j, p;
 
@@ -709,7 +710,7 @@ int domain_check_for_local_refine(const int i, const struct peano_hilbert_data *
          * Once this particle has passed the StartKey of the next daughter node,
          * we increment the node the particle is added to and set the PIndex.*/
         if(j < 7)
-            while(topNodes[sub + j + 1].StartKey <= mp[p + topNodes[i].PIndex].key)
+            while(topNodes[sub + j + 1].StartKey <= P[p + topNodes[i].PIndex].Key)
             {
                 topNodes[sub + j + 1].PIndex = p;
                 j++;
@@ -718,7 +719,7 @@ int domain_check_for_local_refine(const int i, const struct peano_hilbert_data *
             }
 
         /*Now we have identified the subnode for this particle, add it to the cost and count*/
-        topNodes[sub+j].Cost += domain_particle_costfactor(mp[p + topNodes[i].PIndex].index);
+        topNodes[sub+j].Cost += domain_particle_costfactor(p + topNodes[i].PIndex);
         topNodes[sub+j].Count++;
     }
 
@@ -728,7 +729,7 @@ int domain_check_for_local_refine(const int i, const struct peano_hilbert_data *
         const int sub = topNodes[i].Daughter + j;
         /* Refine each sub node. If we could not refine the node as needed,
          * we are out of node space and need more.*/
-        if(domain_check_for_local_refine(sub, mp, topNodes))
+        if(domain_check_for_local_refine(sub, topNodes))
             return 1;
     }
     return 0;
@@ -837,20 +838,6 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     int errflag, errsum;
     double costlimit, countlimit;
 
-    struct peano_hilbert_data * mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
-
-    #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
-    {
-        mp[i].key = P[i].Key;
-        mp[i].index = i;
-    }
-
-    walltime_measure("/Domain/DetermineTopTree/Misc");
-    qsort_openmp(mp, NumPart, sizeof(struct peano_hilbert_data), peano_compare_key);
-    
-    walltime_measure("/Domain/DetermineTopTree/Sort");
-
     double totgravcost, gravcost = 0;
 #pragma omp parallel for reduction(+: gravcost)
     for(i = 0; i < NumPart; i++)
@@ -877,10 +864,13 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     countlimit = TotNumPart / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
-    errflag = domain_check_for_local_refine(0, mp, topNodes);
-    walltime_measure("/Domain/DetermineTopTree/LocalRefine");
+    walltime_measure("/Domain/DetermineTopTree/Misc");
+    peano_hilbert_order();
 
-    myfree(mp);
+    walltime_measure("/Domain/DetermineTopTree/Sort");
+
+    errflag = domain_check_for_local_refine(0, topNodes);
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     if(errsum)
@@ -1194,3 +1184,20 @@ void do_box_wrapping(const double boxsize)
         }
     }
 }
+
+int peano_compare_key(const void *a, const void *b)
+{
+    if(((struct particle_data *) a)->Key < (((struct particle_data *) b)->Key))
+        return -1;
+
+    if(((struct particle_data *) a)->Key > (((struct particle_data *) b)->Key))
+        return +1;
+
+    return 0;
+}
+
+void peano_hilbert_order(void)
+{
+    qsort_openmp(P, NumPart, sizeof(struct particle_data), peano_compare_key);
+}
+

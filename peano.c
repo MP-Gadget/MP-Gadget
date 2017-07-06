@@ -4,82 +4,8 @@
 #include <string.h>
 #include <math.h>
 
-#include "allvars.h"
-#include "mymalloc.h"
-
 #include <gsl/gsl_heapsort.h>
-#include "openmpsort.h"
-#include "endrun.h"
-
-static void reorder_particles(int * Id, const int start, const int end);
-
-void peano_hilbert_order(void)
-{
-    int i;
-
-    message(0, "begin Peano-Hilbert order...\n");
-
-    int * Id = (int *) mymalloc("Id", sizeof(int) * NumPart);
-    struct peano_hilbert_data * mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
-
-    //      #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
-    {
-        mp[i].index = i;
-        mp[i].key = P[i].Key;
-    }
-    /* sort SPH and reset seperately because PIndex of SPH doesn't work yet */
-    qsort(mp, NumPart, sizeof(struct peano_hilbert_data), peano_compare_key);
-
-    //      #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
-        Id[mp[i].index] = i;
-
-    reorder_particles(Id, 0, NumPart);
-
-    myfree(mp);
-    myfree(Id);
-
-    message(0, "Peano-Hilbert done.\n");
-}
-
-
-int peano_compare_key(const void *a, const void *b)
-{
-    if(((struct peano_hilbert_data *) a)->key < (((struct peano_hilbert_data *) b)->key))
-        return -1;
-
-    if(((struct peano_hilbert_data *) a)->key > (((struct peano_hilbert_data *) b)->key))
-        return +1;
-
-    return 0;
-}
-
-void reorder_particles(int * Id, const int start, const int end)
-{
-    int i;
-    for(i = start; i < end; i++)
-    {
-        while(Id[i] != i)
-        {
-            /* Store the data at the place where we will move i
-             * into a temp*/
-            int oldId = Id[Id[i]];
-            struct particle_data oldP = P[Id[i]];
-            /* Now copy i into its new location, 
-             * making sure to update the index*/
-            P[Id[i]] = P[i];
-            Id[Id[i]] = Id[i];
-            /*Now copy the temp back into location i.*/
-            P[i] = oldP;
-            Id[i] = oldId;
-        }
-    }
-}
-
-
-
-
+#include "peano.h"
 
 /*  The following rewrite of the original function
  *  peano_hilbert_key_old() has been written by MARTIN REINECKE. 
