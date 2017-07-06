@@ -152,9 +152,9 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
 static int pm_mark_region_for_node(int startno, int rid) {
     int numpart = 0;
     int p;
+    int no = startno;
     int endno = Nodes[startno].u.d.sibling;
-    int no = Nodes[startno].u.d.nextnode;
-    while(no >= 0)
+    while(no >= 0 && no != endno)
     {
         if(no < All.MaxPart)	/* single particle */
         {
@@ -200,11 +200,6 @@ static int pm_mark_region_for_node(int startno, int rid) {
                 continue;
             }
 
-            if(no == endno)
-                /* we arrived to the sibling which means that we are done with the node */
-            {
-                break;
-            }
             force_drift_node(no, All.Ti_Current);
 
             no = Nodes[no].u.d.nextnode;	/* ok, we need to open the node */
