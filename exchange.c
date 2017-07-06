@@ -108,6 +108,13 @@ int domain_exchange(int (*layoutfunc)(int p), enum ExchangeType exchange_type) {
 static int
 domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh, enum ExchangeType exchange_type)
 {
+
+    /* FIXME: change the last argument to a ForceTreeUpdateTransaction pointer. 
+     * if the exchange is transactional we will leave the tree in a inconsistent state but the
+     * transaction will remember sufficient to recover all invariants of the tree;
+     * which then can be done when the transaction is closed.
+     * */
+
     if (exchange_type == EXCHANGE_INCREMENTAL) {
         if(!force_tree_allocated()) {
             endrun(0, "Force tree must be allocated to run an incremental domain exchange\n");
@@ -184,6 +191,20 @@ domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * t
     for(i = 0; i < NTask; i++)
         count[i] = count_sph[i] = count_bh[i] = 0;
 
+    /* Prepare the communication buffer. 
+     *
+     * P[i].PI points to the extended attributes of the particle.
+     * When packing the particle to the buffer, we first pack the
+     * extended attributes, then pack the particle.
+     *
+     * (*1) For a packed particle, we modify PI to the offset of the
+     * extended attribute in the receive buffer relative to all
+     * particleds received to this rank. 
+     *
+     * (*2) After particles are received (appended) to the local storage
+     * we then reattach PI to the correct offset on the local storage.
+     * */
+
     /*FIXME: make this omp ! */
     for(i = 0; i < NumPart; i++)
     {
@@ -196,14 +217,14 @@ domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * t
         if(P[i].Type == 0)
         {
             sphBuf[offset_sph[target] + count_sph[target]] = SPHP(i);
-            /* Set PI to the comm buffer of this rank rather than the slot*/
+            /* See (*1) */
             P[i].PI = count_sph[target];
             count_sph[target]++;
         } else
         if(P[i].Type == 5)
         {
             bhBuf[offset_bh[target] + count_bh[target]] = BHP(i);
-            /* Set PI to the comm buffer of this rank rather than the slot*/
+            /* See (*1) */
             P[i].PI = count_bh[target];
             count_bh[target]++;
         }
@@ -212,18 +233,26 @@ domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * t
         count[target]++;
 
         if (exchange_type == EXCHANGE_INCREMENTAL) {
-            /* mark the particle for removal in GC; TODO : remove it from the tree */
-            P[i].Mass = 0;
+            /* mark the particle for removal in GC. This creates an empty slot
+             * in the main local storage (and its extended storage),
+             * both of which will be GCed eventually.
+             * */
+
+            /* Watch out: mark for removal after remove_node,
+             * in case we update the moments there. (we currently don't) */
             force_remove_node(i);
-            TimeBinCountType[P[i].Type][P[i].TimeBin] --;
-            TimeBinCount[P[i].TimeBin] --;
+            P[i].Mass = 0;
+
         } else {
-            /* remove this particle from local storage */
+            /* directly remove the particle from the local storage; this creates
+             * an empty slot in the extended attribute storage,
+             * which will be GCed eventually */
             P[i] = P[NumPart - 1];
             NumPart --;
             i--;
         }
     }
+
     walltime_measure("/Domain/exchange/makebuf");
 
     for(i = 0; i < NTask; i ++) {
@@ -282,6 +311,9 @@ domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * t
                 MPI_COMM_WORLD);
     walltime_measure("/Domain/exchange/alltoall");
 
+    /* The two identical looking code here are unpacking and setting PI.
+     * See (*2) */
+
     if(count_get_bh > 0) {
         for(target = 0; target < NTask; target++) {
             int i, j;
@@ -307,12 +339,13 @@ domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * t
                 j++;
             }
             if(j != count_recv_sph[target] + offset_recv_sph[target]) {
-                endrun(1, "communication bh inconsistency\n");
+                endrun(1, "communication sfr inconsistency\n");
             }
         }
     }
 
     if(exchange_type == EXCHANGE_INCREMENTAL) {
+        /* Insert newly received particles to the tree */
         for(i = NumPart - count_get; i < NumPart; i++) {
             force_insert_particle(i);
         }

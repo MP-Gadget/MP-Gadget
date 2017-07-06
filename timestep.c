@@ -712,6 +712,16 @@ void rebuild_activelist(void)
 void
 extend_activelist(int start, int end)
 {
+    /* Watch out:
+     * Garbage particles (Mass = 0) is still considered in the active list
+     * and added to TimeBinCount.
+     *
+     * We follow this convention to avoid manipulating TimeBinCount when
+     * marking garbage particles.
+     *
+     * After introducing a timebin_manager interface we can start to trackle
+     * this. */
+
     int i;
     for(i = start; i < end ; i++)
     {
