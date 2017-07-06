@@ -185,7 +185,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
 
         if(P[n].Type == 0)
         {
-            sphBuf[offset_sph[target] + count_sph[target]] = SphP[P[n].PI];
+            sphBuf[offset_sph[target] + count_sph[target]] = SPHP(n);
             /* Set PI to the comm buffer of this rank rather than the slot*/
             P[n].PI = count_sph[target];
             count_sph[target]++;

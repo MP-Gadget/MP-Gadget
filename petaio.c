@@ -171,7 +171,7 @@ void petaio_read_internal(char * fname, int ic) {
             BhP[P[i].PI].base.ID = P[i].ID;
         }
         if(P[i].Type == 0) {
-            SphP[P[i].PI].base.ID = P[i].ID;
+            SPHP(i).base.ID = P[i].ID;
         }
     }
 }
