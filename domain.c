@@ -118,7 +118,7 @@ void domain_Decomposition(void)
         int ret;
 #ifdef DEBUG
         message(0, "Testing ID Uniqueness before domain decompose\n");
-        test_id_uniqueness();
+        domain_test_id_uniqueness();
 #endif
         domain_allocate();
         ret = domain_decompose();
