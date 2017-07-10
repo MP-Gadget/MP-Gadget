@@ -152,7 +152,8 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
 
     /*Check whether the domain exchange will succeed. If not, bail*/
     if(NumPart + count_get - count_togo> All.MaxPart){
-        message(1,"Too many particles for exchange: NumPart=%d All.MaxPart=%d\n", NumPart + count_get, All.MaxPart);
+        message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n", NumPart, count_get, count_togo, All.MaxPart);
+        abort();
         bad_exh += 1;
     }
     if(N_sph_slots + count_get_sph - count_togo_sph > All.MaxPart) {
@@ -235,6 +236,20 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
     for(i = 1; i < NTask; i++)
         offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
 
+    NumPart += count_get;
+    N_sph_slots += count_get_sph;
+    N_bh_slots += count_get_bh;
+
+    if(NumPart > All.MaxPart) {
+        endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
+    }
+
+    if(N_sph_slots > All.MaxPart)
+        endrun(787878, "Task=%d N_sph=%d All.MaxPart=%d\n", ThisTask, N_sph_slots, All.MaxPart);
+
+    if(N_bh_slots > All.MaxPartBh)
+        endrun(787878, "Task=%d N_bh=%d All.MaxPartBh=%d\n", ThisTask, N_bh_slots, All.MaxPartBh);
+
     MPI_Alltoallv_sparse(partBuf, count, offset, MPI_TYPE_PARTICLE,
                  P, count_recv, offset_recv, MPI_TYPE_PARTICLE,
                  MPI_COMM_WORLD);
@@ -279,20 +294,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
             }
         }
     }
-
-    NumPart += count_get;
-    N_sph_slots += count_get_sph;
-    N_bh_slots += count_get_bh;
-
-    if(NumPart > All.MaxPart)
-    {
-        endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
-    }
-
-    if(N_sph_slots > All.MaxPart)
-        endrun(787878, "Task=%d N_sph=%d All.MaxPart=%d\n", ThisTask, N_sph_slots, All.MaxPart);
-    if(N_bh_slots > All.MaxPartBh)
-        endrun(787878, "Task=%d N_bh=%d All.MaxPartBh=%d\n", ThisTask, N_bh_slots, All.MaxPartBh);
 
     myfree(bhBuf);
     myfree(sphBuf);
