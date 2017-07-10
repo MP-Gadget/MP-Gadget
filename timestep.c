@@ -706,7 +706,14 @@ void rebuild_activelist(void)
 
     NumActiveParticle = 0;
 
-    for(i = 0; i < NumPart; i++)
+    extend_activelist(0, NumPart);
+}
+
+void
+extend_activelist(int start, int end)
+{
+    int i;
+    for(i = start; i < end ; i++)
     {
         int bin = P[i].TimeBin;
 
@@ -719,7 +726,6 @@ void rebuild_activelist(void)
         TimeBinCountType[P[i].Type][bin]++;
     }
 }
-
 
 /* mark the bins that will be active before the next kick*/
 int update_active_timebins(int next_kick)

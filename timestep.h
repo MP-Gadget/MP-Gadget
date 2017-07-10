@@ -13,6 +13,7 @@ extern int TimeBinCountType[6][TIMEBINS];
 void timestep_allocate_memory(int MaxPart);
 int update_active_timebins(int next_kick);
 void rebuild_activelist(void);
+void extend_activelist(int start, int end);
 void set_global_time(double newtime);
 void advance_and_find_timesteps(void);
 int find_dti_displacement_constraint(void);
