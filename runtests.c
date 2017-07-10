@@ -14,6 +14,7 @@
 #include "endrun.h"
 #include "petaio.h"
 #include "domain.h"
+#include "garbage.h"
 
 void grav_short_tree_old(void);
 
@@ -35,6 +36,19 @@ void runtests()
     
     gravpm_force();
     domain_decompose_full();	/* do domain decomposition */
+
+    int i;
+    for(i = 0; i < 32; i ++) {
+        if (Father[i] != force_find_enclosing_node(i)) {
+            endrun(-1, "father and enclosing differ\n");
+        }
+    }
+    for(i = 0; i < 32; i ++) {
+        int p = domain_fork_particle(i);
+        if (Father[p] != force_find_enclosing_node(p)) {
+            endrun(-1, "father and enclosing differ\n");
+        }
+    }
 
     grav_short_pair(BINMASK_ALL);
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
