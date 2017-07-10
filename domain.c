@@ -7,7 +7,6 @@
 
 
 #include "allvars.h"
-#include "drift.h"
 #include "forcetree.h"
 #include "mymalloc.h"
 #include "mpsort.h"
@@ -97,9 +96,6 @@ void domain_decompose_full(void)
 
     walltime_measure("/Misc");
 
-    /*This drifts all the particles*/
-    move_particles(All.Ti_Current);
-
     if(force_tree_allocated()) force_tree_free();
 
     domain_garbage_collection();
@@ -157,7 +153,6 @@ void domain_decompose_full(void)
 
     DomainTask = (int *) (TopNodes + NTopnodes);
 
-    rebuild_activelist();
     walltime_measure("/Domain/Misc");
     force_tree_rebuild();
 }
@@ -166,9 +161,9 @@ void domain_decompose_full(void)
  * domain grid intact, but exchanges the particles and rebuilds the tree */
 void domain_maintain(void)
 {
-    walltime_measure("/Misc");
+    message(0, "Attempting a domain exchange\n");
 
-    move_particles(All.Ti_Current);
+    walltime_measure("/Misc");
 
     /* We rebuild the tree every timestep in order to
      * make sure it is consistent.
@@ -186,10 +181,6 @@ void domain_maintain(void)
         domain_decompose_full();
         return;
     }
-
-    /* Rebuild active particle list and timebin counts:
-     * peano order has changed.*/
-    rebuild_activelist();
 
     force_tree_rebuild();
 }

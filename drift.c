@@ -158,7 +158,19 @@ static void real_drift_particle(int i, int ti1)
     real_predict_particle(i, P[i].Ti_drift);
 }
 
-void move_particles(int ti1)
+void drift_active_particles(int ti1)
+{
+    int i;
+    walltime_measure("/Misc");
+
+#pragma omp parallel for
+    for(i = 0; i < NumActiveParticle; i++)
+        real_drift_particle(ActiveParticle[i], ti1);
+
+    walltime_measure("/Drift/Active");
+}
+
+void drift_all_particles(int ti1)
 {
     int i;
     walltime_measure("/Misc");
@@ -167,5 +179,5 @@ void move_particles(int ti1)
     for(i = 0; i < NumPart; i++)
         real_drift_particle(i, ti1);
 
-    walltime_measure("/Drift");
+    walltime_measure("/Drift/All");
 }

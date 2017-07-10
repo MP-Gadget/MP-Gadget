@@ -14,6 +14,7 @@
 #include "endrun.h"
 #include "timestep.h"
 #include "system.h"
+#include "drift.h"
 #include "forcetree.h"
 #include "blackhole.h"
 #include "sfr_eff.h"
@@ -60,7 +61,26 @@ void run(void)
          */
         All.Ti_Current = find_next_sync_point(All.Ti_nextoutput);
 
+        /* Sync positions of all particles */
+        drift_all_particles(All.Ti_Current);
+
+        /* drift and domain decomposition */
+
+        /* at first step this is a noop */
+        if(All.PM_Ti_endstep == All.Ti_Current) {
+            /* full decomposition rebuilds the tree */
+            domain_decompose_full();
+        } else {
+            /* FIXME: add a parameter for domain_decompose_incremental */
+            /* currently we drift all particles every step */
+            /* If it is not a PM step, do a shorter version
+             * of the domain decomp which just moves and exchanges drifted (active) particles.*/
+            domain_maintain();
+        }
+
         int NumForces = update_active_timebins(All.Ti_Current);
+
+        rebuild_activelist();
 
         every_timestep_stuff(NumForces);	/* write some info to log-files */
 
@@ -338,22 +358,14 @@ void compute_accelerations(void)
 
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
-        /* Before computing forces, do a full domain decomposition
-         * and rebuild the tree, so we have synced all particles
-         * to current positions, and the tree nodes have the same positions.
-         * Future drifts are now null-ops.*/
-        domain_decompose_full();
         gravpm_force();
+
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
             energy_statistics();
+
         /*Update the displacement timestep*/
         All.MaxTiStepDisplacement = find_dti_displacement_constraint();
-    }
-    else {
-        /* If it is not a PM step, do a shorter version
-         * of the domain decomp which just moves and exchanges particles.*/
-        domain_maintain();
     }
 
     grav_short_tree();		/* computes gravity accel. */

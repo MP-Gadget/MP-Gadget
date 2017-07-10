@@ -5,6 +5,7 @@ void drift_particle(int i, int ti1);
 void lock_particle(int i);
 void unlock_particle(int i);
 
-void move_particles(int ti1);
+void drift_active_particles(int ti1);
+void drift_all_particles(int ti1);
 
 #endif
