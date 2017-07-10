@@ -24,6 +24,8 @@ void grav_short_pair(void)
 {
     TreeWalk tw[1] = {0};
 
+    message(0, "Starting pair-wise short range gravity...\n");
+
     tw->ev_label = "GRAV_SHORT";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterGravShort);

@@ -723,7 +723,7 @@ void rebuild_activelist(void)
 
 
 /* mark the bins that will be active before the next kick*/
-int find_active_timebins(int next_kick)
+int update_active_timebins(int next_kick)
 {
     int n;
     int NumForceUpdate = TimeBinCount[0];

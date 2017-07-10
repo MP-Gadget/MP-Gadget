@@ -61,7 +61,7 @@ void init(int RestartSnapNum)
 
     All.TreeAllocFactor = 0.7;
 
-    find_active_timebins(0);
+    update_active_timebins(0);
 
     All.PM_Ti_endstep = All.PM_Ti_begstep = All.PM_Ti_kick = 0;
 

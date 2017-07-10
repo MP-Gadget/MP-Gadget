@@ -11,7 +11,7 @@ extern int TimeBinCount[TIMEBINS];
 extern int TimeBinCountType[6][TIMEBINS];
 
 void timestep_allocate_memory(int MaxPart);
-int find_active_timebins(int next_kick);
+int update_active_timebins(int next_kick);
 void rebuild_activelist(void);
 void set_global_time(double newtime);
 void advance_and_find_timesteps(void);

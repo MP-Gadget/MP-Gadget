@@ -58,7 +58,9 @@ void run(void)
          * If needed, this function will also write an output file
          * at the desired time.
          */
-        int NumForces = find_next_sync_point(All.Ti_nextoutput);
+        All.Ti_Current = find_next_sync_point(All.Ti_nextoutput);
+
+        int NumForces = update_active_timebins(All.Ti_Current);
 
         every_timestep_stuff(NumForces);	/* write some info to log-files */
 
@@ -281,10 +283,9 @@ int find_next_sync_point(int ti_nextoutput)
 
     All.TimeStep = All.Time - timeold;
 
-    int NumForceUpdate = find_active_timebins(ti_next_kick_global);
     walltime_measure("/Misc");
 
-    return NumForceUpdate;
+    return All.Ti_Current;
 }
 
 /*! this function returns the next output time that is equal or larger to
