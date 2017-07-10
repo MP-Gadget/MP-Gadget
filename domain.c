@@ -80,8 +80,6 @@ static void domain_insertnode(struct local_topnode_data *treeA, struct local_top
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
 static int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes);
 
-static void do_box_wrapping(const double boxsize);
-
 static int domain_layoutfunc(int n);
 
 static int domain_allocated_flag = 0;
@@ -107,8 +105,6 @@ void domain_Decomposition(void)
     domain_garbage_collection();
 
     domain_free();
-
-    do_box_wrapping(All.BoxSize);	/* map the particles back onto the box */
 
     message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
@@ -182,8 +178,6 @@ void domain_Decomposition_short(void)
 
     /*In case something happened during the timestep*/
     domain_garbage_collection();
-
-    do_box_wrapping(All.BoxSize);	/* map the particles back onto the box */
 
     /* Make an array of peano keys so we don't have to
      * recompute them during layout and force tree build.*/
@@ -1160,29 +1154,6 @@ domain_test_id_uniqueness(void)
     t1 = second();
 
     message(0, "success.  took=%g sec\n", timediff(t0, t1));
-}
-
-/*! This function makes sure that all particle coordinates (Pos) are
- *  periodically mapped onto the interval [0, BoxSize].  After this function
- *  has been called, a new domain decomposition should be done, which will
- *  also force a new tree construction.
- */
-void do_box_wrapping(const double boxsize)
-{
-    int i;
-
-#pragma omp parallel for
-    for(i = 0; i < NumPart; i++) {
-        int k;
-        for(k = 0; k < 3; k++)
-        {
-            while(P[i].Pos[k] < 0)
-                P[i].Pos[k] += boxsize;
-
-            while(P[i].Pos[k] >= boxsize)
-                P[i].Pos[k] -= boxsize;
-        }
-    }
 }
 
 int peano_compare_key(const void *a, const void *b)

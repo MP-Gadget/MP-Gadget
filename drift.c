@@ -122,6 +122,11 @@ static void real_drift_particle(int i, int ti1)
     lightcone_cross(i, oldpos);
 #endif
 
+    for(j = 0; j < 3; j ++) {
+        while(P[i].Pos[j] > All.BoxSize) P[i].Pos[j] -= All.BoxSize;
+        while(P[i].Pos[j] <= 0) P[i].Pos[j] += All.BoxSize;
+    }
+
     if(P[i].Type == 0)
     {
         SPHP(i).Density *= exp(-SPHP(i).DivVel * ddrift);
