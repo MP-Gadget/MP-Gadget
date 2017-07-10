@@ -572,6 +572,10 @@ extern struct particle_data
     MyIDType SwallowID; /* who will swallow this particle, used only in blackhole.c */
 #endif
 
+    /* The peano key is a hash of the position used in the domain decomposition.
+     * It is slow to generate so we store it here.*/
+    peanokey Key; /* only by domain.c and forcetre.c */
+
     union {
         /* the following variables are transients.
          * FIXME: move them into the corresponding modules! Is it possible? */
@@ -580,9 +584,6 @@ extern struct particle_data
 
         int RegionInd; /* which region the particle belongs to; only by petapm.c */
 
-        /* The peano key is a hash of the position used in the domain decomposition.
-         * It is slow to generate so we store it here.*/
-        peanokey Key; /* only by domain.c and forcetre.c */
         struct {
             /* used by fof.c which calls domain_exchange that doesn't uses peanokey */
             int64_t GrNr; 

@@ -165,8 +165,6 @@ void domain_Decomposition(void)
  * domain grid intact, but exchanges the particles*/
 void domain_Decomposition_short(void)
 {
-    int i;
-
     walltime_measure("/Misc");
 
     move_particles(All.Ti_Current);
@@ -178,12 +176,6 @@ void domain_Decomposition_short(void)
 
     /*In case something happened during the timestep*/
     domain_garbage_collection();
-
-    /* Make an array of peano keys so we don't have to
-     * recompute them during layout and force tree build.*/
-    #pragma omp parallel for
-    for(i=0; i<NumPart; i++)
-        P[i].Key = KEY(P[i].Pos);
 
     walltime_measure("/Domain/Short/Misc");
     /* Try a domain exchange.
@@ -278,11 +270,6 @@ int domain_decompose(void)
     report_memory_usage("DOMAIN");
 
     walltime_measure("/Domain/Decompose/Misc");
-
-    /*Make an array of peano keys so we don't have to recompute them inside the domain*/
-    #pragma omp parallel for
-    for(i=0; i<NumPart; i++)
-        P[i].Key = KEY(P[i].Pos);
 
     if(domain_determineTopTree(topNodes)) {
         myfree(topNodes);

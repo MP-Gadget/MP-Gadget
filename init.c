@@ -76,6 +76,8 @@ void init(int RestartSnapNum)
             BHP(i).Mass = All.SeedBlackHoleMass;
         }
 #endif
+        P[i].Key = KEY(P[i].Pos);
+
         if(P[i].Type != 0) continue;
         for(j = 0; j < 3; j++)
         {

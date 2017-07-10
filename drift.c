@@ -99,6 +99,7 @@ static void real_drift_particle(int i, int ti1)
     for(j = 0; j < 3; j++) {
         P[i].Pos[j] += P[i].Vel[j] * ddrift;
     }
+
     if(P[i].Type == 5) {
         int k;
 
@@ -126,6 +127,8 @@ static void real_drift_particle(int i, int ti1)
         while(P[i].Pos[j] > All.BoxSize) P[i].Pos[j] -= All.BoxSize;
         while(P[i].Pos[j] <= 0) P[i].Pos[j] += All.BoxSize;
     }
+    /* avoid recomputing them during layout and force tree build.*/
+    P[i].Key = KEY(P[i].Pos);
 
     if(P[i].Type == 0)
     {
