@@ -201,6 +201,39 @@ void domain_maintain(void)
     force_tree_rebuild();
 }
 
+/* This is a cut-down version of the domain decomposition that leaves the
+ * domain grid intact, but exchanges the particles and updates the tree */
+void domain_decompose_incremental(void)
+{
+    int i;
+    message(0, "Attempting an incremental domain exchange\n");
+
+    walltime_measure("/Misc");
+
+    /* Try a domain exchange.
+     * If we have no memory for the particles,
+     * bail and do a full domain*/
+    if(domain_exchange(domain_layoutfunc, EXCHANGE_INCREMENTAL)) {
+        domain_decompose_full();
+        return;
+    }
+
+    /* this one uses the old TimeBinActive variable; we use the
+     * exchanged active list to update the tree. */
+    rebuild_activelist();
+
+    for(i = 0; i < NumActiveParticle; i ++) {
+        int n = ActiveParticle[i];
+        int father = force_find_enclosing_node(n);
+
+        if(father != Father[n]) {
+            /* redo attach the particle to the correct node. */
+            force_remove_node(n);
+            force_insert_particle(n);
+        }
+    }
+}
+
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
 void domain_allocate(void)
 {

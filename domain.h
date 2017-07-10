@@ -38,4 +38,6 @@ void domain_maintain(void);
 int
 domain_get_topleaf_with_shift(const peano_t key, int * shift);
 
+void domain_decompose_incremental(void);
+
 #endif
