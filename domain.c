@@ -187,9 +187,6 @@ void domain_maintain(void)
         return;
     }
 
-    peano_hilbert_order();
-    walltime_measure("/Domain/Short/Peano");
-
     /* Rebuild active particle list and timebin counts:
      * peano order has changed.*/
     rebuild_activelist();
