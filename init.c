@@ -23,6 +23,7 @@
  */
 
 static void check_omega(void);
+static void check_positions(void);
 
 static void
 setup_smoothinglengths(int RestartSnapNum);
@@ -47,6 +48,8 @@ void init(int RestartSnapNum)
     domain_test_id_uniqueness();
 
     check_omega();
+
+    check_positions();
 
     fof_init();
 
@@ -151,7 +154,19 @@ void check_omega(void)
     }
 }
 
-
+/*! This routine checks that the initial positions of the particles are within the box.
+ * If not, there is likely a bug in the IC generator and we abort.
+ */
+void check_positions(void)
+{
+    int i,j;
+    for(i=0; i< NumPart; i++){
+        for(j=0; j<3; j++) {
+            if(P[i].Pos[j] < 0 || P[i].Pos[j] > All.BoxSize)
+                endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,All.BoxSize, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+        }
+    }
+}
 
 /*! This function is used to find an initial smoothing length for each SPH
  *  particle. It guarantees that the number of neighbours will be between
