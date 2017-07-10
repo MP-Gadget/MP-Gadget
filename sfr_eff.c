@@ -140,7 +140,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 static int
 sfr_cooling_isinteracting(int target, TreeWalk * tw)
 {
-    return P[target].Type == 0;
+    return P[target].Type == 0 && P[target].Mass > 0;
 }
 
 
