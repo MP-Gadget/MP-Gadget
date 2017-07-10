@@ -70,7 +70,7 @@ static void domain_findSplit_load_balanced(int ncpu, int ndomain, int *domainCou
 static void domain_assign_balanced(float* domainWork, int* domainCount);
 static void domain_allocate(void);
 static int domain_check_memory_bound(const int print_details, float *domainWork, int *domainCount);
-static int domain_decompose(void);
+static int decompose(void);
 static int domain_determineTopTree(struct local_topnode_data * topNodes);
 static void domain_free(void);
 static void domain_sumCost(float *domainWork, int *domainCount);
@@ -90,7 +90,7 @@ static int domain_allocated_flag = 0;
  *  domain decomposition, and a final Peano-Hilbert order of all particles
  *  as a tuning measure.
  */
-void domain_Decomposition(void)
+void domain_decompose_full(void)
 {
     int retsum;
     double t0, t1;
@@ -118,7 +118,8 @@ void domain_Decomposition(void)
         domain_test_id_uniqueness();
 #endif
         domain_allocate();
-        ret = domain_decompose();
+
+        ret = decompose();
 
         MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
         if(retsum)
@@ -162,8 +163,8 @@ void domain_Decomposition(void)
 }
 
 /* This is a cut-down version of the domain decomposition that leaves the
- * domain grid intact, but exchanges the particles*/
-void domain_Decomposition_short(void)
+ * domain grid intact, but exchanges the particles and rebuilds the tree */
+void domain_maintain(void)
 {
     walltime_measure("/Misc");
 
@@ -174,15 +175,15 @@ void domain_Decomposition_short(void)
      * May as well free it here.*/
     if(force_tree_allocated()) force_tree_free();
 
-    /*In case something happened during the timestep*/
     domain_garbage_collection();
 
     walltime_measure("/Domain/Short/Misc");
+
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
     if(domain_exchange(domain_layoutfunc)) {
-        domain_Decomposition();
+        domain_decompose_full();
         return;
     }
 
@@ -192,6 +193,7 @@ void domain_Decomposition_short(void)
     /* Rebuild active particle list and timebin counts:
      * peano order has changed.*/
     rebuild_activelist();
+
     force_tree_rebuild();
 }
 
@@ -245,7 +247,8 @@ float domain_particle_costfactor(int i)
  *  respect the maximum allowed memory-imbalance given by the value of
  *  PartAllocFactor.
  */
-int domain_decompose(void)
+static int
+decompose(void)
 {
 
     int i, status;

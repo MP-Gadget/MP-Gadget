@@ -35,7 +35,7 @@ void runtests()
     }
     
     gravpm_force();
-    domain_Decomposition();	/* do domain decomposition */
+    domain_decompose_full();	/* do domain decomposition */
 
     grav_short_pair();
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));

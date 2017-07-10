@@ -201,7 +201,7 @@ void fof_fof(int num)
         /* I am not sure why we need a domain decomposition here.
          * But simple peano reorder will produce
          * a tree that misses a few particles and crash PM. */
-        domain_Decomposition_short();
+        domain_maintain();
     }
 
     message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",

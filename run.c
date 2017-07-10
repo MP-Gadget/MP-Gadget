@@ -342,7 +342,7 @@ void compute_accelerations(void)
          * and rebuild the tree, so we have synced all particles
          * to current positions, and the tree nodes have the same positions.
          * Future drifts are now null-ops.*/
-        domain_Decomposition();
+        domain_decompose_full();
         gravpm_force();
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
@@ -353,7 +353,7 @@ void compute_accelerations(void)
     else {
         /* If it is not a PM step, do a shorter version
          * of the domain decomp which just moves and exchanges particles.*/
-        domain_Decomposition_short();
+        domain_maintain();
     }
 
     grav_short_tree();		/* computes gravity accel. */

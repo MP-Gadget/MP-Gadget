@@ -121,7 +121,7 @@ void init(int RestartSnapNum)
     }
 
 
-    domain_Decomposition();	/* do initial domain decomposition (gives equal numbers of particles) */
+    domain_decompose_full();	/* do initial domain decomposition (gives equal numbers of particles) */
 
     All.Ti_Current = 0;
 
