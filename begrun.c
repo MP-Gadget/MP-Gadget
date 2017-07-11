@@ -105,7 +105,6 @@ void begrun(int BeginFlag, int RestartSnapNum)
 
         if(P[i].Type == 0)
         {
-            SPHP(i).VelPred[2] = 0;
             SPHP(i).a.HydroAccel[2] = 0;
         }
     }

@@ -697,7 +697,6 @@ static int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
         for(j = 0; j < 3; j++)
         {
             P[i].Vel[j] += v * dir[j];
-            SPHP(i).VelPred[j] += v * dir[j];
         }
         SPHP(i).DelayTime = All.WindFreeTravelLength / (v / All.cf.a);
     }

@@ -84,7 +84,6 @@ void init(int RestartSnapNum)
         if(P[i].Type != 0) continue;
         for(j = 0; j < 3; j++)
         {
-            SPHP(i).VelPred[j] = P[i].Vel[j];
             SPHP(i).HydroAccel[j] = 0;
         }
 
@@ -111,11 +110,9 @@ void init(int RestartSnapNum)
         SPHP(i).Injected_BH_Energy = 0;
 #endif
 #ifdef TWODIMS
-        SPHP(i).VelPred[2] = 0;
         SPHP(i).HydroAccel[2] = 0;
 #endif
 #ifdef ONEDIM
-        SPHP(i).VelPred[1] = SPHP(i).VelPred[2] = 0;
         SPHP(i).HydroAccel[1] =SPHP(i).HydroAccel[2] = 0;
 #endif
     }

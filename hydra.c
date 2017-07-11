@@ -127,13 +127,10 @@ void hydro_force(void)
 static void
 hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 {
-    int k;
     double soundspeed_i;
     const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
-    for(k = 0; k < 3; k++)
-    {
-        input->Vel[k] = SPHP(place).VelPred[k];
-    }
+    /*Compute predicted velocity*/
+    sph_VelPred(place, input->Vel);
     input->Hsml = P[place].Hsml;
     input->Mass = P[place].Mass;
     input->Density = SPHP(place).Density;
@@ -244,8 +241,9 @@ hydro_ngbiter(
 
         double dv[3];
         int d;
+        sph_VelPred(other, dv);
         for(d = 0; d < 3; d++) {
-            dv[d] = I->Vel[d] - SPHP(other).VelPred[d];
+            dv[d] = I->Vel[d] - dv[d];
         }
 
         double vdotr = dotproduct(dist, dv);

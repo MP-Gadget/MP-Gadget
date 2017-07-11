@@ -642,7 +642,6 @@ extern struct sph_particle_data
 
     MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
     MyFloat Pressure;		/*!< current pressure */
-    MyFloat VelPred[3];		/*!< predicted SPH particle velocity at the current time */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */

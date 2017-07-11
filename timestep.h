@@ -20,6 +20,8 @@ double find_dloga_displacement_constraint(void);
 int is_timebin_active(int i);
 void set_timebin_active(binmask_t mask);
 
+void sph_VelPred(int i, double * VelPred);
+
 static inline double get_dloga_for_bin(int timebin)
 {
     return (timebin ? (1 << timebin) : 0 ) * All.Timebase_interval;

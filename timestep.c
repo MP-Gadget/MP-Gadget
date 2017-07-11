@@ -352,6 +352,23 @@ void do_the_kick(int i, int tistart, int tiend, int ticurrent)
 
 }
 
+/*Get the predicted velocity for a particle
+ * at the momentum (kick) timestep, accounting
+ * for gravity and hydro forces.
+ * This is mostly used for artificial viscosity.*/
+void sph_VelPred(int i, double * VelPred)
+{
+    const int ti = P[i].Ti_drift;
+    const double Fgravkick2 = get_gravkick_factor(ti, P[i].Ti_kick);
+    const double Fhydrokick2 = get_hydrokick_factor(ti, P[i].Ti_kick);
+    const double FgravkickB = get_gravkick_factor(ti, All.PM_Ti_kick);
+    int j;
+    for(j = 0; j < 3; j++) {
+        VelPred[j] = P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j]
+            - P[i].GravPM[j] * FgravkickB - Fhydrokick2 * SPHP(i).HydroAccel[j];
+    }
+}
+
 void
 real_predict_particle(int i, int ti)
 {
@@ -362,23 +379,12 @@ real_predict_particle(int i, int ti)
     if(P[i].Type != 0)
         return;
 
-    const double Fgravkick2 = get_gravkick_factor(ti, P[i].Ti_kick);
-    const double Fhydrokick2 = get_hydrokick_factor(ti, P[i].Ti_kick);
-    const double FgravkickB = get_gravkick_factor(ti, All.PM_Ti_kick);
     const double Fentr = (ti - P[i].Ti_kick) * All.Timebase_interval;
 
-    int j;
-    for(j = 0; j < 3; j++) {
-        SPHP(i).VelPred[j] = P[i].Vel[j]
-            - Fgravkick2 * P[i].GravAccel[j] - Fhydrokick2 * SPHP(i).HydroAccel[j];
-
-        SPHP(i).VelPred[j] -= P[i].GravPM[j] * FgravkickB;
-
 #ifdef DENSITY_INDEPENDENT_SPH
-        SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
-    #endif
-        SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
-    }
+    SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
+#endif
+    SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
 }
 
 double
