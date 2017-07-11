@@ -1134,13 +1134,18 @@ domain_test_id_uniqueness(void)
     message(0, "success.  took=%g sec\n", timediff(t0, t1));
 }
 
-int peano_compare_key(const void *a, const void *b)
+static int
+peano_compare_key(const void *a, const void *b)
 {
-    if(((struct particle_data *) a)->Key < (((struct particle_data *) b)->Key))
-        return -1;
+    const struct particle_data * pa = (const struct particle_data *) a;
+    const struct particle_data * pb = (const struct particle_data *) b;
 
-    if(((struct particle_data *) a)->Key > (((struct particle_data *) b)->Key))
-        return +1;
+    /* first sort by type, then by Key */
+    if(pa->Type < pb->Type) return -1;
+    if(pa->Type > pb->Type) return 1;
+
+    if(pa->Key < pb->Key) return -1;
+    if(pa->Key > pb->Key) return +1;
 
     return 0;
 }
