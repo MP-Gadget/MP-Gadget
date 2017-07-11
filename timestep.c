@@ -345,11 +345,11 @@ void do_the_kick(int i, int tistart, int tiend, int ticurrent)
 
         if(SPHP(i).DtEntropy * dt_entr_next < - 0.5 * SPHP(i).Entropy)
             SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr_next;
+        /* this updates the prediction of Vel.
+         * FIXME: What about prediction fo Entropy?*/
+        real_predict_particle(i, ticurrent);
     }
 
-    /* this updates the prediction of Vel. 
-     * FIXME: What about prediction fo Entropy?*/
-    real_predict_particle(i, ticurrent);
 }
 
 void
@@ -358,26 +358,26 @@ real_predict_particle(int i, int ti)
     if (ti != P[i].Ti_drift) {
         endrun(1, "predict mismatched expected time stamp (not the current drift time stamp of the particle)\n");
     }
+
+    if(P[i].Type != 0)
+        return;
+
     const double Fgravkick2 = get_gravkick_factor(ti, P[i].Ti_kick);
     const double Fhydrokick2 = get_hydrokick_factor(ti, P[i].Ti_kick);
-
     const double FgravkickB = get_gravkick_factor(ti, All.PM_Ti_kick);
-
     const double Fentr = (ti - P[i].Ti_kick) * All.Timebase_interval;
 
-    if (P[i].Type == 0) {
-        int j;
-        for(j = 0; j < 3; j++) {
-            SPHP(i).VelPred[j] = P[i].Vel[j]
-                - Fgravkick2 * P[i].GravAccel[j] - Fhydrokick2 * SPHP(i).HydroAccel[j];
+    int j;
+    for(j = 0; j < 3; j++) {
+        SPHP(i).VelPred[j] = P[i].Vel[j]
+            - Fgravkick2 * P[i].GravAccel[j] - Fhydrokick2 * SPHP(i).HydroAccel[j];
 
-            SPHP(i).VelPred[j] -= P[i].GravPM[j] * FgravkickB;
+        SPHP(i).VelPred[j] -= P[i].GravPM[j] * FgravkickB;
 
 #ifdef DENSITY_INDEPENDENT_SPH
-            SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
+        SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
     #endif
-            SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
-        }
+        SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
     }
 }
 
