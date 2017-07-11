@@ -94,7 +94,6 @@ void init(int RestartSnapNum)
             SPHP(i).Density = -1;
 #ifdef DENSITY_INDEPENDENT_SPH
             SPHP(i).EgyWtDensity = -1;
-            SPHP(i).EntVarPred = -1;
 #endif
             SPHP(i).Ne = 1.0;
             SPHP(i).DivVel = 0;
@@ -242,10 +241,6 @@ setup_smoothinglengths(int RestartSnapNum)
 
         u_init /= molecular_weight;
 
-        for(i = 0; i < NumPart; i++) {
-            if(P[i].Type == 0) SPHP(i).Entropy = u_init;
-        }
-
 #ifdef DENSITY_INDEPENDENT_SPH
         for(i = 0; i < NumPart; i++)
         {
@@ -268,8 +263,7 @@ setup_smoothinglengths(int RestartSnapNum)
             for(i = 0; i < NumPart; i++)
             {
                 if(P[i].Type == 0) {
-                    double entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
-                    SPHP(i).EntVarPred = pow(entropy, 1/GAMMA);
+                    SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
                     olddensity[i] = SPHP(i).EgyWtDensity;
                 }
             }
@@ -306,21 +300,12 @@ setup_smoothinglengths(int RestartSnapNum)
         for(i = 0; i < NumPart; i++) {
             if(P[i].Type == 0) {
                 /* EgyWtDensity stabilized, now we convert from energy to entropy*/
-                SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
+                SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
             }
         }
     }
 
 #ifdef DENSITY_INDEPENDENT_SPH
-    /* snapshot already has Entropy and EgyWtDensity;
-     * hope it is read in correctly. (need a test
-     * on this!) */
-    /* regardless we initalize EntVarPred. This may be unnecessary*/
-    for(i = 0; i < NumPart; i++) {
-        if(P[i].Type == 0) {
-            SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
-        }
-    }
     density();
 #endif //DENSITY_INDEPENDENT_SPH
 }

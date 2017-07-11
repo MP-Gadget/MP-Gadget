@@ -632,7 +632,6 @@ SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 #ifdef DENSITY_INDEPENDENT_SPH
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
 SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
-SIMPLE_GETTER(GTPressure, SPHP(i).Pressure, float, 1)
 #endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #ifdef SFR
@@ -696,7 +695,6 @@ static void register_io_blocks() {
 #ifdef DENSITY_INDEPENDENT_SPH
     IO_REG(EgyWtDensity,          "f4", 1, 0);
     IO_REG(Entropy,          "f4", 1, 0);
-    IO_REG_WRONLY(Pressure,         "f4", 1, 0);
 #endif
 
     /* Cooling */

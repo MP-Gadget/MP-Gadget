@@ -633,7 +633,6 @@ extern struct sph_particle_data
 
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
-    MyFloat EntVarPred;             /*!< predicted entropy variable */
     MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
 #define EOMDensity EgyWtDensity
 #else
@@ -641,7 +640,6 @@ extern struct sph_particle_data
 #endif
 
     MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
-    MyFloat Pressure;		/*!< current pressure */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */

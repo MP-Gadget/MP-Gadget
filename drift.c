@@ -154,8 +154,6 @@ static void real_drift_particle(int i, int ti1)
     }
 
     P[i].Ti_drift = ti1;
-
-    real_predict_particle(i, P[i].Ti_drift);
 }
 
 void drift_active_particles(int ti1)

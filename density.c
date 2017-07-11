@@ -324,8 +324,9 @@ density_ngbiter(
         O->DhsmlDensity += mass_j * density_kernel_dW(&iter->kernel, u, wk, dwk);
 
 #ifdef DENSITY_INDEPENDENT_SPH
-        O->EgyRho += mass_j * SPHP(other).EntVarPred * wk;
-        O->DhsmlEgyDensity += mass_j * SPHP(other).EntVarPred * density_kernel_dW(&iter->kernel, u, wk, dwk);
+        double EntPred = EntropyPred(other, All.Ti_Current);
+        O->EgyRho += mass_j * EntPred * wk;
+        O->DhsmlEgyDensity += mass_j * EntPred * density_kernel_dW(&iter->kernel, u, wk, dwk);
 #endif
 
 #ifdef SPH_GRAD_RHO
@@ -390,14 +391,14 @@ density_postprocess(int i, TreeWalk * tw)
                 SPHP(i).DhsmlDensityFactor = 1;
 
 #ifdef DENSITY_INDEPENDENT_SPH
-            if((SPHP(i).EntVarPred>0)&&(SPHP(i).EgyWtDensity>0))
+            const double EntPred = EntropyPred(i, All.Ti_Current);
+            if((EntPred > 0) && (SPHP(i).EgyWtDensity>0))
             {
                 SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
                 SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
-                SPHP(i).EgyWtDensity /= SPHP(i).EntVarPred;
+                SPHP(i).EgyWtDensity /= EntPred;
             } else {
                 SPHP(i).DhsmlEgyDensityFactor=0;
-                SPHP(i).EntVarPred=0;
                 SPHP(i).EgyWtDensity=0;
             }
 #endif
@@ -409,14 +410,6 @@ density_postprocess(int i, TreeWalk * tw)
             SPHP(i).DivVel /= SPHP(i).Density;
 
         }
-
-#ifdef DENSITY_INDEPENDENT_SPH
-        SPHP(i).Pressure = pow(SPHP(i).EntVarPred*SPHP(i).EgyWtDensity,GAMMA);
-#else
-        int dt_step = (P[i].TimeBin ? (1 << P[i].TimeBin) : 0);
-        int dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
-        SPHP(i).Pressure = (SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr) * pow(SPHP(i).Density, GAMMA);
-#endif // DENSITY_INDEPENDENT_SPH
     }
 
     /* This is slightly more complicated so we put it in a different function */
