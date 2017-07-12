@@ -40,17 +40,18 @@ enum ActionType {
 static enum ActionType human_interaction();
 static void compute_accelerations(void);
 static void update_IO_params(const char * ioctlfname);
-static void every_timestep_stuff(int NumForces);
-static void write_cpu_log(void);
+static void every_timestep_stuff(int NumForces, int NumCurrentTiStep);
+static void write_cpu_log(int NumCurrentTiStep);
 
 
 void run(void)
 {
     enum ActionType action = NO_ACTION;
+    int NumCurrentTiStep = 0;	/* setup some counters */
 
     walltime_measure("/Misc");
 
-    write_cpu_log(); /* produce some CPU usage info */
+    write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
 
     do /* main loop */
     {
@@ -81,7 +82,7 @@ void run(void)
 
         rebuild_activelist();
 
-        every_timestep_stuff(NumForces);	/* write some info to log-files */
+        every_timestep_stuff(NumForces, NumCurrentTiStep);	/* write some info to log-files */
 
         /* force */
         compute_accelerations();	/* compute accelerations for
@@ -105,14 +106,14 @@ void run(void)
             savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
             All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);
         }
-        write_cpu_log();		/* produce some CPU usage info */
+        write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
         if(action == STOP || action == TIMEOUT) {
             /* OK snapshot file is written, lets quit */
             return;
         }
 
-        All.NumCurrentTiStep++;
+        NumCurrentTiStep++;
 
         report_memory_usage("RUN");
 
@@ -336,7 +337,7 @@ void compute_accelerations(void)
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-void every_timestep_stuff(int NumForce)
+void every_timestep_stuff(int NumForce, int NumCurrentTiStep)
 {
     double z;
     int i;
@@ -368,7 +369,7 @@ void every_timestep_stuff(int NumForce)
 
     z = 1.0 / (All.Time) - 1;
     message(0, "Begin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                All.NumCurrentTiStep, All.Time, z, tot_num_force,
+                NumCurrentTiStep, All.Time, z, tot_num_force,
                 All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                 extra);
 
@@ -407,7 +408,7 @@ void every_timestep_stuff(int NumForce)
 
 
 
-void write_cpu_log(void)
+void write_cpu_log(int NumCurrentTiStep)
 {
     int64_t totBlockedPD = -1;
     int64_t totTotalPD = -1;
@@ -422,7 +423,7 @@ void write_cpu_log(void)
     if(ThisTask == 0)
     {
 
-        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", All.NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
+        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
 #ifdef _OPENMP
         fprintf(FdCPU, "Blocked Particle Drifts: %ld\n", totBlockedPD);
         fprintf(FdCPU, "Total Particle Drifts: %ld\n", totTotalPD);

@@ -332,8 +332,6 @@ extern struct global_data_all_processes
            CpuTimeBetRestartFile,	/*!< cpu-time between regularly generated restart files */
            TimeLastRestartFile;  	/*!< cpu-time when last restart-file was written */
 
-    int NumCurrentTiStep;		/*!< counts the number of system steps taken up to this point */
-
     /* Current time of the simulation, global step, and end of simulation */
 
     double Time,			/*!< current time of the simulation */

@@ -56,7 +56,6 @@ void init(int RestartSnapNum)
 
     fof_init();
 
-    All.NumCurrentTiStep = 0;	/* setup some counters */
     All.SnapshotFileCount = 0;
     All.SnapshotFileCount = RestartSnapNum + 1;
     All.InitSnapshotCount = RestartSnapNum + 1;
