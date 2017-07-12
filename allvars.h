@@ -352,7 +352,6 @@ extern struct global_data_all_processes
     int Ti_Current;		/*!< current time on integer timeline */
     int Ti_nextoutput;		/*!< next output time on integer timeline */
     int PM_Ti_endstep, PM_Ti_begstep;
-    int PM_Ti_kick;            /* current time stamp of the PM component of the momentum */
     int Nmesh;
 
     /* variables that keep track of cumulative CPU consumption */
