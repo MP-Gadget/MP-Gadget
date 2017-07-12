@@ -9,6 +9,7 @@
 #include "cooling.h"
 #include "forcetree.h"
 
+#include "timefac.h"
 #include "petaio.h"
 #include "domain.h"
 #include "garbage.h"
@@ -41,6 +42,8 @@ void init(int RestartSnapNum)
     set_global_time(All.TimeInit);
 
     petaio_read_snapshot(RestartSnapNum);
+
+    init_drift_table(All.Time, All.TimeMax, TIMEBASE);
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();

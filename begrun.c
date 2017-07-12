@@ -12,7 +12,6 @@
 #include "allvars.h"
 #include "param.h"
 #include "densitykernel.h"
-#include "timefac.h"
 #include "proto.h"
 #include "sfr_eff.h"
 #include "cosmology.h"
@@ -87,9 +86,6 @@ void begrun(int BeginFlag, int RestartSnapNum)
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
 #endif
-
-    All.Ti_Current = 0;
-    init_drift_table(All.Time, All.TimeMax, TIMEBASE);
 
     open_outputfiles(RestartSnapNum);
 

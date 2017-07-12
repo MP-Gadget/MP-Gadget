@@ -16,7 +16,7 @@
 
 static double logTimeInit;
 static double logTimeMax;
-static double logDTime;
+static double logDTime = 0.0;
 
 /*! table for the cosmological drift factors */
 static double DriftTable[DRIFT_TABLE_LENGTH];
@@ -106,6 +106,9 @@ void init_drift_table(double timeBegin, double timeMax, int timebase)
  * Pointer argument gives the full floating point value for interpolation.*/
 int find_bin_number(int ti0, double *rem)
 {
+    if (logDTime == 0) {
+        endrun(0, "Using Time factors before the table is initialized.");
+    }
   double a1 = logTimeInit + ti0 * logDTime;
   double u1;
   int i1;
