@@ -55,6 +55,9 @@ static void ev_secondary(TreeWalk * tw);
 static void ev_reduce_result(TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
 
+static int *
+treewalk_get_queue(TreeWalk * tw, int * len);
+
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
         TreeWalkResultBase * O,
@@ -507,22 +510,34 @@ void treewalk_run(TreeWalk * tw) {
     }
 
     GDB_current_ev = tw;
+
     ev_begin(tw);
-    do
-    {
-        ev_primary(tw); /* do local particles and prepare export list */
-        /* exchange particle data */
-        ev_get_remote(tw);
-        report_memory_usage(tw->ev_label);
-        /* now do the particles that were sent to us */
-        ev_secondary(tw);
 
-        /* import the result to local particles */
-        ev_reduce_result(tw);
+    if(tw->preprocess) {
+        int i;
+        #pragma omp parallel for if(tw->PQueueSize > 64)
+        for(i = 0; i < tw->PQueueSize; i ++) {
+            tw->preprocess(tw->PQueue[i], tw);
+        }
+    }
 
-        tw->Niterations ++;
-        tw->Nexport_sum += tw->Nexport;
-    } while(ev_ndone(tw) < NTask);
+    if(tw->visit) {
+        do
+        {
+            ev_primary(tw); /* do local particles and prepare export list */
+            /* exchange particle data */
+            ev_get_remote(tw);
+            report_memory_usage(tw->ev_label);
+            /* now do the particles that were sent to us */
+            ev_secondary(tw);
+
+            /* import the result to local particles */
+            ev_reduce_result(tw);
+
+            tw->Niterations ++;
+            tw->Nexport_sum += tw->Nexport;
+        } while(ev_ndone(tw) < NTask);
+    }
 
     double tstart, tend;
 

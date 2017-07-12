@@ -98,7 +98,11 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         TreeWalkNgbIterBHAccretion * iter,
         LocalTreeWalk * lv);
 
-/* swallow routines */
+/* feedback routines */
+
+static void
+blackhole_feedback_preprocess(int n, TreeWalk * tw);
+
 static void
 blackhole_feedback_postprocess(int n, TreeWalk * tw);
 
@@ -168,6 +172,7 @@ void blackhole(void)
     tw_feedback->isinteracting = blackhole_feedback_isinteracting;
     tw_feedback->fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
     tw_feedback->postprocess = (TreeWalkProcessFunction) blackhole_feedback_postprocess;
+    tw_feedback->preprocess = (TreeWalkProcessFunction) blackhole_feedback_preprocess;
     tw_feedback->reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
     tw_feedback->UseNodeList = 1;
     tw_feedback->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
@@ -176,34 +181,14 @@ void blackhole(void)
     message(0, "Beginning black-hole accretion\n");
 
 
-    /* Let's first compute the Mdot values */
-    int queuesize;
-    int * queue = treewalk_get_queue(tw_accretion, &queuesize);
-
-    for(i = 0; i < queuesize; i ++) {
-        int n = queue[i];
-        int j;
-        for(j = 0; j < 3; j++) {
-            BHP(n).MinPotPos[j] = P[n].Pos[j];
-            BHP(n).MinPotVel[j] = P[n].Vel[j];
-        }
-        BHP(n).MinPot = P[n].Potential;
-    }
-
-    myfree(queue);
-
-    /* Now let's invoke the functions that stochasticall swallow gas
-     * and deal with black hole mergers.
-     */
-
-    message(0, "Start swallowing of gas particles and black holes\n");
-
 
     N_sph_swallowed = N_BH_swallowed = 0;
 
     /* Let's determine which particles may be swalled and calculate total feedback weights */
 
     treewalk_run(tw_accretion);
+
+    message(0, "Start swallowing of gas particles and black holes\n");
 
     /* Now do the swallowing of particles and dump feedback energy */
     treewalk_run(tw_feedback);
@@ -311,6 +296,17 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     double dtime = get_dloga_for_bin(P[i].TimeBin) / All.cf.hubble;
 
     BHP(i).Mass += BHP(i).Mdot * dtime;
+}
+
+static void
+blackhole_feedback_preprocess(int n, TreeWalk * tw)
+{
+    int j;
+    for(j = 0; j < 3; j++) {
+        BHP(n).MinPotPos[j] = P[n].Pos[j];
+        BHP(n).MinPotVel[j] = P[n].Vel[j];
+    }
+    BHP(n).MinPot = P[n].Potential;
 }
 
 static void
