@@ -20,8 +20,9 @@
 
 
 /* variables for organizing discrete timeline */
-struct time_vars {
+static struct time_vars {
     double Timebase_interval;	/*!< factor to convert from floating point time interval to integer timeline */
+    int MaxTiStepDisplacement; /*!< Maximum (PM) integer timestep from global displacements*/
 } Ti_V;
 
 
@@ -43,13 +44,14 @@ static int get_timestep_ti(int p, int dti_max);
 static int get_timestep_bin(int dti);
 static void do_the_kick(int i, int tistart, int tiend, int ticurrent);
 static void advance_long_range_kick(int PM_Timestep);
+static int find_dti_displacement_constraint(void);
 
 /*Initialise the integer timeline*/
 void init_timebins(double TimeInit, double TimeMax)
 {
     Ti_V.Timebase_interval = (log(TimeMax) - log(TimeInit)) / TIMEBASE;
 
-    All.MaxTiStepDisplacement = find_dti_displacement_constraint();
+    Ti_V.MaxTiStepDisplacement = find_dti_displacement_constraint();
 
     update_active_timebins(0);
 
@@ -155,6 +157,10 @@ void advance_and_find_timesteps(void)
     if(All.MakeGlassFile)
         reverse_and_apply_gravity();
 
+    /*Update the displacement timestep*/
+    if(All.Ti_Current == All.PM_Ti_endstep)
+        Ti_V.MaxTiStepDisplacement = find_dti_displacement_constraint();
+
     /* Now assign new timesteps and kick */
 #ifdef FORCE_EQUAL_TIMESTEPS
     int ti_min=TIMEBASE;
@@ -162,7 +168,7 @@ void advance_and_find_timesteps(void)
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
-        int dti = get_timestep_ti(i, All.MaxTiStepDisplacement);
+        int dti = get_timestep_ti(i, Ti_V.MaxTiStepDisplacement);
 
         if(dti < ti_min)
             ti_min = dti;
@@ -181,7 +187,7 @@ void advance_and_find_timesteps(void)
 #ifdef FORCE_EQUAL_TIMESTEPS
         int dti = ti_min_glob;
 #else
-        int dti = get_timestep_ti(i, All.MaxTiStepDisplacement);
+        int dti = get_timestep_ti(i, Ti_V.MaxTiStepDisplacement);
 #endif
         /* make it a power 2 subdivision */
         int ti_min = TIMEBASE;
@@ -257,7 +263,7 @@ void advance_and_find_timesteps(void)
 
     if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
     {
-        advance_long_range_kick(All.MaxTiStepDisplacement);
+        advance_long_range_kick(Ti_V.MaxTiStepDisplacement);
     }
 
     walltime_measure("/Timeline");

@@ -287,9 +287,6 @@ void compute_accelerations(void)
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
             energy_statistics();
-
-        /*Update the displacement timestep*/
-        All.MaxTiStepDisplacement = find_dti_displacement_constraint();
     }
 
     grav_short_tree();		/* computes gravity accel. */

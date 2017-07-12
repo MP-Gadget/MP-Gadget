@@ -15,7 +15,6 @@ int update_active_timebins(int next_kick);
 void rebuild_activelist(void);
 void set_global_time(double newtime);
 void advance_and_find_timesteps(void);
-int find_dti_displacement_constraint(void);
 double find_dloga_displacement_constraint(void);
 int is_timebin_active(int i);
 void set_timebin_active(binmask_t mask);
