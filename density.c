@@ -70,9 +70,7 @@ density_ngbiter(
 
 static int density_isinteracting(int n, TreeWalk * tw);
 static void density_postprocess(int i, TreeWalk * tw);
-static void density_preprocess(int i, TreeWalk * tw);
 static void density_check_neighbours(int i, TreeWalk * tw);
-
 
 static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
@@ -114,7 +112,6 @@ void density(void)
     tw->isinteracting = density_isinteracting;
     tw->fill = (TreeWalkFillQueryFunction) density_copy;
     tw->reduce = (TreeWalkReduceResultFunction) density_reduce;
-    tw->preprocess = (TreeWalkProcessFunction) density_preprocess;
     tw->postprocess = (TreeWalkProcessFunction) density_postprocess;
     tw->UseNodeList = 1;
     tw->query_type_elsize = sizeof(TreeWalkQueryDensity);
@@ -143,6 +140,9 @@ void density(void)
     {
         const int p_i = ActiveParticle[i];
         P[p_i].DensityIterationDone = 0;
+        DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
+        DENSITY_GET_PRIV(tw)->Right[p_i] = 0;
+
     }
 
     /* allocate buffers to arrange communication */
@@ -371,13 +371,6 @@ density_isinteracting(int n, TreeWalk * tw)
         return 1;
 
     return 0;
-}
-
-static void
-density_preprocess(int p, TreeWalk * tw)
-{
-    DENSITY_GET_PRIV(tw)->Left[p] = 0;
-    DENSITY_GET_PRIV(tw)->Right[p] = 0;
 }
 
 static void

@@ -1010,12 +1010,15 @@ fof_secondary_ngbiter(TreeWalkQueryFOF * I,
 static void
 fof_secondary_postprocess(int p, TreeWalk * tw)
 {
+#pragma omp atomic
     FOF_SECONDARY_GET_PRIV(tw)->count ++;
+
     if(FOF_SECONDARY_GET_PRIV(tw)->distance[p] > 0.5 * LARGE)
     {
         if(FOF_SECONDARY_GET_PRIV(tw)->hsml[p] < 4 * All.FOFHaloComovingLinkingLength)  /* we only search out to a maximum distance */
         {
             /* need to redo this particle */
+#pragma omp atomic
             FOF_SECONDARY_GET_PRIV(tw)->npleft++;
             FOF_SECONDARY_GET_PRIV(tw)->hsml[p] *= 2.0;
 /*
