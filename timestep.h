@@ -28,5 +28,6 @@ int find_next_outputtime(int ti_curr);
 void init_timebins(double TimeInit, double TimeMax);
 
 double get_dloga_for_bin(int timebin);
+int is_PM_timestep(int ti);
 
 #endif

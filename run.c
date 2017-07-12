@@ -47,7 +47,10 @@ static void write_cpu_log(int NumCurrentTiStep);
 void run(void)
 {
     enum ActionType action = NO_ACTION;
-    int NumCurrentTiStep = 0;	/* setup some counters */
+    /*Number of timesteps performed this run*/
+    int NumCurrentTiStep = 0;
+    /* Should we write a snapshot the next time we can?*/
+    int WriteNextOpportunity = 0;
 
     walltime_measure("/Misc");
 
@@ -67,7 +70,7 @@ void run(void)
         /* drift and domain decomposition */
 
         /* at first step this is a noop */
-        if(All.PM_Ti_endstep == All.Ti_Current) {
+        if(is_PM_timestep(All.Ti_Current)) {
             /* full decomposition rebuilds the tree */
             domain_decompose_full();
         } else {
@@ -100,7 +103,7 @@ void run(void)
          * the last move in compute_accelerations().
          * This is after advance_and_find_timesteps so the acceleration
          * is included in the kick.*/
-        if(All.Ti_Current >= All.Ti_nextoutput)
+        if(is_PM_timestep(All.Ti_Current) && (WriteNextOpportunity || All.Ti_Current >= All.Ti_nextoutput))
         {
             /*Save snapshot*/
             savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
@@ -121,30 +124,25 @@ void run(void)
         switch(action) {
             case STOP:
                 message(0, "human controlled stop with checkpoint.\n");
-                All.Ti_nextoutput = All.Ti_Current;
-                /* Note there is an error involved in doing this:
-                 * part of the SPH VelPred array is computed using
-                 * the length of a PM step, and will have been
-                 * slightly incorrect for this timestep. But we want a stop NOW.*/
-                All.PM_Ti_endstep = All.Ti_Current;
+                /*Note this will generally not write until the next PM timestep completes*/
+                WriteNextOpportunity = 1;
                 /* next loop will write a new snapshot file; break is for switch */
                 break;
             case TIMEOUT:
                 message(0, "stopping due to TimeLimitCPU.\n");
-                All.Ti_nextoutput = All.Ti_Current;
-                All.PM_Ti_endstep = All.Ti_Current;
+                WriteNextOpportunity = 1;
                 /* next loop will write a new snapshot file */
                 break;
 
             case AUTO_CHECKPOINT:
                 message(0, "auto checkpoint due to TimeBetSnapshot.\n");
-                All.Ti_nextoutput = All.PM_Ti_endstep;
+                WriteNextOpportunity = 1;
                 /* will write a new snapshot file next time the PM step finishes*/
                 break;
 
             case CHECKPOINT:
                 message(0, "human controlled checkpoint.\n");
-                All.Ti_nextoutput = All.PM_Ti_endstep;
+                WriteNextOpportunity = 1;
                 /* will write a new snapshot file next time the PM step finishes*/
                 break;
 
@@ -280,7 +278,7 @@ void compute_accelerations(void)
 
     walltime_measure("/Misc");
 
-    if(All.PM_Ti_endstep == All.Ti_Current)
+    if(is_PM_timestep(All.Ti_Current))
     {
         gravpm_force();
 
@@ -361,7 +359,7 @@ void every_timestep_stuff(int NumForce, int NumCurrentTiStep)
 
     char extra[1024] = {0};
 
-    if(All.PM_Ti_endstep == All.Ti_Current)
+    if(is_PM_timestep(All.Ti_Current))
         strcat(extra, "PM-Step");
 
     z = 1.0 / (All.Time) - 1;

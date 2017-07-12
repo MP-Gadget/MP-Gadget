@@ -24,6 +24,7 @@ static struct time_vars {
     double Timebase_interval;	/*!< factor to convert from floating point time interval to integer timeline */
     int MaxTiStepDisplacement; /*!< Maximum (PM) integer timestep from global displacements*/
     int PM_Ti_kick;            /* current time stamp of the PM component of the momentum */
+    int PM_Ti_endstep, PM_Ti_begstep;
 } Ti_V;
 
 
@@ -56,7 +57,7 @@ void init_timebins(double TimeInit, double TimeMax)
 
     update_active_timebins(0);
 
-    All.PM_Ti_endstep = All.PM_Ti_begstep = Ti_V.PM_Ti_kick = 0;
+    Ti_V.PM_Ti_endstep = Ti_V.PM_Ti_begstep = Ti_V.PM_Ti_kick = 0;
 
     All.Ti_Current = 0;
 
@@ -69,6 +70,12 @@ inline double get_dloga_for_bin(int timebin)
 
 int is_timebin_active(int i) {
     return TimeBinActive[i];
+}
+
+/*Report whether the current timestep is the end of the PM timestep*/
+int is_PM_timestep(int ti)
+{
+    return ti == Ti_V.PM_Ti_endstep;
 }
 
 void set_timebin_active(binmask_t binmask) {
@@ -159,7 +166,7 @@ void advance_and_find_timesteps(void)
         reverse_and_apply_gravity();
 
     /*Update the displacement timestep*/
-    if(All.Ti_Current == All.PM_Ti_endstep)
+    if(is_PM_timestep(All.Ti_Current))
         Ti_V.MaxTiStepDisplacement = find_dti_displacement_constraint();
 
     /* Now assign new timesteps and kick */
@@ -262,7 +269,7 @@ void advance_and_find_timesteps(void)
     }
 
 
-    if(All.PM_Ti_endstep == All.Ti_Current)	/* need to do long-range kick */
+    if(is_PM_timestep(All.Ti_Current))	/* need to do long-range kick */
     {
         advance_long_range_kick(Ti_V.MaxTiStepDisplacement);
     }
@@ -283,13 +290,13 @@ void advance_long_range_kick(int PM_Timestep)
     if(All.Ti_Current == TIMEBASE)	/* we here finish the last timestep. */
         dti = 0;
 
-    const int tstart = (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2;
-    const int tend = All.PM_Ti_endstep + dti / 2;
+    const int tstart = (Ti_V.PM_Ti_begstep + Ti_V.PM_Ti_endstep) / 2;
+    const int tend = Ti_V.PM_Ti_endstep + dti / 2;
 
     const double Fgravkick = get_gravkick_factor(tstart, tend);
 
-    All.PM_Ti_begstep = All.PM_Ti_endstep;
-    All.PM_Ti_endstep = All.PM_Ti_begstep + dti;
+    Ti_V.PM_Ti_begstep = Ti_V.PM_Ti_endstep;
+    Ti_V.PM_Ti_endstep = Ti_V.PM_Ti_begstep + dti;
 
     if(Ti_V.PM_Ti_kick != tstart) {
         endrun(0, "PM kick time stamp mismatched\n");
@@ -644,10 +651,10 @@ int find_dti_displacement_constraint()
      * This is important for best restart accuracy: it ensures that
      * when GravPM and GravAccel are reset to zero, their effect
      * has already been included.*/
-    if(All.Ti_nextoutput > All.PM_Ti_endstep) {
+    if(All.Ti_nextoutput > Ti_V.PM_Ti_endstep) {
         /*If the next PM step finishes after or just before the next snapshot output, extend it a little*/
-        if(1.1*dti + All.PM_Ti_endstep > All.Ti_nextoutput) {
-            dti = All.Ti_nextoutput - All.PM_Ti_endstep;
+        if(1.1*dti + Ti_V.PM_Ti_endstep > All.Ti_nextoutput) {
+            dti = All.Ti_nextoutput - Ti_V.PM_Ti_endstep;
         }
     }
     message(0, "Maximal PM timestep: dloga = %g  (%g)\n", dti * Ti_V.Timebase_interval, All.MaxSizeTimestep);
