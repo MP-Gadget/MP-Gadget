@@ -28,9 +28,6 @@ int find_next_kick(int ti_nextoutput);
 int find_next_outputtime(int ti_curr);
 void init_timebins(double TimeInit, double TimeMax);
 
-static inline double get_dloga_for_bin(int timebin)
-{
-    return (timebin ? (1 << timebin) : 0 ) * All.Timebase_interval;
-}
+double get_dloga_for_bin(int timebin);
 
 #endif
