@@ -349,7 +349,6 @@ extern struct global_data_all_processes
 
     /* variables for organizing discrete timeline */
 
-    double Timebase_interval;	/*!< factor to convert from floating point time interval to integer timeline */
     int Ti_Current;		/*!< current time on integer timeline */
     int Ti_nextoutput;		/*!< next output time on integer timeline */
     int MaxTiStepDisplacement; /*!< Maximum (PM) integer timestep from global displacements*/

@@ -19,6 +19,12 @@
  */
 
 
+/* variables for organizing discrete timeline */
+struct time_vars {
+    double Timebase_interval;	/*!< factor to convert from floating point time interval to integer timeline */
+} Ti_V;
+
+
 /*Flat array containing all active particles*/
 int NumActiveParticle;
 int *ActiveParticle;
@@ -41,7 +47,7 @@ static void advance_long_range_kick(int PM_Timestep);
 /*Initialise the integer timeline*/
 void init_timebins(double TimeInit, double TimeMax)
 {
-    All.Timebase_interval = (log(TimeMax) - log(TimeInit)) / TIMEBASE;
+    Ti_V.Timebase_interval = (log(TimeMax) - log(TimeInit)) / TIMEBASE;
 
     All.MaxTiStepDisplacement = find_dti_displacement_constraint();
 
@@ -51,6 +57,11 @@ void init_timebins(double TimeInit, double TimeMax)
 
     All.Ti_Current = 0;
 
+}
+
+inline double get_dloga_for_bin(int timebin)
+{
+    return (timebin ? (1 << timebin) : 0 ) * Ti_V.Timebase_interval;
 }
 
 int is_timebin_active(int i) {
@@ -290,7 +301,7 @@ void advance_long_range_kick(int PM_Timestep)
 
 void do_the_kick(int i, int tistart, int tiend, int ticurrent)
 {
-    double dt_entr = (tiend - tistart) * All.Timebase_interval; /* XXX: the kick factor of entropy is dlog a? */
+    double dt_entr = (tiend - tistart) * Ti_V.Timebase_interval; /* XXX: the kick factor of entropy is dlog a? */
 
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
     const double Fhydrokick = get_hydrokick_factor(tistart, tiend);
@@ -384,13 +395,13 @@ void sph_VelPred(int i, double * VelPred)
  * for the density independent SPH code.*/
 double EntropyPred(int i)
 {
-    const double Fentr = (P[i].Ti_drift - P[i].Ti_kick) * All.Timebase_interval;
+    const double Fentr = (P[i].Ti_drift - P[i].Ti_kick) * Ti_V.Timebase_interval;
     return pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
 }
 
 double PressurePred(int i)
 {
-    const double Fentr = (P[i].Ti_drift - P[i].Ti_kick) * All.Timebase_interval;
+    const double Fentr = (P[i].Ti_drift - P[i].Ti_kick) * Ti_V.Timebase_interval;
     return (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
 }
 
@@ -482,7 +493,7 @@ get_timestep_ti(const int p, const int dti_max)
     if(dloga < All.MinSizeTimestep)
         dloga = All.MinSizeTimestep;
 
-    dti = (int) (dloga / All.Timebase_interval);
+    dti = (int) (dloga / Ti_V.Timebase_interval);
 
     if(dti > dti_max)
         dti = dti_max;
@@ -496,7 +507,7 @@ get_timestep_ti(const int p, const int dti_max)
                 "We better stop.\n"
                 "Task=%d type %d Part-ID=%lu dloga=%g, dtmax=%g tibase=%g dti=%d xyz=(%g|%g|%g) tree=(%g|%g|%g), ErrTolIntAccuracy=%g\n\n",
                 ThisTask, P[p].Type, (MyIDType)P[p].ID, dloga, dti_max,
-                All.Timebase_interval, dti, 
+                Ti_V.Timebase_interval, dti,
                 P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].GravAccel[0], P[p].GravAccel[1],
                 P[p].GravAccel[2],
                 All.ErrTolIntAccuracy
@@ -621,7 +632,7 @@ int find_dti_displacement_constraint()
 {
     double dloga = find_dloga_displacement_constraint();
 
-    int dti = dloga / All.Timebase_interval;
+    int dti = dloga / Ti_V.Timebase_interval;
     /* Make sure that we finish the PM step before the next output.
      * This is important for best restart accuracy: it ensures that
      * when GravPM and GravAccel are reset to zero, their effect
@@ -632,7 +643,7 @@ int find_dti_displacement_constraint()
             dti = All.Ti_nextoutput - All.PM_Ti_endstep;
         }
     }
-    message(0, "Maximal PM timestep: dloga = %g  (%g)\n", dti * All.Timebase_interval, All.MaxSizeTimestep);
+    message(0, "Maximal PM timestep: dloga = %g  (%g)\n", dti * Ti_V.Timebase_interval, All.MaxSizeTimestep);
     return dti;
 }
 
@@ -748,7 +759,7 @@ int find_next_outputtime(int ti_curr)
 
         if(time >= All.TimeInit && time <= All.TimeMax)
         {
-            const int ti = (int) (log(time / All.TimeInit) / All.Timebase_interval);
+            const int ti = (int) (log(time / All.TimeInit) / Ti_V.Timebase_interval);
 
             if(ti >= ti_curr)
             {
@@ -762,7 +773,7 @@ int find_next_outputtime(int ti_curr)
         /* Next output is at TimeMax*/
         ti_next = TIMEBASE;
     }
-    const double next = All.TimeInit * exp(ti_next * All.Timebase_interval);
+    const double next = All.TimeInit * exp(ti_next * Ti_V.Timebase_interval);
     message(0, "Setting next time for snapshot file to Time_next= %g \n", next);
     return ti_next;
 }
@@ -800,7 +811,7 @@ int find_next_kick(int ti_nextoutput)
 
     All.Ti_Current = ti_next_kick_global;
     /*Convert back to floating point time*/
-    double nexttime = All.TimeInit * exp(All.Ti_Current * All.Timebase_interval);
+    double nexttime = All.TimeInit * exp(All.Ti_Current * Ti_V.Timebase_interval);
 
     set_global_time(nexttime);
 
