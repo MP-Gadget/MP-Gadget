@@ -38,6 +38,21 @@ static int get_timestep_bin(int dti);
 static void do_the_kick(int i, int tistart, int tiend, int ticurrent);
 static void advance_long_range_kick(int PM_Timestep);
 
+/*Initialise the integer timeline*/
+void init_timebins(double TimeInit, double TimeMax)
+{
+    All.Timebase_interval = (log(TimeMax) - log(TimeInit)) / TIMEBASE;
+
+    All.MaxTiStepDisplacement = find_dti_displacement_constraint();
+
+    update_active_timebins(0);
+
+    All.PM_Ti_endstep = All.PM_Ti_begstep = All.PM_Ti_kick = 0;
+
+    All.Ti_Current = 0;
+
+}
+
 int is_timebin_active(int i) {
     return TimeBinActive[i];
 }

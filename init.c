@@ -60,15 +60,9 @@ void init(int RestartSnapNum)
     All.SnapshotFileCount = RestartSnapNum + 1;
     All.InitSnapshotCount = RestartSnapNum + 1;
 
-    All.Timebase_interval = (log(All.TimeMax) - log(All.Time)) / TIMEBASE;
-
-    All.MaxTiStepDisplacement = find_dti_displacement_constraint();
-
     All.TreeAllocFactor = 0.7;
 
-    update_active_timebins(0);
-
-    All.PM_Ti_endstep = All.PM_Ti_begstep = All.PM_Ti_kick = 0;
+    init_timebins(All.TimeInit, All.TimeMax);
 
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)	/* initialize sph_properties */
@@ -112,10 +106,7 @@ void init(int RestartSnapNum)
 #endif
     }
 
-
     domain_decompose_full();	/* do initial domain decomposition (gives equal numbers of particles) */
-
-    All.Ti_Current = 0;
 
     rebuild_activelist();
 
