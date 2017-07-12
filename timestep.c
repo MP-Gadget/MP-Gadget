@@ -61,6 +61,7 @@ void init_timebins(double TimeInit, double TimeMax)
 
     All.Ti_Current = 0;
 
+    init_drift_table(TimeInit, TimeMax, TIMEBASE);
 }
 
 inline double get_dloga_for_bin(int timebin)
