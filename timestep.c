@@ -648,16 +648,6 @@ int find_dti_displacement_constraint()
     double dloga = find_dloga_displacement_constraint();
 
     int dti = dloga / Ti_V.Timebase_interval;
-    /* Make sure that we finish the PM step before the next output.
-     * This is important for best restart accuracy: it ensures that
-     * when GravPM and GravAccel are reset to zero, their effect
-     * has already been included.*/
-    if(All.Ti_nextoutput > Ti_V.PM_Ti_endstep) {
-        /*If the next PM step finishes after or just before the next snapshot output, extend it a little*/
-        if(1.1*dti + Ti_V.PM_Ti_endstep > All.Ti_nextoutput) {
-            dti = All.Ti_nextoutput - Ti_V.PM_Ti_endstep;
-        }
-    }
     message(0, "Maximal PM timestep: dloga = %g  (%g)\n", dti * Ti_V.Timebase_interval, All.MaxSizeTimestep);
     return dti;
 }

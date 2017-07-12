@@ -105,13 +105,6 @@ void begrun(int BeginFlag, int RestartSnapNum)
         }
     }
 #endif
-
-    if(RestartSnapNum >= 0)
-        All.Ti_nextoutput = find_next_outputtime(All.Ti_Current + 100);
-    else
-        All.Ti_nextoutput = find_next_outputtime(All.Ti_Current);
-
-
     All.TimeLastRestartFile = 0;
 }
 
