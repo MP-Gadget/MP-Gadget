@@ -110,12 +110,6 @@ void init(int RestartSnapNum)
 #ifdef BLACK_HOLES
         SPHP(i).Injected_BH_Energy = 0;
 #endif
-#ifdef TWODIMS
-        SPHP(i).HydroAccel[2] = 0;
-#endif
-#ifdef ONEDIM
-        SPHP(i).HydroAccel[1] =SPHP(i).HydroAccel[2] = 0;
-#endif
     }
 
 
