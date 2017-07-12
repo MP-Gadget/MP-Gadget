@@ -63,6 +63,10 @@ struct local_topnode_data
     double Cost;
 };
 
+static int
+order_by_type_and_key(const void *a, const void *b);
+static int
+order_by_key(const void *a, const void *b);
 
 static void domain_findSplit_work_balanced(int ncpu, int ndomain, float *domainWork);
 static void domain_findSplit_load_balanced(int ncpu, int ndomain, int *domainCount);
@@ -73,7 +77,6 @@ static int decompose(void);
 static int domain_determineTopTree(struct local_topnode_data * topNodes);
 static void domain_free(void);
 static void domain_sumCost(float *domainWork, int *domainCount);
-static void peano_hilbert_order(int type);
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
@@ -140,7 +143,7 @@ void domain_decompose_full(void)
 
     message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
 
-    peano_hilbert_order(1);
+    qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
 
     walltime_measure("/Domain/Peano");
 
@@ -837,7 +840,9 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     countlimit = TotNumPart / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
     walltime_measure("/Domain/DetermineTopTree/Misc");
-    peano_hilbert_order(0);
+
+    /* Watchout : must disgard proximity of particle type; this ordering is only required by LocalRefine */
+    qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_key);
 
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
@@ -1134,7 +1139,8 @@ domain_test_id_uniqueness(void)
     message(0, "success.  took=%g sec\n", timediff(t0, t1));
 }
 
-int peano_compare_key(const void *a, const void *b)
+static int
+order_by_key(const void *a, const void *b)
 {
     const struct particle_data * pa  = (const struct particle_data *) a;
     const struct particle_data * pb  = (const struct particle_data *) b;
@@ -1147,7 +1153,8 @@ int peano_compare_key(const void *a, const void *b)
     return 0;
 }
 
-int peano_compare_key_type(const void *a, const void *b)
+static int
+order_by_type_and_key(const void *a, const void *b)
 {
     const struct particle_data * pa  = (const struct particle_data *) a;
     const struct particle_data * pb  = (const struct particle_data *) b;
@@ -1162,13 +1169,5 @@ int peano_compare_key_type(const void *a, const void *b)
         return +1;
 
     return 0;
-}
-
-void peano_hilbert_order(int type)
-{
-    if(type)
-        qsort_openmp(P, NumPart, sizeof(struct particle_data), peano_compare_key_type);
-    else
-        qsort_openmp(P, NumPart, sizeof(struct particle_data), peano_compare_key);
 }
 
