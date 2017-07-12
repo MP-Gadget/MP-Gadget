@@ -70,7 +70,7 @@ enum TreeWalkType {
 };
 
 struct TreeWalk {
-    void * userdata;
+    void * priv;
 
     /* name of the evaluator (used in printing messages) */
     char * ev_label;
