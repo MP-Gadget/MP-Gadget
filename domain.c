@@ -1087,7 +1087,9 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
         endrun(89, "The tree is corrupted, cannot merge them. What is the invariance here?");
 }
 
-static void radix_id(const void * data, void * radix, void * arg) {
+/* used only by test uniqueness */
+static void
+mp_order_by_id(const void * data, void * radix, void * arg) {
     ((uint64_t *) radix)[0] = ((MyIDType*) data)[0];
 }
 
@@ -1113,7 +1115,7 @@ domain_test_id_uniqueness(void)
     for(i = 0; i < NumPart; i++)
         ids[i] = P[i].ID;
 
-    mpsort_mpi(ids, NumPart, sizeof(MyIDType), radix_id, 8, NULL, MPI_COMM_WORLD);
+    mpsort_mpi(ids, NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
 
     for(i = 1; i < NumPart; i++)
         if(ids[i] == ids[i - 1])
