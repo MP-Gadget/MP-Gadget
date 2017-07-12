@@ -24,6 +24,9 @@ void sph_VelPred(int i, double * VelPred);
 double EntropyPred(int i);
 double PressurePred(int i);
 
+int find_next_kick(int ti_nextoutput);
+int find_next_outputtime(int ti_curr);
+
 static inline double get_dloga_for_bin(int timebin)
 {
     return (timebin ? (1 << timebin) : 0 ) * All.Timebase_interval;

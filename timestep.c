@@ -721,6 +721,82 @@ void rebuild_activelist(void)
 }
 
 
+/*! this function returns the next output time that is equal or larger to
+ *  ti_curr
+ */
+int find_next_outputtime(int ti_curr)
+{
+    int i, ti_next=-1;
+
+    for(i = 0; i < All.OutputListLength; i++)
+    {
+        const double time = All.OutputListTimes[i];
+
+        if(time >= All.TimeInit && time <= All.TimeMax)
+        {
+            const int ti = (int) (log(time / All.TimeInit) / All.Timebase_interval);
+
+            if(ti >= ti_curr)
+            {
+                ti_next = ti;
+                break;
+            }
+        }
+    }
+    if(ti_next == -1)
+    {
+        /* Next output is at TimeMax*/
+        ti_next = TIMEBASE;
+    }
+    const double next = All.TimeInit * exp(ti_next * All.Timebase_interval);
+    message(0, "Setting next time for snapshot file to Time_next= %g \n", next);
+    return ti_next;
+}
+
+/*! This function finds the next synchronization point of the system
+ * (i.e. the earliest point of time any of the particles needs a force
+ * computation), and drifts the system to this point of time.  If the
+ * system drifts over the desired time of a snapshot file, the
+ * function will drift to this moment, generate an output, and then
+ * resume the drift.
+ */
+int find_next_kick(int ti_nextoutput)
+{
+    int n, ti_next_kick_global;
+    int ti_next_kick = TIMEBASE;
+    const double timeold = All.Time;
+    /*This repopulates all timebins on the first timestep*/
+    if(TimeBinCount[0])
+        ti_next_kick = All.Ti_Current;
+
+    /* find the next kick time */
+    for(n = 1; n < TIMEBINS; n++)
+    {
+        if(!TimeBinCount[n])
+            continue;
+	    /* next kick time for this timebin */
+        const int dt_bin = (1 << n);
+        const int ti_next_for_bin = (All.Ti_Current / dt_bin) * dt_bin + dt_bin;
+        if(ti_next_for_bin < ti_next_kick)
+            ti_next_kick = ti_next_for_bin;
+    }
+
+    /*All processors sync timesteps*/
+    MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
+    All.Ti_Current = ti_next_kick_global;
+    /*Convert back to floating point time*/
+    double nexttime = All.TimeInit * exp(All.Ti_Current * All.Timebase_interval);
+
+    set_global_time(nexttime);
+
+    All.TimeStep = All.Time - timeold;
+
+    walltime_measure("/Misc");
+
+    return All.Ti_Current;
+}
+
 /* mark the bins that will be active before the next kick*/
 int update_active_timebins(int next_kick)
 {
