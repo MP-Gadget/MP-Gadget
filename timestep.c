@@ -224,7 +224,6 @@ void advance_and_find_timesteps(void)
 
     if(badstepsizecount_global) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
-        All.NumCurrentTiStep = 0;
         savepositions(999999, 0);
         endrun(0, "Ending due to bad timestep");
     }
