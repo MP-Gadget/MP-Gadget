@@ -23,6 +23,7 @@
 static struct time_vars {
     double Timebase_interval;	/*!< factor to convert from floating point time interval to integer timeline */
     int MaxTiStepDisplacement; /*!< Maximum (PM) integer timestep from global displacements*/
+    int PM_Ti_kick;            /* current time stamp of the PM component of the momentum */
 } Ti_V;
 
 
@@ -55,7 +56,7 @@ void init_timebins(double TimeInit, double TimeMax)
 
     update_active_timebins(0);
 
-    All.PM_Ti_endstep = All.PM_Ti_begstep = All.PM_Ti_kick = 0;
+    All.PM_Ti_endstep = All.PM_Ti_begstep = Ti_V.PM_Ti_kick = 0;
 
     All.Ti_Current = 0;
 
@@ -290,11 +291,11 @@ void advance_long_range_kick(int PM_Timestep)
     All.PM_Ti_begstep = All.PM_Ti_endstep;
     All.PM_Ti_endstep = All.PM_Ti_begstep + dti;
 
-    if(All.PM_Ti_kick != tstart) {
+    if(Ti_V.PM_Ti_kick != tstart) {
         endrun(0, "PM kick time stamp mismatched\n");
     }
 
-    All.PM_Ti_kick = tend;
+    Ti_V.PM_Ti_kick = tend;
 
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
@@ -389,7 +390,7 @@ void sph_VelPred(int i, double * VelPred)
     const int ti = P[i].Ti_drift;
     const double Fgravkick2 = get_gravkick_factor(ti, P[i].Ti_kick);
     const double Fhydrokick2 = get_hydrokick_factor(ti, P[i].Ti_kick);
-    const double FgravkickB = get_gravkick_factor(ti, All.PM_Ti_kick);
+    const double FgravkickB = get_gravkick_factor(ti, Ti_V.PM_Ti_kick);
     int j;
     for(j = 0; j < 3; j++) {
         VelPred[j] = P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j]
