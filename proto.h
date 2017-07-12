@@ -7,8 +7,6 @@ void begrun(int RestartFlag, int RestartSnapNum);
 void density(void);
 void energy_statistics(void);
 
-int find_next_outputtime(int time);
-
 void grav_short_tree(void);
 void hydro_force(void);
 void init(int RestartSnapNum);
