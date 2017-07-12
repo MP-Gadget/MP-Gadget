@@ -55,6 +55,7 @@ void run(void)
     walltime_measure("/Misc");
 
     write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
+    int Ti_nextoutput = find_next_outputtime(All.Ti_Current + 1);
 
     do /* main loop */
     {
@@ -62,7 +63,7 @@ void run(void)
          * If needed, this function will also write an output file
          * at the desired time.
          */
-        All.Ti_Current = find_next_kick(All.Ti_nextoutput);
+        All.Ti_Current = find_next_kick(Ti_nextoutput);
 
         /* Sync positions of all particles */
         drift_all_particles(All.Ti_Current);
@@ -103,11 +104,11 @@ void run(void)
          * the last move in compute_accelerations().
          * This is after advance_and_find_timesteps so the acceleration
          * is included in the kick.*/
-        if(is_PM_timestep(All.Ti_Current) && (WriteNextOpportunity || All.Ti_Current >= All.Ti_nextoutput))
+        if(is_PM_timestep(All.Ti_Current) && (WriteNextOpportunity || All.Ti_Current >= Ti_nextoutput))
         {
             /*Save snapshot*/
             savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
-            All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);
+            Ti_nextoutput = find_next_outputtime(Ti_nextoutput + 1);
         }
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 

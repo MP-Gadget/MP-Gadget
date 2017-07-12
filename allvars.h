@@ -350,7 +350,7 @@ extern struct global_data_all_processes
     /* variables for organizing discrete timeline */
 
     int Ti_Current;		/*!< current time on integer timeline */
-    int Ti_nextoutput;		/*!< next output time on integer timeline */
+
     int Nmesh;
 
     /* variables that keep track of cumulative CPU consumption */
