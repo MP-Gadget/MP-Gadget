@@ -370,7 +370,7 @@ void compute_accelerations(void)
 
     grav_short_tree();		/* computes gravity accel. */
 
-    if(All.TypeOfOpeningCriterion == 1 && All.Ti_Current == 0)
+    if(All.Ti_Current == 0)
         grav_short_tree();		/* For the first timestep, we redo it
                              * to allow usage of relative opening
                              * criterion for consistent accuracy.
