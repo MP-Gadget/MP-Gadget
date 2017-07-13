@@ -57,7 +57,7 @@ typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultB
 
 typedef int (*TreeWalkNgbIterFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, TreeWalkNgbIterBase * iter, LocalTreeWalk * lv);
 
-typedef int (*TreeWalkIsInteractingFunction) (const int i, TreeWalk * tw);
+typedef int (*TreeWalkHasWorkFunction) (const int i, TreeWalk * tw);
 typedef int (*TreeWalkProcessFunction) (const int i, TreeWalk * tw);
 
 typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query, TreeWalk * tw);
@@ -70,29 +70,31 @@ enum TreeWalkType {
 };
 
 struct TreeWalk {
-    void * userdata;
+    void * priv;
 
     /* name of the evaluator (used in printing messages) */
     char * ev_label;
 
     enum TreeWalkType type;
 
-    binmask_t bgmask; /* if set, the bins to compute force from; used if TreeWalkType is SPLIT */
-
-    TreeWalkVisitFunction visit;
-    TreeWalkIsInteractingFunction isinteracting;
-    TreeWalkFillQueryFunction fill;
-    TreeWalkReduceResultFunction reduce;
-    TreeWalkNgbIterFunction ngbiter;
-    TreeWalkProcessFunction postprocess;
-
-    char * dataget;
-    char * dataresult;
-
-    int UseNodeList;
     size_t query_type_elsize;
     size_t result_type_elsize;
     size_t ngbiter_type_elsize;
+
+    binmask_t bgmask; /* if set, the bins to compute force from; used if TreeWalkType is SPLIT */
+
+    TreeWalkVisitFunction visit;                /* Function to be called between a tree node and a particle */
+    TreeWalkHasWorkFunction haswork; /* Is the particle part of this interaction? */
+    TreeWalkFillQueryFunction fill;       /* Copy the useful attributes of a particle to a query */
+    TreeWalkReduceResultFunction reduce;  /* Reduce a partial result to the local particle storage */
+    TreeWalkNgbIterFunction ngbiter;     /* called for each pair of particles if visit is set to ngbiter */
+    TreeWalkProcessFunction postprocess; /* postprocess finalizes quantities for each particle, e.g. divide the normalization */
+    TreeWalkProcessFunction preprocess; /* Preprocess initializes quantities for each particle */
+
+    int UseNodeList;      /* Send tree branches or use the entire tree for ghost particles */
+
+    char * dataget;
+    char * dataresult;
 
     /* performance metrics */
     double timewait1;
@@ -115,8 +117,8 @@ struct TreeWalk {
     int BunchSize;
 
     struct ev_task * PrimaryTasks;
-    int * PQueue;
-    int PQueueSize;
+    int * WorkSet;
+    int WorkSetSize;
 
     /* per worker thread*/
     int *currentIndex;
@@ -124,8 +126,8 @@ struct TreeWalk {
 
 };
 
-void treewalk_run(TreeWalk * tw);
-int * treewalk_get_queue(TreeWalk * tw, int * len);
+void treewalk_run(TreeWalk * tw, int * active_set, int size);
+
 int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             TreeWalkResultBase * O,
             LocalTreeWalk * lv);

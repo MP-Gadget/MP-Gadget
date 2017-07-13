@@ -9,6 +9,7 @@
 #include "cooling.h"
 #include "densitykernel.h"
 #include "treewalk.h"
+#include "timestep.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "gravshort.h"
@@ -31,7 +32,7 @@ void grav_short_pair(void)
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterGravShort);
     tw->ngbiter = (TreeWalkNgbIterFunction) grav_short_pair_ngbiter;
 
-    tw->isinteracting = grav_short_isinteracting;
+    tw->haswork = grav_short_haswork;
     tw->fill = (TreeWalkFillQueryFunction) grav_short_copy;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
@@ -41,7 +42,7 @@ void grav_short_pair(void)
 
     walltime_measure("/Misc");
 
-    treewalk_run(tw);
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     walltime_measure("/Grav/Short");
 }

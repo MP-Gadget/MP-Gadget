@@ -5,6 +5,14 @@
 
 #include "endrun.h"
 
+/* Watch out:
+ *
+ * On some versions of OpenMPI with CPU frequency scaling we see negative time
+ * due to a bug in OpenMPI https://github.com/open-mpi/ompi/issues/3003
+ *
+ * But they have fixed it.
+ */
+
 static double _timestart = -1;
 /*  This function aborts the simulation.
  *

@@ -21,12 +21,12 @@ typedef struct {
 } TreeWalkResultGravShort;
 
 static int
-grav_short_isinteracting(int i, TreeWalk * tw)
+grav_short_haswork(int i, TreeWalk * tw)
 {
-    int isinteracting = 1;
+    int haswork = 1;
     /* tracer particles (5) has no gravity, they move along to pot minimium */
-    isinteracting = isinteracting && (P[i].Type != 5);
-    return isinteracting;
+    haswork = haswork && (P[i].Type != 5);
+    return haswork;
 }
 
 static void

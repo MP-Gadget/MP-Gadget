@@ -58,7 +58,7 @@ typedef struct {
 } TreeWalkNgbIterHydro;
 
 static int
-hydro_isinteracting(int n, TreeWalk * tw);
+hydro_haswork(int n, TreeWalk * tw);
 
 static void
 hydro_postprocess(int i, TreeWalk * tw);
@@ -91,7 +91,7 @@ void hydro_force(void)
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter = (TreeWalkNgbIterFunction) hydro_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterHydro);
-    tw->isinteracting = hydro_isinteracting;
+    tw->haswork = hydro_haswork;
     tw->fill = (TreeWalkFillQueryFunction) hydro_copy;
     tw->reduce = (TreeWalkReduceResultFunction) hydro_reduce;
     tw->postprocess = (TreeWalkProcessFunction) hydro_postprocess;
@@ -108,7 +108,7 @@ void hydro_force(void)
 
     walltime_measure("/SPH/Hydro/Init");
 
-    treewalk_run(tw);
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     /* collect some timing information */
 
@@ -355,7 +355,7 @@ hydro_ngbiter(
 }
 
 static int
-hydro_isinteracting(int i, TreeWalk * tw)
+hydro_haswork(int i, TreeWalk * tw)
 {
     return P[i].Type == 0;
 }

@@ -84,7 +84,7 @@ static void
 blackhole_accretion_postprocess(int n, TreeWalk * tw);
 /* feedback routines. currently also performs the drifting(move it to gravtree / force tree?) */
 static int
-blackhole_accretion_isinteracting(int n, TreeWalk * tw);
+blackhole_accretion_haswork(int n, TreeWalk * tw);
 
 static void
 blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
@@ -98,12 +98,16 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         TreeWalkNgbIterBHAccretion * iter,
         LocalTreeWalk * lv);
 
-/* swallow routines */
+/* feedback routines */
+
+static void
+blackhole_feedback_preprocess(int n, TreeWalk * tw);
+
 static void
 blackhole_feedback_postprocess(int n, TreeWalk * tw);
 
 static int
-blackhole_feedback_isinteracting(int n, TreeWalk * tw);
+blackhole_feedback_haswork(int n, TreeWalk * tw);
 
 static void
 blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
@@ -152,7 +156,7 @@ void blackhole(void)
     tw_accretion->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_accretion->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHAccretion);
     tw_accretion->ngbiter = (TreeWalkNgbIterFunction) blackhole_accretion_ngbiter;
-    tw_accretion->isinteracting = blackhole_accretion_isinteracting;
+    tw_accretion->haswork = blackhole_accretion_haswork;
     tw_accretion->postprocess = (TreeWalkProcessFunction) blackhole_accretion_postprocess;
     tw_accretion->fill = (TreeWalkFillQueryFunction) blackhole_accretion_copy;
     tw_accretion->reduce = (TreeWalkReduceResultFunction) blackhole_accretion_reduce;
@@ -165,9 +169,10 @@ void blackhole(void)
     tw_feedback->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw_feedback->ngbiter_type_elsize = sizeof(TreeWalkNgbIterBHFeedback);
     tw_feedback->ngbiter = (TreeWalkNgbIterFunction) blackhole_feedback_ngbiter;
-    tw_feedback->isinteracting = blackhole_feedback_isinteracting;
+    tw_feedback->haswork = blackhole_feedback_haswork;
     tw_feedback->fill = (TreeWalkFillQueryFunction) blackhole_feedback_copy;
     tw_feedback->postprocess = (TreeWalkProcessFunction) blackhole_feedback_postprocess;
+    tw_feedback->preprocess = (TreeWalkProcessFunction) blackhole_feedback_preprocess;
     tw_feedback->reduce = (TreeWalkReduceResultFunction) blackhole_feedback_reduce;
     tw_feedback->UseNodeList = 1;
     tw_feedback->query_type_elsize = sizeof(TreeWalkQueryBHFeedback);
@@ -176,37 +181,17 @@ void blackhole(void)
     message(0, "Beginning black-hole accretion\n");
 
 
-    /* Let's first compute the Mdot values */
-    int queuesize;
-    int * queue = treewalk_get_queue(tw_accretion, &queuesize);
-
-    for(i = 0; i < queuesize; i ++) {
-        int n = queue[i];
-        int j;
-        for(j = 0; j < 3; j++) {
-            BHP(n).MinPotPos[j] = P[n].Pos[j];
-            BHP(n).MinPotVel[j] = P[n].Vel[j];
-        }
-        BHP(n).MinPot = P[n].Potential;
-    }
-
-    myfree(queue);
-
-    /* Now let's invoke the functions that stochasticall swallow gas
-     * and deal with black hole mergers.
-     */
-
-    message(0, "Start swallowing of gas particles and black holes\n");
-
 
     N_sph_swallowed = N_BH_swallowed = 0;
 
     /* Let's determine which particles may be swalled and calculate total feedback weights */
 
-    treewalk_run(tw_accretion);
+    treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
+
+    message(0, "Start swallowing of gas particles and black holes\n");
 
     /* Now do the swallowing of particles and dump feedback energy */
-    treewalk_run(tw_feedback);
+    treewalk_run(tw_feedback, ActiveParticle, NumActiveParticle);
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
@@ -311,6 +296,17 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     double dtime = get_dloga_for_bin(P[i].TimeBin) / All.cf.hubble;
 
     BHP(i).Mass += BHP(i).Mdot * dtime;
+}
+
+static void
+blackhole_feedback_preprocess(int n, TreeWalk * tw)
+{
+    int j;
+    for(j = 0; j < 3; j++) {
+        BHP(n).MinPotPos[j] = P[n].Pos[j];
+        BHP(n).MinPotVel[j] = P[n].Vel[j];
+    }
+    BHP(n).MinPot = P[n].Potential;
 }
 
 static void
@@ -619,7 +615,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 }
 
 static int
-blackhole_accretion_isinteracting(int n, TreeWalk * tw)
+blackhole_accretion_haswork(int n, TreeWalk * tw)
 {
     return (P[n].Type == 5) && (P[n].Mass > 0);
 }
@@ -674,7 +670,7 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
 }
 
 static int
-blackhole_feedback_isinteracting(int n, TreeWalk * tw)
+blackhole_feedback_haswork(int n, TreeWalk * tw)
 {
     return (P[n].Type == 5) && (!P[n].Swallowed);
 }
