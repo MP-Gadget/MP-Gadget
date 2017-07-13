@@ -116,11 +116,11 @@ const unsigned char subpix3[48][8] = {
 /*! This function computes a Peano-Hilbert key for an integer triplet (x,y,z),
  *  with x,y,z in the range between 0 and 2^bits-1.
  */
-peanokey peano_hilbert_key(int x, int y, int z, int bits)
+peano_t peano_hilbert_key(int x, int y, int z, int bits)
 {
     int mask;
     unsigned char rotation = 0;
-    peanokey key = 0;
+    peano_t key = 0;
 
     for(mask = 1 << (bits - 1); mask > 0; mask >>= 1)
     {
@@ -135,10 +135,10 @@ peanokey peano_hilbert_key(int x, int y, int z, int bits)
 }
 
 
-peanokey morton_key(int x, int y, int z, int bits)
+morton_t morton_key(int x, int y, int z, int bits)
 {
     int mask;
-    peanokey morton = 0;
+    morton_t morton = 0;
 
     for(mask = 1 << (bits - 1); mask > 0; mask >>= 1)
     {

@@ -147,7 +147,7 @@ int get_subnode(const struct NODE * node, const int nodepos, const int p_i, cons
     int subnode=0;
     if(shift >= 0)
     {
-        const peanokey morton = MORTON(P[p_i].Pos);
+        const morton_t morton = MORTON(P[p_i].Pos);
         /* Shift morton key to the right by shift bits,
          * cutting the key at the correct tree level*/
         subnode = ((morton >> shift) & 7);
@@ -244,7 +244,7 @@ int force_tree_build_single(int npart)
         /*First walk the topnodes*/
         while(TopNodes[this].Daughter >= 0)
         {
-            const peanokey key = P[i].Key;
+            const peano_t key = P[i].Key;
             this = TopNodes[this].Daughter + (key - TopNodes[this].StartKey) / (TopNodes[this].Size / 8);
             shift -= 3;
         }

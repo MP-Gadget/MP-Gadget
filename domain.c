@@ -52,8 +52,8 @@ int NTopnodes, NTopleaves;
 struct local_topnode_data
 {
     /*These members are copied into topnode_data*/
-    peanokey Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
-    peanokey StartKey;		/*!< first Peano-Hilbert key in top-level node */
+    peano_t Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
+    peano_t StartKey;		/*!< first Peano-Hilbert key in top-level node */
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
     /*Below members are only used in this file*/
@@ -584,7 +584,7 @@ void domain_findSplit_load_balanced(int ncpu, int ndomain, int *domainCount)
 
 
 /*This function determines the leaf node for the given particle number.*/
-static inline int domain_leafnodefunc(const peanokey key) {
+static inline int domain_leafnodefunc(const peano_t key) {
     int no=0;
     while(TopNodes[no].Daughter >= 0)
         no = TopNodes[no].Daughter + (key - TopNodes[no].StartKey) / (TopNodes[no].Size / 8);
@@ -601,7 +601,7 @@ static inline int domain_leafnodefunc(const peanokey key) {
  *
  */
 static int domain_layoutfunc(int n) {
-    peanokey key = P[n].Key;
+    peano_t key = P[n].Key;
     int no = domain_leafnodefunc(key);
     return DomainTask[no];
 }

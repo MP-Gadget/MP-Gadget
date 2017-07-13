@@ -10,8 +10,8 @@ extern int *DomainTask;
 
 extern struct topnode_data
 {
-    peanokey Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
-    peanokey StartKey;		/*!< first Peano-Hilbert key in top-level node */
+    peano_t Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
+    peano_t StartKey;		/*!< first Peano-Hilbert key in top-level node */
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
 } *TopNodes;
