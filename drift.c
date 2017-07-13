@@ -128,7 +128,7 @@ static void real_drift_particle(int i, int ti1)
         while(P[i].Pos[j] <= 0) P[i].Pos[j] += All.BoxSize;
     }
     /* avoid recomputing them during layout and force tree build.*/
-    P[i].Key = KEY(P[i].Pos);
+    P[i].Key = PEANO(P[i].Pos);
 
     if(P[i].Type == 0)
     {
