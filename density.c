@@ -153,7 +153,7 @@ void density(void)
     do {
         DENSITY_GET_PRIV(tw)->NPLeft = 0;
 
-        treewalk_run(tw);
+        treewalk_run(tw, ActiveParticle, NumActiveParticle);
         sumup_large_ints(1, &DENSITY_GET_PRIV(tw)->NPLeft, &ntot);
 
         if(ntot == 0) break;

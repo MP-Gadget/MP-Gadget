@@ -186,12 +186,12 @@ void blackhole(void)
 
     /* Let's determine which particles may be swalled and calculate total feedback weights */
 
-    treewalk_run(tw_accretion);
+    treewalk_run(tw_accretion, ActiveParticle, NumActiveParticle);
 
     message(0, "Start swallowing of gas particles and black holes\n");
 
     /* Now do the swallowing of particles and dump feedback energy */
-    treewalk_run(tw_feedback);
+    treewalk_run(tw_feedback, ActiveParticle, NumActiveParticle);
 
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);

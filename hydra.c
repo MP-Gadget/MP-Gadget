@@ -108,7 +108,7 @@ void hydro_force(void)
 
     walltime_measure("/SPH/Hydro/Init");
 
-    treewalk_run(tw);
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     /* collect some timing information */
 

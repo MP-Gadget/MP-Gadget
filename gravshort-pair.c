@@ -9,6 +9,7 @@
 #include "cooling.h"
 #include "densitykernel.h"
 #include "treewalk.h"
+#include "timestep.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "gravshort.h"
@@ -41,7 +42,7 @@ void grav_short_pair(void)
 
     walltime_measure("/Misc");
 
-    treewalk_run(tw);
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     walltime_measure("/Grav/Short");
 }

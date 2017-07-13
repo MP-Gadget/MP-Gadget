@@ -11,6 +11,7 @@
 #include "drift.h"
 #include "forcetree.h"
 #include "treewalk.h"
+#include "timestep.h"
 #include "mymalloc.h"
 #include "domain.h"
 #include "endrun.h"
@@ -95,7 +96,7 @@ void grav_short_tree_old(void)
 
     walltime_measure("/Misc");
 
-    treewalk_run(tw);
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     if(All.TypeOfOpeningCriterion == 1) {
         /* This will switch to the relative opening criterion for the following force computations */

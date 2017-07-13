@@ -258,7 +258,7 @@ void cooling_and_starformation(void)
     tw->haswork = sfr_cooling_haswork;
     tw->postprocess = (TreeWalkProcessFunction) sfr_cool_postprocess;
 
-    treewalk_run(tw);
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     int tot_spawned, tot_converted;
     MPI_Allreduce(&stars_spawned, &tot_spawned, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -330,7 +330,7 @@ void cooling_and_starformation(void)
         tw->visit = NULL;
         tw->haswork = (TreeWalkHasWorkFunction) sfr_wind_feedback_haswork;
         tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_preprocess; 
-        treewalk_run(tw);
+        treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
         tw->haswork = sfr_wind_weight_haswork;
         tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
@@ -339,7 +339,7 @@ void cooling_and_starformation(void)
         int done = 0;
         while(!done) {
             NPLeft = 0;
-            treewalk_run(tw);
+            treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
             int64_t totalleft = 0;
             sumup_large_ints(1, &NPLeft, &totalleft);
@@ -353,7 +353,7 @@ void cooling_and_starformation(void)
         tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_postprocess;
         tw->reduce = NULL;
 
-        treewalk_run(tw);
+        treewalk_run(tw, ActiveParticle, NumActiveParticle);
         myfree(Wind);
     }
     walltime_measure("/Cooling/Wind");
@@ -384,7 +384,7 @@ void cooling_only(void)
     tw->haswork = sfr_cooling_haswork;
     tw->postprocess = (TreeWalkProcessFunction) cool_postprocess;
 
-    treewalk_run(tw);
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     walltime_measure("/Cooling/StarFormation");
 }

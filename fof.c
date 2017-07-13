@@ -330,7 +330,7 @@ void fof_label_primary(void)
     {
         t0 = second();
 
-        treewalk_run(tw);
+        treewalk_run(tw, NULL, -1);
 
         t1 = second();
 
@@ -1087,7 +1087,7 @@ static void fof_label_secondary(void)
         FOF_SECONDARY_GET_PRIV(tw)->npleft = 0;
         FOF_SECONDARY_GET_PRIV(tw)->count = 0;
 
-        treewalk_run(tw);
+        treewalk_run(tw, NULL, -1);
 
         sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->npleft, &ntot);
         sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->count, &counttot);

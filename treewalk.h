@@ -117,8 +117,8 @@ struct TreeWalk {
     int BunchSize;
 
     struct ev_task * PrimaryTasks;
-    int * PQueue;
-    int PQueueSize;
+    int * WorkSet;
+    int WorkSetSize;
 
     /* per worker thread*/
     int *currentIndex;
@@ -126,7 +126,8 @@ struct TreeWalk {
 
 };
 
-void treewalk_run(TreeWalk * tw);
+void treewalk_run(TreeWalk * tw, int * active_set, int size);
+
 int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             TreeWalkResultBase * O,
             LocalTreeWalk * lv);
