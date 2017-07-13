@@ -108,10 +108,10 @@ static int
 make_particle_wind(MyIDType ID, int i, double v, double vmean[3]);
 
 static int
-sfr_wind_weight_isinteracting(int target, TreeWalk * tw);
+sfr_wind_weight_haswork(int target, TreeWalk * tw);
 
 static int
-sfr_wind_feedback_isinteracting(int target, TreeWalk * tw);
+sfr_wind_feedback_haswork(int target, TreeWalk * tw);
 
 static void
 sfr_wind_reduce_weight(int place, TreeWalkResultWind * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
@@ -138,7 +138,7 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
  */
 
 static int
-sfr_cooling_isinteracting(int target, TreeWalk * tw)
+sfr_cooling_haswork(int target, TreeWalk * tw)
 {
     return P[target].Type == 0 && P[target].Mass > 0;
 }
@@ -255,7 +255,7 @@ void cooling_and_starformation(void)
 
     tw->visit = NULL; /* no tree walk */
     tw->ev_label = "SFR_COOL";
-    tw->isinteracting = sfr_cooling_isinteracting;
+    tw->haswork = sfr_cooling_haswork;
     tw->postprocess = (TreeWalkProcessFunction) sfr_cool_postprocess;
 
     treewalk_run(tw);
@@ -328,11 +328,11 @@ void cooling_and_starformation(void)
         /* Watchout: the process function name is preprocess, but not called in the feedback tree walk
          * because we need to compute the normalization before the feedback . */
         tw->visit = NULL;
-        tw->isinteracting = (TreeWalkIsInteractingFunction) sfr_wind_feedback_isinteracting;
+        tw->haswork = (TreeWalkHasWorkFunction) sfr_wind_feedback_haswork;
         tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_preprocess; 
         treewalk_run(tw);
 
-        tw->isinteracting = sfr_wind_weight_isinteracting;
+        tw->haswork = sfr_wind_weight_haswork;
         tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
         tw->postprocess = (TreeWalkProcessFunction) sfr_wind_weight_postprocess;
 
@@ -348,7 +348,7 @@ void cooling_and_starformation(void)
         }
 
         /* Then run feedback */
-        tw->isinteracting = (TreeWalkIsInteractingFunction) sfr_wind_feedback_isinteracting;
+        tw->haswork = (TreeWalkHasWorkFunction) sfr_wind_feedback_haswork;
         tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_feedback_ngbiter;
         tw->postprocess = (TreeWalkProcessFunction) sfr_wind_feedback_postprocess;
         tw->reduce = NULL;
@@ -381,7 +381,7 @@ void cooling_only(void)
 
     tw->visit = NULL; /* no tree walk */
     tw->ev_label = "SFR_COOL";
-    tw->isinteracting = sfr_cooling_isinteracting;
+    tw->haswork = sfr_cooling_haswork;
     tw->postprocess = (TreeWalkProcessFunction) cool_postprocess;
 
     treewalk_run(tw);
@@ -493,7 +493,7 @@ static int get_sfr_condition(int i) {
 
 #ifdef WINDS
 static int
-sfr_wind_weight_isinteracting(int target, TreeWalk * tw)
+sfr_wind_weight_haswork(int target, TreeWalk * tw)
 {
     if(P[target].Type == 4) {
         if(P[target].IsNewParticle && !P[target].DensityIterationDone) {
@@ -504,7 +504,7 @@ sfr_wind_weight_isinteracting(int target, TreeWalk * tw)
 }
 
 static int
-sfr_wind_feedback_isinteracting(int target, TreeWalk * tw)
+sfr_wind_feedback_haswork(int target, TreeWalk * tw)
 {
     if(P[target].Type == 4) {
         if(P[target].IsNewParticle) {

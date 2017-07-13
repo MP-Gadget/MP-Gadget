@@ -31,7 +31,7 @@ void grav_short_pair(void)
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterGravShort);
     tw->ngbiter = (TreeWalkNgbIterFunction) grav_short_pair_ngbiter;
 
-    tw->isinteracting = grav_short_isinteracting;
+    tw->haswork = grav_short_haswork;
     tw->fill = (TreeWalkFillQueryFunction) grav_short_copy;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;

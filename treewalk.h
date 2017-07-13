@@ -57,7 +57,7 @@ typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultB
 
 typedef int (*TreeWalkNgbIterFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, TreeWalkNgbIterBase * iter, LocalTreeWalk * lv);
 
-typedef int (*TreeWalkIsInteractingFunction) (const int i, TreeWalk * tw);
+typedef int (*TreeWalkHasWorkFunction) (const int i, TreeWalk * tw);
 typedef int (*TreeWalkProcessFunction) (const int i, TreeWalk * tw);
 
 typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query, TreeWalk * tw);
@@ -84,7 +84,7 @@ struct TreeWalk {
     binmask_t bgmask; /* if set, the bins to compute force from; used if TreeWalkType is SPLIT */
 
     TreeWalkVisitFunction visit;                /* Function to be called between a tree node and a particle */
-    TreeWalkIsInteractingFunction isinteracting; /* Is the particle part of this interaction? */
+    TreeWalkHasWorkFunction haswork; /* Is the particle part of this interaction? */
     TreeWalkFillQueryFunction fill;       /* Copy the useful attributes of a particle to a query */
     TreeWalkReduceResultFunction reduce;  /* Reduce a partial result to the local particle storage */
     TreeWalkNgbIterFunction ngbiter;     /* called for each pair of particles if visit is set to ngbiter */

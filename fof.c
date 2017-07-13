@@ -273,7 +273,7 @@ static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
     I->MinIDTask = HaloLabel[head].MinIDTask;
 }
 
-static int fof_primary_isinteracting(int n, TreeWalk * tw) {
+static int fof_primary_haswork(int n, TreeWalk * tw) {
     return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[n];
 }
 
@@ -298,7 +298,7 @@ void fof_label_primary(void)
     tw->ngbiter = (TreeWalkNgbIterFunction) fof_primary_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterFOF);
 
-    tw->isinteracting = fof_primary_isinteracting;
+    tw->haswork = fof_primary_haswork;
     tw->fill = (TreeWalkFillQueryFunction) fof_primary_copy;
     tw->reduce = NULL;
     tw->UseNodeList = 1;
@@ -990,7 +990,7 @@ static void fof_secondary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
 
     I->Hsml = FOF_SECONDARY_GET_PRIV(tw)->hsml[place];
 }
-static int fof_secondary_isinteracting(int n, TreeWalk * tw) {
+static int fof_secondary_haswork(int n, TreeWalk * tw) {
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
 static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {
@@ -1043,7 +1043,7 @@ static void fof_label_secondary(void)
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter = (TreeWalkNgbIterFunction) fof_secondary_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterFOF);
-    tw->isinteracting = fof_secondary_isinteracting;
+    tw->haswork = fof_secondary_haswork;
     tw->fill = (TreeWalkFillQueryFunction) fof_secondary_copy;
     tw->reduce = (TreeWalkReduceResultFunction) fof_secondary_reduce;
     tw->postprocess = (TreeWalkProcessFunction) fof_secondary_postprocess;

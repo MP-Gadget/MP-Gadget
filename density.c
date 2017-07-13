@@ -68,7 +68,7 @@ density_ngbiter(
         TreeWalkNgbIterDensity * iter,
         LocalTreeWalk * lv);
 
-static int density_isinteracting(int n, TreeWalk * tw);
+static int density_haswork(int n, TreeWalk * tw);
 static void density_postprocess(int i, TreeWalk * tw);
 static void density_check_neighbours(int i, TreeWalk * tw);
 
@@ -109,7 +109,7 @@ void density(void)
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterDensity);
     tw->ngbiter = (TreeWalkNgbIterFunction) density_ngbiter;
-    tw->isinteracting = density_isinteracting;
+    tw->haswork = density_haswork;
     tw->fill = (TreeWalkFillQueryFunction) density_copy;
     tw->reduce = (TreeWalkReduceResultFunction) density_reduce;
     tw->postprocess = (TreeWalkProcessFunction) density_postprocess;
@@ -163,7 +163,7 @@ void density(void)
         if(ntot < 1 ) {
             foreach(ActiveParticle)
             {
-                if(density_isinteracting(i) && !P[i].DensityIterationDone) {
+                if(density_haswork(i) && !P[i].DensityIterationDone) {
                     message
                         (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g DENSITY_GET_PRIV(tw)->Left=%g DENSITY_GET_PRIV(tw)->Right=%g Ngbs=%g DENSITY_GET_PRIV(tw)->Right-DENSITY_GET_PRIV(tw)->Left=%g\n   pos=(%g|%g|%g)\n",
                          i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, DENSITY_GET_PRIV(tw)->Left[i], DENSITY_GET_PRIV(tw)->Right[i],
@@ -359,7 +359,7 @@ density_ngbiter(
 }
 
 static int
-density_isinteracting(int n, TreeWalk * tw)
+density_haswork(int n, TreeWalk * tw)
 {
     if(P[n].DensityIterationDone) return 0;
 
