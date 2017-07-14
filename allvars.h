@@ -520,7 +520,7 @@ extern struct particle_data
     pthread_spinlock_t SpinLock;
 #endif
 
-    int GravCost;     /*!< weight factor used for balancing the work-load */
+    float GravCost;     /*!< weight factor used for balancing the work-load */
 
     int Ti_begstep;     /*!< marks start of current timestep of particle on integer timeline */
     int Ti_drift;       /*!< current time of the particle position */

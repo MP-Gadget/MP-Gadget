@@ -239,6 +239,7 @@ void domain_free(void)
 static int64_t
 domain_particle_costfactor(int i)
 {
+    /* We round off GravCost to integer*/
     if(P[i].TimeBin)
         return (1 + P[i].GravCost) * (TIMEBASE / (1 << P[i].TimeBin));
     else
