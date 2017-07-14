@@ -724,7 +724,7 @@ void force_exchange_pseudodata(void)
 {
     int i, no, m, ta, recvTask;
     int *recvcounts, *recvoffset;
-    struct DomainNODE
+    struct topleaf_momentsdata
     {
         MyFloat s[3];
         MyFloat mass;
@@ -735,24 +735,24 @@ void force_exchange_pseudodata(void)
 
         unsigned int bitflags;
     }
-    *DomainMoment;
+    *TopLeafMoments;
 
 
-    DomainMoment = (struct DomainNODE *) mymalloc("DomainMoment", NTopLeaves * sizeof(struct DomainNODE));
-    memset(&DomainMoment[0], 0, sizeof(DomainMoment[0]) * NTopLeaves);
+    TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", NTopLeaves * sizeof(TopLeafMoments[0]));
+    memset(&TopLeafMoments[0], 0, sizeof(TopLeafMoments[0]) * NTopLeaves);
 
     for(i = Tasks[ThisTask].StartLeaf; i < Tasks[ThisTask].EndLeaf; i ++) {
         no = TopLeaves[i].treenode;
 
         /* read out the multipole moments from the local base cells */
-        DomainMoment[i].s[0] = Nodes[no].u.d.s[0];
-        DomainMoment[i].s[1] = Nodes[no].u.d.s[1];
-        DomainMoment[i].s[2] = Nodes[no].u.d.s[2];
-        DomainMoment[i].mass = Nodes[no].u.d.mass;
-        DomainMoment[i].hmax = Nodes[no].hmax;
-        DomainMoment[i].bitflags = Nodes[no].u.d.bitflags;
+        TopLeafMoments[i].s[0] = Nodes[no].u.d.s[0];
+        TopLeafMoments[i].s[1] = Nodes[no].u.d.s[1];
+        TopLeafMoments[i].s[2] = Nodes[no].u.d.s[2];
+        TopLeafMoments[i].mass = Nodes[no].u.d.mass;
+        TopLeafMoments[i].hmax = Nodes[no].hmax;
+        TopLeafMoments[i].bitflags = Nodes[no].u.d.bitflags;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
-        DomainMoment[i].maxsoft = Nodes[no].maxsoft;
+        TopLeafMoments[i].maxsoft = Nodes[no].maxsoft;
 #endif
     }
 
@@ -763,12 +763,12 @@ void force_exchange_pseudodata(void)
 
     for(recvTask = 0; recvTask < NTask; recvTask++)
     {
-        recvoffset[recvTask] = Tasks[recvTask].StartLeaf * sizeof(struct DomainNODE);
-        recvcounts[recvTask] = (Tasks[recvTask].EndLeaf - Tasks[recvTask].StartLeaf) * sizeof(struct DomainNODE);
+        recvoffset[recvTask] = Tasks[recvTask].StartLeaf * sizeof(TopLeafMoments[0]);
+        recvcounts[recvTask] = (Tasks[recvTask].EndLeaf - Tasks[recvTask].StartLeaf) * sizeof(TopLeafMoments[0]);
     }
 
     MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
-            &DomainMoment[0], recvcounts, recvoffset,
+            &TopLeafMoments[0], recvcounts, recvoffset,
             MPI_BYTE, MPI_COMM_WORLD);
 
     myfree(recvoffset);
@@ -781,19 +781,19 @@ void force_exchange_pseudodata(void)
         for(i = Tasks[ta].StartLeaf; i < Tasks[ta].EndLeaf; i ++) {
             no = TopLeaves[i].treenode;
 
-            Nodes[no].u.d.s[0] = DomainMoment[i].s[0];
-            Nodes[no].u.d.s[1] = DomainMoment[i].s[1];
-            Nodes[no].u.d.s[2] = DomainMoment[i].s[2];
-            Nodes[no].u.d.mass = DomainMoment[i].mass;
-            Nodes[no].hmax = DomainMoment[i].hmax;
+            Nodes[no].u.d.s[0] = TopLeafMoments[i].s[0];
+            Nodes[no].u.d.s[1] = TopLeafMoments[i].s[1];
+            Nodes[no].u.d.s[2] = TopLeafMoments[i].s[2];
+            Nodes[no].u.d.mass = TopLeafMoments[i].mass;
+            Nodes[no].hmax = TopLeafMoments[i].hmax;
             Nodes[no].u.d.bitflags =
-                (Nodes[no].u.d.bitflags & (~BITFLAG_MASK)) | (DomainMoment[i].bitflags & BITFLAG_MASK);
+                (Nodes[no].u.d.bitflags & (~BITFLAG_MASK)) | (TopLeafMoments[i].bitflags & BITFLAG_MASK);
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
-            Nodes[no].maxsoft = DomainMoment[i].maxsoft;
+            Nodes[no].maxsoft = TopLeafMoments[i].maxsoft;
 #endif
         }
     }
-    myfree(DomainMoment);
+    myfree(TopLeafMoments);
 }
 
 
