@@ -80,7 +80,7 @@ static void domain_sumCost(float *domainWork, int *domainCount);
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
-static int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes);
+static int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int countlimit, double costlimit);
 
 static int domain_layoutfunc(int n);
 
@@ -632,12 +632,17 @@ void domain_walktoptree(int no)
  * If 1 is returned on any processor we will return to domain_Decomposition,
  * allocate 30% more topNodes, and try again.
  * */
-int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes)
+int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int countlimit, double costlimit)
 {
     int j, p;
 
     /*If there are only 8 particles within this node, we are done refining.*/
     if(topNodes[i].Size < 8)
+        return 0;
+
+    /* if the node is already very small, no need to divide it any further */
+    if((topNodes[i].Count <= 0.8 * countlimit &&
+        topNodes[i].Cost <= 0.8 * costlimit))
         return 0;
 
     /* We need to do refinement if (if we have a parent) we have more than 80%
@@ -704,7 +709,7 @@ int domain_check_for_local_refine(const int i, struct local_topnode_data * topNo
         const int sub = topNodes[i].Daughter + j;
         /* Refine each sub node. If we could not refine the node as needed,
          * we are out of node space and need more.*/
-        if(domain_check_for_local_refine(sub, topNodes))
+        if(domain_check_for_local_refine(sub, topNodes, countlimit, costlimit))
             return 1;
     }
     return 0;
@@ -846,7 +851,7 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
-    errflag = domain_check_for_local_refine(0, topNodes);
+    errflag = domain_check_for_local_refine(0, topNodes, countlimit, costlimit);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
