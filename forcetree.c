@@ -721,7 +721,7 @@ force_update_node_recursive(int no, int sib, int father, int tail)
  */
 void force_exchange_pseudodata(void)
 {
-    int i, no, m, ta, recvTask;
+    int i, no, ta, recvTask;
     int *recvcounts, *recvoffset;
     struct topleaf_momentsdata
     {
@@ -928,7 +928,7 @@ void force_treeupdate_pseudos(int no)
 static void
 force_flag_localnodes(void)
 {
-    int no, i, m;
+    int no, i;
 
     /* mark all top-level nodes */
 
@@ -993,17 +993,13 @@ force_flag_localnodes(void)
 void force_update_hmax(int * activeset, int size)
 {
     int i, ta; 
-    int *domainList_all;
     int *counts, *offsets;
-    MyFloat *domainHmax_loc, *domainHmax_all;
     struct dirty_node_data {
         int treenode;
         MyFloat hmax;
     } * DirtyTopLevelNodes;
 
     int NumDirtyTopLevelNodes;
-
-    int totNumDirtyTopLevelNodes;
 
     walltime_measure("/Misc");
 

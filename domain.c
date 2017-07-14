@@ -357,7 +357,7 @@ domain_balance(void)
 static int
 domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount)
 {
-    int ta, m, i;
+    int ta, i;
     int load, max_load;
     int64_t sumload;
     int64_t work, max_work, sumwork;
@@ -642,7 +642,6 @@ static void
 domain_create_topleaves(int no, int * next)
 {
     int i;
-    int rt = 0;
     if(TopNodes[no].Daughter == -1)
     {
         TopNodes[no].Leaf = *next;

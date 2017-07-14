@@ -268,12 +268,6 @@ static void real_ev(TreeWalk * tw) {
     tw->Nnodesinlist += lv->Nnodesinlist;
 }
 
-static int cmpint(const void * c1, const void * c2) {
-    const int* i1=c1;
-    const int* i2=c2;
-    return i1 - i2;
-}
-
 static void
 treewalk_build_queue(TreeWalk * tw, int * active_set, int size) {
     int * queue = tw->WorkSet;
