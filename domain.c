@@ -149,14 +149,17 @@ void domain_decompose_full(void)
 
     walltime_measure("/Domain/Peano");
 
-    memmove(TopNodes + NTopNodes, TopLeaves, NTopNodes * sizeof(int));
+    void * OldTopLeaves = TopLeaves;
+
+    TopNodes  = (struct topnode_data *) (TopTreeMemory);
+    TopLeaves = (struct topleaf_data *) (TopNodes + NTopNodes);
+
+    memmove(TopLeaves, OldTopLeaves, NTopNodes * sizeof(TopLeaves[0]));
 
     /* add 1 extra to mark the end of TopLeaves; see assign */
     TopTreeMemory = (struct topnode_data *) myrealloc(TopTreeMemory,
             (NTopNodes * sizeof(TopNodes[0]) + (NTopLeaves + 1) * sizeof(TopLeaves[0])));
 
-    TopNodes  = (struct topnode_data *) (TopTreeMemory);
-    TopLeaves = (struct topleaf_data *) (TopNodes + NTopNodes);
 
     message(0, "Freed %g MByte in top-level domain structure\n",
                 (MaxTopNodes - NTopNodes) * (sizeof(TopLeaves[0])  + sizeof(TopNodes[0]))/ (1024.0 * 1024.0));
@@ -351,7 +354,7 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
         load = 0;
         work = 0;
 
-        for(i = Tasks[ta].StartLeaf; i <= Tasks[ta].EndLeaf; i ++)
+        for(i = Tasks[ta].StartLeaf; i < Tasks[ta].EndLeaf; i ++)
         {
             load += TopLeafCount[i];
             work += TopLeafWork[i];
@@ -405,12 +408,22 @@ struct topleaf_extdata {
 static int
 topleaf_ext_order_by_task_and_key(const void * c1, const void * c2)
 {
+    const struct topleaf_extdata * p1 = (const struct topleaf_extdata *) c1;
+    const struct topleaf_extdata * p2 = (const struct topleaf_extdata *) c2;
+    if(p1->Task < p2->Task) return -1;
+    if(p1->Task > p2->Task) return 1;
+    if(p1->Key < p2->Key) return -1;
+    if(p1->Key > p2->Key) return 1;
     return 0;
 }
 
 static int
 topleaf_ext_order_by_key(const void * c1, const void * c2)
 {
+    const struct topleaf_extdata * p1 = (const struct topleaf_extdata *) c1;
+    const struct topleaf_extdata * p2 = (const struct topleaf_extdata *) c2;
+    if(p1->Key < p2->Key) return -1;
+    if(p1->Key > p2->Key) return 1;
     return 0;
 }
 
@@ -452,7 +465,7 @@ domain_assign_balanced(int64_t * cost)
     /* make sure TopLeaves are sorted by Key for locality of segments - 
      * likely not necessary be cause when this function
      * is called it is already true */
-    qsort_openmp(TopLeafExt, NTopLeaves, sizeof(TopLeafExt), topleaf_ext_order_by_key);
+    qsort_openmp(TopLeafExt, NTopLeaves, sizeof(TopLeafExt[0]), topleaf_ext_order_by_key);
 
     int64_t totalcost = 0;
     #pragma omp parallel for reduction(+ : totalcost)
@@ -461,64 +474,75 @@ domain_assign_balanced(int64_t * cost)
     }
     int64_t totalcostLeft = totalcost;
 
-    /* start the assignment; run F batches, each finds NTask segments
-     * with the mean total cost*/
+    /* start the assignment; We try to create segments that are of the
+     * mean_expected cost, then assign them to Tasks in a round-robin fashion.
+     */
 
+    double mean_expected = 1.0 * totalcost / Nsegment;
     int curleaf = 0;
-    int n;
-    for(n = 0; n < All.DomainOverDecompositionFactor; n++) {
-        double mean_expected = 1.0 * totalcostLeft / (Nsegment - n * NTask);
+    int curseg = 0;
+    int curtask = 0; /* between 0 and NTask - 1*/
+    int64_t curload = 0; /* cummulative load for the current segment */
 
-        int curtask = 0; /* between 0 and NTask - 1*/
-        int64_t curload = 0; /* cummulative load for the current task */
-
-        while(1) {
-            int append = 0;
-            int advance = 0;
-            int curseg = n * NTask + curtask;
-            if(NTopLeaves - curleaf == Nsegment - curseg) {
-                /* just enough for one segment per leaf */
+    message(0, "Expected segment cost %g\n", mean_expected);
+    /* we maintain that after the loop curleaf is the number of leaves scanned,
+     * curseg is number of segments created.
+     * */
+    while(1) {
+        int append = 0;
+        int advance = 0;
+        if(curleaf == NTopLeaves) {
+            /* to maintain the invariance */
+            advance = 1;
+        } else if(NTopLeaves - curleaf == Nsegment - curseg) {
+            /* just enough for one segment per leaf; this line ensures 
+             * at least Nsegment segments are created. */
+            append = 1;
+            advance = 1;
+        } else {
+            /* try to meet the average by appending the leaf to the segment */
+            if((mean_expected - curload > 0.5 * TopLeafExt[curleaf].cost) /* head towards the mean */
+            || curload == 0 /* but at least add one leaf */
+                ) {
                 append = 1;
-                advance = 1;
             } else {
-                /* try to meet the average by appending the leaf to the segment */
-                if(mean_expected - curload > TopLeafExt[curleaf].cost / 2 /* head towards the mean */
-                || curload == 0 /* but at least add one leaf */
-                    ) {
-                    append = 1;
-                } else {
-                    /* will be too big of a segment, cut it */
-                    advance = 1;
-                }
+                /* will be too big of a segment, cut it */
+                advance = 1;
             }
+        }
+        if(append) {
+            /* assign the leaf to the task */
+            curload += TopLeafExt[curleaf].cost;
+            TopLeafExt[curleaf].Task = curtask;
+            curleaf ++;
+        }
 
-            if(append) {
-                /* assign the leaf to the task */
-                curload += TopLeafExt[curleaf].cost;
-                TopLeafExt[curleaf].Task = curtask;
-                curleaf ++;
-            }
-
-            if(advance) {
-                /* move on to the next segment for the next task*/
-                totalcostLeft -= curload;
-                curload = 0;
-                curtask ++;
-            }
+        if(advance) {
+            /* move on to the next segment for the next task*/
+            totalcostLeft -= curload;
+            curload = 0;
+            curtask ++;
 
             /* finished a round for all tasks */
-            if(curtask == NTask) break;
+            if(curtask == NTask) curtask = 0;
+            curseg ++;
+            if(curleaf == NTopLeaves) break;
         }
+        //message(0, "curleaf = %d advance = %d append = %d, curload = %d cost=%ld left=%ld\n", curleaf, advance, append, curload, TopLeafExt[curleaf].cost, totalcostLeft);
     }
-    if(curleaf != NTopLeaves) {
-        endrun(0, "Assertion failed. Not all leaves are visited\n");
+
+    message(0, "Created %d segments for an expectation of %d\n", curseg, Nsegment);
+
+    if(curseg < Nsegment) {
+        endrun(0, "Not enough segments were created. This should not happen.\n");
     }
+
     if(totalcostLeft != 0) {
         endrun(0, "Assertion failed. Total cost is not fully assigned to all ranks\n");
     }
 
     /* lets rearrange the TopLeafExt by task, such that we can build the Tasks table */
-    qsort_openmp(TopLeafExt, NTopLeaves, sizeof(TopLeafExt), topleaf_ext_order_by_task_and_key);
+    qsort_openmp(TopLeafExt, NTopLeaves, sizeof(TopLeafExt[0]), topleaf_ext_order_by_task_and_key);
     for(i = 0; i < NTopLeaves; i ++) {
         TopNodes[TopLeafExt[i].topnode].Leaf = i;
         TopLeaves[i].Task = TopLeafExt[i].Task;
@@ -537,9 +561,10 @@ domain_assign_balanced(int64_t * cost)
         if(TopLeaves[i].Task == ta) continue;
 
         Tasks[ta].EndLeaf = i;
+        ta ++;
         while(ta < TopLeaves[i].Task) {
-            Tasks[ta].StartLeaf = i;
             Tasks[ta].EndLeaf = i;
+            Tasks[ta].StartLeaf = i;
             ta ++;
         }
         Tasks[ta].StartLeaf = i;
