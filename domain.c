@@ -675,6 +675,11 @@ int domain_check_for_local_refine(const int i, struct local_topnode_data * topNo
         topNodes[i].Cost <= 0.8 * costlimit))
         return 0;
 
+    /* already have enough nodes */
+    if(NTopNodes > All.DomainOverDecompositionFactor * NTask * TOPNODEFACTOR) {
+        return 0;
+    }
+
     /* We need to do refinement if (if we have a parent) we have more than 80%
      * of the parent's particles or costs.*/
     /* If we were below them but we have a parent and somehow got all of its particles, we still
@@ -846,9 +851,9 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 {
     int i, j, sub;
     int errflag, errsum;
-    int64_t costlimit, countlimit;
 
     int64_t totgravcost, gravcost = 0;
+
 #pragma omp parallel for reduction(+: gravcost)
     for(i = 0; i < NumPart; i++)
     {
@@ -856,7 +861,14 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
         gravcost += costfac;
     }
 
+    /*We need TotNumPart to be up to date*/
+    sumup_large_ints(1, &NumPart, &TotNumPart);
     MPI_Allreduce(&gravcost, &totgravcost, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    int64_t costlimit, countlimit;
+
+    costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
+    countlimit = TotNumPart / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
     NTopNodes = 1;
     topNodes[0].Daughter = -1;
@@ -867,12 +879,6 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     topNodes[0].Count = NumPart;
     topNodes[0].Cost = gravcost;
 
-    costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
-    /*We need TotNumPart to be up to date*/
-    int64_t NumPart_long = NumPart;
-    MPI_Allreduce(&NumPart_long, &TotNumPart, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
-
-    countlimit = TotNumPart / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
 
     walltime_measure("/Domain/DetermineTopTree/Misc");
 
@@ -964,7 +970,7 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     if(errsum)
         return errsum;
 
-    message(0, "After=%d\n", NTopNodes);
+    message(0, "Final NTopNodes = %d per segment = %g\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask));
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
     return 0;
