@@ -4,23 +4,35 @@
 #include "peano.h"
 
 /*These variables are used externally in forcetree.c.
- * DomainTask is also used in treewalk and NTopleaves is used in gravpm.c*/
-extern int *DomainStartList, *DomainEndList;
-extern int *DomainTask;
+ * DomainTask is also used in treewalk and NTopLeaves is used in gravpm.c*/
 
 extern struct topnode_data
 {
     peano_t Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
     peano_t StartKey;		/*!< first Peano-Hilbert key in top-level node */
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
-    int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
+    int Leaf;			/*!< if the node is a leaf, this gives its index in topleaf_data */
 } *TopNodes;
+
+extern struct topleaf_data {
+    int Task;
+    union {
+        int topnode; /* used during domain_decompose for balancing the decomposition */
+        int treenode; /* used during life span of the tree for looking up in the tree Nodes */
+    };
+} * TopLeaves;
+
+extern struct task_data {
+    int StartLeaf;
+    int EndLeaf;
+} * Tasks;
+
 extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tree used for domain decomposition */
 
-
-extern int NTopnodes, NTopleaves;
+extern int NTopNodes, NTopLeaves;
 
 void domain_test_id_uniqueness();
 void domain_decompose_full(void);
 void domain_maintain(void);
+
 #endif

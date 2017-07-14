@@ -93,8 +93,8 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
      *
      * */
     /* In worst case, each topleave becomes a region: thus
-     * NTopleaves is sufficient */
-    PetaPMRegion * regions = malloc(sizeof(PetaPMRegion) * NTopleaves);
+     * NTopLeaves is sufficient */
+    PetaPMRegion * regions = malloc(sizeof(PetaPMRegion) * NTopLeaves);
 
     int r = 0;
 

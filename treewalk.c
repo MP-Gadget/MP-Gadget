@@ -470,7 +470,8 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     TreeWalk * tw = lv->tw;
     int task;
 
-    task = DomainTask[no - (All.MaxPart + MaxNodes)];
+    task = TopLeaves[no - (All.MaxPart + MaxNodes)].Task;
+
     if(exportflag[task] != target)
     {
         exportflag[task] = target;
@@ -503,7 +504,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     if(tw->UseNodeList) 
     {
         DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-            DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+            TopLeaves[no - (All.MaxPart + MaxNodes)].treenode;
 
         if(exportnodecount[task] < NODELISTLENGTH)
             DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;

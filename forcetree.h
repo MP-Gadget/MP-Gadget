@@ -43,7 +43,6 @@ extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
 /*Used in domain.c*/
 extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
 extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
-extern int *DomainNodeIndex;
 
 #define BITFLAG_TOPLEVEL                   0
 #define BITFLAG_DEPENDS_ON_LOCAL_MASS      1  /* Intersects with local mass */
