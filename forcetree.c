@@ -11,7 +11,6 @@
 #include "forcetree.h"
 #include "mymalloc.h"
 #include "endrun.h"
-#include "timestep.h"
 #include "system.h"
 
 /*! \file forcetree.c
@@ -991,122 +990,116 @@ force_flag_localnodes(void)
  *  out just before the hydrodynamical SPH forces are computed, i.e. after
  *  density().
  */
-void force_update_hmax(void)
+void force_update_hmax(int * activeset, int size)
 {
-    int i, ta, totDomainNumChanged;
+    int i, ta; 
     int *domainList_all;
-    int *counts, *offset_list;
+    int *counts, *offsets;
     MyFloat *domainHmax_loc, *domainHmax_all;
-    int *DomainList, DomainNumChanged;
+    struct dirty_node_data {
+        int treenode;
+        MyFloat hmax;
+    } * DirtyTopLevelNodes;
+
+    int NumDirtyTopLevelNodes;
+
+    int totNumDirtyTopLevelNodes;
 
     walltime_measure("/Misc");
 
-    DomainNumChanged = 0;
-    DomainList = (int *) mymalloc("DomainList", NTopLeaves * sizeof(int));
+    NumDirtyTopLevelNodes = 0;
 
-    char * DomainNodeChanged = (char *) mymalloc("DomainNodeChanged", MaxNodes * sizeof(char));
+    /* At most NTopLeaves are dirty, since we are only concerned with TOPLEVEL nodes */
+    DirtyTopLevelNodes = (struct dirty_node_data*) mymalloc("DirtyTopLevelNodes", NTopLeaves * sizeof(DirtyTopLevelNodes[0]));
+
+    char * NodeIsDirty = (char *) mymalloc("NodeIsDirty", MaxNodes * sizeof(char));
+
+    /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
+     *  we may want to save a list of them to speed this up.
+     * */
     for(i = All.MaxPart; i < All.MaxPart + MaxNodes; i ++) {
-        DomainNodeChanged[i - All.MaxPart] = 0;
+        NodeIsDirty[i - All.MaxPart] = 0;
     }
 
-    for(i = 0; i < NumActiveParticle; i++)
+    for(i = 0; i < size; i++)
     {
-        const int p_i = ActiveParticle[i];
+        const int p_i = activeset[i];
+
         if(P[p_i].Type != 0)
             continue;
+
         int no = Father[p_i];
 
         while(no >= 0)
         {
-            if(P[p_i].Hsml > Nodes[no].hmax)
-            {
-                Nodes[no].hmax = P[p_i].Hsml;
+            if(P[p_i].Hsml <= Nodes[no].hmax) break;
 
-                if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node */
-                {
-                    if (! DomainNodeChanged[no - All.MaxPart]) {
-                        DomainNodeChanged[no - All.MaxPart] = 1;
-                        DomainList[DomainNumChanged++] = no;
-                    }
-                    break;
+            Nodes[no].hmax = P[p_i].Hsml;
+
+            if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL)) /* we reached a top-level node */
+            {
+                if (!NodeIsDirty[no - All.MaxPart]) {
+                    NodeIsDirty[no - All.MaxPart] = 1;
+                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].treenode = no;
+                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = Nodes[no].hmax;
+                    NumDirtyTopLevelNodes ++;
                 }
-            }
-            else
                 break;
+            }
 
             no = Nodes[no].u.d.father;
         }
     }
 
-    /* share the hmax-data of the pseudo-particles accross CPUs */
+    /* share the hmax-data of the dirty nodes accross CPUs */
 
     counts = (int *) mymalloc("counts", sizeof(int) * NTask);
-    offset_list = (int *) mymalloc("offset_list", sizeof(int) * NTask);
+    offsets = (int *) mymalloc("offsets", sizeof(int) * (NTask + 1));
 
-    domainHmax_loc = (MyFloat *) mymalloc("domainHmax_loc", DomainNumChanged * sizeof(MyFloat));
+    MPI_Allgather(&NumDirtyTopLevelNodes, 1, MPI_INT, counts, 1, MPI_INT, MPI_COMM_WORLD);
 
-    for(i = 0; i < DomainNumChanged; i++)
+    for(ta = 0, offsets[0] = 0; ta < NTask; ta++)
     {
-        domainHmax_loc[i] = Nodes[DomainList[i]].hmax;
+        offsets[ta + 1] = offsets[ta] + counts[ta];
     }
 
+    message(0, "Hmax exchange: %d toplevel tree nodes out of %d\n", offsets[NTask], NTopLeaves);
 
-    MPI_Allgather(&DomainNumChanged, 1, MPI_INT, counts, 1, MPI_INT, MPI_COMM_WORLD);
+    /* move to the right place for MPI_INPLACE*/
+    memmove(&DirtyTopLevelNodes[offsets[ThisTask]], &DirtyTopLevelNodes[0], NumDirtyTopLevelNodes * sizeof(DirtyTopLevelNodes[0]));
 
-    for(ta = 0, totDomainNumChanged = 0, offset_list[0] = 0; ta < NTask; ta++)
+    MPI_Datatype MPI_TYPE_DIRTY_NODES;
+    MPI_Type_contiguous(sizeof(DirtyTopLevelNodes[0]), MPI_BYTE, &MPI_TYPE_DIRTY_NODES);
+    MPI_Type_commit(&MPI_TYPE_DIRTY_NODES);
+
+    MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
+            DirtyTopLevelNodes, counts, offsets, MPI_TYPE_DIRTY_NODES, MPI_COMM_WORLD);
+
+    MPI_Type_free(&MPI_TYPE_DIRTY_NODES);
+
+    for(i = 0; i < offsets[NTask]; i++)
     {
-        totDomainNumChanged += counts[ta];
-        if(ta > 0)
-        {
-            offset_list[ta] = offset_list[ta - 1] + counts[ta - 1];
-        }
-    }
+        int no = DirtyTopLevelNodes[i].treenode;
 
-    message(0, "Hmax exchange: %d topleaves out of %d\n", totDomainNumChanged, NTopLeaves);
-
-    domainHmax_all = (MyFloat *) mymalloc("domainHmax_all", totDomainNumChanged * sizeof(MyFloat));
-    domainList_all = (int *) mymalloc("domainList_all", totDomainNumChanged * sizeof(int));
-
-    MPI_Allgatherv(DomainList, DomainNumChanged, MPI_INT,
-            domainList_all, counts, offset_list, MPI_INT, MPI_COMM_WORLD);
-
-    for(ta = 0; ta < NTask; ta++) {
-        counts[ta] *= sizeof(MyFloat);
-        offset_list[ta] *= sizeof(MyFloat);
-    }
-
-    MPI_Allgatherv(domainHmax_loc, DomainNumChanged * sizeof(MyFloat), MPI_BYTE,
-            domainHmax_all, counts, offset_list, MPI_BYTE, MPI_COMM_WORLD);
-
-
-    for(i = 0; i < totDomainNumChanged; i++)
-    {
-        int no = domainList_all[i];
-
-        if(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))	/* to avoid that the hmax is updated twice */
+        /* FIXME: why does this matter? The logic is simpler if we just blindly update them all.
+            ::: to avoid that the hmax is updated twice :::*/
+        if(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))
             no = Nodes[no].u.d.father;
 
         while(no >= 0)
         {
-            if(domainHmax_all[i] > Nodes[no].hmax)
-            {
-                    Nodes[no].hmax = domainHmax_all[i];
-            }
-            else
-                break;
+            if(DirtyTopLevelNodes[i].hmax <= Nodes[no].hmax) break;
+
+            Nodes[no].hmax = DirtyTopLevelNodes[i].hmax;
 
             no = Nodes[no].u.d.father;
         }
     }
 
-
-    myfree(domainList_all);
-    myfree(domainHmax_all);
-    myfree(domainHmax_loc);
-    myfree(offset_list);
+    myfree(offsets);
     myfree(counts);
-    myfree(DomainNodeChanged);
-    myfree(DomainList);
+    myfree(NodeIsDirty);
+    myfree(DirtyTopLevelNodes);
 
     walltime_measure("/Tree/HmaxUpdate");
 }

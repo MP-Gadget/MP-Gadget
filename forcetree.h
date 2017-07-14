@@ -58,7 +58,7 @@ extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 
 int force_tree_allocated();
 
-void force_update_hmax(void);
+void force_update_hmax(int * activeset, int size);
 void force_tree_rebuild();
 
 void   force_tree_free(void);
