@@ -76,13 +76,17 @@ static void domain_allocate(void);
 static int
 domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount);
 static int decompose(void);
+static void
+domain_balance(void);
 static int domain_determineTopTree(struct local_topnode_data * topNodes);
 static void domain_free(void);
-static void domain_sumCost(int64_t *TopLeafWork, int64_t *TopLeafCount);
+static void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount);
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, int64_t cost);
 static int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int countlimit, double costlimit);
+static void
+domain_create_topleaves(int no, int * next);
 
 static int domain_layoutfunc(int n);
 
@@ -204,7 +208,8 @@ void domain_allocate(void)
 
     MaxTopNodes = (int) (All.TopNodeAllocFactor * All.MaxPart + 1);
 
-    Tasks = mymalloc("Tasks", bytes = (NTask * sizeof(Tasks[0])));
+    /* Add a tail item to avoid special treatments */
+    Tasks = mymalloc("Tasks", bytes = ((NTask + 1)* sizeof(Tasks[0])));
 
     all_bytes += bytes;
 
@@ -250,17 +255,11 @@ static int
 decompose(void)
 {
 
-    int i, status;
+    int i;
 
     size_t bytes, all_bytes = 0;
 
-    /*!< a table that gives the total "work" due to the particles stored by each processor */
-    int64_t *TopLeafWork = (int64_t *) mymalloc("TopLeafWork", bytes = (MaxTopNodes * sizeof(TopLeafWork[0])));
-    all_bytes += bytes;
-    /*!< a table that gives the total number of particles held by each processor */
-    int64_t * TopLeafCount = (int64_t *) mymalloc("TopLeafCount", bytes = (MaxTopNodes * sizeof(TopLeafCount[0])));
-    all_bytes += bytes;
-	/*!< points to the root node of the top-level tree */
+    /*!< points to the root node of the top-level tree */
     struct local_topnode_data *topNodes = (struct local_topnode_data *) mymalloc("topNodes", bytes =
             (MaxTopNodes * sizeof(struct local_topnode_data)));
     memset(topNodes, 0, sizeof(topNodes[0]) * MaxTopNodes);
@@ -275,8 +274,6 @@ decompose(void)
 
     if(domain_determineTopTree(topNodes)) {
         myfree(topNodes);
-        myfree(TopLeafCount);
-        myfree(TopLeafWork);
         return 1;
     }
 
@@ -290,23 +287,50 @@ decompose(void)
     }
 
     myfree(topNodes);
-    /* count toplevel leaves */
-    domain_sumCost(TopLeafWork, TopLeafCount);
-    walltime_measure("/Domain/DetermineTopTree/Sumcost");
 
-    if(NTopLeaves < All.DomainOverDecompositionFactor * NTask)
-        endrun(112, "Number of Topleaves is less than required over decomposition");
+    NTopLeaves = 0;
+    domain_create_topleaves(0, &NTopLeaves);
 
+    message(0, "NTopLeaves= %d  NTopNodes=%d (space for %d)\n", NTopLeaves, NTopNodes, MaxTopNodes);
 
-    /* find the split of the domain grid */
+    walltime_measure("/Domain/DetermineTopTree/CreateLeaves");
 
-    walltime_measure("/Domain/Decompose/findworksplit");
+    if(NTopLeaves < All.DomainOverDecompositionFactor * NTask) {
+        message(0, "Number of Topleaves is less than required over decomposition");
+    }
 
+    /* this is fatal */
+    if(NTopLeaves < NTask) {
+        endrun(0, "Number of Topleaves is less than NTask");
+    }
+
+    domain_balance();
+
+    walltime_measure("/Domain/Decompose/Balance");
+    if(domain_exchange(domain_layoutfunc))
+        endrun(1929,"Could not exchange particles\n");
+
+    return 0;
+}
+
+static void
+domain_balance(void)
+{
+    /*!< a table that gives the total "work" due to the particles stored by each processor */
+    int64_t * TopLeafWork = (int64_t *) mymalloc("TopLeafWork",  NTopLeaves * sizeof(TopLeafWork[0]));
+    /*!< a table that gives the total number of particles held by each processor */
+    int64_t * TopLeafCount = (int64_t *) mymalloc("TopLeafCount",  NTopLeaves * sizeof(TopLeafCount[0]));
+
+    domain_compute_costs(TopLeafWork, TopLeafCount);
+
+    walltime_measure("/Domain/Decompose/Sumcost");
+
+    /* first try work balance */
     domain_assign_balanced(TopLeafWork);
 
     walltime_measure("/Domain/Decompose/assignbalance");
 
-    status = domain_check_memory_bound(0, TopLeafWork, TopLeafCount);
+    int status = domain_check_memory_bound(0, TopLeafWork, TopLeafCount);
     walltime_measure("/Domain/Decompose/memorybound");
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
@@ -317,7 +341,7 @@ decompose(void)
 
         walltime_measure("/Domain/Decompose/assignbalance");
 
-        status = domain_check_memory_bound(1, TopLeafWork, TopLeafCount);
+        int status = domain_check_memory_bound(1, TopLeafWork, TopLeafCount);
         walltime_measure("/Domain/Decompose/memorybound");
 
         if(status != 0)
@@ -326,14 +350,8 @@ decompose(void)
         }
     }
 
-    walltime_measure("/Domain/Decompose/Misc");
-    if(domain_exchange(domain_layoutfunc))
-        endrun(1929,"Could not exchange particles\n");
-
     myfree(TopLeafCount);
     myfree(TopLeafWork);
-
-    return 0;
 }
 
 static int
@@ -567,6 +585,7 @@ domain_assign_balanced(int64_t * cost)
             Tasks[ta].StartLeaf = i;
             ta ++;
         }
+        /* the last item will set Tasks[NTask], but we allocated memory for it already */
         Tasks[ta].StartLeaf = i;
     }
     if(ta != NTask) {
@@ -598,7 +617,7 @@ domain_get_topleaf_with_shift(const peano_t key, int * shift) {
     return no;
 }
 
-/*! This function determines how many particles that are currently stored
+/*! This function determines chich particles that are currently stored
  *  on the local CPU have to be moved off according to the domain
  *  decomposition.
  *
@@ -614,23 +633,26 @@ domain_layoutfunc(int n) {
 }
 
 /*! This function walks the global top tree in order to establish the
- *  number of leaves it has. These leaves are distributed to different
+ *  number of leaves it has. These leaves are then distributed to different
  *  processors.
+ *
+ *  the pointer next points to the next free item on TopLeaves array.
  */
-void domain_walktoptree(int no)
+static void
+domain_create_topleaves(int no, int * next)
 {
     int i;
-
+    int rt = 0;
     if(TopNodes[no].Daughter == -1)
     {
-        TopNodes[no].Leaf = NTopLeaves;
-        TopLeaves[NTopLeaves].topnode = no;
-        NTopLeaves++;
+        TopNodes[no].Leaf = *next;
+        TopLeaves[*next].topnode = no;
+        (*next)++;
     }
     else
     {
         for(i = 0; i < 8; i++)
-            domain_walktoptree(TopNodes[no].Daughter + i);
+            domain_create_topleaves(TopNodes[no].Daughter + i, next);
     }
 }
 
@@ -946,19 +968,14 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
 
 
-void domain_sumCost(int64_t *TopLeafWork, int64_t *TopLeafCount)
+void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
 {
     int i;
-    int64_t * local_TopLeafWork = (int64_t *) mymalloc("local_TopLeafWork", All.NumThreads * MaxTopNodes * sizeof(local_TopLeafWork[0]));
-    int64_t * local_TopLeafCount = (int64_t *) mymalloc("local_TopLeafCount", All.NumThreads * MaxTopNodes * sizeof(local_TopLeafCount[0]));
+    int64_t * local_TopLeafWork = (int64_t *) mymalloc("local_TopLeafWork", All.NumThreads * NTopLeaves * sizeof(local_TopLeafWork[0]));
+    int64_t * local_TopLeafCount = (int64_t *) mymalloc("local_TopLeafCount", All.NumThreads * NTopLeaves * sizeof(local_TopLeafCount[0]));
 
-    memset(local_TopLeafWork, 0, All.NumThreads * MaxTopNodes * sizeof(local_TopLeafWork[0]));
-    memset(local_TopLeafCount, 0, All.NumThreads * MaxTopNodes * sizeof(local_TopLeafCount[0]));
-
-    NTopLeaves = 0;
-    domain_walktoptree(0);
-
-    message(0, "NTopLeaves= %d  NTopNodes=%d (space for %d)\n", NTopLeaves, NTopNodes, MaxTopNodes);
+    memset(local_TopLeafWork, 0, All.NumThreads * NTopLeaves * sizeof(local_TopLeafWork[0]));
+    memset(local_TopLeafCount, 0, All.NumThreads * NTopLeaves * sizeof(local_TopLeafCount[0]));
 
 #pragma omp parallel
     {
