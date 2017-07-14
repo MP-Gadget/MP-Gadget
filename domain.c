@@ -84,7 +84,7 @@ static void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount);
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, int64_t cost);
-static int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int countlimit, double costlimit);
+static int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit);
 static void
 domain_create_topleaves(int no, int * next);
 
@@ -662,7 +662,7 @@ domain_create_topleaves(int no, int * next)
  * If 1 is returned on any processor we will return to domain_Decomposition,
  * allocate 30% more topNodes, and try again.
  * */
-int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int countlimit, double costlimit)
+int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit)
 {
     int j, p;
 
