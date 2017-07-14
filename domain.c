@@ -644,7 +644,7 @@ int domain_check_for_local_refine(const int i, struct local_topnode_data * topNo
      * of the parent's particles or costs.*/
     /* If we were below them but we have a parent and somehow got all of its particles, we still
      * need to refine. But if none of these things are true we can return, our work complete. */
-    if(topNodes[i].Parent < 0 || (topNodes[i].Count <= 0.8 * topNodes[topNodes[i].Parent].Count &&
+    if(topNodes[i].Parent > 0 && (topNodes[i].Count <= 0.8 * topNodes[topNodes[i].Parent].Count &&
             topNodes[i].Cost <= 0.8 * topNodes[topNodes[i].Parent].Cost))
         return 0;
 
