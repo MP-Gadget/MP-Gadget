@@ -1447,6 +1447,11 @@ int domain_check_for_local_refine(const int i, const double countlimit, const do
     if(topNodes[i].Size < 8)
         return 0;
 
+    /* already have enough nodes */
+    if(NTopnodes > All.DomainOverDecompositionFactor * NTask * TOPNODEFACTOR) {
+        return 0;
+    }
+
     /* We need to do refinement if we are over the countlimit, or the cost limit, or
      * (if we have a parent) we have more than 80% of the parent's particles or costs.*/
 #ifndef DENSITY_INDEPENDENT_SPH_DEBUG
