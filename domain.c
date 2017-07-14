@@ -913,6 +913,10 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     //MPI_Barrier(MPI_COMM_WORLD);
     //MPI_Abort(MPI_COMM_WORLD, 0);
 #endif
+
+    /* FIXME: the previous function is already collective, so this step is not needed.
+     * We shall probably enforce that every 'long' function must be collective.
+     *  */
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     if(errsum)
@@ -1040,6 +1044,7 @@ void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, i
 }
 
 
+/* FIXME: this function needs some comments. I used to know what it does --. YF*/
 void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes)
 {
     int j, sub;
