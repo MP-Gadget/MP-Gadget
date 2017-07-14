@@ -35,4 +35,7 @@ void domain_test_id_uniqueness();
 void domain_decompose_full(void);
 void domain_maintain(void);
 
+int
+domain_get_topleaf_with_shift(const peano_t key, int * shift);
+
 #endif

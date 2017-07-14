@@ -549,12 +549,26 @@ domain_assign_balanced(int64_t * cost)
     }
 }
 
-/*This function determines the TopLeaves entry for the given particle number.*/
+/*This function determines the TopLeaves entry for the given key.*/
 static inline int
 domain_get_topleaf(const peano_t key) {
     int no=0;
     while(TopNodes[no].Daughter >= 0)
         no = TopNodes[no].Daughter + (key - TopNodes[no].StartKey) / (TopNodes[no].Size / 8);
+    no = TopNodes[no].Leaf;
+    return no;
+}
+
+/* this function determines the TopLeaves entry for the given key, and returns the level of the
+ * node in terms of `shift`. */
+int
+domain_get_topleaf_with_shift(const peano_t key, int * shift) {
+    * shift = 3 * (BITS_PER_DIMENSION - 1);
+    int no=0;
+    while(TopNodes[no].Daughter >= 0) {
+        no = TopNodes[no].Daughter + (key - TopNodes[no].StartKey) / (TopNodes[no].Size / 8);
+        *shift -= 3;
+    }
     no = TopNodes[no].Leaf;
     return no;
 }
@@ -910,11 +924,11 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 void domain_sumCost(int64_t *TopLeafWork, int64_t *TopLeafCount)
 {
     int i;
-    int64_t * local_TopLeafWork = (int64_t *) mymalloc("local_TopLeafWork", All.NumThreads * NTopLeaves * sizeof(local_TopLeafWork[0]));
-    int64_t * local_TopLeafCount = (int64_t *) mymalloc("local_TopLeafCount", All.NumThreads * NTopLeaves * sizeof(local_TopLeafCount[0]));
+    int64_t * local_TopLeafWork = (int64_t *) mymalloc("local_TopLeafWork", All.NumThreads * MaxTopNodes * sizeof(local_TopLeafWork[0]));
+    int64_t * local_TopLeafCount = (int64_t *) mymalloc("local_TopLeafCount", All.NumThreads * MaxTopNodes * sizeof(local_TopLeafCount[0]));
 
-    memset(local_TopLeafWork, 0, All.NumThreads * NTopLeaves * sizeof(local_TopLeafWork[0]));
-    memset(local_TopLeafCount, 0, All.NumThreads * NTopLeaves * sizeof(local_TopLeafCount[0]));
+    memset(local_TopLeafWork, 0, All.NumThreads * MaxTopNodes * sizeof(local_TopLeafWork[0]));
+    memset(local_TopLeafCount, 0, All.NumThreads * MaxTopNodes * sizeof(local_TopLeafCount[0]));
 
     NTopLeaves = 0;
     domain_walktoptree(0);

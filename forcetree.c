@@ -38,7 +38,6 @@ int Numnodestree;		/*!< number of (internal) nodes in each tree */
 
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
 int *Father;			/*!< gives parent node in tree (nodes array) */
-int *DomainNodeIndex;   /*!< Gives domain index of a node*/
 
 static int tree_allocated_flag = 0;
 
@@ -58,7 +57,7 @@ static int
 force_update_node_recursive(int no, int sib, int father, int tail);
 
 static void
-force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z, int *nodecount, int *nextfree);
+force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nodecount, int *nextfree);
 
 static void
 force_exchange_pseudodata(void);
@@ -213,7 +212,7 @@ int force_tree_build_single(int npart)
          * complete top-level tree which allows the easy insertion of the
          * pseudo-particles in the right place */
         int numnodes = 1;
-        force_create_empty_nodes(All.MaxPart, 0, 1, 0, 0, 0, &numnodes, &nfree);
+        force_create_node_for_topnode(All.MaxPart, 0, 1, 0, 0, 0, &numnodes, &nfree);
     }
 
     /* This implements a small thread-local free Node cache.
@@ -236,22 +235,15 @@ int force_tree_build_single(int npart)
 #endif
     for(i = 0; i < npart; i++)
     {
-        int shift = 3 * (BITS_PER_DIMENSION - 1);
-
-        int this = 0;
         /*Can't break from openmp for*/
         if(nfree_thread >= All.MaxPart + MaxNodes-1)
             continue;
-        /*First walk the topnodes*/
-        while(TopNodes[this].Daughter >= 0)
-        {
-            const peano_t key = P[i].Key;
-            this = TopNodes[this].Daughter + (key - TopNodes[this].StartKey) / (TopNodes[this].Size / 8);
-            shift -= 3;
-        }
 
-        this = TopNodes[this].Leaf;
-        this = DomainNodeIndex[this];
+        /*First find the Node for the TopLeaf */
+
+        int shift;
+        int this = domain_get_topleaf_with_shift(P[i].Key, &shift);
+        this = TopLeaves[this].topnode;
 
         /*Now walk the main tree*/
         while(1)
@@ -376,7 +368,7 @@ int force_tree_build_single(int npart)
  *  level in the tree, even when the particle population is so sparse that
  *  some of these nodes are actually empty.
  */
-void force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z, int *nodecount,
+void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nodecount,
         int *nextfree)
 {
     int i, j, k, n, sub, count;
@@ -417,7 +409,7 @@ void force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z
                                 MaxNodes, MaxTopNodes, NTopNodes, NTopLeaves, *nodecount);
                     }
 
-                    force_create_empty_nodes(*nextfree - 1, TopNodes[topnode].Daughter + sub,
+                    force_create_node_for_topnode(*nextfree - 1, TopNodes[topnode].Daughter + sub,
                             bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nodecount, nextfree);
                 }
     }
