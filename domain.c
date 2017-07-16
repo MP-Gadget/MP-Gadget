@@ -1447,8 +1447,8 @@ int domain_check_for_local_refine(const int i, const double countlimit, const do
     if(topNodes[i].Size < 8)
         return 0;
 
-    /* already have enough nodes */
-    if(NTopnodes > All.DomainOverDecompositionFactor * NTask * TOPNODEFACTOR) {
+    /* already have enough leaves */
+    if(NTopleaves > All.DomainOverDecompositionFactor * NTask * TOPNODEFACTOR) {
         return 0;
     }
 
@@ -1472,6 +1472,7 @@ int domain_check_for_local_refine(const int i, const double countlimit, const do
     /*Make a new topnode section attached to this node*/
     topNodes[i].Daughter = NTopnodes;
     NTopnodes += 8;
+    NTopleaves += 7; /* because the current node is removed from leaves */
 
     /* Initialise this topnode with new sub nodes*/
     for(j = 0; j < 8; j++)
@@ -1648,6 +1649,7 @@ int domain_determineTopTree(void)
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
     NTopnodes = 1;
+    NTopleaves = 1;
     topNodes[0].Daughter = -1;
     topNodes[0].Parent = -1;
     topNodes[0].Size = PEANOCELLS;
