@@ -23,8 +23,6 @@ typedef struct {
     } table[];
 } FunctionOfK;
 
-FunctionOfK * function_of_k_new_from_string(const char * string, int logscale);
-
 void function_of_k_normalize_sigma(FunctionOfK * fk, double R, double sigma);
 
 double function_of_k_eval(FunctionOfK * fk, double k);

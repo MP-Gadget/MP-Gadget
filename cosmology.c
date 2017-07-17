@@ -1,7 +1,6 @@
 #include <math.h>
 #include "allvars.h"
 #include "cosmology.h"
-#include "utils-string.h"
 
 /*Hubble function at scale factor a, in dimensions of All.Hubble*/
 double hubble_function(double a)
@@ -87,46 +86,6 @@ static double sigma2_int(double k, void * p)
     x = 4 * M_PI * k * k * w * w * function_of_k_eval(fk, k);
 
     return x;
-}
-
-FunctionOfK * function_of_k_new_from_string(const char * string, int logscale)
-{
-    FunctionOfK * fk = NULL;
-    char ** list = fastpm_strsplit(string, "\n");
-    char ** line;
-    int i;
-    int pass = 0;
-    /* two pass parsing, first pass for counting */
-    /* second pass for assignment */
-    while(pass < 2) {
-        i = 0;
-        for (line = list; *line; line++) {
-            double k, p;
-            if(2 == sscanf(*line, "%lg %lg", &k, &p)) {
-                if(logscale) {
-                    k = pow(10, k);
-                    p = pow(10, p);
-                }
-                if(pass == 1) {
-                    fk->table[i].k = k;
-                    fk->table[i].P = p;
-                }
-                i ++;
-            }
-        }
-
-        if(pass == 0) {
-            fk = malloc(sizeof(*fk) + sizeof(fk->table[0]) * i);
-            fk->bytesize = sizeof(*fk) + sizeof(fk->table[0]) * i;
-            fk->size = i;
-            fk->normfactor = 1;
-        }
-        pass ++;
-    }
-
-    free(list);
-
-    return 0;
 }
 
 double function_of_k_eval(FunctionOfK * fk, double k)
