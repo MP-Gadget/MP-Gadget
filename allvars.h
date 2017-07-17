@@ -23,9 +23,6 @@
 #include <stdint.h>
 
 #include <gsl/gsl_rng.h>
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_integration.h>
-#include <gsl/gsl_errno.h>
 
 #include <signal.h>
 #define BREAKPOINT raise(SIGTRAP)

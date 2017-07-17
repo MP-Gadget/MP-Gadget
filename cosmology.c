@@ -2,6 +2,7 @@
 #include "allvars.h"
 #include "cosmology.h"
 #include "endrun.h"
+#include <gsl/gsl_integration.h>
 #include <gsl/gsl_odeiv2.h>
 
 void init_cosmology()
