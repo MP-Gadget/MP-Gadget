@@ -38,11 +38,10 @@ enum ActionType {
     IOCTL = 6,
 };
 static enum ActionType human_interaction();
-static void compute_accelerations(void);
+static void compute_accelerations(int is_PM);
 static void update_IO_params(const char * ioctlfname);
 static void every_timestep_stuff(int NumForces, int NumCurrentTiStep);
 static void write_cpu_log(int NumCurrentTiStep);
-
 
 void run(void)
 {
@@ -64,6 +63,7 @@ void run(void)
          * at the desired time.
          */
         All.Ti_Current = find_next_kick(Ti_nextoutput);
+        int is_PM = is_PM_timestep(All.Ti_Current);
 
         /* Sync positions of all particles */
         drift_all_particles(All.Ti_Current);
@@ -71,7 +71,7 @@ void run(void)
         /* drift and domain decomposition */
 
         /* at first step this is a noop */
-        if(is_PM_timestep(All.Ti_Current)) {
+        if(is_PM) {
             /* full decomposition rebuilds the tree */
             domain_decompose_full();
         } else {
@@ -89,7 +89,7 @@ void run(void)
         every_timestep_stuff(NumForces, NumCurrentTiStep);	/* write some info to log-files */
 
         /* force */
-        compute_accelerations();	/* compute accelerations for
+        compute_accelerations(is_PM);	/* compute accelerations for
                                      * the particles that are to be advanced
                                      */
 
@@ -104,7 +104,7 @@ void run(void)
          * the last move in compute_accelerations().
          * This is after advance_and_find_timesteps so the acceleration
          * is included in the kick.*/
-        if(is_PM_timestep(All.Ti_Current) && (WriteNextOpportunity || All.Ti_Current >= Ti_nextoutput))
+        if(is_PM && (WriteNextOpportunity || All.Ti_Current >= Ti_nextoutput))
         {
             /*Save snapshot*/
             savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
@@ -273,13 +273,13 @@ human_interaction()
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(void)
+void compute_accelerations(int is_PM)
 {
     message(0, "Start force computation...\n");
 
     walltime_measure("/Misc");
 
-    if(is_PM_timestep(All.Ti_Current))
+    if(is_PM)
     {
         gravpm_force();
 
