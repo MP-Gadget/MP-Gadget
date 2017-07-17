@@ -48,7 +48,7 @@ INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h powerspectrum.h timestep.h sfr_eff.h drift.h timefac.h \
 	 petaio.h blackhole.h
 
-TESTED = interp powerspectrum
+TESTED = interp powerspectrum cosmology
 
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)

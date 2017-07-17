@@ -32,6 +32,9 @@ double function_of_k_tophat_sigma(FunctionOfK * fk, double R);
 double hubble_function(double a);
 /* Linear theory growth factor normalized to D(a=1.0) = 1.0. */
 double GrowthFactor(double a);
+/*Note this is only used in GenIC*/
 double F_Omega(double a);
 
+/*Initialise the derived parts of the cosmology*/
+void init_cosmology(void);
 #endif

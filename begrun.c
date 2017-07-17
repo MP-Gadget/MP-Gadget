@@ -201,38 +201,9 @@ void close_outputfiles(void)
 static void
 set_units(void)
 {
-    /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
-     * A note on normalisation (as of 08/02/2012):
-     * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
-     * calculating Omega_K in the code and specifying Omega_Lambda and Omega_Matter in the paramfile.
-     * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
-     * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
-     */
-
-    All.CP.OmegaCDM = All.CP.Omega0 - All.CP.OmegaBaryon;
-    All.CP.OmegaK = 1.0 - All.CP.Omega0 - All.CP.OmegaLambda;
-
-    /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
-
-    All.CP.OmegaG = 4 * STEFAN_BOLTZMANN
-                  * pow(All.CP.CMBTemperature, 4)
-                  * (8 * M_PI * GRAVITY)
-                  / (3*C*C*C*HUBBLE*HUBBLE)
-                  / (All.CP.HubbleParam*All.CP.HubbleParam);
-
-    /* Neutrino + antineutrino background temperature as a ratio to T_CMB0
-     * Note there is a slight correction from 4/11
-     * due to the neutrinos being slightly coupled at e+- annihilation.
-     * See Mangano et al 2005 (hep-ph/0506164)
-     * The correction is (3.046/3)^(1/4), for N_eff = 3.046 */
-    double TNu0_TCMB0 = pow(4/11., 1/3.) * 1.00328;
-
-    /* For massless neutrinos,
-     * rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff,
-     * but we absorbed N_eff into T_nu above. */
-    All.CP.OmegaNu0 = All.CP.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
-
     double meanweight;
+
+    init_cosmology();
 
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
     All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
