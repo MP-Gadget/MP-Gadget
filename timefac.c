@@ -7,6 +7,7 @@
 #include <gsl/gsl_integration.h>
 
 #include "timefac.h"
+#include "timebinmgr.h"
 #include "cosmology.h"
 #include "endrun.h"
 
@@ -16,7 +17,6 @@
 
 static double logTimeInit;
 static double logTimeMax;
-static double logDTime = 0.0;
 
 /*! table for the cosmological drift factors */
 static double DriftTable[DRIFT_TABLE_LENGTH];
@@ -67,12 +67,13 @@ static double hydrokick_integ(double a, void *param)
   return 1 / (h * pow(a, 3 * GAMMA_MINUS1) * a);
 }
 
-void init_drift_table(double timeBegin, double timeMax, int timebase)
+void init_drift_table(double timeBegin, double timeMax)
 {
 #define WORKSIZE 100000
   int i;
   double result, abserr;
 
+  init_integer_timeline(timeBegin, timeMax);
   gsl_function F;
   gsl_integration_workspace *workspace;
 
@@ -80,11 +81,6 @@ void init_drift_table(double timeBegin, double timeMax, int timebase)
   logTimeMax = log(timeMax);
   if(logTimeMax <=logTimeInit)
       endrun(1,"Error: Invalid drift table range: (%d->%d)\n", timeBegin, timeMax);
-  if(timebase <= 0)
-      endrun(1,"Error: Invalid timebase: %d\n", timebase);
-
-  logDTime = (logTimeMax - logTimeInit) / timebase;
-
 
   workspace = gsl_integration_workspace_alloc(WORKSIZE);
 
@@ -119,10 +115,7 @@ void init_drift_table(double timeBegin, double timeMax, int timebase)
  * Pointer argument gives the full floating point value for interpolation.*/
 int find_bin_number(int ti0, double *rem)
 {
-    if (logDTime == 0) {
-        endrun(0, "Using Time factors before the table is initialized.");
-    }
-  double a1 = logTimeInit + ti0 * logDTime;
+  double a1 = loga_from_ti(ti0);
   double u1;
   int i1;
   u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;

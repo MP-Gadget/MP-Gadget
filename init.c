@@ -43,7 +43,7 @@ void init(int RestartSnapNum)
 
     petaio_read_snapshot(RestartSnapNum);
 
-    init_drift_table(All.Time, All.TimeMax, TIMEBASE);
+    init_drift_table(All.Time, All.TimeMax);
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();

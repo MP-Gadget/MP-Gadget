@@ -51,6 +51,8 @@ static int find_dti_displacement_constraint(void);
 /*Initialise the integer timeline*/
 void init_timebins(double TimeInit, double TimeMax)
 {
+    init_integer_timeline(TimeInit, TimeMax);
+
     Ti_V.Timebase_interval = (log(TimeMax) - log(TimeInit)) / TIMEBASE;
 
     Ti_V.MaxTiStepDisplacement = find_dti_displacement_constraint();
@@ -60,8 +62,6 @@ void init_timebins(double TimeInit, double TimeMax)
     Ti_V.PM_Ti_endstep = Ti_V.PM_Ti_begstep = Ti_V.PM_Ti_kick = 0;
 
     All.Ti_Current = 0;
-
-    init_drift_table(TimeInit, TimeMax, TIMEBASE);
 }
 
 inline double get_dloga_for_bin(int timebin)

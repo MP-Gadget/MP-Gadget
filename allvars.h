@@ -50,12 +50,6 @@
 #define  GENERATIONS     4	/*!< Number of star particles that may be created per gas particle */
 #endif
 
-#define  TIMEBINS         29
-
-#define  TIMEBASE        (1<<TIMEBINS)	/*!< The simulated timespan is mapped onto the integer interval [0,TIMESPAN],
-                                         *   where TIMESPAN needs to be a power of 2. Note that (1<<28) corresponds
-                                         *   to 2^29
-                                         */
 #define MAXHSML 30000.0
 
 #ifdef ONEDIM

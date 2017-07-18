@@ -20,7 +20,7 @@ OBJECTS  =  \
 	 fof.o fofpetaio.o petaio.o \
 	 param.o paramset.o utils-string.o \
 	 domain.o exchange.o garbage.o allvars.o main.o \
-	 blackhole.o \
+	 blackhole.o timebinmgr.o \
 	 run.o drift.o begrun.o endrun.o global.o \
 	 timestep.o init.o io.o sfr_eff.o \
 	 cooling.o openmpsort.o \
