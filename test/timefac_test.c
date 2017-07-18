@@ -66,6 +66,7 @@ double exact_drift_factor(double a1, double a2, int exp)
     F.function = &fac_integ;
     F.params = &exp;
     gsl_integration_qag(&F, a1,a2, 0, 1.0e-8, 10000, GSL_INTEG_GAUSS61, workspace, &result, &abserr);
+    gsl_integration_workspace_free(workspace);
     return result;
 }
 
