@@ -1,7 +1,7 @@
 #ifndef TIMESTEP_H
 #define TIMESTEP_H
 
-#include "allvars.h"
+#include "timebinmgr.h"
 /*Flat array containing all active particles:
 set in run.c: find_next_sync_point_and_drift*/
 extern int NumActiveParticle;

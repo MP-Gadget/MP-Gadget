@@ -50,6 +50,17 @@ double fac_integ(double a, void *param)
   return 1 / (h * pow(a,ex));
 }
 
+void init_integer_timeline(double a, double b)
+{
+}
+
+/*Get integer from real time*/
+double loga_from_ti(int ti)
+{
+    double logDTime = (log(AMAX) - log(AMIN)) / (1 << TIMEBINS);
+    return log(AMIN) + ti * logDTime;
+}
+
 /*Get integer from real time*/
 inline int get_ti(double aa)
 {
@@ -74,7 +85,7 @@ void test_drift_factor(void ** state)
 {
     /*Initialise the table: default values from z=200 to z=0*/
     OmegaM = 1.;
-    init_drift_table(AMIN, AMAX, 1<<TIMEBINS);
+    init_drift_table(AMIN, AMAX);
     /* Check default scaling: for total matter domination
      * we should have a drift factor like 1/sqrt(a)*/
     assert_true(fabs(get_drift_factor(get_ti(0.8), get_ti(0.85)) + 2/0.1*(1/sqrt(0.85) - 1/sqrt(0.8))) < 5e-5);
@@ -85,7 +96,7 @@ void test_drift_factor(void ** state)
     assert_true(fabs(get_drift_factor(get_ti(0.8), get_ti(0.8003)) + 2/0.1*(1/sqrt(0.8003) - 1/sqrt(0.8))) < 5e-6);
     //Now choose a more realistic cosmology
     OmegaM = 0.25;
-    init_drift_table(AMIN, AMAX, 1<<TIMEBINS);
+    init_drift_table(AMIN, AMAX);
     /*Check late and early times*/
     assert_true(fabs(get_drift_factor(get_ti(0.95), get_ti(0.98)) - exact_drift_factor(0.95, 0.98,3)) < 5e-5);
     assert_true(fabs(get_drift_factor(get_ti(0.05), get_ti(0.06)) - exact_drift_factor(0.05, 0.06,3)) < 5e-5);
