@@ -23,9 +23,6 @@
 #include <stdint.h>
 
 #include <gsl/gsl_rng.h>
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_integration.h>
-#include <gsl/gsl_errno.h>
 
 #include <signal.h>
 #define BREAKPOINT raise(SIGTRAP)
@@ -315,8 +312,6 @@ extern struct global_data_all_processes
     /* Code options */
     int DomainOverDecompositionFactor; /* Number of sub-domains per processor. */
 
-    int TypeOfOpeningCriterion;	/*!< determines tree cell-opening criterion: 0 for Barnes-Hut, 1 for relative
-                                  criterion */
     int CoolingOn;		/*!< flags that cooling is enabled */
     double UVRedshiftThreshold;		/* Initial redshift of UV background. */
     int HydroOn;		/*!< flags that hydro force is enabled */
@@ -371,7 +366,6 @@ extern struct global_data_all_processes
 
     /* tree code opening criterion */
 
-    double ErrTolTheta;		/*!< BH tree opening angle */
     double ErrTolForceAcc;	/*!< parameter for relative opening criterion in tree walk */
 
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */

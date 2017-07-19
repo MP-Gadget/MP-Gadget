@@ -71,11 +71,6 @@ void grav_short_tree(void)
 
     treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
-    if(All.TypeOfOpeningCriterion == 1) {
-        /* This will switch to the relative opening criterion for the following force computations */
-        All.ErrTolTheta = 0;
-    }
-
     /* now add things for comoving integration */
 
     message(0, "tree is done.\n");
@@ -270,36 +265,22 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-
-                if(All.ErrTolTheta)	/* check Barnes-Hut opening criterion */
+                /* check relative opening criterion */
+                if(mass * nop->len * nop->len > r2 * r2 * aold)
                 {
-                    if(nop->len * nop->len > r2 * All.ErrTolTheta * All.ErrTolTheta)
-                    {
-                        /* open cell */
-                        no = nop->u.d.nextnode;
-                        continue;
-                    }
+                    /* open cell */
+                    no = nop->u.d.nextnode;
+                    continue;
                 }
-                else		/* check relative opening criterion */
+                /* check in addition whether we lie inside the cell */
+                if(fabs(nop->center[0] - pos_x) < 0.60 * nop->len)
                 {
-                    if(mass * nop->len * nop->len > r2 * r2 * aold)
+                    if(fabs(nop->center[1] - pos_y) < 0.60 * nop->len)
                     {
-                        /* open cell */
-                        no = nop->u.d.nextnode;
-                        continue;
-                    }
-
-                    /* check in addition whether we lie inside the cell */
-
-                    if(fabs(nop->center[0] - pos_x) < 0.60 * nop->len)
-                    {
-                        if(fabs(nop->center[1] - pos_y) < 0.60 * nop->len)
+                        if(fabs(nop->center[2] - pos_z) < 0.60 * nop->len)
                         {
-                            if(fabs(nop->center[2] - pos_z) < 0.60 * nop->len)
-                            {
-                                no = nop->u.d.nextnode;
-                                continue;
-                            }
+                            no = nop->u.d.nextnode;
+                            continue;
                         }
                     }
                 }

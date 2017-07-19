@@ -143,10 +143,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "");
 
     param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 1, "Number of sub domains on a MPI rank");
-    param_declare_double(ps, "ErrTolTheta", OPTIONAL, 0.5, "");
-    param_declare_int(ps,    "TypeOfOpeningCriterion", OPTIONAL, 1, "");
     param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "");
-    param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "");
+    param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "Force accuracy required from tree. Controls tree opening criteria. Lower values are more accurate.");
     param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells. Gadget-2 paper says larger values may be more accurate.");
     param_declare_int(ps,    "Nmesh", REQUIRED, 0, "");
 
@@ -356,7 +354,6 @@ void read_parameter_file(char *fname)
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
 
         All.TimeMax = param_get_double(ps, "TimeMax");
-        All.ErrTolTheta = param_get_double(ps, "ErrTolTheta");
         All.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
         All.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
         All.Asmth = param_get_double(ps, "Asmth");
@@ -391,7 +388,6 @@ void read_parameter_file(char *fname)
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
-        All.TypeOfOpeningCriterion = param_get_int(ps, "TypeOfOpeningCriterion");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.SofteningHalo = param_get_double(ps, "SofteningHalo");
         All.SofteningDisk = param_get_double(ps, "SofteningDisk");

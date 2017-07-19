@@ -368,21 +368,15 @@ void sph_VelPred(int i, double * VelPred)
 
 /* This gives the predicted entropy at the particle Kick timestep
  * for the density independent SPH code.*/
-double EntropyPred(int i, int ti)
+double EntropyPred(int i)
 {
-    if (ti != P[i].Ti_drift) {
-        endrun(1, "ti %d != Drift step %d != t: %d\n",ti, P[i].Ti_drift);
-    }
-    const double Fentr = (ti - P[i].Ti_kick) * All.Timebase_interval;
+    const double Fentr = (P[i].Ti_drift - P[i].Ti_kick) * All.Timebase_interval;
     return pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
 }
 
-double PressurePred(int i, int ti)
+double PressurePred(int i)
 {
-    if (ti != P[i].Ti_drift) {
-        endrun(1, "ti %d != Drift step %d != t: %d\n",ti, P[i].Ti_drift);
-    }
-    const double Fentr = (ti - P[i].Ti_kick) * All.Timebase_interval;
+    const double Fentr = (P[i].Ti_drift - P[i].Ti_kick) * All.Timebase_interval;
     return (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
 }
 
@@ -501,8 +495,8 @@ get_timestep_ti(const int p, const int dti_max)
                     SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb);
 #ifdef DENSITY_INDEPENDENT_SPH
         if(P[p].Type == 0)
-            message(1, "egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, EntropyPred(p,P[p].Ti_drift),
-                    SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy, PressurePred(p,P[p].Ti_drift));
+            message(1, "egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, EntropyPred(p),
+                    SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy, PressurePred(p));
 #endif
 #ifdef SFR
         if(P[p].Type == 0) {

@@ -21,8 +21,8 @@ int is_timebin_active(int i);
 void set_timebin_active(binmask_t mask);
 
 void sph_VelPred(int i, double * VelPred);
-double EntropyPred(int i, int ti);
-double PressurePred(int i, int ti);
+double EntropyPred(int i);
+double PressurePred(int i);
 
 static inline double get_dloga_for_bin(int timebin)
 {

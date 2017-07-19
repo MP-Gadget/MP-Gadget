@@ -1,7 +1,42 @@
 #include <math.h>
 #include "allvars.h"
 #include "cosmology.h"
-#include "utils-string.h"
+#include "endrun.h"
+#include <gsl/gsl_integration.h>
+#include <gsl/gsl_odeiv2.h>
+
+void init_cosmology()
+{
+    /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
+     * A note on normalisation (as of 08/02/2012):
+     * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
+     * calculating Omega_K in the code and specifying Omega_Lambda and Omega_Matter in the paramfile.
+     * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
+     * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
+     */
+    All.CP.OmegaCDM = All.CP.Omega0 - All.CP.OmegaBaryon;
+    All.CP.OmegaK = 1.0 - All.CP.Omega0 - All.CP.OmegaLambda;
+
+    /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
+
+    All.CP.OmegaG = 4 * STEFAN_BOLTZMANN
+                  * pow(All.CP.CMBTemperature, 4)
+                  * (8 * M_PI * GRAVITY)
+                  / (3*C*C*C*HUBBLE*HUBBLE)
+                  / (All.CP.HubbleParam*All.CP.HubbleParam);
+
+    /* Neutrino + antineutrino background temperature as a ratio to T_CMB0
+     * Note there is a slight correction from 4/11
+     * due to the neutrinos being slightly coupled at e+- annihilation.
+     * See Mangano et al 2005 (hep-ph/0506164)
+     * The correction is (3.046/3)^(1/4), for N_eff = 3.046 */
+    double TNu0_TCMB0 = pow(4/11., 1/3.) * 1.00328;
+
+    /* For massless neutrinos,
+     * rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff,
+     * but we absorbed N_eff into T_nu above. */
+    All.CP.OmegaNu0 = All.CP.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
+}
 
 /*Hubble function at scale factor a, in dimensions of All.Hubble*/
 double hubble_function(double a)
@@ -27,46 +62,67 @@ double hubble_function(double a)
     return (hubble_a);
 }
 
-static double growth(double a);
-static double growth_int(double a, void * params);
+static double growth(double a, double *dDda);
 
 double GrowthFactor(double astart)
 {
-    return growth(astart) / growth(1.0);
+    return growth(astart, NULL) / growth(1.0, NULL);
 }
 
-
-static double growth(double a)
+int growth_ode(double a, const double yy[], double dyda[], void * params)
 {
-    gsl_integration_workspace * w = gsl_integration_workspace_alloc (200);
-    double hubble_a;
-    double result,abserr;
-    gsl_function F;
-    F.function = &growth_int;
-
-    hubble_a = hubble_function(a);
-
-    gsl_integration_qag (&F, 0, a, 0, 1e-4,200,GSL_INTEG_GAUSS61, w,&result, &abserr);
-    //   printf("gsl_integration_qng in growth. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size);
-    gsl_integration_workspace_free (w);
-    return hubble_a * result;
+    const double hub = hubble_function(a)/All.Hubble;
+    dyda[0] = yy[1]/pow(a,3)/hub;
+    /*Only use gravitating part*/
+    dyda[1] = yy[0] * 1.5 * a * All.CP.Omega0/(a*a*a) / hub;
+    return GSL_SUCCESS;
 }
 
-
-static double growth_int(double a, void * params)
+/** The growth function is given as a 2nd order DE in Peacock 1999, Cosmological Physics.
+ * D'' + a'/a D' - 1.5 * (a'/a)^2 D = 0
+ * 1/a (a D')' - 1.5 (a'/a)^2 D
+ * where ' is d/d tau = a^2 H d/da
+ * Define F = a^3 H dD/da
+ * and we have: dF/da = 1.5 a H D
+ */
+double growth(double a, double * dDda)
 {
-    if(a == 0) return 0;
-    return pow(1 / (a * hubble_function(a)), 3);
+  gsl_odeiv2_system FF;
+  FF.function = &growth_ode;
+  FF.jacobian = NULL;
+  FF.dimension = 2;
+  gsl_odeiv2_driver * drive = gsl_odeiv2_driver_alloc_standard_new(&FF,gsl_odeiv2_step_rkf45, 1e-5, 1e-8,1e-8,1,1);
+   /* We start early to avoid lambda.*/
+  double curtime = 1e-5;
+  /* Initial velocity chosen so that D = Omegar + 3/2 Omega_m a,
+   * the solution for a matter/radiation universe.*
+   * Note the normalisation of D is arbitrary
+   * and never seen outside this function.*/
+  double yinit[2] = {1.5 * All.CP.Omega0/(curtime*curtime), pow(curtime,3)*hubble_function(curtime)/All.Hubble * 1.5 * All.CP.Omega0/(curtime*curtime*curtime)};
+  if(All.CP.RadiationOn)
+      yinit[0] += (All.CP.OmegaG+All.CP.OmegaNu0)/pow(curtime,4);
+
+  int stat = gsl_odeiv2_driver_apply(drive, &curtime,a, yinit);
+  if (stat != GSL_SUCCESS) {
+      endrun(1,"gsl_odeiv in growth: %d. Result at %g is %g %g\n",stat, curtime, yinit[0], yinit[1]);
+  }
+  gsl_odeiv2_driver_free(drive);
+  /*Store derivative of D if needed.*/
+  if(dDda) {
+      *dDda = yinit[1]/pow(a,3)/(hubble_function(a)/All.Hubble);
+  }
+  return yinit[0];
 }
 
+/*
+ * This is the Zeldovich approximation prefactor,
+ * f1 = d ln D1 / dlna = a / D (dD/da)
+ */
 double F_Omega(double a)
 {
-  double omega_a;
-
-    /* FIXME: radiation is not there! */
-  omega_a = All.CP.Omega0 / (All.CP.Omega0 + a * (1 - All.CP.Omega0 - All.CP.OmegaLambda) + a * a * a * All.CP.OmegaLambda);
-
-  return pow(omega_a, 0.6);
+    double dD1da=0;
+    double D1 = growth(a, &dD1da);
+    return a / D1 * dD1da;
 }
 
 static double sigma2_int(double k, void * p)
@@ -87,46 +143,6 @@ static double sigma2_int(double k, void * p)
     x = 4 * M_PI * k * k * w * w * function_of_k_eval(fk, k);
 
     return x;
-}
-
-FunctionOfK * function_of_k_new_from_string(const char * string, int logscale)
-{
-    FunctionOfK * fk = NULL;
-    char ** list = fastpm_strsplit(string, "\n");
-    char ** line;
-    int i;
-    int pass = 0;
-    /* two pass parsing, first pass for counting */
-    /* second pass for assignment */
-    while(pass < 2) {
-        i = 0;
-        for (line = list; *line; line++) {
-            double k, p;
-            if(2 == sscanf(*line, "%lg %lg", &k, &p)) {
-                if(logscale) {
-                    k = pow(10, k);
-                    p = pow(10, p);
-                }
-                if(pass == 1) {
-                    fk->table[i].k = k;
-                    fk->table[i].P = p;
-                }
-                i ++;
-            }
-        }
-
-        if(pass == 0) {
-            fk = malloc(sizeof(*fk) + sizeof(fk->table[0]) * i);
-            fk->bytesize = sizeof(*fk) + sizeof(fk->table[0]) * i;
-            fk->size = i;
-            fk->normfactor = 1;
-        }
-        pass ++;
-    }
-
-    free(list);
-
-    return 0;
 }
 
 double function_of_k_eval(FunctionOfK * fk, double k)

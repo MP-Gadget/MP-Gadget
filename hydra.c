@@ -136,13 +136,13 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->Density = SPHP(place).Density;
 #ifdef DENSITY_INDEPENDENT_SPH
     input->EgyRho = SPHP(place).EgyWtDensity;
-    input->EntVarPred = EntropyPred(place, All.Ti_Current);
+    input->EntVarPred = EntropyPred(place);
     input->DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 #else
     input->DhsmlDensityFactor = SPHP(place).DhsmlDensityFactor;
 #endif
 
-    input->Pressure = PressurePred(place, All.Ti_Current);
+    input->Pressure = PressurePred(place);
     input->Timestep = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0);
     /* calculation of F1 */
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPHP(place).EOMDensity);
@@ -230,7 +230,7 @@ hydro_ngbiter(
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {
-        double Pressure_j = PressurePred(other, All.Ti_Current);
+        double Pressure_j = PressurePred(other);
         double p_over_rho2_j = Pressure_j / (SPHP(other).EOMDensity * SPHP(other).EOMDensity);
         double soundspeed_j;
 
@@ -303,7 +303,7 @@ hydro_ngbiter(
 #ifdef DENSITY_INDEPENDENT_SPH
         double hfc = hfc_visc;
         /* leading-order term */
-        double EntPred = EntropyPred(other, All.Ti_Current);
+        double EntPred = EntropyPred(other);
         hfc += P[other].Mass *
             (dwk_i*iter->p_over_rho2_i*EntPred/I->EntVarPred +
              dwk_j*p_over_rho2_j*I->EntVarPred/EntPred) / r;
@@ -380,7 +380,7 @@ hydro_postprocess(int i, TreeWalk * tw)
                 SPHP(i).DtEntropy = 0;
 
 #ifdef NOWINDTIMESTEPPING
-                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * PressurePred(i,All.Ti_Current) / SPHP(i).Density);
+                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * PressurePred(i) / SPHP(i).Density);
 #else
                 double windspeed = All.WindSpeed * All.cf.a;
                 const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;

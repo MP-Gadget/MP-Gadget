@@ -6,6 +6,7 @@
 
 #include "allvars.h"
 #include "timefac.h"
+#include "timestep.h"
 #include "cooling.h"
 #include "endrun.h"
 
@@ -90,8 +91,7 @@ struct state_of_system compute_global_quantities_of_system(void)
 
         if(P[i].Type == 0)
         {
-            double Fentr = (All.Ti_Current - (P[i].Ti_begstep + dti / 2)) * All.Timebase_interval;
-            entr = SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr;
+            entr = EntropyPred(i);
             egyspec = entr / (GAMMA_MINUS1) * pow(SPHP(i).EOMDensity / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;
             sys.TemperatureComp[0] += P[i].Mass * ConvertInternalEnergy2Temperature(egyspec, SPHP(i).Ne);

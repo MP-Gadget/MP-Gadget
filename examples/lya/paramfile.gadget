@@ -54,8 +54,6 @@ MinSizeTimestep = 0.05
 
 # Tree algorithm, force accuracy, domain update frequency
 
-ErrTolTheta = 0.5            
-TypeOfOpeningCriterion = 1
 ErrTolForceAcc = 0.005
 
 #  Further parameters of SPH
