@@ -3,7 +3,7 @@
 InitCondFile = output/IC
 OutputDir = output
 TreeCoolFile = ../TREECOOL_fg_june11
-MetalCoolFile = ../cooling_metal_UVB.hdf5
+MetalCoolFile = ../cooling_metal_UVB
 OutputList = 0.1,0.2,0.2222222,0.25,0.2857,0.33333
 
 SnapshotFileBase = snapshot
@@ -53,12 +53,7 @@ MinSizeTimestep = 0.05
 
 # Tree algorithm, force accuracy, domain update frequency
 
-ErrTolTheta = 0.5            
-TypeOfOpeningCriterion = 1
 ErrTolForceAcc = 0.005
-
-TreeDomainUpdateFrequency = 0.025  
-
 
 #  Further parameters of SPH
 DensityKernelType = quintic
