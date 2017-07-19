@@ -21,11 +21,15 @@
 
 /* variables for organizing discrete timeline */
 static struct time_vars {
-    int MaxTiStepDisplacement; /*!< Maximum (PM) integer timestep from global displacements*/
-    int PM_Ti_kick;            /* current time stamp of the PM component of the momentum */
-    int PM_Ti_endstep, PM_Ti_begstep;
-} Ti_V;
+    int step; /*!< Maximum (PM) integer timestep from global displacements*/
+    int start;           /* current start point of the PM step*/
+} PM_Ti;
 
+/*Get the kick time for a timestep, given a start point and a step size.*/
+inline int get_kick_ti(int start, int step)
+{
+    return start + step/2;
+}
 
 /*Flat array containing all active particles*/
 int NumActiveParticle;
@@ -43,20 +47,18 @@ void timestep_allocate_memory(int MaxPart)
 static void reverse_and_apply_gravity();
 static int get_timestep_ti(int p, int dti_max);
 static int get_timestep_bin(int dti);
-static void do_the_kick(int i, int tistart, int tiend, int ticurrent);
-static void advance_long_range_kick(int PM_Timestep);
-static int find_dti_displacement_constraint(void);
+static void do_the_short_range_kick(int i, int tistart, int tiend);
+static void do_the_long_range_kick(int tistart, int tiend);
+static int get_long_range_timestep_ti(void);
 
 /*Initialise the integer timeline*/
 void init_timebins(double TimeInit, double TimeMax)
 {
     init_integer_timeline(TimeInit, TimeMax);
 
-    Ti_V.MaxTiStepDisplacement = find_dti_displacement_constraint();
-
+    PM_Ti.step = 0;
+    PM_Ti.start = 0;
     update_active_timebins(0);
-
-    Ti_V.PM_Ti_endstep = Ti_V.PM_Ti_begstep = Ti_V.PM_Ti_kick = 0;
 
     All.Ti_Current = 0;
 }
@@ -68,7 +70,7 @@ int is_timebin_active(int i) {
 /*Report whether the current timestep is the end of the PM timestep*/
 int is_PM_timestep(int ti)
 {
-    return ti == Ti_V.PM_Ti_endstep;
+    return ti == PM_Ti.start + PM_Ti.step;
 }
 
 void set_timebin_active(binmask_t binmask) {
@@ -158,9 +160,11 @@ void advance_and_find_timesteps(void)
     if(All.MakeGlassFile)
         reverse_and_apply_gravity();
 
+    int new_PM_Ti_step = PM_Ti.step;
+
     /*Update the displacement timestep*/
     if(is_PM_timestep(All.Ti_Current))
-        Ti_V.MaxTiStepDisplacement = find_dti_displacement_constraint();
+        new_PM_Ti_step = get_long_range_timestep_ti();
 
     /* Now assign new timesteps and kick */
 #ifdef FORCE_EQUAL_TIMESTEPS
@@ -169,7 +173,7 @@ void advance_and_find_timesteps(void)
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
-        int dti = get_timestep_ti(i, Ti_V.MaxTiStepDisplacement);
+        int dti = get_timestep_ti(i, new_PM_Ti_step);
 
         if(dti < ti_min)
             ti_min = dti;
@@ -188,7 +192,7 @@ void advance_and_find_timesteps(void)
 #ifdef FORCE_EQUAL_TIMESTEPS
         int dti = ti_min_glob;
 #else
-        int dti = get_timestep_ti(i, Ti_V.MaxTiStepDisplacement);
+        int dti = get_timestep_ti(i, new_PM_Ti_step);
 #endif
         /* make it a power 2 subdivision */
         int ti_min = TIMEBASE;
@@ -242,13 +246,13 @@ void advance_and_find_timesteps(void)
 
         int dti_old = binold ? (1 << binold) : 0;
 
-        int tistart = P[i].Ti_begstep + dti_old / 2;	/* midpoint of old step */
-        int tiend = P[i].Ti_begstep + dti_old + dti / 2;	/* midpoint of new step */
+        int tistart = get_kick_ti(P[i].Ti_begstep, dti_old);	/* midpoint of old step */
+        int tiend = get_kick_ti(P[i].Ti_begstep + dti_old, dti);	/* midpoint of new step */
 
         P[i].Ti_begstep += dti_old;
 
         /*This only changes particle i, so is thread-safe.*/
-        do_the_kick(i, tistart, tiend, P[i].Ti_begstep);
+        do_the_short_range_kick(i, tistart, tiend);
     }
 
     /*Check whether any particles had a bad timestep*/
@@ -262,40 +266,26 @@ void advance_and_find_timesteps(void)
     }
 
 
-    if(is_PM_timestep(All.Ti_Current))	/* need to do long-range kick */
+    if(is_PM_timestep(All.Ti_Current))
     {
-        advance_long_range_kick(Ti_V.MaxTiStepDisplacement);
+        /* Note this means we do a half kick on the first timestep.
+         * Which means we should also do a half-kick just before output.*/
+        const int tistart = get_kick_ti(PM_Ti.start, PM_Ti.step);
+        const int tiend =  get_kick_ti(PM_Ti.start + PM_Ti.step, new_PM_Ti_step);
+        /* Do long-range kick */
+        do_the_long_range_kick(tistart, tiend);
+        PM_Ti.start += PM_Ti.step;
+        PM_Ti.step = new_PM_Ti_step;
     }
 
     walltime_measure("/Timeline");
 }
 
 /*Advance a long-range timestep and do the desired kick.*/
-void advance_long_range_kick(int PM_Timestep)
+void do_the_long_range_kick(int tistart, int tiend)
 {
     int i;
-    int dti = TIMEBASE;
-    while(dti > PM_Timestep)
-        dti >>= 1;
-    /*Make it a little larger so it will go through the output time.*/
-    dti <<=1;
-
-    if(All.Ti_Current == TIMEBASE)	/* we here finish the last timestep. */
-        dti = 0;
-
-    const int tstart = (Ti_V.PM_Ti_begstep + Ti_V.PM_Ti_endstep) / 2;
-    const int tend = Ti_V.PM_Ti_endstep + dti / 2;
-
-    const double Fgravkick = get_gravkick_factor(tstart, tend);
-
-    Ti_V.PM_Ti_begstep = Ti_V.PM_Ti_endstep;
-    Ti_V.PM_Ti_endstep = Ti_V.PM_Ti_begstep + dti;
-
-    if(Ti_V.PM_Ti_kick != tstart) {
-        endrun(0, "PM kick time stamp mismatched\n");
-    }
-
-    Ti_V.PM_Ti_kick = tend;
+    const double Fgravkick = get_gravkick_factor(tistart, tiend);
 
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
@@ -306,12 +296,9 @@ void advance_long_range_kick(int PM_Timestep)
     }
 }
 
-void do_the_kick(int i, int tistart, int tiend, int ticurrent)
+void do_the_short_range_kick(int i, int tistart, int tiend)
 {
-    double dt_entr = loga_from_ti(tiend) - loga_from_ti(tistart); /* XXX: the kick factor of entropy is dlog a? */
-
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
-    const double Fhydrokick = get_hydrokick_factor(tistart, tiend);
 
     int j;
 
@@ -329,7 +316,8 @@ void do_the_kick(int i, int tistart, int tiend, int ticurrent)
     P[i].Ti_kick = tiend;
 
     if(P[i].Type == 0) {
-
+        const double Fhydrokick = get_hydrokick_factor(tistart, tiend);
+        double dt_entr = dloga_from_dti(tiend-tistart); /* XXX: the kick factor of entropy is dlog a? */
         /* Add kick from hydro and SPH stuff */
         for(j = 0; j < 3; j++) {
             P[i].Vel[j] += SPHP(i).HydroAccel[j] * Fhydrokick;
@@ -390,7 +378,7 @@ void sph_VelPred(int i, double * VelPred)
     const int ti = P[i].Ti_drift;
     const double Fgravkick2 = get_gravkick_factor(ti, P[i].Ti_kick);
     const double Fhydrokick2 = get_hydrokick_factor(ti, P[i].Ti_kick);
-    const double FgravkickB = get_gravkick_factor(ti, Ti_V.PM_Ti_kick);
+    const double FgravkickB = get_gravkick_factor(ti, get_kick_ti(PM_Ti.start, PM_Ti.step));
     int j;
     for(j = 0; j < 3; j++) {
         VelPred[j] = P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j]
@@ -550,8 +538,7 @@ get_timestep_ti(const int p, const int dti_max)
  *  displacement should be at most a fraction MaxRMSDisplacementFac of the mean particle separation. 
  *  Note that the latter is estimated using the assigned particle masses, separately for each particle type.
  */
-double
-find_dloga_displacement_constraint()
+double get_long_range_timestep_dloga()
 {
     int i, type;
     int count[6];
@@ -634,11 +621,15 @@ find_dloga_displacement_constraint()
 }
 
 /* backward compatibility with the old loop. */
-int find_dti_displacement_constraint()
+int get_long_range_timestep_ti()
 {
-    double dloga = find_dloga_displacement_constraint();
-
+    double dloga = get_long_range_timestep_dloga();
     int dti = dti_from_dloga(dloga);
+    /* make it a power 2 subdivision */
+    int ti_min = TIMEBASE;
+    while(ti_min > dti)
+        ti_min >>= 1;
+    dti = ti_min;
     message(0, "Maximal PM timestep: dloga = %g  (%g)\n", dloga_from_dti(dti), All.MaxSizeTimestep);
     return dti;
 }
