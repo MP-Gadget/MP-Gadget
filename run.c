@@ -385,7 +385,7 @@ void compute_accelerations(void)
         density();		/* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
-        force_update_hmax();
+        force_update_hmax(ActiveParticle, NumActiveParticle);
 
         /***** hydro forces *****/
         message(0, "Start hydro-force computation...\n");

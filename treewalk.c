@@ -268,12 +268,6 @@ static void real_ev(TreeWalk * tw) {
     tw->Nnodesinlist += lv->Nnodesinlist;
 }
 
-static int cmpint(const void * c1, const void * c2) {
-    const int* i1=c1;
-    const int* i2=c2;
-    return i1 - i2;
-}
-
 static void
 treewalk_build_queue(TreeWalk * tw, int * active_set, int size) {
     int * queue = tw->WorkSet;
@@ -470,7 +464,8 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     TreeWalk * tw = lv->tw;
     int task;
 
-    task = DomainTask[no - (All.MaxPart + MaxNodes)];
+    task = TopLeaves[no - (All.MaxPart + MaxNodes)].Task;
+
     if(exportflag[task] != target)
     {
         exportflag[task] = target;
@@ -503,7 +498,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     if(tw->UseNodeList) 
     {
         DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-            DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+            TopLeaves[no - (All.MaxPart + MaxNodes)].treenode;
 
         if(exportnodecount[task] < NODELISTLENGTH)
             DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;

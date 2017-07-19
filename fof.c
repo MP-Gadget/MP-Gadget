@@ -1036,7 +1036,7 @@ fof_secondary_postprocess(int p, TreeWalk * tw)
 }
 static void fof_label_secondary(void)
 {
-    int i, n, iter;
+    int n, iter;
 
     TreeWalk tw[1] = {0};
     tw->ev_label = "FOF_FIND_NEAREST";

@@ -11,7 +11,6 @@
 #include "forcetree.h"
 #include "mymalloc.h"
 #include "endrun.h"
-#include "timestep.h"
 #include "system.h"
 
 /*! \file forcetree.c
@@ -38,12 +37,12 @@ int Numnodestree;		/*!< number of (internal) nodes in each tree */
 
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
 int *Father;			/*!< gives parent node in tree (nodes array) */
-int *DomainNodeIndex;   /*!< Gives domain index of a node*/
 
 static int tree_allocated_flag = 0;
 
 static int force_tree_build(int npart);
 static int force_tree_build_single(int npart);
+
 static void
 force_treeallocate(int maxnodes, int maxpart);
 
@@ -57,7 +56,7 @@ static int
 force_update_node_recursive(int no, int sib, int father, int tail);
 
 static void
-force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z, int *nodecount, int *nextfree);
+force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nodecount, int *nextfree);
 
 static void
 force_exchange_pseudodata(void);
@@ -81,7 +80,7 @@ force_tree_rebuild()
     }
     /* construct tree if needed */
     /* the tree is used in grav dens, hydro, bh and sfr */
-    force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
+    force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopNodes, All.MaxPart);
 
     walltime_measure("/Misc");
 
@@ -120,7 +119,7 @@ int force_tree_build(int npart)
                 endrun(1, "Too many tree nodes, snapshot saved.");
             }
 
-            force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopnodes, All.MaxPart);
+            force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopNodes, All.MaxPart);
         }
     }
     while(flag == -1);
@@ -212,7 +211,7 @@ int force_tree_build_single(int npart)
          * complete top-level tree which allows the easy insertion of the
          * pseudo-particles in the right place */
         int numnodes = 1;
-        force_create_empty_nodes(All.MaxPart, 0, 1, 0, 0, 0, &numnodes, &nfree);
+        force_create_node_for_topnode(All.MaxPart, 0, 1, 0, 0, 0, &numnodes, &nfree);
     }
 
     /* This implements a small thread-local free Node cache.
@@ -235,22 +234,15 @@ int force_tree_build_single(int npart)
 #endif
     for(i = 0; i < npart; i++)
     {
-        int shift = 3 * (BITS_PER_DIMENSION - 1);
-
-        int this = 0;
         /*Can't break from openmp for*/
         if(nfree_thread >= All.MaxPart + MaxNodes-1)
             continue;
-        /*First walk the topnodes*/
-        while(TopNodes[this].Daughter >= 0)
-        {
-            const peano_t key = P[i].Key;
-            this = TopNodes[this].Daughter + (key - TopNodes[this].StartKey) / (TopNodes[this].Size / 8);
-            shift -= 3;
-        }
 
-        this = TopNodes[this].Leaf;
-        this = DomainNodeIndex[this];
+        /*First find the Node for the TopLeaf */
+
+        int shift;
+        int this = domain_get_topleaf_with_shift(P[i].Key, &shift);
+        this = TopLeaves[this].topnode;
 
         /*Now walk the main tree*/
         while(1)
@@ -375,7 +367,7 @@ int force_tree_build_single(int npart)
  *  level in the tree, even when the particle population is so sparse that
  *  some of these nodes are actually empty.
  */
-void force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z, int *nodecount,
+void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nodecount,
         int *nextfree)
 {
     int i, j, k, n, sub, count;
@@ -404,7 +396,7 @@ void force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z
                     Nodes[*nextfree].hmax = 0;
 
                     if(TopNodes[TopNodes[topnode].Daughter + sub].Daughter == -1)
-                        DomainNodeIndex[TopNodes[TopNodes[topnode].Daughter + sub].Leaf] = *nextfree;
+                        TopLeaves[TopNodes[TopNodes[topnode].Daughter + sub].Leaf].treenode = *nextfree;
 
                     *nextfree = *nextfree + 1;
                     *nodecount = *nodecount + 1;
@@ -412,11 +404,11 @@ void force_create_empty_nodes(int no, int topnode, int bits, int x, int y, int z
                     if((*nodecount) >= MaxNodes || (*nodecount) >= MaxTopNodes)
                     {
                         endrun(11, "maximum number MaxNodes=%d of tree-nodes reached."
-                                "MaxTopNodes=%d NTopnodes=%d NTopleaves=%d nodecount=%d\n",
-                                MaxNodes, MaxTopNodes, NTopnodes, NTopleaves, *nodecount);
+                                "MaxTopNodes=%d NTopNodes=%d NTopLeaves=%d nodecount=%d\n",
+                                MaxNodes, MaxTopNodes, NTopNodes, NTopLeaves, *nodecount);
                     }
 
-                    force_create_empty_nodes(*nextfree - 1, TopNodes[topnode].Daughter + sub,
+                    force_create_node_for_topnode(*nextfree - 1, TopNodes[topnode].Daughter + sub,
                             bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nodecount, nextfree);
                 }
     }
@@ -434,11 +426,11 @@ void force_insert_pseudo_particles(void)
 {
     int i, index;
 
-    for(i = 0; i < NTopleaves; i++)
+    for(i = 0; i < NTopLeaves; i++)
     {
-        index = DomainNodeIndex[i];
+        index = TopLeaves[i].treenode;
 
-        if(DomainTask[i] != ThisTask)
+        if(TopLeaves[i].Task != ThisTask)
             Nodes[index].u.suns[0] = All.MaxPart + MaxNodes + i;
     }
 }
@@ -729,9 +721,9 @@ force_update_node_recursive(int no, int sib, int father, int tail)
  */
 void force_exchange_pseudodata(void)
 {
-    int i, no, m, ta, recvTask;
+    int i, no, ta, recvTask;
     int *recvcounts, *recvoffset;
-    struct DomainNODE
+    struct topleaf_momentsdata
     {
         MyFloat s[3];
         MyFloat mass;
@@ -742,76 +734,65 @@ void force_exchange_pseudodata(void)
 
         unsigned int bitflags;
     }
-    *DomainMoment;
+    *TopLeafMoments;
 
 
-    DomainMoment = (struct DomainNODE *) mymalloc("DomainMoment", NTopleaves * sizeof(struct DomainNODE));
-    memset(&DomainMoment[0], 0, sizeof(DomainMoment[0]) * NTopleaves);
+    TopLeafMoments = (struct topleaf_momentsdata *) mymalloc("TopLeafMoments", NTopLeaves * sizeof(TopLeafMoments[0]));
+    memset(&TopLeafMoments[0], 0, sizeof(TopLeafMoments[0]) * NTopLeaves);
 
-    for(m = 0; m < All.DomainOverDecompositionFactor; m++)
-        for(i = DomainStartList[ThisTask * All.DomainOverDecompositionFactor + m];
-                i <= DomainEndList[ThisTask * All.DomainOverDecompositionFactor + m]; i++)
-        {
-            no = DomainNodeIndex[i];
+    for(i = Tasks[ThisTask].StartLeaf; i < Tasks[ThisTask].EndLeaf; i ++) {
+        no = TopLeaves[i].treenode;
 
-            /* read out the multipole moments from the local base cells */
-            DomainMoment[i].s[0] = Nodes[no].u.d.s[0];
-            DomainMoment[i].s[1] = Nodes[no].u.d.s[1];
-            DomainMoment[i].s[2] = Nodes[no].u.d.s[2];
-            DomainMoment[i].mass = Nodes[no].u.d.mass;
-            DomainMoment[i].hmax = Nodes[no].hmax;
-            DomainMoment[i].bitflags = Nodes[no].u.d.bitflags;
+        /* read out the multipole moments from the local base cells */
+        TopLeafMoments[i].s[0] = Nodes[no].u.d.s[0];
+        TopLeafMoments[i].s[1] = Nodes[no].u.d.s[1];
+        TopLeafMoments[i].s[2] = Nodes[no].u.d.s[2];
+        TopLeafMoments[i].mass = Nodes[no].u.d.mass;
+        TopLeafMoments[i].hmax = Nodes[no].hmax;
+        TopLeafMoments[i].bitflags = Nodes[no].u.d.bitflags;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
-            DomainMoment[i].maxsoft = Nodes[no].maxsoft;
+        TopLeafMoments[i].maxsoft = Nodes[no].maxsoft;
 #endif
-        }
+    }
 
     /* share the pseudo-particle data accross CPUs */
 
     recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
     recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);
 
-    for(m = 0; m < All.DomainOverDecompositionFactor; m++)
+    for(recvTask = 0; recvTask < NTask; recvTask++)
     {
-        for(recvTask = 0; recvTask < NTask; recvTask++)
-        {
-            recvcounts[recvTask] =
-                (DomainEndList[recvTask * All.DomainOverDecompositionFactor + m]
-               - DomainStartList[recvTask * All.DomainOverDecompositionFactor + m] +
-                 1)
-             * sizeof(struct DomainNODE);
-            recvoffset[recvTask] = DomainStartList[recvTask * All.DomainOverDecompositionFactor + m] * sizeof(struct DomainNODE);
-        }
-
-        MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
-                &DomainMoment[0], recvcounts, recvoffset,
-                MPI_BYTE, MPI_COMM_WORLD);
+        recvoffset[recvTask] = Tasks[recvTask].StartLeaf * sizeof(TopLeafMoments[0]);
+        recvcounts[recvTask] = (Tasks[recvTask].EndLeaf - Tasks[recvTask].StartLeaf) * sizeof(TopLeafMoments[0]);
     }
+
+    MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
+            &TopLeafMoments[0], recvcounts, recvoffset,
+            MPI_BYTE, MPI_COMM_WORLD);
 
     myfree(recvoffset);
     myfree(recvcounts);
 
 
-    for(ta = 0; ta < NTask; ta++)
-        if(ta != ThisTask)
-            for(m = 0; m < All.DomainOverDecompositionFactor; m++)
-                for(i = DomainStartList[ta * All.DomainOverDecompositionFactor + m]; i <= DomainEndList[ta * All.DomainOverDecompositionFactor + m]; i++)
-                {
-                    no = DomainNodeIndex[i];
+    for(ta = 0; ta < NTask; ta++) {
+        if(ta == ThisTask) continue; /* bypass ThisTask since it is already up to date */
 
-                    Nodes[no].u.d.s[0] = DomainMoment[i].s[0];
-                    Nodes[no].u.d.s[1] = DomainMoment[i].s[1];
-                    Nodes[no].u.d.s[2] = DomainMoment[i].s[2];
-                    Nodes[no].u.d.mass = DomainMoment[i].mass;
-                    Nodes[no].hmax = DomainMoment[i].hmax;
-                    Nodes[no].u.d.bitflags =
-                        (Nodes[no].u.d.bitflags & (~BITFLAG_MASK)) | (DomainMoment[i].bitflags & BITFLAG_MASK);
+        for(i = Tasks[ta].StartLeaf; i < Tasks[ta].EndLeaf; i ++) {
+            no = TopLeaves[i].treenode;
+
+            Nodes[no].u.d.s[0] = TopLeafMoments[i].s[0];
+            Nodes[no].u.d.s[1] = TopLeafMoments[i].s[1];
+            Nodes[no].u.d.s[2] = TopLeafMoments[i].s[2];
+            Nodes[no].u.d.mass = TopLeafMoments[i].mass;
+            Nodes[no].hmax = TopLeafMoments[i].hmax;
+            Nodes[no].u.d.bitflags =
+                (Nodes[no].u.d.bitflags & (~BITFLAG_MASK)) | (TopLeafMoments[i].bitflags & BITFLAG_MASK);
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
-                    Nodes[no].maxsoft = DomainMoment[i].maxsoft;
+            Nodes[no].maxsoft = TopLeafMoments[i].maxsoft;
 #endif
-                }
-
-    myfree(DomainMoment);
+        }
+    }
+    myfree(TopLeafMoments);
 }
 
 
@@ -864,6 +845,7 @@ void force_treeupdate_pseudos(int no)
             {
                 if(Nodes[p].u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES))
                     count_particles += 2;
+
                 else
                     count_particles++;
             }
@@ -946,13 +928,13 @@ void force_treeupdate_pseudos(int no)
 static void
 force_flag_localnodes(void)
 {
-    int no, i, m;
+    int no, i;
 
     /* mark all top-level nodes */
 
-    for(i = 0; i < NTopleaves; i++)
+    for(i = 0; i < NTopLeaves; i++)
     {
-        no = DomainNodeIndex[i];
+        no = TopLeaves[i].treenode;
 
         while(no >= 0)
         {
@@ -966,7 +948,7 @@ force_flag_localnodes(void)
 
         /* mark also internal top level nodes */
 
-        no = DomainNodeIndex[i];
+        no = TopLeaves[i].treenode;
         no = Nodes[no].u.d.father;
 
         while(no >= 0)
@@ -982,25 +964,23 @@ force_flag_localnodes(void)
 
     /* mark top-level nodes that contain local particles */
 
-    for(m = 0; m < All.DomainOverDecompositionFactor; m++)
-        for(i = DomainStartList[ThisTask * All.DomainOverDecompositionFactor + m];
-                i <= DomainEndList[ThisTask * All.DomainOverDecompositionFactor + m]; i++)
+    for(i = Tasks[ThisTask].StartLeaf; i < Tasks[ThisTask].EndLeaf; i ++) {
+
+        no = TopLeaves[i].treenode;
+
+        if(TopLeaves[i].Task != ThisTask)
+            endrun(131231231, "TopLeave's Task table is corrupted");
+
+        while(no >= 0)
         {
-            no = DomainNodeIndex[i];
+            if(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))
+                break;
 
-            if(DomainTask[i] != ThisTask)
-                endrun(131231231, "DomainTask struct is corrupted");
+            Nodes[no].u.d.bitflags |= (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS);
 
-            while(no >= 0)
-            {
-                if(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))
-                    break;
-
-                Nodes[no].u.d.bitflags |= (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS);
-
-                no = Nodes[no].u.d.father;
-            }
+            no = Nodes[no].u.d.father;
         }
+    }
 }
 
 /*! This function updates the hmax-values in tree nodes that hold SPH
@@ -1010,122 +990,112 @@ force_flag_localnodes(void)
  *  out just before the hydrodynamical SPH forces are computed, i.e. after
  *  density().
  */
-void force_update_hmax(void)
+void force_update_hmax(int * activeset, int size)
 {
-    int i, ta, totDomainNumChanged;
-    int *domainList_all;
-    int *counts, *offset_list;
-    MyFloat *domainHmax_loc, *domainHmax_all;
-    int *DomainList, DomainNumChanged;
+    int i, ta; 
+    int *counts, *offsets;
+    struct dirty_node_data {
+        int treenode;
+        MyFloat hmax;
+    } * DirtyTopLevelNodes;
+
+    int NumDirtyTopLevelNodes;
 
     walltime_measure("/Misc");
 
-    DomainNumChanged = 0;
-    DomainList = (int *) mymalloc("DomainList", NTopleaves * sizeof(int));
+    NumDirtyTopLevelNodes = 0;
 
-    char * DomainNodeChanged = (char *) mymalloc("DomainNodeChanged", MaxNodes * sizeof(char));
+    /* At most NTopLeaves are dirty, since we are only concerned with TOPLEVEL nodes */
+    DirtyTopLevelNodes = (struct dirty_node_data*) mymalloc("DirtyTopLevelNodes", NTopLeaves * sizeof(DirtyTopLevelNodes[0]));
+
+    char * NodeIsDirty = (char *) mymalloc("NodeIsDirty", MaxNodes * sizeof(char));
+
+    /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
+     *  we may want to save a list of them to speed this up.
+     * */
     for(i = All.MaxPart; i < All.MaxPart + MaxNodes; i ++) {
-        DomainNodeChanged[i - All.MaxPart] = 0;
+        NodeIsDirty[i - All.MaxPart] = 0;
     }
 
-    for(i = 0; i < NumActiveParticle; i++)
+    for(i = 0; i < size; i++)
     {
-        const int p_i = ActiveParticle[i];
+        const int p_i = activeset[i];
+
         if(P[p_i].Type != 0)
             continue;
+
         int no = Father[p_i];
 
         while(no >= 0)
         {
-            if(P[p_i].Hsml > Nodes[no].hmax)
-            {
-                Nodes[no].hmax = P[p_i].Hsml;
+            if(P[p_i].Hsml <= Nodes[no].hmax) break;
 
-                if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node */
-                {
-                    if (! DomainNodeChanged[no - All.MaxPart]) {
-                        DomainNodeChanged[no - All.MaxPart] = 1;
-                        DomainList[DomainNumChanged++] = no;
-                    }
-                    break;
+            Nodes[no].hmax = P[p_i].Hsml;
+
+            if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL)) /* we reached a top-level node */
+            {
+                if (!NodeIsDirty[no - All.MaxPart]) {
+                    NodeIsDirty[no - All.MaxPart] = 1;
+                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].treenode = no;
+                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = Nodes[no].hmax;
+                    NumDirtyTopLevelNodes ++;
                 }
-            }
-            else
                 break;
+            }
 
             no = Nodes[no].u.d.father;
         }
     }
 
-    /* share the hmax-data of the pseudo-particles accross CPUs */
+    /* share the hmax-data of the dirty nodes accross CPUs */
 
     counts = (int *) mymalloc("counts", sizeof(int) * NTask);
-    offset_list = (int *) mymalloc("offset_list", sizeof(int) * NTask);
+    offsets = (int *) mymalloc("offsets", sizeof(int) * (NTask + 1));
 
-    domainHmax_loc = (MyFloat *) mymalloc("domainHmax_loc", DomainNumChanged * sizeof(MyFloat));
+    MPI_Allgather(&NumDirtyTopLevelNodes, 1, MPI_INT, counts, 1, MPI_INT, MPI_COMM_WORLD);
 
-    for(i = 0; i < DomainNumChanged; i++)
+    for(ta = 0, offsets[0] = 0; ta < NTask; ta++)
     {
-        domainHmax_loc[i] = Nodes[DomainList[i]].hmax;
+        offsets[ta + 1] = offsets[ta] + counts[ta];
     }
 
+    message(0, "Hmax exchange: %d toplevel tree nodes out of %d\n", offsets[NTask], NTopLeaves);
 
-    MPI_Allgather(&DomainNumChanged, 1, MPI_INT, counts, 1, MPI_INT, MPI_COMM_WORLD);
+    /* move to the right place for MPI_INPLACE*/
+    memmove(&DirtyTopLevelNodes[offsets[ThisTask]], &DirtyTopLevelNodes[0], NumDirtyTopLevelNodes * sizeof(DirtyTopLevelNodes[0]));
 
-    for(ta = 0, totDomainNumChanged = 0, offset_list[0] = 0; ta < NTask; ta++)
+    MPI_Datatype MPI_TYPE_DIRTY_NODES;
+    MPI_Type_contiguous(sizeof(DirtyTopLevelNodes[0]), MPI_BYTE, &MPI_TYPE_DIRTY_NODES);
+    MPI_Type_commit(&MPI_TYPE_DIRTY_NODES);
+
+    MPI_Allgatherv(MPI_IN_PLACE, 0, MPI_DATATYPE_NULL,
+            DirtyTopLevelNodes, counts, offsets, MPI_TYPE_DIRTY_NODES, MPI_COMM_WORLD);
+
+    MPI_Type_free(&MPI_TYPE_DIRTY_NODES);
+
+    for(i = 0; i < offsets[NTask]; i++)
     {
-        totDomainNumChanged += counts[ta];
-        if(ta > 0)
-        {
-            offset_list[ta] = offset_list[ta - 1] + counts[ta - 1];
-        }
-    }
+        int no = DirtyTopLevelNodes[i].treenode;
 
-    message(0, "Hmax exchange: %d topleaves out of %d\n", totDomainNumChanged, NTopleaves);
-
-    domainHmax_all = (MyFloat *) mymalloc("domainHmax_all", totDomainNumChanged * sizeof(MyFloat));
-    domainList_all = (int *) mymalloc("domainList_all", totDomainNumChanged * sizeof(int));
-
-    MPI_Allgatherv(DomainList, DomainNumChanged, MPI_INT,
-            domainList_all, counts, offset_list, MPI_INT, MPI_COMM_WORLD);
-
-    for(ta = 0; ta < NTask; ta++) {
-        counts[ta] *= sizeof(MyFloat);
-        offset_list[ta] *= sizeof(MyFloat);
-    }
-
-    MPI_Allgatherv(domainHmax_loc, DomainNumChanged * sizeof(MyFloat), MPI_BYTE,
-            domainHmax_all, counts, offset_list, MPI_BYTE, MPI_COMM_WORLD);
-
-
-    for(i = 0; i < totDomainNumChanged; i++)
-    {
-        int no = domainList_all[i];
-
-        if(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))	/* to avoid that the hmax is updated twice */
+        /* FIXME: why does this matter? The logic is simpler if we just blindly update them all.
+            ::: to avoid that the hmax is updated twice :::*/
+        if(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))
             no = Nodes[no].u.d.father;
 
         while(no >= 0)
         {
-            if(domainHmax_all[i] > Nodes[no].hmax)
-            {
-                    Nodes[no].hmax = domainHmax_all[i];
-            }
-            else
-                break;
+            if(DirtyTopLevelNodes[i].hmax <= Nodes[no].hmax) break;
+
+            Nodes[no].hmax = DirtyTopLevelNodes[i].hmax;
 
             no = Nodes[no].u.d.father;
         }
     }
 
-
-    myfree(domainList_all);
-    myfree(domainHmax_all);
-    myfree(domainHmax_loc);
-    myfree(offset_list);
+    myfree(offsets);
     myfree(counts);
-    myfree(DomainNodeChanged);
-    myfree(DomainList);
+    myfree(NodeIsDirty);
+    myfree(DirtyTopLevelNodes);
 
     walltime_measure("/Tree/HmaxUpdate");
 }
@@ -1138,27 +1108,24 @@ void force_update_hmax(void)
 void force_treeallocate(int maxnodes, int maxpart)
 {
     size_t bytes;
-    double allbytes = 0, allbytes_topleaves = 0;
+    double allbytes = 0;
 
     tree_allocated_flag = 1;
-    DomainNodeIndex = (int *) mymalloc("DomainNodeIndex", bytes = NTopleaves * sizeof(int));
-    allbytes_topleaves += bytes;
     MaxNodes = maxnodes;
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
     Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE));
     allbytes += bytes;
     allbytes += bytes;
     Nodes = Nodes_base - All.MaxPart;
-    Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopnodes) * sizeof(int));
+    Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
     allbytes += bytes;
     Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
 
-    message(0, "Allocated %g MByte for BH-tree, and %g Mbyte for top-leaves.  (presently allocated %g MB)\n",
-             allbytes / (1024.0 * 1024.0), allbytes_topleaves / (1024.0 * 1024.0),
+    message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
+             allbytes / (1024.0 * 1024.0),
              AllocatedBytes / (1024.0 * 1024.0));
 }
-
 
 /*! This function frees the memory allocated for the tree, i.e. it frees
  *  the space allocated by the function force_treeallocate().
@@ -1168,6 +1135,5 @@ void force_tree_free(void)
     myfree(Father);
     myfree(Nextnode);
     myfree(Nodes_base);
-    myfree(DomainNodeIndex);
     tree_allocated_flag = 0;
 }
