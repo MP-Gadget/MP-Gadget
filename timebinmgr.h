@@ -13,7 +13,11 @@
 void init_integer_timeline(double TimeInit, double TimeMax);
 
 double loga_from_ti(int ti);
-
 int ti_from_loga(double loga);
+
+int dti_from_dloga(double loga);
+double dloga_from_dti(int ti);
+
+double get_dloga_for_bin(int timebin);
 
 #endif

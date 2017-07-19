@@ -16,7 +16,22 @@ double loga_from_ti(int ti)
     return logTimeInit + ti * logDTime;
 }
 
+double dloga_from_dti(int ti)
+{
+    return ti * logDTime;
+}
+
+int dti_from_dloga(double loga)
+{
+    return loga /logDTime;
+}
+
 int ti_from_loga(double loga)
 {
     return (loga - logTimeInit)/logDTime;
+}
+
+double get_dloga_for_bin(int timebin)
+{
+    return (timebin ? (1 << timebin) : 0 ) * logDTime;
 }
