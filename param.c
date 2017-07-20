@@ -340,7 +340,6 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "EnergyFile", All.EnergyFile);
         All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
         param_get_string2(ps, "CpuFile", All.CpuFile);
-        param_get_string2(ps, "OutputList", All.OutputList);
 
         All.DensityKernelType = param_get_enum(ps, "DensityKernelType");
         All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");

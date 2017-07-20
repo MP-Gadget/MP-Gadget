@@ -421,8 +421,7 @@ extern struct global_data_all_processes
          OutputDir[100],
          SnapshotFileBase[100],
          EnergyFile[100],
-         CpuFile[100],
-         OutputList[100];
+         CpuFile[100];
 
     /*Should we store the energy to EnergyFile on PM timesteps.*/
     int OutputEnergyDebug;
