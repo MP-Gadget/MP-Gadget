@@ -6,7 +6,7 @@
  * Then the rest of the bits are the standard integer timeline,
  * which should be a power-of-two hierarchy.*/
 
-int lastout_from_ti(int ti)
+int out_from_ti(int ti)
 {
     return ti >> TIMEBINS;
 }
@@ -76,4 +76,14 @@ int enforce_power_of_two(int dti)
     while(ti_min > dti)
         ti_min >>= 1;
     return ti_min;
+}
+
+/*! this function returns the next output time that is equal or larger to
+ *  ti_curr
+ */
+int find_next_outputtime(int ti_curr)
+{
+    int lastout = out_from_ti(ti_curr);
+    int nextout = (lastout+1) << TIMEBINS;
+    return nextout;
 }

@@ -54,7 +54,7 @@ void run(void)
     walltime_measure("/Misc");
 
     write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
-    int Ti_nextoutput = find_next_outputtime(All.Ti_Current + 1);
+    int Ti_nextoutput = find_next_outputtime(All.Ti_Current);
 
     do /* main loop */
     {
@@ -112,7 +112,9 @@ void run(void)
         {
             /*Save snapshot*/
             savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
-            Ti_nextoutput = find_next_outputtime(Ti_nextoutput + 1);
+            Ti_nextoutput = find_next_outputtime(Ti_nextoutput);
+            if(out_from_ti(Ti_nextoutput) < All.OutputListLength)
+                message(0, "Setting next time for snapshot file to Time_next= %g \n", exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]));
         }
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
@@ -164,7 +166,7 @@ void run(void)
         }
 
     }
-    while(All.Ti_Current < TIMEBASE);
+    while(out_from_ti(Ti_nextoutput) < All.OutputListLength);
 }
 
 static void

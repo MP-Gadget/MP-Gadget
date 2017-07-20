@@ -715,38 +715,6 @@ void rebuild_activelist(void)
 }
 
 
-/*! this function returns the next output time that is equal or larger to
- *  ti_curr
- */
-int find_next_outputtime(int ti_curr)
-{
-    int i, ti_next=-1;
-
-    for(i = 0; i < All.OutputListLength; i++)
-    {
-        const double time = exp(All.OutputListTimes[i]);
-
-        if(time >= All.TimeInit && time <= All.TimeMax)
-        {
-            const int ti = (int) ti_from_loga(log(time));
-
-            if(ti >= ti_curr)
-            {
-                ti_next = ti;
-                break;
-            }
-        }
-    }
-    if(ti_next == -1)
-    {
-        /* Next output is at TimeMax*/
-        ti_next = TIMEBASE;
-    }
-    const double next = exp(loga_from_ti(ti_next));
-    message(0, "Setting next time for snapshot file to Time_next= %g \n", next);
-    return ti_next;
-}
-
 /*! This function finds the next synchronization point of the system
  * (i.e. the earliest point of time any of the particles needs a force
  * computation), and drifts the system to this point of time.  If the

@@ -26,5 +26,11 @@ double get_dloga_for_bin(int timebin);
 /* Enforce that an integer timestep is a power
  * of two subdivision of TIMEBASE.
  * Note TIMEBASE is the maximum value returned.*/
-int enforce_power_of_two(int dti);
+int enforce_power_of_two(int ti);
+
+/*! this function returns the next output time after ti_curr.*/
+int find_next_outputtime(int ti_curr);
+
+/*Get whatever is the last output number from ti*/
+int out_from_ti(int ti);
 #endif
