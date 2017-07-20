@@ -343,7 +343,7 @@ extern struct global_data_all_processes
 
     /* variables for organizing discrete timeline */
 
-    int Ti_Current;		/*!< current time on integer timeline */
+    unsigned int Ti_Current;		/*!< current time on integer timeline */
 
     int Nmesh;
 
@@ -503,9 +503,9 @@ extern struct particle_data
 
     float GravCost;     /*!< weight factor used for balancing the work-load */
 
-    int Ti_begstep;     /*!< marks start of current timestep of particle on integer timeline */
-    int Ti_drift;       /*!< current time of the particle position */
-    int Ti_kick;        /*!< current time of the particle momentum */
+    unsigned int Ti_begstep;     /*!< marks start of current timestep of particle on integer timeline */
+    unsigned int Ti_drift;       /*!< current time of the particle position */
+    unsigned int Ti_kick;        /*!< current time of the particle momentum */
 
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */

@@ -54,7 +54,7 @@ void run(void)
     walltime_measure("/Misc");
 
     write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
-    int Ti_nextoutput = find_next_outputtime(All.Ti_Current);
+    unsigned int Ti_nextoutput = find_next_outputtime(All.Ti_Current);
 
     do /* main loop */
     {
@@ -62,7 +62,7 @@ void run(void)
          * If needed, this function will also write an output file
          * at the desired time.
          */
-        All.Ti_Current = find_next_kick(Ti_nextoutput);
+        All.Ti_Current = find_next_kick();
 
         /*Convert back to floating point time*/
         set_global_time(exp(loga_from_ti(All.Ti_Current)));

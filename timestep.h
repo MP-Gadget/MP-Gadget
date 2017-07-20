@@ -11,7 +11,7 @@ extern int TimeBinCount[TIMEBINS];
 extern int TimeBinCountType[6][TIMEBINS];
 
 void timestep_allocate_memory(int MaxPart);
-int update_active_timebins(int next_kick);
+int update_active_timebins(unsigned int next_kick);
 void rebuild_activelist(void);
 void set_global_time(double newtime);
 void advance_and_find_timesteps(void);
@@ -23,10 +23,10 @@ void sph_VelPred(int i, double * VelPred);
 double EntropyPred(int i);
 double PressurePred(int i);
 
-int find_next_kick(int ti_nextoutput);
-int find_next_outputtime(int ti_curr);
-void init_timebins(double TimeInit, double TimeMax);
+unsigned int find_next_kick();
+unsigned int find_next_outputtime(unsigned int ti_curr);
+void init_timebins(void);
 
-int is_PM_timestep(int ti);
+int is_PM_timestep(unsigned int ti);
 
 #endif

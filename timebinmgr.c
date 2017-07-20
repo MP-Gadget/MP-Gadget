@@ -6,14 +6,14 @@
  * Then the rest of the bits are the standard integer timeline,
  * which should be a power-of-two hierarchy.*/
 
-int out_from_ti(int ti)
+unsigned int out_from_ti(unsigned int ti)
 {
     return ti >> TIMEBINS;
 }
 
-static double logDTime_from_ti(int ti)
+static double logDTime_from_ti(unsigned int ti)
 {
-    int lastsnap = ti >> TIMEBINS;
+    unsigned int lastsnap = ti >> TIMEBINS;
     /*Use logDTime from the last valid interval*/
     if(lastsnap >= All.OutputListLength-1)
         lastsnap = All.OutputListLength - 2;
@@ -21,9 +21,9 @@ static double logDTime_from_ti(int ti)
     return (All.OutputListTimes[lastsnap+1] - lastoutput)/TIMEBASE;
 }
 
-double loga_from_ti(int ti)
+double loga_from_ti(unsigned int ti)
 {
-    int lastsnap = ti >> TIMEBINS;
+    unsigned int lastsnap = ti >> TIMEBINS;
     if(lastsnap >= All.OutputListLength)
         lastsnap = All.OutputListLength - 1;
     double lastoutput = All.OutputListTimes[lastsnap];
@@ -31,7 +31,7 @@ double loga_from_ti(int ti)
     return lastoutput + (ti & (TIMEBASE-1)) * logDTime;
 }
 
-int ti_from_loga(double loga)
+unsigned int ti_from_loga(double loga)
 {
     int i;
     int ti;
@@ -49,14 +49,14 @@ int ti_from_loga(double loga)
     return ti;
 }
 
-double dloga_from_dti(int dti)
+double dloga_from_dti(unsigned int dti)
 {
     double loga = loga_from_ti(All.Ti_Current);
     double logap = loga_from_ti(All.Ti_Current+dti);
     return logap - loga;
 }
 
-int dti_from_dloga(double loga)
+unsigned int dti_from_dloga(double loga)
 {
     int ti = ti_from_loga(loga_from_ti(All.Ti_Current));
     int tip = ti_from_loga(loga+loga_from_ti(All.Ti_Current));
@@ -66,10 +66,10 @@ int dti_from_dloga(double loga)
 double get_dloga_for_bin(int timebin)
 {
     double logDTime = logDTime_from_ti(All.Ti_Current);
-    return (timebin ? (1 << timebin) : 0 ) * logDTime;
+    return (timebin ? (1u << timebin) : 0 ) * logDTime;
 }
 
-int enforce_power_of_two(int dti)
+unsigned int enforce_power_of_two(unsigned int dti)
 {
     /* make dti a power 2 subdivision */
     unsigned int ti_min = TIMEBASE;
@@ -81,9 +81,9 @@ int enforce_power_of_two(int dti)
 /*! this function returns the next output time that is equal or larger to
  *  ti_curr
  */
-int find_next_outputtime(int ti_curr)
+unsigned int find_next_outputtime(unsigned int ti_curr)
 {
-    int lastout = out_from_ti(ti_curr);
-    int nextout = (lastout+1) << TIMEBINS;
+    unsigned int lastout = out_from_ti(ti_curr);
+    unsigned int nextout = (lastout+1) << TIMEBINS;
     return nextout;
 }

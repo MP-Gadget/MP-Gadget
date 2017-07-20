@@ -19,10 +19,10 @@
  */
 
 
-/* variables for organizing discrete timeline */
+/* variables for organizing PM steps of discrete timeline */
 static struct time_vars {
-    int step; /*!< Maximum (PM) integer timestep from global displacements*/
-    int start;           /* current start point of the PM step*/
+    unsigned int step; /*!< Maximum (PM) integer timestep from global displacements*/
+    unsigned int start;           /* current start point of the PM step*/
 } PM_Ti;
 
 /*Get the kick time for a timestep, given a start point and a step size.*/
@@ -45,19 +45,18 @@ void timestep_allocate_memory(int MaxPart)
 }
 
 static void reverse_and_apply_gravity();
-static int get_timestep_ti(int p, int dti_max);
-static int get_timestep_bin(int dti);
-static void do_the_short_range_kick(int i, int tistart, int tiend);
-static void do_the_long_range_kick(int tistart, int tiend);
-static int get_long_range_timestep_ti(void);
+static unsigned int get_timestep_ti(const int p, const unsigned int dti_max);
+static int get_timestep_bin(unsigned int dti);
+static void do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend);
+static void do_the_long_range_kick(unsigned int tistart, unsigned int tiend);
+static unsigned int get_long_range_timestep_ti(void);
 
 /*Initialise the integer timeline*/
-void init_timebins(double TimeInit, double TimeMax)
+void init_timebins()
 {
     PM_Ti.step = 0;
     PM_Ti.start = 0;
     update_active_timebins(0);
-
     All.Ti_Current = 0;
 }
 
@@ -66,7 +65,7 @@ int is_timebin_active(int i) {
 }
 
 /*Report whether the current timestep is the end of the PM timestep*/
-int is_PM_timestep(int ti)
+int is_PM_timestep(unsigned int ti)
 {
     return ti == PM_Ti.start + PM_Ti.step;
 }
@@ -273,7 +272,7 @@ void advance_and_find_timesteps(void)
 }
 
 /*Advance a long-range timestep and do the desired kick.*/
-void do_the_long_range_kick(int tistart, int tiend)
+void do_the_long_range_kick(unsigned int tistart, unsigned int tiend)
 {
     int i;
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
@@ -287,7 +286,7 @@ void do_the_long_range_kick(int tistart, int tiend)
     }
 }
 
-void do_the_short_range_kick(int i, int tistart, int tiend)
+void do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend)
 {
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
 
@@ -462,8 +461,8 @@ get_timestep_dloga(const int p)
  *  Arguments:
  *  p -> particle index
  *  dti_max -> maximal timestep.  */
-static int
-get_timestep_ti(const int p, const int dti_max)
+static unsigned int
+get_timestep_ti(const int p, const unsigned int dti_max)
 {
     int dti;
     /*Give a useful message if we are broken*/
@@ -607,7 +606,7 @@ double get_long_range_timestep_dloga()
 }
 
 /* backward compatibility with the old loop. */
-int get_long_range_timestep_ti()
+unsigned int get_long_range_timestep_ti()
 {
     double dloga = get_long_range_timestep_dloga();
     int dti = dti_from_dloga(dloga);
@@ -616,7 +615,7 @@ int get_long_range_timestep_ti()
     return dti;
 }
 
-int get_timestep_bin(int dti)
+int get_timestep_bin(unsigned int dti)
 {
    int bin = -1;
 
@@ -722,7 +721,7 @@ void rebuild_activelist(void)
  * function will drift to this moment, generate an output, and then
  * resume the drift.
  */
-int find_next_kick(int ti_nextoutput)
+unsigned int find_next_kick()
 {
     int n, ti_next_kick_global;
     int ti_next_kick = TIMEBASE;
@@ -751,7 +750,7 @@ int find_next_kick(int ti_nextoutput)
 }
 
 /* mark the bins that will be active before the next kick*/
-int update_active_timebins(int next_kick)
+int update_active_timebins(unsigned int next_kick)
 {
     int n;
     int NumForceUpdate = TimeBinCount[0];
