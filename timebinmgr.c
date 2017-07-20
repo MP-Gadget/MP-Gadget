@@ -35,3 +35,12 @@ double get_dloga_for_bin(int timebin)
 {
     return (timebin ? (1 << timebin) : 0 ) * logDTime;
 }
+
+int enforce_power_of_two(int dti)
+{
+    /* make dti a power 2 subdivision */
+    int ti_min = TIMEBASE;
+    while(ti_min > dti)
+        ti_min >>= 1;
+    return ti_min;
+}
