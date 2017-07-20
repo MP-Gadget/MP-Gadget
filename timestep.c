@@ -129,8 +129,8 @@ void set_softenings(const double time)
 }
 
 void set_global_time(double newtime) {
+    All.TimeStep = newtime - All.Time;
     All.Time = newtime;
-
     All.cf.a = All.Time;
     All.cf.a2inv = 1 / (All.Time * All.Time);
     All.cf.a3inv = 1 / (All.Time * All.Time * All.Time);
@@ -776,7 +776,6 @@ int find_next_kick(int ti_nextoutput)
 {
     int n, ti_next_kick_global;
     int ti_next_kick = TIMEBASE;
-    const double timeold = All.Time;
     /*This repopulates all timebins on the first timestep*/
     if(TimeBinCount[0])
         ti_next_kick = All.Ti_Current;
@@ -795,13 +794,6 @@ int find_next_kick(int ti_nextoutput)
 
     /*All processors sync timesteps*/
     MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-    /*Convert back to floating point time*/
-    double nexttime = exp(loga_from_ti(ti_next_kick_global));
-
-    set_global_time(nexttime);
-
-    All.TimeStep = All.Time - timeold;
 
     walltime_measure("/Misc");
 

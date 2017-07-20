@@ -63,6 +63,10 @@ void run(void)
          * at the desired time.
          */
         All.Ti_Current = find_next_kick(Ti_nextoutput);
+
+        /*Convert back to floating point time*/
+        set_global_time(exp(loga_from_ti(All.Ti_Current)));
+
         int is_PM = is_PM_timestep(All.Ti_Current);
 
         /* Sync positions of all particles */
