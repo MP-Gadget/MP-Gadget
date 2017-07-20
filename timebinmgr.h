@@ -13,12 +13,12 @@
 #define TIMEBASE (1<<TIMEBINS)
 
 /*Convert an integer to and from loga*/
-double loga_from_ti(int ti);
-int ti_from_loga(double loga);
+double loga_from_ti(unsigned int ti);
+unsigned int ti_from_loga(double loga);
 
 /*Convert changes in loga to and from ti*/
-int dti_from_dloga(double loga);
-double dloga_from_dti(int ti);
+unsigned int dti_from_dloga(double loga);
+double dloga_from_dti(unsigned int ti);
 
 /*Get dloga from a timebin*/
 double get_dloga_for_bin(int timebin);
@@ -26,11 +26,11 @@ double get_dloga_for_bin(int timebin);
 /* Enforce that an integer timestep is a power
  * of two subdivision of TIMEBASE.
  * Note TIMEBASE is the maximum value returned.*/
-int enforce_power_of_two(int ti);
+unsigned int enforce_power_of_two(unsigned int ti);
 
 /*! this function returns the next output time after ti_curr.*/
-int find_next_outputtime(int ti_curr);
+unsigned int find_next_outputtime(unsigned int ti_curr);
 
 /*Get whatever is the last output number from ti*/
-int out_from_ti(int ti);
+unsigned int out_from_ti(unsigned int ti);
 #endif

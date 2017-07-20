@@ -73,7 +73,7 @@ void init(int RestartSnapNum)
 
     All.TreeAllocFactor = 0.7;
 
-    init_timebins(All.TimeInit, All.TimeMax);
+    init_timebins();
 
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)	/* initialize sph_properties */
