@@ -36,11 +36,11 @@ void compute_accelerations(int mode)
     {
         long_range_force();
         walltime_measure("/LongRange");
-        force_tree_rebuild();
     }
 
     /* Check whether it is really time for a new domain decomposition */
-    if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPartInit * All.TreeDomainUpdateFrequency
+    if(All.PM_Ti_endstep == All.Ti_Current /* PM step destroyed the tree */
+            || All.NumForcesSinceLastDomainDecomp >= All.TotNumPartInit * All.TreeDomainUpdateFrequency
             || All.DoDynamicUpdate == 0)
     {
 
