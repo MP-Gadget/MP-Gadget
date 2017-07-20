@@ -126,12 +126,22 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     MPI_Reduce(&r, &maxNregions, 1, MPI_INT, MPI_MAX, 0, MPI_COMM_WORLD);
     message(0, "max number of regions is %d\n", maxNregions);
 
+    int i;
+    for(i =0; i < NumPart; i ++) {
+        P[i].RegionInd = -1;
+    }
+
     /* now lets mark particles to their hosting region */
     int numpart = 0;
 #pragma omp parallel for reduction(+: numpart)
     for(r = 0; r < *Nregions; r++) {
         regions[r].numpart = pm_mark_region_for_node(regions[r].no, r);
         numpart += regions[r].numpart;
+    }
+    for(i =0; i < NumPart; i ++) {
+        if(P[i].RegionInd == -1) {
+            message(1, "i = %d not assigned to a region\n", i);
+        }
     }
     /* All particles shall have been processed just once. Otherwise we die */
     if(numpart != NumPart) {

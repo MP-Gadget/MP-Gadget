@@ -27,14 +27,23 @@
  * processors of size roughly NTask/NumFilesPerSnapshot.
  */
 /* with_fof != 0 regular snapshot, do fof and write it out */
+
+/* Defined in gravpm.c */
+void  gravpm_force(int noforce);
+
 void savepositions(int num, int with_fof)
 {
     walltime_measure("/Misc");
 
+    /*Write matter power spectrum*/
+    gravpm_force(1);
+
     if(domain_garbage_collection() != 0) {
-        force_tree_rebuild();
         reconstruct_timebins();
     }
+
+    domain_Decomposition();
+    force_tree_rebuild();
 
     walltime_measure("/Snapshot/Misc");
 

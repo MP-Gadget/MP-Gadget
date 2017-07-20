@@ -36,22 +36,17 @@ void compute_accelerations(int mode)
 
     if(All.PM_Ti_endstep == All.Ti_Current)
     {
-        domain_Decomposition();	/* do domain decomposition */
-        force_tree_rebuild();
-
         long_range_force();
         walltime_measure("/LongRange");
+    }
 
+    /* Check whether it is really time for a new domain decomposition */
+    if(All.PM_Ti_endstep == All.Ti_Current /* PM step destroyed the tree */
+            || All.NumForcesSinceLastDomainDecomp >= All.TotNumPartInit * All.TreeDomainUpdateFrequency
+            || All.DoDynamicUpdate == 0)
+    {
+        domain_Decomposition();	/* do domain decomposition */
         force_tree_rebuild();
-    } else {
-        /* Check whether it is really time for a new domain decomposition */
-        if(All.NumForcesSinceLastDomainDecomp >= All.TotNumPartInit * All.TreeDomainUpdateFrequency
-                || All.DoDynamicUpdate == 0)
-        {
-
-            domain_Decomposition();	/* do domain decomposition */
-            force_tree_rebuild();
-        }
     }
 
     grav_short_tree();		/* computes gravity accel. */
