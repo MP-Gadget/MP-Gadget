@@ -3,7 +3,7 @@
 InitCondFile = output/IC
 OutputDir = output
 TreeCoolFile = ../TREECOOL_fg_june11
-MetalCoolFile = ../cooling_metal_UVB.hdf5
+MetalCoolFile = ../cooling_metal_UVB
 OutputList = 0.1,0.2,0.2222222,0.25,0.2857,0.33333
 
 SnapshotFileBase = snapshot
@@ -22,18 +22,17 @@ TypeOfTimestepCriterion = 0
 
 #  Characteristics of run
 
-TimeBegin = 0.1
 TimeMax = 0.33333
 
 Omega0 = 0.2814      # Total matter density  (at z=0)
 OmegaLambda = 0.7186      # Cosmological constant (at z=0)
 OmegaBaryon = 0.0464     # Baryon density        (at z=0)
 HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
-BoxSize = 32000.0
 
 CoolingOn = 1
 StarformationOn = 1
 RadiationOn = 1
+HydroOn = 1
 StarformationCriterion = density
 
 # Output frequency
@@ -71,7 +70,6 @@ MinGasTemp = 5.0
 PartAllocFactor = 2.0
 BufferSize = 100          # in MByte
 TopNodeAllocFactor = 0.20
-MaxMemSizePerCore = 1200        # per MPI task, in MB
 
 # Softening lengths
 
@@ -113,3 +111,10 @@ FactorEVP = 1000.0
 WindModel = nowind
 
 SnapshotWithFOF = 0
+BlackHoleOn = 0
+#----------------------BH Stuff-------------------------
+BlackHoleFeedbackFactor = 0.05
+BlackHoleFeedbackRadius = 0.
+BlackHoleFeedbackRadiusMaxPhys = 0.
+BlackHoleFeedbackMethod = spline | mass
+SeedBlackHoleMass = 5.0e-5

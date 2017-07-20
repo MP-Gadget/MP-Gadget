@@ -26,13 +26,12 @@ Omega0 = 0.2814      # Total matter density  (at z=0)
 OmegaLambda = 0.7186      # Cosmological constant (at z=0)
 OmegaBaryon = 0.0464     # Baryon density        (at z=0)
 HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
-BoxSize = 4000.0
 
 CoolingOn = 1
 StarformationOn = 1
 BlackHoleOn = 1
 HydroOn = 1
-StarformationCriterion = density,h2
+StarformationCriterion = density
 RadiationOn = 1
 
 CpuTimeBetRestartFile = 9000.0

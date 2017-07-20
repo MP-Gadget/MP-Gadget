@@ -28,19 +28,19 @@ HubbleParam = 0.697      # Hubble paramater (may be used for power spec paramete
 
 CoolingOn = 0
 StarformationOn = 0
-StarformationCriterion  density,h2
+StarformationCriterion = density
 RadiationOn = 0
 HydroOn = 0
 BlackHoleOn = 0
 
-CpuTimeBetRestartFile  9000.0
+CpuTimeBetRestartFile = 9000.0
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1
 MinSizeTimestep = 0.01
 
 SnapshotWithFOF = 1
-FOFHaloLinkingLength 0.2
+FOFHaloLinkingLength = 0.2
 FOFHaloMinLength = 32
 
 #  Further parameters of SPH
