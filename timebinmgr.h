@@ -8,9 +8,9 @@
  *   to 2^29.
  *   We allow some bits at the top of the integer timeline for snapshot outputs
  */
-#define MAXSNAPSHOTS (1<<9)
 #define TIMEBINS 20
-#define TIMEBASE (1<<TIMEBINS)
+#define TIMEBASE (1u<<TIMEBINS)
+#define MAXSNAPSHOTS (1u<<(31-TIMEBINS))
 
 /*Convert an integer to and from loga*/
 double loga_from_ti(unsigned int ti);
