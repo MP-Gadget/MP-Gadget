@@ -195,10 +195,7 @@ void advance_and_find_timesteps(void)
         int dti = get_timestep_ti(i, new_PM_Ti_step);
 #endif
         /* make it a power 2 subdivision */
-        int ti_min = TIMEBASE;
-        while(ti_min > dti)
-            ti_min >>= 1;
-        dti = ti_min;
+        dti = enforce_power_of_two(dti);
 
         int bin = get_timestep_bin(dti);
         if(bin < 1) {
@@ -496,7 +493,7 @@ get_timestep_ti(const int p, const int dti_max)
     /*
     sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac) * All.cf.hubble,
     */
-    if(!(dti > 1 && dti < TIMEBASE))
+    if(dti <= 1 || dti > TIMEBASE)
     {
         message(1, "Error: A timestep of size zero was assigned on the integer timeline!\n"
                 "We better stop.\n"
@@ -625,11 +622,7 @@ int get_long_range_timestep_ti()
 {
     double dloga = get_long_range_timestep_dloga();
     int dti = dti_from_dloga(dloga);
-    /* make it a power 2 subdivision */
-    int ti_min = TIMEBASE;
-    while(ti_min > dti)
-        ti_min >>= 1;
-    dti = ti_min;
+    dti = enforce_power_of_two(dti);
     message(0, "Maximal PM timestep: dloga = %g  (%g)\n", dloga_from_dti(dti), All.MaxSizeTimestep);
     return dti;
 }
