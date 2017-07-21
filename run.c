@@ -114,19 +114,21 @@ void run(void)
         {
             /*Save snapshot*/
             savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
+
+            if(action == STOP || action == TIMEOUT) {
+                /* OK snapshot file is written, lets quit */
+                return;
+            }
+
             /*Do the extra half-kick we avoided for a snapshot.*/
             apply_half_kick();
+            /*Find next output*/
             Ti_nextoutput = find_next_outputtime(Ti_nextoutput);
             if(out_from_ti(Ti_nextoutput) < All.OutputListLength)
                 message(0, "Setting next time for snapshot file to Time_next= %g \n",
                         exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]));
         }
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
-
-        if(action == STOP || action == TIMEOUT) {
-            /* OK snapshot file is written, lets quit */
-            return;
-        }
 
         NumCurrentTiStep++;
 
