@@ -62,7 +62,7 @@ void run(void)
          * If needed, this function will also write an output file
          * at the desired time.
          */
-        All.Ti_Current = find_next_kick();
+        All.Ti_Current = find_next_kick(All.Ti_Current);
 
         /*Convert back to floating point time*/
         set_global_time(exp(loga_from_ti(All.Ti_Current)));

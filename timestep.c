@@ -721,30 +721,30 @@ void rebuild_activelist(void)
  * function will drift to this moment, generate an output, and then
  * resume the drift.
  */
-unsigned int find_next_kick()
+unsigned int find_next_kick(unsigned int Ti_Current)
 {
     int n, ti_next_kick_global;
     int ti_next_kick = TIMEBASE;
     /*This repopulates all timebins on the first timestep*/
     if(TimeBinCount[0])
-        ti_next_kick = All.Ti_Current;
+        ti_next_kick = Ti_Current;
 
-    /* find the next kick time */
+    /* find the next kick time:
+     * this finds the smallest active bin whose bit is not already set in Ti_Current. */
     for(n = 1; n < TIMEBINS; n++)
     {
         if(!TimeBinCount[n])
             continue;
 	    /* next kick time for this timebin */
-        const int dt_bin = (1 << n);
-        const int ti_next_for_bin = (All.Ti_Current / dt_bin) * dt_bin + dt_bin;
+        const unsigned int dt_bin = (1 << n);
+        /*Use all upper parts of Ti_Current and set the bit for this bin*/
+        const unsigned int ti_next_for_bin = (Ti_Current / dt_bin) * dt_bin + dt_bin;
         if(ti_next_for_bin < ti_next_kick)
             ti_next_kick = ti_next_for_bin;
     }
 
     /*All processors sync timesteps*/
     MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-    walltime_measure("/Misc");
 
     return ti_next_kick_global;
 }
