@@ -219,7 +219,7 @@ human_interaction()
     sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
     /*Last IO time*/
     double iotime = 0.02*All.TimeLimitCPU;
-    double EstimatedTimeToPMEnd = 0.2 * All.TimeLimitCPU;
+    double EstimatedTimeToPMEnd = 0.03 * All.TimeLimitCPU;
 
     int nwritten = All.SnapshotFileCount - All.InitSnapshotCount;
 
