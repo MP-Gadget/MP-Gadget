@@ -8,6 +8,7 @@
 #include "paramset.h"
 #include "system.h"
 #include "densitykernel.h"
+#include "timebinmgr.h"
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */
@@ -86,7 +87,7 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
 
     /*Allocate enough memory*/
     All.OutputListLength = count+2;
-    int maxcount = sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]);
+    int maxcount = DMAX(sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]), MAXSNAPSHOTS);
     if(All.OutputListLength > maxcount) {
         message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", All.OutputListLength, maxcount);
         return 1;
