@@ -40,10 +40,21 @@ void init(int RestartSnapNum)
 
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
     set_global_time(All.TimeInit);
+    /*Set up first and last entry to OutputList*/
+    All.OutputListTimes[0] = log(All.TimeInit);
+    All.OutputListTimes[All.OutputListLength-1] = log(All.TimeMax);
+    /*Truncate the output list at All.TimeMax*/
+    for(i=0; i<All.OutputListLength-1; i++) {
+        if(All.OutputListTimes[i] >= All.OutputListTimes[All.OutputListLength-1]) {
+            All.OutputListTimes[i] = All.OutputListTimes[All.OutputListLength-1];
+            All.OutputListLength = i+1;
+            break;
+        }
+    }
 
     petaio_read_snapshot(RestartSnapNum);
 
-    init_drift_table(All.Time, All.TimeMax);
+    init_drift_table(All.TimeInit, All.TimeMax);
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();

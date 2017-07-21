@@ -730,7 +730,7 @@ int find_next_outputtime(int ti_curr)
 
     for(i = 0; i < All.OutputListLength; i++)
     {
-        const double time = All.OutputListTimes[i];
+        const double time = exp(All.OutputListTimes[i]);
 
         if(time >= All.TimeInit && time <= All.TimeMax)
         {
