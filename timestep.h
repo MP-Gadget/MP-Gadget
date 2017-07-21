@@ -23,7 +23,7 @@ void sph_VelPred(int i, double * VelPred);
 double EntropyPred(int i);
 double PressurePred(int i);
 
-unsigned int find_next_kick();
+unsigned int find_next_kick(unsigned int Ti_Current);
 unsigned int find_next_outputtime(unsigned int ti_curr);
 void init_timebins(void);
 
