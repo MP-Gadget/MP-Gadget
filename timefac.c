@@ -73,7 +73,6 @@ void init_drift_table(double timeBegin, double timeMax)
   int i;
   double result, abserr;
 
-  init_integer_timeline(timeBegin, timeMax);
   gsl_function F;
   gsl_integration_workspace *workspace;
 

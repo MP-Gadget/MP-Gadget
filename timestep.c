@@ -54,8 +54,6 @@ static int get_long_range_timestep_ti(void);
 /*Initialise the integer timeline*/
 void init_timebins(double TimeInit, double TimeMax)
 {
-    init_integer_timeline(TimeInit, TimeMax);
-
     PM_Ti.step = 0;
     PM_Ti.start = 0;
     update_active_timebins(0);
@@ -214,15 +212,11 @@ void advance_and_find_timesteps(void)
             dti = bin ? (1 << bin) : 0;
         }
 
-        if(All.Ti_Current >= TIMEBASE)	/* we here finish the last timestep. */
+        /* Final timestep gets a half kick.*/
+        if(All.Ti_Current >> TIMEBINS >= All.OutputListLength)
         {
             dti = 0;
             bin = 0;
-        }
-
-        if((TIMEBASE - All.Ti_Current) < dti)	/* check that we don't run beyond the end */
-        {
-            endrun(888, "Integer timeline ran past the end of the bins: %d - %d  < %d\n",TIMEBASE, All.Ti_Current, dti);
         }
 
         /* This moves particles between time bins:
