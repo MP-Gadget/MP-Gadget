@@ -151,7 +151,7 @@ void set_global_time(double newtime) {
  */
 void advance_and_find_timesteps(int do_half_kick)
 {
-    int pa;
+    int pa, ti_min_glob=TIMEBASE;
 
     walltime_measure("/Misc");
 
@@ -166,33 +166,31 @@ void advance_and_find_timesteps(int do_half_kick)
         new_PM_Ti_step = get_long_range_timestep_ti();
 
     /* Now assign new timesteps and kick */
-#ifdef FORCE_EQUAL_TIMESTEPS
-    int ti_min=TIMEBASE;
-    #pragma omp parallel for
-    for(pa = 0; pa < NumActiveParticle; pa++)
-    {
-        const int i = ActiveParticle[pa];
-        int dti = get_timestep_ti(i, new_PM_Ti_step);
+    if(All.ForceEqualTimesteps) {
+        int ti_min=get_timestep_ti(ActiveParticle[0], new_PM_Ti_step);
+        #pragma omp parallel for
+        for(pa = 0; pa < NumActiveParticle; pa++)
+        {
+            const int i = ActiveParticle[pa];
+            int dti = get_timestep_ti(i, new_PM_Ti_step);
 
-        if(dti < ti_min)
-            ti_min = dti;
+            if(dti < ti_min)
+                ti_min = dti;
+        }
+        MPI_Allreduce(&ti_min, &ti_min_glob, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     }
-
-    int ti_min_glob;
-
-    MPI_Allreduce(&ti_min, &ti_min_glob, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-#endif
 
     int badstepsizecount = 0;
     #pragma omp parallel for
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
-#ifdef FORCE_EQUAL_TIMESTEPS
-        int dti = ti_min_glob;
-#else
-        int dti = get_timestep_ti(i, new_PM_Ti_step);
-#endif
+        int dti;
+        if(All.ForceEqualTimesteps) {
+            dti = ti_min_glob;
+        } else {
+            dti = get_timestep_ti(i, new_PM_Ti_step);
+        }
         /* make it a power 2 subdivision */
         dti = enforce_power_of_two(dti);
 
