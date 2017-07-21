@@ -495,17 +495,12 @@ get_timestep_ti(const int p, const int dti_max)
     */
     if(dti <= 1 || dti > TIMEBASE)
     {
-        message(1, "Error: A timestep of size zero was assigned on the integer timeline!\n"
-                "We better stop.\n"
-                "Task=%d type %d Part-ID=%lu dloga=%g, dtmax=%g dti=%d xyz=(%g|%g|%g) tree=(%g|%g|%g), ErrTolIntAccuracy=%g\n\n",
-                ThisTask, P[p].Type, (MyIDType)P[p].ID, dloga, dti_max, dti,
-                P[p].Pos[0], P[p].Pos[1], P[p].Pos[2], P[p].GravAccel[0], P[p].GravAccel[1],
-                P[p].GravAccel[2],
-                All.ErrTolIntAccuracy
+        message(1, "Bad timestep (%x) assigned! ID=%lu Type=%d dloga=%g dtmax=%x xyz=(%g|%g|%g) tree=(%g|%g|%g) PM=(%g|%g|%g)\n",
+                dti, P[p].ID, P[p].Type, dloga, dti_max,
+                P[p].Pos[0], P[p].Pos[1], P[p].Pos[2],
+                P[p].GravAccel[0], P[p].GravAccel[1], P[p].GravAccel[2],
+                P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]
               );
-
-        message(1, "pm_force=(%g|%g|%g)\n", P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]);
-
         if(P[p].Type == 0)
             message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1],
                     SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb);
