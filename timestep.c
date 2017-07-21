@@ -144,10 +144,12 @@ void set_global_time(double newtime) {
 
 /*! This function advances the system in momentum space, i. it does apply the 'kick' operation after the
  *  forces have been computed. Additionally, it assigns new timesteps to particles. At start-up, a
- *  half-timestep is carried out, as well as at the end of the simulation. In between, the half-step kick that
- *  ends the previous timestep and the half-step kick for the new timestep are combined into one operation.
+ *  half-timestep is carried out, as well as if do_half_kick is true.
+ *  This should be the case at all snapshot outputs, so that the velocities are correctly synchronized.
+ *  Otherwise, the half-step kick that ends the previous timestep
+ *  and the half-step kick for the new timestep are combined into one operation.
  */
-void advance_and_find_timesteps(void)
+void advance_and_find_timesteps(int do_half_kick)
 {
     int pa;
 
@@ -211,13 +213,6 @@ void advance_and_find_timesteps(void)
             dti = bin ? (1 << bin) : 0;
         }
 
-        /* Final timestep gets a half kick.*/
-        if(All.Ti_Current >> TIMEBINS >= All.OutputListLength)
-        {
-            dti = 0;
-            bin = 0;
-        }
-
         /* This moves particles between time bins:
          * active particles always remain active
          * until reconstruct_timebins is called
@@ -234,10 +229,15 @@ void advance_and_find_timesteps(void)
             P[i].TimeBin = bin;
         }
 
-        int dti_old = binold ? (1 << binold) : 0;
+        unsigned int dti_old = binold ? (1 << binold) : 0;
 
-        int tistart = get_kick_ti(P[i].Ti_begstep, dti_old);	/* midpoint of old step */
-        int tiend = get_kick_ti(P[i].Ti_begstep + dti_old, dti);	/* midpoint of new step */
+        /* midpoint of old step */
+        unsigned int tistart = get_kick_ti(P[i].Ti_begstep, dti_old);
+        /* Midpoint of new step, unless do_half_kick is true,
+         * in which case the start of the new step.*/
+        unsigned int tiend = get_kick_ti(P[i].Ti_begstep + dti_old, dti);	/* midpoint of new step */
+        if(do_half_kick)
+            tiend = P[i].Ti_begstep + dti_old;
 
         P[i].Ti_begstep += dti_old;
 
@@ -260,14 +260,44 @@ void advance_and_find_timesteps(void)
     {
         /* Note this means we do a half kick on the first timestep.
          * Which means we should also do a half-kick just before output.*/
-        const int tistart = get_kick_ti(PM_Ti.start, PM_Ti.step);
-        const int tiend =  get_kick_ti(PM_Ti.start + PM_Ti.step, new_PM_Ti_step);
+        const unsigned int tistart = get_kick_ti(PM_Ti.start, PM_Ti.step);
+        unsigned int tiend =  get_kick_ti(PM_Ti.start + PM_Ti.step, new_PM_Ti_step);
+        if(do_half_kick)
+            tiend = PM_Ti.start + PM_Ti.step;
         /* Do long-range kick */
         do_the_long_range_kick(tistart, tiend);
         PM_Ti.start += PM_Ti.step;
         PM_Ti.step = new_PM_Ti_step;
     }
 
+    walltime_measure("/Timeline");
+}
+
+/* Just apply half a kick, for when
+ * we just wrote a snapshot with only half the kick applied.*/
+void apply_half_kick()
+{
+    int pa;
+    walltime_measure("/Misc");
+    /* Now assign new timesteps and kick */
+    #pragma omp parallel for
+    for(pa = 0; pa < NumActiveParticle; pa++)
+    {
+        const int i = ActiveParticle[pa];
+        int bin = P[i].TimeBin;
+        unsigned int dti = bin ? (1 << bin) : 0;
+        /* Start of step*/
+        unsigned int tistart = P[i].Ti_begstep;
+        /* Midpoint of step*/
+        unsigned int tiend = get_kick_ti(P[i].Ti_begstep, dti);
+        /*This only changes particle i, so is thread-safe.*/
+        do_the_short_range_kick(i, tistart, tiend);
+    }
+    /*Always do a PM half-kick, because this should be called just after a PM step*/
+    const unsigned int tistart = PM_Ti.start;
+    const unsigned int tiend =  get_kick_ti(PM_Ti.start, PM_Ti.step);
+    /* Do long-range kick */
+    do_the_long_range_kick(tistart, tiend);
     walltime_measure("/Timeline");
 }
 

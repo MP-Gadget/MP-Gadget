@@ -69,6 +69,7 @@ void run(void)
 
         int is_PM = is_PM_timestep(All.Ti_Current);
 
+        int WillOutput = is_PM && (WriteNextOpportunity || All.Ti_Current >= Ti_nextoutput);
         /* Sync positions of all particles */
         drift_all_particles(All.Ti_Current);
 
@@ -97,24 +98,28 @@ void run(void)
                                      * the particles that are to be advanced
                                      */
 
-        /* kick */
-        advance_and_find_timesteps();	/* 'kick' active particles in
-                                         * momentum space and compute new
-                                         * timesteps for them
-                                         */
+        /* 'kick' active particles in
+         * momentum space and compute new
+         * timesteps for them. If we are about to
+         * do output, only do a half kick.
+         */
+        advance_and_find_timesteps(WillOutput);
 
         /*If this timestep is after the last snapshot time, write a snapshot.
          * No need to do a domain decomposition as we already did one since
          * the last move in compute_accelerations().
          * This is after advance_and_find_timesteps so the acceleration
          * is included in the kick.*/
-        if(is_PM && (WriteNextOpportunity || All.Ti_Current >= Ti_nextoutput))
+        if(WillOutput)
         {
             /*Save snapshot*/
             savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
+            /*Do the extra half-kick we avoided for a snapshot.*/
+            apply_half_kick();
             Ti_nextoutput = find_next_outputtime(Ti_nextoutput);
             if(out_from_ti(Ti_nextoutput) < All.OutputListLength)
-                message(0, "Setting next time for snapshot file to Time_next= %g \n", exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]));
+                message(0, "Setting next time for snapshot file to Time_next= %g \n",
+                        exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]));
         }
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
