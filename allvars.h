@@ -364,6 +364,7 @@ extern struct global_data_all_processes
     double ErrTolIntAccuracy;	/*!< accuracy tolerance parameter \f$ \eta \f$ for timestep criterion. The
                                   timesteps is \f$ \Delta t = \sqrt{\frac{2 \eta eps}{a}} \f$ */
 
+    int ForceEqualTimesteps; /*If true, all timesteps have the same timestep, the smallest allowed.*/
     double MinSizeTimestep,	/*!< minimum allowed timestep. Normally, the simulation terminates if the
                               timestep determined by the timestep criteria falls below this limit. */
            MaxSizeTimestep;		/*!< maximum allowed timestep */

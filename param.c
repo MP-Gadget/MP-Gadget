@@ -157,6 +157,7 @@ create_gadget_parameter_set()
     param_declare_int(ps,    "TypeOfTimestepCriterion", OPTIONAL, 0, "Compatibility only. Has no effect");
     param_declare_double(ps, "MaxSizeTimestep", OPTIONAL, 0.1, "");
     param_declare_double(ps, "MinSizeTimestep", OPTIONAL, 0, "");
+    param_declare_int(ps, "ForceEqualTimesteps", OPTIONAL, 0, "Force all timesteps to be the same, the smallest required.");
 
     param_declare_double(ps, "MaxRMSDisplacementFac", OPTIONAL, 0.2, "");
     param_declare_double(ps, "ArtBulkViscConst", OPTIONAL, 0.75, "");
@@ -366,6 +367,7 @@ void read_parameter_file(char *fname)
         All.MaxSizeTimestep = param_get_double(ps, "MaxSizeTimestep");
 
         All.MinSizeTimestep = param_get_double(ps, "MinSizeTimestep");
+        All.ForceEqualTimesteps = param_get_int(ps, "ForceEqualTimesteps");
         All.MaxRMSDisplacementFac = param_get_double(ps, "MaxRMSDisplacementFac");
         All.ArtBulkViscConst = param_get_double(ps, "ArtBulkViscConst");
         All.CourantFac = param_get_double(ps, "CourantFac");
