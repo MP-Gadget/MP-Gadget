@@ -729,6 +729,11 @@ unsigned int find_next_kick(unsigned int Ti_Current)
     if(TimeBinCount[0])
         ti_next_kick = Ti_Current;
 
+    /*Extract large (snapshot number) part of Ti_Current*/
+    int snap = Ti_Current & ~(TIMEBASE-1);
+    /*Zero all upper bits of Ti_Current*/
+    Ti_Current &= TIMEBASE-1;
+
     /* find the next kick time:
      * this finds the smallest active bin whose bit is not already set in Ti_Current. */
     for(n = 1; n < TIMEBINS; n++)
@@ -742,6 +747,8 @@ unsigned int find_next_kick(unsigned int Ti_Current)
         if(ti_next_for_bin < ti_next_kick)
             ti_next_kick = ti_next_for_bin;
     }
+
+    ti_next_kick += snap;
 
     /*All processors sync timesteps*/
     MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
