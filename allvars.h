@@ -506,7 +506,9 @@ extern struct particle_data
 
     unsigned int Ti_begstep;     /*!< marks start of current timestep of particle on integer timeline */
     unsigned int Ti_drift;       /*!< current time of the particle position */
+#ifdef DEBUG
     unsigned int Ti_kick;        /*!< current time of the particle momentum */
+#endif
 
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */

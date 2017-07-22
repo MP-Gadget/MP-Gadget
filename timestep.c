@@ -319,10 +319,13 @@ void do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend)
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
 
     int j;
-
+#ifdef DEBUG
     if(P[i].Ti_kick != tistart) {
         endrun(1, "Ti kick mismatch\n");
     }
+
+    P[i].Ti_kick = tiend;
+#endif
 
     /* do the kick */
 
@@ -330,8 +333,6 @@ void do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend)
     {
         P[i].Vel[j] += P[i].GravAccel[j] * Fgravkick;
     }
-
-    P[i].Ti_kick = tiend;
 
     if(P[i].Type == 0) {
         const double Fhydrokick = get_hydrokick_factor(tistart, tiend);
@@ -387,6 +388,16 @@ void do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend)
 
 }
 
+/*Get the kick time*/
+unsigned int get_short_kick_time(int i)
+{
+    int bin = P[i].TimeBin;
+    unsigned int dti = bin ? (1 << bin) : 0;
+    /* Midpoint of step*/
+    unsigned int tiend = get_kick_ti(P[i].Ti_begstep, dti);
+    return tiend;
+}
+
 /*Get the predicted velocity for a particle
  * at the momentum (kick) timestep, accounting
  * for gravity and hydro forces.
@@ -394,8 +405,8 @@ void do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend)
 void sph_VelPred(int i, double * VelPred)
 {
     const int ti = P[i].Ti_drift;
-    const double Fgravkick2 = get_gravkick_factor(ti, P[i].Ti_kick);
-    const double Fhydrokick2 = get_hydrokick_factor(ti, P[i].Ti_kick);
+    const double Fgravkick2 = get_gravkick_factor(ti, get_short_kick_time(i));
+    const double Fhydrokick2 = get_hydrokick_factor(ti, get_short_kick_time(i));
     const double FgravkickB = get_gravkick_factor(ti, get_kick_ti(PM_Ti.start, PM_Ti.step));
     int j;
     for(j = 0; j < 3; j++) {
@@ -408,13 +419,13 @@ void sph_VelPred(int i, double * VelPred)
  * for the density independent SPH code.*/
 double EntropyPred(int i)
 {
-    const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
+    const double Fentr = dloga_from_dti(P[i].Ti_drift - get_short_kick_time(i));
     return pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
 }
 
 double PressurePred(int i)
 {
-    const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
+    const double Fentr = dloga_from_dti(P[i].Ti_drift - get_short_kick_time(i));
     return (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
 }
 
