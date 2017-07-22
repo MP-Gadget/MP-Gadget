@@ -37,7 +37,8 @@ enum ActionType {
     TERMINATE = 5,
     IOCTL = 6,
 };
-static enum ActionType human_interaction();
+static enum ActionType human_interaction(double lastPMlength);
+static int should_we_timeout(double lastPMlength);
 static void compute_accelerations(int is_PM);
 static void update_IO_params(const char * ioctlfname);
 static void every_timestep_stuff(int NumForces, int NumCurrentTiStep);
@@ -48,8 +49,10 @@ void run(void)
     enum ActionType action = NO_ACTION;
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
-    /* Should we write a snapshot the next time we can?*/
-    int WriteNextOpportunity = 0;
+
+    /*To compute the wall time between PM steps*/
+    double lastPM = All.CT.ElapsedTime;
+    double lastPMlength = 0.03*All.TimeLimitCPU;
 
     walltime_measure("/Misc");
 
@@ -68,8 +71,52 @@ void run(void)
         set_global_time(exp(loga_from_ti(All.Ti_Current)));
 
         int is_PM = is_PM_timestep(All.Ti_Current);
+        if(is_PM) {
+            double curTime = All.CT.ElapsedTime;
+            if(All.Ti_Current)
+                lastPMlength = curTime - lastPM;
+            lastPM = curTime;
+        }
 
-        int WillOutput = is_PM && (WriteNextOpportunity || All.Ti_Current >= Ti_nextoutput);
+        action = human_interaction(lastPMlength);
+        switch(action) {
+            case STOP:
+                message(0, "human controlled stop with checkpoint.\n");
+                /*Write when the PM timestep completes*/
+                Ti_nextoutput = All.Ti_Current-1;
+                /* next loop will write a new snapshot file; break is for switch */
+                break;
+            case TIMEOUT:
+                message(0, "stopping due to TimeLimitCPU.\n");
+                Ti_nextoutput = All.Ti_Current-1;
+                /* next loop will write a new snapshot file */
+                break;
+
+            case AUTO_CHECKPOINT:
+                message(0, "auto checkpoint due to TimeBetSnapshot.\n");
+                Ti_nextoutput = All.Ti_Current-1;
+                /* will write a new snapshot file next time the PM step finishes*/
+                break;
+
+            case CHECKPOINT:
+                message(0, "human controlled checkpoint.\n");
+                Ti_nextoutput = All.Ti_Current-1;
+                /* will write a new snapshot file next time the PM step finishes*/
+                break;
+
+            case TERMINATE:
+                message(0, "human controlled termination.\n");
+                /* no snapshot, at termination, directly end the loop */
+                return;
+
+            case IOCTL:
+                break;
+
+            case NO_ACTION:
+                break;
+        }
+
+        int WillOutput = is_PM && (All.Ti_Current >= Ti_nextoutput);
         /* Sync positions of all particles */
         drift_all_particles(All.Ti_Current);
 
@@ -133,45 +180,6 @@ void run(void)
         NumCurrentTiStep++;
 
         report_memory_usage("RUN");
-
-        action = human_interaction();
-        switch(action) {
-            case STOP:
-                message(0, "human controlled stop with checkpoint.\n");
-                /*Note this will generally not write until the next PM timestep completes*/
-                WriteNextOpportunity = 1;
-                /* next loop will write a new snapshot file; break is for switch */
-                break;
-            case TIMEOUT:
-                message(0, "stopping due to TimeLimitCPU.\n");
-                WriteNextOpportunity = 1;
-                /* next loop will write a new snapshot file */
-                break;
-
-            case AUTO_CHECKPOINT:
-                message(0, "auto checkpoint due to TimeBetSnapshot.\n");
-                WriteNextOpportunity = 1;
-                /* will write a new snapshot file next time the PM step finishes*/
-                break;
-
-            case CHECKPOINT:
-                message(0, "human controlled checkpoint.\n");
-                WriteNextOpportunity = 1;
-                /* will write a new snapshot file next time the PM step finishes*/
-                break;
-
-            case TERMINATE:
-                message(0, "human controlled termination.\n");
-                /* no snapshot, at termination, directly end the loop */
-                return;
-
-            case IOCTL:
-                break;
-
-            case NO_ACTION:
-                break;
-        }
-
     }
     while(out_from_ti(Ti_nextoutput) < All.OutputListLength);
 }
@@ -205,30 +213,19 @@ update_IO_params(const char * ioctlfname)
 }
 
 static enum ActionType
-human_interaction()
+human_interaction(double lastPMlength)
 {
         /* Check whether we need to interrupt the run */
     enum ActionType action = NO_ACTION;
     char stopfname[4096], termfname[4096];
     char restartfname[4096];
     char ioctlfname[4096];
+    int timeout = should_we_timeout(lastPMlength);
 
     sprintf(stopfname, "%s/stop", All.OutputDir);
     sprintf(restartfname, "%s/checkpoint", All.OutputDir);
     sprintf(termfname, "%s/terminate", All.OutputDir);
     sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
-    /*Last IO time*/
-    double iotime = 0.02*All.TimeLimitCPU;
-    double EstimatedTimeToPMEnd = 0.03 * All.TimeLimitCPU;
-
-    int nwritten = All.SnapshotFileCount - All.InitSnapshotCount;
-
-    if(nwritten > 0)
-        iotime = walltime_get("/Snapshot/Write",CLOCK_ACCU_MAX)/nwritten;
-    if (NumActiveParticle > 0)
-        EstimatedTimeToPMEnd = fmin(EstimatedTimeToPMEnd, All.CT.StepTime*NumPart/NumActiveParticle);
-
-    message(0, "iotime = %g, Est = %g\n", iotime, EstimatedTimeToPMEnd);
     if(ThisTask == 0)
     {
         FILE * fd;
@@ -253,7 +250,7 @@ human_interaction()
         }
 
         /* are we running out of CPU-time ? If yes, interrupt run. */
-        if(All.CT.ElapsedTime + 4*(iotime+EstimatedTimeToPMEnd) > All.TimeLimitCPU) {
+        if(timeout) {
             action = TIMEOUT;
         }
 
@@ -341,6 +338,22 @@ void compute_accelerations(int is_PM)
     message(0, "force computation done.\n");
 }
 
+int should_we_timeout(double lastPMlength)
+{
+    /*Last IO time*/
+    double iotime = 0.02*All.TimeLimitCPU;
+
+    int nwritten = All.SnapshotFileCount - All.InitSnapshotCount;
+    if(nwritten > 0)
+        iotime = walltime_get("/Snapshot/Write",CLOCK_ACCU_MAX)/nwritten;
+
+/*     message(0, "iotime = %g, lastPM = %g\n", iotime, lastPMlength); */
+    /* are we running out of CPU-time ? If yes, interrupt run. */
+    if(All.CT.ElapsedTime + 4*(iotime+lastPMlength) > All.TimeLimitCPU) {
+        return 1;
+    }
+    return 0;
+}
 
 /*! This routine writes one line for every timestep.
  * FdCPU the cumulative cpu-time consumption in various parts of the
@@ -384,7 +397,7 @@ void every_timestep_stuff(int NumForce, int NumCurrentTiStep)
 
     message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
                 TotNumPart, NTotal[0], NTotal[5], NTotal[4]);
-    message(0,     "Occupied:   % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);
+    message(0,     "Occupied: % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);
 
     for(i = TIMEBINS - 1;  i >= 0; i--) {
         if(tot_count[i] == 0) continue;
@@ -409,13 +422,11 @@ void every_timestep_stuff(int NumForce, int NumCurrentTiStep)
         }
     }
     message(0,     "               -----------------------------------\n");
-    message(0,     "Total:  % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld\n",
+    message(0,     "Total:    % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld\n",
         tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot);
 
     set_random_numbers();
 }
-
-
 
 void write_cpu_log(int NumCurrentTiStep)
 {
