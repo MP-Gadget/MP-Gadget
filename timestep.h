@@ -16,7 +16,7 @@ void rebuild_activelist(void);
 void set_global_time(double newtime);
 void advance_and_find_timesteps(int do_half_kick);
 void apply_half_kick(void);
-double find_dloga_displacement_constraint(void);
+
 int is_timebin_active(int i);
 void set_timebin_active(binmask_t mask);
 
@@ -25,7 +25,7 @@ double EntropyPred(int i);
 double PressurePred(int i);
 
 unsigned int find_next_kick(unsigned int Ti_Current);
-unsigned int find_next_outputtime(unsigned int ti_curr);
+
 void init_timebins(void);
 
 int is_PM_timestep(unsigned int ti);
