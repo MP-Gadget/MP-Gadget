@@ -373,7 +373,7 @@ void cooling_only(void)
     if(!All.CoolingOn) return;
     walltime_measure("/Misc");
 
-    TreeWalk tw = {0};
+    TreeWalk tw[1] = {0};
 
     /* Only used to list all active particles for the parallel loop */
     /* no tree walking and no need to export / copy particles. */
