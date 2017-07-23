@@ -14,8 +14,9 @@ void timestep_allocate_memory(int MaxPart);
 int update_active_timebins(inttime_t next_kick);
 void rebuild_activelist(void);
 void set_global_time(double newtime);
-void advance_and_find_timesteps(int do_half_kick);
+void find_timesteps_and_half_kick(void);
 void apply_half_kick(void);
+void apply_PM_half_kick(void);
 
 int is_timebin_active(int i);
 void set_timebin_active(binmask_t mask);

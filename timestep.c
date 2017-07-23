@@ -149,15 +149,13 @@ set_global_time(double newtime) {
     set_softenings(newtime);
 }
 
-/*! This function advances the system in momentum space, i. it does apply the 'kick' operation after the
- *  forces have been computed. Additionally, it assigns new timesteps to particles. At start-up, a
- *  half-timestep is carried out, as well as if do_half_kick is true.
- *  This should be the case at all snapshot outputs, so that the velocities are correctly synchronized.
- *  Otherwise, the half-step kick that ends the previous timestep
- *  and the half-step kick for the new timestep are combined into one operation.
+/*! This function assigns new timesteps to particles.
+ * It then advances the system half a timestep in momentum space, with a half-kick operation.
+ * The second half-kick is done in apply_half_kick, below.
+ * The kick is split in two so that the velocities are correctly synchronized at snapshot outputs.
  */
 void
-advance_and_find_timesteps(int do_half_kick)
+find_timesteps_and_half_kick(void)
 {
     int pa, ti_min_glob=TIMEBASE;
 
@@ -239,12 +237,10 @@ advance_and_find_timesteps(int do_half_kick)
 
         /* midpoint of old step */
         inttime_t tistart = get_kick_ti(P[i].Ti_begstep, dti_old);
-        /* Midpoint of new step, unless do_half_kick is true,
-         * in which case the start of the new step.*/
-        inttime_t tiend = get_kick_ti(P[i].Ti_begstep + dti_old, dti);	/* midpoint of new step */
-        if(do_half_kick)
-            tiend = P[i].Ti_begstep + dti_old;
+        /* Start of the new step.*/
+        inttime_t tiend = P[i].Ti_begstep + dti_old;
 
+        /*Advance timestep*/
         P[i].Ti_begstep += dti_old;
 
         /*This only changes particle i, so is thread-safe.*/
@@ -264,12 +260,11 @@ advance_and_find_timesteps(int do_half_kick)
 
     if(is_PM_timestep(All.Ti_Current))
     {
-        /* Note this means we do a half kick on the first timestep.
-         * Which means we should also do a half-kick just before output.*/
+        /* Do a half kick to the end of the timestep.*/
+        /*Midpoint of current timestep*/
         const inttime_t tistart = get_kick_ti(PM_Ti.start, PM_Ti.length);
-        inttime_t tiend =  get_kick_ti(PM_Ti.start + PM_Ti.length, new_PM_Ti_length);
-        if(do_half_kick)
-            tiend = PM_Ti.start + PM_Ti.length;
+        /*End of the timestep*/
+        inttime_t tiend = PM_Ti.start + PM_Ti.length;
         /* Do long-range kick */
         do_the_long_range_kick(tistart, tiend);
         PM_Ti.start += PM_Ti.length;
@@ -279,8 +274,7 @@ advance_and_find_timesteps(int do_half_kick)
     walltime_measure("/Timeline");
 }
 
-/* Just apply half a kick, for when
- * we just wrote a snapshot with only half the kick applied.*/
+/* Apply half a kick, for the second half of the timestep.*/
 void
 apply_half_kick(void)
 {
@@ -300,12 +294,18 @@ apply_half_kick(void)
         /*This only changes particle i, so is thread-safe.*/
         do_the_short_range_kick(i, tistart, tiend);
     }
+    walltime_measure("/Timeline/HalfKick/Short");
+}
+
+void
+apply_PM_half_kick(void)
+{
     /*Always do a PM half-kick, because this should be called just after a PM step*/
     const inttime_t tistart = PM_Ti.start;
     const inttime_t tiend =  get_kick_ti(PM_Ti.start, PM_Ti.length);
     /* Do long-range kick */
     do_the_long_range_kick(tistart, tiend);
-    walltime_measure("/Timeline/HalfKick");
+    walltime_measure("/Timeline/HalfKick/Long");
 }
 
 /*Advance a long-range timestep and do the desired kick.*/
