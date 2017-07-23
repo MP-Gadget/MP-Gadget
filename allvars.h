@@ -116,6 +116,8 @@
 #define MAXITER 400
 
 typedef uint32_t binmask_t;
+typedef uint32_t inttime_t;
+
 #define BINMASK_ALL ((uint32_t) (-1))
 #define BINMASK(i) (1u << i)
 
@@ -343,7 +345,7 @@ extern struct global_data_all_processes
 
     /* variables for organizing discrete timeline */
 
-    unsigned int Ti_Current;		/*!< current time on integer timeline */
+    inttime_t Ti_Current;		/*!< current time on integer timeline */
 
     int Nmesh;
 
@@ -504,10 +506,10 @@ extern struct particle_data
 
     float GravCost;     /*!< weight factor used for balancing the work-load */
 
-    unsigned int Ti_begstep;     /*!< marks start of current timestep of particle on integer timeline */
-    unsigned int Ti_drift;       /*!< current time of the particle position */
+    inttime_t Ti_begstep;     /*!< marks start of current timestep of particle on integer timeline */
+    inttime_t Ti_drift;       /*!< current time of the particle position */
 #ifdef DEBUG
-    unsigned int Ti_kick;        /*!< current time of the particle momentum */
+    inttime_t Ti_kick;        /*!< current time of the particle momentum */
 #endif
 
     double Pos[3];   /*!< particle position at its current time */

@@ -21,8 +21,8 @@
 
 /* variables for organizing PM steps of discrete timeline */
 static struct time_vars {
-    unsigned int step; /*!< Duration of the current PM integer timestep*/
-    unsigned int start;           /* current start point of the PM step*/
+    inttime_t step; /*!< Duration of the current PM integer timestep*/
+    inttime_t start;           /* current start point of the PM step*/
 } PM_Ti;
 
 /*Get the kick time for a timestep, given a start point and a step size.*/
@@ -45,11 +45,11 @@ void timestep_allocate_memory(int MaxPart)
 }
 
 static void reverse_and_apply_gravity();
-static unsigned int get_timestep_ti(const int p, const unsigned int dti_max);
-static int get_timestep_bin(unsigned int dti);
-static void do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend);
-static void do_the_long_range_kick(unsigned int tistart, unsigned int tiend);
-static unsigned int get_long_range_timestep_ti(void);
+static inttime_t get_timestep_ti(const int p, const inttime_t dti_max);
+static int get_timestep_bin(inttime_t dti);
+static void do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend);
+static void do_the_long_range_kick(inttime_t tistart, inttime_t tiend);
+static inttime_t get_long_range_timestep_ti(void);
 
 /*Initialise the integer timeline*/
 void
@@ -67,7 +67,7 @@ int is_timebin_active(int i) {
 
 /*Report whether the current timestep is the end of the PM timestep*/
 int
-is_PM_timestep(unsigned int ti)
+is_PM_timestep(inttime_t ti)
 {
     return ti == PM_Ti.start + PM_Ti.step;
 }
@@ -233,13 +233,13 @@ advance_and_find_timesteps(int do_half_kick)
             P[i].TimeBin = bin;
         }
 
-        unsigned int dti_old = binold ? (1 << binold) : 0;
+        inttime_t dti_old = binold ? (1 << binold) : 0;
 
         /* midpoint of old step */
-        unsigned int tistart = get_kick_ti(P[i].Ti_begstep, dti_old);
+        inttime_t tistart = get_kick_ti(P[i].Ti_begstep, dti_old);
         /* Midpoint of new step, unless do_half_kick is true,
          * in which case the start of the new step.*/
-        unsigned int tiend = get_kick_ti(P[i].Ti_begstep + dti_old, dti);	/* midpoint of new step */
+        inttime_t tiend = get_kick_ti(P[i].Ti_begstep + dti_old, dti);	/* midpoint of new step */
         if(do_half_kick)
             tiend = P[i].Ti_begstep + dti_old;
 
@@ -264,8 +264,8 @@ advance_and_find_timesteps(int do_half_kick)
     {
         /* Note this means we do a half kick on the first timestep.
          * Which means we should also do a half-kick just before output.*/
-        const unsigned int tistart = get_kick_ti(PM_Ti.start, PM_Ti.step);
-        unsigned int tiend =  get_kick_ti(PM_Ti.start + PM_Ti.step, new_PM_Ti_step);
+        const inttime_t tistart = get_kick_ti(PM_Ti.start, PM_Ti.step);
+        inttime_t tiend =  get_kick_ti(PM_Ti.start + PM_Ti.step, new_PM_Ti_step);
         if(do_half_kick)
             tiend = PM_Ti.start + PM_Ti.step;
         /* Do long-range kick */
@@ -290,17 +290,17 @@ apply_half_kick()
     {
         const int i = ActiveParticle[pa];
         int bin = P[i].TimeBin;
-        unsigned int dti = bin ? (1 << bin) : 0;
+        inttime_t dti = bin ? (1 << bin) : 0;
         /* Start of step*/
-        unsigned int tistart = P[i].Ti_begstep;
+        inttime_t tistart = P[i].Ti_begstep;
         /* Midpoint of step*/
-        unsigned int tiend = get_kick_ti(P[i].Ti_begstep, dti);
+        inttime_t tiend = get_kick_ti(P[i].Ti_begstep, dti);
         /*This only changes particle i, so is thread-safe.*/
         do_the_short_range_kick(i, tistart, tiend);
     }
     /*Always do a PM half-kick, because this should be called just after a PM step*/
-    const unsigned int tistart = PM_Ti.start;
-    const unsigned int tiend =  get_kick_ti(PM_Ti.start, PM_Ti.step);
+    const inttime_t tistart = PM_Ti.start;
+    const inttime_t tiend =  get_kick_ti(PM_Ti.start, PM_Ti.step);
     /* Do long-range kick */
     do_the_long_range_kick(tistart, tiend);
     walltime_measure("/Timeline/HalfKick");
@@ -308,7 +308,7 @@ apply_half_kick()
 
 /*Advance a long-range timestep and do the desired kick.*/
 void
-do_the_long_range_kick(unsigned int tistart, unsigned int tiend)
+do_the_long_range_kick(inttime_t tistart, inttime_t tiend)
 {
     int i;
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
@@ -323,7 +323,7 @@ do_the_long_range_kick(unsigned int tistart, unsigned int tiend)
 }
 
 void
-do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend)
+do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
 {
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
 
@@ -398,13 +398,13 @@ do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend)
 }
 
 /*Get the kick time*/
-unsigned int
+inttime_t
 get_short_kick_time(int i)
 {
     int bin = P[i].TimeBin;
-    unsigned int dti = bin ? (1 << bin) : 0;
+    inttime_t dti = bin ? (1 << bin) : 0;
     /* Midpoint of step*/
-    unsigned int tiend = get_kick_ti(P[i].Ti_begstep, dti);
+    inttime_t tiend = get_kick_ti(P[i].Ti_begstep, dti);
     return tiend;
 }
 
@@ -513,8 +513,8 @@ get_timestep_dloga(const int p)
  *  Arguments:
  *  p -> particle index
  *  dti_max -> maximal timestep.  */
-static unsigned int
-get_timestep_ti(const int p, const unsigned int dti_max)
+static inttime_t
+get_timestep_ti(const int p, const inttime_t dti_max)
 {
     int dti;
     /*Give a useful message if we are broken*/
@@ -659,7 +659,7 @@ get_long_range_timestep_dloga()
 }
 
 /* backward compatibility with the old loop. */
-unsigned int
+inttime_t
 get_long_range_timestep_ti()
 {
     double dloga = get_long_range_timestep_dloga();
@@ -669,7 +669,7 @@ get_long_range_timestep_ti()
     return dti;
 }
 
-int get_timestep_bin(unsigned int dti)
+int get_timestep_bin(inttime_t dti)
 {
    int bin = -1;
 
@@ -775,7 +775,7 @@ void rebuild_activelist(void)
  * function will drift to this moment, generate an output, and then
  * resume the drift.
  */
-unsigned int find_next_kick(unsigned int Ti_Current)
+inttime_t find_next_kick(inttime_t Ti_Current)
 {
     int n, ti_next_kick_global;
     int ti_next_kick = TIMEBASE;
@@ -795,9 +795,9 @@ unsigned int find_next_kick(unsigned int Ti_Current)
         if(!TimeBinCount[n])
             continue;
 	    /* next kick time for this timebin */
-        const unsigned int dt_bin = (1 << n);
+        const inttime_t dt_bin = (1 << n);
         /*Use all upper parts of Ti_Current and set the bit for this bin*/
-        const unsigned int ti_next_for_bin = (Ti_Current / dt_bin) * dt_bin + dt_bin;
+        const inttime_t ti_next_for_bin = (Ti_Current / dt_bin) * dt_bin + dt_bin;
         if(ti_next_for_bin < ti_next_kick)
             ti_next_kick = ti_next_for_bin;
     }
@@ -811,7 +811,7 @@ unsigned int find_next_kick(unsigned int Ti_Current)
 }
 
 /* mark the bins that will be active before the next kick*/
-int update_active_timebins(unsigned int next_kick)
+int update_active_timebins(inttime_t next_kick)
 {
     int n;
     int NumForceUpdate = TimeBinCount[0];

@@ -57,7 +57,7 @@ void run(void)
     walltime_measure("/Misc");
 
     write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
-    unsigned int Ti_nextoutput = find_next_outputtime(All.Ti_Current);
+    inttime_t Ti_nextoutput = find_next_outputtime(All.Ti_Current);
 
     do /* main loop */
     {
