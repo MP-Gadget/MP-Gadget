@@ -48,7 +48,9 @@ void allocate_memory(void)
                      All.MaxPart * sizeof(struct sph_particle_data));
     message(0, "Allocated %g MByte for storage of SPH data.\n", bytes / (1024.0 * 1024.0));
 
-    BhP = (struct bh_particle_data *) mymalloc("BhP", bytes =
+    if(All.BlackHoleOn) {
+        BhP = (struct bh_particle_data *) mymalloc("BhP", bytes =
                      All.MaxPartBh * sizeof(struct bh_particle_data));
-    message(0, "Allocated %g MByte for storage of BH data.\n", bytes / (1024.0 * 1024.0));
+        message(0, "Allocated %g MByte for storage of BH data.\n", bytes / (1024.0 * 1024.0));
+    }
 }
