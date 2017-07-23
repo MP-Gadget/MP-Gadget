@@ -52,7 +52,8 @@ static void do_the_long_range_kick(unsigned int tistart, unsigned int tiend);
 static unsigned int get_long_range_timestep_ti(void);
 
 /*Initialise the integer timeline*/
-void init_timebins()
+void
+init_timebins()
 {
     PM_Ti.step = 0;
     PM_Ti.start = 0;
@@ -65,12 +66,14 @@ int is_timebin_active(int i) {
 }
 
 /*Report whether the current timestep is the end of the PM timestep*/
-int is_PM_timestep(unsigned int ti)
+int
+is_PM_timestep(unsigned int ti)
 {
     return ti == PM_Ti.start + PM_Ti.step;
 }
 
-void set_timebin_active(binmask_t binmask) {
+void
+set_timebin_active(binmask_t binmask) {
     int bin;
     for(bin = 0; bin < TIMEBINS; bin ++) {
         if(BINMASK(bin) & binmask) {
@@ -85,7 +88,8 @@ void set_timebin_active(binmask_t binmask) {
  *  types in the table All.SofteningTable[...].  We check that the physical
  *  softening length is bounded by the Softening-MaxPhys values.
  */
-void set_softenings(const double time)
+void
+set_softenings(const double time)
 {
     int i;
 
@@ -125,7 +129,8 @@ void set_softenings(const double time)
     All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[0];
 }
 
-void set_global_time(double newtime) {
+void
+set_global_time(double newtime) {
     All.TimeStep = newtime - All.Time;
     All.Time = newtime;
     All.cf.a = All.Time;
@@ -149,7 +154,8 @@ void set_global_time(double newtime) {
  *  Otherwise, the half-step kick that ends the previous timestep
  *  and the half-step kick for the new timestep are combined into one operation.
  */
-void advance_and_find_timesteps(int do_half_kick)
+void
+advance_and_find_timesteps(int do_half_kick)
 {
     int pa, ti_min_glob=TIMEBASE;
 
@@ -273,7 +279,8 @@ void advance_and_find_timesteps(int do_half_kick)
 
 /* Just apply half a kick, for when
  * we just wrote a snapshot with only half the kick applied.*/
-void apply_half_kick()
+void
+apply_half_kick()
 {
     int pa;
     walltime_measure("/Misc");
@@ -300,7 +307,8 @@ void apply_half_kick()
 }
 
 /*Advance a long-range timestep and do the desired kick.*/
-void do_the_long_range_kick(unsigned int tistart, unsigned int tiend)
+void
+do_the_long_range_kick(unsigned int tistart, unsigned int tiend)
 {
     int i;
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
@@ -314,7 +322,8 @@ void do_the_long_range_kick(unsigned int tistart, unsigned int tiend)
     }
 }
 
-void do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend)
+void
+do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend)
 {
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
 
@@ -389,7 +398,8 @@ void do_the_short_range_kick(int i, unsigned int tistart, unsigned int tiend)
 }
 
 /*Get the kick time*/
-unsigned int get_short_kick_time(int i)
+unsigned int
+get_short_kick_time(int i)
 {
     int bin = P[i].TimeBin;
     unsigned int dti = bin ? (1 << bin) : 0;
@@ -402,7 +412,8 @@ unsigned int get_short_kick_time(int i)
  * at the momentum (kick) timestep, accounting
  * for gravity and hydro forces.
  * This is mostly used for artificial viscosity.*/
-void sph_VelPred(int i, double * VelPred)
+void
+sph_VelPred(int i, double * VelPred)
 {
     const int ti = P[i].Ti_drift;
     const double Fgravkick2 = get_gravkick_factor(ti, get_short_kick_time(i));
@@ -417,13 +428,15 @@ void sph_VelPred(int i, double * VelPred)
 
 /* This gives the predicted entropy at the particle Kick timestep
  * for the density independent SPH code.*/
-double EntropyPred(int i)
+double
+EntropyPred(int i)
 {
     const double Fentr = dloga_from_dti(P[i].Ti_drift - get_short_kick_time(i));
     return pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
 }
 
-double PressurePred(int i)
+double
+PressurePred(int i)
 {
     const double Fentr = dloga_from_dti(P[i].Ti_drift - get_short_kick_time(i));
     return (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
@@ -562,7 +575,8 @@ get_timestep_ti(const int p, const unsigned int dti_max)
  *  displacement should be at most a fraction MaxRMSDisplacementFac of the mean particle separation. 
  *  Note that the latter is estimated using the assigned particle masses, separately for each particle type.
  */
-double get_long_range_timestep_dloga()
+double
+get_long_range_timestep_dloga()
 {
     int i, type;
     int count[6];
@@ -645,7 +659,8 @@ double get_long_range_timestep_dloga()
 }
 
 /* backward compatibility with the old loop. */
-unsigned int get_long_range_timestep_ti()
+unsigned int
+get_long_range_timestep_ti()
 {
     double dloga = get_long_range_timestep_dloga();
     int dti = dti_from_dloga(dloga);

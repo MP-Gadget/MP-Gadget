@@ -6,14 +6,16 @@
  * Then the rest of the bits are the standard integer timeline,
  * which should be a power-of-two hierarchy.*/
 
-unsigned int out_from_ti(unsigned int ti)
+unsigned int
+out_from_ti(unsigned int ti)
 {
     return ti >> TIMEBINS;
 }
 
 /*Gets Dloga / ti for the current integer timeline.
  * Valid up to the next snapshot, after which it will change*/
-static double Dloga_interval_ti(unsigned int ti)
+static double
+Dloga_interval_ti(unsigned int ti)
 {
     unsigned int lastsnap = ti >> TIMEBINS;
     /*Use logDTime from the last valid interval*/
@@ -23,7 +25,8 @@ static double Dloga_interval_ti(unsigned int ti)
     return (All.OutputListTimes[lastsnap+1] - lastoutput)/TIMEBASE;
 }
 
-double loga_from_ti(unsigned int ti)
+double
+loga_from_ti(unsigned int ti)
 {
     unsigned int lastsnap = ti >> TIMEBINS;
     if(lastsnap >= All.OutputListLength)
@@ -33,7 +36,8 @@ double loga_from_ti(unsigned int ti)
     return lastoutput + (ti & (TIMEBASE-1)) * logDTime;
 }
 
-unsigned int ti_from_loga(double loga)
+unsigned int
+ti_from_loga(double loga)
 {
     int i;
     int ti;
@@ -51,27 +55,31 @@ unsigned int ti_from_loga(double loga)
     return ti;
 }
 
-double dloga_from_dti(unsigned int dti)
+double
+dloga_from_dti(unsigned int dti)
 {
     double loga = loga_from_ti(All.Ti_Current);
     double logap = loga_from_ti(All.Ti_Current+dti);
     return logap - loga;
 }
 
-unsigned int dti_from_dloga(double loga)
+unsigned int
+dti_from_dloga(double loga)
 {
     int ti = ti_from_loga(loga_from_ti(All.Ti_Current));
     int tip = ti_from_loga(loga+loga_from_ti(All.Ti_Current));
     return tip - ti;
 }
 
-double get_dloga_for_bin(int timebin)
+double
+get_dloga_for_bin(int timebin)
 {
     double logDTime = Dloga_interval_ti(All.Ti_Current);
     return (timebin ? (1u << timebin) : 0 ) * logDTime;
 }
 
-unsigned int round_down_power_of_two(unsigned int dti)
+unsigned int
+round_down_power_of_two(unsigned int dti)
 {
     /* make dti a power 2 subdivision */
     unsigned int ti_min = TIMEBASE;
@@ -83,7 +91,8 @@ unsigned int round_down_power_of_two(unsigned int dti)
 /*! this function returns the next output time that is equal or larger to
  *  ti_curr
  */
-unsigned int find_next_outputtime(unsigned int ti_curr)
+unsigned int
+find_next_outputtime(unsigned int ti_curr)
 {
     unsigned int lastout = out_from_ti(ti_curr);
     unsigned int nextout = (lastout+1) << TIMEBINS;
