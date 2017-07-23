@@ -145,12 +145,11 @@ void run(void)
                                      * the particles that are to be advanced
                                      */
 
-        /* 'kick' active particles in
+        /* Do half-kick on active particles in
          * momentum space and compute new
-         * timesteps for them. If we are about to
-         * do output, only do a half kick.
+         * timesteps for them.
          */
-        advance_and_find_timesteps(WillOutput);
+        find_timesteps_and_half_kick();
 
         /*If this timestep is after the last snapshot time, write a snapshot.
          * No need to do a domain decomposition as we already did one since
@@ -168,13 +167,18 @@ void run(void)
             }
 
             /*Do the extra half-kick we avoided for a snapshot.*/
-            apply_half_kick();
             /*Find next output*/
             Ti_nextoutput = find_next_outputtime(Ti_nextoutput);
             if(out_from_ti(Ti_nextoutput) < All.OutputListLength)
                 message(0, "Setting next time for snapshot file to Time_next= %g \n",
                         exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]));
         }
+
+        /*Apply the second half of the kick operation, now we have written the output*/
+        apply_half_kick();
+        if(is_PM)
+            apply_PM_half_kick();
+
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
         NumCurrentTiStep++;
