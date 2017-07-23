@@ -779,34 +779,24 @@ void rebuild_activelist(void)
  */
 inttime_t find_next_kick(inttime_t Ti_Current)
 {
-    int n, ti_next_kick_global;
-    int ti_next_kick = TIMEBASE;
-    /*This repopulates all timebins on the first timestep*/
-    if(TimeBinCount[0])
-        ti_next_kick = Ti_Current;
-
-    /*Extract large (snapshot number) part of Ti_Current*/
-    int snap = Ti_Current & ~(TIMEBASE-1);
-    /*Zero all upper bits of Ti_Current*/
-    Ti_Current &= TIMEBASE-1;
+    /* On startup, P[i].TimeBin == 0 for all particles,
+     * all bins are inactive and so we return 0 from this function.
+     * This ensures we run the force calculation for the first timestep.*/
+    inttime_t ti_next_kick_global, ti_next_kick = Ti_Current;
+    int n;
 
     /* find the next kick time:
-     * this finds the smallest active bin whose bit is not already set in Ti_Current. */
+     * find and add the increment for the smallest active bin. */
     for(n = 1; n < TIMEBINS; n++)
     {
         if(!TimeBinCount[n])
             continue;
-	    /* next kick time for this timebin */
-        const inttime_t dt_bin = (1 << n);
-        /*Use all upper parts of Ti_Current and set the bit for this bin*/
-        const inttime_t ti_next_for_bin = (Ti_Current / dt_bin) * dt_bin + dt_bin;
-        if(ti_next_for_bin < ti_next_kick)
-            ti_next_kick = ti_next_for_bin;
+        /* Increment the timestep for this bin.*/
+        ti_next_kick = Ti_Current + (1 << n);
+        break;
     }
 
-    ti_next_kick += snap;
-
-    /*All processors sync timesteps*/
+    /*All processors sync timesteps: beware if inttime_t becomes 64 bit!*/
     MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
     return ti_next_kick_global;
