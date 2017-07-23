@@ -57,7 +57,7 @@ void mymalloc_init(size_t limit)
     /* n is aligned*/
     n = align_size(limit) + ALIGNMENT;
 
-    message(0, "Researving %g MB of memory per rank\n", 1.0 * n / (1024. * 1024));
+    message(0, "Reserving %g MB of memory per rank\n", 1.0 * n / (1024. * 1024));
 
 #ifndef VALGRIND
     /* extra space for aligning Base */
