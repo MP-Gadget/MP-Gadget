@@ -29,6 +29,8 @@ static void check_positions(void);
 static void
 setup_smoothinglengths(int RestartSnapNum);
 
+static void
+setup_outputlist(void);
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
  *  intial domain decomposition is performed. If SPH particles are present,
@@ -40,18 +42,10 @@ void init(int RestartSnapNum)
 
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
     set_global_time(All.TimeInit);
-    /*Set up first and last entry to OutputList*/
-    All.OutputListTimes[0] = log(All.TimeInit);
-    All.OutputListTimes[All.OutputListLength-1] = log(All.TimeMax);
-    /*Truncate the output list at All.TimeMax*/
-    for(i=0; i<All.OutputListLength-1; i++) {
-        if(All.OutputListTimes[i] >= All.OutputListTimes[All.OutputListLength-1]) {
-            All.OutputListTimes[i] = All.OutputListTimes[All.OutputListLength-1];
-            All.OutputListLength = i+1;
-            break;
-        }
-    }
 
+    /*Add TimeInit and TimeMax to the output list*/
+    setup_outputlist();
+    /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum);
 
     init_drift_table(All.TimeInit, All.TimeMax);
@@ -158,6 +152,36 @@ void check_positions(void)
         for(j=0; j<3; j++) {
             if(P[i].Pos[j] < 0 || P[i].Pos[j] > All.BoxSize)
                 endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,All.BoxSize, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+        }
+    }
+}
+
+/*Make sure the OutputList runs from TimeInit to TimeMax, inclusive.*/
+void
+setup_outputlist(void)
+{
+    int i;
+    /*Set up first and last entry to OutputList*/
+    All.OutputListTimes[0] = log(All.TimeInit);
+    All.OutputListTimes[All.OutputListLength-1] = log(All.TimeMax);
+    /*Remove entries before TimeInit*/
+    if(All.OutputListTimes[1] <= All.OutputListTimes[0])
+    {
+        int newout = 1;
+        for(i=1; i<All.OutputListLength; i++) {
+            if(All.OutputListTimes[i] <= All.OutputListTimes[0])
+                continue;
+            All.OutputListTimes[newout] = All.OutputListTimes[i];
+            newout++;
+        }
+        All.OutputListLength = newout;
+    }
+    /*Truncate the output list at All.TimeMax*/
+    for(i=0; i<All.OutputListLength-1; i++) {
+        if(All.OutputListTimes[i] >= All.OutputListTimes[All.OutputListLength-1]) {
+            All.OutputListTimes[i] = All.OutputListTimes[All.OutputListLength-1];
+            All.OutputListLength = i+1;
+            break;
         }
     }
 }
