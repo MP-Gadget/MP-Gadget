@@ -6,13 +6,13 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_integration.h>
 
+#include "allvars.h"
 #include "timefac.h"
 #include "timebinmgr.h"
 #include "cosmology.h"
 #include "endrun.h"
 
 
-#define  GAMMA_MINUS1  (2.0/3.0)
 #define DRIFT_TABLE_LENGTH  2000	/*!< length of the lookup table used to hold the drift and kick factors */
 
 static double logTimeInit;
@@ -27,15 +27,15 @@ static double GravKickTable[DRIFT_TABLE_LENGTH];
 /*! table for the cosmological kick factor for hydrodynmical forces */
 static double HydroKickTable[DRIFT_TABLE_LENGTH];
 
-static unsigned int df_last_ti0 = -1, df_last_ti1 = -1;
+static inttime_t df_last_ti0 = -1, df_last_ti1 = -1;
 static double df_last_value;
 #pragma omp threadprivate(df_last_ti0, df_last_ti1, df_last_value)
 
-static unsigned int hk_last_ti0 = -1, hk_last_ti1 = -1;
+static inttime_t hk_last_ti0 = -1, hk_last_ti1 = -1;
 static double hk_last_value;
 #pragma omp threadprivate(hk_last_ti0, hk_last_ti1, hk_last_value)
 
-static unsigned int gk_last_ti0 = -1, gk_last_ti1 = -1;
+static inttime_t gk_last_ti0 = -1, gk_last_ti1 = -1;
 static double gk_last_value;
 #pragma omp threadprivate(gk_last_ti0, gk_last_ti1, gk_last_value)
 
@@ -112,7 +112,7 @@ void init_drift_table(double timeBegin, double timeMax)
 
 /*Find which bin in the table we are looking up.
  * Pointer argument gives the full floating point value for interpolation.*/
-int find_bin_number(unsigned int ti0, double *rem)
+int find_bin_number(inttime_t ti0, double *rem)
 {
   double a1 = loga_from_ti(ti0);
   double u1;
@@ -136,7 +136,7 @@ int find_bin_number(unsigned int ti0, double *rem)
  *  
  *  A lookup-table is used for reasons of speed. 
  */
-double get_drift_factor(unsigned int ti0, unsigned int ti1)
+double get_drift_factor(inttime_t ti0, inttime_t ti1)
 {
   double df1, df2, u1, u2;
   int i1, i2;
@@ -163,7 +163,7 @@ double get_drift_factor(unsigned int ti0, unsigned int ti1)
   return df_last_value = (df2 - df1);
 }
 
-double get_gravkick_factor(unsigned int ti0, unsigned int ti1)
+double get_gravkick_factor(inttime_t ti0, inttime_t ti1)
 {
   double df1, df2, u1, u2;
   int i1, i2;
@@ -190,7 +190,7 @@ double get_gravkick_factor(unsigned int ti0, unsigned int ti1)
   return gk_last_value = (df2 - df1);
 }
 
-double get_hydrokick_factor(unsigned int ti0, unsigned int ti1)
+double get_hydrokick_factor(inttime_t ti0, inttime_t ti1)
 {
   double df1, df2,u1,u2;
   int i1, i2;
