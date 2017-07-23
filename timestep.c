@@ -303,7 +303,7 @@ apply_half_kick()
     const unsigned int tiend =  get_kick_ti(PM_Ti.start, PM_Ti.step);
     /* Do long-range kick */
     do_the_long_range_kick(tistart, tiend);
-    walltime_measure("/Timeline");
+    walltime_measure("/Timeline/HalfKick");
 }
 
 /*Advance a long-range timestep and do the desired kick.*/
