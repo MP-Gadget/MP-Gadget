@@ -50,7 +50,7 @@ void run(void)
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
 
-    /*To compute the wall time between PM steps*/
+    /*To compute the wall time between PM steps and decide when to timeout.*/
     double lastPM = All.CT.ElapsedTime;
     double lastPMlength = 0.03*All.TimeLimitCPU;
 
@@ -212,6 +212,8 @@ update_IO_params(const char * ioctlfname)
             All.IO.NumWriters);
 }
 
+/* lastPMlength is the walltime in seconds between the last two PM steps.
+ * It is used to decide when we are going to timeout*/
 static enum ActionType
 human_interaction(double lastPMlength)
 {
