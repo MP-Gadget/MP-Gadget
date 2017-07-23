@@ -50,10 +50,6 @@ double fac_integ(double a, void *param)
   return 1 / (h * pow(a,ex));
 }
 
-void init_integer_timeline(double a, double b)
-{
-}
-
 /*Get integer from real time*/
 double loga_from_ti(int ti)
 {
