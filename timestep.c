@@ -21,7 +21,7 @@
 
 /* variables for organizing PM steps of discrete timeline */
 static struct time_vars {
-    unsigned int step; /*!< Maximum (PM) integer timestep from global displacements*/
+    unsigned int step; /*!< Duration of the current PM integer timestep*/
     unsigned int start;           /* current start point of the PM step*/
 } PM_Ti;
 
@@ -192,7 +192,7 @@ void advance_and_find_timesteps(int do_half_kick)
             dti = get_timestep_ti(i, new_PM_Ti_step);
         }
         /* make it a power 2 subdivision */
-        dti = enforce_power_of_two(dti);
+        dti = round_down_power_of_two(dti);
 
         int bin = get_timestep_bin(dti);
         if(bin < 1) {
@@ -649,7 +649,7 @@ unsigned int get_long_range_timestep_ti()
 {
     double dloga = get_long_range_timestep_dloga();
     int dti = dti_from_dloga(dloga);
-    dti = enforce_power_of_two(dti);
+    dti = round_down_power_of_two(dti);
     message(0, "Maximal PM timestep: dloga = %g  (%g)\n", dloga_from_dti(dti), All.MaxSizeTimestep);
     return dti;
 }

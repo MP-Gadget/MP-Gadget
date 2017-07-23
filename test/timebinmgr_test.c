@@ -67,10 +67,10 @@ static void test_dloga(void ** state) {
     assert_true(fabs(get_dloga_for_bin(TIMEBINS-2)-(outs[2]-outs[1])/4)<1e-6);
 
     /*Enforce that an integer time is a power of two*/
-    /* unsigned int enforce_power_of_two(unsigned int ti); */
-    assert_true(enforce_power_of_two(TIMEBASE)==TIMEBASE);
-    assert_true(enforce_power_of_two(TIMEBASE+1)==TIMEBASE);
-    assert_true(enforce_power_of_two(TIMEBASE-1)==TIMEBASE/2);
+    /* unsigned int round_down_power_of_two(unsigned int ti); */
+    assert_true(round_down_power_of_two(TIMEBASE)==TIMEBASE);
+    assert_true(round_down_power_of_two(TIMEBASE+1)==TIMEBASE);
+    assert_true(round_down_power_of_two(TIMEBASE-1)==TIMEBASE/2);
 }
 
 int main(void) {

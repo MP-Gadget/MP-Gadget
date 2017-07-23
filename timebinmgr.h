@@ -6,7 +6,9 @@
 /*!< The simulated timespan is mapped onto the integer interval [0,TIMEBASE],
  *   where TIMEBASE needs to be a power of 2. Note that (1<<28) corresponds
  *   to 2^29.
- *   We allow some bits at the top of the integer timeline for snapshot outputs
+ *   We allow some bits at the top of the integer timeline for snapshot outputs.
+ *   Note that because each snapshot uses TIMEBASE on the integer timeline, the conversion
+ *   factor between loga and ti is not constant across snapshots.
  */
 #define TIMEBINS 20
 #define TIMEBASE (1u<<TIMEBINS)
@@ -24,9 +26,10 @@ double dloga_from_dti(unsigned int ti);
 double get_dloga_for_bin(int timebin);
 
 /* Enforce that an integer timestep is a power
- * of two subdivision of TIMEBASE.
+ * of two subdivision of TIMEBASE, rounding down
+ * to the first power of two less than the ti passed in.
  * Note TIMEBASE is the maximum value returned.*/
-unsigned int enforce_power_of_two(unsigned int ti);
+unsigned int round_down_power_of_two(unsigned int ti);
 
 /*! this function returns the next output time after ti_curr.*/
 unsigned int find_next_outputtime(unsigned int ti_curr);

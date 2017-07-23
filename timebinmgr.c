@@ -11,7 +11,9 @@ unsigned int out_from_ti(unsigned int ti)
     return ti >> TIMEBINS;
 }
 
-static double logDTime_from_ti(unsigned int ti)
+/*Gets Dloga / ti for the current integer timeline.
+ * Valid up to the next snapshot, after which it will change*/
+static double Dloga_interval_ti(unsigned int ti)
 {
     unsigned int lastsnap = ti >> TIMEBINS;
     /*Use logDTime from the last valid interval*/
@@ -27,7 +29,7 @@ double loga_from_ti(unsigned int ti)
     if(lastsnap >= All.OutputListLength)
         lastsnap = All.OutputListLength - 1;
     double lastoutput = All.OutputListTimes[lastsnap];
-    double logDTime = logDTime_from_ti(ti);
+    double logDTime = Dloga_interval_ti(ti);
     return lastoutput + (ti & (TIMEBASE-1)) * logDTime;
 }
 
@@ -65,11 +67,11 @@ unsigned int dti_from_dloga(double loga)
 
 double get_dloga_for_bin(int timebin)
 {
-    double logDTime = logDTime_from_ti(All.Ti_Current);
+    double logDTime = Dloga_interval_ti(All.Ti_Current);
     return (timebin ? (1u << timebin) : 0 ) * logDTime;
 }
 
-unsigned int enforce_power_of_two(unsigned int dti)
+unsigned int round_down_power_of_two(unsigned int dti)
 {
     /* make dti a power 2 subdivision */
     unsigned int ti_min = TIMEBASE;
