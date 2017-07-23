@@ -20,10 +20,12 @@
 
 
 /* variables for organizing PM steps of discrete timeline */
-static struct time_vars {
-    inttime_t step; /*!< Duration of the current PM integer timestep*/
+typedef struct {
+    inttime_t length; /*!< Duration of the current PM integer timestep*/
     inttime_t start;           /* current start point of the PM step*/
-} PM_Ti;
+} TimeSpan;
+
+static TimeSpan PM_Ti;
 
 /*Get the kick time for a timestep, given a start point and a step size.*/
 inline int get_kick_ti(int start, int step)
@@ -55,7 +57,7 @@ static inttime_t get_long_range_timestep_ti(void);
 void
 init_timebins()
 {
-    PM_Ti.step = 0;
+    PM_Ti.length = 0;
     PM_Ti.start = 0;
     update_active_timebins(0);
     All.Ti_Current = 0;
@@ -69,7 +71,7 @@ int is_timebin_active(int i) {
 int
 is_PM_timestep(inttime_t ti)
 {
-    return ti == PM_Ti.start + PM_Ti.step;
+    return ti == PM_Ti.start + PM_Ti.length;
 }
 
 void
@@ -165,20 +167,20 @@ advance_and_find_timesteps(int do_half_kick)
     if(All.MakeGlassFile)
         reverse_and_apply_gravity();
 
-    int new_PM_Ti_step = PM_Ti.step;
+    int new_PM_Ti_length = PM_Ti.length;
 
     /*Update the displacement timestep*/
     if(is_PM_timestep(All.Ti_Current))
-        new_PM_Ti_step = get_long_range_timestep_ti();
+        new_PM_Ti_length = get_long_range_timestep_ti();
 
     /* Now assign new timesteps and kick */
     if(All.ForceEqualTimesteps) {
-        int ti_min=get_timestep_ti(ActiveParticle[0], new_PM_Ti_step);
+        int ti_min=get_timestep_ti(ActiveParticle[0], new_PM_Ti_length);
         #pragma omp parallel for
         for(pa = 0; pa < NumActiveParticle; pa++)
         {
             const int i = ActiveParticle[pa];
-            int dti = get_timestep_ti(i, new_PM_Ti_step);
+            int dti = get_timestep_ti(i, new_PM_Ti_length);
 
             if(dti < ti_min)
                 ti_min = dti;
@@ -195,7 +197,7 @@ advance_and_find_timesteps(int do_half_kick)
         if(All.ForceEqualTimesteps) {
             dti = ti_min_glob;
         } else {
-            dti = get_timestep_ti(i, new_PM_Ti_step);
+            dti = get_timestep_ti(i, new_PM_Ti_length);
         }
         /* make it a power 2 subdivision */
         dti = round_down_power_of_two(dti);
@@ -264,14 +266,14 @@ advance_and_find_timesteps(int do_half_kick)
     {
         /* Note this means we do a half kick on the first timestep.
          * Which means we should also do a half-kick just before output.*/
-        const inttime_t tistart = get_kick_ti(PM_Ti.start, PM_Ti.step);
-        inttime_t tiend =  get_kick_ti(PM_Ti.start + PM_Ti.step, new_PM_Ti_step);
+        const inttime_t tistart = get_kick_ti(PM_Ti.start, PM_Ti.length);
+        inttime_t tiend =  get_kick_ti(PM_Ti.start + PM_Ti.length, new_PM_Ti_length);
         if(do_half_kick)
-            tiend = PM_Ti.start + PM_Ti.step;
+            tiend = PM_Ti.start + PM_Ti.length;
         /* Do long-range kick */
         do_the_long_range_kick(tistart, tiend);
-        PM_Ti.start += PM_Ti.step;
-        PM_Ti.step = new_PM_Ti_step;
+        PM_Ti.start += PM_Ti.length;
+        PM_Ti.length = new_PM_Ti_length;
     }
 
     walltime_measure("/Timeline");
@@ -280,7 +282,7 @@ advance_and_find_timesteps(int do_half_kick)
 /* Just apply half a kick, for when
  * we just wrote a snapshot with only half the kick applied.*/
 void
-apply_half_kick()
+apply_half_kick(void)
 {
     int pa;
     walltime_measure("/Misc");
@@ -300,7 +302,7 @@ apply_half_kick()
     }
     /*Always do a PM half-kick, because this should be called just after a PM step*/
     const inttime_t tistart = PM_Ti.start;
-    const inttime_t tiend =  get_kick_ti(PM_Ti.start, PM_Ti.step);
+    const inttime_t tiend =  get_kick_ti(PM_Ti.start, PM_Ti.length);
     /* Do long-range kick */
     do_the_long_range_kick(tistart, tiend);
     walltime_measure("/Timeline/HalfKick");
@@ -418,7 +420,7 @@ sph_VelPred(int i, double * VelPred)
     const int ti = P[i].Ti_drift;
     const double Fgravkick2 = get_gravkick_factor(ti, get_short_kick_time(i));
     const double Fhydrokick2 = get_hydrokick_factor(ti, get_short_kick_time(i));
-    const double FgravkickB = get_gravkick_factor(ti, get_kick_ti(PM_Ti.start, PM_Ti.step));
+    const double FgravkickB = get_gravkick_factor(ti, get_kick_ti(PM_Ti.start, PM_Ti.length));
     int j;
     for(j = 0; j < 3; j++) {
         VelPred[j] = P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j]
