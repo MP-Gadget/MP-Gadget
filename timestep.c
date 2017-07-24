@@ -266,9 +266,9 @@ apply_half_kick(void)
         const int i = ActiveParticle[pa];
         int bin = P[i].TimeBin;
         inttime_t dti = dti_from_timebin(bin);
-        /* Start of step*/
+        /* current Kick time */
         inttime_t tistart = P[i].Ti_kick;
-        /* Midpoint of step*/
+        /* half of a step */
         inttime_t tiend = get_kick_ti(P[i].Ti_kick, dti);
         /*This only changes particle i, so is thread-safe.*/
         do_the_short_range_kick(i, tistart, tiend);
