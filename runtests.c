@@ -33,8 +33,15 @@ void runtests()
         IO_REG(GravPM,       "f4", 3, ptype);
         IO_REG(OldAcc,       "f4", 1, ptype);
     }
-    
+
     gravpm_force();
+
+    /* this produces a very imbalanced load to trigger Issue 86 */
+    if(ThisTask == 0) {
+        P[0].GravCost = 1e10;
+        P[NumPart - 1].GravCost = 1e10;
+    }
+
     domain_decompose_full();	/* do domain decomposition */
 
     grav_short_pair();
