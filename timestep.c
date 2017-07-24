@@ -33,6 +33,10 @@ inline int get_kick_ti(int start, int step)
     return start + step/2;
 }
 
+/*Get the dti from the timebin*/
+inline inttime_t dti_from_timebin(int bin) {
+    return bin ? (1 << bin) : 0;
+}
 /*Flat array containing all active particles*/
 int NumActiveParticle;
 int *ActiveParticle;
@@ -214,7 +218,7 @@ find_timesteps_and_half_kick(void)
             while(TimeBinActive[bin] == 0 && bin > binold)
                 bin--;
 
-            dti = bin ? (1 << bin) : 0;
+            dti = dti_from_timebin(bin);
         }
 
         /* This moves particles between time bins:
@@ -233,7 +237,7 @@ find_timesteps_and_half_kick(void)
             P[i].TimeBin = bin;
         }
 
-        inttime_t dti_old = binold ? (1 << binold) : 0;
+        inttime_t dti_old = dti_from_timebin(binold);
 
         /* midpoint of old step */
         inttime_t tistart = get_kick_ti(P[i].Ti_begstep, dti_old);
@@ -286,7 +290,7 @@ apply_half_kick(void)
     {
         const int i = ActiveParticle[pa];
         int bin = P[i].TimeBin;
-        inttime_t dti = bin ? (1 << bin) : 0;
+        inttime_t dti = dti_from_timebin(bin);
         /* Start of step*/
         inttime_t tistart = P[i].Ti_begstep;
         /* Midpoint of step*/
@@ -404,7 +408,7 @@ inttime_t
 get_short_kick_time(int i)
 {
     int bin = P[i].TimeBin;
-    inttime_t dti = bin ? (1 << bin) : 0;
+    inttime_t dti = dti_from_timebin(bin);
     /* Midpoint of step*/
     inttime_t tiend = get_kick_ti(P[i].Ti_begstep, dti);
     return tiend;
@@ -779,27 +783,19 @@ void rebuild_activelist(void)
  */
 inttime_t find_next_kick(inttime_t Ti_Current)
 {
-    /* On startup, P[i].TimeBin == 0 for all particles,
-     * all bins are inactive and so we return 0 from this function.
+    /* Note that on startup, P[i].TimeBin == 0 for all particles,
+     * all bins except the zeroth are inactive and so we return 0 from this function.
      * This ensures we run the force calculation for the first timestep.*/
-    inttime_t ti_next_kick_global, ti_next_kick = Ti_Current;
+    /* find the smallest active bin*/
     int n;
-
-    /* find the next kick time:
-     * find and add the increment for the smallest active bin. */
-    for(n = 1; n < TIMEBINS; n++)
+    for(n = 0; n < TIMEBINS; n++)
     {
-        if(!TimeBinCount[n])
-            continue;
-        /* Increment the timestep for this bin.*/
-        ti_next_kick = Ti_Current + (1 << n);
-        break;
+        if(TimeBinCount[n])
+            break;
     }
-
-    /*All processors sync timesteps: beware if inttime_t becomes 64 bit!*/
-    MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-    return ti_next_kick_global;
+    MPI_Allreduce(MPI_IN_PLACE, &n, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+    /* Current value plus the increment for the smallest active bin. */
+    return Ti_Current + dti_from_timebin(n);
 }
 
 /* mark the bins that will be active before the next kick*/
