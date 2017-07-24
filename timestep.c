@@ -23,9 +23,10 @@
 typedef struct {
     inttime_t length; /*!< Duration of the current PM integer timestep*/
     inttime_t start;           /* current start point of the PM step*/
+    inttime_t Ti_kick;  /* current inttime of PM Kick (velocity) */
 } TimeSpan;
 
-static TimeSpan PM_Ti;
+static TimeSpan PM;
 
 /*Get the kick time for a timestep, given a start point and a step size.*/
 inline int get_kick_ti(int start, int step)
@@ -61,8 +62,9 @@ static inttime_t get_long_range_timestep_ti(void);
 void
 init_timebins()
 {
-    PM_Ti.length = 0;
-    PM_Ti.start = 0;
+    PM.length = 0;
+    PM.Ti_kick = 0;
+    PM.start =0; /* this makes sure the first step is a PM step. */
     update_active_timebins(0);
     All.Ti_Current = 0;
 }
@@ -75,7 +77,7 @@ int is_timebin_active(int i) {
 int
 is_PM_timestep(inttime_t ti)
 {
-    return ti == PM_Ti.start + PM_Ti.length;
+    return ti == PM.start + PM.length;
 }
 
 void
@@ -153,41 +155,38 @@ set_global_time(double newtime) {
     set_softenings(newtime);
 }
 
-/*! This function assigns new timesteps to particles.
- * It then advances the system half a timestep in momentum space, with a half-kick operation.
- * The second half-kick is done in apply_half_kick, below.
- * The kick is split in two so that the velocities are correctly synchronized at snapshot outputs.
- */
+/* This function assigns new timesteps to particles and PM */
 void
-find_timesteps_and_half_kick(void)
+find_timesteps(void)
 {
-    int pa, ti_min_glob=TIMEBASE;
+    int pa;
+    inttime_t dti_min = TIMEBASE;
 
     walltime_measure("/Misc");
 
-    /* FgravkickB is (now - PM0) - (PMhalf - PM0) = now - PMhalf*/
     if(All.MakeGlassFile)
         reverse_and_apply_gravity();
 
-    int new_PM_Ti_length = PM_Ti.length;
-
-    /*Update the displacement timestep*/
-    if(is_PM_timestep(All.Ti_Current))
-        new_PM_Ti_length = get_long_range_timestep_ti();
+    /*Update the PM timestep size */
+    if(is_PM_timestep(All.Ti_Current)) {
+        PM.length = get_long_range_timestep_ti();
+        PM.start = PM.Ti_kick;
+    }
 
     /* Now assign new timesteps and kick */
     if(All.ForceEqualTimesteps) {
-        int ti_min=get_timestep_ti(ActiveParticle[0], new_PM_Ti_length);
         #pragma omp parallel for
         for(pa = 0; pa < NumActiveParticle; pa++)
         {
             const int i = ActiveParticle[pa];
-            int dti = get_timestep_ti(i, new_PM_Ti_length);
+            inttime_t dti = get_timestep_ti(i, PM.length);
 
-            if(dti < ti_min)
-                ti_min = dti;
+            if(dti < dti_min)
+                dti_min = dti;
         }
-        MPI_Allreduce(&ti_min, &ti_min_glob, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
+
+        /* FIXME : this assumes inttime_t is int*/
+        MPI_Allreduce(MPI_IN_PLACE, &dti_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     }
 
     int badstepsizecount = 0;
@@ -195,12 +194,18 @@ find_timesteps_and_half_kick(void)
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
+
+        if(P[i].Ti_kick != P[i].Ti_drift) {
+            endrun(1, "Particle's short range Kick and Drift inttime are out of sync\n");
+        }
+
         int dti;
         if(All.ForceEqualTimesteps) {
-            dti = ti_min_glob;
+            dti = dti_min;
         } else {
-            dti = get_timestep_ti(i, new_PM_Ti_length);
+            dti = get_timestep_ti(i, PM.length);
         }
+
         /* make it a power 2 subdivision */
         dti = round_down_power_of_two(dti);
 
@@ -218,7 +223,6 @@ find_timesteps_and_half_kick(void)
             while(TimeBinActive[bin] == 0 && bin > binold)
                 bin--;
 
-            dti = dti_from_timebin(bin);
         }
 
         /* This moves particles between time bins:
@@ -236,47 +240,18 @@ find_timesteps_and_half_kick(void)
 
             P[i].TimeBin = bin;
         }
-
-        inttime_t dti_old = dti_from_timebin(binold);
-
-        /* midpoint of old step */
-        inttime_t tistart = get_kick_ti(P[i].Ti_begstep, dti_old);
-        /* Start of the new step.*/
-        inttime_t tiend = P[i].Ti_begstep + dti_old;
-
-        /*Advance timestep*/
-        P[i].Ti_begstep += dti_old;
-
-        /*This only changes particle i, so is thread-safe.*/
-        do_the_short_range_kick(i, tistart, tiend);
     }
 
-    /*Check whether any particles had a bad timestep*/
-    int badstepsizecount_global=0;
-    MPI_Allreduce(&badstepsizecount, &badstepsizecount_global, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-    if(badstepsizecount_global) {
+    if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
         savepositions(999999, 0);
         endrun(0, "Ending due to bad timestep");
     }
-
-
-    if(is_PM_timestep(All.Ti_Current))
-    {
-        /* Do a half kick to the end of the timestep.*/
-        /*Midpoint of current timestep*/
-        const inttime_t tistart = get_kick_ti(PM_Ti.start, PM_Ti.length);
-        /*End of the timestep*/
-        inttime_t tiend = PM_Ti.start + PM_Ti.length;
-        /* Do long-range kick */
-        do_the_long_range_kick(tistart, tiend);
-        PM_Ti.start += PM_Ti.length;
-        PM_Ti.length = new_PM_Ti_length;
-    }
-
     walltime_measure("/Timeline");
 }
+
 
 /* Apply half a kick, for the second half of the timestep.*/
 void
@@ -292,9 +267,9 @@ apply_half_kick(void)
         int bin = P[i].TimeBin;
         inttime_t dti = dti_from_timebin(bin);
         /* Start of step*/
-        inttime_t tistart = P[i].Ti_begstep;
+        inttime_t tistart = P[i].Ti_kick;
         /* Midpoint of step*/
-        inttime_t tiend = get_kick_ti(P[i].Ti_begstep, dti);
+        inttime_t tiend = get_kick_ti(P[i].Ti_kick, dti);
         /*This only changes particle i, so is thread-safe.*/
         do_the_short_range_kick(i, tistart, tiend);
     }
@@ -305,8 +280,8 @@ void
 apply_PM_half_kick(void)
 {
     /*Always do a PM half-kick, because this should be called just after a PM step*/
-    const inttime_t tistart = PM_Ti.start;
-    const inttime_t tiend =  get_kick_ti(PM_Ti.start, PM_Ti.length);
+    const inttime_t tistart = PM.Ti_kick;
+    const inttime_t tiend =  get_kick_ti(PM.Ti_kick, PM.length);
     /* Do long-range kick */
     do_the_long_range_kick(tistart, tiend);
     walltime_measure("/Timeline/HalfKick/Long");
@@ -326,6 +301,7 @@ do_the_long_range_kick(inttime_t tistart, inttime_t tiend)
         for(j = 0; j < 3; j++)	/* do the kick */
             P[i].Vel[j] += P[i].GravPM[j] * Fgravkick;
     }
+    PM.Ti_kick = tiend;
 }
 
 void
@@ -339,8 +315,9 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
         endrun(1, "Ti kick mismatch\n");
     }
 
-    P[i].Ti_kick = tiend;
 #endif
+    /* update the time stamp */
+    P[i].Ti_kick = tiend;
 
     /* do the kick */
 
@@ -403,32 +380,21 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
 
 }
 
-/*Get the kick time*/
-inttime_t
-get_short_kick_time(int i)
-{
-    int bin = P[i].TimeBin;
-    inttime_t dti = dti_from_timebin(bin);
-    /* Midpoint of step*/
-    inttime_t tiend = get_kick_ti(P[i].Ti_begstep, dti);
-    return tiend;
-}
-
 /*Get the predicted velocity for a particle
- * at the momentum (kick) timestep, accounting
+ * at the Force computation time, which always coincides with the Drift inttime.
  * for gravity and hydro forces.
  * This is mostly used for artificial viscosity.*/
 void
 sph_VelPred(int i, double * VelPred)
 {
     const int ti = P[i].Ti_drift;
-    const double Fgravkick2 = get_gravkick_factor(ti, get_short_kick_time(i));
-    const double Fhydrokick2 = get_hydrokick_factor(ti, get_short_kick_time(i));
-    const double FgravkickB = get_gravkick_factor(ti, get_kick_ti(PM_Ti.start, PM_Ti.length));
+    const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);
+    const double Fhydrokick2 = get_hydrokick_factor(P[i].Ti_kick, ti);
+    const double FgravkickB = get_gravkick_factor(PM.Ti_kick, ti);
     int j;
     for(j = 0; j < 3; j++) {
-        VelPred[j] = P[i].Vel[j] - Fgravkick2 * P[i].GravAccel[j]
-            - P[i].GravPM[j] * FgravkickB - Fhydrokick2 * SPHP(i).HydroAccel[j];
+        VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]
+            + P[i].GravPM[j] * FgravkickB + Fhydrokick2 * SPHP(i).HydroAccel[j];
     }
 }
 
@@ -437,14 +403,14 @@ sph_VelPred(int i, double * VelPred)
 double
 EntropyPred(int i)
 {
-    const double Fentr = dloga_from_dti(P[i].Ti_drift - get_short_kick_time(i));
+    const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
     return pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
 }
 
 double
 PressurePred(int i)
 {
-    const double Fentr = dloga_from_dti(P[i].Ti_drift - get_short_kick_time(i));
+    const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
     return (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
 }
 

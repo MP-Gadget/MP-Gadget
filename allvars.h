@@ -506,11 +506,8 @@ extern struct particle_data
 
     float GravCost;     /*!< weight factor used for balancing the work-load */
 
-    inttime_t Ti_begstep;     /*!< marks start of current timestep of particle on integer timeline */
     inttime_t Ti_drift;       /*!< current time of the particle position */
-#ifdef DEBUG
     inttime_t Ti_kick;        /*!< current time of the particle momentum */
-#endif
 
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */
