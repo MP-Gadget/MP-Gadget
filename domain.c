@@ -61,8 +61,6 @@ struct local_topnode_data
     int64_t Cost;
 };
 
-struct topleaf_data * Topleaves;
-
 struct task_data * Tasks;
 
 static int
@@ -665,28 +663,30 @@ domain_create_topleaves(int no, int * next)
 int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit)
 {
     int j, p;
+    int need_refine = 1;
 
-    /*If there are only 8 particles within this node, we are done refining.*/
-    if(topNodes[i].Size < 8)
-        return 0;
-
-    /* if the node is already very small, no need to divide it any further */
-    if((topNodes[i].Count <= 0.8 * countlimit &&
-        topNodes[i].Cost <= 0.8 * costlimit))
-        return 0;
-
-    /* already have enough nodes */
-    if(NTopNodes > All.DomainOverDecompositionFactor * NTask * TOPNODEFACTOR) {
-        return 0;
+    /* if the node is already very cheap, then no need to divide it any further */
+    if(topNodes[i].Count <= countlimit &&
+        topNodes[i].Cost <= costlimit) {
+        need_refine = 0;
     }
 
-    /* We need to do refinement if (if we have a parent) we have more than 80%
-     * of the parent's particles or costs.*/
     /* If we were below them but we have a parent and somehow got all of its particles, we still
-     * need to refine. But if none of these things are true we can return, our work complete. */
-    if(topNodes[i].Parent > 0 && (topNodes[i].Count <= 0.8 * topNodes[topNodes[i].Parent].Count &&
-            topNodes[i].Cost <= 0.8 * topNodes[topNodes[i].Parent].Cost))
-        return 0;
+     * need to refine. This signals we are in a very is because we want to minimize spatially too large of a leaf
+     * that overlaps with other processes during the merge.
+     * */
+    if(topNodes[i].Parent > 0) {
+        if (topNodes[i].Count >= 0.8 * topNodes[topNodes[i].Parent].Count &&
+            topNodes[i].Cost >= 0.8 * topNodes[topNodes[i].Parent].Cost) {
+            need_refine = 1;
+        }
+    }
+
+    /* However, if there are only 8 particles within this node, we are done refining.*/
+    if(topNodes[i].Size < 8) need_refine = 0;
+
+    /* done */
+    if(!need_refine) return 0;
 
     /* If we want to refine but there is no space for another topNode on this processor,
      * we ran out of top nodes and must get more.*/
@@ -889,6 +889,11 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     errflag = domain_check_for_local_refine(0, topNodes, countlimit, costlimit);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
+
+    if(NTopNodes > 2 * All.DomainOverDecompositionFactor * NTask * TOPNODEFACTOR) {
+        message(1, "NTopNodes=%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
+            NTopNodes, 2 * All.DomainOverDecompositionFactor * NTask * TOPNODEFACTOR);
+    }
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     if(errsum)
