@@ -28,12 +28,6 @@ typedef struct {
 
 static TimeSpan PM;
 
-/*Get the kick time for a timestep, given a start point and a step size.*/
-inline int get_kick_ti(int start, int step)
-{
-    return start + step/2;
-}
-
 /*Get the dti from the timebin*/
 inline inttime_t dti_from_timebin(int bin) {
     return bin ? (1 << bin) : 0;
@@ -269,7 +263,7 @@ apply_half_kick(void)
         /* current Kick time */
         inttime_t tistart = P[i].Ti_kick;
         /* half of a step */
-        inttime_t tiend = get_kick_ti(P[i].Ti_kick, dti);
+        inttime_t tiend = P[i].Ti_kick + dti / 2;
         /*This only changes particle i, so is thread-safe.*/
         do_the_short_range_kick(i, tistart, tiend);
     }
@@ -281,7 +275,7 @@ apply_PM_half_kick(void)
 {
     /*Always do a PM half-kick, because this should be called just after a PM step*/
     const inttime_t tistart = PM.Ti_kick;
-    const inttime_t tiend =  get_kick_ti(PM.Ti_kick, PM.length);
+    const inttime_t tiend =  PM.Ti_kick + PM.length / 2;
     /* Do long-range kick */
     do_the_long_range_kick(tistart, tiend);
     walltime_measure("/Timeline/HalfKick/Long");
