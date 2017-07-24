@@ -71,6 +71,7 @@ void run(void)
         set_global_time(exp(loga_from_ti(All.Ti_Current)));
 
         int is_PM = is_PM_timestep(All.Ti_Current);
+
         if(is_PM) {
             double curTime = All.CT.ElapsedTime;
             if(All.Ti_Current)
@@ -117,6 +118,7 @@ void run(void)
         }
 
         int WillOutput = is_PM && (All.Ti_Current >= Ti_nextoutput);
+
         /* Sync positions of all particles */
         drift_all_particles(All.Ti_Current);
 
@@ -140,22 +142,29 @@ void run(void)
 
         every_timestep_stuff(NumForces, NumCurrentTiStep);	/* write some info to log-files */
 
-        /* force */
-        compute_accelerations(is_PM);	/* compute accelerations for
-                                     * the particles that are to be advanced
-                                     */
+        /* update force to Ti_Current */
+        compute_accelerations(is_PM);
 
-        /* Do half-kick on active particles in
-         * momentum space and compute new
-         * timesteps for them.
-         */
-        find_timesteps_and_half_kick();
+        /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
 
-        /*If this timestep is after the last snapshot time, write a snapshot.
+        if(is_PM) {
+            apply_PM_half_kick();
+        }
+
+        apply_half_kick();
+
+        /* assign new timesteps to the active particles, now that we know they have synched TiKick and TiDrift */
+        find_timesteps();
+
+        /* If this timestep is after the last snapshot time, write a snapshot.
          * No need to do a domain decomposition as we already did one since
          * the last move in compute_accelerations().
-         * This is after advance_and_find_timesteps so the acceleration
-         * is included in the kick.*/
+         *
+         * Also watch out WillOutput is only true on is_PM; to ensure the PM kick is done
+         * and included in the velocity. This is the only chance where all variables are
+         * synchonized in a consistent state in a K(KDDK)^mK scheme.
+         */
+
         if(WillOutput)
         {
             /*Save snapshot*/
@@ -174,10 +183,12 @@ void run(void)
                         exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]));
         }
 
-        /*Apply the second half of the kick operation, now we have written the output*/
+        /* Update velocity to the new step, with the newly computed step size */
         apply_half_kick();
-        if(is_PM)
+
+        if(is_PM) {
             apply_PM_half_kick();
+        }
 
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
