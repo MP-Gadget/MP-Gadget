@@ -186,7 +186,7 @@ setup_outputlist(void)
     }
 /*     for(i=0; i<All.OutputListLength; i++) */
 /*         message(1,"Out: %g\n",exp(All.OutputListTimes[i])); */
-    message(1, "Next output at Time_next= %g \n",exp(All.OutputListTimes[1]));
+    message(0, "Next output at Time_next= %g \n",exp(All.OutputListTimes[1]));
 }
 
 /*! This function is used to find an initial smoothing length for each SPH
