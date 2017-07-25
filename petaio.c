@@ -668,10 +668,10 @@ SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
 #endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #ifdef SFR
-SIMPLE_PROPERTY(StarFormationTime, STARP(i).FormationTime, float, 1)
+SIMPLE_PROPERTY_TYPE(StarFormationTime, 4, STARP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BirthDensity, STARP(i).BirthDensity, float, 1)
-SIMPLE_PROPERTY(StarMetallicity, STARP(i).Metallicity, float, 1)
-SIMPLE_PROPERTY(GasMetallicity, SPHP(i).Metallicity, float, 1)
+SIMPLE_PROPERTY_TYPE(Metallicity, 4, STARP(i).Metallicity, float, 1)
+SIMPLE_PROPERTY_TYPE(Metallicity, 0, SPHP(i).Metallicity, float, 1)
 static void GTStarFormationRate(int i, float * out) {
     /* Convert to Solar/year */
     *out = get_starformation_rate(i) 
@@ -679,7 +679,7 @@ static void GTStarFormationRate(int i, float * out) {
 }
 #endif
 #ifdef BLACK_HOLES
-SIMPLE_PROPERTY(BlackholeFormationTime, BHP(i).FormationTime, float, 1)
+SIMPLE_PROPERTY_TYPE(StarFormationTime, 5, BHP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
@@ -757,14 +757,14 @@ static void register_io_blocks() {
 #ifdef SFR
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
     IO_REG(BirthDensity, "f4", 1, 4);
-    IO_REG(StarFormationTime, "f4", 1, 4);
-    IO_REG(GasMetallicity,       "f4", 1, 0);
-    IO_REG(StarMetallicity,       "f4", 1, 4);
+    IO_REG_TYPE(StarFormationTime, "f4", 1, 4);
+    IO_REG_TYPE(Metallicity,       "f4", 1, 0);
+    IO_REG_TYPE(Metallicity,       "f4", 1, 4);
 #endif /* SFR */
 #ifdef BLACK_HOLES
     /* Blackhole */
+    IO_REG_TYPE(StarFormationTime, "f4", 1, 5);
     IO_REG(BlackholeMass,          "f4", 1, 5);
-    IO_REG(BlackholeFormationTime, "f4", 1, 5);
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
 #endif

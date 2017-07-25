@@ -47,9 +47,14 @@ petaio_build_selection(int * selection,
  * 
  * SIMPLE_GETTER defines a simple getter reading property from global particle
  * arrays.
+ *
+ * IO_REG_TYPE declares an io block which has a type-specific property setter.
+ * IO_REG_WRONLY declares an io block which is written, but is not read on snapshot load.
  * */
 #define IO_REG(name, dtype, items, ptype) \
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name)
+#define IO_REG_TYPE(name, dtype, items, ptype) \
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## ptype ## name , (property_setter) ST ## ptype ## name)
 #define IO_REG_WRONLY(name, dtype, items, ptype) \
     io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , NULL)
 void io_register_io_block(char * name, 
@@ -90,6 +95,10 @@ static void name(int i, type * out) { \
 #define SIMPLE_PROPERTY(name, field, type, items) \
     SIMPLE_GETTER(GT ## name , field, type, items) \
     SIMPLE_SETTER(ST ## name , field, type, items) \
+/*A property with getters and setters that are type specific*/
+#define SIMPLE_PROPERTY_TYPE(name, ptype, field, type, items) \
+    SIMPLE_GETTER(GT ## ptype ## name , field, type, items) \
+    SIMPLE_SETTER(ST ## ptype ## name , field, type, items) \
 /* 
  * currently 4096 entries are supported 
  * */
