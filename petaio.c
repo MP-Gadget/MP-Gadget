@@ -669,6 +669,7 @@ SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #ifdef SFR
 SIMPLE_PROPERTY(StarFormationTime, STARP(i).FormationTime, float, 1)
+SIMPLE_PROPERTY(BirthDensity, STARP(i).BirthDensity, float, 1)
 SIMPLE_PROPERTY(StarMetallicity, STARP(i).Metallicity, float, 1)
 SIMPLE_PROPERTY(GasMetallicity, SPHP(i).Metallicity, float, 1)
 static void GTStarFormationRate(int i, float * out) {
@@ -755,6 +756,7 @@ static void register_io_blocks() {
     /* SF */
 #ifdef SFR
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
+    IO_REG(BirthDensity, "f4", 1, 4);
     IO_REG(StarFormationTime, "f4", 1, 4);
     IO_REG(GasMetallicity,       "f4", 1, 0);
     IO_REG(StarMetallicity,       "f4", 1, 4);

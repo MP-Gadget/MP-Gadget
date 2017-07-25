@@ -734,6 +734,7 @@ static int make_particle_star(int i) {
     /*Increase counters*/
     sum_mass_stars += P[newstar].Mass;
     STARP(newstar).FormationTime = All.Time;
+    STARP(newstar).BirthDensity = SPHP(i).Density;
     /*Copy metallicity*/
     STARP(newstar).Metallicity = SPHP(i).Metallicity;
 #ifdef WINDS

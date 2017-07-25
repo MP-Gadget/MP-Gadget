@@ -592,6 +592,7 @@ extern struct star_particle_data
 {
     struct particle_data_ext base;
     MyFloat FormationTime;		/*!< formation time of star particle */
+    MyFloat BirthDensity;		/*!< Density of gas particle at star formation. */
     MyFloat Metallicity;		/*!< metallicity of star particle */
 } * StarP;
 
