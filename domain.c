@@ -867,8 +867,8 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     int64_t costlimit, countlimit;
 
-    costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
-    countlimit = TotNumPart / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
+    costlimit = totgravcost / (All.TopNodeCostFactor * All.DomainOverDecompositionFactor * NTask);
+    countlimit = TotNumPart / (All.TopNodeCostFactor * All.DomainOverDecompositionFactor * NTask);
 
     NTopNodes = 1;
     topNodes[0].Daughter = -1;
@@ -890,9 +890,9 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     errflag = domain_check_for_local_refine(0, topNodes, countlimit, costlimit);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
-    if(NTopNodes > 2 * All.DomainOverDecompositionFactor * NTask * TOPNODEFACTOR) {
+    if(NTopNodes > 2 * All.DomainOverDecompositionFactor * NTask * All.TopNodeCostFactor) {
         message(1, "NTopNodes=%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
-            NTopNodes, 2 * All.DomainOverDecompositionFactor * NTask * TOPNODEFACTOR);
+            NTopNodes, 2 * All.DomainOverDecompositionFactor * NTask * All.TopNodeCostFactor);
     }
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -938,7 +938,7 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     /* now let's see whether we should still append more nodes, based on the estimated cumulative cost/count in each cell */
 
-    message(0, "Before=%d\n", NTopNodes);
+    message(0, "TopNodes before appending=%d\n", NTopNodes);
 
     for(i = 0, errflag = 0; i < NTopNodes; i++)
     {

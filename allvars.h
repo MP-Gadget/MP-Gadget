@@ -68,10 +68,6 @@
 #endif
 #endif
 
-#ifndef  TOPNODEFACTOR
-#define  TOPNODEFACTOR       5.0
-#endif
-
 #ifndef  GAMMA
 #define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
 #endif
@@ -311,6 +307,7 @@ extern struct global_data_all_processes
 
     /* Code options */
     int DomainOverDecompositionFactor; /* Number of sub-domains per processor. */
+    int TopNodeCostFactor;  /* Cost factor which limits the domain refinement.*/
 
     int CoolingOn;		/*!< flags that cooling is enabled */
     double UVRedshiftThreshold;		/* Initial redshift of UV background. */

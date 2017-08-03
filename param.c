@@ -143,6 +143,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "");
 
     param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 1, "Number of sub domains on a MPI rank");
+    param_declare_int   (ps, "TopNodeCostFactor", OPTIONAL, 5, "Domain refinement will stop when domain cost is less than the average cost divided by this factor.");
     param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "");
     param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "Force accuracy required from tree. Controls tree opening criteria. Lower values are more accurate.");
     param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells. Gadget-2 paper says larger values may be more accurate.");
@@ -350,6 +351,7 @@ void read_parameter_file(char *fname)
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
+        All.TopNodeCostFactor = param_get_int(ps, "TopNodeCostFactor");
         All.MaxMemSizePerNode = param_get_int(ps, "MaxMemSizePerNode");
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
 
