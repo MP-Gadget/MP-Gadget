@@ -552,6 +552,9 @@ domain_assign_balanced(int64_t * cost)
             if(curtask == NTask) {
                 /*Back to task zero*/
                 curtask = 0;
+                /* Need a new mean_expected value: we want to
+                 * divide the remaining segments evenly between the processors.*/
+                mean_expected = 1.0 * totalcostLeft / Nsegment;
                 nrounds++;
             }
             if(curleaf == NTopLeaves) break;
