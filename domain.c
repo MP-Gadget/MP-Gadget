@@ -496,11 +496,13 @@ domain_assign_balanced(int64_t * cost)
      */
 
     double mean_expected = 1.0 * totalcost / Nsegment;
+    double mean_task = 1.0 * totalcost /NTask;
     int curleaf = 0;
     int curseg = 0;
     int curtask = 0; /* between 0 and NTask - 1*/
     int nrounds = 0; /*Number of times we looped*/
     int64_t curload = 0; /* cumulative load for the current segment */
+    int64_t curtaskload = 0; /* cumulative load for current task */
 
     message(0, "Expected segment cost %g\n", mean_expected);
     /* we maintain that after the loop curleaf is the number of leaves scanned,
@@ -536,15 +538,18 @@ domain_assign_balanced(int64_t * cost)
         }
 
         if(advance) {
-            /* move on to the next segment for the next task*/
+            /* move on to the next segment.*/
             totalcostLeft -= curload;
+            /*Add this segment to the current task*/
+            curtaskload += curload;
             curload = 0;
             curseg ++;
             /* If we have allocated enough
-             * segments to this processor, advance the task.
+             * segments to fill this processor, advance the task.
              * We do not use round robin so that neighbouring (by key)
              * topNodes are on the same processor.*/
-            if(curtask - curseg >= All.DomainOverDecompositionFactor) {
+            if(curtaskload + mean_expected > 1.1*mean_task ) {
+                curtaskload = 0;
                 curtask ++;
             }
 
@@ -555,6 +560,7 @@ domain_assign_balanced(int64_t * cost)
                 /* Need a new mean_expected value: we want to
                  * divide the remaining segments evenly between the processors.*/
                 mean_expected = 1.0 * totalcostLeft / Nsegment;
+                mean_task = 1.0 * totalcostLeft / NTask;
                 nrounds++;
             }
             if(curleaf == NTopLeaves) break;
