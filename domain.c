@@ -499,13 +499,14 @@ domain_assign_balanced(int64_t * cost)
     int curleaf = 0;
     int curseg = 0;
     int curtask = 0; /* between 0 and NTask - 1*/
-    int64_t curload = 0; /* cummulative load for the current segment */
+    int nrounds = 0; /*Number of times we looped*/
+    int64_t curload = 0; /* cumulative load for the current segment */
 
     message(0, "Expected segment cost %g\n", mean_expected);
     /* we maintain that after the loop curleaf is the number of leaves scanned,
      * curseg is number of segments created.
      * */
-    while(1) {
+    while(nrounds < NTopLeaves) {
         int append = 0;
         int advance = 0;
         if(curleaf == NTopLeaves) {
@@ -539,19 +540,23 @@ domain_assign_balanced(int64_t * cost)
             totalcostLeft -= curload;
             curload = 0;
             curtask ++;
+            curseg ++;
 
             /* finished a round for all tasks */
-            if(curtask == NTask) curtask = 0;
-            curseg ++;
+            if(curtask == NTask) {
+                /*Back to task zero*/
+                curtask = 0;
+                nrounds++;
+            }
             if(curleaf == NTopLeaves) break;
         }
         //message(0, "curleaf = %d advance = %d append = %d, curload = %d cost=%ld left=%ld\n", curleaf, advance, append, curload, TopLeafExt[curleaf].cost, totalcostLeft);
     }
 
-    message(0, "Created %d segments for an expectation of %d\n", curseg, Nsegment);
+    message(0, "Created %d segments in %d rounds\n", curseg, nrounds);
 
     if(curseg < Nsegment) {
-        endrun(0, "Not enough segments were created. This should not happen.\n");
+        endrun(0, "Not enough segments were created (%d instead of %d). This should not happen.\n", curseg, Nsegment);
     }
 
     if(totalcostLeft != 0) {
