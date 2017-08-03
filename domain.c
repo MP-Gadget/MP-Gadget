@@ -519,7 +519,7 @@ domain_assign_balanced(int64_t * cost)
             advance = 1;
         } else {
             /* try to meet the average by appending the leaf to the segment */
-            if((mean_expected - curload > 0.5 * TopLeafExt[curleaf].cost) /* head towards the mean */
+            if((mean_expected - curload > 0.95 * TopLeafExt[curleaf].cost) /* head towards the mean */
             || curload == 0 /* but at least add one leaf */
                 ) {
                 append = 1;
