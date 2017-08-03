@@ -939,43 +939,45 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     /* now let's see whether we should still append more nodes, based on the estimated cumulative cost/count in each cell */
 
     message(0, "TopNodes before appending=%d\n", NTopNodes);
+    int64_t maxcost=0;
 
+    /*Note that NTopNodes will change inside the loop*/
     for(i = 0, errflag = 0; i < NTopNodes; i++)
     {
-        if(topNodes[i].Daughter < 0)
-            if(topNodes[i].Count > countlimit || topNodes[i].Cost > costlimit)	/* ok, let's add nodes if we can */
-                if(topNodes[i].Size > 1)
-                {
-                    if((NTopNodes + 8) <= MaxTopNodes)
-                    {
-                        topNodes[i].Daughter = NTopNodes;
-
-                        for(j = 0; j < 8; j++)
-                        {
-                            sub = topNodes[i].Daughter + j;
-                            topNodes[sub].Size = (topNodes[i].Size >> 3);
-                            topNodes[sub].Count = topNodes[i].Count / 8;
-                            topNodes[sub].Cost = topNodes[i].Cost / 8;
-                            topNodes[sub].Daughter = -1;
-                            topNodes[sub].Parent = i;
-                            topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
-                        }
-
-                        NTopNodes += 8;
-                    }
-                    else
-                    {
-                        errflag = 1;
-                        break;
-                    }
+        /*If this node has no children and non-zero size*/
+        if(topNodes[i].Daughter < 0 && topNodes[i].Size > 1) {
+            /*If this node is also more costly than the limit*/
+            if(topNodes[i].Count > countlimit || topNodes[i].Cost > costlimit) {
+                /*If we have no space for another 8 topNodes, exit */
+                if((NTopNodes + 8) > MaxTopNodes) {
+                    errflag = 1;
+                    break;
                 }
+
+                topNodes[i].Daughter = NTopNodes;
+
+                for(j = 0; j < 8; j++)
+                {
+                    sub = topNodes[i].Daughter + j;
+                    topNodes[sub].Size = (topNodes[i].Size >> 3);
+                    topNodes[sub].Count = topNodes[i].Count / 8;
+                    topNodes[sub].Cost = topNodes[i].Cost / 8;
+                    topNodes[sub].Daughter = -1;
+                    topNodes[sub].Parent = i;
+                    topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
+                }
+                NTopNodes += 8;
+            }
+        }
+        if(topNodes[i].Cost > maxcost)
+            maxcost = topNodes[i].Cost;
     }
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     if(errsum)
         return errsum;
 
-    message(0, "Final NTopNodes = %d per segment = %g\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask));
+    message(0, "Final NTopNodes = %d per segment = %g. Max topnode size: %ld\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask), maxcost);
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
     return 0;
