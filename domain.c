@@ -538,20 +538,24 @@ domain_assign_balanced(int64_t * cost)
         }
 
         if(advance) {
-            /* move on to the next segment.*/
-            totalcostLeft -= curload;
             /*Add this segment to the current task*/
             curtaskload += curload;
-            curload = 0;
-            curseg ++;
             /* If we have allocated enough
              * segments to fill this processor, advance the task.
              * We do not use round robin so that neighbouring (by key)
              * topNodes are on the same processor.*/
-            if(curtaskload + mean_expected > 1.1*mean_task ) {
+            /*Also advance the task if we have one segment per task left.
+             * This ensures that no task is empty*/
+            if((curtaskload + mean_expected > 1.1*mean_task) ||
+                (Nsegment - curseg <= NTask - curtask)
+               ){
                 curtaskload = 0;
                 curtask ++;
             }
+            /* move on to the next segment.*/
+            totalcostLeft -= curload;
+            curload = 0;
+            curseg ++;
 
             /* finished a round for all tasks */
             if(curtask == NTask) {
@@ -568,6 +572,7 @@ domain_assign_balanced(int64_t * cost)
         //message(0, "curleaf = %d advance = %d append = %d, curload = %d cost=%ld left=%ld\n", curleaf, advance, append, curload, TopLeafExt[curleaf].cost, totalcostLeft);
     }
 
+    /*In most 'normal' cases nrounds == 1 here*/
     message(0, "Created %d segments in %d rounds\n", curseg, nrounds);
 
     if(curseg < Nsegment) {
