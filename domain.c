@@ -539,8 +539,14 @@ domain_assign_balanced(int64_t * cost)
             /* move on to the next segment for the next task*/
             totalcostLeft -= curload;
             curload = 0;
-            curtask ++;
             curseg ++;
+            /* If we have allocated enough
+             * segments to this processor, advance the task.
+             * We do not use round robin so that neighbouring (by key)
+             * topNodes are on the same processor.*/
+            if(curtask - curseg >= All.DomainOverDecompositionFactor) {
+                curtask ++;
+            }
 
             /* finished a round for all tasks */
             if(curtask == NTask) {
