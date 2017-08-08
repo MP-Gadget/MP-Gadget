@@ -523,8 +523,10 @@ domain_assign_balanced(int64_t * cost)
             append = 1;
             advance = 1;
         } else {
-            /* try to meet the average by appending the leaf to the segment */
-            if((mean_expected - curload > 0.95 * TopLeafExt[curleaf].cost) /* head towards the mean */
+            /* append a leaf to the segment if there is room left.
+             * Calculate room left based on a rolling average of the total so far..*/
+            int64_t totalassigned = (totalcost - totalcostLeft) + curload;
+            if((mean_expected * (curseg +1) - totalassigned > 0.5 * TopLeafExt[curleaf].cost)
             || curload == 0 /* but at least add one leaf */
                 ) {
                 append = 1;
