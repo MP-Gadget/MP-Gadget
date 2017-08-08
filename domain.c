@@ -545,14 +545,11 @@ domain_assign_balanced(int64_t * cost)
         if(advance) {
             /*Add this segment to the current task*/
             curtaskload += curload;
-            /* If we have allocated enough
-             * segments to fill this processor, advance the task.
+            /* If we have allocated enough segments to fill this processor,
+             * or if we have one segment per task left, proceed to the next task.
              * We do not use round robin so that neighbouring (by key)
              * topNodes are on the same processor.*/
-            /*Also advance the task if we have one segment per task left.
-             * This ensures that no task is empty*/
-            if((curtaskload + mean_expected > 1.1*mean_task) ||
-                (Nsegment - curseg <= NTask - curtask)
+            if((mean_task - curtaskload < 0.5 * mean_expected) || (Nsegment - curseg <= NTask - curtask)
                ){
                 curtaskload = 0;
                 curtask ++;
