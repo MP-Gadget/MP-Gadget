@@ -391,7 +391,7 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
             max_work = work;
     }
 
-    message(0, "Largest deviations from average: work=%g particle load=%g\n",
+    message(0, "Largest load: work=%g particle=%g\n",
             max_work / ((double)sumwork / NTask), max_load / (((double) sumload) / NTask));
 
     if(print_details) {
@@ -1002,7 +1002,7 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     if(errsum)
         return errsum;
 
-    message(0, "Final NTopNodes = %d per segment = %g. Max topnode size: %ld\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask), maxcost);
+    message(0, "Final NTopNodes = %d per segment = %g. Max topnode cost/limit: %g\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask), 1.0*maxcost/costlimit);
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
     return 0;
