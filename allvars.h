@@ -306,8 +306,14 @@ extern struct global_data_all_processes
     double Hubble; /*!< Hubble-constant in internal units */
 
     /* Code options */
-    int DomainOverDecompositionFactor; /* Number of sub-domains per processor. */
-    int TopNodeCostFactor;  /* Cost factor which limits the domain refinement.*/
+    /* Number of sub-domains per processor. TopNodes are refined so that no TopNode contains
+     * no more than 1/(DODF * NTask) fraction of the work.
+     * Then the load balancer will aim to produce DODF*NTask equal-sized chunks, distributed
+     * evenly across MPI ranks.*/
+    int DomainOverDecompositionFactor;
+    /* Sets average TopNodes per MPI rank. Like DomainOverDecompositionFactor
+     * but only changes refinement, not load balancing.*/
+    int TopNodeIncreaseFactor;
 
     int CoolingOn;		/*!< flags that cooling is enabled */
     double UVRedshiftThreshold;		/* Initial redshift of UV background. */

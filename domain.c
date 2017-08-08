@@ -329,7 +329,7 @@ domain_balance(void)
 
     walltime_measure("/Domain/Decompose/assignbalance");
 
-    int status = domain_check_memory_bound(0, TopLeafWork, TopLeafCount);
+    int status = domain_check_memory_bound(1, TopLeafWork, TopLeafCount);
     walltime_measure("/Domain/Decompose/memorybound");
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
@@ -894,8 +894,8 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     int64_t costlimit, countlimit;
 
-    costlimit = totgravcost / (All.TopNodeCostFactor * All.DomainOverDecompositionFactor * NTask);
-    countlimit = TotNumPart / (All.TopNodeCostFactor * All.DomainOverDecompositionFactor * NTask);
+    costlimit = totgravcost / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
+    countlimit = TotNumPart / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
 
     NTopNodes = 1;
     topNodes[0].Daughter = -1;
@@ -917,9 +917,9 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     errflag = domain_check_for_local_refine(0, topNodes, countlimit, costlimit);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
-    if(NTopNodes > 2 * All.DomainOverDecompositionFactor * NTask * All.TopNodeCostFactor) {
+    if(NTopNodes > 2 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor) {
         message(1, "NTopNodes=%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
-            NTopNodes, 2 * All.DomainOverDecompositionFactor * NTask * All.TopNodeCostFactor);
+            NTopNodes, 2 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor);
     }
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
