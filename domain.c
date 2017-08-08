@@ -503,6 +503,7 @@ domain_assign_balanced(int64_t * cost)
     int nrounds = 0; /*Number of times we looped*/
     int64_t curload = 0; /* cumulative load for the current segment */
     int64_t curtaskload = 0; /* cumulative load for current task */
+    int64_t maxleafcost = 0;
 
     message(0, "Expected segment cost %g\n", mean_expected);
     /* we maintain that after the loop curleaf is the number of leaves scanned,
@@ -511,6 +512,8 @@ domain_assign_balanced(int64_t * cost)
     while(nrounds < NTopLeaves) {
         int append = 0;
         int advance = 0;
+        if(TopLeafExt[curleaf].cost > maxleafcost)
+            maxleafcost = TopLeafExt[curleaf].cost;
         if(curleaf == NTopLeaves) {
             /* to maintain the invariance */
             advance = 1;
@@ -573,7 +576,7 @@ domain_assign_balanced(int64_t * cost)
     }
 
     /*In most 'normal' cases nrounds == 1 here*/
-    message(0, "Created %d segments in %d rounds\n", curseg, nrounds);
+    message(0, "Created %d segments in %d rounds. Max leaf cost: %g\n", curseg, nrounds, (1.0*maxleafcost)/(totalcost) * Nsegment);
 
     if(curseg < Nsegment) {
         endrun(0, "Not enough segments were created (%d instead of %d). This should not happen.\n", curseg, Nsegment);
