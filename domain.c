@@ -917,9 +917,9 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     errflag = domain_check_for_local_refine(0, topNodes, countlimit, costlimit);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
-    if(NTopNodes > 2 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor) {
+    if(NTopNodes > 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor) {
         message(1, "NTopNodes=%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
-            NTopNodes, 2 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor);
+            NTopNodes, 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor);
     }
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
