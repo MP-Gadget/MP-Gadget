@@ -5,6 +5,7 @@
 #include <gsl/gsl_integration.h>
 #include "genic-allvars.h"
 #include "genic-proto.h"
+#include "../cosmology.h"
 #include "endrun.h"
 
 
@@ -49,7 +50,7 @@ double PowerSpec(double k)
     {
       /* Eqn. (A9) in Bode, Ostriker & Turok (2001), assuming gX=1.5  */
       alpha =
-	0.048 * pow((Omega - OmegaBaryon) / 0.4, 0.15) * pow(HubbleParam / 0.65,
+	0.048 * pow((CP.Omega0 - CP.OmegaBaryon) / 0.4, 0.15) * pow(CP.HubbleParam / 0.65,
 							     1.3) * pow(1.0 / WDM_PartMass_in_kev, 1.15);
       Tf = pow(1 + pow(alpha * k * (3.085678e24 / UnitLength_in_cm), 2 * 1.2), -5.0 / 1.2);
       power *= Tf * Tf;
@@ -277,13 +278,13 @@ double tk_eh(double k)		/* from Martin White */
   double omegam, ombh2, hubble;
 
   /* other input parameters */
-  hubble = HubbleParam;
+  hubble = CP.HubbleParam;
 
-  omegam = Omega;
-  ombh2 = OmegaBaryon * HubbleParam * HubbleParam;
+  omegam = CP.Omega0;
+  ombh2 = CP.OmegaBaryon * CP.HubbleParam * CP.HubbleParam;
 
-  if(OmegaBaryon == 0)
-    ombh2 = 0.044 * HubbleParam * HubbleParam;
+  if(CP.OmegaBaryon == 0)
+    ombh2 = 0.044 * CP.HubbleParam * CP.HubbleParam;
 
   k *= (3.085678e24 / UnitLength_in_cm);	/* convert to h/Mpc */
 
@@ -332,49 +333,10 @@ double sigma2_int(double k, void * params)
     return 0;
 
   w = 3 * (sin(kr) / kr3 - cos(kr) / kr2);
-  x = 4 * PI / (2 * PI * 2 * PI * 2 * PI) * k * k * w * w * PowerSpec(k);
+  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * PowerSpec(k);
 
   return x;
 
-}
-
-
-double GrowthFactor(double astart, double aend)
-{
-  return growth(aend) / growth(astart);
-}
-
-
-double growth(double a)
-{
-  gsl_integration_workspace * w = gsl_integration_workspace_alloc (200);
-  double hubble_a;
-  double result,abserr;
-  gsl_function F;
-  F.function = &growth_int;
-
-  hubble_a = sqrt(Omega / (a * a * a) + (1 - Omega - OmegaLambda) / (a * a) + OmegaLambda);
-
-  gsl_integration_qag (&F, 0, a, 0, 1e-4,200,GSL_INTEG_GAUSS61, w,&result, &abserr);
-//   printf("gsl_integration_qng in growth. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size);
-  gsl_integration_workspace_free (w);
-  return hubble_a * result;
-}
-
-
-double growth_int(double a, void * params)
-{
-  return pow(a / (Omega + (1 - Omega - OmegaLambda) * a + OmegaLambda * a * a * a), 1.5);
-}
-
-
-double F_Omega(double a)
-{
-  double omega_a;
-
-  omega_a = Omega / (Omega + a * (1 - Omega - OmegaLambda) + a * a * a * OmegaLambda);
-
-  return pow(omega_a, 0.6);
 }
 
 /*  Here comes the stuff to compute the thermal WDM velocity distribution */
@@ -414,7 +376,7 @@ void fermi_dirac_init(void)
   for(i = 0; i < LENGTH_FERMI_DIRAC_TABLE; i++)
     fermi_dirac_cumprob[i] /= fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE - 1];
 
-  WDM_V0 = 0.012 * (1 + Redshift) * pow((Omega - OmegaBaryon) / 0.3, 1.0 / 3) * pow(HubbleParam / 0.65,
+  WDM_V0 = 0.012 * (1 + Redshift) * pow((CP.Omega0 - CP.OmegaBaryon) / 0.3, 1.0 / 3) * pow(CP.HubbleParam / 0.65,
 										    2.0 / 3) * pow(1.0 /
 												   WDM_PartMass_in_kev,
 												   4.0 / 3);
@@ -502,15 +464,15 @@ void print_spec(void)
 
       fprintf(fd, "%12g %12g %12g\n", Redshift, DDD, Norm);	/* print actual starting redshift and 
 							   linear growth factor for this cosmology */
-      kstart = 2 * PI / (1000.0 * (3.085678e24 / UnitLength_in_cm));	/* 1000 Mpc/h */
-      kend = 2 * PI / (0.001 * (3.085678e24 / UnitLength_in_cm));	/* 0.001 Mpc/h */
+      kstart = 2 * M_PI / (1000.0 * (3.085678e24 / UnitLength_in_cm));	/* 1000 Mpc/h */
+      kend = 2 * M_PI / (0.001 * (3.085678e24 / UnitLength_in_cm));	/* 0.001 Mpc/h */
 
       printf("kstart=%lg kend=%lg\n",kstart,kend);
 
       for(k = kstart; k < kend; k *= 1.025)
 	{
 	  po = PowerSpec(k);
-	  dl = 4.0 * PI * k * k * k * po;
+	  dl = 4.0 * M_PI * k * k * k * po;
 
 	  kf = 0.5;
 

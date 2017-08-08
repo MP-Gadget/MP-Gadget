@@ -1,13 +1,7 @@
 #include <stdint.h>
-
-#define  PI          3.14159265358979323846 
-#define  GRAVITY     6.672e-8
-#define  HUBBLE      3.2407789e-18   /* in h/sec */
-
+#include "../cosmology.h"
 
 double PowerSpec(double kmag);
-double GrowthFactor(double astart, double aend);
-double F_Omega(double a);
 int    read_parameter_file(char *fname);
 double PowerSpec_EH(double k);
 double PowerSpec_Efstathiou(double k);
@@ -54,10 +48,11 @@ extern int      ThisTask, NTask;
 
 extern double UnitTime_in_s, UnitLength_in_cm, UnitMass_in_g, UnitVelocity_in_cm_per_s;
 extern double InputSpectrum_UnitLength_in_cm;
-extern double G, Hubble;
+extern double G;
 
-extern double Omega, OmegaLambda, OmegaDM_2ndSpecies, Sigma8;
-extern double OmegaBaryon, HubbleParam;
+extern Cosmology CP;
+
+extern double OmegaDM_2ndSpecies, Sigma8;
 extern double PrimordialIndex;
 extern double ShapeGamma;
 

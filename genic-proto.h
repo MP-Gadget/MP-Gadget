@@ -25,12 +25,8 @@ double PowerSpec_Tabulated(double k);
 double PowerSpec_DM_2ndSpecies(double k);
 
 void   initialize_powerspectrum(void);
-double GrowthFactor(double astart, double aend);
-double growth(double a);
-double growth_int(double a, void * params);
 double sigma2_int(double k, void * params);
 double TopHatSigma2(double R);
-double F_Omega(double a);
 
 void   combine_particle_data(void);
 int    compare_logk(const void *a, const void *b);

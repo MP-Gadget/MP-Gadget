@@ -9,7 +9,7 @@
 /*Stefan-Boltzmann constant in cgs units*/
 #define  STEFAN_BOLTZMANN 5.670373e-5
 
-Cosmology * CP = NULL;
+static Cosmology * CP = NULL;
 
 void init_cosmology(Cosmology * CP_in)
 {

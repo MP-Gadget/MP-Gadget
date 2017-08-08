@@ -11,6 +11,7 @@
 #include "genic-proto.h"
 #include "walltime.h"
 #include "endrun.h"
+#include "cosmology.h"
 
 #define MESH2K(i) petapm_mesh_to_k(i)
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);
@@ -144,8 +145,7 @@ void displacement_fields() {
     MPI_Reduce(&maxdisp, &maxdispall, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     message(0, "max disp = %g in units of cell sep %g \n", maxdispall, maxdispall / (Box / Nmesh) );
 
-    double hubble_a =
-        Hubble * sqrt(Omega / pow(InitTime, 3) + (1 - Omega - OmegaLambda) / pow(InitTime, 2) + OmegaLambda);
+    double hubble_a = hubble_function(InitTime);
 
     double vel_prefac = InitTime * hubble_a * F_Omega(InitTime);
 
@@ -249,13 +249,13 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
                 ptrdiff_t ip = region->strides[0] * (j - region->offset[0]) 
                              + region->strides[1] * (k - region->offset[1]) 
                              + region->strides[2] * (i - region->offset[2]);
-                double phase = gsl_rng_uniform(random_generator) * 2 * PI;
+                double phase = gsl_rng_uniform(random_generator) * 2 * M_PI;
                 double ampl = 0;
                 do ampl = gsl_rng_uniform(random_generator); while(ampl == 0);
                 if(k < region->offset[1]) continue;
                 if(k >= region->offset[1] + region->size[1]) continue;
                 int64_t kmag2 = (int64_t)MESH2K(i) * MESH2K(i) + (int64_t)MESH2K(j) * MESH2K(j) + (int64_t)MESH2K(k) * MESH2K(k);
-                double kmag = sqrt(kmag2) * 2 * PI / Box;
+                double kmag = sqrt(kmag2) * 2 * M_PI / Box;
                 double p_of_k = - log(ampl);
 			    if(SphereMode == 1) {
 			      if(kmag2 >= (Nsample/ 2) * (Nsample / 2))	/* select a sphere in k-space */ {
@@ -381,14 +381,14 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 }
 static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
-        double fac = (Box / (2 * PI)) * kpos[0] / k2;
+        double fac = (Box / (2 * M_PI)) * kpos[0] / k2;
         /*
          We avoid high precision kernels to maintain compatibility with N-GenIC.
          The following formular shall cross check with fac in the limit of 
          native diff_kernel (disp_y, disp_z shall match too!)
          
-        double fac1 = (2 * PI) / Box;
-        double fac = diff_kernel(kpos[0] * (2 * PI / Nmesh)) * (Nmesh / Box) / (
+        double fac1 = (2 * M_PI) / Box;
+        double fac = diff_kernel(kpos[0] * (2 * M_PI / Nmesh)) * (Nmesh / Box) / (
                     k2 * fac1 * fac1);
                     */
         double tmp = value[0][0];
@@ -398,7 +398,7 @@ static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 }
 static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
-        double fac = (Box / (2 * PI)) * kpos[1] / k2;
+        double fac = (Box / (2 * M_PI)) * kpos[1] / k2;
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -406,7 +406,7 @@ static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 }
 static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
-        double fac = (Box / (2 * PI)) * kpos[2] / k2;
+        double fac = (Box / (2 * M_PI)) * kpos[2] / k2;
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;

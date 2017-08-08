@@ -8,6 +8,7 @@
 #include "genic-proto.h"
 #include "endrun.h"
 #include "paramset.h"
+#include "../physconst.h"
 
 #define OPTIONAL 0
 #define REQUIRED 1
@@ -17,7 +18,8 @@ void set_units(void)		/* ... set some units */
   UnitTime_in_s = UnitLength_in_cm / UnitVelocity_in_cm_per_s;
 
   G = GRAVITY / pow(UnitLength_in_cm, 3) * UnitMass_in_g * pow(UnitTime_in_s, 2);
-  Hubble = HUBBLE * UnitTime_in_s;
+  CP.Hubble = HUBBLE * UnitTime_in_s;
+  init_cosmology(&CP);
 }
 
 
@@ -34,6 +36,8 @@ create_parameters()
     param_declare_double(ps, "Omega0", REQUIRED, 0, "");
     param_declare_double(ps, "OmegaLambda", REQUIRED, 0, "");
     param_declare_double(ps, "OmegaBaryon", REQUIRED, 0, "");
+    param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
+    param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps,    "ProduceGas", REQUIRED, 0, "");
     param_declare_double(ps, "OmegaDM_2ndSpecies", REQUIRED, 0, "");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Write a IC similiar to a FastPM output");
@@ -82,13 +86,17 @@ void read_parameterfile(char *fname)
 
     message(0, "----------------------------------------------\n");
     
-    Omega = param_get_double(ps, "Omega0");
-    MaxMemoryPerCore = param_get_double(ps, "MaxMemoryPerCore");
-    OmegaLambda = param_get_double(ps, "OmegaLambda");
-    OmegaBaryon = param_get_double(ps, "OmegaBaryon");
-    ProduceGas = param_get_int(ps, "ProduceGas");
+    CP.Omega0 = param_get_double(ps, "Omega0");
+    CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
+    CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
+    CP.HubbleParam = param_get_double(ps, "HubbleParam");
+    CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
+    CP.RadiationOn = param_get_double(ps, "RadiationOn");
+    /*Fixme: when massive neutrinos are implemented more, remove*/
+    CP.MasslessNeutrinosOn = 1;
     OmegaDM_2ndSpecies = param_get_double(ps, "OmegaDM_2ndSpecies");
-    HubbleParam = param_get_double(ps, "HubbleParam");
+    MaxMemoryPerCore = param_get_double(ps, "MaxMemoryPerCore");
+    ProduceGas = param_get_int(ps, "ProduceGas");
     UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
     ShapeGamma = param_get_double(ps, "ShapeGamma");
     Sigma8 = param_get_double(ps, "Sigma8");
