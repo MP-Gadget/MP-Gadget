@@ -5,7 +5,7 @@
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_odeiv2.h>
 
-void init_cosmology()
+void init_cosmology(Cosmology * CP)
 {
     /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
      * A note on normalisation (as of 08/02/2012):
@@ -14,16 +14,16 @@ void init_cosmology()
      * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
      * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
      */
-    All.CP.OmegaCDM = All.CP.Omega0 - All.CP.OmegaBaryon;
-    All.CP.OmegaK = 1.0 - All.CP.Omega0 - All.CP.OmegaLambda;
+    CP->OmegaCDM = CP->Omega0 - CP->OmegaBaryon;
+    CP->OmegaK = 1.0 - CP->Omega0 - CP->OmegaLambda;
 
     /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
 
-    All.CP.OmegaG = 4 * STEFAN_BOLTZMANN
-                  * pow(All.CP.CMBTemperature, 4)
+    CP->OmegaG = 4 * STEFAN_BOLTZMANN
+                  * pow(CP->CMBTemperature, 4)
                   * (8 * M_PI * GRAVITY)
                   / (3*C*C*C*HUBBLE*HUBBLE)
-                  / (All.CP.HubbleParam*All.CP.HubbleParam);
+                  / (CP->HubbleParam*CP->HubbleParam);
 
     /* Neutrino + antineutrino background temperature as a ratio to T_CMB0
      * Note there is a slight correction from 4/11
@@ -35,7 +35,7 @@ void init_cosmology()
     /* For massless neutrinos,
      * rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff,
      * but we absorbed N_eff into T_nu above. */
-    All.CP.OmegaNu0 = All.CP.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
+    CP->OmegaNu0 = CP->OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
 }
 
 /*Hubble function at scale factor a, in dimensions of All.Hubble*/

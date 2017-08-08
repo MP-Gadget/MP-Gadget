@@ -196,7 +196,7 @@ set_units(void)
 {
     double meanweight;
 
-    init_cosmology();
+    init_cosmology(&All.CP);
 
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
     All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;

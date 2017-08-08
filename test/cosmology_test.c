@@ -35,7 +35,7 @@ void setup_cosmology(double Omega0, double OmegaBaryon, double H0)
     /*Should be 0.1*/
     All.Hubble = HUBBLE * All.UnitTime_in_s;
     /*Do the main cosmology initialisation*/
-    init_cosmology();
+    init_cosmology(&All.CP);
 }
 
 inline double radgrow(double aa, double omegar) {
