@@ -209,6 +209,8 @@ set_units(void)
     /* convert some physical input parameters to internal units */
 
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
+    /*Include massless neutrinos only if we do not have massive neutrino particles*/
+    All.CP.MasslessNeutrinosOn = (NTotal[2] == 0);
     init_cosmology(&All.CP);
 
     meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */

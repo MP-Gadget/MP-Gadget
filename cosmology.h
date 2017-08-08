@@ -1,5 +1,8 @@
 #ifndef COSMOLOGY_H
 #define COSMOLOGY_H
+
+#include <stddef.h>
+
 typedef struct {
     double CMBTemperature;
     double Omega0;  /* matter density in units of the critical density (at z=0) */
@@ -12,6 +15,7 @@ typedef struct {
     double HubbleParam;  /* little `h', i.e. Hubble constant in units of 100 km/s/Mpc. */
     double Hubble; /* 100 km/s/Mpc in whatever units we want*/
     int RadiationOn; /* flags whether to include the radiation density in the background */
+    int MasslessNeutrinosOn; /*flags whether to include massless neutrinos in the background.*/
 } Cosmology;
 
 typedef struct {
