@@ -67,7 +67,7 @@ void gravpm_force(void) {
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     /*Now save the power spectrum*/
     if(ThisTask == 0)
-        powerspectrum_save(&PowerSpectrum, All.OutputDir, All.Time, GrowthFactor(All.Time));
+        powerspectrum_save(&PowerSpectrum, All.OutputDir, All.Time, GrowthFactor(All.Time, 1.0));
     walltime_measure("/LongRange");
     /*Rebuild the force tree we freed in _prepare to save memory*/
     force_tree_rebuild();

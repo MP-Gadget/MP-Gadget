@@ -64,9 +64,9 @@ double hubble_function(double a)
 
 static double growth(double a, double *dDda);
 
-double GrowthFactor(double astart)
+double GrowthFactor(double astart, double aend)
 {
-    return growth(astart, NULL) / growth(1.0, NULL);
+    return growth(astart, NULL) / growth(aend, NULL);
 }
 
 int growth_ode(double a, const double yy[], double dyda[], void * params)

@@ -30,8 +30,8 @@ double function_of_k_tophat_sigma(FunctionOfK * fk, double R);
 
 /*Hubble function at scale factor a, in dimensions of All.Hubble*/
 double hubble_function(double a);
-/* Linear theory growth factor normalized to D(a=1.0) = 1.0. */
-double GrowthFactor(double a);
+/* Linear theory growth factor between astart and aend. */
+double GrowthFactor(double astart, double aend);
 /*Note this is only used in GenIC*/
 double F_Omega(double a);
 
