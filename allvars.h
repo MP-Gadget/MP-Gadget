@@ -303,8 +303,6 @@ extern struct global_data_all_processes
     /* Cosmology */
     Cosmology CP;
 
-    double Hubble; /*!< Hubble-constant in internal units */
-
     /* Code options */
     /* Number of sub-domains per processor. TopNodes are refined so that no TopNode contains
      * no more than 1/(DODF * NTask) fraction of the work.

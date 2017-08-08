@@ -38,7 +38,7 @@ void init_cosmology(Cosmology * CP)
     CP->OmegaNu0 = CP->OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
 }
 
-/*Hubble function at scale factor a, in dimensions of All.Hubble*/
+/*Hubble function at scale factor a, in dimensions of CP.Hubble*/
 double hubble_function(double a)
 {
 
@@ -58,7 +58,7 @@ double hubble_function(double a)
     }
 
     /* Now finish it up. */
-    hubble_a = All.Hubble * sqrt(hubble_a);
+    hubble_a = All.CP.Hubble * sqrt(hubble_a);
     return (hubble_a);
 }
 
@@ -71,7 +71,7 @@ double GrowthFactor(double astart, double aend)
 
 int growth_ode(double a, const double yy[], double dyda[], void * params)
 {
-    const double hub = hubble_function(a)/All.Hubble;
+    const double hub = hubble_function(a)/All.CP.Hubble;
     dyda[0] = yy[1]/pow(a,3)/hub;
     /*Only use gravitating part*/
     dyda[1] = yy[0] * 1.5 * a * All.CP.Omega0/(a*a*a) / hub;
@@ -98,7 +98,7 @@ double growth(double a, double * dDda)
    * the solution for a matter/radiation universe.*
    * Note the normalisation of D is arbitrary
    * and never seen outside this function.*/
-  double yinit[2] = {1.5 * All.CP.Omega0/(curtime*curtime), pow(curtime,3)*hubble_function(curtime)/All.Hubble * 1.5 * All.CP.Omega0/(curtime*curtime*curtime)};
+  double yinit[2] = {1.5 * All.CP.Omega0/(curtime*curtime), pow(curtime,3)*hubble_function(curtime)/All.CP.Hubble * 1.5 * All.CP.Omega0/(curtime*curtime*curtime)};
   if(All.CP.RadiationOn)
       yinit[0] += (All.CP.OmegaG+All.CP.OmegaNu0)/pow(curtime,4);
 
@@ -109,7 +109,7 @@ double growth(double a, double * dDda)
   gsl_odeiv2_driver_free(drive);
   /*Store derivative of D if needed.*/
   if(dDda) {
-      *dDda = yinit[1]/pow(a,3)/(hubble_function(a)/All.Hubble);
+      *dDda = yinit[1]/pow(a,3)/(hubble_function(a)/All.CP.Hubble);
   }
   return yinit[0];
 }
@@ -210,5 +210,3 @@ void function_of_k_normalize_sigma(FunctionOfK * fk, double R, double sigma) {
         fk->table[i].P *= sigma / old;
     };
 }
-
-

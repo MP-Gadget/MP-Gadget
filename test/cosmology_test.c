@@ -33,7 +33,7 @@ void setup_cosmology(double Omega0, double OmegaBaryon, double H0)
     /*Default value for L=kpc v=km/s*/
     All.UnitTime_in_s = 3.08568e+16;
     /*Should be 0.1*/
-    All.Hubble = HUBBLE * All.UnitTime_in_s;
+    All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
     /*Do the main cosmology initialisation*/
     init_cosmology(&All.CP);
 }
@@ -58,12 +58,12 @@ static void test_cosmology(void ** state)
     assert_true(fabs(All.CP.OmegaG/5.045e-5 - 1) < 2e-3);
     /*Check the hubble function is sane*/
     All.CP.RadiationOn = 0;
-    assert_true(fabs(hubble_function(1) - All.Hubble) < 1e-5);
+    assert_true(fabs(hubble_function(1) - All.CP.Hubble) < 1e-5);
     All.CP.RadiationOn = 1;
-    assert_true(fabs(hubble_function(1) - All.Hubble* sqrt(1+All.CP.OmegaNu0+All.CP.OmegaG)) < 1e-7);
+    assert_true(fabs(hubble_function(1) - All.CP.Hubble* sqrt(1+All.CP.OmegaNu0+All.CP.OmegaG)) < 1e-7);
 
-    assert_true(fabs(All.Hubble - 0.1) < 1e-6);
-    assert_true((hubble_function(1) - All.Hubble) < 1e-5);
+    assert_true(fabs(All.CP.Hubble - 0.1) < 1e-6);
+    assert_true((hubble_function(1) - All.CP.Hubble) < 1e-5);
     assert_true(fabs(hubble_function(0.1) - hubble_function(1)/pow(0.1,3/2.)) < 1e-2);
     assert_true(fabs(GrowthFactor(0.5,1.)/0.5 -1) < 2e-4);
     //Check that massless neutrinos work

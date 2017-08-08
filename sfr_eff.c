@@ -940,7 +940,7 @@ void init_clouds(void)
         u4 *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
 
-        dens = 1.0e6 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
+        dens = 1.0e6 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
         /* to be guaranteed to get z=0 rate */
         set_global_time(1.0);
@@ -1016,7 +1016,7 @@ void init_clouds(void)
         message(0, "Run-away sets in for dens=%g\n", thresholdStarburst);
         message(0, "Dynamic range for quiescent star formation= %g\n", thresholdStarburst / All.PhysDensThresh);
 
-        sigma = 10.0 / All.Hubble * 1.0e-10 / pow(1.0e-3, 2);
+        sigma = 10.0 / All.CP.Hubble * 1.0e-10 / pow(1.0e-3, 2);
 
         message(0, "Isotherm sheet central density: %g   z0=%g\n",
                 M_PI * All.G * sigma * sigma / (2 * GAMMA_MINUS1) / u4,

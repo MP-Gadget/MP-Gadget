@@ -611,7 +611,7 @@ get_long_range_timestep_dloga()
                 omega = All.CP.OmegaCDM;
             }
             /* "Avg. radius" of smallest particle: (min_mass/total_mass)^1/3 */
-            dmean = pow(min_mass[type] / (omega * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)), 1.0 / 3);
+            dmean = pow(min_mass[type] / (omega * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)), 1.0 / 3);
 
             dloga1 = All.MaxRMSDisplacementFac * All.cf.hubble * All.cf.a * All.cf.a * DMIN(asmth, dmean) / sqrt(v_sum[type] / count_sum[type]);
             message(0, "type=%d  dmean=%g asmth=%g minmass=%g a=%g  sqrt(<p^2>)=%g  dlogmax=%g\n",
@@ -679,7 +679,7 @@ void reverse_and_apply_gravity()
         double disp = sqrt(P[i].GravAccel[0] * P[i].GravAccel[0] +
                 P[i].GravAccel[1] * P[i].GravAccel[1] + P[i].GravAccel[2] * P[i].GravAccel[2]);
 
-        disp *= 2.0 / (3 * All.Hubble * All.Hubble);
+        disp *= 2.0 / (3 * All.CP.Hubble * All.CP.Hubble);
 
         if(disp > dispmax)
             dispmax = disp;
@@ -687,7 +687,7 @@ void reverse_and_apply_gravity()
 
     MPI_Allreduce(&dispmax, &globmax, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
 
-    double dmean = pow(P[0].Mass / (All.CP.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G)), 1.0 / 3);
+    double dmean = pow(P[0].Mass / (All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G)), 1.0 / 3);
 
     const double fac = DMIN(1.0, dmean / globmax);
 
@@ -701,7 +701,7 @@ void reverse_and_apply_gravity()
         for(j = 0; j < 3; j++)
         {
             P[i].Vel[j] = 0;
-            P[i].Pos[j] += fac * P[i].GravAccel[j] * 2.0 / (3 * All.Hubble * All.Hubble);
+            P[i].Pos[j] += fac * P[i].GravAccel[j] * 2.0 / (3 * All.CP.Hubble * All.CP.Hubble);
             P[i].GravAccel[j] = 0;
         }
     }
