@@ -6,6 +6,7 @@
 #include "genic/allvars.h"
 #include "genic/proto.h"
 #include "cosmology.h"
+#include "mymalloc.h"
 #include "endrun.h"
 
 static double PowerSpec_EH(double k);
@@ -83,7 +84,7 @@ void read_power_table(void)
     }
     MPI_Bcast(&NPowerTable, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    PowerTable = malloc(NPowerTable * sizeof(struct pow_table));
+    PowerTable = mymalloc("Powertable", NPowerTable * sizeof(struct pow_table));
 
     if(ThisTask == 0) {
         int i = 0;

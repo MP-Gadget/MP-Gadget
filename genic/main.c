@@ -48,7 +48,7 @@ int main(int argc, char **argv)
 
   write_particle_data();
   if(NumPart)
-    free(P);
+    myfree(P);
 
   free_ffts();
 

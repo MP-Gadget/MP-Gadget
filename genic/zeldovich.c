@@ -12,6 +12,7 @@
 #include "genic/proto.h"
 #include "walltime.h"
 #include "endrun.h"
+#include "mymalloc.h"
 
 #define MESH2K(i) petapm_mesh_to_k(i)
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);
@@ -55,7 +56,8 @@ static void setup_grid() {
     offset[2] = 0;
     size[2] = Ngrid;
     NumPart *= size[2];
-    P = (struct part_data *) calloc(NumPart, sizeof(struct part_data));
+    P = (struct part_data *) mymalloc("PartTable", NumPart*sizeof(struct part_data));
+    memset(P, 0, NumPart*sizeof(struct part_data));
 
     int i;
     for(i = 0; i < NumPart; i ++) {
@@ -180,7 +182,7 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
     gsl_rng * random_generator_seed = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(random_generator_seed, Seed);
 
-    unsigned int * seedtable = malloc(sizeof(unsigned int) * Nmesh * Nmesh);
+    unsigned int * seedtable = mymalloc("Seedtable", sizeof(unsigned int) * Nmesh * Nmesh);
 
 #define SETSEED(i, j) { \
     unsigned int seed = 0x7fffffff * gsl_rng_uniform(random_generator_seed); \
@@ -275,7 +277,7 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
         gsl_rng_free(random_generator0);
         gsl_rng_free(random_generator1);
     }
-    free(seedtable);
+    myfree(seedtable);
 #if 0
     /* dump the gaussian field for debugging 
      * 
