@@ -300,66 +300,6 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
 #endif
 }
 
-/* unnormalized sinc function sin(x) / x */
-static double sinc_unnormed(double x) {
-    if(x < 1e-5 && x > -1e-5) {
-        double x2 = x * x;
-        return 1.0 - x2 / 6. + x2  * x2 / 120.;
-    } else {
-        return sin(x) / x;
-    }
-}
-static void cic_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
-    if(k2 == 0) {
-        /* remote zero mode corresponding to the mean */
-        value[0][0] = 0.0;
-        value[0][1] = 0.0;
-        return;
-    } 
-    double f = 1.0;
-    /* the CIC deconvolution kernel is
-     *
-     * sinc_unnormed(k_x L / 2 Nmesh) ** 2
-     *
-     * k_x = kpos * 2pi / L
-     *
-     * */
-    int k;
-    for(k = 0; k < 3; k ++) {
-        double tmp = (kpos[k] * M_PI) / Nmesh;
-        tmp = sinc_unnormed(tmp);
-        f *= 1. / (tmp * tmp);
-    }
-    /* 
-     * first decovolution is CIC in par->mesh
-     * second decovolution is correcting readout 
-     * I don't understand the second yet!
-     * */
-    double fac = f;
-    value[0][0] *= fac;
-    value[0][1] *= fac;
-}
-
-/* the transfer functions for force in fourier space applied to potential */
-/* super lanzcos in CH6 P 122 Digital Filters by Richard W. Hamming */
-static double super_lanzcos_diff_kernel_3(double w) {
-/* order N = 3*/
-    return 1. / 594 * 
-       (126 * sin(w) + 193 * sin(2 * w) + 142 * sin (3 * w) - 86 * sin(4 * w));
-}
-static double super_lanzcos_diff_kernel_2(double w) {
-/* order N = 2*/
-    return 1 / 126. * (58 * sin(w) + 67 * sin (2 * w) - 22 * sin(3 * w));
-}
-static double super_lanzcos_diff_kernel_1(double w) {
-/* order N = 1 */
-/* 
- * This is the same as GADGET-2 but in fourier space: 
- * see gadget-2 paper and Hamming's book.
- * c1 = 2 / 3, c2 = 1 / 12
- * */
-    return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
-}
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         /* density is smoothed in k space by a gaussian kernel of 1 mesh grid */
