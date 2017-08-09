@@ -33,13 +33,13 @@ OBJECTS  =  \
 	 densitykernel.o interp.o lightcone.o walltime.o\
 	 runtests.o \
 
-ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
+ICOBJECTS   = genic/main.o genic/power.o genic/allvars.o genic/params.o \
 		 petapm.o \
         paramset.o \
         utils-string.o \
 		 openmpsort.o \
-		genic-zeldovich.o \
-		genic-save.o  \
+		genic/zeldovich.o \
+		genic/save.o  \
 		walltime.o \
         mymalloc.o \
         cosmology.o \
@@ -66,6 +66,7 @@ depends:
 
 builddir:
 	mkdir -p $(DESTDIR)
+	mkdir -p $(DESTDIR)/genic
 
 $(DESTDIR)/MP-Gadget: $(OBJS)
 	$(MPICC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@

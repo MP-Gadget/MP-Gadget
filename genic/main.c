@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <mpi.h>
 
-#include "genic-allvars.h"
-#include "genic-proto.h"
+#include "genic/allvars.h"
+#include "genic/proto.h"
 #include "walltime.h"
 #include "mymalloc.h"
 #include "endrun.h"

@@ -3,9 +3,9 @@
 #include <math.h>
 #include <mpi.h>
 #include <gsl/gsl_integration.h>
-#include "genic-allvars.h"
-#include "genic-proto.h"
-#include "../cosmology.h"
+#include "genic/allvars.h"
+#include "genic/proto.h"
+#include "cosmology.h"
 #include "endrun.h"
 
 

@@ -4,11 +4,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <mpi.h>
-#include "genic-allvars.h"
-#include "genic-proto.h"
+#include "genic/allvars.h"
+#include "genic/proto.h"
 #include "endrun.h"
 #include "paramset.h"
-#include "../physconst.h"
+#include "physconst.h"
 
 #define OPTIONAL 0
 #define REQUIRED 1

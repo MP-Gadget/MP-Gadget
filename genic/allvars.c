@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
-#include "genic-allvars.h"
+#include "genic/allvars.h"
 
 int WhichSpectrum;
 

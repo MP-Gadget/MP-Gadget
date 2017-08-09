@@ -7,8 +7,8 @@
 #include <pfft.h>
 
 #include "petapm.h"
-#include "genic-allvars.h"
-#include "genic-proto.h"
+#include "genic/allvars.h"
+#include "genic/proto.h"
 #include "walltime.h"
 #include "endrun.h"
 #include "cosmology.h"

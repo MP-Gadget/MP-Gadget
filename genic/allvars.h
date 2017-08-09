@@ -1,11 +1,6 @@
 #include <stdint.h>
 #include "../cosmology.h"
 
-double PowerSpec(double kmag);
-int    read_parameter_file(char *fname);
-double PowerSpec_EH(double k);
-double PowerSpec_Efstathiou(double k);
-
 extern int      WhichSpectrum;
 
 extern double MaxMemoryPerCore;
