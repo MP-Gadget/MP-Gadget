@@ -4,7 +4,7 @@
 
 int WhichSpectrum;
 
-int Nmesh, Nsample, Ngrid;
+int Nmesh, Ngrid;
 
 
 char * FileWithInputSpectrum;

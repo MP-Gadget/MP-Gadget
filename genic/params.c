@@ -50,7 +50,7 @@ create_parameters()
     param_declare_double(ps, "BoxSize", REQUIRED, 0, "");
     param_declare_double(ps, "Redshift", REQUIRED, 0, "");
     param_declare_int(ps, "Nmesh", REQUIRED, 0, "");
-    param_declare_int(ps, "Nsample", REQUIRED, 0, "");
+    param_declare_int(ps, "Nsample", OPTIONAL, 0, "Ignored.");
     param_declare_int(ps, "Ngrid", REQUIRED, 0, "");
     param_declare_int(ps, "Seed", REQUIRED, 0, "");
     param_declare_int(ps, "SphereMode", OPTIONAL, 1, "Ignored.");
@@ -106,7 +106,6 @@ void read_parameterfile(char *fname)
     Box = param_get_double(ps, "BoxSize");
     Redshift = param_get_double(ps, "Redshift");
     Nmesh = param_get_int(ps, "Nmesh");
-    Nsample = param_get_int(ps, "Nsample");
     Ngrid = param_get_int(ps, "Ngrid");
     FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
     Seed = param_get_int(ps, "Seed");
