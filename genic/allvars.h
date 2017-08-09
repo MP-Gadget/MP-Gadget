@@ -17,7 +17,6 @@ extern int Seed;
 
 extern int      NumPart;
 
-
 extern struct part_data 
 {
   double Pos[3];
@@ -27,7 +26,6 @@ extern struct part_data
   float Mass;
   int RegionInd;
 } *P;
-
 
 extern double InitTime;
 extern double Redshift;
@@ -47,6 +45,6 @@ extern double G;
 
 extern Cosmology CP;
 
-extern double OmegaDM_2ndSpecies, Sigma8;
+extern double Sigma8;
 extern double PrimordialIndex;
 extern double ShapeGamma;

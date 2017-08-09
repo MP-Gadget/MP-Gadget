@@ -8,6 +8,14 @@
 #include "cosmology.h"
 #include "endrun.h"
 
+static double PowerSpec_Efstathiou(double k);
+static double PowerSpec_EH(double k);
+static double PowerSpec_Tabulated(double k);
+static double sigma2_int(double k, void * params);
+static double TopHatSigma2(double R);
+static double tk_eh(double k);
+static int    compare_logk(const void *a, const void *b);
+
 
 static double AA, BB, CC;
 static double nu;
@@ -20,7 +28,6 @@ static struct pow_table
   double logk, logD;
 }
  *PowerTable;
-
 
 double PowerSpec(double k)
 {
@@ -46,7 +53,6 @@ double PowerSpec(double k)
 
   return power;
 }
-
 
 void read_power_table(void)
 {

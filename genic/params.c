@@ -40,7 +40,7 @@ create_parameters()
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps,    "ProduceGas", REQUIRED, 0, "");
-    param_declare_double(ps, "OmegaDM_2ndSpecies", REQUIRED, 0, "");
+    param_declare_double(ps, "OmegaDM_2ndSpecies", OPTIONAL, 0, "Ignored");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Write a IC similiar to a FastPM output");
     param_declare_double(ps, "HubbleParam", REQUIRED, 0, "");
     param_declare_double(ps, "ShapeGamma", OPTIONAL, 0.201, "");
@@ -53,7 +53,7 @@ create_parameters()
     param_declare_int(ps, "Nsample", REQUIRED, 0, "");
     param_declare_int(ps, "Ngrid", REQUIRED, 0, "");
     param_declare_int(ps, "Seed", REQUIRED, 0, "");
-    param_declare_int(ps, "SphereMode", OPTIONAL, 1, " if 1 only modes with |k| < k_Nyquist are used. otherwise all modes are filled. ");
+    param_declare_int(ps, "SphereMode", OPTIONAL, 1, "Ignored.");
     param_declare_int(ps, "WhichSpectrum", OPTIONAL, 2, "Type of spectrum, 2 for file "); 
     param_declare_double(ps, "UnitVelocity_in_cm_per_s", REQUIRED, 0, "");
     param_declare_double(ps, "UnitLength_in_cm", REQUIRED, 0, ""); 
@@ -94,9 +94,8 @@ void read_parameterfile(char *fname)
     CP.HubbleParam = param_get_double(ps, "HubbleParam");
     CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
     CP.RadiationOn = param_get_double(ps, "RadiationOn");
-    /*Fixme: when massive neutrinos are implemented more, remove*/
+    /*This should be removed if massive neutrinos are implemented*/
     CP.MasslessNeutrinosOn = 1;
-    OmegaDM_2ndSpecies = param_get_double(ps, "OmegaDM_2ndSpecies");
     MaxMemoryPerCore = param_get_double(ps, "MaxMemoryPerCore");
     ProduceGas = param_get_int(ps, "ProduceGas");
     PowerIsRedshiftZero = param_get_int(ps, "PowerIsRedshiftZero");
