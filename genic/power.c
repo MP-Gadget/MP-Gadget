@@ -8,17 +8,14 @@
 #include "cosmology.h"
 #include "endrun.h"
 
-static double PowerSpec_Efstathiou(double k);
 static double PowerSpec_EH(double k);
 static double PowerSpec_Tabulated(double k);
 static double sigma2_int(double k, void * params);
 static double TopHatSigma2(double R);
 static double tk_eh(double k);
-static int    compare_logk(const void *a, const void *b);
+static int compare_logk(const void *a, const void *b);
 
 
-static double AA, BB, CC;
-static double nu;
 static double Norm;
 
 static int NPowerTable;
@@ -35,16 +32,12 @@ double PowerSpec(double k)
 
   switch (WhichSpectrum)
   {
-    case 1:
-      power = PowerSpec_EH(k);
-      break;
-
     case 2:
       power = PowerSpec_Tabulated(k);
       break;
 
     default:
-      power = PowerSpec_Efstathiou(k);
+      power = PowerSpec_EH(k);
       break;
   }
 
@@ -144,14 +137,7 @@ int compare_logk(const void *a, const void *b)
 
 void initialize_powerspectrum(void)
 {
-    if(WhichSpectrum == 0) {
-        AA = 6.4 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-        BB = 3.0 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-        CC = 1.7 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-        nu = 1.13;
-    }
-
-    if(WhichSpectrum > 1)
+    if(WhichSpectrum == 2)
         read_power_table();
 
     Norm = 1.0;
@@ -212,19 +198,10 @@ double PowerSpec_Tabulated(double k)
   return P;
 }
 
-double PowerSpec_Efstathiou(double k)
-{
-  return k / pow(1 + pow(AA * k + pow(BB * k, 1.5) + CC * CC * k * k, nu), 2 / nu) * pow(k, PrimordialIndex -1.0);
-}
-
-
-
 double PowerSpec_EH(double k)	/* Eisenstein & Hu */
 {
   return k * pow(tk_eh(k), 2)* pow(k, PrimordialIndex - 1.0);
 }
-
-
 
 
 double tk_eh(double k)		/* from Martin White */
