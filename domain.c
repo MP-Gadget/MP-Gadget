@@ -968,6 +968,18 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     message(0, "TopNodes before appending=%d\n", NTopNodes);
     int64_t maxcost=0;
 
+    /* At this point we have refined the local particle tree so that each
+     * topNode contains a Cost and Count below the cost threshold. We have then
+     * done a global merge of the particle tree. Some of our topNodes may now contain
+     * more particles than the Cost threshold, but doing refinement using the local
+     * algorithm is complicated - particles inside any particular topNode may be
+     * on another processor. So we do a local volume based refinement here. This
+     * just cuts each topNode above the threshold into 8 equal-sized portions by
+     * subdividing the peano key.
+     * NOTE: this does not correctly preserve costs! Costs are just divided by 8,
+     * because recomputing them for the daughter nodes will be expensive.
+     * In practice this seems to work fine, probably because the cost distribution
+     * is not that unbalanced. */
     /*Note that NTopNodes will change inside the loop*/
     for(i = 0, errflag = 0; i < NTopNodes; i++)
     {
