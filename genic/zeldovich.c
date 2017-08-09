@@ -5,6 +5,7 @@
 #include <math.h>
 /* do NOT use complex.h it breaks the code */
 #include <pfft.h>
+#include <gsl/gsl_rng.h>
 
 #include "petapm.h"
 #include "genic/allvars.h"

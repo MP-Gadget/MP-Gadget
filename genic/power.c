@@ -319,9 +319,9 @@ void print_spec(void)
       }
       gf = GrowthFactor(0.001, 1.0) / (1.0 / 0.001);
 
-      DDD = GrowthFactor(1.0 / (Redshift + 1), 1.0);
+      DDD = GrowthFactor(InitTime, 1.0);
 
-      fprintf(fd, "%12g %12g %12g\n", Redshift, DDD, Norm);	/* print actual starting redshift and 
+      fprintf(fd, "%12g %12g %12g\n", 1/InitTime-1, DDD, Norm);	/* print actual starting redshift and 
 							   linear growth factor for this cosmology */
       kstart = 2 * M_PI / (1000.0 * (3.085678e24 / UnitLength_in_cm));	/* 1000 Mpc/h */
       kend = 2 * M_PI / (0.001 * (3.085678e24 / UnitLength_in_cm));	/* 0.001 Mpc/h */

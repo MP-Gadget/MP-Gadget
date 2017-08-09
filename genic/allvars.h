@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "../cosmology.h"
+#include "cosmology.h"
 
 extern int      WhichSpectrum;
 
@@ -28,14 +28,11 @@ extern struct part_data
 } *P;
 
 extern double InitTime;
-extern double Redshift;
 extern double MassTable[6];
-
 
 extern char * OutputDir, * FileBase;
 extern int  NumPartPerFile;
 extern int  NumWriters;
-
 
 extern int      ThisTask, NTask;
 

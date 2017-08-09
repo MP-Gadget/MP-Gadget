@@ -20,7 +20,6 @@ int PowerIsRedshiftZero;
 struct part_data *P;
 
 double InitTime;
-double Redshift;
 double MassTable[6];
 
 

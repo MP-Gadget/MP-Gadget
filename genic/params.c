@@ -13,17 +13,6 @@
 #define OPTIONAL 0
 #define REQUIRED 1
 
-void set_units(void)		/* ... set some units */
-{
-  UnitTime_in_s = UnitLength_in_cm / UnitVelocity_in_cm_per_s;
-  InitTime = 1 / (1 + Redshift);
-
-  G = GRAVITY / pow(UnitLength_in_cm, 3) * UnitMass_in_g * pow(UnitTime_in_s, 2);
-  CP.Hubble = HUBBLE * UnitTime_in_s;
-  init_cosmology(&CP);
-}
-
-
 static ParameterSet *
 create_parameters()
 {
@@ -104,7 +93,7 @@ void read_parameterfile(char *fname)
     Sigma8 = param_get_double(ps, "Sigma8");
     PrimordialIndex = param_get_double(ps, "PrimordialIndex");
     Box = param_get_double(ps, "BoxSize");
-    Redshift = param_get_double(ps, "Redshift");
+    double Redshift = param_get_double(ps, "Redshift");
     Nmesh = param_get_int(ps, "Nmesh");
     Ngrid = param_get_int(ps, "Ngrid");
     FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
@@ -122,4 +111,11 @@ void read_parameterfile(char *fname)
     if(Ngrid == 0) {
         Ngrid = Nmesh;
     }
+    /*Set some units*/
+    InitTime = 1 / (1 + Redshift);
+    UnitTime_in_s = UnitLength_in_cm / UnitVelocity_in_cm_per_s;
+
+    G = GRAVITY / pow(UnitLength_in_cm, 3) * UnitMass_in_g * pow(UnitTime_in_s, 2);
+    CP.Hubble = HUBBLE * UnitTime_in_s;
+    init_cosmology(&CP);
 }

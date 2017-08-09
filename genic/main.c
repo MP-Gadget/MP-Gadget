@@ -35,7 +35,6 @@ int main(int argc, char **argv)
   walltime_init(&CT);
   mymalloc_init(MaxMemoryPerCore * 1024 * 1024);
 
-  set_units();
 
   initialize_powerspectrum();
 
