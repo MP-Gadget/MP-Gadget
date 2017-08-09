@@ -34,12 +34,11 @@ OBJECTS  =  \
 	 runtests.o \
 
 ICOBJECTS   = genic/main.o genic/power.o genic/allvars.o genic/params.o \
+		genic/zeldovich.o genic/save.o \
 		 petapm.o \
         paramset.o \
         utils-string.o \
 		 openmpsort.o \
-		genic/zeldovich.o \
-		genic/save.o  \
 		walltime.o \
         mymalloc.o \
         cosmology.o \

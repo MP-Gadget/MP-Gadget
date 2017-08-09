@@ -38,7 +38,3 @@ Cosmology CP;
 double OmegaDM_2ndSpecies, Sigma8;
 double ShapeGamma;
 double PrimordialIndex;
-
-int WDM_On;
-int WDM_Vtherm_On;
-double WDM_PartMass_in_kev;

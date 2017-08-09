@@ -45,17 +45,6 @@ double PowerSpec(double k)
       break;
     }
 
-
-  if(WDM_On == 1)
-    {
-      /* Eqn. (A9) in Bode, Ostriker & Turok (2001), assuming gX=1.5  */
-      alpha =
-	0.048 * pow((CP.Omega0 - CP.OmegaBaryon) / 0.4, 0.15) * pow(CP.HubbleParam / 0.65,
-							     1.3) * pow(1.0 / WDM_PartMass_in_kev, 1.15);
-      Tf = pow(1 + pow(alpha * k * (3.085678e24 / UnitLength_in_cm), 2 * 1.2), -5.0 / 1.2);
-      power *= Tf * Tf;
-    }
-
   if(WhichSpectrum != 2) {
     /* because a tabulated power is already tilted */
     //printf("PrimordialIndex =%g is not used for Table Power spectrum\n", PrimordialIndex);
@@ -308,102 +297,6 @@ double sigma2_int(double k, void * params)
 
   return x;
 
-}
-
-/*  Here comes the stuff to compute the thermal WDM velocity distribution */
-
-
-#define LENGTH_FERMI_DIRAC_TABLE 2000
-#define MAX_FERMI_DIRAC          20.0
-
-double fermi_dirac_vel[LENGTH_FERMI_DIRAC_TABLE];
-double fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE];
-
-double WDM_V0 = 0;
-
-double fermi_dirac_kernel(double x, void * params)
-{
-  return x * x / (exp(x) + 1);
-}
-
-void fermi_dirac_init(void)
-{
-  int i;
-
-  /*These functions are so smooth that we don't need much space*/
-  gsl_integration_workspace * w = gsl_integration_workspace_alloc (100);
-  double abserr;
-  gsl_function F;
-  F.function = &fermi_dirac_kernel;
-  F.params = NULL;
-
-  for(i = 0; i < LENGTH_FERMI_DIRAC_TABLE; i++)
-    {
-      fermi_dirac_vel[i] = MAX_FERMI_DIRAC * i / (LENGTH_FERMI_DIRAC_TABLE - 1.0);
-      gsl_integration_qag (&F, 0, fermi_dirac_vel[i], 0, 1e-6,100,GSL_INTEG_GAUSS61, w,&(fermi_dirac_cumprob[i]), &abserr);
-    }
-
-  gsl_integration_workspace_free (w);
-  for(i = 0; i < LENGTH_FERMI_DIRAC_TABLE; i++)
-    fermi_dirac_cumprob[i] /= fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE - 1];
-
-  WDM_V0 = 0.012 * (1 + Redshift) * pow((CP.Omega0 - CP.OmegaBaryon) / 0.3, 1.0 / 3) * pow(CP.HubbleParam / 0.65,
-										    2.0 / 3) * pow(1.0 /
-												   WDM_PartMass_in_kev,
-												   4.0 / 3);
-
-  if(ThisTask == 0)
-    printf("\nWarm dark matter rms velocity dispersion at starting redshift = %g km/sec\n\n",
-	   3.59714 * WDM_V0);
-
-  WDM_V0 *= 1.0e5 / UnitVelocity_in_cm_per_s;
-
-  /* convert from peculiar velocity to gadget's cosmological velocity */
-  WDM_V0 *= sqrt(1 + Redshift);
-}
-
-
-
-double get_fermi_dirac_vel(void)
-{
-  int i;
-  double p, u;
-
-  p = drand48();
-  i = 0;
-
-  while(i < LENGTH_FERMI_DIRAC_TABLE - 2)
-    if(p > fermi_dirac_cumprob[i + 1])
-      i++;
-    else
-      break;
-
-  u = (p - fermi_dirac_cumprob[i]) / (fermi_dirac_cumprob[i + 1] - fermi_dirac_cumprob[i]);
-
-  return fermi_dirac_vel[i] * (1 - u) + fermi_dirac_vel[i + 1] * u;
-}
-
-
-
-void add_WDM_thermal_speeds(float *vel)
-{
-  double v, phi, theta, vx, vy, vz;
-
-  if(WDM_V0 == 0)
-    fermi_dirac_init();
-
-  v = WDM_V0 * get_fermi_dirac_vel();
-
-  phi = 2 * M_PI * drand48();
-  theta = acos(2 * drand48() - 1);
-
-  vx = v * sin(theta) * cos(phi);
-  vy = v * sin(theta) * sin(phi);
-  vz = v * cos(theta);
-
-  vel[0] += vx;
-  vel[1] += vy;
-  vel[2] += vz;
 }
 
 static double A, B, alpha, beta, V, gf;

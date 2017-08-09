@@ -50,7 +50,3 @@ extern Cosmology CP;
 extern double OmegaDM_2ndSpecies, Sigma8;
 extern double PrimordialIndex;
 extern double ShapeGamma;
-
-extern int    WDM_On;
-extern int    WDM_Vtherm_On;
-extern double WDM_PartMass_in_kev;

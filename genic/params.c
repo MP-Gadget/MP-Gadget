@@ -57,9 +57,9 @@ create_parameters()
     param_declare_double(ps, "UnitLength_in_cm", REQUIRED, 0, ""); 
     param_declare_double(ps, "UnitMass_in_g", REQUIRED, 0, "");
     param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", REQUIRED, 0, "");
-    param_declare_int(ps, "WDM_On", REQUIRED, 0, "");
-    param_declare_int(ps, "WDM_Vtherm_On", REQUIRED, 0, "");
-    param_declare_double(ps, "WDM_PartMass_in_kev", REQUIRED, 0, "");
+    param_declare_int(ps, "WDM_On", OPTIONAL, 0, "Ignored.");
+    param_declare_int(ps, "WDM_Vtherm_On", OPTIONAL, 0, "Ignored.");
+    param_declare_double(ps, "WDM_PartMass_in_kev", OPTIONAL, 0, "Ignored.");
 
     param_declare_int(ps, "NumPartPerFile", OPTIONAL, 1024 * 1024 * 128, "");
     param_declare_int(ps, "NumWriters", OPTIONAL, 0, "");
@@ -116,10 +116,6 @@ void read_parameterfile(char *fname)
     UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
     UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
     InputSpectrum_UnitLength_in_cm = param_get_double(ps, "InputSpectrum_UnitLength_in_cm");
-    WDM_On = param_get_int(ps, "WDM_On");
-    WDM_Vtherm_On = param_get_int(ps, "WDM_Vtherm_On");
-    WDM_PartMass_in_kev = param_get_double(ps, "WDM_PartMass_in_kev");
-
     NumPartPerFile = param_get_int(ps, "NumPartPerFile");
     NumWriters = param_get_int(ps, "NumWriters");
 
