@@ -9,13 +9,9 @@
 #include "endrun.h"
 
 
-static double R8;
-static double r_tophat;
-
 static double AA, BB, CC;
 static double nu;
 static double Norm;
-
 
 static int NPowerTable;
 
@@ -28,10 +24,10 @@ static struct pow_table
 
 double PowerSpec(double k)
 {
-  double power, alpha, Tf;
+  double power;
 
   switch (WhichSpectrum)
-    {
+  {
     case 1:
       power = PowerSpec_EH(k);
       break;
@@ -43,13 +39,10 @@ double PowerSpec(double k)
     default:
       power = PowerSpec_Efstathiou(k);
       break;
-    }
-
-  if(WhichSpectrum != 2) {
-    /* because a tabulated power is already tilted */
-    //printf("PrimordialIndex =%g is not used for Table Power spectrum\n", PrimordialIndex);
-    power *= pow(k, PrimordialIndex - 1.0);
   }
+
+  /*Normalise the power spectrum*/
+  power *= Norm;
 
   return power;
 }
@@ -145,32 +138,29 @@ int compare_logk(const void *a, const void *b)
 
 void initialize_powerspectrum(void)
 {
-    double res;
+    if(WhichSpectrum == 0) {
+        AA = 6.4 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
+        BB = 3.0 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
+        CC = 1.7 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
+        nu = 1.13;
+    }
 
-    InitTime = 1 / (1 + Redshift);
-
-    AA = 6.4 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-    BB = 3.0 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-    CC = 1.7 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-    nu = 1.13;
-
-    R8 = 8 * (3.085678e24 / UnitLength_in_cm);	/* 8 Mpc/h */
-
-    if(WhichSpectrum == 2)
+    if(WhichSpectrum > 1)
         read_power_table();
 
     Norm = 1.0;
-    res = TopHatSigma2(R8);
-
-    message(0, "Normalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
-
-    if(Sigma8 > 0) {
-        message(0, "Normalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
-
+    if (Sigma8 > 0) {
+        double R8 = 8 * (3.085678e24 / UnitLength_in_cm);	/* 8 Mpc/h */
+        double res = TopHatSigma2(R8);
         Norm = Sigma8 * Sigma8 / res;
-
-        message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n", Sigma8, Norm);
+        message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g). \n", Sigma8, Norm);
     }
+    if(PowerIsRedshiftZero) {
+        double Dplus = GrowthFactor(InitTime, 1.0);
+        Norm /= sqrt(Dplus);
+        message(0,"Growth factor to z=0: %g \n", Dplus);
+    }
+
 }
 
 double PowerSpec_Tabulated(double k)
@@ -204,7 +194,7 @@ double PowerSpec_Tabulated(double k)
 
   logD = (1 - u) * PowerTable[mybinlow].logD + u * PowerTable[mybinhigh].logD;
 
-  P = Norm*pow(10.0, logD);//*2*M_PI*M_PI;
+  P = pow(10.0, logD);//*2*M_PI*M_PI;
 
   //  Delta2 = pow(10.0, logD);
 
@@ -218,14 +208,14 @@ double PowerSpec_Tabulated(double k)
 
 double PowerSpec_Efstathiou(double k)
 {
-  return Norm * k / pow(1 + pow(AA * k + pow(BB * k, 1.5) + CC * CC * k * k, nu), 2 / nu);
+  return k / pow(1 + pow(AA * k + pow(BB * k, 1.5) + CC * CC * k * k, nu), 2 / nu) * pow(k, PrimordialIndex -1.0);
 }
 
 
 
 double PowerSpec_EH(double k)	/* Eisenstein & Hu */
 {
-  return Norm * k * pow(tk_eh(k), 2);
+  return k * pow(tk_eh(k), 2)* pow(k, PrimordialIndex - 1.0);
 }
 
 
@@ -265,13 +255,11 @@ double tk_eh(double k)		/* from Martin White */
 
 double TopHatSigma2(double R)
 {
-  r_tophat = R;
-
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
   double result,abserr;
   gsl_function F;
   F.function = &sigma2_int;
-  F.params = NULL;
+  F.params = &R;
 
   /* note: 500/R is here chosen as integration boundary (infinity) */
   gsl_integration_qags (&F, 0, 500. / R, 0, 1e-4,1000,w,&result, &abserr);
@@ -285,6 +273,7 @@ double sigma2_int(double k, void * params)
 {
   double kr, kr3, kr2, w, x;
 
+  double r_tophat = *(double *) params;
   kr = r_tophat * k;
   kr2 = kr * kr;
   kr3 = kr2 * kr;

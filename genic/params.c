@@ -16,6 +16,7 @@
 void set_units(void)		/* ... set some units */
 {
   UnitTime_in_s = UnitLength_in_cm / UnitVelocity_in_cm_per_s;
+  InitTime = 1 / (1 + Redshift);
 
   G = GRAVITY / pow(UnitLength_in_cm, 3) * UnitMass_in_g * pow(UnitTime_in_s, 2);
   CP.Hubble = HUBBLE * UnitTime_in_s;
@@ -44,6 +45,7 @@ create_parameters()
     param_declare_double(ps, "HubbleParam", REQUIRED, 0, "");
     param_declare_double(ps, "ShapeGamma", OPTIONAL, 0.201, "");
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renoramlize Sigma8 to this number if positive");
+    param_declare_int(ps, "PowerIsRedshiftZero", OPTIONAL, 1, "If true, rescale the power spectrum by the linear growth factor.");
     param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
     param_declare_double(ps, "BoxSize", REQUIRED, 0, "");
     param_declare_double(ps, "Redshift", REQUIRED, 0, "");
@@ -97,6 +99,7 @@ void read_parameterfile(char *fname)
     OmegaDM_2ndSpecies = param_get_double(ps, "OmegaDM_2ndSpecies");
     MaxMemoryPerCore = param_get_double(ps, "MaxMemoryPerCore");
     ProduceGas = param_get_int(ps, "ProduceGas");
+    PowerIsRedshiftZero = param_get_int(ps, "PowerIsRedshiftZero");
     UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
     ShapeGamma = param_get_double(ps, "ShapeGamma");
     Sigma8 = param_get_double(ps, "Sigma8");

@@ -11,7 +11,6 @@
 #include "genic/proto.h"
 #include "walltime.h"
 #include "endrun.h"
-#include "cosmology.h"
 
 #define MESH2K(i) petapm_mesh_to_k(i)
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);
@@ -25,13 +24,9 @@ static void readout_force_z(int i, double * mesh, double weight);
 static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k);
 static void setup_grid();
 
-static double Dplus;
-
 void initialize_ffts(void) {
     petapm_init(Box, Nmesh, 1);
     setup_grid();
-
-    Dplus = GrowthFactor(InitTime, 1.0);
 }
 
 uint64_t ijk_to_id(int i, int j, int k) {
@@ -273,7 +268,7 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
                     p_of_k = 0;
                 }
                 p_of_k *= PowerSpec(kmag);
-                double delta = fac * sqrt(p_of_k) / Dplus;
+                double delta = fac * sqrt(p_of_k);
                 rho_k[ip][0] = delta * cos(phase);
                 rho_k[ip][1] = delta * sin(phase);
                 if(hermitian) {

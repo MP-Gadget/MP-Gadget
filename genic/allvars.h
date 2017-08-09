@@ -9,6 +9,7 @@ extern int      Nmesh, Nsample, Ngrid;
 
 extern int      SphereMode;
 extern int UsePeculiarVelocity;
+extern int PowerIsRedshiftZero;
 
 extern char   *  FileWithInputSpectrum;
 extern double   Box;
