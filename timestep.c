@@ -163,7 +163,7 @@ find_timesteps(void)
 
     /*Update the PM timestep size */
     if(is_PM_timestep(All.Ti_Current)) {
-        inttime_t dti_max = find_next_outputtime(All.Ti_Current)-PM.start;
+        inttime_t dti_max = find_next_outputtime(All.Ti_Current)-PM.Ti_kick;
         PM.length = get_long_range_timestep_ti(dti_max);
         PM.start = PM.Ti_kick;
     }
