@@ -329,7 +329,7 @@ domain_balance(void)
 
     walltime_measure("/Domain/Decompose/assignbalance");
 
-    int status = domain_check_memory_bound(1, TopLeafWork, TopLeafCount);
+    int status = domain_check_memory_bound(0, TopLeafWork, TopLeafCount);
     walltime_measure("/Domain/Decompose/memorybound");
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
@@ -966,7 +966,6 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     /* now let's see whether we should still append more nodes, based on the estimated cumulative cost/count in each cell */
 
     message(0, "TopNodes before appending=%d\n", NTopNodes);
-    int64_t maxcost=0;
 
     /* At this point we have refined the local particle tree so that each
      * topNode contains a Cost and Count below the cost threshold. We have then
@@ -1008,15 +1007,13 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
                 NTopNodes += 8;
             }
         }
-        if(topNodes[i].Cost > maxcost)
-            maxcost = topNodes[i].Cost;
     }
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     if(errsum)
         return errsum;
 
-    message(0, "Final NTopNodes = %d per segment = %g. Max topnode cost/limit: %g\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask), 1.0*maxcost/costlimit);
+    message(0, "Final NTopNodes = %d per segment = %g.\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask));
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
     return 0;
