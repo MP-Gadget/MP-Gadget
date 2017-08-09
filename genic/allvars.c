@@ -34,5 +34,4 @@ double InputSpectrum_UnitLength_in_cm;
 double G;
 Cosmology CP;
 double Sigma8;
-double ShapeGamma;
 double PrimordialIndex;

@@ -44,4 +44,3 @@ extern Cosmology CP;
 
 extern double Sigma8;
 extern double PrimordialIndex;
-extern double ShapeGamma;
