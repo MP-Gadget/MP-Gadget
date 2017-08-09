@@ -56,15 +56,6 @@ double PowerSpec(double k)
       power *= Tf * Tf;
     }
 
-#if defined(MULTICOMPONENTGLASSFILE) && defined(DIFFERENT_TRANSFER_FUNC)
-
-  if(Type == 2)
-    {
-      power = PowerSpec_DM_2ndSpecies(k);
-    }
-
-#endif
-
   if(WhichSpectrum != 2) {
     /* because a tabulated power is already tilted */
     //printf("PrimordialIndex =%g is not used for Table Power spectrum\n", PrimordialIndex);
@@ -73,22 +64,6 @@ double PowerSpec(double k)
 
   return power;
 }
-
-
-double PowerSpec_DM_2ndSpecies(double k)
-{
-  /* at the moment, we simply call the Eistenstein & Hu spectrum
-   * for the second DM species, but this could be replaced with
-   * something more physical, say for neutrinos
-   */
-
-  double power;
-
-  power = Norm * k * pow(tk_eh(k), 2);
-
-  return power;
-}
-
 
 
 void read_power_table(void)
@@ -194,10 +169,6 @@ void initialize_powerspectrum(void)
 
     if(WhichSpectrum == 2)
         read_power_table();
-
-#ifdef DIFFERENT_TRANSFER_FUNC
-    Type = 1;
-#endif
 
     Norm = 1.0;
     res = TopHatSigma2(R8);

@@ -51,11 +51,6 @@ extern double OmegaDM_2ndSpecies, Sigma8;
 extern double PrimordialIndex;
 extern double ShapeGamma;
 
-
-#ifdef DIFFERENT_TRANSFER_FUNC
-extern int Type, MinType, MaxType;
-#endif
-
 extern int    WDM_On;
 extern int    WDM_Vtherm_On;
 extern double WDM_PartMass_in_kev;

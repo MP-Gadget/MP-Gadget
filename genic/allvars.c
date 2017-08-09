@@ -39,10 +39,6 @@ double OmegaDM_2ndSpecies, Sigma8;
 double ShapeGamma;
 double PrimordialIndex;
 
-#ifdef DIFFERENT_TRANSFER_FUNC
-int Type, MinType, MaxType;
-#endif
-
 int WDM_On;
 int WDM_Vtherm_On;
 double WDM_PartMass_in_kev;
