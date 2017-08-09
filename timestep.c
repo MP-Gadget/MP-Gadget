@@ -191,7 +191,7 @@ find_timesteps(void)
         const int i = ActiveParticle[pa];
 
         if(P[i].Ti_kick != P[i].Ti_drift) {
-            endrun(1, "Particle's short range Kick and Drift inttime are out of sync\n");
+            endrun(1, "Inttimes out of sync: Particle %d (ID=%ld) Kick=%o != Drift=%o\n", i, P[i].ID, P[i].Ti_kick, P[i].Ti_drift);
         }
 
         int dti;
