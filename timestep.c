@@ -50,7 +50,7 @@ static inttime_t get_timestep_ti(const int p, const inttime_t dti_max);
 static int get_timestep_bin(inttime_t dti);
 static void do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend);
 static void do_the_long_range_kick(inttime_t tistart, inttime_t tiend);
-static inttime_t get_long_range_timestep_ti(void);
+static inttime_t get_long_range_timestep_ti(const inttime_t dti_max);
 
 /*Initialise the integer timeline*/
 void
@@ -163,7 +163,8 @@ find_timesteps(void)
 
     /*Update the PM timestep size */
     if(is_PM_timestep(All.Ti_Current)) {
-        PM.length = get_long_range_timestep_ti();
+        inttime_t dti_max = find_next_outputtime(All.Ti_Current)-PM.start;
+        PM.length = get_long_range_timestep_ti(dti_max);
         PM.start = PM.Ti_kick;
     }
 
@@ -626,11 +627,13 @@ get_long_range_timestep_dloga()
 
 /* backward compatibility with the old loop. */
 inttime_t
-get_long_range_timestep_ti()
+get_long_range_timestep_ti(const inttime_t dti_max)
 {
     double dloga = get_long_range_timestep_dloga();
     int dti = dti_from_dloga(dloga);
     dti = round_down_power_of_two(dti);
+    if(dti > dti_max)
+        dti = dti_max;
     message(0, "Maximal PM timestep: dloga = %g  (%g)\n", dloga_from_dti(dti), All.MaxSizeTimestep);
     return dti;
 }
