@@ -252,11 +252,6 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
                 int64_t kmag2 = (int64_t)MESH2K(i) * MESH2K(i) + (int64_t)MESH2K(j) * MESH2K(j) + (int64_t)MESH2K(k) * MESH2K(k);
                 double kmag = sqrt(kmag2) * 2 * M_PI / Box;
                 double p_of_k = - log(ampl);
-			    if(SphereMode == 1) {
-			      if(kmag2 >= (Nsample/ 2) * (Nsample / 2))	/* select a sphere in k-space */ {
-                    p_of_k = 0;
-                  }
-			    }
                 if(i == Nmesh / 2) {
                     p_of_k = 0;
                 }

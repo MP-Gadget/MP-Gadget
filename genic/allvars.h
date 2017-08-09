@@ -7,7 +7,6 @@ extern double MaxMemoryPerCore;
 
 extern int      Nmesh, Nsample, Ngrid;
 
-extern int      SphereMode;
 extern int UsePeculiarVelocity;
 extern int PowerIsRedshiftZero;
 

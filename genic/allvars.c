@@ -4,7 +4,6 @@
 
 int WhichSpectrum;
 
-int SphereMode;
 int Nmesh, Nsample, Ngrid;
 
 

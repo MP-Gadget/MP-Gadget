@@ -111,7 +111,6 @@ void read_parameterfile(char *fname)
     Ngrid = param_get_int(ps, "Ngrid");
     FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
     Seed = param_get_int(ps, "Seed");
-    SphereMode = param_get_int(ps, "SphereMode");
     OutputDir = param_get_string(ps, "OutputDir");
     FileBase = param_get_string(ps, "FileBase");
     WhichSpectrum = param_get_int(ps, "WhichSpectrum");
