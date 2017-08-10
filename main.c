@@ -60,6 +60,7 @@ int main(int argc, char **argv)
         printf("Size of particle structure       %td  [bytes]\n",sizeof(struct particle_data));
         printf("Size of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
         printf("Size of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
+        printf("Size of star particle structure   %td  [bytes]\n",sizeof(struct star_particle_data));
     }
 
     read_parameter_file(argv[1]);	/* ... read in parameters for this run */

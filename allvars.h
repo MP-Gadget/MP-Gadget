@@ -591,7 +591,7 @@ struct bh_particle_data {
 extern struct star_particle_data
 {
     struct particle_data_ext base;
-    MyFloat FormationTime;		/*!< formation time of star particle: needed to tell when wind is active. */
+    MyFloat FormationTime;		/*!< formation time of star particle */
     MyFloat Metallicity;		/*!< metallicity of star particle */
 } * StarP;
 
