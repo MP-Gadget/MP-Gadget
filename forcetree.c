@@ -141,12 +141,12 @@ int force_tree_build(int npart)
  * Returns a value between 0 and 7. If particles are very close,
  * the tree subnode is randomised.
  * */
-int get_subnode(const struct NODE * node, const int nodepos, const int p_i, const int shift)
+int get_subnode(const struct NODE * node, const int nodepos, const int p_i, const int shift, const morton_t *MortonKey)
 {
     int subnode=0;
     if(shift >= 0)
     {
-        const morton_t morton = MORTON(P[p_i].Pos);
+        const morton_t morton = MortonKey[p_i];
         /* Shift morton key to the right by shift bits,
          * cutting the key at the correct tree level*/
         subnode = ((morton >> shift) & 7);
@@ -223,6 +223,12 @@ int force_tree_build_single(int npart)
     int nfree_thread=nfree;
     int numfree_thread=0;
     /* now we insert all particles */
+    /*Initialise the Morton Keys to save time later.*/
+    morton_t * MortonKey = mymalloc("MortonKeys",npart*sizeof(morton_t));
+    #pragma omp parallel for
+    for(i=0; i < npart; i++) {
+           MortonKey[i] = MORTON(P[i].Pos);
+    }
 #ifdef OPENMP_USE_SPINLOCK
     /*Initialise some spinlocks*/
     pthread_spinlock_t * SpinLocks = mymalloc("NodeSpinlocks",MaxNodes*sizeof(pthread_spinlock_t));
@@ -248,7 +254,7 @@ int force_tree_build_single(int npart)
         while(1)
         {
             /*We will always start with an internal node: find the desired subnode.*/
-            const int subnode = get_subnode(&Nodes[this], this, i, shift);
+            const int subnode = get_subnode(&Nodes[this], this, i, shift, MortonKey);
 
             shift -= 3;
 
@@ -314,7 +320,7 @@ int force_tree_build_single(int npart)
             nfreep->hmax = 0;
 
             /*Re-add the particle to the new internal node*/
-            const int child_subnode = get_subnode(nfreep, this, child, shift);
+            const int child_subnode = get_subnode(nfreep, this, child, shift, MortonKey);
 
             nfreep->u.suns[child_subnode] = child;
 
@@ -339,6 +345,7 @@ int force_tree_build_single(int npart)
     int * ss = (int *) SpinLocks;
     myfree(ss);
 #endif
+    myfree(MortonKey);
     if(nfree >= All.MaxPart + MaxNodes)
     {
         return -1;
