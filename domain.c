@@ -61,8 +61,6 @@ struct local_topnode_data
     int64_t Cost;
 };
 
-struct topleaf_data * Topleaves;
-
 struct task_data * Tasks;
 
 static int
@@ -393,7 +391,7 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
             max_work = work;
     }
 
-    message(0, "Largest deviations from average: work=%g particle load=%g\n",
+    message(0, "Largest load: work=%g particle=%g\n",
             max_work / ((double)sumwork / NTask), max_load / (((double) sumload) / NTask));
 
     if(print_details) {
@@ -498,18 +496,24 @@ domain_assign_balanced(int64_t * cost)
      */
 
     double mean_expected = 1.0 * totalcost / Nsegment;
+    double mean_task = 1.0 * totalcost /NTask;
     int curleaf = 0;
     int curseg = 0;
     int curtask = 0; /* between 0 and NTask - 1*/
-    int64_t curload = 0; /* cummulative load for the current segment */
+    int nrounds = 0; /*Number of times we looped*/
+    int64_t curload = 0; /* cumulative load for the current segment */
+    int64_t curtaskload = 0; /* cumulative load for current task */
+    int64_t maxleafcost = 0;
 
     message(0, "Expected segment cost %g\n", mean_expected);
     /* we maintain that after the loop curleaf is the number of leaves scanned,
      * curseg is number of segments created.
      * */
-    while(1) {
+    while(nrounds < NTopLeaves) {
         int append = 0;
         int advance = 0;
+        if(TopLeafExt[curleaf].cost > maxleafcost)
+            maxleafcost = TopLeafExt[curleaf].cost;
         if(curleaf == NTopLeaves) {
             /* to maintain the invariance */
             advance = 1;
@@ -519,8 +523,10 @@ domain_assign_balanced(int64_t * cost)
             append = 1;
             advance = 1;
         } else {
-            /* try to meet the average by appending the leaf to the segment */
-            if((mean_expected - curload > 0.5 * TopLeafExt[curleaf].cost) /* head towards the mean */
+            /* append a leaf to the segment if there is room left.
+             * Calculate room left based on a rolling average of the total so far..*/
+            int64_t totalassigned = (totalcost - totalcostLeft) + curload;
+            if((mean_expected * (curseg +1) - totalassigned > 0.5 * TopLeafExt[curleaf].cost)
             || curload == 0 /* but at least add one leaf */
                 ) {
                 append = 1;
@@ -537,23 +543,42 @@ domain_assign_balanced(int64_t * cost)
         }
 
         if(advance) {
-            /* move on to the next segment for the next task*/
+            /*Add this segment to the current task*/
+            curtaskload += curload;
+            /* If we have allocated enough segments to fill this processor,
+             * or if we have one segment per task left, proceed to the next task.
+             * We do not use round robin so that neighbouring (by key)
+             * topNodes are on the same processor.*/
+            if((mean_task - curtaskload < 0.5 * mean_expected) || (Nsegment - curseg <= NTask - curtask)
+               ){
+                curtaskload = 0;
+                curtask ++;
+            }
+            /* move on to the next segment.*/
             totalcostLeft -= curload;
             curload = 0;
-            curtask ++;
+            curseg ++;
 
             /* finished a round for all tasks */
-            if(curtask == NTask) curtask = 0;
-            curseg ++;
+            if(curtask == NTask) {
+                /*Back to task zero*/
+                curtask = 0;
+                /* Need a new mean_expected value: we want to
+                 * divide the remaining segments evenly between the processors.*/
+                mean_expected = 1.0 * totalcostLeft / Nsegment;
+                mean_task = 1.0 * totalcostLeft / NTask;
+                nrounds++;
+            }
             if(curleaf == NTopLeaves) break;
         }
         //message(0, "curleaf = %d advance = %d append = %d, curload = %d cost=%ld left=%ld\n", curleaf, advance, append, curload, TopLeafExt[curleaf].cost, totalcostLeft);
     }
 
-    message(0, "Created %d segments for an expectation of %d\n", curseg, Nsegment);
+    /*In most 'normal' cases nrounds == 1 here*/
+    message(0, "Created %d segments in %d rounds. Max leaf cost: %g\n", curseg, nrounds, (1.0*maxleafcost)/(totalcost) * Nsegment);
 
     if(curseg < Nsegment) {
-        endrun(0, "Not enough segments were created. This should not happen.\n");
+        endrun(0, "Not enough segments were created (%d instead of %d). This should not happen.\n", curseg, Nsegment);
     }
 
     if(totalcostLeft != 0) {
@@ -665,28 +690,30 @@ domain_create_topleaves(int no, int * next)
 int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit)
 {
     int j, p;
+    int need_refine = 1;
 
-    /*If there are only 8 particles within this node, we are done refining.*/
-    if(topNodes[i].Size < 8)
-        return 0;
-
-    /* if the node is already very small, no need to divide it any further */
-    if((topNodes[i].Count <= 0.8 * countlimit &&
-        topNodes[i].Cost <= 0.8 * costlimit))
-        return 0;
-
-    /* already have enough nodes */
-    if(NTopNodes > All.DomainOverDecompositionFactor * NTask * TOPNODEFACTOR) {
-        return 0;
+    /* if the node is already very cheap, then no need to divide it any further */
+    if(topNodes[i].Count <= countlimit &&
+        topNodes[i].Cost <= costlimit) {
+        need_refine = 0;
     }
 
-    /* We need to do refinement if (if we have a parent) we have more than 80%
-     * of the parent's particles or costs.*/
     /* If we were below them but we have a parent and somehow got all of its particles, we still
-     * need to refine. But if none of these things are true we can return, our work complete. */
-    if(topNodes[i].Parent > 0 && (topNodes[i].Count <= 0.8 * topNodes[topNodes[i].Parent].Count &&
-            topNodes[i].Cost <= 0.8 * topNodes[topNodes[i].Parent].Cost))
-        return 0;
+     * need to refine. This signals we are in a very is because we want to minimize spatially too large of a leaf
+     * that overlaps with other processes during the merge.
+     * */
+    if(topNodes[i].Parent > 0) {
+        if (topNodes[i].Count >= 0.8 * topNodes[topNodes[i].Parent].Count &&
+            topNodes[i].Cost >= 0.8 * topNodes[topNodes[i].Parent].Cost) {
+            need_refine = 1;
+        }
+    }
+
+    /* However, if there are only 8 particles within this node, we are done refining.*/
+    if(topNodes[i].Size < 8) need_refine = 0;
+
+    /* done */
+    if(!need_refine) return 0;
 
     /* If we want to refine but there is no space for another topNode on this processor,
      * we ran out of top nodes and must get more.*/
@@ -867,8 +894,8 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     int64_t costlimit, countlimit;
 
-    costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
-    countlimit = TotNumPart / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
+    costlimit = totgravcost / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
+    countlimit = TotNumPart / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
 
     NTopNodes = 1;
     topNodes[0].Daughter = -1;
@@ -889,6 +916,11 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     errflag = domain_check_for_local_refine(0, topNodes, countlimit, costlimit);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
+
+    if(NTopNodes > 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor) {
+        message(1, "NTopNodes=%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
+            NTopNodes, 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor);
+    }
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     if(errsum)
@@ -933,44 +965,55 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     /* now let's see whether we should still append more nodes, based on the estimated cumulative cost/count in each cell */
 
-    message(0, "Before=%d\n", NTopNodes);
+    message(0, "TopNodes before appending=%d\n", NTopNodes);
 
+    /* At this point we have refined the local particle tree so that each
+     * topNode contains a Cost and Count below the cost threshold. We have then
+     * done a global merge of the particle tree. Some of our topNodes may now contain
+     * more particles than the Cost threshold, but doing refinement using the local
+     * algorithm is complicated - particles inside any particular topNode may be
+     * on another processor. So we do a local volume based refinement here. This
+     * just cuts each topNode above the threshold into 8 equal-sized portions by
+     * subdividing the peano key.
+     * NOTE: this does not correctly preserve costs! Costs are just divided by 8,
+     * because recomputing them for the daughter nodes will be expensive.
+     * In practice this seems to work fine, probably because the cost distribution
+     * is not that unbalanced. */
+    /*Note that NTopNodes will change inside the loop*/
     for(i = 0, errflag = 0; i < NTopNodes; i++)
     {
-        if(topNodes[i].Daughter < 0)
-            if(topNodes[i].Count > countlimit || topNodes[i].Cost > costlimit)	/* ok, let's add nodes if we can */
-                if(topNodes[i].Size > 1)
-                {
-                    if((NTopNodes + 8) <= MaxTopNodes)
-                    {
-                        topNodes[i].Daughter = NTopNodes;
-
-                        for(j = 0; j < 8; j++)
-                        {
-                            sub = topNodes[i].Daughter + j;
-                            topNodes[sub].Size = (topNodes[i].Size >> 3);
-                            topNodes[sub].Count = topNodes[i].Count / 8;
-                            topNodes[sub].Cost = topNodes[i].Cost / 8;
-                            topNodes[sub].Daughter = -1;
-                            topNodes[sub].Parent = i;
-                            topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
-                        }
-
-                        NTopNodes += 8;
-                    }
-                    else
-                    {
-                        errflag = 1;
-                        break;
-                    }
+        /*If this node has no children and non-zero size*/
+        if(topNodes[i].Daughter < 0 && topNodes[i].Size > 1) {
+            /*If this node is also more costly than the limit*/
+            if(topNodes[i].Count > countlimit || topNodes[i].Cost > costlimit) {
+                /*If we have no space for another 8 topNodes, exit */
+                if((NTopNodes + 8) > MaxTopNodes) {
+                    errflag = 1;
+                    break;
                 }
+
+                topNodes[i].Daughter = NTopNodes;
+
+                for(j = 0; j < 8; j++)
+                {
+                    sub = topNodes[i].Daughter + j;
+                    topNodes[sub].Size = (topNodes[i].Size >> 3);
+                    topNodes[sub].Count = topNodes[i].Count / 8;
+                    topNodes[sub].Cost = topNodes[i].Cost / 8;
+                    topNodes[sub].Daughter = -1;
+                    topNodes[sub].Parent = i;
+                    topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
+                }
+                NTopNodes += 8;
+            }
+        }
     }
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
     if(errsum)
         return errsum;
 
-    message(0, "Final NTopNodes = %d per segment = %g\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask));
+    message(0, "Final NTopNodes = %d per segment = %g.\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask));
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
 
     return 0;
