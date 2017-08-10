@@ -525,7 +525,7 @@ static void add_particle_to_group(struct Group * gdst, int i) {
     }
     if(P[index].Type == 0)
     {
-#ifdef WINDS
+#ifdef SFR
         /* make bh in non wind gas on bh wind*/
         if(SPHP(index).DelayTime <= 0)
 #endif

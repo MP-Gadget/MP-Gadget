@@ -25,10 +25,8 @@ OPT += -DOPENMP_USE_SPINLOCK
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 
 #--------------------------------------- SFR/feedback model
-# most of the sfr modes are controled in paramfile (which needs a overhaul too!)
+# Star formation master switch. Also enables the Wind model
 OPT	+=  -DSFR
-OPT	+=  -DWINDS
-
 
 #-------------------------------------- AGN stuff
 OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)

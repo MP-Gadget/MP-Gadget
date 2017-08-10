@@ -360,7 +360,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             O->BH_TimeBinLimit = P[other].TimeBin;
     }
 
-#ifdef WINDS
+#ifdef SFR
      /* BH does not accrete wind */
     if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
 #endif
@@ -539,7 +539,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     if(P[other].ID == I->ID) return;
 
-#ifdef WINDS
+#ifdef SFR
      /* BH does not accrete wind */
     if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
 #endif

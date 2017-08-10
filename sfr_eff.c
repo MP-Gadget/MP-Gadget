@@ -35,6 +35,7 @@
 
 /*Cooling only: no star formation*/
 static void cooling_direct(int i);
+
 #ifdef SFR
 static double u_to_temp_fac; /* assuming very hot !*/
 
@@ -55,9 +56,18 @@ static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 static double find_star_mass(int i);
-#endif
 
-#ifdef WINDS
+/*
+ * This routine does cooling and star formation for
+ * the effective multi-phase model.
+ */
+static int
+sfr_cooling_haswork(int target, TreeWalk * tw)
+{
+    return P[target].Type == 0 && P[target].Mass > 0;
+}
+
+/*Prototypes and structures for the wind model*/
 typedef struct {
     TreeWalkQueryBase base;
     int NodeList[NODELISTLENGTH];
@@ -126,22 +136,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         TreeWalkNgbIterWind * iter,
         LocalTreeWalk * lv);
 
-#endif
-/*
- * This routine does cooling and star formation for
- * the effective multi-phase model.
- */
-
-static int
-sfr_cooling_haswork(int target, TreeWalk * tw)
-{
-    return P[target].Type == 0 && P[target].Mass > 0;
-}
-
-
-#ifdef SFR
-
-#ifdef WINDS
 static int NPLeft;
 
 static void
@@ -190,18 +184,19 @@ sfr_wind_weight_postprocess(int i)
         NPLeft ++;
     }
 }
+
 static void
 sfr_wind_feedback_postprocess(int i)
 {
     P[i].IsNewParticle = 0;
 }
-#endif
+
+/*End of wind model functions*/
 
 static void
 sfr_cool_postprocess(int i, TreeWalk * tw)
 {
         int flag;
-#ifdef WINDS
         /*Remove a wind particle from the delay mode if the (physical) density has dropped sufficiently.*/
         if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh) {
                 SPHP(i).DelayTime = 0;
@@ -213,7 +208,6 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
             const double dtime = dloga / All.cf.hubble;
             SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
         }
-#endif
 
         /* check whether conditions for star formation are fulfilled.
          *
@@ -300,7 +294,6 @@ void cooling_and_starformation(void)
     }
     walltime_measure("/Cooling/StarFormation");
 
-#ifdef WINDS
     /* now lets make winds. this has to be after NumPart is updated */
     if(!HAS(All.WindModel, WINDS_SUBGRID) && All.WindModel != WINDS_NONE) {
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
@@ -350,7 +343,6 @@ void cooling_and_starformation(void)
         myfree(Wind);
     }
     walltime_measure("/Cooling/Wind");
-#endif
 }
 
 #else //No SFR
@@ -467,10 +459,8 @@ static int get_sfr_condition(int i) {
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
 
-#ifdef WINDS
     if(SPHP(i).DelayTime > 0)
         flag = 1;		/* only normal cooling for particles in the wind */
-#endif
 
     if(All.QuickLymanAlphaProbability > 0) {
         double dloga = get_dloga_for_bin(P[i].TimeBin);
@@ -489,7 +479,7 @@ static int get_sfr_condition(int i) {
     return flag;
 }
 
-#ifdef WINDS
+/*These functions are for the wind models*/
 static int
 sfr_wind_weight_haswork(int target, TreeWalk * tw)
 {
@@ -698,7 +688,7 @@ static int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
     }
     return 0;
 }
-#endif
+/*End wind model functions*/
 
 static int make_particle_star(int i) {
     double mass_of_star = find_star_mass(i);
@@ -737,9 +727,7 @@ static int make_particle_star(int i) {
     STARP(newstar).BirthDensity = SPHP(i).Density;
     /*Copy metallicity*/
     STARP(newstar).Metallicity = SPHP(i).Metallicity;
-#ifdef WINDS
     P[newstar].IsNewParticle = 1;
-#endif
     return 0;
 }
 
@@ -822,9 +810,8 @@ static void starformation(int i) {
     }
 
     if(P[i].Type == 0)	{
-    /* to protect using a particle that has been turned into a star */
-    SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
-#ifdef WINDS
+        /* to protect using a particle that has been turned into a star */
+        SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
         if(HAS(All.WindModel, WINDS_SUBGRID)) {
             /* Here comes the Springel Hernquist 03 wind model */
             double pw = All.WindEfficiency * sm / P[i].Mass;
@@ -833,7 +820,6 @@ static void starformation(int i) {
             if(get_random_number(P[i].ID + 2) < prob)
                 make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
-#endif
     }
 
 

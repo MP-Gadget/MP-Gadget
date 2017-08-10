@@ -27,7 +27,7 @@ typedef struct
     TreeWalkQueryBase base;
     MyFloat Vel[3];
     MyFloat Hsml;
-#ifdef WINDS
+#ifdef SFR
     MyFloat DelayTime;
 #endif
     int Type;
@@ -241,7 +241,7 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
         sph_VelPred(place, I->Vel);
     }
 
-#ifdef WINDS
+#ifdef SFR
     I->DelayTime = SPHP(place).DelayTime;
 #endif
 
@@ -314,7 +314,7 @@ density_ngbiter(
     double r2 = iter->base.r2;
     double * dist = iter->base.dist;
 
-#ifdef WINDS
+#ifdef SFR
     if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
         if(SPHP(other).DelayTime > 0)	/* partner is a wind particle */
             if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
