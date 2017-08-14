@@ -1090,8 +1090,8 @@ int domain_determineTopTree(struct local_topnode_data * topTree)
     walltime_measure("/Domain/DetermineTopTree/Misc");
 
     /* Watchout : must disgard proximity of particle type; this ordering is only required by LocalRefine */
-    //mpsort_mpi(LP, NumPart, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, MPI_COMM_WORLD);
-    qsort_openmp(LP, NumPart, sizeof(struct local_particle_data), order_by_key);
+
+    mpsort_mpi(LP, NumPart, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, MPI_COMM_WORLD);
 
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
