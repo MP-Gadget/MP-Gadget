@@ -88,7 +88,6 @@ static void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount);
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topTree);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, int64_t cost);
-static int domain_check_for_local_refine(const int i, struct local_topnode_data * topTree, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP);
 
 static int domain_check_for_local_refine_subsample(
     struct local_topnode_data * topTree,
@@ -877,102 +876,6 @@ domain_check_for_local_refine_subsample(
         domain_toptree_insert(topTree, LP[i].Key, LP[i].Cost);
     }
 
-    return 0;
-}
-
-/* Refine the local oct-tree, recursively adding costs and particles until
- * either we have chopped off all the peano-hilbert keys and thus have no more
- * refinement to do, or we run out of topTree.
- * If 1 is returned on any processor we will return to domain_Decomposition,
- * allocate 30% more topTree, and try again.
- * */
-int domain_check_for_local_refine(const int i, struct local_topnode_data * topTree, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP)
-{
-    int j, p;
-    int need_refine = 1;
-
-    /* if the node is already very cheap, then no need to divide it any further */
-    if(topTree[i].Count <= countlimit &&
-        topTree[i].Cost <= costlimit) {
-        need_refine = 0;
-    }
-
-    /* If we were below them but we have a parent and somehow got all of its particles, we still
-     * need to refine. This signals we are in a very is because we want to minimize spatially too large of a leaf
-     * that overlaps with other processes during the merge.
-     * */
-    if(topTree[i].Parent > 0) {
-        if (topTree[i].Count >= 0.8 * topTree[topTree[i].Parent].Count &&
-            topTree[i].Cost >= 0.8 * topTree[topTree[i].Parent].Cost) {
-            need_refine = 1;
-        }
-    }
-
-    /* However, if there are only 8 particles within this node, we are done refining.*/
-    if(topTree[i].Shift < 3) need_refine = 0;
-
-    /* done */
-    if(!need_refine) return 0;
-
-    /* If we want to refine but there is no space for another topNode on this processor,
-     * we ran out of top nodes and must get more.*/
-    if((NTopNodes + 8) > MaxTopNodes)
-        return 1;
-
-    /*Make a new topnode section attached to this node*/
-    topTree[i].Daughter = NTopNodes;
-    NTopNodes += 8;
-
-    /* Initialise this topnode with new sub nodes*/
-    for(j = 0; j < 8; j++)
-    {
-        const int sub = topTree[i].Daughter + j;
-        /* The new sub nodes have this node as parent
-         * and no daughters.*/
-        topTree[sub].Daughter = -1;
-        topTree[sub].Parent = i;
-        /* Shorten the peano key by a factor 8, reflecting the oct-tree level.*/
-        topTree[sub].Shift = topTree[i].Shift - 3;
-        /* This is the region of peanospace covered by this node.*/
-        topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
-        /* We will compute the cost and initialise the first particle in the node below.
-         * This PIndex value is never used*/
-        topTree[sub].PIndex = topTree[i].PIndex;
-        topTree[sub].Count = 0;
-        topTree[sub].Cost = 0;
-    }
-
-    /* Loop over all particles in this node so that the costs of the daughter nodes are correct*/
-    for(p = 0, j = 0; p < topTree[i].Count; p++)
-    {
-        const int sub = topTree[i].Daughter;
-
-        /* This identifies which subnode this particle belongs to.
-         * Once this particle has passed the StartKey of the next daughter node,
-         * we increment the node the particle is added to and set the PIndex.*/
-        if(j < 7)
-            while(topTree[sub + j + 1].StartKey <= LP[p + topTree[i].PIndex].Key)
-            {
-                topTree[sub + j + 1].PIndex = p;
-                j++;
-                if(j >= 7)
-                    break;
-            }
-
-        /*Now we have identified the subnode for this particle, add it to the cost and count*/
-        topTree[sub+j].Cost += LP[p + topTree[i].PIndex].Cost;
-        topTree[sub+j].Count++;
-    }
-
-    /*Check and refine the new daughter nodes*/
-    for(j = 0; j < 8; j++)
-    {
-        const int sub = topTree[i].Daughter + j;
-        /* Refine each sub node. If we could not refine the node as needed,
-         * we are out of node space and need more.*/
-        if(domain_check_for_local_refine(sub, topTree, countlimit, costlimit, LP))
-            return 1;
-    }
     return 0;
 }
 
