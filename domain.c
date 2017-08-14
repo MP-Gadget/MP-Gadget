@@ -51,10 +51,9 @@ static void * TopTreeMemory;
 struct local_topnode_data
 {
     /*These members are copied into topnode_data*/
-    peano_t Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
     peano_t StartKey;		/*!< first Peano-Hilbert key in top-level node */
+    short int Shift;		/*!< log2 of number of Peano-Hilbert mesh-cells represented by top-level node */
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
-    int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
     /*Below members are only used in this file*/
     int Parent;
     int PIndex;			/*!< first particle in node  used only in top-level tree build (this file)*/
@@ -72,6 +71,8 @@ struct task_data * Tasks;
 
 static int
 order_by_key(const void *a, const void *b);
+static void
+mp_order_by_key(const void * data, void * radix, void * arg);
 
 static void
 domain_assign_balanced(int64_t * cost);
@@ -287,9 +288,9 @@ decompose(void)
     for(i = 0; i < NTopNodes; i++)
     {
         TopNodes[i].StartKey = topNodes[i].StartKey;
-        TopNodes[i].Size = topNodes[i].Size;
+        TopNodes[i].Shift = topNodes[i].Shift;
         TopNodes[i].Daughter = topNodes[i].Daughter;
-        TopNodes[i].Leaf = topNodes[i].Leaf;
+        TopNodes[i].Leaf = -1; /* will be assigned by create_topleaves*/
     }
 
     myfree(topNodes);
@@ -631,7 +632,7 @@ static inline int
 domain_get_topleaf(const peano_t key) {
     int no=0;
     while(TopNodes[no].Daughter >= 0)
-        no = TopNodes[no].Daughter + (key - TopNodes[no].StartKey) / (TopNodes[no].Size / 8);
+        no = TopNodes[no].Daughter + ((key - TopNodes[no].StartKey) >> (TopNodes[no].Shift - 3));
     no = TopNodes[no].Leaf;
     return no;
 }
@@ -640,12 +641,11 @@ domain_get_topleaf(const peano_t key) {
  * node in terms of `shift`. */
 int
 domain_get_topleaf_with_shift(const peano_t key, int * shift) {
-    * shift = 3 * (BITS_PER_DIMENSION - 1);
     int no=0;
     while(TopNodes[no].Daughter >= 0) {
-        no = TopNodes[no].Daughter + (key - TopNodes[no].StartKey) / (TopNodes[no].Size / 8);
-        *shift -= 3;
+        no = TopNodes[no].Daughter + ((key - TopNodes[no].StartKey) >> (TopNodes[no].Shift - 3));
     }
+    *shift = TopNodes[no].Shift;
     no = TopNodes[no].Leaf;
     return no;
 }
@@ -688,6 +688,16 @@ domain_create_topleaves(int no, int * next)
     }
 }
 
+/* non recursively check for local refinements */
+int domain_check_for_local_refine_nr(struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP)
+{
+    int last = 0;
+    int i;
+    /* this requires the LP structure to be sorted by key */
+    for(i = 0; i < NumPart; i ++) {
+    }
+    
+}
 /* Refine the local oct-tree, recursively adding costs and particles until
  * either we have chopped off all the peano-hilbert keys and thus have no more
  * refinement to do, or we run out of topNodes.
@@ -717,7 +727,7 @@ int domain_check_for_local_refine(const int i, struct local_topnode_data * topNo
     }
 
     /* However, if there are only 8 particles within this node, we are done refining.*/
-    if(topNodes[i].Size < 8) need_refine = 0;
+    if(topNodes[i].Shift < 3) need_refine = 0;
 
     /* done */
     if(!need_refine) return 0;
@@ -740,9 +750,9 @@ int domain_check_for_local_refine(const int i, struct local_topnode_data * topNo
         topNodes[sub].Daughter = -1;
         topNodes[sub].Parent = i;
         /* Shorten the peano key by a factor 8, reflecting the oct-tree level.*/
-        topNodes[sub].Size = (topNodes[i].Size >> 3);
+        topNodes[sub].Shift = topNodes[i].Shift - 3;
         /* This is the region of peanospace covered by this node.*/
-        topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
+        topNodes[sub].StartKey = topNodes[i].StartKey + j * (1L << topNodes[sub].Shift);
         /* We will compute the cost and initialise the first particle in the node below.
          * This PIndex value is never used*/
         topNodes[sub].PIndex = topNodes[i].PIndex;
@@ -893,6 +903,7 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 #pragma omp parallel for reduction(+: gravcost)
     for(i = 0; i < NumPart; i++)
     {
+        LP[i].Key = P[i].Key;
         LP[i].cost = domain_particle_costfactor(i);
         gravcost += LP[i].cost;
     }
@@ -909,7 +920,7 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     NTopNodes = 1;
     topNodes[0].Daughter = -1;
     topNodes[0].Parent = -1;
-    topNodes[0].Size = PEANOCELLS;
+    topNodes[0].Shift = BITS_PER_DIMENSION * 3;
     topNodes[0].StartKey = 0;
     topNodes[0].PIndex = 0;
     topNodes[0].Count = NumPart;
@@ -918,6 +929,7 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     walltime_measure("/Domain/DetermineTopTree/Misc");
 
     /* Watchout : must disgard proximity of particle type; this ordering is only required by LocalRefine */
+    //mpsort_mpi(LP, NumPart, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, MPI_COMM_WORLD);
     qsort_openmp(LP, NumPart, sizeof(struct local_particle_data), order_by_key);
 
     walltime_measure("/Domain/DetermineTopTree/Sort");
@@ -994,7 +1006,7 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     for(i = 0, errflag = 0; i < NTopNodes; i++)
     {
         /*If this node has no children and non-zero size*/
-        if(topNodes[i].Daughter < 0 && topNodes[i].Size > 1) {
+        if(topNodes[i].Daughter < 0 && topNodes[i].Shift > 0) {
             /*If this node is also more costly than the limit*/
             if(topNodes[i].Count > countlimit || topNodes[i].Cost > costlimit) {
                 /*If we have no space for another 8 topNodes, exit */
@@ -1008,12 +1020,12 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
                 for(j = 0; j < 8; j++)
                 {
                     sub = topNodes[i].Daughter + j;
-                    topNodes[sub].Size = (topNodes[i].Size >> 3);
+                    topNodes[sub].Shift = topNodes[i].Shift - 3;
                     topNodes[sub].Count = topNodes[i].Count / 8;
                     topNodes[sub].Cost = topNodes[i].Cost / 8;
                     topNodes[sub].Daughter = -1;
                     topNodes[sub].Parent = i;
-                    topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
+                    topNodes[sub].StartKey = topNodes[i].StartKey + j * (1L << topNodes[sub].Shift);
                 }
                 NTopNodes += 8;
             }
@@ -1111,7 +1123,7 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
     int64_t count, countA, countB;
     int64_t cost, costA, costB;
 
-    if(treeB[noB].Size < treeA[noA].Size)
+    if(treeB[noB].Shift < treeA[noA].Shift)
     {
         if(treeA[noA].Daughter < 0)
         {
@@ -1142,12 +1154,12 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
                     sub = treeA[noA].Daughter + j;
                     /* This is the only use of the global resource in this function,
                      * and adds a node to the toplevel tree.*/
-                    topNodes[sub].Size = (treeA[noA].Size >> 3);
+                    topNodes[sub].Shift = treeA[noA].Shift - 3;
                     topNodes[sub].Count = count;
                     topNodes[sub].Cost = cost;
                     topNodes[sub].Daughter = -1;
                     topNodes[sub].Parent = noA;
-                    topNodes[sub].StartKey = treeA[noA].StartKey + j * treeA[sub].Size;
+                    topNodes[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
                 }
                 NTopNodes += 8;
             }
@@ -1155,10 +1167,10 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
                 endrun(88, "Too many Topnodes");
         }
 
-        sub = treeA[noA].Daughter + (treeB[noB].StartKey - treeA[noA].StartKey) / (treeA[noA].Size >> 3);
+        sub = treeA[noA].Daughter + ((treeB[noB].StartKey - treeA[noA].StartKey) >> (treeA[noA].Shift - 3));
         domain_insertnode(treeA, treeB, sub, noB, topNodes);
     }
-    else if(treeB[noB].Size == treeA[noA].Size)
+    else if(treeB[noB].Shift == treeA[noA].Shift)
     {
         treeA[noA].Count += treeB[noB].Count;
         treeA[noA].Cost += treeB[noB].Cost;
@@ -1249,7 +1261,14 @@ order_by_key(const void *a, const void *b)
     return 0;
 }
 
-int
+static void
+mp_order_by_key(const void * data, void * radix, void * arg)
+{
+    const struct local_particle_data * pa  = (const struct local_particle_data *) data;
+    ((uint64_t *) radix)[0] = pa->Key;
+}
+
+static int
 order_by_type_and_key(const void *a, const void *b)
 {
     const struct particle_data * pa  = (const struct particle_data *) a;
