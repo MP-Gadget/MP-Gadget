@@ -454,3 +454,9 @@ get_physmem_bytes()
     return 64 * 1024 * 1024;
 }
 
+int
+MPIU_Any(int condition, MPI_Comm comm)
+{
+    MPI_Allreduce(MPI_IN_PLACE, &condition, 1, MPI_INT, MPI_LOR, comm);
+    return condition;
+}

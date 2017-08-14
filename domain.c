@@ -89,10 +89,15 @@ static void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount);
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topTree);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, int64_t cost);
 static int domain_check_for_local_refine(const int i, struct local_topnode_data * topTree, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP);
+
 static int domain_check_for_local_refine_subsample(
     struct local_topnode_data * topTree,
     struct local_particle_data * LP,
     int sample_step);
+
+static int
+domain_global_refine(struct local_topnode_data * topTree, int64_t countlimit, int64_t costlimit);
+
 static void
 domain_create_topleaves(int no, int * next);
 
@@ -108,6 +113,8 @@ static int domain_allocated_flag = 0;
  */
 void domain_decompose_full(void)
 {
+    sumup_large_ints(1, &NumPart, &TotNumPart);
+
     int retsum;
     double t0, t1;
 
@@ -1071,35 +1078,14 @@ int domain_determineTopTree(struct local_topnode_data * topTree)
     int i, j, sub;
     int errflag, errsum;
 
-    int64_t totgravcost, gravcost = 0;
-
     struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", NumPart * sizeof(LP[0]));
 
-#pragma omp parallel for reduction(+: gravcost)
+#pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
         LP[i].Key = P[i].Key;
         LP[i].Cost = domain_particle_costfactor(i);
-        gravcost += LP[i].Cost;
     }
-
-    /*We need TotNumPart to be up to date*/
-    sumup_large_ints(1, &NumPart, &TotNumPart);
-    MPI_Allreduce(&gravcost, &totgravcost, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
-
-    int64_t costlimit, countlimit;
-
-    costlimit = totgravcost / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
-    countlimit = TotNumPart / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
-
-    NTopNodes = 1;
-    topTree[0].Daughter = -1;
-    topTree[0].Parent = -1;
-    topTree[0].Shift = BITS_PER_DIMENSION * 3;
-    topTree[0].StartKey = 0;
-    topTree[0].PIndex = 0;
-    topTree[0].Count = NumPart;
-    topTree[0].Cost = gravcost;
 
     walltime_measure("/Domain/DetermineTopTree/Misc");
 
@@ -1109,40 +1095,47 @@ int domain_determineTopTree(struct local_topnode_data * topTree)
 
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
-//    errflag = domain_check_for_local_refine(0, topTree, countlimit, costlimit, LP);
-    errflag = domain_check_for_local_refine_subsample(topTree, LP, 16);
+
+    int local_refine_failed = MPIU_Any(0 != domain_check_for_local_refine_subsample(topTree, LP, 16), MPI_COMM_WORLD);
+
+    myfree(LP);
+
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine/Init");
+
+    if(local_refine_failed) {
+        message(0, "We are out of Topnodes. We'll try to repeat with a higher value than All.TopNodeAllocFactor=%g\n",
+                 All.TopNodeAllocFactor);
+        return 1;
+    }
 
     domain_toptree_update_cost(topTree, 0);
 
+    int64_t TotCost = 0, TotCount = 0;
+    int64_t costlimit, countlimit;
+
+    MPI_Allreduce(&topTree[0].Cost, &TotCost, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&topTree[0].Count, &TotCount, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    costlimit = TotCost / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
+    countlimit = TotCount / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
+
+
     domain_toptree_truncate(topTree, 0, countlimit, costlimit);
+
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine/truncate");
 
     NTopNodes = 1; /* put in the root node -- it's never a garbage . */
     domain_toptree_garbage_collection(topTree, 0, &NTopNodes);
-
-    walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     if(NTopNodes > 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor) {
         message(1, "NTopNodes=%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
             NTopNodes, 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor);
     }
-
-    MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    myfree(LP);
-
-    if(errsum)
-    {
-        message(0, "We are out of Topnodes. We'll try to repeat with a higher value than All.TopNodeAllocFactor=%g\n",
-                 All.TopNodeAllocFactor);
-        return errsum;
-    }
-
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine/GC");
 
     /* we now need to exchange tree parts and combine them as needed */
 
-    errflag = domain_nonrecursively_combine_topTree(topTree);
 
-    walltime_measure("/Domain/DetermineTopTree/Combine");
 #if 0
     char buf[1000];
     sprintf(buf, "topnodes.bin.%d", ThisTask);
@@ -1162,18 +1155,36 @@ int domain_determineTopTree(struct local_topnode_data * topTree)
     /* FIXME: the previous function is already collective, so this step is not needed.
      * We shall probably enforce that every 'long' function must be collective.
      *  */
-    MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    int combine_failed = MPIU_Any(0 != domain_nonrecursively_combine_topTree(topTree), MPI_COMM_WORLD);
 
-    if(errsum)
+    walltime_measure("/Domain/DetermineTopTree/Combine");
+
+    if(combine_failed)
     {
         message(0, "can't combine trees due to lack of storage. Will try again.\n");
-        return errsum;
+        return 1;
     }
 
     /* now let's see whether we should still append more nodes, based on the estimated cumulative cost/count in each cell */
 
     message(0, "TopNodes before appending=%d\n", NTopNodes);
 
+    int global_refine_failed = MPIU_Any(0 != domain_global_refine(topTree, countlimit, costlimit), MPI_COMM_WORLD);
+
+    walltime_measure("/Domain/DetermineTopTree/Addnodes");
+
+    if(global_refine_failed)
+        return 1;
+
+    message(0, "Final NTopNodes = %d per segment = %g.\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask));
+
+    return 0;
+}
+
+static int
+domain_global_refine(struct local_topnode_data * topTree, int64_t countlimit, int64_t costlimit)
+{
+    int i;
     /* At this point we have refined the local particle tree so that each
      * topNode contains a Cost and Count below the cost threshold. We have then
      * done a global merge of the particle tree. Some of our topTree may now contain
@@ -1186,8 +1197,9 @@ int domain_determineTopTree(struct local_topnode_data * topTree)
      * because recomputing them for the daughter nodes will be expensive.
      * In practice this seems to work fine, probably because the cost distribution
      * is not that unbalanced. */
+
     /*Note that NTopNodes will change inside the loop*/
-    for(i = 0, errflag = 0; i < NTopNodes; i++)
+    for(i = 0; i < NTopNodes; i++)
     {
         /*If this node has no children and non-zero size*/
         if(topTree[i].Daughter < 0 && topTree[i].Shift > 0) {
@@ -1195,15 +1207,14 @@ int domain_determineTopTree(struct local_topnode_data * topTree)
             if(topTree[i].Count > countlimit || topTree[i].Cost > costlimit) {
                 /*If we have no space for another 8 topTree, exit */
                 if((NTopNodes + 8) > MaxTopNodes) {
-                    errflag = 1;
-                    break;
+                    return 1;
                 }
 
                 topTree[i].Daughter = NTopNodes;
-
+                int j;
                 for(j = 0; j < 8; j++)
                 {
-                    sub = topTree[i].Daughter + j;
+                    int sub = topTree[i].Daughter + j;
                     topTree[sub].Shift = topTree[i].Shift - 3;
                     topTree[sub].Count = topTree[i].Count / 8;
                     topTree[sub].Cost = topTree[i].Cost / 8;
@@ -1215,17 +1226,8 @@ int domain_determineTopTree(struct local_topnode_data * topTree)
             }
         }
     }
-
-    MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    if(errsum)
-        return errsum;
-
-    message(0, "Final NTopNodes = %d per segment = %g.\n", NTopNodes, 1.0 * NTopNodes / (All.DomainOverDecompositionFactor * NTask));
-    walltime_measure("/Domain/DetermineTopTree/Addnodes");
-
     return 0;
 }
-
 
 
 void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
