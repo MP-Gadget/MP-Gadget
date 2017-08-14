@@ -62,6 +62,12 @@ struct local_topnode_data
     int64_t Cost;
 };
 
+struct local_particle_data
+{
+    peano_t Key;
+    int64_t cost;
+};
+
 struct task_data * Tasks;
 
 static int
@@ -81,7 +87,7 @@ static void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount);
 
 static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, int64_t cost);
-static int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit);
+static int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP);
 static void
 domain_create_topleaves(int no, int * next);
 
@@ -146,6 +152,8 @@ void domain_decompose_full(void)
 
     message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
 
+    /* Resort the particles such that those of the same type and key are close by.
+     * The locality is broken by the exchange. */
     qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
 
     walltime_measure("/Domain/Peano");
@@ -686,7 +694,7 @@ domain_create_topleaves(int no, int * next)
  * If 1 is returned on any processor we will return to domain_Decomposition,
  * allocate 30% more topNodes, and try again.
  * */
-int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit)
+int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP)
 {
     int j, p;
     int need_refine = 1;
@@ -751,7 +759,7 @@ int domain_check_for_local_refine(const int i, struct local_topnode_data * topNo
          * Once this particle has passed the StartKey of the next daughter node,
          * we increment the node the particle is added to and set the PIndex.*/
         if(j < 7)
-            while(topNodes[sub + j + 1].StartKey <= P[p + topNodes[i].PIndex].Key)
+            while(topNodes[sub + j + 1].StartKey <= LP[p + topNodes[i].PIndex].Key)
             {
                 topNodes[sub + j + 1].PIndex = p;
                 j++;
@@ -760,7 +768,7 @@ int domain_check_for_local_refine(const int i, struct local_topnode_data * topNo
             }
 
         /*Now we have identified the subnode for this particle, add it to the cost and count*/
-        topNodes[sub+j].Cost += domain_particle_costfactor(p + topNodes[i].PIndex);
+        topNodes[sub+j].Cost += LP[p + topNodes[i].PIndex].cost;
         topNodes[sub+j].Count++;
     }
 
@@ -770,7 +778,7 @@ int domain_check_for_local_refine(const int i, struct local_topnode_data * topNo
         const int sub = topNodes[i].Daughter + j;
         /* Refine each sub node. If we could not refine the node as needed,
          * we are out of node space and need more.*/
-        if(domain_check_for_local_refine(sub, topNodes, countlimit, costlimit))
+        if(domain_check_for_local_refine(sub, topNodes, countlimit, costlimit, LP))
             return 1;
     }
     return 0;
@@ -880,11 +888,13 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     int64_t totgravcost, gravcost = 0;
 
+    struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", NumPart * sizeof(LP[0]));
+
 #pragma omp parallel for reduction(+: gravcost)
     for(i = 0; i < NumPart; i++)
     {
-        int64_t costfac = domain_particle_costfactor(i);
-        gravcost += costfac;
+        LP[i].cost = domain_particle_costfactor(i);
+        gravcost += LP[i].cost;
     }
 
     /*We need TotNumPart to be up to date*/
@@ -905,15 +915,14 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     topNodes[0].Count = NumPart;
     topNodes[0].Cost = gravcost;
 
-
     walltime_measure("/Domain/DetermineTopTree/Misc");
 
     /* Watchout : must disgard proximity of particle type; this ordering is only required by LocalRefine */
-    qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_key);
+    qsort_openmp(LP, NumPart, sizeof(struct local_particle_data), order_by_key);
 
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
-    errflag = domain_check_for_local_refine(0, topNodes, countlimit, costlimit);
+    errflag = domain_check_for_local_refine(0, topNodes, countlimit, costlimit, LP);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     if(NTopNodes > 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor) {
@@ -922,6 +931,9 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     }
 
     MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    myfree(LP);
+
     if(errsum)
     {
         message(0, "We are out of Topnodes. We'll try to repeat with a higher value than All.TopNodeAllocFactor=%g\n",
@@ -1226,8 +1238,8 @@ domain_test_id_uniqueness(void)
 static int
 order_by_key(const void *a, const void *b)
 {
-    const struct particle_data * pa  = (const struct particle_data *) a;
-    const struct particle_data * pb  = (const struct particle_data *) b;
+    const struct local_particle_data * pa  = (const struct local_particle_data *) a;
+    const struct local_particle_data * pb  = (const struct local_particle_data *) b;
     if(pa->Key < pb->Key)
         return -1;
 
