@@ -76,18 +76,25 @@ mp_order_by_key(const void * data, void * radix, void * arg);
 
 static void
 domain_assign_balanced(int64_t * cost);
+
 static void domain_allocate(void);
+
 static int
 domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount);
+
 static int decompose(void);
+
 static void
 domain_balance(void);
+
 static int domain_determineTopTree(struct local_topnode_data * topTree);
 static void domain_free(void);
-static void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount);
 
-static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topTree);
-static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, int64_t cost);
+static void
+domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount);
+
+static void
+domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topTree);
 
 static int domain_check_for_local_refine_subsample(
     struct local_topnode_data * topTree,
@@ -860,7 +867,7 @@ domain_check_for_local_refine_subsample(
         } else {
             if(topTree[leaf].Count != 0) {
                 /* this shall not happen because key is already sorted. (cite paper)*/
-                abort();
+                endrun(-1, "Failed to build the toptree\n");
             }
             last_key = LP[i].Key;
             last_leaf = domain_toptree_insert(topTree, last_key, 0);
@@ -939,7 +946,7 @@ int domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree)
                         endrun(1, "severe domain error using a unintended rank \n");
                     }
                     if(ntopnodes_import > 0 ) {
-                        domain_insertnode(topTree, topTree_import, 0, 0, topTree);
+                        domain_toptree_merge(topTree, topTree_import, 0, 0, topTree);
                     } 
                 }
                 myfree(topTree_import);
@@ -1071,8 +1078,6 @@ int domain_determineTopTree(struct local_topnode_data * topTree)
 
     /* now let's see whether we should still append more nodes, based on the estimated cumulative cost/count in each cell */
 
-    message(0, "TopNodes before appending=%d\n", NTopNodes);
-
     int global_refine_failed = MPIU_Any(0 != domain_global_refine(topTree, countlimit, costlimit), MPI_COMM_WORLD);
 
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
@@ -1102,33 +1107,35 @@ domain_global_refine(struct local_topnode_data * topTree, int64_t countlimit, in
      * In practice this seems to work fine, probably because the cost distribution
      * is not that unbalanced. */
 
+    message(0, "TopNodes before appending=%d\n", NTopNodes);
+
     /*Note that NTopNodes will change inside the loop*/
     for(i = 0; i < NTopNodes; i++)
     {
         /*If this node has no children and non-zero size*/
-        if(topTree[i].Daughter < 0 && topTree[i].Shift > 0) {
-            /*If this node is also more costly than the limit*/
-            if(topTree[i].Count > countlimit || topTree[i].Cost > costlimit) {
-                /*If we have no space for another 8 topTree, exit */
-                if((NTopNodes + 8) > MaxTopNodes) {
-                    return 1;
-                }
+        if(topTree[i].Daughter >= 0 || topTree[i].Shift <= 0) continue;
 
-                topTree[i].Daughter = NTopNodes;
-                int j;
-                for(j = 0; j < 8; j++)
-                {
-                    int sub = topTree[i].Daughter + j;
-                    topTree[sub].Shift = topTree[i].Shift - 3;
-                    topTree[sub].Count = topTree[i].Count / 8;
-                    topTree[sub].Cost = topTree[i].Cost / 8;
-                    topTree[sub].Daughter = -1;
-                    topTree[sub].Parent = i;
-                    topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
-                }
-                NTopNodes += 8;
-            }
+        /*If this node is also more costly than the limit*/
+        if(topTree[i].Count < countlimit && topTree[i].Cost < costlimit) continue;
+
+        /*If we have no space for another 8 topTree, exit */
+        if((NTopNodes + 8) > MaxTopNodes) {
+            return 1;
         }
+
+        topTree[i].Daughter = NTopNodes;
+        int j;
+        for(j = 0; j < 8; j++)
+        {
+            int sub = topTree[i].Daughter + j;
+            topTree[sub].Shift = topTree[i].Shift - 3;
+            topTree[sub].Count = topTree[i].Count / 8;
+            topTree[sub].Cost = topTree[i].Cost / 8;
+            topTree[sub].Daughter = -1;
+            topTree[sub].Parent = i;
+            topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
+        }
+        NTopNodes += 8;
     }
     return 0;
 }
@@ -1178,36 +1185,9 @@ void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
     myfree(local_TopLeafWork);
 }
 
-void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, int64_t cost)
-{
-    int i, sub;
-    int64_t countA, countB;
-
-    countB = count / 8;
-    countA = count - 7 * countB;
-
-    cost = cost / 8;
-
-    for(i = 0; i < 8; i++)
-    {
-        sub = treeA[noA].Daughter + i;
-
-        if(i == 0)
-            count = countA;
-        else
-            count = countB;
-
-        treeA[sub].Count += count;
-        treeA[sub].Cost += cost;
-
-        if(treeA[sub].Daughter >= 0)
-            domain_add_cost(treeA, sub, count, cost);
-    }
-}
-
-
 /* FIXME: this function needs some comments. I used to know what it does --. YF*/
-void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topTree)
+void
+domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topTree)
 {
     int j, sub;
     int64_t count, countA, countB;
@@ -1215,72 +1195,87 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
 
     if(treeB[noB].Shift < treeA[noA].Shift)
     {
+        /* Add B to A */
+        /* Create a daughter to a, since we will merge B to A's daughter*/
         if(treeA[noA].Daughter < 0)
         {
-            if((NTopNodes + 8) <= MaxTopNodes)
-            {
-                count = treeA[noA].Count - treeB[treeB[noB].Parent].Count;
-                countB = count / 8;
-                countA = count - 7 * countB;
-
-                cost = treeA[noA].Cost - treeB[treeB[noB].Parent].Cost;
-                costB = cost / 8;
-                costA = cost - 7 * costB;
-
-                treeA[noA].Daughter = NTopNodes;
-                for(j = 0; j < 8; j++)
-                {
-                    if(j == 0)
-                    {
-                        count = countA;
-                        cost = costA;
-                    }
-                    else
-                    {
-                        count = countB;
-                        cost = costB;
-                    }
-
-                    sub = treeA[noA].Daughter + j;
-                    /* This is the only use of the global resource in this function,
-                     * and adds a node to the toplevel tree.*/
-                    topTree[sub].Shift = treeA[noA].Shift - 3;
-                    topTree[sub].Count = count;
-                    topTree[sub].Cost = cost;
-                    topTree[sub].Daughter = -1;
-                    topTree[sub].Parent = noA;
-                    topTree[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
-                }
-                NTopNodes += 8;
+            if((NTopNodes + 8) >= MaxTopNodes) {
+                endrun(88, "Too many Topnodes; this shall not happen because we ensure there is enough and bailed earlier than this\n");
             }
-            else
-                endrun(88, "Too many Topnodes");
+            /* noB must have a parent if we are here, since noB is lower than noA;
+             * noA must have already merged in the cost of noB's parent.
+             * This is the first time we create these children in A, thus,
+             * We shall evenly divide the non-B part of the cost in these children;
+             * */
+
+            count = treeA[noA].Count - treeB[treeB[noB].Parent].Count;
+            cost = treeA[noA].Cost - treeB[treeB[noB].Parent].Cost;
+
+            treeA[noA].Daughter = NTopNodes;
+            for(j = 0; j < 8; j++)
+            {
+
+                sub = treeA[noA].Daughter + j;
+                topTree[sub].Shift = treeA[noA].Shift - 3;
+                topTree[sub].Count = (j + 1) * count / 8 - j * count / 8;
+                topTree[sub].Cost  = (j + 1) * cost / 8 - j * cost / 8;
+                topTree[sub].Daughter = -1;
+                topTree[sub].Parent = noA;
+                topTree[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
+            }
+            NTopNodes += 8;
         }
 
+        /* find the sub node in A for me and merge, this would bring noB and sub on the same shift, drop to next case */
         sub = treeA[noA].Daughter + ((treeB[noB].StartKey - treeA[noA].StartKey) >> (treeA[noA].Shift - 3));
-        domain_insertnode(treeA, treeB, sub, noB, topTree);
+        domain_toptree_merge(treeA, treeB, sub, noB, topTree);
     }
     else if(treeB[noB].Shift == treeA[noA].Shift)
     {
         treeA[noA].Count += treeB[noB].Count;
         treeA[noA].Cost += treeB[noB].Cost;
 
+        /* Prefer to go down B; this would trigger the previous case  */
         if(treeB[noB].Daughter >= 0)
         {
             for(j = 0; j < 8; j++)
             {
                 sub = treeB[noB].Daughter + j;
-                domain_insertnode(treeA, treeB, noA, sub,topTree);
+                domain_toptree_merge(treeA, treeB, noA, sub, topTree);
             }
         }
         else
         {
-            if(treeA[noA].Daughter >= 0)
-                domain_add_cost(treeA, noA, treeB[noB].Count, treeB[noB].Cost);
+            /* We can't divide by B so we do it for A, this may trigger the next branch, since
+             * we are lowering A */
+            if(treeA[noA].Daughter >= 0) {
+                for(j = 0; j < 8; j++) {
+                    sub = treeA[noA].Daughter + j;
+                    domain_toptree_merge(treeA, treeB, sub, noB, topTree);
+                }
+            }
         }
     }
-    else
-        endrun(89, "The tree is corrupted, cannot merge them. What is the invariance here?");
+    else if(treeB[noB].Shift > treeA[noA].Shift)
+    {
+        /* Since we only know how to split A, here we simply add a spatial average to A */
+        int n = 1L << (treeB[noB].Shift - treeA[noA].Shift);
+
+        count = treeB[noB].Count;
+        cost = treeB[noB].Cost;
+
+        /* this is no longer conserving total cost but it should be fine .. */
+        treeA[noA].Count += count / n;
+        treeA[noA].Cost += cost / n;
+
+        // message(1, "adding cost to %d %td, %td\n", noA, count / n, cost / n);
+        if(treeA[noA].Daughter >= 0) {
+            for(j = 0; j < 8; j++) {
+                sub = treeA[noA].Daughter + j;
+                domain_toptree_merge(treeA, treeB, sub, noB, topTree);
+            }
+        }
+    }
 }
 
 /* used only by test uniqueness */
