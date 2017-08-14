@@ -161,8 +161,7 @@ int get_subnode(const struct NODE * node, const int nodepos, const int p_i, cons
             subnode += 4;
     }
 
-#ifndef NOTREERND
-    if(node->len < 1.0e-3 * All.ForceSoftening[P[p_i].Type])
+    if(!All.NoTreeRnd && node->len < 1.0e-3 * All.ForceSoftening[P[p_i].Type])
     {
         /* seems like we're dealing with particles at identical (or extremely close)
          * locations. Randomize subnode index to allow tree construction. Note: Multipole moments
@@ -171,7 +170,6 @@ int get_subnode(const struct NODE * node, const int nodepos, const int p_i, cons
          */
         return (int) (7.99 * get_random_number(P[p_i].ID+nodepos));
     }
-#endif
     return subnode;
 }
 

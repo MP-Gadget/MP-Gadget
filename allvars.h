@@ -274,6 +274,8 @@ extern struct global_data_all_processes
                                   the maximum(!) number of particles.  Note: A typical local tree for N
                                   particles needs usually about ~0.65*N nodes. */
 
+    int NoTreeRnd;              /*!< Disable randomising tree construction when particles are very close.*/
+
     /* some SPH parameters */
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
