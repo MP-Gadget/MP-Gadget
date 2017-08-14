@@ -276,6 +276,8 @@ extern struct global_data_all_processes
 
     int NoTreeRnd;              /*!< Disable randomising tree construction when particles are very close.*/
 
+    int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
+
     /* some SPH parameters */
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */

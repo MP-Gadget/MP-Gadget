@@ -698,7 +698,8 @@ static void register_io_blocks() {
         IO_REG(Mass,     "f4", 1, i);
         IO_REG(ID,       "u8", 1, i);
         IO_REG(Generation,       "u1", 1, i);
-        IO_REG(Potential, "f4", 1, i);
+        if(All.OutputPotential)
+            IO_REG(Potential, "f4", 1, i);
         if(All.SnapshotWithFOF)
             IO_REG_WRONLY(GroupID, "u4", 1, i);
     }
