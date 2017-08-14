@@ -811,6 +811,7 @@ domain_toptree_garbage_collection(struct local_topnode_data * topTree, int start
     (*last_free) += 8;
     for(j = 0; j < 8; j ++) {
         topTree[newd + j] = topTree[oldd + j];
+        topTree[newd + j].Parent = start;
         domain_toptree_garbage_collection(topTree, newd + j, last_free);
     }
 }
