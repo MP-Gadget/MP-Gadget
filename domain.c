@@ -64,7 +64,7 @@ struct local_topnode_data
 struct local_particle_data
 {
     peano_t Key;
-    int64_t cost;
+    int64_t Cost;
 };
 
 struct task_data * Tasks;
@@ -82,13 +82,17 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
 static int decompose(void);
 static void
 domain_balance(void);
-static int domain_determineTopTree(struct local_topnode_data * topNodes);
+static int domain_determineTopTree(struct local_topnode_data * topTree);
 static void domain_free(void);
 static void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount);
 
-static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes);
+static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topTree);
 static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, int64_t cost);
-static int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP);
+static int domain_check_for_local_refine(const int i, struct local_topnode_data * topTree, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP);
+static int domain_check_for_local_refine_subsample(
+    struct local_topnode_data * topTree,
+    struct local_particle_data * LP,
+    int sample_step);
 static void
 domain_create_topleaves(int no, int * next);
 
@@ -267,9 +271,9 @@ decompose(void)
     size_t bytes, all_bytes = 0;
 
     /*!< points to the root node of the top-level tree */
-    struct local_topnode_data *topNodes = (struct local_topnode_data *) mymalloc("topNodes", bytes =
+    struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("topTree", bytes =
             (MaxTopNodes * sizeof(struct local_topnode_data)));
-    memset(topNodes, 0, sizeof(topNodes[0]) * MaxTopNodes);
+    memset(topTree, 0, sizeof(topTree[0]) * MaxTopNodes);
     all_bytes += bytes;
 
     message(0, "use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
@@ -279,21 +283,21 @@ decompose(void)
 
     walltime_measure("/Domain/Decompose/Misc");
 
-    if(domain_determineTopTree(topNodes)) {
-        myfree(topNodes);
+    if(domain_determineTopTree(topTree)) {
+        myfree(topTree);
         return 1;
     }
 
     /* copy what we need for the topnodes */
     for(i = 0; i < NTopNodes; i++)
     {
-        TopNodes[i].StartKey = topNodes[i].StartKey;
-        TopNodes[i].Shift = topNodes[i].Shift;
-        TopNodes[i].Daughter = topNodes[i].Daughter;
+        TopNodes[i].StartKey = topTree[i].StartKey;
+        TopNodes[i].Shift = topTree[i].Shift;
+        TopNodes[i].Daughter = topTree[i].Daughter;
         TopNodes[i].Leaf = -1; /* will be assigned by create_topleaves*/
     }
 
-    myfree(topNodes);
+    myfree(topTree);
 
     NTopLeaves = 0;
     domain_create_topleaves(0, &NTopLeaves);
@@ -556,7 +560,7 @@ domain_assign_balanced(int64_t * cost)
             /* If we have allocated enough segments to fill this processor,
              * or if we have one segment per task left, proceed to the next task.
              * We do not use round robin so that neighbouring (by key)
-             * topNodes are on the same processor.*/
+             * topTree are on the same processor.*/
             if((mean_task - curtaskload < 0.5 * mean_expected) || (Nsegment - curseg <= NTask - curtask)
                ){
                 curtaskload = 0;
@@ -688,30 +692,155 @@ domain_create_topleaves(int no, int * next)
     }
 }
 
-/* non recursively check for local refinements */
-int domain_check_for_local_refine_nr(struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP)
+static int
+domain_toptree_get_subnode(struct local_topnode_data * topTree,
+        peano_t key)
 {
-    int last = 0;
-    int i;
-    /* this requires the LP structure to be sorted by key */
-    for(i = 0; i < NumPart; i ++) {
+    int no = 0;
+    while(topTree[no].Daughter >= 0) {
+        no = topTree[no].Daughter + ((key - topTree[no].StartKey) >> (topTree[no].Shift - 3));
     }
-    
+    return no;
 }
+
+static int
+domain_toptree_insert(struct local_topnode_data * topTree,
+        peano_t Key, int64_t cost)
+{
+    /* insert */
+    int leaf = domain_toptree_get_subnode(topTree, Key);
+    topTree[leaf].Count ++;
+    topTree[leaf].Cost += cost;
+    return leaf;
+}
+
+static int
+domain_toptree_split(struct local_topnode_data * topTree,
+    int i) 
+{
+    int j;
+    /* we ran out of top nodes and must get more.*/
+    if((NTopNodes + 8) > MaxTopNodes)
+        return 1;
+
+    /*Make a new topnode section attached to this node*/
+    topTree[i].Daughter = NTopNodes;
+    NTopNodes += 8;
+
+    /* Initialise this topnode with new sub nodes*/
+    for(j = 0; j < 8; j++)
+    {
+        const int sub = topTree[i].Daughter + j;
+        /* The new sub nodes have this node as parent
+         * and no daughters.*/
+        topTree[sub].Daughter = -1;
+        topTree[sub].Parent = i;
+        /* Shorten the peano key by a factor 8, reflecting the oct-tree level.*/
+        topTree[sub].Shift = topTree[i].Shift - 3;
+        /* This is the region of peanospace covered by this node.*/
+        topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
+        /* We will compute the cost and initialise the first particle in the node below.
+         * This PIndex value is never used*/
+        topTree[sub].PIndex = topTree[i].PIndex;
+        topTree[sub].Count = 0;
+        topTree[sub].Cost = 0;
+    }
+    return 0;
+}
+
+static void
+domain_toptree_update_cost(struct local_topnode_data * topTree, int start)
+{
+    if(topTree[start].Daughter == -1) return;
+
+    int j = 0;
+    for(j = 0; j < 8; j ++) {
+        int sub = topTree[start].Daughter + j;
+        domain_toptree_update_cost(topTree, sub);
+        topTree[start].Count += topTree[sub].Count;
+        topTree[start].Cost += topTree[sub].Cost;
+    }
+}
+
+/* check for local refinements with subsamples*/
+static int
+domain_check_for_local_refine_subsample(
+    struct local_topnode_data * topTree,
+    struct local_particle_data * LP,
+    int sample_step)
+{
+    NTopNodes = 1;
+    topTree[0].Daughter = -1;
+    topTree[0].Parent = -1;
+    topTree[0].Shift = BITS_PER_DIMENSION * 3;
+    topTree[0].StartKey = 0;
+    topTree[0].PIndex = 0;
+    topTree[0].Count = 0;
+    topTree[0].Cost = 0;
+
+    int i;
+
+    /* this requires the LP structure to be sorted by key;
+     * when the LP structure is sorted by key, we either refine
+     * the node the last particle lives in, or jump into a new empty node
+     * */
+
+    /* sub sample every 16 particles to create a skeleton of the toptree,
+     * because otherwise the tree is too fine!  */
+    peano_t last_key = -1;
+    int last_leaf = -1;
+
+    i = 0;
+    while(i < NumPart) {
+
+        int leaf = domain_toptree_get_subnode(topTree, LP[i].Key);
+
+        if (leaf == last_leaf) {
+            /* split last leaf to hopefully make place for the new particle
+             * we will hold at most one sample particle per leaf */
+            if(0 != domain_toptree_split(topTree, leaf)) return 1;
+            /* reinsert the last particle */
+            topTree[leaf].Count = 0;
+            last_leaf = domain_toptree_insert(topTree, last_key, 0);
+            continue;
+        } else {
+            if(topTree[leaf].Count != 0) {
+                /* this shall not happen because key is already sorted. (cite paper)*/
+                abort();
+            }
+            last_key = LP[i].Key;
+            last_leaf = domain_toptree_insert(topTree, last_key, 0);
+            i += sample_step;
+            continue;
+        }
+    }
+    /* Now we are ready to insert all particles to the tree */
+    for(i = 0; i < NTopNodes; i ++ ) {
+        topTree[i].Count = 0;
+    }
+
+    for(i = 0; i < NumPart; i ++ ) {
+        domain_toptree_insert(topTree, LP[i].Key, LP[i].Cost);
+    }
+
+    domain_toptree_update_cost(topTree, 0);
+    return 0;
+}
+
 /* Refine the local oct-tree, recursively adding costs and particles until
  * either we have chopped off all the peano-hilbert keys and thus have no more
- * refinement to do, or we run out of topNodes.
+ * refinement to do, or we run out of topTree.
  * If 1 is returned on any processor we will return to domain_Decomposition,
- * allocate 30% more topNodes, and try again.
+ * allocate 30% more topTree, and try again.
  * */
-int domain_check_for_local_refine(const int i, struct local_topnode_data * topNodes, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP)
+int domain_check_for_local_refine(const int i, struct local_topnode_data * topTree, int64_t countlimit, int64_t costlimit, struct local_particle_data * LP)
 {
     int j, p;
     int need_refine = 1;
 
     /* if the node is already very cheap, then no need to divide it any further */
-    if(topNodes[i].Count <= countlimit &&
-        topNodes[i].Cost <= costlimit) {
+    if(topTree[i].Count <= countlimit &&
+        topTree[i].Cost <= costlimit) {
         need_refine = 0;
     }
 
@@ -719,15 +848,15 @@ int domain_check_for_local_refine(const int i, struct local_topnode_data * topNo
      * need to refine. This signals we are in a very is because we want to minimize spatially too large of a leaf
      * that overlaps with other processes during the merge.
      * */
-    if(topNodes[i].Parent > 0) {
-        if (topNodes[i].Count >= 0.8 * topNodes[topNodes[i].Parent].Count &&
-            topNodes[i].Cost >= 0.8 * topNodes[topNodes[i].Parent].Cost) {
+    if(topTree[i].Parent > 0) {
+        if (topTree[i].Count >= 0.8 * topTree[topTree[i].Parent].Count &&
+            topTree[i].Cost >= 0.8 * topTree[topTree[i].Parent].Cost) {
             need_refine = 1;
         }
     }
 
     /* However, if there are only 8 particles within this node, we are done refining.*/
-    if(topNodes[i].Shift < 3) need_refine = 0;
+    if(topTree[i].Shift < 3) need_refine = 0;
 
     /* done */
     if(!need_refine) return 0;
@@ -738,63 +867,63 @@ int domain_check_for_local_refine(const int i, struct local_topnode_data * topNo
         return 1;
 
     /*Make a new topnode section attached to this node*/
-    topNodes[i].Daughter = NTopNodes;
+    topTree[i].Daughter = NTopNodes;
     NTopNodes += 8;
 
     /* Initialise this topnode with new sub nodes*/
     for(j = 0; j < 8; j++)
     {
-        const int sub = topNodes[i].Daughter + j;
+        const int sub = topTree[i].Daughter + j;
         /* The new sub nodes have this node as parent
          * and no daughters.*/
-        topNodes[sub].Daughter = -1;
-        topNodes[sub].Parent = i;
+        topTree[sub].Daughter = -1;
+        topTree[sub].Parent = i;
         /* Shorten the peano key by a factor 8, reflecting the oct-tree level.*/
-        topNodes[sub].Shift = topNodes[i].Shift - 3;
+        topTree[sub].Shift = topTree[i].Shift - 3;
         /* This is the region of peanospace covered by this node.*/
-        topNodes[sub].StartKey = topNodes[i].StartKey + j * (1L << topNodes[sub].Shift);
+        topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
         /* We will compute the cost and initialise the first particle in the node below.
          * This PIndex value is never used*/
-        topNodes[sub].PIndex = topNodes[i].PIndex;
-        topNodes[sub].Count = 0;
-        topNodes[sub].Cost = 0;
+        topTree[sub].PIndex = topTree[i].PIndex;
+        topTree[sub].Count = 0;
+        topTree[sub].Cost = 0;
     }
 
     /* Loop over all particles in this node so that the costs of the daughter nodes are correct*/
-    for(p = 0, j = 0; p < topNodes[i].Count; p++)
+    for(p = 0, j = 0; p < topTree[i].Count; p++)
     {
-        const int sub = topNodes[i].Daughter;
+        const int sub = topTree[i].Daughter;
 
         /* This identifies which subnode this particle belongs to.
          * Once this particle has passed the StartKey of the next daughter node,
          * we increment the node the particle is added to and set the PIndex.*/
         if(j < 7)
-            while(topNodes[sub + j + 1].StartKey <= LP[p + topNodes[i].PIndex].Key)
+            while(topTree[sub + j + 1].StartKey <= LP[p + topTree[i].PIndex].Key)
             {
-                topNodes[sub + j + 1].PIndex = p;
+                topTree[sub + j + 1].PIndex = p;
                 j++;
                 if(j >= 7)
                     break;
             }
 
         /*Now we have identified the subnode for this particle, add it to the cost and count*/
-        topNodes[sub+j].Cost += LP[p + topNodes[i].PIndex].cost;
-        topNodes[sub+j].Count++;
+        topTree[sub+j].Cost += LP[p + topTree[i].PIndex].Cost;
+        topTree[sub+j].Count++;
     }
 
     /*Check and refine the new daughter nodes*/
     for(j = 0; j < 8; j++)
     {
-        const int sub = topNodes[i].Daughter + j;
+        const int sub = topTree[i].Daughter + j;
         /* Refine each sub node. If we could not refine the node as needed,
          * we are out of node space and need more.*/
-        if(domain_check_for_local_refine(sub, topNodes, countlimit, costlimit, LP))
+        if(domain_check_for_local_refine(sub, topTree, countlimit, costlimit, LP))
             return 1;
     }
     return 0;
 }
 
-int domain_nonrecursively_combine_topTree(struct local_topnode_data * topNodes)
+int domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree)
 {
     /* 
      * combine topTree non recursively, this uses MPI_Bcast within a group.
@@ -817,7 +946,7 @@ int domain_nonrecursively_combine_topTree(struct local_topnode_data * topNodes)
         int Color = ThisTask / sep;
         int Key = ThisTask % sep;
         int ntopnodes_import = 0;
-        struct local_topnode_data * topNodes_import = NULL;
+        struct local_topnode_data * topTree_import = NULL;
 
         int recvTask = -1; /* by default do not communicate */
 
@@ -836,11 +965,11 @@ int domain_nonrecursively_combine_topTree(struct local_topnode_data * topNodes)
                 MPI_Recv(
                         &ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A,
                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                topNodes_import = (struct local_topnode_data *) mymalloc("topNodes_import",
+                topTree_import = (struct local_topnode_data *) mymalloc("topTree_import",
                             IMAX(ntopnodes_import, NTopNodes) * sizeof(struct local_topnode_data));
 
                 MPI_Recv(
-                        topNodes_import,
+                        topTree_import,
                         ntopnodes_import, MPI_TYPE_TOPNODE, 
                         recvTask, TAG_GRAV_B, 
                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -853,10 +982,10 @@ int domain_nonrecursively_combine_topTree(struct local_topnode_data * topNodes)
                         endrun(1, "severe domain error using a unintended rank \n");
                     }
                     if(ntopnodes_import > 0 ) {
-                        domain_insertnode(topNodes, topNodes_import, 0, 0, topNodes);
+                        domain_insertnode(topTree, topTree_import, 0, 0, topTree);
                     } 
                 }
-                myfree(topNodes_import);
+                myfree(topTree_import);
             }
         } else {
             /* odd guys send */
@@ -864,7 +993,7 @@ int domain_nonrecursively_combine_topTree(struct local_topnode_data * topNodes)
             if(recvTask >= 0) {
                 MPI_Send(&NTopNodes, 1, MPI_INT, recvTask, TAG_GRAV_A,
                         MPI_COMM_WORLD);
-                MPI_Send(topNodes,
+                MPI_Send(topTree,
                         NTopNodes, MPI_TYPE_TOPNODE,
                         recvTask, TAG_GRAV_B,
                         MPI_COMM_WORLD);
@@ -880,7 +1009,7 @@ loop_continue:
     }
 
     MPI_Bcast(&NTopNodes, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(topNodes, NTopNodes, MPI_TYPE_TOPNODE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(topTree, NTopNodes, MPI_TYPE_TOPNODE, 0, MPI_COMM_WORLD);
     MPI_Type_free(&MPI_TYPE_TOPNODE);
     return errorflagall;
 }
@@ -891,7 +1020,7 @@ loop_continue:
  *  in pieces of eight segments until each segment holds at most a certain
  *  number of particles.
  */
-int domain_determineTopTree(struct local_topnode_data * topNodes)
+int domain_determineTopTree(struct local_topnode_data * topTree)
 {
     int i, j, sub;
     int errflag, errsum;
@@ -904,8 +1033,8 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     for(i = 0; i < NumPart; i++)
     {
         LP[i].Key = P[i].Key;
-        LP[i].cost = domain_particle_costfactor(i);
-        gravcost += LP[i].cost;
+        LP[i].Cost = domain_particle_costfactor(i);
+        gravcost += LP[i].Cost;
     }
 
     /*We need TotNumPart to be up to date*/
@@ -918,13 +1047,13 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     countlimit = TotNumPart / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
 
     NTopNodes = 1;
-    topNodes[0].Daughter = -1;
-    topNodes[0].Parent = -1;
-    topNodes[0].Shift = BITS_PER_DIMENSION * 3;
-    topNodes[0].StartKey = 0;
-    topNodes[0].PIndex = 0;
-    topNodes[0].Count = NumPart;
-    topNodes[0].Cost = gravcost;
+    topTree[0].Daughter = -1;
+    topTree[0].Parent = -1;
+    topTree[0].Shift = BITS_PER_DIMENSION * 3;
+    topTree[0].StartKey = 0;
+    topTree[0].PIndex = 0;
+    topTree[0].Count = NumPart;
+    topTree[0].Cost = gravcost;
 
     walltime_measure("/Domain/DetermineTopTree/Misc");
 
@@ -934,7 +1063,8 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     walltime_measure("/Domain/DetermineTopTree/Sort");
 
-    errflag = domain_check_for_local_refine(0, topNodes, countlimit, costlimit, LP);
+//    errflag = domain_check_for_local_refine(0, topTree, countlimit, costlimit, LP);
+    errflag = domain_check_for_local_refine_subsample(topTree, LP, 16);
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     if(NTopNodes > 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor) {
@@ -956,7 +1086,7 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     /* we now need to exchange tree parts and combine them as needed */
 
-    errflag = domain_nonrecursively_combine_topTree(topNodes);
+    errflag = domain_nonrecursively_combine_topTree(topTree);
 
     walltime_measure("/Domain/DetermineTopTree/Combine");
 #if 0
@@ -966,9 +1096,9 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     /* these PIndex are non-essential in other modules, so we reset them */
     for(i = 0; i < NTopNodes; i ++) {
-        topNodes[i].PIndex = -1;
+        topTree[i].PIndex = -1;
     }
-    fwrite(topNodes, sizeof(struct local_topnode_data), NTopNodes, fd);
+    fwrite(topTree, sizeof(struct local_topnode_data), NTopNodes, fd);
     fclose(fd);
 
     //MPI_Barrier(MPI_COMM_WORLD);
@@ -992,7 +1122,7 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
 
     /* At this point we have refined the local particle tree so that each
      * topNode contains a Cost and Count below the cost threshold. We have then
-     * done a global merge of the particle tree. Some of our topNodes may now contain
+     * done a global merge of the particle tree. Some of our topTree may now contain
      * more particles than the Cost threshold, but doing refinement using the local
      * algorithm is complicated - particles inside any particular topNode may be
      * on another processor. So we do a local volume based refinement here. This
@@ -1006,26 +1136,26 @@ int domain_determineTopTree(struct local_topnode_data * topNodes)
     for(i = 0, errflag = 0; i < NTopNodes; i++)
     {
         /*If this node has no children and non-zero size*/
-        if(topNodes[i].Daughter < 0 && topNodes[i].Shift > 0) {
+        if(topTree[i].Daughter < 0 && topTree[i].Shift > 0) {
             /*If this node is also more costly than the limit*/
-            if(topNodes[i].Count > countlimit || topNodes[i].Cost > costlimit) {
-                /*If we have no space for another 8 topNodes, exit */
+            if(topTree[i].Count > countlimit || topTree[i].Cost > costlimit) {
+                /*If we have no space for another 8 topTree, exit */
                 if((NTopNodes + 8) > MaxTopNodes) {
                     errflag = 1;
                     break;
                 }
 
-                topNodes[i].Daughter = NTopNodes;
+                topTree[i].Daughter = NTopNodes;
 
                 for(j = 0; j < 8; j++)
                 {
-                    sub = topNodes[i].Daughter + j;
-                    topNodes[sub].Shift = topNodes[i].Shift - 3;
-                    topNodes[sub].Count = topNodes[i].Count / 8;
-                    topNodes[sub].Cost = topNodes[i].Cost / 8;
-                    topNodes[sub].Daughter = -1;
-                    topNodes[sub].Parent = i;
-                    topNodes[sub].StartKey = topNodes[i].StartKey + j * (1L << topNodes[sub].Shift);
+                    sub = topTree[i].Daughter + j;
+                    topTree[sub].Shift = topTree[i].Shift - 3;
+                    topTree[sub].Count = topTree[i].Count / 8;
+                    topTree[sub].Cost = topTree[i].Cost / 8;
+                    topTree[sub].Daughter = -1;
+                    topTree[sub].Parent = i;
+                    topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
                 }
                 NTopNodes += 8;
             }
@@ -1117,7 +1247,7 @@ void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, i
 
 
 /* FIXME: this function needs some comments. I used to know what it does --. YF*/
-void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topNodes)
+void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, struct local_topnode_data * topTree)
 {
     int j, sub;
     int64_t count, countA, countB;
@@ -1154,12 +1284,12 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
                     sub = treeA[noA].Daughter + j;
                     /* This is the only use of the global resource in this function,
                      * and adds a node to the toplevel tree.*/
-                    topNodes[sub].Shift = treeA[noA].Shift - 3;
-                    topNodes[sub].Count = count;
-                    topNodes[sub].Cost = cost;
-                    topNodes[sub].Daughter = -1;
-                    topNodes[sub].Parent = noA;
-                    topNodes[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
+                    topTree[sub].Shift = treeA[noA].Shift - 3;
+                    topTree[sub].Count = count;
+                    topTree[sub].Cost = cost;
+                    topTree[sub].Daughter = -1;
+                    topTree[sub].Parent = noA;
+                    topTree[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
                 }
                 NTopNodes += 8;
             }
@@ -1168,7 +1298,7 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
         }
 
         sub = treeA[noA].Daughter + ((treeB[noB].StartKey - treeA[noA].StartKey) >> (treeA[noA].Shift - 3));
-        domain_insertnode(treeA, treeB, sub, noB, topNodes);
+        domain_insertnode(treeA, treeB, sub, noB, topTree);
     }
     else if(treeB[noB].Shift == treeA[noA].Shift)
     {
@@ -1180,7 +1310,7 @@ void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_da
             for(j = 0; j < 8; j++)
             {
                 sub = treeB[noB].Daughter + j;
-                domain_insertnode(treeA, treeB, noA, sub,topNodes);
+                domain_insertnode(treeA, treeB, noA, sub,topTree);
             }
         }
         else
