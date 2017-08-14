@@ -438,9 +438,8 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int N
         int tid = omp_get_thread_num();
         int NT = omp_get_num_threads();
         if(NT > All.NumThreads) abort();
-        int start = (selection?((size_t) NumSelection):((size_t)NumPart)) * tid / NT;
-        int end = (selection?((size_t) NumSelection):((size_t)NumPart)) * (tid + 1) / NT;
-        int localsize = 0;
+        int start = (selection ? NumSelection : NumPart) * tid / NT;
+        int end = (selection ? NumSelection : NumPart) * (tid + 1) / NT;
         npartThread[tid] = 0;
         for(i = start; i < end; i ++) {
             int j = selection?selection[i]:i;
@@ -448,15 +447,16 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int N
             npartThread[tid] ++;
         }
 #pragma omp barrier
-        offsetThread[0] = 0;
-        for(i = 1; i < NT; i ++) {
-            offsetThread[i] = offsetThread[i - 1] + npartThread[i - 1];
-        }
-        for(i = 0; i < NT; i ++) {
-            localsize += npartThread[i];
-        }
 #pragma omp master 
         {
+            int localsize = 0;
+            offsetThread[0] = 0;
+            for(i = 1; i < NT; i ++) {
+                offsetThread[i] = offsetThread[i - 1] + npartThread[i - 1];
+            }
+            for(i = 0; i < NT; i ++) {
+                localsize += npartThread[i];
+            }
         /* don't forget to free buffer after its done*/
             petaio_alloc_buffer(array, ent, localsize);
         }
