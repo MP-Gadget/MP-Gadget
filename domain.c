@@ -762,6 +762,53 @@ domain_toptree_update_cost(struct local_topnode_data * topTree, int start)
     }
 }
 
+static void
+domain_toptree_truncate(struct local_topnode_data * topTree, int start, int64_t countlimit, int64_t costlimit)
+{
+    if(topTree[start].Daughter == -1) return;
+
+    if(topTree[start].Count < countlimit &&
+       topTree[start].Cost < costlimit) {
+        /* truncate here */
+        topTree[start].Daughter = -1;
+        return;
+    }
+
+    int j;
+    for(j = 0; j < 8; j ++) {
+        int sub = topTree[start].Daughter + j;
+        domain_toptree_truncate(topTree, sub, countlimit, costlimit);
+    }
+}
+
+/* remove the nodes that are no longer useful after the truncation.
+ * 
+ * We walk the topTree top-down to collect useful nodes, and move them to
+ * the head of the topTree list.
+ *
+ * This works because any child node is stored after the parent in the list 
+ * -- we are destroying the old tree just slow enough
+ * */
+
+static void
+domain_toptree_garbage_collection(struct local_topnode_data * topTree, int start, int * last_free)
+{
+
+    if(topTree[start].Daughter == -1) return;
+    int j;
+
+    int oldd = topTree[start].Daughter;
+    int newd = *last_free;
+
+    topTree[start].Daughter = newd;
+
+    (*last_free) += 8;
+    for(j = 0; j < 8; j ++) {
+        topTree[newd + j] = topTree[oldd + j];
+        domain_toptree_garbage_collection(topTree, newd + j, last_free);
+    }
+}
+
 /* check for local refinements with subsamples*/
 static int
 domain_check_for_local_refine_subsample(
@@ -823,7 +870,6 @@ domain_check_for_local_refine_subsample(
         domain_toptree_insert(topTree, LP[i].Key, LP[i].Cost);
     }
 
-    domain_toptree_update_cost(topTree, 0);
     return 0;
 }
 
@@ -1065,6 +1111,14 @@ int domain_determineTopTree(struct local_topnode_data * topTree)
 
 //    errflag = domain_check_for_local_refine(0, topTree, countlimit, costlimit, LP);
     errflag = domain_check_for_local_refine_subsample(topTree, LP, 16);
+
+    domain_toptree_update_cost(topTree, 0);
+
+    domain_toptree_truncate(topTree, 0, countlimit, costlimit);
+
+    NTopNodes = 1; /* put in the root node -- it's never a garbage . */
+    domain_toptree_garbage_collection(topTree, 0, &NTopNodes);
+
     walltime_measure("/Domain/DetermineTopTree/LocalRefine");
 
     if(NTopNodes > 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor) {
