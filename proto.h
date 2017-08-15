@@ -92,6 +92,10 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
 
+int MPI_Alltoallv_fix_buserror(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
+
 static inline int atomic_fetch_and_add(int * ptr, int value) {
     int k;
 #if _OPENMP >= 201107

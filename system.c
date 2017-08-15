@@ -291,78 +291,40 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) {
 
-    int ThisTask;
-    int NTask;
-    MPI_Comm_rank(comm, &ThisTask);
-    MPI_Comm_size(comm, &NTask);
-    int PTask;
-    int ngrp;
-
-    for(PTask = 0; NTask > (1 << PTask); PTask++);
-
-    ptrdiff_t lb;
-    ptrdiff_t send_elsize;
-    ptrdiff_t recv_elsize;
-
-    MPI_Type_get_extent(sendtype, &lb, &send_elsize);
-    MPI_Type_get_extent(recvtype, &lb, &recv_elsize);
-
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
-    int n_requests;
-    MPI_Request requests[NTask * 2];
-    n_requests = 0;
-
-
-    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
-    {
-        int target = ThisTask ^ ngrp;
-
-        if(target >= NTask) continue;
-        if(recvcnts[target] == 0) continue;
-        MPI_Irecv(
-                ((char*) recvbuf) + recv_elsize * rdispls[target], 
-                recvcnts[target],
-                recvtype, target, 101934, comm, &requests[n_requests++]);
+        return MPI_Alltoallv(sendbuf, sendcnts, sdispls,
+                    sendtype, recvbuf,
+                    recvcnts, rdispls, recvtype, comm);
+        //return MPI_Alltoallv_fix_buserror(sendbuf, sendcnts, sdispls,
+        //            sendtype, recvbuf,
+        //            recvcnts, rdispls, recvtype, comm);
     }
 
-    MPI_Barrier(comm);
-    /* not really necessary, but this will guarantee that all receives are
-       posted before the sends, which helps the stability of MPI on
-       bluegene, and perhaps some mpich1-clusters */
-    /* Note 08/2016: Even on modern hardware this barrier leads to a slight speedup.
-     * Probably because it allows the code to hit a fast path transfer.*/
+int MPI_Alltoallv_fix_buserror(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
+{
+   int i, j, ncut;
+   int ThisTask, NTask;
+   int *sendcnts_ncut, *sdispls_ncut, *recvcnts_ncut, *rdispls_ncut;
+   MPI_Comm_rank(comm, &ThisTask);
+   MPI_Comm_size(comm, &NTask);
+   
+   ncut = 4;
+   sendcnts_ncut = (int *) malloc(NTask * sizeof(int));
+   recvcnts_ncut = (int *) malloc(NTask * sizeof(int));
+   sdispls_ncut = (int *) malloc(NTask * sizeof(int));
+   rdispls_ncut = (int *) malloc(NTask * sizeof(int));
 
-    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
-    {
-        int target = ThisTask ^ ngrp;
-        if(target >= NTask) continue;
-        if(sendcnts[target] == 0) continue;
-        MPI_Isend(((char*) sendbuf) + send_elsize * sdispls[target], 
-                sendcnts[target],
-                sendtype, target, 101934, comm, &requests[n_requests++]);
-    }
-
-    MPI_Waitall(n_requests, requests, MPI_STATUSES_IGNORE);
-
-#else
-    for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
-    {
-        int target = ThisTask ^ ngrp;
-
-        if(target >= NTask) continue;
-        if(sendcnts[target] == 0 && recvcnts[target] == 0) continue;
-        MPI_Sendrecv(((char*)sendbuf) + send_elsize * sdispls[target], 
-                sendcnts[target], sendtype, 
-                target, 101934,
-                ((char*)recvbuf) + recv_elsize * rdispls[target],
-                recvcnts[target], recvtype, 
-                target, 101934, 
-                comm, MPI_STATUS_IGNORE);
-
-    }
-#endif
-    /* ensure the collective-ness */
-    MPI_Barrier(comm);
-
-    return 0;
+   for (j =0; j<ncut;j++){
+       for (i=0; i<NTask; i++){
+           sdispls_ncut[i] = sendcnts[i] * j/ ncut; 
+           sendcnts_ncut[i] = sendcnts[i] * (j+1)/ ncut - sdispls_ncut[i];
+           sdispls_ncut[i] += sdispls[i];
+           rdispls_ncut[i] = recvcnts[i] * j/ ncut;       
+           recvcnts_ncut[i] = recvcnts[i] * (j+1)/ ncut - rdispls_ncut[i];
+           rdispls_ncut[i] += rdispls[i];
+       }
+       MPI_Alltoallv(sendbuf, sendcnts_ncut, sdispls_ncut, sendtype, recvbuf, recvcnts_ncut, rdispls_ncut, recvtype, comm);
+   }
+   return 1;       
 }
