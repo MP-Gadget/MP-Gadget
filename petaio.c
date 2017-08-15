@@ -15,6 +15,7 @@
 
 #include "petaio.h"
 #include "mymalloc.h"
+#include "openmpsort.h"
 #include "utils-string.h"
 #include "endrun.h"
 
@@ -77,6 +78,19 @@ void petaio_save_restart() {
 }
 */
 
+/*Build a list of the particles of one type on the current processor*/
+static int petaio_build_selection(int ptype, int * selection, int MemSelection) {
+    int i;
+    int NumSelection=0;
+    for(i=0; i<NumPart; i++) {
+        if(P[i].Type != ptype) continue;
+        if(NumSelection >= MemSelection)
+            endrun(1,"Write buffer of %d not large enough\n", MemSelection);
+        selection[NumSelection] = i;
+        NumSelection++;
+    }
+    return NumSelection;
+}
 
 static void petaio_save_internal(char * fname) {
     BigFile bf = {0};
@@ -86,6 +100,9 @@ static void petaio_save_internal(char * fname) {
     }
     petaio_write_header(&bf); 
 
+    int stype = -1;
+    int * Selection = NULL;
+    int NumSelection = 0;
     int i;
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -95,8 +112,15 @@ static void petaio_save_internal(char * fname) {
         if(!(ptype < 6 && ptype >= 0)) {
             continue;
         }
+        if(ptype != stype) {
+            if(Selection)
+                myfree(Selection);
+            Selection = mymalloc("Selection", NLocal[ptype] * sizeof(int));
+            NumSelection = petaio_build_selection(ptype, Selection, NLocal[ptype]);
+            stype = ptype;
+        }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-        petaio_build_buffer(&array, &IOTable.ent[i], NULL, 0);
+        petaio_build_buffer(&array, &IOTable.ent[i], Selection, NumSelection);
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
@@ -104,6 +128,8 @@ static void petaio_save_internal(char * fname) {
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
+    if(Selection)
+        myfree(Selection);
 }
 
 void petaio_read_internal(char * fname, int ic) {
@@ -422,6 +448,9 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int N
         petaio_alloc_buffer(array, ent, 0);
         return;
     }
+    if(!selection) {
+        endrun(2, "Null selection buffer passed\n");
+    }
 
     /* This didn't work with CRAY:
      * always has NLocal = 0
@@ -438,11 +467,11 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int N
         int tid = omp_get_thread_num();
         int NT = omp_get_num_threads();
         if(NT > All.NumThreads) abort();
-        int start = (selection ? NumSelection : NumPart) * tid / NT;
-        int end = (selection ? NumSelection : NumPart) * (tid + 1) / NT;
+        int start = NumSelection * (size_t) tid / NT;
+        int end = NumSelection * ((size_t) tid + 1) / NT;
         npartThread[tid] = 0;
         for(i = start; i < end; i ++) {
-            int j = selection?selection[i]:i;
+            int j = selection[i];
             if(P[j].Type != ent->ptype) continue;
             npartThread[tid] ++;
         }
@@ -468,7 +497,7 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int N
         char * p = array->data;
         p += array->strides[0] * offsetThread[tid];
         for(i = start; i < end; i ++) {
-            int j = selection?selection[i]:i;
+            int j = selection[i];
             if(P[j].Type != ent->ptype) continue;
             ent->getter(j, p);
             p += array->strides[0];
@@ -675,6 +704,19 @@ static void GTJUV(int i, float * out) {
     GetParticleUVBG(i, &uvbg);
     *out = uvbg.J_UV;
 }
+
+static int order_by_type(const void *a, const void *b)
+{
+    const struct IOTableEntry * pa  = (const struct IOTableEntry *) a;
+    const struct IOTableEntry * pb  = (const struct IOTableEntry *) b;
+
+    if(pa->ptype < pb->ptype)
+        return -1;
+    if(pa->ptype > pb->ptype)
+        return +1;
+    return 0;
+}
+
 static void register_io_blocks() {
     int i;
     /* Bare Bone Gravity*/
@@ -723,5 +765,8 @@ static void register_io_blocks() {
 #endif
     if(All.SnapshotWithFOF)
         fof_register_io_blocks();
+
+    /*Sort IO blocks so similar types are together*/
+    qsort_openmp(IOTable.ent, IOTable.used, sizeof(struct IOTableEntry), order_by_type);
 }
 
