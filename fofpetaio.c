@@ -34,8 +34,26 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     u[0] = f->GrNr;
 }
 
+/*Build a list of the particles of one type on the current processor*/
+static int fof_build_selection(int ptype, int * selection, int MemSelection) {
+    int i;
+    int NumPIG = 0;
+    for(i = 0; i < NumPart; i ++) {
+        if(P[i].Type != ptype)
+            continue;
+        if(P[i].GrNr >= 0) {
+            if(NumPIG >= MemSelection)
+                endrun(1,"Write buffer of %d not large enough\n", MemSelection);
+            selection[NumPIG] = i;
+            NumPIG ++;
+        }
+    }
+    return NumPIG;
+}
+
 void fof_save_particles(int num) {
     char fname[4096];
+    int i;
     sprintf(fname, "%s/PIG_%03d", All.OutputDir, num);
     message(0, "saving particle in group into %s\n", fname);
 
@@ -47,28 +65,6 @@ void fof_save_particles(int num) {
     fof_distribute_particles();
     walltime_measure("/FOF/IO/Distribute");
     
-    int * argind = mymalloc("argind", sizeof(int) * NumPart);
-    int NumPIG = 0;
-    int i;
-    for(i = 0; i < NumPart; i ++) {
-        int j = NumPIG;
-        if(P[i].GrNr >= 0) {
-            argind[j] = i;
-            NumPIG ++;
-        }
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    int NumPIGMax, NumPIGMin;
-    MPI_Allreduce(&NumPIG, &NumPIGMax, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&NumPIG, &NumPIGMin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-    message(0, "NumPIGmin=%d NumPIGmax=%d\n", NumPIGMin, NumPIGMax);
-
-    qsort(argind, NumPIG, sizeof(int), fof_cmp_argind);
-    walltime_measure("/FOF/IO/argind");
-    MPI_Barrier(MPI_COMM_WORLD);
-    message(0, "argind sorted\n");
-
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
         endrun(0, "Failed to open IC from %s\n", fname);
@@ -77,13 +73,27 @@ void fof_save_particles(int num) {
     MPI_Barrier(MPI_COMM_WORLD);
     fof_write_header(&bf); 
 
+    int stype = -1;
+    int * argind = NULL;
+    int NumPIG = 0;
+
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
         char blockname[128];
         int ptype = IOTable.ent[i].ptype;
         BigArray array = {0};
         if(ptype < 6 && ptype >= 0) {
+            walltime_measure("/FOF/IO/Write");
             sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
+            if(ptype != stype) {
+                if(argind)
+                    myfree(argind);
+                argind = mymalloc("FOFSelection", NLocal[ptype] * sizeof(int));
+                NumPIG = fof_build_selection(ptype, argind, NLocal[ptype]);
+                qsort(argind, NumPIG, sizeof(int), fof_cmp_argind);
+                stype = ptype;
+                walltime_measure("/FOF/IO/argind");
+            }
             petaio_build_buffer(&array, &IOTable.ent[i], argind, NumPIG);
         } else 
         if(ptype == PTYPE_FOF_GROUP) {
@@ -97,8 +107,9 @@ void fof_save_particles(int num) {
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
+    if(argind)
+        myfree(argind);
 
-    myfree(argind); 
     big_file_mpi_close(&bf, MPI_COMM_WORLD);
     walltime_measure("/FOF/IO/Write");
 

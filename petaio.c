@@ -109,6 +109,7 @@ static void petaio_save_internal(char * fname) {
         char blockname[128];
         int ptype = IOTable.ent[i].ptype;
         BigArray array = {0};
+        /*This exclude FOF blocks*/
         if(!(ptype < 6 && ptype >= 0)) {
             continue;
         }
