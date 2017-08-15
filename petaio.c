@@ -440,6 +440,7 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
 }
 /* build an IO buffer for block, based on selection
  * only check P[ selection[i]]
+ * NOTE: selection[i] should contain only one particle type!
 */
 void
 petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int NumSelection)
@@ -453,53 +454,23 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int N
         endrun(2, "Null selection buffer passed\n");
     }
 
-    /* This didn't work with CRAY:
-     * always has NLocal = 0
-     * after the loop if openmp is used;
-     * but I can't reproduce this with a striped version
-     * of code. need to investigate.
-     * #pragma omp parallel for reduction(+: NLocal)
-     */
-    int npartThread[All.NumThreads];
-    int offsetThread[All.NumThreads];
+    /* don't forget to free buffer after its done*/
+    petaio_alloc_buffer(array, ent, NumSelection);
+
 #pragma omp parallel
     {
         int i;
         int tid = omp_get_thread_num();
         int NT = omp_get_num_threads();
-        if(NT > All.NumThreads) abort();
         int start = NumSelection * (size_t) tid / NT;
         int end = NumSelection * ((size_t) tid + 1) / NT;
-        npartThread[tid] = 0;
-        for(i = start; i < end; i ++) {
-            int j = selection[i];
-            if(P[j].Type != ent->ptype) continue;
-            npartThread[tid] ++;
-        }
-#pragma omp barrier
-#pragma omp master 
-        {
-            int localsize = 0;
-            offsetThread[0] = 0;
-            for(i = 1; i < NT; i ++) {
-                offsetThread[i] = offsetThread[i - 1] + npartThread[i - 1];
-            }
-            for(i = 0; i < NT; i ++) {
-                localsize += npartThread[i];
-            }
-        /* don't forget to free buffer after its done*/
-            petaio_alloc_buffer(array, ent, localsize);
-        }
-#pragma omp barrier
-#if 0
-        printf("Thread = %d offset=%d count=%d start=%d end=%d %d\n", tid, offsetThread[tid], npartThread[tid], start, end, localsize);
-#endif
         /* fill the buffer */
         char * p = array->data;
-        p += array->strides[0] * offsetThread[tid];
+        p += array->strides[0] * start;
         for(i = start; i < end; i ++) {
             int j = selection[i];
-            if(P[j].Type != ent->ptype) continue;
+            if(P[j].Type != ent->ptype)
+                endrun(2, "Selection %d has type = %d != %d\n", j, P[j].Type, ent->ptype);
             ent->getter(j, p);
             p += array->strides[0];
         }
