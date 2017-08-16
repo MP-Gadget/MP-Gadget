@@ -445,7 +445,7 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
 void
 petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int NumSelection)
 {
-    if(NLocal[ent->ptype] == 0) {
+    if(NumSelection == 0) {
         /* Fast code path if there are no such particles */
         petaio_alloc_buffer(array, ent, 0);
         return;
