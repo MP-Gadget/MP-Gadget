@@ -47,6 +47,8 @@ static void fof_build_selection(int * selection, int MemSelection, int *Nstart) 
             continue;
         if(P[i].Type != ptype)
         {
+            if(P[i].Type < ptype)
+                endrun(5, "Particles not sorted by type during IO\n");
             ptype = P[i].Type;
             Nstart[ptype] = i;
         }
@@ -97,7 +99,7 @@ void fof_save_particles(int num) {
         BigArray array = {0};
         if(ptype < 6 && ptype >= 0) {
             sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-            petaio_build_buffer(&array, &IOTable.ent[i], argind+Nstart[ptype], Nstart[ptype+1]-Nstart[ptype]);
+            petaio_build_buffer(&array, &IOTable.ent[i], argind, Nstart[ptype], Nstart[ptype+1]-Nstart[ptype]);
         } else 
         if(ptype == PTYPE_FOF_GROUP) {
             sprintf(blockname, "FOFGroups/%s", IOTable.ent[i].name);

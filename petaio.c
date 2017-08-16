@@ -78,18 +78,24 @@ void petaio_save_restart() {
 }
 */
 
-/*Build a list of the particles of one type on the current processor*/
-static int petaio_build_selection(int ptype, int * selection, int MemSelection) {
+/*Build a list of the first particle of each type on the current processor.
+ * This assumes that all particles are sorted!*/
+static void petaio_build_selection(int *Nstart, const int NumPart) {
     int i;
-    int NumSelection=0;
-    for(i=0; i<NumPart; i++) {
-        if(P[i].Type != ptype) continue;
-        if(NumSelection >= MemSelection)
-            endrun(1,"Write buffer of %d not large enough\n", MemSelection);
-        selection[NumSelection] = i;
-        NumSelection++;
+    int ptype = -1;
+
+    for(i = 0; i < NumPart; i ++) {
+        if(P[i].Type != ptype)
+        {
+            if(P[i].Type < ptype)
+                endrun(5, "Particles not sorted by type during IO\n");
+            ptype = P[i].Type;
+            Nstart[ptype] = i;
+        }
     }
-    return NumSelection;
+    /*Set remaining values*/
+    for(i = ptype+1; i< 6; i++)
+        Nstart[i] = NumPart;
 }
 
 static void petaio_save_internal(char * fname) {
@@ -100,9 +106,8 @@ static void petaio_save_internal(char * fname) {
     }
     petaio_write_header(&bf); 
 
-    int stype = -1;
-    int * Selection = NULL;
-    int NumSelection = 0;
+    int Nstart[6];
+    petaio_build_selection(Nstart, NumPart);
     int i;
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -113,15 +118,8 @@ static void petaio_save_internal(char * fname) {
         if(!(ptype < 6 && ptype >= 0)) {
             continue;
         }
-        if(ptype != stype) {
-            if(Selection)
-                myfree(Selection);
-            Selection = mymalloc("Selection", NLocal[ptype] * sizeof(int));
-            NumSelection = petaio_build_selection(ptype, Selection, NLocal[ptype]);
-            stype = ptype;
-        }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-        petaio_build_buffer(&array, &IOTable.ent[i], Selection, NumSelection);
+        petaio_build_buffer(&array, &IOTable.ent[i], NULL, Nstart[ptype], NLocal[ptype]);
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
@@ -129,8 +127,6 @@ static void petaio_save_internal(char * fname) {
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
-    if(Selection)
-        myfree(Selection);
 }
 
 void petaio_read_internal(char * fname, int ic) {
@@ -439,19 +435,16 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
     }
 }
 /* build an IO buffer for block, based on selection
- * only check P[ selection[i]]
- * NOTE: selection[i] should contain only one particle type!
+ * only check P[ selection[i]]. If selection is NULL, just use P[i].
+ * NOTE: selected range should contain only one particle type!
 */
 void
-petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int NumSelection)
+petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int StartSelection, const int NumSelection)
 {
     if(NumSelection == 0) {
         /* Fast code path if there are no such particles */
         petaio_alloc_buffer(array, ent, 0);
         return;
-    }
-    if(!selection) {
-        endrun(2, "Null selection buffer passed\n");
     }
 
     /* don't forget to free buffer after its done*/
@@ -460,15 +453,15 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int N
 #pragma omp parallel
     {
         int i;
-        int tid = omp_get_thread_num();
-        int NT = omp_get_num_threads();
-        int start = NumSelection * (size_t) tid / NT;
-        int end = NumSelection * ((size_t) tid + 1) / NT;
+        const int tid = omp_get_thread_num();
+        const int NT = omp_get_num_threads();
+        const int start = NumSelection * (size_t) tid / NT + StartSelection;
+        const int end = NumSelection * ((size_t) tid + 1) / NT + StartSelection;
         /* fill the buffer */
         char * p = array->data;
         p += array->strides[0] * start;
         for(i = start; i < end; i ++) {
-            int j = selection[i];
+            const int j = selection ? selection[i] : i;
             if(P[j].Type != ent->ptype)
                 endrun(2, "Selection %d has type = %d != %d\n", j, P[j].Type, ent->ptype);
             ent->getter(j, p);
