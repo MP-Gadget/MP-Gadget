@@ -441,14 +441,12 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
 void
 petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int StartSelection, const int NumSelection)
 {
-    if(NumSelection == 0) {
-        /* Fast code path if there are no such particles */
-        petaio_alloc_buffer(array, ent, 0);
-        return;
-    }
-
     /* don't forget to free buffer after its done*/
     petaio_alloc_buffer(array, ent, NumSelection);
+    /* Fast code path if there are no such particles */
+    if(NumSelection == 0) {
+        return;
+    }
 
 #pragma omp parallel
     {
