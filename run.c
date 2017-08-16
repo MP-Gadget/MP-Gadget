@@ -37,21 +37,27 @@ enum ActionType {
     TERMINATE = 5,
     IOCTL = 6,
 };
-static enum ActionType human_interaction();
-static int find_next_sync_point(int ti_nextoutput);
-static void compute_accelerations(void);
+static enum ActionType human_interaction(double lastPMlength);
+static int should_we_timeout(double lastPMlength);
+static void compute_accelerations(int is_PM);
 static void update_IO_params(const char * ioctlfname);
-static void every_timestep_stuff(int NumForces);
-static void write_cpu_log(void);
-
+static void every_timestep_stuff(int NumForces, int NumCurrentTiStep);
+static void write_cpu_log(int NumCurrentTiStep);
 
 void run(void)
 {
     enum ActionType action = NO_ACTION;
+    /*Number of timesteps performed this run*/
+    int NumCurrentTiStep = 0;
+
+    /*To compute the wall time between PM steps and decide when to timeout.*/
+    double lastPM = All.CT.ElapsedTime;
+    double lastPMlength = 0.03*All.TimeLimitCPU;
 
     walltime_measure("/Misc");
 
-    write_cpu_log(); /* produce some CPU usage info */
+    write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
+    inttime_t Ti_nextoutput = find_next_outputtime(All.Ti_Current);
 
     do /* main loop */
     {
@@ -59,92 +65,43 @@ void run(void)
          * If needed, this function will also write an output file
          * at the desired time.
          */
-        All.Ti_Current = find_next_sync_point(All.Ti_nextoutput);
+        All.Ti_Current = find_next_kick(All.Ti_Current);
 
-        /* Sync positions of all particles */
-        drift_all_particles(All.Ti_Current);
+        /*Convert back to floating point time*/
+        set_global_time(exp(loga_from_ti(All.Ti_Current)));
 
-        /* drift and domain decomposition */
+        int is_PM = is_PM_timestep(All.Ti_Current);
 
-        /* at first step this is a noop */
-        if(All.PM_Ti_endstep == All.Ti_Current) {
-            /* full decomposition rebuilds the tree */
-            domain_decompose_full();
-        } else {
-            /* FIXME: add a parameter for domain_decompose_incremental */
-            /* currently we drift all particles every step */
-            /* If it is not a PM step, do a shorter version
-             * of the domain decomp which just moves and exchanges drifted (active) particles.*/
-            domain_maintain();
+        if(is_PM) {
+            double curTime = All.CT.ElapsedTime;
+            if(All.Ti_Current)
+                lastPMlength = curTime - lastPM;
+            lastPM = curTime;
         }
 
-        int NumForces = update_active_timebins(All.Ti_Current);
-
-        rebuild_activelist();
-
-        every_timestep_stuff(NumForces);	/* write some info to log-files */
-
-        /* force */
-        compute_accelerations();	/* compute accelerations for
-                                     * the particles that are to be advanced
-                                     */
-
-        /* kick */
-        advance_and_find_timesteps();	/* 'kick' active particles in
-                                         * momentum space and compute new
-                                         * timesteps for them
-                                         */
-
-        /*If this timestep is after the last snapshot time, write a snapshot.
-         * No need to do a domain decomposition as we already did one since
-         * the last move in compute_accelerations().
-         * This is after advance_and_find_timesteps so the acceleration
-         * is included in the kick.*/
-        if(All.Ti_Current >= All.Ti_nextoutput)
-        {
-            /*Save snapshot*/
-            savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
-            All.Ti_nextoutput = find_next_outputtime(All.Ti_nextoutput + 1);
-        }
-        write_cpu_log();		/* produce some CPU usage info */
-
-        if(action == STOP || action == TIMEOUT) {
-            /* OK snapshot file is written, lets quit */
-            return;
-        }
-
-        All.NumCurrentTiStep++;
-
-        report_memory_usage("RUN");
-
-        action = human_interaction();
+        action = human_interaction(lastPMlength);
         switch(action) {
             case STOP:
                 message(0, "human controlled stop with checkpoint.\n");
-                All.Ti_nextoutput = All.Ti_Current;
-                /* Note there is an error involved in doing this:
-                 * part of the SPH VelPred array is computed using
-                 * the length of a PM step, and will have been
-                 * slightly incorrect for this timestep. But we want a stop NOW.*/
-                All.PM_Ti_endstep = All.Ti_Current;
+                /*Write when the PM timestep completes*/
+                Ti_nextoutput = All.Ti_Current-1;
                 /* next loop will write a new snapshot file; break is for switch */
                 break;
             case TIMEOUT:
                 message(0, "stopping due to TimeLimitCPU.\n");
-                All.Ti_nextoutput = All.Ti_Current;
-                All.PM_Ti_endstep = All.Ti_Current;
+                Ti_nextoutput = All.Ti_Current-1;
                 /* next loop will write a new snapshot file */
                 break;
 
             case AUTO_CHECKPOINT:
                 message(0, "auto checkpoint due to TimeBetSnapshot.\n");
-                All.Ti_nextoutput = All.PM_Ti_endstep;
+                Ti_nextoutput = All.Ti_Current-1;
                 /* will write a new snapshot file next time the PM step finishes*/
                 break;
 
             case CHECKPOINT:
                 message(0, "human controlled checkpoint.\n");
-                All.Ti_nextoutput = All.PM_Ti_endstep;
+                Ti_nextoutput = All.Ti_Current-1;
                 /* will write a new snapshot file next time the PM step finishes*/
                 break;
 
@@ -160,8 +117,86 @@ void run(void)
                 break;
         }
 
+        int WillOutput = is_PM && (All.Ti_Current >= Ti_nextoutput);
+
+        /* Sync positions of all particles */
+        drift_all_particles(All.Ti_Current);
+
+        /* drift and domain decomposition */
+
+        /* at first step this is a noop */
+        if(is_PM) {
+            /* full decomposition rebuilds the tree */
+            domain_decompose_full();
+        } else {
+            /* FIXME: add a parameter for domain_decompose_incremental */
+            /* currently we drift all particles every step */
+            /* If it is not a PM step, do a shorter version
+             * of the domain decomp which just moves and exchanges drifted (active) particles.*/
+            domain_maintain();
+        }
+
+        int NumForces = update_active_timebins(All.Ti_Current);
+
+        rebuild_activelist();
+
+        every_timestep_stuff(NumForces, NumCurrentTiStep);	/* write some info to log-files */
+
+        /* update force to Ti_Current */
+        compute_accelerations(is_PM);
+
+        /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
+
+        if(is_PM) {
+            apply_PM_half_kick();
+        }
+
+        apply_half_kick();
+
+        /* assign new timesteps to the active particles, now that we know they have synched TiKick and TiDrift */
+        find_timesteps();
+
+        /* If this timestep is after the last snapshot time, write a snapshot.
+         * No need to do a domain decomposition as we already did one since
+         * the last move in compute_accelerations().
+         *
+         * Also watch out WillOutput is only true on is_PM; to ensure the PM kick is done
+         * and included in the velocity. This is the only chance where all variables are
+         * synchonized in a consistent state in a K(KDDK)^mK scheme.
+         */
+
+        if(WillOutput)
+        {
+            /*Save snapshot*/
+            savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
+
+            if(action == STOP || action == TIMEOUT) {
+                /* OK snapshot file is written, lets quit */
+                return;
+            }
+
+            /*Do the extra half-kick we avoided for a snapshot.*/
+            /*Find next output*/
+            Ti_nextoutput = find_next_outputtime(Ti_nextoutput);
+            if(out_from_ti(Ti_nextoutput) < All.OutputListLength)
+                message(0, "Setting next time for snapshot file to Time_next= %g \n",
+                        exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]));
+        }
+
+        /* Update velocity to the new step, with the newly computed step size */
+        apply_half_kick();
+
+        if(is_PM) {
+            apply_PM_half_kick();
+        }
+
+        write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
+
+        NumCurrentTiStep++;
+
+        report_memory_usage("RUN");
     }
-    while(All.Ti_Current < TIMEBASE);
+    while(out_from_ti(Ti_nextoutput) < All.OutputListLength);
 }
 
 static void
@@ -192,31 +227,22 @@ update_IO_params(const char * ioctlfname)
             All.IO.NumWriters);
 }
 
+/* lastPMlength is the walltime in seconds between the last two PM steps.
+ * It is used to decide when we are going to timeout*/
 static enum ActionType
-human_interaction()
+human_interaction(double lastPMlength)
 {
         /* Check whether we need to interrupt the run */
     enum ActionType action = NO_ACTION;
     char stopfname[4096], termfname[4096];
     char restartfname[4096];
     char ioctlfname[4096];
+    int timeout = should_we_timeout(lastPMlength);
 
     sprintf(stopfname, "%s/stop", All.OutputDir);
     sprintf(restartfname, "%s/checkpoint", All.OutputDir);
     sprintf(termfname, "%s/terminate", All.OutputDir);
     sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
-    /*Last IO time*/
-    double iotime = 0.02*All.TimeLimitCPU;
-    double EstimatedTimeToPMEnd = 0.2 * All.TimeLimitCPU;
-
-    int nwritten = All.SnapshotFileCount - All.InitSnapshotCount;
-
-    if(nwritten > 0)
-        iotime = walltime_get("/Snapshot/Write",CLOCK_ACCU_MAX)/nwritten;
-    if (NumActiveParticle > 0)
-        EstimatedTimeToPMEnd = fmin(EstimatedTimeToPMEnd, All.CT.StepTime*NumPart/NumActiveParticle);
-
-    message(0, "iotime = %g, Est = %g\n", iotime, EstimatedTimeToPMEnd);
     if(ThisTask == 0)
     {
         FILE * fd;
@@ -241,7 +267,7 @@ human_interaction()
         }
 
         /* are we running out of CPU-time ? If yes, interrupt run. */
-        if(All.CT.ElapsedTime + 4*(iotime+EstimatedTimeToPMEnd) > All.TimeLimitCPU) {
+        if(timeout) {
             action = TIMEOUT;
         }
 
@@ -264,82 +290,6 @@ human_interaction()
     return action;
 }
 
-/*! This function finds the next synchronization point of the system
- * (i.e. the earliest point of time any of the particles needs a force
- * computation), and drifts the system to this point of time.  If the
- * system drifts over the desired time of a snapshot file, the
- * function will drift to this moment, generate an output, and then
- * resume the drift.
- */
-int find_next_sync_point(int ti_nextoutput)
-{
-    int n, ti_next_kick_global;
-    int ti_next_kick = TIMEBASE;
-    const double timeold = All.Time;
-    /*This repopulates all timebins on the first timestep*/
-    if(TimeBinCount[0])
-        ti_next_kick = All.Ti_Current;
-
-    /* find the next kick time */
-    for(n = 1; n < TIMEBINS; n++)
-    {
-        if(!TimeBinCount[n])
-            continue;
-	    /* next kick time for this timebin */
-        const int dt_bin = (1 << n);
-        const int ti_next_for_bin = (All.Ti_Current / dt_bin) * dt_bin + dt_bin;
-        if(ti_next_for_bin < ti_next_kick)
-            ti_next_kick = ti_next_for_bin;
-    }
-
-    /*All processors sync timesteps*/
-    MPI_Allreduce(&ti_next_kick, &ti_next_kick_global, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-
-    All.Ti_Current = ti_next_kick_global;
-    /*Convert back to floating point time*/
-    double nexttime = All.TimeInit * exp(All.Ti_Current * All.Timebase_interval);
-
-    set_global_time(nexttime);
-
-    All.TimeStep = All.Time - timeold;
-
-    walltime_measure("/Misc");
-
-    return All.Ti_Current;
-}
-
-/*! this function returns the next output time that is equal or larger to
- *  ti_curr
- */
-int find_next_outputtime(int ti_curr)
-{
-    int i, ti_next=-1;
-
-    for(i = 0; i < All.OutputListLength; i++)
-    {
-        const double time = All.OutputListTimes[i];
-
-        if(time >= All.TimeInit && time <= All.TimeMax)
-        {
-            const int ti = (int) (log(time / All.TimeInit) / All.Timebase_interval);
-
-            if(ti >= ti_curr)
-            {
-                ti_next = ti;
-                break;
-            }
-        }
-    }
-    if(ti_next == -1)
-    {
-        /* Next output is at TimeMax*/
-        ti_next = TIMEBASE;
-    }
-    const double next = All.TimeInit * exp(ti_next * All.Timebase_interval);
-    message(0, "Setting next time for snapshot file to Time_next= %g \n", next);
-    return ti_next;
-}
-
 /*! This routine computes the accelerations for all active particles.  First, the gravitational forces are
  * computed. This also reconstructs the tree, if needed, otherwise the drift/kick operations have updated the
  * tree to make it fullu usable at the current time.
@@ -350,22 +300,19 @@ int find_next_outputtime(int ti_curr)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(void)
+void compute_accelerations(int is_PM)
 {
     message(0, "Start force computation...\n");
 
     walltime_measure("/Misc");
 
-    if(All.PM_Ti_endstep == All.Ti_Current)
+    if(is_PM)
     {
         gravpm_force();
 
         /* compute and output energy statistics if desired. */
         if(All.OutputEnergyDebug)
             energy_statistics();
-
-        /*Update the displacement timestep*/
-        All.MaxTiStepDisplacement = find_dti_displacement_constraint();
     }
 
     grav_short_tree();		/* computes gravity accel. */
@@ -408,12 +355,28 @@ void compute_accelerations(void)
     message(0, "force computation done.\n");
 }
 
+int should_we_timeout(double lastPMlength)
+{
+    /*Last IO time*/
+    double iotime = 0.02*All.TimeLimitCPU;
+
+    int nwritten = All.SnapshotFileCount - All.InitSnapshotCount;
+    if(nwritten > 0)
+        iotime = walltime_get("/Snapshot/Write",CLOCK_ACCU_MAX)/nwritten;
+
+/*     message(0, "iotime = %g, lastPM = %g\n", iotime, lastPMlength); */
+    /* are we running out of CPU-time ? If yes, interrupt run. */
+    if(All.CT.ElapsedTime + 4*(iotime+lastPMlength) > All.TimeLimitCPU) {
+        return 1;
+    }
+    return 0;
+}
 
 /*! This routine writes one line for every timestep.
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-void every_timestep_stuff(int NumForce)
+void every_timestep_stuff(int NumForce, int NumCurrentTiStep)
 {
     double z;
     int i;
@@ -440,18 +403,18 @@ void every_timestep_stuff(int NumForce)
 
     char extra[1024] = {0};
 
-    if(All.PM_Ti_endstep == All.Ti_Current)
+    if(is_PM_timestep(All.Ti_Current))
         strcat(extra, "PM-Step");
 
     z = 1.0 / (All.Time) - 1;
     message(0, "Begin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                All.NumCurrentTiStep, All.Time, z, tot_num_force,
+                NumCurrentTiStep, All.Time, z, tot_num_force,
                 All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                 extra);
 
     message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
                 TotNumPart, NTotal[0], NTotal[5], NTotal[4]);
-    message(0,     "Occupied:   % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);
+    message(0,     "Occupied: % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);
 
     for(i = TIMEBINS - 1;  i >= 0; i--) {
         if(tot_count[i] == 0) continue;
@@ -476,15 +439,13 @@ void every_timestep_stuff(int NumForce)
         }
     }
     message(0,     "               -----------------------------------\n");
-    message(0,     "Total:  % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld\n",
+    message(0,     "Total:    % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld\n",
         tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot);
 
     set_random_numbers();
 }
 
-
-
-void write_cpu_log(void)
+void write_cpu_log(int NumCurrentTiStep)
 {
     int64_t totBlockedPD = -1;
     int64_t totTotalPD = -1;
@@ -499,7 +460,7 @@ void write_cpu_log(void)
     if(ThisTask == 0)
     {
 
-        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", All.NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
+        fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
 #ifdef _OPENMP
         fprintf(FdCPU, "Blocked Particle Drifts: %ld\n", totBlockedPD);
         fprintf(FdCPU, "Total Particle Drifts: %ld\n", totTotalPD);

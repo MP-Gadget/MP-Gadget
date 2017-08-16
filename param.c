@@ -1,12 +1,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <math.h>
 
 #include "allvars.h"
 #include "endrun.h"
 #include "paramset.h"
 #include "system.h"
 #include "densitykernel.h"
+#include "timebinmgr.h"
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */
@@ -76,32 +78,33 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
     char * token;
     int count;
 
+    /* Note TimeInit and TimeMax not yet initialised here*/
+
     /*First parse the string to get the number of outputs*/
     for(count=0, token=strtok(strtmp,","); token; count++, token=strtok(NULL, ","))
     {}
 /*     message(1, "Found %d times in output list.\n", count); */
 
     /*Allocate enough memory*/
-    All.OutputListLength = count;
-    if(All.OutputListLength > sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0])) {
-        message(1, "Too many entries (%d) in the OutputList, need to recompile the code. (change All.OutputListTimes in allvars.h \n", 
-            All.OutputListLength);
+    All.OutputListLength = count+2;
+    int maxcount = DMAX(sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]), MAXSNAPSHOTS);
+    if(All.OutputListLength > maxcount) {
+        message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", All.OutputListLength, maxcount);
         return 1;
     }
     /*Now read in the values*/
-    for(count=0,token=strtok(outputlist,","); count < All.OutputListLength && token; count++, token=strtok(NULL,","))
+    for(count=1,token=strtok(outputlist,","); count < All.OutputListLength-1 && token; count++, token=strtok(NULL,","))
     {
         /* Skip a leading quote if one exists.
          * Extra characters are ignored by atof, so
          * no need to skip matching char.*/
         if(token[0] == '"')
             token+=1;
-        All.OutputListTimes[count] = atof(token);
-/*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
+        All.OutputListTimes[count] = log(atof(token));
+/*         message(1, "Output at: %g\n", exp(All.OutputListTimes[count])); */
     }
     free(strtmp);
-
-    qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
+    qsort(All.OutputListTimes+1, All.OutputListLength-1, sizeof(double), cmp_double);
     return 0;
 }
 
@@ -136,6 +139,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "");
     param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "");
 
+    param_declare_int(ps,    "NoTreeRnd", OPTIONAL, 0, "Disable randomizing the tree construction when particles are very close to each other. For debug purposes.");
+    param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
     param_declare_int(ps,    "MaxMemSizePerNode", OPTIONAL, 0.8 * get_physmem_bytes() / (1024 * 1024), "Preallocate this much memory MB per computing node/ host. Default is 80\% of total physical mem per node. ");
     param_declare_double(ps, "CpuTimeBetRestartFile", REQUIRED, 0, "");
 
@@ -155,6 +160,7 @@ create_gadget_parameter_set()
     param_declare_int(ps,    "TypeOfTimestepCriterion", OPTIONAL, 0, "Compatibility only. Has no effect");
     param_declare_double(ps, "MaxSizeTimestep", OPTIONAL, 0.1, "");
     param_declare_double(ps, "MinSizeTimestep", OPTIONAL, 0, "");
+    param_declare_int(ps, "ForceEqualTimesteps", OPTIONAL, 0, "Force all timesteps to be the same, the smallest required.");
 
     param_declare_double(ps, "MaxRMSDisplacementFac", OPTIONAL, 0.2, "");
     param_declare_double(ps, "ArtBulkViscConst", OPTIONAL, 0.75, "");
@@ -340,7 +346,6 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "EnergyFile", All.EnergyFile);
         All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
         param_get_string2(ps, "CpuFile", All.CpuFile);
-        param_get_string2(ps, "OutputList", All.OutputList);
 
         All.DensityKernelType = param_get_enum(ps, "DensityKernelType");
         All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
@@ -352,6 +357,8 @@ void read_parameter_file(char *fname)
 
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
         All.TopNodeIncreaseFactor = param_get_int(ps, "TopNodeIncreaseFactor");
+        All.NoTreeRnd = param_get_int(ps, "NoTreeRnd");
+        All.OutputPotential = param_get_int(ps, "OutputPotential");
         All.MaxMemSizePerNode = param_get_int(ps, "MaxMemSizePerNode");
         All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
 
@@ -366,6 +373,7 @@ void read_parameter_file(char *fname)
         All.MaxSizeTimestep = param_get_double(ps, "MaxSizeTimestep");
 
         All.MinSizeTimestep = param_get_double(ps, "MinSizeTimestep");
+        All.ForceEqualTimesteps = param_get_int(ps, "ForceEqualTimesteps");
         All.MaxRMSDisplacementFac = param_get_double(ps, "MaxRMSDisplacementFac");
         All.ArtBulkViscConst = param_get_double(ps, "ArtBulkViscConst");
         All.CourantFac = param_get_double(ps, "CourantFac");

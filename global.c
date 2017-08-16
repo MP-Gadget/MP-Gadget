@@ -44,7 +44,7 @@ struct state_of_system
  */
 struct state_of_system compute_global_quantities_of_system(void)
 {
-    int i, j, dti;
+    int i, j;
     struct state_of_system sys;
     struct state_of_system SysState;
     double a1, a2, a3;
@@ -59,35 +59,14 @@ struct state_of_system compute_global_quantities_of_system(void)
     for(i = 0; i < NumPart; i++)
     {
         int j;
-        double entr = 0, egyspec, vel[3];
-        double Fgravkick, Fhydrokick;
+        double entr = 0, egyspec;
 
         sys.MassComp[P[i].Type] += P[i].Mass;
 
         sys.EnergyPotComp[P[i].Type] += 0.5 * P[i].Mass * P[i].Potential / a1;
 
-        dti = P[i].TimeBin ? (1 << P[i].TimeBin) : 0;
-
-        Fgravkick = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
-            get_gravkick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dti / 2);
-        Fhydrokick = get_hydrokick_factor(P[i].Ti_begstep, All.Ti_Current) -
-            get_hydrokick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dti / 2);
-
-        for(j = 0; j < 3; j++)
-        {
-            vel[j] = P[i].Vel[j] + P[i].GravAccel[j] * Fgravkick;
-            if(P[i].Type == 0)
-                vel[j] += SPHP(i).HydroAccel[j] * Fhydrokick;
-        }
-
-        Fgravkick = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
-            get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
-
-        for(j = 0; j < 3; j++)
-            vel[j] += P[i].GravPM[j] * Fgravkick;
-
         sys.EnergyKinComp[P[i].Type] +=
-            0.5 * P[i].Mass * (vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]) / a2;
+            0.5 * P[i].Mass * (P[i].Vel[0] * P[i].Vel[0] + P[i].Vel[1] * P[i].Vel[1] + P[i].Vel[2] * P[i].Vel[2]) / a2;
 
         if(P[i].Type == 0)
         {
@@ -99,13 +78,13 @@ struct state_of_system compute_global_quantities_of_system(void)
 
         for(j = 0; j < 3; j++)
         {
-            sys.MomentumComp[P[i].Type][j] += P[i].Mass * vel[j];
+            sys.MomentumComp[P[i].Type][j] += P[i].Mass * P[i].Vel[j];
             sys.CenterOfMassComp[P[i].Type][j] += P[i].Mass * P[i].Pos[j];
         }
 
-        sys.AngMomentumComp[P[i].Type][0] += P[i].Mass * (P[i].Pos[1] * vel[2] - P[i].Pos[2] * vel[1]);
-        sys.AngMomentumComp[P[i].Type][1] += P[i].Mass * (P[i].Pos[2] * vel[0] - P[i].Pos[0] * vel[2]);
-        sys.AngMomentumComp[P[i].Type][2] += P[i].Mass * (P[i].Pos[0] * vel[1] - P[i].Pos[1] * vel[0]);
+        sys.AngMomentumComp[P[i].Type][0] += P[i].Mass * (P[i].Pos[1] * P[i].Vel[2] - P[i].Pos[2] * P[i].Vel[1]);
+        sys.AngMomentumComp[P[i].Type][1] += P[i].Mass * (P[i].Pos[2] * P[i].Vel[0] - P[i].Pos[0] * P[i].Vel[2]);
+        sys.AngMomentumComp[P[i].Type][2] += P[i].Mass * (P[i].Pos[0] * P[i].Vel[1] - P[i].Pos[1] * P[i].Vel[0]);
     }
 
 

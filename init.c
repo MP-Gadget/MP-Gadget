@@ -29,6 +29,8 @@ static void check_positions(void);
 static void
 setup_smoothinglengths(int RestartSnapNum);
 
+static void
+setup_outputlist(void);
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
  *  intial domain decomposition is performed. If SPH particles are present,
@@ -41,9 +43,12 @@ void init(int RestartSnapNum)
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
     set_global_time(All.TimeInit);
 
+    /*Add TimeInit and TimeMax to the output list*/
+    setup_outputlist();
+    /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum);
 
-    init_drift_table(All.Time, All.TimeMax, TIMEBASE);
+    init_drift_table(All.TimeInit, All.TimeMax);
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();
@@ -56,20 +61,13 @@ void init(int RestartSnapNum)
 
     fof_init();
 
-    All.NumCurrentTiStep = 0;	/* setup some counters */
     All.SnapshotFileCount = 0;
     All.SnapshotFileCount = RestartSnapNum + 1;
     All.InitSnapshotCount = RestartSnapNum + 1;
 
-    All.Timebase_interval = (log(All.TimeMax) - log(All.Time)) / TIMEBASE;
-
-    All.MaxTiStepDisplacement = find_dti_displacement_constraint();
-
     All.TreeAllocFactor = 0.7;
 
-    update_active_timebins(0);
-
-    All.PM_Ti_endstep = All.PM_Ti_begstep = All.PM_Ti_kick = 0;
+    init_timebins();
 
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)	/* initialize sph_properties */
@@ -111,18 +109,9 @@ void init(int RestartSnapNum)
 #ifdef BLACK_HOLES
         SPHP(i).Injected_BH_Energy = 0;
 #endif
-#ifdef TWODIMS
-        SPHP(i).HydroAccel[2] = 0;
-#endif
-#ifdef ONEDIM
-        SPHP(i).HydroAccel[1] =SPHP(i).HydroAccel[2] = 0;
-#endif
     }
 
-
     domain_decompose_full();	/* do initial domain decomposition (gives equal numbers of particles) */
-
-    All.Ti_Current = 0;
 
     rebuild_activelist();
 
@@ -165,6 +154,39 @@ void check_positions(void)
                 endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,All.BoxSize, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
         }
     }
+}
+
+/*Make sure the OutputList runs from TimeInit to TimeMax, inclusive.*/
+void
+setup_outputlist(void)
+{
+    int i;
+    /*Set up first and last entry to OutputList*/
+    All.OutputListTimes[0] = log(All.TimeInit);
+    All.OutputListTimes[All.OutputListLength-1] = log(All.TimeMax);
+    /*Remove entries before TimeInit*/
+    if(All.OutputListTimes[1] <= All.OutputListTimes[0])
+    {
+        int newout = 1;
+        for(i=1; i<All.OutputListLength; i++) {
+            if(All.OutputListTimes[i] <= All.OutputListTimes[0])
+                continue;
+            All.OutputListTimes[newout] = All.OutputListTimes[i];
+            newout++;
+        }
+        All.OutputListLength = newout;
+    }
+    /*Truncate the output list at All.TimeMax*/
+    for(i=0; i<All.OutputListLength-1; i++) {
+        if(All.OutputListTimes[i] >= All.OutputListTimes[All.OutputListLength-1]) {
+            All.OutputListTimes[i] = All.OutputListTimes[All.OutputListLength-1];
+            All.OutputListLength = i+1;
+            break;
+        }
+    }
+/*     for(i=0; i<All.OutputListLength; i++) */
+/*         message(1,"Out: %g\n",exp(All.OutputListTimes[i])); */
+    message(0, "Next output at Time_next= %g \n",exp(All.OutputListTimes[1]));
 }
 
 /*! This function is used to find an initial smoothing length for each SPH

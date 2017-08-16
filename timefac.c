@@ -6,17 +6,17 @@
 #include <gsl/gsl_math.h>
 #include <gsl/gsl_integration.h>
 
+#include "allvars.h"
 #include "timefac.h"
+#include "timebinmgr.h"
 #include "cosmology.h"
 #include "endrun.h"
 
 
-#define  GAMMA_MINUS1  (2.0/3.0)
 #define DRIFT_TABLE_LENGTH  2000	/*!< length of the lookup table used to hold the drift and kick factors */
 
 static double logTimeInit;
 static double logTimeMax;
-static double logDTime = 0.0;
 
 /*! table for the cosmological drift factors */
 static double DriftTable[DRIFT_TABLE_LENGTH];
@@ -27,15 +27,15 @@ static double GravKickTable[DRIFT_TABLE_LENGTH];
 /*! table for the cosmological kick factor for hydrodynmical forces */
 static double HydroKickTable[DRIFT_TABLE_LENGTH];
 
-static int df_last_ti0 = -1, df_last_ti1 = -1;
+static inttime_t df_last_ti0 = -1, df_last_ti1 = -1;
 static double df_last_value;
 #pragma omp threadprivate(df_last_ti0, df_last_ti1, df_last_value)
 
-static int hk_last_ti0 = -1, hk_last_ti1 = -1;
+static inttime_t hk_last_ti0 = -1, hk_last_ti1 = -1;
 static double hk_last_value;
 #pragma omp threadprivate(hk_last_ti0, hk_last_ti1, hk_last_value)
 
-static int gk_last_ti0 = -1, gk_last_ti1 = -1;
+static inttime_t gk_last_ti0 = -1, gk_last_ti1 = -1;
 static double gk_last_value;
 #pragma omp threadprivate(gk_last_ti0, gk_last_ti1, gk_last_value)
 
@@ -67,7 +67,7 @@ static double hydrokick_integ(double a, void *param)
   return 1 / (h * pow(a, 3 * GAMMA_MINUS1) * a);
 }
 
-void init_drift_table(double timeBegin, double timeMax, int timebase)
+void init_drift_table(double timeBegin, double timeMax)
 {
 #define WORKSIZE 100000
   int i;
@@ -80,11 +80,6 @@ void init_drift_table(double timeBegin, double timeMax, int timebase)
   logTimeMax = log(timeMax);
   if(logTimeMax <=logTimeInit)
       endrun(1,"Error: Invalid drift table range: (%d->%d)\n", timeBegin, timeMax);
-  if(timebase <= 0)
-      endrun(1,"Error: Invalid timebase: %d\n", timebase);
-
-  logDTime = (logTimeMax - logTimeInit) / timebase;
-
 
   workspace = gsl_integration_workspace_alloc(WORKSIZE);
 
@@ -117,12 +112,9 @@ void init_drift_table(double timeBegin, double timeMax, int timebase)
 
 /*Find which bin in the table we are looking up.
  * Pointer argument gives the full floating point value for interpolation.*/
-int find_bin_number(int ti0, double *rem)
+int find_bin_number(inttime_t ti0, double *rem)
 {
-    if (logDTime == 0) {
-        endrun(0, "Using Time factors before the table is initialized.");
-    }
-  double a1 = logTimeInit + ti0 * logDTime;
+  double a1 = loga_from_ti(ti0);
   double u1;
   int i1;
   u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
@@ -144,7 +136,7 @@ int find_bin_number(int ti0, double *rem)
  *  
  *  A lookup-table is used for reasons of speed. 
  */
-double get_drift_factor(int ti0, int ti1)
+double get_drift_factor(inttime_t ti0, inttime_t ti1)
 {
   double df1, df2, u1, u2;
   int i1, i2;
@@ -171,7 +163,7 @@ double get_drift_factor(int ti0, int ti1)
   return df_last_value = (df2 - df1);
 }
 
-double get_gravkick_factor(int ti0, int ti1)
+double get_gravkick_factor(inttime_t ti0, inttime_t ti1)
 {
   double df1, df2, u1, u2;
   int i1, i2;
@@ -198,7 +190,7 @@ double get_gravkick_factor(int ti0, int ti1)
   return gk_last_value = (df2 - df1);
 }
 
-double get_hydrokick_factor(int ti0, int ti1)
+double get_hydrokick_factor(inttime_t ti0, inttime_t ti1)
 {
   double df1, df2,u1,u2;
   int i1, i2;

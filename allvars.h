@@ -50,12 +50,6 @@
 #define  GENERATIONS     4	/*!< Number of star particles that may be created per gas particle */
 #endif
 
-#define  TIMEBINS         29
-
-#define  TIMEBASE        (1<<TIMEBINS)	/*!< The simulated timespan is mapped onto the integer interval [0,TIMESPAN],
-                                         *   where TIMESPAN needs to be a power of 2. Note that (1<<28) corresponds
-                                         *   to 2^29
-                                         */
 #define MAXHSML 30000.0
 
 #ifdef ONEDIM
@@ -118,6 +112,8 @@
 #define MAXITER 400
 
 typedef uint32_t binmask_t;
+typedef uint32_t inttime_t;
+
 #define BINMASK_ALL ((uint32_t) (-1))
 #define BINMASK(i) (1u << i)
 
@@ -274,6 +270,10 @@ extern struct global_data_all_processes
                                   the maximum(!) number of particles.  Note: A typical local tree for N
                                   particles needs usually about ~0.65*N nodes. */
 
+    int NoTreeRnd;              /*!< Disable randomising tree construction when particles are very close.*/
+
+    int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
+
     /* some SPH parameters */
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
@@ -335,8 +335,6 @@ extern struct global_data_all_processes
            CpuTimeBetRestartFile,	/*!< cpu-time between regularly generated restart files */
            TimeLastRestartFile;  	/*!< cpu-time when last restart-file was written */
 
-    int NumCurrentTiStep;		/*!< counts the number of system steps taken up to this point */
-
     /* Current time of the simulation, global step, and end of simulation */
 
     double Time,			/*!< current time of the simulation */
@@ -354,12 +352,8 @@ extern struct global_data_all_processes
 
     /* variables for organizing discrete timeline */
 
-    double Timebase_interval;	/*!< factor to convert from floating point time interval to integer timeline */
-    int Ti_Current;		/*!< current time on integer timeline */
-    int Ti_nextoutput;		/*!< next output time on integer timeline */
-    int MaxTiStepDisplacement; /*!< Maximum (PM) integer timestep from global displacements*/
-    int PM_Ti_endstep, PM_Ti_begstep;
-    int PM_Ti_kick;            /* current time stamp of the PM component of the momentum */
+    inttime_t Ti_Current;		/*!< current time on integer timeline */
+
     int Nmesh;
 
     /* variables that keep track of cumulative CPU consumption */
@@ -379,6 +373,7 @@ extern struct global_data_all_processes
     double ErrTolIntAccuracy;	/*!< accuracy tolerance parameter \f$ \eta \f$ for timestep criterion. The
                                   timesteps is \f$ \Delta t = \sqrt{\frac{2 \eta eps}{a}} \f$ */
 
+    int ForceEqualTimesteps; /*If true, all timesteps have the same timestep, the smallest allowed.*/
     double MinSizeTimestep,	/*!< minimum allowed timestep. Normally, the simulation terminates if the
                               timestep determined by the timestep criteria falls below this limit. */
            MaxSizeTimestep;		/*!< maximum allowed timestep */
@@ -436,15 +431,14 @@ extern struct global_data_all_processes
          OutputDir[100],
          SnapshotFileBase[100],
          EnergyFile[100],
-         CpuFile[100],
-         OutputList[100];
+         CpuFile[100];
 
     /*Should we store the energy to EnergyFile on PM timesteps.*/
     int OutputEnergyDebug;
 
     char UVFluctuationFile[100];
 
-    /*! table with desired output times */
+    /*! table with desired output times, stored as log(a) */
     double OutputListTimes[8192];
     int OutputListLength;		/*!< number of times stored in table of desired output times */
 
@@ -519,9 +513,8 @@ extern struct particle_data
 
     float GravCost;     /*!< weight factor used for balancing the work-load */
 
-    int Ti_begstep;     /*!< marks start of current timestep of particle on integer timeline */
-    int Ti_drift;       /*!< current time of the particle position */
-    int Ti_kick;        /*!< current time of the particle momentum */
+    inttime_t Ti_drift;       /*!< current time of the particle position */
+    inttime_t Ti_kick;        /*!< current time of the particle momentum */
 
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */

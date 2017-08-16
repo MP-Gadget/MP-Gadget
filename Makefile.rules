@@ -20,7 +20,7 @@ OBJECTS  =  \
 	 fof.o fofpetaio.o petaio.o \
 	 param.o paramset.o utils-string.o \
 	 domain.o exchange.o garbage.o allvars.o main.o \
-	 blackhole.o \
+	 blackhole.o timebinmgr.o \
 	 run.o drift.o begrun.o endrun.o global.o \
 	 timestep.o init.o io.o sfr_eff.o \
 	 cooling.o openmpsort.o \
@@ -48,7 +48,7 @@ INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h powerspectrum.h timestep.h sfr_eff.h drift.h timefac.h \
 	 petaio.h blackhole.h
 
-TESTED = interp powerspectrum cosmology timefac
+TESTED = interp powerspectrum cosmology timefac timebinmgr
 
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)

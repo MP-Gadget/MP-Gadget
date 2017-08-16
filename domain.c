@@ -14,6 +14,7 @@
 #include "openmpsort.h"
 #include "domain.h"
 #include "timestep.h"
+#include "timebinmgr.h"
 #include "system.h"
 #include "exchange.h"
 #include "garbage.h"

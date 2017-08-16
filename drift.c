@@ -11,19 +11,19 @@
 #include "endrun.h"
 
 
-static int drift_particle_full(int i, int ti1, int blocking);
+static int drift_particle_full(int i, inttime_t ti1, int blocking);
 
-static void real_drift_particle(int i, int ti1);
+static void real_drift_particle(int i, inttime_t ti1);
 void lock_particle(int i) {
     pthread_spin_lock(&P[i].SpinLock);
 }
 void unlock_particle(int i) {
     pthread_spin_unlock(&P[i].SpinLock);
 }
-void drift_particle(int i, int ti1) {
+void drift_particle(int i, inttime_t ti1) {
     drift_particle_full(i, ti1, 1);
 }
-int drift_particle_full(int i, int ti1, int blocking) {
+int drift_particle_full(int i, inttime_t ti1, int blocking) {
     if(P[i].Ti_drift == ti1) return 0 ;
 
 #pragma omp atomic
@@ -69,7 +69,7 @@ int drift_particle_full(int i, int ti1, int blocking) {
 #endif
 }
 
-static void real_drift_particle(int i, int ti1)
+static void real_drift_particle(int i, inttime_t ti1)
 {
     int j, ti0;
     double ddrift;
@@ -156,7 +156,7 @@ static void real_drift_particle(int i, int ti1)
     P[i].Ti_drift = ti1;
 }
 
-void drift_active_particles(int ti1)
+void drift_active_particles(inttime_t ti1)
 {
     int i;
     walltime_measure("/Misc");
@@ -168,7 +168,7 @@ void drift_active_particles(int ti1)
     walltime_measure("/Drift/Active");
 }
 
-void drift_all_particles(int ti1)
+void drift_all_particles(inttime_t ti1)
 {
     int i;
     walltime_measure("/Misc");
