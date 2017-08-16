@@ -1443,6 +1443,7 @@ int domain_check_for_local_refine(const int i, const double countlimit, const do
 {
     int j, p;
 
+    /* Skipping local refinement completely as it slows down BT-II */
     return 0;
 
     /*If there are only 8 particles within this node, we are done refining.*/   
