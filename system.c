@@ -294,16 +294,17 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         return MPI_Alltoallv(sendbuf, sendcnts, sdispls,
                     sendtype, recvbuf,
                     recvcnts, rdispls, recvtype, comm);
-        //return MPI_Alltoallv_fix_buserror(sendbuf, sendcnts, sdispls,
+        //return MPI_Alltoallv_throttled(sendbuf, sendcnts, sdispls,
         //            sendtype, recvbuf,
         //            recvcnts, rdispls, recvtype, comm);
     }
 
-int MPI_Alltoallv_fix_buserror(void *sendbuf, int *sendcnts, int *sdispls,
+int MPI_Alltoallv_throttled(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)
 {
-   int i, j, ncut;
+   int i, ncut;
+   int64_t j;
    int ThisTask, NTask;
    int *sendcnts_ncut, *sdispls_ncut, *recvcnts_ncut, *rdispls_ncut;
    MPI_Comm_rank(comm, &ThisTask);
