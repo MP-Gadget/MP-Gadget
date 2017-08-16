@@ -1443,7 +1443,9 @@ int domain_check_for_local_refine(const int i, const double countlimit, const do
 {
     int j, p;
 
-    /*If there are only 8 particles within this node, we are done refining.*/
+    return 0;
+
+    /*If there are only 8 particles within this node, we are done refining.*/   
     if(topNodes[i].Size < 8)
         return 0;
     
