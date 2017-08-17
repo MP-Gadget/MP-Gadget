@@ -939,12 +939,14 @@ domain_check_for_local_refine_subsample(
         }
     }
 
-    /* Remove the subsample particles from the tree to make it a skeleton.*/
+    /* Remove the subsample particles from the tree to make it a skeleton;
+     * note that we never bothered to add Cost when the skeleton was built.
+     * otherwise we shall clean it here too.*/
     for(i = 0; i < *topTreeSize; i ++ ) {
         topTree[i].Count = 0;
     }
 
-    /* Next, insert all particles to the skeleton tree; Count will be correct.*/
+    /* Next, insert all particles to the skeleton tree; Count will be correct because we cleaned them.*/
     for(i = 0; i < NumPart; i ++ ) {
         domain_toptree_insert(topTree, LP[i].Key, LP[i].Cost);
     }
@@ -952,7 +954,8 @@ domain_check_for_local_refine_subsample(
     /* then compute the costs of the internal nodes. */
     domain_toptree_update_cost(topTree, 0);
 
-    /* we leave truncation in another function. */
+    /* we leave truncation in another function, for costlimit and countlimit must be
+     * used in secondary refinement*/
     return 0;
 }
 
@@ -1076,7 +1079,7 @@ int domain_determine_global_toptree(struct local_topnode_data * topTree, int * t
      * without crashing.
      *
      * A global sorting is chosen to ensure the local topTrees are really local
-     * and almost disjoint. This makes the merged topTree a more accurate
+     * and the leaves almost disjoint. This makes the merged topTree a more accurate
      * representation of the true cost / load distribution, for merging
      * and secondary refinement are approximated.
      *
@@ -1124,8 +1127,6 @@ int domain_determine_global_toptree(struct local_topnode_data * topTree, int * t
     }
     walltime_measure("/Domain/DetermineTopTree/LocalRefine/GC");
 
-    /* we now need to exchange tree parts and combine them as needed */
-
 
 #if 0
     char buf[1000];
@@ -1143,6 +1144,8 @@ int domain_determine_global_toptree(struct local_topnode_data * topTree, int * t
     //MPI_Abort(MPI_COMM_WORLD, 0);
 #endif
 
+    /* we now need to exchange tree parts and combine them as needed */
+
     int combine_failed = MPIU_Any(0 != domain_nonrecursively_combine_topTree(topTree, topTreeSize), MPI_COMM_WORLD);
 
     walltime_measure("/Domain/DetermineTopTree/Combine");
@@ -1153,7 +1156,7 @@ int domain_determine_global_toptree(struct local_topnode_data * topTree, int * t
         return 1;
     }
 
-    /* now let's see whether we should still append more nodes, based on the estimated cumulative cost/count in each cell */
+    /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
 
     int global_refine_failed = MPIU_Any(0 != domain_global_refine(topTree, topTreeSize, countlimit, costlimit), MPI_COMM_WORLD);
 
@@ -1177,7 +1180,7 @@ domain_global_refine(
     /* At this point we have refined the local particle tree so that each
      * topNode contains a Cost and Count below the cost threshold. We have then
      * done a global merge of the particle tree. Some of our topTree may now contain
-     * more particles than the Cost threshold, but doing refinement using the local
+     * more particles than the Cost threshold, but repeating refinement using the local
      * algorithm is complicated - particles inside any particular topNode may be
      * on another processor. So we do a local volume based refinement here. This
      * just cuts each topNode above the threshold into 8 equal-sized portions by
@@ -1283,7 +1286,7 @@ void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
  *
  * */
 
-void
+static void
 domain_toptree_merge(struct local_topnode_data *treeA,
                      struct local_topnode_data *treeB,
                      int noA, int noB, int * treeASize)
