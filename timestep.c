@@ -29,7 +29,7 @@ typedef struct {
 static TimeSpan PM;
 
 /*Get the dti from the timebin*/
-inline inttime_t dti_from_timebin(int bin) {
+static inline inttime_t dti_from_timebin(int bin) {
     return bin ? (1 << bin) : 0;
 }
 /*Flat array containing all active particles*/
