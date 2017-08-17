@@ -82,7 +82,7 @@ static void domain_allocate(void);
 static int
 domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount);
 
-static int decompose(void);
+static int domain_attempt_decompose(void);
 
 static void
 domain_balance(void);
@@ -136,20 +136,17 @@ void domain_decompose_full(void)
 
     t0 = second();
 
-    do
+    while(1)
     {
-        int ret;
 #ifdef DEBUG
         message(0, "Testing ID Uniqueness before domain decompose\n");
         domain_test_id_uniqueness();
 #endif
         domain_allocate();
 
-        ret = decompose();
+        int decompose_failed = MPIU_Any(0 != domain_attempt_decompose(), MPI_COMM_WORLD);
 
-        MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-        if(retsum)
-        {
+        if(decompose_failed) {
             domain_free();
             message(0, "Increasing TopNodeAllocFactor=%g  ", All.TopNodeAllocFactor);
 
@@ -162,9 +159,11 @@ void domain_decompose_full(void)
                 if(ThisTask == 0)
                     endrun(781, "something seems to be going seriously wrong here. Stopping.\n");
             }
+        } else {
+            /* didn't fail? great. let's continue. */
+            break;
         }
     }
-    while(retsum);
 
     t1 = second();
 
@@ -176,6 +175,7 @@ void domain_decompose_full(void)
 
     walltime_measure("/Domain/Peano");
 
+    /* shrink the memory footprint. */
     void * OldTopLeaves = TopLeaves;
 
     TopNodes  = (struct topnode_data *) (TopTreeMemory);
@@ -191,8 +191,9 @@ void domain_decompose_full(void)
     message(0, "Freed %g MByte in top-level domain structure\n",
                 (MaxTopNodes - NTopNodes) * (sizeof(TopLeaves[0])  + sizeof(TopNodes[0]))/ (1024.0 * 1024.0));
 
-
     walltime_measure("/Domain/Misc");
+
+    /* this is a full decomposition, need to rebuild the force tree because all TopLeaves are out of date. */
     force_tree_rebuild();
 }
 
@@ -216,11 +217,12 @@ void domain_maintain(void)
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(domain_exchange(domain_layoutfunc)) {
+    if(0 != domain_exchange(domain_layoutfunc)) {
         domain_decompose_full();
         return;
     }
 
+    /* need to rebuild the force tree because all particles have been moved around in memory */
     force_tree_rebuild();
 }
 
@@ -276,7 +278,7 @@ domain_particle_costfactor(int i)
  *  PartAllocFactor.
  */
 static int
-decompose(void)
+domain_attempt_decompose(void)
 {
 
     int i;
