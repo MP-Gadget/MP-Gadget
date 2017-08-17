@@ -8,7 +8,7 @@ extern double MaxMemoryPerCore;
 extern int      Nmesh, Ngrid;
 
 extern int UsePeculiarVelocity;
-extern int PowerIsRedshiftZero;
+extern double InputPowerRedshift;
 
 extern char   *  FileWithInputSpectrum;
 extern double   Box;

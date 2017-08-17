@@ -148,8 +148,8 @@ void initialize_powerspectrum(void)
         Norm = Sigma8 * Sigma8 / res;
         message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g). \n", Sigma8, Norm);
     }
-    if(PowerIsRedshiftZero) {
-        double Dplus = GrowthFactor(InitTime, 1.0);
+    if(InputPowerRedshift >= 0) {
+        double Dplus = GrowthFactor(InitTime, 1/(1+InputPowerRedshift));
         Norm /= sqrt(Dplus);
         message(0,"Growth factor to z=0: %g \n", Dplus);
     }

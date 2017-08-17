@@ -15,7 +15,7 @@ int Seed;
 int UsePeculiarVelocity;
 int NumPart;
 double MaxMemoryPerCore;
-int PowerIsRedshiftZero;
+double InputPowerRedshift;
 
 struct part_data *P;
 

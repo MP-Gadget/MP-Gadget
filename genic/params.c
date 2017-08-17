@@ -39,7 +39,7 @@ create_parameters()
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Write a IC similiar to a FastPM output");
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
-    param_declare_int(ps, "PowerIsRedshiftZero", OPTIONAL, 1, "If true, rescale the power spectrum by the linear growth factor.");
+    param_declare_int(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
     param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
 
     param_declare_double(ps, "UnitVelocity_in_cm_per_s", OPTIONAL, 1e5, "Velocity unit in cm/sec. Default is 1 km/s");
@@ -91,7 +91,7 @@ void read_parameterfile(char *fname)
     CP.MasslessNeutrinosOn = 1;
     MaxMemoryPerCore = param_get_double(ps, "MaxMemoryPerCore");
     ProduceGas = param_get_int(ps, "ProduceGas");
-    PowerIsRedshiftZero = param_get_int(ps, "PowerIsRedshiftZero");
+    InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
     UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
     Sigma8 = param_get_double(ps, "Sigma8");
     PrimordialIndex = param_get_double(ps, "PrimordialIndex");
