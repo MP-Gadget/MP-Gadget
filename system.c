@@ -291,12 +291,12 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) {
 
-        return MPI_Alltoallv(sendbuf, sendcnts, sdispls,
-                    sendtype, recvbuf,
-                    recvcnts, rdispls, recvtype, comm);
-        //return MPI_Alltoallv_throttled(sendbuf, sendcnts, sdispls,
+        //return MPI_Alltoallv(sendbuf, sendcnts, sdispls,
         //            sendtype, recvbuf,
         //            recvcnts, rdispls, recvtype, comm);
+        return MPI_Alltoallv_throttled(sendbuf, sendcnts, sdispls,
+                    sendtype, recvbuf,
+                    recvcnts, rdispls, recvtype, comm);
     }
 
 int MPI_Alltoallv_throttled(void *sendbuf, int *sendcnts, int *sdispls,
