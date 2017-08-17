@@ -87,7 +87,8 @@ void read_parameterfile(char *fname)
     CP.HubbleParam = param_get_double(ps, "HubbleParam");
     CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
     CP.RadiationOn = param_get_double(ps, "RadiationOn");
-    /*This should be removed if massive neutrinos are implemented*/
+    /* If massive neutrinos are implemented and enabled this
+     * should be set to zero, so neutrinos are not included twice.*/
     CP.MasslessNeutrinosOn = 1;
     MaxMemoryPerCore = param_get_double(ps, "MaxMemoryPerCore");
     ProduceGas = param_get_int(ps, "ProduceGas");
