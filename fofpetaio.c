@@ -50,7 +50,7 @@ static void fof_build_selection(int * selection, int MemSelection, int *Nstart) 
             if(P[i].Type < ptype)
                 endrun(5, "Particles not sorted by type during IO\n");
             ptype = P[i].Type;
-            Nstart[ptype] = i;
+            Nstart[ptype] = NumPIG;
         }
         if(NumPIG >= MemSelection)
             endrun(1,"Write buffer of %d not large enough\n", MemSelection);
