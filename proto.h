@@ -92,6 +92,10 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
 
+int MPI_Alltoallv_sparse_Unthrottled(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
+
 int MPI_Alltoallv_throttled(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
