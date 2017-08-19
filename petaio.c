@@ -453,13 +453,13 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
         int i;
         const int tid = omp_get_thread_num();
         const int NT = omp_get_num_threads();
-        const int start = NumSelection * (size_t) tid / NT + StartSelection;
-        const int end = NumSelection * ((size_t) tid + 1) / NT + StartSelection;
+        const int start = NumSelection * (size_t) tid / NT;
+        const int end = NumSelection * ((size_t) tid + 1) / NT;
         /* fill the buffer */
         char * p = array->data;
         p += array->strides[0] * start;
         for(i = start; i < end; i ++) {
-            const int j = selection ? selection[i] : i;
+            const int j = (selection ? selection[i] : i) + StartSelection;
             if(P[j].Type != ent->ptype)
                 endrun(2, "Selection %d has type = %d != %d\n", j, P[j].Type, ent->ptype);
             ent->getter(j, p);
