@@ -84,7 +84,7 @@ void fof_save_particles(int num) {
     MPI_Barrier(MPI_COMM_WORLD);
     fof_write_header(&bf); 
     int * argind = mymalloc("FOFSelection", NumPart * sizeof(int));
-    int Nstart[7];
+    int Nstart[7] = {0};
     /*This assumes particles are sorted by type*/
     fof_build_selection(argind, NumPart, Nstart);
     /*Sort each type individually*/

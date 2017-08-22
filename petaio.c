@@ -106,7 +106,7 @@ static void petaio_save_internal(char * fname) {
     }
     petaio_write_header(&bf); 
 
-    int Nstart[6];
+    int Nstart[6]={0};
     petaio_build_selection(Nstart, NumPart);
     int i;
     for(i = 0; i < IOTable.used; i ++) {
@@ -458,8 +458,8 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
         /* fill the buffer */
         char * p = array->data;
         p += array->strides[0] * start;
-        for(i = start; i < end; i ++) {
-            const int j = (selection ? selection[i] : i) + StartSelection;
+        for(i = start + StartSelection; i < end + StartSelection; i ++) {
+            const int j = (selection ? selection[i] : i);
             if(P[j].Type != ent->ptype)
                 endrun(2, "Selection %d has type = %d != %d\n", j, P[j].Type, ent->ptype);
             ent->getter(j, p);
