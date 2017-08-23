@@ -277,9 +277,8 @@ void cooling_and_starformation(void)
     double totsfrrate, localsfr=0;
     int i;
     #pragma omp parallel for reduction(+: localsfr)
-    for(i = 0; i < NumPart; i++)
-        if(P[i].Type == 0)
-            localsfr += SPHP(i).Sfr;
+    for(i = 0; i < N_sph_slots; i++)
+        localsfr += SphP[i].Sfr;
 
     MPI_Allreduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
