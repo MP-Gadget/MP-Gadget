@@ -485,11 +485,11 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
     }
     
     if(0 != big_block_seek(&bb, &ptr, 0)) {
-        endrun(0, "Failed to seek: %s\n", big_file_get_error_message());
+        endrun(1, "Failed to seek: %s\n", big_file_get_error_message());
     }
 
     if(0 != big_block_mpi_read(&bb, &ptr, array, All.IO.NumWriters, MPI_COMM_WORLD)) {
-        endrun(0, "Failed to read form  block: %s\n", big_file_get_error_message());
+        endrun(1, "Failed to read from block: %s\n", big_file_get_error_message());
     }
 
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
