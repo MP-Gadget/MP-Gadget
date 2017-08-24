@@ -379,14 +379,13 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toG
     MPI_Alltoall(toGoBh, 1, MPI_INT, toGetBh, 1, MPI_INT, MPI_COMM_WORLD);
     MPI_Alltoall(toGoStar, 1, MPI_INT, toGetStar, 1, MPI_INT, MPI_COMM_WORLD);
 
-    if(package >= nlimit)
-        ret = 1;
-    else
-        ret = 0;
+    ret = (package >= nlimit);
 
     MPI_Allreduce(MPI_IN_PLACE, &ret, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
-    if(ret)
+    if(ret == 0)
+        return 0;
+
     {
         /* in this case, we are not guaranteed that the temporary state after
            the partial exchange will actually observe the particle limits on all
@@ -394,176 +393,82 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toG
            such that this is guaranteed. This is actually a rather non-trivial
            constraint. */
 
-        int * list_NumPart = ta_malloc("var", int, NTask);
-        int * list_N_sph = ta_malloc("var", int, NTask);
-        int * list_N_bh = ta_malloc("var", int, NTask);
-        int * list_N_star = ta_malloc("var", int, NTask);
+        int flagsum, i;
+        /*Order is: total, sph, bh, star*/
+        int *togo_local[4];
+        int * list_Npart[4];
+        list_Npart[0] = (int *)mymalloc("list_Npart", 4*NTask * sizeof(int));
+        for(n=1; n<4; n++)
+            list_Npart[n] = list_Npart[n-1]+NTask;
+        MPI_Allgather(&NumPart, 1, MPI_INT, list_Npart[0], 1, MPI_INT, MPI_COMM_WORLD);
+        MPI_Allgather(&N_sph_slots, 1, MPI_INT, list_Npart[1], 1, MPI_INT, MPI_COMM_WORLD);
+        MPI_Allgather(&N_bh_slots, 1, MPI_INT, list_Npart[2], 1, MPI_INT, MPI_COMM_WORLD);
+        MPI_Allgather(&N_star_slots, 1, MPI_INT, list_Npart[3], 1, MPI_INT, MPI_COMM_WORLD);
+        togo_local[0] = toGo;
+        togo_local[1] = toGoSph;
+        togo_local[2] = toGoBh;
+        togo_local[3] = toGoStar;
 
-        MPI_Allgather(&NumPart, 1, MPI_INT, list_NumPart, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_bh_slots, 1, MPI_INT, list_N_bh, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_sph_slots, 1, MPI_INT, list_N_sph, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_star_slots, 1, MPI_INT, list_N_star, 1, MPI_INT, MPI_COMM_WORLD);
-
-        int flag, flagsum, ntoomany, ta, i;
-        int count_togo, count_toget, count_togo_bh, count_toget_bh, count_togo_sph, count_toget_sph, count_togo_star, count_toget_star;
-
+        /*FIXME: This algorithm is impossibly slow.*/
         do
         {
+            int flag;
             flagsum = 0;
 
             do
             {
+                int ta;
                 flag = 0;
 
                 for(ta = 0; ta < NTask; ta++)
                 {
+                    int count_togo[4]={0}, count_toget[4]={0};
                     if(ta == ThisTask)
                     {
-                        count_togo = count_toget = 0;
-                        count_togo_sph = count_toget_sph = 0;
-                        count_togo_bh = count_toget_bh = 0;
-                        count_togo_star = count_toget_star = 0;
                         for(i = 0; i < NTask; i++)
                         {
-                            count_togo += toGo[i];
-                            count_toget += toGet[i];
-                            count_togo_sph += toGoSph[i];
-                            count_toget_sph += toGetSph[i];
-                            count_togo_bh += toGoBh[i];
-                            count_toget_bh += toGetBh[i];
-                            count_togo_star += toGoStar[i];
-                            count_toget_star += toGetStar[i];
+                            count_togo[0] += toGo[i];
+                            count_toget[0] += toGet[i];
+                            count_togo[1] += toGoSph[i];
+                            count_toget[1] += toGetSph[i];
+                            count_togo[2] += toGoBh[i];
+                            count_toget[2] += toGetBh[i];
+                            count_togo[3] += toGoStar[i];
+                            count_toget[3] += toGetStar[i];
                         }
                     }
-                    MPI_Bcast(&count_togo, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_toget, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_togo_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_toget_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_togo_bh, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_toget_bh, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_togo_star, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_toget_star, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    if((ntoomany = list_N_sph[ta] + count_toget_sph - count_togo_sph - All.MaxPart) > 0)
-                    {
-                        message (0, "exchange needs to be modified because I can't receive %d SPH-particles on task=%d\n",
-                                 ntoomany, ta);
+                    MPI_Bcast(&count_togo, 4, MPI_INT, ta, MPI_COMM_WORLD);
+                    MPI_Bcast(&count_toget, 4, MPI_INT, ta, MPI_COMM_WORLD);
+                    for(i=3; i > 0; --i) {
+                        int ntoomany = list_Npart[i][ta] + count_toget[i] - count_togo[i] - All.MaxPart;
+                        if (ntoomany <= 0)
+                            continue;
+                        message (0, "Exchange: I can't receive %d particles (array %d) on task=%d\n",ntoomany, i, ta);
                         if(flagsum > 25) {
-                            message(0, "list_N_sph[ta=%d]=%d  count_toget_sph=%d count_togo_sph=%d\n",
-                                        ta, list_N_sph[ta], count_toget_sph, count_togo_sph);
+                            message(0, "list_Npart[%d][ta=%d]=%d  count_toget=%d count_togo=%d\n",
+                                        ta, list_Npart[i][ta], count_toget[i], count_togo[i]);
                         }
                         flag = 1;
-                        i = flagsum % NTask;
+                        int j = flagsum % NTask;
                         while(ntoomany)
                         {
-                            if(i == ThisTask)
+                            if(j == ThisTask)
                             {
-                                if(toGoSph[ta] > 0)
+                                if(togo_local[i][ta] > 0)
                                 {
-                                    toGoSph[ta]--;
-                                    count_toget_sph--;
-                                    count_toget--;
+                                    togo_local[i][ta]--;
+                                    if(i > 0)
+                                        count_toget[i]--;
+                                    count_toget[0]--;
                                     ntoomany--;
                                 }
                             }
 
-                            MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget_sph, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            i++;
-                            if(i >= NTask)
-                                i = 0;
-                        }
-                    }
-                    if((ntoomany = list_N_bh[ta] + count_toget_bh - count_togo_bh - All.MaxPartBh) > 0)
-                    {
-                        message(0, "exchange needs to be modified because I can't receive %d BH-particles on task=%d\n",
-                                ntoomany, ta);
-                        if(flagsum > 25)
-                            message(0, "list_N_bh[ta=%d]=%d  count_toget_bh=%d count_togo_bh=%d\n",
-                                    ta, list_N_bh[ta], count_toget_bh, count_togo_bh);
-
-                        flag = 1;
-                        i = flagsum % NTask;
-                        while(ntoomany)
-                        {
-                            if(i == ThisTask)
-                            {
-                                if(toGoBh[ta] > 0)
-                                {
-                                    toGoBh[ta]--;
-                                    count_toget_bh--;
-                                    count_toget--;
-                                    ntoomany--;
-                                }
-                            }
-
-                            MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget_bh, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            i++;
-                            if(i >= NTask)
-                                i = 0;
-                        }
-                    }
-                    if((ntoomany = list_N_star[ta] + count_toget_star - count_togo_star - All.MaxPart) > 0)
-                    {
-                        message (0, "exchange needs to be modified because I can't receive %d star-particles on task=%d\n",
-                                 ntoomany, ta);
-                        if(flagsum > 25) {
-                            message(0, "list_N_star[ta=%d]=%d  count_toget_star=%d count_togo_star=%d\n",
-                                        ta, list_N_star[ta], count_toget_star, count_togo_star);
-                        }
-                        flag = 1;
-                        i = flagsum % NTask;
-                        while(ntoomany)
-                        {
-                            if(i == ThisTask)
-                            {
-                                if(toGoStar[ta] > 0)
-                                {
-                                    toGoStar[ta]--;
-                                    count_toget_star--;
-                                    count_toget--;
-                                    ntoomany--;
-                                }
-                            }
-
-                            MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget_star, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            i++;
-                            if(i >= NTask)
-                                i = 0;
-                        }
-                    }
-                    if((ntoomany = list_NumPart[ta] + count_toget - count_togo - All.MaxPart) > 0)
-                    {
-                        message (0, "exchange needs to be modified because I can't receive %d particles on task=%d\n",
-                             ntoomany, ta);
-                        if(flagsum > 25)
-                            message(0, "list_NumPart[ta=%d]=%d  count_toget=%d count_togo=%d\n",
-                                    ta, list_NumPart[ta], count_toget, count_togo);
-
-                        flag = 1;
-                        i = flagsum % NTask;
-                        while(ntoomany)
-                        {
-                            if(i == ThisTask)
-                            {
-                                if(toGo[ta] > 0)
-                                {
-                                    toGo[ta]--;
-                                    count_toget--;
-                                    ntoomany--;
-                                }
-                            }
-
-                            MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
-
-                            i++;
-                            if(i >= NTask)
-                                i = 0;
+                            MPI_Bcast(&ntoomany, 1, MPI_INT, j, MPI_COMM_WORLD);
+                            MPI_Bcast(&count_toget[0], 1, MPI_INT, j, MPI_COMM_WORLD);
+                            if(i > 0)
+                                MPI_Bcast(&count_toget[i], 1, MPI_INT, j, MPI_COMM_WORLD);
+                            j = (j+1) % NTask;
                         }
                     }
                 }
@@ -577,21 +482,11 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toG
 
             if(flagsum)
             {
-                int *local_toGo, *local_toGoSph, *local_toGoBh, *local_toGoStar;
-
-                local_toGo = (int *)mymalloc("	      local_toGo", NTask * sizeof(int));
-                local_toGoSph = (int *)mymalloc("	      local_toGoSph", NTask * sizeof(int));
-                local_toGoBh = (int *)mymalloc("	      local_toGoBh", NTask * sizeof(int));
-                local_toGoStar = (int *)mymalloc("	      local_toGoStar", NTask * sizeof(int));
-
-
-                for(n = 0; n < NTask; n++)
-                {
-                    local_toGo[n] = 0;
-                    local_toGoSph[n] = 0;
-                    local_toGoBh[n] = 0;
-                    local_toGoStar[n] = 0;
-                }
+                int * new_toGo[4];
+                new_toGo[0] = (int *)mymalloc("local_toGo", 4*NTask * sizeof(int));
+                memset(new_toGo, 0, 4*NTask*sizeof(int));
+                for(n=1; n<4; n++)
+                    new_toGo[n] = new_toGo[n-1]+NTask;
 
                 for(n = 0; n < NumPart; n++)
                 {
@@ -600,67 +495,41 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toG
 
                     int target = layoutfunc(n);
 
+                    int lt = 0;
                     if(P[n].Type == 0)
-                    {
-                        if(local_toGoSph[target] < toGoSph[target] && local_toGo[target] < toGo[target])
-                        {
-                            local_toGo[target] += 1;
-                            local_toGoSph[target] += 1;
-                            P[n].WillExport = 1;
-                        }
-                    }
-                    else
+                        lt = 1;
                     if(P[n].Type == 5)
-                    {
-                        if(local_toGoBh[target] < toGoBh[target] && local_toGo[target] < toGo[target])
-                        {
-                            local_toGo[target] += 1;
-                            local_toGoBh[target] += 1;
-                            P[n].WillExport = 1;
-                        }
-                    }
-                    else
+                        lt = 2;
                     if(P[n].Type == 4)
+                        lt = 3;
+                    if(new_toGo[lt][target] < togo_local[lt][target] && new_toGo[0][target] < togo_local[0][target])
                     {
-                        if(local_toGoStar[target] < toGoStar[target] && local_toGo[target] < toGo[target])
-                        {
-                            local_toGo[target] += 1;
-                            local_toGoStar[target] += 1;
-                            P[n].WillExport = 1;
-                        }
-                    }
-                    else
-                    {
-                        if(local_toGo[target] < toGo[target])
-                        {
-                            local_toGo[target] += 1;
-                            P[n].WillExport = 1;
-                        }
+                        new_toGo[0][target] += 1;
+                        if(lt > 0)
+                            new_toGo[lt][target] += 1;
+                        P[n].WillExport = 1;
                     }
                 }
 
                 for(n = 0; n < NTask; n++)
                 {
-                    toGo[n] = local_toGo[n];
-                    toGoSph[n] = local_toGoSph[n];
-                    toGoStar[n] = local_toGoStar[n];
-                    toGoBh[n] = local_toGoBh[n];
+                    toGo[n] = new_toGo[0][n];
+                    toGoSph[n] = new_toGo[1][n];
+                    toGoBh[n] = new_toGo[2][n];
+                    toGoStar[n] = new_toGo[3][n];
                 }
 
                 MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
                 MPI_Alltoall(toGoSph, 1, MPI_INT, toGetSph, 1, MPI_INT, MPI_COMM_WORLD);
                 MPI_Alltoall(toGoBh, 1, MPI_INT, toGetBh, 1, MPI_INT, MPI_COMM_WORLD);
                 MPI_Alltoall(toGoStar, 1, MPI_INT, toGetStar, 1, MPI_INT, MPI_COMM_WORLD);
-                myfree(local_toGoBh);
-                myfree(local_toGoSph);
-                myfree(local_toGoStar);
-                myfree(local_toGo);
+                myfree(new_toGo[0]);
             }
         }
         while(flagsum);
+        myfree(list_Npart[0]);
 
     }
-    ta_reset();
     return ret;
 }
 
