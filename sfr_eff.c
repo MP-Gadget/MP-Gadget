@@ -1085,7 +1085,6 @@ static double get_sfr_factor_due_to_h2(int i) {
 }
 
 static double get_sfr_factor_due_to_selfgravity(int i) {
-#ifdef SPH_GRAD_RHO
     double divv = SPHP(i).DivVel * All.cf.a2inv;
 
     divv += 3.0*All.cf.hubble_a2; // hubble-flow correction
@@ -1117,10 +1116,8 @@ static double get_sfr_factor_due_to_selfgravity(int i) {
         y *= 1.0/(1.0 + alpha_vir);
     }
     return y;
-#else
-    return 1.0;
-#endif
 }
+
 static double
 find_star_mass(int i)
 {

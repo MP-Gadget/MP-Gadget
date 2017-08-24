@@ -46,10 +46,6 @@ StarformationCriterionAction(ParameterSet * ps, char * name, void * data)
         message(1, "error: enable SPH_GRAD_RHO to use h2 criterion in sfr \n");
         return 1;
     }
-    if(HAS(v, SFR_CRITERION_SELFGRAVITY)) {
-        message(1, "error: enable SPH_GRAD_RHO to use selfgravity in sfr \n");
-        return 1;
-    }
 #endif
     return 0;
 }
