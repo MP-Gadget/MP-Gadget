@@ -216,7 +216,7 @@ void domain_maintain(void)
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(0 != domain_exchange(domain_layoutfunc)) {
+    if(0 != domain_exchange(domain_layoutfunc, 1)) {
         domain_decompose_full();
         return;
     }
@@ -333,7 +333,7 @@ domain_attempt_decompose(void)
     domain_balance();
 
     walltime_measure("/Domain/Decompose/Balance");
-    if(domain_exchange(domain_layoutfunc))
+    if(domain_exchange(domain_layoutfunc, 0))
         endrun(1929,"Could not exchange particles\n");
 
     return 0;

@@ -19,11 +19,11 @@ static MPI_Datatype MPI_TYPE_STARPARTICLE = 0;
  * layoutfunc gives the target task of particle p.
 */
 static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar);
-static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar);
+static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int failfast, int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar);
 
 static void domain_count_particles();
 
-int domain_exchange(int (*layoutfunc)(int p)) {
+int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     int i;
     int64_t sumtogo;
     int failure = 0;
@@ -77,8 +77,12 @@ int domain_exchange(int (*layoutfunc)(int p)) {
         }
 
         /* determine for each cpu how many particles have to be shifted to other cpus */
-        ret = domain_countToGo(exchange_limit, layoutfunc, toGo, toGoSph, toGoBh, toGoStar, toGet, toGetSph, toGetBh, toGetStar);
+        ret = domain_countToGo(exchange_limit, layoutfunc, failfast, toGo, toGoSph, toGoBh, toGoStar, toGet, toGetSph, toGetBh, toGetStar);
         walltime_measure("/Domain/exchange/togo");
+        if(ret && failfast) {
+            failure = 1;
+            break;
+        }
 
         for(i = 0, sumtogo = 0; i < NTask; i++)
             sumtogo += toGo[i];
@@ -327,7 +331,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
 
 
 /*This function populates the toGo and toGet arrays*/
-static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar)
+static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int failfast, int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar)
 {
     int n, ret;
     size_t package;
@@ -385,6 +389,9 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toG
 
     if(ret == 0)
         return 0;
+
+    if(failfast)
+        return 1;
 
     {
         /* in this case, we are not guaranteed that the temporary state after
