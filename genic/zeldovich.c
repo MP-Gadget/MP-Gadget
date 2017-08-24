@@ -5,12 +5,14 @@
 #include <math.h>
 /* do NOT use complex.h it breaks the code */
 #include <pfft.h>
+#include <gsl/gsl_rng.h>
 
 #include "petapm.h"
-#include "genic-allvars.h"
-#include "genic-proto.h"
+#include "genic/allvars.h"
+#include "genic/proto.h"
 #include "walltime.h"
 #include "endrun.h"
+#include "mymalloc.h"
 
 #define MESH2K(i) petapm_mesh_to_k(i)
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);
@@ -24,13 +26,9 @@ static void readout_force_z(int i, double * mesh, double weight);
 static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k);
 static void setup_grid();
 
-static double Dplus;
-
 void initialize_ffts(void) {
     petapm_init(Box, Nmesh, 1);
     setup_grid();
-
-    Dplus = GrowthFactor(InitTime, 1.0);
 }
 
 uint64_t ijk_to_id(int i, int j, int k) {
@@ -58,7 +56,8 @@ static void setup_grid() {
     offset[2] = 0;
     size[2] = Ngrid;
     NumPart *= size[2];
-    P = (struct part_data *) calloc(NumPart, sizeof(struct part_data));
+    P = (struct part_data *) mymalloc("PartTable", NumPart*sizeof(struct part_data));
+    memset(P, 0, NumPart*sizeof(struct part_data));
 
     int i;
     for(i = 0; i < NumPart; i ++) {
@@ -144,8 +143,7 @@ void displacement_fields() {
     MPI_Reduce(&maxdisp, &maxdispall, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
     message(0, "max disp = %g in units of cell sep %g \n", maxdispall, maxdispall / (Box / Nmesh) );
 
-    double hubble_a =
-        Hubble * sqrt(Omega / pow(InitTime, 3) + (1 - Omega - OmegaLambda) / pow(InitTime, 2) + OmegaLambda);
+    double hubble_a = hubble_function(InitTime);
 
     double vel_prefac = InitTime * hubble_a * F_Omega(InitTime);
 
@@ -184,7 +182,7 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
     gsl_rng * random_generator_seed = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(random_generator_seed, Seed);
 
-    unsigned int * seedtable = malloc(sizeof(unsigned int) * Nmesh * Nmesh);
+    unsigned int * seedtable = mymalloc("Seedtable", sizeof(unsigned int) * Nmesh * Nmesh);
 
 #define SETSEED(i, j) { \
     unsigned int seed = 0x7fffffff * gsl_rng_uniform(random_generator_seed); \
@@ -249,19 +247,14 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
                 ptrdiff_t ip = region->strides[0] * (j - region->offset[0]) 
                              + region->strides[1] * (k - region->offset[1]) 
                              + region->strides[2] * (i - region->offset[2]);
-                double phase = gsl_rng_uniform(random_generator) * 2 * PI;
+                double phase = gsl_rng_uniform(random_generator) * 2 * M_PI;
                 double ampl = 0;
                 do ampl = gsl_rng_uniform(random_generator); while(ampl == 0);
                 if(k < region->offset[1]) continue;
                 if(k >= region->offset[1] + region->size[1]) continue;
                 int64_t kmag2 = (int64_t)MESH2K(i) * MESH2K(i) + (int64_t)MESH2K(j) * MESH2K(j) + (int64_t)MESH2K(k) * MESH2K(k);
-                double kmag = sqrt(kmag2) * 2 * PI / Box;
+                double kmag = sqrt(kmag2) * 2 * M_PI / Box;
                 double p_of_k = - log(ampl);
-			    if(SphereMode == 1) {
-			      if(kmag2 >= (Nsample/ 2) * (Nsample / 2))	/* select a sphere in k-space */ {
-                    p_of_k = 0;
-                  }
-			    }
                 if(i == Nmesh / 2) {
                     p_of_k = 0;
                 }
@@ -273,7 +266,7 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
                     p_of_k = 0;
                 }
                 p_of_k *= PowerSpec(kmag);
-                double delta = fac * sqrt(p_of_k) / Dplus;
+                double delta = fac * sqrt(p_of_k);
                 rho_k[ip][0] = delta * cos(phase);
                 rho_k[ip][1] = delta * sin(phase);
                 if(hermitian) {
@@ -284,7 +277,7 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
         gsl_rng_free(random_generator0);
         gsl_rng_free(random_generator1);
     }
-    free(seedtable);
+    myfree(seedtable);
 #if 0
     /* dump the gaussian field for debugging 
      * 
@@ -309,66 +302,6 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
 #endif
 }
 
-/* unnormalized sinc function sin(x) / x */
-static double sinc_unnormed(double x) {
-    if(x < 1e-5 && x > -1e-5) {
-        double x2 = x * x;
-        return 1.0 - x2 / 6. + x2  * x2 / 120.;
-    } else {
-        return sin(x) / x;
-    }
-}
-static void cic_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
-    if(k2 == 0) {
-        /* remote zero mode corresponding to the mean */
-        value[0][0] = 0.0;
-        value[0][1] = 0.0;
-        return;
-    } 
-    double f = 1.0;
-    /* the CIC deconvolution kernel is
-     *
-     * sinc_unnormed(k_x L / 2 Nmesh) ** 2
-     *
-     * k_x = kpos * 2pi / L
-     *
-     * */
-    int k;
-    for(k = 0; k < 3; k ++) {
-        double tmp = (kpos[k] * M_PI) / Nmesh;
-        tmp = sinc_unnormed(tmp);
-        f *= 1. / (tmp * tmp);
-    }
-    /* 
-     * first decovolution is CIC in par->mesh
-     * second decovolution is correcting readout 
-     * I don't understand the second yet!
-     * */
-    double fac = f;
-    value[0][0] *= fac;
-    value[0][1] *= fac;
-}
-
-/* the transfer functions for force in fourier space applied to potential */
-/* super lanzcos in CH6 P 122 Digital Filters by Richard W. Hamming */
-static double super_lanzcos_diff_kernel_3(double w) {
-/* order N = 3*/
-    return 1. / 594 * 
-       (126 * sin(w) + 193 * sin(2 * w) + 142 * sin (3 * w) - 86 * sin(4 * w));
-}
-static double super_lanzcos_diff_kernel_2(double w) {
-/* order N = 2*/
-    return 1 / 126. * (58 * sin(w) + 67 * sin (2 * w) - 22 * sin(3 * w));
-}
-static double super_lanzcos_diff_kernel_1(double w) {
-/* order N = 1 */
-/* 
- * This is the same as GADGET-2 but in fourier space: 
- * see gadget-2 paper and Hamming's book.
- * c1 = 2 / 3, c2 = 1 / 12
- * */
-    return 1 / 6.0 * (8 * sin (w) - sin (2 * w));
-}
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         /* density is smoothed in k space by a gaussian kernel of 1 mesh grid */
@@ -381,14 +314,14 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 }
 static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
-        double fac = (Box / (2 * PI)) * kpos[0] / k2;
+        double fac = (Box / (2 * M_PI)) * kpos[0] / k2;
         /*
          We avoid high precision kernels to maintain compatibility with N-GenIC.
          The following formular shall cross check with fac in the limit of 
          native diff_kernel (disp_y, disp_z shall match too!)
          
-        double fac1 = (2 * PI) / Box;
-        double fac = diff_kernel(kpos[0] * (2 * PI / Nmesh)) * (Nmesh / Box) / (
+        double fac1 = (2 * M_PI) / Box;
+        double fac = diff_kernel(kpos[0] * (2 * M_PI / Nmesh)) * (Nmesh / Box) / (
                     k2 * fac1 * fac1);
                     */
         double tmp = value[0][0];
@@ -398,7 +331,7 @@ static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 }
 static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
-        double fac = (Box / (2 * PI)) * kpos[1] / k2;
+        double fac = (Box / (2 * M_PI)) * kpos[1] / k2;
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -406,7 +339,7 @@ static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 }
 static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
-        double fac = (Box / (2 * PI)) * kpos[2] / k2;
+        double fac = (Box / (2 * M_PI)) * kpos[2] / k2;
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;

@@ -4,8 +4,8 @@
 #include <stddef.h>
 #include <string.h>
 #include <mpi.h>
-#include "genic-allvars.h"
-#include "genic-proto.h"
+#include "genic/allvars.h"
+#include "genic/proto.h"
 #include "endrun.h"
 #include "bigfile-mpi.h"
 
@@ -39,8 +39,8 @@ void write_particle_data(void) {
     if (ProduceGas) {
         /* First shift gas */
         double meanspacing = Box / pow(TotNumPart, 1.0 / 3);
-        double shift_gas = -0.5 * (Omega - OmegaBaryon) / (Omega) * meanspacing;
-        double shift_dm = +0.5 * OmegaBaryon / (Omega) * meanspacing;
+        double shift_gas = -0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
+        double shift_dm = +0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
         int i;
         for(i = 0; i < NumPart; i ++) {
             int k;
@@ -113,10 +113,10 @@ void saveheader(BigFile * bf) {
     totnumpart[1] = TotNumPart;
     if (ProduceGas) {
         totnumpart[0] = TotNumPart;
-        mass[0] = (OmegaBaryon) * 3 * Hubble * Hubble / (8 * PI * G) * pow(Box, 3) / TotNumPart;
-        mass[1] = (Omega - OmegaBaryon) * 3 * Hubble * Hubble / (8 * PI * G) * pow(Box, 3) / TotNumPart;
+        mass[0] = (CP.OmegaBaryon) * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3) / TotNumPart;
+        mass[1] = (CP.Omega0 - CP.OmegaBaryon) * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3) / TotNumPart;
     } else {
-        mass[1] = (Omega) * 3 * Hubble * Hubble / (8 * PI * G) * pow(Box, 3) / TotNumPart;
+        mass[1] = (CP.Omega0) * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3) / TotNumPart;
     }
     double redshift = 1.0 / InitTime - 1.;
 
@@ -125,13 +125,13 @@ void saveheader(BigFile * bf) {
             (big_block_set_attr(&bheader, "Time", &InitTime, "f8", 1)) ||
             (big_block_set_attr(&bheader, "Redshift", &redshift, "f8", 1)) ||
             (big_block_set_attr(&bheader, "BoxSize", &Box, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaM", &Omega, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaB", &OmegaBaryon, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaL", &OmegaLambda, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "OmegaM", &CP.Omega0, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "OmegaB", &CP.OmegaBaryon, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "OmegaL", &CP.OmegaLambda, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitLength_in_cm", &UnitLength_in_cm, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitMass_in_g", &UnitMass_in_g, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitVelocity_in_cm_per_s", &UnitVelocity_in_cm_per_s, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "HubbleParam", &HubbleParam, "f8", 1));
+            (big_block_set_attr(&bheader, "HubbleParam", &CP.HubbleParam, "f8", 1));
     if(rt) {
         endrun(0, "failed to create attr %s", 
                 big_file_get_error_message());

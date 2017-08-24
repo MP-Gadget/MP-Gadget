@@ -3,18 +3,21 @@
 #include <math.h>
 #include <mpi.h>
 #include <gsl/gsl_integration.h>
-#include "genic-allvars.h"
-#include "genic-proto.h"
+#include "genic/allvars.h"
+#include "genic/proto.h"
+#include "cosmology.h"
+#include "mymalloc.h"
 #include "endrun.h"
 
+static double PowerSpec_EH(double k);
+static double PowerSpec_Tabulated(double k);
+static double sigma2_int(double k, void * params);
+static double TopHatSigma2(double R);
+static double tk_eh(double k);
+static int compare_logk(const void *a, const void *b);
 
-static double R8;
-static double r_tophat;
 
-static double AA, BB, CC;
-static double nu;
 static double Norm;
-
 
 static int NPowerTable;
 
@@ -24,71 +27,26 @@ static struct pow_table
 }
  *PowerTable;
 
-
 double PowerSpec(double k)
 {
-  double power, alpha, Tf;
+  double power;
 
   switch (WhichSpectrum)
-    {
-    case 1:
-      power = PowerSpec_EH(k);
-      break;
-
+  {
     case 2:
       power = PowerSpec_Tabulated(k);
       break;
 
     default:
-      power = PowerSpec_Efstathiou(k);
+      power = PowerSpec_EH(k);
       break;
-    }
-
-
-  if(WDM_On == 1)
-    {
-      /* Eqn. (A9) in Bode, Ostriker & Turok (2001), assuming gX=1.5  */
-      alpha =
-	0.048 * pow((Omega - OmegaBaryon) / 0.4, 0.15) * pow(HubbleParam / 0.65,
-							     1.3) * pow(1.0 / WDM_PartMass_in_kev, 1.15);
-      Tf = pow(1 + pow(alpha * k * (3.085678e24 / UnitLength_in_cm), 2 * 1.2), -5.0 / 1.2);
-      power *= Tf * Tf;
-    }
-
-#if defined(MULTICOMPONENTGLASSFILE) && defined(DIFFERENT_TRANSFER_FUNC)
-
-  if(Type == 2)
-    {
-      power = PowerSpec_DM_2ndSpecies(k);
-    }
-
-#endif
-
-  if(WhichSpectrum != 2) {
-    /* because a tabulated power is already tilted */
-    //printf("PrimordialIndex =%g is not used for Table Power spectrum\n", PrimordialIndex);
-    power *= pow(k, PrimordialIndex - 1.0);
   }
 
-  return power;
-}
-
-
-double PowerSpec_DM_2ndSpecies(double k)
-{
-  /* at the moment, we simply call the Eistenstein & Hu spectrum
-   * for the second DM species, but this could be replaced with
-   * something more physical, say for neutrinos
-   */
-
-  double power;
-
-  power = Norm * k * pow(tk_eh(k), 2);
+  /*Normalise the power spectrum*/
+  power *= Norm;
 
   return power;
 }
-
-
 
 void read_power_table(void)
 {
@@ -126,7 +84,7 @@ void read_power_table(void)
     }
     MPI_Bcast(&NPowerTable, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    PowerTable = malloc(NPowerTable * sizeof(struct pow_table));
+    PowerTable = mymalloc("Powertable", NPowerTable * sizeof(struct pow_table));
 
     if(ThisTask == 0) {
         int i = 0;
@@ -180,36 +138,22 @@ int compare_logk(const void *a, const void *b)
 
 void initialize_powerspectrum(void)
 {
-    double res;
-
-    InitTime = 1 / (1 + Redshift);
-
-    AA = 6.4 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-    BB = 3.0 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-    CC = 1.7 / ShapeGamma * (3.085678e24 / UnitLength_in_cm);
-    nu = 1.13;
-
-    R8 = 8 * (3.085678e24 / UnitLength_in_cm);	/* 8 Mpc/h */
-
     if(WhichSpectrum == 2)
         read_power_table();
 
-#ifdef DIFFERENT_TRANSFER_FUNC
-    Type = 1;
-#endif
-
     Norm = 1.0;
-    res = TopHatSigma2(R8);
-
-    message(0, "Normalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
-
-    if(Sigma8 > 0) {
-        message(0, "Normalization of spectrum in file:  Sigma8 = %g\n", sqrt(res));
-
+    if (Sigma8 > 0) {
+        double R8 = 8 * (3.085678e24 / UnitLength_in_cm);	/* 8 Mpc/h */
+        double res = TopHatSigma2(R8);
         Norm = Sigma8 * Sigma8 / res;
-
-        message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g)\n", Sigma8, Norm);
+        message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g). \n", Sigma8, Norm);
     }
+    if(InputPowerRedshift >= 0) {
+        double Dplus = GrowthFactor(InitTime, 1/(1+InputPowerRedshift));
+        Norm /= sqrt(Dplus);
+        message(0,"Growth factor to z=0: %g \n", Dplus);
+    }
+
 }
 
 double PowerSpec_Tabulated(double k)
@@ -243,7 +187,7 @@ double PowerSpec_Tabulated(double k)
 
   logD = (1 - u) * PowerTable[mybinlow].logD + u * PowerTable[mybinhigh].logD;
 
-  P = Norm*pow(10.0, logD);//*2*M_PI*M_PI;
+  P = pow(10.0, logD);//*2*M_PI*M_PI;
 
   //  Delta2 = pow(10.0, logD);
 
@@ -255,19 +199,10 @@ double PowerSpec_Tabulated(double k)
   return P;
 }
 
-double PowerSpec_Efstathiou(double k)
-{
-  return Norm * k / pow(1 + pow(AA * k + pow(BB * k, 1.5) + CC * CC * k * k, nu), 2 / nu);
-}
-
-
-
 double PowerSpec_EH(double k)	/* Eisenstein & Hu */
 {
-  return Norm * k * pow(tk_eh(k), 2);
+  return k * pow(tk_eh(k), 2)* pow(k, PrimordialIndex - 1.0);
 }
-
-
 
 
 double tk_eh(double k)		/* from Martin White */
@@ -277,13 +212,13 @@ double tk_eh(double k)		/* from Martin White */
   double omegam, ombh2, hubble;
 
   /* other input parameters */
-  hubble = HubbleParam;
+  hubble = CP.HubbleParam;
 
-  omegam = Omega;
-  ombh2 = OmegaBaryon * HubbleParam * HubbleParam;
+  omegam = CP.Omega0;
+  ombh2 = CP.OmegaBaryon * CP.HubbleParam * CP.HubbleParam;
 
-  if(OmegaBaryon == 0)
-    ombh2 = 0.044 * HubbleParam * HubbleParam;
+  if(CP.OmegaBaryon == 0)
+    ombh2 = 0.044 * CP.HubbleParam * CP.HubbleParam;
 
   k *= (3.085678e24 / UnitLength_in_cm);	/* convert to h/Mpc */
 
@@ -304,13 +239,11 @@ double tk_eh(double k)		/* from Martin White */
 
 double TopHatSigma2(double R)
 {
-  r_tophat = R;
-
   gsl_integration_workspace * w = gsl_integration_workspace_alloc (1000);
   double result,abserr;
   gsl_function F;
   F.function = &sigma2_int;
-  F.params = NULL;
+  F.params = &R;
 
   /* note: 500/R is here chosen as integration boundary (infinity) */
   gsl_integration_qags (&F, 0, 500. / R, 0, 1e-4,1000,w,&result, &abserr);
@@ -324,6 +257,7 @@ double sigma2_int(double k, void * params)
 {
   double kr, kr3, kr2, w, x;
 
+  double r_tophat = *(double *) params;
   kr = r_tophat * k;
   kr2 = kr * kr;
   kr3 = kr2 * kr;
@@ -332,145 +266,10 @@ double sigma2_int(double k, void * params)
     return 0;
 
   w = 3 * (sin(kr) / kr3 - cos(kr) / kr2);
-  x = 4 * PI / (2 * PI * 2 * PI * 2 * PI) * k * k * w * w * PowerSpec(k);
+  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * PowerSpec(k);
 
   return x;
 
-}
-
-
-double GrowthFactor(double astart, double aend)
-{
-  return growth(aend) / growth(astart);
-}
-
-
-double growth(double a)
-{
-  gsl_integration_workspace * w = gsl_integration_workspace_alloc (200);
-  double hubble_a;
-  double result,abserr;
-  gsl_function F;
-  F.function = &growth_int;
-
-  hubble_a = sqrt(Omega / (a * a * a) + (1 - Omega - OmegaLambda) / (a * a) + OmegaLambda);
-
-  gsl_integration_qag (&F, 0, a, 0, 1e-4,200,GSL_INTEG_GAUSS61, w,&result, &abserr);
-//   printf("gsl_integration_qng in growth. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size);
-  gsl_integration_workspace_free (w);
-  return hubble_a * result;
-}
-
-
-double growth_int(double a, void * params)
-{
-  return pow(a / (Omega + (1 - Omega - OmegaLambda) * a + OmegaLambda * a * a * a), 1.5);
-}
-
-
-double F_Omega(double a)
-{
-  double omega_a;
-
-  omega_a = Omega / (Omega + a * (1 - Omega - OmegaLambda) + a * a * a * OmegaLambda);
-
-  return pow(omega_a, 0.6);
-}
-
-/*  Here comes the stuff to compute the thermal WDM velocity distribution */
-
-
-#define LENGTH_FERMI_DIRAC_TABLE 2000
-#define MAX_FERMI_DIRAC          20.0
-
-double fermi_dirac_vel[LENGTH_FERMI_DIRAC_TABLE];
-double fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE];
-
-double WDM_V0 = 0;
-
-double fermi_dirac_kernel(double x, void * params)
-{
-  return x * x / (exp(x) + 1);
-}
-
-void fermi_dirac_init(void)
-{
-  int i;
-
-  /*These functions are so smooth that we don't need much space*/
-  gsl_integration_workspace * w = gsl_integration_workspace_alloc (100);
-  double abserr;
-  gsl_function F;
-  F.function = &fermi_dirac_kernel;
-  F.params = NULL;
-
-  for(i = 0; i < LENGTH_FERMI_DIRAC_TABLE; i++)
-    {
-      fermi_dirac_vel[i] = MAX_FERMI_DIRAC * i / (LENGTH_FERMI_DIRAC_TABLE - 1.0);
-      gsl_integration_qag (&F, 0, fermi_dirac_vel[i], 0, 1e-6,100,GSL_INTEG_GAUSS61, w,&(fermi_dirac_cumprob[i]), &abserr);
-    }
-
-  gsl_integration_workspace_free (w);
-  for(i = 0; i < LENGTH_FERMI_DIRAC_TABLE; i++)
-    fermi_dirac_cumprob[i] /= fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE - 1];
-
-  WDM_V0 = 0.012 * (1 + Redshift) * pow((Omega - OmegaBaryon) / 0.3, 1.0 / 3) * pow(HubbleParam / 0.65,
-										    2.0 / 3) * pow(1.0 /
-												   WDM_PartMass_in_kev,
-												   4.0 / 3);
-
-  if(ThisTask == 0)
-    printf("\nWarm dark matter rms velocity dispersion at starting redshift = %g km/sec\n\n",
-	   3.59714 * WDM_V0);
-
-  WDM_V0 *= 1.0e5 / UnitVelocity_in_cm_per_s;
-
-  /* convert from peculiar velocity to gadget's cosmological velocity */
-  WDM_V0 *= sqrt(1 + Redshift);
-}
-
-
-
-double get_fermi_dirac_vel(void)
-{
-  int i;
-  double p, u;
-
-  p = drand48();
-  i = 0;
-
-  while(i < LENGTH_FERMI_DIRAC_TABLE - 2)
-    if(p > fermi_dirac_cumprob[i + 1])
-      i++;
-    else
-      break;
-
-  u = (p - fermi_dirac_cumprob[i]) / (fermi_dirac_cumprob[i + 1] - fermi_dirac_cumprob[i]);
-
-  return fermi_dirac_vel[i] * (1 - u) + fermi_dirac_vel[i + 1] * u;
-}
-
-
-
-void add_WDM_thermal_speeds(float *vel)
-{
-  double v, phi, theta, vx, vy, vz;
-
-  if(WDM_V0 == 0)
-    fermi_dirac_init();
-
-  v = WDM_V0 * get_fermi_dirac_vel();
-
-  phi = 2 * M_PI * drand48();
-  theta = acos(2 * drand48() - 1);
-
-  vx = v * sin(theta) * cos(phi);
-  vy = v * sin(theta) * sin(phi);
-  vz = v * cos(theta);
-
-  vel[0] += vx;
-  vel[1] += vy;
-  vel[2] += vz;
 }
 
 static double A, B, alpha, beta, V, gf;
@@ -498,19 +297,19 @@ void print_spec(void)
       }
       gf = GrowthFactor(0.001, 1.0) / (1.0 / 0.001);
 
-      DDD = GrowthFactor(1.0 / (Redshift + 1), 1.0);
+      DDD = GrowthFactor(InitTime, 1.0);
 
-      fprintf(fd, "%12g %12g %12g\n", Redshift, DDD, Norm);	/* print actual starting redshift and 
+      fprintf(fd, "%12g %12g %12g\n", 1/InitTime-1, DDD, Norm);	/* print actual starting redshift and 
 							   linear growth factor for this cosmology */
-      kstart = 2 * PI / (1000.0 * (3.085678e24 / UnitLength_in_cm));	/* 1000 Mpc/h */
-      kend = 2 * PI / (0.001 * (3.085678e24 / UnitLength_in_cm));	/* 0.001 Mpc/h */
+      kstart = 2 * M_PI / (1000.0 * (3.085678e24 / UnitLength_in_cm));	/* 1000 Mpc/h */
+      kend = 2 * M_PI / (0.001 * (3.085678e24 / UnitLength_in_cm));	/* 0.001 Mpc/h */
 
       printf("kstart=%lg kend=%lg\n",kstart,kend);
 
       for(k = kstart; k < kend; k *= 1.025)
 	{
 	  po = PowerSpec(k);
-	  dl = 4.0 * PI * k * k * k * po;
+	  dl = 4.0 * M_PI * k * k * k * po;
 
 	  kf = 0.5;
 

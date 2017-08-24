@@ -33,20 +33,20 @@ OBJECTS  =  \
 	 densitykernel.o interp.o lightcone.o walltime.o\
 	 runtests.o \
 
-ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
+ICOBJECTS   = genic/main.o genic/power.o genic/allvars.o genic/params.o \
+		genic/zeldovich.o genic/save.o \
 		 petapm.o \
         paramset.o \
         utils-string.o \
 		 openmpsort.o \
-		genic-zeldovich.o \
-		genic-save.o  \
 		walltime.o \
         mymalloc.o \
+        cosmology.o \
         endrun.o \
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h powerspectrum.h timestep.h sfr_eff.h drift.h timefac.h \
-	 petaio.h blackhole.h
+	 petaio.h blackhole.h physconst.h
 
 TESTED = interp powerspectrum cosmology timefac timebinmgr
 
@@ -65,6 +65,7 @@ depends:
 
 builddir:
 	mkdir -p $(DESTDIR)
+	mkdir -p $(DESTDIR)/genic
 
 $(DESTDIR)/MP-Gadget: $(OBJS)
 	$(MPICC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@

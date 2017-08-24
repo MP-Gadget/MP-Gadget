@@ -196,8 +196,6 @@ set_units(void)
 {
     double meanweight;
 
-    init_cosmology();
-
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
     All.UnitTime_in_Megayears = All.UnitTime_in_s / SEC_PER_MEGAYEAR;
 
@@ -210,7 +208,10 @@ set_units(void)
 
     /* convert some physical input parameters to internal units */
 
-    All.Hubble = HUBBLE * All.UnitTime_in_s;
+    All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
+    /*Include massless neutrinos only if we do not have massive neutrino particles*/
+    All.CP.MasslessNeutrinosOn = (NTotal[2] == 0);
+    init_cosmology(&All.CP);
 
     meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */
 
@@ -220,7 +221,7 @@ set_units(void)
 #ifdef SFR
 
     All.OverDensThresh =
-        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
+        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
     All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
 
@@ -243,7 +244,7 @@ set_units(void)
 
 #endif
 
-    message(0, "Hubble (internal units) = %g\n", All.Hubble);
+    message(0, "Hubble (internal units) = %g\n", All.CP.Hubble);
     message(0, "G (internal units) = %g\n", All.G);
     message(0, "UnitLengh_in_cm = %g \n", All.UnitLength_in_cm);
     message(0, "UnitMass_in_g = %g \n", All.UnitMass_in_g);

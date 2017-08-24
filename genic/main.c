@@ -4,8 +4,8 @@
 #include <stdio.h>
 #include <mpi.h>
 
-#include "genic-allvars.h"
-#include "genic-proto.h"
+#include "genic/allvars.h"
+#include "genic/proto.h"
 #include "walltime.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -35,7 +35,6 @@ int main(int argc, char **argv)
   walltime_init(&CT);
   mymalloc_init(MaxMemoryPerCore * 1024 * 1024);
 
-  set_units();
 
   initialize_powerspectrum();
 
@@ -49,7 +48,7 @@ int main(int argc, char **argv)
 
   write_particle_data();
   if(NumPart)
-    free(P);
+    myfree(P);
 
   free_ffts();
 

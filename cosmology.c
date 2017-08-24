@@ -1,12 +1,19 @@
 #include <math.h>
-#include "allvars.h"
 #include "cosmology.h"
 #include "endrun.h"
 #include <gsl/gsl_integration.h>
+#include <gsl/gsl_errno.h>
 #include <gsl/gsl_odeiv2.h>
+#include "physconst.h"
 
-void init_cosmology()
+/*Stefan-Boltzmann constant in cgs units*/
+#define  STEFAN_BOLTZMANN 5.670373e-5
+
+static Cosmology * CP = NULL;
+
+void init_cosmology(Cosmology * CP_in)
 {
+    CP = CP_in;
     /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
      * A note on normalisation (as of 08/02/2012):
      * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
@@ -14,16 +21,16 @@ void init_cosmology()
      * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
      * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
      */
-    All.CP.OmegaCDM = All.CP.Omega0 - All.CP.OmegaBaryon;
-    All.CP.OmegaK = 1.0 - All.CP.Omega0 - All.CP.OmegaLambda;
+    CP->OmegaCDM = CP->Omega0 - CP->OmegaBaryon;
+    CP->OmegaK = 1.0 - CP->Omega0 - CP->OmegaLambda;
 
     /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
 
-    All.CP.OmegaG = 4 * STEFAN_BOLTZMANN
-                  * pow(All.CP.CMBTemperature, 4)
+    CP->OmegaG = 4 * STEFAN_BOLTZMANN
+                  * pow(CP->CMBTemperature, 4)
                   * (8 * M_PI * GRAVITY)
                   / (3*C*C*C*HUBBLE*HUBBLE)
-                  / (All.CP.HubbleParam*All.CP.HubbleParam);
+                  / (CP->HubbleParam*CP->HubbleParam);
 
     /* Neutrino + antineutrino background temperature as a ratio to T_CMB0
      * Note there is a slight correction from 4/11
@@ -35,46 +42,46 @@ void init_cosmology()
     /* For massless neutrinos,
      * rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff,
      * but we absorbed N_eff into T_nu above. */
-    All.CP.OmegaNu0 = All.CP.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
+    CP->OmegaNu0 = CP->OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
 }
 
-/*Hubble function at scale factor a, in dimensions of All.Hubble*/
+/*Hubble function at scale factor a, in dimensions of CP.Hubble*/
 double hubble_function(double a)
 {
 
     double hubble_a;
 
     /* first do the terms in SQRT */
-    hubble_a = All.CP.OmegaLambda;
+    hubble_a = CP->OmegaLambda;
 
-    hubble_a += All.CP.OmegaK / (a * a);
-    hubble_a += All.CP.Omega0 / (a * a * a);
+    hubble_a += CP->OmegaK / (a * a);
+    hubble_a += CP->Omega0 / (a * a * a);
 
-    if(All.CP.RadiationOn) {
-        hubble_a += All.CP.OmegaG / (a * a * a * a);
+    if(CP->RadiationOn) {
+        hubble_a += CP->OmegaG / (a * a * a * a);
         /* massless neutrinos are added only if there is no (massive) neutrino particle.*/
-        if(!NTotal[2])
-            hubble_a += All.CP.OmegaNu0 / (a * a * a * a);
+        if(CP->MasslessNeutrinosOn)
+            hubble_a += CP->OmegaNu0 / (a * a * a * a);
     }
 
     /* Now finish it up. */
-    hubble_a = All.Hubble * sqrt(hubble_a);
+    hubble_a = CP->Hubble * sqrt(hubble_a);
     return (hubble_a);
 }
 
 static double growth(double a, double *dDda);
 
-double GrowthFactor(double astart)
+double GrowthFactor(double astart, double aend)
 {
-    return growth(astart, NULL) / growth(1.0, NULL);
+    return growth(astart, NULL) / growth(aend, NULL);
 }
 
 int growth_ode(double a, const double yy[], double dyda[], void * params)
 {
-    const double hub = hubble_function(a)/All.Hubble;
+    const double hub = hubble_function(a)/CP->Hubble;
     dyda[0] = yy[1]/pow(a,3)/hub;
     /*Only use gravitating part*/
-    dyda[1] = yy[0] * 1.5 * a * All.CP.Omega0/(a*a*a) / hub;
+    dyda[1] = yy[0] * 1.5 * a * CP->Omega0/(a*a*a) / hub;
     return GSL_SUCCESS;
 }
 
@@ -98,9 +105,9 @@ double growth(double a, double * dDda)
    * the solution for a matter/radiation universe.*
    * Note the normalisation of D is arbitrary
    * and never seen outside this function.*/
-  double yinit[2] = {1.5 * All.CP.Omega0/(curtime*curtime), pow(curtime,3)*hubble_function(curtime)/All.Hubble * 1.5 * All.CP.Omega0/(curtime*curtime*curtime)};
-  if(All.CP.RadiationOn)
-      yinit[0] += (All.CP.OmegaG+All.CP.OmegaNu0)/pow(curtime,4);
+  double yinit[2] = {1.5 * CP->Omega0/(curtime*curtime), pow(curtime,3)*hubble_function(curtime)/CP->Hubble * 1.5 * CP->Omega0/(curtime*curtime*curtime)};
+  if(CP->RadiationOn)
+      yinit[0] += (CP->OmegaG+CP->OmegaNu0)/pow(curtime,4);
 
   int stat = gsl_odeiv2_driver_apply(drive, &curtime,a, yinit);
   if (stat != GSL_SUCCESS) {
@@ -109,7 +116,7 @@ double growth(double a, double * dDda)
   gsl_odeiv2_driver_free(drive);
   /*Store derivative of D if needed.*/
   if(dDda) {
-      *dDda = yinit[1]/pow(a,3)/(hubble_function(a)/All.Hubble);
+      *dDda = yinit[1]/pow(a,3)/(hubble_function(a)/CP->Hubble);
   }
   return yinit[0];
 }
@@ -210,5 +217,3 @@ void function_of_k_normalize_sigma(FunctionOfK * fk, double R, double sigma) {
         fk->table[i].P *= sigma / old;
     };
 }
-
-
