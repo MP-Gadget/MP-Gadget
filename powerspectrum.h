@@ -6,6 +6,9 @@
 struct _powerspectrum {
     double * k;
     double * P;
+    double * logknu;
+    double * Pnu;
+    double * Pcdmnu;
     int64_t * Nmodes;
     size_t size;
     size_t nalloc;

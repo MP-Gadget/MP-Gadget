@@ -19,7 +19,7 @@
 #include "utils-string.h"
 #include "endrun.h"
 #include "config.h"
-#include "kspace-neutrinos/interface_common.h"
+#include "kspace-neutrinos/delta_tot_table.h"
 
 /*Defined in fofpetaio.c and only used here*/
 void fof_register_io_blocks();
@@ -127,14 +127,22 @@ petaio_build_selection(int * selection,
 
 /*These two functions are only ued for the semi-linear neutrino implementation,
  * and store data specific to that in the snapshots*/
+/*Defined in gravpm.c*/
+extern _delta_tot_table delta_tot_table;
+
 void petaio_save_neutrinos(BigFile * bf)
 {
 #pragma omp master
     {
-    double * scalefact;
-    double * delta_tot;
-    size_t nk, ia;
-    get_nu_state(&scalefact, &delta_tot, &nk, &ia);
+    double * scalefact = delta_tot_table.scalefact;
+    size_t nk = delta_tot_table.nk, ia = delta_tot_table.ia;
+    size_t ik, i;
+    double * delta_tot = mymalloc("tmp_delta",nk * ia * sizeof(double));
+    /*Save a flat memory block*/
+    for(ik=0;ik< nk;ik++)
+        for(i=0;i< ia;i++)
+            delta_tot[ik*ia+i] = delta_tot_table.delta_tot[ik][i];
+
     BigBlock bn = {0};
     if(0 != big_file_mpi_create_block(bf, &bn, "Neutrino", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Neutrino",
@@ -160,7 +168,6 @@ void petaio_save_neutrinos(BigFile * bf)
     big_array_init(&deltas, delta_tot, "=f8", 2, dims, strides);
     petaio_save_block(bf, "Neutrino/deltas", &deltas);
     myfree(delta_tot);
-    myfree(scalefact);
     }
 }
 
@@ -169,9 +176,7 @@ void petaio_read_neutrinos(BigFile * bf)
 {
 #pragma omp master
     {
-    double * scalefact;
-    double * delta_tot;
-    size_t nk, ia;
+    size_t nk, ia, ik, i;
     BigBlock bn = {0};
     if(0 != big_file_mpi_open_block(bf, &bn, "Neutrino", MPI_COMM_WORLD)) {
         endrun(0, "Failed to open block at %s:%s\n", "Neutrino",
@@ -183,10 +188,9 @@ void petaio_read_neutrinos(BigFile * bf)
         endrun(0, "Failed to read attr: %s\n",
                     big_file_get_error_message());
     }
+    double *delta_tot = (double *) mymalloc("tmp_nusave",ia*nk*sizeof(double));
     /*Allocate list of scale factors, and space for delta_tot, in one operation.*/
-    scalefact = (double *) mymalloc("tmp_nusave",ia*(nk+1)*sizeof(double));
-    delta_tot = scalefact+ia;
-    if(0 != big_block_get_attr(&bn, "scalefact", scalefact, "f8", ia))
+    if(0 != big_block_get_attr(&bn, "scalefact", delta_tot_table.scalefact, "f8", ia))
         endrun(0, "Failed to read attr: %s\n", big_file_get_error_message());
     if(0 != big_block_mpi_close(&bn, MPI_COMM_WORLD)) {
         endrun(0, "Failed to close block %s\n",
@@ -201,8 +205,21 @@ void petaio_read_neutrinos(BigFile * bf)
         dims[0] = nk*ia;
     big_array_init(&deltas, delta_tot, "=f8", 2, dims, strides);
     petaio_read_block(bf, "Neutrino/deltas", &deltas, 1);
-    set_nu_state(scalefact, delta_tot, nk, ia, MPI_COMM_WORLD);
-    myfree(scalefact);
+    /*Save a flat memory block*/
+    for(ik=0;ik<nk;ik++)
+        for(i=0;i<ia;i++)
+            delta_tot_table.delta_tot[ik][i] = delta_tot[ik*ia+i];
+    delta_tot_table.nk = nk;
+    delta_tot_table.ia = ia;
+    myfree(delta_tot);
+    /*Broadcast the arrays.*/
+    MPI_Bcast(&(delta_tot_table.ia), 1,MPI_INT,0,MPI_COMM_WORLD);
+    if(delta_tot_table.ia > 0) {
+        MPI_Bcast(&(delta_tot_table.nk), 1,MPI_INT,0,MPI_COMM_WORLD);
+        /*Broadcast data for scalefact and delta_tot, Delta_tot is allocated as the same block of memory as scalefact.
+          Not all this memory will actually have been used, but it is easiest to bcast all of it.*/
+        MPI_Bcast(delta_tot_table.scalefact,delta_tot_table.namax*(delta_tot_table.nk+1),MPI_DOUBLE,0,MPI_COMM_WORLD);
+    }
     }
 }
 /*End of massive neutrino functions*/

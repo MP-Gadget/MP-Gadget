@@ -32,7 +32,7 @@ OBJECTS  =  \
 	 petapm.o longrange.o \
 	 densitykernel.o interp.o lightcone.o walltime.o\
 	 runtests.o \
-     kspace-neutrinos/interface_common.o kspace-neutrinos/omega_nu_single.o \
+     kspace-neutrinos/omega_nu_single.o \
      kspace-neutrinos/delta_pow.o kspace-neutrinos/delta_tot_table.o \
      kspace-neutrinos/transfer_init.o
 
@@ -48,9 +48,7 @@ ICOBJECTS   = genic/main.o genic/power.o genic/allvars.o genic/params.o \
         mymalloc.o \
         cosmology.o \
         endrun.o \
-     kspace-neutrinos/delta_pow.o kspace-neutrinos/delta_tot_table.o \
-        kspace-neutrinos/interface_common.o kspace-neutrinos/omega_nu_single.o \
-     kspace-neutrinos/transfer_init.o
+        kspace-neutrinos/omega_nu_single.o
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h powerspectrum.h timestep.h sfr_eff.h drift.h timefac.h \
@@ -63,7 +61,7 @@ allvars.h    cooling.h         domain.h         exchange.h  garbage.h     \
  openmpsort.h  peano.h     physconst.h      sfr_eff.h  timefac.h     utils-string.h \
 blackhole.h  cosmology.h       drift.h          fof.h       gravshort.h  memory.h   \
 param.h       petaio.h    powerspectrum.h  system.h   timestep.h    walltime.h \
-kspace-neutrinos/interface_common.h
+kspace-neutrinos/omega_nu_single.h kspace-neutrinos/delta_tot_table.h
 
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)

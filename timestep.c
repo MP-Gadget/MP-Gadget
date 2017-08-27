@@ -14,7 +14,6 @@
 #include "endrun.h"
 #include "system.h"
 #include "timestep.h"
-#include "kspace-neutrinos/interface_common.h"
 
 /*! \file timestep.c
  *  \brief routines for 'kicking' particles in
@@ -574,7 +573,7 @@ get_long_range_timestep_dloga()
             /* In practice usually FastParticleType == 2
              * so this doesn't matter. */
             else if (type == 2) {
-                omega = OmegaNu(1);
+                omega = get_omega_nu(&All.CP.ONu, 1);
             } else {
                 omega = All.CP.OmegaCDM;
             }

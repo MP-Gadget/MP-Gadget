@@ -2,6 +2,7 @@
 #define COSMOLOGY_H
 
 #include <stddef.h>
+#include "kspace-neutrinos/omega_nu_single.h"
 
 typedef struct {
     double CMBTemperature;
@@ -9,7 +10,6 @@ typedef struct {
     double OmegaCDM; /* CDM density, derived from Omega0 and OmegaBaryon */
     double OmegaG; /* Photon density, derived from T_CMB0 */
     double OmegaK; /* Curvature density, derived from Omega0 and OmegaLambda */
-    double OmegaNu0; /* Massless Neutrino density, derived from T_CMB0, useful only if there are no massive neutrino particles */
     double OmegaLambda;  /* vaccum energy density relative to crictical density (at z=0) */
     double Omega_fld; /*Energy density of dark energy fluid at z=0*/
     double w0_fld; /*Dark energy equation of state parameter*/
@@ -18,7 +18,8 @@ typedef struct {
     double HubbleParam;  /* little `h', i.e. Hubble constant in units of 100 km/s/Mpc. */
     double Hubble; /* 100 km/s/Mpc in whatever units we want*/
     int RadiationOn; /* flags whether to include the radiation density in the background */
-    int MasslessNeutrinosOn; /*flags whether to include massless neutrinos in the background.*/
+    _omega_nu ONu;   /*Structure for storing massive neutrino densities*/
+    double MNu[3]; /*Neutrino masses in eV*/
 } Cosmology;
 
 typedef struct {
@@ -44,5 +45,5 @@ double GrowthFactor(double astart, double aend);
 double F_Omega(double a);
 
 /*Initialise the derived parts of the cosmology*/
-void init_cosmology(Cosmology *CP);
+void init_cosmology(Cosmology *CP, double TimeBegin);
 #endif

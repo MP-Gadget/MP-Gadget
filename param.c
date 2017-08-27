@@ -9,7 +9,6 @@
 #include "system.h"
 #include "densitykernel.h"
 #include "timebinmgr.h"
-#include "kspace-neutrinos/interface_common.h"
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */
@@ -482,15 +481,15 @@ void read_parameter_file(char *fname)
     #endif
         /*Massive neutrino parameters*/
         All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
-        kspace_params.hybrid_neutrinos_on = param_get_int(ps, "HybridNeutrinosOn");
-        param_get_string2(ps, "LinearTransferFunction", kspace_params.KspaceTransferFunction);
-        kspace_params.TimeTransfer = param_get_double(ps, "TimeTransfer");
-        kspace_params.InputSpectrum_UnitLength_in_cm = param_get_double(ps, "InputSpectrum_UnitLength_in_cm");
-        kspace_params.MNu[0] = param_get_double(ps, "MNue");
-        kspace_params.MNu[1] = param_get_double(ps, "MNum");
-        kspace_params.MNu[2] = param_get_double(ps, "MNut");
-        kspace_params.vcrit = param_get_double(ps, "Vcrit");
-        kspace_params.nu_crit_time = param_get_double(ps, "NuPartTime");
+        All.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
+        param_get_string2(ps, "LinearTransferFunction", All.CAMBTransferFunction);
+        All.TimeCAMBTransfer = param_get_double(ps, "TimeTransfer");
+        All.CAMBInputSpectrum_UnitLength_in_cm = param_get_double(ps, "InputSpectrum_UnitLength_in_cm");
+        All.CP.MNu[0] = param_get_double(ps, "MNue");
+        All.CP.MNu[1] = param_get_double(ps, "MNum");
+        All.CP.MNu[2] = param_get_double(ps, "MNut");
+        All.HybridVcrit = param_get_double(ps, "Vcrit");
+        All.HybridNuPartTime = param_get_double(ps, "NuPartTime");
         if(All.MassiveNuLinRespOn && !All.CP.RadiationOn)
             endrun(2, "You have enabled (kspace) massive neutrinos without radiation, but this will give an inconsistent cosmology!\n");
         /*End massive neutrino parameters*/

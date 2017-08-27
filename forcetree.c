@@ -13,7 +13,6 @@
 #include "mymalloc.h"
 #include "endrun.h"
 #include "system.h"
-#include "kspace-neutrinos/interface_common.h"
 
 /*! \file forcetree.c
  *  \brief gravitational tree and code for Ewald correction
@@ -758,7 +757,7 @@ force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder 
             while(next != -1) {
                 /*Hybrid particle neutrinos do not gravitate at early times.
                  * So do not add their masses to the node*/
-                if(!(All.MassiveNuLinRespOn && P[next].Type == All.FastParticleType && !particle_nu_active(All.Time)))
+                if(!All.HybridNeutrinosOn || All.Time > All.HybridNuPartTime || P[next].Type != All.FastParticleType)
                     add_particle_moment_to_node(&Nodes[no], next);
                 next = force_get_next_node(next, tb);
             }

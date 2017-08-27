@@ -290,6 +290,13 @@ extern struct global_data_all_processes
     int WindOn; /* if Wind is enabled */
     int MassiveNuLinRespOn; /*!< flags that massive neutrinos using the linear
                                  response code of Ali-Haimoud & Bird 2013.*/
+    int HybridNeutrinosOn; /*!< Flags that hybrid neutrinos are enabled */
+    double HybridVcrit; /*!< Critical velocity switching between particle
+                          and analytic solvers when hybrid neutrinos are on*/
+    double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
+    char CAMBTransferFunction[100]; /*!< CAMB transfer function for initial neutrino power*/
+    double TimeCAMBTransfer; /*!< Time at which CAMB transfer function was generated*/
+    double CAMBInputSpectrum_UnitLength_in_cm; /*!< Units of CAMB transfer function*/
 
     enum StarformationCriterion StarformationCriterion;  /*!< flags that star formation is enabled */
     enum WindModel WindModel;  /*!< flags that star formation is enabled */

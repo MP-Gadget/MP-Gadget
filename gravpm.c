@@ -8,7 +8,9 @@
 #include "domain.h"
 #include "endrun.h"
 #include "mymalloc.h"
-#include "kspace-neutrinos/interface_common.h"
+#include "cosmology.h"
+#include "kspace-neutrinos/delta_pow.h"
+#include "kspace-neutrinos/delta_tot_table.h"
 
 /*Global variable to store power spectrum*/
 struct _powerspectrum PowerSpectrum;
@@ -16,6 +18,9 @@ struct _powerspectrum PowerSpectrum;
 /* Structure which holds pointers to the stored
  * neutrino power spectrum*/
 _delta_pow nu_pow;
+/*Structure which holds the neutrino state*/
+_delta_tot_table delta_tot_table;
+
 void powerspectrum_nu_save(struct _delta_pow *nu_pow, const char * OutputDir, const double Time);
 
 static int pm_mark_region_for_node(int startno, int rid);
@@ -48,8 +53,12 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions);
 void gravpm_init_periodic() {
     petapm_init(All.BoxSize, All.Nmesh, All.NumThreads);
     powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads);
-    /*Enable neutrino related analysis if massive neutrinos are disabled*/
+    /*Initialise the kspace neutrino code if it is enabled.
+     * Mpc units are used to match power spectrum code.*/
     if(All.MassiveNuLinRespOn) {
+        /*Set the private copy of the task in delta_tot_table*/
+        delta_tot_table.ThisTask = ThisTask;
+        allocate_delta_tot_table(&delta_tot_table, All.Nmesh, All.TimeCAMBTransfer, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, 3.085678e24, 0);
         global_functions.global_readout = readout_power_spectrum;
         global_functions.global_analysis = compute_neutrino_power;
     }
@@ -64,7 +73,7 @@ void gravpm_force(void) {
         (char*) &P[0].Pos[0]  - (char*) P,
         (char*) &P[0].Mass  - (char*) P,
         (char*) &P[0].RegionInd - (char*) P,
-        (kspace_params.hybrid_neutrinos_on ? &hybrid_nu_gravpm_is_active : NULL),
+        (All.HybridNeutrinosOn ? &hybrid_nu_gravpm_is_active : NULL),
         NumPart,
     };
 
@@ -293,7 +302,50 @@ static void compute_neutrino_power() {
         return;
     /*Note the power spectrum is now in Mpc units*/
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
-    nu_pow = compute_neutrino_power_from_cdm(All.Time, PowerSpectrum.k, PowerSpectrum.P, PowerSpectrum.Nmodes, PowerSpectrum.size, MPI_COMM_WORLD);
+    int i;
+    /*Get delta_cdm_curr , which is P(k)^1/2, and skip bins with zero modes:*/
+    int nk_nonzero = 0;
+    for(i=0;i<PowerSpectrum.size;i++){
+        if (PowerSpectrum.Nmodes[i] == 0)
+            continue;
+        PowerSpectrum.Pcdmnu[nk_nonzero] = sqrt(PowerSpectrum.P[i]);
+        PowerSpectrum.k[nk_nonzero] = PowerSpectrum.k[i];
+        nk_nonzero++;
+    }
+    /*This sets up P_nu_curr.*/
+    /*This is done on the first timestep: we need nk_nonzero for it to work.*/
+    if(!delta_tot_table.delta_tot_init_done) {
+        _transfer_init_table transfer_init;
+        if(ThisTask == 0) {
+            allocate_transfer_init_table(&transfer_init, All.BoxSize, 3.085678e24, All.CAMBInputSpectrum_UnitLength_in_cm, All.CAMBTransferFunction);
+        }
+        /*Broadcast the transfer size*/
+        MPI_Bcast(&(transfer_init.NPowerTable), 1,MPI_INT,0,MPI_COMM_WORLD);
+        /*Allocate the memory unless we are on task 0, in which case it is already allocated*/
+        if(ThisTask != 0)
+          transfer_init.logk = (double *) mymalloc("Transfer_functions", 2*transfer_init.NPowerTable* sizeof(double));
+        transfer_init.T_nu=transfer_init.logk+transfer_init.NPowerTable;
+        /*Broadcast the transfer table*/
+        MPI_Bcast(transfer_init.logk,2*transfer_init.NPowerTable,MPI_DOUBLE,0,MPI_COMM_WORLD);
+        /*Initialise delta_tot*/
+        delta_tot_init(&delta_tot_table, nk_nonzero, PowerSpectrum.k, PowerSpectrum.P, &transfer_init, All.Time);
+        free_transfer_init_table(&transfer_init);
+    }
+    get_delta_nu_update(&delta_tot_table, All.Time, nk_nonzero, PowerSpectrum.k, PowerSpectrum.Pcdmnu,  PowerSpectrum.Pnu, NULL);
+    message(0,"Done getting neutrino power: nk= %d, k = %g, delta_nu = %g, delta_cdm = %g,\n",nk_nonzero, PowerSpectrum.k[1],PowerSpectrum.Pnu[1],PowerSpectrum.Pcdmnu[1]);
+    /*We want to interpolate in log space*/
+    for(i=0;i<nk_nonzero;i++){
+        PowerSpectrum.logknu[i] = log(PowerSpectrum.k[i]);
+    }
+    /*kspace_prefac = M_nu (analytic) / M_particles */
+    const double OmegaNu_nop = get_omega_nu_nopart(&All.CP.ONu, All.Time);
+    /* Note if (hybrid) neutrino particles are off, this is zero.
+     * We cannot just use OmegaNu(1) as we need to know
+     * whether hybrid neutrinos are on at this redshift.*/
+    const double omega_hybrid = get_omega_nu(&All.CP.ONu, All.Time) - OmegaNu_nop;
+    /* Omega0 - Omega in neutrinos + Omega in particle neutrinos = Omega in particles*/
+    const double kspace_prefac = OmegaNu_nop/(delta_tot_table.Omeganonu/pow(All.Time,3) + omega_hybrid);
+    init_delta_pow(&nu_pow, PowerSpectrum.logknu, PowerSpectrum.Pnu, PowerSpectrum.Pcdmnu, nk_nonzero, kspace_prefac);
     /*Zero power spectrum, which is stored with the neutrinos*/
     powerspectrum_zero(&PowerSpectrum);
 }
@@ -416,7 +468,7 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
     powerspectrum_compute(k2, kpos, value, f);
     if(k2 == 0) {
         if(All.MassiveNuLinRespOn) {
-            const double MtotbyMcdm = All.CP.Omega0/(All.CP.Omega0 - pow(All.Time,3)*OmegaNu_nopart(All.Time));
+            const double MtotbyMcdm = All.CP.Omega0/(All.CP.Omega0 - pow(All.Time,3)*get_omega_nu_nopart(&All.CP.ONu, All.Time));
             PowerSpectrum.Norm *= MtotbyMcdm*MtotbyMcdm;
         }
         /* Remove zero mode corresponding to the mean.*/
@@ -443,7 +495,7 @@ static double diff_kernel(double w) {
 
 /*This function decides if a particle is actively gravitating; tracers are not.*/
 static int hybrid_nu_gravpm_is_active(int i) {
-    if (!particle_nu_active(All.Time) && (P[i].Type == All.FastParticleType))
+    if (particle_nu_fraction(&All.CP.ONu.hybnu, All.Time, 0) == 0. && (P[i].Type == All.FastParticleType))
         return 0;
     else
         return 1;

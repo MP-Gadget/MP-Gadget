@@ -90,9 +90,8 @@ void read_parameterfile(char *fname)
         endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
     CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
     CP.RadiationOn = param_get_double(ps, "RadiationOn");
-    /* If massive neutrinos are implemented and enabled this
-     * should be set to zero, so neutrinos are not included twice.*/
-    CP.MasslessNeutrinosOn = 1;
+    /*We do not support massive neutrinos in this GenIC*/
+    CP.MNu[0] = CP.MNu[1] = CP.MNu[2] = 0;
     MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
     ProduceGas = param_get_int(ps, "ProduceGas");
     /*Unit system*/
@@ -136,5 +135,5 @@ void read_parameterfile(char *fname)
 
     G = GRAVITY / pow(UnitLength_in_cm, 3) * UnitMass_in_g * pow(UnitTime_in_s, 2);
     CP.Hubble = HUBBLE * UnitTime_in_s;
-    init_cosmology(&CP);
+    init_cosmology(&CP, InitTime);
 }
