@@ -7,9 +7,9 @@
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
-#include "../timebinmgr.h"
 //So All.OutputList is defined
 #include "../allvars.h"
+#include "../timebinmgr.h"
 
 struct global_data_all_processes All;
 

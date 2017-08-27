@@ -1,5 +1,4 @@
 /*Tests for the drift factor module.*/
-
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
@@ -9,6 +8,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <gsl/gsl_integration.h>
+
+#include <stdint.h>
+typedef uint32_t inttime_t;
+
 #include "../timefac.h"
 
 #define AMIN 0.005
