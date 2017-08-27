@@ -65,8 +65,6 @@ struct local_topnode_data
 struct task_data * Tasks;
 
 static int
-order_by_type_and_key(const void *a, const void *b);
-static int
 order_by_key(const void *a, const void *b);
 
 static void
@@ -1239,7 +1237,7 @@ order_by_key(const void *a, const void *b)
     return 0;
 }
 
-static int
+int
 order_by_type_and_key(const void *a, const void *b)
 {
     const struct particle_data * pa  = (const struct particle_data *) a;

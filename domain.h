@@ -38,4 +38,7 @@ void domain_maintain(void);
 int
 domain_get_topleaf_with_shift(const peano_t key, int * shift);
 
+int
+order_by_type_and_key(const void *a, const void *b);
+
 #endif

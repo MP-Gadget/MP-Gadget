@@ -4,6 +4,8 @@
 #include <string.h>
 #include <math.h>
 #include "allvars.h"
+#include "domain.h"
+#include "openmpsort.h"
 #include "proto.h"
 #include "timefac.h"
 #include "cosmology.h"
@@ -241,6 +243,9 @@ find_timesteps(void)
 
     if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
+        /*Sort the particles before writing:
+         * we do not guarantee sorted after a domain_maintain.*/
+        qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
         savepositions(999999, 0);
         endrun(0, "Ending due to bad timestep");
     }
