@@ -308,10 +308,11 @@ static void compute_neutrino_power() {
     for(i=0;i<PowerSpectrum.size;i++){
         if (PowerSpectrum.Nmodes[i] == 0)
             continue;
-        PowerSpectrum.Pcdmnu[nk_nonzero] = sqrt(PowerSpectrum.P[i]);
+        PowerSpectrum.Pnuratio[nk_nonzero] = sqrt(PowerSpectrum.P[i]);
         PowerSpectrum.k[nk_nonzero] = PowerSpectrum.k[i];
         nk_nonzero++;
     }
+    double Pnu[nk_nonzero];
     /*This sets up P_nu_curr.*/
     /*This is done on the first timestep: we need nk_nonzero for it to work.*/
     if(!delta_tot_table.delta_tot_init_done) {
@@ -331,11 +332,12 @@ static void compute_neutrino_power() {
         delta_tot_init(&delta_tot_table, nk_nonzero, PowerSpectrum.k, PowerSpectrum.P, &transfer_init, All.Time);
         free_transfer_init_table(&transfer_init);
     }
-    get_delta_nu_update(&delta_tot_table, All.Time, nk_nonzero, PowerSpectrum.k, PowerSpectrum.Pcdmnu,  PowerSpectrum.Pnu, NULL);
-    message(0,"Done getting neutrino power: nk= %d, k = %g, delta_nu = %g, delta_cdm = %g,\n",nk_nonzero, PowerSpectrum.k[1],PowerSpectrum.Pnu[1],PowerSpectrum.Pcdmnu[1]);
+    get_delta_nu_update(&delta_tot_table, All.Time, nk_nonzero, PowerSpectrum.k, PowerSpectrum.Pnuratio, Pnu, NULL);
+    message(0,"Done getting neutrino power: nk= %d, k = %g, delta_nu = %g, delta_cdm = %g,\n",nk_nonzero, PowerSpectrum.k[1],Pnu[1],PowerSpectrum.Pnuratio[1]);
     /*We want to interpolate in log space*/
     for(i=0;i<nk_nonzero;i++){
         PowerSpectrum.logknu[i] = log(PowerSpectrum.k[i]);
+        PowerSpectrum.Pnuratio[i] = Pnu[i]/PowerSpectrum.Pnuratio[i];
     }
     /*kspace_prefac = M_nu (analytic) / M_particles */
     const double OmegaNu_nop = get_omega_nu_nopart(&All.CP.ONu, All.Time);
@@ -345,7 +347,7 @@ static void compute_neutrino_power() {
     const double omega_hybrid = get_omega_nu(&All.CP.ONu, All.Time) - OmegaNu_nop;
     /* Omega0 - Omega in neutrinos + Omega in particle neutrinos = Omega in particles*/
     const double kspace_prefac = OmegaNu_nop/(delta_tot_table.Omeganonu/pow(All.Time,3) + omega_hybrid);
-    init_delta_pow(&nu_pow, PowerSpectrum.logknu, PowerSpectrum.Pnu, PowerSpectrum.Pcdmnu, nk_nonzero, kspace_prefac);
+    init_delta_pow(&nu_pow, PowerSpectrum.logknu, PowerSpectrum.Pnuratio, nk_nonzero, kspace_prefac);
     /*Zero power spectrum, which is stored with the neutrinos*/
     powerspectrum_zero(&PowerSpectrum);
 }

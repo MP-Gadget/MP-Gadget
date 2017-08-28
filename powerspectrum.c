@@ -18,8 +18,7 @@ void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins,
     PowerSpectrum->k = mymalloc("Powerspectrum", sizeof(double) * (2*nalloc + 3*nbins));
     PowerSpectrum->P = PowerSpectrum-> k+nalloc;
     PowerSpectrum->logknu = PowerSpectrum-> k+2*nalloc;
-    PowerSpectrum->Pnu = PowerSpectrum-> logknu + nbins;
-    PowerSpectrum->Pcdmnu = PowerSpectrum-> logknu + 2*nbins;
+    PowerSpectrum->Pnuratio = PowerSpectrum-> logknu + nbins;
     PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(int64_t) * nalloc);
 }
 
