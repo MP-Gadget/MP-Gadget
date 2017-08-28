@@ -71,7 +71,7 @@ int
 force_get_next_node(int no);
 
 int
-force_set_next_node(int no, int next);
+force_set_next_node(int no, int next, const int firstnode, const int lastnode);
 
 #endif
 

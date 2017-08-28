@@ -27,12 +27,17 @@
  *  reconstruct the tree every timestep.
  */
 
+/*The node index is an integer with unusual properties:
+ * no = 0..All.MaxPart (firstnode in internal functions) corresponds to a particle.
+ * no = All.MaxPart..All.MaxPart + MaxNodes (firstnode..lastnode) corresponds to actual tree nodes,
+ * and is the only memory allocated in Nodes_base.
+ * no > All.MaxPart + MaxNodes (lastnode) means a pseudo particle on another processor*/
 struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the nodes */
  *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
 				   gives the first allocated node */
 
 
-int MaxNodes;			/*!< maximum allowed number of internal nodes */
+int MaxNodes;                  /*!< maximum allowed number of internal nodes */
 
 
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
@@ -41,28 +46,28 @@ int *Father;			/*!< gives parent node in tree (nodes array) */
 static int tree_allocated_flag = 0;
 
 static int force_tree_build(int npart);
-static int force_tree_build_single(int npart);
+static int force_tree_build_single(int firstnode, int lastnode, int npart);
 
 static void
-force_treeallocate(int maxnodes, int maxpart);
+force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 static void
 force_flag_localnodes(void);
 
 static void
-force_treeupdate_pseudos(int);
+force_treeupdate_pseudos(int no, int firstnode, int lastnode);
 
 static int
-force_update_node_recursive(int no, int sib, int father, int tail);
+force_update_node_recursive(int no, int sib, int father, int tail, const int firstnode, const int lastnode);
 
 static void
-force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nodecount, int *nextfree);
+force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nextfree, const int lastnode);
 
 static void
 force_exchange_pseudodata(void);
 
 static void
-force_insert_pseudo_particles(void);
+force_insert_pseudo_particles(int firstpseudo);
 
 int
 force_tree_allocated()
@@ -78,10 +83,6 @@ force_tree_rebuild()
     if(force_tree_allocated()) {
         force_tree_free();
     }
-    /* construct tree if needed */
-    /* the tree is used in grav dens, hydro, bh and sfr */
-    force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopNodes, All.MaxPart);
-
     walltime_measure("/Misc");
 
     force_tree_build(NumPart);
@@ -97,12 +98,18 @@ force_tree_rebuild()
  */
 int force_tree_build(int npart)
 {
-    int flag;
     int Numnodestree;
+    int flag;
+    int maxnodes;
 
     do
     {
-        Numnodestree = force_tree_build_single(npart);
+        maxnodes = All.TreeAllocFactor * All.MaxPart + NTopNodes;
+        /* construct tree if needed */
+        /* the tree is used in grav dens, hydro, bh and sfr */
+        force_treeallocate(maxnodes, All.MaxPart, All.MaxPart);
+
+        Numnodestree = force_tree_build_single(All.MaxPart, All.MaxPart + maxnodes, npart);
 
         MPI_Allreduce(&Numnodestree, &flag, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         if(flag == -1)
@@ -119,8 +126,6 @@ int force_tree_build(int npart)
                 savepositions(999999, 0);
                 endrun(0, "Too many tree nodes, snapshot saved.");
             }
-
-            force_treeallocate((int) (All.TreeAllocFactor * All.MaxPart) + NTopNodes, All.MaxPart);
         }
     }
     while(flag == -1);
@@ -129,7 +134,7 @@ int force_tree_build(int npart)
 
     force_exchange_pseudodata();
 
-    force_treeupdate_pseudos(All.MaxPart);
+    force_treeupdate_pseudos(All.MaxPart, All.MaxPart, All.MaxPart + maxnodes);
 
     return Numnodestree;
 }
@@ -191,10 +196,10 @@ int get_subnode(const struct NODE * node, const int nodepos, const int p_i, cons
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
-int force_tree_build_single(int npart)
+int force_tree_build_single(const int firstnode, const int lastnode, const int npart)
 {
     int i;
-    int nfree = All.MaxPart;		/* index of first free node */
+    int nfree = firstnode;		/* index of first free node */
 
     /* create an empty root node  */
     {
@@ -211,8 +216,7 @@ int force_tree_build_single(int npart)
          * grid. We need to generate these nodes first to make sure that we have a
          * complete top-level tree which allows the easy insertion of the
          * pseudo-particles in the right place */
-        int numnodes = 1;
-        force_create_node_for_topnode(All.MaxPart, 0, 1, 0, 0, 0, &numnodes, &nfree);
+        force_create_node_for_topnode(firstnode, 0, 1, 0, 0, 0, &nfree, lastnode);
     }
 
     /* This implements a small thread-local free Node cache.
@@ -232,8 +236,8 @@ int force_tree_build_single(int npart)
     }
 #ifdef OPENMP_USE_SPINLOCK
     /*Initialise some spinlocks*/
-    pthread_spinlock_t * SpinLocks = mymalloc("NodeSpinlocks",MaxNodes*sizeof(pthread_spinlock_t));
-    for(i=0; i<nfree - All.MaxPart; i++) {
+    pthread_spinlock_t * SpinLocks = mymalloc("NodeSpinlocks",(lastnode - firstnode)*sizeof(pthread_spinlock_t));
+    for(i=0; i<nfree - firstnode; i++) {
             pthread_spin_init(&SpinLocks[i], 0);
     }
 
@@ -242,7 +246,7 @@ int force_tree_build_single(int npart)
     for(i = 0; i < npart; i++)
     {
         /*Can't break from openmp for*/
-        if(nfree_thread >= All.MaxPart + MaxNodes-1)
+        if(nfree_thread >= lastnode-1)
             continue;
 
         /*First find the Node for the TopLeaf */
@@ -261,7 +265,7 @@ int force_tree_build_single(int npart)
 
 #ifdef OPENMP_USE_SPINLOCK
             /*Lock this node*/
-            pthread_spin_lock(&SpinLocks[this-All.MaxPart]);
+            pthread_spin_lock(&SpinLocks[this-firstnode]);
 #endif
             const int child = Nodes[this].u.suns[subnode];
 
@@ -271,16 +275,16 @@ int force_tree_build_single(int npart)
                 Nodes[this].u.suns[subnode] = i;
 #ifdef OPENMP_USE_SPINLOCK
                 /*Unlock the node*/
-                pthread_spin_unlock(&SpinLocks[this-All.MaxPart]);
+                pthread_spin_unlock(&SpinLocks[this-firstnode]);
 #endif
                 break;	/* done for this particle */
             }
             /* ok, something is in the daughter slot already. What is it? */
             /* If we found an internal node keep walking*/
-            if(child >= All.MaxPart) {
+            if(child >= firstnode) {
 #ifdef OPENMP_USE_SPINLOCK
                 /*Unlock this node: we found an internal node, which will not change.*/
-                pthread_spin_unlock(&SpinLocks[this-All.MaxPart]);
+                pthread_spin_unlock(&SpinLocks[this-firstnode]);
 #endif
                 this = child;
                 continue;
@@ -299,7 +303,7 @@ int force_tree_build_single(int npart)
             const int ninsert = nfree_thread++;
             numfree_thread--;
             /*If we already have too many nodes, exit loop.*/
-            if(nfree_thread >= All.MaxPart + MaxNodes)
+            if(nfree_thread >= lastnode)
             {
 /*                 message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i); */
 #ifdef OPENMP_USE_SPINLOCK
@@ -336,39 +340,37 @@ int force_tree_build_single(int npart)
              * so we can move the SpinLock to the child.*/
 #ifdef OPENMP_USE_SPINLOCK
             /*Initialise the SpinLock off*/
-            pthread_spin_init(&SpinLocks[ninsert-All.MaxPart], 0);
+            pthread_spin_init(&SpinLocks[ninsert-firstnode], 0);
             /*Unlock the parent*/
-            pthread_spin_unlock(&SpinLocks[this-All.MaxPart]);
+            pthread_spin_unlock(&SpinLocks[this-firstnode]);
 #endif
             /*Resume the tree build with the newly created internal node*/
             this = ninsert;
         }
     }
 #ifdef OPENMP_USE_SPINLOCK
-    for(i=0; i<nfree - All.MaxPart; i++)
+    for(i=0; i<nfree - firstnode; i++)
             pthread_spin_destroy(&SpinLocks[i]);
     /*Avoid a warning about discarding volatile*/
     int * ss = (int *) SpinLocks;
     myfree(ss);
 #endif
     myfree(MortonKey);
-    if(nfree >= All.MaxPart + MaxNodes)
+    if(nfree >= lastnode)
     {
         return -1;
     }
 
     /* insert the pseudo particles that represent the mass distribution of other domains */
-    force_insert_pseudo_particles();
+    force_insert_pseudo_particles(lastnode);
 
 
     /* now compute the multipole moments recursively */
-    int tail;
+    int tail = force_update_node_recursive(firstnode, -1, -1, -1, firstnode, lastnode);
 
-    tail = force_update_node_recursive(All.MaxPart, -1, -1, -1);
+    force_set_next_node(tail, -1, firstnode, lastnode);
 
-    force_set_next_node(tail, -1);
-
-    return nfree - All.MaxPart;
+    return nfree - firstnode;
 }
 
 
@@ -380,8 +382,7 @@ int force_tree_build_single(int npart)
  *  level in the tree, even when the particle population is so sparse that
  *  some of these nodes are actually empty.
  */
-void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nodecount,
-        int *nextfree)
+void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nextfree, const int lastnode)
 {
     int i, j, k, n, sub, count;
     MyFloat lenhalf;
@@ -411,18 +412,13 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
                     if(TopNodes[TopNodes[topnode].Daughter + sub].Daughter == -1)
                         TopLeaves[TopNodes[TopNodes[topnode].Daughter + sub].Leaf].treenode = *nextfree;
 
-                    *nextfree = *nextfree + 1;
-                    *nodecount = *nodecount + 1;
+                    (*nextfree)++;
 
-                    if((*nodecount) >= MaxNodes || (*nodecount) >= MaxTopNodes)
-                    {
-                        endrun(11, "maximum number MaxNodes=%d of tree-nodes reached."
-                                "MaxTopNodes=%d NTopNodes=%d NTopLeaves=%d nodecount=%d\n",
-                                MaxNodes, MaxTopNodes, NTopNodes, NTopLeaves, *nodecount);
-                    }
+                    if(*nextfree >= lastnode)
+                        endrun(11, "Not enough force nodes to topnode grid: need %d\n",lastnode);
 
                     force_create_node_for_topnode(*nextfree - 1, TopNodes[topnode].Daughter + sub,
-                            bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nodecount, nextfree);
+                            bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
                 }
     }
 }
@@ -435,7 +431,7 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
  *  center of the domain-cell they correspond to. These quantities will be
  *  updated later on.
  */
-void force_insert_pseudo_particles(void)
+void force_insert_pseudo_particles(const int firstpseudo)
 {
     int i, index;
 
@@ -444,7 +440,7 @@ void force_insert_pseudo_particles(void)
         index = TopLeaves[i].treenode;
 
         if(TopLeaves[i].Task != ThisTask)
-            Nodes[index].u.suns[0] = All.MaxPart + MaxNodes + i;
+            Nodes[index].u.suns[0] = firstpseudo + i;
     }
 }
 
@@ -466,20 +462,20 @@ force_get_next_node(int no)
 }
 
 int
-force_set_next_node(int no, int next)
+force_set_next_node(int no, int next, const int firstnode, const int lastnode)
 {
     if(no < 0) return next;
-    if(no >= All.MaxPart && no < All.MaxPart + MaxNodes) {
+    if(no >= firstnode && no < lastnode) {
         /* internal node */
         Nodes[no].u.d.nextnode = next;
     }
-    if(no < All.MaxPart) {
+    if(no < firstnode) {
         /* Particle */
         Nextnode[no] = next;
     }
-    if(no >= All.MaxPart + MaxNodes) {
+    if(no >= lastnode) {
         /* Pseudo Particle */
-        Nextnode[no - MaxNodes] = next;
+        Nextnode[no - (lastnode - firstnode)] = next;
     }
 
     return next;
@@ -523,7 +519,7 @@ force_get_prev_node(int no)
  */
 
 static int
-force_update_node_recursive(int no, int sib, int father, int tail)
+force_update_node_recursive(int no, int sib, int father, int tail, const int firstnode, const int lastnode)
 {
     int j, jj, p, pp, nextsib, suns[8], count_particles, multiple_flag;
     MyFloat hmax;
@@ -536,12 +532,12 @@ force_update_node_recursive(int no, int sib, int father, int tail)
     MyFloat maxsoft;
 #endif
 
-    if(no >= All.MaxPart && no < All.MaxPart + MaxNodes)	/* internal node */
+    if(no >= firstnode && no < lastnode)	/* internal node */
     {
         for(j = 0; j < 8; j++)
         suns[j] = Nodes[no].u.suns[j];	/* this "backup" is necessary because the nextnode entry will overwrite one element (union!) */
 
-        tail = force_set_next_node(tail, no);
+        tail = force_set_next_node(tail, no, firstnode, lastnode);
 
         mass = 0;
         s[0] = 0;
@@ -571,11 +567,11 @@ force_update_node_recursive(int no, int sib, int father, int tail)
                 else
                     nextsib = sib;
 
-                tail = force_update_node_recursive(p, nextsib, no, tail);
+                tail = force_update_node_recursive(p, nextsib, no, tail, firstnode, lastnode);
 
-                if(p >= All.MaxPart)	/* an internal node or pseudo particle */
+                if(p >= firstnode)	/* an internal node or pseudo particle */
                 {
-                    if(p >= All.MaxPart + MaxNodes)	/* a pseudo particle */
+                    if(p >= lastnode)	/* a pseudo particle */
                     {
                         /* nothing to be done here because the mass of the
                          * pseudo-particle is still zero. This will be changed
@@ -716,9 +712,9 @@ force_update_node_recursive(int no, int sib, int father, int tail)
     }
     else				/* single particle or pseudo particle */
     {
-        tail = force_set_next_node(tail, no);
+        tail = force_set_next_node(tail, no, firstnode, lastnode);
 
-        if(no < All.MaxPart)	/* only set it for single particles */
+        if(no < firstnode)	/* only set it for single particles */
             Father[no] = father;
     }
 
@@ -812,7 +808,7 @@ void force_exchange_pseudodata(void)
 /*! This function updates the top-level tree after the multipole moments of
  *  the pseudo-particles have been updated.
  */
-void force_treeupdate_pseudos(int no)
+void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
 {
     int j, p, count_particles, multiple_flag;
     MyFloat hmax;
@@ -841,10 +837,10 @@ void force_treeupdate_pseudos(int no)
 
     for(j = 0; j < 8; j++)	/* since we are dealing with top-level nodes, we now that there are 8 consecutive daughter nodes */
     {
-        if(p >= All.MaxPart && p < All.MaxPart + MaxNodes)	/* internal node */
+        if(p >= firstnode && p < lastnode)	/* internal node */
         {
             if(Nodes[p].u.d.bitflags & (1 << BITFLAG_INTERNAL_TOPLEVEL))
-                force_treeupdate_pseudos(p);
+                force_treeupdate_pseudos(p, firstnode, lastnode);
 
             mass += (Nodes[p].u.d.mass);
             s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
@@ -1118,7 +1114,7 @@ void force_update_hmax(int * activeset, int size)
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-void force_treeallocate(int maxnodes, int maxpart)
+void force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
 {
     size_t bytes;
     double allbytes = 0;
@@ -1129,7 +1125,7 @@ void force_treeallocate(int maxnodes, int maxpart)
     Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE));
     allbytes += bytes;
     allbytes += bytes;
-    Nodes = Nodes_base - All.MaxPart;
+    Nodes = Nodes_base - first_node_offset;
     Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
     allbytes += bytes;
     Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
