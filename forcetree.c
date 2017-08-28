@@ -194,6 +194,26 @@ int get_subnode(const struct NODE * node, const int nodepos, const int p_i, cons
     return subnode;
 }
 
+/*Initialise an internal node at nfreep. The parent is assumed to be locked, and
+ * we have assured that nothing else will change nfreep while we are here.*/
+static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int subnode)
+{
+            int j;
+            const MyFloat lenhalf = 0.25 * parent->len;
+
+            nfreep->len = 0.5 * parent->len;
+
+            for(j = 0; j < 3; j++) {
+                /* Detect which quadrant we are in by testing the bits of subnode:
+                 * if (subnode & [1,2,4]) is true we add lenhalf, otherwise subtract lenhalf*/
+                const int sign = (subnode & (1 << j)) ? 1 : -1;
+                nfreep->center[j] = parent->center[j] + sign*lenhalf;
+            }
+            for(j = 0; j < 8; j++)
+                nfreep->u.suns[j] = -1;
+            nfreep->hmax = 0;
+}
+
 /* Size of the free Node thread cache.
  * 100 was found to be optimal for an Intel skylake with 4 threads.*/
 #define NODECACHE_SIZE 100
@@ -326,22 +346,10 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
                 break;
             }
             struct NODE *nfreep = &Nodes[ninsert];	/* select desired node */
-            int j;
-            const MyFloat lenhalf = 0.25 * Nodes[this].len;
+            init_internal_node(nfreep, &Nodes[this], subnode);
 
-            nfreep->len = 0.5 * Nodes[this].len;
-
-            for(j = 0; j < 3; j++) {
-                /* Detect which quadrant we are in by testing the bits of subnode:
-                 * if (subnode & [1,2,4]) is true we add lenhalf, otherwise subtract lenhalf*/
-                const int sign = (subnode & (1 << j)) ? 1 : -1;
-                nfreep->center[j] = Nodes[this].center[j] + sign*lenhalf;
-            }
-            for(j = 0; j < 8; j++)
-                nfreep->u.suns[j] = -1;
-            nfreep->hmax = 0;
-
-            /*Re-add the particle to the new internal node*/
+            /* The new internal node replaced a particle in the parent.
+             * Re-add that particle to the child.*/
             const int child_subnode = get_subnode(nfreep, this, child, shift -3, MortonKey);
 
             nfreep->u.suns[child_subnode] = child;
