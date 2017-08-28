@@ -5,7 +5,9 @@
 #include <setjmp.h>
 #include <cmocka.h>
 #include <math.h>
+#include <mpi.h>
 #include <stdio.h>
+#include <time.h>
 #include <gsl/gsl_rng.h>
 #include "../forcetree.h"
 #include "../allvars.h"
@@ -82,8 +84,12 @@ static void test_rebuild_flat(void ** state) {
     size_t alloc = force_treeallocate(maxnode, numpart, numpart);
     assert_true(alloc > 0);
     assert_true(Nodes);
+    double start, end;
+    start = MPI_Wtime();
     int nodes = force_tree_build_single(numpart, numpart + maxnode, numpart);
-    printf("Number of nodes used: %d (allocated %ld)\n", nodes,alloc);
+    end = MPI_Wtime();
+    double ms = (end - start)*1000;
+    printf("Number of nodes used: %d. Built in %.3g ms\n", nodes,ms);
     assert_true(nodes > 0);
     free(P);
     force_tree_free();
@@ -107,9 +113,14 @@ static void test_rebuild_close(void ** state) {
     TopLeaves[0].topnode = numpart;
     int maxnode = numpart;
     size_t alloc = force_treeallocate(maxnode, numpart, numpart);
+    assert_true(alloc > 0);
     assert_true(Nodes);
-    int nodes = force_tree_build_single(numpart, numpart+maxnode, numpart);
-    printf("Number of nodes used: %d (allocated %ld)\n", nodes,alloc);
+    double start, end;
+    start = MPI_Wtime();
+    int nodes = force_tree_build_single(numpart, numpart + maxnode, numpart);
+    end = MPI_Wtime();
+    double ms = (end - start)*1000;
+    printf("Number of nodes used: %d. Built in %.3g ms\n", nodes,ms);
     assert_true(nodes > 0);
     free(P);
     force_tree_free();
@@ -134,13 +145,18 @@ int do_random_test(gsl_rng * r, const int numpart, const int maxnode)
         for(int j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize*0.1 + All.BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
+    struct timespec start, end;
+    clock_gettime(CLOCK_MONOTONIC,&start);
     int nodes = force_tree_build_single(numpart, numpart + maxnode, numpart);
+    clock_gettime(CLOCK_MONOTONIC,&end);
+    long ms = (end.tv_sec - start.tv_sec)*1000 + (end.tv_nsec - start.tv_nsec)/1000000;
+    printf("Number of nodes used: %d. Built in %ld ms\n", nodes,ms);
     return nodes;
 }
 
 static void test_rebuild_random(void ** state) {
     /*Set up the particle data*/
-    int ncbrt = 128;
+    int ncbrt = 64;
     gsl_rng * r = (gsl_rng *) *state;
     int numpart = ncbrt*ncbrt*ncbrt;
     /*Allocate tree*/
@@ -153,12 +169,12 @@ static void test_rebuild_random(void ** state) {
     P = malloc(numpart*sizeof(struct particle_data));
     for(int i=0; i<2; i++) {
         int nodes = do_random_test(r, numpart, maxnode);
-        printf("Random %d used: %d nodes\n", i, nodes);
         assert_true(nodes > 0);
     }
     free(P);
     force_tree_free();
 }
+
 static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     All.NoTreeRnd = 1;
