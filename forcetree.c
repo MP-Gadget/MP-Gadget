@@ -46,9 +46,12 @@ int *Father;			/*!< gives parent node in tree (nodes array) */
 static int tree_allocated_flag = 0;
 
 static int force_tree_build(int npart);
-static int force_tree_build_single(int firstnode, int lastnode, int npart);
 
-static void
+/*Next two are not static as tested.*/
+int
+force_tree_build_single(const int firstnode, const int lastnode, const int npart);
+
+size_t
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 static void
@@ -107,7 +110,11 @@ int force_tree_build(int npart)
         maxnodes = All.TreeAllocFactor * All.MaxPart + NTopNodes;
         /* construct tree if needed */
         /* the tree is used in grav dens, hydro, bh and sfr */
-        force_treeallocate(maxnodes, All.MaxPart, All.MaxPart);
+        size_t allbytes = force_treeallocate(maxnodes, All.MaxPart, All.MaxPart);
+
+        message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
+             allbytes / (1024.0 * 1024.0),
+             AllocatedBytes / (1024.0 * 1024.0));
 
         Numnodestree = force_tree_build_single(All.MaxPart, All.MaxPart + maxnodes, npart);
         if(Numnodestree < 0)
@@ -1116,26 +1123,22 @@ void force_update_hmax(int * activeset, int size)
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-void force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
+size_t force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
 {
     size_t bytes;
-    double allbytes = 0;
+    size_t allbytes = 0;
 
     tree_allocated_flag = 1;
     MaxNodes = maxnodes;
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
     Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE));
     allbytes += bytes;
-    allbytes += bytes;
     Nodes = Nodes_base - first_node_offset;
     Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
     allbytes += bytes;
     Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
-
-    message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
-             allbytes / (1024.0 * 1024.0),
-             AllocatedBytes / (1024.0 * 1024.0));
+    return allbytes;
 }
 
 /*! This function frees the memory allocated for the tree, i.e. it frees
