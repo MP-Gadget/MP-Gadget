@@ -345,6 +345,8 @@ int force_tree_build_single(int npart)
         }
     }
 #ifdef OPENMP_USE_SPINLOCK
+    for(i=0; i<nfree - All.MaxPart; i++)
+            pthread_spin_destroy(&SpinLocks[i]);
     /*Avoid a warning about discarding volatile*/
     int * ss = (int *) SpinLocks;
     myfree(ss);
