@@ -302,6 +302,9 @@ int force_tree_build_single(int npart)
             if(nfree_thread >= All.MaxPart + MaxNodes)
             {
 /*                 message(1, "maximum number %d of tree-nodes reached for particle %d.\n", MaxNodes, i); */
+#ifdef OPENMP_USE_SPINLOCK
+                pthread_spin_unlock(&SpinLocks[this-All.MaxPart]);
+#endif
                 break;
             }
             struct NODE *nfreep = &Nodes[ninsert];	/* select desired node */
