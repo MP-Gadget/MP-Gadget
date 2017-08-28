@@ -267,11 +267,21 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
 
             shift -= 3;
 
+            /*Lockless fast-path: if we have an internal node here it will be stable*/
+            int child;
+            #pragma omp atomic read
+            child = Nodes[this].u.suns[subnode];
+
+            if(child >= firstnode) {
+                this = child;
+                continue;
+            }
 #ifdef OPENMP_USE_SPINLOCK
             /*Lock this node*/
             pthread_spin_lock(&SpinLocks[this-firstnode]);
 #endif
-            const int child = Nodes[this].u.suns[subnode];
+            #pragma omp atomic read
+            child = Nodes[this].u.suns[subnode];
 
             /* We found an empty slot on this node,
              * so attach this particle and move to the next one*/
@@ -338,6 +348,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
 
             /* Mark this node in the parent: this goes last
              * so that we don't access the child before it is constructed.*/
+            #pragma omp atomic write
             Nodes[this].u.suns[subnode] = ninsert;
 
             /* We are now done adding data to this node,
