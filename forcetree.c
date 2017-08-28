@@ -110,13 +110,15 @@ int force_tree_build(int npart)
         force_treeallocate(maxnodes, All.MaxPart, All.MaxPart);
 
         Numnodestree = force_tree_build_single(All.MaxPart, All.MaxPart + maxnodes, npart);
+        if(Numnodestree < 0)
+            message(1, "Not enough tree nodes (%d) for %d particles.\n", maxnodes, npart);
 
         MPI_Allreduce(&Numnodestree, &flag, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
         if(flag == -1)
         {
             force_tree_free();
 
-            message(0, "Maximum number of treenodes reached. TreeAllocFactor from %g to %g\n", All.TreeAllocFactor, All.TreeAllocFactor*1.15);
+            message(0, "TreeAllocFactor from %g to %g\n", All.TreeAllocFactor, All.TreeAllocFactor*1.15);
 
             All.TreeAllocFactor *= 1.15;
 
