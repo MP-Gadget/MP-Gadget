@@ -360,9 +360,9 @@ void powerspectrum_nu_save(struct _delta_pow *nu_pow, const char * OutputDir, co
     fprintf(fp, "# in Mpc/h Units \n");
     fprintf(fp, "# (k P_nu(k))\n");
     fprintf(fp, "# a= %g\n", Time);
-    fprintf(fp, "# nk = %d\n", nu_pow->nbins);
-    for(i = 0; i < nu_pow->nbins; i++){
-        fprintf(fp, "%g %g\n", exp(nu_pow->logkk[i]), pow(nu_pow->delta_nu_curr[i],2));
+    fprintf(fp, "# nk = %d\n", delta_tot_table.nk);
+    for(i = 0; i < delta_tot_table.nk; i++){
+        fprintf(fp, "%g %g\n", exp(nu_pow->logkk[i]), pow(delta_tot_table.delta_nu_last[i],2));
     }
     fclose(fp);
     /*Clean up the neutrino memory now we saved the power spectrum.*/
