@@ -33,7 +33,6 @@ struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the node
 
 
 int MaxNodes;			/*!< maximum allowed number of internal nodes */
-int Numnodestree;		/*!< number of (internal) nodes in each tree */
 
 
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
@@ -99,6 +98,7 @@ force_tree_rebuild()
 int force_tree_build(int npart)
 {
     int flag;
+    int Numnodestree;
 
     do
     {
