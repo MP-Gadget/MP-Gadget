@@ -59,12 +59,6 @@ double walltime_measure_full(char * name, char * file, int line)
 {
     return 0;
 }
-
-double get_random_number(MyIDType id)
-{
-    return 0;
-}
-
 /*End dummies*/
 
 static int
@@ -312,7 +306,6 @@ static void test_rebuild_random(void ** state) {
 
 static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
-    All.NoTreeRnd = 1;
     /*Particles should not be outside this*/
     All.BoxSize = 8;
     for(int i=0; i<6; i++)

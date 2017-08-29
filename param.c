@@ -139,7 +139,6 @@ create_gadget_parameter_set()
     param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "");
     param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "");
 
-    param_declare_int(ps,    "NoTreeRnd", OPTIONAL, 0, "Disable randomizing the tree construction when particles are very close to each other. For debug purposes.");
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
     param_declare_int(ps,    "MaxMemSizePerNode", OPTIONAL, 0.8 * get_physmem_bytes() / (1024 * 1024), "Preallocate this much memory MB per computing node/ host. Default is 80\% of total physical mem per node. ");
     param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
@@ -357,7 +356,6 @@ void read_parameter_file(char *fname)
 
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
         All.TopNodeIncreaseFactor = param_get_int(ps, "TopNodeIncreaseFactor");
-        All.NoTreeRnd = param_get_int(ps, "NoTreeRnd");
         All.OutputPotential = param_get_int(ps, "OutputPotential");
         All.MaxMemSizePerNode = param_get_int(ps, "MaxMemSizePerNode");
 
