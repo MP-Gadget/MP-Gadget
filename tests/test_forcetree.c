@@ -17,10 +17,13 @@
 
 /*Defined in forcetree.c*/
 int
-force_tree_build_single(const int firstnode, const int lastnode, const int npart);
+force_tree_create_nodes(const int firstnode, const int lastnode, const int npart);
 
 size_t
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
+
+int
+force_update_node_recursive(int no, int sib, int father, int tail, const int firstnode, const int lastnode);
 
 /*Used data from All and domain*/
 struct particle_data *P;
@@ -64,6 +67,96 @@ double get_random_number(MyIDType id)
 
 /*End dummies*/
 
+#define NODECACHE_SIZE 100
+/*This checks that the force tree in Nodes is valid:
+ * that it contains every particle and that each parent
+ * node contains particles within the right subnode.*/
+static int check_tree(const int firstnode, const int nnodes, const int numpart)
+{
+    int tot_empty = 0, nrealnode = 0, sevens = 0;
+    for(int i=firstnode; i<nnodes+firstnode; i++)
+    {
+        struct NODE * pNode = &Nodes[i];
+        int empty = 0;
+        /*Just reserved free space with nothing in it*/
+        if(pNode->hmax < -0.5)
+            continue;
+
+        for(int j=0; j<8; j++) {
+            /*Check children*/
+            int child = pNode->u.suns[j];
+            if(child == -1) {
+                empty++;
+                continue;
+            }
+            assert_true(child < firstnode+nnodes);
+            assert_true(child >= 0);
+            /*If an internal node*/
+            if(child > firstnode) {
+                assert_true(fabs(Nodes[child].len/pNode->len - 0.5) < 1e-4);
+                for(int k=0; k<3; k++) {
+                    if(j & (1<<k))
+                        assert_true(Nodes[child].center[k] > pNode->center[k]);
+                    else
+                        assert_true(Nodes[child].center[k] <= pNode->center[k]);
+                }
+            }
+            /*Particle*/
+            else {
+                P[child].PI += 1;
+                /*Check in right quadrant*/
+                for(int k=0; k<3; k++) {
+                    if(j & (1<<k)) {
+                        assert_true(P[child].Pos[k] > pNode->center[k]);
+                    }
+                    else
+                        assert_true(P[child].Pos[k] <= pNode->center[k]);
+                }
+            }
+        }
+        /*All nodes should have at least one thing in them:
+         * maybe particles or other nodes.*/
+        if(empty > 6)
+            sevens++;
+        assert_true(empty <= 7);
+        tot_empty += empty;
+        nrealnode++;
+    }
+    assert_true(nnodes - nrealnode < omp_get_max_threads()*NODECACHE_SIZE);
+    for(int i=0; i<numpart; i++)
+    {
+        assert_true(P[i].PI == 1);
+    }
+    printf("Tree filling factor: %g on %d nodes (wasted: %d seven empty: %d)\n", tot_empty/(8.*nrealnode), nrealnode, nnodes - nrealnode, sevens);
+    return nrealnode;
+}
+
+static void do_tree_test(const int numpart)
+{
+    int maxnode = numpart;
+    assert_true(Nodes);
+    /*So we know which nodes we have initialised*/
+    for(int i=0; i< MaxNodes+1; i++)
+        Nodes_base[i].hmax = -1;
+    /*Time creating the nodes*/
+    double start, end;
+    start = MPI_Wtime();
+    int nodes = force_tree_create_nodes(numpart, numpart + maxnode, numpart);
+    assert_true(nodes < maxnode);
+    end = MPI_Wtime();
+    double ms = (end - start)*1000;
+    printf("Number of nodes used: %d. Built tree in %.3g ms\n", nodes,ms);
+    check_tree(numpart, nodes, numpart);
+    /* now compute the multipole moments recursively */
+    start = MPI_Wtime();
+    int tail = force_update_node_recursive(numpart, -1, -1, -1, numpart, numpart + maxnode);
+    force_set_next_node(tail, -1, numpart, numpart + maxnode);
+/*     assert_true(tail < nodes); */
+    end = MPI_Wtime();
+    ms = (end - start)*1000;
+    printf("Updated moments in %.3g ms\n", ms);
+}
+
 static void test_rebuild_flat(void ** state) {
     /*Set up the particle data*/
     int ncbrt = 128;
@@ -80,19 +173,11 @@ static void test_rebuild_flat(void ** state) {
     /*Allocate tree*/
     /*Base pointer*/
     TopLeaves[0].topnode = numpart;
-    int maxnode = numpart;
-    size_t alloc = force_treeallocate(maxnode, numpart, numpart);
+    size_t alloc = force_treeallocate(numpart, numpart, numpart);
     assert_true(alloc > 0);
-    assert_true(Nodes);
-    double start, end;
-    start = MPI_Wtime();
-    int nodes = force_tree_build_single(numpart, numpart + maxnode, numpart);
-    end = MPI_Wtime();
-    double ms = (end - start)*1000;
-    printf("Number of nodes used: %d. Built in %.3g ms\n", nodes,ms);
-    assert_true(nodes > 0);
-    free(P);
+    do_tree_test(numpart);
     force_tree_free();
+    free(P);
 }
 
 static void test_rebuild_close(void ** state) {
@@ -108,50 +193,36 @@ static void test_rebuild_close(void ** state) {
         P[i].Pos[1] = 4. + ((i/ncbrt) % ncbrt) /close;
         P[i].Pos[2] = 4. + (i % ncbrt)/close;
     }
-    /*Allocate tree*/
-    /*Base pointer*/
-    TopLeaves[0].topnode = numpart;
-    int maxnode = numpart;
-    size_t alloc = force_treeallocate(maxnode, numpart, numpart);
+    size_t alloc = force_treeallocate(numpart, numpart, numpart);
     assert_true(alloc > 0);
-    assert_true(Nodes);
-    double start, end;
-    start = MPI_Wtime();
-    int nodes = force_tree_build_single(numpart, numpart + maxnode, numpart);
-    end = MPI_Wtime();
-    double ms = (end - start)*1000;
-    printf("Number of nodes used: %d. Built in %.3g ms\n", nodes,ms);
-    assert_true(nodes > 0);
-    free(P);
+    do_tree_test(numpart);
     force_tree_free();
+    free(P);
 }
 
-int do_random_test(gsl_rng * r, const int numpart, const int maxnode)
+void do_random_test(gsl_rng * r, const int numpart, const int maxnode)
 {
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
     for(int i=0; i<numpart/4; i++) {
         P[i].Type = 1;
+        P[i].PI = 0;
         for(int j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize * gsl_rng_uniform(r);
     }
     for(int i=numpart/4; i<3*numpart/4; i++) {
         P[i].Type = 1;
+        P[i].PI = 0;
         for(int j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize/2 + All.BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     for(int i=3*numpart/4; i<numpart; i++) {
         P[i].Type = 1;
+        P[i].PI = 0;
         for(int j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize*0.1 + All.BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC,&start);
-    int nodes = force_tree_build_single(numpart, numpart + maxnode, numpart);
-    clock_gettime(CLOCK_MONOTONIC,&end);
-    long ms = (end.tv_sec - start.tv_sec)*1000 + (end.tv_nsec - start.tv_nsec)/1000000;
-    printf("Number of nodes used: %d. Built in %ld ms\n", nodes,ms);
-    return nodes;
+    do_tree_test(numpart);
 }
 
 static void test_rebuild_random(void ** state) {
@@ -168,11 +239,10 @@ static void test_rebuild_random(void ** state) {
     assert_true(Nodes);
     P = malloc(numpart*sizeof(struct particle_data));
     for(int i=0; i<2; i++) {
-        int nodes = do_random_test(r, numpart, maxnode);
-        assert_true(nodes > 0);
+        do_random_test(r, numpart, maxnode);
     }
-    free(P);
     force_tree_free();
+    free(P);
 }
 
 static int setup_tree(void **state) {

@@ -47,21 +47,25 @@ static int tree_allocated_flag = 0;
 
 static int force_tree_build(int npart);
 
-/*Next two are not static as tested.*/
-int
+static int
 force_tree_build_single(const int firstnode, const int lastnode, const int npart);
+
+/*Next three are not static as tested.*/
+int
+force_tree_create_nodes(const int firstnode, const int lastnode, const int npart);
 
 size_t
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
+
+int
+force_update_node_recursive(int no, int sib, int father, int tail, const int firstnode, const int lastnode);
+
 
 static void
 force_flag_localnodes(void);
 
 static void
 force_treeupdate_pseudos(int no, int firstnode, int lastnode);
-
-static int
-force_update_node_recursive(int no, int sib, int father, int tail, const int firstnode, const int lastnode);
 
 static void
 force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nextfree, const int lastnode);
@@ -194,18 +198,9 @@ int get_subnode(const struct NODE * node, const int nodepos, const int p_i, cons
  * 100 was found to be optimal for an Intel skylake with 4 threads.*/
 #define NODECACHE_SIZE 100
 
-/*! Constructs the gravitational oct-tree.
- *
- *  The index convention for accessing tree nodes is the following: the
- *  indices 0...NumPart-1 reference single particles, the indices
- *  All.MaxPart.... All.MaxPart+nodes-1 reference tree nodes. `Nodes_base'
- *  points to the first tree node, while `nodes' is shifted such that
- *  nodes[All.MaxPart] gives the first tree node. Finally, node indices
- *  with values 'All.MaxPart + MaxNodes' and larger indicate "pseudo
- *  particles", i.e. multipole moments of top-level nodes that lie on
- *  different CPUs. If such a node needs to be opened, the corresponding
- *  particle must be exported to that CPU. */
-int force_tree_build_single(const int firstnode, const int lastnode, const int npart)
+/*! Does initial creation of the nodes for the gravitational oct-tree.
+ **/
+int force_tree_create_nodes(const int firstnode, const int lastnode, const int npart)
 {
     int i;
     int nfree = firstnode;		/* index of first free node */
@@ -365,7 +360,25 @@ int force_tree_build_single(const int firstnode, const int lastnode, const int n
     myfree(ss);
 #endif
     myfree(MortonKey);
-    if(nfree >= lastnode)
+    return nfree - firstnode;
+}
+
+/*! Constructs the gravitational oct-tree.
+ *
+ *  The index convention for accessing tree nodes is the following: the
+ *  indices 0...NumPart-1 reference single particles, the indices
+ *  All.MaxPart.... All.MaxPart+nodes-1 reference tree nodes. `Nodes_base'
+ *  points to the first tree node, while `nodes' is shifted such that
+ *  nodes[All.MaxPart] gives the first tree node. Finally, node indices
+ *  with values 'All.MaxPart + MaxNodes' and larger indicate "pseudo
+ *  particles", i.e. multipole moments of top-level nodes that lie on
+ *  different CPUs. If such a node needs to be opened, the corresponding
+ *  particle must be exported to that CPU. */
+static int
+force_tree_build_single(const int firstnode, const int lastnode, const int npart)
+{
+    int nfree = force_tree_create_nodes(firstnode, lastnode, npart);
+    if(nfree >= lastnode - firstnode)
     {
         return -1;
     }
@@ -373,13 +386,12 @@ int force_tree_build_single(const int firstnode, const int lastnode, const int n
     /* insert the pseudo particles that represent the mass distribution of other domains */
     force_insert_pseudo_particles(lastnode);
 
-
     /* now compute the multipole moments recursively */
     int tail = force_update_node_recursive(firstnode, -1, -1, -1, firstnode, lastnode);
 
     force_set_next_node(tail, -1, firstnode, lastnode);
 
-    return nfree - firstnode;
+    return nfree;
 }
 
 
@@ -527,7 +539,7 @@ force_get_prev_node(int no)
  *  and argument tail is the current tail of the NextNode linked list.
  */
 
-static int
+int
 force_update_node_recursive(int no, int sib, int father, int tail, const int firstnode, const int lastnode)
 {
     int j, jj, p, pp, nextsib, suns[8], count_particles, multiple_flag;
