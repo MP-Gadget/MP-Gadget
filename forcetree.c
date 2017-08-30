@@ -318,9 +318,9 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
 
         /*First find the Node for the TopLeaf */
 
-        int shift, child, subnode;
-        int this = domain_get_topleaf_with_shift(P[i].Key, &shift);
-        this = TopLeaves[this].treenode;
+        const int topleaf = domain_get_topleaf(P[i].Key);
+        int this = TopLeaves[topleaf].treenode;
+        int child, subnode;
 
         /*Walk the main tree until we get something that isn't an internal node.*/
         do

@@ -40,15 +40,13 @@ int NumPart;
 /*Dummy versions of functions that implement only what we need for the tests:
  * most of these are used in the non-tested globally accessible parts of forcetree.c and
  * so not executed by our tests anyway.*/
-/* this function determines the TopLeaves entry for the given key, and returns the level of the
- * node in terms of `shift`. */
-int
-domain_get_topleaf_with_shift(const peano_t key, int * shift) {
+
+/*This function determines the TopLeaves entry for the given key.*/
+inline int
+domain_get_topleaf(const peano_t key) {
     int no=0;
-    while(TopNodes[no].Daughter >= 0) {
+    while(TopNodes[no].Daughter >= 0)
         no = TopNodes[no].Daughter + ((key - TopNodes[no].StartKey) >> (TopNodes[no].Shift - 3));
-    }
-    *shift = TopNodes[no].Shift;
     no = TopNodes[no].Leaf;
     return no;
 }
@@ -313,7 +311,7 @@ static int setup_tree(void **state) {
     /*Set up the top-level domain grid*/
     /* The whole tree goes into one topnode.
      * Set up just enough of the TopNode structure that
-     * domain_get_topleaf_with_shift works*/
+     * domain_get_topleaf works*/
     MaxTopNodes = 1;
     NTopNodes = NTopLeaves = 1;
     TopNodes = malloc(sizeof(struct topnode_data));

@@ -646,24 +646,11 @@ domain_assign_balanced(int64_t * cost)
 }
 
 /*This function determines the TopLeaves entry for the given key.*/
-static inline int
+inline int
 domain_get_topleaf(const peano_t key) {
     int no=0;
     while(TopNodes[no].Daughter >= 0)
         no = TopNodes[no].Daughter + ((key - TopNodes[no].StartKey) >> (TopNodes[no].Shift - 3));
-    no = TopNodes[no].Leaf;
-    return no;
-}
-
-/* this function determines the TopLeaves entry for the given key, and returns the level of the
- * node in terms of `shift`. */
-int
-domain_get_topleaf_with_shift(const peano_t key, int * shift) {
-    int no=0;
-    while(TopNodes[no].Daughter >= 0) {
-        no = TopNodes[no].Daughter + ((key - TopNodes[no].StartKey) >> (TopNodes[no].Shift - 3));
-    }
-    *shift = TopNodes[no].Shift;
     no = TopNodes[no].Leaf;
     return no;
 }
