@@ -580,6 +580,51 @@ force_get_prev_node(int no)
     }
 }
 
+/*Sets the node softening on a node. Hsml is used only if type ==0 and ADAPTIVE_GRAVSOFT_FORGAS is on.*/
+static void
+force_set_node_softening(struct NODE * pnode, const int new_type, const double hsml)
+{
+#ifndef ADAPTIVE_GRAVSOFT_FORGAS
+    if(pnode->u.d.MaxSofteningType == 7)
+        pnode->u.d.MaxSofteningType = new_type;
+    else
+    {
+        if(All.ForceSoftening[new_type] > All.ForceSoftening[pnode->u.d.MaxSofteningType])
+            pnode->u.d.MaxSofteningType = new_type;
+        if(All.ForceSoftening[new_type] != All.ForceSoftening[pnode->u.d.MaxSofteningType])
+            pnode->u.d.MixedSofteningsInNode = 1;
+    }
+#else
+    if(new_type == 0)
+    {
+        if(hsml > pnode->u.d.maxsoft)
+            pnode->u.d.maxsoft = hsml;
+    }
+    else
+    {
+        if(All.ForceSoftening[new_type] > pnode->u.d.maxsoft)
+            pnode->u.d.maxsoft = All.ForceSoftening[new_type];
+    }
+#endif
+}
+
+static void
+add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * pa)
+{
+            int k;
+            pnode->u.d.mass += (pa->Mass);
+            for(k=0; k<3; k++)
+                pnode->u.d.s[k] += (pa->Mass * pa->Pos[k]);
+
+            if(pa->Type == 0)
+            {
+                if(pa->Hsml > pnode->hmax)
+                    pnode->hmax = pa->Hsml;
+            }
+
+            force_set_node_softening(pnode, pa->Type, pa->Hsml);
+}
+
 /*! this routine determines the multipole moments for a given internal node
  *  and all its subnodes using a recursive computation.  The result is
  *  stored in the Nodes[] structure in the sequence of this tree-walk.
@@ -610,12 +655,10 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
 
     int count_particles=0;
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-    int maxsofttype=7;
+    Nodes[no].u.d.MaxSofteningType=7;
 #else
-    MyFloat maxsoft=0;
+    Nodes[no].u.d.maxsoft=0;
 #endif
-    MyFloat hmax = 0;
-    MyFloat s[3] = {0}, mass = 0;
     int j, suns[8];
     /* this "backup" is necessary because the nextnode
      * entry will overwrite one element (union!) */
@@ -627,7 +670,7 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
     for(j = 0; j < 8; j++)
     {
         int nextsib = sib;
-        int p = suns[j];
+        const int p = suns[j];
         int jj;
         /*Empty slot*/
         if(p < 0)
@@ -642,122 +685,57 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
 
         tail = force_update_node_recursive(p, nextsib, no, tail, firstnode, lastnode);
 
-        if(p >= firstnode)	/* an internal node or pseudo particle */
+        if(p >= lastnode)	/* a pseudo particle */
         {
-            if(p >= lastnode)	/* a pseudo particle */
+            /* nothing to be done here because the mass of the
+             * pseudo-particle is still zero. This will be changed
+             * later.
+             */
+        }
+        else if(p < lastnode && p >= firstnode)	/* an internal node or pseudo particle */
+        {
+            Nodes[no].u.d.mass += (Nodes[p].u.d.mass);
+            Nodes[no].u.d.s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
+            Nodes[no].u.d.s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
+            Nodes[no].u.d.s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
+
+            if(Nodes[p].u.d.mass > 0)
             {
-                /* nothing to be done here because the mass of the
-                 * pseudo-particle is still zero. This will be changed
-                 * later.
-                 */
+                if(Nodes[p].u.d.MultipleParticles)
+                    count_particles += 2;
+                count_particles++;
             }
-            else
-            {
-                mass += (Nodes[p].u.d.mass);
-                s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
-                s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
-                s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
 
-                if(Nodes[p].u.d.mass > 0)
-                {
-                    if(Nodes[p].u.d.MultipleParticles)
-                        count_particles += 2;
-                    else
-                        count_particles++;
-                }
+            if(Nodes[p].hmax > Nodes[no].hmax)
+                Nodes[no].hmax = Nodes[p].hmax;
 
-                if(Nodes[p].hmax > hmax)
-                    hmax = Nodes[p].hmax;
-
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
-                if(maxsofttype == 7)
-                    maxsofttype = Nodes[p].u.d.MaxSofteningType;
-                else
-                {
-                    int current_maxsofttype = Nodes[p].u.d.MaxSofteningType;
-                    if(current_maxsofttype != 7)
-                    {
-                        if(All.ForceSoftening[current_maxsofttype] > All.ForceSoftening[maxsofttype])
-                            maxsofttype = current_maxsofttype;
-                        if(All.ForceSoftening[maxsofttype] != All.ForceSoftening[current_maxsofttype])
-                            Nodes[no].u.d.MixedSofteningsInNode = 1;
-                    }
-                }
-#else
-                if(Nodes[p].maxsoft > maxsoft)
-                    maxsoft = Nodes[p].maxsoft;
-#endif
-            }
+            force_set_node_softening(&Nodes[no], Nodes[p].u.d.MaxSofteningType, Nodes[p].hmax);
         }
         else		/* a particle */
         {
-            struct particle_data *pa = &P[p];
             count_particles++;
-
-            mass += (pa->Mass);
-            s[0] += (pa->Mass * pa->Pos[0]);
-            s[1] += (pa->Mass * pa->Pos[1]);
-            s[2] += (pa->Mass * pa->Pos[2]);
-
-            if(pa->Type == 0)
-            {
-                if(P[p].Hsml > hmax)
-                    hmax = P[p].Hsml;
-            }
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
-           if(maxsofttype == 7)
-               maxsofttype = pa->Type;
-           else
-           {
-               if(All.ForceSoftening[pa->Type] > All.ForceSoftening[maxsofttype])
-                   maxsofttype = pa->Type;
-               if(All.ForceSoftening[pa->Type] != All.ForceSoftening[maxsofttype])
-                   Nodes[no].u.d.MixedSofteningsInNode = 1;
-           }
-#else
-           if(pa->Type == 0)
-           {
-               if(P[p].Hsml > maxsoft)
-                   maxsoft = P[p].Hsml;
-           }
-           else
-           {
-               if(All.ForceSoftening[pa->Type] > maxsoft)
-                   maxsoft = All.ForceSoftening[pa->Type];
-           }
-#endif
-       }
+            add_particle_moment_to_node(&Nodes[no], &P[p]);
+        }
     }
-
-
-    if(mass)
-    {
-        s[0] /= mass;
-        s[1] /= mass;
-        s[2] /= mass;
-    }
-    else
-    {
-        s[0] = Nodes[no].center[0];
-        s[1] = Nodes[no].center[1];
-        s[2] = Nodes[no].center[2];
-    }
-
-    Nodes[no].u.d.mass = mass;
-    Nodes[no].u.d.s[0] = s[0];
-    Nodes[no].u.d.s[1] = s[1];
-    Nodes[no].u.d.s[2] = s[2];
-
-    Nodes[no].hmax = hmax;
 
     /* this flags that the node represents more than one particle */
     Nodes[no].u.d.MultipleParticles = (count_particles > 1);
 
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
-    Nodes[no].u.d.MaxSofteningType = maxsofttype;
-#else
-    Nodes[no].maxsoft = maxsoft;
-#endif
+    const double mass = Nodes[no].u.d.mass;
+    if(mass)
+    {
+        Nodes[no].u.d.s[0] /= mass;
+        Nodes[no].u.d.s[1] /= mass;
+        Nodes[no].u.d.s[2] /= mass;
+    }
+    /*This only happens for a pseudo particle*/
+    else
+    {
+        Nodes[no].u.d.s[0] = Nodes[no].center[0];
+        Nodes[no].u.d.s[1] = Nodes[no].center[1];
+        Nodes[no].u.d.s[2] = Nodes[no].center[2];
+    }
+
     Nodes[no].u.d.sibling = sib;
     Nodes[no].u.d.father = father;
 
