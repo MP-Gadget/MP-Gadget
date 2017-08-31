@@ -67,6 +67,24 @@ double get_random_number(MyIDType id)
 
 /*End dummies*/
 
+static int
+order_by_type_and_key(const void *a, const void *b)
+{
+    const struct particle_data * pa  = (const struct particle_data *) a;
+    const struct particle_data * pb  = (const struct particle_data *) b;
+
+    if(pa->Type < pb->Type)
+        return -1;
+    if(pa->Type > pb->Type)
+        return +1;
+    if(pa->Key < pb->Key)
+        return -1;
+    if(pa->Key > pb->Key)
+        return +1;
+
+    return 0;
+}
+
 #define NODECACHE_SIZE 100
 /*This checks that the force tree in Nodes is valid:
  * that it contains every particle and that each parent
@@ -133,6 +151,11 @@ static int check_tree(const int firstnode, const int nnodes, const int numpart)
 
 static void do_tree_test(const int numpart)
 {
+    /*Sort by peano key so this is more realistic*/
+    #pragma omp parallel for
+    for(int i=0; i<numpart; i++)
+        P[i].Key = PEANO(P[i].Pos);
+    qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = numpart;
     assert_true(Nodes);
     /*So we know which nodes we have initialised*/
@@ -164,6 +187,7 @@ static void test_rebuild_flat(void ** state) {
     P = malloc(numpart*sizeof(struct particle_data));
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
+    #pragma omp parallel for
     for(int i=0; i<numpart; i++) {
         P[i].Type = 1;
         P[i].Pos[0] = (All.BoxSize/ncbrt) * (i/ncbrt/ncbrt);
@@ -187,6 +211,7 @@ static void test_rebuild_close(void ** state) {
     double close = 5000;
     P = malloc(numpart*sizeof(struct particle_data));
     /* Create particles clustered in one place, all of type 1.*/
+    #pragma omp parallel for
     for(int i=0; i<numpart; i++) {
         P[i].Type = 1;
         P[i].Pos[0] = 4. + (i/ncbrt/ncbrt)/close;
