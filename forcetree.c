@@ -244,6 +244,7 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, co
         for(j=0; j<8; j++)
             if(nprnt->u.suns[j] < 0) {
                 nprnt->u.suns[j] = p_toplace;
+                Father[p_toplace] = parent;
                 return 0;
             }
         /* Warn about this if we have more than 4 particles
@@ -265,6 +266,8 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, co
     int ret = 0;
     /*If these two are different, great! Attach both particles to this new node*/
     if(child_subnode != new_subnode) {
+        Father[p_child] = ninsert;
+        Father[p_toplace] = ninsert;
         nfreep->u.suns[child_subnode] = p_child;
         nfreep->u.suns[new_subnode] = p_toplace;
     }
@@ -390,6 +393,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         /* The easy case: we found an empty slot on this node,
          * so attach this particle.*/
         if(child < 0) {
+            Father[i] = this;
             #pragma omp atomic write
             Nodes[this].u.suns[subnode] = i;
         }
@@ -599,11 +603,10 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
 {
     /*Set NextNode for this node*/
     tail = force_set_next_node(tail, no, firstnode, lastnode);
+    /*For particles and pseudo particles we have nothing to update*/
+    if(no < firstnode || no >= lastnode)
+        return tail;
 
-    if(no < firstnode)	/* only set Father for single particles */
-        Father[no] = father;
-    else if(no >= firstnode && no < lastnode)	/* internal node */
-    {
         int count_particles=0, multiple_flag;
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
         int maxsofttype=7, current_maxsofttype, diffsoftflag = 0;
@@ -773,7 +776,6 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
 #endif
         Nodes[no].u.d.sibling = sib;
         Nodes[no].u.d.father = father;
-    }
 
     return tail;
 }
