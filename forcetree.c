@@ -579,11 +579,12 @@ force_get_prev_node(int no)
         return 0;
     }
 }
+
 /*! this routine determines the multipole moments for a given internal node
  *  and all its subnodes using a recursive computation.  The result is
  *  stored in the Nodes[] structure in the sequence of this tree-walk.
  *
- *  Note that the bitflags-variable for each node is used to store in the
+ *  Note that the bitflags-struct for each node is used to store in the
  *  lowest bits some special information: Bit 0 flags whether the node
  *  belongs to the top-level tree corresponding to the domain
  *  decomposition, while Bit 1 signals whether the top-level node is
@@ -607,9 +608,9 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
     if(no < firstnode || no >= lastnode)
         return tail;
 
-    int count_particles=0, multiple_flag;
+    int count_particles=0;
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-    int maxsofttype=7, current_maxsofttype, diffsoftflag = 0;
+    int maxsofttype=7;
 #else
     MyFloat maxsoft=0;
 #endif
@@ -620,6 +621,8 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
      * entry will overwrite one element (union!) */
     for(j = 0; j < 8; j++)
         suns[j] = Nodes[no].u.suns[j];
+
+    memset(&Nodes[no].u.d, 0, sizeof(Nodes[no].u.d));
 
     for(j = 0; j < 8; j++)
     {
@@ -657,7 +660,7 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
 
                 if(Nodes[p].u.d.mass > 0)
                 {
-                    if(Nodes[p].u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES))
+                    if(Nodes[p].u.d.MultipleParticles)
                         count_particles += 2;
                     else
                         count_particles++;
@@ -667,26 +670,17 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
                     hmax = Nodes[p].hmax;
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-                diffsoftflag |= maskout_different_softening_flag(Nodes[p].u.d.bitflags);
-
                 if(maxsofttype == 7)
-                    maxsofttype = extract_max_softening_type(Nodes[p].u.d.bitflags);
+                    maxsofttype = Nodes[p].u.d.MaxSofteningType;
                 else
                 {
-                    current_maxsofttype = extract_max_softening_type(Nodes[p].u.d.bitflags);
+                    int current_maxsofttype = Nodes[p].u.d.MaxSofteningType;
                     if(current_maxsofttype != 7)
                     {
                         if(All.ForceSoftening[current_maxsofttype] > All.ForceSoftening[maxsofttype])
-                        {
                             maxsofttype = current_maxsofttype;
-                            diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
-                        }
-                        else
-                        {
-                            if(All.ForceSoftening[current_maxsofttype] <
-                                    All.ForceSoftening[maxsofttype])
-                                diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
-                        }
+                        if(All.ForceSoftening[maxsofttype] != All.ForceSoftening[current_maxsofttype])
+                            Nodes[no].u.d.MixedSofteningsInNode = 1;
                     }
                 }
 #else
@@ -716,15 +710,9 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
            else
            {
                if(All.ForceSoftening[pa->Type] > All.ForceSoftening[maxsofttype])
-               {
                    maxsofttype = pa->Type;
-                   diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
-               }
-               else
-               {
-                   if(All.ForceSoftening[pa->Type] < All.ForceSoftening[maxsofttype])
-                       diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
-               }
+               if(All.ForceSoftening[pa->Type] != All.ForceSoftening[maxsofttype])
+                   Nodes[no].u.d.MixedSofteningsInNode = 1;
            }
 #else
            if(pa->Type == 0)
@@ -762,15 +750,11 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
 
     Nodes[no].hmax = hmax;
 
-    if(count_particles > 1)	/* this flags that the node represents more than one particle */
-        multiple_flag = (1 << BITFLAG_MULTIPLEPARTICLES);
-    else
-        multiple_flag = 0;
-
-    Nodes[no].u.d.bitflags = multiple_flag;
+    /* this flags that the node represents more than one particle */
+    Nodes[no].u.d.MultipleParticles = (count_particles > 1);
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-    Nodes[no].u.d.bitflags |= diffsoftflag + (maxsofttype << BITFLAG_MAX_SOFTENING_TYPE);
+    Nodes[no].u.d.MaxSofteningType = maxsofttype;
 #else
     Nodes[no].maxsoft = maxsoft;
 #endif
@@ -799,8 +783,12 @@ void force_exchange_pseudodata(void)
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
         MyFloat maxsoft;
 #endif
-
-        unsigned int bitflags;
+        struct {
+            unsigned int MaxSofteningType :3; /* bits 2-4 */
+            unsigned int MixedSofteningsInNode :1;
+            unsigned int MultipleParticles :1;
+            unsigned int InsideLinkingLength :1;
+        };
     }
     *TopLeafMoments;
 
@@ -817,7 +805,10 @@ void force_exchange_pseudodata(void)
         TopLeafMoments[i].s[2] = Nodes[no].u.d.s[2];
         TopLeafMoments[i].mass = Nodes[no].u.d.mass;
         TopLeafMoments[i].hmax = Nodes[no].hmax;
-        TopLeafMoments[i].bitflags = Nodes[no].u.d.bitflags;
+        TopLeafMoments[i].MaxSofteningType = Nodes[no].u.d.MaxSofteningType;
+        TopLeafMoments[i].MixedSofteningsInNode = Nodes[no].u.d.MixedSofteningsInNode;
+        TopLeafMoments[i].MultipleParticles = Nodes[no].u.d.MultipleParticles;
+        TopLeafMoments[i].InsideLinkingLength = Nodes[no].u.d.InsideLinkingLength;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
         TopLeafMoments[i].maxsoft = Nodes[no].maxsoft;
 #endif
@@ -853,8 +844,10 @@ void force_exchange_pseudodata(void)
             Nodes[no].u.d.s[2] = TopLeafMoments[i].s[2];
             Nodes[no].u.d.mass = TopLeafMoments[i].mass;
             Nodes[no].hmax = TopLeafMoments[i].hmax;
-            Nodes[no].u.d.bitflags =
-                (Nodes[no].u.d.bitflags & (~BITFLAG_MASK)) | (TopLeafMoments[i].bitflags & BITFLAG_MASK);
+            Nodes[no].u.d.MaxSofteningType = TopLeafMoments[i].MaxSofteningType;
+            Nodes[no].u.d.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
+            Nodes[no].u.d.MultipleParticles = TopLeafMoments[i].MultipleParticles;
+            Nodes[no].u.d.InsideLinkingLength = TopLeafMoments[i].InsideLinkingLength;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
             Nodes[no].maxsoft = TopLeafMoments[i].maxsoft;
 #endif
@@ -869,12 +862,12 @@ void force_exchange_pseudodata(void)
  */
 void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
 {
-    int j, p, count_particles, multiple_flag;
+    int j, p, count_particles;
     MyFloat hmax;
     MyFloat s[3], mass;
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-    int maxsofttype, diffsoftflag, current_maxsofttype;
+    int maxsofttype;
 #else
     MyFloat maxsoft;
 #endif
@@ -887,7 +880,6 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
     count_particles = 0;
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
     maxsofttype = 7;
-    diffsoftflag = 0;
 #else
     maxsoft = 0;
 #endif
@@ -898,7 +890,7 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
     {
         if(p >= firstnode && p < lastnode)	/* internal node */
         {
-            if(Nodes[p].u.d.bitflags & (1 << BITFLAG_INTERNAL_TOPLEVEL))
+            if(Nodes[p].u.d.InternalTopLevel)
                 force_treeupdate_pseudos(p, firstnode, lastnode);
 
             mass += (Nodes[p].u.d.mass);
@@ -911,33 +903,26 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
 
             if(Nodes[p].u.d.mass > 0)
             {
-                if(Nodes[p].u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES))
+                if(Nodes[p].u.d.MultipleParticles)
                     count_particles += 2;
-
                 else
                     count_particles++;
             }
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-            diffsoftflag |= maskout_different_softening_flag(Nodes[p].u.d.bitflags);
+            Nodes[no].u.d.MixedSofteningsInNode = Nodes[p].u.d.MixedSofteningsInNode;
 
             if(maxsofttype == 7)
-                maxsofttype = extract_max_softening_type(Nodes[p].u.d.bitflags);
+                maxsofttype = Nodes[p].u.d.MaxSofteningType;
             else
             {
-                current_maxsofttype = extract_max_softening_type(Nodes[p].u.d.bitflags);
+                int current_maxsofttype = Nodes[p].u.d.MaxSofteningType;
                 if(current_maxsofttype != 7)
                 {
                     if(All.ForceSoftening[current_maxsofttype] > All.ForceSoftening[maxsofttype])
-                    {
                         maxsofttype = current_maxsofttype;
-                        diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
-                    }
-                    else
-                    {
-                        if(All.ForceSoftening[current_maxsofttype] < All.ForceSoftening[maxsofttype])
-                            diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
-                    }
+                    if(All.ForceSoftening[current_maxsofttype] != All.ForceSoftening[maxsofttype])
+                        Nodes[no].u.d.MixedSofteningsInNode = 1;
                 }
             }
 #else
@@ -972,17 +957,10 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
 
     Nodes[no].hmax = hmax;
 
-    if(count_particles > 1)
-        multiple_flag = (1 << BITFLAG_MULTIPLEPARTICLES);
-    else
-        multiple_flag = 0;
-
-    Nodes[no].u.d.bitflags &= (~BITFLAG_MASK);	/* this clears the bits */
-
-    Nodes[no].u.d.bitflags |= multiple_flag;
+    Nodes[no].u.d.MultipleParticles = (count_particles > 1);
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-    Nodes[no].u.d.bitflags |= diffsoftflag + (maxsofttype << BITFLAG_MAX_SOFTENING_TYPE);
+    Nodes[no].u.d.MaxSofteningType = maxsofttype;
 #else
     Nodes[no].maxsoft = maxsoft;
 #endif
@@ -1006,10 +984,10 @@ force_flag_localnodes(void)
 
         while(no >= 0)
         {
-            if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL))
+            if(Nodes[no].u.d.TopLevel)
                 break;
 
-            Nodes[no].u.d.bitflags |= (1 << BITFLAG_TOPLEVEL);
+            Nodes[no].u.d.TopLevel =1;
 
             no = Nodes[no].u.d.father;
         }
@@ -1021,10 +999,10 @@ force_flag_localnodes(void)
 
         while(no >= 0)
         {
-            if(Nodes[no].u.d.bitflags & (1 << BITFLAG_INTERNAL_TOPLEVEL))
+            if(Nodes[no].u.d.InternalTopLevel)
                 break;
 
-            Nodes[no].u.d.bitflags |= (1 << BITFLAG_INTERNAL_TOPLEVEL);
+            Nodes[no].u.d.InternalTopLevel = 1;
 
             no = Nodes[no].u.d.father;
         }
@@ -1041,10 +1019,10 @@ force_flag_localnodes(void)
 
         while(no >= 0)
         {
-            if(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))
+            if(Nodes[no].u.d.DependsOnLocalMass)
                 break;
 
-            Nodes[no].u.d.bitflags |= (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS);
+            Nodes[no].u.d.DependsOnLocalMass = 1;
 
             no = Nodes[no].u.d.father;
         }
@@ -1100,7 +1078,7 @@ void force_update_hmax(int * activeset, int size)
 
             Nodes[no].hmax = P[p_i].Hsml;
 
-            if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL)) /* we reached a top-level node */
+            if(Nodes[no].u.d.TopLevel) /* we reached a top-level node */
             {
                 if (!NodeIsDirty[no - All.MaxPart]) {
                     NodeIsDirty[no - All.MaxPart] = 1;
@@ -1147,7 +1125,7 @@ void force_update_hmax(int * activeset, int size)
 
         /* FIXME: why does this matter? The logic is simpler if we just blindly update them all.
             ::: to avoid that the hmax is updated twice :::*/
-        if(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))
+        if(Nodes[no].u.d.DependsOnLocalMass)
             no = Nodes[no].u.d.father;
 
         while(no >= 0)
