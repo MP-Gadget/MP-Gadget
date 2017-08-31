@@ -86,6 +86,7 @@ order_by_type_and_key(const void *a, const void *b)
 }
 
 #define NODECACHE_SIZE 100
+
 /*This checks that the force tree in Nodes is valid:
  * that it contains every particle and that each parent
  * node contains particles within the right subnode.*/
@@ -153,8 +154,10 @@ static void do_tree_test(const int numpart)
 {
     /*Sort by peano key so this is more realistic*/
     #pragma omp parallel for
-    for(int i=0; i<numpart; i++)
+    for(int i=0; i<numpart; i++) {
         P[i].Key = PEANO(P[i].Pos);
+        P[i].Mass = 1;
+    }
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = numpart;
     assert_true(Nodes);
@@ -178,6 +181,7 @@ static void do_tree_test(const int numpart)
     end = MPI_Wtime();
     ms = (end - start)*1000;
     printf("Updated moments in %.3g ms\n", ms);
+    assert_true(fabs(Nodes[numpart].u.d.mass - numpart) < 0.5);
 }
 
 static void test_rebuild_flat(void ** state) {
