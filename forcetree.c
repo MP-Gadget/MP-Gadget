@@ -162,29 +162,12 @@ int force_tree_build(int npart)
  *
  * shift is the level of the subnode to be returned, not the level of the parent node.
  * */
-int get_subnode(const struct NODE * node, const int p_i, const int shift, const morton_t *MortonKey)
+int get_subnode(const struct NODE * node, const int p_i)
 {
-    int subnode=0;
-    if(shift >= 0)
-    {
-        const morton_t morton = MortonKey[p_i];
-        /* Shift morton key to the right by shift bits,
-         * cutting the key at the correct tree level*/
-        subnode = ((morton >> shift) & 7);
-    }
-    else
-    {
-        /* This is rare: it implies a *very* deep tree.
-         * In practice you should hit the node length limit first.*/
-        message(1,"Your tree is extremely deep: particle %d at %g %g %g ran out of morton bits\n",
-                p_i, P[p_i].Pos[0], P[p_i].Pos[1], P[p_i].Pos[2]);
-        if(P[p_i].Pos[0] > node->center[0])
-            subnode += 1;
-        if(P[p_i].Pos[1] > node->center[1])
-            subnode += 2;
-        if(P[p_i].Pos[2] > node->center[2])
-            subnode += 4;
-    }
+    int subnode = 0;
+    int k;
+    for(k=0; k<3; k++)
+        subnode |= (P[p_i].Pos[k] > node->center[k]) << k;
     return subnode;
 }
 
@@ -229,7 +212,7 @@ int get_freenode(int * nfree, int *nfree_thread, int *numfree_thread)
 /* Parent is a node where the subnode we want to add a particle to is filled.
  * We add a new internal node at this subnode and try to add both the old and new particles to it.
  * Parent is assumed to be locked.*/
-int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, int shift, morton_t * MortonKey, const int lastnode, int *nfree, int *nfree_thread, int *numfree_thread, double minlen)
+int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, const int lastnode, int *nfree, int *nfree_thread, int *numfree_thread, double minlen)
 {
     /*Get memory for an extra node from our cache.*/
     int ninsert = get_freenode(nfree, nfree_thread, numfree_thread);
@@ -262,9 +245,9 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, in
 
     /* The new internal node replaced a particle in the parent.
      * Re-add that particle to the child.*/
-    const int child_subnode = get_subnode(nfreep, p_child, shift - 3, MortonKey);
+    const int child_subnode = get_subnode(nfreep, p_child);
 
-    const int new_subnode = get_subnode(nfreep, p_toplace, shift - 3, MortonKey);
+    const int new_subnode = get_subnode(nfreep, p_toplace);
 
     int ret = 0;
     /*If these two are different, great! Attach both particles to this new node*/
@@ -274,8 +257,7 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, in
     }
     /*Otherwise recurse and create a new node*/
     else {
-        shift -=3;
-        ret = insert_internal_node(ninsert, new_subnode, p_child, p_toplace, shift, MortonKey, lastnode, nfree, nfree_thread, numfree_thread, minlen);
+        ret = insert_internal_node(ninsert, new_subnode, p_child, p_toplace, lastnode, nfree, nfree_thread, numfree_thread, minlen);
     }
 
     /* Mark this node in the parent: this goes last
@@ -319,12 +301,6 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
     int nfree_thread=nfree;
     int numfree_thread=0;
     /* now we insert all particles */
-    /*Initialise the Morton Keys to save time later.*/
-    morton_t * MortonKey = mymalloc("MortonKeys",npart*sizeof(morton_t));
-    #pragma omp parallel for
-    for(i=0; i < npart; i++) {
-           MortonKey[i] = MORTON(P[i].Pos);
-    }
 #ifdef OPENMP_USE_SPINLOCK
     /*Initialise some spinlocks off*/
     pthread_spinlock_t * SpinLocks = mymalloc("NodeSpinlocks", (lastnode - firstnode)*sizeof(pthread_spinlock_t));
@@ -350,9 +326,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         do
         {
             /*We will always start with an internal node: find the desired subnode.*/
-            subnode = get_subnode(&Nodes[this], i, shift - 3, MortonKey);
-
-            shift -= 3;
+            subnode = get_subnode(&Nodes[this], i);
 
             /*No lock needed: if we have an internal node here it will be stable*/
             #pragma omp atomic read
@@ -385,8 +359,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
 #endif
             this = child;
             /*New subnode*/
-            subnode = get_subnode(&Nodes[this], i, shift -3, MortonKey);
-            shift -= 3;
+            subnode = get_subnode(&Nodes[this], i);
             #pragma omp atomic read
             child = Nodes[this].u.suns[subnode];
         }
@@ -405,7 +378,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
              * with a full (positive) subnode in subnode, containing a real particle.
              * We split this node (making it an internal node) and try to add our particle to the new split node.*/
             const double minlen = 1.0e-3 * All.ForceSoftening[1];
-            insert_internal_node(this, subnode, child, i, shift, MortonKey, lastnode, &nfree, &nfree_thread, &numfree_thread, minlen);
+            insert_internal_node(this, subnode, child, i, lastnode, &nfree, &nfree_thread, &numfree_thread, minlen);
         }
 #ifdef OPENMP_USE_SPINLOCK
         /*Unlock the parent*/
@@ -420,7 +393,6 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
     int * ss = (int *) SpinLocks;
     myfree(ss);
 #endif
-    myfree(MortonKey);
     return nfree - firstnode;
 }
 
