@@ -607,175 +607,175 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
     if(no < firstnode || no >= lastnode)
         return tail;
 
-        int count_particles=0, multiple_flag;
+    int count_particles=0, multiple_flag;
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-        int maxsofttype=7, current_maxsofttype, diffsoftflag = 0;
+    int maxsofttype=7, current_maxsofttype, diffsoftflag = 0;
 #else
-        MyFloat maxsoft=0;
+    MyFloat maxsoft=0;
 #endif
-        MyFloat hmax = 0;
-        MyFloat s[3] = {0}, mass = 0;
-        int j, suns[8];
-        /* this "backup" is necessary because the nextnode
-         * entry will overwrite one element (union!) */
-        for(j = 0; j < 8; j++)
-            suns[j] = Nodes[no].u.suns[j];
+    MyFloat hmax = 0;
+    MyFloat s[3] = {0}, mass = 0;
+    int j, suns[8];
+    /* this "backup" is necessary because the nextnode
+     * entry will overwrite one element (union!) */
+    for(j = 0; j < 8; j++)
+        suns[j] = Nodes[no].u.suns[j];
 
-        for(j = 0; j < 8; j++)
+    for(j = 0; j < 8; j++)
+    {
+        int nextsib = sib;
+        int p = suns[j];
+        int jj;
+        /*Empty slot*/
+        if(p < 0)
+            continue;
+
+        /* check if we have a sibling on the same level */
+        for(jj = j + 1; jj < 8; jj++)
+            if(suns[jj] >= 0) {
+                nextsib = suns[jj];
+                break;
+            }
+
+        tail = force_update_node_recursive(p, nextsib, no, tail, firstnode, lastnode);
+
+        if(p >= firstnode)	/* an internal node or pseudo particle */
         {
-            int nextsib = sib;
-            int p = suns[j];
-            int jj;
-            /*Empty slot*/
-            if(p < 0)
-                continue;
-
-            /* check if we have a sibling on the same level */
-            for(jj = j + 1; jj < 8; jj++)
-                if(suns[jj] >= 0) {
-                    nextsib = suns[jj];
-                    break;
-                }
-
-            tail = force_update_node_recursive(p, nextsib, no, tail, firstnode, lastnode);
-
-            if(p >= firstnode)	/* an internal node or pseudo particle */
+            if(p >= lastnode)	/* a pseudo particle */
             {
-                if(p >= lastnode)	/* a pseudo particle */
+                /* nothing to be done here because the mass of the
+                 * pseudo-particle is still zero. This will be changed
+                 * later.
+                 */
+            }
+            else
+            {
+                mass += (Nodes[p].u.d.mass);
+                s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
+                s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
+                s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
+
+                if(Nodes[p].u.d.mass > 0)
                 {
-                    /* nothing to be done here because the mass of the
-                     * pseudo-particle is still zero. This will be changed
-                     * later.
-                     */
+                    if(Nodes[p].u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES))
+                        count_particles += 2;
+                    else
+                        count_particles++;
                 }
+
+                if(Nodes[p].hmax > hmax)
+                    hmax = Nodes[p].hmax;
+
+#ifndef ADAPTIVE_GRAVSOFT_FORGAS
+                diffsoftflag |= maskout_different_softening_flag(Nodes[p].u.d.bitflags);
+
+                if(maxsofttype == 7)
+                    maxsofttype = extract_max_softening_type(Nodes[p].u.d.bitflags);
                 else
                 {
-                    mass += (Nodes[p].u.d.mass);
-                    s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
-                    s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
-                    s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
-
-                    if(Nodes[p].u.d.mass > 0)
+                    current_maxsofttype = extract_max_softening_type(Nodes[p].u.d.bitflags);
+                    if(current_maxsofttype != 7)
                     {
-                        if(Nodes[p].u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES))
-                            count_particles += 2;
-                        else
-                            count_particles++;
-                    }
-
-                    if(Nodes[p].hmax > hmax)
-                        hmax = Nodes[p].hmax;
-
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
-                    diffsoftflag |= maskout_different_softening_flag(Nodes[p].u.d.bitflags);
-
-                    if(maxsofttype == 7)
-                        maxsofttype = extract_max_softening_type(Nodes[p].u.d.bitflags);
-                    else
-                    {
-                        current_maxsofttype = extract_max_softening_type(Nodes[p].u.d.bitflags);
-                        if(current_maxsofttype != 7)
+                        if(All.ForceSoftening[current_maxsofttype] > All.ForceSoftening[maxsofttype])
                         {
-                            if(All.ForceSoftening[current_maxsofttype] > All.ForceSoftening[maxsofttype])
-                            {
-                                maxsofttype = current_maxsofttype;
+                            maxsofttype = current_maxsofttype;
+                            diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
+                        }
+                        else
+                        {
+                            if(All.ForceSoftening[current_maxsofttype] <
+                                    All.ForceSoftening[maxsofttype])
                                 diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
-                            }
-                            else
-                            {
-                                if(All.ForceSoftening[current_maxsofttype] <
-                                        All.ForceSoftening[maxsofttype])
-                                    diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
-                            }
                         }
                     }
-#else
-                    if(Nodes[p].maxsoft > maxsoft)
-                        maxsoft = Nodes[p].maxsoft;
-#endif
                 }
+#else
+                if(Nodes[p].maxsoft > maxsoft)
+                    maxsoft = Nodes[p].maxsoft;
+#endif
             }
-            else		/* a particle */
+        }
+        else		/* a particle */
+        {
+            struct particle_data *pa = &P[p];
+            count_particles++;
+
+            mass += (pa->Mass);
+            s[0] += (pa->Mass * pa->Pos[0]);
+            s[1] += (pa->Mass * pa->Pos[1]);
+            s[2] += (pa->Mass * pa->Pos[2]);
+
+            if(pa->Type == 0)
             {
-                struct particle_data *pa = &P[p];
-                count_particles++;
-
-                mass += (pa->Mass);
-                s[0] += (pa->Mass * pa->Pos[0]);
-                s[1] += (pa->Mass * pa->Pos[1]);
-                s[2] += (pa->Mass * pa->Pos[2]);
-
-                if(pa->Type == 0)
-                {
-                    if(P[p].Hsml > hmax)
-                        hmax = P[p].Hsml;
-                }
+                if(P[p].Hsml > hmax)
+                    hmax = P[p].Hsml;
+            }
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-               if(maxsofttype == 7)
+           if(maxsofttype == 7)
+               maxsofttype = pa->Type;
+           else
+           {
+               if(All.ForceSoftening[pa->Type] > All.ForceSoftening[maxsofttype])
+               {
                    maxsofttype = pa->Type;
+                   diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
+               }
                else
                {
-                   if(All.ForceSoftening[pa->Type] > All.ForceSoftening[maxsofttype])
-                   {
-                       maxsofttype = pa->Type;
+                   if(All.ForceSoftening[pa->Type] < All.ForceSoftening[maxsofttype])
                        diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
-                   }
-                   else
-                   {
-                       if(All.ForceSoftening[pa->Type] < All.ForceSoftening[maxsofttype])
-                           diffsoftflag = (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE);
-                   }
                }
-#else
-               if(pa->Type == 0)
-               {
-                   if(P[p].Hsml > maxsoft)
-                       maxsoft = P[p].Hsml;
-               }
-               else
-               {
-                   if(All.ForceSoftening[pa->Type] > maxsoft)
-                       maxsoft = All.ForceSoftening[pa->Type];
-               }
-#endif
            }
-        }
+#else
+           if(pa->Type == 0)
+           {
+               if(P[p].Hsml > maxsoft)
+                   maxsoft = P[p].Hsml;
+           }
+           else
+           {
+               if(All.ForceSoftening[pa->Type] > maxsoft)
+                   maxsoft = All.ForceSoftening[pa->Type];
+           }
+#endif
+       }
+    }
 
 
-        if(mass)
-        {
-            s[0] /= mass;
-            s[1] /= mass;
-            s[2] /= mass;
-        }
-        else
-        {
-            s[0] = Nodes[no].center[0];
-            s[1] = Nodes[no].center[1];
-            s[2] = Nodes[no].center[2];
-        }
+    if(mass)
+    {
+        s[0] /= mass;
+        s[1] /= mass;
+        s[2] /= mass;
+    }
+    else
+    {
+        s[0] = Nodes[no].center[0];
+        s[1] = Nodes[no].center[1];
+        s[2] = Nodes[no].center[2];
+    }
 
-        Nodes[no].u.d.mass = mass;
-        Nodes[no].u.d.s[0] = s[0];
-        Nodes[no].u.d.s[1] = s[1];
-        Nodes[no].u.d.s[2] = s[2];
+    Nodes[no].u.d.mass = mass;
+    Nodes[no].u.d.s[0] = s[0];
+    Nodes[no].u.d.s[1] = s[1];
+    Nodes[no].u.d.s[2] = s[2];
 
-        Nodes[no].hmax = hmax;
+    Nodes[no].hmax = hmax;
 
-        if(count_particles > 1)	/* this flags that the node represents more than one particle */
-            multiple_flag = (1 << BITFLAG_MULTIPLEPARTICLES);
-        else
-            multiple_flag = 0;
+    if(count_particles > 1)	/* this flags that the node represents more than one particle */
+        multiple_flag = (1 << BITFLAG_MULTIPLEPARTICLES);
+    else
+        multiple_flag = 0;
 
-        Nodes[no].u.d.bitflags = multiple_flag;
+    Nodes[no].u.d.bitflags = multiple_flag;
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-        Nodes[no].u.d.bitflags |= diffsoftflag + (maxsofttype << BITFLAG_MAX_SOFTENING_TYPE);
+    Nodes[no].u.d.bitflags |= diffsoftflag + (maxsofttype << BITFLAG_MAX_SOFTENING_TYPE);
 #else
-        Nodes[no].maxsoft = maxsoft;
+    Nodes[no].maxsoft = maxsoft;
 #endif
-        Nodes[no].u.d.sibling = sib;
-        Nodes[no].u.d.father = father;
+    Nodes[no].u.d.sibling = sib;
+    Nodes[no].u.d.father = father;
 
     return tail;
 }
