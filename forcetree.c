@@ -171,6 +171,19 @@ int get_subnode(const struct NODE * node, const int p_i)
     return subnode;
 }
 
+/*Check whether a particle is inside the volume covered by a node*/
+static inline int inside_node(const struct NODE * node, const int p_i)
+{
+    int k;
+    for(k=0; k<3; k++) {
+        double pdiff = 2*(P[p_i].Pos[k] - node->center[k]);
+        pdiff = pdiff > 0 ? pdiff : -1*pdiff;
+        if(pdiff > node->len)
+            return 0;
+    }
+    return 1;
+}
+
 /*Initialise an internal node at nfreep. The parent is assumed to be locked, and
  * we have assured that nothing else will change nfreep while we are here.*/
 static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int subnode)
@@ -300,6 +313,9 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
      * parallelizing this loop!*/
     int nfree_thread=nfree;
     int numfree_thread=0;
+    /* Stores the last-seen node on this thread.
+     * Since most particles are close to each other, this should save a number of tree walks.*/
+    int this_acc = firstnode;
     /* now we insert all particles */
 #ifdef OPENMP_USE_SPINLOCK
     /*Initialise some spinlocks off*/
@@ -307,8 +323,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
     for(i=0; i < lastnode - firstnode; i++) {
         pthread_spin_init(&SpinLocks[i],PTHREAD_PROCESS_PRIVATE);
     }
-
-    #pragma omp parallel for firstprivate(nfree_thread, numfree_thread)
+    #pragma omp parallel for firstprivate(nfree_thread, numfree_thread, this_acc)
 #endif
     for(i = 0; i < npart; i++)
     {
@@ -318,8 +333,13 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
 
         /*First find the Node for the TopLeaf */
 
-        const int topleaf = domain_get_topleaf(P[i].Key);
-        int this = TopLeaves[topleaf].treenode;
+        int this;
+        if(inside_node(&Nodes[this_acc], i)) {
+            this = this_acc;
+        } else {
+            const int topleaf = domain_get_topleaf(P[i].Key);
+            this = TopLeaves[topleaf].treenode;
+        }
         int child, subnode;
 
         /*Walk the main tree until we get something that isn't an internal node.*/
@@ -363,6 +383,8 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
             #pragma omp atomic read
             child = Nodes[this].u.suns[subnode];
         }
+        /*Update last-used cache*/
+        this_acc = this;
         /*Now we have something that isn't an internal node, and we have a lock on the parent,
          * so we know it won't change. We can place the particle!*/
         /* The easy case: we found an empty slot on this node,
