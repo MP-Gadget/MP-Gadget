@@ -787,7 +787,6 @@ void force_exchange_pseudodata(void)
             unsigned int MaxSofteningType :3; /* bits 2-4 */
             unsigned int MixedSofteningsInNode :1;
             unsigned int MultipleParticles :1;
-            unsigned int InsideLinkingLength :1;
         };
     }
     *TopLeafMoments;
@@ -808,7 +807,6 @@ void force_exchange_pseudodata(void)
         TopLeafMoments[i].MaxSofteningType = Nodes[no].u.d.MaxSofteningType;
         TopLeafMoments[i].MixedSofteningsInNode = Nodes[no].u.d.MixedSofteningsInNode;
         TopLeafMoments[i].MultipleParticles = Nodes[no].u.d.MultipleParticles;
-        TopLeafMoments[i].InsideLinkingLength = Nodes[no].u.d.InsideLinkingLength;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
         TopLeafMoments[i].maxsoft = Nodes[no].maxsoft;
 #endif
@@ -847,7 +845,6 @@ void force_exchange_pseudodata(void)
             Nodes[no].u.d.MaxSofteningType = TopLeafMoments[i].MaxSofteningType;
             Nodes[no].u.d.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
             Nodes[no].u.d.MultipleParticles = TopLeafMoments[i].MultipleParticles;
-            Nodes[no].u.d.InsideLinkingLength = TopLeafMoments[i].InsideLinkingLength;
 #ifdef ADAPTIVE_GRAVSOFT_FORGAS
             Nodes[no].maxsoft = TopLeafMoments[i].maxsoft;
 #endif
@@ -948,7 +945,6 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
         s[1] = Nodes[no].center[1];
         s[2] = Nodes[no].center[2];
     }
-
 
     Nodes[no].u.d.s[0] = s[0];
     Nodes[no].u.d.s[1] = s[1];

@@ -32,7 +32,6 @@ extern struct NODE
                 unsigned int MixedSofteningsInNode :1;
                 unsigned int InternalTopLevel :1; /* INTERNAL tree nodes and toplevel*/
                 unsigned int MultipleParticles :1;
-                unsigned int InsideLinkingLength :1;
             };
             int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
             int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
