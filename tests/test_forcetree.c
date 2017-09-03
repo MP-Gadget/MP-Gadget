@@ -90,7 +90,7 @@ static int check_moments(const int firstnode, const int lastnode, const int nump
         assert_true(fnode >= firstnode && fnode < lastnode);
         while(fnode >= 0) {
             Nodes[fnode].u.d.mass -= P[i].Mass;
-            fnode = Nodes[fnode].u.d.father;
+            fnode = Nodes[fnode].father;
             /*Validate father*/
             assert_true((fnode >= firstnode && fnode < lastnode) || fnode == -1);
         }
@@ -123,7 +123,7 @@ static int check_tree(const int firstnode, const int nnodes, const int numpart)
         struct NODE * pNode = &Nodes[i];
         int empty = 0;
         /*Just reserved free space with nothing in it*/
-        if(pNode->hmax < -0.5)
+        if(pNode->father < -1.5)
             continue;
 
         for(int j=0; j<8; j++) {
@@ -190,7 +190,7 @@ static void do_tree_test(const int numpart)
     assert_true(Nodes);
     /*So we know which nodes we have initialised*/
     for(int i=0; i< MaxNodes+1; i++)
-        Nodes_base[i].hmax = -1;
+        Nodes_base[i].father = -2;
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
@@ -207,7 +207,7 @@ static void do_tree_test(const int numpart)
 /*     assert_true(tail < nodes); */
     end = MPI_Wtime();
     ms = (end - start)*1000;
-    printf("Updated moments in %.3g ms\n", ms);
+    printf("Updated moments in %.3g ms. Total mass: %g\n", ms, Nodes[numpart].u.d.mass);
     assert_true(fabs(Nodes[numpart].u.d.mass - numpart) < 0.5);
     check_moments(numpart, numpart+maxnode, numpart, nrealnode);
 }

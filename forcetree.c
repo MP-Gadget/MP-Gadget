@@ -201,7 +201,6 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
             }
             for(j = 0; j < 8; j++)
                 nfreep->u.suns[j] = -1;
-            nfreep->hmax = 0;
 }
 
 /* Size of the free Node thread cache.
@@ -256,6 +255,8 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, co
     /* We create a new internal node with empty subnodes at the end of the array, and
      * use it to replace the particle in the parent's subnode.*/
     init_internal_node(nfreep, nprnt, subnode);
+    /*Set father of new node*/
+    nfreep->father = parent;
 
     /* The new internal node replaced a particle in the parent.
      * Re-add that particle to the child.*/
@@ -299,7 +300,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
             nfreep->center[i] = All.BoxSize/2.;
         for(i = 0; i < 8; i++)
             nfreep->u.suns[i] = -1;
-        nfreep->hmax = 0;
+        nfreep->father = -1;
         nfree++;
         /* create a set of empty nodes corresponding to the top-level domain
          * grid. We need to generate these nodes first to make sure that we have a
@@ -484,10 +485,11 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
                     Nodes[*nextfree].center[0] = Nodes[no].center[0] + (2 * i - 1) * lenhalf;
                     Nodes[*nextfree].center[1] = Nodes[no].center[1] + (2 * j - 1) * lenhalf;
                     Nodes[*nextfree].center[2] = Nodes[no].center[2] + (2 * k - 1) * lenhalf;
+                    Nodes[*nextfree].father = no;
 
                     for(n = 0; n < 8; n++)
                         Nodes[*nextfree].u.suns[n] = -1;
-                    Nodes[*nextfree].hmax = 0;
+                    Nodes[*nextfree].u.d.hmax = 0;
 
                     if(TopNodes[TopNodes[topnode].Daughter + sub].Daughter == -1)
                         TopLeaves[TopNodes[TopNodes[topnode].Daughter + sub].Leaf].treenode = *nextfree;
@@ -618,8 +620,8 @@ add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * pa
 
             if(pa->Type == 0)
             {
-                if(pa->Hsml > pnode->hmax)
-                    pnode->hmax = pa->Hsml;
+                if(pa->Hsml > pnode->u.d.hmax)
+                    pnode->u.d.hmax = pa->Hsml;
             }
 
             force_set_node_softening(pnode, pa->Type, pa->Hsml);
@@ -706,10 +708,10 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
                 count_particles++;
             }
 
-            if(Nodes[p].hmax > Nodes[no].hmax)
-                Nodes[no].hmax = Nodes[p].hmax;
+            if(Nodes[p].u.d.hmax > Nodes[no].u.d.hmax)
+                Nodes[no].u.d.hmax = Nodes[p].u.d.hmax;
 
-            force_set_node_softening(&Nodes[no], Nodes[p].u.d.MaxSofteningType, Nodes[p].hmax);
+            force_set_node_softening(&Nodes[no], Nodes[p].u.d.MaxSofteningType, Nodes[p].u.d.hmax);
         }
         else		/* a particle */
         {
@@ -737,7 +739,6 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
     }
 
     Nodes[no].u.d.sibling = sib;
-    Nodes[no].u.d.father = father;
 
     return tail;
 }
@@ -781,7 +782,7 @@ void force_exchange_pseudodata(void)
         TopLeafMoments[i].s[1] = Nodes[no].u.d.s[1];
         TopLeafMoments[i].s[2] = Nodes[no].u.d.s[2];
         TopLeafMoments[i].mass = Nodes[no].u.d.mass;
-        TopLeafMoments[i].hmax = Nodes[no].hmax;
+        TopLeafMoments[i].hmax = Nodes[no].u.d.hmax;
         TopLeafMoments[i].MaxSofteningType = Nodes[no].u.d.MaxSofteningType;
         TopLeafMoments[i].MixedSofteningsInNode = Nodes[no].u.d.MixedSofteningsInNode;
         TopLeafMoments[i].MultipleParticles = Nodes[no].u.d.MultipleParticles;
@@ -819,7 +820,7 @@ void force_exchange_pseudodata(void)
             Nodes[no].u.d.s[1] = TopLeafMoments[i].s[1];
             Nodes[no].u.d.s[2] = TopLeafMoments[i].s[2];
             Nodes[no].u.d.mass = TopLeafMoments[i].mass;
-            Nodes[no].hmax = TopLeafMoments[i].hmax;
+            Nodes[no].u.d.hmax = TopLeafMoments[i].hmax;
             Nodes[no].u.d.MaxSofteningType = TopLeafMoments[i].MaxSofteningType;
             Nodes[no].u.d.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
             Nodes[no].u.d.MultipleParticles = TopLeafMoments[i].MultipleParticles;
@@ -873,8 +874,8 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
             s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
             s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
 
-            if(Nodes[p].hmax > hmax)
-                hmax = Nodes[p].hmax;
+            if(Nodes[p].u.d.hmax > hmax)
+                hmax = Nodes[p].u.d.hmax;
 
             if(Nodes[p].u.d.mass > 0)
             {
@@ -929,7 +930,7 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
     Nodes[no].u.d.s[2] = s[2];
     Nodes[no].u.d.mass = mass;
 
-    Nodes[no].hmax = hmax;
+    Nodes[no].u.d.hmax = hmax;
 
     Nodes[no].u.d.MultipleParticles = (count_particles > 1);
 
@@ -963,13 +964,13 @@ force_flag_localnodes(void)
 
             Nodes[no].u.d.TopLevel =1;
 
-            no = Nodes[no].u.d.father;
+            no = Nodes[no].father;
         }
 
         /* mark also internal top level nodes */
 
         no = TopLeaves[i].treenode;
-        no = Nodes[no].u.d.father;
+        no = Nodes[no].father;
 
         while(no >= 0)
         {
@@ -978,7 +979,7 @@ force_flag_localnodes(void)
 
             Nodes[no].u.d.InternalTopLevel = 1;
 
-            no = Nodes[no].u.d.father;
+            no = Nodes[no].father;
         }
     }
 
@@ -998,7 +999,7 @@ force_flag_localnodes(void)
 
             Nodes[no].u.d.DependsOnLocalMass = 1;
 
-            no = Nodes[no].u.d.father;
+            no = Nodes[no].father;
         }
     }
 }
@@ -1048,22 +1049,22 @@ void force_update_hmax(int * activeset, int size)
 
         while(no >= 0)
         {
-            if(P[p_i].Hsml <= Nodes[no].hmax) break;
+            if(P[p_i].Hsml <= Nodes[no].u.d.hmax) break;
 
-            Nodes[no].hmax = P[p_i].Hsml;
+            Nodes[no].u.d.hmax = P[p_i].Hsml;
 
             if(Nodes[no].u.d.TopLevel) /* we reached a top-level node */
             {
                 if (!NodeIsDirty[no - All.MaxPart]) {
                     NodeIsDirty[no - All.MaxPart] = 1;
                     DirtyTopLevelNodes[NumDirtyTopLevelNodes].treenode = no;
-                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = Nodes[no].hmax;
+                    DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = Nodes[no].u.d.hmax;
                     NumDirtyTopLevelNodes ++;
                 }
                 break;
             }
 
-            no = Nodes[no].u.d.father;
+            no = Nodes[no].father;
         }
     }
 
@@ -1100,15 +1101,15 @@ void force_update_hmax(int * activeset, int size)
         /* FIXME: why does this matter? The logic is simpler if we just blindly update them all.
             ::: to avoid that the hmax is updated twice :::*/
         if(Nodes[no].u.d.DependsOnLocalMass)
-            no = Nodes[no].u.d.father;
+            no = Nodes[no].father;
 
         while(no >= 0)
         {
-            if(DirtyTopLevelNodes[i].hmax <= Nodes[no].hmax) break;
+            if(DirtyTopLevelNodes[i].hmax <= Nodes[no].u.d.hmax) break;
 
-            Nodes[no].hmax = DirtyTopLevelNodes[i].hmax;
+            Nodes[no].u.d.hmax = DirtyTopLevelNodes[i].hmax;
 
-            no = Nodes[no].u.d.father;
+            no = Nodes[no].father;
         }
     }
 

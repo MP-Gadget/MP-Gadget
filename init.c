@@ -224,7 +224,7 @@ setup_smoothinglengths(int RestartSnapNum)
             }
             while(10 * All.DesNumNgb * P[i].Mass > massfactor * Nodes[no].u.d.mass)
             {
-                int p = Nodes[no].u.d.father;
+                int p = Nodes[no].father;
 
                 if(p < 0)
                     break;

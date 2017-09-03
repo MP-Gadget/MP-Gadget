@@ -17,7 +17,7 @@ extern struct NODE
     MyFloat maxsoft;		/*!< hold the maximum gravitational softening of particle in the
                               node if the ADAPTIVE_GRAVSOFT_FORGAS option is selected */
 #endif
-    MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
+    int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
     union
     {
         int suns[8];		/*!< temporary pointers to daughter nodes */
@@ -35,7 +35,7 @@ extern struct NODE
             };
             int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
             int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
-            int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
+            MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
         }
         d;
     }
