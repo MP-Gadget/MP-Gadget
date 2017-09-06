@@ -4,7 +4,6 @@
 #include <string.h>
 #include <math.h>
 #include <gsl/gsl_math.h>
-
 #include "mymalloc.h"
 #include "endrun.h"
 
@@ -62,6 +61,14 @@ void mymalloc_init(size_t limit)
     {
         endrun(122, "Failed to allocate memory for `Base' (%d Mbytes).\n", n / (1024. * 1024));
     }
+
+
+    /* Pre-fault all pages in main storage. On a system without swap this effectively lock all pages.
+     * Added to avoid phys memory fragmentation during the run.
+     * This won't help fragmentation due to the stack growth or due to glibc malloc.
+     * */
+    memset(Base, 0, n);
+
     Base = (char*) align_size((size_t) Base);
 #else
     Base = NULL;
