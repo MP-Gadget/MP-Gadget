@@ -87,7 +87,7 @@ static void walltime_clock_insert(char * name) {
         for(p = tmp + 1; *p; p ++) {
             if (*p == '/') {
                 *p = 0;
-                parent = walltime_clock(tmp);
+                walltime_clock(tmp);
                 *p = '/';
             }
         }
