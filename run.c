@@ -57,7 +57,9 @@ void run(void)
     walltime_measure("/Misc");
 
     write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
-    inttime_t Ti_nextoutput = find_next_outputtime(All.Ti_Current);
+
+    /* find the first output time, -1 is to allow immediate output at first step. */
+    inttime_t Ti_nextoutput = find_next_outputtime(All.Ti_Current - 1);
 
     do /* main loop */
     {
@@ -118,7 +120,6 @@ void run(void)
         }
 
         int WillOutput = is_PM && (All.Ti_Current >= Ti_nextoutput);
-
         /* Sync positions of all particles */
         drift_all_particles(All.Ti_Current);
 
