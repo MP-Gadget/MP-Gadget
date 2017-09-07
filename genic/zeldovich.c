@@ -235,8 +235,8 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
             gsl_rng_set(random_generator1, seedtable[i * Nmesh + j]);
 
             /* two skips to maintains consistency of generators in lower quandrant */
-            double skip = gsl_rng_uniform(random_generator1);
-            skip = gsl_rng_uniform(random_generator1);
+            gsl_rng_uniform(random_generator1);
+            gsl_rng_uniform(random_generator1);
             int k;
             for(k = 0; k <= Nmesh / 2; k ++) {
                 /* on k = 0 plane, we use the lower quadrant generator, 
