@@ -171,7 +171,6 @@ extern int NumPart;		/*!< number of particles on the LOCAL processor */
 /* Local number of particles; this is accurate after a GC */
 extern int64_t NLocal[6];
 extern int64_t NTotal[6];
-extern int64_t TotNumPart;
 
 /* Number of used BHP slots */
 extern int N_bh_slots;

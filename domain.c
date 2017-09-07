@@ -121,9 +121,6 @@ static int domain_allocated_flag = 0;
  */
 void domain_decompose_full(void)
 {
-    sumup_large_ints(1, &NumPart, &TotNumPart);
-
-    int retsum;
     double t0, t1;
 
     walltime_measure("/Misc");

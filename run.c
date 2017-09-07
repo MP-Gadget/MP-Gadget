@@ -413,6 +413,9 @@ void every_timestep_stuff(int NumForce, int NumCurrentTiStep)
                 All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                 extra);
 
+    int64_t TotNumPart = 0;
+    for(i = 0; i < 6; i ++) TotNumPart += NTotal[i];
+
     message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
                 TotNumPart, NTotal[0], NTotal[5], NTotal[4]);
     message(0,     "Occupied: % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);

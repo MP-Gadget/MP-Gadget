@@ -20,7 +20,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
 static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh);
 
 static void domain_count_particles();
-static void domain_refresh_totals();
 
 int domain_exchange(int (*layoutfunc)(int p)) {
     int i;
@@ -608,21 +607,5 @@ void domain_count_particles()
             }
         }
     }
-    domain_refresh_totals();
-}
-
-void
-domain_refresh_totals()
-{
-    int ptype;
-    /* because NTotal[] is of type `int64_t', we cannot do a simple
-     * MPI_Allreduce() to sum the total particle numbers 
-     */
     MPI_Allreduce(NLocal, NTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
-
-    TotNumPart = 0;
-    for(ptype = 0; ptype < 6; ptype ++) {
-        TotNumPart += NTotal[ptype];
-    }
 }
-

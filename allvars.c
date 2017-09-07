@@ -34,7 +34,6 @@ int RestartSnapNum;
 int NumPart;
 int64_t NLocal[6];
 int64_t NTotal[6];
-int64_t TotNumPart;
 int N_bh_slots;
 int N_sph_slots;
 
