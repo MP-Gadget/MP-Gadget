@@ -144,6 +144,8 @@ int force_tree_build(int npart)
  * tree we are currently at.
  * Returns a value between 0 and 7. If particles are very close,
  * the tree subnode is randomised.
+ *
+ * shift is the level of the subnode to be returned, not the level of the parent node.
  * */
 int get_subnode(const struct NODE * node, const int nodepos, const int p_i, const int shift, const morton_t *MortonKey)
 {
@@ -249,14 +251,14 @@ int force_tree_build_single(int npart)
         /*First find the Node for the TopLeaf */
 
         int shift;
-        int this = domain_get_topleaf_with_shift(P[i].Key, &shift);
-        this = TopLeaves[this].topnode;
+        int topleaf = domain_get_topleaf_with_shift(P[i].Key, &shift);
+        int this = TopLeaves[topleaf].treenode;
 
         /*Now walk the main tree*/
         while(1)
         {
             /*We will always start with an internal node: find the desired subnode.*/
-            const int subnode = get_subnode(&Nodes[this], this, i, shift, MortonKey);
+            const int subnode = get_subnode(&Nodes[this], this, i, shift - 3, MortonKey);
 
             shift -= 3;
 
