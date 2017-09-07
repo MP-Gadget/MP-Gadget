@@ -78,24 +78,41 @@ void petaio_save_restart() {
 }
 */
 
-/*Build a list of the first particle of each type on the current processor.
+/* Build a list of the first particle of each type on the current processor.
  * This assumes that all particles are sorted!*/
-static void petaio_build_selection(int *Nstart, const int NumPart) {
+/**
+ * Create a Selection array for the buffers. This array indirectly sort
+ * the particles by the type.
+ *
+ * The offset for the starting of each type is stored in ptype_offset.
+ *
+ * if select_func is provided, it shall return 1 for those that shall be 
+ * included in the output.
+ */
+void
+petaio_build_selection(int * selection,
+    int * ptype_offset,
+    int * ptype_count,
+    const int NumPart,
+    int (*select_func)(int i)
+    )
+{
     int i;
-    int ptype = -1;
+    ptype_offset[0] = 0;
+    ptype_count[0] = 0;
+
+    for(i = 1; i < 6; i ++) {
+        ptype_offset[i] = ptype_offset[i-1] + NLocal[i - 1];
+        ptype_count[i] = 0;
+    }
 
     for(i = 0; i < NumPart; i ++) {
-        if(P[i].Type != ptype)
-        {
-            if(P[i].Type < ptype)
-                endrun(5, "Particles not sorted by type during IO\n");
-            ptype = P[i].Type;
-            Nstart[ptype] = i;
+        int ptype = P[i].Type;
+        if((select_func == NULL) || (select_func(i) != 0)) {
+            selection[ptype_offset[ptype] + ptype_count[ptype]] = i;
+            ptype_count[ptype] ++;
         }
     }
-    /*Set remaining values*/
-    for(i = ptype+1; i< 6; i++)
-        Nstart[i] = NumPart;
 }
 
 static void petaio_save_internal(char * fname) {
@@ -106,8 +123,12 @@ static void petaio_save_internal(char * fname) {
     }
     petaio_write_header(&bf); 
 
-    int Nstart[6]={0};
-    petaio_build_selection(Nstart, NumPart);
+    int ptype_offset[6]={0};
+    int ptype_count[6]={0};
+
+    int * selection = mymalloc("Selection", sizeof(int) * NumPart);
+
+    petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, NULL);
     int i;
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -119,14 +140,17 @@ static void petaio_save_internal(char * fname) {
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-        petaio_build_buffer(&array, &IOTable.ent[i], NULL, Nstart[ptype], NLocal[ptype]);
+        petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
+
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)){
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
+
+    myfree(selection);
 }
 
 void petaio_read_internal(char * fname, int ic) {
@@ -439,10 +463,15 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
  * NOTE: selected range should contain only one particle type!
 */
 void
-petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int StartSelection, const int NumSelection)
+petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection)
 {
+    if(selection == NULL) {
+        endrun(-1, "NULL seletion is not supported\n");
+    }
+
     /* don't forget to free buffer after its done*/
     petaio_alloc_buffer(array, ent, NumSelection);
+
     /* Fast code path if there are no such particles */
     if(NumSelection == 0) {
         return;
@@ -458,10 +487,11 @@ petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection,
         /* fill the buffer */
         char * p = array->data;
         p += array->strides[0] * start;
-        for(i = start + StartSelection; i < end + StartSelection; i ++) {
-            const int j = (selection ? selection[i] : i);
-            if(P[j].Type != ent->ptype)
+        for(i = start; i < end; i ++) {
+            const int j = selection[i];
+            if(P[j].Type != ent->ptype) {
                 endrun(2, "Selection %d has type = %d != %d\n", j, P[j].Type, ent->ptype);
+            }
             ent->getter(j, p);
             p += array->strides[0];
         }
@@ -532,7 +562,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
     }
 
     if(size > 0) {
-        message(0, "Will write %td particles to %d Files\n", size, NumFiles);
+        message(0, "Will write %td particles to %d Files for %s\n", size, NumFiles, blockname);
     }
     /* create the block */
     /* dims[1] is the number of members per item */

@@ -20,7 +20,7 @@ typedef struct IOTableEntry {
 
 void petaio_init();
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t npartLocal);
-void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int StartSelection, const int NumSelection);
+void petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int size);
 void petaio_readout_buffer(BigArray * array, IOTableEntry * ent);
 void petaio_destroy_buffer(BigArray * array);
 
@@ -31,6 +31,14 @@ void petaio_save_snapshot(const char * fmt, ...);
 void petaio_save_restart();
 void petaio_read_snapshot(int num);
 void petaio_read_header(int num);
+
+void
+petaio_build_selection(int * selection,
+    int * ptype_offset,
+    int * ptype_count,
+    const int NumPart,
+    int (*select_func)(int i)
+    );
 /* 
  * Declares a io block with name (literal, not a string) 
  * 
