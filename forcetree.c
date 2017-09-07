@@ -116,9 +116,6 @@ int force_tree_build(int npart)
             if(All.TreeAllocFactor > 5.0)
             {
                 message(0, "An excessively large number of tree nodes were required, stopping with particle dump.\n");
-                /*Sort the particles before writing:
-                 * we do not guarantee sorted after a domain_maintain.*/
-                qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
                 savepositions(999999, 0);
                 endrun(0, "Too many tree nodes, snapshot saved.");
             }

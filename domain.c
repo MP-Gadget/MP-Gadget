@@ -73,6 +73,8 @@ static int
 order_by_key(const void *a, const void *b);
 static void
 mp_order_by_key(const void * data, void * radix, void * arg);
+static int
+order_by_type_and_key(const void *a, const void *b);
 
 static void
 domain_assign_balanced(int64_t * cost);
