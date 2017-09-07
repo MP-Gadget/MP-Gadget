@@ -129,7 +129,6 @@ static void petaio_save_internal(char * fname) {
     int * selection = mymalloc("Selection", sizeof(int) * NumPart);
 
     petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, NULL);
-
     int i;
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -563,7 +562,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
     }
 
     if(size > 0) {
-        message(0, "Will write %td particles to %d Files\n", size, NumFiles);
+        message(0, "Will write %td particles to %d Files for %s\n", size, NumFiles, blockname);
     }
     /* create the block */
     /* dims[1] is the number of members per item */

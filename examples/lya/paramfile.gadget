@@ -49,7 +49,7 @@ MaxRMSDisplacementFac = 0.2
 CourantFac = 0.15     
 
 MaxSizeTimestep = 0.1
-MinSizeTimestep = 0.05
+MinSizeTimestep = 0.00
 
 # Tree algorithm, force accuracy, domain update frequency
 
