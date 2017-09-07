@@ -108,7 +108,7 @@ petaio_build_selection(int * selection,
 
     for(i = 0; i < NumPart; i ++) {
         int ptype = P[i].Type;
-        if(select_func && select_func(i)) {
+        if((select_func == NULL) || (select_func(i) != 0)) {
             selection[ptype_offset[ptype] + ptype_count[ptype]] = i;
             ptype_count[ptype] ++;
         }
