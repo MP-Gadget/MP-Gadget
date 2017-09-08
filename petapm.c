@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdint.h>
 /* do NOT use complex.h it breaks the code */
 
 #include "petapm.h"
@@ -10,6 +11,7 @@
 #include "mymalloc.h"
 #include "walltime.h"
 #include "endrun.h"
+#include "system.h"
 
 /* a layout is the communication object, represent 
  * pencil / cells exchanged  */
@@ -507,7 +509,7 @@ static void layout_exchange_pencils(struct Layout * L) {
         offset += L->NpSend[i];
     }
 
-    MPI_Alltoallv(
+    MPI_Alltoallv_smart(
             L->PencilSend, L->NpSend, L->DpSend, MPI_PENCIL,
             L->PencilRecv, L->NpRecv, L->DpRecv, MPI_PENCIL, 
             MPI_COMM_WORLD);
@@ -564,7 +566,7 @@ static void layout_build_and_exchange_cells_to_pfft(struct Layout * L) {
     }
 
     /* receive cells */
-    MPI_Alltoallv(
+    MPI_Alltoallv_smart(
             L->BufSend, L->NcSend, L->DcSend, MPI_DOUBLE,
             L->BufRecv, L->NcRecv, L->DcRecv, MPI_DOUBLE, 
             MPI_COMM_WORLD);
@@ -607,7 +609,7 @@ static void layout_build_and_exchange_cells_to_local(struct Layout * L) {
 
     /* exchange cells */
     /* notice the order is reversed from to_pfft */
-    MPI_Alltoallv(
+    MPI_Alltoallv_smart(
             L->BufRecv, L->NcRecv, L->DcRecv, MPI_DOUBLE, 
             L->BufSend, L->NcSend, L->DcSend, MPI_DOUBLE,
             MPI_COMM_WORLD);

@@ -250,17 +250,17 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
     if(N_bh_slots > All.MaxPartBh)
         endrun(787878, "Task=%d N_bh=%d All.MaxPartBh=%d\n", ThisTask, N_bh_slots, All.MaxPartBh);
 
-    MPI_Alltoallv_sparse(partBuf, count, offset, MPI_TYPE_PARTICLE,
+    MPI_Alltoallv_smart(partBuf, count, offset, MPI_TYPE_PARTICLE,
                  P, count_recv, offset_recv, MPI_TYPE_PARTICLE,
                  MPI_COMM_WORLD);
     walltime_measure("/Domain/exchange/alltoall");
 
-    MPI_Alltoallv_sparse(sphBuf, count_sph, offset_sph, MPI_TYPE_SPHPARTICLE,
+    MPI_Alltoallv_smart(sphBuf, count_sph, offset_sph, MPI_TYPE_SPHPARTICLE,
                  SphP, count_recv_sph, offset_recv_sph, MPI_TYPE_SPHPARTICLE,
                  MPI_COMM_WORLD);
     walltime_measure("/Domain/exchange/alltoall");
 
-    MPI_Alltoallv_sparse(bhBuf, count_bh, offset_bh, MPI_TYPE_BHPARTICLE,
+    MPI_Alltoallv_smart(bhBuf, count_bh, offset_bh, MPI_TYPE_BHPARTICLE,
                 BhP, count_recv_bh, offset_recv_bh, MPI_TYPE_BHPARTICLE,
                 MPI_COMM_WORLD);
     walltime_measure("/Domain/exchange/alltoall");

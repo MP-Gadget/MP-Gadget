@@ -29,6 +29,10 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
 
+int MPI_Alltoallv_sparseI(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
+
 double timediff(double t0, double t1);
 double second(void);
 size_t sizemax(size_t a, size_t b);

@@ -15,6 +15,7 @@
 #include "allvars.h"
 #include "system.h"
 #include "mymalloc.h"
+#include "endrun.h"
 
 
 #define  RNDTABLE 8192
@@ -221,6 +222,9 @@ size_t sizemax(size_t a, size_t b)
     return a;
 }
 
+/* if more than this much data is exchanged on any rank, throttle */
+size_t MPI_Alltoallv_throttle_limit = 200 * 1024 * 1024;
+
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) 
@@ -231,6 +235,7 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
  * data.
  * */
 {
+
     int ThisTask;
     int NTask;
     MPI_Comm_rank(comm, &ThisTask);
@@ -242,18 +247,22 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
             nn ++;
         }
     }
+
     if(recvcnts == NULL) {
         recvcnts = alloca(sizeof(int) * NTask);
         MPI_Alltoall(sendcnts, 1, MPI_INT,
                      recvcnts, 1, MPI_INT, comm);
     }
-    if(recvbuf == NULL) {
-        int totalrecv = 0;
-        for(i = 0; i < NTask; i ++) {
-            totalrecv += recvcnts[i];
-        }
+
+    int totalrecv = 0;
+    for(i = 0; i < NTask; i ++) {
+        totalrecv += recvcnts[i];
+    }
+
+    if(recvbuf == NULL) { /* compute size of recv buffer */
         return totalrecv;
     }
+
     if(sdispls == NULL) {
         sdispls = alloca(sizeof(int) * NTask);
         sdispls[0] = 0;
@@ -261,6 +270,35 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
             sdispls[i] = sdispls[i - 1] + sendcnts[i - 1];
         }
     }
+
+    /* check for throttling */
+    int elsize = 0;
+    MPI_Type_size(recvtype, & elsize);
+
+    size_t tot_recv_bytes = ((size_t)totalrecv) * elsize;
+    int highload = (tot_recv_bytes + MPI_Alltoallv_throttle_limit - 1) / MPI_Alltoallv_throttle_limit;
+    MPI_Allreduce(MPI_IN_PLACE, &highload, 1, MPI_INT, MPI_MAX, comm);
+
+    if(highload > 1) {
+        /* need throttling -- divide evently. 
+         * YF 2017 Sept 8: I suspect any decent MPI implementation should have this kind of throttling. */
+        int * sendcnts1 = alloca(sizeof(int) * NTask);
+        int * sdispls1 = alloca(sizeof(int) * NTask);
+
+        int b;
+        for(b = 0; b < highload; b ++) {
+            for(i = 0; i < NTask; i ++) {
+                int u = (((int64_t)sendcnts[i]) * b) / highload;
+                int v = (((int64_t)sendcnts[i]) * (b + 1)) / highload;
+                sdispls1[i] = sdispls[i] + u;
+                sendcnts1[i] = v - u;
+            }
+            int rt = MPI_Alltoallv_smart(sendbuf, sendcnts1, sdispls, sendtype,
+                                recvbuf, NULL, NULL, recvtype, comm);
+            if (rt != MPI_SUCCESS) return rt;
+        }
+    }
+
     if(rdispls == NULL) {
         rdispls = alloca(sizeof(int) * NTask);
         rdispls[0] = 0;
@@ -269,25 +307,41 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         }
     }
 
-    int dense = nn < NTask * 0.2;
-    int tot_dense = 0;
-    MPI_Allreduce(&dense, &tot_dense, 1, MPI_INT, MPI_SUM, comm);
+    int dense = ((float) nn) * nn > NTask * 0.1;
+    int denser = (float) nn > NTask * 0.1;
 
-    if(tot_dense != 0) {
+    MPI_Allreduce(MPI_IN_PLACE, &dense, 1, MPI_INT, MPI_LOR, comm);
+    MPI_Allreduce(MPI_IN_PLACE, &denser, 1, MPI_INT, MPI_LOR, comm);
+    if(denser) {
+        /* very heavy lifting, use system alltoallv*/
+        if (ThisTask == 0)
+            message(1, "Using system MPI_Alltoall\n");
         return MPI_Alltoallv(sendbuf, sendcnts, sdispls, 
                     sendtype, recvbuf, 
                     recvcnts, rdispls, recvtype, comm);
-    } else {
+    } else if(dense) {
+        /* somewhat light weight, post blocking MPI messages may reduce memory usage */
+        if (ThisTask == 0)
+            message(1, "Using sparse, blocking MPI_Alltoall\n");
         return MPI_Alltoallv_sparse(sendbuf, sendcnts, sdispls, 
                     sendtype, recvbuf, 
                     recvcnts, rdispls, recvtype, comm);
-
+    } else {
+        /* very light weight, post non-blocking MPI messages may be faster */
+        if (ThisTask == 0)
+            message(1, "Using sparse, non blocking MPI_Alltoall\n");
+        return MPI_Alltoallv_sparseI(sendbuf, sendcnts, sdispls, 
+                    sendtype, recvbuf, 
+                    recvcnts, rdispls, recvtype, comm);
     }
 }
 
-int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
+int MPI_Alltoallv_sparseI(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) {
+
+    /* YF 2017 Sept 8: I suspect the number of MPI requests posted
+     * here may cause the out of huge page error with Cray MPI. */
 
     int ThisTask;
     int NTask;
@@ -305,7 +359,6 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
     MPI_Type_get_extent(sendtype, &lb, &send_elsize);
     MPI_Type_get_extent(recvtype, &lb, &recv_elsize);
 
-#ifndef NO_ISEND_IRECV_IN_DOMAIN
     int n_requests;
     MPI_Request requests[NTask * 2];
     n_requests = 0;
@@ -342,7 +395,32 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
 
     MPI_Waitall(n_requests, requests, MPI_STATUSES_IGNORE);
 
-#else
+    /* ensure the collective-ness */
+    MPI_Barrier(comm);
+
+    return MPI_SUCCESS;
+}
+
+int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm) {
+
+    int ThisTask;
+    int NTask;
+    MPI_Comm_rank(comm, &ThisTask);
+    MPI_Comm_size(comm, &NTask);
+    int PTask;
+    int ngrp;
+
+    for(PTask = 0; NTask > (1 << PTask); PTask++);
+
+    ptrdiff_t lb;
+    ptrdiff_t send_elsize;
+    ptrdiff_t recv_elsize;
+
+    MPI_Type_get_extent(sendtype, &lb, &send_elsize);
+    MPI_Type_get_extent(recvtype, &lb, &recv_elsize);
+
     for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
     {
         int target = ThisTask ^ ngrp;
@@ -358,11 +436,11 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
                 comm, MPI_STATUS_IGNORE);
 
     }
-#endif
+
     /* ensure the collective-ness */
     MPI_Barrier(comm);
 
-    return 0;
+    return MPI_SUCCESS;
 }
 
 int

@@ -587,11 +587,11 @@ ev_communicate(void * sendbuf, void * recvbuf, size_t elsize, int import) {
     MPI_Type_commit(&type);
 
     if(import) {
-        MPI_Alltoallv_sparse(
+        MPI_Alltoallv_smart(
                 sendbuf, Recv_count, Recv_offset, type,
                 recvbuf, Send_count, Send_offset, type, MPI_COMM_WORLD);
     } else {
-        MPI_Alltoallv_sparse(
+        MPI_Alltoallv_smart(
                 sendbuf, Send_count, Send_offset, type,
                 recvbuf, Recv_count, Recv_offset, type, MPI_COMM_WORLD);
     }
