@@ -111,17 +111,11 @@ void write_pid_file(void)
 }
 #endif
 
+gsl_rng *random_generator;	/*!< the random number generator used */
 
 double RndTable[RNDTABLE];
 
-/*
-double get_random_number(unsigned int id)
-{
-  return RndTable[(id % RNDTABLE)];
-}
-*/
-
-double get_random_number(MyIDType id)
+double get_random_number(uint64_t id)
 {
   return RndTable[(int)(id % RNDTABLE)];
 }
