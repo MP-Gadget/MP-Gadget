@@ -182,6 +182,10 @@ void run(void)
             if(out_from_ti(Ti_nextoutput) < All.OutputListLength)
                 message(0, "Setting next time for snapshot file to Time_next= %g \n",
                         exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]));
+            if(dloga_from_dti(Ti_nextoutput-All.Ti_Current) <= 0)
+                endrun(1,"Next output at %g earlier than current time %g, or dloga negative: %g\n",
+                        exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]),
+                        exp(loga_from_ti(All.Ti_Current)),dloga_from_dti(Ti_nextoutput-All.Ti_Current));
         }
 
         /* Update velocity to the new step, with the newly computed step size */

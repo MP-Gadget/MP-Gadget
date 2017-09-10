@@ -135,6 +135,9 @@ set_softenings(const double time)
 
 void
 set_global_time(double newtime) {
+    /*1.0 check for rate setting in sfr_eff.c*/
+    if(All.Time < 0.99 && newtime < All.Time)
+        endrun(1, "Time error: New timestep (%g) < old (%g)!\n", newtime, All.Time);
     All.TimeStep = newtime - All.Time;
     All.Time = newtime;
     All.cf.a = All.Time;
