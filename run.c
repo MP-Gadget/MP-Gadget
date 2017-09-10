@@ -86,24 +86,24 @@ void run(void)
             case STOP:
                 message(0, "human controlled stop with checkpoint.\n");
                 /*Write when the PM timestep completes*/
-                Ti_nextoutput = All.Ti_Current-1;
+                Ti_nextoutput = All.Ti_Current;
                 /* next loop will write a new snapshot file; break is for switch */
                 break;
             case TIMEOUT:
                 message(0, "stopping due to TimeLimitCPU.\n");
-                Ti_nextoutput = All.Ti_Current-1;
+                Ti_nextoutput = All.Ti_Current;
                 /* next loop will write a new snapshot file */
                 break;
 
             case AUTO_CHECKPOINT:
                 message(0, "auto checkpoint due to TimeBetSnapshot.\n");
-                Ti_nextoutput = All.Ti_Current-1;
+                Ti_nextoutput = All.Ti_Current;
                 /* will write a new snapshot file next time the PM step finishes*/
                 break;
 
             case CHECKPOINT:
                 message(0, "human controlled checkpoint.\n");
-                Ti_nextoutput = All.Ti_Current-1;
+                Ti_nextoutput = All.Ti_Current;
                 /* will write a new snapshot file next time the PM step finishes*/
                 break;
 
