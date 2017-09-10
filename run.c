@@ -178,7 +178,7 @@ void run(void)
 
             /*Do the extra half-kick we avoided for a snapshot.*/
             /*Find next output*/
-            Ti_nextoutput = find_next_outputtime(Ti_nextoutput);
+            Ti_nextoutput = find_next_outputtime(All.Ti_Current);
             if(out_from_ti(Ti_nextoutput) < All.OutputListLength)
                 message(0, "Setting next time for snapshot file to Time_next= %g \n",
                         exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]));
