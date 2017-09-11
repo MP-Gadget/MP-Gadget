@@ -209,27 +209,27 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
 
 /*Get a pointer to memory for a free node, from our node cache.
  * If there is no memory left, return NULL.*/
-int get_freenode(int * nfree, int *nfree_thread, int *numfree_thread)
+int get_freenode(int * nnext, int *nnext_thread, int *nrem_thread)
 {
     /*Get memory for an extra node from our cache.*/
-    if(*numfree_thread == 0) {
-        *nfree_thread = atomic_fetch_and_add(nfree, NODECACHE_SIZE);
-        *numfree_thread = NODECACHE_SIZE;
+    if(*nrem_thread == 0) {
+        *nnext_thread = atomic_fetch_and_add(nnext, NODECACHE_SIZE);
+        *nrem_thread = NODECACHE_SIZE;
     }
-    const int ninsert = (*nfree_thread)++;
-    (*numfree_thread)--;
+    const int ninsert = (*nnext_thread)++;
+    (*nrem_thread)--;
     return ninsert;
 }
 
 /* Parent is a node where the subnode we want to add a particle to is filled.
  * We add a new internal node at this subnode and try to add both the old and new particles to it.
  * Parent is assumed to be locked.*/
-int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, const int lastnode, int *nfree, int *nfree_thread, int *numfree_thread, double minlen)
+int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, const int lastnode, int *nnext, int *nnext_thread, int *nrem_thread, double minlen)
 {
     /*Get memory for an extra node from our cache.*/
-    int ninsert = get_freenode(nfree, nfree_thread, numfree_thread);
+    int ninsert = get_freenode(nnext, nnext_thread, nrem_thread);
     /*If we already have too many nodes, exit loop.*/
-    if(*nfree_thread >= lastnode)
+    if(*nnext_thread >= lastnode)
         return 1;
 
     struct NODE *nfreep = &Nodes[ninsert];
@@ -274,7 +274,7 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, co
     }
     /*Otherwise recurse and create a new node*/
     else {
-        ret = insert_internal_node(ninsert, new_subnode, p_child, p_toplace, lastnode, nfree, nfree_thread, numfree_thread, minlen);
+        ret = insert_internal_node(ninsert, new_subnode, p_child, p_toplace, lastnode, nnext, nnext_thread, nrem_thread, minlen);
     }
 
     /* Mark this node in the parent: this goes last
@@ -289,11 +289,11 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, co
 int force_tree_create_nodes(const int firstnode, const int lastnode, const int npart)
 {
     int i;
-    int nfree = firstnode;		/* index of first free node */
+    int nnext = firstnode;		/* index of first free node */
 
     /* create an empty root node  */
     {
-        struct NODE *nfreep = &Nodes[nfree];	/* select first node */
+        struct NODE *nfreep = &Nodes[nnext];	/* select first node */
 
         nfreep->len = All.BoxSize*1.001;
         for(i = 0; i < 3; i++)
@@ -301,12 +301,12 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         for(i = 0; i < 8; i++)
             nfreep->u.suns[i] = -1;
         nfreep->father = -1;
-        nfree++;
+        nnext++;
         /* create a set of empty nodes corresponding to the top-level domain
          * grid. We need to generate these nodes first to make sure that we have a
          * complete top-level tree which allows the easy insertion of the
          * pseudo-particles in the right place */
-        force_create_node_for_topnode(firstnode, 0, 1, 0, 0, 0, &nfree, lastnode);
+        force_create_node_for_topnode(firstnode, 0, 1, 0, 0, 0, &nnext, lastnode);
     }
 
     /* This implements a small thread-local free Node cache.
@@ -315,8 +315,8 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
      * helps cache locality. In my tests without this list the
      * reduction in cache performance destroyed the benefit of
      * parallelizing this loop!*/
-    int nfree_thread=nfree;
-    int numfree_thread=0;
+    int nnext_thread=nnext;
+    int nrem_thread=0;
     /* Stores the last-seen node on this thread.
      * Since most particles are close to each other, this should save a number of tree walks.*/
     int this_acc = firstnode;
@@ -327,12 +327,12 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
     for(i=0; i < lastnode - firstnode; i++) {
         pthread_spin_init(&SpinLocks[i],PTHREAD_PROCESS_PRIVATE);
     }
-    #pragma omp parallel for firstprivate(nfree_thread, numfree_thread, this_acc)
+    #pragma omp parallel for firstprivate(nnext_thread, nrem_thread, this_acc)
 #endif
     for(i = 0; i < npart; i++)
     {
         /*Can't break from openmp for*/
-        if(nfree_thread >= lastnode-1)
+        if(nnext_thread >= lastnode-1)
             continue;
 
         /*First find the Node for the TopLeaf */
@@ -405,7 +405,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
              * with a full (positive) subnode in subnode, containing a real particle.
              * We split this node (making it an internal node) and try to add our particle to the new split node.*/
             const double minlen = 1.0e-3 * All.ForceSoftening[1];
-            insert_internal_node(this, subnode, child, i, lastnode, &nfree, &nfree_thread, &numfree_thread, minlen);
+            insert_internal_node(this, subnode, child, i, lastnode, &nnext, &nnext_thread, &nrem_thread, minlen);
         }
 #ifdef OPENMP_USE_SPINLOCK
         /*Unlock the parent*/
@@ -420,7 +420,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
     int * ss = (int *) SpinLocks;
     myfree(ss);
 #endif
-    return nfree - firstnode;
+    return nnext - firstnode;
 }
 
 /*! Constructs the gravitational oct-tree.
@@ -437,8 +437,8 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
 static int
 force_tree_build_single(const int firstnode, const int lastnode, const int npart)
 {
-    int nfree = force_tree_create_nodes(firstnode, lastnode, npart);
-    if(nfree >= lastnode - firstnode)
+    int nnext = force_tree_create_nodes(firstnode, lastnode, npart);
+    if(nnext >= lastnode - firstnode)
     {
         return -1;
     }
@@ -451,7 +451,7 @@ force_tree_build_single(const int firstnode, const int lastnode, const int npart
 
     force_set_next_node(tail, -1, firstnode, lastnode);
 
-    return nfree;
+    return nnext;
 }
 
 
