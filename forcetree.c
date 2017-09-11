@@ -862,52 +862,52 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
 
     p = Nodes[no].u.d.nextnode;
 
-    for(j = 0; j < 8; j++)	/* since we are dealing with top-level nodes, we now that there are 8 consecutive daughter nodes */
+    /* since we are dealing with top-level nodes, we know that there are 8 consecutive daughter nodes */
+    for(j = 0; j < 8; j++)
     {
-        if(p >= firstnode && p < lastnode)	/* internal node */
+        /*This may not happen as we are an internal top level node*/
+        if(p < firstnode || p >= lastnode)
+            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, firstnode, lastnode);
+
+        if(Nodes[p].u.d.InternalTopLevel)
+            force_treeupdate_pseudos(p, firstnode, lastnode);
+
+        mass += (Nodes[p].u.d.mass);
+        s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
+        s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
+        s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
+
+        if(Nodes[p].u.d.hmax > hmax)
+            hmax = Nodes[p].u.d.hmax;
+
+        if(Nodes[p].u.d.mass > 0)
         {
-            if(Nodes[p].u.d.InternalTopLevel)
-                force_treeupdate_pseudos(p, firstnode, lastnode);
-
-            mass += (Nodes[p].u.d.mass);
-            s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
-            s[1] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[1]);
-            s[2] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[2]);
-
-            if(Nodes[p].u.d.hmax > hmax)
-                hmax = Nodes[p].u.d.hmax;
-
-            if(Nodes[p].u.d.mass > 0)
-            {
-                if(Nodes[p].u.d.MultipleParticles)
-                    count_particles += 2;
-                else
-                    count_particles++;
-            }
+            if(Nodes[p].u.d.MultipleParticles)
+                count_particles += 2;
+            else
+                count_particles++;
+        }
 
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
-            Nodes[no].u.d.MixedSofteningsInNode = Nodes[p].u.d.MixedSofteningsInNode;
+        Nodes[no].u.d.MixedSofteningsInNode = Nodes[p].u.d.MixedSofteningsInNode;
 
-            if(maxsofttype == 7)
-                maxsofttype = Nodes[p].u.d.MaxSofteningType;
-            else
-            {
-                int current_maxsofttype = Nodes[p].u.d.MaxSofteningType;
-                if(current_maxsofttype != 7)
-                {
-                    if(All.ForceSoftening[current_maxsofttype] > All.ForceSoftening[maxsofttype])
-                        maxsofttype = current_maxsofttype;
-                    if(All.ForceSoftening[current_maxsofttype] != All.ForceSoftening[maxsofttype])
-                        Nodes[no].u.d.MixedSofteningsInNode = 1;
-                }
-            }
-#else
-            if(Nodes[p].maxsoft > maxsoft)
-                maxsoft = Nodes[p].maxsoft;
-#endif
-        }
+        if(maxsofttype == 7)
+            maxsofttype = Nodes[p].u.d.MaxSofteningType;
         else
-            endrun(6767, "may not happen");		/* may not happen */
+        {
+            int current_maxsofttype = Nodes[p].u.d.MaxSofteningType;
+            if(current_maxsofttype != 7)
+            {
+                if(All.ForceSoftening[current_maxsofttype] > All.ForceSoftening[maxsofttype])
+                    maxsofttype = current_maxsofttype;
+                if(All.ForceSoftening[current_maxsofttype] != All.ForceSoftening[maxsofttype])
+                    Nodes[no].u.d.MixedSofteningsInNode = 1;
+            }
+        }
+#else
+        if(Nodes[p].maxsoft > maxsoft)
+            maxsoft = Nodes[p].maxsoft;
+#endif
 
         p = Nodes[p].u.d.sibling;
     }
