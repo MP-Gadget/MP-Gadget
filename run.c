@@ -37,7 +37,7 @@ enum ActionType {
     TERMINATE = 5,
     IOCTL = 6,
 };
-static enum ActionType human_interaction(double lastPMlength);
+static enum ActionType human_interaction(double lastPMlength, double TimeLastOutput);
 static int should_we_timeout(double lastPMlength);
 static void compute_accelerations(int is_PM);
 static void update_IO_params(const char * ioctlfname);
@@ -52,6 +52,8 @@ void run(void)
 
     /*To compute the wall time between PM steps and decide when to timeout.*/
     double lastPM = All.CT.ElapsedTime;
+    double TimeLastOutput = 0;
+
     double lastPMlength = 0.03*All.TimeLimitCPU;
 
     walltime_measure("/Misc");
@@ -81,7 +83,7 @@ void run(void)
             lastPM = curTime;
         }
 
-        action = human_interaction(lastPMlength);
+        action = human_interaction(lastPMlength, TimeLastOutput);
         switch(action) {
             case STOP:
                 message(0, "human controlled stop with checkpoint.\n");
@@ -175,6 +177,7 @@ void run(void)
                 /* OK snapshot file is written, lets quit */
                 return;
             }
+            TimeLastOutput = All.CT.ElapsedTime;
 
             /*Do the extra half-kick we avoided for a snapshot.*/
             /*Find next output*/
@@ -236,7 +239,7 @@ update_IO_params(const char * ioctlfname)
 /* lastPMlength is the walltime in seconds between the last two PM steps.
  * It is used to decide when we are going to timeout*/
 static enum ActionType
-human_interaction(double lastPMlength)
+human_interaction(double lastPMlength, double TimeLastOutput)
 {
         /* Check whether we need to interrupt the run */
     enum ActionType action = NO_ACTION;
@@ -277,9 +280,8 @@ human_interaction(double lastPMlength)
             action = TIMEOUT;
         }
 
-        if((All.CT.ElapsedTime - All.TimeLastRestartFile) >= All.CpuTimeBetRestartFile) {
+        if(All.AutoSnapshotTime > 0 && (All.CT.ElapsedTime - TimeLastOutput) >= All.AutoSnapshotTime) {
             action = AUTO_CHECKPOINT;
-            All.TimeLastRestartFile = All.CT.ElapsedTime;
         }
 
         if((fd = fopen(restartfname, "r")))
@@ -291,7 +293,6 @@ human_interaction(double lastPMlength)
     }
 
     MPI_Bcast(&action, sizeof(action), MPI_BYTE, 0, MPI_COMM_WORLD);
-    MPI_Bcast(&All.TimeLastRestartFile, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
 
     return action;
 }

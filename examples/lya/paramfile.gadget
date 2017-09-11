@@ -35,11 +35,6 @@ RadiationOn = 1
 HydroOn = 1
 StarformationCriterion = density
 
-# Output frequency
-
-CpuTimeBetRestartFile = 9000.0
-
-
 # Accuracy of time integration
 
 ErrTolIntAccuracy = 0.02 

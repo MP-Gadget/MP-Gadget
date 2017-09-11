@@ -142,7 +142,7 @@ create_gadget_parameter_set()
     param_declare_int(ps,    "NoTreeRnd", OPTIONAL, 0, "Disable randomizing the tree construction when particles are very close to each other. For debug purposes.");
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
     param_declare_int(ps,    "MaxMemSizePerNode", OPTIONAL, 0.8 * get_physmem_bytes() / (1024 * 1024), "Preallocate this much memory MB per computing node/ host. Default is 80\% of total physical mem per node. ");
-    param_declare_double(ps, "CpuTimeBetRestartFile", REQUIRED, 0, "");
+    param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
 
     param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "");
     param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "");
@@ -360,7 +360,6 @@ void read_parameter_file(char *fname)
         All.NoTreeRnd = param_get_int(ps, "NoTreeRnd");
         All.OutputPotential = param_get_int(ps, "OutputPotential");
         All.MaxMemSizePerNode = param_get_int(ps, "MaxMemSizePerNode");
-        All.CpuTimeBetRestartFile = param_get_double(ps, "CpuTimeBetRestartFile");
 
         All.TimeMax = param_get_double(ps, "TimeMax");
         All.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
@@ -399,6 +398,7 @@ void read_parameter_file(char *fname)
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
+        All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
         All.SofteningHalo = param_get_double(ps, "SofteningHalo");
         All.SofteningDisk = param_get_double(ps, "SofteningDisk");
         All.SofteningBulge = param_get_double(ps, "SofteningBulge");

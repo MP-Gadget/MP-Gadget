@@ -32,8 +32,6 @@ StarformationOn = 0
 StarformationCriterion = density
 RadiationOn = 0
 
-CpuTimeBetRestartFile = 9000.0
-
 # Accuracy of time integration
 MaxSizeTimestep = 0.1
 MinSizeTimestep = 0.01

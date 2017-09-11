@@ -34,8 +34,6 @@ HydroOn = 1
 StarformationCriterion = density
 RadiationOn = 1
 
-CpuTimeBetRestartFile = 9000.0
-
 # Accuracy of time integration
 MaxSizeTimestep = 0.1
 MinSizeTimestep = 0.00

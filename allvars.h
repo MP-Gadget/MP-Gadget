@@ -302,9 +302,7 @@ extern struct global_data_all_processes
 
     int SnapshotFileCount;	/*!< number of snapshot that is written next */
     int InitSnapshotCount;  /*!< Number of first snapshot written this run*/
-    double TimeOfFirstSnapshot,	/*!< simulation time of first snapshot files */
-           CpuTimeBetRestartFile,	/*!< cpu-time between regularly generated restart files */
-           TimeLastRestartFile;  	/*!< cpu-time when last restart-file was written */
+    double AutoSnapshotTime;    /*!< cpu-time between regularly generated snapshots. */
 
     /* Current time of the simulation, global step, and end of simulation */
 

@@ -73,8 +73,6 @@ void begrun(int BeginFlag, int RestartSnapNum)
     if(BeginFlag == 2)
         long_range_init();
 
-    All.TimeLastRestartFile = 0;
-
     set_random_numbers();
 
     init(RestartSnapNum);			/* ... read in initial model */
@@ -105,7 +103,6 @@ void begrun(int BeginFlag, int RestartSnapNum)
         }
     }
 #endif
-    All.TimeLastRestartFile = 0;
 }
 
 /*!  This function opens various log-files that report on the status and
