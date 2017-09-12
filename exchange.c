@@ -147,25 +147,25 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
         count_get_sph += toGetSph[i];
         count_get_bh += toGetBh[i];
     }
-    int bad_exh=0, bad_exh_s=0;
+    int bad_exh=0;
 
     /*Check whether the domain exchange will succeed. If not, bail*/
     if(NumPart + count_get - count_togo> All.MaxPart){
         message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n", NumPart, count_get, count_togo, All.MaxPart);
-        abort();
-        bad_exh += 1;
+        bad_exh = 1;
     }
     if(N_sph_slots + count_get_sph - count_togo_sph > All.MaxPart) {
         message(1,"Too many SPH for exchange: N_sph=%d All.MaxPart=%d\n", N_sph_slots + count_get_sph, All.MaxPart);
-        bad_exh += 1;
+        bad_exh = 1;
     }
     if(N_bh_slots + count_get_bh - count_togo_bh > All.MaxPartBh) {
         message(1, "Too many BH for exchange: N_bh=%d All.MaxPartBh=%d\n", N_bh_slots + count_get_bh, All.MaxPartBh);
-        bad_exh += 1;
+        bad_exh = 1;
     }
-    MPI_Allreduce(&bad_exh, &bad_exh_s, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    if(bad_exh_s)
-        return bad_exh_s;
+
+    MPI_Allreduce(MPI_IN_PLACE, &bad_exh, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+    if(bad_exh)
+        return bad_exh;
 
     partBuf = (struct particle_data *) mymalloc("partBuf", count_togo * sizeof(struct particle_data));
     sphBuf = (struct sph_particle_data *) mymalloc("sphBuf", count_togo_sph * sizeof(struct sph_particle_data));
