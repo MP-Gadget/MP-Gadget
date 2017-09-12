@@ -6,6 +6,7 @@
 #include "endrun.h"
 #include "system.h"
 #include "exchange.h"
+#include "garbage.h"
 
 static MPI_Datatype MPI_TYPE_PARTICLE = 0;
 static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
@@ -201,12 +202,16 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
         partBuf[offset[target] + count[target]] = P[i];
         count[target]++;
 
-        /* remove this particle from local storage */
-        P[i] = P[NumPart - 1];
-        NumPart--;
-        i--;
+        /* mark this particle as a garbage */
+        P[i].IsGarbage = 1;
     }
+    /* now remove the garbage particles because they have already been copied.
+     * eventually we want to fill in the garbage gap or defer the gc, because it breaks the tree.
+     * invariance . */
+    domain_garbage_collection();
+
     walltime_measure("/Domain/exchange/makebuf");
+
 
     for(i = 0; i < NTask; i ++) {
         if(count_sph[i] != toGoSph[i] ) {
@@ -302,6 +307,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
 
     ta_reset();
     walltime_measure("/Domain/exchange/finalize");
+
     return 0;
 }
 
