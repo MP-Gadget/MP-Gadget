@@ -487,25 +487,34 @@ extern struct particle_data
 
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */
+
     struct {
-        unsigned int Evaluated :1;
-        unsigned int DensityIterationDone :1;
-        unsigned int OnAnotherDomain     :1;
-        unsigned int WillExport    :1; /* used in domain */
-        unsigned int Type        :4;		/*!< flags particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
-        /* first byte ends */
-        signed char TimeBin;
-        /* second byte ends */
-        unsigned char Generation; /* How many particles it has spawned*/
-#ifdef WINDS
-        unsigned int IsNewParticle:1; /* whether it is created this step */
-#endif
-#ifdef BLACK_HOLES
-        unsigned int Swallowed : 1; /* whether it is being swallowed */
-#endif
+        /* particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
+        unsigned int Type                 :4;
+
+        unsigned int IsGarbage            :1; /* True for a garbage particle. */
+        unsigned int Evaluated            :1; /* True if already query already ran in treewalk */
+        unsigned int OnAnotherDomain      :1; /* particle is hosted by another rank; used in domain; */
+        unsigned int WillExport           :1; /* particle will be exported in current run of exchange; */
+
+        unsigned int DensityIterationDone :1; /* True if the density-like iterations already finished; */
+        unsigned int IsNewParticle        :1; /* True if the particle is created this step; used in SFR */
+        unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
 #ifdef DEBUG
         unsigned int SufferFromCoupling:1; /* whether it suffers from particle-coupling (nearest neighbour << gravity smoothing)*/
+#else
+        unsigned int spare_4              :1;
 #endif
+
+        unsigned int spare_3              :1;
+        unsigned int spare_2              :1;
+        unsigned int spare_1              :1;
+        unsigned int spare_0              :1;
+
+        unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID. 
+                                     may wrap around with too many SFR/BH if a feedback model goes rogue */
+
+        signed char TimeBin; /* Time step bin; -1 for unassigned.*/
     };
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
