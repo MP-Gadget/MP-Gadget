@@ -67,8 +67,10 @@ grav_short_pair_ngbiter(
     double r2 = iter->base.r2;
     double * dist = iter->base.dist;
 
-    if(P[other].Mass == 0)
-        return;
+    if(P[other].Mass == 0) {
+        endrun(-1, "Encoutered zero mass particle during density;"
+                  " We haven't implemented tracer particles and this shall not happen\n");
+    }
 
     double mass = P[other].Mass;
 

@@ -11,6 +11,7 @@
 #include "densitykernel.h"
 #include "mymalloc.h"
 #include "timestep.h"
+#include "endrun.h"
 
 #ifndef DEBUG
 #define NDEBUG
@@ -213,7 +214,10 @@ hydro_ngbiter(
     double * dist = iter->base.dist;
     double r = iter->base.r;
 
-    if(P[other].Mass == 0) return;
+    if(P[other].Mass == 0) {
+        endrun(-1, "Encoutered zero mass particle during hydro;"
+                  " We haven't implemented tracer particles and this shall not happen\n");
+    }
 
 #ifdef WINDS
 #ifdef NOWINDTIMESTEPPING

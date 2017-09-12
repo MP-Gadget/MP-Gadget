@@ -69,7 +69,7 @@ int domain_fork_particle(int parent) {
     return child;
 }
 
-/* remove mass = 0 particles, holes in sph chunk and holes in bh buffer;
+/* remove garbage particles, holes in sph chunk and holes in bh buffer;
  * returns 1 if tree / timebin is invalid */
 int
 domain_garbage_collection(void)
@@ -102,7 +102,7 @@ domain_all_garbage_collection()
     count_elim = 0;
 
     for(i = 0; i < NumPart; i++)
-        if(P[i].Mass == 0)
+        if(P[i].IsGarbage)
         {
             TimeBinCount[P[i].TimeBin]--;
 

@@ -547,8 +547,12 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         if(P[other].SwallowID != I->ID) return;
 
         lock_particle(other);
+
+        /* Mass conservation */
         O->Mass += (P[other].Mass);
         O->BH_Mass += (BHP(other).Mass);
+        P[other].Mass = 0;
+        BHP(other).Mass = 0;
 
         int d;
         for(d = 0; d < 3; d++)
@@ -556,8 +560,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         O->BH_CountProgs += BHP(other).CountProgs;
 
-        P[other].Mass = 0;
-        BHP(other).Mass = 0;
+        P[other].IsGarbage = 1;
         BHP(other).Mdot = 0;
 
 #pragma omp atomic
@@ -601,13 +604,15 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         lock_particle(other);
 
+        /* Mass Conservation */
         O->Mass += (P[other].Mass);
+        P[other].Mass = 0;
 
         int d;
         for(d = 0; d < 3; d++)
             O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
 
-        P[other].Mass = 0;
+        P[other].IsGarbage = 1;
 #pragma omp atomic
         N_sph_swallowed++;
         unlock_particle(other);

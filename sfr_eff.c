@@ -410,11 +410,14 @@ cooling_direct(int i) {
 #ifdef BLACK_HOLES
     if(SPHP(i).Injected_BH_Energy)
     {
-        if(P[i].Mass == 0)
+        if(P[i].Mass == 0) {
+            endrun(-1, "Encoutered zero mass particle during sfr;"
+                      " We haven't implemented tracer particles and this shall not happen\n");
+            /* This shall not happend */
             SPHP(i).Injected_BH_Energy = 0;
-        else
-            unew += SPHP(i).Injected_BH_Energy / P[i].Mass;
+        }
 
+        unew += SPHP(i).Injected_BH_Energy / P[i].Mass;
         double temp = u_to_temp_fac * unew;
 
 
@@ -465,8 +468,10 @@ static int get_sfr_condition(int i) {
         flag = 1;
 
     /* massless particles never form stars! */
-    if(P[i].Mass == 0)
-        flag = 1;
+    if(P[i].Mass == 0) {
+        endrun(-1, "Encoutered zero mass particle during sfr ;"
+                  " We haven't implemented tracer particles and this shall not happen\n");
+    }
 
 #ifdef WINDS
     if(SPHP(i).DelayTime > 0)
