@@ -87,6 +87,39 @@ order_by_type_and_key(const void *a, const void *b)
 
 #define NODECACHE_SIZE 100
 
+/*This checks that the moments of the force tree in Nodes are valid:
+ * that it the mass and flags are correct.*/
+static int check_moments(const int firstnode, const int lastnode, const int numpart, const int nrealnode)
+{
+    for(int i=0; i<numpart; i++)
+    {
+        int fnode = Father[i];
+        /*Subtract mass so that nothing is left.*/
+        assert_true(fnode >= firstnode && fnode < lastnode);
+        while(fnode >= 0) {
+            Nodes[fnode].u.d.mass -= P[i].Mass;
+            fnode = Nodes[fnode].u.d.father;
+            /*Validate father*/
+            assert_true((fnode >= firstnode && fnode < lastnode) || fnode == -1);
+        }
+    }
+    int node = firstnode;
+    int counter = 0;
+    while(node >= 0) {
+            assert_true(node >= -1 && node < lastnode);
+            /*If a real internal node*/
+            if(node >= firstnode){
+                assert_true(Nodes[node].u.d.sibling >= -1 && Nodes[node].u.d.sibling < lastnode);
+                assert_true(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5);
+                counter++;
+            }
+            node = force_get_next_node(node);
+    }
+    printf("Hit %d nodes, expected %d\n", counter, nrealnode);
+    assert_true(counter == nrealnode);
+    return nrealnode;
+}
+
 /*This checks that the force tree in Nodes is valid:
  * that it contains every particle and that each parent
  * node contains particles within the right subnode.*/
@@ -160,6 +193,8 @@ static void do_tree_test(const int numpart)
     }
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = numpart;
+    All.MaxPart = numpart;
+    MaxNodes = numpart;
     assert_true(Nodes);
     /*So we know which nodes we have initialised*/
     for(int i=0; i< MaxNodes+1; i++)
@@ -172,7 +207,7 @@ static void do_tree_test(const int numpart)
     end = MPI_Wtime();
     double ms = (end - start)*1000;
     printf("Number of nodes used: %d. Built tree in %.3g ms\n", nodes,ms);
-    check_tree(numpart, nodes, numpart);
+    int nrealnode = check_tree(numpart, nodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
     int tail = force_update_node_recursive(numpart, -1, -1, -1, numpart, numpart + maxnode);
@@ -182,6 +217,7 @@ static void do_tree_test(const int numpart)
     ms = (end - start)*1000;
     printf("Updated moments in %.3g ms\n", ms);
     assert_true(fabs(Nodes[numpart].u.d.mass - numpart) < 0.5);
+    check_moments(numpart, numpart+maxnode, numpart, nrealnode);
 }
 
 static void test_rebuild_flat(void ** state) {
