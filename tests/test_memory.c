@@ -16,17 +16,23 @@ test_allocator(void ** state)
     allocator_init(A0, "Default", 4096 * 1024, 1);
 
     void * p1 = allocator_alloc_bot(A0, "M+1", 1024);
-    void * p2 = allocator_alloc_bot(A0, "M+2", 1024);
+    void * p2 = allocator_alloc_bot(A0, "M+2", 2048);
 
     void * q1 = allocator_alloc_top(A0, "M-1", 1024);
-    void * q2 = allocator_alloc_top(A0, "M-2", 1024);
+    void * q2 = allocator_alloc_top(A0, "M-2", 2048);
 
     allocator_print(A0);
 
-    allocator_free(p2);
-    allocator_free(q2);
+    assert_int_equal(allocator_dealloc(A0, p1), ALLOC_EMISMATCH);
+    assert_int_equal(allocator_dealloc(A0, q1), ALLOC_EMISMATCH);
+
+    assert_int_equal(allocator_dealloc(A0, p2), 0);
+    assert_int_equal(allocator_dealloc(A0, q2), 0);
+
     allocator_free(p1);
     allocator_free(q1);
+
+    allocator_print(A0);
 
     allocator_destroy(A0);
 }
