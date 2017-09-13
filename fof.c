@@ -769,9 +769,9 @@ static void fof_reduce_groups(
      *   in the begining, prime and ghosts contains local group attributes.
      *   in the end, prime and ghosts all contain full group attributes.
      **/
+    int * Send_count = ta_malloc("Send_count", int, NTask);
+    int * Recv_count = ta_malloc("Recv_count", int, NTask);
 
-    int * Send_count = alloca(sizeof(int) * NTask);
-    int * Recv_count = alloca(sizeof(int) * NTask);
     void * images = NULL;
     void * ghosts = NULL;
     int i;
@@ -894,6 +894,8 @@ static void fof_reduce_groups(
 
     /* At this point, each Group entry has the reduced attribute of the full group */
     /* And the local groups (MinIDTask == ThisTask) are placed at the begining of the list*/
+    ta_free(Recv_count);
+    ta_free(Send_count);
 }
 
 static void fof_radix_Group_TotalCountTaskDiffMinID(const void * a, void * radix, void * arg);
@@ -926,8 +928,8 @@ static void fof_assign_grnr()
         BaseGroup[i].GrNr = ngr;
     }
 
-    int64_t * ngra;
-    ngra = alloca(sizeof(ngra[0]) * NTask);
+    int64_t * ngra = ta_malloc("NGRA", int64_t, NTask);
+
     MPI_Allgather(&ngr, 1, MPI_INT64, ngra, 1, MPI_INT64, MPI_COMM_WORLD);
 
     /* shift to the global grnr. */
@@ -936,6 +938,8 @@ static void fof_assign_grnr()
         groffset += ngra[j];
     for(i = 0; i < NgroupsExt; i++)
         BaseGroup[i].GrNr += groffset;
+
+    ta_free(ngra);
 
     /* bring the group list back into the original task, sorted by MinID */
     mpsort_mpi(BaseGroup, NgroupsExt, sizeof(BaseGroup[0]), 
@@ -1153,8 +1157,8 @@ static void fof_seed(void)
 {
     int i, j, n, ntot;
 
-    int * Send_count = alloca(sizeof(int) * NTask);
-    int * Recv_count = alloca(sizeof(int) * NTask);
+    int * Send_count = ta_malloc("Send_count", int, NTask);
+    int * Recv_count = ta_malloc("Recv_count", int, NTask);
 
     for(n = 0; n < NTask; n++)
         Send_count[n] = 0;
@@ -1213,6 +1217,9 @@ static void fof_seed(void)
     myfree(ImportGroups);
     myfree(ExportGroups);
     myfree(Marked);
+
+    ta_free(Recv_count);
+    ta_free(Send_count);
 }
 
 static void fof_seed_make_one(struct Group * g) {

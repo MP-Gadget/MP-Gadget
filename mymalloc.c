@@ -32,7 +32,7 @@ mymalloc_init(double MaxMemSizePerNode)
                   "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
     }
 
-    n = 1024 * NTask; /* reserve 1K per task for the TEMP storage */
+    n = 4096 * 1024 + 128 * NTask; /* reserve 128 bytes per task for the TEMP storage */
 
     if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_TEMP, "TEMP", n, 1), MPI_COMM_WORLD)) {
         endrun(0, "Insufficient memory for the TEMP allocator on at least one nodes."

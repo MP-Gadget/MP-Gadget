@@ -30,18 +30,25 @@ allocator_init(Allocator * alloc, char * name, size_t size, int zero)
 
     alloc->rawbase = rawbase;
     alloc->base = ((char*) rawbase) + ALIGNMENT - ((size_t) rawbase % ALIGNMENT);
-    alloc->refcount = 1;
     alloc->size = size;
-    alloc->top = size;
-    alloc->bottom = 0;
-
     strncpy(alloc->name, name, 11);
 
-    if(zero) {
-        memset(alloc->base, 0, size);
-    }
+    allocator_reset(alloc, zero);
+
     return 0;
 
+}
+
+int
+allocator_reset(Allocator * alloc, int zero)
+{
+    alloc->refcount = 1;
+    alloc->top = alloc->size;
+    alloc->bottom = 0;
+
+    if(zero) {
+        memset(alloc->base, 0, alloc->size);
+    }
 }
 
 void *

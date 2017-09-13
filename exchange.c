@@ -112,19 +112,19 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
     struct sph_particle_data *sphBuf;
     struct bh_particle_data *bhBuf;
 
-    int * count = (int *) alloca(NTask * sizeof(int));
-    int * count_sph = (int *) alloca(NTask * sizeof(int));
-    int * count_bh = (int *) alloca(NTask * sizeof(int));
-    int * offset = (int *) alloca(NTask * sizeof(int));
-    int * offset_sph = (int *) alloca(NTask * sizeof(int));
-    int * offset_bh = (int *) alloca(NTask * sizeof(int));
+    int * count = ta_malloc("var", int, NTask);
+    int * count_sph = ta_malloc("var", int, NTask);
+    int * count_bh = ta_malloc("var", int, NTask);
+    int * offset = ta_malloc("var", int, NTask);
+    int * offset_sph = ta_malloc("var", int, NTask);
+    int * offset_bh = ta_malloc("var", int, NTask);
 
-    int * count_recv = (int *) alloca(NTask * sizeof(int));
-    int * count_recv_sph = (int *) alloca(NTask * sizeof(int));
-    int * count_recv_bh = (int *) alloca(NTask * sizeof(int));
-    int * offset_recv = (int *) alloca(NTask * sizeof(int));
-    int * offset_recv_sph = (int *) alloca(NTask * sizeof(int));
-    int * offset_recv_bh = (int *) alloca(NTask * sizeof(int));
+    int * count_recv = ta_malloc("var", int, NTask);
+    int * count_recv_sph = ta_malloc("var", int, NTask);
+    int * count_recv_bh = ta_malloc("var", int, NTask);
+    int * offset_recv = ta_malloc("var", int, NTask);
+    int * offset_recv_sph = ta_malloc("var", int, NTask);
+    int * offset_recv_bh = ta_malloc("var", int, NTask);
 
     for(i = 1, offset_sph[0] = 0; i < NTask; i++)
         offset_sph[i] = offset_sph[i - 1] + toGoSph[i - 1];
@@ -300,6 +300,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
 
     MPI_Barrier(MPI_COMM_WORLD);
 
+    ta_reset();
     walltime_measure("/Domain/exchange/finalize");
     return 0;
 }
@@ -308,12 +309,12 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
 /*This function populates the toGo and toGet arrays*/
 static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh)
 {
-    int n, ret, retsum;
+    int n, ret;
     size_t package;
 
-    int * list_NumPart = (int *) alloca(sizeof(int) * NTask);
-    int * list_N_sph = (int *) alloca(sizeof(int) * NTask);
-    int * list_N_bh = (int *) alloca(sizeof(int) * NTask);
+    int * list_NumPart = ta_malloc("var", int, NTask);
+    int * list_N_sph = ta_malloc("var", int, NTask);
+    int * list_N_bh = ta_malloc("var", int, NTask);
 
     for(n = 0; n < NTask; n++)
     {
@@ -360,9 +361,9 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toG
     else
         ret = 0;
 
-    MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &ret, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
-    if(retsum)
+    if(ret)
     {
         /* in this case, we are not guaranteed that the temporary state after
            the partial exchange will actually observe the particle limits on all
@@ -579,10 +580,9 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toG
         }
         while(flagsum);
 
-        return 1;
     }
-    else
-        return 0;
+    ta_reset();
+    return ret;
 }
 
 void domain_count_particles()
