@@ -41,15 +41,22 @@ mymalloc_init(double MaxMemSizePerNode)
     }
 }
 
+static size_t highest_memory_usage = 0;
 void report_detailed_memory_usage(const char *label, const char * fmt, ...)
 {
+    if(allocator_get_free_size(A_MAIN) < highest_memory_usage) {
+        return;
+    }
+
+    highest_memory_usage = allocator_get_free_size(A_MAIN);
+
     va_list va;
     char buf[4096];
     va_start(va, fmt);
     vsprintf(buf, fmt, va);
     va_end(va);
     if (ThisTask == 0) {
-        message(1, "%s\n", buf);
+        message(1, "Peak Memory usage induced by %s\n", buf);
         allocator_print(A_MAIN);
     }
 }
