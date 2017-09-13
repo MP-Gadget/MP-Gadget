@@ -18,16 +18,6 @@ typedef uint32_t inttime_t;
 #define AMAX 1.0
 #define TIMEBINS 29
 
-/*Mock functions for linker*/
-void endrun(int ierr, const char * fmt, ...)
-{
-    va_list va;
-    va_start(va, fmt);
-    printf(fmt, va);
-    va_end(va);
-    exit(1);
-}
-
 static double OmegaM;
 /*Hubble function at scale factor a, in dimensions of All.Hubble*/
 double hubble_function(double a)

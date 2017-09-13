@@ -12,15 +12,6 @@
 #include "../cosmology.h"
 #include <gsl/gsl_sf_hyperg.h>
 
-void endrun(int ierr, const char * fmt, ...)
-{
-    va_list va;
-    va_start(va, fmt);
-    printf(fmt, va);
-    va_end(va);
-    exit(1);
-}
-
 void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H0)
 {
     CP->CMBTemperature = 2.7255;

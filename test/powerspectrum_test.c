@@ -24,22 +24,6 @@ void myfree_fullinfo(void * ptr, const char *func, const char *file, int line)
     free(ptr);
 }
 
-void message(int ierr, const char * fmt, ...)
-{
-    va_list va;
-    va_start(va, fmt);
-    printf(fmt, va);
-    va_end(va);
-}
-
-void endrun(int ierr, const char * fmt, ...)
-{
-    va_list va;
-    va_start(va, fmt);
-    printf(fmt, va);
-    va_end(va);
-    exit(1);
-}
 /*End dummies*/
 
 #define NUM_THREADS 4
