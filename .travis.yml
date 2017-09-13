@@ -26,7 +26,9 @@ install:
     - make
 
 script:
+    - set -e
     - make run-tests
     - pushd examples/travis
     - sh run.sh
     - popd
+    - set +e
