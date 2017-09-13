@@ -15,6 +15,7 @@ struct Allocator {
     char name[12];
     Allocator * parent;
 
+    void * rawbase;
     void * base;
     size_t size;
 
