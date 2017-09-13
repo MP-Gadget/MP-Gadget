@@ -48,17 +48,14 @@ INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h powerspectrum.h timestep.h sfr_eff.h drift.h timefac.h \
 	 petaio.h blackhole.h physconst.h
 
-TESTED = interp powerspectrum cosmology timefac timebinmgr
-
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)
-TESTBIN = $(TESTED:%=$(DESTDIR)/%_test)
 ICOBJS = $(ICOBJECTS:%=$(DESTDIR)/%)
 FILES = $(shell git ls-files)
 
 all: depends builddir $(EXEC)
 
-.PHONY: depends builddir test all
+.PHONY: depends builddir all
 
 depends:
 	cd depends; make
@@ -88,11 +85,3 @@ $(DESTDIR)/%.o: %.cpp $(INCL)
 
 clean:
 	rm -f $(OBJS) $(EXEC) $(ICOBJS)
-
-test: $(TESTBIN)
-	for tt in $^ ; do ./$$tt ; done
-
-$(DESTDIR)/run_%_test: $(DESTDIR)/%_test
-
-$(DESTDIR)/%_test: test/%_test.c $(DESTDIR)/%.o
-	$(MPICC) $(CFLAGS) $(LIBS) $^ -o $@ -lcmocka

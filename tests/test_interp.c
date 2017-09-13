@@ -4,6 +4,7 @@
 #include <cmocka.h>
 #include <math.h>
 #include <stdio.h>
+#include "stub.h"
 #include "../interp.h"
 
 #define DMAX(x,y) ((x) > (y) ? (x) : (y))
@@ -78,5 +79,5 @@ int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_interp),
     };
-    return cmocka_run_group_tests(tests, NULL, NULL);
+    return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }

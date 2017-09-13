@@ -1,0 +1,44 @@
+##
+# Run all the tests.
+#
+#  make test
+#
+# run a selected suite of tests
+#
+#  make test SUITE=tests/test_cosmology
+#
+# To debug a test
+#
+#  make tests/test_cosmology
+#  gdb tests/test_cosmology
+#
+##
+TESTED = \
+	interp \
+	powerspectrum \
+	cosmology \
+	timefac \
+	timebinmgr
+
+TESTBIN = $(TESTED:%=tests/test_%)
+SUITE?= $(TESTBIN)
+
+.PHONY: test run-tests build-tests
+
+
+depends/lib/libcmocka.a:
+	cd depends; make lib/libcmocka.a
+
+build-tests: $(TESTBIN)
+
+test : build-tests
+	for tt in $(SUITE) ; do $$tt ; done
+
+clean-tests:
+	rm -f $(TESTBIN)
+
+# this empty rule is important for tab-completion
+$(TESTBIN):
+
+tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o depends/lib/libcmocka.a
+	$(MPICC) $(CFLAGS) $^ $(LIBS) -o $@

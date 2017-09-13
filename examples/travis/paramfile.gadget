@@ -2,7 +2,7 @@
 
 InitCondFile = output/IC
 OutputDir = output
-OutputList = 0.1,0.2,0.299,0.3,0.33333
+OutputList = 0.1,0.11
 SnapshotFileBase = snapshot
 
 Nmesh = 32
@@ -19,7 +19,7 @@ TypeOfTimestepCriterion = 0
 
 #  Characteristics of run
 
-TimeMax = 1.00000
+TimeMax = 0.11
 
 Omega0 = 0.2814      # Total matter density  (at z=0)
 OmegaLambda = 0.7186      # Cosmological constant (at z=0)

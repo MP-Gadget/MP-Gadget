@@ -5,3 +5,6 @@ include $(CONFIG)
 
 # Main Rules
 include Makefile.rules
+#
+# Testing Rules
+include Makefile.tests

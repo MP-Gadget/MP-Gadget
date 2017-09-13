@@ -11,15 +11,7 @@
 #include "../physconst.h"
 #include "../cosmology.h"
 #include <gsl/gsl_sf_hyperg.h>
-
-void endrun(int ierr, const char * fmt, ...)
-{
-    va_list va;
-    va_start(va, fmt);
-    printf(fmt, va);
-    va_end(va);
-    exit(1);
-}
+#include "stub.h"
 
 void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H0)
 {
@@ -94,5 +86,5 @@ int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_cosmology),
     };
-    return cmocka_run_group_tests(tests, NULL, NULL);
+    return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }

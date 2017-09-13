@@ -8,25 +8,15 @@
 #include <stdlib.h>
 #include <math.h>
 #include <gsl/gsl_integration.h>
-
 #include <stdint.h>
-typedef uint32_t inttime_t;
 
+#include "stub.h"
+#include "../allvars.h"
 #include "../timefac.h"
 
 #define AMIN 0.005
 #define AMAX 1.0
 #define TIMEBINS 29
-
-/*Mock functions for linker*/
-void endrun(int ierr, const char * fmt, ...)
-{
-    va_list va;
-    va_start(va, fmt);
-    printf(fmt, va);
-    va_end(va);
-    exit(1);
-}
 
 static double OmegaM;
 /*Hubble function at scale factor a, in dimensions of All.Hubble*/
@@ -116,5 +106,5 @@ int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_drift_factor),
     };
-    return cmocka_run_group_tests(tests, NULL, NULL);
+    return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }
