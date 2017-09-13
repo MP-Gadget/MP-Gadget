@@ -324,7 +324,7 @@ int force_tree_build_single(int npart)
             nfreep->hmax = 0;
 
             /*Re-add the particle to the new internal node*/
-            const int child_subnode = get_subnode(nfreep, this, child, shift, MortonKey);
+            const int child_subnode = get_subnode(nfreep, this, child, shift -3, MortonKey);
 
             nfreep->u.suns[child_subnode] = child;
 
