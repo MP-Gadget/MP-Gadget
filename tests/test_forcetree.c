@@ -83,12 +83,18 @@ order_by_type_and_key(const void *a, const void *b)
  * that it the mass and flags are correct.*/
 static int check_moments(const int firstnode, const int lastnode, const int numpart, const int nrealnode)
 {
+    double * oldmass = malloc(sizeof(double) * MaxNodes);
+
+    for(int i=firstnode; i < lastnode; i ++) {
+        oldmass[i - firstnode] = Nodes[i].u.d.mass;
+    }
+
     for(int i=0; i<numpart; i++)
     {
         int fnode = Father[i];
         /*Subtract mass so that nothing is left.*/
         assert_true(fnode >= firstnode && fnode < lastnode);
-        while(fnode >= 0) {
+        while(fnode > 0) {
             Nodes[fnode].u.d.mass -= P[i].Mass;
             fnode = Nodes[fnode].father;
             /*Validate father*/
@@ -98,17 +104,34 @@ static int check_moments(const int firstnode, const int lastnode, const int nump
     int node = firstnode;
     int counter = 0;
     while(node >= 0) {
-            assert_true(node >= -1 && node < lastnode);
-            /*If a real internal node*/
-            if(node >= firstnode){
-                assert_true(Nodes[node].u.d.sibling >= -1 && Nodes[node].u.d.sibling < lastnode);
-                assert_true(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5);
-                counter++;
+        assert_true(node >= -1 && node < lastnode);
+        /*If a real node*/
+        if(node >= firstnode) {
+            assert_true(Nodes[node].u.d.sibling >= -1 && Nodes[node].u.d.sibling < lastnode);
+            if(!(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5)) {
+                printf("node %d (%d) mass %g / %g TL %d DLM %d MST %d MSN %d ITL %d MP %d\n", 
+                    node, node - firstnode, Nodes[node].u.d.mass, oldmass[node - firstnode],
+                    Nodes[node].u.d.TopLevel,
+                    Nodes[node].u.d.DependsOnLocalMass,
+                    Nodes[node].u.d.MaxSofteningType,
+                    Nodes[node].u.d.MixedSofteningsInNode,
+                    Nodes[node].u.d.InternalTopLevel,
+                    Nodes[node].u.d.MultipleParticles
+                    );
+                int nn = force_get_next_node(node);
+                while(nn < firstnode) { /* something is wrong show the particles */
+                    printf("particles P[%d], Mass=%g\n", nn, P[nn].Mass);
+                    nn = force_get_next_node(nn);
+                }
             }
-            node = force_get_next_node(node);
+            assert_true(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5);
+            counter++;
+        }
+        node = force_get_next_node(node);
     }
-    printf("Hit %d nodes, expected %d\n", counter, nrealnode);
-    assert_true(counter == nrealnode);
+    assert_int_equal(counter, nrealnode);
+
+    free(oldmass);
     return nrealnode;
 }
 
@@ -187,7 +210,7 @@ static void do_tree_test(const int numpart)
     int maxnode = numpart;
     All.MaxPart = numpart;
     MaxNodes = numpart;
-    assert_true(Nodes);
+    assert_true(Nodes != NULL);
     /*So we know which nodes we have initialised*/
     for(int i=0; i< MaxNodes+1; i++)
         Nodes_base[i].father = -2;
@@ -293,7 +316,7 @@ static void test_rebuild_random(void ** state) {
     int maxnode = numpart;
     size_t alloc = force_treeallocate(maxnode, numpart, numpart);
     assert_true(alloc > 0);
-    assert_true(Nodes);
+    assert_true(Nodes != NULL);
     P = malloc(numpart*sizeof(struct particle_data));
     for(int i=0; i<2; i++) {
         do_random_test(r, numpart, maxnode);
