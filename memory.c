@@ -22,15 +22,20 @@ struct BlockHeader {
 int
 allocator_init(Allocator * alloc, char * name, size_t size, int zero)
 {
-    void * base = malloc(size);
-    if (base == NULL) return ALLOC_ENOMEMORY;
+    size = (size / ALIGNMENT + 1) * ALIGNMENT;
 
-    strncpy(alloc->name, name, 11);
-    alloc->base = base;
+    void * rawbase = malloc(size + ALIGNMENT);
+    if (rawbase == NULL) return ALLOC_ENOMEMORY;
+
+
+    alloc->rawbase = rawbase;
+    alloc->base = ((char*) rawbase) + ALIGNMENT - ((size_t) rawbase % ALIGNMENT);
     alloc->refcount = 1;
     alloc->size = size;
-    alloc->bottom = 0;
     alloc->top = size;
+    alloc->bottom = 0;
+
+    strncpy(alloc->name, name, 11);
 
     if(zero) {
         memset(alloc->base, 0, size);
@@ -91,7 +96,7 @@ allocator_destroy(Allocator * alloc)
         allocator_print(alloc);
         endrun(1, "leaked\n");
     }
-    free(alloc->base);
+    free(alloc->rawbase);
 }
 
 int
@@ -135,7 +140,7 @@ allocator_iter_next(
         /* several corruption that shall not happen */
         abort();
     }
-    iter->ptr =  header->name;
+    iter->ptr =  header->ptr;
     iter->name = header->name;
     iter->annotation = header->annotation;
     iter->size = header->size;
