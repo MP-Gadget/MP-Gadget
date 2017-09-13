@@ -1,7 +1,7 @@
 CONFIG = ../Options.mk
 include $(CONFIG)
 
-LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a lib/libpfft_omp.a lib/libcmocka.a
+LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a lib/libpfft_omp.a
 depends: $(LIBRARIES)
 
 lib/libmpsort-mpi.a: mpsort/mpsort-mpi.c
@@ -23,6 +23,8 @@ lib/libpfft_omp.a:
 	MPICC="$(MPICC)" CC="$(MPICC)" CFLAGS="$(filter-out -ipo,$(OPTIMIZE)) -I $(PWD)/include -L$(PWD)/lib" \
         sh $(PWD)/install_pfft.sh $(PWD)/
 
+# cmocka.a is separate because we don't want missing cmake to kill MP-Gadget build.
+
 lib/libcmocka.a:
 	mkdir -p cmocka-build; cd cmocka-build; \
 	cmake -DCMAKE_INSTALL_PREFIX=$(PWD) -DCMAKE_BUILD_TYPE=Debug -DWITH_STATIC_LIB=On ../cmocka; \
@@ -31,7 +33,7 @@ lib/libcmocka.a:
 	rm -f lib/libcmocka.so*
 
 clean:
-	rm -rf $(LIBRARIES)
+	rm -rf $(LIBRARIES) lib/libcmocka.a
 	cd bigfile/src; make clean
 	cd mpsort; make clean
 

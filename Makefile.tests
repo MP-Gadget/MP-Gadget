@@ -26,6 +26,9 @@ SUITE?= $(TESTBIN)
 .PHONY: run-tests build-tests
 
 
+depends/lib/libcmocka.a:
+	cd depends; make lib/libcmocka.a
+
 build-tests: $(TESTBIN)
 
 run-tests: build-tests
@@ -36,5 +39,5 @@ clean-tests:
 
 $(TESTBIN):
 
-tests/test_%: tests/test_%.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o
-	$(MPICC) $(CFLAGS) $^ $(LIBS) -lcmocka -o $@
+tests/test_%: tests/test_%.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o depends/lib/libcmocka.a
+	$(MPICC) $(CFLAGS) $^ $(LIBS) -o $@
