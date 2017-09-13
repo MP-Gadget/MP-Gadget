@@ -79,6 +79,14 @@ order_by_type_and_key(const void *a, const void *b)
 
 #define NODECACHE_SIZE 100
 
+int force_get_father(int no, int firstnode)
+{
+    if(no >= firstnode)
+        return Nodes[no].father;
+    else
+        return Father[no];
+}
+
 /*This checks that the moments of the force tree in Nodes are valid:
  * that it the mass and flags are correct.*/
 static int check_moments(const int firstnode, const int lastnode, const int numpart, const int nrealnode)
@@ -105,9 +113,27 @@ static int check_moments(const int firstnode, const int lastnode, const int nump
     int counter = 0;
     while(node >= 0) {
         assert_true(node >= -1 && node < lastnode);
+        int next = force_get_next_node(node);
         /*If a real node*/
         if(node >= firstnode) {
+            /*Check sibling*/
             assert_true(Nodes[node].u.d.sibling >= -1 && Nodes[node].u.d.sibling < lastnode);
+            int sib = Nodes[node].u.d.sibling;
+            int sfather = force_get_father(sib, firstnode);
+            int father = force_get_father(node, firstnode);
+            /* Our sibling should either be a true sibling, with the same father,
+             * or should be the child of one of our ancestors*/
+            if(sfather != father && sib != -1) {
+                int ances = father;
+                while(ances >= 0) {
+                    assert_true(ances >= firstnode);
+                    ances = force_get_father(ances, firstnode);
+                    if(ances == sfather)
+                        break;
+                }
+                assert_int_equal(ances, sfather);
+/*                 printf("node %d ances %d sib %d next %d father %d sfather %d\n",node, ances, sib, force_get_next_node(node), father, sfather); */
+            }
             if(!(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5)) {
                 printf("node %d (%d) mass %g / %g TL %d DLM %d MST %d MSN %d ITL %d MP %d\n", 
                     node, node - firstnode, Nodes[node].u.d.mass, oldmass[node - firstnode],
@@ -127,7 +153,7 @@ static int check_moments(const int firstnode, const int lastnode, const int nump
             assert_true(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5);
             counter++;
         }
-        node = force_get_next_node(node);
+        node = next;
     }
     assert_int_equal(counter, nrealnode);
 
@@ -192,7 +218,7 @@ static int check_tree(const int firstnode, const int nnodes, const int numpart)
     assert_true(nnodes - nrealnode < omp_get_max_threads()*NODECACHE_SIZE);
     for(int i=0; i<numpart; i++)
     {
-        assert_true(P[i].PI == 1);
+        assert_int_equal(P[i].PI, 1);
     }
     printf("Tree filling factor: %g on %d nodes (wasted: %d seven empty: %d)\n", tot_empty/(8.*nrealnode), nrealnode, nnodes - nrealnode, sevens);
     return nrealnode;
