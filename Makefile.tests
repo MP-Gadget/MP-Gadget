@@ -37,4 +37,4 @@ clean-tests:
 $(TESTBIN):
 
 tests/test_%: tests/test_%.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o
-	$(MPICC) $(CFLAGS) $(LIBS) $^ -o $@ -lcmocka
+	$(MPICC) $(CFLAGS) $^ $(LIBS) -lcmocka -o $@
