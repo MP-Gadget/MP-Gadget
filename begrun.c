@@ -42,11 +42,8 @@ static void set_units();
 void begrun(int RestartSnapNum)
 {
 
-    int Nhost = cluster_get_num_hosts();
-    size_t n = 1.0 * All.MaxMemSizePerNode * (1.0 * Nhost / NTask) * 1024 * 1024;
-    mymalloc_init(n);
-    walltime_init(&All.CT);
     petaio_init();
+    walltime_init(&All.CT);
 
     petaio_read_header(RestartSnapNum);
 

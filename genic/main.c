@@ -33,8 +33,7 @@ int main(int argc, char **argv)
   read_parameterfile(argv[1]);
 
   walltime_init(&CT);
-  mymalloc_init(MaxMemoryPerCore * 1024 * 1024);
-
+  mymalloc_init(MaxMemoryPerNode);
 
   initialize_powerspectrum();
 

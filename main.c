@@ -8,6 +8,8 @@
 #include <gsl/gsl_math.h>
 
 #include "allvars.h"
+#include "mymalloc.h"
+
 #include "proto.h"
 #include "param.h"
 #include "config.h"
@@ -87,6 +89,8 @@ int main(int argc, char **argv)
         RestartSnapNum = find_last_snapnum();
         message(1, "Last Snapshot number is %d.\n", RestartSnapNum);
     }
+
+    mymalloc_init(All.MaxMemSizePerNode);
 
     switch(RestartFlag) {
         case 3:
