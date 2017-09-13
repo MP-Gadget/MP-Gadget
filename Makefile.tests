@@ -1,11 +1,11 @@
 ##
 # Run all the tests.
 #
-#  make run-tests
+#  make test
 #
 # run a selected suite of tests
 #
-#  make run-tests SUITE=tests/test_cosmology
+#  make test SUITE=tests/test_cosmology
 #
 # To debug a test
 #
@@ -23,7 +23,7 @@ TESTED = \
 TESTBIN = $(TESTED:%=tests/test_%)
 SUITE?= $(TESTBIN)
 
-.PHONY: run-tests build-tests
+.PHONY: test run-tests build-tests
 
 
 depends/lib/libcmocka.a:
@@ -31,12 +31,13 @@ depends/lib/libcmocka.a:
 
 build-tests: $(TESTBIN)
 
-run-tests: build-tests
+test : run-tests
 	for tt in $(SUITE) ; do $$tt ; done
 
 clean-tests:
 	rm -f $(TESTBIN)
 
+# this empty rule is important for tab-completion
 $(TESTBIN):
 
 tests/test_%: tests/test_%.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o depends/lib/libcmocka.a
