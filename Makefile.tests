@@ -1,9 +1,9 @@
 ##
-# Run all the stests.
+# Run all the tests.
 #
 #  make run-tests
 #
-# run a select tests
+# run a selected suite of tests
 #
 #  make run-tests SUITE=tests/test_cosmology
 #
