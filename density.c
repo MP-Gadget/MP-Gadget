@@ -299,8 +299,6 @@ density_ngbiter(
 static int
 density_haswork(int n, TreeWalk * tw)
 {
-    if(P[n].DensityIterationDone) return 0;
-
     if(P[n].TimeBin < 0) {
         endrun(9999, "TimeBin negative!\n use DensityIterationDone flag");
     }
