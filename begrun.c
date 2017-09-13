@@ -66,10 +66,6 @@ void begrun(int BeginFlag, int RestartSnapNum)
     init_clouds();
 #endif
 
-    random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
-
-    gsl_rng_set(random_generator, 42);	/* start-up seed */
-
     if(BeginFlag == 2)
         long_range_init();
 

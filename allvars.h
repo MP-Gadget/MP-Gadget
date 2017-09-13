@@ -176,8 +176,6 @@ extern int64_t NTotal[6];
 extern int N_bh_slots;
 extern int N_sph_slots;
 
-extern gsl_rng *random_generator;	/*!< the random number generator used */
-
 /* variables for input/output , usually only used on process 0 */
 
 
