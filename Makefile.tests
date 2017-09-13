@@ -19,7 +19,8 @@ TESTED = \
 	cosmology \
 	forcetree \
 	timefac \
-	timebinmgr
+	timebinmgr \
+	memory
 
 TESTBIN = $(TESTED:%=tests/test_%)
 SUITE?= $(TESTBIN)

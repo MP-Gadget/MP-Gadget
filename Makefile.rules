@@ -16,7 +16,7 @@ LIBS   = -lm $(GSL_LIBS) -Ldepends/lib $(BUNDLEDLIBS)
 OPTIONS = $(OPTIMIZE) $(OPT)
 
 OBJECTS  =  \
-	 gdbtools.o \
+	 gdbtools.o memory.o \
 	 fof.o fofpetaio.o petaio.o \
 	 param.o paramset.o utils-string.o \
 	 domain.o exchange.o garbage.o allvars.o main.o \
