@@ -35,7 +35,7 @@ create_parameters()
     param_declare_int(ps, "Seed", REQUIRED, 0, "");
     param_declare_int(ps, "WhichSpectrum", REQUIRED, 2, "Type of spectrum, 2 for file ");
 
-    param_declare_double(ps, "MaxMemoryPerNode", OPTIONAL, 0.8 * get_physmem_bytes() / (1024 * 1024), "");
+    param_declare_double(ps, "MaxMemoryPerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Write a IC similiar to a FastPM output");
