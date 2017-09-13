@@ -4,3 +4,6 @@
 [submodule "radixsort"]
 	path = depends/mpsort
 	url = https://github.com/rainwoodman/MP-sort
+[submodule "depends/cmocka"]
+	path = depends/cmocka
+	url = git://git.cryptomilk.org/projects/cmocka.git
