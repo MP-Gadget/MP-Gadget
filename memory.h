@@ -3,6 +3,14 @@
 
 typedef struct Allocator Allocator;
 
+#define ALLOC_ENOTALLOC -3
+#define ALLOC_EMISMATCH -2
+#define ALLOC_ENOMEMORY -1
+
+#define ALLOC_DIR_TOP -1
+#define ALLOC_DIR_BOT +1
+#define ALLOC_DIR_BOTH 0
+
 struct Allocator {
     char name[12];
     Allocator * parent;
@@ -29,6 +37,7 @@ struct AllocatorIter {
     char * name;
     int dir;
     char * annotation;
+    void * ptr;
 };
 
 int
@@ -38,10 +47,20 @@ int
 allocator_destroy(Allocator * alloc);
 
 void *
-allocator_alloc(Allocator * alloc, char * name, size_t size, int zero, int dir, char * annotation);
+allocator_alloc(Allocator * alloc, char * name, size_t size, int dir, char * fmt, ...);
 
+#define allocator_alloc_bot(alloc, name, size) \
+    allocator_alloc(alloc, name, size, ALLOC_DIR_BOT, "%s:%d", __FILE__, __LINE__)
+
+#define allocator_alloc_top(alloc, name, size) \
+    allocator_alloc(alloc, name, size, ALLOC_DIR_TOP, "%s:%d", __FILE__, __LINE__)
+
+/* free like API, will look up allocator pointer. */
 void
-allocator_free (Allocator * alloc, void * ptr);
+allocator_free(void * ptr);
+
+int
+allocator_dealloc (Allocator * alloc, void * ptr);
 
 size_t
 allocator_get_free_size(Allocator * alloc);
@@ -59,6 +78,10 @@ allocator_iter_start(
         AllocatorIter * iter,
         Allocator * alloc
     );
+
+/* 0 for total */
+size_t
+allocator_get_used_size(Allocator * alloc, int dir);
 
 void
 allocator_print(Allocator * alloc);
