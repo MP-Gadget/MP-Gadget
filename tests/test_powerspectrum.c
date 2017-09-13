@@ -44,8 +44,9 @@ static void test_total_powerspectrum(void **state) {
     assert_true(PowerSpectrum.Nmodes[PowerSpectrum.size-1] == 0);
 
     //Construct input power (this would be done by the power spectrum routine in petapm)
-    for(int ii=0; ii<15; ii++) {
-        for(int th = 0; th < NUM_THREADS; th++) {
+    int ii, th;
+    for(ii=0; ii<15; ii++) {
+        for(th = 0; th < NUM_THREADS; th++) {
             PowerSpectrum.Nmodes[ii+PowerSpectrum.size*th] = ii;
             PowerSpectrum.P[ii+PowerSpectrum.size*th] = ii*sin(ii)*sin(ii);
             PowerSpectrum.k[ii+PowerSpectrum.size*th] = ii*ii;
