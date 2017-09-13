@@ -87,4 +87,7 @@ allocator_get_used_size(Allocator * alloc, int dir);
 void
 allocator_print(Allocator * alloc);
 
+int
+allocator_reset(Allocator * alloc, int zero);
+
 #endif
