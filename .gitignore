@@ -5,4 +5,5 @@ config.h
 GENIC/N-GenIC
 depends/bin
 depends/lib
-depents/share
+depends/share
+depends/cmocka-build/
