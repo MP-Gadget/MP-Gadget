@@ -54,6 +54,7 @@ typedef struct {
 } TreeWalkResultDensity;
 
 struct DensityPriv {
+    /* placeholder empty to serve as an example */
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -67,7 +68,6 @@ density_ngbiter(
 
 static int density_haswork(int n, TreeWalk * tw);
 static void density_postprocess(int i, TreeWalk * tw);
-static void density_check_neighbours(int i, TreeWalk * tw);
 
 static void density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw);
 static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
@@ -299,6 +299,7 @@ density_ngbiter(
 static int
 density_haswork(int n, TreeWalk * tw)
 {
+    /* density of BH is computed for bh feedback */
     if(P[n].Type == 0 || P[n].Type == 5)
         return 1;
 

@@ -136,7 +136,7 @@ void compute_sml(void)
 
     /* allocate buffers to arrange communication */
 
-    walltime_measure("/SPH/Density/Init");
+    walltime_measure("/SPH/Sml/Init");
 
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
     do {
@@ -184,10 +184,10 @@ void compute_sml(void)
     timewait = tw->timewait1 + tw->timewait2;
     timecomm = tw->timecommsumm1 + tw->timecommsumm2;
 
-    walltime_add("/SPH/Density/Compute", timecomp);
-    walltime_add("/SPH/Density/Wait", timewait);
-    walltime_add("/SPH/Density/Comm", timecomm);
-    walltime_add("/SPH/Density/Misc", timeall - (timecomp + timewait + timecomm));
+    walltime_add("/SPH/Sml/Compute", timecomp);
+    walltime_add("/SPH/Sml/Wait", timewait);
+    walltime_add("/SPH/Sml/Comm", timecomm);
+    walltime_add("/SPH/Sml/Misc", timeall - (timecomp + timewait + timecomm));
 }
 
 static void
