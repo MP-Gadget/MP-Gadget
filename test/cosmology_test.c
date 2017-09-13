@@ -39,12 +39,12 @@ void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H
     init_cosmology(CP);
 }
 
-inline double radgrow(double aa, double omegar) {
+static inline double radgrow(double aa, double omegar) {
     return omegar + 1.5 * 1. * aa; 
 }
 
 //Omega_L + Omega_M = 1 => D+ ~ Gauss hypergeometric function
-inline double growth(double aa, double omegam) {
+static inline double growth(double aa, double omegam) {
     double omegal = 1-omegam;
     return aa * gsl_sf_hyperg_2F1(1./3, 1, 11./6, -omegal/omegam*pow(aa,3));
 }

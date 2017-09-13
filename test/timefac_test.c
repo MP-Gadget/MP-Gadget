@@ -61,7 +61,7 @@ double loga_from_ti(int ti)
 }
 
 /*Get integer from real time*/
-inline int get_ti(double aa)
+static inline int get_ti(double aa)
 {
     double logDTime = (log(AMAX) - log(AMIN)) / (1 << TIMEBINS);
     return (log(aa) - log(AMIN))/logDTime;
