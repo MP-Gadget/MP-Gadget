@@ -1,0 +1,32 @@
+##
+# Run all the stests.
+#
+#  make run-tests
+#
+# run a select tests
+#
+#  make run-tests SUITE=tests/test-cosmology
+#
+##
+TESTED = \
+	interp \
+	powerspectrum \
+	cosmology \
+	timefac \
+	timebinmgr
+
+TESTBIN = $(TESTED:%=tests/test_%)
+SUITE?= $(TESTBIN)
+
+.PHONY: run-tests build-tests
+
+
+build-tests: $(TESTBIN)
+
+run-tests: build-tests
+	for tt in $(SUITE) ; do $$tt ; done
+
+$(TESTBIN):
+
+tests/test_%: tests/%_test.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o
+	$(MPICC) $(CFLAGS) $(LIBS) $^ -o $@ -lcmocka
