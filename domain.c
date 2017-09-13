@@ -183,11 +183,13 @@ void domain_decompose_full(void)
     TopLeaves = (struct topleaf_data *) mymalloc("TopLeaves", sizeof(TopLeaves[0]) * (NTopLeaves + 1));
 
     memcpy(TopLeaves, OldTopLeaves, NTopLeaves* sizeof(TopLeaves[0]));
-    memcpy(TopNodes, OldTopNodes, NTopNodes * sizeof(TopLeaves[0]));
+    memcpy(TopNodes, OldTopNodes, NTopNodes * sizeof(TopNodes[0]));
 
     /* no longer useful */
     myfree(TopTreeTempMemory);
     TopTreeTempMemory = NULL;
+
+    report_memory_usage("DOMAIN");
 
     walltime_measure("/Domain/Misc");
 
@@ -236,7 +238,7 @@ void domain_allocate(void)
 
     all_bytes += bytes;
 
-    TopTreeTempMemory = mymalloc2("TopTree", 
+    TopTreeTempMemory = mymalloc2("TopTreeWorkspace", 
         bytes = (MaxTopNodes * (sizeof(TopNodes[0]) + sizeof(TopLeaves[0]))));
 
     TopNodes  = (struct topnode_data *) TopTreeTempMemory;
@@ -285,7 +287,7 @@ domain_attempt_decompose(void)
     size_t bytes, all_bytes = 0;
 
     /*!< points to the root node of the top-level tree */
-    struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("topTree", bytes =
+    struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("LocaltopTree", bytes =
             (MaxTopNodes * sizeof(struct local_topnode_data)));
     memset(topTree, 0, sizeof(topTree[0]) * MaxTopNodes);
     all_bytes += bytes;
