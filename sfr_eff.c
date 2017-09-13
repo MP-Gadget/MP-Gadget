@@ -155,7 +155,7 @@ sfr_wind_feedback_preprocess(int n, TreeWalk * tw)
     Wind[n].DMRadius = 2 * P[n].Hsml;
     Wind[n].Left = 0;
     Wind[n].Right = -1;
-    P[n].DensityIterationDone = 0;
+    P[n].SmlIterationDone = 0;
 }
 
 static void
@@ -169,12 +169,12 @@ sfr_wind_weight_postprocess(int i)
         /* too many */
         Wind[i].Right = Wind[i].DMRadius;
     } else {
-        P[i].DensityIterationDone = 1;
+        P[i].SmlIterationDone = 1;
     }
     if(Wind[i].Right >= 0) {
         /* if Ngb hasn't converged to 40, see if DMRadius converged*/
         if(Wind[i].Right - Wind[i].Left < 1e-2) {
-            P[i].DensityIterationDone = 1;
+            P[i].SmlIterationDone = 1;
         } else {
             Wind[i].DMRadius = 0.5 * (Wind[i].Left + Wind[i].Right);
         }
@@ -182,7 +182,7 @@ sfr_wind_weight_postprocess(int i)
         Wind[i].DMRadius *= 1.3;
     }
 
-    if(P[i].DensityIterationDone) {
+    if(P[i].SmlIterationDone) {
         double vdisp = Wind[i].V2sum / Wind[i].Ngb;
         int d;
         for(d = 0; d < 3; d ++) {
@@ -323,7 +323,7 @@ void cooling_and_starformation(void)
         tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterWind);
         tw->ngbiter = (TreeWalkNgbIterFunction) sfr_wind_weight_ngbiter;
 
-        /* First set DensityIterationDone for weighting */
+        /* First set SmlIterationDone for weighting */
         /* Watchout: the process function name is preprocess, but not called in the feedback tree walk
          * because we need to compute the normalization before the feedback . */
         tw->visit = NULL;
@@ -495,7 +495,7 @@ static int
 sfr_wind_weight_haswork(int target, TreeWalk * tw)
 {
     if(P[target].Type == 4) {
-        if(P[target].IsNewParticle && !P[target].DensityIterationDone) {
+        if(P[target].IsNewParticle && !P[target].SmlIterationDone) {
              return 1;
         }
     }

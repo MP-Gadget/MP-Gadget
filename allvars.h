@@ -489,7 +489,7 @@ extern struct particle_data
     float Mass;     /*!< particle mass */
     struct {
         unsigned int Evaluated :1;
-        unsigned int DensityIterationDone :1;
+        unsigned int SmlIterationDone :1;
         unsigned int OnAnotherDomain     :1;
         unsigned int WillExport    :1; /* used in domain */
         unsigned int Type        :4;		/*!< flags particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */

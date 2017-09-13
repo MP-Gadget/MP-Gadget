@@ -122,13 +122,13 @@ void compute_sml(void)
 
     /* this has to be done before treewalk so that
      * all particles are ran for the first loop.
-     * The iteration will gradually turn DensityIterationDone on more particles.
+     * The iteration will gradually turn SmlIterationDone on more particles.
      * */
     #pragma omp parallel for
     for(i = 0; i < NumActiveParticle; i++)
     {
         const int p_i = ActiveParticle[i];
-        P[p_i].DensityIterationDone = 0;
+        P[p_i].SmlIterationDone = 0;
         SML_GET_PRIV(tw)->Left[p_i] = 0;
         SML_GET_PRIV(tw)->Right[p_i] = 0;
 
@@ -152,7 +152,7 @@ void compute_sml(void)
         if(ntot < 1 ) {
             foreach(ActiveParticle)
             {
-                if(sml_haswork(i) && !P[i].DensityIterationDone) {
+                if(sml_haswork(i) && !P[i].SmlIterationDone) {
                     message
                         (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g SML_GET_PRIV(tw)->Left=%g SML_GET_PRIV(tw)->Right=%g Ngbs=%g SML_GET_PRIV(tw)->Right-SML_GET_PRIV(tw)->Left=%g\n   pos=(%g|%g|%g)\n",
                          i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, SML_GET_PRIV(tw)->Left[i], SML_GET_PRIV(tw)->Right[i],
@@ -300,10 +300,10 @@ sml_ngbiter(
 static int
 sml_haswork(int n, TreeWalk * tw)
 {
-    if(P[n].DensityIterationDone) return 0;
+    if(P[n].SmlIterationDone) return 0;
 
     if(P[n].TimeBin < 0) {
-        endrun(9999, "TimeBin negative!\n use DensityIterationDone flag");
+        endrun(9999, "TimeBin negative!\n use SmlIterationDone flag");
     }
 
     if(P[n].Type == 0 || P[n].Type == 5)
@@ -349,16 +349,16 @@ void sml_check_neighbours (int i, TreeWalk * tw) {
              && P[i].Hsml > (1.01 * All.MinGasHsml)))
     {
         /* need to redo this particle */
-        if(P[i].DensityIterationDone) {
+        if(P[i].SmlIterationDone) {
             /* should have been 0*/
-            endrun(999993, "Already has DensityIterationDone set, bad memory intialization.");
+            endrun(999993, "Already has SmlIterationDone set, bad memory intialization.");
         }
 
         if(SML_GET_PRIV(tw)->Left[i] > 0 && SML_GET_PRIV(tw)->Right[i] > 0)
             if((SML_GET_PRIV(tw)->Right[i] - SML_GET_PRIV(tw)->Left[i]) < 1.0e-3 * SML_GET_PRIV(tw)->Left[i])
             {
                 /* this one should be ok */
-                P[i].DensityIterationDone = 1;
+                P[i].SmlIterationDone = 1;
                 return;
             }
 
@@ -431,7 +431,7 @@ void sml_check_neighbours (int i, TreeWalk * tw) {
 
     }
     else {
-        P[i].DensityIterationDone = 1;
+        P[i].SmlIterationDone = 1;
     }
 
     if(SML_GET_PRIV(tw)->NIteration >= MAXITER - 10)
@@ -441,7 +441,7 @@ void sml_check_neighbours (int i, TreeWalk * tw) {
              (float) P[i].NumNgb, SML_GET_PRIV(tw)->Right[i] - SML_GET_PRIV(tw)->Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
     }
 
-    if(!P[i].DensityIterationDone) {
+    if(!P[i].SmlIterationDone) {
 #pragma omp atomic
         SML_GET_PRIV(tw)->NPLeft ++;
     }
