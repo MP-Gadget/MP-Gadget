@@ -248,6 +248,8 @@ setup_smoothinglengths(int RestartSnapNum)
         }
 #endif
 
+    compute_sml();
+
     density();
 
     /* for clean IC with U input only, we need to iterate to find entrpoy */
@@ -267,6 +269,8 @@ setup_smoothinglengths(int RestartSnapNum)
         u_init /= molecular_weight;
 
 #ifdef DENSITY_INDEPENDENT_SPH
+        /* Pressure entropy is more complicated */
+
         for(i = 0; i < NumPart; i++)
         {
             if(P[i].Type == 0)
@@ -282,8 +286,9 @@ setup_smoothinglengths(int RestartSnapNum)
         int j;
         double badness;
         double * olddensity = (double *)mymalloc("olddensity ", NumPart * sizeof(double));
-        for(j=0;j<100;j++)
-        {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
+
+        for(j = 0; j < 100; j++) {
+            /* since ICs give energies, not entropies, need to iterate get this initialized correctly */
 #pragma omp parallel for
             for(i = 0; i < NumPart; i++)
             {
@@ -292,6 +297,7 @@ setup_smoothinglengths(int RestartSnapNum)
                     olddensity[i] = SPHP(i).EgyWtDensity;
                 }
             }
+
             density();
             badness = 0;
 

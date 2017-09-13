@@ -54,9 +54,6 @@ typedef struct {
 } TreeWalkResultDensity;
 
 struct DensityPriv {
-    double *Left, *Right;
-    int NIteration;
-    int NPLeft;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -100,7 +97,7 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
 void density(void)
 {
     if(!All.DensityOn)
-	return;
+        return;
 
     TreeWalk tw[1] = {0};
     struct DensityPriv priv[1];
@@ -126,66 +123,7 @@ void density(void)
 
     walltime_measure("/Misc");
 
-    DENSITY_GET_PRIV(tw)->Left = (double *) mymalloc("DENSITY_GET_PRIV(tw)->Left", NumPart * sizeof(double));
-    DENSITY_GET_PRIV(tw)->Right = (double *) mymalloc("DENSITY_GET_PRIV(tw)->Right", NumPart * sizeof(double));
-
-    DENSITY_GET_PRIV(tw)->NIteration = 0;
-
-    /* this has to be done before treewalk so that
-     * all particles are ran for the first loop.
-     * The iteration will gradually turn DensityIterationDone on more particles.
-     * */
-    #pragma omp parallel for
-    for(i = 0; i < NumActiveParticle; i++)
-    {
-        const int p_i = ActiveParticle[i];
-        P[p_i].DensityIterationDone = 0;
-        DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
-        DENSITY_GET_PRIV(tw)->Right[p_i] = 0;
-
-    }
-
-    /* allocate buffers to arrange communication */
-
-    walltime_measure("/SPH/Density/Init");
-
-    /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
-    do {
-        DENSITY_GET_PRIV(tw)->NPLeft = 0;
-
-        treewalk_run(tw, ActiveParticle, NumActiveParticle);
-        sumup_large_ints(1, &DENSITY_GET_PRIV(tw)->NPLeft, &ntot);
-
-        if(ntot == 0) break;
-
-        DENSITY_GET_PRIV(tw)->NIteration ++;
-        /*
-        if(ntot < 1 ) {
-            foreach(ActiveParticle)
-            {
-                if(density_haswork(i) && !P[i].DensityIterationDone) {
-                    message
-                        (1, "i=%d task=%d ID=%llu type=%d, Hsml=%g DENSITY_GET_PRIV(tw)->Left=%g DENSITY_GET_PRIV(tw)->Right=%g Ngbs=%g DENSITY_GET_PRIV(tw)->Right-DENSITY_GET_PRIV(tw)->Left=%g\n   pos=(%g|%g|%g)\n",
-                         i, ThisTask, P[i].ID, P[i].Type, P[i].Hsml, DENSITY_GET_PRIV(tw)->Left[i], DENSITY_GET_PRIV(tw)->Right[i],
-                         (float) P[i].NumNgb, DENSITY_GET_PRIV(tw)->Right[i] - DENSITY_GET_PRIV(tw)->Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-                }
-            }
-
-        }
-        */
-
-        if(DENSITY_GET_PRIV(tw)->NIteration > 0) {
-            message(0, "ngb iteration %d: need to repeat for %ld particles.\n", DENSITY_GET_PRIV(tw)->NIteration, ntot);
-        }
-
-        if(DENSITY_GET_PRIV(tw)->NIteration > MAXITER) {
-            endrun(1155, "failed to converge in neighbour iteration in density()\n");
-        }
-    } while(1);
-
-    myfree(DENSITY_GET_PRIV(tw)->Right);
-    myfree(DENSITY_GET_PRIV(tw)->Left);
-
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     /* collect some timing information */
 
@@ -408,121 +346,4 @@ density_postprocess(int i, TreeWalk * tw)
         }
     }
 
-    /* This is slightly more complicated so we put it in a different function */
-    /* FIXME: It may make sense to have a seperate tree walk that calculates Hsml only. */
-    density_check_neighbours(i, tw);
 }
-
-void density_check_neighbours (int i, TreeWalk * tw) {
-    /* now check whether we had enough neighbours */
-
-    double desnumngb = All.DesNumNgb;
-
-#ifdef BLACK_HOLES
-    if(P[i].Type == 5)
-        desnumngb = All.DesNumNgb * All.BlackHoleNgbFactor;
-#endif
-
-    if(P[i].NumNgb < (desnumngb - All.MaxNumNgbDeviation) ||
-            (P[i].NumNgb > (desnumngb + All.MaxNumNgbDeviation)
-             && P[i].Hsml > (1.01 * All.MinGasHsml)))
-    {
-        /* need to redo this particle */
-        if(P[i].DensityIterationDone) {
-            /* should have been 0*/
-            endrun(999993, "Already has DensityIterationDone set, bad memory intialization.");
-        }
-
-        if(DENSITY_GET_PRIV(tw)->Left[i] > 0 && DENSITY_GET_PRIV(tw)->Right[i] > 0)
-            if((DENSITY_GET_PRIV(tw)->Right[i] - DENSITY_GET_PRIV(tw)->Left[i]) < 1.0e-3 * DENSITY_GET_PRIV(tw)->Left[i])
-            {
-                /* this one should be ok */
-                P[i].DensityIterationDone = 1;
-                return;
-            }
-
-        if(P[i].NumNgb < (desnumngb - All.MaxNumNgbDeviation))
-            DENSITY_GET_PRIV(tw)->Left[i] = DMAX(P[i].Hsml, DENSITY_GET_PRIV(tw)->Left[i]);
-        else
-        {
-            if(DENSITY_GET_PRIV(tw)->Right[i] != 0)
-            {
-                if(P[i].Hsml < DENSITY_GET_PRIV(tw)->Right[i])
-                    DENSITY_GET_PRIV(tw)->Right[i] = P[i].Hsml;
-            }
-            else
-                DENSITY_GET_PRIV(tw)->Right[i] = P[i].Hsml;
-        }
-
-        if(DENSITY_GET_PRIV(tw)->Right[i] > 0 && DENSITY_GET_PRIV(tw)->Left[i] > 0)
-            P[i].Hsml = pow(0.5 * (pow(DENSITY_GET_PRIV(tw)->Left[i], 3) + pow(DENSITY_GET_PRIV(tw)->Right[i], 3)), 1.0 / 3);
-        else
-        {
-            if(DENSITY_GET_PRIV(tw)->Right[i] == 0 && DENSITY_GET_PRIV(tw)->Left[i] == 0)
-                endrun(8188, "Cannot occur. Check for memory corruption.");	/* can't occur */
-
-            if(DENSITY_GET_PRIV(tw)->Right[i] == 0 && DENSITY_GET_PRIV(tw)->Left[i] > 0)
-            {
-                if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
-                {
-                    double fac = 1 - (P[i].NumNgb -
-                            desnumngb) / (NUMDIMS * P[i].NumNgb) *
-                        SPHP(i).DhsmlDensityFactor;
-
-                    if(fac < 1.26)
-                        P[i].Hsml *= fac;
-                    else
-                        P[i].Hsml *= 1.26;
-                }
-                else
-                    P[i].Hsml *= 1.26;
-            }
-
-            if(DENSITY_GET_PRIV(tw)->Right[i] > 0 && DENSITY_GET_PRIV(tw)->Left[i] == 0)
-            {
-                if(P[i].Type == 0 && fabs(P[i].NumNgb - desnumngb) < 0.5 * desnumngb)
-                {
-                    double fac = 1 - (P[i].NumNgb -
-                            desnumngb) / (NUMDIMS * P[i].NumNgb) *
-                        SPHP(i).DhsmlDensityFactor;
-
-                    if(fac > 1 / 1.26)
-                        P[i].Hsml *= fac;
-                    else
-                        P[i].Hsml /= 1.26;
-                }
-                else
-                    P[i].Hsml /= 1.26;
-            }
-        }
-
-        if(P[i].Hsml < All.MinGasHsml)
-            P[i].Hsml = All.MinGasHsml;
-
-#ifdef BLACK_HOLES
-        if(P[i].Type == 5)
-            if(DENSITY_GET_PRIV(tw)->Left[i] > All.BlackHoleMaxAccretionRadius)
-            {
-                /* this will stop the search for a new BH smoothing length in the next iteration */
-                P[i].Hsml = DENSITY_GET_PRIV(tw)->Left[i] = DENSITY_GET_PRIV(tw)->Right[i] = All.BlackHoleMaxAccretionRadius;
-            }
-#endif
-
-    }
-    else {
-        P[i].DensityIterationDone = 1;
-    }
-
-    if(DENSITY_GET_PRIV(tw)->NIteration >= MAXITER - 10)
-    {
-         message(1, "i=%d task=%d ID=%lu Hsml=%g DENSITY_GET_PRIV(tw)->Left=%g DENSITY_GET_PRIV(tw)->Right=%g Ngbs=%g DENSITY_GET_PRIV(tw)->Right-DENSITY_GET_PRIV(tw)->Left=%g\n   pos=(%g|%g|%g)\n",
-             i, ThisTask, P[i].ID, P[i].Hsml, DENSITY_GET_PRIV(tw)->Left[i], DENSITY_GET_PRIV(tw)->Right[i],
-             (float) P[i].NumNgb, DENSITY_GET_PRIV(tw)->Right[i] - DENSITY_GET_PRIV(tw)->Left[i], P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
-    }
-
-    if(!P[i].DensityIterationDone) {
-#pragma omp atomic
-        DENSITY_GET_PRIV(tw)->NPLeft ++;
-    }
-}
-

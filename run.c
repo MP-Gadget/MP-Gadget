@@ -336,6 +336,8 @@ void compute_accelerations(int is_PM)
         /***** density *****/
         message(0, "Start density computation...\n");
 
+        compute_sml();
+
         density();		/* computes density, and pressure */
 
         /***** update smoothing lengths in tree *****/
