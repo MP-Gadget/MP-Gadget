@@ -5,7 +5,12 @@
 #
 # run a select tests
 #
-#  make run-tests SUITE=tests/test-cosmology
+#  make run-tests SUITE=tests/test_cosmology
+#
+# To debug a test
+#
+#  make tests/test_cosmology
+#  gdb tests/test_cosmology
 #
 ##
 TESTED = \
@@ -26,7 +31,10 @@ build-tests: $(TESTBIN)
 run-tests: build-tests
 	for tt in $(SUITE) ; do $$tt ; done
 
+clean-tests:
+	rm -f $(TESTBIN)
+
 $(TESTBIN):
 
-tests/test_%: tests/%_test.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o
+tests/test_%: tests/test_%.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o
 	$(MPICC) $(CFLAGS) $(LIBS) $^ -o $@ -lcmocka
