@@ -31,7 +31,7 @@ depends/lib/libcmocka.a:
 
 build-tests: $(TESTBIN)
 
-test : run-tests
+test : build-tests
 	for tt in $(SUITE) ; do $$tt ; done
 
 clean-tests:
@@ -40,5 +40,5 @@ clean-tests:
 # this empty rule is important for tab-completion
 $(TESTBIN):
 
-tests/test_%: tests/test_%.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o depends/lib/libcmocka.a
+tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o depends/lib/libcmocka.a
 	$(MPICC) $(CFLAGS) $^ $(LIBS) -o $@

@@ -7,6 +7,7 @@
 #include <math.h>
 #include <string.h>
 #include <stdio.h>
+#include "stub.h"
 //So All.OutputList is defined
 #include "../allvars.h"
 #include "../timebinmgr.h"

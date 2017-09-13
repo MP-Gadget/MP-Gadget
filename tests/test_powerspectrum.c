@@ -10,21 +10,9 @@
 #include <omp.h>
 #include <math.h>
 #include <mpi.h>
+#include "stub.h"
+
 #include "../powerspectrum.h"
-
-/*Dummy functions to keep linker happy.*/
-
-void * mymalloc_fullinfo(const char * string, size_t size, const char *func, const char *file, int line)
-{
-    return malloc(size);
-}
-
-void myfree_fullinfo(void * ptr, const char *func, const char *file, int line)
-{
-    free(ptr);
-}
-
-/*End dummies*/
 
 #define NUM_THREADS 4
 
@@ -69,25 +57,10 @@ static void test_total_powerspectrum(void **state) {
 
 }
 
-static int setup_mpi(void **state) {
-    int ac=1;
-    char * str = "powerspectrum_test";
-    char **av = &str;
-    MPI_Init(&ac, &av);
-    omp_set_num_threads(NUM_THREADS);
-    return 0;
-}
-
-static int teardown_mpi(void **state) {
-    MPI_Finalize();
-    return 0;
-}
-
-
 int main(void)
 {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_total_powerspectrum),
     };
-    return cmocka_run_group_tests(tests, setup_mpi, teardown_mpi);
+    return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }

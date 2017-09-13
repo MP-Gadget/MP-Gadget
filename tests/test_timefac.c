@@ -8,10 +8,10 @@
 #include <stdlib.h>
 #include <math.h>
 #include <gsl/gsl_integration.h>
-
 #include <stdint.h>
-typedef uint32_t inttime_t;
 
+#include "stub.h"
+#include "../allvars.h"
 #include "../timefac.h"
 
 #define AMIN 0.005
@@ -106,5 +106,5 @@ int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_drift_factor),
     };
-    return cmocka_run_group_tests(tests, NULL, NULL);
+    return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }
