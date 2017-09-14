@@ -257,7 +257,7 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, co
                 "Attached to node %d, subnode %d, at [%g, %g, %g] (len %g).\n",
                 p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2],
                 p_child, P[p_child].Pos[0], P[p_child].Pos[1], P[p_child].Pos[2],
-                nfreep, child_subnode, nprnt->center[0], nprnt->center[1], nprnt->center[2], nprnt->len);
+                ninsert, child_subnode, nprnt->center[0], nprnt->center[1], nprnt->center[2], nprnt->len);
     }
 
     int ret = 0;
