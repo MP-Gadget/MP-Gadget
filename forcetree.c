@@ -600,12 +600,12 @@ force_set_node_softening(struct NODE * pnode, const int new_type, const double h
     if(new_type == 0)
     {
         if(hsml > pnode->u.d.maxsoft)
-            pnode->u.d.maxsoft = hsml;
+            pnode->maxsoft = hsml;
     }
     else
     {
         if(All.ForceSoftening[new_type] > pnode->u.d.maxsoft)
-            pnode->u.d.maxsoft = All.ForceSoftening[new_type];
+            pnode->maxsoft = All.ForceSoftening[new_type];
     }
 #endif
 }
@@ -659,7 +659,7 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
     Nodes[no].u.d.MaxSofteningType=7;
 #else
-    Nodes[no].u.d.maxsoft=0;
+    Nodes[no].maxsoft=0;
 #endif
     int j, suns[8];
     /* this "backup" is necessary because the nextnode
