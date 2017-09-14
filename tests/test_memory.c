@@ -43,10 +43,10 @@ test_allocator_malloc(void ** state)
     Allocator A0[1];
     allocator_malloc_init(A0, "libc based", 4096 * 1024, 1);
 
-    void * p1 = allocator_alloc_bot(A0, "M+1", 1024);
+    void * p1 = allocator_alloc_bot(A0, "M+1", 2048);
     void * p2 = allocator_alloc_bot(A0, "M+2", 2048);
 
-    void * q1 = allocator_alloc_top(A0, "M-1", 1024);
+    void * q1 = allocator_alloc_top(A0, "M-1", 2048);
     void * q2 = allocator_alloc_top(A0, "M-2", 2048);
 
     allocator_print(A0);
