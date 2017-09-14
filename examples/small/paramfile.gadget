@@ -16,9 +16,6 @@ TimeLimitCPU = 43000 #= 8 hours
 
 # Code options
 
-
-TypeOfTimestepCriterion = 0
-
 #  Characteristics of run
 
 TimeMax = 1.00000
