@@ -92,12 +92,13 @@ int force_get_father(int no, int firstnode)
 static int check_moments(const int firstnode, const int lastnode, const int numpart, const int nrealnode)
 {
     double * oldmass = malloc(sizeof(double) * MaxNodes);
+    int i;
 
-    for(int i=firstnode; i < lastnode; i ++) {
+    for(i=firstnode; i < lastnode; i ++) {
         oldmass[i - firstnode] = Nodes[i].u.d.mass;
     }
 
-    for(int i=0; i<numpart; i++)
+    for(i=0; i<numpart; i++)
     {
         int fnode = Father[i];
         /*Subtract mass so that nothing is left.*/
@@ -151,6 +152,9 @@ static int check_moments(const int firstnode, const int lastnode, const int nump
                 }
             }
             assert_true(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5);
+            /*Check center of mass moments*/
+            for(i=0; i<3; i++)
+                assert_true(Nodes[node].u.d.s[i] <= All.BoxSize && Nodes[node].u.d.s[i] >= 0);
             counter++;
         }
         node = next;
