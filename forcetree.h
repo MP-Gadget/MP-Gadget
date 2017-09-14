@@ -18,7 +18,10 @@ extern struct NODE
         unsigned int InternalTopLevel :1; /* TopLevel and has a child which is also TopLevel*/
         unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
         unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
-        unsigned int MaxSofteningType :3; /* bits 2-4 */
+        /* Stores the largest softening in the node. The short-range
+         * gravitational force solver will check this and use it
+         * open the node if a particle is closer.*/
+        unsigned int MaxSofteningType :3;
         unsigned int MixedSofteningsInNode :1;
     } f;
     union
