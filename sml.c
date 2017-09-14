@@ -263,7 +263,6 @@ sml_ngbiter(
     int other = iter->base.other;
     double r = iter->base.r;
     double r2 = iter->base.r2;
-    double * dist = iter->base.dist;
 
 #ifdef WINDS
     if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
