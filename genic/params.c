@@ -91,7 +91,7 @@ void read_parameterfile(char *fname)
     /* If massive neutrinos are implemented and enabled this
      * should be set to zero, so neutrinos are not included twice.*/
     CP.MasslessNeutrinosOn = 1;
-    MaxMemoryPerNode = param_get_double(ps, "MaxMemoryPerNode");
+    MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
     ProduceGas = param_get_int(ps, "ProduceGas");
     InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
     UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
