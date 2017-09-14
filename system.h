@@ -12,7 +12,7 @@ int cluster_get_num_hosts();
 int cluster_get_hostid();
 double get_physmem_bytes();
 
-double get_random_number(MyIDType id);
+double get_random_number(uint64_t id);
 void set_random_numbers(void);
 void sumup_large_ints(int n, int *src, int64_t *res);
 void sumup_longs(int n, int64_t *src, int64_t *res);
@@ -26,6 +26,10 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
 
 int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
+        MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
+        int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
+
+int MPI_Alltoallv_sparseI(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,
         int *rdispls, MPI_Datatype recvtype, MPI_Comm comm);
 
