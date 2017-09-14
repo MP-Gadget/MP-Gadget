@@ -60,10 +60,6 @@ force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 int
 force_update_node_recursive(int no, int sib, int tail, const int firstnode, const int lastnode);
 
-
-static void
-force_flag_localnodes(void);
-
 static void
 force_treeupdate_pseudos(int no, int firstnode, int lastnode);
 
@@ -142,8 +138,6 @@ int force_tree_build(int npart)
         }
     }
     while(flag == -1);
-
-    force_flag_localnodes();
 
     force_exchange_pseudodata();
 
@@ -757,6 +751,8 @@ void force_exchange_pseudodata(void)
 
     for(i = Tasks[ThisTask].StartLeaf; i < Tasks[ThisTask].EndLeaf; i ++) {
         no = TopLeaves[i].treenode;
+        if(TopLeaves[i].Task != ThisTask)
+            endrun(131231231, "TopLeave's Task table is corrupted");
 
         /* read out the multipole moments from the local base cells */
         TopLeafMoments[i].s[0] = Nodes[no].u.d.s[0];
@@ -766,6 +762,17 @@ void force_exchange_pseudodata(void)
         TopLeafMoments[i].hmax = Nodes[no].u.d.hmax;
         TopLeafMoments[i].MaxSofteningType = Nodes[no].f.MaxSofteningType;
         TopLeafMoments[i].MixedSofteningsInNode = Nodes[no].f.MixedSofteningsInNode;
+
+        /*Set the local base nodes dependence on local mass*/
+        while(no >= 0)
+        {
+            if(Nodes[no].f.DependsOnLocalMass)
+                break;
+
+            Nodes[no].f.DependsOnLocalMass = 1;
+
+            no = Nodes[no].father;
+        }
     }
 
     /* share the pseudo-particle data accross CPUs */
@@ -883,37 +890,6 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
     Nodes[no].u.d.hmax = hmax;
 
     Nodes[no].f.MaxSofteningType = maxsofttype;
-}
-
-
-
-/*! This function flags nodes in the top-level tree that are dependent on
- *  local particle data.
- */
-static void
-force_flag_localnodes(void)
-{
-    int no, i;
-
-    /* mark top-level nodes that contain local particles */
-
-    for(i = Tasks[ThisTask].StartLeaf; i < Tasks[ThisTask].EndLeaf; i ++) {
-
-        no = TopLeaves[i].treenode;
-
-        if(TopLeaves[i].Task != ThisTask)
-            endrun(131231231, "TopLeave's Task table is corrupted");
-
-        while(no >= 0)
-        {
-            if(Nodes[no].f.DependsOnLocalMass)
-                break;
-
-            Nodes[no].f.DependsOnLocalMass = 1;
-
-            no = Nodes[no].father;
-        }
-    }
 }
 
 /*! This function updates the hmax-values in tree nodes that hold SPH
