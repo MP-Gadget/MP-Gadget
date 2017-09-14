@@ -1,5 +1,5 @@
 # bound memory usage for travis
-MaxMemoryPerNode = 0.9
+MaxMemoryPerNode = 2000
 
 #  Relevant files
 
