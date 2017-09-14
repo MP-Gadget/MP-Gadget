@@ -667,7 +667,14 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
     for(j = 0; j < 8; j++)
         suns[j] = Nodes[no].u.suns[j];
 
-    memset(&Nodes[no].u.d, 0, sizeof(Nodes[no].u.d));
+    memset(&Nodes[no].u.d.s,0,3*sizeof(MyFloat));
+    Nodes[no].u.d.mass=0;
+    Nodes[no].u.d.hmax=0;
+    Nodes[no].u.d.TopLevel=0;
+    Nodes[no].u.d.DependsOnLocalMass=0;
+    Nodes[no].u.d.MixedSofteningsInNode=0;
+    Nodes[no].u.d.InternalTopLevel=0;
+    Nodes[no].u.d.MultipleParticles=0;
 
     for(j = 0; j < 8; j++)
     {
