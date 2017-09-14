@@ -192,6 +192,7 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
             const MyFloat lenhalf = 0.25 * parent->len;
 
             nfreep->len = 0.5 * parent->len;
+            nfreep->f.TopLevel = 0;
 
             for(j = 0; j < 3; j++) {
                 /* Detect which quadrant we are in by testing the bits of subnode:
@@ -301,6 +302,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         for(i = 0; i < 8; i++)
             nfreep->u.suns[i] = -1;
         nfreep->father = -1;
+        nfreep->f.TopLevel = 1;
         nnext++;
         /* create a set of empty nodes corresponding to the top-level domain
          * grid. We need to generate these nodes first to make sure that we have a
@@ -486,6 +488,8 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
                     Nodes[*nextfree].center[1] = Nodes[no].center[1] + (2 * j - 1) * lenhalf;
                     Nodes[*nextfree].center[2] = Nodes[no].center[2] + (2 * k - 1) * lenhalf;
                     Nodes[*nextfree].father = no;
+                    /*All nodes here are top level nodes*/
+                    Nodes[*nextfree].f.TopLevel = 1;
 
                     for(n = 0; n < 8; n++)
                         Nodes[*nextfree].u.suns[n] = -1;
@@ -654,7 +658,6 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
     memset(&Nodes[no].u.d.s,0,3*sizeof(MyFloat));
     Nodes[no].u.d.mass=0;
     Nodes[no].u.d.hmax=0;
-    Nodes[no].f.TopLevel=0;
     Nodes[no].f.DependsOnLocalMass=0;
     Nodes[no].f.MixedSofteningsInNode=0;
     Nodes[no].f.InternalTopLevel=0;
@@ -919,18 +922,6 @@ force_flag_localnodes(void)
 
     for(i = 0; i < NTopLeaves; i++)
     {
-        no = TopLeaves[i].treenode;
-
-        while(no >= 0)
-        {
-            if(Nodes[no].f.TopLevel)
-                break;
-
-            Nodes[no].f.TopLevel =1;
-
-            no = Nodes[no].father;
-        }
-
         /* mark also internal top level nodes */
 
         no = TopLeaves[i].treenode;
