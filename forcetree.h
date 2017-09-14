@@ -15,11 +15,11 @@ extern struct NODE
 
     int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
     struct {
-        unsigned int TopLevel :1;
+        unsigned int InternalTopLevel :1; /* TopLevel and has a child which is also TopLevel*/
+        unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
         unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
         unsigned int MaxSofteningType :3; /* bits 2-4 */
         unsigned int MixedSofteningsInNode :1;
-        unsigned int InternalTopLevel :1; /* INTERNAL tree nodes and toplevel*/
     } f;
     union
     {

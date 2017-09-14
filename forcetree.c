@@ -188,21 +188,21 @@ static inline int inside_node(const struct NODE * node, const int p_i)
  * we have assured that nothing else will change nfreep while we are here.*/
 static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int subnode)
 {
-            int j;
-            const MyFloat lenhalf = 0.25 * parent->len;
+    int j;
+    const MyFloat lenhalf = 0.25 * parent->len;
 
-            nfreep->len = 0.5 * parent->len;
-            nfreep->f.TopLevel = 0;
-            nfreep->f.InternalTopLevel = 0;
+    nfreep->len = 0.5 * parent->len;
+    nfreep->f.TopLevel = 0;
+    nfreep->f.InternalTopLevel = 0;
 
-            for(j = 0; j < 3; j++) {
-                /* Detect which quadrant we are in by testing the bits of subnode:
-                 * if (subnode & [1,2,4]) is true we add lenhalf, otherwise subtract lenhalf*/
-                const int sign = (subnode & (1 << j)) ? 1 : -1;
-                nfreep->center[j] = parent->center[j] + sign*lenhalf;
-            }
-            for(j = 0; j < 8; j++)
-                nfreep->u.suns[j] = -1;
+    for(j = 0; j < 3; j++) {
+        /* Detect which quadrant we are in by testing the bits of subnode:
+         * if (subnode & [1,2,4]) is true we add lenhalf, otherwise subtract lenhalf*/
+        const int sign = (subnode & (1 << j)) ? 1 : -1;
+        nfreep->center[j] = parent->center[j] + sign*lenhalf;
+    }
+    for(j = 0; j < 8; j++)
+        nfreep->u.suns[j] = -1;
 }
 
 /* Size of the free Node thread cache.
@@ -800,7 +800,7 @@ void force_exchange_pseudodata(void)
             Nodes[no].u.d.hmax = TopLeafMoments[i].hmax;
             Nodes[no].f.MaxSofteningType = TopLeafMoments[i].MaxSofteningType;
             Nodes[no].f.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
-        }
+         }
     }
     myfree(TopLeafMoments);
 }
