@@ -6,4 +6,9 @@ GENIC/N-GenIC
 depends/bin
 depends/lib
 depends/share
+depends/pfft-*
+examples/*/output/
 depends/cmocka-build/
+tests/test_*
+!tests/test_*.c
+build/
