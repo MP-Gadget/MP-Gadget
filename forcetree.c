@@ -592,11 +592,8 @@ force_set_node_softening(struct NODE * pnode, const int new_type, const double h
     {
         if(All.ForceSoftening[new_type] > All.ForceSoftening[pnode->u.d.MaxSofteningType])
             pnode->u.d.MaxSofteningType = new_type;
-        if(All.ForceSoftening[new_type] != All.ForceSoftening[pnode->u.d.MaxSofteningType]
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-            || (new_type == 0)
-#endif
-                )
+        if((All.ForceSoftening[new_type] != All.ForceSoftening[pnode->u.d.MaxSofteningType])
+                || (All.AdaptiveGravsoftForGas && new_type == 0))
             pnode->u.d.MixedSofteningsInNode = 1;
     }
 }

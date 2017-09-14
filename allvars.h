@@ -390,6 +390,9 @@ extern struct global_data_all_processes
     double SofteningTable[6];	/*!< current (comoving) gravitational softening lengths for each particle type */
     double ForceSoftening[6];	/*!< the same, but multiplied by a factor 2.8 - at that scale the force is Newtonian */
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
+    int AdaptiveGravsoftForGas; /*Flags that we have enabled adaptive gravitational softening for gas particles.
+                                  This means that ForceSoftening[0] is unused. Instead pairwise interactions use 
+                                  max(P[i].Hsml,ForceSoftening[P[j].Type]) for the particle is considered.*/
 
     /* some filenames */
     char InitCondFile[100],

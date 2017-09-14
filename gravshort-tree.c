@@ -169,12 +169,12 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
                 h = All.ForceSoftening[ptype];
                 otherh = All.ForceSoftening[P[no].Type];
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-                if(ptype == 0)
-                    h = input->Soft;
-                if(P[no].Type == 0 && h < P[no].Hsml)
-                    otherh = P[no].Hsml;
-#endif
+                if(All.AdaptiveGravsoftForGas) {
+                    if(ptype == 0)
+                        h = input->Soft;
+                    if(P[no].Type == 0 && h < P[no].Hsml)
+                        otherh = P[no].Hsml;
+                }
                 if(h < otherh)
                     h = otherh;
                 no = Nextnode[no];
@@ -270,12 +270,12 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
                 h = All.ForceSoftening[ptype];
                 otherh = All.ForceSoftening[nop->u.d.MaxSofteningType];
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-                if(ptype == 0)
-                    h = input->Soft;
-                if(otherh < nop->u.d.hmax)
-                    otherh = nop->u.d.hmax;
-#endif
+                if(All.AdaptiveGravsoftForGas) {
+                    if(ptype == 0)
+                        h = input->Soft;
+                    if(otherh < nop->u.d.hmax)
+                        otherh = nop->u.d.hmax;
+                }
                 if(h < otherh)
                 {
                     h = otherh;

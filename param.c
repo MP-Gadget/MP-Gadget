@@ -191,6 +191,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
 
+    param_declare_int(ps, "AdaptiveGravsoftForGas", OPTIONAL, 0, "Gravitational softening for gas particles is the smoothing length.");
     param_declare_double(ps, "SofteningHalo", REQUIRED, 0, "");
     param_declare_double(ps, "SofteningDisk", REQUIRED, 0, "");
     param_declare_double(ps, "SofteningBulge", REQUIRED, 0, "");
@@ -397,6 +398,7 @@ void read_parameter_file(char *fname)
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
+        All.AdaptiveGravsoftForGas = param_get_int(ps, "AdaptiveGravsoftForGas");
         All.SofteningHalo = param_get_double(ps, "SofteningHalo");
         All.SofteningDisk = param_get_double(ps, "SofteningDisk");
         All.SofteningBulge = param_get_double(ps, "SofteningBulge");
