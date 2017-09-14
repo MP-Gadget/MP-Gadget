@@ -1,5 +1,5 @@
 # bound memory usage on travis
-MaxMemoryPerNode = 2000
+MaxMemSizePerNode = 2000
 
 OutputDir = output    # Directory for output
 FileBase = IC              # Base-filename of output files
