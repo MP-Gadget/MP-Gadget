@@ -115,9 +115,6 @@ void density(void)
     tw->result_type_elsize = sizeof(TreeWalkResultDensity);
     tw->priv = priv;
 
-    int i;
-    int64_t ntot = 0;
-
     double timeall = 0;
     double timecomp, timecomm, timewait;
 
