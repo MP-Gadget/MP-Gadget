@@ -582,32 +582,23 @@ force_get_prev_node(int no)
     }
 }
 
-/*Sets the node softening on a node. Hsml is used only if type ==0 and ADAPTIVE_GRAVSOFT_FORGAS is on.*/
+/*Sets the node softening on a node.*/
 static void
 force_set_node_softening(struct NODE * pnode, const int new_type, const double hsml)
 {
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
     if(pnode->u.d.MaxSofteningType == 7)
         pnode->u.d.MaxSofteningType = new_type;
     else
     {
         if(All.ForceSoftening[new_type] > All.ForceSoftening[pnode->u.d.MaxSofteningType])
             pnode->u.d.MaxSofteningType = new_type;
-        if(All.ForceSoftening[new_type] != All.ForceSoftening[pnode->u.d.MaxSofteningType])
+        if(All.ForceSoftening[new_type] != All.ForceSoftening[pnode->u.d.MaxSofteningType]
+#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+            || (new_type == 0)
+#endif
+                )
             pnode->u.d.MixedSofteningsInNode = 1;
     }
-#else
-    if(new_type == 0)
-    {
-        if(hsml > pnode->u.d.maxsoft)
-            pnode->maxsoft = hsml;
-    }
-    else
-    {
-        if(All.ForceSoftening[new_type] > pnode->u.d.maxsoft)
-            pnode->maxsoft = All.ForceSoftening[new_type];
-    }
-#endif
 }
 
 static void
@@ -656,11 +647,7 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
         return tail;
 
     int count_particles=0;
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
     Nodes[no].u.d.MaxSofteningType=7;
-#else
-    Nodes[no].maxsoft=0;
-#endif
     int j, suns[8];
     /* this "backup" is necessary because the nextnode
      * entry will overwrite one element (union!) */
@@ -766,9 +753,6 @@ void force_exchange_pseudodata(void)
         MyFloat s[3];
         MyFloat mass;
         MyFloat hmax;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-        MyFloat maxsoft;
-#endif
         struct {
             unsigned int MaxSofteningType :3; /* bits 2-4 */
             unsigned int MixedSofteningsInNode :1;
@@ -793,9 +777,6 @@ void force_exchange_pseudodata(void)
         TopLeafMoments[i].MaxSofteningType = Nodes[no].u.d.MaxSofteningType;
         TopLeafMoments[i].MixedSofteningsInNode = Nodes[no].u.d.MixedSofteningsInNode;
         TopLeafMoments[i].MultipleParticles = Nodes[no].u.d.MultipleParticles;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-        TopLeafMoments[i].maxsoft = Nodes[no].maxsoft;
-#endif
     }
 
     /* share the pseudo-particle data accross CPUs */
@@ -831,9 +812,6 @@ void force_exchange_pseudodata(void)
             Nodes[no].u.d.MaxSofteningType = TopLeafMoments[i].MaxSofteningType;
             Nodes[no].u.d.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
             Nodes[no].u.d.MultipleParticles = TopLeafMoments[i].MultipleParticles;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-            Nodes[no].maxsoft = TopLeafMoments[i].maxsoft;
-#endif
         }
     }
     myfree(TopLeafMoments);
@@ -849,11 +827,7 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
     MyFloat hmax;
     MyFloat s[3], mass;
 
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
     int maxsofttype;
-#else
-    MyFloat maxsoft;
-#endif
 
     mass = 0;
     s[0] = 0;
@@ -861,11 +835,7 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
     s[2] = 0;
     hmax = 0;
     count_particles = 0;
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
     maxsofttype = 7;
-#else
-    maxsoft = 0;
-#endif
 
     p = Nodes[no].u.d.nextnode;
 
@@ -895,7 +865,6 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
                 count_particles++;
         }
 
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
         Nodes[no].u.d.MixedSofteningsInNode = Nodes[p].u.d.MixedSofteningsInNode;
 
         if(maxsofttype == 7)
@@ -911,11 +880,6 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
                     Nodes[no].u.d.MixedSofteningsInNode = 1;
             }
         }
-#else
-        if(Nodes[p].maxsoft > maxsoft)
-            maxsoft = Nodes[p].maxsoft;
-#endif
-
         p = Nodes[p].u.d.sibling;
     }
 
@@ -941,11 +905,7 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
 
     Nodes[no].u.d.MultipleParticles = (count_particles > 1);
 
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
     Nodes[no].u.d.MaxSofteningType = maxsofttype;
-#else
-    Nodes[no].maxsoft = maxsoft;
-#endif
 }
 
 

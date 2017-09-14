@@ -13,10 +13,6 @@ extern struct NODE
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
 
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    MyFloat maxsoft;		/*!< hold the maximum gravitational softening of particle in the
-                              node if the ADAPTIVE_GRAVSOFT_FORGAS option is selected */
-#endif
     int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
     union
     {
