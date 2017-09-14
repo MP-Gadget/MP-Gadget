@@ -20,6 +20,10 @@ Allocator A_MAIN[1];
  * */
 Allocator A_TEMP[1];
 
+#ifdef VALGRIND
+#define allocator_init allocator_malloc_init
+#endif
+
 void
 mymalloc_init(double MaxMemSizePerNode)
 {

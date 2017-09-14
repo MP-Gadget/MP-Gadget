@@ -23,6 +23,7 @@ struct Allocator {
     size_t top;
 
     int refcount;
+    int use_malloc; /* only do the book keeping. delegate to libc malloc/free */
 };
 
 typedef struct AllocatorIter AllocatorIter;
@@ -43,6 +44,11 @@ struct AllocatorIter {
 
 int
 allocator_init(Allocator * alloc, char * name, size_t size, int zero);
+
+int
+allocator_malloc_init(Allocator * alloc,
+        char * name, size_t size, int zero
+        );
 
 int
 allocator_destroy(Allocator * alloc);
