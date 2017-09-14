@@ -203,13 +203,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-                if(!(nop->f.MultipleParticles))
-                {
-                    /* open cell */
-                    no = nop->u.d.nextnode;
-                    continue;
-                }
-
                 mass = nop->u.d.mass;
 
                 dx = nop->u.d.s[0] - pos_x;

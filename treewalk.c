@@ -931,12 +931,6 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             }
         }
 
-        if(!(current->f.MultipleParticles)) {
-            /* open cell to check the only particle inside */
-            no = current->u.d.nextnode;
-            continue;
-        }
-
         /* Cull the node */
         if(0 == cull_node(I, iter, no)) {
             /* in case the node can be discarded */

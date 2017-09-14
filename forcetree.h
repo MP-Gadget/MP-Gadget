@@ -20,7 +20,6 @@ extern struct NODE
         unsigned int MaxSofteningType :3; /* bits 2-4 */
         unsigned int MixedSofteningsInNode :1;
         unsigned int InternalTopLevel :1; /* INTERNAL tree nodes and toplevel*/
-        unsigned int MultipleParticles :1;
     } f;
     union
     {
