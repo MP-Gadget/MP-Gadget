@@ -29,7 +29,7 @@ create_parameters()
     param_declare_int(ps,    "ProduceGas", REQUIRED, 0, "Should we create baryon particles?");
     param_declare_double(ps, "BoxSize", REQUIRED, 0, "");
     param_declare_double(ps, "Redshift", REQUIRED, 99, "Starting redshift");
-    param_declare_int(ps, "Nmesh", REQUIRED, 0, "Size of the FFT grid used to estimate displacements. Should be > Ngrid.");
+    param_declare_int(ps, "Nmesh", OPTIONAL, 0, "Size of the FFT grid used to estimate displacements. Should be > Ngrid.");
     param_declare_int(ps, "Ngrid", REQUIRED, 0, "Size of regular grid on which the undisplaced particles are created.");
     param_declare_int(ps, "Seed", REQUIRED, 0, "");
     param_declare_int(ps, "WhichSpectrum", REQUIRED, 2, "Type of spectrum, 2 for file ");
@@ -112,8 +112,8 @@ void read_parameterfile(char *fname)
     NumPartPerFile = param_get_int(ps, "NumPartPerFile");
     NumWriters = param_get_int(ps, "NumWriters");
 
-    if(Ngrid == 0) {
-        Ngrid = Nmesh;
+    if(Nmesh == 0) {
+        Nmesh = 2*Ngrid;
     }
     /*Set some units*/
     InitTime = 1 / (1 + Redshift);

@@ -5,10 +5,10 @@ OutputDir = output
 OutputList = 0.1,0.15, 0.2, 0.299,0.3,0.33333
 SnapshotFileBase = snapshot
 
-Nmesh 128
+Ngrid = 128 # Size of cubic grid on which to create particles.
 
 # CPU time -limit
-	
+
 TimeLimitCPU = 43000 #= 8 hours
 
 
