@@ -292,7 +292,7 @@ setup_smoothinglengths(int RestartSnapNum)
                     olddensity[i] = SPHP(i).EgyWtDensity;
                 }
             }
-            density();
+            density_update();
             badness = 0;
 
 #pragma omp parallel private(i)
@@ -331,6 +331,6 @@ setup_smoothinglengths(int RestartSnapNum)
     }
 
 #ifdef DENSITY_INDEPENDENT_SPH
-    density();
+    density_update();
 #endif //DENSITY_INDEPENDENT_SPH
 }
