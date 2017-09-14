@@ -27,12 +27,17 @@ mymalloc_init(double MaxMemSizePerNode)
 
     size_t n = 1.0 * MaxMemSizePerNode * (1.0 * Nhost / NTask) * 1024 * 1024;
 
+    message(0, "Nhost = %d\n", Nhost);
+    message(0, "Reserving %td bytes per rank for MAIN memory allocator. \n", n);
+
     if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_MAIN, "MAIN", n, 1), MPI_COMM_WORLD)) {
         endrun(0, "Insufficient memory for the MAIN allocator on at least one nodes."
                   "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
     }
 
     n = 4096 * 1024 + 128 * NTask; /* reserve 128 bytes per task for the TEMP storage */
+
+    message(0, "Reserving %td bytes per rank for TEMP memory allocator. \n", n);
 
     if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_TEMP, "TEMP", n, 1), MPI_COMM_WORLD)) {
         endrun(0, "Insufficient memory for the TEMP allocator on at least one nodes."
