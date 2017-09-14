@@ -57,6 +57,7 @@ struct DensityPriv {
     double *Left, *Right;
     int NIteration;
     int NPLeft;
+    int update_hsml;
 };
 
 #define DENSITY_GET_PRIV(tw) ((struct DensityPriv*) ((tw)->priv))
@@ -97,7 +98,25 @@ static void density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw);
  * neighbours.)
  */
 
-void density(void)
+static void
+density_internal(int update_hsml);
+
+void
+density(void)
+{
+    /* recompute hsml and pre hydro quantities */
+    density_internal(1);
+}
+
+void
+density_update(void)
+{
+    /* recompute pre hydro quantities without computing hsml */
+    density_internal(0);
+}
+
+static void
+density_internal(int update_hsml)
 {
     if(!All.DensityOn)
 	return;
@@ -129,6 +148,8 @@ void density(void)
     DENSITY_GET_PRIV(tw)->Left = (double *) mymalloc("DENSITY_GET_PRIV(tw)->Left", NumPart * sizeof(double));
     DENSITY_GET_PRIV(tw)->Right = (double *) mymalloc("DENSITY_GET_PRIV(tw)->Right", NumPart * sizeof(double));
 
+    DENSITY_GET_PRIV(tw)->update_hsml = update_hsml;
+
     DENSITY_GET_PRIV(tw)->NIteration = 0;
 
     /* this has to be done before treewalk so that
@@ -154,6 +175,7 @@ void density(void)
         DENSITY_GET_PRIV(tw)->NPLeft = 0;
 
         treewalk_run(tw, ActiveParticle, NumActiveParticle);
+
         sumup_large_ints(1, &DENSITY_GET_PRIV(tw)->NPLeft, &ntot);
 
         if(ntot == 0) break;
@@ -237,10 +259,6 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
     {
         TREEWALK_REDUCE(SPHP(place).Density, remote->Rho);
         TREEWALK_REDUCE(SPHP(place).DhsmlDensityFactor, remote->DhsmlDensity);
-#ifdef DENSITY_INDEPENDENT_SPH
-        TREEWALK_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
-        TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
-#endif
 
         TREEWALK_REDUCE(SPHP(place).DivVel, remote->Div);
         TREEWALK_REDUCE(SPHP(place).Rot[0], remote->Rot[0]);
@@ -253,6 +271,10 @@ density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMod
         TREEWALK_REDUCE(SPHP(place).GradRho[2], remote->GradRho[2]);
 #endif
 
+#ifdef DENSITY_INDEPENDENT_SPH
+        TREEWALK_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
+        TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
+#endif
     }
 
 }
@@ -410,7 +432,8 @@ density_postprocess(int i, TreeWalk * tw)
 
     /* This is slightly more complicated so we put it in a different function */
     /* FIXME: It may make sense to have a seperate tree walk that calculates Hsml only. */
-    density_check_neighbours(i, tw);
+    if(DENSITY_GET_PRIV(tw)->update_hsml)
+        density_check_neighbours(i, tw);
 }
 
 void density_check_neighbours (int i, TreeWalk * tw) {

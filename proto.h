@@ -4,7 +4,8 @@
 void allocate_memory(void);
 void begrun(int RestartFlag, int RestartSnapNum);
 
-void density(void);
+void density();
+void density_update();
 void energy_statistics(void);
 
 void grav_short_tree(void);
