@@ -58,7 +58,7 @@ size_t
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_recursive(int no, int sib, int father, int tail, const int firstnode, const int lastnode);
+force_update_node_recursive(int no, int sib, int tail, const int firstnode, const int lastnode);
 
 
 static void
@@ -447,7 +447,7 @@ force_tree_build_single(const int firstnode, const int lastnode, const int npart
     force_insert_pseudo_particles(lastnode);
 
     /* now compute the multipole moments recursively */
-    int tail = force_update_node_recursive(firstnode, -1, -1, -1, firstnode, lastnode);
+    int tail = force_update_node_recursive(firstnode, -1, -1, firstnode, lastnode);
 
     force_set_next_node(tail, -1, firstnode, lastnode);
 
@@ -635,7 +635,7 @@ add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * pa
  */
 
 int
-force_update_node_recursive(int no, int sib, int father, int tail, const int firstnode, const int lastnode)
+force_update_node_recursive(int no, int sib, int tail, const int firstnode, const int lastnode)
 {
     /*Set NextNode for this node*/
     tail = force_set_next_node(tail, no, firstnode, lastnode);
@@ -676,7 +676,7 @@ force_update_node_recursive(int no, int sib, int father, int tail, const int fir
                 break;
             }
 
-        tail = force_update_node_recursive(p, nextsib, no, tail, firstnode, lastnode);
+        tail = force_update_node_recursive(p, nextsib, tail, firstnode, lastnode);
 
         if(p >= lastnode)	/* a pseudo particle */
         {

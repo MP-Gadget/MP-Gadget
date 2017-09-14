@@ -23,7 +23,7 @@ size_t
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_recursive(int no, int sib, int father, int tail, const int firstnode, const int lastnode);
+force_update_node_recursive(int no, int sib, int tail, const int firstnode, const int lastnode);
 
 /*Used data from All and domain*/
 struct particle_data *P;
@@ -255,7 +255,7 @@ static void do_tree_test(const int numpart)
     int nrealnode = check_tree(numpart, nodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
-    int tail = force_update_node_recursive(numpart, -1, -1, -1, numpart, numpart + maxnode);
+    int tail = force_update_node_recursive(numpart, -1, -1, numpart, numpart + maxnode);
     force_set_next_node(tail, -1, numpart, numpart + maxnode);
 /*     assert_true(tail < nodes); */
     end = MPI_Wtime();
