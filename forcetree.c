@@ -193,6 +193,7 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
 
             nfreep->len = 0.5 * parent->len;
             nfreep->f.TopLevel = 0;
+            nfreep->f.InternalTopLevel = 0;
 
             for(j = 0; j < 3; j++) {
                 /* Detect which quadrant we are in by testing the bits of subnode:
@@ -303,6 +304,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
             nfreep->u.suns[i] = -1;
         nfreep->father = -1;
         nfreep->f.TopLevel = 1;
+        nfreep->f.InternalTopLevel = 0;
         nnext++;
         /* create a set of empty nodes corresponding to the top-level domain
          * grid. We need to generate these nodes first to make sure that we have a
@@ -481,6 +483,8 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
                     count = i + 2 * j + 4 * k;
 
                     Nodes[no].u.suns[count] = *nextfree;
+                    /*We are an internal top level node as we now have a child top level.*/
+                    Nodes[no].f.InternalTopLevel = 1;
 
                     lenhalf = 0.25 * Nodes[no].len;
                     Nodes[*nextfree].len = 0.5 * Nodes[no].len;
@@ -490,6 +494,7 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
                     Nodes[*nextfree].father = no;
                     /*All nodes here are top level nodes*/
                     Nodes[*nextfree].f.TopLevel = 1;
+                    Nodes[*nextfree].f.InternalTopLevel = 0;
 
                     for(n = 0; n < 8; n++)
                         Nodes[*nextfree].u.suns[n] = -1;
@@ -660,7 +665,6 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
     Nodes[no].u.d.hmax=0;
     Nodes[no].f.DependsOnLocalMass=0;
     Nodes[no].f.MixedSofteningsInNode=0;
-    Nodes[no].f.InternalTopLevel=0;
     Nodes[no].f.MultipleParticles=0;
 
     for(j = 0; j < 8; j++)
@@ -917,26 +921,6 @@ static void
 force_flag_localnodes(void)
 {
     int no, i;
-
-    /* mark all top-level nodes */
-
-    for(i = 0; i < NTopLeaves; i++)
-    {
-        /* mark also internal top level nodes */
-
-        no = TopLeaves[i].treenode;
-        no = Nodes[no].father;
-
-        while(no >= 0)
-        {
-            if(Nodes[no].f.InternalTopLevel)
-                break;
-
-            Nodes[no].f.InternalTopLevel = 1;
-
-            no = Nodes[no].father;
-        }
-    }
 
     /* mark top-level nodes that contain local particles */
 
