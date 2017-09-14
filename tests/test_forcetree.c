@@ -138,12 +138,12 @@ static int check_moments(const int firstnode, const int lastnode, const int nump
             if(!(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5)) {
                 printf("node %d (%d) mass %g / %g TL %d DLM %d MST %d MSN %d ITL %d MP %d\n", 
                     node, node - firstnode, Nodes[node].u.d.mass, oldmass[node - firstnode],
-                    Nodes[node].u.d.TopLevel,
-                    Nodes[node].u.d.DependsOnLocalMass,
-                    Nodes[node].u.d.MaxSofteningType,
-                    Nodes[node].u.d.MixedSofteningsInNode,
-                    Nodes[node].u.d.InternalTopLevel,
-                    Nodes[node].u.d.MultipleParticles
+                    Nodes[node].f.TopLevel,
+                    Nodes[node].f.DependsOnLocalMass,
+                    Nodes[node].f.MaxSofteningType,
+                    Nodes[node].f.MixedSofteningsInNode,
+                    Nodes[node].f.InternalTopLevel,
+                    Nodes[node].f.MultipleParticles
                     );
                 int nn = force_get_next_node(node);
                 while(nn < firstnode) { /* something is wrong show the particles */
@@ -151,6 +151,7 @@ static int check_moments(const int firstnode, const int lastnode, const int nump
                     nn = force_get_next_node(nn);
                 }
             }
+            assert_true(Nodes[node].f.MultipleParticles == 1);
             assert_true(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5);
             /*Check center of mass moments*/
             for(i=0; i<3; i++)

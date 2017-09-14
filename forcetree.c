@@ -586,15 +586,15 @@ force_get_prev_node(int no)
 static void
 force_set_node_softening(struct NODE * pnode, const int new_type, const double hsml)
 {
-    if(pnode->u.d.MaxSofteningType == 7)
-        pnode->u.d.MaxSofteningType = new_type;
+    if(pnode->f.MaxSofteningType == 7)
+        pnode->f.MaxSofteningType = new_type;
     else
     {
-        if(All.ForceSoftening[new_type] > All.ForceSoftening[pnode->u.d.MaxSofteningType])
-            pnode->u.d.MaxSofteningType = new_type;
-        if((All.ForceSoftening[new_type] != All.ForceSoftening[pnode->u.d.MaxSofteningType])
+        if(All.ForceSoftening[new_type] > All.ForceSoftening[pnode->f.MaxSofteningType])
+            pnode->f.MaxSofteningType = new_type;
+        if((All.ForceSoftening[new_type] != All.ForceSoftening[pnode->f.MaxSofteningType])
                 || (All.AdaptiveGravsoftForGas && new_type == 0))
-            pnode->u.d.MixedSofteningsInNode = 1;
+            pnode->f.MixedSofteningsInNode = 1;
     }
 }
 
@@ -644,7 +644,7 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
         return tail;
 
     int count_particles=0;
-    Nodes[no].u.d.MaxSofteningType=7;
+    Nodes[no].f.MaxSofteningType=7;
     int j, suns[8];
     /* this "backup" is necessary because the nextnode
      * entry will overwrite one element (union!) */
@@ -654,11 +654,11 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
     memset(&Nodes[no].u.d.s,0,3*sizeof(MyFloat));
     Nodes[no].u.d.mass=0;
     Nodes[no].u.d.hmax=0;
-    Nodes[no].u.d.TopLevel=0;
-    Nodes[no].u.d.DependsOnLocalMass=0;
-    Nodes[no].u.d.MixedSofteningsInNode=0;
-    Nodes[no].u.d.InternalTopLevel=0;
-    Nodes[no].u.d.MultipleParticles=0;
+    Nodes[no].f.TopLevel=0;
+    Nodes[no].f.DependsOnLocalMass=0;
+    Nodes[no].f.MixedSofteningsInNode=0;
+    Nodes[no].f.InternalTopLevel=0;
+    Nodes[no].f.MultipleParticles=0;
 
     for(j = 0; j < 8; j++)
     {
@@ -694,7 +694,7 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
 
             if(Nodes[p].u.d.mass > 0)
             {
-                if(Nodes[p].u.d.MultipleParticles)
+                if(Nodes[p].f.MultipleParticles)
                     count_particles += 2;
                 count_particles++;
             }
@@ -702,7 +702,7 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
             if(Nodes[p].u.d.hmax > Nodes[no].u.d.hmax)
                 Nodes[no].u.d.hmax = Nodes[p].u.d.hmax;
 
-            force_set_node_softening(&Nodes[no], Nodes[p].u.d.MaxSofteningType, Nodes[p].u.d.hmax);
+            force_set_node_softening(&Nodes[no], Nodes[p].f.MaxSofteningType, Nodes[p].u.d.hmax);
         }
         else		/* a particle */
         {
@@ -712,7 +712,7 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
     }
 
     /* this flags that the node represents more than one particle */
-    Nodes[no].u.d.MultipleParticles = (count_particles > 1);
+    Nodes[no].f.MultipleParticles = (count_particles > 1);
 
     const double mass = Nodes[no].u.d.mass;
     if(mass)
@@ -771,9 +771,9 @@ void force_exchange_pseudodata(void)
         TopLeafMoments[i].s[2] = Nodes[no].u.d.s[2];
         TopLeafMoments[i].mass = Nodes[no].u.d.mass;
         TopLeafMoments[i].hmax = Nodes[no].u.d.hmax;
-        TopLeafMoments[i].MaxSofteningType = Nodes[no].u.d.MaxSofteningType;
-        TopLeafMoments[i].MixedSofteningsInNode = Nodes[no].u.d.MixedSofteningsInNode;
-        TopLeafMoments[i].MultipleParticles = Nodes[no].u.d.MultipleParticles;
+        TopLeafMoments[i].MaxSofteningType = Nodes[no].f.MaxSofteningType;
+        TopLeafMoments[i].MixedSofteningsInNode = Nodes[no].f.MixedSofteningsInNode;
+        TopLeafMoments[i].MultipleParticles = Nodes[no].f.MultipleParticles;
     }
 
     /* share the pseudo-particle data accross CPUs */
@@ -806,9 +806,9 @@ void force_exchange_pseudodata(void)
             Nodes[no].u.d.s[2] = TopLeafMoments[i].s[2];
             Nodes[no].u.d.mass = TopLeafMoments[i].mass;
             Nodes[no].u.d.hmax = TopLeafMoments[i].hmax;
-            Nodes[no].u.d.MaxSofteningType = TopLeafMoments[i].MaxSofteningType;
-            Nodes[no].u.d.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
-            Nodes[no].u.d.MultipleParticles = TopLeafMoments[i].MultipleParticles;
+            Nodes[no].f.MaxSofteningType = TopLeafMoments[i].MaxSofteningType;
+            Nodes[no].f.MixedSofteningsInNode = TopLeafMoments[i].MixedSofteningsInNode;
+            Nodes[no].f.MultipleParticles = TopLeafMoments[i].MultipleParticles;
         }
     }
     myfree(TopLeafMoments);
@@ -843,7 +843,7 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
         if(p < firstnode || p >= lastnode)
             endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, firstnode, lastnode);
 
-        if(Nodes[p].u.d.InternalTopLevel)
+        if(Nodes[p].f.InternalTopLevel)
             force_treeupdate_pseudos(p, firstnode, lastnode);
 
         mass += (Nodes[p].u.d.mass);
@@ -856,25 +856,25 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
 
         if(Nodes[p].u.d.mass > 0)
         {
-            if(Nodes[p].u.d.MultipleParticles)
+            if(Nodes[p].f.MultipleParticles)
                 count_particles += 2;
             else
                 count_particles++;
         }
 
-        Nodes[no].u.d.MixedSofteningsInNode = Nodes[p].u.d.MixedSofteningsInNode;
+        Nodes[no].f.MixedSofteningsInNode = Nodes[p].f.MixedSofteningsInNode;
 
         if(maxsofttype == 7)
-            maxsofttype = Nodes[p].u.d.MaxSofteningType;
+            maxsofttype = Nodes[p].f.MaxSofteningType;
         else
         {
-            int current_maxsofttype = Nodes[p].u.d.MaxSofteningType;
+            int current_maxsofttype = Nodes[p].f.MaxSofteningType;
             if(current_maxsofttype != 7)
             {
                 if(All.ForceSoftening[current_maxsofttype] > All.ForceSoftening[maxsofttype])
                     maxsofttype = current_maxsofttype;
                 if(All.ForceSoftening[current_maxsofttype] != All.ForceSoftening[maxsofttype])
-                    Nodes[no].u.d.MixedSofteningsInNode = 1;
+                    Nodes[no].f.MixedSofteningsInNode = 1;
             }
         }
         p = Nodes[p].u.d.sibling;
@@ -900,9 +900,9 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
 
     Nodes[no].u.d.hmax = hmax;
 
-    Nodes[no].u.d.MultipleParticles = (count_particles > 1);
+    Nodes[no].f.MultipleParticles = (count_particles > 1);
 
-    Nodes[no].u.d.MaxSofteningType = maxsofttype;
+    Nodes[no].f.MaxSofteningType = maxsofttype;
 }
 
 
@@ -923,10 +923,10 @@ force_flag_localnodes(void)
 
         while(no >= 0)
         {
-            if(Nodes[no].u.d.TopLevel)
+            if(Nodes[no].f.TopLevel)
                 break;
 
-            Nodes[no].u.d.TopLevel =1;
+            Nodes[no].f.TopLevel =1;
 
             no = Nodes[no].father;
         }
@@ -938,10 +938,10 @@ force_flag_localnodes(void)
 
         while(no >= 0)
         {
-            if(Nodes[no].u.d.InternalTopLevel)
+            if(Nodes[no].f.InternalTopLevel)
                 break;
 
-            Nodes[no].u.d.InternalTopLevel = 1;
+            Nodes[no].f.InternalTopLevel = 1;
 
             no = Nodes[no].father;
         }
@@ -958,10 +958,10 @@ force_flag_localnodes(void)
 
         while(no >= 0)
         {
-            if(Nodes[no].u.d.DependsOnLocalMass)
+            if(Nodes[no].f.DependsOnLocalMass)
                 break;
 
-            Nodes[no].u.d.DependsOnLocalMass = 1;
+            Nodes[no].f.DependsOnLocalMass = 1;
 
             no = Nodes[no].father;
         }
@@ -1017,7 +1017,7 @@ void force_update_hmax(int * activeset, int size)
 
             Nodes[no].u.d.hmax = P[p_i].Hsml;
 
-            if(Nodes[no].u.d.TopLevel) /* we reached a top-level node */
+            if(Nodes[no].f.TopLevel) /* we reached a top-level node */
             {
                 if (!NodeIsDirty[no - All.MaxPart]) {
                     NodeIsDirty[no - All.MaxPart] = 1;
@@ -1064,7 +1064,7 @@ void force_update_hmax(int * activeset, int size)
 
         /* FIXME: why does this matter? The logic is simpler if we just blindly update them all.
             ::: to avoid that the hmax is updated twice :::*/
-        if(Nodes[no].u.d.DependsOnLocalMass)
+        if(Nodes[no].f.DependsOnLocalMass)
             no = Nodes[no].father;
 
         while(no >= 0)

@@ -727,7 +727,7 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
         if(0) {
             no = Father[pq[i]];
             while(no != -1) {
-                if(Nodes[no].u.d.TopLevel) {
+                if(Nodes[no].f.TopLevel) {
                     break;
                 }
                 no = Nodes[no].father;
@@ -924,14 +924,14 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
         if(lv->mode == 1) {
             if (lv->tw->UseNodeList) {
-                if(current->u.d.TopLevel) {
+                if(current->f.TopLevel) {
                     /* we reached a top-level node again, which means that we are done with the branch */
                     break;
                 }
             }
         }
 
-        if(!(current->u.d.MultipleParticles)) {
+        if(!(current->f.MultipleParticles)) {
             /* open cell to check the only particle inside */
             no = current->u.d.nextnode;
             continue;

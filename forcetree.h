@@ -14,6 +14,14 @@ extern struct NODE
     MyFloat center[3];		/*!< geometrical center of node */
 
     int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
+    struct {
+        unsigned int TopLevel :1;
+        unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
+        unsigned int MaxSofteningType :3; /* bits 2-4 */
+        unsigned int MixedSofteningsInNode :1;
+        unsigned int InternalTopLevel :1; /* INTERNAL tree nodes and toplevel*/
+        unsigned int MultipleParticles :1;
+    } f;
     union
     {
         int suns[8];		/*!< temporary pointers to daughter nodes */
@@ -21,14 +29,6 @@ extern struct NODE
         {
             MyFloat s[3];		/*!< center of mass of node */
             MyFloat mass;		/*!< mass of node */
-            struct {
-                unsigned int TopLevel :1;
-                unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
-                unsigned int MaxSofteningType :3; /* bits 2-4 */
-                unsigned int MixedSofteningsInNode :1;
-                unsigned int InternalTopLevel :1; /* INTERNAL tree nodes and toplevel*/
-                unsigned int MultipleParticles :1;
-            };
             int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
             int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
             MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */

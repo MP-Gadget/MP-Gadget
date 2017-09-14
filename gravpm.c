@@ -101,7 +101,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     int no = All.MaxPart; /* start with the root */
     while(no >= 0) {
 
-        if(!(Nodes[no].u.d.DependsOnLocalMass)) {
+        if(!(Nodes[no].f.DependsOnLocalMass)) {
             /* node doesn't contain particles on this process, do not open */
             no = Nodes[no].u.d.sibling;
             continue;
@@ -111,7 +111,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
            (Nodes[no].len <= All.BoxSize / All.Nmesh * 24)
            ||
             /* node is a top leaf */
-            ( !Nodes[no].u.d.InternalTopLevel && (Nodes[no].u.d.TopLevel) )
+            ( !Nodes[no].f.InternalTopLevel && (Nodes[no].f.TopLevel) )
                 ) {
             regions[r].no = no;
             r ++;

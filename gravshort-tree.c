@@ -196,14 +196,14 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
                 if(lv->mode == 1)
                 {
-                    if(nop->u.d.TopLevel)	/* we reached a top-level node again, which means that we are done with the branch */
+                    if(nop->f.TopLevel)	/* we reached a top-level node again, which means that we are done with the branch */
                     {
                         no = -1;
                         continue;
                     }
                 }
 
-                if(!(nop->u.d.MultipleParticles))
+                if(!(nop->f.MultipleParticles))
                 {
                     /* open cell */
                     no = nop->u.d.nextnode;
@@ -269,7 +269,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 }
 
                 h = All.ForceSoftening[ptype];
-                otherh = All.ForceSoftening[nop->u.d.MaxSofteningType];
+                otherh = All.ForceSoftening[nop->f.MaxSofteningType];
                 if(All.AdaptiveGravsoftForGas) {
                     if(ptype == 0)
                         h = input->Soft;
@@ -281,7 +281,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     h = otherh;
                     if(r2 < h * h)
                     {
-                        if(nop->u.d.MixedSofteningsInNode)
+                        if(nop->f.MixedSofteningsInNode)
                         {
                             no = nop->u.d.nextnode;
 

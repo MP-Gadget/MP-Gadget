@@ -298,14 +298,14 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
 
                 if(lv->mode == 1)
                 {
-                    if(nop->u.d.TopLevel)	/* we reached a top-level node again, which means that we are done with the branch */
+                    if(nop->f.TopLevel)	/* we reached a top-level node again, which means that we are done with the branch */
                     {
                         no = -1;
                         continue;
                     }
                 }
 
-                if(!(nop->u.d.MultipleParticles))
+                if(!(nop->f.MultipleParticles))
                 {
                     /* open cell */
                     no = nop->u.d.nextnode;
@@ -402,12 +402,12 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
 #ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
                 h = All.ForceSoftening[ptype];
-                if(h < All.ForceSoftening[nop->u.d.MaxSofteningType])
+                if(h < All.ForceSoftening[nop->f.MaxSofteningType])
                 {
-                    h = All.ForceSoftening[nop->u.d.MaxSofteningType];
+                    h = All.ForceSoftening[nop->f.MaxSofteningType];
                     if(r2 < h * h)
                     {
-                        if(nop->u.d.MixedSofteningsInNode)
+                        if(nop->f.MixedSofteningsInNode)
                         {
                             no = nop->u.d.nextnode;
 
