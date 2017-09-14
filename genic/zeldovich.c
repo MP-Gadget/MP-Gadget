@@ -32,7 +32,7 @@ void initialize_ffts(void) {
 }
 
 uint64_t ijk_to_id(int i, int j, int k) {
-    uint64_t id = ((uint64_t) i) * Nmesh * Nmesh + ((uint64_t)j) * Nmesh + k + 1;
+    uint64_t id = ((uint64_t) i) * Ngrid * Ngrid + ((uint64_t)j) * Ngrid + k + 1;
     return id;
 }
 
@@ -48,13 +48,13 @@ static void setup_grid() {
     int k;
     NumPart = 1;
     for(k = 0; k < 2; k ++) {
-        offset[k] = (ThisTask2d[k]) * Nmesh / NTask2d[k];
-        size[k] = (ThisTask2d[k] + 1) * Nmesh / NTask2d[k];
+        offset[k] = (ThisTask2d[k]) * Ngrid / NTask2d[k];
+        size[k] = (ThisTask2d[k] + 1) * Ngrid / NTask2d[k];
         size[k] -= offset[k];
         NumPart *= size[k];
     }
     offset[2] = 0;
-    size[2] = Nmesh;
+    size[2] = Ngrid;
     NumPart *= size[2];
     P = (struct part_data *) mymalloc("PartTable", NumPart*sizeof(struct part_data));
     memset(P, 0, NumPart*sizeof(struct part_data));
@@ -65,9 +65,9 @@ static void setup_grid() {
         x = i / (size[2] * size[1]) + offset[0];
         y = (i % (size[1] * size[2])) / size[2] + offset[1];
         z = (i % size[2]) + offset[2];
-        P[i].Pos[0] = x * Box / Nmesh;
-        P[i].Pos[1] = y * Box / Nmesh;
-        P[i].Pos[2] = z * Box / Nmesh;
+        P[i].Pos[0] = x * Box / Ngrid;
+        P[i].Pos[1] = y * Box / Ngrid;
+        P[i].Pos[2] = z * Box / Ngrid;
         P[i].Mass = 1.0;
         P[i].ID = ijk_to_id(x, y, z);
     }

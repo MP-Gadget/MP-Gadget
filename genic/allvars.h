@@ -5,7 +5,7 @@ extern int      WhichSpectrum;
 
 extern double MaxMemoryPerCore;
 
-extern int      Nmesh;
+extern int      Nmesh, Ngrid;
 
 extern int UsePeculiarVelocity;
 extern double InputPowerRedshift;
