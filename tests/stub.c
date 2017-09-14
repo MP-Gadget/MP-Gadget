@@ -9,6 +9,7 @@
 #include <math.h>
 #include <mpi.h>
 #include <cmocka.h>
+#include "../mymalloc.h"
 
 int ThisTask;
 int NTask;
@@ -19,6 +20,12 @@ _cmocka_run_group_tests_mpi(const char * name, const struct CMUnitTest tests[], 
     MPI_Init(NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+
+    /* allocate some memory for MAIN and TEMP */
+
+    allocator_init(A_MAIN, "MAIN", 32 * 1024 * 1024, 1);
+    allocator_init(A_TEMP, "TEMP", 32 * 1024 * 1024, 1);
+
     int rt = _cmocka_run_group_tests(name, tests, size, p1, p2);
     MPI_Finalize();
     return rt;
