@@ -14,7 +14,7 @@ int ProduceGas;
 int Seed;
 int UsePeculiarVelocity;
 int NumPart;
-double MaxMemoryPerNode;
+double MaxMemSizePerNode;
 double InputPowerRedshift;
 
 struct part_data *P;
