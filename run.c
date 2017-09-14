@@ -334,12 +334,18 @@ void compute_accelerations(int is_PM)
     if(NTotal[0] > 0)
     {
         /***** density *****/
-        message(0, "Start density computation...\n");
+        message(0, "Start sml computation...\n");
 
-        density();		/* computes density, and pressure */
+        compute_sml();
+
+        message(0, "Start hmax computation...\n");
 
         /***** update smoothing lengths in tree *****/
         force_update_hmax(ActiveParticle, NumActiveParticle);
+
+        message(0, "Start sml computation...\n");
+
+        density();		/* computes density, and pressure */
 
         /***** hydro forces *****/
         message(0, "Start hydro-force computation...\n");

@@ -4,6 +4,7 @@
 void allocate_memory(void);
 void begrun(int RestartFlag, int RestartSnapNum);
 
+void compute_sml(void);
 void density(void);
 void energy_statistics(void);
 
