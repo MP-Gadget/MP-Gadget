@@ -12,6 +12,7 @@ struct BlockHeader {
     char magic[8];
     Allocator * alloc;
     void * ptr;
+    void * self; /* points to the starting of the header in the allocator; useful in use_malloc mode */
     size_t size;
     size_t request_size;
     char name[127];
@@ -20,9 +21,9 @@ struct BlockHeader {
 } ;
 
 int
-allocator_init(Allocator * alloc, char * name, size_t size, int zero)
+allocator_init(Allocator * alloc, char * name, size_t request_size, int zero)
 {
-    size = (size / ALIGNMENT + 1) * ALIGNMENT;
+    size_t size = (request_size / ALIGNMENT + 1) * ALIGNMENT;
 
     void * rawbase = malloc(size + ALIGNMENT);
     if (rawbase == NULL) return ALLOC_ENOMEMORY;
@@ -31,12 +32,32 @@ allocator_init(Allocator * alloc, char * name, size_t size, int zero)
     alloc->rawbase = rawbase;
     alloc->base = ((char*) rawbase) + ALIGNMENT - ((size_t) rawbase % ALIGNMENT);
     alloc->size = size;
+    alloc->use_malloc = 0;
     strncpy(alloc->name, name, 11);
 
     allocator_reset(alloc, zero);
 
     return 0;
 
+}
+
+int
+allocator_malloc_init(Allocator * alloc, char * name, size_t request_size, int zero)
+{
+    /* max support 4096 blocks; ignore request_size */
+    size_t size = ALIGNMENT * 4096; 
+    void * rawbase = malloc(size); 
+    if (rawbase == NULL) return ALLOC_ENOMEMORY;
+
+    alloc->use_malloc = 1;
+    alloc->rawbase = rawbase;
+    alloc->base = rawbase;
+    alloc->size = size;
+    strncpy(alloc->name, name, 11);
+
+    allocator_reset(alloc, zero);
+
+    return 0;
 }
 
 int
@@ -52,11 +73,17 @@ allocator_reset(Allocator * alloc, int zero)
 }
 
 void *
-allocator_alloc(Allocator * alloc, char * name, size_t size, int dir, char * fmt, ...)
+allocator_alloc(Allocator * alloc, char * name, size_t request_size, int dir, char * fmt, ...)
 {
-    size_t request_size = size;
-    size = ((size + ALIGNMENT - 1) / ALIGNMENT) * ALIGNMENT;
+    size_t size = request_size;
+
+    if(alloc->use_malloc) {
+        size = 0; /* because we'll get it from malloc */
+    } else {
+        size = ((size + ALIGNMENT - 1) / ALIGNMENT) * ALIGNMENT;
+    }
     size += ALIGNMENT; /* for the header */
+
     void * ptr;
     if(dir == ALLOC_DIR_BOT) {
         if(alloc->bottom + size > alloc->top) {
@@ -81,6 +108,7 @@ allocator_alloc(Allocator * alloc, char * name, size_t size, int dir, char * fmt
 
     struct BlockHeader * header = ptr;
     memcpy(header->magic, MAGIC, 8);
+    header->self = ptr;
     header->size = size;
     header->request_size = request_size;
     header->dir = dir;
@@ -90,7 +118,14 @@ allocator_alloc(Allocator * alloc, char * name, size_t size, int dir, char * fmt
     va_start(va, fmt);
     vsprintf(header->annotation, fmt, va);
     va_end(va);
-    char * cptr = ptr;
+    char * cptr;
+    if(alloc->use_malloc) {
+        /* prepend a copy of the header to the malloc block; allocator_free will use it*/
+        cptr = malloc(request_size + ALIGNMENT);
+        memcpy(cptr, header, ALIGNMENT);
+    } else {
+        cptr = ptr;
+    }
     cptr += ALIGNMENT;
     header->ptr = cptr;
     return (void*) (cptr);
@@ -200,9 +235,9 @@ allocator_print(Allocator * alloc)
         !allocator_iter_ended(iter);
         allocator_iter_next(iter))
     {
-        message(1, "%08p | %-20s | %c %010td %010td | %s\n", 
-                 iter->ptr,
+        message(1, " %-20s | %016p | %c %010td %010td | %s\n", 
                  iter->name,
+                 iter->ptr,
                  "T?B"[iter->dir + 1],
                  iter->request_size, iter->size, iter->annotation);
     }
@@ -231,11 +266,13 @@ allocator_dealloc (Allocator * alloc, void * ptr)
 {
     char * cptr = ptr;
     struct BlockHeader * header = (struct BlockHeader*) (cptr - ALIGNMENT);
+
     if (!is_header(header)) {
         return ALLOC_ENOTALLOC;
     }
 
-    ptr = header;
+    /* ->self is always the header in the allocator; header maybe a duplicate in use_malloc */
+    ptr = header->self;
     if(header->dir == ALLOC_DIR_BOT) {
         if(ptr != alloc->bottom - header->size + alloc->base) {
             return ALLOC_EMISMATCH;
@@ -250,9 +287,16 @@ allocator_dealloc (Allocator * alloc, void * ptr)
         return ALLOC_ENOTALLOC;
     }
 
+    if(alloc->use_malloc) {
+        free(header);
+    }
+
     /* remove the link to the memory. */
+    header = ptr; /* modify the true header in the allocator */
     header->ptr = NULL;
+    header->self = NULL;
     header->alloc = NULL;
     alloc->refcount --;
+
     return 0;
 }
