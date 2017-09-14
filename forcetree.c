@@ -230,24 +230,6 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, co
 
     struct NODE *nfreep = &Nodes[ninsert];
     struct NODE *nprnt = &Nodes[parent];
-    /* If the node is very small, just add the particle to the first empty subnode.
-     * If there are no empty subnodes, we will have to create a new node: if this
-     * happens repeatedly we probably have bigger problems
-     * (like: some corruption in domain exchange which is zeroing all the positions).*/
-    if (nprnt->len < minlen) {
-        int j;
-        for(j=0; j<8; j++)
-            if(nprnt->u.suns[j] < 0) {
-                nprnt->u.suns[j] = p_toplace;
-                Father[p_toplace] = parent;
-                return 0;
-            }
-        /* Warn about this if we have more than 4 particles
-         * attached to this very small node.*/
-        if(j > 4)
-            message(1,"Particle %d wants to attach to small node at %g %g %g (len %g), where we already have %d particles.\n",
-                    p_toplace, nprnt->center[0], nprnt->center[1], nprnt->center[2], nprnt->len, j);
-    }
     /* We create a new internal node with empty subnodes at the end of the array, and
      * use it to replace the particle in the parent's subnode.*/
     init_internal_node(nfreep, nprnt, subnode);
@@ -258,7 +240,25 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, co
      * Re-add that particle to the child.*/
     const int child_subnode = get_subnode(nfreep, p_child);
 
-    const int new_subnode = get_subnode(nfreep, p_toplace);
+    int new_subnode = get_subnode(nfreep, p_toplace);
+
+    /* If the node is very small, just add the particle to the next subnode.
+     * This ensures that we can always construct the tree, and only happens far
+     * below the softening length. This happens occasionally, but if it is
+     * frequent increase the force softening.
+     */
+    if(nfreep->len < minlen && new_subnode == child_subnode) {
+        if(child_subnode < 7)
+            new_subnode = child_subnode + 1;
+        else
+            new_subnode = child_subnode - 1;
+        /* Warn about this happening.*/
+        message(1,"Close particles: %d @ [%g, %g, %g] and %d @ [%g, %g, %g]. "
+                "Attached to node %d, subnode %d, at [%g, %g, %g] (len %g).\n",
+                p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2],
+                p_child, P[p_child].Pos[0], P[p_child].Pos[1], P[p_child].Pos[2],
+                nfreep, child_subnode, nprnt->center[0], nprnt->center[1], nprnt->center[2], nprnt->len);
+    }
 
     int ret = 0;
     /*If these two are different, great! Attach both particles to this new node*/
