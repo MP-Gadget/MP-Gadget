@@ -39,8 +39,6 @@ typedef struct {
     MyFloat EgyRho;
     MyFloat DhsmlEgyDensity;
 #endif
-    MyFloat Rho;
-    MyFloat DhsmlDensity;
     MyFloat Ngb;
     MyFloat Div;
     MyFloat Rot[3];
@@ -163,15 +161,11 @@ density_copy(int place, TreeWalkQueryDensity * I, TreeWalk * tw)
 static void
 density_reduce(int place, TreeWalkResultDensity * remote, enum TreeWalkReduceMode mode, TreeWalk * tw)
 {
-    TREEWALK_REDUCE(P[place].NumNgb, remote->Ngb);
-
     /* these will be added */
     P[place].GravCost += All.HydroCostFactor * All.cf.a * remote->Ninteractions;
 
     if(P[place].Type == 0)
     {
-        TREEWALK_REDUCE(SPHP(place).Density, remote->Rho);
-        TREEWALK_REDUCE(SPHP(place).DhsmlDensityFactor, remote->DhsmlDensity);
 #ifdef DENSITY_INDEPENDENT_SPH
         TREEWALK_REDUCE(SPHP(place).EgyWtDensity, remote->EgyRho);
         TREEWALK_REDUCE(SPHP(place).DhsmlEgyDensityFactor, remote->DhsmlEgyDensity);
@@ -247,13 +241,6 @@ density_ngbiter(
 
         double mass_j = P[other].Mass;
 
-        O->Rho += (mass_j * wk);
-        O->Ngb += wk * iter->kernel_volume;
-
-        /* Hinv is here because O->DhsmlDensity is drho / dH.
-         * nothing to worry here */
-        O->DhsmlDensity += mass_j * density_kernel_dW(&iter->kernel, u, wk, dwk);
-
 #ifdef DENSITY_INDEPENDENT_SPH
         double EntPred = EntropyPred(other);
         O->EgyRho += mass_j * EntPred * wk;
@@ -310,11 +297,6 @@ density_postprocess(int i, TreeWalk * tw)
     {
         if(SPHP(i).Density > 0)
         {
-            SPHP(i).DhsmlDensityFactor *= P[i].Hsml / (NUMDIMS * SPHP(i).Density);
-            if(SPHP(i).DhsmlDensityFactor > -0.9)	/* note: this would be -1 if only a single particle at zero lag is found */
-                SPHP(i).DhsmlDensityFactor = 1 / (1 + SPHP(i).DhsmlDensityFactor);
-            else
-                SPHP(i).DhsmlDensityFactor = 1;
 
 #ifdef DENSITY_INDEPENDENT_SPH
             const double EntPred = EntropyPred(i);
