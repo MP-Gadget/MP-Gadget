@@ -61,7 +61,7 @@ allocator_alloc(Allocator * alloc, char * name, size_t size, int dir, char * fmt
     if(dir == ALLOC_DIR_BOT) {
         if(alloc->bottom + size > alloc->top) {
             allocator_print(alloc);
-            abort();
+            endrun(1, "Not enough memory for %s %td bytes\n", name, size);
         }
         ptr = alloc->base + alloc->bottom;
         alloc->bottom += size;
@@ -69,7 +69,7 @@ allocator_alloc(Allocator * alloc, char * name, size_t size, int dir, char * fmt
     } else if (dir == ALLOC_DIR_TOP) {
         if(alloc->top < alloc->bottom + size) {
             allocator_print(alloc);
-            abort();
+            endrun(1, "Not enough memory for %s %td bytes\n", name, size);
         }
         ptr = alloc->base + alloc->top - size;
         alloc->refcount += 1;
