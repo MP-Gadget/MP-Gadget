@@ -235,9 +235,8 @@ allocator_print(Allocator * alloc)
         !allocator_iter_ended(iter);
         allocator_iter_next(iter))
     {
-        message(1, " %-20s | %016p | %c %010td %010td | %s\n", 
+        message(1, " %-20s | %c %010td %010td | %s\n", 
                  iter->name,
-                 iter->ptr,
                  "T?B"[iter->dir + 1],
                  iter->request_size, iter->size, iter->annotation);
     }
