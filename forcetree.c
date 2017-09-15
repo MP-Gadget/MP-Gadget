@@ -229,10 +229,11 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
     int child_subnode;
     if(p_child >= 0) {
         /* if we are here the node must be large enough, thus contain exactly one child. */
+#ifdef DEBUG
         if(force_get_next_node(p_child) != -1) {
             abort();
         }
-
+#endif
         /* The parent is already a leaf, need to split */
         /* Get memory for an extra node from our cache.*/
         ninsert = get_freenode(nnext, nnext_thread, nrem_thread);
@@ -267,11 +268,15 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
     /* If these target slot is empty or if the new node is too small.
      * Attach the new particle to the new slot. */
     if(too_small) {
+        P[p_child].SufferFromCoupling = 1;
+        P[p_toplace].SufferFromCoupling = 1;
+        /*
         message(1,"Close particles: %d @ [%g, %g, %g] and %d @ [%g, %g, %g]. "
                 "Attached to node %d, subnode %d, at [%g, %g, %g] (len %g).\n",
                 p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2],
                 p_child, P[p_child].Pos[0], P[p_child].Pos[1], P[p_child].Pos[2],
                 ninsert, child_subnode, Nodes[ninsert].center[0], Nodes[ninsert].center[1], Nodes[ninsert].center[2], Nodes[ninsert].len);
+        */
     }
     if(too_small || Nodes[ninsert].u.suns[new_subnode] == -1) {
         Father[p_toplace] = ninsert;
@@ -340,6 +345,8 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
 #endif
     for(i = 0; i < npart; i++)
     {
+        P[i].SufferFromCoupling = 0;
+
         /*Can't break from openmp for*/
         if(nnext_thread >= lastnode-1)
             continue;
