@@ -504,7 +504,7 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int* toG
                 }
                 flagsum += flag;
 
-                message(0, "flagsum = %d\n", flagsum);
+                //message(0, "flagsum = %d\n", flagsum);
                 if(flagsum > 100)
                     endrun(1013, "flagsum is too big, what does this mean?");
             }
