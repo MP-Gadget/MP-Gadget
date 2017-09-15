@@ -223,7 +223,7 @@ int get_freenode(int * nnext, struct NodeCache *nc)
  * We add a new internal node at this subnode and try to add both the old and new particles to it.
  * Parent is assumed to be locked.*/
 int
-insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
+modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
         const struct TreeBuilder tb, int *nnext, struct NodeCache *nc, double minlen, int *closepairs)
 {
     int ret = 0;
@@ -295,7 +295,7 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
         tb.Nodes[ninsert].u.suns[new_subnode] = p_toplace;
     } else {
         /* Otherwise recurse and create a new node*/
-        ret = insert_internal_node(ninsert, child_subnode, p_child, p_toplace, tb, nnext, nc, minlen, closepairs);
+        ret = modify_internal_node(ninsert, child_subnode, p_child, p_toplace, tb, nnext, nc, minlen, closepairs);
     }
 
     if (ninsert != parent) {
@@ -315,8 +315,8 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
     int nnext = tb.firstnode;		/* index of first free node */
 
     /*Minimum size of the node depends on the minimum of all force softenings*/
-    double minsoft = All.ForceSoftening[0];
-    for(i = 1; i<6; i++)
+    double minsoft = 0;
+    for(i = 0; i<6; i++)
         if((minsoft == 0 || minsoft > All.ForceSoftening[i]) && All.ForceSoftening[i] > 0)
             minsoft = All.ForceSoftening[i];
     const double minlen = 1.0e-3 * minsoft;
@@ -432,7 +432,7 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
         /* Now we have something that isn't an internal node, and we have a lock on it,
          * so we know it won't change. We can place the particle! */
 
-        insert_internal_node(this, subnode, child, i, tb, &nnext, &nc, minlen, &closepairs);
+        modify_internal_node(this, subnode, child, i, tb, &nnext, &nc, minlen, &closepairs);
 
         /* Add an explicit flush because we are not using openmp's critical sections */
         #pragma omp flush
