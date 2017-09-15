@@ -444,11 +444,12 @@ get_timestep_dloga(const int p)
     if(ac == 0)
         ac = 1.0e-30;
 
-    dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * All.SofteningTable[P[p].Type] / ac);
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    if(P[p].Type == 0)
-        dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * P[p].Hsml / 2.8 / ac);
-#endif
+    double soft = All.SofteningTable[P[p].Type];
+    /*Note that Hsml is compared to ForceSoftening,
+     * so when comparing to SofteningTable you divide by 2.8*/
+    if(All.AdaptiveGravsoftForGas && P[p].Type == 0)
+        soft = P[p].Hsml / 2.8;
+    dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * soft / ac);
 
     if(P[p].Type == 0)
     {

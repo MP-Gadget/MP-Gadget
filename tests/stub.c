@@ -19,7 +19,7 @@ _cmocka_run_group_tests_mpi(const char * name, const struct CMUnitTest tests[], 
     MPI_Init(NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
-    int rt = _cmocka_run_group_tests(name, tests, size, NULL, NULL);
+    int rt = _cmocka_run_group_tests(name, tests, size, p1, p2);
     MPI_Finalize();
     return rt;
 }

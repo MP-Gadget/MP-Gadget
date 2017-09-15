@@ -298,18 +298,11 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
 
                 if(lv->mode == 1)
                 {
-                    if(nop->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                    if(nop->f.TopLevel)	/* we reached a top-level node again, which means that we are done with the branch */
                     {
                         no = -1;
                         continue;
                     }
-                }
-
-                if(!(nop->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
-                {
-                    /* open cell */
-                    no = nop->u.d.nextnode;
-                    continue;
                 }
 
                 mass = nop->u.d.mass;
@@ -402,12 +395,12 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
 #ifdef UNEQUALSOFTENINGS
 #ifndef ADAPTIVE_GRAVSOFT_FORGAS
                 h = All.ForceSoftening[ptype];
-                if(h < All.ForceSoftening[extract_max_softening_type(nop->u.d.bitflags)])
+                if(h < All.ForceSoftening[nop->f.MaxSofteningType])
                 {
-                    h = All.ForceSoftening[extract_max_softening_type(nop->u.d.bitflags)];
+                    h = All.ForceSoftening[nop->f.MaxSofteningType];
                     if(r2 < h * h)
                     {
-                        if(maskout_different_softening_flag(nop->u.d.bitflags))	/* bit-5 signals that there are particles of different softening in the node */
+                        if(nop->f.MixedSofteningsInNode)
                         {
                             no = nop->u.d.nextnode;
 

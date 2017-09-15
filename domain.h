@@ -36,6 +36,6 @@ void domain_decompose_full(void);
 void domain_maintain(void);
 
 int
-domain_get_topleaf_with_shift(const peano_t key, int * shift);
+domain_get_topleaf(const peano_t key);
 
 #endif

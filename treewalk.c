@@ -727,10 +727,10 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
         if(0) {
             no = Father[pq[i]];
             while(no != -1) {
-                if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL)) {
+                if(Nodes[no].f.TopLevel) {
                     break;
                 }
-                no = Nodes[no].u.d.father;
+                no = Nodes[no].father;
             }
         }
        */
@@ -845,7 +845,7 @@ cull_node(TreeWalkQueryBase * I, TreeWalkNgbIterBase * iter, int no)
 
     double dist;
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-        dist = DMAX(Nodes[no].hmax, iter->Hsml) + 0.5 * current->len;
+        dist = DMAX(Nodes[no].u.d.hmax, iter->Hsml) + 0.5 * current->len;
     } else {
         dist = iter->Hsml + 0.5 * current->len;
     }
@@ -924,17 +924,11 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
         if(lv->mode == 1) {
             if (lv->tw->UseNodeList) {
-                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL)) {
+                if(current->f.TopLevel) {
                     /* we reached a top-level node again, which means that we are done with the branch */
                     break;
                 }
             }
-        }
-
-        if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES))) {
-            /* open cell to check the only particle inside */
-            no = current->u.d.nextnode;
-            continue;
         }
 
         /* Cull the node */

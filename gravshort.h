@@ -7,9 +7,8 @@ typedef struct
 {
     TreeWalkQueryBase base;
     int Type;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    /*Used for adaptive gravitational softening*/
     MyFloat Soft;
-#endif
     MyFloat OldAcc;
 } TreeWalkQueryGravShort;
 
@@ -61,10 +60,8 @@ grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 {
     input->Type = P[place].Type;
 
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    if(P[place].Type == 0)
+    if(All.AdaptiveGravsoftForGas && P[place].Type == 0)
         input->Soft = P[place].Hsml;
-#endif
     input->OldAcc = P[place].OldAcc;
 
 }

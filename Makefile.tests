@@ -17,6 +17,7 @@ TESTED = \
 	interp \
 	powerspectrum \
 	cosmology \
+	forcetree \
 	timefac \
 	timebinmgr
 
