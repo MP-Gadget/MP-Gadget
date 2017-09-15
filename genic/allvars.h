@@ -3,7 +3,7 @@
 
 extern int      WhichSpectrum;
 
-extern double MaxMemoryPerCore;
+extern double MaxMemSizePerNode;
 
 extern int      Nmesh, Ngrid;
 

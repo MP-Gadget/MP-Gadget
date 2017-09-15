@@ -1,3 +1,6 @@
+# bound memory usage for travis
+MaxMemSizePerNode = 2000
+
 #  Relevant files
 
 InitCondFile = output/IC

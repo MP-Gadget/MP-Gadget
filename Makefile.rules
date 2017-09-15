@@ -16,7 +16,7 @@ LIBS   = -lm $(GSL_LIBS) -Ldepends/lib $(BUNDLEDLIBS)
 OPTIONS = $(OPTIMIZE) $(OPT)
 
 OBJECTS  =  \
-	 gdbtools.o \
+	 gdbtools.o memory.o mymalloc.o \
 	 fof.o fofpetaio.o petaio.o \
 	 param.o paramset.o utils-string.o \
 	 domain.o exchange.o garbage.o allvars.o main.o \
@@ -29,7 +29,7 @@ OBJECTS  =  \
 	 gravshort-tree.o gravshort-tree-old.o gravshort-pair.o hydra.o  timefac.o \
 	 gravpm.o powerspectrum.o \
 	 forcetree.o peano.o \
-	 petapm.o longrange.o mymalloc.o \
+	 petapm.o longrange.o \
 	 densitykernel.o interp.o lightcone.o walltime.o\
 	 runtests.o \
 
@@ -40,13 +40,15 @@ ICOBJECTS   = genic/main.o genic/power.o genic/allvars.o genic/params.o \
         utils-string.o \
 		 openmpsort.o \
 		walltime.o \
+        memory.o \
+        system.o \
         mymalloc.o \
         cosmology.o \
         endrun.o \
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 fof.h cosmology.h powerspectrum.h timestep.h sfr_eff.h drift.h timefac.h \
-	 petaio.h blackhole.h physconst.h
+	 petaio.h blackhole.h physconst.h memory.h mymalloc.h
 
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)

@@ -8,6 +8,8 @@
 #include <gsl/gsl_math.h>
 
 #include "allvars.h"
+#include "mymalloc.h"
+
 #include "proto.h"
 #include "param.h"
 #include "config.h"
@@ -85,6 +87,8 @@ int main(int argc, char **argv)
     if(RestartFlag == 3 && RestartSnapNum < 0) {
         endrun(1, "Need to give the snapshot number if FOF is selected for output\n");
     }
+
+    mymalloc_init(All.MaxMemSizePerNode);
 
     switch(RestartFlag) {
         case 3:

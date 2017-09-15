@@ -18,7 +18,8 @@ TESTED = \
 	powerspectrum \
 	cosmology \
 	timefac \
-	timebinmgr
+	timebinmgr \
+	memory
 
 TESTBIN = $(TESTED:%=tests/test_%)
 SUITE?= $(TESTBIN)
@@ -40,5 +41,5 @@ clean-tests:
 # this empty rule is important for tab-completion
 $(TESTBIN):
 
-tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o depends/lib/libcmocka.a
+tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o $(DESTDIR)/memory.o $(DESTDIR)/mymalloc.o $(DESTDIR)/system.o depends/lib/libcmocka.a
 	$(MPICC) $(CFLAGS) $^ $(LIBS) -o $@

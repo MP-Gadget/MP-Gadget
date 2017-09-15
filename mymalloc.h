@@ -1,34 +1,29 @@
-/*! \file mymalloc.h
- *  \brief Declares globally accessible structures and functions related to gadget's internal memory manager.
- */
+#ifndef _MYMALLOC_H_
+#define _MYMALLOC_H_
 
-#ifndef MALLOC_H
-#define MALLOC_H
-void *mymalloc_fullinfo(const char *varname, size_t n, const char *func, const char *file, int linenr);
-void *mymalloc_movable_fullinfo(void *ptr, const char *varname, size_t n, const char *func, const char *file, int line);
+#include "memory.h"
 
-void *myrealloc_fullinfo(void *p, size_t n, const char *func, const char *file, int line);
-void *myrealloc_movable_fullinfo(void *p, size_t n, const char *func, const char *file, int line);
+extern Allocator A_MAIN[1];
+extern Allocator A_TEMP[1];
 
-void myfree_fullinfo(void *p, const char *func, const char *file, int line);
-void myfree_movable_fullinfo(void *p, const char *func, const char *file, int line);
+void mymalloc_init(double MemoryMB);
+void report_detailed_memory_usage(const char *label, const char * fmt, ...);
 
-void mymalloc_init(size_t n);
-void dump_memory_table(void);
-void report_detailed_memory_usage_of_largest_task(const char *label, const char *func, const char *file, int line);
+#define  mymalloc(name, size)            allocator_alloc_bot(A_MAIN, name, size)
+#define  mymalloc2(name, size)           allocator_alloc_top(A_MAIN, name, size)
+#define  myfree(x)                 allocator_free(x)
 
-extern size_t AllocatedBytes;
-extern size_t FreeBytes;
+#define  ma_malloc(name, type, nele)            (type*) allocator_alloc_bot(A_MAIN, name, sizeof(type) * nele)
+#define  ma_malloc2(name, type, nele)           (type*) allocator_alloc_top(A_MAIN, name, sizeof(type) * nele)
+#define  ma_free(p) allocator_free(p)
 
-#define  mymalloc(x, y)            mymalloc_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
-#define  mymalloc_movable(x, y, z) mymalloc_movable_fullinfo(x, y, z, __FUNCTION__, __FILE__, __LINE__)
+#define  ta_malloc(name, type, nele)            (type*) allocator_alloc_bot(A_TEMP, name, sizeof(type) * nele)
+#define  ta_malloc2(name, type, nele)           (type*) allocator_alloc_top(A_TEMP, name, sizeof(type) * nele)
+#define  ta_reset()     allocator_reset(A_TEMP, 0)
+#define  ta_free(p) allocator_free(p)
 
-#define  myrealloc(x, y)           myrealloc_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
-#define  myrealloc_movable(x, y)   myrealloc_movable_fullinfo(x, y, __FUNCTION__, __FILE__, __LINE__)
-
-#define  myfree(x)                 (myfree_fullinfo(x, __FUNCTION__, __FILE__, __LINE__), x = NULL)
-#define  myfree_movable(x)         (myfree_movable_fullinfo(x, __FUNCTION__, __FILE__, __LINE__), x = NULL)
-
-#define  report_memory_usage(x) report_detailed_memory_usage_of_largest_task(x, __FUNCTION__, __FILE__, __LINE__)
+#define  report_memory_usage(x)    report_detailed_memory_usage(x, "%s:%d", __FILE__, __LINE__)
+#define  FreeBytes                 allocator_get_free_size(A_MAIN)
+#define  AllocatedBytes            allocator_get_used_size(A_MAIN, ALLOC_DIR_BOTH)
 
 #endif
