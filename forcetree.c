@@ -226,8 +226,14 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
 {
     int ret = 0;
     int ninsert;
-    int child_subnode;
-    if(p_child >= 0) {
+    int child_subnode, new_subnode;
+    const int too_small = Nodes[parent].len < minlen;
+    if(p_child == -1 || too_small) {
+        ninsert = parent;
+        child_subnode = subnode;
+        new_subnode = subnode;
+    }
+    else {
         /* if we are here the node must be large enough, thus contain exactly one child. */
 #ifdef DEBUG
         if(force_get_next_node(p_child) != -1) {
@@ -253,18 +259,12 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
         /* The new leaf will replace p_child in the parent (done before return)
          * Re-attach that particle to the new leaf.*/
         child_subnode = get_subnode(nfreep, p_child);
+        new_subnode = get_subnode(nfreep, p_toplace);
 
         Father[p_child] = ninsert;
-        force_set_next_node(p_child, nfreep->u.suns[child_subnode], firstnode, lastnode);
         nfreep->u.suns[child_subnode] = p_child;
-    } else {
-        ninsert = parent;
-        child_subnode = subnode;
     }
 
-    int new_subnode = get_subnode(&Nodes[ninsert], p_toplace);
-
-    int too_small = Nodes[ninsert].len < minlen;
     /* If these target slot is empty or if the new node is too small.
      * Attach the new particle to the new slot. */
     if(too_small) {
