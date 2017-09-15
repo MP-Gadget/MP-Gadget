@@ -33,7 +33,7 @@ depends/lib/libcmocka.a:
 build-tests: $(TESTBIN)
 
 test : build-tests
-	for tt in $(SUITE) ; do $$tt ; done
+	trap 'err=1' ERR; for tt in $(SUITE) ; do $$tt ; done; exit $$err
 
 clean-tests:
 	rm -f $(TESTBIN)
