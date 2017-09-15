@@ -43,6 +43,17 @@ extern struct NODE
     *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
                       gives the first allocated node */
 
+/*Structure containing the Node pointer, and the first and last entries*/
+struct TreeBuilder {
+    /*Index of first internal node*/
+    int firstnode;
+    /*Index of first pseudo-particle node*/
+    int lastnode;
+    /*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
+     *   gives the first allocated node */
+    struct NODE *Nodes; 
+};
+
 extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
 
 /*Used in domain.c*/
@@ -58,13 +69,13 @@ void   force_tree_free(void);
 void   dump_particles(void);
 
 int
-force_get_prev_node(int no);
+force_get_prev_node(int no, const struct TreeBuilder tb);
 
 int
-force_get_next_node(int no);
+force_get_next_node(int no, const struct TreeBuilder tb);
 
 int
-force_set_next_node(int no, int next, const int firstnode, const int lastnode);
+force_set_next_node(int no, int next, const struct TreeBuilder tb);
 
 #endif
 
