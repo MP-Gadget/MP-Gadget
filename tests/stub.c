@@ -23,7 +23,7 @@ _cmocka_run_group_tests_mpi(const char * name, const struct CMUnitTest tests[], 
 
     /* allocate some memory for MAIN and TEMP */
 
-    allocator_init(A_MAIN, "MAIN", 32 * 1024 * 1024, 1, NULL);
+    allocator_init(A_MAIN, "MAIN", 256 * 1024 * 1024, 1, NULL);
     allocator_init(A_TEMP, "TEMP", 8 * 1024 * 1024, 1, A_MAIN);
 
     int rt = _cmocka_run_group_tests(name, tests, size, p1, p2);
