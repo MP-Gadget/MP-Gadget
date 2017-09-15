@@ -203,17 +203,23 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
  * 100 was found to be optimal for an Intel skylake with 4 threads.*/
 #define NODECACHE_SIZE 100
 
+/*Structure containing thread-local parameters of the tree build*/
+struct NodeCache {
+    int nnext_thread;
+    int nrem_thread;
+};
+
 /*Get a pointer to memory for a free node, from our node cache.
  * If there is no memory left, return NULL.*/
-int get_freenode(int * nnext, int *nnext_thread, int *nrem_thread)
+int get_freenode(int * nnext, struct NodeCache *nc)
 {
     /*Get memory for an extra node from our cache.*/
-    if(*nrem_thread == 0) {
-        *nnext_thread = atomic_fetch_and_add(nnext, NODECACHE_SIZE);
-        *nrem_thread = NODECACHE_SIZE;
+    if(nc->nrem_thread == 0) {
+        nc->nnext_thread = atomic_fetch_and_add(nnext, NODECACHE_SIZE);
+        nc->nrem_thread = NODECACHE_SIZE;
     }
-    const int ninsert = (*nnext_thread)++;
-    (*nrem_thread)--;
+    const int ninsert = (nc->nnext_thread)++;
+    (nc->nrem_thread)--;
     return ninsert;
 }
 
@@ -222,7 +228,7 @@ int get_freenode(int * nnext, int *nnext_thread, int *nrem_thread)
  * Parent is assumed to be locked.*/
 int
 insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
-        const int firstnode, const int lastnode, int *nnext, int *nnext_thread, int *nrem_thread, double minlen)
+        const int firstnode, const int lastnode, int *nnext, struct NodeCache *nc, double minlen)
 {
     int ret = 0;
     int ninsert;
@@ -246,10 +252,10 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
 #endif
         /* The parent is already a leaf, need to split */
         /* Get memory for an extra node from our cache.*/
-        ninsert = get_freenode(nnext, nnext_thread, nrem_thread);
+        ninsert = get_freenode(nnext, nc);
 
         /*If we already have too many nodes, exit loop.*/
-        if(*nnext_thread >= lastnode)
+        if(nc->nnext_thread >= lastnode)
             return 1;
 
         struct NODE *nfreep = &Nodes[ninsert];
@@ -290,7 +296,7 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
         Nodes[ninsert].u.suns[new_subnode] = p_toplace;
     } else {
         /* Otherwise recurse and create a new node*/
-        ret = insert_internal_node(ninsert, child_subnode, p_child, p_toplace, firstnode, lastnode, nnext, nnext_thread, nrem_thread, minlen);
+        ret = insert_internal_node(ninsert, child_subnode, p_child, p_toplace, firstnode, lastnode, nnext, nc, minlen);
     }
 
     if (ninsert != parent) {
@@ -342,8 +348,9 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
      * helps cache locality. In my tests without this list the
      * reduction in cache performance destroyed the benefit of
      * parallelizing this loop!*/
-    int nnext_thread=nnext;
-    int nrem_thread=0;
+    struct NodeCache nc;
+    nc.nnext_thread = nnext;
+    nc.nrem_thread = 0;
     /* Stores the last-seen node on this thread.
      * Since most particles are close to each other, this should save a number of tree walks.*/
     int this_acc = firstnode;
@@ -354,14 +361,14 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
     for(i=0; i < lastnode - firstnode; i++) {
         pthread_spin_init(&SpinLocks[i],PTHREAD_PROCESS_PRIVATE);
     }
-    #pragma omp parallel for firstprivate(nnext_thread, nrem_thread, this_acc)
+    #pragma omp parallel for firstprivate(nc, this_acc)
 #endif
     for(i = 0; i < npart; i++)
     {
         P[i].SufferFromCoupling = 0;
 
         /*Can't break from openmp for*/
-        if(nnext_thread >= lastnode-1)
+        if(nc.nnext_thread >= lastnode-1)
             continue;
 
         /*First find the Node for the TopLeaf */
@@ -422,7 +429,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         /* Now we have something that isn't an internal node, and we have a lock on it,
          * so we know it won't change. We can place the particle! */
 
-        insert_internal_node(this, subnode, child, i, firstnode, lastnode, &nnext, &nnext_thread, &nrem_thread, minlen);
+        insert_internal_node(this, subnode, child, i, firstnode, lastnode, &nnext, &nc, minlen);
 
         /* Add an explicit flush because we are not using openmp's critical sections */
         #pragma omp flush
