@@ -28,7 +28,7 @@ FileWithInputSpectrum = ../powerspectrum-wmap9.txt  # filename of tabulated inpu
 InputSpectrum_UnitLength_in_cm  = 3.085678e24 # defines length unit of tabulated
                                                                    # input spectrum in cm/h. 
                                                 # Note: This can be chosen different from UnitLength_in_cm
-    
+
 
 PrimordialIndex  0.971 = # may be used to tilt the primordial index
 
