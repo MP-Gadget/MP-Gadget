@@ -70,7 +70,7 @@ static void
 force_exchange_pseudodata(void);
 
 static void
-force_insert_pseudo_particles(int firstpseudo);
+force_insert_pseudo_particles(const int firstnode, const int lastnode);
 
 int
 force_tree_allocated()
@@ -220,7 +220,7 @@ int get_freenode(int * nnext, int *nnext_thread, int *nrem_thread)
 /* Parent is a node where the subnode we want to add a particle to is filled.
  * We add a new internal node at this subnode and try to add both the old and new particles to it.
  * Parent is assumed to be locked.*/
-int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, const int lastnode, int *nnext, int *nnext_thread, int *nrem_thread, double minlen)
+int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, const int firstnode, const int lastnode, int *nnext, int *nnext_thread, int *nrem_thread, double minlen)
 {
     /*Get memory for an extra node from our cache.*/
     int ninsert = get_freenode(nnext, nnext_thread, nrem_thread);
@@ -267,10 +267,13 @@ int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, co
         Father[p_toplace] = ninsert;
         nfreep->u.suns[child_subnode] = p_child;
         nfreep->u.suns[new_subnode] = p_toplace;
+        /* create a linked list of length 1 */
+        force_set_next_node(p_toplace, -1, firstnode, lastnode);
+        force_set_next_node(p_child, -1, firstnode, lastnode);
     }
     /*Otherwise recurse and create a new node*/
     else {
-        ret = insert_internal_node(ninsert, new_subnode, p_child, p_toplace, lastnode, nnext, nnext_thread, nrem_thread, minlen);
+        ret = insert_internal_node(ninsert, new_subnode, p_child, p_toplace, firstnode, lastnode, nnext, nnext_thread, nrem_thread, minlen);
     }
 
     /* Mark this node in the parent: this goes last
@@ -395,6 +398,9 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
             Father[i] = this;
             #pragma omp atomic write
             Nodes[this].u.suns[subnode] = i;
+
+            /* create a linked list of length 1 */
+            force_set_next_node(i, -1, firstnode, lastnode);
         }
         /*The slot we wanted to fill up contains a particle.
          * We must insert a new internal node here.*/
@@ -403,7 +409,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
              * with a full (positive) subnode in subnode, containing a real particle.
              * We split this node (making it an internal node) and try to add our particle to the new split node.*/
             const double minlen = 1.0e-3 * All.ForceSoftening[1];
-            insert_internal_node(this, subnode, child, i, lastnode, &nnext, &nnext_thread, &nrem_thread, minlen);
+            insert_internal_node(this, subnode, child, i, firstnode, lastnode, &nnext, &nnext_thread, &nrem_thread, minlen);
         }
 #ifdef OPENMP_USE_SPINLOCK
         /*Unlock the parent*/
@@ -442,7 +448,7 @@ force_tree_build_single(const int firstnode, const int lastnode, const int npart
     }
 
     /* insert the pseudo particles that represent the mass distribution of other domains */
-    force_insert_pseudo_particles(lastnode);
+    force_insert_pseudo_particles(firstnode, lastnode);
 
     /* now compute the multipole moments recursively */
     int tail = force_update_node_recursive(firstnode, -1, -1, firstnode, lastnode);
@@ -516,16 +522,20 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
  *  center of the domain-cell they correspond to. These quantities will be
  *  updated later on.
  */
-void force_insert_pseudo_particles(const int firstpseudo)
+static void
+force_insert_pseudo_particles(const int firstnode, const int lastnode)
 {
     int i, index;
+    const int firstpseudo = lastnode;
 
     for(i = 0; i < NTopLeaves; i++)
     {
         index = TopLeaves[i].treenode;
 
-        if(TopLeaves[i].Task != ThisTask)
+        if(TopLeaves[i].Task != ThisTask) {
             Nodes[index].u.suns[0] = firstpseudo + i;
+            force_set_next_node(firstpseudo + i, -1, firstnode, lastnode);
+        }
     }
 }
 
@@ -604,18 +614,18 @@ force_set_node_softening(struct NODE * pnode, const int new_type, const double h
 static void
 add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * pa)
 {
-            int k;
-            pnode->u.d.mass += (pa->Mass);
-            for(k=0; k<3; k++)
-                pnode->u.d.s[k] += (pa->Mass * pa->Pos[k]);
+    int k;
+    pnode->u.d.mass += (pa->Mass);
+    for(k=0; k<3; k++)
+        pnode->u.d.s[k] += (pa->Mass * pa->Pos[k]);
 
-            if(pa->Type == 0)
-            {
-                if(pa->Hsml > pnode->u.d.hmax)
-                    pnode->u.d.hmax = pa->Hsml;
-            }
+    if(pa->Type == 0)
+    {
+        if(pa->Hsml > pnode->u.d.hmax)
+            pnode->u.d.hmax = pa->Hsml;
+    }
 
-            force_set_node_softening(pnode, pa->Type, pa->Hsml);
+    force_set_node_softening(pnode, pa->Type, pa->Hsml);
 }
 
 /*! this routine determines the multipole moments for a given internal node
@@ -633,7 +643,7 @@ add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * pa
  *  flags whether the node contains any particles with lower softening
  *  than that.
  *
- *  The function also builds the NextNode linked list. The return value
+ *  The function also concatenates the NextNode linked lists. The return value
  *  and argument tail is the current tail of the NextNode linked list.
  */
 
@@ -641,10 +651,22 @@ int
 force_update_node_recursive(int no, int sib, int tail, const int firstnode, const int lastnode)
 {
     /*Set NextNode for this node*/
+    if(tail < firstnode && tail >= 0 && force_get_next_node(tail) != -1) {
+        abort();
+    }
     tail = force_set_next_node(tail, no, firstnode, lastnode);
-    /*For particles and pseudo particles we have nothing to update*/
-    if(no < firstnode || no >= lastnode)
-        return tail;
+
+    if(no < firstnode || no >= lastnode) {
+        /* For particles and pseudo particles we have nothing to update; */
+        /* But the new tail is the last particle in the linked list. */
+
+        int next = no;
+        while(next != -1) {
+            no = next;
+            next = force_get_next_node(next);
+        }
+        return no;
+    }
 
     Nodes[no].f.MaxSofteningType=7;
     int j, suns[8];
@@ -680,11 +702,11 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
         if(p >= lastnode)	/* a pseudo particle */
         {
             /* nothing to be done here because the mass of the
-             * pseudo-particle is still zero. This will be changed
-             * later.
+             * pseudo-particle is still zero. The node attributes will be changed
+             * later when we exchange the psuedo-particles.
              */
         }
-        else if(p < lastnode && p >= firstnode)	/* an internal node or pseudo particle */
+        else if(p < lastnode && p >= firstnode) /* a tree node */
         {
             Nodes[no].u.d.mass += (Nodes[p].u.d.mass);
             Nodes[no].u.d.s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
@@ -696,9 +718,14 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
 
             force_set_node_softening(&Nodes[no], Nodes[p].f.MaxSofteningType, Nodes[p].u.d.hmax);
         }
-        else		/* a particle */
+        else /* a list of particles */
         {
-            add_particle_moment_to_node(&Nodes[no], &P[p]);
+            /* add all particles in this tree-node */
+            int next = p;
+            while(next != -1) {
+                add_particle_moment_to_node(&Nodes[no], &P[next]);
+                next = force_get_next_node(next);
+            }
         }
     }
 
