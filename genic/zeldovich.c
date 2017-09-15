@@ -204,7 +204,6 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
     }
     gsl_rng_free(random_generator_seed);
 
-    double fac = pow(1.0 / Box, 1.5);
     for(i = region->offset[2]; i < region->offset[2] + region->size[2]; i ++) {
         gsl_rng * random_generator0 = gsl_rng_alloc(gsl_rng_ranlxd1);
         gsl_rng * random_generator1 = gsl_rng_alloc(gsl_rng_ranlxd1);
@@ -250,23 +249,21 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k) {
                 double phase = gsl_rng_uniform(random_generator) * 2 * M_PI;
                 double ampl = 0;
                 do ampl = gsl_rng_uniform(random_generator); while(ampl == 0);
+
                 if(k < region->offset[1]) continue;
                 if(k >= region->offset[1] + region->size[1]) continue;
-                int64_t kmag2 = (int64_t)MESH2K(i) * MESH2K(i) + (int64_t)MESH2K(j) * MESH2K(j) + (int64_t)MESH2K(k) * MESH2K(k);
-                double kmag = sqrt(kmag2) * 2 * M_PI / Box;
-                double p_of_k = - log(ampl);
+
+                double delta = sqrt(- log(ampl));
                 if(i == Nmesh / 2) {
-                    p_of_k = 0;
+                    delta = 0;
                 }
                 if(j == Nmesh / 2) {
-                    p_of_k = 0;
+                    delta = 0;
                 }
                 if(k >= Nmesh / 2) {
                     /* this is to cut off at the Nyquist*/
-                    p_of_k = 0;
+                    delta = 0;
                 }
-                p_of_k *= PowerSpec(kmag);
-                double delta = fac * sqrt(p_of_k);
                 rho_k[ip][0] = delta * cos(phase);
                 rho_k[ip][1] = delta * sin(phase);
                 if(hermitian) {
@@ -308,6 +305,10 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
         double r2 = 1.0 / Nmesh;
         r2 *= r2;
         double fac = exp(- k2 * r2);
+
+        double kmag = sqrt(k2) * 2 * M_PI / Box;
+        fac *= sqrt(PowerSpec(kmag) / (Box * Box * Box));
+
         value[0][0] *= fac;
         value[0][1] *= fac;
     }
@@ -324,6 +325,10 @@ static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
         double fac = diff_kernel(kpos[0] * (2 * M_PI / Nmesh)) * (Nmesh / Box) / (
                     k2 * fac1 * fac1);
                     */
+
+        double kmag = sqrt(k2) * 2 * M_PI / Box;
+        fac *= sqrt(PowerSpec(kmag) / (Box * Box * Box));
+
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -332,6 +337,8 @@ static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (Box / (2 * M_PI)) * kpos[1] / k2;
+        double kmag = sqrt(k2) * 2 * M_PI / Box;
+        fac *= sqrt(PowerSpec(kmag) / (Box * Box * Box));
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -340,6 +347,9 @@ static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (Box / (2 * M_PI)) * kpos[2] / k2;
+        double kmag = sqrt(k2) * 2 * M_PI / Box;
+        fac *= sqrt(PowerSpec(kmag) / (Box * Box * Box));
+
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
