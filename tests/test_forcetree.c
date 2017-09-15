@@ -17,13 +17,13 @@
 
 /*Defined in forcetree.c*/
 int
-force_tree_create_nodes(const int firstnode, const int lastnode, const int npart);
+force_tree_create_nodes(const struct TreeBuilder tb, const int npart);
 
-size_t
+struct TreeBuilder
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_recursive(int no, int sib, int tail, const int firstnode, const int lastnode);
+force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder tb);
 
 /*Used data from All and domain*/
 struct particle_data *P;
@@ -239,7 +239,7 @@ static int check_tree(const int firstnode, const int nnodes, const int numpart)
     return nrealnode;
 }
 
-static void do_tree_test(const int numpart)
+static void do_tree_test(const int numpart, const struct TreeBuilder tb)
 {
     /*Sort by peano key so this is more realistic*/
     #pragma omp parallel for
@@ -258,7 +258,7 @@ static void do_tree_test(const int numpart)
     /*Time creating the nodes*/
     double start, end;
     start = MPI_Wtime();
-    int nodes = force_tree_create_nodes(numpart, numpart + maxnode, numpart);
+    int nodes = force_tree_create_nodes(tb, numpart);
     assert_true(nodes < maxnode);
     end = MPI_Wtime();
     double ms = (end - start)*1000;
@@ -266,8 +266,8 @@ static void do_tree_test(const int numpart)
     int nrealnode = check_tree(numpart, nodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
-    int tail = force_update_node_recursive(numpart, -1, -1, numpart, numpart + maxnode);
-    force_set_next_node(tail, -1, numpart, numpart + maxnode);
+    int tail = force_update_node_recursive(numpart, -1, -1, tb);
+    force_set_next_node(tail, -1, tb);
 /*     assert_true(tail < nodes); */
     end = MPI_Wtime();
     ms = (end - start)*1000;
@@ -293,9 +293,8 @@ static void test_rebuild_flat(void ** state) {
     /*Allocate tree*/
     /*Base pointer*/
     TopLeaves[0].topnode = numpart;
-    size_t alloc = force_treeallocate(numpart, numpart, numpart);
-    assert_true(alloc > 0);
-    do_tree_test(numpart);
+    struct TreeBuilder tb = force_treeallocate(numpart, numpart, numpart);
+    do_tree_test(numpart, tb);
     force_tree_free();
     free(P);
 }
@@ -314,14 +313,13 @@ static void test_rebuild_close(void ** state) {
         P[i].Pos[1] = 4. + ((i/ncbrt) % ncbrt) /close;
         P[i].Pos[2] = 4. + (i % ncbrt)/close;
     }
-    size_t alloc = force_treeallocate(numpart, numpart, numpart);
-    assert_true(alloc > 0);
-    do_tree_test(numpart);
+    struct TreeBuilder tb = force_treeallocate(numpart, numpart, numpart);
+    do_tree_test(numpart, tb);
     force_tree_free();
     free(P);
 }
 
-void do_random_test(gsl_rng * r, const int numpart, const int maxnode)
+void do_random_test(gsl_rng * r, const int numpart, const int maxnode, const struct TreeBuilder tb)
 {
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
@@ -343,7 +341,7 @@ void do_random_test(gsl_rng * r, const int numpart, const int maxnode)
         for(int j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize*0.1 + All.BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
-    do_tree_test(numpart);
+    do_tree_test(numpart, tb);
 }
 
 static void test_rebuild_random(void ** state) {
@@ -355,12 +353,11 @@ static void test_rebuild_random(void ** state) {
     /*Base pointer*/
     TopLeaves[0].topnode = numpart;
     int maxnode = numpart;
-    size_t alloc = force_treeallocate(maxnode, numpart, numpart);
-    assert_true(alloc > 0);
+    struct TreeBuilder tb = force_treeallocate(numpart, numpart, numpart);
     assert_true(Nodes != NULL);
     P = malloc(numpart*sizeof(struct particle_data));
     for(int i=0; i<2; i++) {
-        do_random_test(r, numpart, maxnode);
+        do_random_test(r, numpart, maxnode, tb);
     }
     force_tree_free();
     free(P);

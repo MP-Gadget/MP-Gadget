@@ -36,7 +36,6 @@ struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the node
  *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
 				   gives the first allocated node */
 
-
 int MaxNodes;                  /*!< maximum allowed number of internal nodes */
 
 
@@ -48,20 +47,20 @@ static int tree_allocated_flag = 0;
 static int force_tree_build(int npart);
 
 static int
-force_tree_build_single(const int firstnode, const int lastnode, const int npart);
+force_tree_build_single(const struct TreeBuilder tb, const int npart);
 
 /*Next three are not static as tested.*/
 int
-force_tree_create_nodes(const int firstnode, const int lastnode, const int npart);
+force_tree_create_nodes(const struct TreeBuilder tb, const int npart);
 
-size_t
+struct TreeBuilder
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_recursive(int no, int sib, int tail, const int firstnode, const int lastnode);
+force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder tb);
 
 static void
-force_treeupdate_pseudos(int no, int firstnode, int lastnode);
+force_treeupdate_pseudos(int no, const struct TreeBuilder tb);
 
 static void
 force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nextfree, const int lastnode);
@@ -70,7 +69,7 @@ static void
 force_exchange_pseudodata(void);
 
 static void
-force_insert_pseudo_particles(const int firstnode, const int lastnode);
+force_insert_pseudo_particles(const struct TreeBuilder tb);
 
 int
 force_tree_allocated()
@@ -104,19 +103,16 @@ int force_tree_build(int npart)
     int Numnodestree;
     int flag;
     int maxnodes;
+    struct TreeBuilder tb;
 
     do
     {
         maxnodes = All.TreeAllocFactor * All.MaxPart + NTopNodes;
         /* construct tree if needed */
         /* the tree is used in grav dens, hydro, bh and sfr */
-        size_t allbytes = force_treeallocate(maxnodes, All.MaxPart, All.MaxPart);
+        tb = force_treeallocate(maxnodes, All.MaxPart, All.MaxPart);
 
-        message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
-             allbytes / (1024.0 * 1024.0),
-             AllocatedBytes / (1024.0 * 1024.0));
-
-        Numnodestree = force_tree_build_single(All.MaxPart, All.MaxPart + maxnodes, npart);
+        Numnodestree = force_tree_build_single(tb, npart);
         if(Numnodestree < 0)
             message(1, "Not enough tree nodes (%d) for %d particles.\n", maxnodes, npart);
 
@@ -141,7 +137,7 @@ int force_tree_build(int npart)
 
     force_exchange_pseudodata();
 
-    force_treeupdate_pseudos(All.MaxPart, All.MaxPart, All.MaxPart + maxnodes);
+    force_treeupdate_pseudos(All.MaxPart, tb);
 
     return Numnodestree;
 }
@@ -228,12 +224,12 @@ int get_freenode(int * nnext, struct NodeCache *nc)
  * Parent is assumed to be locked.*/
 int
 insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
-        const int firstnode, const int lastnode, int *nnext, struct NodeCache *nc, double minlen)
+        const struct TreeBuilder tb, int *nnext, struct NodeCache *nc, double minlen)
 {
     int ret = 0;
     int ninsert;
     int child_subnode, new_subnode;
-    const int too_small = Nodes[parent].len < minlen;
+    const int too_small = tb.Nodes[parent].len < minlen;
     /* Just insert the particle if we have an empty spot.
      * If the node is already too small, do not split it,
      * but instead prepend the particle to a linked list.*/
@@ -255,11 +251,11 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
         ninsert = get_freenode(nnext, nc);
 
         /*If we already have too many nodes, exit loop.*/
-        if(nc->nnext_thread >= lastnode)
+        if(nc->nnext_thread >= tb.lastnode)
             return 1;
 
-        struct NODE *nfreep = &Nodes[ninsert];
-        struct NODE *nprnt = &Nodes[parent];
+        struct NODE *nfreep = &tb.Nodes[ninsert];
+        struct NODE *nprnt = &tb.Nodes[parent];
         /* We create a new leaf node at the end of the array, and
          * use it to replace the particle in the parent's subnode.*/
         init_internal_node(nfreep, nprnt, subnode);
@@ -292,28 +288,28 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
     if(p_child < 0 || new_subnode != child_subnode || too_small) {
         Father[p_toplace] = ninsert;
         /*If the node is too small we prepend the particle to a short linked list.*/
-        force_set_next_node(p_toplace, too_small ? p_child : -1, firstnode, lastnode);
-        Nodes[ninsert].u.suns[new_subnode] = p_toplace;
+        force_set_next_node(p_toplace, too_small ? p_child : -1, tb);
+        tb.Nodes[ninsert].u.suns[new_subnode] = p_toplace;
     } else {
         /* Otherwise recurse and create a new node*/
-        ret = insert_internal_node(ninsert, child_subnode, p_child, p_toplace, firstnode, lastnode, nnext, nc, minlen);
+        ret = insert_internal_node(ninsert, child_subnode, p_child, p_toplace, tb, nnext, nc, minlen);
     }
 
     if (ninsert != parent) {
         /* A new node is creatd. Added to the parent: this goes last
          * so that we don't access the child before it is constructed.*/
         #pragma omp atomic write
-        Nodes[parent].u.suns[subnode] = ninsert;
+        tb.Nodes[parent].u.suns[subnode] = ninsert;
     }
     return ret;
 }
 
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
-int force_tree_create_nodes(const int firstnode, const int lastnode, const int npart)
+int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
 {
     int i;
-    int nnext = firstnode;		/* index of first free node */
+    int nnext = tb.firstnode;		/* index of first free node */
 
     /*Minimum size of the node depends on the minimum of all force softenings*/
     double minsoft = All.ForceSoftening[0];
@@ -324,7 +320,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
 
     /* create an empty root node  */
     {
-        struct NODE *nfreep = &Nodes[nnext];	/* select first node */
+        struct NODE *nfreep = &tb.Nodes[nnext];	/* select first node */
 
         nfreep->len = All.BoxSize*1.001;
         for(i = 0; i < 3; i++)
@@ -339,7 +335,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
          * grid. We need to generate these nodes first to make sure that we have a
          * complete top-level tree which allows the easy insertion of the
          * pseudo-particles in the right place */
-        force_create_node_for_topnode(firstnode, 0, 1, 0, 0, 0, &nnext, lastnode);
+        force_create_node_for_topnode(tb.firstnode, 0, 1, 0, 0, 0, &nnext, tb.lastnode);
     }
 
     /* This implements a small thread-local free Node cache.
@@ -353,12 +349,12 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
     nc.nrem_thread = 0;
     /* Stores the last-seen node on this thread.
      * Since most particles are close to each other, this should save a number of tree walks.*/
-    int this_acc = firstnode;
+    int this_acc = tb.firstnode;
     /* now we insert all particles */
 #ifdef OPENMP_USE_SPINLOCK
     /*Initialise some spinlocks off*/
-    pthread_spinlock_t * SpinLocks = mymalloc("NodeSpinlocks", (lastnode - firstnode)*sizeof(pthread_spinlock_t));
-    for(i=0; i < lastnode - firstnode; i++) {
+    pthread_spinlock_t * SpinLocks = mymalloc("NodeSpinlocks", (tb.lastnode - tb.firstnode)*sizeof(pthread_spinlock_t));
+    for(i=0; i < tb.lastnode - tb.firstnode; i++) {
         pthread_spin_init(&SpinLocks[i],PTHREAD_PROCESS_PRIVATE);
     }
     #pragma omp parallel for firstprivate(nc, this_acc)
@@ -368,13 +364,13 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         P[i].SufferFromCoupling = 0;
 
         /*Can't break from openmp for*/
-        if(nc.nnext_thread >= lastnode-1)
+        if(nc.nnext_thread >= tb.lastnode-1)
             continue;
 
         /*First find the Node for the TopLeaf */
 
         int this;
-        if(inside_node(&Nodes[this_acc], i)) {
+        if(inside_node(&tb.Nodes[this_acc], i)) {
             this = this_acc;
         } else {
             const int topleaf = domain_get_topleaf(P[i].Key);
@@ -386,42 +382,42 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         do
         {
             /*We will always start with an internal node: find the desired subnode.*/
-            subnode = get_subnode(&Nodes[this], i);
+            subnode = get_subnode(&tb.Nodes[this], i);
 
             /*No lock needed: if we have an internal node here it will be stable*/
             #pragma omp atomic read
-            child = Nodes[this].u.suns[subnode];
+            child = tb.Nodes[this].u.suns[subnode];
 
-            if(child > lastnode)
-                endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%d)\n",this, subnode, child, lastnode);
+            if(child > tb.lastnode)
+                endrun(1,"Corruption in tree build: N[%d].[%d] = %d > lastnode (%d)\n",this, subnode, child, tb.lastnode);
             /* If we found an internal node keep walking*/
-            else if(child >= firstnode) {
+            else if(child >= tb.firstnode) {
                 this = child;
             }
         }
-        while(child >= firstnode);
+        while(child >= tb.firstnode);
 
 #ifdef OPENMP_USE_SPINLOCK
         /*Now lock this node.*/
-        pthread_spin_lock(&SpinLocks[this-firstnode]);
+        pthread_spin_lock(&SpinLocks[this-tb.firstnode]);
 #endif
 
         /*Check nothing changed when we took the lock*/
         #pragma omp atomic read
-        child = Nodes[this].u.suns[subnode];
+        child = tb.Nodes[this].u.suns[subnode];
         /*If it did, walk again*/
-        while(child >= firstnode)
+        while(child >= tb.firstnode)
         {
 #ifdef OPENMP_USE_SPINLOCK
             /*Move the lock to the child*/
-            pthread_spin_lock(&SpinLocks[child-firstnode]);
-            pthread_spin_unlock(&SpinLocks[this-firstnode]);
+            pthread_spin_lock(&SpinLocks[child-tb.firstnode]);
+            pthread_spin_unlock(&SpinLocks[this-tb.firstnode]);
 #endif
             this = child;
             /*New subnode*/
-            subnode = get_subnode(&Nodes[this], i);
+            subnode = get_subnode(&tb.Nodes[this], i);
             #pragma omp atomic read
-            child = Nodes[this].u.suns[subnode];
+            child = tb.Nodes[this].u.suns[subnode];
         }
         /*Update last-used cache*/
         this_acc = this;
@@ -429,25 +425,25 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         /* Now we have something that isn't an internal node, and we have a lock on it,
          * so we know it won't change. We can place the particle! */
 
-        insert_internal_node(this, subnode, child, i, firstnode, lastnode, &nnext, &nc, minlen);
+        insert_internal_node(this, subnode, child, i, tb, &nnext, &nc, minlen);
 
         /* Add an explicit flush because we are not using openmp's critical sections */
         #pragma omp flush
 
 #ifdef OPENMP_USE_SPINLOCK
         /*Unlock the parent*/
-        pthread_spin_unlock(&SpinLocks[this - firstnode]);
+        pthread_spin_unlock(&SpinLocks[this - tb.firstnode]);
 #endif
     }
 
 #ifdef OPENMP_USE_SPINLOCK
-    for(i=0; i < lastnode - firstnode; i++)
+    for(i=0; i < tb.lastnode - tb.firstnode; i++)
             pthread_spin_destroy(&SpinLocks[i]);
     /*Avoid a warning about discarding volatile*/
     int * ss = (int *) SpinLocks;
     myfree(ss);
 #endif
-    return nnext - firstnode;
+    return nnext - tb.firstnode;
 }
 
 /*! Constructs the gravitational oct-tree.
@@ -462,21 +458,21 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
 static int
-force_tree_build_single(const int firstnode, const int lastnode, const int npart)
+force_tree_build_single(const struct TreeBuilder tb, const int npart)
 {
-    int nnext = force_tree_create_nodes(firstnode, lastnode, npart);
-    if(nnext >= lastnode - firstnode)
+    int nnext = force_tree_create_nodes(tb, npart);
+    if(nnext >= tb.lastnode - tb.firstnode)
     {
         return -1;
     }
 
     /* insert the pseudo particles that represent the mass distribution of other domains */
-    force_insert_pseudo_particles(firstnode, lastnode);
+    force_insert_pseudo_particles(tb);
 
     /* now compute the multipole moments recursively */
-    int tail = force_update_node_recursive(firstnode, -1, -1, firstnode, lastnode);
+    int tail = force_update_node_recursive(tb.firstnode, -1, -1, tb);
 
-    force_set_next_node(tail, -1, firstnode, lastnode);
+    force_set_next_node(tail, -1, tb);
 
     return nnext;
 }
@@ -546,18 +542,18 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
  *  updated later on.
  */
 static void
-force_insert_pseudo_particles(const int firstnode, const int lastnode)
+force_insert_pseudo_particles(const struct TreeBuilder tb)
 {
     int i, index;
-    const int firstpseudo = lastnode;
+    const int firstpseudo = tb.lastnode;
 
     for(i = 0; i < NTopLeaves; i++)
     {
         index = TopLeaves[i].treenode;
 
         if(TopLeaves[i].Task != ThisTask) {
-            Nodes[index].u.suns[0] = firstpseudo + i;
-            force_set_next_node(firstpseudo + i, -1, firstnode, lastnode);
+            tb.Nodes[index].u.suns[0] = firstpseudo + i;
+            force_set_next_node(firstpseudo + i, -1, tb);
         }
     }
 }
@@ -580,20 +576,20 @@ force_get_next_node(int no)
 }
 
 int
-force_set_next_node(int no, int next, const int firstnode, const int lastnode)
+force_set_next_node(int no, int next, const struct TreeBuilder tb)
 {
     if(no < 0) return next;
-    if(no >= firstnode && no < lastnode) {
+    if(no >= tb.firstnode && no < tb.lastnode) {
         /* internal node */
-        Nodes[no].u.d.nextnode = next;
+        tb.Nodes[no].u.d.nextnode = next;
     }
-    if(no < firstnode) {
+    if(no < tb.firstnode) {
         /* Particle */
         Nextnode[no] = next;
     }
-    if(no >= lastnode) {
+    if(no >= tb.lastnode) {
         /* Pseudo Particle */
-        Nextnode[no - (lastnode - firstnode)] = next;
+        Nextnode[no - (tb.lastnode - tb.firstnode)] = next;
     }
 
     return next;
@@ -671,20 +667,20 @@ add_particle_moment_to_node(struct NODE * pnode, const struct particle_data * pa
  */
 
 int
-force_update_node_recursive(int no, int sib, int tail, const int firstnode, const int lastnode)
+force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder tb)
 {
     /*Set NextNode for this node*/
-    if(tail < firstnode && tail >= 0 && force_get_next_node(tail) != -1) {
+    if(tail < tb.firstnode && tail >= 0 && force_get_next_node(tail) != -1) {
         endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail));
     }
-    tail = force_set_next_node(tail, no, firstnode, lastnode);
+    tail = force_set_next_node(tail, no, tb);
 
     /*For pseudo particles, nothing to update (but nextnode is not yet set)*/
-    if(no >= lastnode)
+    if(no >= tb.lastnode)
         return no;
     /* For particles we have nothing to update; */
     /* But the new tail is the last particle in the linked list. */
-    if(no < firstnode) {
+    if(no < tb.firstnode) {
         int next = no;
         while(next != -1) {
             no = next;
@@ -722,16 +718,16 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
                 break;
             }
 
-        tail = force_update_node_recursive(p, nextsib, tail, firstnode, lastnode);
+        tail = force_update_node_recursive(p, nextsib, tail, tb);
 
-        if(p >= lastnode)	/* a pseudo particle */
+        if(p >= tb.lastnode)	/* a pseudo particle */
         {
             /* nothing to be done here because the mass of the
              * pseudo-particle is still zero. The node attributes will be changed
              * later when we exchange the pseudo-particles.
              */
         }
-        else if(p < lastnode && p >= firstnode) /* a tree node */
+        else if(p < tb.lastnode && p >= tb.firstnode) /* a tree node */
         {
             Nodes[no].u.d.mass += (Nodes[p].u.d.mass);
             Nodes[no].u.d.s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
@@ -868,7 +864,7 @@ void force_exchange_pseudodata(void)
 /*! This function updates the top-level tree after the multipole moments of
  *  the pseudo-particles have been updated.
  */
-void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
+void force_treeupdate_pseudos(int no, const struct TreeBuilder tb)
 {
     int j, p;
     MyFloat hmax;
@@ -889,11 +885,11 @@ void force_treeupdate_pseudos(int no, const int firstnode, const int lastnode)
     for(j = 0; j < 8; j++)
     {
         /*This may not happen as we are an internal top level node*/
-        if(p < firstnode || p >= lastnode)
-            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, firstnode, lastnode);
+        if(p < tb.firstnode || p >= tb.lastnode)
+            endrun(6767, "Updating pseudos: %d -> %d which is not an internal node between %d and %d.",no, p, tb.firstnode, tb.lastnode);
 
         if(Nodes[p].f.InternalTopLevel)
-            force_treeupdate_pseudos(p, firstnode, lastnode);
+            force_treeupdate_pseudos(p, tb);
 
         mass += (Nodes[p].u.d.mass);
         s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
@@ -1066,10 +1062,11 @@ void force_update_hmax(int * activeset, int size)
  *  maxnodes approximately equal to 0.7*maxpart is sufficient to store the
  *  tree for up to maxpart particles.
  */
-size_t force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
+struct TreeBuilder force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
 {
     size_t bytes;
     size_t allbytes = 0;
+    struct TreeBuilder tb;
 
     tree_allocated_flag = 1;
     MaxNodes = maxnodes;
@@ -1077,11 +1074,17 @@ size_t force_treeallocate(int maxnodes, int maxpart, int first_node_offset)
     Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE));
     allbytes += bytes;
     Nodes = Nodes_base - first_node_offset;
+    tb.firstnode = first_node_offset;
+    tb.lastnode = first_node_offset + maxnodes;
+    tb.Nodes = Nodes_base - first_node_offset;
     Nextnode = (int *) mymalloc("Nextnode", bytes = (maxpart + NTopNodes) * sizeof(int));
     allbytes += bytes;
     Father = (int *) mymalloc("Father", bytes = (maxpart) * sizeof(int));
     allbytes += bytes;
-    return allbytes;
+    message(0, "Allocated %g MByte for BH-tree, (presently allocated %g MB)\n",
+         allbytes / (1024.0 * 1024.0),
+         AllocatedBytes / (1024.0 * 1024.0));
+    return tb;
 }
 
 /*! This function frees the memory allocated for the tree, i.e. it frees
