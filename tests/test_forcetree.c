@@ -171,8 +171,8 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
 {
     const int firstnode = tb.firstnode;
     int tot_empty = 0, nrealnode = 0, sevens = 0;
-
-    for(int i=firstnode; i<nnodes+firstnode; i++)
+    int i;
+    for(i=firstnode; i<nnodes+firstnode; i++)
     {
         struct NODE * pNode = &Nodes[i];
         int empty = 0;
@@ -180,7 +180,8 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
         if(pNode->father < -1.5)
             continue;
 
-        for(int j=0; j<8; j++) {
+        int j;
+        for(j=0; j<8; j++) {
             /*Check children*/
             int child = pNode->u.suns[j];
             if(child == -1) {
@@ -192,7 +193,8 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
             /*If an internal node*/
             if(child > firstnode) {
                 assert_true(fabs(Nodes[child].len/pNode->len - 0.5) < 1e-4);
-                for(int k=0; k<3; k++) {
+                int k;
+                for(k=0; k<3; k++) {
                     if(j & (1<<k))
                         assert_true(Nodes[child].center[k] > pNode->center[k]);
                     else
@@ -209,7 +211,8 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
                         assert_int_equal(Father[child], Father[Nextnode[child]]);
                     }
                     /*Check in right quadrant*/
-                    for(int k=0; k<3; k++) {
+                    int k;
+                    for(k=0; k<3; k++) {
                         if(j & (1<<k)) {
                             assert_true(P[child].Pos[k] > pNode->center[k]);
                         }
@@ -229,7 +232,8 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
         nrealnode++;
     }
     assert_true(nnodes - nrealnode < omp_get_max_threads()*NODECACHE_SIZE);
-    for(int i=0; i<numpart; i++)
+    int i;
+    for(i=0; i<numpart; i++)
     {
         assert_int_equal(P[i].PI, 1);
     }
@@ -240,8 +244,9 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
 static void do_tree_test(const int numpart, const struct TreeBuilder tb)
 {
     /*Sort by peano key so this is more realistic*/
+    int i;
     #pragma omp parallel for
-    for(int i=0; i<numpart; i++) {
+    for(i=0; i<numpart; i++) {
         P[i].Key = PEANO(P[i].Pos);
         P[i].Mass = 1;
     }
@@ -251,7 +256,8 @@ static void do_tree_test(const int numpart, const struct TreeBuilder tb)
     MaxNodes = numpart;
     assert_true(Nodes != NULL);
     /*So we know which nodes we have initialised*/
-    for(int i=0; i< MaxNodes+1; i++)
+    int i;
+    for(i=0; i< MaxNodes+1; i++)
         Nodes_base[i].father = -2;
     /*Time creating the nodes*/
     double start, end;
@@ -281,8 +287,9 @@ static void test_rebuild_flat(void ** state) {
     P = malloc(numpart*sizeof(struct particle_data));
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
+    int i;
     #pragma omp parallel for
-    for(int i=0; i<numpart; i++) {
+    for(i=0; i<numpart; i++) {
         P[i].Type = 1;
         P[i].Pos[0] = (All.BoxSize/ncbrt) * (i/ncbrt/ncbrt);
         P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
@@ -304,8 +311,9 @@ static void test_rebuild_close(void ** state) {
     double close = 5000;
     P = malloc(numpart*sizeof(struct particle_data));
     /* Create particles clustered in one place, all of type 1.*/
+    int i;
     #pragma omp parallel for
-    for(int i=0; i<numpart; i++) {
+    for(i=0; i<numpart; i++) {
         P[i].Type = 1;
         P[i].Pos[0] = 4. + (i/ncbrt/ncbrt)/close;
         P[i].Pos[1] = 4. + ((i/ncbrt) % ncbrt) /close;
@@ -321,22 +329,28 @@ void do_random_test(gsl_rng * r, const int numpart, const int maxnode, const str
 {
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
-    for(int i=0; i<numpart/4; i++) {
+    int i;
+    for(i=0; i<numpart/4; i++) {
         P[i].Type = 1;
         P[i].PI = 0;
-        for(int j=0; j<3; j++)
+        int j;
+        for(j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize * gsl_rng_uniform(r);
     }
-    for(int i=numpart/4; i<3*numpart/4; i++) {
+    int i;
+    for(i=numpart/4; i<3*numpart/4; i++) {
         P[i].Type = 1;
         P[i].PI = 0;
-        for(int j=0; j<3; j++)
+        int j;
+        for(j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize/2 + All.BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
-    for(int i=3*numpart/4; i<numpart; i++) {
+    int i;
+    for(i=3*numpart/4; i<numpart; i++) {
         P[i].Type = 1;
         P[i].PI = 0;
-        for(int j=0; j<3; j++)
+        int j
+        for(j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize*0.1 + All.BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
     do_tree_test(numpart, tb);
@@ -354,7 +368,8 @@ static void test_rebuild_random(void ** state) {
     struct TreeBuilder tb = force_treeallocate(numpart, numpart, numpart);
     assert_true(Nodes != NULL);
     P = malloc(numpart*sizeof(struct particle_data));
-    for(int i=0; i<2; i++) {
+    int i;
+    for(i=0; i<2; i++) {
         do_random_test(r, numpart, maxnode, tb);
     }
     force_tree_free();
@@ -365,7 +380,8 @@ static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
     All.BoxSize = 8;
-    for(int i=0; i<6; i++)
+    int i;
+    for(i=0; i<6; i++)
         All.ForceSoftening[i] = 0.1;
     /*Set up the top-level domain grid*/
     /* The whole tree goes into one topnode.
