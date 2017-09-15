@@ -658,14 +658,16 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
 {
     /*Set NextNode for this node*/
     if(tail < firstnode && tail >= 0 && force_get_next_node(tail) != -1) {
-        abort();
+        endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail));
     }
     tail = force_set_next_node(tail, no, firstnode, lastnode);
 
-    if(no < firstnode || no >= lastnode) {
-        /* For particles and pseudo particles we have nothing to update; */
-        /* But the new tail is the last particle in the linked list. */
-
+    /*For pseudo particles, nothing to update (but nextnode is not yet set)*/
+    if(no >= lastnode)
+        return no;
+    /* For particles we have nothing to update; */
+    /* But the new tail is the last particle in the linked list. */
+    if(no < firstnode) {
         int next = no;
         while(next != -1) {
             no = next;
