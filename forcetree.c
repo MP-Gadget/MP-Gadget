@@ -398,7 +398,7 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
          * so attach this particle.*/
         if(child < 0) {
             Father[i] = this;
-            #pragma omp atomic write
+
             Nodes[this].u.suns[subnode] = i;
 
             /* create a linked list of length 1 */
