@@ -278,9 +278,10 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
                 ninsert, child_subnode, Nodes[ninsert].center[0], Nodes[ninsert].center[1], Nodes[ninsert].center[2], Nodes[ninsert].len);
         */
     }
-    if(too_small || Nodes[ninsert].u.suns[new_subnode] == -1) {
+
+    if(p_child < 0 || new_subnode != child_subnode || too_small) {
         Father[p_toplace] = ninsert;
-        force_set_next_node(p_toplace, Nodes[ninsert].u.suns[new_subnode], firstnode, lastnode);
+        force_set_next_node(p_toplace, too_small ? p_child : -1, firstnode, lastnode);
         Nodes[ninsert].u.suns[new_subnode] = p_toplace;
     } else {
         /* Otherwise recurse and create a new node*/
@@ -351,8 +352,6 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         if(nnext_thread >= lastnode-1)
             continue;
 
-        const double minlen = 1.0e-3 * All.ForceSoftening[P[i].Type];
-
         /*First find the Node for the TopLeaf */
 
         int this;
@@ -410,6 +409,8 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
 
         /* Now we have something that isn't an internal node, and we have a lock on it,
          * so we know it won't change. We can place the particle! */
+
+        const double minlen = 1.0e-3 * All.ForceSoftening[P[i].Type];
 
         insert_internal_node(this, subnode, child, i, firstnode, lastnode, &nnext, &nnext_thread, &nrem_thread, minlen);
 
