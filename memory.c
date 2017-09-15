@@ -221,8 +221,11 @@ allocator_get_used_size(Allocator * alloc, int dir)
 void
 allocator_print(Allocator * alloc)
 {
-    message(1, "--------------- Allocator: %s | Total: %010td bytes -----------------\n",
-                alloc->name, alloc->size);
+    message(1, "--------------- Allocator: %-17s %12s-----------------\n",
+                alloc->name,
+                alloc->use_malloc?"(libc managed)":"(self managed)"
+                );
+    message(1, " Total: %010td bytes\n", alloc->size);
     message(1, " Free: %010td Used: %010td Top: %010td Bottom: %010td \n",
             allocator_get_free_size(alloc),
             allocator_get_used_size(alloc, ALLOC_DIR_BOTH),
