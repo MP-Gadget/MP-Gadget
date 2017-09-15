@@ -170,6 +170,8 @@ static int check_moments(const int firstnode, const int lastnode, const int nump
 static int check_tree(const int firstnode, const int nnodes, const int numpart)
 {
     int tot_empty = 0, nrealnode = 0, sevens = 0;
+    size_t tot_suffering = 0;
+
     for(int i=firstnode; i<nnodes+firstnode; i++)
     {
         struct NODE * pNode = &Nodes[i];
@@ -204,6 +206,7 @@ static int check_tree(const int firstnode, const int nnodes, const int numpart)
                 int suffering = P[child].SufferFromCoupling;
 
                 while(Father[child] == i) {
+                    tot_suffering += P[child].SufferFromCoupling;
                     P[child].PI += 1;
                     assert_int_equal(suffering, P[child].SufferFromCoupling);
                     /*Check in right quadrant*/
@@ -231,6 +234,7 @@ static int check_tree(const int firstnode, const int nnodes, const int numpart)
     {
         assert_int_equal(P[i].PI, 1);
     }
+    printf("Total suffering = %td\n", tot_suffering);
     printf("Tree filling factor: %g on %d nodes (wasted: %d seven empty: %d)\n", tot_empty/(8.*nrealnode), nrealnode, nnodes - nrealnode, sevens);
     return nrealnode;
 }
