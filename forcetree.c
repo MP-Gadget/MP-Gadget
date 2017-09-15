@@ -309,6 +309,13 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
     int i;
     int nnext = firstnode;		/* index of first free node */
 
+    /*Minimum size of the node depends on the minimum of all force softenings*/
+    double minsoft = All.ForceSoftening[0];
+    for(i = 1; i<6; i++)
+        if((minsoft == 0 || minsoft > All.ForceSoftening[i]) && All.ForceSoftening[i] > 0)
+            minsoft = All.ForceSoftening[i];
+    const double minlen = 1.0e-3 * minsoft;
+
     /* create an empty root node  */
     {
         struct NODE *nfreep = &Nodes[nnext];	/* select first node */
@@ -414,8 +421,6 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
 
         /* Now we have something that isn't an internal node, and we have a lock on it,
          * so we know it won't change. We can place the particle! */
-
-        const double minlen = 1.0e-3 * All.ForceSoftening[P[i].Type];
 
         insert_internal_node(this, subnode, child, i, firstnode, lastnode, &nnext, &nnext_thread, &nrem_thread, minlen);
 
