@@ -263,14 +263,21 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
 
     int new_subnode = get_subnode(&Nodes[ninsert], p_toplace);
 
+    int too_small = Nodes[ninsert].len < minlen;
     /* If these target slot is empty or if the new node is too small.
      * Attach the new particle to the new slot. */
-    if(Nodes[ninsert].u.suns[new_subnode] == -1 || Nodes[ninsert].len < minlen) {
+    if(too_small) {
+        message(1,"Close particles: %d @ [%g, %g, %g] and %d @ [%g, %g, %g]. "
+                "Attached to node %d, subnode %d, at [%g, %g, %g] (len %g).\n",
+                p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2],
+                p_child, P[p_child].Pos[0], P[p_child].Pos[1], P[p_child].Pos[2],
+                ninsert, child_subnode, Nodes[ninsert].center[0], Nodes[ninsert].center[1], Nodes[ninsert].center[2], Nodes[ninsert].len);
+    }
+    if(too_small || Nodes[ninsert].u.suns[new_subnode] == -1) {
         Father[p_toplace] = ninsert;
         force_set_next_node(p_toplace, Nodes[ninsert].u.suns[new_subnode], firstnode, lastnode);
         Nodes[ninsert].u.suns[new_subnode] = p_toplace;
     } else {
-
         /* Otherwise recurse and create a new node*/
         ret = insert_internal_node(ninsert, child_subnode, p_child, p_toplace, firstnode, lastnode, nnext, nnext_thread, nrem_thread, minlen);
     }
