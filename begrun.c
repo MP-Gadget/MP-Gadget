@@ -32,9 +32,6 @@
  */
 
 
-static void
-open_outputfiles(int RestartsnapNum);
-
 static void set_units();
 
 
@@ -42,7 +39,7 @@ static void set_units();
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-void begrun(int BeginFlag, int RestartSnapNum)
+void begrun(int RestartSnapNum)
 {
 
     int Nhost = cluster_get_num_hosts();
@@ -66,22 +63,15 @@ void begrun(int BeginFlag, int RestartSnapNum)
     init_clouds();
 #endif
 
-    if(BeginFlag == 2)
-        long_range_init();
+    long_range_init();
 
     set_random_numbers();
 
     init(RestartSnapNum);			/* ... read in initial model */
 
-    if(BeginFlag >= 3) {
-        return;
-    }
-
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
 #endif
-
-    open_outputfiles(RestartSnapNum);
 
 #ifdef TWODIMS
     int i;
@@ -105,7 +95,7 @@ void begrun(int BeginFlag, int RestartSnapNum)
  *   performance of the simulstion. On restart from restart-files
  *   (start-option 1), the code will append to these files.
  */
-static void
+void
 open_outputfiles(int RestartSnapNum)
 {
     const char mode[3]="a+";
