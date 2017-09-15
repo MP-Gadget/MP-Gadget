@@ -280,6 +280,7 @@ extern struct global_data_all_processes
      * Then the load balancer will aim to produce DODF*NTask equal-sized chunks, distributed
      * evenly across MPI ranks.*/
     int DomainOverDecompositionFactor;
+    int DomainUseGlobalSorting;
     /* Sets average TopNodes per MPI rank. Like DomainOverDecompositionFactor
      * but only changes refinement, not load balancing.*/
     int TopNodeIncreaseFactor;

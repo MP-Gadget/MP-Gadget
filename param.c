@@ -148,6 +148,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "");
 
     param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 1, "Create on average this number of sub domains on a MPI rank. Load balancer will try to create this number of equal sized chunks on each rank. Higher numbers improve the load balancing but make domain more expensive.");
+    param_declare_int   (ps, "DomainUseGlobalSorting", OPTIONAL, 1, "Determining the initial refinement of chunks globally. Enabling this produces better domains at costs of slowing down the domain decomposition.");
     param_declare_int   (ps, "TopNodeIncreaseFactor", OPTIONAL, 4, "Create on average this number of topNodes per MPI rank. Higher numbers improve the load balancing but make domain more expensive. Similar to DomainOverDecompositionFactor, but ignored by load balancer.");
     param_declare_double(ps, "ErrTolIntAccuracy", OPTIONAL, 0.02, "");
     param_declare_double(ps, "ErrTolForceAcc", OPTIONAL, 0.005, "Force accuracy required from tree. Controls tree opening criteria. Lower values are more accurate.");
@@ -356,6 +357,7 @@ void read_parameter_file(char *fname)
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
+        All.DomainUseGlobalSorting = param_get_int(ps, "DomainUseGlobalSorting");
         All.TopNodeIncreaseFactor = param_get_int(ps, "TopNodeIncreaseFactor");
         All.NoTreeRnd = param_get_int(ps, "NoTreeRnd");
         All.OutputPotential = param_get_int(ps, "OutputPotential");

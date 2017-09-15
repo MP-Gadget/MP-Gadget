@@ -1086,8 +1086,7 @@ int domain_determine_global_toptree(struct local_topnode_data * topTree, int * t
      * more likely running into overlapped local topTrees.
      * */
 
-    const int DomainUseGlobalSorting = 1;
-    if(DomainUseGlobalSorting) {
+    if(All.DomainUseGlobalSorting) {
         mpsort_mpi(LP, NumPart, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, MPI_COMM_WORLD);
     } else {
         qsort_openmp(LP, NumPart, sizeof(struct local_particle_data), order_by_key);
