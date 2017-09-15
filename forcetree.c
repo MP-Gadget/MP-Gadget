@@ -220,66 +220,67 @@ int get_freenode(int * nnext, int *nnext_thread, int *nrem_thread)
 /* Parent is a node where the subnode we want to add a particle to is filled.
  * We add a new internal node at this subnode and try to add both the old and new particles to it.
  * Parent is assumed to be locked.*/
-int insert_internal_node(int parent, int subnode, int p_child, int p_toplace, const int firstnode, const int lastnode, int *nnext, int *nnext_thread, int *nrem_thread, double minlen)
+int
+insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
+        const int firstnode, const int lastnode, int *nnext, int *nnext_thread, int *nrem_thread, double minlen)
 {
-    /*Get memory for an extra node from our cache.*/
-    int ninsert = get_freenode(nnext, nnext_thread, nrem_thread);
-    /*If we already have too many nodes, exit loop.*/
-    if(*nnext_thread >= lastnode)
-        return 1;
-
-    struct NODE *nfreep = &Nodes[ninsert];
-    struct NODE *nprnt = &Nodes[parent];
-    /* We create a new internal node with empty subnodes at the end of the array, and
-     * use it to replace the particle in the parent's subnode.*/
-    init_internal_node(nfreep, nprnt, subnode);
-    /*Set father of new node*/
-    nfreep->father = parent;
-
-    /* The new internal node replaced a particle in the parent.
-     * Re-add that particle to the child.*/
-    const int child_subnode = get_subnode(nfreep, p_child);
-
-    int new_subnode = get_subnode(nfreep, p_toplace);
-
-    /* If the node is very small, just add the particle to the next subnode.
-     * This ensures that we can always construct the tree, and only happens far
-     * below the softening length. This happens occasionally, but if it is
-     * frequent increase the force softening.
-     */
-    if(nfreep->len < minlen && new_subnode == child_subnode) {
-        if(child_subnode < 7)
-            new_subnode = child_subnode + 1;
-        else
-            new_subnode = child_subnode - 1;
-        /* Warn about this happening.*/
-        message(1,"Close particles: %d @ [%g, %g, %g] and %d @ [%g, %g, %g]. "
-                "Attached to node %d, subnode %d, at [%g, %g, %g] (len %g).\n",
-                p_toplace, P[p_toplace].Pos[0], P[p_toplace].Pos[1], P[p_toplace].Pos[2],
-                p_child, P[p_child].Pos[0], P[p_child].Pos[1], P[p_child].Pos[2],
-                ninsert, child_subnode, nprnt->center[0], nprnt->center[1], nprnt->center[2], nprnt->len);
-    }
-
     int ret = 0;
-    /*If these two are different, great! Attach both particles to this new node*/
-    if(child_subnode != new_subnode) {
+    int ninsert;
+    int child_subnode;
+    if(p_child >= 0) {
+        /* if we are here the node must be large enough, thus contain exactly one child. */
+        if(force_get_next_node(p_child) != -1) {
+            abort();
+        }
+
+        /* The parent is already a leaf, need to split */
+        /* Get memory for an extra node from our cache.*/
+        ninsert = get_freenode(nnext, nnext_thread, nrem_thread);
+
+        /*If we already have too many nodes, exit loop.*/
+        if(*nnext_thread >= lastnode)
+            return 1;
+
+        struct NODE *nfreep = &Nodes[ninsert];
+        struct NODE *nprnt = &Nodes[parent];
+        /* We create a new leaf node at the end of the array, and
+         * use it to replace the particle in the parent's subnode.*/
+        init_internal_node(nfreep, nprnt, subnode);
+        /*Set father of new node*/
+        nfreep->father = parent;
+
+        /* The new leaf will replace p_child in the parent (done before return)
+         * Re-attach that particle to the new leaf.*/
+        child_subnode = get_subnode(nfreep, p_child);
+
         Father[p_child] = ninsert;
-        Father[p_toplace] = ninsert;
+        force_set_next_node(p_child, nfreep->u.suns[child_subnode], firstnode, lastnode);
         nfreep->u.suns[child_subnode] = p_child;
-        nfreep->u.suns[new_subnode] = p_toplace;
-        /* create a linked list of length 1 */
-        force_set_next_node(p_toplace, -1, firstnode, lastnode);
-        force_set_next_node(p_child, -1, firstnode, lastnode);
-    }
-    /*Otherwise recurse and create a new node*/
-    else {
-        ret = insert_internal_node(ninsert, new_subnode, p_child, p_toplace, firstnode, lastnode, nnext, nnext_thread, nrem_thread, minlen);
+    } else {
+        ninsert = parent;
+        child_subnode = subnode;
     }
 
-    /* Mark this node in the parent: this goes last
-     * so that we don't access the child before it is constructed.*/
-    #pragma omp atomic write
-    nprnt->u.suns[subnode] = ninsert;
+    int new_subnode = get_subnode(&Nodes[ninsert], p_toplace);
+
+    /* If these target slot is empty or if the new node is too small.
+     * Attach the new particle to the new slot. */
+    if(Nodes[ninsert].u.suns[new_subnode] == -1 || Nodes[ninsert].len < minlen) {
+        Father[p_toplace] = ninsert;
+        force_set_next_node(p_toplace, Nodes[ninsert].u.suns[new_subnode], firstnode, lastnode);
+        Nodes[ninsert].u.suns[new_subnode] = p_toplace;
+    } else {
+
+        /* Otherwise recurse and create a new node*/
+        ret = insert_internal_node(ninsert, child_subnode, p_child, p_toplace, firstnode, lastnode, nnext, nnext_thread, nrem_thread, minlen);
+    }
+
+    if (ninsert != parent) {
+        /* A new node is creatd. Added to the parent: this goes last
+         * so that we don't access the child before it is constructed.*/
+        #pragma omp atomic write
+        Nodes[parent].u.suns[subnode] = ninsert;
+    }
     return ret;
 }
 
@@ -392,26 +393,15 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         }
         /*Update last-used cache*/
         this_acc = this;
-        /*Now we have something that isn't an internal node, and we have a lock on the parent,
-         * so we know it won't change. We can place the particle!*/
-        /* The easy case: we found an empty slot on this node,
-         * so attach this particle.*/
-        if(child < 0) {
-            Father[i] = this;
 
-            Nodes[this].u.suns[subnode] = i;
+        /* Now we have something that isn't an internal node, and we have a lock on it,
+         * so we know it won't change. We can place the particle! */
 
-            /* create a linked list of length 1 */
-            force_set_next_node(i, -1, firstnode, lastnode);
-        }
-        /*The slot we wanted to fill up contains a particle.
-         * We must insert a new internal node here.*/
-        else {
-            /*When we get here we have reached a leaf of the tree. We have an internal node in this,
-             * with a full (positive) subnode in subnode, containing a real particle.
-             * We split this node (making it an internal node) and try to add our particle to the new split node.*/
-            insert_internal_node(this, subnode, child, i, firstnode, lastnode, &nnext, &nnext_thread, &nrem_thread, minlen);
-        }
+        insert_internal_node(this, subnode, child, i, firstnode, lastnode, &nnext, &nnext_thread, &nrem_thread, minlen);
+
+        /* Add an explicit flush because we are not using openmp's critical sections */
+        #pragma omp flush
+
 #ifdef OPENMP_USE_SPINLOCK
         /*Unlock the parent*/
         pthread_spin_unlock(&SpinLocks[this - firstnode]);
