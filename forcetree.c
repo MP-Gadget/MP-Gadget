@@ -128,7 +128,7 @@ int force_tree_build(int npart)
             if(All.TreeAllocFactor > 5.0)
             {
                 message(0, "An excessively large number of tree nodes were required, stopping with particle dump.\n");
-                savepositions(999999, 0);
+                savepositions(999999);
                 endrun(0, "Too many tree nodes, snapshot saved.");
             }
         }

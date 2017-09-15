@@ -261,7 +261,7 @@ find_timesteps(void)
 
     if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
-        savepositions(999999, 0);
+        savepositions(999999);
         endrun(0, "Ending due to bad timestep");
     }
     walltime_measure("/Timeline");

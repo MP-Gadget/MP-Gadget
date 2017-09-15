@@ -23,23 +23,13 @@
  * processors of size roughly NTask/NumFilesPerSnapshot.
  */
 /* with_fof != 0 regular snapshot, do fof and write it out */
-void savepositions(int num, int with_fof)
+void savepositions(int num)
 {
     walltime_measure("/Misc");
 
     petaio_save_snapshot("%s/PART_%03d", All.OutputDir, num);
 
     walltime_measure("/Snapshot/Write");
-
-    /* regular snapshot, do fof and write it out */
-    if(All.SnapshotWithFOF && with_fof != 0) {
-        message(0, "computing group catalogue...\n");
-
-        fof_fof(num);
-
-        message(0, "done with group catalogue.\n");
-        walltime_measure("/Snapshot/WriteFOF");
-    }
 
     walltime_measure("/Domain/Misc");
 

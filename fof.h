@@ -4,7 +4,17 @@
 #include "allvars.h"
 
 void fof_init();
-void fof_fof(int num);
+
+void fof_fof();
+
+void
+fof_finish();
+
+void
+fof_seed();
+
+void
+fof_save_groups(int num);
 
 extern uint64_t Ngroups, TotNgroups;
 extern int64_t TotNids;

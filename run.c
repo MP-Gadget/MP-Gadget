@@ -18,6 +18,7 @@
 #include "forcetree.h"
 #include "blackhole.h"
 #include "sfr_eff.h"
+#include "fof.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -175,15 +176,29 @@ void run(void)
         int WriteFOF = planned_sync && planned_sync->write_fof;
         WriteFOF |= unplanned_sync && unplanned_sync->write_fof;
 
-        if(WriteSnapshot)
-        {
-            /* Save snapshot and fof. */
-            /* FIXME: this doesn't allow saving fof without the snapshot yet. do it after allocator is merged */
-            savepositions(All.SnapshotFileCount++, WriteFOF);
+        if(WriteSnapshot || WriteFOF) {
+            int snapnum = All.SnapshotFileCount++;
+            if(WriteSnapshot)
+            {
+                /* Save snapshot and fof. */
+                /* FIXME: this doesn't allow saving fof without the snapshot yet. do it after allocator is merged */
 
-            TimeLastOutput = All.CT.ElapsedTime;
+                /* write snapshot of particles */
+                savepositions(snapnum); 
+
+                TimeLastOutput = All.CT.ElapsedTime;
+            }
+
+            if(WriteFOF) {
+                message(0, "computing group catalogue...\n");
+
+                fof_fof();
+                fof_save_groups(snapnum);
+                fof_finish();
+
+                message(0, "done with group catalogue.\n");
+            }
         }
-
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
         NumCurrentTiStep++;

@@ -245,7 +245,9 @@ void blackhole(void)
     if(All.Time >= All.TimeNextSeedingCheck)
     {
         /* Seeding */
-        fof_fof(-1);
+        fof_fof();
+        fof_seed();
+        fof_finish();
         All.TimeNextSeedingCheck *= All.TimeBetweenSeedingSearch;
     }
     walltime_measure("/BH");
