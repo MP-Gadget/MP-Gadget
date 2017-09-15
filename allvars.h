@@ -504,7 +504,9 @@ extern struct particle_data
 #ifdef BLACK_HOLES
         unsigned int Swallowed : 1; /* whether it is being swallowed */
 #endif
+#ifdef DEBUG
         unsigned int SufferFromCoupling:1; /* whether it suffers from particle-coupling (nearest neighbour << gravity smoothing)*/
+#endif
     };
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/

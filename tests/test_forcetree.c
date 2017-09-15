@@ -170,7 +170,6 @@ static int check_moments(const int firstnode, const int lastnode, const int nump
 static int check_tree(const int firstnode, const int nnodes, const int numpart)
 {
     int tot_empty = 0, nrealnode = 0, sevens = 0;
-    size_t tot_suffering = 0;
 
     for(int i=firstnode; i<nnodes+firstnode; i++)
     {
@@ -203,12 +202,11 @@ static int check_tree(const int firstnode, const int nnodes, const int numpart)
             else {
                 /* if the first particle suffers, then all particles on the list
                  * must be suffering from particle-coupling */
-                int suffering = P[child].SufferFromCoupling;
-
-                while(Father[child] == i) {
-                    tot_suffering += P[child].SufferFromCoupling;
+                do {
                     P[child].PI += 1;
-                    assert_int_equal(suffering, P[child].SufferFromCoupling);
+                    if(Nextnode[child] > -1) {
+                        assert_int_equal(Father[child], Father[Nextnode[child]]);
+                    }
                     /*Check in right quadrant*/
                     for(int k=0; k<3; k++) {
                         if(j & (1<<k)) {
@@ -218,7 +216,7 @@ static int check_tree(const int firstnode, const int nnodes, const int numpart)
                             assert_true(P[child].Pos[k] <= pNode->center[k]);
                     }
                     child = force_get_next_node(child);
-                }
+                } while(child > -1);
             }
         }
         /*All nodes should have at least one thing in them:
@@ -234,7 +232,6 @@ static int check_tree(const int firstnode, const int nnodes, const int numpart)
     {
         assert_int_equal(P[i].PI, 1);
     }
-    printf("Total suffering = %td\n", tot_suffering);
     printf("Tree filling factor: %g on %d nodes (wasted: %d seven empty: %d)\n", tot_empty/(8.*nrealnode), nrealnode, nnodes - nrealnode, sevens);
     return nrealnode;
 }

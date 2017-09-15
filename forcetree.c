@@ -224,7 +224,7 @@ int get_freenode(int * nnext, struct NodeCache *nc)
  * Parent is assumed to be locked.*/
 int
 insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
-        const struct TreeBuilder tb, int *nnext, struct NodeCache *nc, double minlen)
+        const struct TreeBuilder tb, int *nnext, struct NodeCache *nc, double minlen, int *closepairs)
 {
     int ret = 0;
     int ninsert;
@@ -274,8 +274,11 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
     /* If these target slot is empty or if the new node is too small.
      * Attach the new particle to the new slot. */
     if(too_small) {
+        (*closepairs)++;
+#ifdef DEBUG
         P[p_child].SufferFromCoupling = 1;
         P[p_toplace].SufferFromCoupling = 1;
+#endif
         /*
         message(1,"Close particles: %d @ [%g, %g, %g] and %d @ [%g, %g, %g]. "
                 "Attached to node %d, subnode %d, at [%g, %g, %g] (len %g).\n",
@@ -292,7 +295,7 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
         tb.Nodes[ninsert].u.suns[new_subnode] = p_toplace;
     } else {
         /* Otherwise recurse and create a new node*/
-        ret = insert_internal_node(ninsert, child_subnode, p_child, p_toplace, tb, nnext, nc, minlen);
+        ret = insert_internal_node(ninsert, child_subnode, p_child, p_toplace, tb, nnext, nc, minlen, closepairs);
     }
 
     if (ninsert != parent) {
@@ -317,6 +320,8 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
         if((minsoft == 0 || minsoft > All.ForceSoftening[i]) && All.ForceSoftening[i] > 0)
             minsoft = All.ForceSoftening[i];
     const double minlen = 1.0e-3 * minsoft;
+    /*Count of how many times we hit this limit*/
+    int closepairs = 0;
 
     /* create an empty root node  */
     {
@@ -357,11 +362,13 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
     for(i=0; i < tb.lastnode - tb.firstnode; i++) {
         pthread_spin_init(&SpinLocks[i],PTHREAD_PROCESS_PRIVATE);
     }
-    #pragma omp parallel for firstprivate(nc, this_acc)
+    #pragma omp parallel for firstprivate(nc, this_acc) reduction(+: closepairs)
 #endif
     for(i = 0; i < npart; i++)
     {
+#ifdef DEBUG
         P[i].SufferFromCoupling = 0;
+#endif
 
         /*Can't break from openmp for*/
         if(nc.nnext_thread >= tb.lastnode-1)
@@ -425,7 +432,7 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
         /* Now we have something that isn't an internal node, and we have a lock on it,
          * so we know it won't change. We can place the particle! */
 
-        insert_internal_node(this, subnode, child, i, tb, &nnext, &nc, minlen);
+        insert_internal_node(this, subnode, child, i, tb, &nnext, &nc, minlen, &closepairs);
 
         /* Add an explicit flush because we are not using openmp's critical sections */
         #pragma omp flush
@@ -434,6 +441,11 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
         /*Unlock the parent*/
         pthread_spin_unlock(&SpinLocks[this - tb.firstnode]);
 #endif
+    }
+    int totclose;
+    MPI_Allreduce(&closepairs, &totclose, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    if(totclose) {
+        message(0,"Found %d close particle pairs when building tree.\n",totclose);
     }
 
 #ifdef OPENMP_USE_SPINLOCK
