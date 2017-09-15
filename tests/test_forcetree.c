@@ -199,14 +199,22 @@ static int check_tree(const int firstnode, const int nnodes, const int numpart)
             }
             /*Particle*/
             else {
-                P[child].PI += 1;
-                /*Check in right quadrant*/
-                for(int k=0; k<3; k++) {
-                    if(j & (1<<k)) {
-                        assert_true(P[child].Pos[k] > pNode->center[k]);
+                /* if the first particle suffers, then all particles on the list
+                 * must be suffering from particle-coupling */
+                int suffering = P[child].SufferFromCoupling;
+
+                while(Father[child] == i) {
+                    P[child].PI += 1;
+                    assert_int_equal(suffering, P[child].SufferFromCoupling);
+                    /*Check in right quadrant*/
+                    for(int k=0; k<3; k++) {
+                        if(j & (1<<k)) {
+                            assert_true(P[child].Pos[k] > pNode->center[k]);
+                        }
+                        else
+                            assert_true(P[child].Pos[k] <= pNode->center[k]);
                     }
-                    else
-                        assert_true(P[child].Pos[k] <= pNode->center[k]);
+                    child = force_get_next_node(child);
                 }
             }
         }
@@ -359,7 +367,7 @@ static int setup_tree(void **state) {
     /*Particles should not be outside this*/
     All.BoxSize = 8;
     for(int i=0; i<6; i++)
-        All.ForceSoftening[i] = 0.001;
+        All.ForceSoftening[i] = 0.1;
     /*Set up the top-level domain grid*/
     /* The whole tree goes into one topnode.
      * Set up just enough of the TopNode structure that
