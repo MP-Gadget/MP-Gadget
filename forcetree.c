@@ -228,11 +228,15 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
     int ninsert;
     int child_subnode, new_subnode;
     const int too_small = Nodes[parent].len < minlen;
+    /* Just insert the particle if we have an empty spot.
+     * If the node is already too small, do not split it,
+     * but instead prepend the particle to a linked list.*/
     if(p_child == -1 || too_small) {
         ninsert = parent;
         child_subnode = subnode;
         new_subnode = subnode;
     }
+    /*We have two particles here, so create a new child node to store them both.*/
     else {
         /* if we are here the node must be large enough, thus contain exactly one child. */
 #ifdef DEBUG
@@ -281,6 +285,7 @@ insert_internal_node(int parent, int subnode, int p_child, int p_toplace,
 
     if(p_child < 0 || new_subnode != child_subnode || too_small) {
         Father[p_toplace] = ninsert;
+        /*If the node is too small we prepend the particle to a short linked list.*/
         force_set_next_node(p_toplace, too_small ? p_child : -1, firstnode, lastnode);
         Nodes[ninsert].u.suns[new_subnode] = p_toplace;
     } else {
@@ -711,7 +716,7 @@ force_update_node_recursive(int no, int sib, int tail, const int firstnode, cons
         {
             /* nothing to be done here because the mass of the
              * pseudo-particle is still zero. The node attributes will be changed
-             * later when we exchange the psuedo-particles.
+             * later when we exchange the pseudo-particles.
              */
         }
         else if(p < lastnode && p >= firstnode) /* a tree node */
