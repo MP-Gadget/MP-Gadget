@@ -38,7 +38,6 @@ allocator_init(Allocator * alloc, char * name, size_t request_size, int zero)
     allocator_reset(alloc, zero);
 
     return 0;
-
 }
 
 int
@@ -224,18 +223,20 @@ allocator_print(Allocator * alloc)
 {
     message(1, "--------------- Allocator: %s | Total: %010td bytes -----------------\n",
                 alloc->name, alloc->size);
-    message(1, "Free: %010td | Used: %010td Top: %010td Bottom: %010td \n",
+    message(1, " Free: %010td Used: %010td Top: %010td Bottom: %010td \n",
             allocator_get_free_size(alloc),
             allocator_get_used_size(alloc, ALLOC_DIR_BOTH),
             allocator_get_used_size(alloc, ALLOC_DIR_TOP),
             allocator_get_used_size(alloc, ALLOC_DIR_BOT)
             );
     AllocatorIter iter[1];
+    message(1, " %-20s | %c | %-10s %-10s | %s\n", "Name", 'd', "Requested", "Allocated", "Annotation");
+    message(1, "-------------------------------------------------------\n");
     for(allocator_iter_start(iter, alloc);
         !allocator_iter_ended(iter);
         allocator_iter_next(iter))
     {
-        message(1, " %-20s | %c %010td %010td | %s\n", 
+        message(1, " %-20s | %c | %010td %010td | %s\n", 
                  iter->name,
                  "T?B"[iter->dir + 1],
                  iter->request_size, iter->size, iter->annotation);
