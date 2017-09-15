@@ -232,7 +232,7 @@ static int check_tree(const struct TreeBuilder tb, const int nnodes, const int n
         nrealnode++;
     }
     assert_true(nnodes - nrealnode < omp_get_max_threads()*NODECACHE_SIZE);
-    int i;
+
     for(i=0; i<numpart; i++)
     {
         assert_int_equal(P[i].PI, 1);
@@ -256,7 +256,6 @@ static void do_tree_test(const int numpart, const struct TreeBuilder tb)
     MaxNodes = numpart;
     assert_true(Nodes != NULL);
     /*So we know which nodes we have initialised*/
-    int i;
     for(i=0; i< MaxNodes+1; i++)
         Nodes_base[i].father = -2;
     /*Time creating the nodes*/
@@ -337,7 +336,6 @@ void do_random_test(gsl_rng * r, const int numpart, const int maxnode, const str
         for(j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize * gsl_rng_uniform(r);
     }
-    int i;
     for(i=numpart/4; i<3*numpart/4; i++) {
         P[i].Type = 1;
         P[i].PI = 0;
@@ -345,11 +343,10 @@ void do_random_test(gsl_rng * r, const int numpart, const int maxnode, const str
         for(j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize/2 + All.BoxSize/8 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
-    int i;
     for(i=3*numpart/4; i<numpart; i++) {
         P[i].Type = 1;
         P[i].PI = 0;
-        int j
+        int j;
         for(j=0; j<3; j++)
             P[i].Pos[j] = All.BoxSize*0.1 + All.BoxSize/32 * exp(pow(gsl_rng_uniform(r)-0.5,2));
     }
