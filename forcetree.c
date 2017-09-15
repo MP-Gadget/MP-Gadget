@@ -242,7 +242,7 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
     else {
         /* if we are here the node must be large enough, thus contain exactly one child. */
 #ifdef DEBUG
-        if(force_get_next_node(p_child) != -1) {
+        if(force_get_next_node(p_child, tb) != -1) {
             abort();
         }
 #endif
@@ -571,19 +571,19 @@ force_insert_pseudo_particles(const struct TreeBuilder tb)
 }
 
 int
-force_get_next_node(int no)
+force_get_next_node(int no, const struct TreeBuilder tb)
 {
-    if(no >= All.MaxPart && no < All.MaxPart + MaxNodes) {
+    if(no >= tb.firstnode && no < tb.lastnode) {
         /* internal node */
-        return Nodes[no].u.d.nextnode;
+        return tb.Nodes[no].u.d.nextnode;
     }
-    if(no < All.MaxPart) {
+    if(no < tb.firstnode) {
         /* Particle */
         return Nextnode[no];
     }
     else { //if(no >= All.MaxPart + MaxNodes) {
         /* Pseudo Particle */
-        return Nextnode[no - MaxNodes];
+        return Nextnode[no - (tb.lastnode - tb.firstnode)];
     }
 }
 
@@ -608,15 +608,15 @@ force_set_next_node(int no, int next, const struct TreeBuilder tb)
 }
 
 int
-force_get_prev_node(int no)
+force_get_prev_node(int no, const struct TreeBuilder tb)
 {
     if(no < All.MaxPart) {
         /* Particle */
         int t = Father[no];
-        int next = force_get_next_node(t);
+        int next = force_get_next_node(t, tb);
         while(next != no) {
             t = next;
-            next = force_get_next_node(t);
+            next = force_get_next_node(t, tb);
         }
         return t;
     } else {
@@ -682,8 +682,8 @@ int
 force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder tb)
 {
     /*Set NextNode for this node*/
-    if(tail < tb.firstnode && tail >= 0 && force_get_next_node(tail) != -1) {
-        endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail));
+    if(tail < tb.firstnode && tail >= 0 && force_get_next_node(tail, tb) != -1) {
+        endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, tb));
     }
     tail = force_set_next_node(tail, no, tb);
 
@@ -696,7 +696,7 @@ force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder 
         int next = no;
         while(next != -1) {
             no = next;
-            next = force_get_next_node(next);
+            next = force_get_next_node(next, tb);
         }
         return no;
     }
@@ -757,7 +757,7 @@ force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder 
             int next = p;
             while(next != -1) {
                 add_particle_moment_to_node(&Nodes[no], &P[next]);
-                next = force_get_next_node(next);
+                next = force_get_next_node(next, tb);
             }
         }
     }

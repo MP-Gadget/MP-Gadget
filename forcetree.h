@@ -69,10 +69,10 @@ void   force_tree_free(void);
 void   dump_particles(void);
 
 int
-force_get_prev_node(int no);
+force_get_prev_node(int no, const struct TreeBuilder tb);
 
 int
-force_get_next_node(int no);
+force_get_next_node(int no, const struct TreeBuilder tb);
 
 int
 force_set_next_node(int no, int next, const struct TreeBuilder tb);
