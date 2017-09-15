@@ -2,7 +2,10 @@
 #define PROTO_H
 
 void allocate_memory(void);
-void begrun(int RestartFlag, int RestartSnapNum);
+void begrun(int RestartSnapNum);
+void
+open_outputfiles(int RestartsnapNum);
+
 
 void density();
 void density_update();
@@ -14,6 +17,7 @@ void init(int RestartSnapNum);
 void run(void);
 void runtests(void);
 void savepositions(int num, int reason);
+int find_last_snapnum();
 
 void long_range_init(void);
 void gravpm_force(void);

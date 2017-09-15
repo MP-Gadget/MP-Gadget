@@ -38,6 +38,7 @@ int main(int argc, char **argv)
             printf("Call with <ParameterFile> [<RestartFlag>] [<RestartSnapNum>]\n");
             printf("\n");
             printf("   RestartFlag    Action\n");
+            printf("       1          Restart from last snapshot (LastSnapNum.txt) and continue simulation\n");
             printf("       2          Restart from specified snapshot (-1 for Initial Condition) and continue simulation\n");
             printf("       3          Run FOF if enabled\n");
             printf("       99         Run Tests. \n");
@@ -78,25 +79,27 @@ int main(int argc, char **argv)
         RestartFlag = 2;
         RestartSnapNum = -1;
     }
-    if(RestartFlag == 1) {
-        endrun(1, "Restarting from restart file is no longer supported. Use a snapshot instead.\n");
-    }
-
     if(RestartFlag == 3 && RestartSnapNum < 0) {
         endrun(1, "Need to give the snapshot number if FOF is selected for output\n");
     }
 
+    if(RestartFlag == 1) {
+        RestartSnapNum = find_last_snapnum();
+        message(1, "Last Snapshot number is %d.\n", RestartSnapNum);
+    }
+
     switch(RestartFlag) {
         case 3:
-            begrun(3, RestartSnapNum); 
+            begrun(RestartSnapNum); 
             fof_fof(RestartSnapNum);
             break;
         case 99:
-            begrun(2, RestartSnapNum);
+            begrun(RestartSnapNum);
             runtests();
             break;
         default:
-            begrun(2, RestartSnapNum);
+            begrun(RestartSnapNum);
+            open_outputfiles(RestartSnapNum);
             run();			/* main simulation loop */
             break;
     }
