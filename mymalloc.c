@@ -34,7 +34,7 @@ mymalloc_init(double MaxMemSizePerNode)
     message(0, "Nhost = %d\n", Nhost);
     message(0, "Reserving %td bytes per rank for MAIN memory allocator. \n", n);
 
-    if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_MAIN, "MAIN", n, 1), MPI_COMM_WORLD)) {
+    if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_MAIN, "MAIN", n, 1, NULL), MPI_COMM_WORLD)) {
         endrun(0, "Insufficient memory for the MAIN allocator on at least one nodes."
                   "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
     }
@@ -43,7 +43,7 @@ mymalloc_init(double MaxMemSizePerNode)
 
     message(0, "Reserving %td bytes per rank for TEMP memory allocator. \n", n);
 
-    if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_TEMP, "TEMP", n, 1), MPI_COMM_WORLD)) {
+    if (MPIU_Any(ALLOC_ENOMEMORY == allocator_init(A_TEMP, "TEMP", n, 1, A_MAIN), MPI_COMM_WORLD)) {
         endrun(0, "Insufficient memory for the TEMP allocator on at least one nodes."
                   "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
 

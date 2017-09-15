@@ -43,12 +43,15 @@ struct AllocatorIter {
 };
 
 int
-allocator_init(Allocator * alloc, char * name, size_t size, int zero);
+allocator_init(Allocator * alloc, char * name, size_t size, int zero, Allocator * parent);
 
 int
 allocator_malloc_init(Allocator * alloc,
-        char * name, size_t size, int zero
+        char * name, size_t size, int zero, Allocator * parent
         );
+
+int
+allocator_split(Allocator * alloc, Allocator * parent, char * name, size_t request_size, int zero);
 
 int
 allocator_destroy(Allocator * alloc);

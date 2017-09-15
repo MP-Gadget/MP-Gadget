@@ -13,7 +13,7 @@ static void
 test_allocator(void ** state)
 {
     Allocator A0[1];
-    allocator_init(A0, "Default", 4096 * 1024, 1);
+    allocator_init(A0, "Default", 4096 * 1024, 1, NULL);
 
     void * p1 = allocator_alloc_bot(A0, "M+1", 1024);
     void * p2 = allocator_alloc_bot(A0, "M+2", 2048);
@@ -38,10 +38,31 @@ test_allocator(void ** state)
 }
 
 static void
+test_sub_allocator(void ** state)
+{
+    Allocator A0[1];
+    Allocator A1[1];
+    allocator_init(A0, "Default", 4096 * 1024 * 2, 1, NULL);
+    allocator_init(A1, "A1", 4096 * 1024, 1, A0);
+
+    allocator_print(A0);
+    void * p1 = allocator_alloc_bot(A1, "M+1", 1024);
+    void * p2 = allocator_alloc_bot(A0, "M+2", 2048);
+
+    allocator_print(A0);
+    allocator_print(A1);
+
+    allocator_free(p2);
+    allocator_free(p1);
+
+    allocator_destroy(A1);
+    allocator_destroy(A0);
+}
+static void
 test_allocator_malloc(void ** state)
 {
     Allocator A0[1];
-    allocator_malloc_init(A0, "libc based", 4096 * 1024, 1);
+    allocator_malloc_init(A0, "libc based", 4096 * 1024, 1, NULL);
 
     void * p1 = allocator_alloc_bot(A0, "M+1", 2048);
     void * p2 = allocator_alloc_bot(A0, "M+2", 2048);
@@ -70,6 +91,7 @@ int main(void)
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_allocator),
         cmocka_unit_test(test_allocator_malloc),
+        cmocka_unit_test(test_sub_allocator),
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }

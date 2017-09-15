@@ -21,14 +21,19 @@ struct BlockHeader {
 } ;
 
 int
-allocator_init(Allocator * alloc, char * name, size_t request_size, int zero)
+allocator_init(Allocator * alloc, char * name, size_t request_size, int zero, Allocator * parent)
 {
     size_t size = (request_size / ALIGNMENT + 1) * ALIGNMENT;
 
-    void * rawbase = malloc(size + ALIGNMENT);
+    void * rawbase;
+    if (parent)
+        rawbase = allocator_alloc(parent, name, size + ALIGNMENT, ALLOC_DIR_BOT, "Child");
+    else
+        rawbase = malloc(size + ALIGNMENT);
+
     if (rawbase == NULL) return ALLOC_ENOMEMORY;
 
-
+    alloc->parent = parent;
     alloc->rawbase = rawbase;
     alloc->base = ((char*) rawbase) + ALIGNMENT - ((size_t) rawbase % ALIGNMENT);
     alloc->size = size;
@@ -41,13 +46,20 @@ allocator_init(Allocator * alloc, char * name, size_t request_size, int zero)
 }
 
 int
-allocator_malloc_init(Allocator * alloc, char * name, size_t request_size, int zero)
+allocator_malloc_init(Allocator * alloc, char * name, size_t request_size, int zero, Allocator * parent)
 {
     /* max support 4096 blocks; ignore request_size */
     size_t size = ALIGNMENT * 4096; 
-    void * rawbase = malloc(size); 
+
+    void * rawbase;
+    if (parent)
+        rawbase = allocator_alloc(parent, name, size + ALIGNMENT, ALLOC_DIR_BOT, "Child");
+    else
+        rawbase = malloc(size + ALIGNMENT);
+
     if (rawbase == NULL) return ALLOC_ENOMEMORY;
 
+    alloc->parent = parent;
     alloc->use_malloc = 1;
     alloc->rawbase = rawbase;
     alloc->base = rawbase;
@@ -137,7 +149,11 @@ allocator_destroy(Allocator * alloc)
         allocator_print(alloc);
         endrun(1, "leaked\n");
     }
-    free(alloc->rawbase);
+    if(alloc->parent)
+        allocator_dealloc(alloc->parent, alloc->rawbase);
+    else
+        free(alloc->rawbase);
+    return 0;
 }
 
 int
