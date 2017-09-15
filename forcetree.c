@@ -687,12 +687,9 @@ force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder 
     }
     tail = force_set_next_node(tail, no, tb);
 
-    /*For pseudo particles, nothing to update (but nextnode is not yet set)*/
-    if(no >= tb.lastnode)
-        return no;
-    /* For particles we have nothing to update; */
+    /* For particles and pseudo particles we have nothing to update; */
     /* But the new tail is the last particle in the linked list. */
-    if(no < tb.firstnode) {
+    if(no < tb.firstnode || no >= tb.lastnode) {
         int next = no;
         while(next != -1) {
             no = next;
