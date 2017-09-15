@@ -336,6 +336,8 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
         if(nnext_thread >= lastnode-1)
             continue;
 
+        const double minlen = 1.0e-3 * All.ForceSoftening[P[i].Type];
+
         /*First find the Node for the TopLeaf */
 
         int this;
@@ -408,7 +410,6 @@ int force_tree_create_nodes(const int firstnode, const int lastnode, const int n
             /*When we get here we have reached a leaf of the tree. We have an internal node in this,
              * with a full (positive) subnode in subnode, containing a real particle.
              * We split this node (making it an internal node) and try to add our particle to the new split node.*/
-            const double minlen = 1.0e-3 * All.ForceSoftening[1];
             insert_internal_node(this, subnode, child, i, firstnode, lastnode, &nnext, &nnext_thread, &nrem_thread, minlen);
         }
 #ifdef OPENMP_USE_SPINLOCK
