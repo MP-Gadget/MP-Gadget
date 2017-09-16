@@ -37,8 +37,8 @@ enum ActionType {
     TERMINATE = 5,
     IOCTL = 6,
 };
-static enum ActionType human_interaction(double lastPMlength, double TimeLastOutput);
-static int should_we_timeout(double lastPMlength);
+static enum ActionType human_interaction(int is_PM, double lastPM, double TimeLastOutput);
+static int should_we_timeout(double TimelastPM);
 static void compute_accelerations(int is_PM);
 static void update_IO_params(const char * ioctlfname);
 static void every_timestep_stuff(int NumForces, int NumCurrentTiStep);
@@ -46,15 +46,12 @@ static void write_cpu_log(int NumCurrentTiStep);
 
 void run(void)
 {
-    enum ActionType action = NO_ACTION;
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
 
     /*To compute the wall time between PM steps and decide when to timeout.*/
     double lastPM = All.CT.ElapsedTime;
     double TimeLastOutput = 0;
-
-    double lastPMlength = 0.03*All.TimeLimitCPU;
 
     walltime_measure("/Misc");
 
@@ -76,35 +73,28 @@ void run(void)
 
         int is_PM = is_PM_timestep(All.Ti_Current);
 
-        if(is_PM) {
-            double curTime = All.CT.ElapsedTime;
-            if(All.Ti_Current)
-                lastPMlength = curTime - lastPM;
-            lastPM = curTime;
-        }
-
-        action = human_interaction(lastPMlength, TimeLastOutput);
+        enum ActionType action = human_interaction(is_PM, lastPM, TimeLastOutput);
         switch(action) {
             case STOP:
-                message(0, "human controlled stop with checkpoint.\n");
+                message(0, "human controlled stop with checkpoint at next PM.\n");
                 /*Write when the PM timestep completes*/
                 Ti_nextoutput = All.Ti_Current;
                 /* next loop will write a new snapshot file; break is for switch */
                 break;
+
             case TIMEOUT:
-                message(0, "stopping due to TimeLimitCPU.\n");
+                message(0, "Stopping due to TimeLimitCPU.\n");
                 Ti_nextoutput = All.Ti_Current;
-                /* next loop will write a new snapshot file */
                 break;
 
             case AUTO_CHECKPOINT:
-                message(0, "auto checkpoint due to TimeBetSnapshot.\n");
+                message(0, "Auto checkpoint due to AutoSnapshotTime.\n");
                 Ti_nextoutput = All.Ti_Current;
                 /* will write a new snapshot file next time the PM step finishes*/
                 break;
 
             case CHECKPOINT:
-                message(0, "human controlled checkpoint.\n");
+                message(0, "human controlled checkpoint at next PM.\n");
                 Ti_nextoutput = All.Ti_Current;
                 /* will write a new snapshot file next time the PM step finishes*/
                 break;
@@ -115,8 +105,6 @@ void run(void)
                 return;
 
             case IOCTL:
-                break;
-
             case NO_ACTION:
                 break;
         }
@@ -129,6 +117,7 @@ void run(void)
 
         /* at first step this is a noop */
         if(is_PM) {
+            lastPM = All.CT.ElapsedTime;
             /* full decomposition rebuilds the tree */
             domain_decompose_full();
         } else {
@@ -239,19 +228,23 @@ update_IO_params(const char * ioctlfname)
 /* lastPMlength is the walltime in seconds between the last two PM steps.
  * It is used to decide when we are going to timeout*/
 static enum ActionType
-human_interaction(double lastPMlength, double TimeLastOutput)
+human_interaction(int is_PM, double TimeLastPM, double TimeLastOut)
 {
         /* Check whether we need to interrupt the run */
     enum ActionType action = NO_ACTION;
     char stopfname[4096], termfname[4096];
     char restartfname[4096];
     char ioctlfname[4096];
-    int timeout = should_we_timeout(lastPMlength);
 
     sprintf(stopfname, "%s/stop", All.OutputDir);
     sprintf(restartfname, "%s/checkpoint", All.OutputDir);
     sprintf(termfname, "%s/terminate", All.OutputDir);
     sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
+    /*How long since the last checkpoint?*/
+    if(is_PM && All.AutoSnapshotTime > 0 && All.CT.ElapsedTime - TimeLastOut >= All.AutoSnapshotTime) {
+        action = AUTO_CHECKPOINT;
+    }
+
     if(ThisTask == 0)
     {
         FILE * fd;
@@ -259,6 +252,13 @@ human_interaction(double lastPMlength, double TimeLastOutput)
             action = IOCTL;
             update_IO_params(ioctlfname);
             fclose(fd);
+        }
+
+        if((fd = fopen(restartfname, "r")))
+        {
+            action = CHECKPOINT;
+            fclose(fd);
+            unlink(restartfname);
         }
         /* Is the stop-file present? If yes, interrupt the run. */
         if((fd = fopen(stopfname, "r")))
@@ -275,21 +275,10 @@ human_interaction(double lastPMlength, double TimeLastOutput)
             unlink(termfname);
         }
 
-        /* are we running out of CPU-time ? If yes, interrupt run. */
-        if(timeout) {
-            action = TIMEOUT;
-        }
-
-        if(All.AutoSnapshotTime > 0 && (All.CT.ElapsedTime - TimeLastOutput) >= All.AutoSnapshotTime) {
-            action = AUTO_CHECKPOINT;
-        }
-
-        if((fd = fopen(restartfname, "r")))
-        {
-            action = CHECKPOINT;
-            fclose(fd);
-            unlink(restartfname);
-        }
+    }
+    /*Will we run out of time by the next PM step?*/
+    if(is_PM && should_we_timeout(TimeLastPM)) {
+        action = TIMEOUT;
     }
 
     MPI_Bcast(&action, sizeof(action), MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -362,7 +351,7 @@ void compute_accelerations(int is_PM)
     message(0, "force computation done.\n");
 }
 
-int should_we_timeout(double lastPMlength)
+int should_we_timeout(double TimeLastPM)
 {
     /*Last IO time*/
     double iotime = 0.02*All.TimeLimitCPU;
@@ -371,9 +360,10 @@ int should_we_timeout(double lastPMlength)
     if(nwritten > 0)
         iotime = walltime_get("/Snapshot/Write",CLOCK_ACCU_MAX)/nwritten;
 
+    double curTime = All.CT.ElapsedTime;
 /*     message(0, "iotime = %g, lastPM = %g\n", iotime, lastPMlength); */
     /* are we running out of CPU-time ? If yes, interrupt run. */
-    if(All.CT.ElapsedTime + 4*(iotime+lastPMlength) > All.TimeLimitCPU) {
+    if(curTime + 4*(iotime + curTime - TimeLastPM) > All.TimeLimitCPU) {
         return 1;
     }
     return 0;
