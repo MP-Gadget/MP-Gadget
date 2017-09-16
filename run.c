@@ -57,8 +57,8 @@ void run(void)
 
     write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
 
-    /* find the first output time, -1 is to allow immediate output at first step. */
-    inttime_t Ti_nextoutput = find_next_outputtime(All.Ti_Current - 1);
+    /* find the first output time. */
+    inttime_t Ti_nextoutput = find_next_outputtime(All.Ti_Current);
 
     do /* main loop */
     {
