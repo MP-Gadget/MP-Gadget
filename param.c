@@ -100,7 +100,13 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
          * no need to skip matching char.*/
         if(token[0] == '"')
             token+=1;
-        All.OutputListTimes[count] = atof(token);
+
+        double a = atof(token);
+
+        if(a < 0.0) {
+            endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
+        }
+        All.OutputListTimes[count] = a;
 /*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
     }
     free(strtmp);
