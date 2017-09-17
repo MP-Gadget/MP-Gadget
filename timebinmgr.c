@@ -27,7 +27,7 @@ setup_sync_points(void)
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
     for(i = 0; i < All.OutputListLength; i ++) {
         int j = 0;
-        double loga = All.OutputListTimes[i];
+        double loga = log(All.OutputListTimes[i]);
 
         for(j = 0; j < NSyncPoints; j ++) {
             if(loga <= SyncPoints[j].loga) {

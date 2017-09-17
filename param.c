@@ -100,8 +100,8 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
          * no need to skip matching char.*/
         if(token[0] == '"')
             token+=1;
-        All.OutputListTimes[count] = log(atof(token));
-/*         message(1, "Output at: %g\n", exp(All.OutputListTimes[count].loga)); */
+        All.OutputListTimes[count] = atof(token);
+/*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
     }
     free(strtmp);
     qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
