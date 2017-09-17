@@ -9,10 +9,13 @@
 #include "bigfile-mpi.h"
 #include "allvars.h"
 #include "proto.h"
+#include "system.h"
+#include "sfr_eff.h"
 #include "cooling.h"
 
 #include "petaio.h"
 #include "mymalloc.h"
+#include "openmpsort.h"
 #include "utils-string.h"
 #include "endrun.h"
 
@@ -75,6 +78,42 @@ void petaio_save_restart() {
 }
 */
 
+/* Build a list of the first particle of each type on the current processor.
+ * This assumes that all particles are sorted!*/
+/**
+ * Create a Selection array for the buffers. This array indirectly sort
+ * the particles by the type.
+ *
+ * The offset for the starting of each type is stored in ptype_offset.
+ *
+ * if select_func is provided, it shall return 1 for those that shall be 
+ * included in the output.
+ */
+void
+petaio_build_selection(int * selection,
+    int * ptype_offset,
+    int * ptype_count,
+    const int NumPart,
+    int (*select_func)(int i)
+    )
+{
+    int i;
+    ptype_offset[0] = 0;
+    ptype_count[0] = 0;
+
+    for(i = 1; i < 6; i ++) {
+        ptype_offset[i] = ptype_offset[i-1] + NLocal[i - 1];
+        ptype_count[i] = 0;
+    }
+
+    for(i = 0; i < NumPart; i ++) {
+        int ptype = P[i].Type;
+        if((select_func == NULL) || (select_func(i) != 0)) {
+            selection[ptype_offset[ptype] + ptype_count[ptype]] = i;
+            ptype_count[ptype] ++;
+        }
+    }
+}
 
 static void petaio_save_internal(char * fname) {
     BigFile bf = {0};
@@ -84,24 +123,34 @@ static void petaio_save_internal(char * fname) {
     }
     petaio_write_header(&bf); 
 
+    int ptype_offset[6]={0};
+    int ptype_count[6]={0};
+
+    int * selection = mymalloc("Selection", sizeof(int) * NumPart);
+
+    petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, NULL);
     int i;
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
         char blockname[128];
         int ptype = IOTable.ent[i].ptype;
         BigArray array = {0};
+        /*This exclude FOF blocks*/
         if(!(ptype < 6 && ptype >= 0)) {
             continue;
         }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-        petaio_build_buffer(&array, &IOTable.ent[i], NULL, 0);
+        petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
+
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)){
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
+
+    myfree(selection);
 }
 
 void petaio_read_internal(char * fname, int ic) {
@@ -166,7 +215,10 @@ void petaio_read_internal(char * fname, int ic) {
     for(i = 0; i < NumPart; i++)
     {
         if(P[i].Type == 5) {
-            BhP[P[i].PI].ID = P[i].ID;
+            BhP[P[i].PI].base.ID = P[i].ID;
+        }
+        if(P[i].Type == 0) {
+            SPHP(i).base.ID = P[i].ID;
         }
     }
 }
@@ -360,15 +412,8 @@ petaio_read_header_internal(BigFile * bf) {
     }
     /* sets the maximum number of particles that may reside on a processor */
     All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);	
-    All.MaxPartSph = (int) (All.PartAllocFactor * NTotal[0] / NTask);	
-
-#ifdef INHOMOG_GASDISTR_HINT
-    if(NTotal[0] > 0) {
-        All.MaxPartSph = All.MaxPart;
-    }
-#endif
-    /* at most 10% of SPH can form BH*/
-    All.MaxPartBh = (int) (0.1 * All.MaxPartSph);	
+    /* at most 10% of particles can form BH*/
+    All.MaxPartBh = (int) (0.1 * All.MaxPart);
 
     for(ptype = 0; ptype < 6; ptype ++) {
         int64_t start = ThisTask * NTotal[ptype] / NTask;
@@ -378,11 +423,6 @@ petaio_read_header_internal(BigFile * bf) {
     }
     N_sph_slots = NLocal[0];
     N_bh_slots = NLocal[5];
-
-    /* check */
-    if(N_sph_slots > All.MaxPartSph) {
-        endrun(1, "Overwhelmed by sph: %d > %d\n", N_sph_slots, All.MaxPartSph);
-    }
 
     if(N_bh_slots > All.MaxPartBh) {
         endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);
@@ -419,64 +459,39 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
     }
 }
 /* build an IO buffer for block, based on selection
- * only check P[ selection[i]]
+ * only check P[ selection[i]]. If selection is NULL, just use P[i].
+ * NOTE: selected range should contain only one particle type!
 */
 void
-petaio_build_buffer(BigArray * array, IOTableEntry * ent, int * selection, int NumSelection)
+petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection)
 {
-    if(NLocal[ent->ptype] == 0) {
-        /* Fast code path if there are no such particles */
-        petaio_alloc_buffer(array, ent, 0);
+    if(selection == NULL) {
+        endrun(-1, "NULL seletion is not supported\n");
+    }
+
+    /* don't forget to free buffer after its done*/
+    petaio_alloc_buffer(array, ent, NumSelection);
+
+    /* Fast code path if there are no such particles */
+    if(NumSelection == 0) {
         return;
     }
 
-    /* This didn't work with CRAY:
-     * always has NLocal = 0
-     * after the loop if openmp is used;
-     * but I can't reproduce this with a striped version
-     * of code. need to investigate.
-     * #pragma omp parallel for reduction(+: NLocal)
-     */
-    int npartThread[All.NumThreads];
-    int offsetThread[All.NumThreads];
 #pragma omp parallel
     {
         int i;
-        int tid = omp_get_thread_num();
-        int NT = omp_get_num_threads();
-        if(NT > All.NumThreads) abort();
-        int start = (selection?((size_t) NumSelection):((size_t)NumPart)) * tid / NT;
-        int end = (selection?((size_t) NumSelection):((size_t)NumPart)) * (tid + 1) / NT;
-        int localsize = 0;
-        npartThread[tid] = 0;
-        for(i = start; i < end; i ++) {
-            int j = selection?selection[i]:i;
-            if(P[j].Type != ent->ptype) continue;
-            npartThread[tid] ++;
-        }
-#pragma omp barrier
-        offsetThread[0] = 0;
-        for(i = 1; i < NT; i ++) {
-            offsetThread[i] = offsetThread[i - 1] + npartThread[i - 1];
-        }
-        for(i = 0; i < NT; i ++) {
-            localsize += npartThread[i];
-        }
-#pragma omp master 
-        {
-        /* don't forget to free buffer after its done*/
-            petaio_alloc_buffer(array, ent, localsize);
-        }
-#pragma omp barrier
-#if 0
-        printf("Thread = %d offset=%d count=%d start=%d end=%d %d\n", tid, offsetThread[tid], npartThread[tid], start, end, localsize);
-#endif
+        const int tid = omp_get_thread_num();
+        const int NT = omp_get_num_threads();
+        const int start = NumSelection * (size_t) tid / NT;
+        const int end = NumSelection * ((size_t) tid + 1) / NT;
         /* fill the buffer */
         char * p = array->data;
-        p += array->strides[0] * offsetThread[tid];
+        p += array->strides[0] * start;
         for(i = start; i < end; i ++) {
-            int j = selection?selection[i]:i;
-            if(P[j].Type != ent->ptype) continue;
+            const int j = selection[i];
+            if(P[j].Type != ent->ptype) {
+                endrun(2, "Selection %d has type = %d != %d\n", j, P[j].Type, ent->ptype);
+            }
             ent->getter(j, p);
             p += array->strides[0];
         }
@@ -500,11 +515,11 @@ void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
     }
     
     if(0 != big_block_seek(&bb, &ptr, 0)) {
-        endrun(0, "Failed to seek: %s\n", big_file_get_error_message());
+        endrun(1, "Failed to seek: %s\n", big_file_get_error_message());
     }
 
     if(0 != big_block_mpi_read(&bb, &ptr, array, All.IO.NumWriters, MPI_COMM_WORLD)) {
-        endrun(0, "Failed to read form  block: %s\n", big_file_get_error_message());
+        endrun(1, "Failed to read from block: %s\n", big_file_get_error_message());
     }
 
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
@@ -547,7 +562,7 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
     }
 
     if(size > 0) {
-        message(0, "Will write %td particles to %d Files\n", size, NumFiles);
+        message(0, "Will write %td particles to %d Files for %s\n", size, NumFiles, blockname);
     }
     /* create the block */
     /* dims[1] is the number of members per item */
@@ -639,7 +654,6 @@ SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 #ifdef DENSITY_INDEPENDENT_SPH
 SIMPLE_PROPERTY(EgyWtDensity, SPHP(i).EgyWtDensity, float, 1)
 SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
-SIMPLE_GETTER(GTPressure, SPHP(i).Pressure, float, 1)
 #endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #ifdef SFR
@@ -683,6 +697,19 @@ static void GTJUV(int i, float * out) {
     GetParticleUVBG(i, &uvbg);
     *out = uvbg.J_UV;
 }
+
+static int order_by_type(const void *a, const void *b)
+{
+    const struct IOTableEntry * pa  = (const struct IOTableEntry *) a;
+    const struct IOTableEntry * pb  = (const struct IOTableEntry *) b;
+
+    if(pa->ptype < pb->ptype)
+        return -1;
+    if(pa->ptype > pb->ptype)
+        return +1;
+    return 0;
+}
+
 static void register_io_blocks() {
     int i;
     /* Bare Bone Gravity*/
@@ -692,7 +719,8 @@ static void register_io_blocks() {
         IO_REG(Mass,     "f4", 1, i);
         IO_REG(ID,       "u8", 1, i);
         IO_REG(Generation,       "u1", 1, i);
-        IO_REG(Potential, "f4", 1, i);
+        if(All.OutputPotential)
+            IO_REG(Potential, "f4", 1, i);
         if(All.SnapshotWithFOF)
             IO_REG_WRONLY(GroupID, "u4", 1, i);
     }
@@ -703,7 +731,6 @@ static void register_io_blocks() {
 #ifdef DENSITY_INDEPENDENT_SPH
     IO_REG(EgyWtDensity,          "f4", 1, 0);
     IO_REG(Entropy,          "f4", 1, 0);
-    IO_REG_WRONLY(Pressure,         "f4", 1, 0);
 #endif
 
     /* Cooling */
@@ -732,5 +759,8 @@ static void register_io_blocks() {
 #endif
     if(All.SnapshotWithFOF)
         fof_register_io_blocks();
+
+    /*Sort IO blocks so similar types are together*/
+    qsort_openmp(IOTable.ent, IOTable.used, sizeof(struct IOTableEntry), order_by_type);
 }
 

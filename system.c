@@ -13,9 +13,11 @@
 
 
 #include "allvars.h"
-#include "proto.h"
+#include "system.h"
 #include "mymalloc.h"
 
+
+#define  RNDTABLE 8192
 
 
 #ifdef DEBUG
@@ -110,24 +112,25 @@ void write_pid_file(void)
 #endif
 
 
-/*
-double get_random_number(unsigned int id)
-{
-  return RndTable[(id % RNDTABLE)];
-}
-*/
+static double RndTable[RNDTABLE];
 
-double get_random_number(MyIDType id)
+static gsl_rng *random_generator;	/*!< the random number generator used */
+
+double get_random_number(uint64_t id)
 {
-  return RndTable[(int)(id % RNDTABLE)];
+    return RndTable[(int)(id % RNDTABLE)];
 }
 
 void set_random_numbers(void)
 {
-  int i;
+    random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
-  for(i = 0; i < RNDTABLE; i++)
-    RndTable[i] = gsl_rng_uniform(random_generator);
+    gsl_rng_set(random_generator, 42);	/* start-up seed */
+
+    int i;
+
+    for(i = 0; i < RNDTABLE; i++)
+        RndTable[i] = gsl_rng_uniform(random_generator);
 }
 
 
@@ -450,3 +453,9 @@ get_physmem_bytes()
     return 64 * 1024 * 1024;
 }
 
+int
+MPIU_Any(int condition, MPI_Comm comm)
+{
+    MPI_Allreduce(MPI_IN_PLACE, &condition, 1, MPI_INT, MPI_LOR, comm);
+    return condition;
+}

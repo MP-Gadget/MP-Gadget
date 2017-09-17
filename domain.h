@@ -3,66 +3,39 @@
 
 #include "peano.h"
 
-/*Several of these variables are used externally only in restart.c*/
-extern double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
-extern int *DomainStartList, *DomainEndList;
-extern int *DomainTask;
-extern int *DomainNodeIndex;
-extern int *DomainList, DomainNumChanged;
+/*These variables are used externally in forcetree.c.
+ * DomainTask is also used in treewalk and NTopLeaves is used in gravpm.c*/
 
 extern struct topnode_data
 {
-    peanokey Size;
-    peanokey StartKey;
-    int64_t Count;
-    MyFloat GravCost;
-    int Daughter;
-    int Pstart;
-    int Blocks;
-    int Leaf;
+    peano_t StartKey;		/*!< first Peano-Hilbert key in top-level node */
+    int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
+    short int Shift;    /*!< level = log 2 of number of Peano-Hilbert mesh-cells represented by top-level node */
+    int Leaf ;			/*!< if the node is a leaf, this gives its index in topleaf_data */
 } *TopNodes;
 
-extern int NTopnodes, NTopleaves;
+extern struct topleaf_data {
+    int Task;
+    union {
+        int topnode; /* used during domain_decompose for balancing the decomposition */
+        int treenode; /* used during life span of the tree for looking up in the tree Nodes */
+    };
+} * TopLeaves;
 
+extern struct task_data {
+    int StartLeaf;
+    int EndLeaf;
+} * Tasks;
 
-int domain_fork_particle();
-void domain_findSplit_work_balanced(int ncpu, int ndomain);
-void domain_findSplit_load_balanced(int ncpu, int ndomain);
-int domain_sort_loadorigin(const void *a, const void *b);
-int domain_sort_segments(const void *a, const void *b);
-void domain_assign_load_or_work_balanced(int mode);
-void domain_allocate(void);
-void domain_Decomposition(void);
-int domain_check_memory_bound(const int print_details);
-int domain_compare_key(const void *a, const void *b);
-int domain_compare_key(const void *a, const void *b);
-int domain_compare_toplist(const void *a, const void *b);
-double domain_particle_costfactor(int i);
-int domain_decompose(void);
-int domain_determineTopTree(void);
-void domain_exchange(int (*layoutfunc)(int p));
-void domain_findExchangeNumbers(int task, int partner, int sphflag, int *send, int *recv);
-void domain_findExtent(void);
-void domain_findSplit(int cpustart, int ncpu, int first, int last);
-void domain_findSplit_balanced(int cpustart, int ncpu, int first, int last);
-void domain_free(void);
-void domain_shiftSplit(void);
-void domain_sumCost(void);
-int domain_topsplit(int node, peanokey startkey);
-int domain_topsplit_local(int node, peanokey startkey, int mode);
-int domain_topsplit_special(void);
-int domain_compare_key(const void *a, const void *b);
-int domain_check_for_local_refine(const int i, const double countlimit, const double costlimit, const struct peano_hilbert_data * mp);
-void domain_free_trick(void);
-void domain_allocate_trick(void);
-int domain_recursively_combine_topTree(int start, int ncpu);
-void domain_walktoptree(int no);
-void mysort_domain(void *b, size_t n, size_t s);
+extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tree used for domain decomposition */
 
-int domain_garbage_collection(void);
+extern int NTopNodes, NTopLeaves;
 
 void domain_test_id_uniqueness();
-void domain_refresh_totals();
+void domain_decompose_full(void);
+void domain_maintain(void);
 
+int
+domain_get_topleaf(const peano_t key);
 
 #endif

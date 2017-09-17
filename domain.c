@@ -7,13 +7,17 @@
 
 
 #include "allvars.h"
-#include "proto.h"
-#include "domain.h"
 #include "forcetree.h"
 #include "mymalloc.h"
 #include "mpsort.h"
 #include "endrun.h"
 #include "openmpsort.h"
+#include "domain.h"
+#include "timestep.h"
+#include "timebinmgr.h"
+#include "system.h"
+#include "exchange.h"
+#include "garbage.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19
@@ -35,74 +39,79 @@
  *  communication.
  */
 
-
-#define REDUC_FAC      0.98
-
-double DomainCorner[3], DomainCenter[3], DomainLen, DomainFac;
-int *DomainStartList, *DomainEndList;
-
-
-
-double *DomainWork;
-int *DomainCount;
-int *DomainCountSph;
-int *DomainTask;
-int *DomainNodeIndex;
-int *DomainList, DomainNumChanged;
-
 struct topnode_data *TopNodes;
+struct topleaf_data *TopLeaves;
 
-int NTopnodes, NTopleaves;
+int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for domain decomposition */
 
+int NTopNodes, NTopLeaves;
 
-/*! toGo[task*NTask + partner] gives the number of particles in task 'task'
- *  that have to go to task 'partner'
- */
-static int *toGo, *toGoSph, *toGoBh;
-static int *toGet, *toGetSph, *toGetBh;
+static void * TopTreeMemory;
 
-static struct local_topnode_data
+struct local_topnode_data
 {
-    peanokey Size;		/*!< number of Peano-Hilbert mesh-cells represented by top-level node */
-    peanokey StartKey;		/*!< first Peano-Hilbert key in top-level node */
-    int64_t Count;		/*!< counts the number of particles in this top-level node */
-    double Cost;
+    /*These members are copied into topnode_data*/
+    peano_t StartKey;		/*!< first Peano-Hilbert key in top-level node */
+    short int Shift;		/*!< log2 of number of Peano-Hilbert mesh-cells represented by top-level node */
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
-    int Leaf;			/*!< if the node is a leaf, this gives its number when all leaves are traversed in Peano-Hilbert order */
+    /*Below members are only used in this file*/
     int Parent;
     int PIndex;			/*!< first particle in node  used only in top-level tree build (this file)*/
-}
-*topNodes;			/*!< points to the root node of the top-level tree */
+    int64_t Count;		/*!< counts the number of particles in this top-level node */
+    int64_t Cost;
+};
 
+struct local_particle_data
+{
+    peano_t Key;
+    int64_t Cost;
+};
 
-static void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA,
-        int noB);
-static void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost);
+struct task_data * Tasks;
+
+static int
+order_by_key(const void *a, const void *b);
+static void
+mp_order_by_key(const void * data, void * radix, void * arg);
+static int
+order_by_type_and_key(const void *a, const void *b);
+
+static void
+domain_assign_balanced(int64_t * cost);
+
+static void domain_allocate(void);
+
+static int
+domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount);
+
+static int domain_attempt_decompose(void);
+
+static void
+domain_balance(void);
+
+static int domain_determine_global_toptree(struct local_topnode_data * topTree, int * topTreeSize);
+static void domain_free(void);
+
+static void
+domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount);
+
+static void
+domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, int * treeASize);
+
+static int domain_check_for_local_refine_subsample(
+    struct local_topnode_data * topTree, int * topTreeSize,
+    struct local_particle_data * LP,
+    int sample_step);
+
+static int
+domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, int64_t countlimit, int64_t costlimit);
+
+static void
+domain_create_topleaves(int no, int * next);
 
 static int domain_layoutfunc(int n);
-static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p));
-static void domain_exchange_once(int (*layoutfunc)(int p) );
-
-static float *domainWork;	/*!< a table that gives the total "work" due to the particles stored by each processor */
-static int *domainCount;	/*!< a table that gives the total number of particles held by each processor */
-static int *domainCountSph;	/*!< a table that gives the total number of SPH particles held by each processor */
 
 static int domain_allocated_flag = 0;
-
-static int maxLoad, maxLoadsph;
-
-static double totgravcost, totpartcount, gravcost;
-
-static MPI_Datatype MPI_TYPE_PARTICLE = 0;
-static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
-static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
-
-static int
-domain_all_garbage_collection();
-static int
-domain_sph_garbage_collection_reclaim();
-static int
-domain_bh_garbage_collection();
 
 /*! This is the main routine for the domain decomposition.  It acts as a
  *  driver routine that allocates various temporary buffers, maps the
@@ -110,25 +119,11 @@ domain_bh_garbage_collection();
  *  domain decomposition, and a final Peano-Hilbert order of all particles
  *  as a tuning measure.
  */
-void domain_Decomposition(void)
+void domain_decompose_full(void)
 {
-    int i, ret, retsum;
-    size_t bytes, all_bytes;
     double t0, t1;
 
-    /* register the mpi types used in communication if not yet. */
-    if (MPI_TYPE_PARTICLE == 0) {
-        MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
-        MPI_Type_contiguous(sizeof(struct bh_particle_data), MPI_BYTE, &MPI_TYPE_BHPARTICLE);
-        MPI_Type_contiguous(sizeof(struct sph_particle_data), MPI_BYTE, &MPI_TYPE_SPHPARTICLE);
-        MPI_Type_commit(&MPI_TYPE_PARTICLE);
-        MPI_Type_commit(&MPI_TYPE_BHPARTICLE);
-        MPI_Type_commit(&MPI_TYPE_SPHPARTICLE);
-    }
-
     walltime_measure("/Misc");
-
-    move_particles(All.Ti_Current);
 
     if(force_tree_allocated()) force_tree_free();
 
@@ -136,63 +131,21 @@ void domain_Decomposition(void)
 
     domain_free();
 
-    do_box_wrapping();	/* map the particles back onto the box */
-
-    All.NumForcesSinceLastDomainDecomp = 0;
-
     message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
     t0 = second();
 
-    do
+    while(1)
     {
-        domain_allocate();
-
-        all_bytes = 0;
-
-        domainWork = (float *) mymalloc("domainWork", bytes = (MaxTopNodes * sizeof(float)));
-        all_bytes += bytes;
-        domainCount = (int *) mymalloc("domainCount", bytes = (MaxTopNodes * sizeof(int)));
-        all_bytes += bytes;
-        domainCountSph = (int *) mymalloc("domainCountSph", bytes = (MaxTopNodes * sizeof(int)));
-        all_bytes += bytes;
-
-        topNodes = (struct local_topnode_data *) mymalloc("topNodes", bytes =
-                (MaxTopNodes *
-                 sizeof(struct local_topnode_data)));
-        memset(topNodes, 0, sizeof(topNodes[0]) * MaxTopNodes);
-        all_bytes += bytes;
-
-        message(0, "use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
-                 all_bytes / (1024.0 * 1024.0), AllocatedBytes / (1024.0 * 1024.0));
-
-        maxLoad = (int) (All.MaxPart * REDUC_FAC);
-        maxLoadsph = (int) (All.MaxPartSph * REDUC_FAC);
-
-        report_memory_usage("DOMAIN");
 #ifdef DEBUG
         message(0, "Testing ID Uniqueness before domain decompose\n");
-        test_id_uniqueness();
+        domain_test_id_uniqueness();
 #endif
-        ret = domain_decompose();
+        domain_allocate();
 
-        /* copy what we need for the topnodes */
-        for(i = 0; i < NTopnodes; i++)
-        {
-            TopNodes[i].StartKey = topNodes[i].StartKey;
-            TopNodes[i].Size = topNodes[i].Size;
-            TopNodes[i].Daughter = topNodes[i].Daughter;
-            TopNodes[i].Leaf = topNodes[i].Leaf;
-        }
+        int decompose_failed = MPIU_Any(0 != domain_attempt_decompose(), MPI_COMM_WORLD);
 
-        myfree(topNodes);
-        myfree(domainCountSph);
-        myfree(domainCount);
-        myfree(domainWork);
-
-        MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-        if(retsum)
-        {
+        if(decompose_failed) {
             domain_free();
             message(0, "Increasing TopNodeAllocFactor=%g  ", All.TopNodeAllocFactor);
 
@@ -205,30 +158,71 @@ void domain_Decomposition(void)
                 if(ThisTask == 0)
                     endrun(781, "something seems to be going seriously wrong here. Stopping.\n");
             }
+        } else {
+            /* didn't fail? great. let's continue. */
+            break;
         }
     }
-    while(retsum);
 
     t1 = second();
 
     message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
 
-    peano_hilbert_order();
+    /* Resort the particles such that those of the same type and key are close by.
+     * The locality is broken by the exchange. */
+    qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
 
     walltime_measure("/Domain/Peano");
 
-    memmove(TopNodes + NTopnodes, DomainTask, NTopnodes * sizeof(int));
+    /* shrink the memory footprint. */
+    void * OldTopLeaves = TopLeaves;
 
-    TopNodes = (struct topnode_data *) myrealloc(TopNodes, bytes =
-            (NTopnodes * sizeof(struct topnode_data) +
-             NTopnodes * sizeof(int)));
+    TopNodes  = (struct topnode_data *) (TopTreeMemory);
+    TopLeaves = (struct topleaf_data *) (TopNodes + NTopNodes);
+
+    memmove(TopLeaves, OldTopLeaves, NTopNodes * sizeof(TopLeaves[0]));
+
+    /* add 1 extra to mark the end of TopLeaves; see assign */
+    TopTreeMemory = (struct topnode_data *) myrealloc(TopTreeMemory,
+            (NTopNodes * sizeof(TopNodes[0]) + (NTopLeaves + 1) * sizeof(TopLeaves[0])));
+
+
     message(0, "Freed %g MByte in top-level domain structure\n",
-                (MaxTopNodes - NTopnodes) * sizeof(struct topnode_data) / (1024.0 * 1024.0));
+                (MaxTopNodes - NTopNodes) * (sizeof(TopLeaves[0])  + sizeof(TopNodes[0]))/ (1024.0 * 1024.0));
 
-    DomainTask = (int *) (TopNodes + NTopnodes);
-
-    reconstruct_timebins();
     walltime_measure("/Domain/Misc");
+
+    /* this is a full decomposition, need to rebuild the force tree because all TopLeaves are out of date. */
+    force_tree_rebuild();
+}
+
+/* This is a cut-down version of the domain decomposition that leaves the
+ * domain grid intact, but exchanges the particles and rebuilds the tree */
+void domain_maintain(void)
+{
+    message(0, "Attempting a domain exchange\n");
+
+    walltime_measure("/Misc");
+
+    /* We rebuild the tree every timestep in order to
+     * make sure it is consistent.
+     * May as well free it here.*/
+    if(force_tree_allocated()) force_tree_free();
+
+    domain_garbage_collection();
+
+    walltime_measure("/Domain/Short/Misc");
+
+    /* Try a domain exchange.
+     * If we have no memory for the particles,
+     * bail and do a full domain*/
+    if(0 != domain_exchange(domain_layoutfunc)) {
+        domain_decompose_full();
+        return;
+    }
+
+    /* need to rebuild the force tree because all particles have been moved around in memory */
+    force_tree_rebuild();
 }
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
@@ -238,18 +232,18 @@ void domain_allocate(void)
 
     MaxTopNodes = (int) (All.TopNodeAllocFactor * All.MaxPart + 1);
 
-    DomainStartList = (int *) mymalloc("DomainStartList", bytes = (NTask * All.DomainOverDecompositionFactor * sizeof(int)));
+    /* Add a tail item to avoid special treatments */
+    Tasks = mymalloc("Tasks", bytes = ((NTask + 1)* sizeof(Tasks[0])));
+
     all_bytes += bytes;
 
-    DomainEndList = (int *) mymalloc("DomainEndList", bytes = (NTask * All.DomainOverDecompositionFactor * sizeof(int)));
-    all_bytes += bytes;
+    TopTreeMemory = mymalloc("TopTree", 
+        bytes = (MaxTopNodes * (sizeof(TopNodes[0]) + sizeof(TopLeaves[0]))));
 
-    TopNodes = (struct topnode_data *) mymalloc("TopNodes", bytes =
-            (MaxTopNodes * sizeof(struct topnode_data) +
-             MaxTopNodes * sizeof(int)));
-    all_bytes += bytes;
+    TopNodes  = (struct topnode_data *) TopTreeMemory;
+    TopLeaves = (struct topleaf_data *) (TopNodes + MaxTopNodes);
 
-    DomainTask = (int *) (TopNodes + MaxTopNodes);
+    all_bytes += bytes;
 
     message(0, "Allocated %g MByte for top-level domain structure\n", all_bytes / (1024.0 * 1024.0));
 
@@ -260,133 +254,119 @@ void domain_free(void)
 {
     if(domain_allocated_flag)
     {
-        myfree(TopNodes);
-        myfree(DomainEndList);
-        myfree(DomainStartList);
+        myfree(TopTreeMemory);
+        myfree(Tasks);
         domain_allocated_flag = 0;
     }
 }
 
-static struct topnode_data *save_TopNodes;
-static int *save_DomainStartList, *save_DomainEndList;
-
-void domain_free_trick(void)
+static int64_t
+domain_particle_costfactor(int i)
 {
-    if(domain_allocated_flag)
-    {
-        save_TopNodes = TopNodes;
-        save_DomainEndList = DomainEndList;
-        save_DomainStartList = DomainStartList;
-        domain_allocated_flag = 0;
-    }
-    else
-        endrun(131231, "domain free trick called at wrong time");
-}
-
-void domain_allocate_trick(void)
-{
-    domain_allocated_flag = 1;
-
-    TopNodes = save_TopNodes;
-    DomainEndList = save_DomainEndList;
-    DomainStartList = save_DomainStartList;
-}
-
-double domain_particle_costfactor(int i)
-{
+    /* We round off GravCost to integer*/
     if(P[i].TimeBin)
-        return (1.0 + P[i].GravCost) / (1 << P[i].TimeBin);
+        return (1 + P[i].GravCost) * (TIMEBASE / (1 << P[i].TimeBin));
     else
-        return (1.0 + P[i].GravCost) / TIMEBASE;
+        return (1 + P[i].GravCost); /* assuming on the full step */
 }
 
-static void
-domain_count_particles()
-{
-    int i;
-    for(i = 0; i < 6; i++)
-        NLocal[i] = 0;
-
-#pragma omp parallel private(i)
-    {
-        int NLocalThread[6] = {0};
-#pragma omp for
-        for(i = 0; i < NumPart; i++)
-        {
-            NLocalThread[P[i].Type]++;
-        }
-#pragma omp critical 
-        {
-/* avoid omp reduction for now: Craycc doesn't always do it right */
-            for(i = 0; i < 6; i ++) {
-                NLocal[i] += NLocalThread[i];
-            }
-        }
-    }
-    domain_refresh_totals();
-}
 /*! This function carries out the actual domain decomposition for all
  *  particle types. It will try to balance the work-load for each domain,
  *  as estimated based on the P[i]-GravCost values.  The decomposition will
  *  respect the maximum allowed memory-imbalance given by the value of
  *  PartAllocFactor.
  */
-int domain_decompose(void)
+static int
+domain_attempt_decompose(void)
 {
 
-    int i, status;
+    int i;
 
+    size_t bytes, all_bytes = 0;
+
+    /*!< points to the root node of the top-level tree */
+    struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("topTree", bytes =
+            (MaxTopNodes * sizeof(struct local_topnode_data)));
+    memset(topTree, 0, sizeof(topTree[0]) * MaxTopNodes);
+    all_bytes += bytes;
+
+    message(0, "use of %g MB of temporary storage for domain decomposition... (presently allocated=%g MB)\n",
+             all_bytes / (1024.0 * 1024.0), AllocatedBytes / (1024.0 * 1024.0));
+
+    report_memory_usage("DOMAIN");
 
     walltime_measure("/Domain/Decompose/Misc");
 
-    gravcost = 0;
-#pragma omp parallel for reduction(+: gravcost)
-    for(i = 0; i < NumPart; i++)
-    {
-        double costfac = domain_particle_costfactor(i);
-        gravcost += costfac;
+    if(domain_determine_global_toptree(topTree, &NTopNodes)) {
+        myfree(topTree);
+        return 1;
     }
 
-    totpartcount = TotNumPart;
+    /* copy what we need for the topnodes */
+    for(i = 0; i < NTopNodes; i++)
+    {
+        TopNodes[i].StartKey = topTree[i].StartKey;
+        TopNodes[i].Shift = topTree[i].Shift;
+        TopNodes[i].Daughter = topTree[i].Daughter;
+        TopNodes[i].Leaf = -1; /* will be assigned by create_topleaves*/
+    }
 
-    MPI_Allreduce(&gravcost, &totgravcost, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    myfree(topTree);
 
-    /* determine global dimensions of domain grid */
-    domain_findExtent();
+    NTopLeaves = 0;
+    domain_create_topleaves(0, &NTopLeaves);
 
-    walltime_measure("/Domain/Decompose/FindExtent");
+    message(0, "NTopLeaves= %d  NTopNodes=%d (space for %d)\n", NTopLeaves, NTopNodes, MaxTopNodes);
 
-    /*Make an array of peano keys so we don't have to recompute them inside the domain*/
-    #pragma omp parallel for
-    for(i=0; i<NumPart; i++)
-        P[i].Key = KEY(i);
+    walltime_measure("/Domain/DetermineTopTree/CreateLeaves");
 
-    if(domain_determineTopTree())
-        return 1;
+    if(NTopLeaves < All.DomainOverDecompositionFactor * NTask) {
+        message(0, "Number of Topleaves is less than required over decomposition");
+    }
 
-    /* find the split of the domain grid */
-    domain_findSplit_work_balanced(All.DomainOverDecompositionFactor * NTask, NTopleaves);
+    /* this is fatal */
+    if(NTopLeaves < NTask) {
+        endrun(0, "Number of Topleaves is less than NTask");
+    }
 
-    walltime_measure("/Domain/Decompose/findworksplit");
+    domain_balance();
 
-    domain_assign_load_or_work_balanced(1);
+    walltime_measure("/Domain/Decompose/Balance");
+    if(domain_exchange(domain_layoutfunc))
+        endrun(1929,"Could not exchange particles\n");
+
+    return 0;
+}
+
+static void
+domain_balance(void)
+{
+    /*!< a table that gives the total "work" due to the particles stored by each processor */
+    int64_t * TopLeafWork = (int64_t *) mymalloc("TopLeafWork",  NTopLeaves * sizeof(TopLeafWork[0]));
+    /*!< a table that gives the total number of particles held by each processor */
+    int64_t * TopLeafCount = (int64_t *) mymalloc("TopLeafCount",  NTopLeaves * sizeof(TopLeafCount[0]));
+
+    domain_compute_costs(TopLeafWork, TopLeafCount);
+
+    walltime_measure("/Domain/Decompose/Sumcost");
+
+    /* first try work balance */
+    domain_assign_balanced(TopLeafWork);
 
     walltime_measure("/Domain/Decompose/assignbalance");
 
-    status = domain_check_memory_bound(0);
+    int status = domain_check_memory_bound(0, TopLeafWork, TopLeafCount);
     walltime_measure("/Domain/Decompose/memorybound");
 
     if(status != 0)		/* the optimum balanced solution violates memory constraint, let's try something different */
     {
         message(0, "Note: the domain decomposition is suboptimum because the ceiling for memory-imbalance is reached\n");
 
-        domain_findSplit_load_balanced(All.DomainOverDecompositionFactor * NTask, NTopleaves);
+        domain_assign_balanced(TopLeafCount);
 
-        walltime_measure("/Domain/Decompose/findloadsplit");
-        domain_assign_load_or_work_balanced(0);
         walltime_measure("/Domain/Decompose/assignbalance");
 
-        status = domain_check_memory_bound(1);
+        int status = domain_check_memory_bound(1, TopLeafWork, TopLeafCount);
         walltime_measure("/Domain/Decompose/memorybound");
 
         if(status != 0)
@@ -395,157 +375,64 @@ int domain_decompose(void)
         }
     }
 
-    walltime_measure("/Domain/Decompose/Misc");
-    domain_exchange(domain_layoutfunc);
-    return 0;
+    myfree(TopLeafCount);
+    myfree(TopLeafWork);
 }
 
-void checklock() {
-    int j;
-#ifdef OPENMP_USE_SPINLOCK
-    for(j = 0; j < All.MaxPart; j++) {
-        if(0 == P[j].SpinLock) {
-            endrun(1, "lock failed %d, %d\n", j, P[j].SpinLock);
-        }
-    }
-#endif
-}
-/* 
- * 
- * exchange particles according to layoutfunc.
- * layoutfunc gives the target task of particle p.
-*/
-
-void domain_exchange(int (*layoutfunc)(int p)) {
-    int i;
-    int64_t sumtogo;
-    /* flag the particles that need to be exported */
-    toGo = (int *) mymalloc("toGo", (sizeof(int) * NTask));
-    toGoSph = (int *) mymalloc("toGoSph", (sizeof(int) * NTask));
-    toGoBh = (int *) mymalloc("toGoBh", (sizeof(int) * NTask));
-    toGet = (int *) mymalloc("toGet", (sizeof(int) * NTask));
-    toGetSph = (int *) mymalloc("toGetSph", (sizeof(int) * NTask));
-    toGetBh = (int *) mymalloc("toGetBh", (sizeof(int) * NTask));
-
-
-#pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
-    {
-        int target = layoutfunc(i);
-        if(target != ThisTask)
-            P[i].OnAnotherDomain = 1;
-        P[i].WillExport = 0;
-    }
-
-    walltime_measure("/Domain/exchange/init");
-
-    int iter = 0, ret;
-    ptrdiff_t exchange_limit;
-
-    do
-    {
-        exchange_limit = FreeBytes - NTask * (24 * sizeof(int) + 16 * sizeof(MPI_Request));
-
-        if(exchange_limit <= 0)
-        {
-            endrun(1, "exchange_limit=%d < 0\n", (int) exchange_limit);
-        }
-
-        /* determine for each cpu how many particles have to be shifted to other cpus */
-        ret = domain_countToGo(exchange_limit, layoutfunc);
-        walltime_measure("/Domain/exchange/togo");
-
-        for(i = 0, sumtogo = 0; i < NTask; i++)
-            sumtogo += toGo[i];
-
-        sumup_longs(1, &sumtogo, &sumtogo);
-
-        message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
-
-        domain_exchange_once(layoutfunc);
-        iter++;
-    }
-    while(ret > 0);
-
-    myfree(toGetBh);
-    myfree(toGetSph);
-    myfree(toGet);
-    myfree(toGoBh);
-    myfree(toGoSph);
-    myfree(toGo);
-    /* Watch out: domain exchange changes the local number of particles.
-     * though the slots has been taken care of in exchange_once, the
-     * particle number counts are not updated. */
-    domain_count_particles();
-}
-
-int domain_check_memory_bound(const int print_details)
+static int
+domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount)
 {
-    int ta, m, i;
-    int load, sphload, max_load, max_sphload;
-    int64_t sumload,sumsphload;
-    double work, max_work, sumwork;
+    int ta, i;
+    int load, max_load;
+    int64_t sumload;
+    int64_t work, max_work, sumwork;
     /*Only used if print_details is true*/
-    int list_load[NTask], list_loadsph[NTask];
-    double list_work[NTask];
+    int64_t list_load[NTask];
+    int64_t list_work[NTask];
 
-    max_work = max_load = max_sphload = sumload = sumsphload = sumwork = 0;
+    max_work = max_load = sumload = sumwork = 0;
 
     for(ta = 0; ta < NTask; ta++)
     {
-        load = sphload = 0;
+        load = 0;
         work = 0;
 
-        for(m = 0; m < All.DomainOverDecompositionFactor; m++)
-            for(i = DomainStartList[ta * All.DomainOverDecompositionFactor + m]; i <= DomainEndList[ta * All.DomainOverDecompositionFactor + m]; i++)
-            {
-                load += domainCount[i];
-                sphload += domainCountSph[i];
-                work += domainWork[i];
-            }
+        for(i = Tasks[ta].StartLeaf; i < Tasks[ta].EndLeaf; i ++)
+        {
+            load += TopLeafCount[i];
+            work += TopLeafWork[i];
+        }
 
         if(print_details) {
             list_load[ta] = load;
-            list_loadsph[ta] = sphload;
             list_work[ta] = work;
         }
 
         sumwork += work;
         sumload += load;
-        sumsphload += sphload;
 
         if(load > max_load)
             max_load = load;
-        if(sphload > max_sphload)
-            max_sphload = sphload;
         if(work > max_work)
             max_work = work;
     }
 
-    message(0, "Largest deviations from average: work=%g particle load=%g sph particle load=%g\n",
-            max_work / (sumwork / NTask), max_load / (((double) sumload) / NTask), max_sphload/(((double) sumsphload)/NTask));
+    message(0, "Largest load: work=%g particle=%g\n",
+            max_work / ((double)sumwork / NTask), max_load / (((double) sumload) / NTask));
 
     if(print_details) {
         message(0, "Balance breakdown:\n");
         for(i = 0; i < NTask; i++)
         {
-            message(0, "Task: [%3d]  work=%8.4f  particle load=%8.4f sph particle load=%8.4f \n", i,
-               list_work[i] / (sumwork / NTask), list_load[i] / (((double) sumload) / NTask), list_loadsph[i]/(((double) sumsphload) /NTask));
+            message(0, "Task: [%3d]  work=%8.4f  particle load=%8.4f\n", i,
+               list_work[i] / ((double) sumwork / NTask), list_load[i] / (((double) sumload) / NTask));
         }
     }
 
-    if(max_load > maxLoad)
+    if(max_load > All.MaxPart)
     {
         message(0, "desired memory imbalance=%g  (limit=%d, needed=%d)\n",
-                    (max_load * All.PartAllocFactor) / maxLoad, maxLoad, max_load);
-
-        return 1;
-    }
-
-    if(max_sphload > maxLoadsph)
-    {
-        message(0, "desired memory imbalance=%g  (SPH) (limit=%d, needed=%d)\n",
-                    (max_sphload * All.PartAllocFactor) / maxLoadsph, maxLoadsph, max_sphload);
+                    (max_load * All.PartAllocFactor) / All.MaxPart, All.MaxPart, max_load);
 
         return 1;
     }
@@ -553,566 +440,222 @@ int domain_check_memory_bound(const int print_details)
     return 0;
 }
 
-static void domain_exchange_once(int (*layoutfunc)(int p))
+
+struct topleaf_extdata {
+    peano_t Key;
+    int Task;
+    int topnode;
+    int64_t cost;
+};
+
+static int
+topleaf_ext_order_by_task_and_key(const void * c1, const void * c2)
 {
-    int count_togo = 0, count_togo_sph = 0, count_togo_bh = 0, 
-        count_get = 0, count_get_sph = 0, count_get_bh = 0;
-
-    int i, n, target;
-    struct particle_data *partBuf;
-    struct sph_particle_data *sphBuf;
-    struct bh_particle_data *bhBuf;
-
-    int * count = (int *) alloca(NTask * sizeof(int));
-    int * count_sph = (int *) alloca(NTask * sizeof(int));
-    int * count_bh = (int *) alloca(NTask * sizeof(int));
-    int * offset = (int *) alloca(NTask * sizeof(int));
-    int * offset_sph = (int *) alloca(NTask * sizeof(int));
-    int * offset_bh = (int *) alloca(NTask * sizeof(int));
-
-    int * count_recv = (int *) alloca(NTask * sizeof(int));
-    int * count_recv_sph = (int *) alloca(NTask * sizeof(int));
-    int * count_recv_bh = (int *) alloca(NTask * sizeof(int));
-    int * offset_recv = (int *) alloca(NTask * sizeof(int));
-    int * offset_recv_sph = (int *) alloca(NTask * sizeof(int));
-    int * offset_recv_bh = (int *) alloca(NTask * sizeof(int));
-
-    for(i = 1, offset_sph[0] = 0; i < NTask; i++)
-        offset_sph[i] = offset_sph[i - 1] + toGoSph[i - 1];
-
-    for(i = 1, offset_bh[0] = 0; i < NTask; i++)
-        offset_bh[i] = offset_bh[i - 1] + toGoBh[i - 1];
-
-    offset[0] = offset_sph[NTask - 1] + toGoSph[NTask - 1];
-
-    for(i = 1; i < NTask; i++)
-        offset[i] = offset[i - 1] + (toGo[i - 1] - toGoSph[i - 1]);
-
-    for(i = 0; i < NTask; i++)
-    {
-        count_togo += toGo[i];
-        count_togo_sph += toGoSph[i];
-        count_togo_bh += toGoBh[i];
-
-        count_get += toGet[i];
-        count_get_sph += toGetSph[i];
-        count_get_bh += toGetBh[i];
-    }
-
-    partBuf = (struct particle_data *) mymalloc("partBuf", count_togo * sizeof(struct particle_data));
-    sphBuf = (struct sph_particle_data *) mymalloc("sphBuf", count_togo_sph * sizeof(struct sph_particle_data));
-    bhBuf = (struct bh_particle_data *) mymalloc("bhBuf", count_togo_bh * sizeof(struct bh_particle_data));
-
-    for(i = 0; i < NTask; i++)
-        count[i] = count_sph[i] = count_bh[i] = 0;
-
-    /*FIXME: make this omp ! */
-    for(n = 0; n < NumPart; n++)
-    {
-        if(!(P[n].OnAnotherDomain && P[n].WillExport)) continue;
-        /* preparing for export */
-        P[n].OnAnotherDomain = 0;
-        P[n].WillExport = 0;
-        target = layoutfunc(n);
-
-        if(P[n].Type == 0)
-        {
-            partBuf[offset_sph[target] + count_sph[target]] = P[n];
-            sphBuf[offset_sph[target] + count_sph[target]] = SPHP(n);
-            count_sph[target]++;
-        } else
-        if(P[n].Type == 5)
-        {
-            bhBuf[offset_bh[target] + count_bh[target]] = BhP[P[n].PI];
-            /* points to the subbuffer */
-            P[n].PI = count_bh[target];
-            partBuf[offset[target] + count[target]] = P[n];
-            count_bh[target]++;
-            count[target]++;
-        }
-        else
-        {
-            partBuf[offset[target] + count[target]] = P[n];
-            count[target]++;
-        }
-
-
-        if(P[n].Type == 0)
-        {
-            P[n] = P[N_sph_slots - 1];
-            P[N_sph_slots - 1] = P[NumPart - 1];
-            /* Because SphP doesn't use PI */
-            SPHP(n) = SPHP(N_sph_slots - 1);
-
-            NumPart--;
-            N_sph_slots--;
-            n--;
-        }
-        else
-        {
-            P[n] = P[NumPart - 1];
-            NumPart--;
-            n--;
-        }
-    }
-    walltime_measure("/Domain/exchange/makebuf");
-
-    for(i = 0; i < NTask; i ++) {
-        if(count_sph[i] != toGoSph[i] ) {
-            abort();
-        }
-        if(count_bh[i] != toGoBh[i] ) {
-            abort();
-        }
-    }
-
-    if(count_get_sph)
-    {
-        memmove(P + N_sph_slots + count_get_sph, P + N_sph_slots, (NumPart - N_sph_slots) * sizeof(struct particle_data));
-    }
-
-    for(i = 0; i < NTask; i++)
-    {
-        count_recv_sph[i] = toGetSph[i];
-        count_recv_bh[i] = toGetBh[i];
-        count_recv[i] = toGet[i] - toGetSph[i];
-    }
-
-    for(i = 1, offset_recv_sph[0] = N_sph_slots; i < NTask; i++)
-        offset_recv_sph[i] = offset_recv_sph[i - 1] + count_recv_sph[i - 1];
-
-    for(i = 1, offset_recv_bh[0] = N_bh_slots; i < NTask; i++)
-        offset_recv_bh[i] = offset_recv_bh[i - 1] + count_recv_bh[i - 1];
-
-    offset_recv[0] = NumPart + count_get_sph;
-
-    for(i = 1; i < NTask; i++)
-        offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
-
-    MPI_Alltoallv_sparse(partBuf, count_sph, offset_sph, MPI_TYPE_PARTICLE,
-                 P, count_recv_sph, offset_recv_sph, MPI_TYPE_PARTICLE,
-                 MPI_COMM_WORLD);
-    walltime_measure("/Domain/exchange/alltoall");
-
-    MPI_Alltoallv_sparse(sphBuf, count_sph, offset_sph, MPI_TYPE_SPHPARTICLE,
-                 SphP, count_recv_sph, offset_recv_sph, MPI_TYPE_SPHPARTICLE,
-                 MPI_COMM_WORLD);
-    walltime_measure("/Domain/exchange/alltoall");
-
-    MPI_Alltoallv_sparse(partBuf, count, offset, MPI_TYPE_PARTICLE,
-                 P, count_recv, offset_recv, MPI_TYPE_PARTICLE,
-                 MPI_COMM_WORLD);
-    walltime_measure("/Domain/exchange/alltoall");
-
-    MPI_Alltoallv_sparse(bhBuf, count_bh, offset_bh, MPI_TYPE_BHPARTICLE,
-                BhP, count_recv_bh, offset_recv_bh, MPI_TYPE_BHPARTICLE,
-                MPI_COMM_WORLD);
-    walltime_measure("/Domain/exchange/alltoall");
-
-    if(count_get_bh > 0) {
-        for(target = 0; target < NTask; target++) {
-            int i, j;
-            for(i = offset_recv[target], j = offset_recv_bh[target];
-                i < offset_recv[target] + count_recv[target]; i++) {
-                if(P[i].Type != 5) continue;
-                P[i].PI = j;
-                j++;
-            }
-            if(j != count_recv_bh[target] + offset_recv_bh[target]) {
-                endrun(1, "communication bh inconsistency\n");
-            }
-        }
-    }
-
-    NumPart += count_get;
-    N_sph_slots += count_get_sph;
-    N_bh_slots += count_get_bh;
-
-    if(NumPart > All.MaxPart)
-    {
-        endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
-    }
-
-    if(N_sph_slots > All.MaxPartSph)
-        endrun(787878, "Task=%d N_sph=%d All.MaxPartSph=%d\n", ThisTask, N_sph_slots, All.MaxPartSph);
-    if(N_bh_slots > All.MaxPartBh)
-        endrun(787878, "Task=%d N_bh=%d All.MaxPartBh=%d\n", ThisTask, N_bh_slots, All.MaxPartBh);
-
-    myfree(bhBuf);
-    myfree(sphBuf);
-    myfree(partBuf);
-
-    MPI_Barrier(MPI_COMM_WORLD);
-
-    walltime_measure("/Domain/exchange/finalize");
-}
-static int bh_cmp_reverse_link(const void * b1in, const void * b2in) {
-    const struct bh_particle_data * b1 = (struct bh_particle_data *) b1in;
-    const struct bh_particle_data * b2 = (struct bh_particle_data *) b2in;
-    if(b1->ReverseLink == -1 && b2->ReverseLink == -1) {
-        return 0;
-    }
-    if(b1->ReverseLink == -1) return 1;
-    if(b2->ReverseLink == -1) return -1;
-    return (b1->ReverseLink > b2->ReverseLink) - (b1->ReverseLink < b2->ReverseLink);
-
+    const struct topleaf_extdata * p1 = (const struct topleaf_extdata *) c1;
+    const struct topleaf_extdata * p2 = (const struct topleaf_extdata *) c2;
+    if(p1->Task < p2->Task) return -1;
+    if(p1->Task > p2->Task) return 1;
+    if(p1->Key < p2->Key) return -1;
+    if(p1->Key > p2->Key) return 1;
+    return 0;
 }
 
 static int
-domain_bh_garbage_collection()
+topleaf_ext_order_by_key(const void * c1, const void * c2)
 {
-    /*
-     *  BhP is a lifted structure. 
-     *  changing BH slots doesn't affect tree's consistency;
-     *  this function always return 0. */
-
-    /* gc the bh */
-    int i, j;
-    int64_t total = 0;
-
-    int64_t total0 = 0;
-
-    sumup_large_ints(1, &N_bh_slots, &total0);
-
-    /* If there are no blackholes, there cannot be any garbage. bail. */
-    if(total0 == 0) return 0;
-
-#pragma omp parallel for
-    for(i = 0; i < All.MaxPartBh; i++) {
-        BhP[i].ReverseLink = -1;
-    }
-
-#pragma omp parallel for
-    for(i = 0; i < NumPart; i++) {
-        if(P[i].Type == 5) {
-            BhP[P[i].PI].ReverseLink = i;
-            if(P[i].PI >= N_bh_slots) {
-                endrun(1, "bh PI consistency failed2, N_bh_slots = %d, N_bh = %d, PI=%d\n", N_bh_slots, NLocal[5], P[i].PI);
-            }
-            if(BhP[P[i].PI].ID != P[i].ID) {
-                endrun(1, "bh id consistency failed1\n");
-            }
-        }
-    }
-
-    /* put unused guys to the end, and sort the used ones
-     * by their location in the P array */
-    qsort(BhP, N_bh_slots, sizeof(BhP[0]), bh_cmp_reverse_link);
-
-    while(N_bh_slots > 0 && BhP[N_bh_slots - 1].ReverseLink == -1) {
-        N_bh_slots --;
-    }
-    /* Now update the link in BhP */
-    for(i = 0; i < N_bh_slots; i ++) {
-        P[BhP[i].ReverseLink].PI = i;
-    }
-
-    /* Now invalidate ReverseLink */
-    for(i = 0; i < N_bh_slots; i ++) {
-        BhP[i].ReverseLink = -1;
-    }
-
-    j = 0;
-#pragma omp parallel for
-    for(i = 0; i < NumPart; i++) {
-        if(P[i].Type != 5) continue;
-        if(P[i].PI >= N_bh_slots) {
-            endrun(1, "bh PI consistency failed2\n");
-        }
-        if(BhP[P[i].PI].ID != P[i].ID) {
-            endrun(1, "bh id consistency failed2\n");
-        }
-#pragma omp atomic
-        j ++;
-    }
-    if(j != N_bh_slots) {
-        endrun(1, "bh count failed2, j=%d, N_bh=%d\n", j, N_bh_slots);
-    }
-
-    sumup_large_ints(1, &N_bh_slots, &total);
-
-    if(total != total0) {
-        message(0, "GC: Reducing number of BH slots from %ld to %ld\n", total0, total);
-    }
-    /* bh gc never invalidates the tree */
+    const struct topleaf_extdata * p1 = (const struct topleaf_extdata *) c1;
+    const struct topleaf_extdata * p2 = (const struct topleaf_extdata *) c2;
+    if(p1->Key < p2->Key) return -1;
+    if(p1->Key > p2->Key) return 1;
     return 0;
 }
 
-int domain_fork_particle(int parent) {
-    /* this will fork a zero mass particle at the given location of parent.
-     *
-     * Assumes the particle is protected by locks in threaded env.
-     *
-     * The Generation of parent is incremented.
-     * The child carries the incremented generation number.
-     * The ID of the child is modified, with the new generation number set
-     * at the highest 8 bits.
-     *
-     * the new particle's index is returned.
-     *
-     * Its mass and ptype can be then adjusted. (watchout detached BH /SPH
-     * data!)
-     * Its PIndex still points to the old Pindex!
-     * */
 
-    if(NumPart >= All.MaxPart)
-    {
-        endrun(8888,
-                "On Task=%d with NumPart=%d we try to spawn. Sorry, no space left...(All.MaxPart=%d)\n",
-                ThisTask, NumPart, All.MaxPart);
+/*
+ *
+ * This function assigns task to TopLeaves, and sort them by the task,
+ * creates the index in Tasks[Task].StartLeaf and Tasks[Task].EndLeaf
+ * cost is the cost per TopLeaves
+ *
+ * */
+
+static void
+domain_assign_balanced(int64_t * cost)
+{
+    /* we work with TopLeafExt then replace TopLeaves*/
+
+    struct topleaf_extdata * TopLeafExt;
+
+    /* A Segment is a subset of the TopLeaf nodes */
+
+    size_t Nsegment = All.DomainOverDecompositionFactor * NTask;
+
+    if(Nsegment > (1 << 31)) {
+        endrun(0, "Too many segments requested, overflowing integer\n");
     }
-    int child = atomic_fetch_and_add(&NumPart, 1);
-    
-    NextActiveParticle[child] = FirstActiveParticle;
-    FirstActiveParticle = child;
 
-    P[parent].Generation ++;
-    uint64_t g = P[parent].Generation;
-    /* change the child ID according to the generation. */
-    P[child] = P[parent];
-    P[child].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
+    TopLeafExt = (struct topleaf_extdata *) mymalloc("TopLeafExt", NTopLeaves * sizeof(TopLeafExt[0]));
 
-    /* the PIndex still points to the old PIndex */
-    P[child].Mass = 0;
+    /* copy the data over */
+    int i;
+    for(i = 0; i < NTopLeaves; i ++) {
+        TopLeafExt[i].topnode = TopLeaves[i].topnode;
+        TopLeafExt[i].Key = TopNodes[TopLeaves[i].topnode].StartKey;
+        TopLeafExt[i].Task = -1;
+        TopLeafExt[i].cost = cost[i];
+    }
 
-    /* FIXME: these are not thread safe !!not !!*/
-    TimeBinCount[P[child].TimeBin]++;
+    /* make sure TopLeaves are sorted by Key for locality of segments - 
+     * likely not necessary be cause when this function
+     * is called it is already true */
+    qsort_openmp(TopLeafExt, NTopLeaves, sizeof(TopLeafExt[0]), topleaf_ext_order_by_key);
 
-    PrevInTimeBin[child] = parent;
-    NextInTimeBin[child] = NextInTimeBin[parent];
-    if(NextInTimeBin[parent] >= 0)
-        PrevInTimeBin[NextInTimeBin[parent]] = child;
-    NextInTimeBin[parent] = child;
-    if(LastInTimeBin[P[parent].TimeBin] == parent)
-        LastInTimeBin[P[parent].TimeBin] = child;
+    int64_t totalcost = 0;
+    #pragma omp parallel for reduction(+ : totalcost)
+    for(i = 0; i < NTopLeaves; i ++) {
+        totalcost += TopLeafExt[i].cost;
+    }
+    int64_t totalcostLeft = totalcost;
 
-    /* increase NumForceUpdate only if this particle was
-     * active */
-
-    /*! When a new additional star particle is created, we can put it into the
-     *  tree at the position of the spawning gas particle. This is possible
-     *  because the Nextnode[] array essentially describes the full tree walk as a
-     *  link list. Multipole moments of tree nodes need not be changed.
+    /* start the assignment; We try to create segments that are of the
+     * mean_expected cost, then assign them to Tasks in a round-robin fashion.
      */
 
-    /* we do this only if there is an active force tree 
-     * checking Nextnode is not the best way of doing so though.
+    double mean_expected = 1.0 * totalcost / Nsegment;
+    double mean_task = 1.0 * totalcost /NTask;
+    int curleaf = 0;
+    int curseg = 0;
+    int curtask = 0; /* between 0 and NTask - 1*/
+    int nrounds = 0; /*Number of times we looped*/
+    int64_t curload = 0; /* cumulative load for the current segment */
+    int64_t curtaskload = 0; /* cumulative load for current task */
+    int64_t maxleafcost = 0;
+
+    message(0, "Expected segment cost %g\n", mean_expected);
+    /* we maintain that after the loop curleaf is the number of leaves scanned,
+     * curseg is number of segments created.
      * */
-    if(Nextnode) {
-        int no;
-
-        no = Nextnode[parent];
-        Nextnode[parent] = child;
-        Nextnode[child] = no;
-        Father[child] = Father[parent];
-    }
-    return child;
-}
-
-
-void domain_findSplit_work_balanced(int ncpu, int ndomain)
-{
-    int i, start, end;
-    double work, workavg, work_before, workavg_before;
-
-    for(i = 0, work = 0; i < ndomain; i++)
-        work += domainWork[i];
-
-    workavg = work / ncpu;
-
-    work_before = workavg_before = 0;
-
-    start = 0;
-
-    for(i = 0; i < ncpu; i++)
-    {
-        work = 0;
-        end = start;
-
-        work += domainWork[end];
-
-        while((work + work_before < workavg + workavg_before) || (i == ncpu - 1 && end < ndomain - 1))
-        {
-            if((ndomain - end) > (ncpu - i))
-                end++;
-            else
-                break;
-
-            work += domainWork[end];
+    while(nrounds < NTopLeaves) {
+        int append = 0;
+        int advance = 0;
+        if(TopLeafExt[curleaf].cost > maxleafcost)
+            maxleafcost = TopLeafExt[curleaf].cost;
+        if(curleaf == NTopLeaves) {
+            /* to maintain the invariance */
+            advance = 1;
+        } else if(NTopLeaves - curleaf == Nsegment - curseg) {
+            /* just enough for one segment per leaf; this line ensures 
+             * at least Nsegment segments are created. */
+            append = 1;
+            advance = 1;
+        } else {
+            /* append a leaf to the segment if there is room left.
+             * Calculate room left based on a rolling average of the total so far..*/
+            int64_t totalassigned = (totalcost - totalcostLeft) + curload;
+            if((mean_expected * (curseg +1) - totalassigned > 0.5 * TopLeafExt[curleaf].cost)
+            || curload == 0 /* but at least add one leaf */
+                ) {
+                append = 1;
+            } else {
+                /* will be too big of a segment, cut it */
+                advance = 1;
+            }
+        }
+        if(append) {
+            /* assign the leaf to the task */
+            curload += TopLeafExt[curleaf].cost;
+            TopLeafExt[curleaf].Task = curtask;
+            curleaf ++;
         }
 
-        DomainStartList[i] = start;
-        DomainEndList[i] = end;
+        if(advance) {
+            /*Add this segment to the current task*/
+            curtaskload += curload;
+            /* If we have allocated enough segments to fill this processor,
+             * or if we have one segment per task left, proceed to the next task.
+             * We do not use round robin so that neighbouring (by key)
+             * topTree are on the same processor.*/
+            if((mean_task - curtaskload < 0.5 * mean_expected) || (Nsegment - curseg <= NTask - curtask)
+               ){
+                curtaskload = 0;
+                curtask ++;
+            }
+            /* move on to the next segment.*/
+            totalcostLeft -= curload;
+            curload = 0;
+            curseg ++;
 
-        work_before += work;
-        workavg_before += workavg;
-        start = end + 1;
-    }
-}
-
-
-static struct domain_loadorigin_data
-{
-    double load;
-    int origin;
-}
-*domain;
-
-static struct domain_segments_data
-{
-    int task, start, end;
-}
-*domainAssign;
-
-
-
-int domain_sort_loadorigin(const void *a, const void *b)
-{
-    if(((struct domain_loadorigin_data *) a)->load < (((struct domain_loadorigin_data *) b)->load))
-        return -1;
-
-    if(((struct domain_loadorigin_data *) a)->load > (((struct domain_loadorigin_data *) b)->load))
-        return +1;
-
-    return 0;
-}
-
-int domain_sort_segments(const void *a, const void *b)
-{
-    if(((struct domain_segments_data *) a)->task < (((struct domain_segments_data *) b)->task))
-        return -1;
-
-    if(((struct domain_segments_data *) a)->task > (((struct domain_segments_data *) b)->task))
-        return +1;
-
-    return 0;
-}
-
-
-void domain_assign_load_or_work_balanced(int mode)
-{
-    int i, n, ndomains, *target;
-
-    domainAssign =
-        (struct domain_segments_data *) mymalloc("domainAssign",
-                All.DomainOverDecompositionFactor * NTask * sizeof(struct domain_segments_data));
-    domain =
-        (struct domain_loadorigin_data *) mymalloc("domain",
-                All.DomainOverDecompositionFactor * NTask *
-                sizeof(struct domain_loadorigin_data));
-    target = (int *) mymalloc("target", All.DomainOverDecompositionFactor * NTask * sizeof(int));
-
-    for(n = 0; n < All.DomainOverDecompositionFactor * NTask; n++)
-        domainAssign[n].task = n;
-
-    ndomains = All.DomainOverDecompositionFactor * NTask;
-
-    while(ndomains > NTask)
-    {
-        for(i = 0; i < ndomains; i++)
-        {
-            domain[i].load = 0;
-            domain[i].origin = i;
+            /* finished a round for all tasks */
+            if(curtask == NTask) {
+                /*Back to task zero*/
+                curtask = 0;
+                /* Need a new mean_expected value: we want to
+                 * divide the remaining segments evenly between the processors.*/
+                mean_expected = 1.0 * totalcostLeft / Nsegment;
+                mean_task = 1.0 * totalcostLeft / NTask;
+                nrounds++;
+            }
+            if(curleaf == NTopLeaves) break;
         }
-
-        for(n = 0; n < All.DomainOverDecompositionFactor * NTask; n++)
-        {
-            for(i = DomainStartList[n]; i <= DomainEndList[n]; i++)
-                if(mode == 1)
-                    domain[domainAssign[n].task].load += domainCount[i];
-                else
-                    domain[domainAssign[n].task].load += domainWork[i];
-        }
-
-        qsort(domain, ndomains, sizeof(struct domain_loadorigin_data), domain_sort_loadorigin);
-
-        for(i = 0; i < ndomains / 2; i++)
-        {
-            target[domain[i].origin] = i;
-            target[domain[ndomains - 1 - i].origin] = i;
-        }
-
-        for(n = 0; n < All.DomainOverDecompositionFactor * NTask; n++)
-            domainAssign[n].task = target[domainAssign[n].task];
-
-        ndomains /= 2;
+        //message(0, "curleaf = %d advance = %d append = %d, curload = %d cost=%ld left=%ld\n", curleaf, advance, append, curload, TopLeafExt[curleaf].cost, totalcostLeft);
     }
 
-    for(n = 0; n < All.DomainOverDecompositionFactor * NTask; n++)
-    {
-        domainAssign[n].start = DomainStartList[n];
-        domainAssign[n].end = DomainEndList[n];
+    /*In most 'normal' cases nrounds == 1 here*/
+    message(0, "Created %d segments in %d rounds. Max leaf cost: %g\n", curseg, nrounds, (1.0*maxleafcost)/(totalcost) * Nsegment);
+
+    if(curseg < Nsegment) {
+        endrun(0, "Not enough segments were created (%d instead of %d). This should not happen.\n", curseg, Nsegment);
     }
 
-    qsort(domainAssign, All.DomainOverDecompositionFactor * NTask, sizeof(struct domain_segments_data), domain_sort_segments);
-
-    for(n = 0; n < All.DomainOverDecompositionFactor * NTask; n++)
-    {
-        DomainStartList[n] = domainAssign[n].start;
-        DomainEndList[n] = domainAssign[n].end;
-
-        for(i = DomainStartList[n]; i <= DomainEndList[n]; i++)
-            DomainTask[i] = domainAssign[n].task;
+    if(totalcostLeft != 0) {
+        endrun(0, "Assertion failed. Total cost is not fully assigned to all ranks\n");
     }
 
-    myfree(target);
-    myfree(domain);
-    myfree(domainAssign);
-}
+    /* lets rearrange the TopLeafExt by task, such that we can build the Tasks table */
+    qsort_openmp(TopLeafExt, NTopLeaves, sizeof(TopLeafExt[0]), topleaf_ext_order_by_task_and_key);
+    for(i = 0; i < NTopLeaves; i ++) {
+        TopNodes[TopLeafExt[i].topnode].Leaf = i;
+        TopLeaves[i].Task = TopLeafExt[i].Task;
+        TopLeaves[i].topnode = TopLeafExt[i].topnode;
+    }
 
+    myfree(TopLeafExt);
+    /* here we reduce the number of code branches by adding an item to the end. */
+    TopLeaves[NTopLeaves].Task = NTask;
+    TopLeaves[NTopLeaves].topnode = -1;
 
+    int ta = 0;
+    Tasks[ta].StartLeaf = 0;
+    for(i = 0; i <= NTopLeaves; i ++) {
 
-void domain_findSplit_load_balanced(int ncpu, int ndomain)
-{
-    int i, start, end;
-    double load, loadavg, load_before, loadavg_before;
+        if(TopLeaves[i].Task == ta) continue;
 
-    for(i = 0, load = 0; i < ndomain; i++)
-        load += domainCount[i];
-
-    loadavg = load / ncpu;
-
-    load_before = loadavg_before = 0;
-
-    start = 0;
-
-    for(i = 0; i < ncpu; i++)
-    {
-        load = 0;
-        end = start;
-
-        load += domainCount[end];
-
-        while((load + load_before < loadavg + loadavg_before) || (i == ncpu - 1 && end < ndomain - 1))
-        {
-            if((ndomain - end) > (ncpu - i))
-                end++;
-            else
-                break;
-
-            load += domainCount[end];
+        Tasks[ta].EndLeaf = i;
+        ta ++;
+        while(ta < TopLeaves[i].Task) {
+            Tasks[ta].EndLeaf = i;
+            Tasks[ta].StartLeaf = i;
+            ta ++;
         }
-
-        DomainStartList[i] = start;
-        DomainEndList[i] = end;
-
-        load_before += load;
-        loadavg_before += loadavg;
-        start = end + 1;
+        /* the last item will set Tasks[NTask], but we allocated memory for it already */
+        Tasks[ta].StartLeaf = i;
+    }
+    if(ta != NTask) {
+        endrun(0, "Assertion failed: not all tasks are assigned. This indicates a bug.\n");
     }
 }
 
-
-/*This function determines the leaf node for the given particle number.*/
-static inline int domain_leafnodefunc(const peanokey key) {
+/*This function determines the TopLeaves entry for the given key.*/
+inline int
+domain_get_topleaf(const peano_t key) {
     int no=0;
-    while(topNodes[no].Daughter >= 0)
-        no = topNodes[no].Daughter + (key - topNodes[no].StartKey) / (topNodes[no].Size / 8);
-    no = topNodes[no].Leaf;
+    while(TopNodes[no].Daughter >= 0)
+        no = TopNodes[no].Daughter + ((key - TopNodes[no].StartKey) >> (TopNodes[no].Shift - 3));
+    no = TopNodes[no].Leaf;
     return no;
 }
 
-/*! This function determines how many particles that are currently stored
+/*! This function determines chich particles that are currently stored
  *  on the local CPU have to be moved off according to the domain
  *  decomposition.
  *
@@ -1120,417 +663,298 @@ static inline int domain_leafnodefunc(const peanokey key) {
  *  subfind_distribute).
  *
  */
-static int domain_layoutfunc(int n) {
-    peanokey key = P[n].Key;
-    int no = domain_leafnodefunc(key);
-    return DomainTask[no];
+static int
+domain_layoutfunc(int n) {
+    peano_t key = P[n].Key;
+    int no = domain_get_topleaf(key);
+    return TopLeaves[no].Task;
 }
-
-static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p))
-{
-    int n, ret, retsum;
-    size_t package;
-
-    int * list_NumPart = (int *) alloca(sizeof(int) * NTask);
-    int * list_N_sph = (int *) alloca(sizeof(int) * NTask);
-    int * list_N_bh = (int *) alloca(sizeof(int) * NTask);
-
-    for(n = 0; n < NTask; n++)
-    {
-        toGo[n] = 0;
-        toGoSph[n] = 0;
-        toGoBh[n] = 0;
-    }
-
-    package = (sizeof(struct particle_data) + sizeof(struct sph_particle_data) + sizeof(struct bh_particle_data));
-    if(package >= nlimit)
-        endrun(212, "Package is too large, no free memory.");
-
-
-    for(n = 0; n < NumPart; n++)
-    {
-        if(package >= nlimit) break;
-        if(!P[n].OnAnotherDomain) continue;
-
-        int target = layoutfunc(n);
-        if (target == ThisTask) continue;
-
-        toGo[target] += 1;
-        nlimit -= sizeof(struct particle_data);
-
-        if(P[n].Type  == 0)
-        {
-            toGoSph[target] += 1;
-            nlimit -= sizeof(struct sph_particle_data);
-        }
-        if(P[n].Type  == 5)
-        {
-            toGoBh[target] += 1;
-            nlimit -= sizeof(struct bh_particle_data);
-        }
-        P[n].WillExport = 1;	/* flag this particle for export */
-    }
-
-    MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
-    MPI_Alltoall(toGoSph, 1, MPI_INT, toGetSph, 1, MPI_INT, MPI_COMM_WORLD);
-    MPI_Alltoall(toGoBh, 1, MPI_INT, toGetBh, 1, MPI_INT, MPI_COMM_WORLD);
-
-    if(package >= nlimit)
-        ret = 1;
-    else
-        ret = 0;
-
-    MPI_Allreduce(&ret, &retsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    if(retsum)
-    {
-        /* in this case, we are not guaranteed that the temporary state after
-           the partial exchange will actually observe the particle limits on all
-           processors... we need to test this explicitly and rework the exchange
-           such that this is guaranteed. This is actually a rather non-trivial
-           constraint. */
-
-        MPI_Allgather(&NumPart, 1, MPI_INT, list_NumPart, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_bh_slots, 1, MPI_INT, list_N_bh, 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_sph_slots, 1, MPI_INT, list_N_sph, 1, MPI_INT, MPI_COMM_WORLD);
-
-        int flag, flagsum, ntoomany, ta, i;
-        int count_togo, count_toget, count_togo_bh, count_toget_bh, count_togo_sph, count_toget_sph;
-
-        do
-        {
-            flagsum = 0;
-
-            do
-            {
-                flag = 0;
-
-                for(ta = 0; ta < NTask; ta++)
-                {
-                    if(ta == ThisTask)
-                    {
-                        count_togo = count_toget = 0;
-                        count_togo_sph = count_toget_sph = 0;
-                        count_togo_bh = count_toget_bh = 0;
-                        for(i = 0; i < NTask; i++)
-                        {
-                            count_togo += toGo[i];
-                            count_toget += toGet[i];
-                            count_togo_sph += toGoSph[i];
-                            count_toget_sph += toGetSph[i];
-                            count_togo_bh += toGoBh[i];
-                            count_toget_bh += toGetBh[i];
-                        }
-                    }
-                    MPI_Bcast(&count_togo, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_toget, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_togo_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_toget_sph, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_togo_bh, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_toget_bh, 1, MPI_INT, ta, MPI_COMM_WORLD);
-                    if((ntoomany = list_N_sph[ta] + count_toget_sph - count_togo_sph - All.MaxPartSph) > 0)
-                    {
-                        message (0, "exchange needs to be modified because I can't receive %d SPH-particles on task=%d\n",
-                                 ntoomany, ta);
-                        if(flagsum > 25) {
-                            message(0, "list_N_sph[ta=%d]=%d  count_toget_sph=%d count_togo_sph=%d\n",
-                                        ta, list_N_sph[ta], count_toget_sph, count_togo_sph);
-                        }
-                        flag = 1;
-                        i = flagsum % NTask;
-                        while(ntoomany)
-                        {
-                            if(i == ThisTask)
-                            {
-                                if(toGoSph[ta] > 0)
-                                {
-                                    toGoSph[ta]--;
-                                    count_toget_sph--;
-                                    count_toget--;
-                                    ntoomany--;
-                                }
-                            }
-
-                            MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget_sph, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            i++;
-                            if(i >= NTask)
-                                i = 0;
-                        }
-                    }
-                    if((ntoomany = list_N_bh[ta] + count_toget_bh - count_togo_bh - All.MaxPartBh) > 0)
-                    {
-                        message(0, "exchange needs to be modified because I can't receive %d BH-particles on task=%d\n",
-                                ntoomany, ta);
-                        if(flagsum > 25)
-                            message(0, "list_N_bh[ta=%d]=%d  count_toget_bh=%d count_togo_bh=%d\n",
-                                    ta, list_N_bh[ta], count_toget_bh, count_togo_bh);
-
-                        flag = 1;
-                        i = flagsum % NTask;
-                        while(ntoomany)
-                        {
-                            if(i == ThisTask)
-                            {
-                                if(toGoBh[ta] > 0)
-                                {
-                                    toGoBh[ta]--;
-                                    count_toget_bh--;
-                                    count_toget--;
-                                    ntoomany--;
-                                }
-                            }
-
-                            MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget_bh, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            i++;
-                            if(i >= NTask)
-                                i = 0;
-                        }
-                    }
-
-                    if((ntoomany = list_NumPart[ta] + count_toget - count_togo - All.MaxPart) > 0)
-                    {
-                        message (0, "exchange needs to be modified because I can't receive %d particles on task=%d\n",
-                             ntoomany, ta);
-                        if(flagsum > 25)
-                            message(0, "list_NumPart[ta=%d]=%d  count_toget=%d count_togo=%d\n",
-                                    ta, list_NumPart[ta], count_toget, count_togo);
-
-                        flag = 1;
-                        i = flagsum % NTask;
-                        while(ntoomany)
-                        {
-                            if(i == ThisTask)
-                            {
-                                if(toGo[ta] > 0)
-                                {
-                                    toGo[ta]--;
-                                    count_toget--;
-                                    ntoomany--;
-                                }
-                            }
-
-                            MPI_Bcast(&ntoomany, 1, MPI_INT, i, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget, 1, MPI_INT, i, MPI_COMM_WORLD);
-
-                            i++;
-                            if(i >= NTask)
-                                i = 0;
-                        }
-                    }
-                }
-                flagsum += flag;
-
-                message(0, "flagsum = %d\n", flagsum);
-                if(flagsum > 100)
-                    endrun(1013, "flagsum is too big, what does this mean?");
-            }
-            while(flag);
-
-            if(flagsum)
-            {
-                int *local_toGo, *local_toGoSph, *local_toGoBh;
-
-                local_toGo = (int *)mymalloc("	      local_toGo", NTask * sizeof(int));
-                local_toGoSph = (int *)mymalloc("	      local_toGoSph", NTask * sizeof(int));
-                local_toGoBh = (int *)mymalloc("	      local_toGoBh", NTask * sizeof(int));
-
-
-                for(n = 0; n < NTask; n++)
-                {
-                    local_toGo[n] = 0;
-                    local_toGoSph[n] = 0;
-                    local_toGoBh[n] = 0;
-                }
-
-                for(n = 0; n < NumPart; n++)
-                {
-                    if(!P[n].OnAnotherDomain) continue;
-                    P[n].WillExport = 0; /* clear 16 */
-
-                    int target = layoutfunc(n);
-
-                    if(P[n].Type == 0)
-                    {
-                        if(local_toGoSph[target] < toGoSph[target] && local_toGo[target] < toGo[target])
-                        {
-                            local_toGo[target] += 1;
-                            local_toGoSph[target] += 1;
-                            P[n].WillExport = 1;
-                        }
-                    }
-                    else
-                    if(P[n].Type == 5)
-                    {
-                        if(local_toGoBh[target] < toGoBh[target] && local_toGo[target] < toGo[target])
-                        {
-                            local_toGo[target] += 1;
-                            local_toGoBh[target] += 1;
-                            P[n].WillExport = 1;
-                        }
-                    }
-                    else
-                    {
-                        if(local_toGo[target] < toGo[target])
-                        {
-                            local_toGo[target] += 1;
-                            P[n].WillExport = 1;
-                        }
-                    }
-                }
-
-                for(n = 0; n < NTask; n++)
-                {
-                    toGo[n] = local_toGo[n];
-                    toGoSph[n] = local_toGoSph[n];
-                    toGoBh[n] = local_toGoBh[n];
-                }
-
-                MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
-                MPI_Alltoall(toGoSph, 1, MPI_INT, toGetSph, 1, MPI_INT, MPI_COMM_WORLD);
-                MPI_Alltoall(toGoBh, 1, MPI_INT, toGetBh, 1, MPI_INT, MPI_COMM_WORLD);
-                myfree(local_toGoBh);
-                myfree(local_toGoSph);
-                myfree(local_toGo);
-            }
-        }
-        while(flagsum);
-
-        return 1;
-    }
-    else
-        return 0;
-}
-
-
-
-
-
 
 /*! This function walks the global top tree in order to establish the
- *  number of leaves it has. These leaves are distributed to different
+ *  number of leaves it has. These leaves are then distributed to different
  *  processors.
+ *
+ *  the pointer next points to the next free item on TopLeaves array.
  */
-void domain_walktoptree(int no)
+static void
+domain_create_topleaves(int no, int * next)
 {
     int i;
-
-    if(topNodes[no].Daughter == -1)
+    if(TopNodes[no].Daughter == -1)
     {
-        topNodes[no].Leaf = NTopleaves;
-        NTopleaves++;
+        TopNodes[no].Leaf = *next;
+        TopLeaves[*next].topnode = no;
+        (*next)++;
     }
     else
     {
         for(i = 0; i < 8; i++)
-            domain_walktoptree(topNodes[no].Daughter + i);
+            domain_create_topleaves(TopNodes[no].Daughter + i, next);
     }
 }
 
-/* Refine the local oct-tree, recursively adding costs and particles until
- * either we have chopped off all the peano-hilbert keys and thus have no more
- * refinement to do, or we run out of topNodes.
- * If 1 is returned on any processor we will return to domain_Decomposition,
- * allocate 30% more topNodes, and try again.
- * */
-int domain_check_for_local_refine(const int i, const double countlimit, const double costlimit, const struct peano_hilbert_data * mp)
+static int
+domain_toptree_get_subnode(struct local_topnode_data * topTree,
+        peano_t key)
 {
-    int j, p;
+    int no = 0;
+    while(topTree[no].Daughter >= 0) {
+        no = topTree[no].Daughter + ((key - topTree[no].StartKey) >> (topTree[no].Shift - 3));
+    }
+    return no;
+}
 
-    /*If there are only 8 particles within this node, we are done refining.*/
-    if(topNodes[i].Size < 8)
-        return 0;
+static int
+domain_toptree_insert(struct local_topnode_data * topTree,
+        peano_t Key, int64_t cost)
+{
+    /* insert */
+    int leaf = domain_toptree_get_subnode(topTree, Key);
+    topTree[leaf].Count ++;
+    topTree[leaf].Cost += cost;
+    return leaf;
+}
 
-    /* We need to do refinement if we are over the countlimit, or the cost limit, or
-     * (if we have a parent) we have more than 80% of the parent's particles or costs.*/
-#ifndef DENSITY_INDEPENDENT_SPH_DEBUG
-    /*If we are above the cost limits we definitely need to refine.*/
-    if(topNodes[i].Count <= countlimit && topNodes[i].Cost <=costlimit)
-#endif
-        /* If we were below them but we have a parent and somehow got all of its particles, we still
-         * need to refine. But if none of these things are true we can return, our work complete. */
-        if(topNodes[i].Parent < 0 || (topNodes[i].Count <= 0.8 * topNodes[topNodes[i].Parent].Count &&
-                topNodes[i].Cost <= 0.8 * topNodes[topNodes[i].Parent].Cost))
-            return 0;
-
-    /* If we want to refine but there is no space for another topNode on this processor,
-     * we ran out of top nodes and must get more.*/
-    if((NTopnodes + 8) > MaxTopNodes)
+static int
+domain_toptree_split(struct local_topnode_data * topTree, int * topTreeSize,
+    int i) 
+{
+    int j;
+    /* we ran out of top nodes and must get more.*/
+    if((*topTreeSize + 8) > MaxTopNodes)
         return 1;
 
     /*Make a new topnode section attached to this node*/
-    topNodes[i].Daughter = NTopnodes;
-    NTopnodes += 8;
+    topTree[i].Daughter = *topTreeSize;
+    (*topTreeSize) += 8;
 
     /* Initialise this topnode with new sub nodes*/
     for(j = 0; j < 8; j++)
     {
-        const int sub = topNodes[i].Daughter + j;
+        const int sub = topTree[i].Daughter + j;
         /* The new sub nodes have this node as parent
          * and no daughters.*/
-        topNodes[sub].Daughter = -1;
-        topNodes[sub].Parent = i;
+        topTree[sub].Daughter = -1;
+        topTree[sub].Parent = i;
         /* Shorten the peano key by a factor 8, reflecting the oct-tree level.*/
-        topNodes[sub].Size = (topNodes[i].Size >> 3);
+        topTree[sub].Shift = topTree[i].Shift - 3;
         /* This is the region of peanospace covered by this node.*/
-        topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
+        topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
         /* We will compute the cost and initialise the first particle in the node below.
          * This PIndex value is never used*/
-        topNodes[sub].PIndex = topNodes[i].PIndex;
-        topNodes[sub].Count = 0;
-        topNodes[sub].Cost = 0;
-    }
-
-    /* Loop over all particles in this node so that the costs of the daughter nodes are correct*/
-    for(p = topNodes[i].PIndex, j = 0; p < topNodes[i].PIndex + topNodes[i].Count; p++)
-    {
-        const int sub = topNodes[i].Daughter;
-
-        /* This identifies which subnode this particle belongs to.
-         * Once this particle has passed the StartKey of the next daughter node,
-         * we increment the node the particle is added to and set the PIndex.*/
-        if(j < 7)
-            while(topNodes[sub + j + 1].StartKey <= mp[p].key)
-            {
-                topNodes[sub + j + 1].PIndex = p;
-                j++;
-                if(j >= 7)
-                    break;
-            }
-
-        /*Now we have identified the subnode for this particle, add it to the cost and count*/
-        topNodes[sub+j].Cost += domain_particle_costfactor(mp[p].index);
-        topNodes[sub+j].Count++;
-    }
-
-    /*Check and refine the new daughter nodes*/
-    for(j = 0; j < 8; j++)
-    {
-        const int sub = topNodes[i].Daughter + j;
-
-#ifdef DENSITY_INDEPENDENT_SPH_DEBUG
-        if(topNodes[sub].Count > All.TotNumPartInit /
-                (TOPNODEFACTOR * NTask * NTask))
-#endif
-            /* Refine each sub node. If we could not refine the node as needed,
-             * we are out of node space and need more.*/
-            if(domain_check_for_local_refine(sub, countlimit, costlimit, mp))
-                return 1;
+        topTree[sub].PIndex = topTree[i].PIndex;
+        topTree[sub].Count = 0;
+        topTree[sub].Cost = 0;
     }
     return 0;
 }
 
-int domain_nonrecursively_combine_topTree() {
+static void
+domain_toptree_update_cost(struct local_topnode_data * topTree, int start)
+{
+    if(topTree[start].Daughter == -1) return;
+
+    int j = 0;
+    for(j = 0; j < 8; j ++) {
+        int sub = topTree[start].Daughter + j;
+        domain_toptree_update_cost(topTree, sub);
+        topTree[start].Count += topTree[sub].Count;
+        topTree[start].Cost += topTree[sub].Cost;
+    }
+}
+
+/* This function recurively identify and terminate tree branches that are cheap.*/
+static void
+domain_toptree_truncate_r(struct local_topnode_data * topTree, int start, int64_t countlimit, int64_t costlimit)
+{
+    if(topTree[start].Daughter == -1) return;
+
+    if(topTree[start].Count < countlimit &&
+       topTree[start].Cost < costlimit) {
+        /* truncate here */
+        topTree[start].Daughter = -1;
+        return;
+    }
+
+    int j;
+    for(j = 0; j < 8; j ++) {
+        int sub = topTree[start].Daughter + j;
+        domain_toptree_truncate_r(topTree, sub, countlimit, costlimit);
+    }
+}
+
+/* remove the nodes that are no longer useful after the truncation.
+ *
+ * We walk the topTree top-down to collect useful nodes, and move them to
+ * the head of the topTree list.
+ *
+ * This works because any child node is stored after the parent in the list 
+ * -- we are destroying the old tree just slow enough
+ * */
+
+static void
+domain_toptree_garbage_collection(struct local_topnode_data * topTree, int start, int * last_free)
+{
+
+    if(topTree[start].Daughter == -1) return;
+    int j;
+
+    int oldd = topTree[start].Daughter;
+    int newd = *last_free;
+
+    topTree[start].Daughter = newd;
+
+    (*last_free) += 8;
+    for(j = 0; j < 8; j ++) {
+        topTree[newd + j] = topTree[oldd + j];
+        topTree[newd + j].Parent = start;
+        domain_toptree_garbage_collection(topTree, newd + j, last_free);
+    }
+}
+
+static void
+domain_toptree_truncate(
+    struct local_topnode_data * topTree, int * topTreeSize,
+    int64_t countlimit, int64_t costlimit)
+{
+
+    /* first terminate the tree.*/
+    domain_toptree_truncate_r(topTree, 0, countlimit, costlimit);
+
+    /* then remove the unused nodes from the topTree storage. This is important
+     * for efficient global merge */
+    *topTreeSize = 1; /* put in the root node -- it's never a garbage . */
+    domain_toptree_garbage_collection(topTree, 0, topTreeSize);
+}
+
+/* 
+ * This function performs local refinement of the topTree.
+ *
+ * It creates the local refinement by quickly going through
+ * a skeleton tree of a fraction (subsample) of all local particles.
+ *
+ * Next, we add flesh to the skeleton: all particles are deposited
+ * to the tree.
+ *
+ * Finally, in _truncation(), we chop off the cheap branches from the skeleton,
+ * terminating the branches when the cost and count are both sufficiently small.
+ *
+ * We do not use the full particle data. Sufficient to use LP, which contains
+ * the peano key and cost of each particle, and sorted by the peano key.
+ * */
+static int
+domain_check_for_local_refine_subsample(
+    struct local_topnode_data * topTree, int * topTreeSize,
+    struct local_particle_data * LP,
+    int sample_step)
+{
+    *topTreeSize = 1;
+    topTree[0].Daughter = -1;
+    topTree[0].Parent = -1;
+    topTree[0].Shift = BITS_PER_DIMENSION * 3;
+    topTree[0].StartKey = 0;
+    topTree[0].PIndex = 0;
+    topTree[0].Count = 0;
+    topTree[0].Cost = 0;
+
+    int i;
+
+    /* The tree building algorithm here requires the LP structure to
+     * be sorted by key, in which case we either refine
+     * the node the last particle lives in, or jump into a new empty node,
+     * as the particles are scanned through.
+     *
+     * I unfortunately cannot find the direct reference of this with
+     * the proof. I found it around 2012~2013 when writing psphray2
+     * and didn't cite it properly then!
+     *
+     * Here is a blog link that is related:
+     *
+     * https://devblogs.nvidia.com/parallelforall/thinking-parallel-part-iii-tree-construction-gpu/
+     *
+     * A few interesting papers that may make this faster and cheaper.
+     *
+     * http://sc07.supercomputing.org/schedule/pdf/pap117.pdf
+     *
+     * */
+
+    /* 1. sub sample every 16 particles to create a skeleton of the toptree.
+     * We do not use all particles to avoid excessive memory consumption.
+     *
+     * 1/16 is used because each local topTree node takes about 32 bytes.
+     *
+     * */
+
+
+    /* During the loop, topTree[?].Count is a flag to indicate if
+     * the node has been finished. We either refine the last leaf node
+     * or create a new leaf because of the peano/morton sorting.
+     * */
+    peano_t last_key = -1;
+    int last_leaf = -1;
+    i = 0;
+    while(i < NumPart) {
+
+        int leaf = domain_toptree_get_subnode(topTree, LP[i].Key);
+
+        if (leaf == last_leaf) {
+            /* two particles in a node? need refinement */
+            if(0 != domain_toptree_split(topTree, topTreeSize, leaf)) {
+                /* out of memory, retry */
+                return 1;
+            }
+            /* pop the last particle and reinsert it */
+            topTree[leaf].Count = 0;
+
+            last_leaf = domain_toptree_insert(topTree, last_key, 0);
+            /* retry the current particle. */
+            continue;
+        } else {
+            if(topTree[leaf].Count != 0) {
+                /* meeting a node that's already been finished ?
+                 * This shall not happen when key is already sorted;
+                 * due to the sorting.
+                 */
+                endrun(-1, "Failed to build the toptree\n");
+            }
+            /* this will create a new node. */
+            last_key = LP[i].Key;
+            last_leaf = domain_toptree_insert(topTree, last_key, 0);
+            i += sample_step;
+            continue;
+        }
+    }
+
+    /* Remove the subsample particles from the tree to make it a skeleton;
+     * note that we never bothered to add Cost when the skeleton was built.
+     * otherwise we shall clean it here too.*/
+    for(i = 0; i < *topTreeSize; i ++ ) {
+        topTree[i].Count = 0;
+    }
+
+    /* Next, insert all particles to the skeleton tree; Count will be correct because we cleaned them.*/
+    for(i = 0; i < NumPart; i ++ ) {
+        domain_toptree_insert(topTree, LP[i].Key, LP[i].Cost);
+    }
+
+    /* then compute the costs of the internal nodes. */
+    domain_toptree_update_cost(topTree, 0);
+
+    /* we leave truncation in another function, for costlimit and countlimit must be
+     * used in secondary refinement*/
+    return 0;
+}
+
+int
+domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int * topTreeSize)
+{
     /* 
      * combine topTree non recursively, this uses MPI_Bcast within a group.
      * it shall be quite a bit faster (~ x2) than the old recursive scheme.
      *
      * it takes less time at higher sep.
      *
-     * The communicate should have been done with MPI Inter communicator.
+     * The communication should have been done with MPI Inter communicator.
      * but I couldn't figure out how to do it that way.
      * */
     int sep = 1;
@@ -1545,7 +969,7 @@ int domain_nonrecursively_combine_topTree() {
         int Color = ThisTask / sep;
         int Key = ThisTask % sep;
         int ntopnodes_import = 0;
-        struct local_topnode_data * topNodes_import = NULL;
+        struct local_topnode_data * topTree_import = NULL;
 
         int recvTask = -1; /* by default do not communicate */
 
@@ -1564,40 +988,40 @@ int domain_nonrecursively_combine_topTree() {
                 MPI_Recv(
                         &ntopnodes_import, 1, MPI_INT, recvTask, TAG_GRAV_A,
                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-                topNodes_import = (struct local_topnode_data *) mymalloc("topNodes_import",
-                            IMAX(ntopnodes_import, NTopnodes) * sizeof(struct local_topnode_data));
+                topTree_import = (struct local_topnode_data *) mymalloc("topTree_import",
+                            IMAX(ntopnodes_import, *topTreeSize) * sizeof(struct local_topnode_data));
 
                 MPI_Recv(
-                        topNodes_import,
+                        topTree_import,
                         ntopnodes_import, MPI_TYPE_TOPNODE, 
                         recvTask, TAG_GRAV_B, 
                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
 
-                if((NTopnodes + ntopnodes_import) > MaxTopNodes) {
+                if((*topTreeSize + ntopnodes_import) > MaxTopNodes) {
                     errorflag = 1;
                 } else {
                     if(ntopnodes_import < 0) {
                         endrun(1, "severe domain error using a unintended rank \n");
                     }
                     if(ntopnodes_import > 0 ) {
-                        domain_insertnode(topNodes, topNodes_import, 0, 0);
+                        domain_toptree_merge(topTree, topTree_import, 0, 0, topTreeSize);
                     } 
                 }
-                myfree(topNodes_import);
+                myfree(topTree_import);
             }
         } else {
             /* odd guys send */
             recvTask = ThisTask - sep;
             if(recvTask >= 0) {
-                MPI_Send(&NTopnodes, 1, MPI_INT, recvTask, TAG_GRAV_A,
+                MPI_Send(topTreeSize, 1, MPI_INT, recvTask, TAG_GRAV_A,
                         MPI_COMM_WORLD);
-                MPI_Send(topNodes,
-                        NTopnodes, MPI_TYPE_TOPNODE,
+                MPI_Send(topTree,
+                        *topTreeSize, MPI_TYPE_TOPNODE,
                         recvTask, TAG_GRAV_B,
                         MPI_COMM_WORLD);
             }
-            NTopnodes = -1;
+            *topTreeSize = -1;
         }
 
 loop_continue:
@@ -1607,8 +1031,8 @@ loop_continue:
         }
     }
 
-    MPI_Bcast(&NTopnodes, 1, MPI_INT, 0, MPI_COMM_WORLD);
-    MPI_Bcast(topNodes, NTopnodes, MPI_TYPE_TOPNODE, 0, MPI_COMM_WORLD);
+    MPI_Bcast(topTreeSize, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(topTree, *topTreeSize, MPI_TYPE_TOPNODE, 0, MPI_COMM_WORLD);
     MPI_Type_free(&MPI_TYPE_TOPNODE);
     return errorflagall;
 }
@@ -1619,502 +1043,331 @@ loop_continue:
  *  in pieces of eight segments until each segment holds at most a certain
  *  number of particles.
  */
-int domain_determineTopTree(void)
+int domain_determine_global_toptree(struct local_topnode_data * topTree, int * topTreeSize)
 {
-    int i, j, sub;
-    int errflag, errsum;
-    double costlimit, countlimit;
+    int i;
 
-    struct peano_hilbert_data * mp = (struct peano_hilbert_data *) mymalloc("mp", sizeof(struct peano_hilbert_data) * NumPart);
+    struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", NumPart * sizeof(LP[0]));
 
-    #pragma omp parallel for
+#pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-        mp[i].key = P[i].Key;
-        mp[i].index = i;
+        LP[i].Key = P[i].Key;
+        LP[i].Cost = domain_particle_costfactor(i);
     }
 
     walltime_measure("/Domain/DetermineTopTree/Misc");
-    qsort_openmp(mp, NumPart, sizeof(struct peano_hilbert_data), peano_compare_key);
-    
-    walltime_measure("/Domain/DetermineTopTree/Sort");
 
-    NTopnodes = 1;
-    topNodes[0].Daughter = -1;
-    topNodes[0].Parent = -1;
-    topNodes[0].Size = PEANOCELLS;
-    topNodes[0].StartKey = 0;
-    topNodes[0].PIndex = 0;
-    topNodes[0].Count = NumPart;
-    topNodes[0].Cost = gravcost;
+    /* Watchout : Peano/Morton ordering is required by the tree
+     * building algorithm in local_refine.
+     *
+     * We can either use a global or a local sorting here; the code will run
+     * without crashing.
+     *
+     * A global sorting is chosen to ensure the local topTrees are really local
+     * and the leaves almost disjoint. This makes the merged topTree a more accurate
+     * representation of the true cost / load distribution, for merging
+     * and secondary refinement are approximated.
+     *
+     * A local sorting may be faster but makes the tree less accurate due to
+     * more likely running into overlapped local topTrees.
+     * */
 
-    costlimit = totgravcost / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
-    countlimit = totpartcount / (TOPNODEFACTOR * All.DomainOverDecompositionFactor * NTask);
-
-    errflag = domain_check_for_local_refine(0, countlimit, costlimit, mp);
-    walltime_measure("/Domain/DetermineTopTree/LocalRefine");
-
-    myfree(mp);
-
-    MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    if(errsum)
-    {
-        message(0, "We are out of Topnodes. We'll try to repeat with a higher value than All.TopNodeAllocFactor=%g\n",
-                 All.TopNodeAllocFactor);
-        return errsum;
+    if(All.DomainUseGlobalSorting) {
+        mpsort_mpi(LP, NumPart, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, MPI_COMM_WORLD);
+    } else {
+        qsort_openmp(LP, NumPart, sizeof(struct local_particle_data), order_by_key);
     }
 
+    walltime_measure("/Domain/DetermineTopTree/Sort");
 
-    /* we now need to exchange tree parts and combine them as needed */
+    int local_refine_failed = MPIU_Any(0 != domain_check_for_local_refine_subsample(topTree, topTreeSize, LP, 16), MPI_COMM_WORLD);
 
-    
-    errflag = domain_nonrecursively_combine_topTree();
+    myfree(LP);
 
-    walltime_measure("/Domain/DetermineTopTree/Combine");
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine/Init");
+
+    if(local_refine_failed) {
+        message(0, "We are out of Topnodes. We'll try to repeat with a higher value than All.TopNodeAllocFactor=%g\n",
+                 All.TopNodeAllocFactor);
+        return 1;
+    }
+
+    int64_t TotCost = 0, TotCount = 0;
+    int64_t costlimit, countlimit;
+
+    MPI_Allreduce(&topTree[0].Cost, &TotCost, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&topTree[0].Count, &TotCount, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+
+    costlimit = TotCost / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
+    countlimit = TotCount / (All.TopNodeIncreaseFactor * All.DomainOverDecompositionFactor * NTask);
+
+    domain_toptree_truncate(topTree, topTreeSize, countlimit, costlimit);
+
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine/truncate");
+
+    if(*topTreeSize > 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor) {
+        message(1, "local TopTree Size =%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
+            *topTreeSize, 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor);
+    }
+    walltime_measure("/Domain/DetermineTopTree/LocalRefine/GC");
+
+
 #if 0
     char buf[1000];
     sprintf(buf, "topnodes.bin.%d", ThisTask);
     FILE * fd = fopen(buf, "w");
 
     /* these PIndex are non-essential in other modules, so we reset them */
-    for(i = 0; i < NTopnodes; i ++) {
-        topNodes[i].PIndex = -1;
+    for(i = 0; i < *topTreeSize; i ++) {
+        topTree[i].PIndex = -1;
     }
-    fwrite(topNodes, sizeof(struct local_topnode_data), NTopnodes, fd);
+    fwrite(topTree, sizeof(struct local_topnode_data), *topTreeSize, fd);
     fclose(fd);
 
     //MPI_Barrier(MPI_COMM_WORLD);
     //MPI_Abort(MPI_COMM_WORLD, 0);
 #endif
-    MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-    if(errsum)
+    /* we now need to exchange tree parts and combine them as needed */
+
+    int combine_failed = MPIU_Any(0 != domain_nonrecursively_combine_topTree(topTree, topTreeSize), MPI_COMM_WORLD);
+
+    walltime_measure("/Domain/DetermineTopTree/Combine");
+
+    if(combine_failed)
     {
         message(0, "can't combine trees due to lack of storage. Will try again.\n");
-        return errsum;
+        return 1;
     }
 
-    /* now let's see whether we should still append more nodes, based on the estimated cumulative cost/count in each cell */
+    /* now let's see whether we should still more refinements, based on the estimated cumulative cost/count in each cell */
 
+    int global_refine_failed = MPIU_Any(0 != domain_global_refine(topTree, topTreeSize, countlimit, costlimit), MPI_COMM_WORLD);
 
-#ifndef DENSITY_INDEPENDENT_SPH_DEBUG
-    message(0, "Before=%d\n", NTopnodes);
-
-    for(i = 0, errflag = 0; i < NTopnodes; i++)
-    {
-        if(topNodes[i].Daughter < 0)
-            if(topNodes[i].Count > countlimit || topNodes[i].Cost > costlimit)	/* ok, let's add nodes if we can */
-                if(topNodes[i].Size > 1)
-                {
-                    if((NTopnodes + 8) <= MaxTopNodes)
-                    {
-                        topNodes[i].Daughter = NTopnodes;
-
-                        for(j = 0; j < 8; j++)
-                        {
-                            sub = topNodes[i].Daughter + j;
-                            topNodes[sub].Size = (topNodes[i].Size >> 3);
-                            topNodes[sub].Count = topNodes[i].Count / 8;
-                            topNodes[sub].Cost = topNodes[i].Cost / 8;
-                            topNodes[sub].Daughter = -1;
-                            topNodes[sub].Parent = i;
-                            topNodes[sub].StartKey = topNodes[i].StartKey + j * topNodes[sub].Size;
-                        }
-
-                        NTopnodes += 8;
-                    }
-                    else
-                    {
-                        errflag = 1;
-                        break;
-                    }
-                }
-    }
-
-    MPI_Allreduce(&errflag, &errsum, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    if(errsum)
-        return errsum;
-
-    message(0, "After=%d\n", NTopnodes);
-#endif
     walltime_measure("/Domain/DetermineTopTree/Addnodes");
-    /* count toplevel leaves */
-    domain_sumCost();
-    walltime_measure("/Domain/DetermineTopTree/Sumcost");
 
-    if(NTopleaves < All.DomainOverDecompositionFactor * NTask)
-        endrun(112, "Number of Topleaves is less than required over decomposition");
+    if(global_refine_failed)
+        return 1;
+
+    message(0, "Final local topTree size = %d per segment = %g.\n", *topTreeSize, 1.0 * (*topTreeSize) / (All.DomainOverDecompositionFactor * NTask));
 
     return 0;
 }
 
-
-
-void domain_sumCost(void)
+static int
+domain_global_refine(
+    struct local_topnode_data * topTree, int * topTreeSize,
+    int64_t countlimit, int64_t costlimit)
 {
     int i;
-    float * local_domainWork = (float *) mymalloc("local_domainWork", All.NumThreads * NTopnodes * sizeof(float));
-    int * local_domainCount = (int *) mymalloc("local_domainCount", All.NumThreads * NTopnodes * sizeof(int));
-    int * local_domainCountSph = (int *) mymalloc("local_domainCountSph", All.NumThreads * NTopnodes * sizeof(int));
 
-    memset(local_domainWork, 0, All.NumThreads * NTopnodes * sizeof(float));
-    memset(local_domainCount, 0, All.NumThreads * NTopnodes * sizeof(float));
-    memset(local_domainCountSph, 0, All.NumThreads * NTopnodes * sizeof(float));
+    /* At this point we have refined the local particle tree so that each
+     * topNode contains a Cost and Count below the cost threshold. We have then
+     * done a global merge of the particle tree. Some of our topTree may now contain
+     * more particles than the Cost threshold, but repeating refinement using the local
+     * algorithm is complicated - particles inside any particular topNode may be
+     * on another processor. So we do a local volume based refinement here. This
+     * just cuts each topNode above the threshold into 8 equal-sized portions by
+     * subdividing the peano key.
+     *
+     * NOTE: Just like the merge, this does not correctly preserve costs!
+     * Costs are just divided by 8, because recomputing them for the daughter nodes
+     * will be expensive.
+     * In practice this seems to work fine, probably because the cost distribution
+     * is not that unbalanced. */
 
-    NTopleaves = 0;
-    domain_walktoptree(0);
+    message(0, "local topTree size before appending=%d\n", *topTreeSize);
 
-    message(0, "NTopleaves= %d  NTopnodes=%d (space for %d)\n", NTopleaves, NTopnodes, MaxTopNodes);
+    /*Note that *topTreeSize will change inside the loop*/
+    for(i = 0; i < *topTreeSize; i++)
+    {
+        /*If this node has no children and non-zero size*/
+        if(topTree[i].Daughter >= 0 || topTree[i].Shift <= 0) continue;
+
+        /*If this node is also more costly than the limit*/
+        if(topTree[i].Count < countlimit && topTree[i].Cost < costlimit) continue;
+
+        /*If we have no space for another 8 topTree, exit */
+        if((*topTreeSize + 8) > MaxTopNodes) {
+            return 1;
+        }
+
+        topTree[i].Daughter = *topTreeSize;
+        int j;
+        for(j = 0; j < 8; j++)
+        {
+            int sub = topTree[i].Daughter + j;
+            topTree[sub].Shift = topTree[i].Shift - 3;
+            topTree[sub].Count = topTree[i].Count / 8;
+            topTree[sub].Cost = topTree[i].Cost / 8;
+            topTree[sub].Daughter = -1;
+            topTree[sub].Parent = i;
+            topTree[sub].StartKey = topTree[i].StartKey + j * (1L << topTree[sub].Shift);
+        }
+        (*topTreeSize) += 8;
+    }
+    return 0;
+}
+
+
+void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
+{
+    int i;
+    int64_t * local_TopLeafWork = (int64_t *) mymalloc("local_TopLeafWork", All.NumThreads * NTopLeaves * sizeof(local_TopLeafWork[0]));
+    int64_t * local_TopLeafCount = (int64_t *) mymalloc("local_TopLeafCount", All.NumThreads * NTopLeaves * sizeof(local_TopLeafCount[0]));
+
+    memset(local_TopLeafWork, 0, All.NumThreads * NTopLeaves * sizeof(local_TopLeafWork[0]));
+    memset(local_TopLeafCount, 0, All.NumThreads * NTopLeaves * sizeof(local_TopLeafCount[0]));
 
 #pragma omp parallel
     {
         int tid = omp_get_thread_num();
         int n;
 
-        float * mylocal_domainWork = local_domainWork + tid * NTopleaves;
-        int * mylocal_domainCount = local_domainCount + tid * NTopleaves;
-        int * mylocal_domainCountSph = local_domainCountSph + tid * NTopleaves;
+        int64_t * mylocal_TopLeafWork = local_TopLeafWork + tid * NTopLeaves;
+        int64_t * mylocal_TopLeafCount = local_TopLeafCount + tid * NTopLeaves;
 
-#pragma omp for
+        #pragma omp for
         for(n = 0; n < NumPart; n++)
         {
-            int no = domain_leafnodefunc(P[n].Key);
+            int no = domain_get_topleaf(P[n].Key);
 
-            mylocal_domainWork[no] += (float) domain_particle_costfactor(n);
+            mylocal_TopLeafWork[no] += domain_particle_costfactor(n);
 
-            mylocal_domainCount[no] += 1;
-
-            if(P[n].Type == 0) {
-                mylocal_domainCountSph[no] += 1;
-            }
+            mylocal_TopLeafCount[no] += 1;
         }
     }
 
 #pragma omp parallel for
-    for(i = 0; i < NTopleaves; i++)
+    for(i = 0; i < NTopLeaves; i++)
     {
         int tid;
         for(tid = 1; tid < All.NumThreads; tid++) {
-            local_domainWork[i] += local_domainWork[i + tid * NTopleaves];
-            local_domainCount[i] += local_domainCount[i + tid * NTopleaves];
-            local_domainCountSph[i] += local_domainCountSph[i + tid * NTopleaves];
+            local_TopLeafWork[i] += local_TopLeafWork[i + tid * NTopLeaves];
+            local_TopLeafCount[i] += local_TopLeafCount[i + tid * NTopLeaves];
         }
     }
 
-    MPI_Allreduce(local_domainWork, domainWork, NTopleaves, MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(local_domainCount, domainCount, NTopleaves, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(local_domainCountSph, domainCountSph, NTopleaves, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-    myfree(local_domainCountSph);
-    myfree(local_domainCount);
-    myfree(local_domainWork);
+    MPI_Allreduce(local_TopLeafWork, TopLeafWork, NTopLeaves, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(local_TopLeafCount, TopLeafCount, NTopLeaves, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
+    myfree(local_TopLeafCount);
+    myfree(local_TopLeafWork);
 }
 
+/* 
+ * Merge treeB into treeA.
+ *
+ * The function recursively merge the cost and refinement of treeB into treeA.
+ *
+ * At the initial call, noA and noB must both be the root node.
+ *
+ * When the structure is mismatched, e.g. a leaf in A meets a branch in B or
+ * a leaf in B meets a branch in A, the cost of the leaf is splitted evenly.
+ * This is only an approximation then the leaf is not empty.
+ *
+ * We therefore have an incentive to minimize overlaps between treeB and treeA.
+ * local_refinement does a global sorting of keys to help that.
+ *
+ * */
 
-/*! This routine finds the extent of the global domain grid.
-*/
-void domain_findExtent(void)
-{
-    int i;
-    double len, xmin[3], xmax[3], xmin_glob[3], xmax_glob[3];
-
-    /* determine local extension */
-    int j;
-    for(j = 0; j < 3; j++)
-    {
-        xmin[j] = MAX_REAL_NUMBER;
-        xmax[j] = -MAX_REAL_NUMBER;
-    }
-
-#pragma omp parallel private(i)
-    {
-        double xminT[3], xmaxT[3];
-        int j;
-        for(j = 0; j < 3; j++)
-        {
-            xminT[j] = MAX_REAL_NUMBER;
-            xmaxT[j] = -MAX_REAL_NUMBER;
-        }
-
-#pragma omp for
-        for(i = 0; i < NumPart; i++)
-        {
-            int j;
-            for(j = 0; j < 3; j++)
-            {
-                if(xminT[j] > P[i].Pos[j])
-                    xminT[j] = P[i].Pos[j];
-
-                if(xmaxT[j] < P[i].Pos[j])
-                    xmaxT[j] = P[i].Pos[j];
-            }
-        }
-#pragma omp critical 
-        {
-            for(j = 0; j < 3; j++) {
-                if(xmin[j] > xminT[j]) 
-                    xmin[j] = xminT[j]; 
-                if(xmax[j] < xmaxT[j]) 
-                    xmax[j] = xmaxT[j]; 
-            
-            } 
-        }
-    }
-
-    MPI_Allreduce(xmin, xmin_glob, 3, MPI_DOUBLE, MPI_MIN, MPI_COMM_WORLD);
-    MPI_Allreduce(xmax, xmax_glob, 3, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
-
-    len = 0;
-    for(j = 0; j < 3; j++)
-        if(xmax_glob[j] - xmin_glob[j] > len)
-            len = xmax_glob[j] - xmin_glob[j];
-
-    len *= 1.001;
-
-    for(j = 0; j < 3; j++)
-    {
-        DomainCenter[j] = 0.5 * (xmin_glob[j] + xmax_glob[j]);
-        DomainCorner[j] = 0.5 * (xmin_glob[j] + xmax_glob[j]) - 0.5 * len;
-    }
-
-    DomainLen = len;
-    DomainFac = 1.0 / len * (((peanokey) 1) << (BITS_PER_DIMENSION));
-}
-
-
-
-
-void domain_add_cost(struct local_topnode_data *treeA, int noA, int64_t count, double cost)
-{
-    int i, sub;
-    int64_t countA, countB;
-
-    countB = count / 8;
-    countA = count - 7 * countB;
-
-    cost = cost / 8;
-
-    for(i = 0; i < 8; i++)
-    {
-        sub = treeA[noA].Daughter + i;
-
-        if(i == 0)
-            count = countA;
-        else
-            count = countB;
-
-        treeA[sub].Count += count;
-        treeA[sub].Cost += cost;
-
-        if(treeA[sub].Daughter >= 0)
-            domain_add_cost(treeA, sub, count, cost);
-    }
-}
-
-
-void domain_insertnode(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB)
+static void
+domain_toptree_merge(struct local_topnode_data *treeA,
+                     struct local_topnode_data *treeB,
+                     int noA, int noB, int * treeASize)
 {
     int j, sub;
-    int64_t count, countA, countB;
-    double cost, costA, costB;
+    int64_t count;
+    int64_t cost;
 
-    if(treeB[noB].Size < treeA[noA].Size)
+    if(treeB[noB].Shift < treeA[noA].Shift)
     {
+        /* Add B to A */
+        /* Create a daughter to a, since we will merge B to A's daughter*/
         if(treeA[noA].Daughter < 0)
         {
-            if((NTopnodes + 8) <= MaxTopNodes)
-            {
-                count = treeA[noA].Count - treeB[treeB[noB].Parent].Count;
-                countB = count / 8;
-                countA = count - 7 * countB;
-
-                cost = treeA[noA].Cost - treeB[treeB[noB].Parent].Cost;
-                costB = cost / 8;
-                costA = cost - 7 * costB;
-
-                treeA[noA].Daughter = NTopnodes;
-                for(j = 0; j < 8; j++)
-                {
-                    if(j == 0)
-                    {
-                        count = countA;
-                        cost = costA;
-                    }
-                    else
-                    {
-                        count = countB;
-                        cost = costB;
-                    }
-
-                    sub = treeA[noA].Daughter + j;
-                    topNodes[sub].Size = (treeA[noA].Size >> 3);
-                    topNodes[sub].Count = count;
-                    topNodes[sub].Cost = cost;
-                    topNodes[sub].Daughter = -1;
-                    topNodes[sub].Parent = noA;
-                    topNodes[sub].StartKey = treeA[noA].StartKey + j * treeA[sub].Size;
-                }
-                NTopnodes += 8;
+            if((*treeASize + 8) >= MaxTopNodes) {
+                endrun(88, "Too many Topnodes; this shall not happen because we ensure there is enough and bailed earlier than this\n");
             }
-            else
-                endrun(88, "Too many Topnodes");
+            /* noB must have a parent if we are here, since noB is lower than noA;
+             * noA must have already merged in the cost of noB's parent.
+             * This is the first time we create these children in A, thus,
+             * We shall evenly divide the non-B part of the cost in these children;
+             * */
+
+            count = treeA[noA].Count - treeB[treeB[noB].Parent].Count;
+            cost = treeA[noA].Cost - treeB[treeB[noB].Parent].Cost;
+
+            treeA[noA].Daughter = *treeASize;
+            for(j = 0; j < 8; j++)
+            {
+
+                sub = treeA[noA].Daughter + j;
+                treeA[sub].Shift = treeA[noA].Shift - 3;
+                treeA[sub].Count = (j + 1) * count / 8 - j * count / 8;
+                treeA[sub].Cost  = (j + 1) * cost / 8 - j * cost / 8;
+                treeA[sub].Daughter = -1;
+                treeA[sub].Parent = noA;
+                treeA[sub].StartKey = treeA[noA].StartKey + j * (1L << treeA[sub].Shift);
+            }
+            (*treeASize) += 8;
         }
 
-        sub = treeA[noA].Daughter + (treeB[noB].StartKey - treeA[noA].StartKey) / (treeA[noA].Size >> 3);
-        domain_insertnode(treeA, treeB, sub, noB);
+        /* find the sub node in A for me and merge, this would bring noB and sub on the same shift, drop to next case */
+        sub = treeA[noA].Daughter + ((treeB[noB].StartKey - treeA[noA].StartKey) >> (treeA[noA].Shift - 3));
+        domain_toptree_merge(treeA, treeB, sub, noB, treeASize);
     }
-    else if(treeB[noB].Size == treeA[noA].Size)
+    else if(treeB[noB].Shift == treeA[noA].Shift)
     {
         treeA[noA].Count += treeB[noB].Count;
         treeA[noA].Cost += treeB[noB].Cost;
 
+        /* Prefer to go down B; this would trigger the previous case  */
         if(treeB[noB].Daughter >= 0)
         {
             for(j = 0; j < 8; j++)
             {
                 sub = treeB[noB].Daughter + j;
-                domain_insertnode(treeA, treeB, noA, sub);
+                domain_toptree_merge(treeA, treeB, noA, sub, treeASize);
             }
         }
         else
         {
-            if(treeA[noA].Daughter >= 0)
-                domain_add_cost(treeA, noA, treeB[noB].Count, treeB[noB].Cost);
-        }
-    }
-    else
-        endrun(89, "The tree is corrupted, cannot merge them. What is the invariance here?");
-}
-
-
-/* remove mass = 0 particles, holes in sph chunk and holes in bh buffer;
- * returns 1 if tree / timebin is invalid */
-int
-domain_garbage_collection(void)
-{
-    int tree_invalid = 0;
-
-    /* tree is invalidated of the sequence on P is reordered; */
-    /* TODO: in principle we can track this change and modify the tree nodes;
-     * But doing so requires cleaning up the TimeBin link lists, and the tree
-     * link lists first. likely worth it, since GC happens only in domain decompose
-     * and snapshot IO, both take far more time than rebuilding the tree. */
-    tree_invalid |= domain_sph_garbage_collection_reclaim();
-    tree_invalid |= domain_all_garbage_collection();
-    tree_invalid |= domain_bh_garbage_collection();
-
-    MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
-
-    domain_count_particles();
-
-    return tree_invalid;
-}
-
-void
-domain_refresh_totals()
-{
-    int ptype;
-    /* because NTotal[] is of type `int64_t', we cannot do a simple
-     * MPI_Allreduce() to sum the total particle numbers 
-     */
-    MPI_Allreduce(NLocal, NTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
-
-    TotNumPart = 0;
-    for(ptype = 0; ptype < 6; ptype ++) {
-        TotNumPart += NTotal[ptype];
-    }
-}
-
-static int
-domain_sph_garbage_collection_reclaim()
-{
-    int tree_invalid = 0;
-
-    int64_t total0, total;
-    sumup_large_ints(1, &N_sph_slots, &total0);
-
-#ifdef SFR
-    int i;
-    for(i = 0; i < N_sph_slots; i++) {
-        while(P[i].Type != 0 && i < N_sph_slots) {
-            /* remove this particle from SphP, because
-             * it is no longer a SPH
-             * */
-            /* note that when i == N-sph - 1 this doesn't really do any
-             * thing. no harm done */
-            struct particle_data psave;
-            psave = P[i];
-            P[i] = P[N_sph_slots - 1];
-            SPHP(i) = SPHP(N_sph_slots - 1);
-            P[N_sph_slots - 1] = psave;
-            tree_invalid = 1;
-            N_sph_slots --;
-        }
-    }
-#endif
-    sumup_large_ints(1, &N_sph_slots, &total);
-    if(total != total0) {
-        message(0, "GC: Reclaiming SPH slots from %ld to %ld\n", total0, total);
-    }
-    return tree_invalid;
-}
-
-static int
-domain_all_garbage_collection()
-{
-    int i, tree_invalid = 0; 
-    int count_elim, count_gaselim;
-    int64_t total0, total;
-    int64_t total0_gas, total_gas;
-
-    sumup_large_ints(1, &N_sph_slots, &total0_gas);
-    sumup_large_ints(1, &NumPart, &total0);
-
-    count_elim = 0;
-    count_gaselim = 0;
-
-    for(i = 0; i < NumPart; i++)
-        if(P[i].Mass == 0)
-        {
-            TimeBinCount[P[i].TimeBin]--;
-
-            if(P[i].Type == 0)
-            {
-                TimeBinCountSph[P[i].TimeBin]--;
-
-                P[i] = P[N_sph_slots - 1];
-                SPHP(i) = SPHP(N_sph_slots - 1);
-
-                P[N_sph_slots - 1] = P[NumPart - 1];
-
-                N_sph_slots--;
-
-                count_gaselim++;
-            } else
-            {
-                P[i] = P[NumPart - 1];
+            /* We can't divide by B so we do it for A, this may trigger the next branch, since
+             * we are lowering A */
+            if(treeA[noA].Daughter >= 0) {
+                for(j = 0; j < 8; j++) {
+                    sub = treeA[noA].Daughter + j;
+                    domain_toptree_merge(treeA, treeB, sub, noB, treeASize);
+                }
             }
-
-            NumPart--;
-            i--;
-
-            count_elim++;
         }
-
-    sumup_large_ints(1, &N_sph_slots, &total_gas);
-    sumup_large_ints(1, &NumPart, &total);
-
-    if(total_gas != total0_gas) {
-        message(0, "GC : Reducing SPH slots from %ld to %ld\n", total0_gas, total_gas);
     }
+    else if(treeB[noB].Shift > treeA[noA].Shift)
+    {
+        /* Since we only know how to split A, here we simply add a spatial average to A */
+        int n = 1L << (treeB[noB].Shift - treeA[noA].Shift);
 
-    if(total != total0) {
-        message(0, "GC : Reducing Particle slots from %ld to %ld\n", total0, total);
-        tree_invalid = 1;
+        count = treeB[noB].Count;
+        cost = treeB[noB].Cost;
+
+        /* this is no longer conserving total cost but it should be fine .. */
+        treeA[noA].Count += count / n;
+        treeA[noA].Cost += cost / n;
+
+        // message(1, "adding cost to %d %td, %td\n", noA, count / n, cost / n);
+        if(treeA[noA].Daughter >= 0) {
+            for(j = 0; j < 8; j++) {
+                sub = treeA[noA].Daughter + j;
+                domain_toptree_merge(treeA, treeB, sub, noB, treeASize);
+            }
+        }
     }
-    return tree_invalid;
 }
 
-static void radix_id(const void * data, void * radix, void * arg) {
+/* used only by test uniqueness */
+static void
+mp_order_by_id(const void * data, void * radix, void * arg) {
     ((uint64_t *) radix)[0] = ((MyIDType*) data)[0];
 }
 
@@ -2140,7 +1393,7 @@ domain_test_id_uniqueness(void)
     for(i = 0; i < NumPart; i++)
         ids[i] = P[i].ID;
 
-    mpsort_mpi(ids, NumPart, sizeof(MyIDType), radix_id, 8, NULL, MPI_COMM_WORLD);
+    mpsort_mpi(ids, NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
 
     for(i = 1; i < NumPart; i++)
         if(ids[i] == ids[i - 1])
@@ -2165,3 +1418,43 @@ domain_test_id_uniqueness(void)
 
     message(0, "success.  took=%g sec\n", timediff(t0, t1));
 }
+
+static int
+order_by_key(const void *a, const void *b)
+{
+    const struct local_particle_data * pa  = (const struct local_particle_data *) a;
+    const struct local_particle_data * pb  = (const struct local_particle_data *) b;
+    if(pa->Key < pb->Key)
+        return -1;
+
+    if(pa->Key > pb->Key)
+        return +1;
+
+    return 0;
+}
+
+static void
+mp_order_by_key(const void * data, void * radix, void * arg)
+{
+    const struct local_particle_data * pa  = (const struct local_particle_data *) data;
+    ((uint64_t *) radix)[0] = pa->Key;
+}
+
+static int
+order_by_type_and_key(const void *a, const void *b)
+{
+    const struct particle_data * pa  = (const struct particle_data *) a;
+    const struct particle_data * pb  = (const struct particle_data *) b;
+
+    if(pa->Type < pb->Type)
+        return -1;
+    if(pa->Type > pb->Type)
+        return +1;
+    if(pa->Key < pb->Key)
+        return -1;
+    if(pa->Key > pb->Key)
+        return +1;
+
+    return 0;
+}
+

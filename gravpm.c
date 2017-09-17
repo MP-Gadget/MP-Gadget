@@ -2,7 +2,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include "allvars.h"
-#include "proto.h"
 #include "forcetree.h"
 #include "petapm.h"
 #include "powerspectrum.h"
@@ -40,10 +39,9 @@ void gravpm_init_periodic() {
     powerspectrum_alloc(&PowerSpectrum, All.Nmesh, All.NumThreads);
 }
 
-/* If noforce is zero, computes the gravitational force on the PM grid
- * and saves the total matter power spectrum.
- * If noforce != 0, just saves the total matter power spectrum.*/
-void gravpm_force(int noforce) {
+/* Computes the gravitational force on the PM grid
+ * and saves the total matter power spectrum.*/
+void gravpm_force(void) {
     PetaPMParticleStruct pstruct = {
         P,
         sizeof(P[0]),
@@ -54,20 +52,25 @@ void gravpm_force(int noforce) {
     };
 
     powerspectrum_zero(&PowerSpectrum);
-    /*If we don't want the force, just pass NULL for the force readout functions*/
-    PetaPMFunctions * funcptr = functions;
-    if(noforce)
-        funcptr = NULL;
+    int i;
+    #pragma omp parallel for
+    for(i = 0; i < NumPart; i++)
+    {
+        P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = P[i].PM_Potential = 0;
+    }
     /*
      * we apply potential transfer immediately after the R2C transform,
      * Therefore the force transfer functions are based on the potential,
      * not the density.
      * */
-    petapm_force(_prepare, potential_transfer, funcptr, &pstruct, NULL);
+    petapm_force(_prepare, potential_transfer, functions, &pstruct, NULL);
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     /*Now save the power spectrum*/
     if(ThisTask == 0)
-        powerspectrum_save(&PowerSpectrum, All.OutputDir, All.Time, GrowthFactor(All.Time));
+        powerspectrum_save(&PowerSpectrum, All.OutputDir, All.Time, GrowthFactor(All.Time, 1.0));
+    walltime_measure("/LongRange");
+    /*Rebuild the force tree we freed in _prepare to save memory*/
+    force_tree_rebuild();
 }
 
 static double pot_factor;
@@ -77,7 +80,6 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
      *        Gravity       k2            DFT (dk **3, but )
      * */
     pot_factor = - All.G / (M_PI * All.BoxSize);	/* to get potential */
-
 
     /*
      *
@@ -90,18 +92,16 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
      * to exactly one region even though it may be covered by two)
      *
      * */
-    int no;
     /* In worst case, each topleave becomes a region: thus
-     * NTopleaves is sufficient */
-    PetaPMRegion * regions = malloc(sizeof(PetaPMRegion) * NTopleaves);
+     * NTopLeaves is sufficient */
+    PetaPMRegion * regions = malloc(sizeof(PetaPMRegion) * NTopLeaves);
 
     int r = 0;
 
-    no = All.MaxPart; /* start with the root */
+    int no = All.MaxPart; /* start with the root */
     while(no >= 0) {
-        force_drift_node(no, All.Ti_Current);
 
-        if(!(Nodes[no].u.d.bitflags & (1 << BITFLAG_DEPENDS_ON_LOCAL_MASS))) {
+        if(!(Nodes[no].f.DependsOnLocalMass)) {
             /* node doesn't contain particles on this process, do not open */
             no = Nodes[no].u.d.sibling;
             continue;
@@ -111,9 +111,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
            (Nodes[no].len <= All.BoxSize / All.Nmesh * 24)
            ||
             /* node is a top leaf */
-            (
-            !(Nodes[no].u.d.bitflags & (1 << BITFLAG_INTERNAL_TOPLEVEL))
-            && (Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL)))
+            ( !Nodes[no].f.InternalTopLevel && (Nodes[no].f.TopLevel) )
                 ) {
             regions[r].no = no;
             r ++;
@@ -154,6 +152,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     for(r =0; r < *Nregions; r++) {
         convert_node_to_region(&regions[r]);
     }
+    /*This is done to conserve memory during the PM step*/
     if(force_tree_allocated()) force_tree_free();
     walltime_measure("/PMgrav/Regions");
     return regions;
@@ -170,7 +169,11 @@ static int pm_mark_region_for_node(int startno, int rid) {
         {
             p = no;
             no = Nextnode[no];
-            drift_particle(p, All.Ti_Current);
+            /* when we are in PM, all particles must have been synced. */
+            if (P[p].Ti_drift != All.Ti_Current) {
+                abort();
+            }
+
             P[p].RegionInd = rid;
             /*
              *
@@ -210,8 +213,6 @@ static int pm_mark_region_for_node(int startno, int rid) {
                 continue;
             }
 
-            force_drift_node(no, All.Ti_Current);
-
             no = Nodes[no].u.d.nextnode;	/* ok, we need to open the node */
         }
     }
@@ -225,7 +226,7 @@ static void convert_node_to_region(PetaPMRegion * r) {
     int no = r->no;
 #if 0
     printf("task = %d no = %d len = %g hmax = %g center = %g %g %g\n",
-            ThisTask, no, Nodes[no].len, Extnodes[no].hmax,
+            ThisTask, no, Nodes[no].len, Nodes[no].hmax,
             Nodes[no].center[0],
             Nodes[no].center[1],
             Nodes[no].center[2]);
@@ -241,7 +242,6 @@ static void convert_node_to_region(PetaPMRegion * r) {
     petapm_region_init_strides(r);
 
     r->len  = Nodes[no].len;
-    r->hmax = Extnodes[no].hmax;
 }
 
 /********************

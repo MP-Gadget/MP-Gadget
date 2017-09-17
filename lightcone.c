@@ -12,6 +12,7 @@
 #include "proto.h"
 #include "cosmology.h"
 #include "endrun.h"
+#include "system.h"
 
 #define NENTRY 4096
 static double tab_loga[NENTRY];
@@ -53,7 +54,7 @@ M, L = self.M, self.L
 */
 static double kernel(double loga, void * params) {
     double a = exp(loga);
-    return 1 / hubble_function(a) * All.Hubble / a;
+    return 1 / hubble_function(a) * All.CP.Hubble / a;
 } 
 
 static void lightcone_init_entry(int i) {

@@ -16,9 +16,6 @@ OPT += -DDENSITY_INDEPENDENT_SPH
 OPT += -DOPENMP_USE_SPINLOCK
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 
-#--------------------------------------- Multi-Domain and Top-Level Tree options
-OPT	+=  -DTOPNODEFACTOR=5.0
-
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
 OPT	+=  -DSFR
@@ -33,4 +30,3 @@ OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
 OPT	+=  -DINCLUDE_RADIATION		# Add radiation density to backround evolution. Only affects the Hubble flow.
 #OPT	+=  -DTRADITIONAL_SPH_FORMULATION
 OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
-OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very different from collisionless particles, this can helps to avoid problems in the domain decomposition -- increase All.MaxPartSph

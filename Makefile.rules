@@ -19,53 +19,50 @@ OBJECTS  =  \
 	 gdbtools.o \
 	 fof.o fofpetaio.o petaio.o \
 	 param.o paramset.o utils-string.o \
-	 domain.o allvars.o main.o \
-	 blackhole.o \
-	 run.o predict.o begrun.o endrun.o global.o \
+	 domain.o exchange.o garbage.o allvars.o main.o \
+	 blackhole.o timebinmgr.o \
+	 run.o drift.o begrun.o endrun.o global.o \
 	 timestep.o init.o io.o sfr_eff.o \
-	 accel.o \
 	 cooling.o openmpsort.o \
 	 system.o allocate.o density.o \
 	 treewalk.o cosmology.o \
-	 gravshort-tree.o gravshort-tree-old.o gravshort-pair.o hydra.o  driftfac.o \
+	 gravshort-tree.o gravshort-tree-old.o gravshort-pair.o hydra.o  timefac.o \
 	 gravpm.o powerspectrum.o \
 	 forcetree.o peano.o \
 	 petapm.o longrange.o mymalloc.o \
 	 densitykernel.o interp.o lightcone.o walltime.o\
 	 runtests.o \
 
-ICOBJECTS   = genic-main.o genic-power.o genic-allvars.o genic-params.o \
+ICOBJECTS   = genic/main.o genic/power.o genic/allvars.o genic/params.o \
+		genic/zeldovich.o genic/save.o \
 		 petapm.o \
         paramset.o \
         utils-string.o \
 		 openmpsort.o \
-		genic-zeldovich.o \
-		genic-save.o  \
 		walltime.o \
         mymalloc.o \
+        cosmology.o \
         endrun.o \
 
 INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
-	 fof.h cosmology.h powerspectrum.h \
-	 petaio.h
-
-TESTED = interp powerspectrum
+	 fof.h cosmology.h powerspectrum.h timestep.h sfr_eff.h drift.h timefac.h \
+	 petaio.h blackhole.h physconst.h
 
 EXEC = $(TARGETS:%=$(DESTDIR)/%)
 OBJS = $(OBJECTS:%=$(DESTDIR)/%)
-TESTBIN = $(TESTED:%=$(DESTDIR)/%_test)
 ICOBJS = $(ICOBJECTS:%=$(DESTDIR)/%)
 FILES = $(shell git ls-files)
 
 all: depends builddir $(EXEC)
 
-.PHONY: depends builddir test all
+.PHONY: depends builddir all
 
 depends:
 	cd depends; make
 
 builddir:
 	mkdir -p $(DESTDIR)
+	mkdir -p $(DESTDIR)/genic
 
 $(DESTDIR)/MP-Gadget: $(OBJS)
 	$(MPICC) $(OPTIMIZE) $(OBJS) $(LIBS) -o $@
@@ -88,11 +85,3 @@ $(DESTDIR)/%.o: %.cpp $(INCL)
 
 clean:
 	rm -f $(OBJS) $(EXEC) $(ICOBJS)
-
-test: $(TESTBIN)
-	for tt in $^ ; do ./$$tt ; done
-
-$(DESTDIR)/run_%_test: $(DESTDIR)/%_test
-
-$(DESTDIR)/%_test: test/%_test.c $(DESTDIR)/%.o
-	$(MPICC) $(CFLAGS) $(LIBS) $^ -o $@ -lcmocka

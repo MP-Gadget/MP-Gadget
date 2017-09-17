@@ -8,10 +8,9 @@
 
 #include "allvars.h"
 #include "treewalk.h"
-#include "proto.h"
 #include "densitykernel.h"
-#include "forcetree.h"
 #include "mymalloc.h"
+#include "timestep.h"
 
 #ifndef DEBUG
 #define NDEBUG
@@ -58,20 +57,25 @@ typedef struct {
     DensityKernel kernel_i;
 } TreeWalkNgbIterHydro;
 
-static int hydro_isactive(int n);
-static void hydro_postprocess(int i);
+static int
+hydro_haswork(int n, TreeWalk * tw);
 
+static void
+hydro_postprocess(int i, TreeWalk * tw);
 
-static void hydro_ngbiter(
+static void
+hydro_ngbiter(
     TreeWalkQueryHydro * I,
     TreeWalkResultHydro * O,
     TreeWalkNgbIterHydro * iter,
     LocalTreeWalk * lv
    );
-static void hydro_copy(int place, TreeWalkQueryHydro * input);
-static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode);
 
-static double fac_mu, fac_vsic_fix;
+static void
+hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw);
+
+static void
+hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode, TreeWalk * tw);
 
 /*! This function is the driver routine for the calculation of hydrodynamical
  *  force and rate of change of entropy due to shock heating for all active
@@ -87,7 +91,7 @@ void hydro_force(void)
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter = (TreeWalkNgbIterFunction) hydro_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterHydro);
-    tw->isactive = hydro_isactive;
+    tw->haswork = hydro_haswork;
     tw->fill = (TreeWalkFillQueryFunction) hydro_copy;
     tw->reduce = (TreeWalkReduceResultFunction) hydro_reduce;
     tw->postprocess = (TreeWalkProcessFunction) hydro_postprocess;
@@ -100,14 +104,11 @@ void hydro_force(void)
 
     walltime_measure("/Misc");
 
-    fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
-    fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
-
     /* allocate buffers to arrange communication */
 
     walltime_measure("/SPH/Hydro/Init");
 
-    treewalk_run(tw);
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     /* collect some timing information */
 
@@ -123,40 +124,36 @@ void hydro_force(void)
     walltime_add("/SPH/Hydro/Misc", timeall - (timecomp + timewait + timecomm + timenetwork));
 }
 
-static void hydro_copy(int place, TreeWalkQueryHydro * input) {
-    int k;
+static void
+hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
+{
     double soundspeed_i;
-    for(k = 0; k < 3; k++)
-    {
-        input->Vel[k] = SPHP(place).VelPred[k];
-    }
+    const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
+    /*Compute predicted velocity*/
+    sph_VelPred(place, input->Vel);
     input->Hsml = P[place].Hsml;
     input->Mass = P[place].Mass;
     input->Density = SPHP(place).Density;
 #ifdef DENSITY_INDEPENDENT_SPH
     input->EgyRho = SPHP(place).EgyWtDensity;
-    input->EntVarPred = SPHP(place).EntVarPred;
+    input->EntVarPred = EntropyPred(place);
     input->DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 #else
     input->DhsmlDensityFactor = SPHP(place).DhsmlDensityFactor;
 #endif
 
-    input->Pressure = SPHP(place).Pressure;
+    input->Pressure = PressurePred(place);
     input->Timestep = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0);
     /* calculation of F1 */
-#ifndef ALTVISCOSITY
-    soundspeed_i = sqrt(GAMMA * SPHP(place).Pressure / SPHP(place).EOMDensity);
+    soundspeed_i = sqrt(GAMMA * input->Pressure / SPHP(place).EOMDensity);
     input->F1 = fabs(SPHP(place).DivVel) /
         (fabs(SPHP(place).DivVel) + SPHP(place).CurlVel +
          0.0001 * soundspeed_i / P[place].Hsml / fac_mu);
-
-#else
-    input->F1 = SPHP(place).DivVel;
-#endif
-
 }
 
-static void hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode) {
+static void
+hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
     int k;
 
     for(k = 0; k < 3; k++)
@@ -233,19 +230,21 @@ hydro_ngbiter(
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {
-        double p_over_rho2_j = SPHP(other).Pressure / (SPHP(other).EOMDensity * SPHP(other).EOMDensity);
+        double Pressure_j = PressurePred(other);
+        double p_over_rho2_j = Pressure_j / (SPHP(other).EOMDensity * SPHP(other).EOMDensity);
         double soundspeed_j;
 
 #ifdef DENSITY_INDEPENDENT_SPH
-        soundspeed_j = sqrt(GAMMA * SPHP(other).Pressure / SPHP(other).EOMDensity);
+        soundspeed_j = sqrt(GAMMA * Pressure_j / SPHP(other).EOMDensity);
 #else
         soundspeed_j = sqrt(GAMMA * p_over_rho2_j * SPHP(other).Density);
 #endif
 
         double dv[3];
         int d;
+        sph_VelPred(other, dv);
         for(d = 0; d < 3; d++) {
-            dv[d] = I->Vel[d] - SPHP(other).VelPred[d];
+            dv[d] = I->Vel[d] - dv[d];
         }
 
         double vdotr = dotproduct(dist, dv);
@@ -266,14 +265,9 @@ hydro_ngbiter(
 
         if(vdotr2 < 0)	/* ... artificial viscosity visc is 0 by default*/
         {
-#ifndef ALTVISCOSITY
-#ifndef CONVENTIONAL_VISCOSITY
+            /*See Gadget-2 paper: eq. 13*/
+            const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
             double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
-#else
-            double c_ij = 0.5 * (iter->soundspeed_i + soundspeed_j);
-            double h_ij = 0.5 * (I->Hsml + P[other].Hsml);
-            double mu_ij = fac_mu * h_ij * vdotr2 / (r2 + 0.0001 * h_ij * h_ij);
-#endif
             vsig -= 3 * mu_ij;
 
 
@@ -286,41 +280,22 @@ hydro_ngbiter(
 
             double BulkVisc_ij = All.ArtBulkViscConst;
 
-#ifndef CONVENTIONAL_VISCOSITY
+            /*Gadget-2 paper, eq. 14*/
             visc = 0.25 * BulkVisc_ij * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
-#else
-            visc =
-                (-BulkVisc_ij * mu_ij * c_ij + 2 * BulkVisc_ij * mu_ij * mu_ij) /
-                rho_ij * (I->F1 + f2) * 0.5;
-#endif
-
-#else /* start of ALTVISCOSITY block */
-            double mu_i;
-            if(I->F1 < 0)
-                mu_i = I->Hsml * fabs(I->F1);	/* f1 hold here the velocity divergence of particle i */
-            else
-                mu_i = 0;
-            if(SPHP(other).DivVel < 0)
-                mu_j = P[other].Hsml * fabs(SPHP(other).DivVel);
-            else
-                mu_j = 0;
-            visc = All.ArtBulkViscConst * ((iter->soundspeed_i + mu_i) * mu_i / I->Density +
-                    (soundspeed_j + mu_j) * mu_j / SPHP(other).Density);
-#endif /* end of ALTVISCOSITY block */
-
-
             /* .... end artificial viscosity evaluation */
             /* now make sure that viscous acceleration is not too large */
 
 #ifndef NOVISCOSITYLIMITER
-            double dt =
-                2 * IMAX(I->Timestep,
-                        (P[other].TimeBin ? (1 << P[other].TimeBin) : 0)) * All.Timebase_interval;
-            if(dt > 0 && (dwk_i + dwk_j) < 0)
+            /*XXX: why is this dloga ?*/
+            double dloga =
+                2 * IMAX(I->Timestep, get_dloga_for_bin(P[other].TimeBin));
+            if(dloga > 0 && (dwk_i + dwk_j) < 0)
             {
-                if((I->Mass + P[other].Mass) > 0)
+                if((I->Mass + P[other].Mass) > 0) {
+                    double fac_vsic_fix = All.cf.hubble * pow(All.cf.a, 3 * GAMMA_MINUS1);
                     visc = DMIN(visc, 0.5 * fac_vsic_fix * vdotr2 /
-                            (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dt));
+                            (0.5 * (I->Mass + P[other].Mass) * (dwk_i + dwk_j) * r * dloga));
+                }
             }
 #endif
         }
@@ -328,9 +303,10 @@ hydro_ngbiter(
 #ifdef DENSITY_INDEPENDENT_SPH
         double hfc = hfc_visc;
         /* leading-order term */
+        double EntPred = EntropyPred(other);
         hfc += P[other].Mass *
-            (dwk_i*iter->p_over_rho2_i*SPHP(other).EntVarPred/I->EntVarPred +
-             dwk_j*p_over_rho2_j*I->EntVarPred/SPHP(other).EntVarPred) / r;
+            (dwk_i*iter->p_over_rho2_i*EntPred/I->EntVarPred +
+             dwk_j*p_over_rho2_j*I->EntVarPred/EntPred) / r;
 
         /* enable grad-h corrections only if contrastlimit is non negative */
         if(All.DensityContrastLimit >= 0) {
@@ -378,11 +354,15 @@ hydro_ngbiter(
     O->Ninteractions++;
 }
 
-static int hydro_isactive(int i) {
+static int
+hydro_haswork(int i, TreeWalk * tw)
+{
     return P[i].Type == 0;
 }
 
-static void hydro_postprocess(int i) {
+static void
+hydro_postprocess(int i, TreeWalk * tw)
+{
     if(P[i].Type == 0)
     {
         /* Translate energy change rate into entropy change rate */
@@ -400,9 +380,10 @@ static void hydro_postprocess(int i) {
                 SPHP(i).DtEntropy = 0;
 
 #ifdef NOWINDTIMESTEPPING
-                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * SPHP(i).Pressure / SPHP(i).Density);
+                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * PressurePred(i) / SPHP(i).Density);
 #else
                 double windspeed = All.WindSpeed * All.cf.a;
+                const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
                 windspeed *= fac_mu;
                 double hsml_c = pow(All.WindFreeTravelDensFac * All.PhysDensThresh /
                         (SPHP(i).Density * All.cf.a3inv), (1. / 3.));

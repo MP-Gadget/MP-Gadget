@@ -7,9 +7,8 @@ typedef struct
 {
     TreeWalkQueryBase base;
     int Type;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
+    /*Used for adaptive gravitational softening*/
     MyFloat Soft;
-#endif
     MyFloat OldAcc;
 } TreeWalkQueryGravShort;
 
@@ -21,16 +20,16 @@ typedef struct {
 } TreeWalkResultGravShort;
 
 static int
-grav_short_isactive(int i)
+grav_short_haswork(int i, TreeWalk * tw)
 {
-    int isactive = 1;
+    int haswork = 1;
     /* tracer particles (5) has no gravity, they move along to pot minimium */
-    isactive = isactive && (P[i].Type != 5);
-    return isactive;
+    haswork = haswork && (P[i].Type != 5);
+    return haswork;
 }
 
 static void
-grav_short_postprocess(int i)
+grav_short_postprocess(int i, TreeWalk * tw)
 {
     int j;
 
@@ -48,7 +47,7 @@ grav_short_postprocess(int i)
     P[i].Potential += P[i].Mass / All.SofteningTable[P[i].Type];
 
     P[i].Potential -= 2.8372975 * pow(P[i].Mass, 2.0 / 3) *
-        pow(All.CP.Omega0 * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G), 1.0 / 3);
+        pow(All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G), 1.0 / 3);
 
     P[i].Potential *= All.G;
 
@@ -57,18 +56,18 @@ grav_short_postprocess(int i)
 }
 
 static void
-grav_short_copy(int place, TreeWalkQueryGravShort * input) {
+grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
+{
     input->Type = P[place].Type;
 
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    if(P[place].Type == 0)
+    if(All.AdaptiveGravsoftForGas && P[place].Type == 0)
         input->Soft = P[place].Hsml;
-#endif
     input->OldAcc = P[place].OldAcc;
 
 }
 static void
-grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkReduceMode mode) {
+grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkReduceMode mode, TreeWalk * tw)
+{
     int k;
     for(k = 0; k < 3; k++)
         TREEWALK_REDUCE(P[place].GravAccel[k], result->Acc[k]);
@@ -77,3 +76,4 @@ grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkRedu
     TREEWALK_REDUCE(P[place].Potential, result->Potential);
 }
 
+int grav_apply_short_range_window(double r, double * fac, double * facpot);

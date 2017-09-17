@@ -9,6 +9,7 @@
 #include "treewalk.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "timestep.h"
 
 /* This routine allocates memory for
  * particle storage, both the collisionless and the SPH particles.
@@ -19,12 +20,7 @@ void allocate_memory(void)
 {
     size_t bytes;
     TreeWalk_allocate_memory();
-
-    NextActiveParticle = (int *) mymalloc("NextActiveParticle", bytes = All.MaxPart * sizeof(int));
-
-    NextInTimeBin = (int *) mymalloc("NextInTimeBin", bytes = All.MaxPart * sizeof(int));
-
-    PrevInTimeBin = (int *) mymalloc("PrevInTimeBin", bytes = All.MaxPart * sizeof(int));
+    timestep_allocate_memory(All.MaxPart);
 
     P = (struct particle_data *) mymalloc("P", bytes = All.MaxPart * sizeof(struct particle_data));
 
@@ -47,11 +43,14 @@ void allocate_memory(void)
 #endif
     message(0, "Allocated %g MByte for particle storage.\n", bytes / (1024.0 * 1024.0));
 
-    SphP = (struct sph_particle_data *) mymalloc("SphP", bytes =
-                     All.MaxPartSph * sizeof(struct sph_particle_data));
-    message(0, "Allocated %g MByte for storage of SPH data.\n", bytes / (1024.0 * 1024.0));
-
-    BhP = (struct bh_particle_data *) mymalloc("BhP", bytes =
+    if(NTotal[0] > 0) {
+        SphP = (struct sph_particle_data *) mymalloc("SphP", bytes =
+                     All.MaxPart * sizeof(struct sph_particle_data));
+        message(0, "Allocated %g MByte for storage of SPH data.\n", bytes / (1024.0 * 1024.0));
+    }
+    if(All.BlackHoleOn) {
+        BhP = (struct bh_particle_data *) mymalloc("BhP", bytes =
                      All.MaxPartBh * sizeof(struct bh_particle_data));
-    message(0, "Allocated %g MByte for storage of BH data.\n", bytes / (1024.0 * 1024.0));
+        message(0, "Allocated %g MByte for storage of BH data.\n", bytes / (1024.0 * 1024.0));
+    }
 }

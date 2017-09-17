@@ -8,16 +8,13 @@ OutputList = 0.1,0.2,0.299,0.3,0.33333,0.4,0.5
 SnapshotFileBase = snapshot
 EnableAggregatedIO = 1
 Nmesh = 32
-
+DomainOverDecompositionFactor = 4
 # CPU time -limit
 	
 TimeLimitCPU = 43000 #= 8 hours
 
 
 # Code options
-
-
-TypeOfTimestepCriterion = 0
 
 #  Characteristics of run
 
@@ -34,8 +31,6 @@ StarformationCriterion = density
 RadiationOn = 1
 HydroOn = 1
 BlackHoleOn = 1
-
-CpuTimeBetRestartFile = 9000.0
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1

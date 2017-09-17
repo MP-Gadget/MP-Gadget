@@ -7,11 +7,11 @@
 #include <sys/ipc.h>
 #include <sys/sem.h>
 #include "allvars.h"
-#include "proto.h"
+#include "drift.h"
 #include "forcetree.h"
 #include "treewalk.h"
 #include "mymalloc.h"
-#include "domain.h"
+#include "timestep.h"
 #include "endrun.h"
 
 #include "gravshort.h"
@@ -53,7 +53,7 @@ void grav_short_tree(void)
 
     tw->ev_label = "FORCETREE_SHORTRANGE";
     tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
-    tw->isactive = grav_short_isactive;
+    tw->haswork = grav_short_haswork;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
     tw->UseNodeList = 1;
@@ -69,12 +69,7 @@ void grav_short_tree(void)
 
     walltime_measure("/Misc");
 
-    treewalk_run(tw);
-
-    if(All.TypeOfOpeningCriterion == 1) {
-        /* This will switch to the relative opening criterion for the following force computations */
-        All.ErrTolTheta = 0;
-    }
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     /* now add things for comoving integration */
 
@@ -87,8 +82,6 @@ void grav_short_tree(void)
     timetree = tw->timecomp1 + tw->timecomp2 + tw->timecomp3;
     timewait = tw->timewait1 + tw->timewait2;
     timecomm= tw->timecommsumm1 + tw->timecommsumm2;
-
-    All.TotNumOfForces += GlobNumForceUpdate;
 
     walltime_add("/Tree/Walk1", tw->timecomp1);
     walltime_add("/Tree/Walk2", tw->timecomp2);
@@ -118,93 +111,66 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         TreeWalkResultGravShort * output,
         LocalTreeWalk * lv)
 {
-    struct NODE *nop = 0;
-    int no, ptype, listindex = 0;
+    /*Counters*/
     int nnodesinlist = 0, ninteractions = 0;
-    double r2, dx, dy, dz, mass, r, fac, u, h, h_inv, h3_inv;
-    double pos_x, pos_y, pos_z, aold;
-    double eff_dist;
-    double rcut, rcut2, dist;
-    MyDouble acc_x, acc_y, acc_z;
 
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    double soft = 0;
-#endif
-    double wp, facpot;
-    MyDouble pot;
+    /*Added to the particle struct at the end*/
+    MyDouble pot = 0;
+    MyDouble acc_x = 0;
+    MyDouble acc_y = 0;
+    MyDouble acc_z = 0;
 
-    pot = 0;
+    /*Tree-opening constants*/
+    const double rcut = RCUT * All.Asmth * All.BoxSize / All.Nmesh;
+    const double rcut2 = rcut * rcut;
+    const double aold = All.ErrTolForceAcc * input->OldAcc;
 
-    acc_x = 0;
-    acc_y = 0;
-    acc_z = 0;
-    ninteractions = 0;
-    nnodesinlist = 0;
+    /*Input particle data*/
+    const double pos_x = input->base.Pos[0];
+    const double pos_y = input->base.Pos[1];
+    const double pos_z = input->base.Pos[2];
+    const int ptype = input->Type;
 
-    rcut = RCUT * All.Asmth * All.BoxSize / All.Nmesh;
-
-    no = input->base.NodeList[0];
-    listindex ++;
+    /*Start the tree walk*/
+    int no = input->base.NodeList[0];
+    int listindex = 1;
     no = Nodes[no].u.d.nextnode;	/* open it */
-
-    pos_x = input->base.Pos[0];
-    pos_y = input->base.Pos[1];
-    pos_z = input->base.Pos[2];
-    ptype = input->Type;
-
-    aold = All.ErrTolForceAcc * input->OldAcc;
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    if(ptype == 0)
-        soft = input->Soft;
-#endif
-    rcut2 = rcut * rcut;
 
     while(no >= 0)
     {
         while(no >= 0)
         {
+            double mass, facpot, fac, r2, r, h;
+            double dx, dy, dz;
+            int otherh;
             if(no < All.MaxPart)
             {
                 /* the index of the node is the index of the particle */
                 drift_particle(no, All.Ti_Current);
 
-                dx = P[no].Pos[0] - pos_x;
-                dy = P[no].Pos[1] - pos_y;
-                dz = P[no].Pos[2] - pos_z;
-
-                dx = NEAREST(dx);
-                dy = NEAREST(dy);
-                dz = NEAREST(dz);
+                dx = NEAREST(P[no].Pos[0] - pos_x);
+                dy = NEAREST(P[no].Pos[1] - pos_y);
+                dz = NEAREST(P[no].Pos[2] - pos_z);
 
                 r2 = dx * dx + dy * dy + dz * dz;
 
                 mass = P[no].Mass;
 
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-                if(ptype == 0)
-                    h = soft;
-                else
-                    h = All.ForceSoftening[ptype];
-
-                if(P[no].Type == 0)
-                {
-                    if(h < P[no].Hsml)
-                        h = P[no].Hsml;
-                }
-                else
-                {
-                    if(h < All.ForceSoftening[P[no].Type])
-                        h = All.ForceSoftening[P[no].Type];
-                }
-#else
                 h = All.ForceSoftening[ptype];
-                if(h < All.ForceSoftening[P[no].Type])
-                    h = All.ForceSoftening[P[no].Type];
-#endif
+                otherh = All.ForceSoftening[P[no].Type];
+                if(All.AdaptiveGravsoftForGas) {
+                    if(ptype == 0)
+                        h = input->Soft;
+                    if(P[no].Type == 0 && h < P[no].Hsml)
+                        otherh = P[no].Hsml;
+                }
+                if(h < otherh)
+                    h = otherh;
                 no = Nextnode[no];
             }
             else			/* we have an  internal node */
             {
+                struct NODE *nop;
                 if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
                 {
                     if(lv->mode == 0)
@@ -220,38 +186,26 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
                 if(lv->mode == 1)
                 {
-                    if(nop->u.d.bitflags & (1 << BITFLAG_TOPLEVEL))	/* we reached a top-level node again, which means that we are done with the branch */
+                    if(nop->f.TopLevel)	/* we reached a top-level node again, which means that we are done with the branch */
                     {
                         no = -1;
                         continue;
                     }
                 }
 
-                if(!(nop->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES)))
-                {
-                    /* open cell */
-                    no = nop->u.d.nextnode;
-                    continue;
-                }
-
-                force_drift_node(no, All.Ti_Current);
-
                 mass = nop->u.d.mass;
 
-                dx = nop->u.d.s[0] - pos_x;
-                dy = nop->u.d.s[1] - pos_y;
-                dz = nop->u.d.s[2] - pos_z;
+                dx = NEAREST(nop->u.d.s[0] - pos_x);
+                dy = NEAREST(nop->u.d.s[1] - pos_y);
+                dz = NEAREST(nop->u.d.s[2] - pos_z);
 
-                dx = NEAREST(dx);
-                dy = NEAREST(dy);
-                dz = NEAREST(dz);
                 r2 = dx * dx + dy * dy + dz * dz;
 
                 if(r2 > rcut2)
                 {
                     /* check whether we can stop walking along this branch */
-                    eff_dist = rcut + 0.5 * nop->len;
-                    dist = NEAREST(nop->center[0] - pos_x);
+                    const double eff_dist = rcut + 0.5 * nop->len;
+                    double dist = NEAREST(nop->center[0] - pos_x);
 
                     if(dist < -eff_dist || dist > eff_dist)
                     {
@@ -274,48 +228,40 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-
-                if(All.ErrTolTheta)	/* check Barnes-Hut opening criterion */
+                /* check relative opening criterion */
+                if(mass * nop->len * nop->len > r2 * r2 * aold)
                 {
-                    if(nop->len * nop->len > r2 * All.ErrTolTheta * All.ErrTolTheta)
-                    {
-                        /* open cell */
-                        no = nop->u.d.nextnode;
-                        continue;
-                    }
+                    /* open cell */
+                    no = nop->u.d.nextnode;
+                    continue;
                 }
-                else		/* check relative opening criterion */
+                /* check in addition whether we lie inside the cell */
+                if(fabs(nop->center[0] - pos_x) < 0.60 * nop->len)
                 {
-                    if(mass * nop->len * nop->len > r2 * r2 * aold)
+                    if(fabs(nop->center[1] - pos_y) < 0.60 * nop->len)
                     {
-                        /* open cell */
-                        no = nop->u.d.nextnode;
-                        continue;
-                    }
-
-                    /* check in addition whether we lie inside the cell */
-
-                    if(fabs(nop->center[0] - pos_x) < 0.60 * nop->len)
-                    {
-                        if(fabs(nop->center[1] - pos_y) < 0.60 * nop->len)
+                        if(fabs(nop->center[2] - pos_z) < 0.60 * nop->len)
                         {
-                            if(fabs(nop->center[2] - pos_z) < 0.60 * nop->len)
-                            {
-                                no = nop->u.d.nextnode;
-                                continue;
-                            }
+                            no = nop->u.d.nextnode;
+                            continue;
                         }
                     }
                 }
 
-#ifndef ADAPTIVE_GRAVSOFT_FORGAS
                 h = All.ForceSoftening[ptype];
-                if(h < All.ForceSoftening[extract_max_softening_type(nop->u.d.bitflags)])
+                otherh = All.ForceSoftening[nop->f.MaxSofteningType];
+                if(All.AdaptiveGravsoftForGas) {
+                    if(ptype == 0)
+                        h = input->Soft;
+                    if(otherh < nop->u.d.hmax)
+                        otherh = nop->u.d.hmax;
+                }
+                if(h < otherh)
                 {
-                    h = All.ForceSoftening[extract_max_softening_type(nop->u.d.bitflags)];
+                    h = otherh;
                     if(r2 < h * h)
                     {
-                        if(maskout_different_softening_flag(nop->u.d.bitflags))	/* bit-5 signals that there are particles of different softening in the node */
+                        if(nop->f.MixedSofteningsInNode)
                         {
                             no = nop->u.d.nextnode;
 
@@ -323,22 +269,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                         }
                     }
                 }
-#else
-                if(ptype == 0)
-                    h = soft;
-                else
-                    h = All.ForceSoftening[ptype];
-
-                if(h < nop->maxsoft)
-                {
-                    h = nop->maxsoft;
-                    if(r2 < h * h)
-                    {
-                        no = nop->u.d.nextnode;
-                        continue;
-                    }
-                }
-#endif
                 no = nop->u.d.sibling;	/* ok, node can be used */
 
             }
@@ -352,24 +282,24 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             }
             else
             {
-                h_inv = 1.0 / h;
-                h3_inv = h_inv * h_inv * h_inv;
-                u = r * h_inv;
-                if(u < 0.5)
+                double wp;
+                const double h_inv = 1.0 / h;
+                const double h3_inv = h_inv * h_inv * h_inv;
+                const double u = r * h_inv;
+                if(u < 0.5) {
                     fac = mass * h3_inv * (10.666666666667 + u * u * (32.0 * u - 38.4));
-                else
+                    wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
+                }
+                else {
                     fac =
                         mass * h3_inv * (21.333333333333 - 48.0 * u +
                                 38.4 * u * u - 10.666666666667 * u * u * u - 0.066666666667 / (u * u * u));
-                if(u < 0.5)
-                    wp = -2.8 + u * u * (5.333333333333 + u * u * (6.4 * u - 9.6));
-                else
                     wp =
                         -3.2 + 0.066666666667 / u + u * u * (10.666666666667 +
                                 u * (-16.0 + u * (9.6 - 2.133333333333 * u)));
+                }
 
                 facpot = mass * h_inv * wp;
-
             }
 
             if(0 == grav_apply_short_range_window(r, &fac, &facpot)) {
@@ -393,11 +323,11 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         }
     }
 
-        output->Acc[0] = acc_x;
-        output->Acc[1] = acc_y;
-        output->Acc[2] = acc_z;
-        output->Ninteractions = ninteractions;
-        output->Potential = pot;
+    output->Acc[0] = acc_x;
+    output->Acc[1] = acc_y;
+    output->Acc[2] = acc_z;
+    output->Ninteractions = ninteractions;
+    output->Potential = pot;
 
     lv->Ninteractions = ninteractions;
     lv->Nnodesinlist = nnodesinlist;

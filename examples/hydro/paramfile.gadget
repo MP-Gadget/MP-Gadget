@@ -15,9 +15,6 @@ TimeLimitCPU = 43000 #= 8 hours
 
 # Code options
 
-
-TypeOfTimestepCriterion = 0
-
 #  Characteristics of run
 
 TimeMax = 1.00000
@@ -33,8 +30,6 @@ BlackHoleOn = 1
 HydroOn = 1
 StarformationCriterion = density
 RadiationOn = 1
-
-CpuTimeBetRestartFile = 9000.0
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1

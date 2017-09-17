@@ -8,11 +8,7 @@
 #include <sys/types.h>
 
 #include "allvars.h"
-#include "densitykernel.h"
-#include "proto.h"
 #include "petaio.h"
-#include "domain.h"
-#include "forcetree.h"
 #include "fof.h"
 #include "endrun.h"
 
@@ -27,25 +23,9 @@
  * processors of size roughly NTask/NumFilesPerSnapshot.
  */
 /* with_fof != 0 regular snapshot, do fof and write it out */
-
-/* Defined in gravpm.c */
-void  gravpm_force(int noforce);
-
 void savepositions(int num, int with_fof)
 {
     walltime_measure("/Misc");
-
-    /*Write matter power spectrum*/
-    gravpm_force(1);
-
-    if(domain_garbage_collection() != 0) {
-        reconstruct_timebins();
-    }
-
-    domain_Decomposition();
-    force_tree_rebuild();
-
-    walltime_measure("/Snapshot/Misc");
 
     petaio_save_snapshot("%s/PART_%03d", All.OutputDir, num);
 
@@ -61,12 +41,48 @@ void savepositions(int num, int with_fof)
         walltime_measure("/Snapshot/WriteFOF");
     }
 
+    walltime_measure("/Domain/Misc");
+
     if(ThisTask == 0) {
         char buf[1024];
-        sprintf(buf, "%s/LastSnapshotNum.txt", All.OutputDir);
+        sprintf(buf, "%s/Snapshots.txt", All.OutputDir);
         FILE * fd = fopen(buf, "a");
-        fprintf(fd, "Time %g Redshift %g Ti_current %d Snapnumber %03d\n", All.Time, 1 / All.Time - 1, All.Ti_Current, num);
+        fprintf(fd, "%03d %g\n", num, All.Time);
         fclose(fd);
-
     }
+}
+
+int
+find_last_snapnum()
+{
+    /* FIXME: this is very fragile; should be fine */
+    int snapnumber = -1;
+    if(ThisTask == 0) {
+        char buf[1024];
+        sprintf(buf, "%s/Snapshots.txt", All.OutputDir);
+        FILE * fd = fopen(buf, "r");
+        if(fd == NULL) {
+            snapnumber = -1;
+        } else {
+            double time;
+            int ch;
+            int line = 0;
+            while (!feof(fd)) {
+                int n = fscanf(fd, "%d %lg%c", &snapnumber, &time, &ch);
+                message(1, "n = %d\n", n);
+                if (n == 3 && ch == '\n') {
+                    line ++;
+                    continue;
+                }
+                if (n == -1 && feof(fd)) {
+                    continue;
+                }
+                endrun(1, "Failed to parse %s:%d for the last snap shot number.\n", buf, line);
+            }
+            fclose(fd);
+        }
+    }
+
+    MPI_Bcast(&snapnumber, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    return snapnumber;
 }

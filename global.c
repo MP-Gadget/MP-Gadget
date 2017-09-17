@@ -5,8 +5,36 @@
 #include <math.h>
 
 #include "allvars.h"
-#include "proto.h"
+#include "timefac.h"
+#include "timestep.h"
 #include "cooling.h"
+#include "endrun.h"
+
+/* global state of system
+*/
+struct state_of_system
+{
+    double Mass;
+    double EnergyKin;
+    double EnergyPot;
+    double EnergyInt;
+    double EnergyTot;
+
+    double Momentum[4];
+    double AngMomentum[4];
+    double CenterOfMass[4];
+    double MassComp[6];
+    /* Only Gas is used */
+    double TemperatureComp[6];
+
+    double EnergyKinComp[6];
+    double EnergyPotComp[6];
+    double EnergyIntComp[6];
+    double EnergyTotComp[6];
+    double MomentumComp[6][4];
+    double AngMomentumComp[6][4];
+    double CenterOfMassComp[6][4];
+};
 
 /* This routine computes various global properties of the particle
  * distribution and stores the result in the struct `SysState'.
@@ -14,12 +42,12 @@
  * actually used (e.g. momentum is not really used anywhere),
  * just the energies are written to a log-file every once in a while.
  */
-void compute_global_quantities_of_system(void)
+struct state_of_system compute_global_quantities_of_system(void)
 {
-    int i, j, dt_step;
+    int i, j;
     struct state_of_system sys;
+    struct state_of_system SysState;
     double a1, a2, a3;
-
 
     a1 = All.Time;
     a2 = All.Time * All.Time;
@@ -31,40 +59,18 @@ void compute_global_quantities_of_system(void)
     for(i = 0; i < NumPart; i++)
     {
         int j;
-        double entr = 0, egyspec, vel[3];
-        double dt_gravkick, dt_hydrokick;
+        double entr = 0, egyspec;
 
         sys.MassComp[P[i].Type] += P[i].Mass;
 
         sys.EnergyPotComp[P[i].Type] += 0.5 * P[i].Mass * P[i].Potential / a1;
 
-        dt_step = P[i].TimeBin ? (1 << P[i].TimeBin) : 0;
-
-        dt_gravkick = get_gravkick_factor(P[i].Ti_begstep, All.Ti_Current) -
-            get_gravkick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
-        dt_hydrokick = get_hydrokick_factor(P[i].Ti_begstep, All.Ti_Current) -
-            get_hydrokick_factor(P[i].Ti_begstep, P[i].Ti_begstep + dt_step / 2);
-
-        for(j = 0; j < 3; j++)
-        {
-            vel[j] = P[i].Vel[j] + P[i].GravAccel[j] * dt_gravkick;
-            if(P[i].Type == 0)
-                vel[j] += SPHP(i).HydroAccel[j] * dt_hydrokick;
-        }
-
-        dt_gravkick = get_gravkick_factor(All.PM_Ti_begstep, All.Ti_Current) -
-            get_gravkick_factor(All.PM_Ti_begstep, (All.PM_Ti_begstep + All.PM_Ti_endstep) / 2);
-
-        for(j = 0; j < 3; j++)
-            vel[j] += P[i].GravPM[j] * dt_gravkick;
-
         sys.EnergyKinComp[P[i].Type] +=
-            0.5 * P[i].Mass * (vel[0] * vel[0] + vel[1] * vel[1] + vel[2] * vel[2]) / a2;
+            0.5 * P[i].Mass * (P[i].Vel[0] * P[i].Vel[0] + P[i].Vel[1] * P[i].Vel[1] + P[i].Vel[2] * P[i].Vel[2]) / a2;
 
         if(P[i].Type == 0)
         {
-            double dt_entr = (All.Ti_Current - (P[i].Ti_begstep + dt_step / 2)) * All.Timebase_interval;
-            entr = SPHP(i).Entropy + SPHP(i).DtEntropy * dt_entr;
+            entr = EntropyPred(i);
             egyspec = entr / (GAMMA_MINUS1) * pow(SPHP(i).EOMDensity / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;
             sys.TemperatureComp[0] += P[i].Mass * ConvertInternalEnergy2Temperature(egyspec, SPHP(i).Ne);
@@ -72,13 +78,13 @@ void compute_global_quantities_of_system(void)
 
         for(j = 0; j < 3; j++)
         {
-            sys.MomentumComp[P[i].Type][j] += P[i].Mass * vel[j];
+            sys.MomentumComp[P[i].Type][j] += P[i].Mass * P[i].Vel[j];
             sys.CenterOfMassComp[P[i].Type][j] += P[i].Mass * P[i].Pos[j];
         }
 
-        sys.AngMomentumComp[P[i].Type][0] += P[i].Mass * (P[i].Pos[1] * vel[2] - P[i].Pos[2] * vel[1]);
-        sys.AngMomentumComp[P[i].Type][1] += P[i].Mass * (P[i].Pos[2] * vel[0] - P[i].Pos[0] * vel[2]);
-        sys.AngMomentumComp[P[i].Type][2] += P[i].Mass * (P[i].Pos[0] * vel[1] - P[i].Pos[1] * vel[0]);
+        sys.AngMomentumComp[P[i].Type][0] += P[i].Mass * (P[i].Pos[1] * P[i].Vel[2] - P[i].Pos[2] * P[i].Vel[1]);
+        sys.AngMomentumComp[P[i].Type][1] += P[i].Mass * (P[i].Pos[2] * P[i].Vel[0] - P[i].Pos[0] * P[i].Vel[2]);
+        sys.AngMomentumComp[P[i].Type][2] += P[i].Mass * (P[i].Pos[0] * P[i].Vel[1] - P[i].Pos[1] * P[i].Vel[0]);
     }
 
 
@@ -172,4 +178,35 @@ void compute_global_quantities_of_system(void)
 
     /* give everyone the result, maybe the want to do something with it */
     MPI_Bcast(&SysState, sizeof(struct state_of_system), MPI_BYTE, 0, MPI_COMM_WORLD);
+    return SysState;
+}
+
+/*! This routine first calls a computation of various global
+ * quantities of the particle distribution, and then writes some
+ * statistics about the energies in the various particle components to
+ * the file FdEnergy.
+ */
+void energy_statistics(void)
+{
+    struct state_of_system SysState = compute_global_quantities_of_system();
+
+    message(0, "Time %g Mean Temperature of Gas %g\n",
+                All.Time, SysState.TemperatureComp[0]);
+
+    if(ThisTask == 0)
+    {
+        fprintf(FdEnergy,
+                "%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
+                All.Time, SysState.TemperatureComp[0], SysState.EnergyInt, SysState.EnergyPot, SysState.EnergyKin, SysState.EnergyIntComp[0],
+                SysState.EnergyPotComp[0], SysState.EnergyKinComp[0], SysState.EnergyIntComp[1],
+                SysState.EnergyPotComp[1], SysState.EnergyKinComp[1], SysState.EnergyIntComp[2],
+                SysState.EnergyPotComp[2], SysState.EnergyKinComp[2], SysState.EnergyIntComp[3],
+                SysState.EnergyPotComp[3], SysState.EnergyKinComp[3], SysState.EnergyIntComp[4],
+                SysState.EnergyPotComp[4], SysState.EnergyKinComp[4], SysState.EnergyIntComp[5],
+                SysState.EnergyPotComp[5], SysState.EnergyKinComp[5], SysState.MassComp[0],
+                SysState.MassComp[1], SysState.MassComp[2], SysState.MassComp[3], SysState.MassComp[4],
+                SysState.MassComp[5]);
+
+        fflush(FdEnergy);
+    }
 }

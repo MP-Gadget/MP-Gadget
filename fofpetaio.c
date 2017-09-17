@@ -9,9 +9,8 @@
 #include "mpsort.h"
 
 #include "allvars.h"
-#include "proto.h"
 #include "petaio.h"
-#include "domain.h"
+#include "exchange.h"
 #include "fof.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -22,7 +21,7 @@ static void build_buffer_fof(BigArray * array, IOTableEntry * ent);
 static void fof_return_particles();
 static void fof_distribute_particles();
 
-static int fof_cmp_argind(const void *p1, const void * p2) {
+static int fof_cmp_selection_by_grnr(const void *p1, const void * p2) {
     const int * i1 = p1;
     const int * i2 = p2;
     return (P[*i1].GrNr > P[*i2].GrNr) - (P[*i1].GrNr < P[*i2].GrNr);
@@ -35,8 +34,16 @@ static void fof_radix_Group_GrNr(const void * a, void * radix, void * arg) {
     u[0] = f->GrNr;
 }
 
+static int
+fof_petaio_select_func(int i)
+{
+    if(P[i].GrNr < 0) return 0;
+    return 1;
+}
+
 void fof_save_particles(int num) {
     char fname[4096];
+    int i;
     sprintf(fname, "%s/PIG_%03d", All.OutputDir, num);
     message(0, "saving particle in group into %s\n", fname);
 
@@ -47,28 +54,6 @@ void fof_save_particles(int num) {
     walltime_measure("/FOF/IO/Misc");
     fof_distribute_particles();
     walltime_measure("/FOF/IO/Distribute");
-    
-    int * argind = mymalloc("argind", sizeof(int) * NumPart);
-    int NumPIG = 0;
-    int i;
-    for(i = 0; i < NumPart; i ++) {
-        int j = NumPIG;
-        if(P[i].GrNr >= 0) {
-            argind[j] = i;
-            NumPIG ++;
-        }
-    }
-
-    MPI_Barrier(MPI_COMM_WORLD);
-    int NumPIGMax, NumPIGMin;
-    MPI_Allreduce(&NumPIG, &NumPIGMax, 1, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-    MPI_Allreduce(&NumPIG, &NumPIGMin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
-    message(0, "NumPIGmin=%d NumPIGmax=%d\n", NumPIGMin, NumPIGMax);
-
-    qsort(argind, NumPIG, sizeof(int), fof_cmp_argind);
-    walltime_measure("/FOF/IO/argind");
-    MPI_Barrier(MPI_COMM_WORLD);
-    message(0, "argind sorted\n");
 
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
@@ -77,6 +62,19 @@ void fof_save_particles(int num) {
 
     MPI_Barrier(MPI_COMM_WORLD);
     fof_write_header(&bf); 
+    int * selection = mymalloc("Selection", sizeof(int) * NumPart);
+
+    int ptype_offset[6]={0};
+    int ptype_count[6]={0};
+
+    /*This assumes particles are sorted by type*/
+    petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, fof_petaio_select_func);
+
+    /*Sort each type individually*/
+    for(i = 0; i < 6; i++)
+        qsort(selection + ptype_offset[i], ptype_count[i], sizeof(int), fof_cmp_selection_by_grnr);
+
+    walltime_measure("/FOF/IO/argind");
 
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -85,7 +83,7 @@ void fof_save_particles(int num) {
         BigArray array = {0};
         if(ptype < 6 && ptype >= 0) {
             sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-            petaio_build_buffer(&array, &IOTable.ent[i], argind, NumPIG);
+            petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
         } else 
         if(ptype == PTYPE_FOF_GROUP) {
             sprintf(blockname, "FOFGroups/%s", IOTable.ent[i].name);
@@ -98,8 +96,8 @@ void fof_save_particles(int num) {
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
+    myfree(selection);
 
-    myfree(argind); 
     big_file_mpi_close(&bf, MPI_COMM_WORLD);
     walltime_measure("/FOF/IO/Write");
 
@@ -198,8 +196,8 @@ static void fof_distribute_particles() {
         P[index].targettask = pi[i].targetTask;
     }
 
-    domain_exchange(fof_sorted_layout);
-
+    if(domain_exchange(fof_sorted_layout))
+        endrun(1930,"Could not exchange particles\n");
     myfree(pi);
     /* sort SPH and Others independently */
 
@@ -213,7 +211,8 @@ static void fof_distribute_particles() {
 
 }
 static void fof_return_particles() {
-    domain_exchange(fof_origin_layout);
+    if(domain_exchange(fof_origin_layout))
+        endrun(1931,"Could not exchange particles\n");
 }
 
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent) {

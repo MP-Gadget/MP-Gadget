@@ -7,9 +7,13 @@
 #include <gsl/gsl_integration.h>
 
 #include "allvars.h"
-#include "proto.h"
+#include "timefac.h"
+#include "timebinmgr.h"
 #include "cosmology.h"
+#include "endrun.h"
 
+
+#define DRIFT_TABLE_LENGTH  2000	/*!< length of the lookup table used to hold the drift and kick factors */
 
 static double logTimeInit;
 static double logTimeMax;
@@ -23,8 +27,19 @@ static double GravKickTable[DRIFT_TABLE_LENGTH];
 /*! table for the cosmological kick factor for hydrodynmical forces */
 static double HydroKickTable[DRIFT_TABLE_LENGTH];
 
+static inttime_t df_last_ti0 = -1, df_last_ti1 = -1;
+static double df_last_value;
+#pragma omp threadprivate(df_last_ti0, df_last_ti1, df_last_value)
 
-double drift_integ(double a, void *param)
+static inttime_t hk_last_ti0 = -1, hk_last_ti1 = -1;
+static double hk_last_value;
+#pragma omp threadprivate(hk_last_ti0, hk_last_ti1, hk_last_value)
+
+static inttime_t gk_last_ti0 = -1, gk_last_ti1 = -1;
+static double gk_last_value;
+#pragma omp threadprivate(gk_last_ti0, gk_last_ti1, gk_last_value)
+
+static double drift_integ(double a, void *param)
 {
   double h;
 
@@ -33,7 +48,7 @@ double drift_integ(double a, void *param)
   return 1 / (h * a * a * a);
 }
 
-double gravkick_integ(double a, void *param)
+static double gravkick_integ(double a, void *param)
 {
   double h;
 
@@ -43,7 +58,7 @@ double gravkick_integ(double a, void *param)
 }
 
 
-double hydrokick_integ(double a, void *param)
+static double hydrokick_integ(double a, void *param)
 {
   double h;
 
@@ -54,10 +69,6 @@ double hydrokick_integ(double a, void *param)
 
 void init_drift_table(double timeBegin, double timeMax)
 {
-
-    All.Timebase_interval = (log(timeMax) - log(timeBegin)) / TIMEBASE;
-    All.Ti_Current = 0;
-
 #define WORKSIZE 100000
   int i;
   double result, abserr;
@@ -67,6 +78,8 @@ void init_drift_table(double timeBegin, double timeMax)
 
   logTimeInit = log(timeBegin);
   logTimeMax = log(timeMax);
+  if(logTimeMax <=logTimeInit)
+      endrun(1,"Error: Invalid drift table range: (%d->%d)\n", timeBegin, timeMax);
 
   workspace = gsl_integration_workspace_alloc(WORKSIZE);
 
@@ -94,156 +107,113 @@ void init_drift_table(double timeBegin, double timeMax)
 
     }
   gsl_integration_workspace_free(workspace);
+  df_last_ti0 = df_last_ti1 = gk_last_ti0 = gk_last_ti1 = hk_last_ti0 = hk_last_ti1 = -1;
+}
+
+/*Find which bin in the table we are looking up.
+ * Pointer argument gives the full floating point value for interpolation.*/
+int find_bin_number(inttime_t ti0, double *rem)
+{
+  double a1 = loga_from_ti(ti0);
+  double u1;
+  int i1;
+  u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
+  i1 = (int) u1;
+  /*Bound u1*/
+  if(i1 >= DRIFT_TABLE_LENGTH)
+    i1 = DRIFT_TABLE_LENGTH - 1;
+  if(i1 <=1)
+      i1=1;
+  *rem = u1;
+  return i1;
 }
 
 
 /*! This function integrates the cosmological prefactor for a drift
- *   step between time0 and time1. The value returned is
- *  \f[ \int_{a_0}^{a_1} \frac{{\rm d}a}{H(a)}
+ *   step between ti0 and ti1. The value returned is
+ *  \f[ \int_{a_0}^{a_1} \frac{{\rm d}a}{H(a) a^3}
  *  \f]
  *  
  *  A lookup-table is used for reasons of speed. 
  */
-static int df_last_time0 = -1, df_last_time1 = -1;
-static double df_last_value;
-#pragma omp threadprivate(df_last_time0, df_last_time1, df_last_value)
-double get_drift_factor(int time0, int time1)
+double get_drift_factor(inttime_t ti0, inttime_t ti1)
 {
-  double a1, a2, df1, df2, u1, u2;
+  double df1, df2, u1, u2;
   int i1, i2;
-  if(time0 == df_last_time0 && time1 == df_last_time1)
+  if(ti0 == df_last_ti0 && ti1 == df_last_ti1)
     return df_last_value;
 
   /* note: will only be called for cosmological integration */
 
-  a1 = logTimeInit + time0 * All.Timebase_interval;
-  a2 = logTimeInit + time1 * All.Timebase_interval;
-
-  if(logTimeMax > logTimeInit)
-    u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
-  else
-    u1 = 0;
-  i1 = (int) u1;
-  if(i1 >= DRIFT_TABLE_LENGTH)
-    i1 = DRIFT_TABLE_LENGTH - 1;
-
+  i1 = find_bin_number(ti0, &u1);
   if(i1 <= 1)
     df1 = u1 * DriftTable[0];
   else
     df1 = DriftTable[i1 - 1] + (DriftTable[i1] - DriftTable[i1 - 1]) * (u1 - i1);
 
-  if(logTimeMax > logTimeInit)
-    u2 = (a2 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
-  else
-    u2 = 0;
-  i2 = (int) u2;
-  if(i2 >= DRIFT_TABLE_LENGTH)
-    i2 = DRIFT_TABLE_LENGTH - 1;
-
+  i2 = find_bin_number(ti1, &u2);
   if(i2 <= 1)
     df2 = u2 * DriftTable[0];
   else
     df2 = DriftTable[i2 - 1] + (DriftTable[i2] - DriftTable[i2 - 1]) * (u2 - i2);
 
-  df_last_time0 = time0;
-  df_last_time1 = time1;
+  df_last_ti0 = ti0;
+  df_last_ti1 = ti1;
 
   return df_last_value = (df2 - df1);
 }
 
-
-static int gk_last_time0 = -1, gk_last_time1 = -1;
-static double gk_last_value;
-#pragma omp threadprivate(gk_last_time0, gk_last_time1, gk_last_value)
-double get_gravkick_factor(int time0, int time1)
+double get_gravkick_factor(inttime_t ti0, inttime_t ti1)
 {
-  double a1, a2, df1, df2, u1, u2;
+  double df1, df2, u1, u2;
   int i1, i2;
 
-  if(time0 == gk_last_time0 && time1 == gk_last_time1)
+  if(ti0 == gk_last_ti0 && ti1 == gk_last_ti1)
     return gk_last_value;
 
   /* note: will only be called for cosmological integration */
-
-  a1 = logTimeInit + time0 * All.Timebase_interval;
-  a2 = logTimeInit + time1 * All.Timebase_interval;
-
-  if(logTimeMax > logTimeInit)
-    u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
-  else
-    u1 = 0;
-  i1 = (int) u1;
-  if(i1 >= DRIFT_TABLE_LENGTH)
-    i1 = DRIFT_TABLE_LENGTH - 1;
-
+  i1 = find_bin_number(ti0, &u1);
   if(i1 <= 1)
     df1 = u1 * GravKickTable[0];
   else
     df1 = GravKickTable[i1 - 1] + (GravKickTable[i1] - GravKickTable[i1 - 1]) * (u1 - i1);
 
-  if(logTimeMax > logTimeInit)
-    u2 = (a2 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
-  else
-    u2 = 0;
-  i2 = (int) u2;
-  if(i2 >= DRIFT_TABLE_LENGTH)
-    i2 = DRIFT_TABLE_LENGTH - 1;
-
+  i2 = find_bin_number(ti1, &u2);
   if(i2 <= 1)
     df2 = u2 * GravKickTable[0];
   else
     df2 = GravKickTable[i2 - 1] + (GravKickTable[i2] - GravKickTable[i2 - 1]) * (u2 - i2);
 
-  gk_last_time0 = time0;
-  gk_last_time1 = time1;
+  gk_last_ti0 = ti0;
+  gk_last_ti1 = ti1;
 
   return gk_last_value = (df2 - df1);
 }
 
-static int hk_last_time0 = -1, hk_last_time1 = -1;
-static double hk_last_value;
-#pragma omp threadprivate(hk_last_time0, hk_last_time1, hk_last_value)
-double get_hydrokick_factor(int time0, int time1)
+double get_hydrokick_factor(inttime_t ti0, inttime_t ti1)
 {
-  double a1, a2, df1, df2, u1, u2;
+  double df1, df2,u1,u2;
   int i1, i2;
 
-  if(time0 == hk_last_time0 && time1 == hk_last_time1)
+  if(ti0 == hk_last_ti0 && ti1 == hk_last_ti1)
     return hk_last_value;
 
   /* note: will only be called for cosmological integration */
 
-  a1 = logTimeInit + time0 * All.Timebase_interval;
-  a2 = logTimeInit + time1 * All.Timebase_interval;
-
-  if(logTimeMax > logTimeInit)
-    u1 = (a1 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
-  else
-    u1 = 0;
-  i1 = (int) u1;
-  if(i1 >= DRIFT_TABLE_LENGTH)
-    i1 = DRIFT_TABLE_LENGTH - 1;
-
+  i1 = find_bin_number(ti0, &u1);
   if(i1 <= 1)
     df1 = u1 * HydroKickTable[0];
   else
     df1 = HydroKickTable[i1 - 1] + (HydroKickTable[i1] - HydroKickTable[i1 - 1]) * (u1 - i1);
 
-  if(logTimeMax > logTimeInit)
-    u2 = (a2 - logTimeInit) / (logTimeMax - logTimeInit) * DRIFT_TABLE_LENGTH;
-  else
-    u2 = 0;
-  i2 = (int) u2;
-  if(i2 >= DRIFT_TABLE_LENGTH)
-    i2 = DRIFT_TABLE_LENGTH - 1;
-
+  i2 = find_bin_number(ti1, &u2);
   if(i2 <= 1)
     df2 = u2 * HydroKickTable[0];
   else
     df2 = HydroKickTable[i2 - 1] + (HydroKickTable[i2] - HydroKickTable[i2 - 1]) * (u2 - i2);
 
-  hk_last_time0 = time0;
-  hk_last_time1 = time1;
+  hk_last_ti0 = ti0;
+  hk_last_ti1 = ti1;
 
   return hk_last_value = (df2 - df1);
 }

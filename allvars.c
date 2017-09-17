@@ -25,54 +25,17 @@
 int ThisTask;			/*!< the number of the local processor  */
 int NTask;			/*!< number of processors */
 
-int64_t GlobNumForceUpdate;
-
-int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for domain decomposition */
-
 int RestartFlag;		/*!< taken from command line used to start code. 0 is normal start-up from
 				   initial conditions, 1 is resuming a run from a set of restart files, while 2
 				   marks a restart from a snapshot file. */
 int RestartSnapNum;
 
-int FirstActiveParticle;
-int *NextActiveParticle;
-
-int TimeBinCount[TIMEBINS];
-int TimeBinCountSph[TIMEBINS];
-int TimeBinActive[TIMEBINS];
-
-int FirstInTimeBin[TIMEBINS];
-int LastInTimeBin[TIMEBINS];
-int *NextInTimeBin;
-int *PrevInTimeBin;
-
-#ifdef BLACK_HOLES
-double Local_BH_mass;
-double Local_BH_dynamicalmass;
-double Local_BH_Mdot;
-double Local_BH_Medd;
-#endif
-
-int Flag_FullStep;		/*!< Flag used to signal that the current step involves all particles */
-
-int GlobFlag;
-
-
 /* Local number of particles; this shall be made into an array */
 int NumPart;
 int64_t NLocal[6];
 int64_t NTotal[6];
-int64_t TotNumPart;
 int N_bh_slots;
 int N_sph_slots;
-
-gsl_rng *random_generator;	/*!< the random number generator used */
-
-
-double TimeOfLastTreeConstruction;	/*!< holds what it says */
-
-
-double RndTable[RNDTABLE];
 
 /* variables for input/output , usually only used on process 0 */
 
@@ -100,9 +63,7 @@ struct global_data_all_processes All;
 
 #ifdef _OPENMP
 uint64_t BlockedParticleDrifts = 0;
-uint64_t BlockedNodeDrifts = 0;
 uint64_t TotalParticleDrifts = 0;
-uint64_t TotalNodeDrifts = 0;
 #endif
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
@@ -116,8 +77,4 @@ struct particle_data *P;	/*!< holds particle data on local processor */
  */
 struct sph_particle_data * SphP;	/*!< holds SPH particle data on local processor */
 struct bh_particle_data * BhP;	/*!< holds BH particle data on local processor */
-
-/* global state of system
-*/
-struct state_of_system SysState, SysStateAtStart, SysStateAtEnd;
 

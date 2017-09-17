@@ -9,13 +9,16 @@
 #include <gsl/gsl_math.h>
 #include <inttypes.h>
 #include "allvars.h"
-#include "proto.h"
-#include "forcetree.h"
+#include "sfr_eff.h"
+#include "blackhole.h"
+#include "drift.h"
 #include "domain.h"
 #include "mpsort.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "treewalk.h"
+#include "system.h"
+#include "densitykernel.h"
 
 /*! \file fof.c
  *  \brief parallel FoF group finder
@@ -108,9 +111,6 @@ static struct fof_particle_list
 }
 *HaloLabel;
 
-static float *fof_secondary_distance;
-static float *fof_secondary_hsml;
-
 static MPI_Datatype MPI_TYPE_GROUP;
 
 void fof_fof(int num)
@@ -132,6 +132,7 @@ void fof_fof(int num)
     HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", NumPart * sizeof(struct fof_particle_list));
 
     /* HaloLabel stores the MinID and MinIDTask of particles, this pair serves as a halo label. */
+    #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         HaloLabel[i].Pindex = i;
     }
@@ -194,10 +195,10 @@ void fof_fof(int num)
 
     if(num >= 0)
     {
-        /* I am not sure why we need a full domain decomposition here. But simple peano reorder will produce
+        /* I am not sure why we need a domain decomposition here.
+         * But simple peano reorder will produce
          * a tree that misses a few particles and crash PM. */
-        domain_Decomposition();  
-        force_tree_rebuild();
+        domain_maintain();
     }
 
     message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",
@@ -208,63 +209,72 @@ void fof_fof(int num)
     MPI_Type_free(&MPI_TYPE_GROUP);
 }
 
-static MyIDType * FOFOldMinID;
-static char * FOFPrimaryActive;
-static int * FOFHead;
+struct FOFPrimaryPriv {
+    int * Head;
+    char * PrimaryActive;
+    MyIDType * OldMinID;
+};
+#define FOF_PRIMARY_GET_PRIV(tw) ((struct FOFPrimaryPriv *) (tw->priv))
 
-static int HEADl(int stop, int i) {
+static int
+HEADl(int stop, int i, TreeWalk * tw)
+{
     int r;
     if (i == stop) {
         return -1;
     }
 //    printf("locking %d by %d in HEADl stop = %d\n", i, omp_get_thread_num(), stop);
     lock_particle(i);
-//    printf("locked %d by %d in HEADl, next = %d\n", i, omp_get_thread_num(), FOFHead[i]);
+//    printf("locked %d by %d in HEADl, next = %d\n", i, omp_get_thread_num(), FOF_PRIMARY_GET_PRIV(tw)->Head[i]);
 
-    if(FOFHead[i] == i) {
+    if(FOF_PRIMARY_GET_PRIV(tw)->Head[i] == i) {
         /* return locked */
         return i;
     }
     /* this is not the root, keep going, but unlock first, since even if the root is modified by
      * another thread, what we get here is on the path, */
-    int next = FOFHead[i];
+    int next = FOF_PRIMARY_GET_PRIV(tw)->Head[i];
     unlock_particle(i);
 //    printf("unlocking %d by %d in HEADl\n", i, omp_get_thread_num());
-    r = HEADl(stop, next);
+    r = HEADl(stop, next, tw);
     return r;
 }
-static void update_root(int i, int r)
+
+static void
+update_root(int i, int r, TreeWalk * tw)
 {
-    while(FOFHead[i] != i) {
-        int t = FOFHead[i];
-        FOFHead[i]= r;
+    while(FOF_PRIMARY_GET_PRIV(tw)->Head[i] != i) {
+        int t = FOF_PRIMARY_GET_PRIV(tw)->Head[i];
+        FOF_PRIMARY_GET_PRIV(tw)->Head[i]= r;
         i = t;
     }
 }
 
-static int HEAD(int i) {
+static int
+HEAD(int i, TreeWalk * tw)
+{
     /* accelerate with a splay: see https://arxiv.org/abs/1607.03224 */
     int r;
     r = i;
-    while(FOFHead[r] != r) {
-        r = FOFHead[r];
+    while(FOF_PRIMARY_GET_PRIV(tw)->Head[r] != r) {
+        r = FOF_PRIMARY_GET_PRIV(tw)->Head[r];
     }
-    while(FOFHead[i] != i) {
-        int t = FOFHead[i];
-        FOFHead[i]= r;
+    while(FOF_PRIMARY_GET_PRIV(tw)->Head[i] != i) {
+        int t = FOF_PRIMARY_GET_PRIV(tw)->Head[i];
+        FOF_PRIMARY_GET_PRIV(tw)->Head[i]= r;
         i = t;
     }
     return r;
 }
 
-static void fof_primary_copy(int place, TreeWalkQueryFOF * I) {
-    int head = HEAD(place);
+static void fof_primary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
+    int head = HEAD(place, tw);
     I->MinID = HaloLabel[head].MinID;
     I->MinIDTask = HaloLabel[head].MinIDTask;
 }
 
-static int fof_primary_isactive(int n) {
-    return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && FOFPrimaryActive[n];
+static int fof_primary_haswork(int n, TreeWalk * tw) {
+    return (((1 << P[n].Type) & (FOF_PRIMARY_LINK_TYPES))) && FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[n];
 }
 
 static void
@@ -288,17 +298,19 @@ void fof_label_primary(void)
     tw->ngbiter = (TreeWalkNgbIterFunction) fof_primary_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterFOF);
 
-    tw->isactive = fof_primary_isactive;
+    tw->haswork = fof_primary_haswork;
     tw->fill = (TreeWalkFillQueryFunction) fof_primary_copy;
     tw->reduce = NULL;
     tw->UseNodeList = 1;
-    tw->UseAllParticles = 1;
+    tw->type = TREEWALK_ALL;
     tw->query_type_elsize = sizeof(TreeWalkQueryFOF);
     tw->result_type_elsize = sizeof(TreeWalkResultFOF);
+    struct FOFPrimaryPriv priv[1];
+    tw->priv = priv;
 
-    FOFHead = (int*) mymalloc("FOF_Links", NumPart * sizeof(int));
-    FOFPrimaryActive = (char*) mymalloc("FOFActive", NumPart * sizeof(char));
-    FOFOldMinID = (MyIDType *) mymalloc("FOFActive", NumPart * sizeof(MyIDType));
+    FOF_PRIMARY_GET_PRIV(tw)->Head = (int*) mymalloc("FOF_Links", NumPart * sizeof(int));
+    FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive = (char*) mymalloc("FOFActive", NumPart * sizeof(char));
+    FOF_PRIMARY_GET_PRIV(tw)->OldMinID = (MyIDType *) mymalloc("FOFActive", NumPart * sizeof(MyIDType));
 
     /* allocate buffers to arrange communication */
 
@@ -306,9 +318,9 @@ void fof_label_primary(void)
 
     for(i = 0; i < NumPart; i++)
     {
-        FOFHead[i] = i;
-        FOFOldMinID[i]= P[i].ID;
-        FOFPrimaryActive[i] = 1;
+        FOF_PRIMARY_GET_PRIV(tw)->Head[i] = i;
+        FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]= P[i].ID;
+        FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
 
         HaloLabel[i].MinID = P[i].ID;
         HaloLabel[i].MinIDTask = ThisTask;
@@ -318,7 +330,7 @@ void fof_label_primary(void)
     {
         t0 = second();
 
-        treewalk_run(tw);
+        treewalk_run(tw, NULL, -1);
 
         t1 = second();
 
@@ -327,15 +339,15 @@ void fof_label_primary(void)
         link_across = 0;
 #pragma omp parallel for
         for(i = 0; i < NumPart; i++) {
-            MyIDType newMinID = HaloLabel[HEAD(i)].MinID;
-            if(newMinID != FOFOldMinID[i]) {
-                FOFPrimaryActive[i] = 1;
+            MyIDType newMinID = HaloLabel[HEAD(i, tw)].MinID;
+            if(newMinID != FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]) {
+                FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
 #pragma omp atomic
                 link_across += 1;
             } else {
-                FOFPrimaryActive[i] = 0;
+                FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 0;
             }
-            FOFOldMinID[i] = newMinID;
+            FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i] = newMinID;
         }
         MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
         message(0, "Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
@@ -345,36 +357,37 @@ void fof_label_primary(void)
     /* Update MinID of all linked (primary-linked) particles */
     for(i = 0; i < NumPart; i++)
     {
-        HaloLabel[i].MinID = HaloLabel[HEAD(i)].MinID;
-        HaloLabel[i].MinIDTask = HaloLabel[HEAD(i)].MinIDTask;
+        HaloLabel[i].MinID = HaloLabel[HEAD(i, tw)].MinID;
+        HaloLabel[i].MinIDTask = HaloLabel[HEAD(i, tw)].MinIDTask;
     }
 
     message(0, "Local groups found.\n");
 
-    myfree(FOFOldMinID);
-    myfree(FOFPrimaryActive);
-    myfree(FOFHead);
+    myfree(FOF_PRIMARY_GET_PRIV(tw)->OldMinID);
+    myfree(FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive);
+    myfree(FOF_PRIMARY_GET_PRIV(tw)->Head);
 }
 
-static void fofp_merge(int target, int other)
+static void
+fofp_merge(int target, int other, TreeWalk * tw)
 {
     /* this will lock h1 */
-    int h1 = HEADl(-1, target);
+    int h1 = HEADl(-1, target, tw);
     /* stop looking if we find h1 along the path (because it is already owned by us) */
-    int h2 = HEADl(h1, other);
+    int h2 = HEADl(h1, other, tw);
 
     if(h2 == -1) {
         /* h1 is along the path of h2, already merged.  **/
         /* h1 must be the root of other and target both */
         //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
-        update_root(target, h1);
-        update_root(other, h1);
+        update_root(target, h1, tw);
+        update_root(other, h1, tw);
         unlock_particle(h1);
         return;
     }
 
     /* h2 as a sub-tree of h1 */
-    FOFHead[h2] = h1;
+    FOF_PRIMARY_GET_PRIV(tw)->Head[h2] = h1;
 
     /* update MinID of h1 */
     if(HaloLabel[h1].MinID > HaloLabel[h2].MinID)
@@ -385,8 +398,8 @@ static void fofp_merge(int target, int other)
     //printf("unlocking %d by %d in merge\n", h2, omp_get_thread_num());
     unlock_particle(h2);
 
-    update_root(target, h1);
-    update_root(other, h1);
+    update_root(target, h1, tw);
+    update_root(other, h1, tw);
 
     //printf("unlocking %d by %d in merge\n", h1, omp_get_thread_num());
     unlock_particle(h1);
@@ -398,6 +411,7 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
         TreeWalkNgbIterFOF * iter,
         LocalTreeWalk * lv)
 {
+    TreeWalk * tw = lv->tw;
     if(iter->base.other == -1) {
         iter->base.Hsml = All.FOFHaloComovingLinkingLength;
         iter->base.symmetric = NGB_TREEFIND_ASYMMETRIC;
@@ -412,16 +426,16 @@ fof_primary_ngbiter(TreeWalkQueryFOF * I,
             /* Local FOF */
             if(lv->target <= other) {
                 // printf("locked merge %d %d by %d\n", lv->target, other, omp_get_thread_num());
-                fofp_merge(lv->target, other);
+                fofp_merge(lv->target, other, tw);
             }
         } else /* mode is 1, target is a ghost */
         {
 //            printf("locking %d by %d in ngbiter\n", other, omp_get_thread_num());
             lock_particle(other);
-            if(HaloLabel[HEAD(other)].MinID > I->MinID)
+            if(HaloLabel[HEAD(other, tw)].MinID > I->MinID)
             {
-                HaloLabel[HEAD(other)].MinID = I->MinID;
-                HaloLabel[HEAD(other)].MinIDTask = I->MinIDTask;
+                HaloLabel[HEAD(other, tw)].MinID = I->MinID;
+                HaloLabel[HEAD(other, tw)].MinIDTask = I->MinIDTask;
             }
 //            printf("unlocking %d by %d in ngbiter\n", other, omp_get_thread_num());
             unlock_particle(other);
@@ -962,16 +976,27 @@ void fof_save_groups(int num)
     message(0, "Group catalogues saved. took = %g sec\n", timediff(t0, t1));
 }
 
-static void fof_secondary_copy(int place, TreeWalkQueryFOF * I) {
-    I->Hsml = fof_secondary_hsml[place];
+/* FIXME: these shall goto the private member of secondary tree walk */
+struct FOFSecondaryPriv {
+    float *distance;
+    float *hsml;
+    int count;
+    int npleft;
+};
+
+#define FOF_SECONDARY_GET_PRIV(tw) ((struct FOFSecondaryPriv *) (tw->priv))
+
+static void fof_secondary_copy(int place, TreeWalkQueryFOF * I, TreeWalk * tw) {
+
+    I->Hsml = FOF_SECONDARY_GET_PRIV(tw)->hsml[place];
 }
-static int fof_secondary_isactive(int n) {
+static int fof_secondary_haswork(int n, TreeWalk * tw) {
     return (((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)));
 }
-static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode) {
-    if(O->Distance < fof_secondary_distance[place])
+static void fof_secondary_reduce(int place, TreeWalkResultFOF * O, enum TreeWalkReduceMode mode, TreeWalk * tw) {
+    if(O->Distance < FOF_SECONDARY_GET_PRIV(tw)->distance[place])
     {
-        fof_secondary_distance[place] = O->Distance;
+        FOF_SECONDARY_GET_PRIV(tw)->distance[place] = O->Distance;
         HaloLabel[place].MinID = O->MinID;
         HaloLabel[place].MinIDTask = O->MinIDTask;
     }
@@ -982,89 +1007,90 @@ fof_secondary_ngbiter(TreeWalkQueryFOF * I,
         TreeWalkNgbIterFOF * iter,
         LocalTreeWalk * lv);
 
+static void
+fof_secondary_postprocess(int p, TreeWalk * tw)
+{
+#pragma omp atomic
+    FOF_SECONDARY_GET_PRIV(tw)->count ++;
+
+    if(FOF_SECONDARY_GET_PRIV(tw)->distance[p] > 0.5 * LARGE)
+    {
+        if(FOF_SECONDARY_GET_PRIV(tw)->hsml[p] < 4 * All.FOFHaloComovingLinkingLength)  /* we only search out to a maximum distance */
+        {
+            /* need to redo this particle */
+#pragma omp atomic
+            FOF_SECONDARY_GET_PRIV(tw)->npleft++;
+            FOF_SECONDARY_GET_PRIV(tw)->hsml[p] *= 2.0;
+/*
+            if(iter >= MAXITER - 10)
+            {
+                endrun(1, "i=%d task=%d ID=%llu Hsml=%g  pos=(%g|%g|%g)\n",
+                        p, ThisTask, P[p].ID, FOF_SECONDARY_GET_PRIV(tw)->hsml[p],
+                        P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
+            }
+*/
+        } else {
+            FOF_SECONDARY_GET_PRIV(tw)->distance[p] = 0;  /* we not continue to search for this particle */
+        }
+    }
+}
 static void fof_label_secondary(void)
 {
-    int i, n, iter;
-    int64_t ntot;
+    int n, iter;
+
     TreeWalk tw[1] = {0};
     tw->ev_label = "FOF_FIND_NEAREST";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter = (TreeWalkNgbIterFunction) fof_secondary_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterFOF);
-    tw->isactive = fof_secondary_isactive;
+    tw->haswork = fof_secondary_haswork;
     tw->fill = (TreeWalkFillQueryFunction) fof_secondary_copy;
     tw->reduce = (TreeWalkReduceResultFunction) fof_secondary_reduce;
+    tw->postprocess = (TreeWalkProcessFunction) fof_secondary_postprocess;
     tw->UseNodeList = 1;
-    tw->UseAllParticles = 1;
+    tw->type = TREEWALK_ALL;
     tw->query_type_elsize = sizeof(TreeWalkQueryFOF);
     tw->result_type_elsize = sizeof(TreeWalkResultFOF);
+    struct FOFSecondaryPriv priv[1];
+
+    tw->priv = priv;
 
     message(0, "Start finding nearest dm-particle (presently allocated=%g MB)\n",
             AllocatedBytes / (1024.0 * 1024.0));
 
-    fof_secondary_distance = (float *) mymalloc("fof_secondary_distance", sizeof(float) * NumPart);
-    fof_secondary_hsml = (float *) mymalloc("fof_secondary_hsml", sizeof(float) * NumPart);
+    FOF_SECONDARY_GET_PRIV(tw)->distance = (float *) mymalloc("FOF_SECONDARY->distance", sizeof(float) * NumPart);
+    FOF_SECONDARY_GET_PRIV(tw)->hsml = (float *) mymalloc("FOF_SECONDARY->hsml", sizeof(float) * NumPart);
 
     for(n = 0; n < NumPart; n++)
     {
         if(((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)))
         {
-            fof_secondary_distance[n] = LARGE;
+            FOF_SECONDARY_GET_PRIV(tw)->distance[n] = LARGE;
             if(P[n].Type == 0) {
                 /* use gas sml as a hint (faster convergence than 0.1 All.FOFHaloComovingLinkingLength at high-z */
-                fof_secondary_hsml[n] = 0.5 * P[n].Hsml;
+                FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.5 * P[n].Hsml;
             } else {
-                fof_secondary_hsml[n] = 0.1 * All.FOFHaloComovingLinkingLength;
+                FOF_SECONDARY_GET_PRIV(tw)->hsml[n] = 0.1 * All.FOFHaloComovingLinkingLength;
             }
         }
     }
 
-    /* allocate buffers to arrange communication */
-
     iter = 0;
+    int64_t counttot, ntot;
+
     /* we will repeat the whole thing for those particles where we didn't find enough neighbours */
 
     message(0, "fof-nearest iteration started\n");
 
     do 
     {
-        treewalk_run(tw);
+        FOF_SECONDARY_GET_PRIV(tw)->npleft = 0;
+        FOF_SECONDARY_GET_PRIV(tw)->count = 0;
 
-        int Nactive;
-        int * queue = treewalk_get_queue(tw, &Nactive);
+        treewalk_run(tw, NULL, -1);
 
-        /* do final operations on results */
-        int npleft = 0;
-        int count = 0;
-        int64_t counttot = 0;
-/* CRAY cc doesn't do this one right */
-//#pragma omp parallel for reduction(+: npleft)
-        for(i = 0; i < Nactive; i++)
-        {
-            int p = queue[i];
-            count ++;
-            if(fof_secondary_distance[p] > 0.5 * LARGE)
-            {
-                if(fof_secondary_hsml[p] < 4 * All.FOFHaloComovingLinkingLength)  /* we only search out to a maximum distance */
-                {
-                    /* need to redo this particle */
-                    npleft++;
-                    fof_secondary_hsml[p] *= 2.0;
-/*
-                    if(iter >= MAXITER - 10)
-                    {
-                        endrun(1, "i=%d task=%d ID=%llu Hsml=%g  pos=(%g|%g|%g)\n",
-                                p, ThisTask, P[p].ID, fof_secondary_hsml[p],
-                                P[p].Pos[0], P[p].Pos[1], P[p].Pos[2]);
-                    }
-*/
-                } else {
-                    fof_secondary_distance[p] = 0;  /* we not continue to search for this particle */
-                }
-            }
-        }
-        sumup_large_ints(1, &npleft, &ntot);
-        sumup_large_ints(1, &count, &counttot);
+        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->npleft, &ntot);
+        sumup_large_ints(1, &FOF_SECONDARY_GET_PRIV(tw)->count, &counttot);
 
         message(0, "fof-nearest iteration %d: need to repeat for %010ld /%010ld particles.\n", iter, ntot, counttot);
 
@@ -1077,12 +1103,11 @@ static void fof_label_secondary(void)
                 endrun(1159, "Failed to converge in fof-nearest");
             }
         }
-        myfree(queue);
     }
     while(ntot > 0);
 
-    myfree(fof_secondary_hsml);
-    myfree(fof_secondary_distance);
+    myfree(FOF_SECONDARY_GET_PRIV(tw)->hsml);
+    myfree(FOF_SECONDARY_GET_PRIV(tw)->distance);
 
     message(0, "done finding nearest dm-particle\n");
 }

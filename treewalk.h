@@ -1,6 +1,11 @@
 #ifndef _EVALUATOR_H_
 #define _EVALUATOR_H_
 
+#include <stdint.h>
+#include "allvars.h"
+
+#define  NODELISTLENGTH      8
+
 enum NgbTreeFindSymmetric {
     NGB_TREEFIND_SYMMETRIC,
     NGB_TREEFIND_ASYMMETRIC,
@@ -11,7 +16,8 @@ enum TreeWalkReduceMode {
     TREEWALK_GHOSTS,
 };
 void TreeWalk_allocate_memory(void);
-struct _TreeWalk;
+
+typedef struct TreeWalk TreeWalk;
 
 typedef struct {
     MyIDType ID;
@@ -34,7 +40,7 @@ typedef struct {
 } TreeWalkNgbIterBase;
 
 typedef struct {
-    struct _TreeWalk * tw;
+    TreeWalk * tw;
 
     int mode; /* 0 for Primary, 1 for Secondary */
     int target; /* defined only for primary (mode == 0) */
@@ -51,32 +57,44 @@ typedef int (*TreeWalkVisitFunction) (TreeWalkQueryBase * input, TreeWalkResultB
 
 typedef int (*TreeWalkNgbIterFunction) (TreeWalkQueryBase * input, TreeWalkResultBase * output, TreeWalkNgbIterBase * iter, LocalTreeWalk * lv);
 
-typedef int (*TreeWalkIsActiveFunction) (const int i);
-typedef int (*TreeWalkProcessFunction) (const int i);
+typedef int (*TreeWalkHasWorkFunction) (const int i, TreeWalk * tw);
+typedef int (*TreeWalkProcessFunction) (const int i, TreeWalk * tw);
 
-typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query);
-typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode);
+typedef void (*TreeWalkFillQueryFunction)(const int j, TreeWalkQueryBase * query, TreeWalk * tw);
+typedef void (*TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase * result, const enum TreeWalkReduceMode mode, TreeWalk * tw);
 
-typedef struct _TreeWalk {
+enum TreeWalkType {
+    TREEWALK_ACTIVE = 0,
+    TREEWALK_ALL,
+    TREEWALK_SPLIT,
+};
+
+struct TreeWalk {
+    void * priv;
+
     /* name of the evaluator (used in printing messages) */
     char * ev_label;
 
-    TreeWalkVisitFunction visit;
-    TreeWalkIsActiveFunction isactive;
-    TreeWalkFillQueryFunction fill;
-    TreeWalkReduceResultFunction reduce;
-    TreeWalkNgbIterFunction ngbiter;
-    TreeWalkProcessFunction postprocess;
+    enum TreeWalkType type;
 
-    char * dataget;
-    char * dataresult;
-
-    int UseNodeList;
-    int UseAllParticles; /* if 1 use all particles
-                             if 0 use active particles */
     size_t query_type_elsize;
     size_t result_type_elsize;
     size_t ngbiter_type_elsize;
+
+    binmask_t bgmask; /* if set, the bins to compute force from; used if TreeWalkType is SPLIT */
+
+    TreeWalkVisitFunction visit;                /* Function to be called between a tree node and a particle */
+    TreeWalkHasWorkFunction haswork; /* Is the particle part of this interaction? */
+    TreeWalkFillQueryFunction fill;       /* Copy the useful attributes of a particle to a query */
+    TreeWalkReduceResultFunction reduce;  /* Reduce a partial result to the local particle storage */
+    TreeWalkNgbIterFunction ngbiter;     /* called for each pair of particles if visit is set to ngbiter */
+    TreeWalkProcessFunction postprocess; /* postprocess finalizes quantities for each particle, e.g. divide the normalization */
+    TreeWalkProcessFunction preprocess; /* Preprocess initializes quantities for each particle */
+
+    int UseNodeList;      /* Send tree branches or use the entire tree for ghost particles */
+
+    char * dataget;
+    char * dataresult;
 
     /* performance metrics */
     double timewait1;
@@ -99,16 +117,17 @@ typedef struct _TreeWalk {
     int BunchSize;
 
     struct ev_task * PrimaryTasks;
-    int * PQueue;
-    int PQueueSize;
+    int * WorkSet;
+    int WorkSetSize;
 
     /* per worker thread*/
     int *currentIndex;
     int *currentEnd;
-} TreeWalk;
 
-void treewalk_run(TreeWalk * tw);
-int * treewalk_get_queue(TreeWalk * tw, int * len);
+};
+
+void treewalk_run(TreeWalk * tw, int * active_set, int size);
+
 int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             TreeWalkResultBase * O,
             LocalTreeWalk * lv);

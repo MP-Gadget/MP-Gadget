@@ -13,6 +13,7 @@
 #include "param.h"
 #include "densitykernel.h"
 #include "proto.h"
+#include "sfr_eff.h"
 #include "cosmology.h"
 #include "cooling.h"
 #include "petaio.h"
@@ -31,9 +32,6 @@
  */
 
 
-static void
-open_outputfiles(int RestartsnapNum);
-
 static void set_units();
 
 
@@ -41,7 +39,7 @@ static void set_units();
  *  parameterfile is set, then routines for setting units, reading
  *  ICs/restart-files are called, auxialiary memory is allocated, etc.
  */
-void begrun(int BeginFlag, int RestartSnapNum)
+void begrun(int RestartSnapNum)
 {
 
     int Nhost = cluster_get_num_hosts();
@@ -65,35 +63,15 @@ void begrun(int BeginFlag, int RestartSnapNum)
     init_clouds();
 #endif
 
-    /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
-    set_global_time(All.TimeInit);
-
-    random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
-
-    gsl_rng_set(random_generator, 42);	/* start-up seed */
-
-    if(BeginFlag == 2)
-        long_range_init();
-
-    All.TimeLastRestartFile = 0;
+    long_range_init();
 
     set_random_numbers();
 
     init(RestartSnapNum);			/* ... read in initial model */
 
-    if(BeginFlag >= 3) {
-        return;
-    }
-
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
 #endif
-
-    init_drift_table(All.Time, All.TimeMax);
-
-    open_outputfiles(RestartSnapNum);
-
-    reconstruct_timebins();
 
 #ifdef TWODIMS
     int i;
@@ -107,26 +85,17 @@ void begrun(int BeginFlag, int RestartSnapNum)
 
         if(P[i].Type == 0)
         {
-            SPHP(i).VelPred[2] = 0;
             SPHP(i).a.HydroAccel[2] = 0;
         }
     }
 #endif
-
-    if(RestartSnapNum >= 0)
-        All.Ti_nextoutput = find_next_outputtime(All.Ti_Current + 100);
-    else
-        All.Ti_nextoutput = find_next_outputtime(All.Ti_Current);
-
-
-    All.TimeLastRestartFile = 0;
 }
 
 /*!  This function opens various log-files that report on the status and
  *   performance of the simulstion. On restart from restart-files
  *   (start-option 1), the code will append to these files.
  */
-static void
+void
 open_outputfiles(int RestartSnapNum)
 {
     const char mode[3]="a+";
@@ -151,11 +120,13 @@ open_outputfiles(int RestartSnapNum)
         endrun(1, "error in opening file '%s'\n", buf);
     free(buf);
 
-    buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.EnergyFile, postfix);
-    fastpm_path_ensure_dirname(buf);
-    if(!(FdEnergy = fopen(buf, mode)))
-        endrun(1, "error in opening file '%s'\n", buf);
-    free(buf);
+    if(All.OutputEnergyDebug) {
+        buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.EnergyFile, postfix);
+        fastpm_path_ensure_dirname(buf);
+        if(!(FdEnergy = fopen(buf, mode)))
+            endrun(1, "error in opening file '%s'\n", buf);
+        free(buf);
+    }
 
 #ifdef SFR
     buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, "sfr.txt", postfix);
@@ -187,7 +158,8 @@ void close_outputfiles(void)
         return;
 
     fclose(FdCPU);
-    fclose(FdEnergy);
+    if(All.OutputEnergyDebug)
+        fclose(FdEnergy);
 
 #ifdef SFR
     fclose(FdSfr);
@@ -205,37 +177,6 @@ void close_outputfiles(void)
 static void
 set_units(void)
 {
-    /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
-     * A note on normalisation (as of 08/02/2012):
-     * CAMB appears to set Omega_Lambda + Omega_Matter+Omega_K = 1,
-     * calculating Omega_K in the code and specifying Omega_Lambda and Omega_Matter in the paramfile.
-     * This means that Omega_tot = 1+ Omega_r + Omega_g, effectively
-     * making h0 (very) slightly larger than specified, and the Universe is no longer flat!
-     */
-
-    All.CP.OmegaCDM = All.CP.Omega0 - All.CP.OmegaBaryon;
-    All.CP.OmegaK = 1.0 - All.CP.Omega0 - All.CP.OmegaLambda;
-
-    /* Omega_g = 4 \sigma_B T_{CMB}^4 8 \pi G / (3 c^3 H^2) */
-
-    All.CP.OmegaG = 4 * STEFAN_BOLTZMANN
-                  * pow(All.CP.CMBTemperature, 4)
-                  * (8 * M_PI * GRAVITY)
-                  / (3*C*C*C*HUBBLE*HUBBLE)
-                  / (All.CP.HubbleParam*All.CP.HubbleParam);
-
-    /* Neutrino + antineutrino background temperature as a ratio to T_CMB0
-     * Note there is a slight correction from 4/11
-     * due to the neutrinos being slightly coupled at e+- annihilation.
-     * See Mangano et al 2005 (hep-ph/0506164)
-     * The correction is (3.046/3)^(1/4), for N_eff = 3.046 */
-    double TNu0_TCMB0 = pow(4/11., 1/3.) * 1.00328;
-
-    /* For massless neutrinos,
-     * rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff,
-     * but we absorbed N_eff into T_nu above. */
-    All.CP.OmegaNu0 = All.CP.OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
-
     double meanweight;
 
     All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
@@ -250,7 +191,10 @@ set_units(void)
 
     /* convert some physical input parameters to internal units */
 
-    All.Hubble = HUBBLE * All.UnitTime_in_s;
+    All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
+    /*Include massless neutrinos only if we do not have massive neutrino particles*/
+    All.CP.MasslessNeutrinosOn = (NTotal[2] == 0);
+    init_cosmology(&All.CP);
 
     meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */
 
@@ -260,7 +204,7 @@ set_units(void)
 #ifdef SFR
 
     All.OverDensThresh =
-        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.Hubble * All.Hubble / (8 * M_PI * All.G);
+        All.CritOverDensity * All.CP.OmegaBaryon * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G);
 
     All.PhysDensThresh = All.CritPhysDensity * PROTONMASS / HYDROGEN_MASSFRAC / All.UnitDensity_in_cgs;
 
@@ -283,7 +227,7 @@ set_units(void)
 
 #endif
 
-    message(0, "Hubble (internal units) = %g\n", All.Hubble);
+    message(0, "Hubble (internal units) = %g\n", All.CP.Hubble);
     message(0, "G (internal units) = %g\n", All.G);
     message(0, "UnitLengh_in_cm = %g \n", All.UnitLength_in_cm);
     message(0, "UnitMass_in_g = %g \n", All.UnitMass_in_g);

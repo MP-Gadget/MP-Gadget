@@ -5,7 +5,6 @@
 #include <math.h>
 
 #include "allvars.h"
-#include "proto.h"
 /*! \file longrange.c
  *  \brief driver routines for computation of long-range gravitational PM force
  */
@@ -13,7 +12,6 @@
 
 /*Defined in gravpm.c and only used here*/
 void  gravpm_init_periodic();
-void  gravpm_force(int noforce);
 
 static void fill_ntab();
 
@@ -24,67 +22,6 @@ void long_range_init(void)
 {
     fill_ntab();
     gravpm_init_periodic();
-}
-
-
-/*! This function computes the long-range PM force for all particles.
- */
-void long_range_force(void)
-{
-  int i;
-
-  for(i = 0; i < NumPart; i++)
-    {
-      P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
-      P[i].PM_Potential = 0;
-
-    }
-
-  gravpm_force(0);
-}
-
-/*! This function sets the (comoving) softening length of all particle
- *  types in the table All.SofteningTable[...].  We check that the physical
- *  softening length is bounded by the Softening-MaxPhys values.
- */
-void set_softenings(void)
-{
-    int i;
-
-    if(All.SofteningGas * All.Time > All.SofteningGasMaxPhys)
-        All.SofteningTable[0] = All.SofteningGasMaxPhys / All.Time;
-    else
-        All.SofteningTable[0] = All.SofteningGas;
-
-    if(All.SofteningHalo * All.Time > All.SofteningHaloMaxPhys)
-        All.SofteningTable[1] = All.SofteningHaloMaxPhys / All.Time;
-    else
-        All.SofteningTable[1] = All.SofteningHalo;
-
-    if(All.SofteningDisk * All.Time > All.SofteningDiskMaxPhys)
-        All.SofteningTable[2] = All.SofteningDiskMaxPhys / All.Time;
-    else
-        All.SofteningTable[2] = All.SofteningDisk;
-
-    if(All.SofteningBulge * All.Time > All.SofteningBulgeMaxPhys)
-        All.SofteningTable[3] = All.SofteningBulgeMaxPhys / All.Time;
-    else
-        All.SofteningTable[3] = All.SofteningBulge;
-
-    if(All.SofteningStars * All.Time > All.SofteningStarsMaxPhys)
-        All.SofteningTable[4] = All.SofteningStarsMaxPhys / All.Time;
-    else
-        All.SofteningTable[4] = All.SofteningStars;
-
-    if(All.SofteningBndry * All.Time > All.SofteningBndryMaxPhys)
-        All.SofteningTable[5] = All.SofteningBndryMaxPhys / All.Time;
-    else
-        All.SofteningTable[5] = All.SofteningBndry;
-
-    for(i = 0; i < 6; i++)
-        All.ForceSoftening[i] = 2.8 * All.SofteningTable[i];
-
-    All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[0];
 }
 
 /*! length of lock-up table for short-range force kernel in TreePM algorithm */

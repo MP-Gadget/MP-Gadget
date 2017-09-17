@@ -7,10 +7,9 @@
 
 #include "allvars.h"
 #include "cooling.h"
-#include "forcetree.h"
 #include "densitykernel.h"
-#include "proto.h"
 #include "treewalk.h"
+#include "timestep.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "gravshort.h"
@@ -26,12 +25,14 @@ void grav_short_pair(void)
 {
     TreeWalk tw[1] = {0};
 
+    message(0, "Starting pair-wise short range gravity...\n");
+
     tw->ev_label = "GRAV_SHORT";
     tw->visit = (TreeWalkVisitFunction) treewalk_visit_ngbiter;
     tw->ngbiter_type_elsize = sizeof(TreeWalkNgbIterGravShort);
     tw->ngbiter = (TreeWalkNgbIterFunction) grav_short_pair_ngbiter;
 
-    tw->isactive = grav_short_isactive;
+    tw->haswork = grav_short_haswork;
     tw->fill = (TreeWalkFillQueryFunction) grav_short_copy;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
@@ -41,7 +42,7 @@ void grav_short_pair(void)
 
     walltime_measure("/Misc");
 
-    treewalk_run(tw);
+    treewalk_run(tw, ActiveParticle, NumActiveParticle);
 
     walltime_measure("/Grav/Short");
 }

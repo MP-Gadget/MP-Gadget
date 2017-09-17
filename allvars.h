@@ -23,10 +23,6 @@
 #include <stdint.h>
 
 #include <gsl/gsl_rng.h>
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_integration.h>
-#include <gsl/gsl_spline.h>
-#include <gsl/gsl_errno.h>
 
 #include <signal.h>
 #define BREAKPOINT raise(SIGTRAP)
@@ -46,6 +42,7 @@
 
 #include "assert.h"
 #include "peano.h"
+#include "physconst.h"
 
 
 #define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
@@ -54,12 +51,6 @@
 #define  GENERATIONS     4	/*!< Number of star particles that may be created per gas particle */
 #endif
 
-#define  TIMEBINS         29
-
-#define  TIMEBASE        (1<<TIMEBINS)	/*!< The simulated timespan is mapped onto the integer interval [0,TIMESPAN],
-                                         *   where TIMESPAN needs to be a power of 2. Note that (1<<28) corresponds
-                                         *   to 2^29
-                                         */
 #define MAXHSML 30000.0
 
 #ifdef ONEDIM
@@ -71,12 +62,6 @@
 #define DIMS 3
 #endif
 #endif
-
-#ifndef  TOPNODEFACTOR
-#define  TOPNODEFACTOR       2.5
-#endif
-
-#define  NODELISTLENGTH      8
 
 #ifndef  GAMMA
 #define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
@@ -91,40 +76,6 @@
 #define  MAX_REAL_NUMBER  1e37
 #define  MIN_REAL_NUMBER  1e-37
 
-#define  RNDTABLE 8192
-
-/* ... often used physical constants (cgs units) */
-
-#define  GRAVITY     6.672e-8
-#define  SOLAR_MASS  1.989e33
-#define  SOLAR_LUM   3.826e33
-#define  RAD_CONST   7.565e-15
-#define  AVOGADRO    6.0222e23
-#define  BOLTZMANN   1.38066e-16
-/*Stefan-Boltzmann constant in cgs units*/
-#define  STEFAN_BOLTZMANN 5.670373e-5
-#define  GAS_CONST   8.31425e7
-#define  C           2.9979e10
-#define  PLANCK      6.6262e-27
-#define  CM_PER_MPC  3.085678e24
-#define  PROTONMASS  1.6726e-24
-#define  ELECTRONMASS 9.10953e-28
-#define  THOMPSON     6.65245e-25
-#define  ELECTRONCHARGE  4.8032e-10
-#define  HUBBLE          3.2407789e-18	/* in h/sec */
-#define  LYMAN_ALPHA      1215.6e-8	/* 1215.6 Angstroem */
-#define  LYMAN_ALPHA_HeII  303.8e-8	/* 303.8 Angstroem */
-#define  OSCILLATOR_STRENGTH       0.41615
-#define  OSCILLATOR_STRENGTH_HeII  0.41615
-
-#define  SEC_PER_MEGAYEAR   3.155e13
-#define  SEC_PER_YEAR       3.155e7
-
-/*Determines the maximum size of arrays related to the number of CR populations */
-#ifndef NUMCRPOP   /*!< Number of CR populations pressent in parameter file */
-#define NUMCRPOP 1
-#endif
-
 #ifndef RCUT
 /*! RCUT gives the maximum distance (in units of the scale used for the force split) out to which short-range
  * forces are evaluated in the short-range tree walk.
@@ -132,29 +83,18 @@
 #define RCUT  4.5
 #endif
 
-#define COND_TIMESTEP_PARAMETER 0.25
-#define VISC_TIMESTEP_PARAMETER 0.25
-
-#define MAXLEN_OUTPUTLIST 12000	/*!< maxmimum number of entries in output list */
-
-#define DRIFT_TABLE_LENGTH  1000	/*!< length of the lookup table used to hold the drift and kick factors */
-
-
 #define MAXITER 400
 
-#define MINRESTFAC 0.05
+typedef uint32_t binmask_t;
+typedef uint32_t inttime_t;
 
+#define BINMASK_ALL ((uint32_t) (-1))
+#define BINMASK(i) (1u << i)
 
 typedef uint64_t MyIDType;
 
 typedef LOW_PRECISION MyFloat;
 typedef HIGH_PRECISION MyDouble;
-
-struct unbind_data
-{
-    int index;
-};
-
 
 #define HAS(val, flag) ((flag & (val)) == (flag))
 #ifdef BLACK_HOLES
@@ -223,62 +163,23 @@ static inline int IMIN(int a, int b) {
 /*  Global variables                                     */
 /*********************************************************/
 
-
-extern int FirstActiveParticle;
-extern int *NextActiveParticle;
-
-extern int TimeBinCount[TIMEBINS];
-extern int TimeBinCountSph[TIMEBINS];
-extern int TimeBinActive[TIMEBINS];
-
-extern int FirstInTimeBin[TIMEBINS];
-extern int LastInTimeBin[TIMEBINS];
-extern int *NextInTimeBin;
-extern int *PrevInTimeBin;
-
-#ifdef BLACK_HOLES
-extern double Local_BH_mass;
-extern double Local_BH_dynamicalmass;
-extern double Local_BH_Mdot;
-extern double Local_BH_Medd;
-#endif
-
 extern int ThisTask;		/*!< the number of the local processor  */
 extern int NTask;		/*!< number of processors */
 
-extern int64_t GlobNumForceUpdate;
-
-extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tree used for domain decomposition */
-
-extern int Flag_FullStep;	/*!< Flag used to signal that the current step involves all particles */
-
-extern int GlobFlag;
-
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
-
-extern int NumPart;
 
 /* Local number of particles; this is accurate after a GC */
 extern int64_t NLocal[6];
 extern int64_t NTotal[6];
-extern int64_t TotNumPart;
 
 /* Number of used BHP slots */
 extern int N_bh_slots;
 extern int N_sph_slots;
 
-extern gsl_rng *random_generator;	/*!< the random number generator used */
-
-extern double TimeOfLastTreeConstruction;	/*!< holds what it says */
-
-extern double RndTable[RNDTABLE];
-
-
 /* variables for input/output , usually only used on process 0 */
 
 
-extern FILE *FdInfo,		/*!< file handle for info.txt log-file. */
-       *FdEnergy,			/*!< file handle for energy.txt log-file. */
+extern FILE *FdEnergy,			/*!< file handle for energy.txt log-file. */
        *FdCPU;			/*!< file handle for cpu.txt log-file. */
 
 #ifdef SFR
@@ -309,15 +210,12 @@ extern struct global_data_all_processes
 
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
                               processor. */
-    int MaxPartSph;		/*!< This gives the maxmimum number of SPH particles that can be stored on one
-                          processor. */
     int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on one
                           processor. */
 
 /* end of read_header parameters */
 
     int NumThreads;     /* number of threads used to simulate OpenMP tls */
-    int DoDynamicUpdate;
 
     struct {
         size_t BytesPerFile;   /* Number of bytes per physical file; this decides how many files bigfile creates each block */
@@ -343,6 +241,8 @@ extern struct global_data_all_processes
                                   the maximum(!) number of particles.  Note: A typical local tree for N
                                   particles needs usually about ~0.65*N nodes. */
 
+    int OutputPotential;        /*!< Flag whether to include the potential in snapshots*/
+
     /* some SPH parameters */
 
     int DesNumNgb;		/*!< Desired number of SPH neighbours */
@@ -353,12 +253,6 @@ extern struct global_data_all_processes
     double InitGasTemp;		/*!< may be used to set the temperature in the IC's */
     double MinGasTemp;		/*!< may be used to set a floor for the gas temperature */
     double MinEgySpec;		/*!< the minimum allowed temperature expressed as energy per unit mass */
-
-    /* some force counters  */
-
-    int64_t TotNumOfForces;	/*!< counts total number of force computations  */
-
-    int64_t NumForcesSinceLastDomainDecomp;	/*!< count particle updates since last domain decomposition */
 
     /* system of units  */
 
@@ -378,13 +272,17 @@ extern struct global_data_all_processes
     /* Cosmology */
     Cosmology CP;
 
-    double Hubble; /*!< Hubble-constant in internal units */
-
     /* Code options */
-    int DomainOverDecompositionFactor; /* Number of sub-domains per processor. */
+    /* Number of sub-domains per processor. TopNodes are refined so that no TopNode contains
+     * no more than 1/(DODF * NTask) fraction of the work.
+     * Then the load balancer will aim to produce DODF*NTask equal-sized chunks, distributed
+     * evenly across MPI ranks.*/
+    int DomainOverDecompositionFactor;
+    int DomainUseGlobalSorting;
+    /* Sets average TopNodes per MPI rank. Like DomainOverDecompositionFactor
+     * but only changes refinement, not load balancing.*/
+    int TopNodeIncreaseFactor;
 
-    int TypeOfOpeningCriterion;	/*!< determines tree cell-opening criterion: 0 for Barnes-Hut, 1 for relative
-                                  criterion */
     int CoolingOn;		/*!< flags that cooling is enabled */
     double UVRedshiftThreshold;		/* Initial redshift of UV background. */
     int HydroOn;		/*!< flags that hydro force is enabled */
@@ -400,11 +298,8 @@ extern struct global_data_all_processes
     /* parameters determining output frequency */
 
     int SnapshotFileCount;	/*!< number of snapshot that is written next */
-    double TimeOfFirstSnapshot,	/*!< simulation time of first snapshot files */
-           CpuTimeBetRestartFile,	/*!< cpu-time between regularly generated restart files */
-           TimeLastRestartFile;  	/*!< cpu-time when last restart-file was written */
-
-    int NumCurrentTiStep;		/*!< counts the number of system steps taken up to this point */
+    int InitSnapshotCount;  /*!< Number of first snapshot written this run*/
+    double AutoSnapshotTime;    /*!< cpu-time between regularly generated snapshots. */
 
     /* Current time of the simulation, global step, and end of simulation */
 
@@ -423,17 +318,9 @@ extern struct global_data_all_processes
 
     /* variables for organizing discrete timeline */
 
-    double Timebase_interval;	/*!< factor to convert from floating point time interval to integer timeline */
-    int Ti_Current;		/*!< current time on integer timeline */
-    int Ti_nextoutput;		/*!< next output time on integer timeline */
+    inttime_t Ti_Current;		/*!< current time on integer timeline */
 
     int Nmesh;
-
-    int PM_Ti_endstep, PM_Ti_begstep;
-    double Corner[2][3], UpperCorner[2][3], Xmintot[2][3], Xmaxtot[2][3];
-    double TotalMeshSize[2];
-
-    int Ti_nextlineofsight;
 
     /* variables that keep track of cumulative CPU consumption */
 
@@ -442,7 +329,6 @@ extern struct global_data_all_processes
 
     /* tree code opening criterion */
 
-    double ErrTolTheta;		/*!< BH tree opening angle */
     double ErrTolForceAcc;	/*!< parameter for relative opening criterion in tree walk */
 
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
@@ -453,6 +339,7 @@ extern struct global_data_all_processes
     double ErrTolIntAccuracy;	/*!< accuracy tolerance parameter \f$ \eta \f$ for timestep criterion. The
                                   timesteps is \f$ \Delta t = \sqrt{\frac{2 \eta eps}{a}} \f$ */
 
+    int ForceEqualTimesteps; /*If true, all timesteps have the same timestep, the smallest allowed.*/
     double MinSizeTimestep,	/*!< minimum allowed timestep. Normally, the simulation terminates if the
                               timestep determined by the timestep criteria falls below this limit. */
            MaxSizeTimestep;		/*!< maximum allowed timestep */
@@ -468,12 +355,6 @@ extern struct global_data_all_processes
     int MaxMemSizePerNode;
 
     double CourantFac;		/*!< SPH-Courant factor */
-
-
-    /* frequency of tree reconstruction/domain decomposition */
-
-
-    double TreeDomainUpdateFrequency;	/*!< controls frequency of domain decompositions  */
 
 
     /* gravitational and hydrodynamical softening lengths (given in terms of an `equivalent' Plummer softening
@@ -508,6 +389,9 @@ extern struct global_data_all_processes
     double SofteningTable[6];	/*!< current (comoving) gravitational softening lengths for each particle type */
     double ForceSoftening[6];	/*!< the same, but multiplied by a factor 2.8 - at that scale the force is Newtonian */
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
+    int AdaptiveGravsoftForGas; /*Flags that we have enabled adaptive gravitational softening for gas particles.
+                                  This means that ForceSoftening[0] is unused. Instead pairwise interactions use 
+                                  max(P[i].Hsml,ForceSoftening[P[j].Type]) for the particle is considered.*/
 
     /* some filenames */
     char InitCondFile[100],
@@ -516,12 +400,14 @@ extern struct global_data_all_processes
          OutputDir[100],
          SnapshotFileBase[100],
          EnergyFile[100],
-         CpuFile[100],
-         InfoFile[100], ResubmitCommand[100], OutputList[100];
+         CpuFile[100];
+
+    /*Should we store the energy to EnergyFile on PM timesteps.*/
+    int OutputEnergyDebug;
 
     char UVFluctuationFile[100];
 
-    /*! table with desired output times */
+    /*! table with desired output times, stored as log(a) */
     double OutputListTimes[8192];
     int OutputListLength;		/*!< number of times stored in table of desired output times */
 
@@ -584,33 +470,7 @@ All;
 #ifdef _OPENMP
 extern size_t BlockedParticleDrifts;
 extern size_t TotalParticleDrifts;
-extern size_t BlockedNodeDrifts;
-extern size_t TotalNodeDrifts;
 #endif
-struct bh_particle_data {
-    int ReverseLink; /* used at GC for reverse link to P */
-    MyIDType ID; /* for data consistency check, same as particle ID */
-    int CountProgs;
-
-    MyFloat Mass;
-    MyFloat Mdot;
-    MyFloat FeedbackWeightSum;
-    MyFloat Density;
-    MyFloat Entropy;
-    MyFloat Pressure;
-    MyFloat SurroundingGasVel[3];
-
-    MyFloat accreted_Mass;
-    MyFloat accreted_BHMass;
-    MyFloat accreted_momentum[3];
-
-    double  MinPotPos[3];
-    MyFloat MinPotVel[3];
-    MyFloat MinPot;
-
-    short int TimeBinLimit;
-} * BhP;
-
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
  */
@@ -620,30 +480,41 @@ extern struct particle_data
     pthread_spinlock_t SpinLock;
 #endif
 
-    float GravCost;		/*!< weight factor used for balancing the work-load */
+    float GravCost;     /*!< weight factor used for balancing the work-load */
 
-    int Ti_begstep;		/*!< marks start of current timestep of particle on integer timeline */
-    int Ti_current;		/*!< current time of the particle */
-
+    inttime_t Ti_drift;       /*!< current time of the particle position */
+    inttime_t Ti_kick;        /*!< current time of the particle momentum */
 
     double Pos[3];   /*!< particle position at its current time */
     float Mass;     /*!< particle mass */
+
     struct {
-        unsigned int Evaluated :1;
-        unsigned int DensityIterationDone :1;
-        unsigned int OnAnotherDomain     :1;
-        unsigned int WillExport    :1; /* used in domain */
-        unsigned int Type        :4;		/*!< flags particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
-        /* first byte ends */
-        signed char TimeBin;
-        /* second byte ends */
-        unsigned char Generation; /* How many particles it has spawned*/
-#ifdef WINDS
-        unsigned int IsNewParticle:1; /* whether it is created this step */
+        /* particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
+        unsigned int Type                 :4;
+
+        unsigned int IsGarbage            :1; /* True for a garbage particle. */
+        unsigned int Evaluated            :1; /* True if already query already ran in treewalk */
+        unsigned int OnAnotherDomain      :1; /* particle is hosted by another rank; used in domain; */
+        unsigned int WillExport           :1; /* particle will be exported in current run of exchange; */
+
+        unsigned int DensityIterationDone :1; /* True if the density-like iterations already finished; */
+        unsigned int IsNewParticle        :1; /* True if the particle is created this step; used in SFR */
+        unsigned int Swallowed            :1; /* True if the particle is being swallowed; used in BH to determine swallower and swallowee;*/
+#ifdef DEBUG
+        unsigned int SufferFromCoupling:1; /* whether it suffers from particle-coupling (nearest neighbour << gravity smoothing)*/
+#else
+        unsigned int spare_4              :1;
 #endif
-#ifdef BLACK_HOLES
-        unsigned int Swallowed : 1; /* whether it is being swallowed */
-#endif
+
+        unsigned int spare_3              :1;
+        unsigned int spare_2              :1;
+        unsigned int spare_1              :1;
+        unsigned int spare_0              :1;
+
+        unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID. 
+                                     may wrap around with too many SFR/BH if a feedback model goes rogue */
+
+        signed char TimeBin; /* Time step bin; -1 for unassigned.*/
     };
 
     unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
@@ -672,6 +543,10 @@ extern struct particle_data
     MyIDType SwallowID; /* who will swallow this particle, used only in blackhole.c */
 #endif
 
+    /* The peano key is a hash of the position used in the domain decomposition.
+     * It is slow to generate so we store it here.*/
+    peano_t Key; /* only by domain.c and forcetre.c */
+
     union {
         /* the following variables are transients.
          * FIXME: move them into the corresponding modules! Is it possible? */
@@ -680,11 +555,8 @@ extern struct particle_data
 
         int RegionInd; /* which region the particle belongs to; only by petapm.c */
 
-        /* The peano key is a hash of the position used in the domain decomposition.
-         * It is slow to generate so we store it here.*/
-        peanokey Key; /* only by domain.c */
         struct {
-            /* used by fof.c which calls domain_exchange that doesn't uses peanokey */
+            /* used by fof.c which calls domain_exchange that doesn't uses peano_t */
             int64_t GrNr; 
             int origintask;
             int targettask;
@@ -694,15 +566,44 @@ extern struct particle_data
 }
 *P;				/*!< holds particle data on local processor */
 
+struct particle_data_ext {
+    int ReverseLink; /* used at GC for reverse link to P */
+    MyIDType ID; /* for data consistency check, same as particle ID */
+};
+struct bh_particle_data {
+    struct particle_data_ext base;
+
+    int CountProgs;
+
+    MyFloat Mass;
+    MyFloat Mdot;
+    MyFloat FeedbackWeightSum;
+    MyFloat Density;
+    MyFloat Entropy;
+    MyFloat Pressure;
+    MyFloat SurroundingGasVel[3];
+
+    MyFloat accreted_Mass;
+    MyFloat accreted_BHMass;
+    MyFloat accreted_momentum[3];
+
+    double  MinPotPos[3];
+    MyFloat MinPotVel[3];
+    MyFloat MinPot;
+
+    short int TimeBinLimit;
+} * BhP;
+
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
  * variables.
  */
 extern struct sph_particle_data
 {
+    struct particle_data_ext base;
+
 #ifdef DENSITY_INDEPENDENT_SPH
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
-    MyFloat EntVarPred;             /*!< predicted entropy variable */
     MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
 #define EOMDensity EgyWtDensity
 #else
@@ -710,14 +611,7 @@ extern struct sph_particle_data
 #endif
 
     MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
-    MyFloat Pressure;		/*!< current pressure */
-    MyFloat VelPred[3];		/*!< predicted SPH particle velocity at the current time */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
-#ifdef VOLUME_CORRECTION
-    MyFloat DensityOld;
-    MyFloat DensityStd;
-#endif
-
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */
     MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
@@ -746,64 +640,10 @@ extern struct sph_particle_data
 #endif
 } *SphP;				/*!< holds SPH particle data on local processor */
 
-#define SPHP(i) SphP[i]
+#define SPHP(i) SphP[P[i].PI]
 #define BHP(i) BhP[P[i].PI]
-
-/* global state of system
-*/
-extern struct state_of_system
-{
-    double Mass;
-    double EnergyKin;
-    double EnergyPot;
-    double EnergyInt;
-    double EnergyTot;
-
-    double Momentum[4];
-    double AngMomentum[4];
-    double CenterOfMass[4];
-    double MassComp[6];
-    /* Only Gas is used */
-    double TemperatureComp[6];
-
-    double EnergyKinComp[6];
-    double EnergyPotComp[6];
-    double EnergyIntComp[6];
-    double EnergyTotComp[6];
-    double MomentumComp[6][4];
-    double AngMomentumComp[6][4];
-    double CenterOfMassComp[6][4];
-}
-SysState, SysStateAtStart, SysStateAtEnd;
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
-
-static inline double
-dotproduct(double v1[3], double v2[3])
-{
-    double r =0;
-    int d;
-    for(d = 0; d < 3; d ++) {
-        r += v1[d] * v2[d];
-    }
-    return r;
-}
-
-static inline void crossproduct(double v1[3], double v2[3], double out[3])
-{
-    static int D2[3] = {1, 2, 0};
-    static int D3[3] = {2, 0, 1};
-
-    int d1, d2, d3;
-
-    for(d1 = 0; d1 < 3; d1++)
-    {
-        d2 = D2[d1];
-        d3 = D3[d1];
-
-        out[d1] = (v1[d2] * v2[d3] -  v2[d2] * v1[d3]);
-    }
-}
 
 #endif

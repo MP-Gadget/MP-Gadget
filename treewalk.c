@@ -1,15 +1,17 @@
 #include <mpi.h>
+#include <math.h>
 #include <string.h>
 #include <stdlib.h>
 #include "allvars.h"
-#include "proto.h"
 #include "treewalk.h"
-
+#include "drift.h"
 #include "openmpsort.h"
 #include "mymalloc.h"
 #include "domain.h"
 #include "forcetree.h"
 #include "endrun.h"
+#include "timestep.h"
+#include "system.h"
 
 struct ev_task {
     int top_node;
@@ -46,13 +48,16 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 
 static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
 static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int length);
-static void ev_begin(TreeWalk * tw);
+static void ev_begin(TreeWalk * tw, int * active_set, int size);
 static void ev_finish(TreeWalk * tw);
 static int ev_primary(TreeWalk * tw);
 static void ev_get_remote(TreeWalk * tw);
 static void ev_secondary(TreeWalk * tw);
 static void ev_reduce_result(TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
+
+static void
+treewalk_build_queue(TreeWalk * tw, int * active_set, int size);
 
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
@@ -94,7 +99,7 @@ static int data_index_compare(const void *a, const void *b)
  * for debugging
  */
 #define WATCH { \
-        printf("tw->PrimaryTasks[0] = %d %d (%d) %s:%d\n", tw->PrimaryTasks[0].top_node, tw->PrimaryTasks[0].place, tw->PQueueSize, __FILE__, __LINE__); \
+        printf("tw->PrimaryTasks[0] = %d %d (%d) %s:%d\n", tw->PrimaryTasks[0].top_node, tw->PrimaryTasks[0].place, tw->WorkSetSize, __FILE__, __LINE__); \
     }
 static TreeWalk * GDB_current_ev = NULL;
 
@@ -134,7 +139,8 @@ ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv)
         lv->exportflag[j] = -1;
 }
 
-static void ev_begin(TreeWalk * tw)
+static void
+ev_begin(TreeWalk * tw, int * active_set, int size)
 {
     Ngblist = (int*) mymalloc("Ngblist", NumPart * All.NumThreads * sizeof(int));
     tw->BunchSize =
@@ -147,19 +153,22 @@ static void ev_begin(TreeWalk * tw)
 
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
 
-    tw->PQueueSize = 0;
+    tw->WorkSetSize = 0;
 
-    tw->PQueue = treewalk_get_queue(tw, &tw->PQueueSize);
-    tw->PrimaryTasks = (struct ev_task *) mymalloc("PrimaryTasks", sizeof(struct ev_task) * tw->PQueueSize);
+    tw->WorkSet = mymalloc("ActiveQueue", NumPart * sizeof(int));
 
-    fill_task_queue(tw, tw->PrimaryTasks, tw->PQueue, tw->PQueueSize);
+    treewalk_build_queue(tw, active_set, size);
+
+    tw->PrimaryTasks = (struct ev_task *) mymalloc("PrimaryTasks", sizeof(struct ev_task) * tw->WorkSetSize);
+
+    fill_task_queue(tw, tw->PrimaryTasks, tw->WorkSet, tw->WorkSetSize);
     tw->currentIndex = mymalloc("currentIndexPerThread", sizeof(int) * All.NumThreads);
     tw->currentEnd = mymalloc("currentEndPerThread", sizeof(int) * All.NumThreads);
 
     int i;
     for(i = 0; i < All.NumThreads; i ++) {
-        tw->currentIndex[i] = ((size_t) i) * tw->PQueueSize / All.NumThreads;
-        tw->currentEnd[i] = ((size_t) i + 1) * tw->PQueueSize / All.NumThreads;
+        tw->currentIndex[i] = ((size_t) i) * tw->WorkSetSize / All.NumThreads;
+        tw->currentEnd[i] = ((size_t) i + 1) * tw->WorkSetSize / All.NumThreads;
     }
 }
 
@@ -168,7 +177,7 @@ static void ev_finish(TreeWalk * tw)
     myfree(tw->currentEnd);
     myfree(tw->currentIndex);
     myfree(tw->PrimaryTasks);
-    myfree(tw->PQueue);
+    myfree(tw->WorkSet);
     myfree(DataNodeList);
     myfree(DataIndexTable);
     myfree(Ngblist);
@@ -193,7 +202,7 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
         query->NodeList[1] = -1; /* terminate immediately */
     }
 
-    tw->fill(i, query);
+    tw->fill(i, query, tw);
 };
 
 static void
@@ -207,7 +216,7 @@ static void
 treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum TreeWalkReduceMode mode)
 {
     if(tw->reduce != NULL)
-        tw->reduce(i, result, mode);
+        tw->reduce(i, result, mode, tw);
 }
 
 static void real_ev(TreeWalk * tw) {
@@ -234,7 +243,7 @@ static void real_ev(TreeWalk * tw) {
         if(P[i].Evaluated) {
             BREAKPOINT;
         }
-        if(!tw->isactive(i)) {
+        if(!tw->haswork(i, tw)) {
             BREAKPOINT;
         }
         int rt;
@@ -260,36 +269,55 @@ static void real_ev(TreeWalk * tw) {
     tw->Nnodesinlist += lv->Nnodesinlist;
 }
 
-static int cmpint(const void * c1, const void * c2) {
-    const int* i1=c1;
-    const int* i2=c2;
-    return i1 - i2;
+#ifdef DEBUG
+static int
+cmpint(const void *a, const void *b)
+{
+    const int * aa = (const int *) a;
+    const int * bb = (const int *) b;
+    if(aa < bb) return -1;
+    if(aa > bb) return 1;
+    return 0;
+
 }
-int * treewalk_get_queue(TreeWalk * tw, int * len) {
-    int i;
-    int * queue = mymalloc("ActiveQueue", NumPart * sizeof(int));
+#endif
+
+static void
+treewalk_build_queue(TreeWalk * tw, int * active_set, int size) {
+    int * queue = tw->WorkSet;
     int k = 0;
-    if(tw->UseAllParticles) {
+    if(active_set == NULL) {
+        int i;
+        #pragma omp parallel for
         for(i = 0; i < NumPart; i++) {
-            if(!tw->isactive(i)) continue;
-            queue[k++] = i;
+            if(!tw->haswork(i, tw))
+                continue;
+            const int lock = atomic_fetch_and_add(&k, 1);
+            queue[lock] = i;
         }
     } else {
-        for(i = FirstActiveParticle; i >= 0; i = NextActiveParticle[i])
+        int i;
+        #pragma omp parallel for
+        for(i=0; i < NumActiveParticle; i++)
         {
-            if(!tw->isactive(i)) continue;
-            queue[k++] = i;
+            const int p_i = ActiveParticle[i];
+            if(!tw->haswork(p_i, tw))
+               continue;
+            const int lock = atomic_fetch_and_add(&k, 1);
+            queue[lock] = p_i;
         }
+#ifdef DEBUG
         /* check the uniqueness of ActiveParticle list. */
+        /* FIXME: the sort may affect performance of treewalk */
         qsort(queue, k, sizeof(int), cmpint);
         for(i = 0; i < k - 1; i ++) {
             if(queue[i] == queue[i+1]) {
-                endrun(8829, "There are duplicated active particles.");
+                endrun(8829, "A few particles are twicely active.");
             }
         }
+#endif
     }
-    *len = k;
-    return queue;
+    tw->WorkSetSize = k;
 }
 
 /* returns number of exports */
@@ -450,7 +478,8 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     TreeWalk * tw = lv->tw;
     int task;
 
-    task = DomainTask[no - (All.MaxPart + MaxNodes)];
+    task = TopLeaves[no - (All.MaxPart + MaxNodes)].Task;
+
     if(exportflag[task] != target)
     {
         exportflag[task] = target;
@@ -483,7 +512,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     if(tw->UseNodeList) 
     {
         DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-            DomainNodeIndex[no - (All.MaxPart + MaxNodes)];
+            TopLeaves[no - (All.MaxPart + MaxNodes)].treenode;
 
         if(exportnodecount[task] < NODELISTLENGTH)
             DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
@@ -491,29 +520,48 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     return 0;
 }
 
-void treewalk_run(TreeWalk * tw) {
-    /* run the evaluator */
+/* run a treewalk on an active_set.
+ *
+ * active_set : a list of indices of particles. If active_set is NULL,
+ *              all (NumPart) particles are used.
+ *
+ * */
+void
+treewalk_run(TreeWalk * tw, int * active_set, int size)
+{
     if(!force_tree_allocated()) {
         endrun(0, "Tree has been freed before this treewalk.");
     }
 
     GDB_current_ev = tw;
-    ev_begin(tw);
-    do
-    {
-        ev_primary(tw); /* do local particles and prepare export list */
-        /* exchange particle data */
-        ev_get_remote(tw);
-        report_memory_usage(tw->ev_label);
-        /* now do the particles that were sent to us */
-        ev_secondary(tw);
 
-        /* import the result to local particles */
-        ev_reduce_result(tw);
+    ev_begin(tw, active_set, size);
 
-        tw->Niterations ++;
-        tw->Nexport_sum += tw->Nexport;
-    } while(ev_ndone(tw) < NTask);
+    if(tw->preprocess) {
+        int i;
+        #pragma omp parallel for if(tw->WorkSetSize > 64)
+        for(i = 0; i < tw->WorkSetSize; i ++) {
+            tw->preprocess(tw->WorkSet[i], tw);
+        }
+    }
+
+    if(tw->visit) {
+        do
+        {
+            ev_primary(tw); /* do local particles and prepare export list */
+            /* exchange particle data */
+            ev_get_remote(tw);
+            report_memory_usage(tw->ev_label);
+            /* now do the particles that were sent to us */
+            ev_secondary(tw);
+
+            /* import the result to local particles */
+            ev_reduce_result(tw);
+
+            tw->Niterations ++;
+            tw->Nexport_sum += tw->Nexport;
+        } while(ev_ndone(tw) < NTask);
+    }
 
     double tstart, tend;
 
@@ -521,9 +569,9 @@ void treewalk_run(TreeWalk * tw) {
 
     if(tw->postprocess) {
         int i;
-        #pragma omp parallel for if(tw->PQueueSize > 64)
-        for(i = 0; i < tw->PQueueSize; i ++) {
-            tw->postprocess(tw->PQueue[i]);
+        #pragma omp parallel for if(tw->WorkSetSize > 64)
+        for(i = 0; i < tw->WorkSetSize; i ++) {
+            tw->postprocess(tw->WorkSet[i], tw);
         }
     }
     tend = second();
@@ -679,10 +727,10 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
         if(0) {
             no = Father[pq[i]];
             while(no != -1) {
-                if(Nodes[no].u.d.bitflags & (1 << BITFLAG_TOPLEVEL)) {
+                if(Nodes[no].f.TopLevel) {
                     break;
                 }
-                no = Nodes[no].u.d.father;
+                no = Nodes[no].father;
             }
         }
        */
@@ -738,10 +786,16 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
         for(numngb = 0; numngb < numcand; numngb ++) {
             int other = lv->ngblist[numngb];
 
+            /* must be the correct type */
             if(!((1<<P[other].Type) & iter->mask))
                 continue;
 
-            drift_particle(other, All.Ti_Current);
+            /* must be the correct time bin */
+            if(lv->tw->type == TREEWALK_SPLIT && !(BINMASK(P[other].TimeBin) & lv->tw->bgmask))
+                continue;
+
+            if(lv->tw->type != TREEWALK_SPLIT) /* FIXME: get rid of this entirely */
+                drift_particle(other, All.Ti_Current);
 
             double dist;
 
@@ -791,7 +845,7 @@ cull_node(TreeWalkQueryBase * I, TreeWalkNgbIterBase * iter, int no)
 
     double dist;
     if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
-        dist = DMAX(Extnodes[no].hmax, iter->Hsml) + 0.5 * current->len;
+        dist = DMAX(Nodes[no].u.d.hmax, iter->Hsml) + 0.5 * current->len;
     } else {
         dist = iter->Hsml + 0.5 * current->len;
     }
@@ -866,24 +920,15 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
             continue;
         }
 
-        /* An actuall node with struct NODE */
-        force_drift_node(no, All.Ti_Current);
-
         current = &Nodes[no];
 
         if(lv->mode == 1) {
             if (lv->tw->UseNodeList) {
-                if(current->u.d.bitflags & (1 << BITFLAG_TOPLEVEL)) {
+                if(current->f.TopLevel) {
                     /* we reached a top-level node again, which means that we are done with the branch */
                     break;
                 }
             }
-        }
-
-        if(!(current->u.d.bitflags & (1 << BITFLAG_MULTIPLEPARTICLES))) {
-            /* open cell to check the only particle inside */
-            no = current->u.d.nextnode;
-            continue;
         }
 
         /* Cull the node */

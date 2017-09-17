@@ -5,17 +5,15 @@ OutputDir = output
 OutputList = 0.1,0.15, 0.2, 0.299,0.3,0.33333
 SnapshotFileBase = snapshot
 
-Nmesh 128
+Nmesh = 128 
 
 # CPU time -limit
-	
+
 TimeLimitCPU = 43000 #= 8 hours
 
 
 # Code options
 
-
-TypeOfTimestepCriterion  0
 
 #  Characteristics of run
 
@@ -32,8 +30,6 @@ StarformationCriterion = density
 RadiationOn = 0
 HydroOn = 0
 BlackHoleOn = 0
-
-CpuTimeBetRestartFile = 9000.0
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1

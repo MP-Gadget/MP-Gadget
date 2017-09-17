@@ -7,20 +7,23 @@
  * ------------------
  */
 
-/*Used in restart.c*/
+/*Used in treewalk.c*/
 extern struct NODE
 {
-#ifdef OPENMP_USE_SPINLOCK
-    pthread_spinlock_t SpinLock;
-#endif
-
     MyFloat len;			/*!< sidelength of treenode */
     MyFloat center[3];		/*!< geometrical center of node */
 
-#ifdef ADAPTIVE_GRAVSOFT_FORGAS
-    MyFloat maxsoft;		/*!< hold the maximum gravitational softening of particle in the
-                              node if the ADAPTIVE_GRAVSOFT_FORGAS option is selected */
-#endif
+    int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
+    struct {
+        unsigned int InternalTopLevel :1; /* TopLevel and has a child which is also TopLevel*/
+        unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
+        unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
+        /* Stores the largest softening in the node. The short-range
+         * gravitational force solver will check this and use it
+         * open the node if a particle is closer.*/
+        unsigned int MaxSofteningType :3;
+        unsigned int MixedSofteningsInNode :1;
+    } f;
     union
     {
         int suns[8];		/*!< temporary pointers to daughter nodes */
@@ -28,68 +31,51 @@ extern struct NODE
         {
             MyFloat s[3];		/*!< center of mass of node */
             MyFloat mass;		/*!< mass of node */
-            unsigned int bitflags;	/*!< flags certain node properties */
             int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
             int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
-            int father;		/*!< this gives the parent node of each node (or -1 if we have the root node) */
+            MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
         }
         d;
     }
     u;
-    int Ti_current;
 }
 *Nodes_base,			/*!< points to the actual memory allocated for the nodes */
     *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
                       gives the first allocated node */
 
-/*Used in restart.c*/
-extern struct extNODE
-{
-    MyDouble dp[3];
-    MyFloat vs[3];
-    MyFloat vmax;
-    MyFloat divVmax;
-    MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
-    int Ti_lastkicked;
-    int Flag;
-}
-*Extnodes, *Extnodes_base;
-
+/*Structure containing the Node pointer, and the first and last entries*/
+struct TreeBuilder {
+    /*Index of first internal node*/
+    int firstnode;
+    /*Index of first pseudo-particle node*/
+    int lastnode;
+    /*!< this is a pointer used to access the nodes which is shifted such that Nodes[firstnode]
+     *   gives the first allocated node */
+    struct NODE *Nodes; 
+};
 
 extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
-/*Used in restart.c*/
-extern int Numnodestree;	/*!< number of (internal) nodes in each tree */
 
 /*Used in domain.c*/
 extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
 extern int *Father;		/*!< gives parent node in tree (Prenodes array) */
 
-#define BITFLAG_TOPLEVEL                   0
-#define BITFLAG_DEPENDS_ON_LOCAL_MASS      1  /* Intersects with local mass */
-#define BITFLAG_MAX_SOFTENING_TYPE         2  /* bits 2-4 */
-#define BITFLAG_MIXED_SOFTENINGS_IN_NODE   5
-#define BITFLAG_INTERNAL_TOPLEVEL          6  /* INTERNAL tree nodes and toplevel*/
-#define BITFLAG_MULTIPLEPARTICLES          7
-#define BITFLAG_NODEHASBEENKICKED          8
-#define BITFLAG_INSIDE_LINKINGLENGTH       9
-
-#define BITFLAG_MASK  ((1 << BITFLAG_MULTIPLEPARTICLES) + (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE) + (7 << BITFLAG_MAX_SOFTENING_TYPE))
-#define maskout_different_softening_flag(x) (x & (1 << BITFLAG_MIXED_SOFTENINGS_IN_NODE))
-#define extract_max_softening_type(x) ((x >> BITFLAG_MAX_SOFTENING_TYPE) & 7)
-
-void force_drift_node(int no, int time1);
-int force_drift_node_full(int no, int time1, int blocking);
-
-void force_kick_node(int i, MyFloat *dv);
-
 int force_tree_allocated();
 
-void force_update_hmax(void);
+void force_update_hmax(int * activeset, int size);
 void force_tree_rebuild();
-void force_finish_kick_nodes(void);
 
 void   force_tree_free(void);
 void   dump_particles(void);
+
+int
+force_get_prev_node(int no, const struct TreeBuilder tb);
+
+int
+force_get_next_node(int no, const struct TreeBuilder tb);
+
+int
+force_set_next_node(int no, int next, const struct TreeBuilder tb);
 
 #endif
 

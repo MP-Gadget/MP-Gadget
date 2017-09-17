@@ -24,7 +24,6 @@
 #include <math.h>
 
 #include "allvars.h"
-#include "proto.h"
 #include "bigfile.h"
 #include "cooling.h"
 #include "interp.h"
@@ -327,6 +326,7 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * u
 
     if(logT <= Tmin)		/* everything neutral */
     {
+        memset(r, 0, sizeof(struct rates));
         y->nH0 = 1.0;
         y->nHe0 = yhelium;
         y->nHp = 0;
@@ -338,6 +338,7 @@ static void find_abundances_and_rates(double logT, double nHcgs, struct UVBG * u
 
     if(logT >= Tmax)		/* everything is ionized */
     {
+        memset(r, 0, sizeof(struct rates));
         y->nH0 = 0;
         y->nHe0 = 0;
         y->nHp = 1.0;

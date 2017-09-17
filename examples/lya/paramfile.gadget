@@ -3,22 +3,16 @@
 InitCondFile = output/IC
 OutputDir = output
 TreeCoolFile = ../TREECOOL_fg_june11
-MetalCoolFile = ../cooling_metal_UVB
-OutputList = 0.1,0.2,0.2222222,0.25,0.2857,0.33333
-
-SnapshotFileBase = snapshot
+OutputList = "0.02,0.1,0.192307692308,0.2,0.208333333333,0.217391304348,0.227272727273,0.238095238095,0.25,0.263157894737,0.277777777778,0.294117647059,0.3125"
+SnapshotFileBase = snap
 
 Nmesh = 128
 
 # CPU time -limit
-	
+
 TimeLimitCPU = 43000 #= 8 hours
 
-
 # Code options
-
-
-TypeOfTimestepCriterion = 0
 
 #  Characteristics of run
 
@@ -35,84 +29,41 @@ RadiationOn = 1
 HydroOn = 1
 StarformationCriterion = density
 
-# Output frequency
-
-CpuTimeBetRestartFile = 9000.0
-
-
-# Accuracy of time integration
-
-ErrTolIntAccuracy = 0.02 
-
-MaxRMSDisplacementFac = 0.2
-
-CourantFac = 0.15     
-
-MaxSizeTimestep = 0.1
-MinSizeTimestep = 0.05
-
-# Tree algorithm, force accuracy, domain update frequency
-
-ErrTolForceAcc = 0.005
-
 #  Further parameters of SPH
-DensityKernelType = quintic
-DensityContrastLimit = 100   # max contrast for hydro force calculation
-DensityResolutionEta = 1.0  # for Cubic spline 1.0 = 33
-MaxNumNgbDeviation = 2
-ArtBulkViscConst = 0.75
-InitGasTemp = 580.0        # always ignored if set to 0 
-MinGasTemp = 5.0    
-
+#  #Only kernel supported by fake_spectra
+DensityKernelType = cubic
+InitGasTemp = 270.
+MinGasTemp = 100
 
 # Memory allocation
 
 PartAllocFactor = 2.0
 BufferSize = 100          # in MByte
-TopNodeAllocFactor = 0.20
 
 # Softening lengths
-
-MinGasHsmlFractional = 0.01
-MaxGasVel = 3e5
-
-SofteningGas = 50
-SofteningHalo = 50
-SofteningDisk = 0
-SofteningBulge = 0           
-SofteningStars = 50
-SofteningBndry = 50             #This is BH
-
-SofteningGasMaxPhys = 50
-SofteningHaloMaxPhys = 50
-SofteningDiskMaxPhys = 0
-SofteningBulgeMaxPhys = 0           
-SofteningStarsMaxPhys = 50
-SofteningBndryMaxPhys = 50      #This is BH
+SofteningGas = 16.6667
+SofteningGasMaxPhys = 16.6667
+SofteningHalo = 16.6667
+SofteningHaloMaxPhys = 16.6667
+SofteningDisk = 16.6667
+SofteningDiskMaxPhys = 16.6667
+SofteningBulge = 16.6667
+SofteningBulgeMaxPhys = 16.6667
+SofteningStars = 16.6667
+SofteningStarsMaxPhys = 16.6667
+SofteningBndry = 16.6667
+SofteningBndryMaxPhys = 16.6667
 
 #----------------------SFR Stuff-------------------------
 
 CritPhysDensity = 0       #  critical physical density for star formation in
 #  hydrogen number density in cm^(-3)
-
-CritOverDensity = 57.7   #  overdensity threshold value
-
+CritOverDensity = 1000   #  overdensity threshold value
 QuickLymanAlphaProbability = 1 # Set to 1.0 to turn dense gas directly into stars.
 
-MaxSfrTimescale = 1.5     # in internal time units
-
-
-TempSupernova = 1.0e8   #  in Kelvin
-
-TempClouds = 1000.0   #  in Kelvin
-FactorSN = 0.1
-FactorEVP = 1000.0
-
+SnapshotWithFOF = 1
 WindModel = nowind
-
-SnapshotWithFOF = 0
 BlackHoleOn = 0
-#----------------------BH Stuff-------------------------
 BlackHoleFeedbackFactor = 0.05
 BlackHoleFeedbackRadius = 0.
 BlackHoleFeedbackRadiusMaxPhys = 0.

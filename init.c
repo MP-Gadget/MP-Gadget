@@ -9,20 +9,28 @@
 #include "cooling.h"
 #include "forcetree.h"
 
+#include "timefac.h"
 #include "petaio.h"
 #include "domain.h"
+#include "garbage.h"
 #include "mpsort.h"
 #include "mymalloc.h"
 #include "fof.h"
 #include "endrun.h"
+#include "timestep.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
  */
 
+static void check_omega(void);
+static void check_positions(void);
+
 static void
 setup_smoothinglengths(int RestartSnapNum);
 
+static void
+setup_outputlist(void);
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
  *  intial domain decomposition is performed. If SPH particles are present,
@@ -32,7 +40,15 @@ void init(int RestartSnapNum)
 {
     int i, j;
 
+    /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
+    set_global_time(All.TimeInit);
+
+    /*Add TimeInit and TimeMax to the output list*/
+    setup_outputlist();
+    /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum);
+
+    init_drift_table(All.TimeInit, All.TimeMax);
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();
@@ -41,21 +57,22 @@ void init(int RestartSnapNum)
 
     check_omega();
 
+    check_positions();
+
     fof_init();
 
-    All.NumCurrentTiStep = 0;	/* setup some counters */
     All.SnapshotFileCount = 0;
     All.SnapshotFileCount = RestartSnapNum + 1;
-
-    All.TotNumOfForces = 0;
-    All.NumForcesSinceLastDomainDecomp = 0;
+    All.InitSnapshotCount = RestartSnapNum + 1;
 
     All.TreeAllocFactor = 0.7;
 
-    for(i = 0; i < NumPart; i++)	/*  start-up initialization */
+    init_timebins();
+
+    #pragma omp parallel for
+    for(i = 0; i < NumPart; i++)	/* initialize sph_properties */
     {
         P[i].GravCost = 1;
-
 #ifdef BLACK_HOLES
         P[i].Swallowed = 0;
         if(RestartSnapNum == -1 && P[i].Type == 5 )
@@ -63,21 +80,11 @@ void init(int RestartSnapNum)
             BHP(i).Mass = All.SeedBlackHoleMass;
         }
 #endif
-    }
+        P[i].Key = PEANO(P[i].Pos);
 
-    for(i = 0; i < TIMEBINS; i++)
-        TimeBinActive[i] = 1;
-
-    reconstruct_timebins();
-
-    All.PM_Ti_endstep = All.PM_Ti_begstep = 0;
-
-    for(i = 0; i < NumPart; i++)	/* initialize sph_properties */
-    {
         if(P[i].Type != 0) continue;
         for(j = 0; j < 3; j++)
         {
-            SPHP(i).VelPred[j] = P[i].Vel[j];
             SPHP(i).HydroAccel[j] = 0;
         }
 
@@ -88,10 +95,6 @@ void init(int RestartSnapNum)
             SPHP(i).Density = -1;
 #ifdef DENSITY_INDEPENDENT_SPH
             SPHP(i).EgyWtDensity = -1;
-            SPHP(i).EntVarPred = -1;
-#endif
-#ifdef VOLUME_CORRECTION
-            SPHP(i).DensityOld = 1;
 #endif
             SPHP(i).Ne = 1.0;
             SPHP(i).DivVel = 0;
@@ -106,27 +109,13 @@ void init(int RestartSnapNum)
 #ifdef BLACK_HOLES
         SPHP(i).Injected_BH_Energy = 0;
 #endif
-#ifdef TWODIMS
-        SPHP(i).VelPred[2] = 0;
-        SPHP(i).HydroAccel[2] = 0;
-#endif
-#ifdef ONEDIM
-        SPHP(i).VelPred[1] = SPHP(i).VelPred[2] = 0;
-        SPHP(i).HydroAccel[1] =SPHP(i).HydroAccel[2] = 0;
-#endif
     }
 
+    domain_decompose_full();	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    Flag_FullStep = 1;		/* to ensure that Peano-Hilbert order is done */
-
-    domain_Decomposition();	/* do initial domain decomposition (gives equal numbers of particles) */
-
-    force_tree_rebuild();
-
-    All.Ti_Current = 0;
+    rebuild_activelist();
 
     setup_smoothinglengths(RestartSnapNum);
-
 }
 
 
@@ -144,7 +133,7 @@ void check_omega(void)
     MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     omega =
-        masstot / (All.BoxSize * All.BoxSize * All.BoxSize) / (3 * All.Hubble * All.Hubble / (8 * M_PI * All.G));
+        masstot / (All.BoxSize * All.BoxSize * All.BoxSize) / (3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G));
 
     if(fabs(omega - All.CP.Omega0) > 1.0e-3)
     {
@@ -153,7 +142,52 @@ void check_omega(void)
     }
 }
 
+/*! This routine checks that the initial positions of the particles are within the box.
+ * If not, there is likely a bug in the IC generator and we abort.
+ */
+void check_positions(void)
+{
+    int i,j;
+    for(i=0; i< NumPart; i++){
+        for(j=0; j<3; j++) {
+            if(P[i].Pos[j] < 0 || P[i].Pos[j] > All.BoxSize)
+                endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,All.BoxSize, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
+        }
+    }
+}
 
+/*Make sure the OutputList runs from TimeInit to TimeMax, inclusive.*/
+void
+setup_outputlist(void)
+{
+    int i;
+    /*Set up first and last entry to OutputList*/
+    All.OutputListTimes[0] = log(All.TimeInit);
+    All.OutputListTimes[All.OutputListLength-1] = log(All.TimeMax);
+    /*Remove entries before TimeInit*/
+    if(All.OutputListTimes[1] <= All.OutputListTimes[0])
+    {
+        int newout = 1;
+        for(i=1; i<All.OutputListLength; i++) {
+            if(All.OutputListTimes[i] <= All.OutputListTimes[0])
+                continue;
+            All.OutputListTimes[newout] = All.OutputListTimes[i];
+            newout++;
+        }
+        All.OutputListLength = newout;
+    }
+    /*Truncate the output list at All.TimeMax*/
+    for(i=0; i<All.OutputListLength-1; i++) {
+        if(All.OutputListTimes[i] >= All.OutputListTimes[All.OutputListLength-1]) {
+            All.OutputListTimes[i] = All.OutputListTimes[All.OutputListLength-1];
+            All.OutputListLength = i+1;
+            break;
+        }
+    }
+/*     for(i=0; i<All.OutputListLength; i++) */
+/*         message(1,"Out: %g\n",exp(All.OutputListTimes[i])); */
+    message(0, "Next output at Time_next= %g \n",exp(All.OutputListTimes[1]));
+}
 
 /*! This function is used to find an initial smoothing length for each SPH
  *  particle. It guarantees that the number of neighbours will be between
@@ -190,7 +224,7 @@ setup_smoothinglengths(int RestartSnapNum)
             }
             while(10 * All.DesNumNgb * P[i].Mass > massfactor * Nodes[no].u.d.mass)
             {
-                int p = Nodes[no].u.d.father;
+                int p = Nodes[no].father;
 
                 if(p < 0)
                     break;
@@ -232,10 +266,6 @@ setup_smoothinglengths(int RestartSnapNum)
 
         u_init /= molecular_weight;
 
-        for(i = 0; i < NumPart; i++) {
-            if(P[i].Type == 0) SPHP(i).Entropy = u_init;
-        }
-
 #ifdef DENSITY_INDEPENDENT_SPH
         for(i = 0; i < NumPart; i++)
         {
@@ -258,12 +288,11 @@ setup_smoothinglengths(int RestartSnapNum)
             for(i = 0; i < NumPart; i++)
             {
                 if(P[i].Type == 0) {
-                    double entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
-                    SPHP(i).EntVarPred = pow(entropy, 1/GAMMA);
+                    SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
                     olddensity[i] = SPHP(i).EgyWtDensity;
                 }
             }
-            density();
+            density_update();
             badness = 0;
 
 #pragma omp parallel private(i)
@@ -296,21 +325,12 @@ setup_smoothinglengths(int RestartSnapNum)
         for(i = 0; i < NumPart; i++) {
             if(P[i].Type == 0) {
                 /* EgyWtDensity stabilized, now we convert from energy to entropy*/
-                SPHP(i).Entropy = GAMMA_MINUS1 * SPHP(i).Entropy / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
+                SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
             }
         }
     }
 
 #ifdef DENSITY_INDEPENDENT_SPH
-    /* snapshot already has Entropy and EgyWtDensity;
-     * hope it is read in correctly. (need a test
-     * on this!) */
-    /* regardless we initalize EntVarPred. This may be unnecessary*/
-    for(i = 0; i < NumPart; i++) {
-        if(P[i].Type == 0) {
-            SPHP(i).EntVarPred = pow(SPHP(i).Entropy, 1./GAMMA);
-        }
-    }
-    density();
+    density_update();
 #endif //DENSITY_INDEPENDENT_SPH
 }
