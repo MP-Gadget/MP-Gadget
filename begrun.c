@@ -69,23 +69,6 @@ void begrun(int RestartSnapNum)
 #ifdef LIGHTCONE
     lightcone_init(All.Time);
 #endif
-
-#ifdef TWODIMS
-    int i;
-
-    for(i = 0; i < NumPart; i++)
-    {
-        P[i].Pos[2] = 0;
-        P[i].Vel[2] = 0;
-
-        P[i].GravAccel[2] = 0;
-
-        if(P[i].Type == 0)
-        {
-            SPHP(i).a.HydroAccel[2] = 0;
-        }
-    }
-#endif
 }
 
 /*!  This function opens various log-files that report on the status and
