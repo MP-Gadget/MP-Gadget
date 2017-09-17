@@ -171,7 +171,9 @@ find_timesteps(void)
         SyncPoint * next = find_next_sync_point(All.Ti_Current);
         inttime_t dti_max;
         if(next == NULL) {
-            message(0, "Trying to go beyond the last sync point. This happens when TimeMax is less or equal to the last OutputTime \n");
+
+            endrun(0, "Trying to go beyond the last sync point. This happens only at TimeMax \n");
+
             /* use a unlimited pm step size*/
             dti_max = TIMEBASE;
         } else {

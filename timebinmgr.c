@@ -131,10 +131,15 @@ make_unplanned_sync_point(inttime_t ti)
 static double
 Dloga_interval_ti(inttime_t ti)
 {
+    /* FIXME: This uses the bit tricks because it has to be fast 
+     * -- till we clean up the calls to loga_from_ti; then we can avoid bit tricks. */
+
     inttime_t lastsnap = ti >> TIMEBINS;
-    /*Use logDTime from the last valid interval*/
-    if(lastsnap >= NSyncPoints - 1)
-        lastsnap = NSyncPoints - 2;
+
+    if(lastsnap >= NSyncPoints - 1) {
+        /* stop advancing loga after the last sync point. */
+        return 0;
+    }
     double lastoutput = SyncPoints[lastsnap].loga;
     return (SyncPoints[lastsnap+1].loga - lastoutput)/TIMEBASE;
 }
@@ -143,11 +148,13 @@ double
 loga_from_ti(inttime_t ti)
 {
     inttime_t lastsnap = ti >> TIMEBINS;
-    if(lastsnap >= NSyncPoints)
-        lastsnap = NSyncPoints - 1;
-    double lastoutput = SyncPoints[lastsnap].loga;
+    if(lastsnap > NSyncPoints) {
+        endrun(1, "Requesting becond last sync point\n");
+    }
+    double last = SyncPoints[lastsnap].loga;
+    inttime_t dti = ti & (TIMEBASE - 1);
     double logDTime = Dloga_interval_ti(ti);
-    return lastoutput + (ti & (TIMEBASE-1)) * logDTime;
+    return last + dti * logDTime;
 }
 
 inttime_t
@@ -155,7 +162,7 @@ ti_from_loga(double loga)
 {
     int i;
     int ti;
-    for(i = 1; i < NSyncPoints - 1; i++)
+    for(i = 0; i < NSyncPoints - 1; i++)
     {
         if(SyncPoints[i].loga > loga)
             break;
@@ -172,9 +179,11 @@ ti_from_loga(double loga)
 double
 dloga_from_dti(inttime_t dti)
 {
-    double loga = loga_from_ti(All.Ti_Current);
-    double logap = loga_from_ti(All.Ti_Current+dti);
-    return logap - loga;
+    double Dloga = Dloga_interval_ti(All.Ti_Current);
+    if(dti > TIMEBASE) {
+        endrun(-1, "Requesting dti larger than TIMEBASE\n");
+    }
+    return Dloga * dti;
 }
 
 inttime_t

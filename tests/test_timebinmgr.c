@@ -39,7 +39,7 @@ static void test_conversions(void ** state) {
 
     /*Check behaviour past end*/
     assert_true(ti_from_loga(0) == 3*TIMEBASE);
-    assert_true(fabs(loga_from_ti(ti_from_loga(0.1)) - 0.1) < 1e-6);
+    assert_true(fabs(loga_from_ti(ti_from_loga(log(0.1))) - log(0.1)) < 1e-6);
 
     /*! this function returns the next output time after ti_curr.*/
     assert_int_equal(find_next_sync_point(0)->ti , TIMEBASE);

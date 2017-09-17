@@ -57,28 +57,26 @@ void run(void)
 
     write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
 
-    /* find the first output time. */
-    SyncPoint * next_sync = find_next_sync_point(All.Ti_Current);
-
-    while(next_sync) /* main loop */
+    while(1) /* main loop */
     {
-        SyncPoint * planned_sync; /* NULL if the step is not a sync point. */
-        SyncPoint * unplanned_sync;
-
         /* find next synchronization point and the timebins active during this timestep.
-         * If needed, this function will also write an output file
-         * at the desired time.
-         */
-        All.Ti_Current = find_next_kick(All.Ti_Current);
+         *
+         * Note: On the first step all particles are on bin 0, and this doesn't change Ti_Current.
+         * */
+        All.Ti_Current = find_next_kick(All.Ti_Current); 
 
         /*Convert back to floating point time*/
         set_global_time(exp(loga_from_ti(All.Ti_Current)));
 
         int is_PM = is_PM_timestep(All.Ti_Current);
 
-        planned_sync = find_current_sync_point(All.Ti_Current);
+        SyncPoint * next_sync; /* if we are out of planned sync points, terminate */
+        SyncPoint * planned_sync; /* NULL; if the step is not a planned sync point. */
+        SyncPoint * unplanned_sync; /* begin and end of a PM step; not planned in advance */
 
         next_sync = find_next_sync_point(All.Ti_Current);
+        planned_sync = find_current_sync_point(All.Ti_Current);
+        unplanned_sync = NULL;
 
         enum ActionType action = NO_ACTION;
 
@@ -165,9 +163,6 @@ void run(void)
 
         apply_half_kick();
 
-        /* assign new timesteps to the active particles, now that we know they have synched TiKick and TiDrift */
-        find_timesteps();
-
         /* If a snapshot is requested, write it.
          * savepositions is responsible to maintain a valid domain and tree after it is called.
          *
@@ -189,7 +184,22 @@ void run(void)
             TimeLastOutput = All.CT.ElapsedTime;
         }
 
-        /* Do the extra half-kick we avoided for a snapshot.*/
+        write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
+
+        NumCurrentTiStep++;
+
+        report_memory_usage("RUN");
+
+        if(!next_sync) {
+            /* out of sync points, the run has finally finished! Yay.*/
+            break;
+        }
+
+        /* more steps to go. */
+
+        /* assign new timesteps to the active particles, now that we know they have synched TiKick and TiDrift */
+
+        find_timesteps();
 
         /* Update velocity to the new step, with the newly computed step size */
         apply_half_kick();
@@ -197,13 +207,6 @@ void run(void)
         if(is_PM) {
             apply_PM_half_kick();
         }
-
-        write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
-
-        NumCurrentTiStep++;
-
-        report_memory_usage("RUN");
-
     }
 }
 
