@@ -62,6 +62,9 @@ void run(void)
 
     while(next_sync) /* main loop */
     {
+        SyncPoint * planned_sync; /* NULL if the step is not a sync point. */
+        SyncPoint * unplanned_sync;
+
         /* find next synchronization point and the timebins active during this timestep.
          * If needed, this function will also write an output file
          * at the desired time.
@@ -73,51 +76,60 @@ void run(void)
 
         int is_PM = is_PM_timestep(All.Ti_Current);
 
-        SyncPoint * current_sync = find_current_sync_point(All.Ti_Current);
+        planned_sync = find_current_sync_point(All.Ti_Current);
+
         next_sync = find_next_sync_point(All.Ti_Current);
 
         enum ActionType action = NO_ACTION;
 
         if(is_PM) {
+            unplanned_sync = make_unplanned_sync_point(All.Ti_Current);
             action = human_interaction(lastPM, TimeLastOutput);
+
             switch(action) {
                 case STOP:
                     message(0, "human controlled stop with checkpoint at next PM.\n");
-
                     /* Write when the PM timestep completes*/
-                    current_sync = get_pm_sync_point(All.Ti_Current);
-                    next_sync = NULL;
+                    unplanned_sync->write_snapshot = 1;
+                    unplanned_sync->write_fof = 0;
+                    next_sync = NULL; /* will terminate */
                     break;
 
                 case TIMEOUT:
                     message(0, "Stopping due to TimeLimitCPU.\n");
-                    current_sync = get_pm_sync_point(All.Ti_Current);
-                    next_sync = NULL;
+                    unplanned_sync->write_snapshot = 1;
+                    unplanned_sync->write_fof = 0;
+
+                    next_sync = NULL; /* will terminate */
                     break;
 
                 case AUTO_CHECKPOINT:
                     message(0, "Auto checkpoint due to AutoSnapshotTime.\n");
-                    current_sync = get_pm_sync_point(All.Ti_Current);
+                    unplanned_sync->write_snapshot = 1;
+                    unplanned_sync->write_fof = 0;
                     break;
 
                 case CHECKPOINT:
                     message(0, "human controlled checkpoint at next PM.\n");
-                    current_sync = get_pm_sync_point(All.Ti_Current);
+                    unplanned_sync->write_snapshot = 1;
+                    unplanned_sync->write_fof = 0;
                     break;
 
                 case TERMINATE:
                     message(0, "human controlled termination.\n");
+                    /* FIXME: this shall occur every step; but it means we need
+                     * two versions human-interaction routines.*/
+
                     /* no snapshot, at termination, directly end the loop */
                     return;
 
                 case IOCTL:
                 case NO_ACTION:
+                    unplanned_sync->write_snapshot = 0;
+                    unplanned_sync->write_fof = 0;
                     break;
             }
         }
-
-        int WillOutput = is_PM && current_sync && current_sync->write_snapshot;
-
         /* Sync positions of all particles */
         drift_all_particles(All.Ti_Current);
 
@@ -156,24 +168,28 @@ void run(void)
         /* assign new timesteps to the active particles, now that we know they have synched TiKick and TiDrift */
         find_timesteps();
 
-        /* If this timestep is after the last snapshot time, write a snapshot.
-         * No need to do a domain decomposition as we already did one since
-         * the last move in compute_accelerations().
+        /* If a snapshot is requested, write it.
+         * savepositions is responsible to maintain a valid domain and tree after it is called.
          *
-         * Also watch out WillOutput is only true on is_PM; to ensure the PM kick is done
-         * and included in the velocity. This is the only chance where all variables are
+         * We only attempt to output on sync points. This is the only chance where all variables are
          * synchonized in a consistent state in a K(KDDK)^mK scheme.
          */
 
-        if(WillOutput)
+        int WriteSnapshot = planned_sync && planned_sync->write_snapshot;
+        WriteSnapshot |= unplanned_sync && unplanned_sync->write_snapshot;
+        int WriteFOF = planned_sync && planned_sync->write_fof;
+        WriteFOF |= unplanned_sync && unplanned_sync->write_fof;
+
+        if(WriteSnapshot)
         {
-            /*Save snapshot*/
-            savepositions(All.SnapshotFileCount++, current_sync->write_fof);	/* write snapshot file */
+            /* Save snapshot and fof. */
+            /* FIXME: this doesn't allow saving fof without the snapshot yet. do it after allocator is merged */
+            savepositions(All.SnapshotFileCount++, WriteFOF);
 
             TimeLastOutput = All.CT.ElapsedTime;
         }
 
-        /*Do the extra half-kick we avoided for a snapshot.*/
+        /* Do the extra half-kick we avoided for a snapshot.*/
 
         /* Update velocity to the new step, with the newly computed step size */
         apply_half_kick();

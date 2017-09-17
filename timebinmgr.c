@@ -6,10 +6,18 @@
 
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
 static SyncPoint SyncPoints[8192];
-static SyncPoint PMSyncPoint[1];
 static int NSyncPoints;    /* number of times stored in table of desired sync points */
 
-/*Make sure the OutputList runs from TimeInit to TimeMax, inclusive.*/
+/* This function compiles
+ *
+ * All.OutputListTimes, All.TimeInit, All.TimeMax
+ *
+ * into a list of SyncPoint objects.
+ *
+ * A SyncPoint is a time step where all state variables are at the same time on the
+ * KkdkK timeline.
+ *
+ **/
 void
 setup_sync_points(void)
 {
@@ -92,14 +100,25 @@ find_current_sync_point(inttime_t ti)
     return NULL;
 }
 
+/*
+ * Return a unplanned SyncPoint.
+ *
+ * The SyncPoint is owned by the routine.
+ *
+ * The caller shall know ti is actually synced before
+ * calling this routine.
+ * */
 SyncPoint *
-get_pm_sync_point(inttime_t ti)
+make_unplanned_sync_point(inttime_t ti)
 {
-    PMSyncPoint[0].ti = ti;
-    PMSyncPoint[0].loga = loga_from_ti(ti);
-    PMSyncPoint[0].write_fof = 0;
-    PMSyncPoint[0].write_snapshot = 1;
-    return &PMSyncPoint[0];
+    static SyncPoint Unplanned[1];
+
+    Unplanned[0].ti = ti;
+    Unplanned[0].loga = loga_from_ti(ti);
+    /* set default values */
+    Unplanned[0].write_fof = 0;
+    Unplanned[0].write_snapshot = 0;
+    return &Unplanned[0];
 }
 
 /* Each integer time stores in the first 10 bits the snapshot number.

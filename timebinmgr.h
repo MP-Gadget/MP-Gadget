@@ -57,6 +57,6 @@ SyncPoint *
 find_current_sync_point(inttime_t ti);
 
 SyncPoint *
-get_pm_sync_point(inttime_t ti);
+make_unplanned_sync_point(inttime_t ti);
 
 #endif
