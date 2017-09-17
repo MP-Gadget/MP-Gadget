@@ -648,7 +648,7 @@ static void STVelocity(int i, float * out) {
 SIMPLE_PROPERTY(Mass, P[i].Mass, float, 1)
 SIMPLE_PROPERTY(ID, P[i].ID, uint64_t, 1)
 SIMPLE_PROPERTY(Generation, P[i].Generation, unsigned char, 1)
-SIMPLE_PROPERTY(Potential, P[i].Potential, float, 1)
+SIMPLE_GETTER(GTPotential, P[i].Potential, float, 1)
 SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -720,7 +720,7 @@ static void register_io_blocks() {
         IO_REG(ID,       "u8", 1, i);
         IO_REG(Generation,       "u1", 1, i);
         if(All.OutputPotential)
-            IO_REG(Potential, "f4", 1, i);
+            IO_REG_WRONLY(Potential, "f4", 1, i);
         if(All.SnapshotWithFOF)
             IO_REG_WRONLY(GroupID, "u4", 1, i);
     }
