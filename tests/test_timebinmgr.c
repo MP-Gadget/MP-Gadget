@@ -22,6 +22,11 @@ static void test_conversions(void ** state) {
     memcpy(All.OutputListTimes, outs, 4*sizeof(double));
     All.OutputListLength = 4;
 
+    All.TimeInit = 0.1;
+    All.TimeMax = 1.0;
+
+    setup_sync_points();
+
     /*Convert an integer to and from loga*/
     /* double loga_from_ti(unsigned int ti); */
     assert_true(fabs(loga_from_ti(0) - outs[0]) < 1e-6);
@@ -42,14 +47,21 @@ static void test_conversions(void ** state) {
     assert_true(fabs(loga_from_ti(ti_from_loga(0.1)) - 0.1) < 1e-6);
 
     /*! this function returns the next output time after ti_curr.*/
-    assert_true(find_next_outputtime(0) == TIMEBASE);
-    assert_true(find_next_outputtime(TIMEBASE) == 2*TIMEBASE);
-    assert_true(find_next_outputtime(TIMEBASE-1) == TIMEBASE);
-    assert_true(find_next_outputtime(TIMEBASE+1) == 2*TIMEBASE);
+    assert_int_equal(find_next_sync_point(0)->ti , TIMEBASE);
+    assert_int_equal(find_next_sync_point(TIMEBASE)->ti , 2 * TIMEBASE);
+    assert_int_equal(find_next_sync_point(TIMEBASE-1)->ti , TIMEBASE);
+    assert_int_equal(find_next_sync_point(TIMEBASE+1)->ti , 2*TIMEBASE);
+    assert_int_equal(find_next_sync_point(4 * TIMEBASE) , NULL);
 
-    /*Get whatever is the last output number from ti*/
-    assert_true(out_from_ti(TIMEBASE)==1);
-    assert_true(out_from_ti(TIMEBASE-1)==0);
+    assert_int_equal(find_current_sync_point(0)->ti , 0);
+    assert_int_equal(find_current_sync_point(TIMEBASE)->ti , TIMEBASE);
+    assert_int_equal(find_current_sync_point(-1) , NULL);
+    assert_int_equal(find_current_sync_point(TIMEBASE-1) , NULL);
+
+    assert_int_equal(find_current_sync_point(0)->write_snapshot, 1);
+    assert_int_equal(find_current_sync_point(TIMEBASE)->write_snapshot, 1);
+    assert_int_equal(find_current_sync_point(2 * TIMEBASE)->write_snapshot, 1);
+    assert_int_equal(find_current_sync_point(3 * TIMEBASE)->write_snapshot, 1);
 }
 
 static void test_dloga(void ** state) {
@@ -79,5 +91,5 @@ int main(void) {
         cmocka_unit_test(test_conversions),
         cmocka_unit_test(test_dloga),
     };
-    return cmocka_run_group_tests(tests, NULL, NULL);
+    return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }
