@@ -39,7 +39,7 @@ enum ActionType {
 };
 static enum ActionType human_interaction(double lastPM, double TimeLastOutput);
 static int should_we_timeout(double TimelastPM);
-static void compute_accelerations(int is_PM);
+static void compute_accelerations(int is_PM, int FirstStep);
 static void update_IO_params(const char * ioctlfname);
 static void every_timestep_stuff(int NumForces, int NumCurrentTiStep);
 static void write_cpu_log(int NumCurrentTiStep);
@@ -153,7 +153,7 @@ void run(void)
         every_timestep_stuff(NumForces, NumCurrentTiStep);	/* write some info to log-files */
 
         /* update force to Ti_Current */
-        compute_accelerations(is_PM);
+        compute_accelerations(is_PM, NumCurrentTiStep == 0);
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
 
@@ -309,7 +309,7 @@ human_interaction(double TimeLastPM, double TimeLastOut)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(int is_PM)
+void compute_accelerations(int is_PM, int FirstStep)
 {
     message(0, "Start force computation...\n");
 
@@ -324,14 +324,14 @@ void compute_accelerations(int is_PM)
             energy_statistics();
     }
 
-    grav_short_tree();		/* computes gravity accel. */
+    /* For the first timestep, we do tree force twice
+     * to allow usage of relative opening
+     * criterion for consistent accuracy.
+     */
+    if(FirstStep)
+        grav_short_tree();
 
-    if(All.Ti_Current == ti_from_loga(All.TimeInit))
-        grav_short_tree();		/* For the first timestep, we redo it
-                             * to allow usage of relative opening
-                             * criterion for consistent accuracy.
-                             */
-
+    grav_short_tree();
 
     if(NTotal[0] > 0)
     {
