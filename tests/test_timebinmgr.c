@@ -14,18 +14,12 @@
 
 struct global_data_all_processes All;
 
+double outs[4] = {0.1, 0.2, 0.8, 1};
+
 /*timebinmgr has no state*/
 /*First test conversions between float and integer timelines*/
 static void test_conversions(void ** state) {
 
-    double outs[4] = {log(0.1), log(0.2), log(0.8), log(1)};
-    memcpy(All.OutputListTimes, outs, 4*sizeof(double));
-    All.OutputListLength = 4;
-
-    All.TimeInit = 0.1;
-    All.TimeMax = 1.0;
-
-    setup_sync_points();
 
     /*Convert an integer to and from loga*/
     /* double loga_from_ti(unsigned int ti); */
@@ -86,10 +80,30 @@ static void test_dloga(void ** state) {
     assert_true(round_down_power_of_two(TIMEBASE-1)==TIMEBASE/2);
 }
 
+static int
+setup(void * p1, void * p2)
+{
+
+    memcpy(All.OutputListTimes, outs, 4*sizeof(double));
+    All.OutputListLength = 4;
+
+    All.TimeInit = 0.1;
+    All.TimeMax = 1.0;
+
+    setup_sync_points();
+    return 0;
+}
+static int
+teardown(void * p1, void * p2)
+{
+
+    return 0;
+}
+
 int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_conversions),
         cmocka_unit_test(test_dloga),
     };
-    return cmocka_run_group_tests_mpi(tests, NULL, NULL);
+    return cmocka_run_group_tests_mpi(tests, setup, teardown);
 }
