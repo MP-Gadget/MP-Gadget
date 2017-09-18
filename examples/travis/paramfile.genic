@@ -10,7 +10,7 @@ BoxSize = 128000.0   # Periodic box size of simulation
 Omega0 = 0.2814      # Total matter density  (at z=0)
 OmegaLambda = 0.7186      # Cosmological constant (at z=0)
 OmegaBaryon = 0.0464     # Baryon density        (at z=0)
-ProduceGas = 0         # 0 is dm only. 1 is gas
+ProduceGas = 1         # 0 is dm only. 1 is gas
 HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
 
 Redshift = 9        # Starting redshift
