@@ -326,7 +326,7 @@ void compute_accelerations(int is_PM)
 
     grav_short_tree();		/* computes gravity accel. */
 
-    if(All.Ti_Current == 0)
+    if(All.Ti_Current == ti_from_loga(All.TimeInit))
         grav_short_tree();		/* For the first timestep, we redo it
                              * to allow usage of relative opening
                              * criterion for consistent accuracy.

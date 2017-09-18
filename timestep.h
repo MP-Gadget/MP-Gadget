@@ -27,7 +27,7 @@ double PressurePred(int i);
 
 inttime_t find_next_kick(inttime_t Ti_Current);
 
-void init_timebins(void);
+void init_timebins(double TimeInit);
 
 int is_PM_timestep(inttime_t ti);
 

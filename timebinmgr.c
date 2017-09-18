@@ -157,7 +157,6 @@ loga_from_ti(inttime_t ti)
     return last + dti * logDTime;
 }
 
-/* This function is only used for testing. Do not use in code. */
 inttime_t
 ti_from_loga(double loga)
 {
