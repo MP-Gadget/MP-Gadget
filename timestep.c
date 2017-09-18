@@ -56,13 +56,17 @@ static inttime_t get_long_range_timestep_ti(const inttime_t dti_max);
 
 /*Initialise the integer timeline*/
 void
-init_timebins()
+init_timebins(double TimeInit)
 {
+    All.Ti_Current = ti_from_loga(TimeInit);
+    /*Enforce Ti_Current is initially even*/
+    if(All.Ti_Current % 2 == 1)
+        All.Ti_Current++;
+    /* this makes sure the first step is a PM step. */
     PM.length = 0;
-    PM.Ti_kick = 0;
-    PM.start =0; /* this makes sure the first step is a PM step. */
+    PM.Ti_kick = All.Ti_Current;
+    PM.start = All.Ti_Current;
     update_active_timebins(0);
-    All.Ti_Current = 0;
 }
 
 int is_timebin_active(int i) {
@@ -231,7 +235,7 @@ find_timesteps(void)
         {
             /* make sure the new step is currently active,
              * so that particles do not miss a step */
-            while(TimeBinActive[bin] == 0 && bin > binold)
+            while(TimeBinActive[bin] == 0 && bin > binold && bin > 1)
                 bin--;
 
         }
@@ -789,6 +793,7 @@ int update_active_timebins(inttime_t next_kick)
     {
         int dti_bin = (1 << n);
 
+/*         message(0, "kick: %d Tbin %d dti_bin %d ACTIVE %d\n", next_kick, n, dti_bin, next_kick % dti_bin == 0); */
         if((next_kick % dti_bin) == 0)
         {
             TimeBinActive[n] = 1;

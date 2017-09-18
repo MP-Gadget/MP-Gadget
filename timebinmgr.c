@@ -3,6 +3,7 @@
 
 #include "allvars.h"
 #include "timebinmgr.h"
+#include "endrun.h"
 
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
 static SyncPoint SyncPoints[8192];
@@ -25,7 +26,7 @@ setup_sync_points(void)
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
 
-    SyncPoints[0].loga = log(All.TimeInit); 
+    SyncPoints[0].loga = log(All.TimeIC);
     SyncPoints[0].write_snapshot = 0; /* by default no output here. */
     SyncPoints[1].loga = log(All.TimeMax);
     SyncPoints[1].write_snapshot = 1;
@@ -157,7 +158,6 @@ loga_from_ti(inttime_t ti)
     return last + dti * logDTime;
 }
 
-/* This function is only used for testing. Do not use in code. */
 inttime_t
 ti_from_loga(double loga)
 {

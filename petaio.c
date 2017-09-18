@@ -316,6 +316,7 @@ static void petaio_write_header(BigFile * bf) {
     (0 != big_block_set_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
     (0 != big_block_set_attr(&bh, "Time", &All.Time, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "TimeIC", &All.TimeIC, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1)) ||
@@ -367,6 +368,9 @@ petaio_read_header_internal(BigFile * bf) {
     }
 
     All.TimeInit = Time;
+    if(0!= big_block_get_attr(&bh, "TimeIC", &All.TimeIC, "f8", 1))
+        All.TimeIC = Time;
+
     /* fall back to traditional MP-Gadget Units if not given in the snapshot file. */
     All.UnitVelocity_in_cm_per_s = _get_attr_double(&bh, "UnitVelocity_in_cm_per_s", 1e5); /* 1 km/sec */
     All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
@@ -648,7 +652,7 @@ static void STVelocity(int i, float * out) {
 SIMPLE_PROPERTY(Mass, P[i].Mass, float, 1)
 SIMPLE_PROPERTY(ID, P[i].ID, uint64_t, 1)
 SIMPLE_PROPERTY(Generation, P[i].Generation, unsigned char, 1)
-SIMPLE_PROPERTY(Potential, P[i].Potential, float, 1)
+SIMPLE_GETTER(GTPotential, P[i].Potential, float, 1)
 SIMPLE_PROPERTY(SmoothingLength, P[i].Hsml, float, 1)
 SIMPLE_PROPERTY(Density, SPHP(i).Density, float, 1)
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -720,7 +724,7 @@ static void register_io_blocks() {
         IO_REG(ID,       "u8", 1, i);
         IO_REG(Generation,       "u1", 1, i);
         if(All.OutputPotential)
-            IO_REG(Potential, "f4", 1, i);
+            IO_REG_WRONLY(Potential, "f4", 1, i);
         if(All.SnapshotWithFOF)
             IO_REG_WRONLY(GroupID, "u4", 1, i);
     }

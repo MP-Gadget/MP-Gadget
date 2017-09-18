@@ -65,7 +65,7 @@ find_last_snapnum()
             snapnumber = -1;
         } else {
             double time;
-            int ch;
+            char ch;
             int line = 0;
             while (!feof(fd)) {
                 int n = fscanf(fd, "%d %lg%c", &snapnumber, &time, &ch);

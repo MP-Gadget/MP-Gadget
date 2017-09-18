@@ -49,6 +49,8 @@ void init(int RestartSnapNum)
 
     init_drift_table(All.TimeInit, All.TimeMax);
 
+    init_timebins(log(All.TimeInit));
+
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();
 
@@ -60,18 +62,16 @@ void init(int RestartSnapNum)
 
     fof_init();
 
-    All.SnapshotFileCount = 0;
     All.SnapshotFileCount = RestartSnapNum + 1;
     All.InitSnapshotCount = RestartSnapNum + 1;
 
     All.TreeAllocFactor = 0.7;
 
-    init_timebins();
-
     #pragma omp parallel for
     for(i = 0; i < NumPart; i++)	/* initialize sph_properties */
     {
         P[i].GravCost = 1;
+        P[i].Ti_drift = P[i].Ti_kick = All.Ti_Current;
 #ifdef BLACK_HOLES
         P[i].Swallowed = 0;
         if(RestartSnapNum == -1 && P[i].Type == 5 )
