@@ -410,7 +410,8 @@ sph_VelPred(int i, double * VelPred)
 }
 
 /* This gives the predicted entropy at the particle Kick timestep
- * for the density independent SPH code.*/
+ * for the density independent SPH code.
+ * Watchout: with kddk, when the second k is applied, Ti_kick < Ti_drift. */
 double
 EntropyPred(int i)
 {

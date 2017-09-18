@@ -12,7 +12,7 @@
  */
 #define TIMEBINS 20
 #define TIMEBASE (1u<<TIMEBINS)
-#define MAXSNAPSHOTS (1u<<(31-TIMEBINS))
+#define MAXSNAPSHOTS (1u<<(30-TIMEBINS))
 
 typedef struct SyncPoint SyncPoint;
 

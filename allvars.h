@@ -86,7 +86,7 @@
 #define MAXITER 400
 
 typedef uint32_t binmask_t;
-typedef uint32_t inttime_t;
+typedef int32_t inttime_t;
 
 #define BINMASK_ALL ((uint32_t) (-1))
 #define BINMASK(i) (1u << i)
