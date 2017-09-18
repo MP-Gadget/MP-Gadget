@@ -181,10 +181,15 @@ double
 dloga_from_dti(inttime_t dti)
 {
     double Dloga = Dloga_interval_ti(All.Ti_Current);
+    int sign = 1;
+    if(dti < 0) {
+        dti = -dti;
+        sign = -1;
+    }
     if(dti > TIMEBASE) {
         endrun(-1, "Requesting dti larger than TIMEBASE\n");
     }
-    return Dloga * dti;
+    return Dloga * dti * sign;
 }
 
 /* This function is only used for testing. Do not use in code. */
