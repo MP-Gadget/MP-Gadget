@@ -25,7 +25,7 @@ setup_sync_points(void)
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
 
-    SyncPoints[0].loga = log(All.TimeBegin);
+    SyncPoints[0].loga = log(All.TimeIC);
     SyncPoints[0].write_snapshot = 0; /* by default no output here. */
     SyncPoints[1].loga = log(All.TimeMax);
     SyncPoints[1].write_snapshot = 1;
