@@ -88,7 +88,7 @@ setup(void * p1, void * p2)
 
     All.OutputListLength = 4;
 
-    All.TimeInit = 0.1;
+    All.TimeBegin = 0.1;
     All.TimeMax = 1.0;
 
     setup_sync_points();
