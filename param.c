@@ -86,25 +86,31 @@ OutputListAction(ParameterSet * ps, char * name, void * data)
 /*     message(1, "Found %d times in output list.\n", count); */
 
     /*Allocate enough memory*/
-    All.OutputListLength = count+2;
+    All.OutputListLength = count;
     int maxcount = DMAX(sizeof(All.OutputListTimes) / sizeof(All.OutputListTimes[0]), MAXSNAPSHOTS);
     if(All.OutputListLength > maxcount) {
         message(1, "Too many entries (%d) in the OutputList, can take no more than %d.\n", All.OutputListLength, maxcount);
         return 1;
     }
     /*Now read in the values*/
-    for(count=1,token=strtok(outputlist,","); count < All.OutputListLength-1 && token; count++, token=strtok(NULL,","))
+    for(count=0,token=strtok(outputlist,","); count < All.OutputListLength && token; count++, token=strtok(NULL,","))
     {
         /* Skip a leading quote if one exists.
          * Extra characters are ignored by atof, so
          * no need to skip matching char.*/
         if(token[0] == '"')
             token+=1;
-        All.OutputListTimes[count] = log(atof(token));
-/*         message(1, "Output at: %g\n", exp(All.OutputListTimes[count])); */
+
+        double a = atof(token);
+
+        if(a < 0.0) {
+            endrun(1, "Requesting a negative output scaling factor a = %g\n", a);
+        }
+        All.OutputListTimes[count] = a;
+/*         message(1, "Output at: %g\n", All.OutputListTimes[count]); */
     }
     free(strtmp);
-    qsort(All.OutputListTimes+1, All.OutputListLength-1, sizeof(double), cmp_double);
+    qsort(All.OutputListTimes, All.OutputListLength, sizeof(double), cmp_double);
     return 0;
 }
 

@@ -14,6 +14,17 @@
 #define TIMEBASE (1u<<TIMEBINS)
 #define MAXSNAPSHOTS (1u<<(31-TIMEBINS))
 
+typedef struct SyncPoint SyncPoint;
+
+struct SyncPoint
+{
+    double loga;
+    int write_snapshot;
+    int write_fof;
+    inttime_t ti;
+};
+
+
 /*Convert an integer to and from loga*/
 double loga_from_ti(inttime_t ti);
 inttime_t ti_from_loga(double loga);
@@ -36,4 +47,16 @@ inttime_t find_next_outputtime(inttime_t ti_curr);
 
 /*Get whatever is the last output number from ti*/
 inttime_t out_from_ti(inttime_t ti);
+
+void setup_sync_points(void);
+
+SyncPoint *
+find_next_sync_point(inttime_t ti);
+
+SyncPoint *
+find_current_sync_point(inttime_t ti);
+
+SyncPoint *
+make_unplanned_sync_point(inttime_t ti);
+
 #endif

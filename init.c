@@ -18,6 +18,7 @@
 #include "fof.h"
 #include "endrun.h"
 #include "timestep.h"
+#include "timebinmgr.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
@@ -29,8 +30,6 @@ static void check_positions(void);
 static void
 setup_smoothinglengths(int RestartSnapNum);
 
-static void
-setup_outputlist(void);
 /*! This function reads the initial conditions, and allocates storage for the
  *  tree(s). Various variables of the particle data are initialised and An
  *  intial domain decomposition is performed. If SPH particles are present,
@@ -44,7 +43,7 @@ void init(int RestartSnapNum)
     set_global_time(All.TimeInit);
 
     /*Add TimeInit and TimeMax to the output list*/
-    setup_outputlist();
+    setup_sync_points();
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum);
 
@@ -154,39 +153,6 @@ void check_positions(void)
                 endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,All.BoxSize, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
         }
     }
-}
-
-/*Make sure the OutputList runs from TimeInit to TimeMax, inclusive.*/
-void
-setup_outputlist(void)
-{
-    int i;
-    /*Set up first and last entry to OutputList*/
-    All.OutputListTimes[0] = log(All.TimeInit);
-    All.OutputListTimes[All.OutputListLength-1] = log(All.TimeMax);
-    /*Remove entries before TimeInit*/
-    if(All.OutputListTimes[1] <= All.OutputListTimes[0])
-    {
-        int newout = 1;
-        for(i=1; i<All.OutputListLength; i++) {
-            if(All.OutputListTimes[i] <= All.OutputListTimes[0])
-                continue;
-            All.OutputListTimes[newout] = All.OutputListTimes[i];
-            newout++;
-        }
-        All.OutputListLength = newout;
-    }
-    /*Truncate the output list at All.TimeMax*/
-    for(i=0; i<All.OutputListLength-1; i++) {
-        if(All.OutputListTimes[i] >= All.OutputListTimes[All.OutputListLength-1]) {
-            All.OutputListTimes[i] = All.OutputListTimes[All.OutputListLength-1];
-            All.OutputListLength = i+1;
-            break;
-        }
-    }
-/*     for(i=0; i<All.OutputListLength; i++) */
-/*         message(1,"Out: %g\n",exp(All.OutputListTimes[i])); */
-    message(0, "Next output at Time_next= %g \n",exp(All.OutputListTimes[1]));
 }
 
 /*! This function is used to find an initial smoothing length for each SPH

@@ -37,7 +37,7 @@ enum ActionType {
     TERMINATE = 5,
     IOCTL = 6,
 };
-static enum ActionType human_interaction(int is_PM, double lastPM, double TimeLastOutput);
+static enum ActionType human_interaction(double lastPM, double TimeLastOutput);
 static int should_we_timeout(double TimelastPM);
 static void compute_accelerations(int is_PM);
 static void update_IO_params(const char * ioctlfname);
@@ -57,59 +57,77 @@ void run(void)
 
     write_cpu_log(NumCurrentTiStep); /* produce some CPU usage info */
 
-    /* find the first output time. */
-    inttime_t Ti_nextoutput = find_next_outputtime(All.Ti_Current);
-
-    do /* main loop */
+    while(1) /* main loop */
     {
         /* find next synchronization point and the timebins active during this timestep.
-         * If needed, this function will also write an output file
-         * at the desired time.
-         */
-        All.Ti_Current = find_next_kick(All.Ti_Current);
+         *
+         * Note: On the first step all particles are on bin 0, and this doesn't change Ti_Current.
+         * */
+        All.Ti_Current = find_next_kick(All.Ti_Current); 
 
         /*Convert back to floating point time*/
         set_global_time(exp(loga_from_ti(All.Ti_Current)));
 
         int is_PM = is_PM_timestep(All.Ti_Current);
 
-        enum ActionType action = human_interaction(is_PM, lastPM, TimeLastOutput);
-        switch(action) {
-            case STOP:
-                message(0, "human controlled stop with checkpoint at next PM.\n");
-                /*Write when the PM timestep completes*/
-                Ti_nextoutput = All.Ti_Current;
-                /* next loop will write a new snapshot file; break is for switch */
-                break;
+        SyncPoint * next_sync; /* if we are out of planned sync points, terminate */
+        SyncPoint * planned_sync; /* NULL; if the step is not a planned sync point. */
+        SyncPoint * unplanned_sync; /* begin and end of a PM step; not planned in advance */
 
-            case TIMEOUT:
-                message(0, "Stopping due to TimeLimitCPU.\n");
-                Ti_nextoutput = All.Ti_Current;
-                break;
+        next_sync = find_next_sync_point(All.Ti_Current);
+        planned_sync = find_current_sync_point(All.Ti_Current);
+        unplanned_sync = NULL;
 
-            case AUTO_CHECKPOINT:
-                message(0, "Auto checkpoint due to AutoSnapshotTime.\n");
-                Ti_nextoutput = All.Ti_Current;
-                /* will write a new snapshot file next time the PM step finishes*/
-                break;
+        enum ActionType action = NO_ACTION;
 
-            case CHECKPOINT:
-                message(0, "human controlled checkpoint at next PM.\n");
-                Ti_nextoutput = All.Ti_Current;
-                /* will write a new snapshot file next time the PM step finishes*/
-                break;
+        if(is_PM) {
+            unplanned_sync = make_unplanned_sync_point(All.Ti_Current);
+            action = human_interaction(lastPM, TimeLastOutput);
 
-            case TERMINATE:
-                message(0, "human controlled termination.\n");
-                /* no snapshot, at termination, directly end the loop */
-                return;
+            switch(action) {
+                case STOP:
+                    message(0, "human controlled stop with checkpoint at next PM.\n");
+                    /* Write when the PM timestep completes*/
+                    unplanned_sync->write_snapshot = 1;
+                    unplanned_sync->write_fof = 0;
+                    next_sync = NULL; /* will terminate */
+                    break;
 
-            case IOCTL:
-            case NO_ACTION:
-                break;
+                case TIMEOUT:
+                    message(0, "Stopping due to TimeLimitCPU.\n");
+                    unplanned_sync->write_snapshot = 1;
+                    unplanned_sync->write_fof = 0;
+
+                    next_sync = NULL; /* will terminate */
+                    break;
+
+                case AUTO_CHECKPOINT:
+                    message(0, "Auto checkpoint due to AutoSnapshotTime.\n");
+                    unplanned_sync->write_snapshot = 1;
+                    unplanned_sync->write_fof = 0;
+                    break;
+
+                case CHECKPOINT:
+                    message(0, "human controlled checkpoint at next PM.\n");
+                    unplanned_sync->write_snapshot = 1;
+                    unplanned_sync->write_fof = 0;
+                    break;
+
+                case TERMINATE:
+                    message(0, "human controlled termination.\n");
+                    /* FIXME: this shall occur every step; but it means we need
+                     * two versions human-interaction routines.*/
+
+                    /* no snapshot, at termination, directly end the loop */
+                    return;
+
+                case IOCTL:
+                case NO_ACTION:
+                    unplanned_sync->write_snapshot = 0;
+                    unplanned_sync->write_fof = 0;
+                    break;
+            }
         }
-
-        int WillOutput = is_PM && (All.Ti_Current >= Ti_nextoutput);
         /* Sync positions of all particles */
         drift_all_particles(All.Ti_Current);
 
@@ -145,47 +163,25 @@ void run(void)
 
         apply_half_kick();
 
-        /* assign new timesteps to the active particles, now that we know they have synched TiKick and TiDrift */
-        find_timesteps();
-
-        /* If this timestep is after the last snapshot time, write a snapshot.
-         * No need to do a domain decomposition as we already did one since
-         * the last move in compute_accelerations().
+        /* If a snapshot is requested, write it.
+         * savepositions is responsible to maintain a valid domain and tree after it is called.
          *
-         * Also watch out WillOutput is only true on is_PM; to ensure the PM kick is done
-         * and included in the velocity. This is the only chance where all variables are
+         * We only attempt to output on sync points. This is the only chance where all variables are
          * synchonized in a consistent state in a K(KDDK)^mK scheme.
          */
 
-        if(WillOutput)
+        int WriteSnapshot = planned_sync && planned_sync->write_snapshot;
+        WriteSnapshot |= unplanned_sync && unplanned_sync->write_snapshot;
+        int WriteFOF = planned_sync && planned_sync->write_fof;
+        WriteFOF |= unplanned_sync && unplanned_sync->write_fof;
+
+        if(WriteSnapshot)
         {
-            /*Save snapshot*/
-            savepositions(All.SnapshotFileCount++, action == NO_ACTION);	/* write snapshot file */
+            /* Save snapshot and fof. */
+            /* FIXME: this doesn't allow saving fof without the snapshot yet. do it after allocator is merged */
+            savepositions(All.SnapshotFileCount++, WriteFOF);
 
-            if(action == STOP || action == TIMEOUT) {
-                /* OK snapshot file is written, lets quit */
-                return;
-            }
             TimeLastOutput = All.CT.ElapsedTime;
-
-            /*Do the extra half-kick we avoided for a snapshot.*/
-            /*Find next output*/
-            Ti_nextoutput = find_next_outputtime(All.Ti_Current);
-            if(out_from_ti(Ti_nextoutput) < All.OutputListLength) {
-                message(0, "Setting next time for snapshot file to Time_next= %g \n",
-                        exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]));
-                if(dloga_from_dti(Ti_nextoutput-All.Ti_Current) <= 0)
-                    endrun(1,"Next output at %g earlier than current time %g, or dloga negative: %g\n",
-                        exp(All.OutputListTimes[out_from_ti(Ti_nextoutput)]),
-                        exp(loga_from_ti(All.Ti_Current)),dloga_from_dti(Ti_nextoutput-All.Ti_Current));
-            }
-        }
-
-        /* Update velocity to the new step, with the newly computed step size */
-        apply_half_kick();
-
-        if(is_PM) {
-            apply_PM_half_kick();
         }
 
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
@@ -193,8 +189,25 @@ void run(void)
         NumCurrentTiStep++;
 
         report_memory_usage("RUN");
+
+        if(!next_sync) {
+            /* out of sync points, the run has finally finished! Yay.*/
+            break;
+        }
+
+        /* more steps to go. */
+
+        /* assign new timesteps to the active particles, now that we know they have synched TiKick and TiDrift */
+
+        find_timesteps();
+
+        /* Update velocity to the new step, with the newly computed step size */
+        apply_half_kick();
+
+        if(is_PM) {
+            apply_PM_half_kick();
+        }
     }
-    while(out_from_ti(Ti_nextoutput) < All.OutputListLength);
 }
 
 static void
@@ -228,7 +241,7 @@ update_IO_params(const char * ioctlfname)
 /* lastPMlength is the walltime in seconds between the last two PM steps.
  * It is used to decide when we are going to timeout*/
 static enum ActionType
-human_interaction(int is_PM, double TimeLastPM, double TimeLastOut)
+human_interaction(double TimeLastPM, double TimeLastOut)
 {
         /* Check whether we need to interrupt the run */
     enum ActionType action = NO_ACTION;
@@ -241,7 +254,7 @@ human_interaction(int is_PM, double TimeLastPM, double TimeLastOut)
     sprintf(termfname, "%s/terminate", All.OutputDir);
     sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
     /*How long since the last checkpoint?*/
-    if(is_PM && All.AutoSnapshotTime > 0 && All.CT.ElapsedTime - TimeLastOut >= All.AutoSnapshotTime) {
+    if(All.AutoSnapshotTime > 0 && All.CT.ElapsedTime - TimeLastOut >= All.AutoSnapshotTime) {
         action = AUTO_CHECKPOINT;
     }
 
@@ -277,7 +290,7 @@ human_interaction(int is_PM, double TimeLastPM, double TimeLastOut)
 
     }
     /*Will we run out of time by the next PM step?*/
-    if(is_PM && should_we_timeout(TimeLastPM)) {
+    if(should_we_timeout(TimeLastPM)) {
         action = TIMEOUT;
     }
 
