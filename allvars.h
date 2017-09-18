@@ -200,7 +200,8 @@ extern struct global_data_all_processes
 /* THe following variables are set by petaio_read_header */
     int64_t TotNumPartInit; /* The initial total number of particles; we probably want to get rid of all references to this. */
     int64_t NTotalInit[6]; /* The initial number of total particles in the IC. */
-    double TimeInit;		/* time of initial conditions of the simulation */
+    double TimeInit;		/* time of simulation start: if restarting from a snapshot this holds snapshot time.*/
+    double TimeBegin;       /* Time when the simulation ICs were generated*/
     double BoxSize;   /* Boxsize in case periodic boundary conditions are used */
     double MassTable[6]; /* Initial mass of particles */
     double UnitMass_in_g;		/*!< factor to convert internal mass unit to grams/h */
