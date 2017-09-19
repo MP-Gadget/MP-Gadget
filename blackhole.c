@@ -550,17 +550,18 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         lock_particle(other);
 
-        /* Mass conservation */
-        O->Mass += (P[other].Mass);
-        O->BH_Mass += (BHP(other).Mass);
-        P[other].Mass = 0;
-        BHP(other).Mass = 0;
-
         int d;
         for(d = 0; d < 3; d++)
             O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
 
         O->BH_CountProgs += BHP(other).CountProgs;
+
+        /* We do not know how to notify the tree of mass changes. so 
+         * blindly enforce a mass conservation for now. */
+        O->Mass += (P[other].Mass);
+        O->BH_Mass += (BHP(other).Mass);
+        P[other].Mass = 0;
+        BHP(other).Mass = 0;
 
         P[other].IsGarbage = 1;
         BHP(other).Mdot = 0;
@@ -606,13 +607,14 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         lock_particle(other);
 
-        /* Mass Conservation */
-        O->Mass += (P[other].Mass);
-        P[other].Mass = 0;
-
         int d;
         for(d = 0; d < 3; d++)
             O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
+
+        /* We do not know how to notify the tree of mass changes. so 
+         * blindly enforce a mass conservation for now. */
+        O->Mass += (P[other].Mass);
+        P[other].Mass = 0;
 
         P[other].IsGarbage = 1;
 #pragma omp atomic
