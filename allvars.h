@@ -524,8 +524,7 @@ extern struct particle_data
 
     MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
 
-    MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree is called. */
-    MyFloat PM_Potential;  /* Only used by PM. useless after pm */
+    MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree+gravpm is called. */
 
     MyFloat StarFormationTime;		/*!< formation time of star particle: needed to tell when wind is active. */
 

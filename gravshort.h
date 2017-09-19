@@ -42,9 +42,6 @@ grav_short_postprocess(int i, TreeWalk * tw)
         pow(All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G), 1.0 / 3);
 
     P[i].Potential *= All.G;
-
-    P[i].Potential += P[i].PM_Potential;	/* add in long-range potential */
-
 }
 
 static void
