@@ -52,7 +52,7 @@ setup_sync_points(void)
             /* requesting output on an existing entry, e.g. TimeInit or duplicated entry */
         } else {
             /* insert the item; */
-            memmove(&SyncPoints[j], &SyncPoints[j + 1],
+            memmove(&SyncPoints[j + 1], &SyncPoints[j],
                 sizeof(SyncPoints[0]) * (NSyncPoints - j));
             SyncPoints[j].loga = loga;
             NSyncPoints ++;
