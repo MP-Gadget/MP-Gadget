@@ -315,6 +315,11 @@ void compute_accelerations(int is_PM, int FirstStep)
 
     walltime_measure("/Misc");
 
+    grav_short_tree();
+
+    /* PM is after tree as we need GravPM
+     * from the last step to compute the opening
+     * angle in tree.*/
     if(is_PM)
     {
         gravpm_force();
@@ -330,8 +335,6 @@ void compute_accelerations(int is_PM, int FirstStep)
      */
     if(FirstStep)
         grav_short_tree();
-
-    grav_short_tree();
 
     if(NTotal[0] > 0)
     {
