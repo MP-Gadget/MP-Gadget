@@ -24,12 +24,16 @@ setup_sync_points(void)
 {
     int i;
 
+    memset(&SyncPoints[0], -1, sizeof(SyncPoints[0]) * 8192);
+
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
 
     SyncPoints[0].loga = log(All.TimeIC);
     SyncPoints[0].write_snapshot = 0; /* by default no output here. */
+    SyncPoints[0].write_fof = 0;
     SyncPoints[1].loga = log(All.TimeMax);
     SyncPoints[1].write_snapshot = 1;
+    SyncPoints[1].write_fof = 0;
 
     NSyncPoints = 2;
 
