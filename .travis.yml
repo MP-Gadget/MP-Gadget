@@ -20,7 +20,7 @@ addons:
             - libgsl0-dev
 
 before_install:
-    - sh install-nbodykit.sh
+    - bash install-nbodykit.sh
     - export PATH=$HOME/miniconda/bin:$PATH
 
 install:
