@@ -4,7 +4,7 @@ FileBase = IC              # Base-filename of output files
 Ngrid = 32 # Size of cubic grid on which to create particles.
 
 
-BoxSize = 128000.0   # Periodic box size of simulation
+BoxSize = 128.0   # Periodic box size of simulation
 
 
 Omega0 = 0.2814      # Total matter density  (at z=0)
@@ -18,14 +18,10 @@ Redshift = 9        # Starting redshift
 Sigma8 = 0.810      # power spectrum normalization
 
 
-WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
-		                   # "2" selects a tabulated power spectrum in
-                           # the file 'FileWithInputSpectrum'
-                           # otherwise, Efstathiou parametrization is used
+FileWithInputSpectrum = planck15-z9.txt  # filename of tabulated input
+                                       # spectrum (if used)
+InputPowerRedshift = 9.0
 
-
-FileWithInputSpectrum = ../powerspectrum-wmap9.txt  # filename of tabulated input
-                                                                   # spectrum (if used)
 InputSpectrum_UnitLength_in_cm = 3.085678e24                     # defines length unit of tabulated
                                                                    # input spectrum in cm/h. 
                                                 # Note: This can be chosen different from UnitLength_in_cm
@@ -33,8 +29,8 @@ InputSpectrum_UnitLength_in_cm = 3.085678e24                     # defines lengt
 PrimordialIndex = 0.971      # may be used to tilt the primordial index
 
 Seed = 181170    #  seed for IC-generator
+Unitary = 1  # set amplitude of gaussian to 1.
 
-
-UnitLength_in_cm = 3.085678e21   # defines length unit of output (in cm/h) 
+UnitLength_in_cm = 3.085678e24   # defines length unit of output (in cm/h) 
 UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)
 UnitVelocity_in_cm_per_s = 1e5           # defines velocity unit of output (in cm/sec)

@@ -32,7 +32,8 @@ create_parameters()
     param_declare_int(ps, "Nmesh", OPTIONAL, 0, "Size of the FFT grid used to estimate displacements. Should be > Ngrid.");
     param_declare_int(ps, "Ngrid", REQUIRED, 0, "Size of regular grid on which the undisplaced particles are created.");
     param_declare_int(ps, "Seed", REQUIRED, 0, "");
-    param_declare_int(ps, "WhichSpectrum", REQUIRED, 2, "Type of spectrum, 2 for file ");
+    param_declare_int(ps, "Unitary", OPTIONAL, 0, "If non-zero, generate unitary gaussians where |g| == 1.0.");
+    param_declare_int(ps, "WhichSpectrum", OPTIONAL, 2, "Type of spectrum, 2 for file ");
 
     param_declare_double(ps, "MaxMemoryPerCore", OPTIONAL, 1300., "");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
@@ -102,6 +103,7 @@ void read_parameterfile(char *fname)
     Ngrid = param_get_int(ps, "Ngrid");
     FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
     Seed = param_get_int(ps, "Seed");
+    Unitary = param_get_int(ps, "Unitary");
     OutputDir = param_get_string(ps, "OutputDir");
     FileBase = param_get_string(ps, "FileBase");
     WhichSpectrum = param_get_int(ps, "WhichSpectrum");

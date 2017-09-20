@@ -14,6 +14,7 @@ extern char   *  FileWithInputSpectrum;
 extern double   Box;
 extern int   ProduceGas;
 extern int Seed;
+extern int Unitary;
 
 extern int      NumPart;
 
