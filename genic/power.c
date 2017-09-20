@@ -3,6 +3,7 @@
 #include <math.h>
 #include <mpi.h>
 #include <gsl/gsl_integration.h>
+#include <gsl/gsl_interp.h>
 #include "genic/allvars.h"
 #include "genic/proto.h"
 #include "cosmology.h"
@@ -14,18 +15,15 @@ static double PowerSpec_Tabulated(double k);
 static double sigma2_int(double k, void * params);
 static double TopHatSigma2(double R);
 static double tk_eh(double k);
-static int compare_logk(const void *a, const void *b);
-
 
 static double Norm;
 
 static int NPowerTable;
 
-static struct pow_table
-{
-  double logk, logD;
-}
- *PowerTable;
+static double * logk_tab;
+static double * logD_tab;
+gsl_interp * mat_intp;
+gsl_interp_accel * mat_intp_acc;
 
 double PowerSpec(double k)
 {
@@ -86,7 +84,8 @@ void read_power_table(void)
 
     if(NPowerTable < 2 && WhichSpectrum == 2)
         endrun(1, "Input spectrum too short\n");
-    PowerTable = mymalloc("Powertable", NPowerTable * sizeof(struct pow_table));
+    logk_tab = mymalloc("Powertable", 2*NPowerTable * sizeof(double));
+    logD_tab = logk_tab + NPowerTable;
 
     if(ThisTask == 0) {
         int i = 0;
@@ -125,10 +124,10 @@ void read_power_table(void)
             }
 
             k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
-            PowerTable[i].logk = k;
+            logk_tab[i] = k;
 
             p += 3 * log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to Kpc/h  */
-            PowerTable[i].logD = p;
+            logD_tab[i] = p;
             i++;
         }
         while(1);
@@ -137,19 +136,10 @@ void read_power_table(void)
 
     }
 
-    MPI_Bcast(PowerTable, NPowerTable * sizeof(struct pow_table), MPI_BYTE, 0, MPI_COMM_WORLD);
-    qsort(PowerTable, NPowerTable, sizeof(struct pow_table), compare_logk);
-}
-
-int compare_logk(const void *a, const void *b)
-{
-  if(((struct pow_table *) a)->logk < (((struct pow_table *) b)->logk))
-    return -1;
-
-  if(((struct pow_table *) a)->logk > (((struct pow_table *) b)->logk))
-    return +1;
-
-  return 0;
+    MPI_Bcast(logk_tab, 2*NPowerTable, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    mat_intp = gsl_interp_alloc(gsl_interp_cspline,NPowerTable);
+    mat_intp_acc = gsl_interp_accel_alloc();
+    gsl_interp_init(mat_intp,logk_tab, logD_tab,NPowerTable);
 }
 
 void initialize_powerspectrum(void)
@@ -174,36 +164,14 @@ void initialize_powerspectrum(void)
 
 double PowerSpec_Tabulated(double k)
 {
-  double logk, logD, P, u, dlogk; // Delta2; //kold
-  
-  double mydlogk,dlogk_PowerTable;
-  int mybinhigh,mybinlow;
-  
+  const double logk = log10(k);
 
-
-//   kold = k;
-
-  logk = log10(k);
-
-  if(logk < PowerTable[0].logk || logk > PowerTable[NPowerTable - 1].logk)
+  if(logk < logk_tab[0] || logk > logk_tab[NPowerTable - 1])
     return 0;
 
+  const double logD = gsl_interp_eval(mat_intp, logk_tab, logD_tab, logk, mat_intp_acc);
 
-  dlogk_PowerTable = PowerTable[1].logk-PowerTable[0].logk;
-  mydlogk = logk - PowerTable[0].logk;
-  mybinlow = (int)(mydlogk/dlogk_PowerTable);
-  mybinhigh = mybinlow+1;
-
-  dlogk = PowerTable[mybinhigh].logk - PowerTable[mybinlow].logk;
-
-  if(dlogk == 0)
-    endrun(1, "dlogk is 0");
-
-  u = (logk - PowerTable[mybinlow].logk) / dlogk;
-
-  logD = (1 - u) * PowerTable[mybinlow].logD + u * PowerTable[mybinhigh].logD;
-
-  P = pow(10.0, logD);//*2*M_PI*M_PI;
+  double power = pow(10.0, logD);//*2*M_PI*M_PI;
 
   //  Delta2 = pow(10.0, logD);
 
@@ -212,7 +180,7 @@ double PowerSpec_Tabulated(double k)
   //  if(ThisTask == 0)
   //    printf("%lg %lg %d %d %d %d\n",k,P,binlow,binhigh,mybinlow,mybinhigh);
 
-  return P;
+  return power;
 }
 
 double PowerSpec_EH(double k)	/* Eisenstein & Hu */
@@ -263,7 +231,7 @@ double TopHatSigma2(double R)
 
   /* note: 500/R is here chosen as integration boundary (infinity) */
   gsl_integration_qags (&F, 0, 500. / R, 0, 1e-4,1000,w,&result, &abserr);
-//   printf("gsl_integration_qng in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size);
+  printf("gsl_integration_qng in TopHatSigma2. Result %g, error: %g, intervals: %lu\n",result, abserr,w->size);
   gsl_integration_workspace_free (w);
   return result;
 }
@@ -271,17 +239,17 @@ double TopHatSigma2(double R)
 
 double sigma2_int(double k, void * params)
 {
-  double kr, kr3, kr2, w, x;
+  double w, x;
 
   double r_tophat = *(double *) params;
-  kr = r_tophat * k;
-  kr2 = kr * kr;
-  kr3 = kr2 * kr;
+  const double kr = r_tophat * k;
+  const double kr2 = kr * kr;
 
-  if(kr < 1e-8)
-    return 0;
-
-  w = 3 * (sin(kr) / kr3 - cos(kr) / kr2);
+  /*Series expansion; actually good until kr~1*/
+  if(kr < 1e-3)
+      w = 1./3. - kr2/30. +kr2*kr2/840.;
+  else
+      w = 3 * (sin(kr) / kr - cos(kr)) / kr2;
   x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * PowerSpec(k);
 
   return x;
