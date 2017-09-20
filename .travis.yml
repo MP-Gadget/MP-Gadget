@@ -25,10 +25,14 @@ install:
     - make depends
     - make
 
+before_script:
+    - sh install-nbodykit.sh
+
 script:
     - set -e
     - make test
     - pushd examples/travis
     - sh run.sh
+    - python check-results.py
     - popd
     - set +e
