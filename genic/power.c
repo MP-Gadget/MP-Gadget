@@ -156,7 +156,7 @@ void initialize_powerspectrum(void)
     }
     if(InputPowerRedshift >= 0) {
         double Dplus = GrowthFactor(InitTime, 1/(1+InputPowerRedshift));
-        Norm /= (Dplus * Dplus);
+        Norm *= (Dplus * Dplus);
         message(0,"Growth factor to z=0: %g \n", Dplus);
     }
 
