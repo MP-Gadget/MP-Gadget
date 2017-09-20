@@ -52,7 +52,6 @@ void read_power_table(void)
 {
     FILE *fd;
     char buf[500];
-    double k, p;
 
     int InputInLog10 = 0;
 
@@ -67,14 +66,15 @@ void read_power_table(void)
         NPowerTable = 0;
         do
         {
-            if(fscanf(fd, " %lg %lg ", &k, &p) == 2) {
-                if(k < 0 && ! InputInLog10) {
-                    message(1, "some input k is negative, guessing the file is in log10 units\n");
-                    InputInLog10 = 1;
-                }
-                NPowerTable++;
-            } else
+            char buffer[1024];
+            char * retval = fgets(buffer, 1024, fd);
+            /*Happens on end of file*/
+            if(!retval)
                 break;
+            retval = strtok(buffer, " \t");
+            if(!retval || retval[0] == '#')
+                continue;
+            NPowerTable++;
         }
         while(1);
 
@@ -84,6 +84,8 @@ void read_power_table(void)
     }
     MPI_Bcast(&NPowerTable, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
+    if(NPowerTable < 2 && WhichSpectrum == 2)
+        endrun(1, "Input spectrum too short\n");
     PowerTable = mymalloc("Powertable", NPowerTable * sizeof(struct pow_table));
 
     if(ThisTask == 0) {
@@ -98,22 +100,36 @@ void read_power_table(void)
         i = 0;
         do
         {
-            if(fscanf(fd, " %lg %lg ", &k, &p) == 2)
-            {
-                if (!InputInLog10) {
-                    k = log10(k);
-                    p = log10(p);
-                }
-
-                k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
-                PowerTable[i].logk = k;
-
-                p += 3 * log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to Kpc/h  */
-                PowerTable[i].logD = p;
-                i++;
-            }
-            else
+            double k, p;
+            char buffer[1024];
+            char * retval = fgets(buffer, 1024, fd);
+            /*Happens on end of file*/
+            if(!retval)
                 break;
+            retval = strtok(buffer, " \t");
+            if(!retval || retval[0] == '#')
+                continue;
+            k = atof(retval);
+            if(k < 0 && !InputInLog10) {
+                message(1, "some input k is negative, guessing the file is in log10 units\n");
+                InputInLog10 = 1;
+            }
+            retval = strtok(NULL, " \t");
+            if(!retval)
+                endrun(1,"Incomplete line in power spectrum: %s\n",buffer);
+            p = atof(retval);
+            logk_tab[i] = k;
+            if (!InputInLog10) {
+                k = log10(k);
+                p = log10(p);
+            }
+
+            k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
+            PowerTable[i].logk = k;
+
+            p += 3 * log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to Kpc/h  */
+            PowerTable[i].logD = p;
+            i++;
         }
         while(1);
 
