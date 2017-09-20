@@ -19,20 +19,22 @@ addons:
             - openmpi-bin
             - libgsl0-dev
 
+before_install:
+    - sh install-nbodykit.sh
+    - export PATH=$HOME/miniconda/bin:$PATH
+
 install:
     - sh bootstrap.sh
     - cp Options.mk.travis Options.mk
     - make depends
     - make
 
-before_script:
-    - sh install-nbodykit.sh
-
 script:
     - set -e
     - make test
     - pushd examples/travis
-    - sh run.sh
-    - python check-results.py
+    - mpirun -np 2 ../../build/MP-GenIC paramfile.genic
+    - (source activate test; python check-results.py )
+    - mpirun -np 2 ../../build/MP-Gagdget paramfile.gadget 1 # continue the run
     - popd
     - set +e
