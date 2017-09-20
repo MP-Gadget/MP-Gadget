@@ -34,7 +34,7 @@ script:
     - make test
     - pushd examples/travis
     - mpirun -np 2 ../../build/MP-GenIC paramfile.genic
-    - (source activate test; python check-results.py )
     - mpirun -np 2 ../../build/MP-Gagdget paramfile.gadget 1 # continue the run
+    - (source activate test; python check-results.py )
     - popd
     - set +e
