@@ -2,7 +2,7 @@
 
 InitCondFile = output/IC
 OutputDir = output
-OutputList = 0.1,0.11, 0.12
+OutputList = 0.1,0.15, 0.20
 SnapshotFileBase = snapshot
 
 Nmesh = 32
@@ -16,12 +16,12 @@ TimeLimitCPU = 43000 #= 8 hours
 
 #  Characteristics of run
 
-TimeMax = 0.12
+TimeMax = 0.20
 
-Omega0 = 0.2814      # Total matter density  (at z=0)
-OmegaLambda = 0.7186      # Cosmological constant (at z=0)
-OmegaBaryon = 0.0464     # Baryon density        (at z=0)
-HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
+Omega0 = 0.3089      # Total matter density  (at z=0)
+OmegaLambda = 0.6911      # Cosmological constant (at z=0)
+OmegaBaryon = 0.0486     # Baryon density        (at z=0)
+HubbleParam = 0.6774      # Hubble paramater (may be used for power spec parameterization)
 
 HydroOn = 0
 CoolingOn = 0
