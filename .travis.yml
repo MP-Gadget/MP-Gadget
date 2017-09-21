@@ -33,8 +33,9 @@ script:
     - set -e
     - make test
     - pushd examples/travis
+    - (source activate test; python make-pklin.py )
     - mpirun -np 2 ../../build/MP-GenIC paramfile.genic
-    - mpirun -np 2 ../../build/MP-Gagdget paramfile.gadget 1 # continue the run
+    - mpirun -np 2 ../../build/MP-Gadget paramfile.gadget 1 # continue the run
     - (source activate test; python check-results.py )
     - popd
     - set +e
