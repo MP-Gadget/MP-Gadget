@@ -71,9 +71,9 @@ setup_sync_points(void)
         SyncPoints[i].ti = (i * 1L) << (TIMEBINS);
     }
 
-    for(i = 0; i < NSyncPoints; i++) {
-        message(1,"Out: %g %ld\n", exp(SyncPoints[i].loga), SyncPoints[i].ti);
-    }
+/*     for(i = 0; i < NSyncPoints; i++) { */
+/*         message(1,"Out: %g %ld\n", exp(SyncPoints[i].loga), SyncPoints[i].ti); */
+/*     } */
 }
 
 /*! this function returns the next output time that is in the future of
