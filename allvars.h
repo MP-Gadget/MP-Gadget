@@ -295,7 +295,6 @@ extern struct global_data_all_processes
                           and analytic solvers when hybrid neutrinos are on*/
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
     char CAMBTransferFunction[100]; /*!< CAMB transfer function for initial neutrino power*/
-    double TimeCAMBTransfer; /*!< Time at which CAMB transfer function was generated*/
     double CAMBInputSpectrum_UnitLength_in_cm; /*!< Units of CAMB transfer function*/
 
     enum StarformationCriterion StarformationCriterion;  /*!< flags that star formation is enabled */

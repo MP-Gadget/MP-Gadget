@@ -59,7 +59,7 @@ void gravpm_init_periodic() {
     if(All.MassiveNuLinRespOn) {
         /*Set the private copy of the task in delta_tot_table*/
         delta_tot_table.ThisTask = ThisTask;
-        allocate_delta_tot_table(&delta_tot_table, All.Nmesh, All.TimeCAMBTransfer, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, 3.085678e24, 0);
+        allocate_delta_tot_table(&delta_tot_table, All.Nmesh, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, 3.085678e24, 0);
         global_functions.global_readout = readout_power_spectrum;
         global_functions.global_analysis = compute_neutrino_power;
     }

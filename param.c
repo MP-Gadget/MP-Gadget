@@ -298,7 +298,6 @@ create_gadget_parameter_set()
     param_declare_int(ps, "MassiveNuLinRespOn", REQUIRED, 0, "Enables linear response massive neutrinos of 1209.0461. Make sure you enable radiation too.");
     param_declare_int(ps, "HybridNeutrinosOn", OPTIONAL, 0, "Enables hybrid massive neutrinos, where some density is followed analytically, and some with particles. Requires MassivenuLinRespOn");
     param_declare_string(ps, "LinearTransferFunction", REQUIRED, NULL, "File containing linear transfer function in CAMB format. Used for massive neutrinos.");
-    param_declare_double(ps, "TimeTransfer", REQUIRED, 0, "Scale factor at which the CAMB transfer functions were generated.");
     param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", OPTIONAL, 3.085678e24, "Units of the CAMB transfer function in cm. By default Mpc.");
     param_declare_double(ps, "MNue", OPTIONAL, 0, "First neutrino mass in eV.");
     param_declare_double(ps, "MNum", OPTIONAL, 0, "Second neutrino mass in eV.");
@@ -483,7 +482,6 @@ void read_parameter_file(char *fname)
         All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
         All.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
         param_get_string2(ps, "LinearTransferFunction", All.CAMBTransferFunction);
-        All.TimeCAMBTransfer = param_get_double(ps, "TimeTransfer");
         All.CAMBInputSpectrum_UnitLength_in_cm = param_get_double(ps, "InputSpectrum_UnitLength_in_cm");
         All.CP.MNu[0] = param_get_double(ps, "MNue");
         All.CP.MNu[1] = param_get_double(ps, "MNum");
