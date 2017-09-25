@@ -51,11 +51,12 @@ def test_power(output, ref, ref_z):
 # asserting the initial power spectrum is 5% accurate
 print("testing IC power")
 pklin = LinearPower(Planck15, redshift=ref_z)
+print(ref_z, ref.power['power'][2:8])
+print(pklin(ref.power['k'][2:8]))
 assert_allclose(abs(ref.power['power'])[2:8],
                 abs(pklin(ref.power['k']))[2:8],
                 rtol=0.05, atol=0.0)
-print(ref_z, ref.power['power'][2:8])
-print(pklin(ref.power['k'][2:8]))
+
 test_power('output/IC', ref, ref_z)
 
 test_power('output/PART_000', ref, ref_z)
