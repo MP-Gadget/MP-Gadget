@@ -315,11 +315,26 @@ void compute_accelerations(int is_PM, int FirstStep)
 
     walltime_measure("/Misc");
 
+    /* The opening criterion for the gravtree
+     * uses the *total* gravitational acceleration
+     * from the last timestep, GravPM+GravAccel.
+     * So we must compute GravAccel for this timestep
+     * before gravpm_force() writes the PM acc. for
+     * this timestep to GravPM. Note initially both
+     * are zero and so the tree is opened maximally
+     * on the first timestep.*/
     grav_short_tree();
 
-    /* PM is after tree as we need GravPM
-     * from the last step to compute the opening
-     * angle in tree.*/
+    /* We use the total gravitational acc.
+     * to open the tree and total acc for the timestep.
+     * Note that any of (GravAccel, GravPM,
+     * HydroAccel) may change much faster than
+     * the total acc.
+     * We do the same as Gadget-2, but one could
+     * instead use short-range tree acc. only
+     * for opening angle or short-range timesteps,
+     * or include hydro in the opening angle.*/
+
     if(is_PM)
     {
         gravpm_force();
@@ -332,6 +347,8 @@ void compute_accelerations(int is_PM, int FirstStep)
     /* For the first timestep, we do tree force twice
      * to allow usage of relative opening
      * criterion for consistent accuracy.
+     * This happens after PM because we want to
+     * use the total acceleration for tree opening.
      */
     if(FirstStep)
         grav_short_tree();
