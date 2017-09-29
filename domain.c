@@ -56,9 +56,9 @@ struct local_topnode_data
     int Daughter;			/*!< index of first daughter cell (out of 8) of top-level node */
     /*Below members are only used in this file*/
     int Parent;
-    int PIndex;			/*!< first particle in node  used only in top-level tree build (this file)*/
-    int64_t Count;		/*!< counts the number of particles in this top-level node */
-    int64_t Cost;
+    int PIndex;         /* FIXME: this appears to be useless now. first particle in node used only in top-level tree build (this file)*/
+    int64_t Count;      /* the number of 'subsample' particles in this top-level node */
+    int64_t Cost;       /* the cost of 'subsample' particle in this top-level node */
 };
 
 struct local_particle_data
@@ -100,7 +100,6 @@ domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data
 
 static int domain_check_for_local_refine_subsample(
     struct local_topnode_data * topTree, int * topTreeSize,
-    struct local_particle_data * LP,
     int sample_step);
 
 static int
@@ -845,9 +844,57 @@ domain_toptree_truncate(
 static int
 domain_check_for_local_refine_subsample(
     struct local_topnode_data * topTree, int * topTreeSize,
-    struct local_particle_data * LP,
     int sample_step)
 {
+
+    int i;
+
+    struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", NumPart * sizeof(LP[0]));
+
+    /* Watchout : Peano/Morton ordering is required by the tree
+     * building algorithm in local_refine.
+     *
+     * We can either use a global or a local sorting here; the code will run
+     * without crashing.
+     *
+     * A global sorting is chosen to ensure the local topTrees are really local
+     * and the leaves almost disjoint. This makes the merged topTree a more accurate
+     * representation of the true cost / load distribution, for merging
+     * and secondary refinement are approximated.
+     *
+     * A local sorting may be faster but makes the tree less accurate due to
+     * more likely running into overlapped local topTrees.
+     * */
+
+    int Nsample = NumPart / sample_step;
+
+#pragma omp parallel for
+    for(i = 0; i < NumPart; i ++)
+    {
+        LP[i].Key = P[i].Key;
+        LP[i].Cost = domain_particle_costfactor(i);
+    }
+
+    /* First sort to ensure spatially 'even' subsamples; FIXME: This can probably
+     * be omitted in most cases. Usually the particles in memory won't be very far off
+     * from a peano order. */
+    qsort_openmp(LP, Nsample, sizeof(struct local_particle_data), order_by_key);
+
+    /* now subsample */
+    for(i = 0; i < Nsample; i ++)
+    {
+        LP[i].Key = LP[i * sample_step].Key;
+        LP[i].Cost = LP[i * sample_step].Cost;
+    }
+
+    if(All.DomainUseGlobalSorting) {
+        mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, MPI_COMM_WORLD);
+    } else {
+        qsort_openmp(LP, Nsample, sizeof(struct local_particle_data), order_by_key);
+    }
+
+    walltime_measure("/Domain/DetermineTopTree/Sort");
+
     *topTreeSize = 1;
     topTree[0].Daughter = -1;
     topTree[0].Parent = -1;
@@ -856,8 +903,6 @@ domain_check_for_local_refine_subsample(
     topTree[0].PIndex = 0;
     topTree[0].Count = 0;
     topTree[0].Cost = 0;
-
-    int i;
 
     /* The tree building algorithm here requires the LP structure to
      * be sorted by key, in which case we either refine
@@ -878,10 +923,8 @@ domain_check_for_local_refine_subsample(
      *
      * */
 
-    /* 1. sub sample every 16 particles to create a skeleton of the toptree.
+    /* 1. create a skeleton of the toptree.
      * We do not use all particles to avoid excessive memory consumption.
-     *
-     * 1/16 is used because each local topTree node takes about 32 bytes.
      *
      * */
 
@@ -893,7 +936,7 @@ domain_check_for_local_refine_subsample(
     peano_t last_key = -1;
     int last_leaf = -1;
     i = 0;
-    while(i < NumPart) {
+    while(i < Nsample) {
 
         int leaf = domain_toptree_get_subnode(topTree, LP[i].Key);
 
@@ -924,18 +967,22 @@ domain_check_for_local_refine_subsample(
             continue;
         }
     }
+    /* Alternativly we could have kept last_cost in the above loop and avoid
+     * the second and third step: */
 
-    /* Remove the subsample particles from the tree to make it a skeleton;
+    /* 2. Remove the skelton particles from the tree to make it a skeleton;
      * note that we never bothered to add Cost when the skeleton was built.
      * otherwise we shall clean it here too.*/
     for(i = 0; i < *topTreeSize; i ++ ) {
         topTree[i].Count = 0;
     }
 
-    /* Next, insert all particles to the skeleton tree; Count will be correct because we cleaned them.*/
-    for(i = 0; i < NumPart; i ++ ) {
+    /* 3. insert all particles to the skeleton tree; Count will be correct because we cleaned them.*/
+    for(i = 0; i < Nsample; i ++ ) {
         domain_toptree_insert(topTree, LP[i].Key, LP[i].Cost);
     }
+
+    myfree(LP);
 
     /* then compute the costs of the internal nodes. */
     domain_toptree_update_cost(topTree, 0);
@@ -1045,45 +1092,14 @@ loop_continue:
  */
 int domain_determine_global_toptree(struct local_topnode_data * topTree, int * topTreeSize)
 {
-    int i;
-
-    struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", NumPart * sizeof(LP[0]));
-
-#pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
-    {
-        LP[i].Key = P[i].Key;
-        LP[i].Cost = domain_particle_costfactor(i);
-    }
-
     walltime_measure("/Domain/DetermineTopTree/Misc");
 
-    /* Watchout : Peano/Morton ordering is required by the tree
-     * building algorithm in local_refine.
-     *
-     * We can either use a global or a local sorting here; the code will run
-     * without crashing.
-     *
-     * A global sorting is chosen to ensure the local topTrees are really local
-     * and the leaves almost disjoint. This makes the merged topTree a more accurate
-     * representation of the true cost / load distribution, for merging
-     * and secondary refinement are approximated.
-     *
-     * A local sorting may be faster but makes the tree less accurate due to
-     * more likely running into overlapped local topTrees.
-     * */
+    /*
+     * Build local refinement with a subsample of particles
+     * 1/16 is used because each local topTree node takes about 32 bytes.
+     **/
 
-    if(All.DomainUseGlobalSorting) {
-        mpsort_mpi(LP, NumPart, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, MPI_COMM_WORLD);
-    } else {
-        qsort_openmp(LP, NumPart, sizeof(struct local_particle_data), order_by_key);
-    }
-
-    walltime_measure("/Domain/DetermineTopTree/Sort");
-
-    int local_refine_failed = MPIU_Any(0 != domain_check_for_local_refine_subsample(topTree, topTreeSize, LP, 16), MPI_COMM_WORLD);
-
-    myfree(LP);
+    int local_refine_failed = MPIU_Any(0 != domain_check_for_local_refine_subsample(topTree, topTreeSize, 16), MPI_COMM_WORLD);
 
     walltime_measure("/Domain/DetermineTopTree/LocalRefine/Init");
 
