@@ -23,7 +23,7 @@ static void readout_density(int i, double * mesh, double weight);
 static void readout_force_x(int i, double * mesh, double weight);
 static void readout_force_y(int i, double * mesh, double weight);
 static void readout_force_z(int i, double * mesh, double weight);
-static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k);
+static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary);
 static void setup_grid();
 
 void initialize_ffts(void) {
@@ -124,7 +124,7 @@ void displacement_fields() {
            &pstruct, NULL);
 
     gaussian_fill(petapm_get_fourier_region(),
-            petapm_get_rho_k());
+            petapm_get_rho_k(), Unitary);
 
     petapm_force_c2r(functions);
     petapm_force_finish();
@@ -311,7 +311,7 @@ SAMPLE(gsl_rng * rng, double * ampl, double * phase)
 }
 
 static void
-pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed)
+pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
 {
     /* Fill delta_k with gadget scheme */
     int d;
@@ -405,6 +405,8 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed)
                 /* we want two numbers that are of std ~ 1/sqrt(2) */
                 ampl = sqrt(- log(ampl));
 
+                if (unitary) ampl = 1.0; /* cos and sin gives 1/sqrt(2)*/
+
                 (delta_k + 2 * ip)[0] = ampl * cos(phase);
                 (delta_k + 2 * ip)[1] = ampl * sin(phase);
 
@@ -443,7 +445,7 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed)
 
 /* Using fastpm's gaussian_fill for ngenic agreement. */
 static void
-gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k)
+gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary)
 {
     /* fastpm deals with strides properly; petapm not. So we translate it here. */
     PM pm[1];
@@ -464,7 +466,7 @@ gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k)
 
     pm->ORegion.total = region->totalsize;
     pm->allocsize = region->totalsize;
-    pmic_fill_gaussian_gadget(pm, (double*) rho_k, Seed);
+    pmic_fill_gaussian_gadget(pm, (double*) rho_k, Seed, unitary);
 
 #if 0
     /* dump the gaussian field for debugging 

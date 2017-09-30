@@ -12,6 +12,7 @@ char * FileWithInputSpectrum;
 double Box;
 int ProduceGas;
 int Seed;
+int Unitary;
 int UsePeculiarVelocity;
 int NumPart;
 double MaxMemoryPerCore;
