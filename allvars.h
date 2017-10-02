@@ -523,11 +523,8 @@ extern struct particle_data
     MyFloat GravAccel[3];  /* particle acceleration due to short-range gravity */
 
     MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
-    MyFloat OldAcc;			/* magnitude of old gravitational force. Used in relative opening
-                              criterion, only used by gravtree cross time steps */
 
-    MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree is called. */
-    MyFloat PM_Potential;  /* Only used by PM. useless after pm */
+    MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree+gravpm is called. */
 
     MyFloat StarFormationTime;		/*!< formation time of star particle: needed to tell when wind is active. */
 

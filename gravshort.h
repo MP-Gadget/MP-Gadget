@@ -31,17 +31,9 @@ grav_short_haswork(int i, TreeWalk * tw)
 static void
 grav_short_postprocess(int i, TreeWalk * tw)
 {
-    int j;
-
-    double ax, ay, az;
-    ax = P[i].GravAccel[0] + P[i].GravPM[0] / All.G;
-    ay = P[i].GravAccel[1] + P[i].GravPM[1] / All.G;
-    az = P[i].GravAccel[2] + P[i].GravPM[2] / All.G;
-
-    P[i].OldAcc = sqrt(ax * ax + ay * ay + az * az);
-    for(j = 0; j < 3; j++)
-        P[i].GravAccel[j] *= All.G;
-
+    P[i].GravAccel[0] *= All.G;
+    P[i].GravAccel[1] *= All.G;
+    P[i].GravAccel[2] *= All.G;
     /* calculate the potential */
     /* remove self-potential */
     P[i].Potential += P[i].Mass / All.SofteningTable[P[i].Type];
@@ -50,9 +42,6 @@ grav_short_postprocess(int i, TreeWalk * tw)
         pow(All.CP.Omega0 * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G), 1.0 / 3);
 
     P[i].Potential *= All.G;
-
-    P[i].Potential += P[i].PM_Potential;	/* add in long-range potential */
-
 }
 
 static void
@@ -62,7 +51,15 @@ grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 
     if(All.AdaptiveGravsoftForGas && P[place].Type == 0)
         input->Soft = P[place].Hsml;
-    input->OldAcc = P[place].OldAcc;
+    /*Compute old acceleration before we over-write things*/
+    double aold=0;
+    int i;
+    for(i = 0; i < 3; i++) {
+       double ax = P[place].GravAccel[i] + P[place].GravPM[i];
+       aold += ax*ax;
+    }
+
+    input->OldAcc = sqrt(aold)/All.G;
 
 }
 static void
