@@ -30,6 +30,7 @@ HydroOn = 1
 BlackHoleOn = 0
 WindOn = 0
 StarformationCriterion = density
+MassiveNuLinRespOn = 0
 
 #  Further parameters of SPH
 #  #Only kernel supported by fake_spectra

@@ -30,6 +30,7 @@ BlackHoleOn = 1
 HydroOn = 1
 StarformationCriterion = density
 RadiationOn = 1
+MassiveNuLinRespOn = 0
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1

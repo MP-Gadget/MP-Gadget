@@ -14,7 +14,6 @@ Nmesh = 256
 	
 TimeLimitCPU = 43000 #= 8 hours
 
-
 # Code options
 
 #  Characteristics of run
@@ -31,6 +30,8 @@ CoolingOn = 1
 StarformationOn = 1
 StarformationCriterion = density
 RadiationOn = 0
+MassiveNuLinRespOn = 0
+
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1
