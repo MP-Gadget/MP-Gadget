@@ -135,5 +135,4 @@ void read_parameterfile(char *fname)
 
     G = GRAVITY / pow(UnitLength_in_cm, 3) * UnitMass_in_g * pow(UnitTime_in_s, 2);
     CP.Hubble = HUBBLE * UnitTime_in_s;
-    init_cosmology(&CP, InitTime);
 }

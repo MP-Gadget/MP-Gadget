@@ -34,6 +34,8 @@ int main(int argc, char **argv)
   const double shift_dm = +0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
   int64_t TotNumPart = (int64_t) Ngrid*Ngrid*Ngrid;
 
+  init_cosmology(&CP, InitTime);
+
   initialize_powerspectrum(ThisTask, InitTime, UnitLength_in_cm, &CP, &PowerP);
   petapm_init(Box, Nmesh, 1);
   setup_grid(ProduceGas * shift_dm, 0);
