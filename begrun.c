@@ -71,6 +71,7 @@ void begrun(int RestartSnapNum)
 #endif
 }
 
+
 /*!  This function opens various log-files that report on the status and
  *   performance of the simulstion. On restart from restart-files
  *   (start-option 1), the code will append to these files.
@@ -82,16 +83,15 @@ open_outputfiles(int RestartSnapNum)
     char * buf;
     char * postfix;
 
+    if(ThisTask != 0) {
+        /* only the root processors writes to the log files */
+        return;
+    }
+
     if(RestartSnapNum != -1) {
         postfix = fastpm_strdup_printf("-R%03d", RestartSnapNum);
     } else {
         postfix = fastpm_strdup_printf("%s", "");
-    }
-
-    if(ThisTask != 0) {
-        /* only the root processors writes to the log files */
-        free(postfix);
-        return;
     }
 
     buf = fastpm_strdup_printf("%s/%s%s", All.OutputDir, All.CpuFile, postfix);
@@ -127,8 +127,6 @@ open_outputfiles(int RestartSnapNum)
 }
 
 
-
-
 /*!  This function closes the global log-files.
 */
 void close_outputfiles(void)
@@ -149,7 +147,6 @@ void close_outputfiles(void)
     fclose(FdBlackHoles);
 #endif
 }
-
 
 /*! Computes conversion factors between internal code units and the
  *  cgs-system.

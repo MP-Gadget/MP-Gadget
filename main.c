@@ -105,6 +105,7 @@ int main(int argc, char **argv)
             begrun(RestartSnapNum);
             open_outputfiles(RestartSnapNum);
             run();			/* main simulation loop */
+            close_outputfiles();
             break;
     }
 byebye:
@@ -112,4 +113,3 @@ byebye:
 
     return 0;
 }
-

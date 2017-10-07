@@ -5,7 +5,8 @@ void allocate_memory(void);
 void begrun(int RestartSnapNum);
 void
 open_outputfiles(int RestartsnapNum);
-
+void
+close_outputfiles(void);
 
 void density();
 void density_update();
