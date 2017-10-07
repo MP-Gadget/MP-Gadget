@@ -411,14 +411,14 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         {
             if(P[other].Swallowed) {
                 /* Already marked, prefer to be swallowed by a bigger ID */
-                if(P[other].SwallowID < I->ID) {
-                    P[other].SwallowID = I->ID;
+                if(BHP(other).SwallowID < I->ID) {
+                    BHP(other).SwallowID = I->ID;
                 }
             } else {
                 /* Unmarked, the BH with bigger ID swallows */
                 if(P[other].ID < I->ID) {
                     P[other].Swallowed = 1;
-                    P[other].SwallowID = I->ID;
+                    BHP(other).SwallowID = I->ID;
                 }
             }
         }
@@ -459,13 +459,13 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             {
                 if(P[other].Swallowed) {
                     /* Already marked, prefer to be swallowed by a bigger ID */
-                    if(P[other].SwallowID < I->ID) {
-                        P[other].SwallowID = I->ID;
+                    if(SPHP(other).SwallowID < I->ID) {
+                        SPHP(other).SwallowID = I->ID;
                     }
                 } else {
                     /* Unmarked mark it */
                     P[other].Swallowed = 1;
-                    P[other].SwallowID = I->ID;
+                    SPHP(other).SwallowID = I->ID;
                 }
             }
             unlock_particle(other);
@@ -546,7 +546,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     if(P[other].Swallowed && P[other].Type == 5)	/* we have a black hole merger */
     {
-        if(P[other].SwallowID != I->ID) return;
+        if(BHP(other).SwallowID != I->ID) return;
 
         lock_particle(other);
 
@@ -603,7 +603,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     /* Swallowing a gas */
     if(P[other].Swallowed && P[other].Type == 0)
     {
-        if(P[other].SwallowID != I->ID) return;
+        if(SPHP(other).SwallowID != I->ID) return;
 
         lock_particle(other);
 
@@ -681,6 +681,7 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
 static int
 blackhole_feedback_haswork(int n, TreeWalk * tw)
 {
+    /*Black hole not being swallowed*/
     return (P[n].Type == 5) && (!P[n].Swallowed);
 }
 

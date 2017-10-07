@@ -530,11 +530,6 @@ extern struct particle_data
 
     MyFloat Hsml;
 
-#ifdef BLACK_HOLES
-    /* SwallowID is not reset in blackhole.c thus cannot be in a union */
-    MyIDType SwallowID; /* who will swallow this particle, used only in blackhole.c */
-#endif
-
     /* The peano key is a hash of the position used in the domain decomposition.
      * It is slow to generate so we store it here.*/
     peano_t Key; /* only by domain.c and forcetre.c */
@@ -584,6 +579,9 @@ struct bh_particle_data {
     MyFloat MinPotVel[3];
     MyFloat MinPot;
 
+    MyIDType SwallowID; /* Allows marking of a merging particle. Used only in blackhole.c.
+                           Set to -1 in init.c and only reinitialised if a merger takes place.*/
+
     short int TimeBinLimit;
 } * BhP;
 
@@ -626,6 +624,8 @@ extern struct sph_particle_data
                    indirectly ionization state and mean molecular weight. */
 
 #ifdef BLACK_HOLES
+    MyIDType SwallowID; /* Allows marking of a particle being eaten by a black hole. Used only in blackhole.c.
+                           Set to -1 in init.c and only reinitialised if a merger takes place.*/
     MyFloat       Injected_BH_Energy;
 #endif
 
