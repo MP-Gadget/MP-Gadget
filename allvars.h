@@ -174,6 +174,7 @@ extern int64_t NTotal[6];
 
 /* Number of used BHP slots */
 extern int N_bh_slots;
+extern int N_star_slots;
 extern int N_sph_slots;
 
 /* variables for input/output , usually only used on process 0 */
@@ -516,7 +517,8 @@ extern struct particle_data
         signed char TimeBin; /* Time step bin; -1 for unassigned.*/
     };
 
-    unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
+    unsigned int PI; /* particle property index; used by BH, SPH and STAR.
+                        points to the corresponding structure in **P array.*/
     MyIDType ID;
 
     MyFloat Vel[3];   /* particle velocity at its current time */
@@ -525,12 +527,6 @@ extern struct particle_data
     MyFloat GravPM[3];		/* particle acceleration due to long-range PM gravity force */
 
     MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree+gravpm is called. */
-
-    MyFloat StarFormationTime;		/*!< formation time of star particle: needed to tell when wind is active. */
-
-#ifdef METALS
-    MyFloat Metallicity;		/*!< metallicity of gas or star particle */
-#endif				/* closes METALS */
 
     MyFloat Hsml;
 
@@ -578,6 +574,7 @@ struct bh_particle_data {
     MyFloat Entropy;
     MyFloat Pressure;
     MyFloat SurroundingGasVel[3];
+    MyFloat FormationTime;		/*!< formation time of black hole. */
 
     MyFloat accreted_Mass;
     MyFloat accreted_BHMass;
@@ -590,6 +587,13 @@ struct bh_particle_data {
     short int TimeBinLimit;
 } * BhP;
 
+/*Data for each star particle*/
+extern struct star_particle_data
+{
+    struct particle_data_ext base;
+    MyFloat FormationTime;		/*!< formation time of star particle: needed to tell when wind is active. */
+    MyFloat Metallicity;		/*!< metallicity of star particle */
+} * StarP;
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
  * variables.
@@ -606,6 +610,7 @@ extern struct sph_particle_data
 #define EOMDensity Density
 #endif
 
+    MyFloat Metallicity;		/*!< metallicity of gas particle */
     MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
     MyFloat       Density;		/*!< current baryonic mass density of particle */
@@ -638,6 +643,7 @@ extern struct sph_particle_data
 
 #define SPHP(i) SphP[P[i].PI]
 #define BHP(i) BhP[P[i].PI]
+#define STARP(i) StarP[P[i].PI]
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG

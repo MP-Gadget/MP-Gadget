@@ -721,7 +721,7 @@ void blackhole_make_one(int index) {
     P[child].PI = atomic_fetch_and_add(&N_bh_slots, 1);
     P[child].Type = 5;	/* make it a black hole particle */
 
-    P[child].StarFormationTime = All.Time;
+    BHP(child).FormationTime = All.Time;
     /*Ensure that mass is conserved*/
     double BHmass = All.SeedBlackHoleMass;
     if(P[index].Mass <= All.SeedBlackHoleMass) {

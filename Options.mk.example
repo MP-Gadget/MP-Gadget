@@ -27,7 +27,6 @@ OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & 
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
 OPT	+=  -DSFR
-OPT	+=  -DMETALS
 OPT	+=  -DWINDS
 
 

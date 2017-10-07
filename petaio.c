@@ -210,7 +210,7 @@ void petaio_read_internal(char * fname, int ic) {
                     big_file_get_error_message());
     }
 
-    /* set up the cross check for BH ID */
+    /* set up the cross check for child IDs */
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
@@ -219,6 +219,9 @@ void petaio_read_internal(char * fname, int ic) {
         }
         if(P[i].Type == 0) {
             SPHP(i).base.ID = P[i].ID;
+        }
+        if(P[i].Type == 4) {
+            STARP(i).base.ID = P[i].ID;
         }
     }
 }
@@ -426,10 +429,14 @@ petaio_read_header_internal(BigFile * bf) {
         NumPart += end - start;
     }
     N_sph_slots = NLocal[0];
+    N_star_slots = NLocal[4];
     N_bh_slots = NLocal[5];
 
     if(N_bh_slots > All.MaxPartBh) {
         endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);
+    }
+    if(N_star_slots > All.MaxPartBh) {
+        endrun(1, "Overwhelmed by stars: %d > %d\n", N_star_slots, All.MaxPartBh);
     }
 
     if(NumPart >= All.MaxPart) {
@@ -661,10 +668,9 @@ SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
 #endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #ifdef SFR
-SIMPLE_PROPERTY(StarFormationTime, P[i].StarFormationTime, float, 1)
-#ifdef METALS
-SIMPLE_PROPERTY(Metallicity, P[i].Metallicity, float, 1)
-#endif
+SIMPLE_PROPERTY(StarFormationTime, STARP(i).FormationTime, float, 1)
+SIMPLE_PROPERTY(StarMetallicity, STARP(i).Metallicity, float, 1)
+SIMPLE_PROPERTY(GasMetallicity, SPHP(i).Metallicity, float, 1)
 static void GTStarFormationRate(int i, float * out) {
     /* Convert to Solar/year */
     *out = get_starformation_rate(i) 
@@ -672,6 +678,7 @@ static void GTStarFormationRate(int i, float * out) {
 }
 #endif
 #ifdef BLACK_HOLES
+SIMPLE_PROPERTY(BlackholeFormationTime, BHP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
@@ -746,18 +753,14 @@ static void register_io_blocks() {
     /* SF */
 #ifdef SFR
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
-#ifdef WINDS
     IO_REG(StarFormationTime, "f4", 1, 4);
-#endif
-#ifdef METALS
-    IO_REG(Metallicity,       "f4", 1, 0);
-    IO_REG(Metallicity,       "f4", 1, 4);
-#endif /* METALS */
+    IO_REG(GasMetallicity,       "f4", 1, 0);
+    IO_REG(StarMetallicity,       "f4", 1, 4);
 #endif /* SFR */
 #ifdef BLACK_HOLES
     /* Blackhole */
     IO_REG(BlackholeMass,          "f4", 1, 5);
-    IO_REG(StarFormationTime, "f4", 1, 5);
+    IO_REG(BlackholeFormationTime, "f4", 1, 5);
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
 #endif

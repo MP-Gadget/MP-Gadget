@@ -19,7 +19,6 @@ OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & 
 #--------------------------------------- SFR/feedback model
 # most of the sfr modes are controled in paramfile (which needs a overhaul too!)
 OPT	+=  -DSFR
-OPT	+=  -DMETALS
 OPT	+=  -DWINDS
 
 
@@ -28,5 +27,4 @@ OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
 
 #-------------------------------------------- Things for special behaviour
 OPT	+=  -DINCLUDE_RADIATION		# Add radiation density to backround evolution. Only affects the Hubble flow.
-#OPT	+=  -DTRADITIONAL_SPH_FORMULATION
 OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
