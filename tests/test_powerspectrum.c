@@ -23,6 +23,7 @@ static void test_total_powerspectrum(void **state) {
     int nmpi;
     struct _powerspectrum PowerSpectrum;
     MPI_Comm_size(MPI_COMM_WORLD, &nmpi);
+
     powerspectrum_alloc(&PowerSpectrum,15,NUM_THREADS);
     assert_true(PowerSpectrum.Nmodes);
     assert_true(PowerSpectrum.P);

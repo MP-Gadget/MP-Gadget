@@ -8,6 +8,7 @@
 #include "genic/proto.h"
 #include "endrun.h"
 #include "paramset.h"
+#include "system.h"
 #include "physconst.h"
 
 #define OPTIONAL 0
@@ -35,7 +36,7 @@ create_parameters()
     param_declare_int(ps, "Unitary", OPTIONAL, 0, "If non-zero, generate unitary gaussians where |g| == 1.0.");
     param_declare_int(ps, "WhichSpectrum", OPTIONAL, 2, "Type of spectrum, 2 for file ");
 
-    param_declare_double(ps, "MaxMemoryPerCore", OPTIONAL, 1300., "");
+    param_declare_double(ps, "MaxMemSizePerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Write a IC similiar to a FastPM output");
@@ -91,7 +92,7 @@ void read_parameterfile(char *fname)
     /* If massive neutrinos are implemented and enabled this
      * should be set to zero, so neutrinos are not included twice.*/
     CP.MasslessNeutrinosOn = 1;
-    MaxMemoryPerCore = param_get_double(ps, "MaxMemoryPerCore");
+    MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
     ProduceGas = param_get_int(ps, "ProduceGas");
     InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
     UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");

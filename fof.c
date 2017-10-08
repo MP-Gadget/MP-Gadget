@@ -15,6 +15,7 @@
 #include "domain.h"
 #include "mpsort.h"
 #include "mymalloc.h"
+#include "forcetree.h"
 #include "endrun.h"
 #include "treewalk.h"
 #include "system.h"
@@ -68,22 +69,20 @@ static void fof_reduce_groups(
     size_t elsize, 
     void (*reduce_group)(void * gdst, void * gsrc));
 
-static void fof_finish_group_properties(void);
-static void fof_compile_base(void);
-static void fof_compile_catalogue(void);
-static void fof_assign_grnr();
+static void fof_finish_group_properties(struct Group * Group);
+static void
+fof_compile_base(struct BaseGroup * base);
+static void
+fof_compile_catalogue(struct Group * group, struct BaseGroup * base);
+static void fof_assign_grnr(struct BaseGroup * base);
 
 void fof_label_primary(void);
 extern void fof_save_particles(int num);
-extern void fof_save_groups(int num);
-
-static void fof_seed(void);
 
 uint64_t Ngroups, TotNgroups, NgroupsExt;
 int64_t TotNids;
 
 struct Group *Group;
-struct BaseGroup *BaseGroup;
 
 typedef struct {
     TreeWalkQueryBase base;
@@ -113,7 +112,13 @@ static struct fof_particle_list
 
 static MPI_Datatype MPI_TYPE_GROUP;
 
-void fof_fof(int num)
+/*
+ * The FOF finder will produce Group[], which is allocated to the top side of the
+ * main heap.
+ *
+ **/
+
+void fof_fof()
 {
     int i;
     double t0, t1;
@@ -157,11 +162,19 @@ void fof_fof(int num)
 
     t0 = second();
 
-    fof_compile_base();
+    NgroupsExt = 0;
 
-    fof_assign_grnr();
+    for(i = 0; i < NumPart; i ++) {
+        if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) NgroupsExt ++;
+    }
 
-    fof_compile_catalogue();
+    /* The first round is to eliminate groups that are too short. */
+    /* We create the smaller 'BaseGroup' data set for this. */
+    struct BaseGroup * base = (struct BaseGroup *) mymalloc("BaseGroup", sizeof(struct BaseGroup) * NgroupsExt);
+
+    Group = (struct Group *) mymalloc2("Group", sizeof(struct Group) * NgroupsExt);
+
+    fof_compile_base(base);
 
     t1 = second();
 
@@ -169,37 +182,29 @@ void fof_fof(int num)
 
     walltime_measure("/FOF/Compile");
 
+    fof_assign_grnr(base);
+
     t0 = second();
+
+    fof_compile_catalogue(Group, base);
+    t1 = second();
+
+    walltime_measure("/FOF/Prop");
 
     message(0, "group properties are now allocated.. (presently allocated=%g MB)\n",
             AllocatedBytes / (1024.0 * 1024.0));
 
-    walltime_measure("/FOF/Prop");
-    t1 = second();
-
     message(0, "computation of group properties took = %g sec\n", timediff(t0, t1));
 
-    if(num < 0)
-        fof_seed();
-
-    walltime_measure("/FOF/Misc");
-
-    if(num >= 0)
-    {
-        fof_save_groups(num);
-    }
-
-    myfree(Group);
-    myfree(BaseGroup);
+    myfree(base);
     myfree(HaloLabel);
 
-    if(num >= 0)
-    {
-        /* I am not sure why we need a domain decomposition here.
-         * But simple peano reorder will produce
-         * a tree that misses a few particles and crash PM. */
-        domain_maintain();
-    }
+}
+
+void
+fof_finish()
+{
+    myfree(Group);
 
     message(0, "Finished computing FoF groups.  (presently allocated=%g MB)\n",
             AllocatedBytes / (1024.0 * 1024.0));
@@ -560,7 +565,8 @@ static void add_particle_to_group(struct Group * gdst, int i) {
     }
 }
 
-static void fof_finish_group_properties(void)
+static void
+fof_finish_group_properties(struct Group * Group)
 {
     int i;
 
@@ -611,75 +617,67 @@ static void fof_finish_group_properties(void)
 
 }
 
-static void fof_compile_base(void)
+static void
+fof_compile_base(struct BaseGroup * base)
 {
-    NgroupsExt = 0;
+    memset(base, 0, sizeof(base[0]) * NgroupsExt);
 
     int i;
     int start;
-
-    for(i = 0; i < NumPart; i ++) {
-        if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) NgroupsExt ++;
-    }
-    /* The first round is to eliminate groups that are too short. */
-    /* We create the smaller 'BaseGroup' data set for this. */
-    BaseGroup = (struct BaseGroup *) mymalloc("BaseGroup", sizeof(struct BaseGroup) * NgroupsExt);
-
-    memset(BaseGroup, 0, sizeof(BaseGroup[0]) * NgroupsExt);
 
     start = 0;
     for(i = 0; i < NumPart; i++)
     {
         if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) {
-            BaseGroup[start].MinID = HaloLabel[i].MinID;
-            BaseGroup[start].MinIDTask = HaloLabel[i].MinIDTask;
+            base[start].MinID = HaloLabel[i].MinID;
+            base[start].MinIDTask = HaloLabel[i].MinIDTask;
             int d;
             for(d = 0; d < 3; d ++) {
-                BaseGroup[start].FirstPos[d] = P[HaloLabel[i].Pindex].Pos[d];
+                base[start].FirstPos[d] = P[HaloLabel[i].Pindex].Pos[d];
             }
             start ++;
         }
     }
 
     /* count local lengths */
-    /* This works because BaseGroup is sorted by MinID by construction. */
+    /* This works because base is sorted by MinID by construction. */
     start = 0;
     for(i = 0; i < NgroupsExt; i++)
     {
         /* find the first particle */
         for(;start < NumPart; start++) {
-            if(HaloLabel[start].MinID >= BaseGroup[i].MinID) break;
+            if(HaloLabel[start].MinID >= base[i].MinID) break;
         }
         /* count particles */
         for(;start < NumPart; start++) {
-            if(HaloLabel[start].MinID != BaseGroup[i].MinID) {
+            if(HaloLabel[start].MinID != base[i].MinID) {
                 break;
             }
-            BaseGroup[i].Length ++;
+            base[i].Length ++;
         }
     }
 
     /* update global attributes */
-    fof_reduce_groups(BaseGroup, NgroupsExt, sizeof(BaseGroup[0]), fof_reduce_base_group);
+    fof_reduce_groups(base, NgroupsExt, sizeof(base[0]), fof_reduce_base_group);
 
     /* eliminate all groups that are too small */
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(BaseGroup[i].Length < All.FOFHaloMinLength)
+        if(base[i].Length < All.FOFHaloMinLength)
         {
-            BaseGroup[i] = BaseGroup[NgroupsExt - 1];
+            base[i] = base[NgroupsExt - 1];
             NgroupsExt--;
             i--;
         }
     }
-
 }
 
 
-static void fof_compile_catalogue(void)
+static void
+fof_compile_catalogue(struct Group * group, struct BaseGroup * BaseGroup)
 {
     int i, start;
-    Group = (struct Group *) mymalloc("Group", sizeof(struct Group) * NgroupsExt);
+
     memset(Group, 0, sizeof(Group[0]) * NgroupsExt);
 
     /* copy in the base properties */
@@ -723,7 +721,7 @@ static void fof_compile_catalogue(void)
         }
     }
 
-    fof_finish_group_properties();
+    fof_finish_group_properties(Group);
 
     MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
@@ -769,9 +767,9 @@ static void fof_reduce_groups(
      *   in the begining, prime and ghosts contains local group attributes.
      *   in the end, prime and ghosts all contain full group attributes.
      **/
+    int * Send_count = ta_malloc("Send_count", int, NTask);
+    int * Recv_count = ta_malloc("Recv_count", int, NTask);
 
-    int * Send_count = alloca(sizeof(int) * NTask);
-    int * Recv_count = alloca(sizeof(int) * NTask);
     void * images = NULL;
     void * ghosts = NULL;
     int i;
@@ -894,40 +892,42 @@ static void fof_reduce_groups(
 
     /* At this point, each Group entry has the reduced attribute of the full group */
     /* And the local groups (MinIDTask == ThisTask) are placed at the begining of the list*/
+    ta_free(Recv_count);
+    ta_free(Send_count);
 }
 
 static void fof_radix_Group_TotalCountTaskDiffMinID(const void * a, void * radix, void * arg);
 static void fof_radix_Group_OriginalTaskMinID(const void * a, void * radix, void * arg);
 
-static void fof_assign_grnr()
+static void fof_assign_grnr(struct BaseGroup * base)
 {
     int i, j;
     int64_t ngr;
 
     for(i = 0; i < NgroupsExt; i++)
     {
-        BaseGroup[i].OriginalTask = ThisTask;	/* original task */
+        base[i].OriginalTask = ThisTask;	/* original task */
     }
 
-    mpsort_mpi(BaseGroup, NgroupsExt, sizeof(BaseGroup[0]),
+    mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
             fof_radix_Group_TotalCountTaskDiffMinID, 24, NULL, MPI_COMM_WORLD);
 
     /* assign group numbers 
      * at this point, both Group are is sorted by length,
-     * and the every time OriginalTask == MinIDTask, a list of ghost BaseGroup is stored.
+     * and the every time OriginalTask == MinIDTask, a list of ghost base is stored.
      * they shall get the same GrNr.
      * */
     ngr = 0;
     for(i = 0; i < NgroupsExt; i++)
     {
-        if(BaseGroup[i].OriginalTask == BaseGroup[i].MinIDTask) {
+        if(base[i].OriginalTask == base[i].MinIDTask) {
             ngr++;
         }
-        BaseGroup[i].GrNr = ngr;
+        base[i].GrNr = ngr;
     }
 
-    int64_t * ngra;
-    ngra = alloca(sizeof(ngra[0]) * NTask);
+    int64_t * ngra = ta_malloc("NGRA", int64_t, NTask);
+
     MPI_Allgather(&ngr, 1, MPI_INT64, ngra, 1, MPI_INT64, MPI_COMM_WORLD);
 
     /* shift to the global grnr. */
@@ -935,10 +935,12 @@ static void fof_assign_grnr()
     for(j = 0; j < ThisTask; j++)
         groffset += ngra[j];
     for(i = 0; i < NgroupsExt; i++)
-        BaseGroup[i].GrNr += groffset;
+        base[i].GrNr += groffset;
+
+    ta_free(ngra);
 
     /* bring the group list back into the original task, sorted by MinID */
-    mpsort_mpi(BaseGroup, NgroupsExt, sizeof(BaseGroup[0]), 
+    mpsort_mpi(base, NgroupsExt, sizeof(base[0]), 
             fof_radix_Group_OriginalTaskMinID, 16, NULL, MPI_COMM_WORLD);
 
     for(i = 0; i < NumPart; i++)
@@ -948,22 +950,26 @@ static void fof_assign_grnr()
     for(i = 0; i < NgroupsExt; i++)
     {
         for(;start < NumPart; start++) {
-            if (HaloLabel[start].MinID >= BaseGroup[i].MinID) 
+            if (HaloLabel[start].MinID >= base[i].MinID) 
                 break;
         }
 
         for(;start < NumPart; start++) {
-            if (HaloLabel[start].MinID != BaseGroup[i].MinID) 
+            if (HaloLabel[start].MinID != base[i].MinID) 
                 break;
-            P[HaloLabel[start].Pindex].GrNr = BaseGroup[i].GrNr;
+            P[HaloLabel[start].Pindex].GrNr = base[i].GrNr;
         }
     }
 }
 
 
-void fof_save_groups(int num)
+void
+fof_save_groups(int num)
 {
     double t0, t1;
+
+    /* no longer need the tree */
+    force_tree_free();
 
     message(0, "start global sorting of group catalogues\n");
 
@@ -974,6 +980,9 @@ void fof_save_groups(int num)
     t1 = second();
 
     message(0, "Group catalogues saved. took = %g sec\n", timediff(t0, t1));
+
+    /* fof with IO will break the tree; rebuild it by using domain_maintain */
+    domain_maintain();
 }
 
 /* FIXME: these shall goto the private member of secondary tree walk */
@@ -1149,12 +1158,12 @@ static int cmp_seed_task(const void * c1, const void * c2) {
 }
 static void fof_seed_make_one(struct Group * g);
 
-static void fof_seed(void)
+void fof_seed(void)
 {
     int i, j, n, ntot;
 
-    int * Send_count = alloca(sizeof(int) * NTask);
-    int * Recv_count = alloca(sizeof(int) * NTask);
+    int * Send_count = ta_malloc("Send_count", int, NTask);
+    int * Recv_count = ta_malloc("Recv_count", int, NTask);
 
     for(n = 0; n < NTask; n++)
         Send_count[n] = 0;
@@ -1213,6 +1222,11 @@ static void fof_seed(void)
     myfree(ImportGroups);
     myfree(ExportGroups);
     myfree(Marked);
+
+    ta_free(Recv_count);
+    ta_free(Send_count);
+
+    walltime_measure("/FOF/Seeding");
 }
 
 static void fof_seed_make_one(struct Group * g) {

@@ -69,14 +69,17 @@ int domain_fork_particle(int parent) {
     return child;
 }
 
-/* remove mass = 0 particles, holes in sph chunk and holes in bh buffer;
- * returns 1 if tree / timebin is invalid */
+/* remove garbage particles, holes in sph chunk and holes in bh buffer. */
 int
 domain_garbage_collection(void)
 {
+    if (force_tree_allocated()) {
+        endrun(0, "GC breaks ForceTree invariance. ForceTree must be freed before calling GC.\n");
+    }
+    /* tree is invalidated if the sequence on P is reordered; */
+
     int tree_invalid = 0;
 
-    /* tree is invalidated of the sequence on P is reordered; */
     /* TODO: in principle we can track this change and modify the tree nodes;
      * But doing so requires cleaning up the TimeBin link lists, and the tree
      * link lists first. likely worth it, since GC happens only in domain decompose
@@ -102,7 +105,7 @@ domain_all_garbage_collection()
     count_elim = 0;
 
     for(i = 0; i < NumPart; i++)
-        if(P[i].Mass == 0)
+        if(P[i].IsGarbage)
         {
             TimeBinCount[P[i].TimeBin]--;
 

@@ -290,6 +290,8 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, int size) {
         int i;
         #pragma omp parallel for
         for(i = 0; i < NumPart; i++) {
+            /* Skip the garbage particles */
+            if(P[i].IsGarbage) continue;
             if(!tw->haswork(i, tw))
                 continue;
             const int lock = atomic_fetch_and_add(&k, 1);
@@ -301,6 +303,10 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, int size) {
         for(i=0; i < NumActiveParticle; i++)
         {
             const int p_i = ActiveParticle[i];
+
+            /* Skip the garbage particles */
+            if(P[p_i].IsGarbage) continue;
+
             if(!tw->haswork(p_i, tw))
                continue;
             const int lock = atomic_fetch_and_add(&k, 1);
@@ -785,6 +791,9 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
 
         for(numngb = 0; numngb < numcand; numngb ++) {
             int other = lv->ngblist[numngb];
+
+            /* skip garbage */
+            if(P[other].IsGarbage) continue;
 
             /* must be the correct type */
             if(!((1<<P[other].Type) & iter->mask))

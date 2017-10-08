@@ -46,7 +46,7 @@ int MaxTopNodes;		/*!< Maximum number of nodes in the top-level tree used for do
 
 int NTopNodes, NTopLeaves;
 
-static void * TopTreeMemory;
+static void * TopTreeTempMemory;
 
 struct local_topnode_data
 {
@@ -173,21 +173,22 @@ void domain_decompose_full(void)
 
     walltime_measure("/Domain/Peano");
 
-    /* shrink the memory footprint. */
+    /* copy the used nodes from temp to the true. */
     void * OldTopLeaves = TopLeaves;
+    void * OldTopNodes = TopNodes;
 
-    TopNodes  = (struct topnode_data *) (TopTreeMemory);
-    TopLeaves = (struct topleaf_data *) (TopNodes + NTopNodes);
-
-    memmove(TopLeaves, OldTopLeaves, NTopNodes * sizeof(TopLeaves[0]));
-
+    TopNodes  = (struct topnode_data *) mymalloc("TopNodes", sizeof(TopNodes[0]) * NTopNodes);
     /* add 1 extra to mark the end of TopLeaves; see assign */
-    TopTreeMemory = (struct topnode_data *) myrealloc(TopTreeMemory,
-            (NTopNodes * sizeof(TopNodes[0]) + (NTopLeaves + 1) * sizeof(TopLeaves[0])));
+    TopLeaves = (struct topleaf_data *) mymalloc("TopLeaves", sizeof(TopLeaves[0]) * (NTopLeaves + 1));
 
+    memcpy(TopLeaves, OldTopLeaves, NTopLeaves* sizeof(TopLeaves[0]));
+    memcpy(TopNodes, OldTopNodes, NTopNodes * sizeof(TopNodes[0]));
 
-    message(0, "Freed %g MByte in top-level domain structure\n",
-                (MaxTopNodes - NTopNodes) * (sizeof(TopLeaves[0])  + sizeof(TopNodes[0]))/ (1024.0 * 1024.0));
+    /* no longer useful */
+    myfree(TopTreeTempMemory);
+    TopTreeTempMemory = NULL;
+
+    report_memory_usage("DOMAIN");
 
     walltime_measure("/Domain/Misc");
 
@@ -236,10 +237,10 @@ void domain_allocate(void)
 
     all_bytes += bytes;
 
-    TopTreeMemory = mymalloc("TopTree", 
+    TopTreeTempMemory = mymalloc2("TopTreeWorkspace", 
         bytes = (MaxTopNodes * (sizeof(TopNodes[0]) + sizeof(TopLeaves[0]))));
 
-    TopNodes  = (struct topnode_data *) TopTreeMemory;
+    TopNodes  = (struct topnode_data *) TopTreeTempMemory;
     TopLeaves = (struct topleaf_data *) (TopNodes + MaxTopNodes);
 
     all_bytes += bytes;
@@ -253,7 +254,8 @@ void domain_free(void)
 {
     if(domain_allocated_flag)
     {
-        myfree(TopTreeMemory);
+        myfree(TopLeaves);
+        myfree(TopNodes);
         myfree(Tasks);
         domain_allocated_flag = 0;
     }
@@ -284,7 +286,7 @@ domain_attempt_decompose(void)
     size_t bytes, all_bytes = 0;
 
     /*!< points to the root node of the top-level tree */
-    struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("topTree", bytes =
+    struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("LocaltopTree", bytes =
             (MaxTopNodes * sizeof(struct local_topnode_data)));
     memset(topTree, 0, sizeof(topTree[0]) * MaxTopNodes);
     all_bytes += bytes;

@@ -16,7 +16,7 @@ void hydro_force(void);
 void init(int RestartSnapNum);
 void run(void);
 void runtests(void);
-void savepositions(int num, int reason);
+void savepositions(int num);
 int find_last_snapnum();
 
 void long_range_init(void);

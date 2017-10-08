@@ -245,7 +245,9 @@ void blackhole(void)
     if(All.Time >= All.TimeNextSeedingCheck)
     {
         /* Seeding */
-        fof_fof(-1);
+        fof_fof();
+        fof_seed();
+        fof_finish();
         All.TimeNextSeedingCheck *= All.TimeBetweenSeedingSearch;
     }
     walltime_measure("/BH");
@@ -547,8 +549,6 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         if(P[other].SwallowID != I->ID) return;
 
         lock_particle(other);
-        O->Mass += (P[other].Mass);
-        O->BH_Mass += (BHP(other).Mass);
 
         int d;
         for(d = 0; d < 3; d++)
@@ -556,8 +556,14 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         O->BH_CountProgs += BHP(other).CountProgs;
 
+        /* We do not know how to notify the tree of mass changes. so 
+         * blindly enforce a mass conservation for now. */
+        O->Mass += (P[other].Mass);
+        O->BH_Mass += (BHP(other).Mass);
         P[other].Mass = 0;
         BHP(other).Mass = 0;
+
+        P[other].IsGarbage = 1;
         BHP(other).Mdot = 0;
 
 #pragma omp atomic
@@ -601,13 +607,16 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         lock_particle(other);
 
-        O->Mass += (P[other].Mass);
-
         int d;
         for(d = 0; d < 3; d++)
             O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
 
+        /* We do not know how to notify the tree of mass changes. so 
+         * blindly enforce a mass conservation for now. */
+        O->Mass += (P[other].Mass);
         P[other].Mass = 0;
+
+        P[other].IsGarbage = 1;
 #pragma omp atomic
         N_sph_swallowed++;
         unlock_particle(other);

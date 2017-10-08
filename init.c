@@ -72,8 +72,12 @@ void init(int RestartSnapNum)
     {
         P[i].GravCost = 1;
         P[i].Ti_drift = P[i].Ti_kick = All.Ti_Current;
-#ifdef BLACK_HOLES
+
+        P[i].IsGarbage = 0;
+        P[i].IsNewParticle = 0;
         P[i].Swallowed = 0;
+
+#ifdef BLACK_HOLES
         if(RestartSnapNum == -1 && P[i].Type == 5 )
         {
             BHP(i).Mass = All.SeedBlackHoleMass;
