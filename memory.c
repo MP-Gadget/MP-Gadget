@@ -81,6 +81,7 @@ allocator_reset(Allocator * alloc, int zero)
     if(zero) {
         memset(alloc->base, 0, alloc->size);
     }
+    return 0;
 }
 
 void *
