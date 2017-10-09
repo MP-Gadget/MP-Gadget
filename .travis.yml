@@ -12,16 +12,11 @@ cache:
         - ${TRAVIS_BUILD_DIR}/depends/src
         - ${TRAVIS_BUILD_DIR}/depends/lib
 
-addons:
-    apt:
-        packages:
-            - libopenmpi-dev
-            - openmpi-bin
-            - libgsl0-dev
-
 before_install:
     - bash install-nbodykit.sh
     - export PATH=$HOME/miniconda/bin:$PATH
+    - source activate test
+    - conda install gsl
 
 install:
     - sh bootstrap.sh
@@ -33,11 +28,11 @@ script:
     - set -e
     - make test
     - pushd examples/travis
-    - (source activate test; python make-pklin.py )
+    - python make-pklin.py
     - mpirun -np 2 ../../build/MP-GenIC paramfile.genic
     - mpirun -np 2 ../../build/MP-Gadget paramfile.gadget 1 # this starts from the IC
-    - (source activate test; python check-results.py )
+    - python check-results.py
     - mpirun -np 2 ../../build/MP-Gadget paramfile.gadget 2 1  #this starts again from 001
-    - (source activate test; python check-results.py )
+    - python check-results.py
     - popd
     - set +e
