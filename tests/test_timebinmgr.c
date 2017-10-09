@@ -91,7 +91,7 @@ setup(void * p1, void * p2)
     All.TimeIC = 0.1;
     All.TimeMax = 1.0;
 
-    setup_sync_points();
+    setup_sync_points(0.0);
 
     All.Ti_Current = ti_from_loga(log(0.55));
     return 0;
