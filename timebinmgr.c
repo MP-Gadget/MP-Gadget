@@ -20,7 +20,7 @@ static int NSyncPoints;    /* number of times stored in table of desired sync po
  *
  **/
 void
-setup_sync_points(void)
+setup_sync_points(double no_snapshot_until_time)
 {
     int i;
 
@@ -28,9 +28,11 @@ setup_sync_points(void)
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
 
+    SyncPoints[0].a = All.TimeIC;
     SyncPoints[0].loga = log(All.TimeIC);
     SyncPoints[0].write_snapshot = 0; /* by default no output here. */
     SyncPoints[0].write_fof = 0;
+    SyncPoints[1].a = All.TimeMax;
     SyncPoints[1].loga = log(All.TimeMax);
     SyncPoints[1].write_snapshot = 1;
     SyncPoints[1].write_fof = 0;
@@ -40,10 +42,11 @@ setup_sync_points(void)
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
     for(i = 0; i < All.OutputListLength; i ++) {
         int j = 0;
-        double loga = log(All.OutputListTimes[i]);
+        double a = All.OutputListTimes[i];
+        double loga = log(a);
 
         for(j = 0; j < NSyncPoints; j ++) {
-            if(loga <= SyncPoints[j].loga) {
+            if(a <= SyncPoints[j].a) {
                 break;
             }
         }
@@ -52,18 +55,24 @@ setup_sync_points(void)
             continue;
         }
         /* found, so loga >= SyncPoints[j].loga */
-        if(loga == SyncPoints[j].loga) {
+        if(a == SyncPoints[j].a) {
             /* requesting output on an existing entry, e.g. TimeInit or duplicated entry */
         } else {
             /* insert the item; */
             memmove(&SyncPoints[j + 1], &SyncPoints[j],
                 sizeof(SyncPoints[0]) * (NSyncPoints - j));
+            SyncPoints[j].a = a;
             SyncPoints[j].loga = loga;
             NSyncPoints ++;
         }
-        SyncPoints[j].write_snapshot = 1;
-        if(All.SnapshotWithFOF) {
-            SyncPoints[j].write_fof = 1;
+        if(SyncPoints[j].a > no_snapshot_until_time) {
+            SyncPoints[j].write_snapshot = 1;
+            if(All.SnapshotWithFOF) {
+                SyncPoints[j].write_fof = 1;
+            }
+        } else {
+            SyncPoints[j].write_snapshot = 0;
+            SyncPoints[j].write_fof = 0;
         }
     }
 
