@@ -43,7 +43,13 @@ void init(int RestartSnapNum)
     set_global_time(All.TimeInit);
 
     /*Add TimeInit and TimeMax to the output list*/
-    setup_sync_points();
+    if (RestartSnapNum < 0) {
+        /* allow a first snapshot at IC time; */
+        setup_sync_points(0.0);
+    } else {
+        /* skip dumping the exactly same snapshot */
+        setup_sync_points(All.TimeInit);
+    }
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum);
 

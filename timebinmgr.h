@@ -18,6 +18,7 @@ typedef struct SyncPoint SyncPoint;
 
 struct SyncPoint
 {
+    double a;
     double loga;
     int write_snapshot;
     int write_fof;
@@ -48,7 +49,7 @@ inttime_t find_next_outputtime(inttime_t ti_curr);
 /*Get whatever is the last output number from ti*/
 inttime_t out_from_ti(inttime_t ti);
 
-void setup_sync_points(void);
+void setup_sync_points(double no_snapshot_until_time);
 
 SyncPoint *
 find_next_sync_point(inttime_t ti);

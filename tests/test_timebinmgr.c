@@ -21,6 +21,9 @@ double logouts[4];
 /*First test conversions between float and integer timelines*/
 static void test_conversions(void ** state) {
 
+    setup_sync_points(0.0);
+
+    All.Ti_Current = ti_from_loga(log(0.55));
 
     /*Convert an integer to and from loga*/
     /* double loga_from_ti(unsigned int ti); */
@@ -59,7 +62,20 @@ static void test_conversions(void ** state) {
     assert_int_equal(find_current_sync_point(3 * TIMEBASE)->write_snapshot, 1);
 }
 
+static void test_skip_first(void ** state) {
+
+    setup_sync_points(All.TimeIC);
+    assert_int_equal(find_current_sync_point(0)->write_snapshot, 0);
+
+    setup_sync_points(0.0);
+    assert_int_equal(find_current_sync_point(0)->write_snapshot, 1);
+}
+
 static void test_dloga(void ** state) {
+
+    setup_sync_points(0.0);
+
+    All.Ti_Current = ti_from_loga(log(0.55));
 
     /* unsigned int dti_from_dloga(double loga); */
     /* double dloga_from_dti(unsigned int ti); */
@@ -91,9 +107,6 @@ setup(void * p1, void * p2)
     All.TimeIC = 0.1;
     All.TimeMax = 1.0;
 
-    setup_sync_points();
-
-    All.Ti_Current = ti_from_loga(log(0.55));
     return 0;
 }
 static int
@@ -107,6 +120,7 @@ int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_conversions),
         cmocka_unit_test(test_dloga),
+        cmocka_unit_test(test_skip_first),
     };
     return cmocka_run_group_tests_mpi(tests, setup, teardown);
 }
