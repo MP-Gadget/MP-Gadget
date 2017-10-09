@@ -35,7 +35,9 @@ script:
     - pushd examples/travis
     - (source activate test; python make-pklin.py )
     - mpirun -np 2 ../../build/MP-GenIC paramfile.genic
-    - mpirun -np 2 ../../build/MP-Gadget paramfile.gadget 1 # continue the run
+    - mpirun -np 2 ../../build/MP-Gadget paramfile.gadget 1 # this starts from the IC
+    - (source activate test; python check-results.py )
+    - mpirun -np 2 ../../build/MP-Gadget paramfile.gadget 2 1  #this starts again from 001
     - (source activate test; python check-results.py )
     - popd
     - set +e
