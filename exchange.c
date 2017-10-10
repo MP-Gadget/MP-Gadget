@@ -141,6 +141,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
     toGet_arr[2] = toGetBh;
 
     int bad_exh=0;
+    const char *nn[3] = {"particles", "SPH","BH"};
 
     for(j=0; j<NSP; j++) {
         /*Compute offsets*/
@@ -153,27 +154,16 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
             count_togo[j] += toGo_arr[j][i];
             count_get[j] += toGet_arr[j][i];
         }
-        char *nn;
-        switch (j) {
-            case 1:
-                nn = "SPH";
-                break;
-            case 2:
-                nn = "BHs";
-                break;
-            default:
-                nn = "particles";
-        }
         /*Check whether the domain exchange will succeed. If not, bail*/
         if(NumPart + count_get[j] - count_togo[j] > All.MaxPart){
-            message(1,"Too many %s for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n", NumPart, nn, count_get[j], count_togo[j], All.MaxPart);
+            message(1,"Too many %s for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n", NumPart, nn[j], count_get[j], count_togo[j], All.MaxPart);
             bad_exh = 1;
         }
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &bad_exh, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
     if(bad_exh) {
-        myfree(count);
+        myfree(ctmem);
         return bad_exh;
     }
 
