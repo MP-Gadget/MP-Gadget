@@ -77,7 +77,7 @@ void catch_fatal(int sig)
   raise(sig);
 }
 
-void write_pid_file(void)
+void write_pid_file(char * outdir)
 {
   pid_t my_pid;
   char mode[8], buf[500];
@@ -86,7 +86,7 @@ void write_pid_file(void)
 
   my_pid = getpid();
 
-  sprintf(buf, "%s%s", All.OutputDir, "PIDs.txt");
+  sprintf(buf, "%s%s", outdir, "PIDs.txt");
 
   strcpy(mode, "a+");
 

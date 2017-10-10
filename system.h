@@ -5,7 +5,7 @@
 void catch_abort(int sig);
 void catch_fatal(int sig);
 void enable_core_dumps_and_fpu_exceptions(void);
-void write_pid_file(void);
+void write_pid_file(char * outdir);
 #endif
 
 int cluster_get_num_hosts();

@@ -50,7 +50,7 @@ void begrun(int RestartSnapNum)
     set_units();
 
 #ifdef DEBUG
-    write_pid_file();
+    write_pid_file(All.OutputDir);
     enable_core_dumps_and_fpu_exceptions();
 #endif
 
