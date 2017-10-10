@@ -103,77 +103,73 @@ int domain_exchange(int (*layoutfunc)(int p)) {
     return failure;
 }
 
+#define NSP 3
+
 static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int *toGet, int *toGetSph, int *toGetBh)
 {
-    int count_togo = 0, count_togo_sph = 0, count_togo_bh = 0, 
-        count_get = 0, count_get_sph = 0, count_get_bh = 0;
-
-    int i, target;
+    int i, j, target;
     struct particle_data *partBuf;
     struct sph_particle_data *sphBuf;
     struct bh_particle_data *bhBuf;
 
-    int * count = ta_malloc("var", int, NTask);
-    int * count_sph = ta_malloc("var", int, NTask);
-    int * count_bh = ta_malloc("var", int, NTask);
-    int * offset = ta_malloc("var", int, NTask);
-    int * offset_sph = ta_malloc("var", int, NTask);
-    int * offset_bh = ta_malloc("var", int, NTask);
+    int *ctmem = mymalloc("cts", 4*NSP*NTask*sizeof(int));
+    int *count[NSP];
+    int *offset[NSP];
+    int *count_recv[NSP];
+    int *offset_recv[NSP];
+    int count_togo[NSP] = {0};
+    int count_get[NSP] = {0};
 
-    int * count_recv = ta_malloc("var", int, NTask);
-    int * count_recv_sph = ta_malloc("var", int, NTask);
-    int * count_recv_bh = ta_malloc("var", int, NTask);
-    int * offset_recv = ta_malloc("var", int, NTask);
-    int * offset_recv_sph = ta_malloc("var", int, NTask);
-    int * offset_recv_bh = ta_malloc("var", int, NTask);
+    memset(ctmem, 0, 4*NSP*NTask*sizeof(int));
 
-    for(i = 1, offset_sph[0] = 0; i < NTask; i++)
-        offset_sph[i] = offset_sph[i - 1] + toGoSph[i - 1];
-
-    for(i = 1, offset_bh[0] = 0; i < NTask; i++)
-        offset_bh[i] = offset_bh[i - 1] + toGoBh[i - 1];
-
-    offset[0] = 0;
-
-    for(i = 1; i < NTask; i++)
-        offset[i] = offset[i - 1] + toGo[i - 1];
-
-    for(i = 0; i < NTask; i++)
-    {
-        count_togo += toGo[i];
-        count_togo_sph += toGoSph[i];
-        count_togo_bh += toGoBh[i];
-
-        count_get += toGet[i];
-        count_get_sph += toGetSph[i];
-        count_get_bh += toGetBh[i];
+    for(j=0; j<NSP; j++) {
+        count[j] = ctmem+j*NTask;
+        offset[j] = ctmem + 4*NSP * NTask +j*NTask;
+        count_recv[j] = ctmem + 2*4*NSP * NTask +j*NTask;
+        offset_recv[j] = ctmem + 3*4*NSP * NTask +j*NTask;
     }
+
+    /*Build arrays*/
+    int * toGo_arr[NSP];
+    toGo_arr[0] = toGo;
+    toGo_arr[1] = toGoSph;
+    toGo_arr[2] = toGoBh;
+
+    int * toGet_arr[NSP];
+    toGet_arr[0] = toGet;
+    toGet_arr[1] = toGetSph;
+    toGet_arr[2] = toGetBh;
+
     int bad_exh=0;
+    const char *nn[3] = {"particles", "SPH","BH"};
 
-    /*Check whether the domain exchange will succeed. If not, bail*/
-    if(NumPart + count_get - count_togo> All.MaxPart){
-        message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n", NumPart, count_get, count_togo, All.MaxPart);
-        bad_exh = 1;
-    }
-    if(N_sph_slots + count_get_sph - count_togo_sph > All.MaxPart) {
-        message(1,"Too many SPH for exchange: N_sph=%d All.MaxPart=%d\n", N_sph_slots + count_get_sph, All.MaxPart);
-        bad_exh = 1;
-    }
-    if(N_bh_slots + count_get_bh - count_togo_bh > All.MaxPartBh) {
-        message(1, "Too many BH for exchange: N_bh=%d All.MaxPartBh=%d\n", N_bh_slots + count_get_bh, All.MaxPartBh);
-        bad_exh = 1;
+    for(j=0; j<NSP; j++) {
+        /*Compute offsets*/
+        offset[j][0] = 0;
+        for(i = 1; i < NTask; i++)
+            offset[j][i] = offset[j][i - 1] + toGo_arr[j][i - 1];
+        /*Compute counts*/
+        for(i = 0; i < NTask; i++)
+        {
+            count_togo[j] += toGo_arr[j][i];
+            count_get[j] += toGet_arr[j][i];
+        }
+        /*Check whether the domain exchange will succeed. If not, bail*/
+        if(NumPart + count_get[j] - count_togo[j] > All.MaxPart){
+            message(1,"Too many %s for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n", NumPart, nn[j], count_get[j], count_togo[j], All.MaxPart);
+            bad_exh = 1;
+        }
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &bad_exh, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
-    if(bad_exh)
+    if(bad_exh) {
+        myfree(ctmem);
         return bad_exh;
+    }
 
-    partBuf = (struct particle_data *) mymalloc("partBuf", count_togo * sizeof(struct particle_data));
-    sphBuf = (struct sph_particle_data *) mymalloc("sphBuf", count_togo_sph * sizeof(struct sph_particle_data));
-    bhBuf = (struct bh_particle_data *) mymalloc("bhBuf", count_togo_bh * sizeof(struct bh_particle_data));
-
-    for(i = 0; i < NTask; i++)
-        count[i] = count_sph[i] = count_bh[i] = 0;
+    partBuf = (struct particle_data *) mymalloc("partBuf", count_togo[0] * sizeof(struct particle_data));
+    sphBuf = (struct sph_particle_data *) mymalloc("sphBuf", count_togo[1] * sizeof(struct sph_particle_data));
+    bhBuf = (struct bh_particle_data *) mymalloc("bhBuf", count_togo[2] * sizeof(struct bh_particle_data));
 
     /*FIXME: make this omp ! */
     for(i = 0; i < NumPart; i++)
@@ -186,21 +182,21 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
 
         if(P[i].Type == 0)
         {
-            sphBuf[offset_sph[target] + count_sph[target]] = SPHP(i);
+            sphBuf[offset[1][target] + count[1][target]] = SPHP(i);
             /* Set PI to the comm buffer of this rank rather than the slot*/
-            P[i].PI = count_sph[target];
-            count_sph[target]++;
+            P[i].PI = count[1][target];
+            count[1][target]++;
         } else
         if(P[i].Type == 5)
         {
-            bhBuf[offset_bh[target] + count_bh[target]] = BHP(i);
+            bhBuf[offset[2][target] + count[2][target]] = BHP(i);
             /* Set PI to the comm buffer of this rank rather than the slot*/
-            P[i].PI = count_bh[target];
-            count_bh[target]++;
+            P[i].PI = count[2][target];
+            count[2][target]++;
         }
 
-        partBuf[offset[target] + count[target]] = P[i];
-        count[target]++;
+        partBuf[offset[0][target] + count[0][target]] = P[i];
+        count[0][target]++;
 
         /* mark this particle as a garbage */
         P[i].IsGarbage = 1;
@@ -213,36 +209,25 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
     walltime_measure("/Domain/exchange/makebuf");
 
 
-    for(i = 0; i < NTask; i ++) {
-        if(count_sph[i] != toGoSph[i] ) {
-            abort();
-        }
-        if(count_bh[i] != toGoBh[i] ) {
-            abort();
+    for(j=0; j<NSP; j++) {
+        for(i = 0; i < NTask; i ++) {
+            if(count[j][i] != toGo_arr[j][i] ) {
+                endrun(2, "Count inconsistency %d != %d", count[j][i], toGo_arr[j][i]);
+            }
+            count_recv[j][i] = toGet_arr[j][i];
         }
     }
+    offset_recv[0][0] = NumPart;
+    offset_recv[1][0] = N_sph_slots;
+    offset_recv[2][0] = N_bh_slots;
 
-    for(i = 0; i < NTask; i++)
-    {
-        count_recv_sph[i] = toGetSph[i];
-        count_recv_bh[i] = toGetBh[i];
-        count_recv[i] = toGet[i];
-    }
+    for(j=0; j<NSP; j++)
+        for(i = 1; i < NTask; i++)
+            offset_recv[j][i] = offset_recv[j][i - 1] + count_recv[j][i - 1];
 
-    for(i = 1, offset_recv_sph[0] = N_sph_slots; i < NTask; i++)
-        offset_recv_sph[i] = offset_recv_sph[i - 1] + count_recv_sph[i - 1];
-
-    for(i = 1, offset_recv_bh[0] = N_bh_slots; i < NTask; i++)
-        offset_recv_bh[i] = offset_recv_bh[i - 1] + count_recv_bh[i - 1];
-
-    offset_recv[0] = NumPart;
-
-    for(i = 1; i < NTask; i++)
-        offset_recv[i] = offset_recv[i - 1] + count_recv[i - 1];
-
-    NumPart += count_get;
-    N_sph_slots += count_get_sph;
-    N_bh_slots += count_get_bh;
+    NumPart += count_get[0];
+    N_sph_slots += count_get[1];
+    N_bh_slots += count_get[2];
 
     if(NumPart > All.MaxPart) {
         endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
@@ -254,46 +239,39 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
     if(N_bh_slots > All.MaxPartBh)
         endrun(787878, "Task=%d N_bh=%d All.MaxPartBh=%d\n", ThisTask, N_bh_slots, All.MaxPartBh);
 
-    MPI_Alltoallv_sparse(partBuf, count, offset, MPI_TYPE_PARTICLE,
-                 P, count_recv, offset_recv, MPI_TYPE_PARTICLE,
+    MPI_Alltoallv_sparse(partBuf, count[0], offset[0], MPI_TYPE_PARTICLE,
+                 P, count_recv[0], offset_recv[0], MPI_TYPE_PARTICLE,
                  MPI_COMM_WORLD);
     walltime_measure("/Domain/exchange/alltoall");
 
-    MPI_Alltoallv_sparse(sphBuf, count_sph, offset_sph, MPI_TYPE_SPHPARTICLE,
-                 SphP, count_recv_sph, offset_recv_sph, MPI_TYPE_SPHPARTICLE,
+    MPI_Alltoallv_sparse(sphBuf, count[1], offset[1], MPI_TYPE_SPHPARTICLE,
+                 SphP, count_recv[1], offset_recv[1], MPI_TYPE_SPHPARTICLE,
                  MPI_COMM_WORLD);
     walltime_measure("/Domain/exchange/alltoall");
 
-    MPI_Alltoallv_sparse(bhBuf, count_bh, offset_bh, MPI_TYPE_BHPARTICLE,
-                BhP, count_recv_bh, offset_recv_bh, MPI_TYPE_BHPARTICLE,
+    MPI_Alltoallv_sparse(bhBuf, count[2], offset[2], MPI_TYPE_BHPARTICLE,
+                BhP, count_recv[2], offset_recv[2], MPI_TYPE_BHPARTICLE,
                 MPI_COMM_WORLD);
     walltime_measure("/Domain/exchange/alltoall");
 
-    if(count_get_bh > 0) {
+    if(count_get[2] > 0 || count_get[1] > 0) {
         for(target = 0; target < NTask; target++) {
-            int i, j;
-            for(i = offset_recv[target], j = offset_recv_bh[target];
-                i < offset_recv[target] + count_recv[target]; i++) {
-                if(P[i].Type != 5) continue;
-                P[i].PI = j;
-                j++;
+            int spho = offset_recv[1][target];
+            int bho = offset_recv[2][target];
+            for(i = offset_recv[0][target]; i < offset_recv[0][target] + count_recv[0][target]; i++) {
+                if(P[i].Type == 0) {
+                    P[i].PI = spho;
+                    spho++;
+                }
+                if(P[i].Type == 5) {
+                    P[i].PI = bho;
+                    bho++;
+                }
             }
-            if(j != count_recv_bh[target] + offset_recv_bh[target]) {
-                endrun(1, "communication bh inconsistency\n");
+            if(spho != count_recv[1][target] + offset_recv[1][target]) {
+                endrun(1, "communication sph inconsistency\n");
             }
-        }
-    }
-
-    if(count_get_sph > 0) {
-        for(target = 0; target < NTask; target++) {
-            int i, j;
-            for(i = offset_recv[target], j = offset_recv_sph[target];
-                i < offset_recv[target] + count_recv[target]; i++) {
-                if(P[i].Type != 0) continue;
-                P[i].PI = j;
-                j++;
-            }
-            if(j != count_recv_sph[target] + offset_recv_sph[target]) {
+            if(bho != count_recv[2][target] + offset_recv[2][target]) {
                 endrun(1, "communication bh inconsistency\n");
             }
         }
@@ -302,10 +280,10 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
     myfree(bhBuf);
     myfree(sphBuf);
     myfree(partBuf);
+    myfree(ctmem);
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    ta_reset();
     walltime_measure("/Domain/exchange/finalize");
 
     return 0;

@@ -37,9 +37,14 @@ int domain_fork_particle(int parent) {
     }
     /*This is all racy if ActiveParticle or P is accessed from another thread*/
     int child = atomic_fetch_and_add(&NumPart, 1);
-    /*Update the active particle list*/
-    int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
-    ActiveParticle[childactive] = child;
+    /*Update the active particle list:
+     * if the parent is active the child should also be active.
+     * Stars must always be active on formation, but
+     * BHs need not be: a halo can be seeded when the particle in question is inactive.*/
+    if(is_timebin_active(P[parent].TimeBin)) {
+        int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
+        ActiveParticle[childactive] = child;
+    }
 
     P[parent].Generation ++;
     uint64_t g = P[parent].Generation;
