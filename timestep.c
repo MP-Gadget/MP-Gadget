@@ -58,6 +58,7 @@ static inttime_t get_long_range_timestep_ti(const inttime_t dti_max);
 void
 init_timebins(double TimeInit)
 {
+    int i;
     All.Ti_Current = ti_from_loga(TimeInit);
     /*Enforce Ti_Current is initially even*/
     if(All.Ti_Current % 2 == 1)
@@ -67,6 +68,11 @@ init_timebins(double TimeInit)
     PM.Ti_kick = All.Ti_Current;
     PM.start = All.Ti_Current;
     update_active_timebins(0);
+    /*This is here so that TimeBinCount is accurate on the first timestep.
+     *      * Avoids potential particle exchange making counts negative.*/
+    TimeBinCount[0] = NumPart;
+    for(i=0; i<6; i++)
+        TimeBinCountType[i][0] = NLocal[i];
 }
 
 int is_timebin_active(int i) {
@@ -775,7 +781,7 @@ inttime_t find_next_kick(inttime_t Ti_Current)
     int n;
     for(n = 0; n < TIMEBINS; n++)
     {
-        if(TimeBinCount[n])
+        if(TimeBinCount[n] > 0)
             break;
     }
     MPI_Allreduce(MPI_IN_PLACE, &n, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
