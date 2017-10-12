@@ -67,7 +67,6 @@ void fof_save_particles(int num) {
     int ptype_offset[6]={0};
     int ptype_count[6]={0};
 
-    /*This assumes particles are sorted by type*/
     petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, fof_petaio_select_func);
 
     /*Sort each type individually*/
