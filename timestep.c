@@ -772,3 +772,85 @@ int update_active_timebins(inttime_t next_kick)
     }
     return 0;
 }
+
+/*! This routine writes one line for every timestep.
+ * FdCPU the cumulative cpu-time consumption in various parts of the
+ * code is stored.
+ */
+void print_timebin_statistics(int NumCurrentTiStep)
+{
+    double z;
+    int i;
+    int64_t tot = 0, tot_type[6] = {0};
+    int64_t tot_count[TIMEBINS] = {0};
+    int64_t tot_count_type[6][TIMEBINS] = {0};
+    int64_t tot_num_force = 0;
+
+    for(i = 0; i < 6; i ++) {
+        sumup_large_ints(TIMEBINS, TimeBinCountType[i], tot_count_type[i]);
+    }
+
+    for(i = 0; i<TIMEBINS; i++) {
+        int j;
+        for(j=0; j<6; j++)
+            tot_count[i] += tot_count_type[j][i];
+        if(is_timebin_active(i))
+            tot_num_force += tot_count[i];
+    }
+
+    /* let's update Tot counts in one place tot variables;
+     * at this point there can still be holes in SphP
+     * because rearrange_particle_squence is not called yet.
+     * but anywaysTotN_sph variables are not well defined and
+     * not used any places but printing.
+     *
+     * we shall just say they we sync these variables right after gravity
+     * calculation in every timestep.
+     * */
+
+    char extra[1024] = {0};
+
+    if(is_PM_timestep(All.Ti_Current))
+        strcat(extra, "PM-Step");
+
+    z = 1.0 / (All.Time) - 1;
+    message(0, "Begin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
+                NumCurrentTiStep, All.Time, z, tot_num_force,
+                All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
+                extra);
+
+    int64_t TotNumPart = 0;
+    for(i = 0; i < 6; i ++) TotNumPart += NTotal[i];
+
+    message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
+                TotNumPart, NTotal[0], NTotal[5], NTotal[4]);
+    message(0,     "Occupied: % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);
+
+    for(i = TIMEBINS - 1;  i >= 0; i--) {
+        if(tot_count[i] == 0) continue;
+        message(0, " %c bin=%2d % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld %6g\n",
+                is_timebin_active(i) ? 'X' : ' ',
+                i,
+                tot_count_type[0][i],
+                tot_count_type[1][i],
+                tot_count_type[2][i],
+                tot_count_type[3][i],
+                tot_count_type[4][i],
+                tot_count_type[5][i],
+                get_dloga_for_bin(i));
+
+        if(is_timebin_active(i))
+        {
+            tot += tot_count[i];
+            int ptype;
+            for(ptype = 0; ptype < 6; ptype ++) {
+                tot_type[ptype] += tot_count_type[ptype][i];
+            }
+        }
+    }
+    message(0,     "               -----------------------------------\n");
+    message(0,     "Total:    % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld\n",
+        tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot);
+
+}
+

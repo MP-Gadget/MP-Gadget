@@ -7,8 +7,6 @@ set in run.c: find_next_sync_point_and_drift*/
 extern int NumActiveParticle;
 extern int *ActiveParticle;
 
-extern int TimeBinCountType[6][TIMEBINS];
-
 void timestep_allocate_memory(int MaxPart);
 int update_active_timebins(inttime_t next_kick);
 void rebuild_activelist(void);
@@ -17,6 +15,7 @@ int find_timesteps(void);
 void apply_half_kick(void);
 void apply_PM_half_kick(void);
 
+void print_timebin_statistics(int NumCurrentTiStep);
 int is_timebin_active(int i);
 void set_timebin_active(binmask_t mask);
 
