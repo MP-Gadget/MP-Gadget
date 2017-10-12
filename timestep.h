@@ -14,7 +14,7 @@ void timestep_allocate_memory(int MaxPart);
 int update_active_timebins(inttime_t next_kick);
 void rebuild_activelist(void);
 void set_global_time(double newtime);
-void find_timesteps(void);
+int find_timesteps(void);
 void apply_half_kick(void);
 void apply_PM_half_kick(void);
 
@@ -25,7 +25,7 @@ void sph_VelPred(int i, double * VelPred);
 double EntropyPred(int i);
 double PressurePred(int i);
 
-inttime_t find_next_kick(inttime_t Ti_Current);
+inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin);
 
 void init_timebins(double TimeInit);
 

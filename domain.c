@@ -656,7 +656,7 @@ domain_get_topleaf(const peano_t key) {
     return no;
 }
 
-/*! This function determines chich particles that are currently stored
+/*! This function determines which particles that are currently stored
  *  on the local CPU have to be moved off according to the domain
  *  decomposition.
  *

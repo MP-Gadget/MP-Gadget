@@ -58,7 +58,6 @@ static inttime_t get_long_range_timestep_ti(const inttime_t dti_max);
 void
 init_timebins(double TimeInit)
 {
-    int i;
     All.Ti_Current = ti_from_loga(TimeInit);
     /*Enforce Ti_Current is initially even*/
     if(All.Ti_Current % 2 == 1)
@@ -68,11 +67,6 @@ init_timebins(double TimeInit)
     PM.Ti_kick = All.Ti_Current;
     PM.start = All.Ti_Current;
     update_active_timebins(0);
-    /*This is here so that TimeBinCount is accurate on the first timestep.
-     *      * Avoids potential particle exchange making counts negative.*/
-    TimeBinCount[0] = NumPart;
-    for(i=0; i<6; i++)
-        TimeBinCountType[i][0] = NLocal[i];
 }
 
 int is_timebin_active(int i) {
@@ -165,7 +159,7 @@ set_global_time(double newtime) {
 }
 
 /* This function assigns new timesteps to particles and PM */
-void
+int
 find_timesteps(void)
 {
     int pa;
@@ -211,7 +205,8 @@ find_timesteps(void)
     }
 
     int badstepsizecount = 0;
-    #pragma omp parallel for
+    int mTimeBin = TIMEBINS;
+    #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
@@ -243,27 +238,18 @@ find_timesteps(void)
              * so that particles do not miss a step */
             while(TimeBinActive[bin] == 0 && bin > binold && bin > 1)
                 bin--;
-
         }
-
         /* This moves particles between time bins:
          * active particles always remain active
          * until reconstruct_timebins is called
          * (during domain, on new timestep).*/
-        if(bin != binold)
-        {
-            /*Update time bin counts*/
-            atomic_fetch_and_add(&TimeBinCount[binold],-1);
-            atomic_fetch_and_add(&TimeBinCount[bin],1);
-
-            atomic_fetch_and_add(&TimeBinCountType[P[i].Type][binold],-1);
-            atomic_fetch_and_add(&TimeBinCountType[P[i].Type][bin],1);
-
-            P[i].TimeBin = bin;
-        }
+        P[i].TimeBin = bin;
+        if(bin < mTimeBin)
+            mTimeBin = bin;
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
     if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
@@ -271,6 +257,7 @@ find_timesteps(void)
         endrun(0, "Ending due to bad timestep");
     }
     walltime_measure("/Timeline");
+    return mTimeBin;
 }
 
 
@@ -740,13 +727,9 @@ void rebuild_activelist(void)
 {
     int i;
 
-    for(i = 0; i < TIMEBINS; i++)
-    {
-        TimeBinCount[i] = 0;
-        int ptype;
-        for(ptype = 0; ptype < 6; ptype ++)
-            TimeBinCountType[ptype][i] = 0;
-    }
+
+    memset(TimeBinCount, 0, TIMEBINS*sizeof(int));
+    memset(TimeBinCountType, 0, 6*TIMEBINS*sizeof(int));
 
     NumActiveParticle = 0;
 
@@ -772,41 +755,24 @@ void rebuild_activelist(void)
  * function will drift to this moment, generate an output, and then
  * resume the drift.
  */
-inttime_t find_next_kick(inttime_t Ti_Current)
+inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
 {
-    /* Note that on startup, P[i].TimeBin == 0 for all particles,
-     * all bins except the zeroth are inactive and so we return 0 from this function.
-     * This ensures we run the force calculation for the first timestep.*/
-    /* find the smallest active bin*/
-    int n;
-    for(n = 0; n < TIMEBINS; n++)
-    {
-        if(TimeBinCount[n] > 0)
-            break;
-    }
-    MPI_Allreduce(MPI_IN_PLACE, &n, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     /* Current value plus the increment for the smallest active bin. */
-    return Ti_Current + dti_from_timebin(n);
+    return Ti_Current + dti_from_timebin(minTimeBin);
 }
 
 /* mark the bins that will be active before the next kick*/
 int update_active_timebins(inttime_t next_kick)
 {
     int n;
-    int NumForceUpdate = TimeBinCount[0];
-
     for(n = 1, TimeBinActive[0] = 1; n < TIMEBINS; n++)
     {
         int dti_bin = (1 << n);
-
 /*         message(0, "kick: %d Tbin %d dti_bin %d ACTIVE %d\n", next_kick, n, dti_bin, next_kick % dti_bin == 0); */
         if((next_kick % dti_bin) == 0)
-        {
             TimeBinActive[n] = 1;
-            NumForceUpdate += TimeBinCount[n];
-        }
         else
             TimeBinActive[n] = 0;
     }
-    return NumForceUpdate;
+    return 0;
 }

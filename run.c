@@ -42,13 +42,15 @@ static enum ActionType human_interaction(double lastPM, double TimeLastOutput);
 static int should_we_timeout(double TimelastPM);
 static void compute_accelerations(int is_PM, int FirstStep);
 static void update_IO_params(const char * ioctlfname);
-static void every_timestep_stuff(int NumForces, int NumCurrentTiStep);
+static void every_timestep_stuff(int NumCurrentTiStep);
 static void write_cpu_log(int NumCurrentTiStep);
 
 void run(void)
 {
     /*Number of timesteps performed this run*/
     int NumCurrentTiStep = 0;
+    /*Minimum occupied timebin. Initially (but never again) zero*/
+    int minTimeBin = 0;
 
     /*To compute the wall time between PM steps and decide when to timeout.*/
     double lastPM = All.CT.ElapsedTime;
@@ -60,11 +62,13 @@ void run(void)
 
     while(1) /* main loop */
     {
-        /* find next synchronization point and the timebins active during this timestep.
+        /* Find next synchronization point and the timebins active during this timestep.
          *
-         * Note: On the first step all particles are on bin 0, and this doesn't change Ti_Current.
-         * */
-        All.Ti_Current = find_next_kick(All.Ti_Current); 
+         * Note that on startup, P[i].TimeBin == 0 for all particles,
+         * all bins except the zeroth are inactive and so we return 0 from this function.
+         * This ensures we run the force calculation for the first timestep.
+         */
+        All.Ti_Current = find_next_kick(All.Ti_Current, minTimeBin); 
 
         /*Convert back to floating point time*/
         set_global_time(exp(loga_from_ti(All.Ti_Current)));
@@ -147,11 +151,11 @@ void run(void)
             domain_maintain();
         }
 
-        int NumForces = update_active_timebins(All.Ti_Current);
+        update_active_timebins(All.Ti_Current);
 
         rebuild_activelist();
 
-        every_timestep_stuff(NumForces, NumCurrentTiStep);	/* write some info to log-files */
+        every_timestep_stuff(NumCurrentTiStep);	/* write some info to log-files */
 
         /* update force to Ti_Current */
         compute_accelerations(is_PM, NumCurrentTiStep == 0);
@@ -213,8 +217,7 @@ void run(void)
         /* more steps to go. */
 
         /* assign new timesteps to the active particles, now that we know they have synched TiKick and TiDrift */
-
-        find_timesteps();
+        minTimeBin = find_timesteps();
 
         /* Update velocity to the new step, with the newly computed step size */
         apply_half_kick();
@@ -421,7 +424,7 @@ int should_we_timeout(double TimeLastPM)
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-void every_timestep_stuff(int NumForce, int NumCurrentTiStep)
+void every_timestep_stuff(int NumCurrentTiStep)
 {
     double z;
     int i;
@@ -433,6 +436,11 @@ void every_timestep_stuff(int NumForce, int NumCurrentTiStep)
     sumup_large_ints(TIMEBINS, TimeBinCount, tot_count);
     for(i = 0; i < 6; i ++) {
         sumup_large_ints(TIMEBINS, TimeBinCountType[i], tot_count_type[i]);
+    }
+    int NumForce = 0;
+    for(i = 0; i<TIMEBINS; i++) {
+        if(is_timebin_active(i))
+            NumForce += TimeBinCount[i];
     }
     sumup_large_ints(1, &NumForce, &tot_num_force);
 

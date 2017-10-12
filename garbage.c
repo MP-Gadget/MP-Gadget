@@ -112,10 +112,6 @@ domain_all_garbage_collection()
     for(i = 0; i < NumPart; i++)
         if(P[i].IsGarbage)
         {
-            TimeBinCount[P[i].TimeBin]--;
-
-            TimeBinCountType[P[i].Type][P[i].TimeBin]--;
-
             P[i] = P[NumPart - 1];
 
             NumPart--;
