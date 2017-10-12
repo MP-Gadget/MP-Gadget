@@ -38,7 +38,6 @@ static inline inttime_t dti_from_timebin(int bin) {
 int NumActiveParticle;
 int *ActiveParticle;
 
-int TimeBinCount[TIMEBINS];
 int TimeBinCountType[6][TIMEBINS];
 int TimeBinActive[TIMEBINS];
 
@@ -727,8 +726,6 @@ void rebuild_activelist(void)
 {
     int i;
 
-
-    memset(TimeBinCount, 0, TIMEBINS*sizeof(int));
     memset(TimeBinCountType, 0, 6*TIMEBINS*sizeof(int));
 
     NumActiveParticle = 0;
@@ -742,7 +739,6 @@ void rebuild_activelist(void)
             ActiveParticle[NumActiveParticle] = i;
             NumActiveParticle++;
         }
-        TimeBinCount[bin]++;
         TimeBinCountType[P[i].Type][bin]++;
     }
 }

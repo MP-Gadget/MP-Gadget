@@ -433,16 +433,17 @@ void every_timestep_stuff(int NumCurrentTiStep)
     int64_t tot_count_type[6][TIMEBINS] = {0};
     int64_t tot_num_force = 0;
 
-    sumup_large_ints(TIMEBINS, TimeBinCount, tot_count);
     for(i = 0; i < 6; i ++) {
         sumup_large_ints(TIMEBINS, TimeBinCountType[i], tot_count_type[i]);
     }
-    int NumForce = 0;
+
     for(i = 0; i<TIMEBINS; i++) {
+        int j;
+        for(j=0; j<6; j++)
+            tot_count[i] += tot_count_type[j][i];
         if(is_timebin_active(i))
-            NumForce += TimeBinCount[i];
+            tot_num_force += tot_count[i];
     }
-    sumup_large_ints(1, &NumForce, &tot_num_force);
 
     /* let's update Tot counts in one place tot variables;
      * at this point there can still be holes in SphP

@@ -7,7 +7,6 @@ set in run.c: find_next_sync_point_and_drift*/
 extern int NumActiveParticle;
 extern int *ActiveParticle;
 
-extern int TimeBinCount[TIMEBINS];
 extern int TimeBinCountType[6][TIMEBINS];
 
 void timestep_allocate_memory(int MaxPart);
