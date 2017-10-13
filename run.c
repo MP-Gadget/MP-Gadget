@@ -218,7 +218,7 @@ void run(void)
         /* more steps to go. */
 
         /* assign new timesteps to the active particles, now that we know they have synched TiKick and TiDrift */
-        minTimeBin = find_timesteps();
+        find_timesteps(&minTimeBin);
 
         /* Update velocity to the new step, with the newly computed step size */
         apply_half_kick();

@@ -38,7 +38,7 @@ static inline inttime_t dti_from_timebin(int bin) {
 int NumActiveParticle;
 int *ActiveParticle;
 
-int TimeBinCountType[6][TIMEBINS];
+static int TimeBinCountType[6][TIMEBINS];
 int TimeBinActive[TIMEBINS];
 
 void timestep_allocate_memory(int MaxPart)
@@ -159,7 +159,7 @@ set_global_time(double newtime) {
 
 /* This function assigns new timesteps to particles and PM */
 int
-find_timesteps(void)
+find_timesteps(int * MinTimeBin)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -256,7 +256,8 @@ find_timesteps(void)
         endrun(0, "Ending due to bad timestep");
     }
     walltime_measure("/Timeline");
-    return mTimeBin;
+    *MinTimeBin = mTimeBin;
+    return 0;
 }
 
 
@@ -798,24 +799,14 @@ void print_timebin_statistics(int NumCurrentTiStep)
             tot_num_force += tot_count[i];
     }
 
-    /* let's update Tot counts in one place tot variables;
-     * at this point there can still be holes in SphP
-     * because rearrange_particle_squence is not called yet.
-     * but anywaysTotN_sph variables are not well defined and
-     * not used any places but printing.
-     *
-     * we shall just say they we sync these variables right after gravity
-     * calculation in every timestep.
-     * */
-
     char extra[1024] = {0};
 
     if(is_PM_timestep(All.Ti_Current))
         strcat(extra, "PM-Step");
 
     z = 1.0 / (All.Time) - 1;
-    message(0, "Begin Step %d, Time: %g, Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
-                NumCurrentTiStep, All.Time, z, tot_num_force,
+    message(0, "Begin Step %d, Time: %g (%x), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
+                NumCurrentTiStep, All.Time, All.Ti_Current, z, tot_num_force,
                 All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                 extra);
 
