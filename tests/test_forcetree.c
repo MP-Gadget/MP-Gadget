@@ -247,7 +247,7 @@ static void do_tree_test(const int numpart, const struct TreeBuilder tb)
     int i;
     #pragma omp parallel for
     for(i=0; i<numpart; i++) {
-        P[i].Key = PEANO(P[i].Pos);
+        P[i].Key = PEANO(P[i].Pos, All.BoxSize);
         P[i].Mass = 1;
     }
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
