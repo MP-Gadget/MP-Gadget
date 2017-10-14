@@ -150,9 +150,7 @@ void run(void)
             domain_maintain();
         }
 
-        update_active_timebins(All.Ti_Current);
-
-        rebuild_activelist();
+        rebuild_activelist(All.Ti_Current);
 
         print_timebin_statistics(NumCurrentTiStep);
 

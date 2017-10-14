@@ -39,7 +39,6 @@ int NumActiveParticle;
 int *ActiveParticle;
 
 static int TimeBinCountType[6][TIMEBINS];
-int TimeBinActive[TIMEBINS];
 
 void timestep_allocate_memory(int MaxPart)
 {
@@ -65,11 +64,15 @@ init_timebins(double TimeInit)
     PM.length = 0;
     PM.Ti_kick = All.Ti_Current;
     PM.start = All.Ti_Current;
-    update_active_timebins(0);
 }
 
-int is_timebin_active(int i) {
-    return TimeBinActive[i];
+int is_timebin_active(int i, inttime_t current) {
+    /*Bin 0 is always active and at time 0 all bins are active*/
+    if(i == 0 || current == 0)
+        return 1;
+    if(current % dti_from_timebin(i) == 0)
+        return 1;
+    return 0;
 }
 
 /*Report whether the current timestep is the end of the PM timestep*/
@@ -77,18 +80,6 @@ int
 is_PM_timestep(inttime_t ti)
 {
     return ti == PM.start + PM.length;
-}
-
-void
-set_timebin_active(binmask_t binmask) {
-    int bin;
-    for(bin = 0; bin < TIMEBINS; bin ++) {
-        if(BINMASK(bin) & binmask) {
-            TimeBinActive[bin] = 1;
-        } else {
-            TimeBinActive[bin] = 0;
-        }
-    }
 }
 
 /*! This function sets the (comoving) softening length of all particle
@@ -235,7 +226,7 @@ find_timesteps(int * MinTimeBin)
         {
             /* make sure the new step is currently active,
              * so that particles do not miss a step */
-            while(TimeBinActive[bin] == 0 && bin > binold && bin > 1)
+            while(!is_timebin_active(bin, All.Ti_Current) && bin > binold && bin > 1)
                 bin--;
         }
         /* This moves particles between time bins:
@@ -723,28 +714,6 @@ void reverse_and_apply_gravity()
 
 }
 
-void rebuild_activelist(void)
-{
-    int i;
-
-    memset(TimeBinCountType, 0, 6*TIMEBINS*sizeof(int));
-
-    NumActiveParticle = 0;
-
-    for(i = 0; i < NumPart; i++)
-    {
-        int bin = P[i].TimeBin;
-
-        if(TimeBinActive[bin])
-        {
-            ActiveParticle[NumActiveParticle] = i;
-            NumActiveParticle++;
-        }
-        TimeBinCountType[P[i].Type][bin]++;
-    }
-}
-
-
 /*! This function finds the next synchronization point of the system
  * (i.e. the earliest point of time any of the particles needs a force
  * computation), and drifts the system to this point of time.  If the
@@ -759,17 +728,23 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
 }
 
 /* mark the bins that will be active before the next kick*/
-int update_active_timebins(inttime_t next_kick)
+int rebuild_activelist(inttime_t Ti_Current)
 {
-    int n;
-    for(n = 1, TimeBinActive[0] = 1; n < TIMEBINS; n++)
+    int i;
+
+    memset(TimeBinCountType, 0, 6*TIMEBINS*sizeof(int));
+    NumActiveParticle = 0;
+
+    for(i = 0; i < NumPart; i++)
     {
-        int dti_bin = (1 << n);
-/*         message(0, "kick: %d Tbin %d dti_bin %d ACTIVE %d\n", next_kick, n, dti_bin, next_kick % dti_bin == 0); */
-        if((next_kick % dti_bin) == 0)
-            TimeBinActive[n] = 1;
-        else
-            TimeBinActive[n] = 0;
+        int bin = P[i].TimeBin;
+
+        if(is_timebin_active(bin, Ti_Current))
+        {
+            ActiveParticle[NumActiveParticle] = i;
+            NumActiveParticle++;
+        }
+        TimeBinCountType[P[i].Type][bin]++;
     }
     return 0;
 }
@@ -795,7 +770,7 @@ void print_timebin_statistics(int NumCurrentTiStep)
         int j;
         for(j=0; j<6; j++)
             tot_count[i] += tot_count_type[j][i];
-        if(is_timebin_active(i))
+        if(is_timebin_active(i, All.Ti_Current))
             tot_num_force += tot_count[i];
     }
 
@@ -820,7 +795,7 @@ void print_timebin_statistics(int NumCurrentTiStep)
     for(i = TIMEBINS - 1;  i >= 0; i--) {
         if(tot_count[i] == 0) continue;
         message(0, " %c bin=%2d % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld %6g\n",
-                is_timebin_active(i) ? 'X' : ' ',
+                is_timebin_active(i, All.Ti_Current) ? 'X' : ' ',
                 i,
                 tot_count_type[0][i],
                 tot_count_type[1][i],
@@ -830,7 +805,7 @@ void print_timebin_statistics(int NumCurrentTiStep)
                 tot_count_type[5][i],
                 get_dloga_for_bin(i));
 
-        if(is_timebin_active(i))
+        if(is_timebin_active(i, All.Ti_Current))
         {
             tot += tot_count[i];
             int ptype;

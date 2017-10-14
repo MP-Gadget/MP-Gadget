@@ -8,15 +8,14 @@ extern int NumActiveParticle;
 extern int *ActiveParticle;
 
 void timestep_allocate_memory(int MaxPart);
-int update_active_timebins(inttime_t next_kick);
-void rebuild_activelist(void);
+int rebuild_activelist(inttime_t ti_current);
 void set_global_time(double newtime);
 int find_timesteps(int * MinTimeBin);
 void apply_half_kick(void);
 void apply_PM_half_kick(void);
 
 void print_timebin_statistics(int NumCurrentTiStep);
-int is_timebin_active(int i);
+int is_timebin_active(int i, inttime_t current);
 void set_timebin_active(binmask_t mask);
 
 void sph_VelPred(int i, double * VelPred);

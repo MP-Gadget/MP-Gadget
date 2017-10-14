@@ -122,7 +122,7 @@ void init(int RestartSnapNum)
 
     domain_decompose_full();	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    rebuild_activelist();
+    rebuild_activelist(0);
 
     setup_smoothinglengths(RestartSnapNum);
 }
