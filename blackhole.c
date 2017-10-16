@@ -722,10 +722,16 @@ void blackhole_make_one(int index) {
     P[child].Type = 5;	/* make it a black hole particle */
 
     P[child].StarFormationTime = All.Time;
-    P[child].Mass = All.SeedBlackHoleMass;
-    P[index].Mass -= All.SeedBlackHoleMass;
+    /*Ensure that mass is conserved*/
+    double BHmass = All.SeedBlackHoleMass;
+    if(P[index].Mass <= All.SeedBlackHoleMass) {
+        P[index].IsGarbage = 1;
+        BHmass = P[index].Mass;
+    }
+    P[child].Mass = BHmass;
+    P[index].Mass -= BHmass;
     BHP(child).base.ID = P[child].ID;
-    BHP(child).Mass = All.SeedBlackHoleMass;
+    BHP(child).Mass = BHmass;
     BHP(child).Mdot = 0;
 
     /* It is important to initialize MinPotPos to the current position of 
