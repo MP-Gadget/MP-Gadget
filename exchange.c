@@ -542,7 +542,7 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
 
 void domain_count_particles()
 {
-    int i;
+    int i, NLocal[6];
     for(i = 0; i < 6; i++)
         NLocal[i] = 0;
 

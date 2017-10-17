@@ -101,16 +101,23 @@ petaio_build_selection(int * selection,
     ptype_offset[0] = 0;
     ptype_count[0] = 0;
 
+    for(i = 0; i < NumPart; i ++) {
+        if((select_func == NULL) || (select_func(i) != 0)) {
+            int ptype = P[i].Type;
+            ptype_count[ptype] ++;
+        }
+    }
     for(i = 1; i < 6; i ++) {
-        ptype_offset[i] = ptype_offset[i-1] + NLocal[i - 1];
-        ptype_count[i] = 0;
+        ptype_offset[i] = ptype_offset[i-1] + ptype_count[i-1];
+        ptype_count[i-1] = 0;
     }
 
+    ptype_count[5] = 0;
     for(i = 0; i < NumPart; i ++) {
         int ptype = P[i].Type;
         if((select_func == NULL) || (select_func(i) != 0)) {
             selection[ptype_offset[ptype] + ptype_count[ptype]] = i;
-            ptype_count[ptype] ++;
+            ptype_count[ptype]++;
         }
     }
 }
@@ -168,7 +175,11 @@ void petaio_read_internal(char * fname, int ic) {
 
     /* set up the memory topology */
     int offset = 0;
+    int NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {
+        int64_t start = ThisTask * NTotal[ptype] / NTask;
+        int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
+        NLocal[ptype] = end - start;
 #pragma omp parallel for
         for(i = 0; i < NLocal[ptype]; i++)
         {
@@ -425,12 +436,14 @@ petaio_read_header_internal(BigFile * bf) {
     for(ptype = 0; ptype < 6; ptype ++) {
         int64_t start = ThisTask * NTotal[ptype] / NTask;
         int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
-        NLocal[ptype] = end - start;
         NumPart += end - start;
+        if(ptype == 0)
+            N_sph_slots = end - start;
+        if(ptype == 4)
+            N_star_slots = end - start;
+        if(ptype == 5)
+            N_bh_slots = end - start;
     }
-    N_sph_slots = NLocal[0];
-    N_star_slots = NLocal[4];
-    N_bh_slots = NLocal[5];
 
     if(N_bh_slots > All.MaxPartBh) {
         endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);
@@ -477,7 +490,7 @@ void
 petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection)
 {
     if(selection == NULL) {
-        endrun(-1, "NULL seletion is not supported\n");
+        endrun(-1, "NULL selection is not supported\n");
     }
 
     /* don't forget to free buffer after its done*/

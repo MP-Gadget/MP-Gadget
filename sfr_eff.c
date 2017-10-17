@@ -703,7 +703,6 @@ static int make_particle_star(int i) {
         /* here we turn the gas particle itself into a star */
         stars_converted++;
         newstar = i;
-        NLocal[0] --;
     }
     else
     {
@@ -720,8 +719,7 @@ static int make_particle_star(int i) {
     STARP(newstar).base.ID = P[newstar].ID;
     /* set ptype */
     P[newstar].Type = 4;
-    NLocal[4] ++;
-    /*Increase counters*/
+    /*Set properties*/
     sum_mass_stars += P[newstar].Mass;
     STARP(newstar).FormationTime = All.Time;
     STARP(newstar).BirthDensity = SPHP(i).Density;

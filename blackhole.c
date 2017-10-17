@@ -180,8 +180,6 @@ void blackhole(void)
 
     message(0, "Beginning black-hole accretion\n");
 
-
-
     N_sph_swallowed = N_BH_swallowed = 0;
 
     /* Let's determine which particles may be swalled and calculate total feedback weights */
@@ -196,12 +194,8 @@ void blackhole(void)
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    NLocal[0] -= N_sph_swallowed;
-    NLocal[5] -= N_BH_swallowed;
-
     message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
                 Ntot_gas_swallowed, Ntot_BH_swallowed);
-
 
     double total_mass_real, total_mdoteddington;
     double total_mass_holes, total_mdot;
@@ -718,7 +712,6 @@ void blackhole_make_one(int index) {
 
     int child = domain_fork_particle(index);
 
-    NLocal[5] ++;
     P[child].PI = atomic_fetch_and_add(&N_bh_slots, 1);
     P[child].Type = 5;	/* make it a black hole particle */
 
