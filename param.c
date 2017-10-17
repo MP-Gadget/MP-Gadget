@@ -383,7 +383,7 @@ void read_parameter_file(char *fname)
         All.MaxNumNgbDeviation = param_get_double(ps, "MaxNumNgbDeviation");
 
         All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
-        All.IO.UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
+        All.IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
         All.IO.NumWriters = param_get_int(ps, "NumWriters");
         All.IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
         All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
