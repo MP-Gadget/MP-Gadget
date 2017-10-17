@@ -38,7 +38,7 @@ typedef struct {
     MyFloat Pressure;
     MyFloat F1;
     MyFloat DhsmlDensityFactor;
-    int Timestep;
+    signed char TimeBin;
 
 } TreeWalkQueryHydro;
 
@@ -144,7 +144,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 #endif
 
     input->Pressure = PressurePred(place);
-    input->Timestep = (P[place].TimeBin ? (1 << P[place].TimeBin) : 0);
+    input->TimeBin = P[place].TimeBin;
     /* calculation of F1 */
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPHP(place).EOMDensity);
     input->F1 = fabs(SPHP(place).DivVel) /
@@ -291,8 +291,7 @@ hydro_ngbiter(
 
 #ifndef NOVISCOSITYLIMITER
             /*XXX: why is this dloga ?*/
-            double dloga =
-                2 * IMAX(I->Timestep, get_dloga_for_bin(P[other].TimeBin));
+            double dloga = 2 * get_dloga_for_bin(IMAX(I->TimeBin, P[other].TimeBin));
             if(dloga > 0 && (dwk_i + dwk_j) < 0)
             {
                 if((I->Mass + P[other].Mass) > 0) {

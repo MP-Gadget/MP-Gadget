@@ -89,7 +89,7 @@ void init(int RestartSnapNum)
             BHP(i).Mass = All.SeedBlackHoleMass;
         }
 #endif
-        P[i].Key = PEANO(P[i].Pos);
+        P[i].Key = PEANO(P[i].Pos, All.BoxSize);
 
         if(P[i].Type != 0) continue;
         for(j = 0; j < 3; j++)
@@ -122,7 +122,7 @@ void init(int RestartSnapNum)
 
     domain_decompose_full();	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    rebuild_activelist();
+    rebuild_activelist(0);
 
     setup_smoothinglengths(RestartSnapNum);
 }

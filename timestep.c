@@ -38,9 +38,7 @@ static inline inttime_t dti_from_timebin(int bin) {
 int NumActiveParticle;
 int *ActiveParticle;
 
-int TimeBinCount[TIMEBINS];
-int TimeBinCountType[6][TIMEBINS];
-int TimeBinActive[TIMEBINS];
+static int TimeBinCountType[6][TIMEBINS+1];
 
 void timestep_allocate_memory(int MaxPart)
 {
@@ -58,7 +56,6 @@ static inttime_t get_long_range_timestep_ti(const inttime_t dti_max);
 void
 init_timebins(double TimeInit)
 {
-    int i;
     All.Ti_Current = ti_from_loga(TimeInit);
     /*Enforce Ti_Current is initially even*/
     if(All.Ti_Current % 2 == 1)
@@ -67,16 +64,15 @@ init_timebins(double TimeInit)
     PM.length = 0;
     PM.Ti_kick = All.Ti_Current;
     PM.start = All.Ti_Current;
-    update_active_timebins(0);
-    /*This is here so that TimeBinCount is accurate on the first timestep.
-     *      * Avoids potential particle exchange making counts negative.*/
-    TimeBinCount[0] = NumPart;
-    for(i=0; i<6; i++)
-        TimeBinCountType[i][0] = NLocal[i];
 }
 
-int is_timebin_active(int i) {
-    return TimeBinActive[i];
+int is_timebin_active(int i, inttime_t current) {
+    /*Bin 0 is always active and at time 0 all bins are active*/
+    if(i == 0 || current == 0)
+        return 1;
+    if(current % dti_from_timebin(i) == 0)
+        return 1;
+    return 0;
 }
 
 /*Report whether the current timestep is the end of the PM timestep*/
@@ -84,18 +80,6 @@ int
 is_PM_timestep(inttime_t ti)
 {
     return ti == PM.start + PM.length;
-}
-
-void
-set_timebin_active(binmask_t binmask) {
-    int bin;
-    for(bin = 0; bin < TIMEBINS; bin ++) {
-        if(BINMASK(bin) & binmask) {
-            TimeBinActive[bin] = 1;
-        } else {
-            TimeBinActive[bin] = 0;
-        }
-    }
 }
 
 /*! This function sets the (comoving) softening length of all particle
@@ -165,8 +149,8 @@ set_global_time(double newtime) {
 }
 
 /* This function assigns new timesteps to particles and PM */
-void
-find_timesteps(void)
+int
+find_timesteps(int * MinTimeBin)
 {
     int pa;
     inttime_t dti_min = TIMEBASE;
@@ -211,7 +195,8 @@ find_timesteps(void)
     }
 
     int badstepsizecount = 0;
-    #pragma omp parallel for
+    int mTimeBin = TIMEBINS;
+    #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
         const int i = ActiveParticle[pa];
@@ -241,29 +226,20 @@ find_timesteps(void)
         {
             /* make sure the new step is currently active,
              * so that particles do not miss a step */
-            while(TimeBinActive[bin] == 0 && bin > binold && bin > 1)
+            while(!is_timebin_active(bin, All.Ti_Current) && bin > binold && bin > 1)
                 bin--;
-
         }
-
         /* This moves particles between time bins:
          * active particles always remain active
          * until reconstruct_timebins is called
          * (during domain, on new timestep).*/
-        if(bin != binold)
-        {
-            /*Update time bin counts*/
-            atomic_fetch_and_add(&TimeBinCount[binold],-1);
-            atomic_fetch_and_add(&TimeBinCount[bin],1);
-
-            atomic_fetch_and_add(&TimeBinCountType[P[i].Type][binold],-1);
-            atomic_fetch_and_add(&TimeBinCountType[P[i].Type][bin],1);
-
-            P[i].TimeBin = bin;
-        }
+        P[i].TimeBin = bin;
+        if(bin < mTimeBin)
+            mTimeBin = bin;
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &badstepsizecount, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, &mTimeBin, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
 
     if(badstepsizecount) {
         message(0, "bad timestep spotted: terminating and saving snapshot.\n");
@@ -271,6 +247,8 @@ find_timesteps(void)
         endrun(0, "Ending due to bad timestep");
     }
     walltime_measure("/Timeline");
+    *MinTimeBin = mTimeBin;
+    return 0;
 }
 
 
@@ -419,21 +397,32 @@ sph_VelPred(int i, double * VelPred)
     }
 }
 
+/*Helper function for predicting the entropy*/
+static inline double _EntPred(int i)
+{
+    const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
+    double epred = SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr;
+    /*This mirrors the entropy limiter in do_the_short_range_kick*/
+    if(epred < 0.5 * SPHP(i).Entropy)
+        epred = 0.5 * SPHP(i).Entropy;
+    return epred;
+}
+
 /* This gives the predicted entropy at the particle Kick timestep
  * for the density independent SPH code.
  * Watchout: with kddk, when the second k is applied, Ti_kick < Ti_drift. */
 double
 EntropyPred(int i)
 {
-    const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
-    return pow(SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr, 1/GAMMA);
+    double epred = _EntPred(i);
+    return pow(epred, 1/GAMMA);
 }
 
 double
 PressurePred(int i)
 {
-    const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
-    return (SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr) * pow(SPHP(i).EOMDensity, GAMMA);
+    double epred = _EntPred(i);
+    return epred * pow(SPHP(i).EOMDensity, GAMMA);
 }
 
 double
@@ -736,35 +725,6 @@ void reverse_and_apply_gravity()
 
 }
 
-void rebuild_activelist(void)
-{
-    int i;
-
-    for(i = 0; i < TIMEBINS; i++)
-    {
-        TimeBinCount[i] = 0;
-        int ptype;
-        for(ptype = 0; ptype < 6; ptype ++)
-            TimeBinCountType[ptype][i] = 0;
-    }
-
-    NumActiveParticle = 0;
-
-    for(i = 0; i < NumPart; i++)
-    {
-        int bin = P[i].TimeBin;
-
-        if(TimeBinActive[bin])
-        {
-            ActiveParticle[NumActiveParticle] = i;
-            NumActiveParticle++;
-        }
-        TimeBinCount[bin]++;
-        TimeBinCountType[P[i].Type][bin]++;
-    }
-}
-
-
 /*! This function finds the next synchronization point of the system
  * (i.e. the earliest point of time any of the particles needs a force
  * computation), and drifts the system to this point of time.  If the
@@ -772,41 +732,102 @@ void rebuild_activelist(void)
  * function will drift to this moment, generate an output, and then
  * resume the drift.
  */
-inttime_t find_next_kick(inttime_t Ti_Current)
+inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
 {
-    /* Note that on startup, P[i].TimeBin == 0 for all particles,
-     * all bins except the zeroth are inactive and so we return 0 from this function.
-     * This ensures we run the force calculation for the first timestep.*/
-    /* find the smallest active bin*/
-    int n;
-    for(n = 0; n < TIMEBINS; n++)
-    {
-        if(TimeBinCount[n] > 0)
-            break;
-    }
-    MPI_Allreduce(MPI_IN_PLACE, &n, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     /* Current value plus the increment for the smallest active bin. */
-    return Ti_Current + dti_from_timebin(n);
+    return Ti_Current + dti_from_timebin(minTimeBin);
 }
 
 /* mark the bins that will be active before the next kick*/
-int update_active_timebins(inttime_t next_kick)
+int rebuild_activelist(inttime_t Ti_Current)
 {
-    int n;
-    int NumForceUpdate = TimeBinCount[0];
+    int i;
 
-    for(n = 1, TimeBinActive[0] = 1; n < TIMEBINS; n++)
+    memset(TimeBinCountType, 0, 6*(TIMEBINS+1)*sizeof(int));
+    NumActiveParticle = 0;
+
+    for(i = 0; i < NumPart; i++)
     {
-        int dti_bin = (1 << n);
+        int bin = P[i].TimeBin;
 
-/*         message(0, "kick: %d Tbin %d dti_bin %d ACTIVE %d\n", next_kick, n, dti_bin, next_kick % dti_bin == 0); */
-        if((next_kick % dti_bin) == 0)
+        if(is_timebin_active(bin, Ti_Current))
         {
-            TimeBinActive[n] = 1;
-            NumForceUpdate += TimeBinCount[n];
+            ActiveParticle[NumActiveParticle] = i;
+            NumActiveParticle++;
         }
-        else
-            TimeBinActive[n] = 0;
+        TimeBinCountType[P[i].Type][bin]++;
     }
-    return NumForceUpdate;
+    return 0;
 }
+
+/*! This routine writes one line for every timestep.
+ * FdCPU the cumulative cpu-time consumption in various parts of the
+ * code is stored.
+ */
+void print_timebin_statistics(int NumCurrentTiStep)
+{
+    double z;
+    int i;
+    int64_t tot = 0, tot_type[6] = {0};
+    int64_t tot_count[TIMEBINS+1] = {0};
+    int64_t tot_count_type[6][TIMEBINS+1] = {0};
+    int64_t tot_num_force = 0;
+
+    for(i = 0; i < 6; i ++) {
+        sumup_large_ints(TIMEBINS+1, TimeBinCountType[i], tot_count_type[i]);
+    }
+
+    for(i = 0; i<TIMEBINS+1; i++) {
+        int j;
+        for(j=0; j<6; j++)
+            tot_count[i] += tot_count_type[j][i];
+        if(is_timebin_active(i, All.Ti_Current))
+            tot_num_force += tot_count[i];
+    }
+
+    char extra[1024] = {0};
+
+    if(is_PM_timestep(All.Ti_Current))
+        strcat(extra, "PM-Step");
+
+    z = 1.0 / (All.Time) - 1;
+    message(0, "Begin Step %d, Time: %g (%x), Redshift: %g, Nf = %014ld, Systemstep: %g, Dloga: %g, status: %s\n",
+                NumCurrentTiStep, All.Time, All.Ti_Current, z, tot_num_force,
+                All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
+                extra);
+
+    int64_t TotNumPart = 0;
+    for(i = 0; i < 6; i ++) TotNumPart += NTotal[i];
+
+    message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
+                TotNumPart, NTotal[0], NTotal[5], NTotal[4]);
+    message(0,     "Occupied: % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);
+
+    for(i = TIMEBINS;  i >= 0; i--) {
+        if(tot_count[i] == 0) continue;
+        message(0, " %c bin=%2d % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld %6g\n",
+                is_timebin_active(i, All.Ti_Current) ? 'X' : ' ',
+                i,
+                tot_count_type[0][i],
+                tot_count_type[1][i],
+                tot_count_type[2][i],
+                tot_count_type[3][i],
+                tot_count_type[4][i],
+                tot_count_type[5][i],
+                get_dloga_for_bin(i));
+
+        if(is_timebin_active(i, All.Ti_Current))
+        {
+            tot += tot_count[i];
+            int ptype;
+            for(ptype = 0; ptype < 6; ptype ++) {
+                tot_type[ptype] += tot_count_type[ptype][i];
+            }
+        }
+    }
+    message(0,     "               -----------------------------------\n");
+    message(0,     "Total:    % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld  Sum:% 14ld\n",
+        tot_type[0], tot_type[1], tot_type[2], tot_type[3], tot_type[4], tot_type[5], tot);
+
+}
+

@@ -981,8 +981,8 @@ fof_save_groups(int num)
 
     message(0, "Group catalogues saved. took = %g sec\n", timediff(t0, t1));
 
-    /* fof with IO will break the tree; rebuild it by using domain_maintain */
-    domain_maintain();
+    /* fof with IO will break the tree by changing particle order; rebuild it */
+    force_tree_rebuild();
 }
 
 /* FIXME: these shall goto the private member of secondary tree walk */

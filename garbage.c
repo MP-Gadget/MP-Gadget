@@ -41,7 +41,7 @@ int domain_fork_particle(int parent) {
      * if the parent is active the child should also be active.
      * Stars must always be active on formation, but
      * BHs need not be: a halo can be seeded when the particle in question is inactive.*/
-    if(is_timebin_active(P[parent].TimeBin)) {
+    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
         int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
         ActiveParticle[childactive] = child;
     }
@@ -112,10 +112,6 @@ domain_all_garbage_collection()
     for(i = 0; i < NumPart; i++)
         if(P[i].IsGarbage)
         {
-            TimeBinCount[P[i].TimeBin]--;
-
-            TimeBinCountType[P[i].Type][P[i].TimeBin]--;
-
             P[i] = P[NumPart - 1];
 
             NumPart--;

@@ -124,9 +124,9 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
 
     for(j=0; j<NSP; j++) {
         count[j] = ctmem+j*NTask;
-        offset[j] = ctmem + 4*NSP * NTask +j*NTask;
-        count_recv[j] = ctmem + 2*4*NSP * NTask +j*NTask;
-        offset_recv[j] = ctmem + 3*4*NSP * NTask +j*NTask;
+        offset[j] = ctmem + NSP * NTask +j*NTask;
+        count_recv[j] = ctmem + 2 * NSP * NTask +j*NTask;
+        offset_recv[j] = ctmem + 3 * NSP * NTask +j*NTask;
     }
 
     /*Build arrays*/
@@ -156,7 +156,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
         }
         /*Check whether the domain exchange will succeed. If not, bail*/
         if(NumPart + count_get[j] - count_togo[j] > All.MaxPart){
-            message(1,"Too many %s for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n", NumPart, nn[j], count_get[j], count_togo[j], All.MaxPart);
+            message(1,"Too many %s for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n", nn[j], NumPart, count_get[j], count_togo[j], All.MaxPart);
             bad_exh = 1;
         }
     }

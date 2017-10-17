@@ -418,8 +418,11 @@ density_postprocess(int i, TreeWalk * tw)
                 SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
                 SPHP(i).EgyWtDensity /= EntPred;
             } else {
-                SPHP(i).DhsmlEgyDensityFactor=0;
-                SPHP(i).EgyWtDensity=0;
+                /* Use non-weighted densities for this.
+                 * This should never occur normally,
+                 * but will happen for every particle during init().*/
+                SPHP(i).DhsmlEgyDensityFactor=SPHP(i).DhsmlDensityFactor;
+                SPHP(i).EgyWtDensity=SPHP(i).Density;
             }
 #endif
 
