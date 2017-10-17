@@ -22,10 +22,7 @@ typedef struct {
 static int
 grav_short_haswork(int i, TreeWalk * tw)
 {
-    int haswork = 1;
-    /* tracer particles (5) has no gravity, they move along to pot minimium */
-    haswork = haswork && (P[i].Type != 5);
-    return haswork;
+    return 1; /* gravity applies to all particles. Including Tracer particles to enhance numerical stability. */
 }
 
 static void
