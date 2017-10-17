@@ -125,6 +125,7 @@ void saveheader(BigFile * bf) {
             (big_block_set_attr(&bheader, "Time", &InitTime, "f8", 1)) ||
             (big_block_set_attr(&bheader, "Redshift", &redshift, "f8", 1)) ||
             (big_block_set_attr(&bheader, "BoxSize", &Box, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "UsePeculiarVelocity", &UsePeculiarVelocity, "i4", 1)) ||
             (big_block_set_attr(&bheader, "OmegaM", &CP.Omega0, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaB", &CP.OmegaBaryon, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaL", &CP.OmegaLambda, "f8", 1)) ||

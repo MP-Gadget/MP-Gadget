@@ -320,6 +320,7 @@ static void petaio_write_header(BigFile * bf) {
     (0 != big_block_set_attr(&bh, "BoxSize", &All.BoxSize, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "RSDFactor", &RSD, "f8", 1)) ||
+    (0 != big_block_set_attr(&bh, "UsePeculiarVelocity", &All.IO.UsePeculiarVelocity, "i4", 1)) ||
     (0 != big_block_set_attr(&bh, "Omega0", &All.CP.Omega0, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "CMBTemperature", &All.CP.CMBTemperature, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1)) ||
@@ -348,6 +349,16 @@ _get_attr_double(BigBlock * bh, char * name, double def)
     }
     return foo;
 }
+static int
+_get_attr_int(BigBlock * bh, char * name, int def)
+{
+    int foo;
+    if(0 != big_block_get_attr(bh, name, &foo, "i4", 1)) {
+        foo = def;
+    }
+    return foo;
+}
+
 static void
 petaio_read_header_internal(BigFile * bf) {
     BigBlock bh = {0};
@@ -375,6 +386,9 @@ petaio_read_header_internal(BigFile * bf) {
     All.UnitVelocity_in_cm_per_s = _get_attr_double(&bh, "UnitVelocity_in_cm_per_s", 1e5); /* 1 km/sec */
     All.UnitLength_in_cm = _get_attr_double(&bh, "UnitLength_in_cm",  3.085678e21); /* 1.0 Kpc /h */
     All.UnitMass_in_g = _get_attr_double(&bh, "UnitMass_in_g", 1.989e43); /* 1e10 Msun/h */
+
+    /* Fall back to use a**2 * dx/dt if UsePeculiarVelocity is not set in IC */
+    All.IO.UsePeculiarVelocity = _get_attr_int(&bh, "UsePeculiarVelocity", 0);
 
     if(0 != big_block_get_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) {
         int ptype;

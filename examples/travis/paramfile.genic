@@ -28,7 +28,9 @@ InputPowerRedshift = 9.0
 InputSpectrum_UnitLength_in_cm = 3.085678e24                     # defines length unit of tabulated
                                                                    # input spectrum in cm/h. 
                                                 # Note: This can be chosen different from UnitLength_in_cm
-    
+
+UsePeculiarVelocity = 1  # Use peculiar velocity like FastPM
+
 PrimordialIndex = 0.971      # may be used to rebuild the primordial power
 
 Seed = 181170    #  seed for IC-generator
