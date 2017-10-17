@@ -4,7 +4,7 @@ DESTDIR  = build/
 MPICC       =   mpicc
 MPICXX       =   mpicxx
 
-OPTIMIZE =  -fopenmp -O0 -g
+OPTIMIZE =  -fPIC -fopenmp -O0 -g
 GSL_INCL = 
 GSL_LIBS = -lgsl -lgslcblas
 #
