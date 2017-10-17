@@ -8,6 +8,9 @@
 #include "exchange.h"
 #include "garbage.h"
 
+/*Number of structure types for particles*/
+#define NSP 4
+
 static MPI_Datatype MPI_TYPE_PARTICLE = 0;
 static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
 static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
@@ -18,8 +21,8 @@ static MPI_Datatype MPI_TYPE_STARPARTICLE = 0;
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar);
-static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int failfast, int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar);
+static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int ** toGet_arr);
+static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int failfast, int** toGo_arr, int** toGet_arr);
 
 int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     int i;
@@ -37,19 +40,19 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
         MPI_Type_commit(&MPI_TYPE_SPHPARTICLE);
     }
 
-    /*! toGo[task*NTask + partner] gives the number of particles in task 'task'
+    /*! toGo[0][task*NTask + partner] gives the number of particles in task 'task'
      *  that have to go to task 'partner'
+     *  toGo[1] is SPH, toGo[2] is BH and toGo[3] is stars
      */
     /* flag the particles that need to be exported */
-    int * toGo = (int *) mymalloc("toGo", (sizeof(int) * NTask));
-    int * toGoSph = (int *) mymalloc("toGoSph", (sizeof(int) * NTask));
-    int * toGoBh = (int *) mymalloc("toGoBh", (sizeof(int) * NTask));
-    int * toGoStar = (int *) mymalloc("toGoStar", (sizeof(int) * NTask));
-    int * toGet = (int *) mymalloc("toGet", (sizeof(int) * NTask));
-    int * toGetSph = (int *) mymalloc("toGetSph", (sizeof(int) * NTask));
-    int * toGetBh = (int *) mymalloc("toGetBh", (sizeof(int) * NTask));
-    int * toGetStar = (int *) mymalloc("toGetStar", (sizeof(int) * NTask));
-
+    int * toGo_arr[NSP];
+    int * toGet_arr[NSP];
+    toGo_arr[0] = (int *) mymalloc("toGo", (NSP * sizeof(int) * NTask));
+    toGet_arr[0] = (int *) mymalloc("toGet", (NSP * sizeof(int) * NTask));
+    for(i=1; i<NSP; i++) {
+        toGo_arr[i] = toGo_arr[i-1] + NTask;
+        toGet_arr[i] = toGet_arr[i-1] + NTask;
+    }
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
@@ -75,7 +78,7 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
         }
 
         /* determine for each cpu how many particles have to be shifted to other cpus */
-        ret = domain_countToGo(exchange_limit, layoutfunc, failfast, toGo, toGoSph, toGoBh, toGoStar, toGet, toGetSph, toGetBh, toGetStar);
+        ret = domain_countToGo(exchange_limit, layoutfunc, failfast, toGo_arr, toGet_arr);
         walltime_measure("/Domain/exchange/togo");
         if(ret && failfast) {
             failure = 1;
@@ -83,34 +86,26 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
         }
 
         for(i = 0, sumtogo = 0; i < NTask; i++)
-            sumtogo += toGo[i];
+            sumtogo += toGo_arr[0][i];
 
         sumup_longs(1, &sumtogo, &sumtogo);
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
-        failure = domain_exchange_once(layoutfunc, toGo, toGoSph, toGoBh, toGoStar, toGet, toGetSph, toGetBh, toGetStar);
+        failure = domain_exchange_once(layoutfunc, toGo_arr, toGet_arr);
         if(failure)
             break;
         iter++;
     }
     while(ret > 0);
 
-    myfree(toGetStar);
-    myfree(toGetBh);
-    myfree(toGetSph);
-    myfree(toGet);
-    myfree(toGoStar);
-    myfree(toGoBh);
-    myfree(toGoSph);
-    myfree(toGo);
+    myfree(toGet_arr[0]);
+    myfree(toGo_arr[0]);
 
     return failure;
 }
 
-#define NSP 4
-
-static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar)
+static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int ** toGet_arr)
 {
     int i, j, target;
     struct particle_data *partBuf;
@@ -134,19 +129,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
         count_recv[j] = ctmem + 2 * NSP * NTask +j*NTask;
         offset_recv[j] = ctmem + 3 * NSP * NTask +j*NTask;
     }
-
-    /*Build arrays*/
-    int * toGo_arr[NSP];
-    toGo_arr[0] = toGo;
-    toGo_arr[1] = toGoSph;
-    toGo_arr[2] = toGoBh;
-    toGo_arr[3] = toGoStar;
-
-    int * toGet_arr[NSP];
-    toGet_arr[0] = toGet;
-    toGet_arr[1] = toGetSph;
-    toGet_arr[2] = toGetBh;
-    toGet_arr[3] = toGetStar;
 
     int bad_exh=0;
     const char *nn[NSP] = {"particles", "SPH","BH", "Stars"};
@@ -325,18 +307,14 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoS
 
 
 /*This function populates the toGo and toGet arrays*/
-static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int failfast, int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar)
+static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int failfast, int** toGo_arr, int** toGet_arr)
 {
-    int n, ret;
+    int n, i, ret;
     size_t package;
 
-    for(n = 0; n < NTask; n++)
-    {
-        toGo[n] = 0;
-        toGoSph[n] = 0;
-        toGoBh[n] = 0;
-        toGoStar[n] = 0;
-    }
+    for(i=0; i<NSP; i++)
+        for(n = 0; n < NTask; n++)
+            toGo_arr[i][n] = 0;
 
     package = (sizeof(struct particle_data) + sizeof(struct sph_particle_data) + sizeof(struct bh_particle_data)+sizeof(struct star_particle_data));
     if(package >= nlimit)
@@ -351,31 +329,29 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
         int target = layoutfunc(n);
         if (target == ThisTask) continue;
 
-        toGo[target] += 1;
+        toGo_arr[0][target] += 1;
         nlimit -= sizeof(struct particle_data);
 
         if(P[n].Type  == 0)
         {
-            toGoSph[target] += 1;
+            toGo_arr[1][target] += 1;
             nlimit -= sizeof(struct sph_particle_data);
-        }
-        if(P[n].Type  == 4)
-        {
-            toGoStar[target] += 1;
-            nlimit -= sizeof(struct star_particle_data);
         }
         if(P[n].Type  == 5)
         {
-            toGoBh[target] += 1;
+            toGo_arr[2][target] += 1;
             nlimit -= sizeof(struct bh_particle_data);
+        }
+        if(P[n].Type  == 4)
+        {
+            toGo_arr[3][target] += 1;
+            nlimit -= sizeof(struct star_particle_data);
         }
         P[n].WillExport = 1;	/* flag this particle for export */
     }
 
-    MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
-    MPI_Alltoall(toGoSph, 1, MPI_INT, toGetSph, 1, MPI_INT, MPI_COMM_WORLD);
-    MPI_Alltoall(toGoBh, 1, MPI_INT, toGetBh, 1, MPI_INT, MPI_COMM_WORLD);
-    MPI_Alltoall(toGoStar, 1, MPI_INT, toGetStar, 1, MPI_INT, MPI_COMM_WORLD);
+    for(i=0; i<NSP; i++)
+        MPI_Alltoall(toGo_arr[i], 1, MPI_INT, toGet_arr[i], 1, MPI_INT, MPI_COMM_WORLD);
 
     ret = (package >= nlimit);
 
@@ -394,21 +370,19 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
            such that this is guaranteed. This is actually a rather non-trivial
            constraint. */
 
-        int flagsum, i;
+        int flagsum;
         /*Order is: total, sph, bh, star*/
-        int *togo_local[4];
-        int * list_Npart[4];
-        list_Npart[0] = (int *)mymalloc("list_Npart", 4*NTask * sizeof(int));
-        for(n=1; n<4; n++)
+        int *togo_local[NSP];
+        int * list_Npart[NSP];
+        for(n=0; n<NSP; n++)
+            togo_local[n] = toGo_arr[n];
+        list_Npart[0] = (int *)mymalloc("list_Npart", NSP*NTask * sizeof(int));
+        for(n=1; n<NSP; n++)
             list_Npart[n] = list_Npart[n-1]+NTask;
         MPI_Allgather(&NumPart, 1, MPI_INT, list_Npart[0], 1, MPI_INT, MPI_COMM_WORLD);
         MPI_Allgather(&N_sph_slots, 1, MPI_INT, list_Npart[1], 1, MPI_INT, MPI_COMM_WORLD);
         MPI_Allgather(&N_bh_slots, 1, MPI_INT, list_Npart[2], 1, MPI_INT, MPI_COMM_WORLD);
         MPI_Allgather(&N_star_slots, 1, MPI_INT, list_Npart[3], 1, MPI_INT, MPI_COMM_WORLD);
-        togo_local[0] = toGo;
-        togo_local[1] = toGoSph;
-        togo_local[2] = toGoBh;
-        togo_local[3] = toGoStar;
 
         /*FIXME: This algorithm is impossibly slow.*/
         do
@@ -426,21 +400,16 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
                     int count_togo[4]={0}, count_toget[4]={0};
                     if(ta == ThisTask)
                     {
-                        for(i = 0; i < NTask; i++)
-                        {
-                            count_togo[0] += toGo[i];
-                            count_toget[0] += toGet[i];
-                            count_togo[1] += toGoSph[i];
-                            count_toget[1] += toGetSph[i];
-                            count_togo[2] += toGoBh[i];
-                            count_toget[2] += toGetBh[i];
-                            count_togo[3] += toGoStar[i];
-                            count_toget[3] += toGetStar[i];
-                        }
+                        for(n = 0; n < NSP; n++)
+                            for(i = 0; i < NTask; i++)
+                            {
+                                count_togo[n] += toGo_arr[n][i];
+                                count_toget[n] += toGet_arr[n][i];
+                            }
                     }
-                    MPI_Bcast(&count_togo, 4, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_toget, 4, MPI_INT, ta, MPI_COMM_WORLD);
-                    for(i=3; i > 0; --i) {
+                    MPI_Bcast(&count_togo, NSP, MPI_INT, ta, MPI_COMM_WORLD);
+                    MPI_Bcast(&count_toget, NSP, MPI_INT, ta, MPI_COMM_WORLD);
+                    for(i=NSP-1; i > 0; --i) {
                         int ntoomany = list_Npart[i][ta] + count_toget[i] - count_togo[i] - All.MaxPart;
                         if (ntoomany <= 0)
                             continue;
@@ -483,10 +452,10 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
 
             if(flagsum)
             {
-                int * new_toGo[4];
-                new_toGo[0] = (int *)mymalloc("local_toGo", 4*NTask * sizeof(int));
-                memset(new_toGo, 0, 4*NTask*sizeof(int));
-                for(n=1; n<4; n++)
+                int * new_toGo[NSP];
+                new_toGo[0] = (int *)mymalloc("local_toGo", NSP*NTask * sizeof(int));
+                memset(new_toGo, 0, NSP*NTask*sizeof(int));
+                for(n=1; n<NSP; n++)
                     new_toGo[n] = new_toGo[n-1]+NTask;
 
                 for(n = 0; n < NumPart; n++)
@@ -513,17 +482,11 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
                 }
 
                 for(n = 0; n < NTask; n++)
-                {
-                    toGo[n] = new_toGo[0][n];
-                    toGoSph[n] = new_toGo[1][n];
-                    toGoBh[n] = new_toGo[2][n];
-                    toGoStar[n] = new_toGo[3][n];
-                }
+                    for(i=0; i< NSP; i++)
+                        toGo_arr[i][n] = new_toGo[i][n];
 
-                MPI_Alltoall(toGo, 1, MPI_INT, toGet, 1, MPI_INT, MPI_COMM_WORLD);
-                MPI_Alltoall(toGoSph, 1, MPI_INT, toGetSph, 1, MPI_INT, MPI_COMM_WORLD);
-                MPI_Alltoall(toGoBh, 1, MPI_INT, toGetBh, 1, MPI_INT, MPI_COMM_WORLD);
-                MPI_Alltoall(toGoStar, 1, MPI_INT, toGetStar, 1, MPI_INT, MPI_COMM_WORLD);
+                for(i=0; i< NSP; i++)
+                    MPI_Alltoall(toGo_arr[i], 1, MPI_INT, toGet_arr[i], 1, MPI_INT, MPI_COMM_WORLD);
                 myfree(new_toGo[0]);
             }
         }
