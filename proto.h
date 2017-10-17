@@ -1,7 +1,6 @@
 #ifndef PROTO_H
 #define PROTO_H
 
-void allocate_memory(void);
 void begrun(int RestartSnapNum);
 void
 open_outputfiles(int RestartsnapNum);

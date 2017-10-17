@@ -229,8 +229,8 @@ void blackhole(void)
         total_mdoteddington *= 1.0 / ((4 * M_PI * GRAVITY * C * PROTONMASS /
                     (0.1 * C * C * THOMPSON)) * All.UnitTime_in_s);
 
-        fprintf(FdBlackHoles, "%g %td %g %g %g %g %g\n",
-                All.Time, NTotal[5], total_mass_holes, total_mdot, mdot_in_msun_per_year,
+        fprintf(FdBlackHoles, "%g %d %g %g %g %g %g\n",
+                All.Time, N_bh_slots, total_mass_holes, total_mdot, mdot_in_msun_per_year,
                 total_mass_real, total_mdoteddington);
         fflush(FdBlackHoles);
     }

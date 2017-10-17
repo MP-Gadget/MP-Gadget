@@ -21,7 +21,8 @@
 
 /*Defined in fofpetaio.c and only used here*/
 void fof_register_io_blocks();
-
+/*Defined in allocate.c and only used here*/
+void allocate_memory(int alloc_sph);
 /************
  *
  * The IO api , intented to replace io.c and read_ic.c
@@ -31,7 +32,7 @@ void fof_register_io_blocks();
 
 struct IOTable IOTable = {0};
 
-static void petaio_write_header(BigFile * bf);
+static void petaio_write_header(BigFile * bf, const int64_t * NTotal);
 static void petaio_read_header_internal(BigFile * bf);
 
 static void register_io_blocks();
@@ -128,14 +129,19 @@ static void petaio_save_internal(char * fname) {
         endrun(0, "Failed to create snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
-    petaio_write_header(&bf); 
 
     int ptype_offset[6]={0};
     int ptype_count[6]={0};
+    int64_t NTotal[6]={0};
 
     int * selection = mymalloc("Selection", sizeof(int) * NumPart);
 
     petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, NULL);
+
+    sumup_large_ints(6, ptype_count, NTotal);
+
+    petaio_write_header(&bf, NTotal);
+
     int i;
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -164,6 +170,7 @@ void petaio_read_internal(char * fname, int ic) {
     int ptype;
     int i;
     BigFile bf = {0};
+    BigBlock bh = {0};
     message(0, "Reading snapshot %s\n", fname);
 
     if(0 != big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
@@ -171,7 +178,17 @@ void petaio_read_internal(char * fname, int ic) {
                     big_file_get_error_message());
     }
 
-    allocate_memory();
+    int64_t NTotal[6];
+    if(0 != big_file_mpi_open_block(&bf, &bh, "Header", MPI_COMM_WORLD)) {
+        endrun(0, "Failed to create block at %s:%s\n", "Header",
+                    big_file_get_error_message());
+    }
+    if ((0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
+        (0 != big_block_mpi_close(&bh, MPI_COMM_WORLD))) {
+        endrun(0, "Failed to close block: %s\n",
+                    big_file_get_error_message());
+    }
+    allocate_memory(NTotal[0] > 0);
 
     /* set up the memory topology */
     int offset = 0;
@@ -311,7 +328,7 @@ extern const char * COMPILETIMESETTINGS;
 extern const char * GADGETVERSION;
 
 /* write a header block */
-static void petaio_write_header(BigFile * bf) {
+static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     BigBlock bh = {0};
     if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
@@ -371,6 +388,7 @@ petaio_read_header_internal(BigFile * bf) {
     }
     double Time;
     int ptype;
+    int64_t NTotal[6];
     if(
     (0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||

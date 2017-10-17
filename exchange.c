@@ -21,8 +21,6 @@ static MPI_Datatype MPI_TYPE_STARPARTICLE = 0;
 static int domain_exchange_once(int (*layoutfunc)(int p), int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar);
 static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int failfast, int* toGo, int * toGoSph, int * toGoBh, int * toGoStar, int *toGet, int *toGetSph, int *toGetBh, int * toGetStar);
 
-static void domain_count_particles();
-
 int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     int i;
     int64_t sumtogo;
@@ -106,10 +104,6 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     myfree(toGoBh);
     myfree(toGoSph);
     myfree(toGo);
-    /* Watch out: domain exchange changes the local number of particles.
-     * though the slots has been taken care of in exchange_once, the
-     * particle number counts are not updated. */
-    domain_count_particles();
 
     return failure;
 }
@@ -538,29 +532,4 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
 
     }
     return ret;
-}
-
-void domain_count_particles()
-{
-    int i, NLocal[6];
-    for(i = 0; i < 6; i++)
-        NLocal[i] = 0;
-
-#pragma omp parallel private(i)
-    {
-        int NLocalThread[6] = {0};
-#pragma omp for
-        for(i = 0; i < NumPart; i++)
-        {
-            NLocalThread[P[i].Type]++;
-        }
-#pragma omp critical 
-        {
-/* avoid omp reduction for now: Craycc doesn't always do it right */
-            for(i = 0; i < 6; i ++) {
-                NLocal[i] += NLocalThread[i];
-            }
-        }
-    }
-    MPI_Allreduce(NLocal, NTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
 }

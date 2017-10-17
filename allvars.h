@@ -168,10 +168,7 @@ extern int NTask;		/*!< number of processors */
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
 
-/* Local number of particles; this is accurate after domain */
-extern int64_t NTotal[6];
-
-/* Number of used BHP slots */
+/* Number of used slots */
 extern int N_bh_slots;
 extern int N_star_slots;
 extern int N_sph_slots;

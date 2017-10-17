@@ -370,7 +370,7 @@ void compute_accelerations(int is_PM, int FirstStep)
     if(FirstStep)
         grav_short_tree();
 
-    if(NTotal[0] > 0)
+    if(All.NTotalInit[0] > 0)
     {
         /***** density *****/
         message(0, "Start density computation...\n");
