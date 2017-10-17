@@ -185,8 +185,6 @@ create_gadget_parameter_set()
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
 
-    param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Mimic the Input and outputs of FastPM. Use peculiar velocity in IO, and Mpc/h units by default.");
-
     param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
     param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");

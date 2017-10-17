@@ -39,7 +39,7 @@ create_parameters()
     param_declare_double(ps, "MaxMemSizePerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
-    param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Write a IC similiar to a FastPM output");
+    param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Set up an run that uses Peculiar Velocity in IO");
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
     param_declare_int(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
     param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
