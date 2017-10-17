@@ -23,10 +23,7 @@ typedef struct {
 static int
 grav_short_isactive(int i)
 {
-    int isactive = 1;
-    /* tracer particles (5) has no gravity, they move along to pot minimium */
-    isactive = isactive && (P[i].Type != 5);
-    return isactive;
+    return 1; /* gravity applies to all particles. Including Tracer particles to enhance numerical stability. */
 }
 
 static void
