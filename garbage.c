@@ -173,7 +173,7 @@ domain_garbage_collection_slots(int ptype,
         if(P[i].Type == ptype) {
             SLOT(P[i].PI)->ReverseLink = i;
             if(P[i].PI >= *N_slots) {
-                endrun(1, "slot PI consistency failed2, N_slots = %d, N_bh = %d, PI=%d\n", *N_slots, NLocal[5], P[i].PI);
+                endrun(1, "slot PI consistency failed2, N_slots = %d, NLocal = %d, PI=%d\n", *N_slots, NLocal[ptype], P[i].PI);
             }
             if(SLOT(P[i].PI)->ID != P[i].ID) {
                 endrun(1, "slot id consistency failed1\n");
