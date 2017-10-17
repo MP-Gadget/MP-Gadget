@@ -201,8 +201,8 @@ void petaio_read_internal(char * fname, int ic) {
         }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
         petaio_alloc_buffer(&array, &IOTable.ent[i], NLocal[ptype]);
-        petaio_read_block(&bf, blockname, &array);
-        petaio_readout_buffer(&array, &IOTable.ent[i]);
+        if(0 == petaio_read_block(&bf, blockname, &array, IOTable.ent[i].required))
+            petaio_readout_buffer(&array, &IOTable.ent[i]);
         petaio_destroy_buffer(&array);
     }
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)) {
@@ -515,28 +515,28 @@ void petaio_destroy_buffer(BigArray * array) {
 }
 
 /* read a block from disk, spread the values to memory with setters  */
-void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
+int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int required) {
     BigBlock bb;
     BigBlockPtr ptr;
 
     /* open the block */
     if(0 != big_file_mpi_open_block(bf, &bb, blockname, MPI_COMM_WORLD)) {
-        endrun(0, "Failed to open block at %s:%s\n", blockname,
-                big_file_get_error_message());
+        if(required)
+            endrun(0, "Failed to open block at %s:%s\n", blockname, big_file_get_error_message());
+        else
+            return 1;
     }
-    
     if(0 != big_block_seek(&bb, &ptr, 0)) {
-        endrun(1, "Failed to seek: %s\n", big_file_get_error_message());
+            endrun(1, "Failed to seek: %s\n", big_file_get_error_message());
     }
-
     if(0 != big_block_mpi_read(&bb, &ptr, array, All.IO.NumWriters, MPI_COMM_WORLD)) {
         endrun(1, "Failed to read from block: %s\n", big_file_get_error_message());
     }
-
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
         endrun(0, "Failed to close block at %s:%s\n", blockname,
                     big_file_get_error_message());
     }
+    return 0;
 }
 
 /* save a block to disk */
@@ -616,7 +616,8 @@ void io_register_io_block(char * name,
         int items, 
         int ptype, 
         property_getter getter,
-        property_setter setter
+        property_setter setter,
+        int required
         ) {
     IOTableEntry * ent = &IOTable.ent[IOTable.used];
     strcpy(ent->name, name);
@@ -625,6 +626,7 @@ void io_register_io_block(char * name,
     ent->getter = getter;
     ent->setter = setter;
     ent->items = items;
+    ent->required = required;
     IOTable.used ++;
 }
 
@@ -756,7 +758,7 @@ static void register_io_blocks() {
     /* SF */
 #ifdef SFR
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
-    IO_REG(BirthDensity, "f4", 1, 4);
+    IO_REG_NONFATAL(BirthDensity, "f4", 1, 4);
     IO_REG_TYPE(StarFormationTime, "f4", 1, 4);
     IO_REG_TYPE(Metallicity,       "f4", 1, 0);
     IO_REG_TYPE(Metallicity,       "f4", 1, 4);

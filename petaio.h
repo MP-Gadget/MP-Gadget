@@ -12,6 +12,7 @@ typedef struct IOTableEntry {
     int ptype;
     char dtype[8];
     int items;
+    int required;
     property_getter getter;
     property_setter setter;
 } IOTableEntry;
@@ -25,7 +26,7 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent);
 void petaio_destroy_buffer(BigArray * array);
 
 void petaio_save_block(BigFile * bf, char * blockname, BigArray * array);
-void petaio_read_block(BigFile * bf, char * blockname, BigArray * array);
+int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int required);
 
 void petaio_save_snapshot(const char * fmt, ...);
 void petaio_save_restart();
@@ -52,17 +53,20 @@ petaio_build_selection(int * selection,
  * IO_REG_WRONLY declares an io block which is written, but is not read on snapshot load.
  * */
 #define IO_REG(name, dtype, items, ptype) \
-    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name)
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name, 1)
 #define IO_REG_TYPE(name, dtype, items, ptype) \
-    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## ptype ## name , (property_setter) ST ## ptype ## name)
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## ptype ## name , (property_setter) ST ## ptype ## name, 0)
 #define IO_REG_WRONLY(name, dtype, items, ptype) \
-    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , NULL)
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , NULL, 1)
+#define IO_REG_NONFATAL(name, dtype, items, ptype) \
+    io_register_io_block(# name, dtype, items, ptype, (property_getter) GT ## name , (property_setter) ST ## name, 0)
 void io_register_io_block(char * name, 
         char * dtype, 
         int items, 
         int ptype, 
         property_getter getter,
-        property_setter setter
+        property_setter setter,
+        int required
         );
 
 
