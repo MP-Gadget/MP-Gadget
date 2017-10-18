@@ -47,7 +47,7 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
     MPI_Allreduce(MPI_IN_PLACE, &(PowerSpectrum->Norm), 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->k, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->P, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_LONG_LONG_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
 
     /*Now fix power spectrum units*/
     for(i = 0; i < PowerSpectrum->size; i ++) {
@@ -76,6 +76,7 @@ void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * Outp
             fprintf(fp, "# D1 = %g \n", D1);
             fprintf(fp, "# k P N P(z=0)\n");
             for(i = 0; i < PowerSpectrum->size; i ++) {
+                if(PowerSpectrum->Nmodes[i] == 0) continue;
                 fprintf(fp, "%g %g %ld %g\n", PowerSpectrum->k[i], PowerSpectrum->P[i], PowerSpectrum->Nmodes[i],
                             PowerSpectrum->P[i] / (D1 * D1));
             }
