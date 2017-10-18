@@ -237,9 +237,17 @@ void petaio_read_internal(char * fname, int ic) {
         if(NTotal[ptype] == 0) continue;
         if(ic) {
             /* for IC read in only three blocks */
-            if( strcmp(IOTable.ent[i].name, "Position") &&
-                strcmp(IOTable.ent[i].name, "Velocity") &&
-                strcmp(IOTable.ent[i].name, "ID")) continue;
+            int keep = 0;
+            keep |= (0 == strcmp(IOTable.ent[i].name, "Position"));
+            keep |= (0 == strcmp(IOTable.ent[i].name, "Velocity"));
+            keep |= (0 == strcmp(IOTable.ent[i].name, "ID"));
+            if (ptype == 5) {
+                keep |= (0 == strcmp(IOTable.ent[i].name, "Mass"));
+                keep |= (0 == strcmp(IOTable.ent[i].name, "BlackholeMass"));
+                keep |= (0 == strcmp(IOTable.ent[i].name, "MinPotPos"));
+                keep |= (0 == strcmp(IOTable.ent[i].name, "MinPotVel"));
+            }
+            if(!keep) continue;
         }
         if(IOTable.ent[i].setter == NULL) {
             /* FIXME: do not know how to read this block; assume the fucker is
