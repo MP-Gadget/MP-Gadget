@@ -514,7 +514,7 @@ extern struct particle_data
     };
 
     unsigned int PI; /* particle property index; used by BH, SPH and STAR.
-                        points to the corresponding structure in **P array.*/
+                        points to the corresponding structure in (SPH|BH|STAR)P array.*/
     MyIDType ID;
 
     MyFloat Vel[3];   /* particle velocity at its current time */
