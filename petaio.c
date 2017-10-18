@@ -197,6 +197,7 @@ void petaio_read_internal(char * fname, int ic) {
         int64_t start = ThisTask * NTotal[ptype] / NTask;
         int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
         NLocal[ptype] = end - start;
+        NumPart += NLocal[ptype];
 #pragma omp parallel for
         for(i = 0; i < NLocal[ptype]; i++)
         {
@@ -205,6 +206,23 @@ void petaio_read_internal(char * fname, int ic) {
             P[j].PI = i;
         }
         offset += NLocal[ptype];
+    }
+    N_sph_slots = NLocal[0];
+    N_star_slots = NLocal[4];
+    N_bh_slots = NLocal[5];
+
+    if(N_sph_slots >= All.MaxPart) {
+        endrun(1, "Overwhelmed by sph: %d > %d\n", N_bh_slots, All.MaxPart);
+    }
+    if(N_bh_slots >= All.MaxPartBh) {
+        endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);
+    }
+    if(N_star_slots >= All.MaxPartBh) {
+        endrun(1, "Overwhelmed by stars: %d > %d\n", N_star_slots, All.MaxPartBh);
+    }
+
+    if(NumPart >= All.MaxPart) {
+        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
     }
 
     for(i = 0; i < IOTable.used; i ++) {
@@ -450,29 +468,6 @@ petaio_read_header_internal(BigFile * bf) {
     All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);	
     /* at most 10% of particles can form BH*/
     All.MaxPartBh = (int) (0.1 * All.MaxPart);
-
-    for(ptype = 0; ptype < 6; ptype ++) {
-        int64_t start = ThisTask * NTotal[ptype] / NTask;
-        int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
-        NumPart += end - start;
-        if(ptype == 0)
-            N_sph_slots = end - start;
-        if(ptype == 4)
-            N_star_slots = end - start;
-        if(ptype == 5)
-            N_bh_slots = end - start;
-    }
-
-    if(N_bh_slots > All.MaxPartBh) {
-        endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);
-    }
-    if(N_star_slots > All.MaxPartBh) {
-        endrun(1, "Overwhelmed by stars: %d > %d\n", N_star_slots, All.MaxPartBh);
-    }
-
-    if(NumPart >= All.MaxPart) {
-        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
-    }
 }
 
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize) {
