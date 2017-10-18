@@ -1040,7 +1040,7 @@ static double get_sfr_factor_due_to_h2(int i) {
     return 1.0;
 #else
     double tau_fmol;
-    double zoverzsun = P[i].Metallicity/METAL_YIELD;
+    double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;
     tau_fmol = ev_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
     tau_fmol *= (0.1 + zoverzsun);
     if(tau_fmol>0) {
