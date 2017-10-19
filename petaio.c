@@ -729,13 +729,15 @@ static void register_io_blocks() {
         IO_REG(Velocity, "f4", 3, i);
         IO_REG(Mass,     "f4", 1, i);
         IO_REG(ID,       "u8", 1, i);
-        IO_REG(Generation,       "u1", 1, i);
         if(All.OutputPotential)
             IO_REG_WRONLY(Potential, "f4", 1, i);
         if(All.SnapshotWithFOF)
             IO_REG_WRONLY(GroupID, "u4", 1, i);
     }
 
+    IO_REG(Generation,       "u1", 1, 0);
+    IO_REG(Generation,       "u1", 1, 4);
+    IO_REG(Generation,       "u1", 1, 5);
     /* Bare Bone SPH*/
     IO_REG(SmoothingLength,  "f4", 1, 0);
     IO_REG(Density,          "f4", 1, 0);
