@@ -35,6 +35,9 @@ create_parameters()
     param_declare_int(ps, "Seed", REQUIRED, 0, "");
     param_declare_int(ps, "Unitary", OPTIONAL, 0, "If non-zero, generate unitary gaussians where |g| == 1.0.");
     param_declare_int(ps, "WhichSpectrum", OPTIONAL, 2, "Type of spectrum, 2 for file ");
+    param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
+    param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state");
+    param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter");
 
     param_declare_double(ps, "MaxMemSizePerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
@@ -87,6 +90,11 @@ void read_parameterfile(char *fname)
     CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
     CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
     CP.HubbleParam = param_get_double(ps, "HubbleParam");
+    CP.Omega_fld = param_get_double(ps, "Omega_fld");
+    CP.w0_fld = param_get_double(ps,"w0_fld");
+    CP.wa_fld = param_get_double(ps,"wa_fld");
+    if(CP.OmegaLambda > 0 && CP.Omega_fld > 0)
+        endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
     CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
     CP.RadiationOn = param_get_double(ps, "RadiationOn");
     /* If massive neutrinos are implemented and enabled this
