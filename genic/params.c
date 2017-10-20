@@ -23,10 +23,10 @@ create_parameters()
     param_declare_string(ps, "OutputDir", REQUIRED, 0, "");
     param_declare_string(ps, "FileBase", REQUIRED, 0, "");
 
-    param_declare_double(ps, "Omega0", REQUIRED, 0, "");
-    param_declare_double(ps, "OmegaLambda", REQUIRED, 0, "");
-    param_declare_double(ps, "OmegaBaryon", REQUIRED, 0, "");
-    param_declare_double(ps, "HubbleParam", REQUIRED, 0.7, "Hubble parameter");
+    param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "");
+    param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "");
+    param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "Dark energy density at z=0");
+    param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "Hubble parameter");
     param_declare_int(ps,    "ProduceGas", REQUIRED, 0, "Should we create baryon particles?");
     param_declare_double(ps, "BoxSize", REQUIRED, 0, "");
     param_declare_double(ps, "Redshift", REQUIRED, 99, "Starting redshift");
