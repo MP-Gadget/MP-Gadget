@@ -11,6 +11,9 @@ typedef struct {
     double OmegaK; /* Curvature density, derived from Omega0 and OmegaLambda */
     double OmegaNu0; /* Massless Neutrino density, derived from T_CMB0, useful only if there are no massive neutrino particles */
     double OmegaLambda;  /* vaccum energy density relative to crictical density (at z=0) */
+    double Omega_fld; /*Energy density of dark energy fluid at z=0*/
+    double w0_fld; /*Dark energy equation of state parameter*/
+    double wa_fld; /*Dark energy equation of state evolution parameter*/
     double OmegaBaryon;  /* baryon density in units of the critical density (at z=0) */
     double HubbleParam;  /* little `h', i.e. Hubble constant in units of 100 km/s/Mpc. */
     double Hubble; /* 100 km/s/Mpc in whatever units we want*/

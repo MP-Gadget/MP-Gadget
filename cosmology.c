@@ -10,6 +10,7 @@
 #define  STEFAN_BOLTZMANN 5.670373e-5
 
 static Cosmology * CP = NULL;
+static inline double OmegaFLD(const double a);
 
 void init_cosmology(Cosmology * CP_in)
 {
@@ -53,7 +54,8 @@ double hubble_function(double a)
 
     /* first do the terms in SQRT */
     hubble_a = CP->OmegaLambda;
-
+    
+    hubble_a += OmegaFLD(a);
     hubble_a += CP->OmegaK / (a * a);
     hubble_a += CP->Omega0 / (a * a * a);
 
@@ -130,6 +132,16 @@ double F_Omega(double a)
     double dD1da=0;
     double D1 = growth(a, &dD1da);
     return a / D1 * dD1da;
+}
+
+/*Dark energy density as a function of time:
+ * OmegaFLD(a)  ~ exp(-3 int((1+w(a))/a da)_a^1
+ * and w(a) = w0 + (1-a) wa*/
+static inline double OmegaFLD(const double a)
+{
+    if(CP->Omega_fld == 0.)
+        return 0;
+    return CP->Omega_fld * pow(a, 3 * (1 + CP->w0_fld + CP->wa_fld))*exp(3*CP->wa_fld*(1-a));
 }
 
 static double sigma2_int(double k, void * p)

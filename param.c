@@ -138,7 +138,10 @@ create_gadget_parameter_set()
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255,
             "Present-day CMB temperature in Kelvin, default from Fixsen 2009; affects background if RadiationOn is set.");
     param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "");
-    param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "");
+    param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "Dark energy density at z=0");
+    param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
+    param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state.");
+    param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter.");
     param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "");
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
@@ -354,6 +357,11 @@ void read_parameter_file(char *fname)
         All.CP.Omega0 = param_get_double(ps, "Omega0");
         All.CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
         All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
+        All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
+        if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
+            endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
+        All.CP.w0_fld = param_get_double(ps,"w0_fld");
+        All.CP.wa_fld = param_get_double(ps,"wa_fld");
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");
