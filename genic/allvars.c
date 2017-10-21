@@ -3,11 +3,12 @@
 #include "genic/allvars.h"
 
 int WhichSpectrum;
+int DifferentTransferFunctions;
 
 int Nmesh, Ngrid;
 
-
 char * FileWithInputSpectrum;
+char * FileWithTransferFunction;
 
 double Box;
 int ProduceGas;

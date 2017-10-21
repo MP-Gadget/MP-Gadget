@@ -39,6 +39,8 @@ create_parameters()
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state");
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter");
 
+    param_declare_int(ps, "DifferentTransferFunctions", OPTIONAL, 0, "Use species specific transfer functions for baryon and CDM.");
+    param_declare_string(ps, "FileWithTransferFunction", OPTIONAL, "", "File containing CAMB formatted transfer functions.");
     param_declare_double(ps, "MaxMemSizePerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
@@ -111,6 +113,8 @@ void read_parameterfile(char *fname)
     Nmesh = param_get_int(ps, "Nmesh");
     Ngrid = param_get_int(ps, "Ngrid");
     FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
+    FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
+    DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
     Seed = param_get_int(ps, "Seed");
     Unitary = param_get_int(ps, "Unitary");
     OutputDir = param_get_string(ps, "OutputDir");

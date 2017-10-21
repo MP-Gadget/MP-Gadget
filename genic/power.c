@@ -11,14 +11,15 @@
 #include "endrun.h"
 
 static double PowerSpec_EH(double k);
-static double PowerSpec_Tabulated(double k);
+static double PowerSpec_Tabulated(double k, int Type);
 static double sigma2_int(double k, void * params);
 static double TopHatSigma2(double R);
 static double tk_eh(double k);
 
 static double Norm;
 
-#define MAXCOLS 13
+#define MAXCOLS 3
+
 struct table
 {
     int Nentry;
@@ -30,14 +31,14 @@ struct table
 static struct table power_table;
 static struct table transfer_table;
 
-double PowerSpec(double k)
+double PowerSpec(double k, int Type)
 {
   double power;
 
   switch (WhichSpectrum)
   {
     case 2:
-      power = PowerSpec_Tabulated(k);
+      power = PowerSpec_Tabulated(k, Type);
       break;
 
     default:
@@ -51,7 +52,52 @@ double PowerSpec(double k)
   return power;
 }
 
-void read_power_table(const char * inputfile, const int ncols, struct table * out_tab)
+void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10)
+{
+    char * retval;
+    if((*InputInLog10) == 0) {
+        if(k < 0) {
+            message(1, "some input k is negative, guessing the file is in log10 units\n");
+            *InputInLog10 = 1;
+        }
+        else
+            k = log10(k);
+    }
+    k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
+    out_tab->logk[i] = k;
+    retval = strtok(NULL, " \t");
+    if(!retval)
+        endrun(1,"Incomplete line in power spectrum: %s\n",line);
+    double p = atof(retval);
+    if ((*InputInLog10) == 0)
+        p = log10(p);
+    p += 3 * log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to Kpc/h  */
+    out_tab->logD[0][i] = p;
+}
+
+void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10)
+{
+    int j;
+    double transfers[7];
+    k = log10(k);
+    k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
+    out_tab->logk[i] = k;
+    /*CDM, Baryons, photons, massless nu, massive nu, tot, CDM+bar, other stuff*/
+    for(j = 0; j< 7; j++) {
+        char * retval = strtok(NULL, " \t");
+        if(!retval)
+            endrun(1,"Incomplete line in power spectrum: %s\n",line);
+        transfers[j] = atof(retval);
+    }
+    /*Order of the transfer table matches the particle types:
+     * 0 is baryons, 1 is CDM, 2 is CMB + baryons.
+     * Everything is a ratio against tot*/
+    out_tab->logD[0][i] = pow(transfers[1]/transfers[5],2);
+    out_tab->logD[1][i] = pow(transfers[0]/transfers[5],2);
+    out_tab->logD[2][i] = pow(transfers[6]/transfers[5],2);
+}
+
+void read_power_table(const char * inputfile, const int ncols, struct table * out_tab, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10))
 {
     FILE *fd = NULL;
     int j;
@@ -92,37 +138,16 @@ void read_power_table(const char * inputfile, const int ncols, struct table * ou
         int i = 0;
         do
         {
-            double k, p;
             char buffer[1024];
-            char * retval = fgets(buffer, 1024, fd);
+            char * line = fgets(buffer, 1024, fd);
             /*Happens on end of file*/
-            if(!retval)
+            if(!line)
                 break;
-            retval = strtok(buffer, " \t");
+            char * retval = strtok(line, " \t");
             if(!retval || retval[0] == '#')
                 continue;
-            k = atof(retval);
-            if(!InputInLog10) {
-                if(k < 0) {
-                    message(1, "some input k is negative, guessing the file is in log10 units\n");
-                    InputInLog10 = 1;
-                }
-                else
-                    k = log10(k);
-            }
-            k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
-            out_tab->logk[i] = k;
-            for(j=0; j<ncols;j++) {
-                retval = strtok(NULL, " \t");
-                if(!retval)
-                    endrun(1,"Incomplete line in power spectrum: %s\n",buffer);
-                p = atof(retval);
-                out_tab->logk[i] = k;
-                if (!InputInLog10)
-                    p = log10(p);
-                p += 3 * log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to Kpc/h  */
-                out_tab->logD[j][i] = p;
-            }
+            double k = atof(retval);
+            parse_line(i, k, line, out_tab, &InputInLog10);
             i++;
         }
         while(1);
@@ -141,7 +166,9 @@ void read_power_table(const char * inputfile, const int ncols, struct table * ou
 void initialize_powerspectrum(void)
 {
     if(WhichSpectrum == 2) {
-        read_power_table(FileWithInputSpectrum, 1, &power_table);
+        read_power_table(FileWithInputSpectrum, 1, &power_table, parse_power);
+        if(DifferentTransferFunctions)
+            read_power_table(FileWithTransferFunction, MAXCOLS, &transfer_table, parse_transfer);
     }
 
     Norm = 1.0;
@@ -159,7 +186,7 @@ void initialize_powerspectrum(void)
 
 }
 
-double PowerSpec_Tabulated(double k)
+double PowerSpec_Tabulated(double k, int Type)
 {
   const double logk = log10(k);
 
@@ -167,15 +194,12 @@ double PowerSpec_Tabulated(double k)
     return 0;
 
   const double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
+  double trans = 1;
+  /*Transfer table stores (T_type(k) / T_tot(k))^2*/
+  if(DifferentTransferFunctions && Type < MAXCOLS)
+      trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
 
-  double power = pow(10.0, logD);//*2*M_PI*M_PI;
-
-  //  Delta2 = pow(10.0, logD);
-
-  //  P = Norm * Delta2 / (4 * M_PI * kold * kold * kold);
-
-  //  if(ThisTask == 0)
-  //    printf("%lg %lg %d %d %d %d\n",k,P,binlow,binhigh,mybinlow,mybinhigh);
+  double power = pow(10.0, logD) * trans;
 
   return power;
 }
@@ -247,7 +271,7 @@ double sigma2_int(double k, void * params)
       w = 1./3. - kr2/30. +kr2*kr2/840.;
   else
       w = 3 * (sin(kr) / kr - cos(kr)) / kr2;
-  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * PowerSpec(k);
+  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * PowerSpec(k, 7);
 
   return x;
 
@@ -279,7 +303,7 @@ void print_spec(void)
 
       for(k = kstart; k < kend; k *= 1.025)
 	  {
-	    po = PowerSpec(k);
+	    po = PowerSpec(k, 7);
 	    dl = 4.0 * M_PI * k * k * k * po;
 	    fprintf(fd, "%12g %12g\n", k, dl);
 	  }

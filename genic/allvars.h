@@ -2,6 +2,7 @@
 #include "cosmology.h"
 
 extern int      WhichSpectrum;
+extern int DifferentTransferFunctions;
 
 extern double MaxMemSizePerNode;
 
@@ -11,6 +12,7 @@ extern int UsePeculiarVelocity;
 extern double InputPowerRedshift;
 
 extern char   *  FileWithInputSpectrum;
+extern char   *  FileWithTransferFunction;
 extern double   Box;
 extern int   ProduceGas;
 extern int Seed;

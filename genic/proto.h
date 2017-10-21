@@ -6,7 +6,7 @@ void   free_ffts(void);
 
 double periodic_wrap(double x);
 
-double PowerSpec(double kmag);
+double PowerSpec(double kmag, int Type);
 void   initialize_powerspectrum(void);
 
 void  write_particle_data(void);
