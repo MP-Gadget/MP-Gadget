@@ -1,18 +1,13 @@
 #include <stdint.h>
 #include "cosmology.h"
-
-extern int      WhichSpectrum;
-extern int DifferentTransferFunctions;
+#include "power.h"
 
 extern double MaxMemSizePerNode;
 
 extern int      Nmesh, Ngrid;
 
 extern int UsePeculiarVelocity;
-extern double InputPowerRedshift;
 
-extern char   *  FileWithInputSpectrum;
-extern char   *  FileWithTransferFunction;
 extern double   Box;
 extern int   ProduceGas;
 extern int Seed;
@@ -40,10 +35,7 @@ extern int  NumWriters;
 extern int      ThisTask, NTask;
 
 extern double UnitTime_in_s, UnitLength_in_cm, UnitMass_in_g, UnitVelocity_in_cm_per_s;
-extern double InputSpectrum_UnitLength_in_cm;
 extern double G;
 
 extern Cosmology CP;
-
-extern double Sigma8;
-extern double PrimordialIndex;
+extern struct power_params PowerP;

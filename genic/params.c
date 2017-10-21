@@ -88,6 +88,7 @@ void read_parameterfile(char *fname)
 
     message(0, "----------------------------------------------\n");
     
+    /*Cosmology*/
     CP.Omega0 = param_get_double(ps, "Omega0");
     CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
     CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
@@ -104,26 +105,29 @@ void read_parameterfile(char *fname)
     CP.MasslessNeutrinosOn = 1;
     MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
     ProduceGas = param_get_int(ps, "ProduceGas");
-    InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
+    /*Unit system*/
+    UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
+    UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
+    UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+    /*Parameters of the power spectrum*/
+    PowerP.InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
+    PowerP.Sigma8 = param_get_double(ps, "Sigma8");
+    PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
+    PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
+    PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
+    PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
+    PowerP.SpectrumLengthScale = param_get_double(ps, "InputSpectrum_UnitLength_in_cm") / UnitLength_in_cm;
+    PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
+    /*Simulation parameters*/
     UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
-    Sigma8 = param_get_double(ps, "Sigma8");
-    PrimordialIndex = param_get_double(ps, "PrimordialIndex");
     Box = param_get_double(ps, "BoxSize");
     double Redshift = param_get_double(ps, "Redshift");
     Nmesh = param_get_int(ps, "Nmesh");
     Ngrid = param_get_int(ps, "Ngrid");
-    FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
-    FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
-    DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
     Seed = param_get_int(ps, "Seed");
     Unitary = param_get_int(ps, "Unitary");
     OutputDir = param_get_string(ps, "OutputDir");
     FileBase = param_get_string(ps, "FileBase");
-    WhichSpectrum = param_get_int(ps, "WhichSpectrum");
-    UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
-    UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
-    UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
-    InputSpectrum_UnitLength_in_cm = param_get_double(ps, "InputSpectrum_UnitLength_in_cm");
     NumPartPerFile = param_get_int(ps, "NumPartPerFile");
     NumWriters = param_get_int(ps, "NumWriters");
 

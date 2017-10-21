@@ -4,8 +4,8 @@
 #include <mpi.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_interp.h>
+#include "genic/power.h"
 #include "genic/allvars.h"
-#include "genic/proto.h"
 #include "cosmology.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -17,6 +17,9 @@ static double TopHatSigma2(double R);
 static double tk_eh(double k);
 
 static double Norm;
+static int WhichSpectrum;
+/*Only used for WhichSpectrum == 0*/
+static double PrimordialIndex;
 
 #define MAXCOLS 3
 
@@ -52,7 +55,7 @@ double PowerSpec(double k, int Type)
   return power;
 }
 
-void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10)
+void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, double scale)
 {
     char * retval;
     if((*InputInLog10) == 0) {
@@ -63,7 +66,7 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
         else
             k = log10(k);
     }
-    k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
+    k -= log10(scale);	/* convert to h/Kpc */
     out_tab->logk[i] = k;
     retval = strtok(NULL, " \t");
     if(!retval)
@@ -71,16 +74,16 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
     double p = atof(retval);
     if ((*InputInLog10) == 0)
         p = log10(p);
-    p += 3 * log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to Kpc/h  */
+    p += 3 * log10(scale);	/* convert to Kpc/h  */
     out_tab->logD[0][i] = p;
 }
 
-void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10)
+void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, double scale)
 {
     int j;
     double transfers[7];
     k = log10(k);
-    k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
+    k -= log10(scale);	/* convert to h/Kpc */
     out_tab->logk[i] = k;
     /*CDM, Baryons, photons, massless nu, massive nu, tot, CDM+bar, other stuff*/
     for(j = 0; j< 7; j++) {
@@ -97,7 +100,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     out_tab->logD[2][i] = pow(transfers[6]/transfers[5],2);
 }
 
-void read_power_table(const char * inputfile, const int ncols, struct table * out_tab, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10))
+void read_power_table(const char * inputfile, const int ncols, struct table * out_tab, double scale, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, double scale))
 {
     FILE *fd = NULL;
     int j;
@@ -147,7 +150,7 @@ void read_power_table(const char * inputfile, const int ncols, struct table * ou
             if(!retval || retval[0] == '#')
                 continue;
             double k = atof(retval);
-            parse_line(i, k, line, out_tab, &InputInLog10);
+            parse_line(i, k, line, out_tab, &InputInLog10, scale);
             i++;
         }
         while(1);
@@ -163,27 +166,28 @@ void read_power_table(const char * inputfile, const int ncols, struct table * ou
     }
 }
 
-void initialize_powerspectrum(void)
+void initialize_powerspectrum(struct power_params * ppar)
 {
-    if(WhichSpectrum == 2) {
-        read_power_table(FileWithInputSpectrum, 1, &power_table, parse_power);
-        if(DifferentTransferFunctions)
-            read_power_table(FileWithTransferFunction, MAXCOLS, &transfer_table, parse_transfer);
+    if(ppar->WhichSpectrum == 2) {
+        read_power_table(ppar->FileWithInputSpectrum, 1, &power_table, ppar->SpectrumLengthScale, parse_power);
+        if(ppar->DifferentTransferFunctions)
+            read_power_table(ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, ppar->SpectrumLengthScale, parse_transfer);
     }
+    PrimordialIndex = ppar->PrimordialIndex;
+    WhichSpectrum = ppar->WhichSpectrum;
 
     Norm = 1.0;
-    if (Sigma8 > 0) {
+    if (ppar->Sigma8 > 0) {
         double R8 = 8 * (3.085678e24 / UnitLength_in_cm);	/* 8 Mpc/h */
         double res = TopHatSigma2(R8);
-        Norm = Sigma8 * Sigma8 / res;
-        message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g). \n", Sigma8, Norm);
+        Norm = ppar->Sigma8 * ppar->Sigma8 / res;
+        message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g). \n", ppar->Sigma8, Norm);
     }
-    if(InputPowerRedshift >= 0) {
-        double Dplus = GrowthFactor(InitTime, 1/(1+InputPowerRedshift));
+    if(ppar->InputPowerRedshift >= 0) {
+        double Dplus = GrowthFactor(InitTime, 1/(1+ppar->InputPowerRedshift));
         Norm *= (Dplus * Dplus);
         message(0,"Growth factor to z=0: %g \n", Dplus);
     }
-
 }
 
 double PowerSpec_Tabulated(double k, int Type)
@@ -196,7 +200,7 @@ double PowerSpec_Tabulated(double k, int Type)
   const double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
   double trans = 1;
   /*Transfer table stores (T_type(k) / T_tot(k))^2*/
-  if(DifferentTransferFunctions && Type < MAXCOLS)
+  if(Type < MAXCOLS)
       trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
 
   double power = pow(10.0, logD) * trans;
@@ -275,38 +279,4 @@ double sigma2_int(double k, void * params)
 
   return x;
 
-}
-
-void print_spec(void)
-{
-  if(ThisTask == 0)
-    {
-      double k, po, dl, kstart, kend, DDD;
-      char buf[1000];
-      FILE *fd;
-
-      sprintf(buf, "%s/inputspec_%s.txt", OutputDir, FileBase);
-      
-      fd = fopen(buf, "w");
-      if (fd == NULL) {
-          printf("Failed to create powerspec file at:%s\n", buf);
-        return;
-      }
-      DDD = GrowthFactor(InitTime, 1.0);
-
-      fprintf(fd, "%12g %12g %12g\n", 1/InitTime-1, DDD, Norm);	/* print actual starting redshift and 
-							   linear growth factor for this cosmology */
-      kstart = 2 * M_PI / (1000.0 * (3.085678e24 / UnitLength_in_cm));	/* 1000 Mpc/h */
-      kend = 2 * M_PI / (0.001 * (3.085678e24 / UnitLength_in_cm));	/* 0.001 Mpc/h */
-
-      printf("kstart=%lg kend=%lg\n",kstart,kend);
-
-      for(k = kstart; k < kend; k *= 1.025)
-	  {
-	    po = PowerSpec(k, 7);
-	    dl = 4.0 * M_PI * k * k * k * po;
-	    fprintf(fd, "%12g %12g\n", k, dl);
-	  }
-      fclose(fd);
-    }
 }

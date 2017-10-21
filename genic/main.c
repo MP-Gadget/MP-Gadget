@@ -11,6 +11,7 @@
 #include "endrun.h"
 
 static struct ClockTable CT;
+void print_spec(void);
 
 int main(int argc, char **argv)
 {
@@ -35,7 +36,7 @@ int main(int argc, char **argv)
   walltime_init(&CT);
   mymalloc_init(MaxMemSizePerNode);
 
-  initialize_powerspectrum();
+  initialize_powerspectrum(&PowerP);
 
   initialize_ffts();
 
@@ -77,3 +78,36 @@ double periodic_wrap(double x)
   return x;
 }
 
+void print_spec(void)
+{
+  if(ThisTask == 0)
+    {
+      double k, po, dl, kstart, kend, DDD;
+      char buf[1000];
+      FILE *fd;
+
+      sprintf(buf, "%s/inputspec_%s.txt", OutputDir, FileBase);
+      
+      fd = fopen(buf, "w");
+      if (fd == NULL) {
+          printf("Failed to create powerspec file at:%s\n", buf);
+        return;
+      }
+      DDD = GrowthFactor(InitTime, 1.0);
+
+      fprintf(fd, "%12g %12g\n", 1/InitTime-1, DDD);	/* print actual starting redshift and 
+							   linear growth factor for this cosmology */
+      kstart = 2 * M_PI / (1000.0 * (3.085678e24 / UnitLength_in_cm));	/* 1000 Mpc/h */
+      kend = 2 * M_PI / (0.001 * (3.085678e24 / UnitLength_in_cm));	/* 0.001 Mpc/h */
+
+      printf("kstart=%lg kend=%lg\n",kstart,kend);
+
+      for(k = kstart; k < kend; k *= 1.025)
+	  {
+	    po = PowerSpec(k, 7);
+	    dl = 4.0 * M_PI * k * k * k * po;
+	    fprintf(fd, "%12g %12g\n", k, dl);
+	  }
+      fclose(fd);
+    }
+}
