@@ -253,22 +253,14 @@ double sigma2_int(double k, void * params)
 
 }
 
-static double A, B, alpha, beta, V, gf;
-
-double fnl(double x)		/* Peacock & Dodds formula */
-{
-  return x * pow((1 + B * beta * x + pow(A * x, alpha * beta)) /
-		 (1 + pow(pow(A * x, alpha) * gf * gf * gf / (V * sqrt(x)), beta)), 1 / beta);
-}
-
 void print_spec(void)
 {
-  double k, knl, po, dl, dnl, neff, kf, kstart, kend, po2, po1, DDD;
-  char buf[1000];
-  FILE *fd;
-
   if(ThisTask == 0)
     {
+      double k, po, dl, kstart, kend, DDD;
+      char buf[1000];
+      FILE *fd;
+
       sprintf(buf, "%s/inputspec_%s.txt", OutputDir, FileBase);
       
       fd = fopen(buf, "w");
@@ -276,8 +268,6 @@ void print_spec(void)
           printf("Failed to create powerspec file at:%s\n", buf);
         return;
       }
-      gf = GrowthFactor(0.001, 1.0) / (1.0 / 0.001);
-
       DDD = GrowthFactor(InitTime, 1.0);
 
       fprintf(fd, "%12g %12g %12g\n", 1/InitTime-1, DDD, Norm);	/* print actual starting redshift and 
@@ -288,45 +278,11 @@ void print_spec(void)
       printf("kstart=%lg kend=%lg\n",kstart,kend);
 
       for(k = kstart; k < kend; k *= 1.025)
-	{
-	  po = PowerSpec(k);
-	  dl = 4.0 * M_PI * k * k * k * po;
-
-	  kf = 0.5;
-
-	  po2 = PowerSpec(1.001 * k * kf);
-	  po1 = PowerSpec(k * kf);
-
-	  if(po != 0 && po1 != 0 && po2 != 0)
-	    {
-	      neff = (log(po2) - log(po1)) / (log(1.001 * k * kf) - log(k * kf));
-
-	      if(1 + neff / 3 > 0)
-		{
-		  A = 0.482 * pow(1 + neff / 3, -0.947);
-		  B = 0.226 * pow(1 + neff / 3, -1.778);
-		  alpha = 3.310 * pow(1 + neff / 3, -0.244);
-		  beta = 0.862 * pow(1 + neff / 3, -0.287);
-		  V = 11.55 * pow(1 + neff / 3, -0.423) * 1.2;
-
-		  dnl = fnl(dl);
-		  knl = k * pow(1 + dnl, 1.0 / 3);
-		}
-	      else
-		{
-		  dnl = 0;
-		  knl = 0;
-		}
-	    }
-	  else
-	    {
-	      dnl = 0;
-	      knl = 0;
-	    }
-
-	  fprintf(fd, "%12g %12g    %12g %12g\n", k, dl, knl, dnl);
-	  //	  printf("%12g %12g    %12g %12g\n", k, dl, knl, dnl);
-	}
+	  {
+	    po = PowerSpec(k);
+	    dl = 4.0 * M_PI * k * k * k * po;
+	    fprintf(fd, "%12g %12g\n", k, dl);
+	  }
       fclose(fd);
     }
 }
