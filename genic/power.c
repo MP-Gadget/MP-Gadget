@@ -18,12 +18,17 @@ static double tk_eh(double k);
 
 static double Norm;
 
-static int NPowerTable;
-
-static double * logk_tab;
-static double * logD_tab;
-gsl_interp * mat_intp;
-gsl_interp_accel * mat_intp_acc;
+#define MAXCOLS 13
+struct table
+{
+    int Nentry;
+    double * logk;
+    double * logD[MAXCOLS];
+    gsl_interp * mat_intp[MAXCOLS];
+    gsl_interp_accel * mat_intp_acc[MAXCOLS];
+};
+static struct table power_table;
+static struct table transfer_table;
 
 double PowerSpec(double k)
 {
@@ -46,22 +51,17 @@ double PowerSpec(double k)
   return power;
 }
 
-void read_power_table(void)
+void read_power_table(const char * inputfile, const int ncols, struct table * out_tab)
 {
-    FILE *fd;
-    char buf[500];
-
+    FILE *fd = NULL;
+    int j;
     int InputInLog10 = 0;
 
-    strcpy(buf, FileWithInputSpectrum);
-
     if(ThisTask == 0) {
-        if(!(fd = fopen(buf, "r")))
-        {
-            endrun(1, "can't read input spectrum in file '%s' on task %d\n", buf, ThisTask);
-        }
+        if(!(fd = fopen(inputfile, "r")))
+            endrun(1, "can't read input spectrum in file '%s' on task %d\n", inputfile, ThisTask);
 
-        NPowerTable = 0;
+        out_tab->Nentry = 0;
         do
         {
             char buffer[1024];
@@ -72,31 +72,24 @@ void read_power_table(void)
             retval = strtok(buffer, " \t");
             if(!retval || retval[0] == '#')
                 continue;
-            NPowerTable++;
+            out_tab->Nentry++;
         }
         while(1);
 
-        fclose(fd);
-
-        message(1, "found %d pairs of values in input spectrum table\n", NPowerTable);
+        message(1, "found %d pairs of values in input spectrum table\n", out_tab->Nentry);
+        rewind(fd);
     }
-    MPI_Bcast(&NPowerTable, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&(out_tab->Nentry), 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    if(NPowerTable < 2 && WhichSpectrum == 2)
+    if(out_tab->Nentry < 2)
         endrun(1, "Input spectrum too short\n");
-    logk_tab = mymalloc("Powertable", 2*NPowerTable * sizeof(double));
-    logD_tab = logk_tab + NPowerTable;
+    out_tab->logk = mymalloc("Powertable", (ncols+1)*out_tab->Nentry * sizeof(double));
+    for(j=0; j<ncols; j++)
+        out_tab->logD[j] = out_tab->logk + (j+1)*out_tab->Nentry;
 
-    if(ThisTask == 0) {
+    if(ThisTask == 0)
+    {
         int i = 0;
-        sprintf(buf, FileWithInputSpectrum);
-
-        if(!(fd = fopen(buf, "r")))
-        {
-            endrun(1, "can't read input spectrum in file '%s' on task %d\n", buf, ThisTask);
-        }
-
-        i = 0;
         do
         {
             double k, p;
@@ -109,43 +102,47 @@ void read_power_table(void)
             if(!retval || retval[0] == '#')
                 continue;
             k = atof(retval);
-            if(k < 0 && !InputInLog10) {
-                message(1, "some input k is negative, guessing the file is in log10 units\n");
-                InputInLog10 = 1;
+            if(!InputInLog10) {
+                if(k < 0) {
+                    message(1, "some input k is negative, guessing the file is in log10 units\n");
+                    InputInLog10 = 1;
+                }
+                else
+                    k = log10(k);
             }
-            retval = strtok(NULL, " \t");
-            if(!retval)
-                endrun(1,"Incomplete line in power spectrum: %s\n",buffer);
-            p = atof(retval);
-            logk_tab[i] = k;
-            if (!InputInLog10) {
-                k = log10(k);
-                p = log10(p);
-            }
-
             k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
-            logk_tab[i] = k;
-
-            p += 3 * log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to Kpc/h  */
-            logD_tab[i] = p;
+            out_tab->logk[i] = k;
+            for(j=0; j<ncols;j++) {
+                retval = strtok(NULL, " \t");
+                if(!retval)
+                    endrun(1,"Incomplete line in power spectrum: %s\n",buffer);
+                p = atof(retval);
+                out_tab->logk[i] = k;
+                if (!InputInLog10)
+                    p = log10(p);
+                p += 3 * log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to Kpc/h  */
+                out_tab->logD[j][i] = p;
+            }
             i++;
         }
         while(1);
 
         fclose(fd);
-
     }
 
-    MPI_Bcast(logk_tab, 2*NPowerTable, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    mat_intp = gsl_interp_alloc(gsl_interp_cspline,NPowerTable);
-    mat_intp_acc = gsl_interp_accel_alloc();
-    gsl_interp_init(mat_intp,logk_tab, logD_tab,NPowerTable);
+    MPI_Bcast(out_tab->logk, (ncols+1)*out_tab->Nentry, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    for(j=0; j<ncols; j++) {
+        out_tab->mat_intp[j] = gsl_interp_alloc(gsl_interp_cspline,out_tab->Nentry);
+        out_tab->mat_intp_acc[j] = gsl_interp_accel_alloc();
+        gsl_interp_init(out_tab->mat_intp[j],out_tab->logk, out_tab->logD[j],out_tab->Nentry);
+    }
 }
 
 void initialize_powerspectrum(void)
 {
-    if(WhichSpectrum == 2)
-        read_power_table();
+    if(WhichSpectrum == 2) {
+        read_power_table(FileWithInputSpectrum, 1, &power_table);
+    }
 
     Norm = 1.0;
     if (Sigma8 > 0) {
@@ -166,10 +163,10 @@ double PowerSpec_Tabulated(double k)
 {
   const double logk = log10(k);
 
-  if(logk < logk_tab[0] || logk > logk_tab[NPowerTable - 1])
+  if(logk < power_table.logk[0] || logk > power_table.logk[power_table.Nentry - 1])
     return 0;
 
-  const double logD = gsl_interp_eval(mat_intp, logk_tab, logD_tab, logk, mat_intp_acc);
+  const double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
 
   double power = pow(10.0, logD);//*2*M_PI*M_PI;
 
