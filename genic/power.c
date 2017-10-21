@@ -5,7 +5,6 @@
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_interp.h>
 #include "genic/power.h"
-#include "genic/allvars.h"
 #include "cosmology.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -18,8 +17,10 @@ static double tk_eh(double k);
 
 static double Norm;
 static int WhichSpectrum;
-/*Only used for WhichSpectrum == 0*/
+/*Only used for tk_eh, WhichSpectrum == 0*/
 static double PrimordialIndex;
+static double UnitLength_in_cm;
+static Cosmology * CP;
 
 #define MAXCOLS 3
 
@@ -38,16 +39,10 @@ double PowerSpec(double k, int Type)
 {
   double power;
 
-  switch (WhichSpectrum)
-  {
-    case 2:
+  if(WhichSpectrum == 2)
       power = PowerSpec_Tabulated(k, Type);
-      break;
-
-    default:
+  else
       power = PowerSpec_EH(k);
-      break;
-  }
 
   /*Normalise the power spectrum*/
   power *= Norm;
@@ -100,7 +95,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     out_tab->logD[2][i] = pow(transfers[6]/transfers[5],2);
 }
 
-void read_power_table(const char * inputfile, const int ncols, struct table * out_tab, double scale, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, double scale))
+void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, double scale, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, double scale))
 {
     FILE *fd = NULL;
     int j;
@@ -166,15 +161,18 @@ void read_power_table(const char * inputfile, const int ncols, struct table * ou
     }
 }
 
-void initialize_powerspectrum(struct power_params * ppar)
+int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in, Cosmology * CPin, struct power_params * ppar)
 {
     if(ppar->WhichSpectrum == 2) {
-        read_power_table(ppar->FileWithInputSpectrum, 1, &power_table, ppar->SpectrumLengthScale, parse_power);
+        read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, ppar->SpectrumLengthScale, parse_power);
         if(ppar->DifferentTransferFunctions)
-            read_power_table(ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, ppar->SpectrumLengthScale, parse_transfer);
+            read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, ppar->SpectrumLengthScale, parse_transfer);
     }
-    PrimordialIndex = ppar->PrimordialIndex;
     WhichSpectrum = ppar->WhichSpectrum;
+    /*Used only for tk_eh*/
+    PrimordialIndex = ppar->PrimordialIndex;
+    UnitLength_in_cm = UnitLength_in_cm_in;
+    CP = CPin;
 
     Norm = 1.0;
     if (ppar->Sigma8 > 0) {
@@ -188,6 +186,7 @@ void initialize_powerspectrum(struct power_params * ppar)
         Norm *= (Dplus * Dplus);
         message(0,"Growth factor to z=0: %g \n", Dplus);
     }
+    return power_table.Nentry;
 }
 
 double PowerSpec_Tabulated(double k, int Type)
@@ -221,13 +220,13 @@ double tk_eh(double k)		/* from Martin White */
   double omegam, ombh2, hubble;
 
   /* other input parameters */
-  hubble = CP.HubbleParam;
+  hubble = CP->HubbleParam;
 
-  omegam = CP.Omega0;
-  ombh2 = CP.OmegaBaryon * CP.HubbleParam * CP.HubbleParam;
+  omegam = CP->Omega0;
+  ombh2 = CP->OmegaBaryon * CP->HubbleParam * CP->HubbleParam;
 
-  if(CP.OmegaBaryon == 0)
-    ombh2 = 0.044 * CP.HubbleParam * CP.HubbleParam;
+  if(CP->OmegaBaryon == 0)
+    ombh2 = 0.044 * CP->HubbleParam * CP->HubbleParam;
 
   k *= (3.085678e24 / UnitLength_in_cm);	/* convert to h/Mpc */
 

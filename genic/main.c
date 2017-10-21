@@ -36,7 +36,7 @@ int main(int argc, char **argv)
   walltime_init(&CT);
   mymalloc_init(MaxMemSizePerNode);
 
-  initialize_powerspectrum(&PowerP);
+  initialize_powerspectrum(ThisTask, InitTime, UnitLength_in_cm, &CP, &PowerP);
 
   initialize_ffts();
 

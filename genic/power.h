@@ -1,5 +1,8 @@
 #ifndef GENIC_POWER_H
 #define GENIC_POWER_H
+
+#include "cosmology.h"
+
 struct power_params
 {
     int WhichSpectrum;
@@ -13,6 +16,6 @@ struct power_params
 };
 
 double PowerSpec(double kmag, int Type);
-void   initialize_powerspectrum(struct power_params * ppar);
+int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in, Cosmology * CPin, struct power_params * ppar);
 
 #endif
