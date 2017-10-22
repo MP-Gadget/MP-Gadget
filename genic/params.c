@@ -46,7 +46,7 @@ create_parameters()
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Set up an run that uses Peculiar Velocity in IO");
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
-    param_declare_double(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling. If Sigma8 is > 0 this should be the redshift of the desired Sigma8.");
+    param_declare_double(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
     param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
 
     param_declare_double(ps, "UnitVelocity_in_cm_per_s", OPTIONAL, 1e5, "Velocity unit in cm/sec. Default is 1 km/s");
@@ -112,6 +112,9 @@ void read_parameterfile(char *fname)
     /*Parameters of the power spectrum*/
     PowerP.InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
     PowerP.Sigma8 = param_get_double(ps, "Sigma8");
+    /*Always specify Sigm8 at z=0*/
+    if(PowerP.Sigma8 > 0)
+        PowerP.InputPowerRedshift = 0;
     PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
     PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
     PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
