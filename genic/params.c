@@ -56,16 +56,6 @@ create_parameters()
 
     param_declare_int(ps, "NumPartPerFile", OPTIONAL, 1024 * 1024 * 128, "");
     param_declare_int(ps, "NumWriters", OPTIONAL, 0, "");
-
-
-    param_declare_double(ps, "ShapeGamma", OPTIONAL, 0.201, "Ignored.");
-    param_declare_double(ps, "OmegaDM_2ndSpecies", OPTIONAL, 0, "Ignored.");
-    param_declare_int(ps, "SphereMode", OPTIONAL, 1, "Ignored.");
-    param_declare_int(ps, "Nsample", OPTIONAL, 0, "Ignored.");
-    param_declare_int(ps, "WDM_On", OPTIONAL, 0, "Ignored.");
-    param_declare_int(ps, "WDM_Vtherm_On", OPTIONAL, 0, "Ignored.");
-    param_declare_double(ps, "WDM_PartMass_in_kev", OPTIONAL, 0, "Ignored.");
-
     return ps;
 }
 void read_parameterfile(char *fname)
