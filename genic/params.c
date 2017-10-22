@@ -128,7 +128,8 @@ void read_parameterfile(char *fname)
     Unitary = param_get_int(ps, "Unitary");
     OutputDir = param_get_string(ps, "OutputDir");
     FileBase = param_get_string(ps, "FileBase");
-    NumPartPerFile = param_get_int(ps, "NumPartPerFile");
+    int64_t NumPartPerFile = param_get_int(ps, "NumPartPerFile");
+    NumFiles = ((int64_t) Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
     NumWriters = param_get_int(ps, "NumWriters");
 
     if(Nmesh == 0) {

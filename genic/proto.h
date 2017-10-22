@@ -1,8 +1,14 @@
-void   displacement_fields(void);
-void   initialize_ffts(void);
+#ifndef GENIC_PROTO_H
+#define GENIC_PROTO_H
+#include <bigfile.h>
+
+void shift_particles(double shift, int64_t FirstID);
+void   displacement_fields(int Type);
+void   setup_grid(double shift);
 void   free_ffts(void);
 
-double periodic_wrap(double x);
+void saveheader(BigFile * bf, int64_t TotNumPart);
+void  write_particle_data(int Type, BigFile * bf);
 
-void  write_particle_data(void);
 void  read_parameterfile(char *fname);
+#endif

@@ -28,7 +28,7 @@ extern struct part_data
 extern double InitTime;
 
 extern char * OutputDir, * FileBase;
-extern int  NumPartPerFile;
+extern int  NumFiles;
 extern int  NumWriters;
 
 extern int      ThisTask, NTask;

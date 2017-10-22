@@ -24,11 +24,16 @@ static void readout_force_x(int i, double * mesh, double weight);
 static void readout_force_y(int i, double * mesh, double weight);
 static void readout_force_z(int i, double * mesh, double weight);
 static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary);
-static void setup_grid();
 
-void initialize_ffts(void) {
-    petapm_init(Box, Nmesh, 1);
-    setup_grid();
+static inline double periodic_wrap(double x)
+{
+  while(x >= Box)
+    x -= Box;
+
+  while(x < 0)
+    x += Box;
+
+  return x;
 }
 
 uint64_t ijk_to_id(int i, int j, int k) {
@@ -38,9 +43,28 @@ uint64_t ijk_to_id(int i, int j, int k) {
 
 void free_ffts(void)
 {
+    myfree(P);
 }
 
-static void setup_grid() {
+/* Shift particles by a constant value and increase their ID,
+ * so we can dynamically produce gas*/
+void
+shift_particles(double shift, int64_t FirstID)
+{
+    /* First shift gas */
+    int i;
+    for(i = 0; i < NumPart; i ++) {
+        int k;
+        for(k = 0; k < 3; k ++) {
+            P[i].Pos[k] = periodic_wrap(P[i].Pos[k] + shift);
+        }
+        P[i].ID += FirstID;
+    }
+}
+
+void
+setup_grid(double shift)
+{
     int * ThisTask2d = petapm_get_thistask2d();
     int * NTask2d = petapm_get_ntask2d();
     int size[3];
@@ -65,9 +89,9 @@ static void setup_grid() {
         x = i / (size[2] * size[1]) + offset[0];
         y = (i % (size[1] * size[2])) / size[2] + offset[1];
         z = (i % size[2]) + offset[2];
-        P[i].Pos[0] = x * Box / Ngrid;
-        P[i].Pos[1] = y * Box / Ngrid;
-        P[i].Pos[2] = z * Box / Ngrid;
+        P[i].Pos[0] = x * Box / Ngrid + shift;
+        P[i].Pos[1] = y * Box / Ngrid + shift;
+        P[i].Pos[2] = z * Box / Ngrid + shift;
         P[i].Mass = 1.0;
         P[i].ID = ijk_to_id(x, y, z);
     }
@@ -103,7 +127,7 @@ static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
     return regions;
 }
 
-void displacement_fields() {
+void displacement_fields(int Type) {
     PetaPMFunctions functions[] = {
         {"Density", density_transfer, readout_density},
         {"DispX", disp_x_transfer, readout_force_x},
@@ -149,7 +173,7 @@ void displacement_fields() {
 
     if(UsePeculiarVelocity) {
         /* already for peculiar velocity */
-        message(0, "Producing Peculliar Velocity in the output.\n");
+        message(0, "Producing Peculiar Velocity in the output.\n");
     } else {
         vel_prefac /= sqrt(InitTime);	/* converts to Gadget velocity */
     }
@@ -166,6 +190,7 @@ void displacement_fields() {
         }
     }
     walltime_measure("/Disp/Finalize");
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 /********************

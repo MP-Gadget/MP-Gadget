@@ -4,11 +4,13 @@
 #include <stdio.h>
 #include <mpi.h>
 
+#include "bigfile-mpi.h"
 #include "genic/allvars.h"
 #include "genic/proto.h"
 #include "walltime.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "petapm.h"
 
 static struct ClockTable CT;
 void print_spec(void);
@@ -27,20 +29,40 @@ int main(int argc, char **argv)
 
   walltime_init(&CT);
   mymalloc_init(MaxMemSizePerNode);
+  const double meanspacing = Box / Ngrid;
+  const double shift_gas = -0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
+  const double shift_dm = +0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
 
   initialize_powerspectrum(ThisTask, InitTime, UnitLength_in_cm, &CP, &PowerP);
+  petapm_init(Box, Nmesh, 1);
+  setup_grid(ProduceGas * shift_dm);
 
-  initialize_ffts();
+  /*Write the header*/
+  char buf[4096];
+  snprintf(buf, 4096, "%s/%s", OutputDir, FileBase);
+  BigFile bf;
+  if(0 != big_file_mpi_create(&bf, buf, MPI_COMM_WORLD)) {
+      endrun(0, "%s\n", big_file_get_error_message());
+  }
+  saveheader(&bf, Ngrid*Ngrid*Ngrid);
 
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  displacement_fields();
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  write_particle_data();
-  if(NumPart)
-    myfree(P);
+  /*First compute and write CDM*/
+  displacement_fields(1);
+  write_particle_data(1, &bf);
+  /*Now write gas if required*/
+  if(ProduceGas) {
+    /* If we have different transfer functions
+     * we need new displacements.*/
+    if(PowerP.DifferentTransferFunctions) {
+        free_ffts();
+        setup_grid(shift_gas);
+        displacement_fields(0);
+    }
+    /*Otherwise we can just translate the particles*/
+    else
+        shift_particles(shift_gas - shift_dm, Ngrid*Ngrid*Ngrid);
+    write_particle_data(0, &bf);
+  }
 
   free_ffts();
 
@@ -55,18 +77,6 @@ int main(int argc, char **argv)
 
   MPI_Finalize();		/* clean up & finalize MPI */
   return 0;
-}
-
-
-double periodic_wrap(double x)
-{
-  while(x >= Box)
-    x -= Box;
-
-  while(x < 0)
-    x += Box;
-
-  return x;
 }
 
 void print_spec(void)

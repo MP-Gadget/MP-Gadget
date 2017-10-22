@@ -18,7 +18,7 @@ double InitTime;
 
 char * OutputDir, * FileBase;
 int NumWriters;
-int  NumPartPerFile;
+int  NumFiles;
 
 int ThisTask, NTask;
 
