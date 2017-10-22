@@ -15,7 +15,6 @@ double MaxMemSizePerNode;
 struct part_data *P;
 
 double InitTime;
-double MassTable[6];
 
 char * OutputDir, * FileBase;
 int NumWriters;

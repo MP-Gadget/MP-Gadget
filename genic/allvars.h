@@ -26,7 +26,6 @@ extern struct part_data
 } *P;
 
 extern double InitTime;
-extern double MassTable[6];
 
 extern char * OutputDir, * FileBase;
 extern int  NumPartPerFile;

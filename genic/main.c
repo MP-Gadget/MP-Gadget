@@ -20,15 +20,7 @@ int main(int argc, char **argv)
   MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
   if(argc < 2)
-    {
-      if(ThisTask == 0)
-	{
-	  fprintf(stdout, "\nParameters are missing.\n");
-	  fprintf(stdout, "Call with <ParameterFile>\n\n");
-	}
-      MPI_Finalize();
-      exit(0);
-    }
+    endrun(0,"Please pass a parameter file.\n");
 
   /* fixme: make this a mpi bcast */
   read_parameterfile(argv[1]);
@@ -52,18 +44,17 @@ int main(int argc, char **argv)
 
   free_ffts();
 
-
   walltime_summary(0, MPI_COMM_WORLD);
   walltime_report(stdout, 0, MPI_COMM_WORLD);
 
-      message(0, "IC's generated.\n");
-      message(0, "Initial scale factor = %g\n", InitTime);
+  message(0, "IC's generated.\n");
+  message(0, "Initial scale factor = %g\n", InitTime);
 
   MPI_Barrier(MPI_COMM_WORLD);
   print_spec();
 
   MPI_Finalize();		/* clean up & finalize MPI */
-  exit(0);
+  return 0;
 }
 
 
