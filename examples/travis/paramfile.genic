@@ -23,9 +23,6 @@ Sigma8 =  0.8223      # power spectrum normalization
 
 FileWithInputSpectrum = wmap9-z0.txt  # filename of tabulated input
                                        # spectrum (if used)
-#Redshift at which to normalise power spectrum:
-#note if Sigma8 > 0 this is the redshift at which power == Sigma8.
-InputPowerRedshift = 0
 
 InputSpectrum_UnitLength_in_cm = 3.085678e24                     # defines length unit of tabulated
                                                                    # input spectrum in cm/h. 
