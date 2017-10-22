@@ -81,9 +81,9 @@ void saveheader(BigFile * bf, int64_t TotNumPart) {
             (big_block_set_attr(&bheader, "Redshift", &redshift, "f8", 1)) ||
             (big_block_set_attr(&bheader, "BoxSize", &Box, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UsePeculiarVelocity", &UsePeculiarVelocity, "i4", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaM", &CP.Omega0, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaB", &CP.OmegaBaryon, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaL", &CP.OmegaLambda, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "Omega0", &CP.Omega0, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "OmegaBaryon", &CP.OmegaBaryon, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "OmegaLambda", &CP.OmegaLambda, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitLength_in_cm", &UnitLength_in_cm, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitMass_in_g", &UnitMass_in_g, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitVelocity_in_cm_per_s", &UnitVelocity_in_cm_per_s, "f8", 1)) ||
