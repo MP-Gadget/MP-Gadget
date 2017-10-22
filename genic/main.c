@@ -83,7 +83,7 @@ void print_spec(void)
 {
   if(ThisTask == 0)
     {
-      double k, po, dl, kstart, kend, DDD;
+      double k, kstart, kend, DDD;
       char buf[1000];
       FILE *fd;
 
@@ -91,23 +91,22 @@ void print_spec(void)
       
       fd = fopen(buf, "w");
       if (fd == NULL) {
-          printf("Failed to create powerspec file at:%s\n", buf);
+        message(1, "Failed to create powerspec file at:%s\n", buf);
         return;
       }
       DDD = GrowthFactor(InitTime, 1.0);
 
-      fprintf(fd, "%12g %12g\n", 1/InitTime-1, DDD);	/* print actual starting redshift and 
-							   linear growth factor for this cosmology */
-      kstart = 2 * M_PI / (1000.0 * (3.085678e24 / UnitLength_in_cm));	/* 1000 Mpc/h */
-      kend = 2 * M_PI / (0.001 * (3.085678e24 / UnitLength_in_cm));	/* 0.001 Mpc/h */
+      fprintf(fd, "# %12g %12g\n", 1/InitTime-1, DDD);
+      /* print actual starting redshift and linear growth factor for this cosmology */
+      kstart = 2 * M_PI / (2*Box * (3.085678e24 / UnitLength_in_cm));	/* 2x box size Mpc/h */
+      kend = 2 * M_PI / (Box/(8*Ngrid) * (3.085678e24 / UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
 
-      printf("kstart=%lg kend=%lg\n",kstart,kend);
+      message(1,"kstart=%lg kend=%lg\n",kstart,kend);
 
       for(k = kstart; k < kend; k *= 1.025)
 	  {
-	    po = PowerSpec(k, 7);
-	    dl = 4.0 * M_PI * k * k * k * po;
-	    fprintf(fd, "%12g %12g\n", k, dl);
+	    double po = PowerSpec(k, 7);
+	    fprintf(fd, "%12g %12g\n", k, po);
 	  }
       fclose(fd);
     }
