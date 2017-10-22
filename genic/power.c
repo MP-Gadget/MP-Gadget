@@ -119,8 +119,6 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
             out_tab->Nentry++;
         }
         while(1);
-
-        message(1, "found %d pairs of values in input spectrum table\n", out_tab->Nentry);
         rewind(fd);
     }
     MPI_Bcast(&(out_tab->Nentry), 1, MPI_INT, 0, MPI_COMM_WORLD);
@@ -165,8 +163,10 @@ int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in
 {
     if(ppar->WhichSpectrum == 2) {
         read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, ppar->SpectrumLengthScale, parse_power);
+        transfer_table.Nentry = 0;
         if(ppar->DifferentTransferFunctions)
             read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, ppar->SpectrumLengthScale, parse_transfer);
+        message(0, "Power spectrum rows: %d, Transfer: %d\n", power_table.Nentry, transfer_table.Nentry);
     }
     WhichSpectrum = ppar->WhichSpectrum;
     /*Used only for tk_eh*/
@@ -199,7 +199,7 @@ double PowerSpec_Tabulated(double k, int Type)
   const double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
   double trans = 1;
   /*Transfer table stores (T_type(k) / T_tot(k))^2*/
-  if(Type < MAXCOLS)
+  if(Type < MAXCOLS && transfer_table.Nentry > 0)
       trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
 
   double power = pow(10.0, logD) * trans;
