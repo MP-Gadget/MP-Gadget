@@ -1,5 +1,5 @@
 from nbodykit.lab import *
-from nbodykit.cosmology import Planck15, LinearPower
+from nbodykit.cosmology import WMAP9, LinearPower
 import os
 from numpy.testing import assert_allclose
 
@@ -31,9 +31,9 @@ def test_power(output, ref, ref_z):
     canvas = FigureCanvasAgg(fig)
     ax = fig.add_subplot(111)
 
-    pklin = LinearPower(Planck15, redshift=z)
+    pklin = LinearPower(WMAP9, redshift=z)
 
-    D = Planck15.scale_independent_growth_factor(z) / Planck15.scale_independent_growth_factor(ref_z)
+    D = WMAP9.scale_independent_growth_factor(z) / WMAP9.scale_independent_growth_factor(ref_z)
 
     ax.plot(pksim.power['k'], pksim.power['power'] / pklin(pksim.power['k']), label=output)
     ax.plot(ref.power['k'], ref.power['power'] * D ** 2 / pklin(ref.power['k']), label='ref, linearly grown')
@@ -50,12 +50,12 @@ def test_power(output, ref, ref_z):
 
 # asserting the initial power spectrum is 5% accurate
 print("testing IC power")
-pklin = LinearPower(Planck15, redshift=ref_z)
-print(ref_z, ref.power['power'][2:8])
-print(pklin(ref.power['k'][2:8]))
-assert_allclose(abs(ref.power['power'])[2:8],
-                abs(pklin(ref.power['k']))[2:8],
-                rtol=0.05, atol=0.0)
+pklin = LinearPower(WMAP9, redshift=ref_z)
+print(ref_z, ref.power['power'][2:20])
+print(pklin(ref.power['k'][2:20]))
+assert_allclose(abs(ref.power['power'])[2:20],
+                abs(pklin(ref.power['k']))[2:20],
+                rtol=0.01, atol=0.0)
 
 test_power('output/IC', ref, ref_z)
 
