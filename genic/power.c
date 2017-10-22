@@ -184,7 +184,7 @@ int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in
     if(ppar->InputPowerRedshift >= 0) {
         double Dplus = GrowthFactor(InitTime, 1/(1+ppar->InputPowerRedshift));
         Norm *= (Dplus * Dplus);
-        message(0,"Growth factor to z=0: %g \n", Dplus);
+        message(0,"Growth factor to z=%g: %g \n", ppar->InputPowerRedshift, Dplus);
     }
     return power_table.Nentry;
 }
