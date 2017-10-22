@@ -20,7 +20,8 @@ TESTED = \
 	forcetree \
 	timefac \
 	timebinmgr \
-	memory
+	memory \
+	genic-power
 
 TESTBIN = $(TESTED:%=tests/test_%)
 SUITE?= $(TESTBIN)
@@ -43,4 +44,7 @@ clean-tests:
 $(TESTBIN):
 
 tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o $(DESTDIR)/memory.o $(DESTDIR)/mymalloc.o $(DESTDIR)/system.o depends/lib/libcmocka.a
+	$(MPICC) $(CFLAGS) $^ $(LIBS) -o $@
+
+tests/test_genic-%: tests/test_genic-%.c tests/stub.c $(DESTDIR)/genic/%.o $(DESTDIR)/endrun.o $(DESTDIR)/memory.o $(DESTDIR)/mymalloc.o $(DESTDIR)/system.o depends/lib/libcmocka.a
 	$(MPICC) $(CFLAGS) $^ $(LIBS) -o $@
