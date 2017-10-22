@@ -131,6 +131,8 @@ void read_parameterfile(char *fname)
     int64_t NumPartPerFile = param_get_int(ps, "NumPartPerFile");
     NumFiles = ((int64_t) Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
     NumWriters = param_get_int(ps, "NumWriters");
+    if(PowerP.DifferentTransferFunctions && PowerP.InputPowerRedshift >= 0)
+        message(0, "WARNING: Using different transfer functions but also rescaling power to account for linear growth. NOT what you want!\n");
 
     if(Nmesh == 0) {
         Nmesh = 2*Ngrid;
