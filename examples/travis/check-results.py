@@ -1,6 +1,8 @@
 from nbodykit.lab import *
 from nbodykit.cosmology import WMAP9, LinearPower
 import os
+import numpy
+import scipy.interpolate
 from numpy.testing import assert_allclose
 
 from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -47,10 +49,13 @@ def test_power(output, ref, ref_z):
                     abs(ref.power['power'])[2:8] * D ** 2,
                         rtol=0.01, atol=0.0)
 
-
-# asserting the initial power spectrum is 5% accurate
+# asserting the initial power spectrum is 1% accurate
 print("testing IC power")
 pklin = LinearPower(WMAP9, redshift=ref_z)
+#This checks that the power spectrum loading and rescaling code is working.
+genpk = numpy.loadtxt("output/inputspec_IC.txt")
+assert_allclose(pklin(genpk[:,0]), genpk[:,1], rtol=5e-4, atol=0.0)
+#This checks that the output is working
 print(ref_z, ref.power['power'][2:20])
 print(pklin(ref.power['k'][2:20]))
 assert_allclose(abs(ref.power['power'])[2:20],
