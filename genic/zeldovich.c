@@ -10,6 +10,7 @@
 #include "petapm.h"
 #include "genic/allvars.h"
 #include "genic/proto.h"
+#include "genic/power.h"
 #include "walltime.h"
 #include "endrun.h"
 #include "mymalloc.h"
@@ -127,7 +128,12 @@ static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
     return regions;
 }
 
+/*Global to pass type to *_transfer functions*/
+static int ptype;
+
 void displacement_fields(int Type) {
+    /*MUST set this before doing force.*/
+    ptype = Type;
     PetaPMFunctions functions[] = {
         {"Density", density_transfer, readout_density},
         {"DispX", disp_x_transfer, readout_force_x},
@@ -165,7 +171,7 @@ void displacement_fields(int Type) {
     }
     double maxdispall;
     MPI_Reduce(&maxdisp, &maxdispall, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    message(0, "max disp = %g in units of cell sep %g \n", maxdispall, maxdispall / (Box / Nmesh) );
+    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdispall, maxdispall / (Box / Nmesh) );
 
     double hubble_a = hubble_function(InitTime);
 
@@ -212,7 +218,7 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
         double fac = exp(- k2 * r2);
 
         double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag, 7) / (Box * Box * Box));
+        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
 
         value[0][0] *= fac;
         value[0][1] *= fac;
@@ -232,7 +238,7 @@ static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
                     */
 
         double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag, 7) / (Box * Box * Box));
+        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
 
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
@@ -243,7 +249,7 @@ static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (Box / (2 * M_PI)) * kpos[1] / k2;
         double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag, 7) / (Box * Box * Box));
+        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -253,7 +259,7 @@ static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (Box / (2 * M_PI)) * kpos[2] / k2;
         double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag, 7) / (Box * Box * Box));
+        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
 
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
