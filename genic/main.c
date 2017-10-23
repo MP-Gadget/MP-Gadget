@@ -105,7 +105,7 @@ void print_spec(void)
 
       for(k = kstart; k < kend; k *= 1.025)
 	  {
-	    double po = PowerSpec(k, 7);
+	    double po = PowerSpec(k, -1);
 	    fprintf(fd, "%12g %12g\n", k, po);
 	  }
       fclose(fd);

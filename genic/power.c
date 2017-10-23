@@ -199,7 +199,7 @@ double PowerSpec_Tabulated(double k, int Type)
   const double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
   double trans = 1;
   /*Transfer table stores (T_type(k) / T_tot(k))^2*/
-  if(Type < MAXCOLS && transfer_table.Nentry > 0)
+  if(Type >= 0 && Type < MAXCOLS && transfer_table.Nentry > 0)
       trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
 
   double power = pow(10.0, logD) * trans;
@@ -274,7 +274,7 @@ double sigma2_int(double k, void * params)
       w = 1./3. - kr2/30. +kr2*kr2/840.;
   else
       w = 3 * (sin(kr) / kr - cos(kr)) / kr2;
-  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * PowerSpec(k, 7);
+  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * PowerSpec(k, -1);
 
   return x;
 
