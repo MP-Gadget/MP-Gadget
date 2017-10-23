@@ -9,7 +9,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "stub.h"
-#include "../genic/power.h"
+#include "config.h"
+#include "genic/power.h"
 
 /*Dummy growth factor, tested elsewhere.*/
 double GrowthFactor(double astart, double aend)
@@ -26,8 +27,8 @@ test_read_no_rescale(void ** state)
     /*Test without rescaling*/
     PowerP.InputPowerRedshift = -1;
     PowerP.Sigma8 = -1;
-    PowerP.FileWithInputSpectrum = "examples/camb_matterpow_99.dat";
-    PowerP.FileWithTransferFunction = "examples/camb_transfer_99.dat";
+    PowerP.FileWithInputSpectrum = GADGET_TESTDATA_ROOT "/examples/camb_matterpow_99.dat";
+    PowerP.FileWithTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_99.dat";
     PowerP.DifferentTransferFunctions = 1;
     PowerP.WhichSpectrum = 2;
     PowerP.SpectrumLengthScale = 1000;
