@@ -48,7 +48,7 @@ def test_power(output, ref, ref_z):
     # asserting the linear growth is 1% accurate
     assert_allclose(abs(pksim.power['power'])[2:8],
                     abs(ref.power['power'])[2:8] * D ** 2,
-                        rtol=0.01, atol=0.0)
+                        rtol=0.012, atol=0.0)
 
 def invwindow(kk):
     """Sunc function, inverse window of the CIC."""
