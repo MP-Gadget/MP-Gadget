@@ -15,7 +15,7 @@ def compute_power(output):
 
     cat.attrs['BoxSize'] = cat.attrs['dm.BoxSize'] * [1, 1, 1]
 
-    pksim = FFTPower(cat, mode='1d', Nmesh=128)
+    pksim = FFTPower(cat.to_mesh(interlaced=True, window='tsc', compensated=True, Nmesh=128), mode='1d')
 #    pksimgas = FFTPower(cat['gas'], mode='1d', Nmesh=128)
 #    pksimdm = FFTPower(cat['dm'], mode='1d', Nmesh=128)
     z = 1. / cat.attrs['dm.Time'] - 1
