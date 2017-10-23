@@ -47,24 +47,8 @@ void free_ffts(void)
     myfree(P);
 }
 
-/* Shift particles by a constant value and increase their ID,
- * so we can dynamically produce gas*/
 void
-shift_particles(double shift, int64_t FirstID)
-{
-    /* First shift gas */
-    int i;
-    for(i = 0; i < NumPart; i ++) {
-        int k;
-        for(k = 0; k < 3; k ++) {
-            P[i].Pos[k] = periodic_wrap(P[i].Pos[k] + shift);
-        }
-        P[i].ID += FirstID;
-    }
-}
-
-void
-setup_grid(double shift)
+setup_grid(double shift, int64_t FirstID)
 {
     int * ThisTask2d = petapm_get_thistask2d();
     int * NTask2d = petapm_get_ntask2d();
@@ -94,7 +78,7 @@ setup_grid(double shift)
         P[i].Pos[1] = y * Box / Ngrid + shift;
         P[i].Pos[2] = z * Box / Ngrid + shift;
         P[i].Mass = 1.0;
-        P[i].ID = ijk_to_id(x, y, z);
+        P[i].ID = ijk_to_id(x, y, z) + FirstID;
     }
 }
 

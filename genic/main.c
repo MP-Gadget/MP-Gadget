@@ -32,10 +32,11 @@ int main(int argc, char **argv)
   const double meanspacing = Box / Ngrid;
   const double shift_gas = -0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
   const double shift_dm = +0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
+  int64_t TotNumPart = (int64_t) Ngrid*Ngrid*Ngrid;
 
   initialize_powerspectrum(ThisTask, InitTime, UnitLength_in_cm, &CP, &PowerP);
   petapm_init(Box, Nmesh, 1);
-  setup_grid(ProduceGas * shift_dm);
+  setup_grid(ProduceGas * shift_dm, 0);
 
   /*Write the header*/
   char buf[4096];
@@ -44,27 +45,20 @@ int main(int argc, char **argv)
   if(0 != big_file_mpi_create(&bf, buf, MPI_COMM_WORLD)) {
       endrun(0, "%s\n", big_file_get_error_message());
   }
-  saveheader(&bf, Ngrid*Ngrid*Ngrid);
+  saveheader(&bf, TotNumPart);
 
   /*First compute and write CDM*/
   displacement_fields(1);
   write_particle_data(1, &bf);
-  /*Now write gas if required*/
-  if(ProduceGas) {
-    /* If we have different transfer functions
-     * we need new displacements.*/
-    if(PowerP.DifferentTransferFunctions) {
-        free_ffts();
-        setup_grid(shift_gas);
-        displacement_fields(0);
-    }
-    /*Otherwise we can just translate the particles*/
-    else
-        shift_particles(shift_gas - shift_dm, Ngrid*Ngrid*Ngrid);
-    write_particle_data(0, &bf);
-  }
-
   free_ffts();
+
+  /*Now make the gas if required*/
+  if(ProduceGas) {
+    setup_grid(shift_gas, TotNumPart);
+    displacement_fields(0);
+    write_particle_data(0, &bf);
+    free_ffts();
+  }
 
   walltime_summary(0, MPI_COMM_WORLD);
   walltime_report(stdout, 0, MPI_COMM_WORLD);
