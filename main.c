@@ -51,12 +51,12 @@ int main(int argc, char **argv)
 
     if(ThisTask == 0)
     {
-        /*    printf("\nThis is P-Gadget, version `%s', svn-revision `%s'.\n", GADGETVERSION, svn_version()); */
-        printf("This is MP-Gadget, version %s.\n", GADGETVERSION);
+        /*    printf("\nThis is P-Gadget, version `%s', svn-revision `%s'.\n", GADGET_VERSION, svn_version()); */
+        printf("This is MP-Gadget, version %s.\n", GADGET_VERSION);
         printf("Running on %d MPI Ranks.\n", NTask);
         printf("           %d OpenMP Threads.\n", omp_get_max_threads());
         printf("Code was compiled with settings:\n"
-               "%s\n", COMPILETIMESETTINGS);
+               "%s\n", GADGET_COMPILER_SETTINGS);
         printf("Size of particle structure       %td  [bytes]\n",sizeof(struct particle_data));
         printf("Size of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
         printf("Size of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));

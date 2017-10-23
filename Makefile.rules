@@ -1,12 +1,12 @@
 # vim: set ft=make:
-DESTDIR ?= .
+DESTDIR ?= $(CURDIR)
 
 LOW_PRECISION ?= double
 HIGH_PRECISION ?= double
 
 TARGETS = MP-Gadget MP-GenIC
 
-CFLAGS = -I. -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) -I$(CURDIR)/depends/include
+CFLAGS = -I$(CURDIR) -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) -I$(CURDIR)/depends/include
 CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
 CFLAGS += "-DHIGH_PRECISION=$(HIGH_PRECISION)"
 
@@ -82,15 +82,15 @@ $(DESTDIR)/MP-GenIC: $(ICOBJS)
 
 $(DESTDIR)/config.h: Makefile $(CONFIG) $(FILES)
 	mkdir -p `dirname $@`
-	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh > $@
+	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh $@
 
-$(DESTDIR)/%.o: %.c $(INCL)
+$(DESTDIR)/%.o: %.c $(INCL) $(DESTDIR)/config.h
 	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<
 
 $(DESTDIR)/main.o: main.c $(INCL) $(DESTDIR)/config.h
 	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<
 
-$(DESTDIR)/%.o: %.cpp $(INCL)
+$(DESTDIR)/%.o: %.cpp $(INCL) $(DESTDIR)/config.h
 	@echo Compiling $<; $(MPICXX) -c -o $@ $(CFLAGS) $<
 
 clean:

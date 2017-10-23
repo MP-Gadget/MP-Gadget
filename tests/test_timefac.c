@@ -11,8 +11,8 @@
 #include <stdint.h>
 
 #include "stub.h"
-#include "../allvars.h"
-#include "../timefac.h"
+#include "allvars.h"
+#include "timefac.h"
 
 #define AMIN 0.005
 #define AMAX 1.0

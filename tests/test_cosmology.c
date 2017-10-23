@@ -8,9 +8,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include "../physconst.h"
-#include "../cosmology.h"
 #include <gsl/gsl_sf_hyperg.h>
+#include "physconst.h"
+#include "cosmology.h"
 #include "stub.h"
 
 void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H0)

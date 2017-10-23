@@ -18,6 +18,7 @@
 #include "openmpsort.h"
 #include "utils-string.h"
 #include "endrun.h"
+#include "config.h"
 
 /*Defined in fofpetaio.c and only used here*/
 void fof_register_io_blocks();
@@ -292,10 +293,6 @@ petaio_read_snapshot(int num)
 }
 
 
-/*Defined in config.h and pulled in via main.c*/
-extern const char * COMPILETIMESETTINGS;
-extern const char * GADGETVERSION;
-
 /* write a header block */
 static void petaio_write_header(BigFile * bf) {
     BigBlock bh = {0};
@@ -327,8 +324,8 @@ static void petaio_write_header(BigFile * bf) {
     (0 != big_block_set_attr(&bh, "UnitLength_in_cm", &All.UnitLength_in_cm, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "UnitMass_in_g", &All.UnitMass_in_g, "f8", 1)) ||
     (0 != big_block_set_attr(&bh, "UnitVelocity_in_cm_per_s", &All.UnitVelocity_in_cm_per_s, "f8", 1)) ||
-    (0 != big_block_set_attr(&bh, "CodeVersion", GADGETVERSION, "S1", strlen(GADGETVERSION))) ||
-    (0 != big_block_set_attr(&bh, "CompileSettings", COMPILETIMESETTINGS, "S1", strlen(COMPILETIMESETTINGS))) ||
+    (0 != big_block_set_attr(&bh, "CodeVersion", GADGET_VERSION, "S1", strlen(GADGET_VERSION))) ||
+    (0 != big_block_set_attr(&bh, "CompilerSettings", GADGET_COMPILER_SETTINGS, "S1", strlen(GADGET_COMPILER_SETTINGS))) ||
     (0 != big_block_set_attr(&bh, "DensityKernel", &All.DensityKernelType, "u8", 1)) ||
     (0 != big_block_set_attr(&bh, "HubbleParam", &All.CP.HubbleParam, "f8", 1)) ) {
         endrun(0, "Failed to write attributes %s\n",

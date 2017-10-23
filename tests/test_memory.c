@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #include "stub.h"
-#include "../memory.h"
+#include "memory.h"
 
 
 static void
