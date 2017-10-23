@@ -21,10 +21,10 @@ TimeLimitCPU = 43000 #= 8 hours
 
 TimeMax = 0.15
 
-Omega0 = 0.3089      # Total matter density  (at z=0)
-OmegaLambda = 0.6911      # Cosmological constant (at z=0)
-OmegaBaryon = 0.0486     # Baryon density        (at z=0)
-HubbleParam = 0.6774      # Hubble paramater (may be used for power spec parameterization)
+Omega0 = 0.2865      # Total matter density  (at z=0)
+OmegaLambda = 0.7135      # Cosmological constant (at z=0)
+OmegaBaryon = 0.0463     # Baryon density        (at z=0)
+HubbleParam = 0.6932      # Hubble paramater (may be used for power spec parameterization)
 
 HydroOn = 0
 CoolingOn = 0

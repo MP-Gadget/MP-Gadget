@@ -10,20 +10,19 @@ Ngrid = 64 # Size of cubic grid on which to create particles.
 BoxSize = 512.0   # Periodic box size of simulation
 
 
-Omega0 = 0.3089      # Total matter density  (at z=0)
-OmegaLambda = 0.6911      # Cosmological constant (at z=0)
-OmegaBaryon = 0.0486     # Baryon density        (at z=0)
+Omega0 = 0.2865      # Total matter density  (at z=0)
+OmegaLambda = 0.7135      # Cosmological constant (at z=0)
+OmegaBaryon = 0.0463     # Baryon density        (at z=0)
 ProduceGas = 1         # 0 is dm only. 1 is gas
-HubbleParam = 0.6774      # Hubble paramater (may be used for power spec parameterization)
+HubbleParam = 0.6932      # Hubble paramater (may be used for power spec parameterization)
 
 Redshift = 9        # Starting redshift
 
-Sigma8 = 0.8158      # power spectrum normalization
+Sigma8 =  0.8223      # power spectrum normalization
 
 
-FileWithInputSpectrum = planck15-z9.txt  # filename of tabulated input
+FileWithInputSpectrum = wmap9-z0.txt  # filename of tabulated input
                                        # spectrum (if used)
-InputPowerRedshift = 9.0
 
 InputSpectrum_UnitLength_in_cm = 3.085678e24                     # defines length unit of tabulated
                                                                    # input spectrum in cm/h. 
@@ -31,7 +30,7 @@ InputSpectrum_UnitLength_in_cm = 3.085678e24                     # defines lengt
 
 UsePeculiarVelocity = 1  # Use peculiar velocity like FastPM
 
-PrimordialIndex = 0.971      # may be used to rebuild the primordial power
+PrimordialIndex = 1.      # may be used to rebuild the primordial power
 
 Seed = 181170    #  seed for IC-generator
 Unitary = 1  # set amplitude of gaussian to 1.

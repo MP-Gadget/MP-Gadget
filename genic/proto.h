@@ -1,13 +1,13 @@
-void   print_spec(void);
-void   displacement_fields(void);
-void   initialize_ffts(void);
-void   assemble_particles(void);
+#ifndef GENIC_PROTO_H
+#define GENIC_PROTO_H
+#include <bigfile.h>
+
+void   displacement_fields(int Type);
+void   setup_grid(double shift, int64_t FirstID);
 void   free_ffts(void);
 
-double periodic_wrap(double x);
+void saveheader(BigFile * bf, int64_t TotNumPart);
+void  write_particle_data(int Type, BigFile * bf);
 
-double PowerSpec(double kmag);
-void   initialize_powerspectrum(void);
-
-void  write_particle_data(void);
 void  read_parameterfile(char *fname);
+#endif

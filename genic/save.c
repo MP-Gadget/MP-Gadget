@@ -11,71 +11,14 @@
 
 #include "walltime.h"
 
-static void saveblock(BigFile * bf, void * baseptr, char * name, char * dtype, int items_per_particle);
-void saveheader(BigFile * bf);
-int64_t TotNumPart;
-int NumFiles;
-void write_particle_data(void) {
-
-    int64_t numpart_64 = NumPart;
-    MPI_Allreduce(&numpart_64, &TotNumPart, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
-
-    NumFiles = (TotNumPart + NumPartPerFile - 1) / NumPartPerFile;
-
-    char buf[4096];
-
-    walltime_measure("/Misc");
-
-    sprintf(buf, "%s/%s", OutputDir, FileBase);
-
-    BigFile bf;
-
-    if(0 != big_file_mpi_create(&bf, buf, MPI_COMM_WORLD)) {
-        endrun(0, "%s\n", big_file_get_error_message());
-    }
-
-    saveheader(&bf);
-
-    if (ProduceGas) {
-        /* First shift gas */
-        double meanspacing = Box / pow(TotNumPart, 1.0 / 3);
-        double shift_gas = -0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
-        double shift_dm = +0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
-        int i;
-        for(i = 0; i < NumPart; i ++) {
-            int k;
-            for(k = 0; k < 3; k ++) {
-                P[i].Pos[k] = periodic_wrap(P[i].Pos[k] + shift_gas);
-            }
-        }
-        /* Write Gas */
-        saveblock(&bf, &P[0].Pos, "0/Position", "f8", 3);
-        saveblock(&bf, &P[0].Vel, "0/Velocity", "f4", 3);
-        saveblock(&bf, &P[0].ID, "0/ID", "u8", 1);
-
-        /* Then shift back to DM */
-        for(i = 0; i < NumPart; i ++) {
-            int k;
-            for(k = 0; k < 3; k ++) {
-                P[i].Pos[k] = periodic_wrap(P[i].Pos[k] + (shift_dm - shift_gas));
-            }
-            P[i].ID += TotNumPart;
-        }
-    }
-    /* Write DM */
-    saveblock(&bf, &P[0].Density, "1/ICDensity", "f4", 1);
-    saveblock(&bf, &P[0].Pos, "1/Position", "f8", 3);
-    saveblock(&bf, &P[0].Vel, "1/Velocity", "f4", 3);
-    saveblock(&bf, &P[0].ID, "1/ID", "u8", 1);
-    walltime_measure("/Write");
-}
-
-static void saveblock(BigFile * bf, void * baseptr, char * name, char * dtype, int items_per_particle) {
+static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, char * dtype, int items_per_particle, int64_t TotNumPart) {
     BigBlock block;
     BigArray array;
     BigBlockPtr ptr;
     size_t dims[2];
     ptrdiff_t strides[2];
+    char name[128];
+    snprintf(name, 128, "%d/%s", ptype, bname);
 
     dims[0] = NumPart;
     dims[1] = items_per_particle;
@@ -101,7 +44,19 @@ static void saveblock(BigFile * bf, void * baseptr, char * name, char * dtype, i
 
 }
 
-void saveheader(BigFile * bf) {
+void write_particle_data(int Type, BigFile * bf) {
+    int64_t numpart_64 = NumPart, TotNumPart;
+    MPI_Allreduce(&numpart_64, &TotNumPart, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+
+    /* Write particles */
+    saveblock(bf, &P[0].Density, Type, "ICDensity", "f4", 1, TotNumPart);
+    saveblock(bf, &P[0].Pos, Type, "Position", "f8", 3, TotNumPart);
+    saveblock(bf, &P[0].Vel, Type, "Velocity", "f4", 3, TotNumPart);
+    saveblock(bf, &P[0].ID, Type, "ID", "u8", 1, TotNumPart);
+    walltime_measure("/Write");
+}
+
+void saveheader(BigFile * bf, int64_t TotNumPart) {
     BigBlock bheader;
     if(0 != big_file_mpi_create_block(bf, &bheader, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "failed to create block %s:%s", "Header",
@@ -126,9 +81,9 @@ void saveheader(BigFile * bf) {
             (big_block_set_attr(&bheader, "Redshift", &redshift, "f8", 1)) ||
             (big_block_set_attr(&bheader, "BoxSize", &Box, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UsePeculiarVelocity", &UsePeculiarVelocity, "i4", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaM", &CP.Omega0, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaB", &CP.OmegaBaryon, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaL", &CP.OmegaLambda, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "Omega0", &CP.Omega0, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "OmegaBaryon", &CP.OmegaBaryon, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "OmegaLambda", &CP.OmegaLambda, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitLength_in_cm", &UnitLength_in_cm, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitMass_in_g", &UnitMass_in_g, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitVelocity_in_cm_per_s", &UnitVelocity_in_cm_per_s, "f8", 1)) ||

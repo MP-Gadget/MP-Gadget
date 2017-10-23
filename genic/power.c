@@ -4,41 +4,45 @@
 #include <mpi.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_interp.h>
-#include "genic/allvars.h"
-#include "genic/proto.h"
+#include "genic/power.h"
 #include "cosmology.h"
 #include "mymalloc.h"
 #include "endrun.h"
 
 static double PowerSpec_EH(double k);
-static double PowerSpec_Tabulated(double k);
+static double PowerSpec_Tabulated(double k, int Type);
 static double sigma2_int(double k, void * params);
 static double TopHatSigma2(double R);
 static double tk_eh(double k);
 
 static double Norm;
+static int WhichSpectrum;
+/*Only used for tk_eh, WhichSpectrum == 0*/
+static double PrimordialIndex;
+static double UnitLength_in_cm;
+static Cosmology * CP;
 
-static int NPowerTable;
+#define MAXCOLS 3
 
-static double * logk_tab;
-static double * logD_tab;
-gsl_interp * mat_intp;
-gsl_interp_accel * mat_intp_acc;
+struct table
+{
+    int Nentry;
+    double * logk;
+    double * logD[MAXCOLS];
+    gsl_interp * mat_intp[MAXCOLS];
+    gsl_interp_accel * mat_intp_acc[MAXCOLS];
+};
+static struct table power_table;
+static struct table transfer_table;
 
-double PowerSpec(double k)
+double PowerSpec(double k, int Type)
 {
   double power;
 
-  switch (WhichSpectrum)
-  {
-    case 2:
-      power = PowerSpec_Tabulated(k);
-      break;
-
-    default:
+  if(WhichSpectrum == 2)
+      power = PowerSpec_Tabulated(k, Type);
+  else
       power = PowerSpec_EH(k);
-      break;
-  }
 
   /*Normalise the power spectrum*/
   power *= Norm;
@@ -46,22 +50,62 @@ double PowerSpec(double k)
   return power;
 }
 
-void read_power_table(void)
+void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, double scale)
 {
-    FILE *fd;
-    char buf[500];
+    char * retval;
+    if((*InputInLog10) == 0) {
+        if(k < 0) {
+            message(1, "some input k is negative, guessing the file is in log10 units\n");
+            *InputInLog10 = 1;
+        }
+        else
+            k = log10(k);
+    }
+    k -= log10(scale);	/* convert to h/Kpc */
+    out_tab->logk[i] = k;
+    retval = strtok(NULL, " \t");
+    if(!retval)
+        endrun(1,"Incomplete line in power spectrum: %s\n",line);
+    double p = atof(retval);
+    if ((*InputInLog10) == 0)
+        p = log10(p);
+    p += 3 * log10(scale);	/* convert to Kpc/h  */
+    out_tab->logD[0][i] = p;
+}
 
+void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, double scale)
+{
+    int j;
+    double transfers[7];
+    k = log10(k);
+    k -= log10(scale);	/* convert to h/Kpc */
+    out_tab->logk[i] = k;
+    /*CDM, Baryons, photons, massless nu, massive nu, tot, CDM+bar, other stuff*/
+    for(j = 0; j< 7; j++) {
+        char * retval = strtok(NULL, " \t");
+        if(!retval)
+            endrun(1,"Incomplete line in power spectrum: %s\n",line);
+        transfers[j] = atof(retval);
+    }
+    /*Order of the transfer table matches the particle types:
+     * 0 is baryons, 1 is CDM, 2 is CMB + baryons.
+     * Everything is a ratio against tot*/
+    out_tab->logD[0][i] = pow(transfers[1]/transfers[5],2);
+    out_tab->logD[1][i] = pow(transfers[0]/transfers[5],2);
+    out_tab->logD[2][i] = pow(transfers[6]/transfers[5],2);
+}
+
+void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, double scale, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, double scale))
+{
+    FILE *fd = NULL;
+    int j;
     int InputInLog10 = 0;
 
-    strcpy(buf, FileWithInputSpectrum);
-
     if(ThisTask == 0) {
-        if(!(fd = fopen(buf, "r")))
-        {
-            endrun(1, "can't read input spectrum in file '%s' on task %d\n", buf, ThisTask);
-        }
+        if(!(fd = fopen(inputfile, "r")))
+            endrun(1, "can't read input spectrum in file '%s' on task %d\n", inputfile, ThisTask);
 
-        NPowerTable = 0;
+        out_tab->Nentry = 0;
         do
         {
             char buffer[1024];
@@ -72,113 +116,93 @@ void read_power_table(void)
             retval = strtok(buffer, " \t");
             if(!retval || retval[0] == '#')
                 continue;
-            NPowerTable++;
+            out_tab->Nentry++;
         }
         while(1);
-
-        fclose(fd);
-
-        message(1, "found %d pairs of values in input spectrum table\n", NPowerTable);
+        rewind(fd);
     }
-    MPI_Bcast(&NPowerTable, 1, MPI_INT, 0, MPI_COMM_WORLD);
+    MPI_Bcast(&(out_tab->Nentry), 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-    if(NPowerTable < 2 && WhichSpectrum == 2)
+    if(out_tab->Nentry < 2)
         endrun(1, "Input spectrum too short\n");
-    logk_tab = mymalloc("Powertable", 2*NPowerTable * sizeof(double));
-    logD_tab = logk_tab + NPowerTable;
+    out_tab->logk = mymalloc("Powertable", (ncols+1)*out_tab->Nentry * sizeof(double));
+    for(j=0; j<ncols; j++)
+        out_tab->logD[j] = out_tab->logk + (j+1)*out_tab->Nentry;
 
-    if(ThisTask == 0) {
+    if(ThisTask == 0)
+    {
         int i = 0;
-        sprintf(buf, FileWithInputSpectrum);
-
-        if(!(fd = fopen(buf, "r")))
-        {
-            endrun(1, "can't read input spectrum in file '%s' on task %d\n", buf, ThisTask);
-        }
-
-        i = 0;
         do
         {
-            double k, p;
             char buffer[1024];
-            char * retval = fgets(buffer, 1024, fd);
+            char * line = fgets(buffer, 1024, fd);
             /*Happens on end of file*/
-            if(!retval)
+            if(!line)
                 break;
-            retval = strtok(buffer, " \t");
+            char * retval = strtok(line, " \t");
             if(!retval || retval[0] == '#')
                 continue;
-            k = atof(retval);
-            if(k < 0 && !InputInLog10) {
-                message(1, "some input k is negative, guessing the file is in log10 units\n");
-                InputInLog10 = 1;
-            }
-            retval = strtok(NULL, " \t");
-            if(!retval)
-                endrun(1,"Incomplete line in power spectrum: %s\n",buffer);
-            p = atof(retval);
-            logk_tab[i] = k;
-            if (!InputInLog10) {
-                k = log10(k);
-                p = log10(p);
-            }
-
-            k -= log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to h/Kpc */
-            logk_tab[i] = k;
-
-            p += 3 * log10(InputSpectrum_UnitLength_in_cm / UnitLength_in_cm);	/* convert to Kpc/h  */
-            logD_tab[i] = p;
+            double k = atof(retval);
+            parse_line(i, k, line, out_tab, &InputInLog10, scale);
             i++;
         }
         while(1);
 
         fclose(fd);
-
     }
 
-    MPI_Bcast(logk_tab, 2*NPowerTable, MPI_DOUBLE, 0, MPI_COMM_WORLD);
-    mat_intp = gsl_interp_alloc(gsl_interp_cspline,NPowerTable);
-    mat_intp_acc = gsl_interp_accel_alloc();
-    gsl_interp_init(mat_intp,logk_tab, logD_tab,NPowerTable);
+    MPI_Bcast(out_tab->logk, (ncols+1)*out_tab->Nentry, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+    for(j=0; j<ncols; j++) {
+        out_tab->mat_intp[j] = gsl_interp_alloc(gsl_interp_cspline,out_tab->Nentry);
+        out_tab->mat_intp_acc[j] = gsl_interp_accel_alloc();
+        gsl_interp_init(out_tab->mat_intp[j],out_tab->logk, out_tab->logD[j],out_tab->Nentry);
+    }
 }
 
-void initialize_powerspectrum(void)
+int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in, Cosmology * CPin, struct power_params * ppar)
 {
-    if(WhichSpectrum == 2)
-        read_power_table();
+    if(ppar->WhichSpectrum == 2) {
+        read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, ppar->SpectrumLengthScale, parse_power);
+        transfer_table.Nentry = 0;
+        if(ppar->DifferentTransferFunctions)
+            read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, ppar->SpectrumLengthScale, parse_transfer);
+        message(0, "Power spectrum rows: %d, Transfer: %d\n", power_table.Nentry, transfer_table.Nentry);
+    }
+    WhichSpectrum = ppar->WhichSpectrum;
+    /*Used only for tk_eh*/
+    PrimordialIndex = ppar->PrimordialIndex;
+    UnitLength_in_cm = UnitLength_in_cm_in;
+    CP = CPin;
 
     Norm = 1.0;
-    if (Sigma8 > 0) {
+    if (ppar->Sigma8 > 0) {
         double R8 = 8 * (3.085678e24 / UnitLength_in_cm);	/* 8 Mpc/h */
         double res = TopHatSigma2(R8);
-        Norm = Sigma8 * Sigma8 / res;
-        message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g). \n", Sigma8, Norm);
+        Norm = ppar->Sigma8 * ppar->Sigma8 / res;
+        message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g). \n", ppar->Sigma8, Norm);
     }
-    if(InputPowerRedshift >= 0) {
-        double Dplus = GrowthFactor(InitTime, 1/(1+InputPowerRedshift));
+    if(ppar->InputPowerRedshift >= 0) {
+        double Dplus = GrowthFactor(InitTime, 1/(1+ppar->InputPowerRedshift));
         Norm *= (Dplus * Dplus);
-        message(0,"Growth factor to z=0: %g \n", Dplus);
+        message(0,"Growth factor to z=%g: %g \n", ppar->InputPowerRedshift, Dplus);
     }
-
+    return power_table.Nentry;
 }
 
-double PowerSpec_Tabulated(double k)
+double PowerSpec_Tabulated(double k, int Type)
 {
   const double logk = log10(k);
 
-  if(logk < logk_tab[0] || logk > logk_tab[NPowerTable - 1])
+  if(logk < power_table.logk[0] || logk > power_table.logk[power_table.Nentry - 1])
     return 0;
 
-  const double logD = gsl_interp_eval(mat_intp, logk_tab, logD_tab, logk, mat_intp_acc);
+  const double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
+  double trans = 1;
+  /*Transfer table stores (T_type(k) / T_tot(k))^2*/
+  if(Type >= 0 && Type < MAXCOLS && transfer_table.Nentry > 0)
+      trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
 
-  double power = pow(10.0, logD);//*2*M_PI*M_PI;
-
-  //  Delta2 = pow(10.0, logD);
-
-  //  P = Norm * Delta2 / (4 * M_PI * kold * kold * kold);
-
-  //  if(ThisTask == 0)
-  //    printf("%lg %lg %d %d %d %d\n",k,P,binlow,binhigh,mybinlow,mybinhigh);
+  double power = pow(10.0, logD) * trans;
 
   return power;
 }
@@ -196,13 +220,13 @@ double tk_eh(double k)		/* from Martin White */
   double omegam, ombh2, hubble;
 
   /* other input parameters */
-  hubble = CP.HubbleParam;
+  hubble = CP->HubbleParam;
 
-  omegam = CP.Omega0;
-  ombh2 = CP.OmegaBaryon * CP.HubbleParam * CP.HubbleParam;
+  omegam = CP->Omega0;
+  ombh2 = CP->OmegaBaryon * CP->HubbleParam * CP->HubbleParam;
 
-  if(CP.OmegaBaryon == 0)
-    ombh2 = 0.044 * CP.HubbleParam * CP.HubbleParam;
+  if(CP->OmegaBaryon == 0)
+    ombh2 = 0.044 * CP->HubbleParam * CP->HubbleParam;
 
   k *= (3.085678e24 / UnitLength_in_cm);	/* convert to h/Mpc */
 
@@ -250,86 +274,8 @@ double sigma2_int(double k, void * params)
       w = 1./3. - kr2/30. +kr2*kr2/840.;
   else
       w = 3 * (sin(kr) / kr - cos(kr)) / kr2;
-  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * PowerSpec(k);
+  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * PowerSpec(k, -1);
 
   return x;
 
-}
-
-static double A, B, alpha, beta, V, gf;
-
-double fnl(double x)		/* Peacock & Dodds formula */
-{
-  return x * pow((1 + B * beta * x + pow(A * x, alpha * beta)) /
-		 (1 + pow(pow(A * x, alpha) * gf * gf * gf / (V * sqrt(x)), beta)), 1 / beta);
-}
-
-void print_spec(void)
-{
-  double k, knl, po, dl, dnl, neff, kf, kstart, kend, po2, po1, DDD;
-  char buf[1000];
-  FILE *fd;
-
-  if(ThisTask == 0)
-    {
-      sprintf(buf, "%s/inputspec_%s.txt", OutputDir, FileBase);
-      
-      fd = fopen(buf, "w");
-      if (fd == NULL) {
-          printf("Failed to create powerspec file at:%s\n", buf);
-        return;
-      }
-      gf = GrowthFactor(0.001, 1.0) / (1.0 / 0.001);
-
-      DDD = GrowthFactor(InitTime, 1.0);
-
-      fprintf(fd, "%12g %12g %12g\n", 1/InitTime-1, DDD, Norm);	/* print actual starting redshift and 
-							   linear growth factor for this cosmology */
-      kstart = 2 * M_PI / (1000.0 * (3.085678e24 / UnitLength_in_cm));	/* 1000 Mpc/h */
-      kend = 2 * M_PI / (0.001 * (3.085678e24 / UnitLength_in_cm));	/* 0.001 Mpc/h */
-
-      printf("kstart=%lg kend=%lg\n",kstart,kend);
-
-      for(k = kstart; k < kend; k *= 1.025)
-	{
-	  po = PowerSpec(k);
-	  dl = 4.0 * M_PI * k * k * k * po;
-
-	  kf = 0.5;
-
-	  po2 = PowerSpec(1.001 * k * kf);
-	  po1 = PowerSpec(k * kf);
-
-	  if(po != 0 && po1 != 0 && po2 != 0)
-	    {
-	      neff = (log(po2) - log(po1)) / (log(1.001 * k * kf) - log(k * kf));
-
-	      if(1 + neff / 3 > 0)
-		{
-		  A = 0.482 * pow(1 + neff / 3, -0.947);
-		  B = 0.226 * pow(1 + neff / 3, -1.778);
-		  alpha = 3.310 * pow(1 + neff / 3, -0.244);
-		  beta = 0.862 * pow(1 + neff / 3, -0.287);
-		  V = 11.55 * pow(1 + neff / 3, -0.423) * 1.2;
-
-		  dnl = fnl(dl);
-		  knl = k * pow(1 + dnl, 1.0 / 3);
-		}
-	      else
-		{
-		  dnl = 0;
-		  knl = 0;
-		}
-	    }
-	  else
-	    {
-	      dnl = 0;
-	      knl = 0;
-	    }
-
-	  fprintf(fd, "%12g %12g    %12g %12g\n", k, dl, knl, dnl);
-	  //	  printf("%12g %12g    %12g %12g\n", k, dl, knl, dnl);
-	}
-      fclose(fd);
-    }
 }

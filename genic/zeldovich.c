@@ -10,6 +10,7 @@
 #include "petapm.h"
 #include "genic/allvars.h"
 #include "genic/proto.h"
+#include "genic/power.h"
 #include "walltime.h"
 #include "endrun.h"
 #include "mymalloc.h"
@@ -24,11 +25,16 @@ static void readout_force_x(int i, double * mesh, double weight);
 static void readout_force_y(int i, double * mesh, double weight);
 static void readout_force_z(int i, double * mesh, double weight);
 static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary);
-static void setup_grid();
 
-void initialize_ffts(void) {
-    petapm_init(Box, Nmesh, 1);
-    setup_grid();
+static inline double periodic_wrap(double x)
+{
+  while(x >= Box)
+    x -= Box;
+
+  while(x < 0)
+    x += Box;
+
+  return x;
 }
 
 uint64_t ijk_to_id(int i, int j, int k) {
@@ -38,9 +44,12 @@ uint64_t ijk_to_id(int i, int j, int k) {
 
 void free_ffts(void)
 {
+    myfree(P);
 }
 
-static void setup_grid() {
+void
+setup_grid(double shift, int64_t FirstID)
+{
     int * ThisTask2d = petapm_get_thistask2d();
     int * NTask2d = petapm_get_ntask2d();
     int size[3];
@@ -65,11 +74,11 @@ static void setup_grid() {
         x = i / (size[2] * size[1]) + offset[0];
         y = (i % (size[1] * size[2])) / size[2] + offset[1];
         z = (i % size[2]) + offset[2];
-        P[i].Pos[0] = x * Box / Ngrid;
-        P[i].Pos[1] = y * Box / Ngrid;
-        P[i].Pos[2] = z * Box / Ngrid;
+        P[i].Pos[0] = x * Box / Ngrid + shift;
+        P[i].Pos[1] = y * Box / Ngrid + shift;
+        P[i].Pos[2] = z * Box / Ngrid + shift;
         P[i].Mass = 1.0;
-        P[i].ID = ijk_to_id(x, y, z);
+        P[i].ID = ijk_to_id(x, y, z) + FirstID;
     }
 }
 
@@ -103,7 +112,12 @@ static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
     return regions;
 }
 
-void displacement_fields() {
+/*Global to pass type to *_transfer functions*/
+static int ptype;
+
+void displacement_fields(int Type) {
+    /*MUST set this before doing force.*/
+    ptype = Type;
     PetaPMFunctions functions[] = {
         {"Density", density_transfer, readout_density},
         {"DispX", disp_x_transfer, readout_force_x},
@@ -141,7 +155,7 @@ void displacement_fields() {
     }
     double maxdispall;
     MPI_Reduce(&maxdisp, &maxdispall, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    message(0, "max disp = %g in units of cell sep %g \n", maxdispall, maxdispall / (Box / Nmesh) );
+    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdispall, maxdispall / (Box / Nmesh) );
 
     double hubble_a = hubble_function(InitTime);
 
@@ -149,7 +163,7 @@ void displacement_fields() {
 
     if(UsePeculiarVelocity) {
         /* already for peculiar velocity */
-        message(0, "Producing Peculliar Velocity in the output.\n");
+        message(0, "Producing Peculiar Velocity in the output.\n");
     } else {
         vel_prefac /= sqrt(InitTime);	/* converts to Gadget velocity */
     }
@@ -166,6 +180,7 @@ void displacement_fields() {
         }
     }
     walltime_measure("/Disp/Finalize");
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 /********************
@@ -187,7 +202,7 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
         double fac = exp(- k2 * r2);
 
         double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag) / (Box * Box * Box));
+        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
 
         value[0][0] *= fac;
         value[0][1] *= fac;
@@ -207,7 +222,7 @@ static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
                     */
 
         double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag) / (Box * Box * Box));
+        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
 
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
@@ -218,7 +233,7 @@ static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (Box / (2 * M_PI)) * kpos[1] / k2;
         double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag) / (Box * Box * Box));
+        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -228,7 +243,7 @@ static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (Box / (2 * M_PI)) * kpos[2] / k2;
         double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag) / (Box * Box * Box));
+        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
 
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;

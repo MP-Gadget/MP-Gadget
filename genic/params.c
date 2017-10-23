@@ -39,12 +39,14 @@ create_parameters()
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state");
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter");
 
+    param_declare_int(ps, "DifferentTransferFunctions", OPTIONAL, 0, "Use species specific transfer functions for baryon and CDM.");
+    param_declare_string(ps, "FileWithTransferFunction", OPTIONAL, "", "File containing CAMB formatted transfer functions.");
     param_declare_double(ps, "MaxMemSizePerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Set up an run that uses Peculiar Velocity in IO");
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
-    param_declare_int(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
+    param_declare_double(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
     param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
 
     param_declare_double(ps, "UnitVelocity_in_cm_per_s", OPTIONAL, 1e5, "Velocity unit in cm/sec. Default is 1 km/s");
@@ -54,16 +56,6 @@ create_parameters()
 
     param_declare_int(ps, "NumPartPerFile", OPTIONAL, 1024 * 1024 * 128, "");
     param_declare_int(ps, "NumWriters", OPTIONAL, 0, "");
-
-
-    param_declare_double(ps, "ShapeGamma", OPTIONAL, 0.201, "Ignored.");
-    param_declare_double(ps, "OmegaDM_2ndSpecies", OPTIONAL, 0, "Ignored.");
-    param_declare_int(ps, "SphereMode", OPTIONAL, 1, "Ignored.");
-    param_declare_int(ps, "Nsample", OPTIONAL, 0, "Ignored.");
-    param_declare_int(ps, "WDM_On", OPTIONAL, 0, "Ignored.");
-    param_declare_int(ps, "WDM_Vtherm_On", OPTIONAL, 0, "Ignored.");
-    param_declare_double(ps, "WDM_PartMass_in_kev", OPTIONAL, 0, "Ignored.");
-
     return ps;
 }
 void read_parameterfile(char *fname)
@@ -86,6 +78,7 @@ void read_parameterfile(char *fname)
 
     message(0, "----------------------------------------------\n");
     
+    /*Cosmology*/
     CP.Omega0 = param_get_double(ps, "Omega0");
     CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
     CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
@@ -102,26 +95,37 @@ void read_parameterfile(char *fname)
     CP.MasslessNeutrinosOn = 1;
     MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
     ProduceGas = param_get_int(ps, "ProduceGas");
-    InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
+    /*Unit system*/
+    UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
+    UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
+    UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+    /*Parameters of the power spectrum*/
+    PowerP.InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
+    PowerP.Sigma8 = param_get_double(ps, "Sigma8");
+    /*Always specify Sigm8 at z=0*/
+    if(PowerP.Sigma8 > 0)
+        PowerP.InputPowerRedshift = 0;
+    PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
+    PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
+    PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
+    PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
+    PowerP.SpectrumLengthScale = param_get_double(ps, "InputSpectrum_UnitLength_in_cm") / UnitLength_in_cm;
+    PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
+    /*Simulation parameters*/
     UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
-    Sigma8 = param_get_double(ps, "Sigma8");
-    PrimordialIndex = param_get_double(ps, "PrimordialIndex");
     Box = param_get_double(ps, "BoxSize");
     double Redshift = param_get_double(ps, "Redshift");
     Nmesh = param_get_int(ps, "Nmesh");
     Ngrid = param_get_int(ps, "Ngrid");
-    FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
     Seed = param_get_int(ps, "Seed");
     Unitary = param_get_int(ps, "Unitary");
     OutputDir = param_get_string(ps, "OutputDir");
     FileBase = param_get_string(ps, "FileBase");
-    WhichSpectrum = param_get_int(ps, "WhichSpectrum");
-    UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
-    UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
-    UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
-    InputSpectrum_UnitLength_in_cm = param_get_double(ps, "InputSpectrum_UnitLength_in_cm");
-    NumPartPerFile = param_get_int(ps, "NumPartPerFile");
+    int64_t NumPartPerFile = param_get_int(ps, "NumPartPerFile");
+    NumFiles = ((int64_t) Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
     NumWriters = param_get_int(ps, "NumWriters");
+    if(PowerP.DifferentTransferFunctions && PowerP.InputPowerRedshift >= 0)
+        message(0, "WARNING: Using different transfer functions but also rescaling power to account for linear growth. NOT what you want!\n");
 
     if(Nmesh == 0) {
         Nmesh = 2*Ngrid;
