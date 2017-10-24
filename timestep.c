@@ -82,23 +82,6 @@ is_PM_timestep(inttime_t ti)
     return ti == PM.start + PM.length;
 }
 
-/*! This function sets the (comoving) softening length of all particle
- *  types in the table All.SofteningTable[...].  We check that the physical
- *  softening length is bounded by the Softening-MaxPhys values.
- */
-void
-set_softenings(const double time)
-{
-    int i;
-
-    for(i = 0; i < 6; i ++)
-        All.ForceSoftening[i] = 2.8 * All.GravitySoftening * All.MeanSeparation[1];
-
-    All.ForceSoftening[0] = 2.8 * All.GravitySofteningGas * All.MeanSeparation[1];
-
-    All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[1];
-}
-
 void
 set_global_time(double newtime) {
     /*1.0 check for rate setting in sfr_eff.c*/
@@ -117,7 +100,6 @@ set_global_time(double newtime) {
     lightcone_set_time(All.cf.a);
 #endif
     IonizeParams();
-    set_softenings(newtime);
 }
 
 /* This function assigns new timesteps to particles and PM */

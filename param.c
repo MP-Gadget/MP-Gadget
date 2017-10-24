@@ -196,7 +196,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
 
     param_declare_double(ps, "GravitySoftening", OPTIONAL, 1./30., "Softening for collisionless particles; units of mean separation of DM. ForceSoftening is 2.8 times this.");
-    param_declare_double(ps, "GravitySofteningGas", OPTIONAL, 1./30., "Softening for collisionless particles; units of mean separation of DM; 0 to use Hsml of last step. ");
+    param_declare_double(ps, "GravitySofteningGas", OPTIONAL, 1./30., "Softening for collisional particles (Gas); units of mean separation of DM; 0 to use Hsml of last step. ");
 
     param_declare_double(ps, "BufferSize", OPTIONAL, 100, "");
     param_declare_double(ps, "PartAllocFactor", REQUIRED, 0, "");

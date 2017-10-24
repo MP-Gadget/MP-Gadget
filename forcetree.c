@@ -315,11 +315,7 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
     int nnext = tb.firstnode;		/* index of first free node */
 
     /*Minimum size of the node depends on the minimum of all force softenings*/
-    double minsoft = 0;
-    for(i = 0; i<6; i++)
-        if((minsoft == 0 || minsoft > All.ForceSoftening[i]) && All.ForceSoftening[i] > 0)
-            minsoft = All.ForceSoftening[i];
-    const double minlen = 1.0e-3 * minsoft;
+    const double minlen = All.TreeNodeMinSize;
     /*Count of how many times we hit this limit*/
     int closepairs = 0;
 

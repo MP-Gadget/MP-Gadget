@@ -372,13 +372,10 @@ extern struct global_data_all_processes
     double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 
-    double GravitySoftening;
-    double GravitySofteningGas;
-                                /* when 0, that we have enabled adaptive gravitational softening for gas particles.
-                                  This means that ForceSoftening[0] is unused. Instead pairwise interactions use 
-                                  max(P[i].Hsml,ForceSoftening[P[j].Type]) for the particle is considered.*/
-
-    double ForceSoftening[6];   /* the same, but multiplied by a factor 2.8 - at that scale the force is Newtonian */
+    double GravitySoftening; /* Softening is as a fraction of DM mean separation. */
+    double GravitySofteningGas;  /* if 0, enable adaptive gravitational softening for gas particles, which uses the Hsml as ForceSoftening */
+    double ForceSoftening[6]; /* 2.8 times the softening length; it is the scale where the force is Newtonian; */
+    double TreeNodeMinSize; /* The minimum size of a Force Tree Node in length units. */
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
 
     /* some filenames */

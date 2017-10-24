@@ -33,6 +33,7 @@
 
 
 static void set_units();
+static void set_softenings();
 
 
 /*! This function performs the initial set-up of the simulation. First, the
@@ -47,6 +48,7 @@ void begrun(int RestartSnapNum)
 
     petaio_read_header(RestartSnapNum);
 
+    set_softenings();
     set_units();
 
 #ifdef DEBUG
@@ -223,3 +225,35 @@ set_units(void)
     }
     message(0, "\n");
 }
+
+/*! This function sets the (comoving) softening length of all particle
+ *  types in the table All.SofteningTable[...].  We check that the physical
+ *  softening length is bounded by the Softening-MaxPhys values.
+ */
+static void
+set_softenings()
+{
+    int i;
+
+    for(i = 0; i < 6; i ++)
+        All.ForceSoftening[i] = 2.8 * All.GravitySoftening * All.MeanSeparation[1];
+
+    /* 0: Gas is collesional */
+    All.ForceSoftening[0] = 2.8 * All.GravitySofteningGas * All.MeanSeparation[1];
+
+    All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[1];
+
+    for(i = 0; i < 6; i ++) {
+        message(0, "GravitySoftening[%d] = %g\n", i, All.ForceSoftening[i] / 2.8);
+    }
+
+    double minsoft = 0;
+    for(i = 0; i<6; i++) {
+        if(All.ForceSoftening[i] <= 0) continue;
+        if(minsoft == 0 || minsoft > All.ForceSoftening[i])
+            minsoft = All.ForceSoftening[i];
+    }
+    /* FIXME: make this a parameter. */
+    All.TreeNodeMinSize = 1.0e-3 * minsoft;
+}
+
