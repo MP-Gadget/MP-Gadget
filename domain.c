@@ -1364,20 +1364,27 @@ domain_toptree_merge(struct local_topnode_data *treeA,
     else if(treeB[noB].Shift > treeA[noA].Shift)
     {
         /* Since we only know how to split A, here we simply add a spatial average to A */
-        int n = 1L << (treeB[noB].Shift - treeA[noA].Shift);
+        uint64_t n = 1L << (treeB[noB].Shift - treeA[noA].Shift);
+
+        if(treeB[noB].Shift - treeA[noA].Shift > 60) {
+            message(1, "Warning: Refusing to merge two tree nodes of wildly different depth: %d %d;\n ", treeB[noB].Shift, treeA[noA].Shift);
+            n = 0;
+        }
 
         count = treeB[noB].Count;
         cost = treeB[noB].Cost;
 
-        /* this is no longer conserving total cost but it should be fine .. */
-        treeA[noA].Count += count / n;
-        treeA[noA].Cost += cost / n;
+        if (n > 0) {
+            /* this is no longer conserving total cost but it should be fine .. */
+            treeA[noA].Count += count / n;
+            treeA[noA].Cost += cost / n;
 
-        // message(1, "adding cost to %d %td, %td\n", noA, count / n, cost / n);
-        if(treeA[noA].Daughter >= 0) {
-            for(j = 0; j < 8; j++) {
-                sub = treeA[noA].Daughter + j;
-                domain_toptree_merge(treeA, treeB, sub, noB, treeASize);
+            // message(1, "adding cost to %d %td, %td\n", noA, count / n, cost / n);
+            if(treeA[noA].Daughter >= 0) {
+                for(j = 0; j < 8; j++) {
+                    sub = treeA[noA].Daughter + j;
+                    domain_toptree_merge(treeA, treeB, sub, noB, treeASize);
+                }
             }
         }
     }
