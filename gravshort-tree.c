@@ -158,7 +158,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
                 h = All.ForceSoftening[ptype];
                 otherh = All.ForceSoftening[P[no].Type];
-                if(All.AdaptiveGravsoftForGas) {
+                if(All.ForceSoftening[0] == 0) {
                     if(ptype == 0)
                         h = input->Soft;
                     if(P[no].Type == 0 && h < P[no].Hsml)
@@ -250,7 +250,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
                 h = All.ForceSoftening[ptype];
                 otherh = All.ForceSoftening[nop->f.MaxSofteningType];
-                if(All.AdaptiveGravsoftForGas) {
+                if(All.ForceSoftening[0] == 0) {
                     if(ptype == 0)
                         h = input->Soft;
                     if(otherh < nop->u.d.hmax)

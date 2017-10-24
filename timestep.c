@@ -91,40 +91,16 @@ set_softenings(const double time)
 {
     int i;
 
-    if(All.SofteningGas * time > All.SofteningGasMaxPhys)
-        All.SofteningTable[0] = All.SofteningGasMaxPhys / time;
-    else
-        All.SofteningTable[0] = All.SofteningGas;
+    double meansep_dm = All.BoxSize / pow(All.NTotalInit[1], 0.3333333);
+    for(i = 0; i < 6; i ++)
+        All.SofteningTable[i] = All.GravitySoftening * meansep_dm;
 
-    if(All.SofteningHalo * time > All.SofteningHaloMaxPhys)
-        All.SofteningTable[1] = All.SofteningHaloMaxPhys / time;
-    else
-        All.SofteningTable[1] = All.SofteningHalo;
-
-    if(All.SofteningDisk * time > All.SofteningDiskMaxPhys)
-        All.SofteningTable[2] = All.SofteningDiskMaxPhys / time;
-    else
-        All.SofteningTable[2] = All.SofteningDisk;
-
-    if(All.SofteningBulge * time > All.SofteningBulgeMaxPhys)
-        All.SofteningTable[3] = All.SofteningBulgeMaxPhys / time;
-    else
-        All.SofteningTable[3] = All.SofteningBulge;
-
-    if(All.SofteningStars * time > All.SofteningStarsMaxPhys)
-        All.SofteningTable[4] = All.SofteningStarsMaxPhys / time;
-    else
-        All.SofteningTable[4] = All.SofteningStars;
-
-    if(All.SofteningBndry * time > All.SofteningBndryMaxPhys)
-        All.SofteningTable[5] = All.SofteningBndryMaxPhys / time;
-    else
-        All.SofteningTable[5] = All.SofteningBndry;
+    All.SofteningTable[0] = All.GravitySofteningGas * meansep_dm;
 
     for(i = 0; i < 6; i++)
         All.ForceSoftening[i] = 2.8 * All.SofteningTable[i];
 
-    All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[0];
+    All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[1];
 }
 
 void
@@ -458,7 +434,7 @@ get_timestep_dloga(const int p)
     double soft = All.SofteningTable[P[p].Type];
     /*Note that Hsml is compared to ForceSoftening,
      * so when comparing to SofteningTable you divide by 2.8*/
-    if(All.AdaptiveGravsoftForGas && P[p].Type == 0)
+    if(All.ForceSoftening[0] == 0 && P[p].Type == 0)
         soft = P[p].Hsml / 2.8;
     dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * soft / ac);
 

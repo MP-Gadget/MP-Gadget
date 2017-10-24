@@ -49,7 +49,7 @@ grav_short_copy(int place, TreeWalkQueryGravShort * input, TreeWalk * tw)
 {
     input->Type = P[place].Type;
 
-    if(All.AdaptiveGravsoftForGas && P[place].Type == 0)
+    if(All.ForceSoftening[0] == 0 && P[place].Type == 0)
         input->Soft = P[place].Hsml;
     /*Compute old acceleration before we over-write things*/
     double aold=0;
