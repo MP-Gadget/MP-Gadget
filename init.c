@@ -210,15 +210,20 @@ setup_smoothinglengths(int RestartSnapNum)
                 pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass),
                         1.0 / 3) * Nodes[no].len;
 
-            if(All.ForceSoftening[0] != 0 && P[i].Hsml > 500.0 * All.ForceSoftening[0])
-                P[i].Hsml = All.ForceSoftening[0];
+            /* recover from a poor initial guess */
+            if(P[i].Hsml > 500.0 * All.MeanSeparation[0])
+                P[i].Hsml = All.MeanSeparation[0];
         }
     }
 
 #ifdef BLACK_HOLES
+    /* FIXME: move this inside the condition above and
+      * save BHs in the snapshots to avoid this; */
     for(i = 0; i < NumPart; i++)
         if(P[i].Type == 5) {
-            P[i].Hsml = All.ForceSoftening[5];
+            /* Anything non-zero would work, but since BH tends to be in high density region, 
+             *  use a small number */
+            P[i].Hsml = 0.01 * All.MeanSeparation[0];
             BHP(i).TimeBinLimit = -1;
         }
 #endif
