@@ -372,9 +372,10 @@ extern struct global_data_all_processes
     double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
 
-    double GravitySoftening; /* Softening is as a fraction of DM mean separation. */
+    double GravitySoftening; /* Softening as a fraction of DM mean separation. */
     double GravitySofteningGas;  /* if 0, enable adaptive gravitational softening for gas particles, which uses the Hsml as ForceSoftening */
-    double ForceSoftening[6]; /* 2.8 times the softening length; it is the scale where the force is Newtonian; */
+
+    double GravitySofteningTable[6]; /* the softening length; the scale where the force is Newtonian is 2.8 x this; in length units. */
     double TreeNodeMinSize; /* The minimum size of a Force Tree Node in length units. */
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
 
@@ -629,12 +630,14 @@ extern struct sph_particle_data
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
+
 static inline double FORCE_SOFTENING(int i)
 {
-    if (All.ForceSoftening[0] == 0 && P[i].Type == 0) {
+    if (All.GravitySofteningTable[0] == 0 && P[i].Type == 0) {
         return P[i].Hsml;
     } else {
-        return All.ForceSoftening[P[i].Type];
+        /* Force is newtonian beyond this.*/
+        return 2.8 * All.GravitySofteningTable[P[i].Type];
     }
 }
 #endif

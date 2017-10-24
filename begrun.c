@@ -236,24 +236,24 @@ set_softenings()
     int i;
 
     for(i = 0; i < 6; i ++)
-        All.ForceSoftening[i] = 2.8 * All.GravitySoftening * All.MeanSeparation[1];
+        All.GravitySofteningTable[i] = All.GravitySoftening * All.MeanSeparation[1];
 
     /* 0: Gas is collesional */
-    All.ForceSoftening[0] = 2.8 * All.GravitySofteningGas * All.MeanSeparation[1];
+    All.GravitySofteningTable[0] = All.GravitySofteningGas * All.MeanSeparation[1];
 
-    All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[1];
+    All.MinGasHsml = All.MinGasHsmlFractional * All.GravitySofteningTable[1];
 
     for(i = 0; i < 6; i ++) {
-        message(0, "GravitySoftening[%d] = %g\n", i, All.ForceSoftening[i] / 2.8);
+        message(0, "GravitySoftening[%d] = %g\n", i, All.GravitySofteningTable[i]);
     }
 
     double minsoft = 0;
     for(i = 0; i<6; i++) {
-        if(All.ForceSoftening[i] <= 0) continue;
-        if(minsoft == 0 || minsoft > All.ForceSoftening[i])
-            minsoft = All.ForceSoftening[i];
+        if(All.GravitySofteningTable[i] <= 0) continue;
+        if(minsoft == 0 || minsoft > All.GravitySofteningTable[i])
+            minsoft = All.GravitySofteningTable[i];
     }
     /* FIXME: make this a parameter. */
-    All.TreeNodeMinSize = 1.0e-3 * minsoft;
+    All.TreeNodeMinSize = 1.0e-3 * 2.8 * minsoft;
 }
 
