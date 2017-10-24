@@ -379,7 +379,7 @@ static int setup_tree(void **state) {
     All.BoxSize = 8;
     int i;
     for(i=0; i<6; i++)
-        All.ForceSoftening[i] = 0.1;
+        All.GravitySofteningTable[i] = 0.1 / 2.8;
     /*Set up the top-level domain grid*/
     /* The whole tree goes into one topnode.
      * Set up just enough of the TopNode structure that
