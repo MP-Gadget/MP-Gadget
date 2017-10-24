@@ -26,7 +26,7 @@ OBJECTS  =  \
 	 cooling.o openmpsort.o \
 	 system.o allocate.o density.o \
 	 treewalk.o cosmology.o \
-	 gravshort-tree.o gravshort-tree-old.o gravshort-pair.o hydra.o  timefac.o \
+	 gravshort-tree.o gravshort-pair.o hydra.o  timefac.o \
 	 gravpm.o powerspectrum.o \
 	 forcetree.o peano.o \
 	 petapm.o longrange.o \

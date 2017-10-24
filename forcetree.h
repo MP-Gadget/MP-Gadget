@@ -18,11 +18,7 @@ extern struct NODE
         unsigned int InternalTopLevel :1; /* TopLevel and has a child which is also TopLevel*/
         unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
         unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
-        /* Stores the largest softening in the node. The short-range
-         * gravitational force solver will check this and use it
-         * open the node if a particle is closer.*/
-        unsigned int MaxSofteningType :3;
-        unsigned int MixedSofteningsInNode :1;
+        unsigned int MixedSofteningsInNode:1;  /* Softening is mixed, need to open the node */
     } f;
     union
     {
@@ -34,6 +30,9 @@ extern struct NODE
             int sibling;		/*!< this gives the next node in the walk in case the current node can be used */
             int nextnode;		/*!< this gives the next node in case the current node needs to be opened */
             MyFloat hmax;			/*!< maximum SPH smoothing length in node. Only used for gas particles */
+            MyFloat MaxSoftening;  /* Stores the largest softening in the node. The short-range
+                                 * gravitational force solver will check this and use it
+                                 * open the node if a particle is closer.*/
         }
         d;
     }

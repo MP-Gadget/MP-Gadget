@@ -15,7 +15,6 @@
 #include "petaio.h"
 #include "domain.h"
 
-void grav_short_tree_old(void);
 void grav_short_pair(void);
 
 char * GDB_format_particle(int i);
@@ -54,10 +53,4 @@ void runtests()
 
     petaio_save_snapshot("%s/PART-tree-%03d-mpi", All.OutputDir, NTask);
 
-    grav_short_tree_old();
-    grav_short_tree_old();
-    grav_short_tree_old();
-    grav_short_tree_old();
-    message(0, "GravTree old %s\n", GDB_format_particle(0));
-    petaio_save_snapshot("%s/PART-oldtree-%03d-mpi", All.OutputDir, NTask);
 }

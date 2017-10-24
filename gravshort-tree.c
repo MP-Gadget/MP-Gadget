@@ -242,11 +242,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 }
 
                 h = input->Soft;
-                otherh = All.ForceSoftening[nop->f.MaxSofteningType];
-                if(All.ForceSoftening[0] == 0) {
-                    if(otherh < nop->u.d.hmax)
-                        otherh = nop->u.d.hmax;
-                }
+                otherh = nop->u.d.MaxSoftening;
                 if(h < otherh)
                 {
                     h = otherh;
