@@ -156,7 +156,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 mass = P[no].Mass;
 
                 h = input->Soft;
-                otherh = get_softening(no);
+                otherh = FORCE_SOFTENING(no);
                 if(h < otherh)
                     h = otherh;
                 no = Nextnode[no];

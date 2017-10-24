@@ -659,7 +659,7 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
             pnode->u.d.hmax = P[i].Hsml;
     }
 
-    force_set_node_softening(pnode, get_softening(i));
+    force_set_node_softening(pnode, FORCE_SOFTENING(i));
 }
 
 /*! this routine determines the multipole moments for a given internal node

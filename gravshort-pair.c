@@ -75,7 +75,7 @@ grav_short_pair_ngbiter(
     double mass = P[other].Mass;
 
     double h = I->Soft;
-    double otherh = get_softening(other);
+    double otherh = FORCE_SOFTENING(other);
     if (otherh > h) h = otherh;
 
     double fac, pot;

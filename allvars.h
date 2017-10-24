@@ -632,7 +632,7 @@ extern struct sph_particle_data
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
-static inline double get_softening(int i)
+static inline double FORCE_SOFTENING(int i)
 {
     if (All.ForceSoftening[0] == 0 && P[i].Type == 0) {
         return P[i].Hsml;
