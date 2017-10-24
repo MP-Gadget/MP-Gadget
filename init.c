@@ -209,15 +209,16 @@ setup_smoothinglengths(int RestartSnapNum)
             P[i].Hsml =
                 pow(3.0 / (4 * M_PI) * All.DesNumNgb * P[i].Mass / (massfactor * Nodes[no].u.d.mass),
                         1.0 / 3) * Nodes[no].len;
-            if(All.SofteningTable[0] != 0 && P[i].Hsml > 500.0 * All.SofteningTable[0])
-                P[i].Hsml = All.SofteningTable[0];
+
+            if(All.ForceSoftening[0] != 0 && P[i].Hsml > 500.0 * All.ForceSoftening[0])
+                P[i].Hsml = All.ForceSoftening[0];
         }
     }
 
 #ifdef BLACK_HOLES
     for(i = 0; i < NumPart; i++)
         if(P[i].Type == 5) {
-            P[i].Hsml = All.SofteningTable[5];
+            P[i].Hsml = All.ForceSoftening[5];
             BHP(i).TimeBinLimit = -1;
         }
 #endif

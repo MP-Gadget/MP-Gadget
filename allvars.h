@@ -378,7 +378,6 @@ extern struct global_data_all_processes
                                   This means that ForceSoftening[0] is unused. Instead pairwise interactions use 
                                   max(P[i].Hsml,ForceSoftening[P[j].Type]) for the particle is considered.*/
 
-    double SofteningTable[6];   /* current (comoving) gravitational softening lengths for each particle type */
     double ForceSoftening[6];   /* the same, but multiplied by a factor 2.8 - at that scale the force is Newtonian */
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
 
@@ -633,5 +632,12 @@ extern struct sph_particle_data
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
-
+static inline double get_softening(int i)
+{
+    if (All.ForceSoftening[0] == 0 && P[i].Type == 0) {
+        return P[i].Hsml;
+    } else {
+        return All.ForceSoftening[P[i].Type];
+    }
+}
 #endif

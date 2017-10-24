@@ -91,14 +91,10 @@ set_softenings(const double time)
 {
     int i;
 
-    double meansep_dm = All.BoxSize / pow(All.NTotalInit[1], 0.3333333);
     for(i = 0; i < 6; i ++)
-        All.SofteningTable[i] = All.GravitySoftening * meansep_dm;
+        All.ForceSoftening[i] = 2.8 * All.GravitySoftening * All.MeanSeparation[1];
 
-    All.SofteningTable[0] = All.GravitySofteningGas * meansep_dm;
-
-    for(i = 0; i < 6; i++)
-        All.ForceSoftening[i] = 2.8 * All.SofteningTable[i];
+    All.ForceSoftening[0] = 2.8 * All.GravitySofteningGas * All.MeanSeparation[1];
 
     All.MinGasHsml = All.MinGasHsmlFractional * All.ForceSoftening[1];
 }
@@ -431,12 +427,10 @@ get_timestep_dloga(const int p)
     if(ac == 0)
         ac = 1.0e-30;
 
-    double soft = All.SofteningTable[P[p].Type];
-    /*Note that Hsml is compared to ForceSoftening,
-     * so when comparing to SofteningTable you divide by 2.8*/
-    if(All.ForceSoftening[0] == 0 && P[p].Type == 0)
-        soft = P[p].Hsml / 2.8;
-    dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * soft / ac);
+    double soft = get_softening(p);
+
+    /* mind the factor 2.8 difference between gravity and softening used here. */
+    dt = sqrt(2 * All.ErrTolIntAccuracy * All.cf.a * (soft / 2.8) / ac);
 
     if(P[p].Type == 0)
     {

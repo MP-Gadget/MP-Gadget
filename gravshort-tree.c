@@ -129,7 +129,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     const double pos_x = input->base.Pos[0];
     const double pos_y = input->base.Pos[1];
     const double pos_z = input->base.Pos[2];
-    const int ptype = input->Type;
 
     /*Start the tree walk*/
     int no = input->base.NodeList[0];
@@ -156,14 +155,8 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
                 mass = P[no].Mass;
 
-                h = All.ForceSoftening[ptype];
-                otherh = All.ForceSoftening[P[no].Type];
-                if(All.ForceSoftening[0] == 0) {
-                    if(ptype == 0)
-                        h = input->Soft;
-                    if(P[no].Type == 0 && h < P[no].Hsml)
-                        otherh = P[no].Hsml;
-                }
+                h = input->Soft;
+                otherh = get_softening(no);
                 if(h < otherh)
                     h = otherh;
                 no = Nextnode[no];
@@ -248,11 +241,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-                h = All.ForceSoftening[ptype];
+                h = input->Soft;
                 otherh = All.ForceSoftening[nop->f.MaxSofteningType];
                 if(All.ForceSoftening[0] == 0) {
-                    if(ptype == 0)
-                        h = input->Soft;
                     if(otherh < nop->u.d.hmax)
                         otherh = nop->u.d.hmax;
                 }
