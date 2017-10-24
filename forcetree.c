@@ -630,7 +630,7 @@ force_get_prev_node(int no, const struct TreeBuilder tb)
  *
  * */
 static void
-force_set_node_softening(struct NODE * pnode, double MaxSoftening)
+force_adjust_node_softening(struct NODE * pnode, double MaxSoftening)
 {
 
     if(pnode->u.d.MaxSoftening > 0) {
@@ -659,7 +659,7 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
             pnode->u.d.hmax = P[i].Hsml;
     }
 
-    force_set_node_softening(pnode, FORCE_SOFTENING(i));
+    force_adjust_node_softening(pnode, FORCE_SOFTENING(i));
 }
 
 /*! this routine determines the multipole moments for a given internal node
@@ -750,7 +750,7 @@ force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder 
             if(Nodes[p].u.d.hmax > Nodes[no].u.d.hmax)
                 Nodes[no].u.d.hmax = Nodes[p].u.d.hmax;
 
-            force_set_node_softening(&Nodes[no], Nodes[p].u.d.MaxSoftening);
+            force_adjust_node_softening(&Nodes[no], Nodes[p].u.d.MaxSoftening);
         }
         else /* a list of particles */
         {
