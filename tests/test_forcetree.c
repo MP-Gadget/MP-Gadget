@@ -136,11 +136,11 @@ static int check_moments(const struct TreeBuilder tb, const int numpart, const i
 /*                 printf("node %d ances %d sib %d next %d father %d sfather %d\n",node, ances, sib, force_get_next_node(node, tb), father, sfather); */
             }
             if(!(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5)) {
-                printf("node %d (%d) mass %g / %g TL %d DLM %d MST %d MSN %d ITL %d\n", 
+                printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g MSN %d ITL %d\n", 
                     node, node - tb.firstnode, Nodes[node].u.d.mass, oldmass[node - tb.firstnode],
                     Nodes[node].f.TopLevel,
                     Nodes[node].f.DependsOnLocalMass,
-                    Nodes[node].f.MaxSofteningType,
+                    Nodes[node].u.d.MaxSoftening,
                     Nodes[node].f.MixedSofteningsInNode,
                     Nodes[node].f.InternalTopLevel
                     );
