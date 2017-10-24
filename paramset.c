@@ -264,12 +264,12 @@ param_declare_string(ParameterSet * ps, char * name, int required, char * defval
     }
 }
 void
-param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, int required, int defvalue, char * help)
+param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, int required, char * defvalue, char * help)
 {
     ParameterSchema * p = param_declare(ps, name, ENUM, required, help);
     p->enumtable = enumtable;
     if(!required) {
-        p->defvalue.i = defvalue;
+        p->defvalue.i = parse_enum(enumtable, defvalue);
         /* Watch out, if enumtable is malloced we may core dump if it gets freed */
         p->defvalue.nil = 0;
     }

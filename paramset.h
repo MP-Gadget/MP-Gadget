@@ -16,7 +16,7 @@ void
 param_declare_string(ParameterSet * ps, char * name, int required, char * defvalue, char * help);
 
 void
-param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, int required, int defvalue, char * help);
+param_declare_enum(ParameterSet * ps, char * name, ParameterEnum * enumtable, int required, char * defvalue, char * help);
 
 void
 param_set_action(ParameterSet * ps, char * name, ParameterAction action, void * userdata);
