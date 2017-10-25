@@ -28,8 +28,6 @@ StarformationOn = 1
 RadiationOn = 1
 HydroOn = 1
 WindOn = 0
-# if compiled with BlackHole option, add this line
-BlackHoleOn = 0
 StarformationCriterion = density
 
 #  Further parameters of SPH
@@ -52,9 +50,3 @@ QuickLymanAlphaProbability = 1 # Set to 1.0 to turn dense gas directly into star
 
 SnapshotWithFOF = 1
 WindModel = nowind
-# if compiled with BlackHole option, add these lines 
-#BlackHoleFeedbackFactor = 0.05
-#BlackHoleFeedbackRadius = 0.
-#BlackHoleFeedbackRadiusMaxPhys = 0.
-#BlackHoleFeedbackMethod = spline | mass
-#SeedBlackHoleMass = 5.0e-5

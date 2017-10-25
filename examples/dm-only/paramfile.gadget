@@ -25,8 +25,6 @@ StarformationCriterion = density
 RadiationOn = 0
 HydroOn = 0
 WindOn = 0
-# add this line if MP-Gadget was compiled with BlackHole option
-#BlackHoleOn = 0
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1
@@ -53,17 +51,6 @@ BufferSize = 100          # in MByte
 
 # Softening lengths
 MinGasHsmlFractional 0.01
-
-#----------------------BH Stuff-------------------------
-# add these lines if MP-Gadget was compiled with BlackHole option
-#BlackHoleFeedbackFactor = 0.05
-#BlackHoleFeedbackRadius = 0.
-#BlackHoleFeedbackRadiusMaxPhys = 0.
-#BlackHoleFeedbackMethod = spline | mass
-#SeedBlackHoleMass = 5.0e-5
-#BlackHoleAccretionFactor = 100.0
-#BlackHoleNgbFactor = 2.0
-#BlackHoleEddingtonFactor = 3.0
 
 MinFoFMassForNewSeed = 1
 TimeBetweenSeedingSearch 1.03
