@@ -27,6 +27,9 @@ CoolingOn = 1
 StarformationOn = 1
 RadiationOn = 1
 HydroOn = 1
+WindOn = 0
+# if compiled with BlackHole option, add this line
+BlackHoleOn = 0
 StarformationCriterion = density
 
 #  Further parameters of SPH
@@ -40,20 +43,6 @@ MinGasTemp = 100
 PartAllocFactor = 2.0
 BufferSize = 100          # in MByte
 
-# Softening lengths
-SofteningGas = 16.6667
-SofteningGasMaxPhys = 16.6667
-SofteningHalo = 16.6667
-SofteningHaloMaxPhys = 16.6667
-SofteningDisk = 16.6667
-SofteningDiskMaxPhys = 16.6667
-SofteningBulge = 16.6667
-SofteningBulgeMaxPhys = 16.6667
-SofteningStars = 16.6667
-SofteningStarsMaxPhys = 16.6667
-SofteningBndry = 16.6667
-SofteningBndryMaxPhys = 16.6667
-
 #----------------------SFR Stuff-------------------------
 
 CritPhysDensity = 0       #  critical physical density for star formation in
@@ -63,9 +52,9 @@ QuickLymanAlphaProbability = 1 # Set to 1.0 to turn dense gas directly into star
 
 SnapshotWithFOF = 1
 WindModel = nowind
-BlackHoleOn = 0
-BlackHoleFeedbackFactor = 0.05
-BlackHoleFeedbackRadius = 0.
-BlackHoleFeedbackRadiusMaxPhys = 0.
-BlackHoleFeedbackMethod = spline | mass
-SeedBlackHoleMass = 5.0e-5
+# if compiled with BlackHole option, add these lines 
+#BlackHoleFeedbackFactor = 0.05
+#BlackHoleFeedbackRadius = 0.
+#BlackHoleFeedbackRadiusMaxPhys = 0.
+#BlackHoleFeedbackMethod = spline | mass
+#SeedBlackHoleMass = 5.0e-5
