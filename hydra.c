@@ -221,7 +221,7 @@ hydro_ngbiter(
 
 #ifdef SFR
 #ifdef NOWINDTIMESTEPPING
-    if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
+    if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
         if(P[other].Type == 0)
             if(SPHP(other).DelayTime > 0)  /* ignore the wind particles */
                 return;
@@ -337,7 +337,7 @@ hydro_ngbiter(
 #endif
 
 #ifdef SFR
-        if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
+        if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
             if(P[other].Type == 0)
                 if(SPHP(other).DelayTime > 0)	/* No force by wind particles */
                 {
@@ -373,7 +373,7 @@ hydro_postprocess(int i, TreeWalk * tw)
 
 #ifdef SFR
         /* if we have winds, we decouple particles briefly if delaytime>0 */
-        if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
+        if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
             if(SPHP(i).DelayTime > 0)
             {
                 int k;

@@ -122,12 +122,11 @@ enum StarformationCriterion {
  * wind models SH03, VS08 and OFJT10
  * All.WindModel */
 enum WindModel {
-    WINDS_NONE = 0,
-    WINDS_SUBGRID = 1,
-    WINDS_DECOUPLE_SPH = 2,
-    WINDS_USE_HALO = 4,
-    WINDS_FIXED_EFFICIENCY = 8,
-    WINDS_ISOTROPIC = 16,
+    WIND_SUBGRID = 1,
+    WIND_DECOUPLE_SPH = 2,
+    WIND_USE_HALO = 4,
+    WIND_FIXED_EFFICIENCY = 8,
+    WIND_ISOTROPIC = 16,
 };
 
 enum DensityKernelType {
@@ -281,15 +280,17 @@ extern struct global_data_all_processes
      * but only changes refinement, not load balancing.*/
     int TopNodeIncreaseFactor;
 
-    int CoolingOn;		/*!< flags that cooling is enabled */
-    double UVRedshiftThreshold;		/* Initial redshift of UV background. */
-    int HydroOn;		/*!< flags that hydro force is enabled */
-    int DensityOn;		/*!< flags that SPH density computation is enabled */
-    int TreeGravOn;          /*!< flags that tree gravity force is enabled*/
-    int BlackHoleOn;		/*!< flags that black holes are enabled */
-    int StarformationOn;		/*!< flags that star formation is enabled */
-    enum StarformationCriterion StarformationCriterion;		/*!< flags that star formation is enabled */
-    enum WindModel WindModel;		/*!< flags that star formation is enabled */
+    int CoolingOn;  /* if cooling is enabled */
+    double UVRedshiftThreshold;  /* Initial redshift of UV background. */
+    int HydroOn;  /*  if hydro force is enabled */
+    int DensityOn;  /*  if SPH density computation is enabled */
+    int TreeGravOn;     /* tree gravity force is enabled*/
+    int BlackHoleOn;  /* if black holes are enabled */
+    int StarformationOn;  /* if star formation is enabled */
+    int WindOn; /* if Wind is enabled */
+
+    enum StarformationCriterion StarformationCriterion;  /*!< flags that star formation is enabled */
+    enum WindModel WindModel;  /*!< flags that star formation is enabled */
 
     int MakeGlassFile; /*!< flags that gravity is reversed and we are making a glass file*/
     int FastParticleType; /*!< flags a particle species to exclude timestep calculations.*/

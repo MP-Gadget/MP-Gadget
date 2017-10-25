@@ -295,7 +295,7 @@ void cooling_and_starformation(void)
     walltime_measure("/Cooling/StarFormation");
 
     /* now lets make winds. this has to be after NumPart is updated */
-    if(!HAS(All.WindModel, WINDS_SUBGRID) && All.WindModel != WINDS_NONE) {
+    if(All.WindOn && !HAS(All.WindModel, WIND_SUBGRID)){
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
         TreeWalk tw[1] = {0};
 
@@ -613,10 +613,10 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
 
     double windeff=0;
     double v=0;
-    if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
+    if(HAS(All.WindModel, WIND_FIXED_EFFICIENCY)) {
         windeff = All.WindEfficiency;
         v = All.WindSpeed * All.cf.a;
-    } else if(HAS(All.WindModel, WINDS_USE_HALO)) {
+    } else if(HAS(All.WindModel, WIND_USE_HALO)) {
         windeff = 1.0 / (I->Vdisp / All.cf.a / All.WindSigma0);
         windeff *= windeff;
         v = All.WindSpeedFactor * I->Vdisp;
@@ -650,7 +650,7 @@ static int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
     int j;
     /* ok, make the particle go into the wind */
     double dir[3];
-    if(HAS(All.WindModel, WINDS_ISOTROPIC)) {
+    if(HAS(All.WindModel, WIND_ISOTROPIC)) {
         double theta = acos(2 * get_random_number(P[i].ID + 3) - 1);
         double phi = 2 * M_PI * get_random_number(P[i].ID + 4);
 
@@ -810,7 +810,7 @@ static void starformation(int i) {
     if(P[i].Type == 0)	{
         /* to protect using a particle that has been turned into a star */
         SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
-        if(HAS(All.WindModel, WINDS_SUBGRID)) {
+        if(All.WindOn && HAS(All.WindModel, WIND_SUBGRID)) {
             /* Here comes the Springel Hernquist 03 wind model */
             double pw = All.WindEfficiency * sm / P[i].Mass;
             double prob = 1 - exp(-pw);

@@ -193,15 +193,15 @@ set_units(void)
     All.EgySpecSN = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.TempSupernova;
     All.EgySpecSN *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
 
-    if(HAS(All.WindModel, WINDS_FIXED_EFFICIENCY)) {
-        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
-        message(1, "Windspeed: %g\n", All.WindSpeed);
-    } else {
-        All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
-        if(All.WindModel != WINDS_NONE)
+    if(All.WindOn) {
+        if(HAS(All.WindModel, WIND_FIXED_EFFICIENCY)) {
+            All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
+            message(1, "Windspeed: %g\n", All.WindSpeed);
+        } else {
+            All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
             message(1, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
+        }
     }
-
 #endif
 
     message(0, "Hubble (internal units) = %g\n", All.CP.Hubble);

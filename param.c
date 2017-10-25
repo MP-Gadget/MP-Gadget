@@ -193,6 +193,7 @@ create_gadget_parameter_set()
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
     param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
+    param_declare_int(ps, "WindOn", REQUIRED, 0, "Enables wind feedback");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
 
     param_declare_int(ps, "AdaptiveGravsoftForGas", OPTIONAL, 0, "Gravitational softening for gas particles is the smoothing length.");
@@ -258,16 +259,15 @@ create_gadget_parameter_set()
     };
 
     static ParameterEnum WindModelEnum [] = {
-        {"subgrid", WINDS_SUBGRID},
-        {"decouple", WINDS_DECOUPLE_SPH},
-        {"halo", WINDS_USE_HALO},
-        {"fixedefficiency", WINDS_FIXED_EFFICIENCY},
-        {"sh03", WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY} ,
-        {"vs08", WINDS_FIXED_EFFICIENCY},
-        {"ofjt10", WINDS_USE_HALO | WINDS_DECOUPLE_SPH},
-        {"isotropic", WINDS_ISOTROPIC },
-        {"nowind", WINDS_NONE},
-        {NULL, WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY},
+        {"subgrid", WIND_SUBGRID},
+        {"decouple", WIND_DECOUPLE_SPH},
+        {"halo", WIND_USE_HALO},
+        {"fixedefficiency", WIND_FIXED_EFFICIENCY},
+        {"sh03", WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY} ,
+        {"vs08", WIND_FIXED_EFFICIENCY},
+        {"ofjt10", WIND_USE_HALO | WIND_DECOUPLE_SPH},
+        {"isotropic", WIND_ISOTROPIC },
+        {NULL, WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY},
     };
 
     param_declare_enum(ps, "StarformationCriterion",
@@ -408,6 +408,7 @@ void read_parameter_file(char *fname)
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
+        All.WindOn = param_get_int(ps, "WindOn");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
         All.AdaptiveGravsoftForGas = param_get_int(ps, "AdaptiveGravsoftForGas");
@@ -502,12 +503,26 @@ void read_parameter_file(char *fname)
                           "but you did not switch on cooling.\nThis mode is not supported.\n");
             }
         }
+
+        if(All.WindOn == 1) {
+            if(All.StarformationOn == 0) {
+                endrun(1, "You try to use the code with wind enabled,\n"
+                          "but you did not switch on starformation.\nThis mode is not supported.\n");
+            }
+        }
+
     #else
         if(All.StarformationOn == 1)
         {
             endrun(1, "Code was compiled with star formation switched off.\n"
                       "You must set `StarformationOn=0', or recompile the code.\n");
             All.StarformationOn = 0;
+        }
+        if(All.WindOn == 1)
+        {
+            endrun(1, "Code was compiled with star formation switched off.\n"
+                      "You must set `WindOn=0', or recompile the code.\n");
+            All.WindOn = 0;
         }
     #endif
 
