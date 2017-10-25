@@ -10,13 +10,14 @@
 #define ENUM 10
 #define NAMESIZE 128
 
-static int parse_enum(ParameterEnum * table, char * strchoices) {
+static int parse_enum(ParameterEnum * table, const char * strchoices) {
     int value = 0;
     ParameterEnum * p = table;
     char * delim = ",;&| \t";
     char * token;
 
-    for(token = strtok(strchoices, delim); token ; token = strtok(NULL, delim)) {
+    char * strchoices2 = strdup(strchoices);
+    for(token = strtok(strchoices2, delim); token ; token = strtok(NULL, delim)) {
         for(p = table; p->name; p++) {
             if(strcasecmp(token, p->name) == 0) {
                 value |= p->value;
@@ -25,6 +26,7 @@ static int parse_enum(ParameterEnum * table, char * strchoices) {
         }
         if(p->name == NULL) {
             /* error occured !*/
+            free(strchoices2);
             return 0;
         }
     }
@@ -32,6 +34,7 @@ static int parse_enum(ParameterEnum * table, char * strchoices) {
         /* none is specified, use default (NULL named entry) */
         value = p->value;
     }
+    free(strchoices2);
     return value;
 }
 static char * format_enum(ParameterEnum * table, int value) {
