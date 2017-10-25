@@ -159,7 +159,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells. Gadget-2 paper says larger values may be more accurate.");
     param_declare_int(ps,    "Nmesh", REQUIRED, 0, "");
 
-    param_declare_double(ps, "MinGasHsmlFractional", OPTIONAL, 0, "");
+    param_declare_double(ps, "MinGasHsmlFractional", OPTIONAL, 0, "Minimal gas Hsml as a fraction of gravity softening.");
     param_declare_double(ps, "MaxGasVel", OPTIONAL, 3e5, "");
 
     param_declare_int(ps,    "TypeOfTimestepCriterion", OPTIONAL, 0, "Compatibility only. Has no effect");
@@ -195,19 +195,8 @@ create_gadget_parameter_set()
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
 
-    param_declare_int(ps, "AdaptiveGravsoftForGas", OPTIONAL, 0, "Gravitational softening for gas particles is the smoothing length.");
-    param_declare_double(ps, "SofteningHalo", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningDisk", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningBulge", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningGas", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningStars", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningBndry", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningHaloMaxPhys", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningDiskMaxPhys", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningBulgeMaxPhys", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningGasMaxPhys", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningStarsMaxPhys", REQUIRED, 0, "");
-    param_declare_double(ps, "SofteningBndryMaxPhys", REQUIRED, 0, "");
+    param_declare_double(ps, "GravitySoftening", OPTIONAL, 1./30., "Softening for collisionless particles; units of mean separation of DM. ForceSoftening is 2.8 times this.");
+    param_declare_double(ps, "GravitySofteningGas", OPTIONAL, 1./30., "Softening for collisional particles (Gas); units of mean separation of DM; 0 to use Hsml of last step. ");
 
     param_declare_double(ps, "BufferSize", OPTIONAL, 100, "");
     param_declare_double(ps, "PartAllocFactor", REQUIRED, 0, "");
@@ -410,19 +399,8 @@ void read_parameter_file(char *fname)
         All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
-        All.AdaptiveGravsoftForGas = param_get_int(ps, "AdaptiveGravsoftForGas");
-        All.SofteningHalo = param_get_double(ps, "SofteningHalo");
-        All.SofteningDisk = param_get_double(ps, "SofteningDisk");
-        All.SofteningBulge = param_get_double(ps, "SofteningBulge");
-        All.SofteningGas = param_get_double(ps, "SofteningGas");
-        All.SofteningStars = param_get_double(ps, "SofteningStars");
-        All.SofteningBndry = param_get_double(ps, "SofteningBndry");
-        All.SofteningHaloMaxPhys= param_get_double(ps, "SofteningHaloMaxPhys");
-        All.SofteningDiskMaxPhys= param_get_double(ps, "SofteningDiskMaxPhys");
-        All.SofteningBulgeMaxPhys= param_get_double(ps, "SofteningBulgeMaxPhys");
-        All.SofteningGasMaxPhys= param_get_double(ps, "SofteningGasMaxPhys");
-        All.SofteningStarsMaxPhys= param_get_double(ps, "SofteningStarsMaxPhys");
-        All.SofteningBndryMaxPhys= param_get_double(ps, "SofteningBndryMaxPhys");
+        All.GravitySoftening = param_get_double(ps, "GravitySoftening");
+        All.GravitySofteningGas = param_get_double(ps, "GravitySofteningGas");
 
         All.BufferSize = param_get_double(ps, "BufferSize");
         All.PartAllocFactor = param_get_double(ps, "PartAllocFactor");

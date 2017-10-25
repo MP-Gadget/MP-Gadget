@@ -60,19 +60,8 @@ BufferSize = 100          # in MByte
 
 MinGasHsmlFractional 0.01
 
-SofteningGas = 50
-SofteningHalo = 50
-SofteningDisk = 0
-SofteningBulge = 0
-SofteningStars = 50
-SofteningBndry = 50             #This is BH
-
-SofteningGasMaxPhys = 50
-SofteningHaloMaxPhys = 50
-SofteningDiskMaxPhys = 0
-SofteningBulgeMaxPhys = 0
-SofteningStarsMaxPhys = 50
-SofteningBndryMaxPhys = 50      #This is BH
+GravitySoftening = 0.03333
+GravitySofteningGas = 0.00 # enable adaptive softening of gas
 
 #----------------------BH Stuff-------------------------
 BlackHoleOn = 0

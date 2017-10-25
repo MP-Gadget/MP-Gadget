@@ -371,26 +371,13 @@ extern struct global_data_all_processes
                              */
     double DensityContrastLimit; /* limit of density contrast ratio for hydro force calculation */
     double HydroCostFactor; /* cost factor for hydro in load balancing. */
-    double SofteningGas,		/*!< for type 0 */
-           SofteningHalo,		/*!< for type 1 */
-           SofteningDisk,		/*!< for type 2 */
-           SofteningBulge,		/*!< for type 3 */
-           SofteningStars,		/*!< for type 4 */
-           SofteningBndry;		/*!< for type 5 */
 
-    double SofteningGasMaxPhys,	/*!< for type 0 */
-           SofteningHaloMaxPhys,	/*!< for type 1 */
-           SofteningDiskMaxPhys,	/*!< for type 2 */
-           SofteningBulgeMaxPhys,	/*!< for type 3 */
-           SofteningStarsMaxPhys,	/*!< for type 4 */
-           SofteningBndryMaxPhys;	/*!< for type 5 */
+    double GravitySoftening; /* Softening as a fraction of DM mean separation. */
+    double GravitySofteningGas;  /* if 0, enable adaptive gravitational softening for gas particles, which uses the Hsml as ForceSoftening */
 
-    double SofteningTable[6];	/*!< current (comoving) gravitational softening lengths for each particle type */
-    double ForceSoftening[6];	/*!< the same, but multiplied by a factor 2.8 - at that scale the force is Newtonian */
+    double GravitySofteningTable[6]; /* the softening length; the scale where the force is Newtonian is 2.8 x this; in length units. */
+    double TreeNodeMinSize; /* The minimum size of a Force Tree Node in length units. */
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
-    int AdaptiveGravsoftForGas; /*Flags that we have enabled adaptive gravitational softening for gas particles.
-                                  This means that ForceSoftening[0] is unused. Instead pairwise interactions use 
-                                  max(P[i].Hsml,ForceSoftening[P[j].Type]) for the particle is considered.*/
 
     /* some filenames */
     char InitCondFile[100],
@@ -644,4 +631,13 @@ extern struct sph_particle_data
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
 
+static inline double FORCE_SOFTENING(int i)
+{
+    if (All.GravitySofteningTable[0] == 0 && P[i].Type == 0) {
+        return P[i].Hsml;
+    } else {
+        /* Force is newtonian beyond this.*/
+        return 2.8 * All.GravitySofteningTable[P[i].Type];
+    }
+}
 #endif
