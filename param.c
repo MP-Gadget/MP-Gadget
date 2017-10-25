@@ -193,7 +193,6 @@ create_gadget_parameter_set()
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
     param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
-    param_declare_int(ps, "WindOn", REQUIRED, 0, "Enables wind feedback");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
 
     param_declare_int(ps, "AdaptiveGravsoftForGas", OPTIONAL, 0, "Gravitational softening for gas particles is the smoothing length.");
@@ -270,6 +269,7 @@ create_gadget_parameter_set()
         {NULL, WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY},
     };
 
+    param_declare_int(ps, "WindOn", REQUIRED, 0, "Enables wind feedback");
     param_declare_enum(ps, "StarformationCriterion",
             StarformationCriterionEnum, OPTIONAL, "density", "");
 
@@ -408,7 +408,6 @@ void read_parameter_file(char *fname)
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
         All.StarformationOn = param_get_int(ps, "StarformationOn");
-        All.WindOn = param_get_int(ps, "WindOn");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
         All.AdaptiveGravsoftForGas = param_get_int(ps, "AdaptiveGravsoftForGas");
@@ -468,6 +467,8 @@ void read_parameter_file(char *fname)
         All.TempSupernova = param_get_double(ps, "TempSupernova");
         All.TempClouds = param_get_double(ps, "TempClouds");
         All.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
+
+        All.WindOn = param_get_int(ps, "WindOn");
         All.WindModel = param_get_enum(ps, "WindModel");
 
         /* The following two are for VS08 and SH03*/
@@ -517,12 +518,6 @@ void read_parameter_file(char *fname)
             endrun(1, "Code was compiled with star formation switched off.\n"
                       "You must set `StarformationOn=0', or recompile the code.\n");
             All.StarformationOn = 0;
-        }
-        if(All.WindOn == 1)
-        {
-            endrun(1, "Code was compiled with star formation switched off.\n"
-                      "You must set `WindOn=0', or recompile the code.\n");
-            All.WindOn = 0;
         }
     #endif
 
