@@ -29,7 +29,7 @@ static void convert_node_to_region(PetaPMRegion * r);
 
 static int hybrid_nu_gravpm_is_active(int i);
 static void potential_transfer(int64_t k2, int kpos[3], pfft_complex * value);
-static void readout_power_spectrum(int64_t k2, int kpos[3], pfft_complex * value);
+static void measure_power_spectrum(int64_t k2, int kpos[3], pfft_complex * value);
 static void compute_neutrino_power(void);
 static void force_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void force_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
@@ -60,7 +60,7 @@ void gravpm_init_periodic() {
         /*Set the private copy of the task in delta_tot_table*/
         delta_tot_table.ThisTask = ThisTask;
         allocate_delta_tot_table(&delta_tot_table, All.Nmesh, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, 3.085678e24, 0);
-        global_functions.global_readout = readout_power_spectrum;
+        global_functions.global_readout = measure_power_spectrum;
         global_functions.global_analysis = compute_neutrino_power;
     }
 }
@@ -296,7 +296,7 @@ static double sinc_unnormed(double x) {
 
 /* Compute neutrino power spectrum.
  * This should happen after the CFT is computed,
- * and after powerspectrum_compute() has been called,
+ * and after powerspectrum_add_mode() has been called,
  * but before potential_transfer is called.*/
 static void compute_neutrino_power() {
     if(!All.MassiveNuLinRespOn)
@@ -376,7 +376,7 @@ void powerspectrum_nu_save(struct _delta_pow *nu_pow, const char * OutputDir, co
 
 /* Compute the power spectrum of the fourier transformed grid in value.
  * Store it in the PowerSpectrum structure */
-void powerspectrum_compute(const int64_t k2, const int kpos[3], pfft_complex * const value, const double invwindow) {
+void powerspectrum_add_mode(const int64_t k2, const int kpos[3], pfft_complex * const value, const double invwindow) {
 
     if(k2 == 0) {
         /* Save zero mode corresponding to the mean as the normalisation factor.*/
@@ -409,7 +409,7 @@ void powerspectrum_compute(const int64_t k2, const int kpos[3], pfft_complex * c
 }
 
 /*Just read the power spectrum, without changing the input value.*/
-static void readout_power_spectrum(int64_t k2, int kpos[3], pfft_complex *value) {
+static void measure_power_spectrum(int64_t k2, int kpos[3], pfft_complex *value) {
     double f = 1.0;
     /* the CIC deconvolution kernel is
      *
@@ -424,7 +424,7 @@ static void readout_power_spectrum(int64_t k2, int kpos[3], pfft_complex *value)
         tmp = sinc_unnormed(tmp);
         f *= 1. / (tmp * tmp);
     }
-    powerspectrum_compute(k2, kpos, value, f);
+    powerspectrum_add_mode(k2, kpos, value, f);
 }
 
 static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
@@ -470,7 +470,7 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
     }
 
     /*Compute the power spectrum*/
-    powerspectrum_compute(k2, kpos, value, f);
+    powerspectrum_add_mode(k2, kpos, value, f);
     if(k2 == 0) {
         if(All.MassiveNuLinRespOn) {
             const double MtotbyMcdm = All.CP.Omega0/(All.CP.Omega0 - pow(All.Time,3)*get_omega_nu_nopart(&All.CP.ONu, All.Time));

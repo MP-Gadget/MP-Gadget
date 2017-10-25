@@ -225,7 +225,7 @@ set_units(void)
     if(All.CP.RadiationOn) {
         /* note that this value is inaccurate if there is massive neutrino. */
         double OmegaTot = All.CP.OmegaG + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda;
-        if(All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] == 0)
+        if(!All.MassiveNuLinRespOn)
             OmegaTot += get_omega_nu(&All.CP.ONu, 1);
         message(0, "Radiation is enabled in Hubble(a). "
                "Following CAMB convention: Omega_Tot - 1 = %g\n", OmegaTot - 1);

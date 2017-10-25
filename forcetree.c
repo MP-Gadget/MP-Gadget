@@ -647,6 +647,10 @@ static void
 add_particle_moment_to_node(struct NODE * pnode, int i)
 {
     int k;
+    /*Hybrid particle neutrinos do not gravitate at early times.
+     * So do not add their masses to the node*/
+    if(All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime && P[i].Type == All.FastParticleType)
+        return;
     pnode->u.d.mass += (P[i].Mass);
     for(k=0; k<3; k++)
         pnode->u.d.s[k] += (P[i].Mass * P[i].Pos[k]);
@@ -755,10 +759,7 @@ force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder 
             /* add all particles in this tree-node */
             int next = p;
             while(next != -1) {
-                /*Hybrid particle neutrinos do not gravitate at early times.
-                 * So do not add their masses to the node*/
-                if(!All.HybridNeutrinosOn || All.Time > All.HybridNuPartTime || P[next].Type != All.FastParticleType)
-                    add_particle_moment_to_node(&Nodes[no], next);
+                add_particle_moment_to_node(&Nodes[no], next);
                 next = force_get_next_node(next, tb);
             }
         }
