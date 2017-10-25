@@ -195,7 +195,7 @@ static void fof_distribute_particles() {
         P[index].targettask = pi[i].targetTask;
     }
 
-    if(domain_exchange(fof_sorted_layout))
+    if(domain_exchange(fof_sorted_layout,0))
         endrun(1930,"Could not exchange particles\n");
     myfree(pi);
     /* sort SPH and Others independently */
@@ -210,7 +210,7 @@ static void fof_distribute_particles() {
 
 }
 static void fof_return_particles() {
-    if(domain_exchange(fof_origin_layout))
+    if(domain_exchange(fof_origin_layout,0))
         endrun(1931,"Could not exchange particles\n");
 }
 

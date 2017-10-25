@@ -108,10 +108,8 @@ void init(int RestartSnapNum)
             SPHP(i).Ne = 1.0;
             SPHP(i).DivVel = 0;
         }
-#ifdef WINDS
-        SPHP(i).DelayTime = 0;
-#endif
 #ifdef SFR
+        SPHP(i).DelayTime = 0;
         SPHP(i).Sfr = 0;
 #endif
 

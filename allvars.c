@@ -30,11 +30,10 @@ int RestartFlag;		/*!< taken from command line used to start code. 0 is normal s
 				   marks a restart from a snapshot file. */
 int RestartSnapNum;
 
-/* Local number of particles; this shall be made into an array */
+/* Local number of particles */
 int NumPart;
-int64_t NLocal[6];
-int64_t NTotal[6];
 int N_bh_slots;
+int N_star_slots;
 int N_sph_slots;
 
 /* variables for input/output , usually only used on process 0 */
@@ -78,3 +77,4 @@ struct particle_data *P;	/*!< holds particle data on local processor */
 struct sph_particle_data * SphP;	/*!< holds SPH particle data on local processor */
 struct bh_particle_data * BhP;	/*!< holds BH particle data on local processor */
 
+struct star_particle_data * StarP;	/*!< holds star particle data on local processor */

@@ -168,12 +168,9 @@ extern int NTask;		/*!< number of processors */
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
 
-/* Local number of particles; this is accurate after a GC */
-extern int64_t NLocal[6];
-extern int64_t NTotal[6];
-
-/* Number of used BHP slots */
+/* Number of used slots */
 extern int N_bh_slots;
+extern int N_star_slots;
 extern int N_sph_slots;
 
 /* variables for input/output , usually only used on process 0 */
@@ -516,7 +513,8 @@ extern struct particle_data
         signed char TimeBin; /* Time step bin; -1 for unassigned.*/
     };
 
-    unsigned int PI; /* particle property index; used by BH. points to the BH property in BhP array.*/
+    unsigned int PI; /* particle property index; used by BH, SPH and STAR.
+                        points to the corresponding structure in (SPH|BH|STAR)P array.*/
     MyIDType ID;
 
     MyFloat Vel[3];   /* particle velocity at its current time */
@@ -526,18 +524,7 @@ extern struct particle_data
 
     MyFloat Potential;		/* gravitational potential. This is the total potential after gravtree+gravpm is called. */
 
-    MyFloat StarFormationTime;		/*!< formation time of star particle: needed to tell when wind is active. */
-
-#ifdef METALS
-    MyFloat Metallicity;		/*!< metallicity of gas or star particle */
-#endif				/* closes METALS */
-
     MyFloat Hsml;
-
-#ifdef BLACK_HOLES
-    /* SwallowID is not reset in blackhole.c thus cannot be in a union */
-    MyIDType SwallowID; /* who will swallow this particle, used only in blackhole.c */
-#endif
 
     /* The peano key is a hash of the position used in the domain decomposition.
      * It is slow to generate so we store it here.*/
@@ -578,6 +565,7 @@ struct bh_particle_data {
     MyFloat Entropy;
     MyFloat Pressure;
     MyFloat SurroundingGasVel[3];
+    MyFloat FormationTime;		/*!< formation time of black hole. */
 
     MyFloat accreted_Mass;
     MyFloat accreted_BHMass;
@@ -587,9 +575,20 @@ struct bh_particle_data {
     MyFloat MinPotVel[3];
     MyFloat MinPot;
 
+    MyIDType SwallowID; /* Allows marking of a merging particle. Used only in blackhole.c.
+                           Set to -1 in init.c and only reinitialised if a merger takes place.*/
+
     short int TimeBinLimit;
 } * BhP;
 
+/*Data for each star particle*/
+extern struct star_particle_data
+{
+    struct particle_data_ext base;
+    MyFloat FormationTime;		/*!< formation time of star particle */
+    MyFloat BirthDensity;		/*!< Density of gas particle at star formation. */
+    MyFloat Metallicity;		/*!< metallicity of star particle */
+} * StarP;
 
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
  * variables.
@@ -606,6 +605,7 @@ extern struct sph_particle_data
 #define EOMDensity Density
 #endif
 
+    MyFloat Metallicity;		/*!< metallicity of gas particle */
     MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
     MyFloat       Density;		/*!< current baryonic mass density of particle */
@@ -620,13 +620,13 @@ extern struct sph_particle_data
                    indirectly ionization state and mean molecular weight. */
 
 #ifdef BLACK_HOLES
+    MyIDType SwallowID; /* Allows marking of a particle being eaten by a black hole. Used only in blackhole.c.
+                           Set to -1 in init.c and only reinitialised if a merger takes place.*/
     MyFloat       Injected_BH_Energy;
 #endif
 
 #ifdef SFR
     MyFloat Sfr;
-#endif
-#ifdef WINDS
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
 #endif
@@ -638,6 +638,7 @@ extern struct sph_particle_data
 
 #define SPHP(i) SphP[P[i].PI]
 #define BHP(i) BhP[P[i].PI]
+#define STARP(i) StarP[P[i].PI]
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG

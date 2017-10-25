@@ -219,7 +219,7 @@ hydro_ngbiter(
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
 
-#ifdef WINDS
+#ifdef SFR
 #ifdef NOWINDTIMESTEPPING
     if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
         if(P[other].Type == 0)
@@ -336,7 +336,7 @@ hydro_ngbiter(
                 + p_over_rho2_j * SPHP(other).DhsmlDensityFactor * dwk_j) / r;
 #endif
 
-#ifdef WINDS
+#ifdef SFR
         if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
             if(P[other].Type == 0)
                 if(SPHP(other).DelayTime > 0)	/* No force by wind particles */
@@ -371,7 +371,7 @@ hydro_postprocess(int i, TreeWalk * tw)
         /* Translate energy change rate into entropy change rate */
         SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
 
-#ifdef WINDS
+#ifdef SFR
         /* if we have winds, we decouple particles briefly if delaytime>0 */
         if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
             if(SPHP(i).DelayTime > 0)

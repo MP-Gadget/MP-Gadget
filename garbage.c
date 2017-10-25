@@ -91,6 +91,7 @@ domain_garbage_collection(void)
      * and snapshot IO, both take far more time than rebuilding the tree. */
     tree_invalid |= domain_all_garbage_collection();
     tree_invalid |= domain_garbage_collection_slots(5, BhP, sizeof(BhP[0]), &N_bh_slots, All.MaxPartBh);
+    tree_invalid |= domain_garbage_collection_slots(4, StarP, sizeof(StarP[0]), &N_star_slots, All.MaxPartBh);
     tree_invalid |= domain_garbage_collection_slots(0, SphP, sizeof(SphP[0]), &N_sph_slots, All.MaxPart);
 
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -172,7 +173,7 @@ domain_garbage_collection_slots(int ptype,
         if(P[i].Type == ptype) {
             SLOT(P[i].PI)->ReverseLink = i;
             if(P[i].PI >= *N_slots) {
-                endrun(1, "slot PI consistency failed2, N_bh_slots = %d, N_bh = %d, PI=%d\n", *N_slots, NLocal[5], P[i].PI);
+                endrun(1, "slot PI consistency failed2, N_slots = %d, PI=%d\n", *N_slots, P[i].PI);
             }
             if(SLOT(P[i].PI)->ID != P[i].ID) {
                 endrun(1, "slot id consistency failed1\n");

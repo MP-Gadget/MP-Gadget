@@ -22,7 +22,8 @@
 
 /*Defined in fofpetaio.c and only used here*/
 void fof_register_io_blocks();
-
+/*Defined in allocate.c and only used here*/
+void allocate_memory(int alloc_sph);
 /************
  *
  * The IO api , intented to replace io.c and read_ic.c
@@ -32,7 +33,7 @@ void fof_register_io_blocks();
 
 struct IOTable IOTable = {0};
 
-static void petaio_write_header(BigFile * bf);
+static void petaio_write_header(BigFile * bf, const int64_t * NTotal);
 static void petaio_read_header_internal(BigFile * bf);
 
 static void register_io_blocks();
@@ -102,16 +103,23 @@ petaio_build_selection(int * selection,
     ptype_offset[0] = 0;
     ptype_count[0] = 0;
 
+    for(i = 0; i < NumPart; i ++) {
+        if((select_func == NULL) || (select_func(i) != 0)) {
+            int ptype = P[i].Type;
+            ptype_count[ptype] ++;
+        }
+    }
     for(i = 1; i < 6; i ++) {
-        ptype_offset[i] = ptype_offset[i-1] + NLocal[i - 1];
-        ptype_count[i] = 0;
+        ptype_offset[i] = ptype_offset[i-1] + ptype_count[i-1];
+        ptype_count[i-1] = 0;
     }
 
+    ptype_count[5] = 0;
     for(i = 0; i < NumPart; i ++) {
         int ptype = P[i].Type;
         if((select_func == NULL) || (select_func(i) != 0)) {
             selection[ptype_offset[ptype] + ptype_count[ptype]] = i;
-            ptype_count[ptype] ++;
+            ptype_count[ptype]++;
         }
     }
 }
@@ -122,14 +130,19 @@ static void petaio_save_internal(char * fname) {
         endrun(0, "Failed to create snapshot at %s:%s\n", fname,
                     big_file_get_error_message());
     }
-    petaio_write_header(&bf); 
 
     int ptype_offset[6]={0};
     int ptype_count[6]={0};
+    int64_t NTotal[6]={0};
 
     int * selection = mymalloc("Selection", sizeof(int) * NumPart);
 
     petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, NULL);
+
+    sumup_large_ints(6, ptype_count, NTotal);
+
+    petaio_write_header(&bf, NTotal);
+
     int i;
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -158,6 +171,7 @@ void petaio_read_internal(char * fname, int ic) {
     int ptype;
     int i;
     BigFile bf = {0};
+    BigBlock bh = {0};
     message(0, "Reading snapshot %s\n", fname);
 
     if(0 != big_file_mpi_open(&bf, fname, MPI_COMM_WORLD)) {
@@ -165,11 +179,26 @@ void petaio_read_internal(char * fname, int ic) {
                     big_file_get_error_message());
     }
 
-    allocate_memory();
+    int64_t NTotal[6];
+    if(0 != big_file_mpi_open_block(&bf, &bh, "Header", MPI_COMM_WORLD)) {
+        endrun(0, "Failed to create block at %s:%s\n", "Header",
+                    big_file_get_error_message());
+    }
+    if ((0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
+        (0 != big_block_mpi_close(&bh, MPI_COMM_WORLD))) {
+        endrun(0, "Failed to close block: %s\n",
+                    big_file_get_error_message());
+    }
+    allocate_memory(NTotal[0] > 0);
 
     /* set up the memory topology */
     int offset = 0;
+    int NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {
+        int64_t start = ThisTask * NTotal[ptype] / NTask;
+        int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
+        NLocal[ptype] = end - start;
+        NumPart += NLocal[ptype];
 #pragma omp parallel for
         for(i = 0; i < NLocal[ptype]; i++)
         {
@@ -178,6 +207,23 @@ void petaio_read_internal(char * fname, int ic) {
             P[j].PI = i;
         }
         offset += NLocal[ptype];
+    }
+    N_sph_slots = NLocal[0];
+    N_star_slots = NLocal[4];
+    N_bh_slots = NLocal[5];
+
+    if(N_sph_slots >= All.MaxPart) {
+        endrun(1, "Overwhelmed by sph: %d > %d\n", N_bh_slots, All.MaxPart);
+    }
+    if(N_bh_slots >= All.MaxPartBh) {
+        endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);
+    }
+    if(N_star_slots >= All.MaxPartBh) {
+        endrun(1, "Overwhelmed by stars: %d > %d\n", N_star_slots, All.MaxPartBh);
+    }
+
+    if(NumPart >= All.MaxPart) {
+        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
     }
 
     for(i = 0; i < IOTable.used; i ++) {
@@ -202,8 +248,8 @@ void petaio_read_internal(char * fname, int ic) {
         }
         sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
         petaio_alloc_buffer(&array, &IOTable.ent[i], NLocal[ptype]);
-        petaio_read_block(&bf, blockname, &array);
-        petaio_readout_buffer(&array, &IOTable.ent[i]);
+        if(0 == petaio_read_block(&bf, blockname, &array, IOTable.ent[i].required))
+            petaio_readout_buffer(&array, &IOTable.ent[i]);
         petaio_destroy_buffer(&array);
     }
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)) {
@@ -211,7 +257,7 @@ void petaio_read_internal(char * fname, int ic) {
                     big_file_get_error_message());
     }
 
-    /* set up the cross check for BH ID */
+    /* set up the cross check for child IDs */
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
@@ -220,6 +266,9 @@ void petaio_read_internal(char * fname, int ic) {
         }
         if(P[i].Type == 0) {
             SPHP(i).base.ID = P[i].ID;
+        }
+        if(P[i].Type == 4) {
+            STARP(i).base.ID = P[i].ID;
         }
     }
 }
@@ -294,7 +343,7 @@ petaio_read_snapshot(int num)
 
 
 /* write a header block */
-static void petaio_write_header(BigFile * bf) {
+static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
     BigBlock bh = {0};
     if(0 != big_file_mpi_create_block(bf, &bh, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "Failed to create block at %s:%s\n", "Header",
@@ -365,6 +414,7 @@ petaio_read_header_internal(BigFile * bf) {
     }
     double Time;
     int ptype;
+    int64_t NTotal[6];
     if(
     (0 != big_block_get_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_get_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
@@ -429,23 +479,6 @@ petaio_read_header_internal(BigFile * bf) {
     All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);	
     /* at most 10% of particles can form BH*/
     All.MaxPartBh = (int) (0.1 * All.MaxPart);
-
-    for(ptype = 0; ptype < 6; ptype ++) {
-        int64_t start = ThisTask * NTotal[ptype] / NTask;
-        int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
-        NLocal[ptype] = end - start;
-        NumPart += end - start;
-    }
-    N_sph_slots = NLocal[0];
-    N_bh_slots = NLocal[5];
-
-    if(N_bh_slots > All.MaxPartBh) {
-        endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);
-    }
-
-    if(NumPart >= All.MaxPart) {
-        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
-    }
 }
 
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize) {
@@ -481,7 +514,7 @@ void
 petaio_build_buffer(BigArray * array, IOTableEntry * ent, const int * selection, const int NumSelection)
 {
     if(selection == NULL) {
-        endrun(-1, "NULL seletion is not supported\n");
+        endrun(-1, "NULL selection is not supported\n");
     }
 
     /* don't forget to free buffer after its done*/
@@ -519,28 +552,28 @@ void petaio_destroy_buffer(BigArray * array) {
 }
 
 /* read a block from disk, spread the values to memory with setters  */
-void petaio_read_block(BigFile * bf, char * blockname, BigArray * array) {
+int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int required) {
     BigBlock bb;
     BigBlockPtr ptr;
 
     /* open the block */
     if(0 != big_file_mpi_open_block(bf, &bb, blockname, MPI_COMM_WORLD)) {
-        endrun(0, "Failed to open block at %s:%s\n", blockname,
-                big_file_get_error_message());
+        if(required)
+            endrun(0, "Failed to open block at %s:%s\n", blockname, big_file_get_error_message());
+        else
+            return 1;
     }
-    
     if(0 != big_block_seek(&bb, &ptr, 0)) {
-        endrun(1, "Failed to seek: %s\n", big_file_get_error_message());
+            endrun(1, "Failed to seek: %s\n", big_file_get_error_message());
     }
-
     if(0 != big_block_mpi_read(&bb, &ptr, array, All.IO.NumWriters, MPI_COMM_WORLD)) {
         endrun(1, "Failed to read from block: %s\n", big_file_get_error_message());
     }
-
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
         endrun(0, "Failed to close block at %s:%s\n", blockname,
                     big_file_get_error_message());
     }
+    return 0;
 }
 
 /* save a block to disk */
@@ -620,7 +653,8 @@ void io_register_io_block(char * name,
         int items, 
         int ptype, 
         property_getter getter,
-        property_setter setter
+        property_setter setter,
+        int required
         ) {
     IOTableEntry * ent = &IOTable.ent[IOTable.used];
     strcpy(ent->name, name);
@@ -629,6 +663,7 @@ void io_register_io_block(char * name,
     ent->getter = getter;
     ent->setter = setter;
     ent->items = items;
+    ent->required = required;
     IOTable.used ++;
 }
 
@@ -672,10 +707,10 @@ SIMPLE_PROPERTY(Entropy, SPHP(i).Entropy, float, 1)
 #endif
 SIMPLE_PROPERTY(ElectronAbundance, SPHP(i).Ne, float, 1)
 #ifdef SFR
-SIMPLE_PROPERTY(StarFormationTime, P[i].StarFormationTime, float, 1)
-#ifdef METALS
-SIMPLE_PROPERTY(Metallicity, P[i].Metallicity, float, 1)
-#endif
+SIMPLE_PROPERTY_TYPE(StarFormationTime, 4, STARP(i).FormationTime, float, 1)
+SIMPLE_PROPERTY(BirthDensity, STARP(i).BirthDensity, float, 1)
+SIMPLE_PROPERTY_TYPE(Metallicity, 4, STARP(i).Metallicity, float, 1)
+SIMPLE_PROPERTY_TYPE(Metallicity, 0, SPHP(i).Metallicity, float, 1)
 static void GTStarFormationRate(int i, float * out) {
     /* Convert to Solar/year */
     *out = get_starformation_rate(i) 
@@ -683,6 +718,7 @@ static void GTStarFormationRate(int i, float * out) {
 }
 #endif
 #ifdef BLACK_HOLES
+SIMPLE_PROPERTY_TYPE(StarFormationTime, 5, BHP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
@@ -733,13 +769,15 @@ static void register_io_blocks() {
         IO_REG(Velocity, "f4", 3, i);
         IO_REG(Mass,     "f4", 1, i);
         IO_REG(ID,       "u8", 1, i);
-        IO_REG(Generation,       "u1", 1, i);
         if(All.OutputPotential)
             IO_REG_WRONLY(Potential, "f4", 1, i);
         if(All.SnapshotWithFOF)
             IO_REG_WRONLY(GroupID, "u4", 1, i);
     }
 
+    IO_REG(Generation,       "u1", 1, 0);
+    IO_REG(Generation,       "u1", 1, 4);
+    IO_REG(Generation,       "u1", 1, 5);
     /* Bare Bone SPH*/
     IO_REG(SmoothingLength,  "f4", 1, 0);
     IO_REG(Density,          "f4", 1, 0);
@@ -757,18 +795,15 @@ static void register_io_blocks() {
     /* SF */
 #ifdef SFR
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
-#ifdef WINDS
-    IO_REG(StarFormationTime, "f4", 1, 4);
-#endif
-#ifdef METALS
-    IO_REG(Metallicity,       "f4", 1, 0);
-    IO_REG(Metallicity,       "f4", 1, 4);
-#endif /* METALS */
+    IO_REG_NONFATAL(BirthDensity, "f4", 1, 4);
+    IO_REG_TYPE(StarFormationTime, "f4", 1, 4);
+    IO_REG_TYPE(Metallicity,       "f4", 1, 0);
+    IO_REG_TYPE(Metallicity,       "f4", 1, 4);
 #endif /* SFR */
 #ifdef BLACK_HOLES
     /* Blackhole */
+    IO_REG_TYPE(StarFormationTime, "f4", 1, 5);
     IO_REG(BlackholeMass,          "f4", 1, 5);
-    IO_REG(StarFormationTime, "f4", 1, 5);
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
 #endif

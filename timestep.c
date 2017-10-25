@@ -772,6 +772,7 @@ void print_timebin_statistics(int NumCurrentTiStep)
     int64_t tot_count[TIMEBINS+1] = {0};
     int64_t tot_count_type[6][TIMEBINS+1] = {0};
     int64_t tot_num_force = 0;
+    int64_t TotNumPart = 0, TotNumType[6] = {0};
 
     for(i = 0; i < 6; i ++) {
         sumup_large_ints(TIMEBINS+1, TimeBinCountType[i], tot_count_type[i]);
@@ -779,8 +780,12 @@ void print_timebin_statistics(int NumCurrentTiStep)
 
     for(i = 0; i<TIMEBINS+1; i++) {
         int j;
-        for(j=0; j<6; j++)
+        for(j=0; j<6; j++) {
             tot_count[i] += tot_count_type[j][i];
+            /*Note j*/
+            TotNumType[j] += tot_count_type[j][i];
+            TotNumPart += tot_count_type[j][i];
+        }
         if(is_timebin_active(i, All.Ti_Current))
             tot_num_force += tot_count[i];
     }
@@ -796,11 +801,8 @@ void print_timebin_statistics(int NumCurrentTiStep)
                 All.TimeStep, log(All.Time) - log(All.Time - All.TimeStep),
                 extra);
 
-    int64_t TotNumPart = 0;
-    for(i = 0; i < 6; i ++) TotNumPart += NTotal[i];
-
     message(0, "TotNumPart: %013ld SPH %013ld BH %010ld STAR %013ld \n",
-                TotNumPart, NTotal[0], NTotal[5], NTotal[4]);
+                TotNumPart, TotNumType[0], TotNumType[5], TotNumType[4]);
     message(0,     "Occupied: % 12ld % 12ld % 12ld % 12ld % 12ld % 12ld dt\n", 0L, 1L, 2L, 3L, 4L, 5L);
 
     for(i = TIMEBINS;  i >= 0; i--) {

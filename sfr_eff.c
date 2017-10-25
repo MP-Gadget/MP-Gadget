@@ -33,13 +33,9 @@
 #include "timestep.h"
 #include "system.h"
 
-#ifdef METALS
-#define METALLICITY(i) (P[(i)].Metallicity)
-#else
-#define METALLICITY(i) (0.)
-#endif
-
+/*Cooling only: no star formation*/
 static void cooling_direct(int i);
+
 #ifdef SFR
 static double u_to_temp_fac; /* assuming very hot !*/
 
@@ -60,9 +56,18 @@ static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 static double find_star_mass(int i);
-#endif
 
-#ifdef WINDS
+/*
+ * This routine does cooling and star formation for
+ * the effective multi-phase model.
+ */
+static int
+sfr_cooling_haswork(int target, TreeWalk * tw)
+{
+    return P[target].Type == 0 && P[target].Mass > 0;
+}
+
+/*Prototypes and structures for the wind model*/
 typedef struct {
     TreeWalkQueryBase base;
     int NodeList[NODELISTLENGTH];
@@ -131,22 +136,6 @@ sfr_wind_feedback_ngbiter(TreeWalkQueryWind * I,
         TreeWalkNgbIterWind * iter,
         LocalTreeWalk * lv);
 
-#endif
-/*
- * This routine does cooling and star formation for
- * the effective multi-phase model.
- */
-
-static int
-sfr_cooling_haswork(int target, TreeWalk * tw)
-{
-    return P[target].Type == 0 && P[target].Mass > 0;
-}
-
-
-#ifdef SFR
-
-#ifdef WINDS
 static int NPLeft;
 
 static void
@@ -195,18 +184,19 @@ sfr_wind_weight_postprocess(int i)
         NPLeft ++;
     }
 }
+
 static void
 sfr_wind_feedback_postprocess(int i)
 {
     P[i].IsNewParticle = 0;
 }
-#endif
+
+/*End of wind model functions*/
 
 static void
 sfr_cool_postprocess(int i, TreeWalk * tw)
 {
         int flag;
-#ifdef WINDS
         /*Remove a wind particle from the delay mode if the (physical) density has dropped sufficiently.*/
         if(SPHP(i).DelayTime > 0 && SPHP(i).Density * All.cf.a3inv < All.WindFreeTravelDensFac * All.PhysDensThresh) {
                 SPHP(i).DelayTime = 0;
@@ -218,7 +208,6 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
             const double dtime = dloga / All.cf.hubble;
             SPHP(i).DelayTime = DMAX(SPHP(i).DelayTime - dtime, 0);
         }
-#endif
 
         /* check whether conditions for star formation are fulfilled.
          *
@@ -305,7 +294,6 @@ void cooling_and_starformation(void)
     }
     walltime_measure("/Cooling/StarFormation");
 
-#ifdef WINDS
     /* now lets make winds. this has to be after NumPart is updated */
     if(!HAS(All.WindModel, WINDS_SUBGRID) && All.WindModel != WINDS_NONE) {
         Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
@@ -355,7 +343,6 @@ void cooling_and_starformation(void)
         myfree(Wind);
     }
     walltime_measure("/Cooling/Wind");
-#endif
 }
 
 #else //No SFR
@@ -429,7 +416,7 @@ cooling_direct(int i) {
 
     struct UVBG uvbg;
     GetParticleUVBG(i, &uvbg);
-    unew = DoCooling(unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, METALLICITY(i));
+    unew = DoCooling(unew, SPHP(i).Density * All.cf.a3inv, dtime, &uvbg, &ne, SPHP(i).Metallicity);
 
     SPHP(i).Ne = ne;
 
@@ -472,10 +459,8 @@ static int get_sfr_condition(int i) {
                   " We haven't implemented tracer particles and this shall not happen\n");
     }
 
-#ifdef WINDS
     if(SPHP(i).DelayTime > 0)
         flag = 1;		/* only normal cooling for particles in the wind */
-#endif
 
     if(All.QuickLymanAlphaProbability > 0) {
         double dloga = get_dloga_for_bin(P[i].TimeBin);
@@ -494,7 +479,7 @@ static int get_sfr_condition(int i) {
     return flag;
 }
 
-#ifdef WINDS
+/*These functions are for the wind models*/
 static int
 sfr_wind_weight_haswork(int target, TreeWalk * tw)
 {
@@ -703,10 +688,12 @@ static int make_particle_wind(MyIDType ID, int i, double v, double vmean[3]) {
     }
     return 0;
 }
-#endif
+/*End wind model functions*/
 
 static int make_particle_star(int i) {
     double mass_of_star = find_star_mass(i);
+    if(P[i].Type != 0)
+        endrun(7772, "Only gas forms stars, what's wrong?");
 
     /* here we spawn a new star particle */
     int newstar = 0;
@@ -715,34 +702,30 @@ static int make_particle_star(int i) {
     {
         /* here we turn the gas particle itself into a star */
         stars_converted++;
-        sum_mass_stars += P[i].Mass;
-        NLocal[0] --;
-        NLocal[4] ++;
-
-        P[i].Type = 4;
-
         newstar = i;
     }
     else
     {
         /* FIXME: sorry this is not thread safe */
         int child = domain_fork_particle(i);
-
-        /* set ptype */
-        P[child].Type = 4;
-        P[child].Mass = mass_of_star;
-        P[i].Mass -= P[child].Mass;
-        sum_mass_stars += P[child].Mass;
-        NLocal[4] ++;
+        stars_spawned++;
         newstar = child;
 
-        stars_spawned++;
+        P[child].Mass = mass_of_star;
+        P[i].Mass -= P[child].Mass;
     }
-
-    P[newstar].StarFormationTime = All.Time;
-#ifdef WINDS
+    /*Allocate new star*/
+    P[newstar].PI = atomic_fetch_and_add(&N_star_slots, 1);
+    STARP(newstar).base.ID = P[newstar].ID;
+    /* set ptype */
+    P[newstar].Type = 4;
+    /*Set properties*/
+    sum_mass_stars += P[newstar].Mass;
+    STARP(newstar).FormationTime = All.Time;
+    STARP(newstar).BirthDensity = SPHP(i).Density;
+    /*Copy metallicity*/
+    STARP(newstar).Metallicity = SPHP(i).Metallicity;
     P[newstar].IsNewParticle = 1;
-#endif
     return 0;
 }
 
@@ -765,7 +748,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
         if(egycurrent > egyeff)
         {
             double ne = SPHP(i).Ne;
-            double tcool = GetCoolingTime(egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, METALLICITY(i));
+            double tcool = GetCoolingTime(egycurrent, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
 
             if(tcool < trelax && tcool > 0)
                 trelax = tcool;
@@ -805,10 +788,8 @@ static void starformation(int i) {
     SPHP(i).Sfr = rateOfSF *
         (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
-#ifdef METALS
     double w = get_random_number(P[i].ID);
-    P[i].Metallicity += w * METAL_YIELD * (1 - exp(-p));
-#endif
+    SPHP(i).Metallicity += w * METAL_YIELD * (1 - exp(-p));
 
     if(dloga > 0 && P[i].TimeBin)
     {
@@ -827,11 +808,8 @@ static void starformation(int i) {
     }
 
     if(P[i].Type == 0)	{
-    /* to protect using a particle that has been turned into a star */
-#ifdef METALS
-        P[i].Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
-#endif
-#ifdef WINDS
+        /* to protect using a particle that has been turned into a star */
+        SPHP(i).Metallicity += (1 - w) * METAL_YIELD * (1 - exp(-p));
         if(HAS(All.WindModel, WINDS_SUBGRID)) {
             /* Here comes the Springel Hernquist 03 wind model */
             double pw = All.WindEfficiency * sm / P[i].Mass;
@@ -840,7 +818,6 @@ static void starformation(int i) {
             if(get_random_number(P[i].ID + 2) < prob)
                 make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
-#endif
     }
 
 
@@ -892,7 +869,7 @@ static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new,
 
     ne = SPHP(i).Ne;
 
-    tcool = GetCoolingTime(egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, METALLICITY(i));
+    tcool = GetCoolingTime(egyhot, SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, SPHP(i).Metallicity);
     y = tsfr / tcool * egyhot / (All.FactorSN * All.EgySpecSN - (1 - All.FactorSN) * All.EgySpecCold);
 
     x = 1 + 1 / (2 * y) - sqrt(1 / y + 1 / (4 * y * y));
@@ -1033,7 +1010,7 @@ void init_clouds(void)
  * You may need a license to run with these modess.
  
  * */
-#if defined SPH_GRAD_RHO && defined METALS
+#if defined SPH_GRAD_RHO
 static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, double include_h)
 {
     /* column density from GradRho, copied from gadget-p; what is it
@@ -1055,7 +1032,7 @@ static double get_sfr_factor_due_to_h2(int i) {
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
 
-#if ! defined SPH_GRAD_RHO || ! defined METALS
+#if ! defined SPH_GRAD_RHO
     /* if SPH_GRAD_RHO is not enabled, disable H2 molecular gas
      * this really shall not happen because begrun will check against the
      * condition. Ditto if not metal tracking.
@@ -1063,7 +1040,7 @@ static double get_sfr_factor_due_to_h2(int i) {
     return 1.0;
 #else
     double tau_fmol;
-    double zoverzsun = P[i].Metallicity/METAL_YIELD;
+    double zoverzsun = SPHP(i).Metallicity/METAL_YIELD;
     tau_fmol = ev_NH_from_GradRho(SPHP(i).GradRho,P[i].Hsml,SPHP(i).Density,1) * All.cf.a2inv;
     tau_fmol *= (0.1 + zoverzsun);
     if(tau_fmol>0) {

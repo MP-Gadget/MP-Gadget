@@ -180,8 +180,6 @@ void blackhole(void)
 
     message(0, "Beginning black-hole accretion\n");
 
-
-
     N_sph_swallowed = N_BH_swallowed = 0;
 
     /* Let's determine which particles may be swalled and calculate total feedback weights */
@@ -196,12 +194,8 @@ void blackhole(void)
     MPI_Reduce(&N_sph_swallowed, &Ntot_gas_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&N_BH_swallowed, &Ntot_BH_swallowed, 1, MPI_INT, MPI_SUM, 0, MPI_COMM_WORLD);
 
-    NLocal[0] -= N_sph_swallowed;
-    NLocal[5] -= N_BH_swallowed;
-
     message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
                 Ntot_gas_swallowed, Ntot_BH_swallowed);
-
 
     double total_mass_real, total_mdoteddington;
     double total_mass_holes, total_mdot;
@@ -235,8 +229,8 @@ void blackhole(void)
         total_mdoteddington *= 1.0 / ((4 * M_PI * GRAVITY * C * PROTONMASS /
                     (0.1 * C * C * THOMPSON)) * All.UnitTime_in_s);
 
-        fprintf(FdBlackHoles, "%g %td %g %g %g %g %g\n",
-                All.Time, NTotal[5], total_mass_holes, total_mdot, mdot_in_msun_per_year,
+        fprintf(FdBlackHoles, "%g %d %g %g %g %g %g\n",
+                All.Time, N_bh_slots, total_mass_holes, total_mdot, mdot_in_msun_per_year,
                 total_mass_real, total_mdoteddington);
         fflush(FdBlackHoles);
     }
@@ -360,7 +354,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             O->BH_TimeBinLimit = P[other].TimeBin;
     }
 
-#ifdef WINDS
+#ifdef SFR
      /* BH does not accrete wind */
     if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
 #endif
@@ -411,14 +405,14 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         {
             if(P[other].Swallowed) {
                 /* Already marked, prefer to be swallowed by a bigger ID */
-                if(P[other].SwallowID < I->ID) {
-                    P[other].SwallowID = I->ID;
+                if(BHP(other).SwallowID < I->ID) {
+                    BHP(other).SwallowID = I->ID;
                 }
             } else {
                 /* Unmarked, the BH with bigger ID swallows */
                 if(P[other].ID < I->ID) {
                     P[other].Swallowed = 1;
-                    P[other].SwallowID = I->ID;
+                    BHP(other).SwallowID = I->ID;
                 }
             }
         }
@@ -459,13 +453,13 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             {
                 if(P[other].Swallowed) {
                     /* Already marked, prefer to be swallowed by a bigger ID */
-                    if(P[other].SwallowID < I->ID) {
-                        P[other].SwallowID = I->ID;
+                    if(SPHP(other).SwallowID < I->ID) {
+                        SPHP(other).SwallowID = I->ID;
                     }
                 } else {
                     /* Unmarked mark it */
                     P[other].Swallowed = 1;
-                    P[other].SwallowID = I->ID;
+                    SPHP(other).SwallowID = I->ID;
                 }
             }
             unlock_particle(other);
@@ -539,14 +533,14 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
     if(P[other].ID == I->ID) return;
 
-#ifdef WINDS
+#ifdef SFR
      /* BH does not accrete wind */
     if(P[other].Type == 0 && SPHP(other).DelayTime > 0) return;
 #endif
 
     if(P[other].Swallowed && P[other].Type == 5)	/* we have a black hole merger */
     {
-        if(P[other].SwallowID != I->ID) return;
+        if(BHP(other).SwallowID != I->ID) return;
 
         lock_particle(other);
 
@@ -603,7 +597,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
     /* Swallowing a gas */
     if(P[other].Swallowed && P[other].Type == 0)
     {
-        if(P[other].SwallowID != I->ID) return;
+        if(SPHP(other).SwallowID != I->ID) return;
 
         lock_particle(other);
 
@@ -681,6 +675,7 @@ blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I, TreeWalk * tw)
 static int
 blackhole_feedback_haswork(int n, TreeWalk * tw)
 {
+    /*Black hole not being swallowed*/
     return (P[n].Type == 5) && (!P[n].Swallowed);
 }
 
@@ -717,11 +712,10 @@ void blackhole_make_one(int index) {
 
     int child = domain_fork_particle(index);
 
-    NLocal[5] ++;
     P[child].PI = atomic_fetch_and_add(&N_bh_slots, 1);
     P[child].Type = 5;	/* make it a black hole particle */
 
-    P[child].StarFormationTime = All.Time;
+    BHP(child).FormationTime = All.Time;
     /*Ensure that mass is conserved*/
     double BHmass = All.SeedBlackHoleMass;
     if(P[index].Mass <= All.SeedBlackHoleMass) {
