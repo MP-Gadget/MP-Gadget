@@ -132,6 +132,8 @@ void read_parameterfile(char *fname)
     if((CP.MNu[0] + CP.MNu[1] + CP.MNu[2] > 0) || DifferentTransferFunctions)
         if(0 == strlen(PowerP.FileWithTransferFunction))
             endrun(0,"For massive neutrinos or different transfer functions you must specify a transfer function file\n");
+    if(!CP.RadiationOn && (CP.MNu[0] + CP.MNu[1] + CP.MNu[2] > 0))
+        endrun(0,"You want massive neutrinos but no background radiation: this will give an inconsistent cosmology.\n");
 
     if(Nmesh == 0) {
         Nmesh = 2*Ngrid;
