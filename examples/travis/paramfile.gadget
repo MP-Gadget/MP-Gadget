@@ -26,9 +26,9 @@ OmegaLambda = 0.7135      # Cosmological constant (at z=0)
 OmegaBaryon = 0.0463     # Baryon density        (at z=0)
 HubbleParam = 0.6932      # Hubble paramater (may be used for power spec parameterization)
 
-HydroOn = 0
-CoolingOn = 0
-StarformationOn = 0
+HydroOn = 1
+CoolingOn = 1
+StarformationOn = 1
 StarformationCriterion = density
 RadiationOn = 0
 
@@ -84,7 +84,6 @@ SeedBlackHoleMass = 5.0e-5
 BlackHoleAccretionFactor = 100.0
 BlackHoleNgbFactor = 2.0
 BlackHoleEddingtonFactor = 3.0
-
 MinFoFMassForNewSeed = 1
 TimeBetweenSeedingSearch 1.03
 
@@ -106,7 +105,8 @@ TempClouds = 1000.0   #  in Kelvin
 FactorSN = 0.1
 FactorEVP = 1000.0
 
-WindModel = nowind # ofjt10,decouple
+WindOn = 1
+WindModel = ofjt10
 WindEfficiency = 2.0
 WindEnergyFraction = 1.0
 WindSigma0 = 353.0 #km/s

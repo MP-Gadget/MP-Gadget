@@ -127,7 +127,7 @@ create_gadget_parameter_set()
         {"quartic", DENSITY_KERNEL_QUARTIC_SPLINE},
         {NULL, DENSITY_KERNEL_QUARTIC_SPLINE},
     } ;
-    param_declare_enum(ps,    "DensityKernelType", DensityKernelTypeEnum, REQUIRED, 0, "");
+    param_declare_enum(ps,    "DensityKernelType", DensityKernelTypeEnum, OPTIONAL, "quintic", "");
     param_declare_string(ps, "SnapshotFileBase", REQUIRED, NULL, "");
     param_declare_string(ps, "EnergyFile", OPTIONAL, "energy.txt", "");
     param_declare_int(ps,    "OutputEnergyDebug", OPTIONAL, 0,"Should we output energy statistics to energy.txt");
@@ -226,15 +226,15 @@ create_gadget_parameter_set()
     param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Enable Blackhole ");
     param_declare_double(ps, "BlackHoleAccretionFactor", OPTIONAL, 100, "");
     param_declare_double(ps, "BlackHoleEddingtonFactor", OPTIONAL, 3, "");
-    param_declare_double(ps, "SeedBlackHoleMass", REQUIRED, 0, "");
+    param_declare_double(ps, "SeedBlackHoleMass", OPTIONAL, 5e-5, "");
 
     param_declare_double(ps, "BlackHoleNgbFactor", OPTIONAL, 2, "");
 
     param_declare_double(ps, "BlackHoleMaxAccretionRadius", OPTIONAL, 99999., "");
     param_declare_double(ps, "BlackHoleFeedbackFactor", OPTIONAL, 0.05, "");
-    param_declare_double(ps, "BlackHoleFeedbackRadius", REQUIRED, 0, "");
+    param_declare_double(ps, "BlackHoleFeedbackRadius", OPTIONAL, 0, "");
 
-    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", REQUIRED, 0, "");
+    param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "");
 
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
@@ -243,7 +243,8 @@ create_gadget_parameter_set()
         {"spline", BH_FEEDBACK_SPLINE},
         {NULL, BH_FEEDBACK_SPLINE | BH_FEEDBACK_MASS},
     };
-    param_declare_enum(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodEnum, REQUIRED, 0, "");
+    param_declare_enum(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodEnum,
+            OPTIONAL, "spline, mass", "");
 #endif
 
 #ifdef SFR
@@ -257,19 +258,20 @@ create_gadget_parameter_set()
     };
 
     static ParameterEnum WindModelEnum [] = {
-        {"subgrid", WINDS_SUBGRID},
-        {"decouple", WINDS_DECOUPLE_SPH},
-        {"halo", WINDS_USE_HALO},
-        {"fixedefficiency", WINDS_FIXED_EFFICIENCY},
-        {"sh03", WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY} ,
-        {"vs08", WINDS_FIXED_EFFICIENCY},
-        {"ofjt10", WINDS_USE_HALO | WINDS_DECOUPLE_SPH},
-        {"isotropic", WINDS_ISOTROPIC },
-        {"nowind", WINDS_NONE},
-        {NULL, WINDS_SUBGRID | WINDS_DECOUPLE_SPH | WINDS_FIXED_EFFICIENCY},
+        {"subgrid", WIND_SUBGRID},
+        {"decouple", WIND_DECOUPLE_SPH},
+        {"halo", WIND_USE_HALO},
+        {"fixedefficiency", WIND_FIXED_EFFICIENCY},
+        {"sh03", WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY} ,
+        {"vs08", WIND_FIXED_EFFICIENCY},
+        {"ofjt10", WIND_USE_HALO | WIND_DECOUPLE_SPH},
+        {"isotropic", WIND_ISOTROPIC },
+        {NULL, WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY},
     };
 
-    param_declare_enum(ps, "StarformationCriterion", StarformationCriterionEnum, REQUIRED, 0, "");
+    param_declare_int(ps, "WindOn", REQUIRED, 0, "Enables wind feedback");
+    param_declare_enum(ps, "StarformationCriterion",
+            StarformationCriterionEnum, OPTIONAL, "density", "");
 
     param_declare_double(ps, "CritOverDensity", OPTIONAL, 57.7, "");
     param_declare_double(ps, "CritPhysDensity", OPTIONAL, 0, "");
@@ -279,7 +281,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "TempSupernova", OPTIONAL, 1e8, "");
     param_declare_double(ps, "TempClouds", OPTIONAL, 1000, "");
     param_declare_double(ps, "MaxSfrTimescale", OPTIONAL, 1.5, "");
-    param_declare_enum(ps, "WindModel", WindModelEnum, REQUIRED, 0, "");
+    param_declare_enum(ps, "WindModel", WindModelEnum, OPTIONAL, "subgrid,decouple,fixedefficiency", "");
 
     /* The following two are for VS08 and SH03*/
     param_declare_double(ps, "WindEfficiency", OPTIONAL, 2.0, "");
@@ -465,6 +467,8 @@ void read_parameter_file(char *fname)
         All.TempSupernova = param_get_double(ps, "TempSupernova");
         All.TempClouds = param_get_double(ps, "TempClouds");
         All.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
+
+        All.WindOn = param_get_int(ps, "WindOn");
         All.WindModel = param_get_enum(ps, "WindModel");
 
         /* The following two are for VS08 and SH03*/
@@ -500,6 +504,14 @@ void read_parameter_file(char *fname)
                           "but you did not switch on cooling.\nThis mode is not supported.\n");
             }
         }
+
+        if(All.WindOn == 1) {
+            if(All.StarformationOn == 0) {
+                endrun(1, "You try to use the code with wind enabled,\n"
+                          "but you did not switch on starformation.\nThis mode is not supported.\n");
+            }
+        }
+
     #else
         if(All.StarformationOn == 1)
         {

@@ -315,7 +315,7 @@ density_ngbiter(
     double * dist = iter->base.dist;
 
 #ifdef SFR
-    if(HAS(All.WindModel, WINDS_DECOUPLE_SPH)) {
+    if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
         if(SPHP(other).DelayTime > 0)	/* partner is a wind particle */
             if(!(I->DelayTime > 0))	/* if I'm not wind, then ignore the wind particle */
                 return;
