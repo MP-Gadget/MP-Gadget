@@ -7,6 +7,7 @@
 #include "bigfile-mpi.h"
 #include "genic/allvars.h"
 #include "genic/proto.h"
+#include "genic/thermal.h"
 #include "walltime.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -29,15 +30,22 @@ int main(int argc, char **argv)
 
   walltime_init(&CT);
   mymalloc_init(MaxMemSizePerNode);
-  const double meanspacing = Box / Ngrid;
-  const double shift_gas = -0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
-  const double shift_dm = +0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
   int64_t TotNumPart = (int64_t) Ngrid*Ngrid*Ngrid;
 
   init_cosmology(&CP, InitTime);
 
   initialize_powerspectrum(ThisTask, InitTime, UnitLength_in_cm, &CP, &PowerP);
   petapm_init(Box, Nmesh, 1);
+  /*Initialise particle spacings*/
+  const double meanspacing = Box / Ngrid;
+  const double shift_gas = -ProduceGas * 0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
+  double shift_dm = ProduceGas * 0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;
+  double shift_nu = 0;
+  if(!ProduceGas && NGridNu > 0) {
+      double OmegaNu = get_omega_nu(&CP.ONu, 1);
+      shift_nu = -0.5 * (CP.Omega0 - OmegaNu) / CP.Omega0 * meanspacing;
+      shift_dm = 0.5 * OmegaNu / CP.Omega0 * meanspacing;
+  }
   setup_grid(ProduceGas * shift_dm, 0);
 
   /*Write the header*/
@@ -70,6 +78,22 @@ int main(int argc, char **argv)
     write_particle_data(0, &bf);
     free_ffts();
   }
+  /*Now add random velocity neutrino particles*/
+  if(NGridNu > 0) {
+      const int64_t TotNu = (int64_t) NGridNu*NGridNu*NGridNu;
+      const double kBMNu = 3*CP.ONu.kBtnu / (CP.MNu[0]+CP.MNu[1]+CP.MNu[2]);
+      const double v_th = NU_V0(InitTime, kBMNu, UnitVelocity_in_cm_per_s);
+      const double total_frac = init_thermalvel(v_th, Max_nuvel/v_th, 0);
+      int i;
+      message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(InitTime), Max_nuvel*sqrt(InitTime), total_frac);
+      setup_grid(shift_nu, TotNu);
+      for(i = 0; i< TotNu; i++)
+          add_thermal_speeds(P[i].Vel);
+      write_particle_data(2,&bf);
+      free_ffts();
+  }
+
+  big_file_mpi_close(&bf, MPI_COMM_WORLD);
 
   walltime_summary(0, MPI_COMM_WORLD);
   walltime_report(stdout, 0, MPI_COMM_WORLD);

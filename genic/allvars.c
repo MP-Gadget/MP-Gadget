@@ -2,7 +2,7 @@
 #include <stdint.h>
 #include "genic/allvars.h"
 
-int Nmesh, Ngrid;
+int Nmesh, Ngrid, NGridNu;
 
 double Box;
 int ProduceGas;
@@ -12,6 +12,7 @@ int UsePeculiarVelocity;
 int NumPart;
 double MaxMemSizePerNode;
 int DifferentTransferFunctions;
+double Max_nuvel;
 
 struct part_data *P;
 
