@@ -201,8 +201,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "PartAllocFactor", REQUIRED, 0, "");
     param_declare_double(ps, "TopNodeAllocFactor", OPTIONAL, 0.5, "");
 
-    param_declare_double(ps, "InitGasTemp", REQUIRED, 0, "");
-    param_declare_double(ps, "MinGasTemp", REQUIRED, 0, "");
+    param_declare_double(ps, "InitGasTemp", OPTIONAL, 300, "Initial gas temperature");
+    param_declare_double(ps, "MinGasTemp", OPTIONAL, 5, "Minimum gas temperature");
 
     param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
