@@ -626,7 +626,7 @@ force_get_prev_node(int no, const struct TreeBuilder tb)
  *
  * */
 static void
-force_adjust_node_softening(struct NODE * pnode, double MaxSoftening)
+force_adjust_node_softening(struct NODE * pnode, double MaxSoftening, int mixed)
 {
 
     if(pnode->u.d.MaxSoftening > 0) {
@@ -635,9 +635,11 @@ force_adjust_node_softening(struct NODE * pnode, double MaxSoftening)
             pnode->f.MixedSofteningsInNode = 1;
         }
     }
-
     if(MaxSoftening > pnode->u.d.MaxSoftening) {
         pnode->u.d.MaxSoftening = MaxSoftening;
+    }
+    if(mixed) {
+        pnode->f.MixedSofteningsInNode = 1;
     }
 }
 
@@ -655,7 +657,7 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
             pnode->u.d.hmax = P[i].Hsml;
     }
 
-    force_adjust_node_softening(pnode, FORCE_SOFTENING(i));
+    force_adjust_node_softening(pnode, FORCE_SOFTENING(i), 0);
 }
 
 /*! this routine determines the multipole moments for a given internal node
@@ -746,7 +748,7 @@ force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder 
             if(Nodes[p].u.d.hmax > Nodes[no].u.d.hmax)
                 Nodes[no].u.d.hmax = Nodes[p].u.d.hmax;
 
-            force_adjust_node_softening(&Nodes[no], Nodes[p].u.d.MaxSoftening);
+            force_adjust_node_softening(&Nodes[no], Nodes[p].u.d.MaxSoftening, Nodes[p].f.MixedSofteningsInNode);
         }
         else /* a list of particles */
         {
@@ -879,13 +881,14 @@ void force_treeupdate_pseudos(int no, const struct TreeBuilder tb)
     MyFloat hmax;
     MyFloat s[3], mass;
 
-    MyFloat MaxSoftening = -1;
-
     mass = 0;
     s[0] = 0;
     s[1] = 0;
     s[2] = 0;
     hmax = 0;
+
+    Nodes[no].u.d.MaxSoftening = -1;
+    Nodes[no].f.MixedSofteningsInNode = 0;
 
     p = Nodes[no].u.d.nextnode;
 
@@ -907,26 +910,8 @@ void force_treeupdate_pseudos(int no, const struct TreeBuilder tb)
         if(Nodes[p].u.d.hmax > hmax)
             hmax = Nodes[p].u.d.hmax;
 
-        Nodes[no].f.MixedSofteningsInNode = Nodes[p].f.MixedSofteningsInNode;
+        force_adjust_node_softening(&Nodes[no], Nodes[p].u.d.MaxSoftening, Nodes[p].f.MixedSofteningsInNode);
 
-        if(MaxSoftening < 0)
-            MaxSoftening = Nodes[p].u.d.MaxSoftening;
-        else
-        {
-            MyFloat current_maxsoft = Nodes[p].u.d.MaxSoftening;
-
-            if(current_maxsoft >= 0)
-            {
-                if(current_maxsoft > MaxSoftening) {
-                    MaxSoftening = current_maxsoft;
-                }
-
-                if(current_maxsoft != MaxSoftening) {
-                    /* The node has in-homogenous softening */
-                    Nodes[no].f.MixedSofteningsInNode = 1;
-                }
-            }
-        }
         p = Nodes[p].u.d.sibling;
     }
 
@@ -949,8 +934,6 @@ void force_treeupdate_pseudos(int no, const struct TreeBuilder tb)
     Nodes[no].u.d.mass = mass;
 
     Nodes[no].u.d.hmax = hmax;
-
-    Nodes[no].u.d.MaxSoftening = MaxSoftening;
 }
 
 /*! This function updates the hmax-values in tree nodes that hold SPH
