@@ -12,6 +12,7 @@ extern double   Box;
 extern int   ProduceGas;
 extern int Seed;
 extern int Unitary;
+extern int DifferentTransferFunctions;
 
 extern int      NumPart;
 

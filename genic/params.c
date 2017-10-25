@@ -38,6 +38,9 @@ create_parameters()
     param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state");
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter");
+    param_declare_double(ps, "MNue", OPTIONAL, 0, "First neutrino mass in eV.");
+    param_declare_double(ps, "MNum", OPTIONAL, 0, "Second neutrino mass in eV.");
+    param_declare_double(ps, "MNut", OPTIONAL, 0, "Third neutrino mass in eV.");
 
     param_declare_int(ps, "DifferentTransferFunctions", OPTIONAL, 0, "Use species specific transfer functions for baryon and CDM.");
     param_declare_string(ps, "FileWithTransferFunction", OPTIONAL, "", "File containing CAMB formatted transfer functions.");
@@ -90,8 +93,9 @@ void read_parameterfile(char *fname)
         endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
     CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
     CP.RadiationOn = param_get_double(ps, "RadiationOn");
-    /*We do not support massive neutrinos in this GenIC*/
-    CP.MNu[0] = CP.MNu[1] = CP.MNu[2] = 0;
+    CP.MNu[0] = param_get_double(ps, "MNue");
+    CP.MNu[1] = param_get_double(ps, "MNum");
+    CP.MNu[2] = param_get_double(ps, "MNut");
     MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
     ProduceGas = param_get_int(ps, "ProduceGas");
     /*Unit system*/
@@ -106,12 +110,12 @@ void read_parameterfile(char *fname)
         PowerP.InputPowerRedshift = 0;
     PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
     PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
-    PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
     PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
     PowerP.SpectrumLengthScale = param_get_double(ps, "InputSpectrum_UnitLength_in_cm") / UnitLength_in_cm;
     PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
     /*Simulation parameters*/
     UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
+    DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
     Box = param_get_double(ps, "BoxSize");
     double Redshift = param_get_double(ps, "Redshift");
     Nmesh = param_get_int(ps, "Nmesh");
@@ -123,8 +127,11 @@ void read_parameterfile(char *fname)
     int64_t NumPartPerFile = param_get_int(ps, "NumPartPerFile");
     NumFiles = ((int64_t) Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
     NumWriters = param_get_int(ps, "NumWriters");
-    if(PowerP.DifferentTransferFunctions && PowerP.InputPowerRedshift >= 0)
+    if(DifferentTransferFunctions && PowerP.InputPowerRedshift >= 0)
         message(0, "WARNING: Using different transfer functions but also rescaling power to account for linear growth. NOT what you want!\n");
+    if((CP.MNu[0] + CP.MNu[1] + CP.MNu[2] > 0) || DifferentTransferFunctions)
+        if(0 == strlen(PowerP.FileWithTransferFunction))
+            endrun(0,"For massive neutrinos or different transfer functions you must specify a transfer function file\n");
 
     if(Nmesh == 0) {
         Nmesh = 2*Ngrid;

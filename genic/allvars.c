@@ -11,6 +11,7 @@ int Unitary;
 int UsePeculiarVelocity;
 int NumPart;
 double MaxMemSizePerNode;
+int DifferentTransferFunctions;
 
 struct part_data *P;
 

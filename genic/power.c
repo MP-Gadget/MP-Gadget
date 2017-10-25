@@ -164,7 +164,7 @@ int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in
     if(ppar->WhichSpectrum == 2) {
         read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, ppar->SpectrumLengthScale, parse_power);
         transfer_table.Nentry = 0;
-        if(ppar->DifferentTransferFunctions)
+        if(strlen(ppar->FileWithTransferFunction) > 0)
             read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, ppar->SpectrumLengthScale, parse_transfer);
         message(0, "Power spectrum rows: %d, Transfer: %d\n", power_table.Nentry, transfer_table.Nentry);
     }

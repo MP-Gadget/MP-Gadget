@@ -48,16 +48,25 @@ int main(int argc, char **argv)
       endrun(0, "%s\n", big_file_get_error_message());
   }
   saveheader(&bf, TotNumPart);
+  /*Use 'total' (CDM + baryon) transfer function
+   * unless DifferentTransferFunctions are on.
+   * Note that massive neutrinos, if present,
+   * will be followed elsewhere.*/
+  int DMType = 2, GasType = 2;
+  if(ProduceGas && DifferentTransferFunctions) {
+      DMType = 1;
+      GasType = 0;
+  }
 
   /*First compute and write CDM*/
-  displacement_fields(1);
+  displacement_fields(DMType);
   write_particle_data(1, &bf);
   free_ffts();
 
   /*Now make the gas if required*/
   if(ProduceGas) {
     setup_grid(shift_gas, TotNumPart);
-    displacement_fields(0);
+    displacement_fields(GasType);
     write_particle_data(0, &bf);
     free_ffts();
   }
