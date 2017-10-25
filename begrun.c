@@ -224,9 +224,11 @@ set_units(void)
     message(0, "Curvature density OmegaK = %g\n",All.CP.OmegaK);
     if(All.CP.RadiationOn) {
         /* note that this value is inaccurate if there is massive neutrino. */
+        double OmegaTot = All.CP.OmegaG + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda;
+        if(All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] == 0)
+            OmegaTot += get_omega_nu(&All.CP.ONu, 1);
         message(0, "Radiation is enabled in Hubble(a). "
-               "Following CAMB convention: Omega_Tot - 1 = %g\n",
-            All.CP.OmegaG + get_omega_nu(&All.CP.ONu, 1) + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda - 1);
+               "Following CAMB convention: Omega_Tot - 1 = %g\n", OmegaTot - 1);
     }
     message(0, "\n");
 }
