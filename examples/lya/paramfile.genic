@@ -1,9 +1,9 @@
 OutputDir = output # Directory for output
 FileBase = IC              # Base-filename of output files
 
-Ngrid = 64 # Size of cubic grid on which to create particles.
+Ngrid = 128 # Size of cubic grid on which to create particles.
 
-BoxSize = 32000   # Periodic box size of simulation
+BoxSize = 10000   # Periodic box size of simulation
 
 
 

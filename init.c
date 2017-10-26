@@ -39,9 +39,6 @@ void init(int RestartSnapNum)
 {
     int i, j;
 
-    /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
-    set_global_time(All.TimeInit);
-
     /*Add TimeInit and TimeMax to the output list*/
     if (RestartSnapNum < 0) {
         /* allow a first snapshot at IC time; */
@@ -50,12 +47,16 @@ void init(int RestartSnapNum)
         /* skip dumping the exactly same snapshot */
         setup_sync_points(All.TimeInit);
     }
-    /*Read the snapshot*/
-    petaio_read_snapshot(RestartSnapNum);
+
+    init_timebins(log(All.TimeInit));
+
+    /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
+    set_global_time(exp(loga_from_ti(All.Ti_Current)));
 
     init_drift_table(All.TimeInit, All.TimeMax);
 
-    init_timebins(log(All.TimeInit));
+    /*Read the snapshot*/
+    petaio_read_snapshot(RestartSnapNum);
 
     /* this ensures the initial BhP array is consistent */
     domain_garbage_collection();

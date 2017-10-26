@@ -71,6 +71,9 @@ void run(void)
 
         /*Convert back to floating point time*/
         set_global_time(exp(loga_from_ti(All.Ti_Current)));
+        /*1.0 check for rate setting in sfr_eff.c*/
+        if(NumCurrentTiStep > 0 && All.TimeStep < 0)
+            endrun(1, "Negative timestep: %g New Time: %g!\n", All.TimeStep, All.Time);
 
         int is_PM = is_PM_timestep(All.Ti_Current);
 
