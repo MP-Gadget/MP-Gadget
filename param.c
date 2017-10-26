@@ -224,6 +224,7 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "");
 
+#ifdef BLACK_HOLES
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
         {"volume", BH_FEEDBACK_VOLUME},
@@ -233,6 +234,7 @@ create_gadget_parameter_set()
     };
     param_declare_enum(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodEnum,
             OPTIONAL, "spline, mass", "");
+#endif
     /*End black holes*/
 
     /*Star formation parameters*/
