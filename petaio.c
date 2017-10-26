@@ -479,6 +479,9 @@ petaio_read_header_internal(BigFile * bf) {
     All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);	
     /* at most 10% of particles can form BH*/
     All.MaxPartBh = (int) (0.1 * All.MaxPart);
+    /*Lyman alpha forms more stars*/
+    if(All.QuickLymanAlphaProbability > 0.5)
+        All.MaxPartBh = All.MaxPart;
 }
 
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize) {
