@@ -82,7 +82,9 @@ int main(int argc, char **argv)
   if(NGridNu > 0) {
       const int64_t TotNu = (int64_t) NGridNu*NGridNu*NGridNu;
       const double kBMNu = 3*CP.ONu.kBtnu / (CP.MNu[0]+CP.MNu[1]+CP.MNu[2]);
-      const double v_th = NU_V0(InitTime, kBMNu, UnitVelocity_in_cm_per_s);
+      double v_th = NU_V0(InitTime, kBMNu, UnitVelocity_in_cm_per_s);
+      if(!UsePeculiarVelocity)
+          v_th /= sqrt(InitTime);
       const double total_frac = init_thermalvel(v_th, Max_nuvel/v_th, 0);
       int i;
       message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(InitTime), Max_nuvel*sqrt(InitTime), total_frac);

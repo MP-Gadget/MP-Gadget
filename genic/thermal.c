@@ -34,8 +34,7 @@ static gsl_interp_accel * fd_intp_acc;
 double
 NU_V0(const double Time, const double kBTNubyMNu, const double UnitVelocity_in_cm_per_s)
 {
-    double NU_V0 = kBTNubyMNu / Time;
-    return NU_V0 / sqrt(Time) * (C / UnitVelocity_in_cm_per_s);
+    return kBTNubyMNu / Time * (C / UnitVelocity_in_cm_per_s);
 }
 
 /*Fermi-Dirac kernel for below*/
