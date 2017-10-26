@@ -64,7 +64,7 @@ GravitySoftening = 0.03333
 GravitySofteningGas = 0.00 # enable adaptive softening of gas
 
 #----------------------BH Stuff-------------------------
-BlackHoleOn = 0
+BlackHoleOn = 1
 BlackHoleFeedbackFactor = 0.05
 BlackHoleFeedbackRadius = 0.
 BlackHoleFeedbackRadiusMaxPhys = 0.

@@ -237,9 +237,17 @@ void petaio_read_internal(char * fname, int ic) {
         if(NTotal[ptype] == 0) continue;
         if(ic) {
             /* for IC read in only three blocks */
-            if( strcmp(IOTable.ent[i].name, "Position") &&
-                strcmp(IOTable.ent[i].name, "Velocity") &&
-                strcmp(IOTable.ent[i].name, "ID")) continue;
+            int keep = 0;
+            keep |= (0 == strcmp(IOTable.ent[i].name, "Position"));
+            keep |= (0 == strcmp(IOTable.ent[i].name, "Velocity"));
+            keep |= (0 == strcmp(IOTable.ent[i].name, "ID"));
+            if (ptype == 5) {
+                keep |= (0 == strcmp(IOTable.ent[i].name, "Mass"));
+                keep |= (0 == strcmp(IOTable.ent[i].name, "BlackholeMass"));
+                keep |= (0 == strcmp(IOTable.ent[i].name, "MinPotPos"));
+                keep |= (0 == strcmp(IOTable.ent[i].name, "MinPotVel"));
+            }
+            if(!keep) continue;
         }
         if(IOTable.ent[i].setter == NULL) {
             /* FIXME: do not know how to read this block; assume the fucker is
@@ -725,6 +733,8 @@ SIMPLE_PROPERTY_TYPE(StarFormationTime, 5, BHP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
+SIMPLE_PROPERTY(BlackholeMinPotPos, BHP(i).MinPotPos[0], double, 3)
+SIMPLE_PROPERTY(BlackholeMinPotVel, BHP(i).MinPotVel[0], float, 3)
 #endif
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
@@ -809,6 +819,8 @@ static void register_io_blocks() {
     IO_REG(BlackholeMass,          "f4", 1, 5);
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
+    IO_REG(BlackholeMinPotPos, "f8", 3, 5);
+    IO_REG(BlackholeMinPotVel,   "f4", 3, 5);
 #endif
     if(All.SnapshotWithFOF)
         fof_register_io_blocks();
