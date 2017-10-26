@@ -80,7 +80,7 @@ $(DESTDIR)/MP-Gadget: $(OBJS)
 $(DESTDIR)/MP-GenIC: $(ICOBJS)
 	$(MPICC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
-$(DESTDIR)/config.h: Makefile $(CONFIG) $(FILES)
+$(DESTDIR)/config.h: Makefile $(CONFIG)
 	mkdir -p `dirname $@`
 	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh $@
 
