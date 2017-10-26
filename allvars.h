@@ -53,16 +53,6 @@
 
 #define MAXHSML 30000.0
 
-#ifdef ONEDIM
-#define DIMS 1
-#else
-#ifdef TWODIMS    /* will only be compiled in 2D case */
-#define DIMS 2
-#else
-#define DIMS 3
-#endif
-#endif
-
 #ifndef  GAMMA
 #define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
 #endif

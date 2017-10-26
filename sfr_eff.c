@@ -220,9 +220,6 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
         if(flag == 1 || All.QuickLymanAlphaProbability > 0) {
             cooling_direct(i);
         }
-#ifdef ENDLESSSTARS
-        flag = 0;
-#endif
         if(flag == 0) {
             /* active star formation */
             starformation(i);

@@ -191,7 +191,6 @@ create_gadget_parameter_set()
     param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
     param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
-    param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");
     param_declare_int(ps, "RadiationOn", OPTIONAL, 0, "Include radiation density in the background evolution.");
     param_declare_int(ps, "FastParticleType", OPTIONAL, 2, "Particles of this type will not decrease the timestep. Default neutrinos.");
 
@@ -211,7 +210,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 5e2, "Minimal Mass for seeding tracer particles ");
     param_declare_double(ps, "TimeBetweenSeedingSearch", OPTIONAL, 1e5, "Time Between Seeding Attempts: default to a a large value, meaning never.");
 
-#ifdef BLACK_HOLES
+    /*Black holes*/
     param_declare_int(ps, "BlackHoleOn", REQUIRED, 1, "Enable Blackhole ");
     param_declare_double(ps, "BlackHoleAccretionFactor", OPTIONAL, 100, "");
     param_declare_double(ps, "BlackHoleEddingtonFactor", OPTIONAL, 3, "");
@@ -234,9 +233,9 @@ create_gadget_parameter_set()
     };
     param_declare_enum(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodEnum,
             OPTIONAL, "spline, mass", "");
-#endif
+    /*End black holes*/
 
-#ifdef SFR
+    /*Star formation parameters*/
     static ParameterEnum StarformationCriterionEnum [] = {
         {"density", SFR_CRITERION_DENSITY},
         {"h2", SFR_CRITERION_MOLECULAR_H2},
@@ -258,6 +257,7 @@ create_gadget_parameter_set()
         {NULL, WIND_SUBGRID | WIND_DECOUPLE_SPH | WIND_FIXED_EFFICIENCY},
     };
 
+    param_declare_int(ps, "StarformationOn", REQUIRED, 0, "Enables star formation");
     param_declare_int(ps, "WindOn", REQUIRED, 0, "Enables wind feedback");
     param_declare_enum(ps, "StarformationCriterion",
             StarformationCriterionEnum, OPTIONAL, "density", "");
@@ -293,7 +293,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "HeliumHeatAmp", OPTIONAL, 1, "Density-independent heat boost. Changes mean temperature.");
     param_declare_double(ps, "HeliumHeatExp", OPTIONAL, 0, "Density dependent heat boost (exponent). Changes gamma.");
 
-#endif
+    /*End of star formation parameters*/
 
 #ifdef BLACK_HOLES
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
@@ -396,7 +396,6 @@ void read_parameter_file(char *fname)
         All.DensityOn = param_get_int(ps, "DensityOn");
         All.TreeGravOn = param_get_int(ps, "TreeGravOn");
         All.FastParticleType = param_get_int(ps, "FastParticleType");
-        All.StarformationOn = param_get_int(ps, "StarformationOn");
         All.TimeLimitCPU = param_get_double(ps, "TimeLimitCPU");
         All.AutoSnapshotTime = param_get_double(ps, "AutoSnapshotTime");
         All.GravitySoftening = param_get_double(ps, "GravitySoftening");
@@ -415,9 +414,9 @@ void read_parameter_file(char *fname)
         All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
         All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
 
+        All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
     #ifdef BLACK_HOLES
         All.BlackHoleSoundSpeedFromPressure = 0;
-        All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
 
         All.BlackHoleAccretionFactor = param_get_double(ps, "BlackHoleAccretionFactor");
         All.BlackHoleEddingtonFactor = param_get_double(ps, "BlackHoleEddingtonFactor");
@@ -435,6 +434,8 @@ void read_parameter_file(char *fname)
 
     #endif
 
+        All.StarformationOn = param_get_int(ps, "StarformationOn");
+        All.WindOn = param_get_int(ps, "WindOn");
     #ifdef SFR
         All.StarformationCriterion = param_get_enum(ps, "StarformationCriterion");
         All.CritOverDensity = param_get_double(ps, "CritOverDensity");
@@ -446,7 +447,6 @@ void read_parameter_file(char *fname)
         All.TempClouds = param_get_double(ps, "TempClouds");
         All.MaxSfrTimescale = param_get_double(ps, "MaxSfrTimescale");
 
-        All.WindOn = param_get_int(ps, "WindOn");
         All.WindModel = param_get_enum(ps, "WindModel");
 
         /* The following two are for VS08 and SH03*/
@@ -470,6 +470,12 @@ void read_parameter_file(char *fname)
 
         parameter_set_free(ps);
 
+    #ifndef BLACK_HOLES
+        if(All.BlackHoleOn == 1)
+        {
+            endrun(1, "Code was compiled with black holes switched off but BlackHoleOn = 1. This does not work!\n");
+        }
+    #endif
     #ifdef SFR
 
         if(All.StarformationOn == 0)
