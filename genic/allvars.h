@@ -8,7 +8,6 @@ extern int      Nmesh, Ngrid;
 
 extern int UsePeculiarVelocity;
 extern int PairedSim;
-extern int FixedAmpSim;
 
 extern double   Box;
 extern int   ProduceGas;
