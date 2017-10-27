@@ -146,8 +146,8 @@ create_gadget_parameter_set()
     param_declare_int(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "Preallocate this much memory MB per computing node/ host. Default is 80\% of total physical mem per node. ");
     param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
 
-    param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "");
-    param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "");
+    param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "Scale factor to end run.");
+    param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "CPU time to run for in seconds.");
 
     param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 1, "Create on average this number of sub domains on a MPI rank. Load balancer will try to create this number of equal sized chunks on each rank. Higher numbers improve the load balancing but make domain more expensive.");
     param_declare_int   (ps, "DomainUseGlobalSorting", OPTIONAL, 1, "Determining the initial refinement of chunks globally. Enabling this produces better domains at costs of slowing down the domain decomposition.");
