@@ -420,10 +420,10 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
                 /* we want two numbers that are of std ~ 1/sqrt(2) */
                 ampl = sqrt(- log(ampl));
 
-                if (unitary) ampl = 1.0; /* cos and sin gives 1/sqrt(2)*/
+                if (UnitaryAmplitude) ampl = 1.0; /* cos and sin gives 1/sqrt(2)*/
               
 
-                if (PairedSim){
+                if (InvertedPhase){
                   phase += M_PI; /*invert phase*/
                 }                
 
