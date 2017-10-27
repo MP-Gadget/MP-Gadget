@@ -714,6 +714,8 @@ void blackhole_make_one(int index) {
 
     P[child].PI = atomic_fetch_and_add(&N_bh_slots, 1);
     P[child].Type = 5;	/* make it a black hole particle */
+    if(P[child].PI >= All.MaxPartBh)
+        endrun(700, "Created black holes too fast: %d > %d\n",P[child].PI, All.MaxPartBh);
 
     BHP(child).FormationTime = All.Time;
     /*Ensure that mass is conserved*/
