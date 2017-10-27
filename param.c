@@ -187,9 +187,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
 
     param_declare_int(ps, "PairedSim", OPTIONAL, 0, "Flip the phase for paired simulations");
-    param_declare_int(ps, "FixedAmpSim", OPTIONAL, 0, "Fix amplitudes of Fourier modes to reduce noise in power spectrum");
-
-
+    
     param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
     param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
     param_declare_int(ps, "TreeGravOn", OPTIONAL, 1, "Enables tree gravity");
