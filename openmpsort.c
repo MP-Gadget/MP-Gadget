@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+#include "mymalloc.h"
 
 static void merge(void * base1, size_t nmemb1, void * base2, size_t nmemb2, void * output, size_t size,
          int(*compar)(const void *, const void *)) {
@@ -42,7 +43,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
     void ** Atmp = Atmp_store;
 
     void * tmp;
-    tmp = malloc(size * nmemb);
+    tmp = mymalloc("qsort", size * nmemb);
 
 #pragma omp parallel
     {
@@ -118,7 +119,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
             memcpy(Atmp[tid], Abase[tid], Anmemb_old[tid] * size);
         }
     }
-    free(tmp);
+    myfree(tmp);
 }
 
 #if 0
