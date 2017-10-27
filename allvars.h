@@ -213,7 +213,6 @@ extern struct global_data_all_processes
         size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
         int UsePeculiarVelocity;
         int PairedSim;
-        int FixedAmpSim;
 
     } IO;
 
