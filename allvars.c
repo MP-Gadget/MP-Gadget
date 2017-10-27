@@ -30,10 +30,6 @@ int RestartFlag;		/*!< taken from command line used to start code. 0 is normal s
 				   marks a restart from a snapshot file. */
 int RestartSnapNum;
 
-/* paired/fixed simulation flags*/
-int PairedSim;
-int FixedAmpSim;
-
 /* Local number of particles */
 int NumPart;
 int N_bh_slots;
