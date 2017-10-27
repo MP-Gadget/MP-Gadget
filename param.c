@@ -15,7 +15,6 @@
 #define OPTIONAL 0
 #define REQUIRED 1
 
-#ifdef BLACK_HOLES
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
 {
@@ -30,7 +29,6 @@ BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
     }
     return 0;
 }
-#endif
 
 #ifdef SFR
 static int
@@ -224,7 +222,6 @@ create_gadget_parameter_set()
 
     param_declare_double(ps, "BlackHoleFeedbackRadiusMaxPhys", OPTIONAL, 0, "");
 
-#ifdef BLACK_HOLES
     static ParameterEnum BlackHoleFeedbackMethodEnum [] = {
         {"mass", BH_FEEDBACK_MASS},
         {"volume", BH_FEEDBACK_VOLUME},
@@ -234,7 +231,6 @@ create_gadget_parameter_set()
     };
     param_declare_enum(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodEnum,
             OPTIONAL, "spline, mass", "");
-#endif
     /*End black holes*/
 
     /*Star formation parameters*/
@@ -297,9 +293,7 @@ create_gadget_parameter_set()
 
     /*End of star formation parameters*/
 
-#ifdef BLACK_HOLES
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
-#endif
 #ifdef SFR
     param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
 #endif
