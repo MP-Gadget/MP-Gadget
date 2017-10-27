@@ -83,7 +83,7 @@ setup_grid(double shift, int64_t FirstID)
 }
 
 static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
-    PetaPMRegion * regions = malloc(sizeof(PetaPMRegion));
+    PetaPMRegion * regions = mymalloc("Regions", sizeof(PetaPMRegion));
     int k;
     int r = 0;
     int i;
