@@ -381,10 +381,10 @@ static int ev_primary(TreeWalk * tw)
         endrun(1231245, "Buffer too small for even one particle. For example, there are too many nodes");
     }
 
-    Send_count = (int *) ta_malloc("Send_count", int, NTask);
-    Recv_count = (int *) ta_malloc("Recv_count", int, NTask);
-    Send_offset = (int *) ta_malloc("Send_offset", int, NTask);
-    Recv_offset = (int *) ta_malloc("Recv_offset", int, NTask);
+    Send_count = (int *) ta_malloc("Send_count", int, 4*NTask);
+    Recv_count = Send_count + NTask;
+    Send_offset = Send_count + 2*NTask;
+    Recv_offset = Send_count + 3*NTask;
     /* 
      * fill the communication layouts, 
      * here we reuse the legacy global variable names;
@@ -570,9 +570,6 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
 
             tw->Niterations ++;
             tw->Nexport_sum += tw->Nexport;
-            ta_free(Recv_offset);
-            ta_free(Send_offset);
-            ta_free(Recv_count);
             ta_free(Send_count);
         } while(ev_ndone(tw) < NTask);
     }
