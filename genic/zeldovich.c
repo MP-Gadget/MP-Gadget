@@ -421,10 +421,7 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
                 ampl = sqrt(- log(ampl));
 
                 if (unitary) ampl = 1.0; /* cos and sin gives 1/sqrt(2)*/
-
-                if (FixedAmpSim){
-                      ampl = 1.0; /*set amplitudes equal to expectation of power spectrum */
-                }
+              
 
                 if (PairedSim){
                   phase += M_PI; /*invert phase*/
