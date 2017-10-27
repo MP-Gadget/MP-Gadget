@@ -6,7 +6,6 @@
 
 #include "allvars.h"
 #include "proto.h"
-#include "treewalk.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "timestep.h"
@@ -19,7 +18,6 @@
 void allocate_memory(int alloc_sph)
 {
     size_t bytes;
-    TreeWalk_allocate_memory();
     timestep_allocate_memory(All.MaxPart);
 
     P = (struct particle_data *) mymalloc("P", bytes = All.MaxPart * sizeof(struct particle_data));
