@@ -87,7 +87,7 @@ typedef LOW_PRECISION MyFloat;
 typedef HIGH_PRECISION MyDouble;
 
 #define HAS(val, flag) ((flag & (val)) == (flag))
-#ifdef BLACK_HOLES
+
 enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_TOPHAT   = 0x2,
      BH_FEEDBACK_SPLINE   = 0x4,
@@ -95,7 +95,7 @@ enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_VOLUME   = 0x10,
      BH_FEEDBACK_OPTTHIN  = 0x20,
 };
-#endif
+
 /*
  * additional sfr criterion in addition to density threshold
  * All.StarformationCriterion */
@@ -417,8 +417,6 @@ extern struct global_data_all_processes
     double HeliumHeatAmp;
     double HeliumHeatExp;
 
-
-#ifdef BLACK_HOLES
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
     enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
@@ -429,7 +427,6 @@ extern struct global_data_all_processes
     double BlackHoleMaxAccretionRadius;
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
     int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
-#endif
 
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
