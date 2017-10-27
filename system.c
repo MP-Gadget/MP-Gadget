@@ -242,13 +242,15 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
     MPI_Comm_size(comm, &NTask);
     int i;
     int nn = 0;
+    int *a_sdispls=NULL, *a_recvcnts=NULL, *a_rdispls=NULL;
     for(i = 0; i < NTask; i ++) {
         if(sendcnts[i] > 0) {
             nn ++;
         }
     }
     if(recvcnts == NULL) {
-        recvcnts = alloca(sizeof(int) * NTask);
+        a_recvcnts = ta_malloc("recvcnts", int, NTask);
+        recvcnts = a_recvcnts;
         MPI_Alltoall(sendcnts, 1, MPI_INT,
                      recvcnts, 1, MPI_INT, comm);
     }
@@ -260,14 +262,16 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         return totalrecv;
     }
     if(sdispls == NULL) {
-        sdispls = alloca(sizeof(int) * NTask);
+        a_sdispls = ta_malloc("sdispls", int, NTask);
+        sdispls = a_sdispls;
         sdispls[0] = 0;
         for (i = 1; i < NTask; i++) {
             sdispls[i] = sdispls[i - 1] + sendcnts[i - 1];
         }
     }
     if(rdispls == NULL) {
-        rdispls = alloca(sizeof(int) * NTask);
+        a_rdispls = ta_malloc("rdispls", int, NTask);
+        rdispls = a_rdispls;
         rdispls[0] = 0;
         for (i = 1; i < NTask; i++) {
             rdispls[i] = rdispls[i - 1] + recvcnts[i - 1];
@@ -275,19 +279,26 @@ int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
     }
 
     int dense = nn < NTask * 0.2;
-    int tot_dense = 0;
+    int tot_dense = 0, ret;
     MPI_Allreduce(&dense, &tot_dense, 1, MPI_INT, MPI_SUM, comm);
 
     if(tot_dense != 0) {
-        return MPI_Alltoallv(sendbuf, sendcnts, sdispls, 
+        ret = MPI_Alltoallv(sendbuf, sendcnts, sdispls,
                     sendtype, recvbuf, 
                     recvcnts, rdispls, recvtype, comm);
     } else {
-        return MPI_Alltoallv_sparse(sendbuf, sendcnts, sdispls, 
+        ret = MPI_Alltoallv_sparse(sendbuf, sendcnts, sdispls,
                     sendtype, recvbuf, 
                     recvcnts, rdispls, recvtype, comm);
 
     }
+    if(a_rdispls)
+        ta_free(a_rdispls);
+    if(a_sdispls)
+        ta_free(a_sdispls);
+    if(a_recvcnts)
+        ta_free(a_recvcnts);
+    return ret;
 }
 
 int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
