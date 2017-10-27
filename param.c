@@ -513,4 +513,3 @@ void read_parameter_file(char *fname)
 
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
-
