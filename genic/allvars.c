@@ -7,10 +7,9 @@ int Nmesh, Ngrid;
 double Box;
 int ProduceGas;
 int Seed;
-int Unitary;
+int UnitaryAmplitude;
 int UsePeculiarVelocity;
-int PairedSim;
-int FixedAmpSim;
+int InvertPhase;
 int NumPart;
 double MaxMemSizePerNode;
 

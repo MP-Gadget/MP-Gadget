@@ -212,9 +212,6 @@ extern struct global_data_all_processes
         int EnableAggregatedIO;  /* Enable aggregated IO policy for small files.*/
         size_t AggregatedIOThreshold; /* bytes per writer above which to use non-aggregated IO (avoid OOM)*/
         int UsePeculiarVelocity;
-        int PairedSim;
-        int FixedAmpSim;
-
     } IO;
 
     double BufferSize;		/*!< size of communication buffer in MB */
@@ -433,7 +430,7 @@ extern struct global_data_all_processes
 
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
-    double FOFHaloLinkingLength;
+    double FOFHaloLinkingLength;    
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
     double TimeNextSeedingCheck;  /*Time for the next seed check.*/
@@ -485,7 +482,7 @@ extern struct particle_data
         unsigned int spare_1              :1;
         unsigned int spare_0              :1;
 
-        unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
+        unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID. 
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 
         signed char TimeBin; /* Time step bin; -1 for unassigned.*/
@@ -518,7 +515,7 @@ extern struct particle_data
 
         struct {
             /* used by fof.c which calls domain_exchange that doesn't uses peano_t */
-            int64_t GrNr;
+            int64_t GrNr; 
             int origintask;
             int targettask;
         };

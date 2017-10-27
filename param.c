@@ -146,8 +146,8 @@ create_gadget_parameter_set()
     param_declare_int(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "Preallocate this much memory MB per computing node/ host. Default is 80\% of total physical mem per node. ");
     param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
 
-    param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "");
-    param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "");
+    param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "Scale factor to end run.");
+    param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "CPU time to run for in seconds.");
 
     param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 1, "Create on average this number of sub domains on a MPI rank. Load balancer will try to create this number of equal sized chunks on each rank. Higher numbers improve the load balancing but make domain more expensive.");
     param_declare_int   (ps, "DomainUseGlobalSorting", OPTIONAL, 1, "Determining the initial refinement of chunks globally. Enabling this produces better domains at costs of slowing down the domain decomposition.");
@@ -185,10 +185,6 @@ create_gadget_parameter_set()
     param_declare_int(ps, "MakeGlassFile", OPTIONAL, 0, "Enable to reverse the direction of gravity, only apply the PM force, and thus make a glass file.");
     param_declare_int(ps, "CoolingOn", REQUIRED, 0, "Enables cooling");
     param_declare_double(ps, "UVRedshiftThreshold", OPTIONAL, -1.0, "Earliest Redshift that UV background is enabled. This modulates UVFluctuation and TreeCool globally. Default -1.0 means no modulation.");
-
-    param_declare_int(ps, "PairedSim", OPTIONAL, 0, "Flip the phase for paired simulations");
-    param_declare_int(ps, "FixedAmpSim", OPTIONAL, 0, "Fix amplitudes of Fourier modes to reduce noise in power spectrum");
-
 
     param_declare_int(ps, "HydroOn", REQUIRED, 1, "Enables hydro force");
     param_declare_int(ps, "DensityOn", OPTIONAL, 1, "Enables SPH density computation.");
@@ -383,9 +379,6 @@ void read_parameter_file(char *fname)
 
         All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
         All.IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
-        All.IO.PairedSim = param_get_int(ps, "PairedSim");
-        All.IO.FixedAmpSim = param_get_int(ps, "FixedAmpSim");
-
         All.IO.NumWriters = param_get_int(ps, "NumWriters");
         All.IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
         All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
@@ -520,3 +513,4 @@ void read_parameter_file(char *fname)
 
     MPI_Bcast(&All, sizeof(All), MPI_BYTE, 0, MPI_COMM_WORLD);
 }
+

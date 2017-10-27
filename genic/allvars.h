@@ -7,13 +7,12 @@ extern double MaxMemSizePerNode;
 extern int      Nmesh, Ngrid;
 
 extern int UsePeculiarVelocity;
-extern int PairedSim;
-extern int FixedAmpSim;
+extern int InvertPhase;
 
 extern double   Box;
 extern int   ProduceGas;
 extern int Seed;
-extern int Unitary;
+extern int UnitaryAmplitude;
 
 extern int      NumPart;
 

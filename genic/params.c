@@ -33,7 +33,7 @@ create_parameters()
     param_declare_int(ps, "Nmesh", OPTIONAL, 0, "Size of the FFT grid used to estimate displacements. Should be > Ngrid.");
     param_declare_int(ps, "Ngrid", REQUIRED, 0, "Size of regular grid on which the undisplaced particles are created.");
     param_declare_int(ps, "Seed", REQUIRED, 0, "");
-    param_declare_int(ps, "Unitary", OPTIONAL, 0, "If non-zero, generate unitary gaussians where |g| == 1.0.");
+    param_declare_int(ps, "UnitaryAmplitude", OPTIONAL, 0, "If non-zero, generate unitary gaussians where |g| == 1.0.");
     param_declare_int(ps, "WhichSpectrum", OPTIONAL, 2, "Type of spectrum, 2 for file ");
     param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state");
@@ -45,8 +45,7 @@ create_parameters()
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Set up an run that uses Peculiar Velocity in IO");
-    param_declare_int(ps, "PairedSim", OPTIONAL, 0, "Flip phase for paired simulation");
-    param_declare_int(ps, "FixedAmpSim", OPTIONAL, 0, "Fix amplitudes of Fourier mode to reduce noise in power spectrum");
+    param_declare_int(ps, "InvertPhase", OPTIONAL, 0, "Flip phase for paired simulation");
 
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
     param_declare_double(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
@@ -116,7 +115,7 @@ void read_parameterfile(char *fname)
     PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
     /*Simulation parameters*/
     UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
-    PairedSim = param_get_int(ps, "PairedSim");
+    InvertPhase = param_get_int(ps, "InvertPhase");
     FixedAmpSim = param_get_int(ps, "FixedAmpSim");
 
     Box = param_get_double(ps, "BoxSize");
@@ -124,7 +123,7 @@ void read_parameterfile(char *fname)
     Nmesh = param_get_int(ps, "Nmesh");
     Ngrid = param_get_int(ps, "Ngrid");
     Seed = param_get_int(ps, "Seed");
-    Unitary = param_get_int(ps, "Unitary");
+    UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
     OutputDir = param_get_string(ps, "OutputDir");
     FileBase = param_get_string(ps, "FileBase");
     int64_t NumPartPerFile = param_get_int(ps, "NumPartPerFile");
