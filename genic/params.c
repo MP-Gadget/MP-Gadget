@@ -46,7 +46,6 @@ create_parameters()
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Set up an run that uses Peculiar Velocity in IO");
     param_declare_int(ps, "PairedSim", OPTIONAL, 0, "Flip phase for paired simulation");
-    param_declare_int(ps, "FixedAmpSim", OPTIONAL, 0, "Fix amplitudes of Fourier mode to reduce noise in power spectrum");
 
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
     param_declare_double(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
@@ -117,7 +116,6 @@ void read_parameterfile(char *fname)
     /*Simulation parameters*/
     UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
     PairedSim = param_get_int(ps, "PairedSim");
-    FixedAmpSim = param_get_int(ps, "FixedAmpSim");
 
     Box = param_get_double(ps, "BoxSize");
     double Redshift = param_get_double(ps, "Redshift");
