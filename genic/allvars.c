@@ -9,6 +9,8 @@ int ProduceGas;
 int Seed;
 int Unitary;
 int UsePeculiarVelocity;
+int PairedSim;
+int FixedAmpSim;
 int NumPart;
 double MaxMemSizePerNode;
 
