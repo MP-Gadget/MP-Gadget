@@ -212,8 +212,8 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
             real_space_region.size[2]);
 #endif
 
+    int * tmp = mymalloc("tmp", sizeof(int) * Nmesh);
     for(k = 0; k < 2; k ++) {
-        int * tmp = (int*) alloca(sizeof(int) * Nmesh);
         for(i = 0; i < Nmesh; i ++) {
             tmp[i] = 0;
         }
@@ -229,6 +229,7 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
         }
         */
     }
+    myfree(tmp);
 }
 
 /* 
