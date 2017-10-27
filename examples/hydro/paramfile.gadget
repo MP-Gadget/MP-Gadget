@@ -30,6 +30,7 @@ BlackHoleOn = 1
 HydroOn = 1
 StarformationCriterion = density
 RadiationOn = 1
+WindOn = 1
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1
@@ -58,20 +59,6 @@ BufferSize = 100          # in MByte
 # Softening lengths
 
 MinGasHsmlFractional = 0.01
-
-SofteningGas = 50
-SofteningHalo = 50
-SofteningDisk = 0
-SofteningBulge = 0
-SofteningStars = 50
-SofteningBndry = 50             #This is BH
-
-SofteningGasMaxPhys = 50
-SofteningHaloMaxPhys = 50
-SofteningDiskMaxPhys = 0
-SofteningBulgeMaxPhys = 0
-SofteningStarsMaxPhys = 50
-SofteningBndryMaxPhys = 50      #This is BH
 
 #----------------------BH Stuff-------------------------
 BlackHoleFeedbackFactor = 0.05
@@ -104,12 +91,11 @@ TempClouds = 1000.0   #  in Kelvin
 FactorSN = 0.1
 FactorEVP = 1000.0
 
-WindModel = nowind # ofjt10,decouple
+WindModel = ofjt10,decouple
 WindEfficiency = 2.0
 WindEnergyFraction = 1.0
 WindSigma0 = 353.0 #km/s
 WindSpeedFactor = 3.7
-
 
 WindFreeTravelLength = 20
 WindFreeTravelDensFac = 0.1
