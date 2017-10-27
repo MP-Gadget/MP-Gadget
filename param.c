@@ -382,8 +382,7 @@ void read_parameter_file(char *fname)
         All.IO.BytesPerFile = param_get_int(ps, "BytesPerFile");
         All.IO.UsePeculiarVelocity = 0; /* Will be set by the Initial Condition File */
         All.IO.PairedSim = param_get_int(ps, "PairedSim");
-        All.IO.FixedAmpSim = param_get_int(ps, "FixedAmpSim");
-
+        
         All.IO.NumWriters = param_get_int(ps, "NumWriters");
         All.IO.MinNumWriters = param_get_int(ps, "MinNumWriters");
         All.IO.WritersPerFile = param_get_int(ps, "WritersPerFile");
