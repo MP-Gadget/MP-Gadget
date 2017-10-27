@@ -45,11 +45,7 @@ create_parameters()
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Set up an run that uses Peculiar Velocity in IO");
-<<<<<<< HEAD
     param_declare_int(ps, "InvertPhase", OPTIONAL, 0, "Flip phase for paired simulation");
-=======
-    param_declare_int(ps, "PairedSim", OPTIONAL, 0, "Flip phase for paired simulation");
->>>>>>> 275d8c4540752d629b8404036ac9836301bce701
 
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
     param_declare_double(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");

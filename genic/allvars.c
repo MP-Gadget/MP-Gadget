@@ -9,11 +9,8 @@ int ProduceGas;
 int Seed;
 int UnitaryAmplitude;
 int UsePeculiarVelocity;
-<<<<<<< HEAD
-int InvertPhase;
-=======
->>>>>>> 275d8c4540752d629b8404036ac9836301bce701
 int NumPart;
+int InvertPhase;
 double MaxMemSizePerNode;
 
 struct part_data *P;

@@ -138,7 +138,7 @@ void displacement_fields(int Type) {
            &pstruct, NULL);
 
     gaussian_fill(petapm_get_fourier_region(),
-            petapm_get_rho_k(), Unitary);
+            petapm_get_rho_k(), UnitaryAmplitude);
 
     petapm_force_c2r(functions);
     petapm_force_finish();
