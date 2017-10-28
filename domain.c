@@ -134,7 +134,8 @@ void domain_decompose_full(void)
 
     t0 = second();
 
-    while(1)
+    int decompose_failed = 0;
+    do
     {
 #ifdef DEBUG
         message(0, "Testing ID Uniqueness before domain decompose\n");
@@ -142,36 +143,22 @@ void domain_decompose_full(void)
 #endif
         domain_allocate();
 
-        int decompose_failed = MPIU_Any(0 != domain_attempt_decompose(), MPI_COMM_WORLD);
+        decompose_failed = MPIU_Any(0 != domain_attempt_decompose(), MPI_COMM_WORLD);
 
         if(decompose_failed) {
             domain_free();
-            message(0, "Increasing TopNodeAllocFactor=%g  ", All.TopNodeAllocFactor);
+            message(0, "Increasing TopNodeAllocFactor=%g to %g\n", All.TopNodeAllocFactor, All.TopNodeAllocFactor*1.3);
 
             All.TopNodeAllocFactor *= 1.3;
 
-            message(0, "new value=%g\n", All.TopNodeAllocFactor);
-
             if(All.TopNodeAllocFactor > 1000)
-            {
-                if(ThisTask == 0)
-                    endrun(781, "something seems to be going seriously wrong here. Stopping.\n");
-            }
-        } else {
-            /* didn't fail? great. let's continue. */
-            break;
+                endrun(781, "something seems to be going seriously wrong here. Stopping.\n");
         }
-    }
+    } while(decompose_failed);
 
-    t1 = second();
+    domain_balance();
 
-    message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
-
-    /* Resort the particles such that those of the same type and key are close by.
-     * The locality is broken by the exchange. */
-    qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
-
-    walltime_measure("/Domain/Peano");
+    walltime_measure("/Domain/Decompose/Balance");
 
     /* copy the used nodes from temp to the true. */
     void * OldTopLeaves = TopLeaves;
@@ -187,6 +174,19 @@ void domain_decompose_full(void)
     /* no longer useful */
     myfree(TopTreeTempMemory);
     TopTreeTempMemory = NULL;
+
+    if(domain_exchange(domain_layoutfunc, 0))
+        endrun(1929,"Could not exchange particles\n");
+
+    t1 = second();
+
+    message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
+
+    /* Resort the particles such that those of the same type and key are close by.
+     * The locality is broken by the exchange. */
+    qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
+
+    walltime_measure("/Domain/Peano");
 
     report_memory_usage("DOMAIN");
 
@@ -329,12 +329,6 @@ domain_attempt_decompose(void)
     if(NTopLeaves < NTask) {
         endrun(0, "Number of Topleaves is less than NTask");
     }
-
-    domain_balance();
-
-    walltime_measure("/Domain/Decompose/Balance");
-    if(domain_exchange(domain_layoutfunc, 0))
-        endrun(1929,"Could not exchange particles\n");
 
     return 0;
 }
