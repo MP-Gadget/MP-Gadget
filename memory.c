@@ -134,12 +134,13 @@ allocator_alloc(Allocator * alloc, char * name, size_t request_size, int dir, ch
     if(alloc->use_malloc) {
         /* prepend a copy of the header to the malloc block; allocator_free will use it*/
         cptr = malloc(request_size + ALIGNMENT);
+        header->ptr = cptr + ALIGNMENT;
         memcpy(cptr, header, ALIGNMENT);
+        cptr += ALIGNMENT;
     } else {
-        cptr = ptr;
+        cptr = ptr + ALIGNMENT;
+        header->ptr = cptr;
     }
-    cptr += ALIGNMENT;
-    header->ptr = cptr;
     return (void*) (cptr);
 }
 
