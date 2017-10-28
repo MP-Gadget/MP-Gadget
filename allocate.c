@@ -46,14 +46,4 @@ void allocate_memory(int alloc_sph)
                      All.MaxPart * sizeof(struct sph_particle_data));
         message(0, "Allocated %g MByte for storage of SPH data.\n", bytes / (1024.0 * 1024.0));
     }
-    if(All.StarformationOn) {
-        StarP = (struct star_particle_data *) mymalloc("StarP", bytes =
-                     All.MaxPartBh * sizeof(struct star_particle_data));
-        message(0, "Allocated %g MByte for storage of Star data.\n", bytes / (1024.0 * 1024.0));
-    }
-    if(All.BlackHoleOn) {
-        BhP = (struct bh_particle_data *) mymalloc("BhP", bytes =
-                     All.MaxPartBh * sizeof(struct bh_particle_data));
-        message(0, "Allocated %g MByte for storage of BH data.\n", bytes / (1024.0 * 1024.0));
-    }
 }

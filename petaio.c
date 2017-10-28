@@ -212,16 +212,28 @@ void petaio_read_internal(char * fname, int ic) {
     N_star_slots = NLocal[4];
     N_bh_slots = NLocal[5];
 
+    /* Allocate enough memory for stars and black holes.
+     * This will be dynamically increased as needed.*/
+    All.MaxPartStar = 0;
+    All.MaxPartBh = 0;
+    if(All.StarformationOn || N_star_slots > 0) {
+        All.MaxPartStar = All.PartAllocFactor * N_star_slots + 0.01 * All.MaxPart;
+    }
+    if(All.BlackHoleOn || N_bh_slots > 0) {
+        All.MaxPartBh = All.PartAllocFactor * N_bh_slots + 0.01 * All.MaxPart;
+    }
+    if(All.MaxPartBh + All.MaxPartStar > 0) {
+        size_t bytes = All.MaxPartStar * sizeof(struct star_particle_data) + All.MaxPartBh * sizeof(struct bh_particle_data);
+        void * secondary_data = mymalloc("StarBH", bytes);
+        /*Black holes are larger so at the bottom*/
+        BhP = (struct bh_particle_data *) secondary_data;
+        StarP = (struct star_particle_data *) (BhP + All.MaxPartBh);
+        message(0, "Allocated %g MByte for %d Stars and %d BHs.\n", bytes / (1024.0 * 1024.0),All.MaxPartStar, All.MaxPartBh);
+    }
+
     if(N_sph_slots >= All.MaxPart) {
         endrun(1, "Overwhelmed by sph: %d > %d\n", N_bh_slots, All.MaxPart);
     }
-    if(N_bh_slots >= All.MaxPartBh) {
-        endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);
-    }
-    if(N_star_slots >= All.MaxPartBh) {
-        endrun(1, "Overwhelmed by stars: %d > %d\n", N_star_slots, All.MaxPartBh);
-    }
-
     if(NumPart >= All.MaxPart) {
         endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
     }
