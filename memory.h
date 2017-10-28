@@ -59,11 +59,17 @@ allocator_destroy(Allocator * alloc);
 void *
 allocator_alloc(Allocator * alloc, char * name, size_t size, int dir, char * fmt, ...);
 
+void *
+allocator_realloc_int(Allocator * alloc, void * ptr, size_t size, char * fmt, ...);
+
 #define allocator_alloc_bot(alloc, name, size) \
     allocator_alloc(alloc, name, size, ALLOC_DIR_BOT, "%s:%d", __FILE__, __LINE__)
 
 #define allocator_alloc_top(alloc, name, size) \
     allocator_alloc(alloc, name, size, ALLOC_DIR_TOP, "%s:%d", __FILE__, __LINE__)
+
+#define allocator_realloc(alloc, ptr, size) \
+    allocator_realloc_int(alloc, ptr, size, "%s:%d", __FILE__, __LINE__)
 
 /* free like API, will look up allocator pointer. */
 void
