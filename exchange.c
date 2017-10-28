@@ -239,9 +239,12 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
     if(N_sph_slots > All.MaxPart)
         endrun(787878, "Task=%d N_sph=%d All.MaxPart=%d\n", ThisTask, N_sph_slots, All.MaxPart);
 
-    if(N_bh_slots > All.MaxPartBh - 0.005 * All.MaxPart || N_star_slots > All.MaxPartStar - 0.005* All.MaxPart) {
-        message(1, "Need more stars and BHs: (%d, %d) -> (%d, %d)\n", All.MaxPartBh, All.MaxPartStar, N_star_slots, N_bh_slots);
-        realloc_secondary_data(N_bh_slots, N_star_slots);
+    if(N_bh_slots > All.MaxPartBh - All.BlackHoleOn * 0.005 * All.MaxPart ||
+                N_star_slots > All.MaxPartStar - All.StarformationOn * 0.005* All.MaxPart) {
+        int newStar = 1.5*(N_star_slots + All.StarformationOn* 0.005*All.MaxPart);
+        int newBh = 1.5*(N_bh_slots + All.BlackHoleOn * 0.005*All.MaxPart);
+        message(1, "Need more stars and BHs: (%d, %d) -> (%d, %d)\n", All.MaxPartStar, All.MaxPartBh, newStar, newBh);
+        realloc_secondary_data(newBh, newStar);
     }
 
     MPI_Alltoallv_sparse(partBuf, count[0], offset[0], MPI_TYPE_PARTICLE,
@@ -500,20 +503,14 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
 }
 
 static void
-realloc_secondary_data(int N_bh, int N_star)
+realloc_secondary_data(int newMaxPartBh, int newMaxPartStar)
 {
-    int newMaxPartStar = N_star;
-    /*Increase by a minimum of 50%, so we have headroom*/
-    if(N_star > All.MaxPartStar)
-        newMaxPartStar += 0.5 * All.MaxPartStar;
-    int newMaxPartBh = N_bh;
-    if(N_bh > All.MaxPartBh)
-        newMaxPartBh += 0.5 * All.MaxPartBh;
     size_t bytes = newMaxPartStar * sizeof(struct star_particle_data) + newMaxPartBh * sizeof(struct bh_particle_data);
     BhP = myrealloc(BhP, bytes);
     All.MaxPartBh = newMaxPartBh;
-    memmove(BhP+All.MaxPartBh, StarP, All.MaxPartStar * sizeof(struct star_particle_data));
+    size_t mvstar = (All.MaxPartStar < newMaxPartStar) ? All.MaxPartStar : newMaxPartStar;
+    memmove(BhP+All.MaxPartBh, StarP, mvstar * sizeof(struct star_particle_data));
     All.MaxPartStar = newMaxPartStar;
     StarP = (struct star_particle_data *) (BhP + All.MaxPartBh);
-    message(1, "Allocated %g MByte for storage of Star and BH data.\n", bytes / (1024.0 * 1024.0));
+    message(1, "Allocated %g MB for %d stars and %d BHs.\n", bytes / (1024.0 * 1024.0), newMaxPartStar, newMaxPartBh);
 }
