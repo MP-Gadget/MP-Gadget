@@ -11,11 +11,14 @@ Omega0 = 0.2814      # Total matter density  (at z=0)
 OmegaLambda = 0.7186      # Cosmological constant (at z=0)
 OmegaBaryon = 0.0464     # Baryon density        (at z=0)
 ProduceGas = 1         # 1 = Produce gas  0 = no gas, just DM.
+RadiationOn = 1         #Enable background radiation
 HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
 
-Redshift = 9        # Starting redshift
+Redshift = 99        # Starting redshift
 
-Sigma8 = 0.810      # power spectrum normalization
+Sigma8 = -1      # power spectrum normalization
+InputPowerRedshift = -1
+DifferentTransferFunctions = 1
 
 WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
 		                   # "2" selects a tabulated power spectrum in
@@ -23,17 +26,14 @@ WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
                            # otherwise, Efstathiou parametrization is used
 
 
-FileWithInputSpectrum = ../powerspectrum-wmap9.txt  # filename of tabulated input
+FileWithInputSpectrum = ../camb_matterpow_99.dat  # filename of tabulated input
                                                                    # spectrum (if used)
+FileWithTransferFunction = ../camb_transfer_99.dat
 InputSpectrum_UnitLength_in_cm  = 3.085678e24 # defines length unit of tabulated
                                                                    # input spectrum in cm/h. 
                                                 # Note: This can be chosen different from UnitLength_in_cm
 
-
-PrimordialIndex  0.971 = # may be used to tilt the primordial index
-
 Seed = 181170    #  seed for IC-generator
-
 
 UnitLength_in_cm = 3.085678e21   # defines length unit of output (in cm/h) 
 UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)
