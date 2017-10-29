@@ -20,7 +20,7 @@ static int NSyncPoints;    /* number of times stored in table of desired sync po
  *
  **/
 void
-setup_sync_points(double no_snapshot_until_time)
+setup_sync_points(double TimeIC, double no_snapshot_until_time)
 {
     int i;
 
@@ -28,15 +28,14 @@ setup_sync_points(double no_snapshot_until_time)
 
     /* Set up first and last entry to SyncPoints; TODO we can insert many more! */
 
-    SyncPoints[0].a = All.TimeIC;
-    SyncPoints[0].loga = log(All.TimeIC);
+    SyncPoints[0].a = TimeIC;
+    SyncPoints[0].loga = log(TimeIC);
     SyncPoints[0].write_snapshot = 0; /* by default no output here. */
     SyncPoints[0].write_fof = 0;
     SyncPoints[1].a = All.TimeMax;
     SyncPoints[1].loga = log(All.TimeMax);
     SyncPoints[1].write_snapshot = 1;
     SyncPoints[1].write_fof = 0;
-
     NSyncPoints = 2;
 
     /* we do an insertion sort here. A heap is faster but who cares the speed for this? */
