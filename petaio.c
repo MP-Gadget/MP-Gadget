@@ -23,7 +23,7 @@
 /*Defined in fofpetaio.c and only used here*/
 void fof_register_io_blocks();
 /*Defined in allocate.c and only used here*/
-void allocate_memory(int alloc_sph);
+void allocate_memory();
 /************
  *
  * The IO api , intented to replace io.c and read_ic.c
@@ -189,7 +189,7 @@ void petaio_read_internal(char * fname, int ic) {
         endrun(0, "Failed to close block: %s\n",
                     big_file_get_error_message());
     }
-    allocate_memory(NTotal[0] > 0);
+    allocate_memory();
 
     /* set up the memory topology */
     int offset = 0;
@@ -214,28 +214,34 @@ void petaio_read_internal(char * fname, int ic) {
 
     /* Allocate enough memory for stars and black holes.
      * This will be dynamically increased as needed.*/
+    All.MaxPartSph = 0;
     All.MaxPartStar = 0;
     All.MaxPartBh = 0;
+    if(NumPart >= All.MaxPart) {
+        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
+    }
+
+    if(N_sph_slots > 0) {
+        All.MaxPartSph = All.PartAllocFactor * N_sph_slots;
+    }
     if(All.StarformationOn || N_star_slots > 0) {
         All.MaxPartStar = All.PartAllocFactor * N_star_slots + 0.01 * All.MaxPart;
     }
     if(All.BlackHoleOn || N_bh_slots > 0) {
         All.MaxPartBh = All.PartAllocFactor * N_bh_slots + 0.01 * All.MaxPart;
     }
-    if(All.MaxPartBh + All.MaxPartStar > 0) {
-        size_t bytes = All.MaxPartStar * sizeof(struct star_particle_data) + All.MaxPartBh * sizeof(struct bh_particle_data);
-        void * secondary_data = mymalloc("StarBH", bytes);
-        /*Black holes are larger so at the bottom*/
-        BhP = (struct bh_particle_data *) secondary_data;
+    /* Now allocate memory for the secondary particle data arrays.
+     * This may be dynamically resized later!*/
+    if(All.MaxPartBh + All.MaxPartStar + All.MaxPartSph > 0) {
+        size_t bytes = All.MaxPartSph * sizeof(struct sph_particle_data) +
+            All.MaxPartStar * sizeof(struct star_particle_data) + All.MaxPartBh * sizeof(struct bh_particle_data);
+        void * secondary_data = mymalloc("SecondaryP", bytes);
+        /*Ordering: SPH, black holes, then stars*/
+        SphP = (struct sph_particle_data *) secondary_data;
+        BhP = (struct bh_particle_data *) (SphP + All.MaxPartSph);
         StarP = (struct star_particle_data *) (BhP + All.MaxPartBh);
-        message(0, "Allocated %g MByte for %d Stars and %d BHs.\n", bytes / (1024.0 * 1024.0),All.MaxPartStar, All.MaxPartBh);
-    }
-
-    if(N_sph_slots >= All.MaxPart) {
-        endrun(1, "Overwhelmed by sph: %d > %d\n", N_bh_slots, All.MaxPart);
-    }
-    if(NumPart >= All.MaxPart) {
-        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
+        message(0, "Allocated %g MB for %d SPH, %d Stars and %d BHs.\n", bytes / (1024.0 * 1024.0),All.MaxPartSph,
+                All.MaxPartStar, All.MaxPartBh);
     }
 
     for(i = 0; i < IOTable.used; i ++) {

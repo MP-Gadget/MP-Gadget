@@ -93,7 +93,7 @@ domain_garbage_collection(void)
     tree_invalid |= domain_all_garbage_collection();
     tree_invalid |= domain_garbage_collection_slots(5, BhP, sizeof(BhP[0]), &N_bh_slots, All.MaxPartBh);
     tree_invalid |= domain_garbage_collection_slots(4, StarP, sizeof(StarP[0]), &N_star_slots, All.MaxPartStar);
-    tree_invalid |= domain_garbage_collection_slots(0, SphP, sizeof(SphP[0]), &N_sph_slots, All.MaxPart);
+    tree_invalid |= domain_garbage_collection_slots(0, SphP, sizeof(SphP[0]), &N_sph_slots, All.MaxPartSph);
 
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 

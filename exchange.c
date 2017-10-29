@@ -17,7 +17,7 @@ static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
 static MPI_Datatype MPI_TYPE_STARPARTICLE = 0;
 
 static void
-realloc_secondary_data(int N_bh, int N_star);
+realloc_secondary_data(int newSph, int newBh, int newStar);
 
 /* 
  * 
@@ -237,15 +237,19 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
         endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
     }
 
-    if(N_sph_slots > All.MaxPart)
-        endrun(787878, "Task=%d N_sph=%d All.MaxPart=%d\n", ThisTask, N_sph_slots, All.MaxPart);
-
-    if(N_bh_slots > All.MaxPartBh - All.BlackHoleOn * 0.005 * All.MaxPart ||
-                N_star_slots > All.MaxPartStar - All.StarformationOn * 0.005* All.MaxPart) {
-        int newStar = 1.5*(N_star_slots + All.StarformationOn* 0.005*All.MaxPart);
-        int newBh = 1.5*(N_bh_slots + All.BlackHoleOn * 0.005*All.MaxPart);
-        message(1, "Need more stars and BHs: (%d, %d) -> (%d, %d)\n", All.MaxPartStar, All.MaxPartBh, newStar, newBh);
-        realloc_secondary_data(newBh, newStar);
+    int newSph = All.MaxPartSph;
+    if(N_sph_slots > newSph)
+        newSph = 1.2 * N_sph_slots;
+    int newBh = All.MaxPartBh;
+    if(N_bh_slots +  All.BlackHoleOn * 0.005 * All.MaxPart > All.MaxPartBh)
+        newBh = 1.5*(N_bh_slots + All.BlackHoleOn * 0.005*All.MaxPart);
+    int newStar = All.MaxPartStar;
+    if(N_star_slots +  All.StarformationOn * 0.005 * All.MaxPart > All.MaxPartStar)
+        newStar = 1.5*(N_star_slots + All.StarformationOn * 0.005*All.MaxPart);
+    if(newSph > All.MaxPartSph || newBh > All.MaxPartBh || newStar > All.MaxPartStar) {
+        message(1, "Need more sph, stars or BHs: (%d, %d, %d) -> (%d, %d, %d)\n",
+                All.MaxPartSph, All.MaxPartStar, All.MaxPartBh, newSph, newStar, newBh);
+        realloc_secondary_data(newSph, newBh, newStar);
     }
 
     MPI_Alltoallv_sparse(partBuf, count[0], offset[0], MPI_TYPE_PARTICLE,
@@ -504,16 +508,29 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
 }
 
 static void
-realloc_secondary_data(int newMaxPartBh, int newMaxPartStar)
+realloc_secondary_data(int newMaxPartSph, int newMaxPartBh, int newMaxPartStar)
 {
-    size_t bytes = newMaxPartStar * sizeof(struct star_particle_data) + newMaxPartBh * sizeof(struct bh_particle_data);
-    BhP = myrealloc(BhP, bytes);
+    size_t bytes = newMaxPartSph * sizeof(struct sph_particle_data) +
+        newMaxPartStar * sizeof(struct star_particle_data) + newMaxPartBh * sizeof(struct bh_particle_data);
+    SphP = myrealloc(SphP, bytes);
+    BhP = (struct bh_particle_data *) (SphP + newMaxPartSph);
     StarP = (struct star_particle_data *) (BhP + newMaxPartBh);
+    size_t mvbh = (All.MaxPartBh < newMaxPartBh) ? All.MaxPartBh : newMaxPartBh;
     size_t mvstar = (All.MaxPartStar < newMaxPartStar) ? All.MaxPartStar : newMaxPartStar;
-    /* We moved the data in realloc, but we still need to shift up the stars for the new number of BHs.
-     * Must use addressing relative to new BhP pointer, as StarP was invalidated by the move in realloc*/
-    memmove(StarP, BhP + All.MaxPartBh, mvstar * sizeof(struct star_particle_data));
+    /* We moved the data in realloc, but we may still need to shift up the stars and bh to make room.
+     * Must use addressing relative to new SphP pointer, as StarP may have been invalidated by the move in realloc*/
+    if(newMaxPartSph + newMaxPartBh > All.MaxPartSph + All.MaxPartBh) {
+        /*If this is an increase, shift top array up first*/
+        memmove(StarP, SphP + All.MaxPartSph + All.MaxPartBh, mvstar * sizeof(struct star_particle_data));
+        memmove(BhP, SphP + All.MaxPartSph, mvbh * sizeof(struct bh_particle_data));
+    }
+    else if(newMaxPartSph + newMaxPartBh < All.MaxPartSph + All.MaxPartBh) {
+        /*If this is an decrease, shift bottom array down first*/
+        memmove(BhP, SphP + All.MaxPartSph, mvbh * sizeof(struct bh_particle_data));
+        memmove(StarP, SphP + All.MaxPartSph + All.MaxPartBh, mvstar * sizeof(struct star_particle_data));
+    }
+    All.MaxPartSph = newMaxPartSph;
     All.MaxPartBh = newMaxPartBh;
     All.MaxPartStar = newMaxPartStar;
-    message(1, "Allocated %g MB for %d stars and %d BHs.\n", bytes / (1024.0 * 1024.0), newMaxPartStar, newMaxPartBh);
+    message(1, "Allocated %g MB for %d sph, %d stars and %d BHs.\n", bytes / (1024.0 * 1024.0), newMaxPartSph, newMaxPartStar, newMaxPartBh);
 }

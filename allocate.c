@@ -15,7 +15,7 @@
  * The memory for the ordered binary tree of the timeline
  * is also allocated.
  */
-void allocate_memory(int alloc_sph)
+void allocate_memory()
 {
     size_t bytes;
     timestep_allocate_memory(All.MaxPart);
@@ -40,10 +40,4 @@ void allocate_memory(int alloc_sph)
     }
 #endif
     message(0, "Allocated %g MByte for particle storage.\n", bytes / (1024.0 * 1024.0));
-
-    if(alloc_sph) {
-        SphP = (struct sph_particle_data *) mymalloc("SphP", bytes =
-                     All.MaxPart * sizeof(struct sph_particle_data));
-        message(0, "Allocated %g MByte for storage of SPH data.\n", bytes / (1024.0 * 1024.0));
-    }
 }
