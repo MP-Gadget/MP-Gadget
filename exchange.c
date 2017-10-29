@@ -47,8 +47,8 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     /* flag the particles that need to be exported */
     int * toGo_arr[NSP];
     int * toGet_arr[NSP];
-    toGo_arr[0] = (int *) mymalloc("toGo", (NSP * sizeof(int) * NTask));
-    toGet_arr[0] = (int *) mymalloc("toGet", (NSP * sizeof(int) * NTask));
+    toGo_arr[0] = (int *) mymalloc2("toGo", (NSP * sizeof(int) * NTask));
+    toGet_arr[0] = (int *) mymalloc2("toGet", (NSP * sizeof(int) * NTask));
     for(i=1; i<NSP; i++) {
         toGo_arr[i] = toGo_arr[i-1] + NTask;
         toGet_arr[i] = toGet_arr[i-1] + NTask;
@@ -113,7 +113,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
     struct bh_particle_data *bhBuf;
     struct star_particle_data *starBuf;
 
-    int *ctmem = mymalloc("cts", 4*NSP*NTask*sizeof(int));
+    int *ctmem = mymalloc2("cts", 4*NSP*NTask*sizeof(int));
     int *count[NSP];
     int *offset[NSP];
     int *count_recv[NSP];
@@ -157,10 +157,10 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
         return bad_exh;
     }
 
-    partBuf = (struct particle_data *) mymalloc("partBuf", count_togo[0] * sizeof(struct particle_data));
-    sphBuf = (struct sph_particle_data *) mymalloc("sphBuf", count_togo[1] * sizeof(struct sph_particle_data));
-    bhBuf = (struct bh_particle_data *) mymalloc("bhBuf", count_togo[2] * sizeof(struct bh_particle_data));
-    starBuf = (struct star_particle_data *) mymalloc("starBuf", count_togo[3] * sizeof(struct star_particle_data));
+    partBuf = (struct particle_data *) mymalloc2("partBuf", count_togo[0] * sizeof(struct particle_data));
+    sphBuf = (struct sph_particle_data *) mymalloc2("sphBuf", count_togo[1] * sizeof(struct sph_particle_data));
+    bhBuf = (struct bh_particle_data *) mymalloc2("bhBuf", count_togo[2] * sizeof(struct bh_particle_data));
+    starBuf = (struct star_particle_data *) mymalloc2("starBuf", count_togo[3] * sizeof(struct star_particle_data));
 
     /*FIXME: make this omp ! */
     for(i = 0; i < NumPart; i++)
