@@ -12,6 +12,7 @@
 #include "system.h"
 #include "sfr_eff.h"
 #include "cooling.h"
+#include "timestep.h"
 
 #include "petaio.h"
 #include "mymalloc.h"
@@ -22,8 +23,7 @@
 
 /*Defined in fofpetaio.c and only used here*/
 void fof_register_io_blocks();
-/*Defined in allocate.c and only used here*/
-void allocate_memory();
+
 /************
  *
  * The IO api , intented to replace io.c and read_ic.c
@@ -167,6 +167,35 @@ static void petaio_save_internal(char * fname) {
     myfree(selection);
 }
 
+void
+petaio_alloc_particle_memory()
+{
+    size_t bytes;
+    /*Allocates ActiveParticle array*/
+    timestep_allocate_memory(All.MaxPart);
+
+    P = (struct particle_data *) mymalloc("P", bytes = All.MaxPart * sizeof(struct particle_data));
+
+    /* clear the memory to avoid valgrind errors;
+     *
+     * note that I tried to set each component in P to zero but
+     * valgrind still complains in PFFT
+     * seems to be to do with how the struct is padded and
+     * the missing holes being accessed by __kmp_atomic functions.
+     * (memory lock etc?)
+     * */
+    memset(P, 0, sizeof(struct particle_data) * All.MaxPart);
+#ifdef OPENMP_USE_SPINLOCK
+    {
+        int i;
+        for(i = 0; i < All.MaxPart; i ++) {
+            pthread_spin_init(&P[i].SpinLock, 0);
+        }
+    }
+#endif
+    message(0, "Allocated %g MByte for particle storage.\n", bytes / (1024.0 * 1024.0));
+}
+
 void petaio_read_internal(char * fname, int ic) {
     int ptype;
     int i;
@@ -189,7 +218,9 @@ void petaio_read_internal(char * fname, int ic) {
         endrun(0, "Failed to close block: %s\n",
                     big_file_get_error_message());
     }
-    allocate_memory();
+
+    /*Allocate the particle memory*/
+    petaio_alloc_particle_memory();
 
     /* set up the memory topology */
     int offset = 0;
