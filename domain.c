@@ -17,7 +17,6 @@
 #include "timebinmgr.h"
 #include "system.h"
 #include "exchange.h"
-#include "garbage.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19
@@ -126,8 +125,6 @@ void domain_decompose_full(void)
 
     if(force_tree_allocated()) force_tree_free();
 
-    domain_garbage_collection();
-
     domain_free();
 
     message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
@@ -208,10 +205,6 @@ void domain_maintain(void)
      * make sure it is consistent.
      * May as well free it here.*/
     if(force_tree_allocated()) force_tree_free();
-
-    domain_garbage_collection();
-
-    walltime_measure("/Domain/Short/Misc");
 
     /* Try a domain exchange.
      * If we have no memory for the particles,
@@ -1122,8 +1115,6 @@ int domain_determine_global_toptree(struct local_topnode_data * topTree, int * t
         message(1, "local TopTree Size =%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
             *topTreeSize, 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor);
     }
-    walltime_measure("/Domain/DetermineTopTree/LocalRefine/GC");
-
 
 #if 0
     char buf[1000];

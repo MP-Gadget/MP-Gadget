@@ -202,12 +202,13 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
         /* mark this particle as a garbage */
         P[i].IsGarbage = 1;
     }
+
+    walltime_measure("/Domain/exchange/makebuf");
     /* now remove the garbage particles because they have already been copied.
      * eventually we want to fill in the garbage gap or defer the gc, because it breaks the tree.
      * invariance . */
     domain_garbage_collection();
-
-    walltime_measure("/Domain/exchange/makebuf");
+    walltime_measure("/Domain/exchange/garbage");
 
 
     for(j=0; j<NSP; j++) {
