@@ -176,7 +176,7 @@ domain_garbage_collection_slots(int ptype,
                 endrun(1, "slot PI consistency failed2, N_slots = %d, PI=%d\n", *N_slots, P[i].PI);
             }
             if(SLOT(P[i].PI)->ID != P[i].ID) {
-                endrun(1, "slot id consistency failed1\n");
+                endrun(1, "slot id consistency failed: i=%d, PI=%d (IDs: %ld != %ld)\n",i, P[i].PI, P[i].ID, SLOT(P[i].PI)->ID);
             }
         }
     }
