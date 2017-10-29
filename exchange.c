@@ -507,10 +507,12 @@ realloc_secondary_data(int newMaxPartBh, int newMaxPartStar)
 {
     size_t bytes = newMaxPartStar * sizeof(struct star_particle_data) + newMaxPartBh * sizeof(struct bh_particle_data);
     BhP = myrealloc(BhP, bytes);
-    All.MaxPartBh = newMaxPartBh;
+    StarP = (struct star_particle_data *) (BhP + newMaxPartBh);
     size_t mvstar = (All.MaxPartStar < newMaxPartStar) ? All.MaxPartStar : newMaxPartStar;
-    memmove(BhP+All.MaxPartBh, StarP, mvstar * sizeof(struct star_particle_data));
+    /* We moved the data in realloc, but we still need to shift up the stars for the new number of BHs.
+     * Must use addressing relative to new BhP pointer, as StarP was invalidated by the move in realloc*/
+    memmove(StarP, BhP + All.MaxPartBh, mvstar * sizeof(struct star_particle_data));
+    All.MaxPartBh = newMaxPartBh;
     All.MaxPartStar = newMaxPartStar;
-    StarP = (struct star_particle_data *) (BhP + All.MaxPartBh);
     message(1, "Allocated %g MB for %d stars and %d BHs.\n", bytes / (1024.0 * 1024.0), newMaxPartStar, newMaxPartBh);
 }
