@@ -164,9 +164,9 @@ void domain_decompose_full(void)
     void * OldTopLeaves = TopLeaves;
     void * OldTopNodes = TopNodes;
 
-    TopNodes  = (struct topnode_data *) mymalloc("TopNodes", sizeof(TopNodes[0]) * NTopNodes);
+    TopNodes  = (struct topnode_data *) mymalloc2("TopNodes", sizeof(TopNodes[0]) * NTopNodes);
     /* add 1 extra to mark the end of TopLeaves; see assign */
-    TopLeaves = (struct topleaf_data *) mymalloc("TopLeaves", sizeof(TopLeaves[0]) * (NTopLeaves + 1));
+    TopLeaves = (struct topleaf_data *) mymalloc2("TopLeaves", sizeof(TopLeaves[0]) * (NTopLeaves + 1));
 
     memcpy(TopLeaves, OldTopLeaves, NTopLeaves* sizeof(TopLeaves[0]));
     memcpy(TopNodes, OldTopNodes, NTopNodes * sizeof(TopNodes[0]));
@@ -233,11 +233,11 @@ void domain_allocate(void)
     MaxTopNodes = (int) (All.TopNodeAllocFactor * All.MaxPart + 1);
 
     /* Add a tail item to avoid special treatments */
-    Tasks = mymalloc("Tasks", bytes = ((NTask + 1)* sizeof(Tasks[0])));
+    Tasks = mymalloc2("Tasks", bytes = ((NTask + 1)* sizeof(Tasks[0])));
 
     all_bytes += bytes;
 
-    TopTreeTempMemory = mymalloc2("TopTreeWorkspace", 
+    TopTreeTempMemory = mymalloc("TopTreeWorkspace",
         bytes = (MaxTopNodes * (sizeof(TopNodes[0]) + sizeof(TopLeaves[0]))));
 
     TopNodes  = (struct topnode_data *) TopTreeTempMemory;
