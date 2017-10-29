@@ -79,7 +79,10 @@ int is_timebin_active(int i, inttime_t current) {
 int
 is_PM_timestep(inttime_t ti)
 {
+    if(ti > PM.start + PM.length)
+        endrun(12, "Passed end of PM step! ti=%d, PM = %d + %d\n",ti, PM.start, PM.length);
     return ti == PM.start + PM.length;
+
 }
 
 void
