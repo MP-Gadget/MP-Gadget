@@ -3,6 +3,7 @@
 #include "timestep.h"
 #include "system.h"
 #include "endrun.h"
+#include "openmpsort.h"
 #include "forcetree.h"
 
 static int
@@ -153,7 +154,7 @@ domain_garbage_collection_slots(int ptype,
      *  this function always return 0. */
 
     /* gc the bh */
-    int i, j;
+    int i;
     int64_t total = 0;
 
     int64_t total0 = 0;
@@ -183,22 +184,19 @@ domain_garbage_collection_slots(int ptype,
 
     /* put unused guys to the end, and sort the used ones
      * by their location in the P array */
-    qsort(storage, *N_slots, elsize, slot_cmp_reverse_link);
+    qsort_openmp(storage, *N_slots, elsize, slot_cmp_reverse_link);
 
     while(*N_slots > 0 && SLOT(*N_slots - 1)->ReverseLink == -1) {
         (*N_slots) --;
     }
     /* Now update the link in BhP */
+#pragma omp parallel for
     for(i = 0; i < *N_slots; i ++) {
         P[SLOT(i)->ReverseLink].PI = i;
     }
 
-    /* Now invalidate ReverseLink */
-    for(i = 0; i < *N_slots; i ++) {
-        SLOT(i)->ReverseLink = -1;
-    }
-
-    j = 0;
+#ifdef DEBUG
+    int j = 0;
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type != ptype) continue;
@@ -214,6 +212,7 @@ domain_garbage_collection_slots(int ptype,
     if(j != *N_slots) {
         endrun(1, "slot count failed2, j=%d, N_bh=%d\n", j, *N_slots);
     }
+#endif
 
     sumup_large_ints(1, N_slots, &total);
 
