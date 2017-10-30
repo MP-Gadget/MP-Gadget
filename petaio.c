@@ -289,7 +289,7 @@ petaio_read_header(int num)
     if(num == -1) {
         fname = fastpm_strdup_printf("%s", All.InitCondFile);
     } else {
-        fname = fastpm_strdup_printf("%s/PART_%03d", All.OutputDir, num);
+        fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
     }
     message(0, "Probing Header of snapshot file: %s\n", fname);
 
@@ -340,7 +340,7 @@ petaio_read_snapshot(int num)
 
         }
     } else {
-        fname = fastpm_strdup_printf("%s/PART_%03d", All.OutputDir, num);
+        fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
         /*
          * we always save the Entropy, init.c will not mess with the entropy
          * */

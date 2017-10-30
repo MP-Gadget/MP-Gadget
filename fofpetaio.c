@@ -44,64 +44,77 @@ fof_petaio_select_func(int i)
 void fof_save_particles(int num) {
     char fname[4096];
     int i;
-    sprintf(fname, "%s/PIG_%03d", All.OutputDir, num);
+    sprintf(fname, "%s/%s_%03d", All.OutputDir, All.FOFFileBase, num);
     message(0, "saving particle in group into %s\n", fname);
 
     /* sort the groups according to group-number */
     mpsort_mpi(Group, Ngroups, sizeof(struct Group), 
             fof_radix_Group_GrNr, 8, NULL, MPI_COMM_WORLD);
 
-    walltime_measure("/FOF/IO/Misc");
-    fof_distribute_particles();
-    walltime_measure("/FOF/IO/Distribute");
-
     BigFile bf = {0};
     if(0 != big_file_mpi_create(&bf, fname, MPI_COMM_WORLD)) {
-        endrun(0, "Failed to open IC from %s\n", fname);
+        endrun(0, "Failed to open file at %s\n", fname);
     }
 
     MPI_Barrier(MPI_COMM_WORLD);
     fof_write_header(&bf); 
-    int * selection = mymalloc("Selection", sizeof(int) * NumPart);
-
-    int ptype_offset[6]={0};
-    int ptype_count[6]={0};
-
-    petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, fof_petaio_select_func);
-
-    /*Sort each type individually*/
-    for(i = 0; i < 6; i++)
-        qsort(selection + ptype_offset[i], ptype_count[i], sizeof(int), fof_cmp_selection_by_grnr);
-
-    walltime_measure("/FOF/IO/argind");
 
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
         char blockname[128];
         int ptype = IOTable.ent[i].ptype;
         BigArray array = {0};
-        if(ptype < 6 && ptype >= 0) {
-            sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
-            petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
-        } else 
         if(ptype == PTYPE_FOF_GROUP) {
             sprintf(blockname, "FOFGroups/%s", IOTable.ent[i].name);
             build_buffer_fof(&array, &IOTable.ent[i]);
-        } else {
-            abort();
         }
         message(0, "Writing Block %s\n", blockname);
 
         petaio_save_block(&bf, blockname, &array);
         petaio_destroy_buffer(&array);
     }
-    myfree(selection);
+    walltime_measure("/FOF/IO/WriteFOF");
+
+    if(All.FOFSaveParticles) {
+
+        walltime_measure("/FOF/IO/Misc");
+        fof_distribute_particles();
+        walltime_measure("/FOF/IO/Distribute");
+
+        int * selection = mymalloc("Selection", sizeof(int) * NumPart);
+
+        int ptype_offset[6]={0};
+        int ptype_count[6]={0};
+        petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, fof_petaio_select_func);
+
+        /*Sort each type individually*/
+        for(i = 0; i < 6; i++)
+            qsort(selection + ptype_offset[i], ptype_count[i], sizeof(int), fof_cmp_selection_by_grnr);
+
+        walltime_measure("/FOF/IO/argind");
+
+        for(i = 0; i < IOTable.used; i ++) {
+            /* only process the particle blocks */
+            char blockname[128];
+            int ptype = IOTable.ent[i].ptype;
+            BigArray array = {0};
+            if(ptype < 6 && ptype >= 0) {
+                sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
+                petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
+            }
+            message(0, "Writing Block %s\n", blockname);
+
+            petaio_save_block(&bf, blockname, &array);
+            petaio_destroy_buffer(&array);
+        }
+        myfree(selection);
+        walltime_measure("/FOF/IO/WriteParticles");
+
+        fof_return_particles();
+        walltime_measure("/FOF/IO/Return");
+    }
 
     big_file_mpi_close(&bf, MPI_COMM_WORLD);
-    walltime_measure("/FOF/IO/Write");
-
-    fof_return_particles();
-    walltime_measure("/FOF/IO/Return");
 }
 
 struct PartIndex {
