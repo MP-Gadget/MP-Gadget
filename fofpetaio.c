@@ -67,11 +67,11 @@ void fof_save_particles(int num) {
         if(ptype == PTYPE_FOF_GROUP) {
             sprintf(blockname, "FOFGroups/%s", IOTable.ent[i].name);
             build_buffer_fof(&array, &IOTable.ent[i]);
-        }
-        message(0, "Writing Block %s\n", blockname);
+            message(0, "Writing Block %s\n", blockname);
 
-        petaio_save_block(&bf, blockname, &array);
-        petaio_destroy_buffer(&array);
+            petaio_save_block(&bf, blockname, &array);
+            petaio_destroy_buffer(&array);
+        }
     }
     walltime_measure("/FOF/IO/WriteFOF");
 
@@ -101,11 +101,12 @@ void fof_save_particles(int num) {
             if(ptype < 6 && ptype >= 0) {
                 sprintf(blockname, "%d/%s", ptype, IOTable.ent[i].name);
                 petaio_build_buffer(&array, &IOTable.ent[i], selection + ptype_offset[ptype], ptype_count[ptype]);
-            }
-            message(0, "Writing Block %s\n", blockname);
 
-            petaio_save_block(&bf, blockname, &array);
-            petaio_destroy_buffer(&array);
+                message(0, "Writing Block %s\n", blockname);
+
+                petaio_save_block(&bf, blockname, &array);
+                petaio_destroy_buffer(&array);
+            }
         }
         myfree(selection);
         walltime_measure("/FOF/IO/WriteParticles");
