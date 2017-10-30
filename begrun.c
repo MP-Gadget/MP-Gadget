@@ -198,10 +198,10 @@ set_units(void)
     if(All.WindOn) {
         if(HAS(All.WindModel, WIND_FIXED_EFFICIENCY)) {
             All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / All.WindEfficiency);
-            message(1, "Windspeed: %g\n", All.WindSpeed);
+            message(0, "Windspeed: %g\n", All.WindSpeed);
         } else {
             All.WindSpeed = sqrt(2 * All.WindEnergyFraction * All.FactorSN * All.EgySpecSN / (1 - All.FactorSN) / 1.0);
-            message(1, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
+            message(0, "Reference Windspeed: %g\n", All.WindSigma0 * All.WindSpeedFactor);
         }
     }
 #endif
