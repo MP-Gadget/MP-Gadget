@@ -103,26 +103,6 @@ static int data_index_compare(const void *a, const void *b)
     }
 static TreeWalk * GDB_current_ev = NULL;
 
-
-/*This routine allocates buffers to store the number of particles that shall be exchanged between MPI tasks.*/
-void TreeWalk_allocate_memory(void)
-{
-    int NTaskTimesThreads;
-
-    NTaskTimesThreads = All.NumThreads * NTask;
-
-    Exportflag = (int *) malloc(NTaskTimesThreads * sizeof(int));
-    Exportindex = (int *) malloc(NTaskTimesThreads * sizeof(int));
-    Exportnodecount = (int *) malloc(NTaskTimesThreads * sizeof(int));
-
-    Send_count = (int *) malloc(sizeof(int) * NTask);
-    Send_offset = (int *) malloc(sizeof(int) * NTask);
-    Recv_count = (int *) malloc(sizeof(int) * NTask);
-    Recv_offset = (int *) malloc(sizeof(int) * NTask);
-}
-
-
-
 static void
 ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv)
 {
@@ -137,6 +117,22 @@ ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv)
     lv->ngblist = Ngblist + thread_id * NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
+}
+
+static void
+ev_alloc_threadlocals()
+{
+    int NTaskTimesThreads = All.NumThreads * NTask;
+
+    Exportflag = (int *) ta_malloc2("Exportthreads", int, 3*NTaskTimesThreads);
+    Exportindex = Exportflag + NTaskTimesThreads;
+    Exportnodecount = Exportflag + 2*NTaskTimesThreads;
+}
+
+static void
+ev_free_threadlocals()
+{
+    ta_free(Exportflag);
 }
 
 static void
@@ -229,7 +225,7 @@ static void real_ev(TreeWalk * tw) {
 
     /* Note: exportflag is local to each thread */
     int k;
-            /* use old index to recover from a buffer overflow*/;
+    /* use old index to recover from a buffer overflow*/;
     TreeWalkQueryBase * input = alloca(tw->query_type_elsize);
     TreeWalkResultBase * output = alloca(tw->result_type_elsize);
 
@@ -343,10 +339,12 @@ static int ev_primary(TreeWalk * tw)
          * sorted to the end */
     }
 
+    ev_alloc_threadlocals();
 #pragma omp parallel 
     {
         real_ev(tw);
     }
+    ev_free_threadlocals();
 
     /* Nexport may go off too much after BunchSize 
      * as we don't protect it from over adding in _export_particle
@@ -383,6 +381,10 @@ static int ev_primary(TreeWalk * tw)
         endrun(1231245, "Buffer too small for even one particle. For example, there are too many nodes");
     }
 
+    Send_count = (int *) ta_malloc("Send_count", int, 4*NTask);
+    Recv_count = Send_count + NTask;
+    Send_offset = Send_count + 2*NTask;
+    Recv_offset = Send_count + 3*NTask;
     /* 
      * fill the communication layouts, 
      * here we reuse the legacy global variable names;
@@ -440,6 +442,7 @@ static void ev_secondary(TreeWalk * tw)
     tstart = second();
     tw->dataresult = mymalloc("EvDataResult", tw->Nimport * tw->result_type_elsize);
 
+    ev_alloc_threadlocals();
 #pragma omp parallel 
     {
         int j;
@@ -464,6 +467,7 @@ static void ev_secondary(TreeWalk * tw)
 #pragma omp atomic
         tw->Nnodesinlist += lv->Nnodesinlist;
     }
+    ev_free_threadlocals();
     tend = second();
     tw->timecomp2 += timediff(tstart, tend);
 }
@@ -566,6 +570,7 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
 
             tw->Niterations ++;
             tw->Nexport_sum += tw->Nexport;
+            ta_free(Send_count);
         } while(ev_ndone(tw) < NTask);
     }
 

@@ -3,6 +3,7 @@
 #include "timestep.h"
 #include "system.h"
 #include "endrun.h"
+#include "openmpsort.h"
 #include "forcetree.h"
 
 static int
@@ -91,8 +92,8 @@ domain_garbage_collection(void)
      * and snapshot IO, both take far more time than rebuilding the tree. */
     tree_invalid |= domain_all_garbage_collection();
     tree_invalid |= domain_garbage_collection_slots(5, BhP, sizeof(BhP[0]), &N_bh_slots, All.MaxPartBh);
-    tree_invalid |= domain_garbage_collection_slots(4, StarP, sizeof(StarP[0]), &N_star_slots, All.MaxPartBh);
-    tree_invalid |= domain_garbage_collection_slots(0, SphP, sizeof(SphP[0]), &N_sph_slots, All.MaxPart);
+    tree_invalid |= domain_garbage_collection_slots(4, StarP, sizeof(StarP[0]), &N_star_slots, All.MaxPartStar);
+    tree_invalid |= domain_garbage_collection_slots(0, SphP, sizeof(SphP[0]), &N_sph_slots, All.MaxPartSph);
 
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -153,7 +154,7 @@ domain_garbage_collection_slots(int ptype,
      *  this function always return 0. */
 
     /* gc the bh */
-    int i, j;
+    int i;
     int64_t total = 0;
 
     int64_t total0 = 0;
@@ -176,29 +177,26 @@ domain_garbage_collection_slots(int ptype,
                 endrun(1, "slot PI consistency failed2, N_slots = %d, PI=%d\n", *N_slots, P[i].PI);
             }
             if(SLOT(P[i].PI)->ID != P[i].ID) {
-                endrun(1, "slot id consistency failed1\n");
+                endrun(1, "slot id consistency failed: i=%d, PI=%d (IDs: %ld != %ld)\n",i, P[i].PI, P[i].ID, SLOT(P[i].PI)->ID);
             }
         }
     }
 
     /* put unused guys to the end, and sort the used ones
      * by their location in the P array */
-    qsort(storage, *N_slots, elsize, slot_cmp_reverse_link);
+    qsort_openmp(storage, *N_slots, elsize, slot_cmp_reverse_link);
 
     while(*N_slots > 0 && SLOT(*N_slots - 1)->ReverseLink == -1) {
         (*N_slots) --;
     }
     /* Now update the link in BhP */
+#pragma omp parallel for
     for(i = 0; i < *N_slots; i ++) {
         P[SLOT(i)->ReverseLink].PI = i;
     }
 
-    /* Now invalidate ReverseLink */
-    for(i = 0; i < *N_slots; i ++) {
-        SLOT(i)->ReverseLink = -1;
-    }
-
-    j = 0;
+#ifdef DEBUG
+    int j = 0;
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         if(P[i].Type != ptype) continue;
@@ -214,6 +212,7 @@ domain_garbage_collection_slots(int ptype,
     if(j != *N_slots) {
         endrun(1, "slot count failed2, j=%d, N_bh=%d\n", j, *N_slots);
     }
+#endif
 
     sumup_large_ints(1, N_slots, &total);
 

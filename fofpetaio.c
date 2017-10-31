@@ -208,10 +208,10 @@ static void fof_distribute_particles() {
         int index = pi[i].origin % All.MaxPart;
         P[index].targettask = pi[i].targetTask;
     }
+    myfree(pi);
 
     if(domain_exchange(fof_sorted_layout,0))
         endrun(1930,"Could not exchange particles\n");
-    myfree(pi);
     /* sort SPH and Others independently */
 
     GrNrMax = -1;

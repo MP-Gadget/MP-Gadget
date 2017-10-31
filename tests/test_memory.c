@@ -15,13 +15,24 @@ test_allocator(void ** state)
     Allocator A0[1];
     allocator_init(A0, "Default", 4096 * 1024, 1, NULL);
 
-    void * p1 = allocator_alloc_bot(A0, "M+1", 1024);
-    void * p2 = allocator_alloc_bot(A0, "M+2", 2048);
+    int * p1 = allocator_alloc_bot(A0, "M+1", 1024*sizeof(int));
+    int * p2 = allocator_alloc_bot(A0, "M+2", 2048*sizeof(int));
 
-    void * q1 = allocator_alloc_top(A0, "M-1", 1024);
-    void * q2 = allocator_alloc_top(A0, "M-2", 2048);
+    int * q1 = allocator_alloc_top(A0, "M-1", 1024*sizeof(int));
+    int * q2 = allocator_alloc_top(A0, "M-2", 2048*sizeof(int));
 
+    p1[0] = 1;
+    p2[1] = 1;
     allocator_print(A0);
+
+    q2[2000] = 1;
+    q2 = allocator_realloc(A0, q2, 3072*sizeof(int));
+    assert_int_equal(q2[2000] ,1);
+
+    /* Assert that reallocing does not move the base pointer.
+     * Note this is true only for bottom allocations*/
+    int * p2new = allocator_realloc(A0, p2, 3072*sizeof(int));
+    assert_int_equal(p2new, p2);
 
     assert_int_equal(allocator_dealloc(A0, p1), ALLOC_EMISMATCH);
     assert_int_equal(allocator_dealloc(A0, q1), ALLOC_EMISMATCH);
@@ -64,13 +75,22 @@ test_allocator_malloc(void ** state)
     Allocator A0[1];
     allocator_malloc_init(A0, "libc based", 4096 * 1024, 1, NULL);
 
-    void * p1 = allocator_alloc_bot(A0, "M+1", 2048);
-    void * p2 = allocator_alloc_bot(A0, "M+2", 2048);
+    int * p1 = allocator_alloc_bot(A0, "M+1", 2048);
+    int * p2 = allocator_alloc_bot(A0, "M+2", 2048);
 
-    void * q1 = allocator_alloc_top(A0, "M-1", 2048);
-    void * q2 = allocator_alloc_top(A0, "M-2", 2048);
+    int * q1 = allocator_alloc_top(A0, "M-1", 2048);
+    int * q2 = allocator_alloc_top(A0, "M-2", 128*sizeof(int));
 
     allocator_print(A0);
+    p1[0] = 1;
+    p2[1] = 1;
+    q2[100] = 1;
+
+    p2 = allocator_realloc(A0, p2, 3072);
+    assert_int_equal(p2[1],1);
+    q2 = allocator_realloc(A0, q2, 1000*sizeof(int));
+    q2[500] = 1;
+    assert_int_equal(q2[100] ,1);
 
     assert_int_equal(allocator_dealloc(A0, p1), ALLOC_EMISMATCH);
     assert_int_equal(allocator_dealloc(A0, q1), ALLOC_EMISMATCH);

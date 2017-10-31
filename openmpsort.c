@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+#include "mymalloc.h"
 
 static void merge(void * base1, size_t nmemb1, void * base2, size_t nmemb2, void * output, size_t size,
          int(*compar)(const void *, const void *)) {
@@ -42,7 +43,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
     void ** Atmp = Atmp_store;
 
     void * tmp;
-    tmp = malloc(size * nmemb);
+    tmp = mymalloc("qsort", size * nmemb);
 
 #pragma omp parallel
     {
@@ -118,64 +119,5 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
             memcpy(Atmp[tid], Abase[tid], Anmemb_old[tid] * size);
         }
     }
-    free(tmp);
+    myfree(tmp);
 }
-
-#if 0
-int checksorted(int * start, int nmemb) {
-    int i;
-    for(i = 1; i < nmemb; i ++) {
-        if( start[i-1] > start[i]) {
-            return i;
-        }
-    }
-    return 0;
-}
-static int compare(const void *a, const void *b) {
-        return ( *(int*)a - *(int*)b );
-}
-
-int main(int argc, char * argv[]) {
-    int i;
-    if( argc != 2 && argc != 3 ) {
-        fprintf(stderr,"usage: quicksort_omp Nelements [Nthreads]\n");
-        fprintf(stderr,"abad case is 87763 12.\n");
-        return -1;
-    }
-    //
-    // set up array to be sorted
-    int size = atoi(argv[1]);
-    int *a = (int *) malloc(size * sizeof(int));
-
-    if( argc == 3 ) {
-        int threads=atoi(argv[2]);
-        omp_set_num_threads(threads);
-    }
-
-    srand48(8675309);
-    for(i = 0; i < size; i++) 
-        a[i] = (int) (size * drand48());
-
-    double start, end;
-
-    start = omp_get_wtime();
-    qsort_openmp(a, size, sizeof(int), compare);
-    end = omp_get_wtime();
-
-    fprintf(stderr,"parallel sort time = %g s %d threads\n",end-start,
-            omp_get_max_threads());
-    for(i=1; i<size; i++) if( a[i-1]>a[i] ) fprintf(stderr,"BAD: %d %d %d\n",i,a[i-1],a[i]);
-
-
-    srand48(8675309);
-    for(i = 0; i < size; i++) 
-        a[i] = (int) (size * drand48());
-
-    start = omp_get_wtime();
-    qsort(a, size, sizeof(int), compare);
-    end = omp_get_wtime();
-
-    fprintf(stderr,"serial sort time = %g s\n",end-start);
-
-}
-#endif

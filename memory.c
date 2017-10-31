@@ -134,12 +134,13 @@ allocator_alloc(Allocator * alloc, char * name, size_t request_size, int dir, ch
     if(alloc->use_malloc) {
         /* prepend a copy of the header to the malloc block; allocator_free will use it*/
         cptr = malloc(request_size + ALIGNMENT);
+        header->ptr = cptr + ALIGNMENT;
         memcpy(cptr, header, ALIGNMENT);
+        cptr += ALIGNMENT;
     } else {
-        cptr = ptr;
+        cptr = ptr + ALIGNMENT;
+        header->ptr = cptr;
     }
-    cptr += ALIGNMENT;
-    header->ptr = cptr;
     return (void*) (cptr);
 }
 
@@ -261,6 +262,83 @@ allocator_print(Allocator * alloc)
                  "T?B"[iter->dir + 1],
                  iter->request_size, iter->size, iter->annotation);
     }
+}
+
+void *
+allocator_realloc_int(Allocator * alloc, void * ptr, size_t new_size, char * fmt, ...)
+{
+    char * cptr = ptr;
+    struct BlockHeader * header = (struct BlockHeader*) (cptr - ALIGNMENT);
+
+    if (!is_header(header)) {
+        allocator_print(header->alloc);
+        endrun(1, "Not an allocated address: Header = %08p ptr = %08p\n", header, cptr);
+    }
+
+    /* ->self is always the header in the allocator; header maybe a duplicate in use_malloc */
+    if((header->dir == ALLOC_DIR_BOT &&
+            header->self != alloc->bottom - header->size + alloc->base ) ||
+       (header->dir == ALLOC_DIR_TOP &&
+            header->self != alloc->top + alloc->base)) {
+        allocator_print(header->alloc);
+        endrun(1, "Mismatched Free: %s : %s\n", header->name, header->annotation);
+    }
+
+    size_t size = new_size;
+    if(alloc->use_malloc) {
+        size = 0; /* because we'll get it from malloc */
+    } else {
+        size = ((size + ALIGNMENT - 1) / ALIGNMENT) * ALIGNMENT;
+    }
+    size += ALIGNMENT; /* for the header */
+
+
+    if(header->dir == ALLOC_DIR_BOT) {
+        if(alloc->bottom + size - header->size > alloc->top) {
+            allocator_print(alloc);
+            endrun(1, "Not enough memory for %s %td bytes\n", header->name, size);
+        }
+        alloc->bottom -= header->size;
+        alloc->bottom += size;
+    } else if (header->dir == ALLOC_DIR_TOP) {
+        if(alloc->top < alloc->bottom + size - header->size ) {
+            allocator_print(alloc);
+            endrun(1, "Not enough memory for %s %td bytes\n", header->name, size);
+        }
+        alloc->top += header->size;
+        alloc->top -= size;
+        /*If the block is growing down, we need to move
+         * the header to the new base address.*/
+        header->self = alloc->base + alloc->top;
+    } else {
+        /* wrong dir cannot allocate */
+        endrun(1, "Wrong direction\n");
+    }
+    if(alloc->use_malloc) {
+        header = realloc(header, new_size + ALIGNMENT);
+        cptr = (char *) header;
+        cptr += ALIGNMENT;
+    }
+    else if (header->dir == ALLOC_DIR_TOP) {
+        /* If we have a top block, need to move
+         * the memory to the new base address.
+         * Standard realloc does this automatically*/
+        struct BlockHeader * newheader = header->self;
+        size_t mvsize = (header->size > size ? size : header->size);
+        memmove(newheader, header, mvsize);
+        header = newheader;
+        cptr = newheader->self;
+        cptr += ALIGNMENT;
+    }
+    va_list va;
+    va_start(va, fmt);
+    vsprintf(header->annotation, fmt, va);
+    va_end(va);
+    /*Now the allocator is setup, modify the actual data structure*/
+    header->size = size;
+    header->request_size = new_size;
+    header->ptr = cptr;
+    return (void*) (cptr);
 }
 
 void

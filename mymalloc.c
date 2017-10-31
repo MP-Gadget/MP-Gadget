@@ -28,6 +28,7 @@ void
 mymalloc_init(double MaxMemSizePerNode)
 {
     int Nhost = cluster_get_num_hosts();
+    int Nt = omp_get_max_threads();
 
     size_t n = 1.0 * MaxMemSizePerNode * (1.0 * Nhost / NTask) * 1024 * 1024;
 
@@ -39,7 +40,8 @@ mymalloc_init(double MaxMemSizePerNode)
                   "Requestion %td bytes. Try reducing MaxMemSizePerNode. Also check the node health status.\n", n);
     }
 
-    n = 4096 * 1024 + 128 * NTask; /* reserve 128 bytes per task for the TEMP storage */
+    /* reserve 128 bytes per task and 128 bytes per thread for TEMP storage.*/
+    n = 4096 * 1024 + 128 * NTask + 128 * Nt * NTask;
 
     message(0, "Reserving %td bytes per rank for TEMP memory allocator. \n", n);
 

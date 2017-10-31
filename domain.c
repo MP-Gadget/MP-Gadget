@@ -17,7 +17,6 @@
 #include "timebinmgr.h"
 #include "system.h"
 #include "exchange.h"
-#include "garbage.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19
@@ -126,15 +125,14 @@ void domain_decompose_full(void)
 
     if(force_tree_allocated()) force_tree_free();
 
-    domain_garbage_collection();
-
     domain_free();
 
     message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
     t0 = second();
 
-    while(1)
+    int decompose_failed = 0;
+    do
     {
 #ifdef DEBUG
         message(0, "Testing ID Uniqueness before domain decompose\n");
@@ -142,26 +140,40 @@ void domain_decompose_full(void)
 #endif
         domain_allocate();
 
-        int decompose_failed = MPIU_Any(0 != domain_attempt_decompose(), MPI_COMM_WORLD);
+        decompose_failed = MPIU_Any(0 != domain_attempt_decompose(), MPI_COMM_WORLD);
 
         if(decompose_failed) {
             domain_free();
-            message(0, "Increasing TopNodeAllocFactor=%g  ", All.TopNodeAllocFactor);
+            message(0, "Increasing TopNodeAllocFactor=%g to %g\n", All.TopNodeAllocFactor, All.TopNodeAllocFactor*1.3);
 
             All.TopNodeAllocFactor *= 1.3;
 
-            message(0, "new value=%g\n", All.TopNodeAllocFactor);
-
             if(All.TopNodeAllocFactor > 1000)
-            {
-                if(ThisTask == 0)
-                    endrun(781, "something seems to be going seriously wrong here. Stopping.\n");
-            }
-        } else {
-            /* didn't fail? great. let's continue. */
-            break;
+                endrun(781, "something seems to be going seriously wrong here. Stopping.\n");
         }
-    }
+    } while(decompose_failed);
+
+    domain_balance();
+
+    walltime_measure("/Domain/Decompose/Balance");
+
+    /* copy the used nodes from temp to the true. */
+    void * OldTopLeaves = TopLeaves;
+    void * OldTopNodes = TopNodes;
+
+    TopNodes  = (struct topnode_data *) mymalloc2("TopNodes", sizeof(TopNodes[0]) * NTopNodes);
+    /* add 1 extra to mark the end of TopLeaves; see assign */
+    TopLeaves = (struct topleaf_data *) mymalloc2("TopLeaves", sizeof(TopLeaves[0]) * (NTopLeaves + 1));
+
+    memcpy(TopLeaves, OldTopLeaves, NTopLeaves* sizeof(TopLeaves[0]));
+    memcpy(TopNodes, OldTopNodes, NTopNodes * sizeof(TopNodes[0]));
+
+    /* no longer useful */
+    myfree(TopTreeTempMemory);
+    TopTreeTempMemory = NULL;
+
+    if(domain_exchange(domain_layoutfunc, 0))
+        endrun(1929,"Could not exchange particles\n");
 
     t1 = second();
 
@@ -172,21 +184,6 @@ void domain_decompose_full(void)
     qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
 
     walltime_measure("/Domain/Peano");
-
-    /* copy the used nodes from temp to the true. */
-    void * OldTopLeaves = TopLeaves;
-    void * OldTopNodes = TopNodes;
-
-    TopNodes  = (struct topnode_data *) mymalloc("TopNodes", sizeof(TopNodes[0]) * NTopNodes);
-    /* add 1 extra to mark the end of TopLeaves; see assign */
-    TopLeaves = (struct topleaf_data *) mymalloc("TopLeaves", sizeof(TopLeaves[0]) * (NTopLeaves + 1));
-
-    memcpy(TopLeaves, OldTopLeaves, NTopLeaves* sizeof(TopLeaves[0]));
-    memcpy(TopNodes, OldTopNodes, NTopNodes * sizeof(TopNodes[0]));
-
-    /* no longer useful */
-    myfree(TopTreeTempMemory);
-    TopTreeTempMemory = NULL;
 
     report_memory_usage("DOMAIN");
 
@@ -209,10 +206,6 @@ void domain_maintain(void)
      * May as well free it here.*/
     if(force_tree_allocated()) force_tree_free();
 
-    domain_garbage_collection();
-
-    walltime_measure("/Domain/Short/Misc");
-
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
@@ -233,11 +226,11 @@ void domain_allocate(void)
     MaxTopNodes = (int) (All.TopNodeAllocFactor * All.MaxPart + 1);
 
     /* Add a tail item to avoid special treatments */
-    Tasks = mymalloc("Tasks", bytes = ((NTask + 1)* sizeof(Tasks[0])));
+    Tasks = mymalloc2("Tasks", bytes = ((NTask + 1)* sizeof(Tasks[0])));
 
     all_bytes += bytes;
 
-    TopTreeTempMemory = mymalloc2("TopTreeWorkspace", 
+    TopTreeTempMemory = mymalloc("TopTreeWorkspace",
         bytes = (MaxTopNodes * (sizeof(TopNodes[0]) + sizeof(TopLeaves[0]))));
 
     TopNodes  = (struct topnode_data *) TopTreeTempMemory;
@@ -329,12 +322,6 @@ domain_attempt_decompose(void)
     if(NTopLeaves < NTask) {
         endrun(0, "Number of Topleaves is less than NTask");
     }
-
-    domain_balance();
-
-    walltime_measure("/Domain/Decompose/Balance");
-    if(domain_exchange(domain_layoutfunc, 0))
-        endrun(1929,"Could not exchange particles\n");
 
     return 0;
 }
@@ -1128,8 +1115,6 @@ int domain_determine_global_toptree(struct local_topnode_data * topTree, int * t
         message(1, "local TopTree Size =%d >> expected = %d; Usually this indicates very bad imbalance, due to a giant density peak.\n",
             *topTreeSize, 4 * All.DomainOverDecompositionFactor * NTask * All.TopNodeIncreaseFactor);
     }
-    walltime_measure("/Domain/DetermineTopTree/LocalRefine/GC");
-
 
 #if 0
     char buf[1000];

@@ -15,7 +15,6 @@ enum TreeWalkReduceMode {
     TREEWALK_PRIMARY,
     TREEWALK_GHOSTS,
 };
-void TreeWalk_allocate_memory(void);
 
 typedef struct TreeWalk TreeWalk;
 

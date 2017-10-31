@@ -197,7 +197,11 @@ extern struct global_data_all_processes
 
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
                               processor. */
-    int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on one
+    int MaxPartSph;		/*!< This gives the maxmimum number of Sph particles that can be stored on this
+                          processor. */
+    int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on this
+                          processor. */
+    int MaxPartStar;		/*!< This gives the maxmimum number of star particles that can be stored on this
                           processor. */
 
 /* end of read_header parameters */
