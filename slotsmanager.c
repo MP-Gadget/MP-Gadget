@@ -248,19 +248,22 @@ domain_garbage_collection_slots()
     for(i = 0; i < NumPart; i++) {
         if(!SlotsManager->info[P[i].Type].enabled) continue;
 
-        if(P[i].PI >= SlotsManager->info[P[i].ptype].size) {
+        if(P[i].PI >= SlotsManager->info[P[i].Type].size) {
             endrun(1, "slot PI consistency failed2\n");
         }
         if(BASESLOT(i)->ID != P[i].ID) {
             endrun(1, "slot id consistency failed2\n");
         }
 #pragma omp atomic
-        used[P[i].ptype] ++;
+        used[P[i].Type] ++;
     }
     for(ptype = 0; ptype < 6; ptype ++) {
+        if(!SlotsManager->info[ptype].enabled) continue;
         if(used[ptype] != SlotsManager->info[ptype].size) {
             endrun(1, "slot count failed2, j=%d, N_bh=%d\n", used[ptype], SlotsManager->info[ptype].size);
         }
+        sumup_large_ints(1, &used[ptype], &total1[ptype]);
+        message(0, "GC: Used slots for %d is %ld\n", ptype, total1[ptype]);
     }
 #endif
 
