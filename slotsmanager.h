@@ -26,7 +26,7 @@ extern MPI_Datatype MPI_TYPE_PARTICLE;
 extern MPI_Datatype MPI_TYPE_SLOT[6];
 
 /* shortcuts to access base slot attributes */
-#define BASESLOT_PI(PI, ptype) ((struct particle_data_ext *)(SlotsManager->info[ptype].ptr + SlotsManager->info[ptype].elsize * PI))
+#define BASESLOT_PI(PI, ptype) ((struct particle_data_ext *)(SlotsManager->info[ptype].ptr + SlotsManager->info[ptype].elsize * (PI)))
 #define BASESLOT(i) BASESLOT_PI(P[i].PI, P[i].Type)
 
 int domain_fork_particle(int parent, int ptype);
