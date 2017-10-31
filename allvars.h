@@ -375,6 +375,7 @@ extern struct global_data_all_processes
          MetalCoolFile[100],
          OutputDir[100],
          SnapshotFileBase[100],
+         FOFFileBase[100],
          EnergyFile[100],
          CpuFile[100];
 
@@ -429,6 +430,7 @@ extern struct global_data_all_processes
     int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
 
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
+    int FOFSaveParticles ; /* saving particles in the fof group */
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
     double FOFHaloLinkingLength;    
     double FOFHaloComovingLinkingLength; /* in code units */

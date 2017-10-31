@@ -126,7 +126,8 @@ create_gadget_parameter_set()
         {NULL, DENSITY_KERNEL_QUARTIC_SPLINE},
     } ;
     param_declare_enum(ps,    "DensityKernelType", DensityKernelTypeEnum, OPTIONAL, "quintic", "");
-    param_declare_string(ps, "SnapshotFileBase", REQUIRED, NULL, "");
+    param_declare_string(ps, "SnapshotFileBase", OPTIONAL, "PART", "Base name of the snapshot files, _%03d will be appended to the name.");
+    param_declare_string(ps, "FOFFileBase", OPTIONAL, "PIG", "Base name of the fof files, _%03d will be appended to the name.");
     param_declare_string(ps, "EnergyFile", OPTIONAL, "energy.txt", "");
     param_declare_int(ps,    "OutputEnergyDebug", OPTIONAL, 0,"Should we output energy statistics to energy.txt");
     param_declare_string(ps, "CpuFile", OPTIONAL, "cpu.txt", "");
@@ -203,6 +204,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MinGasTemp", REQUIRED, 0, "");
 
     param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");
+    param_declare_int(ps, "FOFSaveParticles", OPTIONAL, 1, "Save particles in the FOF catalog."); 
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "");
     param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 5e2, "Minimal Mass for seeding tracer particles ");
@@ -334,6 +336,7 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile);
         param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile);
         param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase);
+        param_get_string2(ps, "FOFFileBase", All.FOFFileBase);
         param_get_string2(ps, "EnergyFile", All.EnergyFile);
         All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
         param_get_string2(ps, "CpuFile", All.CpuFile);
@@ -405,6 +408,7 @@ void read_parameter_file(char *fname)
         All.MinGasTemp = param_get_double(ps, "MinGasTemp");
 
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
+        All.FOFSaveParticles = param_get_int(ps, "FOFSaveParticles");
         All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
         All.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
