@@ -161,7 +161,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         target = layoutfunc(i);
 
         /* mark this particle as a garbage for removal later */
-        P[i].IsGarbage = 1;
         int ptype = P[i].Type;
 
         /* watch out thread unsafe */
@@ -178,14 +177,18 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = P[i];
         toGoPtr[target].base ++;
 
+        P[i].IsGarbage = 1;
     }
 
     walltime_measure("/Domain/exchange/makebuf");
+
     /* now remove the garbage particles because they have already been copied.
      * eventually we want to fill in the garbage gap or defer the gc, because it breaks the tree.
      * invariance . */
+
     domain_garbage_collection();
     walltime_measure("/Domain/exchange/garbage");
+
 
     int newNumPart;
     int newSlots[6];
@@ -249,9 +252,16 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 
             int ptype = P[i].Type;
 
+
             P[i].PI = newPI[ptype];
 
             newPI[ptype]++;
+
+            if(!SlotsManager->info[ptype].enabled) continue;
+
+            if(BASESLOT(i)->ID != P[i].ID) {
+                endrun(1, "ID mismatched\n");
+            }
         }
         for(ptype = 0; ptype < 6; ptype ++) {
             if(newPI[ptype] != 
