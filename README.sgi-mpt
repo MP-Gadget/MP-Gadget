@@ -1,0 +1,11 @@
+On NASA Pladieas
+----------------
+
+For large runs, we see MPT runs out of communication buffer,
+and start throttling every 30 seconds.
+
+This tends to occur during PM and FFT.
+The following solution was found:
+
+export MPI_BUFS_PER_PROC=< number of MPI ranks>
+
