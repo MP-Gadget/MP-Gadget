@@ -1,5 +1,7 @@
-#include "garbage.h"
+#include <string.h>
 #include "allvars.h"
+#include "garbage.h"
+#include "mymalloc.h"
 #include "timestep.h"
 #include "system.h"
 #include "endrun.h"
@@ -13,8 +15,10 @@ static int
 domain_garbage_collection_slots(int ptype,
     void * storage, int elsize, int * N_slots, int MaxSlots);
 
-int domain_fork_particle(int parent) {
-    /* this will fork a zero mass particle at the given location of parent.
+int
+domain_fork_particle(int parent, int ptype)
+{
+    /* this will fork a zero mass particle at the given location of parent of the given type.
      *
      * Assumes the particle is protected by locks in threaded env.
      *
@@ -27,7 +31,8 @@ int domain_fork_particle(int parent) {
      *
      * Its mass and ptype can be then adjusted. (watchout detached BH /SPH
      * data!)
-     * Its PIndex still points to the old Pindex!
+     * PI will point to a new slot for this type.
+     * if the slots runs out, this will trigger a slots growth
      * */
 
     if(NumPart >= All.MaxPart)
@@ -56,6 +61,20 @@ int domain_fork_particle(int parent) {
     /* the PIndex still points to the old PIndex */
     P[child].Mass = 0;
 
+    int PI = atomic_fetch_and_add(&N_slots[ptype], 1);
+
+    if(PI >= MaxSlots[ptype]) {
+        /* rare case, use an expensive critical section */
+        #pragma omp critical
+        {
+            /* slots_grow will do the second check to ensure it is not grown twice */
+            domain_slots_grow(N_slots);
+        }
+    }
+
+    P[child].PI = PI;
+    P[child].Type = ptype;
+
     /*! When a new additional star particle is created, we can put it into the
      *  tree at the position of the spawning gas particle. This is possible
      *  because the Nextnode[] array essentially describes the full tree walk as a
@@ -72,6 +91,12 @@ int domain_fork_particle(int parent) {
         Nextnode[child] = no;
         Father[child] = Father[parent];
     }
+    if(P[child].PI >= MaxSlots[ptype]) {
+        /* this shall not happen because we grow automatically in the critical section above! */
+        endrun(1, "Assertion Failure more PI than available slots : %d > %d\n",P[child].PI, MaxSlots[ptype]);
+    }
+    /* book keeping ID FIXME: debug only */
+    BASESLOT(child, ptype)->ID = P[child].ID;
     return child;
 }
 
@@ -91,10 +116,14 @@ domain_garbage_collection(void)
      * link lists first. likely worth it, since GC happens only in domain decompose
      * and snapshot IO, both take far more time than rebuilding the tree. */
     tree_invalid |= domain_all_garbage_collection();
-    tree_invalid |= domain_garbage_collection_slots(5, BhP, sizeof(BhP[0]), &N_bh_slots, All.MaxPartBh);
-    tree_invalid |= domain_garbage_collection_slots(4, StarP, sizeof(StarP[0]), &N_star_slots, All.MaxPartStar);
-    tree_invalid |= domain_garbage_collection_slots(0, SphP, sizeof(SphP[0]), &N_sph_slots, All.MaxPartSph);
+    int ptype;
 
+    for(ptype = 0; ptype < 6; ptype ++) {
+        tree_invalid |= domain_garbage_collection_slots(ptype, Slots[ptype],
+                                                    SlotItemSize[ptype],
+                                                    &N_slots[ptype],
+                                                    MaxSlots[ptype]);
+    }
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     return tree_invalid;
@@ -224,4 +253,65 @@ domain_garbage_collection_slots(int ptype,
 }
 
 
+void
+domain_slots_grow(int newSlots[6])
+{
+    int newMaxSlots[6];
+    int ptype;
+    int good = 1;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        newMaxSlots[ptype] = MaxSlots[ptype];
+        while(newMaxSlots[ptype] < newSlots[ptype]) {
+            int add = 0.2 * newMaxSlots[ptype];
+            if (add < 128) add = 128;
+            newMaxSlots[ptype] += add;
+            good = 0;
+        }
+    }
+    /* no need to grow, already have enough */
+    if (good) {
+        return;
+    }
+    /* FIXME: do a global max; because all variables in All.* are synced between ranks. */
 
+    size_t total_bytes = 0;
+    size_t offsets[6];
+    size_t bytes[6] = {0};
+
+    for(ptype = 0; ptype < 6; ptype++) {
+        offsets[ptype] = total_bytes;
+        bytes[ptype] = SlotItemSize[ptype] * newMaxSlots[ptype];
+        total_bytes += bytes[ptype];
+    }
+    char * newSlotsBase = myrealloc(SlotsBase, total_bytes);
+
+    message(1, "Allocated %g MB for %d sph, %d stars and %d BHs.\n", total_bytes / (1024.0 * 1024.0),
+            newMaxSlots[0], newMaxSlots[4], newMaxSlots[5]);
+
+    /* move the last block first since we are only increasing sizes, moving items forward */
+    for(ptype = 5; ptype >= 0; ptype--) {
+        memmove(newSlotsBase + offsets[ptype], Slots[ptype], bytes[ptype]);
+    }
+
+    for(ptype = 0; ptype < 6; ptype++) {
+        Slots[ptype] = newSlotsBase + offsets[ptype];
+        MaxSlots[ptype] =  newMaxSlots[ptype];
+    }
+
+}
+
+void domain_slots_init()
+{
+    int ptype;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        MaxSlots[ptype] = 0;
+        SlotItemSize[ptype] = 0;
+    }
+
+    SlotItemSize[0] = sizeof(struct sph_particle_data);
+    SlotItemSize[4] = sizeof(struct star_particle_data);
+    SlotItemSize[5] = sizeof(struct bh_particle_data);
+
+    SlotsBase = (char*) mymalloc("SlotsBase", 0);
+
+}

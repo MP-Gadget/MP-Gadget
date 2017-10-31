@@ -206,7 +206,7 @@ void blackhole(void)
     double Local_BH_Medd = 0;
     /* Compute total mass of black holes
      * present by summing contents of black hole array*/
-    for(i = 0; i < N_bh_slots; i ++)
+    for(i = 0; i < N_slots[5]; i ++)
     {
         Local_BH_mass += BhP[i].Mass;
         Local_BH_Mdot += BhP[i].Mdot;
@@ -230,7 +230,7 @@ void blackhole(void)
                     (0.1 * C * C * THOMPSON)) * All.UnitTime_in_s);
 
         fprintf(FdBlackHoles, "%g %d %g %g %g %g %g\n",
-                All.Time, N_bh_slots, total_mass_holes, total_mdot, mdot_in_msun_per_year,
+                All.Time, N_slots[5], total_mass_holes, total_mdot, mdot_in_msun_per_year,
                 total_mass_real, total_mdoteddington);
         fflush(FdBlackHoles);
     }
@@ -710,12 +710,7 @@ void blackhole_make_one(int index) {
     if(P[index].Type != 0) 
         endrun(7772, "Only Gas turns into blackholes, what's wrong?");
 
-    int child = domain_fork_particle(index);
-
-    P[child].PI = atomic_fetch_and_add(&N_bh_slots, 1);
-    P[child].Type = 5;	/* make it a black hole particle */
-    if(P[child].PI >= All.MaxPartBh)
-        endrun(700, "Created black holes too fast: %d > %d\n",P[child].PI, All.MaxPartBh);
+    int child = domain_fork_particle(index, 5);
 
     BHP(child).FormationTime = All.Time;
     /*Ensure that mass is conserved*/

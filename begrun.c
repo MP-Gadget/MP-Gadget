@@ -16,6 +16,7 @@
 #include "sfr_eff.h"
 #include "cosmology.h"
 #include "cooling.h"
+#include "garbage.h"
 #include "petaio.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -42,6 +43,8 @@ static void set_softenings();
  */
 void begrun(int RestartSnapNum)
 {
+
+    domain_slots_init();
 
     petaio_init();
     walltime_init(&All.CT);

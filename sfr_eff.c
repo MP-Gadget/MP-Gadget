@@ -263,7 +263,7 @@ void cooling_and_starformation(void)
     double totsfrrate, localsfr=0;
     int i;
     #pragma omp parallel for reduction(+: localsfr)
-    for(i = 0; i < N_sph_slots; i++)
+    for(i = 0; i < N_slots[0]; i++)
         localsfr += SphP[i].Sfr;
 
     MPI_Allreduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -692,39 +692,35 @@ static int make_particle_star(int i) {
     if(P[i].Type != 0)
         endrun(7772, "Only gas forms stars, what's wrong?");
 
-    /* here we spawn a new star particle */
-    int newstar = 0;
+    /* if we get all mass or a fraction */
+    int child = domain_fork_particle(i, 4);
+
     /* ok, make a star */
     if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)
     {
-        /* here we turn the gas particle itself into a star */
+        /* here the gas particle is eliminated because remaining mass is all converted. */
         stars_converted++;
-        newstar = i;
+
+        P[child].Mass = P[i].Mass;
+        P[i].Mass -= P[child].Mass;
+        P[i].IsGarbage = 1;
     }
     else
     {
         /* FIXME: sorry this is not thread safe */
-        int child = domain_fork_particle(i);
         stars_spawned++;
-        newstar = child;
 
         P[child].Mass = mass_of_star;
         P[i].Mass -= P[child].Mass;
     }
-    /*Allocate new star*/
-    P[newstar].PI = atomic_fetch_and_add(&N_star_slots, 1);
-    if(P[newstar].PI >= All.MaxPartStar)
-        endrun(700, "Created stars too fast: %d > %d\n",P[newstar].PI, All.MaxPartStar);
-    STARP(newstar).base.ID = P[newstar].ID;
-    /* set ptype */
-    P[newstar].Type = 4;
+
     /*Set properties*/
-    sum_mass_stars += P[newstar].Mass;
-    STARP(newstar).FormationTime = All.Time;
-    STARP(newstar).BirthDensity = SPHP(i).Density;
+    sum_mass_stars += P[child].Mass;
+    STARP(child).FormationTime = All.Time;
+    STARP(child).BirthDensity = SPHP(i).Density;
     /*Copy metallicity*/
-    STARP(newstar).Metallicity = SPHP(i).Metallicity;
-    P[newstar].IsNewParticle = 1;
+    STARP(child).Metallicity = SPHP(i).Metallicity;
+    P[child].IsNewParticle = 1;
     return 0;
 }
 

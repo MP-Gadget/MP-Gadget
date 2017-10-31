@@ -157,11 +157,6 @@ extern int NTask;		/*!< number of processors */
 
 extern int NumPart;		/*!< number of particles on the LOCAL processor */
 
-/* Number of used slots */
-extern int N_bh_slots;
-extern int N_star_slots;
-extern int N_sph_slots;
-
 /* variables for input/output , usually only used on process 0 */
 
 
@@ -195,14 +190,8 @@ extern struct global_data_all_processes
     double UnitLength_in_cm;		/*!< factor to convert internal length unit to cm/h */
 
 
-    int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
+    int MaxPart;			/* This gives the maxmimum number of particles that can be stored on one
                               processor. */
-    int MaxPartSph;		/*!< This gives the maxmimum number of Sph particles that can be stored on this
-                          processor. */
-    int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on this
-                          processor. */
-    int MaxPartStar;		/*!< This gives the maxmimum number of star particles that can be stored on this
-                          processor. */
 
 /* end of read_header parameters */
 
@@ -530,10 +519,19 @@ extern struct particle_data
 }
 *P;				/*!< holds particle data on local processor */
 
+extern char * SlotsBase; /* owner of all slots */
+extern int MaxSlots[6]; /* Maximum number of slots per type; */
+extern char * Slots [6]; /* quick look up table for Slots of different types*/
+extern int N_slots[6]; /* Number of used slots */
+extern size_t SlotItemSize[6]; /* Element-size per slot */
+
+
+
 struct particle_data_ext {
     int ReverseLink; /* used at GC for reverse link to P */
     MyIDType ID; /* for data consistency check, same as particle ID */
 };
+
 struct bh_particle_data {
     struct particle_data_ext base;
 
@@ -560,21 +558,23 @@ struct bh_particle_data {
                            Set to -1 in init.c and only reinitialised if a merger takes place.*/
 
     short int TimeBinLimit;
-} * BhP;
+};
 
+#define BhP ((struct bh_particle_data*) Slots[5])
 /*Data for each star particle*/
-extern struct star_particle_data
+struct star_particle_data
 {
     struct particle_data_ext base;
     MyFloat FormationTime;		/*!< formation time of star particle */
     MyFloat BirthDensity;		/*!< Density of gas particle at star formation. */
     MyFloat Metallicity;		/*!< metallicity of star particle */
-} * StarP;
+};
 
+#define StarP ((struct star_particle_data*) Slots[4])
 /* the following structure holds data that is stored for each SPH particle in addition to the collisionless
  * variables.
  */
-extern struct sph_particle_data
+struct sph_particle_data
 {
     struct particle_data_ext base;
 
@@ -615,11 +615,14 @@ extern struct sph_particle_data
 #ifdef SPH_GRAD_RHO
     MyFloat GradRho[3];
 #endif
-} *SphP;				/*!< holds SPH particle data on local processor */
+};				/*!< holds SPH particle data on local processor */
+
+#define SphP ((struct sph_particle_data*) Slots[0])
 
 #define SPHP(i) SphP[P[i].PI]
 #define BHP(i) BhP[P[i].PI]
 #define STARP(i) StarP[P[i].PI]
+#define BASESLOT(i, ptype) ((struct particle_data_ext *)(Slots[ptype] + SlotItemSize[ptype] * P[i].PI))
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
