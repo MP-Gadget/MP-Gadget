@@ -262,7 +262,7 @@ void petaio_read_internal(char * fname, int ic) {
     /* Now allocate memory for the secondary particle data arrays.
      * This may be dynamically resized later!*/
 
-    domain_slots_grow(newSlots);
+    slots_reserve(newSlots);
 
     /* set up the memory topology */
 

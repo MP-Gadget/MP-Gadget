@@ -66,8 +66,8 @@ void init(int RestartSnapNum)
     /*Read the snapshot*/
     petaio_read_snapshot(RestartSnapNum);
 
-    /* this ensures the initial BhP array is consistent */
-    domain_garbage_collection();
+    /* this ensures the initial slots are compact */
+    slots_gc();
 
     domain_test_id_uniqueness();
 

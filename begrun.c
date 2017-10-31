@@ -44,7 +44,7 @@ static void set_softenings();
 void begrun(int RestartSnapNum)
 {
 
-    domain_slots_init();
+    slots_init();
 
     petaio_init();
     walltime_init(&All.CT);

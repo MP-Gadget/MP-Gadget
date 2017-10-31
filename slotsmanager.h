@@ -29,9 +29,9 @@ extern MPI_Datatype MPI_TYPE_SLOT[6];
 #define BASESLOT_PI(PI, ptype) ((struct particle_data_ext *)(SlotsManager->info[ptype].ptr + SlotsManager->info[ptype].elsize * (PI)))
 #define BASESLOT(i) BASESLOT_PI(P[i].PI, P[i].Type)
 
-int domain_fork_particle(int parent, int ptype);
-int domain_garbage_collection(void);
-void domain_slots_init();
-void domain_slots_grow(int newSlots[6]);
+void slots_init();
+int slots_fork(int parent, int ptype);
+int slots_gc(void);
+void slots_reserve(int atleast[6]);
 
 #endif

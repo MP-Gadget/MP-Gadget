@@ -710,7 +710,7 @@ void blackhole_make_one(int index) {
     if(P[index].Type != 0) 
         endrun(7772, "Only Gas turns into blackholes, what's wrong?");
 
-    int child = domain_fork_particle(index, 5);
+    int child = slots_fork(index, 5);
 
     BHP(child).FormationTime = All.Time;
     /*Ensure that mass is conserved*/
