@@ -148,7 +148,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     partBuf = (struct particle_data *) mymalloc2("partBuf", plan->toGoSum.base * sizeof(struct particle_data));
 
     for(ptype = 0; ptype < 6; ptype++) {
-        slotBuf[i] = mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * SlotsManager->info[ptype].elsize);
+        slotBuf[ptype] = mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * SlotsManager->info[ptype].elsize);
     }
 
     /*FIXME: make this omp ! */
@@ -218,10 +218,11 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     for(ptype = 0; ptype < 6; ptype ++) {
         /* skip unused slot types */
+        if(!SlotsManager->info[ptype].enabled) continue;
+
         size_t elsize = SlotsManager->info[ptype].elsize;
         int N_slots = SlotsManager->info[ptype].size;
         char * ptr = SlotsManager->info[ptype].ptr;
-        if(elsize == 0) continue;
         _transpose_plan_entries(plan->toGo, sendcounts, ptype);
         _transpose_plan_entries(plan->toGoOffset, senddispls, ptype);
         _transpose_plan_entries(plan->toGet, recvcounts, ptype);
