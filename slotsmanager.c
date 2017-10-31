@@ -84,6 +84,7 @@ domain_fork_particle(int parent, int ptype)
                     N_slots[ptype] = SlotsManager->info[ptype].size;
                 }
                 /* slots_grow will do the second check to ensure it is not grown twice */
+                endrun(1, "This is currently unsupported; because SlotsManager.Base can be deep in the heap\n");
                 domain_slots_grow(N_slots);
             }
         }
