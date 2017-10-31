@@ -194,6 +194,7 @@ domain_garbage_collection_slots()
         return 0;
     }
     for(ptype = 0; ptype < 6; ptype ++) {
+        if(!SlotsManager->info[ptype].enabled) continue;
 #pragma omp parallel for
         for(i = 0; i < SlotsManager->info[ptype].size; i++) {
             BASESLOT_PI(i, ptype)->ReverseLink = -1;
@@ -202,6 +203,8 @@ domain_garbage_collection_slots()
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
+        if(!SlotsManager->info[P[i].Type].enabled) continue;
+
         BASESLOT(i)->ReverseLink = i;
         if(P[i].PI >= SlotsManager->info[P[i].Type].size) {
             endrun(1, "slot PI consistency failed2, N_slots = %d, PI=%d\n", SlotsManager->info[P[i].Type].size, P[i].PI);
@@ -212,6 +215,8 @@ domain_garbage_collection_slots()
     }
 
     for(ptype = 0; ptype < 6; ptype++) {
+        if(!SlotsManager->info[ptype].enabled) continue;
+
         /* put unused guys to the end, and sort the used ones
          * by their location in the P array */
         qsort_openmp(SlotsManager->info[ptype].ptr,
@@ -237,6 +242,8 @@ domain_garbage_collection_slots()
     int used[6] = {0};
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
+        if(!SlotsManager->info[P[i].Type].enabled) continue;
+
         if(P[i].PI >= SlotsManager->info[P[i].ptype].size) {
             endrun(1, "slot PI consistency failed2\n");
         }
@@ -270,6 +277,10 @@ domain_slots_grow(int newSlots[6])
     int newMaxSlots[6];
     int ptype;
     int good = 1;
+
+    if(SlotsManager->Base == NULL)
+        SlotsManager->Base = (char*) mymalloc("SlotsBase", 0);
+
     for(ptype = 0; ptype < 6; ptype ++) {
         newMaxSlots[ptype] = SlotsManager->info[ptype].maxsize;
         while(newMaxSlots[ptype] < newSlots[ptype]) {
@@ -301,7 +312,9 @@ domain_slots_grow(int newSlots[6])
 
     /* move the last block first since we are only increasing sizes, moving items forward */
     for(ptype = 5; ptype >= 0; ptype--) {
-        memmove(newSlotsBase + offsets[ptype], SlotsManager->info[ptype].ptr, bytes[ptype]);
+        memmove(newSlotsBase + offsets[ptype],
+            SlotsManager->info[ptype].ptr,
+            SlotsManager->info[ptype].elsize * SlotsManager->info[ptype].size);
     }
 
     SlotsManager->Base = newSlotsBase;
@@ -319,16 +332,17 @@ void domain_slots_init()
     memset(SlotsManager, 0, sizeof(SlotsManager[0]));
 
     SlotsManager->info[0].elsize = sizeof(struct sph_particle_data);
+    SlotsManager->info[0].enabled = 1;
     SlotsManager->info[4].elsize = sizeof(struct star_particle_data);
+    SlotsManager->info[4].enabled = 1;
     SlotsManager->info[5].elsize = sizeof(struct bh_particle_data);
-
-    SlotsManager->Base = (char*) mymalloc("SlotsBase", 0);
+    SlotsManager->info[5].enabled = 1;
 
     MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
     MPI_Type_commit(&MPI_TYPE_PARTICLE);
 
     for(ptype = 0; ptype < 6; ptype++) {
-        if(SlotsManager->info[ptype].elsize > 0) {
+        if(SlotsManager->info[ptype].enabled) {
             MPI_Type_contiguous(SlotsManager->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
             MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
         }

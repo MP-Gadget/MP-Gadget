@@ -8,6 +8,7 @@ extern struct slots_manager_type {
         int maxsize; /* max number of supported slots */
         int size; /* currently used slots*/
         size_t elsize; /* itemsize */
+        int enabled;
     } info[6];
 } SlotsManager[1];
 
