@@ -9,14 +9,12 @@
 #include "garbage.h"
 
 /*Number of structure types for particles*/
-static MPI_Datatype MPI_TYPE_PARTICLE = 0;
-static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
-static MPI_Datatype MPI_TYPE_SLOT[6] = {0};
-
 typedef struct {
     int base;
     int slots[6];
 } ExchangePlanEntry;
+
+static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
 
 typedef struct {
     ExchangePlanEntry * toGo;
@@ -50,22 +48,11 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     int i;
     int64_t sumtogo;
     int failure = 0;
-    /* register the mpi types used in communication if not yet. */
-    if (MPI_TYPE_PARTICLE == 0) {
-        MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
-        MPI_Type_commit(&MPI_TYPE_PARTICLE);
 
+    /* register the mpi types used in communication if not yet. */
+    if (MPI_TYPE_PLAN_ENTRY == 0) {
         MPI_Type_contiguous(sizeof(ExchangePlanEntry), MPI_BYTE, &MPI_TYPE_PLAN_ENTRY);
         MPI_Type_commit(&MPI_TYPE_PLAN_ENTRY);
-
-        int ptype;
-
-        for(ptype = 0; ptype < 6; ptype++) {
-            if(SlotItemSize[ptype] > 0) {
-                MPI_Type_contiguous(SlotItemSize[ptype], MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
-                MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
-            }
-        }
     }
 
     /*! toGo[0][task*NTask + partner] gives the number of particles in task 'task'
@@ -161,7 +148,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     partBuf = (struct particle_data *) mymalloc2("partBuf", plan->toGoSum.base * sizeof(struct particle_data));
 
     for(ptype = 0; ptype < 6; ptype++) {
-        slotBuf[i] = mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * SlotItemSize[ptype]);
+        slotBuf[i] = mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * SlotsManager->info[ptype].elsize);
     }
 
     /*FIXME: make this omp ! */
@@ -180,9 +167,9 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         /* watch out thread unsafe */
         int bufPI = toGoPtr[target].slots[ptype];
         toGoPtr[target].slots[ptype] ++;
-
-        memcpy(slotBuf[ptype] + (bufPI + plan->toGoOffset[target].slots[ptype]) * SlotItemSize[ptype],
-                Slots[ptype] + P[i].PI * SlotItemSize[ptype], SlotItemSize[ptype]);
+        size_t elsize = SlotsManager->info[ptype].elsize;
+        memcpy(slotBuf[ptype] + (bufPI + plan->toGoOffset[target].slots[ptype]) * elsize,
+                (char*) SlotsManager->info[ptype].ptr + P[i].PI * elsize, elsize);
 
         /* now PI points to the communicate buffer location for unpacking at the target */
         P[i].PI = bufPI;
@@ -203,8 +190,9 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     int newNumPart;
     int newSlots[6];
     newNumPart = NumPart + plan->toGetSum.base;
+
     for(ptype = 0; ptype < 6; ptype ++) {
-        newSlots[ptype] = N_slots[ptype] + plan->toGetSum.slots[ptype];
+        newSlots[ptype] = SlotsManager->info[ptype].size + plan->toGetSum.slots[ptype];
     }
 
     if(newNumPart > All.MaxPart) {
@@ -229,13 +217,19 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
                  MPI_COMM_WORLD);
 
     for(ptype = 0; ptype < 6; ptype ++) {
+        /* skip unused slot types */
+        size_t elsize = SlotsManager->info[ptype].elsize;
+        int N_slots = SlotsManager->info[ptype].size;
+        char * ptr = SlotsManager->info[ptype].ptr;
+        if(elsize == 0) continue;
         _transpose_plan_entries(plan->toGo, sendcounts, ptype);
         _transpose_plan_entries(plan->toGoOffset, senddispls, ptype);
         _transpose_plan_entries(plan->toGet, recvcounts, ptype);
         _transpose_plan_entries(plan->toGetOffset, recvdispls, ptype);
+
         /* recv at the end */
         MPI_Alltoallv_sparse(slotBuf[ptype], sendcounts, senddispls, MPI_TYPE_SLOT[ptype],
-                     Slots[ptype] + N_slots[ptype] * SlotItemSize[ptype],
+                     ptr + N_slots * elsize,
                      recvcounts, recvdispls, MPI_TYPE_SLOT[ptype],
                      MPI_COMM_WORLD);
 
@@ -244,7 +238,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
             /* unpack each source rank */
             int newPI[6];
             for(i = 0; i<6; i++)
-                newPI[i] = N_slots[i] + plan->toGetOffset[src].slots[i];
+                newPI[i] = N_slots + plan->toGetOffset[src].slots[i];
 
             for(i = plan->toGetOffset[src].base;
                 i < plan->toGetOffset[src].base + plan->toGet[src].base;
@@ -275,7 +269,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     NumPart = newNumPart;
 
     for(ptype = 0; ptype < 6; ptype++) {
-        N_slots[ptype] = newSlots[ptype];
+        SlotsManager->info[ptype].size = newSlots[ptype];
     }
 
     walltime_measure("/Domain/exchange/finalize");
@@ -296,7 +290,7 @@ domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * pla
 
     package = sizeof(P[0]);
     for(ptype = 0; ptype < 6; ptype ++ ) {
-        package += SlotItemSize[ptype];
+        package += SlotsManager->info[ptype].elsize;
     }
     if(package >= nlimit)
         endrun(212, "Package is too large, no free memory.");
@@ -314,7 +308,7 @@ domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * pla
 
         int ptype = P[n].Type;
         plan->toGo[target].slots[ptype] += 1;
-        nlimit -= SlotItemSize[ptype];
+        nlimit -= SlotsManager->info[ptype].elsize;
 
         P[n].WillExport = 1;	/* flag this particle for export */
     }

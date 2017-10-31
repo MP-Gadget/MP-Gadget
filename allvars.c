@@ -66,8 +66,3 @@ uint64_t TotalParticleDrifts = 0;
  */
 struct particle_data *P;	/*!< holds particle data on local processor */
 
-char * SlotsBase; /* owner of all slots */
-char * Slots[6];
-int MaxSlots[6]; /* Maximum number of slots per type; */
-int N_slots[6];
-size_t SlotItemSize[6]; /* Element-size per slot */

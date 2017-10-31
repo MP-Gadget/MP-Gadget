@@ -262,8 +262,9 @@ void cooling_and_starformation(void)
 
     double totsfrrate, localsfr=0;
     int i;
+    /* FIXME: this is inaccurate if some particles are made into garbage. may want to propagate garbage flag to the slots.*/
     #pragma omp parallel for reduction(+: localsfr)
-    for(i = 0; i < N_slots[0]; i++)
+    for(i = 0; i < SlotsManager->info[0].size; i++)
         localsfr += SphP[i].Sfr;
 
     MPI_Allreduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
