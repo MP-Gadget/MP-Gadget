@@ -40,7 +40,7 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype)
         if(ptype == -1) {
             count[i] = entries[i].base;
         } else {
-            count[i] = entries[i].slots[i];
+            count[i] = entries[i].slots[ptype];
         }
     }
 }
@@ -64,7 +64,7 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     plan.toGo = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * NTask);
     plan.toGoOffset = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * NTask);
     plan.toGet = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * NTask);
-    plan.toGetOffset = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * NTask);
+    plan.toGetOffset = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * NTask);
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
@@ -89,7 +89,7 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
             endrun(1, "exchange_limit=%d < 0\n", (int) exchange_limit);
         }
 
-        /* determine for each cpu how many particles have to be shifted to other cpus */
+        /* determine for each rank how many particles have to be shifted to other ranks */
         ret = domain_build_plan(exchange_limit, layoutfunc, &plan);
         walltime_measure("/Domain/exchange/togo");
         if(ret && failfast) {
@@ -233,23 +233,31 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
                      ptr + N_slots * elsize,
                      recvcounts, recvdispls, MPI_TYPE_SLOT[ptype],
                      MPI_COMM_WORLD);
+    }
 
-        int src;
-        for(src = 0; src < NTask; src++) {
-            /* unpack each source rank */
-            int newPI[6];
-            for(i = 0; i<6; i++)
-                newPI[i] = N_slots + plan->toGetOffset[src].slots[i];
+    int src;
+    for(src = 0; src < NTask; src++) {
+        /* unpack each source rank */
+        int newPI[6];
+        for(ptype = 0; ptype < 6; ptype ++) {
+            newPI[ptype] = SlotsManager->info[ptype].size + plan->toGetOffset[src].slots[ptype];
+        }
 
-            for(i = plan->toGetOffset[src].base;
-                i < plan->toGetOffset[src].base + plan->toGet[src].base;
-                i++) {
+        for(i = NumPart + plan->toGetOffset[src].base;
+            i < NumPart + plan->toGetOffset[src].base + plan->toGet[src].base;
+            i++) {
 
-                int ptype = P[i].Type;
+            int ptype = P[i].Type;
 
-                P[i].PI = newPI[ptype];
+            P[i].PI = newPI[ptype];
 
-                newPI[ptype]++;
+            newPI[ptype]++;
+        }
+        for(ptype = 0; ptype < 6; ptype ++) {
+            if(newPI[ptype] != 
+                SlotsManager->info[ptype].size + plan->toGetOffset[src].slots[ptype]
+              + plan->toGet[src].slots[ptype]) {
+                endrun(1, "N_slots mismatched\n");
             }
         }
     }
@@ -275,9 +283,11 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     walltime_measure("/Domain/exchange/finalize");
 
+    domain_test_id_uniqueness();
+    slots_check_id_consistency();
+
     return 0;
 }
-
 
 /*This function populates the toGo and toGet arrays*/
 static int
@@ -296,9 +306,10 @@ domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * pla
     if(package >= nlimit)
         endrun(212, "Package is too large, no free memory.");
 
+    int insuf = 0;
     for(n = 0; n < NumPart; n++)
     {
-        if(package >= nlimit) break;
+        if(package >= nlimit) {insuf = 1; break; }
         if(!P[n].OnAnotherDomain) continue;
 
         int target = layoutfunc(n);
@@ -318,24 +329,23 @@ domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * pla
 
     memset(&plan->toGoOffset[0], 0, sizeof(plan->toGoOffset[0]));
     memset(&plan->toGetOffset[0], 0, sizeof(plan->toGetOffset[0]));
-    memset(&plan->toGoSum, 0, sizeof(plan->toGoSum));
-    memset(&plan->toGetSum, 0, sizeof(plan->toGetSum));
     memcpy(&plan->toGoSum, &plan->toGo[0], sizeof(plan->toGoSum));
     memcpy(&plan->toGetSum, &plan->toGet[0], sizeof(plan->toGetSum));
 
-    for(n = 1; n < NTask; n ++) {
-        plan->toGoOffset[n] = plan->toGoSum;
-        plan->toGetOffset[n] = plan->toGetSum;
+    int rank;
+    for(rank = 1; rank < NTask; rank ++) {
+        plan->toGoOffset[rank] = plan->toGoSum;
+        plan->toGetOffset[rank] = plan->toGetSum;
 
-        plan->toGoSum.base += plan->toGo[n].base;
-        plan->toGetSum.base += plan->toGet[n].base;
+        plan->toGoSum.base += plan->toGo[rank].base;
+        plan->toGetSum.base += plan->toGet[rank].base;
 
         for(ptype = 0; ptype < 6; ptype++) {
-            plan->toGoSum.slots[ptype] += plan->toGo[n].slots[ptype];
-            plan->toGetSum.slots[ptype] += plan->toGet[n].slots[ptype];
+            plan->toGoSum.slots[ptype] += plan->toGo[rank].slots[ptype];
+            plan->toGetSum.slots[ptype] += plan->toGet[rank].slots[ptype];
         }
     }
-    /* this will always be fine -- we won't try to export more particles than nlimit in each iteration .*/
-    return 0;
+
+    return MPIU_Any(insuf, MPI_COMM_WORLD);;
 }
 

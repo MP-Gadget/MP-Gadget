@@ -14,6 +14,10 @@ MPI_Datatype MPI_TYPE_PARTICLE = 0;
 MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
 MPI_Datatype MPI_TYPE_SLOT[6] = {0};
 
+static struct sph_particle_data * GDB_SphP;
+static struct star_particle_data * GDB_StarP;
+static struct bh_particle_data * GDB_BhP;
+
 static int
 domain_all_garbage_collection();
 
@@ -323,7 +327,9 @@ domain_slots_grow(int newSlots[6])
         SlotsManager->info[ptype].ptr = newSlotsBase + offsets[ptype];
         SlotsManager->info[ptype].maxsize = newMaxSlots[ptype];
     }
-
+    GDB_SphP = (struct sph_particle_data *) SlotsManager->info[0].ptr;
+    GDB_StarP = (struct star_particle_data *) SlotsManager->info[4].ptr;
+    GDB_BhP = (struct bh_particle_data *) SlotsManager->info[5].ptr;
 }
 
 void domain_slots_init()
@@ -346,5 +352,17 @@ void domain_slots_init()
             MPI_Type_contiguous(SlotsManager->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
             MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
         }
+    }
+}
+
+void slots_check_id_consistency()
+{
+    int i;
+    for (i = 0; i < NumPart; i ++) {
+        if (!SlotsManager->info[P[i].Type].enabled) continue;
+        if(BASESLOT(i)->ID != P[i].ID) {
+            endrun(1, "ID mismatched\n");
+        }
+
     }
 }
