@@ -520,7 +520,10 @@ extern struct particle_data
 *P; /* holds particle data on local processor */
 
 struct particle_data_ext {
-    int ReverseLink; /* used at GC for reverse link to P */
+    struct {
+       /* used at GC for reverse link to P */
+        int ReverseLink; 
+    } gc;
     MyIDType ID; /* for data consistency check, same as particle ID */
 };
 
