@@ -8,7 +8,7 @@
 #include "drift.h"
 #include "timefac.h"
 #include "timestep.h"
-#include "garbage.h"
+#include "slotsmanager.h"
 #include "endrun.h"
 
 

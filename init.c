@@ -12,7 +12,7 @@
 #include "timefac.h"
 #include "petaio.h"
 #include "domain.h"
-#include "garbage.h"
+#include "slotsmanager.h"
 #include "mpsort.h"
 #include "mymalloc.h"
 #include "fof.h"

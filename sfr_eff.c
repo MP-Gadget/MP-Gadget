@@ -27,7 +27,7 @@
 #include "drift.h"
 #include "treewalk.h"
 #include "cooling.h"
-#include "garbage.h"
+#include "slotsmanager.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "timestep.h"

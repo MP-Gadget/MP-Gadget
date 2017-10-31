@@ -16,7 +16,7 @@
 #include "sfr_eff.h"
 #include "cosmology.h"
 #include "cooling.h"
-#include "garbage.h"
+#include "slotsmanager.h"
 #include "petaio.h"
 #include "mymalloc.h"
 #include "endrun.h"

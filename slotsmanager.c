@@ -1,6 +1,6 @@
 #include <string.h>
 #include "allvars.h"
-#include "garbage.h"
+#include "slotsmanager.h"
 #include "mymalloc.h"
 #include "timestep.h"
 #include "system.h"

@@ -15,7 +15,7 @@
 #include "timestep.h"
 
 #include "petaio.h"
-#include "garbage.h"
+#include "slotsmanager.h"
 #include "mymalloc.h"
 #include "openmpsort.h"
 #include "utils-string.h"

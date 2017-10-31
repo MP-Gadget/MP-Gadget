@@ -6,7 +6,7 @@
 #include "endrun.h"
 #include "system.h"
 #include "exchange.h"
-#include "garbage.h"
+#include "slotsmanager.h"
 
 /*Number of structure types for particles*/
 typedef struct {
