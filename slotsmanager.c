@@ -186,22 +186,10 @@ static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
 }
 
 static int
-slots_gc_slots()
+slots_gc_mark()
 {
-    int i, ptype;
+    int ptype, i;
 
-    int64_t total0[6];
-    int64_t total1[6];
-
-    int disabled = 1;
-    for(ptype = 0; ptype < 6; ptype ++) {
-        sumup_large_ints(1, &SlotsManager->info[ptype].size, &total0[ptype]);
-        if(total0[ptype] != 0) disabled = 0;
-    }
-    /* disabled this if no slots are used */
-    if(disabled) {
-        return 0;
-    }
     for(ptype = 0; ptype < 6; ptype ++) {
         if(!SlotsManager->info[ptype].enabled) continue;
 #pragma omp parallel for
@@ -215,66 +203,119 @@ slots_gc_slots()
         if(!SlotsManager->info[P[i].Type].enabled) continue;
 
         BASESLOT(i)->gc.ReverseLink = i;
+    }
+}
 
-        if(P[i].PI >= SlotsManager->info[P[i].Type].size) {
-            endrun(1, "slot PI consistency failed2, N_slots = %d, PI=%d\n", SlotsManager->info[P[i].Type].size, P[i].PI);
+/* sweep removed unused elements. */
+static int
+slots_gc_sweep(int ptype)
+{
+    if(!SlotsManager->info[ptype].enabled) ;
+
+    int used = SlotsManager->info[ptype].size;
+    size_t elsize = SlotsManager->info[ptype].elsize;
+    int i = 0;
+    /* put unused guys to the end */
+    while(i < used)
+    {
+        while(i < used
+                &&
+        BASESLOT_PI(i, ptype)->gc.ReverseLink == -1) {
+
+            memcpy(BASESLOT_PI(i, ptype),
+                BASESLOT_PI(used - 1, ptype), elsize);
+            used -- ;
         }
-        if(BASESLOT(i)->ID != P[i].ID) {
-            endrun(1, "slot id consistency failed: i=%d, PI=%d (IDs: %ld != %ld)\n",i, P[i].PI, P[i].ID, BASESLOT(i)->ID);
-        }
+        i ++;
     }
 
-    for(ptype = 0; ptype < 6; ptype++) {
-        if(!SlotsManager->info[ptype].enabled) continue;
+    SlotsManager->info[ptype].size = used;
+}
 
-        /* put unused guys to the end, and sort the used ones
+/* defrags ensures locality. */
+static void
+slots_gc_defrag(int ptype)
+{
+
+    if(!SlotsManager->info[ptype].enabled) return;
+    /* measure the fragmentation */
+    int i;
+    int frag = 0;
+    for(i = 1;
+        i < SlotsManager->info[ptype].size;
+        i ++) {
+
+        if( BASESLOT_PI(i, ptype)->gc.ReverseLink <
+            BASESLOT_PI(i - 1, ptype)->gc.ReverseLink
+            ) {
+            frag++;
+        }
+    }
+    int defrag = MPIU_Any(
+            frag > SlotsManager->info[ptype].size * 0.1,
+            MPI_COMM_WORLD);
+
+    /* if any rank is too fragmented, add a sorting to defrag. */
+    if(defrag)  {
+        /* sort the used ones
          * by their location in the P array */
         qsort_openmp(SlotsManager->info[ptype].ptr,
                      SlotsManager->info[ptype].size,
                      SlotsManager->info[ptype].elsize, 
                      slot_cmp_reverse_link);
+    }
+}
 
-        int used = SlotsManager->info[ptype].size;
-        while(used > 0 && BASESLOT_PI(used - 1, ptype)->gc.ReverseLink == -1) {
-            used --;
-        }
+/* update new pointers. */
+static void
+slots_gc_collect(int ptype)
+{
+    int i;
+    if(!SlotsManager->info[ptype].enabled) return;
 
-        /* Now update the link in BhP */
+    /* Now update the link in BhP */
 #pragma omp parallel for
-        for(i = 0; i < used; i ++) {
-            P[BASESLOT_PI(i, ptype)->gc.ReverseLink].PI = i;
-        }
+    for(i = 0;
+        i < SlotsManager->info[ptype].size;
+        i ++) {
 
-        SlotsManager->info[ptype].size = used;
+        P[BASESLOT_PI(i, ptype)->gc.ReverseLink].PI = i;
+    }
+}
+
+static int
+slots_gc_slots()
+{
+    int ptype;
+
+    int64_t total0[6];
+    int64_t total1[6];
+
+    int disabled = 1;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        sumup_large_ints(1, &SlotsManager->info[ptype].size, &total0[ptype]);
+        if(total0[ptype] != 0) disabled = 0;
+    }
+    /* disabled this if no slots are used */
+    if(disabled) {
+        return 0;
+    }
+
+    slots_gc_mark();
+
+    for(ptype = 0; ptype < 6; ptype++) {
+        slots_gc_sweep(ptype);
+        slots_gc_defrag(ptype);
+        slots_gc_collect(ptype);
     }
 
 #ifdef DEBUG
-    int used[6] = {0};
-#pragma omp parallel for
-    for(i = 0; i < NumPart; i++) {
-        if(!SlotsManager->info[P[i].Type].enabled) continue;
-
-        if(P[i].PI >= SlotsManager->info[P[i].Type].size) {
-            endrun(1, "slot PI consistency failed2\n");
-        }
-        if(BASESLOT(i)->ID != P[i].ID) {
-            endrun(1, "slot id consistency failed2\n");
-        }
-#pragma omp atomic
-        used[P[i].Type] ++;
-    }
-    for(ptype = 0; ptype < 6; ptype ++) {
-        if(!SlotsManager->info[ptype].enabled) continue;
-        if(used[ptype] != SlotsManager->info[ptype].size) {
-            endrun(1, "slot count failed2, j=%d, N_bh=%d\n", used[ptype], SlotsManager->info[ptype].size);
-        }
-        sumup_large_ints(1, &used[ptype], &total1[ptype]);
-        message(0, "GC: Used slots for %d is %ld\n", ptype, total1[ptype]);
-    }
+    slots_check_id_consistency();
 #endif
 
     for(ptype = 0; ptype < 6; ptype ++) {
         sumup_large_ints(1, &SlotsManager->info[ptype].size, &total1[ptype]);
+
         if(total1[ptype] != total0[ptype])
             message(0, "GC: Reducing number of slots for %d from %ld to %ld\n", ptype, total0[ptype], total1[ptype]);
     }
@@ -364,14 +405,23 @@ void slots_init()
     }
 }
 
-void slots_check_id_consistency()
+void
+slots_check_id_consistency()
 {
+    int used[6] = {0};
     int i;
-    for (i = 0; i < NumPart; i ++) {
-        if (!SlotsManager->info[P[i].Type].enabled) continue;
-        if(BASESLOT(i)->ID != P[i].ID) {
-            endrun(1, "ID mismatched\n");
-        }
 
+#pragma omp parallel for
+    for(i = 0; i < NumPart; i++) {
+        if(!SlotsManager->info[P[i].Type].enabled) continue;
+
+        if(P[i].PI >= SlotsManager->info[P[i].Type].size) {
+            endrun(1, "slot PI consistency failed2\n");
+        }
+        if(BASESLOT(i)->ID != P[i].ID) {
+            endrun(1, "slot id consistency failed2\n");
+        }
+#pragma omp atomic
+        used[P[i].Type] ++;
     }
 }
