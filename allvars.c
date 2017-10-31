@@ -32,9 +32,6 @@ int RestartSnapNum;
 
 /* Local number of particles */
 int NumPart;
-int N_bh_slots;
-int N_star_slots;
-int N_sph_slots;
 
 /* variables for input/output , usually only used on process 0 */
 
@@ -69,12 +66,8 @@ uint64_t TotalParticleDrifts = 0;
  */
 struct particle_data *P;	/*!< holds particle data on local processor */
 
-
-
-/* the following struture holds data that is stored for each SPH particle in addition to the collisionless
- * variables.
- */
-struct sph_particle_data * SphP;	/*!< holds SPH particle data on local processor */
-struct bh_particle_data * BhP;	/*!< holds BH particle data on local processor */
-
-struct star_particle_data * StarP;	/*!< holds star particle data on local processor */
+char * SlotsBase; /* owner of all slots */
+char * Slots[6];
+int MaxSlots[6]; /* Maximum number of slots per type; */
+int N_slots[6];
+size_t SlotItemSize[6]; /* Element-size per slot */

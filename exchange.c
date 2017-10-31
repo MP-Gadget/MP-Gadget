@@ -9,24 +9,43 @@
 #include "garbage.h"
 
 /*Number of structure types for particles*/
-#define NSP 4
-
 static MPI_Datatype MPI_TYPE_PARTICLE = 0;
-static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
-static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
-static MPI_Datatype MPI_TYPE_STARPARTICLE = 0;
+static MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
+static MPI_Datatype MPI_TYPE_SLOT[6] = {0};
 
-static void
-realloc_secondary_data(int newSph, int newBh, int newStar);
+typedef struct {
+    int base;
+    int slots[6];
+} ExchangePlanEntry;
 
+typedef struct {
+    ExchangePlanEntry * toGo;
+    ExchangePlanEntry * toGoOffset;
+    ExchangePlanEntry * toGet;
+    ExchangePlanEntry * toGetOffset;
+    ExchangePlanEntry toGoSum;
+    ExchangePlanEntry toGetSum;
+} ExchangePlan;
 /* 
  * 
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int ** toGet_arr);
-static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int failfast, int** toGo_arr, int** toGet_arr);
+static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan);
+static int domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * plan);
 
+static void
+_transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype)
+{
+    int i;
+    for(i = 0; i < NTask; i ++) {
+        if(ptype == -1) {
+            count[i] = entries[i].base;
+        } else {
+            count[i] = entries[i].slots[i];
+        }
+    }
+}
 int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     int i;
     int64_t sumtogo;
@@ -34,13 +53,19 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     /* register the mpi types used in communication if not yet. */
     if (MPI_TYPE_PARTICLE == 0) {
         MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
-        MPI_Type_contiguous(sizeof(struct bh_particle_data), MPI_BYTE, &MPI_TYPE_BHPARTICLE);
-        MPI_Type_contiguous(sizeof(struct star_particle_data), MPI_BYTE, &MPI_TYPE_STARPARTICLE);
-        MPI_Type_contiguous(sizeof(struct sph_particle_data), MPI_BYTE, &MPI_TYPE_SPHPARTICLE);
         MPI_Type_commit(&MPI_TYPE_PARTICLE);
-        MPI_Type_commit(&MPI_TYPE_BHPARTICLE);
-        MPI_Type_commit(&MPI_TYPE_STARPARTICLE);
-        MPI_Type_commit(&MPI_TYPE_SPHPARTICLE);
+
+        MPI_Type_contiguous(sizeof(ExchangePlanEntry), MPI_BYTE, &MPI_TYPE_PLAN_ENTRY);
+        MPI_Type_commit(&MPI_TYPE_PLAN_ENTRY);
+
+        int ptype;
+
+        for(ptype = 0; ptype < 6; ptype++) {
+            if(SlotItemSize[ptype] > 0) {
+                MPI_Type_contiguous(SlotItemSize[ptype], MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
+                MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
+            }
+        }
     }
 
     /*! toGo[0][task*NTask + partner] gives the number of particles in task 'task'
@@ -48,14 +73,11 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
      *  toGo[1] is SPH, toGo[2] is BH and toGo[3] is stars
      */
     /* flag the particles that need to be exported */
-    int * toGo_arr[NSP];
-    int * toGet_arr[NSP];
-    toGo_arr[0] = (int *) mymalloc2("toGo", (NSP * sizeof(int) * NTask));
-    toGet_arr[0] = (int *) mymalloc2("toGet", (NSP * sizeof(int) * NTask));
-    for(i=1; i<NSP; i++) {
-        toGo_arr[i] = toGo_arr[i-1] + NTask;
-        toGet_arr[i] = toGet_arr[i-1] + NTask;
-    }
+    ExchangePlan plan;
+    plan.toGo = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * NTask);
+    plan.toGoOffset = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * NTask);
+    plan.toGet = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * NTask);
+    plan.toGetOffset = (ExchangePlanEntry *) mymalloc2("toGo", sizeof(plan.toGo[0]) * NTask);
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
@@ -81,88 +103,66 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
         }
 
         /* determine for each cpu how many particles have to be shifted to other cpus */
-        ret = domain_countToGo(exchange_limit, layoutfunc, failfast, toGo_arr, toGet_arr);
+        ret = domain_build_plan(exchange_limit, layoutfunc, &plan);
         walltime_measure("/Domain/exchange/togo");
         if(ret && failfast) {
             failure = 1;
             break;
         }
 
-        for(i = 0, sumtogo = 0; i < NTask; i++)
-            sumtogo += toGo_arr[0][i];
-
-        sumup_longs(1, &sumtogo, &sumtogo);
+        sumup_large_ints(1, &plan.toGoSum.base, &sumtogo);
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
-        failure = domain_exchange_once(layoutfunc, toGo_arr, toGet_arr);
+        failure = domain_exchange_once(layoutfunc, &plan);
         if(failure)
             break;
         iter++;
     }
     while(ret > 0);
 
-    myfree(toGet_arr[0]);
-    myfree(toGo_arr[0]);
+    myfree(plan.toGetOffset);
+    myfree(plan.toGet);
+    myfree(plan.toGoOffset);
+    myfree(plan.toGo);
 
     return failure;
 }
 
-static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int ** toGet_arr)
+static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 {
-    int i, j, target;
+    int i, target, ptype;
     struct particle_data *partBuf;
-    struct sph_particle_data *sphBuf;
-    struct bh_particle_data *bhBuf;
-    struct star_particle_data *starBuf;
+    char * slotBuf[6];
 
-    int *ctmem = mymalloc2("cts", 4*NSP*NTask*sizeof(int));
-    int *count[NSP];
-    int *offset[NSP];
-    int *count_recv[NSP];
-    int *offset_recv[NSP];
-    int count_togo[NSP] = {0};
-    int count_get[NSP] = {0};
+    ExchangePlanEntry * toGoPtr = ta_malloc("toGoPtr", ExchangePlanEntry, NTask);
+    ExchangePlanEntry * toGetPtr = ta_malloc("toGetPtr", ExchangePlanEntry, NTask);
 
-    memset(ctmem, 0, 4*NSP*NTask*sizeof(int));
-
-    for(j=0; j<NSP; j++) {
-        count[j] = ctmem+j*NTask;
-        offset[j] = ctmem + NSP * NTask +j*NTask;
-        count_recv[j] = ctmem + 2 * NSP * NTask +j*NTask;
-        offset_recv[j] = ctmem + 3 * NSP * NTask +j*NTask;
-    }
+    memset(toGoPtr, 0, sizeof(toGoPtr[0]) * NTask);
+    memset(toGetPtr, 0, sizeof(toGetPtr[0]) * NTask);
 
     int bad_exh=0;
-    for(j=0; j<NSP; j++) {
-        /*Compute offsets*/
-        offset[j][0] = 0;
-        for(i = 1; i < NTask; i++)
-            offset[j][i] = offset[j][i - 1] + toGo_arr[j][i - 1];
-        /*Compute counts*/
-        for(i = 0; i < NTask; i++)
-        {
-            count_togo[j] += toGo_arr[j][i];
-            count_get[j] += toGet_arr[j][i];
-        }
-    }
+
     /*Check whether the domain exchange will succeed. If not, bail*/
-    if(NumPart + count_get[0] - count_togo[0] > All.MaxPart){
+    if(NumPart + plan->toGetSum.base - plan->toGetSum.base > All.MaxPart){
         message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n",
-                NumPart, count_get[0], count_togo[0], All.MaxPart);
+                NumPart, plan->toGetSum.base, plan->toGoSum.base, All.MaxPart);
         bad_exh = 1;
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &bad_exh, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+
     if(bad_exh) {
-        myfree(ctmem);
+        myfree(toGetPtr);
+        myfree(toGoPtr);
         return bad_exh;
     }
 
-    partBuf = (struct particle_data *) mymalloc2("partBuf", count_togo[0] * sizeof(struct particle_data));
-    sphBuf = (struct sph_particle_data *) mymalloc2("sphBuf", count_togo[1] * sizeof(struct sph_particle_data));
-    bhBuf = (struct bh_particle_data *) mymalloc2("bhBuf", count_togo[2] * sizeof(struct bh_particle_data));
-    starBuf = (struct star_particle_data *) mymalloc2("starBuf", count_togo[3] * sizeof(struct star_particle_data));
+    partBuf = (struct particle_data *) mymalloc2("partBuf", plan->toGoSum.base * sizeof(struct particle_data));
+
+    for(ptype = 0; ptype < 6; ptype++) {
+        slotBuf[i] = mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * SlotItemSize[ptype]);
+    }
 
     /*FIXME: make this omp ! */
     for(i = 0; i < NumPart; i++)
@@ -173,33 +173,24 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
         P[i].WillExport = 0;
         target = layoutfunc(i);
 
-        if(P[i].Type == 0)
-        {
-            sphBuf[offset[1][target] + count[1][target]] = SPHP(i);
-            /* Set PI to the comm buffer of this rank rather than the slot*/
-            P[i].PI = count[1][target];
-            count[1][target]++;
-        } else
-        if(P[i].Type == 5)
-        {
-            bhBuf[offset[2][target] + count[2][target]] = BHP(i);
-            /* Set PI to the comm buffer of this rank rather than the slot*/
-            P[i].PI = count[2][target];
-            count[2][target]++;
-        } else
-        if(P[i].Type == 4)
-        {
-            starBuf[offset[3][target] + count[3][target]] = STARP(i);
-            /* Set PI to the comm buffer of this rank rather than the slot*/
-            P[i].PI = count[3][target];
-            count[3][target]++;
-        }
-
-        partBuf[offset[0][target] + count[0][target]] = P[i];
-        count[0][target]++;
-
-        /* mark this particle as a garbage */
+        /* mark this particle as a garbage for removal later */
         P[i].IsGarbage = 1;
+        int ptype = P[i].Type;
+
+        /* watch out thread unsafe */
+        int bufPI = toGoPtr[target].slots[ptype];
+        toGoPtr[target].slots[ptype] ++;
+
+        memcpy(slotBuf[ptype] + (bufPI + plan->toGoOffset[target].slots[ptype]) * SlotItemSize[ptype],
+                Slots[ptype] + P[i].PI * SlotItemSize[ptype], SlotItemSize[ptype]);
+
+        /* now PI points to the communicate buffer location for unpacking at the target */
+        P[i].PI = bufPI;
+
+        /* now copy the base P; after PI has been updated */
+        partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = P[i];
+        toGoPtr[target].base ++;
+
     }
 
     walltime_measure("/Domain/exchange/makebuf");
@@ -209,106 +200,83 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
     domain_garbage_collection();
     walltime_measure("/Domain/exchange/garbage");
 
-
-    for(j=0; j<NSP; j++) {
-        for(i = 0; i < NTask; i ++) {
-            if(count[j][i] != toGo_arr[j][i] ) {
-                endrun(2, "Count inconsistency %d != %d", count[j][i], toGo_arr[j][i]);
-            }
-            count_recv[j][i] = toGet_arr[j][i];
-        }
-    }
-    offset_recv[0][0] = NumPart;
-    offset_recv[1][0] = N_sph_slots;
-    offset_recv[2][0] = N_bh_slots;
-    offset_recv[3][0] = N_star_slots;
-
-    for(j=0; j<NSP; j++)
-        for(i = 1; i < NTask; i++)
-            offset_recv[j][i] = offset_recv[j][i - 1] + count_recv[j][i - 1];
-
-    NumPart += count_get[0];
-    N_sph_slots += count_get[1];
-    N_bh_slots += count_get[2];
-    N_star_slots += count_get[3];
-
-    if(NumPart > All.MaxPart) {
-        endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
+    int newNumPart;
+    int newSlots[6];
+    newNumPart = NumPart + plan->toGetSum.base;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        newSlots[ptype] = N_slots[ptype] + plan->toGetSum.slots[ptype];
     }
 
-    int newSph = All.MaxPartSph;
-    if(N_sph_slots > newSph)
-        newSph = 1.2 * N_sph_slots;
-    int newBh = All.MaxPartBh;
-    if(N_bh_slots +  All.BlackHoleOn * 0.005 * All.MaxPart > All.MaxPartBh)
-        newBh = 1.5*(N_bh_slots + All.BlackHoleOn * 0.005*All.MaxPart);
-    int newStar = All.MaxPartStar;
-    if(N_star_slots +  All.StarformationOn * 0.005 * All.MaxPart > All.MaxPartStar)
-        newStar = 1.5*(N_star_slots + All.StarformationOn * 0.005*All.MaxPart);
-    if(newSph > All.MaxPartSph || newBh > All.MaxPartBh || newStar > All.MaxPartStar) {
-        message(1, "Need more sph, stars or BHs: (%d, %d, %d) -> (%d, %d, %d)\n",
-                All.MaxPartSph, All.MaxPartStar, All.MaxPartBh, newSph, newStar, newBh);
-        realloc_secondary_data(newSph, newBh, newStar);
+    if(newNumPart > All.MaxPart) {
+        endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, newNumPart, All.MaxPart);
     }
 
-    MPI_Alltoallv_sparse(partBuf, count[0], offset[0], MPI_TYPE_PARTICLE,
-                 P, count_recv[0], offset_recv[0], MPI_TYPE_PARTICLE,
+    domain_slots_grow(newSlots);
+
+    int * sendcounts = (int*) ta_malloc("sendcounts", int, NTask);
+    int * senddispls = (int*) ta_malloc("senddispls", int, NTask);
+    int * recvcounts = (int*) ta_malloc("recvcounts", int, NTask);
+    int * recvdispls = (int*) ta_malloc("recvdispls", int, NTask);
+
+    _transpose_plan_entries(plan->toGo, sendcounts, -1);
+    _transpose_plan_entries(plan->toGoOffset, senddispls, -1);
+    _transpose_plan_entries(plan->toGet, recvcounts, -1);
+    _transpose_plan_entries(plan->toGetOffset, recvdispls, -1);
+
+    /* recv at the end */
+    MPI_Alltoallv_sparse(partBuf, sendcounts, senddispls, MPI_TYPE_PARTICLE,
+                 P + NumPart, recvcounts, recvdispls, MPI_TYPE_PARTICLE,
                  MPI_COMM_WORLD);
 
-    walltime_measure("/Domain/exchange/alltoall");
+    for(ptype = 0; ptype < 6; ptype ++) {
+        _transpose_plan_entries(plan->toGo, sendcounts, ptype);
+        _transpose_plan_entries(plan->toGoOffset, senddispls, ptype);
+        _transpose_plan_entries(plan->toGet, recvcounts, ptype);
+        _transpose_plan_entries(plan->toGetOffset, recvdispls, ptype);
+        /* recv at the end */
+        MPI_Alltoallv_sparse(slotBuf[ptype], sendcounts, senddispls, MPI_TYPE_SLOT[ptype],
+                     Slots[ptype] + N_slots[ptype] * SlotItemSize[ptype],
+                     recvcounts, recvdispls, MPI_TYPE_SLOT[ptype],
+                     MPI_COMM_WORLD);
 
-    MPI_Alltoallv_sparse(sphBuf, count[1], offset[1], MPI_TYPE_SPHPARTICLE,
-                 SphP, count_recv[1], offset_recv[1], MPI_TYPE_SPHPARTICLE,
-                 MPI_COMM_WORLD);
-    walltime_measure("/Domain/exchange/alltoall");
+        int src;
+        for(src = 0; src < NTask; src++) {
+            /* unpack each source rank */
+            int newPI[6];
+            for(i = 0; i<6; i++)
+                newPI[i] = N_slots[i] + plan->toGetOffset[src].slots[i];
 
-    MPI_Alltoallv_sparse(bhBuf, count[2], offset[2], MPI_TYPE_BHPARTICLE,
-                BhP, count_recv[2], offset_recv[2], MPI_TYPE_BHPARTICLE,
-                MPI_COMM_WORLD);
-    walltime_measure("/Domain/exchange/alltoall");
+            for(i = plan->toGetOffset[src].base;
+                i < plan->toGetOffset[src].base + plan->toGet[src].base;
+                i++) {
 
-    MPI_Alltoallv_sparse(starBuf, count[3], offset[3], MPI_TYPE_STARPARTICLE,
-                StarP, count_recv[3], offset_recv[3], MPI_TYPE_STARPARTICLE,
-                MPI_COMM_WORLD);
-    walltime_measure("/Domain/exchange/alltoall");
+                int ptype = P[i].Type;
 
-    if(count_get[2] > 0 || count_get[1] > 0 || count_get[3] > 0) {
-        const char *nn[NSP] = {"particles", "SPH","BH", "Stars"};
-        for(target = 0; target < NTask; target++) {
-            int localo[NSP];
-            for(i = 0; i<NSP; i++)
-                localo[i] = offset_recv[i][target];
-            for(i = offset_recv[0][target]; i < offset_recv[0][target] + count_recv[0][target]; i++) {
-                int k;
-                if(P[i].Type == 0) {
-                    k = 1;
-                }
-                else if(P[i].Type == 5) {
-                    k = 2;
-                }
-                else if(P[i].Type == 4) {
-                    k = 3;
-                }
-                else
-                    continue;
-                P[i].PI = localo[k];
-                localo[k]++;
-            }
-            for(i = 1; i<NSP; i++) {
-                if(localo[i] != count_recv[i][target] + offset_recv[i][target]) {
-                    endrun(1, "communication %s inconsistency\n", nn[i]);
-                }
+                P[i].PI = newPI[ptype];
+
+                newPI[ptype]++;
             }
         }
     }
 
-    myfree(starBuf);
-    myfree(bhBuf);
-    myfree(sphBuf);
+    walltime_measure("/Domain/exchange/alltoall");
+
+    myfree(recvdispls);
+    myfree(recvcounts);
+    myfree(senddispls);
+    myfree(sendcounts);
+    for(ptype = 5; ptype >=0; ptype --) {
+        myfree(slotBuf[ptype]);
+    }
     myfree(partBuf);
-    myfree(ctmem);
 
     MPI_Barrier(MPI_COMM_WORLD);
+
+    NumPart = newNumPart;
+
+    for(ptype = 0; ptype < 6; ptype++) {
+        N_slots[ptype] = newSlots[ptype];
+    }
 
     walltime_measure("/Domain/exchange/finalize");
 
@@ -317,19 +285,21 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
 
 
 /*This function populates the toGo and toGet arrays*/
-static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int failfast, int** toGo_arr, int** toGet_arr)
+static int
+domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * plan)
 {
-    int n, i, ret;
+    int n;
     size_t package;
+    int ptype;
 
-    for(i=0; i<NSP; i++)
-        for(n = 0; n < NTask; n++)
-            toGo_arr[i][n] = 0;
+    memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
 
-    package = (sizeof(struct particle_data) + sizeof(struct sph_particle_data) + sizeof(struct bh_particle_data)+sizeof(struct star_particle_data));
+    package = sizeof(P[0]);
+    for(ptype = 0; ptype < 6; ptype ++ ) {
+        package += SlotItemSize[ptype];
+    }
     if(package >= nlimit)
         endrun(212, "Package is too large, no free memory.");
-
 
     for(n = 0; n < NumPart; n++)
     {
@@ -339,198 +309,38 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
         int target = layoutfunc(n);
         if (target == ThisTask) continue;
 
-        toGo_arr[0][target] += 1;
-        nlimit -= sizeof(struct particle_data);
+        plan->toGo[target].base += 1;
+        nlimit -= sizeof(P[0]);
 
-        if(P[n].Type  == 0)
-        {
-            toGo_arr[1][target] += 1;
-            nlimit -= sizeof(struct sph_particle_data);
-        }
-        if(P[n].Type  == 5)
-        {
-            toGo_arr[2][target] += 1;
-            nlimit -= sizeof(struct bh_particle_data);
-        }
-        if(P[n].Type  == 4)
-        {
-            toGo_arr[3][target] += 1;
-            nlimit -= sizeof(struct star_particle_data);
-        }
+        int ptype = P[n].Type;
+        plan->toGo[target].slots[ptype] += 1;
+        nlimit -= SlotItemSize[ptype];
+
         P[n].WillExport = 1;	/* flag this particle for export */
     }
 
-    for(i=0; i<NSP; i++)
-        MPI_Alltoall(toGo_arr[i], 1, MPI_INT, toGet_arr[i], 1, MPI_INT, MPI_COMM_WORLD);
+    MPI_Alltoall(plan->toGo, 1, MPI_TYPE_PLAN_ENTRY, plan->toGet, 1, MPI_TYPE_PLAN_ENTRY, MPI_COMM_WORLD);
 
-    ret = (package >= nlimit);
+    memset(&plan->toGoOffset[0], 0, sizeof(plan->toGoOffset[0]));
+    memset(&plan->toGetOffset[0], 0, sizeof(plan->toGetOffset[0]));
+    memset(&plan->toGoSum, 0, sizeof(plan->toGoSum));
+    memset(&plan->toGetSum, 0, sizeof(plan->toGetSum));
+    memcpy(&plan->toGoSum, &plan->toGo[0], sizeof(plan->toGoSum));
+    memcpy(&plan->toGetSum, &plan->toGet[0], sizeof(plan->toGetSum));
 
-    MPI_Allreduce(MPI_IN_PLACE, &ret, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+    for(n = 1; n < NTask; n ++) {
+        plan->toGoOffset[n] = plan->toGoSum;
+        plan->toGetOffset[n] = plan->toGetSum;
 
-    if(ret == 0)
-        return 0;
+        plan->toGoSum.base += plan->toGo[n].base;
+        plan->toGetSum.base += plan->toGet[n].base;
 
-    if(failfast)
-        return 1;
-
-    {
-        /* in this case, we are not guaranteed that the temporary state after
-           the partial exchange will actually observe the particle limits on all
-           processors... we need to test this explicitly and rework the exchange
-           such that this is guaranteed. This is actually a rather non-trivial
-           constraint. */
-
-        int flagsum;
-        /*Order is: total, sph, bh, star*/
-        int *togo_local[NSP];
-        int * list_Npart[NSP];
-        for(n=0; n<NSP; n++)
-            togo_local[n] = toGo_arr[n];
-        list_Npart[0] = (int *)mymalloc("list_Npart", NSP*NTask * sizeof(int));
-        for(n=1; n<NSP; n++)
-            list_Npart[n] = list_Npart[n-1]+NTask;
-        MPI_Allgather(&NumPart, 1, MPI_INT, list_Npart[0], 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_sph_slots, 1, MPI_INT, list_Npart[1], 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_bh_slots, 1, MPI_INT, list_Npart[2], 1, MPI_INT, MPI_COMM_WORLD);
-        MPI_Allgather(&N_star_slots, 1, MPI_INT, list_Npart[3], 1, MPI_INT, MPI_COMM_WORLD);
-
-        /*FIXME: This algorithm is impossibly slow.*/
-        do
-        {
-            int flag;
-            flagsum = 0;
-
-            do
-            {
-                int ta;
-                flag = 0;
-
-                for(ta = 0; ta < NTask; ta++)
-                {
-                    int count_togo[4]={0}, count_toget[4]={0};
-                    if(ta == ThisTask)
-                    {
-                        for(n = 0; n < NSP; n++)
-                            for(i = 0; i < NTask; i++)
-                            {
-                                count_togo[n] += toGo_arr[n][i];
-                                count_toget[n] += toGet_arr[n][i];
-                            }
-                    }
-                    MPI_Bcast(&count_togo, NSP, MPI_INT, ta, MPI_COMM_WORLD);
-                    MPI_Bcast(&count_toget, NSP, MPI_INT, ta, MPI_COMM_WORLD);
-                    for(i=NSP-1; i > 0; --i) {
-                        int ntoomany = list_Npart[i][ta] + count_toget[i] - count_togo[i] - All.MaxPart;
-                        if (ntoomany <= 0)
-                            continue;
-                        message (0, "Exchange: I can't receive %d particles (array %d) on task=%d\n",ntoomany, i, ta);
-                        if(flagsum > 25) {
-                            message(0, "list_Npart[%d][ta=%d]=%d  count_toget=%d count_togo=%d\n",
-                                        ta, list_Npart[i][ta], count_toget[i], count_togo[i]);
-                        }
-                        flag = 1;
-                        int j = flagsum % NTask;
-                        while(ntoomany)
-                        {
-                            if(j == ThisTask)
-                            {
-                                if(togo_local[i][ta] > 0)
-                                {
-                                    togo_local[i][ta]--;
-                                    if(i > 0)
-                                        count_toget[i]--;
-                                    count_toget[0]--;
-                                    ntoomany--;
-                                }
-                            }
-
-                            MPI_Bcast(&ntoomany, 1, MPI_INT, j, MPI_COMM_WORLD);
-                            MPI_Bcast(&count_toget[0], 1, MPI_INT, j, MPI_COMM_WORLD);
-                            if(i > 0)
-                                MPI_Bcast(&count_toget[i], 1, MPI_INT, j, MPI_COMM_WORLD);
-                            j = (j+1) % NTask;
-                        }
-                    }
-                }
-                flagsum += flag;
-
-                //message(0, "flagsum = %d\n", flagsum);
-                if(flagsum > 100)
-                    endrun(1013, "flagsum is too big, what does this mean?");
-            }
-            while(flag);
-
-            if(flagsum)
-            {
-                int * new_toGo[NSP];
-                new_toGo[0] = (int *)mymalloc("local_toGo", NSP*NTask * sizeof(int));
-                memset(new_toGo, 0, NSP*NTask*sizeof(int));
-                for(n=1; n<NSP; n++)
-                    new_toGo[n] = new_toGo[n-1]+NTask;
-
-                for(n = 0; n < NumPart; n++)
-                {
-                    if(!P[n].OnAnotherDomain) continue;
-                    P[n].WillExport = 0; /* clear 16 */
-
-                    int target = layoutfunc(n);
-
-                    int lt = 0;
-                    if(P[n].Type == 0)
-                        lt = 1;
-                    if(P[n].Type == 5)
-                        lt = 2;
-                    if(P[n].Type == 4)
-                        lt = 3;
-                    if(new_toGo[lt][target] < togo_local[lt][target] && new_toGo[0][target] < togo_local[0][target])
-                    {
-                        new_toGo[0][target] += 1;
-                        if(lt > 0)
-                            new_toGo[lt][target] += 1;
-                        P[n].WillExport = 1;
-                    }
-                }
-
-                for(n = 0; n < NTask; n++)
-                    for(i=0; i< NSP; i++)
-                        toGo_arr[i][n] = new_toGo[i][n];
-
-                for(i=0; i< NSP; i++)
-                    MPI_Alltoall(toGo_arr[i], 1, MPI_INT, toGet_arr[i], 1, MPI_INT, MPI_COMM_WORLD);
-                myfree(new_toGo[0]);
-            }
+        for(ptype = 0; ptype < 6; ptype++) {
+            plan->toGoSum.slots[ptype] += plan->toGo[n].slots[ptype];
+            plan->toGetSum.slots[ptype] += plan->toGet[n].slots[ptype];
         }
-        while(flagsum);
-        myfree(list_Npart[0]);
-
     }
-    return ret;
+    /* this will always be fine -- we won't try to export more particles than nlimit in each iteration .*/
+    return 0;
 }
 
-static void
-realloc_secondary_data(int newMaxPartSph, int newMaxPartBh, int newMaxPartStar)
-{
-    size_t bytes = newMaxPartSph * sizeof(struct sph_particle_data) +
-        newMaxPartStar * sizeof(struct star_particle_data) + newMaxPartBh * sizeof(struct bh_particle_data);
-    SphP = myrealloc(SphP, bytes);
-    BhP = (struct bh_particle_data *) (SphP + newMaxPartSph);
-    StarP = (struct star_particle_data *) (BhP + newMaxPartBh);
-    size_t mvbh = (All.MaxPartBh < newMaxPartBh) ? All.MaxPartBh : newMaxPartBh;
-    size_t mvstar = (All.MaxPartStar < newMaxPartStar) ? All.MaxPartStar : newMaxPartStar;
-    /* We moved the data in realloc, but we may still need to shift up the stars and bh to make room.
-     * Must use addressing relative to new SphP pointer, as StarP may have been invalidated by the move in realloc*/
-    if(newMaxPartSph + newMaxPartBh > All.MaxPartSph + All.MaxPartBh) {
-        /*If this is an increase, shift top array up first*/
-        memmove(StarP, SphP + All.MaxPartSph + All.MaxPartBh, mvstar * sizeof(struct star_particle_data));
-        memmove(BhP, SphP + All.MaxPartSph, mvbh * sizeof(struct bh_particle_data));
-    }
-    else if(newMaxPartSph + newMaxPartBh < All.MaxPartSph + All.MaxPartBh) {
-        /*If this is an decrease, shift bottom array down first*/
-        memmove(BhP, SphP + All.MaxPartSph, mvbh * sizeof(struct bh_particle_data));
-        memmove(StarP, SphP + All.MaxPartSph + All.MaxPartBh, mvstar * sizeof(struct star_particle_data));
-    }
-    All.MaxPartSph = newMaxPartSph;
-    All.MaxPartBh = newMaxPartBh;
-    All.MaxPartStar = newMaxPartStar;
-    message(1, "Allocated %g MB for %d sph, %d stars and %d BHs.\n", bytes / (1024.0 * 1024.0), newMaxPartSph, newMaxPartStar, newMaxPartBh);
-}
