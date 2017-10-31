@@ -223,24 +223,13 @@ void petaio_read_internal(char * fname, int ic) {
     /*Allocate the particle memory*/
     petaio_alloc_particle_memory();
 
-    /* set up the memory topology */
-    int offset = 0;
     int NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {
         int64_t start = ThisTask * NTotal[ptype] / NTask;
         int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
         NLocal[ptype] = end - start;
         NumPart += NLocal[ptype];
-#pragma omp parallel for
-        for(i = 0; i < NLocal[ptype]; i++)
-        {
-            int j = offset + i;
-            P[j].Type = ptype;
-            P[j].PI = i;
-        }
-        offset += NLocal[ptype];
-        /* set N_slots, global variable */
-        N_slots[ptype] = NLocal[ptype];
+
     }
 
     /* Allocate enough memory for stars and black holes.
@@ -260,10 +249,10 @@ void petaio_read_internal(char * fname, int ic) {
         }
     }
     /* additional allocation for new formation of particles; will grow automatically later; move this to grow? */
-    if(All.StarformationOn || N_slots[4] > 0) {
+    if(All.StarformationOn || NTotal[4] > 0) {
         newSlots[4] +=  0.01 * All.MaxPart;
     }
-    if(All.BlackHoleOn || N_slots[5] > 0) {
+    if(All.BlackHoleOn || NTotal[5] > 0) {
         newSlots[5] +=  0.01 * All.MaxPart;
     }
 
@@ -274,6 +263,24 @@ void petaio_read_internal(char * fname, int ic) {
      * This may be dynamically resized later!*/
 
     domain_slots_grow(newSlots);
+
+    /* set up the memory topology */
+
+    int offset = 0;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        /* set use this many slots; FIXME: encapuslate this */
+        SlotsManager->info[ptype].size = NLocal[ptype];
+
+#pragma omp parallel for
+        for(i = 0; i < NLocal[ptype]; i++)
+        {
+            int j = offset + i;
+            P[j].Type = ptype;
+            P[j].PI = i;
+        }
+
+        offset += NLocal[ptype];
+    }
 
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */

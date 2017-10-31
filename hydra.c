@@ -7,6 +7,7 @@
 
 
 #include "allvars.h"
+#include "garbage.h"
 #include "treewalk.h"
 #include "densitykernel.h"
 #include "mymalloc.h"

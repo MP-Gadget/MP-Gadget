@@ -206,7 +206,7 @@ void blackhole(void)
     double Local_BH_Medd = 0;
     /* Compute total mass of black holes
      * present by summing contents of black hole array*/
-    for(i = 0; i < N_slots[5]; i ++)
+    for(i = 0; i < SlotsManager->info[5].size; i ++)
     {
         Local_BH_mass += BhP[i].Mass;
         Local_BH_Mdot += BhP[i].Mdot;
@@ -230,7 +230,7 @@ void blackhole(void)
                     (0.1 * C * C * THOMPSON)) * All.UnitTime_in_s);
 
         fprintf(FdBlackHoles, "%g %d %g %g %g %g %g\n",
-                All.Time, N_slots[5], total_mass_holes, total_mdot, mdot_in_msun_per_year,
+                All.Time, SlotsManager->info[5].size, total_mass_holes, total_mdot, mdot_in_msun_per_year,
                 total_mass_real, total_mdoteddington);
         fflush(FdBlackHoles);
     }

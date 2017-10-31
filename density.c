@@ -10,6 +10,7 @@
 #include "densitykernel.h"
 #include "treewalk.h"
 #include "mymalloc.h"
+#include "garbage.h"
 #include "endrun.h"
 #include "timestep.h"
 #include "system.h"

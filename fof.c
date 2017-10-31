@@ -19,6 +19,7 @@
 #include "endrun.h"
 #include "treewalk.h"
 #include "system.h"
+#include "garbage.h"
 #include "densitykernel.h"
 
 /*! \file fof.c

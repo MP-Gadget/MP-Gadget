@@ -8,6 +8,7 @@
 #include "timefac.h"
 #include "timestep.h"
 #include "cooling.h"
+#include "garbage.h"
 #include "endrun.h"
 
 /* global state of system

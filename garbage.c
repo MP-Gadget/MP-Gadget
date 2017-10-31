@@ -8,12 +8,17 @@
 #include "openmpsort.h"
 #include "forcetree.h"
 
+struct slots_manager_type SlotsManager[1] = {0};
+
+MPI_Datatype MPI_TYPE_PARTICLE = 0;
+MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
+MPI_Datatype MPI_TYPE_SLOT[6] = {0};
+
 static int
 domain_all_garbage_collection();
 
 static int
-domain_garbage_collection_slots(int ptype,
-    void * storage, int elsize, int * N_slots, int MaxSlots);
+domain_garbage_collection_slots();
 
 int
 domain_fork_particle(int parent, int ptype)
@@ -61,12 +66,17 @@ domain_fork_particle(int parent, int ptype)
     /* the PIndex still points to the old PIndex */
     P[child].Mass = 0;
 
-    int PI = atomic_fetch_and_add(&N_slots[ptype], 1);
+    int PI = atomic_fetch_and_add(&SlotsManager->info[ptype].size, 1);
 
-    if(PI >= MaxSlots[ptype]) {
+    if(PI >= SlotsManager->info[ptype].maxsize) {
         /* rare case, use an expensive critical section */
         #pragma omp critical
         {
+            int N_slots[6];
+            int ptype;
+            for(ptype = 0; ptype < 6; ptype++) {
+                N_slots[ptype] = SlotsManager->info[ptype].size;
+            }
             /* slots_grow will do the second check to ensure it is not grown twice */
             domain_slots_grow(N_slots);
         }
@@ -91,12 +101,12 @@ domain_fork_particle(int parent, int ptype)
         Nextnode[child] = no;
         Father[child] = Father[parent];
     }
-    if(P[child].PI >= MaxSlots[ptype]) {
+    if(P[child].PI >= SlotsManager->info[ptype].maxsize) {
         /* this shall not happen because we grow automatically in the critical section above! */
-        endrun(1, "Assertion Failure more PI than available slots : %d > %d\n",P[child].PI, MaxSlots[ptype]);
+        endrun(1, "Assertion Failure more PI than available slots : %d > %d\n",P[child].PI, SlotsManager->info[ptype].maxsize);
     }
     /* book keeping ID FIXME: debug only */
-    BASESLOT(child, ptype)->ID = P[child].ID;
+    BASESLOT(child)->ID = P[child].ID;
     return child;
 }
 
@@ -116,14 +126,8 @@ domain_garbage_collection(void)
      * link lists first. likely worth it, since GC happens only in domain decompose
      * and snapshot IO, both take far more time than rebuilding the tree. */
     tree_invalid |= domain_all_garbage_collection();
-    int ptype;
+    tree_invalid |= domain_garbage_collection_slots();
 
-    for(ptype = 0; ptype < 6; ptype ++) {
-        tree_invalid |= domain_garbage_collection_slots(ptype, Slots[ptype],
-                                                    SlotItemSize[ptype],
-                                                    &N_slots[ptype],
-                                                    MaxSlots[ptype]);
-    }
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     return tree_invalid;
@@ -173,81 +177,88 @@ static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
 }
 
 static int
-domain_garbage_collection_slots(int ptype,
-    void * storage, int elsize, int * N_slots, int MaxSlots)
+domain_garbage_collection_slots()
 {
-#define SLOT(i) ((struct particle_data_ext *) (((char*) storage) + elsize * (i)))
-    /*
-     *  BhP is a lifted structure. 
-     *  changing BH slots doesn't affect tree's consistency;
-     *  this function always return 0. */
+    int i, ptype;
 
-    /* gc the bh */
-    int i;
-    int64_t total = 0;
+    int64_t total0[6];
+    int64_t total1[6];
 
-    int64_t total0 = 0;
-
-    sumup_large_ints(1, N_slots, &total0);
-
-    /* If there are no blackholes, there cannot be any garbage. bail. */
-    if(total0 == 0) return 0;
-
+    int disabled = 1;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        sumup_large_ints(1, &SlotsManager->info[ptype].size, &total0[ptype]);
+        if(total0[ptype] != 0) disabled = 0;
+    }
+    /* disabled this if no slots are used */
+    if(disabled) {
+        return 0;
+    }
+    for(ptype = 0; ptype < 6; ptype ++) {
 #pragma omp parallel for
-    for(i = 0; i < MaxSlots; i++) {
-        SLOT(i)->ReverseLink = -1;
+        for(i = 0; i < SlotsManager->info[ptype].size; i++) {
+            BASESLOT_PI(i, ptype)->ReverseLink = -1;
+        }
     }
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
-        if(P[i].Type == ptype) {
-            SLOT(P[i].PI)->ReverseLink = i;
-            if(P[i].PI >= *N_slots) {
-                endrun(1, "slot PI consistency failed2, N_slots = %d, PI=%d\n", *N_slots, P[i].PI);
-            }
-            if(SLOT(P[i].PI)->ID != P[i].ID) {
-                endrun(1, "slot id consistency failed: i=%d, PI=%d (IDs: %ld != %ld)\n",i, P[i].PI, P[i].ID, SLOT(P[i].PI)->ID);
-            }
+        BASESLOT(i)->ReverseLink = i;
+        if(P[i].PI >= SlotsManager->info[P[i].Type].size) {
+            endrun(1, "slot PI consistency failed2, N_slots = %d, PI=%d\n", SlotsManager->info[P[i].Type].size, P[i].PI);
+        }
+        if(BASESLOT(i)->ID != P[i].ID) {
+            endrun(1, "slot id consistency failed: i=%d, PI=%d (IDs: %ld != %ld)\n",i, P[i].PI, P[i].ID, BASESLOT(i)->ID);
         }
     }
 
-    /* put unused guys to the end, and sort the used ones
-     * by their location in the P array */
-    qsort_openmp(storage, *N_slots, elsize, slot_cmp_reverse_link);
+    for(ptype = 0; ptype < 6; ptype++) {
+        /* put unused guys to the end, and sort the used ones
+         * by their location in the P array */
+        qsort_openmp(SlotsManager->info[ptype].ptr,
+                     SlotsManager->info[ptype].size,
+                     SlotsManager->info[ptype].elsize, 
+                     slot_cmp_reverse_link);
 
-    while(*N_slots > 0 && SLOT(*N_slots - 1)->ReverseLink == -1) {
-        (*N_slots) --;
-    }
-    /* Now update the link in BhP */
+        int used = SlotsManager->info[ptype].size;
+        while(used > 0 && BASESLOT_PI(used - 1, ptype)->ReverseLink == -1) {
+            used --;
+        }
+
+        /* Now update the link in BhP */
 #pragma omp parallel for
-    for(i = 0; i < *N_slots; i ++) {
-        P[SLOT(i)->ReverseLink].PI = i;
+        for(i = 0; i < used; i ++) {
+            P[BASESLOT_PI(i, ptype)->ReverseLink].PI = i;
+        }
+
+        SlotsManager->info[ptype].size = used;
     }
 
 #ifdef DEBUG
-    int j = 0;
+    int used[6] = {0};
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
-        if(P[i].Type != ptype) continue;
-        if(P[i].PI >= *N_slots) {
+        if(P[i].PI >= SlotsManager->info[P[i].ptype].size) {
             endrun(1, "slot PI consistency failed2\n");
         }
-        if(SLOT(P[i].PI)->ID != P[i].ID) {
+        if(BASESLOT(i)->ID != P[i].ID) {
             endrun(1, "slot id consistency failed2\n");
         }
 #pragma omp atomic
-        j ++;
+        used[P[i].ptype] ++;
     }
-    if(j != *N_slots) {
-        endrun(1, "slot count failed2, j=%d, N_bh=%d\n", j, *N_slots);
+    for(ptype = 0; ptype < 6; ptype ++) {
+        if(used[ptype] != SlotsManager->info[ptype].size) {
+            endrun(1, "slot count failed2, j=%d, N_bh=%d\n", used[ptype], SlotsManager->info[ptype].size);
+        }
     }
 #endif
 
-    sumup_large_ints(1, N_slots, &total);
-
-    if(total != total0) {
-        message(0, "GC: Reducing number of %d slots from %ld to %ld\n", ptype, total0, total);
+    for(ptype = 0; ptype < 6; ptype ++) {
+        sumup_large_ints(1, &SlotsManager->info[ptype].size, &total1[ptype]);
+        if(total1[ptype] != total0[ptype])
+            message(0, "GC: Reducing number of slots for %d from %ld to %ld\n", ptype, total0[ptype], total1[ptype]);
     }
+
     /* slot gc never invalidates the tree */
     return 0;
 }
@@ -260,7 +271,7 @@ domain_slots_grow(int newSlots[6])
     int ptype;
     int good = 1;
     for(ptype = 0; ptype < 6; ptype ++) {
-        newMaxSlots[ptype] = MaxSlots[ptype];
+        newMaxSlots[ptype] = SlotsManager->info[ptype].maxsize;
         while(newMaxSlots[ptype] < newSlots[ptype]) {
             int add = 0.2 * newMaxSlots[ptype];
             if (add < 128) add = 128;
@@ -280,22 +291,24 @@ domain_slots_grow(int newSlots[6])
 
     for(ptype = 0; ptype < 6; ptype++) {
         offsets[ptype] = total_bytes;
-        bytes[ptype] = SlotItemSize[ptype] * newMaxSlots[ptype];
+        bytes[ptype] = SlotsManager->info[ptype].elsize * newMaxSlots[ptype];
         total_bytes += bytes[ptype];
     }
-    char * newSlotsBase = myrealloc(SlotsBase, total_bytes);
+    char * newSlotsBase = myrealloc(SlotsManager->Base, total_bytes);
 
     message(1, "Allocated %g MB for %d sph, %d stars and %d BHs.\n", total_bytes / (1024.0 * 1024.0),
             newMaxSlots[0], newMaxSlots[4], newMaxSlots[5]);
 
     /* move the last block first since we are only increasing sizes, moving items forward */
     for(ptype = 5; ptype >= 0; ptype--) {
-        memmove(newSlotsBase + offsets[ptype], Slots[ptype], bytes[ptype]);
+        memmove(newSlotsBase + offsets[ptype], SlotsManager->info[ptype].ptr, bytes[ptype]);
     }
 
+    SlotsManager->Base = newSlotsBase;
+
     for(ptype = 0; ptype < 6; ptype++) {
-        Slots[ptype] = newSlotsBase + offsets[ptype];
-        MaxSlots[ptype] =  newMaxSlots[ptype];
+        SlotsManager->info[ptype].ptr = newSlotsBase + offsets[ptype];
+        SlotsManager->info[ptype].maxsize = newMaxSlots[ptype];
     }
 
 }
@@ -303,15 +316,21 @@ domain_slots_grow(int newSlots[6])
 void domain_slots_init()
 {
     int ptype;
-    for(ptype = 0; ptype < 6; ptype ++) {
-        MaxSlots[ptype] = 0;
-        SlotItemSize[ptype] = 0;
+    memset(SlotsManager, 0, sizeof(SlotsManager[0]));
+
+    SlotsManager->info[0].elsize = sizeof(struct sph_particle_data);
+    SlotsManager->info[4].elsize = sizeof(struct star_particle_data);
+    SlotsManager->info[5].elsize = sizeof(struct bh_particle_data);
+
+    SlotsManager->Base = (char*) mymalloc("SlotsBase", 0);
+
+    MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
+    MPI_Type_commit(&MPI_TYPE_PARTICLE);
+
+    for(ptype = 0; ptype < 6; ptype++) {
+        if(SlotsManager->info[ptype].elsize > 0) {
+            MPI_Type_contiguous(SlotsManager->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
+            MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
+        }
     }
-
-    SlotItemSize[0] = sizeof(struct sph_particle_data);
-    SlotItemSize[4] = sizeof(struct star_particle_data);
-    SlotItemSize[5] = sizeof(struct bh_particle_data);
-
-    SlotsBase = (char*) mymalloc("SlotsBase", 0);
-
 }
