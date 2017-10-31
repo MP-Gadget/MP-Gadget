@@ -67,27 +67,37 @@ domain_fork_particle(int parent, int ptype)
     P[child] = P[parent];
     P[child].ID = (P[parent].ID & 0x00ffffffffffffffL) + (g << 56L);
 
-    /* the PIndex still points to the old PIndex */
     P[child].Mass = 0;
-
-    int PI = atomic_fetch_and_add(&SlotsManager->info[ptype].size, 1);
-
-    if(PI >= SlotsManager->info[ptype].maxsize) {
-        /* rare case, use an expensive critical section */
-        #pragma omp critical
-        {
-            int N_slots[6];
-            int ptype;
-            for(ptype = 0; ptype < 6; ptype++) {
-                N_slots[ptype] = SlotsManager->info[ptype].size;
-            }
-            /* slots_grow will do the second check to ensure it is not grown twice */
-            domain_slots_grow(N_slots);
-        }
-    }
-
-    P[child].PI = PI;
     P[child].Type = ptype;
+
+    if(SlotsManager->info[ptype].enabled) {
+        /* if enabled, alloc a new Slot for secondary data */
+        int PI = atomic_fetch_and_add(&SlotsManager->info[ptype].size, 1);
+
+        if(PI >= SlotsManager->info[ptype].maxsize) {
+            /* rare case, use an expensive critical section */
+            #pragma omp critical
+            {
+                int N_slots[6];
+                int ptype;
+                for(ptype = 0; ptype < 6; ptype++) {
+                    N_slots[ptype] = SlotsManager->info[ptype].size;
+                }
+                /* slots_grow will do the second check to ensure it is not grown twice */
+                domain_slots_grow(N_slots);
+            }
+        }
+
+        P[child].PI = PI;
+
+        if(P[child].PI >= SlotsManager->info[ptype].maxsize) {
+            /* this shall not happen because we grow automatically in the critical section above! */
+            endrun(1, "Assertion Failure more PI than available slots : %d > %d\n",P[child].PI, SlotsManager->info[ptype].maxsize);
+        }
+
+        /* book keeping ID FIXME: debug only */
+        BASESLOT(child)->ID = P[child].ID;
+    }
 
     /*! When a new additional star particle is created, we can put it into the
      *  tree at the position of the spawning gas particle. This is possible
@@ -105,12 +115,6 @@ domain_fork_particle(int parent, int ptype)
         Nextnode[child] = no;
         Father[child] = Father[parent];
     }
-    if(P[child].PI >= SlotsManager->info[ptype].maxsize) {
-        /* this shall not happen because we grow automatically in the critical section above! */
-        endrun(1, "Assertion Failure more PI than available slots : %d > %d\n",P[child].PI, SlotsManager->info[ptype].maxsize);
-    }
-    /* book keeping ID FIXME: debug only */
-    BASESLOT(child)->ID = P[child].ID;
     return child;
 }
 
