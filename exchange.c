@@ -283,9 +283,10 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     walltime_measure("/Domain/exchange/finalize");
 
+#ifdef DEBUG
     domain_test_id_uniqueness();
     slots_check_id_consistency();
-
+#endif
     return 0;
 }
 
