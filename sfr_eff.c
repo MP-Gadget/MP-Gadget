@@ -694,7 +694,7 @@ static int make_particle_star(int i) {
         endrun(7772, "Only gas forms stars, what's wrong?");
 
     /* if we get all mass or a fraction */
-    int child = domain_fork_particle(i, 4);
+    int child = slots_fork(i, 4);
 
     /* ok, make a star */
     if(P[i].Mass < 1.1 * mass_of_star || All.QuickLymanAlphaProbability > 0)

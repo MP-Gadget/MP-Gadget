@@ -19,13 +19,13 @@ static struct star_particle_data * GDB_StarP;
 static struct bh_particle_data * GDB_BhP;
 
 static int
-domain_all_garbage_collection();
+slots_gc_base();
 
 static int
-domain_garbage_collection_slots();
+slots_gc_slots();
 
 int
-domain_fork_particle(int parent, int ptype)
+slots_fork(int parent, int ptype)
 {
     /* this will fork a zero mass particle at the given location of parent of the given type.
      *
@@ -85,7 +85,7 @@ domain_fork_particle(int parent, int ptype)
                 }
                 /* slots_grow will do the second check to ensure it is not grown twice */
                 endrun(1, "This is currently unsupported; because SlotsManager.Base can be deep in the heap\n");
-                domain_slots_grow(N_slots);
+                slots_reserve(N_slots);
             }
         }
 
@@ -121,7 +121,7 @@ domain_fork_particle(int parent, int ptype)
 
 /* remove garbage particles, holes in sph chunk and holes in bh buffer. */
 int
-domain_garbage_collection(void)
+slots_gc(void)
 {
     if (force_tree_allocated()) {
         endrun(0, "GC breaks ForceTree invariance. ForceTree must be freed before calling GC.\n");
@@ -134,8 +134,8 @@ domain_garbage_collection(void)
      * But doing so requires cleaning up the TimeBin link lists, and the tree
      * link lists first. likely worth it, since GC happens only in domain decompose
      * and snapshot IO, both take far more time than rebuilding the tree. */
-    tree_invalid |= domain_all_garbage_collection();
-    tree_invalid |= domain_garbage_collection_slots();
+    tree_invalid |= slots_gc_base();
+    tree_invalid |= slots_gc_slots();
 
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -143,7 +143,7 @@ domain_garbage_collection(void)
 }
 
 static int
-domain_all_garbage_collection()
+slots_gc_base()
 {
     int i, tree_invalid = 0; 
     int count_elim;
@@ -186,7 +186,7 @@ static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
 }
 
 static int
-domain_garbage_collection_slots()
+slots_gc_slots()
 {
     int i, ptype;
 
@@ -284,7 +284,7 @@ domain_garbage_collection_slots()
 
 
 void
-domain_slots_grow(int newSlots[6])
+slots_reserve(int atleast[6])
 {
     int newMaxSlots[6];
     int ptype;
@@ -295,7 +295,7 @@ domain_slots_grow(int newSlots[6])
 
     for(ptype = 0; ptype < 6; ptype ++) {
         newMaxSlots[ptype] = SlotsManager->info[ptype].maxsize;
-        while(newMaxSlots[ptype] < newSlots[ptype]) {
+        while(newMaxSlots[ptype] < atleast[ptype]) {
             int add = 0.2 * newMaxSlots[ptype];
             if (add < 128) add = 128;
             newMaxSlots[ptype] += add;
@@ -340,7 +340,7 @@ domain_slots_grow(int newSlots[6])
     GDB_BhP = (struct bh_particle_data *) SlotsManager->info[5].ptr;
 }
 
-void domain_slots_init()
+void slots_init()
 {
     int ptype;
     memset(SlotsManager, 0, sizeof(SlotsManager[0]));

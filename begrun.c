@@ -48,7 +48,7 @@ extern _transfer_init_table transfer_init;
 void begrun(int RestartSnapNum)
 {
 
-    domain_slots_init();
+    slots_init();
 
     petaio_init();
     walltime_init(&All.CT);

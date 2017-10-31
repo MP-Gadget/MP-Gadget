@@ -186,7 +186,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
      * eventually we want to fill in the garbage gap or defer the gc, because it breaks the tree.
      * invariance . */
 
-    domain_garbage_collection();
+    slots_gc();
     walltime_measure("/Domain/exchange/garbage");
 
 
@@ -202,7 +202,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, newNumPart, All.MaxPart);
     }
 
-    domain_slots_grow(newSlots);
+    slots_reserve(newSlots);
 
     int * sendcounts = (int*) ta_malloc("sendcounts", int, NTask);
     int * senddispls = (int*) ta_malloc("senddispls", int, NTask);
