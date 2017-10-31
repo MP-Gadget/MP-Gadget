@@ -325,15 +325,7 @@ void petaio_read_internal(char * fname, int ic) {
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
-        if(P[i].Type == 5) {
-            BhP[P[i].PI].base.ID = P[i].ID;
-        }
-        if(P[i].Type == 0) {
-            SPHP(i).base.ID = P[i].ID;
-        }
-        if(P[i].Type == 4) {
-            STARP(i).base.ID = P[i].ID;
-        }
+        BASESLOT(i)->ID = P[i].ID;
     }
 }
 void
