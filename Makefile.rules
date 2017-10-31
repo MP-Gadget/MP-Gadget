@@ -19,7 +19,7 @@ OBJECTS  =  \
 	 gdbtools.o memory.o mymalloc.o \
 	 fof.o fofpetaio.o petaio.o \
 	 param.o paramset.o utils-string.o \
-	 domain.o exchange.o garbage.o allvars.o main.o \
+	 domain.o exchange.o slotsmanager.o allvars.o main.o \
 	 blackhole.o timebinmgr.o \
 	 run.o drift.o begrun.o endrun.o global.o \
 	 timestep.o init.o io.o sfr_eff.o \
@@ -53,7 +53,7 @@ INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 INCL = \
 config-migrate.h  densitykernel.h  endrun.h    forcetree.h  interp.h   \
 mymalloc.h    paramset.h  petapm.h         proto.h    timebinmgr.h  treewalk.h \
-allvars.h    cooling.h         domain.h         exchange.h  garbage.h     \
+allvars.h    cooling.h         domain.h         exchange.h  slotsmanager.h     \
  openmpsort.h  peano.h     physconst.h      sfr_eff.h  timefac.h     utils-string.h \
 blackhole.h  cosmology.h       drift.h          fof.h       gravshort.h  memory.h   \
 param.h       petaio.h    powerspectrum.h  system.h   timestep.h    walltime.h \

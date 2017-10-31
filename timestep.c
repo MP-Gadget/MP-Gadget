@@ -12,7 +12,7 @@
 #include "cooling.h"
 #include "mymalloc.h"
 #include "endrun.h"
-#include "garbage.h"
+#include "slotsmanager.h"
 #include "system.h"
 #include "timestep.h"
 
