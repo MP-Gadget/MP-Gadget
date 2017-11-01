@@ -24,7 +24,7 @@ static void readout_density(int i, double * mesh, double weight);
 static void readout_force_x(int i, double * mesh, double weight);
 static void readout_force_y(int i, double * mesh, double weight);
 static void readout_force_z(int i, double * mesh, double weight);
-static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary);
+static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase);
 
 static inline double periodic_wrap(double x)
 {
@@ -138,7 +138,7 @@ void displacement_fields(int Type) {
            &pstruct, NULL);
 
     gaussian_fill(petapm_get_fourier_region(),
-            petapm_get_rho_k(), UnitaryAmplitude);
+		  petapm_get_rho_k(), UnitaryAmplitude, InvertPhase);
 
     petapm_force_c2r(functions);
     petapm_force_finish();
@@ -326,7 +326,7 @@ SAMPLE(gsl_rng * rng, double * ampl, double * phase)
 }
 
 static void
-pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
+pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* Fill delta_k with gadget scheme */
     int d;
@@ -420,10 +420,10 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
                 /* we want two numbers that are of std ~ 1/sqrt(2) */
                 ampl = sqrt(- log(ampl));
 
-                if (UnitaryAmplitude) ampl = 1.0; /* cos and sin gives 1/sqrt(2)*/
+                if (setUnitaryAmplitude) ampl = 1.0; /* cos and sin gives 1/sqrt(2)*/
 
 
-                if (InvertPhase){
+                if (setInvertPhase){
                   phase += M_PI; /*invert phase*/
                 }
 
@@ -466,7 +466,7 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
 
 /* Using fastpm's gaussian_fill for ngenic agreement. */
 static void
-gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary)
+gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* fastpm deals with strides properly; petapm not. So we translate it here. */
     PM pm[1];
@@ -487,7 +487,7 @@ gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary)
 
     pm->ORegion.total = region->totalsize;
     pm->allocsize = region->totalsize;
-    pmic_fill_gaussian_gadget(pm, (double*) rho_k, Seed, unitary);
+    pmic_fill_gaussian_gadget(pm, (double*) rho_k, Seed, setUnitaryAmplitude, setInvertPhase);
 
 #if 0
     /* dump the gaussian field for debugging
