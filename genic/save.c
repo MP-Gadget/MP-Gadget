@@ -87,10 +87,10 @@ void saveheader(BigFile * bf, int64_t TotNumPart) {
             (big_block_set_attr(&bheader, "UnitLength_in_cm", &UnitLength_in_cm, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitMass_in_g", &UnitMass_in_g, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitVelocity_in_cm_per_s", &UnitVelocity_in_cm_per_s, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "HubbleParam", &CP.HubbleParam, "f8", 1))
-            (big_block_set_attr(&bheader, "InvertPhase", &CP.InvertPhase, "i4", 1))
-            (big_block_set_attr(&bheader, "Seed", &CP.Seed, "i8", 1))
-            (big_block_set_attr(&bheader, "UnitaryAmplitude", &CP.UnitaryAmplitude, "i4", 1));
+            (big_block_set_attr(&bheader, "HubbleParam", &CP.HubbleParam, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "InvertPhase", &InvertPhase, "i4", 1)) ||
+            (big_block_set_attr(&bheader, "Seed", &Seed, "i8", 1)) ||
+            (big_block_set_attr(&bheader, "UnitaryAmplitude", &UnitaryAmplitude, "i4", 1));
     if(rt) {
         endrun(0, "failed to create attr %s", 
                 big_file_get_error_message());
