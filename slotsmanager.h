@@ -1,5 +1,6 @@
 #ifndef __GARBAGE_H
 #define __GARBAGE_H
+#include "event.h"
 
 extern struct slots_manager_type {
     char * Base; /* memory ptr that holds of all slots */
@@ -31,9 +32,24 @@ extern MPI_Datatype MPI_TYPE_SLOT[6];
 
 void slots_init();
 void slots_mark_garbage(int i);
+void slots_setup_topology(int n[6]);
 int slots_fork(int parent, int ptype);
 int slots_gc(void);
 void slots_reserve(int atleast[6]);
 void slots_check_id_consistency();
+
+
+typedef struct {
+    EIBase base;
+    int parent;
+    int child;
+} EISlotsFork;
+
+typedef struct {
+    EIBase base;
+} EISlotsAfterGC;
+
+extern EventSpec EventSlotsFork;
+extern EventSpec EventSlotsAfterGC;
 
 #endif

@@ -1,12 +1,12 @@
 #include <string.h>
 #include "allvars.h"
+#include "event.h"
 #include "slotsmanager.h"
 #include "mymalloc.h"
 #include "timestep.h"
 #include "system.h"
 #include "endrun.h"
 #include "openmpsort.h"
-#include "forcetree.h"
 
 struct slots_manager_type SlotsManager[1] = {0};
 
@@ -25,6 +25,9 @@ slots_gc_base();
 
 static int
 slots_gc_slots();
+
+EventSpec EventSlotsFork = {0};
+EventSpec EventSlotsAfterGC = {0};
 
 int
 slots_fork(int parent, int ptype)
@@ -100,17 +103,14 @@ slots_fork(int parent, int ptype)
      *  because the Nextnode[] array essentially describes the full tree walk as a
      *  link list. Multipole moments of tree nodes need not be changed.
      */
+    /* emit event for forcetree to deal with the new particle */
+    EISlotsFork event = {
+        .parent = parent,
+        .child = child,
+    };
 
-    /* we do this only if there is an active force tree 
-     * checking Nextnode is not the best way of doing so though.
-     * */
-    if(force_tree_allocated()) {
-        int no;
-        no = Nextnode[parent];
-        Nextnode[parent] = child;
-        Nextnode[child] = no;
-        Father[child] = Father[parent];
-    }
+    event_emit(&EventSlotsFork, (EIBase *) &event);
+
     return child;
 }
 
@@ -118,9 +118,6 @@ slots_fork(int parent, int ptype)
 int
 slots_gc(void)
 {
-    if (force_tree_allocated()) {
-        endrun(0, "GC breaks ForceTree invariance. ForceTree must be freed before calling GC.\n");
-    }
     /* tree is invalidated if the sequence on P is reordered; */
 
     int tree_invalid = 0;
@@ -133,6 +130,10 @@ slots_gc(void)
     tree_invalid |= slots_gc_slots();
 
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+
+    EISlotsAfterGC event = {0};
+
+    event_emit(&EventSlotsAfterGC, (EIBase*) &event);
 
     return tree_invalid;
 }
@@ -437,5 +438,26 @@ slots_check_id_consistency()
     int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
         message(0, "GC: Used slots for type %d is %d\n", ptype, used[ptype]);
+    }
+}
+
+void
+slots_setup_topology(int NLocal[6])
+{
+    int offset = 0;
+    int ptype;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        /* actually allocate this many slots; FIXME: encapsulate this */
+        SlotsManager->info[ptype].size = NLocal[ptype];
+        int i;
+#pragma omp parallel for
+        for(i = 0; i < NLocal[ptype]; i++)
+        {
+            int j = offset + i;
+            P[j].Type = ptype;
+            P[j].PI = i;
+        }
+
+        offset += NLocal[ptype];
     }
 }
