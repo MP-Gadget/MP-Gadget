@@ -30,6 +30,7 @@ extern MPI_Datatype MPI_TYPE_SLOT[6];
 #define BASESLOT(i) BASESLOT_PI(P[i].PI, P[i].Type)
 
 void slots_init();
+void slots_mark_garbage(int i);
 int slots_fork(int parent, int ptype);
 int slots_gc(void);
 void slots_reserve(int atleast[6]);

@@ -184,7 +184,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = P[i];
         toGoPtr[target].base ++;
 
-        P[i].IsGarbage = 1;
+        slots_mark_garbage(i);
     }
 
     walltime_measure("/Domain/exchange/makebuf");

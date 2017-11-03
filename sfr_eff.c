@@ -712,7 +712,7 @@ static int make_particle_star(int i) {
 
         P[child].Mass = P[i].Mass;
         P[i].Mass -= P[child].Mass;
-        P[i].IsGarbage = 1;
+        slots_mark_garbage(i);
     }
     else
     {
