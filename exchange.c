@@ -177,13 +177,11 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         memcpy(slotBuf[ptype] + (bufPI + plan->toGoOffset[target].slots[ptype]) * elsize,
                 (char*) SlotsManager->info[ptype].ptr + P[i].PI * elsize, elsize);
 
-        /* now PI points to the communicate buffer location for unpacking at the target */
-        P[i].PI = bufPI;
-
         /* now copy the base P; after PI has been updated */
         partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = P[i];
         toGoPtr[target].base ++;
 
+        /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i);
     }
 
