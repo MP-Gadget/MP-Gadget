@@ -368,22 +368,7 @@ void petaio_read_internal(char * fname, int ic) {
     slots_reserve(newSlots);
 
     /* set up the memory topology */
-
-    int offset = 0;
-    for(ptype = 0; ptype < 6; ptype ++) {
-        /* actually allocate this many slots; FIXME: encapsulate this */
-        SlotsManager->info[ptype].size = NLocal[ptype];
-
-#pragma omp parallel for
-        for(i = 0; i < NLocal[ptype]; i++)
-        {
-            int j = offset + i;
-            P[j].Type = ptype;
-            P[j].PI = i;
-        }
-
-        offset += NLocal[ptype];
-    }
+    slots_setup_topology(NLocal);
 
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
