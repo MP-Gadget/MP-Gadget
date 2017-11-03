@@ -262,7 +262,15 @@ void cooling_and_starformation(void)
 
     double totsfrrate, localsfr=0;
     int i;
-    /* FIXME: this is inaccurate if some particles are made into garbage. may want to propagate garbage flag to the slots.*/
+    /* 
+     * The code here is somewhat precarious.
+     * SFR may turn gas into star, but we still want to keep counting
+     * their SFR.
+     *
+     * However, we do require the garbage marked during exchange
+     * to be removed from the slots for this to work. IN the future
+     * we won't be exactly preserving the condition.
+     */
     #pragma omp parallel for reduction(+: localsfr)
     for(i = 0; i < SlotsManager->info[0].size; i++)
         localsfr += SphP[i].Sfr;

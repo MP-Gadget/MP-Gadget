@@ -75,18 +75,11 @@ slots_fork(int parent, int ptype)
         int PI = atomic_fetch_and_add(&SlotsManager->info[ptype].size, 1);
 
         if(PI >= SlotsManager->info[ptype].maxsize) {
-            /* rare case, use an expensive critical section */
-            #pragma omp critical
-            {
-                int N_slots[6];
-                int ptype;
-                for(ptype = 0; ptype < 6; ptype++) {
-                    N_slots[ptype] = SlotsManager->info[ptype].size;
-                }
-                /* slots_grow will do the second check to ensure it is not grown twice */
-                endrun(1, "This is currently unsupported; because SlotsManager.Base can be deep in the heap\n");
-                slots_reserve(N_slots);
-            }
+            endrun(1, "This is currently unsupported; because SlotsManager.Base can be deep in the heap\n");
+            /* there is no way clearly to safely grow the slots during this.
+             * Another thread may be accessing the slots; growth will invalidate these indices.
+             * making the read atomic will be too expensive I suspect.
+             * */
         }
 
         P[child].PI = PI;
@@ -335,12 +328,18 @@ slots_reserve(int atleast[6])
     if(SlotsManager->Base == NULL)
         SlotsManager->Base = (char*) mymalloc("SlotsBase", 0);
 
+    /* FIXME: change 0.005 to a parameter. The expericence is 
+     * this works out fine, since the number of time steps increases
+     * (hence the number of growth increases
+     * when the star formation ra*/
+    int add = 0.005 * All.MaxPart;
+    if (add < 128) add = 128;
+
+    /* FIXME: allow shrinking; need to tweak the memmove later. */
     for(ptype = 0; ptype < 6; ptype ++) {
         newMaxSlots[ptype] = SlotsManager->info[ptype].maxsize;
-        while(newMaxSlots[ptype] < atleast[ptype]) {
-            int add = 0.2 * newMaxSlots[ptype];
-            if (add < 128) add = 128;
-            newMaxSlots[ptype] += add;
+        if (newMaxSlots[ptype] < atleast[ptype] + add) {
+            newMaxSlots[ptype] = atleast[ptype] + add;
             good = 0;
         }
     }
@@ -348,7 +347,6 @@ slots_reserve(int atleast[6])
     if (good) {
         return;
     }
-    /* FIXME: do a global max; because all variables in All.* are synced between ranks. */
 
     size_t total_bytes = 0;
     size_t offsets[6];
@@ -423,5 +421,9 @@ slots_check_id_consistency()
         }
 #pragma omp atomic
         used[P[i].Type] ++;
+    }
+    int ptype;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        message(0, "GC: Used slots for type %d is %d\n", ptype, used[ptype]);
     }
 }
