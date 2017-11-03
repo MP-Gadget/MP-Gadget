@@ -21,7 +21,6 @@
  *  momentum space and assigning new timesteps
  */
 
-
 /* variables for organizing PM steps of discrete timeline */
 typedef struct {
     inttime_t length; /*!< Duration of the current PM integer timestep*/
@@ -40,6 +39,26 @@ int NumActiveParticle;
 int *ActiveParticle;
 
 static int TimeBinCountType[6][TIMEBINS+1];
+
+static int
+timestep_eh_slots_fork(EIBase * event, void * userdata)
+{
+    /*Update the active particle list:
+     * if the parent is active the child should also be active.
+     * Stars must always be active on formation, but
+     * BHs need not be: a halo can be seeded when the particle in question is inactive.*/
+
+    EISlotsFork * ev = (EISlotsFork *) event;
+
+    int parent = ev->parent;
+    int child = ev->child;
+
+    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
+        int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
+        ActiveParticle[childactive] = child;
+    }
+    return 0;
+}
 
 void timestep_allocate_memory(int MaxPart)
 {
@@ -65,6 +84,9 @@ init_timebins(double TimeInit)
     PM.length = 0;
     PM.Ti_kick = All.Ti_Current;
     PM.start = All.Ti_Current;
+
+    /* listen to the slots events such that we can set timebin of new particles */
+    event_listen(&EventSlotsFork, timestep_eh_slots_fork, NULL);
 }
 
 int is_timebin_active(int i, inttime_t current) {

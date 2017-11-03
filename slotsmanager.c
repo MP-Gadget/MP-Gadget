@@ -3,7 +3,6 @@
 #include "event.h"
 #include "slotsmanager.h"
 #include "mymalloc.h"
-#include "timestep.h"
 #include "system.h"
 #include "endrun.h"
 #include "openmpsort.h"
@@ -57,14 +56,6 @@ slots_fork(int parent, int ptype)
     }
     /*This is all racy if ActiveParticle or P is accessed from another thread*/
     int child = atomic_fetch_and_add(&NumPart, 1);
-    /*Update the active particle list:
-     * if the parent is active the child should also be active.
-     * Stars must always be active on formation, but
-     * BHs need not be: a halo can be seeded when the particle in question is inactive.*/
-    if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
-        int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
-        ActiveParticle[childactive] = child;
-    }
 
     P[parent].Generation ++;
     uint64_t g = P[parent].Generation;
