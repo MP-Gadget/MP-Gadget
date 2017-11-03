@@ -26,8 +26,8 @@ slots_gc_base();
 static int
 slots_gc_slots();
 
-EventSpec EventSlotsFork = {0};
-EventSpec EventSlotsAfterGC = {0};
+EventSpec EventSlotsFork = {"SlotsFork", 0};
+EventSpec EventSlotsAfterGC = {"SlotsAfterGC", 0};
 
 int
 slots_fork(int parent, int ptype)
