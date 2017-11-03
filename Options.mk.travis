@@ -7,7 +7,11 @@ MPICXX       =   mpicxx
 OPTIMIZE =  -fPIC -fopenmp -O0 -g
 GSL_INCL = 
 GSL_LIBS = -lgsl -lgslcblas
-#
+
+
+# on travis we run with debug mode
+OPT ++ -DDEBUG
+
 #--------------------------------------- Basic operation mode of code
 OPT += -DDENSITY_INDEPENDENT_SPH
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
