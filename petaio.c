@@ -256,9 +256,6 @@ void petaio_read_internal(char * fname, int ic) {
         newSlots[5] +=  0.01 * All.MaxPart;
     }
 
-    /* make sure identical numbers are for all ranks; move this to grow? */
-    MPI_Allreduce(MPI_IN_PLACE, newSlots, 6, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
-
     /* Now allocate memory for the secondary particle data arrays.
      * This may be dynamically resized later!*/
 
@@ -268,7 +265,7 @@ void petaio_read_internal(char * fname, int ic) {
 
     int offset = 0;
     for(ptype = 0; ptype < 6; ptype ++) {
-        /* set use this many slots; FIXME: encapuslate this */
+        /* actually allocate this many slots; FIXME: encapsulate this */
         SlotsManager->info[ptype].size = NLocal[ptype];
 
 #pragma omp parallel for

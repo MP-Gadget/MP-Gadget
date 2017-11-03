@@ -32,6 +32,13 @@ typedef struct {
 static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan);
 static int domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * plan);
 
+/* This function builts the count/displ arrays from
+ * the rows stored in the entry struct of the plan.
+ * MPI expects a these numbers to be tightly packed in memory,
+ * but our struct stores them as different columns.
+ *
+ * Technically speaking, the operation is therefore a transpose.
+ * */
 static void
 _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype)
 {
@@ -131,7 +138,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     int bad_exh=0;
 
     /*Check whether the domain exchange will succeed. If not, bail*/
-    if(NumPart + plan->toGetSum.base - plan->toGetSum.base > All.MaxPart){
+    if(NumPart + plan->toGetSum.base - plan->toGoSum.base > All.MaxPart){
         message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n",
                 NumPart, plan->toGetSum.base, plan->toGoSum.base, All.MaxPart);
         bad_exh = 1;
@@ -140,8 +147,8 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     MPI_Allreduce(MPI_IN_PLACE, &bad_exh, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
     if(bad_exh) {
-        myfree(toGetPtr);
-        myfree(toGoPtr);
+        ta_free(toGetPtr);
+        ta_free(toGoPtr);
         return bad_exh;
     }
 
