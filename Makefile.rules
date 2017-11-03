@@ -55,7 +55,7 @@ INCL   = allvars.h proto.h forcetree.h cooling.h domain.h treewalk.h \
 	 petaio.h blackhole.h physconst.h memory.h mymalloc.h timebinmgr.h
 
 INCL = \
-config-migrate.h  densitykernel.h  endrun.h    forcetree.h  interp.h   \
+config-migrate.h  densitykernel.h  endrun.h    forcetree.h  interp.h event.h  \
 mymalloc.h    paramset.h  petapm.h         proto.h    timebinmgr.h  treewalk.h \
 allvars.h    cooling.h         domain.h         exchange.h  slotsmanager.h     \
  openmpsort.h  peano.h     physconst.h      sfr_eff.h  timefac.h     utils-string.h \
