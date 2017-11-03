@@ -10,6 +10,8 @@
 
 struct slots_manager_type SlotsManager[1] = {0};
 
+#define SLOTS_ENABLED(ptype) (SlotsManager->info[ptype].enabled)
+
 MPI_Datatype MPI_TYPE_PARTICLE = 0;
 MPI_Datatype MPI_TYPE_PLAN_ENTRY = 0;
 MPI_Datatype MPI_TYPE_SLOT[6] = {0};
@@ -70,7 +72,7 @@ slots_fork(int parent, int ptype)
     P[child].Mass = 0;
     P[child].Type = ptype;
 
-    if(SlotsManager->info[ptype].enabled) {
+    if(SLOTS_ENABLED(ptype)) {
         /* if enabled, alloc a new Slot for secondary data */
         int PI = atomic_fetch_and_add(&SlotsManager->info[ptype].size, 1);
 
@@ -169,11 +171,11 @@ slots_gc_base()
 static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
     const struct particle_data_ext * b1 = (struct particle_data_ext *) b1in;
     const struct particle_data_ext * b2 = (struct particle_data_ext *) b2in;
-    if(b1->gc.ReverseLink == -1 && b2->gc.ReverseLink == -1) {
+    if(b1->IsGarbage && b2->IsGarbage) {
         return 0;
     }
-    if(b1->gc.ReverseLink == -1) return 1;
-    if(b2->gc.ReverseLink == -1) return -1;
+    if(b1->IsGarbage) return 1;
+    if(b2->IsGarbage) return -1;
     return (b1->gc.ReverseLink > b2->gc.ReverseLink) - (b1->gc.ReverseLink < b2->gc.ReverseLink);
 
 }
@@ -184,18 +186,17 @@ slots_gc_mark()
     int ptype, i;
 
     for(ptype = 0; ptype < 6; ptype ++) {
-        if(!SlotsManager->info[ptype].enabled) continue;
-#pragma omp parallel for
-        for(i = 0; i < SlotsManager->info[ptype].size; i++) {
-            BASESLOT_PI(i, ptype)->gc.ReverseLink = -1;
-        }
+        if(!SLOTS_ENABLED(ptype)) continue;
     }
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
-        if(!SlotsManager->info[P[i].Type].enabled) continue;
+        if(!SLOTS_ENABLED(P[i].Type)) continue;
 
         BASESLOT(i)->gc.ReverseLink = i;
+        if(P[i].IsGarbage && !BASESLOT(i)->IsGarbage) {
+            endrun(1, "IsGarbage flag inconsistent between base and secondary\n");
+        }
     }
 }
 
@@ -203,7 +204,7 @@ slots_gc_mark()
 static int
 slots_gc_sweep(int ptype)
 {
-    if(!SlotsManager->info[ptype].enabled) ;
+    if(!SLOTS_ENABLED(ptype)) return 0;
 
     int used = SlotsManager->info[ptype].size;
     size_t elsize = SlotsManager->info[ptype].elsize;
@@ -213,7 +214,7 @@ slots_gc_sweep(int ptype)
     {
         while(i < used
                 &&
-        BASESLOT_PI(i, ptype)->gc.ReverseLink == -1) {
+        BASESLOT_PI(i, ptype)->IsGarbage) {
 
             memcpy(BASESLOT_PI(i, ptype),
                 BASESLOT_PI(used - 1, ptype), elsize);
@@ -223,6 +224,7 @@ slots_gc_sweep(int ptype)
     }
 
     SlotsManager->info[ptype].size = used;
+    return 0;
 }
 
 /* defrags ensures locality. */
@@ -230,7 +232,7 @@ static void
 slots_gc_defrag(int ptype)
 {
 
-    if(!SlotsManager->info[ptype].enabled) return;
+    if(!SLOTS_ENABLED(ptype)) return;
     /* measure the fragmentation */
     int i;
     int frag = 0;
@@ -264,7 +266,7 @@ static void
 slots_gc_collect(int ptype)
 {
     int i;
-    if(!SlotsManager->info[ptype].enabled) return;
+    if(!SLOTS_ENABLED(ptype)) return;
 
     /* Now update the link in BhP */
 #pragma omp parallel for
@@ -273,6 +275,7 @@ slots_gc_collect(int ptype)
         i ++) {
 
         P[BASESLOT_PI(i, ptype)->gc.ReverseLink].PI = i;
+        BASESLOT_PI(i, ptype)->IsGarbage = 0;
     }
 }
 
@@ -396,17 +399,20 @@ void slots_init()
     MPI_Type_commit(&MPI_TYPE_PARTICLE);
 
     for(ptype = 0; ptype < 6; ptype++) {
-        if(SlotsManager->info[ptype].enabled) {
-            MPI_Type_contiguous(SlotsManager->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
-            MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
-        }
+        if(!SLOTS_ENABLED(ptype)) continue;
+
+        MPI_Type_contiguous(SlotsManager->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
+        MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
     }
 }
-/* mark the i-th partilce as a garbage */
+/* mark the i-th base particle as a garbage. */
 void
 slots_mark_garbage(int i)
 {
     P[i].IsGarbage = 1;
+    if(SLOTS_ENABLED(P[i].Type)) {
+        BASESLOT(i)->IsGarbage = 1;
+    }
 }
 
 void
@@ -417,7 +423,7 @@ slots_check_id_consistency()
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
-        if(!SlotsManager->info[P[i].Type].enabled) continue;
+        if(!SLOTS_ENABLED(P[i].Type)) continue;
 
         if(P[i].PI >= SlotsManager->info[P[i].Type].size) {
             endrun(1, "slot PI consistency failed2\n");

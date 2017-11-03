@@ -524,6 +524,7 @@ struct particle_data_ext {
        /* used at GC for reverse link to P */
         int ReverseLink; 
     } gc;
+    unsigned int IsGarbage : 1; /* marked if the slot is garbage. use slots_mark_garbage to mark this with the base particle index*/
     MyIDType ID; /* for data consistency check, same as particle ID */
 };
 
