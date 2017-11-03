@@ -184,20 +184,23 @@ static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
 static int
 slots_gc_mark()
 {
-    int ptype, i;
-
-    for(ptype = 0; ptype < 6; ptype ++) {
-        if(!SLOTS_ENABLED(ptype)) continue;
-    }
+    int i;
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         if(!SLOTS_ENABLED(P[i].Type)) continue;
 
         BASESLOT(i)->gc.ReverseLink = i;
+
+        /* two consistency checks.*/
+#ifdef DEBUG
         if(P[i].IsGarbage && !BASESLOT(i)->IsGarbage) {
             endrun(1, "IsGarbage flag inconsistent between base and secondary\n");
         }
+        if(!P[i].IsGarbage && BASESLOT(i)->IsGarbage) {
+            endrun(1, "IsGarbage flag inconsistent between base and secondary\n");
+        }
+#endif
     }
 }
 
@@ -275,6 +278,12 @@ slots_gc_collect(int ptype)
         i < SlotsManager->info[ptype].size;
         i ++) {
 
+#ifdef DEBUG
+        if(BASESLOT_PI(i, ptype)->IsGarbage) {
+            endrun(1, "Shall not happend\n");
+        }
+#endif
+
         P[BASESLOT_PI(i, ptype)->gc.ReverseLink].PI = i;
         BASESLOT_PI(i, ptype)->IsGarbage = 0;
     }
@@ -297,6 +306,10 @@ slots_gc_slots()
     if(disabled) {
         return 0;
     }
+
+#ifdef DEBUG
+    slots_check_id_consistency();
+#endif
 
     slots_gc_mark();
 
@@ -437,7 +450,9 @@ slots_check_id_consistency()
     }
     int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
-        message(0, "GC: Used slots for type %d is %d\n", ptype, used[ptype]);
+        if(used[ptype] > 0) {
+            message(0, "GC: Used slots for type %d is %d\n", ptype, used[ptype]);
+        }
     }
 }
 
