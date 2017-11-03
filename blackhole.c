@@ -557,7 +557,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         P[other].Mass = 0;
         BHP(other).Mass = 0;
 
-        P[other].IsGarbage = 1;
+        slots_mark_garbage(other);
         BHP(other).Mdot = 0;
 
 #pragma omp atomic
@@ -610,7 +610,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         O->Mass += (P[other].Mass);
         P[other].Mass = 0;
 
-        P[other].IsGarbage = 1;
+        slots_mark_garbage(other);
+
 #pragma omp atomic
         N_sph_swallowed++;
         unlock_particle(other);
@@ -716,7 +717,7 @@ void blackhole_make_one(int index) {
     /*Ensure that mass is conserved*/
     double BHmass = All.SeedBlackHoleMass;
     if(P[index].Mass <= All.SeedBlackHoleMass) {
-        P[index].IsGarbage = 1;
+        slots_mark_garbage(index);
         BHmass = P[index].Mass;
     }
     P[child].Mass = BHmass;

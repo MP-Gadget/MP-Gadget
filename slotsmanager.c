@@ -402,6 +402,12 @@ void slots_init()
         }
     }
 }
+/* mark the i-th partilce as a garbage */
+void
+slots_mark_garbage(int i)
+{
+    P[i].IsGarbage = 1;
+}
 
 void
 slots_check_id_consistency()

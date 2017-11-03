@@ -458,7 +458,7 @@ extern struct particle_data
         /* particle type.  0=gas, 1=halo, 2=disk, 3=bulge, 4=stars, 5=bndry */
         unsigned int Type                 :4;
 
-        unsigned int IsGarbage            :1; /* True for a garbage particle. */
+        unsigned int IsGarbage            :1; /* True for a garbage particle. readonly: Use slots_mark_garbage to mark this.*/
         unsigned int Evaluated            :1; /* True if already query already ran in treewalk */
         unsigned int OnAnotherDomain      :1; /* particle is hosted by another rank; used in domain; */
         unsigned int WillExport           :1; /* particle will be exported in current run of exchange; */
