@@ -31,8 +31,10 @@ extern MPI_Datatype MPI_TYPE_SLOT[6];
 #define BASESLOT(i) BASESLOT_PI(P[i].PI, P[i].Type)
 
 void slots_init();
+void slots_free();
 void slots_mark_garbage(int i);
-void slots_setup_topology(int n[6]);
+void slots_setup_topology();
+void slots_setup_id();
 int slots_fork(int parent, int ptype);
 int slots_gc(void);
 void slots_reserve(int atleast[6]);
@@ -48,8 +50,5 @@ typedef struct {
 typedef struct {
     EIBase base;
 } EISlotsAfterGC;
-
-extern EventSpec EventSlotsFork;
-extern EventSpec EventSlotsAfterGC;
 
 #endif

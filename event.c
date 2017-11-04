@@ -51,3 +51,7 @@ event_emit(EventSpec * eh, EIBase * event)
     return 0;
 }
 
+EventSpec EventSlotsFork = {"SlotsFork", 0};
+EventSpec EventSlotsAfterGC = {"SlotsAfterGC", 0};
+
+
