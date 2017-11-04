@@ -35,4 +35,9 @@ event_unlisten(EventSpec * e, eventfunc func, void * userdata);
 int
 event_emit(EventSpec * eh, EIBase * event);
 
+/* A new particle is formed by spliting an existing particle. */
+extern EventSpec EventSlotsFork;
+/* GC is done, things may have been violated. */
+extern EventSpec EventSlotsAfterGC;
+
 #endif

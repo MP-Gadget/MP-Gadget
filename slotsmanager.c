@@ -25,9 +25,6 @@ slots_gc_base();
 static int
 slots_gc_slots();
 
-EventSpec EventSlotsFork = {"SlotsFork", 0};
-EventSpec EventSlotsAfterGC = {"SlotsAfterGC", 0};
-
 int
 slots_fork(int parent, int ptype)
 {
@@ -340,13 +337,14 @@ slots_reserve(int atleast[6])
      * this works out fine, since the number of time steps increases
      * (hence the number of growth increases
      * when the star formation ra*/
-    int add = 0.005 * All.MaxPart;
+    int add = 0.01 * All.MaxPart;
     if (add < 128) add = 128;
 
     /* FIXME: allow shrinking; need to tweak the memmove later. */
     for(ptype = 0; ptype < 6; ptype ++) {
         newMaxSlots[ptype] = SlotsManager->info[ptype].maxsize;
-        if (newMaxSlots[ptype] < atleast[ptype] + add) {
+        /* if current empty slots is less than half of add, need to grow */
+        if (newMaxSlots[ptype] < atleast[ptype] + add / 2) {
             newMaxSlots[ptype] = atleast[ptype] + add;
             good = 0;
         }
@@ -410,6 +408,12 @@ void slots_init()
         MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
     }
 }
+
+void slots_free()
+{
+    myfree(SlotsManager->Base);
+}
+
 /* mark the i-th base particle as a garbage. */
 void
 slots_mark_garbage(int i)
@@ -447,23 +451,36 @@ slots_check_id_consistency()
     }
 }
 
+/* this function needs the Type of P[i] to be setup */
 void
-slots_setup_topology(int NLocal[6])
+slots_setup_topology()
 {
-    int offset = 0;
+    int NLocal[6] = {0};
+
+    int i;
+#pragma omp parallel for
+    for(i = 0; i < NumPart; i ++) {
+        int ptype = P[i].Type;
+        P[i].PI = NLocal[ptype];
+
+#pragma omp atomic
+        NLocal[ptype] ++;
+    }
+
     int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
-        /* actually allocate this many slots; FIXME: encapsulate this */
         SlotsManager->info[ptype].size = NLocal[ptype];
-        int i;
+    }
+}
+void
+slots_setup_id()
+{
+    int i;
+    /* set up the cross check for child IDs */
 #pragma omp parallel for
-        for(i = 0; i < NLocal[ptype]; i++)
-        {
-            int j = offset + i;
-            P[j].Type = ptype;
-            P[j].PI = i;
-        }
-
-        offset += NLocal[ptype];
+    for(i = 0; i < NumPart; i++)
+    {
+        if(!SLOTS_ENABLED(P[i].Type)) continue;
+        BASESLOT(i)->ID = P[i].ID;
     }
 }

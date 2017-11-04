@@ -367,8 +367,19 @@ void petaio_read_internal(char * fname, int ic) {
 
     slots_reserve(newSlots);
 
-    /* set up the memory topology */
-    slots_setup_topology(NLocal);
+    /* initialize particle types */
+    int offset;
+    for(ptype = 0; ptype < 6; ptype ++) {
+        for(i = 0; i < NLocal[ptype]; i++)
+        {
+            int j = offset + i;
+            P[j].Type = ptype;
+        }
+        offset += NLocal[ptype];
+    }
+
+    /* so we can set up the memory topology of secondary slots */
+    slots_setup_topology();
 
     for(i = 0; i < IOTable.used; i ++) {
         /* only process the particle blocks */
@@ -414,12 +425,8 @@ void petaio_read_internal(char * fname, int ic) {
                     big_file_get_error_message());
     }
 
-    /* set up the cross check for child IDs */
-#pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
-    {
-        BASESLOT(i)->ID = P[i].ID;
-    }
+    /* now we have IDs, set up the ID consistency between slots. */
+    slots_setup_id();
 }
 void
 petaio_read_header(int num)
