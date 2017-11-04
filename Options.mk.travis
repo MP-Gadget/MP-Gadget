@@ -10,7 +10,7 @@ GSL_LIBS = -lgsl -lgslcblas
 
 
 # on travis we run with debug mode
-OPT ++ -DDEBUG
+OPT += -DDEBUG
 
 #--------------------------------------- Basic operation mode of code
 OPT += -DDENSITY_INDEPENDENT_SPH
