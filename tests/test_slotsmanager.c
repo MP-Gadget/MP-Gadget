@@ -77,6 +77,8 @@ test_slots_gc(void **state)
 static void
 test_slots_reserve(void **state)
 {
+    /* FIXME: these depends on the magic numbers in slots_reserve. After
+     * moving those numbers to All.* we shall rework the code here. */
     setup_particles(state);
 
     int newSlots[6] = {128, 128, 128, 128, 128, 128};
