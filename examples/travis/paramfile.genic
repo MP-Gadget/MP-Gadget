@@ -33,7 +33,7 @@ UsePeculiarVelocity = 1  # Use peculiar velocity like FastPM
 PrimordialIndex = 1.      # may be used to rebuild the primordial power
 
 Seed = 181170    #  seed for IC-generator
-Unitary = 1  # set amplitude of gaussian to 1.
+UnitaryAmplitude = 1  # set amplitude of gaussian to 1.
 
 UnitLength_in_cm = 3.085678e24   # defines length unit of output (in cm/h) 
 UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)
