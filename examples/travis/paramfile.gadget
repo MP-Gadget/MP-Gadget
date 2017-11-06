@@ -83,7 +83,7 @@ CritPhysDensity = 0       #  critical physical density for star formation in
 
 CritOverDensity = 0   #  overdensity threshold value
 
-QuickLymanAlphaProbability = 1 # Set to 1.0 to turn dense gas directly into stars.
+QuickLymanAlphaProbability = 0.001 # Set to 1.0 to turn dense gas directly into stars.
 
 MaxSfrTimescale = 1.5     # in internal time units
 
