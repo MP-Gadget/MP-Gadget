@@ -14,6 +14,7 @@
 #include "drift.h"
 #include "domain.h"
 #include "mpsort.h"
+#include "openmpsort.h"
 #include "mymalloc.h"
 #include "forcetree.h"
 #include "endrun.h"
@@ -158,7 +159,7 @@ void fof_fof()
     message(0, "attaching gas and star particles to nearest dm particles took = %g sec\n", timediff(t0, t1));
 
     /* sort HaloLabel according to MinID, because we need that for compiling catalogues */
-    qsort(HaloLabel, NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
+    qsort_openmp(HaloLabel, NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
 
     t0 = second();
 
@@ -781,7 +782,7 @@ static void fof_reduce_groups(
     MPI_Type_commit(&dtype);
 
     /* local groups will be moved to the beginning, we skip them with offset */
-    qsort(groups, nmemb, elsize, fof_compare_Group_MinIDTask);
+    qsort_openmp(groups, nmemb, elsize, fof_compare_Group_MinIDTask);
     /* count how many we have of each task */
     memset(Send_count, 0, sizeof(int) * NTask);
 
@@ -813,8 +814,8 @@ static void fof_reduce_groups(
     }
         
     /* sort the groups according to MinID */
-    qsort(groups, Nmine, elsize, fof_compare_Group_MinID);
-    qsort(images, nimport, elsize, fof_compare_Group_MinID);
+    qsort_openmp(groups, Nmine, elsize, fof_compare_Group_MinID);
+    qsort_openmp(images, nimport, elsize, fof_compare_Group_MinID);
 
     /* merge the imported ones with the local ones */
     start = 0;
@@ -860,7 +861,7 @@ static void fof_reduce_groups(
     }
 
     /* reset the ordering of imported list, such that it can be properly returned */
-    qsort(images, nimport, elsize, fof_compare_Group_OriginalIndex);
+    qsort_openmp(images, nimport, elsize, fof_compare_Group_OriginalIndex);
 
     for(i = 0; i < nimport; i++) {
         struct BaseGroup * gi = (struct BaseGroup*) ((char*) images + i * elsize);
@@ -1188,7 +1189,7 @@ void fof_seed(void)
             j++;
         }
     }
-    qsort(ExportGroups, Nexport, sizeof(ExportGroups[0]), cmp_seed_task);
+    qsort_openmp(ExportGroups, Nexport, sizeof(ExportGroups[0]), cmp_seed_task);
 
     for(i = 0; i < Nexport; i++) {
         Send_count[ExportGroups[i].seed_task]++;

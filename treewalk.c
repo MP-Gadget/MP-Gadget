@@ -311,7 +311,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, int size) {
 #ifdef DEBUG
         /* check the uniqueness of ActiveParticle list. */
         /* FIXME: the sort may affect performance of treewalk */
-        qsort(queue, k, sizeof(int), cmpint);
+        qsort_openmp(queue, k, sizeof(int), cmpint);
         for(i = 0; i < k - 1; i ++) {
             if(queue[i] == queue[i+1]) {
                 endrun(8829, "A few particles are twicely active.");
@@ -749,7 +749,7 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
         tq[i].place = pq[i];
         P[pq[i]].Evaluated = 0;
     }
-    // qsort(tq, length, sizeof(struct ev_task), ev_task_cmp_by_top_node);
+    // qsort_openmp(tq, length, sizeof(struct ev_task), ev_task_cmp_by_top_node);
 }
 
 /**********
