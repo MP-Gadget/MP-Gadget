@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdio.h>
 #include "walltime.h"
+#include "openmpsort.h"
 
 static struct ClockTable * CT = NULL;
 
@@ -99,8 +100,8 @@ static void walltime_clock_insert(char * name) {
     strcpy(CT->C[CT->N].name, name);
     strcpy(CT->AC[CT->N].name, CT->C[CT->N].name);
     CT->N ++;
-    qsort(CT->C, CT->N, sizeof(struct Clock), clockcmp);
-    qsort(CT->AC, CT->N, sizeof(struct Clock), clockcmp);
+    qsort_openmp(CT->C, CT->N, sizeof(struct Clock), clockcmp);
+    qsort_openmp(CT->AC, CT->N, sizeof(struct Clock), clockcmp);
 }
 
 int walltime_clock(char * name) {

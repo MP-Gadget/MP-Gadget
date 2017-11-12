@@ -27,8 +27,8 @@ int main(int argc, char **argv)
   /* fixme: make this a mpi bcast */
   read_parameterfile(argv[1]);
 
-  walltime_init(&CT);
   mymalloc_init(MaxMemSizePerNode);
+  walltime_init(&CT);
   const double meanspacing = Box / Ngrid;
   const double shift_gas = -0.5 * (CP.Omega0 - CP.OmegaBaryon) / CP.Omega0 * meanspacing;
   const double shift_dm = +0.5 * CP.OmegaBaryon / CP.Omega0 * meanspacing;

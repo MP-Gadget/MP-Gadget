@@ -13,6 +13,7 @@
 #include "exchange.h"
 #include "fof.h"
 #include "mymalloc.h"
+#include "openmpsort.h"
 #include "endrun.h"
 
 static void fof_write_header(BigFile * bf);
@@ -89,7 +90,7 @@ void fof_save_particles(int num) {
 
         /*Sort each type individually*/
         for(i = 0; i < 6; i++)
-            qsort(selection + ptype_offset[i], ptype_count[i], sizeof(int), fof_cmp_selection_by_grnr);
+            qsort_openmp(selection + ptype_offset[i], ptype_count[i], sizeof(int), fof_cmp_selection_by_grnr);
 
         walltime_measure("/FOF/IO/argind");
 
