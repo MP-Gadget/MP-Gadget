@@ -167,98 +167,23 @@ msort_with_tmp (const struct msort_param *p, void *b, size_t n)
   memcpy (b, p->t, (n - n2) * s);
 }
 
-
-void
-__qsort (void *b, size_t n, size_t s, __compar_fn_t cmp, char * tmp)
-{
-  /*TODO: Parallelize this algorithm and thus make it use indirect sorting*/
-/*   size_t size = n * s; */
-
-  /* For large object sizes use indirect sorting.  */
-/*   if (s > 32) */
-/*     size = 2 * n * sizeof (void *) + s; */
-
-  /* In the original glibc version, the code switches to quicksort here
-   * if low on memory. Since we already have allocated a copy of the array
-   * for the openmp parallel bit above, this is unnecessary*/
-  struct msort_param p;
-  p.t = tmp;
-  p.s = s;
-  p.var = 4;
-  p.cmp = cmp;
-
-  if (s > 32)
-    {
-      /* Indirect sorting.  */
-      char *ip = (char *) b;
-      void **tp = (void **) (p.t + n * sizeof (void *));
-      void **t = tp;
-      void *tmp_storage = (void *) (tp + n);
-
-      while ((void *) t < tmp_storage)
-        {
-          *t++ = ip;
-          ip += s;
-        }
-      p.s = sizeof (void *);
-      p.var = 3;
-      msort_with_tmp (&p, p.t + n * sizeof (void *), n);
-
-      /* tp[0] .. tp[n - 1] is now sorted, copy around entries of
-         the original array.  Knuth vol. 3 (2nd ed.) exercise 5.2-10.  */
-      char *kp;
-      size_t i;
-      for (i = 0, ip = (char *) b; i < n; i++, ip += s)
-        if ((kp = tp[i]) != ip)
-          {
-            size_t j = i;
-            char *jp = ip;
-            memcpy (tmp_storage, ip, s);
-
-            do
-              {
-                size_t k = (kp - (char *) b) / s;
-                tp[j] = jp;
-                memcpy (jp, kp, s);
-                j = k;
-                jp = kp;
-                kp = tp[k];
-              }
-            while (kp != ip);
-
-            tp[j] = jp;
-            memcpy (jp, tmp_storage, s);
-          }
-    }
-  else
-    {
-      if ((s & (sizeof (uint32_t) - 1)) == 0
-          && ((char *) b - (char *) 0) % __alignof__ (uint32_t) == 0)
-        {
-          if (s == sizeof (uint32_t))
-            p.var = 0;
-          else if (s == sizeof (uint64_t)
-                   && ((char *) b - (char *) 0) % __alignof__ (uint64_t) == 0)
-            p.var = 1;
-          else if ((s & (sizeof (unsigned long) - 1)) == 0
-                   && ((char *) b - (char *) 0)
-                      % __alignof__ (unsigned long) == 0)
-            p.var = 2;
-        }
-      msort_with_tmp (&p, b, n);
-    }
-}
 /*End code copied from glibc*/
 /*=====================================================*/
 
 static void merge(void * base1, size_t nmemb1, void * base2, size_t nmemb2, void * output, size_t size,
-         int(*compar)(const void *, const void *)) {
+         int(*compar)(const void *, const void *), int indirect) {
     char * p1 = base1;
     char * p2 = base2;
     char * po = output;
     char * s1 = p1 + nmemb1 * size, *s2 = p2 + nmemb2 * size;
     while(p1 < s1 && p2 < s2) {
-        int cmp = compar(p1, p2 );
+        int cmp;
+        if(indirect) {
+            cmp = compar(*(void **)p1, *(void **)p2);
+        }
+        else {
+            cmp = compar(p1, p2);
+        }
         if(cmp <= 0) {
             memcpy(po, p1, size);
             p1 += size;
@@ -286,11 +211,17 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
     void ** Abase = Abase_store;
     void ** Atmp = Atmp_store;
 
+    /*Should I use indirect sorting?*/
+    int indirect = 0;
+    if(size > 32)
+        indirect = 1;
     void * tmp;
     /*NOTE: if this allocation becomes a problem,
-     * switch to glibc's quicksort (serial!) or use
-     * an indirect sort*/
-    tmp = mymalloc("qsort", size * nmemb);
+     * switch to glibc's quicksort (serial!) */
+    if(indirect)
+        tmp = mymalloc("qsort",2*nmemb*sizeof(void *) + size);
+    else
+        tmp = mymalloc("qsort", size * nmemb);
 
 #pragma omp parallel
     {
@@ -307,12 +238,53 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
         Abase[tid] = ((char*) base) + start * size;
         Atmp[tid] = ((char*) tmp) + start * size;
 
-        __qsort( Abase[tid], Anmemb[tid], size, compar, Atmp[tid]);
-        /* now each sub array is sorted, kick start the merging */
+        struct msort_param p;
+        p.t = Atmp[tid];
+        p.s = size;
+        p.var = 4;
+        p.cmp = compar;
+        /*For large arrays we use an indirect sort following glibc*/
+        if(indirect)
+        {
+            /* Indirect sorting: copy everything in this thread to the new pointer space,
+             * which is after the tmp space. */
+            char *ip = (char *) Abase[tid];
+            void **tp = (void **) (tmp + (nmemb + start)* sizeof (void *));
+            void **t = tp;
+            void *end = (void *) (tp + Anmemb[tid]);
 
+            while ((void *) t < end)
+            {
+              *t++ = ip;
+              ip += size;
+            }
+            p.s = sizeof (void *);
+            p.var = 3;
+            Abase[tid] = tp;
+            Atmp[tid] = ((char*) tmp) + start * p.s;
+            p.t = Atmp[tid];
+        }
+        else {
+            /*Copied from glibc*/
+            if ((size & (sizeof (uint32_t) - 1)) == 0
+                && ((char *) base - (char *) 0) % __alignof__ (uint32_t) == 0)
+              {
+                if (size == sizeof (uint32_t))
+                  p.var = 0;
+                else if (size == sizeof (uint64_t)
+                         && ((char *) base - (char *) 0) % __alignof__ (uint64_t) == 0)
+                  p.var = 1;
+                else if ((size & (sizeof (unsigned long) - 1)) == 0
+                         && ((char *) base - (char *) 0)
+                            % __alignof__ (unsigned long) == 0)
+                  p.var = 2;
+              }
+            /*End copied from glibc*/
+        }
+        msort_with_tmp (&p, Abase[tid], Anmemb[tid]);
+        /* now each sub array is sorted, kick start the merging */
         int sep;
         for (sep = 1; sep < Nt; sep *=2 ) {
-#pragma omp barrier
             int color = tid / sep;
             int key = tid % sep;
 #if 0
@@ -331,7 +303,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
                 /* only even leaders arrives to this point*/
                 if(nextT >= Nt) {
                     /* no next guy, copy directly.*/
-                    merge(Abase[tid], Anmemb[tid], NULL, 0, Atmp[tid], size, compar);
+                    merge(Abase[tid], Anmemb[tid], NULL, 0, Atmp[tid], p.s, compar, indirect);
                 }  else {
 #if 0                    
                     printf("%d + %d merging with %td/%td:%td %td/%td:%td\n", tid, nextT,
@@ -342,7 +314,7 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
                             ((char*)Abase[nextT] - (char*) tmp) / size,
                             Anmemb[nextT]);
 #endif
-                    merge(Abase[tid], Anmemb[tid], Abase[nextT], Anmemb[nextT], Atmp[tid], size, compar);
+                    merge(Abase[tid], Anmemb[tid], Abase[nextT], Anmemb[nextT], Atmp[tid], p.s, compar, indirect);
                     /* merge two lists */
                     Anmemb[tid] = Anmemb[tid] + Anmemb[nextT];
                     Anmemb[nextT] = 0;
@@ -358,12 +330,40 @@ void qsort_openmp(void *base, size_t nmemb, size_t size,
             }
             /* at this point Abase contains the sorted array */
         }
-
 #pragma omp barrier
         /* output was written to the tmp rather than desired location, copy it */
-        if(Abase[0] != base) {
-            memcpy(Atmp[tid], Abase[tid], Anmemb_old[tid] * size);
+        if((!indirect && Abase[0] != base)
+                || (indirect && Abase[0] != tmp + nmemb * sizeof(void *))) {
+            memmove(Atmp[tid], Abase[tid], Anmemb_old[tid] * p.s);
         }
+    }
+    /*Copied from glibc*/
+    /* tp[0] .. tp[n - 1] is now sorted, copy around entries of
+       the original array (done serially).  Knuth vol. 3 (2nd ed.) exercise 5.2-10.  */
+    if(indirect) {
+        char *kp, *ip;
+        size_t i;
+        void **tp = (void **) (tmp + nmemb * sizeof (void *));
+        void *tmp_storage = (void *) (tp + nmemb);
+        for (i = 0, ip = (char *) base; i < nmemb; i++, ip += size)
+          if ((kp = tp[i]) != ip)
+            {
+              size_t j = i;
+              char *jp = ip;
+              memcpy (tmp_storage, ip, size);
+
+              do {
+                size_t k = (kp - (char *) base) / size;
+                tp[j] = jp;
+                memcpy (jp, kp, size);
+                j = k;
+                jp = kp;
+                kp = tp[k];
+              } while (kp != ip);
+
+              tp[j] = jp;
+              memcpy (jp, tmp_storage, size);
+            }
     }
     myfree(tmp);
 }
