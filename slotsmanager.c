@@ -430,7 +430,6 @@ slots_check_id_consistency()
     int used[6] = {0};
     int i;
 
-#pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
         if(!SLOTS_ENABLED(P[i].Type)) continue;
 
@@ -440,7 +439,6 @@ slots_check_id_consistency()
         if(BASESLOT(i)->ID != P[i].ID) {
             endrun(1, "slot id consistency failed2\n");
         }
-#pragma omp atomic
         used[P[i].Type] ++;
     }
     int ptype;
@@ -458,12 +456,11 @@ slots_setup_topology()
     int NLocal[6] = {0};
 
     int i;
-#pragma omp parallel for
+/* not bothering making this OMP */
     for(i = 0; i < NumPart; i ++) {
         int ptype = P[i].Type;
+        /* atomic fetch add */
         P[i].PI = NLocal[ptype];
-
-#pragma omp atomic
         NLocal[ptype] ++;
     }
 
@@ -477,7 +474,7 @@ slots_setup_id()
 {
     int i;
     /* set up the cross check for child IDs */
-#pragma omp parallel for
+/* not bothering making this OMP */
     for(i = 0; i < NumPart; i++)
     {
         if(!SLOTS_ENABLED(P[i].Type)) continue;
