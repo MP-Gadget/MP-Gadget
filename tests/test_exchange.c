@@ -55,10 +55,9 @@ int layoutfunc(int p)
     return (NTask * P[p].Pos[2])/ All.BoxSize;
 }
 
-static void do_exchange_test(int numpart, int garbage)
+static void do_exchange_test()
 {
     int i;
-    All.MaxPart = numpart;
     /*Time to do exchange*/
     double start, end;
     start = MPI_Wtime();
@@ -70,11 +69,6 @@ static void do_exchange_test(int numpart, int garbage)
     for(i=0; i<NumPart; i++) {
 //         message(1, "i = %d, pos = %g %g %g\n",i, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
         assert_int_equal(layoutfunc(i), ThisTask);
-        /*Check first N/NTask elements are from this processor*/
-        if(i < numpart/NTask - garbage)
-            assert_int_equal(P[i].ID/All.MaxPart, ThisTask);
-        else
-            assert_int_not_equal(P[i].ID/All.MaxPart, ThisTask);
         /*Check there was no corruption*/
         assert_true(P[i].Pos[0] >= 0 && P[i].Pos[0] < All.BoxSize);
         assert_true(P[i].Pos[1] >= 0 && P[i].Pos[1] < All.BoxSize);
@@ -95,7 +89,6 @@ static void exc_onlydm(void ** state) {
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
     int i;
-    #pragma omp parallel for
     for(i=0; i<All.MaxPart; i++) {
         P[i].Type = 1;
         P[i].ID = ThisTask*All.MaxPart + i;
@@ -103,7 +96,14 @@ static void exc_onlydm(void ** state) {
         P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
         P[i].Pos[2] = (All.BoxSize/ncbrt) * (i % ncbrt);
     }
-    do_exchange_test(All.MaxPart, 0);
+    do_exchange_test();
+    for(i=0; i<NumPart; i++) {
+        /*Check first N/NTask elements are from this processor*/
+        if(i < NumPart/NTask)
+            assert_int_equal(P[i].ID/All.MaxPart, ThisTask);
+        else
+            assert_int_not_equal(P[i].ID/All.MaxPart, ThisTask);
+    }
     assert_int_equal(NumPart, All.MaxPart);
     free(P);
 }
@@ -115,6 +115,8 @@ static void exc_sph(void ** state) {
     All.MaxPart = ncbrt*ncbrt*ncbrt;
     NumPart = ncbrt*ncbrt*ncbrt;
     N_sph_slots = All.MaxPart/2;
+    N_star_slots = 0;
+    N_bh_slots = 0;
     /*This is different from MaxPart to make sure we test*/
     All.MaxPartSph = All.MaxPart/2;
     All.MaxPartBh = 0;
@@ -124,19 +126,17 @@ static void exc_sph(void ** state) {
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
     int i;
-    #pragma omp parallel for
-    for(i=0; i<All.MaxPart/2; i++) {
+    for(i=0; i<NumPart/2; i++) {
         P[i].Type = 1;
-        P[i].ID = ThisTask*All.MaxPart + i;
+        P[i].ID = ThisTask*NumPart + i;
         P[i].Pos[0] = (All.BoxSize/ncbrt/NTask) * (ThisTask + (i/ncbrt/ncbrt));
         P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
         P[i].Pos[2] = (All.BoxSize/ncbrt) * (i % ncbrt);
     }
     /* This means that the SPH particles will all end up on different processors.*/
-    #pragma omp parallel for
-    for(i=All.MaxPart/2; i<All.MaxPart; i++) {
+    for(i=NumPart/2; i<NumPart; i++) {
         P[i].Type = 0;
-        P[i].ID = ThisTask*All.MaxPart + i;
+        P[i].ID = ThisTask*NumPart + i;
         P[i].Pos[0] = (All.BoxSize/ncbrt/NTask) * (ThisTask + (i/ncbrt/ncbrt));
         P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
         P[i].Pos[2] = (All.BoxSize/ncbrt) * (i % ncbrt);
@@ -144,22 +144,73 @@ static void exc_sph(void ** state) {
         SPHP(i).base.ID = P[i].ID;
     }
 
-    do_exchange_test(All.MaxPart,0);
+    do_exchange_test();
     for(i=0; i<NumPart; i++) {
         assert_true(P[i].ID % All.MaxPart < All.MaxPart);
         if(P[i].Type != 1)
             assert_int_equal(P[i].ID , SPHP(i).base.ID);
+        /*Check first N/NTask elements are from this processor*/
+        if(i < NumPart/NTask)
+            assert_int_equal(P[i].ID/All.MaxPart, ThisTask);
+        else
+            assert_int_not_equal(P[i].ID/All.MaxPart, ThisTask);
     }
     assert_int_equal(NumPart, All.MaxPart);
     assert_int_equal(N_sph_slots, All.MaxPart/2);
 
     free(P);
+    free(SphP);
+}
+
+static void exc_garbage(void ** state) {
+    /*Set up the particle data*/
+    All.BoxSize = 8;
+    int ncbrt = 64;
+    All.MaxPart = ncbrt*ncbrt*ncbrt+NTask*2;
+    NumPart = ncbrt*ncbrt*ncbrt;
+    N_sph_slots = All.MaxPart;
+    N_star_slots = 0;
+    N_bh_slots = 0;
+    /*This is different from MaxPart to make sure we test*/
+    All.MaxPartSph = All.MaxPart;
+    All.MaxPartBh = 0;
+    All.MaxPartStar = 0;
+    P = calloc(All.MaxPart, sizeof(struct particle_data));
+    SphP = calloc(All.MaxPart,sizeof(struct sph_particle_data));
+    /* Create a regular grid of particles, 8x8x8, all of type 1,
+     * in a box 8 kpc across.*/
+    int i;
+    /* This means that the SPH particles will all end up on different processors.
+     Not parallel so we know reliably which one is last.*/
+    for(i=0; i<NumPart; i++) {
+        P[i].Type = 0;
+        P[i].ID = ThisTask*NumPart + i;
+        P[i].Pos[0] = (All.BoxSize/ncbrt/NTask) * (ThisTask + (i/ncbrt/ncbrt));
+        P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
+        P[i].Pos[2] = (All.BoxSize/ncbrt) * (i % ncbrt);
+        P[i].PI = i;
+        SPHP(i).base.ID = P[i].ID;
+    }
+    //Mark a particle as garbage*/
+    P[NumPart-1].IsGarbage = 1;
+    P[NumPart-2].IsGarbage = 1;
+
+    do_exchange_test();
+    for(i=0; i<NumPart; i++) {
+        assert_false(P[i].IsGarbage);
+        /*Make sure the garbage particle was really removed*/
+        assert_true(P[i].ID % (ncbrt*ncbrt*ncbrt) < (ncbrt*ncbrt*ncbrt)-2);
+        assert_int_equal(P[i].ID , SPHP(i).base.ID);
+    }
+    free(P);
+    free(SphP);
 }
 
 int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(exc_onlydm),
         cmocka_unit_test(exc_sph),
+        cmocka_unit_test(exc_garbage),
 //         cmocka_unit_test(exchange_all),
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
