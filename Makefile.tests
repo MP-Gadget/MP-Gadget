@@ -25,8 +25,11 @@ TESTED = \
 	openmpsort \
 	genic-power
 
-TESTBIN = $(TESTED:%=tests/test_%)
-SUITE?= $(TESTBIN)
+MPI_TESTED = exchange
+
+TESTBIN = $(TESTED:%=tests/test_%) $(MPI_TESTED:%=tests/test_%)
+SUITE?= $(TESTED:%=tests/test_%)
+MPI_SUITE?= $(MPI_TESTED:%=tests/test_%)
 
 .PHONY: test run-tests build-tests
 
@@ -37,6 +40,7 @@ depends/lib/libcmocka.a:
 build-tests: $(TESTBIN)
 
 test : build-tests
+	trap 'err=1' ERR; for tt in $(MPI_SUITE) ; do mpirun -np 4 $$tt ; done; exit $$err
 	trap 'err=1' ERR; for tt in $(SUITE) ; do $$tt ; done; exit $$err
 
 clean-tests:
