@@ -7,6 +7,7 @@
 #include <math.h>
 #include <mpi.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <gsl/gsl_rng.h>
 
@@ -18,6 +19,7 @@
  * Should be tested separately.*/
 #include "garbage.c"
 #include "stub.h"
+#include "mymalloc.h"
 
 /*Used data from All and domain*/
 struct particle_data *P;
@@ -46,7 +48,6 @@ int * Father;
 int is_timebin_active(int i, inttime_t current) {
     return 0;
 }
-
 
 /*Simple layout function: this needs to return
  *an exactly even division of the particles.*/
@@ -206,12 +207,77 @@ static void exc_garbage(void ** state) {
     free(SphP);
 }
 
+static void exc_realloc(void ** state) {
+    /*Set up the particle data*/
+    All.BoxSize = 8;
+    int ncbrt = 32;
+    All.MaxPart = NTask*ncbrt*ncbrt*ncbrt;
+    NumPart = ncbrt*ncbrt*ncbrt;
+    N_sph_slots = 0.6*NumPart+20;
+    N_star_slots = 0.3*NumPart+15;
+    N_bh_slots = NumPart - N_sph_slots - N_star_slots;
+    /*This is different from MaxPart to make sure we test*/
+    All.MaxPartSph = N_sph_slots;
+    All.MaxPartBh = N_bh_slots;
+    All.MaxPartStar = N_star_slots;
+    P = calloc(All.MaxPart, sizeof(struct particle_data));
+    size_t bytes = All.MaxPartSph * sizeof(struct sph_particle_data) +
+        All.MaxPartStar * sizeof(struct star_particle_data) + All.MaxPartBh * sizeof(struct bh_particle_data);
+    void * secondary_data = mymalloc("SecondaryP", bytes);
+    /*Ordering: SPH, black holes, then stars*/
+    SphP = (struct sph_particle_data *) secondary_data;
+    BhP = (struct bh_particle_data *) (SphP + All.MaxPartSph);
+    StarP = (struct star_particle_data *) (BhP + All.MaxPartBh);
+    memset(SphP, 0, All.MaxPartSph*sizeof(struct sph_particle_data));
+    memset(StarP, 0, All.MaxPartStar*sizeof(struct star_particle_data));
+    memset(BhP, 0, All.MaxPartBh*sizeof(struct bh_particle_data));
+    /* Create a regular grid of particles, 8x8x8, all of type 1,
+     * in a box 8 kpc across.*/
+    int i;
+    int last_sph = 0, last_bh = 0, last_star = 0;
+    for(i=0; i<NumPart; i++) {
+        P[i].ID = ThisTask*NumPart + i;
+        P[i].Pos[0] = (All.BoxSize/ncbrt/NTask) * (ThisTask + (i/ncbrt/ncbrt));
+        P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
+        P[i].Pos[2] = 0.5*All.BoxSize + (All.BoxSize/NTask) * (((double) (i % ncbrt))/ncbrt);
+        if(i < N_sph_slots) {
+            P[i].Type = 0;
+            P[i].PI = last_sph++;
+            SPHP(i).base.ID = P[i].ID;
+        } else if(i >= N_sph_slots && i < N_sph_slots + N_star_slots) {
+            P[i].Type = 4;
+            P[i].PI = last_star++;
+            STARP(i).base.ID = P[i].ID;
+        } else {
+            P[i].Type = 5;
+            P[i].PI = last_bh++;
+            BHP(i).base.ID = P[i].ID;
+        }
+    }
+    do_exchange_test();
+    for(i=0; i<NumPart; i++) {
+        assert_true(P[i].ID % (ncbrt*ncbrt*ncbrt) < (ncbrt*ncbrt*ncbrt)-2);
+        if(P[i].Type == 0) {
+            assert_int_equal(P[i].ID , SPHP(i).base.ID);
+        }
+        if(P[i].Type == 4) {
+            assert_int_equal(P[i].ID , STARP(i).base.ID);
+        }
+        if(P[i].Type == 5) {
+            assert_int_equal(P[i].ID , BHP(i).base.ID);
+        }
+    }
+    free(P);
+    myfree(secondary_data);
+}
+
+
 int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(exc_onlydm),
         cmocka_unit_test(exc_sph),
         cmocka_unit_test(exc_garbage),
-//         cmocka_unit_test(exchange_all),
+        cmocka_unit_test(exc_realloc)
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }
