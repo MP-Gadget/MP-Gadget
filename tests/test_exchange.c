@@ -207,7 +207,7 @@ static void exc_garbage(void ** state) {
     free(SphP);
 }
 
-static void exc_realloc(void ** state) {
+static void allslot_test(int realloc) {
     /*Set up the particle data*/
     All.BoxSize = 8;
     int ncbrt = 32;
@@ -217,9 +217,16 @@ static void exc_realloc(void ** state) {
     N_star_slots = 0.3*NumPart+15;
     N_bh_slots = NumPart - N_sph_slots - N_star_slots;
     /*This is different from MaxPart to make sure we test*/
-    All.MaxPartSph = N_sph_slots;
-    All.MaxPartBh = N_bh_slots;
-    All.MaxPartStar = N_star_slots;
+    if(realloc) {
+        All.MaxPartSph = N_sph_slots;
+        All.MaxPartBh = N_bh_slots;
+        All.MaxPartStar = N_star_slots;
+    }
+    else {
+        All.MaxPartSph = NumPart;
+        All.MaxPartBh = NumPart;
+        All.MaxPartStar = NumPart;
+    }
     P = calloc(All.MaxPart, sizeof(struct particle_data));
     size_t bytes = All.MaxPartSph * sizeof(struct sph_particle_data) +
         All.MaxPartStar * sizeof(struct star_particle_data) + All.MaxPartBh * sizeof(struct bh_particle_data);
@@ -239,7 +246,10 @@ static void exc_realloc(void ** state) {
         P[i].ID = ThisTask*NumPart + i;
         P[i].Pos[0] = (All.BoxSize/ncbrt/NTask) * (ThisTask + (i/ncbrt/ncbrt));
         P[i].Pos[1] = (All.BoxSize/ncbrt) * ((i/ncbrt) % ncbrt);
-        P[i].Pos[2] = 0.5*All.BoxSize + (All.BoxSize/NTask) * (((double) (i % ncbrt))/ncbrt);
+        if(realloc)
+            P[i].Pos[2] = 0.5*All.BoxSize + (All.BoxSize/NTask) * (((double) (i % ncbrt))/ncbrt);
+        else
+            P[i].Pos[2] = All.BoxSize * (((double) (i % ncbrt))/ncbrt);
         if(i < N_sph_slots) {
             P[i].Type = 0;
             P[i].PI = last_sph++;
@@ -256,7 +266,7 @@ static void exc_realloc(void ** state) {
     }
     do_exchange_test();
     for(i=0; i<NumPart; i++) {
-        assert_true(P[i].ID % (ncbrt*ncbrt*ncbrt) < (ncbrt*ncbrt*ncbrt)-2);
+        assert_true(P[i].ID % (ncbrt*ncbrt*ncbrt) < (ncbrt*ncbrt*ncbrt));
         if(P[i].Type == 0) {
             assert_int_equal(P[i].ID , SPHP(i).base.ID);
         }
@@ -271,12 +281,20 @@ static void exc_realloc(void ** state) {
     myfree(secondary_data);
 }
 
+static void exc_allslot(void ** state) {
+    allslot_test(0);
+}
+
+static void exc_realloc(void ** state) {
+    allslot_test(1);
+}
 
 int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(exc_onlydm),
         cmocka_unit_test(exc_sph),
         cmocka_unit_test(exc_garbage),
+        cmocka_unit_test(exc_allslot),
         cmocka_unit_test(exc_realloc)
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
