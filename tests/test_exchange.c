@@ -14,39 +14,21 @@
 #define qsort_openmp qsort
 
 #include "exchange.h"
+#include "slotsmanager.h"
 #include "allvars.h"
 /*Note this includes the garbage collection!
  * Should be tested separately.*/
-#include "garbage.c"
+#include "slotsmanager.c"
 #include "stub.h"
-#include "mymalloc.h"
 
 /*Used data from All and domain*/
 struct particle_data *P;
-struct sph_particle_data *SphP;
-struct star_particle_data *StarP;
-struct bh_particle_data *BhP;
 /*This can be removed when the slot data is moved to slot-manager*/
 struct global_data_all_processes All;
 int NumPart;
-int N_sph_slots, N_star_slots, N_bh_slots;
-
-/*Dummies*/
+/*Dummy*/
 double walltime_measure_full(char * name, char * file, int line) {
     return MPI_Wtime();
-}
-int force_tree_allocated() {
-    return 0;
-}
-
-/*Dummy: used only in domain_fork_particle, which is not tested here.*/
-
-int *ActiveParticle;
-int NumActiveParticle;
-int * Nextnode;
-int * Father;
-int is_timebin_active(int i, inttime_t current) {
-    return 0;
 }
 
 /*Simple layout function: this needs to return
@@ -81,11 +63,11 @@ static void exc_onlydm(void ** state) {
     /*Set up the particle data*/
     All.BoxSize = 8;
     int ncbrt = 96;
+    slots_init();
+    int Npart[6] = {0};
+    slots_reserve(Npart);
     All.MaxPart = ncbrt*ncbrt*ncbrt;
     NumPart = ncbrt*ncbrt*ncbrt;
-    All.MaxPartSph = 0;
-    All.MaxPartBh = 0;
-    All.MaxPartStar = 0;
     P = calloc(All.MaxPart, sizeof(struct particle_data));
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
@@ -113,17 +95,12 @@ static void exc_sph(void ** state) {
     /*Set up the particle data*/
     All.BoxSize = 8;
     int ncbrt = 96;
-    All.MaxPart = ncbrt*ncbrt*ncbrt;
     NumPart = ncbrt*ncbrt*ncbrt;
-    N_sph_slots = All.MaxPart/2;
-    N_star_slots = 0;
-    N_bh_slots = 0;
-    /*This is different from MaxPart to make sure we test*/
-    All.MaxPartSph = All.MaxPart/2;
-    All.MaxPartBh = 0;
-    All.MaxPartStar = 0;
+    slots_init();
+    int Npart[6] = {NumPart/2, 0, 0, 0, 0, 0};
+    slots_reserve(Npart);
+    All.MaxPart = ncbrt*ncbrt*ncbrt;
     P = calloc(All.MaxPart, sizeof(struct particle_data));
-    SphP = calloc(All.MaxPart/2,sizeof(struct sph_particle_data));
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
     int i;
@@ -157,10 +134,10 @@ static void exc_sph(void ** state) {
             assert_int_not_equal(P[i].ID/All.MaxPart, ThisTask);
     }
     assert_int_equal(NumPart, All.MaxPart);
-    assert_int_equal(N_sph_slots, All.MaxPart/2);
+    assert_int_equal(SlotsManager->info[4].size, All.MaxPart/2);
 
     free(P);
-    free(SphP);
+    slots_free();
 }
 
 static void exc_garbage(void ** state) {
@@ -168,16 +145,11 @@ static void exc_garbage(void ** state) {
     All.BoxSize = 8;
     int ncbrt = 64;
     All.MaxPart = ncbrt*ncbrt*ncbrt+NTask*2;
+    slots_init();
     NumPart = ncbrt*ncbrt*ncbrt;
-    N_sph_slots = All.MaxPart;
-    N_star_slots = 0;
-    N_bh_slots = 0;
-    /*This is different from MaxPart to make sure we test*/
-    All.MaxPartSph = All.MaxPart;
-    All.MaxPartBh = 0;
-    All.MaxPartStar = 0;
+    int Npart[6] = {All.MaxPart, All.MaxPart, 0, 0, 0, 0};
+    slots_reserve(Npart);
     P = calloc(All.MaxPart, sizeof(struct particle_data));
-    SphP = calloc(All.MaxPart,sizeof(struct sph_particle_data));
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
     int i;
@@ -193,8 +165,8 @@ static void exc_garbage(void ** state) {
         SPHP(i).base.ID = P[i].ID;
     }
     //Mark a particle as garbage*/
-    P[NumPart-1].IsGarbage = 1;
-    P[NumPart-2].IsGarbage = 1;
+    slots_mark_garbage(NumPart-1);
+    slots_mark_garbage(NumPart-2);
 
     do_exchange_test();
     for(i=0; i<NumPart; i++) {
@@ -204,7 +176,7 @@ static void exc_garbage(void ** state) {
         assert_int_equal(P[i].ID , SPHP(i).base.ID);
     }
     free(P);
-    free(SphP);
+    slots_free();
 }
 
 static void allslot_test(int realloc) {
@@ -213,31 +185,12 @@ static void allslot_test(int realloc) {
     int ncbrt = 32;
     All.MaxPart = NTask*ncbrt*ncbrt*ncbrt;
     NumPart = ncbrt*ncbrt*ncbrt;
-    N_sph_slots = 0.6*NumPart+20;
-    N_star_slots = 0.3*NumPart+15;
-    N_bh_slots = NumPart - N_sph_slots - N_star_slots;
-    /*This is different from MaxPart to make sure we test*/
-    if(realloc) {
-        All.MaxPartSph = N_sph_slots;
-        All.MaxPartBh = N_bh_slots;
-        All.MaxPartStar = N_star_slots;
-    }
-    else {
-        All.MaxPartSph = NumPart;
-        All.MaxPartBh = NumPart;
-        All.MaxPartStar = NumPart;
-    }
+    slots_init();
+    int Npart[6] = {0.6*NumPart + 20, 0, 0, 0, 0.3 * NumPart + 15, 0};
+    Npart[5] = NumPart - Npart[0] - Npart[4];
+    slots_reserve(Npart);
     P = calloc(All.MaxPart, sizeof(struct particle_data));
-    size_t bytes = All.MaxPartSph * sizeof(struct sph_particle_data) +
-        All.MaxPartStar * sizeof(struct star_particle_data) + All.MaxPartBh * sizeof(struct bh_particle_data);
-    void * secondary_data = mymalloc("SecondaryP", bytes);
     /*Ordering: SPH, black holes, then stars*/
-    SphP = (struct sph_particle_data *) secondary_data;
-    BhP = (struct bh_particle_data *) (SphP + All.MaxPartSph);
-    StarP = (struct star_particle_data *) (BhP + All.MaxPartBh);
-    memset(SphP, 0, All.MaxPartSph*sizeof(struct sph_particle_data));
-    memset(StarP, 0, All.MaxPartStar*sizeof(struct star_particle_data));
-    memset(BhP, 0, All.MaxPartBh*sizeof(struct bh_particle_data));
     /* Create a regular grid of particles, 8x8x8, all of type 1,
      * in a box 8 kpc across.*/
     int i;
@@ -250,11 +203,11 @@ static void allslot_test(int realloc) {
             P[i].Pos[2] = 0.5*All.BoxSize + (All.BoxSize/NTask) * (((double) (i % ncbrt))/ncbrt);
         else
             P[i].Pos[2] = All.BoxSize * (((double) (i % ncbrt))/ncbrt);
-        if(i < N_sph_slots) {
+        if(i < Npart[0]) {
             P[i].Type = 0;
             P[i].PI = last_sph++;
             SPHP(i).base.ID = P[i].ID;
-        } else if(i >= N_sph_slots && i < N_sph_slots + N_star_slots) {
+        } else if(i >= Npart[0] && i < Npart[0] + Npart[4]) {
             P[i].Type = 4;
             P[i].PI = last_star++;
             STARP(i).base.ID = P[i].ID;
@@ -278,7 +231,7 @@ static void allslot_test(int realloc) {
         }
     }
     free(P);
-    myfree(secondary_data);
+    slots_free();
 }
 
 static void exc_allslot(void ** state) {
