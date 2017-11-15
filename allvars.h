@@ -448,6 +448,7 @@ All;
 extern size_t BlockedParticleDrifts;
 extern size_t TotalParticleDrifts;
 #endif
+
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
  */
@@ -552,6 +553,7 @@ struct bh_particle_data {
     MyFloat accreted_BHMass;
     MyFloat accreted_momentum[3];
 
+    int JumpToMinPot;
     double  MinPotPos[3];
     MyFloat MinPotVel[3];
     MyFloat MinPot;

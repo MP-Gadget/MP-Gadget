@@ -96,27 +96,30 @@ static void real_drift_particle(int i, inttime_t ti1)
     }
 #endif
 
-    for(j = 0; j < 3; j++) {
-        P[i].Pos[j] += P[i].Vel[j] * ddrift;
-    }
-
+    /* Jumping of BH */
     if(P[i].Type == 5) {
         int k;
-
-        for(k = 0; k < 3; k++) {
-            double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k]);
-            if(dx > 0.1 * All.BoxSize) {
-                endrun(1, "Drifting blackhole very far, from %g %g %g to %g %g %g id = %ld. Likely due to the time step is too sparse.\n",
-                    P[i].Pos[0],
-                    P[i].Pos[1],
-                    P[i].Pos[2],
-                    BHP(i).MinPotPos[0],
-                    BHP(i).MinPotPos[1],
-                    BHP(i).MinPotPos[2], P[i].ID);
+        if (BHP(i).JumpToMinPot) {
+            for(k = 0; k < 3; k++) {
+                double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k]);
+                if(dx > 0.1 * All.BoxSize) {
+                    endrun(1, "Drifting blackhole very far, from %g %g %g to %g %g %g id = %ld. Likely due to the time step is too sparse.\n",
+                        P[i].Pos[0],
+                        P[i].Pos[1],
+                        P[i].Pos[2],
+                        BHP(i).MinPotPos[0],
+                        BHP(i).MinPotPos[1],
+                        BHP(i).MinPotPos[2], P[i].ID);
+                }
+                P[i].Pos[k] = BHP(i).MinPotPos[k];
+                P[i].Vel[k] = BHP(i).MinPotVel[k];
             }
-            P[i].Pos[k] = BHP(i).MinPotPos[k];
-            P[i].Vel[k] = BHP(i).MinPotVel[k];
         }
+        BHP(i).JumpToMinPot = 0;
+    }
+
+    for(j = 0; j < 3; j++) {
+        P[i].Pos[j] += P[i].Vel[j] * ddrift;
     }
 
 #ifdef LIGHTCONE
