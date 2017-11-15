@@ -327,6 +327,7 @@ domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * pla
     {
         if(package >= nlimit) {insuf = 1; break; }
         if(!P[n].OnAnotherDomain) continue;
+        if(P[n].IsGarbage) continue;
 
         int target = layoutfunc(n);
         if (target == ThisTask) continue;
