@@ -18,6 +18,7 @@
 #include "forcetree.h"
 #include "blackhole.h"
 #include "sfr_eff.h"
+#include "slotsmanager.h"
 #include "fof.h"
 
 /*! \file run.c
@@ -184,6 +185,12 @@ void run(void)
 
         if(WriteSnapshot || WriteFOF) {
             int snapnum = All.SnapshotFileCount++;
+
+            /* the accel may have created garbage -- collect them before checkpointing! */
+            force_tree_free();
+            slots_gc();
+            force_tree_rebuild();
+
             if(WriteSnapshot)
             {
                 /* Save snapshot and fof. */
