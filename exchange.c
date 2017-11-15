@@ -91,6 +91,8 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     {
         exchange_limit = FreeBytes - NTask * (24 * sizeof(int) + 16 * sizeof(MPI_Request));
 
+        message(0, "Using %td bytes for exchange.\n", exchange_limit);
+
         if(exchange_limit <= 0)
         {
             endrun(1, "exchange_limit=%d < 0\n", (int) exchange_limit);
@@ -99,6 +101,7 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
         /* determine for each rank how many particles have to be shifted to other ranks */
         ret = domain_build_plan(exchange_limit, layoutfunc, &plan);
         walltime_measure("/Domain/exchange/togo");
+
         if(ret && failfast) {
             failure = 1;
             break;
@@ -109,6 +112,7 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
         failure = domain_exchange_once(layoutfunc, &plan);
+        message(0, "Exchange once: %d\n", failure);
         if(failure)
             break;
         iter++;
@@ -364,5 +368,59 @@ domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * pla
     }
 
     return MPIU_Any(insuf, MPI_COMM_WORLD);;
+}
+
+/* used only by test uniqueness */
+static void
+mp_order_by_id(const void * data, void * radix, void * arg) {
+    ((uint64_t *) radix)[0] = ((MyIDType*) data)[0];
+}
+
+void
+domain_test_id_uniqueness(void)
+{
+    int i;
+    double t0, t1;
+    MyIDType *ids, *ids_first;
+
+    message(0, "Testing ID uniqueness...\n");
+
+    if(NumPart == 0)
+    {
+        endrun(8, "need at least one particle per cpu\n");
+    }
+
+    t0 = second();
+
+    ids = (MyIDType *) mymalloc("ids", NumPart * sizeof(MyIDType));
+    ids_first = (MyIDType *) mymalloc("ids_first", NTask * sizeof(MyIDType));
+
+    for(i = 0; i < NumPart; i++)
+        ids[i] = P[i].ID;
+
+    mpsort_mpi(ids, NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
+
+    for(i = 1; i < NumPart; i++)
+        if(ids[i] == ids[i - 1])
+        {
+            endrun(12, "non-unique ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
+                    ids[i], ThisTask, i, NumPart);
+
+        }
+
+    MPI_Allgather(&ids[0], sizeof(MyIDType), MPI_BYTE, ids_first, sizeof(MyIDType), MPI_BYTE, MPI_COMM_WORLD);
+
+    if(ThisTask < NTask - 1)
+        if(ids[NumPart - 1] == ids_first[ThisTask + 1])
+        {
+            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[NumPart - 1], ThisTask);
+        }
+
+    myfree(ids_first);
+    myfree(ids);
+
+    t1 = second();
+
+    message(0, "success.  took=%g sec\n", timediff(t0, t1));
 }
 
