@@ -368,7 +368,7 @@ void petaio_read_internal(char * fname, int ic) {
     slots_reserve(newSlots);
 
     /* initialize particle types */
-    int offset;
+    int offset = 0;
     for(ptype = 0; ptype < 6; ptype ++) {
         for(i = 0; i < NLocal[ptype]; i++)
         {
