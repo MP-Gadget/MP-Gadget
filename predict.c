@@ -172,9 +172,6 @@ static void real_drift_particle(int i, int time1)
     }
 #endif
 
-    for(j = 0; j < 3; j++) {
-        P[i].Pos[j] += P[i].Vel[j] * dt_drift;
-    }
     if(P[i].Type == 5) {
         int k;
 
@@ -195,6 +192,10 @@ static void real_drift_particle(int i, int time1)
             }
             BHP(i).JumpToMinPot = 0;
         }
+    }
+
+    for(j = 0; j < 3; j++) {
+        P[i].Pos[j] += P[i].Vel[j] * dt_drift;
     }
 
 #ifdef LIGHTCONE
