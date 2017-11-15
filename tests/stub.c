@@ -48,5 +48,9 @@ void myfree_fullinfo(void * ptr, const char *func, const char *file, int line)
     free(ptr);
 }
 
+double walltime_measure_full(char * name, char * file, int line) {
+    return MPI_Wtime();
+}
+
 /*End dummies*/
 

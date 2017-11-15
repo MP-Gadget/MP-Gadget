@@ -53,10 +53,6 @@ domain_get_topleaf(const peano_t key) {
 
 void savepositions(int n, int i){}
 
-double walltime_measure_full(char * name, char * file, int line)
-{
-    return 0;
-}
 /*End dummies*/
 
 static int
