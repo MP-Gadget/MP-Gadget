@@ -27,6 +27,68 @@ struct particle_data *P;
 struct global_data_all_processes All;
 int NumPart;
 /*Dummy*/
+static int
+order_by_id(const void *a, const void *b)
+{
+    const MyIDType * pa  = (const MyIDType *) a;
+    const MyIDType * pb  = (const MyIDType *) b;
+    if(*pa == *pb)
+        return 0;
+    if(*pa < *pb)
+        return -1;
+
+    if(*pa > *pb)
+        return +1;
+}
+
+void
+domain_test_id_uniqueness(void)
+{
+    int i;
+    double t0, t1;
+    MyIDType *ids, *ids_first;
+
+    message(0, "Testing ID uniqueness...\n");
+
+    if(NumPart == 0)
+    {
+        endrun(8, "need at least one particle per cpu\n");
+    }
+
+    t0 = second();
+
+    ids = (MyIDType *) mymalloc("ids", NumPart * sizeof(MyIDType));
+    ids_first = (MyIDType *) mymalloc("ids_first", NTask * sizeof(MyIDType));
+
+    for(i = 0; i < NumPart; i++)
+        ids[i] = P[i].ID;
+
+    qsort(ids, NumPart, sizeof(MyIDType), order_by_id);
+
+    for(i = 1; i < NumPart; i++)
+        if(ids[i] == ids[i - 1])
+        {
+            endrun(12, "non-unique ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
+                    ids[i], ThisTask, i, NumPart);
+
+        }
+
+    MPI_Allgather(&ids[0], sizeof(MyIDType), MPI_BYTE, ids_first, sizeof(MyIDType), MPI_BYTE, MPI_COMM_WORLD);
+
+    if(ThisTask < NTask - 1)
+        if(ids[NumPart - 1] == ids_first[ThisTask + 1])
+        {
+            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[NumPart - 1], ThisTask);
+        }
+
+    myfree(ids_first);
+    myfree(ids);
+
+    t1 = second();
+
+    message(0, "success.  took=%g sec\n", timediff(t0, t1));
+}
+
 double walltime_measure_full(char * name, char * file, int line) {
     return MPI_Wtime();
 }
