@@ -565,6 +565,7 @@ SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
 SIMPLE_PROPERTY(BlackholeMinPotPos, BHP(i).MinPotPos[0], double, 3)
 SIMPLE_PROPERTY(BlackholeMinPotVel, BHP(i).MinPotVel[0], float, 3)
+SIMPLE_PROPERTY(BlackholeJumpToMinPot, BHP(i).JumpToMinPot, int, 1)
 #endif
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
@@ -651,6 +652,7 @@ static void register_io_blocks() {
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
     IO_REG(BlackholeMinPotPos, "f8", 3, 5);
     IO_REG(BlackholeMinPotVel,   "f4", 3, 5);
+    IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5);
 #endif
     if(All.SnapshotWithFOF)
         fof_register_io_blocks();

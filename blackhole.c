@@ -655,6 +655,8 @@ static void blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * re
     TREEWALK_REDUCE(BHP(place).SurroundingGasVel[0], remote->GasVel[0]);
     TREEWALK_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
     TREEWALK_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
+
+    BHP(place).JumpToMinPot = 1;
 }
 
 static void blackhole_accretion_copy(int place, TreeWalkQueryBHAccretion * I) {
