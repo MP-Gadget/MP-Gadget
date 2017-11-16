@@ -189,6 +189,7 @@ test_exchange_uneven(void **state)
     assert_false(fail);
 
     if(ThisTask == 0) {
+        /* the slot type must have grown automatically to handle the new particles. */
         assert_int_equal(SlotsManager->info[0].size, NUMPART1 * NTask);
     }
 
