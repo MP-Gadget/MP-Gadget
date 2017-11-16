@@ -28,6 +28,8 @@
 #include <string.h>
 #include <time.h>
 
+#include "endrun.h"
+
 /*
  * This allows to add a platform specific header file. Some embedded platforms
  * sometimes miss certain types and definitions.
@@ -2072,7 +2074,7 @@ void cm_print_error(const char * const format, ...)
 void vprint_message(const char* const format, va_list args) {
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), format, args);
-    printf("%s", buffer);
+    message(0, "%s", buffer);
     fflush(stdout);
 #ifdef _WIN32
     OutputDebugString(buffer);
@@ -2083,8 +2085,7 @@ void vprint_message(const char* const format, va_list args) {
 void vprint_error(const char* const format, va_list args) {
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), format, args);
-    fprintf(stderr, "%s", buffer);
-    fflush(stderr);
+    message(0, "%s", buffer);
 #ifdef _WIN32
     OutputDebugString(buffer);
 #endif /* _WIN32 */

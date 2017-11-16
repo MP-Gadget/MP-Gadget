@@ -100,14 +100,16 @@ test_exchange(void **state)
 
     int fail = domain_exchange(&test_exchange_layout_func, 1);
 
-    assert_false(fail);
+    assert_all_true(!fail);
 
     slots_check_id_consistency();
     domain_test_id_uniqueness();
 
+    int bad = 0;
     for(i = 0; i < NumPart; i ++) {
-        assert_true(P[i].ID % NTask == ThisTask);
+        bad |= (P[i].ID % NTask != ThisTask);
     }
+    assert_all_true(!bad);
 
     teardown_particles(state);
     return;
@@ -124,14 +126,16 @@ test_exchange_zero_slots(void **state)
 
     int fail = domain_exchange(&test_exchange_layout_func, 1);
 
-    assert_false(fail);
+    assert_all_true(!fail);
 
     slots_check_id_consistency();
     domain_test_id_uniqueness();
 
+    int bad = 0;
     for(i = 0; i < NumPart; i ++) {
-        assert_true(P[i].ID % NTask == ThisTask);
+        bad |= (P[i].ID % NTask != ThisTask);
     }
+    assert_all_true(!bad);
 
     teardown_particles(state);
     return;
@@ -150,18 +154,22 @@ test_exchange_with_garbage(void **state)
 
     int fail = domain_exchange(&test_exchange_layout_func, 1);
 
-    assert_false(fail);
+    assert_all_true(!fail);
 
     domain_test_id_uniqueness();
     slots_check_id_consistency();
 
+    int bad = 0;
     for(i = 0; i < NumPart; i ++) {
-        assert_true(P[i].ID % NTask == ThisTask);
+        bad |= (P[i].ID % NTask != ThisTask);
     }
+    assert_all_true(!bad);
 
+    bad = 0;
     for(i = 0; i < NumPart; i ++) {
-        assert_true(P[i].IsGarbage == 0);
+        bad |= (P[i].IsGarbage != 0);
     }
+    assert_all_true(!bad);
 
     teardown_particles(state);
     return;
@@ -186,23 +194,29 @@ test_exchange_uneven(void **state)
     /* this will trigger a slot growth on slot type 0 due to the inbalance */
     int fail = domain_exchange(&test_exchange_layout_func_uneven, 1);
 
-    assert_false(fail);
+    assert_all_true(!fail);
 
+    int bad;
+    bad = 0;
     if(ThisTask == 0) {
         /* the slot type must have grown automatically to handle the new particles. */
-        assert_int_equal(SlotsManager->info[0].size, NUMPART1 * NTask);
+        bad |= (SlotsManager->info[0].size != NUMPART1 * NTask);
     }
+
+    assert_all_true(!bad);
 
     slots_check_id_consistency();
     domain_test_id_uniqueness();
 
+    bad = 0;
     for(i = 0; i < NumPart; i ++) {
         if(P[i].Type == 0) {
-            assert_true(ThisTask == 0);
+            bad |= (ThisTask != 0);
         } else {
-            assert_true(P[i].ID % NTask == ThisTask);
+            bad |= (P[i].ID % NTask != ThisTask);
         }
     }
+    assert_all_true(!bad);
 
     teardown_particles(state);
     return;
