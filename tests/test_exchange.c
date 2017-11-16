@@ -105,11 +105,9 @@ test_exchange(void **state)
     slots_check_id_consistency();
     domain_test_id_uniqueness();
 
-    int bad = 0;
     for(i = 0; i < NumPart; i ++) {
-        bad |= (P[i].ID % NTask != ThisTask);
+        assert_true(P[i].ID % NTask == ThisTask);
     }
-    assert_all_true(!bad);
 
     teardown_particles(state);
     return;
@@ -131,11 +129,9 @@ test_exchange_zero_slots(void **state)
     slots_check_id_consistency();
     domain_test_id_uniqueness();
 
-    int bad = 0;
     for(i = 0; i < NumPart; i ++) {
-        bad |= (P[i].ID % NTask != ThisTask);
+        assert_true (P[i].ID % NTask == ThisTask);
     }
-    assert_all_true(!bad);
 
     teardown_particles(state);
     return;
@@ -159,17 +155,13 @@ test_exchange_with_garbage(void **state)
     domain_test_id_uniqueness();
     slots_check_id_consistency();
 
-    int bad = 0;
     for(i = 0; i < NumPart; i ++) {
-        bad |= (P[i].ID % NTask != ThisTask);
+        assert_true (P[i].ID % NTask == ThisTask);
     }
-    assert_all_true(!bad);
 
-    bad = 0;
     for(i = 0; i < NumPart; i ++) {
-        bad |= (P[i].IsGarbage != 0);
+        assert_true (P[i].IsGarbage == 0);
     }
-    assert_all_true(!bad);
 
     teardown_particles(state);
     return;
@@ -196,27 +188,21 @@ test_exchange_uneven(void **state)
 
     assert_all_true(!fail);
 
-    int bad;
-    bad = 0;
     if(ThisTask == 0) {
         /* the slot type must have grown automatically to handle the new particles. */
-        bad |= (SlotsManager->info[0].size != NUMPART1 * NTask);
+        assert_int_equal(SlotsManager->info[0].size, NUMPART1 * NTask);
     }
-
-    assert_all_true(!bad);
 
     slots_check_id_consistency();
     domain_test_id_uniqueness();
 
-    bad = 0;
     for(i = 0; i < NumPart; i ++) {
         if(P[i].Type == 0) {
-            bad |= (ThisTask != 0);
+            assert_true (ThisTask == 0);
         } else {
-            bad |= (P[i].ID % NTask != ThisTask);
+            assert_true(P[i].ID % NTask == ThisTask);
         }
     }
-    assert_all_true(!bad);
 
     teardown_particles(state);
     return;
