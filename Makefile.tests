@@ -35,9 +35,6 @@ MPISUITE = $(MPI_TESTED:%=tests/test_%)
 .PHONY: test run-tests build-tests
 
 
-depends/lib/libcmocka.a:
-	cd depends; make lib/libcmocka.a
-
 build-tests: $(TESTBIN)
 
 test : build-tests
@@ -56,8 +53,8 @@ clean-tests:
 $(TESTBIN):
 
 TESTOBJS=$(DESTDIR)/endrun.o $(DESTDIR)/memory.o $(DESTDIR)/mymalloc.o $(DESTDIR)/system.o $(DESTDIR)/event.o $(DESTDIR)/openmpsort.o
-tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(TESTOBJS) depends/lib/libcmocka.a
-	$(MPICC) $(CFLAGS) $^ $(LIBS) -o $@
+tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(TESTOBJS) tests/cmocka.c
+	$(MPICC) $(CFLAGS) -Itests/ $^ $(LIBS) -o $@
 
-tests/test_genic-%: tests/test_genic-%.c tests/stub.c $(DESTDIR)/genic/%.o $(DESTDIR)/endrun.o $(DESTDIR)/memory.o $(DESTDIR)/mymalloc.o $(DESTDIR)/system.o depends/lib/libcmocka.a
-	$(MPICC) $(CFLAGS) $^ $(LIBS) -o $@
+tests/test_genic-%: tests/test_genic-%.c tests/stub.c $(DESTDIR)/genic/%.o $(DESTDIR)/endrun.o $(DESTDIR)/memory.o $(DESTDIR)/mymalloc.o $(DESTDIR)/system.o tests/cmocka.c
+	$(MPICC) $(CFLAGS) -Itests/ $^ $(LIBS) -o $@

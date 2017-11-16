@@ -23,17 +23,8 @@ lib/libpfft_omp.a:
 	MPICC="$(MPICC)" CC="$(MPICC)" CFLAGS="$(filter-out -ipo,$(OPTIMIZE)) -I $(PWD)/include -L$(PWD)/lib" \
         sh $(PWD)/install_pfft.sh $(PWD)/
 
-# cmocka.a is separate because we don't want missing cmake to kill MP-Gadget build.
-
-lib/libcmocka.a:
-	mkdir -p cmocka-build; cd cmocka-build; \
-	cmake -DCMAKE_INSTALL_PREFIX=$(PWD) -DCMAKE_BUILD_TYPE=Debug -DWITH_STATIC_LIB=On ../cmocka; \
-	make install
-	# remove the so files
-	rm -f lib/libcmocka.so*
-
 clean:
-	rm -rf $(LIBRARIES) lib/libcmocka.a
+	rm -rf $(LIBRARIES)
 	cd bigfile/src; make clean
 	cd mpsort; make clean
 
