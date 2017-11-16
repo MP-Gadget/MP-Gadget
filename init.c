@@ -13,6 +13,7 @@
 #include "petaio.h"
 #include "domain.h"
 #include "slotsmanager.h"
+#include "exchange.h"
 #include "mpsort.h"
 #include "mymalloc.h"
 #include "fof.h"
