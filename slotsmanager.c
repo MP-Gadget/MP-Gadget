@@ -183,10 +183,10 @@ slots_gc_mark()
         /* two consistency checks.*/
 #ifdef DEBUG
         if(P[i].IsGarbage && !BASESLOT(i)->IsGarbage) {
-            endrun(1, "IsGarbage flag inconsistent between base and secondary\n");
+            endrun(1, "IsGarbage flag inconsistent between base and secondary: P[%d].Type=%d\n", i, P[i].Type);
         }
         if(!P[i].IsGarbage && BASESLOT(i)->IsGarbage) {
-            endrun(1, "IsGarbage flag inconsistent between base and secondary\n");
+            endrun(1, "IsGarbage flag inconsistent between secondary and base: P[%d].Type=%d\n", i, P[i].Type);
         }
 #endif
     }
@@ -479,5 +479,6 @@ slots_setup_id()
     {
         if(!SLOTS_ENABLED(P[i].Type)) continue;
         BASESLOT(i)->ID = P[i].ID;
+        BASESLOT(i)->IsGarbage = P[i].IsGarbage;
     }
 }
