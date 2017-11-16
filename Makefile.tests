@@ -52,9 +52,8 @@ clean-tests:
 # this empty rule is important for tab-completion
 $(TESTBIN):
 
-TESTOBJS=$(DESTDIR)/endrun.o $(DESTDIR)/memory.o $(DESTDIR)/mymalloc.o $(DESTDIR)/system.o $(DESTDIR)/event.o $(DESTDIR)/openmpsort.o
-tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(TESTOBJS) tests/cmocka.c
+tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(DESTDIR)/libgadget-utils.a tests/cmocka.c
 	$(MPICC) $(CFLAGS) -Itests/ $^ $(LIBS) -o $@
 
-tests/test_genic-%: tests/test_genic-%.c tests/stub.c $(DESTDIR)/genic/%.o $(DESTDIR)/endrun.o $(DESTDIR)/memory.o $(DESTDIR)/mymalloc.o $(DESTDIR)/system.o tests/cmocka.c
+tests/test_genic-%: tests/test_genic-%.c tests/stub.c $(DESTDIR)/genic/%.o $(DESTDIR)/libgadget-utils.a tests/cmocka.c
 	$(MPICC) $(CFLAGS) -Itests/ $^ $(LIBS) -o $@
