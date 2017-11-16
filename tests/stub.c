@@ -23,6 +23,9 @@ _cmocka_run_group_tests_mpi(const char * name, const struct CMUnitTest tests[], 
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
 
+    if(NTask != 1) {
+        setenv("CMOCKA_TEST_ABORT", "1", 1);
+    }
     /* allocate some memory for MAIN and TEMP */
 
     allocator_init(A_MAIN, "MAIN", 256 * 1024 * 1024, 1, NULL);

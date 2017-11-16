@@ -2085,7 +2085,7 @@ void vprint_message(const char* const format, va_list args) {
 void vprint_error(const char* const format, va_list args) {
     char buffer[1024];
     vsnprintf(buffer, sizeof(buffer), format, args);
-    message(0, "%s", buffer);
+    message(1, "%s", buffer);
 #ifdef _WIN32
     OutputDebugString(buffer);
 #endif /* _WIN32 */
