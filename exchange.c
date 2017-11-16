@@ -112,7 +112,7 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
         failure = domain_exchange_once(layoutfunc, &plan);
-        message(0, "Exchange once: %d\n", failure);
+
         if(failure)
             break;
         iter++;
@@ -197,7 +197,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     slots_gc();
     walltime_measure("/Domain/exchange/garbage");
-
 
     int newNumPart;
     int newSlots[6];

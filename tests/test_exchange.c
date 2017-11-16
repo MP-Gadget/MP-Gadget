@@ -31,6 +31,7 @@ int TotNumPart;
 static int
 setup_particles(int NType[6])
 {
+    MPI_Barrier(MPI_COMM_WORLD);
     All.MaxPart = 1024;
     int ptype;
     NumPart = 0;
@@ -77,6 +78,7 @@ teardown_particles(void **state)
 
     slots_free();
     myfree(P);
+    MPI_Barrier(MPI_COMM_WORLD);
     return 0;
 }
 
@@ -168,7 +170,7 @@ test_exchange_with_garbage(void **state)
 static int
 test_exchange_layout_func_uneven(int i)
 {
-    if(P[i].Type == 0) return P[i].ID % (NTask / 2);
+    if(P[i].Type == 0) return 0;
 
     return P[i].ID % NTask;
 }
@@ -210,7 +212,7 @@ int main(void) {
         cmocka_unit_test(test_exchange_with_garbage),
         cmocka_unit_test(test_exchange),
         cmocka_unit_test(test_exchange_zero_slots),
-//        cmocka_unit_test(test_exchange_uneven),
+        cmocka_unit_test(test_exchange_uneven),
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }

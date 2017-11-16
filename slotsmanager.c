@@ -441,12 +441,17 @@ slots_check_id_consistency()
         }
         used[P[i].Type] ++;
     }
+    int64_t NTotal[6];
+
+    sumup_large_ints(6, used, NTotal);
     int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
-        if(used[ptype] > 0) {
-            message(0, "GC: Used slots for type %d is %d\n", ptype, used[ptype]);
+        if(NTotal[ptype] > 0) {
+            /* Watch out: we print per rank here, but the condition must be global*/
+            message(0, "GC: Used slots for type %d is %ld\n", ptype, used[ptype]);
         }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
 }
 
 /* this function needs the Type of P[i] to be setup */
