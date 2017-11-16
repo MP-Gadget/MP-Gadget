@@ -14,6 +14,7 @@
 #define qsort_openmp qsort
 
 #include "exchange.h"
+#include "domain.h"
 #include "slotsmanager.h"
 #include "allvars.h"
 /*Note this includes the garbage collection!
@@ -98,7 +99,7 @@ test_exchange(void **state)
 
     int i;
 
-    int fail = domain_exchange(&test_exchange_layout_func, 1);
+    int fail = domain_exchange(&test_exchange_layout_func);
 
     assert_all_true(!fail);
 
@@ -122,7 +123,7 @@ test_exchange_zero_slots(void **state)
 
     int i;
 
-    int fail = domain_exchange(&test_exchange_layout_func, 1);
+    int fail = domain_exchange(&test_exchange_layout_func);
 
     assert_all_true(!fail);
 
@@ -148,7 +149,7 @@ test_exchange_with_garbage(void **state)
     slots_mark_garbage(0); /* watch out! this propogates the garbage flag to children */
     TotNumPart -= NTask;
 
-    int fail = domain_exchange(&test_exchange_layout_func, 1);
+    int fail = domain_exchange(&test_exchange_layout_func);
 
     assert_all_true(!fail);
 
@@ -184,7 +185,7 @@ test_exchange_uneven(void **state)
     int i;
 
     /* this will trigger a slot growth on slot type 0 due to the inbalance */
-    int fail = domain_exchange(&test_exchange_layout_func_uneven, 1);
+    int fail = domain_exchange(&test_exchange_layout_func_uneven);
 
     assert_all_true(!fail);
 

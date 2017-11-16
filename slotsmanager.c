@@ -190,6 +190,7 @@ slots_gc_mark()
         }
 #endif
     }
+    return 0;
 }
 
 /* sweep removed unused elements. */

@@ -31,7 +31,7 @@ typedef struct {
  * layoutfunc gives the target task of particle p.
 */
 static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan);
-static int domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * plan);
+static int domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan);
 
 /* This function builts the count/displ arrays from
  * the rows stored in the entry struct of the plan.
@@ -52,7 +52,7 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype)
         }
     }
 }
-int domain_exchange(int (*layoutfunc)(int p), int failfast) {
+int domain_exchange(int (*layoutfunc)(int p)) {
     int i;
     int64_t sumtogo;
     int failure = 0;
@@ -86,27 +86,12 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     walltime_measure("/Domain/exchange/init");
 
     int iter = 0, ret;
-    ptrdiff_t exchange_limit;
 
     do
     {
-        exchange_limit = FreeBytes - NTask * (24 * sizeof(int) + 16 * sizeof(MPI_Request));
-
-        message(0, "Using %td bytes for exchange.\n", exchange_limit);
-
-        if(exchange_limit <= 0)
-        {
-            endrun(1, "exchange_limit=%d < 0\n", (int) exchange_limit);
-        }
-
         /* determine for each rank how many particles have to be shifted to other ranks */
-        ret = domain_build_plan(exchange_limit, layoutfunc, &plan);
+        ret = domain_build_plan(layoutfunc, &plan);
         walltime_measure("/Domain/exchange/togo");
-
-        if(ret && failfast) {
-            failure = 1;
-            break;
-        }
 
         sumup_large_ints(1, &plan.toGoSum.base, &sumtogo);
 
@@ -307,13 +292,16 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 
 /*This function populates the toGo and toGet arrays*/
 static int
-domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * plan)
+domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
 {
     int n;
     size_t package;
     int ptype;
+    ptrdiff_t nlimit = FreeBytes - NTask * (24 * sizeof(int) + 16 * sizeof(MPI_Request));
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
+
+    message(0, "Using %td bytes for exchange.\n", nlimit);
 
     package = sizeof(P[0]);
     for(ptype = 0; ptype < 6; ptype ++ ) {
@@ -325,7 +313,11 @@ domain_build_plan(ptrdiff_t nlimit, int (*layoutfunc)(int p), ExchangePlan * pla
     int insuf = 0;
     for(n = 0; n < NumPart; n++)
     {
-        if(package >= nlimit) {insuf = 1; break; }
+        if(package >= nlimit) {
+            message(1,"Not enough space for particles: n=%d, nlimit=%d, package=%d\n",n,nlimit,package);
+            insuf = 1;
+            break;
+        }
         if(!P[n].OnAnotherDomain) continue;
         if(P[n].IsGarbage) continue;
 
