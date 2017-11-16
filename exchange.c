@@ -297,7 +297,7 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
     int n;
     size_t package;
     int ptype;
-    ptrdiff_t nlimit = FreeBytes - NTask * (24 * sizeof(int) + 16 * sizeof(MPI_Request));
+    ptrdiff_t nlimit = FreeBytes - NTask * 2 * sizeof(MPI_Request);
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
 
