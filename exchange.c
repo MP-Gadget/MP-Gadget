@@ -1,5 +1,6 @@
 #include <mpi.h>
 #include <string.h>
+#include "mpsort.h"
 /* #include "domain.h" */
 #include "mymalloc.h"
 #include "allvars.h"
@@ -133,12 +134,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     struct particle_data *partBuf;
     char * slotBuf[6];
 
-    ExchangePlanEntry * toGoPtr = ta_malloc("toGoPtr", ExchangePlanEntry, NTask);
-    ExchangePlanEntry * toGetPtr = ta_malloc("toGetPtr", ExchangePlanEntry, NTask);
-
-    memset(toGoPtr, 0, sizeof(toGoPtr[0]) * NTask);
-    memset(toGetPtr, 0, sizeof(toGetPtr[0]) * NTask);
-
     int bad_exh=0;
 
     /*Check whether the domain exchange will succeed. If not, bail*/
@@ -151,8 +146,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     MPI_Allreduce(MPI_IN_PLACE, &bad_exh, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 
     if(bad_exh) {
-        ta_free(toGetPtr);
-        ta_free(toGoPtr);
         return bad_exh;
     }
 
@@ -161,6 +154,9 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     for(ptype = 0; ptype < 6; ptype++) {
         slotBuf[ptype] = mymalloc2("SlotBuf", plan->toGoSum.slots[ptype] * SlotsManager->info[ptype].elsize);
     }
+
+    ExchangePlanEntry * toGoPtr = ta_malloc("toGoPtr", ExchangePlanEntry, NTask);
+    memset(toGoPtr, 0, sizeof(toGoPtr[0]) * NTask);
 
     /*FIXME: make this omp ! */
     for(i = 0; i < NumPart; i++)
@@ -189,6 +185,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         slots_mark_garbage(i);
     }
 
+    ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
 
     /* now remove the garbage particles because they have already been copied.
