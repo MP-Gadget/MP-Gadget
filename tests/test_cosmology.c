@@ -33,7 +33,7 @@ void setup_cosmology(Cosmology * CP, double Omega0, double OmegaBaryon, double H
     CP->OmegaBaryon = OmegaBaryon;
     CP->HubbleParam = H0;
     CP->RadiationOn = 1;
-
+    CP->Omega_fld = 0;
     /*Default value for L=kpc v=km/s*/
     double UnitTime_in_s = 3.08568e+16;
     /*Should be 0.1*/
