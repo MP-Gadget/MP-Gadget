@@ -85,12 +85,12 @@ int domain_exchange(int (*layoutfunc)(int p)) {
 
     walltime_measure("/Domain/exchange/init");
 
-    int iter = 0, ret;
+    int iter = 0, need_more;
 
     do
     {
         /* determine for each rank how many particles have to be shifted to other ranks */
-        ret = domain_build_plan(layoutfunc, &plan);
+        need_more = domain_build_plan(layoutfunc, &plan);
         walltime_measure("/Domain/exchange/togo");
 
         sumup_large_ints(1, &plan.toGoSum.base, &sumtogo);
@@ -103,7 +103,7 @@ int domain_exchange(int (*layoutfunc)(int p)) {
             break;
         iter++;
     }
-    while(ret > 0);
+    while(need_more > 0);
 
     myfree(plan.toGetOffset);
     myfree(plan.toGet);
