@@ -172,7 +172,7 @@ void domain_decompose_full(void)
     myfree(TopTreeTempMemory);
     TopTreeTempMemory = NULL;
 
-    if(domain_exchange(domain_layoutfunc, 0))
+    if(domain_exchange(domain_layoutfunc))
         endrun(1929,"Could not exchange particles\n");
 
     t1 = second();
@@ -209,7 +209,7 @@ void domain_maintain(void)
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
-    if(0 != domain_exchange(domain_layoutfunc, 1)) {
+    if(0 != domain_exchange(domain_layoutfunc)) {
         domain_decompose_full();
         return;
     }
@@ -1373,60 +1373,6 @@ domain_toptree_merge(struct local_topnode_data *treeA,
             }
         }
     }
-}
-
-/* used only by test uniqueness */
-static void
-mp_order_by_id(const void * data, void * radix, void * arg) {
-    ((uint64_t *) radix)[0] = ((MyIDType*) data)[0];
-}
-
-void
-domain_test_id_uniqueness(void)
-{
-    int i;
-    double t0, t1;
-    MyIDType *ids, *ids_first;
-
-    message(0, "Testing ID uniqueness...\n");
-
-    if(NumPart == 0)
-    {
-        endrun(8, "need at least one particle per cpu\n");
-    }
-
-    t0 = second();
-
-    ids = (MyIDType *) mymalloc("ids", NumPart * sizeof(MyIDType));
-    ids_first = (MyIDType *) mymalloc("ids_first", NTask * sizeof(MyIDType));
-
-    for(i = 0; i < NumPart; i++)
-        ids[i] = P[i].ID;
-
-    mpsort_mpi(ids, NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
-
-    for(i = 1; i < NumPart; i++)
-        if(ids[i] == ids[i - 1])
-        {
-            endrun(12, "non-unique ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
-                    ids[i], ThisTask, i, NumPart);
-
-        }
-
-    MPI_Allgather(&ids[0], sizeof(MyIDType), MPI_BYTE, ids_first, sizeof(MyIDType), MPI_BYTE, MPI_COMM_WORLD);
-
-    if(ThisTask < NTask - 1)
-        if(ids[NumPart - 1] == ids_first[ThisTask + 1])
-        {
-            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[NumPart - 1], ThisTask);
-        }
-
-    myfree(ids_first);
-    myfree(ids);
-
-    t1 = second();
-
-    message(0, "success.  took=%g sec\n", timediff(t0, t1));
 }
 
 static int

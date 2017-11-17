@@ -45,6 +45,14 @@ char * GDB_particle_by_timebin(int bin) {
     return buf;
 }
 
+int GDB_find_garbage(int from) {
+    int i;
+    for(i = from; i < NumPart; i++) {
+        if(P[i].IsGarbage) return i;
+    }
+    return -1;
+}
+
 char * GDB_format_particle(int i) {
     static char buf[4096];
     char * p = buf;

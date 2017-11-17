@@ -323,7 +323,7 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
 
 #ifndef NO_ISEND_IRECV_IN_DOMAIN
     int n_requests;
-    MPI_Request requests[NTask * 2];
+    MPI_Request *requests = mymalloc("requests", NTask * 2 * sizeof(MPI_Request));
     n_requests = 0;
 
 
@@ -357,7 +357,7 @@ int MPI_Alltoallv_sparse(void *sendbuf, int *sendcnts, int *sdispls,
     }
 
     MPI_Waitall(n_requests, requests, MPI_STATUSES_IGNORE);
-
+    myfree(requests);
 #else
     for(ngrp = 0; ngrp < (1 << PTask); ngrp++)
     {

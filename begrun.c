@@ -16,6 +16,7 @@
 #include "sfr_eff.h"
 #include "cosmology.h"
 #include "cooling.h"
+#include "slotsmanager.h"
 #include "petaio.h"
 #include "mymalloc.h"
 #include "endrun.h"
@@ -46,6 +47,8 @@ extern _transfer_init_table transfer_init;
  */
 void begrun(int RestartSnapNum)
 {
+
+    slots_init();
 
     petaio_init();
     walltime_init(&All.CT);

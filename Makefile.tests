@@ -14,6 +14,7 @@
 #
 ##
 TESTED = \
+	slotsmanager \
 	interp \
 	powerspectrum \
 	cosmology \
@@ -22,21 +23,28 @@ TESTED = \
 	timebinmgr \
 	memory \
 	openmpsort \
-	genic-power
+	genic-power \
+	exchange
 
-TESTBIN = $(TESTED:%=tests/test_%)
-SUITE?= $(TESTBIN)
+MPI_TESTED = exchange
+
+TESTBIN = $(TESTED:%=tests/test_%) $(MPI_TESTED:%=tests/test_%)
+SUITE?= $(TESTED:%=tests/test_%)
+MPISUITE = $(MPI_TESTED:%=tests/test_%)
 
 .PHONY: test run-tests build-tests
 
 
-depends/lib/libcmocka.a:
-	cd depends; make lib/libcmocka.a
-
 build-tests: $(TESTBIN)
 
 test : build-tests
-	trap 'err=1' ERR; for tt in $(SUITE) ; do $$tt ; done; exit $$err
+	trap 'err=1' ERR; for tt in $(SUITE) ; do \
+		if [[ "$(MPISUITE)" =~ .*$$tt.* ]]; then \
+			mpirun -np 4 $$tt ;  \
+		else \
+			$$tt ; \
+		fi ;  \
+	done; exit $$err
 
 clean-tests:
 	rm -f $(TESTBIN)
@@ -44,8 +52,8 @@ clean-tests:
 # this empty rule is important for tab-completion
 $(TESTBIN):
 
-tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(DESTDIR)/endrun.o $(DESTDIR)/memory.o $(DESTDIR)/mymalloc.o $(DESTDIR)/system.o depends/lib/libcmocka.a
-	$(MPICC) $(CFLAGS) $^ $(LIBS) -o $@
+tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(DESTDIR)/libgadget-utils.a tests/cmocka.c
+	$(MPICC) $(CFLAGS) -Itests/ $^ $(LIBS) -o $@
 
-tests/test_genic-%: tests/test_genic-%.c tests/stub.c $(DESTDIR)/genic/%.o $(DESTDIR)/endrun.o $(DESTDIR)/memory.o $(DESTDIR)/mymalloc.o $(DESTDIR)/system.o depends/lib/libcmocka.a
-	$(MPICC) $(CFLAGS) $^ $(LIBS) -o $@
+tests/test_genic-%: tests/test_genic-%.c tests/stub.c $(DESTDIR)/genic/%.o $(DESTDIR)/libgadget-utils.a tests/cmocka.c
+	$(MPICC) $(CFLAGS) -Itests/ $^ $(LIBS) -o $@

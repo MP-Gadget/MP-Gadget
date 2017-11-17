@@ -211,7 +211,7 @@ static void fof_distribute_particles() {
     }
     myfree(pi);
 
-    if(domain_exchange(fof_sorted_layout,0))
+    if(domain_exchange(fof_sorted_layout))
         endrun(1930,"Could not exchange particles\n");
     /* sort SPH and Others independently */
 
@@ -225,7 +225,7 @@ static void fof_distribute_particles() {
 
 }
 static void fof_return_particles() {
-    if(domain_exchange(fof_origin_layout,0))
+    if(domain_exchange(fof_origin_layout))
         endrun(1931,"Could not exchange particles\n");
 }
 

@@ -31,7 +31,6 @@ extern int MaxTopNodes;	        /*!< Maximum number of nodes in the top-level tr
 
 extern int NTopNodes, NTopLeaves;
 
-void domain_test_id_uniqueness();
 void domain_decompose_full(void);
 void domain_maintain(void);
 
