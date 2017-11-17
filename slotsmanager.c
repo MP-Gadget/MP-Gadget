@@ -25,6 +25,16 @@ slots_gc_base();
 static int
 slots_gc_slots();
 
+/*Initialise a new slot for the particle at index i.*/
+static void
+slots_new_slot(int i, size_t size)
+{
+    memset(BASESLOT(i), 0, size);
+    /* book keeping ID: debug only */
+    BASESLOT(i)->ID = P[i].ID;
+    BASESLOT(i)->IsGarbage = P[i].IsGarbage;
+}
+
 int
 slots_fork(int parent, int ptype)
 {
@@ -82,8 +92,7 @@ slots_fork(int parent, int ptype)
             endrun(1, "Assertion Failure more PI than available slots : %d > %d\n",P[child].PI, SlotsManager->info[ptype].maxsize);
         }
 
-        /* book keeping ID FIXME: debug only */
-        BASESLOT(child)->ID = P[child].ID;
+        slots_new_slot(child, SlotsManager->info[ptype].elsize);
     }
 
     /*! When a new additional star particle is created, we can put it into the
@@ -449,7 +458,7 @@ slots_check_id_consistency()
     for(ptype = 0; ptype < 6; ptype ++) {
         if(NTotal[ptype] > 0) {
             /* Watch out: we print per rank here, but the condition must be global*/
-            message(0, "GC: Used slots for type %d is %ld\n", ptype, used[ptype]);
+            message(0, "Task 0: GC: Used slots for type %d is %ld\n", ptype, used[ptype]);
         }
     }
     MPI_Barrier(MPI_COMM_WORLD);
