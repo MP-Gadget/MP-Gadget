@@ -161,6 +161,8 @@ find_timesteps(int * MinTimeBin)
         for(pa = 0; pa < NumActiveParticle; pa++)
         {
             const int i = ActiveParticle[pa];
+            if(P[i].IsGarbage)
+                continue;
             inttime_t dti = get_timestep_ti(i, PM.length);
 
             if(dti < dti_min)
@@ -181,6 +183,8 @@ find_timesteps(int * MinTimeBin)
         if(P[i].Ti_kick != P[i].Ti_drift) {
             endrun(1, "Inttimes out of sync: Particle %d (ID=%ld) Kick=%o != Drift=%o\n", i, P[i].ID, P[i].Ti_kick, P[i].Ti_drift);
         }
+        if(P[i].IsGarbage)
+            continue;
 
         int dti;
         if(All.ForceEqualTimesteps) {
