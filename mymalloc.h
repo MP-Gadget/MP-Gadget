@@ -11,6 +11,8 @@ void report_detailed_memory_usage(const char *label, const char * fmt, ...);
 
 #define  mymalloc(name, size)            allocator_alloc_bot(A_MAIN, name, size)
 #define  mymalloc2(name, size)           allocator_alloc_top(A_MAIN, name, size)
+
+#define  myrealloc(ptr, size)     allocator_realloc(A_MAIN, ptr, size)
 #define  myfree(x)                 allocator_free(x)
 
 #define  ma_malloc(name, type, nele)            (type*) allocator_alloc_bot(A_MAIN, name, sizeof(type) * nele)

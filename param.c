@@ -15,7 +15,6 @@
 #define OPTIONAL 0
 #define REQUIRED 1
 
-#ifdef BLACK_HOLES
 static int
 BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
 {
@@ -30,7 +29,6 @@ BlackHoleFeedbackMethodAction (ParameterSet * ps, char * name, void * data)
     }
     return 0;
 }
-#endif
 
 #ifdef SFR
 static int
@@ -128,7 +126,8 @@ create_gadget_parameter_set()
         {NULL, DENSITY_KERNEL_QUARTIC_SPLINE},
     } ;
     param_declare_enum(ps,    "DensityKernelType", DensityKernelTypeEnum, OPTIONAL, "quintic", "");
-    param_declare_string(ps, "SnapshotFileBase", REQUIRED, NULL, "");
+    param_declare_string(ps, "SnapshotFileBase", OPTIONAL, "PART", "Base name of the snapshot files, _%03d will be appended to the name.");
+    param_declare_string(ps, "FOFFileBase", OPTIONAL, "PIG", "Base name of the fof files, _%03d will be appended to the name.");
     param_declare_string(ps, "EnergyFile", OPTIONAL, "energy.txt", "");
     param_declare_int(ps,    "OutputEnergyDebug", OPTIONAL, 0,"Should we output energy statistics to energy.txt");
     param_declare_string(ps, "CpuFile", OPTIONAL, "cpu.txt", "");
@@ -148,8 +147,8 @@ create_gadget_parameter_set()
     param_declare_int(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "Preallocate this much memory MB per computing node/ host. Default is 80\% of total physical mem per node. ");
     param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
 
-    param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "");
-    param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "");
+    param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "Scale factor to end run.");
+    param_declare_double(ps, "TimeLimitCPU", REQUIRED, 0, "CPU time to run for in seconds.");
 
     param_declare_int   (ps, "DomainOverDecompositionFactor", OPTIONAL, 1, "Create on average this number of sub domains on a MPI rank. Load balancer will try to create this number of equal sized chunks on each rank. Higher numbers improve the load balancing but make domain more expensive.");
     param_declare_int   (ps, "DomainUseGlobalSorting", OPTIONAL, 1, "Determining the initial refinement of chunks globally. Enabling this produces better domains at costs of slowing down the domain decomposition.");
@@ -205,6 +204,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MinGasTemp", OPTIONAL, 5, "Minimum gas temperature");
 
     param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");
+    param_declare_int(ps, "FOFSaveParticles", OPTIONAL, 1, "Save particles in the FOF catalog."); 
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "");
     param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 5e2, "Minimal Mass for seeding tracer particles ");
@@ -305,10 +305,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "Vcrit", OPTIONAL, 500., "For hybrid neutrinos: Critical velocity (in km/s) in the Fermi-Dirac distribution below which the neutrinos are particles in the ICs.");
     param_declare_double(ps, "NuPartTime", OPTIONAL, 0.3333333, "Scale factor at which to turn on hybrid neutrino particles.");
     /*End parameters for the massive neutrino model*/
-
-#ifdef BLACK_HOLES
+  
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
-#endif
 #ifdef SFR
     param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
 #endif
@@ -349,6 +347,7 @@ void read_parameter_file(char *fname)
         param_get_string2(ps, "MetalCoolFile", All.MetalCoolFile);
         param_get_string2(ps, "UVFluctuationfile", All.UVFluctuationFile);
         param_get_string2(ps, "SnapshotFileBase", All.SnapshotFileBase);
+        param_get_string2(ps, "FOFFileBase", All.FOFFileBase);
         param_get_string2(ps, "EnergyFile", All.EnergyFile);
         All.OutputEnergyDebug = param_get_int(ps, "EnergyFile");
         param_get_string2(ps, "CpuFile", All.CpuFile);
@@ -420,6 +419,7 @@ void read_parameter_file(char *fname)
         All.MinGasTemp = param_get_double(ps, "MinGasTemp");
 
         All.SnapshotWithFOF = param_get_int(ps, "SnapshotWithFOF");
+        All.FOFSaveParticles = param_get_int(ps, "FOFSaveParticles");
         All.FOFHaloLinkingLength = param_get_double(ps, "FOFHaloLinkingLength");
         All.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");

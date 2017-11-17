@@ -7,16 +7,18 @@ extern double MaxMemSizePerNode;
 extern int      Nmesh, Ngrid, NGridNu;
 
 extern int UsePeculiarVelocity;
+extern int InvertPhase;
 
 extern double   Box;
 extern int   ProduceGas;
 extern int Seed;
-extern int Unitary;
+
+extern int UnitaryAmplitude;
 extern int DifferentTransferFunctions;
 
 extern int      NumPart;
 
-extern struct part_data 
+extern struct part_data
 {
   double Pos[3];
   float Vel[3];

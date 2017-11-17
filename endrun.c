@@ -16,11 +16,11 @@
 static double _timestart = -1;
 /*  This function aborts the simulation.
  *
- *  if ierr > 0, the error is uncollective.
- *  if ierr <= 0, the error is 'collective',  only the root rank prints the error.
+ *  if where > 0, the error is uncollective.
+ *  if where <= 0, the error is 'collective',  only the root rank prints the error.
  */
 
-void endrun(int ierr, const char * fmt, ...)
+void endrun(int where, const char * fmt, ...)
 {
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -31,26 +31,26 @@ void endrun(int ierr, const char * fmt, ...)
     va_start(va, fmt);
     vsprintf(buf, fmt, va);
     va_end(va);
-    if(ierr > 0) {
+    if(where > 0) {
         printf("[ %09.2f ] Task %d: %s", MPI_Wtime() - _timestart, ThisTask, buf);
         fflush(stdout);
-        MPI_Abort(MPI_COMM_WORLD, ierr);
+        MPI_Abort(MPI_COMM_WORLD, where);
     } else {
         if(ThisTask == 0) {
             printf("[ %09.2f ] %s", MPI_Wtime() - _timestart, buf);
             fflush(stdout);
         }
-        MPI_Abort(MPI_COMM_WORLD, ierr);
+        MPI_Abort(MPI_COMM_WORLD, where);
     }
 }
 
 /*  This function writes a message.
  *
- *  if ierr > 0, the message is uncollective.
- *  if ierr <= 0, the message is 'collective', only the root rank prints the message. A barrier is applied.
+ *  if where > 0, the message is uncollective.
+ *  if where <= 0, the message is 'collective', only the root rank prints the message. A barrier is applied.
  */
 
-void message(int ierr, const char * fmt, ...)
+void message(int where, const char * fmt, ...)
 {
     int ThisTask;
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
@@ -63,7 +63,7 @@ void message(int ierr, const char * fmt, ...)
     vsprintf(buf, fmt, va);
     va_end(va);
     /* FIXME: deal with \n in the buf. */
-    if(ierr > 0) {
+    if(where > 0) {
         printf("[ %09.2f ] Task %d: %s", MPI_Wtime() - _timestart, ThisTask, buf);
         fflush(stdout);
     } else {

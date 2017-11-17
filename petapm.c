@@ -130,8 +130,8 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
     ptrdiff_t np[2];
 
     /* The following memory will never be freed */
-    Mesh2Task[0] = malloc(sizeof(int) * Nmesh);
-    Mesh2Task[1] = malloc(sizeof(int) * Nmesh);
+    Mesh2Task[0] = mymalloc("Mesh2Task", 2*sizeof(int) * Nmesh);
+    Mesh2Task[1] = Mesh2Task[0] + Nmesh;
 
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
     MPI_Comm_size(MPI_COMM_WORLD, &NTask);
@@ -213,8 +213,8 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
             real_space_region.size[2]);
 #endif
 
+    int * tmp = mymalloc("tmp", sizeof(int) * Nmesh);
     for(k = 0; k < 2; k ++) {
-        int * tmp = (int*) alloca(sizeof(int) * Nmesh);
         for(i = 0; i < Nmesh; i ++) {
             tmp[i] = 0;
         }
@@ -230,6 +230,7 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
         }
         */
     }
+    myfree(tmp);
 }
 
 /* 
@@ -338,7 +339,7 @@ void petapm_force_c2r(
 void petapm_force_finish() {
     layout_finish(&layout);
     pm_free();
-    free(regions);
+    myfree(regions);
     regions = NULL;
     Nregions = 0;
 }

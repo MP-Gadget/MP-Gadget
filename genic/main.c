@@ -28,8 +28,10 @@ int main(int argc, char **argv)
   /* fixme: make this a mpi bcast */
   read_parameterfile(argv[1]);
 
-  walltime_init(&CT);
   mymalloc_init(MaxMemSizePerNode);
+
+  walltime_init(&CT);
+
   int64_t TotNumPart = (int64_t) Ngrid*Ngrid*Ngrid;
 
   init_cosmology(&CP, InitTime);

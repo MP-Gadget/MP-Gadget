@@ -53,16 +53,6 @@
 
 #define MAXHSML 30000.0
 
-#ifdef ONEDIM
-#define DIMS 1
-#else
-#ifdef TWODIMS    /* will only be compiled in 2D case */
-#define DIMS 2
-#else
-#define DIMS 3
-#endif
-#endif
-
 #ifndef  GAMMA
 #define  GAMMA         (5.0/3.0)	/*!< adiabatic index of simulated gas */
 #endif
@@ -97,7 +87,7 @@ typedef LOW_PRECISION MyFloat;
 typedef HIGH_PRECISION MyDouble;
 
 #define HAS(val, flag) ((flag & (val)) == (flag))
-#ifdef BLACK_HOLES
+
 enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_TOPHAT   = 0x2,
      BH_FEEDBACK_SPLINE   = 0x4,
@@ -105,7 +95,7 @@ enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_VOLUME   = 0x10,
      BH_FEEDBACK_OPTTHIN  = 0x20,
 };
-#endif
+
 /*
  * additional sfr criterion in addition to density threshold
  * All.StarformationCriterion */
@@ -207,7 +197,11 @@ extern struct global_data_all_processes
 
     int MaxPart;			/*!< This gives the maxmimum number of particles that can be stored on one
                               processor. */
-    int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on one
+    int MaxPartSph;		/*!< This gives the maxmimum number of Sph particles that can be stored on this
+                          processor. */
+    int MaxPartBh;		/*!< This gives the maxmimum number of BH particles that can be stored on this
+                          processor. */
+    int MaxPartStar;		/*!< This gives the maxmimum number of star particles that can be stored on this
                           processor. */
 
 /* end of read_header parameters */
@@ -393,6 +387,7 @@ extern struct global_data_all_processes
          MetalCoolFile[100],
          OutputDir[100],
          SnapshotFileBase[100],
+         FOFFileBase[100],
          EnergyFile[100],
          CpuFile[100];
 
@@ -435,8 +430,6 @@ extern struct global_data_all_processes
     double HeliumHeatAmp;
     double HeliumHeatExp;
 
-
-#ifdef BLACK_HOLES
     double BlackHoleAccretionFactor;	/*!< Fraction of BH bondi accretion rate */
     double BlackHoleFeedbackFactor;	/*!< Fraction of the black luminosity feed into thermal feedback */
     enum BlackHoleFeedbackMethod BlackHoleFeedbackMethod;	/*!< method of the feedback*/
@@ -447,11 +440,11 @@ extern struct global_data_all_processes
     double BlackHoleMaxAccretionRadius;
     double BlackHoleEddingtonFactor;	/*! Factor above Eddington */
     int BlackHoleSoundSpeedFromPressure; /* 0 from Entropy, 1 from Pressure; */
-#endif
 
     int SnapshotWithFOF; /*Flag that doing FOF for snapshot outputs is on*/
+    int FOFSaveParticles ; /* saving particles in the fof group */
     double MinFoFMassForNewSeed;	/* Halo mass required before new seed is put in */
-    double FOFHaloLinkingLength;    
+    double FOFHaloLinkingLength;
     double FOFHaloComovingLinkingLength; /* in code units */
     int FOFHaloMinLength;
     double TimeNextSeedingCheck;  /*Time for the next seed check.*/
@@ -463,6 +456,7 @@ All;
 extern size_t BlockedParticleDrifts;
 extern size_t TotalParticleDrifts;
 #endif
+
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
  */
@@ -503,7 +497,7 @@ extern struct particle_data
         unsigned int spare_1              :1;
         unsigned int spare_0              :1;
 
-        unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID. 
+        unsigned char Generation; /* How many particles it has spawned; used to generate unique particle ID.
                                      may wrap around with too many SFR/BH if a feedback model goes rogue */
 
         signed char TimeBin; /* Time step bin; -1 for unassigned.*/
@@ -536,7 +530,7 @@ extern struct particle_data
 
         struct {
             /* used by fof.c which calls domain_exchange that doesn't uses peano_t */
-            int64_t GrNr; 
+            int64_t GrNr;
             int origintask;
             int targettask;
         };
@@ -567,6 +561,7 @@ struct bh_particle_data {
     MyFloat accreted_BHMass;
     MyFloat accreted_momentum[3];
 
+    int JumpToMinPot;
     double  MinPotPos[3];
     MyFloat MinPotVel[3];
     MyFloat MinPot;

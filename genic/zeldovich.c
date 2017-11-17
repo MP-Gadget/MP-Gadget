@@ -24,7 +24,7 @@ static void readout_density(int i, double * mesh, double weight);
 static void readout_force_x(int i, double * mesh, double weight);
 static void readout_force_y(int i, double * mesh, double weight);
 static void readout_force_z(int i, double * mesh, double weight);
-static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary);
+static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase);
 
 static inline double periodic_wrap(double x)
 {
@@ -83,7 +83,7 @@ setup_grid(double shift, int64_t FirstID)
 }
 
 static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
-    PetaPMRegion * regions = malloc(sizeof(PetaPMRegion));
+    PetaPMRegion * regions = mymalloc("Regions", sizeof(PetaPMRegion));
     int k;
     int r = 0;
     int i;
@@ -92,9 +92,9 @@ static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
 
     for(i = 0; i < NumPart; i ++) {
         for(k = 0; k < 3; k ++) {
-            if(min[k] > P[i].Pos[k]) 
+            if(min[k] > P[i].Pos[k])
                 min[k] = P[i].Pos[k];
-            if(max[k] < P[i].Pos[k]) 
+            if(max[k] < P[i].Pos[k])
                 max[k] = P[i].Pos[k];
         }
         P[i].RegionInd = 0;
@@ -126,7 +126,7 @@ void displacement_fields(int Type) {
         {NULL, NULL, NULL },
     };
     PetaPMParticleStruct pstruct = {
-        P,   
+        P,
         sizeof(P[0]),
         ((char*) &P[0].Pos[0]) - (char*) P,
         ((char*) &P[0].Mass) - (char*) P,
@@ -135,11 +135,11 @@ void displacement_fields(int Type) {
         NumPart,
     };
     petapm_force_init(
-           makeregion, 
+           makeregion,
            &pstruct, NULL);
 
     gaussian_fill(petapm_get_fourier_region(),
-            petapm_get_rho_k(), Unitary);
+		  petapm_get_rho_k(), UnitaryAmplitude, InvertPhase);
 
     petapm_force_c2r(functions);
     petapm_force_finish();
@@ -185,11 +185,11 @@ void displacement_fields(int Type) {
 }
 
 /********************
- * transfer functions for 
+ * transfer functions for
  *
  * potential from mass in cell
  *
- * and 
+ * and
  *
  * force from potential
  *
@@ -214,9 +214,9 @@ static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
         double fac = (Box / (2 * M_PI)) * kpos[0] / k2;
         /*
          We avoid high precision kernels to maintain compatibility with N-GenIC.
-         The following formular shall cross check with fac in the limit of 
+         The following formular shall cross check with fac in the limit of
          native diff_kernel (disp_y, disp_z shall match too!)
-         
+
         double fac1 = (2 * M_PI) / Box;
         double fac = diff_kernel(kpos[0] * (2 * M_PI / Nmesh)) * (Nmesh / Box) / (
                     k2 * fac1 * fac1);
@@ -268,7 +268,7 @@ static void readout_force_z(int i, double * mesh, double weight) {
     P[i].Vel[2] += weight * mesh[0];
 }
 
-/* 
+/*
  * The following functions are from fastpm/libfastpm/initialcondition.c.
  * Agrees with nbodykit's pmesh/whitenoise.c, which agrees with n-genic.
  * */
@@ -283,10 +283,10 @@ typedef struct {
     size_t allocsize;
 } PM;
 
-static inline void 
-SETSEED(PM * pm, unsigned int * table[2][2], int i, int j, gsl_rng * rng) 
-{ 
-    unsigned int seed = 0x7fffffff * gsl_rng_uniform(rng); 
+static inline void
+SETSEED(PM * pm, unsigned int * table[2][2], int i, int j, gsl_rng * rng)
+{
+    unsigned int seed = 0x7fffffff * gsl_rng_uniform(rng);
 
     int ii[2] = {i, (pm->Nmesh[0] - i) % pm->Nmesh[0]};
     int jj[2] = {j, (pm->Nmesh[1] - j) % pm->Nmesh[1]};
@@ -297,7 +297,7 @@ SETSEED(PM * pm, unsigned int * table[2][2], int i, int j, gsl_rng * rng)
     }
     for(d1 = 0; d1 < 2; d1++)
     for(d2 = 0; d2 < 2; d2++) {
-        if( ii[d1] >= 0 && 
+        if( ii[d1] >= 0 &&
             ii[d1] < pm->ORegion.size[0] &&
             jj[d2] >= 0 &&
             jj[d2] < pm->ORegion.size[1]
@@ -306,8 +306,8 @@ SETSEED(PM * pm, unsigned int * table[2][2], int i, int j, gsl_rng * rng)
         }
     }
 }
-static inline unsigned int 
-GETSEED(PM * pm, unsigned int * table[2][2], int i, int j, int d1, int d2) 
+static inline unsigned int
+GETSEED(PM * pm, unsigned int * table[2][2], int i, int j, int d1, int d2)
 {
     i -= pm->ORegion.start[0];
     j -= pm->ORegion.start[1];
@@ -318,7 +318,7 @@ GETSEED(PM * pm, unsigned int * table[2][2], int i, int j, int d1, int d2)
     return table[d1][d2][i * pm->ORegion.size[1] + j];
 }
 
-static void 
+static void
 SAMPLE(gsl_rng * rng, double * ampl, double * phase)
 {
     *phase = gsl_rng_uniform(rng) * 2 * M_PI;
@@ -327,7 +327,7 @@ SAMPLE(gsl_rng * rng, double * ampl, double * phase)
 }
 
 static void
-pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
+pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* Fill delta_k with gadget scheme */
     int d;
@@ -357,8 +357,8 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
     gsl_rng_free(rng);
 
     ptrdiff_t irel[3];
-    for(i = pm->ORegion.start[0]; 
-        i < pm->ORegion.start[0] + pm->ORegion.size[0]; 
+    for(i = pm->ORegion.start[0];
+        i < pm->ORegion.start[0] + pm->ORegion.size[0];
         i ++) {
 
         gsl_rng * lower_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
@@ -367,8 +367,8 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
         int ci = pm->Nmesh[0] - i;
         if(ci >= pm->Nmesh[0]) ci -= pm->Nmesh[0];
 
-        for(j = pm->ORegion.start[1]; 
-            j < pm->ORegion.start[1] + pm->ORegion.size[1]; 
+        for(j = pm->ORegion.start[1];
+            j < pm->ORegion.start[1] + pm->ORegion.size[1];
             j ++) {
             /* always pull the gaussian from the lower quadrant plane for k = 0
              * plane*/
@@ -399,7 +399,7 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
 
                 double ampl, phase;
                 if(use_conj) {
-                    /* on k = 0 and Nmesh/2 plane, we use the lower quadrant generator, 
+                    /* on k = 0 and Nmesh/2 plane, we use the lower quadrant generator,
                      * then hermit transform the result if it is nessessary */
                     SAMPLE(this_rng, &ampl, &phase);
                     SAMPLE(lower_rng, &ampl, &phase);
@@ -421,7 +421,13 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
                 /* we want two numbers that are of std ~ 1/sqrt(2) */
                 ampl = sqrt(- log(ampl));
 
-                if (unitary) ampl = 1.0; /* cos and sin gives 1/sqrt(2)*/
+                if (setUnitaryAmplitude) ampl = 1.0; /* cos and sin gives 1/sqrt(2)*/
+
+
+                if (setInvertPhase){
+                  phase += M_PI; /*invert phase*/
+                }
+
 
                 (delta_k + 2 * ip)[0] = ampl * cos(phase);
                 (delta_k + 2 * ip)[1] = ampl * sin(phase);
@@ -461,7 +467,7 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int unitary)
 
 /* Using fastpm's gaussian_fill for ngenic agreement. */
 static void
-gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary)
+gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitude, int setInvertPhase)
 {
     /* fastpm deals with strides properly; petapm not. So we translate it here. */
     PM pm[1];
@@ -482,24 +488,24 @@ gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary)
 
     pm->ORegion.total = region->totalsize;
     pm->allocsize = region->totalsize;
-    pmic_fill_gaussian_gadget(pm, (double*) rho_k, Seed, unitary);
+    pmic_fill_gaussian_gadget(pm, (double*) rho_k, Seed, setUnitaryAmplitude, setInvertPhase);
 
 #if 0
-    /* dump the gaussian field for debugging 
-     * 
+    /* dump the gaussian field for debugging
+     *
      * the z directioin is in axis 1.
      *
      * */
     FILE * rhokf = fopen("rhok", "w");
-    printf("strides %td %td %td\n", 
+    printf("strides %td %td %td\n",
             pm->ORegion.strides[0],
             pm->ORegion.strides[1],
             pm->ORegion.strides[2]);
-    printf("size %td %td %td\n", 
+    printf("size %td %td %td\n",
             pm->ORegion.size[0],
             pm->ORegion.size[1],
             pm->ORegion.size[2]);
-    printf("offset %td %td %td\n", 
+    printf("offset %td %td %td\n",
             pm->ORegion.start[0],
             pm->ORegion.start[1],
             pm->ORegion.start[2]);
@@ -507,4 +513,3 @@ gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int unitary)
     fclose(rhokf);
 #endif
 }
-

@@ -220,9 +220,6 @@ sfr_cool_postprocess(int i, TreeWalk * tw)
         if(flag == 1 || All.QuickLymanAlphaProbability > 0) {
             cooling_direct(i);
         }
-#ifdef ENDLESSSTARS
-        flag = 0;
-#endif
         if(flag == 0) {
             /* active star formation */
             starformation(i);
@@ -716,6 +713,8 @@ static int make_particle_star(int i) {
     }
     /*Allocate new star*/
     P[newstar].PI = atomic_fetch_and_add(&N_star_slots, 1);
+    if(P[newstar].PI >= All.MaxPartStar)
+        endrun(700, "Created stars too fast: %d > %d\n",P[newstar].PI, All.MaxPartStar);
     STARP(newstar).base.ID = P[newstar].ID;
     /* set ptype */
     P[newstar].Type = 4;

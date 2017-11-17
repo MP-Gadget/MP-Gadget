@@ -21,6 +21,7 @@ TESTED = \
 	timefac \
 	timebinmgr \
 	memory \
+	openmpsort \
 	genic-power
 
 TESTBIN = $(TESTED:%=tests/test_%)

@@ -2,7 +2,7 @@
 #define  NUMDIMS 3		/*!< For 3D-normalized kernel */
 #define  NORM_COEFF      4.188790204786	/*!< Coefficient for kernel normalization. Note:  4.0/3 * PI = 4.188790204786 */
 #else
-#ifndef  ONEDIM
+#ifdef  TWODIMS
 #define  NUMDIMS 2		/*!< For 2D-normalized kernel */
 #define  NORM_COEFF      M_PI	/*!< Coefficient for kernel normalization. */
 #else

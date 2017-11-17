@@ -12,6 +12,7 @@
 #include "system.h"
 #include "sfr_eff.h"
 #include "cooling.h"
+#include "timestep.h"
 
 #include "petaio.h"
 #include "mymalloc.h"
@@ -23,8 +24,7 @@
 
 /*Defined in fofpetaio.c and only used here*/
 void fof_register_io_blocks();
-/*Defined in allocate.c and only used here*/
-void allocate_memory(int alloc_sph);
+
 /************
  *
  * The IO api , intented to replace io.c and read_ic.c
@@ -273,6 +273,35 @@ static void petaio_save_internal(char * fname) {
     myfree(selection);
 }
 
+void
+petaio_alloc_particle_memory()
+{
+    size_t bytes;
+    /*Allocates ActiveParticle array*/
+    timestep_allocate_memory(All.MaxPart);
+
+    P = (struct particle_data *) mymalloc("P", bytes = All.MaxPart * sizeof(struct particle_data));
+
+    /* clear the memory to avoid valgrind errors;
+     *
+     * note that I tried to set each component in P to zero but
+     * valgrind still complains in PFFT
+     * seems to be to do with how the struct is padded and
+     * the missing holes being accessed by __kmp_atomic functions.
+     * (memory lock etc?)
+     * */
+    memset(P, 0, sizeof(struct particle_data) * All.MaxPart);
+#ifdef OPENMP_USE_SPINLOCK
+    {
+        int i;
+        for(i = 0; i < All.MaxPart; i ++) {
+            pthread_spin_init(&P[i].SpinLock, 0);
+        }
+    }
+#endif
+    message(0, "Allocated %g MByte for particle storage.\n", bytes / (1024.0 * 1024.0));
+}
+
 void petaio_read_internal(char * fname, int ic) {
     int ptype;
     int i;
@@ -295,7 +324,9 @@ void petaio_read_internal(char * fname, int ic) {
         endrun(0, "Failed to close block: %s\n",
                     big_file_get_error_message());
     }
-    allocate_memory(NTotal[0] > 0);
+
+    /*Allocate the particle memory*/
+    petaio_alloc_particle_memory();
 
     /* set up the memory topology */
     int offset = 0;
@@ -318,18 +349,36 @@ void petaio_read_internal(char * fname, int ic) {
     N_star_slots = NLocal[4];
     N_bh_slots = NLocal[5];
 
-    if(N_sph_slots >= All.MaxPart) {
-        endrun(1, "Overwhelmed by sph: %d > %d\n", N_bh_slots, All.MaxPart);
-    }
-    if(N_bh_slots >= All.MaxPartBh) {
-        endrun(1, "Overwhelmed by bh: %d > %d\n", N_bh_slots, All.MaxPartBh);
-    }
-    if(N_star_slots >= All.MaxPartBh) {
-        endrun(1, "Overwhelmed by stars: %d > %d\n", N_star_slots, All.MaxPartBh);
-    }
-
+    /* Allocate enough memory for stars and black holes.
+     * This will be dynamically increased as needed.*/
+    All.MaxPartSph = 0;
+    All.MaxPartStar = 0;
+    All.MaxPartBh = 0;
     if(NumPart >= All.MaxPart) {
         endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
+    }
+
+    if(N_sph_slots > 0) {
+        All.MaxPartSph = All.PartAllocFactor * N_sph_slots;
+    }
+    if(All.StarformationOn || N_star_slots > 0) {
+        All.MaxPartStar = All.PartAllocFactor * N_star_slots + 0.01 * All.MaxPart;
+    }
+    if(All.BlackHoleOn || N_bh_slots > 0) {
+        All.MaxPartBh = All.PartAllocFactor * N_bh_slots + 0.01 * All.MaxPart;
+    }
+    /* Now allocate memory for the secondary particle data arrays.
+     * This may be dynamically resized later!*/
+    if(All.MaxPartBh + All.MaxPartStar + All.MaxPartSph > 0) {
+        size_t bytes = All.MaxPartSph * sizeof(struct sph_particle_data) +
+            All.MaxPartStar * sizeof(struct star_particle_data) + All.MaxPartBh * sizeof(struct bh_particle_data);
+        void * secondary_data = mymalloc("SecondaryP", bytes);
+        /*Ordering: SPH, black holes, then stars*/
+        SphP = (struct sph_particle_data *) secondary_data;
+        BhP = (struct bh_particle_data *) (SphP + All.MaxPartSph);
+        StarP = (struct star_particle_data *) (BhP + All.MaxPartBh);
+        message(0, "Allocated %g MB for %d SPH, %d Stars and %d BHs.\n", bytes / (1024.0 * 1024.0),All.MaxPartSph,
+                All.MaxPartStar, All.MaxPartBh);
     }
 
     for(i = 0; i < IOTable.used; i ++) {
@@ -343,9 +392,17 @@ void petaio_read_internal(char * fname, int ic) {
         if(NTotal[ptype] == 0) continue;
         if(ic) {
             /* for IC read in only three blocks */
-            if( strcmp(IOTable.ent[i].name, "Position") &&
-                strcmp(IOTable.ent[i].name, "Velocity") &&
-                strcmp(IOTable.ent[i].name, "ID")) continue;
+            int keep = 0;
+            keep |= (0 == strcmp(IOTable.ent[i].name, "Position"));
+            keep |= (0 == strcmp(IOTable.ent[i].name, "Velocity"));
+            keep |= (0 == strcmp(IOTable.ent[i].name, "ID"));
+            if (ptype == 5) {
+                keep |= (0 == strcmp(IOTable.ent[i].name, "Mass"));
+                keep |= (0 == strcmp(IOTable.ent[i].name, "BlackholeMass"));
+                keep |= (0 == strcmp(IOTable.ent[i].name, "MinPotPos"));
+                keep |= (0 == strcmp(IOTable.ent[i].name, "MinPotVel"));
+            }
+            if(!keep) continue;
         }
         if(IOTable.ent[i].setter == NULL) {
             /* FIXME: do not know how to read this block; assume the fucker is
@@ -392,7 +449,7 @@ petaio_read_header(int num)
     if(num == -1) {
         fname = fastpm_strdup_printf("%s", All.InitCondFile);
     } else {
-        fname = fastpm_strdup_printf("%s/PART_%03d", All.OutputDir, num);
+        fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
     }
     message(0, "Probing Header of snapshot file: %s\n", fname);
 
@@ -443,7 +500,7 @@ petaio_read_snapshot(int num)
 
         }
     } else {
-        fname = fastpm_strdup_printf("%s/PART_%03d", All.OutputDir, num);
+        fname = fastpm_strdup_printf("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
         /*
          * we always save the Entropy, init.c will not mess with the entropy
          * */
@@ -590,6 +647,9 @@ petaio_read_header_internal(BigFile * bf) {
     All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);	
     /* at most 10% of particles can form BH*/
     All.MaxPartBh = (int) (0.1 * All.MaxPart);
+    /*Lyman alpha forms more stars*/
+    if(All.QuickLymanAlphaProbability > 0.5)
+        All.MaxPartBh = All.MaxPart;
 }
 
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize) {
@@ -675,10 +735,10 @@ int petaio_read_block(BigFile * bf, char * blockname, BigArray * array, int requ
             return 1;
     }
     if(0 != big_block_seek(&bb, &ptr, 0)) {
-            endrun(1, "Failed to seek: %s\n", big_file_get_error_message());
+            endrun(1, "Failed to seek block %s: %s\n", blockname, big_file_get_error_message());
     }
     if(0 != big_block_mpi_read(&bb, &ptr, array, All.IO.NumWriters, MPI_COMM_WORLD)) {
-        endrun(1, "Failed to read from block: %s\n", big_file_get_error_message());
+        endrun(1, "Failed to read from block %s: %s\n", blockname, big_file_get_error_message());
     }
     if(0 != big_block_mpi_close(&bb, MPI_COMM_WORLD)) {
         endrun(0, "Failed to close block at %s:%s\n", blockname,
@@ -833,6 +893,9 @@ SIMPLE_PROPERTY_TYPE(StarFormationTime, 5, BHP(i).FormationTime, float, 1)
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
+SIMPLE_PROPERTY(BlackholeMinPotPos, BHP(i).MinPotPos[0], double, 3)
+SIMPLE_PROPERTY(BlackholeMinPotVel, BHP(i).MinPotVel[0], float, 3)
+SIMPLE_PROPERTY(BlackholeJumpToMinPot, BHP(i).JumpToMinPot, int, 1)
 #endif
 /*This is only used if FoF is enabled*/
 SIMPLE_GETTER(GTGroupID, P[i].GrNr, uint32_t, 1)
@@ -917,6 +980,9 @@ static void register_io_blocks() {
     IO_REG(BlackholeMass,          "f4", 1, 5);
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
+    IO_REG(BlackholeMinPotPos, "f8", 3, 5);
+    IO_REG(BlackholeMinPotVel,   "f4", 3, 5);
+    IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5);
 #endif
     if(All.SnapshotWithFOF)
         fof_register_io_blocks();

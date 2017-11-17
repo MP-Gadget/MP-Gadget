@@ -16,6 +16,9 @@ static MPI_Datatype MPI_TYPE_SPHPARTICLE = 0;
 static MPI_Datatype MPI_TYPE_BHPARTICLE = 0;
 static MPI_Datatype MPI_TYPE_STARPARTICLE = 0;
 
+static void
+realloc_secondary_data(int newSph, int newBh, int newStar);
+
 /* 
  * 
  * exchange particles according to layoutfunc.
@@ -47,8 +50,8 @@ int domain_exchange(int (*layoutfunc)(int p), int failfast) {
     /* flag the particles that need to be exported */
     int * toGo_arr[NSP];
     int * toGet_arr[NSP];
-    toGo_arr[0] = (int *) mymalloc("toGo", (NSP * sizeof(int) * NTask));
-    toGet_arr[0] = (int *) mymalloc("toGet", (NSP * sizeof(int) * NTask));
+    toGo_arr[0] = (int *) mymalloc2("toGo", (NSP * sizeof(int) * NTask));
+    toGet_arr[0] = (int *) mymalloc2("toGet", (NSP * sizeof(int) * NTask));
     for(i=1; i<NSP; i++) {
         toGo_arr[i] = toGo_arr[i-1] + NTask;
         toGet_arr[i] = toGet_arr[i-1] + NTask;
@@ -113,7 +116,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
     struct bh_particle_data *bhBuf;
     struct star_particle_data *starBuf;
 
-    int *ctmem = mymalloc("cts", 4*NSP*NTask*sizeof(int));
+    int *ctmem = mymalloc2("cts", 4*NSP*NTask*sizeof(int));
     int *count[NSP];
     int *offset[NSP];
     int *count_recv[NSP];
@@ -131,8 +134,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
     }
 
     int bad_exh=0;
-    const char *nn[NSP] = {"particles", "SPH","BH", "Stars"};
-
     for(j=0; j<NSP; j++) {
         /*Compute offsets*/
         offset[j][0] = 0;
@@ -144,11 +145,12 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
             count_togo[j] += toGo_arr[j][i];
             count_get[j] += toGet_arr[j][i];
         }
-        /*Check whether the domain exchange will succeed. If not, bail*/
-        if(NumPart + count_get[j] - count_togo[j] > All.MaxPart){
-            message(1,"Too many %s for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n", nn[j], NumPart, count_get[j], count_togo[j], All.MaxPart);
-            bad_exh = 1;
-        }
+    }
+    /*Check whether the domain exchange will succeed. If not, bail*/
+    if(NumPart + count_get[0] - count_togo[0] > All.MaxPart){
+        message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n",
+                NumPart, count_get[0], count_togo[0], All.MaxPart);
+        bad_exh = 1;
     }
 
     MPI_Allreduce(MPI_IN_PLACE, &bad_exh, 1, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
@@ -157,10 +159,10 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
         return bad_exh;
     }
 
-    partBuf = (struct particle_data *) mymalloc("partBuf", count_togo[0] * sizeof(struct particle_data));
-    sphBuf = (struct sph_particle_data *) mymalloc("sphBuf", count_togo[1] * sizeof(struct sph_particle_data));
-    bhBuf = (struct bh_particle_data *) mymalloc("bhBuf", count_togo[2] * sizeof(struct bh_particle_data));
-    starBuf = (struct star_particle_data *) mymalloc("starBuf", count_togo[3] * sizeof(struct star_particle_data));
+    partBuf = (struct particle_data *) mymalloc2("partBuf", count_togo[0] * sizeof(struct particle_data));
+    sphBuf = (struct sph_particle_data *) mymalloc2("sphBuf", count_togo[1] * sizeof(struct sph_particle_data));
+    bhBuf = (struct bh_particle_data *) mymalloc2("bhBuf", count_togo[2] * sizeof(struct bh_particle_data));
+    starBuf = (struct star_particle_data *) mymalloc2("starBuf", count_togo[3] * sizeof(struct star_particle_data));
 
     /*FIXME: make this omp ! */
     for(i = 0; i < NumPart; i++)
@@ -199,12 +201,13 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
         /* mark this particle as a garbage */
         P[i].IsGarbage = 1;
     }
+
+    walltime_measure("/Domain/exchange/makebuf");
     /* now remove the garbage particles because they have already been copied.
      * eventually we want to fill in the garbage gap or defer the gc, because it breaks the tree.
      * invariance . */
     domain_garbage_collection();
-
-    walltime_measure("/Domain/exchange/makebuf");
+    walltime_measure("/Domain/exchange/garbage");
 
 
     for(j=0; j<NSP; j++) {
@@ -233,14 +236,20 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
         endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, NumPart, All.MaxPart);
     }
 
-    if(N_sph_slots > All.MaxPart)
-        endrun(787878, "Task=%d N_sph=%d All.MaxPart=%d\n", ThisTask, N_sph_slots, All.MaxPart);
-
-    if(N_bh_slots > All.MaxPartBh)
-        endrun(787878, "Task=%d N_bh=%d All.MaxPartBh=%d\n", ThisTask, N_bh_slots, All.MaxPartBh);
-
-    if(N_star_slots > All.MaxPartBh)
-        endrun(787878, "Task=%d N_star=%d All.MaxPartBh=%d\n", ThisTask, N_star_slots, All.MaxPartBh);
+    int newSph = All.MaxPartSph;
+    if(N_sph_slots > newSph)
+        newSph = 1.2 * N_sph_slots;
+    int newBh = All.MaxPartBh;
+    if(N_bh_slots +  All.BlackHoleOn * 0.005 * All.MaxPart > All.MaxPartBh)
+        newBh = 1.5*(N_bh_slots + All.BlackHoleOn * 0.005*All.MaxPart);
+    int newStar = All.MaxPartStar;
+    if(N_star_slots +  All.StarformationOn * 0.005 * All.MaxPart > All.MaxPartStar)
+        newStar = 1.5*(N_star_slots + All.StarformationOn * 0.005*All.MaxPart);
+    if(newSph > All.MaxPartSph || newBh > All.MaxPartBh || newStar > All.MaxPartStar) {
+        message(1, "Need more sph, stars or BHs: (%d, %d, %d) -> (%d, %d, %d)\n",
+                All.MaxPartSph, All.MaxPartStar, All.MaxPartBh, newSph, newStar, newBh);
+        realloc_secondary_data(newSph, newBh, newStar);
+    }
 
     MPI_Alltoallv_sparse(partBuf, count[0], offset[0], MPI_TYPE_PARTICLE,
                  P, count_recv[0], offset_recv[0], MPI_TYPE_PARTICLE,
@@ -264,6 +273,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), int** toGo_arr, int **
     walltime_measure("/Domain/exchange/alltoall");
 
     if(count_get[2] > 0 || count_get[1] > 0 || count_get[3] > 0) {
+        const char *nn[NSP] = {"particles", "SPH","BH", "Stars"};
         for(target = 0; target < NTask; target++) {
             int localo[NSP];
             for(i = 0; i<NSP; i++)
@@ -495,4 +505,32 @@ static int domain_countToGo(ptrdiff_t nlimit, int (*layoutfunc)(int p), int fail
 
     }
     return ret;
+}
+
+static void
+realloc_secondary_data(int newMaxPartSph, int newMaxPartBh, int newMaxPartStar)
+{
+    size_t bytes = newMaxPartSph * sizeof(struct sph_particle_data) +
+        newMaxPartStar * sizeof(struct star_particle_data) + newMaxPartBh * sizeof(struct bh_particle_data);
+    SphP = myrealloc(SphP, bytes);
+    BhP = (struct bh_particle_data *) (SphP + newMaxPartSph);
+    StarP = (struct star_particle_data *) (BhP + newMaxPartBh);
+    size_t mvbh = (All.MaxPartBh < newMaxPartBh) ? All.MaxPartBh : newMaxPartBh;
+    size_t mvstar = (All.MaxPartStar < newMaxPartStar) ? All.MaxPartStar : newMaxPartStar;
+    /* We moved the data in realloc, but we may still need to shift up the stars and bh to make room.
+     * Must use addressing relative to new SphP pointer, as StarP may have been invalidated by the move in realloc*/
+    if(newMaxPartSph + newMaxPartBh > All.MaxPartSph + All.MaxPartBh) {
+        /*If this is an increase, shift top array up first*/
+        memmove(StarP, SphP + All.MaxPartSph + All.MaxPartBh, mvstar * sizeof(struct star_particle_data));
+        memmove(BhP, SphP + All.MaxPartSph, mvbh * sizeof(struct bh_particle_data));
+    }
+    else if(newMaxPartSph + newMaxPartBh < All.MaxPartSph + All.MaxPartBh) {
+        /*If this is an decrease, shift bottom array down first*/
+        memmove(BhP, SphP + All.MaxPartSph, mvbh * sizeof(struct bh_particle_data));
+        memmove(StarP, SphP + All.MaxPartSph + All.MaxPartBh, mvstar * sizeof(struct star_particle_data));
+    }
+    All.MaxPartSph = newMaxPartSph;
+    All.MaxPartBh = newMaxPartBh;
+    All.MaxPartStar = newMaxPartStar;
+    message(1, "Allocated %g MB for %d sph, %d stars and %d BHs.\n", bytes / (1024.0 * 1024.0), newMaxPartSph, newMaxPartStar, newMaxPartBh);
 }

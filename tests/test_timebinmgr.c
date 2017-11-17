@@ -21,7 +21,7 @@ double logouts[4];
 /*First test conversions between float and integer timelines*/
 static void test_conversions(void ** state) {
 
-    setup_sync_points(0.0);
+    setup_sync_points(All.TimeIC, 0.0);
 
     All.Ti_Current = ti_from_loga(log(0.55));
 
@@ -64,16 +64,16 @@ static void test_conversions(void ** state) {
 
 static void test_skip_first(void ** state) {
 
-    setup_sync_points(All.TimeIC);
+    setup_sync_points(All.TimeIC, All.TimeIC);
     assert_int_equal(find_current_sync_point(0)->write_snapshot, 0);
 
-    setup_sync_points(0.0);
+    setup_sync_points(All.TimeIC, 0.0);
     assert_int_equal(find_current_sync_point(0)->write_snapshot, 1);
 }
 
 static void test_dloga(void ** state) {
 
-    setup_sync_points(0.0);
+    setup_sync_points(All.TimeIC, 0.0);
 
     All.Ti_Current = ti_from_loga(log(0.55));
 

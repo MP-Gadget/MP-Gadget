@@ -24,7 +24,7 @@ OBJECTS  =  \
 	 run.o drift.o begrun.o endrun.o global.o \
 	 timestep.o init.o io.o sfr_eff.o \
 	 cooling.o openmpsort.o \
-	 system.o allocate.o density.o \
+	 system.o density.o \
 	 treewalk.o cosmology.o \
 	 gravshort-tree.o gravshort-pair.o hydra.o  timefac.o \
 	 gravpm.o powerspectrum.o \
@@ -86,7 +86,7 @@ $(DESTDIR)/MP-Gadget: $(OBJS)
 $(DESTDIR)/MP-GenIC: $(ICOBJS)
 	$(MPICC) $(OPTIMIZE) $(ICOBJS) $(LIBS) -o $@
 
-$(DESTDIR)/config.h: Makefile $(CONFIG) $(FILES)
+$(DESTDIR)/config.h: Makefile $(CONFIG)
 	mkdir -p `dirname $@`
 	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh $@
 
