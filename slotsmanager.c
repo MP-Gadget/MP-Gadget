@@ -27,7 +27,7 @@ slots_gc_slots();
 
 /*Initialise a new slot for the particle at index i.*/
 static void
-slots_new_slot(int i, size_t size)
+slots_connect_new_slot(int i, size_t size)
 {
     memset(BASESLOT(i), 0, size);
     /* book keeping ID: debug only */
@@ -92,7 +92,7 @@ slots_fork(int parent, int ptype)
             endrun(1, "Assertion Failure more PI than available slots : %d > %d\n",P[child].PI, SlotsManager->info[ptype].maxsize);
         }
 
-        slots_new_slot(child, SlotsManager->info[ptype].elsize);
+        slots_connect_new_slot(child, SlotsManager->info[ptype].elsize);
     }
 
     /*! When a new additional star particle is created, we can put it into the
