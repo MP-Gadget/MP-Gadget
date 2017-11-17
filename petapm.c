@@ -91,6 +91,7 @@ static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the 
 #define POS(i) ((double*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_pos]))
 #define MASS(i) ((float*) (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_mass]))
 #define REGION(i) ((int*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_regionind]))
+#define INACTIVE(i) (CPS->active && !CPS->active(i))
 
 PetaPMRegion * petapm_get_fourier_region() {
     return &fourier_space_region;
@@ -289,7 +290,7 @@ void petapm_force_init(
 }
 
 void petapm_force_r2c( 
-        petapm_transfer_func global_transfer
+        PetaPMGlobalFunctions * global_functions
         ) {
     /* call pfft rho_k is CFT of rho */
 
@@ -299,6 +300,14 @@ void petapm_force_r2c(
      * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
      * */
     pfft_execute_dft_r2c(plan_forw, real, complx);
+    /*Do any analysis that may be required before the transfer function is applied*/
+    petapm_transfer_func global_readout = global_functions->global_readout;
+    if(global_readout)
+        pm_apply_transfer_function(&fourier_space_region, complx, rho_k, global_readout);
+    if(global_functions->global_analysis)
+        global_functions->global_analysis();
+    /*Apply the transfer function*/
+    petapm_transfer_func global_transfer = global_functions->global_transfer;
     pm_apply_transfer_function(&fourier_space_region, complx, rho_k, global_transfer);
     walltime_measure("/PMgrav/r2c");
 }
@@ -336,12 +345,12 @@ void petapm_force_finish() {
 }
 
 void petapm_force(petapm_prepare_func prepare, 
-        petapm_transfer_func global_transfer,
+        PetaPMGlobalFunctions * global_functions, //petapm_transfer_func global_transfer,
         PetaPMFunctions * functions, 
         PetaPMParticleStruct * pstruct,
         void * userdata) {
     petapm_force_init(prepare, pstruct, userdata);
-    petapm_force_r2c(global_transfer);
+    petapm_force_r2c(global_functions);
     if(functions)
         petapm_force_c2r(functions);
     petapm_force_finish();
@@ -882,6 +891,8 @@ static void pm_apply_transfer_function(PetaPMRegion * region,
  ***************/
 static void put_particle_to_mesh(int i, double * mesh, double weight) {
     double Mass = *MASS(i);
+    if(INACTIVE(i))
+        return;
 #pragma omp atomic
     mesh[0] += weight * Mass;
 }

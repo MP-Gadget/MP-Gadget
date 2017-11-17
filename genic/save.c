@@ -8,6 +8,7 @@
 #include "genic/proto.h"
 #include "endrun.h"
 #include "bigfile-mpi.h"
+#include "cosmology.h"
 
 #include "walltime.h"
 
@@ -66,13 +67,15 @@ void saveheader(BigFile * bf, int64_t TotNumPart) {
     int64_t totnumpart[6] = {0};
     double mass[6] = {0};
     totnumpart[1] = TotNumPart;
+    double OmegaCDM = CP.Omega0;
     if (ProduceGas) {
         totnumpart[0] = TotNumPart;
         mass[0] = (CP.OmegaBaryon) * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3) / TotNumPart;
-        mass[1] = (CP.Omega0 - CP.OmegaBaryon) * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3) / TotNumPart;
-    } else {
-        mass[1] = (CP.Omega0) * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3) / TotNumPart;
+        OmegaCDM -= CP.OmegaBaryon;
     }
+    if(CP.MNu[0] + CP.MNu[1] + CP.MNu[2] > 0)
+        OmegaCDM -= get_omega_nu(&CP.ONu, 1);
+    mass[1] = OmegaCDM * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3) / TotNumPart;
     double redshift = 1.0 / InitTime - 1.;
 
     int rt =(0 != big_block_set_attr(&bheader, "TotNumPart", totnumpart, "i8", 6)) ||

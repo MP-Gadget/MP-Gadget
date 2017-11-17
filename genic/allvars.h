@@ -4,7 +4,7 @@
 
 extern double MaxMemSizePerNode;
 
-extern int      Nmesh, Ngrid;
+extern int      Nmesh, Ngrid, NGridNu;
 
 extern int UsePeculiarVelocity;
 extern int InvertPhase;
@@ -12,7 +12,9 @@ extern int InvertPhase;
 extern double   Box;
 extern int   ProduceGas;
 extern int Seed;
+
 extern int UnitaryAmplitude;
+extern int DifferentTransferFunctions;
 
 extern int      NumPart;
 
@@ -27,6 +29,7 @@ extern struct part_data
 } *P;
 
 extern double InitTime;
+extern double Max_nuvel;
 
 extern char * OutputDir, * FileBase;
 extern int  NumFiles;

@@ -6,7 +6,6 @@
 struct power_params
 {
     int WhichSpectrum;
-    int DifferentTransferFunctions;
     char * FileWithTransferFunction;
     char * FileWithInputSpectrum;
     double Sigma8;

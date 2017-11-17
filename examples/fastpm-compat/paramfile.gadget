@@ -30,6 +30,7 @@ StarformationCriterion  density,h2
 RadiationOn = 0
 HydroOn = 0
 BlackHoleOn = 0
+MassiveNuLinRespOn = 0
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1

@@ -21,6 +21,7 @@
 #include "endrun.h"
 #include "utils-string.h"
 #include "system.h"
+#include "kspace-neutrinos/delta_tot_table.h"
 
 /*! \file begrun.c
  *  \brief initial set-up of a simulation run
@@ -35,6 +36,9 @@
 static void set_units();
 static void set_softenings();
 
+/*Defined in gravpm.c*/
+extern _delta_tot_table delta_tot_table;
+extern _transfer_init_table transfer_init;
 
 /*! This function performs the initial set-up of the simulation. First, the
  *  parameterfile is set, then routines for setting units, reading
@@ -55,7 +59,6 @@ void begrun(int RestartSnapNum)
     write_pid_file(All.OutputDir);
     enable_core_dumps_and_fpu_exceptions();
 #endif
-
     InitCool();
 
 #if defined(SFR)
@@ -171,9 +174,10 @@ set_units(void)
     /* convert some physical input parameters to internal units */
 
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
-    /*Include massless neutrinos only if we do not have massive neutrino particles*/
-    All.CP.MasslessNeutrinosOn = (All.NTotalInit[2] == 0);
-    init_cosmology(&All.CP);
+    init_cosmology(&All.CP, All.TimeInit);
+    /*Initialise the hybrid neutrinos, after Omega_nu*/
+    if(All.HybridNeutrinosOn)
+        init_hybrid_nu(&All.CP.ONu.hybnu, All.CP.MNu, All.HybridVcrit, C/1e5, All.HybridNuPartTime, All.CP.ONu.kBtnu);
 
     meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */
 
@@ -215,13 +219,16 @@ set_units(void)
     message(0, "UnitDensity_in_cgs = %g \n", All.UnitDensity_in_cgs);
     message(0, "UnitEnergy_in_cgs = %g \n", All.UnitEnergy_in_cgs);
     message(0, "Photon density OmegaG = %g\n",All.CP.OmegaG);
-    message(0, "Massless Neutrino density OmegaNu0 = %g\n",All.CP.OmegaNu0);
+    if(!All.MassiveNuLinRespOn)
+        message(0, "Massless Neutrino density OmegaNu0 = %g\n",get_omega_nu(&All.CP.ONu, 1));
     message(0, "Curvature density OmegaK = %g\n",All.CP.OmegaK);
     if(All.CP.RadiationOn) {
         /* note that this value is inaccurate if there is massive neutrino. */
+        double OmegaTot = All.CP.OmegaG + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda;
+        if(!All.MassiveNuLinRespOn)
+            OmegaTot += get_omega_nu(&All.CP.ONu, 1);
         message(0, "Radiation is enabled in Hubble(a). "
-               "Following CAMB convention: Omega_Tot - 1 = %g\n",
-            All.CP.OmegaG + All.CP.OmegaNu0 + All.CP.OmegaK + All.CP.Omega0 + All.CP.OmegaLambda - 1);
+               "Following CAMB convention: Omega_Tot - 1 = %g\n", OmegaTot - 1);
     }
     message(0, "\n");
 }

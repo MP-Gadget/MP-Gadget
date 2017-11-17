@@ -12,7 +12,7 @@
 static Cosmology * CP = NULL;
 static inline double OmegaFLD(const double a);
 
-void init_cosmology(Cosmology * CP_in)
+void init_cosmology(Cosmology * CP_in, const double TimeBegin)
 {
     CP = CP_in;
     /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
@@ -33,17 +33,11 @@ void init_cosmology(Cosmology * CP_in)
                   / (3*C*C*C*HUBBLE*HUBBLE)
                   / (CP->HubbleParam*CP->HubbleParam);
 
-    /* Neutrino + antineutrino background temperature as a ratio to T_CMB0
-     * Note there is a slight correction from 4/11
-     * due to the neutrinos being slightly coupled at e+- annihilation.
-     * See Mangano et al 2005 (hep-ph/0506164)
-     * The correction is (3.046/3)^(1/4), for N_eff = 3.046 */
-    double TNu0_TCMB0 = pow(4/11., 1/3.) * 1.00328;
-
-    /* For massless neutrinos,
-     * rho_nu/rho_g = 7/8 (T_nu/T_cmb)^4 *N_eff,
-     * but we absorbed N_eff into T_nu above. */
-    CP->OmegaNu0 = CP->OmegaG * 7. / 8 * pow(TNu0_TCMB0, 4) * 3;
+    init_omega_nu(&CP->ONu, CP->MNu, TimeBegin, CP->HubbleParam, CP->CMBTemperature);
+    /* Neutrinos will be included in Omega0, if massive.
+     * This ensures that OmegaCDM contains only non-relativistic species.*/
+    if(CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0)
+        CP->OmegaCDM -= get_omega_nu(&CP->ONu, 1);
 }
 
 /*Hubble function at scale factor a, in dimensions of CP.Hubble*/
@@ -57,15 +51,12 @@ double hubble_function(double a)
     
     hubble_a += OmegaFLD(a);
     hubble_a += CP->OmegaK / (a * a);
-    hubble_a += CP->Omega0 / (a * a * a);
+    hubble_a += (CP->OmegaCDM + CP->OmegaBaryon) / (a * a * a);
 
     if(CP->RadiationOn) {
         hubble_a += CP->OmegaG / (a * a * a * a);
-        /* massless neutrinos are added only if there is no (massive) neutrino particle.*/
-        if(CP->MasslessNeutrinosOn)
-            hubble_a += CP->OmegaNu0 / (a * a * a * a);
+        hubble_a += get_omega_nu(&CP->ONu, a);
     }
-
     /* Now finish it up. */
     hubble_a = CP->Hubble * sqrt(hubble_a);
     return (hubble_a);
@@ -109,7 +100,7 @@ double growth(double a, double * dDda)
    * and never seen outside this function.*/
   double yinit[2] = {1.5 * CP->Omega0/(curtime*curtime), pow(curtime,3)*hubble_function(curtime)/CP->Hubble * 1.5 * CP->Omega0/(curtime*curtime*curtime)};
   if(CP->RadiationOn)
-      yinit[0] += (CP->OmegaG+CP->OmegaNu0)/pow(curtime,4);
+      yinit[0] += CP->OmegaG/pow(curtime, 4)+get_omega_nu(&CP->ONu, curtime);
 
   int stat = gsl_odeiv2_driver_apply(drive, &curtime,a, yinit);
   if (stat != GSL_SUCCESS) {

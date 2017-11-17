@@ -7,3 +7,6 @@
 [submodule "depends/cmocka"]
 	path = depends/cmocka
 	url = git://git.cryptomilk.org/projects/cmocka.git
+[submodule "kspace-neutrinos"]
+	path = kspace-neutrinos
+	url = https://github.com/sbird/kspace-neutrinos

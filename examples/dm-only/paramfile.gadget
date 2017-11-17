@@ -25,6 +25,7 @@ RadiationOn = 0
 BlackHoleOn = 0
 HydroOn = 0
 WindOn = 0
+MassiveNuLinRespOn = 0
 
 # Accuracy of time integration
 MaxSizeTimestep = 0.1

@@ -147,6 +147,13 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 /* the index of the node is the index of the particle */
                 drift_particle(no, All.Ti_Current);
 
+                /*Hybrid particle neutrinos do not gravitate at early times*/
+                if(All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime && P[no].Type == All.FastParticleType)
+                {
+                    no = Nextnode[no];
+                    continue;
+                }
+
                 dx = NEAREST(P[no].Pos[0] - pos_x);
                 dy = NEAREST(P[no].Pos[1] - pos_y);
                 dz = NEAREST(P[no].Pos[2] - pos_z);

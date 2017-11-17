@@ -19,6 +19,7 @@
 #include "endrun.h"
 #include "timestep.h"
 #include "timebinmgr.h"
+#include "cosmology.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions
@@ -151,6 +152,9 @@ void check_omega(void)
     omega =
         masstot / (All.BoxSize * All.BoxSize * All.BoxSize) / (3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G));
 
+    /*Add the density for analytically follows massive neutrinos*/
+    if(All.MassiveNuLinRespOn)
+        omega += get_omega_nu_nopart(&All.CP.ONu, 1);
     if(fabs(omega - All.CP.Omega0) > 1.0e-3)
     {
         endrun(0, "The mass content accounts only for Omega=%g,\nbut you specified Omega=%g in the parameterfile.\n",

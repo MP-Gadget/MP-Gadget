@@ -22,6 +22,12 @@ typedef struct {
     void (*readout)(int i, double * mesh, double weight);
 } PetaPMFunctions;
 
+typedef struct {
+    void (*global_readout)(int64_t k2, int kpos[3], pfft_complex * value);
+    void (*global_analysis)(void);
+    void (*global_transfer)(int64_t k2, int kpos[3], pfft_complex * value);
+} PetaPMGlobalFunctions;
+
 typedef void * (*petapm_malloc_func)(char * name, size_t * size);
 typedef void * (*petapm_mfree_func)(void * ptr);
 
@@ -31,6 +37,7 @@ typedef struct {
     size_t offset_pos;
     size_t offset_mass;
     size_t offset_regionind;
+    int (*active) (int i);
     int NumPart;
 } PetaPMParticleStruct;
 
@@ -38,7 +45,7 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads);
 void petapm_region_init_strides(PetaPMRegion * region);
 
 void petapm_force(petapm_prepare_func prepare, 
-        petapm_transfer_func global_transfer,
+        PetaPMGlobalFunctions * global_functions,
         PetaPMFunctions * functions, 
         PetaPMParticleStruct * pstruct,
         void * userdata);
@@ -48,7 +55,7 @@ void petapm_force_init(
         PetaPMParticleStruct * pstruct,
         void * userdata);
 void petapm_force_r2c( 
-        petapm_transfer_func global_transfer
+        PetaPMGlobalFunctions * global_functions
         );
 void petapm_force_c2r(
         PetaPMFunctions * functions);
