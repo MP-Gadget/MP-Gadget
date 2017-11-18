@@ -10,7 +10,9 @@ extern struct slots_manager_type {
         int size; /* currently used slots*/
         size_t elsize; /* itemsize */
         int enabled;
+        int garbage;
     } info[6];
+    int garbage;
 } SlotsManager[1];
 
 /* shortcuts for accessing different slots directly by the index */
@@ -36,10 +38,10 @@ void slots_mark_garbage(int i);
 void slots_setup_topology();
 void slots_setup_id();
 int slots_fork(int parent, int ptype);
-int slots_gc(void);
+int slots_gc(double defrag_frac);
+void slots_gc_sorted(void);
 void slots_reserve(int atleast[6]);
 void slots_check_id_consistency();
-
 
 typedef struct {
     EIBase base;

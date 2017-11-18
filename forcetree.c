@@ -76,7 +76,9 @@ force_insert_pseudo_particles(const struct TreeBuilder tb);
 static int
 force_tree_eh_slots_after_gc(EIBase * event, void * userdata)
 {
-    endrun(1, "This shall not happen. Currently gc will break the tree. so we take care to have the tree deallocated before/after gc.\n");
+    if(event->unused) {
+        force_tree_rebuild();
+    }
     return 0;
 }
 

@@ -154,7 +154,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         P[i].WillExport = 0;
         target = layoutfunc(i);
 
-        /* mark this particle as a garbage for removal later */
         int ptype = P[i].Type;
 
         /* watch out thread unsafe */
@@ -167,7 +166,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         /* now copy the base P; after PI has been updated */
         partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = P[i];
         toGoPtr[target].base ++;
-
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i);
     }
@@ -175,11 +173,10 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
 
-    /* now remove the garbage particles because they have already been copied.
-     * eventually we want to fill in the garbage gap or defer the gc, because it breaks the tree.
-     * invariance . */
+    /* FIXME: This needs some benchmarking to pick a good value!
+     * Arguably this should be type-specific, but that feels like too much complexity.*/
+    slots_gc(0.1);
 
-    slots_gc();
     walltime_measure("/Domain/exchange/garbage");
 
     int newNumPart;
@@ -299,7 +296,7 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
     int n;
     size_t package;
     int ptype;
-    ptrdiff_t nlimit = FreeBytes - NTask * 2 * sizeof(MPI_Request);
+    ptrdiff_t nlimit = FreeBytes - NTask * 2 * sizeof(MPI_Request) - SlotsManager->garbage * sizeof(int);
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
 
@@ -327,6 +324,8 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
 
         plan->toGo[target].base += 1;
         nlimit -= sizeof(P[0]);
+        /* For the GC*/
+        nlimit -= sizeof(int);
 
         int ptype = P[n].Type;
         plan->toGo[target].slots[ptype] += 1;

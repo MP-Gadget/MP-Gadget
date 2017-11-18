@@ -186,10 +186,9 @@ void run(void)
         if(WriteSnapshot || WriteFOF) {
             int snapnum = All.SnapshotFileCount++;
 
-            /* the accel may have created garbage -- collect them before checkpointing! */
-            force_tree_free();
-            slots_gc();
-            force_tree_rebuild();
+            /* The accel may have created garbage -- collect them before checkpointing!
+             * Tree will be auto-rebuilt if gc collected particles.*/
+            slots_gc(0.1);
 
             if(WriteSnapshot)
             {

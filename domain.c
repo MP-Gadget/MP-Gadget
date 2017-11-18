@@ -17,6 +17,7 @@
 #include "timebinmgr.h"
 #include "system.h"
 #include "exchange.h"
+#include "slotsmanager.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19
@@ -72,8 +73,6 @@ static int
 order_by_key(const void *a, const void *b);
 static void
 mp_order_by_key(const void * data, void * radix, void * arg);
-static int
-order_by_type_and_key(const void *a, const void *b);
 
 static void
 domain_assign_balanced(int64_t * cost);
@@ -135,7 +134,6 @@ void domain_decompose_full(void)
     do
     {
 #ifdef DEBUG
-        message(0, "Testing ID Uniqueness before domain decompose\n");
         domain_test_id_uniqueness();
 #endif
         domain_allocate();
@@ -179,9 +177,9 @@ void domain_decompose_full(void)
 
     message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
 
-    /* Resort the particles such that those of the same type and key are close by.
-     * The locality is broken by the exchange. */
-    qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
+    /*Do a garbage collection so that the slots are ordered
+     *the same as the particles, garbage is at the end and all particles are in peano order.*/
+    slots_gc_sorted();
 
     walltime_measure("/Domain/Peano");
 
@@ -1399,22 +1397,3 @@ mp_order_by_key(const void * data, void * radix, void * arg)
     const struct local_particle_data * pa  = (const struct local_particle_data *) data;
     ((uint64_t *) radix)[0] = pa->Key;
 }
-
-static int
-order_by_type_and_key(const void *a, const void *b)
-{
-    const struct particle_data * pa  = (const struct particle_data *) a;
-    const struct particle_data * pb  = (const struct particle_data *) b;
-
-    if(pa->Type < pb->Type)
-        return -1;
-    if(pa->Type > pb->Type)
-        return +1;
-    if(pa->Key < pb->Key)
-        return -1;
-    if(pa->Key > pb->Key)
-        return +1;
-
-    return 0;
-}
-
