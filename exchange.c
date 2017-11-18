@@ -77,6 +77,8 @@ int domain_exchange(int (*layoutfunc)(int p)) {
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
+        if(P[i].IsGarbage)
+            continue;
         int target = layoutfunc(i);
         if(target != ThisTask)
             P[i].OnAnotherDomain = 1;
@@ -319,7 +321,6 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
             break;
         }
         if(!P[n].OnAnotherDomain) continue;
-        if(P[n].IsGarbage) continue;
 
         int target = layoutfunc(n);
         if (target == ThisTask) continue;
