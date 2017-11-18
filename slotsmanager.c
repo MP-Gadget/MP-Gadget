@@ -29,7 +29,10 @@ slots_gc_slots();
 static void
 slots_connect_new_slot(int i, size_t size)
 {
-    memset(BASESLOT(i), 0, size);
+    /* Fill slot with a meaningless
+     * poison value ('e') so we will recognise
+     * if it is uninitialised.*/
+    memset(BASESLOT(i), 101, size);
     /* book keeping ID: debug only */
     BASESLOT(i)->ID = P[i].ID;
     BASESLOT(i)->IsGarbage = P[i].IsGarbage;
