@@ -450,7 +450,7 @@ slots_check_id_consistency()
             endrun(1, "slot PI consistency failed2\n");
         }
         if(BASESLOT(i)->ID != P[i].ID) {
-            endrun(1, "slot id consistency failed2\n");
+            endrun(1, "slot id consistency failed2: i=%d P.ID = %ld SLOT.ID=%ld\n",i, P[i].ID, BASESLOT(i)->ID);
         }
         used[P[i].Type] ++;
     }
