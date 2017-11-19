@@ -173,19 +173,17 @@ void domain_decompose_full(void)
     if(domain_exchange(domain_layoutfunc))
         endrun(1929,"Could not exchange particles\n");
 
-    t1 = second();
-
-    message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
-
     /*Do a garbage collection so that the slots are ordered
      *the same as the particles, garbage is at the end and all particles are in peano order.*/
     slots_gc_sorted();
 
-    walltime_measure("/Domain/Peano");
+    t1 = second();
+
+    message(0, "domain decomposition done. (took %g sec)\n", timediff(t0, t1));
 
     report_memory_usage("DOMAIN");
 
-    walltime_measure("/Domain/Misc");
+    walltime_measure("/Domain/Peano");
 
     /* this is a full decomposition, need to rebuild the force tree because all TopLeaves are out of date. */
     force_tree_rebuild();

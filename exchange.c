@@ -280,12 +280,12 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         SlotsManager->info[ptype].size = newSlots[ptype];
     }
 
-    walltime_measure("/Domain/exchange/finalize");
-
 #ifdef DEBUG
     domain_test_id_uniqueness();
     slots_check_id_consistency();
 #endif
+    walltime_measure("/Domain/exchange/finalize");
+
     return 0;
 }
 
