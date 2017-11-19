@@ -1,4 +1,3 @@
-
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
@@ -6,11 +5,11 @@
 #include <math.h>
 #include <mpi.h>
 #include <stdio.h>
+#include <string.h>
 #include <time.h>
 #include <gsl/gsl_rng.h>
 #include "allvars.h"
 #include "domain.h"
-#include "peano.c"
 #include "slotsmanager.h"
 #include "mymalloc.h"
 #include "stub.h"
