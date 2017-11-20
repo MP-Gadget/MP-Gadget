@@ -185,6 +185,19 @@ static int
 slots_gc_mark()
 {
     int i;
+#ifdef DEBUG
+    int ptype;
+    /*Initially set all reverse links to an obviously invalid value*/
+    for(ptype = 0; ptype < 6; ptype++)
+    {
+        if(!SLOTS_ENABLED(ptype))
+            continue;
+        #pragma omp parallel for
+        for(i = 0; i < SlotsManager->info[ptype].size; i++) {
+            BASESLOT_PI(i, ptype)->gc.ReverseLink = All.MaxPart + 100;
+        }
+    }
+#endif
 
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++) {
