@@ -295,30 +295,32 @@ slots_gc_slots(double defrag_frac)
     int disabled = 1;
     for(ptype = 0; ptype < 6; ptype ++) {
         sumup_large_ints(1, &SlotsManager->info[ptype].size, &total0[ptype]);
-        if(total0[ptype] != 0) disabled = 0;
-    }
-    /* disabled this if no slots are used */
-    if(disabled) {
-        return 0;
     }
 
 #ifdef DEBUG
     slots_check_id_consistency();
 #endif
-
-    slots_gc_mark();
-
-    for(ptype = 0; ptype < 6; ptype++) {
-        int defrag = defrag_frac * SlotsManager->info[ptype].size;
-        if(SlotsManager->info[ptype].garbage < defrag)
-            continue;
-        slots_gc_sweep(ptype);
-        slots_gc_collect(ptype);
+    /*Disable gc if there is insufficient garbage (or no slots are used)*/
+    for(ptype = 0; ptype < 6; ptype ++) {
+        int defrag = 1 + defrag_frac * SlotsManager->info[ptype].size;
+        if(SlotsManager->info[ptype].garbage >= defrag)
+            disabled = 0;
     }
 
+    if(!disabled) {
+        slots_gc_mark();
+
+        for(ptype = 0; ptype < 6; ptype++) {
+            int defrag = 1 + defrag_frac * SlotsManager->info[ptype].size;
+            if(SlotsManager->info[ptype].garbage < defrag)
+                continue;
+            slots_gc_sweep(ptype);
+            slots_gc_collect(ptype);
+        }
 #ifdef DEBUG
-    slots_check_id_consistency();
+        slots_check_id_consistency();
 #endif
+    }
 
     for(ptype = 0; ptype < 6; ptype ++) {
         sumup_large_ints(1, &SlotsManager->info[ptype].size, &total1[ptype]);
@@ -407,7 +409,7 @@ slots_reserve(int atleast[6])
     if(SlotsManager->Base == NULL)
         SlotsManager->Base = (char*) mymalloc("SlotsBase", 0);
 
-    /* FIXME: change 0.005 to a parameter. The expericence is 
+    /* FIXME: change 0.005 to a parameter. The experience is
      * this works out fine, since the number of time steps increases
      * (hence the number of growth increases
      * when the star formation ra*/
