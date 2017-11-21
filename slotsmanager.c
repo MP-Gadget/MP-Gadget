@@ -157,7 +157,8 @@ slots_gc_base()
         /*Set final elements*/
         partBufcnt[pc] = NumPart;
 
-        /*Compactify the P array: this invalidates the ReverseLink.*/
+        /*Compactify the P array: this invalidates the ReverseLink, so
+         * that ReverseLink is valid only within gc.*/
         for(i = 0; i < pc; i++) {
             int src = partBufcnt[i]+1;
             int dest = partBufcnt[i] - i;
@@ -227,7 +228,7 @@ slots_gc_mark()
     return 0;
 }
 
-/* sweep removed unused elements. */
+/* sweep removes unused entries in the slot list. */
 static int
 slots_gc_sweep(int ptype)
 {
@@ -237,7 +238,9 @@ slots_gc_sweep(int ptype)
 
     int used = SlotsManager->info[ptype].size;
     int i, sc = 0;
-    /* Allocate memory for the compatification lists: need one extra element.*/
+    /* Allocate memory for the compatification lists: need one extra element.
+     * slotBufcnt is a list of BASESLOT indices. Element i is the ith entry to be removed.
+     * The final entry points to the last slot.*/
     int * slotBufcnt = mymalloc("slottmp", (garbage+1) * sizeof(int));
     for(i = 0; i < used; i++)
         if(BASESLOT_PI(i,ptype)->IsGarbage)
@@ -248,9 +251,6 @@ slots_gc_sweep(int ptype)
         int dest = slotBufcnt[i] - i;
         int nmove = slotBufcnt[i+1] - slotBufcnt[i]-1;
 //             message(1,"ptype = %d i = %d, PI = %d-> %d, nm=%d\n",ptype, i, src, dest, nmove);
-        /* TODO: in principle we can track this change and modify the tree nodes;
-            * Likely worth it, since GC happens only in domain exchange
-            * and snapshot IO, both take far more time than rebuilding the tree. */
         memmove(BASESLOT_PI(dest, ptype), BASESLOT_PI(src, ptype), nmove*SlotsManager->info[ptype].elsize);
     }
     SlotsManager->info[ptype].size -= sc;
@@ -409,7 +409,7 @@ slots_reserve(int atleast[6])
     if(SlotsManager->Base == NULL)
         SlotsManager->Base = (char*) mymalloc("SlotsBase", 0);
 
-    /* FIXME: change 0.005 to a parameter. The experience is
+    /* FIXME: change 0.01 to a parameter. The experience is
      * this works out fine, since the number of time steps increases
      * (hence the number of growth increases
      * when the star formation ra*/
