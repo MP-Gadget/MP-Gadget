@@ -68,7 +68,7 @@ void run(void)
          * all bins except the zeroth are inactive and so we return 0 from this function.
          * This ensures we run the force calculation for the first timestep.
          */
-        All.Ti_Current = find_next_kick(All.Ti_Current, minTimeBin); 
+        All.Ti_Current = find_next_kick(All.Ti_Current, minTimeBin);
 
         /*Convert back to floating point time*/
         set_global_time(exp(loga_from_ti(All.Ti_Current)));
@@ -189,7 +189,8 @@ void run(void)
             /* The accel may have created garbage -- collect them before checkpointing!
              * Tree will be auto-rebuilt if gc collected particles,
              * but we should rebuild the active list.*/
-            if(slots_gc(0.1))
+            int compact[6] = {0};
+            if(slots_gc(compact))
                 rebuild_activelist(All.Ti_Current);
 
             if(WriteSnapshot)
@@ -198,7 +199,7 @@ void run(void)
                 /* FIXME: this doesn't allow saving fof without the snapshot yet. do it after allocator is merged */
 
                 /* write snapshot of particles */
-                savepositions(snapnum); 
+                savepositions(snapnum);
 
                 TimeLastOutput = All.CT.ElapsedTime;
             }

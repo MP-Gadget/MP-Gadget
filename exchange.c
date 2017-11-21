@@ -173,8 +173,13 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
 
-    /* This is a reasonable value which usually skips gc on the slots.*/
-    slots_gc(0.1);
+    /* gc the slots here if we are low on slot memory. */
+    int compact[6] = {0};
+    for(ptype = 0; ptype < 6; ptype++) {
+        if (SlotsManager->info[ptype].size + plan->toGetSum.slots[ptype] > 0.95 * SlotsManager->info[ptype].maxsize)
+            compact[ptype] = 1;
+    }
+    slots_gc(compact);
 
     walltime_measure("/Domain/exchange/garbage");
 
@@ -295,7 +300,7 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
     int n;
     size_t package;
     int ptype;
-    ptrdiff_t nlimit = FreeBytes - NTask * 2 * sizeof(MPI_Request) - SlotsManager->garbage * sizeof(int);
+    ptrdiff_t nlimit = FreeBytes - NTask * 2 * sizeof(MPI_Request);
 
     memset(plan->toGo, 0, sizeof(plan->toGo[0]) * NTask);
 
@@ -323,8 +328,6 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
 
         plan->toGo[target].base += 1;
         nlimit -= sizeof(P[0]);
-        /* For the GC*/
-        nlimit -= sizeof(int);
 
         int ptype = P[n].Type;
         plan->toGo[target].slots[ptype] += 1;

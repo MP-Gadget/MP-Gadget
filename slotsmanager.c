@@ -23,7 +23,7 @@ static int
 slots_gc_base();
 
 static int
-slots_gc_slots(double defrag_frac);
+slots_gc_slots(int * compact_slots);
 
 /*Initialise a new slot for the particle at index i.*/
 static void
@@ -114,9 +114,12 @@ slots_fork(int parent, int ptype)
     return child;
 }
 
-/* remove garbage particles, holes in sph chunk and holes in bh buffer. */
+/* remove garbage particles, holes in sph chunk and holes in bh buffer.
+ * This algorithm is O(n), and shifts particles over the holes.
+ * compact_slots is a 6-member array, 1 if that slot should be compacted, 0 otherwise.
+ * As slots_gc_base preserves the order of the slots, one may usually skip compaction.*/
 int
-slots_gc(double defrag_frac)
+slots_gc(int * compact_slots)
 {
     /* tree is invalidated if the sequence on P is reordered; */
 
@@ -127,7 +130,7 @@ slots_gc(double defrag_frac)
      * link lists first. likely worth it, since GC happens only in domain decompose
      * and snapshot IO, both take far more time than rebuilding the tree. */
     tree_invalid |= slots_gc_base();
-    tree_invalid |= slots_gc_slots(defrag_frac);
+    tree_invalid |= slots_gc_slots(compact_slots);
 
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
@@ -138,6 +141,58 @@ slots_gc(double defrag_frac)
     return tree_invalid;
 }
 
+
+#define GARBAGE(i, ptype) (ptype >= 0 ? BASESLOT_PI(i,ptype)->IsGarbage : P[i].IsGarbage)
+#define PART(i, ptype) (ptype >= 0 ? (void *) BASESLOT_PI(i, ptype) : (void *) &P[i])
+
+/*Compaction algorithm*/
+static int
+slots_gc_compact(int used, int ptype, size_t size)
+{
+    /*Find first garbage particle*/
+    int i, nextgc = used;
+    for(i = 0; i < used; i++)
+        if(GARBAGE(i,ptype)) {
+            nextgc = i;
+            break;
+        }
+
+    int ngc = 0;
+    /*Note each particle is tested exactly once*/
+    while(nextgc < used) {
+        int i;
+        /*Now lastgc contains a garbage*/
+        int lastgc = nextgc;
+        /*Find a non-garbage after it*/
+        int src = used;
+        for(i = lastgc + 1; i < used; i++)
+            if(!GARBAGE(i, ptype)) {
+                src = i;
+                break;
+            }
+        /*If no more non-garbage particles, don't both copying, just add a skip*/
+        if(src == used) {
+            ngc++;
+            break;
+        }
+        /*Destination is shifted already*/
+        int dest = lastgc - ngc;
+        nextgc = used;
+        /*Find another garbage particle*/
+        for(i = src+1; i < used; i++)
+            if(GARBAGE(i, ptype)) {
+                nextgc = i;
+                break;
+            }
+        /*Add number of particles we skipped*/
+        ngc += src - lastgc;
+        int nmove = nextgc - src +1;
+//         message(1,"i = %d, PI = %d-> %d, nm=%d\n",i, src, dest, nmove);
+        memmove(PART(dest, ptype),PART(src, ptype),nmove*size);
+    }
+    return ngc;
+}
+
 static int
 slots_gc_base()
 {
@@ -145,30 +200,11 @@ slots_gc_base()
 
     sumup_large_ints(1, &NumPart, &total0);
 
-    if(SlotsManager->garbage) {
-        int i, pc = 0;
-        int * partBufcnt = mymalloc("parttmp", (SlotsManager->garbage+1) * sizeof(int));
-        for(i = 0; i < NumPart; i++)
-            if(P[i].IsGarbage) {
-                /* mark the particle for removal in base slot.*/
-                partBufcnt[pc++] = i;
-            }
+    /*Compactify the P array: this invalidates the ReverseLink, so
+        * that ReverseLink is valid only within gc.*/
+    int ngc = slots_gc_compact(NumPart, -1, sizeof(struct particle_data));
 
-        /*Set final elements*/
-        partBufcnt[pc] = NumPart;
-
-        /*Compactify the P array: this invalidates the ReverseLink, so
-         * that ReverseLink is valid only within gc.*/
-        for(i = 0; i < pc; i++) {
-            int src = partBufcnt[i]+1;
-            int dest = partBufcnt[i] - i;
-            int nmove = partBufcnt[i+1] - partBufcnt[i];
-            memmove(&P[dest],&P[src],nmove*sizeof(struct particle_data));
-        }
-        myfree(partBufcnt);
-        NumPart -= pc;
-        SlotsManager->garbage = 0;
-    }
+    NumPart -= ngc;
 
     sumup_large_ints(1, &NumPart, &total);
 
@@ -233,31 +269,13 @@ static int
 slots_gc_sweep(int ptype)
 {
     if(!SLOTS_ENABLED(ptype)) return 0;
-    int garbage = SlotsManager->info[ptype].garbage;
-    if(!garbage) return 0;
-
     int used = SlotsManager->info[ptype].size;
-    int i, sc = 0;
-    /* Allocate memory for the compatification lists: need one extra element.
-     * slotBufcnt is a list of BASESLOT indices. Element i is the ith entry to be removed.
-     * The final entry points to the last slot.*/
-    int * slotBufcnt = mymalloc("slottmp", (garbage+1) * sizeof(int));
-    for(i = 0; i < used; i++)
-        if(BASESLOT_PI(i,ptype)->IsGarbage)
-            slotBufcnt[sc++] = i;
-    slotBufcnt[sc] = used;
-    for(i = 0; i < sc; i++) {
-        int src = slotBufcnt[i]+1;
-        int dest = slotBufcnt[i] - i;
-        int nmove = slotBufcnt[i+1] - slotBufcnt[i]-1;
-//             message(1,"ptype = %d i = %d, PI = %d-> %d, nm=%d\n",ptype, i, src, dest, nmove);
-        memmove(BASESLOT_PI(dest, ptype), BASESLOT_PI(src, ptype), nmove*SlotsManager->info[ptype].elsize);
-    }
-    SlotsManager->info[ptype].size -= sc;
-    SlotsManager->info[ptype].garbage = 0;
 
-    myfree(slotBufcnt);
-    return 0;
+    int ngc = slots_gc_compact(used, ptype, SlotsManager->info[ptype].elsize);
+
+    SlotsManager->info[ptype].size -= ngc;
+
+    return ngc;
 }
 
 /* update new pointers. */
@@ -285,41 +303,34 @@ slots_gc_collect(int ptype)
 
 
 static int
-slots_gc_slots(double defrag_frac)
+slots_gc_slots(int * compact_slots)
 {
     int ptype;
 
     int64_t total0[6];
     int64_t total1[6];
 
-    int disabled[6] = {1}, all_disabled = 1;
+    int disabled = 1;
     for(ptype = 0; ptype < 6; ptype ++) {
         sumup_large_ints(1, &SlotsManager->info[ptype].size, &total0[ptype]);
+        if(compact_slots[ptype])
+            disabled = 0;
     }
 
 #ifdef DEBUG
     slots_check_id_consistency();
 #endif
-    /*Disable gc if there is insufficient garbage (or no slots are used)*/
-    for(ptype = 0; ptype < 6; ptype ++) {
-        int defrag = 1 + defrag_frac * SlotsManager->info[ptype].size;
-        if(SlotsManager->info[ptype].garbage >= defrag) {
-            disabled[ptype] = 0;
-            all_disabled = 0;
-        }
-    }
 
-    if(!all_disabled) {
+    if(!disabled) {
         slots_gc_mark();
 
         for(ptype = 0; ptype < 6; ptype++) {
-            if(disabled[ptype])
+            if(!compact_slots[ptype])
                 continue;
             slots_gc_sweep(ptype);
             slots_gc_collect(ptype);
         }
     }
-
 #ifdef DEBUG
     slots_check_id_consistency();
 #endif
@@ -356,7 +367,10 @@ order_by_type_and_key(const void *a, const void *b)
     return 0;
 }
 
-/* Sort the particles and their slots by type and peano order.*/
+/* Sort the particles and their slots by type and peano order.
+ * This does a gc by sorting the Garbage to the end of the array and then trimming.
+ * It is a different algorithm to slots_gc, somewhat slower,
+ * but delivers a spatially compact sort. It always compacts the slots*/
 void
 slots_gc_sorted()
 {
@@ -369,7 +383,6 @@ slots_gc_sorted()
     while(P[NumPart-1].IsGarbage) {
         NumPart--;
     }
-    SlotsManager->garbage = 0;
 
     /*Set up ReverseLink*/
     slots_gc_mark();
@@ -388,7 +401,6 @@ slots_gc_sorted()
         while(BASESLOT_PI(SlotsManager->info[ptype].size-1, ptype)->IsGarbage) {
             SlotsManager->info[ptype].size--;
         }
-        SlotsManager->info[ptype].garbage = 0;
         slots_gc_collect(ptype);
     }
 #ifdef DEBUG
@@ -498,10 +510,7 @@ slots_mark_garbage(int i)
     P[i].IsGarbage = 1;
     if(SLOTS_ENABLED(P[i].Type)) {
         BASESLOT(i)->IsGarbage = 1;
-        atomic_add_and_fetch(&SlotsManager->info[P[i].Type].garbage, 1);
     }
-    /*Increment the counter*/
-    atomic_add_and_fetch(&SlotsManager->garbage, 1);
 }
 
 void

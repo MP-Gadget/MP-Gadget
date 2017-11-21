@@ -59,10 +59,12 @@ test_slots_gc(void **state)
 {
     setup_particles(state);
     int i;
+    int compact[6];
     for(i = 0; i < 6; i ++) {
         slots_mark_garbage(128 * i);
+        compact[i] = 1;
     }
-    slots_gc(0);
+    slots_gc(compact);
     assert_int_equal(NumPart, 127 * i);
 
     assert_int_equal(SlotsManager->info[0].size, 127);
