@@ -318,11 +318,11 @@ slots_gc_slots(double defrag_frac)
             slots_gc_sweep(ptype);
             slots_gc_collect(ptype);
         }
-#ifdef DEBUG
-        slots_check_id_consistency();
-#endif
     }
 
+#ifdef DEBUG
+    slots_check_id_consistency();
+#endif
     for(ptype = 0; ptype < 6; ptype ++) {
         sumup_large_ints(1, &SlotsManager->info[ptype].size, &total1[ptype]);
 
