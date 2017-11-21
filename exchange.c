@@ -25,8 +25,8 @@ typedef struct {
     ExchangePlanEntry toGoSum;
     ExchangePlanEntry toGetSum;
 } ExchangePlan;
-/* 
- * 
+/*
+ *
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
@@ -173,8 +173,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
 
-    /* FIXME: This needs some benchmarking to pick a good value!
-     * Arguably this should be type-specific, but that feels like too much complexity.*/
+    /* This is a reasonable value which usually skips gc on the slots.*/
     slots_gc(0.1);
 
     walltime_measure("/Domain/exchange/garbage");
@@ -253,7 +252,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
             }
         }
         for(ptype = 0; ptype < 6; ptype ++) {
-            if(newPI[ptype] != 
+            if(newPI[ptype] !=
                 SlotsManager->info[ptype].size + plan->toGetOffset[src].slots[ptype]
               + plan->toGet[src].slots[ptype]) {
                 endrun(1, "N_slots mismatched\n");
