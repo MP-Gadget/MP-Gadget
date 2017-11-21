@@ -173,10 +173,14 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
 
-    /* gc the slots here if we are low on slot memory. */
+    /*Find which slots to gc*/
     int compact[6] = {0};
     for(ptype = 0; ptype < 6; ptype++) {
+        /* gc if we are low on slot memory. */
         if (SlotsManager->info[ptype].size + plan->toGetSum.slots[ptype] > 0.95 * SlotsManager->info[ptype].maxsize)
+            compact[ptype] = 1;
+        /* gc if we had a very large exchange. */
+        if(plan->toGoSum.slots[ptype] > 0.1 * SlotsManager->info[ptype].size)
             compact[ptype] = 1;
     }
     slots_gc(compact);
