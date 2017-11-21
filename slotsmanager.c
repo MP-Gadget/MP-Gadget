@@ -292,7 +292,7 @@ slots_gc_slots(double defrag_frac)
     int64_t total0[6];
     int64_t total1[6];
 
-    int disabled = 1;
+    int disabled[6] = {1}, all_disabled = 1;
     for(ptype = 0; ptype < 6; ptype ++) {
         sumup_large_ints(1, &SlotsManager->info[ptype].size, &total0[ptype]);
     }
@@ -303,16 +303,17 @@ slots_gc_slots(double defrag_frac)
     /*Disable gc if there is insufficient garbage (or no slots are used)*/
     for(ptype = 0; ptype < 6; ptype ++) {
         int defrag = 1 + defrag_frac * SlotsManager->info[ptype].size;
-        if(SlotsManager->info[ptype].garbage >= defrag)
-            disabled = 0;
+        if(SlotsManager->info[ptype].garbage >= defrag) {
+            disabled[ptype] = 0;
+            all_disabled = 0;
+        }
     }
 
-    if(!disabled) {
+    if(!all_disabled) {
         slots_gc_mark();
 
         for(ptype = 0; ptype < 6; ptype++) {
-            int defrag = 1 + defrag_frac * SlotsManager->info[ptype].size;
-            if(SlotsManager->info[ptype].garbage < defrag)
+            if(disabled[ptype])
                 continue;
             slots_gc_sweep(ptype);
             slots_gc_collect(ptype);
