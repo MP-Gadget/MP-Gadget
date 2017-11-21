@@ -172,11 +172,12 @@ slots_gc_compact(int used, int ptype, size_t size)
             }
         /*If no more non-garbage particles, don't both copying, just add a skip*/
         if(src == used) {
-            ngc++;
+            ngc += src - lastgc;
             break;
         }
         /*Destination is shifted already*/
         int dest = lastgc - ngc;
+
         nextgc = used;
         /*Find another garbage particle*/
         for(i = src+1; i < used; i++)
@@ -293,7 +294,7 @@ slots_gc_collect(int ptype)
 
 #ifdef DEBUG
         if(BASESLOT_PI(i, ptype)->IsGarbage) {
-            endrun(1, "Shall not happend\n");
+            endrun(1, "Shall not happen: i=%d ptype = %d\n", i,ptype);
         }
 #endif
 
