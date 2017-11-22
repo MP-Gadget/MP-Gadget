@@ -187,11 +187,12 @@ void run(void)
             int snapnum = All.SnapshotFileCount++;
 
             /* The accel may have created garbage -- collect them before checkpointing!
-             * Tree will be auto-rebuilt if gc collected particles,
-             * but we should rebuild the active list.*/
+             * If we do collect, rebuild tree and active list.*/
             int compact[6] = {0};
-            if(slots_gc(compact))
+            if(slots_gc(compact)) {
+                force_tree_rebuild();
                 rebuild_activelist(All.Ti_Current);
+            }
 
             if(WriteSnapshot)
             {
