@@ -183,6 +183,8 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         if(plan->toGoSum.slots[ptype] > 0.1 * SlotsManager->info[ptype].size)
             compact[ptype] = 1;
     }
+    /*Make the slot compaction collective*/
+    MPI_Allreduce(MPI_IN_PLACE, &compact, 6, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
     slots_gc(compact);
 
     walltime_measure("/Domain/exchange/garbage");
