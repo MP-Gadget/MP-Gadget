@@ -5,15 +5,14 @@
  *
  * The source code originally came from sfr_eff.c in Gadget-3. This version has
  * been heavily rewritten to add support for new wind models, new star formation
- * criterions, and more importantly, use use the new tree walker routines.
+ * criterions, and more importantly, use the new tree walker routines.
  *
  * I (Yu Feng) feel it is appropriate to release most of this file with a free license,
  * because the implementation here has diverged from the original code by too far.
  *
  * The largest remaining concern are a few functions there were obtained from Gadget-P. 
- * They are for * self-gravity starformation condition and H2.
- * Eventhough they have been heavily rewritten, the core math is the same.
- * the license is still murky. Do not use them unless Phil Hopkins has agreed.
+ * Functions for self-gravity starformation condition and H2 are derived from Gadget-P
+ * and used with permission of Phil Hopkins. Please cite the requisite papers if you use them.
  *
  * */
 
