@@ -47,8 +47,4 @@ typedef struct {
     int child;
 } EISlotsFork;
 
-typedef struct {
-    EIBase base;
-} EISlotsAfterGC;
-
 #endif

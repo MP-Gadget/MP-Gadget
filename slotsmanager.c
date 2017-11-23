@@ -134,10 +134,6 @@ slots_gc(int * compact_slots)
 
     MPI_Allreduce(MPI_IN_PLACE, &tree_invalid, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
-    EISlotsAfterGC event = {{tree_invalid}};
-
-    event_emit(&EventSlotsAfterGC, (EIBase*) &event);
-
     return tree_invalid;
 }
 
@@ -407,10 +403,6 @@ slots_gc_sorted()
 #ifdef DEBUG
     slots_check_id_consistency();
 #endif
-
-    /*Rebuild the tree if still allocated*/
-    EISlotsAfterGC event = {{1}};
-    event_emit(&EventSlotsAfterGC, (EIBase*) &event);
 }
 
 void
