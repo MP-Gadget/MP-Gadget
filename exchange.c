@@ -115,6 +115,24 @@ int domain_exchange(int (*layoutfunc)(int p)) {
     return failure;
 }
 
+/*Function decides whether the GC will compact slots.
+ * Sets compact[6]. Is collective.*/
+static void
+shall_we_compact_slots(int * compact, ExchangePlan * plan)
+{
+    int ptype;
+    for(ptype = 0; ptype < 6; ptype++) {
+        /* gc if we are low on slot memory. */
+        if (SlotsManager->info[ptype].size + plan->toGetSum.slots[ptype] > 0.95 * SlotsManager->info[ptype].maxsize)
+            compact[ptype] = 1;
+        /* gc if we had a very large exchange. */
+        if(plan->toGoSum.slots[ptype] > 0.1 * SlotsManager->info[ptype].size)
+            compact[ptype] = 1;
+    }
+    /*Make the slot compaction collective*/
+    MPI_Allreduce(MPI_IN_PLACE, &compact, 6, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+}
+
 static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 {
     int i, target, ptype;
@@ -175,16 +193,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     /*Find which slots to gc*/
     int compact[6] = {0};
-    for(ptype = 0; ptype < 6; ptype++) {
-        /* gc if we are low on slot memory. */
-        if (SlotsManager->info[ptype].size + plan->toGetSum.slots[ptype] > 0.95 * SlotsManager->info[ptype].maxsize)
-            compact[ptype] = 1;
-        /* gc if we had a very large exchange. */
-        if(plan->toGoSum.slots[ptype] > 0.1 * SlotsManager->info[ptype].size)
-            compact[ptype] = 1;
-    }
-    /*Make the slot compaction collective*/
-    MPI_Allreduce(MPI_IN_PLACE, &compact, 6, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+    shall_we_compact_slots(compact, plan);
     slots_gc(compact);
 
     walltime_measure("/Domain/exchange/garbage");
