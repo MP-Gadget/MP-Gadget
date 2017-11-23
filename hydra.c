@@ -237,13 +237,7 @@ hydro_ngbiter(
     {
         double Pressure_j = PressurePred(other);
         double p_over_rho2_j = Pressure_j / (SPHP(other).EOMDensity * SPHP(other).EOMDensity);
-        double soundspeed_j;
-
-#ifdef DENSITY_INDEPENDENT_SPH
-        soundspeed_j = sqrt(GAMMA * Pressure_j / SPHP(other).EOMDensity);
-#else
-        soundspeed_j = sqrt(GAMMA * p_over_rho2_j * SPHP(other).Density);
-#endif
+        double soundspeed_j = sqrt(GAMMA * Pressure_j / SPHP(other).EOMDensity);
 
         double dv[3];
         int d;
