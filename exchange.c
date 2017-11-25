@@ -25,8 +25,8 @@ typedef struct {
     ExchangePlanEntry toGoSum;
     ExchangePlanEntry toGetSum;
 } ExchangePlan;
-/* 
- * 
+/*
+ *
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
@@ -77,6 +77,8 @@ int domain_exchange(int (*layoutfunc)(int p)) {
 #pragma omp parallel for
     for(i = 0; i < NumPart; i++)
     {
+        if(P[i].IsGarbage)
+            continue;
         int target = layoutfunc(i);
         if(target != ThisTask)
             P[i].OnAnotherDomain = 1;
@@ -111,6 +113,24 @@ int domain_exchange(int (*layoutfunc)(int p)) {
     myfree(plan.toGo);
 
     return failure;
+}
+
+/*Function decides whether the GC will compact slots.
+ * Sets compact[6]. Is collective.*/
+static void
+shall_we_compact_slots(int * compact, ExchangePlan * plan)
+{
+    int ptype;
+    for(ptype = 0; ptype < 6; ptype++) {
+        /* gc if we are low on slot memory. */
+        if (SlotsManager->info[ptype].size + plan->toGetSum.slots[ptype] > 0.95 * SlotsManager->info[ptype].maxsize)
+            compact[ptype] = 1;
+        /* gc if we had a very large exchange. */
+        if(plan->toGoSum.slots[ptype] > 0.1 * SlotsManager->info[ptype].size)
+            compact[ptype] = 1;
+    }
+    /*Make the slot compaction collective*/
+    MPI_Allreduce(MPI_IN_PLACE, &compact, 6, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 }
 
 static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
@@ -152,7 +172,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         P[i].WillExport = 0;
         target = layoutfunc(i);
 
-        /* mark this particle as a garbage for removal later */
         int ptype = P[i].Type;
 
         /* watch out thread unsafe */
@@ -165,7 +184,6 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         /* now copy the base P; after PI has been updated */
         partBuf[plan->toGoOffset[target].base + toGoPtr[target].base] = P[i];
         toGoPtr[target].base ++;
-
         /* mark the particle for removal. Both secondary and base slots will be marked. */
         slots_mark_garbage(i);
     }
@@ -173,11 +191,11 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
 
-    /* now remove the garbage particles because they have already been copied.
-     * eventually we want to fill in the garbage gap or defer the gc, because it breaks the tree.
-     * invariance . */
+    /*Find which slots to gc*/
+    int compact[6] = {0};
+    shall_we_compact_slots(compact, plan);
+    slots_gc(compact);
 
-    slots_gc();
     walltime_measure("/Domain/exchange/garbage");
 
     int newNumPart;
@@ -254,7 +272,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
             }
         }
         for(ptype = 0; ptype < 6; ptype ++) {
-            if(newPI[ptype] != 
+            if(newPI[ptype] !=
                 SlotsManager->info[ptype].size + plan->toGetOffset[src].slots[ptype]
               + plan->toGet[src].slots[ptype]) {
                 endrun(1, "N_slots mismatched\n");
@@ -281,12 +299,12 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         SlotsManager->info[ptype].size = newSlots[ptype];
     }
 
-    walltime_measure("/Domain/exchange/finalize");
-
 #ifdef DEBUG
     domain_test_id_uniqueness();
     slots_check_id_consistency();
 #endif
+    walltime_measure("/Domain/exchange/finalize");
+
     return 0;
 }
 
@@ -319,7 +337,6 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
             break;
         }
         if(!P[n].OnAnotherDomain) continue;
-        if(P[n].IsGarbage) continue;
 
         int target = layoutfunc(n);
         if (target == ThisTask) continue;

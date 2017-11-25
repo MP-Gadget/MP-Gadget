@@ -74,13 +74,6 @@ static void
 force_insert_pseudo_particles(const struct TreeBuilder tb);
 
 static int
-force_tree_eh_slots_after_gc(EIBase * event, void * userdata)
-{
-    endrun(1, "This shall not happen. Currently gc will break the tree. so we take care to have the tree deallocated before/after gc.\n");
-    return 0;
-}
-
-static int
 force_tree_eh_slots_fork(EIBase * event, void * userdata)
 {
     /* after a fork, we will attach the new particle to the force tree. */
@@ -164,7 +157,6 @@ int force_tree_build(int npart)
 
     force_treeupdate_pseudos(All.MaxPart, tb);
 
-    event_listen(&EventSlotsAfterGC, force_tree_eh_slots_after_gc, NULL);
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
     return Numnodestree;
 }
@@ -1119,7 +1111,6 @@ struct TreeBuilder force_treeallocate(int maxnodes, int maxpart, int first_node_
  */
 void force_tree_free(void)
 {
-    event_unlisten(&EventSlotsAfterGC, force_tree_eh_slots_after_gc, NULL);
     event_unlisten(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
 
     myfree(Father);

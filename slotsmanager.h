@@ -36,19 +36,15 @@ void slots_mark_garbage(int i);
 void slots_setup_topology();
 void slots_setup_id();
 int slots_fork(int parent, int ptype);
-int slots_gc(void);
+int slots_gc(int * compact_slots);
+void slots_gc_sorted(void);
 void slots_reserve(int atleast[6]);
 void slots_check_id_consistency();
-
 
 typedef struct {
     EIBase base;
     int parent;
     int child;
 } EISlotsFork;
-
-typedef struct {
-    EIBase base;
-} EISlotsAfterGC;
 
 #endif

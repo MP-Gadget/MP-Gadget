@@ -729,6 +729,8 @@ int rebuild_activelist(inttime_t Ti_Current)
 
         if(is_timebin_active(bin, Ti_Current))
         {
+            if(P[i].IsGarbage)
+                endrun(2,"Trying to make particle %d active, but it is garbage!\n", i);
             ActiveParticle[NumActiveParticle] = i;
             NumActiveParticle++;
         }
