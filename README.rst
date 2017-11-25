@@ -163,7 +163,7 @@ consent from the original authors of these files shall be obtained.
 Status
 ------
 
-The public branch is
+master branch on @rainwoodman:
 
-.. image:: https://travis-ci.org/bluetides-project/MP-Gadget.svg?branch=public
-       :target: https://travis-ci.org/bluetides-project/MP-Gadget
+.. image:: https://travis-ci.org/rainwoodman/MP-Gadget.svg?branch=public
+       :target: https://travis-ci.org/rainwoodman/MP-Gadget
