@@ -16,8 +16,8 @@ before_install:
     - bash install-nbodykit.sh
     - export PATH=$HOME/miniconda/bin:$PATH
     - source activate test
-    - conda install gsl
-    - conda install gcc_linux-64 # use the linux64 compiler which supports OpenMP 3.1+
+    - conda install --yes gsl
+    - conda install --yes gcc_linux-64 # use the linux64 compiler which supports OpenMP 3.1+
 
 install:
     - sh bootstrap.sh
