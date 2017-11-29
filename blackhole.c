@@ -16,8 +16,6 @@
 #include "system.h"
 #include "fof.h"
 #include "blackhole.h"
-#include "forcetree.h"
-#include "sfr_eff.h"
 #include "timestep.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
@@ -197,11 +195,10 @@ void blackhole(void)
     message(0, "Accretion done: %d gas particles swallowed, %d BH particles swallowed\n",
                 Ntot_gas_swallowed, Ntot_BH_swallowed);
 
-    double total_mass_real, total_mdoteddington;
+    double total_mdoteddington;
     double total_mass_holes, total_mdot;
 
     double Local_BH_mass = 0;
-    double Local_BH_dynamicalmass = 0;
     double Local_BH_Mdot = 0;
     double Local_BH_Medd = 0;
     /* Compute total mass of black holes
@@ -211,12 +208,9 @@ void blackhole(void)
         Local_BH_mass += BhP[i].Mass;
         Local_BH_Mdot += BhP[i].Mdot;
         Local_BH_Medd += BhP[i].Mdot/BhP[i].Mass;
-        /* FIXME : this is broken. ReverseLink is always -1 get rid of this metric?*/
-        // Local_BH_dynamicalmass += P[BhP[i].ReverseLink].Mass;
     }
 
     MPI_Reduce(&Local_BH_mass, &total_mass_holes, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&Local_BH_dynamicalmass, &total_mass_real, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&Local_BH_Mdot, &total_mdot, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&Local_BH_Medd, &total_mdoteddington, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
 
@@ -229,9 +223,8 @@ void blackhole(void)
         total_mdoteddington *= 1.0 / ((4 * M_PI * GRAVITY * C * PROTONMASS /
                     (0.1 * C * C * THOMPSON)) * All.UnitTime_in_s);
 
-        fprintf(FdBlackHoles, "%g %d %g %g %g %g %g\n",
-                All.Time, SlotsManager->info[5].size, total_mass_holes, total_mdot, mdot_in_msun_per_year,
-                total_mass_real, total_mdoteddington);
+        fprintf(FdBlackHoles, "%g %d %g %g %g %g\n",
+                All.Time, SlotsManager->info[5].size, total_mass_holes, total_mdot, mdot_in_msun_per_year, total_mdoteddington);
         fflush(FdBlackHoles);
     }
 

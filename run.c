@@ -41,7 +41,7 @@ enum ActionType {
 };
 static enum ActionType human_interaction(double lastPM, double TimeLastOutput);
 static int should_we_timeout(double TimelastPM);
-static void compute_accelerations(int is_PM, int FirstStep);
+static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled);
 static void update_IO_params(const char * ioctlfname);
 static void write_cpu_log(int NumCurrentTiStep);
 
@@ -51,6 +51,8 @@ void run(void)
     int NumCurrentTiStep = 0;
     /*Minimum occupied timebin. Initially (but never again) zero*/
     int minTimeBin = 0;
+    /*Is gas physics enabled?*/
+    int GasEnabled = All.NTotalInit[0];
 
     /*To compute the wall time between PM steps and decide when to timeout.*/
     double lastPM = All.CT.ElapsedTime;
@@ -161,7 +163,7 @@ void run(void)
         set_random_numbers();
 
         /* update force to Ti_Current */
-        compute_accelerations(is_PM, NumCurrentTiStep == 0);
+        compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled);
 
         /* Update velocity to Ti_Current; this synchonizes TiKick and TiDrift for the active particles */
 
@@ -196,9 +198,6 @@ void run(void)
 
             if(WriteSnapshot)
             {
-                /* Save snapshot and fof. */
-                /* FIXME: this doesn't allow saving fof without the snapshot yet. do it after allocator is merged */
-
                 /* write snapshot of particles */
                 savepositions(snapnum);
 
@@ -206,6 +205,7 @@ void run(void)
             }
 
             if(WriteFOF) {
+                /*Save FOF*/
                 message(0, "computing group catalogue...\n");
 
                 fof_fof();
@@ -339,11 +339,28 @@ human_interaction(double TimeLastPM, double TimeLastOut)
  * be outside the allowed bounds, it will be readjusted by the function ensure_neighbours(), and for those
  * particle, the densities are recomputed accordingly. Finally, the hydrodynamical forces are added.
  */
-void compute_accelerations(int is_PM, int FirstStep)
+void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
 {
-    message(0, "Start force computation...\n");
+    message(0, "Begin force computation.\n");
 
     walltime_measure("/Misc");
+
+    /* We do this first so that the density is up to date for
+     * adaptive gravitational softenings. */
+    if(GasEnabled > 0)
+    {
+        /***** density *****/
+        message(0, "Start density computation...\n");
+
+        density();		/* computes density, and pressure */
+
+        /***** update smoothing lengths in tree *****/
+        force_update_hmax(ActiveParticle, NumActiveParticle);
+        /***** hydro forces *****/
+        message(0, "Start hydro-force computation...\n");
+
+        hydro_force();		/* adds hydrodynamical accelerations  and computes du/dt  */
+    }
 
     /* The opening criterion for the gravtree
      * uses the *total* gravitational acceleration
@@ -383,35 +400,23 @@ void compute_accelerations(int is_PM, int FirstStep)
     if(FirstStep)
         grav_short_tree();
 
-    if(All.NTotalInit[0] > 0)
+    /* Note this must be after gravaccel and hydro,
+     * because new star particles are not in the tree,
+     * so mass conservation would be broken.*/
+    if(GasEnabled)
     {
-        /***** density *****/
-        message(0, "Start density computation...\n");
-
-        density();		/* computes density, and pressure */
-
-        /***** update smoothing lengths in tree *****/
-        force_update_hmax(ActiveParticle, NumActiveParticle);
-
-        /***** hydro forces *****/
-        message(0, "Start hydro-force computation...\n");
-
-        hydro_force();		/* adds hydrodynamical accelerations  and computes du/dt  */
-
 #ifdef BLACK_HOLES
-        /***** black hole accretion and feedback *****/
+        /* Black hole accretion and feedback */
         blackhole();
 #endif
-
-/**** radiative cooling and star formation *****/
+        /**** radiative cooling and star formation *****/
 #ifdef SFR
         cooling_and_starformation();
 #else
         cooling_only();
 #endif
-
     }
-    message(0, "force computation done.\n");
+    message(0, "Forces computed.\n");
 }
 
 int should_we_timeout(double TimeLastPM)
