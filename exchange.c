@@ -130,7 +130,7 @@ shall_we_compact_slots(int * compact, ExchangePlan * plan)
             compact[ptype] = 1;
     }
     /*Make the slot compaction collective*/
-    MPI_Allreduce(MPI_IN_PLACE, &compact, 6, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, compact, 6, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 }
 
 static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
