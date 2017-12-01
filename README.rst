@@ -92,6 +92,15 @@ In the end, we will have 2 binaries:
 
 2. MP-GenIC is the initial condition generator.
 
+GLIBC 2.22
+----------
+
+Cray updated their GLIBC to 2.22+ recently. 
+A good move but it happens to be a buggy version of GLIBC:
+https://sourceware.org/bugzilla/show_bug.cgi?id=19590
+causing non-existing symbols like `_ZGVcN4v___log_finite`.
+Adding `-lmvec -lmvec_nonshared` to GSL_LIBS works around the issue.
+
 Usage
 -----
 
