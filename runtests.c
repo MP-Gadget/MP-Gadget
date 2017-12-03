@@ -14,6 +14,7 @@
 #include "endrun.h"
 #include "petaio.h"
 #include "domain.h"
+#include "timestep.h"
 
 void grav_short_pair(void);
 
@@ -40,6 +41,7 @@ void runtests()
     }
 
     domain_decompose_full();	/* do domain decomposition */
+    rebuild_activelist(All.Ti_Current);
 
     grav_short_pair();
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));
