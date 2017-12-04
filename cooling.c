@@ -812,7 +812,7 @@ static double * h5readdouble(char * filename, char * dataset, int * Nread) {
         big_file_close(bf);
     } else {
         MPI_Bcast(&N, 1, MPI_INT, 0, MPI_COMM_WORLD);
-        buffer = mymalloc(dataset, N * sizeof(double));
+        buffer = malloc(N * sizeof(double));
     }
 
     MPI_Bcast(buffer, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
@@ -959,10 +959,10 @@ static void InitMetalCooling() {
     //This is never used if All.MetalCoolFile == ""
     double * tabbedmet = h5readdouble(All.MetalCoolFile, "MetallicityInSolar_bins", &size);
 
-    if(ThisTask == 0 && (size != 1 || tabbedmet[0] != 0.0)) {
+    if(size != 1 || tabbedmet[0] != 0.0) {
         endrun(123, "MetalCool file %s is wrongly tabulated\n", All.MetalCoolFile);
     }
-    myfree(tabbedmet);
+    free(tabbedmet);
     
     MC.Redshift_bins = h5readdouble(All.MetalCoolFile, "Redshift_bins", &MC.NRedshift_bins);
     MC.HydrogenNumberDensity_bins = h5readdouble(All.MetalCoolFile, "HydrogenNumberDensity_bins", &MC.NHydrogenNumberDensity_bins);
@@ -1045,7 +1045,7 @@ static void InitUVF(void) {
     for(i = 0; i < size; i ++) {
         UVF.Table[i] = data[i];
     }
-    myfree(data);
+    free(data);
 
     if(UVF.Table[0] < 0.01 || UVF.Table[0] > 100.0) {
         endrun(123, "UV Flucutaiton doesn't seem right\n");
@@ -1057,7 +1057,7 @@ static void InitUVF(void) {
     interp_init_dim(&UVF.interp, 0, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
     interp_init_dim(&UVF.interp, 1, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
     interp_init_dim(&UVF.interp, 2, XYZ_Bins[0], XYZ_Bins[Nside - 1]);
-    myfree(XYZ_Bins);
+    free(XYZ_Bins);
 }
 
 #if 0
