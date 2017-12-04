@@ -18,6 +18,9 @@ extern struct NODE
         unsigned int InternalTopLevel :1; /* TopLevel and has a child which is also TopLevel*/
         unsigned int TopLevel :1; /* Node corresponding to a toplevel node */
         unsigned int DependsOnLocalMass :1;  /* Intersects with local mass */
+        /* Stores if there are types with different softenings in the node.
+         * This is used to open the node if it matters, because
+         * there is no other way to tell where the types in the node are.*/
         unsigned int MixedSofteningsInNode:1;  /* Softening is mixed, need to open the node */
     } f;
     union

@@ -141,9 +141,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
         {
             double mass, facpot, fac, r2, r, h;
             double dx, dy, dz;
-            int otherh;
             if(no < All.MaxPart)
             {
+                int otherh;
                 /* the index of the node is the index of the particle */
                 drift_particle(no, All.Ti_Current);
 
@@ -170,6 +170,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             }
             else			/* we have an  internal node */
             {
+                int nodeh, ph;
                 struct NODE *nop;
                 if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
                 {
@@ -248,19 +249,30 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-                h = input->Soft;
-                otherh = nop->u.d.MaxSoftening;
-                if(h < otherh)
-                {
-                    h = otherh;
-                    if(r2 < h * h)
-                    {
-                        if(nop->f.MixedSofteningsInNode)
-                        {
+                ph = input->Soft;
+                nodeh = nop->u.d.MaxSoftening;
+                /* We want to open the node when it is possible
+                 * that some but not all of it is within
+                 * the softening length; opening is the only way
+                 * we can tell how much.*/
+                /* This only happens if at least some of the
+                 * node is within the softening length.*/
+                h = DMAX(ph, nodeh);
+                if(r2 < (h + nop->len/2)*(h + nop->len/2)) {
+                    /* a) the node softening dominates, but the node
+                     * particles do not all have the same softening value,
+                     */
+                    if(ph < nodeh) {
+                        if(nop->f.MixedSofteningsInNode) {
                             no = nop->u.d.nextnode;
-
                             continue;
                         }
+                    }
+                    /* b) No need to open if all the node is within
+                     * the softening length: all is softened.*/
+                    if(r2 > (h - nop->len/2)*(h - nop->len/2)) {
+                        no = nop->u.d.nextnode;
+                        continue;
                     }
                 }
                 no = nop->u.d.sibling;	/* ok, node can be used */
