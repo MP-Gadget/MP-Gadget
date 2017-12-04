@@ -20,6 +20,7 @@
 #include "sfr_eff.h"
 #include "slotsmanager.h"
 #include "fof.h"
+#include "hci.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -30,19 +31,7 @@
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-enum ActionType {
-    NO_ACTION = 0,
-    STOP = 1,
-    TIMEOUT = 2,
-    AUTO_CHECKPOINT = 3,
-    CHECKPOINT = 4,
-    TERMINATE = 5,
-    IOCTL = 6,
-};
-static enum ActionType human_interaction(double lastPM, double TimeLastOutput);
-static int should_we_timeout(double TimelastPM);
 static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled);
-static void update_IO_params(const char * ioctlfname);
 static void write_cpu_log(int NumCurrentTiStep);
 
 void run(void)
@@ -53,10 +42,6 @@ void run(void)
     int minTimeBin = 0;
     /*Is gas physics enabled?*/
     int GasEnabled = All.NTotalInit[0];
-
-    /*To compute the wall time between PM steps and decide when to timeout.*/
-    double lastPM = All.CT.ElapsedTime;
-    double TimeLastOutput = 0;
 
     walltime_measure("/Misc");
 
@@ -88,55 +73,20 @@ void run(void)
         planned_sync = find_current_sync_point(All.Ti_Current);
         unplanned_sync = NULL;
 
-        enum ActionType action = NO_ACTION;
-
         if(is_PM) {
+            /* check for human interaction only on PM steps.
+             * because only on PM steps we have fully consistent D and K time stamps
+             * on all particles.
+             * */
             unplanned_sync = make_unplanned_sync_point(All.Ti_Current);
-            action = human_interaction(lastPM, TimeLastOutput);
+            HCIAction action[1];
 
-            switch(action) {
-                case STOP:
-                    message(0, "human controlled stop with checkpoint at next PM.\n");
-                    /* Write when the PM timestep completes*/
-                    unplanned_sync->write_snapshot = 1;
-                    unplanned_sync->write_fof = 0;
-                    next_sync = NULL; /* will terminate */
-                    break;
+            int r = hci_query(HCI_DEFAULT_MANAGER, action);
 
-                case TIMEOUT:
-                    message(0, "Stopping due to TimeLimitCPU.\n");
-                    unplanned_sync->write_snapshot = 1;
-                    unplanned_sync->write_fof = 0;
-
-                    next_sync = NULL; /* will terminate */
-                    break;
-
-                case AUTO_CHECKPOINT:
-                    message(0, "Auto checkpoint due to AutoSnapshotTime.\n");
-                    unplanned_sync->write_snapshot = 1;
-                    unplanned_sync->write_fof = 0;
-                    break;
-
-                case CHECKPOINT:
-                    message(0, "human controlled checkpoint at next PM.\n");
-                    unplanned_sync->write_snapshot = 1;
-                    unplanned_sync->write_fof = 0;
-                    break;
-
-                case TERMINATE:
-                    message(0, "human controlled termination.\n");
-                    /* FIXME: this shall occur every step; but it means we need
-                     * two versions human-interaction routines.*/
-
-                    /* no snapshot, at termination, directly end the loop */
-                    return;
-
-                case IOCTL:
-                case NO_ACTION:
-                    unplanned_sync->write_snapshot = 0;
-                    unplanned_sync->write_fof = 0;
-                    break;
-            }
+            unplanned_sync->write_snapshot = action->write_snapshot;
+            unplanned_sync->write_fof = action->write_fof;
+            /* if hci requests a break, pretend we are out of syncpoints */
+            if(r != 0) next_sync = NULL;
         }
         /* Sync positions of all particles */
         drift_all_particles(All.Ti_Current);
@@ -145,7 +95,6 @@ void run(void)
 
         /* at first step this is a noop */
         if(is_PM) {
-            lastPM = All.CT.ElapsedTime;
             /* full decomposition rebuilds the tree */
             domain_decompose_full();
         } else {
@@ -200,8 +149,6 @@ void run(void)
             {
                 /* write snapshot of particles */
                 savepositions(snapnum);
-
-                TimeLastOutput = All.CT.ElapsedTime;
             }
 
             if(WriteFOF) {
@@ -266,67 +213,6 @@ update_IO_params(const char * ioctlfname)
             ioctlfname,
             All.IO.BytesPerFile,
             All.IO.NumWriters);
-}
-
-/* lastPMlength is the walltime in seconds between the last two PM steps.
- * It is used to decide when we are going to timeout*/
-static enum ActionType
-human_interaction(double TimeLastPM, double TimeLastOut)
-{
-        /* Check whether we need to interrupt the run */
-    enum ActionType action = NO_ACTION;
-    char stopfname[4096], termfname[4096];
-    char restartfname[4096];
-    char ioctlfname[4096];
-
-    sprintf(stopfname, "%s/stop", All.OutputDir);
-    sprintf(restartfname, "%s/checkpoint", All.OutputDir);
-    sprintf(termfname, "%s/terminate", All.OutputDir);
-    sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
-    /*How long since the last checkpoint?*/
-    if(All.AutoSnapshotTime > 0 && All.CT.ElapsedTime - TimeLastOut >= All.AutoSnapshotTime) {
-        action = AUTO_CHECKPOINT;
-    }
-
-    if(ThisTask == 0)
-    {
-        FILE * fd;
-        if((fd = fopen(ioctlfname, "r"))) {
-            action = IOCTL;
-            update_IO_params(ioctlfname);
-            fclose(fd);
-        }
-
-        if((fd = fopen(restartfname, "r")))
-        {
-            action = CHECKPOINT;
-            fclose(fd);
-            unlink(restartfname);
-        }
-        /* Is the stop-file present? If yes, interrupt the run. */
-        if((fd = fopen(stopfname, "r")))
-        {
-            action = STOP;
-            fclose(fd);
-            unlink(stopfname);
-        }
-        /* Is the terminate-file present? If yes, interrupt the run. */
-        if((fd = fopen(termfname, "r")))
-        {
-            action = TERMINATE;
-            fclose(fd);
-            unlink(termfname);
-        }
-
-    }
-    /*Will we run out of time by the next PM step?*/
-    if(should_we_timeout(TimeLastPM)) {
-        action = TIMEOUT;
-    }
-
-    MPI_Bcast(&action, sizeof(action), MPI_BYTE, 0, MPI_COMM_WORLD);
-
-    return action;
 }
 
 /*! This routine computes the accelerations for all active particles.  First, the gravitational forces are
@@ -417,24 +303,6 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
 #endif
     }
     message(0, "Forces computed.\n");
-}
-
-int should_we_timeout(double TimeLastPM)
-{
-    /*Last IO time*/
-    double iotime = 0.02*All.TimeLimitCPU;
-
-    int nwritten = All.SnapshotFileCount - All.InitSnapshotCount;
-    if(nwritten > 0)
-        iotime = walltime_get("/Snapshot/Write",CLOCK_ACCU_MAX)/nwritten;
-
-    double curTime = All.CT.ElapsedTime;
-/*     message(0, "iotime = %g, lastPM = %g\n", iotime, lastPMlength); */
-    /* are we running out of CPU-time ? If yes, interrupt run. */
-    if(curTime + 4*(iotime + curTime - TimeLastPM) > All.TimeLimitCPU) {
-        return 1;
-    }
-    return 0;
 }
 
 void write_cpu_log(int NumCurrentTiStep)

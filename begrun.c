@@ -22,6 +22,8 @@
 #include "endrun.h"
 #include "utils-string.h"
 #include "system.h"
+#include "hci.h"
+
 #include "kspace-neutrinos/delta_tot_table.h"
 
 /*! \file begrun.c
@@ -48,6 +50,7 @@ extern _transfer_init_table transfer_init;
 void begrun(int RestartSnapNum)
 {
 
+    hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
     slots_init();
 
     petaio_init();
