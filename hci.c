@@ -8,13 +8,20 @@
 #include "utils-string.h"
 #include "hci.h"
 
-HCIManager HCI_DEFAULT_MANAGER[1];
+HCIManager HCI_DEFAULT_MANAGER[1] = {
+    {.OVERRIDE_NOW = 0},
+};
 
 static double
-hci_now()
+hci_now(HCIManager * manager)
 {
+    double e;
+    if(manager->OVERRIDE_NOW) {
+        e = manager->_now;
+    } else {
+        e = MPI_Wtime();
+    }
     /* must be consistent between all ranks. */
-    double e = MPI_Wtime();
     MPI_Bcast(&e, 1, MPI_DOUBLE, 0, MPI_COMM_WORLD);
     return e;
 }
@@ -23,7 +30,7 @@ void
 hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double AutoCheckPointTime)
 {
     manager->prefix = strdup(prefix);
-    manager->timer_begin = hci_now();
+    manager->timer_begin = hci_now(manager);
     manager->timer_query_begin = manager->timer_begin;
 
     manager->WallClockTimeLimit = WallClockTimeLimit;
@@ -31,17 +38,24 @@ hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double 
     manager->LongestTimeBetweenQueries = 0;
 }
 
+int
+hci_override_now(HCIManager * manager, double now)
+{
+    manager->_now = now;
+    manager->OVERRIDE_NOW = 1;
+}
+
 static double
 hci_get_elapsed_time(HCIManager * manager)
 {
-    double e = hci_now() - manager->timer_begin;
+    double e = hci_now(manager) - manager->timer_begin;
     return e;
 }
 
 static
 void hci_update_query_timer(HCIManager * manager)
 {
-    double e = hci_now();
+    double e = hci_now(manager);
     e = e - manager->timer_query_begin;
     if(e > manager->LongestTimeBetweenQueries)
         manager->LongestTimeBetweenQueries = e;
@@ -153,7 +167,7 @@ hci_query(HCIManager * manager, HCIAction * action)
         action->write_snapshot = 1;
         action->write_fof = 0;
         free(request);
-        manager->TimeLastCheckPoint = hci_now();
+        manager->TimeLastCheckPoint = hci_now(manager);
         return 0;
     }
 
@@ -186,7 +200,7 @@ hci_query(HCIManager * manager, HCIAction * action)
         /* Write when the PM timestep completes*/
         action->write_snapshot = 1;
         action->write_fof = 0;
-        manager->TimeLastCheckPoint = hci_now();
+        manager->TimeLastCheckPoint = hci_now(manager);
         free(request);
         return 0;
     }

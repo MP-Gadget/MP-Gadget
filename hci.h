@@ -7,6 +7,10 @@ typedef struct HCIManager {
     double WallClockTimeLimit;
     double timer_query_begin;
     double timer_begin;
+
+    /* for debugging: */
+    int OVERRIDE_NOW;
+    double _now;
 } HCIManager;
 
 enum HCIActionType {
@@ -33,3 +37,6 @@ hci_init(HCIManager * manager, char * prefix, double TimeLimitCPU, double AutoCh
 
 int
 hci_query(HCIManager * manager, HCIAction * action);
+
+int
+hci_override_now(HCIManager * manager, double now);
