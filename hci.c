@@ -69,8 +69,8 @@ void hci_update_query_timer(HCIManager * manager)
  * query the filesystem for HCI commands;
  * returns the content of the file or NULL; collectively
  * */
-static char *
-hci_query_filesystem(HCIManager * manager, char * filename)
+int
+hci_query_filesystem(HCIManager * manager, char * filename, char ** request)
 {
     int ThisTask;
     int NTask;
@@ -100,12 +100,15 @@ hci_query_filesystem(HCIManager * manager, char * filename)
         content == NULL;
     }
 
-    return content;
+    *request = content;
+    return *request != NULL;
 }
 
-static char *
-hci_query_timeout(HCIManager * manager)
+static int
+hci_query_timeout(HCIManager * manager, char ** request)
 {
+    /* this function is collective because we take care to ensure manager is
+     * collective */
     double now = hci_get_elapsed_time(manager);
     /*
      * factor 0.9 is a safety tolerance
@@ -114,26 +117,28 @@ hci_query_timeout(HCIManager * manager)
      * If there likely isn't time for a new query, then we shall timeout as well.
      * */
 
+    *request = NULL;
     if (now + manager->LongestTimeBetweenQueries < manager->WallClockTimeLimit * 0.9) {
-        return NULL;
+        return 0;
     }
 
     /* any freeable string would work. */
-    return calloc(32, 1);
+    return 1;
 }
 
-static char *
-hci_query_auto_checkpoint(HCIManager * manager)
+static int
+hci_query_auto_checkpoint(HCIManager * manager, char ** request)
 {
-    /*How long since the last checkpoint?*/
-    if(manager->AutoCheckPointTime <= 0) return NULL;
+    /* this function is collective because we take care to ensure manager is
+     * collective */
+    if(manager->AutoCheckPointTime <= 0) return 0;
 
+    /* How long since the last checkpoint? */
     double now = hci_get_elapsed_time(manager);
     if(now - manager->TimeLastCheckPoint >= manager->AutoCheckPointTime) {
-        /* any freeable string would work */
-        return calloc(32, 1);
+        return 1;
     }
-    return NULL;
+    return 0;
 }
 
 /*
@@ -151,7 +156,7 @@ hci_query(HCIManager * manager, HCIAction * action)
 
     /* Will we run out of time by the query ? highest priority.
      */
-    if(request = hci_query_timeout(manager)) {
+    if(hci_query_timeout(manager, &request)) {
         message(0, "HCI: Stopping due to TimeLimitCPU, dumping a CheckPoint\n.");
         action->type = HCI_TIMEOUT;
         action->write_snapshot = 1;
@@ -159,7 +164,7 @@ hci_query(HCIManager * manager, HCIAction * action)
         return 1;
     }
 
-    if(request = hci_query_filesystem(manager, "reconfigure"))
+    if(hci_query_filesystem(manager, "reconfigure", &request))
     {
         /* FIXME: This is not implemented
          * it shall reread the configuration file and update the parameters of
@@ -171,7 +176,7 @@ hci_query(HCIManager * manager, HCIAction * action)
         return 0;
     }
 
-    if(request = hci_query_filesystem(manager, "checkpoint"))
+    if(hci_query_filesystem(manager, "checkpoint", &request))
     {
         message(0, "HCI: human controlled stop with checkpoint at next PM.\n");
         action->type = HCI_CHECKPOINT;
@@ -183,7 +188,7 @@ hci_query(HCIManager * manager, HCIAction * action)
     }
 
     /* Is the stop-file present? If yes, interrupt the run with a snapshot. */
-    if(request = hci_query_filesystem(manager, "stop"))
+    if(hci_query_filesystem(manager, "stop", &request))
     {
         /* will write checkpoint in this PM timestep, then stop */
         action->type = HCI_STOP;
@@ -193,7 +198,7 @@ hci_query(HCIManager * manager, HCIAction * action)
     }
 
     /* Is the terminate-file present? If yes, interrupt the run immediately. */
-    if(request = hci_query_filesystem(manager, "terminate"))
+    if(hci_query_filesystem(manager, "terminate", &request))
     {
         message(0, "HCI: human triggered termination.\n");
         /* the caller shall take care of immediate termination.
@@ -205,7 +210,7 @@ hci_query(HCIManager * manager, HCIAction * action)
     }
 
     /* lower priority */
-    if(request = hci_query_auto_checkpoint(manager))
+    if(hci_query_auto_checkpoint(manager, &request))
     {
         message(0, "HCI: Auto checkpoint due to AutoCheckPointTime.\n");
         action->type = HCI_AUTO_CHECKPOINT;
