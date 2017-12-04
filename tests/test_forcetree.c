@@ -51,7 +51,7 @@ domain_get_topleaf(const peano_t key) {
     return no;
 }
 
-void savepositions(int n, int i){}
+void dump_snapshot() { }
 
 /*End dummies*/
 
