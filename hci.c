@@ -58,9 +58,9 @@ static
 void hci_update_query_timer(HCIManager * manager)
 {
     double e = hci_now(manager);
-    e = e - manager->timer_query_begin;
-    if(e > manager->LongestTimeBetweenQueries)
-        manager->LongestTimeBetweenQueries = e;
+    double g = e - manager->timer_query_begin;
+    if(g > manager->LongestTimeBetweenQueries)
+        manager->LongestTimeBetweenQueries = g;
 
     manager->timer_query_begin = e;
 }
@@ -152,7 +152,7 @@ hci_query(HCIManager * manager, HCIAction * action)
     /* Will we run out of time by the query ? highest priority.
      */
     if(request = hci_query_timeout(manager)) {
-        message(0, "Stopping due to TimeLimitCPU, dumping a CheckPoint.\n");
+        message(0, "HCI: Stopping due to TimeLimitCPU, dumping a CheckPoint\n.");
         action->type = HCI_TIMEOUT;
         action->write_snapshot = 1;
         free(request);
@@ -161,6 +161,7 @@ hci_query(HCIManager * manager, HCIAction * action)
 
     if(request = hci_query_filesystem(manager, "ioctl"))
     {
+        message(0, "HCI: updating io parameters, this is not supported yet.\n");
         //update_IO_params(request);
         free(request);
         return 0;
@@ -168,7 +169,7 @@ hci_query(HCIManager * manager, HCIAction * action)
 
     if(request = hci_query_filesystem(manager, "checkpoint"))
     {
-        message(0, "human controlled stop with checkpoint at next PM.\n");
+        message(0, "HCI: human controlled stop with checkpoint at next PM.\n");
         action->type = HCI_CHECKPOINT;
         /* will write checkpoint in this PM timestep */
         action->write_snapshot = 1;
@@ -190,6 +191,7 @@ hci_query(HCIManager * manager, HCIAction * action)
     /* Is the terminate-file present? If yes, interrupt the run immediately. */
     if(request = hci_query_filesystem(manager, "terminate"))
     {
+        message(0, "HCI: human triggered termination.\n");
         /* the caller shall take care of immediate termination.
          * This action is better than KILL as it avoids corrupt/incomplete snapshot files.*/
         action->type = HCI_TERMINATE;
@@ -201,7 +203,7 @@ hci_query(HCIManager * manager, HCIAction * action)
     /* lower priority */
     if(request = hci_query_auto_checkpoint(manager))
     {
-        message(0, "Auto checkpoint due to AutoCheckPointTime.\n");
+        message(0, "HCI: Auto checkpoint due to AutoCheckPointTime.\n");
         action->type = HCI_AUTO_CHECKPOINT;
         /* Write when the PM timestep completes*/
         action->write_snapshot = 1;
@@ -210,6 +212,7 @@ hci_query(HCIManager * manager, HCIAction * action)
         return 0;
     }
 
+    message(0, "HCI: Nothing happened. \n");
     /* nothing really happened. */
     action->type = HCI_NO_ACTION;
     action->write_snapshot = 0;

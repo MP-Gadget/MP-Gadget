@@ -87,8 +87,9 @@ void run(void)
             unplanned_sync->write_fof = 0;
             /* if hci requests a break, pretend we are out of syncpoints */
             if(r != 0) next_sync = NULL;
+
             if(action->type == HCI_TERMINATE) {
-                endrun(0, "Human triggered termination\n");
+                endrun(0, "Human triggered termination.\n");
             }
         }
         /* Sync positions of all particles */

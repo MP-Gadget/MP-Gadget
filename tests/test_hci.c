@@ -78,13 +78,13 @@ test_hci_auto_checkpoint2(void ** state)
 {
 
     HCIAction action[1];
-    hci_override_now(manager, 0.0);
+    hci_override_now(manager, 1.0);
     hci_init(manager, prefix, 10.0, 1.0);
 
-    hci_override_now(manager, 1.0);
+    hci_override_now(manager, 2.0);
     hci_query(manager, action);
 
-    hci_override_now(manager, 3.0);
+    hci_override_now(manager, 4.0);
     hci_query(manager, action);
 
     assert_true(manager->LongestTimeBetweenQueries == 2.0);
@@ -96,10 +96,10 @@ static void
 test_hci_timeout(void ** state)
 {
     HCIAction action[1];
-    hci_override_now(manager, 0.0);
+    hci_override_now(manager, 1.0);
     hci_init(manager, prefix, 10.0, 1.0);
 
-    hci_override_now(manager, 4.0);
+    hci_override_now(manager, 5.0);
     hci_query(manager, action);
 
     assert_true(manager->LongestTimeBetweenQueries == 4.0);
