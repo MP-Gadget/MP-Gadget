@@ -78,7 +78,7 @@ void run(void)
         int stop = 0;
 
         if(is_PM) {
-            /* query other requests only on PM step. */
+            /* query HCI requests only on PM step; where kick and drifts are synced */
             stop = hci_query(HCI_DEFAULT_MANAGER, action);
 
             if(action->type == HCI_TERMINATE) {
@@ -132,7 +132,6 @@ void run(void)
         if(planned_sync) {
             WriteSnapshot |= planned_sync->write_snapshot;
             WriteFOF |= planned_sync->write_fof;
-
         }
 
         if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
