@@ -41,7 +41,7 @@ void run(void)
     /*Minimum occupied timebin. Initially (but never again) zero*/
     int minTimeBin = 0;
     /*Is gas physics enabled?*/
-    int GasEnabled = All.NTotalInit[0];
+    int GasEnabled = All.NTotalInit[0] > 0;
 
     walltime_measure("/Misc");
 
@@ -195,7 +195,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
 
     /* We do this first so that the density is up to date for
      * adaptive gravitational softenings. */
-    if(GasEnabled > 0)
+    if(GasEnabled)
     {
         /***** density *****/
         message(0, "Start density computation...\n");
