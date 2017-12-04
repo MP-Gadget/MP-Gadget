@@ -75,16 +75,11 @@ void run(void)
 
         hci_action_init(action); /* init to no action */
 
+        int stop = 0;
+
         if(is_PM) {
-            /* check for human interaction only on PM steps.
-             * because only on PM steps we have fully consistent D and K time stamps
-             * on all particles.
-             * */
-
-            int r = hci_query(HCI_DEFAULT_MANAGER, action);
-
-            /* if hci requests a break, pretend we are out of syncpoints */
-            if(r != 0) next_sync = NULL;
+            /* query other requests only on PM step. */
+            stop = hci_query(HCI_DEFAULT_MANAGER, action);
 
             if(action->type == HCI_TERMINATE) {
                 endrun(0, "Human triggered termination.\n");
@@ -125,52 +120,46 @@ void run(void)
         apply_half_kick();
 
         /* If a snapshot is requested, write it.
-         * savepositions is responsible to maintain a valid domain and tree after it is called.
+         * write_checkpoint is responsible to maintain a valid domain and tree after it is called.
          *
          * We only attempt to output on sync points. This is the only chance where all variables are
          * synchonized in a consistent state in a K(KDDK)^mK scheme.
          */
 
-        int WriteSnapshot = planned_sync && planned_sync->write_snapshot;
-        WriteSnapshot |= action->write_snapshot;
-        int WriteFOF = planned_sync && planned_sync->write_fof;
+        int WriteSnapshot = 0;
+        int WriteFOF = 0;
 
-        if(WriteSnapshot || WriteFOF) {
-            int snapnum = All.SnapshotFileCount++;
+        if(planned_sync) {
+            WriteSnapshot |= planned_sync->write_snapshot;
+            WriteFOF |= planned_sync->write_fof;
 
-            /* The accel may have created garbage -- collect them before checkpointing!
+        }
+
+        if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
+            WriteSnapshot |= action->write_snapshot;
+        }
+
+        if(WriteSnapshot) {
+            /* The accel may have created garbage -- collect them before writing a snapshot.
              * If we do collect, rebuild tree and active list.*/
             int compact[6] = {0};
+
             if(slots_gc(compact)) {
                 force_tree_rebuild();
                 rebuild_activelist(All.Ti_Current);
             }
-
-            if(WriteSnapshot)
-            {
-                /* write snapshot of particles */
-                savepositions(snapnum);
-            }
-
-            if(WriteFOF) {
-                /*Save FOF*/
-                message(0, "computing group catalogue...\n");
-
-                fof_fof();
-                fof_save_groups(snapnum);
-                fof_finish();
-
-                message(0, "done with group catalogue.\n");
-            }
         }
+
+        write_checkpoint(WriteSnapshot, WriteFOF);
+
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
         NumCurrentTiStep++;
 
         report_memory_usage("RUN");
 
-        if(!next_sync) {
-            /* out of sync points, the run has finally finished! Yay.*/
+        if(!next_sync || stop) {
+            /* out of sync points, or a requested stop, the run has finally finished! Yay.*/
             break;
         }
 
