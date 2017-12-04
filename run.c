@@ -191,34 +191,6 @@ void run(void)
     }
 }
 
-static void
-update_IO_params(const char * ioctlfname)
-{
-    if(ThisTask == 0) {
-        FILE * fd = fopen(ioctlfname, "r");
-         /* there is an ioctl file, parse it and update
-          * All.NumPartPerFile
-          * All.NumWriters
-          */
-        size_t n = 0;
-        char * line = NULL;
-        while(-1 != getline(&line, &n, fd)) {
-            sscanf(line, "BytesPerFile %lu", &All.IO.BytesPerFile);
-            sscanf(line, "NumWriters %d", &All.IO.NumWriters);
-        }
-        free(line);
-        fclose(fd);
-    }
-
-    MPI_Bcast(&All.IO, sizeof(All.IO), MPI_BYTE, 0, MPI_COMM_WORLD);
-    message(0, "New IO parameter recieved from %s:"
-               "NumPartPerfile %d"
-               "NumWriters %d\n",
-            ioctlfname,
-            All.IO.BytesPerFile,
-            All.IO.NumWriters);
-}
-
 /*! This routine computes the accelerations for all active particles.  First, the gravitational forces are
  * computed. This also reconstructs the tree, if needed, otherwise the drift/kick operations have updated the
  * tree to make it fullu usable at the current time.

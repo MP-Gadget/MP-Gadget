@@ -159,10 +159,14 @@ hci_query(HCIManager * manager, HCIAction * action)
         return 1;
     }
 
-    if(request = hci_query_filesystem(manager, "ioctl"))
+    if(request = hci_query_filesystem(manager, "reconfigure"))
     {
+        /* FIXME: This is not implemented
+         * it shall reread the configuration file and update the parameters of
+         * the module listed in the request.
+         * see the comment about update_IO_params
+         * */
         message(0, "HCI: updating io parameters, this is not supported yet.\n");
-        //update_IO_params(request);
         free(request);
         return 0;
     }
@@ -218,3 +222,40 @@ hci_query(HCIManager * manager, HCIAction * action)
     action->write_snapshot = 0;
     return 0;
 }
+
+/*
+ * FIXME: rewrite update_IO_params with 
+ * the parser infrastructure. It probably shall occur
+ * after we decentralize the initialization of the parser
+ * to different modules.
+ * */
+
+#if 0
+static void
+update_IO_params(const char * ioctlfname)
+{
+    if(ThisTask == 0) {
+        FILE * fd = fopen(ioctlfname, "r");
+         /* there is an ioctl file, parse it and update
+          * All.NumPartPerFile
+          * All.NumWriters
+          */
+        size_t n = 0;
+        char * line = NULL;
+        while(-1 != getline(&line, &n, fd)) {
+            sscanf(line, "BytesPerFile %lu", &All.IO.BytesPerFile);
+            sscanf(line, "NumWriters %d", &All.IO.NumWriters);
+        }
+        free(line);
+        fclose(fd);
+    }
+
+    MPI_Bcast(&All.IO, sizeof(All.IO), MPI_BYTE, 0, MPI_COMM_WORLD);
+    message(0, "New IO parameter recieved from %s:"
+               "NumPartPerfile %d"
+               "NumWriters %d\n",
+            ioctlfname,
+            All.IO.BytesPerFile,
+            All.IO.NumWriters);
+}
+#endif
