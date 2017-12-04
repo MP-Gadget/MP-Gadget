@@ -38,6 +38,13 @@ hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double 
     manager->LongestTimeBetweenQueries = 0;
 }
 
+void
+hci_action_init(HCIAction * action)
+{
+    action->type = HCI_NO_ACTION;
+    action->write_snapshot = 0;
+}
+
 /* override the result of hci_now; for unit testing -- we can't rely on MPI_Wtime there! 
  * this function can be called before hci_init. */
 int
@@ -147,6 +154,8 @@ hci_query_auto_checkpoint(HCIManager * manager, char ** request)
 int
 hci_query(HCIManager * manager, HCIAction * action)
 {
+    hci_action_init(action);
+
     /* measure time since last query */
     hci_update_query_timer(manager);
 
@@ -222,9 +231,6 @@ hci_query(HCIManager * manager, HCIAction * action)
     }
 
     message(0, "HCI: Nothing happened. \n");
-    /* nothing really happened. */
-    action->type = HCI_NO_ACTION;
-    action->write_snapshot = 0;
     return 0;
 }
 

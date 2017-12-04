@@ -67,24 +67,22 @@ void run(void)
 
         SyncPoint * next_sync; /* if we are out of planned sync points, terminate */
         SyncPoint * planned_sync; /* NULL; if the step is not a planned sync point. */
-        SyncPoint * unplanned_sync; /* begin and end of a PM step; not planned in advance */
 
         next_sync = find_next_sync_point(All.Ti_Current);
         planned_sync = find_current_sync_point(All.Ti_Current);
-        unplanned_sync = NULL;
+
+        HCIAction action[1];
+
+        hci_action_init(action); /* init to no action */
 
         if(is_PM) {
             /* check for human interaction only on PM steps.
              * because only on PM steps we have fully consistent D and K time stamps
              * on all particles.
              * */
-            unplanned_sync = make_unplanned_sync_point(All.Ti_Current);
-            HCIAction action[1];
 
             int r = hci_query(HCI_DEFAULT_MANAGER, action);
 
-            unplanned_sync->write_snapshot = action->write_snapshot;
-            unplanned_sync->write_fof = 0;
             /* if hci requests a break, pretend we are out of syncpoints */
             if(r != 0) next_sync = NULL;
 
@@ -134,9 +132,8 @@ void run(void)
          */
 
         int WriteSnapshot = planned_sync && planned_sync->write_snapshot;
-        WriteSnapshot |= unplanned_sync && unplanned_sync->write_snapshot;
+        WriteSnapshot |= action->write_snapshot;
         int WriteFOF = planned_sync && planned_sync->write_fof;
-        WriteFOF |= unplanned_sync && unplanned_sync->write_fof;
 
         if(WriteSnapshot || WriteFOF) {
             int snapnum = All.SnapshotFileCount++;

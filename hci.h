@@ -34,6 +34,9 @@ extern HCIManager HCI_DEFAULT_MANAGER[];
 void
 hci_init(HCIManager * manager, char * prefix, double TimeLimitCPU, double AutoCheckPointTime);
 
+void
+hci_action_init(HCIAction * action);
+
 int
 hci_query(HCIManager * manager, HCIAction * action);
 
