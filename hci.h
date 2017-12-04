@@ -14,20 +14,19 @@ typedef struct HCIManager {
 } HCIManager;
 
 enum HCIActionType {
-    NO_ACTION = 0,
-    STOP = 1,
-    TIMEOUT = 2,
-    AUTO_CHECKPOINT = 3,
-    CHECKPOINT = 4,
-    TERMINATE = 5,
-    IOCTL = 6,
+    HCI_NO_ACTION = 0,
+    HCI_STOP = 1,
+    HCI_TIMEOUT = 2,
+    HCI_AUTO_CHECKPOINT = 3,
+    HCI_CHECKPOINT = 4,
+    HCI_TERMINATE = 5,
+    HCI_IOCTL = 6,
 };
 
 typedef struct HCIAction
 {
     enum HCIActionType type;
     int write_snapshot;
-    int write_fof;
 } HCIAction;
 
 extern HCIManager HCI_DEFAULT_MANAGER[];
