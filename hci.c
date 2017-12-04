@@ -38,6 +38,8 @@ hci_init(HCIManager * manager, char * prefix, double WallClockTimeLimit, double 
     manager->LongestTimeBetweenQueries = 0;
 }
 
+/* override the result of hci_now; for unit testing -- we can't rely on MPI_Wtime there! 
+ * this function can be called before hci_init. */
 int
 hci_override_now(HCIManager * manager, double now)
 {
@@ -116,7 +118,7 @@ hci_query_timeout(HCIManager * manager)
         return NULL;
     }
 
-    /* any empty string would work. */
+    /* any freeable string would work. */
     return calloc(32, 1);
 }
 
@@ -128,6 +130,7 @@ hci_query_auto_checkpoint(HCIManager * manager)
 
     double now = hci_get_elapsed_time(manager);
     if(now - manager->TimeLastCheckPoint >= manager->AutoCheckPointTime) {
+        /* any freeable string would work */
         return calloc(32, 1);
     }
     return NULL;
@@ -146,7 +149,8 @@ hci_query(HCIManager * manager, HCIAction * action)
 
     char * request;
 
-    /*Will we run out of time by the next PM step?*/
+    /* Will we run out of time by the query ? highest priority.
+     */
     if(request = hci_query_timeout(manager)) {
         message(0, "Stopping due to TimeLimitCPU, dumping a CheckPoint.\n");
         action->type = HCI_TIMEOUT;
@@ -157,7 +161,6 @@ hci_query(HCIManager * manager, HCIAction * action)
 
     if(request = hci_query_filesystem(manager, "ioctl"))
     {
-        action->type = HCI_IOCTL;
         //update_IO_params(request);
         free(request);
         return 0;
@@ -167,7 +170,7 @@ hci_query(HCIManager * manager, HCIAction * action)
     {
         message(0, "human controlled stop with checkpoint at next PM.\n");
         action->type = HCI_CHECKPOINT;
-        /* Write when the PM timestep completes*/
+        /* will write checkpoint in this PM timestep */
         action->write_snapshot = 1;
         free(request);
         manager->TimeLastCheckPoint = hci_now(manager);
@@ -177,6 +180,7 @@ hci_query(HCIManager * manager, HCIAction * action)
     /* Is the stop-file present? If yes, interrupt the run with a snapshot. */
     if(request = hci_query_filesystem(manager, "stop"))
     {
+        /* will write checkpoint in this PM timestep, then stop */
         action->type = HCI_STOP;
         action->write_snapshot = 1;
         free(request);
@@ -194,6 +198,7 @@ hci_query(HCIManager * manager, HCIAction * action)
         return 1;
     }
 
+    /* lower priority */
     if(request = hci_query_auto_checkpoint(manager))
     {
         message(0, "Auto checkpoint due to AutoCheckPointTime.\n");
@@ -204,6 +209,8 @@ hci_query(HCIManager * manager, HCIAction * action)
         free(request);
         return 0;
     }
+
+    /* nothing really happened. */
     action->type = HCI_NO_ACTION;
     action->write_snapshot = 0;
     return 0;
