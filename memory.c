@@ -298,7 +298,11 @@ allocator_realloc_int(Allocator * alloc, void * ptr, size_t new_size, char * fmt
         return header2->ptr;
     }
 
-    allocator_dealloc(alloc, ptr);
+    if(0 != allocator_dealloc(alloc, ptr)) {
+        allocator_print(header->alloc);
+        endrun(1, "Mismatched Free: %s : %s\n", header->name, header->annotation);
+    }
+
     void * newptr = allocator_alloc_va(alloc, tmp.name, new_size, tmp.dir, fmt, va);
     if(tmp.dir == ALLOC_DIR_TOP) {
         memmove(newptr, tmp.ptr, tmp.size);
