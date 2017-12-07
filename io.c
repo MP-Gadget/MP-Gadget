@@ -27,7 +27,7 @@ void savepositions(int num)
 {
     walltime_measure("/Misc");
 
-    petaio_save_snapshot("%s/PART_%03d", All.OutputDir, num);
+    petaio_save_snapshot("%s/%s_%03d", All.OutputDir, All.SnapshotFileBase, num);
 
     walltime_measure("/Snapshot/Write");
 
