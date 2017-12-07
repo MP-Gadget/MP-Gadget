@@ -16,7 +16,9 @@ void hydro_force(void);
 void init(int RestartSnapNum);
 void run(void);
 void runtests(void);
-void savepositions(int num);
+
+void write_checkpoint(int write_snapshot, int write_fof);
+void dump_snapshot(void);
 int find_last_snapnum();
 
 void long_range_init(void);

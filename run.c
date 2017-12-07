@@ -20,6 +20,7 @@
 #include "sfr_eff.h"
 #include "slotsmanager.h"
 #include "fof.h"
+#include "hci.h"
 
 /*! \file run.c
  *  \brief  iterates over timesteps, main loop
@@ -30,19 +31,7 @@
  * reached, when a `stop' file is found in the output directory, or
  * when the simulation ends because we arrived at TimeMax.
  */
-enum ActionType {
-    NO_ACTION = 0,
-    STOP = 1,
-    TIMEOUT = 2,
-    AUTO_CHECKPOINT = 3,
-    CHECKPOINT = 4,
-    TERMINATE = 5,
-    IOCTL = 6,
-};
-static enum ActionType human_interaction(double lastPM, double TimeLastOutput);
-static int should_we_timeout(double TimelastPM);
 static void compute_accelerations(int is_PM, int FirstStep, int GasEnabled);
-static void update_IO_params(const char * ioctlfname);
 static void write_cpu_log(int NumCurrentTiStep);
 
 void run(void)
@@ -52,11 +41,7 @@ void run(void)
     /*Minimum occupied timebin. Initially (but never again) zero*/
     int minTimeBin = 0;
     /*Is gas physics enabled?*/
-    int GasEnabled = All.NTotalInit[0];
-
-    /*To compute the wall time between PM steps and decide when to timeout.*/
-    double lastPM = All.CT.ElapsedTime;
-    double TimeLastOutput = 0;
+    int GasEnabled = All.NTotalInit[0] > 0;
 
     walltime_measure("/Misc");
 
@@ -82,60 +67,22 @@ void run(void)
 
         SyncPoint * next_sync; /* if we are out of planned sync points, terminate */
         SyncPoint * planned_sync; /* NULL; if the step is not a planned sync point. */
-        SyncPoint * unplanned_sync; /* begin and end of a PM step; not planned in advance */
 
         next_sync = find_next_sync_point(All.Ti_Current);
         planned_sync = find_current_sync_point(All.Ti_Current);
-        unplanned_sync = NULL;
 
-        enum ActionType action = NO_ACTION;
+        HCIAction action[1];
+
+        hci_action_init(action); /* init to no action */
+
+        int stop = 0;
 
         if(is_PM) {
-            unplanned_sync = make_unplanned_sync_point(All.Ti_Current);
-            action = human_interaction(lastPM, TimeLastOutput);
+            /* query HCI requests only on PM step; where kick and drifts are synced */
+            stop = hci_query(HCI_DEFAULT_MANAGER, action);
 
-            switch(action) {
-                case STOP:
-                    message(0, "human controlled stop with checkpoint at next PM.\n");
-                    /* Write when the PM timestep completes*/
-                    unplanned_sync->write_snapshot = 1;
-                    unplanned_sync->write_fof = 0;
-                    next_sync = NULL; /* will terminate */
-                    break;
-
-                case TIMEOUT:
-                    message(0, "Stopping due to TimeLimitCPU.\n");
-                    unplanned_sync->write_snapshot = 1;
-                    unplanned_sync->write_fof = 0;
-
-                    next_sync = NULL; /* will terminate */
-                    break;
-
-                case AUTO_CHECKPOINT:
-                    message(0, "Auto checkpoint due to AutoSnapshotTime.\n");
-                    unplanned_sync->write_snapshot = 1;
-                    unplanned_sync->write_fof = 0;
-                    break;
-
-                case CHECKPOINT:
-                    message(0, "human controlled checkpoint at next PM.\n");
-                    unplanned_sync->write_snapshot = 1;
-                    unplanned_sync->write_fof = 0;
-                    break;
-
-                case TERMINATE:
-                    message(0, "human controlled termination.\n");
-                    /* FIXME: this shall occur every step; but it means we need
-                     * two versions human-interaction routines.*/
-
-                    /* no snapshot, at termination, directly end the loop */
-                    return;
-
-                case IOCTL:
-                case NO_ACTION:
-                    unplanned_sync->write_snapshot = 0;
-                    unplanned_sync->write_fof = 0;
-                    break;
+            if(action->type == HCI_TERMINATE) {
+                endrun(0, "Human triggered termination.\n");
             }
         }
         /* Sync positions of all particles */
@@ -145,7 +92,6 @@ void run(void)
 
         /* at first step this is a noop */
         if(is_PM) {
-            lastPM = All.CT.ElapsedTime;
             /* full decomposition rebuilds the tree */
             domain_decompose_full();
         } else {
@@ -174,55 +120,45 @@ void run(void)
         apply_half_kick();
 
         /* If a snapshot is requested, write it.
-         * savepositions is responsible to maintain a valid domain and tree after it is called.
+         * write_checkpoint is responsible to maintain a valid domain and tree after it is called.
          *
          * We only attempt to output on sync points. This is the only chance where all variables are
          * synchonized in a consistent state in a K(KDDK)^mK scheme.
          */
 
-        int WriteSnapshot = planned_sync && planned_sync->write_snapshot;
-        WriteSnapshot |= unplanned_sync && unplanned_sync->write_snapshot;
-        int WriteFOF = planned_sync && planned_sync->write_fof;
-        WriteFOF |= unplanned_sync && unplanned_sync->write_fof;
+        int WriteSnapshot = 0;
+        int WriteFOF = 0;
 
-        if(WriteSnapshot || WriteFOF) {
-            int snapnum = All.SnapshotFileCount++;
+        if(planned_sync) {
+            WriteSnapshot |= planned_sync->write_snapshot;
+            WriteFOF |= planned_sync->write_fof;
+        }
 
-            /* The accel may have created garbage -- collect them before checkpointing!
+        if(is_PM) { /* the if here is unnecessary but to signify checkpointing occurs only at PM steps. */
+            WriteSnapshot |= action->write_snapshot;
+        }
+
+        if(WriteSnapshot) {
+            /* The accel may have created garbage -- collect them before writing a snapshot.
              * If we do collect, rebuild tree and active list.*/
             int compact[6] = {0};
+
             if(slots_gc(compact)) {
                 force_tree_rebuild();
                 rebuild_activelist(All.Ti_Current);
             }
-
-            if(WriteSnapshot)
-            {
-                /* write snapshot of particles */
-                savepositions(snapnum);
-
-                TimeLastOutput = All.CT.ElapsedTime;
-            }
-
-            if(WriteFOF) {
-                /*Save FOF*/
-                message(0, "computing group catalogue...\n");
-
-                fof_fof();
-                fof_save_groups(snapnum);
-                fof_finish();
-
-                message(0, "done with group catalogue.\n");
-            }
         }
+
+        write_checkpoint(WriteSnapshot, WriteFOF);
+
         write_cpu_log(NumCurrentTiStep);		/* produce some CPU usage info */
 
         NumCurrentTiStep++;
 
         report_memory_usage("RUN");
 
-        if(!next_sync) {
-            /* out of sync points, the run has finally finished! Yay.*/
+        if(!next_sync || stop) {
+            /* out of sync points, or a requested stop, the run has finally finished! Yay.*/
             break;
         }
 
@@ -238,95 +174,6 @@ void run(void)
             apply_PM_half_kick();
         }
     }
-}
-
-static void
-update_IO_params(const char * ioctlfname)
-{
-    if(ThisTask == 0) {
-        FILE * fd = fopen(ioctlfname, "r");
-         /* there is an ioctl file, parse it and update
-          * All.NumPartPerFile
-          * All.NumWriters
-          */
-        size_t n = 0;
-        char * line = NULL;
-        while(-1 != getline(&line, &n, fd)) {
-            sscanf(line, "BytesPerFile %lu", &All.IO.BytesPerFile);
-            sscanf(line, "NumWriters %d", &All.IO.NumWriters);
-        }
-        free(line);
-        fclose(fd);
-    }
-
-    MPI_Bcast(&All.IO, sizeof(All.IO), MPI_BYTE, 0, MPI_COMM_WORLD);
-    message(0, "New IO parameter recieved from %s:"
-               "NumPartPerfile %d"
-               "NumWriters %d\n",
-            ioctlfname,
-            All.IO.BytesPerFile,
-            All.IO.NumWriters);
-}
-
-/* lastPMlength is the walltime in seconds between the last two PM steps.
- * It is used to decide when we are going to timeout*/
-static enum ActionType
-human_interaction(double TimeLastPM, double TimeLastOut)
-{
-        /* Check whether we need to interrupt the run */
-    enum ActionType action = NO_ACTION;
-    char stopfname[4096], termfname[4096];
-    char restartfname[4096];
-    char ioctlfname[4096];
-
-    sprintf(stopfname, "%s/stop", All.OutputDir);
-    sprintf(restartfname, "%s/checkpoint", All.OutputDir);
-    sprintf(termfname, "%s/terminate", All.OutputDir);
-    sprintf(ioctlfname, "%s/ioctl", All.OutputDir);
-    /*How long since the last checkpoint?*/
-    if(All.AutoSnapshotTime > 0 && All.CT.ElapsedTime - TimeLastOut >= All.AutoSnapshotTime) {
-        action = AUTO_CHECKPOINT;
-    }
-
-    if(ThisTask == 0)
-    {
-        FILE * fd;
-        if((fd = fopen(ioctlfname, "r"))) {
-            action = IOCTL;
-            update_IO_params(ioctlfname);
-            fclose(fd);
-        }
-
-        if((fd = fopen(restartfname, "r")))
-        {
-            action = CHECKPOINT;
-            fclose(fd);
-            unlink(restartfname);
-        }
-        /* Is the stop-file present? If yes, interrupt the run. */
-        if((fd = fopen(stopfname, "r")))
-        {
-            action = STOP;
-            fclose(fd);
-            unlink(stopfname);
-        }
-        /* Is the terminate-file present? If yes, interrupt the run. */
-        if((fd = fopen(termfname, "r")))
-        {
-            action = TERMINATE;
-            fclose(fd);
-            unlink(termfname);
-        }
-
-    }
-    /*Will we run out of time by the next PM step?*/
-    if(should_we_timeout(TimeLastPM)) {
-        action = TIMEOUT;
-    }
-
-    MPI_Bcast(&action, sizeof(action), MPI_BYTE, 0, MPI_COMM_WORLD);
-
-    return action;
 }
 
 /*! This routine computes the accelerations for all active particles.  First, the gravitational forces are
@@ -347,7 +194,7 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
 
     /* We do this first so that the density is up to date for
      * adaptive gravitational softenings. */
-    if(GasEnabled > 0)
+    if(GasEnabled)
     {
         /***** density *****/
         message(0, "Start density computation...\n");
@@ -417,24 +264,6 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
 #endif
     }
     message(0, "Forces computed.\n");
-}
-
-int should_we_timeout(double TimeLastPM)
-{
-    /*Last IO time*/
-    double iotime = 0.02*All.TimeLimitCPU;
-
-    int nwritten = All.SnapshotFileCount - All.InitSnapshotCount;
-    if(nwritten > 0)
-        iotime = walltime_get("/Snapshot/Write",CLOCK_ACCU_MAX)/nwritten;
-
-    double curTime = All.CT.ElapsedTime;
-/*     message(0, "iotime = %g, lastPM = %g\n", iotime, lastPMlength); */
-    /* are we running out of CPU-time ? If yes, interrupt run. */
-    if(curTime + 4*(iotime + curTime - TimeLastPM) > All.TimeLimitCPU) {
-        return 1;
-    }
-    return 0;
 }
 
 void write_cpu_log(int NumCurrentTiStep)

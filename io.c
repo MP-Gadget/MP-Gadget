@@ -14,16 +14,46 @@
 
 /*! \file io.c
  *  \brief Output of a snapshot file to disk.
+ *
+ *  This file delegates the functions to petaio and fof.
  */
 
-/*! This function writes a snapshot of the particle distribution to one or
- * several files using Gadget's default file format.  If
- * NumFilesPerSnapshot>1, the snapshot is distributed into several files,
- * which are written simultaneously. Each file contains data from a group of
- * processors of size roughly NTask/NumFilesPerSnapshot.
- */
-/* with_fof != 0 regular snapshot, do fof and write it out */
-void savepositions(int num)
+static void
+write_snapshot(int num);
+
+void
+write_checkpoint(int WriteSnapshot, int WriteFOF)
+{
+    if(!WriteSnapshot && !WriteFOF) return;
+
+    int snapnum = All.SnapshotFileCount++;
+
+    if(WriteSnapshot)
+    {
+        /* write snapshot of particles */
+        write_snapshot(snapnum);
+    }
+
+    if(WriteFOF) {
+        /* Compute and save FOF*/
+        message(0, "computing group catalogue...\n");
+
+        fof_fof();
+        fof_save_groups(snapnum);
+        fof_finish();
+
+        message(0, "done with group catalogue.\n");
+    }
+}
+
+void
+dump_snapshot()
+{
+    petaio_save_snapshot("%s/CRASH-DUMP", All.OutputDir);
+}
+
+static void
+write_snapshot(int num)
 {
     walltime_measure("/Misc");
 

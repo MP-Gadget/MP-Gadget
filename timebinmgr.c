@@ -113,27 +113,6 @@ find_current_sync_point(inttime_t ti)
     return NULL;
 }
 
-/*
- * Return a unplanned SyncPoint.
- *
- * The SyncPoint is owned by the routine.
- *
- * The caller shall know ti is actually synced before
- * calling this routine.
- * */
-SyncPoint *
-make_unplanned_sync_point(inttime_t ti)
-{
-    static SyncPoint Unplanned[1];
-
-    Unplanned[0].ti = ti;
-    Unplanned[0].loga = loga_from_ti(ti);
-    /* set default values */
-    Unplanned[0].write_fof = 0;
-    Unplanned[0].write_snapshot = 0;
-    return &Unplanned[0];
-}
-
 /* Each integer time stores in the first 10 bits the snapshot number.
  * Then the rest of the bits are the standard integer timeline,
  * which should be a power-of-two hierarchy. We use this bit trick to speed up

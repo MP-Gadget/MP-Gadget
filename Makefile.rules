@@ -16,7 +16,7 @@ LIBS   = -lm $(GSL_LIBS) -Ldepends/lib $(BUNDLEDLIBS)
 OPTIONS = $(OPTIMIZE) $(OPT)
 
 GADGET_OBJS =  \
-	 gdbtools.o \
+	 gdbtools.o hci.o\
 	 fof.o fofpetaio.o petaio.o \
 	 param.o paramset.o \
 	 domain.o exchange.o slotsmanager.o allvars.o main.o \
@@ -50,7 +50,7 @@ ICOBJECTS   = genic/main.o genic/power.o genic/allvars.o genic/params.o \
 
 
 INCL = \
-config-migrate.h  densitykernel.h  endrun.h    forcetree.h  interp.h event.h  \
+config-migrate.h  densitykernel.h  endrun.h    forcetree.h  interp.h event.h hci.h \
 mymalloc.h    paramset.h  petapm.h         proto.h    timebinmgr.h  treewalk.h \
 allvars.h    cooling.h         domain.h         exchange.h  slotsmanager.h     \
  openmpsort.h  peano.h     physconst.h      sfr_eff.h  timefac.h     utils-string.h \
