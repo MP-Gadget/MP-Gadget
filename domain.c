@@ -374,8 +374,8 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
     int64_t *list_load;
     int64_t *list_work;
     if(print_details) {
-        list_load = ta_malloc("list_load",int64_t, NTask);
-        list_work = ta_malloc("list_load",int64_t, NTask);
+        list_load = ta_malloc("list_load",int64_t, 2*NTask);
+        list_work = list_load + NTask;
     }
 
     max_work = max_load = sumload = sumwork = 0;
@@ -415,6 +415,7 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
             message(0, "Task: [%3d]  work=%8.4f  particle load=%8.4f\n", i,
                list_work[i] / ((double) sumwork / NTask), list_load[i] / (((double) sumload) / NTask));
         }
+        ta_free(list_load);
     }
 
     if(max_load > All.MaxPart)
