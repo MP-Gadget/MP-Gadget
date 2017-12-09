@@ -45,7 +45,7 @@ setup_particles(int NType[6])
 
     slots_init();
 
-    slots_reserve(NType);
+    slots_reserve(NType, 0);
 
     int i;
 

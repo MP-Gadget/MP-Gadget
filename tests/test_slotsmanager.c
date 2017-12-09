@@ -32,7 +32,7 @@ setup_particles(void ** state)
 
     slots_init();
 
-    slots_reserve(newSlots);
+    slots_reserve(newSlots, 0);
 
     int i;
     for(i = 0; i < NumPart; i ++) {
@@ -107,7 +107,7 @@ test_slots_reserve(void **state)
     for(ptype = 0; ptype < 6; ptype++) {
         oldSize[ptype] = SlotsManager->info[ptype].maxsize;
     }
-    slots_reserve(newSlots);
+    slots_reserve(newSlots, 0);
 
     /* shall not increase max size*/
     for(ptype = 0; ptype < 6; ptype++) {
@@ -119,7 +119,7 @@ test_slots_reserve(void **state)
     }
 
     /* shall not increase max size; because it is small difference */
-    slots_reserve(newSlots);
+    slots_reserve(newSlots, 0);
     for(ptype = 0; ptype < 6; ptype++) {
         assert_int_equal(oldSize[ptype], SlotsManager->info[ptype].maxsize);
     }
@@ -129,7 +129,7 @@ test_slots_reserve(void **state)
     }
 
     /* shall increase max size; because it large difference */
-    slots_reserve(newSlots);
+    slots_reserve(newSlots, 0);
 
     for(ptype = 0; ptype < 6; ptype++) {
         assert_true(oldSize[ptype] < SlotsManager->info[ptype].maxsize);

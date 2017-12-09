@@ -210,7 +210,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, newNumPart, All.MaxPart);
     }
 
-    slots_reserve(newSlots);
+    slots_reserve(newSlots, 0);
 
     int * sendcounts = (int*) ta_malloc("sendcounts", int, NTask);
     int * senddispls = (int*) ta_malloc("senddispls", int, NTask);
