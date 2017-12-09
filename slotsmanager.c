@@ -557,6 +557,7 @@ slots_setup_topology()
 
     int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
+        if(!SLOTS_ENABLED(P[i].Type)) continue;
         SlotsManager->info[ptype].size = NLocal[ptype];
     }
 }
