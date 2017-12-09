@@ -451,8 +451,8 @@ slots_reserve(int atleast[6], int collective)
     }
     char * newSlotsBase = myrealloc(SlotsManager->Base, total_bytes);
 
-    message(!collective, "Allocated %g MB for %d sph, %d stars and %d BHs.\n", total_bytes / (1024.0 * 1024.0),
-            newMaxSlots[0], newMaxSlots[4], newMaxSlots[5]);
+    message(!collective, "Allocated %g MB for %d sph, %d stars and %d BHs (disabled: %d %d %d)\n", total_bytes / (1024.0 * 1024.0),
+            newMaxSlots[0], newMaxSlots[4], newMaxSlots[5], newMaxSlots[1], newMaxSlots[2], newMaxSlots[3]);
 
     /* move the last block first since we are only increasing sizes, moving items forward.
      * No need to move the 0 block, since it is already moved to newSlotsBase in realloc.*/
