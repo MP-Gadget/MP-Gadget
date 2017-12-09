@@ -90,7 +90,7 @@ void petaio_save_restart() {
  *
  * The offset for the starting of each type is stored in ptype_offset.
  *
- * if select_func is provided, it shall return 1 for those that shall be 
+ * if select_func is provided, it shall return 1 for those that shall be
  * included in the output.
  */
 void
@@ -354,13 +354,6 @@ void petaio_read_internal(char * fname, int ic) {
             newSlots[ptype] = All.PartAllocFactor * NLocal[ptype];
         }
     }
-    /* additional allocation for new formation of particles; will grow automatically later; move this to grow? */
-    if(All.StarformationOn || NTotal[4] > 0) {
-        newSlots[4] +=  0.01 * All.MaxPart;
-    }
-    if(All.BlackHoleOn || NTotal[5] > 0) {
-        newSlots[5] +=  0.01 * All.MaxPart;
-    }
 
     /* Now allocate memory for the secondary particle data arrays.
      * This may be dynamically resized later!*/
@@ -461,7 +454,7 @@ petaio_read_snapshot(int num)
     char * fname;
     if(num == -1) {
         fname = fastpm_strdup_printf("%s", All.InitCondFile);
-        /* 
+        /*
          *  IC doesn't have entropy or energy; always use the
          *  InitTemp in paramfile, then use init.c to convert to
          *  entropy.
@@ -513,7 +506,7 @@ static void petaio_write_header(BigFile * bf, const int64_t * NTotal) {
         RSD /= All.cf.a; /* Conversion from internal velocity to RSD */
     }
 
-    if( 
+    if(
     (0 != big_block_set_attr(&bh, "TotNumPart", NTotal, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "TotNumPartInit", All.NTotalInit, "u8", 6)) ||
     (0 != big_block_set_attr(&bh, "MassTable", All.MassTable, "f8", 6)) ||
@@ -632,7 +625,7 @@ petaio_read_header_internal(BigFile * bf) {
                     big_file_get_error_message());
     }
     /* sets the maximum number of particles that may reside on a processor */
-    All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);	
+    All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);
 
 }
 
@@ -789,24 +782,24 @@ void petaio_save_block(BigFile * bf, char * blockname, BigArray * array)
     }
 }
 
-/* 
+/*
  * register an IO block of name for particle type ptype.
  *
  * use IO_REG wrapper.
- * 
+ *
  * with getter function getter
  * getter(i, output)
  * will fill the property of particle i to output.
  *
- * NOTE: dtype shall match the format of output of getter 
+ * NOTE: dtype shall match the format of output of getter
  *
  * NOTE: currently there is a hard limit (4096 blocks ).
  *
  * */
-void io_register_io_block(char * name, 
-        char * dtype, 
-        int items, 
-        int ptype, 
+void io_register_io_block(char * name,
+        char * dtype,
+        int items,
+        int ptype,
         property_getter getter,
         property_setter setter,
         int required
@@ -868,7 +861,7 @@ SIMPLE_PROPERTY_TYPE(Metallicity, 4, STARP(i).Metallicity, float, 1)
 SIMPLE_PROPERTY_TYPE(Metallicity, 0, SPHP(i).Metallicity, float, 1)
 static void GTStarFormationRate(int i, float * out) {
     /* Convert to Solar/year */
-    *out = get_starformation_rate(i) 
+    *out = get_starformation_rate(i)
         * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
 }
 #endif
@@ -894,7 +887,7 @@ static void GTNeutralHydrogenFraction(int i, float * out) {
                     GAMMA_MINUS1)),
             SPHP(i).Density * All.cf.a3inv, &uvbg, &ne, &nh0, &nHeII);
     *out = nh0;
-} 
+}
 
 static void GTInternalEnergy(int i, float * out) {
     *out = DMAX(All.MinEgySpec,
