@@ -199,10 +199,11 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     walltime_measure("/Domain/exchange/garbage");
 
     int newNumPart;
-    int newSlots[6];
+    int newSlots[6] = {0};
     newNumPart = NumPart + plan->toGetSum.base;
 
     for(ptype = 0; ptype < 6; ptype ++) {
+        if(!SlotsManager->info[ptype].enabled) continue;
         newSlots[ptype] = SlotsManager->info[ptype].size + plan->toGetSum.slots[ptype];
     }
 
@@ -296,6 +297,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     NumPart = newNumPart;
 
     for(ptype = 0; ptype < 6; ptype++) {
+        if(!SlotsManager->info[ptype].enabled) continue;
         SlotsManager->info[ptype].size = newSlots[ptype];
     }
 
