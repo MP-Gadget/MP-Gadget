@@ -13,6 +13,7 @@
 #include "slotsmanager.h"
 #include "mymalloc.h"
 #include "stub.h"
+#include "allvars.h"
 
 struct particle_data *P;
 struct global_data_all_processes All;
@@ -30,7 +31,9 @@ setup_particles(void ** state)
     P = (struct particle_data *) mymalloc("P", All.MaxPart * sizeof(struct particle_data));
     memset(P, 0, sizeof(struct particle_data) * All.MaxPart);
 
-    slots_init();
+    int enabled[6] = {1,1,1,1,1,1};
+    size_t elsize[6] = {sizeof(struct sph_particle_data), sizeof(struct particle_data_ext), sizeof(struct particle_data_ext), sizeof(struct particle_data_ext), sizeof(struct star_particle_data), sizeof(struct bh_particle_data)};
+    slots_init(enabled, elsize);
 
     slots_reserve(newSlots, 0);
 

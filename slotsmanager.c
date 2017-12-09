@@ -1,6 +1,6 @@
 #include <string.h>
-#include "allvars.h"
 #include "event.h"
+#include "allvars.h"
 #include "slotsmanager.h"
 #include "mymalloc.h"
 #include "system.h"
@@ -471,17 +471,15 @@ slots_reserve(int atleast[6], int collective)
     GDB_BhP = (struct bh_particle_data *) SlotsManager->info[5].ptr;
 }
 
-void slots_init()
+void slots_init(int enabled[6], size_t elsize[6])
 {
     int ptype;
     memset(SlotsManager, 0, sizeof(SlotsManager[0]));
 
-    SlotsManager->info[0].elsize = sizeof(struct sph_particle_data);
-    SlotsManager->info[0].enabled = 1;
-    SlotsManager->info[4].elsize = sizeof(struct star_particle_data);
-    SlotsManager->info[4].enabled = 1;
-    SlotsManager->info[5].elsize = sizeof(struct bh_particle_data);
-    SlotsManager->info[5].enabled = 1;
+    for(ptype = 0; ptype < 6; ptype++) {
+        SlotsManager->info[ptype].enabled = enabled[ptype];
+        SlotsManager->info[ptype].elsize = elsize[ptype];
+    }
 
     MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
     MPI_Type_commit(&MPI_TYPE_PARTICLE);

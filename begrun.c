@@ -51,12 +51,15 @@ void begrun(int RestartSnapNum)
 {
 
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
-    slots_init();
 
     petaio_init();
     walltime_init(&All.CT);
 
     petaio_read_header(RestartSnapNum);
+
+    int enabled[6] = {All.NTotalInit[0], 0, 0, 0, All.StarformationOn || All.NTotalInit[4], All.BlackHoleOn || All.NTotalInit[5]};
+    size_t elsize[6] =  {sizeof(struct sph_particle_data), 0, 0, 0, sizeof(struct star_particle_data), sizeof(struct bh_particle_data)};
+    slots_init(enabled, elsize);
 
     set_softenings();
     set_units();
