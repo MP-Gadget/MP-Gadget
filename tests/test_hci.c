@@ -14,7 +14,7 @@
 
 char prefix[1024] = "XXXXXXXX";
 
-static int
+static void
 touch(char * prefix, char * b)
 {
     char * fn = fastpm_strdup_printf("%s/%s", prefix, b);
