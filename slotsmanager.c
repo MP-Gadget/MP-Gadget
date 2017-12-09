@@ -421,7 +421,7 @@ slots_reserve(int atleast[6], int collective)
     /* FIXME: change 0.01 to a parameter. The experience is
      * this works out fine, since the number of time steps increases
      * (hence the number of growth increases
-     * when the star formation ra*/
+     * when the star formation rate does)*/
     int add = 0.01 * All.MaxPart;
     if (add < 128) add = 128;
 
@@ -454,8 +454,9 @@ slots_reserve(int atleast[6], int collective)
     message(!collective, "Allocated %g MB for %d sph, %d stars and %d BHs.\n", total_bytes / (1024.0 * 1024.0),
             newMaxSlots[0], newMaxSlots[4], newMaxSlots[5]);
 
-    /* move the last block first since we are only increasing sizes, moving items forward */
-    for(ptype = 5; ptype >= 0; ptype--) {
+    /* move the last block first since we are only increasing sizes, moving items forward.
+     * No need to move the 0 block, since it is already moved to newSlotsBase in realloc.*/
+    for(ptype = 5; ptype > 0; ptype--) {
         if(!SLOTS_ENABLED(ptype)) continue;
         memmove(newSlotsBase + offsets[ptype],
             SlotsManager->info[ptype].ptr,
