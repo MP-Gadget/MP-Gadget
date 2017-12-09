@@ -428,6 +428,7 @@ slots_reserve(int atleast[6], int collective)
     /* FIXME: allow shrinking; need to tweak the memmove later. */
     for(ptype = 0; ptype < 6; ptype ++) {
         newMaxSlots[ptype] = SlotsManager->info[ptype].maxsize;
+        if(!SLOTS_ENABLED(ptype)) continue;
         /* if current empty slots is less than half of add, need to grow */
         if (newMaxSlots[ptype] < atleast[ptype] + add / 2) {
             newMaxSlots[ptype] = atleast[ptype] + add;
@@ -455,6 +456,7 @@ slots_reserve(int atleast[6], int collective)
 
     /* move the last block first since we are only increasing sizes, moving items forward */
     for(ptype = 5; ptype >= 0; ptype--) {
+        if(!SLOTS_ENABLED(ptype)) continue;
         memmove(newSlotsBase + offsets[ptype],
             SlotsManager->info[ptype].ptr,
             SlotsManager->info[ptype].elsize * SlotsManager->info[ptype].size);
