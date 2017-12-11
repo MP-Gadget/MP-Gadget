@@ -16,8 +16,6 @@
 #ifndef ALLVARS_H
 #define ALLVARS_H
 
-#include "config-migrate.h"
-
 #include <mpi.h>
 #include <stdio.h>
 
