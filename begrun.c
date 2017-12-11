@@ -65,7 +65,7 @@ void begrun(int RestartSnapNum)
     if(All.StarformationOn || All.NTotalInit[4] > 0)
         slots_set_enabled(4, sizeof(struct star_particle_data));
     if(All.BlackHoleOn || All.NTotalInit[5] > 0)
-        slots_set_enabled(4, sizeof(struct bh_particle_data));
+        slots_set_enabled(5, sizeof(struct bh_particle_data));
 
     set_softenings();
     set_units();
