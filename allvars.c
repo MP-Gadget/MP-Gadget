@@ -15,7 +15,6 @@
 
 #include "allvars.h"
 
-
 /*********************************************************/
 /*  Global variables                                     */
 /*********************************************************/
@@ -24,9 +23,6 @@
 
 int ThisTask;			/*!< the number of the local processor  */
 int NTask;			/*!< number of processors */
-
-/* Local number of particles */
-int NumPart;
 
 /* variables for input/output , usually only used on process 0 */
 
@@ -49,9 +45,3 @@ FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
  * them into this structure.
  */
 struct global_data_all_processes All;
-
-/*! This structure holds all the information that is
- * stored for each particle of the simulation.
- */
-struct particle_data *P;	/*!< holds particle data on local processor */
-

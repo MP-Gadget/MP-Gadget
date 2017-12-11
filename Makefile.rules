@@ -19,7 +19,7 @@ GADGET_OBJS =  \
 	 gdbtools.o hci.o\
 	 fof.o fofpetaio.o petaio.o \
 	 param.o paramset.o \
-	 domain.o exchange.o slotsmanager.o allvars.o main.o \
+	 domain.o exchange.o slotsmanager.o allvars.o partmanager.o main.o \
 	 blackhole.o timebinmgr.o \
 	 run.o drift.o begrun.o global.o \
 	 timestep.o init.o io.o sfr_eff.o \
@@ -41,6 +41,7 @@ GADGET_UTILS_OBJS= endrun.o memory.o mymalloc.o system.o event.o openmpsort.o ut
 
 ICOBJECTS   = genic/main.o genic/power.o genic/allvars.o genic/params.o \
 		genic/zeldovich.o genic/save.o genic/thermal.o \
+        partmanager.o \
 		 petapm.o \
         paramset.o \
 		walltime.o \
@@ -52,7 +53,7 @@ ICOBJECTS   = genic/main.o genic/power.o genic/allvars.o genic/params.o \
 INCL = \
 densitykernel.h  endrun.h    forcetree.h  interp.h event.h hci.h \
 mymalloc.h    paramset.h  petapm.h         proto.h    timebinmgr.h  treewalk.h \
-allvars.h    cooling.h         domain.h         exchange.h  slotsmanager.h     \
+allvars.h  partmanager.h  cooling.h         domain.h         exchange.h  slotsmanager.h     \
  openmpsort.h  peano.h     physconst.h      sfr_eff.h  timefac.h     utils-string.h \
 blackhole.h  cosmology.h       drift.h          fof.h       gravshort.h  memory.h   \
 param.h       petaio.h    powerspectrum.h  system.h   timestep.h    walltime.h \
