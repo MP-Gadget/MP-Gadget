@@ -422,10 +422,6 @@ extern struct global_data_all_processes
 
 }
 All;
-#ifdef _OPENMP
-extern size_t BlockedParticleDrifts;
-extern size_t TotalParticleDrifts;
-#endif
 
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.

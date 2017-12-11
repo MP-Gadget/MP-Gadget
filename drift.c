@@ -11,7 +11,6 @@
 #include "slotsmanager.h"
 #include "endrun.h"
 
-
 static int drift_particle_full(int i, inttime_t ti1, int blocking);
 
 static void real_drift_particle(int i, inttime_t ti1);
@@ -27,9 +26,6 @@ void drift_particle(int i, inttime_t ti1) {
 int drift_particle_full(int i, inttime_t ti1, int blocking) {
     if(P[i].Ti_drift == ti1) return 0 ;
 
-#pragma omp atomic
-    TotalParticleDrifts ++;
-
 #ifdef OPENMP_USE_SPINLOCK
     int lockstate;
     if (blocking) {
@@ -41,9 +37,6 @@ int drift_particle_full(int i, inttime_t ti1, int blocking) {
         if(P[i].Ti_drift != ti1) {
             real_drift_particle(i, ti1);
 #pragma omp flush
-        } else {
-#pragma omp atomic
-            BlockedParticleDrifts ++;
         }
         pthread_spin_unlock(&P[i].SpinLock);
         return 0;
@@ -62,8 +55,6 @@ int drift_particle_full(int i, inttime_t ti1, int blocking) {
     {
         if(P[i].Ti_drift != ti1) {
             real_drift_particle(i, ti1);
-        } else {
-            BlockedParticleDrifts ++;
         }
     }
     return 0;

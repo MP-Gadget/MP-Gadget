@@ -50,10 +50,6 @@ FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
  */
 struct global_data_all_processes All;
 
-#ifdef _OPENMP
-uint64_t BlockedParticleDrifts = 0;
-uint64_t TotalParticleDrifts = 0;
-#endif
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
  */
