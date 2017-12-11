@@ -138,7 +138,7 @@ void slots_setup_id();
 int slots_fork(int parent, int ptype);
 int slots_gc(int * compact_slots);
 void slots_gc_sorted(void);
-void slots_reserve(int atleast[6], int collective);
+void slots_reserve(int where, int atleast[6]);
 void slots_check_id_consistency();
 
 typedef struct {

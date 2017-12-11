@@ -49,7 +49,7 @@ setup_particles(int NType[6])
     slots_set_enabled(5, sizeof(struct bh_particle_data));
 
 
-    slots_reserve(NType, 0);
+    slots_reserve(1, NType);
 
     int i;
 

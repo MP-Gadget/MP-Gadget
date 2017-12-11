@@ -406,14 +406,11 @@ slots_gc_sorted()
 }
 
 void
-slots_reserve(int atleast[6], int collective)
+slots_reserve(int where, int atleast[6])
 {
     int newMaxSlots[6];
     int ptype;
     int good = 1;
-    /*Ensure all processors have initially the same number of particle slots*/
-    if(collective)
-        MPI_Allreduce(MPI_IN_PLACE, atleast, 6, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
 
     if(SlotsManager->Base == NULL)
         SlotsManager->Base = (char*) mymalloc("SlotsBase", 0);
@@ -451,7 +448,7 @@ slots_reserve(int atleast[6], int collective)
     }
     char * newSlotsBase = myrealloc(SlotsManager->Base, total_bytes);
 
-    message(!collective, "Allocated %g MB for %d sph, %d stars and %d BHs (disabled: %d %d %d)\n", total_bytes / (1024.0 * 1024.0),
+    message(where, "SLOTS: Reserved %g MB for %d sph, %d stars and %d BHs (disabled: %d %d %d)\n", total_bytes / (1024.0 * 1024.0),
             newMaxSlots[0], newMaxSlots[4], newMaxSlots[5], newMaxSlots[1], newMaxSlots[2], newMaxSlots[3]);
 
     /* move the last block first since we are only increasing sizes, moving items forward.

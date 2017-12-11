@@ -358,7 +358,9 @@ void petaio_read_internal(char * fname, int ic) {
     /* Now allocate memory for the secondary particle data arrays.
      * This may be dynamically resized later!*/
 
-    slots_reserve(newSlots, 1);
+    /*Ensure all processors have initially the same number of particle slots*/
+    MPI_Allreduce(MPI_IN_PLACE, newSlots, 6, MPI_INT, MPI_MAX, MPI_COMM_WORLD);
+    slots_reserve(0, newSlots);
 
     /* initialize particle types */
     int offset = 0;
