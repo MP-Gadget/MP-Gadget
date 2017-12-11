@@ -118,7 +118,6 @@ void init(int RestartSnapNum)
         }
 #ifdef SFR
         SPHP(i).DelayTime = 0;
-        SPHP(i).Sfr = 0;
 #endif
 
 #ifdef BLACK_HOLES

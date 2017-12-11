@@ -101,7 +101,6 @@ struct sph_particle_data
 #endif
 
 #ifdef SFR
-    MyFloat Sfr;
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
 #endif

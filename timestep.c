@@ -515,11 +515,6 @@ get_timestep_ti(const int p, const inttime_t dti_max)
             message(1, "egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, EntropyPred(p),
                     SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy, PressurePred(p));
 #endif
-#ifdef SFR
-        if(P[p].Type == 0) {
-            message(1, "sfr = %g\n" , SPHP(p).Sfr);
-        }
-#endif
 #ifdef BLACK_HOLES
         if(P[p].Type == 0) {
             message(1, "injected_energy = %g\n" , SPHP(p).Injected_BH_Energy);
