@@ -374,8 +374,8 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
     int64_t *list_load;
     int64_t *list_work;
     if(print_details) {
-        list_load = ta_malloc("list_load",int64_t, NTask);
-        list_work = ta_malloc("list_load",int64_t, NTask);
+        list_load = ta_malloc("list_load",int64_t, 2*NTask);
+        list_work = list_load + NTask;
     }
 
     max_work = max_load = sumload = sumwork = 0;
@@ -415,6 +415,7 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
             message(0, "Task: [%3d]  work=%8.4f  particle load=%8.4f\n", i,
                list_work[i] / ((double) sumwork / NTask), list_load[i] / (((double) sumload) / NTask));
         }
+        ta_free(list_load);
     }
 
     if(max_load > All.MaxPart)
@@ -493,7 +494,7 @@ domain_assign_balanced(int64_t * cost)
         TopLeafExt[i].cost = cost[i];
     }
 
-    /* make sure TopLeaves are sorted by Key for locality of segments - 
+    /* make sure TopLeaves are sorted by Key for locality of segments -
      * likely not necessary be cause when this function
      * is called it is already true */
     qsort_openmp(TopLeafExt, NTopLeaves, sizeof(TopLeafExt[0]), topleaf_ext_order_by_key);
@@ -532,7 +533,7 @@ domain_assign_balanced(int64_t * cost)
             /* to maintain the invariance */
             advance = 1;
         } else if(NTopLeaves - curleaf == Nsegment - curseg) {
-            /* just enough for one segment per leaf; this line ensures 
+            /* just enough for one segment per leaf; this line ensures
              * at least Nsegment segments are created. */
             append = 1;
             advance = 1;
@@ -705,7 +706,7 @@ domain_toptree_insert(struct local_topnode_data * topTree,
 
 static int
 domain_toptree_split(struct local_topnode_data * topTree, int * topTreeSize,
-    int i) 
+    int i)
 {
     int j;
     /* we ran out of top nodes and must get more.*/
@@ -776,7 +777,7 @@ domain_toptree_truncate_r(struct local_topnode_data * topTree, int start, int64_
  * We walk the topTree top-down to collect useful nodes, and move them to
  * the head of the topTree list.
  *
- * This works because any child node is stored after the parent in the list 
+ * This works because any child node is stored after the parent in the list
  * -- we are destroying the old tree just slow enough
  * */
 
@@ -815,7 +816,7 @@ domain_toptree_truncate(
     domain_toptree_garbage_collection(topTree, 0, topTreeSize);
 }
 
-/* 
+/*
  * This function performs local refinement of the topTree.
  *
  * It creates the local refinement by quickly going through
@@ -984,7 +985,7 @@ domain_check_for_local_refine_subsample(
 int
 domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int * topTreeSize)
 {
-    /* 
+    /*
      * combine topTree non recursively, this uses MPI_Bcast within a group.
      * it shall be quite a bit faster (~ x2) than the old recursive scheme.
      *
@@ -1029,8 +1030,8 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
 
                 MPI_Recv(
                         topTree_import,
-                        ntopnodes_import, MPI_TYPE_TOPNODE, 
-                        recvTask, TAG_GRAV_B, 
+                        ntopnodes_import, MPI_TYPE_TOPNODE,
+                        recvTask, TAG_GRAV_B,
                         MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
 
@@ -1042,7 +1043,7 @@ domain_nonrecursively_combine_topTree(struct local_topnode_data * topTree, int *
                     }
                     if(ntopnodes_import > 0 ) {
                         domain_toptree_merge(topTree, topTree_import, 0, 0, topTreeSize);
-                    } 
+                    }
                 }
                 myfree(topTree_import);
             }
@@ -1258,7 +1259,7 @@ void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
     myfree(local_TopLeafWork);
 }
 
-/* 
+/*
  * Merge treeB into treeA.
  *
  * The function recursively merge the cost and refinement of treeB into treeA.
