@@ -30,7 +30,9 @@ extern MPI_Datatype MPI_TYPE_SLOT[6];
 #define BASESLOT_PI(PI, ptype) ((struct particle_data_ext *)(SlotsManager->info[ptype].ptr + SlotsManager->info[ptype].elsize * (PI)))
 #define BASESLOT(i) BASESLOT_PI(P[i].PI, P[i].Type)
 
-void slots_init(int enabled[6], size_t elsize[6]);
+void slots_init(void);
+/*Enable a slot on type ptype. All slots are disabled after slots_init().*/
+void slots_set_enabled(int ptype, size_t elsize);
 void slots_free();
 void slots_mark_garbage(int i);
 void slots_setup_topology();

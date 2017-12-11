@@ -474,28 +474,27 @@ slots_reserve(int atleast[6], int collective)
     GDB_BhP = (struct bh_particle_data *) SlotsManager->info[5].ptr;
 }
 
-void slots_init(int enabled[6], size_t elsize[6])
+void
+slots_init()
 {
-    int ptype;
     memset(SlotsManager, 0, sizeof(SlotsManager[0]));
-
-    for(ptype = 0; ptype < 6; ptype++) {
-        SlotsManager->info[ptype].enabled = enabled[ptype];
-        SlotsManager->info[ptype].elsize = elsize[ptype];
-    }
 
     MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
     MPI_Type_commit(&MPI_TYPE_PARTICLE);
-
-    for(ptype = 0; ptype < 6; ptype++) {
-        if(!SLOTS_ENABLED(ptype)) continue;
-
-        MPI_Type_contiguous(SlotsManager->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
-        MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
-    }
 }
 
-void slots_free()
+void
+slots_set_enabled(int ptype, size_t elsize)
+{
+    SlotsManager->info[ptype].enabled = 1;
+    SlotsManager->info[ptype].elsize = elsize;
+    MPI_Type_contiguous(SlotsManager->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
+    MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
+}
+
+
+void
+slots_free()
 {
     myfree(SlotsManager->Base);
 }

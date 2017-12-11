@@ -57,9 +57,15 @@ void begrun(int RestartSnapNum)
 
     petaio_read_header(RestartSnapNum);
 
-    int enabled[6] = {All.NTotalInit[0], 0, 0, 0, All.StarformationOn || All.NTotalInit[4], All.BlackHoleOn || All.NTotalInit[5]};
-    size_t elsize[6] =  {sizeof(struct sph_particle_data), 0, 0, 0, sizeof(struct star_particle_data), sizeof(struct bh_particle_data)};
-    slots_init(enabled, elsize);
+    slots_init();
+    /* Enable the slots: stars and BHs are allocated if there are some,
+     * or if some will form*/
+    if(All.NTotalInit[0] > 0)
+        slots_set_enabled(0, sizeof(struct sph_particle_data));
+    if(All.StarformationOn || All.NTotalInit[4] > 0)
+        slots_set_enabled(4, sizeof(struct star_particle_data));
+    if(All.BlackHoleOn || All.NTotalInit[5] > 0)
+        slots_set_enabled(4, sizeof(struct bh_particle_data));
 
     set_softenings();
     set_units();

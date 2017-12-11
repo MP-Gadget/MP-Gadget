@@ -31,9 +31,14 @@ setup_particles(void ** state)
     P = (struct particle_data *) mymalloc("P", All.MaxPart * sizeof(struct particle_data));
     memset(P, 0, sizeof(struct particle_data) * All.MaxPart);
 
-    int enabled[6] = {1,1,1,1,1,1};
-    size_t elsize[6] = {sizeof(struct sph_particle_data), sizeof(struct particle_data_ext), sizeof(struct particle_data_ext), sizeof(struct particle_data_ext), sizeof(struct star_particle_data), sizeof(struct bh_particle_data)};
-    slots_init(enabled, elsize);
+    slots_init();
+    int ptype;
+    slots_set_enabled(0, sizeof(struct sph_particle_data));
+    slots_set_enabled(4, sizeof(struct star_particle_data));
+    slots_set_enabled(5, sizeof(struct bh_particle_data));
+    for(ptype = 1; ptype < 4; ptype++) {
+        slots_set_enabled(ptype, sizeof(struct particle_data_ext));
+    }
 
     slots_reserve(newSlots, 0);
 
