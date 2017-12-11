@@ -1,7 +1,9 @@
 #ifndef __GARBAGE_H
 #define __GARBAGE_H
+#include <mpi.h>
 #include "event.h"
 #include "types.h"
+#include "partmanager.h"
 
 extern struct slots_manager_type {
     char * Base; /* memory ptr that holds of all slots */

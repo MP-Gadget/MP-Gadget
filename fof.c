@@ -21,6 +21,7 @@
 #include "treewalk.h"
 #include "system.h"
 #include "slotsmanager.h"
+#include "partmanager.h"
 #include "densitykernel.h"
 
 /*! \file fof.c

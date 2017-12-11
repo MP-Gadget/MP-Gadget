@@ -16,6 +16,7 @@
 
 #include "petaio.h"
 #include "slotsmanager.h"
+#include "partmanager.h"
 #include "mymalloc.h"
 #include "openmpsort.h"
 #include "utils-string.h"
@@ -274,35 +275,6 @@ static void petaio_save_internal(char * fname) {
     myfree(selection);
 }
 
-void
-petaio_alloc_particle_memory()
-{
-    size_t bytes;
-    /*Allocates ActiveParticle array*/
-    timestep_allocate_memory(All.MaxPart);
-
-    P = (struct particle_data *) mymalloc("P", bytes = All.MaxPart * sizeof(struct particle_data));
-
-    /* clear the memory to avoid valgrind errors;
-     *
-     * note that I tried to set each component in P to zero but
-     * valgrind still complains in PFFT
-     * seems to be to do with how the struct is padded and
-     * the missing holes being accessed by __kmp_atomic functions.
-     * (memory lock etc?)
-     * */
-    memset(P, 0, sizeof(struct particle_data) * All.MaxPart);
-#ifdef OPENMP_USE_SPINLOCK
-    {
-        int i;
-        for(i = 0; i < All.MaxPart; i ++) {
-            pthread_spin_init(&P[i].SpinLock, 0);
-        }
-    }
-#endif
-    message(0, "Allocated %g MByte for particle storage.\n", bytes / (1024.0 * 1024.0));
-}
-
 void petaio_read_internal(char * fname, int ic) {
     int ptype;
     int i;
@@ -326,8 +298,14 @@ void petaio_read_internal(char * fname, int ic) {
                     big_file_get_error_message());
     }
 
+    /* sets the maximum number of particles that may reside on a processor */
+    int MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);
+
+    /*Allocates ActiveParticle array*/
+    timestep_allocate_memory(MaxPart);
+
     /*Allocate the particle memory*/
-    petaio_alloc_particle_memory();
+    particle_alloc_memory(MaxPart);
 
     int NLocal[6];
     for(ptype = 0; ptype < 6; ptype ++) {
@@ -341,8 +319,8 @@ void petaio_read_internal(char * fname, int ic) {
     /* Allocate enough memory for stars and black holes.
      * This will be dynamically increased as needed.*/
 
-    if(NumPart >= All.MaxPart) {
-        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, All.MaxPart);
+    if(NumPart >= part_MaxPart) {
+        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, part_MaxPart);
     }
 
     int newSlots[6];
@@ -626,9 +604,6 @@ petaio_read_header_internal(BigFile * bf) {
         endrun(0, "Failed to close block: %s\n",
                     big_file_get_error_message());
     }
-    /* sets the maximum number of particles that may reside on a processor */
-    All.MaxPart = (int) (All.PartAllocFactor * All.TotNumPartInit / NTask);
-
 }
 
 void petaio_alloc_buffer(BigArray * array, IOTableEntry * ent, int64_t localsize) {

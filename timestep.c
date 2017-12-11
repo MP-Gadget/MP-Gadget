@@ -13,6 +13,7 @@
 #include "mymalloc.h"
 #include "endrun.h"
 #include "slotsmanager.h"
+#include "partmanager.h"
 #include "system.h"
 #include "timestep.h"
 

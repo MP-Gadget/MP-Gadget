@@ -8,28 +8,27 @@
 #include <string.h>
 #include <time.h>
 #include <gsl/gsl_rng.h>
-#include "allvars.h"
+#include "partmanager.h"
 #include "domain.h"
 #include "slotsmanager.h"
 #include "mymalloc.h"
 #include "stub.h"
-#include "allvars.h"
 
 struct particle_data *P;
-struct global_data_all_processes All;
 int NTask, ThisTask;
 int NumPart;
+int part_MaxPart;
 
 static int
 setup_particles(void ** state)
 {
-    All.MaxPart = 1024;
+    part_MaxPart = 1024;
     NumPart = 128 * 6;
 
     int newSlots[6] = {128, 128, 128, 128, 128, 128};
 
-    P = (struct particle_data *) mymalloc("P", All.MaxPart * sizeof(struct particle_data));
-    memset(P, 0, sizeof(struct particle_data) * All.MaxPart);
+    P = (struct particle_data *) mymalloc("P", part_MaxPart * sizeof(struct particle_data));
+    memset(P, 0, sizeof(struct particle_data) * part_MaxPart);
 
     slots_init();
     int ptype;

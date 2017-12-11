@@ -8,6 +8,7 @@
 #include "allvars.h"
 #include "event.h"
 #include "slotsmanager.h"
+#include "partmanager.h"
 #include "proto.h"
 #include "domain.h"
 #include "openmpsort.h"
@@ -30,15 +31,16 @@
  */
 
 /*The node index is an integer with unusual properties:
- * no = 0..All.MaxPart (firstnode in internal functions) corresponds to a particle.
- * no = All.MaxPart..All.MaxPart + MaxNodes (firstnode..lastnode) corresponds to actual tree nodes,
+ * no = 0..RootNode (firstnode in internal functions) corresponds to a particle.
+ * no = RootNode..RootNode + MaxNodes (firstnode..lastnode) corresponds to actual tree nodes,
  * and is the only memory allocated in Nodes_base.
- * no > All.MaxPart + MaxNodes (lastnode) means a pseudo particle on another processor*/
+ * no > RootNode + MaxNodes (lastnode) means a pseudo particle on another processor*/
 struct NODE *Nodes_base,	/*!< points to the actual memory allocated for the nodes */
- *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
+ *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[RootNode]
 				   gives the first allocated node */
 
 int MaxNodes;                  /*!< maximum allowed number of internal nodes */
+int RootNode;                  /*!< Index of the first node */
 
 
 int *Nextnode;			/*!< gives next node in tree walk  (nodes array) */
@@ -125,10 +127,10 @@ int force_tree_build(int npart)
 
     do
     {
-        maxnodes = All.TreeAllocFactor * All.MaxPart + NTopNodes;
+        maxnodes = All.TreeAllocFactor * part_MaxPart + NTopNodes;
         /* construct tree if needed */
         /* the tree is used in grav dens, hydro, bh and sfr */
-        tb = force_treeallocate(maxnodes, All.MaxPart, All.MaxPart);
+        tb = force_treeallocate(maxnodes, part_MaxPart, part_MaxPart);
 
         Numnodestree = force_tree_build_single(tb, npart);
         if(Numnodestree < 0)
@@ -155,7 +157,7 @@ int force_tree_build(int npart)
 
     force_exchange_pseudodata();
 
-    force_treeupdate_pseudos(All.MaxPart, tb);
+    force_treeupdate_pseudos(part_MaxPart, tb);
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
     return Numnodestree;
@@ -477,10 +479,10 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
  *
  *  The index convention for accessing tree nodes is the following: the
  *  indices 0...NumPart-1 reference single particles, the indices
- *  All.MaxPart.... All.MaxPart+nodes-1 reference tree nodes. `Nodes_base'
+ *  part_MaxPart.... part_MaxPart+nodes-1 reference tree nodes. `Nodes_base'
  *  points to the first tree node, while `nodes' is shifted such that
- *  nodes[All.MaxPart] gives the first tree node. Finally, node indices
- *  with values 'All.MaxPart + MaxNodes' and larger indicate "pseudo
+ *  nodes[part_MaxPart] gives the first tree node. Finally, node indices
+ *  with values 'part_MaxPart + MaxNodes' and larger indicate "pseudo
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
@@ -596,7 +598,7 @@ force_get_next_node(int no, const struct TreeBuilder tb)
         /* Particle */
         return Nextnode[no];
     }
-    else { //if(no >= All.MaxPart + MaxNodes) {
+    else { //if(no >= part_MaxPart + MaxNodes) {
         /* Pseudo Particle */
         return Nextnode[no - (tb.lastnode - tb.firstnode)];
     }
@@ -625,7 +627,7 @@ force_set_next_node(int no, int next, const struct TreeBuilder tb)
 int
 force_get_prev_node(int no, const struct TreeBuilder tb)
 {
-    if(no < All.MaxPart) {
+    if(node_is_particle(no)) {
         /* Particle */
         int t = Father[no];
         int next = force_get_next_node(t, tb);
@@ -989,8 +991,8 @@ void force_update_hmax(int * activeset, int size)
     /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
      *  we may want to save a list of them to speed this up.
      * */
-    for(i = All.MaxPart; i < All.MaxPart + MaxNodes; i ++) {
-        NodeIsDirty[i - All.MaxPart] = 0;
+    for(i = 0; i < MaxNodes; i ++) {
+        NodeIsDirty[i] = 0;
     }
 
     for(i = 0; i < size; i++)
@@ -1010,8 +1012,8 @@ void force_update_hmax(int * activeset, int size)
 
             if(Nodes[no].f.TopLevel) /* we reached a top-level node */
             {
-                if (!NodeIsDirty[no - All.MaxPart]) {
-                    NodeIsDirty[no - All.MaxPart] = 1;
+                if (!NodeIsDirty[no - RootNode]) {
+                    NodeIsDirty[no - RootNode] = 1;
                     DirtyTopLevelNodes[NumDirtyTopLevelNodes].treenode = no;
                     DirtyTopLevelNodes[NumDirtyTopLevelNodes].hmax = Nodes[no].u.d.hmax;
                     NumDirtyTopLevelNodes ++;
@@ -1089,6 +1091,7 @@ struct TreeBuilder force_treeallocate(int maxnodes, int maxpart, int first_node_
 
     tree_allocated_flag = 1;
     MaxNodes = maxnodes;
+    RootNode = first_node_offset;
     message(0, "Allocating memory for %d tree-nodes (MaxPart=%d).\n", maxnodes, maxpart);
     Nodes_base = (struct NODE *) mymalloc("Nodes_base", bytes = (MaxNodes + 1) * sizeof(struct NODE));
     allbytes += bytes;

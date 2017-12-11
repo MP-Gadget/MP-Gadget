@@ -3,6 +3,7 @@
 #include <math.h>
 #include <string.h>
 #include "allvars.h"
+#include "partmanager.h"
 #include "forcetree.h"
 #include "petapm.h"
 #include "powerspectrum.h"
@@ -127,7 +128,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
 
     int r = 0;
 
-    int no = All.MaxPart; /* start with the root */
+    int no = RootNode; /* start with the root */
     while(no >= 0) {
 
         if(!(Nodes[no].f.DependsOnLocalMass)) {
@@ -194,7 +195,7 @@ static int pm_mark_region_for_node(int startno, int rid) {
     int endno = Nodes[startno].u.d.sibling;
     while(no >= 0 && no != endno)
     {
-        if(no < All.MaxPart)	/* single particle */
+        if(node_is_particle(no))	/* single particle */
         {
             p = no;
             no = Nextnode[no];
@@ -235,7 +236,7 @@ static int pm_mark_region_for_node(int startno, int rid) {
         }
         else
         {
-            if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+            if(node_is_pseudo_particle(no))	/* pseudo particle */
             {
                 /* skip pseudo particles */
                 no = Nextnode[no - MaxNodes];

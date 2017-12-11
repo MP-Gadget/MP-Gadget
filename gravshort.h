@@ -1,3 +1,8 @@
+#ifndef GRAVSHORT_H
+#define GRAVSHORT_H
+
+#include "partmanager.h"
+#include "treewalk.h"
 
 typedef struct {
     TreeWalkNgbIterBase base;
@@ -69,3 +74,5 @@ grav_short_reduce(int place, TreeWalkResultGravShort * result, enum TreeWalkRedu
 }
 
 int grav_apply_short_range_window(double r, double * fac, double * facpot);
+
+#endif

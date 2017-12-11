@@ -5,7 +5,7 @@
 #include <math.h>
 
 /* these are for debuging in GDB */
-#include "allvars.h"
+#include "partmanager.h"
 
 int GDB_particle_by_id(MyIDType id, int from) {
     int i;

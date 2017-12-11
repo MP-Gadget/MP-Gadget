@@ -164,9 +164,6 @@ extern struct global_data_all_processes
     double UnitLength_in_cm;		/*!< factor to convert internal length unit to cm/h */
 
 
-    int MaxPart;			/* This gives the maxmimum number of particles that can be stored on one
-                              processor. */
-
 /* end of read_header parameters */
 
     int NumThreads;     /* number of threads used to simulate OpenMP tls */
@@ -340,7 +337,6 @@ extern struct global_data_all_processes
     double GravitySoftening; /* Softening as a fraction of DM mean separation. */
     double GravitySofteningGas;  /* if 0, enable adaptive gravitational softening for gas particles, which uses the Hsml as ForceSoftening */
 
-    double GravitySofteningTable[6]; /* the softening length; the scale where the force is Newtonian is 2.8 x this; in length units. */
     double TreeNodeMinSize; /* The minimum size of a Force Tree Node in length units. */
     double MeanSeparation[6]; /* mean separation between particles. 0 if the species doesn't exist. */
 
@@ -416,15 +412,4 @@ extern struct global_data_all_processes
 }
 All;
 
-#include "partmanager.h"
-
-static inline double FORCE_SOFTENING(int i)
-{
-    if (All.GravitySofteningTable[0] == 0 && P[i].Type == 0) {
-        return P[i].Hsml;
-    } else {
-        /* Force is newtonian beyond this.*/
-        return 2.8 * All.GravitySofteningTable[P[i].Type];
-    }
-}
 #endif

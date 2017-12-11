@@ -1,7 +1,7 @@
 #ifndef FORCETREE_H
 #define FORCETREE_H
-#include "treewalk.h"
 
+#include "types.h"
 /*
  * Variables for Tree
  * ------------------
@@ -39,7 +39,7 @@ extern struct NODE
     u;
 }
 *Nodes_base,			/*!< points to the actual memory allocated for the nodes */
-    *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[All.MaxPart]
+    *Nodes;			/*!< this is a pointer used to access the nodes which is shifted such that Nodes[RootNode]
                       gives the first allocated node */
 
 /*Structure containing the Node pointer, and the first and last entries*/
@@ -54,6 +54,7 @@ struct TreeBuilder {
 };
 
 extern int MaxNodes;		/*!< maximum allowed number of internal nodes */
+extern int RootNode;      /*!< Index of the first node. Difference between Nodes and Nodes_base. == MaxPart*/
 
 /*Used in domain.c*/
 extern int *Nextnode;		/*!< gives next node in tree walk  (nodes array) */
@@ -66,6 +67,24 @@ void force_tree_rebuild();
 
 void   force_tree_free(void);
 void   dump_particles(void);
+
+static inline int
+node_is_pseudo_particle(int no)
+{
+    return no >= RootNode + MaxNodes;
+}
+
+static inline int
+node_is_particle(int no)
+{
+    return no < RootNode;
+}
+
+static inline int
+node_is_node(int no)
+{
+    return (no >= RootNode) && (no < RootNode + MaxNodes);
+}
 
 int
 force_get_prev_node(int no, const struct TreeBuilder tb);

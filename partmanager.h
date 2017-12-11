@@ -1,13 +1,18 @@
 #ifndef _PART_DATA_H
 #define _PART_DATA_H
 
+#include <pthread.h>
+
 #include "types.h"
 #include "peano.h"
 
 /*!< number of particles on the LOCAL processor: number of valid entries in P array. */
 extern int NumPart;
 /*!< Amount of memory we have available for particles locally: maximum size of P array. */
-extern int MaxPart;
+extern int part_MaxPart;
+
+/*Allocate memory for the particles*/
+void particle_alloc_memory(int MaxPart);
 
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
@@ -90,5 +95,17 @@ extern struct particle_data
 
 }
 *P; /* holds particle data on local processor */
+
+extern double GravitySofteningTable[6];
+
+static inline double FORCE_SOFTENING(int i)
+{
+    if (GravitySofteningTable[0] == 0 && P[i].Type == 0) {
+        return P[i].Hsml;
+    } else {
+        /* Force is newtonian beyond this.*/
+        return 2.8 * GravitySofteningTable[P[i].Type];
+    }
+}
 
 #endif

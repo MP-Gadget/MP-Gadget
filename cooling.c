@@ -24,6 +24,7 @@
 #include <math.h>
 
 #include "allvars.h"
+#include "partmanager.h"
 #include "bigfile.h"
 #include "cooling.h"
 #include "interp.h"

@@ -7,6 +7,7 @@
 #include <ctype.h>
 
 #include "allvars.h"
+#include "partmanager.h"
 #include "forcetree.h"
 #include "proto.h"
 #include "cooling.h"

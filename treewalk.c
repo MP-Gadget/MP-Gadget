@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "allvars.h"
+#include "partmanager.h"
 #include "treewalk.h"
 #include "drift.h"
 #include "openmpsort.h"
@@ -196,7 +197,7 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
     if(NodeList) {
         memcpy(query->NodeList, NodeList, sizeof(int) * NODELISTLENGTH);
     } else {
-        query->NodeList[0] = All.MaxPart; /* root node */
+        query->NodeList[0] = RootNode; /* root node */
         query->NodeList[1] = -1; /* terminate immediately */
     }
 
@@ -458,7 +459,7 @@ static void ev_secondary(TreeWalk * tw)
             TreeWalkResultBase * output = (TreeWalkResultBase*)(tw->dataresult + j * tw->result_type_elsize);
             treewalk_init_result(tw, output, input);
             if(!tw->UseNodeList) {
-                if(input->NodeList[0] != All.MaxPart) abort(); /* root node */
+                if(input->NodeList[0] != RootNode) abort(); /* root node */
                 if(input->NodeList[1] != -1) abort(); /* terminate immediately */
             }
             lv->target = -1;
@@ -490,7 +491,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     TreeWalk * tw = lv->tw;
     int task;
 
-    task = TopLeaves[no - (All.MaxPart + MaxNodes)].Task;
+    task = TopLeaves[no - (RootNode + MaxNodes)].Task;
 
     if(exportflag[task] != target)
     {
@@ -524,7 +525,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     if(tw->UseNodeList) 
     {
         DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-            TopLeaves[no - (All.MaxPart + MaxNodes)].treenode;
+            TopLeaves[no - (RootNode + MaxNodes)].treenode;
 
         if(exportnodecount[task] < NODELISTLENGTH)
             DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
@@ -913,12 +914,12 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
     while(no >= 0)
     {
-        if(no < All.MaxPart)  /* single particle */ {
+        if(node_is_particle(no))  /* single particle */ {
             lv->ngblist[numcand++] = no;
             no = Nextnode[no];
             continue;
         }
-        if(no >= All.MaxPart + MaxNodes) {
+        if(node_is_pseudo_particle(no)) {
             /* pseudo particle */
             if(lv->mode == 1) {
                 if(!lv->tw->UseNodeList) {

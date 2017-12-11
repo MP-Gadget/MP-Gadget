@@ -11,6 +11,7 @@
 #include <gsl/gsl_rng.h>
 #include "forcetree.h"
 #include "allvars.h"
+#include "partmanager.h"
 #include "domain.h"
 #include "peano.c"
 #include "stub.h"
@@ -36,6 +37,8 @@ struct task_data *Tasks;
 size_t AllocatedBytes;
 int NTask, ThisTask;
 int NumPart;
+int part_MaxPart;
+double GravitySofteningTable[6];
 
 /*Dummy versions of functions that implement only what we need for the tests:
  * most of these are used in the non-tested globally accessible parts of forcetree.c and
@@ -248,7 +251,7 @@ static void do_tree_test(const int numpart, const struct TreeBuilder tb)
     }
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = numpart;
-    All.MaxPart = numpart;
+    part_MaxPart = numpart;
     MaxNodes = numpart;
     assert_true(Nodes != NULL);
     /*So we know which nodes we have initialised*/
@@ -375,7 +378,7 @@ static int setup_tree(void **state) {
     All.BoxSize = 8;
     int i;
     for(i=0; i<6; i++)
-        All.GravitySofteningTable[i] = 0.1 / 2.8;
+        GravitySofteningTable[i] = 0.1 / 2.8;
     /*Set up the top-level domain grid*/
     /* The whole tree goes into one topnode.
      * Set up just enough of the TopNode structure that

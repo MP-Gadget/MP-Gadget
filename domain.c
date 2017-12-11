@@ -18,6 +18,7 @@
 #include "system.h"
 #include "exchange.h"
 #include "slotsmanager.h"
+#include "partmanager.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19
@@ -219,7 +220,7 @@ void domain_allocate(void)
 {
     size_t bytes, all_bytes = 0;
 
-    MaxTopNodes = (int) (All.TopNodeAllocFactor * All.MaxPart + 1);
+    MaxTopNodes = (int) (All.TopNodeAllocFactor * part_MaxPart + 1);
 
     /* Add a tail item to avoid special treatments */
     Tasks = mymalloc2("Tasks", bytes = ((NTask + 1)* sizeof(Tasks[0])));
@@ -418,10 +419,10 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
         ta_free(list_load);
     }
 
-    if(max_load > All.MaxPart)
+    if(max_load > part_MaxPart)
     {
         message(0, "desired memory imbalance=%g  (limit=%d, needed=%d)\n",
-                    (max_load * All.PartAllocFactor) / All.MaxPart, All.MaxPart, max_load);
+                    (max_load * All.PartAllocFactor) / part_MaxPart, part_MaxPart, max_load);
 
         return 1;
     }

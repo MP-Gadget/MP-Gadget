@@ -9,6 +9,7 @@
 
 #include "allvars.h"
 #include "slotsmanager.h"
+#include "partmanager.h"
 #include "mymalloc.h"
 
 #include "proto.h"

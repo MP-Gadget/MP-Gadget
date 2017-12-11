@@ -1,7 +1,7 @@
 #include <string.h>
 #include "event.h"
-#include "allvars.h"
 #include "slotsmanager.h"
+#include "partmanager.h"
 #include "mymalloc.h"
 #include "system.h"
 #include "endrun.h"
@@ -58,11 +58,10 @@ slots_fork(int parent, int ptype)
      * if the slots runs out, this will trigger a slots growth
      * */
 
-    if(NumPart >= All.MaxPart)
+    if(NumPart >= part_MaxPart)
     {
-        endrun(8888,
-                "On Task=%d with NumPart=%d we try to spawn. Sorry, no space left...(All.MaxPart=%d)\n",
-                ThisTask, NumPart, All.MaxPart);
+        endrun(8888, "Tried to spawn: NumPart=%d MaxPart = %d. Sorry, no space left.\n",
+                NumPart, part_MaxPart);
     }
     /*This is all racy if ActiveParticle or P is accessed from another thread*/
     int child = atomic_fetch_and_add(&NumPart, 1);
@@ -239,7 +238,7 @@ slots_gc_mark()
             continue;
         #pragma omp parallel for
         for(i = 0; i < SlotsManager->info[ptype].size; i++) {
-            BASESLOT_PI(i, ptype)->gc.ReverseLink = All.MaxPart + 100;
+            BASESLOT_PI(i, ptype)->gc.ReverseLink = part_MaxPart + 100;
         }
     }
 #endif
@@ -426,7 +425,7 @@ slots_reserve(int where, int atleast[6])
      * this works out fine, since the number of time steps increases
      * (hence the number of growth increases
      * when the star formation rate does)*/
-    int add = 0.01 * All.MaxPart;
+    int add = 0.01 * part_MaxPart;
     if (add < 128) add = 128;
 
     /* FIXME: allow shrinking; need to tweak the memmove later. */

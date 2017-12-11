@@ -223,7 +223,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
     {
         while(no >= 0)
         {
-            if(no < All.MaxPart)
+            if(node_is_particle(no))
             {
                 /* the index of the node is the index of the particle */
                 drift_particle(no, All.Ti_Current);
@@ -283,7 +283,7 @@ force_treeevaluate_shortrange(TreeWalkQueryGravShort * input,
             }
             else			/* we have an  internal node */
             {
-                if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+                if(node_is_pseudo_particle(no))	/* pseudo particle */
                 {
                     if(lv->mode == 0)
                     {

@@ -9,6 +9,7 @@
 #include "mpsort.h"
 
 #include "allvars.h"
+#include "partmanager.h"
 #include "petaio.h"
 #include "exchange.h"
 #include "fof.h"
@@ -172,8 +173,8 @@ static void fof_distribute_particles() {
         if(P[i].GrNr < 0) continue;
         if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
 /* Yu: found it! this shall be int64 */
-        // pi[j].origin =  ThisTask * All.MaxPart + i;
-        pi[j].origin = ((uint64_t) ThisTask) * All.MaxPart + i;
+        // pi[j].origin =  ThisTask * part_MaxPart + i;
+        pi[j].origin = ((uint64_t) ThisTask) * part_MaxPart + i;
         pi[j].sortKey = P[i].GrNr;
         NpigLocal ++;
     }
@@ -206,7 +207,7 @@ static void fof_distribute_particles() {
     /* return pi to the original processors */
     mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex), fof_radix_origin, 8, NULL, MPI_COMM_WORLD);
     for(i = 0; i < NpigLocal; i ++) {
-        int index = pi[i].origin % All.MaxPart;
+        int index = pi[i].origin % part_MaxPart;
         P[index].targettask = pi[i].targetTask;
     }
     myfree(pi);

@@ -87,10 +87,6 @@ void init(int RestartSnapNum)
         P[i].GravCost = 1;
         P[i].Ti_drift = P[i].Ti_kick = All.Ti_Current;
 
-        P[i].IsGarbage = 0;
-        P[i].IsNewParticle = 0;
-        P[i].Swallowed = 0;
-
 #ifdef BLACK_HOLES
         if(RestartSnapNum == -1 && P[i].Type == 5 )
         {
@@ -100,6 +96,7 @@ void init(int RestartSnapNum)
         P[i].Key = PEANO(P[i].Pos, All.BoxSize);
 
         if(P[i].Type != 0) continue;
+
         for(j = 0; j < 3; j++)
         {
             SPHP(i).HydroAccel[j] = 0;
