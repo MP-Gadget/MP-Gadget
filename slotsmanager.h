@@ -1,6 +1,7 @@
 #ifndef __GARBAGE_H
 #define __GARBAGE_H
 #include "event.h"
+#include "types.h"
 
 extern struct slots_manager_type {
     char * Base; /* memory ptr that holds of all slots */
@@ -12,6 +13,103 @@ extern struct slots_manager_type {
         int enabled;
     } info[6];
 } SlotsManager[1];
+
+/* Slot particle data structures: first the base extension slot, then black holes,
+ * then stars, then SPH. SPH still has some compile-time optional elements.
+ * Each particle also has the base data, stored in particle_data.*/
+struct particle_data_ext {
+    struct {
+       /* used at GC for reverse link to P */
+        int ReverseLink;
+    } gc;
+    unsigned int IsGarbage : 1; /* marked if the slot is garbage. use slots_mark_garbage to mark this with the base particle index*/
+    MyIDType ID; /* for data consistency check, same as particle ID */
+};
+
+/* Data stored for each black hole in addition to collisionless data*/
+struct bh_particle_data {
+    struct particle_data_ext base;
+
+    int CountProgs;
+
+    MyFloat Mass;
+    MyFloat Mdot;
+    MyFloat FeedbackWeightSum;
+    MyFloat Density;
+    MyFloat Entropy;
+    MyFloat Pressure;
+    MyFloat SurroundingGasVel[3];
+    MyFloat FormationTime;		/*!< formation time of black hole. */
+
+    MyFloat accreted_Mass;
+    MyFloat accreted_BHMass;
+    MyFloat accreted_momentum[3];
+
+    int JumpToMinPot;
+    double  MinPotPos[3];
+    MyFloat MinPotVel[3];
+    MyFloat MinPot;
+
+    MyIDType SwallowID; /* Allows marking of a merging particle. Used only in blackhole.c.
+                           Set to -1 in init.c and only reinitialised if a merger takes place.*/
+
+    short int TimeBinLimit;
+};
+
+/*Data for each star particle*/
+struct star_particle_data
+{
+    struct particle_data_ext base;
+    MyFloat FormationTime;		/*!< formation time of star particle */
+    MyFloat BirthDensity;		/*!< Density of gas particle at star formation. */
+    MyFloat Metallicity;		/*!< metallicity of star particle */
+};
+
+/* the following structure holds data that is stored for each SPH particle in addition to the collisionless
+ * variables.
+ */
+struct sph_particle_data
+{
+    struct particle_data_ext base;
+
+#ifdef DENSITY_INDEPENDENT_SPH
+    MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
+    MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
+#define EOMDensity EgyWtDensity
+#else
+#define EOMDensity Density
+#endif
+
+    MyFloat Metallicity;		/*!< metallicity of gas particle */
+    MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
+    MyFloat MaxSignalVel;           /*!< maximum signal velocity */
+    MyFloat       Density;		/*!< current baryonic mass density of particle */
+    MyFloat       DtEntropy;		/*!< rate of change of entropy */
+    MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
+    MyFloat       DhsmlDensityFactor;	/*!< correction factor needed in entropy formulation of SPH */
+    MyFloat       DivVel;		/*!< local velocity divergence */
+    MyFloat       CurlVel;     	        /*!< local velocity curl */
+    MyFloat       Rot[3];		/*!< local velocity curl */
+    MyFloat Ne;  /*!< electron fraction, expressed as local electron number
+                   density normalized to the hydrogen number density. Gives
+                   indirectly ionization state and mean molecular weight. */
+
+#ifdef BLACK_HOLES
+    MyIDType SwallowID; /* Allows marking of a particle being eaten by a black hole. Used only in blackhole.c.
+                           Set to -1 in init.c and only reinitialised if a merger takes place.*/
+    MyFloat       Injected_BH_Energy;
+#endif
+
+#ifdef SFR
+    MyFloat Sfr;
+    MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
+                            /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
+#endif
+
+#ifdef SPH_GRAD_RHO
+    MyFloat GradRho[3];
+#endif
+};
 
 /* shortcuts for accessing different slots directly by the index */
 #define SphP ((struct sph_particle_data*) SlotsManager->info[0].ptr)

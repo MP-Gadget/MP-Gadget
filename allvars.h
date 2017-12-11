@@ -20,7 +20,6 @@
 
 #include <mpi.h>
 #include <stdio.h>
-#include <stdint.h>
 
 #include <gsl/gsl_rng.h>
 
@@ -43,7 +42,7 @@
 #include "assert.h"
 #include "peano.h"
 #include "physconst.h"
-
+#include "types.h"
 
 #define NEAREST(x) (((x)>0.5*All.BoxSize)?((x)-All.BoxSize):(((x)<-0.5*All.BoxSize)?((x)+All.BoxSize):(x)))
 
@@ -74,19 +73,6 @@
 #endif
 
 #define MAXITER 400
-
-typedef uint32_t binmask_t;
-typedef int32_t inttime_t;
-
-#define BINMASK_ALL ((uint32_t) (-1))
-#define BINMASK(i) (1u << i)
-
-typedef uint64_t MyIDType;
-
-typedef LOW_PRECISION MyFloat;
-typedef HIGH_PRECISION MyDouble;
-
-#define HAS(val, flag) ((flag & (val)) == (flag))
 
 enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_TOPHAT   = 0x2,
@@ -527,100 +513,6 @@ extern struct particle_data
 
 }
 *P; /* holds particle data on local processor */
-
-struct particle_data_ext {
-    struct {
-       /* used at GC for reverse link to P */
-        int ReverseLink; 
-    } gc;
-    unsigned int IsGarbage : 1; /* marked if the slot is garbage. use slots_mark_garbage to mark this with the base particle index*/
-    MyIDType ID; /* for data consistency check, same as particle ID */
-};
-
-struct bh_particle_data {
-    struct particle_data_ext base;
-
-    int CountProgs;
-
-    MyFloat Mass;
-    MyFloat Mdot;
-    MyFloat FeedbackWeightSum;
-    MyFloat Density;
-    MyFloat Entropy;
-    MyFloat Pressure;
-    MyFloat SurroundingGasVel[3];
-    MyFloat FormationTime;		/*!< formation time of black hole. */
-
-    MyFloat accreted_Mass;
-    MyFloat accreted_BHMass;
-    MyFloat accreted_momentum[3];
-
-    int JumpToMinPot;
-    double  MinPotPos[3];
-    MyFloat MinPotVel[3];
-    MyFloat MinPot;
-
-    MyIDType SwallowID; /* Allows marking of a merging particle. Used only in blackhole.c.
-                           Set to -1 in init.c and only reinitialised if a merger takes place.*/
-
-    short int TimeBinLimit;
-};
-
-/*Data for each star particle*/
-struct star_particle_data
-{
-    struct particle_data_ext base;
-    MyFloat FormationTime;		/*!< formation time of star particle */
-    MyFloat BirthDensity;		/*!< Density of gas particle at star formation. */
-    MyFloat Metallicity;		/*!< metallicity of star particle */
-};
-
-/* the following structure holds data that is stored for each SPH particle in addition to the collisionless
- * variables.
- */
-struct sph_particle_data
-{
-    struct particle_data_ext base;
-
-#ifdef DENSITY_INDEPENDENT_SPH
-    MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
-    MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
-#define EOMDensity EgyWtDensity
-#else
-#define EOMDensity Density
-#endif
-
-    MyFloat Metallicity;		/*!< metallicity of gas particle */
-    MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
-    MyFloat MaxSignalVel;           /*!< maximum signal velocity */
-    MyFloat       Density;		/*!< current baryonic mass density of particle */
-    MyFloat       DtEntropy;		/*!< rate of change of entropy */
-    MyFloat       HydroAccel[3];	/*!< acceleration due to hydrodynamical force */
-    MyFloat       DhsmlDensityFactor;	/*!< correction factor needed in entropy formulation of SPH */
-    MyFloat       DivVel;		/*!< local velocity divergence */
-    MyFloat       CurlVel;     	        /*!< local velocity curl */
-    MyFloat       Rot[3];		/*!< local velocity curl */
-    MyFloat Ne;  /*!< electron fraction, expressed as local electron number
-                   density normalized to the hydrogen number density. Gives
-                   indirectly ionization state and mean molecular weight. */
-
-#ifdef BLACK_HOLES
-    MyIDType SwallowID; /* Allows marking of a particle being eaten by a black hole. Used only in blackhole.c.
-                           Set to -1 in init.c and only reinitialised if a merger takes place.*/
-    MyFloat       Injected_BH_Energy;
-#endif
-
-#ifdef SFR
-    MyFloat Sfr;
-    MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
-                            /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
-#endif
-
-#ifdef SPH_GRAD_RHO
-    MyFloat GradRho[3];
-#endif
-};				/*!< holds SPH particle data on local processor */
-
 
 #define MPI_UINT64 MPI_UNSIGNED_LONG
 #define MPI_INT64 MPI_LONG
