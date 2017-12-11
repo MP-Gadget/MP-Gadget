@@ -44,8 +44,12 @@ setup_particles(int NType[6])
     memset(P, 0, sizeof(struct particle_data) * All.MaxPart);
 
     slots_init();
+    slots_set_enabled(0, sizeof(struct sph_particle_data));
+    slots_set_enabled(4, sizeof(struct star_particle_data));
+    slots_set_enabled(5, sizeof(struct bh_particle_data));
 
-    slots_reserve(NType);
+
+    slots_reserve(1, NType);
 
     int i;
 

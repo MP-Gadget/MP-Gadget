@@ -45,9 +45,9 @@ hci_action_init(HCIAction * action)
     action->write_snapshot = 0;
 }
 
-/* override the result of hci_now; for unit testing -- we can't rely on MPI_Wtime there! 
+/* override the result of hci_now; for unit testing -- we can't rely on MPI_Wtime there!
  * this function can be called before hci_init. */
-int
+void
 hci_override_now(HCIManager * manager, double now)
 {
     manager->_now = now;
@@ -104,7 +104,7 @@ hci_query_filesystem(HCIManager * manager, char * filename, char ** request)
         }
         MPI_Bcast(content, size+1, MPI_BYTE, 0, MPI_COMM_WORLD);
     } else {
-        content == NULL;
+        content = NULL;
     }
 
     *request = content;
@@ -235,7 +235,7 @@ hci_query(HCIManager * manager, HCIAction * action)
 }
 
 /*
- * FIXME: rewrite update_IO_params with 
+ * FIXME: rewrite update_IO_params with
  * the parser infrastructure. It probably shall occur
  * after we decentralize the initialization of the parser
  * to different modules.

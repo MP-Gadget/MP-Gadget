@@ -13,6 +13,8 @@
 #include "timestep.h"
 #include "system.h"
 
+#define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
+
 struct ev_task {
     int top_node;
     int place;

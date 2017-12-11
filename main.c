@@ -8,6 +8,7 @@
 #include <gsl/gsl_math.h>
 
 #include "allvars.h"
+#include "slotsmanager.h"
 #include "mymalloc.h"
 
 #include "proto.h"

@@ -1,6 +1,6 @@
 #include <string.h>
-#include "allvars.h"
 #include "event.h"
+#include "allvars.h"
 #include "slotsmanager.h"
 #include "mymalloc.h"
 #include "system.h"
@@ -406,7 +406,7 @@ slots_gc_sorted()
 }
 
 void
-slots_reserve(int atleast[6])
+slots_reserve(int where, int atleast[6])
 {
     int newMaxSlots[6];
     int ptype;
@@ -418,13 +418,14 @@ slots_reserve(int atleast[6])
     /* FIXME: change 0.01 to a parameter. The experience is
      * this works out fine, since the number of time steps increases
      * (hence the number of growth increases
-     * when the star formation ra*/
+     * when the star formation rate does)*/
     int add = 0.01 * All.MaxPart;
     if (add < 128) add = 128;
 
     /* FIXME: allow shrinking; need to tweak the memmove later. */
     for(ptype = 0; ptype < 6; ptype ++) {
         newMaxSlots[ptype] = SlotsManager->info[ptype].maxsize;
+        if(!SLOTS_ENABLED(ptype)) continue;
         /* if current empty slots is less than half of add, need to grow */
         if (newMaxSlots[ptype] < atleast[ptype] + add / 2) {
             newMaxSlots[ptype] = atleast[ptype] + add;
@@ -447,11 +448,13 @@ slots_reserve(int atleast[6])
     }
     char * newSlotsBase = myrealloc(SlotsManager->Base, total_bytes);
 
-    message(1, "Allocated %g MB for %d sph, %d stars and %d BHs.\n", total_bytes / (1024.0 * 1024.0),
-            newMaxSlots[0], newMaxSlots[4], newMaxSlots[5]);
+    message(where, "SLOTS: Reserved %g MB for %d sph, %d stars and %d BHs (disabled: %d %d %d)\n", total_bytes / (1024.0 * 1024.0),
+            newMaxSlots[0], newMaxSlots[4], newMaxSlots[5], newMaxSlots[1], newMaxSlots[2], newMaxSlots[3]);
 
-    /* move the last block first since we are only increasing sizes, moving items forward */
-    for(ptype = 5; ptype >= 0; ptype--) {
+    /* move the last block first since we are only increasing sizes, moving items forward.
+     * No need to move the 0 block, since it is already moved to newSlotsBase in realloc.*/
+    for(ptype = 5; ptype > 0; ptype--) {
+        if(!SLOTS_ENABLED(ptype)) continue;
         memmove(newSlotsBase + offsets[ptype],
             SlotsManager->info[ptype].ptr,
             SlotsManager->info[ptype].elsize * SlotsManager->info[ptype].size);
@@ -468,30 +471,27 @@ slots_reserve(int atleast[6])
     GDB_BhP = (struct bh_particle_data *) SlotsManager->info[5].ptr;
 }
 
-void slots_init()
+void
+slots_init()
 {
-    int ptype;
     memset(SlotsManager, 0, sizeof(SlotsManager[0]));
-
-    SlotsManager->info[0].elsize = sizeof(struct sph_particle_data);
-    SlotsManager->info[0].enabled = 1;
-    SlotsManager->info[4].elsize = sizeof(struct star_particle_data);
-    SlotsManager->info[4].enabled = 1;
-    SlotsManager->info[5].elsize = sizeof(struct bh_particle_data);
-    SlotsManager->info[5].enabled = 1;
 
     MPI_Type_contiguous(sizeof(struct particle_data), MPI_BYTE, &MPI_TYPE_PARTICLE);
     MPI_Type_commit(&MPI_TYPE_PARTICLE);
-
-    for(ptype = 0; ptype < 6; ptype++) {
-        if(!SLOTS_ENABLED(ptype)) continue;
-
-        MPI_Type_contiguous(SlotsManager->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
-        MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
-    }
 }
 
-void slots_free()
+void
+slots_set_enabled(int ptype, size_t elsize)
+{
+    SlotsManager->info[ptype].enabled = 1;
+    SlotsManager->info[ptype].elsize = elsize;
+    MPI_Type_contiguous(SlotsManager->info[ptype].elsize, MPI_BYTE, &MPI_TYPE_SLOT[ptype]);
+    MPI_Type_commit(&MPI_TYPE_SLOT[ptype]);
+}
+
+
+void
+slots_free()
 {
     myfree(SlotsManager->Base);
 }
@@ -553,6 +553,7 @@ slots_setup_topology()
 
     int ptype;
     for(ptype = 0; ptype < 6; ptype ++) {
+        if(!SLOTS_ENABLED(P[i].Type)) continue;
         SlotsManager->info[ptype].size = NLocal[ptype];
     }
 }

@@ -13,6 +13,7 @@
 #include "slotsmanager.h"
 #include "mymalloc.h"
 #include "stub.h"
+#include "allvars.h"
 
 struct particle_data *P;
 struct global_data_all_processes All;
@@ -31,8 +32,15 @@ setup_particles(void ** state)
     memset(P, 0, sizeof(struct particle_data) * All.MaxPart);
 
     slots_init();
+    int ptype;
+    slots_set_enabled(0, sizeof(struct sph_particle_data));
+    slots_set_enabled(4, sizeof(struct star_particle_data));
+    slots_set_enabled(5, sizeof(struct bh_particle_data));
+    for(ptype = 1; ptype < 4; ptype++) {
+        slots_set_enabled(ptype, sizeof(struct particle_data_ext));
+    }
 
-    slots_reserve(newSlots);
+    slots_reserve(1, newSlots);
 
     int i;
     for(i = 0; i < NumPart; i ++) {
@@ -107,7 +115,7 @@ test_slots_reserve(void **state)
     for(ptype = 0; ptype < 6; ptype++) {
         oldSize[ptype] = SlotsManager->info[ptype].maxsize;
     }
-    slots_reserve(newSlots);
+    slots_reserve(1, newSlots);
 
     /* shall not increase max size*/
     for(ptype = 0; ptype < 6; ptype++) {
@@ -119,7 +127,7 @@ test_slots_reserve(void **state)
     }
 
     /* shall not increase max size; because it is small difference */
-    slots_reserve(newSlots);
+    slots_reserve(1, newSlots);
     for(ptype = 0; ptype < 6; ptype++) {
         assert_int_equal(oldSize[ptype], SlotsManager->info[ptype].maxsize);
     }
@@ -129,7 +137,7 @@ test_slots_reserve(void **state)
     }
 
     /* shall increase max size; because it large difference */
-    slots_reserve(newSlots);
+    slots_reserve(1, newSlots);
 
     for(ptype = 0; ptype < 6; ptype++) {
         assert_true(oldSize[ptype] < SlotsManager->info[ptype].maxsize);

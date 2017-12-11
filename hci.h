@@ -40,5 +40,5 @@ hci_action_init(HCIAction * action);
 int
 hci_query(HCIManager * manager, HCIAction * action);
 
-int
+void
 hci_override_now(HCIManager * manager, double now);

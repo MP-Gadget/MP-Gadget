@@ -51,12 +51,21 @@ void begrun(int RestartSnapNum)
 {
 
     hci_init(HCI_DEFAULT_MANAGER, All.OutputDir, All.TimeLimitCPU, All.AutoSnapshotTime);
-    slots_init();
 
     petaio_init();
     walltime_init(&All.CT);
 
     petaio_read_header(RestartSnapNum);
+
+    slots_init();
+    /* Enable the slots: stars and BHs are allocated if there are some,
+     * or if some will form*/
+    if(All.NTotalInit[0] > 0)
+        slots_set_enabled(0, sizeof(struct sph_particle_data));
+    if(All.StarformationOn || All.NTotalInit[4] > 0)
+        slots_set_enabled(4, sizeof(struct star_particle_data));
+    if(All.BlackHoleOn || All.NTotalInit[5] > 0)
+        slots_set_enabled(5, sizeof(struct bh_particle_data));
 
     set_softenings();
     set_units();
