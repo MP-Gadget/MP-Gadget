@@ -5,6 +5,9 @@
 
 /*Define some useful types*/
 
+#define MPI_UINT64 MPI_UNSIGNED_LONG
+#define MPI_INT64 MPI_LONG
+
 typedef uint32_t binmask_t;
 typedef int32_t inttime_t;
 

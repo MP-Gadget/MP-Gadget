@@ -509,9 +509,6 @@ extern struct particle_data
 }
 *P; /* holds particle data on local processor */
 
-#define MPI_UINT64 MPI_UNSIGNED_LONG
-#define MPI_INT64 MPI_LONG
-
 static inline double FORCE_SOFTENING(int i)
 {
     if (All.GravitySofteningTable[0] == 0 && P[i].Type == 0) {
