@@ -269,7 +269,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
             if(!SlotsManager->info[ptype].enabled) continue;
 
             if(BASESLOT(i)->ID != P[i].ID) {
-                endrun(1, "ID mismatched\n");
+                endrun(1, "Exchange: P[%d].ID = %ld != SLOT ID = %ld\n",i,P[i].ID, BASESLOT(i)->ID);
             }
         }
         for(ptype = 0; ptype < 6; ptype ++) {
