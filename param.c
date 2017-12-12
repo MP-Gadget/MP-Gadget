@@ -495,7 +495,7 @@ void read_parameter_file(char *fname)
         parameter_set_free(ps);
 
     #ifndef BLACK_HOLES
-        if(All.BlackHoleOn == 1)
+        if(All.BlackHoleOn)
         {
             endrun(1, "Code was compiled with black holes switched off but BlackHoleOn = 1. This does not work!\n");
         }
