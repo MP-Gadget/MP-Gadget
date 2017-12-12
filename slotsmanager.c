@@ -187,6 +187,8 @@ slots_gc_compact(int used, int ptype, size_t size)
 //         message(1,"i = %d, PI = %d-> %d, nm=%d\n",i, src, dest, nmove);
         memmove(PART(dest, ptype),PART(src, ptype),nmove*size);
     }
+    if(ngc > used)
+        endrun(1, "ngc = %d > used = %d!\n", ngc, used);
     return ngc;
 }
 
@@ -412,8 +414,13 @@ slots_reserve(int where, int atleast[6])
     int ptype;
     int good = 1;
 
-    if(SlotsManager->Base == NULL)
+    if(SlotsManager->Base == NULL) {
         SlotsManager->Base = (char*) mymalloc("SlotsBase", 0);
+        /* This is so the ptr is never null! Avoid undefined behaviour. */
+        for(ptype = 5; ptype >= 0; ptype--) {
+            SlotsManager->info[ptype].ptr = SlotsManager->Base;
+        }
+    }
 
     /* FIXME: change 0.01 to a parameter. The experience is
      * this works out fine, since the number of time steps increases

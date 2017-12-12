@@ -479,7 +479,7 @@ domain_assign_balanced(int64_t * cost)
 
     size_t Nsegment = All.DomainOverDecompositionFactor * NTask;
 
-    if(Nsegment > (1 << 31)) {
+    if(Nsegment > (1L << 31)) {
         endrun(0, "Too many segments requested, overflowing integer\n");
     }
 
