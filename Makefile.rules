@@ -99,4 +99,4 @@ $(DESTDIR)/%.o: %.cpp $(INCL) $(DESTDIR)/config.h
 	@echo Compiling $<; $(MPICXX) -c -o $@ $(CFLAGS) $<
 
 clean:
-	rm -f $(GADGET_OBJS) $(EXEC) $(ICOBJS)
+	rm -f $(GADGET_OBJS) $(EXEC) $(ICOBJS) $(GADGET_UTILS_OBJS) $(DESTDIR)/libgadget-utils.a
