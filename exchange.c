@@ -208,7 +208,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     }
 
     if(newNumPart > All.MaxPart) {
-        endrun(787878, "Task=%d NumPart=%d All.MaxPart=%d\n", ThisTask, newNumPart, All.MaxPart);
+        endrun(787878, "NumPart=%d All.MaxPart=%d\n", newNumPart, All.MaxPart);
     }
 
     slots_reserve(1, newSlots);

@@ -187,6 +187,8 @@ slots_gc_compact(int used, int ptype, size_t size)
 //         message(1,"i = %d, PI = %d-> %d, nm=%d\n",i, src, dest, nmove);
         memmove(PART(dest, ptype),PART(src, ptype),nmove*size);
     }
+    if(ngc > used)
+        endrun(1, "ngc = %d > used = %d!\n", ngc, used);
     return ngc;
 }
 
