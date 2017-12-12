@@ -414,8 +414,13 @@ slots_reserve(int where, int atleast[6])
     int ptype;
     int good = 1;
 
-    if(SlotsManager->Base == NULL)
+    if(SlotsManager->Base == NULL) {
         SlotsManager->Base = (char*) mymalloc("SlotsBase", 0);
+        /* This is so the ptr is never null! Avoid undefined behaviour. */
+        for(ptype = 5; ptype >= 0; ptype--) {
+            SlotsManager->info[ptype].ptr = SlotsManager->Base;
+        }
+    }
 
     /* FIXME: change 0.01 to a parameter. The experience is
      * this works out fine, since the number of time steps increases
