@@ -379,7 +379,7 @@ slots_gc_sorted()
     qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
 
     /*Reduce NumPart*/
-    while(P[NumPart-1].IsGarbage) {
+    while(NumPart > 0 && P[NumPart-1].IsGarbage) {
         NumPart--;
     }
 
@@ -397,7 +397,7 @@ slots_gc_sorted()
                  slot_cmp_reverse_link);
 
         /*Reduce slots used*/
-        while(BASESLOT_PI(SlotsManager->info[ptype].size-1, ptype)->IsGarbage) {
+        while(SlotsManager->info[ptype].size > 0 && BASESLOT_PI(SlotsManager->info[ptype].size-1, ptype)->IsGarbage) {
             SlotsManager->info[ptype].size--;
         }
         slots_gc_collect(ptype);
