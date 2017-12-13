@@ -145,6 +145,41 @@ test_slots_reserve(void **state)
 
 }
 
+/*Check that we behave correctly when the slot is empty*/
+static void
+test_slots_zero(void **state)
+{
+    setup_particles(state);
+    int i;
+    int compact[6] = {1,0,0,0,1,1};
+    for(i = 0; i < NumPart; i ++) {
+        slots_mark_garbage(i);
+    }
+    slots_gc(compact);
+    assert_int_equal(NumPart, 0);
+    assert_int_equal(SlotsManager->info[0].size, 0);
+    assert_int_equal(SlotsManager->info[1].size, 128);
+    assert_int_equal(SlotsManager->info[4].size, 0);
+    assert_int_equal(SlotsManager->info[5].size, 0);
+
+    teardown_particles(state);
+
+    setup_particles(state);
+    for(i = 0; i < NumPart; i ++) {
+        slots_mark_garbage(i);
+    }
+    slots_gc_sorted();
+    assert_int_equal(NumPart, 0);
+    assert_int_equal(SlotsManager->info[0].size, 0);
+    assert_int_equal(SlotsManager->info[4].size, 0);
+    assert_int_equal(SlotsManager->info[5].size, 0);
+
+    teardown_particles(state);
+
+    return;
+
+}
+
 static void
 test_slots_fork(void **state)
 {
@@ -170,6 +205,7 @@ int main(void) {
         cmocka_unit_test(test_slots_gc_sorted),
         cmocka_unit_test(test_slots_reserve),
         cmocka_unit_test(test_slots_fork),
+        cmocka_unit_test(test_slots_zero),
     };
     return cmocka_run_group_tests_mpi(tests, NULL, NULL);
 }
