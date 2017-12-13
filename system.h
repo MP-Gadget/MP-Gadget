@@ -1,6 +1,14 @@
 #ifndef __UTILS_SYSTEM_H__
 #define __UTILS_SYSTEM_H__
 
+/* check the version of OPENMP */
+#if defined(_OPENMP)
+#if _OPENMP < 201107
+#error MP-Gadget requires OpenMP >= 3.1 if openmp is enabled. \
+       Try to compile without openmp or use a newer compiler (gcc >= 4.7) .
+#endif
+#endif
+
 #ifdef DEBUG
 void catch_abort(int sig);
 void catch_fatal(int sig);
