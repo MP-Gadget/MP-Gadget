@@ -455,6 +455,13 @@ slots_reserve(int where, int atleast[6])
     }
     char * newSlotsBase = myrealloc(SlotsManager->Base, total_bytes);
 
+    /* If we are using VALGRIND the allocator is system malloc, and so realloc may move the base pointer.
+     * Thus we need to also move the slots pointers before doing the memmove. If we are using our own
+     * memory allocator the base address never moves, so this is unnecessary (but we do it anyway).*/
+    for(ptype = 0; ptype < 6; ptype++) {
+        SlotsManager->info[ptype].ptr = SlotsManager->info[ptype].ptr - SlotsManager->Base + newSlotsBase;
+    }
+
     message(where, "SLOTS: Reserved %g MB for %d sph, %d stars and %d BHs (disabled: %d %d %d)\n", total_bytes / (1024.0 * 1024.0),
             newMaxSlots[0], newMaxSlots[4], newMaxSlots[5], newMaxSlots[1], newMaxSlots[2], newMaxSlots[3]);
 
