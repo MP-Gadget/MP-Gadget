@@ -124,7 +124,7 @@ void begrun(int BeginFlag, int RestartSnapNum)
 static void
 open_outputfiles(int RestartSnapNum)
 {
-    char mode[2];
+    char mode[4];
     char * buf;
     char * postfix;
 
