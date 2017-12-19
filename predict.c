@@ -98,7 +98,11 @@ void drift_particle(int i, int time1) {
     drift_particle_full(i, time1, 1);
 }
 int drift_particle_full(int i, int time1, int blocking) {
-    if(P[i].Ti_current == time1) return 0 ;
+    
+    /* already current? */
+    /* always drift blackholes because it may jump */
+    if(P[i].Type != 5 && P[i].Ti_current == time1)
+       return 0;
 
 #pragma omp atomic
     TotalParticleDrifts ++;
@@ -111,10 +115,10 @@ int drift_particle_full(int i, int time1, int blocking) {
         lockstate = pthread_spin_trylock(&P[i].SpinLock);
     }
     if(0 == lockstate) {
-        if(P[i].Ti_current != time1) {
-            real_drift_particle(i, time1);
+        real_drift_particle(i, time1);
 #pragma omp flush
-        } else {
+
+        if(P[i].Ti_current == time1) {
 #pragma omp atomic
             BlockedParticleDrifts ++;
         }
@@ -133,9 +137,8 @@ int drift_particle_full(int i, int time1, int blocking) {
     /* do not use SpinLock */
 #pragma omp critical (_driftparticle_)
     {
-        if(P[i].Ti_current != time1) {
-            real_drift_particle(i, time1);
-        } else {
+        real_drift_particle(i, time1);
+        if(P[i].Ti_current == time1) {
             BlockedParticleDrifts ++;
         }
     }
@@ -147,23 +150,6 @@ static void real_drift_particle(int i, int time1)
 {
     int j, time0, dt_step;
     double dt_drift, dt_gravkick, dt_hydrokick, dt_entr;
-
-    if(P[i].Ti_current == time1) return;
-
-
-    time0 = P[i].Ti_current;
-
-    if(time1 < time0)
-    {
-        endrun(12, "i=%d time0=%d time1=%d\n", i, time0, time1);
-    }
-
-    if(time1 == time0)
-        return;
-
-    dt_drift = get_drift_factor(time0, time1);
-    dt_gravkick = get_gravkick_factor(time0, time1);
-    dt_hydrokick = get_hydrokick_factor(time0, time1);
 
 #ifdef LIGHTCONE
     double oldpos[3];
@@ -193,6 +179,19 @@ static void real_drift_particle(int i, int time1)
             BHP(i).JumpToMinPot = 0;
         }
     }
+
+    if(P[i].Ti_current == time1) return;
+
+    time0 = P[i].Ti_current;
+
+    if(time1 < time0)
+    {
+        endrun(12, "i=%d time0=%d time1=%d\n", i, time0, time1);
+    }
+
+    dt_drift = get_drift_factor(time0, time1);
+    dt_gravkick = get_gravkick_factor(time0, time1);
+    dt_hydrokick = get_hydrokick_factor(time0, time1);
 
     for(j = 0; j < 3; j++) {
         P[i].Pos[j] += P[i].Vel[j] * dt_drift;
