@@ -416,7 +416,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
         if(r2 < iter->accretion_kernel.HH) {
             double u = r * iter->accretion_kernel.Hinv;
             double wk = density_kernel_wk(&iter->accretion_kernel, u);
-            double mass_j = P[other].Mass;
+            float mass_j = P[other].Mass;
             double VelPred[3];
             sph_VelPred(other, VelPred);
 
