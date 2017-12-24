@@ -365,7 +365,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
  * for gravity and hydro forces.
  * This is mostly used for artificial viscosity.*/
 void
-sph_VelPred(int i, MyFloat * VelPred)
+sph_VelPred(int i, double * VelPred)
 {
     const int ti = P[i].Ti_drift;
     const double Fgravkick2 = get_gravkick_factor(P[i].Ti_kick, ti);

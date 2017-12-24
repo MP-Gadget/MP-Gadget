@@ -32,7 +32,7 @@ typedef struct {
     MyFloat EntVarPred;
 #endif
 
-    MyFloat Vel[3];
+    double Vel[3];
     MyFloat Hsml;
     MyFloat Mass;
     MyFloat Density;
