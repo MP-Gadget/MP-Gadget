@@ -88,9 +88,9 @@ static PetaPMRegion * regions = NULL; /* created by 'prepare' callback in petapm
 static int Nregions = 0;
 
 static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
-#define POS(i) ((double*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_pos]))
-#define MASS(i) ((float*) (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_mass]))
-#define REGION(i) ((int*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_regionind]))
+#define POS(i) ((double*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_pos]))
+#define MASS(i) ((float*) (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_mass]))
+#define REGION(i) ((int*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_regionind]))
 #define INACTIVE(i) (CPS->active && !CPS->active(i))
 
 PetaPMRegion * petapm_get_fourier_region() {

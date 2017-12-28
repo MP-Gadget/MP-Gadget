@@ -26,8 +26,8 @@ static void test_total_powerspectrum(void **state) {
 
     powerspectrum_alloc(&PowerSpectrum,15,NUM_THREADS);
     assert_true(PowerSpectrum.Nmodes);
-    assert_true(PowerSpectrum.P);
-    assert_true(PowerSpectrum.k);
+    assert_true(PowerSpectrum.Power);
+    assert_true(PowerSpectrum.kk);
     powerspectrum_zero(&PowerSpectrum);
     assert_true(PowerSpectrum.Nmodes[0] == 0);
     assert_true(PowerSpectrum.Nmodes[PowerSpectrum.size-1] == 0);
@@ -37,8 +37,8 @@ static void test_total_powerspectrum(void **state) {
     for(ii=0; ii<15; ii++) {
         for(th = 0; th < NUM_THREADS; th++) {
             PowerSpectrum.Nmodes[ii+PowerSpectrum.size*th] = ii;
-            PowerSpectrum.P[ii+PowerSpectrum.size*th] = ii*sin(ii)*sin(ii);
-            PowerSpectrum.k[ii+PowerSpectrum.size*th] = ii*ii;
+            PowerSpectrum.Power[ii+PowerSpectrum.size*th] = ii*sin(ii)*sin(ii);
+            PowerSpectrum.kk[ii+PowerSpectrum.size*th] = ii*ii;
         }
     }
     PowerSpectrum.Norm = 1;
@@ -50,11 +50,11 @@ static void test_total_powerspectrum(void **state) {
     assert_true(PowerSpectrum.Nmodes[1] == NUM_THREADS*nmpi);
     assert_true(PowerSpectrum.Nmodes[14] == NUM_THREADS*nmpi*14);
 
-    assert_true(PowerSpectrum.P[0] == 0);
-    assert_true(fabs(PowerSpectrum.P[1] - sin(1)*sin(1)) < 1e-5);
-    assert_true(fabs(PowerSpectrum.P[13] - sin(13)*sin(13)) < 1e-5);
-    assert_true(fabs(PowerSpectrum.k[13] - 2 * M_PI *13) < 1e-5);
-    assert_true(fabs(PowerSpectrum.k[1] - 2 * M_PI ) < 1e-5);
+    assert_true(PowerSpectrum.Power[0] == 0);
+    assert_true(fabs(PowerSpectrum.Power[1] - sin(1)*sin(1)) < 1e-5);
+    assert_true(fabs(PowerSpectrum.Power[13] - sin(13)*sin(13)) < 1e-5);
+    assert_true(fabs(PowerSpectrum.kk[13] - 2 * M_PI *13) < 1e-5);
+    assert_true(fabs(PowerSpectrum.kk[1] - 2 * M_PI ) < 1e-5);
 
 }
 
