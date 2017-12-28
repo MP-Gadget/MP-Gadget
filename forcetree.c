@@ -107,7 +107,7 @@ force_tree_rebuild()
     }
     walltime_measure("/Misc");
 
-    force_tree_build(NumPart);
+    force_tree_build(PartManager->NumPart);
 
     walltime_measure("/Tree/Build");
 

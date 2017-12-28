@@ -58,13 +58,13 @@ slots_fork(int parent, int ptype)
      * if the slots runs out, this will trigger a slots growth
      * */
 
-    if(NumPart >= PartManager->MaxPart)
+    if(PartManager->NumPart >= PartManager->MaxPart)
     {
         endrun(8888, "Tried to spawn: NumPart=%d MaxPart = %d. Sorry, no space left.\n",
-                NumPart, PartManager->MaxPart);
+                PartManager->NumPart, PartManager->MaxPart);
     }
     /*This is all racy if ActiveParticle or P is accessed from another thread*/
-    int child = atomic_fetch_and_add(&NumPart, 1);
+    int child = atomic_fetch_and_add(&PartManager->NumPart, 1);
 
     P[parent].Generation ++;
     uint64_t g = P[parent].Generation;
@@ -196,15 +196,15 @@ slots_gc_base()
 {
     int64_t total0, total;
 
-    sumup_large_ints(1, &NumPart, &total0);
+    sumup_large_ints(1, &PartManager->NumPart, &total0);
 
     /*Compactify the P array: this invalidates the ReverseLink, so
         * that ReverseLink is valid only within gc.*/
-    int ngc = slots_gc_compact(NumPart, -1, sizeof(struct particle_data));
+    int ngc = slots_gc_compact(PartManager->NumPart, -1, sizeof(struct particle_data));
 
-    NumPart -= ngc;
+    PartManager->NumPart -= ngc;
 
-    sumup_large_ints(1, &NumPart, &total);
+    sumup_large_ints(1, &PartManager->NumPart, &total);
 
     if(total != total0) {
         message(0, "GC : Reducing Particle slots from %ld to %ld\n", total0, total);
@@ -244,7 +244,7 @@ slots_gc_mark()
 #endif
 
 #pragma omp parallel for
-    for(i = 0; i < NumPart; i++) {
+    for(i = 0; i < PartManager->NumPart; i++) {
         if(!SLOTS_ENABLED(P[i].Type)) continue;
 
         BASESLOT(i)->gc.ReverseLink = i;
@@ -375,11 +375,11 @@ slots_gc_sorted()
     int ptype;
     /* Resort the particles such that those of the same type and key are close by.
      * The locality is broken by the exchange. */
-    qsort_openmp(P, NumPart, sizeof(struct particle_data), order_by_type_and_key);
+    qsort_openmp(P, PartManager->NumPart, sizeof(struct particle_data), order_by_type_and_key);
 
     /*Reduce NumPart*/
-    while(NumPart > 0 && P[NumPart-1].IsGarbage) {
-        NumPart--;
+    while(PartManager->NumPart > 0 && P[PartManager->NumPart-1].IsGarbage) {
+        PartManager->NumPart--;
     }
 
     /*Set up ReverseLink*/
@@ -525,7 +525,7 @@ slots_check_id_consistency()
     int used[6] = {0};
     int i;
 
-    for(i = 0; i < NumPart; i++) {
+    for(i = 0; i < PartManager->NumPart; i++) {
         if(!SLOTS_ENABLED(P[i].Type)) continue;
 
         if(P[i].PI >= SlotsManager->info[P[i].Type].size) {
@@ -557,7 +557,7 @@ slots_setup_topology()
 
     int i;
 /* not bothering making this OMP */
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         int ptype = P[i].Type;
         /* atomic fetch add */
         P[i].PI = NLocal[ptype];
@@ -576,7 +576,7 @@ slots_setup_id()
     int i;
     /* set up the cross check for child IDs */
 /* not bothering making this OMP */
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         if(!SLOTS_ENABLED(P[i].Type)) continue;
         BASESLOT(i)->ID = P[i].ID;

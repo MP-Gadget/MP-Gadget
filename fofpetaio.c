@@ -83,11 +83,11 @@ void fof_save_particles(int num) {
         fof_distribute_particles();
         walltime_measure("/FOF/IO/Distribute");
 
-        int * selection = mymalloc("Selection", sizeof(int) * NumPart);
+        int * selection = mymalloc("Selection", sizeof(int) * PartManager->NumPart);
 
         int ptype_offset[6]={0};
         int ptype_count[6]={0};
-        petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, fof_petaio_select_func);
+        petaio_build_selection(selection, ptype_offset, ptype_count, PartManager->NumPart, fof_petaio_select_func);
 
         /*Sort each type individually*/
         for(i = 0; i < 6; i++)
@@ -163,12 +163,12 @@ static int fof_cmp_origin(const void * c1, const void * c2) {
 
 static void fof_distribute_particles() {
     int i;
-    struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * NumPart);
+    struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * PartManager->NumPart);
 
     int64_t NpigLocal = 0;
     int GrNrMax = -1;	/* will mark particles that are not in any group */
     int GrNrMaxGlobal = 0;
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         int j = NpigLocal;
         if(P[i].GrNr < 0) continue;
         if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
@@ -185,7 +185,7 @@ static void fof_distribute_particles() {
             fof_radix_sortkey, 8, NULL, MPI_COMM_WORLD);
 
 #pragma omp parallel for
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         P[i].origintask = ThisTask;
         P[i].targettask = ThisTask; //P[i].ID % NTask; /* default target */
     }
@@ -217,7 +217,7 @@ static void fof_distribute_particles() {
     /* sort SPH and Others independently */
 
     GrNrMax = -1;
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0) continue;
         if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
     }
@@ -257,7 +257,7 @@ static void fof_write_header(BigFile * bf) {
     for (k = 0; k < 6; k ++) {
         npartLocal[k] = 0;
     }
-    for (i = 0; i < NumPart; i ++) {
+    for (i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0) continue; /* skip those not in groups */
         npartLocal[P[i].Type] ++;
     }

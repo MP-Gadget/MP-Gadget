@@ -87,8 +87,6 @@ struct particle_data
 
 };
 
-extern int NumPart;
-
 extern struct part_manager_type {
     struct particle_data *Base; /* Pointer to particle data on local processor. */
     /*!< number of particles on the LOCAL processor: number of valid entries in P array. */

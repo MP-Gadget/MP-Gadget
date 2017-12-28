@@ -286,7 +286,7 @@ void cooling_and_starformation(void)
 
     /* now lets make winds. this has to be after NumPart is updated */
     if(All.WindOn && !HAS(All.WindModel, WIND_SUBGRID)){
-        Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
+        Wind = (struct winddata * ) mymalloc("WindExtraData", PartManager->NumPart * sizeof(struct winddata));
         TreeWalk tw[1] = {0};
 
         tw->ev_label = "SFR_WIND";

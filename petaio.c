@@ -240,9 +240,9 @@ static void petaio_save_internal(char * fname) {
     int ptype_count[6]={0};
     int64_t NTotal[6]={0};
 
-    int * selection = mymalloc("Selection", sizeof(int) * NumPart);
+    int * selection = mymalloc("Selection", sizeof(int) * PartManager->NumPart);
 
-    petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, NULL);
+    petaio_build_selection(selection, ptype_offset, ptype_count, PartManager->NumPart, NULL);
 
     sumup_large_ints(6, ptype_count, NTotal);
 
@@ -312,15 +312,15 @@ void petaio_read_internal(char * fname, int ic) {
         int64_t start = ThisTask * NTotal[ptype] / NTask;
         int64_t end = (ThisTask + 1) * NTotal[ptype] / NTask;
         NLocal[ptype] = end - start;
-        NumPart += NLocal[ptype];
+        PartManager->NumPart += NLocal[ptype];
 
     }
 
     /* Allocate enough memory for stars and black holes.
      * This will be dynamically increased as needed.*/
 
-    if(NumPart >= PartManager->MaxPart) {
-        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, PartManager->MaxPart);
+    if(PartManager->NumPart >= PartManager->MaxPart) {
+        endrun(1, "Overwhelmed by part: %d > %d\n", PartManager->NumPart, PartManager->MaxPart);
     }
 
     int newSlots[6];
@@ -443,7 +443,7 @@ petaio_read_snapshot(int num)
 
         int i;
         /* touch up the mass -- IC files save mass in header */
-        for(i = 0; i < NumPart; i++)
+        for(i = 0; i < PartManager->NumPart; i++)
         {
             P[i].Mass = All.MassTable[P[i].Type];
         }
@@ -452,7 +452,7 @@ petaio_read_snapshot(int num)
 
             /* fixing the unit of velocity from Legacy GenIC IC */
             #pragma omp parallel for
-            for(i = 0; i < NumPart; i++) {
+            for(i = 0; i < PartManager->NumPart; i++) {
                 int k;
                 /* for GenIC's Gadget-1 snapshot Unit to Gadget-2 Internal velocity unit */
                 for(k = 0; k < 3; k++)
@@ -625,7 +625,7 @@ void petaio_readout_buffer(BigArray * array, IOTableEntry * ent) {
     int i;
     /* fill the buffer */
     char * p = array->data;
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].Type != ent->ptype) continue;
         ent->setter(i, p);
         p += array->strides[0];

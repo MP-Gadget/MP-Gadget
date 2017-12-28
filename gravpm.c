@@ -76,13 +76,13 @@ void gravpm_force(void) {
         (char*) &P[0].Mass  - (char*) P,
         (char*) &P[0].RegionInd - (char*) P,
         (All.HybridNeutrinosOn ? &hybrid_nu_gravpm_is_active : NULL),
-        NumPart,
+        PartManager->NumPart,
     };
 
     powerspectrum_zero(&PowerSpectrum);
     int i;
     #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         P[i].GravPM[0] = P[i].GravPM[1] = P[i].GravPM[2] = 0;
     }
@@ -159,7 +159,7 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
     message(0, "max number of regions is %d\n", maxNregions);
 
     int i;
-    for(i =0; i < NumPart; i ++) {
+    for(i =0; i < PartManager->NumPart; i ++) {
         P[i].RegionInd = -1;
     }
 
@@ -170,14 +170,14 @@ static PetaPMRegion * _prepare(void * userdata, int * Nregions) {
         regions[r].numpart = pm_mark_region_for_node(regions[r].no, r);
         numpart += regions[r].numpart;
     }
-    for(i =0; i < NumPart; i ++) {
+    for(i =0; i < PartManager->NumPart; i ++) {
         if(P[i].RegionInd == -1) {
             message(1, "i = %d not assigned to a region\n", i);
         }
     }
     /* All particles shall have been processed just once. Otherwise we die */
-    if(numpart != NumPart) {
-        endrun(1, "Processed only %d particles out of %d\n", numpart, NumPart);
+    if(numpart != PartManager->NumPart) {
+        endrun(1, "Processed only %d particles out of %d\n", numpart, PartManager->NumPart);
     }
     for(r =0; r < *Nregions; r++) {
         convert_node_to_region(&regions[r]);

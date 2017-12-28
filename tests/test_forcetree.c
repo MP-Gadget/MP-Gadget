@@ -36,7 +36,6 @@ struct topnode_data *TopNodes;
 struct task_data *Tasks;
 size_t AllocatedBytes;
 int NTask, ThisTask;
-int NumPart;
 double GravitySofteningTable[6];
 
 /*Dummy versions of functions that implement only what we need for the tests:

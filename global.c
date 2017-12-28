@@ -57,7 +57,7 @@ struct state_of_system compute_global_quantities_of_system(void)
     memset(&sys, 0, sizeof(sys));
 
     #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         int j;
         double entr = 0, egyspec;

@@ -82,7 +82,7 @@ void init(int RestartSnapNum)
     All.TreeAllocFactor = 0.7;
 
     #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)	/* initialize sph_properties */
+    for(i = 0; i < PartManager->NumPart; i++)	/* initialize sph_properties */
     {
         P[i].GravCost = 1;
         P[i].Ti_drift = P[i].Ti_kick = All.Ti_Current;
@@ -138,7 +138,7 @@ void check_omega(void)
     double mass = 0, masstot, omega;
     int i;
 
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
         mass += P[i].Mass;
 
     MPI_Allreduce(&mass, &masstot, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
@@ -162,7 +162,7 @@ void check_omega(void)
 void check_positions(void)
 {
     int i,j;
-    for(i=0; i< NumPart; i++){
+    for(i=0; i< PartManager->NumPart; i++){
         for(j=0; j<3; j++) {
             if(P[i].Pos[j] < 0 || P[i].Pos[j] > All.BoxSize)
                 endrun(0,"Particle %d is outside the box (L=%g) at (%g %g %g)\n",i,All.BoxSize, P[i].Pos[0], P[i].Pos[1], P[i].Pos[2]);
@@ -184,7 +184,7 @@ setup_smoothinglengths(int RestartSnapNum)
     if(RestartSnapNum == -1)
     {
 #pragma omp parallel for
-        for(i = 0; i < NumPart; i++)
+        for(i = 0; i < PartManager->NumPart; i++)
         {
             int no = Father[i];
             /* Don't need smoothing lengths for DM particles*/
@@ -226,7 +226,7 @@ setup_smoothinglengths(int RestartSnapNum)
 #ifdef BLACK_HOLES
     /* FIXME: move this inside the condition above and
       * save BHs in the snapshots to avoid this; */
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
         if(P[i].Type == 5) {
             /* Anything non-zero would work, but since BH tends to be in high density region, 
              *  use a small number */
@@ -254,7 +254,7 @@ setup_smoothinglengths(int RestartSnapNum)
         u_init /= molecular_weight;
 
 #ifdef DENSITY_INDEPENDENT_SPH
-        for(i = 0; i < NumPart; i++)
+        for(i = 0; i < PartManager->NumPart; i++)
         {
             if(P[i].Type == 0)
             /* start the iteration from mass density */
@@ -268,11 +268,11 @@ setup_smoothinglengths(int RestartSnapNum)
 
         int j;
         double badness;
-        double * olddensity = (double *)mymalloc("olddensity ", NumPart * sizeof(double));
+        double * olddensity = (double *)mymalloc("olddensity ", PartManager->NumPart * sizeof(double));
         for(j=0;j<100;j++)
         {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
 #pragma omp parallel for
-            for(i = 0; i < NumPart; i++)
+            for(i = 0; i < PartManager->NumPart; i++)
             {
                 if(P[i].Type == 0) {
                     SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
@@ -286,7 +286,7 @@ setup_smoothinglengths(int RestartSnapNum)
             {
                 double mybadness = 0;
 #pragma omp for
-                for(i = 0; i < NumPart; i++) {
+                for(i = 0; i < PartManager->NumPart; i++) {
                     if(P[i].Type == 0) {
                         if(!(SPHP(i).EgyWtDensity > 0)) continue;
                         double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
@@ -309,7 +309,7 @@ setup_smoothinglengths(int RestartSnapNum)
         myfree(olddensity);
 #endif //DENSITY_INDEPENDENT_SPH
 #pragma omp parallel for
-        for(i = 0; i < NumPart; i++) {
+        for(i = 0; i < PartManager->NumPart; i++) {
             if(P[i].Type == 0) {
                 /* EgyWtDensity stabilized, now we convert from energy to entropy*/
                 SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);

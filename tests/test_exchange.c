@@ -24,7 +24,6 @@
 
 struct part_manager_type PartManager[1] = {{0}};
 int NTask, ThisTask;
-int NumPart;
 int TotNumPart;
 
 #define NUMPART1 8
@@ -34,9 +33,9 @@ setup_particles(int NType[6])
     MPI_Barrier(MPI_COMM_WORLD);
     PartManager->MaxPart = 1024;
     int ptype;
-    NumPart = 0;
+    PartManager->NumPart = 0;
     for(ptype = 0; ptype < 6; ptype ++) {
-        NumPart += NType[ptype];
+        PartManager->NumPart += NType[ptype];
     }
 
     P = (struct particle_data *) mymalloc("P", PartManager->MaxPart * sizeof(struct particle_data));
@@ -54,8 +53,8 @@ setup_particles(int NType[6])
 
     ptype = 0;
     int itype = 0;
-    for(i = 0; i < NumPart; i ++) {
-        P[i].ID = i + NumPart * ThisTask;
+    for(i = 0; i < PartManager->NumPart; i ++) {
+        P[i].ID = i + PartManager->NumPart * ThisTask;
         P[i].Type = ptype;
         itype ++;
         if(itype == NType[ptype]) {
@@ -66,7 +65,7 @@ setup_particles(int NType[6])
 
     slots_setup_id();
 
-    MPI_Allreduce(&NumPart, &TotNumPart, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&PartManager->NumPart, &TotNumPart, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     return 0;
 }
@@ -76,7 +75,7 @@ teardown_particles(void **state)
 {
     int TotNumPart2;
 
-    MPI_Allreduce(&NumPart, &TotNumPart2, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&PartManager->NumPart, &TotNumPart2, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
 
     assert_int_equal(TotNumPart2, TotNumPart);
 
@@ -109,7 +108,7 @@ test_exchange(void **state)
     slots_check_id_consistency();
     domain_test_id_uniqueness();
 
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         assert_true(P[i].ID % NTask == ThisTask);
     }
 
@@ -133,7 +132,7 @@ test_exchange_zero_slots(void **state)
     slots_check_id_consistency();
     domain_test_id_uniqueness();
 
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         assert_true (P[i].ID % NTask == ThisTask);
     }
 
@@ -159,11 +158,11 @@ test_exchange_with_garbage(void **state)
     domain_test_id_uniqueness();
     slots_check_id_consistency();
 
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         assert_true (P[i].ID % NTask == ThisTask);
     }
 
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         assert_true (P[i].IsGarbage == 0);
     }
 
@@ -200,7 +199,7 @@ test_exchange_uneven(void **state)
     slots_check_id_consistency();
     domain_test_id_uniqueness();
 
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].Type == 0) {
             assert_true (ThisTask == 0);
         } else {

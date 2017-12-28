@@ -170,7 +170,7 @@ void drift_all_particles(inttime_t ti1)
     walltime_measure("/Misc");
 
 #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
         real_drift_particle(i, ti1);
 
     walltime_measure("/Drift/All");

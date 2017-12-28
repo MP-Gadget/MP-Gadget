@@ -276,7 +276,7 @@ do_the_long_range_kick(inttime_t tistart, inttime_t tiend)
     const double Fgravkick = get_gravkick_factor(tistart, tiend);
 
     #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         int j;
         for(j = 0; j < 3; j++)	/* do the kick */
@@ -548,7 +548,7 @@ get_long_range_timestep_dloga()
         mim[type] = 1.0e30;
     }
 
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         v[P[i].Type] += P[i].Vel[0] * P[i].Vel[0] + P[i].Vel[1] * P[i].Vel[1] + P[i].Vel[2] * P[i].Vel[2];
         if(P[i].Mass > 0)
@@ -655,7 +655,7 @@ void reverse_and_apply_gravity()
 {
     double dispmax=0, globmax;
     int i;
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         int j;
         /*Reverse the direction of acceleration*/
@@ -685,7 +685,7 @@ void reverse_and_apply_gravity()
 
     /* Move the actual particles according to the (reversed) gravitational force.
      * Not sure why this is here rather than in the main code.*/
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         int j;
         for(j = 0; j < 3; j++)
@@ -719,7 +719,7 @@ int rebuild_activelist(inttime_t Ti_Current)
     memset(TimeBinCountType, 0, 6*(TIMEBINS+1)*sizeof(int));
     NumActiveParticle = 0;
 
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         int bin = P[i].TimeBin;
 

@@ -117,7 +117,7 @@ ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv)
     lv->exportindex = Exportindex + thread_id * NTask;
     lv->Ninteractions = 0;
     lv->Nnodesinlist = 0;
-    lv->ngblist = Ngblist + thread_id * NumPart;
+    lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
@@ -141,7 +141,7 @@ ev_free_threadlocals()
 static void
 ev_begin(TreeWalk * tw, int * active_set, int size)
 {
-    Ngblist = (int*) mymalloc("Ngblist", NumPart * All.NumThreads * sizeof(int));
+    Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * All.NumThreads * sizeof(int));
     tw->BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + 
                     sizeof(struct data_nodelist) + tw->query_type_elsize + tw->result_type_elsize));
@@ -154,7 +154,7 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
     tw->WorkSetSize = 0;
 
-    tw->WorkSet = mymalloc("ActiveQueue", NumPart * sizeof(int));
+    tw->WorkSet = mymalloc("ActiveQueue", PartManager->NumPart * sizeof(int));
 
     treewalk_build_queue(tw, active_set, size);
 
@@ -288,7 +288,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, int size) {
     if(active_set == NULL) {
         int i;
         #pragma omp parallel for
-        for(i = 0; i < NumPart; i++) {
+        for(i = 0; i < PartManager->NumPart; i++) {
             /* Skip the garbage particles */
             if(P[i].IsGarbage) continue;
             if(!tw->haswork(i, tw))

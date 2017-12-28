@@ -38,7 +38,7 @@ void runtests()
     /* this produces a very imbalanced load to trigger Issue 86 */
     if(ThisTask == 0) {
         P[0].GravCost = 1e10;
-        P[NumPart - 1].GravCost = 1e10;
+        P[PartManager->NumPart - 1].GravCost = 1e10;
     }
 
     domain_decompose_full();	/* do domain decomposition */

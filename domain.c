@@ -840,7 +840,7 @@ domain_check_for_local_refine_subsample(
 
     int i;
 
-    struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", NumPart * sizeof(LP[0]));
+    struct local_particle_data * LP = (struct local_particle_data*) mymalloc("LocalParticleData", PartManager->NumPart * sizeof(LP[0]));
 
     /* Watchout : Peano/Morton ordering is required by the tree
      * building algorithm in local_refine.
@@ -857,10 +857,10 @@ domain_check_for_local_refine_subsample(
      * more likely running into overlapped local topTrees.
      * */
 
-    int Nsample = NumPart / sample_step;
+    int Nsample = PartManager->NumPart / sample_step;
 
 #pragma omp parallel for
-    for(i = 0; i < NumPart; i ++)
+    for(i = 0; i < PartManager->NumPart; i ++)
     {
         LP[i].Key = P[i].Key;
         LP[i].Cost = domain_particle_costfactor(i);
@@ -1234,7 +1234,7 @@ void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
         int64_t * mylocal_TopLeafCount = local_TopLeafCount + tid * NTopLeaves;
 
         #pragma omp for
-        for(n = 0; n < NumPart; n++)
+        for(n = 0; n < PartManager->NumPart; n++)
         {
             int no = domain_get_topleaf(P[n].Key);
 

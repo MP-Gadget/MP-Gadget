@@ -3,9 +3,6 @@
 #include "mymalloc.h"
 #include "endrun.h"
 
-/* Local number of particles */
-int NumPart;
-
 /*! This structure holds all the information that is
  * stored for each particle of the simulation on the local processor.
  */
