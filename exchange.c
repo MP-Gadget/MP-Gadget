@@ -143,9 +143,9 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     int bad_exh=0;
 
     /*Check whether the domain exchange will succeed. If not, bail*/
-    if(NumPart + plan->toGetSum.base - plan->toGoSum.base > part_MaxPart){
+    if(NumPart + plan->toGetSum.base - plan->toGoSum.base > PartManager->MaxPart){
         message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d MaxPart=%d\n",
-                NumPart, plan->toGetSum.base, plan->toGoSum.base, part_MaxPart);
+                NumPart, plan->toGetSum.base, plan->toGoSum.base, PartManager->MaxPart);
         bad_exh = 1;
     }
 
@@ -208,8 +208,8 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
         newSlots[ptype] = SlotsManager->info[ptype].size + plan->toGetSum.slots[ptype];
     }
 
-    if(newNumPart > part_MaxPart) {
-        endrun(787878, "NumPart=%d All.MaxPart=%d\n", newNumPart, part_MaxPart);
+    if(newNumPart > PartManager->MaxPart) {
+        endrun(787878, "NumPart=%d All.MaxPart=%d\n", newNumPart, PartManager->MaxPart);
     }
 
     slots_reserve(1, newSlots);

@@ -6,18 +6,10 @@
 #include "types.h"
 #include "peano.h"
 
-/*!< number of particles on the LOCAL processor: number of valid entries in P array. */
-extern int NumPart;
-/*!< Amount of memory we have available for particles locally: maximum size of P array. */
-extern int part_MaxPart;
-
-/*Allocate memory for the particles*/
-void particle_alloc_memory(int MaxPart);
-
 /*! This structure holds all the information that is
  * stored for each particle of the simulation.
  */
-extern struct particle_data
+struct particle_data
 {
 #ifdef OPENMP_USE_SPINLOCK
     pthread_spinlock_t SpinLock;
@@ -93,8 +85,23 @@ extern struct particle_data
         };
     };
 
-}
-*P; /* holds particle data on local processor */
+};
+
+extern int NumPart;
+
+extern struct part_manager_type {
+    struct particle_data *Base; /* Pointer to particle data on local processor. */
+    /*!< number of particles on the LOCAL processor: number of valid entries in P array. */
+    int NumPart;
+    /*!< Amount of memory we have available for particles locally: maximum size of P array. */
+    int MaxPart;
+} PartManager[1];
+
+/*Compatibility define*/
+#define P PartManager->Base
+
+/*Allocate memory for the particles*/
+void particle_alloc_memory(int MaxPart);
 
 extern double GravitySofteningTable[6];
 

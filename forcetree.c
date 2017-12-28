@@ -127,10 +127,10 @@ int force_tree_build(int npart)
 
     do
     {
-        maxnodes = All.TreeAllocFactor * part_MaxPart + NTopNodes;
+        maxnodes = All.TreeAllocFactor * PartManager->MaxPart + NTopNodes;
         /* construct tree if needed */
         /* the tree is used in grav dens, hydro, bh and sfr */
-        tb = force_treeallocate(maxnodes, part_MaxPart, part_MaxPart);
+        tb = force_treeallocate(maxnodes, PartManager->MaxPart, PartManager->MaxPart);
 
         Numnodestree = force_tree_build_single(tb, npart);
         if(Numnodestree < 0)
@@ -157,7 +157,7 @@ int force_tree_build(int npart)
 
     force_exchange_pseudodata();
 
-    force_treeupdate_pseudos(part_MaxPart, tb);
+    force_treeupdate_pseudos(PartManager->MaxPart, tb);
 
     event_listen(&EventSlotsFork, force_tree_eh_slots_fork, NULL);
     return Numnodestree;
@@ -479,10 +479,10 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
  *
  *  The index convention for accessing tree nodes is the following: the
  *  indices 0...NumPart-1 reference single particles, the indices
- *  part_MaxPart.... part_MaxPart+nodes-1 reference tree nodes. `Nodes_base'
+ *  PartManager->MaxPart.... PartManager->MaxPart+nodes-1 reference tree nodes. `Nodes_base'
  *  points to the first tree node, while `nodes' is shifted such that
- *  nodes[part_MaxPart] gives the first tree node. Finally, node indices
- *  with values 'part_MaxPart + MaxNodes' and larger indicate "pseudo
+ *  nodes[PartManager->MaxPart] gives the first tree node. Finally, node indices
+ *  with values 'PartManager->MaxPart + MaxNodes' and larger indicate "pseudo
  *  particles", i.e. multipole moments of top-level nodes that lie on
  *  different CPUs. If such a node needs to be opened, the corresponding
  *  particle must be exported to that CPU. */
@@ -598,7 +598,7 @@ force_get_next_node(int no, const struct TreeBuilder tb)
         /* Particle */
         return Nextnode[no];
     }
-    else { //if(no >= part_MaxPart + MaxNodes) {
+    else { //if(no >= PartManager->MaxPart + MaxNodes) {
         /* Pseudo Particle */
         return Nextnode[no - (tb.lastnode - tb.firstnode)];
     }

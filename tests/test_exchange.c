@@ -22,10 +22,9 @@
 #include "slotsmanager.c"
 #include "stub.h"
 
-struct particle_data *P;
+struct part_manager_type PartManager[1] = {{0}};
 int NTask, ThisTask;
 int NumPart;
-int part_MaxPart;
 int TotNumPart;
 
 #define NUMPART1 8
@@ -33,15 +32,15 @@ static int
 setup_particles(int NType[6])
 {
     MPI_Barrier(MPI_COMM_WORLD);
-    part_MaxPart = 1024;
+    PartManager->MaxPart = 1024;
     int ptype;
     NumPart = 0;
     for(ptype = 0; ptype < 6; ptype ++) {
         NumPart += NType[ptype];
     }
 
-    P = (struct particle_data *) mymalloc("P", part_MaxPart * sizeof(struct particle_data));
-    memset(P, 0, sizeof(struct particle_data) * part_MaxPart);
+    P = (struct particle_data *) mymalloc("P", PartManager->MaxPart * sizeof(struct particle_data));
+    memset(P, 0, sizeof(struct particle_data) * PartManager->MaxPart);
 
     slots_init();
     slots_set_enabled(0, sizeof(struct sph_particle_data));

@@ -14,21 +14,20 @@
 #include "mymalloc.h"
 #include "stub.h"
 
-struct particle_data *P;
+struct part_manager_type PartManager[1] = {{0}};
 int NTask, ThisTask;
 int NumPart;
-int part_MaxPart;
 
 static int
 setup_particles(void ** state)
 {
-    part_MaxPart = 1024;
+    PartManager->MaxPart = 1024;
     NumPart = 128 * 6;
 
     int newSlots[6] = {128, 128, 128, 128, 128, 128};
 
-    P = (struct particle_data *) mymalloc("P", part_MaxPart * sizeof(struct particle_data));
-    memset(P, 0, sizeof(struct particle_data) * part_MaxPart);
+    PartManager->Base = (struct particle_data *) mymalloc("P", PartManager->MaxPart* sizeof(struct particle_data));
+    memset(PartManager->Base, 0, sizeof(struct particle_data) * PartManager->MaxPart);
 
     slots_init();
     int ptype;
@@ -57,7 +56,7 @@ static int
 teardown_particles(void **state)
 {
     slots_free();
-    myfree(P);
+    myfree(PartManager->Base);
     return 0;
 }
 

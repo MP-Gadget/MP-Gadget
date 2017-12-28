@@ -27,7 +27,7 @@ int
 force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder tb);
 
 /*Used data from All and domain*/
-struct particle_data *P;
+struct part_manager_type PartManager[1] = {{0}};
 struct global_data_all_processes All;
 
 int MaxTopNodes, NTopNodes, NTopLeaves, NTask, ThisTask;
@@ -37,7 +37,6 @@ struct task_data *Tasks;
 size_t AllocatedBytes;
 int NTask, ThisTask;
 int NumPart;
-int part_MaxPart;
 double GravitySofteningTable[6];
 
 /*Dummy versions of functions that implement only what we need for the tests:
@@ -251,7 +250,7 @@ static void do_tree_test(const int numpart, const struct TreeBuilder tb)
     }
     qsort(P, numpart, sizeof(struct particle_data), order_by_type_and_key);
     int maxnode = numpart;
-    part_MaxPart = numpart;
+    PartManager->MaxPart = numpart;
     MaxNodes = numpart;
     assert_true(Nodes != NULL);
     /*So we know which nodes we have initialised*/

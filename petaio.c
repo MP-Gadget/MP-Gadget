@@ -319,8 +319,8 @@ void petaio_read_internal(char * fname, int ic) {
     /* Allocate enough memory for stars and black holes.
      * This will be dynamically increased as needed.*/
 
-    if(NumPart >= part_MaxPart) {
-        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, part_MaxPart);
+    if(NumPart >= PartManager->MaxPart) {
+        endrun(1, "Overwhelmed by part: %d > %d\n", NumPart, PartManager->MaxPart);
     }
 
     int newSlots[6];
