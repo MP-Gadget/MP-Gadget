@@ -379,29 +379,21 @@ sph_VelPred(int i, double * VelPred)
     }
 }
 
-/*Helper function for predicting the entropy*/
-static inline double _EntPred(int i)
+/* This gives the predicted entropy at the particle Kick timestep
+ * for the density independent SPH code.
+ * Watchout: with kddk, when the second k is applied, Ti_kick < Ti_drift. */
+double EntropyPred(int i)
 {
     const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
     const double epred = SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr;
     return epred;
 }
 
-/* This gives the predicted entropy at the particle Kick timestep
- * for the density independent SPH code.
- * Watchout: with kddk, when the second k is applied, Ti_kick < Ti_drift. */
-double
-EntropyPred(int i)
-{
-    double epred = _EntPred(i);
-    return pow(epred, 1/GAMMA);
-}
-
 double
 PressurePred(int i)
 {
-    double epred = _EntPred(i);
-    return epred * pow(SPHP(i).EOMDensity, GAMMA);
+    double epred = EntropyPred(i);
+    return pow(epred, 1/GAMMA) * pow(SPHP(i).EOMDensity, GAMMA);
 }
 
 double

@@ -138,7 +138,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->Density = SPHP(place).Density;
 #ifdef DENSITY_INDEPENDENT_SPH
     input->EgyRho = SPHP(place).EgyWtDensity;
-    input->EntVarPred = EntropyPred(place);
+    input->EntVarPred = pow(EntropyPred(place), 1/GAMMA);
     input->DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 #else
     input->DhsmlDensityFactor = SPHP(place).DhsmlDensityFactor;
@@ -304,7 +304,7 @@ hydro_ngbiter(
 #ifdef DENSITY_INDEPENDENT_SPH
         double hfc = hfc_visc;
         /* leading-order term */
-        double EntPred = EntropyPred(other);
+        double EntPred = pow(EntropyPred(other), 1/GAMMA);
         hfc += P[other].Mass *
             (dwk_i*iter->p_over_rho2_i*EntPred/I->EntVarPred +
              dwk_j*p_over_rho2_j*I->EntVarPred/EntPred) / r;
