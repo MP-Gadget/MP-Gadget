@@ -986,6 +986,7 @@ void force_update_hmax(int * activeset, int size)
     /* At most NTopLeaves are dirty, since we are only concerned with TOPLEVEL nodes */
     DirtyTopLevelNodes = (struct dirty_node_data*) mymalloc("DirtyTopLevelNodes", NTopLeaves * sizeof(DirtyTopLevelNodes[0]));
 
+    /* FIXME: This can be made a struct flag*/
     char * NodeIsDirty = (char *) mymalloc("NodeIsDirty", MaxNodes * sizeof(char));
 
     /* FIXME: actually only TOPLEVEL nodes contains the local mass can potentially be dirty,
