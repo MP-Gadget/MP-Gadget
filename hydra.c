@@ -139,6 +139,9 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 #ifdef DENSITY_INDEPENDENT_SPH
     input->EgyRho = SPHP(place).EgyWtDensity;
     input->EntVarPred = pow(EntropyPred(place), 1/GAMMA);
+    if(fabs(EntropyPred(place)/SPHP(place).DriftEntropy - 1) > 1e-5)
+            endrun(2, "Two! i=%d ti = %d ID = %ld pred = %g != drift = %g\n",place, P[place].TimeBin, P[place].ID, EntropyPred(place), SPHP(place).DriftEntropy);
+
     input->DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 #else
     input->DhsmlDensityFactor = SPHP(place).DhsmlDensityFactor;
@@ -305,6 +308,9 @@ hydro_ngbiter(
         double hfc = hfc_visc;
         /* leading-order term */
         double EntPred = pow(EntropyPred(other), 1/GAMMA);
+        if(fabs(EntropyPred(other)/SPHP(other).DriftEntropy - 1) > 1e-5)
+            endrun(2, "Hydra! i=%d ti = %d %d (loga=%g) ID = %ld (ee= %g) pred = %g != drift = %g DtEntropy = %g\n",other, P[other].Ti_drift, P[other].Ti_kick, dloga_from_dti(P[other].Ti_drift - P[other].Ti_kick), P[other].ID, SPHP(other).Entropy, EntropyPred(other), SPHP(other).DriftEntropy, SPHP(other).DtEntropy);
+
         hfc += P[other].Mass *
             (dwk_i*iter->p_over_rho2_i*EntPred/I->EntVarPred +
              dwk_j*p_over_rho2_j*I->EntVarPred/EntPred) / r;

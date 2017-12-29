@@ -346,6 +346,8 @@ density_ngbiter(
 
 #ifdef DENSITY_INDEPENDENT_SPH
         double EntPred = pow(EntropyPred(other), 1/GAMMA);
+        if(fabs(EntropyPred(other)/SPHP(other).DriftEntropy - 1) > 1e-5)
+            endrun(2, "i=%d ID = %ld pred = %g != drift = %g\n",other, P[other].ID, EntropyPred(other), SPHP(other).DriftEntropy);
         O->EgyRho += mass_j * EntPred * wk;
         O->DhsmlEgyDensity += mass_j * EntPred * density_kernel_dW(&iter->kernel, u, wk, dwk);
 #endif
@@ -413,6 +415,9 @@ density_postprocess(int i, TreeWalk * tw)
 
 #ifdef DENSITY_INDEPENDENT_SPH
             const double EntPred = pow(EntropyPred(i), 1/GAMMA);
+            if(fabs(EntropyPred(i)/SPHP(i).DriftEntropy - 1) > 1e-5)
+                endrun(2, "Two! i=%d ti = %d ID = %ld pred = %g != drift = %g\n",i, P[i].TimeBin, P[i].ID, EntropyPred(i), SPHP(i).DriftEntropy);
+
             if((EntPred > 0) && (SPHP(i).EgyWtDensity>0))
             {
                 SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);

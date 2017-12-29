@@ -375,6 +375,10 @@ cooling_direct(int i) {
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
+    double KickEntropy = SPHP(i).DriftEntropy + SPHP(i).DtEntropy * dloga/2;
+    if(fabs((SPHP(i).Entropy + SPHP(i).DtEntropy * dloga)/KickEntropy - 1) > 1e-5)
+        endrun(2, "Two! i=%d ti = %d ID = %ld pred = %g != drift = %g\n",i, P[i].TimeBin, P[i].ID, (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga), KickEntropy);
+
     double unew = DMAX(All.MinEgySpec,
             (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
             GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
@@ -453,6 +457,11 @@ static int get_sfr_condition(int i) {
         double unew = DMAX(All.MinEgySpec,
                 (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
                 GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+
+        /*Entropy at kick time after this timestep*/
+        double KickEntropy = SPHP(i).DriftEntropy + SPHP(i).DtEntropy * dloga/2;
+        if(fabs((SPHP(i).Entropy + SPHP(i).DtEntropy * dloga)/KickEntropy - 1) > 1e-5)
+            endrun(2, "Two! i=%d ti = %d ID = %ld pred = %g != drift = %g\n",i, P[i].TimeBin, P[i].ID, (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga), KickEntropy);
 
         double temp = u_to_temp_fac * unew;
 
