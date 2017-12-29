@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
+
+#include "types.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "powerspectrum.h"
@@ -49,7 +51,7 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
     MPI_Allreduce(MPI_IN_PLACE, &(PowerSpectrum->Norm), 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->kk, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Power, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /*Now fix power spectrum units*/
     for(i = 0; i < PowerSpectrum->size; i ++) {

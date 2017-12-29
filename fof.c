@@ -357,7 +357,7 @@ void fof_label_primary(void)
             }
             FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i] = newMinID;
         }
-        MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         message(0, "Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
     }
     while(link_across_tot > 0);

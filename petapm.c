@@ -5,6 +5,7 @@
 #include <math.h>
 /* do NOT use complex.h it breaks the code */
 
+#include "types.h"
 #include "petapm.h"
 #include "openmpsort.h"
 #include "mymalloc.h"
@@ -898,7 +899,7 @@ static void put_particle_to_mesh(int i, double * mesh, double weight) {
 }
 static int64_t reduce_int64(int64_t input) {
     int64_t result = 0;
-    MPI_Allreduce(&input, &result, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&input, &result, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     return result;
 }
 

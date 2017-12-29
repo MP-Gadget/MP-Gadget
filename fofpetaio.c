@@ -262,7 +262,7 @@ static void fof_write_header(BigFile * bf) {
         npartLocal[P[i].Type] ++;
     }
 
-    MPI_Allreduce(npartLocal, npartTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(npartLocal, npartTotal, 6, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
     big_block_set_attr(&bh, "NumFOFGroupsTotal", &TotNgroups, "u8", 1);
