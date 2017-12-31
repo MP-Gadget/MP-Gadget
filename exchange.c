@@ -8,6 +8,7 @@
 #include "system.h"
 #include "exchange.h"
 #include "slotsmanager.h"
+#include "partmanager.h"
 
 /*Number of structure types for particles*/
 typedef struct {
@@ -75,7 +76,7 @@ int domain_exchange(int (*layoutfunc)(int p)) {
     plan.toGetOffset = (ExchangePlanEntry *) mymalloc2("toGet", sizeof(plan.toGo[0]) * NTask);
 
 #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         if(P[i].IsGarbage)
             continue;
@@ -142,9 +143,9 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     int bad_exh=0;
 
     /*Check whether the domain exchange will succeed. If not, bail*/
-    if(NumPart + plan->toGetSum.base - plan->toGoSum.base > All.MaxPart){
-        message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d All.MaxPart=%d\n",
-                NumPart, plan->toGetSum.base, plan->toGoSum.base, All.MaxPart);
+    if(PartManager->NumPart + plan->toGetSum.base - plan->toGoSum.base > PartManager->MaxPart){
+        message(1,"Too many particles for exchange: NumPart=%d count_get = %d count_togo=%d MaxPart=%d\n",
+                PartManager->NumPart, plan->toGetSum.base, plan->toGoSum.base, PartManager->MaxPart);
         bad_exh = 1;
     }
 
@@ -164,7 +165,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     memset(toGoPtr, 0, sizeof(toGoPtr[0]) * NTask);
 
     /*FIXME: make this omp ! */
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         if(!(P[i].OnAnotherDomain && P[i].WillExport)) continue;
         /* preparing for export */
@@ -200,15 +201,15 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     int newNumPart;
     int newSlots[6] = {0};
-    newNumPart = NumPart + plan->toGetSum.base;
+    newNumPart = PartManager->NumPart + plan->toGetSum.base;
 
     for(ptype = 0; ptype < 6; ptype ++) {
         if(!SlotsManager->info[ptype].enabled) continue;
         newSlots[ptype] = SlotsManager->info[ptype].size + plan->toGetSum.slots[ptype];
     }
 
-    if(newNumPart > All.MaxPart) {
-        endrun(787878, "NumPart=%d All.MaxPart=%d\n", newNumPart, All.MaxPart);
+    if(newNumPart > PartManager->MaxPart) {
+        endrun(787878, "NumPart=%d All.MaxPart=%d\n", newNumPart, PartManager->MaxPart);
     }
 
     slots_reserve(1, newSlots);
@@ -225,7 +226,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     /* recv at the end */
     MPI_Alltoallv_sparse(partBuf, sendcounts, senddispls, MPI_TYPE_PARTICLE,
-                 P + NumPart, recvcounts, recvdispls, MPI_TYPE_PARTICLE,
+                 P + PartManager->NumPart, recvcounts, recvdispls, MPI_TYPE_PARTICLE,
                  MPI_COMM_WORLD);
 
     for(ptype = 0; ptype < 6; ptype ++) {
@@ -255,8 +256,8 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
             newPI[ptype] = SlotsManager->info[ptype].size + plan->toGetOffset[src].slots[ptype];
         }
 
-        for(i = NumPart + plan->toGetOffset[src].base;
-            i < NumPart + plan->toGetOffset[src].base + plan->toGet[src].base;
+        for(i = PartManager->NumPart + plan->toGetOffset[src].base;
+            i < PartManager->NumPart + plan->toGetOffset[src].base + plan->toGet[src].base;
             i++) {
 
             int ptype = P[i].Type;
@@ -294,7 +295,7 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
 
     MPI_Barrier(MPI_COMM_WORLD);
 
-    NumPart = newNumPart;
+    PartManager->NumPart = newNumPart;
 
     for(ptype = 0; ptype < 6; ptype++) {
         if(!SlotsManager->info[ptype].enabled) continue;
@@ -331,7 +332,7 @@ domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan)
         endrun(212, "Package is too large, no free memory.");
 
     int insuf = 0;
-    for(n = 0; n < NumPart; n++)
+    for(n = 0; n < PartManager->NumPart; n++)
     {
         if(package >= nlimit) {
             message(1,"Not enough space for particles: n=%d, nlimit=%d, package=%d\n",n,nlimit,package);
@@ -392,35 +393,35 @@ domain_test_id_uniqueness(void)
 
     message(0, "Testing ID uniqueness...\n");
 
-    if(NumPart == 0)
+    if(PartManager->NumPart == 0)
     {
         endrun(8, "need at least one particle per cpu\n");
     }
 
     t0 = second();
 
-    ids = (MyIDType *) mymalloc("ids", NumPart * sizeof(MyIDType));
+    ids = (MyIDType *) mymalloc("ids", PartManager->NumPart * sizeof(MyIDType));
     ids_first = (MyIDType *) mymalloc("ids_first", NTask * sizeof(MyIDType));
 
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
         ids[i] = P[i].ID;
 
-    mpsort_mpi(ids, NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
+    mpsort_mpi(ids, PartManager->NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
 
-    for(i = 1; i < NumPart; i++)
+    for(i = 1; i < PartManager->NumPart; i++)
         if(ids[i] == ids[i - 1])
         {
             endrun(12, "non-unique ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
-                    ids[i], ThisTask, i, NumPart);
+                    ids[i], ThisTask, i, PartManager->NumPart);
 
         }
 
     MPI_Allgather(&ids[0], sizeof(MyIDType), MPI_BYTE, ids_first, sizeof(MyIDType), MPI_BYTE, MPI_COMM_WORLD);
 
     if(ThisTask < NTask - 1)
-        if(ids[NumPart - 1] == ids_first[ThisTask + 1])
+        if(ids[PartManager->NumPart - 1] == ids_first[ThisTask + 1])
         {
-            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[NumPart - 1], ThisTask);
+            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[PartManager->NumPart - 1], ThisTask);
         }
 
     myfree(ids_first);

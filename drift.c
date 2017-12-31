@@ -9,8 +9,8 @@
 #include "timefac.h"
 #include "timestep.h"
 #include "slotsmanager.h"
+#include "partmanager.h"
 #include "endrun.h"
-
 
 static int drift_particle_full(int i, inttime_t ti1, int blocking);
 
@@ -27,9 +27,6 @@ void drift_particle(int i, inttime_t ti1) {
 int drift_particle_full(int i, inttime_t ti1, int blocking) {
     if(P[i].Ti_drift == ti1) return 0 ;
 
-#pragma omp atomic
-    TotalParticleDrifts ++;
-
 #ifdef OPENMP_USE_SPINLOCK
     int lockstate;
     if (blocking) {
@@ -41,9 +38,6 @@ int drift_particle_full(int i, inttime_t ti1, int blocking) {
         if(P[i].Ti_drift != ti1) {
             real_drift_particle(i, ti1);
 #pragma omp flush
-        } else {
-#pragma omp atomic
-            BlockedParticleDrifts ++;
         }
         pthread_spin_unlock(&P[i].SpinLock);
         return 0;
@@ -62,8 +56,6 @@ int drift_particle_full(int i, inttime_t ti1, int blocking) {
     {
         if(P[i].Ti_drift != ti1) {
             real_drift_particle(i, ti1);
-        } else {
-            BlockedParticleDrifts ++;
         }
     }
     return 0;
@@ -178,7 +170,7 @@ void drift_all_particles(inttime_t ti1)
     walltime_measure("/Misc");
 
 #pragma omp parallel for
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
         real_drift_particle(i, ti1);
 
     walltime_measure("/Drift/All");

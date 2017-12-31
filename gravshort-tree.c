@@ -142,7 +142,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             double mass, facpot, fac, r2, r, h;
             double dx, dy, dz;
             int otherh;
-            if(no < All.MaxPart)
+            if(node_is_particle(no))
             {
                 /* the index of the node is the index of the particle */
                 drift_particle(no, All.Ti_Current);
@@ -171,7 +171,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             else			/* we have an  internal node */
             {
                 struct NODE *nop;
-                if(no >= All.MaxPart + MaxNodes)	/* pseudo particle */
+                if(node_is_pseudo_particle(no))	/* pseudo particle */
                 {
                     if(lv->mode == 0)
                     {

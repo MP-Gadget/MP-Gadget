@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "allvars.h"
+#include "partmanager.h"
 #include "treewalk.h"
 #include "drift.h"
 #include "openmpsort.h"
@@ -116,7 +117,7 @@ ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv)
     lv->exportindex = Exportindex + thread_id * NTask;
     lv->Ninteractions = 0;
     lv->Nnodesinlist = 0;
-    lv->ngblist = Ngblist + thread_id * NumPart;
+    lv->ngblist = Ngblist + thread_id * PartManager->NumPart;
     for(j = 0; j < NTask; j++)
         lv->exportflag[j] = -1;
 }
@@ -140,7 +141,7 @@ ev_free_threadlocals()
 static void
 ev_begin(TreeWalk * tw, int * active_set, int size)
 {
-    Ngblist = (int*) mymalloc("Ngblist", NumPart * All.NumThreads * sizeof(int));
+    Ngblist = (int*) mymalloc("Ngblist", PartManager->NumPart * All.NumThreads * sizeof(int));
     tw->BunchSize =
         (int) ((All.BufferSize * 1024 * 1024) / (sizeof(struct data_index) + 
                     sizeof(struct data_nodelist) + tw->query_type_elsize + tw->result_type_elsize));
@@ -153,7 +154,7 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
     tw->WorkSetSize = 0;
 
-    tw->WorkSet = mymalloc("ActiveQueue", NumPart * sizeof(int));
+    tw->WorkSet = mymalloc("ActiveQueue", PartManager->NumPart * sizeof(int));
 
     treewalk_build_queue(tw, active_set, size);
 
@@ -196,7 +197,7 @@ treewalk_init_query(TreeWalk * tw, TreeWalkQueryBase * query, int i, int * NodeL
     if(NodeList) {
         memcpy(query->NodeList, NodeList, sizeof(int) * NODELISTLENGTH);
     } else {
-        query->NodeList[0] = All.MaxPart; /* root node */
+        query->NodeList[0] = RootNode; /* root node */
         query->NodeList[1] = -1; /* terminate immediately */
     }
 
@@ -287,7 +288,7 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, int size) {
     if(active_set == NULL) {
         int i;
         #pragma omp parallel for
-        for(i = 0; i < NumPart; i++) {
+        for(i = 0; i < PartManager->NumPart; i++) {
             /* Skip the garbage particles */
             if(P[i].IsGarbage) continue;
             if(!tw->haswork(i, tw))
@@ -458,7 +459,7 @@ static void ev_secondary(TreeWalk * tw)
             TreeWalkResultBase * output = (TreeWalkResultBase*)(tw->dataresult + j * tw->result_type_elsize);
             treewalk_init_result(tw, output, input);
             if(!tw->UseNodeList) {
-                if(input->NodeList[0] != All.MaxPart) abort(); /* root node */
+                if(input->NodeList[0] != RootNode) abort(); /* root node */
                 if(input->NodeList[1] != -1) abort(); /* terminate immediately */
             }
             lv->target = -1;
@@ -490,7 +491,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     TreeWalk * tw = lv->tw;
     int task;
 
-    task = TopLeaves[no - (All.MaxPart + MaxNodes)].Task;
+    task = TopLeaves[no - (RootNode + MaxNodes)].Task;
 
     if(exportflag[task] != target)
     {
@@ -524,7 +525,7 @@ int treewalk_export_particle(LocalTreeWalk * lv, int no) {
     if(tw->UseNodeList) 
     {
         DataNodeList[exportindex[task]].NodeList[exportnodecount[task]++] =
-            TopLeaves[no - (All.MaxPart + MaxNodes)].treenode;
+            TopLeaves[no - (RootNode + MaxNodes)].treenode;
 
         if(exportnodecount[task] < NODELISTLENGTH)
             DataNodeList[exportindex[task]].NodeList[exportnodecount[task]] = -1;
@@ -913,12 +914,12 @@ ngb_treefind_threads(TreeWalkQueryBase * I,
 
     while(no >= 0)
     {
-        if(no < All.MaxPart)  /* single particle */ {
+        if(node_is_particle(no))  /* single particle */ {
             lv->ngblist[numcand++] = no;
             no = Nextnode[no];
             continue;
         }
-        if(no >= All.MaxPart + MaxNodes) {
+        if(node_is_pseudo_particle(no)) {
             /* pseudo particle */
             if(lv->mode == 1) {
                 if(!lv->tw->UseNodeList) {

@@ -32,7 +32,7 @@ typedef void * (*petapm_malloc_func)(char * name, size_t * size);
 typedef void * (*petapm_mfree_func)(void * ptr);
 
 typedef struct {
-    void * P;
+    void * Parts;
     size_t elsize;
     size_t offset_pos;
     size_t offset_mass;

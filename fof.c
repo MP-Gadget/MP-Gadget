@@ -21,6 +21,7 @@
 #include "treewalk.h"
 #include "system.h"
 #include "slotsmanager.h"
+#include "partmanager.h"
 #include "densitykernel.h"
 
 /*! \file fof.c
@@ -136,11 +137,11 @@ void fof_fof()
     message(0, "Comoving linking length: %g    ", All.FOFHaloComovingLinkingLength);
     message(0, "(presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
-    HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", NumPart * sizeof(struct fof_particle_list));
+    HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", PartManager->NumPart * sizeof(struct fof_particle_list));
 
     /* HaloLabel stores the MinID and MinIDTask of particles, this pair serves as a halo label. */
     #pragma omp parallel for
-    for(i = 0; i < NumPart; i++) {
+    for(i = 0; i < PartManager->NumPart; i++) {
         HaloLabel[i].Pindex = i;
     }
     /* Fill FOFP_List of primary */
@@ -160,13 +161,13 @@ void fof_fof()
     message(0, "attaching gas and star particles to nearest dm particles took = %g sec\n", timediff(t0, t1));
 
     /* sort HaloLabel according to MinID, because we need that for compiling catalogues */
-    qsort_openmp(HaloLabel, NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
+    qsort_openmp(HaloLabel, PartManager->NumPart, sizeof(struct fof_particle_list), fof_compare_HaloLabel_MinID);
 
     t0 = second();
 
     NgroupsExt = 0;
 
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) NgroupsExt ++;
     }
 
@@ -315,15 +316,15 @@ void fof_label_primary(void)
     struct FOFPrimaryPriv priv[1];
     tw->priv = priv;
 
-    FOF_PRIMARY_GET_PRIV(tw)->Head = (int*) mymalloc("FOF_Links", NumPart * sizeof(int));
-    FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive = (char*) mymalloc("FOFActive", NumPart * sizeof(char));
-    FOF_PRIMARY_GET_PRIV(tw)->OldMinID = (MyIDType *) mymalloc("FOFActive", NumPart * sizeof(MyIDType));
+    FOF_PRIMARY_GET_PRIV(tw)->Head = (int*) mymalloc("FOF_Links", PartManager->NumPart * sizeof(int));
+    FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive = (char*) mymalloc("FOFActive", PartManager->NumPart * sizeof(char));
+    FOF_PRIMARY_GET_PRIV(tw)->OldMinID = (MyIDType *) mymalloc("FOFActive", PartManager->NumPart * sizeof(MyIDType));
 
     /* allocate buffers to arrange communication */
 
     t0 = second();
 
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         FOF_PRIMARY_GET_PRIV(tw)->Head[i] = i;
         FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]= P[i].ID;
@@ -345,7 +346,7 @@ void fof_label_primary(void)
          * mark them for next round. */
         link_across = 0;
 #pragma omp parallel for
-        for(i = 0; i < NumPart; i++) {
+        for(i = 0; i < PartManager->NumPart; i++) {
             MyIDType newMinID = HaloLabel[HEAD(i, tw)].MinID;
             if(newMinID != FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i]) {
                 FOF_PRIMARY_GET_PRIV(tw)->PrimaryActive[i] = 1;
@@ -356,13 +357,13 @@ void fof_label_primary(void)
             }
             FOF_PRIMARY_GET_PRIV(tw)->OldMinID[i] = newMinID;
         }
-        MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+        MPI_Allreduce(&link_across, &link_across_tot, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
         message(0, "Linked %ld particles %g seconds\n", link_across_tot, t1 - t0);
     }
     while(link_across_tot > 0);
 
     /* Update MinID of all linked (primary-linked) particles */
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         HaloLabel[i].MinID = HaloLabel[HEAD(i, tw)].MinID;
         HaloLabel[i].MinIDTask = HaloLabel[HEAD(i, tw)].MinIDTask;
@@ -628,7 +629,7 @@ fof_compile_base(struct BaseGroup * base)
     int start;
 
     start = 0;
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
     {
         if(i == 0 || HaloLabel[i].MinID != HaloLabel[i - 1].MinID) {
             base[start].MinID = HaloLabel[i].MinID;
@@ -647,11 +648,11 @@ fof_compile_base(struct BaseGroup * base)
     for(i = 0; i < NgroupsExt; i++)
     {
         /* find the first particle */
-        for(;start < NumPart; start++) {
+        for(;start < PartManager->NumPart; start++) {
             if(HaloLabel[start].MinID >= base[i].MinID) break;
         }
         /* count particles */
-        for(;start < NumPart; start++) {
+        for(;start < PartManager->NumPart; start++) {
             if(HaloLabel[start].MinID != base[i].MinID) {
                 break;
             }
@@ -693,11 +694,11 @@ fof_compile_catalogue(struct Group * group, struct BaseGroup * BaseGroup)
     for(i = 0; i < NgroupsExt; i++)
     {
         /* find the first particle */
-        for(;start < NumPart; start++) {
+        for(;start < PartManager->NumPart; start++) {
             if(HaloLabel[start].MinID >= Group[i].base.MinID) break;
         }
         /* add particles */
-        for(;start < NumPart; start++) {
+        for(;start < PartManager->NumPart; start++) {
             if(HaloLabel[start].MinID != Group[i].base.MinID) {
                 break;
             }
@@ -945,18 +946,18 @@ static void fof_assign_grnr(struct BaseGroup * base)
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]), 
             fof_radix_Group_OriginalTaskMinID, 16, NULL, MPI_COMM_WORLD);
 
-    for(i = 0; i < NumPart; i++)
+    for(i = 0; i < PartManager->NumPart; i++)
         P[i].GrNr = -1;	/* will mark particles that are not in any group */
 
     int start = 0;
     for(i = 0; i < NgroupsExt; i++)
     {
-        for(;start < NumPart; start++) {
+        for(;start < PartManager->NumPart; start++) {
             if (HaloLabel[start].MinID >= base[i].MinID) 
                 break;
         }
 
-        for(;start < NumPart; start++) {
+        for(;start < PartManager->NumPart; start++) {
             if (HaloLabel[start].MinID != base[i].MinID) 
                 break;
             P[HaloLabel[start].Pindex].GrNr = base[i].GrNr;
@@ -1069,10 +1070,10 @@ static void fof_label_secondary(void)
     message(0, "Start finding nearest dm-particle (presently allocated=%g MB)\n",
             AllocatedBytes / (1024.0 * 1024.0));
 
-    FOF_SECONDARY_GET_PRIV(tw)->distance = (float *) mymalloc("FOF_SECONDARY->distance", sizeof(float) * NumPart);
-    FOF_SECONDARY_GET_PRIV(tw)->hsml = (float *) mymalloc("FOF_SECONDARY->hsml", sizeof(float) * NumPart);
+    FOF_SECONDARY_GET_PRIV(tw)->distance = (float *) mymalloc("FOF_SECONDARY->distance", sizeof(float) * PartManager->NumPart);
+    FOF_SECONDARY_GET_PRIV(tw)->hsml = (float *) mymalloc("FOF_SECONDARY->hsml", sizeof(float) * PartManager->NumPart);
 
-    for(n = 0; n < NumPart; n++)
+    for(n = 0; n < PartManager->NumPart; n++)
     {
         if(((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)))
         {

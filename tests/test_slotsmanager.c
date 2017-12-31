@@ -8,28 +8,25 @@
 #include <string.h>
 #include <time.h>
 #include <gsl/gsl_rng.h>
-#include "allvars.h"
+#include "partmanager.h"
 #include "domain.h"
 #include "slotsmanager.h"
 #include "mymalloc.h"
 #include "stub.h"
-#include "allvars.h"
 
-struct particle_data *P;
-struct global_data_all_processes All;
+struct part_manager_type PartManager[1] = {{0}};
 int NTask, ThisTask;
-int NumPart;
 
 static int
 setup_particles(void ** state)
 {
-    All.MaxPart = 1024;
-    NumPart = 128 * 6;
+    PartManager->MaxPart = 1024;
+    PartManager->NumPart = 128 * 6;
 
     int newSlots[6] = {128, 128, 128, 128, 128, 128};
 
-    P = (struct particle_data *) mymalloc("P", All.MaxPart * sizeof(struct particle_data));
-    memset(P, 0, sizeof(struct particle_data) * All.MaxPart);
+    PartManager->Base = (struct particle_data *) mymalloc("P", PartManager->MaxPart* sizeof(struct particle_data));
+    memset(PartManager->Base, 0, sizeof(struct particle_data) * PartManager->MaxPart);
 
     slots_init();
     int ptype;
@@ -43,9 +40,9 @@ setup_particles(void ** state)
     slots_reserve(1, newSlots);
 
     int i;
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         P[i].ID = i;
-        P[i].Type = i / (NumPart / 6);
+        P[i].Type = i / (PartManager->NumPart / 6);
     }
     slots_setup_topology();
 
@@ -58,7 +55,7 @@ static int
 teardown_particles(void **state)
 {
     slots_free();
-    myfree(P);
+    myfree(PartManager->Base);
     return 0;
 }
 
@@ -73,7 +70,7 @@ test_slots_gc(void **state)
         compact[i] = 1;
     }
     slots_gc(compact);
-    assert_int_equal(NumPart, 127 * i);
+    assert_int_equal(PartManager->NumPart, 127 * i);
 
     assert_int_equal(SlotsManager->info[0].size, 127);
     assert_int_equal(SlotsManager->info[4].size, 127);
@@ -92,7 +89,7 @@ test_slots_gc_sorted(void **state)
         slots_mark_garbage(128 * i);
     }
     slots_gc_sorted();
-    assert_int_equal(NumPart, 127 * i);
+    assert_int_equal(PartManager->NumPart, 127 * i);
 
     assert_int_equal(SlotsManager->info[0].size, 127);
     assert_int_equal(SlotsManager->info[4].size, 127);
@@ -152,11 +149,11 @@ test_slots_zero(void **state)
     setup_particles(state);
     int i;
     int compact[6] = {1,0,0,0,1,1};
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         slots_mark_garbage(i);
     }
     slots_gc(compact);
-    assert_int_equal(NumPart, 0);
+    assert_int_equal(PartManager->NumPart, 0);
     assert_int_equal(SlotsManager->info[0].size, 0);
     assert_int_equal(SlotsManager->info[1].size, 128);
     assert_int_equal(SlotsManager->info[4].size, 0);
@@ -165,11 +162,11 @@ test_slots_zero(void **state)
     teardown_particles(state);
 
     setup_particles(state);
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         slots_mark_garbage(i);
     }
     slots_gc_sorted();
-    assert_int_equal(NumPart, 0);
+    assert_int_equal(PartManager->NumPart, 0);
     assert_int_equal(SlotsManager->info[0].size, 0);
     assert_int_equal(SlotsManager->info[4].size, 0);
     assert_int_equal(SlotsManager->info[5].size, 0);
@@ -189,7 +186,7 @@ test_slots_fork(void **state)
         slots_fork(128 * i, P[i * 128].Type);
     }
 
-    assert_int_equal(NumPart, 129 * i);
+    assert_int_equal(PartManager->NumPart, 129 * i);
 
     assert_int_equal(SlotsManager->info[0].size, 129);
     assert_int_equal(SlotsManager->info[4].size, 129);

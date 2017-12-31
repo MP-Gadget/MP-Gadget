@@ -45,6 +45,7 @@ static int stars_converted;
 static int stars_spawned;
 static double sum_sm;
 static double sum_mass_stars;
+static double localsfr;
 
 static void cooling_relaxed(int i, double egyeff, double dtime, double trelax);
 
@@ -234,7 +235,7 @@ void cooling_and_starformation(void)
     walltime_measure("/Misc");
 
     stars_spawned = stars_converted = 0;
-    sum_sm = sum_mass_stars = 0;
+    sum_sm = sum_mass_stars = localsfr = 0;
 
     TreeWalk tw[1] = {0};
 
@@ -259,25 +260,9 @@ void cooling_and_starformation(void)
         /* Note: New tree construction can be avoided because of  `force_add_star_to_tree()' */
     }
 
-    double totsfrrate, localsfr=0;
-    int i;
-    /* 
-     * The code here is somewhat precarious.
-     * SFR may turn gas into star, but we still want to keep counting
-     * their SFR.
-     *
-     * However, we do require the garbage marked during exchange
-     * to be removed from the slots for this to work. IN the future
-     * we won't be exactly preserving the condition.
-     */
-    #pragma omp parallel for reduction(+: localsfr)
-    for(i = 0; i < SlotsManager->info[0].size; i++)
-        localsfr += SphP[i].Sfr;
+    double total_sum_mass_stars, total_sm, totsfrrate;
 
-    MPI_Allreduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-
-    double total_sum_mass_stars, total_sm;
-
+    MPI_Reduce(&localsfr, &totsfrrate, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_sm, &total_sm, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     MPI_Reduce(&sum_mass_stars, &total_sum_mass_stars, 1, MPI_DOUBLE, MPI_SUM, 0, MPI_COMM_WORLD);
     if(ThisTask == 0)
@@ -301,7 +286,7 @@ void cooling_and_starformation(void)
 
     /* now lets make winds. this has to be after NumPart is updated */
     if(All.WindOn && !HAS(All.WindModel, WIND_SUBGRID)){
-        Wind = (struct winddata * ) mymalloc("WindExtraData", NumPart * sizeof(struct winddata));
+        Wind = (struct winddata * ) mymalloc("WindExtraData", PartManager->NumPart * sizeof(struct winddata));
         TreeWalk tw[1] = {0};
 
         tw->ev_label = "SFR_WIND";
@@ -387,10 +372,6 @@ cooling_direct(int i) {
     /*  the actual time-step */
     double dloga = get_dloga_for_bin(P[i].TimeBin);
     double dtime = dloga / All.cf.hubble;
-
-#ifdef SFR
-    SPHP(i).Sfr = 0;
-#endif
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
@@ -767,6 +748,7 @@ static void cooling_relaxed(int i, double egyeff, double dtime, double trelax) {
 
 }
 
+/*Returns str formation rate for this particle in solar per year*/
 static void starformation(int i) {
 
     double mass_of_star = find_star_mass(i);
@@ -785,11 +767,8 @@ static void starformation(int i) {
     double p = sm / P[i].Mass;
 
     sum_sm += P[i].Mass * (1 - exp(-p));
-
-    /* convert to Solar per Year but is this damn variable otherwise used
-     * at all? */
-    SPHP(i).Sfr = rateOfSF *
-        (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
+    /* convert to Solar per Year.*/
+    localsfr += rateOfSF * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
     double w = get_random_number(P[i].ID);
     SPHP(i).Metallicity += w * METAL_YIELD * (1 - exp(-p));
@@ -822,7 +801,6 @@ static void starformation(int i) {
                 make_particle_wind(P[i].ID, i, All.WindSpeed * All.cf.a, zero);
         }
     }
-
 
 }
 

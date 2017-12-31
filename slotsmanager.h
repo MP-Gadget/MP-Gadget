@@ -1,7 +1,9 @@
 #ifndef __GARBAGE_H
 #define __GARBAGE_H
+#include <mpi.h>
 #include "event.h"
 #include "types.h"
+#include "partmanager.h"
 
 extern struct slots_manager_type {
     char * Base; /* memory ptr that holds of all slots */
@@ -101,7 +103,6 @@ struct sph_particle_data
 #endif
 
 #ifdef SFR
-    MyFloat Sfr;
     MyFloat DelayTime;		/*!< SH03: remaining maximum decoupling time of wind particle */
                             /*!< VS08: remaining waiting for wind particle to be eligible to form winds again */
 #endif

@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 #include <math.h>
+
+#include "types.h"
 #include "mymalloc.h"
 #include "endrun.h"
 #include "powerspectrum.h"
@@ -15,9 +17,9 @@ void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins,
     PowerSpectrum->size = nbins;
     const int nalloc = nbins*nthreads;
     PowerSpectrum->nalloc = nalloc;
-    PowerSpectrum->k = mymalloc("Powerspectrum", sizeof(double) * (2*nalloc + 3*nbins));
-    PowerSpectrum->P = PowerSpectrum-> k+nalloc;
-    PowerSpectrum->logknu = PowerSpectrum-> k+2*nalloc;
+    PowerSpectrum->kk = mymalloc("Powerspectrum", sizeof(double) * (2*nalloc + 3*nbins));
+    PowerSpectrum->Power = PowerSpectrum->kk + nalloc;
+    PowerSpectrum->logknu = PowerSpectrum->kk + 2*nalloc;
     PowerSpectrum->Pnuratio = PowerSpectrum-> logknu + nbins;
     PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(int64_t) * nalloc);
 }
@@ -25,8 +27,8 @@ void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins,
 /*Zero memory for the power spectrum*/
 void powerspectrum_zero(struct _powerspectrum * PowerSpectrum)
 {
-    memset(PowerSpectrum->k, 0, sizeof(double) * PowerSpectrum->nalloc);
-    memset(PowerSpectrum->P, 0, sizeof(double) * PowerSpectrum->nalloc);
+    memset(PowerSpectrum->kk, 0, sizeof(double) * PowerSpectrum->nalloc);
+    memset(PowerSpectrum->Power, 0, sizeof(double) * PowerSpectrum->nalloc);
     memset(PowerSpectrum->Nmodes, 0, sizeof(double) * PowerSpectrum->nalloc);
     PowerSpectrum->Norm = 0;
 }
@@ -39,27 +41,27 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
     int i,j;
     for(i = 0; i < PowerSpectrum->size; i ++) {
         for(j = 1; j < PowerSpectrum->nalloc/PowerSpectrum->size; j++) {
-            PowerSpectrum->P[i] += PowerSpectrum->P[i+ PowerSpectrum->size*j];
-            PowerSpectrum->k[i] += PowerSpectrum->k[i+ PowerSpectrum->size*j];
+            PowerSpectrum->Power[i] += PowerSpectrum->Power[i+ PowerSpectrum->size*j];
+            PowerSpectrum->kk[i] += PowerSpectrum->kk[i+ PowerSpectrum->size*j];
             PowerSpectrum->Nmodes[i] += PowerSpectrum->Nmodes[i +PowerSpectrum->size*j];
         }
     }
 
     /*Now sum power spectrum MPI storage*/
     MPI_Allreduce(MPI_IN_PLACE, &(PowerSpectrum->Norm), 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->k, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->P, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
-    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->kk, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Power, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /*Now fix power spectrum units*/
     for(i = 0; i < PowerSpectrum->size; i ++) {
         if(PowerSpectrum->Nmodes[i] == 0) continue;
-        PowerSpectrum->P[i] /= PowerSpectrum->Nmodes[i];
-        PowerSpectrum->P[i] /= PowerSpectrum->Norm;
-        PowerSpectrum->k[i] /= PowerSpectrum->Nmodes[i];
+        PowerSpectrum->Power[i] /= PowerSpectrum->Nmodes[i];
+        PowerSpectrum->Power[i] /= PowerSpectrum->Norm;
+        PowerSpectrum->kk[i] /= PowerSpectrum->Nmodes[i];
         /* Mpc/h units */
-        PowerSpectrum->k[i] *= 2 * M_PI / (BoxSize_in_cm / 3.085678e24 );
-        PowerSpectrum->P[i] *= pow(BoxSize_in_cm / 3.085678e24 , 3.0);
+        PowerSpectrum->kk[i] *= 2 * M_PI / (BoxSize_in_cm / 3.085678e24 );
+        PowerSpectrum->Power[i] *= pow(BoxSize_in_cm / 3.085678e24 , 3.0);
     }
 }
 
@@ -79,8 +81,8 @@ void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * Outp
             fprintf(fp, "# k P N P(z=0)\n");
             for(i = 0; i < PowerSpectrum->size; i ++) {
                 if(PowerSpectrum->Nmodes[i] == 0) continue;
-                fprintf(fp, "%g %g %ld %g\n", PowerSpectrum->k[i], PowerSpectrum->P[i], PowerSpectrum->Nmodes[i],
-                            PowerSpectrum->P[i] / (D1 * D1));
+                fprintf(fp, "%g %g %ld %g\n", PowerSpectrum->kk[i], PowerSpectrum->Power[i], PowerSpectrum->Nmodes[i],
+                            PowerSpectrum->Power[i] / (D1 * D1));
             }
             fclose(fp);
         }

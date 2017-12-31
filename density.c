@@ -146,8 +146,8 @@ density_internal(int update_hsml)
 
     walltime_measure("/Misc");
 
-    DENSITY_GET_PRIV(tw)->Left = (double *) mymalloc("DENSITY_GET_PRIV(tw)->Left", NumPart * sizeof(double));
-    DENSITY_GET_PRIV(tw)->Right = (double *) mymalloc("DENSITY_GET_PRIV(tw)->Right", NumPart * sizeof(double));
+    DENSITY_GET_PRIV(tw)->Left = (double *) mymalloc("DENSITY_GET_PRIV(tw)->Left", PartManager->NumPart * sizeof(double));
+    DENSITY_GET_PRIV(tw)->Right = (double *) mymalloc("DENSITY_GET_PRIV(tw)->Right", PartManager->NumPart * sizeof(double));
 
     DENSITY_GET_PRIV(tw)->update_hsml = update_hsml;
 

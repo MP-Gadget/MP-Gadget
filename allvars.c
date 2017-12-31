@@ -15,7 +15,6 @@
 
 #include "allvars.h"
 
-
 /*********************************************************/
 /*  Global variables                                     */
 /*********************************************************/
@@ -24,14 +23,6 @@
 
 int ThisTask;			/*!< the number of the local processor  */
 int NTask;			/*!< number of processors */
-
-int RestartFlag;		/*!< taken from command line used to start code. 0 is normal start-up from
-				   initial conditions, 1 is resuming a run from a set of restart files, while 2
-				   marks a restart from a snapshot file. */
-int RestartSnapNum;
-
-/* Local number of particles */
-int NumPart;
 
 /* variables for input/output , usually only used on process 0 */
 
@@ -42,12 +33,10 @@ FILE 			/*!< file handle for info.txt log-file. */
 
 #ifdef SFR
 FILE *FdSfr;			/*!< file handle for sfr.txt log-file. */
-FILE *FdSfrDetails;
 #endif
 
 #ifdef BLACK_HOLES
 FILE *FdBlackHoles;		/*!< file handle for blackholes.txt log-file. */
-FILE *FdBlackHolesDetails;
 #endif
 
 /*! This structure contains data which is the SAME for all tasks (mostly code parameters read from the
@@ -56,13 +45,3 @@ FILE *FdBlackHolesDetails;
  * them into this structure.
  */
 struct global_data_all_processes All;
-
-#ifdef _OPENMP
-uint64_t BlockedParticleDrifts = 0;
-uint64_t TotalParticleDrifts = 0;
-#endif
-/*! This structure holds all the information that is
- * stored for each particle of the simulation.
- */
-struct particle_data *P;	/*!< holds particle data on local processor */
-

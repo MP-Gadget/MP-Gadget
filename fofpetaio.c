@@ -9,6 +9,7 @@
 #include "mpsort.h"
 
 #include "allvars.h"
+#include "partmanager.h"
 #include "petaio.h"
 #include "exchange.h"
 #include "fof.h"
@@ -82,11 +83,11 @@ void fof_save_particles(int num) {
         fof_distribute_particles();
         walltime_measure("/FOF/IO/Distribute");
 
-        int * selection = mymalloc("Selection", sizeof(int) * NumPart);
+        int * selection = mymalloc("Selection", sizeof(int) * PartManager->NumPart);
 
         int ptype_offset[6]={0};
         int ptype_count[6]={0};
-        petaio_build_selection(selection, ptype_offset, ptype_count, NumPart, fof_petaio_select_func);
+        petaio_build_selection(selection, ptype_offset, ptype_count, PartManager->NumPart, fof_petaio_select_func);
 
         /*Sort each type individually*/
         for(i = 0; i < 6; i++)
@@ -162,18 +163,18 @@ static int fof_cmp_origin(const void * c1, const void * c2) {
 
 static void fof_distribute_particles() {
     int i;
-    struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * NumPart);
+    struct PartIndex * pi = mymalloc("PartIndex", sizeof(struct PartIndex) * PartManager->NumPart);
 
     int64_t NpigLocal = 0;
     int GrNrMax = -1;	/* will mark particles that are not in any group */
     int GrNrMaxGlobal = 0;
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         int j = NpigLocal;
         if(P[i].GrNr < 0) continue;
         if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
 /* Yu: found it! this shall be int64 */
-        // pi[j].origin =  ThisTask * All.MaxPart + i;
-        pi[j].origin = ((uint64_t) ThisTask) * All.MaxPart + i;
+        // pi[j].origin =  ThisTask * PartManager->MaxPart + i;
+        pi[j].origin = ((uint64_t) ThisTask) * PartManager->MaxPart + i;
         pi[j].sortKey = P[i].GrNr;
         NpigLocal ++;
     }
@@ -184,7 +185,7 @@ static void fof_distribute_particles() {
             fof_radix_sortkey, 8, NULL, MPI_COMM_WORLD);
 
 #pragma omp parallel for
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         P[i].origintask = ThisTask;
         P[i].targettask = ThisTask; //P[i].ID % NTask; /* default target */
     }
@@ -206,7 +207,7 @@ static void fof_distribute_particles() {
     /* return pi to the original processors */
     mpsort_mpi(pi, NpigLocal, sizeof(struct PartIndex), fof_radix_origin, 8, NULL, MPI_COMM_WORLD);
     for(i = 0; i < NpigLocal; i ++) {
-        int index = pi[i].origin % All.MaxPart;
+        int index = pi[i].origin % PartManager->MaxPart;
         P[index].targettask = pi[i].targetTask;
     }
     myfree(pi);
@@ -216,7 +217,7 @@ static void fof_distribute_particles() {
     /* sort SPH and Others independently */
 
     GrNrMax = -1;
-    for(i = 0; i < NumPart; i ++) {
+    for(i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0) continue;
         if(P[i].GrNr > GrNrMax) GrNrMax = P[i].GrNr;
     }
@@ -256,12 +257,12 @@ static void fof_write_header(BigFile * bf) {
     for (k = 0; k < 6; k ++) {
         npartLocal[k] = 0;
     }
-    for (i = 0; i < NumPart; i ++) {
+    for (i = 0; i < PartManager->NumPart; i ++) {
         if(P[i].GrNr < 0) continue; /* skip those not in groups */
         npartLocal[P[i].Type] ++;
     }
 
-    MPI_Allreduce(npartLocal, npartTotal, 6, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(npartLocal, npartTotal, 6, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     
     big_block_set_attr(&bh, "NumPartInGroupTotal", npartTotal, "u8", 6);
     big_block_set_attr(&bh, "NumFOFGroupsTotal", &TotNgroups, "u8", 1);

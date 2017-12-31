@@ -268,24 +268,11 @@ void compute_accelerations(int is_PM, int FirstStep, int GasEnabled)
 
 void write_cpu_log(int NumCurrentTiStep)
 {
-    int64_t totBlockedPD = -1;
-    int64_t totTotalPD = -1;
-
-#ifdef _OPENMP
-    MPI_Reduce(&BlockedParticleDrifts, &totBlockedPD, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-    MPI_Reduce(&TotalParticleDrifts, &totTotalPD, 1, MPI_LONG_LONG, MPI_SUM, 0, MPI_COMM_WORLD);
-#endif
-
     walltime_summary(0, MPI_COMM_WORLD);
 
     if(ThisTask == 0)
     {
-
         fprintf(FdCPU, "Step %d, Time: %g, MPIs: %d Threads: %d Elapsed: %g\n", NumCurrentTiStep, All.Time, NTask, All.NumThreads, All.CT.ElapsedTime);
-#ifdef _OPENMP
-        fprintf(FdCPU, "Blocked Particle Drifts: %ld\n", totBlockedPD);
-        fprintf(FdCPU, "Total Particle Drifts: %ld\n", totTotalPD);
-#endif
         fflush(FdCPU);
     }
     walltime_report(FdCPU, 0, MPI_COMM_WORLD);

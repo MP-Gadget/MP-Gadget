@@ -4,8 +4,8 @@
 #include <stdint.h>
 
 struct _powerspectrum {
-    double * k;
-    double * P;
+    double * kk;
+    double * Power;
     double * logknu;
     double * Pnuratio;
     int64_t * Nmodes;

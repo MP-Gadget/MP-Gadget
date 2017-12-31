@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include "allvars.h"
+#include "partmanager.h"
 #include "proto.h"
 #include "cosmology.h"
 #include "endrun.h"

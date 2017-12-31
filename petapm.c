@@ -5,6 +5,7 @@
 #include <math.h>
 /* do NOT use complex.h it breaks the code */
 
+#include "types.h"
 #include "petapm.h"
 #include "openmpsort.h"
 #include "mymalloc.h"
@@ -88,9 +89,9 @@ static PetaPMRegion * regions = NULL; /* created by 'prepare' callback in petapm
 static int Nregions = 0;
 
 static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
-#define POS(i) ((double*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_pos]))
-#define MASS(i) ((float*) (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_mass]))
-#define REGION(i) ((int*)  (&((char*)CPS->P)[CPS->elsize * (i) + CPS->offset_regionind]))
+#define POS(i) ((double*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_pos]))
+#define MASS(i) ((float*) (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_mass]))
+#define REGION(i) ((int*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_regionind]))
 #define INACTIVE(i) (CPS->active && !CPS->active(i))
 
 PetaPMRegion * petapm_get_fourier_region() {
@@ -898,7 +899,7 @@ static void put_particle_to_mesh(int i, double * mesh, double weight) {
 }
 static int64_t reduce_int64(int64_t input) {
     int64_t result = 0;
-    MPI_Allreduce(&input, &result, 1, MPI_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&input, &result, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
     return result;
 }
 

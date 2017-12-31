@@ -6,6 +6,7 @@
 #include <mpi.h>
 #include "genic/allvars.h"
 #include "genic/proto.h"
+#include "types.h"
 #include "endrun.h"
 #include "bigfile-mpi.h"
 #include "cosmology.h"
@@ -47,7 +48,7 @@ static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, cha
 
 void write_particle_data(int Type, BigFile * bf) {
     int64_t numpart_64 = NumPart, TotNumPart;
-    MPI_Allreduce(&numpart_64, &TotNumPart, 1, MPI_LONG_LONG, MPI_SUM, MPI_COMM_WORLD);
+    MPI_Allreduce(&numpart_64, &TotNumPart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /* Write particles */
     saveblock(bf, &P[0].Density, Type, "ICDensity", "f4", 1, TotNumPart);
