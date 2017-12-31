@@ -546,7 +546,6 @@ void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, 
 
                     for(n = 0; n < 8; n++)
                         Nodes[*nextfree].u.suns[n] = -1;
-                    Nodes[*nextfree].u.d.hmax = 0;
 
                     if(TopNodes[TopNodes[topnode].Daughter + sub].Daughter == -1)
                         TopLeaves[TopNodes[TopNodes[topnode].Daughter + sub].Leaf].treenode = *nextfree;
