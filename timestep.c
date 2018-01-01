@@ -383,10 +383,7 @@ sph_VelPred(int i, double * VelPred)
 static inline double _EntPred(int i)
 {
     const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
-    double epred = SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr;
-    /*This mirrors the entropy limiter in do_the_short_range_kick*/
-    if(epred < 0.5 * SPHP(i).Entropy)
-        epred = 0.5 * SPHP(i).Entropy;
+    const double epred = SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr;
     return epred;
 }
 
