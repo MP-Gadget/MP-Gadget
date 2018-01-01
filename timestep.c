@@ -452,13 +452,9 @@ get_timestep_ti(const int p, const inttime_t dti_max)
                 P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]
               );
         if(P[p].Type == 0)
-            message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1],
-                    SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb);
-#ifdef DENSITY_INDEPENDENT_SPH
-        if(P[p].Type == 0)
-            message(1, "egyrho=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g\n", SPHP(p).EOMDensity,
-                    SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy);
-#endif
+            message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g egyrho=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g\n",
+                    SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb, SPHP(p).EOMDensity,
+                    SPHP(p).DhsmlEOMDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy);
 #ifdef BLACK_HOLES
         if(P[p].Type == 0) {
             message(1, "injected_energy = %g\n" , SPHP(p).Injected_BH_Energy);
