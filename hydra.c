@@ -164,6 +164,9 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
     }
 
     TREEWALK_REDUCE(SPHP(place).DtEntropy, result->DtEntropy);
+    /* Translate energy change rate into entropy change rate.
+     Must be done here because neighbours potentially use DtEntropy.*/
+    SPHP(place).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(place).EOMDensity, GAMMA_MINUS1));
 
     P[place].GravCost += All.HydroCostFactor * All.cf.a * result->Ninteractions;
 
@@ -347,7 +350,6 @@ hydro_ngbiter(
 #endif
 
         O->DtEntropy += (0.5 * hfc_visc * vdotr2);
-
     }
     O->Ninteractions++;
 }
@@ -363,9 +365,6 @@ hydro_postprocess(int i, TreeWalk * tw)
 {
     if(P[i].Type == 0)
     {
-        /* Translate energy change rate into entropy change rate */
-        SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
-
 #ifdef SFR
         /* if we have winds, we decouple particles briefly if delaytime>0 */
         if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
