@@ -78,8 +78,10 @@ struct sph_particle_data
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
     MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
 #define EOMDensity EgyWtDensity
+#define DhsmlEOMDensityFactor DhsmlEgyDensityFactor
 #else
 #define EOMDensity Density
+#define DhsmlEOMDensityFactor DhsmlDensityFactor
 #endif
 
     MyFloat Metallicity;		/*!< metallicity of gas particle */
