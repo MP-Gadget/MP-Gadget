@@ -331,34 +331,17 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
             }
         }
 
-        /* In case of cooling, we prevent that the entropy (and
-           hence temperature) decreases by more than a factor 0.5.
-           FIXME: Why is this and the last thing here? Should not be needed. */
-
-        if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
-            SPHP(i).Entropy *= 0.5;
-        else
-            SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
+        /*Evolve the entropy*/
+        SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
 
         /* Implement an entropy floor*/
-        if(All.MinEgySpec)
+        const double minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
+        if(SPHP(i).Entropy < minentropy)
         {
-            const double minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
-            if(SPHP(i).Entropy < minentropy)
-            {
-                SPHP(i).Entropy = minentropy;
-                SPHP(i).DtEntropy = 0;
-            }
+            SPHP(i).Entropy = minentropy;
+            SPHP(i).DtEntropy = 0;
         }
-
-        /* In case the timestep increases in the new step, we
-           make sure that we do not 'overcool' by bounding the entropy rate of next step */
-        double dt_entr_next = get_dloga_for_bin(P[i].TimeBin) / 2;
-
-        if(SPHP(i).DtEntropy * dt_entr_next < - 0.5 * SPHP(i).Entropy)
-            SPHP(i).DtEntropy = -0.5 * SPHP(i).Entropy / dt_entr_next;
     }
-
 }
 
 /*Get the predicted velocity for a particle
