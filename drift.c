@@ -70,7 +70,7 @@ int drift_particle_full(int i, inttime_t ti1, int blocking) {
 static inline MyFloat
 drift_entropy(const int i, const double dloga)
 {
-    const MyFloat CurEntropy = SPHP(i).DriftEntropy;
+    const MyFloat CurEntropy = SPHP(i).Entropy;
     const MyFloat DtEntropy = SPHP(i).DtEntropy;
     /*New entropy variable*/
     MyFloat Entropy = CurEntropy + DtEntropy * dloga;
@@ -173,13 +173,10 @@ static void real_drift_particle(int i, inttime_t ti1)
 
         if(P[i].Hsml < All.MinGasHsml)
             P[i].Hsml = All.MinGasHsml;
-        /*Evolve entropy at drift time*/
-        /* XXX: the kick factor of entropy is dlog a? */
+        /*Evolve entropy at drift time: evolved dlog a. */
         double dloga = dloga_from_dti(ti1 - ti0);
-        SPHP(i).DriftEntropy = drift_entropy(i, dloga);
+        SPHP(i).Entropy = drift_entropy(i, dloga);
         P[i].Ti_drift = ti1;
-        if(fabs(SPHP(i).DriftEntropy/ EntropyPred(i) - 1) > 1e-4)
-            endrun(2, "Two! i=%d ti = %d %d (loga=%g) ID = %ld (ee= %g) pred = %g != drift = %g dloga = %g (%d->%d) DtEntropy = %g\n",i, P[i].Ti_drift, P[i].Ti_kick, dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick), P[i].ID, SPHP(i).Entropy, EntropyPred(i), SPHP(i).DriftEntropy, dloga, ti0, ti1, SPHP(i).DtEntropy);
     }
 
     P[i].Ti_drift = ti1;

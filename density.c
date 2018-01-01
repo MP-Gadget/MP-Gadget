@@ -345,11 +345,9 @@ density_ngbiter(
         O->DhsmlDensity += mass_j * density_kernel_dW(&iter->kernel, u, wk, dwk);
 
 #ifdef DENSITY_INDEPENDENT_SPH
-        double EntPred = pow(EntropyPred(other), 1/GAMMA);
-        if(fabs(EntropyPred(other)/SPHP(other).DriftEntropy - 1) > 1e-5)
-            endrun(2, "i=%d ID = %ld pred = %g != drift = %g\n",other, P[other].ID, EntropyPred(other), SPHP(other).DriftEntropy);
-        O->EgyRho += mass_j * EntPred * wk;
-        O->DhsmlEgyDensity += mass_j * EntPred * density_kernel_dW(&iter->kernel, u, wk, dwk);
+        const double Ent = pow(SPHP(other).Entropy, 1/GAMMA);
+        O->EgyRho += mass_j * Ent * wk;
+        O->DhsmlEgyDensity += mass_j * Ent * density_kernel_dW(&iter->kernel, u, wk, dwk);
 #endif
 
 #ifdef SPH_GRAD_RHO
@@ -414,15 +412,13 @@ density_postprocess(int i, TreeWalk * tw)
                 SPHP(i).DhsmlDensityFactor = 1;
 
 #ifdef DENSITY_INDEPENDENT_SPH
-            const double EntPred = pow(EntropyPred(i), 1/GAMMA);
-            if(fabs(EntropyPred(i)/SPHP(i).DriftEntropy - 1) > 1e-5)
-                endrun(2, "Two! i=%d ti = %d ID = %ld pred = %g != drift = %g\n",i, P[i].TimeBin, P[i].ID, EntropyPred(i), SPHP(i).DriftEntropy);
+            const double iEnt = pow(SPHP(i).Entropy, 1/GAMMA);
 
-            if((EntPred > 0) && (SPHP(i).EgyWtDensity>0))
+            if((iEnt > 0) && (SPHP(i).EgyWtDensity>0))
             {
                 SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);
                 SPHP(i).DhsmlEgyDensityFactor *= -SPHP(i).DhsmlDensityFactor;
-                SPHP(i).EgyWtDensity /= EntPred;
+                SPHP(i).EgyWtDensity /= iEnt;
             } else {
                 /* Use non-weighted densities for this.
                  * This should never occur normally,

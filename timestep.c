@@ -309,7 +309,6 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
 
     if(P[i].Type == 0) {
         const double Fhydrokick = get_hydrokick_factor(tistart, tiend);
-        double dt_entr = dloga_from_dti(tiend-tistart); /* XXX: the kick factor of entropy is dlog a? */
         /* Add kick from hydro and SPH stuff */
         for(j = 0; j < 3; j++) {
             P[i].Vel[j] += SPHP(i).HydroAccel[j] * Fhydrokick;
@@ -330,17 +329,6 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
                 P[i].Vel[j] *= All.MaxGasVel * velfac / vv;
             }
         }
-
-        /*Evolve the entropy*/
-        SPHP(i).Entropy += SPHP(i).DtEntropy * dt_entr;
-
-        /* Implement an entropy floor*/
-        const double minentropy = All.MinEgySpec * GAMMA_MINUS1 / pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1);
-        if(SPHP(i).Entropy < minentropy)
-        {
-            SPHP(i).Entropy = minentropy;
-            SPHP(i).DtEntropy = 0;
-        }
     }
 }
 
@@ -360,23 +348,6 @@ sph_VelPred(int i, double * VelPred)
         VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]
             + P[i].GravPM[j] * FgravkickB + Fhydrokick2 * SPHP(i).HydroAccel[j];
     }
-}
-
-/* This gives the predicted entropy at the particle Kick timestep
- * for the density independent SPH code.
- * Watchout: with kddk, when the second k is applied, Ti_kick < Ti_drift. */
-double EntropyPred(int i)
-{
-    const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
-    const double epred = SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr;
-    return epred;
-}
-
-double
-PressurePred(int i)
-{
-    double epred = EntropyPred(i);
-    return pow(epred, 1/GAMMA) * pow(SPHP(i).EOMDensity, GAMMA);
 }
 
 double
@@ -485,8 +456,8 @@ get_timestep_ti(const int p, const inttime_t dti_max)
                     SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb);
 #ifdef DENSITY_INDEPENDENT_SPH
         if(P[p].Type == 0)
-            message(1, "egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, EntropyPred(p),
-                    SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy, PressurePred(p));
+            message(1, "egyrho=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g\n", SPHP(p).EOMDensity,
+                    SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy);
 #endif
 #ifdef BLACK_HOLES
         if(P[p].Type == 0) {

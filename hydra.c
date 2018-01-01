@@ -25,6 +25,13 @@
  *  computed, and where the rate of change of entropy due to the shock heating
  *  (via artificial viscosity) is computed.
  */
+
+double
+Pressure(int i)
+{
+    return pow(SPHP(i).Entropy, 1/GAMMA) * pow(SPHP(i).EOMDensity, GAMMA);
+}
+
 typedef struct {
     TreeWalkQueryBase base;
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -138,16 +145,13 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->Density = SPHP(place).Density;
 #ifdef DENSITY_INDEPENDENT_SPH
     input->EgyRho = SPHP(place).EgyWtDensity;
-    input->EntVarPred = pow(EntropyPred(place), 1/GAMMA);
-    if(fabs(EntropyPred(place)/SPHP(place).DriftEntropy - 1) > 1e-5)
-            endrun(2, "Two! i=%d ti = %d ID = %ld pred = %g != drift = %g\n",place, P[place].TimeBin, P[place].ID, EntropyPred(place), SPHP(place).DriftEntropy);
-
+    input->EntVarPred = pow(SPHP(place).Entropy, 1/GAMMA);
     input->DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
 #else
     input->DhsmlDensityFactor = SPHP(place).DhsmlDensityFactor;
 #endif
 
-    input->Pressure = PressurePred(place);
+    input->Pressure = Pressure(place);
     input->TimeBin = P[place].TimeBin;
     /* calculation of F1 */
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPHP(place).EOMDensity);
@@ -241,7 +245,7 @@ hydro_ngbiter(
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {
-        double Pressure_j = PressurePred(other);
+        double Pressure_j = Pressure(other);
         double p_over_rho2_j = Pressure_j / (SPHP(other).EOMDensity * SPHP(other).EOMDensity);
         double soundspeed_j = sqrt(GAMMA * Pressure_j / SPHP(other).EOMDensity);
 
@@ -307,7 +311,7 @@ hydro_ngbiter(
 #ifdef DENSITY_INDEPENDENT_SPH
         double hfc = hfc_visc;
         /* leading-order term */
-        double EntPred = pow(EntropyPred(other), 1/GAMMA);
+        double EntOther = pow(SPHP(other).Entropy, 1/GAMMA);
         /* Cannot enable this check: EntropyPred may be using the *new* DtEntropy if the neighbour particle has already
          * had that computed, and thus will predict a different entropy. This is actually a bad bug in existing code, because
          * it means output will depend on the order in which particles are sent through this loop, and thus the number of threads.
@@ -316,8 +320,8 @@ hydro_ngbiter(
 //             endrun(2, "Hydra! i=%d ti = %d %d (loga=%g) ID = %ld (ee= %g) pred = %g != drift = %g DtEntropy = %g\n",other, P[other].Ti_drift, P[other].Ti_kick, dloga_from_dti(P[other].Ti_drift - P[other].Ti_kick), P[other].ID, SPHP(other).Entropy, EntropyPred(other), SPHP(other).DriftEntropy, SPHP(other).DtEntropy);
 
         hfc += P[other].Mass *
-            (dwk_i*iter->p_over_rho2_i*EntPred/I->EntVarPred +
-             dwk_j*p_over_rho2_j*I->EntVarPred/EntPred) / r;
+            (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +
+             dwk_j*p_over_rho2_j*I->EntVarPred/EntOther) / r;
 
         /* enable grad-h corrections only if contrastlimit is non negative */
         if(All.DensityContrastLimit >= 0) {
@@ -387,7 +391,7 @@ hydro_postprocess(int i, TreeWalk * tw)
                 SPHP(i).DtEntropy = 0;
 
 #ifdef NOWINDTIMESTEPPING
-                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * PressurePred(i) / SPHP(i).Density);
+                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * Pressure(i) / SPHP(i).Density);
 #else
                 double windspeed = All.WindSpeed * All.cf.a;
                 const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;

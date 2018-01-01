@@ -375,13 +375,10 @@ cooling_direct(int i) {
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
-    double KickEntropy = SPHP(i).DriftEntropy + SPHP(i).DtEntropy * dloga/2;
-    if(fabs((SPHP(i).Entropy + SPHP(i).DtEntropy * dloga)/KickEntropy - 1) > 1e-5)
-        endrun(2, "Two! i=%d ti = %d ID = %ld pred = %g != drift = %g\n",i, P[i].TimeBin, P[i].ID, (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga), KickEntropy);
+    /*Entropy at kick time after this timestep: note this uses this timestep's DtEntropy!*/
+    const double KickEntropy = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga/2;
 
-    double unew = DMAX(All.MinEgySpec,
-            (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
-            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+    double unew = DMAX(All.MinEgySpec, KickEntropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
 #ifdef BLACK_HOLES
     if(SPHP(i).Injected_BH_Energy)
@@ -453,15 +450,12 @@ static int get_sfr_condition(int i) {
         flag = 1;		/* only normal cooling for particles in the wind */
 
     if(All.QuickLymanAlphaProbability > 0) {
-        double dloga = get_dloga_for_bin(P[i].TimeBin);
-        double unew = DMAX(All.MinEgySpec,
-                (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
-                GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+        const double dloga = get_dloga_for_bin(P[i].TimeBin);
+        /*Entropy at kick time after this timestep: note this uses this timestep's DtEntropy!*/
+        const double KickEntropy = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga/2;
 
-        /*Entropy at kick time after this timestep*/
-        double KickEntropy = SPHP(i).DriftEntropy + SPHP(i).DtEntropy * dloga/2;
-        if(fabs((SPHP(i).Entropy + SPHP(i).DtEntropy * dloga)/KickEntropy - 1) > 1e-5)
-            endrun(2, "Two! i=%d ti = %d ID = %ld pred = %g != drift = %g\n",i, P[i].TimeBin, P[i].ID, (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga), KickEntropy);
+        double unew = DMAX(All.MinEgySpec,
+                KickEntropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
         double temp = u_to_temp_fac * unew;
 

@@ -83,8 +83,7 @@ struct sph_particle_data
 #endif
 
     MyFloat Metallicity;		/*!< metallicity of gas particle */
-    MyFloat Entropy;		/*!< Entropy at current kick time (actually entropic function) of particle */
-    MyFloat DriftEntropy;   /*!< Entropy at current drift time*/
+    MyFloat Entropy;		/*!< Entropy (actually entropic function) at current drift time of particle */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */

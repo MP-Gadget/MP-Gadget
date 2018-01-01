@@ -277,7 +277,6 @@ setup_smoothinglengths(int RestartSnapNum)
                 if(P[i].Type == 0) {
                     SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EgyWtDensity / a3 , GAMMA_MINUS1);
                     olddensity[i] = SPHP(i).EgyWtDensity;
-                    SPHP(i).DriftEntropy = SPHP(i).Entropy;
                 }
             }
             density_update();
@@ -314,7 +313,6 @@ setup_smoothinglengths(int RestartSnapNum)
             if(P[i].Type == 0) {
                 /* EgyWtDensity stabilized, now we convert from energy to entropy*/
                 SPHP(i).Entropy = GAMMA_MINUS1 * u_init / pow(SPHP(i).EOMDensity/a3 , GAMMA_MINUS1);
-                SPHP(i).DriftEntropy = SPHP(i).Entropy;
             }
         }
     }
