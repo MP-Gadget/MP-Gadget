@@ -38,7 +38,7 @@ typedef struct {
     MyFloat Density;
     MyFloat Pressure;
     MyFloat F1;
-    MyFloat DhsmlDensityFactor;
+    MyFloat DhsmlEOMDensityFactor;
     signed char TimeBin;
 
 } TreeWalkQueryHydro;
@@ -139,10 +139,8 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 #ifdef DENSITY_INDEPENDENT_SPH
     input->EgyRho = SPHP(place).EgyWtDensity;
     input->EntVarPred = EntropyPred(place);
-    input->DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
-#else
-    input->DhsmlDensityFactor = SPHP(place).DhsmlDensityFactor;
 #endif
+    input->DhsmlEOMDensityFactor = SPHP(place).DhsmlEOMDensityFactor;
 
     input->Pressure = PressurePred(place);
     input->TimeBin = P[place].TimeBin;
@@ -298,8 +296,11 @@ lightcone-128.lua
 #endif
         }
         double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
-#ifdef DENSITY_INDEPENDENT_SPH
         double hfc = hfc_visc;
+#ifndef DENSITY_INDEPENDENT_SPH
+        double r1 = 1, r2 = 1;
+#else
+        double r1 = 0, r2 = 0;
         /* leading-order term */
 
         double EntPred = EntropyPred(other);
@@ -310,28 +311,19 @@ lightcone-128.lua
 
         /* enable grad-h corrections only if contrastlimit is non negative */
         if(All.DensityContrastLimit >= 0) {
-            double r1 = I->EgyRho / I->Density;
-            double r2 = SPHP(other).EgyWtDensity / SPHP(other).Density;
+            r1 = I->EgyRho / I->Density;
+            r2 = SPHP(other).EgyWtDensity / SPHP(other).Density;
             if(All.DensityContrastLimit > 0) {
                 /* apply the limit if it is enabled > 0*/
-                if(r1 > All.DensityContrastLimit) {
-                    r1 = All.DensityContrastLimit;
-                }
-                if(r2 > All.DensityContrastLimit) {
-                    r2 = All.DensityContrastLimit;
-                }
+                r1 = DMIN(r1, All.DensityContrastLimit);
+                r2 = DMIN(r2, All.DensityContrastLimit);
             }
-            /* grad-h corrections */
-            /* I->DhsmlDensityFactor is actually EgyDensityFactor */
-            hfc += P[other].Mass *
-                (dwk_i*iter->p_over_rho2_i*r1*I->DhsmlDensityFactor +
-                 dwk_j*p_over_rho2_j*r2*SPHP(other).DhsmlEgyDensityFactor) / r;
         }
-#else
-        /* Formulation derived from the Lagrangian */
-        double hfc = hfc_visc + P[other].Mass * (iter->p_over_rho2_i *I->DhsmlDensityFactor * dwk_i
-                + p_over_rho2_j * SPHP(other).DhsmlDensityFactor * dwk_j) / r;
 #endif
+        /* grad-h corrections: enabled if DENSITY_INDEPENDENT_SPH is off, or DensityConstrastLimit >= 0 */
+        /* Formulation derived from the Lagrangian */
+        hfc += P[other].Mass * (iter->p_over_rho2_i*I->DhsmlEOMDensityFactor * dwk_i * r1
+                 + p_over_rho2_j*SPHP(other).DhsmlEOMDensityFactor * dwk_j * r2) / r;
 
 #ifdef SFR
         if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {

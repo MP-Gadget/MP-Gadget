@@ -509,13 +509,9 @@ get_timestep_ti(const int p, const inttime_t dti_max)
                 P[p].GravPM[0], P[p].GravPM[1], P[p].GravPM[2]
               );
         if(P[p].Type == 0)
-            message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g\n", SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1],
-                    SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb);
-#ifdef DENSITY_INDEPENDENT_SPH
-        if(P[p].Type == 0)
-            message(1, "egyrho=%g entvarpred=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g, Pressure=%g\n", SPHP(p).EgyWtDensity, EntropyPred(p),
-                    SPHP(p).DhsmlEgyDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy, PressurePred(p));
-#endif
+            message(1, "hydro-frc=(%g|%g|%g) dens=%g hsml=%g numngb=%g egyrho=%g dhsmlegydensityfactor=%g Entropy=%g, dtEntropy=%g\n",
+                    SPHP(p).HydroAccel[0], SPHP(p).HydroAccel[1], SPHP(p).HydroAccel[2], SPHP(p).Density, P[p].Hsml, P[p].NumNgb, SPHP(p).EOMDensity,
+                    SPHP(p).DhsmlEOMDensityFactor, SPHP(p).Entropy, SPHP(p).DtEntropy);
 #ifdef BLACK_HOLES
         if(P[p].Type == 0) {
             message(1, "injected_energy = %g\n" , SPHP(p).Injected_BH_Energy);
@@ -529,7 +525,7 @@ get_timestep_ti(const int p, const inttime_t dti_max)
 
 /*! This function computes the PM timestep of the system based on
  *  the rms velocities of particles. For cosmological simulations, the criterion used is that the rms
- *  displacement should be at most a fraction MaxRMSDisplacementFac of the mean particle separation. 
+ *  displacement should be at most a fraction MaxRMSDisplacementFac of the mean particle separation.
  *  Note that the latter is estimated using the assigned particle masses, separately for each particle type.
  */
 double
