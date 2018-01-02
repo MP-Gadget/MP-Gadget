@@ -260,6 +260,10 @@ static void blackhole_accretion_postprocess(int i) {
 
     /* disable jumping in predict.c*/
     BHP(i).JumpToMinPot = 0;
+    message(1, "xxx_BH_xxx Drifting from %g %g %g to %g %g %g , Time: %g, Time Bin: %2d, id = %ld.\n",
+            P[i].Pos[0],P[i].Pos[1],P[i].Pos[2],
+            BHP(i).MinPotPos[0],BHP(i).MinPotPos[1],BHP(i).MinPotPos[2],
+            All.Time, P[i].TimeBin, P[i].ID);
     /* jumping here. may break consistency of tree. */
     for(k = 0; k < 3; k++)
        P[i].Pos[k] = BHP(i).MinPotPos[k];
