@@ -4,8 +4,6 @@ AR ?= ar
 LOW_PRECISION ?= double
 HIGH_PRECISION ?= double
 
-VERSION = 5.0.0.dev0
-
 TARGETS = MP-Gadget MP-GenIC
 
 CFLAGS = -I$(CURDIR) -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) -I$(CURDIR)/depends/include
