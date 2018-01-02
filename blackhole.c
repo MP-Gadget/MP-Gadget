@@ -402,8 +402,9 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
                     vrel[d] = (P[other].Vel[d] - I->Vel[d]);
 
                 double vpec = sqrt(dotproduct(vrel, vrel)) / All.cf.a;
+                /* disable the sound speed check as we suspect this is causing the BH to drift away from center.*/
 
-                if(vpec <= 0.25 * I->Csnd)
+//                if(vpec <= 0.25 * I->Csnd)
                 {
                     O->BH_MinPot = P[other].Potential;
                     for(d = 0; d < 3; d++) {
