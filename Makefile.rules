@@ -4,6 +4,8 @@ AR ?= ar
 LOW_PRECISION ?= double
 HIGH_PRECISION ?= double
 
+VERSION = 5.0.0.dev0
+
 TARGETS = MP-Gadget MP-GenIC
 
 CFLAGS = -I$(CURDIR) -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) -I$(CURDIR)/depends/include
@@ -88,7 +90,7 @@ $(DESTDIR)/MP-GenIC: $(ICOBJS) $(DESTDIR)/libgadget-utils.a
 
 $(DESTDIR)/config.h: Makefile Makefile.rules $(CONFIG)
 	mkdir -p `dirname $@`
-	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" bash makeconfig.sh $@
+	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" VERSION="$(VERSION)" bash makeconfig.sh $@
 
 $(DESTDIR)/%.o: %.c $(INCL) $(DESTDIR)/config.h
 	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<

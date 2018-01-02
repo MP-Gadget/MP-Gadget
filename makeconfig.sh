@@ -9,8 +9,11 @@ for i in ${OPT}; do
 done
 echo '""'
 
+if [[ $VERSION = *dev* ]]; then
 GIT=`git describe --always --dirty --abbrev=10`
-echo '#define GADGET_VERSION "5.0.'${GIT}'"'
+VERSION=${VERSION}_${GIT/-/_}
+fi
+echo '#define GADGET_VERSION "'${VERSION}'"'
 echo '#define GADGET_TESTDATA_ROOT "'$PWD'"'
 ) > $1
 
