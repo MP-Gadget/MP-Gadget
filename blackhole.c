@@ -265,7 +265,7 @@ static void blackhole_accretion_postprocess(int i) {
             BHP(i).MinPotPos[0],BHP(i).MinPotPos[1],BHP(i).MinPotPos[2],
             All.Time, P[i].TimeBin, P[i].ID); */
     /* jumping here. may break consistency of tree. */
-    if(BHP(i).MinPot > 0.5 * BHPOTVALUEINIT) {
+    if(BHP(i).MinPot < 0.5 * BHPOTVALUEINIT) {
         for(k = 0; k < 3; k++)
            P[i].Pos[k] = BHP(i).MinPotPos[k];
     }
