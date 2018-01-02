@@ -50,6 +50,12 @@ static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
     /* Jumping of BH */
     if(P[i].Type == 5) {
         int k;
+        /* this is currently disabled due to blackhole.c setting it always to zero;
+         * for unclear reason blackholes are randomly not catching up with the potmin in bt-ii
+         * branch so I am reverting it to the bt-i logic, where only Pos tracks potmin (and not drifted
+         * in predict.c may crash PM randomly), and velocity
+         * tracks the accretion feedback (which made not much sense). */
+
         if (BHP(i).JumpToMinPot) {
             for(k = 0; k < 3; k++) {
                 double dx = NEAREST(P[i].Pos[k] - BHP(i).MinPotPos[k]);

@@ -311,6 +311,15 @@ blackhole(ForceTree * tree)
 static void
 blackhole_accretion_postprocess(int i, TreeWalk * tw)
 {
+    int k;
+
+    /* disable jumping in predict.c*/
+    BHP(i).JumpToMinPot = 0;
+    /* jumping here. may break consistency of tree. */
+    if(BHP(i).MinPot < 0.5 * BHPOTVALUEINIT) {
+        for(k = 0; k < 3; k++)
+           P[i].Pos[k] = BHP(i).MinPotPos[k];
+    }
     if(BHP(i).Density > 0)
     {
         BHP(i).Entropy /= BHP(i).Density;
@@ -371,7 +380,15 @@ blackhole_feedback_postprocess(int n, TreeWalk * tw)
 {
     if(BHP(n).accreted_Mass > 0)
     {
+        /* velocity feedback due to accretion; momentum conservation. */
+        int k;
+        for(k = 0; k < 3; k++)
+            P[n].Vel[k] =
+                (P[n].Vel[k] * P[n].Mass + BHP(n).accreted_momentum[k]) /
+                    (P[n].Mass + BHP(n).accreted_Mass);
+
         P[n].Mass += BHP(n).accreted_Mass;
+
         BHP(n).Mass += BHP(n).accreted_BHMass;
         BHP(n).accreted_Mass = 0;
     }
@@ -683,7 +700,7 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     {
         BHP(place).MinPot = remote->BH_MinPot;
         for(k = 0; k < 3; k++) {
-            /* Movement occurs in predict.c */
+            /* Movement occurs in predict.c if we set JumpToPotMin to 1. Currently we set it to 0.*/
             BHP(place).MinPotPos[k] = remote->BH_MinPotPos[k];
             BHP(place).MinPotVel[k] = remote->BH_MinPotVel[k];
         }
@@ -703,7 +720,6 @@ blackhole_accretion_reduce(int place, TreeWalkResultBHAccretion * remote, enum T
     TREEWALK_REDUCE(BHP(place).SurroundingGasVel[1], remote->GasVel[1]);
     TREEWALK_REDUCE(BHP(place).SurroundingGasVel[2], remote->GasVel[2]);
 
-    BHP(place).JumpToMinPot = 1;
 }
 
 static void
