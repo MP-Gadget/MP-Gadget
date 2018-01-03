@@ -441,7 +441,7 @@ int get_timestep(int p,		/*!< particle index */
                 dt = dt_accr;
         }
         /* XXX : temporarily set all balckhols to at least bin 10. */
-        BHP(p).TimeBinLimit = 10;
+        //BHP(p).TimeBinLimit = 10;
         if(BHP(p).TimeBinLimit > 0) {
             double dt_limiter = (1L << BHP(p).TimeBinLimit) * All.Timebase_interval / All.cf.hubble;
             if (dt_limiter < dt) dt = dt_limiter;
