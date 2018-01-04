@@ -27,7 +27,7 @@
  */
 
 double
-Pressure(int i)
+GetPressure(int i)
 {
     return pow(SPHP(i).Entropy, 1/GAMMA) * pow(SPHP(i).EOMDensity, GAMMA);
 }
@@ -149,7 +149,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
 #endif
     input->DhsmlEOMDensityFactor = SPHP(place).DhsmlEOMDensityFactor;
 
-    input->Pressure = Pressure(place);
+    input->Pressure = GetPressure(place);
     input->TimeBin = P[place].TimeBin;
     /* calculation of F1 */
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPHP(place).EOMDensity);
@@ -243,7 +243,7 @@ hydro_ngbiter(
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {
-        double Pressure_j = Pressure(other);
+        double Pressure_j = GetPressure(other);
         double p_over_rho2_j = Pressure_j / (SPHP(other).EOMDensity * SPHP(other).EOMDensity);
         double soundspeed_j = sqrt(GAMMA * Pressure_j / SPHP(other).EOMDensity);
 
