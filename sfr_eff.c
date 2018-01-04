@@ -375,7 +375,7 @@ cooling_direct(int i) {
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
-    /*Entropy at kick time after this timestep: note this uses this timestep's DtEntropy!*/
+    /*Entropy at kick time after current drift time: note this uses this timestep's DtEntropy!*/
     const double KickEntropy = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga/2;
 
     double unew = DMAX(All.MinEgySpec, KickEntropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
