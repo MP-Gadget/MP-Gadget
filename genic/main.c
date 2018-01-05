@@ -21,6 +21,7 @@ int main(int argc, char **argv)
   MPI_Init(&argc, &argv);
   MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
   MPI_Comm_size(MPI_COMM_WORLD, &NTask);
+  init_endrun();
 
   if(argc < 2)
     endrun(0,"Please pass a parameter file.\n");
