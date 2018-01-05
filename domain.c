@@ -1405,6 +1405,10 @@ domain_toptree_merge(struct local_topnode_data *treeA,
             for(j = 0; j < 8; j++)
             {
                 sub = treeB[noB].Daughter + j;
+                if(treeB[sub].Shift >= treeB[noB].Shift) {
+                    endrun(1, "Child node %d has shift %d, parent %d has shift %d. treeB is corrupt. \n",
+                        sub, treeB[sub].Shift, noB, treeB[noB].Shift);
+                }
                 domain_toptree_merge(treeA, treeB, noA, sub, treeASize);
             }
         }
