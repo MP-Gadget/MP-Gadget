@@ -175,8 +175,8 @@ void endrun(int where, const char * fmt, ...)
     } else {
         if(ThisTask == 0) {
             printf("[ %09.2f ] %s", MPI_Wtime() - _timestart, buf);
-            show_backtrace();
             fflush(stdout);
+            show_backtrace();
         }
         MPI_Abort(MPI_COMM_WORLD, where);
     }
