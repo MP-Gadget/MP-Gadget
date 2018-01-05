@@ -7,15 +7,23 @@
 #include <errno.h>
 
 #include "endrun.h"
-#ifdef STACKTRACE
 
+#ifdef STACKTRACE
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <execinfo.h>
+
 /* obtain a stacktrace with exec/fork. this is signal handler safe.
- * function based on xorg_backtrace_pstack;
- * extracted from  xorg-server/os/backtrace.c
+ * function based on xorg_backtrace_pstack; extracted from  xorg-server/os/backtrace.c
+ *
+ * an external tool is spawn to investigate the current stack of
+ * the crashing process. there are different opinions about
+ * calling fork in a signal handlers.
+ * But we are already crashing anyways if we land in a signal.
+ *
+ * if no external tool is found we fallback to glibc's backtrace.
+ *
  * */
 static int
 show_backtrace(void)
@@ -44,7 +52,10 @@ show_backtrace(void)
 
         snprintf(parent, sizeof(parent), "%d", getppid());
 
-        /* try a few tools in order */
+        /* YF: xorg didn't have the last NULL; which seems to be wrong;
+         * causing random failures in execle. */
+
+        /* try a few tools in order; */
         execle("/usr/bin/pstack", "pstack", parent, NULL, NULL);
         execle("/usr/bin/eu-stack", "eu-stack", "-p", parent, NULL, NULL);
 
@@ -86,14 +97,6 @@ show_backtrace(void)
     }
     return 0;
 }
-#else
-static int
-show_backtrace(void)
-{
-    return 0;
-}
-#endif
-
 static void
 OsSigHandler(int no)
 {
@@ -106,6 +109,31 @@ OsSigHandler(int no)
     exit(-no);
 }
 
+static void
+init_stacktrace()
+{
+    struct sigaction act, oact;
+
+    int siglist[] = { SIGSEGV, SIGQUIT, SIGILL, SIGFPE, SIGBUS, 0};
+    sigemptyset(&act.sa_mask);
+
+    act.sa_handler = OsSigHandler;
+    act.sa_flags = 0;
+
+    int i;
+    for(i = 0; siglist[i] != 0; i ++) {
+        sigaction(siglist[i], &act, &oact);
+    }
+}
+
+#else
+/* use whatever the OS provides. */
+static int
+show_backtrace(void) { return 0; }
+static void
+init_stacktrace() { }
+
+#endif
 
 /* Watch out:
  *
@@ -122,20 +150,7 @@ init_endrun()
 {
     _timestart = MPI_Wtime();
 
-#ifdef STACKTRACE
-    struct sigaction act, oact;
-
-    int siglist[] = { SIGSEGV, SIGQUIT, SIGILL, SIGFPE, SIGBUS, 0};
-    sigemptyset(&act.sa_mask);
-
-    act.sa_handler = OsSigHandler;
-    act.sa_flags = 0;
-
-    int i;
-    for(i = 0; siglist[i] != 0; i ++) {
-        sigaction(siglist[i], &act, &oact);
-    }
-#endif
+    init_stacktrace();
 }
 /*  This function aborts the simulation.
  *
