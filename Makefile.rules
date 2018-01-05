@@ -1,4 +1,6 @@
 # vim: set ft=make:
+# make V=1 to see the command line
+#
 DESTDIR ?= $(CURDIR)
 AR ?= ar
 LOW_PRECISION ?= double
@@ -91,6 +93,7 @@ $(DESTDIR)/config.h: Makefile Makefile.rules $(CONFIG)
 	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" VERSION="$(VERSION)" bash makeconfig.sh $@
 
 $(DESTDIR)/%.o: %.c $(INCL) $(DESTDIR)/config.h
+	@if [ "x$(V)" == "x1" ]; then echo $(MPICC) -c -o $@ $(CFLAGS) $<; fi
 	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<
 
 $(DESTDIR)/main.o: main.c $(INCL) $(DESTDIR)/config.h
