@@ -861,9 +861,15 @@ domain_toptree_garbage_collection(struct local_topnode_data * topTree, int start
     topTree[start].Daughter = newd;
 
     (*last_free) += 8;
+
+    /* copy first in case oldd + j is overwritten by the recursed gc
+     * if last_free is less than oldd */
     for(j = 0; j < 8; j ++) {
         topTree[newd + j] = topTree[oldd + j];
         topTree[newd + j].Parent = start;
+    }
+
+    for(j = 0; j < 8; j ++) {
         domain_toptree_garbage_collection(topTree, newd + j, last_free);
     }
 }
