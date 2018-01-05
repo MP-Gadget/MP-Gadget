@@ -177,7 +177,7 @@ void domain_decompose_full(void)
     }
 
     if(decompose_failed) {
-        endrun(0, "Not suitable domain decomposition policy worked for this particle distribution\n");
+        endrun(0, "No suitable domain decomposition policy worked for this particle distribution\n");
     }
 
     domain_balance();
