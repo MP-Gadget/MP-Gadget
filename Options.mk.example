@@ -18,7 +18,9 @@ GSL_LIBS = $(shell pkg-config --libs gsl)
 #--------------------------------------- Basic operation mode of code
 OPT += -DDENSITY_INDEPENDENT_SPH
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
-#OPT += VALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
+#OPT += VALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
+#OPT += -DDEBUG      # print a lot of debugging messages
+#OPT += -DSTACKTRACE # try to print a better stack trace at endrun and if killed by a signal.
 
 # flags shall that always be there they need to be cleaned up
 OPT += -DOPENMP_USE_SPINLOCK
