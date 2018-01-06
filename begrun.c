@@ -198,6 +198,8 @@ set_units(void)
 
     All.MinEgySpec = 1 / meanweight * (1.0 / GAMMA_MINUS1) * (BOLTZMANN / PROTONMASS) * All.MinGasTemp;
     All.MinEgySpec *= All.UnitMass_in_g / All.UnitEnergy_in_cgs;
+    if(All.MinEgySpec < 0)
+        endrun(2, "Gas temperature must be positive: T = %g\n", All.MinGasTemp);
 
 #ifdef SFR
 

@@ -78,12 +78,14 @@ struct sph_particle_data
     MyFloat EgyWtDensity;           /*!< 'effective' rho to use in hydro equations */
     MyFloat DhsmlEgyDensityFactor;  /*!< correction factor for density-independent entropy formulation */
 #define EOMDensity EgyWtDensity
+#define DhsmlEOMDensityFactor DhsmlEgyDensityFactor
 #else
 #define EOMDensity Density
+#define DhsmlEOMDensityFactor DhsmlDensityFactor
 #endif
 
     MyFloat Metallicity;		/*!< metallicity of gas particle */
-    MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
+    MyFloat Entropy;		/*!< Entropy (actually entropic function) at current drift time of particle */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */

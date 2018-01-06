@@ -25,6 +25,13 @@
  *  computed, and where the rate of change of entropy due to the shock heating
  *  (via artificial viscosity) is computed.
  */
+
+double
+GetPressure(int i)
+{
+    return pow(SPHP(i).Entropy, 1/GAMMA) * pow(SPHP(i).EOMDensity, GAMMA);
+}
+
 typedef struct {
     TreeWalkQueryBase base;
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -38,7 +45,7 @@ typedef struct {
     MyFloat Density;
     MyFloat Pressure;
     MyFloat F1;
-    MyFloat DhsmlDensityFactor;
+    MyFloat DhsmlEOMDensityFactor;
     signed char TimeBin;
 
 } TreeWalkQueryHydro;
@@ -138,13 +145,11 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->Density = SPHP(place).Density;
 #ifdef DENSITY_INDEPENDENT_SPH
     input->EgyRho = SPHP(place).EgyWtDensity;
-    input->EntVarPred = EntropyPred(place);
-    input->DhsmlDensityFactor = SPHP(place).DhsmlEgyDensityFactor;
-#else
-    input->DhsmlDensityFactor = SPHP(place).DhsmlDensityFactor;
+    input->EntVarPred = pow(SPHP(place).Entropy, 1/GAMMA);
 #endif
+    input->DhsmlEOMDensityFactor = SPHP(place).DhsmlEOMDensityFactor;
 
-    input->Pressure = PressurePred(place);
+    input->Pressure = GetPressure(place);
     input->TimeBin = P[place].TimeBin;
     /* calculation of F1 */
     soundspeed_i = sqrt(GAMMA * input->Pressure / SPHP(place).EOMDensity);
@@ -164,6 +169,9 @@ hydro_reduce(int place, TreeWalkResultHydro * result, enum TreeWalkReduceMode mo
     }
 
     TREEWALK_REDUCE(SPHP(place).DtEntropy, result->DtEntropy);
+    /* Translate energy change rate into entropy change rate.
+     Must be done here because neighbours potentially use DtEntropy.*/
+    SPHP(place).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(place).EOMDensity, GAMMA_MINUS1));
 
     P[place].GravCost += All.HydroCostFactor * All.cf.a * result->Ninteractions;
 
@@ -235,7 +243,7 @@ hydro_ngbiter(
 
     if(r2 > 0 && (r2 < iter->kernel_i.HH || r2 < kernel_j.HH))
     {
-        double Pressure_j = PressurePred(other);
+        double Pressure_j = GetPressure(other);
         double p_over_rho2_j = Pressure_j / (SPHP(other).EOMDensity * SPHP(other).EOMDensity);
         double soundspeed_j = sqrt(GAMMA * Pressure_j / SPHP(other).EOMDensity);
 
@@ -298,38 +306,39 @@ hydro_ngbiter(
 #endif
         }
         double hfc_visc = 0.5 * P[other].Mass * visc * (dwk_i + dwk_j) / r;
-#ifdef DENSITY_INDEPENDENT_SPH
         double hfc = hfc_visc;
+#ifndef DENSITY_INDEPENDENT_SPH
+        double r1 = 1, r2 = 1;
+#else
+        double r1 = 0, r2 = 0;
         /* leading-order term */
-        double EntPred = EntropyPred(other);
+        double EntOther = pow(SPHP(other).Entropy, 1/GAMMA);
+        /* Cannot enable this check: EntropyPred may be using the *new* DtEntropy if the neighbour particle has already
+         * had that computed, and thus will predict a different entropy. This is actually a bad bug in existing code, because
+         * it means output will depend on the order in which particles are sent through this loop, and thus the number of threads.
+         * This might even be racy and so end up with mad values...*/
+//         if(fabs(EntropyPred(other)/SPHP(other).DriftEntropy - 1) > 1e-5)
+//             endrun(2, "Hydra! i=%d ti = %d %d (loga=%g) ID = %ld (ee= %g) pred = %g != drift = %g DtEntropy = %g\n",other, P[other].Ti_drift, P[other].Ti_kick, dloga_from_dti(P[other].Ti_drift - P[other].Ti_kick), P[other].ID, SPHP(other).Entropy, EntropyPred(other), SPHP(other).DriftEntropy, SPHP(other).DtEntropy);
+
         hfc += P[other].Mass *
-            (dwk_i*iter->p_over_rho2_i*EntPred/I->EntVarPred +
-             dwk_j*p_over_rho2_j*I->EntVarPred/EntPred) / r;
+            (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +
+             dwk_j*p_over_rho2_j*I->EntVarPred/EntOther) / r;
 
         /* enable grad-h corrections only if contrastlimit is non negative */
         if(All.DensityContrastLimit >= 0) {
-            double r1 = I->EgyRho / I->Density;
-            double r2 = SPHP(other).EgyWtDensity / SPHP(other).Density;
+            r1 = I->EgyRho / I->Density;
+            r2 = SPHP(other).EgyWtDensity / SPHP(other).Density;
             if(All.DensityContrastLimit > 0) {
                 /* apply the limit if it is enabled > 0*/
-                if(r1 > All.DensityContrastLimit) {
-                    r1 = All.DensityContrastLimit;
-                }
-                if(r2 > All.DensityContrastLimit) {
-                    r2 = All.DensityContrastLimit;
-                }
+                r1 = DMIN(r1, All.DensityContrastLimit);
+                r2 = DMIN(r2, All.DensityContrastLimit);
             }
-            /* grad-h corrections */
-            /* I->DhsmlDensityFactor is actually EgyDensityFactor */
-            hfc += P[other].Mass *
-                (dwk_i*iter->p_over_rho2_i*r1*I->DhsmlDensityFactor +
-                 dwk_j*p_over_rho2_j*r2*SPHP(other).DhsmlEgyDensityFactor) / r;
         }
-#else
-        /* Formulation derived from the Lagrangian */
-        double hfc = hfc_visc + P[other].Mass * (iter->p_over_rho2_i *I->DhsmlDensityFactor * dwk_i
-                + p_over_rho2_j * SPHP(other).DhsmlDensityFactor * dwk_j) / r;
 #endif
+        /* grad-h corrections: enabled if DENSITY_INDEPENDENT_SPH is off, or DensityConstrastLimit >= 0 */
+        /* Formulation derived from the Lagrangian */
+        hfc += P[other].Mass * (iter->p_over_rho2_i*I->DhsmlEOMDensityFactor * dwk_i * r1
+                 + p_over_rho2_j*SPHP(other).DhsmlEOMDensityFactor * dwk_j * r2) / r;
 
 #ifdef SFR
         if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
@@ -347,7 +356,6 @@ hydro_ngbiter(
 #endif
 
         O->DtEntropy += (0.5 * hfc_visc * vdotr2);
-
     }
     O->Ninteractions++;
 }
@@ -363,9 +371,6 @@ hydro_postprocess(int i, TreeWalk * tw)
 {
     if(P[i].Type == 0)
     {
-        /* Translate energy change rate into entropy change rate */
-        SPHP(i).DtEntropy *= GAMMA_MINUS1 / (All.cf.hubble_a2 * pow(SPHP(i).EOMDensity, GAMMA_MINUS1));
-
 #ifdef SFR
         /* if we have winds, we decouple particles briefly if delaytime>0 */
         if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
@@ -378,7 +383,7 @@ hydro_postprocess(int i, TreeWalk * tw)
                 SPHP(i).DtEntropy = 0;
 
 #ifdef NOWINDTIMESTEPPING
-                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * PressurePred(i) / SPHP(i).Density);
+                SPHP(i).MaxSignalVel = 2 * sqrt(GAMMA * Pressure(i) / SPHP(i).Density);
 #else
                 double windspeed = All.WindSpeed * All.cf.a;
                 const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;

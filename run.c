@@ -17,6 +17,7 @@
 #include "drift.h"
 #include "forcetree.h"
 #include "blackhole.h"
+#include "hydra.h"
 #include "sfr_eff.h"
 #include "slotsmanager.h"
 #include "fof.h"
