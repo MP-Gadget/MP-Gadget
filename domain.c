@@ -40,6 +40,13 @@
  *  communication.
  */
 
+typedef struct {
+    double TopNodeAllocFactor;
+    int UseGlobalSort;
+    int SubSampleDistance;
+    int PreSort;
+} DomainDecompositionPolicy;
+
 struct topnode_data *TopNodes;
 struct topleaf_data *TopLeaves;
 
@@ -78,17 +85,17 @@ mp_order_by_key(const void * data, void * radix, void * arg);
 static void
 domain_assign_balanced(int64_t * cost);
 
-static void domain_allocate(void);
+static void domain_allocate(DomainDecompositionPolicy * policy);
 
 static int
 domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t *TopLeafCount);
 
-static int domain_attempt_decompose(void);
+static int domain_attempt_decompose(DomainDecompositionPolicy * policy);
 
 static void
 domain_balance(void);
 
-static int domain_determine_global_toptree(struct local_topnode_data * topTree, int * topTreeSize);
+static int domain_determine_global_toptree(DomainDecompositionPolicy * policy, struct local_topnode_data * topTree, int * topTreeSize);
 static void domain_free(void);
 
 static void
@@ -98,8 +105,9 @@ static void
 domain_toptree_merge(struct local_topnode_data *treeA, struct local_topnode_data *treeB, int noA, int noB, int * treeASize);
 
 static int domain_check_for_local_refine_subsample(
-    struct local_topnode_data * topTree, int * topTreeSize,
-    int sample_step);
+    DomainDecompositionPolicy * policy,
+    struct local_topnode_data * topTree, int * topTreeSize
+    );
 
 static int
 domain_global_refine(struct local_topnode_data * topTree, int * topTreeSize, int64_t countlimit, int64_t costlimit);
@@ -111,6 +119,11 @@ static int domain_layoutfunc(int n);
 
 static int domain_allocated_flag = 0;
 
+static int
+domain_policies_init(DomainDecompositionPolicy policies[],
+        const int NincreaseAlloc,
+        const int SwitchToGlobal);
+
 /*! This is the main routine for the domain decomposition.  It acts as a
  *  driver routine that allocates various temporary buffers, maps the
  *  particles back onto the periodic box if needed, and then does the
@@ -119,6 +132,17 @@ static int domain_allocated_flag = 0;
  */
 void domain_decompose_full(void)
 {
+    static DomainDecompositionPolicy policies[16];
+    static int Npolicies = 0;
+
+    /* start from last successful policy to avoid retries */
+    static int LastSuccessfulPolicy = 0;
+
+    if (Npolicies == 0) {
+        const int NincreaseAlloc = 16;
+        Npolicies = domain_policies_init(policies, NincreaseAlloc, 8);
+    }
+
     double t0, t1;
 
     walltime_measure("/Misc");
@@ -131,26 +155,31 @@ void domain_decompose_full(void)
 
     t0 = second();
 
-    int decompose_failed = 0;
-    do
+    int decompose_failed = 1;
+    int i;
+    for(i = LastSuccessfulPolicy; i < Npolicies; i ++)
     {
 #ifdef DEBUG
         domain_test_id_uniqueness();
 #endif
-        domain_allocate();
+        domain_allocate(&policies[i]);
 
-        decompose_failed = MPIU_Any(0 != domain_attempt_decompose(), MPI_COMM_WORLD);
+        message(0, "Attempting new domain decomposition policy: TopNodeAllocFactor=%g, UseglobalSort=%d, SubSampleDistance=%d UsePreSort=%d\n",
+                policies[i].TopNodeAllocFactor, policies[i].UseGlobalSort, policies[i].SubSampleDistance, policies[i].PreSort);
 
-        if(decompose_failed) {
-            domain_free();
-            message(0, "Increasing TopNodeAllocFactor=%g to %g\n", All.TopNodeAllocFactor, All.TopNodeAllocFactor*1.3);
+        decompose_failed = MPIU_Any(0 != domain_attempt_decompose(&policies[i]), MPI_COMM_WORLD);
 
-            All.TopNodeAllocFactor *= 1.3;
-
-            if(All.TopNodeAllocFactor > 1000)
-                endrun(781, "something seems to be going seriously wrong here. Stopping.\n");
+        if(!decompose_failed) {
+            LastSuccessfulPolicy = i;
+            break;
         }
-    } while(decompose_failed);
+        domain_free();
+
+    }
+
+    if(decompose_failed) {
+        endrun(0, "No suitable domain decomposition policy worked for this particle distribution\n");
+    }
 
     domain_balance();
 
@@ -215,12 +244,41 @@ void domain_maintain(void)
     force_tree_rebuild();
 }
 
+/* this function generates several domain decomposition policies for attempting
+ * creating the domain. */
+static int
+domain_policies_init(DomainDecompositionPolicy policies[],
+        const int NincreaseAlloc,
+        const int SwitchToGlobal)
+{
+    int i;
+    for(i = 0; i < NincreaseAlloc; i ++) {
+        policies[i].TopNodeAllocFactor = All.TopNodeAllocFactor * pow(1.3, i);
+        policies[i].UseGlobalSort = All.DomainUseGlobalSorting;
+        policies[i].PreSort = 0;
+        policies[i].SubSampleDistance = 16;
+    }
+
+    for(i = SwitchToGlobal; i < NincreaseAlloc; i ++) {
+        /* global sorting is slower than a local sorting, but tends to produce a more
+         * balanced domain tree that is easier to merge.
+         * */
+        policies[i].UseGlobalSort = 1;
+        /* global sorting of particles is slow, so we add a slower presort to even the local
+         * particle distribution before subsampling, improves the balance, too */
+        policies[i].PreSort = 1;
+    }
+
+    return NincreaseAlloc;
+}
+
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
-void domain_allocate(void)
+static void
+domain_allocate(DomainDecompositionPolicy * policy)
 {
     size_t bytes, all_bytes = 0;
 
-    MaxTopNodes = (int) (All.TopNodeAllocFactor * PartManager->MaxPart + 1);
+    MaxTopNodes = (int) (policy->TopNodeAllocFactor * PartManager->MaxPart + 1);
 
     /* Add a tail item to avoid special treatments */
     Tasks = mymalloc2("Tasks", bytes = ((NTask + 1)* sizeof(Tasks[0])));
@@ -268,7 +326,7 @@ domain_particle_costfactor(int i)
  *  PartAllocFactor.
  */
 static int
-domain_attempt_decompose(void)
+domain_attempt_decompose(DomainDecompositionPolicy * policy)
 {
 
     int i;
@@ -288,7 +346,7 @@ domain_attempt_decompose(void)
 
     walltime_measure("/Domain/Decompose/Misc");
 
-    if(domain_determine_global_toptree(topTree, &NTopNodes)) {
+    if(domain_determine_global_toptree(policy, topTree, &NTopNodes)) {
         myfree(topTree);
         return 1;
     }
@@ -714,6 +772,10 @@ domain_toptree_split(struct local_topnode_data * topTree, int * topTreeSize,
     if((*topTreeSize + 8) > MaxTopNodes)
         return 1;
 
+    if(topTree[i].Shift < 3) {
+        endrun(1, "Failed to build a TopTree -- particles overly clustered.\n");
+    }
+
     /*Make a new topnode section attached to this node*/
     topTree[i].Daughter = *topTreeSize;
     (*topTreeSize) += 8;
@@ -795,9 +857,15 @@ domain_toptree_garbage_collection(struct local_topnode_data * topTree, int start
     topTree[start].Daughter = newd;
 
     (*last_free) += 8;
+
+    /* copy first in case oldd + j is overwritten by the recursed gc
+     * if last_free is less than oldd */
     for(j = 0; j < 8; j ++) {
         topTree[newd + j] = topTree[oldd + j];
         topTree[newd + j].Parent = start;
+    }
+
+    for(j = 0; j < 8; j ++) {
         domain_toptree_garbage_collection(topTree, newd + j, last_free);
     }
 }
@@ -834,8 +902,9 @@ domain_toptree_truncate(
  * */
 static int
 domain_check_for_local_refine_subsample(
-    struct local_topnode_data * topTree, int * topTreeSize,
-    int sample_step)
+    DomainDecompositionPolicy * policy,
+    struct local_topnode_data * topTree, int * topTreeSize
+    )
 {
 
     int i;
@@ -857,7 +926,9 @@ domain_check_for_local_refine_subsample(
      * more likely running into overlapped local topTrees.
      * */
 
-    int Nsample = PartManager->NumPart / sample_step;
+    int Nsample = PartManager->NumPart / policy->SubSampleDistance;
+
+    if(Nsample == 0 && PartManager->NumPart != 0) Nsample = 1;
 
 #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i ++)
@@ -869,16 +940,17 @@ domain_check_for_local_refine_subsample(
     /* First sort to ensure spatially 'even' subsamples; FIXME: This can probably
      * be omitted in most cases. Usually the particles in memory won't be very far off
      * from a peano order. */
-    qsort_openmp(LP, Nsample, sizeof(struct local_particle_data), order_by_key);
+    if(policy->PreSort)
+        qsort_openmp(LP, PartManager->NumPart, sizeof(struct local_particle_data), order_by_key);
 
     /* now subsample */
     for(i = 0; i < Nsample; i ++)
     {
-        LP[i].Key = LP[i * sample_step].Key;
-        LP[i].Cost = LP[i * sample_step].Cost;
+        LP[i].Key = LP[i * policy->SubSampleDistance].Key;
+        LP[i].Cost = LP[i * policy->SubSampleDistance].Cost;
     }
 
-    if(All.DomainUseGlobalSorting) {
+    if(policy->UseGlobalSort) {
         mpsort_mpi(LP, Nsample, sizeof(struct local_particle_data), mp_order_by_key, 8, NULL, MPI_COMM_WORLD);
     } else {
         qsort_openmp(LP, Nsample, sizeof(struct local_particle_data), order_by_key);
@@ -931,8 +1003,8 @@ domain_check_for_local_refine_subsample(
 
         int leaf = domain_toptree_get_subnode(topTree, LP[i].Key);
 
-        if (leaf == last_leaf) {
-            /* two particles in a node? need refinement */
+        if (leaf == last_leaf && topTree[leaf].Shift >= 3) {
+            /* two particles in a node? need refinement if possible. */
             if(0 != domain_toptree_split(topTree, topTreeSize, leaf)) {
                 /* out of memory, retry */
                 return 1;
@@ -954,7 +1026,7 @@ domain_check_for_local_refine_subsample(
             /* this will create a new node. */
             last_key = LP[i].Key;
             last_leaf = domain_toptree_insert(topTree, last_key, 0);
-            i += sample_step;
+            i += policy->SubSampleDistance;
             continue;
         }
     }
@@ -1081,7 +1153,8 @@ loop_continue:
  *  in pieces of eight segments until each segment holds at most a certain
  *  number of particles.
  */
-int domain_determine_global_toptree(struct local_topnode_data * topTree, int * topTreeSize)
+int domain_determine_global_toptree(DomainDecompositionPolicy * policy,
+        struct local_topnode_data * topTree, int * topTreeSize)
 {
     walltime_measure("/Domain/DetermineTopTree/Misc");
 
@@ -1090,13 +1163,14 @@ int domain_determine_global_toptree(struct local_topnode_data * topTree, int * t
      * 1/16 is used because each local topTree node takes about 32 bytes.
      **/
 
-    int local_refine_failed = MPIU_Any(0 != domain_check_for_local_refine_subsample(topTree, topTreeSize, 16), MPI_COMM_WORLD);
+    int local_refine_failed = MPIU_Any(
+                0 != domain_check_for_local_refine_subsample(policy, topTree, topTreeSize),
+                        MPI_COMM_WORLD);
 
     walltime_measure("/Domain/DetermineTopTree/LocalRefine/Init");
 
     if(local_refine_failed) {
-        message(0, "We are out of Topnodes. We'll try to repeat with a higher value than All.TopNodeAllocFactor=%g\n",
-                 All.TopNodeAllocFactor);
+        message(0, "We are out of Topnodes. \n");
         return 1;
     }
 
@@ -1333,6 +1407,10 @@ domain_toptree_merge(struct local_topnode_data *treeA,
             for(j = 0; j < 8; j++)
             {
                 sub = treeB[noB].Daughter + j;
+                if(treeB[sub].Shift >= treeB[noB].Shift) {
+                    endrun(1, "Child node %d has shift %d, parent %d has shift %d. treeB is corrupt. \n",
+                        sub, treeB[sub].Shift, noB, treeB[noB].Shift);
+                }
                 domain_toptree_merge(treeA, treeB, noA, sub, treeASize);
             }
         }
