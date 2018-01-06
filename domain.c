@@ -122,7 +122,6 @@ static int domain_allocated_flag = 0;
 static int
 domain_policies_init(DomainDecompositionPolicy policies[],
         const int NincreaseAlloc,
-        const int NdecreaseAccuracy,
         const int SwitchToGlobal);
 
 /*! This is the main routine for the domain decomposition.  It acts as a
@@ -133,8 +132,16 @@ domain_policies_init(DomainDecompositionPolicy policies[],
  */
 void domain_decompose_full(void)
 {
+    static DomainDecompositionPolicy policies[16];
+    static int Npolicies = 0;
+
     /* start from last successful policy to avoid retries */
     static int LastSuccessfulPolicy = 0;
+
+    if (Npolicies == 0) {
+        const int NincreaseAlloc = 16;
+        Npolicies = domain_policies_init(policies, NincreaseAlloc, 8);
+    }
 
     double t0, t1;
 
@@ -147,12 +154,6 @@ void domain_decompose_full(void)
     message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
 
     t0 = second();
-
-    DomainDecompositionPolicy policies[8 + 8];
-    const int NincreaseAlloc = 8;
-    const int NdecreaseAccuracy = 8;
-
-    const int Npolicies = domain_policies_init(policies, NincreaseAlloc, NdecreaseAccuracy, 8);
 
     int decompose_failed = 1;
     int i;
@@ -248,7 +249,6 @@ void domain_maintain(void)
 static int
 domain_policies_init(DomainDecompositionPolicy policies[],
         const int NincreaseAlloc,
-        const int NdecreaseAccuracy,
         const int SwitchToGlobal)
 {
     int i;
@@ -259,21 +259,17 @@ domain_policies_init(DomainDecompositionPolicy policies[],
         policies[i].SubSampleDistance = 16;
     }
 
-    for(i = NincreaseAlloc; i < NincreaseAlloc + NdecreaseAccuracy; i ++) {
-        policies[i].TopNodeAllocFactor = policies[NincreaseAlloc].TopNodeAllocFactor;
-        policies[i].UseGlobalSort = All.DomainUseGlobalSorting;
-        policies[i].PreSort = 0;
-        policies[i].SubSampleDistance = 16 * (i - NincreaseAlloc);
-    }
-
-    for(i = SwitchToGlobal; i < NincreaseAlloc + NdecreaseAccuracy; i ++) {
-        /* global sorting of particles is slow, so we add a presort to make the particle 
-         * distribution locally even to improve the balance */
+    for(i = SwitchToGlobal; i < NincreaseAlloc; i ++) {
+        /* global sorting is slower than a local sorting, but tends to produce a more
+         * balanced domain tree that is easier to merge.
+         * */
         policies[i].UseGlobalSort = 1;
+        /* global sorting of particles is slow, so we add a slower presort to even the local
+         * particle distribution before subsampling, improves the balance, too */
         policies[i].PreSort = 1;
     }
 
-    return NincreaseAlloc + NdecreaseAccuracy;
+    return NincreaseAlloc;
 }
 
 /*! This function allocates all the stuff that will be required for the tree-construction/walk later on */
