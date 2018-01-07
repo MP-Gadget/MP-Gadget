@@ -313,12 +313,6 @@ hydro_ngbiter(
         double r1 = 0, r2 = 0;
         /* leading-order term */
         double EntOther = pow(SPHP(other).Entropy, 1/GAMMA);
-        /* Cannot enable this check: EntropyPred may be using the *new* DtEntropy if the neighbour particle has already
-         * had that computed, and thus will predict a different entropy. This is actually a bad bug in existing code, because
-         * it means output will depend on the order in which particles are sent through this loop, and thus the number of threads.
-         * This might even be racy and so end up with mad values...*/
-//         if(fabs(EntropyPred(other)/SPHP(other).DriftEntropy - 1) > 1e-5)
-//             endrun(2, "Hydra! i=%d ti = %d %d (loga=%g) ID = %ld (ee= %g) pred = %g != drift = %g DtEntropy = %g\n",other, P[other].Ti_drift, P[other].Ti_kick, dloga_from_dti(P[other].Ti_drift - P[other].Ti_kick), P[other].ID, SPHP(other).Entropy, EntropyPred(other), SPHP(other).DriftEntropy, SPHP(other).DtEntropy);
 
         hfc += P[other].Mass *
             (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +
