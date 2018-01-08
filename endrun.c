@@ -8,7 +8,6 @@
 
 #include "endrun.h"
 
-#ifdef STACKTRACE
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -97,6 +96,7 @@ show_backtrace(void)
     }
     return 0;
 }
+
 static void
 OsSigHandler(int no)
 {
@@ -125,15 +125,6 @@ init_stacktrace()
         sigaction(siglist[i], &act, &oact);
     }
 }
-
-#else
-/* use whatever the OS provides. */
-static int
-show_backtrace(void) { return 0; }
-static void
-init_stacktrace() { }
-
-#endif
 
 /* Watch out:
  *
