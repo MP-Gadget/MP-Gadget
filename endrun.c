@@ -8,7 +8,6 @@
 
 #include "endrun.h"
 
-#ifdef STACKTRACE
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
@@ -97,6 +96,7 @@ show_backtrace(void)
     }
     return 0;
 }
+
 static void
 OsSigHandler(int no)
 {
@@ -126,15 +126,6 @@ init_stacktrace()
     }
 }
 
-#else
-/* use whatever the OS provides. */
-static int
-show_backtrace(void) { return 0; }
-static void
-init_stacktrace() { }
-
-#endif
-
 /* Watch out:
  *
  * On some versions of OpenMPI with CPU frequency scaling we see negative time
@@ -152,35 +143,79 @@ init_endrun()
 
     init_stacktrace();
 }
+
+static int
+putline(const char * prefix, const char * line)
+{
+    const char * p, * q;
+    p = q = line;
+    int newline = 1;
+    while(*p != 0) {
+        if(newline)
+            write(STDOUT_FILENO, prefix, strlen(prefix));
+        if (*p == '\n') {
+            write(STDOUT_FILENO, q, p - q + 1);
+            q = p + 1;
+            newline = 1;
+            p ++;
+            continue;
+        }
+        newline = 0;
+        p++;
+    }
+    /* if the last line did not end with a new line, fix it here. */
+    if (q != p) {
+        const char * warning = "LASTMESSAGE did not end with new line: ";
+        write(STDOUT_FILENO, warning, strlen(warning));
+        write(STDOUT_FILENO, q, p - q);
+        write(STDOUT_FILENO, "\n", 1);
+    }
+    return 0;
+}
+
+static void
+messagev(int crash, int where, const char * fmt, va_list va)
+{
+    int ThisTask;
+    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+    char prefix[128];
+
+    char buf[4096];
+    vsprintf(buf, fmt, va);
+
+    if(where > 0) {
+        sprintf(prefix, "[ %09.2f ] Task %d: ", MPI_Wtime() - _timestart, ThisTask);
+    } else {
+        sprintf(prefix, "[ %09.2f ] ", MPI_Wtime() - _timestart);
+    }
+
+    if(where <= 0)
+        MPI_Barrier(MPI_COMM_WORLD);
+
+    if(ThisTask == 0 || where > 0) {
+        putline(prefix, buf);
+        if(crash) {
+            show_backtrace();
+            MPI_Abort(MPI_COMM_WORLD, where);
+        }
+    }
+}
+
 /*  This function aborts the simulation.
  *
  *  if where > 0, the error is uncollective.
  *  if where <= 0, the error is 'collective',  only the root rank prints the error.
  */
-
-void endrun(int where, const char * fmt, ...)
+void
+endrun(int where, const char * fmt, ...)
 {
-    int ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
+
     va_list va;
-    char buf[4096];
     va_start(va, fmt);
-    vsprintf(buf, fmt, va);
     va_end(va);
-    if(where > 0) {
-        printf("[ %09.2f ] Task %d: %s", MPI_Wtime() - _timestart, ThisTask, buf);
-        fflush(stdout);
-        show_backtrace();
-        MPI_Abort(MPI_COMM_WORLD, where);
-    } else {
-        if(ThisTask == 0) {
-            printf("[ %09.2f ] %s", MPI_Wtime() - _timestart, buf);
-            fflush(stdout);
-            show_backtrace();
-        }
-        MPI_Abort(MPI_COMM_WORLD, where);
-    }
+    messagev(1, where, fmt, va);
 }
+
 
 /*  This function writes a message.
  *
@@ -190,25 +225,9 @@ void endrun(int where, const char * fmt, ...)
 
 void message(int where, const char * fmt, ...)
 {
-    int ThisTask;
-    MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
-
-
     va_list va;
-    char buf[4096];
     va_start(va, fmt);
-    vsprintf(buf, fmt, va);
     va_end(va);
-    /* FIXME: deal with \n in the buf. */
-    if(where > 0) {
-        printf("[ %09.2f ] Task %d: %s", MPI_Wtime() - _timestart, ThisTask, buf);
-        fflush(stdout);
-    } else {
-        MPI_Barrier(MPI_COMM_WORLD);
-        if(ThisTask == 0) {
-            printf("[ %09.2f ] %s", MPI_Wtime() - _timestart, buf);
-            fflush(stdout);
-        }
-    }
+    messagev(0, where, fmt, va);
 }
 

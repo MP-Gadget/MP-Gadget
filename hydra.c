@@ -247,7 +247,7 @@ hydro_ngbiter(
         }
 
         double vdotr = dotproduct(dist, dv);
-
+lightcone-128.lua
         double rho_ij = 0.5 * (I->Density + SPHP(other).Density);
         double vdotr2 = vdotr + All.cf.hubble_a2 * r2;
 
@@ -301,7 +301,9 @@ hydro_ngbiter(
 #ifdef DENSITY_INDEPENDENT_SPH
         double hfc = hfc_visc;
         /* leading-order term */
+
         double EntPred = EntropyPred(other);
+
         hfc += P[other].Mass *
             (dwk_i*iter->p_over_rho2_i*EntPred/I->EntVarPred +
              dwk_j*p_over_rho2_j*I->EntVarPred/EntPred) / r;
