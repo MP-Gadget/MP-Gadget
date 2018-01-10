@@ -375,10 +375,9 @@ cooling_direct(int i) {
 
     double ne = SPHP(i).Ne;	/* electron abundance (gives ionization state and mean molecular weight) */
 
-    /*Entropy after this timestep: note this uses this timestep's DtEntropy!*/
-    const double NextEntropy = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga;
-
-    double unew = DMAX(All.MinEgySpec, NextEntropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+    double unew = DMAX(All.MinEgySpec,
+            (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
+            GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
 #ifdef BLACK_HOLES
     if(SPHP(i).Injected_BH_Energy)
@@ -450,12 +449,10 @@ static int get_sfr_condition(int i) {
         flag = 1;		/* only normal cooling for particles in the wind */
 
     if(All.QuickLymanAlphaProbability > 0) {
-        const double dloga = get_dloga_for_bin(P[i].TimeBin);
-        /*Entropy after this timestep: note this uses this timestep's DtEntropy!*/
-        const double NextEntropy = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga;
-
+        double dloga = get_dloga_for_bin(P[i].TimeBin);
         double unew = DMAX(All.MinEgySpec,
-                NextEntropy / GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
+                (SPHP(i).Entropy + SPHP(i).DtEntropy * dloga) /
+                GAMMA_MINUS1 * pow(SPHP(i).EOMDensity * All.cf.a3inv, GAMMA_MINUS1));
 
         double temp = u_to_temp_fac * unew;
 

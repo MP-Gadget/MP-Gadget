@@ -17,7 +17,6 @@
 #include "fof.h"
 #include "blackhole.h"
 #include "timestep.h"
-#include "hydra.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
  */
@@ -424,7 +423,7 @@ blackhole_accretion_ngbiter(TreeWalkQueryBHAccretion * I,
             /* FIXME: volume correction doesn't work on BH yet. */
             O->Rho += (mass_j * wk);
 
-            O->SmoothedPressure += (mass_j * wk * GetPressure(other));
+            O->SmoothedPressure += (mass_j * wk * PressurePred(other));
             O->SmoothedEntropy += (mass_j * wk * SPHP(other).Entropy);
             O->GasVel[0] += (mass_j * wk * VelPred[0]);
             O->GasVel[1] += (mass_j * wk * VelPred[1]);
