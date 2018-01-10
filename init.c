@@ -254,16 +254,24 @@ setup_smoothinglengths(int RestartSnapNum)
         u_init /= molecular_weight;
 
 #ifdef DENSITY_INDEPENDENT_SPH
+        for(i = 0; i < PartManager->NumPart; i++)
+        {
+            if(P[i].Type == 0)
+            /* start the iteration from mass density */
+            SPHP(i).EgyWtDensity = SPHP(i).Density;
+        }
+
+
         /* initialization of the entropy variable is a little trickier in this version of SPH,
            since we need to make sure it 'talks to' the density appropriately */
         message(0, "Converting u -> entropy, with density split sph\n");
 
         int j;
+        double badness;
         double * olddensity = (double *)mymalloc("olddensity ", PartManager->NumPart * sizeof(double));
         for(j=0;j<100;j++)
-        {
-            /* since ICs give energies, not entropies, need to iterate get this initialized correctly */
-            #pragma omp parallel for
+        {/* since ICs give energies, not entropies, need to iterate get this initialized correctly */
+#pragma omp parallel for
             for(i = 0; i < PartManager->NumPart; i++)
             {
                 if(P[i].Type == 0) {
@@ -272,15 +280,24 @@ setup_smoothinglengths(int RestartSnapNum)
                 }
             }
             density_update();
-            double badness = 0;
+            badness = 0;
 
-            #pragma omp parallel for reduction(max: badness)
-            for(i = 0; i < PartManager->NumPart; i++) {
-                if(P[i].Type == 0) {
-                    if(SPHP(i).EgyWtDensity <= 0)
-                        continue;
-                    double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
-                    badness = DMAX(badness,value);
+#pragma omp parallel private(i)
+            {
+                double mybadness = 0;
+#pragma omp for
+                for(i = 0; i < PartManager->NumPart; i++) {
+                    if(P[i].Type == 0) {
+                        if(!(SPHP(i).EgyWtDensity > 0)) continue;
+                        double value = fabs(SPHP(i).EgyWtDensity - olddensity[i]) / SPHP(i).EgyWtDensity;
+                        if(value > mybadness) mybadness = value;
+                    }
+                }
+#pragma omp critical
+                {
+                    if(mybadness > badness) {
+                        badness = mybadness;
+                    }
                 }
             }
             MPI_Allreduce(MPI_IN_PLACE, &badness, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);

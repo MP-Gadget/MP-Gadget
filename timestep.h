@@ -19,6 +19,8 @@ int is_timebin_active(int i, inttime_t current);
 void set_timebin_active(binmask_t mask);
 
 void sph_VelPred(int i, double * VelPred);
+double EntropyPred(int i);
+double PressurePred(int i);
 
 inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin);
 
