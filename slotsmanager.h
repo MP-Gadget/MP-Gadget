@@ -83,9 +83,9 @@ struct sph_particle_data
 #define EOMDensity Density
 #define DhsmlEOMDensityFactor DhsmlDensityFactor
 #endif
-
+    MyFloat EntVarPred;         /*!< Predicted entropy at current particle drift time for SPH computation*/
     MyFloat Metallicity;		/*!< metallicity of gas particle */
-    MyFloat Entropy;		/*!< current value of entropy (actually entropic function) of particle */
+    MyFloat Entropy;		/*!< Entropy (actually entropic function) at kick time of particle */
     MyFloat MaxSignalVel;           /*!< maximum signal velocity */
     MyFloat       Density;		/*!< current baryonic mass density of particle */
     MyFloat       DtEntropy;		/*!< rate of change of entropy */

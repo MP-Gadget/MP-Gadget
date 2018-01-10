@@ -309,7 +309,6 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
 
     if(P[i].Type == 0) {
         const double Fhydrokick = get_hydrokick_factor(tistart, tiend);
-        double dt_entr = dloga_from_dti(tiend-tistart); /* XXX: the kick factor of entropy is dlog a? */
         /* Add kick from hydro and SPH stuff */
         for(j = 0; j < 3; j++) {
             P[i].Vel[j] += SPHP(i).HydroAccel[j] * Fhydrokick;
@@ -335,6 +334,7 @@ do_the_short_range_kick(int i, inttime_t tistart, inttime_t tiend)
            hence temperature) decreases by more than a factor 0.5.
            FIXME: Why is this and the last thing here? Should not be needed. */
 
+        const double dt_entr = dloga_from_dti(tiend-tistart);
         if(SPHP(i).DtEntropy * dt_entr < -0.5 * SPHP(i).Entropy)
             SPHP(i).Entropy *= 0.5;
         else
@@ -377,34 +377,6 @@ sph_VelPred(int i, double * VelPred)
         VelPred[j] = P[i].Vel[j] + Fgravkick2 * P[i].GravAccel[j]
             + P[i].GravPM[j] * FgravkickB + Fhydrokick2 * SPHP(i).HydroAccel[j];
     }
-}
-
-/*Helper function for predicting the entropy*/
-static inline double _EntPred(int i)
-{
-    const double Fentr = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
-    double epred = SPHP(i).Entropy + SPHP(i).DtEntropy * Fentr;
-    /*This mirrors the entropy limiter in do_the_short_range_kick*/
-    if(epred < 0.5 * SPHP(i).Entropy)
-        epred = 0.5 * SPHP(i).Entropy;
-    return epred;
-}
-
-/* This gives the predicted entropy at the particle Kick timestep
- * for the density independent SPH code.
- * Watchout: with kddk, when the second k is applied, Ti_kick < Ti_drift. */
-double
-EntropyPred(int i)
-{
-    double epred = _EntPred(i);
-    return pow(epred, 1/GAMMA);
-}
-
-double
-PressurePred(int i)
-{
-    double epred = _EntPred(i);
-    return epred * pow(SPHP(i).EOMDensity, GAMMA);
 }
 
 double

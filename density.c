@@ -345,7 +345,7 @@ density_ngbiter(
         O->DhsmlDensity += mass_j * density_kernel_dW(&iter->kernel, u, wk, dwk);
 
 #ifdef DENSITY_INDEPENDENT_SPH
-        double EntPred = EntropyPred(other);
+        const double EntPred = SPHP(other).EntVarPred;
         O->EgyRho += mass_j * EntPred * wk;
         O->DhsmlEgyDensity += mass_j * EntPred * density_kernel_dW(&iter->kernel, u, wk, dwk);
 #endif
@@ -412,7 +412,7 @@ density_postprocess(int i, TreeWalk * tw)
                 SPHP(i).DhsmlDensityFactor = 1;
 
 #ifdef DENSITY_INDEPENDENT_SPH
-            const double EntPred = EntropyPred(i);
+            const double EntPred = SPHP(i).EntVarPred;
             if((EntPred > 0) && (SPHP(i).EgyWtDensity>0))
             {
                 SPHP(i).DhsmlEgyDensityFactor *= P[i].Hsml/ (NUMDIMS * SPHP(i).EgyWtDensity);

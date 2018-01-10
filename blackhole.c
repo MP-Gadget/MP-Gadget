@@ -17,6 +17,7 @@
 #include "fof.h"
 #include "blackhole.h"
 #include "timestep.h"
+#include "hydra.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
  */
@@ -511,7 +512,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         iter->base.mask = 1 + 32;
         iter->base.Hsml = hsearch;
-        /* Swallow is symmetric, but feedback dumping is asymetric; 
+        /* Swallow is symmetric, but feedback dumping is asymetric;
          * we apply a cut in r to break the symmetry. */
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
 
@@ -543,7 +544,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         O->BH_CountProgs += BHP(other).CountProgs;
 
-        /* We do not know how to notify the tree of mass changes. so 
+        /* We do not know how to notify the tree of mass changes. so
          * blindly enforce a mass conservation for now. */
         O->Mass += (P[other].Mass);
         O->BH_Mass += (BHP(other).Mass);
@@ -598,7 +599,7 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         for(d = 0; d < 3; d++)
             O->AccretedMomentum[d] += (P[other].Mass * P[other].Vel[d]);
 
-        /* We do not know how to notify the tree of mass changes. so 
+        /* We do not know how to notify the tree of mass changes. so
          * blindly enforce a mass conservation for now. */
         O->Mass += (P[other].Mass);
         P[other].Mass = 0;
@@ -703,7 +704,7 @@ blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remote, enum Tre
 }
 
 void blackhole_make_one(int index) {
-    if(P[index].Type != 0) 
+    if(P[index].Type != 0)
         endrun(7772, "Only Gas turns into blackholes, what's wrong?");
 
     int child = slots_fork(index, 5);
@@ -721,8 +722,8 @@ void blackhole_make_one(int index) {
     BHP(child).Mass = BHmass;
     BHP(child).Mdot = 0;
 
-    /* It is important to initialize MinPotPos to the current position of 
-     * a BH to avoid drifting to unknown locations (0,0,0) immediately 
+    /* It is important to initialize MinPotPos to the current position of
+     * a BH to avoid drifting to unknown locations (0,0,0) immediately
      * after the BH is created. */
     int j;
     for(j = 0; j < 3; j++) {

@@ -13,6 +13,7 @@
 #include "mymalloc.h"
 #include "timestep.h"
 #include "endrun.h"
+#include "hydra.h"
 
 #ifndef DEBUG
 #define NDEBUG
@@ -25,6 +26,13 @@
  *  computed, and where the rate of change of entropy due to the shock heating
  *  (via artificial viscosity) is computed.
  */
+
+double
+PressurePred(int i)
+{
+    return pow(SPHP(i).EntVarPred * SPHP(i).EOMDensity, GAMMA);
+}
+
 typedef struct {
     TreeWalkQueryBase base;
 #ifdef DENSITY_INDEPENDENT_SPH
@@ -138,7 +146,7 @@ hydro_copy(int place, TreeWalkQueryHydro * input, TreeWalk * tw)
     input->Density = SPHP(place).Density;
 #ifdef DENSITY_INDEPENDENT_SPH
     input->EgyRho = SPHP(place).EgyWtDensity;
-    input->EntVarPred = EntropyPred(place);
+    input->EntVarPred = SPHP(place).EntVarPred;
 #endif
     input->DhsmlEOMDensityFactor = SPHP(place).DhsmlEOMDensityFactor;
 
@@ -245,7 +253,6 @@ hydro_ngbiter(
         }
 
         double vdotr = dotproduct(dist, dv);
-lightcone-128.lua
         double rho_ij = 0.5 * (I->Density + SPHP(other).Density);
         double vdotr2 = vdotr + All.cf.hubble_a2 * r2;
 
@@ -302,12 +309,11 @@ lightcone-128.lua
 #else
         double r1 = 0, r2 = 0;
         /* leading-order term */
-
-        double EntPred = EntropyPred(other);
+        double EntOther = SPHP(other).EntVarPred;
 
         hfc += P[other].Mass *
-            (dwk_i*iter->p_over_rho2_i*EntPred/I->EntVarPred +
-             dwk_j*p_over_rho2_j*I->EntVarPred/EntPred) / r;
+            (dwk_i*iter->p_over_rho2_i*EntOther/I->EntVarPred +
+             dwk_j*p_over_rho2_j*I->EntVarPred/EntOther) / r;
 
         /* enable grad-h corrections only if contrastlimit is non negative */
         if(All.DensityContrastLimit >= 0) {
