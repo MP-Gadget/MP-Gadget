@@ -12,7 +12,7 @@
 static Cosmology * CP = NULL;
 static inline double OmegaFLD(const double a);
 
-void init_cosmology(Cosmology * CP_in, const double TimeBegin)
+void init_cosmology(Cosmology * CP_in, const double TimeBegin, const double box)
 {
     CP = CP_in;
     /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
@@ -36,8 +36,19 @@ void init_cosmology(Cosmology * CP_in, const double TimeBegin)
     init_omega_nu(&CP->ONu, CP->MNu, TimeBegin, CP->HubbleParam, CP->CMBTemperature);
     /* Neutrinos will be included in Omega0, if massive.
      * This ensures that OmegaCDM contains only non-relativistic species.*/
-    if(CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0)
+    if(CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0) {
         CP->OmegaCDM -= get_omega_nu(&CP->ONu, 1);
+        /* Warn if we have a large enough box that neutrinos are not free-streaming on the largest scales.
+         * Free-streaming scale is ~500 Mpc at z=99 for M_nu = 0.3 eV.
+         * FIXME: Implement scale dependent growth correction, by differentiating transfer functions.*/
+        /*Neutrino thermal velocity in cm/s*/
+        double v_th = BOLEVK*(TNUCMB*CP->CMBTemperature)/(CP->MNu[0] + CP->MNu[1] + CP->MNu[2])*3. / TimeBegin * C;
+        /*Neutrino free-streaming length from Lesgourgues & Pastor in (comoving) cm/h*/
+        double nufs = 2 * M_PI * sqrt(2/3.) * v_th / (hubble_function(TimeBegin)/CP->Hubble * HUBBLE)/TimeBegin;
+        /*Box should be in comoving cm/h: we ask for 1/4 of the box because sample variance will matter on larger scales.*/
+        if(nufs < box/4.)
+            message(0,"WARNING: Neutrino free-streaming/box size =  %g. May be inaccurate as scale-dependent growth is not modelled.\n",nufs/box);
+    }
 }
 
 /*Hubble function at scale factor a, in dimensions of CP.Hubble*/
@@ -74,7 +85,14 @@ int growth_ode(double a, const double yy[], double dyda[], void * params)
     const double hub = hubble_function(a)/CP->Hubble;
     dyda[0] = yy[1]/pow(a,3)/hub;
     /*Only use gravitating part*/
-    dyda[1] = yy[0] * 1.5 * a * CP->Omega0/(a*a*a) / hub;
+    /* Note: we do not include neutrinos
+     * here as they are free-streaming at the initial time.
+     * This is not right if our box is very large and thus overlaps
+     * with their free-streaming scale. In that case the growth factor will be scale-dependent
+     * and we need to numerically differentiate. In practice the box will either be larger
+     * than the horizon, and so need radiation perturbations, or the neutrino
+     * mass will be larger than current constraints allow, so we just warn for now.*/
+    dyda[1] = yy[0] * 1.5 * a * (CP->OmegaCDM + CP->OmegaBaryon)/(a*a*a) / hub;
     return GSL_SUCCESS;
 }
 
