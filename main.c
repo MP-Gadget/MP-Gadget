@@ -53,19 +53,15 @@ int main(int argc, char **argv)
         goto byebye;
     }
 
-    if(ThisTask == 0)
-    {
-        /*    printf("\nThis is P-Gadget, version `%s', svn-revision `%s'.\n", GADGET_VERSION, svn_version()); */
-        printf("This is MP-Gadget, version %s.\n", GADGET_VERSION);
-        printf("Running on %d MPI Ranks.\n", NTask);
-        printf("           %d OpenMP Threads.\n", omp_get_max_threads());
-        printf("Code was compiled with settings:\n"
-               "%s\n", GADGET_COMPILER_SETTINGS);
-        printf("Size of particle structure       %td  [bytes]\n",sizeof(struct particle_data));
-        printf("Size of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
-        printf("Size of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
-        printf("Size of star particle structure   %td  [bytes]\n",sizeof(struct star_particle_data));
-    }
+    message(0, "This is MP-Gadget, version %s.\n", GADGET_VERSION);
+    message(0, "Running on %d MPI Ranks.\n", NTask);
+    message(0, "           %d OpenMP Threads.\n", omp_get_max_threads());
+    message(0, "Code was compiled with settings:\n"
+           "%s\n", GADGET_COMPILER_SETTINGS);
+    message(0, "Size of particle structure       %td  [bytes]\n",sizeof(struct particle_data));
+    message(0, "Size of blackhole structure       %td  [bytes]\n",sizeof(struct bh_particle_data));
+    message(0, "Size of sph particle structure   %td  [bytes]\n",sizeof(struct sph_particle_data));
+    message(0, "Size of star particle structure   %td  [bytes]\n",sizeof(struct star_particle_data));
 
     read_parameter_file(argv[1]);	/* ... read in parameters for this run */
 

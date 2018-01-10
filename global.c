@@ -71,7 +71,7 @@ struct state_of_system compute_global_quantities_of_system(void)
 
         if(P[i].Type == 0)
         {
-            entr = SPHP(i).Entropy;
+            entr = EntropyPred(i);
             egyspec = entr / (GAMMA_MINUS1) * pow(SPHP(i).EOMDensity / a3, GAMMA_MINUS1);
             sys.EnergyIntComp[0] += P[i].Mass * egyspec;
             sys.TemperatureComp[0] += P[i].Mass * ConvertInternalEnergy2Temperature(egyspec, SPHP(i).Ne);

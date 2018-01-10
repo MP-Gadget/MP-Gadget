@@ -12,6 +12,7 @@ void density_update();
 void energy_statistics(void);
 
 void grav_short_tree(void);
+void hydro_force(void);
 void init(int RestartSnapNum);
 void run(void);
 void runtests(void);
