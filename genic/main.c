@@ -35,7 +35,7 @@ int main(int argc, char **argv)
 
   int64_t TotNumPart = (int64_t) Ngrid*Ngrid*Ngrid;
 
-  init_cosmology(&CP, InitTime);
+  init_cosmology(&CP, InitTime, Box * UnitLength_in_cm);
 
   initialize_powerspectrum(ThisTask, InitTime, UnitLength_in_cm, &CP, &PowerP);
   petapm_init(Box, Nmesh, 1);
