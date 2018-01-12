@@ -15,10 +15,6 @@
 #include "endrun.h"
 #include "hydra.h"
 
-#ifndef DEBUG
-#define NDEBUG
-#endif
-
 /*! \file hydra.c
  *  \brief Computation of SPH forces and rate of entropy generation
  *
@@ -253,17 +249,10 @@ hydro_ngbiter(
         }
 
         double vdotr = dotproduct(dist, dv);
-        double rho_ij = 0.5 * (I->Density + SPHP(other).Density);
         double vdotr2 = vdotr + All.cf.hubble_a2 * r2;
 
         double dwk_i = density_kernel_dwk(&iter->kernel_i, r * iter->kernel_i.Hinv);
         double dwk_j = density_kernel_dwk(&kernel_j, r * kernel_j.Hinv);
-
-        double vsig = iter->soundspeed_i + soundspeed_j;
-
-
-        if(vsig > O->MaxSignalVel)
-            O->MaxSignalVel = vsig;
 
         double visc = 0;
 
@@ -271,21 +260,20 @@ hydro_ngbiter(
         {
             /*See Gadget-2 paper: eq. 13*/
             const double fac_mu = pow(All.cf.a, 3 * (GAMMA - 1) / 2) / All.cf.a;
-            double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
-            vsig -= 3 * mu_ij;
+            const double mu_ij = fac_mu * vdotr2 / r;	/* note: this is negative! */
+            const double rho_ij = 0.5 * (I->Density + SPHP(other).Density);
+            double vsig = iter->soundspeed_i + soundspeed_j;
 
+            vsig -= 3 * mu_ij;
 
             if(vsig > O->MaxSignalVel)
                 O->MaxSignalVel = vsig;
 
-            double f2 =
-                fabs(SPHP(other).DivVel) / (fabs(SPHP(other).DivVel) + SPHP(other).CurlVel +
-                        0.0001 * soundspeed_j / fac_mu / P[other].Hsml);
-
-            double BulkVisc_ij = All.ArtBulkViscConst;
+            const double f2 = fabs(SPHP(other).DivVel) / (fabs(SPHP(other).DivVel) +
+                    SPHP(other).CurlVel + 0.0001 * soundspeed_j / fac_mu / P[other].Hsml);
 
             /*Gadget-2 paper, eq. 14*/
-            visc = 0.25 * BulkVisc_ij * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
+            visc = 0.25 * All.ArtBulkViscConst * vsig * (-mu_ij) / rho_ij * (I->F1 + f2);
             /* .... end artificial viscosity evaluation */
             /* now make sure that viscous acceleration is not too large */
 
@@ -333,8 +321,7 @@ hydro_ngbiter(
 
 #ifdef SFR
         if(All.WindOn && HAS(All.WindModel, WIND_DECOUPLE_SPH)) {
-            if(P[other].Type == 0)
-                if(SPHP(other).DelayTime > 0)	/* No force by wind particles */
+            if(P[other].Type == 0 && SPHP(other).DelayTime > 0) /* No force by wind particles */
                 {
                     hfc = hfc_visc = 0;
                 }
