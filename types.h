@@ -19,6 +19,13 @@ typedef int32_t inttime_t;
 
 typedef uint64_t MyIDType;
 
+#ifndef LOW_PRECISION
+#define LOW_PRECISION double
+#endif
+#ifndef HIGH_PRECISION
+#define HIGH_PRECISION double
+#endif
+
 typedef LOW_PRECISION MyFloat;
 typedef HIGH_PRECISION MyDouble;
 
