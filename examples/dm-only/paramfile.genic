@@ -2,11 +2,8 @@ OutputDir = output    # Directory for output
 FileBase = IC              # Base-filename of output files
 
 Ngrid = 128
-Nmesh = 128  # This is the size of the FFT grid used to 
-# compute the displacement field. One
-# should have Nmesh >= Nsample.
 
-BoxSize = 32000.0   # Periodic box size of simulation
+BoxSize = 50000.0   # Periodic box size of simulation
 
 Omega0 = 0.2814      # Total matter density  (at z=0)
 OmegaLambda = 0.7186      # Cosmological constant (at z=0)
@@ -14,7 +11,7 @@ OmegaBaryon = 0.0464     # Baryon density        (at z=0)
 ProduceGas = 0         # 0 is dm only. 1 is gas
 HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
 
-Redshift = 9        # Starting redshift
+Redshift = 49        # Starting redshift
 
 Sigma8 = 0.810      # power spectrum normalization
 
