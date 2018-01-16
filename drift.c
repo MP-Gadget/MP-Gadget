@@ -137,7 +137,11 @@ static void real_drift_particle(int i, inttime_t ti1)
         /* Evolve entropy at drift time: evolved dlog a.
          * Used to predict pressure and entropy for SPH*/
         double dloga = dloga_from_dti(P[i].Ti_drift - P[i].Ti_kick);
-        SPHP(i).EntVarPred = pow(SPHP(i).Entropy + SPHP(i).DtEntropy * dloga,1/GAMMA);
+        SPHP(i).EntVarPred = SPHP(i).Entropy + SPHP(i).DtEntropy * dloga;
+        /*Entropy limiter for the predicted entropy: makes sure entropy stays positive. */
+        if(dloga > 0 && SPHP(i).EntVarPred < 0.5*SPHP(i).Entropy)
+            SPHP(i).EntVarPred = 0.5 * SPHP(i).Entropy;
+        SPHP(i).EntVarPred = pow(SPHP(i).EntVarPred, 1/GAMMA);
         //      P[i].Hsml *= exp(0.333333333333 * SPHP(i).DivVel * ddrift);
         //---This was added
         double fac = exp(0.333333333333 * SPHP(i).DivVel * ddrift);
