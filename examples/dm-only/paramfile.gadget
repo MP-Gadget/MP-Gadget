@@ -28,9 +28,6 @@ WindOn = 0
 MassiveNuLinRespOn = 0
 
 # Accuracy of time integration
-MaxSizeTimestep = 0.1
-MinSizeTimestep = 0.01
-
 SnapshotWithFOF = 1
 FOFHaloLinkingLength = 0.2
 FOFHaloMinLength = 32
