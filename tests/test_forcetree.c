@@ -24,7 +24,7 @@ struct TreeBuilder
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder tb);
+force_update_node_parallel(const struct TreeBuilder tb);
 
 /*Used data from All and domain*/
 struct part_manager_type PartManager[1] = {{0}};
@@ -266,7 +266,7 @@ static void do_tree_test(const int numpart, const struct TreeBuilder tb)
     int nrealnode = check_tree(tb, nodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
-    int tail = force_update_node_recursive(numpart, -1, -1, tb);
+    int tail = force_update_node_parallel(tb);
     force_set_next_node(tail, -1, tb);
 /*     assert_true(tail < nodes); */
     end = MPI_Wtime();
@@ -374,6 +374,7 @@ static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
     All.BoxSize = 8;
+    All.NumThreads = omp_get_max_threads();
     int i;
     for(i=0; i<6; i++)
         GravitySofteningTable[i] = 0.1 / 2.8;
