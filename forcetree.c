@@ -897,14 +897,22 @@ force_update_node_parallel(const struct TreeBuilder tb)
     if(All.NumThreads == 1)
         return force_update_node_recursive(tb.firstnode, -1, -1, NULL, 0, &tb);
     /* We want there to be enough tasks that openmp can use all
-     * cores efficiently: some branches may be much deeper than others.*/
-    int levels = 4;
+     * cores efficiently: some branches may be much deeper than others.
+     * However, too many makes the final merge stage slow.
+     * 3 levels should never make the final merge slow and is enough for all reasonable cores.*/
+    int levels = 3;
+    /*If particle load is very low, use only one level.*/
+    if(PartManager->NumPart/8 < pow(8,levels+1)) {
+        levels = 1;
+    }
     int ntasks = pow(8,levels)*(Tasks[ThisTask].EndLeaf - Tasks[ThisTask].StartLeaf);
+
     int i;
     struct TaskNode * TaskNodes = mymalloc("tasknodes", ntasks * sizeof(struct TaskNode));
 
     int nfound = 0;
 
+    /*The loop is only necessary for slightly pathological cases. Probably not worth it.*/
     while(nfound < ntasks/8) {
         nfound = 0;
         #pragma omp parallel for
@@ -919,6 +927,9 @@ force_update_node_parallel(const struct TreeBuilder tb)
         /*In case we did not get enough nodes, refine again*/
         levels+=1;
         message(1,"ntasks = %d empty = %d levels = %d\n", ntasks, ntasks - nfound, levels);
+        /*Enforce sanity: make sure 8^levels < 2^32.*/
+        if(levels > 10)
+            break;
     }
 
     /*Sort these nodes*/
