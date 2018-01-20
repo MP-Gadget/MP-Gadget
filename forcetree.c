@@ -912,24 +912,14 @@ force_update_node_parallel(const struct TreeBuilder tb)
 
     int nfound = 0;
 
-    /*The loop is only necessary for slightly pathological cases. Probably not worth it.*/
-    while(nfound < ntasks/8) {
-        nfound = 0;
-        #pragma omp parallel for
-        for(i=0; i<ntasks;i++)
-            TaskNodes[i].node = -1;
+    #pragma omp parallel for
+    for(i=0; i<ntasks;i++)
+        TaskNodes[i].node = -1;
 
-        /*Only refine local leaf nodes*/
-        for(i = Tasks[ThisTask].StartLeaf; i < Tasks[ThisTask].EndLeaf; i ++) {
-            int no = TopLeaves[i].treenode;
-            force_queue_refinement(no, levels-1, &nfound, TaskNodes, ntasks, &tb);
-        }
-        /*In case we did not get enough nodes, refine again*/
-        levels+=1;
-        message(1,"ntasks = %d empty = %d levels = %d\n", ntasks, ntasks - nfound, levels);
-        /*Enforce sanity: make sure 8^levels < 2^32.*/
-        if(levels > 10)
-            break;
+    /*Only refine local leaf nodes*/
+    for(i = Tasks[ThisTask].StartLeaf; i < Tasks[ThisTask].EndLeaf; i ++) {
+        int no = TopLeaves[i].treenode;
+        force_queue_refinement(no, levels-1, &nfound, TaskNodes, ntasks, &tb);
     }
 
     /*Sort these nodes*/
