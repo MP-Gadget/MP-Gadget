@@ -35,6 +35,16 @@
 /*Cooling only: no star formation*/
 static void cooling_direct(int i);
 
+/*
+ * This routine does cooling and star formation for
+ * the effective multi-phase model.
+ */
+static int
+sfr_cooling_haswork(int target, TreeWalk * tw)
+{
+    return P[target].Type == 0 && P[target].Mass > 0;
+}
+
 #ifdef SFR
 static double u_to_temp_fac; /* assuming very hot !*/
 
@@ -56,16 +66,6 @@ static double get_sfr_factor_due_to_selfgravity(int i);
 static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 static double find_star_mass(int i);
-
-/*
- * This routine does cooling and star formation for
- * the effective multi-phase model.
- */
-static int
-sfr_cooling_haswork(int target, TreeWalk * tw)
-{
-    return P[target].Type == 0 && P[target].Mass > 0;
-}
 
 /*Prototypes and structures for the wind model*/
 typedef struct {
