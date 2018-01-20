@@ -936,13 +936,15 @@ force_update_node_parallel(const struct TreeBuilder tb)
     qsort_openmp(TaskNodes, nfound, sizeof(struct TaskNode), compare_nodes);
 
     /* now compute the multipole moments recursively for each subtree*/
-    #pragma omp parallel for schedule(dynamic,1)
-    for(i = nfound-1; i >= 0; i--)
-    {
-        if(TaskNodes[i].node >= tb.lastnode || TaskNodes[i].node < tb.firstnode)
-            endrun(1,"Received bad task node (should not happen): no = %d i = %d\n",TaskNodes[i].node, i);
-        TaskNodes[i].tail = force_update_node_recursive(TaskNodes[i].node, TaskNodes[i].sibling, -1, NULL, 0, &tb);
-        tb.Nodes[TaskNodes[i].node].f.MomentsDone = 1;
+    if(nfound > 0) {
+        #pragma omp parallel for schedule(dynamic,1)
+        for(i = nfound-1; i >= 0; i--)
+        {
+            if(TaskNodes[i].node >= tb.lastnode || TaskNodes[i].node < tb.firstnode)
+                endrun(1,"Received bad task node (should not happen): no = %d i = %d\n",TaskNodes[i].node, i);
+             TaskNodes[i].tail = force_update_node_recursive(TaskNodes[i].node, TaskNodes[i].sibling, -1, NULL, 0, &tb);
+             tb.Nodes[TaskNodes[i].node].f.MomentsDone = 1;
+         }
     }
 
     /*Now do the final stage in serial*/
