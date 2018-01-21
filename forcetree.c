@@ -716,13 +716,9 @@ compare_nodes(const void * a, const void * b)
  *  and argument tail is the current tail of the NextNode linked list.
  */
 static int
-force_update_node_recursive(int no, int sib, int tail, const struct TaskNode * PreComp, int ntask, const struct TreeBuilder *tb)
+force_update_node_recursive(int no, int sib, const struct TaskNode * PreComp, int ntask, const struct TreeBuilder *tb)
 {
-    /*Set NextNode for this node*/
-    if(tail < tb->firstnode && tail >= 0 && force_get_next_node(tail, *tb) != -1) {
-        endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, *tb));
-    }
-    tail = force_set_next_node(tail, no, *tb);
+    int tail = no;
 
     /* For particles and pseudo particles we have nothing to update; */
     /* But the new tail is the last particle in the linked list. */
@@ -765,6 +761,13 @@ force_update_node_recursive(int no, int sib, int tail, const struct TaskNode * P
                 break;
             }
 
+        /*Set NextNode for this node*/
+        if(tail < tb->firstnode && tail >= 0 && force_get_next_node(tail, *tb) != -1) {
+            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, *tb));
+        }
+
+        force_set_next_node(tail, p, *tb);
+
         /*If we reached a node on the list of pre-computed nodes, we don't want to refine.
          * Instead we can use the node as-is.*/
         struct TaskNode * result = NULL;
@@ -776,12 +779,11 @@ force_update_node_recursive(int no, int sib, int tail, const struct TaskNode * P
                 endrun(1,"no = %d is done but no result found!\n",p);
         }
         if(result != NULL) {
-            force_set_next_node(tail, p, *tb);
             tail = result->tail;
         }
-        else
-            tail = force_update_node_recursive(p, nextsib, tail, PreComp, ntask, tb);
-
+        else {
+            tail = force_update_node_recursive(p, nextsib, PreComp, ntask, tb);
+        }
         if(p >= tb->lastnode)	/* a pseudo particle */
         {
             /* nothing to be done here because the mass of the
@@ -909,7 +911,7 @@ int
 force_update_node_parallel(const struct TreeBuilder tb)
 {
     if(All.NumThreads == 1)
-        return force_update_node_recursive(tb.firstnode, -1, -1, NULL, 0, &tb);
+        return force_update_node_recursive(tb.firstnode, -1, NULL, 0, &tb);
     /* We want there to be enough tasks that openmp can use all
      * cores efficiently: some branches may be much deeper than others.
      * However, too many makes the final merge stage slow.
@@ -947,13 +949,13 @@ force_update_node_parallel(const struct TreeBuilder tb)
         {
             if(TaskNodes[i].node >= tb.lastnode || TaskNodes[i].node < tb.firstnode)
                 endrun(1,"Received bad task node (should not happen): no = %d i = %d\n",TaskNodes[i].node, i);
-             TaskNodes[i].tail = force_update_node_recursive(TaskNodes[i].node, TaskNodes[i].sibling, -1, NULL, 0, &tb);
+             TaskNodes[i].tail = force_update_node_recursive(TaskNodes[i].node, TaskNodes[i].sibling, NULL, 0, &tb);
              tb.Nodes[TaskNodes[i].node].f.MomentsDone = 1;
          }
     }
 
     /*Now do the final stage in serial*/
-    int tail = force_update_node_recursive(tb.firstnode, -1, -1, TaskNodes, nfound, &tb);
+    int tail = force_update_node_recursive(tb.firstnode, -1, TaskNodes, nfound, &tb);
     myfree(TaskNodes);
     return tail;
 }
