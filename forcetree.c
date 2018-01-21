@@ -731,11 +731,14 @@ force_update_node_recursive(int no, int sib, const struct TaskNode * PreComp, in
         return no;
     }
 
-    int j, suns[8];
+    /*Last value of tails is the return value of this function*/
+    int j, suns[8], tails[8];
     /* this "backup" is necessary because the nextnode
      * entry will overwrite one element (union!) */
-    for(j = 0; j < 8; j++)
+    for(j = 0; j < 8; j++) {
         suns[j] = Nodes[no].u.suns[j];
+        tails[j] = -1;
+    }
 
     memset(&Nodes[no].u.d.s,0,3*sizeof(MyFloat));
 
@@ -760,14 +763,7 @@ force_update_node_recursive(int no, int sib, const struct TaskNode * PreComp, in
                 nextsib = suns[jj];
                 break;
             }
-
-        /*Set NextNode for this node*/
-        if(tail < tb->firstnode && tail >= 0 && force_get_next_node(tail, *tb) != -1) {
-            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, *tb));
-        }
-
-        force_set_next_node(tail, p, *tb);
-
+        tails[j] = tail;
         /*If we reached a node on the list of pre-computed nodes, we don't want to refine.
          * Instead we can use the node as-is.*/
         struct TaskNode * result = NULL;
@@ -813,7 +809,23 @@ force_update_node_recursive(int no, int sib, const struct TaskNode * PreComp, in
             }
         }
     }
+    /*This loop sets the next node value for the row we just computed.
+     Tails at this point contains: no, (<=8 return values of force_update_node_recursive).
+     The last entry needs to be the return value of this function.*/
+    for(j = 0; j < 8; j++)
+    {
+        if(suns[j] < 0)
+            continue;
+        /*Set NextNode for this node*/
+        if(tail < tb->firstnode && tail >= 0 && force_get_next_node(tail, *tb) != -1) {
+            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, *tb));
+        }
+        force_set_next_node(tails[j], suns[j], *tb);
+    }
 
+    Nodes[no].u.d.sibling = sib;
+
+    /*Set the center of mass moments*/
     const double mass = Nodes[no].u.d.mass;
     if(mass)
     {
@@ -828,8 +840,6 @@ force_update_node_recursive(int no, int sib, const struct TaskNode * PreComp, in
         Nodes[no].u.d.s[1] = Nodes[no].center[1];
         Nodes[no].u.d.s[2] = Nodes[no].center[2];
     }
-
-    Nodes[no].u.d.sibling = sib;
 
     return tail;
 }
