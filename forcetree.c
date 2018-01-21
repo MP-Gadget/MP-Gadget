@@ -862,6 +862,10 @@ force_get_sibling(int curnode, const struct TreeBuilder *tb)
     return force_get_sibling(parent,tb);
 }
 
+/* This function adds an internal node to the list of nodes to have their moments calculated recursively
+ * in the parallel (first) step of the algorithm. When handed a node in 'no' it will recurse down levels until level == 0.
+ * It will then compute the sibling for each internal node attached to the current parent, skipping particles and pseudoparticles,
+ * and add the new node to the list in TaskNodes.*/
 static void
 force_queue_refinement(int no, int level, int * index, struct TaskNode *TaskNodes, const int nmax, const struct TreeBuilder *tb)
 {
@@ -890,6 +894,16 @@ force_queue_refinement(int no, int level, int * index, struct TaskNode *TaskNode
  *
  *  The function also computes the NextNode and sibling linked lists. The return value
  *  and argument tail is the current tail of the NextNode linked list.
+ *
+ * The parallel algorithm is as follows:
+ * - The tree is walked a number of levels (three by default) down from each local topleaf. Local topleaves are used
+ * so that we do not waste time trying moment calculation with pseudoparticles.
+ * - Each internal node found at that level is added to a list, together with its sibling.
+ * - Each node in this list then has the recursive moment calculation called on it.
+ * Note: If the tree is very unbalanced and one branch much deeper than the others, this will not be efficient.
+ * - Once each tree's recursive moment is generated in parallel, the tail value from each recursion is stored, and the node marked as done.
+ * - A final recursive moment calculation is run in serial for the top 3 levels of the tree. When it encounters one of the pre-computed nodes, it
+ * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
  */
 int
 force_update_node_parallel(const struct TreeBuilder tb)
@@ -927,6 +941,7 @@ force_update_node_parallel(const struct TreeBuilder tb)
 
     /* now compute the multipole moments recursively for each subtree*/
     if(nfound > 0) {
+        /* Dynamic scheduling is used as it is common for one or two tree branches to be deep.*/
         #pragma omp parallel for schedule(dynamic,1)
         for(i = nfound-1; i >= 0; i--)
         {
