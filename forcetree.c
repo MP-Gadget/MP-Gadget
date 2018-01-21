@@ -687,25 +687,20 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
     force_adjust_node_softening(pnode, FORCE_SOFTENING(i), 0);
 }
 
-/*Structure to hold the data for a node that has been computed in parallel*/
-struct TaskNode
-{
-    int node;
-    int tail;
-    int sibling;
-};
-
+/*Get the sibling of a node, using the suns array. Only to be used in the tree build, before update_node_recursive is called.*/
 static int
-compare_nodes(const void * a, const void * b)
+force_get_sibling(int sib, int j, int * suns)
 {
-    int n1 = ((const struct TaskNode *) a)->node;
-    int n2 = ((const struct TaskNode *) b)->node;
-    if(n1 < n2)
-        return -1;
-    else if(n1 > n2)
-        return 1;
-    else
-        return 0;
+    /* check if we have a sibling on the same level */
+    int jj;
+    int nextsib = sib;
+    for(jj = j + 1; jj < 8; jj++) {
+        if(suns[jj] >= 0) {
+            nextsib = suns[jj];
+            break;
+        }
+    }
+    return nextsib;
 }
 
 /*! this routine determines the multipole moments for a given internal node
@@ -716,10 +711,8 @@ compare_nodes(const void * a, const void * b)
  *  and argument tail is the current tail of the NextNode linked list.
  */
 static int
-force_update_node_recursive(int no, int sib, const struct TaskNode * PreComp, int ntask, const struct TreeBuilder *tb)
+force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder *tb)
 {
-    int tail = no;
-
     /* For particles and pseudo particles we have nothing to update; */
     /* But the new tail is the last particle in the linked list. */
     if(no < tb->firstnode || no >= tb->lastnode) {
@@ -737,9 +730,22 @@ force_update_node_recursive(int no, int sib, const struct TaskNode * PreComp, in
      * entry will overwrite one element (union!) */
     for(j = 0; j < 8; j++) {
         suns[j] = Nodes[no].u.suns[j];
-        tails[j] = -1;
     }
 
+    /*First do the children*/
+    for(j = 0; j < 8; j++)
+    {
+        const int p = suns[j];
+        /*Empty slot*/
+        if(p < 0)
+            continue;
+        const int nextsib = force_get_sibling(sib, j, suns);
+        #pragma omp task shared(tb, tails, level) final(level > 3)
+        tails[j] = force_update_node_recursive(p, nextsib, level+1, tb);
+    }
+
+    /*Now we do the moments*/
+    /*After this point the suns array is invalid!*/
     memset(&Nodes[no].u.d.s,0,3*sizeof(MyFloat));
 
     Nodes[no].u.d.mass = 0;
@@ -748,38 +754,18 @@ force_update_node_recursive(int no, int sib, const struct TaskNode * PreComp, in
     Nodes[no].f.DependsOnLocalMass = 0;
     Nodes[no].f.MixedSofteningsInNode = 0;
 
+    Nodes[no].u.d.sibling = sib;
+
+    /*Make sure all child nodes are done*/
+    #pragma omp taskwait
+
     for(j = 0; j < 8; j++)
     {
-        int nextsib = sib;
         const int p = suns[j];
-        int jj;
         /*Empty slot*/
         if(p < 0)
             continue;
 
-        /* check if we have a sibling on the same level */
-        for(jj = j + 1; jj < 8; jj++)
-            if(suns[jj] >= 0) {
-                nextsib = suns[jj];
-                break;
-            }
-        tails[j] = tail;
-        /*If we reached a node on the list of pre-computed nodes, we don't want to refine.
-         * Instead we can use the node as-is.*/
-        struct TaskNode * result = NULL;
-        if(PreComp && p >= PreComp[0].node && p <= PreComp[ntask-1].node && Nodes[p].f.MomentsDone) {
-            struct TaskNode tmp;
-            tmp.node = p;
-            result = bsearch(&tmp, PreComp, ntask, sizeof(struct TaskNode), compare_nodes);
-            if(!result)
-                endrun(1,"no = %d is done but no result found!\n",p);
-        }
-        if(result != NULL) {
-            tail = result->tail;
-        }
-        else {
-            tail = force_update_node_recursive(p, nextsib, PreComp, ntask, tb);
-        }
         if(p >= tb->lastnode)	/* a pseudo particle */
         {
             /* nothing to be done here because the mass of the
@@ -809,21 +795,6 @@ force_update_node_recursive(int no, int sib, const struct TaskNode * PreComp, in
             }
         }
     }
-    /*This loop sets the next node value for the row we just computed.
-     Tails at this point contains: no, (<=8 return values of force_update_node_recursive).
-     The last entry needs to be the return value of this function.*/
-    for(j = 0; j < 8; j++)
-    {
-        if(suns[j] < 0)
-            continue;
-        /*Set NextNode for this node*/
-        if(tail < tb->firstnode && tail >= 0 && force_get_next_node(tail, *tb) != -1) {
-            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, *tb));
-        }
-        force_set_next_node(tails[j], suns[j], *tb);
-    }
-
-    Nodes[no].u.d.sibling = sib;
 
     /*Set the center of mass moments*/
     const double mass = Nodes[no].u.d.mass;
@@ -841,63 +812,22 @@ force_update_node_recursive(int no, int sib, const struct TaskNode * PreComp, in
         Nodes[no].u.d.s[2] = Nodes[no].center[2];
     }
 
-    return tail;
-}
-
-/*Get the sibling of a node, using the suns array. Only to be used in the tree build, before update_node_recursive is called.*/
-static int
-force_get_sibling(int curnode, const struct TreeBuilder *tb)
-{
-    int parent = tb->Nodes[curnode].father;
-    int * suns = tb->Nodes[parent].u.suns;
-    /* check if we have a sibling on the same level */
-    int jj, cursubnode=0;
-    int sib = -1;
-    for(jj = 0; jj < 8; jj++) {
-        if(suns[jj] == curnode) {
-            cursubnode = jj;
-            break;
-        }
-    }
-    for(jj = cursubnode + 1; jj < 8; jj++) {
-        if(suns[jj] >= 0) {
-            sib = suns[jj];
-            break;
-        }
-    }
-    if(sib > -1)
-        return sib;
-    /*We reached the root node and are the last entry on it.*/
-    if(parent == tb->firstnode)
-        return -1;
-    /*If no sibling here, check the level above*/
-    return force_get_sibling(parent,tb);
-}
-
-/* This function adds an internal node to the list of nodes to have their moments calculated recursively
- * in the parallel (first) step of the algorithm. When handed a node in 'no' it will recurse down levels until level == 0.
- * It will then compute the sibling for each internal node attached to the current parent, skipping particles and pseudoparticles,
- * and add the new node to the list in TaskNodes.*/
-static void
-force_queue_refinement(int no, int level, int * index, struct TaskNode *TaskNodes, const int nmax, const struct TreeBuilder *tb)
-{
-    int * suns = tb->Nodes[no].u.suns;
-    int j;
-    for(j = 0; j < 8; j++) {
-        int no2 = suns[j];
-        if(*index >= nmax)
-            return;
-        if(no2 < tb->firstnode || no2 >= tb->lastnode)
+    /*This loop sets the next node value for the row we just computed.
+     Tails at this point contains: no, (<=8 return values of force_update_node_recursive).
+     The last entry needs to be the return value of this function.*/
+    int tail = no;
+    for(j = 0; j < 8; j++)
+    {
+        if(suns[j] < 0)
             continue;
-        else if(level > 0)
-            force_queue_refinement(no2, level-1, index, TaskNodes, nmax, tb);
-        else {
-            TaskNodes[*index].node = no2;
-            TaskNodes[*index].sibling = force_get_sibling(no2, tb);
-            (*index)++;
+        /*Set NextNode for this node*/
+        if(tail < tb->firstnode && tail >= 0 && force_get_next_node(tail, *tb) != -1) {
+            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, *tb));
         }
-
+        force_set_next_node(tail, suns[j], *tb);
+        tail = tails[j];
     }
+    return tail;
 }
 
 /*! This routine determines the multipole moments for a given internal node
@@ -920,53 +850,12 @@ force_queue_refinement(int no, int level, int * index, struct TaskNode *TaskNode
 int
 force_update_node_parallel(const struct TreeBuilder tb)
 {
-    if(All.NumThreads == 1)
-        return force_update_node_recursive(tb.firstnode, -1, NULL, 0, &tb);
-    /* We want there to be enough tasks that openmp can use all
-     * cores efficiently: some branches may be much deeper than others.
-     * However, too many makes the final merge stage slow.
-     * 3 levels should never make the final merge slow and is enough for all reasonable cores.*/
-    int levels = 3;
-    /*If particle load is very low, use only one level.*/
-    if(PartManager->NumPart/8 < pow(8,levels+1)) {
-        levels = 1;
+    int tail;
+#pragma omp parallel
+#pragma omp single nowait
+    {
+        tail = force_update_node_recursive(tb.firstnode, -1, 0, &tb);
     }
-    int ntasks = pow(8,levels)*(Tasks[ThisTask].EndLeaf - Tasks[ThisTask].StartLeaf);
-
-    int i;
-    struct TaskNode * TaskNodes = mymalloc("tasknodes", ntasks * sizeof(struct TaskNode));
-
-    int nfound = 0;
-
-    #pragma omp parallel for
-    for(i=0; i<ntasks;i++)
-        TaskNodes[i].node = -1;
-
-    /*Only refine local leaf nodes*/
-    for(i = Tasks[ThisTask].StartLeaf; i < Tasks[ThisTask].EndLeaf; i ++) {
-        int no = TopLeaves[i].treenode;
-        force_queue_refinement(no, levels-1, &nfound, TaskNodes, ntasks, &tb);
-    }
-
-    /*Sort these nodes*/
-    qsort_openmp(TaskNodes, nfound, sizeof(struct TaskNode), compare_nodes);
-
-    /* now compute the multipole moments recursively for each subtree*/
-    if(nfound > 0) {
-        /* Dynamic scheduling is used as it is common for one or two tree branches to be deep.*/
-        #pragma omp parallel for schedule(dynamic,1)
-        for(i = nfound-1; i >= 0; i--)
-        {
-            if(TaskNodes[i].node >= tb.lastnode || TaskNodes[i].node < tb.firstnode)
-                endrun(1,"Received bad task node (should not happen): no = %d i = %d\n",TaskNodes[i].node, i);
-             TaskNodes[i].tail = force_update_node_recursive(TaskNodes[i].node, TaskNodes[i].sibling, NULL, 0, &tb);
-             tb.Nodes[TaskNodes[i].node].f.MomentsDone = 1;
-         }
-    }
-
-    /*Now do the final stage in serial*/
-    int tail = force_update_node_recursive(tb.firstnode, -1, TaskNodes, nfound, &tb);
-    myfree(TaskNodes);
     return tail;
 }
 
