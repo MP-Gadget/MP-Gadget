@@ -3,7 +3,9 @@ MP-Gadget
 
 Massively Parallel Cosmological SPH Simulation Software - MP-Gadget.
 
-https://rainwoodman.github.io/MP-Gadget/
+`Source code browser <https://rainwoodman.github.io/MP-Gadget/classes.html>`_
+(maybe slightely out-sync from current master branch)
+
 
 Description
 -----------
