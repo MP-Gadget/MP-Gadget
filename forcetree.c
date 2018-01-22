@@ -725,6 +725,11 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
         suns[j] = Nodes[no].u.suns[j];
     }
 
+    /* Only start spawning new tasks when we are past the top level nodes,
+     * to prevent us being overwhelmed by very short tasks pointing to pseudoparticles*/
+    if(level < 0 && Nodes[no].f.TopLevel && !Nodes[no].f.InternalTopLevel)
+        level = 0;
+
     /*First do the children*/
     for(j = 0; j < 8; j++)
     {
@@ -744,8 +749,12 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
         }
         else {
             const int nextsib = force_get_sibling(sib, j, suns);
-            #pragma omp task shared(tails) final(level > 3)
-            tails[j] = force_update_node_recursive(p, nextsib, level+1, tb);
+            if(level >= 0) {
+                #pragma omp task shared(tails) final(level > 3)
+                tails[j] = force_update_node_recursive(p, nextsib, level+1, tb);
+            }
+            else
+                tails[j] = force_update_node_recursive(p, nextsib, level, tb);
         }
     }
 
@@ -855,7 +864,7 @@ force_update_node_parallel(const struct TreeBuilder tb)
 #pragma omp parallel
 #pragma omp single nowait
     {
-        tail = force_update_node_recursive(tb.firstnode, -1, 0, tb);
+        tail = force_update_node_recursive(tb.firstnode, -1, -1, tb);
     }
     return tail;
 }
