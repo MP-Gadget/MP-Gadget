@@ -1,22 +1,22 @@
 <map id="timebinmgr.h" name="timebinmgr.h">
-<area shape="rect" id="node2" href="$timestep_8h.html" title="timestep.h" alt="" coords="147,259,230,286"/>
-<area shape="rect" id="node5" href="$domain_8c.html" title="code for domain decomposition " alt="" coords="224,197,299,224"/>
-<area shape="rect" id="node12" href="$init_8c.html" title="code for initialisation of a simulation from initial conditions " alt="" coords="425,164,476,191"/>
-<area shape="rect" id="node19" href="$param_8c.html" title="param.c" alt="" coords="393,101,463,128"/>
-<area shape="rect" id="node20" href="$timebinmgr_8c.html" title="timebinmgr.c" alt="" coords="336,50,434,77"/>
-<area shape="rect" id="node21" href="$timefac_8c.html" title="timefac.c" alt="" coords="289,17,365,44"/>
-<area shape="rect" id="node3" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="218,5,306,32"/>
-<area shape="rect" id="node4" href="$density_8c.html" title="SPH density computation and smoothing length determination. " alt="" coords="159,17,233,44"/>
-<area shape="rect" id="node6" href="$drift_8c.html" title="drift.c" alt="" coords="111,50,166,77"/>
-<area shape="rect" id="node7" href="$global_8c.html" title="global.c" alt="" coords="62,101,129,128"/>
-<area shape="rect" id="node8" href="$gravshort-pair_8c.html" title="gravshort&#45;pair.c" alt="" coords="17,164,129,191"/>
-<area shape="rect" id="node9" href="$gravshort-tree-old_8c.html" title="gravshort&#45;tree&#45;old.c" alt="" coords="5,231,140,257"/>
-<area shape="rect" id="node10" href="$gravshort-tree_8c.html" title="gravshort&#45;tree.c" alt="" coords="39,293,152,320"/>
-<area shape="rect" id="node11" href="$hydra_8c.html" title="Computation of SPH forces and rate of entropy generation. " alt="" coords="106,344,171,371"/>
-<area shape="rect" id="node13" href="$petaio_8c.html" title="petaio.c" alt="" coords="162,378,230,404"/>
-<area shape="rect" id="node14" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="236,389,287,416"/>
-<area shape="rect" id="node15" href="$runtests_8c.html" title="runtests.c" alt="" coords="287,378,367,404"/>
-<area shape="rect" id="node16" href="$sfr__eff_8c.html" title="sfr_eff.c" alt="" coords="350,344,420,371"/>
-<area shape="rect" id="node17" href="$timestep_8c.html" title="routines for &#39;kicking&#39; particles in momentum space and assigning new timesteps " alt="" coords="387,293,469,320"/>
-<area shape="rect" id="node18" href="$treewalk_8c.html" title="treewalk.c" alt="" coords="409,231,492,257"/>
+<area shape="rect" id="node2" href="$timestep_8h.html" title="timestep.h" alt="" coords="158,385,241,412"/>
+<area shape="rect" id="node5" href="$domain_8c.html" title="code for domain decomposition " alt="" coords="326,5,401,32"/>
+<area shape="rect" id="node12" href="$init_8c.html" title="code for initialisation of a simulation from initial conditions " alt="" coords="338,765,389,792"/>
+<area shape="rect" id="node19" href="$param_8c.html" title="param.c" alt="" coords="165,487,234,513"/>
+<area shape="rect" id="node20" href="$timebinmgr_8c.html" title="timebinmgr.c" alt="" coords="151,537,248,564"/>
+<area shape="rect" id="node21" href="$timefac_8c.html" title="timefac.c" alt="" coords="161,588,237,615"/>
+<area shape="rect" id="node3" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="319,56,407,83"/>
+<area shape="rect" id="node4" href="$density_8c.html" title="SPH density computation and smoothing length determination. " alt="" coords="326,107,401,133"/>
+<area shape="rect" id="node6" href="$drift_8c.html" title="drift.c" alt="" coords="336,157,391,184"/>
+<area shape="rect" id="node7" href="$global_8c.html" title="global.c" alt="" coords="330,208,397,235"/>
+<area shape="rect" id="node8" href="$gravshort-pair_8c.html" title="gravshort&#45;pair.c" alt="" coords="307,259,419,285"/>
+<area shape="rect" id="node9" href="$gravshort-tree-old_8c.html" title="gravshort&#45;tree&#45;old.c" alt="" coords="296,309,431,336"/>
+<area shape="rect" id="node10" href="$gravshort-tree_8c.html" title="gravshort&#45;tree.c" alt="" coords="307,360,420,387"/>
+<area shape="rect" id="node11" href="$hydra_8c.html" title="Computation of SPH forces and rate of entropy generation. " alt="" coords="331,411,396,437"/>
+<area shape="rect" id="node13" href="$petaio_8c.html" title="petaio.c" alt="" coords="329,461,397,488"/>
+<area shape="rect" id="node14" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="338,512,389,539"/>
+<area shape="rect" id="node15" href="$runtests_8c.html" title="runtests.c" alt="" coords="323,563,403,589"/>
+<area shape="rect" id="node16" href="$sfr__eff_8c.html" title="sfr_eff.c" alt="" coords="328,613,399,640"/>
+<area shape="rect" id="node17" href="$timestep_8c.html" title="routines for &#39;kicking&#39; particles in momentum space and assigning new timesteps " alt="" coords="322,664,405,691"/>
+<area shape="rect" id="node18" href="$treewalk_8c.html" title="treewalk.c" alt="" coords="322,715,405,741"/>
 </map>

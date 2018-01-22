@@ -1,13 +1,13 @@
 <map id="fof_radix_Group_OriginalTaskMinID" name="fof_radix_Group_OriginalTaskMinID">
-<area shape="rect" id="node2" href="$fof_8c.html#a43f1ce0c3f8262e02cd94d9e670f9ed2" title="fof_reduce_groups" alt="" coords="446,109,575,135"/>
-<area shape="rect" id="node3" href="$fof_8c.html#aa0d13cc94e97083dfd468ed33331eed7" title="fof_periodic_wrap" alt="" coords="864,349,988,375"/>
-<area shape="rect" id="node5" href="$fof_8c.html#ae4b5e05b1f0225637629759a9e2ba72e" title="fof_compile_catalogue" alt="" coords="434,205,586,231"/>
-<area shape="rect" id="node12" href="$fof_8c.html#a9f9dcc0e11addb6231e3db442eed2cb9" title="fof_compile_base" alt="" coords="116,781,240,807"/>
-<area shape="rect" id="node4" href="$fof_8c.html#a36336d505e8a4fb8e8fdaf9a796e40d4" title="fof_finish_group_properties" alt="" coords="5,349,184,375"/>
-<area shape="rect" id="node6" href="$fof_8h.html#a7f10d50a8e07ce0bb67ffdfaf904d7c8" title="fof_fof" alt="" coords="337,339,396,366"/>
-<area shape="rect" id="node7" href="$proto_8h.html#a312b6a02f7cde171412989ea5f9be48f" title="write_checkpoint" alt="" coords="450,781,570,807"/>
-<area shape="rect" id="node9" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="389,422,440,449"/>
-<area shape="rect" id="node8" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="407,541,447,567"/>
-<area shape="rect" id="node10" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="538,637,649,663"/>
-<area shape="rect" id="node11" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="459,589,562,615"/>
+<area shape="rect" id="node2" href="$fof_8c.html#a43f1ce0c3f8262e02cd94d9e670f9ed2" title="fof_reduce_groups" alt="" coords="219,21,348,47"/>
+<area shape="rect" id="node3" href="$fof_8c.html#aa0d13cc94e97083dfd468ed33331eed7" title="fof_periodic_wrap" alt="" coords="568,46,692,73"/>
+<area shape="rect" id="node5" href="$fof_8c.html#ae4b5e05b1f0225637629759a9e2ba72e" title="fof_compile_catalogue" alt="" coords="967,21,1119,47"/>
+<area shape="rect" id="node12" href="$fof_8c.html#a9f9dcc0e11addb6231e3db442eed2cb9" title="fof_compile_base" alt="" coords="396,71,520,98"/>
+<area shape="rect" id="node4" href="$fof_8c.html#a36336d505e8a4fb8e8fdaf9a796e40d4" title="fof_finish_group_properties" alt="" coords="740,46,919,73"/>
+<area shape="rect" id="node6" href="$fof_8h.html#a7f10d50a8e07ce0bb67ffdfaf904d7c8" title="fof_fof" alt="" coords="1167,59,1225,86"/>
+<area shape="rect" id="node7" href="$proto_8h.html#a312b6a02f7cde171412989ea5f9be48f" title="write_checkpoint" alt="" coords="1273,34,1393,61"/>
+<area shape="rect" id="node9" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="1529,85,1580,111"/>
+<area shape="rect" id="node8" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="1441,34,1481,61"/>
+<area shape="rect" id="node10" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="1628,85,1739,111"/>
+<area shape="rect" id="node11" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="1787,59,1889,86"/>
 </map>

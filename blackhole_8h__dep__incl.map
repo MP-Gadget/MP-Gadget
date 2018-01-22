@@ -1,5 +1,5 @@
 <map id="blackhole.h" name="blackhole.h">
-<area shape="rect" id="node2" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="129,5,217,32"/>
-<area shape="rect" id="node3" href="$fof_8c.html" title="parallel FoF group finder " alt="" coords="5,88,53,115"/>
-<area shape="rect" id="node4" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="148,172,199,198"/>
+<area shape="rect" id="node2" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="141,5,229,32"/>
+<area shape="rect" id="node3" href="$fof_8c.html" title="parallel FoF group finder " alt="" coords="161,56,209,83"/>
+<area shape="rect" id="node4" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="160,107,211,133"/>
 </map>

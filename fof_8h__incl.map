@@ -1,7 +1,7 @@
 <map id="fof.h" name="fof.h">
-<area shape="rect" id="node2" href="$allvars_8h.html" title="declares global variables. " alt="" coords="244,109,315,136"/>
-<area shape="rect" id="node7" href="$cosmology_8h.html" title="cosmology.h" alt="" coords="139,82,235,109"/>
-<area shape="rect" id="node10" href="$walltime_8h.html" title="walltime.h" alt="" coords="158,161,239,188"/>
-<area shape="rect" id="node12" href="$physconst_8h.html" title="physconst.h" alt="" coords="246,204,340,231"/>
-<area shape="rect" id="node13" href="$types_8h.html" title="types.h" alt="" coords="310,182,375,208"/>
+<area shape="rect" id="node2" href="$allvars_8h.html" title="declares global variables. " alt="" coords="101,208,172,235"/>
+<area shape="rect" id="node7" href="$cosmology_8h.html" title="cosmology.h" alt="" coords="220,208,316,235"/>
+<area shape="rect" id="node10" href="$walltime_8h.html" title="walltime.h" alt="" coords="227,259,309,285"/>
+<area shape="rect" id="node12" href="$physconst_8h.html" title="physconst.h" alt="" coords="221,360,315,387"/>
+<area shape="rect" id="node13" href="$types_8h.html" title="types.h" alt="" coords="235,411,301,437"/>
 </map>

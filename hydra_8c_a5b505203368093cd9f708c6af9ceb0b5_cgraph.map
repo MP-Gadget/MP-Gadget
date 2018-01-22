@@ -1,4 +1,4 @@
 <map id="hydro_postprocess" name="hydro_postprocess">
-<area shape="rect" id="node2" href="$allvars_8h.html#a320153e129e2fe4833e5b43935499d3e" title="DMAX" alt="" coords="41,5,102,32"/>
-<area shape="rect" id="node3" href="$hydra_8c.html#af5cc0a9a6ffe0087b40387b951e2b150" title="PressurePred" alt="" coords="21,197,122,224"/>
+<area shape="rect" id="node2" href="$allvars_8h.html#a320153e129e2fe4833e5b43935499d3e" title="DMAX" alt="" coords="205,5,267,32"/>
+<area shape="rect" id="node3" href="$hydra_8c.html#af5cc0a9a6ffe0087b40387b951e2b150" title="PressurePred" alt="" coords="185,56,287,83"/>
 </map>

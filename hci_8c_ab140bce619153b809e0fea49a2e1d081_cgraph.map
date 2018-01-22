@@ -1,17 +1,17 @@
 <map id="hci_query" name="hci_query">
-<area shape="rect" id="node2" href="$hci_8c.html#adf575054e41280d79cdcad95d436b33d" title="hci_action_init" alt="" coords="721,427,826,454"/>
-<area shape="rect" id="node3" href="$hci_8c.html#a14888ce340e106fb67ea1cc613bf1334" title="hci_now" alt="" coords="404,470,475,496"/>
-<area shape="rect" id="node4" href="$hci_8c.html#acc6f82bedec50d4ab1953895c1abd49f" title="hci_query_auto_checkpoint" alt="" coords="454,626,634,653"/>
-<area shape="rect" id="node6" href="$hci_8c.html#a7e1bef538a45fcfed3d5c5e6d3e3dc88" title="hci_query_filesystem" alt="" coords="435,249,580,276"/>
-<area shape="rect" id="node11" href="$hci_8c.html#a45765de3ce60382338140dc7d6532a65" title="hci_query_timeout" alt="" coords="532,574,660,601"/>
-<area shape="rect" id="node12" href="$hci_8c.html#a04f5b8b9042727d86768bd9acd2810a7" title="hci_update_query_timer" alt="" coords="354,715,514,742"/>
-<area shape="rect" id="node13" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="182,537,257,564"/>
-<area shape="rect" id="node5" href="$hci_8c.html#a378b079f9673cd4da7f712d22ca4d5e9" title="hci_get_elapsed_time" alt="" coords="433,537,581,564"/>
-<area shape="rect" id="node7" href="$utils-string_8c.html#a787c3b0717214d830c69b7e8785a3e33" title="fastpm_strdup_printf" alt="" coords="584,183,725,209"/>
-<area shape="rect" id="node10" href="$utils-string_8c.html#a72e20a8840db3abb4c684e57f6602b1b" title="fastpm_file_get_content" alt="" coords="280,183,441,209"/>
-<area shape="rect" id="node8" href="$utils-string_8c.html#ae1f141218851350d5d41e00bc16cc705" title="fastpm_strdup_vprintf" alt="" coords="617,94,765,121"/>
-<area shape="rect" id="node9" href="$utils-string_8c.html#a0b3b094cb274f3b23292ecfc061734f8" title="_mkdir" alt="" coords="697,5,759,32"/>
-<area shape="rect" id="node14" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="82,537,165,564"/>
-<area shape="rect" id="node15" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="34,354,94,380"/>
-<area shape="rect" id="node16" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="5,721,123,748"/>
+<area shape="rect" id="node2" href="$hci_8c.html#adf575054e41280d79cdcad95d436b33d" title="hci_action_init" alt="" coords="169,5,275,32"/>
+<area shape="rect" id="node3" href="$hci_8c.html#a14888ce340e106fb67ea1cc613bf1334" title="hci_now" alt="" coords="608,107,679,133"/>
+<area shape="rect" id="node4" href="$hci_8c.html#acc6f82bedec50d4ab1953895c1abd49f" title="hci_query_auto_checkpoint" alt="" coords="132,157,312,184"/>
+<area shape="rect" id="node6" href="$hci_8c.html#a7e1bef538a45fcfed3d5c5e6d3e3dc88" title="hci_query_filesystem" alt="" coords="149,259,295,285"/>
+<area shape="rect" id="node11" href="$hci_8c.html#a45765de3ce60382338140dc7d6532a65" title="hci_query_timeout" alt="" coords="158,107,286,133"/>
+<area shape="rect" id="node12" href="$hci_8c.html#a04f5b8b9042727d86768bd9acd2810a7" title="hci_update_query_timer" alt="" coords="361,157,521,184"/>
+<area shape="rect" id="node13" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="185,309,259,336"/>
+<area shape="rect" id="node5" href="$hci_8c.html#a378b079f9673cd4da7f712d22ca4d5e9" title="hci_get_elapsed_time" alt="" coords="367,107,515,133"/>
+<area shape="rect" id="node7" href="$utils-string_8c.html#a787c3b0717214d830c69b7e8785a3e33" title="fastpm_strdup_printf" alt="" coords="370,259,511,285"/>
+<area shape="rect" id="node10" href="$utils-string_8c.html#a72e20a8840db3abb4c684e57f6602b1b" title="fastpm_file_get_content" alt="" coords="360,208,521,235"/>
+<area shape="rect" id="node8" href="$utils-string_8c.html#ae1f141218851350d5d41e00bc16cc705" title="fastpm_strdup_vprintf" alt="" coords="569,259,717,285"/>
+<area shape="rect" id="node9" href="$utils-string_8c.html#a0b3b094cb274f3b23292ecfc061734f8" title="_mkdir" alt="" coords="765,259,827,285"/>
+<area shape="rect" id="node14" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="399,309,482,336"/>
+<area shape="rect" id="node15" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="613,309,673,336"/>
+<area shape="rect" id="node16" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="585,360,702,387"/>
 </map>

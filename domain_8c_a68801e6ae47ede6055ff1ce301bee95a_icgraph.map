@@ -1,15 +1,15 @@
 <map id="domain_toptree_get_subnode" name="domain_toptree_get_subnode">
-<area shape="rect" id="node2" href="$domain_8c.html#a31ed88504efc8a98d11e356c8b3ccda7" title="domain_check_for_local\l_refine_subsample" alt="" coords="391,622,554,663"/>
-<area shape="rect" id="node14" href="$domain_8c.html#a352966dc4df949dcba3c9bc864e74064" title="domain_toptree_insert" alt="" coords="563,725,714,752"/>
-<area shape="rect" id="node3" href="$domain_8c.html#aa8992a67d8b8750c8b87c3e1f692fb3b" title="domain_determine_global\l_toptree" alt="" coords="305,574,474,615"/>
-<area shape="rect" id="node4" href="$domain_8c.html#ad4bc28a1efce192ef245acec104c6d2e" title="domain_attempt_decompose" alt="" coords="211,533,401,560"/>
-<area shape="rect" id="node5" href="$domain_8h.html#a168c36ec12faca23e23395b6a13d2037" title="domain_decompose_full" alt="" coords="142,485,304,512"/>
-<area shape="rect" id="node6" href="$domain_8h.html#acf7b74bdcb6563a4603538914fc16157" title="domain_maintain" alt="" coords="911,437,1031,464"/>
-<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="295,262,335,288"/>
-<area shape="rect" id="node11" href="$proto_8h.html#ab080cb20bac2a1a6153a84e8cfd15374" title="init" alt="" coords="120,917,159,944"/>
-<area shape="rect" id="node13" href="$runtests_8c.html#a549024555ca61e3f05a7100307e44f69" title="runtests" alt="" coords="521,1157,590,1184"/>
-<area shape="rect" id="node8" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="530,101,581,128"/>
-<area shape="rect" id="node9" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="500,5,611,32"/>
-<area shape="rect" id="node10" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="5,389,108,416"/>
-<area shape="rect" id="node12" href="$proto_8h.html#a74dc0e5e9eefe11fc8434b62de573146" title="begrun" alt="" coords="26,965,87,992"/>
+<area shape="rect" id="node2" href="$domain_8c.html#a31ed88504efc8a98d11e356c8b3ccda7" title="domain_check_for_local\l_refine_subsample" alt="" coords="388,74,551,115"/>
+<area shape="rect" id="node14" href="$domain_8c.html#a352966dc4df949dcba3c9bc864e74064" title="domain_toptree_insert" alt="" coords="189,107,340,133"/>
+<area shape="rect" id="node3" href="$domain_8c.html#aa8992a67d8b8750c8b87c3e1f692fb3b" title="domain_determine_global\l_toptree" alt="" coords="599,74,768,115"/>
+<area shape="rect" id="node4" href="$domain_8c.html#ad4bc28a1efce192ef245acec104c6d2e" title="domain_attempt_decompose" alt="" coords="816,81,1005,108"/>
+<area shape="rect" id="node5" href="$domain_8h.html#a168c36ec12faca23e23395b6a13d2037" title="domain_decompose_full" alt="" coords="1053,81,1216,108"/>
+<area shape="rect" id="node6" href="$domain_8h.html#acf7b74bdcb6563a4603538914fc16157" title="domain_maintain" alt="" coords="1264,5,1384,32"/>
+<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="1447,56,1487,83"/>
+<area shape="rect" id="node11" href="$proto_8h.html#ab080cb20bac2a1a6153a84e8cfd15374" title="init" alt="" coords="1305,107,1343,133"/>
+<area shape="rect" id="node13" href="$runtests_8c.html#a549024555ca61e3f05a7100307e44f69" title="runtests" alt="" coords="1432,157,1501,184"/>
+<area shape="rect" id="node8" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="1549,107,1600,133"/>
+<area shape="rect" id="node9" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="1648,107,1759,133"/>
+<area shape="rect" id="node10" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="1807,81,1909,108"/>
+<area shape="rect" id="node12" href="$proto_8h.html#a74dc0e5e9eefe11fc8434b62de573146" title="begrun" alt="" coords="1436,107,1497,133"/>
 </map>

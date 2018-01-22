@@ -1,7 +1,7 @@
 <map id="powerspectrum.c" name="powerspectrum.c">
-<area shape="rect" id="node8" href="$types_8h.html" title="types.h" alt="" coords="281,278,347,304"/>
-<area shape="rect" id="node9" href="$mymalloc_8h.html" title="mymalloc.h" alt="" coords="74,318,164,344"/>
-<area shape="rect" id="node11" href="$endrun_8h.html" title="endrun.h" alt="" coords="197,383,269,410"/>
-<area shape="rect" id="node12" href="$powerspectrum_8h.html" title="powerspectrum.h" alt="" coords="295,227,417,254"/>
-<area shape="rect" id="node10" href="$memory_8h.html" title="memory.h" alt="" coords="5,380,85,406"/>
+<area shape="rect" id="node8" href="$types_8h.html" title="types.h" alt="" coords="205,360,270,387"/>
+<area shape="rect" id="node9" href="$mymalloc_8h.html" title="mymalloc.h" alt="" coords="193,461,282,488"/>
+<area shape="rect" id="node11" href="$endrun_8h.html" title="endrun.h" alt="" coords="201,411,273,437"/>
+<area shape="rect" id="node12" href="$powerspectrum_8h.html" title="powerspectrum.h" alt="" coords="176,157,299,184"/>
+<area shape="rect" id="node10" href="$memory_8h.html" title="memory.h" alt="" coords="347,461,427,488"/>
 </map>

@@ -1,5 +1,5 @@
 <map id="hydra.h" name="hydra.h">
-<area shape="rect" id="node2" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="138,5,226,32"/>
-<area shape="rect" id="node3" href="$hydra_8c.html" title="Computation of SPH forces and rate of entropy generation. " alt="" coords="5,88,71,115"/>
-<area shape="rect" id="node4" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="157,172,207,198"/>
+<area shape="rect" id="node2" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="119,5,207,32"/>
+<area shape="rect" id="node3" href="$hydra_8c.html" title="Computation of SPH forces and rate of entropy generation. " alt="" coords="130,56,195,83"/>
+<area shape="rect" id="node4" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="137,107,188,133"/>
 </map>

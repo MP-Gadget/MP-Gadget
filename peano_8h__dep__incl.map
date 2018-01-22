@@ -1,35 +1,35 @@
 <map id="peano.h" name="peano.h">
-<area shape="rect" id="node2" href="$partmanager_8h.html" title="partmanager.h" alt="" coords="244,115,350,142"/>
-<area shape="rect" id="node33" href="$domain_8h.html" title="domain.h" alt="" coords="406,207,481,234"/>
-<area shape="rect" id="node34" href="$peano_8c.html" title="peano.c" alt="" coords="161,440,229,467"/>
-<area shape="rect" id="node3" href="$slotsmanager_8h.html" title="slotsmanager.h" alt="" coords="335,283,445,309"/>
-<area shape="rect" id="node7" href="$domain_8c.html" title="code for domain decomposition " alt="" coords="311,196,386,223"/>
-<area shape="rect" id="node8" href="$drift_8c.html" title="drift.c" alt="" coords="512,175,566,201"/>
-<area shape="rect" id="node9" href="$exchange_8c.html" title="exchange.c" alt="" coords="485,133,574,159"/>
-<area shape="rect" id="node10" href="$fof_8c.html" title="parallel FoF group finder " alt="" coords="487,94,535,121"/>
-<area shape="rect" id="node11" href="$forcetree_8c.html" title="gravitational tree and code for Ewald correction " alt="" coords="442,60,526,87"/>
-<area shape="rect" id="node15" href="$main_8c.html" title="start of the program " alt="" coords="420,34,481,60"/>
-<area shape="rect" id="node16" href="$petaio_8c.html" title="petaio.c" alt="" coords="378,15,446,42"/>
-<area shape="rect" id="node19" href="$slotsmanager_8c.html" title="slotsmanager.c" alt="" coords="314,5,425,32"/>
-<area shape="rect" id="node20" href="$timestep_8c.html" title="routines for &#39;kicking&#39; particles in momentum space and assigning new timesteps " alt="" coords="285,5,368,32"/>
-<area shape="rect" id="node21" href="$cooling_8c.html" title="cooling.c" alt="" coords="247,15,322,42"/>
-<area shape="rect" id="node22" href="$fofpetaio_8c.html" title="fofpetaio.c" alt="" coords="205,34,287,60"/>
-<area shape="rect" id="node23" href="$gdbtools_8c.html" title="gdbtools.c" alt="" coords="171,60,254,87"/>
-<area shape="rect" id="node24" href="$gravpm_8c.html" title="gravpm.c" alt="" coords="148,94,224,121"/>
-<area shape="rect" id="node25" href="$gravshort_8h.html" title="gravshort.h" alt="" coords="118,153,204,180"/>
-<area shape="rect" id="node29" href="$lightcone_8c.html" title="lightcone.c" alt="" coords="115,218,200,244"/>
-<area shape="rect" id="node30" href="$partmanager_8c.html" title="partmanager.c" alt="" coords="114,260,220,286"/>
-<area shape="rect" id="node31" href="$runtests_8c.html" title="runtests.c" alt="" coords="146,298,226,325"/>
-<area shape="rect" id="node32" href="$treewalk_8c.html" title="treewalk.c" alt="" coords="171,332,254,359"/>
-<area shape="rect" id="node4" href="$begrun_8c.html" title="initial set&#45;up of a simulation run " alt="" coords="249,377,321,404"/>
-<area shape="rect" id="node5" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="283,387,371,414"/>
-<area shape="rect" id="node6" href="$density_8c.html" title="SPH density computation and smoothing length determination. " alt="" coords="332,387,407,414"/>
-<area shape="rect" id="node12" href="$global_8c.html" title="global.c" alt="" coords="378,377,445,404"/>
-<area shape="rect" id="node13" href="$hydra_8c.html" title="Computation of SPH forces and rate of entropy generation. " alt="" coords="418,359,483,385"/>
-<area shape="rect" id="node14" href="$init_8c.html" title="code for initialisation of a simulation from initial conditions " alt="" coords="459,332,509,359"/>
-<area shape="rect" id="node17" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="485,298,536,325"/>
-<area shape="rect" id="node18" href="$sfr__eff_8c.html" title="sfr_eff.c" alt="" coords="494,260,565,286"/>
-<area shape="rect" id="node26" href="$gravshort-pair_8c.html" title="gravshort&#45;pair.c" alt="" coords="20,101,132,128"/>
-<area shape="rect" id="node27" href="$gravshort-tree-old_8c.html" title="gravshort&#45;tree&#45;old.c" alt="" coords="472,218,606,244"/>
-<area shape="rect" id="node28" href="$gravshort-tree_8c.html" title="gravshort&#45;tree.c" alt="" coords="5,164,119,191"/>
+<area shape="rect" id="node2" href="$partmanager_8h.html" title="partmanager.h" alt="" coords="121,765,227,792"/>
+<area shape="rect" id="node33" href="$domain_8h.html" title="domain.h" alt="" coords="293,715,367,741"/>
+<area shape="rect" id="node34" href="$peano_8c.html" title="peano.c" alt="" coords="140,816,208,843"/>
+<area shape="rect" id="node3" href="$slotsmanager_8h.html" title="slotsmanager.h" alt="" coords="275,411,385,437"/>
+<area shape="rect" id="node7" href="$domain_8c.html" title="code for domain decomposition " alt="" coords="463,664,538,691"/>
+<area shape="rect" id="node8" href="$drift_8c.html" title="drift.c" alt="" coords="473,5,528,32"/>
+<area shape="rect" id="node9" href="$exchange_8c.html" title="exchange.c" alt="" coords="456,56,545,83"/>
+<area shape="rect" id="node10" href="$fof_8c.html" title="parallel FoF group finder " alt="" coords="477,715,525,741"/>
+<area shape="rect" id="node11" href="$forcetree_8c.html" title="gravitational tree and code for Ewald correction " alt="" coords="459,765,543,792"/>
+<area shape="rect" id="node15" href="$main_8c.html" title="start of the program " alt="" coords="470,107,531,133"/>
+<area shape="rect" id="node16" href="$petaio_8c.html" title="petaio.c" alt="" coords="467,461,535,488"/>
+<area shape="rect" id="node19" href="$slotsmanager_8c.html" title="slotsmanager.c" alt="" coords="445,512,556,539"/>
+<area shape="rect" id="node20" href="$timestep_8c.html" title="routines for &#39;kicking&#39; particles in momentum space and assigning new timesteps " alt="" coords="459,816,542,843"/>
+<area shape="rect" id="node21" href="$cooling_8c.html" title="cooling.c" alt="" coords="293,765,367,792"/>
+<area shape="rect" id="node22" href="$fofpetaio_8c.html" title="fofpetaio.c" alt="" coords="289,816,371,843"/>
+<area shape="rect" id="node23" href="$gdbtools_8c.html" title="gdbtools.c" alt="" coords="289,867,371,893"/>
+<area shape="rect" id="node24" href="$gravpm_8c.html" title="gravpm.c" alt="" coords="463,1120,539,1147"/>
+<area shape="rect" id="node25" href="$gravshort_8h.html" title="gravshort.h" alt="" coords="287,968,373,995"/>
+<area shape="rect" id="node29" href="$lightcone_8c.html" title="lightcone.c" alt="" coords="287,1019,373,1045"/>
+<area shape="rect" id="node30" href="$partmanager_8c.html" title="partmanager.c" alt="" coords="277,1069,383,1096"/>
+<area shape="rect" id="node31" href="$runtests_8c.html" title="runtests.c" alt="" coords="461,1171,541,1197"/>
+<area shape="rect" id="node32" href="$treewalk_8c.html" title="treewalk.c" alt="" coords="459,917,542,944"/>
+<area shape="rect" id="node4" href="$begrun_8c.html" title="initial set&#45;up of a simulation run " alt="" coords="465,259,537,285"/>
+<area shape="rect" id="node5" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="457,309,545,336"/>
+<area shape="rect" id="node6" href="$density_8c.html" title="SPH density computation and smoothing length determination. " alt="" coords="463,360,538,387"/>
+<area shape="rect" id="node12" href="$global_8c.html" title="global.c" alt="" coords="467,411,534,437"/>
+<area shape="rect" id="node13" href="$hydra_8c.html" title="Computation of SPH forces and rate of entropy generation. " alt="" coords="468,157,533,184"/>
+<area shape="rect" id="node14" href="$init_8c.html" title="code for initialisation of a simulation from initial conditions " alt="" coords="475,613,526,640"/>
+<area shape="rect" id="node17" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="475,563,526,589"/>
+<area shape="rect" id="node18" href="$sfr__eff_8c.html" title="sfr_eff.c" alt="" coords="465,208,536,235"/>
+<area shape="rect" id="node26" href="$gravshort-pair_8c.html" title="gravshort&#45;pair.c" alt="" coords="445,968,557,995"/>
+<area shape="rect" id="node27" href="$gravshort-tree-old_8c.html" title="gravshort&#45;tree&#45;old.c" alt="" coords="433,867,568,893"/>
+<area shape="rect" id="node28" href="$gravshort-tree_8c.html" title="gravshort&#45;tree.c" alt="" coords="444,1019,557,1045"/>
 </map>

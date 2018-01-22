@@ -1,9 +1,9 @@
 <map id="density_postprocess" name="density_postprocess">
-<area shape="rect" id="node2" href="$density_8c.html#abb05cdc00cf397be5c4dd467308cc4bd" title="density_check_neighbours" alt="" coords="176,279,352,306"/>
-<area shape="rect" id="node3" href="$allvars_8h.html#a320153e129e2fe4833e5b43935499d3e" title="DMAX" alt="" coords="145,371,206,397"/>
-<area shape="rect" id="node4" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="204,188,265,215"/>
-<area shape="rect" id="node8" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="5,188,80,215"/>
-<area shape="rect" id="node5" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="164,97,246,123"/>
-<area shape="rect" id="node6" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="360,75,420,102"/>
-<area shape="rect" id="node7" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="117,5,234,32"/>
+<area shape="rect" id="node2" href="$density_8c.html#abb05cdc00cf397be5c4dd467308cc4bd" title="density_check_neighbours" alt="" coords="196,56,372,83"/>
+<area shape="rect" id="node3" href="$allvars_8h.html#a320153e129e2fe4833e5b43935499d3e" title="DMAX" alt="" coords="427,5,488,32"/>
+<area shape="rect" id="node4" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="427,56,488,83"/>
+<area shape="rect" id="node8" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="420,107,495,133"/>
+<area shape="rect" id="node5" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="543,81,625,108"/>
+<area shape="rect" id="node6" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="702,56,762,83"/>
+<area shape="rect" id="node7" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="673,107,791,133"/>
 </map>

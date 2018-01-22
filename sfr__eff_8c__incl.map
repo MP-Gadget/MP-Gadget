@@ -1,21 +1,21 @@
 <map id="sfr_eff.c" name="sfr_eff.c">
-<area shape="rect" id="node7" href="$allvars_8h.html" title="declares global variables. " alt="" coords="360,208,431,235"/>
-<area shape="rect" id="node18" href="$sfr__eff_8h.html" title="sfr_eff.h" alt="" coords="110,612,181,639"/>
-<area shape="rect" id="node19" href="$drift_8h.html" title="drift.h" alt="" coords="193,655,247,682"/>
-<area shape="rect" id="node20" href="$treewalk_8h.html" title="treewalk.h" alt="" coords="263,481,345,507"/>
-<area shape="rect" id="node21" href="$cooling_8h.html" title="cooling.h" alt="" coords="266,674,341,701"/>
-<area shape="rect" id="node22" href="$slotsmanager_8h.html" title="slotsmanager.h" alt="" coords="111,279,222,306"/>
-<area shape="rect" id="node27" href="$mymalloc_8h.html" title="mymalloc.h" alt="" coords="345,668,434,694"/>
-<area shape="rect" id="node29" href="$endrun_8h.html" title="endrun.h" alt="" coords="433,636,505,663"/>
-<area shape="rect" id="node30" href="$timestep_8h.html" title="timestep.h" alt="" coords="495,583,578,610"/>
-<area shape="rect" id="node32" href="$system_8h.html" title="system.h" alt="" coords="547,512,623,539"/>
-<area shape="rect" id="node10" href="$cosmology_8h.html" title="cosmology.h" alt="" coords="341,106,437,133"/>
-<area shape="rect" id="node13" href="$walltime_8h.html" title="walltime.h" alt="" coords="263,100,344,127"/>
-<area shape="rect" id="node15" href="$physconst_8h.html" title="physconst.h" alt="" coords="99,162,192,189"/>
-<area shape="rect" id="node16" href="$types_8h.html" title="types.h" alt="" coords="300,291,365,318"/>
-<area shape="rect" id="node23" href="$event_8h.html" title="event.h" alt="" coords="55,225,120,251"/>
-<area shape="rect" id="node24" href="$partmanager_8h.html" title="partmanager.h" alt="" coords="89,330,195,357"/>
-<area shape="rect" id="node26" href="$peano_8h.html" title="peano.h" alt="" coords="386,401,454,428"/>
-<area shape="rect" id="node28" href="$memory_8h.html" title="memory.h" alt="" coords="371,761,451,788"/>
-<area shape="rect" id="node31" href="$timebinmgr_8h.html" title="timebinmgr.h" alt="" coords="558,648,655,675"/>
+<area shape="rect" id="node7" href="$allvars_8h.html" title="declares global variables. " alt="" coords="300,233,371,260"/>
+<area shape="rect" id="node18" href="$sfr__eff_8h.html" title="sfr_eff.h" alt="" coords="144,588,215,615"/>
+<area shape="rect" id="node19" href="$drift_8h.html" title="drift.h" alt="" coords="152,639,207,665"/>
+<area shape="rect" id="node20" href="$treewalk_8h.html" title="treewalk.h" alt="" coords="138,284,221,311"/>
+<area shape="rect" id="node21" href="$cooling_8h.html" title="cooling.h" alt="" coords="142,689,217,716"/>
+<area shape="rect" id="node22" href="$slotsmanager_8h.html" title="slotsmanager.h" alt="" coords="124,385,235,412"/>
+<area shape="rect" id="node27" href="$mymalloc_8h.html" title="mymalloc.h" alt="" coords="135,740,224,767"/>
+<area shape="rect" id="node29" href="$endrun_8h.html" title="endrun.h" alt="" coords="143,791,215,817"/>
+<area shape="rect" id="node30" href="$timestep_8h.html" title="timestep.h" alt="" coords="138,841,221,868"/>
+<area shape="rect" id="node32" href="$system_8h.html" title="system.h" alt="" coords="141,892,217,919"/>
+<area shape="rect" id="node10" href="$cosmology_8h.html" title="cosmology.h" alt="" coords="436,107,532,133"/>
+<area shape="rect" id="node13" href="$walltime_8h.html" title="walltime.h" alt="" coords="443,157,525,184"/>
+<area shape="rect" id="node15" href="$physconst_8h.html" title="physconst.h" alt="" coords="437,259,531,285"/>
+<area shape="rect" id="node16" href="$types_8h.html" title="types.h" alt="" coords="451,461,517,488"/>
+<area shape="rect" id="node23" href="$event_8h.html" title="event.h" alt="" coords="303,385,368,412"/>
+<area shape="rect" id="node24" href="$partmanager_8h.html" title="partmanager.h" alt="" coords="283,537,388,564"/>
+<area shape="rect" id="node26" href="$peano_8h.html" title="peano.h" alt="" coords="450,563,518,589"/>
+<area shape="rect" id="node28" href="$memory_8h.html" title="memory.h" alt="" coords="295,740,375,767"/>
+<area shape="rect" id="node31" href="$timebinmgr_8h.html" title="timebinmgr.h" alt="" coords="287,841,384,868"/>
 </map>

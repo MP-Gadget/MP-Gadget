@@ -1,8 +1,8 @@
 <map id="grav_short_pair_ngbiter" name="grav_short_pair_ngbiter">
-<area shape="rect" id="node2" href="$runtests_8c.html#a60eab909e50b5e048e572b833dcc2846" title="grav_short_pair" alt="" coords="29,101,139,128"/>
-<area shape="rect" id="node3" href="$runtests_8c.html#a549024555ca61e3f05a7100307e44f69" title="runtests" alt="" coords="49,197,119,224"/>
-<area shape="rect" id="node4" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="59,293,109,320"/>
-<area shape="rect" id="node5" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="29,581,139,608"/>
-<area shape="rect" id="node6" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="33,485,135,512"/>
-<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="64,389,104,416"/>
+<area shape="rect" id="node2" href="$runtests_8c.html#a60eab909e50b5e048e572b833dcc2846" title="grav_short_pair" alt="" coords="211,31,321,57"/>
+<area shape="rect" id="node3" href="$runtests_8c.html#a549024555ca61e3f05a7100307e44f69" title="runtests" alt="" coords="369,31,439,57"/>
+<area shape="rect" id="node4" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="487,31,537,57"/>
+<area shape="rect" id="node5" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="585,5,696,32"/>
+<area shape="rect" id="node6" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="744,5,847,32"/>
+<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="895,31,935,57"/>
 </map>

@@ -1,12 +1,12 @@
 <map id="treewalk.h" name="treewalk.h">
-<area shape="rect" id="node2" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="390,129,478,155"/>
-<area shape="rect" id="node3" href="$density_8c.html" title="SPH density computation and smoothing length determination. " alt="" coords="313,28,387,55"/>
-<area shape="rect" id="node4" href="$fof_8c.html" title="parallel FoF group finder " alt="" coords="197,5,245,32"/>
-<area shape="rect" id="node5" href="$gravshort-pair_8c.html" title="gravshort&#45;pair.c" alt="" coords="198,194,310,221"/>
-<area shape="rect" id="node6" href="$gravshort_8h.html" title="gravshort.h" alt="" coords="301,227,388,254"/>
-<area shape="rect" id="node7" href="$gravshort-tree-old_8c.html" title="gravshort&#45;tree&#45;old.c" alt="" coords="40,71,174,98"/>
-<area shape="rect" id="node8" href="$gravshort-tree_8c.html" title="gravshort&#45;tree.c" alt="" coords="5,194,119,221"/>
-<area shape="rect" id="node9" href="$hydra_8c.html" title="Computation of SPH forces and rate of entropy generation. " alt="" coords="74,318,140,344"/>
-<area shape="rect" id="node10" href="$sfr__eff_8c.html" title="sfr_eff.c" alt="" coords="185,383,256,410"/>
-<area shape="rect" id="node11" href="$treewalk_8c.html" title="treewalk.c" alt="" coords="309,361,391,387"/>
+<area shape="rect" id="node2" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="136,5,224,32"/>
+<area shape="rect" id="node3" href="$density_8c.html" title="SPH density computation and smoothing length determination. " alt="" coords="143,56,217,83"/>
+<area shape="rect" id="node4" href="$fof_8c.html" title="parallel FoF group finder " alt="" coords="156,107,204,133"/>
+<area shape="rect" id="node5" href="$gravshort-pair_8c.html" title="gravshort&#45;pair.c" alt="" coords="283,171,395,197"/>
+<area shape="rect" id="node6" href="$gravshort_8h.html" title="gravshort.h" alt="" coords="137,208,223,235"/>
+<area shape="rect" id="node7" href="$gravshort-tree-old_8c.html" title="gravshort&#45;tree&#45;old.c" alt="" coords="272,247,407,273"/>
+<area shape="rect" id="node8" href="$gravshort-tree_8c.html" title="gravshort&#45;tree.c" alt="" coords="283,297,396,324"/>
+<area shape="rect" id="node9" href="$hydra_8c.html" title="Computation of SPH forces and rate of entropy generation. " alt="" coords="147,360,213,387"/>
+<area shape="rect" id="node10" href="$sfr__eff_8c.html" title="sfr_eff.c" alt="" coords="145,411,215,437"/>
+<area shape="rect" id="node11" href="$treewalk_8c.html" title="treewalk.c" alt="" coords="139,461,221,488"/>
 </map>

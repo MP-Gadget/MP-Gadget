@@ -1,9 +1,9 @@
 <map id="hci_get_elapsed_time" name="hci_get_elapsed_time">
-<area shape="rect" id="node2" href="$hci_8c.html#acc6f82bedec50d4ab1953895c1abd49f" title="hci_query_auto_checkpoint" alt="" coords="303,338,483,365"/>
-<area shape="rect" id="node8" href="$hci_8c.html#a45765de3ce60382338140dc7d6532a65" title="hci_query_timeout" alt="" coords="425,504,553,531"/>
-<area shape="rect" id="node3" href="$hci_8h.html#ab140bce619153b809e0fea49a2e1d081" title="hci_query" alt="" coords="305,255,384,281"/>
-<area shape="rect" id="node4" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="277,172,317,198"/>
-<area shape="rect" id="node5" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="607,88,658,115"/>
-<area shape="rect" id="node6" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="625,5,736,32"/>
-<area shape="rect" id="node7" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="5,421,108,448"/>
+<area shape="rect" id="node2" href="$hci_8c.html#acc6f82bedec50d4ab1953895c1abd49f" title="hci_query_auto_checkpoint" alt="" coords="201,5,381,32"/>
+<area shape="rect" id="node8" href="$hci_8c.html#a45765de3ce60382338140dc7d6532a65" title="hci_query_timeout" alt="" coords="227,56,355,83"/>
+<area shape="rect" id="node3" href="$hci_8h.html#ab140bce619153b809e0fea49a2e1d081" title="hci_query" alt="" coords="429,31,508,57"/>
+<area shape="rect" id="node4" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="556,31,596,57"/>
+<area shape="rect" id="node5" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="644,5,695,32"/>
+<area shape="rect" id="node6" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="743,5,853,32"/>
+<area shape="rect" id="node7" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="901,31,1004,57"/>
 </map>

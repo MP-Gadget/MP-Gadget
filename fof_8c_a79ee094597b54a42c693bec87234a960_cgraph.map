@@ -1,8 +1,8 @@
 <map id="fof_primary_ngbiter" name="fof_primary_ngbiter">
-<area shape="rect" id="node2" href="$fof_8c.html#ad771608bd97a1a590c3c4fd1b93286c1" title="fofp_merge" alt="" coords="161,338,247,365"/>
-<area shape="rect" id="node4" href="$drift_8c.html#ac5441bdb6b99a097017f1ebe9e30fc76" title="lock_particle" alt="" coords="157,172,251,198"/>
-<area shape="rect" id="node5" href="$drift_8c.html#a5ef02b723d506ab7cb7a6ea7c9930ca1" title="unlock_particle" alt="" coords="5,255,115,281"/>
-<area shape="rect" id="node7" href="$fof_8c.html#a6a612464ae0085128345763c9a813b11" title="HEAD" alt="" coords="270,5,330,32"/>
-<area shape="rect" id="node3" href="$fof_8c.html#ac212dc339de1913e00a71180c7b2fb71" title="HEADl" alt="" coords="125,255,187,281"/>
-<area shape="rect" id="node6" href="$fof_8c.html#ab71467e1369a4a8d7dff607da74b7ee7" title="update_root" alt="" coords="207,421,297,448"/>
+<area shape="rect" id="node2" href="$fof_8c.html#ad771608bd97a1a590c3c4fd1b93286c1" title="fofp_merge" alt="" coords="187,102,273,129"/>
+<area shape="rect" id="node4" href="$drift_8c.html#ac5441bdb6b99a097017f1ebe9e30fc76" title="lock_particle" alt="" coords="467,153,562,179"/>
+<area shape="rect" id="node5" href="$drift_8c.html#a5ef02b723d506ab7cb7a6ea7c9930ca1" title="unlock_particle" alt="" coords="460,77,569,103"/>
+<area shape="rect" id="node7" href="$fof_8c.html#a6a612464ae0085128345763c9a813b11" title="HEAD" alt="" coords="200,229,260,255"/>
+<area shape="rect" id="node3" href="$fof_8c.html#ac212dc339de1913e00a71180c7b2fb71" title="HEADl" alt="" coords="335,127,398,154"/>
+<area shape="rect" id="node6" href="$fof_8c.html#ab71467e1369a4a8d7dff607da74b7ee7" title="update_root" alt="" coords="321,26,412,53"/>
 </map>
