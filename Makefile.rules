@@ -65,7 +65,6 @@ EXEC = $(TARGETS:%=$(DESTDIR)/%)
 GADGET_OBJS := $(GADGET_OBJS:%=$(DESTDIR)/%)
 GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=$(DESTDIR)/%)
 ICOBJS = $(ICOBJECTS:%=$(DESTDIR)/%)
-FILES = $(shell git ls-files)
 
 all: depends builddir $(EXEC)
 
@@ -105,9 +104,3 @@ $(DESTDIR)/%.o: %.cpp $(INCL) $(DESTDIR)/config.h
 clean:
 	rm -f $(GADGET_OBJS) $(EXEC) $(ICOBJS) $(GADGET_UTILS_OBJS) $(DESTDIR)/libgadget-utils.a
 
-tag:
-	@git tag $(VERSION);
-	git tag
-
-sdist:
-	bash maintainer/git-archive-all.sh --prefix MPGadget-$(VERSION)/ -- - | gzip -c > MPGadget-$(VERSION).tar.gz

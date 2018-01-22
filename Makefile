@@ -3,6 +3,8 @@ CONFIG ?= Options.mk
 
 include $(CONFIG)
 
+FILES = $(shell git ls-files)
+
 # define the version
 # (easier to extract from other utils, e.g. python)
 include Makefile.version
@@ -14,4 +16,4 @@ include Makefile.rules
 include Makefile.tests
 
 # Testing Rules
-include Makefile.doxygen
+include Makefile.maint
