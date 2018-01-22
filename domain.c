@@ -40,11 +40,17 @@
  *  communication.
  */
 
+
+/**
+ * Policy for domain decomposition.
+ *
+ * Several policies will be attempted before we give up and die.
+ * */
 typedef struct {
-    double TopNodeAllocFactor;
-    int UseGlobalSort;
-    int SubSampleDistance;
-    int PreSort;
+    double TopNodeAllocFactor; /** number of Top level tree nodes as a fraction of particles */
+    int UseGlobalSort; /** Apply a global sorting on the subsamples before building the top level tree. */
+    int SubSampleDistance; /** Frequency of subsampling */
+    int PreSort; /** PreSort the local particles before subsampling, creating a fair subsample */
 } DomainDecompositionPolicy;
 
 struct topnode_data *TopNodes;
@@ -333,7 +339,7 @@ domain_attempt_decompose(DomainDecompositionPolicy * policy)
 
     size_t bytes, all_bytes = 0;
 
-    /*!< points to the root node of the top-level tree */
+    /* points to the root node of the top-level tree */
     struct local_topnode_data *topTree = (struct local_topnode_data *) mymalloc("LocaltopTree", bytes =
             (MaxTopNodes * sizeof(struct local_topnode_data)));
     memset(topTree, 0, sizeof(topTree[0]) * MaxTopNodes);
@@ -381,6 +387,10 @@ domain_attempt_decompose(DomainDecompositionPolicy * policy)
     return 0;
 }
 
+/**
+ * attempt to assign segments to tasks such that the load or work is balanced.
+ *
+ * */
 static void
 domain_balance(void)
 {
@@ -489,11 +499,12 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
 }
 
 
+/* Data of TopTree leaf nodes that are used for assignment to tasks */
 struct topleaf_extdata {
     peano_t Key;
-    int Task;
-    int topnode;
-    int64_t cost;
+    int Task;        /** The task that receives the node */
+    int topnode;     /** The node */
+    int64_t cost;    /** cost value, can be either number of calculations or number of particles. */
 };
 
 static int
@@ -519,7 +530,7 @@ topleaf_ext_order_by_key(const void * c1, const void * c2)
 }
 
 
-/*
+/**
  *
  * This function assigns task to TopLeaves, and sort them by the task,
  * creates the index in Tasks[Task].StartLeaf and Tasks[Task].EndLeaf
@@ -693,7 +704,7 @@ domain_assign_balanced(int64_t * cost)
     }
 }
 
-/*This function determines the TopLeaves entry for the given key.*/
+/** This function determines the TopLeaves entry for the given key.*/
 inline int
 domain_get_topleaf(const peano_t key) {
     int no=0;
@@ -885,7 +896,7 @@ domain_toptree_truncate(
     domain_toptree_garbage_collection(topTree, 0, topTreeSize);
 }
 
-/*
+/**
  * This function performs local refinement of the topTree.
  *
  * It creates the local refinement by quickly going through
@@ -1290,7 +1301,8 @@ domain_global_refine(
 }
 
 
-void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
+static void
+domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
 {
     int i;
     int64_t * local_TopLeafWork = (int64_t *) mymalloc("local_TopLeafWork", All.NumThreads * NTopLeaves * sizeof(local_TopLeafWork[0]));
@@ -1334,7 +1346,7 @@ void domain_compute_costs(int64_t *TopLeafWork, int64_t *TopLeafCount)
     myfree(local_TopLeafWork);
 }
 
-/*
+/**
  * Merge treeB into treeA.
  *
  * The function recursively merge the cost and refinement of treeB into treeA.
