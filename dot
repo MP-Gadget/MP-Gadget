@@ -3,4 +3,5 @@
 # wrapper command to generate graphs with a circular layout
 # for large fan-in and fan-out this works much better than neato.
 
-exec dot -Ktwopi -Grankdir="LR" $*
+#exec dot -Ktwopi -Grankdir="LR" $*
+exec dot -Grankdir="LR" $*
