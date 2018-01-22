@@ -11,7 +11,7 @@ var searchData=
   ['rcut',['RCUT',['../allvars_8h.html#a1757a8f71b37d9f5a7a8c753d9f9cab1',1,'allvars.h']]],
   ['read_5fparameter_5ffile',['read_parameter_file',['../param_8c.html#a952eae1977b498c4fdfabed1742a3ba2',1,'read_parameter_file(char *fname):&#160;param.c'],['../param_8h.html#a952eae1977b498c4fdfabed1742a3ba2',1,'read_parameter_file(char *fname):&#160;param.c']]],
   ['readionizeparams',['ReadIonizeParams',['../cooling_8c.html#a3f254f8f8b266123110343b938a67fe2',1,'ReadIonizeParams(char *fname):&#160;cooling.c'],['../MakePrimordialCoolingTable_8c.html#a3f254f8f8b266123110343b938a67fe2',1,'ReadIonizeParams(char *fname):&#160;MakePrimordialCoolingTable.c']]],
-  ['readme_2emd',['README.md',['../README_8md.html',1,'']]],
+  ['readme_2etmp_2emd',['README.tmp.md',['../README_8tmp_8md.html',1,'']]],
   ['readout',['readout',['../structPetaPMFunctions.html#ae21021095be82477857d838fd48a1f46',1,'PetaPMFunctions']]],
   ['readout_5fforce_5fx',['readout_force_x',['../gravpm_8c.html#a80610277b112fbd09cb21148cab8acc8',1,'gravpm.c']]],
   ['readout_5fforce_5fy',['readout_force_y',['../gravpm_8c.html#acfd3f85093df931911cae0f8327c4ca1',1,'gravpm.c']]],
