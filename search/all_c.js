@@ -40,6 +40,7 @@ var searchData=
   ['long_5frange_5finit',['long_range_init',['../longrange_8c.html#af52079f2c63002aca9463ba0b13727df',1,'long_range_init(void):&#160;longrange.c'],['../proto_8h.html#af52079f2c63002aca9463ba0b13727df',1,'long_range_init(void):&#160;longrange.c']]],
   ['longesttimebetweenqueries',['LongestTimeBetweenQueries',['../structHCIManager.html#ad410c6ee8a74f8e829edefb370081c81',1,'HCIManager']]],
   ['longrange_2ec',['longrange.c',['../longrange_8c.html',1,'']]],
+  ['low_5fprecision',['LOW_PRECISION',['../types_8h.html#a4f58f9f1e5f96e197fa9eb538cbeb935',1,'types.h']]],
   ['lyman_5falpha',['LYMAN_ALPHA',['../physconst_8h.html#ab440e0a1e7ef7e67764353199b9c7766',1,'physconst.h']]],
   ['lyman_5falpha_5fheii',['LYMAN_ALPHA_HeII',['../physconst_8h.html#a95191341936f6552a2a2ff942d2efc4d',1,'physconst.h']]]
 ];

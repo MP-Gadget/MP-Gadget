@@ -2,7 +2,6 @@ var searchData=
 [
   ['namesize',['NAMESIZE',['../paramset_8c.html#ad79aefee6a8990632311a15e98d9a65f',1,'paramset.c']]],
   ['ncooltab',['NCOOLTAB',['../cooling_8c.html#af8e0ed14197fda21f283ba00e1ceb8dd',1,'NCOOLTAB():&#160;cooling.c'],['../MakePrimordialCoolingTable_8c.html#af8e0ed14197fda21f283ba00e1ceb8dd',1,'NCOOLTAB():&#160;MakePrimordialCoolingTable.c']]],
-  ['ndebug',['NDEBUG',['../hydra_8c.html#a8de3ed741dadc9c979a4ff17c0a9116e',1,'hydra.c']]],
   ['nearest',['NEAREST',['../allvars_8h.html#a1094686c363ae3a70dca627763873649',1,'allvars.h']]],
   ['nentry',['NENTRY',['../lightcone_8c.html#a4a9f655abeeed0083d247a6f8933ddd9',1,'lightcone.c']]],
   ['nhydrogennumberdensity_5fbins',['NHydrogenNumberDensity_bins',['../MakePrimordialCoolingTable_8c.html#ab8fcdb206c2bd1dbed3df89808bc955a',1,'MakePrimordialCoolingTable.c']]],

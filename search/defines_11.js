@@ -11,8 +11,8 @@ var searchData=
   ['smallnum',['SMALLNUM',['../cooling_8c.html#a96dcd99bb36a67a871a76b8ee0973a82',1,'SMALLNUM():&#160;cooling.c'],['../MakePrimordialCoolingTable_8c.html#a96dcd99bb36a67a871a76b8ee0973a82',1,'SMALLNUM():&#160;MakePrimordialCoolingTable.c']]],
   ['solar_5flum',['SOLAR_LUM',['../physconst_8h.html#ab79f83235ac3f37355ad291721d945af',1,'physconst.h']]],
   ['solar_5fmass',['SOLAR_MASS',['../physconst_8h.html#a6321c9a4f727494edf637f2c5559af44',1,'physconst.h']]],
-  ['sphp',['SphP',['../slotsmanager_8h.html#a8b808c4888f0bfc7723ae3ce228a9895',1,'SphP():&#160;slotsmanager.h'],['../slotsmanager_8h.html#a681d502f5cbf25161ff026312cd1498c',1,'SPHP():&#160;slotsmanager.h']]],
-  ['starp',['STARP',['../slotsmanager_8h.html#a9dd255c01b21dd0eff9b32811421bfc8',1,'STARP():&#160;slotsmanager.h'],['../slotsmanager_8h.html#a31af7b510b0bb826984140dfd488370a',1,'StarP():&#160;slotsmanager.h']]],
+  ['sphp',['SPHP',['../slotsmanager_8h.html#a681d502f5cbf25161ff026312cd1498c',1,'SPHP():&#160;slotsmanager.h'],['../slotsmanager_8h.html#a8b808c4888f0bfc7723ae3ce228a9895',1,'SphP():&#160;slotsmanager.h']]],
+  ['starp',['StarP',['../slotsmanager_8h.html#a31af7b510b0bb826984140dfd488370a',1,'StarP():&#160;slotsmanager.h'],['../slotsmanager_8h.html#a9dd255c01b21dd0eff9b32811421bfc8',1,'STARP():&#160;slotsmanager.h']]],
   ['statcoul',['statcoul',['../auxiliary__functions_8c.html#a44b7fe6fff250263edae4f4a5a1985b6',1,'auxiliary_functions.c']]],
   ['stefan_5fboltzmann',['STEFAN_BOLTZMANN',['../cosmology_8c.html#ad4e561a62bce83b8233ceb954b7c8988',1,'cosmology.c']]],
   ['string',['STRING',['../paramset_8c.html#a0f4d394a3ab4e09bff60f714c66dc5ee',1,'paramset.c']]]

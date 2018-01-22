@@ -40,6 +40,7 @@ var searchData=
   ['heliumheatthresh',['HeliumHeatThresh',['../structglobal__data__all__processes.html#a92a811d392ba936fe12e8e3c36f2616e',1,'global_data_all_processes']]],
   ['help',['help',['../structParamSchema.html#aafcd670d0c5988073117d0b05340cf3c',1,'ParamSchema::help()'],['../structParameterSchema.html#aa68ee737db1fad9f58cdeb2ce56d2568',1,'ParameterSchema::help()']]],
   ['hh',['HH',['../structDensityKernel.html#a472bdd90d9ec4f52fc2ef13cfc1948dd',1,'DensityKernel']]],
+  ['high_5fprecision',['HIGH_PRECISION',['../types_8h.html#adbe0c6c8fb251503c47d74a8ae118d44',1,'types.h']]],
   ['highest_5fmemory_5fusage',['highest_memory_usage',['../mymalloc_8c.html#a08f391d0fa42f96590ed5a9d70dd8277',1,'mymalloc.c']]],
   ['hinv',['Hinv',['../structDensityKernel.html#a96f937c0efd2485f2615419e3f28bab1',1,'DensityKernel']]],
   ['hk_5flast_5fti0',['hk_last_ti0',['../timefac_8c.html#ae951e842d5fd78a5bbe8e347995fe525',1,'timefac.c']]],

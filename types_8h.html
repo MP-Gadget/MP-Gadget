@@ -91,6 +91,10 @@ Macros</h2></td></tr>
 <tr class="separator:ad3d023488b7f416e8fdbd55ea7e380b5"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aa70d9618f1de7669d2f5b22a807f5b62"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="types_8h.html#aa70d9618f1de7669d2f5b22a807f5b62">BINMASK</a>(i)&#160;&#160;&#160;(1u &lt;&lt; i)</td></tr>
 <tr class="separator:aa70d9618f1de7669d2f5b22a807f5b62"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:a4f58f9f1e5f96e197fa9eb538cbeb935"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="types_8h.html#a4f58f9f1e5f96e197fa9eb538cbeb935">LOW_PRECISION</a>&#160;&#160;&#160;double</td></tr>
+<tr class="separator:a4f58f9f1e5f96e197fa9eb538cbeb935"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:adbe0c6c8fb251503c47d74a8ae118d44"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="types_8h.html#adbe0c6c8fb251503c47d74a8ae118d44">HIGH_PRECISION</a>&#160;&#160;&#160;double</td></tr>
+<tr class="separator:adbe0c6c8fb251503c47d74a8ae118d44"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:aae268cff368c829e32ef0a52ee731bd6"><td class="memItemLeft" align="right" valign="top">#define&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="types_8h.html#aae268cff368c829e32ef0a52ee731bd6">HAS</a>(val,  flag)&#160;&#160;&#160;((flag &amp; (val)) == (flag))</td></tr>
 <tr class="separator:aae268cff368c829e32ef0a52ee731bd6"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table><table class="memberdecls">
@@ -102,9 +106,9 @@ Typedefs</h2></td></tr>
 <tr class="separator:ab7f8779710efa655135cf9cbee3137a7"><td class="memSeparator" colspan="2">&#160;</td></tr>
 <tr class="memitem:ad1d0bf70ad98a229cfc51edcd568fb70"><td class="memItemLeft" align="right" valign="top">typedef uint64_t&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="types_8h.html#ad1d0bf70ad98a229cfc51edcd568fb70">MyIDType</a></td></tr>
 <tr class="separator:ad1d0bf70ad98a229cfc51edcd568fb70"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af1ada7381a1118c6d51bdbb0b5e72811"><td class="memItemLeft" align="right" valign="top">typedef LOW_PRECISION&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="types_8h.html#af1ada7381a1118c6d51bdbb0b5e72811">MyFloat</a></td></tr>
+<tr class="memitem:af1ada7381a1118c6d51bdbb0b5e72811"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="types_8h.html#a4f58f9f1e5f96e197fa9eb538cbeb935">LOW_PRECISION</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="types_8h.html#af1ada7381a1118c6d51bdbb0b5e72811">MyFloat</a></td></tr>
 <tr class="separator:af1ada7381a1118c6d51bdbb0b5e72811"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:af1e0db71051e9d807134ddc461656b38"><td class="memItemLeft" align="right" valign="top">typedef HIGH_PRECISION&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="types_8h.html#af1e0db71051e9d807134ddc461656b38">MyDouble</a></td></tr>
+<tr class="memitem:af1e0db71051e9d807134ddc461656b38"><td class="memItemLeft" align="right" valign="top">typedef <a class="el" href="types_8h.html#adbe0c6c8fb251503c47d74a8ae118d44">HIGH_PRECISION</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="types_8h.html#af1e0db71051e9d807134ddc461656b38">MyDouble</a></td></tr>
 <tr class="separator:af1e0db71051e9d807134ddc461656b38"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <h2 class="groupheader">Macro Definition Documentation</h2>
@@ -126,7 +130,7 @@ Typedefs</h2></td></tr>
 
 <p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00018">18</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="treewalk_8c_source.html#l00774">treewalk_visit_ngbiter()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="treewalk_8h.html#a145aa9608fd3824bec8049ee97da1c6f">treewalk_visit_ngbiter()</a>.</p>
 
 </div>
 </div>
@@ -172,9 +176,41 @@ Typedefs</h2></td></tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00025">25</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00032">32</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="param_8c_source.html#l00019">BlackHoleFeedbackMethodAction()</a>, <a class="el" href="sfr__eff_8c_source.html#l00370">cooling_direct()</a>, <a class="el" href="density_8c_source.html#l00297">density_ngbiter()</a>, <a class="el" href="hydra_8c_source.html#l00186">hydro_ngbiter()</a>, <a class="el" href="hydra_8c_source.html#l00362">hydro_postprocess()</a>, and <a class="el" href="begrun_8c_source.html#l00175">set_units()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="param_8c.html#ac6ec3f94dd097b2bbf9ace392666f78c">BlackHoleFeedbackMethodAction()</a>, <a class="el" href="sfr__eff_8c.html#a2d96bcfa1a035956535e5840d306744b">cooling_direct()</a>, <a class="el" href="density_8c.html#a146d61fe2d2f53ea9b7fabf2ea5e90b7">density_ngbiter()</a>, <a class="el" href="hydra_8c.html#a573da066bd5ea955c89ec5250d472bbb">hydro_ngbiter()</a>, <a class="el" href="hydra_8c.html#a5b505203368093cd9f708c6af9ceb0b5">hydro_postprocess()</a>, and <a class="el" href="begrun_8c.html#abc253d7e6685a5245c81819ccc03f1f0">set_units()</a>.</p>
+
+</div>
+</div>
+<a id="adbe0c6c8fb251503c47d74a8ae118d44"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#adbe0c6c8fb251503c47d74a8ae118d44">&#9670;&nbsp;</a></span>HIGH_PRECISION</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define HIGH_PRECISION&#160;&#160;&#160;double</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00026">26</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
+
+</div>
+</div>
+<a id="a4f58f9f1e5f96e197fa9eb538cbeb935"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#a4f58f9f1e5f96e197fa9eb538cbeb935">&#9670;&nbsp;</a></span>LOW_PRECISION</h2>
+
+<div class="memitem">
+<div class="memproto">
+      <table class="memname">
+        <tr>
+          <td class="memname">#define LOW_PRECISION&#160;&#160;&#160;double</td>
+        </tr>
+      </table>
+</div><div class="memdoc">
+
+<p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00023">23</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
 
 </div>
 </div>
@@ -192,7 +228,7 @@ Typedefs</h2></td></tr>
 
 <p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00012">12</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="system_8c_source.html#l00215">count_sum()</a>, <a class="el" href="system_8c_source.html#l00199">count_to_offset()</a>, <a class="el" href="domain_8c_source.html#l01293">domain_compute_costs()</a>, <a class="el" href="domain_8c_source.html#l01156">domain_determine_global_toptree()</a>, <a class="el" href="fof_8c_source.html#l00905">fof_assign_grnr()</a>, <a class="el" href="fof_8c_source.html#l00680">fof_compile_catalogue()</a>, <a class="el" href="fof_8c_source.html#l00294">fof_label_primary()</a>, <a class="el" href="fofpetaio_8c_source.html#l00247">fof_write_header()</a>, <a class="el" href="powerspectrum_8c_source.html#l00038">powerspectrum_sum()</a>, and <a class="el" href="petapm_8c_source.html#l00900">reduce_int64()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="system_8h.html#a1d471d98379273269e8045d2998eca73">count_sum()</a>, <a class="el" href="system_8c.html#a06fab89c41437c39b5a7e0a8e2f99c21">count_to_offset()</a>, <a class="el" href="domain_8c.html#aca1c091cada3ca2bc21766efba6f16b6">domain_compute_costs()</a>, <a class="el" href="domain_8c.html#aa8992a67d8b8750c8b87c3e1f692fb3b">domain_determine_global_toptree()</a>, <a class="el" href="fof_8c.html#a616b551e98171785a993d6784520018e">fof_assign_grnr()</a>, <a class="el" href="fof_8c.html#ae4b5e05b1f0225637629759a9e2ba72e">fof_compile_catalogue()</a>, <a class="el" href="fof_8c.html#a77c15fc071e72ec1ea91652d28740ce1">fof_label_primary()</a>, <a class="el" href="fofpetaio_8c.html#a1214e8b0885da18375200616f5794a6e">fof_write_header()</a>, <a class="el" href="powerspectrum_8h.html#a1908289e94a68d593eb3ab7cce3f150b">powerspectrum_sum()</a>, and <a class="el" href="petapm_8c.html#abf5da355dbffe662c8c9d5cc33bf7afa">reduce_int64()</a>.</p>
 
 </div>
 </div>
@@ -210,7 +246,7 @@ Typedefs</h2></td></tr>
 
 <p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00011">11</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
 
-<p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l00680">fof_compile_catalogue()</a>.</p>
+<p class="reference">Referenced by <a class="el" href="fof_8c.html#ae4b5e05b1f0225637629759a9e2ba72e">fof_compile_catalogue()</a>.</p>
 
 </div>
 </div>
@@ -254,12 +290,12 @@ Typedefs</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef HIGH_PRECISION <a class="el" href="types_8h.html#af1e0db71051e9d807134ddc461656b38">MyDouble</a></td>
+          <td class="memname">typedef <a class="el" href="types_8h.html#adbe0c6c8fb251503c47d74a8ae118d44">HIGH_PRECISION</a> <a class="el" href="types_8h.html#af1e0db71051e9d807134ddc461656b38">MyDouble</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00023">23</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00030">30</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
 
 </div>
 </div>
@@ -270,12 +306,12 @@ Typedefs</h2></td></tr>
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname">typedef LOW_PRECISION <a class="el" href="types_8h.html#af1ada7381a1118c6d51bdbb0b5e72811">MyFloat</a></td>
+          <td class="memname">typedef <a class="el" href="types_8h.html#a4f58f9f1e5f96e197fa9eb538cbeb935">LOW_PRECISION</a> <a class="el" href="types_8h.html#af1ada7381a1118c6d51bdbb0b5e72811">MyFloat</a></td>
         </tr>
       </table>
 </div><div class="memdoc">
 
-<p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00022">22</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
+<p class="definition">Definition at line <a class="el" href="types_8h_source.html#l00029">29</a> of file <a class="el" href="types_8h_source.html">types.h</a>.</p>
 
 </div>
 </div>

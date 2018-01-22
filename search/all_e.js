@@ -11,7 +11,6 @@ var searchData=
   ['ncooltab',['NCOOLTAB',['../cooling_8c.html#af8e0ed14197fda21f283ba00e1ceb8dd',1,'NCOOLTAB():&#160;cooling.c'],['../MakePrimordialCoolingTable_8c.html#af8e0ed14197fda21f283ba00e1ceb8dd',1,'NCOOLTAB():&#160;MakePrimordialCoolingTable.c']]],
   ['ncrecv',['NcRecv',['../structLayout.html#a68471552e70d300954f7e555eaddc450',1,'Layout']]],
   ['ncsend',['NcSend',['../structLayout.html#aa23938f8844e7f6f5174a7687ace07a3',1,'Layout']]],
-  ['ndebug',['NDEBUG',['../hydra_8c.html#a8de3ed741dadc9c979a4ff17c0a9116e',1,'hydra.c']]],
   ['ndim',['Ndim',['../structInterp.html#a30a39ef1eb5d0b5c0e3f7fe1409b3c3d',1,'Interp']]],
   ['ne',['ne',['../structabundance.html#ae76fb5cd79d33598c8d0efb11443f73d',1,'abundance::ne()'],['../structsph__particle__data.html#aa4cd5a16a69812e250259617dc9dea58',1,'sph_particle_data::Ne()'],['../MakePrimordialCoolingTable_8c.html#a1ed6cb52604901a4c41831c809fe51d9',1,'ne():&#160;MakePrimordialCoolingTable.c']]],
   ['nearest',['NEAREST',['../allvars_8h.html#a1094686c363ae3a70dca627763873649',1,'allvars.h']]],
