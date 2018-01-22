@@ -1,6 +1,5 @@
-.PHONY : html
 
-html: README.rst
+html: $(FILES)
 	pandoc -f rst -t markdown README.rst > README.tmp.md
 	sed -e "s;@VERSION@;$(VERSION);" \
 	    -e "s;@MAINPAGE@;README.tmp.md;" \
