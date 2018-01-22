@@ -1,0 +1,12 @@
+.PHONY : html
+
+html: README.rst
+	pandoc -f rst -t markdown README.rst > README.tmp.md
+	sed -e "s;@VERSION@;$(VERSION);" \
+	    -e "s;@MAINPAGE@;README.tmp.md;" \
+	       Doxyfile.in > Doxyfile
+	doxygen Doxyfile
+	rm -rf README.tmp.md Doxyfile
+
+gh-pages: html
+	ghp-import -p -f html
