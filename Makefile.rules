@@ -110,4 +110,4 @@ tag:
 	git tag
 
 sdist:
-	bash git-archive-all.sh --prefix MPGadget-$(VERSION)/ -- - | gzip -c > MPGadget-$(VERSION).tar.gz
+	bash maintainer/git-archive-all.sh --prefix MPGadget-$(VERSION)/ -- - | gzip -c > MPGadget-$(VERSION).tar.gz

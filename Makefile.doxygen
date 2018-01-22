@@ -3,7 +3,7 @@ html: $(FILES)
 	@pandoc -f rst -t markdown README.rst > README.tmp.md
 	@sed -e "s;@VERSION@;$(VERSION)-`git describe --always --dirty --abbrev=10`;" \
 	    -e "s;@MAINPAGE@;README.tmp.md;" \
-	    -e "s;@DOT@;$(PWD)/dot;" \
+	    -e "s;@DOT@;$(PWD)/maintainer/dot;" \
 	       Doxyfile.in > Doxyfile
 	@doxygen Doxyfile
 	@rm -rf README.tmp.md Doxyfile
