@@ -1,0 +1,21 @@
+<map id="domain.c" name="domain.c">
+<area shape="rect" id="node8" href="$allvars_8h.html" title="declares global variables. " alt="" coords="334,251,404,277"/>
+<area shape="rect" id="node18" href="$forcetree_8h.html" title="forcetree.h" alt="" coords="553,545,637,571"/>
+<area shape="rect" id="node19" href="$mymalloc_8h.html" title="mymalloc.h" alt="" coords="96,317,185,344"/>
+<area shape="rect" id="node22" href="$endrun_8h.html" title="endrun.h" alt="" coords="130,514,202,541"/>
+<area shape="rect" id="node23" href="$openmpsort_8h.html" title="openmpsort.h" alt="" coords="166,601,267,628"/>
+<area shape="rect" id="node24" href="$domain_8h.html" title="domain.h" alt="" coords="674,392,749,419"/>
+<area shape="rect" id="node26" href="$timestep_8h.html" title="timestep.h" alt="" coords="246,672,329,699"/>
+<area shape="rect" id="node27" href="$timebinmgr_8h.html" title="timebinmgr.h" alt="" coords="326,722,423,749"/>
+<area shape="rect" id="node28" href="$system_8h.html" title="system.h" alt="" coords="433,748,509,775"/>
+<area shape="rect" id="node29" href="$exchange_8h.html" title="exchange.h" alt="" coords="527,748,616,775"/>
+<area shape="rect" id="node30" href="$slotsmanager_8h.html" title="slotsmanager.h" alt="" coords="583,520,693,546"/>
+<area shape="rect" id="node32" href="$partmanager_8h.html" title="partmanager.h" alt="" coords="621,484,726,511"/>
+<area shape="rect" id="node11" href="$cosmology_8h.html" title="cosmology.h" alt="" coords="583,101,679,128"/>
+<area shape="rect" id="node13" href="$walltime_8h.html" title="walltime.h" alt="" coords="518,82,599,109"/>
+<area shape="rect" id="node15" href="$physconst_8h.html" title="physconst.h" alt="" coords="364,101,458,128"/>
+<area shape="rect" id="node16" href="$types_8h.html" title="types.h" alt="" coords="396,343,461,369"/>
+<area shape="rect" id="node20" href="$memory_8h.html" title="memory.h" alt="" coords="5,305,85,331"/>
+<area shape="rect" id="node25" href="$peano_8h.html" title="peano.h" alt="" coords="580,392,648,419"/>
+<area shape="rect" id="node31" href="$event_8h.html" title="event.h" alt="" coords="664,596,729,623"/>
+</map>

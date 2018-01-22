@@ -1,0 +1,24 @@
+<map id="init.c" name="init.c">
+<area shape="rect" id="node7" href="$allvars_8h.html" title="declares global variables. " alt="" coords="294,266,364,292"/>
+<area shape="rect" id="node11" href="$cosmology_8h.html" title="cosmology.h" alt="" coords="597,124,693,151"/>
+<area shape="rect" id="node19" href="$proto_8h.html" title="proto.h" alt="" coords="98,241,161,268"/>
+<area shape="rect" id="node20" href="$cooling_8h.html" title="cooling.h" alt="" coords="73,325,147,351"/>
+<area shape="rect" id="node21" href="$forcetree_8h.html" title="forcetree.h" alt="" coords="552,530,636,557"/>
+<area shape="rect" id="node22" href="$timefac_8h.html" title="timefac.h" alt="" coords="72,411,148,437"/>
+<area shape="rect" id="node23" href="$petaio_8h.html" title="petaio.h" alt="" coords="95,495,163,521"/>
+<area shape="rect" id="node25" href="$domain_8h.html" title="domain.h" alt="" coords="645,389,720,416"/>
+<area shape="rect" id="node27" href="$slotsmanager_8h.html" title="slotsmanager.h" alt="" coords="572,504,683,530"/>
+<area shape="rect" id="node31" href="$exchange_8h.html" title="exchange.h" alt="" coords="122,572,211,599"/>
+<area shape="rect" id="node33" href="$mymalloc_8h.html" title="mymalloc.h" alt="" coords="243,693,332,720"/>
+<area shape="rect" id="node35" href="$fof_8h.html" title="fof.h" alt="" coords="563,640,611,666"/>
+<area shape="rect" id="node36" href="$endrun_8h.html" title="endrun.h" alt="" coords="329,730,401,757"/>
+<area shape="rect" id="node37" href="$timestep_8h.html" title="timestep.h" alt="" coords="407,749,490,776"/>
+<area shape="rect" id="node38" href="$timebinmgr_8h.html" title="timebinmgr.h" alt="" coords="486,749,583,776"/>
+<area shape="rect" id="node14" href="$walltime_8h.html" title="walltime.h" alt="" coords="546,96,628,123"/>
+<area shape="rect" id="node16" href="$physconst_8h.html" title="physconst.h" alt="" coords="413,82,506,108"/>
+<area shape="rect" id="node17" href="$types_8h.html" title="types.h" alt="" coords="365,346,431,373"/>
+<area shape="rect" id="node26" href="$peano_8h.html" title="peano.h" alt="" coords="551,389,619,416"/>
+<area shape="rect" id="node28" href="$event_8h.html" title="event.h" alt="" coords="663,571,728,598"/>
+<area shape="rect" id="node29" href="$partmanager_8h.html" title="partmanager.h" alt="" coords="602,470,707,497"/>
+<area shape="rect" id="node34" href="$memory_8h.html" title="memory.h" alt="" coords="196,774,276,801"/>
+</map>

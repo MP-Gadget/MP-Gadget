@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -103,6 +97,11 @@ $(function() {
 <code>#include &quot;<a class="el" href="partmanager_8h_source.html">partmanager.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="densitykernel_8h_source.html">densitykernel.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="fof_8h_source.html">fof.h</a>&quot;</code><br />
+</div><div class="textblock"><div class="dynheader">
+Include dependency graph for fof.c:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c__incl.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
 </div>
 <p><a href="fof_8c_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -393,7 +392,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structGroup_html_ad4f0fff8b540ea412ae02e917328ca43"><div class="ttname"><a href="structGroup.html#ad4f0fff8b540ea412ae02e917328ca43">Group::Vel</a></div><div class="ttdeci">double Vel[3]</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00040">fof.h:40</a></div></div>
 <div class="ttc" id="structGroup_html_a94c2dc2ae0f6f2befda3ad71816067f2"><div class="ttname"><a href="structGroup.html#a94c2dc2ae0f6f2befda3ad71816067f2">Group::seed_index</a></div><div class="ttdeci">int seed_index</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00053">fof.h:53</a></div></div>
 <div class="ttc" id="structGroup_html_aa48514f6a0385517aad4413044c84c4b"><div class="ttname"><a href="structGroup.html#aa48514f6a0385517aad4413044c84c4b">Group::Jmom</a></div><div class="ttdeci">double Jmom[3]</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00043">fof.h:43</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a9d511d0d849b2848170c4c2306b6de46_cgraph.svg" width="275" height="204"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a9d511d0d849b2848170c4c2306b6de46_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="aa0b509a412ea6c943cf657d4c68a9cf2"></a>
@@ -438,7 +447,17 @@ Variables</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l01156"></a><span class="lineno"> 1156</span>&#160;                                                           {</div><div class="line"><a name="l01157"></a><span class="lineno"> 1157</span>&#160;    <span class="keyword">const</span> <span class="keyword">struct </span><a class="code" href="structGroup.html">Group</a> * g1 = c1;</div><div class="line"><a name="l01158"></a><span class="lineno"> 1158</span>&#160;    <span class="keyword">const</span> <span class="keyword">struct </span><a class="code" href="structGroup.html">Group</a> * g2 = <a class="code" href="auxiliary__functions_8c.html#a029b8c811cc05eaa3f86df139d8fe4e5">c2</a>;</div><div class="line"><a name="l01159"></a><span class="lineno"> 1159</span>&#160;</div><div class="line"><a name="l01160"></a><span class="lineno"> 1160</span>&#160;    <span class="keywordflow">return</span> g1-&gt;<a class="code" href="structGroup.html#acc4dfc0c265b718f07f9f407c4f75589">seed_task</a> - g2-&gt;<a class="code" href="structGroup.html#acc4dfc0c265b718f07f9f407c4f75589">seed_task</a>;</div><div class="line"><a name="l01161"></a><span class="lineno"> 1161</span>&#160;}</div><div class="ttc" id="structGroup_html_acc4dfc0c265b718f07f9f407c4f75589"><div class="ttname"><a href="structGroup.html#acc4dfc0c265b718f07f9f407c4f75589">Group::seed_task</a></div><div class="ttdeci">int seed_task</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00054">fof.h:54</a></div></div>
 <div class="ttc" id="auxiliary__functions_8c_html_a029b8c811cc05eaa3f86df139d8fe4e5"><div class="ttname"><a href="auxiliary__functions_8c.html#a029b8c811cc05eaa3f86df139d8fe4e5">c2</a></div><div class="ttdeci">#define c2</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00033">auxiliary_functions.c:33</a></div></div>
 <div class="ttc" id="structGroup_html"><div class="ttname"><a href="structGroup.html">Group</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00032">fof.h:32</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_aa0b509a412ea6c943cf657d4c68a9cf2_cgraph.svg" width="412" height="310"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_aa0b509a412ea6c943cf657d4c68a9cf2_icgraph.svg" width="200" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a616b551e98171785a993d6784520018e"></a>
@@ -485,7 +504,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="mymalloc_8h_html_a84e2115e90e9c22e11d9663c019fc8bc"><div class="ttname"><a href="mymalloc_8h.html#a84e2115e90e9c22e11d9663c019fc8bc">ta_free</a></div><div class="ttdeci">#define ta_free(p)</div><div class="ttdef"><b>Definition:</b> <a href="mymalloc_8h_source.html#l00025">mymalloc.h:25</a></div></div>
 <div class="ttc" id="partmanager_8c_html_a6cef44682776e476d8f9f1b9e1f9fe16"><div class="ttname"><a href="partmanager_8c.html#a6cef44682776e476d8f9f1b9e1f9fe16">PartManager</a></div><div class="ttdeci">struct part_manager_type PartManager[1]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00009">partmanager.c:9</a></div></div>
 <div class="ttc" id="fof_8c_html_a5a60f22d94d6bc3edcaeee00b8183bed"><div class="ttname"><a href="fof_8c.html#a5a60f22d94d6bc3edcaeee00b8183bed">fof_radix_Group_OriginalTaskMinID</a></div><div class="ttdeci">static void fof_radix_Group_OriginalTaskMinID(const void *a, void *radix, void *arg)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l01297">fof.c:1297</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a616b551e98171785a993d6784520018e_icgraph.svg" width="592" height="444"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a03e30b1f689d4079b62b1adc5d427230"></a>
@@ -526,7 +550,12 @@ Variables</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l00055">fof_periodic_wrap()</a>, and <a class="el" href="fof_8c_source.html#l00755">fof_reduce_groups()</a>.</p>
 <div class="fragment"><div class="line"><a name="l01258"></a><span class="lineno"> 1258</span>&#160;{</div><div class="line"><a name="l01259"></a><span class="lineno"> 1259</span>&#160;    <span class="keywordflow">if</span>(((<span class="keyword">struct</span> <a class="code" href="structBaseGroup.html">BaseGroup</a> *) a)-&gt;MinID &lt; ((<span class="keyword">struct</span> <a class="code" href="structBaseGroup.html">BaseGroup</a> *) b)-&gt;MinID)</div><div class="line"><a name="l01260"></a><span class="lineno"> 1260</span>&#160;        <span class="keywordflow">return</span> -1;</div><div class="line"><a name="l01261"></a><span class="lineno"> 1261</span>&#160;</div><div class="line"><a name="l01262"></a><span class="lineno"> 1262</span>&#160;    <span class="keywordflow">if</span>(((<span class="keyword">struct</span> <a class="code" href="structBaseGroup.html">BaseGroup</a> *) a)-&gt;MinID &gt; ((<span class="keyword">struct</span> <a class="code" href="structBaseGroup.html">BaseGroup</a> *) b)-&gt;MinID)</div><div class="line"><a name="l01263"></a><span class="lineno"> 1263</span>&#160;        <span class="keywordflow">return</span> +1;</div><div class="line"><a name="l01264"></a><span class="lineno"> 1264</span>&#160;</div><div class="line"><a name="l01265"></a><span class="lineno"> 1265</span>&#160;    <span class="keywordflow">return</span> 0;</div><div class="line"><a name="l01266"></a><span class="lineno"> 1266</span>&#160;}</div><div class="ttc" id="structBaseGroup_html"><div class="ttname"><a href="structBaseGroup.html">BaseGroup</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00022">fof.h:22</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a03e30b1f689d4079b62b1adc5d427230_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ab7c80be15a87e30fc1755b5c2b61d10e"></a>
@@ -571,7 +600,12 @@ Variables</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l01269"></a><span class="lineno"> 1269</span>&#160;{</div><div class="line"><a name="l01270"></a><span class="lineno"> 1270</span>&#160;    <span class="keyword">const</span> <span class="keyword">struct </span><a class="code" href="structBaseGroup.html">BaseGroup</a> * p1 = a;</div><div class="line"><a name="l01271"></a><span class="lineno"> 1271</span>&#160;    <span class="keyword">const</span> <span class="keyword">struct </span><a class="code" href="structBaseGroup.html">BaseGroup</a> * p2 = b;</div><div class="line"><a name="l01272"></a><span class="lineno"> 1272</span>&#160;    <span class="keywordtype">int</span> t1 = p1-&gt;<a class="code" href="structBaseGroup.html#af9daa4f39e44a6e612d90ea982609f4f">MinIDTask</a>;</div><div class="line"><a name="l01273"></a><span class="lineno"> 1273</span>&#160;    <span class="keywordtype">int</span> t2 = p2-&gt;<a class="code" href="structBaseGroup.html#af9daa4f39e44a6e612d90ea982609f4f">MinIDTask</a>;</div><div class="line"><a name="l01274"></a><span class="lineno"> 1274</span>&#160;    <span class="keywordflow">if</span>(t1 == <a class="code" href="allvars_8c.html#a52c8c7d2abff436111942e02c5bb466a">ThisTask</a>) t1 = -1;</div><div class="line"><a name="l01275"></a><span class="lineno"> 1275</span>&#160;    <span class="keywordflow">if</span>(t2 == <a class="code" href="allvars_8c.html#a52c8c7d2abff436111942e02c5bb466a">ThisTask</a>) t2 = -1;</div><div class="line"><a name="l01276"></a><span class="lineno"> 1276</span>&#160;</div><div class="line"><a name="l01277"></a><span class="lineno"> 1277</span>&#160;    <span class="keywordflow">if</span>(t1 &lt; t2) <span class="keywordflow">return</span> -1;</div><div class="line"><a name="l01278"></a><span class="lineno"> 1278</span>&#160;    <span class="keywordflow">if</span>(t1 &gt; t2) <span class="keywordflow">return</span> +1;</div><div class="line"><a name="l01279"></a><span class="lineno"> 1279</span>&#160;    <span class="keywordflow">return</span> 0;</div><div class="line"><a name="l01280"></a><span class="lineno"> 1280</span>&#160;</div><div class="line"><a name="l01281"></a><span class="lineno"> 1281</span>&#160;}</div><div class="ttc" id="structBaseGroup_html_af9daa4f39e44a6e612d90ea982609f4f"><div class="ttname"><a href="structBaseGroup.html#af9daa4f39e44a6e612d90ea982609f4f">BaseGroup::MinIDTask</a></div><div class="ttdeci">int MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00028">fof.h:28</a></div></div>
 <div class="ttc" id="allvars_8c_html_a52c8c7d2abff436111942e02c5bb466a"><div class="ttname"><a href="allvars_8c.html#a52c8c7d2abff436111942e02c5bb466a">ThisTask</a></div><div class="ttdeci">int ThisTask</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00024">allvars.c:24</a></div></div>
 <div class="ttc" id="structBaseGroup_html"><div class="ttname"><a href="structBaseGroup.html">BaseGroup</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00022">fof.h:22</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_ab7c80be15a87e30fc1755b5c2b61d10e_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a38736560a30d7ab3ccc673c6bded9681"></a>
@@ -612,7 +646,12 @@ Variables</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l00055">fof_periodic_wrap()</a>, and <a class="el" href="fof_8c_source.html#l00755">fof_reduce_groups()</a>.</p>
 <div class="fragment"><div class="line"><a name="l01285"></a><span class="lineno"> 1285</span>&#160;{</div><div class="line"><a name="l01286"></a><span class="lineno"> 1286</span>&#160;    <span class="keywordflow">return</span> ((<span class="keyword">struct</span> <a class="code" href="structBaseGroup.html">BaseGroup</a> *) a)-&gt;OriginalIndex - ((<span class="keyword">struct </span><a class="code" href="structBaseGroup.html">BaseGroup</a> *) b)-&gt;OriginalIndex;</div><div class="line"><a name="l01287"></a><span class="lineno"> 1287</span>&#160;}</div><div class="ttc" id="structBaseGroup_html"><div class="ttname"><a href="structBaseGroup.html">BaseGroup</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00022">fof.h:22</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a38736560a30d7ab3ccc673c6bded9681_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a4fd8c8871c1c94283ddae866a4fd437a"></a>
@@ -654,7 +693,12 @@ Variables</h2></td></tr>
 <p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l00124">fof_fof()</a>, and <a class="el" href="fof_8c_source.html#l00055">fof_periodic_wrap()</a>.</p>
 <div class="fragment"><div class="line"><a name="l01246"></a><span class="lineno"> 1246</span>&#160;{</div><div class="line"><a name="l01247"></a><span class="lineno"> 1247</span>&#160;    <span class="keywordflow">if</span>(((<span class="keyword">struct</span> <a class="code" href="structfof__particle__list.html">fof_particle_list</a> *) a)-&gt;<a class="code" href="structBaseGroup.html#a0e67684d09dd036317c12a7a0b0dcbaf">MinID</a> &lt; ((<span class="keyword">struct</span> <a class="code" href="structfof__particle__list.html">fof_particle_list</a> *) b)-&gt;<a class="code" href="structBaseGroup.html#a0e67684d09dd036317c12a7a0b0dcbaf">MinID</a>)</div><div class="line"><a name="l01248"></a><span class="lineno"> 1248</span>&#160;        <span class="keywordflow">return</span> -1;</div><div class="line"><a name="l01249"></a><span class="lineno"> 1249</span>&#160;</div><div class="line"><a name="l01250"></a><span class="lineno"> 1250</span>&#160;    <span class="keywordflow">if</span>(((<span class="keyword">struct</span> <a class="code" href="structfof__particle__list.html">fof_particle_list</a> *) a)-&gt;<a class="code" href="structBaseGroup.html#a0e67684d09dd036317c12a7a0b0dcbaf">MinID</a> &gt; ((<span class="keyword">struct</span> <a class="code" href="structfof__particle__list.html">fof_particle_list</a> *) b)-&gt;<a class="code" href="structBaseGroup.html#a0e67684d09dd036317c12a7a0b0dcbaf">MinID</a>)</div><div class="line"><a name="l01251"></a><span class="lineno"> 1251</span>&#160;        <span class="keywordflow">return</span> +1;</div><div class="line"><a name="l01252"></a><span class="lineno"> 1252</span>&#160;</div><div class="line"><a name="l01253"></a><span class="lineno"> 1253</span>&#160;    <span class="keywordflow">return</span> 0;</div><div class="line"><a name="l01254"></a><span class="lineno"> 1254</span>&#160;}</div><div class="ttc" id="structfof__particle__list_html"><div class="ttname"><a href="structfof__particle__list.html">fof_particle_list</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00108">fof.c:108</a></div></div>
 <div class="ttc" id="structBaseGroup_html_a0e67684d09dd036317c12a7a0b0dcbaf"><div class="ttname"><a href="structBaseGroup.html#a0e67684d09dd036317c12a7a0b0dcbaf">BaseGroup::MinID</a></div><div class="ttdeci">MyIDType MinID</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00027">fof.h:27</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a4fd8c8871c1c94283ddae866a4fd437a_icgraph.svg" width="592" height="444"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a9f9dcc0e11addb6231e3db442eed2cb9"></a>
@@ -702,7 +746,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="partmanager_8c_html_a6cef44682776e476d8f9f1b9e1f9fe16"><div class="ttname"><a href="partmanager_8c.html#a6cef44682776e476d8f9f1b9e1f9fe16">PartManager</a></div><div class="ttdeci">struct part_manager_type PartManager[1]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00009">partmanager.c:9</a></div></div>
 <div class="ttc" id="structfof__particle__list_html_a48b398b7526579cca12451b0f737ab66"><div class="ttname"><a href="structfof__particle__list.html#a48b398b7526579cca12451b0f737ab66">fof_particle_list::MinIDTask</a></div><div class="ttdeci">MyIDType MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00111">fof.c:111</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a9f9dcc0e11addb6231e3db442eed2cb9_cgraph.svg" width="635" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a9f9dcc0e11addb6231e3db442eed2cb9_icgraph.svg" width="592" height="444"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="ae4b5e05b1f0225637629759a9e2ba72e"></a>
@@ -769,7 +823,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="fof_8c_html_abfd79d1f446a68abd73898817538a87b"><div class="ttname"><a href="fof_8c.html#abfd79d1f446a68abd73898817538a87b">fof_reduce_group</a></div><div class="ttdeci">static void fof_reduce_group(void *pdst, void *psrc)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00461">fof.c:461</a></div></div>
 <div class="ttc" id="partmanager_8c_html_a6cef44682776e476d8f9f1b9e1f9fe16"><div class="ttname"><a href="partmanager_8c.html#a6cef44682776e476d8f9f1b9e1f9fe16">PartManager</a></div><div class="ttdeci">struct part_manager_type PartManager[1]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00009">partmanager.c:9</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_ae4b5e05b1f0225637629759a9e2ba72e_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_ae4b5e05b1f0225637629759a9e2ba72e_icgraph.svg" width="592" height="378"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="ac164d1d5cfdb4af63eb15a0d00030d30"></a>
@@ -798,7 +862,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="fof_8c_html_aca1f7f4ea3a3a3c9a3bf4fddee5ed0d6"><div class="ttname"><a href="fof_8c.html#aca1f7f4ea3a3a3c9a3bf4fddee5ed0d6">MPI_TYPE_GROUP</a></div><div class="ttdeci">static MPI_Datatype MPI_TYPE_GROUP</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00116">fof.c:116</a></div></div>
 <div class="ttc" id="structGroup_html"><div class="ttname"><a href="structGroup.html">Group</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00032">fof.h:32</a></div></div>
 <div class="ttc" id="endrun_8c_html_a6567cd867c5549fb6586e19ccd819764"><div class="ttname"><a href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a></div><div class="ttdeci">void message(int where, const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="endrun_8c_source.html#l00226">endrun.c:226</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_ac164d1d5cfdb4af63eb15a0d00030d30_cgraph.svg" width="388" height="287"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_ac164d1d5cfdb4af63eb15a0d00030d30_icgraph.svg" width="131" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a36336d505e8a4fb8e8fdaf9a796e40d4"></a>
@@ -842,7 +916,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="fof_8c_html_a16014b05b4507477cf4057b797680c73"><div class="ttname"><a href="fof_8c.html#a16014b05b4507477cf4057b797680c73">fof_periodic</a></div><div class="ttdeci">static double fof_periodic(double x)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00045">fof.c:45</a></div></div>
 <div class="ttc" id="structGroup_html_ad4f0fff8b540ea412ae02e917328ca43"><div class="ttname"><a href="structGroup.html#ad4f0fff8b540ea412ae02e917328ca43">Group::Vel</a></div><div class="ttdeci">double Vel[3]</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00040">fof.h:40</a></div></div>
 <div class="ttc" id="structGroup_html_aa48514f6a0385517aad4413044c84c4b"><div class="ttname"><a href="structGroup.html#aa48514f6a0385517aad4413044c84c4b">Group::Jmom</a></div><div class="ttdeci">double Jmom[3]</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00043">fof.h:43</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a36336d505e8a4fb8e8fdaf9a796e40d4_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a36336d505e8a4fb8e8fdaf9a796e40d4_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a7f10d50a8e07ce0bb67ffdfaf904d7c8"></a>
@@ -892,7 +976,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="fof_8c_html_a616b551e98171785a993d6784520018e"><div class="ttname"><a href="fof_8c.html#a616b551e98171785a993d6784520018e">fof_assign_grnr</a></div><div class="ttdeci">static void fof_assign_grnr(struct BaseGroup *base)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00905">fof.c:905</a></div></div>
 <div class="ttc" id="fof_8c_html_a77c15fc071e72ec1ea91652d28740ce1"><div class="ttname"><a href="fof_8c.html#a77c15fc071e72ec1ea91652d28740ce1">fof_label_primary</a></div><div class="ttdeci">void fof_label_primary(void)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00294">fof.c:294</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a7f10d50a8e07ce0bb67ffdfaf904d7c8_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a7f10d50a8e07ce0bb67ffdfaf904d7c8_icgraph.svg" width="419" height="370"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="aafc9a21f8ced4c1ebb7f9aaf8181bb9d"></a>
@@ -921,7 +1015,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structglobal__data__all__processes_html_ae82b42d1f614a57cf76bb24c55a7012b"><div class="ttname"><a href="structglobal__data__all__processes.html#ae82b42d1f614a57cf76bb24c55a7012b">global_data_all_processes::FOFHaloLinkingLength</a></div><div class="ttdeci">double FOFHaloLinkingLength</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00406">allvars.h:406</a></div></div>
 <div class="ttc" id="structglobal__data__all__processes_html_a4a84b8eab8573a5dd6d6d1427c212a8f"><div class="ttname"><a href="structglobal__data__all__processes.html#a4a84b8eab8573a5dd6d6d1427c212a8f">global_data_all_processes::MeanSeparation</a></div><div class="ttdeci">double MeanSeparation[6]</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00341">allvars.h:341</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_aafc9a21f8ced4c1ebb7f9aaf8181bb9d_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a77c15fc071e72ec1ea91652d28740ce1"></a>
@@ -990,7 +1089,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structTreeWalk_html_a96381f9f61cf2c56dac48927cd997ec3"><div class="ttname"><a href="structTreeWalk.html#a96381f9f61cf2c56dac48927cd997ec3">TreeWalk::ngbiter</a></div><div class="ttdeci">TreeWalkNgbIterFunction ngbiter</div><div class="ttdef"><b>Definition:</b> <a href="treewalk_8h_source.html#l00089">treewalk.h:89</a></div></div>
 <div class="ttc" id="structfof__particle__list_html_a48b398b7526579cca12451b0f737ab66"><div class="ttname"><a href="structfof__particle__list.html#a48b398b7526579cca12451b0f737ab66">fof_particle_list::MinIDTask</a></div><div class="ttdeci">MyIDType MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00111">fof.c:111</a></div></div>
 <div class="ttc" id="structFOFPrimaryPriv_html"><div class="ttname"><a href="structFOFPrimaryPriv.html">FOFPrimaryPriv</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00220">fof.c:220</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a77c15fc071e72ec1ea91652d28740ce1_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a77c15fc071e72ec1ea91652d28740ce1_icgraph.svg" width="592" height="444"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a9bbff144989b21ac4cbedc3aa2c6b1dc"></a>
@@ -1072,7 +1181,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
 <div class="ttc" id="fof_8c_html_a688bd5673d0eda39ce5d665eb5e9bc94"><div class="ttname"><a href="fof_8c.html#a688bd5673d0eda39ce5d665eb5e9bc94">fof_secondary_postprocess</a></div><div class="ttdeci">static void fof_secondary_postprocess(int p, TreeWalk *tw)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l01023">fof.c:1023</a></div></div>
 <div class="ttc" id="treewalk_8h_html_a2b5a07b25001ac6e9e628d4eb0493b8c"><div class="ttname"><a href="treewalk_8h.html#a2b5a07b25001ac6e9e628d4eb0493b8c">TreeWalkReduceResultFunction</a></div><div class="ttdeci">void(* TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase *result, const enum TreeWalkReduceMode mode, TreeWalk *tw)</div><div class="ttdef"><b>Definition:</b> <a href="treewalk_8h_source.html#l00063">treewalk.h:63</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a9bbff144989b21ac4cbedc3aa2c6b1dc_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a9bbff144989b21ac4cbedc3aa2c6b1dc_icgraph.svg" width="592" height="444"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a16014b05b4507477cf4057b797680c73"></a>
@@ -1106,7 +1225,12 @@ Variables</h2></td></tr>
 <p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l00501">add_particle_to_group()</a>, and <a class="el" href="fof_8c_source.html#l00572">fof_finish_group_properties()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;{</div><div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160;    <span class="keywordflow">if</span>(x &gt;= 0.5 * <a class="code" href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a>.<a class="code" href="structglobal__data__all__processes.html#ac1b2e52cf547f5b2fe4bdfb0eaafa22f">BoxSize</a>)</div><div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;        x -= <a class="code" href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a>.<a class="code" href="structglobal__data__all__processes.html#ac1b2e52cf547f5b2fe4bdfb0eaafa22f">BoxSize</a>;</div><div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;    <span class="keywordflow">if</span>(x &lt; -0.5 * <a class="code" href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a>.<a class="code" href="structglobal__data__all__processes.html#ac1b2e52cf547f5b2fe4bdfb0eaafa22f">BoxSize</a>)</div><div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;        x += <a class="code" href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a>.<a class="code" href="structglobal__data__all__processes.html#ac1b2e52cf547f5b2fe4bdfb0eaafa22f">BoxSize</a>;</div><div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;    <span class="keywordflow">return</span> x;</div><div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;}</div><div class="ttc" id="structglobal__data__all__processes_html_ac1b2e52cf547f5b2fe4bdfb0eaafa22f"><div class="ttname"><a href="structglobal__data__all__processes.html#ac1b2e52cf547f5b2fe4bdfb0eaafa22f">global_data_all_processes::BoxSize</a></div><div class="ttdeci">double BoxSize</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00160">allvars.h:160</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a16014b05b4507477cf4057b797680c73_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="aa0d13cc94e97083dfd468ed33331eed7"></a>
@@ -1140,7 +1264,17 @@ Variables</h2></td></tr>
 <p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l00572">fof_finish_group_properties()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;{</div><div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;    <span class="keywordflow">while</span>(x &gt;= <a class="code" href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a>.<a class="code" href="structglobal__data__all__processes.html#ac1b2e52cf547f5b2fe4bdfb0eaafa22f">BoxSize</a>)</div><div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;        x -= <a class="code" href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a>.<a class="code" href="structglobal__data__all__processes.html#ac1b2e52cf547f5b2fe4bdfb0eaafa22f">BoxSize</a>;</div><div class="line"><a name="l00059"></a><span class="lineno">   59</span>&#160;    <span class="keywordflow">while</span>(x &lt; 0)</div><div class="line"><a name="l00060"></a><span class="lineno">   60</span>&#160;        x += <a class="code" href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a>.<a class="code" href="structglobal__data__all__processes.html#ac1b2e52cf547f5b2fe4bdfb0eaafa22f">BoxSize</a>;</div><div class="line"><a name="l00061"></a><span class="lineno">   61</span>&#160;    <span class="keywordflow">return</span> x;</div><div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;}</div><div class="ttc" id="structglobal__data__all__processes_html_ac1b2e52cf547f5b2fe4bdfb0eaafa22f"><div class="ttname"><a href="structglobal__data__all__processes.html#ac1b2e52cf547f5b2fe4bdfb0eaafa22f">global_data_all_processes::BoxSize</a></div><div class="ttdeci">double BoxSize</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00160">allvars.h:160</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_aa0d13cc94e97083dfd468ed33331eed7_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_aa0d13cc94e97083dfd468ed33331eed7_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ac16cab2d3606d26a32d149992a1fa17f"></a>
@@ -1194,7 +1328,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structTreeWalkQueryFOF_html_a64ef4452e90a2a10fbf5e1b3a680c801"><div class="ttname"><a href="structTreeWalkQueryFOF.html#a64ef4452e90a2a10fbf5e1b3a680c801">TreeWalkQueryFOF::MinIDTask</a></div><div class="ttdeci">MyIDType MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00094">fof.c:94</a></div></div>
 <div class="ttc" id="fof_8c_html_a6a612464ae0085128345763c9a813b11"><div class="ttname"><a href="fof_8c.html#a6a612464ae0085128345763c9a813b11">HEAD</a></div><div class="ttdeci">static int HEAD(int i, TreeWalk *tw)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00262">fof.c:262</a></div></div>
 <div class="ttc" id="structfof__particle__list_html_a48b398b7526579cca12451b0f737ab66"><div class="ttname"><a href="structfof__particle__list.html#a48b398b7526579cca12451b0f737ab66">fof_particle_list::MinIDTask</a></div><div class="ttdeci">MyIDType MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00111">fof.c:111</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_ac16cab2d3606d26a32d149992a1fa17f_cgraph.svg" width="199" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_ac16cab2d3606d26a32d149992a1fa17f_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a1bed49f1026480eb6a53cbcefd3873aa"></a>
@@ -1239,7 +1383,17 @@ Variables</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l00284"></a><span class="lineno">  284</span>&#160;                                                     {</div><div class="line"><a name="l00285"></a><span class="lineno">  285</span>&#160;    <span class="keywordflow">return</span> (((1 &lt;&lt; <a class="code" href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a>[n].Type) &amp; (<a class="code" href="fof_8c.html#a345a7e6f582ecef7917131f49e62783d">FOF_PRIMARY_LINK_TYPES</a>))) &amp;&amp; <a class="code" href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a>(tw)-&gt;PrimaryActive[n];</div><div class="line"><a name="l00286"></a><span class="lineno">  286</span>&#160;}</div><div class="ttc" id="partmanager_8h_html_a2748566f4c443ee77aa831e63dbb5ebe"><div class="ttname"><a href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a></div><div class="ttdeci">#define P</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8h_source.html#l00099">partmanager.h:99</a></div></div>
 <div class="ttc" id="fof_8c_html_a345a7e6f582ecef7917131f49e62783d"><div class="ttname"><a href="fof_8c.html#a345a7e6f582ecef7917131f49e62783d">FOF_PRIMARY_LINK_TYPES</a></div><div class="ttdeci">#define FOF_PRIMARY_LINK_TYPES</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00034">fof.c:34</a></div></div>
 <div class="ttc" id="fof_8c_html_adf22b3603cc83e9e51d0c4e1431aeb20"><div class="ttname"><a href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a></div><div class="ttdeci">#define FOF_PRIMARY_GET_PRIV(tw)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00225">fof.c:225</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a1bed49f1026480eb6a53cbcefd3873aa_cgraph.svg" width="519" height="378"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a1bed49f1026480eb6a53cbcefd3873aa_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a79ee094597b54a42c693bec87234a960"></a>
@@ -1315,7 +1469,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="drift_8c_html_ac5441bdb6b99a097017f1ebe9e30fc76"><div class="ttname"><a href="drift_8c.html#ac5441bdb6b99a097017f1ebe9e30fc76">lock_particle</a></div><div class="ttdeci">void lock_particle(int i)</div><div class="ttdef"><b>Definition:</b> <a href="drift_8c_source.html#l00018">drift.c:18</a></div></div>
 <div class="ttc" id="structfof__particle__list_html_a48b398b7526579cca12451b0f737ab66"><div class="ttname"><a href="structfof__particle__list.html#a48b398b7526579cca12451b0f737ab66">fof_particle_list::MinIDTask</a></div><div class="ttdeci">MyIDType MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00111">fof.c:111</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a79ee094597b54a42c693bec87234a960_cgraph.svg" width="336" height="454"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a79ee094597b54a42c693bec87234a960_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a5a60f22d94d6bc3edcaeee00b8183bed"></a>
@@ -1366,7 +1530,12 @@ Variables</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l01297"></a><span class="lineno"> 1297</span>&#160;                                                                                        {</div><div class="line"><a name="l01298"></a><span class="lineno"> 1298</span>&#160;    uint64_t * u = (uint64_t *) radix;</div><div class="line"><a name="l01299"></a><span class="lineno"> 1299</span>&#160;    <span class="keyword">struct </span><a class="code" href="structBaseGroup.html">BaseGroup</a> * f = (<span class="keyword">struct </span><a class="code" href="structBaseGroup.html">BaseGroup</a> *) a;</div><div class="line"><a name="l01300"></a><span class="lineno"> 1300</span>&#160;    u[0] = f-&gt;<a class="code" href="structBaseGroup.html#a0e67684d09dd036317c12a7a0b0dcbaf">MinID</a>;</div><div class="line"><a name="l01301"></a><span class="lineno"> 1301</span>&#160;    u[1] = f-&gt;<a class="code" href="structBaseGroup.html#aa8920958209ca578d8f523a95fd3cfb7">OriginalTask</a>;</div><div class="line"><a name="l01302"></a><span class="lineno"> 1302</span>&#160;}</div><div class="ttc" id="structBaseGroup_html"><div class="ttname"><a href="structBaseGroup.html">BaseGroup</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00022">fof.h:22</a></div></div>
 <div class="ttc" id="structBaseGroup_html_a0e67684d09dd036317c12a7a0b0dcbaf"><div class="ttname"><a href="structBaseGroup.html#a0e67684d09dd036317c12a7a0b0dcbaf">BaseGroup::MinID</a></div><div class="ttdeci">MyIDType MinID</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00027">fof.h:27</a></div></div>
 <div class="ttc" id="structBaseGroup_html_aa8920958209ca578d8f523a95fd3cfb7"><div class="ttname"><a href="structBaseGroup.html#aa8920958209ca578d8f523a95fd3cfb7">BaseGroup::OriginalTask</a></div><div class="ttdeci">int OriginalTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00023">fof.h:23</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a5a60f22d94d6bc3edcaeee00b8183bed_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a6bfa3c7f8774cd9b58aefbd038252a92"></a>
@@ -1419,7 +1588,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structBaseGroup_html"><div class="ttname"><a href="structBaseGroup.html">BaseGroup</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00022">fof.h:22</a></div></div>
 <div class="ttc" id="structBaseGroup_html_a0e67684d09dd036317c12a7a0b0dcbaf"><div class="ttname"><a href="structBaseGroup.html#a0e67684d09dd036317c12a7a0b0dcbaf">BaseGroup::MinID</a></div><div class="ttdeci">MyIDType MinID</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00027">fof.h:27</a></div></div>
 <div class="ttc" id="structBaseGroup_html_aa8920958209ca578d8f523a95fd3cfb7"><div class="ttname"><a href="structBaseGroup.html#aa8920958209ca578d8f523a95fd3cfb7">BaseGroup::OriginalTask</a></div><div class="ttdeci">int OriginalTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00023">fof.h:23</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a6bfa3c7f8774cd9b58aefbd038252a92_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="adb2af4e8f82c6debd86db2f8bb7192d5"></a>
@@ -1463,7 +1637,12 @@ Variables</h2></td></tr>
 <p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l00624">fof_compile_base()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00454"></a><span class="lineno">  454</span>&#160;                                                            {</div><div class="line"><a name="l00455"></a><span class="lineno">  455</span>&#160;    <span class="keyword">struct </span><a class="code" href="structBaseGroup.html">BaseGroup</a> * gdst = pdst;</div><div class="line"><a name="l00456"></a><span class="lineno">  456</span>&#160;    <span class="keyword">struct </span><a class="code" href="structBaseGroup.html">BaseGroup</a> * gsrc = psrc;</div><div class="line"><a name="l00457"></a><span class="lineno">  457</span>&#160;    gdst-&gt;<a class="code" href="structBaseGroup.html#a1e97f4878541807718ee5d098b7c2eda">Length</a> += gsrc-&gt;<a class="code" href="structBaseGroup.html#a1e97f4878541807718ee5d098b7c2eda">Length</a>;</div><div class="line"><a name="l00458"></a><span class="lineno">  458</span>&#160;    <span class="comment">/* preserve the dst FirstPos so all other base group gets the same FirstPos */</span></div><div class="line"><a name="l00459"></a><span class="lineno">  459</span>&#160;}</div><div class="ttc" id="structBaseGroup_html_a1e97f4878541807718ee5d098b7c2eda"><div class="ttname"><a href="structBaseGroup.html#a1e97f4878541807718ee5d098b7c2eda">BaseGroup::Length</a></div><div class="ttdeci">int Length</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00025">fof.h:25</a></div></div>
 <div class="ttc" id="structBaseGroup_html"><div class="ttname"><a href="structBaseGroup.html">BaseGroup</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00022">fof.h:22</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_adb2af4e8f82c6debd86db2f8bb7192d5_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="abfd79d1f446a68abd73898817538a87b"></a>
@@ -1516,7 +1695,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structGroup_html_a94c2dc2ae0f6f2befda3ad71816067f2"><div class="ttname"><a href="structGroup.html#a94c2dc2ae0f6f2befda3ad71816067f2">Group::seed_index</a></div><div class="ttdeci">int seed_index</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00053">fof.h:53</a></div></div>
 <div class="ttc" id="structGroup_html"><div class="ttname"><a href="structGroup.html">Group</a></div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00032">fof.h:32</a></div></div>
 <div class="ttc" id="structGroup_html_aa48514f6a0385517aad4413044c84c4b"><div class="ttname"><a href="structGroup.html#aa48514f6a0385517aad4413044c84c4b">Group::Jmom</a></div><div class="ttdeci">double Jmom[3]</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00043">fof.h:43</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_abfd79d1f446a68abd73898817538a87b_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a43f1ce0c3f8262e02cd94d9e670f9ed2"></a>
@@ -1589,7 +1773,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="system_8c_html_a3ceeaa7b959adb85bf1cfc731bc5c7ec"><div class="ttname"><a href="system_8c.html#a3ceeaa7b959adb85bf1cfc731bc5c7ec">MPI_Alltoallv_smart</a></div><div class="ttdeci">int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls, MPI_Datatype sendtype, void *recvbuf, int *recvcnts, int *rdispls, MPI_Datatype recvtype, MPI_Comm comm)</div><div class="ttdef"><b>Definition:</b> <a href="system_8c_source.html#l00229">system.c:229</a></div></div>
 <div class="ttc" id="fof_8c_html_ab7c80be15a87e30fc1755b5c2b61d10e"><div class="ttname"><a href="fof_8c.html#ab7c80be15a87e30fc1755b5c2b61d10e">fof_compare_Group_MinIDTask</a></div><div class="ttdeci">static int fof_compare_Group_MinIDTask(const void *a, const void *b)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l01268">fof.c:1268</a></div></div>
 <div class="ttc" id="mymalloc_8h_html_a84e2115e90e9c22e11d9663c019fc8bc"><div class="ttname"><a href="mymalloc_8h.html#a84e2115e90e9c22e11d9663c019fc8bc">ta_free</a></div><div class="ttdeci">#define ta_free(p)</div><div class="ttdef"><b>Definition:</b> <a href="mymalloc_8h_source.html#l00025">mymalloc.h:25</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a43f1ce0c3f8262e02cd94d9e670f9ed2_cgraph.svg" width="399" height="311"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a43f1ce0c3f8262e02cd94d9e670f9ed2_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ad08d3c5fd1cf1f78c75a17330a8e0348"></a>
@@ -1619,7 +1813,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="fof_8c_html_ae9bc2119aed92e2556b9ad427e646b45"><div class="ttname"><a href="fof_8c.html#ae9bc2119aed92e2556b9ad427e646b45">fof_save_particles</a></div><div class="ttdeci">void fof_save_particles(int num)</div><div class="ttdef"><b>Definition:</b> <a href="fofpetaio_8c_source.html#l00046">fofpetaio.c:46</a></div></div>
 <div class="ttc" id="forcetree_8c_html_a2ae933e7b7e909142281bae26f95cd00"><div class="ttname"><a href="forcetree_8c.html#a2ae933e7b7e909142281bae26f95cd00">force_tree_free</a></div><div class="ttdeci">void force_tree_free(void)</div><div class="ttdef"><b>Definition:</b> <a href="forcetree_8c_source.html#l01115">forcetree.c:1115</a></div></div>
 <div class="ttc" id="endrun_8c_html_a6567cd867c5549fb6586e19ccd819764"><div class="ttname"><a href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a></div><div class="ttdeci">void message(int where, const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="endrun_8c_source.html#l00226">endrun.c:226</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_ad08d3c5fd1cf1f78c75a17330a8e0348_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_ad08d3c5fd1cf1f78c75a17330a8e0348_icgraph.svg" width="131" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="ae9bc2119aed92e2556b9ad427e646b45"></a>
@@ -1674,7 +1878,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="petaio_8c_html_ad13d20d78ff834f5005e68ad11d228e3"><div class="ttname"><a href="petaio_8c.html#ad13d20d78ff834f5005e68ad11d228e3">petaio_build_selection</a></div><div class="ttdeci">void petaio_build_selection(int *selection, int *ptype_offset, int *ptype_count, const int NumPart, int(*select_func)(int i))</div><div class="ttdef"><b>Definition:</b> <a href="petaio_8c_source.html#l00098">petaio.c:98</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
 <div class="ttc" id="fofpetaio_8c_html_aef5715b9b0d43c71d6384779fe50f6ff"><div class="ttname"><a href="fofpetaio_8c.html#aef5715b9b0d43c71d6384779fe50f6ff">fof_petaio_select_func</a></div><div class="ttdeci">static int fof_petaio_select_func(int i)</div><div class="ttdef"><b>Definition:</b> <a href="fofpetaio_8c_source.html#l00040">fofpetaio.c:40</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_ae9bc2119aed92e2556b9ad427e646b45_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_ae9bc2119aed92e2556b9ad427e646b45_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a69d09cefb0eefed67331c254756d27e6"></a>
@@ -1724,7 +1938,12 @@ Variables</h2></td></tr>
 <p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l01049">fof_label_secondary()</a>.</p>
 <div class="fragment"><div class="line"><a name="l01001"></a><span class="lineno"> 1001</span>&#160;                                                                               {</div><div class="line"><a name="l01002"></a><span class="lineno"> 1002</span>&#160;</div><div class="line"><a name="l01003"></a><span class="lineno"> 1003</span>&#160;    I-&gt;<a class="code" href="structTreeWalkQueryFOF.html#ac181d5d510ffbc4be7bc5af2011b6140">Hsml</a> = <a class="code" href="fof_8c.html#a285e0ba66f8ae31cc1d2e6d67d432f97">FOF_SECONDARY_GET_PRIV</a>(tw)-&gt;hsml[place];</div><div class="line"><a name="l01004"></a><span class="lineno"> 1004</span>&#160;}</div><div class="ttc" id="fof_8c_html_a285e0ba66f8ae31cc1d2e6d67d432f97"><div class="ttname"><a href="fof_8c.html#a285e0ba66f8ae31cc1d2e6d67d432f97">FOF_SECONDARY_GET_PRIV</a></div><div class="ttdeci">#define FOF_SECONDARY_GET_PRIV(tw)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00999">fof.c:999</a></div></div>
 <div class="ttc" id="structTreeWalkQueryFOF_html_ac181d5d510ffbc4be7bc5af2011b6140"><div class="ttname"><a href="structTreeWalkQueryFOF.html#ac181d5d510ffbc4be7bc5af2011b6140">TreeWalkQueryFOF::Hsml</a></div><div class="ttdeci">MyFloat Hsml</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00092">fof.c:92</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a69d09cefb0eefed67331c254756d27e6_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a3ffe4d01869260e1080ef7c391f898db"></a>
@@ -1768,7 +1987,12 @@ Variables</h2></td></tr>
 <p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l01049">fof_label_secondary()</a>.</p>
 <div class="fragment"><div class="line"><a name="l01005"></a><span class="lineno"> 1005</span>&#160;                                                       {</div><div class="line"><a name="l01006"></a><span class="lineno"> 1006</span>&#160;    <span class="keywordflow">return</span> (((1 &lt;&lt; <a class="code" href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a>[n].Type) &amp; (<a class="code" href="fof_8c.html#ace5f7185c7764fd01554dbd337aa3894">FOF_SECONDARY_LINK_TYPES</a>)));</div><div class="line"><a name="l01007"></a><span class="lineno"> 1007</span>&#160;}</div><div class="ttc" id="partmanager_8h_html_a2748566f4c443ee77aa831e63dbb5ebe"><div class="ttname"><a href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a></div><div class="ttdeci">#define P</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8h_source.html#l00099">partmanager.h:99</a></div></div>
 <div class="ttc" id="fof_8c_html_ace5f7185c7764fd01554dbd337aa3894"><div class="ttname"><a href="fof_8c.html#ace5f7185c7764fd01554dbd337aa3894">FOF_SECONDARY_LINK_TYPES</a></div><div class="ttdeci">#define FOF_SECONDARY_LINK_TYPES</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00037">fof.c:37</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a3ffe4d01869260e1080ef7c391f898db_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ac14468b5f92e3fb2815df825e7cb5615"></a>
@@ -1838,7 +2062,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structTreeWalkResultFOF_html_aa17f36fc75edd4857379e4dc5834817d"><div class="ttname"><a href="structTreeWalkResultFOF.html#aa17f36fc75edd4857379e4dc5834817d">TreeWalkResultFOF::MinIDTask</a></div><div class="ttdeci">MyIDType MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00101">fof.c:101</a></div></div>
 <div class="ttc" id="structfof__particle__list_html_a48b398b7526579cca12451b0f737ab66"><div class="ttname"><a href="structfof__particle__list.html#a48b398b7526579cca12451b0f737ab66">fof_particle_list::MinIDTask</a></div><div class="ttdeci">MyIDType MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00111">fof.c:111</a></div></div>
 <div class="ttc" id="structTreeWalkResultFOF_html_a003fb0093118a3311fdcf240fed1d64e"><div class="ttname"><a href="structTreeWalkResultFOF.html#a003fb0093118a3311fdcf240fed1d64e">TreeWalkResultFOF::Distance</a></div><div class="ttdeci">MyFloat Distance</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00099">fof.c:99</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_ac14468b5f92e3fb2815df825e7cb5615_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a688bd5673d0eda39ce5d665eb5e9bc94"></a>
@@ -1884,7 +2113,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structglobal__data__all__processes_html_a33526f7e2df387ee83c199b985d4150c"><div class="ttname"><a href="structglobal__data__all__processes.html#a33526f7e2df387ee83c199b985d4150c">global_data_all_processes::FOFHaloComovingLinkingLength</a></div><div class="ttdeci">double FOFHaloComovingLinkingLength</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00407">allvars.h:407</a></div></div>
 <div class="ttc" id="fof_8c_html_a285e0ba66f8ae31cc1d2e6d67d432f97"><div class="ttname"><a href="fof_8c.html#a285e0ba66f8ae31cc1d2e6d67d432f97">FOF_SECONDARY_GET_PRIV</a></div><div class="ttdeci">#define FOF_SECONDARY_GET_PRIV(tw)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00999">fof.c:999</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a688bd5673d0eda39ce5d665eb5e9bc94_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a7f43eccc3a0bc160c80b5227795bac42"></a>
@@ -1945,7 +2179,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structTreeWalkResultFOF_html_aa17f36fc75edd4857379e4dc5834817d"><div class="ttname"><a href="structTreeWalkResultFOF.html#aa17f36fc75edd4857379e4dc5834817d">TreeWalkResultFOF::MinIDTask</a></div><div class="ttdeci">MyIDType MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00101">fof.c:101</a></div></div>
 <div class="ttc" id="structfof__particle__list_html_a48b398b7526579cca12451b0f737ab66"><div class="ttname"><a href="structfof__particle__list.html#a48b398b7526579cca12451b0f737ab66">fof_particle_list::MinIDTask</a></div><div class="ttdeci">MyIDType MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00111">fof.c:111</a></div></div>
 <div class="ttc" id="structTreeWalkResultFOF_html_a003fb0093118a3311fdcf240fed1d64e"><div class="ttname"><a href="structTreeWalkResultFOF.html#a003fb0093118a3311fdcf240fed1d64e">TreeWalkResultFOF::Distance</a></div><div class="ttdeci">MyFloat Distance</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00099">fof.c:99</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a7f43eccc3a0bc160c80b5227795bac42_cgraph.svg" width="258" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a7f43eccc3a0bc160c80b5227795bac42_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ac4e6cc7770546827a94ee92b8bc2379d"></a>
@@ -1988,7 +2232,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="mymalloc_8h_html_a84e2115e90e9c22e11d9663c019fc8bc"><div class="ttname"><a href="mymalloc_8h.html#a84e2115e90e9c22e11d9663c019fc8bc">ta_free</a></div><div class="ttdeci">#define ta_free(p)</div><div class="ttdef"><b>Definition:</b> <a href="mymalloc_8h_source.html#l00025">mymalloc.h:25</a></div></div>
 <div class="ttc" id="endrun_8c_html_a6567cd867c5549fb6586e19ccd819764"><div class="ttname"><a href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a></div><div class="ttdeci">void message(int where, const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="endrun_8c_source.html#l00226">endrun.c:226</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_ac4e6cc7770546827a94ee92b8bc2379d_cgraph.svg" width="543" height="392"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a61e8a4ebb1c8a15a1245040f4cf71c9e"></a>
@@ -2025,7 +2274,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="allvars_8c_html_a52c8c7d2abff436111942e02c5bb466a"><div class="ttname"><a href="allvars_8c.html#a52c8c7d2abff436111942e02c5bb466a">ThisTask</a></div><div class="ttdeci">int ThisTask</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00024">allvars.c:24</a></div></div>
 <div class="ttc" id="structGroup_html_acc4dfc0c265b718f07f9f407c4f75589"><div class="ttname"><a href="structGroup.html#acc4dfc0c265b718f07f9f407c4f75589">Group::seed_task</a></div><div class="ttdeci">int seed_task</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00054">fof.h:54</a></div></div>
 <div class="ttc" id="structGroup_html_a94c2dc2ae0f6f2befda3ad71816067f2"><div class="ttname"><a href="structGroup.html#a94c2dc2ae0f6f2befda3ad71816067f2">Group::seed_index</a></div><div class="ttdeci">int seed_index</div><div class="ttdef"><b>Definition:</b> <a href="fof_8h_source.html#l00053">fof.h:53</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a61e8a4ebb1c8a15a1245040f4cf71c9e_cgraph.svg" width="430" height="370"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_a61e8a4ebb1c8a15a1245040f4cf71c9e_icgraph.svg" width="150" height="230"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="ad771608bd97a1a590c3c4fd1b93286c1"></a>
@@ -2080,7 +2339,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="fof_8c_html_a74ef17018535e7fb3c332bdfd98b3d60"><div class="ttname"><a href="fof_8c.html#a74ef17018535e7fb3c332bdfd98b3d60">HaloLabel</a></div><div class="ttdeci">static struct fof_particle_list  * HaloLabel</div></div>
 <div class="ttc" id="fof_8c_html_adf22b3603cc83e9e51d0c4e1431aeb20"><div class="ttname"><a href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a></div><div class="ttdeci">#define FOF_PRIMARY_GET_PRIV(tw)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00225">fof.c:225</a></div></div>
 <div class="ttc" id="structfof__particle__list_html_a48b398b7526579cca12451b0f737ab66"><div class="ttname"><a href="structfof__particle__list.html#a48b398b7526579cca12451b0f737ab66">fof_particle_list::MinIDTask</a></div><div class="ttdeci">MyIDType MinIDTask</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00111">fof.c:111</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_ad771608bd97a1a590c3c4fd1b93286c1_cgraph.svg" width="120" height="422"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_ad771608bd97a1a590c3c4fd1b93286c1_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a6a612464ae0085128345763c9a813b11"></a>
@@ -2123,7 +2392,12 @@ Variables</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l00294">fof_label_primary()</a>, <a class="el" href="fof_8c_source.html#l00278">fof_primary_copy()</a>, and <a class="el" href="fof_8c_source.html#l00417">fof_primary_ngbiter()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00263"></a><span class="lineno">  263</span>&#160;{</div><div class="line"><a name="l00264"></a><span class="lineno">  264</span>&#160;    <span class="comment">/* accelerate with a splay: see https://arxiv.org/abs/1607.03224 */</span></div><div class="line"><a name="l00265"></a><span class="lineno">  265</span>&#160;    <span class="keywordtype">int</span> r;</div><div class="line"><a name="l00266"></a><span class="lineno">  266</span>&#160;    r = i;</div><div class="line"><a name="l00267"></a><span class="lineno">  267</span>&#160;    <span class="keywordflow">while</span>(<a class="code" href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a>(tw)-&gt;Head[r] != r) {</div><div class="line"><a name="l00268"></a><span class="lineno">  268</span>&#160;        r = <a class="code" href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a>(tw)-&gt;Head[r];</div><div class="line"><a name="l00269"></a><span class="lineno">  269</span>&#160;    }</div><div class="line"><a name="l00270"></a><span class="lineno">  270</span>&#160;    <span class="keywordflow">while</span>(<a class="code" href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a>(tw)-&gt;Head[i] != i) {</div><div class="line"><a name="l00271"></a><span class="lineno">  271</span>&#160;        <span class="keywordtype">int</span> t = <a class="code" href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a>(tw)-&gt;Head[i];</div><div class="line"><a name="l00272"></a><span class="lineno">  272</span>&#160;        <a class="code" href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a>(tw)-&gt;Head[i]= r;</div><div class="line"><a name="l00273"></a><span class="lineno">  273</span>&#160;        i = t;</div><div class="line"><a name="l00274"></a><span class="lineno">  274</span>&#160;    }</div><div class="line"><a name="l00275"></a><span class="lineno">  275</span>&#160;    <span class="keywordflow">return</span> r;</div><div class="line"><a name="l00276"></a><span class="lineno">  276</span>&#160;}</div><div class="ttc" id="fof_8c_html_adf22b3603cc83e9e51d0c4e1431aeb20"><div class="ttname"><a href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a></div><div class="ttdeci">#define FOF_PRIMARY_GET_PRIV(tw)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00225">fof.c:225</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_a6a612464ae0085128345763c9a813b11_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ac212dc339de1913e00a71180c7b2fb71"></a>
@@ -2175,7 +2449,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="fof_8c_html_ac212dc339de1913e00a71180c7b2fb71"><div class="ttname"><a href="fof_8c.html#ac212dc339de1913e00a71180c7b2fb71">HEADl</a></div><div class="ttdeci">static int HEADl(int stop, int i, TreeWalk *tw)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00228">fof.c:228</a></div></div>
 <div class="ttc" id="fof_8c_html_adf22b3603cc83e9e51d0c4e1431aeb20"><div class="ttname"><a href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a></div><div class="ttdeci">#define FOF_PRIMARY_GET_PRIV(tw)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00225">fof.c:225</a></div></div>
 <div class="ttc" id="drift_8c_html_ac5441bdb6b99a097017f1ebe9e30fc76"><div class="ttname"><a href="drift_8c.html#ac5441bdb6b99a097017f1ebe9e30fc76">lock_particle</a></div><div class="ttdeci">void lock_particle(int i)</div><div class="ttdef"><b>Definition:</b> <a href="drift_8c_source.html#l00018">drift.c:18</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="fof_8c_ac212dc339de1913e00a71180c7b2fb71_cgraph.svg" width="120" height="230"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_ac212dc339de1913e00a71180c7b2fb71_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ab71467e1369a4a8d7dff607da74b7ee7"></a>
@@ -2224,7 +2508,12 @@ Variables</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="fof_8c_source.html#l00380">fofp_merge()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00253"></a><span class="lineno">  253</span>&#160;{</div><div class="line"><a name="l00254"></a><span class="lineno">  254</span>&#160;    <span class="keywordflow">while</span>(<a class="code" href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a>(tw)-&gt;Head[i] != i) {</div><div class="line"><a name="l00255"></a><span class="lineno">  255</span>&#160;        <span class="keywordtype">int</span> t = <a class="code" href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a>(tw)-&gt;Head[i];</div><div class="line"><a name="l00256"></a><span class="lineno">  256</span>&#160;        <a class="code" href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a>(tw)-&gt;Head[i]= r;</div><div class="line"><a name="l00257"></a><span class="lineno">  257</span>&#160;        i = t;</div><div class="line"><a name="l00258"></a><span class="lineno">  258</span>&#160;    }</div><div class="line"><a name="l00259"></a><span class="lineno">  259</span>&#160;}</div><div class="ttc" id="fof_8c_html_adf22b3603cc83e9e51d0c4e1431aeb20"><div class="ttname"><a href="fof_8c.html#adf22b3603cc83e9e51d0c4e1431aeb20">FOF_PRIMARY_GET_PRIV</a></div><div class="ttdeci">#define FOF_PRIMARY_GET_PRIV(tw)</div><div class="ttdef"><b>Definition:</b> <a href="fof_8c_source.html#l00225">fof.c:225</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="fof_8c_ab71467e1369a4a8d7dff607da74b7ee7_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>

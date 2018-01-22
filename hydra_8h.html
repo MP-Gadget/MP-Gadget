@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -71,7 +65,12 @@ $(function() {
 <div class="title">hydra.h File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-
+<div class="textblock"><div class="dynheader">
+This graph shows which files directly or indirectly include this file:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="hydra_8h__dep__incl.svg" width="232" height="204"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+</div>
 <p><a href="hydra_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
@@ -145,7 +144,17 @@ Functions</h2></td></tr>
 <div class="ttc" id="walltime_8h_html_a9266fc830d2aac1ad7d6e5322be6f489"><div class="ttname"><a href="walltime_8h.html#a9266fc830d2aac1ad7d6e5322be6f489">walltime_add</a></div><div class="ttdeci">#define walltime_add(name, dt)</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00006">walltime.h:6</a></div></div>
 <div class="ttc" id="hydra_8c_html_a37fd14f9972e72383a81a97cac06ecce"><div class="ttname"><a href="hydra_8c.html#a37fd14f9972e72383a81a97cac06ecce">hydro_reduce</a></div><div class="ttdeci">static void hydro_reduce(int place, TreeWalkResultHydro *result, enum TreeWalkReduceMode mode, TreeWalk *tw)</div><div class="ttdef"><b>Definition:</b> <a href="hydra_8c_source.html#l00163">hydra.c:163</a></div></div>
 <div class="ttc" id="treewalk_8h_html_a2b5a07b25001ac6e9e628d4eb0493b8c"><div class="ttname"><a href="treewalk_8h.html#a2b5a07b25001ac6e9e628d4eb0493b8c">TreeWalkReduceResultFunction</a></div><div class="ttdeci">void(* TreeWalkReduceResultFunction)(const int j, TreeWalkResultBase *result, const enum TreeWalkReduceMode mode, TreeWalk *tw)</div><div class="ttdef"><b>Definition:</b> <a href="treewalk_8h_source.html#l00063">treewalk.h:63</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="hydra_8h_a6789381bce7d1c316df8ecf04b47a607_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="hydra_8h_a6789381bce7d1c316df8ecf04b47a607_icgraph.svg" width="167" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="af5cc0a9a6ffe0087b40387b951e2b150"></a>
@@ -172,7 +181,12 @@ Functions</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;{</div><div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;    <span class="keywordflow">return</span> pow(<a class="code" href="slotsmanager_8h.html#a681d502f5cbf25161ff026312cd1498c">SPHP</a>(i).EntVarPred * <a class="code" href="slotsmanager_8h.html#a681d502f5cbf25161ff026312cd1498c">SPHP</a>(i).<a class="code" href="slotsmanager_8h.html#af2564dfd8380eea88605a91656f7e2b9">EOMDensity</a>, <a class="code" href="allvars_8h.html#a8659b9de3e544ff142b153b076f30fd5">GAMMA</a>);</div><div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;}</div><div class="ttc" id="allvars_8h_html_a8659b9de3e544ff142b153b076f30fd5"><div class="ttname"><a href="allvars_8h.html#a8659b9de3e544ff142b153b076f30fd5">GAMMA</a></div><div class="ttdeci">#define GAMMA</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00053">allvars.h:53</a></div></div>
 <div class="ttc" id="slotsmanager_8h_html_a681d502f5cbf25161ff026312cd1498c"><div class="ttname"><a href="slotsmanager_8h.html#a681d502f5cbf25161ff026312cd1498c">SPHP</a></div><div class="ttdeci">#define SPHP(i)</div><div class="ttdef"><b>Definition:</b> <a href="slotsmanager_8h_source.html#l00123">slotsmanager.h:123</a></div></div>
 <div class="ttc" id="slotsmanager_8h_html_af2564dfd8380eea88605a91656f7e2b9"><div class="ttname"><a href="slotsmanager_8h.html#af2564dfd8380eea88605a91656f7e2b9">EOMDensity</a></div><div class="ttdeci">#define EOMDensity</div><div class="ttdef"><b>Definition:</b> <a href="slotsmanager_8h_source.html#l00083">slotsmanager.h:83</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="hydra_8h_af5cc0a9a6ffe0087b40387b951e2b150_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 </div><!-- contents -->

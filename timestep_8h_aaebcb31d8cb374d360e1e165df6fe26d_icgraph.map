@@ -1,0 +1,12 @@
+<map id="set_global_time" name="set_global_time">
+<area shape="rect" id="node2" href="$sfr__eff_8c.html#a2d96bcfa1a035956535e5840d306744b" title="cooling_direct" alt="" coords="302,223,404,249"/>
+<area shape="rect" id="node6" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="159,279,199,306"/>
+<area shape="rect" id="node10" href="$proto_8h.html#ab080cb20bac2a1a6153a84e8cfd15374" title="init" alt="" coords="334,336,372,362"/>
+<area shape="rect" id="node3" href="$sfr__eff_8c.html#aec2d4b18a02ca0bbca8111e41fae0248" title="cool_postprocess" alt="" coords="369,166,493,193"/>
+<area shape="rect" id="node4" href="$sfr__eff_8h.html#aaa7b178a168a5d23b2cfe478ebc58ee1" title="cooling_only" alt="" coords="461,110,556,137"/>
+<area shape="rect" id="node5" href="$run_8c.html#abb80d08f4d52f4a7bdf28d1cecfead5b" title="compute_accelerations" alt="" coords="5,279,161,306"/>
+<area shape="rect" id="node7" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="191,97,241,123"/>
+<area shape="rect" id="node8" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="131,5,242,32"/>
+<area shape="rect" id="node9" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="165,462,267,489"/>
+<area shape="rect" id="node11" href="$proto_8h.html#a74dc0e5e9eefe11fc8434b62de573146" title="begrun" alt="" coords="400,392,461,419"/>
+</map>

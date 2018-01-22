@@ -1,0 +1,12 @@
+<map id="fof_reduce_groups" name="fof_reduce_groups">
+<area shape="rect" id="node2" href="$fof_8c.html#a03e30b1f689d4079b62b1adc5d427230" title="fof_compare_Group_MinID" alt="" coords="186,65,365,91"/>
+<area shape="rect" id="node3" href="$fof_8c.html#ab7c80be15a87e30fc1755b5c2b61d10e" title="fof_compare_Group_MinIDTask" alt="" coords="120,13,327,39"/>
+<area shape="rect" id="node4" href="$fof_8c.html#a38736560a30d7ab3ccc673c6bded9681" title="fof_compare_Group_Original\lIndex" alt="" coords="57,5,243,47"/>
+<area shape="rect" id="node5" href="$fof_8c.html#a5a60f22d94d6bc3edcaeee00b8183bed" title="fof_radix_Group_Original\lTaskMinID" alt="" coords="15,57,181,99"/>
+<area shape="rect" id="node6" href="$fof_8c.html#a6bfa3c7f8774cd9b58aefbd038252a92" title="fof_radix_Group_TotalCount\lTaskDiffMinID" alt="" coords="5,131,191,172"/>
+<area shape="rect" id="node7" href="$system_8c.html#a3ceeaa7b959adb85bf1cfc731bc5c7ec" title="MPI_Alltoallv_smart" alt="" coords="81,190,219,217"/>
+<area shape="rect" id="node9" href="$openmpsort_8c.html#a8938b38d71dd3b45bfc7cc745c096248" title="qsort_openmp" alt="" coords="203,169,307,196"/>
+<area shape="rect" id="node8" href="$system_8c.html#a0233ee60e9c4f0a8dbe43e1c662231c6" title="MPI_Alltoallv_sparse" alt="" coords="41,279,186,305"/>
+<area shape="rect" id="node10" href="$openmpsort_8c.html#a9af28c641be3cee5fdee6ec137e84c9d" title="msort_with_tmp" alt="" coords="203,279,318,305"/>
+<area shape="rect" id="node11" href="$openmpsort_8c.html#af794f526e2627202b5e7d35506fa3434" title="merge" alt="" coords="335,175,393,202"/>
+</map>

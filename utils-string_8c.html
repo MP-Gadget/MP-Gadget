@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -79,6 +73,11 @@ $(function() {
 <code>#include &lt;sys/stat.h&gt;</code><br />
 <code>#include &lt;unistd.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="utils-string_8h_source.html">utils-string.h</a>&quot;</code><br />
+</div><div class="textblock"><div class="dynheader">
+Include dependency graph for utils-string.c:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="utils-string_8c__incl.svg" width="442" height="412"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
 </div>
 <p><a href="utils-string_8c_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -128,7 +127,12 @@ Functions</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="utils-string_8c_source.html#l00099">fastpm_path_ensure_dirname()</a>, and <a class="el" href="utils-string_8c_source.html#l00080">fastpm_strdup_vprintf()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00118"></a><span class="lineno">  118</span>&#160;{</div><div class="line"><a name="l00119"></a><span class="lineno">  119</span>&#160;    <span class="keywordtype">char</span> * tmp = alloca(strlen(dir) + 1);</div><div class="line"><a name="l00120"></a><span class="lineno">  120</span>&#160;    strcpy(tmp, dir);</div><div class="line"><a name="l00121"></a><span class="lineno">  121</span>&#160;    <span class="keywordtype">char</span> *p = NULL;</div><div class="line"><a name="l00122"></a><span class="lineno">  122</span>&#160;    <span class="keywordtype">size_t</span> <a class="code" href="structNODE.html#ae6d6383dc0bc3e1660bbe700b77a85ab">len</a>;</div><div class="line"><a name="l00123"></a><span class="lineno">  123</span>&#160;</div><div class="line"><a name="l00124"></a><span class="lineno">  124</span>&#160;    len = strlen(tmp);</div><div class="line"><a name="l00125"></a><span class="lineno">  125</span>&#160;    <span class="keywordflow">if</span>(tmp[len - 1] == <span class="charliteral">&#39;/&#39;</span>)</div><div class="line"><a name="l00126"></a><span class="lineno">  126</span>&#160;            tmp[len - 1] = 0;</div><div class="line"><a name="l00127"></a><span class="lineno">  127</span>&#160;    <span class="keywordflow">for</span>(p = tmp + 1; *p; p++)</div><div class="line"><a name="l00128"></a><span class="lineno">  128</span>&#160;            <span class="keywordflow">if</span>(*p == <span class="charliteral">&#39;/&#39;</span>) {</div><div class="line"><a name="l00129"></a><span class="lineno">  129</span>&#160;                    *p = 0;</div><div class="line"><a name="l00130"></a><span class="lineno">  130</span>&#160;                    mkdir(tmp, S_IRWXU | S_IRWXG | S_IRWXO);</div><div class="line"><a name="l00131"></a><span class="lineno">  131</span>&#160;                    *p = <span class="charliteral">&#39;/&#39;</span>;</div><div class="line"><a name="l00132"></a><span class="lineno">  132</span>&#160;            }</div><div class="line"><a name="l00133"></a><span class="lineno">  133</span>&#160;    mkdir(tmp, S_IRWXU | S_IRWXG | S_IRWXO);</div><div class="line"><a name="l00134"></a><span class="lineno">  134</span>&#160;}</div><div class="ttc" id="structNODE_html_ae6d6383dc0bc3e1660bbe700b77a85ab"><div class="ttname"><a href="structNODE.html#ae6d6383dc0bc3e1660bbe700b77a85ab">NODE::len</a></div><div class="ttdeci">MyFloat len</div><div class="ttdef"><b>Definition:</b> <a href="forcetree_8h_source.html#l00013">forcetree.h:13</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="utils-string_8c_a0b3b094cb274f3b23292ecfc061734f8_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a72e20a8840db3abb4c684e57f6602b1b"></a>
@@ -150,7 +154,12 @@ Functions</h2></td></tr>
 <p class="definition">Definition at line <a class="el" href="utils-string_8c_source.html#l00013">13</a> of file <a class="el" href="utils-string_8c_source.html">utils-string.c</a>.</p>
 
 <p class="reference">Referenced by <a class="el" href="hci_8c_source.html#l00080">hci_query_filesystem()</a>, and <a class="el" href="paramset_8c_source.html#l00205">param_parse_file()</a>.</p>
-<div class="fragment"><div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;{</div><div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;    FILE * fp = fopen(filename, <span class="stringliteral">&quot;r&quot;</span>);</div><div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;    <span class="keywordflow">if</span>(!fp) <span class="keywordflow">return</span> NULL;</div><div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;</div><div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;    fseek(fp, 0, SEEK_END);</div><div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;    <span class="keywordtype">size_t</span> file_length = ftell(fp);</div><div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;</div><div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;    <span class="keywordtype">char</span> * buf = malloc(file_length + 1);</div><div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;    fseek(fp, 0, SEEK_SET);</div><div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;    file_length = fread(buf, 1, file_length, fp);</div><div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;    fclose(fp);</div><div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;    buf[file_length] = 0;</div><div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;    <span class="keywordflow">return</span> buf;</div><div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;}</div></div><!-- fragment -->
+<div class="fragment"><div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;{</div><div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;    FILE * fp = fopen(filename, <span class="stringliteral">&quot;r&quot;</span>);</div><div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;    <span class="keywordflow">if</span>(!fp) <span class="keywordflow">return</span> NULL;</div><div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;</div><div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;    fseek(fp, 0, SEEK_END);</div><div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;    <span class="keywordtype">size_t</span> file_length = ftell(fp);</div><div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;</div><div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;    <span class="keywordtype">char</span> * buf = malloc(file_length + 1);</div><div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;    fseek(fp, 0, SEEK_SET);</div><div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;    file_length = fread(buf, 1, file_length, fp);</div><div class="line"><a name="l00024"></a><span class="lineno">   24</span>&#160;    fclose(fp);</div><div class="line"><a name="l00025"></a><span class="lineno">   25</span>&#160;    buf[file_length] = 0;</div><div class="line"><a name="l00026"></a><span class="lineno">   26</span>&#160;    <span class="keywordflow">return</span> buf;</div><div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;}</div></div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="utils-string_8c_a72e20a8840db3abb4c684e57f6602b1b_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a3d6eb77c48ca9f3b7395a770ce76fe8b"></a>
@@ -175,7 +184,17 @@ Functions</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="begrun_8c_source.html#l00100">open_outputfiles()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00100"></a><span class="lineno">  100</span>&#160;{</div><div class="line"><a name="l00101"></a><span class="lineno">  101</span>&#160;    <span class="keywordtype">int</span> i = strlen(path);</div><div class="line"><a name="l00102"></a><span class="lineno">  102</span>&#160;    <span class="keywordtype">char</span> * dup = alloca(strlen(path) + 1);</div><div class="line"><a name="l00103"></a><span class="lineno">  103</span>&#160;    strcpy(dup, path);</div><div class="line"><a name="l00104"></a><span class="lineno">  104</span>&#160;    <span class="keywordtype">char</span> * p;</div><div class="line"><a name="l00105"></a><span class="lineno">  105</span>&#160;    <span class="keywordflow">for</span>(p = i + dup; p &gt;= dup &amp;&amp; *p != <span class="charliteral">&#39;/&#39;</span>; p --) {</div><div class="line"><a name="l00106"></a><span class="lineno">  106</span>&#160;        <span class="keywordflow">continue</span>;</div><div class="line"><a name="l00107"></a><span class="lineno">  107</span>&#160;    }</div><div class="line"><a name="l00108"></a><span class="lineno">  108</span>&#160;    <span class="comment">/* plain file name in current directory */</span></div><div class="line"><a name="l00109"></a><span class="lineno">  109</span>&#160;    <span class="keywordflow">if</span>(p &lt; dup) <span class="keywordflow">return</span>;</div><div class="line"><a name="l00110"></a><span class="lineno">  110</span>&#160;</div><div class="line"><a name="l00111"></a><span class="lineno">  111</span>&#160;    <span class="comment">/* p == &#39;/&#39;, so set it to NULL, dup is the dirname */</span></div><div class="line"><a name="l00112"></a><span class="lineno">  112</span>&#160;    *p = 0;</div><div class="line"><a name="l00113"></a><span class="lineno">  113</span>&#160;    <a class="code" href="utils-string_8c.html#a0b3b094cb274f3b23292ecfc061734f8">_mkdir</a>(dup);</div><div class="line"><a name="l00114"></a><span class="lineno">  114</span>&#160;}</div><div class="ttc" id="utils-string_8c_html_a0b3b094cb274f3b23292ecfc061734f8"><div class="ttname"><a href="utils-string_8c.html#a0b3b094cb274f3b23292ecfc061734f8">_mkdir</a></div><div class="ttdeci">static void _mkdir(const char *dir)</div><div class="ttdef"><b>Definition:</b> <a href="utils-string_8c_source.html#l00117">utils-string.c:117</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="utils-string_8c_a3d6eb77c48ca9f3b7395a770ce76fe8b_cgraph.svg" width="208" height="52"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="utils-string_8c_a3d6eb77c48ca9f3b7395a770ce76fe8b_icgraph.svg" width="151" height="526"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a83b37e4b34b4b0d478581e0c73a77ae7"></a>
@@ -198,7 +217,12 @@ Functions</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="paramset_8c_source.html#l00040">format_enum()</a>, <a class="el" href="paramset_8c_source.html#l00217">param_declare()</a>, <a class="el" href="paramset_8c_source.html#l00254">param_declare_string()</a>, <a class="el" href="paramset_8c_source.html#l00331">param_format_value()</a>, and <a class="el" href="paramset_8c_source.html#l00369">param_set_from_string()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;{</div><div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;    <span class="keywordtype">size_t</span> N = strlen(str);</div><div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;    <span class="keywordtype">char</span> * <a class="code" href="structNODE.html#a7f339ed4a80e4bc82506fdab65a7d655">d</a> = malloc(N + 1);</div><div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;    strcpy(d, str);</div><div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;    <span class="keywordflow">return</span> <a class="code" href="structNODE.html#a7f339ed4a80e4bc82506fdab65a7d655">d</a>;</div><div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;}</div><div class="ttc" id="structNODE_html_a7f339ed4a80e4bc82506fdab65a7d655"><div class="ttname"><a href="structNODE.html#a7f339ed4a80e4bc82506fdab65a7d655">NODE::d</a></div><div class="ttdeci">struct NODE::@11::@12 d</div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="utils-string_8c_a83b37e4b34b4b0d478581e0c73a77ae7_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a787c3b0717214d830c69b7e8785a3e33"></a>
@@ -233,7 +257,17 @@ Functions</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="hci_8c_source.html#l00080">hci_query_filesystem()</a>, <a class="el" href="begrun_8c_source.html#l00100">open_outputfiles()</a>, <a class="el" href="petaio_8c_source.html#l00405">petaio_read_header()</a>, and <a class="el" href="petaio_8c_source.html#l00432">petaio_read_snapshot()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;{</div><div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;    va_list va;</div><div class="line"><a name="l00073"></a><span class="lineno">   73</span>&#160;    va_start(va, fmt);</div><div class="line"><a name="l00074"></a><span class="lineno">   74</span>&#160;    <span class="keywordtype">char</span> * buf = <a class="code" href="utils-string_8c.html#ae1f141218851350d5d41e00bc16cc705">fastpm_strdup_vprintf</a>(fmt, va);</div><div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;    va_end(va);</div><div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;    <span class="keywordflow">return</span> buf;</div><div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160;}</div><div class="ttc" id="utils-string_8c_html_ae1f141218851350d5d41e00bc16cc705"><div class="ttname"><a href="utils-string_8c.html#ae1f141218851350d5d41e00bc16cc705">fastpm_strdup_vprintf</a></div><div class="ttdeci">char * fastpm_strdup_vprintf(const char *fmt, va_list va)</div><div class="ttdef"><b>Definition:</b> <a href="utils-string_8c_source.html#l00080">utils-string.c:80</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="utils-string_8c_a787c3b0717214d830c69b7e8785a3e33_cgraph.svg" width="159" height="230"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="utils-string_8c_a787c3b0717214d830c69b7e8785a3e33_icgraph.svg" width="592" height="444"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="ae1f141218851350d5d41e00bc16cc705"></a>
@@ -267,7 +301,17 @@ Functions</h2></td></tr>
 <p class="reference">References <a class="el" href="utils-string_8c_source.html#l00117">_mkdir()</a>.</p>
 
 <p class="reference">Referenced by <a class="el" href="utils-string_8c_source.html#l00070">fastpm_strdup_printf()</a>.</p>
-<div class="fragment"><div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;{</div><div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160;    va_list va2;</div><div class="line"><a name="l00083"></a><span class="lineno">   83</span>&#160;    va_copy(va2, va);</div><div class="line"><a name="l00084"></a><span class="lineno">   84</span>&#160;    <span class="comment">/* This relies on a good LIBC vsprintf that returns the number of char */</span></div><div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160;    <span class="keywordtype">char</span> buf0[128];</div><div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160;    <span class="keywordtype">size_t</span> N = vsnprintf(buf0, 1, fmt, va);</div><div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160;</div><div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;    <span class="keywordtype">char</span> * buf = malloc(N + 100);</div><div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;    vsnprintf(buf, N + 1, fmt, va2);</div><div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;    buf[N + 1] = 0;</div><div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160;    va_end(va2);</div><div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;    <span class="keywordflow">return</span> buf;</div><div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160;}</div></div><!-- fragment -->
+<div class="fragment"><div class="line"><a name="l00081"></a><span class="lineno">   81</span>&#160;{</div><div class="line"><a name="l00082"></a><span class="lineno">   82</span>&#160;    va_list va2;</div><div class="line"><a name="l00083"></a><span class="lineno">   83</span>&#160;    va_copy(va2, va);</div><div class="line"><a name="l00084"></a><span class="lineno">   84</span>&#160;    <span class="comment">/* This relies on a good LIBC vsprintf that returns the number of char */</span></div><div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160;    <span class="keywordtype">char</span> buf0[128];</div><div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160;    <span class="keywordtype">size_t</span> N = vsnprintf(buf0, 1, fmt, va);</div><div class="line"><a name="l00087"></a><span class="lineno">   87</span>&#160;</div><div class="line"><a name="l00088"></a><span class="lineno">   88</span>&#160;    <span class="keywordtype">char</span> * buf = malloc(N + 100);</div><div class="line"><a name="l00089"></a><span class="lineno">   89</span>&#160;    vsnprintf(buf, N + 1, fmt, va2);</div><div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;    buf[N + 1] = 0;</div><div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160;    va_end(va2);</div><div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;    <span class="keywordflow">return</span> buf;</div><div class="line"><a name="l00093"></a><span class="lineno">   93</span>&#160;}</div></div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="utils-string_8c_ae1f141218851350d5d41e00bc16cc705_cgraph.svg" width="212" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="utils-string_8c_ae1f141218851350d5d41e00bc16cc705_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a2bc0e6e195547fcefd023c00fe937c3d"></a>

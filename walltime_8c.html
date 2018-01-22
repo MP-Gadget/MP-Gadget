@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -78,6 +72,11 @@ $(function() {
 <code>#include &lt;stdio.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="walltime_8h_source.html">walltime.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="openmpsort_8h_source.html">openmpsort.h</a>&quot;</code><br />
+</div><div class="textblock"><div class="dynheader">
+Include dependency graph for walltime.c:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c__incl.svg" width="260" height="230"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
 </div>
 <p><a href="walltime_8c_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -170,7 +169,12 @@ Variables</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l00075"></a><span class="lineno">   75</span>&#160;                                                      {</div><div class="line"><a name="l00076"></a><span class="lineno">   76</span>&#160;    <span class="keyword">const</span> <span class="keyword">struct </span><a class="code" href="structClock.html">Clock</a> * p1 = c1;</div><div class="line"><a name="l00077"></a><span class="lineno">   77</span>&#160;    <span class="keyword">const</span> <span class="keyword">struct </span><a class="code" href="structClock.html">Clock</a> * p2 = <a class="code" href="auxiliary__functions_8c.html#a029b8c811cc05eaa3f86df139d8fe4e5">c2</a>;</div><div class="line"><a name="l00078"></a><span class="lineno">   78</span>&#160;    <span class="keywordflow">return</span> strcmp(p1-&gt;<a class="code" href="structClock.html#ab913a1f85df61ce53c4233c965471deb">name</a>, p2-&gt;<a class="code" href="structClock.html#ab913a1f85df61ce53c4233c965471deb">name</a>);</div><div class="line"><a name="l00079"></a><span class="lineno">   79</span>&#160;}</div><div class="ttc" id="structClock_html"><div class="ttname"><a href="structClock.html">Clock</a></div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00036">walltime.h:36</a></div></div>
 <div class="ttc" id="auxiliary__functions_8c_html_a029b8c811cc05eaa3f86df139d8fe4e5"><div class="ttname"><a href="auxiliary__functions_8c.html#a029b8c811cc05eaa3f86df139d8fe4e5">c2</a></div><div class="ttdeci">#define c2</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00033">auxiliary_functions.c:33</a></div></div>
 <div class="ttc" id="structClock_html_ab913a1f85df61ce53c4233c965471deb"><div class="ttname"><a href="structClock.html#ab913a1f85df61ce53c4233c965471deb">Clock::name</a></div><div class="ttdeci">char name[128]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00037">walltime.h:37</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="walltime_8c_a7e97b1e5e48d21dd93fb962dbd031415_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ab50d178845943619d31eb6fc20665db5"></a>
@@ -200,7 +204,12 @@ Variables</h2></td></tr>
 <p class="definition">Definition at line <a class="el" href="walltime_8c_source.html#l00209">209</a> of file <a class="el" href="walltime_8c_source.html">walltime.c</a>.</p>
 
 <p class="reference">Referenced by <a class="el" href="walltime_8c_source.html#l00018">walltime_init()</a>, <a class="el" href="walltime_8c_source.html#l00178">walltime_measure_internal()</a>, <a class="el" href="walltime_8c_source.html#l00169">walltime_reset()</a>, and <a class="el" href="walltime_8c_source.html#l00053">walltime_summary()</a>.</p>
-<div class="fragment"><div class="line"><a name="l00210"></a><span class="lineno">  210</span>&#160;{</div><div class="line"><a name="l00211"></a><span class="lineno">  211</span>&#160;  <span class="keywordflow">return</span> MPI_Wtime();</div><div class="line"><a name="l00212"></a><span class="lineno">  212</span>&#160;}</div></div><!-- fragment -->
+<div class="fragment"><div class="line"><a name="l00210"></a><span class="lineno">  210</span>&#160;{</div><div class="line"><a name="l00211"></a><span class="lineno">  211</span>&#160;  <span class="keywordflow">return</span> MPI_Wtime();</div><div class="line"><a name="l00212"></a><span class="lineno">  212</span>&#160;}</div></div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_ab50d178845943619d31eb6fc20665db5_icgraph.svg" width="651" height="586"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a6e611b21f082c89bbb93efd434760d83"></a>
@@ -246,7 +255,12 @@ Variables</h2></td></tr>
 <p class="reference">References <a class="el" href="walltime_8c_source.html#l00173">walltime_add_internal()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00196"></a><span class="lineno">  196</span>&#160;                                                                        {</div><div class="line"><a name="l00197"></a><span class="lineno">  197</span>&#160;    <span class="keywordtype">char</span> fullname[128] = {0};</div><div class="line"><a name="l00198"></a><span class="lineno">  198</span>&#160;    <span class="keywordtype">char</span> * basename = file + strlen(file);</div><div class="line"><a name="l00199"></a><span class="lineno">  199</span>&#160;    <span class="keywordflow">while</span>(basename &gt;= file &amp;&amp; *basename != <span class="charliteral">&#39;/&#39;</span>) basename --;</div><div class="line"><a name="l00200"></a><span class="lineno">  200</span>&#160;    basename ++;</div><div class="line"><a name="l00201"></a><span class="lineno">  201</span>&#160;    sprintf(fullname, <span class="stringliteral">&quot;%s@%s:%04d&quot;</span>, <a class="code" href="densitykernel_8c.html#a5ac083a645d964373f022d03df4849c8">name</a>, basename, line);</div><div class="line"><a name="l00202"></a><span class="lineno">  202</span>&#160;    <span class="keywordflow">return</span> <a class="code" href="walltime_8c.html#a57b7b32ec7a35ce3e7ddc6ed31a051ad">walltime_add_internal</a>(fullname, dt);</div><div class="line"><a name="l00203"></a><span class="lineno">  203</span>&#160;</div><div class="line"><a name="l00204"></a><span class="lineno">  204</span>&#160;}</div><div class="ttc" id="walltime_8c_html_a57b7b32ec7a35ce3e7ddc6ed31a051ad"><div class="ttname"><a href="walltime_8c.html#a57b7b32ec7a35ce3e7ddc6ed31a051ad">walltime_add_internal</a></div><div class="ttdeci">double walltime_add_internal(char *name, double dt)</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00173">walltime.c:173</a></div></div>
 <div class="ttc" id="densitykernel_8c_html_a5ac083a645d964373f022d03df4849c8"><div class="ttname"><a href="densitykernel_8c.html#a5ac083a645d964373f022d03df4849c8">name</a></div><div class="ttdeci">char * name</div><div class="ttdef"><b>Definition:</b> <a href="densitykernel_8c_source.html#l00093">densitykernel.c:93</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a6e611b21f082c89bbb93efd434760d83_cgraph.svg" width="534" height="536"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a57b7b32ec7a35ce3e7ddc6ed31a051ad"></a>
@@ -285,7 +299,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structClockTable_html_ad77f82ac840136e7c13bdb0afa5b01d9"><div class="ttname"><a href="structClockTable.html#ad77f82ac840136e7c13bdb0afa5b01d9">ClockTable::C</a></div><div class="ttdeci">struct Clock C[512]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00048">walltime.h:48</a></div></div>
 <div class="ttc" id="densitykernel_8c_html_a5ac083a645d964373f022d03df4849c8"><div class="ttname"><a href="densitykernel_8c.html#a5ac083a645d964373f022d03df4849c8">name</a></div><div class="ttdeci">char * name</div><div class="ttdef"><b>Definition:</b> <a href="densitykernel_8c_source.html#l00093">densitykernel.c:93</a></div></div>
 <div class="ttc" id="walltime_8c_html_a4f4dd186dc5d9dbfc87eaaf30ffb3642"><div class="ttname"><a href="walltime_8c.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642">walltime_clock</a></div><div class="ttdeci">int walltime_clock(char *name)</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00107">walltime.c:107</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a57b7b32ec7a35ce3e7ddc6ed31a051ad_cgraph.svg" width="530" height="454"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a57b7b32ec7a35ce3e7ddc6ed31a051ad_icgraph.svg" width="242" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a4f4dd186dc5d9dbfc87eaaf30ffb3642"></a>
@@ -316,7 +340,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structClockTable_html_a290ee9f81daec6b817d19b2857d1fd0a"><div class="ttname"><a href="structClockTable.html#a290ee9f81daec6b817d19b2857d1fd0a">ClockTable::N</a></div><div class="ttdeci">int N</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00047">walltime.h:47</a></div></div>
 <div class="ttc" id="structClockTable_html_ad77f82ac840136e7c13bdb0afa5b01d9"><div class="ttname"><a href="structClockTable.html#ad77f82ac840136e7c13bdb0afa5b01d9">ClockTable::C</a></div><div class="ttdeci">struct Clock C[512]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00048">walltime.h:48</a></div></div>
 <div class="ttc" id="densitykernel_8c_html_a5ac083a645d964373f022d03df4849c8"><div class="ttname"><a href="densitykernel_8c.html#a5ac083a645d964373f022d03df4849c8">name</a></div><div class="ttdeci">char * name</div><div class="ttdef"><b>Definition:</b> <a href="densitykernel_8c_source.html#l00093">densitykernel.c:93</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a4f4dd186dc5d9dbfc87eaaf30ffb3642_cgraph.svg" width="530" height="370"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="walltime_8c_a4f4dd186dc5d9dbfc87eaaf30ffb3642_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a771e7f4e5961eb4f5b9b1c5c75b66cf3"></a>
@@ -359,7 +393,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structClock_html_ab913a1f85df61ce53c4233c965471deb"><div class="ttname"><a href="structClock.html#ab913a1f85df61ce53c4233c965471deb">Clock::name</a></div><div class="ttdeci">char name[128]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00037">walltime.h:37</a></div></div>
 <div class="ttc" id="walltime_8c_html_a4f4dd186dc5d9dbfc87eaaf30ffb3642"><div class="ttname"><a href="walltime_8c.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642">walltime_clock</a></div><div class="ttdeci">int walltime_clock(char *name)</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00107">walltime.c:107</a></div></div>
 <div class="ttc" id="structClockTable_html_adcef02a2e9d9b097200957a5332152b7"><div class="ttname"><a href="structClockTable.html#adcef02a2e9d9b097200957a5332152b7">ClockTable::Nmax</a></div><div class="ttdeci">int Nmax</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00046">walltime.h:46</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a771e7f4e5961eb4f5b9b1c5c75b66cf3_cgraph.svg" width="530" height="370"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="walltime_8c_a771e7f4e5961eb4f5b9b1c5c75b66cf3_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a6a3b3f3004b1534bab7b070e4343a8e5"></a>
@@ -405,7 +449,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="walltime_8c_html_a4f4dd186dc5d9dbfc87eaaf30ffb3642"><div class="ttname"><a href="walltime_8c.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642">walltime_clock</a></div><div class="ttdeci">int walltime_clock(char *name)</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00107">walltime.c:107</a></div></div>
 <div class="ttc" id="walltime_8h_html_a42c6a97cbd1a02ae55366c182dcb8fe1a951704788a0cfc8827a2c6e794b0b0ca"><div class="ttname"><a href="walltime_8h.html#a42c6a97cbd1a02ae55366c182dcb8fe1a951704788a0cfc8827a2c6e794b0b0ca">CLOCK_ACCU_MAX</a></div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00017">walltime.h:17</a></div></div>
 <div class="ttc" id="structClock_html_ac7d8d587d7fd6674368daa5d9d26317c"><div class="ttname"><a href="structClock.html#ac7d8d587d7fd6674368daa5d9d26317c">Clock::min</a></div><div class="ttdeci">double min</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00040">walltime.h:40</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a6a3b3f3004b1534bab7b070e4343a8e5_cgraph.svg" width="530" height="454"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="ad1863c87c411e6ab454dd4fa05663390"></a>
@@ -432,7 +481,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structClockTable_html_ad77f82ac840136e7c13bdb0afa5b01d9"><div class="ttname"><a href="structClockTable.html#ad77f82ac840136e7c13bdb0afa5b01d9">ClockTable::C</a></div><div class="ttdeci">struct Clock C[512]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00048">walltime.h:48</a></div></div>
 <div class="ttc" id="densitykernel_8c_html_a5ac083a645d964373f022d03df4849c8"><div class="ttname"><a href="densitykernel_8c.html#a5ac083a645d964373f022d03df4849c8">name</a></div><div class="ttdeci">char * name</div><div class="ttdef"><b>Definition:</b> <a href="densitykernel_8c_source.html#l00093">densitykernel.c:93</a></div></div>
 <div class="ttc" id="walltime_8c_html_a4f4dd186dc5d9dbfc87eaaf30ffb3642"><div class="ttname"><a href="walltime_8c.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642">walltime_clock</a></div><div class="ttdeci">int walltime_clock(char *name)</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00107">walltime.c:107</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_ad1863c87c411e6ab454dd4fa05663390_cgraph.svg" width="530" height="454"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="afa0c81e86e0c6ddba66f257df0875031"></a>
@@ -459,7 +513,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structClockTable_html_ad77f82ac840136e7c13bdb0afa5b01d9"><div class="ttname"><a href="structClockTable.html#ad77f82ac840136e7c13bdb0afa5b01d9">ClockTable::C</a></div><div class="ttdeci">struct Clock C[512]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00048">walltime.h:48</a></div></div>
 <div class="ttc" id="densitykernel_8c_html_a5ac083a645d964373f022d03df4849c8"><div class="ttname"><a href="densitykernel_8c.html#a5ac083a645d964373f022d03df4849c8">name</a></div><div class="ttdeci">char * name</div><div class="ttdef"><b>Definition:</b> <a href="densitykernel_8c_source.html#l00093">densitykernel.c:93</a></div></div>
 <div class="ttc" id="walltime_8c_html_a4f4dd186dc5d9dbfc87eaaf30ffb3642"><div class="ttname"><a href="walltime_8c.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642">walltime_clock</a></div><div class="ttdeci">int walltime_clock(char *name)</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00107">walltime.c:107</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_afa0c81e86e0c6ddba66f257df0875031_cgraph.svg" width="530" height="454"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a03a816f38593bc4adf06efed9fe49697"></a>
@@ -491,7 +550,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structClockTable_html_a4cca76e9c7472e9fca344568b1021522"><div class="ttname"><a href="structClockTable.html#a4cca76e9c7472e9fca344568b1021522">ClockTable::ElapsedTime</a></div><div class="ttdeci">double ElapsedTime</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00051">walltime.h:51</a></div></div>
 <div class="ttc" id="walltime_8c_html_ab50d178845943619d31eb6fc20665db5"><div class="ttname"><a href="walltime_8c.html#ab50d178845943619d31eb6fc20665db5">seconds</a></div><div class="ttdeci">static double seconds()</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00209">walltime.c:209</a></div></div>
 <div class="ttc" id="structClockTable_html_adcef02a2e9d9b097200957a5332152b7"><div class="ttname"><a href="structClockTable.html#adcef02a2e9d9b097200957a5332152b7">ClockTable::Nmax</a></div><div class="ttdeci">int Nmax</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00046">walltime.h:46</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="walltime_8c_a03a816f38593bc4adf06efed9fe49697_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a03a816f38593bc4adf06efed9fe49697_icgraph.svg" width="122" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a8cb8a56d90973bb67710a5e0de6f004e"></a>
@@ -531,7 +600,12 @@ Variables</h2></td></tr>
 <p class="reference">References <a class="el" href="walltime_8c_source.html#l00178">walltime_measure_internal()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00188"></a><span class="lineno">  188</span>&#160;                                                                 {</div><div class="line"><a name="l00189"></a><span class="lineno">  189</span>&#160;    <span class="keywordtype">char</span> fullname[128] = {0};</div><div class="line"><a name="l00190"></a><span class="lineno">  190</span>&#160;    <span class="keywordtype">char</span> * basename = file + strlen(file);</div><div class="line"><a name="l00191"></a><span class="lineno">  191</span>&#160;    <span class="keywordflow">while</span>(basename &gt;= file &amp;&amp; *basename != <span class="charliteral">&#39;/&#39;</span>) basename --;</div><div class="line"><a name="l00192"></a><span class="lineno">  192</span>&#160;    basename ++;</div><div class="line"><a name="l00193"></a><span class="lineno">  193</span>&#160;    sprintf(fullname, <span class="stringliteral">&quot;%s@%s:%04d&quot;</span>, <a class="code" href="densitykernel_8c.html#a5ac083a645d964373f022d03df4849c8">name</a>, basename, line);</div><div class="line"><a name="l00194"></a><span class="lineno">  194</span>&#160;    <span class="keywordflow">return</span> <a class="code" href="walltime_8c.html#a090d5b87d55d3030babdc3f38dde1a2b">walltime_measure_internal</a>(fullname);</div><div class="line"><a name="l00195"></a><span class="lineno">  195</span>&#160;}</div><div class="ttc" id="walltime_8c_html_a090d5b87d55d3030babdc3f38dde1a2b"><div class="ttname"><a href="walltime_8c.html#a090d5b87d55d3030babdc3f38dde1a2b">walltime_measure_internal</a></div><div class="ttdeci">double walltime_measure_internal(char *name)</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00178">walltime.c:178</a></div></div>
 <div class="ttc" id="densitykernel_8c_html_a5ac083a645d964373f022d03df4849c8"><div class="ttname"><a href="densitykernel_8c.html#a5ac083a645d964373f022d03df4849c8">name</a></div><div class="ttdeci">char * name</div><div class="ttdef"><b>Definition:</b> <a href="densitykernel_8c_source.html#l00093">densitykernel.c:93</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a8cb8a56d90973bb67710a5e0de6f004e_cgraph.svg" width="551" height="444"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a090d5b87d55d3030babdc3f38dde1a2b"></a>
@@ -562,7 +636,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structClockTable_html_ad77f82ac840136e7c13bdb0afa5b01d9"><div class="ttname"><a href="structClockTable.html#ad77f82ac840136e7c13bdb0afa5b01d9">ClockTable::C</a></div><div class="ttdeci">struct Clock C[512]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00048">walltime.h:48</a></div></div>
 <div class="ttc" id="densitykernel_8c_html_a5ac083a645d964373f022d03df4849c8"><div class="ttname"><a href="densitykernel_8c.html#a5ac083a645d964373f022d03df4849c8">name</a></div><div class="ttdeci">char * name</div><div class="ttdef"><b>Definition:</b> <a href="densitykernel_8c_source.html#l00093">densitykernel.c:93</a></div></div>
 <div class="ttc" id="walltime_8c_html_a4f4dd186dc5d9dbfc87eaaf30ffb3642"><div class="ttname"><a href="walltime_8c.html#a4f4dd186dc5d9dbfc87eaaf30ffb3642">walltime_clock</a></div><div class="ttdeci">int walltime_clock(char *name)</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00107">walltime.c:107</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a090d5b87d55d3030babdc3f38dde1a2b_cgraph.svg" width="530" height="536"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a090d5b87d55d3030babdc3f38dde1a2b_icgraph.svg" width="271" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="ad55e251cf4be78674e5f1ff3cfa74ba7"></a>
@@ -614,7 +698,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structClock_html_ab913a1f85df61ce53c4233c965471deb"><div class="ttname"><a href="structClock.html#ab913a1f85df61ce53c4233c965471deb">Clock::name</a></div><div class="ttdeci">char name[128]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00037">walltime.h:37</a></div></div>
 <div class="ttc" id="structClock_html_a09c5eaeec5e0356c009e5565baac6713"><div class="ttname"><a href="structClock.html#a09c5eaeec5e0356c009e5565baac6713">Clock::max</a></div><div class="ttdeci">double max</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00039">walltime.h:39</a></div></div>
 <div class="ttc" id="structClock_html_ac7d8d587d7fd6674368daa5d9d26317c"><div class="ttname"><a href="structClock.html#ac7d8d587d7fd6674368daa5d9d26317c">Clock::min</a></div><div class="ttdeci">double min</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00040">walltime.h:40</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="walltime_8c_ad55e251cf4be78674e5f1ff3cfa74ba7_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_ad55e251cf4be78674e5f1ff3cfa74ba7_icgraph.svg" width="122" height="422"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="ad80362c5b1037e3ac0e91acd6fffc06c"></a>
@@ -639,7 +733,17 @@ Variables</h2></td></tr>
 <p class="reference">Referenced by <a class="el" href="walltime_8c_source.html#l00018">walltime_init()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00169"></a><span class="lineno">  169</span>&#160;                      {</div><div class="line"><a name="l00170"></a><span class="lineno">  170</span>&#160;    <a class="code" href="walltime_8c.html#a052f07d6b48c1a6863c35565dbf77903">WallTimeClock</a> = <a class="code" href="walltime_8c.html#ab50d178845943619d31eb6fc20665db5">seconds</a>();</div><div class="line"><a name="l00171"></a><span class="lineno">  171</span>&#160;}</div><div class="ttc" id="walltime_8c_html_a052f07d6b48c1a6863c35565dbf77903"><div class="ttname"><a href="walltime_8c.html#a052f07d6b48c1a6863c35565dbf77903">WallTimeClock</a></div><div class="ttdeci">static double WallTimeClock</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00010">walltime.c:10</a></div></div>
 <div class="ttc" id="walltime_8c_html_ab50d178845943619d31eb6fc20665db5"><div class="ttname"><a href="walltime_8c.html#ab50d178845943619d31eb6fc20665db5">seconds</a></div><div class="ttdeci">static double seconds()</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00209">walltime.c:209</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_ad80362c5b1037e3ac0e91acd6fffc06c_cgraph.svg" width="196" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_ad80362c5b1037e3ac0e91acd6fffc06c_icgraph.svg" width="479" height="454"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a44ebd264165684ad7bed2d5bf4e02e22"></a>
@@ -684,7 +788,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="walltime_8c_html_ab50d178845943619d31eb6fc20665db5"><div class="ttname"><a href="walltime_8c.html#ab50d178845943619d31eb6fc20665db5">seconds</a></div><div class="ttdeci">static double seconds()</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00209">walltime.c:209</a></div></div>
 <div class="ttc" id="walltime_8c_html_af39b6cf247772c7b9e37d38dec33e4df"><div class="ttname"><a href="walltime_8c.html#af39b6cf247772c7b9e37d38dec33e4df">walltime_update_parents</a></div><div class="ttdeci">static void walltime_update_parents()</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8c_source.html#l00147">walltime.c:147</a></div></div>
 <div class="ttc" id="structClockTable_html_ad77f82ac840136e7c13bdb0afa5b01d9"><div class="ttname"><a href="structClockTable.html#ad77f82ac840136e7c13bdb0afa5b01d9">ClockTable::C</a></div><div class="ttdeci">struct Clock C[512]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00048">walltime.h:48</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a44ebd264165684ad7bed2d5bf4e02e22_cgraph.svg" width="326" height="204"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_a44ebd264165684ad7bed2d5bf4e02e22_icgraph.svg" width="142" height="422"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="ad90f7fb99a7ad9e668d83996af648124"></a>
@@ -745,7 +859,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structClock_html_af49784080212dd26d86f7e72455a0ec8"><div class="ttname"><a href="structClock.html#af49784080212dd26d86f7e72455a0ec8">Clock::time</a></div><div class="ttdeci">double time</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00038">walltime.h:38</a></div></div>
 <div class="ttc" id="structClock_html_a09c5eaeec5e0356c009e5565baac6713"><div class="ttname"><a href="structClock.html#a09c5eaeec5e0356c009e5565baac6713">Clock::max</a></div><div class="ttdeci">double max</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00039">walltime.h:39</a></div></div>
 <div class="ttc" id="structClock_html_ac7d8d587d7fd6674368daa5d9d26317c"><div class="ttname"><a href="structClock.html#ac7d8d587d7fd6674368daa5d9d26317c">Clock::min</a></div><div class="ttdeci">double min</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00040">walltime.h:40</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_ad90f7fb99a7ad9e668d83996af648124_icgraph.svg" width="187" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="af39b6cf247772c7b9e37d38dec33e4df"></a>
@@ -782,7 +901,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structClock_html_af49784080212dd26d86f7e72455a0ec8"><div class="ttname"><a href="structClock.html#af49784080212dd26d86f7e72455a0ec8">Clock::time</a></div><div class="ttdeci">double time</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00038">walltime.h:38</a></div></div>
 <div class="ttc" id="structClockTable_html_ad77f82ac840136e7c13bdb0afa5b01d9"><div class="ttname"><a href="structClockTable.html#ad77f82ac840136e7c13bdb0afa5b01d9">ClockTable::C</a></div><div class="ttdeci">struct Clock C[512]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00048">walltime.h:48</a></div></div>
 <div class="ttc" id="structClock_html_ab913a1f85df61ce53c4233c965471deb"><div class="ttname"><a href="structClock.html#ab913a1f85df61ce53c4233c965471deb">Clock::name</a></div><div class="ttdeci">char name[128]</div><div class="ttdef"><b>Definition:</b> <a href="walltime_8h_source.html#l00037">walltime.h:37</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="walltime_8c_af39b6cf247772c7b9e37d38dec33e4df_icgraph.svg" width="178" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>

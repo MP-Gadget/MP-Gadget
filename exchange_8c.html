@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -83,6 +77,11 @@ $(function() {
 <code>#include &quot;<a class="el" href="exchange_8h_source.html">exchange.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="slotsmanager_8h_source.html">slotsmanager.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="partmanager_8h_source.html">partmanager.h</a>&quot;</code><br />
+</div><div class="textblock"><div class="dynheader">
+Include dependency graph for exchange.c:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="exchange_8c__incl.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
 </div>
 <p><a href="exchange_8c_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -164,7 +163,12 @@ Variables</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;{</div><div class="line"><a name="l00047"></a><span class="lineno">   47</span>&#160;    <span class="keywordtype">int</span> i;</div><div class="line"><a name="l00048"></a><span class="lineno">   48</span>&#160;    <span class="keywordflow">for</span>(i = 0; i &lt; <a class="code" href="allvars_8c.html#a675acdcd149f5993271a1fdc11673b65">NTask</a>; i ++) {</div><div class="line"><a name="l00049"></a><span class="lineno">   49</span>&#160;        <span class="keywordflow">if</span>(ptype == -1) {</div><div class="line"><a name="l00050"></a><span class="lineno">   50</span>&#160;            count[i] = entries[i].<a class="code" href="structExchangePlanEntry.html#af0ece44a2341831ca59635265e7ec755">base</a>;</div><div class="line"><a name="l00051"></a><span class="lineno">   51</span>&#160;        } <span class="keywordflow">else</span> {</div><div class="line"><a name="l00052"></a><span class="lineno">   52</span>&#160;            count[i] = entries[i].<a class="code" href="structExchangePlanEntry.html#ab6482d1f3f4c1e079facf1a14623e302">slots</a>[ptype];</div><div class="line"><a name="l00053"></a><span class="lineno">   53</span>&#160;        }</div><div class="line"><a name="l00054"></a><span class="lineno">   54</span>&#160;    }</div><div class="line"><a name="l00055"></a><span class="lineno">   55</span>&#160;}</div><div class="ttc" id="structExchangePlanEntry_html_ab6482d1f3f4c1e079facf1a14623e302"><div class="ttname"><a href="structExchangePlanEntry.html#ab6482d1f3f4c1e079facf1a14623e302">ExchangePlanEntry::slots</a></div><div class="ttdeci">int slots[6]</div><div class="ttdef"><b>Definition:</b> <a href="exchange_8c_source.html#l00016">exchange.c:16</a></div></div>
 <div class="ttc" id="structExchangePlanEntry_html_af0ece44a2341831ca59635265e7ec755"><div class="ttname"><a href="structExchangePlanEntry.html#af0ece44a2341831ca59635265e7ec755">ExchangePlanEntry::base</a></div><div class="ttdeci">int base</div><div class="ttdef"><b>Definition:</b> <a href="exchange_8c_source.html#l00015">exchange.c:15</a></div></div>
 <div class="ttc" id="allvars_8c_html_a675acdcd149f5993271a1fdc11673b65"><div class="ttname"><a href="allvars_8c.html#a675acdcd149f5993271a1fdc11673b65">NTask</a></div><div class="ttdeci">int NTask</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00025">allvars.c:25</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="exchange_8c_a1222b1c7917a3a86e8ec10deea3207af_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a27fe04187385788fcaf70c1bad203141"></a>
@@ -227,7 +231,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="endrun_8c_html_a6567cd867c5549fb6586e19ccd819764"><div class="ttname"><a href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a></div><div class="ttdeci">void message(int where, const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="endrun_8c_source.html#l00226">endrun.c:226</a></div></div>
 <div class="ttc" id="structExchangePlan_html_aeaf063f54ebecb46f9ad96023eb37bf2"><div class="ttname"><a href="structExchangePlan.html#aeaf063f54ebecb46f9ad96023eb37bf2">ExchangePlan::toGoOffset</a></div><div class="ttdeci">ExchangePlanEntry * toGoOffset</div><div class="ttdef"><b>Definition:</b> <a href="exchange_8c_source.html#l00023">exchange.c:23</a></div></div>
 <div class="ttc" id="partmanager_8c_html_a6cef44682776e476d8f9f1b9e1f9fe16"><div class="ttname"><a href="partmanager_8c.html#a6cef44682776e476d8f9f1b9e1f9fe16">PartManager</a></div><div class="ttdeci">struct part_manager_type PartManager[1]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00009">partmanager.c:9</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="exchange_8c_a27fe04187385788fcaf70c1bad203141_cgraph.svg" width="384" height="310"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="exchange_8c_a27fe04187385788fcaf70c1bad203141_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a299bb3cc6ca0e0353d2aa66bcc8d91ca"></a>
@@ -273,7 +287,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="mymalloc_8h_html_ac576b6f19b635b512399d6afb8c20d99"><div class="ttname"><a href="mymalloc_8h.html#ac576b6f19b635b512399d6afb8c20d99">mymalloc2</a></div><div class="ttdeci">#define mymalloc2(name, size)</div><div class="ttdef"><b>Definition:</b> <a href="mymalloc_8h_source.html#l00013">mymalloc.h:13</a></div></div>
 <div class="ttc" id="partmanager_8c_html_a6cef44682776e476d8f9f1b9e1f9fe16"><div class="ttname"><a href="partmanager_8c.html#a6cef44682776e476d8f9f1b9e1f9fe16">PartManager</a></div><div class="ttdeci">struct part_manager_type PartManager[1]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00009">partmanager.c:9</a></div></div>
 <div class="ttc" id="structExchangePlanEntry_html"><div class="ttname"><a href="structExchangePlanEntry.html">ExchangePlanEntry</a></div><div class="ttdef"><b>Definition:</b> <a href="exchange_8c_source.html#l00014">exchange.c:14</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="exchange_8c_a299bb3cc6ca0e0353d2aa66bcc8d91ca_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="exchange_8c_a299bb3cc6ca0e0353d2aa66bcc8d91ca_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a6ded41cc7c201a9d3e2d3cf47b207a29"></a>
@@ -357,7 +381,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="partmanager_8c_html_a6cef44682776e476d8f9f1b9e1f9fe16"><div class="ttname"><a href="partmanager_8c.html#a6cef44682776e476d8f9f1b9e1f9fe16">PartManager</a></div><div class="ttdeci">struct part_manager_type PartManager[1]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00009">partmanager.c:9</a></div></div>
 <div class="ttc" id="structparticle__data_html_a3fc8911362b6cc9057094f4ec8411ba8"><div class="ttname"><a href="structparticle__data.html#a3fc8911362b6cc9057094f4ec8411ba8">particle_data::WillExport</a></div><div class="ttdeci">unsigned int WillExport</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8h_source.html#l00033">partmanager.h:33</a></div></div>
 <div class="ttc" id="structExchangePlanEntry_html"><div class="ttname"><a href="structExchangePlanEntry.html">ExchangePlanEntry</a></div><div class="ttdef"><b>Definition:</b> <a href="exchange_8c_source.html#l00014">exchange.c:14</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="exchange_8c_a6ded41cc7c201a9d3e2d3cf47b207a29_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="exchange_8c_a6ded41cc7c201a9d3e2d3cf47b207a29_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ada6148dd7651b0ee281057372cd45c4c"></a>
@@ -395,7 +429,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structparticle__data_html_a6adea4c443a9de86d16d0b3137a67788"><div class="ttname"><a href="structparticle__data.html#a6adea4c443a9de86d16d0b3137a67788">particle_data::ID</a></div><div class="ttdeci">MyIDType ID</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8h_source.html#l00057">partmanager.h:57</a></div></div>
 <div class="ttc" id="endrun_8c_html_a6567cd867c5549fb6586e19ccd819764"><div class="ttname"><a href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a></div><div class="ttdeci">void message(int where, const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="endrun_8c_source.html#l00226">endrun.c:226</a></div></div>
 <div class="ttc" id="partmanager_8c_html_a6cef44682776e476d8f9f1b9e1f9fe16"><div class="ttname"><a href="partmanager_8c.html#a6cef44682776e476d8f9f1b9e1f9fe16">PartManager</a></div><div class="ttdeci">struct part_manager_type PartManager[1]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00009">partmanager.c:9</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="exchange_8c_ada6148dd7651b0ee281057372cd45c4c_cgraph.svg" width="434" height="422"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="exchange_8c_ada6148dd7651b0ee281057372cd45c4c_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ae4729e794aec3de718667d128e5c327f"></a>
@@ -442,7 +486,12 @@ Variables</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="exchange_8c_source.html#l00388">domain_test_id_uniqueness()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00383"></a><span class="lineno">  383</span>&#160;                                                            {</div><div class="line"><a name="l00384"></a><span class="lineno">  384</span>&#160;    ((uint64_t *) radix)[0] = ((<a class="code" href="types_8h.html#ad1d0bf70ad98a229cfc51edcd568fb70">MyIDType</a>*) data)[0];</div><div class="line"><a name="l00385"></a><span class="lineno">  385</span>&#160;}</div><div class="ttc" id="types_8h_html_ad1d0bf70ad98a229cfc51edcd568fb70"><div class="ttname"><a href="types_8h.html#ad1d0bf70ad98a229cfc51edcd568fb70">MyIDType</a></div><div class="ttdeci">uint64_t MyIDType</div><div class="ttdef"><b>Definition:</b> <a href="types_8h_source.html#l00020">types.h:20</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="exchange_8c_ae4729e794aec3de718667d128e5c327f_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="afe30c66ba91ea4ae1aec062f2fa465ee"></a>
@@ -491,7 +540,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structExchangePlan_html_a5d03e2dae195cfc1d32de65f12a9cee1"><div class="ttname"><a href="structExchangePlan.html#a5d03e2dae195cfc1d32de65f12a9cee1">ExchangePlan::toGetSum</a></div><div class="ttdeci">ExchangePlanEntry toGetSum</div><div class="ttdef"><b>Definition:</b> <a href="exchange_8c_source.html#l00027">exchange.c:27</a></div></div>
 <div class="ttc" id="structslots__manager__type_html_a0d507f39a69e064b81c8dd215bad5455"><div class="ttname"><a href="structslots__manager__type.html#a0d507f39a69e064b81c8dd215bad5455">slots_manager_type::size</a></div><div class="ttdeci">int size</div><div class="ttdef"><b>Definition:</b> <a href="slotsmanager_8h_source.html#l00013">slotsmanager.h:13</a></div></div>
 <div class="ttc" id="structslots__manager__type_html_a8459e079fb6ef7b3facbac18314e396f"><div class="ttname"><a href="structslots__manager__type.html#a8459e079fb6ef7b3facbac18314e396f">slots_manager_type::maxsize</a></div><div class="ttdeci">int maxsize</div><div class="ttdef"><b>Definition:</b> <a href="slotsmanager_8h_source.html#l00012">slotsmanager.h:12</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="exchange_8c_afe30c66ba91ea4ae1aec062f2fa465ee_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>

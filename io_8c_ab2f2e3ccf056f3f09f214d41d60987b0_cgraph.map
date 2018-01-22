@@ -1,0 +1,18 @@
+<map id="dump_snapshot" name="dump_snapshot">
+<area shape="rect" id="node2" href="$petaio_8c.html#a91ff9324adbdc5b2652db62e161042b8" title="petaio_save_snapshot" alt="" coords="201,372,353,399"/>
+<area shape="rect" id="node3" href="$endrun_8c.html#a6567cd867c5549fb6586e19ccd819764" title="message" alt="" coords="317,316,392,343"/>
+<area shape="rect" id="node7" href="$petaio_8c.html#a9b867bd3e997c113f67500b40a7aa593" title="petaio_save_internal" alt="" coords="101,375,243,402"/>
+<area shape="rect" id="node4" href="$endrun_8c.html#a7267113a7c0a094743bb565eabc695d1" title="messagev" alt="" coords="343,225,426,251"/>
+<area shape="rect" id="node5" href="$endrun_8c.html#a87108946670b4c3afbe846c6726675ff" title="putline" alt="" coords="507,257,567,283"/>
+<area shape="rect" id="node6" href="$endrun_8c.html#a1200f02a595ab7cbe17c9e36ff32af0f" title="show_backtrace" alt="" coords="409,161,526,187"/>
+<area shape="rect" id="node8" href="$endrun_8c.html#ad963d7efdb9f10f7a2298c8ccd222ab0" title="endrun" alt="" coords="265,133,326,160"/>
+<area shape="rect" id="node9" href="$petaio_8c.html#ad13d20d78ff834f5005e68ad11d228e3" title="petaio_build_selection" alt="" coords="5,227,156,254"/>
+<area shape="rect" id="node10" href="$system_8c.html#a866c4b0425665030c89933c11752b1fe" title="sumup_large_ints" alt="" coords="19,405,143,432"/>
+<area shape="rect" id="node11" href="$petaio_8c.html#abd41baa0f76d18fe2abbadb99ba1ffe9" title="petaio_write_header" alt="" coords="285,28,424,55"/>
+<area shape="rect" id="node12" href="$petaio_8c.html#a5423c5b1a1f1616ef293b2aaa5eb43ea" title="petaio_build_buffer" alt="" coords="120,83,251,110"/>
+<area shape="rect" id="node14" href="$petaio_8c.html#a8d4abd78b70e4a1dfbed5db05cd89073" title="petaio_save_block" alt="" coords="367,372,498,399"/>
+<area shape="rect" id="node16" href="$petaio_8c.html#a00bc8b1ba2ab1de94d983b08b14580c7" title="petaio_destroy_buffer" alt="" coords="112,549,259,576"/>
+<area shape="rect" id="node17" href="$petaio_8c.html#a37682bda41c11127b2cdfb6ec3d21022" title="petaio_save_neutrinos" alt="" coords="461,375,613,402"/>
+<area shape="rect" id="node13" href="$petaio_8c.html#aafe1fe998e7ca93a780ad69be4d061dc" title="petaio_alloc_buffer" alt="" coords="64,5,194,32"/>
+<area shape="rect" id="node15" href="$system_8c.html#a1d471d98379273269e8045d2998eca73" title="count_sum" alt="" coords="424,471,511,498"/>
+</map>

@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -79,6 +73,11 @@ $(function() {
 <code>#include &lt;math.h&gt;</code><br />
 <code>#include &lt;gsl/gsl_heapsort.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="peano_8h_source.html">peano.h</a>&quot;</code><br />
+</div><div class="textblock"><div class="dynheader">
+Include dependency graph for peano.c:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="peano_8c__incl.svg" width="343" height="304"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
 </div>
 <p><a href="peano_8c_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -187,7 +186,12 @@ Variables</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l00120"></a><span class="lineno">  120</span>&#160;{</div><div class="line"><a name="l00121"></a><span class="lineno">  121</span>&#160;    <span class="keywordtype">int</span> mask;</div><div class="line"><a name="l00122"></a><span class="lineno">  122</span>&#160;    <span class="keywordtype">unsigned</span> <span class="keywordtype">char</span> rotation = 0;</div><div class="line"><a name="l00123"></a><span class="lineno">  123</span>&#160;    <a class="code" href="peano_8h.html#a58bb9811a34340f0c290fb21568aaf7e">peano_t</a> key = 0;</div><div class="line"><a name="l00124"></a><span class="lineno">  124</span>&#160;</div><div class="line"><a name="l00125"></a><span class="lineno">  125</span>&#160;    <span class="keywordflow">for</span>(mask = 1 &lt;&lt; (bits - 1); mask &gt; 0; mask &gt;&gt;= 1)</div><div class="line"><a name="l00126"></a><span class="lineno">  126</span>&#160;    {</div><div class="line"><a name="l00127"></a><span class="lineno">  127</span>&#160;        <span class="keywordtype">unsigned</span> <span class="keywordtype">char</span> pix = ((x &amp; mask) ? 4 : 0) | ((y &amp; mask) ? 2 : 0) | ((z &amp; mask) ? 1 : 0);</div><div class="line"><a name="l00128"></a><span class="lineno">  128</span>&#160;</div><div class="line"><a name="l00129"></a><span class="lineno">  129</span>&#160;        key &lt;&lt;= 3;</div><div class="line"><a name="l00130"></a><span class="lineno">  130</span>&#160;        key |= <a class="code" href="peano_8c.html#a8b8566e7934f84de941083e1601c882a">subpix3</a>[rotation][pix];</div><div class="line"><a name="l00131"></a><span class="lineno">  131</span>&#160;        rotation = <a class="code" href="peano_8c.html#ab0595fcb846972f997031373b7ad819d">rottable3</a>[rotation][pix];</div><div class="line"><a name="l00132"></a><span class="lineno">  132</span>&#160;    }</div><div class="line"><a name="l00133"></a><span class="lineno">  133</span>&#160;</div><div class="line"><a name="l00134"></a><span class="lineno">  134</span>&#160;    <span class="keywordflow">return</span> key;</div><div class="line"><a name="l00135"></a><span class="lineno">  135</span>&#160;}</div><div class="ttc" id="peano_8c_html_ab0595fcb846972f997031373b7ad819d"><div class="ttname"><a href="peano_8c.html#ab0595fcb846972f997031373b7ad819d">rottable3</a></div><div class="ttdeci">const unsigned char rottable3[48][8]</div><div class="ttdef"><b>Definition:</b> <a href="peano_8c_source.html#l00014">peano.c:14</a></div></div>
 <div class="ttc" id="peano_8c_html_a8b8566e7934f84de941083e1601c882a"><div class="ttname"><a href="peano_8c.html#a8b8566e7934f84de941083e1601c882a">subpix3</a></div><div class="ttdeci">const unsigned char subpix3[48][8]</div><div class="ttdef"><b>Definition:</b> <a href="peano_8c_source.html#l00065">peano.c:65</a></div></div>
 <div class="ttc" id="peano_8h_html_a58bb9811a34340f0c290fb21568aaf7e"><div class="ttname"><a href="peano_8h.html#a58bb9811a34340f0c290fb21568aaf7e">peano_t</a></div><div class="ttdeci">uint64_t peano_t</div><div class="ttdef"><b>Definition:</b> <a href="peano_8h_source.html#l00007">peano.h:7</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="peano_8c_a2b98881a670e236ef744e3283ebe71a4_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>

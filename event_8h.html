@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -75,7 +69,12 @@ $(function() {
 <div class="title">event.h File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-
+<div class="textblock"><div class="dynheader">
+This graph shows which files directly or indirectly include this file:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="event_8h__dep__incl.svg" width="479" height="420"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+</div>
 <p><a href="event_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="nested-classes"></a>
@@ -221,7 +220,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structEventSpec_html_a985ade683f4766751f2f11d945df1d96"><div class="ttname"><a href="structEventSpec.html#a985ade683f4766751f2f11d945df1d96">EventSpec::h</a></div><div class="ttdeci">EventHandler h[MAXEH]</div><div class="ttdef"><b>Definition:</b> <a href="event_8h_source.html#l00026">event.h:26</a></div></div>
 <div class="ttc" id="structEventHandler_html_a4a6987ebd4936b034493c096c1530161"><div class="ttname"><a href="structEventHandler.html#a4a6987ebd4936b034493c096c1530161">EventHandler::func</a></div><div class="ttdeci">eventfunc func</div><div class="ttdef"><b>Definition:</b> <a href="event_8h_source.html#l00016">event.h:16</a></div></div>
 <div class="ttc" id="structEventSpec_html_a4327bc0b285d93d1ad090815d58835f6"><div class="ttname"><a href="structEventSpec.html#a4327bc0b285d93d1ad090815d58835f6">EventSpec::used</a></div><div class="ttdeci">int used</div><div class="ttdef"><b>Definition:</b> <a href="event_8h_source.html#l00025">event.h:25</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="event_8h_a322553a9a0609ecf1d35b7971c9cedef_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a955ae98971361c6ecdb09cd8e05312f1"></a>
@@ -262,7 +266,12 @@ Variables</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="forcetree_8c_source.html#l00121">force_tree_build()</a>, and <a class="el" href="timestep_8c_source.html#l00078">init_timebins()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00007"></a><span class="lineno">    7</span>&#160;{</div><div class="line"><a name="l00008"></a><span class="lineno">    8</span>&#160;    <span class="keywordtype">int</span> i;</div><div class="line"><a name="l00009"></a><span class="lineno">    9</span>&#160;    <span class="keywordflow">for</span>(i = 0; i &lt; eh-&gt;used; i ++) {</div><div class="line"><a name="l00010"></a><span class="lineno">   10</span>&#160;        <span class="keywordflow">if</span>(eh-&gt;h[i].func == func &amp;&amp; eh-&gt;h[i].userdata == userdata) {</div><div class="line"><a name="l00011"></a><span class="lineno">   11</span>&#160;            <span class="keywordflow">return</span> 0;</div><div class="line"><a name="l00012"></a><span class="lineno">   12</span>&#160;        }</div><div class="line"><a name="l00013"></a><span class="lineno">   13</span>&#160;    }</div><div class="line"><a name="l00014"></a><span class="lineno">   14</span>&#160;    <span class="keywordflow">if</span>(eh-&gt;used == <a class="code" href="event_8h.html#ace2833c1c9581e64de3cc60c61e6df5b">MAXEH</a>) {</div><div class="line"><a name="l00015"></a><span class="lineno">   15</span>&#160;        <span class="comment">/* overflown */</span></div><div class="line"><a name="l00016"></a><span class="lineno">   16</span>&#160;        abort();</div><div class="line"><a name="l00017"></a><span class="lineno">   17</span>&#160;    }</div><div class="line"><a name="l00018"></a><span class="lineno">   18</span>&#160;</div><div class="line"><a name="l00019"></a><span class="lineno">   19</span>&#160;    eh-&gt;h[eh-&gt;used].func = func;</div><div class="line"><a name="l00020"></a><span class="lineno">   20</span>&#160;    eh-&gt;h[eh-&gt;used].userdata = userdata;</div><div class="line"><a name="l00021"></a><span class="lineno">   21</span>&#160;    eh-&gt;used ++;</div><div class="line"><a name="l00022"></a><span class="lineno">   22</span>&#160;    <span class="keywordflow">return</span> 0;</div><div class="line"><a name="l00023"></a><span class="lineno">   23</span>&#160;}</div><div class="ttc" id="event_8h_html_ace2833c1c9581e64de3cc60c61e6df5b"><div class="ttname"><a href="event_8h.html#ace2833c1c9581e64de3cc60c61e6df5b">MAXEH</a></div><div class="ttdeci">#define MAXEH</div><div class="ttdef"><b>Definition:</b> <a href="event_8h_source.html#l00020">event.h:20</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="event_8h_a955ae98971361c6ecdb09cd8e05312f1_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ace5da942ac7ea51ebf14716bce600e39"></a>
@@ -302,7 +311,12 @@ Variables</h2></td></tr>
 <p class="reference">References <a class="el" href="event_8h_source.html#l00016">EventHandler::func</a>, <a class="el" href="event_8h_source.html#l00026">EventSpec::h</a>, <a class="el" href="event_8h_source.html#l00025">EventSpec::used</a>, and <a class="el" href="event_8h_source.html#l00017">EventHandler::userdata</a>.</p>
 
 <p class="reference">Referenced by <a class="el" href="forcetree_8c_source.html#l01115">force_tree_free()</a>.</p>
-<div class="fragment"><div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;{</div><div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;    <span class="keywordtype">int</span> i;</div><div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;    <span class="keywordflow">for</span>(i = 0; i &lt; eh-&gt;used; i ++) {</div><div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;        <span class="keywordflow">if</span>(eh-&gt;h[i].func == func &amp;&amp; eh-&gt;h[i].userdata == userdata) {</div><div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;            <span class="keywordflow">break</span>;</div><div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;        }</div><div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;    }</div><div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;    <span class="keywordflow">if</span>(i == eh-&gt;used) {</div><div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;        <span class="keywordflow">return</span> 1;</div><div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;    }</div><div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;    memmove(&amp;eh-&gt;h[i], &amp;eh-&gt;h[i+1], <span class="keyword">sizeof</span>(eh-&gt;h[0]) * (eh-&gt;used - i - 1));</div><div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;    eh-&gt;used --;</div><div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;    <span class="keywordflow">return</span> 0;</div><div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;}</div></div><!-- fragment -->
+<div class="fragment"><div class="line"><a name="l00027"></a><span class="lineno">   27</span>&#160;{</div><div class="line"><a name="l00028"></a><span class="lineno">   28</span>&#160;    <span class="keywordtype">int</span> i;</div><div class="line"><a name="l00029"></a><span class="lineno">   29</span>&#160;    <span class="keywordflow">for</span>(i = 0; i &lt; eh-&gt;used; i ++) {</div><div class="line"><a name="l00030"></a><span class="lineno">   30</span>&#160;        <span class="keywordflow">if</span>(eh-&gt;h[i].func == func &amp;&amp; eh-&gt;h[i].userdata == userdata) {</div><div class="line"><a name="l00031"></a><span class="lineno">   31</span>&#160;            <span class="keywordflow">break</span>;</div><div class="line"><a name="l00032"></a><span class="lineno">   32</span>&#160;        }</div><div class="line"><a name="l00033"></a><span class="lineno">   33</span>&#160;    }</div><div class="line"><a name="l00034"></a><span class="lineno">   34</span>&#160;    <span class="keywordflow">if</span>(i == eh-&gt;used) {</div><div class="line"><a name="l00035"></a><span class="lineno">   35</span>&#160;        <span class="keywordflow">return</span> 1;</div><div class="line"><a name="l00036"></a><span class="lineno">   36</span>&#160;    }</div><div class="line"><a name="l00037"></a><span class="lineno">   37</span>&#160;    memmove(&amp;eh-&gt;h[i], &amp;eh-&gt;h[i+1], <span class="keyword">sizeof</span>(eh-&gt;h[0]) * (eh-&gt;used - i - 1));</div><div class="line"><a name="l00038"></a><span class="lineno">   38</span>&#160;    eh-&gt;used --;</div><div class="line"><a name="l00039"></a><span class="lineno">   39</span>&#160;    <span class="keywordflow">return</span> 0;</div><div class="line"><a name="l00040"></a><span class="lineno">   40</span>&#160;}</div></div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="event_8h_ace5da942ac7ea51ebf14716bce600e39_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>

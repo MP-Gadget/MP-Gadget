@@ -1,0 +1,7 @@
+<map id="sfr_eff.h" name="sfr_eff.h">
+<area shape="rect" id="node2" href="$begrun_8c.html" title="initial set&#45;up of a simulation run " alt="" coords="177,40,249,67"/>
+<area shape="rect" id="node3" href="$fof_8c.html" title="parallel FoF group finder " alt="" coords="82,5,130,32"/>
+<area shape="rect" id="node4" href="$petaio_8c.html" title="petaio.c" alt="" coords="5,97,73,123"/>
+<area shape="rect" id="node5" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="80,188,131,215"/>
+<area shape="rect" id="node6" href="$sfr__eff_8c.html" title="sfr_eff.c" alt="" coords="178,153,248,180"/>
+</map>

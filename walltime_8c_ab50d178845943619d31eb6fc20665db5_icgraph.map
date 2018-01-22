@@ -1,0 +1,12 @@
+<map id="seconds" name="seconds">
+<area shape="rect" id="node2" href="$walltime_8h.html#a499a9e129342c386109d22a4d233f52a" title="walltime_init" alt="" coords="144,349,239,376"/>
+<area shape="rect" id="node8" href="$walltime_8h.html#a090d5b87d55d3030babdc3f38dde1a2b" title="walltime_measure_internal" alt="" coords="140,97,316,123"/>
+<area shape="rect" id="node10" href="$walltime_8h.html#ad80362c5b1037e3ac0e91acd6fffc06c" title="walltime_reset" alt="" coords="5,462,112,489"/>
+<area shape="rect" id="node11" href="$walltime_8h.html#a44ebd264165684ad7bed2d5bf4e02e22" title="walltime_summary" alt="" coords="514,293,645,319"/>
+<area shape="rect" id="node3" href="$proto_8h.html#a74dc0e5e9eefe11fc8434b62de573146" title="begrun" alt="" coords="286,553,348,580"/>
+<area shape="rect" id="node5" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="262,371,372,397"/>
+<area shape="rect" id="node4" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="321,462,372,489"/>
+<area shape="rect" id="node6" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="451,349,553,376"/>
+<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="404,518,444,545"/>
+<area shape="rect" id="node9" href="$walltime_8h.html#a8cb8a56d90973bb67710a5e0de6f004e" title="walltime_measure_full" alt="" coords="123,5,274,32"/>
+</map>

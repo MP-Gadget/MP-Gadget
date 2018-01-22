@@ -1,0 +1,10 @@
+<map id="system.c" name="system.c">
+<area shape="rect" id="node14" href="$allvars_8h.html" title="declares global variables. " alt="" coords="255,271,325,298"/>
+<area shape="rect" id="node22" href="$system_8h.html" title="system.h" alt="" coords="67,344,143,371"/>
+<area shape="rect" id="node23" href="$mymalloc_8h.html" title="mymalloc.h" alt="" coords="118,378,207,404"/>
+<area shape="rect" id="node15" href="$cosmology_8h.html" title="cosmology.h" alt="" coords="180,389,276,416"/>
+<area shape="rect" id="node17" href="$walltime_8h.html" title="walltime.h" alt="" coords="253,378,335,404"/>
+<area shape="rect" id="node19" href="$physconst_8h.html" title="physconst.h" alt="" coords="348,293,441,320"/>
+<area shape="rect" id="node20" href="$types_8h.html" title="types.h" alt="" coords="385,231,450,257"/>
+<area shape="rect" id="node24" href="$memory_8h.html" title="memory.h" alt="" coords="90,468,170,495"/>
+</map>

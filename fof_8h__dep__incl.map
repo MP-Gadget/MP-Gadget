@@ -1,0 +1,9 @@
+<map id="fof.h" name="fof.h">
+<area shape="rect" id="node2" href="$blackhole_8c.html" title="routines for gas accretion onto black holes, and black hole mergers " alt="" coords="169,57,257,84"/>
+<area shape="rect" id="node3" href="$fof_8c.html" title="parallel FoF group finder " alt="" coords="124,5,172,32"/>
+<area shape="rect" id="node4" href="$fofpetaio_8c.html" title="fofpetaio.c" alt="" coords="25,24,108,51"/>
+<area shape="rect" id="node5" href="$init_8c.html" title="code for initialisation of a simulation from initial conditions " alt="" coords="5,99,56,126"/>
+<area shape="rect" id="node6" href="$io_8c.html" title="Output of a snapshot file to disk. " alt="" coords="45,174,88,201"/>
+<area shape="rect" id="node7" href="$main_8c.html" title="start of the program " alt="" coords="117,193,179,219"/>
+<area shape="rect" id="node8" href="$run_8c.html" title="iterates over timesteps, main loop " alt="" coords="188,141,238,167"/>
+</map>

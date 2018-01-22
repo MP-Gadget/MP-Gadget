@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -76,6 +70,16 @@ $(function() {
 </div><!--header-->
 <div class="contents">
 <div class="textblock"><code>#include &quot;bigfile.h&quot;</code><br />
+</div><div class="textblock"><div class="dynheader">
+Include dependency graph for petaio.h:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="petaio_8h__incl.svg" width="175" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+</div><div class="textblock"><div class="dynheader">
+This graph shows which files directly or indirectly include this file:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="petaio_8h__dep__incl.svg" width="243" height="230"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
 </div>
 <p><a href="petaio_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -717,7 +721,12 @@ Variables</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l00609"></a><span class="lineno">  609</span>&#160;                                                                                  {</div><div class="line"><a name="l00610"></a><span class="lineno">  610</span>&#160;    <span class="keywordtype">size_t</span> dims[2];</div><div class="line"><a name="l00611"></a><span class="lineno">  611</span>&#160;    ptrdiff_t strides[2];</div><div class="line"><a name="l00612"></a><span class="lineno">  612</span>&#160;    <span class="keywordtype">int</span> elsize = dtype_itemsize(ent-&gt;<a class="code" href="structIOTableEntry.html#a76dbf5bd339f62204ec9af6edff35f2b">dtype</a>);</div><div class="line"><a name="l00613"></a><span class="lineno">  613</span>&#160;</div><div class="line"><a name="l00614"></a><span class="lineno">  614</span>&#160;    dims[0] = localsize;</div><div class="line"><a name="l00615"></a><span class="lineno">  615</span>&#160;    dims[1] = ent-&gt;<a class="code" href="structIOTableEntry.html#a2cd7cf3c7b9731be73d16e80ed389e21">items</a>;</div><div class="line"><a name="l00616"></a><span class="lineno">  616</span>&#160;    strides[1] = elsize;</div><div class="line"><a name="l00617"></a><span class="lineno">  617</span>&#160;    strides[0] = elsize * ent-&gt;<a class="code" href="structIOTableEntry.html#a2cd7cf3c7b9731be73d16e80ed389e21">items</a>;</div><div class="line"><a name="l00618"></a><span class="lineno">  618</span>&#160;    <span class="keywordtype">char</span> * buffer = <a class="code" href="mymalloc_8h.html#a3eb707b32b6ac69f2df085e4bc098cc4">mymalloc</a>(<span class="stringliteral">&quot;IOBUFFER&quot;</span>, dims[0] * dims[1] * elsize);</div><div class="line"><a name="l00619"></a><span class="lineno">  619</span>&#160;</div><div class="line"><a name="l00620"></a><span class="lineno">  620</span>&#160;    big_array_init(array, buffer, ent-&gt;<a class="code" href="structIOTableEntry.html#a76dbf5bd339f62204ec9af6edff35f2b">dtype</a>, 2, dims, strides);</div><div class="line"><a name="l00621"></a><span class="lineno">  621</span>&#160;}</div><div class="ttc" id="mymalloc_8h_html_a3eb707b32b6ac69f2df085e4bc098cc4"><div class="ttname"><a href="mymalloc_8h.html#a3eb707b32b6ac69f2df085e4bc098cc4">mymalloc</a></div><div class="ttdeci">#define mymalloc(name, size)</div><div class="ttdef"><b>Definition:</b> <a href="mymalloc_8h_source.html#l00012">mymalloc.h:12</a></div></div>
 <div class="ttc" id="structIOTableEntry_html_a76dbf5bd339f62204ec9af6edff35f2b"><div class="ttname"><a href="structIOTableEntry.html#a76dbf5bd339f62204ec9af6edff35f2b">IOTableEntry::dtype</a></div><div class="ttdeci">char dtype[8]</div><div class="ttdef"><b>Definition:</b> <a href="petaio_8h_source.html#l00013">petaio.h:13</a></div></div>
 <div class="ttc" id="structIOTableEntry_html_a2cd7cf3c7b9731be73d16e80ed389e21"><div class="ttname"><a href="structIOTableEntry.html#a2cd7cf3c7b9731be73d16e80ed389e21">IOTableEntry::items</a></div><div class="ttdeci">int items</div><div class="ttdef"><b>Definition:</b> <a href="petaio_8h_source.html#l00014">petaio.h:14</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="petaio_8h_a807144b5059bd3247ddec9ec7135c822_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a598cad7b60c0fe58c18e03f5b15b8a48"></a>
@@ -769,7 +778,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="allvars_8h_html_a889ec205c635b219999c761b28cc39ba"><div class="ttname"><a href="allvars_8h.html#a889ec205c635b219999c761b28cc39ba">omp_get_thread_num</a></div><div class="ttdeci">#define omp_get_thread_num()</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00034">allvars.h:34</a></div></div>
 <div class="ttc" id="structIOTableEntry_html_ac571725e2d3247c7e038821bca7bf87f"><div class="ttname"><a href="structIOTableEntry.html#ac571725e2d3247c7e038821bca7bf87f">IOTableEntry::getter</a></div><div class="ttdeci">property_getter getter</div><div class="ttdef"><b>Definition:</b> <a href="petaio_8h_source.html#l00016">petaio.h:16</a></div></div>
 <div class="ttc" id="petaio_8c_html_aafe1fe998e7ca93a780ad69be4d061dc"><div class="ttname"><a href="petaio_8c.html#aafe1fe998e7ca93a780ad69be4d061dc">petaio_alloc_buffer</a></div><div class="ttdeci">void petaio_alloc_buffer(BigArray *array, IOTableEntry *ent, int64_t localsize)</div><div class="ttdef"><b>Definition:</b> <a href="petaio_8c_source.html#l00609">petaio.c:609</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="petaio_8h_a598cad7b60c0fe58c18e03f5b15b8a48_cgraph.svg" width="423" height="370"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="petaio_8h_a598cad7b60c0fe58c18e03f5b15b8a48_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ad13d20d78ff834f5005e68ad11d228e3"></a>
@@ -826,7 +845,12 @@ Variables</h2></td></tr>
 <p class="reference">Referenced by <a class="el" href="fofpetaio_8c_source.html#l00046">fof_save_particles()</a>, and <a class="el" href="petaio_8c_source.html#l00232">petaio_save_internal()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00104"></a><span class="lineno">  104</span>&#160;{</div><div class="line"><a name="l00105"></a><span class="lineno">  105</span>&#160;    <span class="keywordtype">int</span> i;</div><div class="line"><a name="l00106"></a><span class="lineno">  106</span>&#160;    ptype_offset[0] = 0;</div><div class="line"><a name="l00107"></a><span class="lineno">  107</span>&#160;    ptype_count[0] = 0;</div><div class="line"><a name="l00108"></a><span class="lineno">  108</span>&#160;</div><div class="line"><a name="l00109"></a><span class="lineno">  109</span>&#160;    <span class="keywordflow">for</span>(i = 0; i &lt; NumPart; i ++) {</div><div class="line"><a name="l00110"></a><span class="lineno">  110</span>&#160;        <span class="keywordflow">if</span>((select_func == NULL) || (select_func(i) != 0)) {</div><div class="line"><a name="l00111"></a><span class="lineno">  111</span>&#160;            <span class="keywordtype">int</span> <a class="code" href="structIOTableEntry.html#ab5ee266f94a60e5b12aab7c40b267c87">ptype</a> = <a class="code" href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a>[i].Type;</div><div class="line"><a name="l00112"></a><span class="lineno">  112</span>&#160;            ptype_count[<a class="code" href="structIOTableEntry.html#ab5ee266f94a60e5b12aab7c40b267c87">ptype</a>] ++;</div><div class="line"><a name="l00113"></a><span class="lineno">  113</span>&#160;        }</div><div class="line"><a name="l00114"></a><span class="lineno">  114</span>&#160;    }</div><div class="line"><a name="l00115"></a><span class="lineno">  115</span>&#160;    <span class="keywordflow">for</span>(i = 1; i &lt; 6; i ++) {</div><div class="line"><a name="l00116"></a><span class="lineno">  116</span>&#160;        ptype_offset[i] = ptype_offset[i-1] + ptype_count[i-1];</div><div class="line"><a name="l00117"></a><span class="lineno">  117</span>&#160;        ptype_count[i-1] = 0;</div><div class="line"><a name="l00118"></a><span class="lineno">  118</span>&#160;    }</div><div class="line"><a name="l00119"></a><span class="lineno">  119</span>&#160;</div><div class="line"><a name="l00120"></a><span class="lineno">  120</span>&#160;    ptype_count[5] = 0;</div><div class="line"><a name="l00121"></a><span class="lineno">  121</span>&#160;    <span class="keywordflow">for</span>(i = 0; i &lt; NumPart; i ++) {</div><div class="line"><a name="l00122"></a><span class="lineno">  122</span>&#160;        <span class="keywordtype">int</span> <a class="code" href="structIOTableEntry.html#ab5ee266f94a60e5b12aab7c40b267c87">ptype</a> = <a class="code" href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a>[i].Type;</div><div class="line"><a name="l00123"></a><span class="lineno">  123</span>&#160;        <span class="keywordflow">if</span>((select_func == NULL) || (select_func(i) != 0)) {</div><div class="line"><a name="l00124"></a><span class="lineno">  124</span>&#160;            selection[ptype_offset[<a class="code" href="structIOTableEntry.html#ab5ee266f94a60e5b12aab7c40b267c87">ptype</a>] + ptype_count[<a class="code" href="structIOTableEntry.html#ab5ee266f94a60e5b12aab7c40b267c87">ptype</a>]] = i;</div><div class="line"><a name="l00125"></a><span class="lineno">  125</span>&#160;            ptype_count[<a class="code" href="structIOTableEntry.html#ab5ee266f94a60e5b12aab7c40b267c87">ptype</a>]++;</div><div class="line"><a name="l00126"></a><span class="lineno">  126</span>&#160;        }</div><div class="line"><a name="l00127"></a><span class="lineno">  127</span>&#160;    }</div><div class="line"><a name="l00128"></a><span class="lineno">  128</span>&#160;}</div><div class="ttc" id="partmanager_8h_html_a2748566f4c443ee77aa831e63dbb5ebe"><div class="ttname"><a href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a></div><div class="ttdeci">#define P</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8h_source.html#l00099">partmanager.h:99</a></div></div>
 <div class="ttc" id="structIOTableEntry_html_ab5ee266f94a60e5b12aab7c40b267c87"><div class="ttname"><a href="structIOTableEntry.html#ab5ee266f94a60e5b12aab7c40b267c87">IOTableEntry::ptype</a></div><div class="ttdeci">int ptype</div><div class="ttdef"><b>Definition:</b> <a href="petaio_8h_source.html#l00012">petaio.h:12</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="petaio_8h_ad13d20d78ff834f5005e68ad11d228e3_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a00bc8b1ba2ab1de94d983b08b14580c7"></a>
@@ -851,7 +875,12 @@ Variables</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="fofpetaio_8c_source.html#l00046">fof_save_particles()</a>, <a class="el" href="petaio_8c_source.html#l00278">petaio_read_internal()</a>, and <a class="el" href="petaio_8c_source.html#l00232">petaio_save_internal()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00675"></a><span class="lineno">  675</span>&#160;                                             {</div><div class="line"><a name="l00676"></a><span class="lineno">  676</span>&#160;    <a class="code" href="mymalloc_8h.html#af469c2f7e504a771f5d8a91ac9623240">myfree</a>(array-&gt;data);</div><div class="line"><a name="l00677"></a><span class="lineno">  677</span>&#160;}</div><div class="ttc" id="mymalloc_8h_html_af469c2f7e504a771f5d8a91ac9623240"><div class="ttname"><a href="mymalloc_8h.html#af469c2f7e504a771f5d8a91ac9623240">myfree</a></div><div class="ttdeci">#define myfree(x)</div><div class="ttdef"><b>Definition:</b> <a href="mymalloc_8h_source.html#l00016">mymalloc.h:16</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="petaio_8h_a00bc8b1ba2ab1de94d983b08b14580c7_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a2398ab5c3e8c8475d7c625fcac182c5b"></a>
@@ -880,7 +909,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="endrun_8c_html_a6567cd867c5549fb6586e19ccd819764"><div class="ttname"><a href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a></div><div class="ttdeci">void message(int where, const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="endrun_8c_source.html#l00226">endrun.c:226</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
 <div class="ttc" id="structglobal__data__all__processes_html_aa4facc4127e087413d9c89494c61f699"><div class="ttname"><a href="structglobal__data__all__processes.html#aa4facc4127e087413d9c89494c61f699">global_data_all_processes::AggregatedIOThreshold</a></div><div class="ttdeci">size_t AggregatedIOThreshold</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00177">allvars.h:177</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="petaio_8h_a2398ab5c3e8c8475d7c625fcac182c5b_cgraph.svg" width="612" height="490"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="petaio_8h_a2398ab5c3e8c8475d7c625fcac182c5b_icgraph.svg" width="122" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a375e118ac0a9723ee7a157edc2d1e1ed"></a>
@@ -931,7 +970,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structIOTableEntry_html_abd017805b410e444ec76f0633c530ea4"><div class="ttname"><a href="structIOTableEntry.html#abd017805b410e444ec76f0633c530ea4">IOTableEntry::required</a></div><div class="ttdeci">int required</div><div class="ttdef"><b>Definition:</b> <a href="petaio_8h_source.html#l00015">petaio.h:15</a></div></div>
 <div class="ttc" id="structglobal__data__all__processes_html_a8c3cca19887372015be491f6110daab4"><div class="ttname"><a href="structglobal__data__all__processes.html#a8c3cca19887372015be491f6110daab4">global_data_all_processes::IO</a></div><div class="ttdeci">struct global_data_all_processes::@0 IO</div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="petaio_8h_a375e118ac0a9723ee7a157edc2d1e1ed_cgraph.svg" width="388" height="287"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="petaio_8h_a375e118ac0a9723ee7a157edc2d1e1ed_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="ac7b533afc766345881d11628147375db"></a>
@@ -963,7 +1012,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="endrun_8c_html_a6567cd867c5549fb6586e19ccd819764"><div class="ttname"><a href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a></div><div class="ttdeci">void message(int where, const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="endrun_8c_source.html#l00226">endrun.c:226</a></div></div>
 <div class="ttc" id="utils-string_8c_html_a787c3b0717214d830c69b7e8785a3e33"><div class="ttname"><a href="utils-string_8c.html#a787c3b0717214d830c69b7e8785a3e33">fastpm_strdup_printf</a></div><div class="ttdeci">char * fastpm_strdup_printf(const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="utils-string_8c_source.html#l00070">utils-string.c:70</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="petaio_8h_ac7b533afc766345881d11628147375db_cgraph.svg" width="571" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="petaio_8h_ac7b533afc766345881d11628147375db_icgraph.svg" width="146" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a3dd52bd7a320fa9ef1c7963d060ae4ec"></a>
@@ -1001,7 +1060,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="utils-string_8c_html_a787c3b0717214d830c69b7e8785a3e33"><div class="ttname"><a href="utils-string_8c.html#a787c3b0717214d830c69b7e8785a3e33">fastpm_strdup_printf</a></div><div class="ttdeci">char * fastpm_strdup_printf(const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="utils-string_8c_source.html#l00070">utils-string.c:70</a></div></div>
 <div class="ttc" id="partmanager_8c_html_a6cef44682776e476d8f9f1b9e1f9fe16"><div class="ttname"><a href="partmanager_8c.html#a6cef44682776e476d8f9f1b9e1f9fe16">PartManager</a></div><div class="ttdeci">struct part_manager_type PartManager[1]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00009">partmanager.c:9</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="petaio_8h_a3dd52bd7a320fa9ef1c7963d060ae4ec_cgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="petaio_8h_a3dd52bd7a320fa9ef1c7963d060ae4ec_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="acfbe2137aa21a8042aadf9c8621212f9"></a>
@@ -1040,7 +1109,12 @@ Variables</h2></td></tr>
 <div class="ttc" id="structIOTableEntry_html_ab5ee266f94a60e5b12aab7c40b267c87"><div class="ttname"><a href="structIOTableEntry.html#ab5ee266f94a60e5b12aab7c40b267c87">IOTableEntry::ptype</a></div><div class="ttdeci">int ptype</div><div class="ttdef"><b>Definition:</b> <a href="petaio_8h_source.html#l00012">petaio.h:12</a></div></div>
 <div class="ttc" id="structpart__manager__type_html_ae19becfa10cbd680504de1eb3577cb75"><div class="ttname"><a href="structpart__manager__type.html#ae19becfa10cbd680504de1eb3577cb75">part_manager_type::NumPart</a></div><div class="ttdeci">int NumPart</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8h_source.html#l00093">partmanager.h:93</a></div></div>
 <div class="ttc" id="partmanager_8c_html_a6cef44682776e476d8f9f1b9e1f9fe16"><div class="ttname"><a href="partmanager_8c.html#a6cef44682776e476d8f9f1b9e1f9fe16">PartManager</a></div><div class="ttdeci">struct part_manager_type PartManager[1]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00009">partmanager.c:9</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="petaio_8h_acfbe2137aa21a8042aadf9c8621212f9_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a8d4abd78b70e4a1dfbed5db05cd89073"></a>
@@ -1091,7 +1165,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="endrun_8c_html_a6567cd867c5549fb6586e19ccd819764"><div class="ttname"><a href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a></div><div class="ttdeci">void message(int where, const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="endrun_8c_source.html#l00226">endrun.c:226</a></div></div>
 <div class="ttc" id="structglobal__data__all__processes_html_a1e7e2402c5b2f40a4f496f91ffa843b6"><div class="ttname"><a href="structglobal__data__all__processes.html#a1e7e2402c5b2f40a4f496f91ffa843b6">global_data_all_processes::MinNumWriters</a></div><div class="ttdeci">int MinNumWriters</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00175">allvars.h:175</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="petaio_8h_a8d4abd78b70e4a1dfbed5db05cd89073_cgraph.svg" width="384" height="310"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="petaio_8h_a8d4abd78b70e4a1dfbed5db05cd89073_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a3cafe68cc20536a835f9e31febee2a7f"></a>
@@ -1144,7 +1228,17 @@ Variables</h2></td></tr>
 <p class="reference">Referenced by <a class="el" href="io_8c_source.html#l00050">dump_snapshot()</a>, <a class="el" href="runtests_8c_source.html#l00027">runtests()</a>, and <a class="el" href="io_8c_source.html#l00056">write_snapshot()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;{</div><div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;    va_list va;</div><div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;    va_start(va, fmt);</div><div class="line"><a name="l00065"></a><span class="lineno">   65</span>&#160;</div><div class="line"><a name="l00066"></a><span class="lineno">   66</span>&#160;    <span class="keywordtype">char</span> fname[4096];</div><div class="line"><a name="l00067"></a><span class="lineno">   67</span>&#160;    vsprintf(fname, fmt, va);</div><div class="line"><a name="l00068"></a><span class="lineno">   68</span>&#160;    va_end(va);</div><div class="line"><a name="l00069"></a><span class="lineno">   69</span>&#160;    <a class="code" href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a>(0, <span class="stringliteral">&quot;saving snapshot into %s\n&quot;</span>, fname);</div><div class="line"><a name="l00070"></a><span class="lineno">   70</span>&#160;</div><div class="line"><a name="l00071"></a><span class="lineno">   71</span>&#160;    <a class="code" href="petaio_8c.html#a9b867bd3e997c113f67500b40a7aa593">petaio_save_internal</a>(fname);</div><div class="line"><a name="l00072"></a><span class="lineno">   72</span>&#160;}</div><div class="ttc" id="petaio_8c_html_a9b867bd3e997c113f67500b40a7aa593"><div class="ttname"><a href="petaio_8c.html#a9b867bd3e997c113f67500b40a7aa593">petaio_save_internal</a></div><div class="ttdeci">static void petaio_save_internal(char *fname)</div><div class="ttdef"><b>Definition:</b> <a href="petaio_8c_source.html#l00232">petaio.c:232</a></div></div>
 <div class="ttc" id="endrun_8c_html_a6567cd867c5549fb6586e19ccd819764"><div class="ttname"><a href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a></div><div class="ttdeci">void message(int where, const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="endrun_8c_source.html#l00226">endrun.c:226</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="petaio_8h_a91ff9324adbdc5b2652db62e161042b8_cgraph.svg" width="654" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="petaio_8h_a91ff9324adbdc5b2652db62e161042b8_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>

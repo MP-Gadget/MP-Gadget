@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -71,7 +65,12 @@ $(function() {
 <div class="title">timefac.h File Reference</div>  </div>
 </div><!--header-->
 <div class="contents">
-
+<div class="textblock"><div class="dynheader">
+This graph shows which files directly or indirectly include this file:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="timefac_8h__dep__incl.svg" width="251" height="220"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+</div>
 <p><a href="timefac_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
 <tr class="heading"><td colspan="2"><h2 class="groupheader"><a name="func-members"></a>
@@ -112,7 +111,7 @@ Functions</h2></td></tr>
       </table>
 </div><div class="memdoc">
 <p>This function integrates the cosmological prefactor for a drift step between ti0 and ti1. The value returned is </p><p class="formulaDsp">
-\[ \int_{a_0}^{a_1} \frac{{\rm d}a}{H(a) a^3} \]
+<img class="formulaDsp" alt="\[ \int_{a_0}^{a_1} \frac{{\rm d}a}{H(a) a^3} \]" src="form_3.png"/>
 </p>
 <p>A lookup-table is used for reasons of speed. </p>
 
@@ -126,7 +125,17 @@ Functions</h2></td></tr>
 <div class="ttc" id="timefac_8c_html_aa94ea01b7d2d7826276c3ea00031461a"><div class="ttname"><a href="timefac_8c.html#aa94ea01b7d2d7826276c3ea00031461a">df_last_value</a></div><div class="ttdeci">static double df_last_value</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00031">timefac.c:31</a></div></div>
 <div class="ttc" id="timefac_8c_html_a80676cda1f667e6db67211d5951dd546"><div class="ttname"><a href="timefac_8c.html#a80676cda1f667e6db67211d5951dd546">df_last_ti1</a></div><div class="ttdeci">static inttime_t df_last_ti1</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00030">timefac.c:30</a></div></div>
 <div class="ttc" id="timefac_8c_html_a506e019cee2e6b7dde2156ef11513155"><div class="ttname"><a href="timefac_8c.html#a506e019cee2e6b7dde2156ef11513155">df_last_ti0</a></div><div class="ttdeci">static inttime_t df_last_ti0</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00030">timefac.c:30</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="timefac_8h_a2ba6a28833c81ebf383c159da3597f1b_cgraph.svg" width="464" height="378"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="timefac_8h_a2ba6a28833c81ebf383c159da3597f1b_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a04f496d2bb899efbf6bcd34c606906bd"></a>
@@ -165,7 +174,17 @@ Functions</h2></td></tr>
 <div class="ttc" id="timefac_8c_html_ac0b7889f7d718de48aa7f5af2a01c85a"><div class="ttname"><a href="timefac_8c.html#ac0b7889f7d718de48aa7f5af2a01c85a">gk_last_ti1</a></div><div class="ttdeci">static inttime_t gk_last_ti1</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00038">timefac.c:38</a></div></div>
 <div class="ttc" id="timefac_8c_html_a6821c579370313dd41f0f81e8c0b7304"><div class="ttname"><a href="timefac_8c.html#a6821c579370313dd41f0f81e8c0b7304">find_bin_number</a></div><div class="ttdeci">int find_bin_number(inttime_t ti0, double *rem)</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00115">timefac.c:115</a></div></div>
 <div class="ttc" id="timefac_8c_html_a7b07789e53724549342301e343fb2f78"><div class="ttname"><a href="timefac_8c.html#a7b07789e53724549342301e343fb2f78">gk_last_value</a></div><div class="ttdeci">static double gk_last_value</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00039">timefac.c:39</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="timefac_8h_a04f496d2bb899efbf6bcd34c606906bd_cgraph.svg" width="478" height="378"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="timefac_8h_a04f496d2bb899efbf6bcd34c606906bd_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a9d78f344a7de7062087825becb1f403a"></a>
@@ -204,7 +223,17 @@ Functions</h2></td></tr>
 <div class="ttc" id="timefac_8c_html_a60a80f149c7faa89ed3b7dfec0e404c8"><div class="ttname"><a href="timefac_8c.html#a60a80f149c7faa89ed3b7dfec0e404c8">hk_last_value</a></div><div class="ttdeci">static double hk_last_value</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00035">timefac.c:35</a></div></div>
 <div class="ttc" id="timefac_8c_html_a6821c579370313dd41f0f81e8c0b7304"><div class="ttname"><a href="timefac_8c.html#a6821c579370313dd41f0f81e8c0b7304">find_bin_number</a></div><div class="ttdeci">int find_bin_number(inttime_t ti0, double *rem)</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00115">timefac.c:115</a></div></div>
 <div class="ttc" id="timefac_8c_html_ae951e842d5fd78a5bbe8e347995fe525"><div class="ttname"><a href="timefac_8c.html#ae951e842d5fd78a5bbe8e347995fe525">hk_last_ti0</a></div><div class="ttdeci">static inttime_t hk_last_ti0</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00034">timefac.c:34</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="timefac_8h_a9d78f344a7de7062087825becb1f403a_cgraph.svg" width="482" height="378"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="timefac_8h_a9d78f344a7de7062087825becb1f403a_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a1468eaf9ef1cf0a635ba6af56313074b"></a>
@@ -255,7 +284,17 @@ Functions</h2></td></tr>
 <div class="ttc" id="timefac_8c_html_ae951e842d5fd78a5bbe8e347995fe525"><div class="ttname"><a href="timefac_8c.html#ae951e842d5fd78a5bbe8e347995fe525">hk_last_ti0</a></div><div class="ttdeci">static inttime_t hk_last_ti0</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00034">timefac.c:34</a></div></div>
 <div class="ttc" id="timefac_8c_html_a80676cda1f667e6db67211d5951dd546"><div class="ttname"><a href="timefac_8c.html#a80676cda1f667e6db67211d5951dd546">df_last_ti1</a></div><div class="ttdeci">static inttime_t df_last_ti1</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00030">timefac.c:30</a></div></div>
 <div class="ttc" id="timefac_8c_html_a506e019cee2e6b7dde2156ef11513155"><div class="ttname"><a href="timefac_8c.html#a506e019cee2e6b7dde2156ef11513155">df_last_ti0</a></div><div class="ttdeci">static inttime_t df_last_ti0</div><div class="ttdef"><b>Definition:</b> <a href="timefac_8c_source.html#l00030">timefac.c:30</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="timefac_8h_a1468eaf9ef1cf0a635ba6af56313074b_cgraph.svg" width="662" height="468"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="timefac_8h_a1468eaf9ef1cf0a635ba6af56313074b_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 </div><!-- contents -->

@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -77,6 +71,16 @@ $(function() {
 <div class="textblock"><code>#include &lt;pthread.h&gt;</code><br />
 <code>#include &quot;<a class="el" href="types_8h_source.html">types.h</a>&quot;</code><br />
 <code>#include &quot;<a class="el" href="peano_8h_source.html">peano.h</a>&quot;</code><br />
+</div><div class="textblock"><div class="dynheader">
+Include dependency graph for partmanager.h:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="partmanager_8h__incl.svg" width="116" height="518"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+</div><div class="textblock"><div class="dynheader">
+This graph shows which files directly or indirectly include this file:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="partmanager_8h__dep__incl.svg" width="592" height="422"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
 </div>
 <p><a href="partmanager_8h_source.html">Go to the source code of this file.</a></p>
 <table class="memberdecls">
@@ -158,7 +162,12 @@ Variables</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l00107"></a><span class="lineno">  107</span>&#160;{</div><div class="line"><a name="l00108"></a><span class="lineno">  108</span>&#160;    <span class="keywordflow">if</span> (<a class="code" href="partmanager_8h.html#a41e2e1215589b1aaac0a819a8ba070a9">GravitySofteningTable</a>[0] == 0 &amp;&amp; <a class="code" href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a>[i].<a class="code" href="structparticle__data.html#a9f7b267932648c5b555b16ef1727e902">Type</a> == 0) {</div><div class="line"><a name="l00109"></a><span class="lineno">  109</span>&#160;        <span class="keywordflow">return</span> <a class="code" href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a>[i].Hsml;</div><div class="line"><a name="l00110"></a><span class="lineno">  110</span>&#160;    } <span class="keywordflow">else</span> {</div><div class="line"><a name="l00111"></a><span class="lineno">  111</span>&#160;        <span class="comment">/* Force is newtonian beyond this.*/</span></div><div class="line"><a name="l00112"></a><span class="lineno">  112</span>&#160;        <span class="keywordflow">return</span> 2.8 * <a class="code" href="partmanager_8h.html#a41e2e1215589b1aaac0a819a8ba070a9">GravitySofteningTable</a>[<a class="code" href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a>[i].Type];</div><div class="line"><a name="l00113"></a><span class="lineno">  113</span>&#160;    }</div><div class="line"><a name="l00114"></a><span class="lineno">  114</span>&#160;}</div><div class="ttc" id="partmanager_8h_html_a2748566f4c443ee77aa831e63dbb5ebe"><div class="ttname"><a href="partmanager_8h.html#a2748566f4c443ee77aa831e63dbb5ebe">P</a></div><div class="ttdeci">#define P</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8h_source.html#l00099">partmanager.h:99</a></div></div>
 <div class="ttc" id="partmanager_8h_html_a41e2e1215589b1aaac0a819a8ba070a9"><div class="ttname"><a href="partmanager_8h.html#a41e2e1215589b1aaac0a819a8ba070a9">GravitySofteningTable</a></div><div class="ttdeci">double GravitySofteningTable[6]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00012">partmanager.c:12</a></div></div>
 <div class="ttc" id="structparticle__data_html_a9f7b267932648c5b555b16ef1727e902"><div class="ttname"><a href="structparticle__data.html#a9f7b267932648c5b555b16ef1727e902">particle_data::Type</a></div><div class="ttdeci">unsigned int Type</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8h_source.html#l00028">partmanager.h:28</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="partmanager_8h_a75af6ed4098fb6fbcc96a532b6e1bd11_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <a id="a7d7c32365264f550b4bbeeac5b98f42f"></a>
@@ -190,7 +199,17 @@ Variables</h2></td></tr>
 <div class="ttc" id="structpart__manager__type_html_ae19becfa10cbd680504de1eb3577cb75"><div class="ttname"><a href="structpart__manager__type.html#ae19becfa10cbd680504de1eb3577cb75">part_manager_type::NumPart</a></div><div class="ttdeci">int NumPart</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8h_source.html#l00093">partmanager.h:93</a></div></div>
 <div class="ttc" id="endrun_8c_html_a6567cd867c5549fb6586e19ccd819764"><div class="ttname"><a href="endrun_8c.html#a6567cd867c5549fb6586e19ccd819764">message</a></div><div class="ttdeci">void message(int where, const char *fmt,...)</div><div class="ttdef"><b>Definition:</b> <a href="endrun_8c_source.html#l00226">endrun.c:226</a></div></div>
 <div class="ttc" id="partmanager_8c_html_a6cef44682776e476d8f9f1b9e1f9fe16"><div class="ttname"><a href="partmanager_8c.html#a6cef44682776e476d8f9f1b9e1f9fe16">PartManager</a></div><div class="ttdeci">struct part_manager_type PartManager[1]</div><div class="ttdef"><b>Definition:</b> <a href="partmanager_8c_source.html#l00009">partmanager.c:9</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="partmanager_8h_a7d7c32365264f550b4bbeeac5b98f42f_cgraph.svg" width="388" height="287"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><div class="zoom"><iframe scrolling="no" frameborder="0" src="partmanager_8h_a7d7c32365264f550b4bbeeac5b98f42f_icgraph.svg" width="100%" height="600"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div></div>
+</div>
+
 </div>
 </div>
 <h2 class="groupheader">Variable Documentation</h2>

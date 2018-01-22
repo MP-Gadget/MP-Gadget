@@ -1,0 +1,8 @@
+<map id="init_timebins" name="init_timebins">
+<area shape="rect" id="node2" href="$proto_8h.html#ab080cb20bac2a1a6153a84e8cfd15374" title="init" alt="" coords="41,101,80,128"/>
+<area shape="rect" id="node3" href="$proto_8h.html#a74dc0e5e9eefe11fc8434b62de573146" title="begrun" alt="" coords="30,197,91,224"/>
+<area shape="rect" id="node4" href="$main_8c.html#a3c04138a5bfe5d72780bb7e82a18e627" title="main" alt="" coords="35,293,86,320"/>
+<area shape="rect" id="node5" href="$walltime_8h.html#a76d2135b612766d4d665748454b879d6" title="walltime_report" alt="" coords="5,581,116,608"/>
+<area shape="rect" id="node6" href="$run_8c.html#adc59e9ee1517e4e690694a64ab6a59d2" title="write_cpu_log" alt="" coords="9,485,112,512"/>
+<area shape="rect" id="node7" href="$run_8c.html#a05e0ffe612d44e6d7f3a9ae5b9df56a2" title="run" alt="" coords="41,389,81,416"/>
+</map>

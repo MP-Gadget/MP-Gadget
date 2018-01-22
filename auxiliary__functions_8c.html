@@ -12,12 +12,6 @@
 <link href="search/search.css" rel="stylesheet" type="text/css"/>
 <script type="text/javascript" src="search/searchdata.js"></script>
 <script type="text/javascript" src="search/search.js"></script>
-<script type="text/x-mathjax-config">
-  MathJax.Hub.Config({
-    extensions: ["tex2jax.js"],
-    jax: ["input/TeX","output/HTML-CSS"],
-});
-</script><script type="text/javascript" src="http://cdn.mathjax.org/mathjax/latest/MathJax.js"></script>
 <link href="doxygen.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -523,7 +517,17 @@ Functions</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l00062"></a><span class="lineno">   62</span>&#160;{</div><div class="line"><a name="l00063"></a><span class="lineno">   63</span>&#160;  <span class="keywordflow">return</span> (Particle-&gt;d.Density * <a class="code" href="allvars_8h.html#a67abaa49a5aa2892eba705d380652279">HYDROGEN_MASSFRAC</a> * <a class="code" href="auxiliary__functions_8c.html#a9d3db0c9152e9175af7f378a24de5e16">IonizationGrade</a>(Particle) / <a class="code" href="auxiliary__functions_8c.html#a4da22cb76511008562d997c7a7dcb6fd">m_p</a>);</div><div class="line"><a name="l00064"></a><span class="lineno">   64</span>&#160;}</div><div class="ttc" id="auxiliary__functions_8c_html_a4da22cb76511008562d997c7a7dcb6fd"><div class="ttname"><a href="auxiliary__functions_8c.html#a4da22cb76511008562d997c7a7dcb6fd">m_p</a></div><div class="ttdeci">#define m_p</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00020">auxiliary_functions.c:20</a></div></div>
 <div class="ttc" id="allvars_8h_html_a67abaa49a5aa2892eba705d380652279"><div class="ttname"><a href="allvars_8h.html#a67abaa49a5aa2892eba705d380652279">HYDROGEN_MASSFRAC</a></div><div class="ttdeci">#define HYDROGEN_MASSFRAC</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00058">allvars.h:58</a></div></div>
 <div class="ttc" id="auxiliary__functions_8c_html_a9d3db0c9152e9175af7f378a24de5e16"><div class="ttname"><a href="auxiliary__functions_8c.html#a9d3db0c9152e9175af7f378a24de5e16">IonizationGrade</a></div><div class="ttdeci">static double IonizationGrade(SphParticle *Particle)</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00055">auxiliary_functions.c:55</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_ae41752a8a9fb9886dfc8413050bd318b_cgraph.svg" width="255" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_ae41752a8a9fb9886dfc8413050bd318b_icgraph.svg" width="192" height="230"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a8c19ee75677b35306b324fd42419c164"></a>
@@ -557,7 +561,12 @@ Functions</h2></td></tr>
 <p class="reference">Referenced by <a class="el" href="auxiliary__functions_8c_source.html#l00095">Physical_NumberDensity()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00090"></a><span class="lineno">   90</span>&#160;{</div><div class="line"><a name="l00091"></a><span class="lineno">   91</span>&#160;  <span class="keywordflow">return</span> (Particle-&gt;d.Density * (3.0 * <a class="code" href="allvars_8h.html#a67abaa49a5aa2892eba705d380652279">HYDROGEN_MASSFRAC</a> + 1.0) / (4.0 * <a class="code" href="auxiliary__functions_8c.html#a4da22cb76511008562d997c7a7dcb6fd">m_p</a>));</div><div class="line"><a name="l00092"></a><span class="lineno">   92</span>&#160;}</div><div class="ttc" id="auxiliary__functions_8c_html_a4da22cb76511008562d997c7a7dcb6fd"><div class="ttname"><a href="auxiliary__functions_8c.html#a4da22cb76511008562d997c7a7dcb6fd">m_p</a></div><div class="ttdeci">#define m_p</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00020">auxiliary_functions.c:20</a></div></div>
 <div class="ttc" id="allvars_8h_html_a67abaa49a5aa2892eba705d380652279"><div class="ttname"><a href="allvars_8h.html#a67abaa49a5aa2892eba705d380652279">HYDROGEN_MASSFRAC</a></div><div class="ttdeci">#define HYDROGEN_MASSFRAC</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00058">allvars.h:58</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_a8c19ee75677b35306b324fd42419c164_icgraph.svg" width="190" height="230"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="aa952a2752ce56a18ee0e7551947167e9"></a>
@@ -587,7 +596,12 @@ Functions</h2></td></tr>
 <p class="definition">Definition at line <a class="el" href="auxiliary__functions_8c_source.html#l00043">43</a> of file <a class="el" href="auxiliary__functions_8c_source.html">auxiliary_functions.c</a>.</p>
 
 <p class="reference">Referenced by <a class="el" href="auxiliary__functions_8c_source.html#l00120">Physical_Density()</a>, <a class="el" href="auxiliary__functions_8c_source.html#l00068">Physical_ElectronDensity()</a>, and <a class="el" href="auxiliary__functions_8c_source.html#l00095">Physical_NumberDensity()</a>.</p>
-<div class="fragment"><div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;{</div><div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;  <span class="keywordflow">return</span> (A * A * A);</div><div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;}</div></div><!-- fragment -->
+<div class="fragment"><div class="line"><a name="l00044"></a><span class="lineno">   44</span>&#160;{</div><div class="line"><a name="l00045"></a><span class="lineno">   45</span>&#160;  <span class="keywordflow">return</span> (A * A * A);</div><div class="line"><a name="l00046"></a><span class="lineno">   46</span>&#160;}</div></div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_aa952a2752ce56a18ee0e7551947167e9_icgraph.svg" width="438" height="370"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="aa4b893fe8fbb3c28627cac852ad83e52"></a>
@@ -618,7 +632,12 @@ Functions</h2></td></tr>
 
 <p class="reference">References <a class="el" href="auxiliary__functions_8c_source.html#l00068">Physical_ElectronDensity()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00084"></a><span class="lineno">   84</span>&#160;{</div><div class="line"><a name="l00085"></a><span class="lineno">   85</span>&#160;  <span class="keywordflow">return</span> <a class="code" href="auxiliary__functions_8c.html#abd995b7397e57f2f98c04c94d526636e">Physical_ElectronDensity</a>(Particle);</div><div class="line"><a name="l00086"></a><span class="lineno">   86</span>&#160;}</div><div class="ttc" id="auxiliary__functions_8c_html_abd995b7397e57f2f98c04c94d526636e"><div class="ttname"><a href="auxiliary__functions_8c.html#abd995b7397e57f2f98c04c94d526636e">Physical_ElectronDensity</a></div><div class="ttdeci">static double Physical_ElectronDensity(SphParticle *Particle)</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00068">auxiliary_functions.c:68</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_aa4b893fe8fbb3c28627cac852ad83e52_cgraph.svg" width="286" height="287"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a9d3db0c9152e9175af7f378a24de5e16"></a>
@@ -651,7 +670,12 @@ Functions</h2></td></tr>
 
 <p class="reference">Referenced by <a class="el" href="auxiliary__functions_8c_source.html#l00061">Comoving_ElectronDensity()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00056"></a><span class="lineno">   56</span>&#160;{</div><div class="line"><a name="l00057"></a><span class="lineno">   57</span>&#160;  <span class="keywordflow">return</span> (1 + <a class="code" href="allvars_8h.html#a67abaa49a5aa2892eba705d380652279">HYDROGEN_MASSFRAC</a>) / (2 * <a class="code" href="allvars_8h.html#a67abaa49a5aa2892eba705d380652279">HYDROGEN_MASSFRAC</a>); <span class="comment">/* always return full ionization */</span></div><div class="line"><a name="l00058"></a><span class="lineno">   58</span>&#160;}</div><div class="ttc" id="allvars_8h_html_a67abaa49a5aa2892eba705d380652279"><div class="ttname"><a href="allvars_8h.html#a67abaa49a5aa2892eba705d380652279">HYDROGEN_MASSFRAC</a></div><div class="ttdeci">#define HYDROGEN_MASSFRAC</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00058">allvars.h:58</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_a9d3db0c9152e9175af7f378a24de5e16_icgraph.svg" width="192" height="326"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="aef36fe4bf0c58bde1d9d65a903917dfe"></a>
@@ -686,7 +710,17 @@ Functions</h2></td></tr>
 <div class="fragment"><div class="line"><a name="l00121"></a><span class="lineno">  121</span>&#160;{</div><div class="line"><a name="l00122"></a><span class="lineno">  122</span>&#160;  <span class="keywordflow">if</span>(<a class="code" href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a>.ComovingIntegrationOn)</div><div class="line"><a name="l00123"></a><span class="lineno">  123</span>&#160;    {</div><div class="line"><a name="l00124"></a><span class="lineno">  124</span>&#160;      <span class="keywordflow">return</span> Particle-&gt;d.Density / <a class="code" href="auxiliary__functions_8c.html#aa952a2752ce56a18ee0e7551947167e9">cube</a>(<a class="code" href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a>.<a class="code" href="structglobal__data__all__processes.html#a25b9da73fdcbdc45fbe4a6ad45479f09">Time</a>);</div><div class="line"><a name="l00125"></a><span class="lineno">  125</span>&#160;    }</div><div class="line"><a name="l00126"></a><span class="lineno">  126</span>&#160;  <span class="keywordflow">else</span></div><div class="line"><a name="l00127"></a><span class="lineno">  127</span>&#160;    {</div><div class="line"><a name="l00128"></a><span class="lineno">  128</span>&#160;      <span class="keywordflow">return</span> Particle-&gt;d.Density;</div><div class="line"><a name="l00129"></a><span class="lineno">  129</span>&#160;    }</div><div class="line"><a name="l00130"></a><span class="lineno">  130</span>&#160;}</div><div class="ttc" id="structglobal__data__all__processes_html_a25b9da73fdcbdc45fbe4a6ad45479f09"><div class="ttname"><a href="structglobal__data__all__processes.html#a25b9da73fdcbdc45fbe4a6ad45479f09">global_data_all_processes::Time</a></div><div class="ttdeci">double Time</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00267">allvars.h:267</a></div></div>
 <div class="ttc" id="auxiliary__functions_8c_html_aa952a2752ce56a18ee0e7551947167e9"><div class="ttname"><a href="auxiliary__functions_8c.html#aa952a2752ce56a18ee0e7551947167e9">cube</a></div><div class="ttdeci">static double cube(double A)</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00043">auxiliary_functions.c:43</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_aef36fe4bf0c58bde1d9d65a903917dfe_cgraph.svg" width="195" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_aef36fe4bf0c58bde1d9d65a903917dfe_icgraph.svg" width="251" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="abd995b7397e57f2f98c04c94d526636e"></a>
@@ -722,7 +756,17 @@ Functions</h2></td></tr>
 <div class="ttc" id="auxiliary__functions_8c_html_aa952a2752ce56a18ee0e7551947167e9"><div class="ttname"><a href="auxiliary__functions_8c.html#aa952a2752ce56a18ee0e7551947167e9">cube</a></div><div class="ttdeci">static double cube(double A)</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00043">auxiliary_functions.c:43</a></div></div>
 <div class="ttc" id="auxiliary__functions_8c_html_ae41752a8a9fb9886dfc8413050bd318b"><div class="ttname"><a href="auxiliary__functions_8c.html#ae41752a8a9fb9886dfc8413050bd318b">Comoving_ElectronDensity</a></div><div class="ttdeci">static double Comoving_ElectronDensity(SphParticle *Particle)</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00061">auxiliary_functions.c:61</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_abd995b7397e57f2f98c04c94d526636e_cgraph.svg" width="192" height="326"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_abd995b7397e57f2f98c04c94d526636e_icgraph.svg" width="251" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a2d666a75f8ec7be19895f0e84f8be52e"></a>
@@ -754,7 +798,12 @@ Functions</h2></td></tr>
 <p class="reference">References <a class="el" href="allvars_8h_source.html#l00056">GAMMA_MINUS1</a>, and <a class="el" href="auxiliary__functions_8c_source.html#l00120">Physical_Density()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00134"></a><span class="lineno">  134</span>&#160;{</div><div class="line"><a name="l00135"></a><span class="lineno">  135</span>&#160;  <span class="keywordtype">double</span> rPhysicalDensity;</div><div class="line"><a name="l00136"></a><span class="lineno">  136</span>&#160;</div><div class="line"><a name="l00137"></a><span class="lineno">  137</span>&#160;  rPhysicalDensity = <a class="code" href="auxiliary__functions_8c.html#aef36fe4bf0c58bde1d9d65a903917dfe">Physical_Density</a>(Particle);</div><div class="line"><a name="l00138"></a><span class="lineno">  138</span>&#160;</div><div class="line"><a name="l00139"></a><span class="lineno">  139</span>&#160;  <span class="keywordflow">return</span> Particle-&gt;Entropy * pow(rPhysicalDensity, <a class="code" href="allvars_8h.html#a75216f9bf4030240b1fc0e1855e032d2">GAMMA_MINUS1</a>) / <a class="code" href="allvars_8h.html#a75216f9bf4030240b1fc0e1855e032d2">GAMMA_MINUS1</a>;</div><div class="line"><a name="l00140"></a><span class="lineno">  140</span>&#160;}</div><div class="ttc" id="auxiliary__functions_8c_html_aef36fe4bf0c58bde1d9d65a903917dfe"><div class="ttname"><a href="auxiliary__functions_8c.html#aef36fe4bf0c58bde1d9d65a903917dfe">Physical_Density</a></div><div class="ttdeci">static double Physical_Density(SphParticle *Particle)</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00120">auxiliary_functions.c:120</a></div></div>
 <div class="ttc" id="allvars_8h_html_a75216f9bf4030240b1fc0e1855e032d2"><div class="ttname"><a href="allvars_8h.html#a75216f9bf4030240b1fc0e1855e032d2">GAMMA_MINUS1</a></div><div class="ttdeci">#define GAMMA_MINUS1</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8h_source.html#l00056">allvars.h:56</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_a2d666a75f8ec7be19895f0e84f8be52e_cgraph.svg" width="174" height="230"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a60fb13403be6f7e2217c35c1ead1601c"></a>
@@ -790,7 +839,17 @@ Functions</h2></td></tr>
 <div class="ttc" id="auxiliary__functions_8c_html_aa952a2752ce56a18ee0e7551947167e9"><div class="ttname"><a href="auxiliary__functions_8c.html#aa952a2752ce56a18ee0e7551947167e9">cube</a></div><div class="ttdeci">static double cube(double A)</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00043">auxiliary_functions.c:43</a></div></div>
 <div class="ttc" id="auxiliary__functions_8c_html_a8c19ee75677b35306b324fd42419c164"><div class="ttname"><a href="auxiliary__functions_8c.html#a8c19ee75677b35306b324fd42419c164">Comoving_NumberDensity</a></div><div class="ttdeci">static double Comoving_NumberDensity(SphParticle *Particle)</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00089">auxiliary_functions.c:89</a></div></div>
 <div class="ttc" id="allvars_8c_html_ad49123ae0461ffe61629a0d4cf2ba91f"><div class="ttname"><a href="allvars_8c.html#ad49123ae0461ffe61629a0d4cf2ba91f">All</a></div><div class="ttdeci">struct global_data_all_processes All</div><div class="ttdef"><b>Definition:</b> <a href="allvars_8c_source.html#l00047">allvars.c:47</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_a60fb13403be6f7e2217c35c1ead1601c_cgraph.svg" width="190" height="230"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+<div class="dynheader">
+Here is the caller graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_a60fb13403be6f7e2217c35c1ead1601c_icgraph.svg" width="274" height="38"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a00b8f26006d4aa2010479ba18a8e5708"></a>
@@ -821,7 +880,12 @@ Functions</h2></td></tr>
 
 <p class="reference">References <a class="el" href="auxiliary__functions_8c_source.html#l00095">Physical_NumberDensity()</a>.</p>
 <div class="fragment"><div class="line"><a name="l00109"></a><span class="lineno">  109</span>&#160;{</div><div class="line"><a name="l00110"></a><span class="lineno">  110</span>&#160;  <span class="keywordflow">return</span> <a class="code" href="auxiliary__functions_8c.html#a60fb13403be6f7e2217c35c1ead1601c">Physical_NumberDensity</a>(Particle);</div><div class="line"><a name="l00111"></a><span class="lineno">  111</span>&#160;}</div><div class="ttc" id="auxiliary__functions_8c_html_a60fb13403be6f7e2217c35c1ead1601c"><div class="ttname"><a href="auxiliary__functions_8c.html#a60fb13403be6f7e2217c35c1ead1601c">Physical_NumberDensity</a></div><div class="ttdeci">static double Physical_NumberDensity(SphParticle *Particle)</div><div class="ttdef"><b>Definition:</b> <a href="auxiliary__functions_8c_source.html#l00095">auxiliary_functions.c:95</a></div></div>
-</div><!-- fragment -->
+</div><!-- fragment --><div class="dynheader">
+Here is the call graph for this function:</div>
+<div class="dyncontent">
+<div class="center"><iframe scrolling="no" frameborder="0" src="auxiliary__functions_8c_a00b8f26006d4aa2010479ba18a8e5708_cgraph.svg" width="270" height="204"><p><b>This browser is not able to show SVG: try Firefox, Chrome, Safari, or Opera instead.</b></p></iframe></div>
+</div>
+
 </div>
 </div>
 <a id="a95b3f568940ba7b8431bcd93b9ffd4a0"></a>
