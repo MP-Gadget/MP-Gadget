@@ -707,8 +707,12 @@ force_get_sibling(int sib, int j, int * suns)
  *  and all its subnodes using a recursive computation.  The result is
  *  stored in tb.Nodes in the sequence of this tree-walk.
  *
- *  The function also computes the NextNode and sibling linked lists. The return value
- *  and argument tail is the current tail of the NextNode linked list.
+ *  The function also computes the NextNode and sibling linked lists.
+ *  The return value is the current tail of the NextNode linked list.
+ *
+ *  This function is called recursively using openmp tasks.
+ *  We spawn a new task for a fixed number of levels of the tree.
+ *
  */
 static int
 force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder tb)
@@ -814,8 +818,8 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
     }
 
     /*This loop sets the next node value for the row we just computed.
-     Tails at this point contains: no, (<=8 return values of force_update_node_recursive).
-     The last entry needs to be the return value of this function.*/
+      Note that tails[i] is the next node for suns[i-1].
+      The the last tail needs to be the return value of this function.*/
     int tail = no;
     for(j = 0; j < 8; j++)
     {
@@ -832,14 +836,10 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
 }
 
 /*! This routine determines the multipole moments for a given internal node
- *  and all its subnodes in parallel, assigning the recursive algorithm to different threads.  The result is
- *  stored in tb.Nodes in the sequence of this tree-walk.
+ *  and all its subnodes in parallel, assigning the recursive algorithm to different threads using openmp's task api.
+ *  The result is stored in tb.Nodes in the sequence of this tree-walk.
  *
- *  The function also computes the NextNode and sibling linked lists. The return value
- *  and argument tail is the current tail of the NextNode linked list.
- *
- * The parallel algorithm is as follows:
- * - The tree is walked a number of levels (three by default) down from each local topleaf. Local topleaves are used
+ * - A new task is spawned from each  down from each local topleaf. Local topleaves are used
  * so that we do not waste time trying moment calculation with pseudoparticles.
  * - Each internal node found at that level is added to a list, together with its sibling.
  * - Each node in this list then has the recursive moment calculation called on it.
