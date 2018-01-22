@@ -12,3 +12,6 @@ include Makefile.rules
 #
 # Testing Rules
 include Makefile.tests
+
+# Testing Rules
+include Makefile.doxygen
