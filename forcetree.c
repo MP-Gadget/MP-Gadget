@@ -713,17 +713,6 @@ force_get_sibling(int sib, int j, int * suns)
 static int
 force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder tb)
 {
-    /* For particles and pseudo particles we have nothing to update; */
-    /* But the new tail is the last particle in the linked list. */
-    if(no < tb.firstnode || no >= tb.lastnode) {
-        int next = no;
-        while(next != -1) {
-            no = next;
-            next = force_get_next_node(next, tb);
-        }
-        return no;
-    }
-
     /*Last value of tails is the return value of this function*/
     int j, suns[8], tails[8];
     /* this "backup" is necessary because the nextnode
@@ -735,13 +724,25 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
     /*First do the children*/
     for(j = 0; j < 8; j++)
     {
-        const int p = suns[j];
+        int p = suns[j];
         /*Empty slot*/
         if(p < 0)
             continue;
-        const int nextsib = force_get_sibling(sib, j, suns);
-        #pragma omp task shared(tails) final(level > 3)
-        tails[j] = force_update_node_recursive(p, nextsib, level+1, tb);
+        /* For particles and pseudo particles we have nothing to update; */
+        /* But the new tail is the last particle in the linked list. */
+        if(p < tb.firstnode || p >= tb.lastnode) {
+            int next = p;
+            while(next != -1) {
+                p = next;
+                next = force_get_next_node(next, tb);
+            }
+            tails[j] = p;
+        }
+        else {
+            const int nextsib = force_get_sibling(sib, j, suns);
+            #pragma omp task shared(tails) final(level > 3)
+            tails[j] = force_update_node_recursive(p, nextsib, level+1, tb);
+        }
     }
 
     /*Now we do the moments*/
