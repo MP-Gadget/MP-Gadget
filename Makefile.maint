@@ -13,12 +13,15 @@ gh-pages: html
 	ghp-import -p -f html
 
 tag:
+	@echo trying to tag a release $(VERSION).
 	@if git describe --always --dirty --abbrev=10 | grep dirty ; then \
 	    echo "FAILED: version not clean, cannot tag a release." ; exit 1; \
 	else \
 	    git tag $(VERSION); \
 	    echo "Current list of tags : "; \
 	    git tag; \
+	    echo "Need to push the tag with";
+	    echo "git push origin $(VERSION)";
 	fi;
 
 sdist:
