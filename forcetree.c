@@ -711,15 +711,15 @@ force_get_sibling(int sib, int j, int * suns)
  *  and argument tail is the current tail of the NextNode linked list.
  */
 static int
-force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder *tb)
+force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder tb)
 {
     /* For particles and pseudo particles we have nothing to update; */
     /* But the new tail is the last particle in the linked list. */
-    if(no < tb->firstnode || no >= tb->lastnode) {
+    if(no < tb.firstnode || no >= tb.lastnode) {
         int next = no;
         while(next != -1) {
             no = next;
-            next = force_get_next_node(next, *tb);
+            next = force_get_next_node(next, tb);
         }
         return no;
     }
@@ -740,7 +740,7 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
         if(p < 0)
             continue;
         const int nextsib = force_get_sibling(sib, j, suns);
-        #pragma omp task shared(tb, tails, level) final(level > 3)
+        #pragma omp task shared(tails) final(level > 3)
         tails[j] = force_update_node_recursive(p, nextsib, level+1, tb);
     }
 
@@ -766,14 +766,14 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
         if(p < 0)
             continue;
 
-        if(p >= tb->lastnode)	/* a pseudo particle */
+        if(p >= tb.lastnode)	/* a pseudo particle */
         {
             /* nothing to be done here because the mass of the
              * pseudo-particle is still zero. The node attributes will be changed
              * later when we exchange the pseudo-particles.
              */
         }
-        else if(p < tb->lastnode && p >= tb->firstnode) /* a tree node */
+        else if(p < tb.lastnode && p >= tb.firstnode) /* a tree node */
         {
             Nodes[no].u.d.mass += (Nodes[p].u.d.mass);
             Nodes[no].u.d.s[0] += (Nodes[p].u.d.mass * Nodes[p].u.d.s[0]);
@@ -791,7 +791,7 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
             int next = p;
             while(next != -1) {
                 add_particle_moment_to_node(&Nodes[no], next);
-                next = force_get_next_node(next, *tb);
+                next = force_get_next_node(next, tb);
             }
         }
     }
@@ -821,10 +821,10 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
         if(suns[j] < 0)
             continue;
         /*Set NextNode for this node*/
-        if(tail < tb->firstnode && tail >= 0 && force_get_next_node(tail, *tb) != -1) {
-            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, *tb));
+        if(tail < tb.firstnode && tail >= 0 && force_get_next_node(tail, tb) != -1) {
+            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, tb));
         }
-        force_set_next_node(tail, suns[j], *tb);
+        force_set_next_node(tail, suns[j], tb);
         tail = tails[j];
     }
     return tail;
@@ -854,7 +854,7 @@ force_update_node_parallel(const struct TreeBuilder tb)
 #pragma omp parallel
 #pragma omp single nowait
     {
-        tail = force_update_node_recursive(tb.firstnode, -1, 0, &tb);
+        tail = force_update_node_recursive(tb.firstnode, -1, 0, tb);
     }
     return tail;
 }
