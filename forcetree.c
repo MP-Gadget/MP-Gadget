@@ -205,7 +205,6 @@ static void init_internal_node(struct NODE *nfreep, struct NODE *parent, int sub
     nfreep->len = 0.5 * parent->len;
     nfreep->f.TopLevel = 0;
     nfreep->f.InternalTopLevel = 0;
-    nfreep->f.MomentsDone = 0;
 
     for(j = 0; j < 3; j++) {
         /* Detect which quadrant we are in by testing the bits of subnode:
@@ -353,7 +352,6 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
         nfreep->father = -1;
         nfreep->f.TopLevel = 1;
         nfreep->f.InternalTopLevel = 0;
-        nfreep->f.MomentsDone = 0;
         nnext++;
         /* create a set of empty nodes corresponding to the top-level domain
          * grid. We need to generate these nodes first to make sure that we have a
