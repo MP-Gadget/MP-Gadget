@@ -720,11 +720,6 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
     /*Last value of tails is the return value of this function*/
     int j, suns[8], tails[8];
 
-    /* Only start spawning new tasks when we are past the top level nodes,
-     * to prevent us being overwhelmed by very short tasks pointing to pseudoparticles*/
-    if(level < 0 && Nodes[no].f.TopLevel && !Nodes[no].f.InternalTopLevel)
-        level = 1;
-
     /*Count how many internal children we have,
      *so we can keep track of how many tasks we started*/
     int chldcnt=0;
@@ -758,7 +753,7 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
             /*Don't spawn a new task if we only have one child,
              *or if we are deep enough that we already spawned a lot.
              Note: final clause is much slower for some reason. */
-            if(chldcnt > 1 && level >= 0 && level < 513) {
+            if(chldcnt > 1 && level < 513) {
                 #pragma omp task shared(tails)
                 tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tb);
             }
@@ -873,7 +868,7 @@ force_update_node_parallel(const struct TreeBuilder tb)
 #pragma omp parallel
 #pragma omp single nowait
     {
-        tail = force_update_node_recursive(tb.firstnode, -1, -1, tb);
+        tail = force_update_node_recursive(tb.firstnode, -1, 1, tb);
     }
     return tail;
 }
