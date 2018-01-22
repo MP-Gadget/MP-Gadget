@@ -1,12 +1,13 @@
 
 html: $(FILES)
-	pandoc -f rst -t markdown README.rst > README.tmp.md
-	sed -e "s;@VERSION@;$(VERSION);" \
+	@pandoc -f rst -t markdown README.rst > README.tmp.md
+	@sed -e "s;@VERSION@;$(VERSION);" \
 	    -e "s;@MAINPAGE@;README.tmp.md;" \
 	    -e "s;@DOT@;$(PWD)/dot;" \
 	       Doxyfile.in > Doxyfile
-	doxygen Doxyfile
-	rm -rf README.tmp.md Doxyfile
+	@doxygen Doxyfile
+	@rm -rf README.tmp.md Doxyfile
+	@echo x-ref source code generated. Start from file://$(PWD)/html/index.html
 
 gh-pages: html
 	ghp-import -p -f html
