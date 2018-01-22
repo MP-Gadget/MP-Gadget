@@ -20,8 +20,8 @@ tag:
 	    git tag $(VERSION); \
 	    echo "Current list of tags : "; \
 	    git tag; \
-	    echo "Need to push the tag with";
-	    echo "git push origin $(VERSION)";
+	    echo "Need to push the tag with"; \
+	    echo "git push origin $(VERSION)"; \
 	fi;
 
 sdist:
