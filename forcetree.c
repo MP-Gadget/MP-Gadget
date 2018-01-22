@@ -719,16 +719,22 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
 {
     /*Last value of tails is the return value of this function*/
     int j, suns[8], tails[8];
-    /* this "backup" is necessary because the nextnode
-     * entry will overwrite one element (union!) */
-    for(j = 0; j < 8; j++) {
-        suns[j] = Nodes[no].u.suns[j];
-    }
 
     /* Only start spawning new tasks when we are past the top level nodes,
      * to prevent us being overwhelmed by very short tasks pointing to pseudoparticles*/
     if(level < 0 && Nodes[no].f.TopLevel && !Nodes[no].f.InternalTopLevel)
-        level = 0;
+        level = 1;
+
+    /*Count how many internal children we have,
+     *so we can keep track of how many tasks we started*/
+    int chldcnt=0;
+    /* this "backup" is necessary because the nextnode
+     * entry will overwrite one element (union!) */
+    for(j = 0; j < 8; j++) {
+        suns[j] = Nodes[no].u.suns[j];
+        if(suns[j] >= tb.firstnode && suns[j] < tb.lastnode)
+            chldcnt++;
+    }
 
     /*First do the children*/
     for(j = 0; j < 8; j++)
@@ -749,9 +755,12 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
         }
         else {
             const int nextsib = force_get_sibling(sib, j, suns);
-            if(level >= 0) {
-                #pragma omp task shared(tails) final(level > 3)
-                tails[j] = force_update_node_recursive(p, nextsib, level+1, tb);
+            /*Don't spawn a new task if we only have one child,
+             *or if we are deep enough that we already spawned a lot.
+             Note: final clause is much slower for some reason. */
+            if(chldcnt > 1 && level >= 0 && level < 513) {
+                #pragma omp task shared(tails)
+                tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tb);
             }
             else
                 tails[j] = force_update_node_recursive(p, nextsib, level, tb);
