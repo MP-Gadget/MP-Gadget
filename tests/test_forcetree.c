@@ -109,6 +109,7 @@ static int check_moments(const struct TreeBuilder tb, const int numpart, const i
     }
     int node = tb.firstnode;
     int counter = 0;
+    int sibcntr = 0;
     while(node >= 0) {
         assert_true(node >= -1 && node < tb.lastnode);
         int next = force_get_next_node(node,tb);
@@ -132,6 +133,9 @@ static int check_moments(const struct TreeBuilder tb, const int numpart, const i
                 assert_int_equal(ances, sfather);
 /*                 printf("node %d ances %d sib %d next %d father %d sfather %d\n",node, ances, sib, force_get_next_node(node, tb), father, sfather); */
             }
+            else if(sib == -1)
+                sibcntr++;
+
             if(!(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5)) {
                 printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g MSN %d ITL %d\n", 
                     node, node - tb.firstnode, Nodes[node].u.d.mass, oldmass[node - tb.firstnode],
@@ -156,6 +160,7 @@ static int check_moments(const struct TreeBuilder tb, const int numpart, const i
         node = next;
     }
     assert_int_equal(counter, nrealnode);
+    assert(sibcntr < counter/100);
 
     free(oldmass);
     return nrealnode;
