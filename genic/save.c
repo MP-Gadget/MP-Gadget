@@ -93,6 +93,7 @@ void saveheader(BigFile * bf, int64_t TotNumPart, int64_t TotNuPart, double nufr
             (big_block_set_attr(&bheader, "BoxSize", &Box, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UsePeculiarVelocity", &UsePeculiarVelocity, "i4", 1)) ||
             (big_block_set_attr(&bheader, "Omega0", &CP.Omega0, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "FractionNuInParticles", &nufrac, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaBaryon", &CP.OmegaBaryon, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaLambda", &CP.OmegaLambda, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitLength_in_cm", &UnitLength_in_cm, "f8", 1)) ||
