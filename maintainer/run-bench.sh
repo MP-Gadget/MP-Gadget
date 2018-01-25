@@ -8,10 +8,11 @@
 
 code=$1
 suite=$2
+jobscript=$3
 
 if [ "x$2" == "x" ]; then
     echo usage $0 code suite
-    echo example: $0 coriknl-xxxxxxxx dm-50-512
+    echo example: $0 coriknl-xxxxxxxx dm-50-512 job.coriknl
     echo suite must be declared in benchmarks directory and code must have
     echo been created by build-MPGadget.sh
 fi
@@ -32,16 +33,7 @@ mkdir -p $logdir
 
 (cd $codedir/benchmarks; bash gen-bench.sh $suite $prefix/$suite)
 
+export prefix suite logdir code jobscript
 
-sbatch -A m3058 --qos premium  -t 30:00\
-    -n 128\
-    -o $logdir/${code}-${suite}.o%j \
-    <<EOF
-#! /bin/bash
-    cd $prefix/$suite
-
-    export OMP_NUM_THREADS=2 
-    srun -n 64 $codedir/build/MP-GenIC paramfile.genic
-    srun -n 64 $codedir/build/MP-Gadget paramfile.gadget
-    cp cpu.txt $logdir/${code}-${suite}.o${SLURM_ARRAY_JOB_ID}.cpu.txt
-EOF
+cat $prefix/$suite/$jobscript | sbatch -A m3058 --qos premium $C \
+    -o $logdir/${code}-${suite}-${jobscript}.o%j

@@ -1,0 +1,11 @@
+#! /bin/bash
+#SBATCH -n 1024
+#SBATCH -t 30:00 
+#SBATCH -C knl
+
+cd $prefix/$suite
+
+export OMP_NUM_THREADS=4
+srun -n 256 $codedir/build/MP-GenIC paramfile.genic
+srun -n 256 $codedir/build/MP-Gadget paramfile.gadget
+cp cpu.txt $logdir/${code}-${suite}.o${SLURM_ARRAY_JOB_ID}.cpu.txt
