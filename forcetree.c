@@ -687,7 +687,7 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
 
 /*Get the sibling of a node, using the suns array. Only to be used in the tree build, before update_node_recursive is called.*/
 static int
-force_get_sibling(int sib, int j, int * suns)
+force_get_sibling(const int sib, const int j, const int * suns)
 {
     /* check if we have a sibling on the same level */
     int jj;
@@ -752,7 +752,7 @@ force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder
              *or if we are deep enough that we already spawned a lot.
              Note: final clause is much slower for some reason. */
             if(chldcnt > 1 && level < 513) {
-                #pragma omp task shared(tails)
+                #pragma omp task default(none) shared(tails, level, chldcnt) firstprivate(j, nextsib, p)
                 tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tb);
             }
             else
