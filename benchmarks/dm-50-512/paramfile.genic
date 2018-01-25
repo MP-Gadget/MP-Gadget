@@ -1,0 +1,34 @@
+OutputDir = @PREFIX@ # Directory for output
+FileBase = IC              # Base-filename of output files
+
+Ngrid = 512
+
+BoxSize = 50.0   # Periodic box size of simulation
+
+Omega0 = 0.2814      # Total matter density  (at z=0)
+OmegaLambda = 0.7186      # Cosmological constant (at z=0)
+OmegaBaryon = 0.0464     # Baryon density        (at z=0)
+ProduceGas = 0         # 0 is dm only. 1 is gas
+HubbleParam = 0.697      # Hubble paramater (may be used for power spec parameterization)
+
+Redshift = 99        # Starting redshift
+
+Sigma8 = 0.810      # power spectrum normalization
+
+WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
+# "2" selects a tabulated power spectrum in
+# the file 'FileWithInputSpectrum'
+# otherwise, Eisenstein & Hu parametrization is used
+
+FileWithInputSpectrum = @PREFIX@/powerspectrum-wmap9.txt  # filename of tabulated input
+# spectrum (if used)
+InputSpectrum_UnitLength_in_cm = 3.085678e24 # defines length unit of tabulated
+# input spectrum in cm/h. 
+# Note: This can be chosen different from UnitLength_in_cm
+
+Seed = 181170    #  seed for IC-generator
+
+UnitLength_in_cm = 3.085678e24   # defines length unit of output (in cm/h) 
+UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)
+UnitVelocity_in_cm_per_s = 1e5 # defines velocity unit of output (in cm/sec)
+
