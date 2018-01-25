@@ -58,7 +58,19 @@ int main(int argc, char **argv)
   if(0 != big_file_mpi_create(&bf, buf, MPI_COMM_WORLD)) {
       endrun(0, "%s\n", big_file_get_error_message());
   }
-  saveheader(&bf, TotNumPart);
+  /*Massive neutrinos*/
+
+  const int64_t TotNu = (int64_t) NGridNu*NGridNu*NGridNu;
+  double total_nufrac = 0;
+  if(TotNu > 0) {
+    const double kBMNu = 3*CP.ONu.kBtnu / (CP.MNu[0]+CP.MNu[1]+CP.MNu[2]);
+    double v_th = NU_V0(InitTime, kBMNu, UnitVelocity_in_cm_per_s);
+    if(!UsePeculiarVelocity)
+        v_th /= sqrt(InitTime);
+    total_nufrac = init_thermalvel(v_th, Max_nuvel/v_th, 0);
+    message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(InitTime), Max_nuvel*sqrt(InitTime), total_nufrac);
+  }
+  saveheader(&bf, TotNumPart, TotNu, total_nufrac);
   /*Use 'total' (CDM + baryon) transfer function
    * unless DifferentTransferFunctions are on.
    * Note that massive neutrinos, if present,
@@ -83,16 +95,9 @@ int main(int argc, char **argv)
   }
   /*Now add random velocity neutrino particles*/
   if(NGridNu > 0) {
-      const int64_t TotNu = (int64_t) NGridNu*NGridNu*NGridNu;
-      const double kBMNu = 3*CP.ONu.kBtnu / (CP.MNu[0]+CP.MNu[1]+CP.MNu[2]);
-      double v_th = NU_V0(InitTime, kBMNu, UnitVelocity_in_cm_per_s);
-      if(!UsePeculiarVelocity)
-          v_th /= sqrt(InitTime);
-      const double total_frac = init_thermalvel(v_th, Max_nuvel/v_th, 0);
       int i;
-      message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(InitTime), Max_nuvel*sqrt(InitTime), total_frac);
       setup_grid(shift_nu, TotNu);
-      for(i = 0; i< TotNu; i++)
+      for(i = 0; i < TotNu; i++)
           add_thermal_speeds(P[i].Vel);
       write_particle_data(2,&bf);
       free_ffts();

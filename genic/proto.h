@@ -6,7 +6,7 @@ void   displacement_fields(int Type);
 void   setup_grid(double shift, int64_t FirstID);
 void   free_ffts(void);
 
-void saveheader(BigFile * bf, int64_t TotNumPart);
+void saveheader(BigFile * bf, int64_t TotNumPart, int64_t TotNuPart, double nufrac);
 void  write_particle_data(int Type, BigFile * bf);
 
 void  read_parameterfile(char *fname);
