@@ -129,13 +129,12 @@ void fof_fof()
     MPI_Type_contiguous(sizeof(Group[0]), MPI_BYTE, &MPI_TYPE_GROUP);
     MPI_Type_commit(&MPI_TYPE_GROUP);
 
-    message(0, "Begin to compute FoF group catalogues...  (presently allocated=%g MB)\n",
+    message(0, "Begin to compute FoF group catalogues. (allocated: %g MB)\n",
             AllocatedBytes / (1024.0 * 1024.0));
 
     walltime_measure("/Misc");
 
-    message(0, "Comoving linking length: %g    ", All.FOFHaloComovingLinkingLength);
-    message(0, "(presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
+    message(0, "Comoving linking length: %g\n", All.FOFHaloComovingLinkingLength);
 
     HaloLabel = (struct fof_particle_list *) mymalloc("HaloLabel", PartManager->NumPart * sizeof(struct fof_particle_list));
 
