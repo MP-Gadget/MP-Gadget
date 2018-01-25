@@ -88,8 +88,11 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
         transfers[j] = atof(retval);
     }
     /*Order of the transfer table matches the particle types:
-     * 0 is baryons, 1 is CDM, 2 is CMB + baryons.
-     * Everything is a ratio against tot*/
+     * 0 is baryons, 1 is CDM, 2 is CMB + baryons, 3 is massive neutrinos.
+     * Everything is a ratio against tot.
+     * In the input CAMB file 0 is CDM, 1 is baryons, 2 is photons,
+     * 3 is massless neutrinos, 4 is massive neutrinos, 5 is total,
+     * 6 is cdm + baryons.*/
     out_tab->logD[0][i] = pow(transfers[1]/transfers[5],2);
     out_tab->logD[1][i] = pow(transfers[0]/transfers[5],2);
     out_tab->logD[2][i] = pow(transfers[4]/transfers[5],2);
