@@ -1,0 +1,48 @@
+# off-tree build into $(DESTDIR)
+DESTDIR  = build/
+
+#Uncomment below to specify default options
+
+MPICC       =   cc
+MPICXX       =   CC
+
+#
+#
+# For GCC add -mpc64 if IEEE 64bit FP is desired.
+OPTIMIZE =  -fopenmp -O3 -g -Wall -ffast-math -march=knl
+
+GSL_INCL = -I$(GSL_DIR)/include
+GSL_LIBS = $(GSL) -lmvec -lmvec_nonshared
+
+#
+#--------------------------------------- Basic operation mode of code
+OPT += -DDENSITY_INDEPENDENT_SPH
+#OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
+OPT += -DPETAPM_ORDER=1  # order of finite differentiation kernel 1 is same as gadget
+#OPT += VALGRIND  # allow debugging with valgrind, disable the GADGET memory allocator.
+
+# flags shall that always be there they need to be cleaned up
+OPT += -DOPENMP_USE_SPINLOCK
+OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
+
+#--------------------------------------- Multi-Domain and Top-Level Tree options
+OPT	+=  -DTOPNODEFACTOR=5.0
+
+
+#--------------------------------------- Things that are always recommended
+#OPT	+=  -DCPUSPEEDADJUSTMENT
+#OPT	+=  -DHYDRO_COST_FACTOR=1000
+
+#--------------------------------------- SFR/feedback model
+# most of the sfr modes are controled in paramfile (which needs a overhaul too!)
+OPT	+=  -DSFR
+OPT	+=  -DMETALS
+OPT	+=  -DWINDS
+
+
+#-------------------------------------- AGN stuff
+OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
+
+#-------------------------------------------- Things for special behaviour
+OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
+OPT	+=  -DINHOMOG_GASDISTR_HINT         # if the gas is distributed very different from collisionless particles, this can helps to avoid problems in the domain decomposition -- increase All.MaxPartSph
