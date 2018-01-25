@@ -22,7 +22,7 @@ static double PrimordialIndex;
 static double UnitLength_in_cm;
 static Cosmology * CP;
 
-#define MAXCOLS 3
+#define MAXCOLS 4
 
 struct table
 {
@@ -92,7 +92,8 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
      * Everything is a ratio against tot*/
     out_tab->logD[0][i] = pow(transfers[1]/transfers[5],2);
     out_tab->logD[1][i] = pow(transfers[0]/transfers[5],2);
-    out_tab->logD[2][i] = pow(transfers[6]/transfers[5],2);
+    out_tab->logD[2][i] = pow(transfers[4]/transfers[5],2);
+    out_tab->logD[3][i] = pow(transfers[6]/transfers[5],2);
 }
 
 void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, double scale, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, double scale))

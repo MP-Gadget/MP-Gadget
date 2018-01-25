@@ -73,10 +73,10 @@ int main(int argc, char **argv)
   saveheader(&bf, TotNumPart, TotNu, total_nufrac);
   /*Use 'total' (CDM + baryon) transfer function
    * unless DifferentTransferFunctions are on.
-   * Note that massive neutrinos, if present,
-   * will be followed elsewhere.*/
-  int DMType = 2, GasType = 2;
+   */
+  int DMType = 3, GasType = 3, NuType = 3;
   if(ProduceGas && DifferentTransferFunctions) {
+      NuType = 2;
       DMType = 1;
       GasType = 0;
   }
@@ -97,6 +97,7 @@ int main(int argc, char **argv)
   if(NGridNu > 0) {
       int i;
       setup_grid(shift_nu, TotNu);
+      displacement_fields(NuType);
       for(i = 0; i < TotNu; i++)
           add_thermal_speeds(P[i].Vel);
       write_particle_data(2,&bf);
