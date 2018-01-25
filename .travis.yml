@@ -21,7 +21,7 @@ before_install:
 
 install:
     - sh bootstrap.sh
-    - cp Options.mk.travis Options.mk
+    - cp platform-options/Options.mk.travis Options.mk
     - make depends
     - make
 

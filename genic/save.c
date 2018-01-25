@@ -58,13 +58,14 @@ void write_particle_data(int Type, BigFile * bf) {
     walltime_measure("/Write");
 }
 
-void saveheader(BigFile * bf, int64_t TotNumPart) {
+void saveheader(BigFile * bf, int64_t TotNumPart, int64_t TotNuPart, double nufrac) {
     BigBlock bheader;
     if(0 != big_file_mpi_create_block(bf, &bheader, "Header", NULL, 0, 0, 0, MPI_COMM_WORLD)) {
         endrun(0, "failed to create block %s:%s", "Header",
                 big_file_get_error_message());
     }
 
+    const double OmegatoMass = 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3);
     int64_t totnumpart[6] = {0};
     double mass[6] = {0};
     totnumpart[1] = TotNumPart;
@@ -74,9 +75,15 @@ void saveheader(BigFile * bf, int64_t TotNumPart) {
         mass[0] = (CP.OmegaBaryon) * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3) / TotNumPart;
         OmegaCDM -= CP.OmegaBaryon;
     }
-    if(CP.MNu[0] + CP.MNu[1] + CP.MNu[2] > 0)
-        OmegaCDM -= get_omega_nu(&CP.ONu, 1);
-    mass[1] = OmegaCDM * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3) / TotNumPart;
+    if(CP.MNu[0] + CP.MNu[1] + CP.MNu[2] > 0) {
+        double OmegaNu = get_omega_nu(&CP.ONu, 1);
+        OmegaCDM -= OmegaNu;
+        if(TotNuPart > 0) {
+            totnumpart[2] = TotNuPart;
+            mass[2] = nufrac * OmegaNu * OmegatoMass / totnumpart[2];
+        }
+    }
+    mass[1] = OmegaCDM * OmegatoMass / TotNumPart;
     double redshift = 1.0 / InitTime - 1.;
 
     int rt =(0 != big_block_set_attr(&bheader, "TotNumPart", totnumpart, "i8", 6)) ||
@@ -86,6 +93,7 @@ void saveheader(BigFile * bf, int64_t TotNumPart) {
             (big_block_set_attr(&bheader, "BoxSize", &Box, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UsePeculiarVelocity", &UsePeculiarVelocity, "i4", 1)) ||
             (big_block_set_attr(&bheader, "Omega0", &CP.Omega0, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "FractionNuInParticles", &nufrac, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaBaryon", &CP.OmegaBaryon, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaLambda", &CP.OmegaLambda, "f8", 1)) ||
             (big_block_set_attr(&bheader, "UnitLength_in_cm", &UnitLength_in_cm, "f8", 1)) ||
