@@ -1,7 +1,8 @@
 #  Relevant files
 InitCondFile = @PREFIX@/IC
 OutputDir = @PREFIX@
-OutputList = 0.1,0.15, 0.2, 0.299,0.3,0.33333
+OutputList = 0.1,0.15 
+#, 0.2, 0.299,0.3,0.33333
 
 # Mesh size (in general should be set to 2xNgrid in IC)
 Nmesh = 1024
