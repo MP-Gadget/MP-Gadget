@@ -1,0 +1,11 @@
+--- class_public-2.6.1.old/include/common.h	2017-11-22 00:49:28.000000000 -0800
++++ class_public-2.6.1/include/common.h	2017-11-22 00:49:40.000000000 -0800
+@@ -27,7 +27,7 @@
+ #define _ERRORMSGSIZE_ 2048 /**< generic error messages are cut beyond this number of characters */
+ typedef char ErrorMsg[_ERRORMSGSIZE_]; /**< Generic error messages (there is such a field in each structure) */
+ 
+-#define _FILENAMESIZE_ 256 /**< size of the string read in each line of the file (extra characters not taken into account) */
++#define _FILENAMESIZE_ 512 /**< size of the string read in each line of the file (extra characters not taken into account) */
+ typedef char FileName[_FILENAMESIZE_];
+ 
+ #define _PI_ 3.1415926535897932384626433832795e0 /**< The number pi */
