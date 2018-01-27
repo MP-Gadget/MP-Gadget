@@ -62,12 +62,13 @@ int main(int argc, char **argv)
 
   const int64_t TotNu = (int64_t) NGridNu*NGridNu*NGridNu;
   double total_nufrac = 0;
+  struct thermalvel nu_therm;
   if(TotNu > 0) {
     const double kBMNu = 3*CP.ONu.kBtnu / (CP.MNu[0]+CP.MNu[1]+CP.MNu[2]);
     double v_th = NU_V0(InitTime, kBMNu, UnitVelocity_in_cm_per_s);
     if(!UsePeculiarVelocity)
         v_th /= sqrt(InitTime);
-    total_nufrac = init_thermalvel(v_th, Max_nuvel/v_th, 0);
+    total_nufrac = init_thermalvel(&nu_therm, v_th, Max_nuvel/v_th, 0);
     message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(InitTime), Max_nuvel*sqrt(InitTime), total_nufrac);
   }
   saveheader(&bf, TotNumPart, TotNu, total_nufrac);
@@ -86,6 +87,18 @@ int main(int argc, char **argv)
   write_particle_data(1, &bf);
   free_ffts();
 
+  /*Add a thermal velocity to WDM particles*/
+  if(WDM_therm_mass > 0){
+      int i;
+      double v_th = WDM_V0(InitTime, WDM_therm_mass, CP.Omega0 - CP.OmegaBaryon - get_omega_nu(&CP.ONu, 1), CP.HubbleParam, UnitVelocity_in_cm_per_s);
+      if(!UsePeculiarVelocity)
+         v_th /= sqrt(InitTime);
+      struct thermalvel WDM;
+      init_thermalvel(&WDM, v_th, 10000/v_th, 0);
+      for(i = 0; i < NumPart; i++)
+          add_thermal_speeds(&WDM, P[i].Vel);
+  }
+
   /*Now make the gas if required*/
   if(ProduceGas) {
     setup_grid(shift_gas, TotNumPart);
@@ -99,7 +112,7 @@ int main(int argc, char **argv)
       setup_grid(shift_nu, TotNu);
       displacement_fields(NuType);
       for(i = 0; i < NumPart; i++)
-          add_thermal_speeds(P[i].Vel);
+          add_thermal_speeds(&nu_therm, P[i].Vel);
       write_particle_data(2,&bf);
       free_ffts();
   }

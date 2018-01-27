@@ -30,6 +30,7 @@ extern struct part_data
 
 extern double InitTime;
 extern double Max_nuvel;
+extern double WDM_therm_mass;
 
 extern char * OutputDir, * FileBase;
 extern int  NumFiles;

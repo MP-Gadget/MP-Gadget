@@ -42,6 +42,7 @@ create_parameters()
     param_declare_double(ps, "MNue", OPTIONAL, 0, "First neutrino mass in eV.");
     param_declare_double(ps, "MNum", OPTIONAL, 0, "Second neutrino mass in eV.");
     param_declare_double(ps, "MNut", OPTIONAL, 0, "Third neutrino mass in eV.");
+    param_declare_double(ps, "MWDM_therm", OPTIONAL, 0, "Assign a thermal velocity to the DM. Specifies WDM particle mass in keV.");
     param_declare_double(ps, "Max_nuvel", OPTIONAL, 5000, "Maximum neutrino velocity sampled from the F-D distribution.");
 
     param_declare_int(ps, "DifferentTransferFunctions", OPTIONAL, 0, "Use species specific transfer functions for baryon and CDM.");
@@ -100,6 +101,7 @@ void read_parameterfile(char *fname)
     CP.MNu[0] = param_get_double(ps, "MNue");
     CP.MNu[1] = param_get_double(ps, "MNum");
     CP.MNu[2] = param_get_double(ps, "MNut");
+    WDM_therm_mass = param_get_double(ps, "MWDM_therm");
     MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
     ProduceGas = param_get_int(ps, "ProduceGas");
     /*Unit system*/
