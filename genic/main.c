@@ -98,7 +98,7 @@ int main(int argc, char **argv)
       int i;
       setup_grid(shift_nu, TotNu);
       displacement_fields(NuType);
-      for(i = 0; i < TotNu; i++)
+      for(i = 0; i < NumPart; i++)
           add_thermal_speeds(P[i].Vel);
       write_particle_data(2,&bf);
       free_ffts();
