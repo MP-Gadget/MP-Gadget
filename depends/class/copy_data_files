@@ -1,0 +1,12 @@
+#! /bin/sh
+
+#
+# copy all *.dat files to install dir
+(
+    cd $1;
+    (
+        find . -type f -name "*.dat" -print0 
+        find . -type f -name "*_ref.pre" -print0 
+        find . -type f -name "*.ini" -print0 
+    ) |  xargs -0  tar cf -;
+) | tar xvf - -C $2 ;

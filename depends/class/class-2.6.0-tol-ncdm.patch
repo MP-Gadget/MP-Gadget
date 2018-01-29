@@ -1,0 +1,38 @@
+--- class_public-2.6.0.old/pk_ref.pre	2017-08-15 20:58:02.221444259 -0700
++++ class_public-2.6.0/pk_ref.pre	2017-08-18 13:34:59.153128786 -0700
+@@ -40,7 +40,8 @@
+ ncdm_fluid_approximation = 3
+ ncdm_fluid_trigger_tau_over_tau_k = 51.
+ 
+-tol_ncdm = 1.e-10
++tol_ncdm_synchronous = 1.e-10
++tol_ncdm_newtonian = 1.e-10
+ 
+ l_logstep=1.026
+ l_linstep=25
+@@ -76,4 +77,4 @@
+ l_switch_limber = 40.
+ accurate_lensing=1
+ num_mu_minus_lmax = 1000.
+-delta_l_max = 1000.
+\ No newline at end of file
++delta_l_max = 1000.
+--- class_public-2.6.0.old/cl_ref.pre	2017-08-15 20:57:57.920371607 -0700
++++ class_public-2.6.0/cl_ref.pre	2017-08-18 13:35:10.427319133 -0700
+@@ -40,7 +40,8 @@
+ ncdm_fluid_approximation = 3
+ ncdm_fluid_trigger_tau_over_tau_k = 51.
+ 
+-tol_ncdm = 1.e-10
++tol_ncdm_synchronous = 1.e-10
++tol_ncdm_newtonian = 1.e-10
+ 
+ l_logstep=1.026
+ l_linstep=25
+@@ -76,4 +77,4 @@
+ l_switch_limber = 40.
+ accurate_lensing=1
+ num_mu_minus_lmax = 1000.
+-delta_l_max = 1000.
+\ No newline at end of file
++delta_l_max = 1000.

@@ -4,6 +4,9 @@ include $(CONFIG)
 LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a lib/libpfft_omp.a
 depends: $(LIBRARIES)
 
+lib/libclass.a: Makefile
+	bash class/install_class.sh $(PWD)/class 2.6.1 $(PWD)
+
 lib/libmpsort-mpi.a: mpsort/mpsort-mpi.c
 	mkdir -p lib; \
 	mkdir -p include; \
