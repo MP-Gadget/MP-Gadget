@@ -166,7 +166,7 @@ hci_query(HCIManager * manager, HCIAction * action)
     /* Will we run out of time by the query ? highest priority.
      */
     if(hci_query_timeout(manager, &request)) {
-        message(0, "HCI: Stopping due to TimeLimitCPU, dumping a CheckPoint\n.");
+        message(0, "HCI: Stopping due to TimeLimitCPU, dumping a CheckPoint.\n");
         action->type = HCI_TIMEOUT;
         action->write_snapshot = 1;
         free(request);
