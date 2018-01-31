@@ -61,7 +61,7 @@ struct TreeBuilder
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder tb);
+force_update_node_parallel(const struct TreeBuilder tb);
 
 static void
 force_treeupdate_pseudos(int no, const struct TreeBuilder tb);
@@ -475,6 +475,7 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
     return nnext - tb.firstnode;
 }
 
+
 /*! Constructs the gravitational oct-tree.
  *
  *  The index convention for accessing tree nodes is the following: the
@@ -499,7 +500,7 @@ force_tree_build_single(const struct TreeBuilder tb, const int npart)
     force_insert_pseudo_particles(tb);
 
     /* now compute the multipole moments recursively */
-    int tail = force_update_node_recursive(tb.firstnode, -1, -1, tb);
+    int tail = force_update_node_parallel(tb);
 
     force_set_next_node(tail, -1, tb);
 
@@ -684,51 +685,83 @@ add_particle_moment_to_node(struct NODE * pnode, int i)
     force_adjust_node_softening(pnode, FORCE_SOFTENING(i), 0);
 }
 
+/*Get the sibling of a node, using the suns array. Only to be used in the tree build, before update_node_recursive is called.*/
+static int
+force_get_sibling(const int sib, const int j, const int * suns)
+{
+    /* check if we have a sibling on the same level */
+    int jj;
+    int nextsib = sib;
+    for(jj = j + 1; jj < 8; jj++) {
+        if(suns[jj] >= 0) {
+            nextsib = suns[jj];
+            break;
+        }
+    }
+    return nextsib;
+}
+
 /*! this routine determines the multipole moments for a given internal node
  *  and all its subnodes using a recursive computation.  The result is
- *  stored in the Nodes[] structure in the sequence of this tree-walk.
+ *  stored in tb.Nodes in the sequence of this tree-walk.
  *
- *  Note that the bitflags-struct for each node is used to store in the
- *  lowest bits some special information: Bit 0 flags whether the node
- *  belongs to the top-level tree corresponding to the domain
- *  decomposition, while Bit 1 signals whether the top-level node is
- *  dependent on local mass.
+ *  The function also computes the NextNode and sibling linked lists.
+ *  The return value is the current tail of the NextNode linked list.
  *
- *  bits 2-4 give the particle type with
- *  the maximum softening among the particles in the node, and bit 5
- *  flags whether the node contains any particles with lower softening
- *  than that.
+ *  This function is called recursively using openmp tasks.
+ *  We spawn a new task for a fixed number of levels of the tree.
  *
- *  The function also concatenates the NextNode linked lists. The return value
- *  and argument tail is the current tail of the NextNode linked list.
  */
-
-int
-force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder tb)
+static int
+force_update_node_recursive(int no, int sib, int level, const struct TreeBuilder tb)
 {
-    /*Set NextNode for this node*/
-    if(tail < tb.firstnode && tail >= 0 && force_get_next_node(tail, tb) != -1) {
-        endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, tb));
-    }
-    tail = force_set_next_node(tail, no, tb);
+    /*Last value of tails is the return value of this function*/
+    int j, suns[8], tails[8];
 
-    /* For particles and pseudo particles we have nothing to update; */
-    /* But the new tail is the last particle in the linked list. */
-    if(no < tb.firstnode || no >= tb.lastnode) {
-        int next = no;
-        while(next != -1) {
-            no = next;
-            next = force_get_next_node(next, tb);
-        }
-        return no;
-    }
-
-    int j, suns[8];
+    /*Count how many internal children we have,
+     *so we can keep track of how many tasks we started*/
+    int chldcnt=0;
     /* this "backup" is necessary because the nextnode
      * entry will overwrite one element (union!) */
-    for(j = 0; j < 8; j++)
+    for(j = 0; j < 8; j++) {
         suns[j] = Nodes[no].u.suns[j];
+        if(suns[j] >= tb.firstnode && suns[j] < tb.lastnode)
+            chldcnt++;
+    }
 
+    /*First do the children*/
+    for(j = 0; j < 8; j++)
+    {
+        int p = suns[j];
+        /*Empty slot*/
+        if(p < 0)
+            continue;
+        /* For particles and pseudo particles we have nothing to update; */
+        /* But the new tail is the last particle in the linked list. */
+        if(p < tb.firstnode || p >= tb.lastnode) {
+            int next = p;
+            while(next != -1) {
+                p = next;
+                next = force_get_next_node(next, tb);
+            }
+            tails[j] = p;
+        }
+        else {
+            const int nextsib = force_get_sibling(sib, j, suns);
+            /*Don't spawn a new task if we only have one child,
+             *or if we are deep enough that we already spawned a lot.
+             Note: final clause is much slower for some reason. */
+            if(chldcnt > 1 && level < 513) {
+                #pragma omp task default(none) shared(tails, level, chldcnt) firstprivate(j, nextsib, p)
+                tails[j] = force_update_node_recursive(p, nextsib, level*chldcnt, tb);
+            }
+            else
+                tails[j] = force_update_node_recursive(p, nextsib, level, tb);
+        }
+    }
+
+    /*Now we do the moments*/
+    /*After this point the suns array is invalid!*/
     memset(&Nodes[no].u.d.s,0,3*sizeof(MyFloat));
 
     Nodes[no].u.d.mass = 0;
@@ -737,23 +770,17 @@ force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder 
     Nodes[no].f.DependsOnLocalMass = 0;
     Nodes[no].f.MixedSofteningsInNode = 0;
 
+    Nodes[no].u.d.sibling = sib;
+
+    /*Make sure all child nodes are done*/
+    #pragma omp taskwait
+
     for(j = 0; j < 8; j++)
     {
-        int nextsib = sib;
         const int p = suns[j];
-        int jj;
         /*Empty slot*/
         if(p < 0)
             continue;
-
-        /* check if we have a sibling on the same level */
-        for(jj = j + 1; jj < 8; jj++)
-            if(suns[jj] >= 0) {
-                nextsib = suns[jj];
-                break;
-            }
-
-        tail = force_update_node_recursive(p, nextsib, tail, tb);
 
         if(p >= tb.lastnode)	/* a pseudo particle */
         {
@@ -785,6 +812,7 @@ force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder 
         }
     }
 
+    /*Set the center of mass moments*/
     const double mass = Nodes[no].u.d.mass;
     if(mass)
     {
@@ -800,13 +828,48 @@ force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder 
         Nodes[no].u.d.s[2] = Nodes[no].center[2];
     }
 
-    Nodes[no].u.d.sibling = sib;
-
+    /*This loop sets the next node value for the row we just computed.
+      Note that tails[i] is the next node for suns[i-1].
+      The the last tail needs to be the return value of this function.*/
+    int tail = no;
+    for(j = 0; j < 8; j++)
+    {
+        if(suns[j] < 0)
+            continue;
+        /*Set NextNode for this node*/
+        if(tail < tb.firstnode && tail >= 0 && force_get_next_node(tail, tb) != -1) {
+            endrun(2,"Particle %d with tail %d already has tail set: %d\n",no, tail, force_get_next_node(tail, tb));
+        }
+        force_set_next_node(tail, suns[j], tb);
+        tail = tails[j];
+    }
     return tail;
 }
 
-
-
+/*! This routine determines the multipole moments for a given internal node
+ *  and all its subnodes in parallel, assigning the recursive algorithm to different threads using openmp's task api.
+ *  The result is stored in tb.Nodes in the sequence of this tree-walk.
+ *
+ * - A new task is spawned from each  down from each local topleaf. Local topleaves are used
+ * so that we do not waste time trying moment calculation with pseudoparticles.
+ * - Each internal node found at that level is added to a list, together with its sibling.
+ * - Each node in this list then has the recursive moment calculation called on it.
+ * Note: If the tree is very unbalanced and one branch much deeper than the others, this will not be efficient.
+ * - Once each tree's recursive moment is generated in parallel, the tail value from each recursion is stored, and the node marked as done.
+ * - A final recursive moment calculation is run in serial for the top 3 levels of the tree. When it encounters one of the pre-computed nodes, it
+ * searches the list of pre-computed tail values to set the next node as if it had recursed and continues.
+ */
+int
+force_update_node_parallel(const struct TreeBuilder tb)
+{
+    int tail;
+#pragma omp parallel
+#pragma omp single nowait
+    {
+        tail = force_update_node_recursive(tb.firstnode, -1, 1, tb);
+    }
+    return tail;
+}
 
 /*! This function communicates the values of the multipole moments of the
  *  top-level tree-nodes of the domain grid.  This data can then be used to
@@ -858,7 +921,7 @@ void force_exchange_pseudodata(void)
         }
     }
 
-    /* share the pseudo-particle data accross CPUs */
+    /* share the pseudo-particle data across CPUs */
 
     recvcounts = (int *) mymalloc("recvcounts", sizeof(int) * NTask);
     recvoffset = (int *) mymalloc("recvoffset", sizeof(int) * NTask);

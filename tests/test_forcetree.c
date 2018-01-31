@@ -24,7 +24,7 @@ struct TreeBuilder
 force_treeallocate(int maxnodes, int maxpart, int first_node_offset);
 
 int
-force_update_node_recursive(int no, int sib, int tail, const struct TreeBuilder tb);
+force_update_node_parallel(const struct TreeBuilder tb);
 
 /*Used data from All and domain*/
 struct part_manager_type PartManager[1] = {{0}};
@@ -109,6 +109,7 @@ static int check_moments(const struct TreeBuilder tb, const int numpart, const i
     }
     int node = tb.firstnode;
     int counter = 0;
+    int sibcntr = 0;
     while(node >= 0) {
         assert_true(node >= -1 && node < tb.lastnode);
         int next = force_get_next_node(node,tb);
@@ -132,6 +133,9 @@ static int check_moments(const struct TreeBuilder tb, const int numpart, const i
                 assert_int_equal(ances, sfather);
 /*                 printf("node %d ances %d sib %d next %d father %d sfather %d\n",node, ances, sib, force_get_next_node(node, tb), father, sfather); */
             }
+            else if(sib == -1)
+                sibcntr++;
+
             if(!(Nodes[node].u.d.mass < 0.5 && Nodes[node].u.d.mass > -0.5)) {
                 printf("node %d (%d) mass %g / %g TL %d DLM %d MS %g MSN %d ITL %d\n", 
                     node, node - tb.firstnode, Nodes[node].u.d.mass, oldmass[node - tb.firstnode],
@@ -156,6 +160,7 @@ static int check_moments(const struct TreeBuilder tb, const int numpart, const i
         node = next;
     }
     assert_int_equal(counter, nrealnode);
+    assert(sibcntr < counter/100);
 
     free(oldmass);
     return nrealnode;
@@ -266,7 +271,7 @@ static void do_tree_test(const int numpart, const struct TreeBuilder tb)
     int nrealnode = check_tree(tb, nodes, numpart);
     /* now compute the multipole moments recursively */
     start = MPI_Wtime();
-    int tail = force_update_node_recursive(numpart, -1, -1, tb);
+    int tail = force_update_node_parallel(tb);
     force_set_next_node(tail, -1, tb);
 /*     assert_true(tail < nodes); */
     end = MPI_Wtime();
@@ -374,6 +379,7 @@ static int setup_tree(void **state) {
     /*Set up the important parts of the All structure.*/
     /*Particles should not be outside this*/
     All.BoxSize = 8;
+    All.NumThreads = omp_get_max_threads();
     int i;
     for(i=0; i<6; i++)
         GravitySofteningTable[i] = 0.1 / 2.8;
