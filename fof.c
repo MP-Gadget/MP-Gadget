@@ -76,7 +76,7 @@ static void fof_finish_group_properties(struct Group * Group);
 static void
 fof_compile_base(struct BaseGroup * base);
 static void
-fof_compile_catalogue(struct Group * group, struct BaseGroup * base);
+fof_compile_catalogue(struct Group * group);
 static void fof_assign_grnr(struct BaseGroup * base);
 
 void fof_label_primary(void);
@@ -174,8 +174,6 @@ void fof_fof()
     /* We create the smaller 'BaseGroup' data set for this. */
     struct BaseGroup * base = (struct BaseGroup *) mymalloc("BaseGroup", sizeof(struct BaseGroup) * NgroupsExt);
 
-    Group = (struct Group *) mymalloc2("Group", sizeof(struct Group) * NgroupsExt);
-
     fof_compile_base(base);
 
     t1 = second();
@@ -188,7 +186,19 @@ void fof_fof()
 
     t0 = second();
 
-    fof_compile_catalogue(Group, base);
+    Group = (struct Group *) mymalloc2("Group", sizeof(struct Group) * NgroupsExt);
+    memset(Group, 0, sizeof(Group[0]) * NgroupsExt);
+
+    /* copy in the base properties */
+    /* at this point base group shall be sorted by MinID */
+    #pragma omp parallel for
+    for(i = 0; i < NgroupsExt; i ++) {
+        Group[i].base = base[i];
+    }
+
+    myfree(base);
+
+    fof_compile_catalogue(Group);
     t1 = second();
 
     walltime_measure("/FOF/Prop");
@@ -198,7 +208,6 @@ void fof_fof()
 
     message(0, "computation of group properties took = %g sec\n", timediff(t0, t1));
 
-    myfree(base);
     myfree(HaloLabel);
 
 }
@@ -676,18 +685,9 @@ fof_compile_base(struct BaseGroup * base)
 
 
 static void
-fof_compile_catalogue(struct Group * group, struct BaseGroup * BaseGroup)
+fof_compile_catalogue(struct Group * group)
 {
     int i, start;
-
-    memset(Group, 0, sizeof(Group[0]) * NgroupsExt);
-
-    /* copy in the base properties */
-
-    /* at this point base group shall be sorted by MinID */
-    for(i = 0; i < NgroupsExt; i ++) {
-        Group[i].base = BaseGroup[i];
-    }
 
     start = 0;
     for(i = 0; i < NgroupsExt; i++)
