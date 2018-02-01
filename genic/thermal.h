@@ -12,7 +12,6 @@ struct thermalvel
     double fermi_dirac_vel[LENGTH_FERMI_DIRAC_TABLE];
     double fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE];
     double m_vamp;
-    gsl_rng * g_rng;
     gsl_interp * fd_intp;
     gsl_interp_accel * fd_intp_acc;
 };
@@ -24,9 +23,10 @@ struct thermalvel
 double
 init_thermalvel(struct thermalvel * thermals, const double v_amp, double max_fd, const double min_fd);
 
-/*Add a randomly generated thermal speed in v_amp*(min_fd, max_fd) to a 3-velocity*/
+/*Add a randomly generated thermal speed in v_amp*(min_fd, max_fd) to a 3-velocity.
+ *Position seeds the rng.*/
 void
-add_thermal_speeds(struct thermalvel * thermals, float Vel[]);
+add_thermal_speeds(struct thermalvel * thermals, int64_t Id, float Vel[]);
 
 /*Amplitude of the random velocity for neutrinos*/
 double

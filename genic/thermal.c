@@ -49,8 +49,7 @@ init_thermalvel(struct thermalvel* thermals, const double v_amp, double max_fd,c
     int i;
     if(max_fd <= min_fd)
         endrun(1,"Thermal vel called with negative interval: %g <= %g\n", max_fd, min_fd);
-    /*Allocate random number generator*/
-    thermals->g_rng = gsl_rng_alloc(gsl_rng_mt19937);
+
     if(max_fd > MAX_FERMI_DIRAC)
         max_fd = MAX_FERMI_DIRAC;
     thermals->m_vamp = v_amp;
@@ -86,21 +85,27 @@ init_thermalvel(struct thermalvel* thermals, const double v_amp, double max_fd,c
     return total_frac;
 }
 
-/*Add a randomly generated thermal speed in v_amp*(min_fd, max_fd) to a 3-velocity*/
+/* Add a randomly generated thermal speed in v_amp*(min_fd, max_fd) to a 3-velocity.
+ * The particle Id is used as a seed for the RNG.*/
 void
-add_thermal_speeds(struct thermalvel * thermals, float Vel[])
+add_thermal_speeds(struct thermalvel * thermals, int64_t Id, float Vel[])
 {
-    const double p = gsl_rng_uniform (thermals->g_rng);
+    gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_mt19937);
+    /*Seed the random number table with the Id.*/
+    gsl_rng_set(g_rng, Id);
+
+    const double p = gsl_rng_uniform (g_rng);
     /*m_vamp multiples by the dimensional factor to get a velocity again.*/
     const double v = thermals->m_vamp * gsl_interp_eval(thermals->fd_intp,thermals->fermi_dirac_cumprob, thermals->fermi_dirac_vel, p, thermals->fd_intp_acc);
 
     /*Random phase*/
-    const double phi = 2 * M_PI * gsl_rng_uniform (thermals->g_rng);
-    const double theta = acos(2 * gsl_rng_uniform (thermals->g_rng) - 1);
+    const double phi = 2 * M_PI * gsl_rng_uniform (g_rng);
+    const double theta = acos(2 * gsl_rng_uniform (g_rng) - 1);
 
     Vel[0] = v * sin(theta) * cos(phi);
     Vel[1] = v * sin(theta) * sin(phi);
     Vel[2] = v * cos(theta);
+    gsl_rng_free(g_rng);
 }
 
 
