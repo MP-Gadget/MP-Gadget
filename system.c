@@ -121,11 +121,11 @@ double get_random_number(uint64_t id)
     return RndTable[(int)(id % RNDTABLE)];
 }
 
-void set_random_numbers(void)
+void set_random_numbers(int seed)
 {
     random_generator = gsl_rng_alloc(gsl_rng_ranlxd1);
 
-    gsl_rng_set(random_generator, 42);	/* start-up seed */
+    gsl_rng_set(random_generator, seed);	/* start-up seed */
 
     int i;
 

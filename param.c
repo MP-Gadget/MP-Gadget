@@ -283,6 +283,8 @@ create_gadget_parameter_set()
     param_declare_double(ps, "WindFreeTravelLength", OPTIONAL, 20, "");
     param_declare_double(ps, "WindFreeTravelDensFac", OPTIONAL, 0., "");
 
+    param_declare_int(ps, "RandomSeed", OPTIONAL, 42, "Random number generator initial seed. Used to form stars.");
+
     /*These parameters are Lyman alpha forest specific*/
     param_declare_double(ps, "QuickLymanAlphaProbability", OPTIONAL, 0, "Probability gas is turned directly into stars, irrespective of pressure. One is equivalent to quick lyman alpha star formation.");
     /* Enable model for helium reionisation which adds extra photo-heating to under-dense gas.
@@ -424,6 +426,8 @@ void read_parameter_file(char *fname)
         All.FOFHaloMinLength = param_get_int(ps, "FOFHaloMinLength");
         All.MinFoFMassForNewSeed = param_get_double(ps, "MinFoFMassForNewSeed");
         All.TimeBetweenSeedingSearch = param_get_double(ps, "TimeBetweenSeedingSearch");
+
+        All.RandomSeed = param_get_int(ps, "RandomSeed");
 
         All.BlackHoleOn = param_get_int(ps, "BlackHoleOn");
     #ifdef BLACK_HOLES

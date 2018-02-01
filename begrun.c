@@ -82,7 +82,7 @@ void begrun(int RestartSnapNum)
 
     long_range_init();
 
-    set_random_numbers();
+    set_random_numbers(All.RandomSeed);
 
     init(RestartSnapNum);			/* ... read in initial model */
 

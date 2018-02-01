@@ -107,7 +107,7 @@ void run(void)
 
         print_timebin_statistics(NumCurrentTiStep);
 
-        set_random_numbers();
+        set_random_numbers(All.RandomSeed + All.Ti_Current);
 
         /* update force to Ti_Current */
         compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled);

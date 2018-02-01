@@ -409,6 +409,7 @@ extern struct global_data_all_processes
     double TimeNextSeedingCheck;  /*Time for the next seed check.*/
     double TimeBetweenSeedingSearch; /*Factor to multiply TimeInit by to find the next seeding check.*/
 
+    int RandomSeed; /*Initial seed for the random number table*/
 }
 All;
 
