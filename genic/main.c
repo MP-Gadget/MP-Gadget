@@ -109,7 +109,7 @@ int main(int argc, char **argv)
   /*Now add random velocity neutrino particles*/
   if(NGridNu > 0) {
       int i;
-      setup_grid(shift_nu, TotNu);
+      setup_grid(shift_nu, 2*TotNumPart);
       displacement_fields(NuType);
       for(i = 0; i < NumPart; i++)
           add_thermal_speeds(&nu_therm, P[i].ID, P[i].Vel);
