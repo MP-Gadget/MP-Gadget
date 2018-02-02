@@ -49,7 +49,7 @@ int main(int argc, char **argv)
       shift_nu = -0.5 * (CP.Omega0 - OmegaNu) / CP.Omega0 * meanspacing;
       shift_dm = 0.5 * OmegaNu / CP.Omega0 * meanspacing;
   }
-  setup_grid(ProduceGas * shift_dm, 0);
+  setup_grid(ProduceGas * shift_dm, 0, Ngrid);
 
   /*Write the header*/
   char buf[4096];
@@ -101,7 +101,7 @@ int main(int argc, char **argv)
 
   /*Now make the gas if required*/
   if(ProduceGas) {
-    setup_grid(shift_gas, TotNumPart);
+    setup_grid(shift_gas, TotNumPart, Ngrid);
     displacement_fields(GasType);
     write_particle_data(0, &bf);
     free_ffts();
@@ -109,7 +109,7 @@ int main(int argc, char **argv)
   /*Now add random velocity neutrino particles*/
   if(NGridNu > 0) {
       int i;
-      setup_grid(shift_nu, 2*TotNumPart);
+      setup_grid(shift_nu, 2*TotNumPart, NGridNu);
       displacement_fields(NuType);
       for(i = 0; i < NumPart; i++)
           add_thermal_speeds(&nu_therm, P[i].ID, P[i].Vel);
