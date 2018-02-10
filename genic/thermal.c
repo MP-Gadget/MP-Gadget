@@ -6,6 +6,7 @@
 #include <gsl/gsl_rng.h>
 #include <assert.h>
 #include "../endrun.h"
+#include "../mymalloc.h"
 
 /*The Boltzmann constant in units of eV/K*/
 #define BOLEVK 8.61734e-5
@@ -85,15 +86,29 @@ init_thermalvel(struct thermalvel* thermals, const double v_amp, double max_fd,c
     return total_frac;
 }
 
+/*Generate a table of random seeds, one for each pencil.*/
+unsigned int *
+init_rng(int Seed, int Nmesh)
+{
+    unsigned int * seedtable = mymalloc("randseeds", Nmesh*Nmesh*sizeof(unsigned int));
+    gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
+    gsl_rng_set(rng, Seed);
+
+    int i, j;
+    for(i = 0; i < Nmesh; i++)
+        for(j=0; j < Nmesh; j++)
+        {
+            seedtable[i+Nmesh*j] = gsl_rng_get(rng);
+        }
+    gsl_rng_free(rng);
+    return seedtable;
+}
+
 /* Add a randomly generated thermal speed in v_amp*(min_fd, max_fd) to a 3-velocity.
  * The particle Id is used as a seed for the RNG.*/
 void
-add_thermal_speeds(struct thermalvel * thermals, int64_t Id, float Vel[])
+add_thermal_speeds(struct thermalvel * thermals, gsl_rng *g_rng, float Vel[])
 {
-    gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_mt19937);
-    /*Seed the random number table with the Id.*/
-    gsl_rng_set(g_rng, Id);
-
     const double p = gsl_rng_uniform (g_rng);
     /*m_vamp multiples by the dimensional factor to get a velocity again.*/
     const double v = thermals->m_vamp * gsl_interp_eval(thermals->fd_intp,thermals->fermi_dirac_cumprob, thermals->fermi_dirac_vel, p, thermals->fd_intp_acc);
@@ -105,7 +120,4 @@ add_thermal_speeds(struct thermalvel * thermals, int64_t Id, float Vel[])
     Vel[0] = v * sin(theta) * cos(phi);
     Vel[1] = v * sin(theta) * sin(phi);
     Vel[2] = v * cos(theta);
-    gsl_rng_free(g_rng);
 }
-
-

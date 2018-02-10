@@ -23,10 +23,9 @@ struct thermalvel
 double
 init_thermalvel(struct thermalvel * thermals, const double v_amp, double max_fd, const double min_fd);
 
-/*Add a randomly generated thermal speed in v_amp*(min_fd, max_fd) to a 3-velocity.
- *Position seeds the rng.*/
+/*Add a randomly generated thermal speed in v_amp*(min_fd, max_fd) to a 3-velocity.*/
 void
-add_thermal_speeds(struct thermalvel * thermals, int64_t Id, float Vel[]);
+add_thermal_speeds(struct thermalvel * thermals, gsl_rng *g_rng, float Vel[]);
 
 /*Amplitude of the random velocity for neutrinos*/
 double
@@ -35,4 +34,9 @@ NU_V0(const double Time, const double kBTNubyMNu, const double UnitVelocity_in_c
 /*Amplitude of the random velocity for WDM*/
 double
 WDM_V0(const double Time, const double WDM_therm_mass, const double Omega_CDM, const double HubbleParam, const double UnitVelocity_in_cm_per_s);
+
+unsigned int *
+init_rng(int Seed, int Nmesh);
+
+
 #endif

@@ -49,9 +49,10 @@ test_thermal_vel(void ** state)
     int nsample;
     float Vel[3] = {0};
     int64_t MaxID = 100000;
+    gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
     for (nsample=0; nsample < MaxID; nsample++)
     {
-        add_thermal_speeds(&nu_vels, nsample, Vel);
+        add_thermal_speeds(&nu_vels, g_rng, Vel);
         double v2 = sqrt(Vel[0]*Vel[0]+Vel[1]*Vel[1]+Vel[2]*Vel[2]);
         if(v2 > max)
             max = v2;
@@ -60,6 +61,7 @@ test_thermal_vel(void ** state)
         mean+=v2;
         memset(Vel, 0, 3*sizeof(float));
     }
+    gsl_rng_free(g_rng);
     mean/=nsample;
     /*Mean should be roughly 3*zeta(4)/zeta(3)*7/8/(3/4)* m_vamp*/
     assert_true(fabs(mean - 3*pow(M_PI,4)/90./1.202057*(7./8)/(3/4.)*100) < 1);

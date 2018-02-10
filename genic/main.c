@@ -95,8 +95,21 @@ int main(int argc, char **argv)
          v_th /= sqrt(InitTime);
       struct thermalvel WDM;
       init_thermalvel(&WDM, v_th, 10000/v_th, 0);
-      for(i = 0; i < NumPart; i++)
-          add_thermal_speeds(&WDM, P[i].ID, P[i].Vel);
+      unsigned int * seedtable = init_rng(Seed+1,Ngrid);
+      gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
+      /*Seed the random number table with the Id.*/
+      gsl_rng_set(g_rng, seedtable[0]);
+
+      for(i = 0; i < NumPart; i++) {
+           /*Find the slab, and reseed if it has zero z rank*/
+           if((P[i].ID -1) % Ngrid == 0) {
+                /*Seed the random number table with x,y index.*/
+                gsl_rng_set(g_rng, seedtable[(P[i].ID-1) / Ngrid]);
+           }
+           add_thermal_speeds(&WDM, g_rng, P[i].Vel);
+      }
+      gsl_rng_free(g_rng);
+      myfree(seedtable);
   }
 
   /*Now make the gas if required*/
@@ -111,8 +124,21 @@ int main(int argc, char **argv)
       int i;
       setup_grid(shift_nu, 2*TotNumPart, NGridNu);
       displacement_fields(NuType);
-      for(i = 0; i < NumPart; i++)
-          add_thermal_speeds(&nu_therm, P[i].ID, P[i].Vel);
+      unsigned int * seedtable = init_rng(Seed+2,Ngrid);
+      gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
+      /*Just in case*/
+      gsl_rng_set(g_rng, seedtable[0]);
+      for(i = 0; i < NumPart; i++) {
+           /*Find the slab, and reseed if it has zero z rank*/
+           if((P[i].ID -1 - 2*TotNumPart) % Ngrid == 0) {
+                /*Seed the random number table with x,y index.*/
+                gsl_rng_set(g_rng, seedtable[(P[i].ID-1 - 2*TotNumPart) / Ngrid]);
+           }
+           add_thermal_speeds(&nu_therm, g_rng, P[i].Vel);
+      }
+      gsl_rng_free(g_rng);
+      myfree(seedtable);
+
       write_particle_data(2,&bf);
       free_ffts();
   }
@@ -141,7 +167,7 @@ void print_spec(void)
       FILE *fd;
 
       sprintf(buf, "%s/inputspec_%s.txt", OutputDir, FileBase);
-      
+
       fd = fopen(buf, "w");
       if (fd == NULL) {
         message(1, "Failed to create powerspec file at:%s\n", buf);
