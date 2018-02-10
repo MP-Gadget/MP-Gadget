@@ -117,7 +117,7 @@ add_thermal_speeds(struct thermalvel * thermals, gsl_rng *g_rng, float Vel[])
     const double phi = 2 * M_PI * gsl_rng_uniform (g_rng);
     const double theta = acos(2 * gsl_rng_uniform (g_rng) - 1);
 
-    Vel[0] = v * sin(theta) * cos(phi);
-    Vel[1] = v * sin(theta) * sin(phi);
-    Vel[2] = v * cos(theta);
+    Vel[0] += v * sin(theta) * cos(phi);
+    Vel[1] += v * sin(theta) * sin(phi);
+    Vel[2] += v * cos(theta);
 }
