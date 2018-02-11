@@ -77,6 +77,10 @@ static void
 fof_compile_base(struct BaseGroup * base);
 static void
 fof_compile_catalogue(struct Group * group);
+
+static struct Group *
+fof_alloc_group(const struct BaseGroup * base, const uint64_t NgroupsExt);
+
 static void fof_assign_grnr(struct BaseGroup * base);
 
 void fof_label_primary(void);
@@ -186,15 +190,8 @@ void fof_fof()
 
     t0 = second();
 
-    Group = (struct Group *) mymalloc2("Group", sizeof(struct Group) * NgroupsExt);
-    memset(Group, 0, sizeof(Group[0]) * NgroupsExt);
-
-    /* copy in the base properties */
-    /* at this point base group shall be sorted by MinID */
-    #pragma omp parallel for
-    for(i = 0; i < NgroupsExt; i ++) {
-        Group[i].base = base[i];
-    }
+    /*Initialise the Group object from the BaseGroup*/
+    Group = fof_alloc_group(base, NgroupsExt);
 
     myfree(base);
 
@@ -683,6 +680,23 @@ fof_compile_base(struct BaseGroup * base)
     }
 }
 
+/* Allocate memory for and initialise a Group object
+ * from a BaseGroup object.*/
+static struct Group *
+fof_alloc_group(const struct BaseGroup * base, const uint64_t NgroupsExt)
+{
+    int i;
+    struct Group * Group = (struct Group *) mymalloc2("Group", sizeof(struct Group) * NgroupsExt);
+    memset(Group, 0, sizeof(Group[0]) * NgroupsExt);
+
+    /* copy in the base properties */
+    /* at this point base group shall be sorted by MinID */
+    #pragma omp parallel for
+    for(i = 0; i < NgroupsExt; i ++) {
+        Group[i].base = base[i];
+    }
+    return Group;
+}
 
 static void
 fof_compile_catalogue(struct Group * group)
