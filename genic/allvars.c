@@ -14,6 +14,7 @@ int InvertPhase;
 double MaxMemSizePerNode;
 int DifferentTransferFunctions;
 double Max_nuvel;
+double WDM_therm_mass;
 
 struct part_data *P;
 

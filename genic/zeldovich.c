@@ -48,7 +48,7 @@ void free_ffts(void)
 }
 
 void
-setup_grid(double shift, int64_t FirstID)
+setup_grid(double shift, int64_t FirstID, int Ngrid)
 {
     int * ThisTask2d = petapm_get_thistask2d();
     int * NTask2d = petapm_get_ntask2d();

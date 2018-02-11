@@ -25,6 +25,7 @@ TESTED = \
 	memory \
 	openmpsort \
 	genic-power \
+	genic-thermal \
 	exchange
 
 MPI_TESTED = exchange

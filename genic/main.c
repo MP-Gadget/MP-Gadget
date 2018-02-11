@@ -49,7 +49,7 @@ int main(int argc, char **argv)
       shift_nu = -0.5 * (CP.Omega0 - OmegaNu) / CP.Omega0 * meanspacing;
       shift_dm = 0.5 * OmegaNu / CP.Omega0 * meanspacing;
   }
-  setup_grid(ProduceGas * shift_dm, 0);
+  setup_grid(ProduceGas * shift_dm, 0, Ngrid);
 
   /*Write the header*/
   char buf[4096];
@@ -62,12 +62,13 @@ int main(int argc, char **argv)
 
   const int64_t TotNu = (int64_t) NGridNu*NGridNu*NGridNu;
   double total_nufrac = 0;
+  struct thermalvel nu_therm;
   if(TotNu > 0) {
     const double kBMNu = 3*CP.ONu.kBtnu / (CP.MNu[0]+CP.MNu[1]+CP.MNu[2]);
     double v_th = NU_V0(InitTime, kBMNu, UnitVelocity_in_cm_per_s);
     if(!UsePeculiarVelocity)
         v_th /= sqrt(InitTime);
-    total_nufrac = init_thermalvel(v_th, Max_nuvel/v_th, 0);
+    total_nufrac = init_thermalvel(&nu_therm, v_th, Max_nuvel/v_th, 0);
     message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(InitTime), Max_nuvel*sqrt(InitTime), total_nufrac);
   }
   saveheader(&bf, TotNumPart, TotNu, total_nufrac);
@@ -86,9 +87,34 @@ int main(int argc, char **argv)
   write_particle_data(1, &bf);
   free_ffts();
 
+  /*Add a thermal velocity to WDM particles*/
+  if(WDM_therm_mass > 0){
+      int i;
+      double v_th = WDM_V0(InitTime, WDM_therm_mass, CP.Omega0 - CP.OmegaBaryon - get_omega_nu(&CP.ONu, 1), CP.HubbleParam, UnitVelocity_in_cm_per_s);
+      if(!UsePeculiarVelocity)
+         v_th /= sqrt(InitTime);
+      struct thermalvel WDM;
+      init_thermalvel(&WDM, v_th, 10000/v_th, 0);
+      unsigned int * seedtable = init_rng(Seed+1,Ngrid);
+      gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
+      /*Seed the random number table with the Id.*/
+      gsl_rng_set(g_rng, seedtable[0]);
+
+      for(i = 0; i < NumPart; i++) {
+           /*Find the slab, and reseed if it has zero z rank*/
+           if((P[i].ID -1) % Ngrid == 0) {
+                /*Seed the random number table with x,y index.*/
+                gsl_rng_set(g_rng, seedtable[(P[i].ID-1) / Ngrid]);
+           }
+           add_thermal_speeds(&WDM, g_rng, P[i].Vel);
+      }
+      gsl_rng_free(g_rng);
+      myfree(seedtable);
+  }
+
   /*Now make the gas if required*/
   if(ProduceGas) {
-    setup_grid(shift_gas, TotNumPart);
+    setup_grid(shift_gas, TotNumPart, Ngrid);
     displacement_fields(GasType);
     write_particle_data(0, &bf);
     free_ffts();
@@ -96,10 +122,23 @@ int main(int argc, char **argv)
   /*Now add random velocity neutrino particles*/
   if(NGridNu > 0) {
       int i;
-      setup_grid(shift_nu, TotNu);
+      setup_grid(shift_nu, 2*TotNumPart, NGridNu);
       displacement_fields(NuType);
-      for(i = 0; i < NumPart; i++)
-          add_thermal_speeds(P[i].Vel);
+      unsigned int * seedtable = init_rng(Seed+2,Ngrid);
+      gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
+      /*Just in case*/
+      gsl_rng_set(g_rng, seedtable[0]);
+      for(i = 0; i < NumPart; i++) {
+           /*Find the slab, and reseed if it has zero z rank*/
+           if((P[i].ID -1 - 2*TotNumPart) % Ngrid == 0) {
+                /*Seed the random number table with x,y index.*/
+                gsl_rng_set(g_rng, seedtable[(P[i].ID-1 - 2*TotNumPart) / Ngrid]);
+           }
+           add_thermal_speeds(&nu_therm, g_rng, P[i].Vel);
+      }
+      gsl_rng_free(g_rng);
+      myfree(seedtable);
+
       write_particle_data(2,&bf);
       free_ffts();
   }
@@ -128,7 +167,7 @@ void print_spec(void)
       FILE *fd;
 
       sprintf(buf, "%s/inputspec_%s.txt", OutputDir, FileBase);
-      
+
       fd = fopen(buf, "w");
       if (fd == NULL) {
         message(1, "Failed to create powerspec file at:%s\n", buf);

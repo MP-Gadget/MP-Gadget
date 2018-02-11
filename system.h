@@ -21,7 +21,7 @@ int cluster_get_hostid();
 double get_physmem_bytes();
 
 double get_random_number(uint64_t id);
-void set_random_numbers(void);
+void set_random_numbers(int seed);
 void sumup_large_ints(int n, int *src, int64_t *res);
 void sumup_longs(int n, int64_t *src, int64_t *res);
 int64_t count_sum(int64_t countLocal);

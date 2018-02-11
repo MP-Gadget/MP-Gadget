@@ -6,20 +6,10 @@
 #include <gsl/gsl_rng.h>
 #include <assert.h>
 #include "../endrun.h"
+#include "../mymalloc.h"
 
-/*Length of the table*/
-#define MAX_FERMI_DIRAC          17.0
-#define LENGTH_FERMI_DIRAC_TABLE 2000
 /*The Boltzmann constant in units of eV/K*/
 #define BOLEVK 8.61734e-5
-
-static double fermi_dirac_vel[LENGTH_FERMI_DIRAC_TABLE];
-static double fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE];
-
-static double m_vamp;
-static gsl_rng * g_rng;
-static gsl_interp * fd_intp;
-static gsl_interp_accel * fd_intp_acc;
 
 /* This function converts the dimensionless units used in the integral to dimensionful units.
  * Unit scaling velocity for neutrinos:
@@ -37,6 +27,15 @@ NU_V0(const double Time, const double kBTNubyMNu, const double UnitVelocity_in_c
     return kBTNubyMNu / Time * (C / UnitVelocity_in_cm_per_s);
 }
 
+//Amplitude of the random velocity for WDM
+double WDM_V0(const double Time, const double WDM_therm_mass, const double Omega_CDM, const double HubbleParam, const double UnitVelocity_in_cm_per_s)
+{
+        //Not actually sure where this equation comes from: the fiducial values are from Bode, Ostriker & Turok 2001.
+        double WDM_V0 = 0.012 / Time * pow(Omega_CDM / 0.3, 1.0 / 3) * pow(HubbleParam / 0.65, 2.0 / 3) * pow(1.0 /WDM_therm_mass,4.0 / 3);
+        WDM_V0 *= 1.0e5 / UnitVelocity_in_cm_per_s;
+        return WDM_V0;
+}
+
 /*Fermi-Dirac kernel for below*/
 static double
 fermi_dirac_kernel(double x, void * params)
@@ -46,16 +45,15 @@ fermi_dirac_kernel(double x, void * params)
 
 /*Initialise the probability tables*/
 double
-init_thermalvel(const double v_amp, double max_fd,const double min_fd)
+init_thermalvel(struct thermalvel* thermals, const double v_amp, double max_fd,const double min_fd)
 {
     int i;
     if(max_fd <= min_fd)
         endrun(1,"Thermal vel called with negative interval: %g <= %g\n", max_fd, min_fd);
-    /*Allocate random number generator*/
-    g_rng = gsl_rng_alloc(gsl_rng_mt19937);
+
     if(max_fd > MAX_FERMI_DIRAC)
         max_fd = MAX_FERMI_DIRAC;
-    m_vamp = v_amp;
+    thermals->m_vamp = v_amp;
 
     /*These functions are so smooth that we don't need much space*/
     gsl_integration_workspace * w = gsl_integration_workspace_alloc (100);
@@ -64,8 +62,8 @@ init_thermalvel(const double v_amp, double max_fd,const double min_fd)
     F.function = &fermi_dirac_kernel;
     F.params = NULL;
     for(i = 0; i < LENGTH_FERMI_DIRAC_TABLE; i++) {
-        fermi_dirac_vel[i] = min_fd+(max_fd-min_fd)* i / (LENGTH_FERMI_DIRAC_TABLE - 1.0);
-        gsl_integration_qag (&F, min_fd, fermi_dirac_vel[i], 0, 1e-6,100,GSL_INTEG_GAUSS61, w,&(fermi_dirac_cumprob[i]), &abserr);
+        thermals->fermi_dirac_vel[i] = min_fd+(max_fd-min_fd)* i / (LENGTH_FERMI_DIRAC_TABLE - 1.0);
+        gsl_integration_qag (&F, min_fd, thermals->fermi_dirac_vel[i], 0, 1e-6,100,GSL_INTEG_GAUSS61, w,&(thermals->fermi_dirac_cumprob[i]), &abserr);
     //       printf("gsl_integration_qng in fermi_dirac_init_nu. Result %g, error: %g, intervals: %lu\n",fermi_dirac_cumprob[i], abserr,w->size);
     }
     /*Save the largest cum. probability, pre-normalisation,
@@ -76,33 +74,50 @@ init_thermalvel(const double v_amp, double max_fd,const double min_fd)
 
     gsl_integration_workspace_free (w);
 
-    double total_frac = fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE-1]/total_fd;
+    double total_frac = thermals->fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE-1]/total_fd;
     //Normalise total integral to unity
     for(i = 0; i < LENGTH_FERMI_DIRAC_TABLE; i++)
-        fermi_dirac_cumprob[i] /= fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE - 1];
+        thermals->fermi_dirac_cumprob[i] /= thermals->fermi_dirac_cumprob[LENGTH_FERMI_DIRAC_TABLE - 1];
 
     /*Initialise the GSL table*/
-    fd_intp = gsl_interp_alloc(gsl_interp_cspline,LENGTH_FERMI_DIRAC_TABLE);
-    fd_intp_acc = gsl_interp_accel_alloc();
-    gsl_interp_init(fd_intp,fermi_dirac_cumprob, fermi_dirac_vel,LENGTH_FERMI_DIRAC_TABLE);
+    thermals->fd_intp = gsl_interp_alloc(gsl_interp_cspline,LENGTH_FERMI_DIRAC_TABLE);
+    thermals->fd_intp_acc = gsl_interp_accel_alloc();
+    gsl_interp_init(thermals->fd_intp,thermals->fermi_dirac_cumprob, thermals->fermi_dirac_vel,LENGTH_FERMI_DIRAC_TABLE);
     return total_frac;
 }
 
-/*Add a randomly generated thermal speed in v_amp*(min_fd, max_fd) to a 3-velocity*/
+/*Generate a table of random seeds, one for each pencil.*/
+unsigned int *
+init_rng(int Seed, int Nmesh)
+{
+    unsigned int * seedtable = mymalloc("randseeds", Nmesh*Nmesh*sizeof(unsigned int));
+    gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
+    gsl_rng_set(rng, Seed);
+
+    int i, j;
+    for(i = 0; i < Nmesh; i++)
+        for(j=0; j < Nmesh; j++)
+        {
+            seedtable[i+Nmesh*j] = gsl_rng_get(rng);
+        }
+    gsl_rng_free(rng);
+    return seedtable;
+}
+
+/* Add a randomly generated thermal speed in v_amp*(min_fd, max_fd) to a 3-velocity.
+ * The particle Id is used as a seed for the RNG.*/
 void
-add_thermal_speeds(float Vel[])
+add_thermal_speeds(struct thermalvel * thermals, gsl_rng *g_rng, float Vel[])
 {
     const double p = gsl_rng_uniform (g_rng);
     /*m_vamp multiples by the dimensional factor to get a velocity again.*/
-    const double v = m_vamp * gsl_interp_eval(fd_intp,fermi_dirac_cumprob, fermi_dirac_vel, p, fd_intp_acc);
+    const double v = thermals->m_vamp * gsl_interp_eval(thermals->fd_intp,thermals->fermi_dirac_cumprob, thermals->fermi_dirac_vel, p, thermals->fd_intp_acc);
 
     /*Random phase*/
     const double phi = 2 * M_PI * gsl_rng_uniform (g_rng);
     const double theta = acos(2 * gsl_rng_uniform (g_rng) - 1);
 
-    Vel[0] = v * sin(theta) * cos(phi);
-    Vel[1] = v * sin(theta) * sin(phi);
-    Vel[2] = v * cos(theta);
+    Vel[0] += v * sin(theta) * cos(phi);
+    Vel[1] += v * sin(theta) * sin(phi);
+    Vel[2] += v * cos(theta);
 }
-
-
