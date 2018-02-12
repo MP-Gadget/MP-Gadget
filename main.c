@@ -97,6 +97,8 @@ int main(int argc, char **argv)
         case 3:
             begrun(RestartSnapNum); 
             fof_fof(RestartSnapNum);
+            fof_save_groups(RestartSnapNum);
+            fof_finish();
             break;
         case 99:
             begrun(RestartSnapNum);
