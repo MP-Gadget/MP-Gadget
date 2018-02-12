@@ -36,7 +36,7 @@
 /* FIXME: convert this to a parameter */
 #define FOF_SECONDARY_LINK_TYPES (1+16+32)    // 2^type for the types linked to nearest primaries
 #define LARGE 1e29
-void fof_init()
+void fof_init(void)
 {
     All.FOFHaloComovingLinkingLength = All.FOFHaloLinkingLength * All.MeanSeparation[1];
     All.TimeNextSeedingCheck = All.Time;
@@ -87,7 +87,6 @@ void fof_label_primary(void);
 extern void fof_save_particles(int num);
 
 uint64_t Ngroups, TotNgroups, NgroupsExt;
-int64_t TotNids;
 
 struct Group *Group;
 
@@ -125,7 +124,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  *
  **/
 
-void fof_fof()
+void fof_fof(void)
 {
     int i;
     double t0, t1;
@@ -739,6 +738,7 @@ fof_compile_catalogue(struct Group * group)
 
     fof_finish_group_properties(Group);
 
+    int64_t TotNids;
     MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 

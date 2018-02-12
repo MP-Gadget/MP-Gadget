@@ -20,7 +20,6 @@
 #include "hydra.h"
 #include "sfr_eff.h"
 #include "slotsmanager.h"
-#include "fof.h"
 #include "hci.h"
 
 /*! \file run.c

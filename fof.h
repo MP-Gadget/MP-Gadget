@@ -3,21 +3,24 @@
 
 #include "allvars.h"
 
-void fof_init();
+void fof_init(void);
 
-void fof_fof();
+/*Computes the Group structure, saved as a global array below*/
+void fof_fof(void);
 
+/*Frees the Group structure*/
 void
-fof_finish();
+fof_finish(void);
 
+/*Uses the Group structure to seed blackholes*/
 void
-fof_seed();
+fof_seed(void);
 
+/*Saves the Group structure to disc.*/
 void
 fof_save_groups(int num);
 
 extern uint64_t Ngroups, TotNgroups;
-extern int64_t TotNids;
 
 struct BaseGroup {
     int OriginalTask;
@@ -29,9 +32,9 @@ struct BaseGroup {
     float FirstPos[3];
 };
 
-extern struct Group 
+extern struct Group
 {
-    struct BaseGroup base; 
+    struct BaseGroup base;
     int Length;
     int LenType[6];
     double MassType[6];
@@ -50,7 +53,7 @@ extern struct Group
     double BH_Mdot;
     double MaxDens;
 #endif
-    int seed_index; 
+    int seed_index;
     int seed_task;
 } * Group;
 
