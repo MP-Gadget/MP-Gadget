@@ -1,6 +1,7 @@
 *.o
 .*.swp
 P-Gadget3
+.gdb_history
 config.h
 GENIC/N-GenIC
 depends/bin
@@ -12,3 +13,4 @@ depends/cmocka-build/
 tests/test_*
 !tests/test_*.c
 build/
+__pycache__/
