@@ -89,6 +89,7 @@ setup_grid(double shift, int Ngrid)
     memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
+    #pragma omp parallel for
     for(i = 0; i < NumPart; i ++) {
         int x, y, z;
         x = i / (size[2] * size[1]) + offset[0];
@@ -169,7 +170,9 @@ void displacement_fields(int Type) {
     petapm_force_finish();
     double maxdisp = 0;
     int i;
-    for(i = 0; i < NumPart; i ++) {
+    #pragma omp parallel for reduction(max:maxdisp)
+    for(i = 0; i < NumPart; i++)
+    {
         int k;
         for (k = 0; k < 3; k ++) {
             double dis = ICP[i].Vel[k];
