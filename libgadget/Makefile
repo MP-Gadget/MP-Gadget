@@ -55,9 +55,9 @@ GADGET_UTILS_OBJS= endrun.o memory.o mymalloc.o system.o event.o openmpsort.o ut
 GADGET_OBJS := $(GADGET_OBJS:%=.objs/%)
 GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=.objs/%)
 
-all: builddir libgadget.a libgadget-utils.a
+all: libgadget.a libgadget-utils.a
 
-.PHONY: builddir all
+.PHONY: all
 
 libgadget-utils.a: $(GADGET_UTILS_OBJS)
 	$(AR) rv $@ $(GADGET_UTILS_OBJS)
