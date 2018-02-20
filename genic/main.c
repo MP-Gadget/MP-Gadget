@@ -102,11 +102,11 @@ int main(int argc, char **argv)
 
       for(i = 0; i < NumPart; i++) {
            /*Find the slab, and reseed if it has zero z rank*/
-           if((P[i].ID -1) % All2.Ngrid == 0) {
+           if((ICP[i].ID -1) % All2.Ngrid == 0) {
                 /*Seed the random number table with x,y index.*/
-                gsl_rng_set(g_rng, seedtable[(P[i].ID-1) / All2.Ngrid]);
+                gsl_rng_set(g_rng, seedtable[(ICP[i].ID-1) / All2.Ngrid]);
            }
-           add_thermal_speeds(&WDM, g_rng, P[i].Vel);
+           add_thermal_speeds(&WDM, g_rng, ICP[i].Vel);
       }
       gsl_rng_free(g_rng);
       myfree(seedtable);
@@ -130,11 +130,11 @@ int main(int argc, char **argv)
       gsl_rng_set(g_rng, seedtable[0]);
       for(i = 0; i < NumPart; i++) {
            /*Find the slab, and reseed if it has zero z rank*/
-           if((P[i].ID -1 - 2*TotNumPart) % All2.Ngrid == 0) {
+           if((ICP[i].ID -1 - 2*TotNumPart) % All2.Ngrid == 0) {
                 /*Seed the random number table with x,y index.*/
-                gsl_rng_set(g_rng, seedtable[(P[i].ID-1 - 2*TotNumPart) / All2.Ngrid]);
+                gsl_rng_set(g_rng, seedtable[(ICP[i].ID-1 - 2*TotNumPart) / All2.Ngrid]);
            }
-           add_thermal_speeds(&nu_therm, g_rng, P[i].Vel);
+           add_thermal_speeds(&nu_therm, g_rng, ICP[i].Vel);
       }
       gsl_rng_free(g_rng);
       myfree(seedtable);

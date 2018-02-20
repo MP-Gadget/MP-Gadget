@@ -11,7 +11,7 @@ extern struct ic_part_data
   uint64_t ID;
   float Mass;
   int RegionInd;
-} *P;
+} * ICP;
 extern int NumPart;
 
 struct genic_config {

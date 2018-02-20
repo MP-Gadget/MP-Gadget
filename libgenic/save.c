@@ -25,7 +25,7 @@ static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, cha
     dims[0] = NumPart;
     dims[1] = items_per_particle;
     strides[1] = dtype_itemsize(dtype);
-    strides[0] = sizeof(P[0]);
+    strides[0] = sizeof(ICP[0]);
     big_array_init(&array, baseptr, dtype, 2, dims, strides);
 
     if(0 != big_file_mpi_create_block(bf, &block, name, dtype, dims[1], All2.NumFiles, TotNumPart, MPI_COMM_WORLD)) {
@@ -51,10 +51,10 @@ void write_particle_data(int Type, BigFile * bf) {
     MPI_Allreduce(&numpart_64, &TotNumPart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /* Write particles */
-    saveblock(bf, &P[0].Density, Type, "ICDensity", "f4", 1, TotNumPart);
-    saveblock(bf, &P[0].Pos, Type, "Position", "f8", 3, TotNumPart);
-    saveblock(bf, &P[0].Vel, Type, "Velocity", "f4", 3, TotNumPart);
-    saveblock(bf, &P[0].ID, Type, "ID", "u8", 1, TotNumPart);
+    saveblock(bf, &ICP[0].Density, Type, "ICDensity", "f4", 1, TotNumPart);
+    saveblock(bf, &ICP[0].Pos, Type, "Position", "f8", 3, TotNumPart);
+    saveblock(bf, &ICP[0].Vel, Type, "Velocity", "f4", 3, TotNumPart);
+    saveblock(bf, &ICP[0].ID, Type, "ID", "u8", 1, TotNumPart);
     walltime_measure("/Write");
 }
 

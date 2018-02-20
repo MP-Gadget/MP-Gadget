@@ -44,7 +44,7 @@ uint64_t ijk_to_id(int i, int j, int k) {
 
 void free_ffts(void)
 {
-    myfree(P);
+    myfree(ICP);
 }
 
 void
@@ -65,8 +65,8 @@ setup_grid(double shift, int64_t FirstID, int Ngrid)
     offset[2] = 0;
     size[2] = All2.Ngrid;
     NumPart *= size[2];
-    P = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
-    memset(P, 0, NumPart*sizeof(struct ic_part_data));
+    ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
+    memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
     for(i = 0; i < NumPart; i ++) {
@@ -74,11 +74,11 @@ setup_grid(double shift, int64_t FirstID, int Ngrid)
         x = i / (size[2] * size[1]) + offset[0];
         y = (i % (size[1] * size[2])) / size[2] + offset[1];
         z = (i % size[2]) + offset[2];
-        P[i].Pos[0] = x * All.BoxSize / All2.Ngrid + shift;
-        P[i].Pos[1] = y * All.BoxSize / All2.Ngrid + shift;
-        P[i].Pos[2] = z * All.BoxSize / All2.Ngrid + shift;
-        P[i].Mass = 1.0;
-        P[i].ID = ijk_to_id(x, y, z) + FirstID;
+        ICP[i].Pos[0] = x * All.BoxSize / All2.Ngrid + shift;
+        ICP[i].Pos[1] = y * All.BoxSize / All2.Ngrid + shift;
+        ICP[i].Pos[2] = z * All.BoxSize / All2.Ngrid + shift;
+        ICP[i].Mass = 1.0;
+        ICP[i].ID = ijk_to_id(x, y, z) + FirstID;
     }
 }
 
@@ -92,12 +92,12 @@ static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
 
     for(i = 0; i < NumPart; i ++) {
         for(k = 0; k < 3; k ++) {
-            if(min[k] > P[i].Pos[k])
-                min[k] = P[i].Pos[k];
-            if(max[k] < P[i].Pos[k])
-                max[k] = P[i].Pos[k];
+            if(min[k] > ICP[i].Pos[k])
+                min[k] = ICP[i].Pos[k];
+            if(max[k] < ICP[i].Pos[k])
+                max[k] = ICP[i].Pos[k];
         }
-        P[i].RegionInd = 0;
+        ICP[i].RegionInd = 0;
     }
 
     for(k = 0; k < 3; k ++) {
@@ -126,11 +126,11 @@ void displacement_fields(int Type) {
         {NULL, NULL, NULL },
     };
     PetaPMParticleStruct pstruct = {
-        P,
-        sizeof(P[0]),
-        ((char*) &P[0].Pos[0]) - (char*) P,
-        ((char*) &P[0].Mass) - (char*) P,
-        ((char*) &P[0].RegionInd) - (char*) P,
+        ICP,
+        sizeof(ICP[0]),
+        ((char*) &ICP[0].Pos[0]) - (char*) ICP,
+        ((char*) &ICP[0].Mass) - (char*) ICP,
+        ((char*) &ICP[0].RegionInd) - (char*) ICP,
         NULL,
         NumPart,
     };
@@ -148,7 +148,7 @@ void displacement_fields(int Type) {
     for(i = 0; i < NumPart; i ++) {
         int k;
         for (k = 0; k < 3; k ++) {
-            double dis = P[i].Vel[k];
+            double dis = ICP[i].Vel[k];
             if(dis > maxdisp) {
                 maxdisp = dis;
             }
@@ -175,9 +175,9 @@ void displacement_fields(int Type) {
         int k;
         for(k = 0; k < 3; k++)
         {
-            P[i].Pos[k] += P[i].Vel[k];
-            P[i].Vel[k] *= vel_prefac;
-            P[i].Pos[k] = periodic_wrap(P[i].Pos[k]);
+            ICP[i].Pos[k] += ICP[i].Vel[k];
+            ICP[i].Vel[k] *= vel_prefac;
+            ICP[i].Pos[k] = periodic_wrap(ICP[i].Pos[k]);
         }
     }
     walltime_measure("/Disp/Finalize");
@@ -256,16 +256,16 @@ static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
  * functions iterating over particle / mesh pairs
  ***************/
 static void readout_density(int i, double * mesh, double weight) {
-    P[i].Density += weight * mesh[0];
+    ICP[i].Density += weight * mesh[0];
 }
 static void readout_force_x(int i, double * mesh, double weight) {
-    P[i].Vel[0] += weight * mesh[0];
+    ICP[i].Vel[0] += weight * mesh[0];
 }
 static void readout_force_y(int i, double * mesh, double weight) {
-    P[i].Vel[1] += weight * mesh[0];
+    ICP[i].Vel[1] += weight * mesh[0];
 }
 static void readout_force_z(int i, double * mesh, double weight) {
-    P[i].Vel[2] += weight * mesh[0];
+    ICP[i].Vel[2] += weight * mesh[0];
 }
 
 /*
