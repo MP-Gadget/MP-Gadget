@@ -18,7 +18,7 @@ LIBS += -L../depends/lib $(BUNDLEDLIBS)
 
 .objs/%.o: %.c $(INCL)
 	@cmd="$(MPICC) -c -o $@ $(CFLAGS) $<"; \
-	if [ "x$(V)" == "x1" ]; then echo $$cmd; fi; \
+	if test "x$(V)" == "x1" ; then echo $$cmd; fi; \
 	mkdir -p `dirname $@`; \
 	echo Compiling $<; $$cmd
 
