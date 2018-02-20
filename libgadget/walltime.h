@@ -1,3 +1,6 @@
+#ifndef GADGET_WALLTIME_H
+#define GADGET_WALLTIME_H
+
 int walltime_clock(char * name);
 void walltime_reset();
 #define WALLTIME_IGNORE "."
@@ -55,3 +58,4 @@ struct ClockTable {
     double PMStepTime;
 };
 void walltime_init(struct ClockTable * table);
+#endif

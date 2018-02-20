@@ -28,7 +28,7 @@ static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, cha
     strides[0] = sizeof(P[0]);
     big_array_init(&array, baseptr, dtype, 2, dims, strides);
 
-    if(0 != big_file_mpi_create_block(bf, &block, name, dtype, dims[1], NumFiles, TotNumPart, MPI_COMM_WORLD)) {
+    if(0 != big_file_mpi_create_block(bf, &block, name, dtype, dims[1], All2.NumFiles, TotNumPart, MPI_COMM_WORLD)) {
         endrun(0, "%s:%s\n", big_file_get_error_message(), name);
     }
 
@@ -36,7 +36,7 @@ static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, cha
         endrun(0, "Failed to seek:%s\n", big_file_get_error_message());
     }
 
-    if(0 != big_block_mpi_write(&block, &ptr, &array, NumWriters, MPI_COMM_WORLD)) {
+    if(0 != big_block_mpi_write(&block, &ptr, &array, All.IO.NumWriters, MPI_COMM_WORLD)) {
         endrun(0, "Failed to write :%s\n", big_file_get_error_message());
     }
 
@@ -65,18 +65,18 @@ void saveheader(BigFile * bf, int64_t TotNumPart, int64_t TotNuPart, double nufr
                 big_file_get_error_message());
     }
 
-    const double OmegatoMass = 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3);
+    const double OmegatoMass = 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(All.BoxSize, 3);
     int64_t totnumpart[6] = {0};
     double mass[6] = {0};
     totnumpart[1] = TotNumPart;
-    double OmegaCDM = CP.Omega0;
-    if (ProduceGas) {
+    double OmegaCDM = All.CP.Omega0;
+    if (All2.ProduceGas) {
         totnumpart[0] = TotNumPart;
-        mass[0] = (CP.OmegaBaryon) * 3 * CP.Hubble * CP.Hubble / (8 * M_PI * G) * pow(Box, 3) / TotNumPart;
-        OmegaCDM -= CP.OmegaBaryon;
+        mass[0] = (All.CP.OmegaBaryon) * 3 * All.CP.Hubble * All.CP.Hubble / (8 * M_PI * All.G) * pow(All.BoxSize, 3) / TotNumPart;
+        OmegaCDM -= All.CP.OmegaBaryon;
     }
-    if(CP.MNu[0] + CP.MNu[1] + CP.MNu[2] > 0) {
-        double OmegaNu = get_omega_nu(&CP.ONu, 1);
+    if(All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0) {
+        double OmegaNu = get_omega_nu(&All.CP.ONu, 1);
         OmegaCDM -= OmegaNu;
         if(TotNuPart > 0) {
             totnumpart[2] = TotNuPart;
@@ -84,25 +84,25 @@ void saveheader(BigFile * bf, int64_t TotNumPart, int64_t TotNuPart, double nufr
         }
     }
     mass[1] = OmegaCDM * OmegatoMass / TotNumPart;
-    double redshift = 1.0 / InitTime - 1.;
+    double redshift = 1.0 / All.TimeIC - 1.;
 
     int rt =(0 != big_block_set_attr(&bheader, "TotNumPart", totnumpart, "i8", 6)) ||
             (0 != big_block_set_attr(&bheader, "MassTable", mass, "f8", 6)) ||
-            (big_block_set_attr(&bheader, "Time", &InitTime, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "Time", &All.TimeIC, "f8", 1)) ||
             (big_block_set_attr(&bheader, "Redshift", &redshift, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "BoxSize", &Box, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "UsePeculiarVelocity", &UsePeculiarVelocity, "i4", 1)) ||
-            (big_block_set_attr(&bheader, "Omega0", &CP.Omega0, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "BoxSize", &All.BoxSize, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "UsePeculiarVelocity", &All.IO.UsePeculiarVelocity, "i4", 1)) ||
+            (big_block_set_attr(&bheader, "Omega0", &All.CP.Omega0, "f8", 1)) ||
             (big_block_set_attr(&bheader, "FractionNuInParticles", &nufrac, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaBaryon", &CP.OmegaBaryon, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "OmegaLambda", &CP.OmegaLambda, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "UnitLength_in_cm", &UnitLength_in_cm, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "UnitMass_in_g", &UnitMass_in_g, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "UnitVelocity_in_cm_per_s", &UnitVelocity_in_cm_per_s, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "HubbleParam", &CP.HubbleParam, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "InvertPhase", &InvertPhase, "i4", 1)) ||
-            (big_block_set_attr(&bheader, "Seed", &Seed, "i8", 1)) ||
-            (big_block_set_attr(&bheader, "UnitaryAmplitude", &UnitaryAmplitude, "i4", 1));
+            (big_block_set_attr(&bheader, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "All.UnitLength_in_cm", &All.UnitLength_in_cm, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "All.UnitMass_in_g", &All.UnitMass_in_g, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "All.UnitVelocity_in_cm_per_s", &All.UnitVelocity_in_cm_per_s, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "HubbleParam", &All.CP.HubbleParam, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "InvertPhase", &All2.InvertPhase, "i4", 1)) ||
+            (big_block_set_attr(&bheader, "Seed", &All2.Seed, "i8", 1)) ||
+            (big_block_set_attr(&bheader, "All.UnitaryAmplitude", &All2.UnitaryAmplitude, "i4", 1));
     if(rt) {
         endrun(0, "failed to create attr %s", 
                 big_file_get_error_message());

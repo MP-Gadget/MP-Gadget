@@ -28,17 +28,17 @@ static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int Unita
 
 static inline double periodic_wrap(double x)
 {
-  while(x >= Box)
-    x -= Box;
+  while(x >= All.BoxSize)
+    x -= All.BoxSize;
 
   while(x < 0)
-    x += Box;
+    x += All.BoxSize;
 
   return x;
 }
 
 uint64_t ijk_to_id(int i, int j, int k) {
-    uint64_t id = ((uint64_t) i) * Ngrid * Ngrid + ((uint64_t)j) * Ngrid + k + 1;
+    uint64_t id = ((uint64_t) i) * All2.Ngrid * All2.Ngrid + ((uint64_t)j) * All2.Ngrid + k + 1;
     return id;
 }
 
@@ -57,16 +57,16 @@ setup_grid(double shift, int64_t FirstID, int Ngrid)
     int k;
     NumPart = 1;
     for(k = 0; k < 2; k ++) {
-        offset[k] = (ThisTask2d[k]) * Ngrid / NTask2d[k];
-        size[k] = (ThisTask2d[k] + 1) * Ngrid / NTask2d[k];
+        offset[k] = (ThisTask2d[k]) * All2.Ngrid / NTask2d[k];
+        size[k] = (ThisTask2d[k] + 1) * All2.Ngrid / NTask2d[k];
         size[k] -= offset[k];
         NumPart *= size[k];
     }
     offset[2] = 0;
-    size[2] = Ngrid;
+    size[2] = All2.Ngrid;
     NumPart *= size[2];
-    P = (struct part_data *) mymalloc("PartTable", NumPart*sizeof(struct part_data));
-    memset(P, 0, NumPart*sizeof(struct part_data));
+    P = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
+    memset(P, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
     for(i = 0; i < NumPart; i ++) {
@@ -74,9 +74,9 @@ setup_grid(double shift, int64_t FirstID, int Ngrid)
         x = i / (size[2] * size[1]) + offset[0];
         y = (i % (size[1] * size[2])) / size[2] + offset[1];
         z = (i % size[2]) + offset[2];
-        P[i].Pos[0] = x * Box / Ngrid + shift;
-        P[i].Pos[1] = y * Box / Ngrid + shift;
-        P[i].Pos[2] = z * Box / Ngrid + shift;
+        P[i].Pos[0] = x * All.BoxSize / All2.Ngrid + shift;
+        P[i].Pos[1] = y * All.BoxSize / All2.Ngrid + shift;
+        P[i].Pos[2] = z * All.BoxSize / All2.Ngrid + shift;
         P[i].Mass = 1.0;
         P[i].ID = ijk_to_id(x, y, z) + FirstID;
     }
@@ -87,7 +87,7 @@ static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
     int k;
     int r = 0;
     int i;
-    double min[3] = {Box, Box, Box};
+    double min[3] = {All.BoxSize, All.BoxSize, All.BoxSize};
     double max[3] = {0, 0, 0.};
 
     for(i = 0; i < NumPart; i ++) {
@@ -101,8 +101,8 @@ static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
     }
 
     for(k = 0; k < 3; k ++) {
-        regions[r].offset[k] = floor(min[k] / Box * Nmesh - 1);
-        regions[r].size[k] = ceil(max[k] / Box * Nmesh + 2);
+        regions[r].offset[k] = floor(min[k] / All.BoxSize * All.Nmesh - 1);
+        regions[r].size[k] = ceil(max[k] / All.BoxSize * All.Nmesh + 2);
         regions[r].size[k] -= regions[r].offset[k];
     }
 
@@ -139,7 +139,7 @@ void displacement_fields(int Type) {
            &pstruct, NULL);
 
     gaussian_fill(petapm_get_fourier_region(),
-		  petapm_get_rho_k(), UnitaryAmplitude, InvertPhase);
+		  petapm_get_rho_k(), All2.UnitaryAmplitude, All2.InvertPhase);
 
     petapm_force_c2r(functions);
     petapm_force_finish();
@@ -156,19 +156,19 @@ void displacement_fields(int Type) {
     }
     double maxdispall;
     MPI_Reduce(&maxdisp, &maxdispall, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdispall, maxdispall / (Box / Nmesh) );
+    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdispall, maxdispall / (All.BoxSize / All.Nmesh) );
 
-    double hubble_a = hubble_function(InitTime);
+    double hubble_a = hubble_function(All.TimeIC);
 
-    double vel_prefac = InitTime * hubble_a * F_Omega(InitTime);
+    double vel_prefac = All.TimeIC * hubble_a * F_Omega(All.TimeIC);
 
-    if(UsePeculiarVelocity) {
+    if(All.IO.UsePeculiarVelocity) {
         /* already for peculiar velocity */
         message(0, "Producing Peculiar Velocity in the output.\n");
     } else {
-        vel_prefac /= sqrt(InitTime);	/* converts to Gadget velocity */
+        vel_prefac /= sqrt(All.TimeIC);	/* converts to Gadget velocity */
     }
-    message(0, "vel_prefac= %g  hubble_a=%g fom=%g \n", vel_prefac, hubble_a, F_Omega(InitTime));
+    message(0, "vel_prefac= %g  hubble_a=%g fom=%g \n", vel_prefac, hubble_a, F_Omega(All.TimeIC));
 
     for(i = 0; i < NumPart; i++)
     {
@@ -198,12 +198,12 @@ void displacement_fields(int Type) {
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         /* density is smoothed in k space by a gaussian kernel of 1 mesh grid */
-        double r2 = 1.0 / Nmesh;
+        double r2 = 1.0 / All.Nmesh;
         r2 *= r2;
         double fac = exp(- k2 * r2);
 
-        double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
+        double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
+        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
 
         value[0][0] *= fac;
         value[0][1] *= fac;
@@ -211,19 +211,19 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 }
 static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
-        double fac = (Box / (2 * M_PI)) * kpos[0] / k2;
+        double fac = (All.BoxSize / (2 * M_PI)) * kpos[0] / k2;
         /*
          We avoid high precision kernels to maintain compatibility with N-GenIC.
          The following formular shall cross check with fac in the limit of
          native diff_kernel (disp_y, disp_z shall match too!)
 
-        double fac1 = (2 * M_PI) / Box;
-        double fac = diff_kernel(kpos[0] * (2 * M_PI / Nmesh)) * (Nmesh / Box) / (
+        double fac1 = (2 * M_PI) / All.BoxSize;
+        double fac = diff_kernel(kpos[0] * (2 * M_PI / All.Nmesh)) * (All.Nmesh / All.BoxSize) / (
                     k2 * fac1 * fac1);
                     */
 
-        double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
+        double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
+        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
 
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
@@ -232,9 +232,9 @@ static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 }
 static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
-        double fac = (Box / (2 * M_PI)) * kpos[1] / k2;
-        double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
+        double fac = (All.BoxSize / (2 * M_PI)) * kpos[1] / k2;
+        double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
+        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -242,9 +242,9 @@ static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 }
 static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
-        double fac = (Box / (2 * M_PI)) * kpos[2] / k2;
-        double kmag = sqrt(k2) * 2 * M_PI / Box;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (Box * Box * Box));
+        double fac = (All.BoxSize / (2 * M_PI)) * kpos[2] / k2;
+        double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
+        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
 
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
@@ -373,7 +373,7 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmp
             /* always pull the gaussian from the lower quadrant plane for k = 0
              * plane*/
             /* always pull the whitenoise from the lower quadrant plane for k = 0
-             * plane and k == Nmesh / 2 plane*/
+             * plane and k == All.Nmesh / 2 plane*/
             int d1 = 0, d2 = 0;
             int cj = pm->Nmesh[1] - j;
             if(cj >= pm->Nmesh[1]) cj -= pm->Nmesh[1];
@@ -399,7 +399,7 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmp
 
                 double ampl, phase;
                 if(use_conj) {
-                    /* on k = 0 and Nmesh/2 plane, we use the lower quadrant generator,
+                    /* on k = 0 and All.Nmesh/2 plane, we use the lower quadrant generator,
                      * then hermit transform the result if it is nessessary */
                     SAMPLE(this_rng, &ampl, &phase);
                     SAMPLE(lower_rng, &ampl, &phase);
@@ -473,7 +473,7 @@ gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitu
     PM pm[1];
     int d;
     for (d = 0; d < 3; d ++) {
-        pm->Nmesh[d] = Nmesh;
+        pm->Nmesh[d] = All.Nmesh;
     }
 
     pm->ORegion.start[0] = region->offset[2];
@@ -488,7 +488,7 @@ gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitu
 
     pm->ORegion.total = region->totalsize;
     pm->allocsize = region->totalsize;
-    pmic_fill_gaussian_gadget(pm, (double*) rho_k, Seed, setUnitaryAmplitude, setInvertPhase);
+    pmic_fill_gaussian_gadget(pm, (double*) rho_k, All2.Seed, setUnitaryAmplitude, setInvertPhase);
 
 #if 0
     /* dump the gaussian field for debugging

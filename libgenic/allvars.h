@@ -1,24 +1,9 @@
 #include <stdint.h>
 #include <libgadget/cosmology.h>
+#include <libgadget/allvars.h>
 #include "power.h"
 
-extern double MaxMemSizePerNode;
-
-extern int      Nmesh, Ngrid, NGridNu;
-
-extern int UsePeculiarVelocity;
-extern int InvertPhase;
-
-extern double   Box;
-extern int   ProduceGas;
-extern int Seed;
-
-extern int UnitaryAmplitude;
-extern int DifferentTransferFunctions;
-
-extern int      NumPart;
-
-extern struct part_data
+extern struct ic_part_data
 {
   double Pos[3];
   float Vel[3];
@@ -27,19 +12,23 @@ extern struct part_data
   float Mass;
   int RegionInd;
 } *P;
+extern int NumPart;
 
-extern double InitTime;
-extern double Max_nuvel;
-extern double WDM_therm_mass;
+struct genic_config {
+    int Ngrid, NGridNu;
 
-extern char * OutputDir, * FileBase;
-extern int  NumFiles;
-extern int  NumWriters;
+    int ProduceGas;
+    int Seed;
+    int UnitaryAmplitude;
+    int InvertPhase;
+    int DifferentTransferFunctions;
+    double Max_nuvel;
+    double WDM_therm_mass;
 
-extern int      ThisTask, NTask;
+    int  NumFiles;
+    struct power_params PowerP;
+} ;
 
-extern double UnitTime_in_s, UnitLength_in_cm, UnitMass_in_g, UnitVelocity_in_cm_per_s;
-extern double G;
 
-extern Cosmology CP;
-extern struct power_params PowerP;
+extern struct genic_config All2;
+
