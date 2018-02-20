@@ -8,10 +8,11 @@
 #include <string.h>
 #include <time.h>
 #include <gsl/gsl_rng.h>
-#include "partmanager.h"
-#include "domain.h"
-#include "slotsmanager.h"
-#include "mymalloc.h"
+
+#include <libgadget/partmanager.h>
+#include <libgadget/domain.h>
+#include <libgadget/slotsmanager.h>
+#include <libgadget/mymalloc.h>
 #include "stub.h"
 
 struct part_manager_type PartManager[1] = {{0}};

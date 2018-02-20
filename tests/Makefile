@@ -1,3 +1,10 @@
+# Customization; see Options.mk.example
+CONFIG ?= ../Options.mk
+
+include $(CONFIG)
+
+include ../Makefile.rules
+
 ##
 # Run all the tests.
 #
@@ -30,9 +37,9 @@ TESTED = \
 
 MPI_TESTED = exchange
 
-TESTBIN = $(TESTED:%=tests/test_%) $(MPI_TESTED:%=tests/test_%)
-SUITE?= $(TESTED:%=tests/test_%)
-MPISUITE = $(MPI_TESTED:%=tests/test_%)
+TESTBIN = $(TESTED:%=test_%) $(MPI_TESTED:%=test_%)
+SUITE?= $(TESTED:%=test_%)
+MPISUITE = $(MPI_TESTED:%=test_%)
 
 .PHONY: test run-tests build-tests
 
@@ -42,9 +49,9 @@ build-tests: $(TESTBIN)
 test : build-tests
 	trap 'err=1' ERR; for tt in $(SUITE) ; do \
 		if [[ "$(MPISUITE)" =~ .*$$tt.* ]]; then \
-			mpirun -np 4 $$tt ;  \
+			mpirun -np 4 ./$$tt ;  \
 		else \
-			$$tt ; \
+			./$$tt ; \
 		fi ;  \
 	done; exit $$err
 
@@ -54,8 +61,8 @@ clean-tests:
 # this empty rule is important for tab-completion
 $(TESTBIN):
 
-tests/test_%: tests/test_%.c tests/stub.c $(DESTDIR)/%.o $(DESTDIR)/libgadget-utils.a tests/cmocka.c
-	$(MPICC) $(CFLAGS) -Itests/ $^ $(LIBS) -o $@
+test_%: test_%.c stub.c ../libgadget/libgadget.a ../libgadget/libgadget-utils.a cmocka.c
+	$(MPICC) $(CFLAGS) -I.  $^ $(LIBS) -o $@
 
-tests/test_genic-%: tests/test_genic-%.c tests/stub.c $(DESTDIR)/genic/%.o $(DESTDIR)/libgadget-utils.a tests/cmocka.c
-	$(MPICC) $(CFLAGS) -Itests/ $^ $(LIBS) -o $@
+test_genic-%: test_genic-%.c stub.c ../genic/.objs/%.o ../libgadget/libgadget-ic.a ../libgadget/libgadget-utils.a cmocka.c
+	$(MPICC) $(CFLAGS) -I.  $^ $(LIBS) -o $@

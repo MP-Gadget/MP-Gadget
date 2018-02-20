@@ -4,12 +4,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <mpi.h>
-#include "genic/allvars.h"
-#include "genic/proto.h"
-#include "endrun.h"
-#include "paramset.h"
-#include "system.h"
-#include "physconst.h"
+#include "allvars.h"
+#include "proto.h"
+#include <libgadget/endrun.h>
+#include <libgadget/paramset.h>
+#include <libgadget/system.h>
+#include <libgadget/physconst.h>
 
 #define OPTIONAL 0
 #define REQUIRED 1

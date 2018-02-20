@@ -9,11 +9,11 @@
 #include <stdio.h>
 #include <time.h>
 #include <gsl/gsl_rng.h>
-#include "forcetree.h"
-#include "allvars.h"
-#include "partmanager.h"
-#include "domain.h"
-#include "peano.c"
+#include <libgadget/forcetree.h>
+#include <libgadget/allvars.h>
+#include <libgadget/partmanager.h>
+#include <libgadget/domain.h>
+#include <libgadget/peano.c>
 #include "stub.h"
 
 /*Defined in forcetree.c*/

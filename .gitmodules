@@ -5,5 +5,5 @@
 	path = depends/mpsort
 	url = https://github.com/rainwoodman/MP-sort
 [submodule "kspace-neutrinos"]
-	path = kspace-neutrinos
+	path = libgadget/kspace-neutrinos
 	url = https://github.com/sbird/kspace-neutrinos

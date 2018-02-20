@@ -7,7 +7,6 @@ FILES = $(shell git ls-files)
 
 # define the version
 # (easier to extract from other utils, e.g. python)
-include Makefile.version
 
 # Main Rules
 include Makefile.rules

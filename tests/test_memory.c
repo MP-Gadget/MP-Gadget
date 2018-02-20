@@ -6,7 +6,7 @@
 #include <stdio.h>
 
 #include "stub.h"
-#include "memory.h"
+#include <libgadget/memory.h>
 
 
 static void

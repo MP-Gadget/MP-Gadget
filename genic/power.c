@@ -4,10 +4,12 @@
 #include <mpi.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_interp.h>
-#include "genic/power.h"
-#include "cosmology.h"
-#include "mymalloc.h"
-#include "endrun.h"
+
+#include <libgadget/cosmology.h>
+#include <libgadget/mymalloc.h>
+#include <libgadget/endrun.h>
+
+#include "power.h"
 
 static double PowerSpec_EH(double k);
 static double PowerSpec_Tabulated(double k, int Type);

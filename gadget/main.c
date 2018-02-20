@@ -7,16 +7,16 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 
-#include "allvars.h"
-#include "slotsmanager.h"
-#include "partmanager.h"
-#include "mymalloc.h"
+#include <libgadget/allvars.h>
+#include <libgadget/slotsmanager.h>
+#include <libgadget/partmanager.h>
+#include <libgadget/mymalloc.h>
 
-#include "proto.h"
-#include "param.h"
-#include "config.h"
-#include "endrun.h"
-#include "fof.h"
+#include <libgadget/proto.h>
+#include <libgadget/param.h>
+#include <libgadget/config.h>
+#include <libgadget/endrun.h>
+#include <libgadget/fof.h>
 
 /*! \file main.c
  *  \brief start of the program

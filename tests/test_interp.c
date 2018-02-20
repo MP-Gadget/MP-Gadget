@@ -5,7 +5,7 @@
 #include <math.h>
 #include <stdio.h>
 #include "stub.h"
-#include "interp.h"
+#include <libgadget/interp.h>
 
 #define DMAX(x,y) ((x) > (y) ? (x) : (y))
 #define DMIN(x,y) ((x) < (y) ? (x) : (y))

@@ -14,7 +14,7 @@ GIT=`git describe --always --dirty --abbrev=10`
 VERSION=${VERSION}_${GIT/-/_}
 fi
 echo '#define GADGET_VERSION "'${VERSION}'"'
-echo '#define GADGET_TESTDATA_ROOT "'$PWD'"'
+echo '#define GADGET_TESTDATA_ROOT "'$PWD'/.."'
 ) > $1
 
 

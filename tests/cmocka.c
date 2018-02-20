@@ -28,7 +28,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "endrun.h"
+#include <libgadget/endrun.h>
 
 /*
  * This allows to add a platform specific header file. Some embedded platforms

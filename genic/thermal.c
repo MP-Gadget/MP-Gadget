@@ -1,12 +1,12 @@
-#include "thermal.h"
-/*For speed of light*/
-#include "../physconst.h"
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_interp.h>
 #include <gsl/gsl_rng.h>
 #include <assert.h>
-#include "../endrun.h"
-#include "../mymalloc.h"
+#include "thermal.h"
+/*For speed of light*/
+#include <libgadget/physconst.h>
+#include <libgadget/endrun.h>
+#include <libgadget/mymalloc.h>
 
 /*The Boltzmann constant in units of eV/K*/
 #define BOLEVK 8.61734e-5

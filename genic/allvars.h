@@ -1,5 +1,5 @@
 #include <stdint.h>
-#include "cosmology.h"
+#include <libgadget/cosmology.h>
 #include "power.h"
 
 extern double MaxMemSizePerNode;

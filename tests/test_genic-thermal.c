@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include "stub.h"
-#include "config.h"
-#include "genic/thermal.h"
+#include <libgadget/config.h>
+#include <genic/thermal.h>
 
 /*Check that the neutrino velocity NU_V0 is sensible*/
 static void

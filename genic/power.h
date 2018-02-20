@@ -1,7 +1,7 @@
 #ifndef GENIC_POWER_H
 #define GENIC_POWER_H
 
-#include "cosmology.h"
+#include <libgadget/cosmology.h>
 
 struct power_params
 {

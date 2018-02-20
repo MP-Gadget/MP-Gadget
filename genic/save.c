@@ -4,14 +4,14 @@
 #include <stddef.h>
 #include <string.h>
 #include <mpi.h>
-#include "genic/allvars.h"
-#include "genic/proto.h"
-#include "types.h"
-#include "endrun.h"
-#include "bigfile-mpi.h"
-#include "cosmology.h"
+#include "allvars.h"
+#include "proto.h"
+#include <bigfile-mpi.h>
 
-#include "walltime.h"
+#include <libgadget/types.h>
+#include <libgadget/endrun.h>
+#include <libgadget/cosmology.h>
+#include <libgadget/walltime.h>
 
 static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, char * dtype, int items_per_particle, int64_t TotNumPart) {
     BigBlock block;

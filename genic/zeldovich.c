@@ -6,14 +6,14 @@
 /* do NOT use complex.h it breaks the code */
 #include <pfft.h>
 #include <gsl/gsl_rng.h>
+#include "allvars.h"
+#include "proto.h"
+#include "power.h"
 
-#include "petapm.h"
-#include "genic/allvars.h"
-#include "genic/proto.h"
-#include "genic/power.h"
-#include "walltime.h"
-#include "endrun.h"
-#include "mymalloc.h"
+#include <libgadget/petapm.h>
+#include <libgadget/walltime.h>
+#include <libgadget/endrun.h>
+#include <libgadget/mymalloc.h>
 
 #define MESH2K(i) petapm_mesh_to_k(i)
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);

@@ -5,13 +5,13 @@
 #include <mpi.h>
 
 #include "bigfile-mpi.h"
-#include "genic/allvars.h"
-#include "genic/proto.h"
-#include "genic/thermal.h"
-#include "walltime.h"
-#include "mymalloc.h"
-#include "endrun.h"
-#include "petapm.h"
+#include "allvars.h"
+#include "proto.h"
+#include "thermal.h"
+#include <libgadget/walltime.h>
+#include <libgadget/mymalloc.h>
+#include <libgadget/endrun.h>
+#include <libgadget/petapm.h>
 
 static struct ClockTable CT;
 void print_spec(void);
