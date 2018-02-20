@@ -10,7 +10,7 @@
 #include <stdlib.h>
 #include "stub.h"
 #include <libgadget/config.h>
-#include <genic/power.h>
+#include <libgenic/power.h>
 
 int DifferentTransferFunctions = 1;
 

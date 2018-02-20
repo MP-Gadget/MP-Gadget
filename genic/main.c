@@ -5,9 +5,9 @@
 #include <mpi.h>
 
 #include "bigfile-mpi.h"
-#include "allvars.h"
-#include "proto.h"
-#include "thermal.h"
+#include <libgenic/allvars.h>
+#include <libgenic/proto.h>
+#include <libgenic/thermal.h>
 #include <libgadget/walltime.h>
 #include <libgadget/mymalloc.h>
 #include <libgadget/endrun.h>

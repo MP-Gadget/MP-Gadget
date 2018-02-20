@@ -61,9 +61,6 @@ clean-tests:
 # this empty rule is important for tab-completion
 $(TESTBIN):
 
-test_genic-%: test_genic-%.c stub.c ../genic/.objs/%.o ../libgadget/libgadget-ic.a ../libgadget/libgadget-utils.a cmocka.c
-	$(MPICC) $(CFLAGS) -I.  $^ $(LIBS) -o $@
-
-test_%: test_%.c stub.c ../libgadget/libgadget.a ../libgadget/libgadget-utils.a cmocka.c
+test_%: test_%.c stub.c ../libgenic/libgenic.a ../libgadget/libgadget.a ../libgadget/libgadget-utils.a cmocka.c
 	$(MPICC) $(CFLAGS) -I.  $^ $(LIBS) -o $@
 

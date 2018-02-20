@@ -8,12 +8,11 @@ INCL=../libgadget/config.h
 
 include ../Makefile.rules
 
-OBJS = main.o power.o allvars.o params.o \
-	zeldovich.o save.o thermal.o
+OBJS = main.o
 
 OBJS := $(OBJS:%.o=.objs/%.o)
 
-MP-GenIC: $(OBJS) ../libgadget/libgadget-ic.a ../libgadget/libgadget-utils.a
+MP-GenIC: $(OBJS) ../libgenic/libgenic.a ../libgadget/libgadget.a ../libgadget/libgadget-utils.a
 	$(MPICC) $(OPTIMIZE) $^ $(LIBS) -o $@
 
 clean:

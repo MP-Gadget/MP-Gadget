@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
-#include "genic/allvars.h"
+#include <libgenic/allvars.h>
 
 int Nmesh, Ngrid, NGridNu;
 

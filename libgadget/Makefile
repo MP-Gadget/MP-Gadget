@@ -52,20 +52,10 @@ GADGET_OBJS =  \
 GADGET_UTILS_OBJS= endrun.o memory.o mymalloc.o system.o event.o openmpsort.o utils-string.o
 
 
-GADGET_IC_OBJS= partmanager.o \
-		 petapm.o \
-        paramset.o \
-		walltime.o \
-        cosmology.o \
-        endrun.o \
-        kspace-neutrinos/omega_nu_single.o
-
-
 GADGET_OBJS := $(GADGET_OBJS:%=.objs/%)
 GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=.objs/%)
-GADGET_IC_OBJS := $(GADGET_IC_OBJS:%=.objs/%)
 
-all: builddir libgadget.a libgadget-ic.a libgadget-utils.a
+all: builddir libgadget.a libgadget-utils.a
 
 .PHONY: builddir all
 
@@ -75,12 +65,8 @@ libgadget-utils.a: $(GADGET_UTILS_OBJS)
 libgadget.a: $(GADGET_OBJS)
 	$(AR) rv $@ $(GADGET_OBJS)
 
-libgadget-ic.a: $(GADGET_IC_OBJS)
-	$(AR) rv $@ $(GADGET_IC_OBJS)
-
-
 clean:
-	rm -rf .objs libgadget.a libgadget-utils.a libgadget-ic.a
+	rm -rf .objs libgadget.a libgadget-utils.a
 
 config.h: Makefile $(CONFIG)
 	mkdir -p `dirname $@`

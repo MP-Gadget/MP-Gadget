@@ -11,7 +11,7 @@
 #include <string.h>
 #include "stub.h"
 #include <libgadget/config.h>
-#include <genic/thermal.h>
+#include <libgenic/thermal.h>
 
 /*Check that the neutrino velocity NU_V0 is sensible*/
 static void
