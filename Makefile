@@ -15,6 +15,11 @@ all:
 	cd gadget; $(MAKE)
 	cd genic; $(MAKE)
 
+clean :
+	cd libgadget; $(MAKE) clean
+	cd gadget; $(MAKE) clean
+	cd genic; $(MAKE) clean
+
 test:
 	cd tests; $(MAKE) test
 
