@@ -36,7 +36,7 @@
 /* FIXME: convert this to a parameter */
 #define FOF_SECONDARY_LINK_TYPES (1+16+32)    // 2^type for the types linked to nearest primaries
 #define LARGE 1e29
-void fof_init()
+void fof_init(void)
 {
     All.FOFHaloComovingLinkingLength = All.FOFHaloLinkingLength * All.MeanSeparation[1];
     All.TimeNextSeedingCheck = All.Time;
@@ -76,14 +76,17 @@ static void fof_finish_group_properties(struct Group * Group);
 static void
 fof_compile_base(struct BaseGroup * base);
 static void
-fof_compile_catalogue(struct Group * group, struct BaseGroup * base);
+fof_compile_catalogue(struct Group * group);
+
+static struct Group *
+fof_alloc_group(const struct BaseGroup * base, const uint64_t NgroupsExt);
+
 static void fof_assign_grnr(struct BaseGroup * base);
 
 void fof_label_primary(void);
 extern void fof_save_particles(int num);
 
 uint64_t Ngroups, TotNgroups, NgroupsExt;
-int64_t TotNids;
 
 struct Group *Group;
 
@@ -121,7 +124,7 @@ static MPI_Datatype MPI_TYPE_GROUP;
  *
  **/
 
-void fof_fof()
+void fof_fof(void)
 {
     int i;
     double t0, t1;
@@ -174,8 +177,6 @@ void fof_fof()
     /* We create the smaller 'BaseGroup' data set for this. */
     struct BaseGroup * base = (struct BaseGroup *) mymalloc("BaseGroup", sizeof(struct BaseGroup) * NgroupsExt);
 
-    Group = (struct Group *) mymalloc2("Group", sizeof(struct Group) * NgroupsExt);
-
     fof_compile_base(base);
 
     t1 = second();
@@ -188,7 +189,12 @@ void fof_fof()
 
     t0 = second();
 
-    fof_compile_catalogue(Group, base);
+    /*Initialise the Group object from the BaseGroup*/
+    Group = fof_alloc_group(base, NgroupsExt);
+
+    myfree(base);
+
+    fof_compile_catalogue(Group);
     t1 = second();
 
     walltime_measure("/FOF/Prop");
@@ -198,7 +204,6 @@ void fof_fof()
 
     message(0, "computation of group properties took = %g sec\n", timediff(t0, t1));
 
-    myfree(base);
     myfree(HaloLabel);
 
 }
@@ -674,20 +679,28 @@ fof_compile_base(struct BaseGroup * base)
     }
 }
 
-
-static void
-fof_compile_catalogue(struct Group * group, struct BaseGroup * BaseGroup)
+/* Allocate memory for and initialise a Group object
+ * from a BaseGroup object.*/
+static struct Group *
+fof_alloc_group(const struct BaseGroup * base, const uint64_t NgroupsExt)
 {
-    int i, start;
-
+    int i;
+    struct Group * Group = (struct Group *) mymalloc2("Group", sizeof(struct Group) * NgroupsExt);
     memset(Group, 0, sizeof(Group[0]) * NgroupsExt);
 
     /* copy in the base properties */
-
     /* at this point base group shall be sorted by MinID */
+    #pragma omp parallel for
     for(i = 0; i < NgroupsExt; i ++) {
-        Group[i].base = BaseGroup[i];
+        Group[i].base = base[i];
     }
+    return Group;
+}
+
+static void
+fof_compile_catalogue(struct Group * group)
+{
+    int i, start;
 
     start = 0;
     for(i = 0; i < NgroupsExt; i++)
@@ -725,6 +738,7 @@ fof_compile_catalogue(struct Group * group, struct BaseGroup * BaseGroup)
 
     fof_finish_group_properties(Group);
 
+    int64_t TotNids;
     MPI_Allreduce(&Ngroups, &TotNgroups, 1, MPI_UINT64, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(&Nids, &TotNids, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
