@@ -3,12 +3,12 @@
 #include <string.h>
 #include <math.h>
 
-#include "allvars.h"
-#include "endrun.h"
-#include "paramset.h"
-#include "system.h"
-#include "densitykernel.h"
-#include "timebinmgr.h"
+#include <libgadget/allvars.h>
+#include <libgadget/endrun.h>
+#include <libgadget/paramset.h>
+#include <libgadget/system.h>
+#include <libgadget/densitykernel.h>
+#include <libgadget/timebinmgr.h>
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */

@@ -7,7 +7,11 @@ INCL=../libgadget/config.h
 
 include ../Makefile.rules
 
-MP-Gadget: .objs/main.o ../libgadget/libgadget.a ../libgadget/libgadget-utils.a
+OBJS = main.o params.o
+
+OBJS := $(OBJS:%.o=.objs/%.o)
+
+MP-Gadget: $(OBJS) ../libgadget/libgadget.a ../libgadget/libgadget-utils.a
 	$(MPICC) $(OPTIMIZE) $^ $(LIBS) -o $@
 
 clean:

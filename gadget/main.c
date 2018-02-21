@@ -13,10 +13,11 @@
 #include <libgadget/mymalloc.h>
 
 #include <libgadget/proto.h>
-#include <libgadget/param.h>
 #include <libgadget/config.h>
 #include <libgadget/endrun.h>
 #include <libgadget/fof.h>
+
+#include "params.h"
 
 /*! \file main.c
  *  \brief start of the program
