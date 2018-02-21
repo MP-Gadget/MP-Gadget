@@ -9,7 +9,7 @@ INCL=../libgadget/config.h \
 
 include ../Makefile.rules
 
-OBJS = power.o allvars.o params.o \
+OBJS = power.o allvars.o \
   	zeldovich.o save.o thermal.o
 
 OBJS := $(OBJS:%.o=.objs/%.o)

@@ -8,7 +8,7 @@ INCL=../libgadget/config.h
 
 include ../Makefile.rules
 
-OBJS = main.o
+OBJS = main.o params.o
 
 OBJS := $(OBJS:%.o=.objs/%.o)
 
