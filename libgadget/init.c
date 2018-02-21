@@ -4,6 +4,8 @@
 #include <mpi.h>
 #include <gsl/gsl_sf_gamma.h>
 
+#include <mpsort.h>
+
 #include "allvars.h"
 #include "cooling.h"
 #include "forcetree.h"
@@ -14,13 +16,12 @@
 #include "domain.h"
 #include "slotsmanager.h"
 #include "exchange.h"
-#include "mpsort.h"
-#include "mymalloc.h"
 #include "fof.h"
-#include "endrun.h"
 #include "timestep.h"
 #include "timebinmgr.h"
 #include "cosmology.h"
+
+#include "utils.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions

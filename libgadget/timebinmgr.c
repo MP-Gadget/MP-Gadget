@@ -3,7 +3,8 @@
 
 #include "allvars.h"
 #include "timebinmgr.h"
-#include "endrun.h"
+
+#include "utils.h"
 
 /*! table with desired sync points. All forces and phase space variables are synchonized to the same order. */
 static SyncPoint SyncPoints[8192];

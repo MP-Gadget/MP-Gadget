@@ -6,9 +6,10 @@
 #include <math.h>
 
 #include "types.h"
-#include "mymalloc.h"
-#include "endrun.h"
 #include "powerspectrum.h"
+
+#include "utils.h"
+
 /*Power spectrum related functions*/
 
 /*Allocate memory for the power spectrum*/

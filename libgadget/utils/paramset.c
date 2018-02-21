@@ -1,8 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "paramset.h"
 #include <string.h>
-#include "utils-string.h"
+
+#include "paramset.h"
+#include "string.h"
 
 #define INT 1
 #define DOUBLE 3

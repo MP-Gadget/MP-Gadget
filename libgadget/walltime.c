@@ -3,7 +3,8 @@
 #include <string.h>
 #include <stdio.h>
 #include "walltime.h"
-#include "openmpsort.h"
+
+#include "utils.h"
 
 static struct ClockTable * CT = NULL;
 

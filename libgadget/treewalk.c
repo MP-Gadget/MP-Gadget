@@ -6,13 +6,11 @@
 #include "partmanager.h"
 #include "treewalk.h"
 #include "drift.h"
-#include "openmpsort.h"
-#include "mymalloc.h"
 #include "domain.h"
 #include "forcetree.h"
-#include "endrun.h"
 #include "timestep.h"
-#include "system.h"
+
+#include "utils.h"
 
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 

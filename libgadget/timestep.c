@@ -8,13 +8,12 @@
 #include "timefac.h"
 #include "cosmology.h"
 #include "cooling.h"
-#include "mymalloc.h"
-#include "endrun.h"
 #include "checkpoint.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
-#include "system.h"
 #include "timestep.h"
+
+#include "utils.h"
 
 /*! \file timestep.c
  *  \brief routines for 'kicking' particles in

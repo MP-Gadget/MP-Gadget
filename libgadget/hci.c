@@ -4,8 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "endrun.h"
-#include "utils-string.h"
+#include "utils.h"
 #include "hci.h"
 
 HCIManager HCI_DEFAULT_MANAGER[1] = {

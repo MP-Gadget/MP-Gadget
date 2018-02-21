@@ -11,8 +11,8 @@
 #include "allvars.h"
 #include "partmanager.h"
 #include "cosmology.h"
-#include "endrun.h"
-#include "system.h"
+
+#include "utils.h"
 
 #define NENTRY 4096
 static double tab_loga[NENTRY];

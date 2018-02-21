@@ -9,7 +9,7 @@
 #include "timestep.h"
 #include "cooling.h"
 #include "slotsmanager.h"
-#include "endrun.h"
+#include "utils.h"
 
 /* global state of system
 */

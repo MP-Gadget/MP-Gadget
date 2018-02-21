@@ -10,7 +10,7 @@
 #include "timestep.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
-#include "endrun.h"
+#include "utils.h"
 
 static int drift_particle_full(int i, inttime_t ti1, int blocking);
 

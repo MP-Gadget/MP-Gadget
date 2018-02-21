@@ -5,10 +5,8 @@
 #include <string.h>
 #include <mpi.h>
 #include <libgenic/allvars.h>
-#include <libgadget/endrun.h>
-#include <libgadget/paramset.h>
-#include <libgadget/system.h>
 #include <libgadget/physconst.h>
+#include <libgadget/utils.h>
 
 #define OPTIONAL 0
 #define REQUIRED 1

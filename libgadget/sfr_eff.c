@@ -27,10 +27,9 @@
 #include "treewalk.h"
 #include "cooling.h"
 #include "slotsmanager.h"
-#include "mymalloc.h"
-#include "endrun.h"
 #include "timestep.h"
-#include "system.h"
+
+#include "utils.h"
 
 /*Cooling only: no star formation*/
 static void cooling_direct(int i);

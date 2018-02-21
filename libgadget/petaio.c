@@ -6,9 +6,9 @@
 #include <string.h>
 #include <stdarg.h>
 
-#include "bigfile-mpi.h"
+#include <bigfile-mpi.h>
+
 #include "allvars.h"
-#include "system.h"
 #include "sfr_eff.h"
 #include "cooling.h"
 #include "timestep.h"
@@ -16,12 +16,10 @@
 #include "petaio.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
-#include "mymalloc.h"
-#include "openmpsort.h"
-#include "utils-string.h"
-#include "endrun.h"
 #include "config.h"
 #include "kspace-neutrinos/delta_tot_table.h"
+
+#include "utils.h"
 
 /*Defined in fofpetaio.c and only used here*/
 void fof_register_io_blocks();

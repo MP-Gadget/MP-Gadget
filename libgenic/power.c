@@ -6,8 +6,7 @@
 #include <gsl/gsl_interp.h>
 
 #include <libgadget/cosmology.h>
-#include <libgadget/mymalloc.h>
-#include <libgadget/endrun.h>
+#include <libgadget/utils.h>
 
 #include "power.h"
 

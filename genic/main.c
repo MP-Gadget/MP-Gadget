@@ -4,14 +4,13 @@
 #include <stdio.h>
 #include <mpi.h>
 
-#include "bigfile-mpi.h"
+#include <bigfile-mpi.h>
 #include <libgenic/allvars.h>
 #include <libgenic/proto.h>
 #include <libgenic/thermal.h>
 #include <libgadget/walltime.h>
-#include <libgadget/mymalloc.h>
-#include <libgadget/endrun.h>
 #include <libgadget/petapm.h>
+#include <libgadget/utils.h>
 
 static struct ClockTable CT;
 void print_spec(void);

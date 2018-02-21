@@ -1,11 +1,8 @@
 #include <string.h>
-#include "event.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
-#include "mymalloc.h"
-#include "system.h"
-#include "endrun.h"
-#include "openmpsort.h"
+
+#include "utils.h"
 
 struct slots_manager_type SlotsManager[1] = {0};
 

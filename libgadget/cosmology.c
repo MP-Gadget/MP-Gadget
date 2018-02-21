@@ -1,10 +1,11 @@
 #include <math.h>
-#include "cosmology.h"
-#include "endrun.h"
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_errno.h>
 #include <gsl/gsl_odeiv2.h>
+
+#include "cosmology.h"
 #include "physconst.h"
+#include "utils.h"
 
 /*Stefan-Boltzmann constant in cgs units*/
 #define  STEFAN_BOLTZMANN 5.670373e-5

@@ -9,7 +9,7 @@
 #include <bigfile-mpi.h>
 
 #include <libgadget/types.h>
-#include <libgadget/endrun.h>
+#include <libgadget/utils.h>
 #include <libgadget/cosmology.h>
 #include <libgadget/walltime.h>
 

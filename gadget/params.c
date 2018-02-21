@@ -4,11 +4,10 @@
 #include <math.h>
 
 #include <libgadget/allvars.h>
-#include <libgadget/endrun.h>
-#include <libgadget/paramset.h>
-#include <libgadget/system.h>
 #include <libgadget/densitykernel.h>
 #include <libgadget/timebinmgr.h>
+#include <libgadget/utils.h>
+
 
 /* Optional parameters are passed the flag 0 and required parameters 1.
  * These macros are just to document the semantic meaning of these flags. */

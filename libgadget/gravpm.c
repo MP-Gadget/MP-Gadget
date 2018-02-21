@@ -8,11 +8,12 @@
 #include "petapm.h"
 #include "powerspectrum.h"
 #include "domain.h"
-#include "endrun.h"
-#include "mymalloc.h"
+
 #include "cosmology.h"
 #include "kspace-neutrinos/delta_pow.h"
 #include "kspace-neutrinos/delta_tot_table.h"
+
+#include "utils.h"
 
 /*Global variable to store power spectrum*/
 struct _powerspectrum PowerSpectrum;

@@ -5,8 +5,7 @@
 #include "thermal.h"
 /*For speed of light*/
 #include <libgadget/physconst.h>
-#include <libgadget/endrun.h>
-#include <libgadget/mymalloc.h>
+#include <libgadget/utils.h>
 
 /*The Boltzmann constant in units of eV/K*/
 #define BOLEVK 8.61734e-5

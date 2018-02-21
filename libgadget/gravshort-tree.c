@@ -10,11 +10,11 @@
 #include "drift.h"
 #include "forcetree.h"
 #include "treewalk.h"
-#include "mymalloc.h"
 #include "timestep.h"
-#include "endrun.h"
 
 #include "gravshort.h"
+
+#include "utils.h"
 
 /*! \file gravtree.c
  *  \brief main driver routines for gravitational (short-range) force computation

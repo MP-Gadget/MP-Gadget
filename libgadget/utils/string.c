@@ -7,7 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
-#include "utils-string.h"
+#include "string.h"
 
 char *
 fastpm_file_get_content(const char * filename)

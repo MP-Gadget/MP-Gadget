@@ -2,13 +2,12 @@
 #include <string.h>
 #include "mpsort.h"
 /* #include "domain.h" */
-#include "mymalloc.h"
 #include "allvars.h"
-#include "endrun.h"
-#include "system.h"
 #include "exchange.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
+
+#include "utils.h"
 
 /*Number of structure types for particles*/
 typedef struct {

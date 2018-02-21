@@ -12,8 +12,7 @@
 
 #include <libgadget/petapm.h>
 #include <libgadget/walltime.h>
-#include <libgadget/endrun.h>
-#include <libgadget/mymalloc.h>
+#include <libgadget/utils.h>
 
 #define MESH2K(i) petapm_mesh_to_k(i)
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);

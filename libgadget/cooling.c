@@ -28,8 +28,8 @@
 #include "bigfile.h"
 #include "cooling.h"
 #include "interp.h"
-#include "mymalloc.h"
-#include "endrun.h"
+
+#include "utils.h"
 
 #define NCOOLTAB  2000
 

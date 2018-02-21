@@ -9,9 +9,9 @@
 #include <math.h>
 #include <mpi.h>
 #include <cmocka.h>
-#include <libgadget/mymalloc.h>
+
 #include <libgadget/config.h>
-#include <libgadget/endrun.h>
+#include <libgadget/utils.h>
 
 int ThisTask;
 int NTask;

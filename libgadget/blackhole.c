@@ -6,14 +6,12 @@
 #include <gsl/gsl_math.h>
 
 #include "allvars.h"
+#include "utils.h"
 #include "cooling.h"
 #include "densitykernel.h"
 #include "treewalk.h"
 #include "slotsmanager.h"
-#include "mymalloc.h"
-#include "endrun.h"
 #include "drift.h"
-#include "system.h"
 #include "fof.h"
 #include "blackhole.h"
 #include "timestep.h"

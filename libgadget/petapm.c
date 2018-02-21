@@ -7,10 +7,9 @@
 
 #include "types.h"
 #include "petapm.h"
-#include "openmpsort.h"
-#include "mymalloc.h"
+
+#include "utils.h"
 #include "walltime.h"
-#include "endrun.h"
 
 /* a layout is the communication object, represent 
  * pencil / cells exchanged  */

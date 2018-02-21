@@ -6,16 +6,13 @@
 #include <time.h>
 
 #include "allvars.h"
-#include "event.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "domain.h"
-#include "openmpsort.h"
 #include "forcetree.h"
-#include "mymalloc.h"
-#include "endrun.h"
 #include "checkpoint.h"
-#include "system.h"
+
+#include "utils.h"
 
 /*! \file forcetree.c
  *  \brief gravitational tree and code for Ewald correction

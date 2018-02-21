@@ -10,13 +10,13 @@
 #include <libgadget/allvars.h>
 #include <libgadget/slotsmanager.h>
 #include <libgadget/partmanager.h>
-#include <libgadget/mymalloc.h>
 
 #include <libgadget/run.h>
 #include <libgadget/checkpoint.h>
 #include <libgadget/config.h>
-#include <libgadget/endrun.h>
 #include <libgadget/fof.h>
+
+#include <libgadget/utils.h>
 
 #include "params.h"
 

@@ -9,8 +9,6 @@
 #include "stub.h"
 
 #include <libgadget/hci.h>
-#include <libgadget/utils-string.h>
-#include <libgadget/endrun.h>
 
 char prefix[1024] = "XXXXXXXX";
 

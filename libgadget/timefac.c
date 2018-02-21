@@ -10,8 +10,8 @@
 #include "timefac.h"
 #include "timebinmgr.h"
 #include "cosmology.h"
-#include "endrun.h"
 
+#include "utils.h"
 
 #define DRIFT_TABLE_LENGTH  2000	/*!< length of the lookup table used to hold the drift and kick factors */
 

@@ -1,7 +1,7 @@
 #include <string.h>
 #include "partmanager.h"
-#include "mymalloc.h"
-#include "endrun.h"
+
+#include "utils.h"
 
 /*! This structure holds all the information that is
  * stored for each particle of the simulation on the local processor.

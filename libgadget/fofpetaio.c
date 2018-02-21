@@ -13,9 +13,8 @@
 #include "petaio.h"
 #include "exchange.h"
 #include "fof.h"
-#include "mymalloc.h"
-#include "openmpsort.h"
-#include "endrun.h"
+
+#include "utils.h"
 
 static void fof_write_header(BigFile * bf);
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent);

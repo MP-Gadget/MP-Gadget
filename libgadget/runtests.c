@@ -11,11 +11,11 @@
 #include "forcetree.h"
 #include "cooling.h"
 #include "gravity.h"
-#include "mymalloc.h"
-#include "endrun.h"
 #include "petaio.h"
 #include "domain.h"
 #include "timestep.h"
+
+#include "utils.h"
 
 void grav_short_pair(void);
 

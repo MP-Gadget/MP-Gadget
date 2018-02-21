@@ -12,13 +12,9 @@
 #include "domain.h"
 #include "run.h"
 #include "cooling.h"
-#include "mymalloc.h"
-#include "endrun.h"
 #include "checkpoint.h"
 #include "petaio.h"
-#include "utils-string.h"
 #include "timestep.h"
-#include "system.h"
 #include "drift.h"
 #include "forcetree.h"
 #include "blackhole.h"
@@ -26,6 +22,8 @@
 #include "sfr_eff.h"
 #include "slotsmanager.h"
 #include "hci.h"
+
+#include "utils.h"
 
 #include "kspace-neutrinos/delta_tot_table.h"
 

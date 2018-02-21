@@ -10,10 +10,10 @@
 #include "slotsmanager.h"
 #include "treewalk.h"
 #include "densitykernel.h"
-#include "mymalloc.h"
 #include "timestep.h"
-#include "endrun.h"
 #include "hydra.h"
+
+#include "utils.h"
 
 /*! \file hydra.c
  *  \brief Computation of SPH forces and rate of entropy generation

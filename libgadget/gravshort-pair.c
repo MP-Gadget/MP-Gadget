@@ -10,9 +10,10 @@
 #include "densitykernel.h"
 #include "treewalk.h"
 #include "timestep.h"
-#include "mymalloc.h"
-#include "endrun.h"
+
 #include "gravshort.h"
+
+#include "utils.h"
 
 static void
 grav_short_pair_ngbiter(

@@ -5,8 +5,7 @@
 #include <stdio.h>
 #include <omp.h>
 #include <stdlib.h>
-#include <libgadget/openmpsort.h>
-#include <libgadget/endrun.h>
+
 #include "stub.h"
 
 #if 0

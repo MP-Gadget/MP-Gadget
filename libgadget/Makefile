@@ -7,14 +7,44 @@ CONFIG ?= ../Options.mk
 include $(CONFIG)
 
 INCL = config.h \
-densitykernel.h  endrun.h    forcetree.h  interp.h event.h hci.h \
-mymalloc.h    paramset.h  petapm.h         run.h  timebinmgr.h  treewalk.h \
-allvars.h  partmanager.h  cooling.h         domain.h         exchange.h  slotsmanager.h     \
-checkpoint.h \
- openmpsort.h  peano.h     physconst.h      sfr_eff.h  timefac.h     utils-string.h \
-blackhole.h  cosmology.h       drift.h          fof.h       gravshort.h  memory.h   \
- petaio.h    powerspectrum.h  system.h   timestep.h    walltime.h \
-kspace-neutrinos/omega_nu_single.h kspace-neutrinos/delta_tot_table.h
+	densitykernel.h \
+	forcetree.h \
+	interp.h \
+	hci.h \
+	petapm.h \
+	run.h \
+	timebinmgr.h \
+	treewalk.h \
+	allvars.h \
+	partmanager.h \
+	cooling.h   \
+	domain.h   \
+	exchange.h \
+	slotsmanager.h     \
+	checkpoint.h \
+	peano.h \
+	physconst.h   \
+	sfr_eff.h \
+	timefac.h \
+	blackhole.h \
+	cosmology.h \
+	drift.h     \
+	fof.h  \
+	gravshort.h  \
+	petaio.h  \
+	powerspectrum.h  \
+	timestep.h  \
+	walltime.h \
+	kspace-neutrinos/omega_nu_single.h \
+	kspace-neutrinos/delta_tot_table.h \
+utils/paramset.h \
+utils/endrun.h \
+utils/memory.h \
+utils/mymalloc.h \
+utils/system.h \
+utils/event.h \
+utils/openmpsort.h \
+utils/string.h
 
 include ../Makefile.rules
 
@@ -32,7 +62,6 @@ include ../Makefile.version
 GADGET_OBJS =  \
 	 gdbtools.o hci.o\
 	 fof.o fofpetaio.o petaio.o \
-	 paramset.o \
 	 domain.o exchange.o slotsmanager.o allvars.o partmanager.o \
 	 blackhole.o timebinmgr.o \
 	 run.o drift.o stats.o \
@@ -50,7 +79,15 @@ GADGET_OBJS =  \
      kspace-neutrinos/delta_pow.o kspace-neutrinos/delta_tot_table.o \
      kspace-neutrinos/transfer_init.o
 
-GADGET_UTILS_OBJS= endrun.o memory.o mymalloc.o system.o event.o openmpsort.o utils-string.o
+GADGET_UTILS_OBJS= \
+utils/endrun.o \
+utils/memory.o \
+utils/mymalloc.o \
+utils/system.o \
+utils/paramset.o \
+utils/event.o \
+utils/openmpsort.o \
+utils/string.o
 
 
 GADGET_OBJS := $(GADGET_OBJS:%=.objs/%)

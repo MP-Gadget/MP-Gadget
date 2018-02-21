@@ -9,12 +9,14 @@
 #include <stdio.h>
 #include <time.h>
 #include <gsl/gsl_rng.h>
-#include <libgadget/forcetree.h>
+
+#include "stub.h"
+
 #include <libgadget/allvars.h>
+#include <libgadget/forcetree.h>
 #include <libgadget/partmanager.h>
 #include <libgadget/domain.h>
 #include <libgadget/peano.c>
-#include "stub.h"
 
 /*Defined in forcetree.c*/
 int
@@ -34,7 +36,6 @@ int MaxTopNodes, NTopNodes, NTopLeaves, NTask, ThisTask;
 struct topleaf_data *TopLeaves;
 struct topnode_data *TopNodes;
 struct task_data *Tasks;
-size_t AllocatedBytes;
 int NTask, ThisTask;
 double GravitySofteningTable[6];
 
@@ -404,7 +405,6 @@ static int setup_tree(void **state) {
     Tasks = malloc(sizeof(struct task_data));
     Tasks[0].StartLeaf = 0;
     Tasks[0].EndLeaf = 1;
-    AllocatedBytes = 0;
     gsl_rng * r = gsl_rng_alloc(gsl_rng_mt19937);
     gsl_rng_set(r, 0);
     *state = (void *) r;

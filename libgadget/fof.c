@@ -8,18 +8,18 @@
 #include <sys/types.h>
 #include <gsl/gsl_math.h>
 #include <inttypes.h>
+#include <mpsort.h>
+
+#include "utils.h"
+
 #include "allvars.h"
 #include "sfr_eff.h"
 #include "blackhole.h"
 #include "drift.h"
 #include "domain.h"
-#include "mpsort.h"
-#include "openmpsort.h"
-#include "mymalloc.h"
+
 #include "forcetree.h"
-#include "endrun.h"
 #include "treewalk.h"
-#include "system.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "densitykernel.h"
