@@ -1,7 +1,8 @@
 #include <string.h>
-#include "partmanager.h"
 
 #include "utils.h"
+
+#include "partmanager.h"
 
 /*! This structure holds all the information that is
  * stored for each particle of the simulation on the local processor.

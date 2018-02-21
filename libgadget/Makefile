@@ -21,7 +21,6 @@ INCL = config.h \
 	exchange.h \
 	slotsmanager.h     \
 	checkpoint.h \
-	peano.h \
 	physconst.h   \
 	sfr_eff.h \
 	timefac.h \
@@ -36,6 +35,7 @@ INCL = config.h \
 	walltime.h \
 	kspace-neutrinos/omega_nu_single.h \
 	kspace-neutrinos/delta_tot_table.h \
+utils/peano.h \
 utils/interp.h \
 utils/paramset.h \
 utils/endrun.h \
@@ -71,7 +71,7 @@ GADGET_OBJS =  \
 	 treewalk.o cosmology.o \
 	 gravshort-tree.o gravshort-pair.o hydra.o  timefac.o \
 	 gravpm.o powerspectrum.o \
-	 forcetree.o peano.o \
+	 forcetree.o \
 	 petapm.o gravity.o \
 	 densitykernel.o lightcone.o walltime.o\
 	 runtests.o \
@@ -81,6 +81,7 @@ GADGET_OBJS =  \
 
 GADGET_UTILS_OBJS= \
 utils/endrun.o \
+utils/peano.o \
 utils/interp.o \
 utils/memory.o \
 utils/mymalloc.o \

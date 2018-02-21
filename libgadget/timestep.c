@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
+#include "utils.h"
+
 #include "allvars.h"
 #include "domain.h"
 #include "timefac.h"
@@ -12,8 +15,6 @@
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "timestep.h"
-
-#include "utils.h"
 
 /*! \file timestep.c
  *  \brief routines for 'kicking' particles in

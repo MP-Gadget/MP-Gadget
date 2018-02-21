@@ -6,6 +6,8 @@
 
 #include <mpsort.h>
 
+#include "utils.h"
+
 #include "allvars.h"
 #include "cooling.h"
 #include "forcetree.h"
@@ -20,8 +22,6 @@
 #include "timestep.h"
 #include "timebinmgr.h"
 #include "cosmology.h"
-
-#include "utils.h"
 
 /*! \file init.c
  *  \brief code for initialisation of a simulation from initial conditions

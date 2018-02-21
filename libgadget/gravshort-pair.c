@@ -5,6 +5,8 @@
 #include <math.h>
 #include <gsl/gsl_math.h>
 
+#include "utils.h"
+
 #include "allvars.h"
 #include "cooling.h"
 #include "densitykernel.h"
@@ -12,8 +14,6 @@
 #include "timestep.h"
 
 #include "gravshort.h"
-
-#include "utils.h"
 
 static void
 grav_short_pair_ngbiter(

@@ -12,6 +12,7 @@
 #include <gsl/gsl_rng.h>
 
 #define qsort_openmp qsort
+#include "stub.h"
 
 #include <libgadget/exchange.h>
 #include <libgadget/domain.h>
@@ -20,7 +21,6 @@
 /*Note this includes the garbage collection!
  * Should be tested separately.*/
 #include <libgadget/slotsmanager.c>
-#include "stub.h"
 
 struct part_manager_type PartManager[1] = {{0}};
 int NTask, ThisTask;

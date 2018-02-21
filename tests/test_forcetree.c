@@ -16,7 +16,6 @@
 #include <libgadget/forcetree.h>
 #include <libgadget/partmanager.h>
 #include <libgadget/domain.h>
-#include <libgadget/peano.c>
 
 /*Defined in forcetree.c*/
 int

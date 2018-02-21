@@ -8,11 +8,12 @@
 /*For mkdir*/
 #include <sys/stat.h>
 #include <sys/types.h>
+
+#include "utils.h"
+
 #include "allvars.h"
 #include "partmanager.h"
 #include "cosmology.h"
-
-#include "utils.h"
 
 #define NENTRY 4096
 static double tab_loga[NENTRY];

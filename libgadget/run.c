@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#include "utils.h"
+
 #include "allvars.h"
 #include "gravity.h"
 #include "density.h"
@@ -23,7 +25,6 @@
 #include "slotsmanager.h"
 #include "hci.h"
 
-#include "utils.h"
 
 #include "kspace-neutrinos/delta_tot_table.h"
 

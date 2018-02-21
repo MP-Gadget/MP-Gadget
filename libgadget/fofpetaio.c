@@ -5,16 +5,16 @@
 #include <math.h>
 #include <string.h>
 
-#include "bigfile-mpi.h"
-#include "mpsort.h"
+#include <bigfile-mpi.h>
+#include <mpsort.h>
+
+#include "utils.h"
 
 #include "allvars.h"
 #include "partmanager.h"
 #include "petaio.h"
 #include "exchange.h"
 #include "fof.h"
-
-#include "utils.h"
 
 static void fof_write_header(BigFile * bf);
 static void build_buffer_fof(BigArray * array, IOTableEntry * ent);

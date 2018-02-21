@@ -6,6 +6,9 @@
 #include <sys/stat.h>
 #include <sys/ipc.h>
 #include <sys/sem.h>
+
+#include "utils.h"
+
 #include "allvars.h"
 #include "drift.h"
 #include "forcetree.h"
@@ -13,8 +16,6 @@
 #include "timestep.h"
 
 #include "gravshort.h"
-
-#include "utils.h"
 
 /*! \file gravtree.c
  *  \brief main driver routines for gravitational (short-range) force computation

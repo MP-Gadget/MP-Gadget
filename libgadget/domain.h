@@ -1,8 +1,6 @@
 #ifndef DOMAIN_H
 #define DOMAIN_H
 
-#include "peano.h"
-
 /*These variables are used externally in forcetree.c.
  * DomainTask is also used in treewalk and NTopLeaves is used in gravpm.c*/
 

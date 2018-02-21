@@ -2,6 +2,9 @@
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>
+
+#include "utils.h"
+
 #include "allvars.h"
 #include "partmanager.h"
 #include "forcetree.h"
@@ -12,8 +15,6 @@
 #include "cosmology.h"
 #include "kspace-neutrinos/delta_pow.h"
 #include "kspace-neutrinos/delta_tot_table.h"
-
-#include "utils.h"
 
 /*Global variable to store power spectrum*/
 struct _powerspectrum PowerSpectrum;

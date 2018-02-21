@@ -6,6 +6,8 @@
 #include <math.h>
 
 
+#include "utils.h"
+
 #include "allvars.h"
 #include "forcetree.h"
 #include "mpsort.h"
@@ -15,8 +17,6 @@
 #include "exchange.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
-
-#include "utils.h"
 
 #define TAG_GRAV_A        18
 #define TAG_GRAV_B        19

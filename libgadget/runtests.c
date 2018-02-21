@@ -6,6 +6,8 @@
 #include <unistd.h>
 #include <ctype.h>
 
+#include "utils.h"
+
 #include "allvars.h"
 #include "partmanager.h"
 #include "forcetree.h"
@@ -14,8 +16,6 @@
 #include "petaio.h"
 #include "domain.h"
 #include "timestep.h"
-
-#include "utils.h"
 
 void grav_short_pair(void);
 

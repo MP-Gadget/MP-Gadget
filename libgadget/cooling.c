@@ -24,11 +24,12 @@
 #include <math.h>
 #include <bigfile.h>
 
+
+#include "utils.h"
+
 #include "allvars.h"
 #include "partmanager.h"
 #include "cooling.h"
-
-#include "utils.h"
 
 #define NCOOLTAB  2000
 

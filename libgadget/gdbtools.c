@@ -4,9 +4,11 @@
 #include <string.h>
 #include <math.h>
 
-/* these are for debuging in GDB */
+#include "utils.h"
 #include "partmanager.h"
 
+
+/* these are for debuging in GDB */
 int GDB_particle_by_id(MyIDType id, int from) {
     int i;
     for(i = from; i < PartManager->NumPart; i++) {
