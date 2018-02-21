@@ -9,7 +9,6 @@ include $(CONFIG)
 INCL = config.h \
 	densitykernel.h \
 	forcetree.h \
-	interp.h \
 	hci.h \
 	petapm.h \
 	run.h \
@@ -37,6 +36,7 @@ INCL = config.h \
 	walltime.h \
 	kspace-neutrinos/omega_nu_single.h \
 	kspace-neutrinos/delta_tot_table.h \
+utils/interp.h \
 utils/paramset.h \
 utils/endrun.h \
 utils/memory.h \
@@ -73,7 +73,7 @@ GADGET_OBJS =  \
 	 gravpm.o powerspectrum.o \
 	 forcetree.o peano.o \
 	 petapm.o gravity.o \
-	 densitykernel.o interp.o lightcone.o walltime.o\
+	 densitykernel.o lightcone.o walltime.o\
 	 runtests.o \
      kspace-neutrinos/omega_nu_single.o \
      kspace-neutrinos/delta_pow.o kspace-neutrinos/delta_tot_table.o \
@@ -81,6 +81,7 @@ GADGET_OBJS =  \
 
 GADGET_UTILS_OBJS= \
 utils/endrun.o \
+utils/interp.o \
 utils/memory.o \
 utils/mymalloc.o \
 utils/system.o \

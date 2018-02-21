@@ -22,12 +22,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <bigfile.h>
 
 #include "allvars.h"
 #include "partmanager.h"
-#include "bigfile.h"
 #include "cooling.h"
-#include "interp.h"
 
 #include "utils.h"
 
