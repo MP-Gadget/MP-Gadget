@@ -96,13 +96,13 @@ void saveheader(BigFile * bf, int64_t TotNumPart, int64_t TotNuPart, double nufr
             (big_block_set_attr(&bheader, "FractionNuInParticles", &nufrac, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaBaryon", &All.CP.OmegaBaryon, "f8", 1)) ||
             (big_block_set_attr(&bheader, "OmegaLambda", &All.CP.OmegaLambda, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "All.UnitLength_in_cm", &All.UnitLength_in_cm, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "All.UnitMass_in_g", &All.UnitMass_in_g, "f8", 1)) ||
-            (big_block_set_attr(&bheader, "All.UnitVelocity_in_cm_per_s", &All.UnitVelocity_in_cm_per_s, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "UnitLength_in_cm", &All.UnitLength_in_cm, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "UnitMass_in_g", &All.UnitMass_in_g, "f8", 1)) ||
+            (big_block_set_attr(&bheader, "UnitVelocity_in_cm_per_s", &All.UnitVelocity_in_cm_per_s, "f8", 1)) ||
             (big_block_set_attr(&bheader, "HubbleParam", &All.CP.HubbleParam, "f8", 1)) ||
             (big_block_set_attr(&bheader, "InvertPhase", &All2.InvertPhase, "i4", 1)) ||
             (big_block_set_attr(&bheader, "Seed", &All2.Seed, "i8", 1)) ||
-            (big_block_set_attr(&bheader, "All.UnitaryAmplitude", &All2.UnitaryAmplitude, "i4", 1));
+            (big_block_set_attr(&bheader, "UnitaryAmplitude", &All2.UnitaryAmplitude, "i4", 1));
     if(rt) {
         endrun(0, "failed to create attr %s", 
                 big_file_get_error_message());
