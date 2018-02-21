@@ -190,7 +190,7 @@ static void fof_distribute_particles() {
     }
 
     //int64_t Npig = count_sum(NpigLocal);
-    //int64_t offsetLocal = count_to_offset(NpigLocal);
+    //int64_t offsetLocal = MPIU_cumsum(NpigLocal, MPI_COMM_WORLD);
 
     //size_t chunksize = (Npig / NTask) + (Npig % NTask != 0);
 

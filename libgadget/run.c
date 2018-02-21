@@ -94,7 +94,11 @@ void begrun(int RestartSnapNum)
     set_units();
 
 #ifdef DEBUG
-    write_pid_file(All.OutputDir);
+    char * pidfile = fastpm_strdup_printf("%s/%s", All.OutputDir, "PIDs.txt");
+
+    MPIU_write_pids(pidfile);
+    free(pidfile);
+
     enable_core_dumps_and_fpu_exceptions();
 #endif
     InitCool();

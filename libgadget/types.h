@@ -5,12 +5,6 @@
 
 /*Define some useful types*/
 
-/* Note on a 32-bit architecture MPI_LONG may be 32-bit,
- * so these should be MPI_LONG_LONG. But in
- * the future MPI_LONG_LONG may become 128-bit.*/
-#define MPI_UINT64 MPI_UNSIGNED_LONG
-#define MPI_INT64 MPI_LONG
-
 typedef uint32_t binmask_t;
 typedef int32_t inttime_t;
 

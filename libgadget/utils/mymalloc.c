@@ -6,7 +6,7 @@
 #include <string.h>
 #include <math.h>
 
-#include "allvars.h"
+#include <omp.h>
 #include "mymalloc.h"
 #include "memory.h"
 #include "system.h"
@@ -29,6 +29,14 @@ mymalloc_init(double MaxMemSizePerNode)
 {
     int Nhost = cluster_get_num_hosts();
     int Nt = omp_get_max_threads();
+
+    MPI_Comm comm = MPI_COMM_WORLD;
+
+    int NTask;
+    int ThisTask;
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+
 
     size_t n = 1.0 * MaxMemSizePerNode * (1.0 * Nhost / NTask) * 1024 * 1024;
 
@@ -53,9 +61,22 @@ mymalloc_init(double MaxMemSizePerNode)
 }
 
 static size_t highest_memory_usage = 0;
+
 void report_detailed_memory_usage(const char *label, const char * fmt, ...)
 {
     if(allocator_get_free_size(A_MAIN) < highest_memory_usage) {
+        return;
+    }
+
+    MPI_Comm comm = MPI_COMM_WORLD;
+
+    int NTask;
+    int ThisTask;
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+
+
+    if (ThisTask != 0) {
         return;
     }
 
@@ -66,8 +87,7 @@ void report_detailed_memory_usage(const char *label, const char * fmt, ...)
     va_start(va, fmt);
     vsprintf(buf, fmt, va);
     va_end(va);
-    if (ThisTask == 0) {
-        message(1, "Peak Memory usage induced by %s\n", buf);
-        allocator_print(A_MAIN);
-    }
+
+    message(1, "Peak Memory usage induced by %s\n", buf);
+    allocator_print(A_MAIN);
 }

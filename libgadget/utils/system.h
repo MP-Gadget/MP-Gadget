@@ -1,6 +1,12 @@
 #ifndef __UTILS_SYSTEM_H__
 #define __UTILS_SYSTEM_H__
 
+/* Note on a 32-bit architecture MPI_LONG may be 32-bit,
+ * so these should be MPI_LONG_LONG. But in
+ * the future MPI_LONG_LONG may become 128-bit.*/
+#define MPI_UINT64 MPI_UNSIGNED_LONG
+#define MPI_INT64 MPI_LONG
+
 /* check the version of OPENMP */
 #if defined(_OPENMP)
 #if _OPENMP < 201107
@@ -13,7 +19,6 @@
 void catch_abort(int sig);
 void catch_fatal(int sig);
 void enable_core_dumps_and_fpu_exceptions(void);
-void write_pid_file(char * outdir);
 #endif
 
 int cluster_get_num_hosts();
@@ -28,6 +33,7 @@ int64_t count_sum(int64_t countLocal);
 //int64_t count_to_offset(int64_t countLocal);
 
 int MPIU_Any(int condition, MPI_Comm comm);
+void MPIU_write_pids(char * filename);
 
 int MPI_Alltoallv_smart(void *sendbuf, int *sendcnts, int *sdispls,
         MPI_Datatype sendtype, void *recvbuf, int *recvcnts,

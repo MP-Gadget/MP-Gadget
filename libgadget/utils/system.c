@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <string.h>
 #include <math.h>
 #include <time.h>
@@ -12,7 +13,6 @@
 #include <gsl/gsl_rng.h>
 
 
-#include "allvars.h"
 #include "system.h"
 #include "mymalloc.h"
 
@@ -77,38 +77,6 @@ void catch_fatal(int sig)
   raise(sig);
 }
 
-void write_pid_file(char * outdir)
-{
-  pid_t my_pid;
-  char mode[8], buf[500];
-  FILE *fd;
-  int i;
-
-  my_pid = getpid();
-
-  sprintf(buf, "%s%s", outdir, "PIDs.txt");
-
-  strcpy(mode, "a+");
-
-  for(i = 0; i < NTask; i++)
-    {
-      if(ThisTask == i)
-	{
-	  if(ThisTask == 0)
-	    sprintf(mode, "w");
-	  else
-	    sprintf(mode, "a");
-
-	  if((fd = fopen(buf, mode)))
-	    {
-	      fprintf(fd, "%s %d\n", getenv("HOST"), (int) my_pid);
-	      fclose(fd);
-	    }
-	}
-
-      MPI_Barrier(MPI_COMM_WORLD);
-    }
-}
 #endif
 
 
@@ -160,43 +128,62 @@ double timediff(double t0, double t1)
   return dt;
 }
 
-void sumup_large_ints(int n, int *src, int64_t *res)
+void
+sumup_large_ints(int n, int *src, int64_t *res)
 {
-  int i, j, *numlist;
+    MPI_Comm comm = MPI_COMM_WORLD;
+    int NTask;
+    int ThisTask;
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
 
-  numlist = (int *) mymalloc("numlist", NTask * n * sizeof(int));
-  MPI_Allgather(src, n, MPI_INT, numlist, n, MPI_INT, MPI_COMM_WORLD);
+    int i, j, *numlist;
 
-  for(j = 0; j < n; j++)
-    res[j] = 0;
+    numlist = (int *) mymalloc("numlist", NTask * n * sizeof(int));
+    MPI_Allgather(src, n, MPI_INT, numlist, n, MPI_INT, MPI_COMM_WORLD);
 
-  for(i = 0; i < NTask; i++)
     for(j = 0; j < n; j++)
-      res[j] += numlist[i * n + j];
+        res[j] = 0;
 
-  myfree(numlist);
+    for(i = 0; i < NTask; i++)
+        for(j = 0; j < n; j++)
+            res[j] += numlist[i * n + j];
+
+    myfree(numlist);
 }
 
 void sumup_longs(int n, int64_t *src, int64_t *res)
 {
-  int i, j;
-  int64_t *numlist;
+    MPI_Comm comm = MPI_COMM_WORLD;
+    int NTask;
+    int ThisTask;
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+    int i, j;
+    int64_t *numlist;
 
-  numlist = (int64_t *) mymalloc("numlist", NTask * n * sizeof(int64_t));
-  MPI_Allgather(src, n * sizeof(int64_t), MPI_BYTE, numlist, n * sizeof(int64_t), MPI_BYTE,
-		MPI_COMM_WORLD);
+    numlist = (int64_t *) mymalloc("numlist", NTask * n * sizeof(int64_t));
+    MPI_Allgather(src, n * sizeof(int64_t), MPI_BYTE, numlist, n * sizeof(int64_t), MPI_BYTE,
+            MPI_COMM_WORLD);
 
-  for(j = 0; j < n; j++)
-    res[j] = 0;
-
-  for(i = 0; i < NTask; i++)
     for(j = 0; j < n; j++)
-      res[j] += numlist[i * n + j];
+        res[j] = 0;
 
-  myfree(numlist);
+    for(i = 0; i < NTask; i++)
+        for(j = 0; j < n; j++)
+            res[j] += numlist[i * n + j];
+
+    myfree(numlist);
 }
 
-int64_t count_to_offset(int64_t countLocal) {
+int64_t
+MPIU_cumsum(int64_t countLocal, MPI_Comm comm)
+{
+    int NTask;
+    int ThisTask;
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+
     int64_t offsetLocal;
     int64_t count[NTask];
     int64_t offset[NTask];
@@ -469,4 +456,41 @@ MPIU_Any(int condition, MPI_Comm comm)
 {
     MPI_Allreduce(MPI_IN_PLACE, &condition, 1, MPI_INT, MPI_LOR, comm);
     return condition;
+}
+
+void
+MPIU_write_pids(char * filename)
+{
+    MPI_Comm comm = MPI_COMM_WORLD;
+    int NTask;
+    int ThisTask;
+    MPI_Comm_size(comm, &NTask);
+    MPI_Comm_rank(comm, &ThisTask);
+    pid_t my_pid;
+    char mode[8], buf[500];
+    FILE *fd;
+    int i;
+
+    my_pid = getpid();
+
+    strcpy(mode, "a+");
+
+    for(i = 0; i < NTask; i++)
+    {
+        if(ThisTask == i)
+        {
+            if(ThisTask == 0)
+                sprintf(mode, "w");
+            else
+                sprintf(mode, "a");
+
+            if((fd = fopen(buf, mode)))
+            {
+                fprintf(fd, "%s %d\n", getenv("HOST"), (int) my_pid);
+                fclose(fd);
+            }
+        }
+
+        MPI_Barrier(MPI_COMM_WORLD);
+    }
 }
