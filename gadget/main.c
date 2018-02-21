@@ -12,7 +12,8 @@
 #include <libgadget/partmanager.h>
 #include <libgadget/mymalloc.h>
 
-#include <libgadget/proto.h>
+#include <libgadget/run.h>
+#include <libgadget/checkpoint.h>
 #include <libgadget/config.h>
 #include <libgadget/endrun.h>
 #include <libgadget/fof.h>
@@ -107,9 +108,7 @@ int main(int argc, char **argv)
             break;
         default:
             begrun(RestartSnapNum);
-            open_outputfiles(RestartSnapNum);
             run();			/* main simulation loop */
-            close_outputfiles();
             break;
     }
 byebye:

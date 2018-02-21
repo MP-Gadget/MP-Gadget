@@ -5,9 +5,9 @@
 #include <gsl/gsl_sf_gamma.h>
 
 #include "allvars.h"
-#include "proto.h"
 #include "cooling.h"
 #include "forcetree.h"
+#include "density.h"
 
 #include "timefac.h"
 #include "petaio.h"

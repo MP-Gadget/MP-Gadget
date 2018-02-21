@@ -9,12 +9,12 @@
 #include "event.h"
 #include "slotsmanager.h"
 #include "partmanager.h"
-#include "proto.h"
 #include "domain.h"
 #include "openmpsort.h"
 #include "forcetree.h"
 #include "mymalloc.h"
 #include "endrun.h"
+#include "checkpoint.h"
 #include "system.h"
 
 /*! \file forcetree.c

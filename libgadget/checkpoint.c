@@ -9,8 +9,10 @@
 
 #include "allvars.h"
 #include "petaio.h"
+#include "checkpoint.h"
 #include "fof.h"
 #include "endrun.h"
+#include "utils-string.h"
 
 /*! \file io.c
  *  \brief Output of a snapshot file to disk.

@@ -8,7 +8,6 @@
 
 #include "bigfile-mpi.h"
 #include "allvars.h"
-#include "proto.h"
 #include "system.h"
 #include "sfr_eff.h"
 #include "cooling.h"
