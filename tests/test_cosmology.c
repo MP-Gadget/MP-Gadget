@@ -9,8 +9,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <gsl/gsl_sf_hyperg.h>
-#include "physconst.h"
-#include "cosmology.h"
+#include <libgadget/physconst.h>
+#include <libgadget/cosmology.h>
 #include "stub.h"
 
 /*Neutrinos are tested elsewhere*/

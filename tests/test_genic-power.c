@@ -9,8 +9,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "stub.h"
-#include "config.h"
-#include "genic/power.h"
+#include <libgadget/config.h>
+#include <libgenic/power.h>
 
 int DifferentTransferFunctions = 1;
 
@@ -75,8 +75,8 @@ test_read_rescale_sigma8(void ** state)
      * (we still use the same z=99 power which should not be rescaled in a real simulation)*/
     PowerP.InputPowerRedshift = 0;
     PowerP.Sigma8 = -1;
-    PowerP.FileWithInputSpectrum = "examples/camb_matterpow_99.dat";
-    PowerP.FileWithTransferFunction = "examples/camb_transfer_99.dat";
+    PowerP.FileWithInputSpectrum = GADGET_TESTDATA_ROOT "/examples/camb_matterpow_99.dat";
+    PowerP.FileWithTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_99.dat";
     PowerP.WhichSpectrum = 2;
     PowerP.SpectrumLengthScale = 1000;
     PowerP.PrimordialIndex = 1.0;

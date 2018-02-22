@@ -4,12 +4,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <mpi.h>
-#include "genic/allvars.h"
-#include "genic/proto.h"
-#include "endrun.h"
-#include "paramset.h"
-#include "system.h"
-#include "physconst.h"
+#include <libgenic/allvars.h>
+#include <libgadget/physconst.h>
+#include <libgadget/utils.h>
 
 #define OPTIONAL 0
 #define REQUIRED 1
@@ -66,6 +63,7 @@ create_parameters()
     param_declare_int(ps, "NumWriters", OPTIONAL, 0, "");
     return ps;
 }
+
 void read_parameterfile(char *fname)
 {
 
@@ -87,75 +85,83 @@ void read_parameterfile(char *fname)
     message(0, "----------------------------------------------\n");
 
     /*Cosmology*/
-    CP.Omega0 = param_get_double(ps, "Omega0");
-    CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
-    CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
-    CP.HubbleParam = param_get_double(ps, "HubbleParam");
-    CP.Omega_fld = param_get_double(ps, "Omega_fld");
-    CP.w0_fld = param_get_double(ps,"w0_fld");
-    CP.wa_fld = param_get_double(ps,"wa_fld");
-    if(CP.OmegaLambda > 0 && CP.Omega_fld > 0)
+    All.CP.Omega0 = param_get_double(ps, "Omega0");
+    All.CP.OmegaLambda = param_get_double(ps, "OmegaLambda");
+    All.CP.OmegaBaryon = param_get_double(ps, "OmegaBaryon");
+    All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
+    All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
+    All.CP.w0_fld = param_get_double(ps,"w0_fld");
+    All.CP.wa_fld = param_get_double(ps,"wa_fld");
+    if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
         endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
-    CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
-    CP.RadiationOn = param_get_double(ps, "RadiationOn");
-    CP.MNu[0] = param_get_double(ps, "MNue");
-    CP.MNu[1] = param_get_double(ps, "MNum");
-    CP.MNu[2] = param_get_double(ps, "MNut");
-    WDM_therm_mass = param_get_double(ps, "MWDM_therm");
-    MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
-    ProduceGas = param_get_int(ps, "ProduceGas");
+    All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
+    All.CP.RadiationOn = param_get_double(ps, "RadiationOn");
+    All.CP.MNu[0] = param_get_double(ps, "MNue");
+    All.CP.MNu[1] = param_get_double(ps, "MNum");
+    All.CP.MNu[2] = param_get_double(ps, "MNut");
+    All2.WDM_therm_mass = param_get_double(ps, "MWDM_therm");
+
+    All.MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
+
+    All2.ProduceGas = param_get_int(ps, "ProduceGas");
+    All2.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
+    All2.InvertPhase = param_get_int(ps, "InvertPhase");
     /*Unit system*/
-    UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
-    UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
-    UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+    All.UnitVelocity_in_cm_per_s = param_get_double(ps, "UnitVelocity_in_cm_per_s");
+    All.UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
+    All.UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
+
     /*Parameters of the power spectrum*/
-    PowerP.InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
-    PowerP.Sigma8 = param_get_double(ps, "Sigma8");
+    All2.PowerP.InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
+    All2.PowerP.Sigma8 = param_get_double(ps, "Sigma8");
     /*Always specify Sigm8 at z=0*/
-    if(PowerP.Sigma8 > 0)
-        PowerP.InputPowerRedshift = 0;
-    PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
-    PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
-    PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
-    PowerP.SpectrumLengthScale = param_get_double(ps, "InputSpectrum_UnitLength_in_cm") / UnitLength_in_cm;
-    PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
+    if(All2.PowerP.Sigma8 > 0)
+        All2.PowerP.InputPowerRedshift = 0;
+    All2.PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
+    All2.PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
+    All2.PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
+    All2.PowerP.SpectrumLengthScale = param_get_double(ps, "InputSpectrum_UnitLength_in_cm") / All.UnitLength_in_cm;
+    All2.PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
+
     /*Simulation parameters*/
-    UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
-    DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
-    InvertPhase = param_get_int(ps, "InvertPhase");
+    All.IO.UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
 
 
-    Box = param_get_double(ps, "BoxSize");
+    All.BoxSize = param_get_double(ps, "BoxSize");
     double Redshift = param_get_double(ps, "Redshift");
-    Nmesh = param_get_int(ps, "Nmesh");
-    Ngrid = param_get_int(ps, "Ngrid");
+    All.Nmesh = param_get_int(ps, "Nmesh");
+
+    All2.Ngrid = param_get_int(ps, "Ngrid");
     /*Enable 'hybrid' neutrinos*/
-    NGridNu = param_get_int(ps, "NgridNu");
+    All2.NGridNu = param_get_int(ps, "NgridNu");
     /* Convert physical km/s at z=0 in an unperturbed universe to
      * internal gadget (comoving) velocity units at starting redshift.*/
-    Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (UnitVelocity_in_cm_per_s/1e5);
-    Seed = param_get_int(ps, "Seed");
-    UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
-    OutputDir = param_get_string(ps, "OutputDir");
-    FileBase = param_get_string(ps, "FileBase");
+    All2.Max_nuvel = param_get_double(ps, "Max_nuvel") * pow(1+Redshift, 1.5) * (All.UnitVelocity_in_cm_per_s/1e5);
+    All2.Seed = param_get_int(ps, "Seed");
+    All2.UnitaryAmplitude = param_get_int(ps, "UnitaryAmplitude");
+    param_get_string2(ps, "OutputDir", All.OutputDir);
+    param_get_string2(ps, "FileBase", All.InitCondFile);
+
     int64_t NumPartPerFile = param_get_int(ps, "NumPartPerFile");
-    NumFiles = ((int64_t) Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
-    NumWriters = param_get_int(ps, "NumWriters");
-    if(DifferentTransferFunctions && PowerP.InputPowerRedshift >= 0)
+
+    int64_t Ngrid = All2.Ngrid;
+    All2.NumFiles = ( Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
+    All.IO.NumWriters = param_get_int(ps, "NumWriters");
+    if(All2.DifferentTransferFunctions && All2.PowerP.InputPowerRedshift >= 0)
         message(0, "WARNING: Using different transfer functions but also rescaling power to account for linear growth. NOT what you want!\n");
-    if((CP.MNu[0] + CP.MNu[1] + CP.MNu[2] > 0) || DifferentTransferFunctions)
-        if(0 == strlen(PowerP.FileWithTransferFunction))
+    if((All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0) || All2.DifferentTransferFunctions)
+        if(0 == strlen(All2.PowerP.FileWithTransferFunction))
             endrun(0,"For massive neutrinos or different transfer functions you must specify a transfer function file\n");
-    if(!CP.RadiationOn && (CP.MNu[0] + CP.MNu[1] + CP.MNu[2] > 0))
+    if(!All.CP.RadiationOn && (All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0))
         endrun(0,"You want massive neutrinos but no background radiation: this will give an inconsistent cosmology.\n");
 
-    if(Nmesh == 0) {
-        Nmesh = 2*Ngrid;
+    if(All.Nmesh == 0) {
+        All.Nmesh = 2*Ngrid;
     }
     /*Set some units*/
-    InitTime = 1 / (1 + Redshift);
-    UnitTime_in_s = UnitLength_in_cm / UnitVelocity_in_cm_per_s;
+    All.TimeIC = 1 / (1 + Redshift);
+    All.UnitTime_in_s = All.UnitLength_in_cm / All.UnitVelocity_in_cm_per_s;
 
-    G = GRAVITY / pow(UnitLength_in_cm, 3) * UnitMass_in_g * pow(UnitTime_in_s, 2);
-    CP.Hubble = HUBBLE * UnitTime_in_s;
+    All.G = GRAVITY / pow(All.UnitLength_in_cm, 3) * All.UnitMass_in_g * pow(All.UnitTime_in_s, 2);
+    All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
 }

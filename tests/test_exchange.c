@@ -12,15 +12,15 @@
 #include <gsl/gsl_rng.h>
 
 #define qsort_openmp qsort
+#include "stub.h"
 
-#include "exchange.h"
-#include "domain.h"
-#include "slotsmanager.h"
-#include "partmanager.h"
+#include <libgadget/exchange.h>
+#include <libgadget/domain.h>
+#include <libgadget/slotsmanager.h>
+#include <libgadget/partmanager.h>
 /*Note this includes the garbage collection!
  * Should be tested separately.*/
-#include "slotsmanager.c"
-#include "stub.h"
+#include <libgadget/slotsmanager.c>
 
 struct part_manager_type PartManager[1] = {{0}};
 int NTask, ThisTask;

@@ -6,8 +6,6 @@
 #include <stdio.h>
 
 #include "stub.h"
-#include "memory.h"
-
 
 static void
 test_allocator(void ** state)

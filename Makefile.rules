@@ -1,106 +1,25 @@
 # vim: set ft=make:
-# make V=1 to see the command line
 #
-DESTDIR ?= $(CURDIR)
 AR ?= ar
 LOW_PRECISION ?= double
 HIGH_PRECISION ?= double
 
-TARGETS = MP-Gadget MP-GenIC
+OPTIONS = $(OPTIMIZE) $(OPT)
 
-CFLAGS = -I$(CURDIR) -I$(DESTDIR) $(OPTIONS) $(GSL_INCL) -I$(CURDIR)/depends/include
+CFLAGS = $(OPTIONS) $(GSL_INCL)
+CFLAGS += -I../depends/include
+CFLAGS += -I../
 CFLAGS += "-DLOW_PRECISION=$(LOW_PRECISION)"
 CFLAGS += "-DHIGH_PRECISION=$(HIGH_PRECISION)"
 
 BUNDLEDLIBS = -lmpsort-mpi -lradixsort -lbigfile-mpi -lbigfile -lpfft_omp -lfftw3_mpi -lfftw3_omp -lfftw3
-LIBS   = -lm $(GSL_LIBS) -Ldepends/lib $(BUNDLEDLIBS)
+LIBS  = -lm $(GSL_LIBS)
+LIBS += -L../depends/lib $(BUNDLEDLIBS)
+V ?= 0
 
-OPTIONS = $(OPTIMIZE) $(OPT)
-
-GADGET_OBJS =  \
-	 gdbtools.o hci.o\
-	 fof.o fofpetaio.o petaio.o \
-	 param.o paramset.o \
-	 domain.o exchange.o slotsmanager.o allvars.o partmanager.o main.o \
-	 blackhole.o timebinmgr.o \
-	 run.o drift.o begrun.o global.o \
-	 timestep.o init.o io.o sfr_eff.o \
-	 cooling.o \
-	 density.o \
-	 treewalk.o cosmology.o \
-	 gravshort-tree.o gravshort-pair.o hydra.o  timefac.o \
-	 gravpm.o powerspectrum.o \
-	 forcetree.o peano.o \
-	 petapm.o longrange.o \
-	 densitykernel.o interp.o lightcone.o walltime.o\
-	 runtests.o \
-     kspace-neutrinos/omega_nu_single.o \
-     kspace-neutrinos/delta_pow.o kspace-neutrinos/delta_tot_table.o \
-     kspace-neutrinos/transfer_init.o
-
-GADGET_UTILS_OBJS= endrun.o memory.o mymalloc.o system.o event.o openmpsort.o utils-string.o
-
-
-ICOBJECTS   = genic/main.o genic/power.o genic/allvars.o genic/params.o \
-		genic/zeldovich.o genic/save.o genic/thermal.o \
-        partmanager.o \
-		 petapm.o \
-        paramset.o \
-		walltime.o \
-        cosmology.o \
-        endrun.o \
-        kspace-neutrinos/omega_nu_single.o
-
-
-INCL = \
-densitykernel.h  endrun.h    forcetree.h  interp.h event.h hci.h \
-mymalloc.h    paramset.h  petapm.h         proto.h    timebinmgr.h  treewalk.h \
-allvars.h  partmanager.h  cooling.h         domain.h         exchange.h  slotsmanager.h     \
- openmpsort.h  peano.h     physconst.h      sfr_eff.h  timefac.h     utils-string.h \
-blackhole.h  cosmology.h       drift.h          fof.h       gravshort.h  memory.h   \
-param.h       petaio.h    powerspectrum.h  system.h   timestep.h    walltime.h \
-kspace-neutrinos/omega_nu_single.h kspace-neutrinos/delta_tot_table.h
-
-EXEC = $(TARGETS:%=$(DESTDIR)/%)
-GADGET_OBJS := $(GADGET_OBJS:%=$(DESTDIR)/%)
-GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=$(DESTDIR)/%)
-ICOBJS = $(ICOBJECTS:%=$(DESTDIR)/%)
-
-all: depends builddir $(EXEC)
-
-.PHONY: depends builddir all
-
-depends:
-	cd depends; make
-
-builddir:
-	mkdir -p $(DESTDIR)
-	mkdir -p $(DESTDIR)/genic
-	mkdir -p $(DESTDIR)/kspace-neutrinos
-
-$(DESTDIR)/libgadget-utils.a: $(GADGET_UTILS_OBJS)
-	$(AR) rv $@ $(GADGET_UTILS_OBJS)
-
-$(DESTDIR)/MP-Gadget: $(GADGET_OBJS) $(DESTDIR)/libgadget-utils.a
-	$(MPICC) $(OPTIMIZE) $^ $(LIBS) -o $@
-
-$(DESTDIR)/MP-GenIC: $(ICOBJS) $(DESTDIR)/libgadget-utils.a
-	$(MPICC) $(OPTIMIZE) $^ $(LIBS) -o $@
-
-$(DESTDIR)/config.h: Makefile Makefile.rules $(CONFIG)
-	mkdir -p `dirname $@`
-	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" VERSION="$(VERSION)" bash makeconfig.sh $@
-
-$(DESTDIR)/%.o: %.c $(INCL) $(DESTDIR)/config.h
-	@if [ "x$(V)" == "x1" ]; then echo $(MPICC) -c -o $@ $(CFLAGS) $<; fi
-	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<
-
-$(DESTDIR)/main.o: main.c $(INCL) $(DESTDIR)/config.h
-	@echo Compiling $<; $(MPICC) -c -o $@ $(CFLAGS) $<
-
-$(DESTDIR)/%.o: %.cpp $(INCL) $(DESTDIR)/config.h
-	@echo Compiling $<; $(MPICXX) -c -o $@ $(CFLAGS) $<
-
-clean:
-	rm -f $(GADGET_OBJS) $(EXEC) $(ICOBJS) $(GADGET_UTILS_OBJS) $(DESTDIR)/libgadget-utils.a
+.objs/%.o: %.c $(INCL)
+	@cmd="$(MPICC) -c -o $@ $(CFLAGS) $<"; \
+	if test "x$(V)" = "x1" ; then echo $$cmd; fi; \
+	mkdir -p `dirname $@`; \
+	echo Compiling $<; $$cmd
 

@@ -9,8 +9,8 @@
 #include <stdio.h>
 #include "stub.h"
 //So All.OutputList is defined
-#include "allvars.h"
-#include "timebinmgr.h"
+#include <libgadget/allvars.h>
+#include <libgadget/timebinmgr.h>
 
 struct global_data_all_processes All;
 

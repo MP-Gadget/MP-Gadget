@@ -8,11 +8,12 @@
 #include <string.h>
 #include <time.h>
 #include <gsl/gsl_rng.h>
-#include "partmanager.h"
-#include "domain.h"
-#include "slotsmanager.h"
-#include "mymalloc.h"
+
 #include "stub.h"
+
+#include <libgadget/partmanager.h>
+#include <libgadget/domain.h>
+#include <libgadget/slotsmanager.h>
 
 struct part_manager_type PartManager[1] = {{0}};
 int NTask, ThisTask;

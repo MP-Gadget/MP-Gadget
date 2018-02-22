@@ -12,7 +12,7 @@
 #include <mpi.h>
 #include "stub.h"
 
-#include "powerspectrum.h"
+#include <libgadget/powerspectrum.h>
 
 #define NUM_THREADS 4
 

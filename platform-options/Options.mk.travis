@@ -1,6 +1,3 @@
-# off-tree build into $(DESTDIR)
-DESTDIR  = build/
-
 MPICC       =   mpicc
 MPICXX       =   mpicxx
 
