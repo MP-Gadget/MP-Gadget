@@ -12,7 +12,6 @@
 #include <libgadget/petapm.h>
 #include <libgadget/utils.h>
 
-static struct ClockTable CT;
 void print_spec(void);
 
 int main(int argc, char **argv)
