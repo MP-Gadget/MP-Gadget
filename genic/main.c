@@ -82,9 +82,6 @@ int main(int argc, char **argv)
 
   /*First compute and write CDM*/
   displacement_fields(DMType);
-  write_particle_data(1, &bf);
-  free_ffts();
-
   /*Add a thermal velocity to WDM particles*/
   if(All2.WDM_therm_mass > 0){
       int i;
@@ -109,6 +106,9 @@ int main(int argc, char **argv)
       gsl_rng_free(g_rng);
       myfree(seedtable);
   }
+
+  write_particle_data(1, &bf);
+  free_ffts();
 
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
