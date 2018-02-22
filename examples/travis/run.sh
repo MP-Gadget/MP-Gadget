@@ -1,4 +1,4 @@
 export OMP_NUM_THREADS=2
-ROOT=../../build
-mpirun -np 2 $ROOT/MP-GenIC paramfile.genic || exit 1
-mpirun -np 2 $ROOT/MP-Gadget paramfile.gadget || exit 1
+ROOT=../../
+mpirun -np 2 $ROOT/genic/MP-GenIC paramfile.genic || exit 1
+mpirun -np 2 $ROOT/gadget/MP-Gadget paramfile.gadget || exit 1
