@@ -12,8 +12,9 @@
 #include <libgadget/utils.h>
 #include <libgadget/cosmology.h>
 #include <libgadget/walltime.h>
+#include <libgadget/utils/mymalloc.h>
 
-static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, char * dtype, int items_per_particle, int64_t TotNumPart) {
+static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, char * dtype, int items_per_particle, ptrdiff_t elsize, int64_t TotNumPart) {
     BigBlock block;
     BigArray array;
     BigBlockPtr ptr;
@@ -25,7 +26,7 @@ static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, cha
     dims[0] = NumPart;
     dims[1] = items_per_particle;
     strides[1] = dtype_itemsize(dtype);
-    strides[0] = sizeof(ICP[0]);
+    strides[0] = elsize;
     big_array_init(&array, baseptr, dtype, 2, dims, strides);
 
     if(0 != big_file_mpi_create_block(bf, &block, name, dtype, dims[1], All2.NumFiles, TotNumPart, MPI_COMM_WORLD)) {
@@ -46,15 +47,25 @@ static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, cha
 
 }
 
-void write_particle_data(int Type, BigFile * bf) {
+void write_particle_data(const int Type, BigFile * bf, const uint64_t FirstID, const int Ngrid) {
     int64_t numpart_64 = NumPart, TotNumPart;
     MPI_Allreduce(&numpart_64, &TotNumPart, 1, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
     /* Write particles */
-    saveblock(bf, &ICP[0].Density, Type, "ICDensity", "f4", 1, TotNumPart);
-    saveblock(bf, &ICP[0].Pos, Type, "Position", "f8", 3, TotNumPart);
-    saveblock(bf, &ICP[0].Vel, Type, "Velocity", "f4", 3, TotNumPart);
-    saveblock(bf, &ICP[0].ID, Type, "ID", "u8", 1, TotNumPart);
+    saveblock(bf, &ICP[0].Density, Type, "ICDensity", "f4", 1, sizeof(ICP[0]), TotNumPart);
+    saveblock(bf, &ICP[0].Pos, Type, "Position", "f8", 3, sizeof(ICP[0]), TotNumPart);
+    saveblock(bf, &ICP[0].Vel, Type, "Velocity", "f4", 3, sizeof(ICP[0]), TotNumPart);
+    /*Generate and write IDs*/
+    uint64_t * ids = mymalloc("IDs", NumPart * sizeof(uint64_t));
+    memset(ids, 0, NumPart * sizeof(uint64_t));
+    int i;
+    #pragma omp parallel for
+    for(i = 0; i < NumPart; i++)
+    {
+        ids[i] = id_offset_from_index(i, Ngrid) + FirstID;
+    }
+    saveblock(bf, ids, Type, "ID", "u8", 1, sizeof(uint64_t), TotNumPart);
+    myfree(ids);
     walltime_measure("/Write");
 }
 
