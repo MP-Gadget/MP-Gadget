@@ -18,7 +18,7 @@ all:
 
 clean :
 	cd libgadget; $(MAKE) clean
-	cd libgneic; $(MAKE) clean
+	cd libgenic; $(MAKE) clean
 	cd gadget; $(MAKE) clean
 	cd genic; $(MAKE) clean
 
