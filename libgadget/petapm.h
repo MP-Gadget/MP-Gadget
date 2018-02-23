@@ -54,7 +54,7 @@ void petapm_force_init(
         petapm_prepare_func prepare, 
         PetaPMParticleStruct * pstruct,
         void * userdata);
-void petapm_force_r2c( 
+void petapm_force_r2c(
         PetaPMGlobalFunctions * global_functions
         );
 void petapm_force_c2r(

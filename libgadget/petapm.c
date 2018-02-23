@@ -76,7 +76,6 @@ static int NTask;
 static int ThisTask;
 
 /* these variables are allocated every force calculation */
-static double * real;
 static double * meshbuf;
 static size_t meshbufsize;
 static pfft_complex * rho_k;
@@ -195,7 +194,7 @@ void petapm_init(double BoxSize, int _Nmesh, int Nthreads) {
     pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
 
     plan_forw = pfft_plan_dft_r2c_3d(
-        n, real, rho_k, comm_cart_2d, PFFT_FORWARD, 
+        n, real, rho_k, comm_cart_2d, PFFT_FORWARD,
         PFFT_TRANSPOSED_OUT | PFFT_ESTIMATE | PFFT_TUNE | PFFT_DESTROY_INPUT);
     plan_back = pfft_plan_dft_c2r_3d(
         n, complx, real, comm_cart_2d, PFFT_BACKWARD, 
@@ -276,7 +275,6 @@ void petapm_force_init(
     pm_alloc();
 
     /* this takes care of the padding */
-    memset(real, 0, sizeof(double) * fftsize);
     memset(meshbuf, 0, meshbufsize * sizeof(double));
 
     walltime_measure("/PMgrav/Misc");
@@ -285,7 +283,6 @@ void petapm_force_init(
 
     layout_prepare(&layout, meshbuf, regions, Nregions);
 
-    layout_build_and_exchange_cells_to_pfft(&layout, meshbuf, real);
     walltime_measure("/PMgrav/comm");
 #ifdef DEBUG
     verify_density_field();
@@ -293,7 +290,7 @@ void petapm_force_init(
     walltime_measure("/PMgrav/Misc");
 }
 
-void petapm_force_r2c( 
+void petapm_force_r2c(
         PetaPMGlobalFunctions * global_functions
         ) {
     /* call pfft rho_k is CFT of rho */
@@ -304,7 +301,11 @@ void petapm_force_r2c(
      * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
      * */
     pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
+    double * real = (double * ) mymalloc("PMreal", fftsize * sizeof(double));
+    memset(real, 0, sizeof(double) * fftsize);
+    layout_build_and_exchange_cells_to_pfft(&layout, meshbuf, real);
     pfft_execute_dft_r2c(plan_forw, real, complx);
+    myfree(real);
     /*Do any analysis that may be required before the transfer function is applied*/
     petapm_transfer_func global_readout = global_functions->global_readout;
     if(global_readout)
@@ -325,16 +326,19 @@ void petapm_force_c2r(
     for (f = functions; f->name; f ++) {
         petapm_transfer_func transfer = f->transfer;
         petapm_readout_func readout = f->readout;
+
         pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
         /* apply the greens function turn rho_k into potential in fourier space */
         pm_apply_transfer_function(&fourier_space_region, rho_k, complx, transfer);
-
         walltime_measure("/PMgrav/calc");
+
+        double * real = (double * ) mymalloc2("PMreal", fftsize * sizeof(double));
         pfft_execute_dft_c2r(plan_back, complx, real);
         walltime_measure("/PMgrav/c2r");
         myfree(complx);
         /* read out the potential */
         layout_build_and_exchange_cells_to_local(&layout, meshbuf, real);
+        myfree(real);
         walltime_measure("/PMgrav/comm");
         
         pm_iterate(readout, regions);
@@ -683,7 +687,6 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter, double *
     }
 }
 static void pm_alloc() {
-    real = (double * ) mymalloc("PMreal", fftsize * sizeof(double));
     rho_k = (pfft_complex * ) mymalloc("PMrho_k", fftsize * sizeof(double));
     if(regions) {
         int i;
@@ -817,7 +820,6 @@ static void pm_free() {
         myfree(meshbuf);
     }
     myfree(rho_k);
-    myfree(real);
 }
 #ifdef DEBUG
 static void verify_density_field() {
