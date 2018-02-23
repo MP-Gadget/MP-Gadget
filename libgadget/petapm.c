@@ -79,7 +79,6 @@ static int ThisTask;
 static double * real;
 static double * meshbuf;
 static size_t meshbufsize;
-static pfft_complex * complx;
 static pfft_complex * rho_k;
 
 static void pm_alloc();
@@ -304,6 +303,7 @@ void petapm_force_r2c(
      * CFT = DFT * dx **3
      * CFT[rho] = DFT [rho * dx **3] = DFT[CIC]
      * */
+    pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
     pfft_execute_dft_r2c(plan_forw, real, complx);
     /*Do any analysis that may be required before the transfer function is applied*/
     petapm_transfer_func global_readout = global_functions->global_readout;
@@ -315,6 +315,7 @@ void petapm_force_r2c(
     petapm_transfer_func global_transfer = global_functions->global_transfer;
     pm_apply_transfer_function(&fourier_space_region, complx, rho_k, global_transfer);
     walltime_measure("/PMgrav/r2c");
+    myfree(complx);
 }
 
 void petapm_force_c2r(
@@ -324,12 +325,14 @@ void petapm_force_c2r(
     for (f = functions; f->name; f ++) {
         petapm_transfer_func transfer = f->transfer;
         petapm_readout_func readout = f->readout;
+        pfft_complex * complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
         /* apply the greens function turn rho_k into potential in fourier space */
         pm_apply_transfer_function(&fourier_space_region, rho_k, complx, transfer);
 
         walltime_measure("/PMgrav/calc");
         pfft_execute_dft_c2r(plan_back, complx, real);
         walltime_measure("/PMgrav/c2r");
+        myfree(complx);
         /* read out the potential */
         layout_build_and_exchange_cells_to_local(&layout, meshbuf, real);
         walltime_measure("/PMgrav/comm");
@@ -681,7 +684,6 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter, double *
 }
 static void pm_alloc() {
     real = (double * ) mymalloc("PMreal", fftsize * sizeof(double));
-    complx = (pfft_complex *) mymalloc("PMcomplex", fftsize * sizeof(double));
     rho_k = (pfft_complex * ) mymalloc("PMrho_k", fftsize * sizeof(double));
     if(regions) {
         int i;
@@ -815,7 +817,6 @@ static void pm_free() {
         myfree(meshbuf);
     }
     myfree(rho_k);
-    myfree(complx);
     myfree(real);
 }
 #ifdef DEBUG
