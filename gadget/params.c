@@ -143,7 +143,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "");
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
-    param_declare_int(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "Preallocate this much memory MB per computing node/ host. Default is 80\% of total physical mem per node. ");
+    param_declare_double(ps,    "MaxMemSizePerNode", OPTIONAL, 0.6, "Preallocate this much memory per computing node/ host, in MB. Defaults to 60\% of total available memory per node. Passing < 1 allocates a fraction of total available memory per node.");
     param_declare_double(ps, "AutoSnapshotTime", OPTIONAL, 0, "Seconds after which to automatically generate a snapshot if nothing is output.");
 
     param_declare_double(ps, "TimeMax", OPTIONAL, 1.0, "Scale factor to end run.");
@@ -203,7 +203,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "MinGasTemp", OPTIONAL, 5, "Minimum gas temperature");
 
     param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");
-    param_declare_int(ps, "FOFSaveParticles", OPTIONAL, 1, "Save particles in the FOF catalog."); 
+    param_declare_int(ps, "FOFSaveParticles", OPTIONAL, 1, "Save particles in the FOF catalog.");
     param_declare_double(ps, "FOFHaloLinkingLength", OPTIONAL, 0.2, "Linking length for Friends of Friends halos.");
     param_declare_int(ps, "FOFHaloMinLength", OPTIONAL, 32, "");
     param_declare_double(ps, "MinFoFMassForNewSeed", OPTIONAL, 5e2, "Minimal Mass for seeding tracer particles ");
@@ -306,7 +306,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "Vcrit", OPTIONAL, 500., "For hybrid neutrinos: Critical velocity (in km/s) in the Fermi-Dirac distribution below which the neutrinos are particles in the ICs.");
     param_declare_double(ps, "NuPartTime", OPTIONAL, 0.3333333, "Scale factor at which to turn on hybrid neutrino particles.");
     /*End parameters for the massive neutrino model*/
-  
+
     param_set_action(ps, "BlackHoleFeedbackMethod", BlackHoleFeedbackMethodAction, NULL);
 #ifdef SFR
     param_set_action(ps, "StarformationCriterion", StarformationCriterionAction, NULL);
@@ -370,7 +370,11 @@ void read_parameter_file(char *fname)
         All.DomainUseGlobalSorting = param_get_int(ps, "DomainUseGlobalSorting");
         All.TopNodeIncreaseFactor = param_get_int(ps, "TopNodeIncreaseFactor");
         All.OutputPotential = param_get_int(ps, "OutputPotential");
-        All.MaxMemSizePerNode = param_get_int(ps, "MaxMemSizePerNode");
+        double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
+        if(MaxMemSizePerNode <= 1) {
+            MaxMemSizePerNode *= get_physmem_bytes() / (1024 * 1024);
+        }
+        All.MaxMemSizePerNode = MaxMemSizePerNode;
 
         All.TimeMax = param_get_double(ps, "TimeMax");
         All.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
