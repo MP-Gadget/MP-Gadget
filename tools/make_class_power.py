@@ -122,8 +122,9 @@ def make_class_power(paramfile, external_pk = None):
     #Input sanitisation
     _check_genic_config(config)
 
-    #Load high precision defaults
-    pre_params = classylss.load_precision('pk_ref.pre')
+    #Precision
+    pre_params = {'tol_background_integration': 1e-9, 'tol_perturb_integration' : 1.e-7, 'tol_thermo_integration':1.e-5, 'tol_ncdm_newtonian': 1e-6, 'tol_ncdm_synchronous': 1e-6, 'k_per_decade_for_pk': 20,'k_per_decade_for_bao':  200, 'tol_ncdm_bg':1e-10, 'neglect_CMB_sources_below_visibility' : 1.e-30, 'transfer_neglect_late_source': 3000., 'l_max_g' : 50, 'l_max_ur':150, 'l_max_ncdm':50}
+
     gparams = _build_cosmology_params(config)
     pre_params.update(gparams)
     redshift = config['Redshift']
