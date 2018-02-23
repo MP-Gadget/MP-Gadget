@@ -36,7 +36,7 @@ Ngrid = integer(min=0)
 BoxSize = float(min=0)
 Omega0 = float(0,1)
 OmegaLambda = float(0,1)
-OmegaBaryon = float(0,1)
+OmegaBaryon = float(0,1,default=0.0486)
 HubbleParam = float(0,2)
 Redshift = float(0,1100)
 Sigma8 = float(default=-1)
@@ -85,6 +85,8 @@ def _build_cosmology_params(config):
     #Class takes omega_m h^2 as parameters
     h0 = config['HubbleParam']
     omeganu = (config['MNue'] + config['MNum'] + config['MNut'])/93.14/h0**2
+    if config['OmegaBaryon'] < 0.001:
+        config['OmegaBaryon'] = 0.0486
     ocdm = config['Omega0'] - config['OmegaBaryon'] - omeganu
     omegak = 1-config['OmegaLambda']-config['Omega0']
     gparams = {'h':config['HubbleParam'], 'Omega_cdm':ocdm,'Omega_b':config['OmegaBaryon'], 'Omega_k':omegak, 'w0_fld': config['w0_fld'], 'wa_fld':config['wa_fld'], 'n_s': config['PrimordialIndex'],'T_cmb':config["CMBTemperature"]}
