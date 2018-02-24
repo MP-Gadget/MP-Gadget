@@ -77,8 +77,6 @@ static int ThisTask;
 
 /* these variables are allocated every force calculation */
 static double * meshbuf;
-static size_t meshbufsize;
-// static pfft_complex * rho_k;
 
 static void pm_alloc();
 static void pm_free();
@@ -274,9 +272,6 @@ void petapm_force_init(
 
     regions = prepare(userdata, &Nregions);
     pm_alloc();
-
-    /* this takes care of the padding */
-    memset(meshbuf, 0, meshbufsize * sizeof(double));
 
     walltime_measure("/PMgrav/Misc");
     pm_iterate(put_particle_to_mesh, regions);
@@ -703,9 +698,10 @@ static void pm_alloc() {
         for(i = 0 ; i < Nregions; i ++) {
             size += regions[i].totalsize;
         }
-        meshbufsize = size;
         if ( size == 0 ) return;
         meshbuf = (double *) mymalloc("PMmesh", size * sizeof(double));
+        /* this takes care of the padding */
+        memset(meshbuf, 0, size * sizeof(double));
         report_memory_usage("PetaPM");
         size = 0;
         for(i = 0 ; i < Nregions; i ++) {
@@ -843,8 +839,12 @@ static void verify_density_field() {
     MPI_Allreduce(&mass_Part, &totmass_Part, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     double mass_Region = 0;
+    size_t meshsize;
+    for(i = 0 ; i < Nregions; i ++) {
+            meshsize += regions[i].totalsize;
+    }
 #pragma omp parallel for reduction(+: mass_Region)
-    for(i = 0; i < meshbufsize; i ++) {
+    for(i = 0; i < meshsize; i ++) {
         mass_Region += meshbuf[i];    
     }
     double totmass_Region = 0;
