@@ -78,8 +78,7 @@ static int ThisTask;
 /* these variables are allocated every force calculation */
 static double * meshbuf;
 
-static void pm_alloc();
-static void pm_free();
+static void pm_init_regions(PetaPMRegion * regions);
 
 static PetaPMRegion * regions = NULL; /* created by 'prepare' callback in petapm_force */
 static int Nregions = 0;
@@ -271,7 +270,7 @@ void petapm_force_init(
     CPS = pstruct;
 
     regions = prepare(userdata, &Nregions);
-    pm_alloc();
+    pm_init_regions(regions);
 
     walltime_measure("/PMgrav/Misc");
     pm_iterate(put_particle_to_mesh, regions);
@@ -350,7 +349,9 @@ void petapm_force_c2r(pfft_complex * rho_k,
 }
 void petapm_force_finish() {
     layout_finish(&layout);
-    pm_free();
+    if(regions) {
+        myfree(meshbuf);
+    }
     myfree(regions);
     regions = NULL;
     Nregions = 0;
@@ -691,7 +692,7 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter, double *
         }
     }
 }
-static void pm_alloc() {
+static void pm_init_regions(PetaPMRegion * regions) {
     if(regions) {
         int i;
         size_t size = 0;
@@ -820,11 +821,6 @@ static int pencil_cmp_target(const void * v1, const void * v2) {
         ((p2->meshbuf_first < p1->meshbuf_first) - (p1->meshbuf_first < p2->meshbuf_first));
 }
 
-static void pm_free() {
-    if(regions) {
-        myfree(meshbuf);
-    }
-}
 #ifdef DEBUG
 static void verify_density_field() {
     int i;
