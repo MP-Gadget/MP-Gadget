@@ -58,7 +58,7 @@ static int pos_get_target(const int pos[2]);
 static int64_t reduce_int64(int64_t input);
 /* for debuggin */
 #ifdef DEBUG
-static void verify_density_field();
+static void verify_density_field(PetaPMRegion * regions, const int Nregions);
 #endif
 
 /* These varibles are initialized by petapm_init*/
@@ -78,10 +78,10 @@ static int ThisTask;
 /* these variables are allocated every force calculation */
 static double * meshbuf;
 
-static void pm_init_regions(PetaPMRegion * regions);
+static void pm_init_regions(PetaPMRegion * regions, const int Nregions);
 
-static PetaPMRegion * regions = NULL; /* created by 'prepare' callback in petapm_force */
-static int Nregions = 0;
+//static PetaPMRegion * regions = NULL; /* created by 'prepare' callback in petapm_force */
+//static int Nregions = 0;
 
 static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
 #define POS(i) ((double*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_pos]))
@@ -263,14 +263,16 @@ static void put_particle_to_mesh(int i, double * mesh, double weight);
  * */
 static struct Layout layout;
 
-void petapm_force_init(
+PetaPMRegion *
+petapm_force_init(
         petapm_prepare_func prepare, 
         PetaPMParticleStruct * pstruct,
         void * userdata) {
     CPS = pstruct;
 
-    regions = prepare(userdata, &Nregions);
-    pm_init_regions(regions);
+    int Nregions = 0;
+    PetaPMRegion * regions = prepare(userdata, &Nregions);
+    pm_init_regions(regions, Nregions);
 
     walltime_measure("/PMgrav/Misc");
     pm_iterate(put_particle_to_mesh, regions);
@@ -280,9 +282,10 @@ void petapm_force_init(
 
     walltime_measure("/PMgrav/comm");
 #ifdef DEBUG
-    verify_density_field();
+    verify_density_field(regions, Nregions);
 #endif
     walltime_measure("/PMgrav/Misc");
+    return regions;
 }
 
 pfft_complex * petapm_force_r2c(
@@ -318,7 +321,7 @@ pfft_complex * petapm_force_r2c(
     return rho_k;
 }
 
-void petapm_force_c2r(pfft_complex * rho_k,
+void petapm_force_c2r(pfft_complex * rho_k, PetaPMRegion * regions,
         PetaPMFunctions * functions) {
 
     PetaPMFunctions * f = functions;
@@ -342,19 +345,14 @@ void petapm_force_c2r(pfft_complex * rho_k,
         pm_iterate(readout, regions);
         walltime_measure("/PMgrav/readout");
     }
-
     myfree(rho_k);
+    myfree(regions);
     walltime_measure("/PMgrav/Misc");
 
 }
 void petapm_force_finish() {
     layout_finish(&layout);
-    if(regions) {
-        myfree(meshbuf);
-    }
-    myfree(regions);
-    regions = NULL;
-    Nregions = 0;
+    myfree(meshbuf);
 }
 
 void petapm_force(petapm_prepare_func prepare, 
@@ -362,10 +360,10 @@ void petapm_force(petapm_prepare_func prepare,
         PetaPMFunctions * functions, 
         PetaPMParticleStruct * pstruct,
         void * userdata) {
-    petapm_force_init(prepare, pstruct, userdata);
+    PetaPMRegion * regions = petapm_force_init(prepare, pstruct, userdata);
     pfft_complex * rho_k = petapm_force_r2c(global_functions);
     if(functions)
-        petapm_force_c2r(rho_k, functions);
+        petapm_force_c2r(rho_k, regions, functions);
     petapm_force_finish();
 }
     
@@ -692,7 +690,7 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter, double *
         }
     }
 }
-static void pm_init_regions(PetaPMRegion * regions) {
+static void pm_init_regions(PetaPMRegion * regions, const int Nregions) {
     if(regions) {
         int i;
         size_t size = 0;
@@ -822,7 +820,7 @@ static int pencil_cmp_target(const void * v1, const void * v2) {
 }
 
 #ifdef DEBUG
-static void verify_density_field() {
+static void verify_density_field(PetaPMRegion * regions, const int Nregions) {
     int i;
     /* verify the density field */
     double mass_Part = 0;

@@ -50,14 +50,14 @@ void petapm_force(petapm_prepare_func prepare,
         PetaPMParticleStruct * pstruct,
         void * userdata);
 
-void petapm_force_init(
+PetaPMRegion * petapm_force_init(
         petapm_prepare_func prepare, 
         PetaPMParticleStruct * pstruct,
         void * userdata);
 pfft_complex * petapm_force_r2c(
         PetaPMGlobalFunctions * global_functions
         );
-void petapm_force_c2r(pfft_complex * rho_k,
+void petapm_force_c2r(pfft_complex * rho_k, PetaPMRegion * regions,
         PetaPMFunctions * functions);
 void petapm_force_finish();
 PetaPMRegion * petapm_get_fourier_region();
