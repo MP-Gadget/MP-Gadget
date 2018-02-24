@@ -58,7 +58,7 @@ static int pos_get_target(const int pos[2]);
 static int64_t reduce_int64(int64_t input);
 /* for debuggin */
 #ifdef DEBUG
-static void verify_density_field(PetaPMRegion * regions, const int Nregions);
+static void verify_density_field(double * real, double * meshbuf, const size_t meshsize);
 #endif
 
 /* These varibles are initialized by petapm_init*/
@@ -77,6 +77,7 @@ static int ThisTask;
 
 /* these variables are allocated every force calculation */
 static double * meshbuf;
+static size_t meshbufsize;
 
 static void pm_init_regions(PetaPMRegion * regions, const int Nregions);
 
@@ -281,10 +282,6 @@ petapm_force_init(
     layout_prepare(&layout, meshbuf, regions, Nregions);
 
     walltime_measure("/PMgrav/comm");
-#ifdef DEBUG
-    verify_density_field(regions, Nregions);
-#endif
-    walltime_measure("/PMgrav/Misc");
     return regions;
 }
 
@@ -302,6 +299,13 @@ pfft_complex * petapm_force_r2c(
     double * real = (double * ) mymalloc("PMreal", fftsize * sizeof(double));
     memset(real, 0, sizeof(double) * fftsize);
     layout_build_and_exchange_cells_to_pfft(&layout, meshbuf, real);
+    walltime_measure("/PMgrav/comm2");
+
+#ifdef DEBUG
+    verify_density_field(real, meshbuf, meshbufsize);
+    walltime_measure("/PMgrav/Misc");
+#endif
+
     pfft_execute_dft_r2c(plan_forw, real, complx);
     myfree(real);
 
@@ -697,6 +701,7 @@ static void pm_init_regions(PetaPMRegion * regions, const int Nregions) {
         for(i = 0 ; i < Nregions; i ++) {
             size += regions[i].totalsize;
         }
+        meshbufsize = size;
         if ( size == 0 ) return;
         meshbuf = (double *) mymalloc("PMmesh", size * sizeof(double));
         /* this takes care of the padding */
@@ -820,7 +825,7 @@ static int pencil_cmp_target(const void * v1, const void * v2) {
 }
 
 #ifdef DEBUG
-static void verify_density_field(PetaPMRegion * regions, const int Nregions) {
+static void verify_density_field(double * real, double * meshbuf, const size_t meshsize) {
     int i;
     /* verify the density field */
     double mass_Part = 0;
@@ -833,10 +838,7 @@ static void verify_density_field(PetaPMRegion * regions, const int Nregions) {
     MPI_Allreduce(&mass_Part, &totmass_Part, 1, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
 
     double mass_Region = 0;
-    size_t meshsize;
-    for(i = 0 ; i < Nregions; i ++) {
-            meshsize += regions[i].totalsize;
-    }
+
 #pragma omp parallel for reduction(+: mass_Region)
     for(i = 0; i < meshsize; i ++) {
         mass_Region += meshbuf[i];    
