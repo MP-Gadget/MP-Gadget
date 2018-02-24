@@ -336,9 +336,8 @@ void petapm_force_c2r(
         pfft_execute_dft_c2r(plan_back, complx, real);
         walltime_measure("/PMgrav/c2r");
         myfree(complx);
-        /* read out the potential */
+        /* read out the potential: this will copy and free real.*/
         layout_build_and_exchange_cells_to_local(&layout, meshbuf, real);
-        myfree(real);
         walltime_measure("/PMgrav/comm");
         
         pm_iterate(readout, regions);
@@ -620,12 +619,17 @@ static void to_region(double * cell, double * region) {
 }
 
 static void layout_build_and_exchange_cells_to_local(struct Layout * L, double * meshbuf, double * real) {
-    L->BufSend = mymalloc("PMBufSend", L->NcExport * sizeof(double));
     L->BufRecv = mymalloc("PMBufRecv", L->NcImport * sizeof(double));
     int i;
     int offset;
 
+    /*layout_iterate_cells transfers real to L->BufRecv*/
     layout_iterate_cells(L, to_region, real);
+
+    /*Real is done now: reuse the memory for BufSend*/
+    myfree(real);
+    /*Now allocate BufSend, which is confusingly used to receive data*/
+    L->BufSend = mymalloc("PMBufSend", L->NcExport * sizeof(double));
 
     /* exchange cells */
     /* notice the order is reversed from to_pfft */
@@ -643,8 +647,8 @@ static void layout_build_and_exchange_cells_to_local(struct Layout * L, double *
                 sizeof(double) * p->len);
         offset += p->len;
     }
-    myfree(L->BufRecv);
     myfree(L->BufSend);
+    myfree(L->BufRecv);
 }
 
 /* iterate over the pairs of real field cells and RecvBuf cells 
