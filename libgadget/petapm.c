@@ -78,7 +78,7 @@ static int ThisTask;
 /* these variables are allocated every force calculation */
 static double * meshbuf;
 static size_t meshbufsize;
-static pfft_complex * rho_k;
+// static pfft_complex * rho_k;
 
 static void pm_alloc();
 static void pm_free();
@@ -99,6 +99,7 @@ PetaPMRegion * petapm_get_real_region() {
     return &real_space_region;
 }
 pfft_complex * petapm_get_rho_k() {
+    pfft_complex * rho_k = (pfft_complex * ) mymalloc("PMrho_k", fftsize * sizeof(double));
     return rho_k;
 }
 int petapm_mesh_to_k(int i) {
@@ -290,7 +291,7 @@ void petapm_force_init(
     walltime_measure("/PMgrav/Misc");
 }
 
-void petapm_force_r2c(
+pfft_complex * petapm_force_r2c(
         PetaPMGlobalFunctions * global_functions
         ) {
     /* call pfft rho_k is CFT of rho */
@@ -306,6 +307,9 @@ void petapm_force_r2c(
     layout_build_and_exchange_cells_to_pfft(&layout, meshbuf, real);
     pfft_execute_dft_r2c(plan_forw, real, complx);
     myfree(real);
+
+    pfft_complex * rho_k = (pfft_complex * ) mymalloc2("PMrho_k", fftsize * sizeof(double));
+
     /*Do any analysis that may be required before the transfer function is applied*/
     petapm_transfer_func global_readout = global_functions->global_readout;
     if(global_readout)
@@ -317,9 +321,10 @@ void petapm_force_r2c(
     pm_apply_transfer_function(&fourier_space_region, complx, rho_k, global_transfer);
     walltime_measure("/PMgrav/r2c");
     myfree(complx);
+    return rho_k;
 }
 
-void petapm_force_c2r(
+void petapm_force_c2r(pfft_complex * rho_k,
         PetaPMFunctions * functions) {
 
     PetaPMFunctions * f = functions;
@@ -344,6 +349,7 @@ void petapm_force_c2r(
         walltime_measure("/PMgrav/readout");
     }
 
+    myfree(rho_k);
     walltime_measure("/PMgrav/Misc");
 
 }
@@ -361,9 +367,9 @@ void petapm_force(petapm_prepare_func prepare,
         PetaPMParticleStruct * pstruct,
         void * userdata) {
     petapm_force_init(prepare, pstruct, userdata);
-    petapm_force_r2c(global_functions);
+    pfft_complex * rho_k = petapm_force_r2c(global_functions);
     if(functions)
-        petapm_force_c2r(functions);
+        petapm_force_c2r(rho_k, functions);
     petapm_force_finish();
 }
     
@@ -691,7 +697,6 @@ static void layout_iterate_cells(struct Layout * L, cell_iterator iter, double *
     }
 }
 static void pm_alloc() {
-    rho_k = (pfft_complex * ) mymalloc("PMrho_k", fftsize * sizeof(double));
     if(regions) {
         int i;
         size_t size = 0;
@@ -823,7 +828,6 @@ static void pm_free() {
     if(regions) {
         myfree(meshbuf);
     }
-    myfree(rho_k);
 }
 #ifdef DEBUG
 static void verify_density_field() {

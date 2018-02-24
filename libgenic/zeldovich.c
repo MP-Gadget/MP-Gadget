@@ -137,10 +137,12 @@ void displacement_fields(int Type) {
            makeregion,
            &pstruct, NULL);
 
+    /*This allocates the memory*/
+    pfft_complex * rho_k = petapm_get_rho_k();
     gaussian_fill(petapm_get_fourier_region(),
-		  petapm_get_rho_k(), All2.UnitaryAmplitude, All2.InvertPhase);
+		  rho_k, All2.UnitaryAmplitude, All2.InvertPhase);
 
-    petapm_force_c2r(functions);
+    petapm_force_c2r(rho_k, functions);
     petapm_force_finish();
     double maxdisp = 0;
     int i;
