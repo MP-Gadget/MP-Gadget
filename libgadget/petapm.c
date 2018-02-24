@@ -81,9 +81,6 @@ static size_t meshbufsize;
 
 static void pm_init_regions(PetaPMRegion * regions, const int Nregions);
 
-//static PetaPMRegion * regions = NULL; /* created by 'prepare' callback in petapm_force */
-//static int Nregions = 0;
-
 static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
 #define POS(i) ((double*)  (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_pos]))
 #define MASS(i) ((float*) (&((char*)CPS->Parts)[CPS->elsize * (i) + CPS->offset_mass]))
