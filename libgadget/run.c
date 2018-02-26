@@ -209,7 +209,7 @@ void run(void)
          * write_checkpoint is responsible to maintain a valid domain and tree after it is called.
          *
          * We only attempt to output on sync points. This is the only chance where all variables are
-         * synchonized in a consistent state in a K(KDDK)^mK scheme.
+         * synchronized in a consistent state in a K(KDDK)^mK scheme.
          */
 
         int WriteSnapshot = 0;
