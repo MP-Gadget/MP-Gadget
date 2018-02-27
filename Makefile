@@ -11,6 +11,7 @@ include Makefile.version
 FILES = $(shell git ls-files)
 
 all:
+	cd depends; $(MAKE)
 	cd libgadget; $(MAKE)
 	cd libgenic; $(MAKE)
 	cd gadget; $(MAKE)

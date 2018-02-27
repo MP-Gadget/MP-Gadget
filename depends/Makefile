@@ -1,4 +1,4 @@
-CONFIG = ../../Options.mk
+CONFIG = ../Options.mk
 include $(CONFIG)
 
 LIBRARIES=lib/libbigfile-mpi.a lib/libmpsort-mpi.a lib/libpfft_omp.a
