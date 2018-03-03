@@ -137,6 +137,9 @@ def make_class_power(paramfile, external_pk = None):
     #Precision
     pre_params = {'tol_background_integration': 1e-9, 'tol_perturb_integration' : 1.e-7, 'tol_thermo_integration':1.e-5, 'k_per_decade_for_pk': 20,'k_per_decade_for_bao':  200, 'neglect_CMB_sources_below_visibility' : 1.e-30, 'transfer_neglect_late_source': 3000., 'l_max_g' : 50, 'l_max_ur':150}
 
+    #Important! Densities are in synchronous gauge!
+    pre_params['gauge'] = 'synchronous'
+
     gparams = _build_cosmology_params(config)
     pre_params.update(gparams)
     redshift = config['Redshift']
@@ -145,7 +148,7 @@ def make_class_power(paramfile, external_pk = None):
     #Pass options for the power spectrum
     boxmpc = config['BoxSize'] / config['InputSpectrum_UnitLength_in_cm'] * config['UnitLength_in_cm']
     maxk = 2*math.pi/boxmpc*config['Ngrid']*4
-    powerparams = {'output': 'dTk mPk', 'P_k_max_h/Mpc' : maxk, "z_pk": config['InputFutureRedshift'], "z_max_pk" : redshift}
+    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_pk": config['InputFutureRedshift'], "z_max_pk" : redshift}
     pre_params.update(powerparams)
 
     #Specify an external primordial power spectrum
@@ -185,7 +188,7 @@ def save_transfer(transfer, transferfile, bg, redshift):
     #This format matches the default output by CAMB and CLASS command lines.
     #Some entries may be zero sometimes
     kk = transfer['k']
-    ftrans = np.zeros((np.size(transfer['k']), 9))
+    ftrans = np.zeros((np.size(transfer['k']), 13))
     ftrans[:,0] = kk
     ftrans[:,1] = -1*transfer['d_cdm']/kk**2
     ftrans[:,2] = -1*transfer['d_b']/kk**2
@@ -207,7 +210,14 @@ def save_transfer(transfer, transferfile, bg, redshift):
     #The CDM+baryon weighted density.
     ftrans[:,7] = -1*(omegacdm *transfer['d_cdm'] + omegab * transfer['d_b'])/(omegacdm + omegab)/kk**2
     ftrans[:,8] = -1*transfer['d_tot']/kk**2
-
+    #The velocity transfer functions: these are chosen to match CAMB output
+    #Weyl potential
+    ftrans[:,9] = (transfer['phi'] + transfer['psi'])/2
+    #Velocity transfer: this is theta, but I don't know how to match CAMB.
+#     hub = bg.hubble_function(redshift)
+#     ftrans[:,10] = -transfer['t_cdm']/kk**2/hub
+#     ftrans[:,11] = -transfer['t_b']/kk**2/hub
+#     ftrans[:,12] = -transfer['t_b']/kk**2/hub + transfer['t_cdm']/kk**2/hub
     np.savetxt(transferfile, ftrans)
 
 if __name__ ==  "__main__":
