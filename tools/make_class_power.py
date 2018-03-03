@@ -89,11 +89,14 @@ def _build_cosmology_params(config):
         config['OmegaBaryon'] = 0.0486
     ocdm = config['Omega0'] - config['OmegaBaryon'] - omeganu
     omegak = 1-config['OmegaLambda']-config['Omega0']
-    gparams = {'h':config['HubbleParam'], 'Omega_cdm':ocdm,'Omega_b':config['OmegaBaryon'], 'Omega_k':omegak, 'w0_fld': config['w0_fld'], 'wa_fld':config['wa_fld'], 'n_s': config['PrimordialIndex'],'T_cmb':config["CMBTemperature"]}
+    gparams = {'h':config['HubbleParam'], 'Omega_cdm':ocdm,'Omega_b':config['OmegaBaryon'], 'Omega_k':omegak, 'n_s': config['PrimordialIndex'],'T_cmb':config["CMBTemperature"]}
+    #One may specify either OmegaLambda or Omega_fld,
+    #and the other is worked out by summing all matter to unity.
+    #Specify Omega_fld even if we have Lambda, to avoid floating point.
+    gparams['Omega_fld'] = config['Omega_fld']
     if config['Omega_fld'] > 0:
-        gparams['Omega_fld'] = config['Omega_fld']
-    else:
-        gparams['Omega_Lambda'] = config['OmegaLambda']
+        gparams['w0_fld'] = config['w0_fld']
+        gparams['wa_fld'] = config['wa_fld']
     #Set up massive neutrinos
     if omeganu > 0:
         gparams['m_ncdm'] = '%.2f,%.2f,%.2f' % (config['MNue'], config['MNum'], config['MNut'])
