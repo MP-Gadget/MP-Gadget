@@ -127,6 +127,15 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
         - Massive neutrinos.
         - Using Sigma8 to set the power spectrum scale.
         - Different transfer functions.
+
+    We generate two transfer functions at slightly different redshifts and differentiate them to get a velocity.
+    This allows us to have accurate initial conditions even on superhorizon scales, where the usual
+    growth function is not valid when radiation is included.
+
+    Note that for the velocities we do NOT just use the velocity transfer functions.
+    The reason is because of the gauge: velocity transfer is in synchronous gauge for CLASS,
+    newtonian gauge for CAMB. But we want the velocity in N-body gauge, which we get by taking
+    the time derivative of the synchronous gauge density perturbations. See arxiv:1505.04756.
     Not supported:
         - Warm dark matter power spectra.
         - Rescaling with different transfer functions."""

@@ -444,7 +444,6 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmp
                   phase += M_PI; /*invert phase*/
                 }
 
-
                 (delta_k + 2 * ip)[0] = ampl * cos(phase);
                 (delta_k + 2 * ip)[1] = ampl * sin(phase);
 
