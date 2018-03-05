@@ -17,7 +17,7 @@ int ThisTask;
 int NTask;
 
 int
-_cmocka_run_group_tests_mpi(const char * name, const struct CMUnitTest tests[], int size, void * p1, void * p2)
+_cmocka_run_group_tests_mpi(const char * name, const struct CMUnitTest tests[], size_t size, void * p1, void * p2)
 {
     MPI_Init(NULL, NULL);
     MPI_Comm_rank(MPI_COMM_WORLD, &ThisTask);
