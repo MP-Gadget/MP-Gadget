@@ -148,7 +148,7 @@ static int setup(void ** state)
     st.CP.MNu[1] = 0;
     st.CP.MNu[2] = 0;
     st.CP.Hubble =  3.2407789e-18 * 3.08568e+16;
-    init_cosmology(&st.CP, 0.01, 100000);
+    init_cosmology(&st.CP, 0.01);
     *state = &st;
     return 0;
 }

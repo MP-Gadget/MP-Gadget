@@ -46,5 +46,5 @@ double GrowthFactor(double astart, double aend);
 double F_Omega(double a);
 
 /*Initialise the derived parts of the cosmology*/
-void init_cosmology(Cosmology *CP, double TimeBegin, double box);
+void init_cosmology(Cosmology *CP, double TimeBegin);
 #endif
