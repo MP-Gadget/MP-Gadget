@@ -11,32 +11,24 @@
 #include "stub.h"
 #include <libgadget/config.h>
 #include <libgenic/power.h>
+#include <libgadget/cosmology.h>
 
-int DifferentTransferFunctions = 1;
-
-/*Dummy growth factor, tested elsewhere.*/
-double GrowthFactor(double astart, double aend)
+struct test_state
 {
-    return astart/aend;
-}
+    struct power_params PowerP;
+    Cosmology CP;
+};
 
 /*Simple test without rescaling*/
 static void
 test_read_no_rescale(void ** state)
 {
     /*Do setup*/
-    struct power_params PowerP;
+    struct power_params PowerP = ((struct test_state *) (*state))->PowerP;
     /*Test without rescaling*/
     PowerP.InputPowerRedshift = -1;
-    PowerP.Sigma8 = -1;
-    PowerP.FileWithInputSpectrum = GADGET_TESTDATA_ROOT "/examples/camb_matterpow_99.dat";
-    PowerP.FileWithTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_99.dat";
-    PowerP.FileWithFutureTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_98.99.dat";
     PowerP.DifferentTransferFunctions = 1;
-    PowerP.InputFutureRedshift = 98.99;
-    PowerP.WhichSpectrum = 2;
-    PowerP.SpectrumLengthScale = 1000;
-    PowerP.PrimordialIndex = 1.0;
+    /*Test without rescaling*/
     int nentry = initialize_powerspectrum(0, 0.01, 3.085678e21, NULL, &PowerP);
     assert_int_equal(nentry, 335);
     /*Check that the tabulated power spectrum gives the right answer
@@ -68,32 +60,104 @@ test_read_no_rescale(void ** state)
     assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,1)/DeltaSpec(1.079260830861467901e-01/1e3,6)- 1.477251880454670209e+04/1.394199788775037632e+04) < 1e-6);
 }
 
+static void
+test_growth_numerical(void ** state)
+{
+    /*Do setup*/
+    struct power_params PowerP = ((struct test_state *) (*state))->PowerP;
+    Cosmology CP = ((struct test_state *) (*state))->CP;
+    /*Test without rescaling*/
+    PowerP.InputPowerRedshift = -1;
+    PowerP.DifferentTransferFunctions = 1;
+    int nentry = initialize_powerspectrum(0, 0.01, 3.085678e21, &CP, &PowerP);
+    assert_int_equal(nentry, 335);
+    //Test sub-horizon scales
+    int k, nk = 100;
+    double lowk = 5e-2;
+    double highk = 10;
+    for (k = 1; k < nk; k++) {
+        double newk = exp(log(lowk) + k*(log(highk) - log(lowk))/nk);
+        newk/=1e3;
+        //Total growth should be very close to F_Omega.
+/*         message(1,"k=%g G = %g F = %g G0 = %g\n",newk*1e3,dlogGrowth(newk, 7), F_Omega(0.01),dlogGrowth(newk, 0)); */
+        //Why the slight difference?
+        assert_true(fabs(dlogGrowth(newk,7)  - F_Omega(0.01)) < 0.05);
+        //Growth of CDM should be lower, growth of baryons should be higher.
+        assert_true(dlogGrowth(newk,1) < F_Omega(0.01));
+        assert_true(dlogGrowth(newk,1) > 0.9);
+        //The BAO wiggles make this hard to bound
+        assert_true(dlogGrowth(newk,0) > 1);
+        assert_true(dlogGrowth(newk,0) < 1.5);
+    }
+    //Test super-horizon scales
+    lowk = 1e-3;
+    highk = 5e-3;
+    for (k = 1; k < nk; k++) {
+        double newk = exp(log(lowk) + k*(log(highk) - log(lowk))/nk);
+        newk/=1e3;
+/*         message(1,"k=%g G = %g F = %g\n",newk*1e3,dlogGrowth(newk, 7), dlogGrowth(newk, 1)); */
+        //Total growth should be around 1.05
+        assert_true(dlogGrowth(newk,7) < 1.05);
+        assert_true(dlogGrowth(newk,7) > 1.);
+        //CDM and baryons should match total
+        assert_true(fabs(dlogGrowth(newk,0)/dlogGrowth(newk,7) -1)  < 0.008);
+        assert_true(fabs(dlogGrowth(newk,1)/dlogGrowth(newk,7) -1)  < 0.008);
+    }
+}
+
 /*Check normalising to a different sigma8 and redshift*/
 static void
 test_read_rescale_sigma8(void ** state)
 {
     /*Do setup*/
-    struct power_params PowerP;
+    struct power_params PowerP = ((struct test_state *) (*state))->PowerP;
+    Cosmology CP = ((struct test_state *) (*state))->CP;
     /* Test rescaling to an earlier time
      * (we still use the same z=99 power which should not be rescaled in a real simulation)*/
-    PowerP.InputPowerRedshift = 0;
+    PowerP.InputPowerRedshift = 9;
     PowerP.DifferentTransferFunctions = 0;
-    PowerP.Sigma8 = -1;
-    PowerP.FileWithInputSpectrum = GADGET_TESTDATA_ROOT "/examples/camb_matterpow_99.dat";
-    PowerP.FileWithTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_99.dat";
-    PowerP.FileWithFutureTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_98.99.dat";
-    PowerP.WhichSpectrum = 2;
-    PowerP.SpectrumLengthScale = 1000;
-    PowerP.PrimordialIndex = 1.0;
-    int nentry = initialize_powerspectrum(0, 0.01, 3.085678e21, NULL, &PowerP);
+    int nentry = initialize_powerspectrum(0, 0.05, 3.085678e21, &CP, &PowerP);
     assert_int_equal(nentry, 335);
-    assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, 7),2)* 100 * 100 /4.745074933325402533/1e9 - 1) < 1e-2);
+    assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, 7),2)* 4 /4.745074933325402533/1e9 - 1) < 1e-2);
+}
+
+
+static int setup(void ** state)
+{
+    static struct test_state st;
+    st.PowerP.InputPowerRedshift = -1;
+    st.PowerP.DifferentTransferFunctions = 1;
+    st.PowerP.Sigma8 = -1;
+    st.PowerP.FileWithInputSpectrum = GADGET_TESTDATA_ROOT "/examples/camb_matterpow_99.dat";
+    st.PowerP.FileWithTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_99.dat";
+    st.PowerP.FileWithFutureTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_98.99.dat";
+    st.PowerP.InputFutureRedshift = 98.99;
+    st.PowerP.WhichSpectrum = 2;
+    st.PowerP.SpectrumLengthScale = 1000;
+    st.PowerP.PrimordialIndex = 1.0;
+    st.CP.Omega0 = 0.2814;
+    st.CP.OmegaLambda = 1 - st.CP.Omega0;
+    st.CP.OmegaBaryon = 0.0464;
+    st.CP.HubbleParam = 0.697;
+    st.CP.Omega_fld = 0;
+    st.CP.w0_fld = -1;
+    st.CP.wa_fld = 0;
+    st.CP.CMBTemperature = 2.7255;
+    st.CP.RadiationOn = 1;
+    st.CP.MNu[0] = 0;
+    st.CP.MNu[1] = 0;
+    st.CP.MNu[2] = 0;
+    st.CP.Hubble =  3.2407789e-18 * 3.08568e+16;
+    init_cosmology(&st.CP, 0.01, 100000);
+    *state = &st;
+    return 0;
 }
 
 int main(void) {
     const struct CMUnitTest tests[] = {
         cmocka_unit_test(test_read_no_rescale),
-        cmocka_unit_test(test_read_rescale_sigma8)
+        cmocka_unit_test(test_read_rescale_sigma8),
+        cmocka_unit_test(test_growth_numerical)
     };
-    return cmocka_run_group_tests_mpi(tests, NULL, NULL);
+    return cmocka_run_group_tests_mpi(tests, setup, NULL);
 }
