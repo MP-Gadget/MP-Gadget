@@ -59,7 +59,7 @@ void init(int RestartSnapNum)
         }
     }
 
-    init_timebins(log(All.TimeInit));
+    init_timebins(All.TimeInit);
 
     /* Important to set the global time before reading in the snapshot time as it affects the GT funcs for IO. */
     set_global_time(exp(loga_from_ti(All.Ti_Current)));

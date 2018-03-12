@@ -12,13 +12,15 @@ static int NSyncPoints;    /* number of times stored in table of desired sync po
 
 /* This function compiles
  *
- * All.OutputListTimes, All.TimeInit, All.TimeMax
+ * All.OutputListTimes, All.TimeIC, All.TimeMax
  *
  * into a list of SyncPoint objects.
  *
  * A SyncPoint is a time step where all state variables are at the same time on the
  * KkdkK timeline.
  *
+ * TimeIC and TimeMax are used to ensure restarting from snapshot obtains exactly identical
+ * integer stamps.
  **/
 void
 setup_sync_points(double TimeIC, double no_snapshot_until_time)

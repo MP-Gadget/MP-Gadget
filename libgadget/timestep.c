@@ -76,10 +76,11 @@ static inttime_t get_long_range_timestep_ti(const inttime_t dti_max);
 void
 init_timebins(double TimeInit)
 {
-    All.Ti_Current = ti_from_loga(TimeInit);
+    All.Ti_Current = ti_from_loga(log(TimeInit));
     /*Enforce Ti_Current is initially even*/
     if(All.Ti_Current % 2 == 1)
         All.Ti_Current++;
+    message(0, "Initial TimeStep at TimeInit %g Ti_Current = %d \n", TimeInit, All.Ti_Current);
     /* this makes sure the first step is a PM step. */
     PM.length = 0;
     PM.Ti_kick = All.Ti_Current;
