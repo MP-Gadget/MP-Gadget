@@ -1,6 +1,6 @@
 #ifndef TIMEBINMGR_H
 #define TIMEBINMGR_H
-/* This file manages the integer timeline, 
+/* This file manages the integer timeline,
  * and converts from integers ti to double loga.*/
 
 /*!< The simulated timespan is mapped onto the integer interval [0,TIMEBASE],
