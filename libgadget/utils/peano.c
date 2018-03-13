@@ -134,17 +134,3 @@ peano_t peano_hilbert_key(int x, int y, int z, int bits)
     return key;
 }
 
-
-morton_t morton_key(int x, int y, int z, int bits)
-{
-    int mask;
-    morton_t morton = 0;
-
-    for(mask = 1 << (bits - 1); mask > 0; mask >>= 1)
-    {
-        morton <<= 3;
-        morton += ((z & mask) ? 4 : 0) + ((y & mask) ? 2 : 0) + ((x & mask) ? 1 : 0);
-    }
-    return morton;
-}
-
