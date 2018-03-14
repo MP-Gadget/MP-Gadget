@@ -82,7 +82,7 @@ setup_grid(double shift, int64_t FirstID, int Ngrid)
 }
 
 static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
-    PetaPMRegion * regions = mymalloc("Regions", sizeof(PetaPMRegion));
+    PetaPMRegion * regions = mymalloc2("Regions", sizeof(PetaPMRegion));
     int k;
     int r = 0;
     int i;
@@ -133,14 +133,16 @@ void displacement_fields(int Type) {
         NULL,
         NumPart,
     };
-    petapm_force_init(
+    PetaPMRegion * regions = petapm_force_init(
            makeregion,
            &pstruct, NULL);
 
+    /*This allocates the memory*/
+    pfft_complex * rho_k = petapm_get_rho_k();
     gaussian_fill(petapm_get_fourier_region(),
-		  petapm_get_rho_k(), All2.UnitaryAmplitude, All2.InvertPhase);
+		  rho_k, All2.UnitaryAmplitude, All2.InvertPhase);
 
-    petapm_force_c2r(functions);
+    petapm_force_c2r(rho_k, regions, functions);
     petapm_force_finish();
     double maxdisp = 0;
     int i;
