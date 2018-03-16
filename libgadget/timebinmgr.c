@@ -126,7 +126,7 @@ find_current_sync_point(inttime_t ti)
 static double
 Dloga_interval_ti(inttime_t ti)
 {
-    /* FIXME: This uses the bit tricks because it has to be fast 
+    /* FIXME: This uses the bit tricks because it has to be fast
      * -- till we clean up the calls to loga_from_ti; then we can avoid bit tricks. */
 
     inttime_t lastsnap = ti >> TIMEBINS;
@@ -199,7 +199,7 @@ double
 get_dloga_for_bin(int timebin)
 {
     double logDTime = Dloga_interval_ti(All.Ti_Current);
-    return (timebin ? (1u << timebin) : 0 ) * logDTime;
+    return (timebin > 0 ? (1u << (unsigned) timebin) : 0 ) * logDTime;
 }
 
 inttime_t

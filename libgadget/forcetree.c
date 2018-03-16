@@ -515,48 +515,49 @@ force_tree_build_single(const struct TreeBuilder tb, const int npart)
  */
 void force_create_node_for_topnode(int no, int topnode, int bits, int x, int y, int z, int *nextfree, const int lastnode)
 {
-    int i, j, k, n, sub, count;
-    MyFloat lenhalf;
+    int i, j, k;
 
-    if(TopNodes[topnode].Daughter >= 0)
-    {
-        for(i = 0; i < 2; i++)
-            for(j = 0; j < 2; j++)
-                for(k = 0; k < 2; k++)
-                {
-                    sub = 7 & peano_hilbert_key((x << 1) + i, (y << 1) + j, (z << 1) + k, bits);
+    /*We reached the leaf of the toptree*/
+    if(TopNodes[topnode].Daughter < 0)
+        return;
 
-                    count = i + 2 * j + 4 * k;
+    for(i = 0; i < 2; i++)
+        for(j = 0; j < 2; j++)
+            for(k = 0; k < 2; k++)
+            {
+                int sub = 7 & peano_hilbert_key((x << 1) + i, (y << 1) + j, (z << 1) + k, bits);
 
-                    Nodes[no].u.suns[count] = *nextfree;
-                    /*We are an internal top level node as we now have a child top level.*/
-                    Nodes[no].f.InternalTopLevel = 1;
+                int count = i + 2 * j + 4 * k;
 
-                    lenhalf = 0.25 * Nodes[no].len;
-                    Nodes[*nextfree].len = 0.5 * Nodes[no].len;
-                    Nodes[*nextfree].center[0] = Nodes[no].center[0] + (2 * i - 1) * lenhalf;
-                    Nodes[*nextfree].center[1] = Nodes[no].center[1] + (2 * j - 1) * lenhalf;
-                    Nodes[*nextfree].center[2] = Nodes[no].center[2] + (2 * k - 1) * lenhalf;
-                    Nodes[*nextfree].father = no;
-                    /*All nodes here are top level nodes*/
-                    Nodes[*nextfree].f.TopLevel = 1;
-                    Nodes[*nextfree].f.InternalTopLevel = 0;
+                Nodes[no].u.suns[count] = *nextfree;
+                /*We are an internal top level node as we now have a child top level.*/
+                Nodes[no].f.InternalTopLevel = 1;
 
-                    for(n = 0; n < 8; n++)
-                        Nodes[*nextfree].u.suns[n] = -1;
+                const MyFloat lenhalf = 0.25 * Nodes[no].len;
+                Nodes[*nextfree].len = 0.5 * Nodes[no].len;
+                Nodes[*nextfree].center[0] = Nodes[no].center[0] + (2 * i - 1) * lenhalf;
+                Nodes[*nextfree].center[1] = Nodes[no].center[1] + (2 * j - 1) * lenhalf;
+                Nodes[*nextfree].center[2] = Nodes[no].center[2] + (2 * k - 1) * lenhalf;
+                Nodes[*nextfree].father = no;
+                /*All nodes here are top level nodes*/
+                Nodes[*nextfree].f.TopLevel = 1;
+                Nodes[*nextfree].f.InternalTopLevel = 0;
 
-                    if(TopNodes[TopNodes[topnode].Daughter + sub].Daughter == -1)
-                        TopLeaves[TopNodes[TopNodes[topnode].Daughter + sub].Leaf].treenode = *nextfree;
+                int n;
+                for(n = 0; n < 8; n++)
+                    Nodes[*nextfree].u.suns[n] = -1;
 
-                    (*nextfree)++;
+                if(TopNodes[TopNodes[topnode].Daughter + sub].Daughter == -1)
+                    TopLeaves[TopNodes[TopNodes[topnode].Daughter + sub].Leaf].treenode = *nextfree;
 
-                    if(*nextfree >= lastnode)
-                        endrun(11, "Not enough force nodes to topnode grid: need %d\n",lastnode);
+                (*nextfree)++;
 
-                    force_create_node_for_topnode(*nextfree - 1, TopNodes[topnode].Daughter + sub,
-                            bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
-                }
-    }
+                if(*nextfree >= lastnode)
+                    endrun(11, "Not enough force nodes to topnode grid: need %d\n",lastnode);
+
+                force_create_node_for_topnode(*nextfree - 1, TopNodes[topnode].Daughter + sub,
+                        bits + 1, 2 * x + i, 2 * y + j, 2 * z + k, nextfree, lastnode);
+            }
 }
 
 
@@ -1029,7 +1030,7 @@ void force_treeupdate_pseudos(int no, const struct TreeBuilder tb)
  */
 void force_update_hmax(int * activeset, int size)
 {
-    int i, ta; 
+    int i, ta;
     int *counts, *offsets;
     struct dirty_node_data {
         int treenode;
