@@ -73,9 +73,8 @@ int main(int argc, char **argv)
   /*Use 'total' (CDM + baryon) transfer function
    * unless DifferentTransferFunctions are on.
    */
-  int DMType = 3, GasType = 3, NuType = 3;
+  int DMType = 3, GasType = 3, NuType = 2;
   if(All2.ProduceGas && All2.DifferentTransferFunctions) {
-      NuType = 2;
       DMType = 1;
       GasType = 0;
   }
