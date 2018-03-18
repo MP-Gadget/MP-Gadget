@@ -184,7 +184,7 @@ void print_spec(void)
 
       for(k = kstart; k < kend; k *= 1.025)
 	  {
-	    double po = PowerSpec(k, -1);
+	    double po = pow(DeltaSpec(k, -1),2);
 	    fprintf(fd, "%12g %12g\n", k, po);
 	  }
       fclose(fd);

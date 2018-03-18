@@ -230,7 +230,7 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
         double fac = exp(- k2 * r2);
 
         double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
+        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
 
         value[0][0] *= fac;
         value[0][1] *= fac;
@@ -250,8 +250,7 @@ static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
                     */
 
         double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
-
+        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -261,7 +260,7 @@ static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (All.BoxSize / (2 * M_PI)) * kpos[1] / k2;
         double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
+        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -271,7 +270,7 @@ static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (All.BoxSize / (2 * M_PI)) * kpos[2] / k2;
         double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
+        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
 
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
