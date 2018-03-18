@@ -62,9 +62,7 @@ void petapm_force_c2r(pfft_complex * rho_k, PetaPMRegion * regions,
 void petapm_force_finish();
 PetaPMRegion * petapm_get_fourier_region();
 PetaPMRegion * petapm_get_real_region();
-/* Danger: this function allocates memory for an empty rho_k array.
- * The memory is normally freed at the end of petapm_force_c2r*/
-pfft_complex * petapm_get_rho_k();
 int petapm_mesh_to_k(int i);
 int *petapm_get_thistask2d();
 int *petapm_get_ntask2d();
+pfft_complex * petapm_alloc_rhok(void);

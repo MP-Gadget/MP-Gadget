@@ -158,11 +158,14 @@ void displacement_fields(int Type) {
            &pstruct, NULL);
 
     /*This allocates the memory*/
-    pfft_complex * rho_k = petapm_get_rho_k();
+    pfft_complex * rho_k = petapm_alloc_rhok();
+
     gaussian_fill(petapm_get_fourier_region(),
 		  rho_k, All2.UnitaryAmplitude, All2.InvertPhase);
 
     petapm_force_c2r(rho_k, regions, functions);
+    myfree(rho_k);
+    myfree(regions);
     petapm_force_finish();
     double maxdisp = 0;
     int i;
@@ -301,7 +304,6 @@ typedef struct {
         ptrdiff_t total;
     } ORegion;
     int Nmesh[3];
-    size_t allocsize;
 } PM;
 
 static inline void
@@ -353,8 +355,6 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmp
     /* Fill delta_k with gadget scheme */
     int d;
     int i, j, k;
-
-    memset(delta_k, 0, sizeof(delta_k[0]) * pm->allocsize);
 
     gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(rng, seed);
@@ -508,7 +508,6 @@ gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitu
     pm->ORegion.strides[2] = region->strides[1];
 
     pm->ORegion.total = region->totalsize;
-    pm->allocsize = region->totalsize;
     pmic_fill_gaussian_gadget(pm, (double*) rho_k, All2.Seed, setUnitaryAmplitude, setInvertPhase);
 
 #if 0
