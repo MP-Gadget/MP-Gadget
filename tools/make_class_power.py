@@ -40,9 +40,9 @@ OmegaBaryon = float(0,1,default=0.0486)
 HubbleParam = float(0,2)
 Redshift = float(0,1100)
 Sigma8 = float(default=-1)
-InputPowerRedshift = float()
+InputPowerRedshift = float(default=-1)
 InputFutureRedshift = float()
-DifferentTransferFunctions = integer(0,1)
+DifferentTransferFunctions = integer(0,1, default=1)
 InputSpectrum_UnitLength_in_cm  = float(default=3.085678e24)
 UnitLength_in_cm  = float(default=3.085678e21)
 Omega_fld = float(0,1,default=0)
@@ -118,7 +118,7 @@ def _build_cosmology_params(config):
         gparams['A_s'] = config["PrimordialAmp"]
     return gparams
 
-def make_class_power(paramfile, external_pk = None):
+def make_class_power(paramfile, external_pk = None, extraz=None):
     """Main routine: parses a parameter file and makes a matter power spectrum.
     Will not over-write power spectra if already present.
     Options are loaded from the MP-GenIC parameter file.
@@ -145,10 +145,14 @@ def make_class_power(paramfile, external_pk = None):
     redshift = config['Redshift']
     if config['InputPowerRedshift'] >= 0:
         redshift = config['InputPowerRedshift']
+    outputs = np.array([redshift, config['InputFutureRedshift']])
+    if extraz is not None:
+        outputs = np.concatenate([outputs, extraz])
+    outputs = np.sort(outputs)
     #Pass options for the power spectrum
     boxmpc = config['BoxSize'] / config['InputSpectrum_UnitLength_in_cm'] * config['UnitLength_in_cm']
     maxk = 2*math.pi/boxmpc*config['Ngrid']*4
-    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_pk": config['InputFutureRedshift'], "z_max_pk" : redshift}
+    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : np.max(outputs),'z_pk': outputs}
     pre_params.update(powerparams)
 
     #Specify an external primordial power spectrum
@@ -177,6 +181,17 @@ def make_class_power(paramfile, external_pk = None):
     if os.path.exists(pkfile):
         raise IOError("Refusing to write to existing file: ",pkfile)
     np.savetxt(pkfile, np.vstack([trans['k'], pk_lin]).T)
+    if extraz is not None:
+        for red in extraz:
+            trans = powspec.get_transfer(z=red)
+            tfile = os.path.join(sdir, config['FileWithTransferFunction']+"-"+str(red))
+            save_transfer(trans, tfile, bg, red)
+            #Get and save the matter power spectrum
+            pk_lin = powspec.get_pklin(k=trans['k'], z=red)
+            pkfile = os.path.join(sdir, config['FileWithInputSpectrum']+"-"+str(red))
+            if os.path.exists(pkfile):
+                raise IOError("Refusing to write to existing file: ",pkfile)
+            np.savetxt(pkfile, np.vstack([trans['k'], pk_lin]).T)
 
 def save_transfer(transfer, transferfile, bg, redshift):
     """Save a transfer function. Note we save the CAMB FORMATTED transfer functions.
@@ -224,5 +239,6 @@ if __name__ ==  "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('paramfile', type=str, help='genic paramfile')
     parser.add_argument('--extpk', type=str, help='optional external primordial power spectrum',required=False)
+    parser.add_argument('--extraz', type=float,nargs='*', help='optional external primordial power spectrum',required=False)
     args = parser.parse_args()
-    make_class_power(args.paramfile, args.extpk)
+    make_class_power(args.paramfile, args.extpk, args.extraz)
