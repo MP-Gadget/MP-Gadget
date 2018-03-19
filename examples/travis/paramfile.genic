@@ -6,31 +6,28 @@ FileBase = IC              # Base-filename of output files
 
 Ngrid = 64 # Size of cubic grid on which to create particles.
 
+BoxSize = 128.0   # Periodic box size of simulation
 
-BoxSize = 512.0   # Periodic box size of simulation
-
-
-Omega0 = 0.2865      # Total matter density  (at z=0)
-OmegaLambda = 0.7135      # Cosmological constant (at z=0)
-OmegaBaryon = 0.0463     # Baryon density        (at z=0)
+Omega0 = 0.288      # Total matter density  (at z=0)
+OmegaLambda = 0.712      # Cosmological constant (at z=0)
+OmegaBaryon = 0.0472     # Baryon density        (at z=0)
 ProduceGas = 1         # 0 is dm only. 1 is gas
-HubbleParam = 0.6932      # Hubble paramater (may be used for power spec parameterization)
+HubbleParam = 0.7      # Hubble paramater (may be used for power spec parameterization)
 
-Redshift = 9        # Starting redshift
+Redshift = 99        # Starting redshift
 
-Sigma8 =  0.8223      # power spectrum normalization
-
-
-FileWithInputSpectrum = wmap9-z0.txt  # filename of tabulated input
+FileWithInputSpectrum = camb_matterpow_99.dat   # filename of tabulated input
                                        # spectrum (if used)
+FileWithTransferFunction = camb_transfer_99.dat
+FileWithFutureTransferFunction = camb_transfer_98.99.dat
+InputFutureRedshift = 98.99
+DifferentTransferFunctions = 1
 
 InputSpectrum_UnitLength_in_cm = 3.085678e24                     # defines length unit of tabulated
                                                                    # input spectrum in cm/h. 
                                                 # Note: This can be chosen different from UnitLength_in_cm
 
 UsePeculiarVelocity = 1  # Use peculiar velocity like FastPM
-
-PrimordialIndex = 1.      # may be used to rebuild the primordial power
 
 Seed = 181170    #  seed for IC-generator
 UnitaryAmplitude = 1  # set amplitude of gaussian to 1.
