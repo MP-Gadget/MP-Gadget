@@ -6,8 +6,7 @@ CONFIG ?= ../Options.mk
 
 include $(CONFIG)
 
-INCL = config.h \
-	densitykernel.h \
+INCL = densitykernel.h \
 	forcetree.h \
 	hci.h \
 	petapm.h \
@@ -136,13 +135,13 @@ test : build-tests
 libgadget-utils.a: $(GADGET_UTILS_OBJS)
 	$(AR) rv $@ $(GADGET_UTILS_OBJS)
 
-libgadget.a: $(GADGET_OBJS)
+libgadget.a: $(GADGET_OBJS) config.h
 	$(AR) rv $@ $(GADGET_OBJS)
 
 clean:
 	rm -rf .objs libgadget.a libgadget-utils.a
 
-config.h: Makefile $(CONFIG)
+config.h: Makefile $(CONFIG) $(INCL)
 	mkdir -p `dirname $@`
 	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" VERSION="$(VERSION)" bash makeconfig.sh $@
 
