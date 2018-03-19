@@ -43,7 +43,7 @@ create_parameters()
     param_declare_double(ps, "MWDM_therm", OPTIONAL, 0, "Assign a thermal velocity to the DM. Specifies WDM particle mass in keV.");
     param_declare_double(ps, "Max_nuvel", OPTIONAL, 5000, "Maximum neutrino velocity sampled from the F-D distribution.");
 
-    param_declare_int(ps, "DifferentTransferFunctions", OPTIONAL, 0, "Use species specific transfer functions for baryon and CDM.");
+    param_declare_int(ps, "DifferentTransferFunctions", OPTIONAL, 1, "Use species specific transfer functions for baryon and CDM.");
     param_declare_int(ps, "ScaleDepVelocity", OPTIONAL, 1, "Use scale dependent velocity transfer functions obtained by differentiating sync. gauge velocity. Requires two transfer functions.");
     param_declare_string(ps, "FileWithTransferFunction", OPTIONAL, "", "File containing CAMB formatted transfer functions.");
     param_declare_string(ps, "FileWithFutureTransferFunction", OPTIONAL, "", "File containing CAMB formatted transfer functions at a future redshift: growth function is obtained by differentiation.");
