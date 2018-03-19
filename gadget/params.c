@@ -199,7 +199,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "PartAllocFactor", REQUIRED, 0, "");
     param_declare_double(ps, "TopNodeAllocFactor", OPTIONAL, 0.5, "");
 
-    param_declare_double(ps, "InitGasTemp", OPTIONAL, 300, "Initial gas temperature");
+    param_declare_double(ps, "InitGasTemp", OPTIONAL, -1, "Initial gas temperature. By default set to CMB temperature at starting redshift.");
     param_declare_double(ps, "MinGasTemp", OPTIONAL, 5, "Minimum gas temperature");
 
     param_declare_int(ps, "SnapshotWithFOF", REQUIRED, 0, "Enable Friends-of-Friends halo finder.");

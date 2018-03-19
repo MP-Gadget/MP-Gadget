@@ -468,6 +468,9 @@ set_units(void)
 
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
     init_cosmology(&All.CP, All.TimeInit, All.BoxSize * All.UnitLength_in_cm);
+
+    if(All.InitGasTemp < 0)
+        All.InitGasTemp = DMAX(All.MinGasTemp, All.CP.CMBTemperature / All.TimeInit);
     /*Initialise the hybrid neutrinos, after Omega_nu*/
     if(All.HybridNeutrinosOn)
         init_hybrid_nu(&All.CP.ONu.hybnu, All.CP.MNu, All.HybridVcrit, C/1e5, All.HybridNuPartTime, All.CP.ONu.kBtnu);
