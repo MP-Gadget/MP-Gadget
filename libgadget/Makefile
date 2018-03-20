@@ -135,11 +135,19 @@ test : build-tests
 libgadget-utils.a: $(GADGET_UTILS_OBJS)
 	$(AR) rv $@ $(GADGET_UTILS_OBJS)
 
-libgadget.a: $(GADGET_OBJS) config.h
+libgadget.a: $(GADGET_OBJS)
 	$(AR) rv $@ $(GADGET_OBJS)
 
+#This declares an extra dependency of petaio.o on config.h,
+#to ensure that any config changes are included in the MP-Gadget binary.
+.objs/petaio.o: petaio.c config.h $(INCL)
+	@cmd="$(MPICC) -c -o $@ $(CFLAGS) $<"; \
+	if test "x$(V)" = "x1" ; then echo $$cmd; fi; \
+	mkdir -p `dirname $@`; \
+	echo Compiling $<; $$cmd
+
 clean:
-	rm -rf .objs libgadget.a libgadget-utils.a
+	rm -rf .objs libgadget.a libgadget-utils.a config.h
 
 config.h: Makefile $(CONFIG) $(INCL)
 	mkdir -p `dirname $@`
