@@ -70,6 +70,10 @@
 #endif
 
 #define MAXITER 400
+enum ShortRangeForceWindowType {
+    SHORTRANGE_FORCE_WINDOW_TYPE_EXACT = 0,
+    SHORTRANGE_FORCE_WINDOW_TYPE_GADGET2 = 1,
+};
 
 enum BlackHoleFeedbackMethod {
      BH_FEEDBACK_TOPHAT   = 0x2,
@@ -294,6 +298,7 @@ extern struct global_data_all_processes
 
     /*! The scale of the short-range/long-range force split in units of FFT-mesh cells */
     double Asmth;
+    enum ShortRangeForceWindowType ShortRangeForceWindowType;	/*!< method of the feedback*/
 
     /* adjusts accuracy of time-integration */
 

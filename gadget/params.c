@@ -158,6 +158,13 @@ create_gadget_parameter_set()
     param_declare_double(ps, "Asmth", OPTIONAL, 1.25, "The scale of the short-range/long-range force split in units of FFT-mesh cells. Gadget-2 paper says larger values may be more accurate.");
     param_declare_int(ps,    "Nmesh", REQUIRED, 0, "");
 
+    static ParameterEnum ShortRangeForceWindowTypeEnum [] = {
+        {"exact", SHORTRANGE_FORCE_WINDOW_TYPE_EXACT },
+        {"gadget2", SHORTRANGE_FORCE_WINDOW_TYPE_GADGET2 },
+        {NULL, SHORTRANGE_FORCE_WINDOW_TYPE_EXACT },
+    };
+    param_declare_enum(ps,    "ShortRangeForceWindowType", ShortRangeForceWindowTypeEnum, OPTIONAL, "exact", "type of shortrange window, exact or gadget2 (default is exact) ");
+
     param_declare_double(ps, "MinGasHsmlFractional", OPTIONAL, 0, "Minimal gas Hsml as a fraction of gravity softening.");
     param_declare_double(ps, "MaxGasVel", OPTIONAL, 3e5, "");
 
@@ -382,6 +389,7 @@ void read_parameter_file(char *fname)
         All.ErrTolIntAccuracy = param_get_double(ps, "ErrTolIntAccuracy");
         All.ErrTolForceAcc = param_get_double(ps, "ErrTolForceAcc");
         All.Asmth = param_get_double(ps, "Asmth");
+        All.ShortRangeForceWindowType = param_get_enum(ps, "ShortRangeForceWindowType");
         All.Nmesh = param_get_int(ps, "Nmesh");
 
         All.MinGasHsmlFractional = param_get_double(ps, "MinGasHsmlFractional");
