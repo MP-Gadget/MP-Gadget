@@ -60,7 +60,7 @@ double hubble_function(double a)
 
     /* first do the terms in SQRT */
     hubble_a = CP->OmegaLambda;
-    
+
     hubble_a += OmegaFLD(a);
     hubble_a += CP->OmegaK / (a * a);
     hubble_a += (CP->OmegaCDM + CP->OmegaBaryon) / (a * a * a);
@@ -69,6 +69,7 @@ double hubble_function(double a)
         hubble_a += CP->OmegaG / (a * a * a * a);
         hubble_a += get_omega_nu(&CP->ONu, a);
     }
+    hubble_a += CP->Omega_ur/(a*a*a*a);
     /* Now finish it up. */
     hubble_a = CP->Hubble * sqrt(hubble_a);
     return (hubble_a);

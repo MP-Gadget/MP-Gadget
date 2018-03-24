@@ -14,6 +14,7 @@ typedef struct {
     double Omega_fld; /*Energy density of dark energy fluid at z=0*/
     double w0_fld; /*Dark energy equation of state parameter*/
     double wa_fld; /*Dark energy equation of state evolution parameter*/
+    double Omega_ur; /*Extra radiation density: either a sterile neutrino or other dark radiation*/
     double OmegaBaryon;  /* baryon density in units of the critical density (at z=0) */
     double HubbleParam;  /* little `h', i.e. Hubble constant in units of 100 km/s/Mpc. */
     double Hubble; /* 100 km/s/Mpc in whatever units we want*/

@@ -140,6 +140,7 @@ create_gadget_parameter_set()
     param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state.");
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter.");
+    param_declare_double(ps, "Omega_ur", OPTIONAL, 0, "Extra radiation density, eg, a sterile neutrino");
     param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "");
 
     param_declare_int(ps,    "OutputPotential", OPTIONAL, 1, "Save the potential in snapshots.");
@@ -364,6 +365,7 @@ void read_parameter_file(char *fname)
             endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
         All.CP.w0_fld = param_get_double(ps,"w0_fld");
         All.CP.wa_fld = param_get_double(ps,"wa_fld");
+        All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
         All.CP.HubbleParam = param_get_double(ps, "HubbleParam");
 
         All.DomainOverDecompositionFactor = param_get_int(ps, "DomainOverDecompositionFactor");

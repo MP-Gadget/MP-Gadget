@@ -36,6 +36,7 @@ create_parameters()
     param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state");
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter");
+    param_declare_double(ps, "Omega_ur", OPTIONAL, 0, "Extra radiation density, eg, a sterile neutrino");
     param_declare_double(ps, "MNue", OPTIONAL, 0, "First neutrino mass in eV.");
     param_declare_double(ps, "MNum", OPTIONAL, 0, "Second neutrino mass in eV.");
     param_declare_double(ps, "MNut", OPTIONAL, 0, "Third neutrino mass in eV.");
@@ -93,6 +94,7 @@ void read_parameterfile(char *fname)
     All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
     All.CP.w0_fld = param_get_double(ps,"w0_fld");
     All.CP.wa_fld = param_get_double(ps,"wa_fld");
+    All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
     if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
         endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
     All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
