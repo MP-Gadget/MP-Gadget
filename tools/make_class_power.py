@@ -148,11 +148,10 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
     outputs = np.array([redshift, config['InputFutureRedshift']])
     if extraz is not None:
         outputs = np.concatenate([outputs, extraz])
-    outputs = np.sort(outputs)
     #Pass options for the power spectrum
     boxmpc = config['BoxSize'] / config['InputSpectrum_UnitLength_in_cm'] * config['UnitLength_in_cm']
-    maxk = 2*math.pi/boxmpc*config['Ngrid']*4
-    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : np.max(outputs),'z_pk': outputs}
+    maxk = 2*math.pi/boxmpc*config['Ngrid']*16
+    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : 1+np.max(outputs),'z_pk': outputs}
     pre_params.update(powerparams)
 
     #Specify an external primordial power spectrum
