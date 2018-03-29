@@ -163,20 +163,14 @@ int force_tree_build(int npart)
 /* Get the subnode for a given particle and parent node.
  * This splits a parent node into 8 subregions depending on the particle position.
  * node is the parent node to split, p_i is the index of the particle we
- * are currently inserting, and shift denotes the level of the
- * tree we are currently at.
- * Returns a value between 0 and 7. If particles are very close,
- * the tree subnode is randomised.
- *
- * shift is the level of the subnode to be returned, not the level of the parent node.
+ * are currently inserting
+ * Returns a value between 0 and 7.
  * */
 int get_subnode(const struct NODE * node, const int p_i)
 {
-    int subnode = 0;
-    int k;
-    for(k=0; k<3; k++)
-        subnode |= (P[p_i].Pos[k] > node->center[k]) << k;
-    return subnode;
+     return (P[p_i].Pos[0] > node->center[0]) +
+            ((P[p_i].Pos[1] > node->center[1]) << 1) +
+            ((P[p_i].Pos[2] > node->center[2]) << 2);
 }
 
 /*Check whether a particle is inside the volume covered by a node*/
