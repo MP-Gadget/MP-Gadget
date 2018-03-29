@@ -173,17 +173,15 @@ int get_subnode(const struct NODE * node, const int p_i)
             ((P[p_i].Pos[2] > node->center[2]) << 2);
 }
 
-/*Check whether a particle is inside the volume covered by a node*/
+/*Check whether a particle is inside the volume covered by a node,
+ * by checking whether each dimension is close enough to center (L1 metric).*/
 static inline int inside_node(const struct NODE * node, const int p_i)
 {
-    int k;
-    for(k=0; k<3; k++) {
-        double pdiff = 2*(P[p_i].Pos[k] - node->center[k]);
-        pdiff = pdiff > 0 ? pdiff : -1*pdiff;
-        if(pdiff > node->len)
-            return 0;
-    }
-    return 1;
+    int inside =
+        (fabs(2*(P[p_i].Pos[0] - node->center[0])) <= node->len) *
+        (fabs(2*(P[p_i].Pos[1] - node->center[1])) <= node->len) *
+        (fabs(2*(P[p_i].Pos[2] - node->center[2])) <= node->len);
+    return inside;
 }
 
 /*Initialise an internal node at nfreep. The parent is assumed to be locked, and
