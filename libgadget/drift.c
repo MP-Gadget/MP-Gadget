@@ -15,12 +15,16 @@
 static int drift_particle_full(int i, inttime_t ti1, int blocking);
 
 static void real_drift_particle(int i, inttime_t ti1);
+
+#ifdef OPENMP_USE_SPINLOCK
 void lock_particle(int i) {
     pthread_spin_lock(&P[i].SpinLock);
 }
 void unlock_particle(int i) {
     pthread_spin_unlock(&P[i].SpinLock);
 }
+#endif
+
 void drift_particle(int i, inttime_t ti1) {
     drift_particle_full(i, ti1, 1);
 }
@@ -160,18 +164,6 @@ static void real_drift_particle(int i, inttime_t ti1)
     }
 
     P[i].Ti_drift = ti1;
-}
-
-void drift_active_particles(inttime_t ti1)
-{
-    int i;
-    walltime_measure("/Misc");
-
-#pragma omp parallel for
-    for(i = 0; i < NumActiveParticle; i++)
-        real_drift_particle(ActiveParticle[i], ti1);
-
-    walltime_measure("/Drift/Active");
 }
 
 void drift_all_particles(inttime_t ti1)
