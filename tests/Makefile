@@ -37,12 +37,11 @@ TESTED = \
 
 MPI_TESTED = exchange
 
-TESTBIN = $(TESTED:%=test_%) $(MPI_TESTED:%=test_%)
+TESTBIN := $(TESTED:%=test_%) $(MPI_TESTED:%=test_%)
 SUITE?= $(TESTED:%=test_%)
 MPISUITE = $(MPI_TESTED:%=test_%)
 
-.PHONY: test run-tests build-tests
-
+.PHONY: test run-tests clean-tests
 
 build-tests: $(TESTBIN)
 
@@ -57,9 +56,6 @@ test : build-tests
 
 clean-tests:
 	rm -f $(TESTBIN)
-
-# this empty rule is important for tab-completion
-$(TESTBIN):
 
 test_%: test_%.c stub.c ../libgenic/libgenic.a ../libgadget/libgadget.a ../libgadget/libgadget-utils.a cmocka.c
 	$(MPICC) $(CFLAGS) -I.  $^ $(LIBS) -o $@

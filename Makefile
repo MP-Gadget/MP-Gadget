@@ -22,8 +22,12 @@ clean :
 	cd libgenic; $(MAKE) clean
 	cd gadget; $(MAKE) clean
 	cd genic; $(MAKE) clean
+	cd tests; $(MAKE) clean-tests
 
 test:
+	cd depends; $(MAKE)
+	cd libgadget; $(MAKE)
+	cd libgenic; $(MAKE)
 	cd tests; $(MAKE) test
 
 
