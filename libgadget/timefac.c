@@ -20,13 +20,13 @@ static double logTimeInit;
 static double logTimeMax;
 
 /*! table for the cosmological drift factors */
-static double DriftTable[DRIFT_TABLE_LENGTH];
+static double * DriftTable;
 
 /*! table for the cosmological kick factor for gravitational forces */
-static double GravKickTable[DRIFT_TABLE_LENGTH];
+static double * GravKickTable;
 
 /*! table for the cosmological kick factor for hydrodynmical forces */
-static double HydroKickTable[DRIFT_TABLE_LENGTH];
+static double * HydroKickTable;
 
 /* Simple single-value cache for the drift table,
  * which is the same for all particles*/
@@ -75,6 +75,10 @@ void init_drift_table(double timeBegin, double timeMax)
 {
   int i;
   double result, abserr;
+
+  GravKickTable = mymalloc("gravkicktable", sizeof(double) * DRIFT_TABLE_LENGTH);
+  HydroKickTable = mymalloc("hydrokicktable", sizeof(double) * DRIFT_TABLE_LENGTH);
+  DriftTable = mymalloc("drifttable", sizeof(double) * DRIFT_TABLE_LENGTH);
 
   gsl_function F;
   gsl_integration_workspace *workspace;
