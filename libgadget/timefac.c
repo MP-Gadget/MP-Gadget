@@ -71,6 +71,29 @@ static double hydrokick_integ(double a, void *param)
   return 1 / (h * pow(a, 3 * GAMMA_MINUS1) * a);
 }
 
+/*Do the integral required to get a factor.*/
+static double get_exact_factor(inttime_t t0, inttime_t t1, double (*factor) (double, void *))
+{
+    double result, abserr;
+    if(t0 == t1)
+        return 0;
+    double a0 = exp(loga_from_ti(t0));
+    double a1 = exp(loga_from_ti(t1));
+    gsl_function F;
+    gsl_integration_workspace *workspace;
+    workspace = gsl_integration_workspace_alloc(WORKSIZE);
+    F.function = factor;
+    gsl_integration_qag(&F, a0, a1, 0, 1.0e-8, WORKSIZE, GSL_INTEG_GAUSS61, workspace, &result, &abserr);
+    gsl_integration_workspace_free(workspace);
+    return result;
+}
+
+/*Get the exact drift factor*/
+double get_exact_drift_factor(inttime_t ti0, inttime_t ti1)
+{
+    return get_exact_factor(ti0, ti1, &drift_integ);
+}
+
 void init_drift_table(double timeBegin, double timeMax)
 {
   int i;
