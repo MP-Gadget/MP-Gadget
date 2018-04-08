@@ -172,7 +172,7 @@ void domain_Decomposition(void)
         report_memory_usage("DOMAIN");
 #ifdef DEBUG
         message(0, "Testing ID Uniqueness before domain decompose\n");
-        test_id_uniqueness();
+        domain_test_id_uniqueness();
 #endif
         ret = domain_decompose();
 
