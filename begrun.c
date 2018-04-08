@@ -84,6 +84,8 @@ void begrun(int BeginFlag, int RestartSnapNum)
     lightcone_init(All.Time);
 #endif
 
+    blackhole_init();
+
     init_drift_table(All.Time, All.TimeMax);
 
     open_outputfiles(RestartSnapNum);
