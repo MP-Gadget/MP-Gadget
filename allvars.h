@@ -619,6 +619,7 @@ struct bh_particle_data {
     MyFloat MinPot;
 
     short int TimeBinLimit;
+    MyDouble a; /* scaling factor / time of last update */
 } * BhP;
 
 /*! This structure holds all the information that is

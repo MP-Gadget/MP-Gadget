@@ -76,6 +76,8 @@ typedef struct {
     DensityKernel feedback_kernel;
 } TreeWalkNgbIterBHFeedback;
 
+static FILE * FdBlackholeDetails;
+
 /* accretion routines */
 static void
 blackhole_accretion_postprocess(int n);
@@ -134,6 +136,47 @@ static double blackhole_soundspeed(double entropy, double pressure, double rho) 
     cs *= pow(All.Time, -1.5 * GAMMA_MINUS1);
 
     return cs;
+}
+
+static void
+blackholes_append_details()
+{
+    int i;
+    int c = 0;
+    int size = sizeof(BhP[0]);
+
+    /* write F77 blocks in case the length of struct changes in the future. */
+    for(i = 0; i < N_bh_slots; i ++) {
+        /* only write the active ones */
+        if(BhP[i].a != All.Time) continue;
+
+        fwrite(&size, sizeof(size), 1, FdBlackholeDetails);
+        fwrite(&BhP[i], sizeof(BhP[i]), 1, FdBlackholeDetails);
+        fwrite(&size, sizeof(size), 1, FdBlackholeDetails);
+        c++;
+    }
+
+    fflush(FdBlackholeDetails);
+    int64_t totalN;
+
+    sumup_large_ints(1, &c, &totalN);
+
+    message(0, "Written details of %ld blackholes.\n", totalN);
+}
+
+void
+blackhole_init()
+{
+    char * path = fastpm_strdup_printf("%s/%s/%06X", All.OutputDir, "BlackholeDetails", ThisTask);
+
+    fastpm_path_ensure_dirname(path);
+
+    FdBlackholeDetails = fopen(path, "a");
+
+    if(FdBlackholeDetails == NULL) {
+        endrun(1, "Failed to open blackhole detail %s\n", path);
+    }
+    free(path);
 }
 
 void blackhole(void)
@@ -253,7 +296,11 @@ void blackhole(void)
         fof_fof(-1);
         All.TimeNextSeedingCheck *= All.TimeBetweenSeedingSearch;
     }
-    walltime_measure("/BH");
+    walltime_measure("/BH/Compute");
+
+    blackholes_append_details();
+
+    walltime_measure("/BH/IO");
 }
 
 static void blackhole_accretion_postprocess(int i) {
@@ -344,6 +391,9 @@ blackhole_feedback_postprocess(int n)
     #pragma omp atomic
             Local_BH_Medd += BHP(n).Mdot / BHP(n).Mass;
     }
+
+    /* update time stamp; mostly useful in detail files */
+    BHP(n).a = All.Time;
 }
 
 static void
@@ -747,6 +797,7 @@ void blackhole_make_one(int index) {
     BHP(child).ID = P[child].ID;
     BHP(child).Mass = All.SeedBlackHoleMass;
     BHP(child).Mdot = 0;
+    BHP(child).a = All.Time;
 
     /* It is important to initialize MinPotPos to the current position of 
      * a BH to avoid drifting to unknown locations (0,0,0) immediately 
@@ -780,6 +831,7 @@ decide_hsearch(double h)
         return h;
     }
 }
+
 
 
 #endif
