@@ -598,6 +598,7 @@ extern size_t TotalNodeDrifts;
 struct bh_particle_data {
     int ReverseLink; /* used at GC for reverse link to P */
     MyIDType ID; /* for data consistency check, same as particle ID */
+    MyIDType LastMergerID; /* Last BH object that was merged */
     int CountProgs;
 
     MyFloat Mass;

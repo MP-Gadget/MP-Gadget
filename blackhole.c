@@ -68,6 +68,7 @@ typedef struct {
     MyFloat BH_Mass;
     MyFloat AccretedMomentum[3];
     int BH_CountProgs;
+    MyIDType MergerID;
 } TreeWalkResultBHFeedback;
 
 typedef struct {
@@ -580,6 +581,8 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
 
         O->BH_CountProgs += BHP(other).CountProgs;
 
+        O->MergerID = P[other].ID;
+
 #pragma omp atomic
         Local_BH_mass -= BHP(other).Mass;
 #pragma omp atomic
@@ -724,6 +727,8 @@ static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remo
         TREEWALK_REDUCE(BHP(place).accreted_momentum[k], remote->AccretedMomentum[k]);
     }
     TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
+
+    BHP(place).LastMergerID = remote->MergerID;
 }
 
 void blackhole_make_one(int index) {
