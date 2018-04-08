@@ -561,6 +561,11 @@ static void GTStarFormationRate(int i, float * out) {
 #endif
 #ifdef BLACK_HOLES
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
+SIMPLE_PROPERTY(BlackholeLastMergerID, BHP(i).LastMergerID, uint64_t, 1)
+SIMPLE_PROPERTY(BlackholeDensity, BHP(i).Density, float, 1)
+SIMPLE_PROPERTY(BlackholeGasVel, BHP(i).SurroundingGasVel[0], float, 3)
+SIMPLE_PROPERTY(BlackholeEntropy, BHP(i).Entropy, float, 1)
+SIMPLE_PROPERTY(BlackholePressure, BHP(i).Pressure, float, 1)
 SIMPLE_PROPERTY(BlackholeAccretionRate, BHP(i).Mdot, float, 1)
 SIMPLE_PROPERTY(BlackholeProgenitors, BHP(i).CountProgs, float, 1)
 SIMPLE_PROPERTY(BlackholeMinPotPos, BHP(i).MinPotPos[0], double, 3)
@@ -650,6 +655,12 @@ static void register_io_blocks() {
     }
     IO_REG(BlackholeAccretionRate, "f4", 1, 5);
     IO_REG(BlackholeProgenitors,   "i4", 1, 5);
+    IO_REG_WRONLY(BlackholeDensity,   "f4", 1, 5);
+    IO_REG_WRONLY(BlackholeLastMergerID,   "u8", 1, 5);
+    IO_REG_WRONLY(BlackholeGasVel,   "f4", 3, 5);
+    IO_REG_WRONLY(BlackholeEntropy,   "f4", 1, 5);
+    IO_REG_WRONLY(BlackholePressure,   "f4", 1, 5);
+    IO_REG_WRONLY(BlackholePressure,   "f4", 1, 5);
     IO_REG(BlackholeMinPotPos, "f8", 3, 5);
     IO_REG(BlackholeMinPotVel,   "f4", 3, 5);
     IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5);
