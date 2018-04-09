@@ -101,7 +101,7 @@ void init_drift_table(double timeBegin, double timeMax)
 
   GravKickTable = mymalloc("gravkicktable", sizeof(double) * DRIFT_TABLE_LENGTH);
   HydroKickTable = mymalloc("hydrokicktable", sizeof(double) * DRIFT_TABLE_LENGTH);
-  DriftTable = mymalloc("drifttable", sizeof(double) * DRIFT_TABLE_LENGTH);
+  //DriftTable = mymalloc("drifttable", sizeof(double) * DRIFT_TABLE_LENGTH);
 
   gsl_function F;
   gsl_integration_workspace *workspace;
@@ -115,11 +115,11 @@ void init_drift_table(double timeBegin, double timeMax)
 
   for(i = 0; i < DRIFT_TABLE_LENGTH; i++)
     {
-        F.function = &drift_integ;
+        /*F.function = &drift_integ;
         gsl_integration_qag(&F, exp(logTimeInit),
             exp(logTimeInit + ((logTimeMax - logTimeInit) / DRIFT_TABLE_LENGTH) * (i + 1)), 0,
                 1.0e-8, WORKSIZE, GSL_INTEG_GAUSS41, workspace, &result, &abserr);
-        DriftTable[i] = result;
+        DriftTable[i] = result;*/
 
         F.function = &gravkick_integ;
         gsl_integration_qag(&F, exp(logTimeInit),
@@ -200,6 +200,8 @@ double get_drift_factor(inttime_t ti0, inttime_t ti1)
   df_last_ti0 = ti0;
   df_last_ti1 = ti1;
 
+  if(!DriftTable)
+    endrun(1, "Drift table not allocated!\n");
   df_last_value = get_cached_kick_factor(ti0, ti1, DriftTable);
 
   return df_last_value;
