@@ -14,6 +14,8 @@
 #define TIMEBASE (1u<<TIMEBINS)
 #define MAXSNAPSHOTS (1u<<(30-TIMEBINS))
 
+#include "types.h"
+
 typedef struct SyncPoint SyncPoint;
 
 struct SyncPoint

@@ -1,4 +1,7 @@
+#ifndef INTERP_H
+#define INTERP_H
 
+#include <stddef.h>
 
 typedef struct {
     int Ndim;
@@ -25,4 +28,4 @@ double interp_eval(Interp * obj, double * x, double * ydata, int * status);
 double interp_eval_periodic(Interp * obj, double * x, double * ydata);
 
 void interp_destroy(Interp * obj);
-
+#endif

@@ -46,7 +46,27 @@ utils/event.h \
 utils/openmpsort.h \
 utils/string.h
 
+UTILS_TESTED = memory openmpsort interp
+
+TESTED = hci \
+	slotsmanager \
+	powerspectrum \
+	cosmology \
+	forcetree \
+	timefac \
+	timebinmgr \
+	exchange
+
+MPI_TESTED = exchange
+
+TESTBIN := $(TESTED:%=.objs/test_%) $(UTILS_TESTED:%=.objs/utils/test_%) $(MPI_TESTED:%=.objs/test_%)
+SUITE?= $(TESTED:%=test_%) $(UTILS_TESTED:%=utils/test_%)
+MPISUITE = $(MPI_TESTED:%=test_%)
+
 include ../Makefile.rules
+
+.objs/utils/test_%: tests/test_%.c utils/%.c utils/%.h ../tests/stub.c ../tests/cmocka.c ../libgadget/libgadget-utils.a 
+	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 FILES = $(shell git ls-files)
 
@@ -97,7 +117,7 @@ GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=.objs/%)
 
 all: libgadget.a libgadget-utils.a
 
-.PHONY: all
+.PHONY: all test run-tests
 
 libgadget-utils.a: $(GADGET_UTILS_OBJS)
 	$(AR) rv $@ $(GADGET_UTILS_OBJS)

@@ -7,6 +7,11 @@ include $(CONFIG)
 INCL=../libgadget/config.h \
     power.h allvars.h thermal.h proto.h
 
+TESTED = power thermal
+TESTBIN := $(TESTED:%=.objs/test_%) $(MPI_TESTED:%=.objs/test_%)
+SUITE?= $(TESTED:%=test_%)
+MPISUITE = $(MPI_TESTED:%=test_%)
+
 include ../Makefile.rules
 
 OBJS = power.o allvars.o \
@@ -14,10 +19,13 @@ OBJS = power.o allvars.o \
 
 OBJS := $(OBJS:%.o=.objs/%.o)
 
+.PHONY: all test run-tests
+
 all : libgenic.a
 
 libgenic.a: $(OBJS)
 	$(AR) rv $@ $(OBJS)
 
 clean:
-	rm -rf $(OBJS) libgenic.a
+	rm -rf .objs libgenic.a
+
