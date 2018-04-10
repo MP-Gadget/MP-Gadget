@@ -163,33 +163,28 @@ int force_tree_build(int npart)
 /* Get the subnode for a given particle and parent node.
  * This splits a parent node into 8 subregions depending on the particle position.
  * node is the parent node to split, p_i is the index of the particle we
- * are currently inserting, and shift denotes the level of the
- * tree we are currently at.
- * Returns a value between 0 and 7. If particles are very close,
- * the tree subnode is randomised.
- *
- * shift is the level of the subnode to be returned, not the level of the parent node.
+ * are currently inserting
+ * Returns a value between 0 and 7.
  * */
 int get_subnode(const struct NODE * node, const int p_i)
 {
-    int subnode = 0;
-    int k;
-    for(k=0; k<3; k++)
-        subnode |= (P[p_i].Pos[k] > node->center[k]) << k;
-    return subnode;
+    /*Loop is unrolled to help out the compiler,which normally only manages it at -O3*/
+     return (P[p_i].Pos[0] > node->center[0]) +
+            ((P[p_i].Pos[1] > node->center[1]) << 1) +
+            ((P[p_i].Pos[2] > node->center[2]) << 2);
 }
 
-/*Check whether a particle is inside the volume covered by a node*/
+/*Check whether a particle is inside the volume covered by a node,
+ * by checking whether each dimension is close enough to center (L1 metric).*/
 static inline int inside_node(const struct NODE * node, const int p_i)
 {
-    int k;
-    for(k=0; k<3; k++) {
-        double pdiff = 2*(P[p_i].Pos[k] - node->center[k]);
-        pdiff = pdiff > 0 ? pdiff : -1*pdiff;
-        if(pdiff > node->len)
-            return 0;
-    }
-    return 1;
+    /*One can also use a loop, but the compiler unrolls it only at -O3,
+     *so this is a little faster*/
+    int inside =
+        (fabs(2*(P[p_i].Pos[0] - node->center[0])) <= node->len) *
+        (fabs(2*(P[p_i].Pos[1] - node->center[1])) <= node->len) *
+        (fabs(2*(P[p_i].Pos[2] - node->center[2])) <= node->len);
+    return inside;
 }
 
 /*Initialise an internal node at nfreep. The parent is assumed to be locked, and

@@ -22,4 +22,3 @@ V ?= 0
 	if test "x$(V)" = "x1" ; then echo $$cmd; fi; \
 	mkdir -p `dirname $@`; \
 	echo Compiling $<; $$cmd
-

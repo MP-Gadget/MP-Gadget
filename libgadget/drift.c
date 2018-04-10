@@ -14,13 +14,17 @@
 
 static int drift_particle_full(int i, inttime_t ti1, int blocking);
 
-static void real_drift_particle(int i, inttime_t ti1);
+static void real_drift_particle(int i, inttime_t ti1, const double ddrift);
+
+#ifdef OPENMP_USE_SPINLOCK
 void lock_particle(int i) {
     pthread_spin_lock(&P[i].SpinLock);
 }
 void unlock_particle(int i) {
     pthread_spin_unlock(&P[i].SpinLock);
 }
+#endif
+
 void drift_particle(int i, inttime_t ti1) {
     drift_particle_full(i, ti1, 1);
 }
@@ -35,8 +39,10 @@ int drift_particle_full(int i, inttime_t ti1, int blocking) {
         lockstate = pthread_spin_trylock(&P[i].SpinLock);
     }
     if(0 == lockstate) {
-        if(P[i].Ti_drift != ti1) {
-            real_drift_particle(i, ti1);
+        inttime_t ti0 = P[i].Ti_drift;
+        if(ti0 != ti1) {
+            const double ddrift = get_drift_factor(ti0, ti1);
+            real_drift_particle(i, ti1, ddrift);
 #pragma omp flush
         }
         pthread_spin_unlock(&P[i].SpinLock);
@@ -54,33 +60,24 @@ int drift_particle_full(int i, inttime_t ti1, int blocking) {
     /* do not use SpinLock */
 #pragma omp critical (_driftparticle_)
     {
-        if(P[i].Ti_drift != ti1) {
-            real_drift_particle(i, ti1);
+        inttime_t ti0 = P[i].Ti_drift;
+        if(ti0 != ti1) {
+            const double ddrift = get_drift_factor(ti0, ti1);
+            real_drift_particle(i, ti1, ddrift);
         }
     }
     return 0;
 #endif
 }
 
-static void real_drift_particle(int i, inttime_t ti1)
+static void real_drift_particle(int i, inttime_t ti1, const double ddrift)
 {
-    int j, ti0;
-    double ddrift;
-
-    if(P[i].Ti_drift == ti1) return;
-
-
-    ti0 = P[i].Ti_drift;
-
-    if(ti1 < ti0)
-    {
+    int j;
+    inttime_t ti0 = P[i].Ti_drift;
+    if(ti1 < ti0) {
         endrun(12, "i=%d ti0=%d ti1=%d\n", i, ti0, ti1);
     }
 
-    if(ti1 == ti0)
-        return;
-
-    ddrift = get_drift_factor(ti0, ti1);
 
 #ifdef LIGHTCONE
     double oldpos[3];
@@ -162,26 +159,22 @@ static void real_drift_particle(int i, inttime_t ti1)
     P[i].Ti_drift = ti1;
 }
 
-void drift_active_particles(inttime_t ti1)
-{
-    int i;
-    walltime_measure("/Misc");
-
-#pragma omp parallel for
-    for(i = 0; i < NumActiveParticle; i++)
-        real_drift_particle(ActiveParticle[i], ti1);
-
-    walltime_measure("/Drift/Active");
-}
-
 void drift_all_particles(inttime_t ti1)
 {
     int i;
     walltime_measure("/Misc");
 
+    const inttime_t ti0 = P[0].Ti_drift;
+    const double ddrift = get_exact_drift_factor(ti0, ti1);
+
 #pragma omp parallel for
-    for(i = 0; i < PartManager->NumPart; i++)
-        real_drift_particle(i, ti1);
+    for(i = 0; i < PartManager->NumPart; i++) {
+#ifdef DEBUG
+        if(P[i].Ti_drift != ti0)
+            endrun("Drift time mismatch: (ids = %ld %ld) %d != %d\n",P[0].ID, P[i].ID, ti0,  P[i].Ti_drift);
+#endif
+        real_drift_particle(i, ti1, ddrift);
+    }
 
     walltime_measure("/Drift/All");
 }

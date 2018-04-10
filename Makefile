@@ -24,7 +24,9 @@ clean :
 	cd genic; $(MAKE) clean
 
 test:
-	cd tests; $(MAKE) test
+	cd depends; $(MAKE)
+	cd libgadget; $(MAKE) test
+	cd libgenic; $(MAKE) test
 
 
 html: $(FILES)

@@ -5,7 +5,6 @@
 #include <math.h>
 
 #include "allvars.h"
-#include "timefac.h"
 #include "timestep.h"
 #include "cooling.h"
 #include "slotsmanager.h"

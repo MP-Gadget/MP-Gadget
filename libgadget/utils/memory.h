@@ -1,6 +1,8 @@
 #ifndef _MEMORY_H_
 #define _MEMORY_H_
 
+#include <stddef.h>
+
 typedef struct Allocator Allocator;
 
 #define ALLOC_ENOTALLOC -3

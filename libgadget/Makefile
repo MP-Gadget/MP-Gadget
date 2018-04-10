@@ -46,6 +46,23 @@ utils/event.h \
 utils/openmpsort.h \
 utils/string.h
 
+UTILS_TESTED = memory openmpsort interp
+
+TESTED = hci \
+	slotsmanager \
+	powerspectrum \
+	cosmology \
+	forcetree \
+	timefac \
+	timebinmgr \
+	exchange
+
+MPI_TESTED = exchange
+
+TESTBIN :=$(UTILS_TESTED:%=.objs/utils/test_%) $(TESTED:%=.objs/test_%) $(MPI_TESTED:%=.objs/test_%)
+SUITE?= $(TESTED:%=test_%) $(UTILS_TESTED:%=utils/test_%)
+MPISUITE = $(MPI_TESTED:%=test_%)
+
 include ../Makefile.rules
 
 FILES = $(shell git ls-files)
@@ -97,7 +114,24 @@ GADGET_UTILS_OBJS := $(GADGET_UTILS_OBJS:%=.objs/%)
 
 all: libgadget.a libgadget-utils.a
 
-.PHONY: all
+.PHONY: all test run-tests
+
+.objs/utils/test_%: tests/test_%.c .objs/utils/%.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+
+.objs/test_%: tests/test_%.c .objs/%.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+
+build-tests: $(TESTBIN)
+
+test : build-tests
+	trap 'err=1' ERR; for tt in $(SUITE) ; do \
+		if [[ "$(MPISUITE)" =~ .*$$tt.* ]]; then \
+			mpirun -np 4 .objs/$$tt ;  \
+		else \
+			.objs/$$tt ; \
+		fi ;  \
+	done; exit $$err
 
 libgadget-utils.a: $(GADGET_UTILS_OBJS)
 	$(AR) rv $@ $(GADGET_UTILS_OBJS)

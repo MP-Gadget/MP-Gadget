@@ -12,6 +12,8 @@ OBJS = main.o params.o
 
 OBJS := $(OBJS:%.o=.objs/%.o)
 
+all: MP-GenIC
+
 MP-GenIC: $(OBJS) ../libgenic/libgenic.a ../libgadget/libgadget.a ../libgadget/libgadget-utils.a
 	$(MPICC) $(OPTIMIZE) $^ $(LIBS) -o $@
 
