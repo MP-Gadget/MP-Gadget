@@ -168,6 +168,7 @@ int force_tree_build(int npart)
  * */
 int get_subnode(const struct NODE * node, const int p_i)
 {
+    /*Loop is unrolled to help out the compiler,which normally only manages it at -O3*/
      return (P[p_i].Pos[0] > node->center[0]) +
             ((P[p_i].Pos[1] > node->center[1]) << 1) +
             ((P[p_i].Pos[2] > node->center[2]) << 2);
@@ -177,6 +178,8 @@ int get_subnode(const struct NODE * node, const int p_i)
  * by checking whether each dimension is close enough to center (L1 metric).*/
 static inline int inside_node(const struct NODE * node, const int p_i)
 {
+    /*One can also use a loop, but the compiler unrolls it only at -O3,
+     *so this is a little faster*/
     int inside =
         (fabs(2*(P[p_i].Pos[0] - node->center[0])) <= node->len) *
         (fabs(2*(P[p_i].Pos[1] - node->center[1])) <= node->len) *
