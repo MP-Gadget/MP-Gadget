@@ -26,6 +26,17 @@ all : libgenic.a
 .objs/test_%: tests/test_%.c .objs/%.o ../tests/stub.c ../tests/cmocka.c ../libgadget/libgadget-utils.a
 	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
+build-tests: $(TESTBIN)
+
+test : build-tests
+	trap 'err=1' ERR; for tt in $(SUITE) ; do \
+		if [[ "$(MPISUITE)" =~ .*$$tt.* ]]; then \
+			mpirun -np 4 .objs/$$tt ;  \
+		else \
+			.objs/$$tt ; \
+		fi ;  \
+	done; exit $$err
+
 libgenic.a: $(OBJS)
 	$(AR) rv $@ $(OBJS)
 

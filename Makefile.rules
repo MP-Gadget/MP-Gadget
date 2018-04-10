@@ -22,14 +22,3 @@ V ?= 0
 	if test "x$(V)" = "x1" ; then echo $$cmd; fi; \
 	mkdir -p `dirname $@`; \
 	echo Compiling $<; $$cmd
-
-build-tests: $(TESTBIN)
-
-test : build-tests
-	trap 'err=1' ERR; for tt in $(SUITE) ; do \
-		if [[ "$(MPISUITE)" =~ .*$$tt.* ]]; then \
-			mpirun -np 4 .objs/$$tt ;  \
-		else \
-			.objs/$$tt ; \
-		fi ;  \
-	done; exit $$err

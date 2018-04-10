@@ -11,6 +11,8 @@ OBJS = main.o params.o
 
 OBJS := $(OBJS:%.o=.objs/%.o)
 
+all: MP-Gadget
+
 MP-Gadget: $(OBJS) ../libgadget/libgadget.a ../libgadget/libgadget-utils.a
 	$(MPICC) $(OPTIMIZE) $^ $(LIBS) -o $@
 
