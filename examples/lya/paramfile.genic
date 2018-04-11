@@ -29,6 +29,8 @@ WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
 FileWithInputSpectrum = ../camb_matterpow_99.dat  # filename of tabulated input
                                                                    # spectrum (if used)
 FileWithTransferFunction = ../camb_transfer_99.dat
+FileWithFutureTransferFunction = ../camb_transfer_98.99.dat
+InputFutureRedshift = 98.99
 InputSpectrum_UnitLength_in_cm  = 3.085678e24 # defines length unit of tabulated
                                                                    # input spectrum in cm/h. 
                                                 # Note: This can be chosen different from UnitLength_in_cm

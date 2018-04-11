@@ -75,7 +75,7 @@ int main(int argc, char **argv)
    * unless DifferentTransferFunctions are on.
    */
   int DMType = 3, GasType = 3, NuType = 2;
-  if(All2.ProduceGas && All2.DifferentTransferFunctions) {
+  if(All2.ProduceGas && All2.PowerP.DifferentTransferFunctions) {
       DMType = 1;
       GasType = 0;
   }

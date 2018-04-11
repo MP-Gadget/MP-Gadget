@@ -20,7 +20,6 @@ struct genic_config {
     int Seed;
     int UnitaryAmplitude;
     int InvertPhase;
-    int DifferentTransferFunctions;
     double Max_nuvel;
     double WDM_therm_mass;
 

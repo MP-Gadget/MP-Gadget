@@ -31,6 +31,9 @@ test_read_no_rescale(void ** state)
     PowerP.Sigma8 = -1;
     PowerP.FileWithInputSpectrum = GADGET_TESTDATA_ROOT "/examples/camb_matterpow_99.dat";
     PowerP.FileWithTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_99.dat";
+    PowerP.FileWithFutureTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_98.99.dat";
+    PowerP.DifferentTransferFunctions = 1;
+    PowerP.InputFutureRedshift = 98.99;
     PowerP.WhichSpectrum = 2;
     PowerP.SpectrumLengthScale = 1000;
     PowerP.PrimordialIndex = 1.0;
@@ -74,9 +77,11 @@ test_read_rescale_sigma8(void ** state)
     /* Test rescaling to an earlier time
      * (we still use the same z=99 power which should not be rescaled in a real simulation)*/
     PowerP.InputPowerRedshift = 0;
+    PowerP.DifferentTransferFunctions = 0;
     PowerP.Sigma8 = -1;
     PowerP.FileWithInputSpectrum = GADGET_TESTDATA_ROOT "/examples/camb_matterpow_99.dat";
     PowerP.FileWithTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_99.dat";
+    PowerP.FileWithFutureTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_98.99.dat";
     PowerP.WhichSpectrum = 2;
     PowerP.SpectrumLengthScale = 1000;
     PowerP.PrimordialIndex = 1.0;

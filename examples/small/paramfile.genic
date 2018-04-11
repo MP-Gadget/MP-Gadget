@@ -17,6 +17,8 @@ Redshift = 9        # Starting redshift
 
 Sigma8 = 0.810      # power spectrum normalization
 
+DifferentTransferFunctions = 0
+ScaleDepVelocity = 0
 
 
 WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
