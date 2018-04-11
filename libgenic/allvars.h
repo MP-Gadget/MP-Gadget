@@ -8,7 +8,6 @@ extern struct ic_part_data
   double Pos[3];
   float Vel[3];
   float Density;
-  uint64_t ID;
   float Mass;
   int RegionInd;
 } * ICP;

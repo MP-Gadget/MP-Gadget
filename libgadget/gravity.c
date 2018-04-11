@@ -15,7 +15,7 @@ void  gravpm_init_periodic();
 
 static void fill_ntab();
 
-/*! Driver routine to call initializiation of periodic or/and non-periodic FFT
+/*! Driver routine to call initialization of periodic or/and non-periodic FFT
  *  routines.
  */
 void grav_init(void)

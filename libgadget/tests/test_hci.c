@@ -156,16 +156,17 @@ test_hci_terminate(void ** state)
     assert_int_equal(action->write_snapshot, 0);
 }
 
-static void setup(void ** state)
+static int setup(void ** state)
 {
-    mkdtemp(prefix);
+    char * ret = mkdtemp(prefix);
     message(0, "UsingPrefix : '%s'\n", prefix);
-
+    return !ret;
 }
 
-static void teardown(void ** state)
+static int teardown(void ** state)
 {
     remove(prefix);
+    return 0;
 }
 
 int main(void) {

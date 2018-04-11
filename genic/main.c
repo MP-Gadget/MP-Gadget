@@ -47,7 +47,7 @@ int main(int argc, char **argv)
       shift_nu = -0.5 * (All.CP.Omega0 - OmegaNu) / All.CP.Omega0 * meanspacing;
       shift_dm = 0.5 * OmegaNu / All.CP.Omega0 * meanspacing;
   }
-  setup_grid(All2.ProduceGas * shift_dm, 0, All2.Ngrid);
+  setup_grid(All2.ProduceGas * shift_dm, All2.Ngrid);
 
   /*Write the header*/
   char buf[4096];
@@ -82,9 +82,6 @@ int main(int argc, char **argv)
 
   /*First compute and write CDM*/
   displacement_fields(DMType);
-  write_particle_data(1, &bf);
-  free_ffts();
-
   /*Add a thermal velocity to WDM particles*/
   if(All2.WDM_therm_mass > 0){
       int i;
@@ -100,9 +97,10 @@ int main(int argc, char **argv)
 
       for(i = 0; i < NumPart; i++) {
            /*Find the slab, and reseed if it has zero z rank*/
-           if((ICP[i].ID -1) % All2.Ngrid == 0) {
+           if(i % All2.Ngrid == 0) {
+                uint64_t id = id_offset_from_index(i, All2.Ngrid);
                 /*Seed the random number table with x,y index.*/
-                gsl_rng_set(g_rng, seedtable[(ICP[i].ID-1) / All2.Ngrid]);
+                gsl_rng_set(g_rng, seedtable[id / All2.Ngrid]);
            }
            add_thermal_speeds(&WDM, g_rng, ICP[i].Vel);
       }
@@ -110,17 +108,20 @@ int main(int argc, char **argv)
       myfree(seedtable);
   }
 
+  write_particle_data(1, &bf, 0, All2.Ngrid);
+  free_ffts();
+
   /*Now make the gas if required*/
   if(All2.ProduceGas) {
-    setup_grid(shift_gas, TotNumPart, All2.Ngrid);
+    setup_grid(shift_gas, All2.Ngrid);
     displacement_fields(GasType);
-    write_particle_data(0, &bf);
+    write_particle_data(0, &bf, TotNumPart, All2.Ngrid);
     free_ffts();
   }
   /*Now add random velocity neutrino particles*/
   if(All2.NGridNu > 0) {
       int i;
-      setup_grid(shift_nu, 2*TotNumPart, All2.NGridNu);
+      setup_grid(shift_nu, All2.NGridNu);
       displacement_fields(NuType);
       unsigned int * seedtable = init_rng(All2.Seed+2,All2.Ngrid);
       gsl_rng * g_rng = gsl_rng_alloc(gsl_rng_ranlxd1);
@@ -128,16 +129,17 @@ int main(int argc, char **argv)
       gsl_rng_set(g_rng, seedtable[0]);
       for(i = 0; i < NumPart; i++) {
            /*Find the slab, and reseed if it has zero z rank*/
-           if((ICP[i].ID -1 - 2*TotNumPart) % All2.Ngrid == 0) {
+           if(i % All2.Ngrid == 0) {
+                uint64_t id = id_offset_from_index(i, All2.Ngrid);
                 /*Seed the random number table with x,y index.*/
-                gsl_rng_set(g_rng, seedtable[(ICP[i].ID-1 - 2*TotNumPart) / All2.Ngrid]);
+                gsl_rng_set(g_rng, seedtable[id / All2.Ngrid]);
            }
            add_thermal_speeds(&nu_therm, g_rng, ICP[i].Vel);
       }
       gsl_rng_free(g_rng);
       myfree(seedtable);
 
-      write_particle_data(2,&bf);
+      write_particle_data(2,&bf, 2*TotNumPart, All2.NGridNu);
       free_ffts();
   }
 

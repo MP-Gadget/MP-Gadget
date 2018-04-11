@@ -33,6 +33,8 @@ InputSpectrum_UnitLength_in_cm  = 3.085678e24 # defines length unit of tabulated
                                                                    # input spectrum in cm/h. 
                                                 # Note: This can be chosen different from UnitLength_in_cm
 
+PrimordialIndex = 0.971
+PrimordialAmp = 2.215e-9
 Seed = 181170    #  seed for IC-generator
 
 UnitLength_in_cm = 3.085678e21   # defines length unit of output (in cm/h) 

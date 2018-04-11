@@ -36,8 +36,9 @@ static inline double periodic_wrap(double x)
   return x;
 }
 
-uint64_t ijk_to_id(int i, int j, int k) {
-    uint64_t id = ((uint64_t) i) * All2.Ngrid * All2.Ngrid + ((uint64_t)j) * All2.Ngrid + k + 1;
+uint64_t
+ijk_to_id(int i, int j, int k, int Ngrid) {
+    uint64_t id = ((uint64_t) i) * Ngrid * Ngrid + ((uint64_t)j) * Ngrid + k + 1;
     return id;
 }
 
@@ -46,24 +47,44 @@ void free_ffts(void)
     myfree(ICP);
 }
 
-void
-setup_grid(double shift, int64_t FirstID, int Ngrid)
+/*Helper function to get size and offset of particles to the global grid.*/
+static int
+get_size_offset(int * size, int * offset, int Ngrid)
 {
     int * ThisTask2d = petapm_get_thistask2d();
     int * NTask2d = petapm_get_ntask2d();
-    int size[3];
-    int offset[3];
     int k;
-    NumPart = 1;
+    int npart = 1;
     for(k = 0; k < 2; k ++) {
-        offset[k] = (ThisTask2d[k]) * All2.Ngrid / NTask2d[k];
-        size[k] = (ThisTask2d[k] + 1) * All2.Ngrid / NTask2d[k];
+        offset[k] = (ThisTask2d[k]) * Ngrid / NTask2d[k];
+        size[k] = (ThisTask2d[k] + 1) * Ngrid / NTask2d[k];
         size[k] -= offset[k];
-        NumPart *= size[k];
+        npart *= size[k];
     }
     offset[2] = 0;
-    size[2] = All2.Ngrid;
-    NumPart *= size[2];
+    size[2] = Ngrid;
+    npart *= size[2];
+    return npart;
+}
+
+uint64_t
+id_offset_from_index(const int i, const int Ngrid)
+{
+    int size[3];
+    int offset[3];
+    get_size_offset(size, offset, Ngrid);
+    int x = i / (size[2] * size[1]) + offset[0];
+    int y = (i % (size[1] * size[2])) / size[2] + offset[1];
+    int z = (i % size[2]) + offset[2];
+    return ijk_to_id(x, y, z, Ngrid);
+}
+
+void
+setup_grid(double shift, int Ngrid)
+{
+    int size[3];
+    int offset[3];
+    NumPart = get_size_offset(size, offset, Ngrid);
     ICP = (struct ic_part_data *) mymalloc("PartTable", NumPart*sizeof(struct ic_part_data));
     memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
@@ -73,11 +94,10 @@ setup_grid(double shift, int64_t FirstID, int Ngrid)
         x = i / (size[2] * size[1]) + offset[0];
         y = (i % (size[1] * size[2])) / size[2] + offset[1];
         z = (i % size[2]) + offset[2];
-        ICP[i].Pos[0] = x * All.BoxSize / All2.Ngrid + shift;
-        ICP[i].Pos[1] = y * All.BoxSize / All2.Ngrid + shift;
-        ICP[i].Pos[2] = z * All.BoxSize / All2.Ngrid + shift;
+        ICP[i].Pos[0] = x * All.BoxSize / Ngrid + shift;
+        ICP[i].Pos[1] = y * All.BoxSize / Ngrid + shift;
+        ICP[i].Pos[2] = z * All.BoxSize / Ngrid + shift;
         ICP[i].Mass = 1.0;
-        ICP[i].ID = ijk_to_id(x, y, z) + FirstID;
     }
 }
 

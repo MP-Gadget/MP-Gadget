@@ -1088,7 +1088,7 @@ static void fof_label_secondary(void)
 
     for(n = 0; n < PartManager->NumPart; n++)
     {
-        if(((1 << P[n].Type) & (FOF_SECONDARY_LINK_TYPES)))
+        if(fof_secondary_haswork(n, tw))
         {
             FOF_SECONDARY_GET_PRIV(tw)->distance[n] = LARGE;
             if(P[n].Type == 0) {

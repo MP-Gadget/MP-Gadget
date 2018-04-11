@@ -36,6 +36,7 @@ create_parameters()
     param_declare_double(ps, "Omega_fld", OPTIONAL, 0, "Energy density of dark energy fluid.");
     param_declare_double(ps, "w0_fld", OPTIONAL, -1., "Dark energy equation of state");
     param_declare_double(ps, "wa_fld", OPTIONAL, 0, "Dark energy evolution parameter");
+    param_declare_double(ps, "Omega_ur", OPTIONAL, 0, "Extra radiation density, eg, a sterile neutrino");
     param_declare_double(ps, "MNue", OPTIONAL, 0, "First neutrino mass in eV.");
     param_declare_double(ps, "MNum", OPTIONAL, 0, "Second neutrino mass in eV.");
     param_declare_double(ps, "MNut", OPTIONAL, 0, "Third neutrino mass in eV.");
@@ -44,12 +45,13 @@ create_parameters()
 
     param_declare_int(ps, "DifferentTransferFunctions", OPTIONAL, 0, "Use species specific transfer functions for baryon and CDM.");
     param_declare_string(ps, "FileWithTransferFunction", OPTIONAL, "", "File containing CAMB formatted transfer functions.");
-    param_declare_double(ps, "MaxMemSizePerNode", OPTIONAL, 0.6 * get_physmem_bytes() / (1024 * 1024), "");
+    param_declare_double(ps, "MaxMemSizePerNode", OPTIONAL, 0.6, "Maximum memory per node, in fraction of total memory, or MB if > 1.");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
     param_declare_int(ps, "UsePeculiarVelocity", OPTIONAL, 0, "Set up an run that uses Peculiar Velocity in IO");
     param_declare_int(ps, "InvertPhase", OPTIONAL, 0, "Flip phase for paired simulation");
 
+    param_declare_double(ps, "PrimordialAmp", OPTIONAL, 2.215e-9, "Ignored, but used by external CLASS script to set powr spectrum amplitude.");
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
     param_declare_double(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
     param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
@@ -92,6 +94,7 @@ void read_parameterfile(char *fname)
     All.CP.Omega_fld = param_get_double(ps, "Omega_fld");
     All.CP.w0_fld = param_get_double(ps,"w0_fld");
     All.CP.wa_fld = param_get_double(ps,"wa_fld");
+    All.CP.Omega_ur = param_get_double(ps, "Omega_ur");
     if(All.CP.OmegaLambda > 0 && All.CP.Omega_fld > 0)
         endrun(0, "Cannot have OmegaLambda and Omega_fld (evolving dark energy) at the same time!\n");
     All.CP.CMBTemperature = param_get_double(ps, "CMBTemperature");
@@ -100,8 +103,11 @@ void read_parameterfile(char *fname)
     All.CP.MNu[1] = param_get_double(ps, "MNum");
     All.CP.MNu[2] = param_get_double(ps, "MNut");
     All2.WDM_therm_mass = param_get_double(ps, "MWDM_therm");
-
-    All.MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
+    double MaxMemSizePerNode = param_get_double(ps, "MaxMemSizePerNode");
+    if(MaxMemSizePerNode <= 1) {
+        MaxMemSizePerNode *= get_physmem_bytes() / (1024 * 1024);
+    }
+    All.MaxMemSizePerNode = MaxMemSizePerNode;
 
     All2.ProduceGas = param_get_int(ps, "ProduceGas");
     All2.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");

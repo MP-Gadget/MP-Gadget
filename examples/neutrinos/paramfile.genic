@@ -21,6 +21,7 @@ WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
 # the file 'FileWithInputSpectrum'
 # otherwise, Eisenstein & Hu parametrization is used
 
+DifferentTransferFunctions = 1
 FileWithTransferFunction = camb_transfer_nu_99.dat
 FileWithInputSpectrum = camb_matterpow_nu_99.dat      # filename of tabulated input
 # spectrum (if used)
