@@ -181,7 +181,7 @@ void displacement_fields(int Type) {
     myfree(regions);
     petapm_force_finish();
 
-    double maxdispall = 0, maxdisp = 0;
+    double maxdisp = 0;
     int i;
     #pragma omp parallel for reduction(max:maxdisp)
     for(i = 0; i < NumPart; i++)
@@ -197,8 +197,8 @@ void displacement_fields(int Type) {
             ICP[i].Pos[k] = periodic_wrap(ICP[i].Pos[k]);
         }
     }
-    MPI_Reduce(&maxdisp, &maxdispall, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdispall, maxdispall / (All.BoxSize / All.Nmesh) );
+    MPI_Allreduce(MPI_IN_PLACE, &maxdisp, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdisp, maxdisp / (All.BoxSize / All.Nmesh) );
 
     walltime_measure("/Disp/Finalize");
     MPI_Barrier(MPI_COMM_WORLD);
