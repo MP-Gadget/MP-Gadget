@@ -154,6 +154,18 @@ void displacement_fields(int Type) {
         NULL,
         NumPart,
     };
+    const double hubble_a = hubble_function(All.TimeIC);
+
+    double vel_prefac = All.TimeIC * hubble_a * F_Omega(All.TimeIC);
+
+    if(All.IO.UsePeculiarVelocity) {
+        /* already for peculiar velocity */
+        message(0, "Producing Peculiar Velocity in the output.\n");
+    } else {
+        vel_prefac /= sqrt(All.TimeIC);	/* converts to Gadget velocity */
+    }
+    message(0, "vel_prefac= %g  hubble_a=%g fom=%g \n", vel_prefac, hubble_a, F_Omega(All.TimeIC));
+
     PetaPMRegion * regions = petapm_force_init(
            makeregion,
            &pstruct, NULL);
@@ -168,7 +180,8 @@ void displacement_fields(int Type) {
     myfree(rho_k);
     myfree(regions);
     petapm_force_finish();
-    double maxdisp = 0;
+
+    double maxdispall = 0, maxdisp = 0;
     int i;
     #pragma omp parallel for reduction(max:maxdisp)
     for(i = 0; i < NumPart; i++)
@@ -179,34 +192,14 @@ void displacement_fields(int Type) {
             if(dis > maxdisp) {
                 maxdisp = dis;
             }
-        }
-    }
-    double maxdispall;
-    MPI_Reduce(&maxdisp, &maxdispall, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdispall, maxdispall / (All.BoxSize / All.Nmesh) );
-
-    double hubble_a = hubble_function(All.TimeIC);
-
-    double vel_prefac = All.TimeIC * hubble_a * F_Omega(All.TimeIC);
-
-    if(All.IO.UsePeculiarVelocity) {
-        /* already for peculiar velocity */
-        message(0, "Producing Peculiar Velocity in the output.\n");
-    } else {
-        vel_prefac /= sqrt(All.TimeIC);	/* converts to Gadget velocity */
-    }
-    message(0, "vel_prefac= %g  hubble_a=%g fom=%g \n", vel_prefac, hubble_a, F_Omega(All.TimeIC));
-
-    for(i = 0; i < NumPart; i++)
-    {
-        int k;
-        for(k = 0; k < 3; k++)
-        {
             ICP[i].Pos[k] += ICP[i].Vel[k];
             ICP[i].Vel[k] *= vel_prefac;
             ICP[i].Pos[k] = periodic_wrap(ICP[i].Pos[k]);
         }
     }
+    MPI_Reduce(&maxdisp, &maxdispall, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
+    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdispall, maxdispall / (All.BoxSize / All.Nmesh) );
+
     walltime_measure("/Disp/Finalize");
     MPI_Barrier(MPI_COMM_WORLD);
 }
