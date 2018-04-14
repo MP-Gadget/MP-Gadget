@@ -53,7 +53,7 @@ create_parameters()
 
     param_declare_double(ps, "PrimordialAmp", OPTIONAL, 2.215e-9, "Ignored, but used by external CLASS script to set powr spectrum amplitude.");
     param_declare_double(ps, "Sigma8", OPTIONAL, -1, "Renormalise Sigma8 to this number if positive");
-    param_declare_double(ps, "InputPowerRedshift", OPTIONAL, 0, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
+    param_declare_double(ps, "InputPowerRedshift", OPTIONAL, -1, "Redshift at which the input power is. Power spectrum will be rescaled to the initial redshift. Negative disables rescaling.");
     param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
 
     param_declare_double(ps, "UnitVelocity_in_cm_per_s", OPTIONAL, 1e5, "Velocity unit in cm/sec. Default is 1 km/s");
@@ -117,8 +117,12 @@ void read_parameterfile(char *fname)
     All.UnitLength_in_cm = param_get_double(ps, "UnitLength_in_cm");
     All.UnitMass_in_g = param_get_double(ps, "UnitMass_in_g");
 
+    double Redshift = param_get_double(ps, "Redshift");
+
     /*Parameters of the power spectrum*/
     All2.PowerP.InputPowerRedshift = param_get_double(ps, "InputPowerRedshift");
+    if(All2.PowerP.InputPowerRedshift < 0)
+        All2.PowerP.InputPowerRedshift = Redshift;
     All2.PowerP.Sigma8 = param_get_double(ps, "Sigma8");
     /*Always specify Sigm8 at z=0*/
     if(All2.PowerP.Sigma8 > 0)
@@ -131,12 +135,8 @@ void read_parameterfile(char *fname)
 
     /*Simulation parameters*/
     All.IO.UsePeculiarVelocity = param_get_int(ps, "UsePeculiarVelocity");
-
-
     All.BoxSize = param_get_double(ps, "BoxSize");
-    double Redshift = param_get_double(ps, "Redshift");
     All.Nmesh = param_get_int(ps, "Nmesh");
-
     All2.Ngrid = param_get_int(ps, "Ngrid");
     /*Enable 'hybrid' neutrinos*/
     All2.NGridNu = param_get_int(ps, "NgridNu");
@@ -153,8 +153,10 @@ void read_parameterfile(char *fname)
     int64_t Ngrid = All2.Ngrid;
     All2.NumFiles = ( Ngrid*Ngrid*Ngrid + NumPartPerFile - 1) / NumPartPerFile;
     All.IO.NumWriters = param_get_int(ps, "NumWriters");
-    if(All2.DifferentTransferFunctions && All2.PowerP.InputPowerRedshift >= 0)
+    if(All2.DifferentTransferFunctions && All2.PowerP.InputPowerRedshift != Redshift
+        && (All2.ProduceGas || All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2]))
         message(0, "WARNING: Using different transfer functions but also rescaling power to account for linear growth. NOT what you want!\n");
+
     if((All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0) || All2.DifferentTransferFunctions)
         if(0 == strlen(All2.PowerP.FileWithTransferFunction))
             endrun(0,"For massive neutrinos or different transfer functions you must specify a transfer function file\n");

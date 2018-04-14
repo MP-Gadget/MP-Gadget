@@ -6,7 +6,7 @@ CONFIG ?= ../Options.mk
 
 include $(CONFIG)
 
-INCL = densitykernel.h \
+INCL = config.h densitykernel.h \
 	forcetree.h \
 	hci.h \
 	petapm.h \
@@ -138,18 +138,10 @@ libgadget-utils.a: $(GADGET_UTILS_OBJS)
 libgadget.a: $(GADGET_OBJS)
 	$(AR) rv $@ $(GADGET_OBJS)
 
-#This declares an extra dependency of petaio.o on config.h,
-#to ensure that any config changes are included in the MP-Gadget binary.
-.objs/petaio.o: petaio.c config.h $(INCL)
-	@cmd="$(MPICC) -c -o $@ $(CFLAGS) $<"; \
-	if test "x$(V)" = "x1" ; then echo $$cmd; fi; \
-	mkdir -p `dirname $@`; \
-	echo Compiling $<; $$cmd
-
 clean:
 	rm -rf .objs libgadget.a libgadget-utils.a config.h
 
-config.h: Makefile $(CONFIG) $(INCL)
+config.h: Makefile $(CONFIG) $(INCL:config.h=)
 	mkdir -p `dirname $@`
 	MPICC="$(MPICC)" CFLAGS="$(CFLAGS)" OPT="$(OPT)" OPTIMIZE="$(OPTIMIZE)" VERSION="$(VERSION)" bash makeconfig.sh $@
 

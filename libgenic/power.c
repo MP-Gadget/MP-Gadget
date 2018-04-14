@@ -10,8 +10,8 @@
 
 #include "power.h"
 
-static double PowerSpec_EH(double k);
-static double PowerSpec_Tabulated(double k, int Type);
+static double Delta_EH(double k);
+static double Delta_Tabulated(double k, int Type);
 static double sigma2_int(double k, void * params);
 static double TopHatSigma2(double R);
 static double tk_eh(double k);
@@ -36,14 +36,14 @@ struct table
 static struct table power_table;
 static struct table transfer_table;
 
-double PowerSpec(double k, int Type)
+double DeltaSpec(double k, int Type)
 {
   double power;
 
   if(WhichSpectrum == 2)
-      power = PowerSpec_Tabulated(k, Type);
+      power = Delta_Tabulated(k, Type);
   else
-      power = PowerSpec_EH(k);
+      power = Delta_EH(k);
 
   /*Normalise the power spectrum*/
   power *= Norm;
@@ -71,7 +71,8 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
     if ((*InputInLog10) == 0)
         p = log10(p);
     p += 3 * log10(scale);	/* convert to Kpc/h  */
-    out_tab->logD[0][i] = p;
+    /*Store delta, square root of power*/
+    out_tab->logD[0][i] = p/2;
 }
 
 void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, double scale)
@@ -94,10 +95,10 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
      * In the input CAMB file 0 is CDM, 1 is baryons, 2 is photons,
      * 3 is massless neutrinos, 4 is massive neutrinos, 5 is total,
      * 6 is cdm + baryons.*/
-    out_tab->logD[0][i] = pow(transfers[1]/transfers[5],2);
-    out_tab->logD[1][i] = pow(transfers[0]/transfers[5],2);
-    out_tab->logD[2][i] = pow(transfers[4]/transfers[5],2);
-    out_tab->logD[3][i] = pow(transfers[6]/transfers[5],2);
+    out_tab->logD[0][i] = transfers[1]/transfers[5];
+    out_tab->logD[1][i] = transfers[0]/transfers[5];
+    out_tab->logD[2][i] = transfers[4]/transfers[5];
+    out_tab->logD[3][i] = transfers[6]/transfers[5];
 }
 
 void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, double scale, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, double scale))
@@ -183,18 +184,18 @@ int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in
     if (ppar->Sigma8 > 0) {
         double R8 = 8 * (3.085678e24 / UnitLength_in_cm);	/* 8 Mpc/h */
         double res = TopHatSigma2(R8);
-        Norm = ppar->Sigma8 * ppar->Sigma8 / res;
+        Norm = ppar->Sigma8 / sqrt(res);
         message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g). \n", ppar->Sigma8, Norm);
     }
     if(ppar->InputPowerRedshift >= 0) {
         double Dplus = GrowthFactor(InitTime, 1/(1+ppar->InputPowerRedshift));
-        Norm *= (Dplus * Dplus);
+        Norm *= Dplus;
         message(0,"Growth factor to z=%g: %g \n", ppar->InputPowerRedshift, Dplus);
     }
     return power_table.Nentry;
 }
 
-double PowerSpec_Tabulated(double k, int Type)
+double Delta_Tabulated(double k, int Type)
 {
   const double logk = log10(k);
 
@@ -204,17 +205,18 @@ double PowerSpec_Tabulated(double k, int Type)
   const double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
   double trans = 1;
   /*Transfer table stores (T_type(k) / T_tot(k))^2*/
-  if(Type >= 0 && Type < MAXCOLS && transfer_table.Nentry > 0)
+  if(Type >= 0 && Type < MAXCOLS && transfer_table.Nentry > 0) {
       trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
+  }
 
-  double power = pow(10.0, logD) * trans;
+  double delta = pow(10.0, logD) * trans;
 
-  return power;
+  return delta;
 }
 
-double PowerSpec_EH(double k)	/* Eisenstein & Hu */
+double Delta_EH(double k)	/* Eisenstein & Hu */
 {
-  return k * pow(tk_eh(k), 2)* pow(k, PrimordialIndex - 1.0);
+  return sqrt(k * pow(tk_eh(k), 2)* pow(k, PrimordialIndex - 1.0));
 }
 
 
@@ -279,7 +281,7 @@ double sigma2_int(double k, void * params)
       w = 1./3. - kr2/30. +kr2*kr2/840.;
   else
       w = 3 * (sin(kr) / kr - cos(kr)) / kr2;
-  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * PowerSpec(k, -1);
+  x = 4 * M_PI / (2 * M_PI * 2 * M_PI * 2 * M_PI) * k * k * w * w * pow(DeltaSpec(k, -1),2);
 
   return x;
 

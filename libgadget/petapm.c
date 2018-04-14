@@ -79,6 +79,15 @@ static int ThisTask;
 static double * meshbuf;
 static size_t meshbufsize;
 
+/*Used only in MP-GenIC*/
+pfft_complex *
+petapm_alloc_rhok(void)
+{
+    pfft_complex * rho_k = (pfft_complex * ) mymalloc("PMrho_k", fftsize * sizeof(double));
+    memset(rho_k, 0, fftsize * sizeof(double));
+    return rho_k;
+}
+
 static void pm_init_regions(PetaPMRegion * regions, const int Nregions);
 
 static PetaPMParticleStruct * CPS; /* stored by petapm_force, how to access the P array */
@@ -92,10 +101,6 @@ PetaPMRegion * petapm_get_fourier_region() {
 }
 PetaPMRegion * petapm_get_real_region() {
     return &real_space_region;
-}
-pfft_complex * petapm_get_rho_k() {
-    pfft_complex * rho_k = (pfft_complex * ) mymalloc("PMrho_k", fftsize * sizeof(double));
-    return rho_k;
 }
 int petapm_mesh_to_k(int i) {
     /*Return the position of this point on the Fourier mesh*/
@@ -346,8 +351,6 @@ void petapm_force_c2r(pfft_complex * rho_k, PetaPMRegion * regions,
         pm_iterate(readout, regions);
         walltime_measure("/PMgrav/readout");
     }
-    myfree(rho_k);
-    myfree(regions);
     walltime_measure("/PMgrav/Misc");
 
 }
@@ -365,6 +368,8 @@ void petapm_force(petapm_prepare_func prepare,
     pfft_complex * rho_k = petapm_force_r2c(global_functions);
     if(functions)
         petapm_force_c2r(rho_k, regions, functions);
+    myfree(rho_k);
+    myfree(regions);
     petapm_force_finish();
 }
     

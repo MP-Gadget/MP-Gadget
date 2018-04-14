@@ -3,6 +3,7 @@
 #include <strings.h>
 #include <stdio.h>
 #include <mpi.h>
+#include <omp.h>
 
 #include <bigfile-mpi.h>
 #include <libgenic/allvars.h>
@@ -36,7 +37,7 @@ int main(int argc, char **argv)
   init_cosmology(&All.CP, All.TimeIC, All.BoxSize * All.UnitLength_in_cm);
 
   initialize_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
-  petapm_init(All.BoxSize, All.Nmesh, 1);
+  petapm_init(All.BoxSize, All.Nmesh, omp_get_max_threads());
   /*Initialise particle spacings*/
   const double meanspacing = All.BoxSize / All2.Ngrid;
   const double shift_gas = -All2.ProduceGas * 0.5 * (All.CP.Omega0 - All.CP.OmegaBaryon) / All.CP.Omega0 * meanspacing;
@@ -73,9 +74,8 @@ int main(int argc, char **argv)
   /*Use 'total' (CDM + baryon) transfer function
    * unless DifferentTransferFunctions are on.
    */
-  int DMType = 3, GasType = 3, NuType = 3;
+  int DMType = 3, GasType = 3, NuType = 2;
   if(All2.ProduceGas && All2.DifferentTransferFunctions) {
-      NuType = 2;
       DMType = 1;
       GasType = 0;
   }
@@ -184,7 +184,7 @@ void print_spec(void)
 
       for(k = kstart; k < kend; k *= 1.025)
 	  {
-	    double po = PowerSpec(k, -1);
+	    double po = pow(DeltaSpec(k, -1),2);
 	    fprintf(fd, "%12g %12g\n", k, po);
 	  }
       fclose(fd);

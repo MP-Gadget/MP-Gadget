@@ -40,29 +40,29 @@ test_read_no_rescale(void ** state)
      * First check ranges: these should both be out of range.
      * Should be the same k as in the file (but /10^3 for Mpc -> kpc)
      * Note that our PowerSpec function is 2pi^3 larger than that in S-GenIC.*/
-    assert_true(PowerSpec(9.8e-9, 7) < 2e-30);
-    assert_true(PowerSpec(300, 7) < 2e-30);
+    assert_true(DeltaSpec(9.8e-9, 7) < 2e-30);
+    assert_true(DeltaSpec(300, 7) < 2e-30);
     //Now check total power: k divided by 10^3,
     //Conversion for P(k) is 10^9/(2pi)^3
-    assert_true(fabs(PowerSpec(1.124995061548053968e-02/1e3, 7) / 4.745074933325402533/1e9 - 1) < 1e-5);
-    assert_true(fabs(PowerSpec(1.010157135208153312e+00/1e3, 7) / 1.15292e-02/1e9 - 1) < 1e-5);
+    assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, 7),2) / 4.745074933325402533/1e9 - 1) < 1e-5);
+    assert_true(fabs(pow(DeltaSpec(1.010157135208153312e+00/1e3, 7),2) / 1.15292e-02/1e9 - 1) < 1e-5);
     //Check that it gives reasonable results when interpolating
     int k;
     for (k = 1; k < 100; k++) {
         double newk = 0.10022E+01/1e3+ k*(0.10362E+01-0.10022E+01)/1e3/100;
-        assert_true(PowerSpec(newk,7) < PowerSpec(0.10022E+01/1e3,7));
-        assert_true(PowerSpec(newk,7) > PowerSpec(0.10362E+01/1e3,7));
-        assert_true(PowerSpec(newk,0)/PowerSpec(0.10362E+01/1e3,1) < 1);
+        assert_true(DeltaSpec(newk,7) < DeltaSpec(0.10022E+01/1e3,7));
+        assert_true(DeltaSpec(newk,7) > DeltaSpec(0.10362E+01/1e3,7));
+        assert_true(DeltaSpec(newk,0)/DeltaSpec(0.10362E+01/1e3,1) < 1);
     }
     //Now check transfer functions: ratio of total to species should be ratio of T_s to T_tot squared: large scales where T~ 1
     //CDM
-    assert_true(fabs(PowerSpec(2.005305808001081169e-03/1e3,1)/PowerSpec(2.005305808001081169e-03/1e3,7)- pow(1.193460280018762132e+05/1.193185119820504624e+05,2)) < 1e-5);
+    assert_true(fabs(DeltaSpec(2.005305808001081169e-03/1e3,1)/DeltaSpec(2.005305808001081169e-03/1e3,7)- 1.193460280018762132e+05/1.193185119820504624e+05) < 1e-5);
     //Small scales where there are differences
     //T_tot=0.255697E+06
     //Baryons
-    assert_true(fabs(PowerSpec(1.079260830861467901e-01/1e3,0)/PowerSpec(1.079260830861467901e-01/1e3,6)- pow(9.735695830700024089e+03/1.394199788775037632e+04,2)) < 1e-6);
+    assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,0)/DeltaSpec(1.079260830861467901e-01/1e3,6)- 9.735695830700024089e+03/1.394199788775037632e+04) < 1e-6);
     //CDM
-    assert_true(fabs(PowerSpec(1.079260830861467901e-01/1e3,1)/PowerSpec(1.079260830861467901e-01/1e3,6)- pow(1.477251880454670209e+04/1.394199788775037632e+04,2)) < 1e-6);
+    assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,1)/DeltaSpec(1.079260830861467901e-01/1e3,6)- 1.477251880454670209e+04/1.394199788775037632e+04) < 1e-6);
 }
 
 /*Check normalising to a different sigma8 and redshift*/
@@ -82,7 +82,7 @@ test_read_rescale_sigma8(void ** state)
     PowerP.PrimordialIndex = 1.0;
     int nentry = initialize_powerspectrum(0, 0.01, 3.085678e21, NULL, &PowerP);
     assert_int_equal(nentry, 335);
-    assert_true(fabs(PowerSpec(1.124995061548053968e-02/1e3, 7)*100*100 /4.745074933325402533/1e9 - 1) < 1e-5);
+    assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, 7),2)* 100 * 100 /4.745074933325402533/1e9 - 1) < 1e-2);
 }
 
 int main(void) {

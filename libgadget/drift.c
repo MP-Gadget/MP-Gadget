@@ -171,7 +171,7 @@ void drift_all_particles(inttime_t ti1)
     for(i = 0; i < PartManager->NumPart; i++) {
 #ifdef DEBUG
         if(P[i].Ti_drift != ti0)
-            endrun("Drift time mismatch: (ids = %ld %ld) %d != %d\n",P[0].ID, P[i].ID, ti0,  P[i].Ti_drift);
+            endrun(10, "Drift time mismatch: (ids = %ld %ld) %d != %d\n",P[0].ID, P[i].ID, ti0,  P[i].Ti_drift);
 #endif
         real_drift_particle(i, ti1, ddrift);
     }

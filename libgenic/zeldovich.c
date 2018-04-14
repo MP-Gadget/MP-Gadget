@@ -89,6 +89,7 @@ setup_grid(double shift, int Ngrid)
     memset(ICP, 0, NumPart*sizeof(struct ic_part_data));
 
     int i;
+    #pragma omp parallel for
     for(i = 0; i < NumPart; i ++) {
         int x, y, z;
         x = i / (size[2] * size[1]) + offset[0];
@@ -153,33 +154,7 @@ void displacement_fields(int Type) {
         NULL,
         NumPart,
     };
-    PetaPMRegion * regions = petapm_force_init(
-           makeregion,
-           &pstruct, NULL);
-
-    /*This allocates the memory*/
-    pfft_complex * rho_k = petapm_get_rho_k();
-    gaussian_fill(petapm_get_fourier_region(),
-		  rho_k, All2.UnitaryAmplitude, All2.InvertPhase);
-
-    petapm_force_c2r(rho_k, regions, functions);
-    petapm_force_finish();
-    double maxdisp = 0;
-    int i;
-    for(i = 0; i < NumPart; i ++) {
-        int k;
-        for (k = 0; k < 3; k ++) {
-            double dis = ICP[i].Vel[k];
-            if(dis > maxdisp) {
-                maxdisp = dis;
-            }
-        }
-    }
-    double maxdispall;
-    MPI_Reduce(&maxdisp, &maxdispall, 1, MPI_DOUBLE, MPI_MAX, 0, MPI_COMM_WORLD);
-    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdispall, maxdispall / (All.BoxSize / All.Nmesh) );
-
-    double hubble_a = hubble_function(All.TimeIC);
+    const double hubble_a = hubble_function(All.TimeIC);
 
     double vel_prefac = All.TimeIC * hubble_a * F_Omega(All.TimeIC);
 
@@ -191,16 +166,40 @@ void displacement_fields(int Type) {
     }
     message(0, "vel_prefac= %g  hubble_a=%g fom=%g \n", vel_prefac, hubble_a, F_Omega(All.TimeIC));
 
+    PetaPMRegion * regions = petapm_force_init(
+           makeregion,
+           &pstruct, NULL);
+
+    /*This allocates the memory*/
+    pfft_complex * rho_k = petapm_alloc_rhok();
+
+    gaussian_fill(petapm_get_fourier_region(),
+		  rho_k, All2.UnitaryAmplitude, All2.InvertPhase);
+
+    petapm_force_c2r(rho_k, regions, functions);
+    myfree(rho_k);
+    myfree(regions);
+    petapm_force_finish();
+
+    double maxdisp = 0;
+    int i;
+    #pragma omp parallel for reduction(max:maxdisp)
     for(i = 0; i < NumPart; i++)
     {
         int k;
-        for(k = 0; k < 3; k++)
-        {
+        for (k = 0; k < 3; k ++) {
+            double dis = ICP[i].Vel[k];
+            if(dis > maxdisp) {
+                maxdisp = dis;
+            }
             ICP[i].Pos[k] += ICP[i].Vel[k];
             ICP[i].Vel[k] *= vel_prefac;
             ICP[i].Pos[k] = periodic_wrap(ICP[i].Pos[k]);
         }
     }
+    MPI_Allreduce(MPI_IN_PLACE, &maxdisp, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdisp, maxdisp / (All.BoxSize / All.Nmesh) );
+
     walltime_measure("/Disp/Finalize");
     MPI_Barrier(MPI_COMM_WORLD);
 }
@@ -224,7 +223,7 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
         double fac = exp(- k2 * r2);
 
         double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
+        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
 
         value[0][0] *= fac;
         value[0][1] *= fac;
@@ -244,8 +243,7 @@ static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
                     */
 
         double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
-
+        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -255,7 +253,7 @@ static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (All.BoxSize / (2 * M_PI)) * kpos[1] / k2;
         double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
+        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
@@ -265,7 +263,7 @@ static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
     if(k2) {
         double fac = (All.BoxSize / (2 * M_PI)) * kpos[2] / k2;
         double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= sqrt(PowerSpec(kmag, ptype) / (All.BoxSize * All.BoxSize * All.BoxSize));
+        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
 
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
@@ -301,7 +299,6 @@ typedef struct {
         ptrdiff_t total;
     } ORegion;
     int Nmesh[3];
-    size_t allocsize;
 } PM;
 
 static inline void
@@ -353,8 +350,6 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmp
     /* Fill delta_k with gadget scheme */
     int d;
     int i, j, k;
-
-    memset(delta_k, 0, sizeof(delta_k[0]) * pm->allocsize);
 
     gsl_rng * rng = gsl_rng_alloc(gsl_rng_ranlxd1);
     gsl_rng_set(rng, seed);
@@ -508,7 +503,6 @@ gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int setUnitaryAmplitu
     pm->ORegion.strides[2] = region->strides[1];
 
     pm->ORegion.total = region->totalsize;
-    pm->allocsize = region->totalsize;
     pmic_fill_gaussian_gadget(pm, (double*) rho_k, All2.Seed, setUnitaryAmplitude, setInvertPhase);
 
 #if 0
