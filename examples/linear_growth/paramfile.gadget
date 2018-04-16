@@ -1,0 +1,62 @@
+#  Relevant files
+
+InitCondFile = output/IC
+OutputDir = output
+TreeCoolFile = ../TREECOOL_fg_june11
+OutputList = "0.02,0.1,0.2,0.25,0.2857143"
+SnapshotFileBase = snap
+
+Nmesh = 512
+
+# CPU time -limit
+
+TimeLimitCPU = 430000 #= 80 hours
+
+# Code options
+
+#  Characteristics of run
+
+TimeMax = 0.3333333
+
+Omega0 = 0.31208407     # Total matter density  (at z=0)
+OmegaLambda = 0.68791593      # Cosmological constant (at z=0)
+OmegaBaryon = 0.049322996     # Baryon density        (at z=0)
+HubbleParam = 0.6724      # Hubble paramater 
+
+CoolingOn = 1
+StarformationOn = 0
+RadiationOn = 1
+HydroOn = 0
+WindOn = 0
+StarformationCriterion = density
+
+#  Further parameters of SPH
+#  #Only kernel supported by fake_spectra
+DensityKernelType = cubic
+InitGasTemp = 270.
+MinGasTemp = 100
+
+# Memory allocation
+
+PartAllocFactor = 2.0
+BufferSize = 100          # in MByte
+BlackHoleOn=0
+
+## Massive neutrinos
+LinearTransferFunction = linear_test_transfer_99.dat
+MassiveNuLinRespOn = 0
+MNue = 0.0
+MNum = 0.0
+MNut = 0.0
+
+# others
+
+CritPhysDensity = 0       #  critical physical density for star formation in
+#  hydrogen number density in cm^(-3)
+CritOverDensity = 1000   #  overdensity threshold value
+QuickLymanAlphaProbability = 1 # Set to 1.0 to turn dense gas directly into stars.
+
+SnapshotWithFOF = 1
+FOFHaloLinkingLength = 0.2
+FOFHaloMinLength = 32
+WindModel = nowind
