@@ -1,7 +1,7 @@
 OutputDir = output # Directory for output
 FileBase = IC              # Base-filename of output files
 
-Ngrid = 256
+Ngrid = 128
 BoxSize = 60000
 Redshift = 99
 Seed = 181170    #  seed for IC-generator
@@ -24,8 +24,8 @@ PrimordialIndex = -1      # may be used to tilt the primordial index
 
 
 DifferentTransferFunctions = 1
-FileWithInputSpectrum = linear_test_matterpow_99.dat
-FileWithTransferFunction = linear_test_transfer_99.dat
+FileWithInputSpectrum = linear_growth_matterpow_99.dat
+FileWithTransferFunction = linear_growth_transfer_99.dat
 UnitaryAmplitude = 1
 
 # Neutrinos

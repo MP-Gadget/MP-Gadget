@@ -6,7 +6,7 @@ TreeCoolFile = ../TREECOOL_fg_june11
 OutputList = "0.02,0.1,0.2,0.25,0.2857143"
 SnapshotFileBase = snap
 
-Nmesh = 512
+Nmesh = 256
 
 # CPU time -limit
 
@@ -43,7 +43,7 @@ BufferSize = 100          # in MByte
 BlackHoleOn=0
 
 ## Massive neutrinos
-LinearTransferFunction = linear_test_transfer_99.dat
+LinearTransferFunction = linear_growth_transfer_99.dat
 MassiveNuLinRespOn = 0
 MNue = 0.0
 MNum = 0.0
