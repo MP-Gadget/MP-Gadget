@@ -164,7 +164,6 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
     #Make the power spectra module
     engine = CLASS.ClassEngine(pre_params)
     powspec = CLASS.Spectra(engine)
-    bg = CLASS.Background(engine)
 
     #Save directory
     sdir = os.path.split(paramfile)[0]
@@ -172,7 +171,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
     trans = powspec.get_transfer(z=redshift)
     if config['DifferentTransferFunctions'] == 1.:
         tfile = os.path.join(sdir, config['FileWithTransferFunction'])
-        save_transfer(trans, tfile, bg, redshift)
+        save_transfer(trans, tfile)
     #fp-roundoff
     trans['k'][-1] *= 0.9999
     #Get and save the matter power spectrum
@@ -185,7 +184,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
         for red in extraz:
             trans = powspec.get_transfer(z=red)
             tfile = os.path.join(sdir, config['FileWithTransferFunction']+"-"+str(red))
-            save_transfer(trans, tfile, bg, red)
+            save_transfer(trans, tfile)
             trans['k'][-1] *= 0.9999
             #Get and save the matter power spectrum
             pk_lin = powspec.get_pklin(k=trans['k'], z=red)
@@ -194,10 +193,9 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
                 raise IOError("Refusing to write to existing file: ",pkfile)
             np.savetxt(pkfile, np.vstack([trans['k'], pk_lin]).T)
 
-def save_transfer(transfer, transferfile, bg, redshift):
-    """Save a transfer function. Note we save the CAMB FORMATTED transfer functions.
-    These can be generated from CLASS by passing the 'format = camb' on the command line.
-    The transfer functions differ by:
+def save_transfer(transfer, transferfile):
+    """Save a transfer function. Note we save the CLASS FORMATTED transfer functions.
+    The transfer functions differ from CAMB by:
         T_CAMB(k) = -T_CLASS(k)/k^2 """
     if os.path.exists(transferfile):
         raise IOError("Refusing to write to existing file: ",transferfile)
