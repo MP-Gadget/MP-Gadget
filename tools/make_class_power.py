@@ -31,7 +31,6 @@ import validate
 GenICconfigspec = """
 FileWithInputSpectrum = string(default='')
 FileWithTransferFunction = string(default='')
-FileWithFutureTransferFunction = string(default='')
 Ngrid = integer(min=0)
 BoxSize = float(min=0)
 Omega0 = float(0,1)
@@ -41,7 +40,6 @@ HubbleParam = float(0,2)
 Redshift = float(0,1100)
 Sigma8 = float(default=-1)
 InputPowerRedshift = float(default=-1)
-InputFutureRedshift = float()
 DifferentTransferFunctions = integer(0,1, default=1)
 InputSpectrum_UnitLength_in_cm  = float(default=3.085678e24)
 UnitLength_in_cm  = float(default=3.085678e21)
@@ -62,7 +60,7 @@ def _check_genic_config(config):
     config.validate(vtor)
     filekeys = ['FileWithInputSpectrum', ]
     if config['DifferentTransferFunctions'] == 1.:
-        filekeys += ['FileWithTransferFunction', 'FileWithFutureTransferFunction']
+        filekeys += ['FileWithTransferFunction',]
     for ff in filekeys:
         if config[ff] == '':
             raise IOError("No savefile specified for ",ff)
@@ -128,14 +126,9 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
         - Using Sigma8 to set the power spectrum scale.
         - Different transfer functions.
 
-    We generate two transfer functions at slightly different redshifts and differentiate them to get a velocity.
-    This allows us to have accurate initial conditions even on superhorizon scales, where the usual
-    growth function is not valid when radiation is included.
+    We use class velocity transfer functions to have accurate initial conditions
+    even on superhorizon scales, and to properly support multiple species.
 
-    Note that for the velocities we do NOT just use the velocity transfer functions.
-    The reason is because of the gauge: velocity transfer is in synchronous gauge for CLASS,
-    newtonian gauge for CAMB. But we want the velocity in N-body gauge, which we get by taking
-    the time derivative of the synchronous gauge density perturbations. See arxiv:1505.04756.
     Not supported:
         - Warm dark matter power spectra.
         - Rescaling with different transfer functions."""
@@ -154,13 +147,13 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
     redshift = config['Redshift']
     if config['InputPowerRedshift'] >= 0:
         redshift = config['InputPowerRedshift']
-    outputs = np.array([redshift, config['InputFutureRedshift']])
+    outputs = np.array([redshift, ])
     if extraz is not None:
         outputs = np.concatenate([outputs, extraz])
     #Pass options for the power spectrum
     boxmpc = config['BoxSize'] / config['InputSpectrum_UnitLength_in_cm'] * config['UnitLength_in_cm']
     maxk = 2*math.pi/boxmpc*config['Ngrid']*16
-    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : 1+np.max(outputs),'z_pk': outputs}
+    powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : 1+np.max(outputs),'z_pk': outputs, 'extra metric transfer functions': 'y'}
     pre_params.update(powerparams)
 
     #Specify an external primordial power spectrum
@@ -180,9 +173,8 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
     if config['DifferentTransferFunctions'] == 1.:
         tfile = os.path.join(sdir, config['FileWithTransferFunction'])
         save_transfer(trans, tfile, bg, redshift)
-        transfut = powspec.get_transfer(z=config['InputFutureRedshift'])
-        tfile = os.path.join(sdir, config['FileWithFutureTransferFunction'])
-        save_transfer(transfut, tfile, bg, config['InputFutureRedshift'])
+    #fp-roundoff
+    trans['k'][-1] *= 0.9999
     #Get and save the matter power spectrum
     pk_lin = powspec.get_pklin(k=trans['k'], z=redshift)
     pkfile = os.path.join(sdir, config['FileWithInputSpectrum'])
@@ -194,6 +186,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
             trans = powspec.get_transfer(z=red)
             tfile = os.path.join(sdir, config['FileWithTransferFunction']+"-"+str(red))
             save_transfer(trans, tfile, bg, red)
+            trans['k'][-1] *= 0.9999
             #Get and save the matter power spectrum
             pk_lin = powspec.get_pklin(k=trans['k'], z=red)
             pkfile = os.path.join(sdir, config['FileWithInputSpectrum']+"-"+str(red))
@@ -208,40 +201,16 @@ def save_transfer(transfer, transferfile, bg, redshift):
         T_CAMB(k) = -T_CLASS(k)/k^2 """
     if os.path.exists(transferfile):
         raise IOError("Refusing to write to existing file: ",transferfile)
-    #This format matches the default output by CAMB and CLASS command lines.
-    #Some entries may be zero sometimes
-    kk = transfer['k']
-    ftrans = np.zeros((np.size(transfer['k']), 13))
-    ftrans[:,0] = kk
-    ftrans[:,1] = -1*transfer['d_cdm']/kk**2
-    ftrans[:,2] = -1*transfer['d_b']/kk**2
-    ftrans[:,3] = -1*transfer['d_g']/kk**2
-    ftrans[:,4] = -1*transfer['d_ur']/kk**2
-    #This will fail if there are no massive neutrinos present
-    try:
-        #We use the most massive neutrino species, since these
-        #are used for initialising the particle neutrinos.
-        ftrans[:,5] = -1*transfer['d_ncdm[2]']/kk**2
-    except ValueError:
-        pass
-    omegacdm = bg.Omega_cdm(redshift)
-    omegab = bg.Omega_b(redshift)
-    omeganu = bg.Omega_ncdm(redshift)
-    #Note that the CLASS total transfer function apparently includes radiation!
-    #We do not want this for the matter power: we want CDM + b + massive-neutrino.
-    ftrans[:,6] = -1*(omegacdm *transfer['d_cdm'] + omegab * transfer['d_b'] + omeganu * ftrans[:,5])/(omeganu + omegacdm + omegab)/kk**2
-    #The CDM+baryon weighted density.
-    ftrans[:,7] = -1*(omegacdm *transfer['d_cdm'] + omegab * transfer['d_b'])/(omegacdm + omegab)/kk**2
-    ftrans[:,8] = -1*transfer['d_tot']/kk**2
-    #The velocity transfer functions: these are chosen to match CAMB output
-    #Weyl potential
-    ftrans[:,9] = (transfer['phi'] + transfer['psi'])/2
-    #Velocity transfer: this is theta, but I don't know how to match CAMB.
-#     hub = bg.hubble_function(redshift)
-#     ftrans[:,10] = -transfer['t_cdm']/kk**2/hub
-#     ftrans[:,11] = -transfer['t_b']/kk**2/hub
-#     ftrans[:,12] = -transfer['t_b']/kk**2/hub + transfer['t_cdm']/kk**2/hub
-    np.savetxt(transferfile, ftrans)
+    header="""Transfer functions T_i(k) for adiabatic (AD) mode (normalized to initial curvature=1)
+d_i   stands for (delta rho_i/rho_i)(k,z) with above normalization
+d_tot stands for (delta rho_tot/rho_tot)(k,z) with rho_Lambda NOT included in rho_tot
+(note that this differs from the transfer function output from CAMB/CMBFAST, which gives the same
+ quantities divided by -k^2 with k in Mpc^-1; use format=camb to match CAMB)
+t_i   stands for theta_i(k,z) with above normalization
+t_tot stands for (sum_i [rho_i+p_i] theta_i)/(sum_i [rho_i+p_i]))(k,z)
+1:k (h/Mpc)              2:d_g                    3:d_b                    4:d_cdm                  5:d_ur        6:d_ncdm[0]              7:d_ncdm[1]              8:d_ncdm[2]              9:d_tot                 10:phi     11:psi                   12:h                     13:h_prime               14:eta                   15:eta_prime     16:t_g                   17:t_b                   18:t_ur        19:t_ncdm[0]             20:t_ncdm[1]             21:t_ncdm[2]             22:t_tot"""
+    #This format matches the default output by CLASS command line.
+    np.savetxt(transferfile, transfer, header=header)
 
 if __name__ ==  "__main__":
     parser = argparse.ArgumentParser()
