@@ -30,7 +30,7 @@ def compute_power(output):
     box = catcdm.attrs['BoxSize']
     return pkcdm.power, pkb.power, z, box
 
-def test_power(output, camb_transfer):
+def test_power(output, transfer):
     """Check the initial power against linear theory and a linearly grown IC power"""
     print('testing', output)
     pkcdm, pkb, z, box = compute_power(output)
@@ -40,11 +40,11 @@ def test_power(output, camb_transfer):
     canvas = FigureCanvasAgg(fig)
     ax = fig.add_subplot(111)
 
-    ctf = os.path.join(camb_transfer, "camb_transfer_99.dat")
+    ctf = os.path.join(transfer, "class_tk_99.dat")
     if z < 98.5:
         ctf += "-"+str(int(z[0]))+"*"
-    camb_trans = np.loadtxt(glob.glob(ctf)[0])
-    ax.plot(camb_trans[:,0], (camb_trans[:,2]/camb_trans[:,1])**2, ls="--", label='CAMB bar / DM')
+    trans = np.loadtxt(glob.glob(ctf)[0])
+    ax.plot(trans[:,0], (trans[:,2]/trans[:,1])**2, ls="--", label='CLASS bar / DM')
 
     #Note k in kpc/h
     ax.plot(pkcdm['k'][1:], pkb['power'][1:].real / pkcdm['power'][1:].real, label="Sim bar / DM")
@@ -60,16 +60,16 @@ def test_power(output, camb_transfer):
     ax = fig.add_subplot(111)
 #     ax.plot(pkcdm['k'][1:]*1e3, pkb['power'][1:].real/1e9, label="bar")
 #     ax.plot(pkcdm['k'][1:]*1e3, pkcdm['power'][1:].real/1e9, label="DM")
-    cmf = os.path.join(camb_transfer, "camb_matterpow_99.dat")
+    cmf = os.path.join(transfer, "class_pk_99.dat")
     if z < 98.5:
         cmf += "-"+str(int(z[0]))+"*"
-    camb_mat = np.loadtxt(glob.glob(cmf)[0])
-    intpdm = scipy.interpolate.interp1d(camb_trans[:,0], camb_trans[:,1]/camb_trans[:,6])
-    intpbar = scipy.interpolate.interp1d(camb_trans[:,0], camb_trans[:,2]/camb_trans[:,6])
-    intpdmpk = scipy.interpolate.interp1d(camb_mat[:,0], intpdm(camb_mat[:,0])**2 * camb_mat[:,1])
-    intpbarpk = scipy.interpolate.interp1d(camb_mat[:,0], intpbar(camb_mat[:,0])**2 * camb_mat[:,1])
-    ax.plot(pkb['k'][1:], pkb['power'][1:].real/intpbarpk(pkb['k'][1:]) , label="Sim bar / CAMB bar")
-    ax.plot(pkcdm['k'][1:], pkcdm['power'][1:].real/intpdmpk(pkcdm['k'][1:]) , label="Sim DM / CAMB DM")
+    mat = np.loadtxt(glob.glob(cmf)[0])
+    intpdm = scipy.interpolate.interp1d(trans[:,0], trans[:,1]/trans[:,6])
+    intpbar = scipy.interpolate.interp1d(trans[:,0], trans[:,2]/trans[:,6])
+    intpdmpk = scipy.interpolate.interp1d(mat[:,0], intpdm(mat[:,0])**2 * mat[:,1])
+    intpbarpk = scipy.interpolate.interp1d(mat[:,0], intpbar(mat[:,0])**2 * mat[:,1])
+    ax.plot(pkb['k'][1:], pkb['power'][1:].real/intpbarpk(pkb['k'][1:]) , label="Sim bar / CLASS bar")
+    ax.plot(pkcdm['k'][1:], pkcdm['power'][1:].real/intpdmpk(pkcdm['k'][1:]) , label="Sim DM / CLASS DM")
     ax.axhline(1, ls="--")
     ax.set_xscale('log')
     ax.set_ylim(0.8, 1.2)
@@ -93,7 +93,7 @@ def test_power(output, camb_transfer):
 # asserting the initial power spectrum is 1% accurate
 print("testing IC power")
 refcdm, refb, ref_z, box= compute_power('output/IC')
-pkin = np.loadtxt("camb_matterpow_99.dat")
+pkin = np.loadtxt("class_pk_99.dat")
 pklin = scipy.interpolate.interp1d(pkin[:,0], pkin[:,1])
 #This checks that the power spectrum loading and rescaling code is working.
 genpk = numpy.loadtxt("output/inputspec_IC.txt")
