@@ -28,12 +28,14 @@ def compute_power(output):
     pkcdm = FFTPower(catcdm, mode='1d', Nmesh=Nmesh)
     z = 1. / catcdm.attrs['Time'] - 1
     box = catcdm.attrs['BoxSize']
-    return pkcdm.power, pkb.power, z, box
+    omegab = catcdm.attrs['OmegaBaryon']
+    omega0 = catcdm.attrs['Omega0']
+    return pkcdm.power, pkb.power, z, box, omegab, omega0
 
 def test_power(output, transfer):
     """Check the initial power against linear theory and a linearly grown IC power"""
     print('testing', output)
-    pkcdm, pkb, z, box = compute_power(output)
+    pkcdm, pkb, z, box, omegab, omega0 = compute_power(output)
 
     #Check types have the same power
     fig = Figure()
@@ -43,8 +45,9 @@ def test_power(output, transfer):
     ctf = os.path.join(transfer, "class_tk_99.dat")
     if z < 98.5:
         ctf += "-"+str(int(z[0]))+"*"
+    # Transfer: 1:k (h/Mpc)              2:d_g                    3:d_b                    4:d_cdm                  5:d_ur        6:d_ncdm[0]              7:d_ncdm[1]              8:d_ncdm[2]              9:d_tot                 10:phi     11:psi                   12:h                     13:h_prime               14:eta                   15:eta_prime     16:t_g                   17:t_b                   18:t_ur        19:t_ncdm[0]             20:t_ncdm[1]             21:t_ncdm[2]             22:t_tot
     trans = np.loadtxt(glob.glob(ctf)[0])
-    ax.plot(trans[:,0], (trans[:,2]/trans[:,1])**2, ls="--", label='CLASS bar / DM')
+    ax.plot(trans[:,0], (trans[:,2]/trans[:,3])**2, ls="--", label='CLASS bar / DM')
 
     #Note k in kpc/h
     ax.plot(pkcdm['k'][1:], pkb['power'][1:].real / pkcdm['power'][1:].real, label="Sim bar / DM")
@@ -64,10 +67,11 @@ def test_power(output, transfer):
     if z < 98.5:
         cmf += "-"+str(int(z[0]))+"*"
     mat = np.loadtxt(glob.glob(cmf)[0])
-    intpdm = scipy.interpolate.interp1d(trans[:,0], trans[:,1]/trans[:,6])
-    intpbar = scipy.interpolate.interp1d(trans[:,0], trans[:,2]/trans[:,6])
-    intpdmpk = scipy.interpolate.interp1d(mat[:,0], intpdm(mat[:,0])**2 * mat[:,1])
+    ttot = (omegab * trans[:,2] + (omega0 - omegab) * trans[:,3])/omega0
+    intpbar = scipy.interpolate.interp1d(trans[:,0], trans[:,2]/ttot)
+    intpdm = scipy.interpolate.interp1d(trans[:,0], trans[:,3]/ttot)
     intpbarpk = scipy.interpolate.interp1d(mat[:,0], intpbar(mat[:,0])**2 * mat[:,1])
+    intpdmpk = scipy.interpolate.interp1d(mat[:,0], intpdm(mat[:,0])**2 * mat[:,1])
     ax.plot(pkb['k'][1:], pkb['power'][1:].real/intpbarpk(pkb['k'][1:]) , label="Sim bar / CLASS bar")
     ax.plot(pkcdm['k'][1:], pkcdm['power'][1:].real/intpdmpk(pkcdm['k'][1:]) , label="Sim DM / CLASS DM")
     ax.axhline(1, ls="--")
@@ -92,7 +96,7 @@ def test_power(output, transfer):
 #This checks that the power spectrum loading and rescaling code is working.
 # asserting the initial power spectrum is 1% accurate
 print("testing IC power")
-refcdm, refb, ref_z, box= compute_power('output/IC')
+refcdm, refb, ref_z, box, omegab, omega0 = compute_power('output/IC')
 pkin = np.loadtxt("class_pk_99.dat")
 pklin = scipy.interpolate.interp1d(pkin[:,0], pkin[:,1])
 #This checks that the power spectrum loading and rescaling code is working.
