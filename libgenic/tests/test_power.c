@@ -25,12 +25,13 @@ test_read_no_rescale(void ** state)
 {
     /*Do setup*/
     struct power_params PowerP = ((struct test_state *) (*state))->PowerP;
+    Cosmology CP = ((struct test_state *) (*state))->CP;
     /*Test without rescaling*/
     PowerP.InputPowerRedshift = -1;
     PowerP.DifferentTransferFunctions = 1;
     /*Test without rescaling*/
-    int nentry = initialize_powerspectrum(0, 0.01, 3.085678e21, NULL, &PowerP);
-    assert_int_equal(nentry, 335);
+    int nentry = initialize_powerspectrum(0, 0.01, 3.085678e21, &CP, &PowerP);
+    assert_int_equal(nentry, 347);
     /*Check that the tabulated power spectrum gives the right answer
      * First check ranges: these should both be out of range.
      * Should be the same k as in the file (but /10^3 for Mpc -> kpc)
@@ -55,9 +56,9 @@ test_read_no_rescale(void ** state)
     //Small scales where there are differences
     //T_tot=0.255697E+06
     //Baryons
-    assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,0)/DeltaSpec(1.079260830861467901e-01/1e3,6)- 9.735695830700024089e+03/1.394199788775037632e+04) < 1e-6);
+    assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,0)/DeltaSpec(1.079260830861467901e-01/1e3,6)- 9.735695830700024089e+03/1.394199788775037632e+04) < 1e-4);
     //CDM
-    assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,1)/DeltaSpec(1.079260830861467901e-01/1e3,6)- 1.477251880454670209e+04/1.394199788775037632e+04) < 1e-6);
+    assert_true(fabs(DeltaSpec(1.079260830861467901e-01/1e3,1)/DeltaSpec(1.079260830861467901e-01/1e3,6)- 1.477251880454670209e+04/1.394199788775037632e+04) < 1e-4);
 }
 
 static void
@@ -70,7 +71,7 @@ test_growth_numerical(void ** state)
     PowerP.InputPowerRedshift = -1;
     PowerP.DifferentTransferFunctions = 1;
     int nentry = initialize_powerspectrum(0, 0.01, 3.085678e21, &CP, &PowerP);
-    assert_int_equal(nentry, 335);
+    assert_int_equal(nentry, 347);
     //Test sub-horizon scales
     int k, nk = 100;
     double lowk = 5e-2;
@@ -80,8 +81,7 @@ test_growth_numerical(void ** state)
         newk/=1e3;
         //Total growth should be very close to F_Omega.
 /*         message(1,"k=%g G = %g F = %g G0 = %g\n",newk*1e3,dlogGrowth(newk, 7), F_Omega(0.01),dlogGrowth(newk, 0)); */
-        //Why the slight difference?
-        assert_true(fabs(dlogGrowth(newk,7)  - F_Omega(0.01)) < 0.05);
+        assert_true(fabs(dlogGrowth(newk,7)  - F_Omega(0.01)) < 0.001);
         //Growth of CDM should be lower, growth of baryons should be higher.
         assert_true(dlogGrowth(newk,1) < F_Omega(0.01));
         assert_true(dlogGrowth(newk,1) > 0.9);
@@ -97,7 +97,7 @@ test_growth_numerical(void ** state)
         newk/=1e3;
 /*         message(1,"k=%g G = %g F = %g\n",newk*1e3,dlogGrowth(newk, 7), dlogGrowth(newk, 1)); */
         //Total growth should be around 1.05
-        assert_true(dlogGrowth(newk,7) < 1.05);
+        assert_true(dlogGrowth(newk,7) < 1.055);
         assert_true(dlogGrowth(newk,7) > 1.);
         //CDM and baryons should match total
         assert_true(fabs(dlogGrowth(newk,0)/dlogGrowth(newk,7) -1)  < 0.008);
@@ -117,7 +117,7 @@ test_read_rescale_sigma8(void ** state)
     PowerP.InputPowerRedshift = 9;
     PowerP.DifferentTransferFunctions = 0;
     int nentry = initialize_powerspectrum(0, 0.05, 3.085678e21, &CP, &PowerP);
-    assert_int_equal(nentry, 335);
+    assert_int_equal(nentry, 347);
     assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, 7),2)* 4 /4.745074933325402533/1e9 - 1) < 1e-2);
 }
 
@@ -128,10 +128,8 @@ static int setup(void ** state)
     st.PowerP.InputPowerRedshift = -1;
     st.PowerP.DifferentTransferFunctions = 1;
     st.PowerP.Sigma8 = -1;
-    st.PowerP.FileWithInputSpectrum = GADGET_TESTDATA_ROOT "/examples/camb_matterpow_99.dat";
-    st.PowerP.FileWithTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_99.dat";
-    st.PowerP.FileWithFutureTransferFunction = GADGET_TESTDATA_ROOT "/examples/camb_transfer_98.99.dat";
-    st.PowerP.InputFutureRedshift = 98.99;
+    st.PowerP.FileWithInputSpectrum = GADGET_TESTDATA_ROOT "/examples/class_pk_99.dat";
+    st.PowerP.FileWithTransferFunction = GADGET_TESTDATA_ROOT "/examples/class_tk_99.dat";
     st.PowerP.WhichSpectrum = 2;
     st.PowerP.SpectrumLengthScale = 1000;
     st.PowerP.PrimordialIndex = 1.0;
