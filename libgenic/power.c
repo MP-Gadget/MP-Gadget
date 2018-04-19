@@ -23,9 +23,9 @@ static double PrimordialIndex;
 static double UnitLength_in_cm;
 static Cosmology * CP;
 
-#define MAXCOLS 5
+#define MAXCOLS 8
 
-/*Columns: 0 == baryon, 1 == CDM, 2 == neutrino, 3 == CDM + baryons, 4 == total*/
+
 struct table
 {
     int Nentry;
@@ -34,9 +34,10 @@ struct table
     gsl_interp * mat_intp[MAXCOLS];
     gsl_interp_accel * mat_intp_acc[MAXCOLS];
 };
+
 static struct table power_table;
+/*Columns: 0 == baryon, 1 == CDM, 2 == neutrino, 3 == baryon velocity, 4 == CDM velocity, 5 = neutrino velocity*/
 static struct table transfer_table;
-static struct table growth_table;
 
 double DeltaSpec(double k, int Type)
 {
@@ -57,20 +58,22 @@ double dlogGrowth(double kmag, int Type)
 {
   const double logk = log10(kmag);
 
-  if(logk < growth_table.logk[0] || logk > growth_table.logk[growth_table.Nentry - 1])
+  if(logk < transfer_table.logk[0] || logk > transfer_table.logk[transfer_table.Nentry - 1])
       return 1;
 
-  /*Default to total*/
-  if(Type < 0 || Type >= MAXCOLS)
-      Type = MAXCOLS-1;
+  /*Default to total growth: type 3 is cdm + baryons.*/
+  if(Type < 0 || Type >= 3) {
+      Type = MAXCOLS-4;
+  }
+  /*Use the velocity entries*/
+  double growth =  gsl_interp_eval(transfer_table.mat_intp[3+Type], transfer_table.logk, transfer_table.logD[3+Type], logk, transfer_table.mat_intp_acc[3+Type]);
 
-  double growth =  gsl_interp_eval(growth_table.mat_intp[Type], growth_table.logk, growth_table.logD[Type], logk, growth_table.mat_intp_acc[Type]);
   if(isinf(growth) || isnan(growth) || growth < 0)
-      endrun(1,"Growth function is: %g for k = %g, Type = %d\n",growth, kmag, Type);
+      endrun(1,"Growth function is: %g for k = %g, Type = %d\n", growth, kmag, Type);
   return growth;
 }
 
-void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, double scale)
+void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const int nnu, double scale)
 {
     char * retval;
     if((*InputInLog10) == 0) {
@@ -94,34 +97,49 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
     out_tab->logD[0][i] = p/2;
 }
 
-void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, double scale)
+void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const int nnu, double scale)
 {
     int j;
-    double transfers[7];
+    const int ncols = 15 + nnu * 2;
+    double transfers[ncols];
     k = log10(k);
-    k -= log10(scale);	/* convert to h/Kpc */
+    k -= log10(scale);  /* convert to h/Kpc */
     out_tab->logk[i] = k;
-    /*CDM, Baryons, photons, massless nu, massive nu, tot, CDM+bar, other stuff*/
-    for(j = 0; j< 7; j++) {
+    /* Note: the ncdm entries change depending on the number of neutrino species. The first row, k,
+     * is read in read_power_table and passed as a parameter.
+     * but only the first is used for particles.
+     * 1:k (h/Mpc)              2:d_g                    3:d_b                    4:d_cdm                  5:d_ur
+     * 6:d_ncdm[0]              7:d_ncdm[1]              8:d_ncdm[2]              9:d_tot                 10:phi
+     * 11:psi                   12:h                     13:h_prime               14:eta                   15:eta_prime
+     * 16:t_g                   17:t_b                   18:t_ur
+     * 19:t_ncdm[0]             20:t_ncdm[1]             21:t_ncdm[2]             22:t_tot*/
+    for(j = 0; j< ncols; j++) {
         char * retval = strtok(NULL, " \t");
+        /*This happens if we do not have as many neutrino species as we expect, or we don't find h_prime.*/
         if(!retval)
-            endrun(1,"Incomplete line in power spectrum: %s\n",line);
+            endrun(1,"Incomplete line in power spectrum: only %d columns, expecting %d. Did you remember to set extra metric transfer functions=y?\n",j, ncols);
         transfers[j] = atof(retval);
     }
     /*Order of the transfer table matches the particle types:
-     * 0 is baryons, 1 is CDM, 2 is CMB + baryons, 3 is massive neutrinos.
-     * Everything is a ratio against tot.
-     * In the input CAMB file 0 is CDM, 1 is baryons, 2 is photons,
-     * 3 is massless neutrinos, 4 is massive neutrinos, 5 is total,
-     * 6 is cdm + baryons.*/
-    out_tab->logD[0][i] = transfers[1];
-    out_tab->logD[1][i] = transfers[0];
-    out_tab->logD[2][i] = transfers[4];
-    out_tab->logD[3][i] = transfers[6];
-    out_tab->logD[4][i] = transfers[5];
+     * 0 is baryons, 1 is CDM, 2 is massive neutrinos (we use the most massive neutrino species).
+     * 3 is growth function for baryons, 4 is growth function for CDM, 5 is growth function for massive neutrinos.
+     * We use the formulae for velocities from fastpm in synchronous gauge:
+     * https://github.com/rainwoodman/fastpm-python/blob/master/fastpm/multi.py#L185
+     * CDM = - h_prime / 2 / d_cdm
+     * bar = - (h_prime / 2  + t_b) / d_b
+     * nu = - (h_prime / 2 + t_ncdm) / d_ncdm
+     * and there is a normalisation factor of (1+z)/ hubble applied later on.*/
+    out_tab->logD[0][i] = -1*transfers[1];
+    out_tab->logD[1][i] = -1*transfers[2];
+    /*This is ur if neutrinos are massless*/
+    out_tab->logD[2][i] = -1*transfers[3+nnu];
+    /*h_prime is entry 8 + nnu. t_b is 12 + nnu, t_ncdm[2] is 13 + nnu * 2.*/
+    out_tab->logD[3][i] = -1 * (transfers[8+nnu] * 0.5 + transfers[12+nnu])/ transfers[1];
+    out_tab->logD[4][i] = -1 * transfers[8+nnu] * 0.5 / transfers[2];
+    out_tab->logD[5][i] = -1 * (transfers[8 + nnu] * 0.5 + transfers[13+nnu*2])/ transfers[3+nnu];
 }
 
-void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, double scale, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, double scale))
+void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, double scale, const int nnu, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, const int nnu, double scale))
 {
     FILE *fd = NULL;
     int j;
@@ -169,7 +187,7 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
             if(!retval || retval[0] == '#')
                 continue;
             double k = atof(retval);
-            parse_line(i, k, line, out_tab, &InputInLog10, scale);
+            parse_line(i, k, line, out_tab, &InputInLog10, nnu, scale);
             i++;
         }
         while(1);
@@ -185,47 +203,74 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
 }
 
 int
-initialise_transfer_table(int ThisTask, double InitTime, struct power_params * ppar)
+initialise_transfer_table(int ThisTask, double InitTime, const struct power_params * const ppar)
 {
     int i, t;
-    if(strlen(ppar->FileWithTransferFunction) > 0)
-        read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, ppar->SpectrumLengthScale, parse_transfer);
-    if(strlen(ppar->FileWithFutureTransferFunction) > 0) {
-        double meangrowth[MAXCOLS] = {0};
-        /*Read and build growth table*/
-        read_power_table(ThisTask, ppar->FileWithFutureTransferFunction, MAXCOLS, &growth_table, ppar->SpectrumLengthScale, parse_transfer);
-        if(growth_table.Nentry != transfer_table.Nentry)
-            endrun(1,"Transfer tables differ in number of entries: %d %d\n", growth_table.Nentry, transfer_table.Nentry);
-        /*Numerically differentiate the transfer functions*/
-        double afut = 1/(1.+ppar->InputFutureRedshift);
-        double dloga = log(afut) - log(InitTime);
-        /*This is d log D[type] / d log a*/
-        for(t = 0; t < MAXCOLS; t++) {
+    const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
+    if(strlen(ppar->FileWithTransferFunction) > 0) {
+        read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, ppar->SpectrumLengthScale, nnu, parse_transfer);
+    }
+    if(transfer_table.Nentry == 0) {
+        endrun(1, "Could not read transfer table at: '%s'\n",ppar->FileWithTransferFunction);
+    }
+    /*Normalise the transfer functions.*/
+
+    /*Now normalise the velocity transfer functions: divide by a * hubble, where hubble is the hubble function in Mpc^-1, so H0/c*/
+    const double fac = InitTime * hubble_function(InitTime)/CP->Hubble * 100 * CP->HubbleParam/(LIGHTCGS / 1e5);
+    double meangrowth[5] = {0};
+    for(t = 3; t < 6; t++) {
         int nmean=0;
-            for(i=0; i< growth_table.Nentry; i++) {
-                if(growth_table.logD[t][i] > 0)
-                    growth_table.logD[t][i] = (log(growth_table.logD[t][i]) - log(transfer_table.logD[t][i]))/dloga;
-                if(growth_table.logk[i] > power_table.logk[0]) {
-                    meangrowth[t] += growth_table.logD[t][i];
-                    nmean++;
-                }
+        for(i=0; i< transfer_table.Nentry; i++) {
+            transfer_table.logD[t][i] /= fac;
+            if(transfer_table.logk[i] > power_table.logk[0]) {
+                meangrowth[t-3] += transfer_table.logD[t][i];
+                nmean++;
             }
-            gsl_interp_init(growth_table.mat_intp[t],growth_table.logk, growth_table.logD[t],growth_table.Nentry);
-        meangrowth[t]/= nmean;
         }
-        message(0,"Scale-dependent growth calculated. Mean = %g %g %g %g\n",meangrowth[0], meangrowth[1], meangrowth[2], meangrowth[3]);
+
+        gsl_interp_init(transfer_table.mat_intp[t],transfer_table.logk, transfer_table.logD[t], transfer_table.Nentry);
+        meangrowth[t-3]/= nmean;
     }
-    if(transfer_table.Nentry == 0 || growth_table.Nentry == 0) {
-        endrun(1, "Could not read both transfer tables at: '%s' or '%s'\n",ppar->FileWithFutureTransferFunction, ppar->FileWithTransferFunction);
+    /*Set up CDM + baryon and total growth*/
+    int nmean=0;
+    for(i=0; i< transfer_table.Nentry; i++) {
+        double gb =  transfer_table.logD[3][i];
+        double gcdm =  transfer_table.logD[4][i];
+        double db =  transfer_table.logD[0][i];
+        double dcdm =  transfer_table.logD[1][i];
+        /*CDM + baryon*/
+        transfer_table.logD[6][i] = (CP->OmegaBaryon * gb * db + CP->OmegaCDM * gcdm * dcdm)/(CP->OmegaBaryon * db + CP->OmegaCDM * dcdm);
+        if(CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0) {
+            double gnu =  transfer_table.logD[5][i];
+            double dnu =  transfer_table.logD[2][i];
+            double onu = get_omega_nu(&CP->ONu, 1);
+            transfer_table.logD[7][i] = (CP->OmegaBaryon * gb * db + CP->OmegaCDM * gcdm * dcdm + onu * gnu * dnu)/(CP->OmegaBaryon * db + CP->OmegaCDM * dcdm + onu * dnu);
+        }
+        else
+            transfer_table.logD[7][i] = transfer_table.logD[6][i];
+        if(transfer_table.logk[i] > power_table.logk[0]) {
+            meangrowth[3] += transfer_table.logD[6][i];
+            meangrowth[4] += transfer_table.logD[7][i];
+            nmean++;
+        }
     }
+    meangrowth[3]/= nmean;
+    meangrowth[4]/= nmean;
 
     /*Transform T(k) to to T(k)/T_tot(k)*/
-    for(t = 0; t < MAXCOLS-1; t++) {
-        for(i=0; i< transfer_table.Nentry; i++)
-            transfer_table.logD[t][i] = transfer_table.logD[t][i]/transfer_table.logD[MAXCOLS-1][i];
-        gsl_interp_init(transfer_table.mat_intp[t],transfer_table.logk, transfer_table.logD[t],transfer_table.Nentry);
+    for(i=0; i< transfer_table.Nentry; i++) {
+        double tot = (CP->OmegaBaryon * transfer_table.logD[0][i] + CP->OmegaCDM * transfer_table.logD[1][i]
+                + (nnu > 0) * get_omega_nu(&CP->ONu, 1) * transfer_table.logD[2][i])/CP->Omega0;
+        for(t = 0; t < 3; t++)
+            transfer_table.logD[t][i] /= tot;
     }
-    message(0, "Power spectrum rows: %d, Transfer: %d (%g -> %g) (second transfer: %d)\n", power_table.Nentry, transfer_table.Nentry, growth_table.Nentry, transfer_table.logD[0][0],transfer_table.logD[0][transfer_table.Nentry-1]);
+    /*Initialise the interpolators*/
+    for(t = 0; t < MAXCOLS; t++)
+        gsl_interp_init(transfer_table.mat_intp[t],transfer_table.logk, transfer_table.logD[t],transfer_table.Nentry);
+
+
+    message(0,"Scale-dependent growth calculated. Mean = %g %g %g %g %g\n",meangrowth[0], meangrowth[1], meangrowth[2], meangrowth[3], meangrowth[4]);
+    message(0, "Power spectrum rows: %d, Transfer: %d (%g -> %g)\n", power_table.Nentry, transfer_table.Nentry, transfer_table.logD[0][0],transfer_table.logD[0][transfer_table.Nentry-1]);
     return transfer_table.Nentry;
 }
 
@@ -238,11 +283,10 @@ int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in
     CP = CPin;
 
     if(ppar->WhichSpectrum == 2) {
-        read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, ppar->SpectrumLengthScale, parse_power);
+        read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, ppar->SpectrumLengthScale, 0, parse_power);
         /*Initialise the interpolator*/
         gsl_interp_init(power_table.mat_intp[0],power_table.logk, power_table.logD[0],power_table.Nentry);
         transfer_table.Nentry = 0;
-        growth_table.Nentry = 0;
         if(ppar->DifferentTransferFunctions || ppar->ScaleDepVelocity) {
             initialise_transfer_table(ThisTask, InitTime, ppar);
         }
@@ -272,9 +316,17 @@ double Delta_Tabulated(double k, int Type)
 
   const double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
   double trans = 1;
-  /*Transfer table stores (T_type(k) / T_tot(k))^2*/
-  if(Type >= 0 && Type < MAXCOLS-1 && transfer_table.Nentry > 0) {
-      trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
+  /*Transfer table stores (T_type(k) / T_tot(k))*/
+  if(transfer_table.Nentry > 0) {
+    if(Type >= 0 && Type < 3) {
+        trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
+    }
+    /*CDM + baryons*/
+    else if (Type == 3){
+        double db =  gsl_interp_eval(transfer_table.mat_intp[0], transfer_table.logk, transfer_table.logD[0], logk, transfer_table.mat_intp_acc[0]);
+        double dcdm =  gsl_interp_eval(transfer_table.mat_intp[1], transfer_table.logk, transfer_table.logD[1], logk, transfer_table.mat_intp_acc[1]);
+        trans = db + dcdm;
+    }
   }
 
   double delta = pow(10.0, logD) * trans;

@@ -16,16 +16,16 @@ create_parameters()
 {
     ParameterSet * ps = parameter_set_new();
 
-    param_declare_string(ps, "FileWithInputSpectrum", REQUIRED, 0, "");
+    param_declare_string(ps, "FileWithInputSpectrum", REQUIRED, 0, "File containing input power spectrum, from CLASS or CAMB.");
     param_declare_string(ps, "OutputDir", REQUIRED, 0, "");
     param_declare_string(ps, "FileBase", REQUIRED, 0, "");
 
-    param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "");
-    param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "");
+    param_declare_double(ps, "Omega0", REQUIRED, 0.2814, "Total matter density, cdm + baryons + massive neutrinos at z=0.");
+    param_declare_double(ps, "OmegaBaryon", REQUIRED, 0.0464, "Omega Baryon: note this may be used for transfer functions even if gas is not produced.");
     param_declare_double(ps, "OmegaLambda", REQUIRED, 0.7186, "Dark energy density at z=0");
     param_declare_double(ps, "HubbleParam", REQUIRED, 0.697, "Hubble parameter");
     param_declare_int(ps,    "ProduceGas", REQUIRED, 0, "Should we create baryon particles?");
-    param_declare_double(ps, "BoxSize", REQUIRED, 0, "");
+    param_declare_double(ps, "BoxSize", REQUIRED, 0, "Size of box in internal units.");
     param_declare_double(ps, "Redshift", REQUIRED, 99, "Starting redshift");
     param_declare_int(ps, "Nmesh", OPTIONAL, 0, "Size of the FFT grid used to estimate displacements. Should be > Ngrid.");
     param_declare_int(ps, "Ngrid", REQUIRED, 0, "Size of regular grid on which the undisplaced particles are created.");
@@ -45,9 +45,7 @@ create_parameters()
 
     param_declare_int(ps, "DifferentTransferFunctions", OPTIONAL, 1, "Use species specific transfer functions for baryon and CDM.");
     param_declare_int(ps, "ScaleDepVelocity", OPTIONAL, 1, "Use scale dependent velocity transfer functions obtained by differentiating sync. gauge velocity. Requires two transfer functions.");
-    param_declare_string(ps, "FileWithTransferFunction", OPTIONAL, "", "File containing CAMB formatted transfer functions.");
-    param_declare_string(ps, "FileWithFutureTransferFunction", OPTIONAL, "", "File containing CAMB formatted transfer functions at a future redshift: growth function is obtained by differentiation.");
-    param_declare_double(ps, "InputFutureRedshift", OPTIONAL, -1, "Redshift of future transfer function.");
+    param_declare_string(ps, "FileWithTransferFunction", OPTIONAL, "", "File containing CLASS formatted transfer functions with extra metric transfer functions=y.");
     param_declare_double(ps, "MaxMemSizePerNode", OPTIONAL, 0.6, "Maximum memory per node, in fraction of total memory, or MB if > 1.");
     param_declare_double(ps, "CMBTemperature", OPTIONAL, 2.7255, "CMB temperature in K");
     param_declare_double(ps, "RadiationOn", OPTIONAL, 1, "Include radiation in the background.");
@@ -131,8 +129,6 @@ void read_parameterfile(char *fname)
         All2.PowerP.InputPowerRedshift = 0;
     All2.PowerP.FileWithInputSpectrum = param_get_string(ps, "FileWithInputSpectrum");
     All2.PowerP.FileWithTransferFunction = param_get_string(ps, "FileWithTransferFunction");
-    All2.PowerP.FileWithFutureTransferFunction = param_get_string(ps, "FileWithFutureTransferFunction");
-    All2.PowerP.InputFutureRedshift = param_get_double(ps, "InputFutureRedshift");
     All2.PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
     All2.PowerP.ScaleDepVelocity = param_get_int(ps, "ScaleDepVelocity");
     All2.PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");

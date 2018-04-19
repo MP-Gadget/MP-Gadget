@@ -9,13 +9,11 @@ struct power_params
     int DifferentTransferFunctions;
     int ScaleDepVelocity;
     char * FileWithTransferFunction;
-    char * FileWithFutureTransferFunction;
     char * FileWithInputSpectrum;
     double Sigma8;
     double InputPowerRedshift;
     double SpectrumLengthScale;
     double PrimordialIndex;
-    double InputFutureRedshift;
 };
 
 /*A note on gauge choice:
