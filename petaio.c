@@ -660,7 +660,6 @@ static void register_io_blocks() {
     IO_REG_WRONLY(BlackholeGasVel,   "f4", 3, 5);
     IO_REG_WRONLY(BlackholeEntropy,   "f4", 1, 5);
     IO_REG_WRONLY(BlackholePressure,   "f4", 1, 5);
-    IO_REG_WRONLY(BlackholePressure,   "f4", 1, 5);
     IO_REG(BlackholeMinPotPos, "f8", 3, 5);
     IO_REG(BlackholeMinPotVel,   "f4", 3, 5);
     IO_REG(BlackholeJumpToMinPot,   "i4", 1, 5);
