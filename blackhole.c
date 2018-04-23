@@ -15,11 +15,14 @@
 #include "mymalloc.h"
 #include "endrun.h"
 #include "fof.h"
+#include "utils-string.h"
 /*! \file blackhole.c
  *  \brief routines for gas accretion onto black holes, and black hole mergers
  */
 
 #ifdef BLACK_HOLES
+
+#define NO_MERGER ((MyIDType) -1)
 
 typedef struct {
     TreeWalkQueryBase base;
@@ -602,6 +605,9 @@ blackhole_feedback_ngbiter(TreeWalkQueryBHFeedback * I,
         iter->base.symmetric = NGB_TREEFIND_SYMMETRIC;
 
         density_kernel_init(&iter->feedback_kernel, hsearch);
+
+        O->MergerID = NO_MERGER;
+
         return;
     }
 
@@ -778,7 +784,8 @@ static void blackhole_feedback_reduce(int place, TreeWalkResultBHFeedback * remo
     }
     TREEWALK_REDUCE(BHP(place).CountProgs, remote->BH_CountProgs);
 
-    BHP(place).LastMergerID = remote->MergerID;
+    if(remote->MergerID != NO_MERGER)
+        BHP(place).LastMergerID = remote->MergerID;
 }
 
 void blackhole_make_one(int index) {
