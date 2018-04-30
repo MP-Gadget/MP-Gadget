@@ -206,6 +206,7 @@ d_tot stands for (delta rho_tot/rho_tot)(k,z) with rho_Lambda NOT included in rh
  quantities divided by -k^2 with k in Mpc^-1; use format=camb to match CAMB)
 t_i   stands for theta_i(k,z) with above normalization
 t_tot stands for (sum_i [rho_i+p_i] theta_i)/(sum_i [rho_i+p_i]))(k,z)
+If some neutrino species are massless, or degenerate, the d_ncdm and t_ncdm columns may be missing below.
 1:k (h/Mpc)              2:d_g                    3:d_b                    4:d_cdm                  5:d_ur        6:d_ncdm[0]              7:d_ncdm[1]              8:d_ncdm[2]              9:d_tot                 10:phi     11:psi                   12:h                     13:h_prime               14:eta                   15:eta_prime     16:t_g                   17:t_b                   18:t_ur        19:t_ncdm[0]             20:t_ncdm[1]             21:t_ncdm[2]             22:t_tot"""
     #This format matches the default output by CLASS command line.
     np.savetxt(transferfile, transfer, header=header)
