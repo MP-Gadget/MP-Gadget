@@ -66,6 +66,7 @@ int get_timestep(int p, double *a, int flag);
 int get_timestep_bin(int ti_step);
 
 double get_starformation_rate(int i);
+double get_sfr_factor_due_to_h2(int i);
 void grav_short_tree(void);
 void grav_short_pair(void);
 void hydro_force(void);

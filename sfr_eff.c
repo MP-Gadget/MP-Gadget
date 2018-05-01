@@ -54,7 +54,6 @@ static int get_sfr_condition(int i);
 static int make_particle_star(int i);
 static void starformation(int i);
 static double get_sfr_factor_due_to_selfgravity(int i);
-static double get_sfr_factor_due_to_h2(int i);
 static double get_starformation_rate_full(int i, double dtime, MyFloat * ne_new, double * trelax, double * egyeff);
 static double find_star_mass(int i);
 #endif
@@ -1043,7 +1042,9 @@ static double ev_NH_from_GradRho(MyFloat gradrho[3], double hsml, double rho, do
 }
 #endif
 
-static double get_sfr_factor_due_to_h2(int i) {
+double
+get_sfr_factor_due_to_h2(int i)
+{
     /*  Krumholz & Gnedin fitting function for f_H2 as a function of local
      *  properties, from gadget-p; we return the enhancement on SFR in this
      *  function */
