@@ -558,6 +558,9 @@ static void GTStarFormationRate(int i, float * out) {
     *out = get_starformation_rate(i) 
         * ((All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR));
 }
+static void GTH2Fraction(int i, float * out) {
+    *out = get_sfr_factor_due_to_h2(i);
+}
 #endif
 #ifdef BLACK_HOLES
 SIMPLE_PROPERTY(BlackholeMass, BHP(i).Mass, float, 1)
@@ -637,6 +640,7 @@ static void register_io_blocks() {
     /* SF */
 #ifdef SFR
     IO_REG_WRONLY(StarFormationRate, "f4", 1, 0);
+    IO_REG_WRONLY(H2Fraction, "f4", 1, 0);
 #ifdef WINDS
     IO_REG(StarFormationTime, "f4", 1, 4);
 #endif
