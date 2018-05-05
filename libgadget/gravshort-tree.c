@@ -145,9 +145,6 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             int otherh;
             if(node_is_particle(no))
             {
-                /* the index of the node is the index of the particle */
-                drift_particle(no, All.Ti_Current);
-
                 /*Hybrid particle neutrinos do not gravitate at early times*/
                 if(All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime && P[no].Type == All.FastParticleType)
                 {
