@@ -190,40 +190,30 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-                mass = nop->u.d.mass;
-
                 dx = NEAREST(nop->u.d.s[0] - pos_x);
                 dy = NEAREST(nop->u.d.s[1] - pos_y);
                 dz = NEAREST(nop->u.d.s[2] - pos_z);
 
                 r2 = dx * dx + dy * dy + dz * dz;
 
+                /*This checks the distance from the node center of mass*/
                 if(r2 > rcut2)
                 {
                     /* check whether we can stop walking along this branch */
                     const double eff_dist = rcut + 0.5 * nop->len;
-                    double dist = NEAREST(nop->center[0] - pos_x);
 
-                    if(dist < -eff_dist || dist > eff_dist)
-                    {
-                        no = nop->u.d.sibling;
-                        continue;
-                    }
-                    dist = NEAREST(nop->center[1] - pos_y);
-
-                    if(dist < -eff_dist || dist > eff_dist)
-                    {
-                        no = nop->u.d.sibling;
-                        continue;
-                    }
-                    dist = NEAREST(nop->center[2] - pos_z);
-
-                    if(dist < -eff_dist || dist > eff_dist)
+                    /*This checks whether we are also outside this region of the oct-tree*/
+                    if(fabs(NEAREST(nop->center[0] - pos_x)) > eff_dist ||
+                        fabs(NEAREST(nop->center[1] - pos_y)) > eff_dist ||
+                            fabs(NEAREST(nop->center[2] - pos_z)) > eff_dist
+                      )
                     {
                         no = nop->u.d.sibling;
                         continue;
                     }
                 }
+
+                mass = nop->u.d.mass;
 
                 /* check relative opening criterion */
                 if(mass * nop->len * nop->len > r2 * r2 * aold)
