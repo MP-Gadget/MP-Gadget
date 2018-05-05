@@ -121,6 +121,8 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     MyDouble acc_y = 0;
     MyDouble acc_z = 0;
 
+    /*Hybrid particle neutrinos do not gravitate at early times*/
+    const int NeutrinoTracer = All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
     /*Tree-opening constants*/
     const double rcut = RCUT * All.Asmth * All.BoxSize / All.Nmesh;
     const double rcut2 = rcut * rcut;
@@ -144,11 +146,13 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
             double dx, dy, dz;
             if(node_is_particle(no))
             {
-                /*Hybrid particle neutrinos do not gravitate at early times*/
-                if(All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime && P[no].Type == All.FastParticleType)
+                if(NeutrinoTracer)
                 {
-                    no = Nextnode[no];
-                    continue;
+                    if(P[no].Type == All.FastParticleType)
+                    {
+                        no = Nextnode[no];
+                        continue;
+                    }
                 }
 
                 dx = NEAREST(P[no].Pos[0] - pos_x);
