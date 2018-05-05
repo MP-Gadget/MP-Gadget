@@ -227,8 +227,6 @@ initialise_transfer_table(int ThisTask, double InitTime, const struct power_para
                 nmean++;
             }
         }
-
-        gsl_interp_init(transfer_table.mat_intp[t],transfer_table.logk, transfer_table.logD[t], transfer_table.Nentry);
         meangrowth[t-3]/= nmean;
     }
     /*Set up CDM + baryon and total growth*/
@@ -267,7 +265,6 @@ initialise_transfer_table(int ThisTask, double InitTime, const struct power_para
     /*Initialise the interpolators*/
     for(t = 0; t < MAXCOLS; t++)
         gsl_interp_init(transfer_table.mat_intp[t],transfer_table.logk, transfer_table.logD[t],transfer_table.Nentry);
-
 
     message(0,"Scale-dependent growth calculated. Mean = %g %g %g %g %g\n",meangrowth[0], meangrowth[1], meangrowth[2], meangrowth[3], meangrowth[4]);
     message(0, "Power spectrum rows: %d, Transfer: %d (%g -> %g)\n", power_table.Nentry, transfer_table.Nentry, transfer_table.logD[0][0],transfer_table.logD[0][transfer_table.Nentry-1]);
