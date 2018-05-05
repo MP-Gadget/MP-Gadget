@@ -140,9 +140,8 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     {
         while(no >= 0)
         {
-            double mass, facpot, fac, r2, r, h;
+            double mass, r2, h;
             double dx, dy, dz;
-            int otherh;
             if(node_is_particle(no))
             {
                 /*Hybrid particle neutrinos do not gravitate at early times*/
@@ -161,7 +160,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 mass = P[no].Mass;
 
                 h = input->Soft;
-                otherh = FORCE_SOFTENING(no);
+                const double otherh = FORCE_SOFTENING(no);
                 if(h < otherh)
                     h = otherh;
                 no = Nextnode[no];
@@ -247,7 +246,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 }
 
                 h = input->Soft;
-                otherh = nop->u.d.MaxSoftening;
+                const double otherh = nop->u.d.MaxSoftening;
                 if(h < otherh)
                 {
                     h = otherh;
@@ -265,7 +264,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
             }
 
-            r = sqrt(r2);
+            double facpot, fac;
+
+            const double r = sqrt(r2);
 
             if(r >= h)
             {
