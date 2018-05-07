@@ -1,8 +1,8 @@
 OutputDir = output # Directory for output
 FileBase = IC              # Base-filename of output files
 
-Ngrid = 128
-BoxSize = 60000
+Ngrid = 256
+BoxSize = 30000
 Redshift = 99
 Seed = 181170    #  seed for IC-generator
 ProduceGas = 1
@@ -20,12 +20,12 @@ WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
                           # "2" selects a tabulated power spectrum in
                           # the file 'FileWithInputSpectrum'
                           # otherwise, Efstathiou parametrization is used
-PrimordialIndex = -1      # may be used to tilt the primordial index
-
+PrimordialIndex = 0.9667      # may be used to tilt the primordial index
+PrimordialAmplitude = 2.142e-11
 
 DifferentTransferFunctions = 1
-FileWithInputSpectrum = linear_growth_matterpow_99.dat
-FileWithTransferFunction = linear_growth_transfer_99.dat
+FileWithInputSpectrum = linear_growth_matterpow.dat
+FileWithTransferFunction = linear_growth_transfer.dat
 UnitaryAmplitude = 1
 
 # Neutrinos
