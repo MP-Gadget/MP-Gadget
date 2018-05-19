@@ -3,17 +3,23 @@
 
 #include <stddef.h>
 #include <stdint.h>
+#include <gsl/gsl_interp.h>
 
 struct _powerspectrum {
     double * kk;
     double * Power;
-    double * logknu;
-    double * Pnuratio;
     int64_t * Nmodes;
     size_t size;
     size_t nalloc;
     size_t nonzero;
     double Norm;
+    /*These are for the LRA neutrino code*/
+    double * logknu;
+    double * Pnuratio;
+    double nu_prefac;
+    gsl_interp *nu_spline;
+    gsl_interp_accel * nu_acc;
+
 };
 
 /*Allocate memory for the power spectrum*/
@@ -29,4 +35,6 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
 /*Save the power spectrum to a file*/
 void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const double Time, const double D1);
 
+/*Save the neutrino power spectrum to a file*/
+void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const double Time);
 #endif

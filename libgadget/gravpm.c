@@ -13,19 +13,13 @@
 #include "domain.h"
 
 #include "cosmology.h"
-#include "kspace-neutrinos/delta_pow.h"
 #include "kspace-neutrinos/delta_tot_table.h"
 
 /*Global variable to store power spectrum*/
 struct _powerspectrum PowerSpectrum;
 
-/* Structure which holds pointers to the stored
- * neutrino power spectrum*/
-_delta_pow nu_pow;
 /*Structure which holds the neutrino state*/
 _delta_tot_table delta_tot_table;
-
-void powerspectrum_nu_save(struct _delta_pow *nu_pow, const char * OutputDir, const double Time);
 
 static int pm_mark_region_for_node(int startno, int rid);
 static void convert_node_to_region(PetaPMRegion * r);
@@ -99,7 +93,7 @@ void gravpm_force(void) {
     if(ThisTask == 0)
         powerspectrum_save(&PowerSpectrum, All.OutputDir, All.Time, GrowthFactor(All.Time, 1.0));
     if(ThisTask == 0 && All.MassiveNuLinRespOn)
-        powerspectrum_nu_save(&nu_pow, All.OutputDir, All.Time);
+        powerspectrum_nu_save(&PowerSpectrum, All.OutputDir, All.Time);
     walltime_measure("/LongRange");
     /*Rebuild the force tree we freed in _prepare to save memory*/
     force_tree_rebuild();
@@ -333,43 +327,26 @@ static void compute_neutrino_power() {
         free_transfer_init_table(&transfer_init);
     }
     const double partnu = particle_nu_fraction(&All.CP.ONu.hybnu, All.Time, 0);
-    double kspace_prefac = 0;
     if(1 - partnu > 1e-3) {
         get_delta_nu_update(&delta_tot_table, All.Time, PowerSpectrum.nonzero, PowerSpectrum.kk, PowerSpectrum.Pnuratio, Pnu, NULL);
-        message(0,"Done getting neutrino power: nk= %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum.nonzero, PowerSpectrum.kk[1], Pnu[1], PowerSpectrum.Pnuratio[1]);
+        message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum.nonzero, PowerSpectrum.kk[1], Pnu[1], PowerSpectrum.Pnuratio[1]);
         /*kspace_prefac = M_nu (analytic) / M_particles */
         const double OmegaNu_nop = get_omega_nu_nopart(&All.CP.ONu, All.Time);
         const double omega_hybrid = get_omega_nu(&All.CP.ONu, 1) * partnu / pow(All.Time, 3);
         /* Omega0 - Omega in neutrinos + Omega in particle neutrinos = Omega in particles*/
-        kspace_prefac = OmegaNu_nop/(delta_tot_table.Omeganonu/pow(All.Time,3) + omega_hybrid);
+        PowerSpectrum.nu_prefac = OmegaNu_nop/(delta_tot_table.Omeganonu/pow(All.Time,3) + omega_hybrid);
     }
     /*We want to interpolate in log space*/
     for(i=0; i < PowerSpectrum.nonzero; i++) {
         PowerSpectrum.logknu[i] = log(PowerSpectrum.kk[i]);
         PowerSpectrum.Pnuratio[i] = Pnu[i]/PowerSpectrum.Pnuratio[i];
     }
-    init_delta_pow(&nu_pow, PowerSpectrum.logknu, PowerSpectrum.Pnuratio, PowerSpectrum.nonzero, kspace_prefac);
+    /*Initialize the interpolation for the neutrinos*/
+    PowerSpectrum.nu_spline = gsl_interp_alloc(gsl_interp_linear,PowerSpectrum.nonzero);
+    PowerSpectrum.nu_acc = gsl_interp_accel_alloc();
+    gsl_interp_init(PowerSpectrum.nu_spline,PowerSpectrum.logknu,PowerSpectrum.Pnuratio,PowerSpectrum.nonzero);
     /*Zero power spectrum, which is stored with the neutrinos*/
     powerspectrum_zero(&PowerSpectrum);
-}
-
-void powerspectrum_nu_save(struct _delta_pow *nu_pow, const char * OutputDir, const double Time)
-{
-    int i;
-    char fname[1024];
-    /* Now save the neutrino power spectrum*/
-    snprintf(fname, 1024,"%s/powerspectrum-nu-%0.4f.txt", OutputDir, Time);
-    FILE * fp = fopen(fname, "w");
-    fprintf(fp, "# in Mpc/h Units \n");
-    fprintf(fp, "# (k P_nu(k))\n");
-    fprintf(fp, "# a= %g\n", Time);
-    fprintf(fp, "# nk = %d\n", delta_tot_table.nk);
-    for(i = 0; i < delta_tot_table.nk; i++){
-        fprintf(fp, "%g %g\n", exp(nu_pow->logkk[i]), pow(delta_tot_table.delta_nu_last[i],2));
-    }
-    fclose(fp);
-    /*Clean up the neutrino memory now we saved the power spectrum.*/
-    free_d_pow(nu_pow);
 }
 
 /* Compute the power spectrum of the fourier transformed grid in value.
@@ -452,8 +429,13 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
 
     /*Add neutrino power if desired*/
     if(All.MassiveNuLinRespOn && k2 > 0) {
-        /*Change the units of k to match those of logkk*/
+        /* Change the units of k to match those of logkk*/
         double logk2 = log(sqrt(k2) * 2 * M_PI / (All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 ));
+        /* Floating point roundoff and the binning means there may be a mode just beyond the box size.*/
+        if(logk2 < PowerSpectrum.logknu[0] && logk2 > PowerSpectrum.logknu[0]-log(2) )
+            logk2 = PowerSpectrum.logknu[0];
+        else if( logk2 > PowerSpectrum.logknu[PowerSpectrum.nonzero-1])
+            logk2 = PowerSpectrum.logknu[PowerSpectrum.nonzero-1];
         /* Note get_neutrino_powerspec returns Omega_nu / (Omega0 -OmegaNu) * delta_nu / P_cdm^1/2, which is dimensionless.
          * So below is: M_cdm * delta_cdm (1 + Omega_nu/(Omega0-OmegaNu) (delta_nu / delta_cdm))
          *            = M_cdm * (delta_cdm (Omega0 - OmegaNu)/Omega0 + Omega_nu/Omega0 delta_nu) * Omega0 / (Omega0-OmegaNu)
@@ -462,7 +444,8 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
          *            = (M_cdm + M_nu) * delta_t
          * This is correct for the forces, and gives the right power spectrum,
          * once we multiply PowerSpectrum.Norm by (Omega0 / (Omega0 - OmegaNu))**2 */
-        const double nufac = 1 + get_dnudcdm_powerspec(&nu_pow, logk2);
+        const double nufac = 1 + PowerSpectrum.nu_prefac * gsl_interp_eval(PowerSpectrum.nu_spline,PowerSpectrum.logknu,
+                                                                       PowerSpectrum.Pnuratio,logk2,PowerSpectrum.nu_acc);
         value[0][0] *= nufac;
         value[0][1] *= nufac;
     }

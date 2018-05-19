@@ -92,7 +92,7 @@ GADGET_OBJS =  \
 	 densitykernel.o lightcone.o walltime.o\
 	 runtests.o \
      kspace-neutrinos/omega_nu_single.o \
-     kspace-neutrinos/delta_pow.o kspace-neutrinos/delta_tot_table.o \
+     kspace-neutrinos/delta_tot_table.o \
      kspace-neutrinos/transfer_init.o
 
 GADGET_UTILS_OBJS= \

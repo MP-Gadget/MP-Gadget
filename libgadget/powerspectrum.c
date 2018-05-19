@@ -94,3 +94,29 @@ void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * Outp
             fclose(fp);
         }
 }
+
+/*Save the neutrino power spectrum to a file*/
+void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const double Time)
+{
+    int i;
+    char fname[1024];
+    /* Now save the neutrino power spectrum*/
+    snprintf(fname, 1024,"%s/powerspectrum-nu-%0.4f.txt", OutputDir, Time);
+    FILE * fp = fopen(fname, "w");
+    fprintf(fp, "# in Mpc/h Units \n");
+    fprintf(fp, "# k P_nu(k) Nmodes\n");
+    fprintf(fp, "# a= %g\n", Time);
+    fprintf(fp, "# nk = %ld\n", PowerSpectrum->nonzero);
+    /* Pnuratio contains O_nu d_nu / (O_cdm d_cdm). Power contains P_t.
+     * We have that O_0 d_t = O_cdm d_cdm (1 + Pnuratio)
+     * so that d_nu = Pnuratio /O_nu (O_cdm d_cdm) = Pnuratio/(1+Pnuratio) d_t O_0/O_nu
+     * and O_0 / O_nu = 1 + O_nonu/O_nu = 1 + 1/n_prefac*/
+    for(i = 0; i < PowerSpectrum->nonzero; i++){//pow(PowerSpectrum->Pnuratio[i],2) * PowerSpectrum-> Power[i
+        double delta_nu = PowerSpectrum->Pnuratio[i] / (1 + PowerSpectrum->Pnuratio[i]) * PowerSpectrum->Power[i] * (1 + 1/PowerSpectrum->nu_prefac);
+        fprintf(fp, "%g %g %ld\n", PowerSpectrum->kk[i], pow(delta_nu,2), PowerSpectrum->Nmodes[i]);
+    }
+    fclose(fp);
+    /*Clean up the neutrino memory now we saved the power spectrum.*/
+    gsl_interp_free(PowerSpectrum->nu_spline);
+    gsl_interp_accel_free(PowerSpectrum->nu_acc);
+}
