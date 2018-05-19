@@ -134,9 +134,9 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     /*This is ur if neutrinos are massless*/
     out_tab->logD[2][i] = -1*transfers[3+nnu];
     /*h_prime is entry 8 + nnu. t_b is 12 + nnu, t_ncdm[2] is 13 + nnu * 2.*/
-    out_tab->logD[3][i] = -1 * (transfers[8+nnu] * 0.5 + transfers[12+nnu])/ transfers[1];
-    out_tab->logD[4][i] = -1 * transfers[8+nnu] * 0.5 / transfers[2];
-    out_tab->logD[5][i] = -1 * (transfers[8 + nnu] * 0.5 + transfers[13+nnu*2])/ transfers[3+nnu];
+    out_tab->logD[3][i] = transfers[12+nnu];
+    out_tab->logD[4][i] = transfers[8+nnu] * 0.5;
+    out_tab->logD[5][i] = transfers[13+nnu*2];
 }
 
 void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, double scale, const int nnu, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, const int nnu, double scale))
@@ -217,50 +217,50 @@ initialise_transfer_table(int ThisTask, double InitTime, const struct power_para
 
     /*Now normalise the velocity transfer functions: divide by a * hubble, where hubble is the hubble function in Mpc^-1, so H0/c*/
     const double fac = InitTime * hubble_function(InitTime)/CP->Hubble * 100 * CP->HubbleParam/(LIGHTCGS / 1e5);
+    const double onu = get_omega_nu(&CP->ONu, 1);
     double meangrowth[5] = {0};
-    for(t = 3; t < 6; t++) {
+    /* At this point the transfer table contains: (3,4,5) t_b, 0.5 * h_prime, t_ncdm.
+     * After, if t_cdm = 0.5 h_prime / (a H(a) / H0 /c) we need:
+     * (t_b + t_cdm) / d_b, t_cdm/d_cdm, (t_ncdm + t_cdm) / d_ncdm*/
+    for(i=0; i< transfer_table.Nentry; i++) {
+        /* Now row 4 is t_cdm*/
+        transfer_table.logD[4][i] /= fac;
+        transfer_table.logD[3][i] /= fac;
+        transfer_table.logD[5][i] /= fac;
+        transfer_table.logD[3][i] += transfer_table.logD[4][i];
+        transfer_table.logD[5][i] += transfer_table.logD[4][i];
+
+        /*CDM + baryon growth*/
+        transfer_table.logD[6][i] = CP->OmegaBaryon * transfer_table.logD[3][i] + CP->OmegaCDM * transfer_table.logD[4][i];
+        /*total growth*/
+        transfer_table.logD[7][i] = transfer_table.logD[6][i];
+        /*Total delta*/
+        double T_tot = CP->OmegaBaryon * transfer_table.logD[0][i] + CP->OmegaCDM * transfer_table.logD[1][i];
+        /*Divide cdm +  bar total velocity transfer by d_cdm + bar*/
+        transfer_table.logD[6][i] /= T_tot;
+        if(nnu > 0) {
+            /*Add neutrino growth to total growth*/
+            transfer_table.logD[7][i] += onu *  transfer_table.logD[5][i];
+            T_tot += onu * transfer_table.logD[2][i];
+        }
+        /* Total growth normalized by total delta*/
+        transfer_table.logD[7][i] /= T_tot;
+        /*Normalize growth_i by delta_i, and transform delta_i to delta_i/delta_tot*/
+        for(t = 3; t < 6; t++) {
+            transfer_table.logD[t][i] /= transfer_table.logD[t-3][i];
+            transfer_table.logD[t-3][i] /= (T_tot / CP->Omega0);
+        }
+    }
+
+    /*Now compute mean growths*/
+    for(t = 3; t < 8; t++) {
         int nmean=0;
-        for(i=0; i< transfer_table.Nentry; i++) {
-            transfer_table.logD[t][i] /= fac;
+        for(i=0; i< transfer_table.Nentry; i++)
             if(transfer_table.logk[i] > power_table.logk[0]) {
                 meangrowth[t-3] += transfer_table.logD[t][i];
                 nmean++;
             }
-        }
         meangrowth[t-3]/= nmean;
-    }
-    /*Set up CDM + baryon and total growth*/
-    int nmean=0;
-    for(i=0; i< transfer_table.Nentry; i++) {
-        double gb =  transfer_table.logD[3][i];
-        double gcdm =  transfer_table.logD[4][i];
-        double db =  transfer_table.logD[0][i];
-        double dcdm =  transfer_table.logD[1][i];
-        /*CDM + baryon*/
-        transfer_table.logD[6][i] = (CP->OmegaBaryon * gb * db + CP->OmegaCDM * gcdm * dcdm)/(CP->OmegaBaryon * db + CP->OmegaCDM * dcdm);
-        if(CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0) {
-            double gnu =  transfer_table.logD[5][i];
-            double dnu =  transfer_table.logD[2][i];
-            double onu = get_omega_nu(&CP->ONu, 1);
-            transfer_table.logD[7][i] = (CP->OmegaBaryon * gb * db + CP->OmegaCDM * gcdm * dcdm + onu * gnu * dnu)/(CP->OmegaBaryon * db + CP->OmegaCDM * dcdm + onu * dnu);
-        }
-        else
-            transfer_table.logD[7][i] = transfer_table.logD[6][i];
-        if(transfer_table.logk[i] > power_table.logk[0]) {
-            meangrowth[3] += transfer_table.logD[6][i];
-            meangrowth[4] += transfer_table.logD[7][i];
-            nmean++;
-        }
-    }
-    meangrowth[3]/= nmean;
-    meangrowth[4]/= nmean;
-
-    /*Transform T(k) to to T(k)/T_tot(k)*/
-    for(i=0; i< transfer_table.Nentry; i++) {
-        double tot = (CP->OmegaBaryon * transfer_table.logD[0][i] + CP->OmegaCDM * transfer_table.logD[1][i]
-                + (nnu > 0) * get_omega_nu(&CP->ONu, 1) * transfer_table.logD[2][i])/CP->Omega0;
-        for(t = 0; t < 3; t++)
-            transfer_table.logD[t][i] /= tot;
     }
     /*Initialise the interpolators*/
     for(t = 0; t < MAXCOLS; t++)
