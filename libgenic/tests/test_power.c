@@ -74,20 +74,21 @@ test_growth_numerical(void ** state)
     assert_int_equal(nentry, 347);
     //Test sub-horizon scales
     int k, nk = 100;
-    double lowk = 5e-2;
+    //Smaller scales than BAO
+    double lowk = 0.4;
     double highk = 10;
     for (k = 1; k < nk; k++) {
         double newk = exp(log(lowk) + k*(log(highk) - log(lowk))/nk);
         newk/=1e3;
+/*         message(1,"k=%g G = %g F = %g G0 = %g\n",newk*1e3,dlogGrowth(newk, 7), F_Omega(0.01),dlogGrowth(newk, 1)); */
         //Total growth should be very close to F_Omega.
-/*         message(1,"k=%g G = %g F = %g G0 = %g\n",newk*1e3,dlogGrowth(newk, 7), F_Omega(0.01),dlogGrowth(newk, 0)); */
-        assert_true(fabs(dlogGrowth(newk,7)  - F_Omega(0.01)) < 0.001);
+        assert_true(dlogGrowth(newk,7)  - F_Omega(0.01) < 0.01);
+        assert_true(dlogGrowth(newk,7)  - F_Omega(0.01) > 0.005);
         //Growth of CDM should be lower, growth of baryons should be higher.
         assert_true(dlogGrowth(newk,1) < F_Omega(0.01));
-        assert_true(dlogGrowth(newk,1) > 0.9);
-        //The BAO wiggles make this hard to bound
-        assert_true(dlogGrowth(newk,0) > 1);
-        assert_true(dlogGrowth(newk,0) < 1.5);
+        assert_true(fabs(dlogGrowth(newk,1) - 0.9389) < 0.01);
+        assert_true(dlogGrowth(newk,0) > 1.318);
+        assert_true(dlogGrowth(newk,0) < 1.35);
     }
     //Test super-horizon scales
     lowk = 1e-3;

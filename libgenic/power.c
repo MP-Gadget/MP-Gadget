@@ -225,8 +225,6 @@ initialise_transfer_table(int ThisTask, double InitTime, const struct power_para
     for(i=0; i< transfer_table.Nentry; i++) {
         /* Now row 4 is t_cdm*/
         transfer_table.logD[4][i] /= fac;
-        transfer_table.logD[3][i] /= fac;
-        transfer_table.logD[5][i] /= fac;
         transfer_table.logD[3][i] += transfer_table.logD[4][i];
         transfer_table.logD[5][i] += transfer_table.logD[4][i];
 
