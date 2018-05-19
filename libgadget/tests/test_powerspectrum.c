@@ -46,15 +46,13 @@ static void test_total_powerspectrum(void **state) {
     powerspectrum_sum(&PowerSpectrum,3.085678e24);
 
     /*Check summation was done correctly*/
-    assert_true(PowerSpectrum.Nmodes[0] == 0);
-    assert_true(PowerSpectrum.Nmodes[1] == NUM_THREADS*nmpi);
-    assert_true(PowerSpectrum.Nmodes[14] == NUM_THREADS*nmpi*14);
+    assert_true(PowerSpectrum.Nmodes[0] == NUM_THREADS*nmpi);
+    assert_true(PowerSpectrum.Nmodes[13] == NUM_THREADS*nmpi*14);
 
-    assert_true(PowerSpectrum.Power[0] == 0);
-    assert_true(fabs(PowerSpectrum.Power[1] - sin(1)*sin(1)) < 1e-5);
-    assert_true(fabs(PowerSpectrum.Power[13] - sin(13)*sin(13)) < 1e-5);
-    assert_true(fabs(PowerSpectrum.kk[13] - 2 * M_PI *13) < 1e-5);
-    assert_true(fabs(PowerSpectrum.kk[1] - 2 * M_PI ) < 1e-5);
+    assert_true(fabs(PowerSpectrum.Power[0] - sin(1)*sin(1)) < 1e-5);
+    assert_true(fabs(PowerSpectrum.Power[12] - sin(13)*sin(13)) < 1e-5);
+    assert_true(fabs(PowerSpectrum.kk[12] - 2 * M_PI *13) < 1e-5);
+    assert_true(fabs(PowerSpectrum.kk[0] - 2 * M_PI ) < 1e-5);
 
 }
 

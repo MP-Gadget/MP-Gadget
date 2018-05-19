@@ -54,7 +54,8 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
     MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Power, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
-    /*Now fix power spectrum units*/
+    int nk_nz = 0;
+    /*Now fix power spectrum units and remove zero entries.*/
     for(i = 0; i < PowerSpectrum->size; i ++) {
         if(PowerSpectrum->Nmodes[i] == 0) continue;
         PowerSpectrum->Power[i] /= PowerSpectrum->Nmodes[i];
@@ -63,7 +64,13 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
         /* Mpc/h units */
         PowerSpectrum->kk[i] *= 2 * M_PI / (BoxSize_in_cm / 3.085678e24 );
         PowerSpectrum->Power[i] *= pow(BoxSize_in_cm / 3.085678e24 , 3.0);
+        /*Move the power spectrum earlier, removing zero modes*/
+        PowerSpectrum->Power[nk_nz] = PowerSpectrum->Power[i];
+        PowerSpectrum->kk[nk_nz] = PowerSpectrum->kk[i];
+        PowerSpectrum->Nmodes[nk_nz] = PowerSpectrum->Nmodes[i];
+        nk_nz++;
     }
+    PowerSpectrum->nonzero = nk_nz;
 }
 
 /*Save the power spectrum to a file*/
@@ -80,8 +87,7 @@ void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * Outp
             fprintf(fp, "# in Mpc/h Units \n");
             fprintf(fp, "# D1 = %g \n", D1);
             fprintf(fp, "# k P N P(z=0)\n");
-            for(i = 0; i < PowerSpectrum->size; i ++) {
-                if(PowerSpectrum->Nmodes[i] == 0) continue;
+            for(i = 0; i < PowerSpectrum->nonzero; i ++) {
                 fprintf(fp, "%g %g %ld %g\n", PowerSpectrum->kk[i], PowerSpectrum->Power[i], PowerSpectrum->Nmodes[i],
                             PowerSpectrum->Power[i] / (D1 * D1));
             }

@@ -12,6 +12,7 @@ struct _powerspectrum {
     int64_t * Nmodes;
     size_t size;
     size_t nalloc;
+    size_t nonzero;
     double Norm;
 };
 
