@@ -3,9 +3,9 @@
 InitCondFile = output/IC
 OutputDir = output
 TreeCoolFile = ../TREECOOL_fg_june11
-OutputList = "0.02,0.1,0.2,0.25,0.2857143"
+OutputList = "0.02,0.05,0.1,0.2,0.25,0.33,0.5"
 
-Nmesh = 512
+Nmesh = 384
 
 # CPU time -limit
 
@@ -15,14 +15,15 @@ TimeLimitCPU = 430000 #= 80 hours
 
 #  Characteristics of run
 
-TimeMax = 0.3333333
+TimeMax = 1.0
+MaxSizeTimestep = 0.2
 
 Omega0 = 0.31208407     # Total matter density  (at z=0)
 OmegaLambda = 0.68791593      # Cosmological constant (at z=0)
 OmegaBaryon = 0.049322996     # Baryon density        (at z=0)
 HubbleParam = 0.6724      # Hubble paramater 
 
-CoolingOn = 1
+CoolingOn = 0
 StarformationOn = 0
 RadiationOn = 1
 HydroOn = 0
@@ -55,7 +56,7 @@ CritPhysDensity = 0       #  critical physical density for star formation in
 CritOverDensity = 1000   #  overdensity threshold value
 QuickLymanAlphaProbability = 1 # Set to 1.0 to turn dense gas directly into stars.
 
-SnapshotWithFOF = 1
+SnapshotWithFOF = 0
 FOFHaloLinkingLength = 0.2
 FOFHaloMinLength = 32
 WindModel = nowind
