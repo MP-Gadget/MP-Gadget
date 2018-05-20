@@ -121,6 +121,8 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     MyDouble acc_y = 0;
     MyDouble acc_z = 0;
 
+    /*Hybrid particle neutrinos do not gravitate at early times*/
+    const int NeutrinoTracer = All.HybridNeutrinosOn && (All.Time <= All.HybridNuPartTime);
     /*Tree-opening constants*/
     const double rcut = RCUT * All.Asmth * All.BoxSize / All.Nmesh;
     const double rcut2 = rcut * rcut;
@@ -140,19 +142,17 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
     {
         while(no >= 0)
         {
-            double mass, facpot, fac, r2, r, h;
+            double mass, r2, h;
             double dx, dy, dz;
-            int otherh;
             if(node_is_particle(no))
             {
-                /* the index of the node is the index of the particle */
-                drift_particle(no, All.Ti_Current);
-
-                /*Hybrid particle neutrinos do not gravitate at early times*/
-                if(All.HybridNeutrinosOn && All.Time <= All.HybridNuPartTime && P[no].Type == All.FastParticleType)
+                if(NeutrinoTracer)
                 {
-                    no = Nextnode[no];
-                    continue;
+                    if(P[no].Type == All.FastParticleType)
+                    {
+                        no = Nextnode[no];
+                        continue;
+                    }
                 }
 
                 dx = NEAREST(P[no].Pos[0] - pos_x);
@@ -164,7 +164,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 mass = P[no].Mass;
 
                 h = input->Soft;
-                otherh = FORCE_SOFTENING(no);
+                const double otherh = FORCE_SOFTENING(no);
                 if(h < otherh)
                     h = otherh;
                 no = Nextnode[no];
@@ -194,40 +194,30 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                     }
                 }
 
-                mass = nop->u.d.mass;
-
                 dx = NEAREST(nop->u.d.s[0] - pos_x);
                 dy = NEAREST(nop->u.d.s[1] - pos_y);
                 dz = NEAREST(nop->u.d.s[2] - pos_z);
 
                 r2 = dx * dx + dy * dy + dz * dz;
 
+                /*This checks the distance from the node center of mass*/
                 if(r2 > rcut2)
                 {
                     /* check whether we can stop walking along this branch */
                     const double eff_dist = rcut + 0.5 * nop->len;
-                    double dist = NEAREST(nop->center[0] - pos_x);
 
-                    if(dist < -eff_dist || dist > eff_dist)
-                    {
-                        no = nop->u.d.sibling;
-                        continue;
-                    }
-                    dist = NEAREST(nop->center[1] - pos_y);
-
-                    if(dist < -eff_dist || dist > eff_dist)
-                    {
-                        no = nop->u.d.sibling;
-                        continue;
-                    }
-                    dist = NEAREST(nop->center[2] - pos_z);
-
-                    if(dist < -eff_dist || dist > eff_dist)
+                    /*This checks whether we are also outside this region of the oct-tree*/
+                    if(fabs(NEAREST(nop->center[0] - pos_x)) > eff_dist ||
+                        fabs(NEAREST(nop->center[1] - pos_y)) > eff_dist ||
+                            fabs(NEAREST(nop->center[2] - pos_z)) > eff_dist
+                      )
                     {
                         no = nop->u.d.sibling;
                         continue;
                     }
                 }
+
+                mass = nop->u.d.mass;
 
                 /* check relative opening criterion */
                 if(mass * nop->len * nop->len > r2 * r2 * aold)
@@ -250,7 +240,7 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
                 }
 
                 h = input->Soft;
-                otherh = nop->u.d.MaxSoftening;
+                const double otherh = nop->u.d.MaxSoftening;
                 if(h < otherh)
                 {
                     h = otherh;
@@ -268,7 +258,9 @@ int force_treeev_shortrange(TreeWalkQueryGravShort * input,
 
             }
 
-            r = sqrt(r2);
+            double facpot, fac;
+
+            const double r = sqrt(r2);
 
             if(r >= h)
             {
