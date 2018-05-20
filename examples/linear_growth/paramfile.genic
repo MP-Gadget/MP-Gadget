@@ -21,7 +21,7 @@ WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
                           # the file 'FileWithInputSpectrum'
                           # otherwise, Efstathiou parametrization is used
 PrimordialIndex = 0.9667      # may be used to tilt the primordial index
-PrimordialAmplitude = 2.142e-11
+PrimordialAmp = 2.142e-11
 
 DifferentTransferFunctions = 1
 FileWithInputSpectrum = linear_growth_matterpow.dat
