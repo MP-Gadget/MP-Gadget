@@ -30,7 +30,7 @@ def compute_power(output):
     omegab = catcdm.attrs['OmegaBaryon']
     return pkcdm.power, pkb.power, z, box, omega0, omegab
 
-def test_power(output, camb_transfer):
+def test_power(output, camb_transfer, IC=False):
     """Check the initial power against linear theory and a linearly grown IC power"""
     print('testing', output)
     pkcdm, pkb, z, box,omega0, omegab = compute_power(output)
@@ -41,7 +41,7 @@ def test_power(output, camb_transfer):
     canvas = FigureCanvasAgg(fig)
     ax = fig.add_subplot(111)
     zstr = "-"+str(np.round(z,1))
-    if z > 49:
+    if IC:
         zstr = ""
 
     try:
@@ -84,6 +84,6 @@ def test_power(output, camb_transfer):
 
 #This checks that the power spectrum loading and rescaling code is working.
 #This checks that the output is working
-test_power('output/IC', "linear_growth")
+test_power('output/IC', "linear_growth", IC=True)
 for pp in range(8):
     test_power('output/PART_'+str(pp).rjust(3,'0'), "linear_growth")
