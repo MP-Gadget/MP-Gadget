@@ -32,7 +32,7 @@ def compute_power(output):
     omega0 = catcdm.attrs['Omega0']
     return pkcdm.power, pkb.power, z, box, omegab, omega0
 
-def test_power(output, transfer):
+def test_power(output, transfer, IC=False):
     """Check the initial power against linear theory and a linearly grown IC power"""
     print('testing', output)
     pkcdm, pkb, z, box, omegab, omega0 = compute_power(output)
@@ -43,7 +43,7 @@ def test_power(output, transfer):
     ax = fig.add_subplot(111)
 
     ctf = os.path.join(transfer, "class_tk_99.dat")
-    if z < 98.5:
+    if not IC:
         ctf += "-"+str(int(z[0]))+"*"
     # Transfer: 1:k (h/Mpc)              2:d_g                    3:d_b                    4:d_cdm                  5:d_ur        6:d_ncdm[0]              7:d_ncdm[1]              8:d_ncdm[2]              9:d_tot                 10:phi     11:psi                   12:h                     13:h_prime               14:eta                   15:eta_prime     16:t_g                   17:t_b                   18:t_ur        19:t_ncdm[0]             20:t_ncdm[1]             21:t_ncdm[2]             22:t_tot
     trans = np.loadtxt(glob.glob(ctf)[0])
@@ -64,7 +64,7 @@ def test_power(output, transfer):
 #     ax.plot(pkcdm['k'][1:]*1e3, pkb['power'][1:].real/1e9, label="bar")
 #     ax.plot(pkcdm['k'][1:]*1e3, pkcdm['power'][1:].real/1e9, label="DM")
     cmf = os.path.join(transfer, "class_pk_99.dat")
-    if z < 98.5:
+    if not IC:
         cmf += "-"+str(int(z[0]))+"*"
     mat = np.loadtxt(glob.glob(cmf)[0])
     ttot = (omegab * trans[:,2] + (omega0 - omegab) * trans[:,3])/omega0
@@ -103,7 +103,6 @@ pklin = scipy.interpolate.interp1d(pkin[:,0], pkin[:,1])
 genpk = numpy.loadtxt("output/inputspec_IC.txt")
 assert_allclose(pklin(genpk[:,0]), genpk[:,1], rtol=2e-2, atol=0.0)
 #This checks that the output is working
-#This checks that the output is working
-test_power('output/IC', ".")
+test_power('output/IC', ".", IC=True)
 for pp in range(3):
     test_power('output/PART_'+str(pp).rjust(3,'0'), ".")
