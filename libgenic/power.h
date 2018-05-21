@@ -26,8 +26,9 @@ struct power_params
  * comoving synchronous gauge density. Roughly speaking one is choosing a spatial gauge
  * comoves with the large-scale radiation perturbation, making them zero.
  *
- * The velocities for this gauge can be obtained by differentiating the synchronous gauge
- * velocity perturbations. Note that on super-horizon scales this is not the same as the
+ * The velocities for this gauge can be obtained by using the synchronous gauge
+ * velocity transfer functions, or by differentiating density transfer functions.
+ * Note that on super-horizon scales this is not the same as the
  * longitudinal gauge velocity!
  *
  * There is a residual error from the gradient of the radiation perturbations, which peaks
