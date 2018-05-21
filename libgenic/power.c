@@ -137,11 +137,16 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
      * 0 is baryons, 1 is CDM, 2 is massive neutrinos (we use the most massive neutrino species).
      * 3 is growth function for baryons, 4 is growth function for CDM, 5 is growth function for massive neutrinos.
      * We use the formulae for velocities from fastpm in synchronous gauge:
-     * https://github.com/rainwoodman/fastpm-python/blob/master/fastpm/multi.py#L185
+     * https://github.com/rainwoodman/fastpm-python/blob/02ce2ff87897f713c7b9204630f4e0257d703784/fastpm/multi.py#L185
      * CDM = - h_prime / 2 / d_cdm
      * bar = - (h_prime / 2  + t_b) / d_b
      * nu = - (h_prime / 2 + t_ncdm) / d_ncdm
-     * and there is a normalisation factor of (1+z)/ hubble applied later on.*/
+     * and there is a normalisation factor of (1+z)/ hubble applied later on.
+     *
+     * See http://adsabs.harvard.edu/abs/1995ApJ...455....7M
+     * Eq. 42 (cdm), not using 49(ur), eq. 66 (baryons, and ncdm, truncation at the same order as baryon).
+     * These are in CLASS units: they are converted to Gadget units in initialise_transfer_table().
+     * */
     out_tab->logD[DELTA_BAR][i] = -1*transfers[1];
     out_tab->logD[DELTA_CDM][i] = -1*transfers[2];
     /*This is ur if neutrinos are massless*/
