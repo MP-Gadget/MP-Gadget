@@ -128,6 +128,7 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
 
     We use class velocity transfer functions to have accurate initial conditions
     even on superhorizon scales, and to properly support multiple species.
+    The alternative is to use rescaling.
 
     Not supported:
         - Warm dark matter power spectra.
@@ -171,6 +172,8 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
     trans = powspec.get_transfer(z=redshift)
     if config['DifferentTransferFunctions'] == 1.:
         tfile = os.path.join(sdir, config['FileWithTransferFunction'])
+        if os.path.exists(tfile):
+            raise IOError("Refusing to write to existing file: ",transferfile)
         save_transfer(trans, tfile)
     #fp-roundoff
     trans['k'][-1] *= 0.9999
@@ -184,6 +187,8 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
         for red in extraz:
             trans = powspec.get_transfer(z=red)
             tfile = os.path.join(sdir, config['FileWithTransferFunction']+"-"+str(red))
+            if os.path.exists(tfile):
+                raise IOError("Refusing to write to existing file: ",transferfile)
             save_transfer(trans, tfile)
             trans['k'][-1] *= 0.9999
             #Get and save the matter power spectrum
@@ -197,8 +202,6 @@ def save_transfer(transfer, transferfile):
     """Save a transfer function. Note we save the CLASS FORMATTED transfer functions.
     The transfer functions differ from CAMB by:
         T_CAMB(k) = -T_CLASS(k)/k^2 """
-    if os.path.exists(transferfile):
-        raise IOError("Refusing to write to existing file: ",transferfile)
     header="""Transfer functions T_i(k) for adiabatic (AD) mode (normalized to initial curvature=1)
 d_i   stands for (delta rho_i/rho_i)(k,z) with above normalization
 d_tot stands for (delta rho_tot/rho_tot)(k,z) with rho_Lambda NOT included in rho_tot
