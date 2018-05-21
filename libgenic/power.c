@@ -331,9 +331,9 @@ double Delta_Tabulated(double k, int Type)
     }
     /*CDM + baryons*/
     else if (Type == 3){
-        double db =  gsl_interp_eval(transfer_table.mat_intp[0], transfer_table.logk, transfer_table.logD[0], logk, transfer_table.mat_intp_acc[0]);
-        double dcdm =  gsl_interp_eval(transfer_table.mat_intp[1], transfer_table.logk, transfer_table.logD[1], logk, transfer_table.mat_intp_acc[1]);
-        trans = db + dcdm;
+        double db =  gsl_interp_eval(transfer_table.mat_intp[DELTA_BAR], transfer_table.logk, transfer_table.logD[DELTA_BAR], logk, transfer_table.mat_intp_acc[DELTA_BAR]);
+        double dcdm =  gsl_interp_eval(transfer_table.mat_intp[DELTA_CDM], transfer_table.logk, transfer_table.logD[DELTA_CDM], logk, transfer_table.mat_intp_acc[DELTA_CDM]);
+        trans = (CP->OmegaBaryon * db + CP->OmegaCDM * dcdm)/(CP->OmegaCDM + CP->OmegaBaryon);
     }
   }
 

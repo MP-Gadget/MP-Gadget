@@ -49,6 +49,8 @@ test_read_no_rescale(void ** state)
         assert_true(DeltaSpec(newk,7) < DeltaSpec(0.10022E+01/1e3,7));
         assert_true(DeltaSpec(newk,7) > DeltaSpec(0.10362E+01/1e3,7));
         assert_true(DeltaSpec(newk,0)/DeltaSpec(0.10362E+01/1e3,1) < 1);
+        /*Check that the CDM + baryon power is the same as the total power for massless neutrinos*/
+        assert_true(fabs(DeltaSpec(newk,3)/DeltaSpec(newk,7)-1) < 1e-5);
     }
     //Now check transfer functions: ratio of total to species should be ratio of T_s to T_tot squared: large scales where T~ 1
     //CDM
