@@ -38,6 +38,19 @@ struct table
 static struct table power_table;
 /*Columns: 0 == baryon, 1 == CDM, 2 == neutrino, 3 == baryon velocity, 4 == CDM velocity, 5 = neutrino velocity*/
 static struct table transfer_table;
+/*Symbolic constants for the rows of the transfer table*/
+/*Number of types with defined transfers.*/
+enum TransferCols
+{
+    DELTA_BAR = 0,
+    DELTA_CDM = 1,
+    DELTA_NU = 2,
+    VEL_BAR = 3,
+    VEL_CDM = 4,
+    VEL_NU = 5,
+    VEL_CB = 6,
+    VEL_TOT = 7
+};
 
 double DeltaSpec(double k, int Type)
 {
@@ -66,7 +79,7 @@ double dlogGrowth(double kmag, int Type)
       Type = MAXCOLS-4;
   }
   /*Use the velocity entries*/
-  double growth =  gsl_interp_eval(transfer_table.mat_intp[3+Type], transfer_table.logk, transfer_table.logD[3+Type], logk, transfer_table.mat_intp_acc[3+Type]);
+  double growth =  gsl_interp_eval(transfer_table.mat_intp[VEL_BAR + Type], transfer_table.logk, transfer_table.logD[VEL_BAR + Type], logk, transfer_table.mat_intp_acc[VEL_BAR+Type]);
 
   if(isinf(growth) || isnan(growth) || growth < 0)
       endrun(1,"Growth function is: %g for k = %g, Type = %d\n", growth, kmag, Type);
@@ -129,14 +142,14 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
      * bar = - (h_prime / 2  + t_b) / d_b
      * nu = - (h_prime / 2 + t_ncdm) / d_ncdm
      * and there is a normalisation factor of (1+z)/ hubble applied later on.*/
-    out_tab->logD[0][i] = -1*transfers[1];
-    out_tab->logD[1][i] = -1*transfers[2];
+    out_tab->logD[DELTA_BAR][i] = -1*transfers[1];
+    out_tab->logD[DELTA_CDM][i] = -1*transfers[2];
     /*This is ur if neutrinos are massless*/
-    out_tab->logD[2][i] = -1*transfers[3+nnu];
+    out_tab->logD[DELTA_NU][i] = -1*transfers[3+nnu];
     /*h_prime is entry 8 + nnu. t_b is 12 + nnu, t_ncdm[2] is 13 + nnu * 2.*/
-    out_tab->logD[3][i] = transfers[12+nnu];
-    out_tab->logD[4][i] = transfers[8+nnu] * 0.5;
-    out_tab->logD[5][i] = transfers[13+nnu*2];
+    out_tab->logD[VEL_BAR][i] = transfers[12+nnu];
+    out_tab->logD[VEL_CDM][i] = transfers[8+nnu] * 0.5;
+    out_tab->logD[VEL_NU][i] = transfers[13+nnu*2];
 }
 
 void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, double scale, const int nnu, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, const int nnu, double scale))
@@ -224,25 +237,25 @@ initialise_transfer_table(int ThisTask, double InitTime, const struct power_para
      * (t_b + t_cdm) / d_b, t_cdm/d_cdm, (t_ncdm + t_cdm) / d_ncdm*/
     for(i=0; i< transfer_table.Nentry; i++) {
         /* Now row 4 is t_cdm*/
-        transfer_table.logD[4][i] /= fac;
-        transfer_table.logD[3][i] += transfer_table.logD[4][i];
-        transfer_table.logD[5][i] += transfer_table.logD[4][i];
+        transfer_table.logD[VEL_CDM][i] /= fac;
+        transfer_table.logD[VEL_BAR][i] += transfer_table.logD[VEL_CDM][i];
+        transfer_table.logD[VEL_NU][i] += transfer_table.logD[VEL_CDM][i];
 
         /*CDM + baryon growth*/
-        transfer_table.logD[6][i] = CP->OmegaBaryon * transfer_table.logD[3][i] + CP->OmegaCDM * transfer_table.logD[4][i];
+        transfer_table.logD[VEL_CB][i] = CP->OmegaBaryon * transfer_table.logD[VEL_BAR][i] + CP->OmegaCDM * transfer_table.logD[VEL_CDM][i];
         /*total growth*/
-        transfer_table.logD[7][i] = transfer_table.logD[6][i];
+        transfer_table.logD[VEL_TOT][i] = transfer_table.logD[VEL_CB][i];
         /*Total delta*/
-        double T_tot = CP->OmegaBaryon * transfer_table.logD[0][i] + CP->OmegaCDM * transfer_table.logD[1][i];
+        double T_tot = CP->OmegaBaryon * transfer_table.logD[DELTA_BAR][i] + CP->OmegaCDM * transfer_table.logD[DELTA_CDM][i];
         /*Divide cdm +  bar total velocity transfer by d_cdm + bar*/
-        transfer_table.logD[6][i] /= T_tot;
+        transfer_table.logD[VEL_CB][i] /= T_tot;
         if(nnu > 0) {
             /*Add neutrino growth to total growth*/
-            transfer_table.logD[7][i] += onu *  transfer_table.logD[5][i];
-            T_tot += onu * transfer_table.logD[2][i];
+            transfer_table.logD[VEL_TOT][i] += onu *  transfer_table.logD[VEL_NU][i];
+            T_tot += onu * transfer_table.logD[DELTA_NU][i];
         }
         /* Total growth normalized by total delta*/
-        transfer_table.logD[7][i] /= T_tot;
+        transfer_table.logD[VEL_TOT][i] /= T_tot;
         /*Normalize growth_i by delta_i, and transform delta_i to delta_i/delta_tot*/
         for(t = 3; t < 6; t++) {
             transfer_table.logD[t][i] /= transfer_table.logD[t-3][i];
@@ -265,7 +278,7 @@ initialise_transfer_table(int ThisTask, double InitTime, const struct power_para
         gsl_interp_init(transfer_table.mat_intp[t],transfer_table.logk, transfer_table.logD[t],transfer_table.Nentry);
 
     message(0,"Scale-dependent growth calculated. Mean = %g %g %g %g %g\n",meangrowth[0], meangrowth[1], meangrowth[2], meangrowth[3], meangrowth[4]);
-    message(0, "Power spectrum rows: %d, Transfer: %d (%g -> %g)\n", power_table.Nentry, transfer_table.Nentry, transfer_table.logD[0][0],transfer_table.logD[0][transfer_table.Nentry-1]);
+    message(0, "Power spectrum rows: %d, Transfer: %d (%g -> %g)\n", power_table.Nentry, transfer_table.Nentry, transfer_table.logD[DELTA_BAR][0],transfer_table.logD[DELTA_BAR][transfer_table.Nentry-1]);
     return transfer_table.Nentry;
 }
 
