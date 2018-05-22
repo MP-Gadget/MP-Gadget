@@ -105,4 +105,4 @@ assert_allclose(pklin(genpk[:,0]), genpk[:,1], rtol=2e-2, atol=0.0)
 #This checks that the output is working
 test_power('output/IC', ".", IC=True)
 for pp in range(3):
-    test_power('output/PART_'+str(pp).rjust(3,'0'), ".")
+    test_power('output/PART_'+str(pp).rjust(3,'0'), ".", IC=(pp==0))
