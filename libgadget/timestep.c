@@ -581,6 +581,11 @@ get_long_range_timestep_dloga()
                 dloga = dloga1;
         }
     }
+
+    if(dloga < All.MinSizeTimestep) {
+        dloga = All.MinSizeTimestep;
+    }
+
     return dloga;
 }
 
@@ -589,13 +594,6 @@ inttime_t
 get_long_range_timestep_ti(const inttime_t dti_max)
 {
     double dloga = get_long_range_timestep_dloga();
-
-    if(dloga < All.MinSizeTimestep) {
-        dloga = All.MinSizeTimestep;
-    }
-    if(dloga > All.MaxSizeTimestep) {
-        dloga = All.MaxSizeTimestep;
-    }
 
     int dti = dti_from_dloga(dloga);
     dti = round_down_power_of_two(dti);
