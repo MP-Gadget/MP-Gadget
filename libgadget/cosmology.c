@@ -13,7 +13,7 @@
 static Cosmology * CP = NULL;
 static inline double OmegaFLD(const double a);
 
-void init_cosmology(Cosmology * CP_in, const double TimeBegin, const double box)
+void init_cosmology(Cosmology * CP_in, const double TimeBegin)
 {
     CP = CP_in;
     /*With slightly relativistic massive neutrinos, for consistency we need to include radiation.
@@ -39,16 +39,6 @@ void init_cosmology(Cosmology * CP_in, const double TimeBegin, const double box)
      * This ensures that OmegaCDM contains only non-relativistic species.*/
     if(CP->MNu[0] + CP->MNu[1] + CP->MNu[2] > 0) {
         CP->OmegaCDM -= get_omega_nu(&CP->ONu, 1);
-        /* Warn if we have a large enough box that neutrinos are not free-streaming on the largest scales.
-         * Free-streaming scale is ~500 Mpc at z=99 for M_nu = 0.3 eV.
-         * FIXME: Implement scale dependent growth correction, by differentiating transfer functions.*/
-        /*Neutrino thermal velocity in cm/s*/
-        double v_th = BOLEVK*(TNUCMB*CP->CMBTemperature)/(CP->MNu[0] + CP->MNu[1] + CP->MNu[2])*3. / TimeBegin * C;
-        /*Neutrino free-streaming length from Lesgourgues & Pastor in (comoving) cm/h*/
-        double nufs = 2 * M_PI * sqrt(2/3.) * v_th / (hubble_function(TimeBegin)/CP->Hubble * HUBBLE)/TimeBegin;
-        /*Box should be in comoving cm/h: we ask for 1/4 of the box because sample variance will matter on larger scales.*/
-        if(nufs < box/4.)
-            message(0,"WARNING: Neutrino free-streaming/box size =  %g. May be inaccurate as scale-dependent growth is not modelled.\n",nufs/box);
     }
 }
 

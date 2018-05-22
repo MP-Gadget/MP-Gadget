@@ -5,7 +5,7 @@ MaxMemSizePerNode = 2000
 
 InitCondFile = output/IC
 OutputDir = output
-OutputList = 0.1,0.12, 0.15
+OutputList = 0.01,0.012, 0.015
 
 Nmesh = 256
 
@@ -17,91 +17,39 @@ TimeLimitCPU = 43000 #= 8 hours
 
 #  Characteristics of run
 
-TimeMax = 0.15
+TimeMax = 0.015
 
-Omega0 = 0.2865      # Total matter density  (at z=0)
-OmegaLambda = 0.7135      # Cosmological constant (at z=0)
-OmegaBaryon = 0.0463     # Baryon density        (at z=0)
-HubbleParam = 0.6932      # Hubble paramater (may be used for power spec parameterization)
+Omega0 = 0.288      # Total matter density  (at z=0)
+OmegaLambda = 0.712      # Cosmological constant (at z=0)
+OmegaBaryon = 0.0472     # Baryon density        (at z=0)
+HubbleParam = 0.7      # Hubble paramater (may be used for power spec parameterization)
 
 HydroOn = 1
 CoolingOn = 1
 StarformationOn = 1
 StarformationCriterion = density
-RadiationOn = 0
+RadiationOn = 1
 MassiveNuLinRespOn = 0
-
-
-# Accuracy of time integration
-MaxSizeTimestep = 0.1
-MinSizeTimestep = 0.01
 
 SnapshotWithFOF = 1
 FOFHaloLinkingLength 0.2
 FOFHaloMinLength = 32
 
-#  Further parameters of SPH
-DensityKernelType = quintic
-
-DensityContrastLimit = 100   # max contrast for hydro force calculation
-DensityResolutionEta = 1.0  # for Cubic spline 1.0 = 33
-MaxNumNgbDeviation = 2
-ArtBulkViscConst = 0.75
-InitGasTemp = 580.0        # always ignored if set to 0 
-MinGasTemp = 5.0
-
-
 # Memory allocation
-
 PartAllocFactor = 2.0
-BufferSize = 100          # in MByte
-
-# Softening lengths
-
-MinGasHsmlFractional 0.01
-
-GravitySoftening = 0.03333
-GravitySofteningGas = 0.00 # enable adaptive softening of gas
 
 #----------------------BH Stuff-------------------------
 BlackHoleOn = 1
-BlackHoleFeedbackFactor = 0.05
-BlackHoleFeedbackRadius = 0.
-BlackHoleFeedbackRadiusMaxPhys = 0.
 BlackHoleFeedbackMethod = spline | mass
-SeedBlackHoleMass = 5.0e-5
-BlackHoleAccretionFactor = 100.0
-BlackHoleNgbFactor = 2.0
-BlackHoleEddingtonFactor = 3.0
 MinFoFMassForNewSeed = 1
 TimeBetweenSeedingSearch 1.03
 
 #----------------------SFR Stuff-------------------------
-
 CritPhysDensity = 0       #  critical physical density for star formation in
 #  hydrogen number density in cm^(-3)
 
 CritOverDensity = 0   #  overdensity threshold value
 
 QuickLymanAlphaProbability = 0.001 # Set to 1.0 to turn dense gas directly into stars.
-
-MaxSfrTimescale = 1.5     # in internal time units
-
-
-TempSupernova = 1.0e8   #  in Kelvin
-
-TempClouds = 1000.0   #  in Kelvin
-FactorSN = 0.1
-FactorEVP = 1000.0
-
 WindOn = 1
 WindModel = ofjt10
-WindEfficiency = 2.0
-WindEnergyFraction = 1.0
-WindSigma0 = 353.0 #km/s
-WindSpeedFactor = 3.7
-
-
-WindFreeTravelLength = 20
-WindFreeTravelDensFac = 0.1
-

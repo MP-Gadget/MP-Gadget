@@ -16,13 +16,19 @@
 
 #define MESH2K(i) petapm_mesh_to_k(i)
 static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value);
+static void vel_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
+static void vel_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
+static void vel_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value);
 static void readout_density(int i, double * mesh, double weight);
-static void readout_force_x(int i, double * mesh, double weight);
-static void readout_force_y(int i, double * mesh, double weight);
-static void readout_force_z(int i, double * mesh, double weight);
+static void readout_vel_x(int i, double * mesh, double weight);
+static void readout_vel_y(int i, double * mesh, double weight);
+static void readout_vel_z(int i, double * mesh, double weight);
+static void readout_disp_x(int i, double * mesh, double weight);
+static void readout_disp_y(int i, double * mesh, double weight);
+static void readout_disp_z(int i, double * mesh, double weight);
 static void gaussian_fill(PetaPMRegion * region, pfft_complex * rho_k, int UnitaryAmplitude, int InvertPhase);
 
 static inline double periodic_wrap(double x)
@@ -128,7 +134,7 @@ static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
 
     /* setup the internal data structure of the region */
     petapm_region_init_strides(&regions[r]);
-    *Nregions = 1.0;
+    *Nregions = 1;
     return regions;
 }
 
@@ -138,13 +144,6 @@ static int ptype;
 void displacement_fields(int Type) {
     /*MUST set this before doing force.*/
     ptype = Type;
-    PetaPMFunctions functions[] = {
-        {"Density", density_transfer, readout_density},
-        {"DispX", disp_x_transfer, readout_force_x},
-        {"DispY", disp_y_transfer, readout_force_y},
-        {"DispZ", disp_z_transfer, readout_force_z},
-        {NULL, NULL, NULL },
-    };
     PetaPMParticleStruct pstruct = {
         ICP,
         sizeof(ICP[0]),
@@ -154,9 +153,28 @@ void displacement_fields(int Type) {
         NULL,
         NumPart,
     };
+
+    /* This reads out the displacements into P.Disp and the velocities into P.Vel.
+     * Disp is used to avoid changing the particle positions mid-way through.
+     * Note that for the velocities we do NOT just use the velocity transfer functions.
+     * The reason is because of the gauge: velocity transfer is in synchronous gauge for CLASS,
+     * newtonian gauge for CAMB. But we want N-body gauge, which we get by taking the time derivative
+     * of the synchronous gauge density perturbations. See arxiv:1505.04756*/
+    PetaPMFunctions functions[] = {
+        {"Density", density_transfer, readout_density},
+        {"DispX", disp_x_transfer, readout_disp_x},
+        {"DispY", disp_y_transfer, readout_disp_y},
+        {"DispZ", disp_z_transfer, readout_disp_z},
+        {"VelX", vel_x_transfer, readout_vel_x},
+        {"VelY", vel_y_transfer, readout_vel_y},
+        {"VelZ", vel_z_transfer, readout_vel_z},
+        {NULL, NULL, NULL },
+    };
+
+    /*Set up the velocity pre-factors*/
     const double hubble_a = hubble_function(All.TimeIC);
 
-    double vel_prefac = All.TimeIC * hubble_a * F_Omega(All.TimeIC);
+    double vel_prefac = All.TimeIC * hubble_a;
 
     if(All.IO.UsePeculiarVelocity) {
         /* already for peculiar velocity */
@@ -164,7 +182,13 @@ void displacement_fields(int Type) {
     } else {
         vel_prefac /= sqrt(All.TimeIC);	/* converts to Gadget velocity */
     }
-    message(0, "vel_prefac= %g  hubble_a=%g fom=%g \n", vel_prefac, hubble_a, F_Omega(All.TimeIC));
+
+    if(!All2.PowerP.ScaleDepVelocity) {
+        vel_prefac *= F_Omega(All.TimeIC);
+        /* If different transfer functions are disabled, we can copy displacements to velocities
+         * and we don't need the extra transfers.*/
+        functions[4].name = NULL;
+    }
 
     PetaPMRegion * regions = petapm_force_init(
            makeregion,
@@ -177,28 +201,40 @@ void displacement_fields(int Type) {
 		  rho_k, All2.UnitaryAmplitude, All2.InvertPhase);
 
     petapm_force_c2r(rho_k, regions, functions);
+
     myfree(rho_k);
     myfree(regions);
     petapm_force_finish();
 
-    double maxdisp = 0;
+    double maxdisp = 0, maxvel = 0;
     int i;
-    #pragma omp parallel for reduction(max:maxdisp)
+    #pragma omp parallel for reduction(max:maxdisp, maxvel)
     for(i = 0; i < NumPart; i++)
     {
         int k;
-        for (k = 0; k < 3; k ++) {
-            double dis = ICP[i].Vel[k];
-            if(dis > maxdisp) {
+        double absv = 0;
+        for(k = 0; k < 3; k++)
+        {
+            double dis = ICP[i].Disp[k];
+            if(dis > maxdisp)
                 maxdisp = dis;
-            }
-            ICP[i].Pos[k] += ICP[i].Vel[k];
+            /*Copy displacements to positions.*/
+            ICP[i].Pos[k] += ICP[i].Disp[k];
+            /*Copy displacements to velocities if not done already*/
+            if(!All2.PowerP.ScaleDepVelocity)
+                ICP[i].Vel[k] = ICP[i].Disp[k];
             ICP[i].Vel[k] *= vel_prefac;
+            absv += ICP[i].Vel[k] * ICP[i].Vel[k];
             ICP[i].Pos[k] = periodic_wrap(ICP[i].Pos[k]);
         }
+        if(absv > maxvel)
+            maxvel = absv;
     }
     MPI_Allreduce(MPI_IN_PLACE, &maxdisp, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
     message(0, "Type = %d max disp = %g in units of cell sep %g \n", ptype, maxdisp, maxdisp / (All.BoxSize / All.Nmesh) );
+
+    MPI_Allreduce(MPI_IN_PLACE, &maxvel, 1, MPI_DOUBLE, MPI_MAX, MPI_COMM_WORLD);
+    message(0, "Max vel=%g km/s, vel_prefac= %g  hubble_a=%g fom=%g \n", sqrt(maxvel), vel_prefac, hubble_a, F_Omega(All.TimeIC));
 
     walltime_measure("/Disp/Finalize");
     MPI_Barrier(MPI_COMM_WORLD);
@@ -229,46 +265,48 @@ static void density_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
         value[0][1] *= fac;
     }
 }
-static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+
+static void disp_transfer(int64_t k2, int kaxis, pfft_complex * value, int include_growth) {
     if(k2) {
-        double fac = (All.BoxSize / (2 * M_PI)) * kpos[0] / k2;
+        double fac = (All.BoxSize / (2 * M_PI)) * kaxis / k2;
         /*
          We avoid high precision kernels to maintain compatibility with N-GenIC.
          The following formular shall cross check with fac in the limit of
          native diff_kernel (disp_y, disp_z shall match too!)
 
         double fac1 = (2 * M_PI) / All.BoxSize;
-        double fac = diff_kernel(kpos[0] * (2 * M_PI / All.Nmesh)) * (All.Nmesh / All.BoxSize) / (
+        double fac = diff_kernel(kaxis * (2 * M_PI / All.Nmesh)) * (All.Nmesh / All.BoxSize) / (
                     k2 * fac1 * fac1);
                     */
-
         double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
         fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
+        /*Multiply by derivative of scale-dependent growth function*/
+        if(include_growth)
+            fac *= dlogGrowth(kmag, ptype);
         double tmp = value[0][0];
         value[0][0] = - value[0][1] * fac;
         value[0][1] = tmp * fac;
     }
+}
+
+static void vel_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(k2, kpos[0], value, 1);
+}
+static void vel_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(k2, kpos[1], value, 1);
+}
+static void vel_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(k2, kpos[2], value, 1);
+}
+
+static void disp_x_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
+    disp_transfer(k2, kpos[0], value, 0);
 }
 static void disp_y_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    if(k2) {
-        double fac = (All.BoxSize / (2 * M_PI)) * kpos[1] / k2;
-        double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
-        double tmp = value[0][0];
-        value[0][0] = - value[0][1] * fac;
-        value[0][1] = tmp * fac;
-    }
+    disp_transfer(k2, kpos[1], value, 0);
 }
 static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
-    if(k2) {
-        double fac = (All.BoxSize / (2 * M_PI)) * kpos[2] / k2;
-        double kmag = sqrt(k2) * 2 * M_PI / All.BoxSize;
-        fac *= DeltaSpec(kmag, ptype) / sqrt(All.BoxSize * All.BoxSize * All.BoxSize);
-
-        double tmp = value[0][0];
-        value[0][0] = - value[0][1] * fac;
-        value[0][1] = tmp * fac;
-    }
+    disp_transfer(k2, kpos[2], value, 0);
 }
 
 /**************
@@ -277,15 +315,26 @@ static void disp_z_transfer(int64_t k2, int kpos[3], pfft_complex * value) {
 static void readout_density(int i, double * mesh, double weight) {
     ICP[i].Density += weight * mesh[0];
 }
-static void readout_force_x(int i, double * mesh, double weight) {
+static void readout_vel_x(int i, double * mesh, double weight) {
     ICP[i].Vel[0] += weight * mesh[0];
 }
-static void readout_force_y(int i, double * mesh, double weight) {
+static void readout_vel_y(int i, double * mesh, double weight) {
     ICP[i].Vel[1] += weight * mesh[0];
 }
-static void readout_force_z(int i, double * mesh, double weight) {
+static void readout_vel_z(int i, double * mesh, double weight) {
     ICP[i].Vel[2] += weight * mesh[0];
 }
+
+static void readout_disp_x(int i, double * mesh, double weight) {
+    ICP[i].Disp[0] += weight * mesh[0];
+}
+static void readout_disp_y(int i, double * mesh, double weight) {
+    ICP[i].Disp[1] += weight * mesh[0];
+}
+static void readout_disp_z(int i, double * mesh, double weight) {
+    ICP[i].Disp[2] += weight * mesh[0];
+}
+
 
 /*
  * The following functions are from fastpm/libfastpm/initialcondition.c.
@@ -443,7 +492,6 @@ pmic_fill_gaussian_gadget(PM * pm, double * delta_k, int seed, int setUnitaryAmp
                 if (setInvertPhase){
                   phase += M_PI; /*invert phase*/
                 }
-
 
                 (delta_k + 2 * ip)[0] = ampl * cos(phase);
                 (delta_k + 2 * ip)[1] = ampl * sin(phase);

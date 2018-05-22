@@ -22,8 +22,8 @@ WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
 # otherwise, Eisenstein & Hu parametrization is used
 
 DifferentTransferFunctions = 1
-FileWithTransferFunction = camb_transfer_nu_99.dat
-FileWithInputSpectrum = camb_matterpow_nu_99.dat      # filename of tabulated input
+FileWithTransferFunction = class_tk_nu_99.dat
+FileWithInputSpectrum = class_pk_nu_99.dat      # filename of tabulated input
 # spectrum (if used)
 InputSpectrum_UnitLength_in_cm = 3.085678e24 # defines length unit of tabulated
 # input spectrum in cm/h. 

@@ -49,7 +49,7 @@ int
 allocator_malloc_init(Allocator * alloc, char * name, size_t request_size, int zero, Allocator * parent)
 {
     /* max support 4096 blocks; ignore request_size */
-    size_t size = ALIGNMENT * 4096; 
+    size_t size = ALIGNMENT * 4096;
 
     void * rawbase;
     if (parent)
@@ -86,7 +86,7 @@ allocator_reset(Allocator * alloc, int zero)
 
 static void *
 allocator_alloc_va(Allocator * alloc, char * name, size_t request_size, int dir, char * fmt, va_list va)
-{ 
+{
     size_t size = request_size;
 
     if(alloc->use_malloc) {
@@ -225,6 +225,9 @@ allocator_iter_ended(AllocatorIter * iter)
 size_t
 allocator_get_free_size(Allocator * alloc)
 {
+    /*For malloc, return an arbitrary large number*/
+    if(alloc->use_malloc)
+        return 1L<<47;
     return (alloc->top - alloc->bottom);
 }
 
@@ -265,7 +268,7 @@ allocator_print(Allocator * alloc)
         !allocator_iter_ended(iter);
         allocator_iter_next(iter))
     {
-        message(1, " %-20s | %c | %010td %010td | %s\n", 
+        message(1, " %-20s | %c | %010td %010td | %s\n",
                  iter->name,
                  "T?B"[iter->dir + 1],
                  iter->request_size, iter->size, iter->annotation);

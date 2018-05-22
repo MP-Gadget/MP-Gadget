@@ -34,9 +34,9 @@ int main(int argc, char **argv)
 
   int64_t TotNumPart = (int64_t) All2.Ngrid*All2.Ngrid*All2.Ngrid;
 
-  init_cosmology(&All.CP, All.TimeIC, All.BoxSize * All.UnitLength_in_cm);
+  init_cosmology(&All.CP, All.TimeIC);
 
-  initialize_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
+  init_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
   petapm_init(All.BoxSize, All.Nmesh, omp_get_max_threads());
   /*Initialise particle spacings*/
   const double meanspacing = All.BoxSize / All2.Ngrid;
@@ -75,7 +75,7 @@ int main(int argc, char **argv)
    * unless DifferentTransferFunctions are on.
    */
   int DMType = 3, GasType = 3, NuType = 2;
-  if(All2.ProduceGas && All2.DifferentTransferFunctions) {
+  if(All2.ProduceGas && All2.PowerP.DifferentTransferFunctions) {
       DMType = 1;
       GasType = 0;
   }

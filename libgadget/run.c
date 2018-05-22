@@ -467,7 +467,7 @@ set_units(void)
     /* convert some physical input parameters to internal units */
 
     All.CP.Hubble = HUBBLE * All.UnitTime_in_s;
-    init_cosmology(&All.CP, All.TimeInit, All.BoxSize * All.UnitLength_in_cm);
+    init_cosmology(&All.CP, All.TimeInit);
 
     if(All.InitGasTemp < 0)
         All.InitGasTemp = DMAX(All.MinGasTemp, All.CP.CMBTemperature / All.TimeInit);
