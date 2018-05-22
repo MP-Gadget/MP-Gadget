@@ -176,7 +176,7 @@ consent from the original authors of these files shall be obtained.
 Status
 ------
 
-master branch on @rainwoodman:
+master branch status:
 
-.. image:: https://travis-ci.org/rainwoodman/MP-Gadget.svg?branch=public
-       :target: https://travis-ci.org/rainwoodman/MP-Gadget
+.. image:: https://travis-ci.org/MP-Gadget/MP-Gadget.svg?branch=master
+       :target: https://travis-ci.org/MP-Gadget/MP-Gadget
