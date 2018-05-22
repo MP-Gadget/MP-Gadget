@@ -145,7 +145,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
      *
      * See http://adsabs.harvard.edu/abs/1995ApJ...455....7M
      * Eq. 42 (cdm), not using 49(ur), eq. 66 (baryons, and ncdm, truncation at the same order as baryon).
-     * These are in CLASS units: they are converted to Gadget units in initialise_transfer_table().
+     * These are in CLASS units: they are converted to Gadget units in init_transfer_table().
      * */
     out_tab->logD[DELTA_BAR][i] = -1*transfers[1];
     out_tab->logD[DELTA_CDM][i] = -1*transfers[2];
@@ -221,7 +221,7 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
 }
 
 int
-initialise_transfer_table(int ThisTask, double InitTime, const struct power_params * const ppar)
+init_transfer_table(int ThisTask, double InitTime, const struct power_params * const ppar)
 {
     int i, t;
     const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
@@ -287,7 +287,7 @@ initialise_transfer_table(int ThisTask, double InitTime, const struct power_para
     return transfer_table.Nentry;
 }
 
-int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in, Cosmology * CPin, struct power_params * ppar)
+int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in, Cosmology * CPin, struct power_params * ppar)
 {
     WhichSpectrum = ppar->WhichSpectrum;
     /*Used only for tk_eh*/
@@ -301,7 +301,7 @@ int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in
         gsl_interp_init(power_table.mat_intp[0],power_table.logk, power_table.logD[0],power_table.Nentry);
         transfer_table.Nentry = 0;
         if(ppar->DifferentTransferFunctions || ppar->ScaleDepVelocity) {
-            initialise_transfer_table(ThisTask, InitTime, ppar);
+            init_transfer_table(ThisTask, InitTime, ppar);
         }
     }
 

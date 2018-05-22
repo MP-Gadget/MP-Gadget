@@ -42,7 +42,7 @@ double DeltaSpec(double kmag, int Type);
 /* Scale-dependent derivative of the growth function,
  * computed by differentiating the provided transfer functions. */
 double dlogGrowth(double kmag, int ptype);
-/* Read power spectrum and transfer function tables from disk, set up growth factors, initialise cosmology. */
-int initialize_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in, Cosmology * CPin, struct power_params * ppar);
+/* Read power spectrum and transfer function tables from disk, set up growth factors, init cosmology. */
+int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in, Cosmology * CPin, struct power_params * ppar);
 
 #endif

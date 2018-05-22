@@ -36,7 +36,7 @@ int main(int argc, char **argv)
 
   init_cosmology(&All.CP, All.TimeIC);
 
-  initialize_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
+  init_powerspectrum(ThisTask, All.TimeIC, All.UnitLength_in_cm, &All.CP, &All2.PowerP);
   petapm_init(All.BoxSize, All.Nmesh, omp_get_max_threads());
   /*Initialise particle spacings*/
   const double meanspacing = All.BoxSize / All2.Ngrid;

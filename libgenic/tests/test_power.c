@@ -30,7 +30,7 @@ test_read_no_rescale(void ** state)
     PowerP.InputPowerRedshift = -1;
     PowerP.DifferentTransferFunctions = 1;
     /*Test without rescaling*/
-    int nentry = initialize_powerspectrum(0, 0.01, 3.085678e21, &CP, &PowerP);
+    int nentry = init_powerspectrum(0, 0.01, 3.085678e21, &CP, &PowerP);
     assert_int_equal(nentry, 347);
     /*Check that the tabulated power spectrum gives the right answer
      * First check ranges: these should both be out of range.
@@ -72,7 +72,7 @@ test_growth_numerical(void ** state)
     /*Test without rescaling*/
     PowerP.InputPowerRedshift = -1;
     PowerP.DifferentTransferFunctions = 1;
-    int nentry = initialize_powerspectrum(0, 0.01, 3.085678e21, &CP, &PowerP);
+    int nentry = init_powerspectrum(0, 0.01, 3.085678e21, &CP, &PowerP);
     assert_int_equal(nentry, 347);
     //Test sub-horizon scales
     int k, nk = 100;
@@ -119,7 +119,7 @@ test_read_rescale_sigma8(void ** state)
      * (we still use the same z=99 power which should not be rescaled in a real simulation)*/
     PowerP.InputPowerRedshift = 9;
     PowerP.DifferentTransferFunctions = 0;
-    int nentry = initialize_powerspectrum(0, 0.05, 3.085678e21, &CP, &PowerP);
+    int nentry = init_powerspectrum(0, 0.05, 3.085678e21, &CP, &PowerP);
     assert_int_equal(nentry, 347);
     assert_true(fabs(pow(DeltaSpec(1.124995061548053968e-02/1e3, 7),2)* 4 /4.745074933325402533/1e9 - 1) < 1e-2);
 }
