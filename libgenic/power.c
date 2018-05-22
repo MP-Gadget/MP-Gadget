@@ -81,7 +81,7 @@ double dlogGrowth(double kmag, int Type)
   /*Use the velocity entries*/
   double growth =  gsl_interp_eval(transfer_table.mat_intp[VEL_BAR + Type], transfer_table.logk, transfer_table.logD[VEL_BAR + Type], logk, transfer_table.mat_intp_acc[VEL_BAR+Type]);
 
-  if(isinf(growth) || isnan(growth) || growth < 0)
+  if(!isfinite(growth))
       endrun(1,"Growth function is: %g for k = %g, Type = %d\n", growth, kmag, Type);
   return growth;
 }
