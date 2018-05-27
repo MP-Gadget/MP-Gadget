@@ -71,6 +71,10 @@ int main(int argc, char **argv)
     message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(All.TimeIC), All2.Max_nuvel*sqrt(All.TimeIC), total_nufrac);
   }
   saveheader(&bf, TotNumPart, TotNu, total_nufrac);
+
+  /*Save the transfer functions*/
+  save_all_transfer_tables(&bf, ThisTask);
+
   /*Use 'total' (CDM + baryon) transfer function
    * unless DifferentTransferFunctions are on.
    */

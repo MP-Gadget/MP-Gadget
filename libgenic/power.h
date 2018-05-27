@@ -2,6 +2,7 @@
 #define GENIC_POWER_H
 
 #include <libgadget/cosmology.h>
+#include <bigfile-mpi.h>
 
 struct power_params
 {
@@ -44,5 +45,8 @@ double DeltaSpec(double kmag, int Type);
 double dlogGrowth(double kmag, int ptype);
 /* Read power spectrum and transfer function tables from disk, set up growth factors, init cosmology. */
 int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in, Cosmology * CPin, struct power_params * ppar);
+
+/*Save the transfer function tables and matter power spectrum to the IC bigfile*/
+void save_all_transfer_tables(BigFile * bf, int ThisTask);
 
 #endif

@@ -4,11 +4,15 @@
 #include <mpi.h>
 #include <gsl/gsl_integration.h>
 #include <gsl/gsl_interp.h>
+#include <bigfile-mpi.h>
 
 #include <libgadget/cosmology.h>
 #include <libgadget/utils.h>
 
 #include "power.h"
+
+/*Defined in save.c*/
+void saveblock_name(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int64_t TotNumPart);
 
 static double Delta_EH(double k);
 static double Delta_Tabulated(double k, int Type);
@@ -38,6 +42,8 @@ struct table
 static struct table power_table;
 /*Columns: 0 == baryon, 1 == CDM, 2 == neutrino, 3 == baryon velocity, 4 == CDM velocity, 5 = neutrino velocity*/
 static struct table transfer_table;
+
+static const char * tnames[MAXCOLS] = {"DELTA_BAR", "DELTA_CDM", "DELTA_NU", "VEL_BAR", "VEL_CDM", "VEL_NU", "VEL_CB", "VEL_TOT"};
 /*Symbolic constants for the rows of the transfer table*/
 /*Number of types with defined transfers.*/
 enum TransferCols
@@ -85,6 +91,52 @@ double dlogGrowth(double kmag, int Type)
       endrun(1,"Growth function is: %g for k = %g, Type = %d\n", growth, kmag, Type);
   return growth;
 }
+
+/*Save a transfer function table to the IC file*/
+static void save_transfer(BigFile * bf, int ncol, struct table * ttable, const char * bname, int ThisTask, const char * colnames[])
+{
+    BigBlock btransfer;
+    int i;
+    if(0 != big_file_mpi_create_block(bf, &btransfer, bname, NULL, 0, 0, 0, MPI_COMM_WORLD)) {
+        endrun(0, "failed to create block %s:%s", bname,
+                big_file_get_error_message());
+    }
+
+    if ( (0 != big_block_set_attr(&btransfer, "Nentry", &(ttable->Nentry), "u8", 1)) ) {
+        endrun(0, "Failed to write table size %s\n",
+                    big_file_get_error_message());
+    }
+    if(0 != big_block_mpi_close(&btransfer, MPI_COMM_WORLD)) {
+        endrun(0, "Failed to close block %s\n",
+                    big_file_get_error_message());
+    }
+    size_t dims[2] = {0 , 1};
+    /*The transfer state is shared between all processors,
+     *so only write on master task*/
+    if(ThisTask == 0) {
+        dims[0] = ttable->Nentry;
+    }
+
+    char buf[100];
+    snprintf(buf, 100, "%s/logk", bname);
+
+    saveblock_name(bf, ttable->logk, buf, "f8", dims, sizeof(double), transfer_table.Nentry);
+
+    for(i = 0; i < ncol; i++)
+    {
+        snprintf(buf, 100, "%s/%s", bname, colnames[i]);
+        saveblock_name(bf, ttable->logD[i], buf, "f8", dims, sizeof(double), transfer_table.Nentry);
+    }
+}
+
+/*Save both transfer function tables to the IC file*/
+void save_all_transfer_tables(BigFile * bf, int ThisTask)
+{
+    const char * pname = "DELTA_MAT";
+    save_transfer(bf, 1, &power_table, "ICPower", ThisTask, &pname);
+    save_transfer(bf, MAXCOLS, &transfer_table, "ICTransfers", ThisTask, tnames);
+}
+
 
 void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const int nnu, double scale)
 {
