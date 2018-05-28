@@ -34,7 +34,7 @@ BufferSize = 100          # in MByte
 
 #Massive neutrinos
 MassiveNuLinRespOn = 1
-LinearTransferFunction = camb_transfer_nu_99.dat
+LinearTransferFunction = class_tk_nu_99.dat
 
 MNue = 0.133333333333
 MNum = 0.133333333333
