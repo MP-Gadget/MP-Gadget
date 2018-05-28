@@ -2,14 +2,14 @@
 #define NEUTRINOS_LRA_H
 
 #include <bigfile-mpi.h>
-#include "kspace-neutrinos/delta_tot_table.h"
+#include "powerspectrum.h"
+#include "cosmology.h"
 
-/*Defined in neutrinos_lra.h*/
-extern _delta_tot_table delta_tot_table;
+/*Allocates the memory for the neutrino integrator*/
+void init_neutrinos_lra(const int nk_in, const double TimeTransfer, const double TimeMax, const double Omega0, const _omega_nu * const omnu, const double UnitTime_in_s, const double UnitLength_in_cm);
 
-/*Initialises a delta_tot_table*/
-void delta_tot_resume(_delta_tot_table * const d_tot, const int nk_in, const double wavenum[]);
-void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in, const double wavenum[], const double delta_cdm_curr[], const double TimeIC);
+/*Computes delta_nu from a CDM power spectrum.*/
+void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, int Time, int TimeIC);
 
 /*These functions save and load neutrino related data from the snapshots*/
 void petaio_save_neutrinos(BigFile * bf, int ThisTask);

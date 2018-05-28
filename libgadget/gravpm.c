@@ -51,9 +51,7 @@ void gravpm_init_periodic() {
     /*Initialise the kspace neutrino code if it is enabled.
      * Mpc units are used to match power spectrum code.*/
     if(All.MassiveNuLinRespOn) {
-        /*Set the private copy of the task in delta_tot_table*/
-        delta_tot_table.ThisTask = ThisTask;
-        allocate_delta_tot_table(&delta_tot_table, All.Nmesh, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, 3.085678e24, 0);
+        init_neutrinos_lra(All.Nmesh, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, 3.085678e24);
         global_functions.global_readout = measure_power_spectrum;
         global_functions.global_analysis = compute_neutrino_power;
     }
@@ -302,32 +300,9 @@ static void compute_neutrino_power() {
     for(i=0; i<PowerSpectrum.nonzero; i++) {
         PowerSpectrum.Pnuratio[i] = sqrt(PowerSpectrum.Power[i]);
     }
-    double Pnu[PowerSpectrum.nonzero];
-    memset(Pnu,0, PowerSpectrum.nonzero*sizeof(double));
-    /*This sets up P_nu_curr.*/
-    /*This is done on the first timestep: we need nk_nonzero for it to work.*/
-    if(!delta_tot_table.delta_tot_init_done) {
-        /*Separate functions as now minimal duplication.*/
-        if(delta_tot_table.ia > 0)
-            delta_tot_resume(&delta_tot_table, PowerSpectrum.nonzero, PowerSpectrum.kk);
-        else
-            delta_tot_first_init(&delta_tot_table, PowerSpectrum.nonzero, PowerSpectrum.kk, PowerSpectrum.Power, All.TimeIC);
-    }
-    const double partnu = particle_nu_fraction(&All.CP.ONu.hybnu, All.Time, 0);
-    if(1 - partnu > 1e-3) {
-        get_delta_nu_update(&delta_tot_table, All.Time, PowerSpectrum.nonzero, PowerSpectrum.kk, PowerSpectrum.Pnuratio, Pnu, NULL);
-        message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum.nonzero, PowerSpectrum.kk[1], Pnu[1], PowerSpectrum.Pnuratio[1]);
-        /*kspace_prefac = M_nu (analytic) / M_particles */
-        const double OmegaNu_nop = get_omega_nu_nopart(&All.CP.ONu, All.Time);
-        const double omega_hybrid = get_omega_nu(&All.CP.ONu, 1) * partnu / pow(All.Time, 3);
-        /* Omega0 - Omega in neutrinos + Omega in particle neutrinos = Omega in particles*/
-        PowerSpectrum.nu_prefac = OmegaNu_nop/(delta_tot_table.Omeganonu/pow(All.Time,3) + omega_hybrid);
-    }
-    /*We want to interpolate in log space*/
-    for(i=0; i < PowerSpectrum.nonzero; i++) {
-        PowerSpectrum.logknu[i] = log(PowerSpectrum.kk[i]);
-        PowerSpectrum.Pnuratio[i] = Pnu[i]/PowerSpectrum.Pnuratio[i];
-    }
+    /*Get the neutrino power.*/
+    delta_nu_from_power(&PowerSpectrum, &All.CP, All.Time, All.TimeIC);
+
     /*Initialize the interpolation for the neutrinos*/
     PowerSpectrum.nu_spline = gsl_interp_alloc(gsl_interp_linear,PowerSpectrum.nonzero);
     PowerSpectrum.nu_acc = gsl_interp_accel_alloc();
