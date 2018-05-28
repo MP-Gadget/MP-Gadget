@@ -27,8 +27,7 @@ static double PrimordialIndex;
 static double UnitLength_in_cm;
 static Cosmology * CP;
 
-#define MAXCOLS 8
-
+#define MAXCOLS 9
 
 struct table
 {
@@ -43,7 +42,7 @@ static struct table power_table;
 /*Columns: 0 == baryon, 1 == CDM, 2 == neutrino, 3 == baryon velocity, 4 == CDM velocity, 5 = neutrino velocity*/
 static struct table transfer_table;
 
-static const char * tnames[MAXCOLS] = {"DELTA_BAR", "DELTA_CDM", "DELTA_NU", "VEL_BAR", "VEL_CDM", "VEL_NU", "VEL_CB", "VEL_TOT"};
+static const char * tnames[MAXCOLS] = {"DELTA_BAR", "DELTA_CDM", "DELTA_NU", "VEL_BAR", "VEL_CDM", "VEL_NU", "VEL_CB", "VEL_TOT", "DELTA_CB"};
 /*Symbolic constants for the rows of the transfer table*/
 /*Number of types with defined transfers.*/
 enum TransferCols
@@ -55,7 +54,8 @@ enum TransferCols
     VEL_CDM = 4,
     VEL_NU = 5,
     VEL_CB = 6,
-    VEL_TOT = 7
+    VEL_TOT = 7,
+    DELTA_CB = 8,
 };
 
 double DeltaSpec(double k, int Type)
@@ -322,6 +322,8 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
             transfer_table.logD[t][i] /= transfer_table.logD[t-3][i];
             transfer_table.logD[t-3][i] /= (T_tot / CP->Omega0);
         }
+        /*Set up the delta_cb row*/
+        transfer_table.logD[DELTA_CB][i] = (CP->OmegaBaryon * transfer_table.logD[DELTA_BAR][i] + CP->OmegaCDM * transfer_table.logD[DELTA_CDM][i])/(CP->OmegaCDM + CP->OmegaBaryon);
     }
 
     /*Now compute mean growths*/
@@ -392,9 +394,7 @@ double Delta_Tabulated(double k, int Type)
     }
     /*CDM + baryons*/
     else if (Type == 3){
-        double db =  gsl_interp_eval(transfer_table.mat_intp[DELTA_BAR], transfer_table.logk, transfer_table.logD[DELTA_BAR], logk, transfer_table.mat_intp_acc[DELTA_BAR]);
-        double dcdm =  gsl_interp_eval(transfer_table.mat_intp[DELTA_CDM], transfer_table.logk, transfer_table.logD[DELTA_CDM], logk, transfer_table.mat_intp_acc[DELTA_CDM]);
-        trans = (CP->OmegaBaryon * db + CP->OmegaCDM * dcdm)/(CP->OmegaCDM + CP->OmegaBaryon);
+        trans = gsl_interp_eval(transfer_table.mat_intp[DELTA_CB], transfer_table.logk, transfer_table.logD[DELTA_CB], logk, transfer_table.mat_intp_acc[DELTA_CB]);
     }
   }
 
