@@ -20,6 +20,11 @@
 
 #include "params.h"
 
+void gsl_handler (const char * reason, const char * file, int line, int gsl_errno)
+{
+    endrun(2001,"GSL_ERROR in file: %s, line %d, errno:%d, error: %s\n",file, line, gsl_errno, reason);
+}
+
 /*! \file main.c
  *  \brief start of the program
  */
@@ -92,6 +97,9 @@ int main(int argc, char **argv)
         RestartSnapNum = find_last_snapnum();
         message(1, "Last Snapshot number is %d.\n", RestartSnapNum);
     }
+
+    /*Set up GSL so it gives a proper MPI termination*/
+    gsl_set_error_handler(gsl_handler);
 
     mymalloc_init(All.MaxMemSizePerNode);
 
