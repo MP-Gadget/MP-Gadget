@@ -32,6 +32,7 @@ INCL = config.h densitykernel.h \
 	powerspectrum.h  \
 	timestep.h  \
 	walltime.h \
+	neutrinos_lra.h \
 	kspace-neutrinos/omega_nu_single.h \
 	kspace-neutrinos/delta_tot_table.h \
 utils/peano.h \
@@ -91,6 +92,7 @@ GADGET_OBJS =  \
 	 petapm.o gravity.o \
 	 densitykernel.o lightcone.o walltime.o\
 	 runtests.o \
+	 neutrinos_lra.o \
      kspace-neutrinos/omega_nu_single.o \
      kspace-neutrinos/delta_tot_table.o \
 

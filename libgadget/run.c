@@ -25,9 +25,6 @@
 #include "slotsmanager.h"
 #include "hci.h"
 
-
-#include "kspace-neutrinos/delta_tot_table.h"
-
 void energy_statistics(void); /* stats.c only used here */
 void init(int snapnum); /* init.c only used here */
 
@@ -61,10 +58,6 @@ open_outputfiles(int RestartSnapNum);
 
 static void
 close_outputfiles(void);
-
-/*Defined in gravpm.c*/
-extern _delta_tot_table delta_tot_table;
-extern _transfer_init_table transfer_init;
 
 /*! This function performs the initial set-up of the simulation. First, the
  *  parameterfile is set, then routines for setting units, reading

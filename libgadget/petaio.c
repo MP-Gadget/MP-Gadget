@@ -17,7 +17,7 @@
 #include "slotsmanager.h"
 #include "partmanager.h"
 #include "config.h"
-#include "kspace-neutrinos/delta_tot_table.h"
+#include "neutrinos_lra.h"
 
 #include "utils.h"
 
@@ -123,12 +123,6 @@ petaio_build_selection(int * selection,
         }
     }
 }
-
-/*These two functions are only ued for the semi-linear neutrino implementation,
- * and store data specific to that in the snapshots*/
-/*Defined in gravpm.c*/
-extern _delta_tot_table delta_tot_table;
-extern _transfer_init_table t_init;
 
 void petaio_save_neutrinos(BigFile * bf)
 {
