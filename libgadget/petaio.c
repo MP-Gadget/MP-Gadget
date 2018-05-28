@@ -229,10 +229,12 @@ void petaio_read_neutrinos(BigFile * bf)
     BigArray delta_nu = {0};
     dims[1] = 1;
     strides[0] = sizeof(double);
+    memset(delta_tot_table.delta_nu_init, 0, delta_tot_table.nk);
     big_array_init(&delta_nu, delta_tot_table.delta_nu_init, "=f8", 2, dims, strides);
     petaio_read_block(bf, "Neutrino/DeltaNuInit", &delta_nu, 0);
     /* Read the k values*/
     BigArray kvalue = {0};
+    memset(delta_tot_table.wavenum, 0, delta_tot_table.nk);
     big_array_init(&kvalue, delta_tot_table.wavenum, "=f8", 2, dims, strides);
     petaio_read_block(bf, "Neutrino/kvalue", &kvalue, 0);
 
