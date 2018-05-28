@@ -291,6 +291,26 @@ static double sinc_unnormed(double x) {
     }
 }
 
+/* Constructor for delta_tot. Does some sanity checks and initialises delta_nu_last.*/
+static void delta_tot_resume(_delta_tot_table * const d_tot, const int nk_in, const double wavenum[])
+{
+    int ik;
+    if(nk_in > d_tot->nk_allocated){
+           endrun(2011,"input power of %d is longer than memory of %d\n",nk_in,d_tot->nk_allocated);
+    }
+    if(d_tot->nk != nk_in)
+        endrun(201, "Number of neutrino bins %d != stored value %d\n",nk_in, d_tot->nk);
+
+    /*Set the wave number*/
+    for(ik=0;ik<d_tot->nk;ik++){
+        d_tot->wavenum[ik] = wavenum[ik];
+    }
+    /*Initialise delta_nu_last*/
+    get_delta_nu_combined(d_tot, exp(d_tot->scalefact[d_tot->ia-1]), wavenum, d_tot->delta_nu_last);
+    d_tot->delta_tot_init_done=1;
+    return;
+}
+
 /* Compute neutrino power spectrum.
  * This should happen after the CFT is computed,
  * and after powerspectrum_add_mode() has been called,
@@ -310,21 +330,25 @@ static void compute_neutrino_power() {
     /*This sets up P_nu_curr.*/
     /*This is done on the first timestep: we need nk_nonzero for it to work.*/
     if(!delta_tot_table.delta_tot_init_done) {
-        _transfer_init_table transfer_init;
-        if(ThisTask == 0) {
-            allocate_transfer_init_table(&transfer_init, All.BoxSize, 3.085678e24, All.CAMBInputSpectrum_UnitLength_in_cm, All.CAMBTransferFunction);
+        if(delta_tot_table.ia > 0)
+            delta_tot_resume(&delta_tot_table, PowerSpectrum.nonzero, PowerSpectrum.kk);
+        else {
+            _transfer_init_table transfer_init;
+            if(ThisTask == 0) {
+                allocate_transfer_init_table(&transfer_init, All.BoxSize, 3.085678e24, All.CAMBInputSpectrum_UnitLength_in_cm, All.CAMBTransferFunction);
+            }
+            /*Broadcast the transfer size*/
+            MPI_Bcast(&(transfer_init.NPowerTable), 1,MPI_INT,0,MPI_COMM_WORLD);
+            /*Allocate the memory unless we are on task 0, in which case it is already allocated*/
+            if(ThisTask != 0)
+            transfer_init.logk = (double *) mymalloc("Transfer_functions", 2*transfer_init.NPowerTable* sizeof(double));
+            transfer_init.T_nu=transfer_init.logk+transfer_init.NPowerTable;
+            /*Broadcast the transfer table*/
+            MPI_Bcast(transfer_init.logk,2*transfer_init.NPowerTable,MPI_DOUBLE,0,MPI_COMM_WORLD);
+            /*Initialise delta_tot*/
+            delta_tot_init(&delta_tot_table, PowerSpectrum.nonzero, PowerSpectrum.kk, PowerSpectrum.Power, &transfer_init, All.Time);
+            free_transfer_init_table(&transfer_init);
         }
-        /*Broadcast the transfer size*/
-        MPI_Bcast(&(transfer_init.NPowerTable), 1,MPI_INT,0,MPI_COMM_WORLD);
-        /*Allocate the memory unless we are on task 0, in which case it is already allocated*/
-        if(ThisTask != 0)
-          transfer_init.logk = (double *) mymalloc("Transfer_functions", 2*transfer_init.NPowerTable* sizeof(double));
-        transfer_init.T_nu=transfer_init.logk+transfer_init.NPowerTable;
-        /*Broadcast the transfer table*/
-        MPI_Bcast(transfer_init.logk,2*transfer_init.NPowerTable,MPI_DOUBLE,0,MPI_COMM_WORLD);
-        /*Initialise delta_tot*/
-        delta_tot_init(&delta_tot_table, PowerSpectrum.nonzero, PowerSpectrum.kk, PowerSpectrum.Power, &transfer_init, All.Time);
-        free_transfer_init_table(&transfer_init);
     }
     const double partnu = particle_nu_fraction(&All.CP.ONu.hybnu, All.Time, 0);
     if(1 - partnu > 1e-3) {
