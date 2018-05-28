@@ -81,11 +81,15 @@ double dlogGrowth(double kmag, int Type)
       return 1;
 
   /*Default to total growth: type 3 is cdm + baryons.*/
-  if(Type < 0 || Type >= 3) {
-      Type = MAXCOLS-4;
+  if(Type < 0 || Type > 3) {
+      Type = VEL_TOT;
+  }
+  else {
+      /*Type should be an offset from the first velocity*/
+      Type = VEL_BAR + Type;
   }
   /*Use the velocity entries*/
-  double growth =  gsl_interp_eval(transfer_table.mat_intp[VEL_BAR + Type], transfer_table.logk, transfer_table.logD[VEL_BAR + Type], logk, transfer_table.mat_intp_acc[VEL_BAR+Type]);
+  double growth =  gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
 
   if(!isfinite(growth))
       endrun(1,"Growth function is: %g for k = %g, Type = %d\n", growth, kmag, Type);
