@@ -93,7 +93,6 @@ GADGET_OBJS =  \
 	 runtests.o \
      kspace-neutrinos/omega_nu_single.o \
      kspace-neutrinos/delta_tot_table.o \
-     kspace-neutrinos/transfer_init.o
 
 GADGET_UTILS_OBJS= \
 utils/endrun.o \

@@ -128,6 +128,7 @@ petaio_build_selection(int * selection,
  * and store data specific to that in the snapshots*/
 /*Defined in gravpm.c*/
 extern _delta_tot_table delta_tot_table;
+extern _transfer_init_table t_init;
 
 void petaio_save_neutrinos(BigFile * bf)
 {
@@ -178,6 +179,62 @@ void petaio_save_neutrinos(BigFile * bf)
     BigArray kvalue = {0};
     big_array_init(&kvalue, delta_tot_table.wavenum, "=f8", 2, dims, strides);
     petaio_save_block(bf, "Neutrino/kvalue", &kvalue);
+    }
+}
+
+void petaio_read_icnutransfer(BigFile * bf, _transfer_init_table * t_init)
+{
+#pragma omp master
+    {
+    t_init->NPowerTable = 2;
+    BigBlock bn = {{0}};
+    /* Read the size of the ICTransfer block.
+     * If we can't read it, just set it to zero*/
+    if(0 == big_file_mpi_open_block(bf, &bn, "ICTransfers", MPI_COMM_WORLD)) {
+        if(0 != big_block_get_attr(&bn, "Nentry", &t_init->NPowerTable, "u8", 1))
+            endrun(0, "Failed to read attr: %s\n", big_file_get_error_message());
+        if(0 != big_block_mpi_close(&bn, MPI_COMM_WORLD))
+            endrun(0, "Failed to close block %s\n",big_file_get_error_message());
+    }
+    message(1,"Found transfer function, using %d rows.\n", t_init->NPowerTable);
+    t_init->logk = (double *) mymalloc("Transfer_functions", 2*t_init->NPowerTable* sizeof(double));
+    t_init->T_nu=t_init->logk+t_init->NPowerTable;
+
+    /*Defaults: zero*/
+    t_init->logk[0] = -100;
+    t_init->logk[t_init->NPowerTable-1] = 100;
+
+    t_init->T_nu[0] = 0;
+    t_init->T_nu[t_init->NPowerTable-1] = 0;
+
+    /*Now read the arrays*/
+    BigArray Tnu = {0};
+    BigArray logk = {0};
+
+    size_t dims[2] = {0, 1};
+    ptrdiff_t strides[2] = {sizeof(double), sizeof(double)};
+    /*The neutrino state is shared between all processors,
+     *so only read on master task and broadcast*/
+    if(ThisTask == 0) {
+        dims[0] = t_init->NPowerTable;
+    }
+    big_array_init(&Tnu, t_init->T_nu, "=f8", 2, dims, strides);
+    big_array_init(&logk, t_init->logk, "=f8", 2, dims, strides);
+    /*This is delta_nu / delta_tot: note technically the most massive eigenstate only.
+     * But if there are significant differences the mass is so low this is basically zero.*/
+    petaio_read_block(bf, "ICTransfers/DELTA_NU", &Tnu, 0);
+    petaio_read_block(bf, "ICTransfers/logk", &logk, 0);
+    /*Also want d_{cdm+bar} / d_tot so we can get d_nu/(d_cdm+d_b)*/
+    double * T_cb = (double *) mymalloc("tmp1", t_init->NPowerTable* sizeof(double));
+    BigArray Tcb = {0};
+    big_array_init(&Tcb, T_cb, "=f8", 2, dims, strides);
+    petaio_read_block(bf, "ICTransfers/DELTA_CB", &Tcb, 0);
+    int i;
+    for(i = 0; i < t_init->NPowerTable; i++)
+        t_init->T_nu[i] /= T_cb[i];
+    myfree(T_cb);
+    /*Broadcast the arrays.*/
+    MPI_Bcast(t_init->logk,2*t_init->NPowerTable,MPI_DOUBLE,0,MPI_COMM_WORLD);
     }
 }
 
@@ -414,8 +471,13 @@ void petaio_read_internal(char * fname, int ic) {
     }
 
     /*Read neutrinos from the snapshot if necessary*/
-    if((!ic) && All.MassiveNuLinRespOn)
-        petaio_read_neutrinos(&bf);
+    if(All.MassiveNuLinRespOn) {
+        /*Read the neutrino transfer function from the ICs*/
+        if(ic)
+            petaio_read_icnutransfer(&bf, &t_init);
+        else
+            petaio_read_neutrinos(&bf);
+    }
 
     if(0 != big_file_mpi_close(&bf, MPI_COMM_WORLD)) {
         endrun(0, "Failed to close snapshot at %s:%s\n", fname,
