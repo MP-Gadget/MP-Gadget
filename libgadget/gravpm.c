@@ -311,7 +311,7 @@ static void compute_neutrino_power() {
         if(delta_tot_table.ia > 0)
             delta_tot_resume(&delta_tot_table, PowerSpectrum.nonzero, PowerSpectrum.kk);
         else
-            delta_tot_first_init(&delta_tot_table, PowerSpectrum.nonzero, PowerSpectrum.kk, PowerSpectrum.Power, &t_init, All.TimeIC);
+            delta_tot_first_init(&delta_tot_table, PowerSpectrum.nonzero, PowerSpectrum.kk, PowerSpectrum.Power, All.TimeIC);
     }
     const double partnu = particle_nu_fraction(&All.CP.ONu.hybnu, All.Time, 0);
     if(1 - partnu > 1e-3) {
