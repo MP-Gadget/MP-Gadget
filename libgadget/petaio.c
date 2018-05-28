@@ -174,6 +174,10 @@ void petaio_save_neutrinos(BigFile * bf)
     strides[0] = sizeof(double);
     big_array_init(&delta_nu, delta_tot_table.delta_nu_init, "=f8", 2, dims, strides);
     petaio_save_block(bf, "Neutrino/DeltaNuInit", &delta_nu);
+    /*Now write the k values*/
+    BigArray kvalue = {0};
+    big_array_init(&kvalue, delta_tot_table.wavenum, "=f8", 2, dims, strides);
+    petaio_save_block(bf, "Neutrino/kvalue", &kvalue);
     }
 }
 
@@ -227,6 +231,10 @@ void petaio_read_neutrinos(BigFile * bf)
     strides[0] = sizeof(double);
     big_array_init(&delta_nu, delta_tot_table.delta_nu_init, "=f8", 2, dims, strides);
     petaio_read_block(bf, "Neutrino/DeltaNuInit", &delta_nu, 0);
+    /* Read the k values*/
+    BigArray kvalue = {0};
+    big_array_init(&kvalue, delta_tot_table.wavenum, "=f8", 2, dims, strides);
+    petaio_read_block(bf, "Neutrino/kvalue", &kvalue, 0);
 
     /*Broadcast the arrays.*/
     MPI_Bcast(&(delta_tot_table.ia), 1,MPI_INT,0,MPI_COMM_WORLD);
