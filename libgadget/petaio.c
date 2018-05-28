@@ -164,10 +164,16 @@ void petaio_save_neutrinos(BigFile * bf)
     if(ThisTask == 0) {
         dims[0] = nk;
     }
-    ptrdiff_t strides[2] = {8 * ia, 8};
+    ptrdiff_t strides[2] = {sizeof(double) * ia, sizeof(double)};
     big_array_init(&deltas, delta_tot, "=f8", 2, dims, strides);
     petaio_save_block(bf, "Neutrino/Deltas", &deltas);
     myfree(delta_tot);
+    /*Now write the initial neutrino power*/
+    BigArray delta_nu = {0};
+    dims[1] = 1;
+    strides[0] = sizeof(double);
+    big_array_init(&delta_nu, delta_tot_table.delta_nu_init, "=f8", 2, dims, strides);
+    petaio_save_block(bf, "Neutrino/DeltaNuInit", &delta_nu);
     }
 }
 
@@ -198,7 +204,7 @@ void petaio_read_neutrinos(BigFile * bf)
     }
     BigArray deltas = {0};
     size_t dims[2] = {0, ia};
-    ptrdiff_t strides[2] = {8*ia, 8};
+    ptrdiff_t strides[2] = {sizeof(double)*ia, sizeof(double)};
     /*The neutrino state is shared between all processors,
      *so only read on master task and broadcast*/
     if(ThisTask == 0) {
@@ -206,6 +212,7 @@ void petaio_read_neutrinos(BigFile * bf)
     }
     big_array_init(&deltas, delta_tot, "=f8", 2, dims, strides);
     petaio_read_block(bf, "Neutrino/Deltas", &deltas, 1);
+
     /*Save a flat memory block*/
     for(ik=0;ik<nk;ik++)
         for(i=0;i<ia;i++)
@@ -213,10 +220,20 @@ void petaio_read_neutrinos(BigFile * bf)
     delta_tot_table.nk = nk;
     delta_tot_table.ia = ia;
     myfree(delta_tot);
+    /* Read the initial delta_nu. This is basically zero anyway,
+     * so for backwards compatibility do not require it*/
+    BigArray delta_nu = {0};
+    dims[1] = 1;
+    strides[0] = sizeof(double);
+    big_array_init(&delta_nu, delta_tot_table.delta_nu_init, "=f8", 2, dims, strides);
+    petaio_read_block(bf, "Neutrino/DeltaNuInit", &delta_nu, 0);
+
     /*Broadcast the arrays.*/
     MPI_Bcast(&(delta_tot_table.ia), 1,MPI_INT,0,MPI_COMM_WORLD);
+    MPI_Bcast(&(delta_tot_table.nk), 1,MPI_INT,0,MPI_COMM_WORLD);
+    MPI_Bcast(delta_tot_table.delta_nu_init,delta_tot_table.nk,MPI_DOUBLE,0,MPI_COMM_WORLD);
+
     if(delta_tot_table.ia > 0) {
-        MPI_Bcast(&(delta_tot_table.nk), 1,MPI_INT,0,MPI_COMM_WORLD);
         /*Broadcast data for scalefact and delta_tot, Delta_tot is allocated as the same block of memory as scalefact.
           Not all this memory will actually have been used, but it is easiest to bcast all of it.*/
         MPI_Bcast(delta_tot_table.scalefact,delta_tot_table.namax*(delta_tot_table.nk+1),MPI_DOUBLE,0,MPI_COMM_WORLD);
