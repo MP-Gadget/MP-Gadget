@@ -7,7 +7,7 @@
 
 #include "types.h"
 #include "powerspectrum.h"
-
+#include "physconst.h"
 #include "utils.h"
 
 /*Power spectrum related functions*/
@@ -62,8 +62,8 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
         PowerSpectrum->Power[i] /= PowerSpectrum->Norm;
         PowerSpectrum->kk[i] /= PowerSpectrum->Nmodes[i];
         /* Mpc/h units */
-        PowerSpectrum->kk[i] *= 2 * M_PI / (BoxSize_in_cm / 3.085678e24 );
-        PowerSpectrum->Power[i] *= pow(BoxSize_in_cm / 3.085678e24 , 3.0);
+        PowerSpectrum->kk[i] *= 2 * M_PI / (BoxSize_in_cm / CM_PER_MPC );
+        PowerSpectrum->Power[i] *= pow(BoxSize_in_cm / CM_PER_MPC , 3.0);
         /*Move the power spectrum earlier, removing zero modes*/
         PowerSpectrum->Power[nk_nz] = PowerSpectrum->Power[i];
         PowerSpectrum->kk[nk_nz] = PowerSpectrum->kk[i];

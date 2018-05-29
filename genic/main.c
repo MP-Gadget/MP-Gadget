@@ -181,8 +181,8 @@ void print_spec(void)
 
       fprintf(fd, "# %12g %12g\n", 1/All.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */
-      kstart = 2 * M_PI / (2*All.BoxSize * (3.085678e24 / All.UnitLength_in_cm));	/* 2x box size Mpc/h */
-      kend = 2 * M_PI / (All.BoxSize/(8*All2.Ngrid) * (3.085678e24 / All.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
+      kstart = 2 * M_PI / (2*All.BoxSize * (CM_PER_MPC / All.UnitLength_in_cm));	/* 2x box size Mpc/h */
+      kend = 2 * M_PI / (All.BoxSize/(8*All2.Ngrid) * (CM_PER_MPC / All.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
 
       message(1,"kstart=%lg kend=%lg\n",kstart,kend);
 

@@ -366,7 +366,7 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
 
     Norm = 1.0;
     if (ppar->Sigma8 > 0) {
-        double R8 = 8 * (3.085678e24 / UnitLength_in_cm);	/* 8 Mpc/h */
+        double R8 = 8 * (CM_PER_MPC / UnitLength_in_cm);	/* 8 Mpc/h */
         double res = TopHatSigma2(R8);
         Norm = ppar->Sigma8 / sqrt(res);
         message(0, "Normalization adjusted to  Sigma8=%g   (Normfac=%g). \n", ppar->Sigma8, Norm);
@@ -430,7 +430,7 @@ double tk_eh(double k)		/* from Martin White */
   if(CP->OmegaBaryon == 0)
     ombh2 = 0.044 * CP->HubbleParam * CP->HubbleParam;
 
-  k *= (3.085678e24 / UnitLength_in_cm);	/* convert to h/Mpc */
+  k *= (CM_PER_MPC / UnitLength_in_cm);	/* convert to h/Mpc */
 
   theta = 2.728 / 2.7;
   ommh2 = omegam * hubble * hubble;

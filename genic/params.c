@@ -58,9 +58,9 @@ create_parameters()
     param_declare_double(ps, "PrimordialIndex", OPTIONAL, 0.971, "Tilting power, ignored for tabulated input.");
 
     param_declare_double(ps, "UnitVelocity_in_cm_per_s", OPTIONAL, 1e5, "Velocity unit in cm/sec. Default is 1 km/s");
-    param_declare_double(ps, "UnitLength_in_cm", OPTIONAL, 3.085678e21, "Length unit in cm. Default is 1 kpc");
+    param_declare_double(ps, "UnitLength_in_cm", OPTIONAL, CM_PER_MPC/1000, "Length unit in cm. Default is 1 kpc");
     param_declare_double(ps, "UnitMass_in_g", OPTIONAL, 1.989e43, "Mass unit in g. Default is 10^10 M_sun.");
-    param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", REQUIRED, 3.085678e24, "Length unit of input power spectrum file in cm. Default is 1 Mpc");
+    param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", OPTIONAL, CM_PER_MPC, "Length unit of input power spectrum file in cm. Default is 1 Mpc");
 
     param_declare_int(ps, "NumPartPerFile", OPTIONAL, 1024 * 1024 * 128, "");
     param_declare_int(ps, "NumWriters", OPTIONAL, 0, "");

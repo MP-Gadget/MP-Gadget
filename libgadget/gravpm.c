@@ -51,7 +51,7 @@ void gravpm_init_periodic() {
     /*Initialise the kspace neutrino code if it is enabled.
      * Mpc units are used to match power spectrum code.*/
     if(All.MassiveNuLinRespOn) {
-        init_neutrinos_lra(All.Nmesh, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, 3.085678e24);
+        init_neutrinos_lra(All.Nmesh, All.TimeIC, All.TimeMax, All.CP.Omega0, &All.CP.ONu, All.UnitTime_in_s, CM_PER_MPC);
         global_functions.global_readout = measure_power_spectrum;
         global_functions.global_analysis = compute_neutrino_power;
     }
@@ -392,7 +392,7 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
     /*Add neutrino power if desired*/
     if(All.MassiveNuLinRespOn && k2 > 0) {
         /* Change the units of k to match those of logkk*/
-        double logk2 = log(sqrt(k2) * 2 * M_PI / (All.BoxSize * All.UnitLength_in_cm/ 3.085678e24 ));
+        double logk2 = log(sqrt(k2) * 2 * M_PI / (All.BoxSize * All.UnitLength_in_cm/ CM_PER_MPC ));
         /* Floating point roundoff and the binning means there may be a mode just beyond the box size.*/
         if(logk2 < PowerSpectrum.logknu[0] && logk2 > PowerSpectrum.logknu[0]-log(2) )
             logk2 = PowerSpectrum.logknu[0];
