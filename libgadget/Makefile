@@ -54,6 +54,7 @@ TESTED = hci \
 	forcetree \
 	timefac \
 	timebinmgr \
+	neutrinos_lra \
 	omega_nu_single \
 	exchange
 
@@ -119,6 +120,9 @@ all: libgadget.a libgadget-utils.a
 	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_%: tests/test_%.c .objs/%.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+
+.objs/test_neutrinos_lra: tests/test_neutrinos_lra.c .objs/neutrinos_lra.o .objs/cosmology.o .objs/omega_nu_single.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 build-tests: $(TESTBIN)
