@@ -440,6 +440,11 @@ void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a,
     return;
 }
 
+/** Floating point accuracy*/
+#define FLOAT_ACC   1e-6
+/** Number of bins in integrations*/
+#define GSL_VAL 200
+
 /*Update the last value of delta_tot in the table with a new value computed
  from the given delta_cdm_curr and delta_nu_curr.
  If overwrite is true, overwrite the existing final entry.*/

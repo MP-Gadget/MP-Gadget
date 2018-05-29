@@ -9,6 +9,7 @@
 #include <libgadget/cosmology.h>
 #include <libgadget/utils.h>
 
+#include <libgadget/physconst.h>
 #include "power.h"
 
 /*Defined in save.c*/

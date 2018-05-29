@@ -33,7 +33,7 @@ INCL = config.h densitykernel.h \
 	timestep.h  \
 	walltime.h \
 	neutrinos_lra.h \
-	kspace-neutrinos/omega_nu_single.h \
+	omega_nu_single.h \
 utils/peano.h \
 utils/interp.h \
 utils/paramset.h \
@@ -54,6 +54,7 @@ TESTED = hci \
 	forcetree \
 	timefac \
 	timebinmgr \
+	omega_nu_single \
 	exchange
 
 MPI_TESTED = exchange
@@ -92,7 +93,7 @@ GADGET_OBJS =  \
 	 densitykernel.o lightcone.o walltime.o\
 	 runtests.o \
 	 neutrinos_lra.o \
-     kspace-neutrinos/omega_nu_single.o \
+     omega_nu_single.o \
 
 GADGET_UTILS_OBJS= \
 utils/endrun.o \
