@@ -25,6 +25,7 @@ PrimordialAmp = 2.142e-11
 
 DifferentTransferFunctions = 1
 ScaleDepVelocity = 1
+# tabulated input spectrum in Mpc/h units 
 FileWithInputSpectrum = linear_growth_matterpow.dat
 FileWithTransferFunction = linear_growth_transfer.dat
 UnitaryAmplitude = 1
@@ -34,8 +35,6 @@ MNue = 0.0
 MNum = 0.0
 MNut = 0.0
 
-# defines length unit of tabulated input spectrum in cm/h. 
-InputSpectrum_UnitLength_in_cm  = 3.085678e24 
 UnitLength_in_cm = 3.085678e21   # defines length unit of output (in cm/h) 
 UnitMass_in_g = 1.989e43      # defines mass unit of output (in g/cm)
 UnitVelocity_in_cm_per_s = 1e5 # defines velocity unit of output (in cm/sec)

@@ -15,9 +15,8 @@ Redshift = 9        # Starting redshift
 
 UsePeculiarVelocity = 1
 
-
-FileWithInputSpectrum = planck_camb_56106182_matterpower_z0.dat  # filename of tabulated input
-InputSpectrum_UnitLength_in_cm = 3.085678e24 # defines length unit of tabulated
+ # filename of tabulated input in Mpc/h units
+FileWithInputSpectrum = planck_camb_56106182_matterpower_z0.dat
 
 Seed = 181170    #  seed for IC-generator
 
