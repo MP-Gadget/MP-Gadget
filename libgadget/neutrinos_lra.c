@@ -135,12 +135,12 @@ static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in
     gsl_interp_accel *acc = gsl_interp_accel_alloc();
     gsl_interp * spline=gsl_interp_alloc(gsl_interp_cspline,t_init->NPowerTable);
     gsl_interp_init(spline,t_init->logk,t_init->T_nu,t_init->NPowerTable);
-    /*Check we have a long enough power table*/
-    if(log(wavenum[d_tot->nk-1]) > t_init->logk[t_init->NPowerTable-1])
-        endrun(2,"Want k = %g but maximum in CAMB table is %g\n",wavenum[d_tot->nk-1], exp(t_init->logk[t_init->NPowerTable-1]));
+    /*Check we have a long enough power table: power tables are in log_10*/
+    if(log10(wavenum[d_tot->nk-1]) > t_init->logk[t_init->NPowerTable-1])
+        endrun(2,"Want k = %g but maximum in CLASS table is %g\n",wavenum[d_tot->nk-1], pow(10, t_init->logk[t_init->NPowerTable-1]));
     for(ik=0;ik<d_tot->nk;ik++) {
             /* T_nu contains T_nu / T_cdm.*/
-            double T_nubyT_nonu = gsl_interp_eval(spline,t_init->logk,t_init->T_nu,log(wavenum[ik]),acc);
+            double T_nubyT_nonu = gsl_interp_eval(spline,t_init->logk,t_init->T_nu,log10(wavenum[ik]),acc);
             /*Initialise delta_nu_init to use the first timestep's delta_cdm_curr
              * so that it includes potential Rayleigh scattering. */
             d_tot->delta_nu_init[ik] = delta_cdm_curr[ik]*T_nubyT_nonu;
