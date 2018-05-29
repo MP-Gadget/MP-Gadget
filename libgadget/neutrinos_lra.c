@@ -23,48 +23,6 @@
 #include "powerspectrum.h"
 #include "physconst.h"
 
-/** Now we want to define a static object to store all previous delta_tot.
- * This object needs a constructor, a few private data members, and a way to be read and written from disk.
- * nk is fixed, delta_tot, scalefact and ia are updated in get_delta_nu_update*/
-struct _delta_tot_table {
-    /** Number of actually non-zero k values stored in each power spectrum*/
-    int nk;
-    /** Size of arrays allocated to store power spectra*/
-    int nk_allocated;
-    /** Maximum number of redshifts to store. Redshifts are stored every delta a = 0.01 */
-    int namax;
-    /** Number of already "recorded" time steps, i.e. scalefact[0...ia-1] is recorded.
-    * Current time corresponds to index ia (but is only recorded if sufficiently far from previous time).
-    * Caution: ia here is different from Na in get_delta_nu (Na = ia+1).*/
-    int ia;
-    /** Prefactor for use in get_delta_nu. Should be 3/2 Omega_m H^2 /c */
-    double delta_nu_prefac;
-    /** Set to unity once the init routine has run.*/
-    int delta_tot_init_done;
-    /** Pointer to nk arrays of length namax containing the total power spectrum.*/
-    double **delta_tot;
-    /** Array of length namax containing scale factors at which the power spectrum is stored*/
-    double * scalefact;
-    /** Pointer to array of length nk storing initial neutrino power spectrum*/
-    double * delta_nu_init;
-    /** Pointer to array of length nk storing the last neutrino power spectrum we saw, for a first estimate
-    * of the new delta_tot */
-    double * delta_nu_last;
-    /**Pointer to array storing the effective wavenumbers for the above power spectra*/
-    double * wavenum;
-    /** Pointer to a structure for computing omega_nu*/
-    const _omega_nu * omnu;
-    /** Matter density excluding neutrinos*/
-    double Omeganonu;
-    /** Light speed in internal units. C is defined in allvars.h to be lightspeed in cm/s*/
-    double light;
-    /** The time at which we first start our integrator:
-     * NOTE! This is not All.TimeBegin, but the time of the transfer function file,
-     * so that we can support restarting from snapshots.*/
-    double TimeTransfer;
-};
-typedef struct _delta_tot_table _delta_tot_table;
-
 /** Update the last value of delta_tot in the table with a new value computed
  from the given delta_cdm_curr and delta_nu_curr.
  If overwrite is true, overwrite the existing final entry.*/
@@ -82,7 +40,7 @@ void update_delta_tot(_delta_tot_table * const d_tot, const double a, const doub
  * @param delta_nu_curr is an array of length nk which stores the square root of the current neutrino power spectrum. Main output of the function.
  * @param transfer_init is a pointer to the structure containing transfer tables.
 ******************************************************************************************************/
-static void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int nk_in, const double keff[], const double delta_cdm_curr[], double delta_nu_curr[]);
+void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int nk_in, const double keff[], const double delta_cdm_curr[], double delta_nu_curr[]);
 
 /** Main function: given tables of wavenumbers, total delta at Na earlier times (< = a),
  * and initial conditions for neutrinos, computes the current delta_nu.
@@ -115,10 +73,15 @@ double fslength(const double logai, const double logaf, const double light);
  * OmegaNua3 = OmegaNu(a) * a^3
  * Omeganonu = Omega0 - OmegaNu(1)
  * Omeganu1 = OmegaNu(1) */
-double get_delta_tot(const double delta_nu_curr, const double delta_cdm_curr, const double OmegaNua3, const double Omeganonu, const double Omeganu1, const double partnu);
+static inline double get_delta_tot(const double delta_nu_curr, const double delta_cdm_curr, const double OmegaNua3, const double Omeganonu, const double Omeganu1, const double particle_nu_fraction)
+{
+    const double fcdm = 1 - OmegaNua3/(Omeganonu + Omeganu1);
+    return fcdm * (delta_cdm_curr + delta_nu_curr * OmegaNua3/(Omeganonu + Omeganu1*particle_nu_fraction));
+}
+
 
 /*Structure which holds the neutrino state*/
-static _delta_tot_table delta_tot_table;
+_delta_tot_table delta_tot_table;
 
 /** Structure to store the initial transfer functions from CAMB.
  * We store transfer functions because we want to use the
@@ -496,17 +459,9 @@ void update_delta_tot(_delta_tot_table * const d_tot, const double a, const doub
   }
 }
 
-static void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int nk_in, const double keff[], const double delta_cdm_curr[], double delta_nu_curr[])
+void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int nk_in, const double keff[], const double delta_cdm_curr[], double delta_nu_curr[])
 {
   int ik;
-  /* Get a delta_nu_curr from CAMB.*/
-  if(!d_tot->delta_tot_init_done)
-      endrun(2001,"Should have called delta_tot_init first\n");
-  if(nk_in != d_tot->nk)
-      endrun(2002,"Number of kbins %d != stored delta_tot %d\n",nk_in, d_tot->nk);
-  if(d_tot->nk < 2){
-      endrun(2003,"Number of kbins is unreasonably small: %d\n",d_tot->nk);
-  }
   /*If we get called twice with the same scale factor, do nothing*/
   if(log(a)-d_tot->scalefact[d_tot->ia-1] < FLOAT_ACC){
        for (ik = 0; ik < d_tot->nk; ik++)
@@ -537,14 +492,11 @@ static void update_delta_nu(_delta_tot_table * const d_tot, const double a, cons
        d_tot->ia--;
    /*Sanity-check the output*/
    for(ik=0;ik<d_tot->nk;ik++){
-          if(isnan(delta_nu_curr[ik]))
-/*|| delta_nu_curr[ik] < -1e-5*delta_cdm_curr[ik])*/
-{
-              endrun(2004,"delta_nu_curr=%g i=%d delta_cdm_curr=%g kk=%g\n",delta_nu_curr[ik],ik,delta_cdm_curr[ik],keff[ik]);
-          }
-          /*Enforce positivity for sanity reasons*/
-          if(delta_nu_curr[ik] < 0)
-              delta_nu_curr[ik] = 0;
+        if(isnan(delta_nu_curr[ik]))
+            endrun(2004,"delta_nu_curr=%g i=%d delta_cdm_curr=%g kk=%g\n",delta_nu_curr[ik],ik,delta_cdm_curr[ik],keff[ik]);
+        /*Enforce positivity for sanity reasons*/
+        if(delta_nu_curr[ik] < 0)
+            delta_nu_curr[ik] = 0;
    }
    return;
 }
@@ -780,10 +732,4 @@ void get_delta_nu(const _delta_tot_table * const d_tot, const double a, const do
 //     for(ik=0; ik< 3; ik++)
 //         message(0,"k %g d_nu %g\n",wavenum[d_tot->nk/8*ik], delta_nu_curr[d_tot->nk/8*ik]);
    return;
-}
-
-double get_delta_tot(const double delta_nu_curr, const double delta_cdm_curr, const double OmegaNua3, const double Omeganonu, const double Omeganu1, const double particle_nu_fraction)
-{
-    const double fcdm = 1 - OmegaNua3/(Omeganonu + Omeganu1);
-    return fcdm * (delta_cdm_curr + delta_nu_curr * OmegaNua3/(Omeganonu + Omeganu1*particle_nu_fraction));
 }

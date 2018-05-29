@@ -5,6 +5,49 @@
 #include "powerspectrum.h"
 #include "cosmology.h"
 
+/** Now we want to define a static object to store all previous delta_tot.
+ * This object needs a constructor, a few private data members, and a way to be read and written from disk.
+ * nk is fixed, delta_tot, scalefact and ia are updated in get_delta_nu_update*/
+struct _delta_tot_table {
+    /** Number of actually non-zero k values stored in each power spectrum*/
+    int nk;
+    /** Size of arrays allocated to store power spectra*/
+    int nk_allocated;
+    /** Maximum number of redshifts to store. Redshifts are stored every delta a = 0.01 */
+    int namax;
+    /** Number of already "recorded" time steps, i.e. scalefact[0...ia-1] is recorded.
+    * Current time corresponds to index ia (but is only recorded if sufficiently far from previous time).
+    * Caution: ia here is different from Na in get_delta_nu (Na = ia+1).*/
+    int ia;
+    /** Prefactor for use in get_delta_nu. Should be 3/2 Omega_m H^2 /c */
+    double delta_nu_prefac;
+    /** Set to unity once the init routine has run.*/
+    int delta_tot_init_done;
+    /** Pointer to nk arrays of length namax containing the total power spectrum.*/
+    double **delta_tot;
+    /** Array of length namax containing scale factors at which the power spectrum is stored*/
+    double * scalefact;
+    /** Pointer to array of length nk storing initial neutrino power spectrum*/
+    double * delta_nu_init;
+    /** Pointer to array of length nk storing the last neutrino power spectrum we saw, for a first estimate
+    * of the new delta_tot */
+    double * delta_nu_last;
+    /**Pointer to array storing the effective wavenumbers for the above power spectra*/
+    double * wavenum;
+    /** Pointer to a structure for computing omega_nu*/
+    const _omega_nu * omnu;
+    /** Matter density excluding neutrinos*/
+    double Omeganonu;
+    /** Light speed in internal units. C is defined in allvars.h to be lightspeed in cm/s*/
+    double light;
+    /** The time at which we first start our integrator:
+     * NOTE! This is not All.TimeBegin, but the time of the transfer function file,
+     * so that we can support restarting from snapshots.*/
+    double TimeTransfer;
+};
+typedef struct _delta_tot_table _delta_tot_table;
+
+
 /** Allocates memory for delta_tot_table.
  * @param nk_in Number of bins stored in each power spectrum.
  * @param TimeTransfer Scale factor of the transfer functions.

@@ -34,7 +34,6 @@ INCL = config.h densitykernel.h \
 	walltime.h \
 	neutrinos_lra.h \
 	kspace-neutrinos/omega_nu_single.h \
-	kspace-neutrinos/delta_tot_table.h \
 utils/peano.h \
 utils/interp.h \
 utils/paramset.h \
