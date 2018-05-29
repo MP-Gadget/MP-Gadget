@@ -149,6 +149,7 @@ static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in
             d_tot->delta_tot[ik][0] = get_delta_tot(d_tot->delta_nu_init[ik], delta_cdm_curr[ik], OmegaNua3, d_tot->Omeganonu, OmegaNu1, partnu);
             d_tot->wavenum[ik] = wavenum[ik];
     }
+    ta_free(t_init->logk);
     gsl_interp_accel_free(acc);
     gsl_interp_free(spline);
 
@@ -157,7 +158,6 @@ static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in
     d_tot->ia=1;
     /*Initialise delta_nu_last*/
     get_delta_nu_combined(d_tot, exp(d_tot->scalefact[0]), wavenum, d_tot->delta_nu_last);
-    myfree(t_init->logk);
     d_tot->delta_tot_init_done=1;
     return;
 }
@@ -262,7 +262,7 @@ void petaio_read_icnutransfer(BigFile * bf, int ThisTask)
             endrun(0, "Failed to close block %s\n",big_file_get_error_message());
     }
     message(0,"Found transfer function, using %d rows.\n", t_init->NPowerTable);
-    t_init->logk = (double *) mymalloc2("Transfer_functions", 2*t_init->NPowerTable* sizeof(double));
+    t_init->logk = ta_malloc("Transfer_functions", double, 2*t_init->NPowerTable);
     t_init->T_nu=t_init->logk+t_init->NPowerTable;
 
     /*Defaults: zero*/
