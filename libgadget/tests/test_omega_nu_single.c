@@ -44,7 +44,7 @@ static void test_omega_nu_single(void **state) {
     /*Initialise*/
     double MNu[3] = {mnu, mnu, 0};
     init_omega_nu(&omnu, MNu, 0.01, 0.7,T_CMB0);
-    assert_true(omnu.RhoNuTab[0]->mnu == mnu);
+    assert_true(omnu.RhoNuTab[0].mnu == mnu);
     /*This is the critical density at z=0:
      * we allow it to change by what is (at the time of writing) the uncertainty on G.*/
     assert_true(fabs(omnu.rhocrit - 1.8784e-29*HubbleParam*HubbleParam) < 5e-3*omnu.rhocrit);
@@ -120,8 +120,8 @@ static void test_omega_nu_init_degenerate(void **state) {
     /*Check that we initialised the right number of arrays*/
     assert_int_equal(omnu.nu_degeneracies[0], 3);
     assert_int_equal(omnu.nu_degeneracies[1], 0);
-    assert_true(omnu.RhoNuTab[0]);
-    assert_false(omnu.RhoNuTab[1]);
+    assert_true(omnu.RhoNuTab[0].loga);
+    assert_false(omnu.RhoNuTab[1].loga);
 }
 
 static void test_omega_nu_init_nondeg(void **state) {
@@ -133,7 +133,7 @@ static void test_omega_nu_init_nondeg(void **state) {
     /*Check that we initialised the right number of arrays*/
     for(int i=0; i<3; i++) {
         assert_int_equal(omnu.nu_degeneracies[i], 1);
-        assert_true(omnu.RhoNuTab[i]);
+        assert_true(omnu.RhoNuTab[i].loga);
     }
 }
 

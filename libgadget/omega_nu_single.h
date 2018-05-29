@@ -45,7 +45,7 @@ void rho_nu_init(_rho_nu_single * rho_nu_tab, double a0, const double mnu, const
  * @param a Redshift desired.
  * @param kT Boltzmann constant times neutrino temperature. Dimensionful factor.
  * @returns neutrino density in g cm^-3 */
-double rho_nu(_rho_nu_single * rho_nu_tab, const double a, const double kT);
+double rho_nu(const _rho_nu_single * rho_nu_tab, const double a, const double kT);
 
 /** \section Hybrid
  * Hybrid Neutrinos: The following functions and structures are used for hybrid neutrinos only.*/
@@ -96,7 +96,7 @@ double nufrac_low(const double qc);
 /** Structure containing cosmological parameters related to the massive neutrinos*/
 struct _omega_nu {
     /*Pointers to the array of structures we use to store rho_nu*/
-    _rho_nu_single * RhoNuTab[NUSPECIES];
+    _rho_nu_single RhoNuTab[NUSPECIES];
     /* Which species have the same mass and can thus be counted together.*/
     int nu_degeneracies[NUSPECIES];
     /* Prefactor to turn density into matter density omega*/

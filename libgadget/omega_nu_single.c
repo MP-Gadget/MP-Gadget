@@ -45,12 +45,10 @@ void init_omega_nu(_omega_nu * omnu, const double MNu[], const double a0, const 
     /*Now allocate a table for the species we want*/
     for(mi=0; mi<NUSPECIES; mi++){
         if(omnu->nu_degeneracies[mi]) {
-            omnu->RhoNuTab[mi] = (_rho_nu_single *) mymalloc("RhoNuTab", sizeof(_rho_nu_single));
-            rho_nu_init(omnu->RhoNuTab[mi], a0, MNu[mi], HubbleParam, omnu->kBtnu);
+            rho_nu_init(&omnu->RhoNuTab[mi], a0, MNu[mi], HubbleParam, omnu->kBtnu);
         }
-        else {
-            omnu->RhoNuTab[mi] = NULL;
-        }
+        else
+            omnu->RhoNuTab[mi].loga = 0;
     }
 }
 
@@ -62,7 +60,7 @@ double get_omega_nu(const _omega_nu * const omnu, const double a)
         int mi;
         for(mi=0; mi<NUSPECIES; mi++) {
             if(omnu->nu_degeneracies[mi] > 0){
-                 rhonu += omnu->nu_degeneracies[mi] * rho_nu(omnu->RhoNuTab[mi], a, omnu->kBtnu);
+                 rhonu += omnu->nu_degeneracies[mi] * rho_nu(&omnu->RhoNuTab[mi], a, omnu->kBtnu);
             }
         }
         return rhonu/omnu->rhocrit;
@@ -172,7 +170,7 @@ static inline double rel_rho_nu(const double a, const double kT)
 
 /*Finds the physical density in neutrinos for a single neutrino species
   1.878 82(24) x 10-29 h02 g/cm3 = 1.053 94(13) x 104 h02 eV/cm3*/
-double rho_nu(_rho_nu_single * rho_nu_tab, const double a, const double kT)
+double rho_nu(const _rho_nu_single * rho_nu_tab, const double a, const double kT)
 {
         double rho_nu_val;
         double amnu=a*rho_nu_tab->mnu;
@@ -274,8 +272,8 @@ double omega_nu_single(const _omega_nu * const omnu, const double a, int i)
                 break;
             }
     }
-    double omega_nu = rho_nu(omnu->RhoNuTab[i], a,omnu->kBtnu)/omnu->rhocrit;
-    double omega_part = rho_nu(omnu->RhoNuTab[i], 1,omnu->kBtnu)/omnu->rhocrit;
+    double omega_nu = rho_nu(&omnu->RhoNuTab[i], a,omnu->kBtnu)/omnu->rhocrit;
+    double omega_part = rho_nu(&omnu->RhoNuTab[i], 1,omnu->kBtnu)/omnu->rhocrit;
     omega_part *= particle_nu_fraction(&omnu->hybnu, a, i)/(a*a*a);
     omega_nu -= omega_part;
     return omega_nu;
