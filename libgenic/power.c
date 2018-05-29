@@ -27,6 +27,7 @@ static int WhichSpectrum;
 /*Only used for tk_eh, WhichSpectrum == 0*/
 static double PrimordialIndex;
 static double UnitLength_in_cm;
+static double SpectrumLengthScale;
 static Cosmology * CP;
 
 #define MAXCOLS 9
@@ -77,7 +78,7 @@ double DeltaSpec(double k, int Type)
 
 double dlogGrowth(double kmag, int Type)
 {
-  const double logk = log10(kmag);
+  const double logk = log10(kmag * SpectrumLengthScale);
 
   if(logk < transfer_table.logk[0] || logk > transfer_table.logk[transfer_table.Nentry - 1])
       return 1;
@@ -144,7 +145,7 @@ void save_all_transfer_tables(BigFile * bf, int ThisTask)
 }
 
 
-void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const int nnu, double scale)
+void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const int nnu)
 {
     char * retval;
     if((*InputInLog10) == 0) {
@@ -155,7 +156,6 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
         else
             k = log10(k);
     }
-    k -= log10(scale);	/* convert to h/Kpc */
     out_tab->logk[i] = k;
     retval = strtok(NULL, " \t");
     if(!retval)
@@ -163,18 +163,16 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
     double p = atof(retval);
     if ((*InputInLog10) == 0)
         p = log10(p);
-    p += 3 * log10(scale);	/* convert to Kpc/h  */
     /*Store delta, square root of power*/
     out_tab->logD[0][i] = p/2;
 }
 
-void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const int nnu, double scale)
+void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const int nnu)
 {
     int j;
     const int ncols = 15 + nnu * 2;
     double transfers[ncols];
     k = log10(k);
-    k -= log10(scale);  /* convert to h/Kpc */
     out_tab->logk[i] = k;
     /* Note: the ncdm entries change depending on the number of neutrino species. The first row, k,
      * is read in read_power_table and passed as a parameter.
@@ -215,7 +213,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     out_tab->logD[VEL_NU][i] = transfers[13+nnu*2];
 }
 
-void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, double scale, const int nnu, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, const int nnu, double scale))
+void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, const int nnu, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, const int nnu))
 {
     FILE *fd = NULL;
     int j;
@@ -263,7 +261,7 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
             if(!retval || retval[0] == '#')
                 continue;
             double k = atof(retval);
-            parse_line(i, k, line, out_tab, &InputInLog10, nnu, scale);
+            parse_line(i, k, line, out_tab, &InputInLog10, nnu);
             i++;
         }
         while(1);
@@ -282,9 +280,10 @@ int
 init_transfer_table(int ThisTask, double InitTime, const struct power_params * const ppar)
 {
     int i, t;
+    SpectrumLengthScale = ppar->SpectrumLengthScale;
     const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
     if(strlen(ppar->FileWithTransferFunction) > 0) {
-        read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, ppar->SpectrumLengthScale, nnu, parse_transfer);
+        read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, nnu, parse_transfer);
     }
     if(transfer_table.Nentry == 0) {
         endrun(1, "Could not read transfer table at: '%s'\n",ppar->FileWithTransferFunction);
@@ -356,7 +355,7 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
     CP = CPin;
 
     if(ppar->WhichSpectrum == 2) {
-        read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, ppar->SpectrumLengthScale, 0, parse_power);
+        read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, 0, parse_power);
         /*Initialise the interpolator*/
         gsl_interp_init(power_table.mat_intp[0],power_table.logk, power_table.logD[0],power_table.Nentry);
         transfer_table.Nentry = 0;
@@ -382,12 +381,13 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
 
 double Delta_Tabulated(double k, int Type)
 {
-  const double logk = log10(k);
+    /*Convert k to Mpc/h*/
+  const double logk = log10(k*SpectrumLengthScale);
 
   if(logk < power_table.logk[0] || logk > power_table.logk[power_table.Nentry - 1])
     return 0;
 
-  const double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
+  double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
   double trans = 1;
   /*Transfer table stores (T_type(k) / T_tot(k))*/
   if(transfer_table.Nentry > 0) {
@@ -400,6 +400,8 @@ double Delta_Tabulated(double k, int Type)
     }
   }
 
+  /*Convert delta from (Mpc/h)^3/2 to kpc/h^3/2*/
+  logD += 1.5 * log10(SpectrumLengthScale);
   double delta = pow(10.0, logD) * trans;
 
   if(!isfinite(delta))
