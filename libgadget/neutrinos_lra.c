@@ -23,8 +23,6 @@
 #include "powerspectrum.h"
 #include "physconst.h"
 
-#include "kspace-neutrinos/omega_nu_single.h"
-
 /** Now we want to define a static object to store all previous delta_tot.
  * This object needs a constructor, a few private data members, and a way to be read and written from disk.
  * nk is fixed, delta_tot, scalefact and ia are updated in get_delta_nu_update*/
@@ -39,14 +37,10 @@ struct _delta_tot_table {
     * Current time corresponds to index ia (but is only recorded if sufficiently far from previous time).
     * Caution: ia here is different from Na in get_delta_nu (Na = ia+1).*/
     int ia;
-    /** MPI rank of this processor*/
-    int ThisTask;
     /** Prefactor for use in get_delta_nu. Should be 3/2 Omega_m H^2 /c */
     double delta_nu_prefac;
     /** Set to unity once the init routine has run.*/
     int delta_tot_init_done;
-    /** If greater than 0, intermediate files will be saved and status output will be displayed*/
-    int debug;
     /** Pointer to nk arrays of length namax containing the total power spectrum.*/
     double **delta_tot;
     /** Array of length namax containing scale factors at which the power spectrum is stored*/
@@ -70,18 +64,6 @@ struct _delta_tot_table {
     double TimeTransfer;
 };
 typedef struct _delta_tot_table _delta_tot_table;
-
-/** Allocates memory for delta_tot_table.
- * @param d_tot structure to initialise
- * @param nk_in Number of bins stored in each power spectrum.
- * @param TimeTransfer Scale factor of the transfer functions.
- * @param TimeMax Final scale factor up to which we will need memory.
- * @param Omega0 Matter density at z=0.
- * @param omnu Pointer to structure containing pre-computed tables for evaluating neutrino matter densities.
- * @param UnitTime_in_s Time unit of the simulation in s.
- * @param UnitLength_in_cm Length unit of the simulation in cm
- * @param debug If this is > zero, there will be extra output.*/
-void allocate_delta_tot_table(_delta_tot_table *d_tot, const int nk_in, const double TimeTransfer, const double TimeMax, const double Omega0, const _omega_nu * const omnu, const double UnitTime_in_s, const double UnitLength_in_cm, int debug);
 
 /** Update the last value of delta_tot in the table with a new value computed
  from the given delta_cdm_curr and delta_nu_curr.
@@ -465,8 +447,6 @@ void init_neutrinos_lra(const int nk_in, const double TimeTransfer, const double
    d_tot->delta_nu_prefac = 1.5 *Omega0 * HUBBLE * HUBBLE * pow(UnitTime_in_s,2)/d_tot->light;
    /*Matter fraction excluding neutrinos*/
    d_tot->Omeganonu = Omega0 - get_omega_nu(omnu, 1);
-   /*Whether we save intermediate files and output diagnostics*/
-   d_tot->debug = 0;
 }
 
 /*Begin functions that do the actual computation of the neutrino power spectra.
@@ -711,8 +691,7 @@ void get_delta_nu(const _delta_tot_table * const d_tot, const double a, const do
   const double mnubykT = mnu /d_tot->omnu->kBtnu;
   /*Tolerated integration error*/
   double relerr = 1e-6;
-  if(d_tot->debug)
-      message(0,"Start get_delta_nu: a=%g Na =%d wavenum[0]=%g delta_tot[0]=%g m_nu=%g\n",a,Na,wavenum[0],d_tot->delta_tot[0][Na-1],mnu);
+//       message(0,"Start get_delta_nu: a=%g Na =%d wavenum[0]=%g delta_tot[0]=%g m_nu=%g\n",a,Na,wavenum[0],d_tot->delta_tot[0][Na-1],mnu);
 
   fsl_A0a = fslength(log(d_tot->TimeTransfer), log(a),d_tot->light);
   /*Precompute factor used to get delta_nu_init. This assumes that delta ~ a, so delta-dot is roughly 1.*/
@@ -798,10 +777,8 @@ void get_delta_nu(const _delta_tot_table * const d_tot, const double a, const do
          myfree(fsscales);
          myfree(fslengths);
    }
-   if(d_tot->debug){
-          for(ik=0; ik< 3; ik++)
-            message(0,"k %g d_nu %g\n",wavenum[d_tot->nk/8*ik], delta_nu_curr[d_tot->nk/8*ik]);
-   }
+//     for(ik=0; ik< 3; ik++)
+//         message(0,"k %g d_nu %g\n",wavenum[d_tot->nk/8*ik], delta_nu_curr[d_tot->nk/8*ik]);
    return;
 }
 
