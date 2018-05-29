@@ -261,7 +261,7 @@ void petaio_read_icnutransfer(BigFile * bf, int ThisTask)
         if(0 != big_block_mpi_close(&bn, MPI_COMM_WORLD))
             endrun(0, "Failed to close block %s\n",big_file_get_error_message());
     }
-    message(1,"Found transfer function, using %d rows.\n", t_init->NPowerTable);
+    message(0,"Found transfer function, using %d rows.\n", t_init->NPowerTable);
     t_init->logk = (double *) mymalloc2("Transfer_functions", 2*t_init->NPowerTable* sizeof(double));
     t_init->T_nu=t_init->logk+t_init->NPowerTable;
 
