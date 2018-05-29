@@ -11,6 +11,7 @@
 #include <math.h>
 #include <mpi.h>
 #include "stub.h"
+#include <bigfile-mpi.h>
 
 #include <libgadget/powerspectrum.h>
 
