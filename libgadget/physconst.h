@@ -8,8 +8,11 @@
 #define  RAD_CONST   7.565e-15
 #define  AVOGADRO    6.0222e23
 #define  BOLTZMANN   1.38066e-16
+/** The Boltzmann constant in units of eV/K*/
+#define BOLEVK 8.61734e-5
 #define  GAS_CONST   8.31425e7
-#define  C           2.9979e10
+/** Speed of light in cm/s: used to be called 'C'*/
+#define  LIGHTCGS           2.99792458e10
 #define  PLANCK      6.6262e-27
 #define  CM_PER_MPC  3.085678e24
 #define  PROTONMASS  1.6726e-24

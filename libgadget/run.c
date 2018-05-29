@@ -466,7 +466,7 @@ set_units(void)
         All.InitGasTemp = DMAX(All.MinGasTemp, All.CP.CMBTemperature / All.TimeInit);
     /*Initialise the hybrid neutrinos, after Omega_nu*/
     if(All.HybridNeutrinosOn)
-        init_hybrid_nu(&All.CP.ONu.hybnu, All.CP.MNu, All.HybridVcrit, C/1e5, All.HybridNuPartTime, All.CP.ONu.kBtnu);
+        init_hybrid_nu(&All.CP.ONu.hybnu, All.CP.MNu, All.HybridVcrit, LIGHTCGS/1e5, All.HybridNuPartTime, All.CP.ONu.kBtnu);
 
     meanweight = 4.0 / (1 + 3 * HYDROGEN_MASSFRAC);	/* note: assuming NEUTRAL GAS */
 

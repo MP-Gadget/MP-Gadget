@@ -23,7 +23,7 @@
 double
 NU_V0(const double Time, const double kBTNubyMNu, const double UnitVelocity_in_cm_per_s)
 {
-    return kBTNubyMNu / Time * (C / UnitVelocity_in_cm_per_s);
+    return kBTNubyMNu / Time * (LIGHTCGS / UnitVelocity_in_cm_per_s);
 }
 
 //Amplitude of the random velocity for WDM

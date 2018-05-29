@@ -73,7 +73,7 @@ static void lightcone_init_entry(int i) {
 
     /* result is in DH, hubble distance */
     /* convert to cm / h */
-    result *= C / HUBBLE;
+    result *= LIGHTCGS / HUBBLE;
     /* convert to Kpc/h or internal units */
     result /= All.UnitLength_in_cm;
 
