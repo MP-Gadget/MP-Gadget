@@ -99,6 +99,7 @@ def _build_cosmology_params(config):
     if omeganu > 0:
         gparams['m_ncdm'] = '%.2f,%.2f,%.2f' % (config['MNue'], config['MNum'], config['MNut'])
         gparams['N_ncdm'] = 3
+        gparams['N_ur'] = 0.00641
         #Neutrino accuracy: Default pk_ref.pre has tol_ncdm_* = 1e-10,
         #which takes 45 minutes (!) on my laptop.
         #tol_ncdm_* = 1e-8 takes 20 minutes and is machine-accurate.
@@ -108,6 +109,8 @@ def _build_cosmology_params(config):
         gparams['tol_ncdm_synchronous'] = 1e-5
         gparams['tol_ncdm_bg'] = 1e-10
         gparams['l_max_ncdm'] = 50
+    else:
+        gparams['N_ur'] = 3.046
     #Power spectrum amplitude
     if config['Sigma8'] > 0:
         gparams['sigma8'] = config['Sigma8']
