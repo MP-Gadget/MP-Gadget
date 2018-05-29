@@ -162,7 +162,7 @@ static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in
     return;
 }
 
-void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, int Time, int TimeIC)
+void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, const double Time, const double TimeIC)
 {
     int i;
     double * Pnu = mymalloc("Pnutmp", PowerSpectrum->nonzero*sizeof(double));
