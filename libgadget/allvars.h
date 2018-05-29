@@ -248,7 +248,6 @@ extern struct global_data_all_processes
     double HybridVcrit; /*!< Critical velocity switching between particle
                           and analytic solvers when hybrid neutrinos are on*/
     double HybridNuPartTime; /*!< Redshift at which hybrid neutrinos switch on*/
-    double CAMBInputSpectrum_UnitLength_in_cm; /*!< Units of CAMB transfer function*/
 
     enum StarformationCriterion StarformationCriterion;  /*!< flags that star formation is enabled */
     enum WindModel WindModel;  /*!< flags that star formation is enabled */

@@ -490,7 +490,6 @@ void read_parameter_file(char *fname)
         /*Massive neutrino parameters*/
         All.MassiveNuLinRespOn = param_get_int(ps, "MassiveNuLinRespOn");
         All.HybridNeutrinosOn = param_get_int(ps, "HybridNeutrinosOn");
-        All.CAMBInputSpectrum_UnitLength_in_cm = param_get_double(ps, "InputSpectrum_UnitLength_in_cm");
         All.CP.MNu[0] = param_get_double(ps, "MNue");
         All.CP.MNu[1] = param_get_double(ps, "MNum");
         All.CP.MNu[2] = param_get_double(ps, "MNut");
