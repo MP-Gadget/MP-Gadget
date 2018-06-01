@@ -35,11 +35,9 @@ struct _delta_tot_table {
     const _omega_nu * omnu;
     /** Matter density excluding neutrinos*/
     double Omeganonu;
-    /** Light speed in internal units. C is defined in allvars.h to be lightspeed in cm/s*/
+    /** Light speed in internal units. LIGHTCGS is lightspeed in cm/s*/
     double light;
-    /** The time at which we first start our integrator:
-     * NOTE! This is not All.TimeBegin, but the time of the transfer function file,
-     * so that we can support restarting from snapshots.*/
+    /** The time at which the simulation starts*/
     double TimeTransfer;
 };
 typedef struct _delta_tot_table _delta_tot_table;
