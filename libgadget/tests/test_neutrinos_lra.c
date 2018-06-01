@@ -59,7 +59,6 @@ static void test_allocate_delta_tot_table(void **state)
     assert_true(delta_tot_table.namax > 10);
     assert_true(delta_tot_table.scalefact);
     assert_true(delta_tot_table.delta_nu_init);
-    assert_true(delta_tot_table.delta_nu_last);
     assert_true(delta_tot_table.delta_tot);
     for(int i=0; i<delta_tot_table.nk_allocated; i++){
         assert_true(delta_tot_table.delta_tot[i]);
