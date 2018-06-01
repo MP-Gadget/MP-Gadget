@@ -165,9 +165,6 @@ static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in
 void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, const double Time, const double TimeIC)
 {
     int i;
-    double * Pnu = mymalloc("Pnutmp", PowerSpectrum->nonzero*sizeof(double));
-    memset(Pnu,0, PowerSpectrum->nonzero*sizeof(double));
-    /*This sets up P_nu_curr.*/
     /*This is done on the first timestep: we need nk_nonzero for it to work.*/
     if(!delta_tot_table.delta_tot_init_done) {
         /*Separate functions as now minimal duplication.*/
@@ -176,10 +173,12 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
         else
             delta_tot_first_init(&delta_tot_table, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Power, TimeIC);
     }
+    /*This sets up P_nu_curr.*/
+    memset(PowerSpectrum->Pnuratio,0, PowerSpectrum->nonzero*sizeof(PowerSpectrum->Pnuratio[0]));
     const double partnu = particle_nu_fraction(&CP->ONu.hybnu, Time, 0);
     if(1 - partnu > 1e-3) {
-        update_delta_nu(&delta_tot_table, Time, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Pnuratio, Pnu);
-        message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum->nonzero, PowerSpectrum->kk[1], Pnu[1], PowerSpectrum->Pnuratio[1]);
+        update_delta_nu(&delta_tot_table, Time, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Power, PowerSpectrum->Pnuratio);
+        message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum->nonzero, PowerSpectrum->kk[1], PowerSpectrum->Pnuratio[1], PowerSpectrum->Power[1]);
         /*kspace_prefac = M_nu (analytic) / M_particles */
         const double OmegaNu_nop = get_omega_nu_nopart(&CP->ONu, Time);
         const double omega_hybrid = get_omega_nu(&CP->ONu, 1) * partnu / pow(Time, 3);
@@ -189,9 +188,8 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     /*We want to interpolate in log space*/
     for(i=0; i < PowerSpectrum->nonzero; i++) {
         PowerSpectrum->logknu[i] = log(PowerSpectrum->kk[i]);
-        PowerSpectrum->Pnuratio[i] = Pnu[i]/PowerSpectrum->Pnuratio[i];
+        PowerSpectrum->Pnuratio[i] = PowerSpectrum->Pnuratio[i]/ PowerSpectrum->Power[i];
     }
-    myfree(Pnu);
 }
 
 

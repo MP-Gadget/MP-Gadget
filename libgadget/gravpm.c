@@ -296,9 +296,9 @@ static void compute_neutrino_power() {
     /*Note the power spectrum is now in Mpc units*/
     powerspectrum_sum(&PowerSpectrum, All.BoxSize*All.UnitLength_in_cm);
     int i;
-    /*Get delta_cdm_curr , which is P(k)^1/2, and skip bins with zero modes:*/
+    /*Get delta_cdm_curr , which is P(k)^1/2.*/
     for(i=0; i<PowerSpectrum.nonzero; i++) {
-        PowerSpectrum.Pnuratio[i] = sqrt(PowerSpectrum.Power[i]);
+        PowerSpectrum.Power[i] = sqrt(PowerSpectrum.Power[i]);
     }
     /*Get the neutrino power.*/
     delta_nu_from_power(&PowerSpectrum, &All.CP, All.Time, All.TimeIC);
