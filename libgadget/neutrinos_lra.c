@@ -23,22 +23,15 @@
 #include "powerspectrum.h"
 #include "physconst.h"
 
+/** Floating point accuracy*/
+#define FLOAT_ACC   1e-6
+/** Number of bins in integrations*/
+#define GSL_VAL 200
+
 /** Update the last value of delta_tot in the table with a new value computed
  from the given delta_cdm_curr and delta_nu_curr.
  If overwrite is true, overwrite the existing final entry.*/
 void update_delta_tot(_delta_tot_table * const d_tot, const double a, const double delta_cdm_curr[], const double delta_nu_curr[], const int overwrite);
-
-/** Callable function to calculate the power spectra.
- * Calls the rest of the code internally.
- * In reality we will be given P_cdm(current) but not delta_tot.
- * Here is the full function that deals with this
- * @param d_tot contains the state of the integrator; samples of the total power spectrum at earlier times.
- * @param a is the current scale factor
- * @param delta_cdm_curr array of length nk containing the square root of the current cdm power spectrum
- * @param delta_nu_curr is an array of length nk which contains the square root of the last timesteps neutrino power spectrum, and is updated.
- * @param transfer_init is a pointer to the structure containing transfer tables.
-******************************************************************************************************/
-void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int nk, const double delta_cdm_curr[], double delta_nu_curr[]);
 
 /** Main function: given tables of wavenumbers, total delta at Na earlier times (< = a),
  * and initial conditions for neutrinos, computes the current delta_nu.
@@ -165,8 +158,28 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     /*This sets up P_nu_curr.*/
     memset(PowerSpectrum->delta_nu_ratio,0, PowerSpectrum->nonzero*sizeof(PowerSpectrum->delta_nu_ratio[0]));
     const double partnu = particle_nu_fraction(&CP->ONu.hybnu, Time, 0);
-    if(1 - partnu > 1e-3) {
-        update_delta_nu(&delta_tot_table, Time, PowerSpectrum->nonzero, PowerSpectrum->Power, PowerSpectrum->delta_nu);
+    /* If we get called twice with the same scale factor, do nothing: delta_nu
+     * already stores the neutrino power from the current timestep.*/
+    if(1 - partnu > 1e-3 && log(Time)-delta_tot_table.scalefact[delta_tot_table.ia-1] > FLOAT_ACC) {
+        /*We need some estimate for delta_tot(current time) to obtain delta_nu(current time).
+            Even though delta_tot(current time) is not directly used (the integrand vanishes at a = a(current)),
+            it is indeed needed for interpolation */
+        /*It was checked that using delta_tot(current time) = delta_cdm(current time) leads to no more than 2%
+            error on delta_nu (and moreover for large k). A simple estimate for delta_nu decreases the maximum
+            relative error on delta_nu to ~1E-4. So we only need one step. */
+        /*This increments the number of stored spectra, although the last one is not yet final.*/
+        update_delta_tot(&delta_tot_table, Time, PowerSpectrum->Power, PowerSpectrum->delta_nu, 0);
+        /*Get the new delta_nu_curr*/
+        get_delta_nu_combined(&delta_tot_table, Time, PowerSpectrum->delta_nu);
+        /* Decide whether we save the current time or not */
+        if (Time > exp(delta_tot_table.scalefact[delta_tot_table.ia-2] + 0.009) {
+            /* If so update delta_tot(a) correctly, overwriting current power spectrum */
+            update_delta_tot(&delta_tot_table, Time, PowerSpectrum->Power, PowerSpectrum->delta_nu, 1);
+        }
+        /*Otherwise discard the last powerspectrum*/
+        else
+            delta_tot_table.ia--;
+
         message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum->nonzero, PowerSpectrum->kk[1], PowerSpectrum->delta_nu_ratio[1], PowerSpectrum->Power[1]);
         /*kspace_prefac = M_nu (analytic) / M_particles */
         const double OmegaNu_nop = get_omega_nu_nopart(&CP->ONu, Time);
@@ -176,6 +189,11 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     }
     /*We want to interpolate in log space*/
     for(i=0; i < PowerSpectrum->nonzero; i++) {
+        if(isnan(PowerSpectrum->delta_nu[i]))
+            endrun(2004,"delta_nu_curr=%g i=%d delta_cdm_curr=%g kk=%g\n",PowerSpectrum->delta_nu[i],i,PowerSpectrum->Power[i],PowerSpectrum->kk[i]);
+            /*Enforce positivity for sanity reasons*/
+            if(PowerSpectrum->delta_nu[i] < 0)
+                PowerSpectrum->delta_nu[i] = 0;
         PowerSpectrum->logknu[i] = log(PowerSpectrum->kk[i]);
         PowerSpectrum->delta_nu_ratio[i] = PowerSpectrum->delta_nu[i]/ PowerSpectrum->Power[i];
     }
@@ -426,11 +444,6 @@ void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a,
     return;
 }
 
-/** Floating point accuracy*/
-#define FLOAT_ACC   1e-6
-/** Number of bins in integrations*/
-#define GSL_VAL 200
-
 /*Update the last value of delta_tot in the table with a new value computed
  from the given delta_cdm_curr and delta_nu_curr.
  If overwrite is true, overwrite the existing final entry.*/
@@ -448,43 +461,6 @@ void update_delta_tot(_delta_tot_table * const d_tot, const double a, const doub
   for (ik = 0; ik < d_tot->nk; ik++){
     d_tot->delta_tot[ik][d_tot->ia-1] = get_delta_tot(delta_nu_curr[ik], delta_cdm_curr[ik], OmegaNua3, d_tot->Omeganonu, OmegaNu1,partnu);
   }
-}
-
-void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int nk, const double delta_cdm_curr[], double delta_nu_curr[])
-{
-  int ik;
-  /* If we get called twice with the same scale factor, do nothing: delta_nu_curr
-   * already stores the neutrino power from the current timestep.*/
-  if(log(a)-d_tot->scalefact[d_tot->ia-1] < FLOAT_ACC){
-       return;
-  }
-   /*We need some estimate for delta_tot(current time) to obtain delta_nu(current time).
-     Even though delta_tot(current time) is not directly used (the integrand vanishes at a = a(current)),
-     it is indeed needed for interpolation */
-   /*It was checked that using delta_tot(current time) = delta_cdm(current time) leads to no more than 2%
-     error on delta_nu (and moreover for large k). A simple estimate for delta_nu decreases the maximum
-     relative error on delta_nu to ~1E-4. So we only need one step. */
-   /*This increments the number of stored spectra, although the last one is not yet final.*/
-   update_delta_tot(d_tot, a, delta_cdm_curr, delta_nu_curr, 0);
-   /*Get the new delta_nu_curr*/
-   get_delta_nu_combined(d_tot, a, delta_nu_curr);
-   /* Decide whether we save the current time or not */
-   if (a >= exp(d_tot->scalefact[d_tot->ia-2]) + 0.009) {
-       /* If so update delta_tot(a) correctly, overwriting current power spectrum */
-       update_delta_tot(d_tot, a, delta_cdm_curr, delta_nu_curr, 1);
-   }
-   /*Otherwise discard the last powerspectrum*/
-   else
-       d_tot->ia--;
-   /*Sanity-check the output*/
-   for(ik=0;ik < nk; ik++){
-        if(isnan(delta_nu_curr[ik]))
-            endrun(2004,"delta_nu_curr=%g i=%d delta_cdm_curr=%g kk=%g\n",delta_nu_curr[ik],ik,delta_cdm_curr[ik],d_tot->wavenum[ik]);
-        /*Enforce positivity for sanity reasons*/
-        if(delta_nu_curr[ik] < 0)
-            delta_nu_curr[ik] = 0;
-   }
-   return;
 }
 
 /*Kernel function for the fslength integration*/
