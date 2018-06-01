@@ -29,9 +29,6 @@ struct _delta_tot_table {
     double * scalefact;
     /** Pointer to array of length nk storing initial neutrino power spectrum*/
     double * delta_nu_init;
-    /** Pointer to array of length nk storing the last neutrino power spectrum we saw, for a first estimate
-    * of the new delta_tot */
-    double * delta_nu_last;
     /**Pointer to array storing the effective wavenumbers for the above power spectra*/
     double * wavenum;
     /** Pointer to a structure for computing omega_nu*/

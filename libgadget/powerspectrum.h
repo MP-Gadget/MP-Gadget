@@ -14,6 +14,9 @@ struct _powerspectrum {
     size_t nonzero;
     double Norm;
     /*These are for the LRA neutrino code*/
+    /*neutrino perturbations*/
+    double * Pnu;
+    /*log k bins and ratio of Pnu to Pcdm: stored so interpolation is accurate*/
     double * logknu;
     double * Pnuratio;
     double nu_prefac;
@@ -23,7 +26,7 @@ struct _powerspectrum {
 };
 
 /*Allocate memory for the power spectrum*/
-void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins, const int nthreads);
+void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins, const int nthreads, const int MassiveNuLinResp);
 
 /*Zero memory for the power spectrum*/
 void powerspectrum_zero(struct _powerspectrum * PowerSpectrum);
