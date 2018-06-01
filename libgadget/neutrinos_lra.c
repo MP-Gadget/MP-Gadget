@@ -191,9 +191,9 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     for(i=0; i < PowerSpectrum->nonzero; i++) {
         if(isnan(PowerSpectrum->delta_nu[i]))
             endrun(2004,"delta_nu_curr=%g i=%d delta_cdm_curr=%g kk=%g\n",PowerSpectrum->delta_nu[i],i,PowerSpectrum->Power[i],PowerSpectrum->kk[i]);
-            /*Enforce positivity for sanity reasons*/
-            if(PowerSpectrum->delta_nu[i] < 0)
-                PowerSpectrum->delta_nu[i] = 0;
+        /*Enforce positivity for sanity reasons*/
+        if(PowerSpectrum->delta_nu[i] < 0)
+            PowerSpectrum->delta_nu[i] = 0;
         PowerSpectrum->logknu[i] = log(PowerSpectrum->kk[i]);
         PowerSpectrum->delta_nu_ratio[i] = PowerSpectrum->delta_nu[i]/ PowerSpectrum->Power[i];
     }
