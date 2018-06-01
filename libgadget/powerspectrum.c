@@ -111,10 +111,6 @@ void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * O
     fprintf(fp, "# k P_nu(k) Nmodes\n");
     fprintf(fp, "# a= %g\n", Time);
     fprintf(fp, "# nk = %ld\n", PowerSpectrum->nonzero);
-    /* Pnuratio contains O_nu d_nu / (O_cdm d_cdm). Power contains P_t.
-     * We have that O_0 d_t = O_cdm d_cdm (1 + Pnuratio)
-     * so that d_nu = Pnuratio /O_nu (O_cdm d_cdm) = Pnuratio/(1+Pnuratio) d_t O_0/O_nu
-     * and O_0 / O_nu = 1 + O_nonu/O_nu = 1 + 1/n_prefac*/
     for(i = 0; i < PowerSpectrum->nonzero; i++){
         fprintf(fp, "%g %g %ld\n", PowerSpectrum->kk[i], pow(PowerSpectrum->delta_nu[i],2), PowerSpectrum->Nmodes[i]);
     }
