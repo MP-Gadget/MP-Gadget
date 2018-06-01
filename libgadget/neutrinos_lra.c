@@ -34,25 +34,23 @@ void update_delta_tot(_delta_tot_table * const d_tot, const double a, const doub
  * Here is the full function that deals with this
  * @param d_tot contains the state of the integrator; samples of the total power spectrum at earlier times.
  * @param a is the current scale factor
- * @param keff is an array of length nk containing (natural) log k
  * @param delta_cdm_curr array of length nk containing the square root of the current cdm power spectrum
  * @param delta_nu_curr is an array of length nk which contains the square root of the last timesteps neutrino power spectrum, and is updated.
  * @param transfer_init is a pointer to the structure containing transfer tables.
 ******************************************************************************************************/
-void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int nk, const double keff[], const double delta_cdm_curr[], double delta_nu_curr[]);
+void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int nk, const double delta_cdm_curr[], double delta_nu_curr[]);
 
 /** Main function: given tables of wavenumbers, total delta at Na earlier times (< = a),
  * and initial conditions for neutrinos, computes the current delta_nu.
  * @param d_tot Initialised structure for storing total matter density.
  * @param a Current scale factor.
- * @param wavenum Values of k (not log k!) for each power spectrum bin.
  * @param delta_nu_curr Pointer to array to store square root of neutrino power spectrum. Main output.
  * @param mnu Neutrino mass in eV.*/
-void get_delta_nu(const _delta_tot_table * const d_tot, const double a, const double wavenum[], double delta_nu_curr[], const double mnu);
+void get_delta_nu(const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[], const double mnu);
 
 /** Function which wraps three get_delta_nu calls to get delta_nu three times,
  * so that the final value is for all neutrino species*/
-void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a, const double wavenum[],  double delta_nu_curr[]);
+void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[]);
 
 /** Fit to the special function J(x) that is accurate to better than 3% relative and 0.07% absolute*/
 double specialJ(const double x, const double vcmnubylight, const double nufrac_low);
@@ -98,23 +96,6 @@ typedef struct _transfer_init_table _transfer_init_table;
 static _transfer_init_table t_init_data;
 static _transfer_init_table * t_init = &t_init_data;
 
-/* Constructor for delta_tot. Does some sanity checks.*/
-static void delta_tot_resume(_delta_tot_table * const d_tot, const int nk_in, const double wavenum[])
-{
-    int ik;
-    if(nk_in > d_tot->nk_allocated){
-           endrun(2011,"input power of %d is longer than memory of %d\n",nk_in,d_tot->nk_allocated);
-    }
-    if(d_tot->nk != nk_in)
-        endrun(201, "Number of neutrino bins %d != stored value %d\n",nk_in, d_tot->nk);
-
-    /*Set the wave number*/
-    for(ik=0;ik<d_tot->nk;ik++){
-        d_tot->wavenum[ik] = wavenum[ik];
-    }
-    return;
-}
-
 /* Constructor. transfer_init_tabulate must be called before this function.
  * Initialises delta_tot (including from a file) and delta_nu_init from the transfer functions.
  * read_all_nu_state must be called before this if you want reloading from a snapshot to work
@@ -122,9 +103,6 @@ static void delta_tot_resume(_delta_tot_table * const d_tot, const int nk_in, co
 static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in, const double wavenum[], const double delta_cdm_curr[], const double TimeIC)
 {
     int ik;
-    if(nk_in > d_tot->nk_allocated){
-           endrun(2011,"input power of %d is longer than memory of %d\n",nk_in,d_tot->nk_allocated);
-    }
     d_tot->nk=nk_in;
     const double OmegaNua3=get_omega_nu_nopart(d_tot->omnu, d_tot->TimeTransfer)*pow(d_tot->TimeTransfer,3);
     const double OmegaNu1 = get_omega_nu(d_tot->omnu, 1);
@@ -143,7 +121,6 @@ static void delta_tot_first_init(_delta_tot_table * const d_tot, const int nk_in
             const double partnu = particle_nu_fraction(&d_tot->omnu->hybnu, TimeIC, 0);
             /*Initialise the first delta_tot*/
             d_tot->delta_tot[ik][0] = get_delta_tot(d_tot->delta_nu_init[ik], delta_cdm_curr[ik], OmegaNua3, d_tot->Omeganonu, OmegaNu1, partnu);
-            d_tot->wavenum[ik] = wavenum[ik];
     }
     ta_free(t_init->logk);
     gsl_interp_accel_free(acc);
@@ -160,20 +137,36 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     int i;
     /*This is done on the first timestep: we need nk_nonzero for it to work.*/
     if(!delta_tot_table.delta_tot_init_done) {
-        /*Separate functions as now minimal duplication.*/
-        if(delta_tot_table.ia > 0)
-            delta_tot_resume(&delta_tot_table, PowerSpectrum->nonzero, PowerSpectrum->kk);
+        if(PowerSpectrum->nonzero > delta_tot_table.nk_allocated){
+           endrun(2011,"Input power length %d > %d (allocated memory)\n", PowerSpectrum->nonzero, delta_tot_table.nk_allocated);
+        }
+        /*Check that the k bins are the same if we are resuming.
+         * TODO: add rebinning if they are not.*/
+        if(delta_tot_table.ia > 0) {
+            int ik;
+            if(delta_tot_table.nk != PowerSpectrum->nonzero)
+                endrun(201, "Number of neutrino bins %d != stored value %d\n",PowerSpectrum->kk, delta_tot_table.nk);
+            /*Set the wave number*/
+            for(ik=0;ik<PowerSpectrum->nonzero;ik++){
+                if(delta_tot_table.wavenum[ik] > 0 && fabs(delta_tot_table.wavenum[ik] / PowerSpectrum->kk[ik] -1 ) > 1e-3)
+                    endrun(202, "Stored k-bin %d in nu-code changed: %g != %g\n", ik, delta_tot_table.wavenum[ik], PowerSpectrum->kk[ik]);
+            }
+            ta_free(delta_tot_table.wavenum);
+        }
         else
+            /* Otherwise compute delta_nu from the transfer functions*/
             delta_tot_first_init(&delta_tot_table, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Power, TimeIC);
+
+        delta_tot_table.wavenum = PowerSpectrum->kk;
         /*Initialise the first delta_nu*/
-        get_delta_nu_combined(&delta_tot_table, exp(delta_tot_table.scalefact[delta_tot_table.ia-1]), PowerSpectrum->kk, PowerSpectrum->delta_nu);
+        get_delta_nu_combined(&delta_tot_table, exp(delta_tot_table.scalefact[delta_tot_table.ia-1]), PowerSpectrum->delta_nu);
         delta_tot_table.delta_tot_init_done = 1;
     }
     /*This sets up P_nu_curr.*/
     memset(PowerSpectrum->delta_nu_ratio,0, PowerSpectrum->nonzero*sizeof(PowerSpectrum->delta_nu_ratio[0]));
     const double partnu = particle_nu_fraction(&CP->ONu.hybnu, Time, 0);
     if(1 - partnu > 1e-3) {
-        update_delta_nu(&delta_tot_table, Time, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Power, PowerSpectrum->delta_nu);
+        update_delta_nu(&delta_tot_table, Time, PowerSpectrum->nonzero, PowerSpectrum->Power, PowerSpectrum->delta_nu);
         message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum->nonzero, PowerSpectrum->kk[1], PowerSpectrum->delta_nu_ratio[1], PowerSpectrum->Power[1]);
         /*kspace_prefac = M_nu (analytic) / M_particles */
         const double OmegaNu_nop = get_omega_nu_nopart(&CP->ONu, Time);
@@ -350,6 +343,7 @@ void petaio_read_neutrinos(BigFile * bf, int ThisTask)
     petaio_read_block(bf, "Neutrino/DeltaNuInit", &delta_nu, 0);
     /* Read the k values*/
     BigArray kvalue = {0};
+    delta_tot_table.wavenum = ta_malloc("nu_wavenum", double, delta_tot_table.nk);
     memset(delta_tot_table.wavenum, 0, delta_tot_table.nk);
     big_array_init(&kvalue, delta_tot_table.wavenum, "=f8", 2, dims, strides);
     petaio_read_block(bf, "Neutrino/kvalue", &kvalue, 0);
@@ -394,8 +388,7 @@ void init_neutrinos_lra(const int nk_in, const double TimeTransfer, const double
    for(count=1; count< nk_in; count++)
         d_tot->delta_tot[count] = d_tot->delta_tot[0] + count*d_tot->namax;
    /*Allocate space for the initial neutrino power spectrum*/
-   d_tot->delta_nu_init =(double *) mymalloc("kspace_delta_nu_init",2*nk_in*sizeof(double));
-   d_tot->wavenum=d_tot->delta_nu_init+nk_in;
+   d_tot->delta_nu_init =(double *) mymalloc("kspace_delta_nu_init",nk_in*sizeof(double));
    /*Setup pointer to the matter density*/
    d_tot->omnu = omnu;
    /*Set the prefactor for delta_nu, and the units system*/
@@ -412,7 +405,7 @@ void init_neutrinos_lra(const int nk_in, const double TimeTransfer, const double
 
 /*Function which wraps three get_delta_nu calls to get delta_nu three times,
  * so that the final value is for all neutrino species*/
-void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a, const double wavenum[],  double delta_nu_curr[])
+void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[])
 {
     const double Omega_nu_tot=get_omega_nu_nopart(d_tot->omnu, a);
     int mi;
@@ -425,7 +418,7 @@ void get_delta_nu_combined(const _delta_tot_table * const d_tot, const double a,
                  int ik;
                  double delta_nu_single[d_tot->nk];
                  const double omeganu = d_tot->omnu->nu_degeneracies[mi] * omega_nu_single(d_tot->omnu, a, mi);
-                 get_delta_nu(d_tot, a, wavenum, delta_nu_single,d_tot->omnu->RhoNuTab[mi].mnu);
+                 get_delta_nu(d_tot, a, delta_nu_single,d_tot->omnu->RhoNuTab[mi].mnu);
                  for(ik=0; ik<d_tot->nk; ik++)
                     delta_nu_curr[ik]+=delta_nu_single[ik]*omeganu/Omega_nu_tot;
             }
@@ -457,7 +450,7 @@ void update_delta_tot(_delta_tot_table * const d_tot, const double a, const doub
   }
 }
 
-void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int nk, const double keff[], const double delta_cdm_curr[], double delta_nu_curr[])
+void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int nk, const double delta_cdm_curr[], double delta_nu_curr[])
 {
   int ik;
   /* If we get called twice with the same scale factor, do nothing: delta_nu_curr
@@ -474,7 +467,7 @@ void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int n
    /*This increments the number of stored spectra, although the last one is not yet final.*/
    update_delta_tot(d_tot, a, delta_cdm_curr, delta_nu_curr, 0);
    /*Get the new delta_nu_curr*/
-   get_delta_nu_combined(d_tot, a, keff, delta_nu_curr);
+   get_delta_nu_combined(d_tot, a, delta_nu_curr);
    /* Decide whether we save the current time or not */
    if (a >= exp(d_tot->scalefact[d_tot->ia-2]) + 0.009) {
        /* If so update delta_tot(a) correctly, overwriting current power spectrum */
@@ -486,7 +479,7 @@ void update_delta_nu(_delta_tot_table * const d_tot, const double a, const int n
    /*Sanity-check the output*/
    for(ik=0;ik < nk; ik++){
         if(isnan(delta_nu_curr[ik]))
-            endrun(2004,"delta_nu_curr=%g i=%d delta_cdm_curr=%g kk=%g\n",delta_nu_curr[ik],ik,delta_cdm_curr[ik],keff[ik]);
+            endrun(2004,"delta_nu_curr=%g i=%d delta_cdm_curr=%g kk=%g\n",delta_nu_curr[ik],ik,delta_cdm_curr[ik],d_tot->wavenum[ik]);
         /*Enforce positivity for sanity reasons*/
         if(delta_nu_curr[ik] < 0)
             delta_nu_curr[ik] = 0;
@@ -624,7 +617,7 @@ Main function: given tables of wavenumbers, total delta at Na earlier times (<= 
 and initial conditions for neutrinos, computes the current delta_nu.
 Na is the number of currently stored time steps.
 */
-void get_delta_nu(const _delta_tot_table * const d_tot, const double a, const double wavenum[], double delta_nu_curr[],const double mnu)
+void get_delta_nu(const _delta_tot_table * const d_tot, const double a, double delta_nu_curr[],const double mnu)
 {
   double fsl_A0a,deriv_prefac;
   int ik;
@@ -649,7 +642,7 @@ void get_delta_nu(const _delta_tot_table * const d_tot, const double a, const do
        * if two species are massless.
        * Also, since at early times the clustering is tiny, it is very unlikely to matter.*/
       /*For zero mass neutrinos just use the initial conditions piece, modulating to zero inside the horizon*/
-      const double specJ = specialJ(wavenum[ik]*fsl_A0a/(mnubykT > 0 ? mnubykT : 1),qc, d_tot->omnu->hybnu.nufrac_low[0]);
+      const double specJ = specialJ(d_tot->wavenum[ik]*fsl_A0a/(mnubykT > 0 ? mnubykT : 1),qc, d_tot->omnu->hybnu.nufrac_low[0]);
       delta_nu_curr[ik] = specJ*d_tot->delta_nu_init[ik] *(1.+ deriv_prefac*fsl_A0a);
   }
   /* Check whether the particle neutrinos are active at this point.
@@ -710,7 +703,7 @@ void get_delta_nu(const _delta_tot_table * const d_tot, const double a, const do
         gsl_interp_init(params.fs_spline,params.fsscales,params.fslengths,Nfs);
         for (ik = 0; ik < d_tot->nk; ik++) {
             double abserr,d_nu_tmp;
-            params.k=wavenum[ik];
+            params.k=d_tot->wavenum[ik];
             params.delta_tot=d_tot->delta_tot[ik];
             gsl_interp_init(params.spline,params.scale,params.delta_tot,Na);
             gsl_integration_qag (&F, log(d_tot->TimeTransfer), log(a), 0, relerr,GSL_VAL,6,w,&d_nu_tmp, &abserr);
