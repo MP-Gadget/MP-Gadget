@@ -180,7 +180,7 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
         else
             delta_tot_table.ia--;
 
-        message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum->nonzero, PowerSpectrum->kk[1], PowerSpectrum->delta_nu_ratio[1], PowerSpectrum->Power[1]);
+        message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum->nonzero, PowerSpectrum->kk[1], PowerSpectrum->delta_nu[1], PowerSpectrum->Power[1]);
         /*kspace_prefac = M_nu (analytic) / M_particles */
         const double OmegaNu_nop = get_omega_nu_nopart(&CP->ONu, Time);
         const double omega_hybrid = get_omega_nu(&CP->ONu, 1) * partnu / pow(Time, 3);
