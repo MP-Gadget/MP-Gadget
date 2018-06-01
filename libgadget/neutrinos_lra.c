@@ -172,7 +172,7 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
         /*Get the new delta_nu_curr*/
         get_delta_nu_combined(&delta_tot_table, Time, PowerSpectrum->delta_nu);
         /* Decide whether we save the current time or not */
-        if (Time > exp(delta_tot_table.scalefact[delta_tot_table.ia-2] + 0.009) {
+        if (Time > exp(delta_tot_table.scalefact[delta_tot_table.ia-2]) + 0.009) {
             /* If so update delta_tot(a) correctly, overwriting current power spectrum */
             update_delta_tot(&delta_tot_table, Time, PowerSpectrum->Power, PowerSpectrum->delta_nu, 1);
         }
