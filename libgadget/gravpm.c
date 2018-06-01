@@ -306,7 +306,7 @@ static void compute_neutrino_power() {
     /*Initialize the interpolation for the neutrinos*/
     PowerSpectrum.nu_spline = gsl_interp_alloc(gsl_interp_linear,PowerSpectrum.nonzero);
     PowerSpectrum.nu_acc = gsl_interp_accel_alloc();
-    gsl_interp_init(PowerSpectrum.nu_spline,PowerSpectrum.logknu,PowerSpectrum.Pnuratio,PowerSpectrum.nonzero);
+    gsl_interp_init(PowerSpectrum.nu_spline,PowerSpectrum.logknu,PowerSpectrum.delta_nu_ratio,PowerSpectrum.nonzero);
     /*Zero power spectrum, which is stored with the neutrinos*/
     powerspectrum_zero(&PowerSpectrum);
 }
@@ -407,7 +407,7 @@ static void potential_transfer(int64_t k2, int kpos[3], pfft_complex *value) {
          * This is correct for the forces, and gives the right power spectrum,
          * once we multiply PowerSpectrum.Norm by (Omega0 / (Omega0 - OmegaNu))**2 */
         const double nufac = 1 + PowerSpectrum.nu_prefac * gsl_interp_eval(PowerSpectrum.nu_spline,PowerSpectrum.logknu,
-                                                                       PowerSpectrum.Pnuratio,logk2,PowerSpectrum.nu_acc);
+                                                                       PowerSpectrum.delta_nu_ratio,logk2,PowerSpectrum.nu_acc);
         value[0][0] *= nufac;
         value[0][1] *= nufac;
     }

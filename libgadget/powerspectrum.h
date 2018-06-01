@@ -15,10 +15,10 @@ struct _powerspectrum {
     double Norm;
     /*These are for the LRA neutrino code*/
     /*neutrino perturbations*/
-    double * Pnu;
+    double * delta_nu;
     /*log k bins and ratio of Pnu to Pcdm: stored so interpolation is accurate*/
     double * logknu;
-    double * Pnuratio;
+    double * delta_nu_ratio;
     double nu_prefac;
     gsl_interp *nu_spline;
     gsl_interp_accel * nu_acc;

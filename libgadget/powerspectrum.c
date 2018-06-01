@@ -23,8 +23,8 @@ void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins,
     if(MassiveNuLinResp) {
         /*These arrays are stored separately to make interpolation more accurate*/
         PowerSpectrum->logknu = mymalloc("PowerNu", sizeof(double) * 3*nbins);
-        PowerSpectrum->Pnuratio = PowerSpectrum-> logknu + nbins;
-        PowerSpectrum->Pnu = PowerSpectrum-> logknu + 2*nbins;
+        PowerSpectrum->delta_nu_ratio = PowerSpectrum-> logknu + nbins;
+        PowerSpectrum->delta_nu = PowerSpectrum-> logknu + 2*nbins;
     }
     PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(int64_t) * nalloc);
 }
@@ -116,7 +116,7 @@ void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * O
      * so that d_nu = Pnuratio /O_nu (O_cdm d_cdm) = Pnuratio/(1+Pnuratio) d_t O_0/O_nu
      * and O_0 / O_nu = 1 + O_nonu/O_nu = 1 + 1/n_prefac*/
     for(i = 0; i < PowerSpectrum->nonzero; i++){
-        fprintf(fp, "%g %g %ld\n", PowerSpectrum->kk[i], pow(PowerSpectrum->Pnu[i],2), PowerSpectrum->Nmodes[i]);
+        fprintf(fp, "%g %g %ld\n", PowerSpectrum->kk[i], pow(PowerSpectrum->delta_nu[i],2), PowerSpectrum->Nmodes[i]);
     }
     fclose(fp);
     /*Clean up the neutrino memory now we saved the power spectrum.*/

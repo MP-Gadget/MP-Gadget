@@ -166,15 +166,15 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
         else
             delta_tot_first_init(&delta_tot_table, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Power, TimeIC);
         /*Initialise the first delta_nu*/
-        get_delta_nu_combined(&delta_tot_table, exp(delta_tot_table.scalefact[delta_tot_table.ia-1]), PowerSpectrum->kk, PowerSpectrum->Pnu);
+        get_delta_nu_combined(&delta_tot_table, exp(delta_tot_table.scalefact[delta_tot_table.ia-1]), PowerSpectrum->kk, PowerSpectrum->delta_nu);
         delta_tot_table.delta_tot_init_done = 1;
     }
     /*This sets up P_nu_curr.*/
-    memset(PowerSpectrum->Pnuratio,0, PowerSpectrum->nonzero*sizeof(PowerSpectrum->Pnuratio[0]));
+    memset(PowerSpectrum->delta_nu_ratio,0, PowerSpectrum->nonzero*sizeof(PowerSpectrum->delta_nu_ratio[0]));
     const double partnu = particle_nu_fraction(&CP->ONu.hybnu, Time, 0);
     if(1 - partnu > 1e-3) {
-        update_delta_nu(&delta_tot_table, Time, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Power, PowerSpectrum->Pnu);
-        message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum->nonzero, PowerSpectrum->kk[1], PowerSpectrum->Pnuratio[1], PowerSpectrum->Power[1]);
+        update_delta_nu(&delta_tot_table, Time, PowerSpectrum->nonzero, PowerSpectrum->kk, PowerSpectrum->Power, PowerSpectrum->delta_nu);
+        message(0,"Done getting neutrino power: nk = %d, k = %g, delta_nu = %g, delta_cdm = %g,\n", PowerSpectrum->nonzero, PowerSpectrum->kk[1], PowerSpectrum->delta_nu_ratio[1], PowerSpectrum->Power[1]);
         /*kspace_prefac = M_nu (analytic) / M_particles */
         const double OmegaNu_nop = get_omega_nu_nopart(&CP->ONu, Time);
         const double omega_hybrid = get_omega_nu(&CP->ONu, 1) * partnu / pow(Time, 3);
@@ -184,7 +184,7 @@ void delta_nu_from_power(struct _powerspectrum * PowerSpectrum, Cosmology * CP, 
     /*We want to interpolate in log space*/
     for(i=0; i < PowerSpectrum->nonzero; i++) {
         PowerSpectrum->logknu[i] = log(PowerSpectrum->kk[i]);
-        PowerSpectrum->Pnuratio[i] = PowerSpectrum->Pnu[i]/ PowerSpectrum->Power[i];
+        PowerSpectrum->delta_nu_ratio[i] = PowerSpectrum->delta_nu[i]/ PowerSpectrum->Power[i];
     }
 }
 
