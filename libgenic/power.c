@@ -145,7 +145,7 @@ void save_all_transfer_tables(BigFile * bf, int ThisTask)
 }
 
 
-void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const int nnu)
+void parse_power(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const double InitTime)
 {
     char * retval;
     if((*InputInLog10) == 0) {
@@ -167,7 +167,7 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
     out_tab->logD[0][i] = p/2;
 }
 
-void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10)
+void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const double InitTime)
 {
     int j;
     const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
@@ -207,10 +207,11 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     out_tab->logD[DELTA_BAR][i] = -1*transfers[1];
     out_tab->logD[DELTA_CDM][i] = -1*transfers[2];
     /*This should be the weighted average sum of the three neutrino species*/
+    const _omega_nu * Onu = &CP->ONu;
     out_tab->logD[DELTA_NU][i] = 0;
-    for(j=0; j < nnu; j++) {
-        out_tab->logD[DELTA_NU][i] = -1*transfers[4+j] * omega_nu_single(CP->omnu, Time, j);
-    const double onu = get_omega_nu(&CP->ONu, Time);
+    for(j=0; j < nnu; j++)
+        out_tab->logD[DELTA_NU][i] = -1*transfers[4+j] * omega_nu_single(Onu, InitTime, j);
+    const double onu = get_omega_nu(&CP->ONu, InitTime);
     /*Should be weighted bu omega_nu*/
     out_tab->logD[DELTA_NU][i] /= onu;
     /*h_prime is entry 8 + nnu. t_b is 12 + nnu, t_ncdm[2] is 13 + nnu * 2.*/
@@ -218,12 +219,12 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     out_tab->logD[VEL_CDM][i] = transfers[8+nnu] * 0.5;
     out_tab->logD[VEL_NU][i] = 0;
     for(j=0; j < nnu; j++)
-        out_tab->logD[VEL_NU][i] = transfers[13 + nnu + j] * omega_nu_single(CP->omnu, Time, j);
+        out_tab->logD[VEL_NU][i] = transfers[13 + nnu + j] * omega_nu_single(Onu, InitTime, j);
     /*Should be weighted bu omega_nu*/
     out_tab->logD[VEL_NU][i] /= onu;
 }
 
-void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10))
+void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, const double InitTime, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, const double InitTime))
 {
     FILE *fd = NULL;
     int j;
@@ -271,7 +272,7 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
             if(!retval || retval[0] == '#')
                 continue;
             double k = atof(retval);
-            parse_line(i, k, line, out_tab, &InputInLog10);
+            parse_line(i, k, line, out_tab, &InputInLog10, InitTime);
             i++;
         }
         while(1);
@@ -293,7 +294,7 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
     SpectrumLengthScale = ppar->SpectrumLengthScale;
     const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
     if(strlen(ppar->FileWithTransferFunction) > 0) {
-        read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, parse_transfer);
+        read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, InitTime, parse_transfer);
     }
     if(transfer_table.Nentry == 0) {
         endrun(1, "Could not read transfer table at: '%s'\n",ppar->FileWithTransferFunction);
@@ -365,7 +366,7 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
     CP = CPin;
 
     if(ppar->WhichSpectrum == 2) {
-        read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, 0, parse_power);
+        read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, InitTime, parse_power);
         /*Initialise the interpolator*/
         gsl_interp_init(power_table.mat_intp[0],power_table.logk, power_table.logD[0],power_table.Nentry);
         transfer_table.Nentry = 0;
