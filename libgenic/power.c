@@ -167,9 +167,10 @@ void parse_power(int i, double k, char * line, struct table *out_tab, int * Inpu
     out_tab->logD[0][i] = p/2;
 }
 
-void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10, const int nnu)
+void parse_transfer(int i, double k, char * line, struct table *out_tab, int * InputInLog10)
 {
     int j;
+    const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
     const int ncols = 15 + nnu * 2;
     double transfers[ncols];
     k = log10(k);
@@ -205,15 +206,24 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
      * */
     out_tab->logD[DELTA_BAR][i] = -1*transfers[1];
     out_tab->logD[DELTA_CDM][i] = -1*transfers[2];
-    /*This is ur if neutrinos are massless*/
-    out_tab->logD[DELTA_NU][i] = -1*transfers[3+nnu];
+    /*This should be the weighted average sum of the three neutrino species*/
+    out_tab->logD[DELTA_NU][i] = 0;
+    for(j=0; j < nnu; j++) {
+        out_tab->logD[DELTA_NU][i] = -1*transfers[4+j] * omega_nu_single(CP->omnu, Time, j);
+    const double onu = get_omega_nu(&CP->ONu, Time);
+    /*Should be weighted bu omega_nu*/
+    out_tab->logD[DELTA_NU][i] /= onu;
     /*h_prime is entry 8 + nnu. t_b is 12 + nnu, t_ncdm[2] is 13 + nnu * 2.*/
     out_tab->logD[VEL_BAR][i] = transfers[12+nnu];
     out_tab->logD[VEL_CDM][i] = transfers[8+nnu] * 0.5;
-    out_tab->logD[VEL_NU][i] = transfers[13+nnu*2];
+    out_tab->logD[VEL_NU][i] = 0;
+    for(j=0; j < nnu; j++)
+        out_tab->logD[VEL_NU][i] = transfers[13 + nnu + j] * omega_nu_single(CP->omnu, Time, j);
+    /*Should be weighted bu omega_nu*/
+    out_tab->logD[VEL_NU][i] /= onu;
 }
 
-void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, const int nnu, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, const int nnu))
+void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10))
 {
     FILE *fd = NULL;
     int j;
@@ -261,7 +271,7 @@ void read_power_table(int ThisTask, const char * inputfile, const int ncols, str
             if(!retval || retval[0] == '#')
                 continue;
             double k = atof(retval);
-            parse_line(i, k, line, out_tab, &InputInLog10, nnu);
+            parse_line(i, k, line, out_tab, &InputInLog10);
             i++;
         }
         while(1);
@@ -283,7 +293,7 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
     SpectrumLengthScale = ppar->SpectrumLengthScale;
     const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
     if(strlen(ppar->FileWithTransferFunction) > 0) {
-        read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, nnu, parse_transfer);
+        read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, parse_transfer);
     }
     if(transfer_table.Nentry == 0) {
         endrun(1, "Could not read transfer table at: '%s'\n",ppar->FileWithTransferFunction);
