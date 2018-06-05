@@ -303,7 +303,7 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
 
     /*Now normalise the velocity transfer functions: divide by a * hubble, where hubble is the hubble function in Mpc^-1, so H0/c*/
     const double fac = InitTime * hubble_function(InitTime)/CP->Hubble * 100 * CP->HubbleParam/(LIGHTCGS / 1e5);
-    const double onu = get_omega_nu(&CP->ONu, 1);
+    const double onu = get_omega_nu(&CP->ONu, InitTime)*pow(InitTime,3);
     double meangrowth[5] = {0};
     /* At this point the transfer table contains: (3,4,5) t_b, 0.5 * h_prime, t_ncdm.
      * After, if t_cdm = 0.5 h_prime / (a H(a) / H0 /c) we need:
