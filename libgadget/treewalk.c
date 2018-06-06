@@ -298,9 +298,9 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, int size) {
     } else {
         int i;
         #pragma omp parallel for
-        for(i=0; i < NumActiveParticle; i++)
+        for(i=0; i < size; i++)
         {
-            const int p_i = ActiveParticle[i];
+            const int p_i = active_set[i];
 
             /* Skip the garbage particles */
             if(P[p_i].IsGarbage) continue;
