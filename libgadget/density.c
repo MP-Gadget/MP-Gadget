@@ -159,11 +159,12 @@ density_internal(int update_hsml)
     #pragma omp parallel for
     for(i = 0; i < NumActiveParticle; i++)
     {
-        const int p_i = ActiveParticle[i];
+        int p_i = i;
+        if(ActiveParticle)
+            p_i = ActiveParticle[i];
         P[p_i].DensityIterationDone = 0;
         DENSITY_GET_PRIV(tw)->Left[p_i] = 0;
         DENSITY_GET_PRIV(tw)->Right[p_i] = 0;
-
     }
 
     /* allocate buffers to arrange communication */

@@ -39,6 +39,14 @@ static inline inttime_t dti_from_timebin(int bin) {
 int NumActiveParticle;
 int *ActiveParticle;
 
+static inline int get_active_particle(int pa)
+{
+    if(ActiveParticle)
+        return ActiveParticle[pa];
+    else
+        return pa;
+}
+
 static int TimeBinCountType[6][TIMEBINS+1];
 
 static int
@@ -56,7 +64,8 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
 
     if(is_timebin_active(P[parent].TimeBin, All.Ti_Current)) {
         int childactive = atomic_fetch_and_add(&NumActiveParticle, 1);
-        ActiveParticle[childactive] = child;
+        if(ActiveParticle)
+            ActiveParticle[childactive] = child;
     }
     return 0;
 }
@@ -178,7 +187,7 @@ find_timesteps(int * MinTimeBin)
     #pragma omp parallel for reduction(min: mTimeBin) reduction(+: badstepsizecount)
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
-        const int i = ActiveParticle[pa];
+        const int i = get_active_particle(pa);
 
         if(P[i].Ti_kick != P[i].Ti_drift) {
             endrun(1, "Inttimes out of sync: Particle %d (ID=%ld) Kick=%o != Drift=%o\n", i, P[i].ID, P[i].Ti_kick, P[i].Ti_drift);
@@ -243,7 +252,7 @@ apply_half_kick(void)
     #pragma omp parallel for
     for(pa = 0; pa < NumActiveParticle; pa++)
     {
-        const int i = ActiveParticle[pa];
+        const int i = get_active_particle(pa);
         int bin = P[i].TimeBin;
         inttime_t dti = dti_from_timebin(bin);
         /* current Kick time */

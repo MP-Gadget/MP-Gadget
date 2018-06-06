@@ -1055,7 +1055,7 @@ void force_update_hmax(int * activeset, int size)
 
     for(i = 0; i < size; i++)
     {
-        const int p_i = activeset[i];
+        const int p_i = activeset ? activeset[i] : i;
 
         if(P[p_i].Type != 0)
             continue;
