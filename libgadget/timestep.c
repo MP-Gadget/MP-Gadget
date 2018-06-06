@@ -707,6 +707,7 @@ int rebuild_activelist(inttime_t Ti_Current)
         }
         TimeBinCountType[P[i].Type][bin]++;
     }
+    walltime_measure("/Timeline/Active");
     return 0;
 }
 
