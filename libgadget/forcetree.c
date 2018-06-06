@@ -320,6 +320,14 @@ modify_internal_node(int parent, int subnode, int p_child, int p_toplace,
     return ret;
 }
 
+#ifndef NO_OPENMP_SPINLOCK
+#define LOCK_NODE(i) pthread_spin_lock(&SpinLocks[i])
+#define UNLOCK_NODE(i) pthread_spin_unlock(&SpinLocks[i])
+#else
+#define LOCK_NODE(i) (i)
+#define UNLOCK_NODE(i) (i)
+#endif
+
 /*! Does initial creation of the nodes for the gravitational oct-tree.
  **/
 int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
@@ -365,7 +373,7 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
      * Since most particles are close to each other, this should save a number of tree walks.*/
     int this_acc = tb.firstnode;
     /* now we insert all particles */
-#ifdef OPENMP_USE_SPINLOCK
+#ifndef NO_OPENMP_SPINLOCK
     /*Initialise some spinlocks off*/
     pthread_spinlock_t * SpinLocks = mymalloc("NodeSpinlocks", (tb.lastnode - tb.firstnode)*sizeof(pthread_spinlock_t));
     for(i=0; i < tb.lastnode - tb.firstnode; i++) {
@@ -413,10 +421,8 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
         }
         while(child >= tb.firstnode);
 
-#ifdef OPENMP_USE_SPINLOCK
         /*Now lock this node.*/
-        pthread_spin_lock(&SpinLocks[this-tb.firstnode]);
-#endif
+        LOCK_NODE(this-tb.firstnode);
 
         /*Check nothing changed when we took the lock*/
         #pragma omp atomic read
@@ -424,11 +430,9 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
         /*If it did, walk again*/
         while(child >= tb.firstnode)
         {
-#ifdef OPENMP_USE_SPINLOCK
             /*Move the lock to the child*/
-            pthread_spin_lock(&SpinLocks[child-tb.firstnode]);
-            pthread_spin_unlock(&SpinLocks[this-tb.firstnode]);
-#endif
+            LOCK_NODE(child-tb.firstnode);
+            UNLOCK_NODE(this-tb.firstnode);
             this = child;
             /*New subnode*/
             subnode = get_subnode(&tb.Nodes[this], i);
@@ -446,10 +450,8 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
         /* Add an explicit flush because we are not using openmp's critical sections */
         #pragma omp flush
 
-#ifdef OPENMP_USE_SPINLOCK
         /*Unlock the parent*/
-        pthread_spin_unlock(&SpinLocks[this - tb.firstnode]);
-#endif
+        UNLOCK_NODE(this - tb.firstnode);
     }
     int totclose;
     MPI_Allreduce(&closepairs, &totclose, 1, MPI_INT, MPI_SUM, MPI_COMM_WORLD);
@@ -457,7 +459,7 @@ int force_tree_create_nodes(const struct TreeBuilder tb, const int npart)
         message(0,"Found %d close particle pairs when building tree.\n",totclose);
     }
 
-#ifdef OPENMP_USE_SPINLOCK
+#ifndef NO_OPENMP_SPINLOCK
     for(i=0; i < tb.lastnode - tb.firstnode; i++)
             pthread_spin_destroy(&SpinLocks[i]);
     /*Avoid a warning about discarding volatile*/

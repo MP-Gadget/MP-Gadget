@@ -12,62 +12,30 @@
 #include "partmanager.h"
 #include "utils.h"
 
-static int drift_particle_full(int i, inttime_t ti1, int blocking);
-
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift);
 
-#ifdef OPENMP_USE_SPINLOCK
 void lock_particle(int i) {
+#ifndef NO_OPENMP_SPINLOCK
     pthread_spin_lock(&P[i].SpinLock);
+#endif
 }
 void unlock_particle(int i) {
+#ifndef NO_OPENMP_SPINLOCK
     pthread_spin_unlock(&P[i].SpinLock);
-}
 #endif
+}
 
 void drift_particle(int i, inttime_t ti1) {
-    drift_particle_full(i, ti1, 1);
-}
-int drift_particle_full(int i, inttime_t ti1, int blocking) {
-    if(P[i].Ti_drift == ti1) return 0 ;
+    if(P[i].Ti_drift == ti1) return;
 
-#ifdef OPENMP_USE_SPINLOCK
-    int lockstate;
-    if (blocking) {
-        lockstate = pthread_spin_lock(&P[i].SpinLock);
-    } else {
-        lockstate = pthread_spin_trylock(&P[i].SpinLock);
-    }
-    if(0 == lockstate) {
-        inttime_t ti0 = P[i].Ti_drift;
-        if(ti0 != ti1) {
-            const double ddrift = get_drift_factor(ti0, ti1);
-            real_drift_particle(i, ti1, ddrift);
+    lock_particle(i);
+    inttime_t ti0 = P[i].Ti_drift;
+    if(ti0 != ti1) {
+        const double ddrift = get_drift_factor(ti0, ti1);
+        real_drift_particle(i, ti1, ddrift);
 #pragma omp flush
-        }
-        pthread_spin_unlock(&P[i].SpinLock);
-        return 0;
-    } else {
-        if(blocking) {
-            endrun(99999, "This shall not happen. Why?");
-            return -1;
-        } else {
-            return -1;
-        }
     }
-
-#else
-    /* do not use SpinLock */
-#pragma omp critical (_driftparticle_)
-    {
-        inttime_t ti0 = P[i].Ti_drift;
-        if(ti0 != ti1) {
-            const double ddrift = get_drift_factor(ti0, ti1);
-            real_drift_particle(i, ti1, ddrift);
-        }
-    }
-    return 0;
-#endif
+    unlock_particle(i);
 }
 
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift)

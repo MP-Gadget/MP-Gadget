@@ -17,10 +17,9 @@ OPT += -DDENSITY_INDEPENDENT_SPH
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 #OPT += VALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
 #OPT += -DDEBUG      # print a lot of debugging messages
-
-# flags shall that always be there they need to be cleaned up
-OPT += -DOPENMP_USE_SPINLOCK
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
+#Disable openmp locking. This means no threading.
+#OPT += -DNO_OPENMP_SPINLOCK
 
 #--------------------------------------- SFR/feedback model
 # Star formation master switch. Also enables the Wind model

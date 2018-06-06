@@ -34,6 +34,9 @@
    License along with the GNU C Library; if not, see
    <http://www.gnu.org/licenses/>.  */
 
+/*Define for convenience*/
+typedef int(*__compar_fn_t)(const void *, const void *);
+
 struct msort_param
 {
   size_t s;

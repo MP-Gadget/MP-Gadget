@@ -810,9 +810,6 @@ int treewalk_visit_ngbiter(TreeWalkQueryBase * I,
             if(lv->tw->type == TREEWALK_SPLIT && !(BINMASK(P[other].TimeBin) & lv->tw->bgmask))
                 continue;
 
-            if(lv->tw->type != TREEWALK_SPLIT) /* FIXME: get rid of this entirely */
-                drift_particle(other, All.Ti_Current);
-
             double dist;
 
             if(iter->symmetric == NGB_TREEFIND_SYMMETRIC) {
