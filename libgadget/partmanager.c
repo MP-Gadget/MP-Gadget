@@ -28,7 +28,7 @@ particle_alloc_memory(int MaxPart)
      * (memory lock etc?)
      * */
     memset(P, 0, sizeof(struct particle_data) * MaxPart);
-#ifdef OPENMP_USE_SPINLOCK
+#ifndef NO_OPENMP_SPINLOCK
     {
         int i;
         for(i = 0; i < MaxPart; i ++) {

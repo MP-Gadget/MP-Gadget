@@ -14,14 +14,16 @@
 
 static void real_drift_particle(int i, inttime_t ti1, const double ddrift);
 
-#ifdef OPENMP_USE_SPINLOCK
 void lock_particle(int i) {
+#ifndef NO_OPENMP_SPINLOCK
     pthread_spin_lock(&P[i].SpinLock);
+#endif
 }
 void unlock_particle(int i) {
+#ifndef NO_OPENMP_SPINLOCK
     pthread_spin_unlock(&P[i].SpinLock);
-}
 #endif
+}
 
 void drift_particle(int i, inttime_t ti1) {
     if(P[i].Ti_drift == ti1) return;

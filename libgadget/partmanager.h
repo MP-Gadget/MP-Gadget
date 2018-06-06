@@ -10,7 +10,7 @@
  */
 struct particle_data
 {
-#ifdef OPENMP_USE_SPINLOCK
+#ifndef NO_OPENMP_SPINLOCK
     pthread_spinlock_t SpinLock;
 #endif
 
