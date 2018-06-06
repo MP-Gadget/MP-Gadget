@@ -59,7 +59,7 @@ static void ev_reduce_result(TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
 
 static void
-treewalk_build_queue(TreeWalk * tw, int * active_set, int size);
+treewalk_build_queue(TreeWalk * tw, const int * active_set, const int size);
 
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
@@ -281,46 +281,33 @@ cmpint(const void *a, const void *b)
 #endif
 
 static void
-treewalk_build_queue(TreeWalk * tw, int * active_set, int size) {
+treewalk_build_queue(TreeWalk * tw, const int * active_set, const int size) {
     int * queue = tw->WorkSet;
     int k = 0;
-    if(active_set == NULL) {
-        int i;
-        #pragma omp parallel for
-        for(i = 0; i < PartManager->NumPart; i++) {
-            /* Skip the garbage particles */
-            if(P[i].IsGarbage) continue;
-            if(!tw->haswork(i, tw))
-                continue;
-            const int lock = atomic_fetch_and_add(&k, 1);
-            queue[lock] = i;
-        }
-    } else {
-        int i;
-        #pragma omp parallel for
-        for(i=0; i < size; i++)
-        {
-            const int p_i = active_set[i];
+    int i;
+    #pragma omp parallel for
+    for(i=0; i < size; i++)
+    {
+        /*Use raw particle number if active_set is null, otherwise use active_set*/
+        const int p_i = active_set ? active_set[i] : i;
 
-            /* Skip the garbage particles */
-            if(P[p_i].IsGarbage) continue;
+        /* Skip the garbage particles */
+        if(P[p_i].IsGarbage) continue;
 
-            if(!tw->haswork(p_i, tw))
-               continue;
-            const int lock = atomic_fetch_and_add(&k, 1);
-            queue[lock] = p_i;
-        }
-#ifdef DEBUG
-        /* check the uniqueness of ActiveParticle list. */
-        /* FIXME: the sort may affect performance of treewalk */
-        qsort_openmp(queue, k, sizeof(int), cmpint);
-        for(i = 0; i < k - 1; i ++) {
-            if(queue[i] == queue[i+1]) {
-                endrun(8829, "A few particles are twicely active.");
-            }
-        }
-#endif
+        if(!tw->haswork(p_i, tw))
+            continue;
+        const int lock = atomic_fetch_and_add(&k, 1);
+        queue[lock] = p_i;
     }
+#ifdef DEBUG
+    /* check the uniqueness of the active_set list. This is very slow. */
+    qsort_openmp(queue, k, sizeof(int), cmpint);
+    for(i = 0; i < k - 1; i ++) {
+        if(queue[i] == queue[i+1]) {
+            endrun(8829, "A few particles are twicely active.");
+        }
+    }
+#endif
     tw->WorkSetSize = k;
 }
 
