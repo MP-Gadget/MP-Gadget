@@ -219,12 +219,12 @@ void run(void)
 
         if(WriteSnapshot) {
             /* The accel may have created garbage -- collect them before writing a snapshot.
-             * If we do collect, rebuild tree and active list.*/
+             * If we do collect, rebuild tree and reset active list size.*/
             int compact[6] = {0};
 
             if(slots_gc(compact)) {
                 force_tree_rebuild();
-                rebuild_activelist(All.Ti_Current);
+                NumActiveParticle = PartManager->NumPart;
             }
         }
 
