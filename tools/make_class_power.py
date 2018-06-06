@@ -109,6 +109,9 @@ def _build_cosmology_params(config):
         gparams['tol_ncdm_synchronous'] = 1e-5
         gparams['tol_ncdm_bg'] = 1e-10
         gparams['l_max_ncdm'] = 50
+        #This disables the fluid approximations, which make P_nu not match camb on small scales.
+        #We need accurate P_nu to initialise our neutrino code.
+        gparams['ncdm_fluid_approximation'] = 3
     else:
         gparams['N_ur'] = 3.046
     #Power spectrum amplitude
