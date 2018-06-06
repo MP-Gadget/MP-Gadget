@@ -126,7 +126,9 @@ void init(int RestartSnapNum)
 
     domain_decompose_full();	/* do initial domain decomposition (gives equal numbers of particles) */
 
-    rebuild_activelist(0);
+    /*At the first time step all particles should be active*/
+    ActiveParticle = NULL;
+    NumActiveParticle = PartManager->NumPart;
 
     setup_smoothinglengths(RestartSnapNum);
 }
