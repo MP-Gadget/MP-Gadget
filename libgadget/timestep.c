@@ -47,8 +47,6 @@ static inline int get_active_particle(int pa)
         return pa;
 }
 
-static int TimeBinCountType[6][TIMEBINS+1];
-
 static int
 timestep_eh_slots_fork(EIBase * event, void * userdata)
 {
@@ -688,16 +686,20 @@ inttime_t find_next_kick(inttime_t Ti_Current, int minTimeBin)
     return Ti_Current + dti_from_timebin(minTimeBin);
 }
 
+static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountType);
+
 /* mark the bins that will be active before the next kick*/
-int rebuild_activelist(inttime_t Ti_Current)
+int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
 {
     int i;
 
     ActiveParticle = (int *) mymalloc("ActiveParticle", PartManager->MaxPart * sizeof(int));
-
-    memset(TimeBinCountType, 0, 6*(TIMEBINS+1)*sizeof(int));
     NumActiveParticle = 0;
 
+    int * TimeBinCountType = mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*All.NumThreads * sizeof(int));
+    memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * All.NumThreads * sizeof(int));
+
+    #pragma omp parallel for
     for(i = 0; i < PartManager->NumPart; i++)
     {
         int bin = P[i].TimeBin;
@@ -706,16 +708,22 @@ int rebuild_activelist(inttime_t Ti_Current)
         {
             if(P[i].IsGarbage)
                 endrun(2,"Trying to make particle %d active, but it is garbage!\n", i);
-            ActiveParticle[NumActiveParticle] = i;
-            NumActiveParticle++;
+            const int lock = atomic_fetch_and_add(&NumActiveParticle, 1);
+            ActiveParticle[lock] = i;
         }
-        TimeBinCountType[P[i].Type][bin]++;
+        TimeBinCountType[(TIMEBINS + 1) * (6* omp_get_thread_num() + P[i].Type) + bin] ++;
     }
+
+    /*Print statistics for this timebin*/
+    print_timebin_statistics(NumCurrentTiStep, TimeBinCountType);
+    myfree(TimeBinCountType);
+
     if(NumActiveParticle == PartManager->NumPart) {
         myfree(ActiveParticle);
         ActiveParticle = NULL;
     }
     walltime_measure("/Timeline/Active");
+
     return 0;
 }
 
@@ -729,7 +737,7 @@ void free_activelist(void)
  * FdCPU the cumulative cpu-time consumption in various parts of the
  * code is stored.
  */
-void print_timebin_statistics(int NumCurrentTiStep)
+static void print_timebin_statistics(int NumCurrentTiStep, int * TimeBinCountType)
 {
     double z;
     int i;
@@ -739,8 +747,15 @@ void print_timebin_statistics(int NumCurrentTiStep)
     int64_t tot_num_force = 0;
     int64_t TotNumPart = 0, TotNumType[6] = {0};
 
+    /*Sum the thread-local memory*/
+    for(i = 1; i < All.NumThreads; i ++) {
+        int j;
+        for(j=0; j < 6 * (TIMEBINS+1); j++)
+            TimeBinCountType[j] += TimeBinCountType[6 * (TIMEBINS+1) * i + j];
+    }
+
     for(i = 0; i < 6; i ++) {
-        sumup_large_ints(TIMEBINS+1, TimeBinCountType[i], tot_count_type[i]);
+        sumup_large_ints(TIMEBINS+1, &TimeBinCountType[(TIMEBINS+1) * i], tot_count_type[i]);
     }
 
     for(i = 0; i<TIMEBINS+1; i++) {

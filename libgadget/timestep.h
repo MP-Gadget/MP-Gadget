@@ -7,14 +7,13 @@ set in rebuild_activelist.*/
 extern int NumActiveParticle;
 extern int *ActiveParticle;
 
-int rebuild_activelist(inttime_t ti_current);
+int rebuild_activelist(inttime_t ti_current, int NumCurrentTiStep);
 void free_activelist(void);
 void set_global_time(double newtime);
 int find_timesteps(int * MinTimeBin);
 void apply_half_kick(void);
 void apply_PM_half_kick(void);
 
-void print_timebin_statistics(int NumCurrentTiStep);
 int is_timebin_active(int i, inttime_t current);
 void set_timebin_active(binmask_t mask);
 

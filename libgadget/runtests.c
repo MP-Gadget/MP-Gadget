@@ -42,7 +42,7 @@ void runtests()
     }
 
     domain_decompose_full();	/* do domain decomposition */
-    rebuild_activelist(All.Ti_Current);
+    rebuild_activelist(All.Ti_Current, 0);
 
     grav_short_pair();
     message(0, "GravShort Pairs %s\n", GDB_format_particle(0));

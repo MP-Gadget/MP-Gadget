@@ -181,9 +181,7 @@ void run(void)
             domain_maintain();
         }
 
-        rebuild_activelist(All.Ti_Current);
-
-        print_timebin_statistics(NumCurrentTiStep);
+        rebuild_activelist(All.Ti_Current, NumCurrentTiStep);
 
         set_random_numbers(All.RandomSeed + All.Ti_Current);
 
