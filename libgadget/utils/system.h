@@ -49,44 +49,20 @@ size_t sizemax(size_t a, size_t b);
 
 static inline int atomic_fetch_and_add(int * ptr, int value) {
     int k;
-#if _OPENMP >= 201107
 #pragma omp atomic capture
     {
       k = (*ptr);
       (*ptr)+=value;
     }
-#else
-#if defined(OPENMP_USE_SPINLOCK) && !defined(__INTEL_COMPILER)
-    k = __sync_fetch_and_add(ptr, value);
-#else /* non spinlock*/
-#pragma omp critical
-    {
-      k = (*ptr);
-      (*ptr)+=value;
-    }
-#endif
-#endif
     return k;
 }
 static inline int atomic_add_and_fetch(int * ptr, int value) {
     int k;
-#if _OPENMP >= 201107
 #pragma omp atomic capture
     {
       (*ptr)+=value;
       k = (*ptr);
     }
-#else
-#ifdef OPENMP_USE_SPINLOCK
-    k = __sync_add_and_fetch(ptr, value);
-#else /* non spinlock */
-#pragma omp critical
-    {
-      (*ptr)+=value;
-      k = (*ptr);
-    }
-#endif
-#endif
     return k;
 }
 
