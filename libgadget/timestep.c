@@ -159,18 +159,16 @@ find_timesteps(int * MinTimeBin)
 
     /* Now assign new timesteps and kick */
     if(All.ForceEqualTimesteps) {
-        #pragma omp parallel for
-        for(pa = 0; pa < NumActiveParticle; pa++)
+        int i;
+        #pragma omp parallel for reduction(min:dti_min)
+        for(i = 0; i < PartManager->NumPart; i++)
         {
-            const int i = ActiveParticle[pa];
             if(P[i].IsGarbage)
                 continue;
             inttime_t dti = get_timestep_ti(i, PM.length);
-
             if(dti < dti_min)
                 dti_min = dti;
         }
-
         /* FIXME : this assumes inttime_t is int*/
         MPI_Allreduce(MPI_IN_PLACE, &dti_min, 1, MPI_INT, MPI_MIN, MPI_COMM_WORLD);
     }
