@@ -70,11 +70,6 @@ timestep_eh_slots_fork(EIBase * event, void * userdata)
     return 0;
 }
 
-void timestep_allocate_memory(int MaxPart)
-{
-    ActiveParticle = (int *) mymalloc("ActiveParticle", MaxPart * sizeof(int));
-}
-
 static void reverse_and_apply_gravity();
 static inttime_t get_timestep_ti(const int p, const inttime_t dti_max);
 static int get_timestep_bin(inttime_t dti);
@@ -698,6 +693,8 @@ int rebuild_activelist(inttime_t Ti_Current)
 {
     int i;
 
+    ActiveParticle = (int *) mymalloc("ActiveParticle", PartManager->MaxPart * sizeof(int));
+
     memset(TimeBinCountType, 0, 6*(TIMEBINS+1)*sizeof(int));
     NumActiveParticle = 0;
 
@@ -714,8 +711,18 @@ int rebuild_activelist(inttime_t Ti_Current)
         }
         TimeBinCountType[P[i].Type][bin]++;
     }
+    if(NumActiveParticle == PartManager->NumPart) {
+        myfree(ActiveParticle);
+        ActiveParticle = NULL;
+    }
     walltime_measure("/Timeline/Active");
     return 0;
+}
+
+void free_activelist(void)
+{
+    if(ActiveParticle)
+        myfree(ActiveParticle);
 }
 
 /*! This routine writes one line for every timestep.
