@@ -13,8 +13,6 @@ OPT += -DDEBUG
 OPT += -DDENSITY_INDEPENDENT_SPH
 #OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
 
-# flags shall that always be there they need to be cleaned up
-OPT += -DOPENMP_USE_SPINLOCK
 OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
 
 #--------------------------------------- SFR/feedback model
@@ -25,5 +23,4 @@ OPT	+=  -DSFR
 OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
 
 #-------------------------------------------- Things for special behaviour
-OPT	+=  -DINCLUDE_RADIATION		# Add radiation density to backround evolution. Only affects the Hubble flow.
-OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
+#OPT	+=  -DNO_ISEND_IRECV_IN_DOMAIN     #sparse MPI_Alltoallv do not use ISEND IRECV
