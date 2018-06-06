@@ -3,7 +3,7 @@
 PREFIX="$1"
 shift
 OPTIMIZE="$*"
-OPTIMIZE1=`echo "$*" | sed -s 's;enable-sse2;enable-sse;'`
+OPTIMIZE1="$*"
 echo "Optimization for double" ${OPTIMIZE}
 echo "Optimization for single" ${OPTIMIZE1}
 

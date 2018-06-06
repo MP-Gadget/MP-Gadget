@@ -158,9 +158,9 @@ void read_parameterfile(char *fname)
     if(All2.PowerP.DifferentTransferFunctions && All2.PowerP.InputPowerRedshift != Redshift
         && (All2.ProduceGas || All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2]))
         message(0, "WARNING: Using different transfer functions but also rescaling power to account for linear growth. NOT what you want!\n");
-    if((All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0) || All2.PowerP.DifferentTransferFunctions)
+    if((All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0) || All2.PowerP.DifferentTransferFunctions || All2.PowerP.ScaleDepVelocity)
         if(0 == strlen(All2.PowerP.FileWithTransferFunction))
-            endrun(0,"For massive neutrinos or different transfer functions you must specify a transfer function file\n");
+            endrun(0,"For massive neutrinos, different transfer functions, or scale dependent growth functions you must specify a transfer function file\n");
     if(!All.CP.RadiationOn && (All.CP.MNu[0] + All.CP.MNu[1] + All.CP.MNu[2] > 0))
         endrun(0,"You want massive neutrinos but no background radiation: this will give an inconsistent cosmology.\n");
 

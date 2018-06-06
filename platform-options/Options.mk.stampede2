@@ -1,0 +1,30 @@
+#Uncomment below to specify default options
+
+MPICC       =   mpicc
+MPICXX       =   mpic++
+
+# Stampede 2 KNL nodes use icc.
+# TACC_VEC_FLAGS define: -xCORE-AVX2 -axMIC-AVX512,CORE-AVX512 
+# which means the base instruction set is CORE-AVX2, and 
+# alternate versions of some routines are generated for KNL and SKX nodes.
+OPTIMIZE =  -fopenmp -O3 -g -Wall ${TACC_VEC_FLAGS} -fp-model fast=1
+
+GSL_INCL = $(shell pkg-config --cflags gsl)
+GSL_LIBS = $(shell pkg-config --libs gsl)
+
+#--------------------------------------- Basic operation mode of code
+OPT += -DDENSITY_INDEPENDENT_SPH
+#OPT += -DLIGHTCONE                       # write a lightcone on the fly; in development
+#OPT += VALGRIND     # allow debugging with valgrind, disable the GADGET memory allocator.
+#OPT += -DDEBUG      # print a lot of debugging messages
+
+# flags shall that always be there they need to be cleaned up
+OPT += -DOPENMP_USE_SPINLOCK
+OPT += -DSPH_GRAD_RHO  # calculate grad of rho in SPH, required for Krumholtz & Gnedin H2 SFR
+
+#--------------------------------------- SFR/feedback model
+# Star formation master switch. Also enables the Wind model
+OPT	+=  -DSFR
+
+#-------------------------------------- AGN stuff
+OPT	+=  -DBLACK_HOLES             # enables Black-Holes (master switch)
