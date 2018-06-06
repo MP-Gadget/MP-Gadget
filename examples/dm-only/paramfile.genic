@@ -20,6 +20,8 @@ WhichSpectrum = 2         # "1" selects Eisenstein & Hu spectrum,
 # the file 'FileWithInputSpectrum'
 # otherwise, Eisenstein & Hu parametrization is used
 
+DifferentTransferFunctions = 0
+ScaleDepVelocity = 0
 FileWithInputSpectrum = ../powerspectrum-wmap9.txt  # filename of tabulated input
 # spectrum (if used)
 InputSpectrum_UnitLength_in_cm = 3.085678e24 # defines length unit of tabulated
