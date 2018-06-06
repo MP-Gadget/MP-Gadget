@@ -153,7 +153,7 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
     tw->WorkSetSize = 0;
 
-    tw->WorkSet = mymalloc("ActiveQueue", PartManager->NumPart * sizeof(int));
+    tw->WorkSet = mymalloc("ActiveQueue", size * sizeof(int));
 
     treewalk_build_queue(tw, active_set, size);
 
