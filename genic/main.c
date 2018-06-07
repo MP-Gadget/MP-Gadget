@@ -78,10 +78,10 @@ int main(int argc, char **argv)
   /*Use 'total' (CDM + baryon) transfer function
    * unless DifferentTransferFunctions are on.
    */
-  int DMType = 3, GasType = 3, NuType = 2;
+  enum TransferType DMType = DELTA_CB, GasType = DELTA_CB, NuType = DELTA_NU;
   if(All2.ProduceGas && All2.PowerP.DifferentTransferFunctions) {
-      DMType = 1;
-      GasType = 0;
+      DMType = DELTA_CDM;
+      GasType = DELTA_BAR;
   }
 
   /*First compute and write CDM*/
@@ -188,7 +188,7 @@ void print_spec(void)
 
       for(k = kstart; k < kend; k *= 1.025)
 	  {
-	    double po = pow(DeltaSpec(k, -1),2);
+	    double po = pow(DeltaSpec(k, DELTA_TOT),2);
 	    fprintf(fd, "%12g %12g\n", k, po);
 	  }
       fclose(fd);

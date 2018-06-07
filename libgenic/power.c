@@ -17,7 +17,7 @@
 void saveblock_name(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int64_t TotNumPart);
 
 static double Delta_EH(double k);
-static double Delta_Tabulated(double k, int Type);
+static double Delta_Tabulated(double k, enum TransferType Type);
 static double sigma2_int(double k, void * params);
 static double TopHatSigma2(double R);
 static double tk_eh(double k);
@@ -50,22 +50,8 @@ static struct table power_table;
 static struct table transfer_table;
 
 static const char * tnames[MAXCOLS] = {"DELTA_BAR", "DELTA_CDM", "DELTA_NU", "DELTA_CB", "VEL_BAR", "VEL_CDM", "VEL_NU", "VEL_CB", "VEL_TOT"};
-/*Symbolic constants for the rows of the transfer table*/
-/*Number of types with defined transfers.*/
-enum TransferCols
-{
-    DELTA_BAR = 0,
-    DELTA_CDM = 1,
-    DELTA_NU = 2,
-    DELTA_CB = 3,
-    VEL_BAR = 4,
-    VEL_CDM = 5,
-    VEL_NU = 6,
-    VEL_CB = 7,
-    VEL_TOT = 8,
-};
 
-double DeltaSpec(double k, int Type)
+double DeltaSpec(double k, enum TransferType Type)
 {
   double power;
 
@@ -80,7 +66,7 @@ double DeltaSpec(double k, int Type)
   return power;
 }
 
-double dlogGrowth(double kmag, int Type)
+double dlogGrowth(double kmag, enum TransferType Type)
 {
   const double logk = log10(kmag * SpectrumLengthScale);
 
@@ -88,12 +74,12 @@ double dlogGrowth(double kmag, int Type)
       return 1;
 
   /*Default to total growth: type 3 is cdm + baryons.*/
-  if(Type < 0 || Type > 3) {
+  if(Type < DELTA_BAR || Type > DELTA_CB) {
       Type = VEL_TOT;
   }
   else {
       /*Type should be an offset from the first velocity*/
-      Type = VEL_BAR + Type;
+      Type = VEL_BAR - DELTA_BAR + Type;
   }
   /*Use the velocity entries*/
   double growth =  gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
@@ -394,7 +380,7 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
     return power_table.Nentry;
 }
 
-double Delta_Tabulated(double k, int Type)
+double Delta_Tabulated(double k, enum TransferType Type)
 {
     /*Convert k to Mpc/h*/
   const double logk = log10(k*SpectrumLengthScale);
@@ -405,15 +391,10 @@ double Delta_Tabulated(double k, int Type)
   double logD = gsl_interp_eval(power_table.mat_intp[0], power_table.logk, power_table.logD[0], logk, power_table.mat_intp_acc[0]);
   double trans = 1;
   /*Transfer table stores (T_type(k) / T_tot(k))*/
-  if(transfer_table.Nentry > 0) {
-    if(Type >= 0 && Type < 3) {
+  if(transfer_table.Nentry > 0)
+    if(Type >= DELTA_BAR && Type <= DELTA_CB) {
         trans = gsl_interp_eval(transfer_table.mat_intp[Type], transfer_table.logk, transfer_table.logD[Type], logk, transfer_table.mat_intp_acc[Type]);
     }
-    /*CDM + baryons*/
-    else if (Type == 3){
-        trans = gsl_interp_eval(transfer_table.mat_intp[DELTA_CB], transfer_table.logk, transfer_table.logD[DELTA_CB], logk, transfer_table.mat_intp_acc[DELTA_CB]);
-    }
-  }
 
   /*Convert delta from (Mpc/h)^3/2 to kpc/h^3/2*/
   logD += 1.5 * log10(SpectrumLengthScale);

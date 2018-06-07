@@ -36,13 +36,29 @@ struct power_params
  * at k = 0.002 h/Mpc at 2% for z_ic = 100. It is larger at higher redshift.
  */
 
+/*Symbolic constants for the possible types transfer function types*/
+enum TransferType
+{
+    DELTA_BAR = 0,
+    DELTA_CDM = 1,
+    DELTA_NU = 2,
+    DELTA_CB = 3,
+    VEL_BAR = 4,
+    VEL_CDM = 5,
+    VEL_NU = 6,
+    VEL_CB = 7,
+    VEL_TOT = 8,
+    /*Always unity, so there is no memory for it*/
+    DELTA_TOT = 9,
+};
+
 /* delta (square root of power spectrum) at current redshift.
- * Type == 0 is Gas, Type == 1 is DM, Type == 2 is neutrinos, Type == 3 is CDM + baryons.
+ * Type == 0 is Gas, Type == 1 is DM, Type == 2 is neutrinos, Type == 3 is CDM + baryons (as in the enum)
  * Other types are total power. */
-double DeltaSpec(double kmag, int Type);
+double DeltaSpec(double kmag, enum TransferType Type);
 /* Scale-dependent derivative of the growth function,
  * computed by differentiating the provided transfer functions. */
-double dlogGrowth(double kmag, int ptype);
+double dlogGrowth(double kmag, enum TransferType Type);
 /* Read power spectrum and transfer function tables from disk, set up growth factors, init cosmology. */
 int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in, Cosmology * CPin, struct power_params * ppar);
 

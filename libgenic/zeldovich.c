@@ -139,9 +139,9 @@ static PetaPMRegion * makeregion(void * userdata, int * Nregions) {
 }
 
 /*Global to pass type to *_transfer functions*/
-static int ptype;
+static enum TransferType ptype;
 
-void displacement_fields(int Type) {
+void displacement_fields(enum TransferType Type) {
     /*MUST set this before doing force.*/
     ptype = Type;
     PetaPMParticleStruct pstruct = {
