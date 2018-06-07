@@ -217,7 +217,7 @@ treewalk_reduce_result(TreeWalk * tw, TreeWalkResultBase * result, int i, enum T
         tw->reduce(i, result, mode, tw);
 }
 
-static void real_ev(TreeWalk * tw) {
+static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
     int tid = omp_get_thread_num();
     int i;
     LocalTreeWalk lv[1];
@@ -261,10 +261,8 @@ static void real_ev(TreeWalk * tw) {
         }
     }
     tw->currentIndex[tid] = k;
-#pragma omp atomic
-    tw->Ninteractions += lv->Ninteractions;
-#pragma omp atomic
-    tw->Nnodesinlist += lv->Nnodesinlist;
+    *ninter += lv->Ninteractions;
+    *nnodes += lv->Nnodesinlist;
 }
 
 #ifdef DEBUG
@@ -346,10 +344,16 @@ static int ev_primary(TreeWalk * tw)
     }
 
     ev_alloc_threadlocals();
-#pragma omp parallel
+
+    int nint = tw->Ninteractions;
+    int nnodes = tw->Nnodesinlist;
+#pragma omp parallel reduction(+: nint) reduction(+: nnodes)
     {
-        real_ev(tw);
+        real_ev(tw, &nint, &nnodes);
     }
+    tw->Ninteractions = nint;
+    tw->Nnodesinlist = nnodes;
+
     ev_free_threadlocals();
 
     /* Nexport may go off too much after BunchSize
