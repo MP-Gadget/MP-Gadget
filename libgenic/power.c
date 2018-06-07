@@ -14,7 +14,7 @@
 #include "power.h"
 
 /*Defined in save.c*/
-void saveblock_name(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int64_t TotNumPart);
+void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int64_t TotNumPart, MPI_Comm comm);
 
 static double Delta_EH(double k);
 static double Delta_Tabulated(double k, enum TransferType Type);
@@ -117,12 +117,12 @@ static void save_transfer(BigFile * bf, int ncol, struct table * ttable, const c
     char buf[100];
     snprintf(buf, 100, "%s/logk", bname);
 
-    saveblock_name(bf, ttable->logk, buf, "f8", dims, sizeof(double), transfer_table.Nentry);
+    _bigfile_utils_create_block_from_c_array(bf, ttable->logk, buf, "f8", dims, sizeof(double), transfer_table.Nentry, MPI_COMM_WORLD);
 
     for(i = 0; i < ncol; i++)
     {
         snprintf(buf, 100, "%s/%s", bname, colnames[i]);
-        saveblock_name(bf, ttable->logD[i], buf, "f8", dims, sizeof(double), transfer_table.Nentry);
+        _bigfile_utils_create_block_from_c_array(bf, ttable->logD[i], buf, "f8", dims, sizeof(double), transfer_table.Nentry, MPI_COMM_WORLD);
     }
 }
 
