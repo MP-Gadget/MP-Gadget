@@ -212,7 +212,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     for(j=0; j < nnu; j++)
         out_tab->logD[DELTA_NU][i] = -1*transfers[4+j] * omega_nu_single(Onu, InitTime, j);
     const double onu = get_omega_nu(&CP->ONu, InitTime);
-    /*Should be weighted bu omega_nu*/
+    /*Should be weighted by omega_nu*/
     out_tab->logD[DELTA_NU][i] /= onu;
     /*h_prime is entry 8 + nnu. t_b is 12 + nnu, t_ncdm[2] is 13 + nnu * 2.*/
     out_tab->logD[VEL_BAR][i] = transfers[12+nnu];
