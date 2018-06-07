@@ -2,7 +2,7 @@
 #define COSMOLOGY_H
 
 #include <stddef.h>
-#include "kspace-neutrinos/omega_nu_single.h"
+#include "omega_nu_single.h"
 
 typedef struct {
     double CMBTemperature;

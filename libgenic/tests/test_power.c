@@ -19,6 +19,12 @@ struct test_state
     Cosmology CP;
 };
 
+/*stub*/
+void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int64_t TotNumPart, MPI_Comm comm)
+{
+    return;
+}
+
 /*Simple test without rescaling*/
 static void
 test_read_no_rescale(void ** state)

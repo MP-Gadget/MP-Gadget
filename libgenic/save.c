@@ -14,22 +14,19 @@
 #include <libgadget/walltime.h>
 #include <libgadget/utils/mymalloc.h>
 
-static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, char * dtype, int items_per_particle, ptrdiff_t elsize, int64_t TotNumPart) {
+void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int64_t TotNumPart, MPI_Comm comm)
+{
     BigBlock block;
     BigArray array;
     BigBlockPtr ptr;
-    size_t dims[2];
     ptrdiff_t strides[2];
-    char name[128];
-    snprintf(name, 128, "%d/%s", ptype, bname);
 
-    dims[0] = NumPart;
-    dims[1] = items_per_particle;
     strides[1] = dtype_itemsize(dtype);
     strides[0] = elsize;
+
     big_array_init(&array, baseptr, dtype, 2, dims, strides);
 
-    if(0 != big_file_mpi_create_block(bf, &block, name, dtype, dims[1], All2.NumFiles, TotNumPart, MPI_COMM_WORLD)) {
+    if(0 != big_file_mpi_create_block(bf, &block, name, dtype, dims[1], All2.NumFiles, TotNumPart, comm)) {
         endrun(0, "%s:%s\n", big_file_get_error_message(), name);
     }
 
@@ -37,15 +34,25 @@ static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, cha
         endrun(0, "Failed to seek:%s\n", big_file_get_error_message());
     }
 
-    if(0 != big_block_mpi_write(&block, &ptr, &array, All.IO.NumWriters, MPI_COMM_WORLD)) {
+    if(0 != big_block_mpi_write(&block, &ptr, &array, All.IO.NumWriters, comm)) {
         endrun(0, "Failed to write :%s\n", big_file_get_error_message());
     }
 
-    if(0 != big_block_mpi_close(&block, MPI_COMM_WORLD)) {
+    if(0 != big_block_mpi_close(&block, comm)) {
         endrun(0, "%s:%s\n", big_file_get_error_message(), name);
     }
-
 }
+
+static void saveblock(BigFile * bf, void * baseptr, int ptype, char * bname, char * dtype, int items_per_particle, ptrdiff_t elsize, int64_t TotNumPart) {
+    size_t dims[2];
+    char name[128];
+    snprintf(name, 128, "%d/%s", ptype, bname);
+
+    dims[0] = NumPart;
+    dims[1] = items_per_particle;
+    _bigfile_utils_create_block_from_c_array(bf, baseptr, name, dtype, dims, elsize, TotNumPart, MPI_COMM_WORLD);
+}
+
 
 void write_particle_data(const int Type, BigFile * bf, const uint64_t FirstID, const int Ngrid) {
     int64_t numpart_64 = NumPart, TotNumPart;
@@ -115,7 +122,7 @@ void saveheader(BigFile * bf, int64_t TotNumPart, int64_t TotNuPart, double nufr
             (big_block_set_attr(&bheader, "Seed", &All2.Seed, "i8", 1)) ||
             (big_block_set_attr(&bheader, "UnitaryAmplitude", &All2.UnitaryAmplitude, "i4", 1));
     if(rt) {
-        endrun(0, "failed to create attr %s", 
+        endrun(0, "failed to create attr %s",
                 big_file_get_error_message());
     }
 

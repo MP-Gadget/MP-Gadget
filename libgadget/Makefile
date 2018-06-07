@@ -32,8 +32,8 @@ INCL = config.h densitykernel.h \
 	powerspectrum.h  \
 	timestep.h  \
 	walltime.h \
-	kspace-neutrinos/omega_nu_single.h \
-	kspace-neutrinos/delta_tot_table.h \
+	neutrinos_lra.h \
+	omega_nu_single.h \
 utils/peano.h \
 utils/interp.h \
 utils/paramset.h \
@@ -54,6 +54,8 @@ TESTED = hci \
 	forcetree \
 	timefac \
 	timebinmgr \
+	neutrinos_lra \
+	omega_nu_single \
 	exchange
 
 MPI_TESTED = exchange
@@ -91,9 +93,8 @@ GADGET_OBJS =  \
 	 petapm.o gravity.o \
 	 densitykernel.o lightcone.o walltime.o\
 	 runtests.o \
-     kspace-neutrinos/omega_nu_single.o \
-     kspace-neutrinos/delta_pow.o kspace-neutrinos/delta_tot_table.o \
-     kspace-neutrinos/transfer_init.o
+	 neutrinos_lra.o \
+     omega_nu_single.o \
 
 GADGET_UTILS_OBJS= \
 utils/endrun.o \
@@ -119,6 +120,9 @@ all: libgadget.a libgadget-utils.a
 	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 .objs/test_%: tests/test_%.c .objs/%.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
+	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
+
+.objs/test_neutrinos_lra: tests/test_neutrinos_lra.c .objs/neutrinos_lra.o .objs/cosmology.o .objs/omega_nu_single.o ../tests/stub.c ../tests/cmocka.c libgadget-utils.a
 	$(MPICC) $(CFLAGS) -I../tests/ $^ $(LIBS) -o $@
 
 build-tests: $(TESTBIN)

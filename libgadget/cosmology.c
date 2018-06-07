@@ -31,7 +31,7 @@ void init_cosmology(Cosmology * CP_in, const double TimeBegin)
     CP->OmegaG = 4 * STEFAN_BOLTZMANN
                   * pow(CP->CMBTemperature, 4)
                   * (8 * M_PI * GRAVITY)
-                  / (3*C*C*C*HUBBLE*HUBBLE)
+                  / (3*pow(LIGHTCGS, 3)*HUBBLE*HUBBLE)
                   / (CP->HubbleParam*CP->HubbleParam);
 
     init_omega_nu(&CP->ONu, CP->MNu, TimeBegin, CP->HubbleParam, CP->CMBTemperature);

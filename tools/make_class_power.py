@@ -99,6 +99,7 @@ def _build_cosmology_params(config):
     if omeganu > 0:
         gparams['m_ncdm'] = '%.2f,%.2f,%.2f' % (config['MNue'], config['MNum'], config['MNut'])
         gparams['N_ncdm'] = 3
+        gparams['N_ur'] = 0.00641
         #Neutrino accuracy: Default pk_ref.pre has tol_ncdm_* = 1e-10,
         #which takes 45 minutes (!) on my laptop.
         #tol_ncdm_* = 1e-8 takes 20 minutes and is machine-accurate.
@@ -108,6 +109,11 @@ def _build_cosmology_params(config):
         gparams['tol_ncdm_synchronous'] = 1e-5
         gparams['tol_ncdm_bg'] = 1e-10
         gparams['l_max_ncdm'] = 50
+        #This disables the fluid approximations, which make P_nu not match camb on small scales.
+        #We need accurate P_nu to initialise our neutrino code.
+        gparams['ncdm_fluid_approximation'] = 3
+    else:
+        gparams['N_ur'] = 3.046
     #Power spectrum amplitude
     if config['Sigma8'] > 0:
         gparams['sigma8'] = config['Sigma8']
@@ -116,7 +122,7 @@ def _build_cosmology_params(config):
         gparams['A_s'] = config["PrimordialAmp"]
     return gparams
 
-def make_class_power(paramfile, external_pk = None, extraz=None):
+def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     """Main routine: parses a parameter file and makes a matter power spectrum.
     Will not over-write power spectra if already present.
     Options are loaded from the MP-GenIC parameter file.
@@ -156,6 +162,10 @@ def make_class_power(paramfile, external_pk = None, extraz=None):
     maxk = 2*math.pi/boxmpc*config['Ngrid']*16
     powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : 1+np.max(outputs),'z_pk': outputs, 'extra metric transfer functions': 'y'}
     pre_params.update(powerparams)
+
+    if verbose:
+        verb_params = {'input_verbose': 1, 'background_verbose': 1, 'thermodynamics_verbose': 1, 'perturbations_verbose': 1, 'transfer_verbose': 1, 'primordial_verbose': 1, 'spectra_verbose': 1, 'nonlinear_verbose': 1, 'lensing_verbose': 1, 'output_verbose': 1}
+        pre_params.update(verb_params)
 
     #Specify an external primordial power spectrum
     if external_pk is not None:
@@ -219,5 +229,6 @@ if __name__ ==  "__main__":
     parser.add_argument('paramfile', type=str, help='genic paramfile')
     parser.add_argument('--extpk', type=str, help='optional external primordial power spectrum',required=False)
     parser.add_argument('--extraz', type=float,nargs='*', help='optional external primordial power spectrum',required=False)
+    parser.add_argument('--verbose', action='store_true', help='print class runtime information',required=False)
     args = parser.parse_args()
-    make_class_power(args.paramfile, args.extpk, args.extraz)
+    make_class_power(args.paramfile, args.extpk, args.extraz,args.verbose)

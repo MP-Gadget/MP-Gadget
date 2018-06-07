@@ -219,8 +219,8 @@ void blackhole(void)
         double mdot_in_msun_per_year =
             total_mdot * (All.UnitMass_in_g / SOLAR_MASS) / (All.UnitTime_in_s / SEC_PER_YEAR);
 
-        total_mdoteddington *= 1.0 / ((4 * M_PI * GRAVITY * C * PROTONMASS /
-                    (0.1 * C * C * THOMPSON)) * All.UnitTime_in_s);
+        total_mdoteddington *= 1.0 / ((4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS /
+                    (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * All.UnitTime_in_s);
 
         fprintf(FdBlackHoles, "%g %d %g %g %g %g\n",
                 All.Time, SlotsManager->info[5].size, total_mass_holes, total_mdot, mdot_in_msun_per_year, total_mdoteddington);
@@ -264,7 +264,7 @@ blackhole_accretion_postprocess(int i, TreeWalk * tw)
     double soundspeed = blackhole_soundspeed(BHP(i).Entropy, BHP(i).Pressure, rho);
 
     /* Note: we take here a radiative efficiency of 0.1 for Eddington accretion */
-    double meddington = (4 * M_PI * GRAVITY * C * PROTONMASS / (0.1 * C * C * THOMPSON)) * BHP(i).Mass
+    double meddington = (4 * M_PI * GRAVITY * LIGHTCGS * PROTONMASS / (0.1 * LIGHTCGS * LIGHTCGS * THOMPSON)) * BHP(i).Mass
         * All.UnitTime_in_s;
 
     double norm = pow((pow(soundspeed, 2) + pow(bhvel, 2)), 1.5);
@@ -685,7 +685,7 @@ blackhole_feedback_copy(int i, TreeWalkQueryBHFeedback * I, TreeWalk * tw)
     double dtime = get_dloga_for_bin(P[i].TimeBin) / All.cf.hubble;
 
     I->FeedbackEnergy = All.BlackHoleFeedbackFactor * 0.1 * BHP(i).Mdot * dtime *
-                pow(C / All.UnitVelocity_in_cm_per_s, 2);
+                pow(LIGHTCGS / All.UnitVelocity_in_cm_per_s, 2);
 }
 
 static void

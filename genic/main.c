@@ -71,13 +71,17 @@ int main(int argc, char **argv)
     message(0,"F-D velocity scale: %g. Max particle vel: %g. Fraction of mass in particles: %g\n",v_th*sqrt(All.TimeIC), All2.Max_nuvel*sqrt(All.TimeIC), total_nufrac);
   }
   saveheader(&bf, TotNumPart, TotNu, total_nufrac);
+
+  /*Save the transfer functions*/
+  save_all_transfer_tables(&bf, ThisTask);
+
   /*Use 'total' (CDM + baryon) transfer function
    * unless DifferentTransferFunctions are on.
    */
-  int DMType = 3, GasType = 3, NuType = 2;
+  enum TransferType DMType = DELTA_CB, GasType = DELTA_CB, NuType = DELTA_NU;
   if(All2.ProduceGas && All2.PowerP.DifferentTransferFunctions) {
-      DMType = 1;
-      GasType = 0;
+      DMType = DELTA_CDM;
+      GasType = DELTA_BAR;
   }
 
   /*First compute and write CDM*/
@@ -177,14 +181,14 @@ void print_spec(void)
 
       fprintf(fd, "# %12g %12g\n", 1/All.TimeIC-1, DDD);
       /* print actual starting redshift and linear growth factor for this cosmology */
-      kstart = 2 * M_PI / (2*All.BoxSize * (3.085678e24 / All.UnitLength_in_cm));	/* 2x box size Mpc/h */
-      kend = 2 * M_PI / (All.BoxSize/(8*All2.Ngrid) * (3.085678e24 / All.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
+      kstart = 2 * M_PI / (2*All.BoxSize * (CM_PER_MPC / All.UnitLength_in_cm));	/* 2x box size Mpc/h */
+      kend = 2 * M_PI / (All.BoxSize/(8*All2.Ngrid) * (CM_PER_MPC / All.UnitLength_in_cm));	/* 1/8 mean spacing Mpc/h */
 
       message(1,"kstart=%lg kend=%lg\n",kstart,kend);
 
       for(k = kstart; k < kend; k *= 1.025)
 	  {
-	    double po = pow(DeltaSpec(k, -1),2);
+	    double po = pow(DeltaSpec(k, DELTA_TOT),2);
 	    fprintf(fd, "%12g %12g\n", k, po);
 	  }
       fclose(fd);

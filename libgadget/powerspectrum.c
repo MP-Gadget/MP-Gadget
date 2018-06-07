@@ -7,21 +7,25 @@
 
 #include "types.h"
 #include "powerspectrum.h"
-
+#include "physconst.h"
 #include "utils.h"
 
 /*Power spectrum related functions*/
 
 /*Allocate memory for the power spectrum*/
-void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins, const int nthreads)
+void powerspectrum_alloc(struct _powerspectrum * PowerSpectrum, const int nbins, const int nthreads, const int MassiveNuLinResp)
 {
     PowerSpectrum->size = nbins;
     const int nalloc = nbins*nthreads;
     PowerSpectrum->nalloc = nalloc;
-    PowerSpectrum->kk = mymalloc("Powerspectrum", sizeof(double) * (2*nalloc + 3*nbins));
+    PowerSpectrum->kk = mymalloc("Powerspectrum", sizeof(double) * 2*nalloc);
     PowerSpectrum->Power = PowerSpectrum->kk + nalloc;
-    PowerSpectrum->logknu = PowerSpectrum->kk + 2*nalloc;
-    PowerSpectrum->Pnuratio = PowerSpectrum-> logknu + nbins;
+    if(MassiveNuLinResp) {
+        /*These arrays are stored separately to make interpolation more accurate*/
+        PowerSpectrum->logknu = mymalloc("PowerNu", sizeof(double) * 3*nbins);
+        PowerSpectrum->delta_nu_ratio = PowerSpectrum-> logknu + nbins;
+        PowerSpectrum->delta_nu = PowerSpectrum-> logknu + 2*nbins;
+    }
     PowerSpectrum->Nmodes = mymalloc("Powermodes", sizeof(int64_t) * nalloc);
 }
 
@@ -54,16 +58,23 @@ void powerspectrum_sum(struct _powerspectrum * PowerSpectrum, const double BoxSi
     MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Power, PowerSpectrum->size, MPI_DOUBLE, MPI_SUM, MPI_COMM_WORLD);
     MPI_Allreduce(MPI_IN_PLACE, PowerSpectrum->Nmodes, PowerSpectrum->size, MPI_INT64, MPI_SUM, MPI_COMM_WORLD);
 
-    /*Now fix power spectrum units*/
+    int nk_nz = 0;
+    /*Now fix power spectrum units and remove zero entries.*/
     for(i = 0; i < PowerSpectrum->size; i ++) {
         if(PowerSpectrum->Nmodes[i] == 0) continue;
         PowerSpectrum->Power[i] /= PowerSpectrum->Nmodes[i];
         PowerSpectrum->Power[i] /= PowerSpectrum->Norm;
         PowerSpectrum->kk[i] /= PowerSpectrum->Nmodes[i];
         /* Mpc/h units */
-        PowerSpectrum->kk[i] *= 2 * M_PI / (BoxSize_in_cm / 3.085678e24 );
-        PowerSpectrum->Power[i] *= pow(BoxSize_in_cm / 3.085678e24 , 3.0);
+        PowerSpectrum->kk[i] *= 2 * M_PI / (BoxSize_in_cm / CM_PER_MPC );
+        PowerSpectrum->Power[i] *= pow(BoxSize_in_cm / CM_PER_MPC , 3.0);
+        /*Move the power spectrum earlier, removing zero modes*/
+        PowerSpectrum->Power[nk_nz] = PowerSpectrum->Power[i];
+        PowerSpectrum->kk[nk_nz] = PowerSpectrum->kk[i];
+        PowerSpectrum->Nmodes[nk_nz] = PowerSpectrum->Nmodes[i];
+        nk_nz++;
     }
+    PowerSpectrum->nonzero = nk_nz;
 }
 
 /*Save the power spectrum to a file*/
@@ -80,11 +91,31 @@ void powerspectrum_save(struct _powerspectrum * PowerSpectrum, const char * Outp
             fprintf(fp, "# in Mpc/h Units \n");
             fprintf(fp, "# D1 = %g \n", D1);
             fprintf(fp, "# k P N P(z=0)\n");
-            for(i = 0; i < PowerSpectrum->size; i ++) {
-                if(PowerSpectrum->Nmodes[i] == 0) continue;
+            for(i = 0; i < PowerSpectrum->nonzero; i ++) {
                 fprintf(fp, "%g %g %ld %g\n", PowerSpectrum->kk[i], PowerSpectrum->Power[i], PowerSpectrum->Nmodes[i],
                             PowerSpectrum->Power[i] / (D1 * D1));
             }
             fclose(fp);
         }
+}
+
+/*Save the neutrino power spectrum to a file*/
+void powerspectrum_nu_save(struct _powerspectrum * PowerSpectrum, const char * OutputDir, const double Time)
+{
+    int i;
+    char fname[1024];
+    /* Now save the neutrino power spectrum*/
+    snprintf(fname, 1024,"%s/powerspectrum-nu-%0.4f.txt", OutputDir, Time);
+    FILE * fp = fopen(fname, "w");
+    fprintf(fp, "# in Mpc/h Units \n");
+    fprintf(fp, "# k P_nu(k) Nmodes\n");
+    fprintf(fp, "# a= %g\n", Time);
+    fprintf(fp, "# nk = %ld\n", PowerSpectrum->nonzero);
+    for(i = 0; i < PowerSpectrum->nonzero; i++){
+        fprintf(fp, "%g %g %ld\n", PowerSpectrum->kk[i], pow(PowerSpectrum->delta_nu[i],2), PowerSpectrum->Nmodes[i]);
+    }
+    fclose(fp);
+    /*Clean up the neutrino memory now we saved the power spectrum.*/
+    gsl_interp_free(PowerSpectrum->nu_spline);
+    gsl_interp_accel_free(PowerSpectrum->nu_acc);
 }
