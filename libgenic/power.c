@@ -49,7 +49,7 @@ static struct table power_table;
 /*Columns: 0 == baryon, 1 == CDM, 2 == neutrino, 3 == baryon velocity, 4 == CDM velocity, 5 = neutrino velocity*/
 static struct table transfer_table;
 
-static const char * tnames[MAXCOLS] = {"DELTA_BAR", "DELTA_CDM", "DELTA_NU", "VEL_BAR", "VEL_CDM", "VEL_NU", "VEL_CB", "VEL_TOT", "DELTA_CB"};
+static const char * tnames[MAXCOLS] = {"DELTA_BAR", "DELTA_CDM", "DELTA_NU", "DELTA_CB", "VEL_BAR", "VEL_CDM", "VEL_NU", "VEL_CB", "VEL_TOT"};
 /*Symbolic constants for the rows of the transfer table*/
 /*Number of types with defined transfers.*/
 enum TransferCols
@@ -57,12 +57,12 @@ enum TransferCols
     DELTA_BAR = 0,
     DELTA_CDM = 1,
     DELTA_NU = 2,
-    VEL_BAR = 3,
-    VEL_CDM = 4,
-    VEL_NU = 5,
-    VEL_CB = 6,
-    VEL_TOT = 7,
-    DELTA_CB = 8,
+    DELTA_CB = 3,
+    VEL_BAR = 4,
+    VEL_CDM = 5,
+    VEL_NU = 6,
+    VEL_CB = 7,
+    VEL_TOT = 8,
 };
 
 double DeltaSpec(double k, int Type)
