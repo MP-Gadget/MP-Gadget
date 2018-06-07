@@ -30,7 +30,7 @@ typedef struct {
  * exchange particles according to layoutfunc.
  * layoutfunc gives the target task of particle p.
 */
-static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan);
+static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, int do_gc);
 static int domain_build_plan(int (*layoutfunc)(int p), ExchangePlan * plan);
 
 /* This function builts the count/displ arrays from
@@ -52,7 +52,7 @@ _transpose_plan_entries(ExchangePlanEntry * entries, int * count, int ptype)
         }
     }
 }
-int domain_exchange(int (*layoutfunc)(int p)) {
+int domain_exchange(int (*layoutfunc)(int p), int do_gc) {
     int i;
     int64_t sumtogo;
     int failure = 0;
@@ -99,7 +99,7 @@ int domain_exchange(int (*layoutfunc)(int p)) {
 
         message(0, "iter=%d exchange of %013ld particles\n", iter, sumtogo);
 
-        failure = domain_exchange_once(layoutfunc, &plan);
+        failure = domain_exchange_once(layoutfunc, &plan, do_gc || (need_more > 0));
 
         if(failure)
             break;
@@ -133,7 +133,7 @@ shall_we_compact_slots(int * compact, ExchangePlan * plan)
     MPI_Allreduce(MPI_IN_PLACE, compact, 6, MPI_INT, MPI_LOR, MPI_COMM_WORLD);
 }
 
-static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
+static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan, int do_gc)
 {
     int i, target, ptype;
     struct particle_data *partBuf;
@@ -191,12 +191,17 @@ static int domain_exchange_once(int (*layoutfunc)(int p), ExchangePlan * plan)
     ta_free(toGoPtr);
     walltime_measure("/Domain/exchange/makebuf");
 
-    /*Find which slots to gc*/
-    int compact[6] = {0};
-    shall_we_compact_slots(compact, plan);
-    slots_gc(compact);
+    /* Do a gc if we were asked to, or if we need one
+     * to have enough space for the incoming material*/
+    int shall_we_gc = do_gc || (PartManager->NumPart + plan->toGetSum.base > PartManager->MaxPart);
+    if(MPIU_Any(shall_we_gc, MPI_COMM_WORLD)) {
+        /*Find which slots to gc*/
+        int compact[6] = {0};
+        shall_we_compact_slots(compact, plan);
+        slots_gc(compact);
 
-    walltime_measure("/Domain/exchange/garbage");
+        walltime_measure("/Domain/exchange/garbage");
+    }
 
     int newNumPart;
     int newSlots[6] = {0};
