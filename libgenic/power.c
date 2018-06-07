@@ -41,6 +41,10 @@ struct table
     gsl_interp_accel * mat_intp_acc[MAXCOLS];
 };
 
+/*Typedef for a function that parses the table from text*/
+typedef void (*_parse_fn)(int i, double k, char * line, struct table *, int *InputInLog10, const double InitTime);
+
+
 static struct table power_table;
 /*Columns: 0 == baryon, 1 == CDM, 2 == neutrino, 3 == baryon velocity, 4 == CDM velocity, 5 = neutrino velocity*/
 static struct table transfer_table;
@@ -224,7 +228,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     out_tab->logD[VEL_NU][i] /= onu;
 }
 
-void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, const double InitTime, void (*parse_line)(int i, double k, char * line, struct table *, int *InputInLog10, const double InitTime))
+void read_power_table(int ThisTask, const char * inputfile, const int ncols, struct table * out_tab, const double InitTime, _parse_fn parse_line)
 {
     FILE *fd = NULL;
     int j;
