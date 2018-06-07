@@ -452,10 +452,10 @@ static void layout_prepare (struct Layout * L, double * meshbuf, PetaPMRegion * 
 
     /* some checks */
     if(L->DpSend[NTask - 1] + L->NpSend[NTask -1] != L->NpExport) {
-        endrun(1, "NpExport = %d\n", L->NpExport);
+        endrun(1, "NpExport = %d NpSend=%d DpSend=%d\n", L->NpExport, L->NpSend[NTask -1], L->DpSend[NTask - 1]);
     }
     if(L->DcSend[NTask - 1] + L->NcSend[NTask -1] != L->NcExport) {
-        endrun(1, "NcExport = %d\n", L->NcExport);
+        endrun(1, "NcExport = %d NcSend=%d DcSend=%d\n", L->NcExport, L->NcSend[NTask -1], L->DcSend[NTask - 1]);
     }
     int64_t totNpAlloc = reduce_int64(NpAlloc);
     int64_t totNpExport = reduce_int64(L->NpExport);
