@@ -210,7 +210,7 @@ void parse_transfer(int i, double k, char * line, struct table *out_tab, int * I
     out_tab->logD[VEL_NU][i] = 0;
     for(j=0; j < nnu; j++)
         out_tab->logD[VEL_NU][i] = transfers[13 + nnu + j] * omega_nu_single(Onu, InitTime, j);
-    /*Should be weighted bu omega_nu*/
+    /*Should be weighted by omega_nu*/
     out_tab->logD[VEL_NU][i] /= onu;
 }
 
