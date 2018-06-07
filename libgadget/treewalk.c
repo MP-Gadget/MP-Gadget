@@ -449,7 +449,9 @@ static void ev_secondary(TreeWalk * tw)
     tw->dataresult = mymalloc("EvDataResult", tw->Nimport * tw->result_type_elsize);
 
     ev_alloc_threadlocals();
-#pragma omp parallel
+    int nint = tw->Ninteractions;
+    int nnodes = tw->Ninteractions;
+#pragma omp parallel reduction(+: nint) reduction(+: nnodes)
     {
         int j;
         LocalTreeWalk lv[1];
@@ -468,11 +470,12 @@ static void ev_secondary(TreeWalk * tw)
             lv->target = -1;
             tw->visit(input, output, lv);
         }
-#pragma omp atomic
-        tw->Ninteractions += lv->Ninteractions;
-#pragma omp atomic
-        tw->Nnodesinlist += lv->Nnodesinlist;
+        nint += lv->Ninteractions;
+        nnodes += lv->Nnodesinlist;
     }
+    tw->Ninteractions = nint;
+    tw->Nnodesinlist = nnodes;
+
     ev_free_threadlocals();
     tend = second();
     tw->timecomp2 += timediff(tstart, tend);
