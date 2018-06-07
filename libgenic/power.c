@@ -308,7 +308,7 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
     /*Now normalise the velocity transfer functions: divide by a * hubble, where hubble is the hubble function in Mpc^-1, so H0/c*/
     const double fac = InitTime * hubble_function(InitTime)/CP->Hubble * 100 * CP->HubbleParam/(LIGHTCGS / 1e5);
     const double onu = get_omega_nu(&CP->ONu, InitTime)*pow(InitTime,3);
-    double meangrowth[5] = {0};
+    double meangrowth[VEL_TOT-VEL_BAR+1] = {0};
     /* At this point the transfer table contains: (3,4,5) t_b, 0.5 * h_prime, t_ncdm.
      * After, if t_cdm = 0.5 h_prime / (a H(a) / H0 /c) we need:
      * (t_b + t_cdm) / d_b, t_cdm/d_cdm, (t_ncdm + t_cdm) / d_ncdm*/
@@ -334,25 +334,25 @@ init_transfer_table(int ThisTask, double InitTime, const struct power_params * c
         /* Total growth normalized by total delta*/
         transfer_table.logD[VEL_TOT][i] /= T_tot;
         /*Normalize growth_i by delta_i, and transform delta_i to delta_i/delta_tot*/
-        for(t = 3; t < 6; t++) {
-            transfer_table.logD[t][i] /= transfer_table.logD[t-3][i];
-            transfer_table.logD[t-3][i] /= (T_tot / CP->Omega0);
+        for(t = DELTA_BAR; t <= DELTA_NU; t++) {
+            transfer_table.logD[t+VEL_BAR-DELTA_BAR][i] /= transfer_table.logD[t][i];
+            transfer_table.logD[t][i] /= (T_tot / CP->Omega0);
         }
         /*Set up the delta_cb row*/
         transfer_table.logD[DELTA_CB][i] = (CP->OmegaBaryon * transfer_table.logD[DELTA_BAR][i] + CP->OmegaCDM * transfer_table.logD[DELTA_CDM][i])/(CP->OmegaCDM + CP->OmegaBaryon);
     }
 
     /*Now compute mean growths*/
-    for(t = 3; t < 8; t++) {
+    for(t = VEL_BAR; t <= VEL_TOT; t++) {
         int nmean=0;
         for(i=0; i< transfer_table.Nentry; i++)
             if(transfer_table.logk[i] > power_table.logk[0]) {
-                meangrowth[t-3] += transfer_table.logD[t][i];
+                meangrowth[t-VEL_BAR] += transfer_table.logD[t][i];
                 nmean++;
             }
-        meangrowth[t-3]/= nmean;
+        meangrowth[t-VEL_BAR]/= nmean;
     }
-    /*Initialise the interpolators*/
+    /*Initialise the interpolation*/
     for(t = 0; t < MAXCOLS; t++)
         gsl_interp_init(transfer_table.mat_intp[t],transfer_table.logk, transfer_table.logD[t],transfer_table.Nentry);
 
@@ -371,7 +371,7 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
 
     if(ppar->WhichSpectrum == 2) {
         read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, InitTime, parse_power);
-        /*Initialise the interpolator*/
+        /*Initialise the interpolation*/
         gsl_interp_init(power_table.mat_intp[0],power_table.logk, power_table.logD[0],power_table.Nentry);
         transfer_table.Nentry = 0;
         if(ppar->DifferentTransferFunctions || ppar->ScaleDepVelocity) {
