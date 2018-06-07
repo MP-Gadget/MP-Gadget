@@ -379,8 +379,15 @@ slots_gc_sorted()
         PartManager->NumPart--;
     }
 
-    /*Set up ReverseLink*/
-    slots_gc_mark();
+    int gc_slots = 0;
+    for(ptype = 0; ptype < 6; ptype ++)
+        if(SLOTS_ENABLED(ptype))
+            gc_slots = 1;
+
+    if(gc_slots) {
+        /*Set up ReverseLink*/
+        slots_gc_mark();
+    }
 
     for(ptype = 0; ptype < 6; ptype++) {
         if(!SLOTS_ENABLED(ptype))
