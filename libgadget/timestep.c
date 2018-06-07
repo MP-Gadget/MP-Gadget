@@ -693,8 +693,16 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
 {
     int i;
 
-    ActiveParticle = (int *) mymalloc("ActiveParticle", PartManager->MaxPart * sizeof(int));
-    NumActiveParticle = 0;
+    /*We know all particles are active on a PM timestep*/
+    if(is_PM_timestep(Ti_Current)) {
+        ActiveParticle = NULL;
+        NumActiveParticle = PartManager->NumPart;
+    }
+    else {
+        /*Need space for more particles than we have, because of star formation*/
+        ActiveParticle = (int *) mymalloc("ActiveParticle", PartManager->MaxPart * sizeof(int));
+        NumActiveParticle = 0;
+    }
 
     int * TimeBinCountType = mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*All.NumThreads * sizeof(int));
     memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * All.NumThreads * sizeof(int));
@@ -704,7 +712,7 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
     {
         int bin = P[i].TimeBin;
 
-        if(is_timebin_active(bin, Ti_Current))
+        if(ActiveParticle && is_timebin_active(bin, Ti_Current))
         {
             if(P[i].IsGarbage)
                 endrun(2,"Trying to make particle %d active, but it is garbage!\n", i);
@@ -718,10 +726,6 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
     print_timebin_statistics(NumCurrentTiStep, TimeBinCountType);
     myfree(TimeBinCountType);
 
-    if(NumActiveParticle == PartManager->NumPart) {
-        myfree(ActiveParticle);
-        ActiveParticle = NULL;
-    }
     walltime_measure("/Timeline/Active");
 
     return 0;
