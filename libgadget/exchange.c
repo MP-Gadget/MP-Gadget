@@ -407,25 +407,36 @@ domain_test_id_uniqueness(void)
     ids = (MyIDType *) mymalloc("ids", PartManager->NumPart * sizeof(MyIDType));
     ids_first = (MyIDType *) mymalloc("ids_first", NTask * sizeof(MyIDType));
 
-    for(i = 0; i < PartManager->NumPart; i++)
+    #pragma omp parallel for
+    for(i = 0; i < PartManager->NumPart; i++) {
         ids[i] = P[i].ID;
+        if(P[i].IsGarbage)
+            ids[i] = (MyIDType) -1;
+    }
 
     mpsort_mpi(ids, PartManager->NumPart, sizeof(MyIDType), mp_order_by_id, 8, NULL, MPI_COMM_WORLD);
 
-    for(i = 1; i < PartManager->NumPart; i++)
+    /*Remove garbage from the end*/
+    int nids = PartManager->NumPart;
+    while(nids > 0 && (ids[nids-1] == (MyIDType)-1)) {
+        nids--;
+    }
+
+    #pragma omp parallel for
+    for(i = 1; i < nids; i++) {
         if(ids[i] == ids[i - 1])
         {
             endrun(12, "non-unique ID=%013ld found on task=%d (i=%d NumPart=%d)\n",
-                    ids[i], ThisTask, i, PartManager->NumPart);
-
+                    ids[i], ThisTask, i, nids);
         }
+    }
 
     MPI_Allgather(&ids[0], sizeof(MyIDType), MPI_BYTE, ids_first, sizeof(MyIDType), MPI_BYTE, MPI_COMM_WORLD);
 
     if(ThisTask < NTask - 1)
-        if(ids[PartManager->NumPart - 1] == ids_first[ThisTask + 1])
+        if(ids[nids - 1] == ids_first[ThisTask + 1])
         {
-            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[PartManager->NumPart - 1], ThisTask);
+            endrun(13, "non-unique ID=%d found on task=%d\n", (int) ids[nids - 1], ThisTask);
         }
 
     myfree(ids_first);
