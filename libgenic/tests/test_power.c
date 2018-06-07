@@ -20,7 +20,7 @@ struct test_state
 };
 
 /*stub*/
-void saveblock_name(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int64_t TotNumPart)
+void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int64_t TotNumPart, MPI_Comm comm)
 {
     return;
 }
