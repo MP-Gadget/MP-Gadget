@@ -185,6 +185,9 @@ void run(void)
 
         set_random_numbers(All.RandomSeed + All.Ti_Current);
 
+        /* Need to rebuild the force tree because all TopLeaves are out of date.*/
+        force_tree_rebuild();
+
         /* update force to Ti_Current */
         compute_accelerations(is_PM, NumCurrentTiStep == 0, GasEnabled);
 
@@ -233,6 +236,9 @@ void run(void)
         NumCurrentTiStep++;
 
         report_memory_usage("RUN");
+
+        /*Note FoF will free the tree too*/
+        if(force_tree_allocated()) force_tree_free();
 
         if(!next_sync || stop) {
             /* out of sync points, or a requested stop, the run has finally finished! Yay.*/

@@ -9,7 +9,6 @@
 #include "utils.h"
 
 #include "allvars.h"
-#include "forcetree.h"
 #include "mpsort.h"
 #include "domain.h"
 #include "timestep.h"
@@ -151,8 +150,6 @@ void domain_decompose_full(void)
 
     walltime_measure("/Misc");
 
-    if(force_tree_allocated()) force_tree_free();
-
     domain_free();
 
     message(0, "domain decomposition... (presently allocated=%g MB)\n", AllocatedBytes / (1024.0 * 1024.0));
@@ -218,9 +215,6 @@ void domain_decompose_full(void)
     report_memory_usage("DOMAIN");
 
     walltime_measure("/Domain/Peano");
-
-    /* this is a full decomposition, need to rebuild the force tree because all TopLeaves are out of date. */
-    force_tree_rebuild();
 }
 
 /* This is a cut-down version of the domain decomposition that leaves the
@@ -231,11 +225,6 @@ void domain_maintain(void)
 
     walltime_measure("/Misc");
 
-    /* We rebuild the tree every timestep in order to
-     * make sure it is consistent.
-     * May as well free it here.*/
-    if(force_tree_allocated()) force_tree_free();
-
     /* Try a domain exchange.
      * If we have no memory for the particles,
      * bail and do a full domain*/
@@ -243,9 +232,6 @@ void domain_maintain(void)
         domain_decompose_full();
         return;
     }
-
-    /* need to rebuild the force tree because all particles have been moved around in memory */
-    force_tree_rebuild();
 }
 
 /* this function generates several domain decomposition policies for attempting
