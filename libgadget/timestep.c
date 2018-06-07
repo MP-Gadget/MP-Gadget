@@ -707,22 +707,41 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
     int * TimeBinCountType = mymalloc("TimeBinCountType", 6*(TIMEBINS+1)*All.NumThreads * sizeof(int));
     memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * All.NumThreads * sizeof(int));
 
-    #pragma omp parallel for
+    /*We want a lockless algorithm which preserves the ordering of the particle list.*/
+    size_t NActiveThread[All.NumThreads];
+    memset(NActiveThread, 0, All.NumThreads*sizeof(size_t));
+    /*Each thread gets an area for the active list of this size*/
+    const int ActiveSet = PartManager->MaxPart / All.NumThreads;
+    /* We enforce schedule static to ensure that each thread executes on contiguous particles.
+     * chunk size is not specified and so is the largest possible.*/
+    #pragma omp parallel for schedule(static)
     for(i = 0; i < PartManager->NumPart; i++)
     {
-        int bin = P[i].TimeBin;
-
+        const int bin = P[i].TimeBin;
+        const int tid = omp_get_thread_num();
         if(ActiveParticle && is_timebin_active(bin, Ti_Current))
         {
             if(P[i].IsGarbage)
                 endrun(2,"Trying to make particle %d active, but it is garbage!\n", i);
-            const int lock = atomic_fetch_and_add(&NumActiveParticle, 1);
-            ActiveParticle[lock] = i;
+
+            /* Store this particle in the ActiveSet for this thread*/
+            ActiveParticle[tid * ActiveSet + NActiveThread[tid]] = i;
+            NActiveThread[tid]++;
         }
-        TimeBinCountType[(TIMEBINS + 1) * (6* omp_get_thread_num() + P[i].Type) + bin] ++;
+        TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
+    }
+    /*Now we want a merge step for the ActiveParticle list.*/
+    if(ActiveParticle) {
+        NumActiveParticle = NActiveThread[0];
+        for(i = 1; i < All.NumThreads; i++)
+        {
+//             message(1, "ti = %d Nactive = %d\n", i, NActiveThread[i]);
+            memmove(ActiveParticle + NumActiveParticle, ActiveParticle + i*ActiveSet, sizeof(int) * NActiveThread[i]);
+            NumActiveParticle+= NActiveThread[i];
+        }
     }
 
-    /*Print statistics for this timebin*/
+    /*Print statistics for this time bin*/
     print_timebin_statistics(NumCurrentTiStep, TimeBinCountType);
     myfree(TimeBinCountType);
 
