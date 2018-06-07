@@ -283,11 +283,19 @@ cmpint(const void *a, const void *b)
 static void
 treewalk_build_queue(TreeWalk * tw, const int * active_set, const int size) {
     int * queue = tw->WorkSet;
-    int k = 0;
+    int nqueue = 0;
     int i;
-    #pragma omp parallel for
+
+    /*We want a lockless algorithm which preserves the ordering of the particle list.*/
+    int nqthr[All.NumThreads];
+    memset(nqthr, 0, All.NumThreads*sizeof(int));
+    int * thrqueue = mymalloc("threadedqueue", size * sizeof(int) * All.NumThreads);
+
+    /* We enforce schedule static to ensure that each thread executes on contiguous particles.*/
+    #pragma omp parallel for schedule(static)
     for(i=0; i < size; i++)
     {
+        const int tid = omp_get_thread_num();
         /*Use raw particle number if active_set is null, otherwise use active_set*/
         const int p_i = active_set ? active_set[i] : i;
 
@@ -296,19 +304,28 @@ treewalk_build_queue(TreeWalk * tw, const int * active_set, const int size) {
 
         if(!tw->haswork(p_i, tw))
             continue;
-        const int lock = atomic_fetch_and_add(&k, 1);
-        queue[lock] = p_i;
+        thrqueue[size * tid + nqthr[tid]] = p_i;
+        nqthr[tid]++;
     }
+    /*Merge step for the queue.*/
+    nqueue = 0;
+    for(i = 0; i < All.NumThreads; i++)
+    {
+        memmove(queue + nqueue, thrqueue + i*size, sizeof(int) * nqthr[i]);
+        nqueue += nqthr[i];
+    }
+    myfree(thrqueue);
+
 #ifdef DEBUG
     /* check the uniqueness of the active_set list. This is very slow. */
-    qsort_openmp(queue, k, sizeof(int), cmpint);
-    for(i = 0; i < k - 1; i ++) {
+    qsort_openmp(queue, nqueue, sizeof(int), cmpint);
+    for(i = 0; i < nqueue - 1; i ++) {
         if(queue[i] == queue[i+1]) {
-            endrun(8829, "A few particles are twicely active.");
+            endrun(8829, "A few particles are twicely active.\n");
         }
     }
 #endif
-    tw->WorkSetSize = k;
+    tw->WorkSetSize = nqueue;
 }
 
 /* returns number of exports */
