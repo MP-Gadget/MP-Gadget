@@ -745,6 +745,10 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
     print_timebin_statistics(NumCurrentTiStep, TimeBinCountType);
     myfree(TimeBinCountType);
 
+    /* Shrink the ActiveParticle array. We still need extra space for star formation,
+     * but we do not need space for the known-inactive particles*/
+    if(ActiveParticle)
+        ActiveParticle = myrealloc(ActiveParticle, sizeof(int)*(NumActiveParticle + PartManager->MaxPart - PartManager->NumPart));
     walltime_measure("/Timeline/Active");
 
     return 0;
