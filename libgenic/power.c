@@ -281,7 +281,6 @@ int
 init_transfer_table(int ThisTask, double InitTime, const struct power_params * const ppar)
 {
     int i, t;
-    SpectrumLengthScale = ppar->SpectrumLengthScale;
     const int nnu = (CP->MNu[0] > 0) + (CP->MNu[1] > 0) + (CP->MNu[2] > 0);
     if(strlen(ppar->FileWithTransferFunction) > 0) {
         read_power_table(ThisTask, ppar->FileWithTransferFunction, MAXCOLS, &transfer_table, InitTime, parse_transfer);
@@ -354,6 +353,7 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
     PrimordialIndex = ppar->PrimordialIndex;
     UnitLength_in_cm = UnitLength_in_cm_in;
     CP = CPin;
+    SpectrumLengthScale = ppar->SpectrumLengthScale;
 
     if(ppar->WhichSpectrum == 2) {
         read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, InitTime, parse_power);
