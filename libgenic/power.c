@@ -117,12 +117,12 @@ static void save_transfer(BigFile * bf, int ncol, struct table * ttable, const c
     char buf[100];
     snprintf(buf, 100, "%s/logk", bname);
 
-    _bigfile_utils_create_block_from_c_array(bf, ttable->logk, buf, "f8", dims, sizeof(double), transfer_table.Nentry, MPI_COMM_WORLD);
+    _bigfile_utils_create_block_from_c_array(bf, ttable->logk, buf, "f8", dims, sizeof(double), ttable->Nentry, MPI_COMM_WORLD);
 
     for(i = 0; i < ncol; i++)
     {
         snprintf(buf, 100, "%s/%s", bname, colnames[i]);
-        _bigfile_utils_create_block_from_c_array(bf, ttable->logD[i], buf, "f8", dims, sizeof(double), transfer_table.Nentry, MPI_COMM_WORLD);
+        _bigfile_utils_create_block_from_c_array(bf, ttable->logD[i], buf, "f8", dims, sizeof(double), ttable->Nentry, MPI_COMM_WORLD);
     }
 }
 
