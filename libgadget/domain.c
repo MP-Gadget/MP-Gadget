@@ -438,8 +438,8 @@ domain_check_memory_bound(const int print_details, int64_t *TopLeafWork, int64_t
     int64_t sumload;
     int64_t work, max_work, sumwork;
     /*Only used if print_details is true*/
-    int64_t *list_load;
-    int64_t *list_work;
+    int64_t *list_load = NULL;
+    int64_t *list_work = NULL;
     if(print_details) {
         list_load = ta_malloc("list_load",int64_t, 2*NTask);
         list_work = list_load + NTask;

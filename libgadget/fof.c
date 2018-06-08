@@ -67,9 +67,9 @@ static int fof_compare_Group_MinIDTask(const void *a, const void *b);
 static int fof_compare_Group_OriginalIndex(const void *a, const void *b);
 static int fof_compare_Group_MinID(const void *a, const void *b);
 static void fof_reduce_groups(
-    void * groups, 
-    size_t nmemb, 
-    size_t elsize, 
+    void * groups,
+    size_t nmemb,
+    size_t elsize,
     void (*reduce_group)(void * gdst, void * gsrc));
 
 static void fof_finish_group_properties(struct Group * Group);
@@ -766,13 +766,13 @@ fof_compile_catalogue(struct Group * group)
 
 
 static void fof_reduce_groups(
-    void * groups, 
-    size_t nmemb, 
-    size_t elsize, 
+    void * groups,
+    size_t nmemb,
+    size_t elsize,
     void (*reduce_group)(void * gdst, void * gsrc))
 {
 
-    /* slangs: 
+    /* slangs:
      *   prime: groups hosted by ThisTask
      *   ghosts: groups that spans into ThisTask but not hosted by ThisTask;
      *           part of the local catalogue
@@ -820,14 +820,14 @@ static void fof_reduce_groups(
     images = mymalloc("images", nimport * elsize);
     ghosts = ((char*) groups) + elsize * Nmine;
 
-    MPI_Alltoallv_smart(ghosts, Send_count, NULL, dtype, 
+    MPI_Alltoallv_smart(ghosts, Send_count, NULL, dtype,
                         images, Recv_count, NULL, dtype, MPI_COMM_WORLD);
 
     for(i = 0; i < nimport; i++) {
         struct BaseGroup * gi = (struct BaseGroup*) ((char*) images + i * elsize);
         gi->OriginalIndex = i;
     }
-        
+
     /* sort the groups according to MinID */
     qsort_openmp(groups, Nmine, elsize, fof_compare_Group_MinID);
     qsort_openmp(images, nimport, elsize, fof_compare_Group_MinID);
@@ -849,7 +849,7 @@ static void fof_reduce_groups(
                 break;
             }
             reduce_group(prime, image);
-        } 
+        }
     }
 
     /* update the images, such that they can be send back to the ghosts */
@@ -872,7 +872,7 @@ static void fof_reduce_groups(
             int save = image->OriginalIndex;
             memcpy(image, prime, elsize);
             image->OriginalIndex = save;
-        } 
+        }
     }
 
     /* reset the ordering of imported list, such that it can be properly returned */
@@ -886,8 +886,8 @@ static void fof_reduce_groups(
     }
     void * ghosts2 = mymalloc("TMP", NgroupsExt * elsize);
 
-    MPI_Alltoallv_smart(images, Recv_count, NULL, dtype, 
-                        ghosts2, Send_count, NULL, dtype, 
+    MPI_Alltoallv_smart(images, Recv_count, NULL, dtype,
+                        ghosts2, Send_count, NULL, dtype,
                         MPI_COMM_WORLD);
     for(i = 0; i < NgroupsExt - Nmine; i ++) {
         struct BaseGroup * g1 = (struct BaseGroup*) ((char*) ghosts + i * elsize);
@@ -928,7 +928,7 @@ static void fof_assign_grnr(struct BaseGroup * base)
     mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
             fof_radix_Group_TotalCountTaskDiffMinID, 24, NULL, MPI_COMM_WORLD);
 
-    /* assign group numbers 
+    /* assign group numbers
      * at this point, both Group are is sorted by length,
      * and the every time OriginalTask == MinIDTask, a list of ghost base is stored.
      * they shall get the same GrNr.
@@ -956,7 +956,7 @@ static void fof_assign_grnr(struct BaseGroup * base)
     ta_free(ngra);
 
     /* bring the group list back into the original task, sorted by MinID */
-    mpsort_mpi(base, NgroupsExt, sizeof(base[0]), 
+    mpsort_mpi(base, NgroupsExt, sizeof(base[0]),
             fof_radix_Group_OriginalTaskMinID, 16, NULL, MPI_COMM_WORLD);
 
     for(i = 0; i < PartManager->NumPart; i++)
@@ -966,12 +966,12 @@ static void fof_assign_grnr(struct BaseGroup * base)
     for(i = 0; i < NgroupsExt; i++)
     {
         for(;start < PartManager->NumPart; start++) {
-            if (HaloLabel[start].MinID >= base[i].MinID) 
+            if (HaloLabel[start].MinID >= base[i].MinID)
                 break;
         }
 
         for(;start < PartManager->NumPart; start++) {
-            if (HaloLabel[start].MinID != base[i].MinID) 
+            if (HaloLabel[start].MinID != base[i].MinID)
                 break;
             P[HaloLabel[start].Pindex].GrNr = base[i].GrNr;
         }
@@ -1107,7 +1107,7 @@ static void fof_label_secondary(void)
 
     message(0, "fof-nearest iteration started\n");
 
-    do 
+    do
     {
         FOF_SECONDARY_GET_PRIV(tw)->npleft = 0;
         FOF_SECONDARY_GET_PRIV(tw)->count = 0;
@@ -1160,7 +1160,7 @@ fof_secondary_ngbiter( TreeWalkQueryFOF * I,
     }
 }
 
-/* 
+/*
  * Deal with seeding of particles At each FOF stage,
  * if seed_index is >= 0,  then that particle on seed_task
  * will be converted to a seed.
@@ -1185,11 +1185,11 @@ void fof_seed(void)
         Send_count[n] = 0;
 
     char * Marked = mymalloc("SeedMark", Ngroups);
-    
+
     int Nexport = 0;
     for(i = 0; i < Ngroups; i++)
     {
-        Marked[i] = 
+        Marked[i] =
             (Group[i].Mass >= All.MinFoFMassForNewSeed)
         &&  (Group[i].LenType[5] == 0)
         &&  (Group[i].seed_index >= 0);
@@ -1219,10 +1219,10 @@ void fof_seed(void)
         Nimport += Recv_count[j];
     }
 
-    struct Group * ImportGroups = (struct Group *) 
+    struct Group * ImportGroups = (struct Group *)
             mymalloc("ImportGroups", Nimport * sizeof(struct Group));
 
-    MPI_Alltoallv_smart(ExportGroups, Send_count, NULL, MPI_TYPE_GROUP, 
+    MPI_Alltoallv_smart(ExportGroups, Send_count, NULL, MPI_TYPE_GROUP,
                         ImportGroups, Recv_count, NULL, MPI_TYPE_GROUP,
                         MPI_COMM_WORLD);
 
