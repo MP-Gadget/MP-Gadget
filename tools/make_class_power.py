@@ -168,6 +168,9 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
         pre_params['P_k_ini'] = "external_pk"
         pre_params["command"] = "cat ",external_pk
 
+    if 'ncdm_fluid_approximation' in pre_params:
+        print('Starting CLASS power spectrum with accurate P(k) for massive neutrinos.')
+        print('Computation may take several minutes')
     #Make the power spectra module
     engine = CLASS.ClassEngine(pre_params)
     powspec = CLASS.Spectra(engine)
