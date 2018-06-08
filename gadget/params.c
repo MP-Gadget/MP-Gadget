@@ -299,8 +299,6 @@ create_gadget_parameter_set()
     /*Parameters for the massive neutrino model*/
     param_declare_int(ps, "MassiveNuLinRespOn", REQUIRED, 0, "Enables linear response massive neutrinos of 1209.0461. Make sure you enable radiation too.");
     param_declare_int(ps, "HybridNeutrinosOn", OPTIONAL, 0, "Enables hybrid massive neutrinos, where some density is followed analytically, and some with particles. Requires MassivenuLinRespOn");
-    param_declare_string(ps, "LinearTransferFunction", OPTIONAL, "camb_transfer_99.dat", "File containing linear transfer function in CAMB format. Used for massive neutrinos.");
-    param_declare_double(ps, "InputSpectrum_UnitLength_in_cm", OPTIONAL, CM_PER_MPC, "Units of the CAMB transfer function in cm/h. By default Mpc/h.");
     param_declare_double(ps, "MNue", OPTIONAL, 0, "First neutrino mass in eV.");
     param_declare_double(ps, "MNum", OPTIONAL, 0, "Second neutrino mass in eV.");
     param_declare_double(ps, "MNut", OPTIONAL, 0, "Third neutrino mass in eV.");

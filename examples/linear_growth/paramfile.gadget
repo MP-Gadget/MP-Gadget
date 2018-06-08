@@ -43,7 +43,6 @@ BufferSize = 100          # in MByte
 BlackHoleOn=0
 
 ## Massive neutrinos
-LinearTransferFunction = linear_growth_transfer.dat
 MassiveNuLinRespOn = 0
 MNue = 0.0
 MNum = 0.0

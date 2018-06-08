@@ -41,7 +41,6 @@ Redshift = float(0,1100)
 Sigma8 = float(default=-1)
 InputPowerRedshift = float(default=-1)
 DifferentTransferFunctions = integer(0,1, default=1)
-InputSpectrum_UnitLength_in_cm  = float(default=3.085678e24)
 UnitLength_in_cm  = float(default=3.085678e21)
 Omega_fld = float(0,1,default=0)
 w0_fld = float(default=-1)
@@ -67,10 +66,6 @@ def _check_genic_config(config):
         if os.path.exists(config[ff]):
             raise IOError("Refusing to write to existing file: ",config[ff])
 
-    #Make sure MP-GenIC expects input in Mpc/h!
-    iinMpc = config['InputSpectrum_UnitLength_in_cm']/3.085678e24
-    if abs(iinMpc-1) > 1e-6:
-        raise AssertionError("CLASS outputs power spectrum in Mpc/h units, MP-GenIC expects %.5f Mpc/h." % iinMpc)
     #Check unsupported configurations
     if config['MWDM_Therm'] > 0:
         raise ValueError("Warm dark matter power spectrum cutoff not yet supported.")
@@ -158,7 +153,8 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
     if extraz is not None:
         outputs = np.concatenate([outputs, extraz])
     #Pass options for the power spectrum
-    boxmpc = config['BoxSize'] / config['InputSpectrum_UnitLength_in_cm'] * config['UnitLength_in_cm']
+    MPC_in_cm = 3.085678e24
+    boxmpc = config['BoxSize'] / MPC_in_cm * config['UnitLength_in_cm']
     maxk = 2*math.pi/boxmpc*config['Ngrid']*16
     powerparams = {'output': 'dTk vTk mPk', 'P_k_max_h/Mpc' : maxk, "z_max_pk" : 1+np.max(outputs),'z_pk': outputs, 'extra metric transfer functions': 'y'}
     pre_params.update(powerparams)
