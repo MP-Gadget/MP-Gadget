@@ -131,7 +131,6 @@ void read_parameterfile(char *fname)
     All2.PowerP.DifferentTransferFunctions = param_get_int(ps, "DifferentTransferFunctions");
     All2.PowerP.ScaleDepVelocity = param_get_int(ps, "ScaleDepVelocity");
     All2.PowerP.WhichSpectrum = param_get_int(ps, "WhichSpectrum");
-    All2.PowerP.SpectrumLengthScale = CM_PER_MPC / All.UnitLength_in_cm;
     All2.PowerP.PrimordialIndex = param_get_double(ps, "PrimordialIndex");
 
     /*Simulation parameters*/

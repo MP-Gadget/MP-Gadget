@@ -13,7 +13,6 @@ struct power_params
     char * FileWithInputSpectrum;
     double Sigma8;
     double InputPowerRedshift;
-    double SpectrumLengthScale;
     double PrimordialIndex;
 };
 

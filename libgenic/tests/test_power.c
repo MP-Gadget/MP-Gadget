@@ -140,7 +140,6 @@ static int setup(void ** state)
     st.PowerP.FileWithInputSpectrum = GADGET_TESTDATA_ROOT "/examples/class_pk_99.dat";
     st.PowerP.FileWithTransferFunction = GADGET_TESTDATA_ROOT "/examples/class_tk_99.dat";
     st.PowerP.WhichSpectrum = 2;
-    st.PowerP.SpectrumLengthScale = 1000;
     st.PowerP.PrimordialIndex = 1.0;
     st.CP.Omega0 = 0.2814;
     st.CP.OmegaLambda = 1 - st.CP.Omega0;
