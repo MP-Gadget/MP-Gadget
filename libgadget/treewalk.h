@@ -115,7 +115,6 @@ struct TreeWalk {
     int BufferFullFlag;
     int BunchSize;
 
-    struct ev_task * PrimaryTasks;
     int * WorkSet;
     int WorkSetSize;
 

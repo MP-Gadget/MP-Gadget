@@ -15,11 +15,6 @@
 
 #define FACT1 0.366025403785	/* FACT1 = 0.5 * (sqrt(3)-1) */
 
-struct ev_task {
-    int top_node;
-    int place;
-} ;
-
 static int *Ngblist;
 static int *Exportflag;    /*!< Buffer used for flagging whether a particle needs to be exported to another process */
 static int *Exportnodecount;
@@ -49,7 +44,6 @@ static struct data_index *DataIndexTable;	/*!< the particles to be exported are 
 					   assigned to the correct particle */
 
 static void ev_init_thread(TreeWalk * tw, LocalTreeWalk * lv);
-static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int length);
 static void ev_begin(TreeWalk * tw, int * active_set, int size);
 static void ev_finish(TreeWalk * tw);
 static int ev_primary(TreeWalk * tw);
@@ -60,6 +54,9 @@ static int ev_ndone(TreeWalk * tw);
 
 static void
 treewalk_build_queue(TreeWalk * tw, const int * active_set, const int size);
+
+static void
+treewalk_init_evaluated(int * active_set, int size);
 
 static int
 ngb_treefind_threads(TreeWalkQueryBase * I,
@@ -101,7 +98,7 @@ static int data_index_compare(const void *a, const void *b)
  * for debugging
  */
 #define WATCH { \
-        printf("tw->PrimaryTasks[0] = %d %d (%d) %s:%d\n", tw->PrimaryTasks[0].top_node, tw->PrimaryTasks[0].place, tw->WorkSetSize, __FILE__, __LINE__); \
+        printf("tw->WorkSet[0] = %d (%d) %s:%d\n", tw->WorkSet ? tw->WorkSet[0] : 0, tw->WorkSetSize, __FILE__, __LINE__); \
     }
 static TreeWalk * GDB_current_ev = NULL;
 
@@ -157,9 +154,8 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
     treewalk_build_queue(tw, active_set, size);
 
-    tw->PrimaryTasks = (struct ev_task *) mymalloc("PrimaryTasks", sizeof(struct ev_task) * tw->WorkSetSize);
+    treewalk_init_evaluated(active_set, size);
 
-    fill_task_queue(tw, tw->PrimaryTasks, tw->WorkSet, tw->WorkSetSize);
     tw->currentIndex = mymalloc("currentIndexPerThread", sizeof(int) * All.NumThreads);
     tw->currentEnd = mymalloc("currentEndPerThread", sizeof(int) * All.NumThreads);
 
@@ -174,7 +170,6 @@ static void ev_finish(TreeWalk * tw)
 {
     myfree(tw->currentEnd);
     myfree(tw->currentIndex);
-    myfree(tw->PrimaryTasks);
     myfree(tw->WorkSet);
     myfree(DataNodeList);
     myfree(DataIndexTable);
@@ -236,7 +231,7 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
         k++) {
         if(tw->BufferFullFlag) break;
 
-        i = tw->PrimaryTasks[k].place;
+        i = tw->WorkSet[k];
 
         if(P[i].Evaluated) {
             BREAKPOINT;
@@ -277,6 +272,17 @@ cmpint(const void *a, const void *b)
 
 }
 #endif
+
+static void
+treewalk_init_evaluated(int * active_set, int size)
+{
+    #pragma omp parallel for
+    for(int i=0; i < size; i++)
+    {
+        const int p_i = active_set ? active_set[i] : i;
+        P[p_i].Evaluated = 0;
+    }
+}
 
 static void
 treewalk_build_queue(TreeWalk * tw, const int * active_set, const int size) {
@@ -734,13 +740,20 @@ static void ev_reduce_result(TreeWalk * tw)
 }
 
 #if 0
+/*The below code is left in because it is a partial implementation of a useful optimisation:
+ * the ability to restart the treewalk from a node other than the root node*/
+struct ev_task {
+    int top_node;
+    int place;
+} ;
+
+
 static int ev_task_cmp_by_top_node(const void * p1, const void * p2) {
     const struct ev_task * t1 = p1, * t2 = p2;
     if(t1->top_node > t2->top_node) return 1;
     if(t1->top_node < t2->top_node) return -1;
     return 0;
 }
-#endif
 
 static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int length) {
     int i;
@@ -764,6 +777,7 @@ static void fill_task_queue (TreeWalk * tw, struct ev_task * tq, int * pq, int l
     }
     // qsort_openmp(tq, length, sizeof(struct ev_task), ev_task_cmp_by_top_node);
 }
+#endif
 
 /**********
  *
