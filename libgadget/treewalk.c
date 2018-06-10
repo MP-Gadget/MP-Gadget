@@ -53,7 +53,7 @@ static void ev_reduce_result(TreeWalk * tw);
 static int ev_ndone(TreeWalk * tw);
 
 static void
-treewalk_build_queue(TreeWalk * tw, const int * active_set, const int size);
+treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_have_garbage);
 
 static void
 treewalk_init_evaluated(int * active_set, int size);
@@ -148,11 +148,7 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
 
-    tw->WorkSetSize = 0;
-
-    tw->WorkSet = mymalloc("ActiveQueue", size * sizeof(int));
-
-    treewalk_build_queue(tw, active_set, size);
+    treewalk_build_queue(tw, active_set, size, 1);
 
     treewalk_init_evaluated(active_set, size);
 
@@ -170,7 +166,8 @@ static void ev_finish(TreeWalk * tw)
 {
     myfree(tw->currentEnd);
     myfree(tw->currentIndex);
-    myfree(tw->WorkSet);
+    if(tw->work_set_allocated)
+        myfree(tw->WorkSet);
     myfree(DataNodeList);
     myfree(DataIndexTable);
     myfree(Ngblist);
@@ -236,7 +233,7 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
         if(P[i].Evaluated) {
             BREAKPOINT;
         }
-        if(!tw->haswork(i, tw)) {
+        if(tw->haswork && !tw->haswork(i, tw)) {
             BREAKPOINT;
         }
         int rt;
@@ -285,10 +282,22 @@ treewalk_init_evaluated(int * active_set, int size)
 }
 
 static void
-treewalk_build_queue(TreeWalk * tw, const int * active_set, const int size) {
+treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_have_garbage) {
+    int i;
+
+    if(!tw->haswork && !may_have_garbage)
+    {
+        tw->WorkSetSize = size;
+        tw->WorkSet = active_set;
+        tw->work_set_allocated = 0;
+        return;
+    }
+
+    tw->WorkSet = mymalloc("ActiveQueue", size * sizeof(int));
+    tw->work_set_allocated = 1;
+
     int * queue = tw->WorkSet;
     int nqueue = 0;
-    int i;
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
     int nqthr[All.NumThreads];
@@ -306,7 +315,7 @@ treewalk_build_queue(TreeWalk * tw, const int * active_set, const int size) {
         /* Skip the garbage particles */
         if(P[p_i].IsGarbage) continue;
 
-        if(!tw->haswork(p_i, tw))
+        if(tw->haswork && !tw->haswork(p_i, tw))
             continue;
         thrqueue[size * tid + nqthr[tid]] = p_i;
         nqthr[tid]++;

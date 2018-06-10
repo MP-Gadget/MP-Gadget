@@ -117,6 +117,8 @@ struct TreeWalk {
 
     int * WorkSet;
     int WorkSetSize;
+    /*Did we allocate our own memory to store the WorkSet?*/
+    int work_set_allocated;
 
     /* per worker thread*/
     int *currentIndex;
