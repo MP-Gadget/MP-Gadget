@@ -231,7 +231,7 @@ static void real_ev(TreeWalk * tw, int * ninter, int * nnodes) {
         k++) {
         if(tw->BufferFullFlag) break;
 
-        i = tw->WorkSet[k];
+        i = tw->WorkSet ? tw->WorkSet[k] : k;
 
         if(P[i].Evaluated) {
             BREAKPOINT;
@@ -570,7 +570,8 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
         int i;
         #pragma omp parallel for if(tw->WorkSetSize > 64)
         for(i = 0; i < tw->WorkSetSize; i ++) {
-            tw->preprocess(tw->WorkSet[i], tw);
+            const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
+            tw->preprocess(p_i, tw);
         }
     }
 
@@ -601,7 +602,8 @@ treewalk_run(TreeWalk * tw, int * active_set, int size)
         int i;
         #pragma omp parallel for if(tw->WorkSetSize > 64)
         for(i = 0; i < tw->WorkSetSize; i ++) {
-            tw->postprocess(tw->WorkSet[i], tw);
+            const int p_i = tw->WorkSet ? tw->WorkSet[i] : i;
+            tw->postprocess(p_i, tw);
         }
     }
     tend = second();
