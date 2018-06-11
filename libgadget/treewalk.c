@@ -406,6 +406,10 @@ static int ev_primary(TreeWalk * tw)
         tw->Nexport --;
     }
 
+    if(tw->BufferFullFlag) {
+        message(1, "Tree export buffer full with %d particles. Increase BufferSize if possible.\n", tw->Nexport);
+    }
+
     if(tw->Nexport == 0 && tw->BufferFullFlag) {
         endrun(1231245, "Buffer too small for even one particle. For example, there are too many nodes");
     }
