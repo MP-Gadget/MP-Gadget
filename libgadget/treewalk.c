@@ -148,7 +148,11 @@ ev_begin(TreeWalk * tw, int * active_set, int size)
 
     memset(DataNodeList, -1, sizeof(struct data_nodelist) * tw->BunchSize);
 
-    treewalk_build_queue(tw, active_set, size, 1);
+    /* The last argument is may_have_garbage: in practice the only
+     * trivial haswork is the gravtree, which has no garbage because
+     * an exchange just occurred. If we ever add a trivial haswork after
+     * sfr/bh we should change this*/
+    treewalk_build_queue(tw, active_set, size, 0);
 
     treewalk_init_evaluated(active_set, size);
 

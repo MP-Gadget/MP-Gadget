@@ -24,11 +24,6 @@ typedef struct {
     int Ninteractions;
 } TreeWalkResultGravShort;
 
-static int
-grav_short_haswork(int i, TreeWalk * tw)
-{
-    return 1; /* gravity applies to all particles. Including Tracer particles to enhance numerical stability. */
-}
 
 static void
 grav_short_postprocess(int i, TreeWalk * tw)

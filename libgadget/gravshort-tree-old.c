@@ -80,7 +80,7 @@ void grav_short_tree_old(void)
 
     tw->ev_label = "FORCETREE_SHORTRANGE";
     tw->visit = (TreeWalkVisitFunction) force_treeevaluate_shortrange;
-    tw->haswork = grav_short_haswork;
+    tw->haswork = NULL;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
     tw->UseNodeList = 1;

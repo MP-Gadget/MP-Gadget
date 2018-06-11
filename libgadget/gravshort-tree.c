@@ -54,7 +54,8 @@ void grav_short_tree(void)
 
     tw->ev_label = "FORCETREE_SHORTRANGE";
     tw->visit = (TreeWalkVisitFunction) force_treeev_shortrange;
-    tw->haswork = grav_short_haswork;
+    /* gravity applies to all particles. Including Tracer particles to enhance numerical stability. */
+    tw->haswork = NULL;
     tw->reduce = (TreeWalkReduceResultFunction) grav_short_reduce;
     tw->postprocess = (TreeWalkProcessFunction) grav_short_postprocess;
     tw->UseNodeList = 1;
