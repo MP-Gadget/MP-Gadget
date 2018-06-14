@@ -407,7 +407,7 @@ static int ev_primary(TreeWalk * tw)
     }
 
     if(tw->BufferFullFlag) {
-        message(1, "Tree export buffer full with %d particles. Increase BufferSize if possible.\n", tw->Nexport);
+        message(1, "Tree export buffer full with %d particles. This is not fatal but slows the treewalk. Increase BufferSize if possible.\n", tw->Nexport);
     }
 
     if(tw->Nexport == 0 && tw->BufferFullFlag) {
