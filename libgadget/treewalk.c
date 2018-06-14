@@ -170,7 +170,7 @@ static void ev_finish(TreeWalk * tw)
 {
     myfree(tw->currentEnd);
     myfree(tw->currentIndex);
-    if(tw->work_set_allocated)
+    if(!tw->work_set_stolen_from_active)
         myfree(tw->WorkSet);
     myfree(DataNodeList);
     myfree(DataIndexTable);
@@ -293,12 +293,12 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
     {
         tw->WorkSetSize = size;
         tw->WorkSet = active_set;
-        tw->work_set_allocated = 0;
+        tw->work_set_stolen_from_active = 1;
         return;
     }
 
     tw->WorkSet = mymalloc("ActiveQueue", size * sizeof(int));
-    tw->work_set_allocated = 1;
+    tw->work_set_stolen_from_active = 0;
 
     int * queue = tw->WorkSet;
     int nqueue = 0;
