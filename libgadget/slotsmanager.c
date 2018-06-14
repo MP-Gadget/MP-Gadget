@@ -225,9 +225,16 @@ static int slot_cmp_reverse_link(const void * b1in, const void * b2in) {
 static int
 slots_gc_mark()
 {
-    int i;
+    int i, ptype;
+    int gc_slots = 0;
+    for(ptype = 0; ptype < 6; ptype ++)
+        if(SLOTS_ENABLED(ptype))
+            gc_slots = 1;
+
+    if(!gc_slots)
+        return 0;
+
 #ifdef DEBUG
-    int ptype;
     /*Initially set all reverse links to an obviously invalid value*/
     for(ptype = 0; ptype < 6; ptype++)
     {
@@ -379,15 +386,8 @@ slots_gc_sorted()
         PartManager->NumPart--;
     }
 
-    int gc_slots = 0;
-    for(ptype = 0; ptype < 6; ptype ++)
-        if(SLOTS_ENABLED(ptype))
-            gc_slots = 1;
-
-    if(gc_slots) {
-        /*Set up ReverseLink*/
-        slots_gc_mark();
-    }
+    /*Set up ReverseLink*/
+    slots_gc_mark();
 
     for(ptype = 0; ptype < 6; ptype++) {
         if(!SLOTS_ENABLED(ptype))
