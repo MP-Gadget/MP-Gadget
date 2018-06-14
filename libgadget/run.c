@@ -253,11 +253,12 @@ void run(void)
         /* Update velocity to the new step, with the newly computed step size */
         apply_half_kick();
 
-        free_activelist();
-
         if(is_PM) {
             apply_PM_half_kick();
         }
+
+        /* We can now free the active list: the new step have new active particles*/
+        free_activelist();
     }
 
     close_outputfiles();
