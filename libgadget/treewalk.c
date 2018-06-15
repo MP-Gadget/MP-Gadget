@@ -297,16 +297,20 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
         return;
     }
 
-    tw->WorkSet = mymalloc("ActiveQueue", size * sizeof(int));
+    tw->WorkSet = mymalloc("ActiveQueue", size * sizeof(int) * All.NumThreads);
     tw->work_set_stolen_from_active = 0;
 
     int * queue = tw->WorkSet;
     int nqueue = 0;
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-    int nqthr[All.NumThreads];
-    memset(nqthr, 0, All.NumThreads*sizeof(int));
-    int * thrqueue = mymalloc("threadedqueue", size * sizeof(int) * All.NumThreads);
+    size_t nqthr[All.NumThreads];
+    int * thrqueue[All.NumThreads];
+    thrqueue[0] = queue;
+    for(i=0; i < All.NumThreads; i++) {
+        thrqueue[i] = queue + i * size;
+        nqthr[i] = 0;
+    }
 
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.*/
     #pragma omp parallel for schedule(static)
@@ -321,17 +325,13 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
 
         if(tw->haswork && !tw->haswork(p_i, tw))
             continue;
-        thrqueue[size * tid + nqthr[tid]] = p_i;
+        thrqueue[tid][nqthr[tid]] = p_i;
         nqthr[tid]++;
     }
     /*Merge step for the queue.*/
-    nqueue = 0;
-    for(i = 0; i < All.NumThreads; i++)
-    {
-        memmove(queue + nqueue, thrqueue + i*size, sizeof(int) * nqthr[i]);
-        nqueue += nqthr[i];
-    }
-    myfree(thrqueue);
+    nqueue = gadget_compact_thread_arrays(queue, thrqueue, nqthr, All.NumThreads);
+    /*Shrink memory*/
+    queue = myrealloc(queue, sizeof(int) * nqueue);
 
 #ifdef DEBUG
     /* check the uniqueness of the active_set list. This is very slow. */

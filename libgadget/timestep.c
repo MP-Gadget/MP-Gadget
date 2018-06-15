@@ -709,9 +709,13 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
     size_t NActiveThread[All.NumThreads];
-    memset(NActiveThread, 0, All.NumThreads*sizeof(size_t));
     /*Each thread gets an area for the active list of this size*/
-    const int ActiveSet = PartManager->MaxPart / All.NumThreads;
+    const int ActiveSetSz = PartManager->MaxPart / All.NumThreads;
+    int * ActivePartSets[All.NumThreads];
+    for(i = 0; i < All.NumThreads; i++) {
+        ActivePartSets[i] = ActiveParticle + i * ActiveSetSz;
+        NActiveThread[i] = 0;
+    }
     /* We enforce schedule static to ensure that each thread executes on contiguous particles.
      * chunk size is not specified and so is the largest possible.*/
     #pragma omp parallel for schedule(static)
@@ -725,20 +729,14 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
                 endrun(2,"Trying to make particle %d active, but it is garbage!\n", i);
 
             /* Store this particle in the ActiveSet for this thread*/
-            ActiveParticle[tid * ActiveSet + NActiveThread[tid]] = i;
+            ActivePartSets[tid][NActiveThread[tid]] = i;
             NActiveThread[tid]++;
         }
         TimeBinCountType[(TIMEBINS + 1) * (6* tid + P[i].Type) + bin] ++;
     }
-    /*Now we want a merge step for the ActiveParticle list.*/
     if(ActiveParticle) {
-        NumActiveParticle = NActiveThread[0];
-        for(i = 1; i < All.NumThreads; i++)
-        {
-//             message(1, "ti = %d Nactive = %d\n", i, NActiveThread[i]);
-            memmove(ActiveParticle + NumActiveParticle, ActiveParticle + i*ActiveSet, sizeof(int) * NActiveThread[i]);
-            NumActiveParticle+= NActiveThread[i];
-        }
+        /*Now we want a merge step for the ActiveParticle list.*/
+        NumActiveParticle = gadget_compact_thread_arrays(ActiveParticle, ActivePartSets, NActiveThread, All.NumThreads);
     }
 
     /*Print statistics for this time bin*/
