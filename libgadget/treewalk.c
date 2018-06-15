@@ -304,8 +304,9 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
     int nqueue = 0;
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-    size_t nqthr[All.NumThreads];
-    int * thrqueue[All.NumThreads];
+    size_t *nqthr = ta_malloc("nqthr", size_t, All.NumThreads);
+    int **thrqueue = ta_malloc("thrqueue", int *, All.NumThreads);
+
     thrqueue[0] = queue;
     for(i=0; i < All.NumThreads; i++) {
         thrqueue[i] = queue + i * size;
@@ -330,6 +331,8 @@ treewalk_build_queue(TreeWalk * tw, int * active_set, const int size, int may_ha
     }
     /*Merge step for the queue.*/
     nqueue = gadget_compact_thread_arrays(queue, thrqueue, nqthr, All.NumThreads);
+    ta_free(thrqueue);
+    ta_free(nqthr);
     /*Shrink memory*/
     queue = myrealloc(queue, sizeof(int) * nqueue);
 

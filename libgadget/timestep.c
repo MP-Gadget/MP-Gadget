@@ -708,10 +708,11 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
     memset(TimeBinCountType, 0, 6 * (TIMEBINS+1) * All.NumThreads * sizeof(int));
 
     /*We want a lockless algorithm which preserves the ordering of the particle list.*/
-    size_t NActiveThread[All.NumThreads];
+    size_t *NActiveThread = ta_malloc("NActiveThread", size_t, All.NumThreads);
+    int **ActivePartSets = ta_malloc("ActivePartSets", int *, All.NumThreads);
+
     /*Each thread gets an area for the active list of this size*/
     const int ActiveSetSz = PartManager->MaxPart / All.NumThreads;
-    int * ActivePartSets[All.NumThreads];
     for(i = 0; i < All.NumThreads; i++) {
         ActivePartSets[i] = ActiveParticle + i * ActiveSetSz;
         NActiveThread[i] = 0;
@@ -738,6 +739,8 @@ int rebuild_activelist(inttime_t Ti_Current, int NumCurrentTiStep)
         /*Now we want a merge step for the ActiveParticle list.*/
         NumActiveParticle = gadget_compact_thread_arrays(ActiveParticle, ActivePartSets, NActiveThread, All.NumThreads);
     }
+    ta_free(ActivePartSets);
+    ta_free(NActiveThread);
 
     /*Print statistics for this time bin*/
     print_timebin_statistics(NumCurrentTiStep, TimeBinCountType);
