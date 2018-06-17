@@ -99,21 +99,21 @@ def _build_cosmology_params(config):
         #which takes 45 minutes (!) on my laptop.
         #tol_ncdm_* = 1e-8 takes 20 minutes and is machine-accurate.
         #Default parameters are fast but off by 2%.
-        #I chose 1e-5, which takes 6 minutes and is accurate to 1e-5
-        gparams['tol_ncdm_newtonian'] = 1e-5
-        gparams['tol_ncdm_synchronous'] = 1e-5
+        #I chose 1e-4, which takes 20 minutes and is accurate to 1e-4
+        gparams['tol_ncdm_newtonian'] = 1e-4
+        gparams['tol_ncdm_synchronous'] = 1e-4
         gparams['tol_ncdm_bg'] = 1e-10
         gparams['l_max_ncdm'] = 50
-        #This disables the fluid approximations, which make P_nu not match camb on small scales.
-        #We need accurate P_nu to initialise our neutrino code.
-        gparams['ncdm_fluid_approximation'] = 3
+        #For accurate, but very slow, P_nu, set ncdm_fluid_approximation = 3
+        #CAMB does this better.
+        gparams['ncdm_fluid_approximation'] = 2
+        gparams['ncdm_fluid_trigger_tau_over_tau_k'] = 10000.
     else:
         gparams['N_ur'] = 3.046
     #Power spectrum amplitude
     if config['Sigma8'] > 0:
         gparams['sigma8'] = config['Sigma8']
     else:
-        #Pivot scale is by default 0.05 1/Mpc! This number is NOT what is reported by Planck.
         gparams['A_s'] = config["PrimordialAmp"]
     return gparams
 
@@ -168,6 +168,9 @@ def make_class_power(paramfile, external_pk = None, extraz=None, verbose=False):
         pre_params['P_k_ini'] = "external_pk"
         pre_params["command"] = "cat ",external_pk
 
+    if 'ncdm_fluid_approximation' in pre_params:
+        print('Starting CLASS power spectrum with accurate P(k) for massive neutrinos.')
+        print('Computation may take several minutes')
     #Make the power spectra module
     engine = CLASS.ClassEngine(pre_params)
     powspec = CLASS.Spectra(engine)

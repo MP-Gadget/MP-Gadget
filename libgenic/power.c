@@ -14,7 +14,7 @@
 #include "power.h"
 
 /*Defined in save.c*/
-void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, int64_t TotNumPart, MPI_Comm comm);
+void _bigfile_utils_create_block_from_c_array(BigFile * bf, void * baseptr, char * name, char * dtype, size_t dims[], ptrdiff_t elsize, MPI_Comm comm);
 
 static double Delta_EH(double k);
 static double Delta_Tabulated(double k, enum TransferType Type);
@@ -27,7 +27,6 @@ static int WhichSpectrum;
 /*Only used for tk_eh, WhichSpectrum == 0*/
 static double PrimordialIndex;
 static double UnitLength_in_cm;
-static double SpectrumLengthScale;
 static Cosmology * CP;
 
 #define MAXCOLS 9
@@ -68,7 +67,8 @@ double DeltaSpec(double k, enum TransferType Type)
 
 double dlogGrowth(double kmag, enum TransferType Type)
 {
-  const double logk = log10(kmag * SpectrumLengthScale);
+  const double scale = (CM_PER_MPC / UnitLength_in_cm);
+  const double logk = log10(kmag * scale);
 
   if(logk < transfer_table.logk[0] || logk > transfer_table.logk[transfer_table.Nentry - 1])
       return 1;
@@ -117,12 +117,12 @@ static void save_transfer(BigFile * bf, int ncol, struct table * ttable, const c
     char buf[100];
     snprintf(buf, 100, "%s/logk", bname);
 
-    _bigfile_utils_create_block_from_c_array(bf, ttable->logk, buf, "f8", dims, sizeof(double), ttable->Nentry, MPI_COMM_WORLD);
+    _bigfile_utils_create_block_from_c_array(bf, ttable->logk, buf, "f8", dims, sizeof(double), MPI_COMM_WORLD);
 
     for(i = 0; i < ncol; i++)
     {
         snprintf(buf, 100, "%s/%s", bname, colnames[i]);
-        _bigfile_utils_create_block_from_c_array(bf, ttable->logD[i], buf, "f8", dims, sizeof(double), ttable->Nentry, MPI_COMM_WORLD);
+        _bigfile_utils_create_block_from_c_array(bf, ttable->logD[i], buf, "f8", dims, sizeof(double), MPI_COMM_WORLD);
     }
 }
 
@@ -353,7 +353,6 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
     PrimordialIndex = ppar->PrimordialIndex;
     UnitLength_in_cm = UnitLength_in_cm_in;
     CP = CPin;
-    SpectrumLengthScale = ppar->SpectrumLengthScale;
 
     if(ppar->WhichSpectrum == 2) {
         read_power_table(ThisTask, ppar->FileWithInputSpectrum, 1, &power_table, InitTime, parse_power);
@@ -383,7 +382,8 @@ int init_powerspectrum(int ThisTask, double InitTime, double UnitLength_in_cm_in
 double Delta_Tabulated(double k, enum TransferType Type)
 {
     /*Convert k to Mpc/h*/
-  const double logk = log10(k*SpectrumLengthScale);
+  const double scale = (CM_PER_MPC / UnitLength_in_cm);
+  const double logk = log10(k*scale);
 
   if(logk < power_table.logk[0] || logk > power_table.logk[power_table.Nentry - 1])
     return 0;
@@ -397,7 +397,7 @@ double Delta_Tabulated(double k, enum TransferType Type)
     }
 
   /*Convert delta from (Mpc/h)^3/2 to kpc/h^3/2*/
-  logD += 1.5 * log10(SpectrumLengthScale);
+  logD += 1.5 * log10(scale);
   double delta = pow(10.0, logD) * trans;
 
   if(!isfinite(delta))
